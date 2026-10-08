@@ -46,6 +46,33 @@ test('configuration refuses remote endpoints, credentials, private task fields a
   assert.throws(() => validateConfig({ ...example, budget: { ...example.budget, maxInputBytes: 999999 } }));
 });
 
+// 回归：CR-057 审核修复——缺省 image 与 seed 上界
+test('omitted eda.image is accepted and normalised to null so doctor guidance is reachable', () => {
+  const omitted = structuredClone(example); delete omitted.eda.image;
+  const a = validateConfig(omitted);
+  assert.equal(a.eda.image, null);
+  const b = validateConfig({ ...structuredClone(example), eda: { ...example.eda, image: null } });
+  // configHash 是证据的一部分：同义配置必须同哈希（键序无关）
+  assert.equal(hash(a), hash(b));
+  // 显式非法值仍须拒绝
+  for (const bad of [123, 'x;rm -rf /', 'a'.repeat(300)]) {
+    assert.throws(() => validateConfig({ ...structuredClone(example), eda: { ...example.eda, image: bad } }), /invalid_image/);
+  }
+});
+
+test('derived seed stays inside int32 for every accepted sample count', () => {
+  const INT32_MAX = 2147483647;
+  const at = (seed, samples) => validateConfig({ ...structuredClone(example), seed, samples });
+  // 上界被拒（原 2147483000 + sample*64 + call 会溢出 INT32_MAX）
+  assert.throws(() => at(2000000001, 1), /invalid_seed/);
+  assert.throws(() => at(2147483000, 1), /invalid_seed/);
+  // 最坏派生值 = seed + (samples-1)*64 + maxCalls-1，必须 <= INT32_MAX
+  const worst = 2000000000 + (100 - 1) * 64 + (64 - 1);
+  assert.ok(worst <= INT32_MAX, `derived seed ${worst} exceeds int32`);
+  assert.equal(at(2000000000, 100).seed, 2000000000);
+  assert.equal(at(0, 1).seed, 0);
+});
+
 test('B0 makes exactly one user-only request, saves evidence and judges after generation', async (t) => {
   const server = await service(t, () => [textChunk(wrap(good)), { usage: { total_tokens: 123 }, choices: [] }]);
   const dir = join(await temp(t), 'run'), eda = fakeEda();
