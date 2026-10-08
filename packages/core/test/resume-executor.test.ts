@@ -89,6 +89,97 @@ describe("4b 续跑执行（executor resume）", () => {
     expect(await store.attemptStatus("atp_r")).toBe("Completed");
   });
 
+  // 回归：executor 改为逐项配对 tool_calls 后，resume 重建必须同形。
+  // 否则 assistant 消息缺 tool_calls、其后 tool 消息却带 tool_call_id → 严格端 400。
+  it("重建的 assistant 消息以 tool_calls 逐项配对，tool 消息前必有声明（单Step / 多调用 / 跨 Step）", () => {
+    const ev = (sequence: number, eventType: string, data: unknown): never =>
+      ({ sequence, eventType, data, safetyDecision: "approved" }) as never;
+
+    // 单 Step 单调用
+    const single = buildResumeHistory({
+      userMessage: "查一下",
+      events: [
+        ev(1, "message", { messageId: "m1" }),
+        ev(2, "delta", { text: "我先查" }),
+        ev(3, "tool_request", { invocationId: "call_1", executionId: "a:1:1", name: "notes_search", arguments: { q: "三角" } }),
+        ev(4, "tool_result", { invocationId: "call_1", executionId: "a:1:1", name: "notes_search", ok: true, output: "ok" }),
+      ],
+    });
+    expect(single.history).toHaveLength(3);
+    expect(single.history[1]).toEqual({
+      role: "assistant",
+      content: "我先查",
+      toolCalls: [{ id: "call_1", name: "notes_search", arguments: { q: "三角" } }],
+    });
+    // 旧形状的 toolCallId/name 不得再出现在 assistant 上
+    expect(single.history[1]).not.toHaveProperty("toolCallId");
+    expect(single.history[1]).not.toHaveProperty("name");
+    expect(single.history[2]).toMatchObject({ role: "tool", toolCallId: "call_1" });
+
+    // 单 Step 多调用 → 必须聚合成**一条** assistant 消息（与 executor 同形），而非逐调用一条
+    const multi = buildResumeHistory({
+      userMessage: "查两个",
+      events: [
+        ev(1, "message", { messageId: "m2" }),
+        ev(2, "delta", { text: "并行查" }),
+        ev(3, "tool_request", { invocationId: "call_1", executionId: "a:1:1", name: "notes_search", arguments: {} }),
+        ev(4, "tool_request", { invocationId: "call_2", executionId: "a:1:2", name: "deck_review", arguments: {} }),
+        ev(5, "tool_result", { invocationId: "call_1", executionId: "a:1:1", name: "notes_search", ok: true, output: "x" }),
+        ev(6, "tool_result", { invocationId: "call_2", executionId: "a:1:2", name: "deck_review", ok: true, output: "y" }),
+      ],
+    });
+    expect(multi.history).toHaveLength(4); // user + assistant(2 calls) + tool + tool
+    expect(multi.history[1]?.toolCalls).toHaveLength(2);
+    expect(multi.history[1]?.toolCalls?.map((c) => c.id)).toEqual(["call_1", "call_2"]);
+    expect(multi.history[2]).toMatchObject({ role: "tool", toolCallId: "call_1" });
+    expect(multi.history[3]).toMatchObject({ role: "tool", toolCallId: "call_2" });
+
+    // 跨 Step：第二个 delta 触发上一 Step 闭合，不得把两批工具混进同一条 assistant
+    const twoSteps = buildResumeHistory({
+      userMessage: "再查一次",
+      events: [
+        ev(1, "message", { messageId: "m3" }),
+        ev(2, "delta", { text: "第一步" }),
+        ev(3, "tool_request", { invocationId: "call_1", executionId: "a:1:1", name: "notes_search", arguments: {} }),
+        ev(4, "tool_result", { invocationId: "call_1", executionId: "a:1:1", name: "notes_search", ok: true, output: "x" }),
+        ev(5, "delta", { text: "第二步" }),
+        ev(6, "tool_request", { invocationId: "call_2", executionId: "a:2:1", name: "deck_review", arguments: {} }),
+        ev(7, "tool_result", { invocationId: "call_2", executionId: "a:2:1", name: "deck_review", ok: true, output: "y" }),
+      ],
+    });
+    const assistants = twoSteps.history.filter((m) => m.role === "assistant");
+    expect(assistants).toHaveLength(2);
+    expect(assistants[0]?.toolCalls?.map((c) => c.id)).toEqual(["call_1"]);
+    expect(assistants[1]?.toolCalls?.map((c) => c.id)).toEqual(["call_2"]);
+
+    // 配对不变量：每条 tool 消息的 tool_call_id 都能在其所属 assistant（向上最近的一条）
+    // 的 tool_calls 中找到——多条 tool 消息共享同一条 assistant 是合法的。
+    for (const { history } of [single, multi, twoSteps]) {
+      history.forEach((message, index) => {
+        if (message.role !== "tool") return;
+        let owner: (typeof history)[number] | undefined;
+        for (let i = index - 1; i >= 0; i--) {
+          if (history[i]?.role === "assistant") { owner = history[i]; break; }
+        }
+        expect((owner?.toolCalls ?? []).some((c) => c.id === message.toolCallId)).toBe(true);
+      });
+    }
+  });
+
+  // 回归：tool_result 无对应 tool_request（事件被截断）时不得产出孤立 tool 消息
+  it("结果缺对应请求时跳过该Step，不生成孤立 tool 消息", () => {
+    const rebuilt = buildResumeHistory({
+      userMessage: "查一下",
+      events: [
+        { sequence: 1, eventType: "message", data: { messageId: "m1" }, safetyDecision: "approved" } as never,
+        { sequence: 2, eventType: "delta", data: { text: "正文" }, safetyDecision: "approved" } as never,
+        { sequence: 3, eventType: "tool_result", data: { invocationId: "call_x", ok: true, output: "孤儿" }, safetyDecision: "approved" } as never,
+      ],
+    });
+    expect(rebuilt.history.map((m) => m.role)).toEqual(["user", "assistant"]);
+    expect(rebuilt.history.every((m) => m.role !== "tool")).toBe(true);
+  });
+
   it("续跑 Step 从 lastStep 之后继续：executionId 不与已提交冲突（attemptId:2:1）", async () => {
     const store = new InMemoryExecutionStore();
     store.seedAttempt({ id: "atp_r2", turnId: "turn_r2" });

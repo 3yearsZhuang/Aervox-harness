@@ -104,7 +104,9 @@ function main() {
   if (checks.markdownFiles.length > 0) {
     console.log(`[docs-affected] 检查 ${checks.markdownFiles.length} 个变更文档：`);
     for (const file of checks.markdownFiles) console.log(`  - ${file}`);
-    const lintStatus = run("npx", ["markdownlint-cli2", "--config", ".markdownlint-cli2.jsonc", ...checks.markdownFiles]);
+    // markdownlint-cli2 由 mise [tools] 固定版本并注入 PATH（见 mise.toml）。
+    // 此前用 `npx` 现取：既不受版本真源约束，又会因~/.npm/_npx 缓存锁残留而整条门禁失败。
+    const lintStatus = run("markdownlint-cli2", ["--config", ".markdownlint-cli2.jsonc", ...checks.markdownFiles]);
     if (lintStatus !== 0) {
       process.exitCode = lintStatus;
       return;
