@@ -138,7 +138,7 @@ review_interval_days: 90
   -> 备份到期；恢复时校验 ledger 水位并按序重放
 ```
 
-**当前实现切片（PR #258）**：`POST /v1/deletions` 可按[请求模式](../../packages/contracts/src/privacy-schemas.ts)提交显式 targets，并与请求同事务落库。Worker 仅完成 `scope=memory`、请求与目标 `ownerModule=memory`、`targetType=memory` 的既存记录；清理正文、修订正文、摘要、FTS/向量后独立验证，索引写入端拒绝向已删除记录回填迟到结果。存在共享树、时态事实、技能或子记忆投影时，保留数据并报告需要 owner 清理；空目标、未知范围和失败不解闸，旧 completed 占位记录缺少有效证明时也保持阻断，并与失败请求共用重试判据。此处不是账户/来源全链删除、全用途准入门或独立 `RecoveryControlLedger` 的完整实现；差量见[审计 §10.2](../explanation/architecture-implementation-review.md#audit-findings)。
+**当前实现切片（PR #258）**：`POST /v1/deletions` 可按[请求模式](../../packages/contracts/src/privacy-schemas.ts)提交显式 targets，并与请求同事务落库。Worker 仅完成 `scope=memory`、请求与目标 `ownerModule=memory`、`targetType=memory` 的既存记录；清理正文、修订正文、摘要、FTS/向量后独立验证，索引、压缩摘要及压缩事件写入端在写者事务内拒绝向已删除记录回填迟到结果；同一清理事务清除压缩 Outbox 的载荷与错误正文，保留不含正文的已消费标记，并独立验证该副本。已取出的旧事件同样受墓碑检查约束。存在共享树、时态事实、技能或子记忆投影时，保留数据并报告需要 owner 清理；空目标、未知范围和失败不解闸，旧 completed 占位记录及未覆盖队列副本的旧版证明也保持阻断，并与失败请求共用重试判据。此处不是账户/来源全链删除、全用途准入门或独立 `RecoveryControlLedger` 的完整实现；差量见[审计 §10.2](../explanation/architecture-implementation-review.md#audit-findings)。
 
 删除 SLA：立即停止在线使用；24 小时内完成 Aervox 控制的在线存储清除/重建；外部处理者按合同 SLA，若不能满足则不得承载相应数据。失败进入队列重试和告警，用户可查看进度。删除失败不能以“后台处理中”为由继续召回。
 

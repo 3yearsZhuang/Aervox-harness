@@ -35,6 +35,10 @@ export class SqliteMemoryDeletionStore {
         WHERE memory_revision_id IN (SELECT id FROM memory_revisions WHERE memory_id = ${memoryId})`);
       await tx.run(sql`UPDATE memory_compaction_markers SET summary_text = NULL, status = 'tombstoned' WHERE memory_id = ${memoryId}`);
       await tx.run(sql`UPDATE memory_events SET reason = NULL WHERE memory_id = ${memoryId}`);
+      await tx.run(sql`UPDATE outbox_events SET
+        payload = json_object('memoryId', ${memoryId}, 'snapshotId', json_extract(payload, '$.snapshotId'), 'deleted', json('true')),
+        status = 'published', last_error = NULL, published_at = ${new Date().toISOString()}
+        WHERE event_type = 'memory.compaction.requested' AND json_extract(payload, '$.memoryId') = ${memoryId}`);
       await tx.run(sql`DELETE FROM memory_embeddings WHERE memory_id = ${memoryId}`);
       await tx.run(sql`DELETE FROM memories_fts WHERE id = ${memoryId}`);
     });
@@ -50,11 +54,14 @@ export class SqliteMemoryDeletionStore {
         UNION ALL SELECT 1 FROM memory_evidence WHERE memory_revision_id IN (SELECT id FROM memory_revisions WHERE memory_id = ${memoryId}) AND (status != 'tombstoned' OR source_range IS NOT NULL)
         UNION ALL SELECT 1 FROM memory_compaction_markers WHERE memory_id = ${memoryId} AND summary_text IS NOT NULL
         UNION ALL SELECT 1 FROM memory_events WHERE memory_id = ${memoryId} AND reason IS NOT NULL
+        UNION ALL SELECT 1 FROM outbox_events WHERE event_type = 'memory.compaction.requested'
+          AND json_extract(payload, '$.memoryId') = ${memoryId}
+          AND (json_extract(payload, '$.deleted') IS NOT 1 OR json_extract(payload, '$.summaryText') IS NOT NULL OR last_error IS NOT NULL)
         UNION ALL SELECT 1 FROM memory_embeddings WHERE memory_id = ${memoryId}
         UNION ALL SELECT 1 FROM memories_fts WHERE id = ${memoryId}
         LIMIT 1`);
       if (residue) throw new Error("deletion_memory_verification_failed");
-      return JSON.stringify({ verifier: "memory-local-v1", verifiedAt: new Date().toISOString(), contentRows: 0, ftsRows: 0, vectorRows: 0 });
+      return JSON.stringify({ verifier: "memory-local-v2", verifiedAt: new Date().toISOString(), contentRows: 0, ftsRows: 0, vectorRows: 0 });
     });
   }
 }
