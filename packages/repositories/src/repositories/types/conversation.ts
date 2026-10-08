@@ -273,6 +273,9 @@ export interface MemoryRecordModel {
   sourceTurnId?: string | null;
   version: number;
   isDeleted: number;
+  sensitivityClass?: string;
+  aiRecallUntil?: string | null;
+  userRetentionUntil?: string | null;
   // PET-02 记忆条目字段
   source?: string; // "user_said" | "ai_inferred"
   category?: string; // identity/preference/habit/schedule/relationship/event/other

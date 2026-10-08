@@ -163,6 +163,10 @@ export interface ModelUsage {
   promptTokens?: number;
   /** 补全（输出）token 数 */
   completionTokens?: number;
+  /** Cached input tokens; included in promptTokens, never added to totalTokens. */
+  cacheReadTokens?: number;
+  /** Input tokens written to a provider cache, when explicitly reported. */
+  cacheWriteTokens?: number;
 }
 
 /** Provider 流输出分块：文本增量 +（阶段 2）一次 Step 末的工具请求集合 */
@@ -354,7 +358,7 @@ export interface ModelRunRecord {
   latencyMs?: number;
 }
 
-/** 阶段 7（ADR-017）：ContextManifest 快照（每 Turn 首个 Step 的上下文；宿主落库为 context_manifests） */
+/** ContextManifest 快照（每次实际模型调用；宿主落库为 context_manifests） */
 export interface ContextManifestRecord {
   manifestId: string;
   turnId: string;
@@ -365,6 +369,8 @@ export interface ContextManifestRecord {
   purpose: string;
   /** 上下文 messages 快照（序列化面由宿主决定；不在此持有数据库结构） */
   snapshot: PromptMessage[];
+  /** Optional for older hosts; the model request's tool and generation settings. */
+  requestSnapshot?: { tools: ToolSpec[]; maxOutputTokens?: number; temperature?: number };
 }
 
 // ============ UQ-01 用户提问交互负载（ADR-021 内核提纯：内核本地声明，不再 type-import @aervox/contracts） ============

@@ -91,6 +91,37 @@ export class PluginBundleStore {
     return entry.slice(prefix.length);
   }
 
+  /** Export the page's real files; never follow links outside the bundle. */
+  async exportPageAssets(
+    pluginId: string, pageId: string,
+    limits: { entries: number; bytes: number; entryBytes: number },
+  ): Promise<Record<string, Uint8Array>> {
+    const base = this.pageRoot(pluginId, pageId);
+    const root = await fs.realpath(this.root);
+    const resolved = await fs.realpath(base);
+    if (!resolved.startsWith(root + path.sep)) throw new Error("page assets escape bundle root");
+    const files: Record<string, Uint8Array> = {};
+    let size = 0;
+    let entries = 0;
+    const visit = async (relative: string): Promise<void> => {
+      for (const entry of await fs.readdir(path.join(base, relative), { withFileTypes: true })) {
+        if (++entries > limits.entries) throw new Error("page assets exceed export limits");
+        const name = relative ? `${relative}/${entry.name}` : entry.name;
+        if (entry.isSymbolicLink()) throw new Error("symlink in page assets");
+        if (entry.isDirectory()) { await visit(name); continue; }
+        if (!entry.isFile() || !isSafeRelativePath(name)) throw new Error("invalid page asset");
+        const stat = await fs.stat(path.join(base, name));
+        size += stat.size;
+        if (stat.size > limits.entryBytes || size > limits.bytes) {
+          throw new Error("page assets exceed export limits");
+        }
+        files[name] = new Uint8Array((await this.readAsset(pluginId, pageId, name)).content);
+      }
+    };
+    await visit("");
+    return files;
+  }
+
   async deletePage(pluginId: string, pageId: string): Promise<void> {
     const target = this.pageRoot(pluginId, pageId);
     await fs.rm(target, { recursive: true, force: true }).catch(() => undefined);

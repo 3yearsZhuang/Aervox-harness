@@ -209,7 +209,7 @@ export async function runLoopTurnOnce(
   const turnPluginDeps = { tenant, extRepo, configRepo: deps.pluginConfigRepo };
   const beforeTurnExec = await executeBeforeTurnPlugins(pluginRegistry, turnPluginCtx, turnPluginDeps);
 
-  // 阶段 7（ADR-017）：Step 级 ModelRun + 每 Turn ContextManifest 快照落库（委托 platform 域）
+  // 每次实际模型调用的 ModelRun + ContextManifest 快照落库（委托 platform 域）
   const store = new SqliteExecutionStore(
     repo,
     tenant,
@@ -235,7 +235,9 @@ export async function runLoopTurnOnce(
               purpose: m.purpose,
               sourceArtifactId: "turn:history",
               sourceRevisionId: "1",
-              snapshot: m.snapshot,
+              snapshot: m.requestSnapshot
+                ? { version: 1, messages: m.snapshot, ...m.requestSnapshot }
+                : m.snapshot,
             });
             await p.attachContextManifest(tenant, m.modelRunId, m.manifestId);
           },
