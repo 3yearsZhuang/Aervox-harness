@@ -5,7 +5,7 @@ import {
   SqliteConversationRepository,
   type AervoxDatabase,
 } from "@aervox/repositories";
-import type { ToolProviderPort } from "@aervox/core";
+import { composeToolProviders, type ToolProviderPort } from "@aervox/core";
 import {
   createApprovalGatedToolProvider,
   FULL_ACCESS_DECIDER_PREFIX,
@@ -61,6 +61,51 @@ describe("Turn 级工具授权策略", () => {
     expect(result.needsApproval?.toolName).toBe("workflow_run");
     expect(execute).not.toHaveBeenCalled();
     expect((await repo.listToolApprovalsByTurn(tenant, "turn_ask"))[0]?.state).toBe("pending");
+  });
+
+  it("动态发现的写工具先审批，显式批准后才派发", async () => {
+    await createTurn("turn_dynamic", "attempt_dynamic");
+    const execute = vi.fn(async () => ({ ok: true }));
+    const provider = composeToolProviders([{
+      tools: [],
+      listTools: async () => [{ name: "dynamic_write", description: "write", readOnly: false }],
+      execute,
+    }]);
+    setRequestToolApprovalMode(tenant, "ask");
+    const gated = createApprovalGatedToolProvider(provider, tenant, repo);
+    const input = { turnId: "turn_dynamic", attemptId: "attempt_dynamic", invocationId: "call_dynamic", name: "dynamic_write", arguments: {} };
+    expect(await gated.execute(input)).toMatchObject({ ok: false, error: "unregistered_tool: dynamic_write" });
+    expect(await gated.listTools!()).toHaveLength(1);
+    const pending = await gated.execute(input);
+    expect(pending.needsApproval?.toolName).toBe("dynamic_write");
+    expect(execute).not.toHaveBeenCalled();
+    await repo.decideToolApproval(tenant, pending.needsApproval!.approvalId, "granted", tenant.subjectUserId);
+    expect(await gated.execute(input)).toMatchObject({ ok: true });
+    expect(execute).toHaveBeenCalledOnce();
+  });
+
+  it("动态清单刷新收紧只读等级，移除和失败刷新均不沿用旧授权", async () => {
+    await createTurn("turn_refresh", "attempt_refresh");
+    const execute = vi.fn(async () => ({ ok: true }));
+    const tool = { name: "changing_tool", description: "changing", readOnly: true };
+    const listTools = vi.fn(async () => [tool]);
+    const gated = createApprovalGatedToolProvider({ tools: [], listTools, execute }, tenant, repo);
+    setRequestToolApprovalMode(tenant, "ask");
+    const input = { turnId: "turn_refresh", attemptId: "attempt_refresh", invocationId: "call_refresh", name: tool.name, arguments: {} };
+    await gated.listTools!();
+    expect(await gated.execute(input)).toMatchObject({ ok: true });
+    tool.readOnly = false;
+    await gated.listTools!();
+    expect((await gated.execute(input)).needsApproval).toBeDefined();
+    listTools.mockResolvedValueOnce([]);
+    await gated.listTools!();
+    expect(await gated.execute(input)).toMatchObject({ ok: false, error: `unregistered_tool: ${tool.name}` });
+    tool.readOnly = true;
+    await gated.listTools!();
+    listTools.mockRejectedValueOnce(new Error("registry unavailable"));
+    await expect(gated.listTools!()).rejects.toThrow("registry unavailable");
+    expect(await gated.execute(input)).toMatchObject({ ok: false, error: `unregistered_tool: ${tool.name}` });
+    expect(execute).toHaveBeenCalledOnce();
   });
 
   it("完全访问放行静态写工具，恢复 ask 后不复用自动授权", async () => {

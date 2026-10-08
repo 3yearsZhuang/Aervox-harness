@@ -938,11 +938,12 @@
       ],
       "checks": [
         "`packages/core/test/audit-regressions.test.ts`",
-        "`packages/host-agent/test/subagent-executor.test.ts`"
+        "`packages/host-agent/test/subagent-executor.test.ts`",
+        "`apps/api/test/tool-approval-policy.test.ts`"
       ],
       "owner": "platform",
       "branch": "fix/core-audit-five-iterations",
-      "statusNote": "2026-10-08 五阶段实现与本地完整门禁通过，PR #257 移交评审；恢复默认关闭，公开发布另行决策",
+      "statusNote": "2026-10-08 PR #257 评审补齐动态贡献工具审批：清单同步安全规格，未知、撤回及刷新失败拒绝派发；静态/动态审批回归通过，完整双门禁与远端检查后合并。",
       "dependsOn": [],
       "links": [
         "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
