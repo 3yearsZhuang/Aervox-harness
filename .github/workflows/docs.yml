@@ -53,7 +53,7 @@ jobs:
             ~/.local/share/mise/cache
           key: mise-${{ runner.os }}-${{ hashFiles('mise.toml') }}
 
-      - name: Install tools (node + pnpm from mise.toml)
+      - name: Install tools (node + pnpm + markdownlint-cli2 from mise.toml)
         run: mise install
 
       - name: Markdown lint (via mise task)
