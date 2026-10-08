@@ -40,6 +40,7 @@ export interface SqliteSubagentPortDeps {
     turnId: string;
     sessionId: string;
     attemptId: string;
+    controlContext?: import("@aervox/core").ControlContext;
   }) => ModelProviderPort | Promise<ModelProviderPort>;
   /** 子任务上下文构建（缺省 defaultContextBuilder：仅 task 开头，隔离父历史） */
   contextBuilder?: ContextBuilderPort;
@@ -77,7 +78,8 @@ export function createSqliteSubagentPort(deps: SqliteSubagentPortDeps): Subagent
 
   return {
     async delegate(input): Promise<SubagentRunResult> {
-      const { parentTurnId, parentAttemptId, parentExecutionId, sessionId, task } = input;
+      const { parentTurnId, parentAttemptId, parentExecutionId, sessionId, task, controlContext } = input;
+      controlContext?.abortSignal.throwIfAborted();
 
       // 幂等：同一父执行键已有子任务 → 复用既有结果（崩溃/重试不重复创建；Host 幂等键语义 §9）
       const existing = await runRepo.getRunByParentExecution(ctx, parentAttemptId, parentExecutionId);
@@ -121,13 +123,14 @@ export function createSqliteSubagentPort(deps: SqliteSubagentPortDeps): Subagent
       // 2) 嵌套执行（executeTurn 内部 claim 子 attempt：Running+fencing0 → 可领）
       let status: AttemptStatus = "Failed";
       try {
-        const provider = await providerBuilder({ turnId: subTurnId, sessionId, attemptId: subAttemptId });
+        const provider = await providerBuilder({ turnId: subTurnId, sessionId, attemptId: subAttemptId, controlContext });
         const result = await executeTurn(
           {
             execution: store,
             provider,
             contextBuilder: builder,
             tools: childTools,
+            controlContext,
             options: { maxSteps: subMaxSteps },
           },
           { turnId: subTurnId, sessionId, attemptId: subAttemptId, userMessage: task },

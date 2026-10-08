@@ -12,7 +12,7 @@
  * - 预算耗尽 / Step 守卫命中 → 抛 ToolExecutionAborted 交回主循环。
  */
 import { describe, expect, it } from "vitest";
-import { runToolExecution, ToolExecutionAborted } from "../src/index.js";
+import { runToolExecution, ToolExecutionAborted } from "../src/tool-pipeline.js";
 import { AutoApprovalPolicy } from "../src/index.js";
 import type { ToolProviderPort } from "../src/index.js";
 

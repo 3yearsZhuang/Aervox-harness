@@ -1,3 +1,5 @@
+import { loadApiConfig } from "@aervox/config";
+import { createBroadcastingStore } from "./broadcasting-store.js";
 /**
  * Aervox｜思隅 @aervox/api — 对话模块入口
  *
@@ -18,7 +20,7 @@ import {
   SqliteSubagentRunRepository,
   SqliteUserQuestionRepository,
 } from "@aervox/repositories";
-import { createSqliteSubagentPort, SqliteExecutionStore } from "@aervox/host-agent";
+import { createSqliteSubagentPort, createSqliteResumeSource, resumeCommittedTurns, SqliteExecutionStore } from "@aervox/host-agent";
 import { buildLoopProvider } from "./llm-adapter.js";
 import { registerConversationRoutes } from "./routes.js";
 import { UserQuestionCoordinator } from "./user-question-coordinator.js";
@@ -47,6 +49,25 @@ export function registerConversationModule(ctx: ModuleContext): void {
     // 缺陷 C：挂起提问持久化到 pending_user_questions，进程重启后仍可作答/查询
     new SqliteUserQuestionRepository(db),
   );
+  // Startup recovery competes via the same fencing CAS as Worker recovery. A finalized attempt is never revived.
+  if (loadApiConfig().loopResume === "local-results") {
+    const controller = new AbortController();
+    const local = { workspaceId: "local", subjectUserId: "local" };
+    let recovery: Promise<unknown> | undefined;
+    app.addHook("onReady", async () => {
+      recovery = resumeCommittedTurns({
+        source: createSqliteResumeSource({ repo: conversationRepo, client: ctx.client }),
+        createStore: () => createBroadcastingStore(new SqliteExecutionStore(conversationRepo, local)),
+        createProvider: (turn, control) => buildLoopProvider(local, llmConfigService, {
+          requireLocalOnly: control.localProcessingOnly, sessionId: turn.sessionId, turnId: turn.turnId,
+          modelRoutingService: ctx.modelRoutingService,
+        }),
+        deletionGate: { isBlocked: () => privacyRepo.hasPendingDeletionRequest(local) },
+        signal: controller.signal,
+      }).catch(error => app.log.error({ err: error }, "startup resume failed"));
+    });
+    app.addHook("onClose", async () => { controller.abort(); await recovery; });
+  }
   registerConversationRoutes(app, conversationRepo, {
     toolRuntime,
     llmConfigService,
@@ -79,7 +100,10 @@ export function registerConversationModule(ctx: ModuleContext): void {
         store: new SqliteExecutionStore(conversationRepo, tenant),
         conversationRepo,
         runRepo: subagentRunRepo,
-        providerBuilder: () => buildLoopProvider(tenant, llmConfigService),
+        providerBuilder: (input) => buildLoopProvider(tenant, llmConfigService, {
+          requireLocalOnly: input.controlContext?.localProcessingOnly,
+          sessionId: input.sessionId, turnId: input.turnId, modelRoutingService: ctx.modelRoutingService,
+        }),
       }),
     subagentRunRepo,
     workflows,

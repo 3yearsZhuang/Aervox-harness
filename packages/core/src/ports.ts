@@ -225,6 +225,7 @@ export interface AgentStreamEvent extends AgentStreamEventInput {
 /** Model Provider（ADR-005 ModelProviderPort 阶段 2 面：支持工具请求） */
 export interface ModelProviderPort {
   readonly id: string;
+  readonly capabilities?: import("./types.js").ModelCapabilities;
   stream(request: ModelRequest): AsyncIterable<ModelChunk>;
 }
 
@@ -261,6 +262,7 @@ export interface ToolExecutionResult {
 export interface ToolProviderPort {
   /** 当前可执行工具的只读清单 */
   readonly tools: ToolSpec[];
+  listTools?(): Promise<ToolSpec[]>;
   /** 执行命名工具；未注册或非只读一律拒绝（fail-closed） */
   execute(input: ToolExecutionInput): Promise<ToolExecutionResult>;
 }

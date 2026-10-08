@@ -25,6 +25,8 @@ export interface OpenAICompatConfig {
   /** Optional cap on raw SSE response bytes, including tool argument fragments. */
   maxResponseBytes?: number;
   maxTokens?: number;
+  contextWindowTokens?: number;
+  estimateInputTokens?: (serializedRequest: string) => number;
   /** 上游空闲超时：连接/首包/任意流片段之间的最大静默间隔（收到数据即重置）。 */
   timeoutMs?: number;
   /** CAP-033 local-only calls reject redirects instead of following them. */
@@ -38,7 +40,7 @@ interface OpenAIToolCallDelta {
 }
 
 interface ChatCompletionChunk {
-  usage?: { total_tokens?: number; prompt_tokens?: number; completion_tokens?: number };
+  usage?: { total_tokens?: number; prompt_tokens?: number; completion_tokens?: number; prompt_tokens_details?: { cached_tokens?: number }; cache_creation_input_tokens?: number };
   choices?: Array<{
     delta?: {
       content?: string | null;
@@ -86,23 +88,29 @@ function parseToolArguments(raw: string | undefined): unknown {
   try {
     return JSON.parse(raw) as unknown;
   } catch {
-    return raw;
+    throw new Error("invalid_tool_arguments");
   }
 }
 
 /** 构造 OpenAI 兼容流式 Provider */
 export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelProviderPort {
+  for (const value of [config.contextWindowTokens, config.maxTokens, config.maxResponseBytes]) {
+    if (value !== undefined && (!Number.isSafeInteger(value) || value <= 0)) throw new Error("invalid_model_limit");
+  }
   const baseUrl = config.baseUrl.replace(/\/+$/, "");
   const timeoutMs = config.timeoutMs ?? 45_000;
   return {
     id: "openai-compat",
+    capabilities: { toolCalls: true, reasoning: true, contextWindowTokens: config.contextWindowTokens, maxOutputTokens: config.maxTokens },
     async *stream(request: ModelRequest): AsyncIterable<ModelChunk> {
       const toolNameByWireName = new Map(
         (request.tools ?? []).map((tool) => [encodeToolName(tool.name), tool.name]),
       );
+      if (toolNameByWireName.size !== (request.tools ?? []).length) throw new Error("tool_name_collision");
       const encodeName = (name: string): string => toolNameByWireName.has(name) ? name : encodeToolName(name);
       const controller = new AbortController();
       let timedOut = false;
+      let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
       let timeout: ReturnType<typeof setTimeout> | undefined;
       // 空闲超时：连接建立、首包、每段流数据都重置计时；持续输出的思考模型不会被误杀
       const armIdleTimer = (): void => {
@@ -122,20 +130,14 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
       }
 
       try {
-        const res = await fetch(`${baseUrl}/chat/completions`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
-          },
-          body: JSON.stringify({
+        const body = JSON.stringify({
             model: config.modelId,
             messages: toOpenAIMessages(request.context.messages, encodeName),
             ...(config.seed !== undefined ? { seed: config.seed } : {}),
             stream: true,
             temperature: request.temperature ?? config.temperature ?? 0.7,
-            ...((request.maxOutputTokens ?? config.maxTokens) !== undefined ? { max_tokens: Math.min(request.maxOutputTokens ?? Infinity, config.maxTokens ?? Infinity) } : {}),
-            ...(request.maxOutputTokens !== undefined ? { stream_options: { include_usage: true } } : {}),
+            ...((request.maxOutputTokens ?? config.maxTokens ?? config.contextWindowTokens) !== undefined ? { max_tokens: Math.min(request.maxOutputTokens ?? Infinity, config.maxTokens ?? 4096) } : {}),
+            stream_options: { include_usage: true },
             ...(request.tools?.length
               ? {
                   tools: request.tools.map((t) => ({
@@ -144,7 +146,19 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
                   })),
                 }
               : {}),
-          }),
+          });
+        if (config.contextWindowTokens !== undefined) {
+          const estimated = config.estimateInputTokens?.(body) ?? new TextEncoder().encode(body).length + 256;
+          const reserve = Math.min(request.maxOutputTokens ?? Infinity, config.maxTokens ?? 4096);
+          if (!Number.isFinite(estimated) || estimated < 0 || estimated + reserve > config.contextWindowTokens) throw new Error("context_window_exceeded");
+        }
+        const res = await fetch(`${baseUrl}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
+          },
+          body,
           signal: controller.signal,
           redirect: config.redirect,
         });
@@ -171,12 +185,13 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
       }
       armIdleTimer();
 
-      const reader = res.body.getReader();
+      reader = res.body.getReader();
       const decoder = new TextDecoder();
       // 工具调用分片累积：index → { id, name, arguments }
       const toolAccumulator = new Map<number, { id?: string; name: string; args: string }>();
       let buffer = "";
       let responseBytes = 0;
+      let finished = false;
 
       const flushToolCalls = (): ToolCallRequest[] => {
         if (toolAccumulator.size === 0) return [];
@@ -197,7 +212,7 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
         if (done) break;
         armIdleTimer();
         responseBytes += value.byteLength;
-        if (config.maxResponseBytes !== undefined && responseBytes > config.maxResponseBytes) throw new Error("llm_response_limit");
+        if (responseBytes > (config.maxResponseBytes ?? 8 * 1024 * 1024)) throw new Error("llm_response_limit");
         buffer += decoder.decode(value, { stream: true });
 
         let newlineIndex: number;
@@ -206,13 +221,16 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
           buffer = buffer.slice(newlineIndex + 1);
           if (!line.startsWith("data:")) continue;
           const payload = line.slice(5).trim();
-          if (payload === "[DONE]") continue;
+          if (payload === "[DONE]") {
+            if (!finished) yield { text: "", isFinal: true, stopReason: "incomplete" };
+            return;
+          }
 
           let parsed: ChatCompletionChunk;
           try {
             parsed = JSON.parse(payload) as ChatCompletionChunk;
           } catch {
-            continue; // 忽略半行/非 JSON 中间态
+            throw new Error("invalid_stream_chunk");
           }
 
           if (Number.isFinite(parsed.usage?.total_tokens) && parsed.usage!.total_tokens! >= 0) {
@@ -222,12 +240,15 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
               isFinal: false,
               usage: {
                 totalTokens: u.total_tokens!,
+                ...((Number.isFinite(u.prompt_tokens_details?.cached_tokens) && u.prompt_tokens_details!.cached_tokens! >= 0) ? { cacheReadTokens: u.prompt_tokens_details!.cached_tokens } : {}),
+                ...((Number.isFinite(u.cache_creation_input_tokens) && u.cache_creation_input_tokens! >= 0) ? { cacheWriteTokens: u.cache_creation_input_tokens } : {}),
                 ...(Number.isFinite(u.prompt_tokens) ? { promptTokens: u.prompt_tokens } : {}),
                 ...(Number.isFinite(u.completion_tokens) ? { completionTokens: u.completion_tokens } : {}),
               },
             };
           }
-          for (const choice of parsed.choices ?? []) {
+          if (finished) continue; // only usage may follow the terminal choice
+          for (const choice of (parsed.choices ?? []).slice(0, 1)) {
             const delta = choice.delta ?? {};
             // 思考增量：reasoning_content（DeepSeek/Qwen/vLLM）与 reasoning（OpenRouter/Ollama）双格式
             const reasoningDelta = delta.reasoning_content ?? delta.reasoning ?? "";
@@ -245,24 +266,36 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
               toolAccumulator.set(tc.index, acc);
             }
 
-            if (choice.finish_reason === "tool_calls") {
-              yield { text: "", isFinal: true, stopReason: "tool_calls", toolCalls: flushToolCalls() };
-            } else if (choice.finish_reason === "stop") {
-              yield { text: "", isFinal: true, stopReason: "stop" };
+            if (choice.finish_reason) {
+              finished = true;
+              if (choice.finish_reason === "tool_calls") {
+                try {
+                  const calls = flushToolCalls();
+                  if (!calls.length || new Set(calls.map(c => c.id)).size !== calls.length || calls.some(c => !c.id || !c.name || !c.arguments || typeof c.arguments !== "object" || Array.isArray(c.arguments))) {
+                    throw new Error("invalid_tool_arguments");
+                  }
+                  yield { text: "", isFinal: true, stopReason: "tool_calls", toolCalls: calls };
+                } catch {
+                  toolAccumulator.clear();
+                  yield { text: "", isFinal: true, stopReason: "invalid_tool_arguments" };
+                }
+              } else {
+                const reason = choice.finish_reason === "stop" && toolAccumulator.size ? "incomplete" : choice.finish_reason;
+                toolAccumulator.clear();
+                yield { text: "", isFinal: true, stopReason: reason };
+              }
             }
           }
         }
       }
 
-      // 流结束兜底：残留工具请求未随 finish_reason 吐出
-      const leftover = flushToolCalls();
-      if (leftover.length > 0) {
-        yield { text: "", isFinal: true, toolCalls: leftover };
-      }
+      // EOF cannot turn partial intent into executable tool calls.
+      if (!finished || toolAccumulator.size) yield { text: "", isFinal: true, stopReason: "incomplete" };
       } catch (error) {
         if (timedOut) throw new Error(`llm_timeout: upstream idle for over ${timeoutMs}ms`);
         throw error;
       } finally {
+        void reader?.cancel().catch(() => {});
         clearTimeout(timeout);
         request.signal?.removeEventListener("abort", abort);
         controller.abort();

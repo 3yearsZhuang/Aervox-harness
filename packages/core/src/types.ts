@@ -114,6 +114,7 @@ export interface ToolCallRequest {
 
 /** 工具执行结果（安全校验后注入下一 Step） */
 export interface ToolCallResult {
+  failureKind?: "timeout" | "execution_error" | "rejected";
   id: string;
   name: string;
   ok: boolean;
@@ -123,6 +124,14 @@ export interface ToolCallResult {
   error?: string;
   /** 阶段 3a：宿主需要授权（未执行）；携带审批匹配键 */
   needsApproval?: ToolApprovalInfo;
+}
+
+/** Declared protocol capabilities and verified model capacity; absence means unknown. */
+export interface ModelCapabilities {
+  toolCalls: boolean;
+  reasoning: boolean;
+  contextWindowTokens?: number;
+  maxOutputTokens?: number;
 }
 
 /** Model Provider 请求（ADR-005 ModelProviderPort 的阶段 2 面：支持工具请求） */
@@ -146,6 +155,8 @@ export type ModelStopReason = "stop" | "tool_calls" | "length" | "content_filter
 
 /** 用量分账：总账保留（既有消费方），输入/输出分账由支持 stream_options.include_usage 的端点提供 */
 export interface ModelUsage {
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
   /** Cumulative input + output tokens for this model request. */
   totalTokens: number;
   /** 提示词（输入）token 数 */

@@ -19,7 +19,7 @@ import {
   type AervoxDatabase,
   type LocalContext,
 } from "@aervox/repositories";
-import { createScriptedProvider, SUBAGENT_DELEGATE_TOOL } from "@aervox/core";
+import { ControlContext, createScriptedProvider, SUBAGENT_DELEGATE_TOOL } from "@aervox/core";
 import type { Client } from "@libsql/client";
 
 const ctx: LocalContext = { workspaceId: "ws_subag", subjectUserId: "usr_subag" };
@@ -74,6 +74,22 @@ describe("SqliteSubagentPort（子任务委托执行器）", () => {
     expect(runs).toHaveLength(1);
     expect(runs[0]?.status).toBe("Completed");
     expect(runs[0]?.subTurnId).toBe(result.subTurnId);
+  });
+
+  it("parent cancellation prevents child admission; local-only and budget propagate", async () => {
+    const control = new ControlContext({ localProcessingOnly: true, callBudget: { maxCalls: 3, usedCalls: 0 } });
+    let calls = 0;
+    const subagent = createSqliteSubagentPort({ ctx, store: new SqliteExecutionStore(repo, ctx), conversationRepo: repo, runRepo, genId: gen,
+      providerBuilder: (input) => { calls++; expect(input.controlContext?.localProcessingOnly).toBe(true); return createScriptedProvider([{ text: "ok" }]); },
+    });
+    try {
+      await subagent.delegate({ ...delegateInput, controlContext: control });
+      expect(control.callBudget?.usedCalls).toBe(1);
+      control.abort(new Error("cancelled"));
+      await expect(subagent.delegate({ ...delegateInput, parentExecutionId: "a:2:4", controlContext: control })).rejects.toThrow("cancelled");
+      expect(calls).toBe(1);
+      expect(await runRepo.listRunsByTurn(ctx, "turn_parent")).toHaveLength(1);
+    } finally { control.dispose(); }
   });
 
   it("幂等：同父执行键重复 delegate 复用既有子任务，不重复落库", async () => {

@@ -27,6 +27,7 @@ export const TEXT_ONLY_STEP: ReplayStep = { text: "（无工具回答）完成�
 export function createReplayProvider(fixture: readonly string[] = REPLAY_FIXTURE): ModelProviderPort {
   return {
     id: "replay",
+    capabilities: { toolCalls: false, reasoning: false },
     async *stream(): AsyncIterable<ModelChunk> {
       for (let i = 0; i < fixture.length; i += 1) {
         const part = fixture[i];
@@ -41,9 +42,10 @@ export function createReplayProvider(fixture: readonly string[] = REPLAY_FIXTURE
 export function createScriptedProvider(script: readonly ReplayStep[]): ModelProviderPort {
   return {
     id: "scripted",
+    capabilities: { toolCalls: true, reasoning: false },
     async *stream(request: import("./types.js").ModelRequest): AsyncIterable<ModelChunk> {
       const step = script[request.step - 1];
-      if (!step) return;
+      if (!step) { yield { text: "", isFinal: true, stopReason: "stop" }; return; }
       yield {
         text: step.text ?? "",
         isFinal: true,

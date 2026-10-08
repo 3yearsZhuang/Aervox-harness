@@ -14,10 +14,10 @@
 import { describe, expect, it } from "vitest";
 import {
   classifyToolOutcome,
-  InMemoryExecutionStore,
   settleDuplicateToolCall,
   settleToolLedger,
-} from "../src/index.js";
+} from "../src/tool-ledger.js";
+import { InMemoryExecutionStore } from "../src/index.js";
 import type { ToolCallResult } from "../src/index.js";
 
 const call = { id: "call_1", name: "save_memory_note", arguments: { content: "x" } };
