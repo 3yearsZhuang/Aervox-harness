@@ -10,6 +10,8 @@ import {
   memoryEvents,
 } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
+import { assertMemoryCompactionAvailable } from "./memory-compaction-guard.js";
+export { MemoryCompactionUnavailableError, MEMORY_COMPACTION_EVENT_TYPE } from "./memory-compaction-guard.js";
 import type {
   IMemoryCompactionRepository,
   MemoryCompactionMarkerModel,
@@ -32,37 +34,40 @@ export class SqliteMemoryCompactionRepository implements IMemoryCompactionReposi
       summaryDurationMs?: number | null;
     },
   ): Promise<MemoryCompactionMarkerModel> {
-    const now = new Date().toISOString();
+    return this.db.transaction(async (tx) => {
+      await assertMemoryCompactionAvailable(tx, marker.memoryId);
+      const now = new Date().toISOString();
 
-    // 幂等：同 memoryId + snapshotId 已存在则不覆盖（快照不可改写）
-    const [existing] = await this.db
-      .select()
-      .from(memoryCompactionMarkers)
-      .where(
-        and(
-          eq(memoryCompactionMarkers.memoryId, marker.memoryId),
-          eq(memoryCompactionMarkers.snapshotId, marker.snapshotId),
-        ),
-      );
-    if (existing) return existing as MemoryCompactionMarkerModel;
+      // 幂等：同 memoryId + snapshotId 已存在则不覆盖（快照不可改写）
+      const [existing] = await tx
+        .select()
+        .from(memoryCompactionMarkers)
+        .where(
+          and(
+            eq(memoryCompactionMarkers.memoryId, marker.memoryId),
+            eq(memoryCompactionMarkers.snapshotId, marker.snapshotId),
+          ),
+        );
+      if (existing) return existing as MemoryCompactionMarkerModel;
 
-    const [created] = await this.db
-      .insert(memoryCompactionMarkers)
-      .values({
-        id: marker.id,
-        memoryId: marker.memoryId,
-        snapshotId: marker.snapshotId,
-        coveredUpToMessageId: marker.coveredUpToMessageId ?? null,
-        summaryText: marker.summaryText ?? null,
-        phase: marker.phase ?? "auto",
-        status: marker.status ?? "completed",
-        thoughtDurationMs: marker.thoughtDurationMs ?? null,
-        summaryDurationMs: marker.summaryDurationMs ?? null,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
-    return created as MemoryCompactionMarkerModel;
+      const [created] = await tx
+        .insert(memoryCompactionMarkers)
+        .values({
+          id: marker.id,
+          memoryId: marker.memoryId,
+          snapshotId: marker.snapshotId,
+          coveredUpToMessageId: marker.coveredUpToMessageId ?? null,
+          summaryText: marker.summaryText ?? null,
+          phase: marker.phase ?? "auto",
+          status: marker.status ?? "completed",
+          thoughtDurationMs: marker.thoughtDurationMs ?? null,
+          summaryDurationMs: marker.summaryDurationMs ?? null,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
+      return created as MemoryCompactionMarkerModel;
+    });
   }
 
   async getMarkerBySnapshotId(
@@ -109,15 +114,18 @@ export class SqliteMemoryCompactionRepository implements IMemoryCompactionReposi
       actorType?: string;
     },
   ): Promise<void> {
-    await this.db.insert(memoryEvents).values({
-      id: event.id,
-      memoryId: event.memoryId,
-      action: event.action,
-      fromTier: event.fromTier ?? null,
-      toTier: event.toTier ?? null,
-      reason: event.reason ?? null,
-      actorType: event.actorType ?? "system",
-      createdAt: new Date().toISOString(),
+    await this.db.transaction(async (tx) => {
+      await assertMemoryCompactionAvailable(tx, event.memoryId);
+      await tx.insert(memoryEvents).values({
+        id: event.id,
+        memoryId: event.memoryId,
+        action: event.action,
+        fromTier: event.fromTier ?? null,
+        toTier: event.toTier ?? null,
+        reason: event.reason ?? null,
+        actorType: event.actorType ?? "system",
+        createdAt: new Date().toISOString(),
+      });
     });
   }
 }

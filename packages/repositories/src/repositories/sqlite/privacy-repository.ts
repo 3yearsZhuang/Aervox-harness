@@ -19,7 +19,7 @@ export const unverifiedDeletionRequest = sql`${deletionRequests.status} != 'comp
             OR NOT EXISTS (SELECT 1 FROM deletion_targets t WHERE t.request_id = ${deletionRequests.id})
             OR EXISTS (SELECT 1 FROM deletion_targets t WHERE t.request_id = ${deletionRequests.id}
               AND (t.status != 'completed' OR t.verified_at IS NULL OR
-                CASE WHEN json_valid(t.evidence_ref) THEN json_extract(t.evidence_ref, '$.verifier') ELSE NULL END IS NOT 'memory-local-v1'))`;
+                CASE WHEN json_valid(t.evidence_ref) THEN json_extract(t.evidence_ref, '$.verifier') ELSE NULL END IS NOT 'memory-local-v2'))`;
 
 export class SqlitePrivacyRepository implements IPrivacyRepository {
   constructor(private readonly db: AervoxDatabase) {}

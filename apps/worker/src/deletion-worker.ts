@@ -48,7 +48,7 @@ export async function runDeletionCycle(ctx: DeletionWorkerContext): Promise<numb
       await ctx.platformRepo.createAuditRecord(local, {
         id: `aud_${crypto.randomUUID()}`, actorType: "system", actorId: `deletion:${ctx.workerId}`,
         action: "deletion.completed", subjectType: "deletion_request", subjectId: request.id,
-        metadata: { scope: request.scope, verifier: "memory-local-v1", targetCount: targets.length },
+        metadata: { scope: request.scope, verifier: "memory-local-v2", targetCount: targets.length },
       });
       await ctx.privacyRepo.updateDeletionRequestStatus(local, request.id, "completed", {
         lastVerifiedAt: new Date().toISOString(), lastError: null,
