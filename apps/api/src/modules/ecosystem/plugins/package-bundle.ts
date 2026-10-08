@@ -5,7 +5,7 @@
  * 1. 内存安全解包与安全校验（防目录穿越、超限文件、非法路径）；
  * 2. 安装前预检（inspectPluginBundle）：严格对齐 PRD CAP-020 验收门禁，
  *    提供发布者、版本、SHA-256、所需权限、数据范围与能力明细；
- * 3. 分发包原子安装（installPluginFromBundle）：从 .aervox-plugin / zip
+ * 3. 分发包预检与顺序安装（installPluginFromBundle）：从 .aervox-plugin / zip
  *    解包并完整同步插件、工具、技能、配置 Schema、Page 资源与主动规则；
  * 4. 插件打包导出（exportPluginBundle）：生成标准的 .aervox-plugin 单文件分发包；
  * 5. 官方与出厂插件集市（listMarketPlugins / installFromMarket）。
@@ -34,14 +34,42 @@ import { parseFrontmatter, isValidSkillName } from "../skills/skill-manager.js";
 import type { PluginBundleStore } from "./bundle-store.js";
 import type { PluginConfigService } from "./config-service.js";
 import type { PluginService } from "./service.js";
+import { parseConfigSchema } from "./config-schema.js";
+
+export const PLUGIN_ARCHIVE_LIMITS = {
+  compressedBytes: 20 * 1024 * 1024,
+  expandedBytes: 50 * 1024 * 1024,
+  entryBytes: 5 * 1024 * 1024,
+  entries: 2048,
+} as const;
+
+/** Check declared sizes before fflate allocates decompression buffers. */
+function unpackPluginBundle(bytes: Uint8Array): Record<string, Uint8Array> {
+  if (bytes.byteLength > PLUGIN_ARCHIVE_LIMITS.compressedBytes) throw new Error("Plugin archive exceeds compressed size limit");
+  let expanded = 0;
+  const names = new Set<string>();
+  return unzipSync(bytes, { filter(entry) {
+    if (!isSafeZipEntryPath(entry.name)) throw new Error(`Unsafe entry path in archive: ${entry.name}`);
+    if (names.has(entry.name)) throw new Error(`Duplicate archive entry: ${entry.name}`);
+    names.add(entry.name);
+    expanded += Math.max(entry.originalSize, entry.size);
+    if (names.size > PLUGIN_ARCHIVE_LIMITS.entries
+      || entry.originalSize > PLUGIN_ARCHIVE_LIMITS.entryBytes
+      || entry.size > PLUGIN_ARCHIVE_LIMITS.entryBytes
+      || expanded > PLUGIN_ARCHIVE_LIMITS.expandedBytes) {
+      throw new Error("Plugin archive exceeds expansion limits");
+    }
+    return true;
+  } });
+}
 
 /** 单条目路径安全校验（拒绝绝对路径、.. 段、反斜杠穿越、超限路径） */
 export function isSafeZipEntryPath(name: string): boolean {
-  if (!name || name.length > 512) return false;
+  if (!name || name.length > 512 || name.includes("\0") || name.includes("\\") || name.includes("//")) return false;
   const normalized = name.replace(/\\/g, "/");
   if (normalized.startsWith("/") || /^[A-Za-z]:/.test(normalized)) return false;
   const parts = normalized.split("/");
-  if (parts.some((p) => p === ".." || p === ".")) return false;
+  if (parts.some((p) => p === ".." || p === "." || p === "__proto__")) return false;
   return true;
 }
 
@@ -77,7 +105,7 @@ export async function inspectPluginBundle(
 
   let files: Record<string, Uint8Array>;
   try {
-    files = unzipSync(bytes);
+    files = unpackPluginBundle(bytes);
   } catch (e) {
     return {
       id: "",
@@ -214,10 +242,28 @@ export async function inspectPluginBundle(
 
   const manifest = parsed.data;
   const pluginId = manifest.metadata.id;
+  const issues: string[] = [];
+  const configEntry = manifest.spec.config?.entry ?? "config.schema.json";
+  if (manifest.spec.config || files[configEntry]) {
+    try {
+      if (!files[configEntry]) throw new Error(`Missing config entry: ${configEntry}`);
+      parseConfigSchema(JSON.parse(strFromU8(files[configEntry])));
+    } catch (error) {
+      issues.push(error instanceof Error ? error.message : "Invalid config schema");
+    }
+  }
+  const pageIds = new Set<string>();
+  for (const page of manifest.spec.pages ?? []) {
+    if (pageIds.has(page.id)) issues.push(`Duplicate page: ${page.id}`);
+    pageIds.add(page.id);
+    if (!page.entry.startsWith(`pages/${page.id}/`) || !files[page.entry]?.length) {
+      issues.push(`Missing or invalid page entry: ${page.entry}`);
+    }
+  }
 
   // 1. 配置 Schema 存在性
   const hasConfig = Boolean(
-    files["config.schema.json"] || manifest.spec.config,
+    files[configEntry] || manifest.spec.config,
   );
 
   // 2. 收集技能
@@ -342,6 +388,9 @@ export async function inspectPluginBundle(
   }
 
   // 7. 查询是否已安装
+  for (const skill of skills) {
+    if (!isValidSkillName(skill.name)) issues.push(`Invalid skill name: ${skill.name}`);
+  }
   let alreadyInstalled = false;
   let installedVersion: string | null = null;
   if (deps?.extensionRepo) {
@@ -380,8 +429,8 @@ export async function inspectPluginBundle(
     hasConfig,
     alreadyInstalled,
     installedVersion,
-    isValid: true,
-    issues: [],
+    isValid: issues.length === 0,
+    issues,
   };
 }
 
@@ -412,7 +461,7 @@ export async function installPluginFromBundle(
     await deps.service.uninstallPlugin(inspection.id);
   }
 
-  const files = unzipSync(bytes);
+  const files = unpackPluginBundle(bytes);
   const manifestBytes =
     files["plugin.manifest.json"] ?? files["manifest.json"]!;
   const manifest = pluginManifestSchema.parse(
@@ -489,40 +538,28 @@ export async function installPluginFromBundle(
   });
 
   // 4. 注册并持久化配置 Schema（若存在）
-  const schemaBytes = files["config.schema.json"];
+  const schemaBytes = files[manifest.spec.config?.entry ?? "config.schema.json"];
   if (schemaBytes) {
-    try {
-      const schemaJson = JSON.parse(strFromU8(schemaBytes));
-      await deps.configService.registerConfigSchema(pluginId, schemaJson);
-    } catch (e) {
-      console.warn(`[plugins] failed to register config schema for ${pluginId}`, e);
-    }
+    const schemaJson = JSON.parse(strFromU8(schemaBytes));
+    await deps.configService.registerConfigSchema(pluginId, schemaJson);
   }
 
   // 5. 解包注册 Page 及其静态资源
   if (manifest.spec.pages && manifest.spec.pages.length > 0) {
     for (const page of manifest.spec.pages) {
-      try {
-        await deps.configService.registerPage(pluginId, page);
-      } catch (e) {
-        console.warn(`[plugins] failed to register page ${page.id} for ${pluginId}`, e);
-      }
+      await deps.configService.registerPage(pluginId, page);
 
       // 提取 pages/<pageId>/ 下的所有静态资产并写入 BundleStore
       const prefix = `pages/${page.id}/`;
       for (const [filePath, fileData] of Object.entries(files)) {
         if (filePath.startsWith(prefix) && !filePath.endsWith("/")) {
           const relInside = filePath.slice(prefix.length);
-          try {
-            await deps.bundleStore.writeAsset(
+          await deps.bundleStore.writeAsset(
               pluginId,
               page.id,
               relInside,
               Buffer.from(fileData),
-            );
-          } catch (e) {
-            console.warn(`[plugins] failed to write asset ${filePath}`, e);
-          }
+          );
         }
       }
     }
@@ -577,6 +614,15 @@ export async function exportPluginBundle(
 
     // 收集 pages
     const pages = await deps.pageRepo.listPages(pluginId);
+    for (const page of pages) {
+      const existingBytes = Object.values(zipFiles).reduce((sum, value) => sum + value.byteLength, 0);
+      const assets = await deps.bundleStore.exportPageAssets(pluginId, page.pageId, {
+        entries: PLUGIN_ARCHIVE_LIMITS.entries - Object.keys(zipFiles).length,
+        bytes: PLUGIN_ARCHIVE_LIMITS.expandedBytes - existingBytes,
+        entryBytes: PLUGIN_ARCHIVE_LIMITS.entryBytes,
+      });
+      for (const [name, content] of Object.entries(assets)) zipFiles[`pages/${page.pageId}/${name}`] = content;
+    }
     const manifest: PluginManifest = {
       apiVersion: "aervox.dev/v1",
       kind: "PluginManifest",

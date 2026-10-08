@@ -50,7 +50,7 @@ describe("插件 Config / Page 仓储", () => {
       secretKeys: [],
     });
     expect(saved.conflict).toBe(false);
-    expect(saved.saved.revision).toBe(1);
+    expect(saved.saved?.revision).toBe(1);
 
     const readA = await configRepo.getConfig(tenantA, "demo");
     expect(readA?.valuesJson).toMatchObject({ enabled: true });
@@ -73,7 +73,7 @@ describe("插件 Config / Page 仓储", () => {
       secretKeys: [],
     });
     expect(second.conflict).toBe(false);
-    expect(second.saved.revision).toBe(2);
+    expect(second.saved?.revision).toBe(2);
 
     const stale = await configRepo.saveConfig(tenantA, {
       pluginId: "demo",
@@ -83,7 +83,7 @@ describe("插件 Config / Page 仓储", () => {
       secretKeys: [],
     });
     expect(stale.conflict).toBe(true);
-    expect(stale.saved.valuesJson).toMatchObject({ a: 2 });
+    expect(stale.saved?.valuesJson).toMatchObject({ a: 2 });
   });
 
   it("reset 配置并保留租户边界", async () => {
@@ -98,6 +98,21 @@ describe("插件 Config / Page 仓储", () => {
     expect(reset.valuesJson).toMatchObject({ a: 0 });
     expect(reset.revision).toBe(2);
     expect(await configRepo.getConfig(tenantB, "demo")).not.toBeNull();
+  });
+
+  it("首次保存也检查 revision；同 revision 的并发写最多一个成功", async () => {
+    const input = { pluginId: "cas", schemaVersion: 1, expectedRevision: 9, values: {}, secretKeys: [] };
+    expect(await configRepo.saveConfig(tenantA, input)).toEqual({ saved: null, conflict: true });
+    expect(await configRepo.getConfig(tenantA, "cas")).toBeNull();
+    const create = await Promise.all([1, 2].map((value) =>
+      configRepo.saveConfig(tenantA, { ...input, expectedRevision: 0, values: { value } }),
+    ));
+    expect(create.filter((result) => !result.conflict)).toHaveLength(1);
+    const update = await Promise.all([3, 4].map((value) =>
+      configRepo.saveConfig(tenantA, { ...input, expectedRevision: 1, values: { value } }),
+    ));
+    expect(update.filter((result) => !result.conflict)).toHaveLength(1);
+    expect((await configRepo.getConfig(tenantA, "cas"))?.revision).toBe(2);
   });
 
   it("secret 只暴露状态，值不可读", async () => {

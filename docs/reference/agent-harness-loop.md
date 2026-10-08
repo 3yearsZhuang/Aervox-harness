@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.8.1
+version: 0.8.2
 updated_at: 2026-10-08
 reviewed_at: 2026-10-08
 review_interval_days: 90
@@ -33,6 +33,10 @@ Provider 的 `capabilities` 可报告工具/推理协议支持、已知上下文
 公共入口仍为 `@aervox/core` 与 `@aervox/core/core`，执行收集器、终态收敛器、工具管线/账本及内部序列化函数不再从根入口暴露。工作区消费者通过公开 Port 与 `executeTurn` 集成，内部单元测试直接引用源码模块；软件包保持 `private: true` 和零运行时依赖。公开发布前仍需独立版本与发布审核。
 
 性能基线通过 `mise exec -- node scripts/benchmark-core.mjs --samples=5 --out=<path>` 生成 JSON，已记录的[受控基线](../_meta/core-benchmark-baseline.json)带构建产物摘要与环境，记录首段可见、取消延迟、提交批次字节与写入点采样堆内存；先构建 `@aervox/core`。SQLite 跨进程竞争继续使用 `scripts/worker-write-contention-drill.mjs` 的临时库和独立 Socket。基线为受控夹具测量，不能当成真实模型或用户磁盘的服务等级承诺；不把机器负载敏感的延迟阈值放入单元门禁。
+
+当前审计修复补齐两条运行时不变量：OpenAI 兼容流只在 `tool_calls` 正常终止且参数为完整 JSON 对象时交出工具调用；截断、内容过滤、损坏帧及未完成调用不会执行副作用。`ModelRun` 与输入快照按每次实际调用记录，覆盖多 Step、重试和失败，标识包含 Attempt；快照保留调用边界的消息、工具 Schema 和请求生成参数。缓存读取/写入 token 作为输入 usage 的细分传递，不额外累加总量。验证见[模型终止测试](../../packages/core/test/model-terminal.test.ts)与[调用快照测试](../../packages/core/test/context-manifest.test.ts)。
+
+这些快照沿用可观测侧写语义，失败不会阻断执行，不能充当恢复账本或授权证明；API 的快照格式为 `{version:1,messages,tools,maxOutputTokens,temperature}`，旧宿主可继续接受 messages 数组。动态工具授权、最终模型窗口检查、真正的摘要压缩、正文流式背压和完整来源删除仍在当前队列内，本次不提升它们的交付状态。
 
 ## 1. 范围与非目标
 

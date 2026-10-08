@@ -6,7 +6,7 @@
  *    - 内存解包安全审计（路径穿越拒绝）；
  *    - PRD CAP-020 安装前预检（元数据、SHA-256、感知源权限、数据范围与能力明细）；
  * 2. POST /v1/plugins/install-package:
- *    - 从分发包原子安装（插件主表 + 工具 + 技能 + 配置 + Page）；
+ *    - 分发包预检后安装（插件主表 + 工具 + 技能 + 配置 + Page）；
  *    - 重复安装冲突 409 与 overwrite=true 覆盖安装；
  * 3. GET /v1/plugins/:id/export:
  *    - 插件打包导出为 .aervox-plugin 单文件归档；
@@ -20,6 +20,7 @@ import { createInMemoryDatabase, initDatabaseSchema, type AervoxDatabase } from 
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
+import { inspectPluginBundle, PLUGIN_ARCHIVE_LIMITS } from "../src/modules/ecosystem/plugins/package-bundle.js";
 
 function buildTestPluginBundle(overrides: {
   id?: string;
@@ -221,6 +222,33 @@ describe("CAP-020 插件分发与打包集成测试", () => {
     const skillsRes = await app.inject({ method: "GET", url: "/v1/skills" });
     const skills = skillsRes.json().items;
     expect(skills.some((s: any) => s.pluginId === "pkg.installed")).toBe(true);
+  });
+
+  it.each(["config.schema.json", "pages/dashboard/index.html"])("无效 %s 在覆盖卸载前被拒绝，旧配置和密钥保留", async (entry) => {
+    const install = (bytes: Buffer, overwrite = false) => app.inject({
+      method: "POST", url: "/v1/plugins/install-package",
+      payload: { packageBase64: bytes.toString("base64"), overwrite },
+    });
+    expect((await install(buildTestPluginBundle({ id: "pkg.preserve" }))).statusCode).toBe(201);
+    expect((await app.inject({
+      method: "PUT", url: "/v1/plugins/pkg.preserve/config",
+      payload: { revision: 0, values: {}, secretValues: { testApiKey: "original" } },
+    })).statusCode).toBe(200);
+    const broken = buildTestPluginBundle({ id: "pkg.preserve", version: "2.0.0", files: { [entry]: "" } });
+    expect((await inspectPluginBundle(broken)).isValid).toBe(false);
+    expect((await install(broken, true)).statusCode).toBeGreaterThanOrEqual(400);
+    const plugin = (await client.execute("SELECT version FROM plugins WHERE id = 'pkg.preserve'")).rows[0];
+    expect(plugin!.version).toBe("1.0.0");
+    const secret = (await client.execute("SELECT value_json FROM plugin_config_secrets WHERE plugin_id = 'pkg.preserve'")).rows[0];
+    expect(JSON.parse(String(secret!.value_json))).toBe("original");
+  });
+
+  it("解压前拒绝超额条目数量和压缩炸弹", async () => {
+    const oversized = zipSync({ "huge.txt": new Uint8Array(PLUGIN_ARCHIVE_LIMITS.entryBytes + 1) });
+    expect(oversized.byteLength).toBeLessThan(100_000);
+    expect((await inspectPluginBundle(oversized)).issues.join(" ")).toContain("expansion limits");
+    const entries = Object.fromEntries(Array.from({ length: PLUGIN_ARCHIVE_LIMITS.entries + 1 }, (_, i) => [`entry-${i}`, new Uint8Array()]));
+    expect((await inspectPluginBundle(zipSync(entries))).issues.join(" ")).toContain("expansion limits");
   });
 
   it("POST /v1/plugins/install-package: 重复安装冲突返回 409，支持 overwrite=true 覆盖安装", async () => {
