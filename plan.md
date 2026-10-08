@@ -76,7 +76,7 @@ sources:
 | <a id="iter-038"></a>ITER-038 · 已移交 | Provider stopReason 归一与输入/输出 usage 分账；ITER-033 拆分切片。 | 已移交切片；新范围另按现行需求与 CR 门槛评审。 | 切片验收见 [PR #247](https://github.com/3yearsZhuang/Aervox-harness/pull/247)；适用限制见本条移交摘要。 | platform（分支 `feat/core-provider-contract`；2026-10-08 按主线证据修正状态；终态消费与缓存分账留 ITER-039。） |
 | <a id="iter-041"></a>ITER-041 · 已移交 | 拆分 executor 流式收集、工具管线与终态收口，统一审批裁决。 | 已移交切片；新范围另按现行需求与 CR 门槛评审。 | 切片验收见 [PR #249](https://github.com/3yearsZhuang/Aervox-harness/pull/249)；适用限制见本条移交摘要。 | platform（分支 `refactor/core-executor-split`；终态命名后续由 ITER-042 完成；保留公开端口、SSE 与持久化契约。） |
 | <a id="iter-042"></a>ITER-042 · 已移交 | ExecuteResult interrupted 与 AttemptStatus 对齐，保留 reason；持久化枚举不变。 | 已移交切片；新范围另按现行需求与 CR 门槛评审。 | 切片验收见 [PR #251](https://github.com/3yearsZhuang/Aervox-harness/pull/251)；适用限制见本条移交摘要。 | platform（分支 `refactor/core-interrupted-status`；交付项③已完成，不再要求重复实施或另立同内容 CR。） |
-| <a id="iter-044"></a>ITER-044 · 执行中 | 项目代码质量、仓库卫生与文档多源偏移审计；收敛入口规则、当前实现和历史证据，压缩重复叙述。 | 本次授权覆盖审计与文档整理；行为修复按已有条目另行实施，保留契约、稳定锚点及发布门槛。 | 发现有源码或工具证据，区分已知缺口与新增问题；文档净缩减，事实源与队列状态一致，双门禁通过（校验：mise tasks run ci-code；mise tasks run ci-docs） | Codex（分支 `docs/repository-audit-and-docs-slimming`；2026-10-08 本地审计与文档整理完成，等待最终文档验证及 PR 移交；ITER-002 剩余提交窗口重开，ITER-038 按 PR #247 核实移交。） |
+| <a id="iter-044"></a>ITER-044 · 已移交 | 项目代码质量、仓库卫生与文档多源偏移审计；收敛入口规则、当前实现和历史证据，压缩重复叙述。 | 本次授权覆盖审计与文档整理；行为修复按已有条目另行实施，保留契约、稳定锚点及发布门槛。 | 审计证据、净缩减与双门禁见 [PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258)；本项不宣称行为修复或生产发布完成。（校验：mise tasks run ci-code；mise tasks run ci-docs） | Codex（分支 `docs/repository-audit-and-docs-slimming`；2026-10-08 审计及文档交付见 PR #258；双门禁通过。运行时问题仍按 ITER-002/003/004/007/010/017 分别承接。） |
 
 ### 2.2 下一批：恢复、生命周期与部署
 
