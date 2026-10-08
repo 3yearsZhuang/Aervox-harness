@@ -7,9 +7,9 @@ owner: platform
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.1.1
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
+version: 0.2.0
+updated_at: 2026-10-05
+reviewed_at: 2026-10-05
 review_interval_days: 14
 review_triggers:
   - packages/core/**
@@ -32,14 +32,16 @@ sources:
 # HLS 本地智能体竞赛：能力拓展与验证规划
 
 - 提出人：3yearszhuang · 2026-09-22
-- 修改人：3yearszhuang · 2026-09-22
+- 修改人：3yearszhuang · 2026-10-05
 
 > [!NOTE] 调研生命周期状态：未落地 / 候选验证 (Pending / Candidate)
 > 本文梳理的 HLS 本地智能体竞赛方案已由 ITER-020 交付规划，后续可行性实测待 ITER-021 启动。
 
-本文把 AMD「RTL/HLS 本地智能体设计赛道」评估转化为可审阅的验证路径，供三人团队开展范围复核、实验设计和后续交付。**建议优先选择 HLS，先验证同模型条件下的工具反馈增益，再决定正式参赛方案与产品化。** 当前交付是规划文档，尚无 Radeon/Vitis 实测结果，不表示已经选定模型、批准新增能力或承诺获奖。
+本文把 AMD「RTL/HLS 本地智能体设计赛道」评估转化为可审阅的验证路径，供三人团队开展范围复核、实验设计和后续交付。**优先选择 HLS，先验证同模型条件下的工具反馈增益，再决定正式参赛方案与产品化。** 2026-09-29 已依据用户授权实施本地研究链路（2026-10-05 合流至 main 内核 `@aervox/core`），运行入口与验证见 [CR-057](../reference/changes/CR-057-hls-local-agent-validation.md)；尚无 Radeon/Vitis 实测或正式评分结果，未选定参赛模型。
 
 当前排序、认领、状态与日期只维护在根 [plan.md](../../plan.md)：[ITER-020](../../plan.md#iter-020) 跟踪本次文档交付，[ITER-021](../../plan.md#iter-021) 跟踪可行性验证建议，[ITER-022](../../plan.md#iter-022) 跟踪验证成立后的参赛交付候选。本文中的阶段表示技术前后条件，时间表示估算，角色表示分工建议，不构成第二份活动队列。实现与验证证据统一回填[追踪基线 §4.2](../reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
+
+2026-09-29 详细实施分解已集中到 [plan.md §4.1](../../plan.md#hls-plugin-delivery)：H1～H4 对应 ITER-021，S1～S3 对应 ITER-022，M1～M6 对应新增条件候选 ITER-043。本文件保留技术依据与实验协议，产品插件仍须真实需求、竞赛证据和独立 CR 支持。
 
 ## 1. 目标、已知条件与能力边界
 
@@ -100,7 +102,7 @@ sources:
 
 ## 3. 可复用基础与需要补齐的缺口
 
-本节为 2026-09-22 对 Git 基线 `da602ac` 的静态核验。源工作区另有 ITER-002 未提交修改，本规划在独立工作树编写，不据此更新其它条目的交付状态。源码路径是核查入口，不代表 GPU、工具链或端到端验收已经通过。
+下表保留 2026-09-22 对 Git 基线 `da602ac` 的静态核验。2026-09-29 实施重新核对 `dd5afcc`：Headless Loop 已可独立复用，新建 `scripts/hls-agent/` 研究消费者及 Vitis 容器适配，并修复工具历史协议；2026-10-05 随内核迁移改由 `@aervox/core` 承接。表中历史缺口不能替代 [CR-057 的当前证据](../reference/changes/CR-057-hls-local-agent-validation.md#4-回滚与交付记录)；GPU、官方工具链与端到端验收仍未通过。
 
 | 能力 | 核查入口 | 复用方式与限制 |
 |---|---|---|
@@ -281,4 +283,4 @@ hls-agent/
 
 S1 原始文件名为 `全国大学生嵌入式芯片与系统设计竞赛'2026FPGA赛道选题指南-AMD.pdf`，SHA-256 为 `c6ad82acd4f7bdcd13bd412e232ed85d05f2a87dd5e2cdd04f9d219f88b569fc`。该文件由用户提供，本规划记录其身份和页码，不将个人下载目录当作仓库内链接，也未把附件复制进仓库。
 
-本次完成赛题阅读、源码静态核对和规划交付；没有下载模型、运行 GPU/Vitis、取得通过率或确认最终提交环境。阶段估算、模型规模和内部实验门槛均为建议。后续源代码、赛规或资源变化时复核本文，只更新证据和技术路径，当前排期仍回到根计划。
+2026-09-22 完成赛题阅读与规划；2026-09-29 完成本地研究链路首轮实现与合同测试（2026-10-05 合流至 `@aervox/core`，core 270/270、HLS 合同 14/14）。双入口、四组串行对照、逐题证据、预算和容器适配已具备，命令与三人接力步骤见 [CR-057 §5](../reference/changes/CR-057-hls-local-agent-validation.md#5-运行路径与环境接力)。用户确认尚未配置 GPU/Vitis；未下载模型、运行真实 HLS 或取得有效竞赛增益。ITER-021 的真实验证（H1～H4）待环境配置后启动，ITER-022 的正式提交与 P4 产品化条件不变。

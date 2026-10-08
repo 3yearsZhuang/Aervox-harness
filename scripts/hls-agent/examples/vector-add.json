@@ -1,0 +1,8 @@
+{
+  "id": "vector-add-16",
+  "family": "array",
+  "split": "development",
+  "prompt": "Write synthesizable C++ with top signature void vector_add(const int a[16], const int b[16], int out[16]). For each i in [0,16), set out[i] = a[i] + b[i]. Inputs are integers in [-1000,1000] and sums fit int. Use no dynamic allocation. Return one complete C++ code block. Target xczu3eg-sbva484-1-e, 5 ns clock, Vitis 2025.2.",
+  "top": "vector_add",
+  "publicTestbench": "extern void vector_add(const int a[16], const int b[16], int out[16]);\nint main() { int a[16], b[16], out[16]; for(int k=0;k<3;k++) { for(int i=0;i<16;i++) { a[i]=k==0?0:i*37-300; b[i]=k==2?-a[i]:i-20; out[i]=123456; } vector_add(a,b,out); for(int i=0;i<16;i++) if(out[i]!=a[i]+b[i]) return 1; } return 0; }\n"
+}
