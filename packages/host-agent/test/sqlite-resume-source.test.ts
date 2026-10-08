@@ -5,8 +5,8 @@
  * findResumeCandidates 命中 → createSqliteResumeSource 重建上下文产出 ClaimableTurn；
  * 非可续候选（有 done 终态 / 未知结果）过滤。
  */
-import { beforeEach, describe, expect, it } from "vitest";
-import { createSqliteResumeSource } from "../src/index.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createSqliteResumeSource, resumeCommittedTurns, SqliteExecutionStore } from "../src/index.js";
 import {
   createInMemoryDatabase,
   initDatabaseSchema,
@@ -58,6 +58,7 @@ describe("SqliteResumeSource（续跑候选源）", () => {
     await repo.appendStreamEvent(ctx, {
       id: "tev_src_msg",
       turnId: "turn_src",
+      attemptId: "atp_src",
       sequence: 1,
       eventType: "message",
       data: { messageId: "msg_turn_src_assistant", role: "assistant", contentType: "text", isComplete: false },
@@ -66,6 +67,7 @@ describe("SqliteResumeSource（续跑候选源）", () => {
     await repo.appendStreamEvent(ctx, {
       id: "tev_src_delta",
       turnId: "turn_src",
+      attemptId: "atp_src",
       sequence: 2,
       eventType: "delta",
       data: { messageId: "msg_turn_src_assistant", text: "让我查一下。", isFinal: false },
@@ -74,6 +76,7 @@ describe("SqliteResumeSource（续跑候选源）", () => {
     await repo.appendStreamEvent(ctx, {
       id: "tev_src_toolreq",
       turnId: "turn_src",
+      attemptId: "atp_src",
       sequence: 3,
       eventType: "tool_request",
       data: { invocationId: "call_1", executionId: "atp_src:1:1", name: "notes_search", arguments: {} },
@@ -82,6 +85,7 @@ describe("SqliteResumeSource（续跑候选源）", () => {
     await repo.appendStreamEvent(ctx, {
       id: "tev_src_toolres",
       turnId: "turn_src",
+      attemptId: "atp_src",
       sequence: 4,
       eventType: "tool_result",
       data: { invocationId: "call_1", executionId: "atp_src:1:1", name: "notes_search", ok: true, output: { notes: "三角函数" } },
@@ -95,6 +99,51 @@ describe("SqliteResumeSource（续跑候选源）", () => {
     client = res.client;
     await initDatabaseSchema(client);
     repo = new SqliteConversationRepository(db);
+  });
+
+  afterEach(() => client.close());
+
+  it("real SQLite resumes only the committed result and preserves the sequence watermark", async () => {
+    await seedExpiredAttemptWithCommittedTool();
+    await repo.appendStreamEvent(ctx, { id: "late_reason", turnId: "turn_src", attemptId: "atp_src", sequence: 7, eventType: "reasoning_delta", data: { text: "progress" } });
+    const source = createSqliteResumeSource({ repo, client });
+    const snapshot = await source.listClaimable(1);
+    expect(snapshot[0]?.resume?.lastSequence).toBe(7);
+    const createProvider = vi.fn(async (_turn, control) => {
+      expect(control.localProcessingOnly).toBe(true);
+      return { id: "local-fixture", async *stream(request) {
+        expect(request.tools).toBeUndefined();
+        expect(request.context.messages.some(m => m.role === "tool" && m.content.includes("三角函数"))).toBe(true);
+        yield { text: "已查询的计划如下", isFinal: true };
+      } };
+    });
+    const deps = { source: { listClaimable: async () => snapshot }, createStore: () => new SqliteExecutionStore(repo, ctx), createProvider, deletionGate: { isBlocked: async () => false } };
+    const result = await resumeCommittedTurns(deps);
+    expect(result[0]?.status).toBe("completed");
+    const rows = await client.execute("SELECT status FROM turn_attempts WHERE id = 'atp_src'");
+    expect(rows.rows[0]?.status).toBe("Completed");
+    const executions = await repo.listToolExecutionsByTurn(ctx, "turn_src");
+    expect(executions).toHaveLength(1);
+    const events = await repo.getStreamEvents(ctx, "turn_src");
+    expect(events.filter(e => e.eventType === "done")).toHaveLength(1);
+    expect(events.at(-1)!.sequence).toBeGreaterThan(7);
+    expect((await resumeCommittedTurns(deps))[0]?.status).toBe("skipped");
+  });
+
+  it("redacted input cannot become a resume candidate", async () => {
+    await seedExpiredAttemptWithCommittedTool();
+    await repo.redactTurnMessages(ctx, "turn_src");
+    expect(await createSqliteResumeSource({ repo, client }).listClaimable(1)).toEqual([]);
+  });
+
+  it("deletion blocks provider admission; newer uncommitted tool intent blocks recovery", async () => {
+    await seedExpiredAttemptWithCommittedTool();
+    const source = createSqliteResumeSource({ repo, client });
+    const createProvider = vi.fn();
+    expect(await resumeCommittedTurns({ source, createStore: () => new SqliteExecutionStore(repo, ctx), createProvider, deletionGate: { isBlocked: async () => true } })).toEqual([]);
+    expect(createProvider).not.toHaveBeenCalled();
+    await repo.appendStreamEvent(ctx, { id: "late_intent", turnId: "turn_src", attemptId: "atp_src", sequence: 8, eventType: "tool_request", data: { executionId: "atp_src:2:1", invocationId: "call2", name: "write", arguments: {} } });
+    expect(await source.listClaimable(1)).toEqual([]);
   });
 
   it("续跑携带此前会话历史，并保留本轮权威工具结果", async () => {
@@ -147,6 +196,7 @@ describe("SqliteResumeSource（续跑候选源）", () => {
     await repo.appendStreamEvent(ctx, {
       id: "tev_src_done",
       turnId: "turn_src",
+      attemptId: "atp_src",
       sequence: 5,
       eventType: "done",
       data: { status: "Completed" },
@@ -223,40 +273,29 @@ describe("SqliteResumeSource（续跑候选源）", () => {
       turnId: "turn_src_b3", attemptId: "atp_src_b3", invocationId: "atp_src_b3:1:2", name: "notes_search", arguments: {},
     }); // 留 pending：意图已提交、未收口
     await repo.appendStreamEvent(ctx, {
-      id: "tev_b3_msg", turnId: "turn_src_b3", sequence: 1, eventType: "message",
+      id: "tev_b3_msg", turnId: "turn_src_b3", attemptId: "atp_src_b3", sequence: 1, eventType: "message",
       data: { messageId: "msg_turn_src_b3_assistant" }, occurredAt: new Date().toISOString(),
     });
     await repo.appendStreamEvent(ctx, {
-      id: "tev_b3_req1", turnId: "turn_src_b3", sequence: 2, eventType: "tool_request",
+      id: "tev_b3_req1", turnId: "turn_src_b3", attemptId: "atp_src_b3", sequence: 2, eventType: "tool_request",
       data: { invocationId: "call_1", executionId: "atp_src_b3:1:1", name: "notes_search", arguments: {} },
       occurredAt: new Date().toISOString(),
     });
     await repo.appendStreamEvent(ctx, {
-      id: "tev_b3_res1", turnId: "turn_src_b3", sequence: 3, eventType: "tool_result",
+      id: "tev_b3_res1", turnId: "turn_src_b3", attemptId: "atp_src_b3", sequence: 3, eventType: "tool_result",
       data: { invocationId: "call_1", executionId: "atp_src_b3:1:1", name: "notes_search", ok: true, output: { notes: "B3" } },
       occurredAt: new Date().toISOString(),
     });
     await repo.appendStreamEvent(ctx, {
-      id: "tev_b3_req2", turnId: "turn_src_b3", sequence: 4, eventType: "tool_request",
+      id: "tev_b3_req2", turnId: "turn_src_b3", attemptId: "atp_src_b3", sequence: 4, eventType: "tool_request",
       data: { invocationId: "call_2", executionId: "atp_src_b3:1:2", name: "notes_search", arguments: {} },
       occurredAt: new Date().toISOString(),
     }); // 无 tool_result：崩溃前最后请求
   }
 
-  it("B3 synthesized：pending（replay:safe）→ 产出含 TOOL_NOT_STARTED 合成 tool 消息的续跑上下文", async () => {
+  it("replay:safe does not auto-resume an unknown result in the production source", async () => {
     await seedExpiredMixedBatch("safe");
-    const source = createSqliteResumeSource({ repo, client });
-    const turns = await source.listClaimable(10);
-    expect(turns).toHaveLength(1);
-    const t = turns[0]!;
-    const history = t.resume!.history;
-    // 上下文中最后一个消息为合成 tool 结果（指导模型不再重复执行副作用）
-    const last = history[history.length - 1]!;
-    expect(last.role).toBe("tool");
-    expect(last.content).toContain("TOOL_NOT_STARTED");
-    expect(last.content).toContain("atp_src_b3:1:2");
-    // 权威结果仍在上下文（其后的合成消息不带执行）
-    expect(history.some((m) => m.role === "tool" && !m.content.includes("synthetic"))).toBe(true);
+    expect(await createSqliteResumeSource({ repo, client }).listClaimable(10)).toEqual([]);
   });
 
   it("B3 fail-closed：pending（replay:never）→ 收敛，不产出候选", async () => {

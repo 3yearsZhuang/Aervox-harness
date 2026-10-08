@@ -16,7 +16,7 @@
  * 行为等价性（ITER-041 gate）：本段为纯搬迁。判定顺序、节流阈值（200 字符 / 400ms /
  * 100ms）、计量口径、预算守卫位置与retry 条件均未改动。
  */
-import { abortableStream } from "./abortable.js";
+import { streamWithTicks } from "./abortable.js";
 import { safeStringify } from "./safe-serialize.js";
 import { LeaseLostError } from "./errors.js";
 import type { ExecuteResult, ModelChunk, PromptContext, ToolSpec } from "./types.js";
@@ -45,6 +45,21 @@ const REASONING_FLUSH_MIN_CHARS = 200;
 const REASONING_FLUSH_INTERVAL_MS = 400;
 /** 流式期间取消/删除水位/总时长检查的节流间隔（避免每 chunk 压库） */
 const MID_STREAM_CHECK_INTERVAL_MS = 100;
+export const MAX_STEP_RESPONSE_BYTES = 8 * 1024 * 1024;
+export const TEXT_WINDOW_BYTES = 4096;
+
+function textPieces(text: string): string[] {
+  if (utf8.encode(text).length <= TEXT_WINDOW_BYTES) return [text];
+  const pieces: string[] = [];
+  let piece = "", size = 0;
+  for (const char of text) {
+    const bytes = utf8.encode(char).length;
+    if (size + bytes > TEXT_WINDOW_BYTES) { pieces.push(piece); piece = ""; size = 0; }
+    piece += char; size += bytes;
+  }
+  if (piece) pieces.push(piece);
+  return pieces;
+}
 
 /** 收集器构造参数 */
 export interface StepCollectorOptions {
@@ -71,6 +86,7 @@ export interface StepCollectorOptions {
   finalizeInterrupted: (reason: string) => Promise<ExecuteResult>;
   /** 落 reasoning_delta 进度事件（序号分配与 fencing 由 executor 侧持有） */
   appendReasoningDelta: (text: string) => Promise<void>;
+  appendTextWindow?: (chunks: ModelChunk[]) => Promise<void>;
 }
 
 /** 一次收集的结果 */
@@ -166,7 +182,15 @@ export class StepCollector {
     control?.recordTokensUsed(inputCharge);
 
     let charged = inputCharge;
-    for await (const chunk of abortableStream(
+    let pendingWindow: ModelChunk[] = [];
+    let pendingBytes = 0;
+    let outputBytes = 0;
+    const flushWindow = async () => {
+      if (!pendingWindow.length || !this.options.appendTextWindow) return;
+      await this.options.appendTextWindow(pendingWindow);
+      pendingWindow = []; pendingBytes = 0;
+    };
+    for await (const chunk of streamWithTicks(
       provider.stream({
         turnId,
         attemptId,
@@ -179,6 +203,9 @@ export class StepCollector {
       }),
       control?.abortSignal,
     )) {
+      if (chunk === null) { await flushWindow(); continue; }
+      outputBytes += utf8.encode(safeStringify(chunk)).length;
+      if (outputBytes > MAX_STEP_RESPONSE_BYTES) throw new Error("model_response_limit");
       // 缺陷 D-CIRC：safeStringify 遇循环引用降级为标记而非抛 —— 计量只用于预算
       // 估算，不值得让整轮执行失败；真正的入参安全判定由 inspectToolInput 负责。
       let charge = utf8.encode(
@@ -206,7 +233,16 @@ export class StepCollector {
         }
       }
 
-      out.push(chunk);
+      const pieces = textPieces(chunk.text);
+      for (let i = 0; i < pieces.length; i++) {
+        const part: ModelChunk = i === pieces.length - 1 ? { ...chunk, text: pieces[i]! } : { text: pieces[i]!, isFinal: false };
+        const bytes = utf8.encode(part.text).length;
+        if (pendingBytes + bytes > TEXT_WINDOW_BYTES) await flushWindow();
+        out.push(part);
+        pendingWindow.push(part);
+        pendingBytes += bytes;
+        if (pendingBytes >= TEXT_WINDOW_BYTES) await flushWindow();
+      }
       if (chunk.reasoning) {
         this.reasoningBuffer += chunk.reasoning;
         await this.flushReasoning();

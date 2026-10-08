@@ -7,8 +7,8 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 1.18.0
-updated_at: 2026-10-05
-reviewed_at: 2026-10-05
+updated_at: 2026-10-08
+reviewed_at: 2026-10-08
 review_interval_days: 90
 ---
 
@@ -109,7 +109,7 @@ review_interval_days: 90
 | [文档生命周期登记表](DOC_REGISTRY.md) | 每份文档何时核验、多久复核、什么信号表示陈旧 | 核验节奏/陈旧信号；独立于索引维护 |
 | [从这里开始](getting-started.md)（AVX-DOC-002，见[§7](#7-从哪开始)） | 新成员/Agent 从哪看起、提交前自检什么 | 导航型；不承载规则 |
 | [暂存提案](proposals) | 尚未进入基线的方案是什么 | 待补充证据（More Evidence Required）或未采纳的技术探索提案；不承载已批准规则 |
-| [变更请求](reference/changes/README.md)（现行 CR） | 现行变更请求索引与活跃提案（CR-055 移动端落地、CR-057 HLS 研究执行器、CR-060 专注模式去领域化） | 变更差量、决策状态与回滚预案；已闭环提案（CR-002~059）见外部归档库 |
+| [变更请求](reference/changes/README.md)（现行 CR） | 现行变更请求索引与活跃提案（CR-055 移动端落地、CR-057 HLS 研究执行器、CR-060 专注模式去领域化、[CR-061 内核执行合同](reference/changes/CR-061-core-execution-contract-hardening.md)） | 变更差量、决策状态与回滚预案；已闭环提案（CR-002~059）见外部归档库 |
 | [移动端落地规划](reference/changes/CR-055-mobile-delivery-plan.md)（CR-055） | 移动 Web、Capacitor 配套端与独立手机端如何分阶段推进 | 待评审提案：范围、连接与数据边界、实施切片及验收；不代表移动端已交付 |
 | [HLS 本地智能体验证执行器](reference/changes/CR-057-hls-local-agent-validation.md)（CR-057） | 如何诊断环境、运行裸跑与 Agent、生成配对实验报告 | 本地研究链路与协议回归；GPU/Vitis 及官方评分验收待补 |
 | 已归档记录（外部归档库） | 历史变更与已退役决策的原始记录是什么 | 已完成或已退役的历史变更；已整体移入独立归档仓库，避免混淆当前活跃规范 |

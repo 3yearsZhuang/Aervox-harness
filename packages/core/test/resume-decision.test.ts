@@ -102,7 +102,7 @@ describe("decideResume 恢复裁决矩阵", () => {
     expect(decision).toEqual({
       resume: true,
       reason: "synthesized",
-      lastSequence: 3,
+      lastSequence: 4,
       synthesized: [{ executionId: "atp:2:2", status: "pending", kind: "not_started" }],
     });
   });

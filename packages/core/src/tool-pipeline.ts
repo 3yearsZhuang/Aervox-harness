@@ -38,8 +38,9 @@ const LONG_RUNNING_TOOLS = new Set(["ask_user_question", "aervox_diary_write"]);
 function withTimeout<T>(promise: Promise<T>, ms: number, controller?: AbortController): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
-      controller?.abort();
-      reject(new Error("tool_timeout"));
+      const error = new Error("tool_timeout");
+      controller?.abort(error);
+      reject(error);
     }, ms);
     promise.then(
       (value) => {
@@ -154,6 +155,14 @@ export async function runToolExecution(ctx: ToolExecutionContext): Promise<ToolC
     }
 
     if (!result) {
+      // Approval is an asynchronous boundary: all execution rights may have changed.
+      const afterApproval = await ctx.prematureTermination();
+      if (afterApproval) throw new ToolExecutionAborted(afterApproval);
+      heartbeat?.throwIfLost();
+      if (control && (control.remainingCalls < 1 || control.remainingTokens <= 0)) {
+        throw new ToolExecutionAborted(await ctx.finalizeInterrupted("budget_exhausted"));
+      }
+      control?.abortSignal.throwIfAborted();
       const cancel = new AbortController();
       removeLostListener = heartbeat?.onLost(() => cancel.abort());
       const signal = control ? AbortSignal.any([control.abortSignal, cancel.signal]) : cancel.signal;
@@ -201,7 +210,10 @@ export async function runToolExecution(ctx: ToolExecutionContext): Promise<ToolC
       id: call.id,
       name: call.name,
       ok: false,
-      error: err instanceof Error ? err.message : "tool_execution_error",
+      error: subtaskControl?.isExpired() && !control?.isExpired()
+        ? "tool_timeout" : err instanceof Error ? err.message : "tool_execution_error",
+      failureKind: subtaskControl?.isExpired() && !control?.isExpired()
+        || (err instanceof Error && err.message === "tool_timeout") ? "timeout" : "execution_error",
     };
   } finally {
     subtaskControl?.dispose();

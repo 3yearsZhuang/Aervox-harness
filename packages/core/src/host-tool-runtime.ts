@@ -61,6 +61,7 @@ export interface HostToolRegistrationModel {
   replay?: string | null;
   pluginId?: string | null;
   updatedAt?: string | null;
+  runtimeRevision?: string;
 }
 
 export interface HostToolDefinition {
@@ -116,6 +117,7 @@ function resolveGatingField(context: unknown, field: string): unknown {
   let current: unknown = context;
   for (const part of field.split(".")) {
     if (current === null || typeof current !== "object") return undefined;
+    if (!Object.hasOwn(current, part)) return undefined;
     current = (current as Record<string, unknown>)[part];
   }
   return current;
@@ -130,7 +132,9 @@ export function defaultGatingEvaluator(
   condition: { field: string; operator: string; value?: unknown; evaluatorId?: string },
   context?: unknown,
 ): boolean {
+  if (!condition || typeof condition.field !== "string" || !condition.field) return false;
   const resolved = resolveGatingField(context, condition.field);
+  if (resolved === undefined) return false;
   switch (condition.operator) {
     case "truthy":
       return Boolean(resolved);
@@ -146,6 +150,11 @@ export function defaultGatingEvaluator(
     default:
       return false;
   }
+}
+
+function gatingAllows(conditions: unknown, context?: unknown): boolean {
+  if (conditions == null) return true;
+  return Array.isArray(conditions) && conditions.every(c => defaultGatingEvaluator(c, context));
 }
 
 /** 纯内存工具注册表（供独立 CLI / Desktop 或测试使用） */
@@ -231,6 +240,7 @@ export interface HostToolRuntimeDeps {
 
 interface Registration {
   owner: symbol;
+  generation: number;
   handler: HostToolHandler;
   controller: AbortController;
   definition: Promise<HostToolRegistrationModel | null>;
@@ -257,6 +267,7 @@ export class HostToolRuntime {
   private readonly writes = new Map<string, Promise<unknown>>();
   private readonly registry: HostToolRegistryPort;
   private disposed = false;
+  private generation = 0;
 
   constructor(deps: HostToolRuntimeDeps = {}) {
     this.registry = deps.registry ?? new InMemoryToolRegistry();
@@ -283,7 +294,7 @@ export class HostToolRuntime {
   ): HostToolDisposer {
     if (this.disposed) throw new HostToolForbiddenError("tool runtime disposed");
     this.handlers.get(id)?.controller.abort();
-    const entry: Registration = { owner, handler, definition, controller: new AbortController() };
+    const entry: Registration = { owner, generation: ++this.generation, handler, definition, controller: new AbortController() };
     this.handlers.set(id, entry);
     void definition.catch(() => {
       if (this.handlers.get(id) === entry) this.handlers.delete(id);
@@ -378,11 +389,12 @@ export class HostToolRuntime {
           !entry.controller.signal.aborted &&
           definition &&
           definitionKey(definition) === definitionKey(tool)
-          ? tool
+          && tool.enabled === 1 && gatingAllows(tool.gatingConditionsJson, options?.gatingContext)
+          ? { ...tool, runtimeRevision: `${entry.generation}:${definitionKey(tool)}` }
           : null;
       }),
     );
-    return available.filter((tool): tool is HostToolRegistrationModel => tool !== null);
+    return available.filter(tool => tool !== null);
   }
 
   /** 调用工具：门禁求值 + 安全级别 + handler 存在性 + 参数沙箱检查 + 信号级联 */
@@ -396,6 +408,8 @@ export class HostToolRuntime {
       signal?: AbortSignal;
       controlContext?: ControlContext;
       gatingContext?: unknown;
+      expectedRevision?: string;
+      authorize?: () => Promise<boolean>;
     } = {},
   ): Promise<unknown> {
     if (this.disposed) throw new HostToolForbiddenError("tool runtime disposed");
@@ -410,14 +424,12 @@ export class HostToolRuntime {
     if (!definition || definitionKey(definition) !== definitionKey(tool)) {
       throw new HostToolForbiddenError(`tool definition changed: ${toolId}`);
     }
+    if (opts.expectedRevision !== undefined && opts.expectedRevision !== `${entry.generation}:${definitionKey(tool)}`) throw new HostToolForbiddenError(`tool declaration expired: ${toolId}`);
     if (tool.enabled !== 1) throw new HostToolForbiddenError(`tool disabled: ${toolId}`);
 
     // AST-04：调用时门禁求值——列表过滤之外的调用边界防线；
     // 条件不满足或上下文无法满足条件一律 fail-closed（覆盖直呼工具 ID 绕过列表过滤的路径）
-    const gatingConditions = Array.isArray(tool.gatingConditionsJson)
-      ? (tool.gatingConditionsJson as Array<{ field: string; operator: string; value?: unknown; evaluatorId?: string }>)
-      : [];
-    if (gatingConditions.length > 0 && gatingConditions.some((cond) => !defaultGatingEvaluator(cond, opts.gatingContext))) {
+    if (!gatingAllows(tool.gatingConditionsJson, opts.gatingContext)) {
       throw new HostToolForbiddenError(`tool gated: ${toolId}`);
     }
 
@@ -432,6 +444,7 @@ export class HostToolRuntime {
       throw new HostToolForbiddenError(`unsafe tool arguments: ${inspection.reason ?? "validation_failed"}`);
     }
 
+    if (opts.authorize && !(await opts.authorize())) throw new HostToolForbiddenError(`tool permission denied: ${toolId}`);
     const signals = [entry.controller.signal, opts.signal, opts.controlContext?.abortSignal].filter(
       (signal): signal is AbortSignal => Boolean(signal),
     );

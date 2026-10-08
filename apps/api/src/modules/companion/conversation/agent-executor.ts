@@ -1,3 +1,4 @@
+import { ControlContext } from "@aervox/core";
 /**
  * Aervox｜思隅 @aervox/api — 会话回合编排（runLoopTurnOnce）
  *
@@ -392,11 +393,13 @@ export async function runLoopTurnOnce(
 
   let provider: ModelProviderPort;
   let proactiveProfilePrompt = "";
+  let localProcessingOnly = false;
   try {
     const proactiveStatus = deps.proactiveRepository
       ? await deps.proactiveRepository.getEffectiveStatus(tenant)
       : null;
     const proactiveActive = proactiveStatus?.effectiveState === "active";
+    localProcessingOnly = proactiveActive;
     const loopProvider = await buildLoopProvider(tenant, deps.llmConfigService, {
       requireLocalOnly: proactiveActive,
       sessionId: input.sessionId,
@@ -445,7 +448,20 @@ export async function runLoopTurnOnce(
       if (!(await isPluginEnabled(registration.pluginId, extRepo))) continue;
       try {
         for (const pluginContribution of registration.toolContributions(services)) {
-          contribution.push(pluginContribution.provider);
+          const pluginTools = pluginContribution.provider;
+          contribution.push({
+            tools: pluginTools.tools,
+            async listTools() {
+              if (!(await isPluginEnabled(registration.pluginId, extRepo))) return [];
+              return pluginTools.listTools ? pluginTools.listTools() : pluginTools.tools;
+            },
+            async execute(input) {
+              input.signal?.throwIfAborted();
+              if (!(await isPluginEnabled(registration.pluginId, extRepo))) return { ok: false, error: "plugin_disabled" };
+              input.signal?.throwIfAborted();
+              return pluginTools.execute(input);
+            },
+          });
           pluginGuidance.push(...(pluginContribution.guidance ?? []));
           // CR-060 §B7：结果投影随工具贡献声明，宿主只为**本插件实际贡献的工具**代登记，
           // 插件因此无法为内核工具或他人工具登记投影。
@@ -490,6 +506,19 @@ export async function runLoopTurnOnce(
         proactiveActionAuthorizer: deps.proactiveActionAuthorizer,
         observability: deps.observability,
         capabilityTier: isL1Tier && isCapabilityTiering ? "restricted" : undefined,
+        async isToolAllowed(tool) {
+          // Native tools retain their domain-owned authorization. Plugin grants are re-read per dispatch.
+          if (!tool.pluginId) return tool.builtin === 1 || !tool.requiredPermissionsJson || (Array.isArray(tool.requiredPermissionsJson) && !tool.requiredPermissionsJson.length);
+          if (!extRepo || !(await isPluginEnabled(tool.pluginId, extRepo))) return false;
+          const required = tool.requiredPermissionsJson ?? [];
+          if (!Array.isArray(required)) return false;
+          for (const item of required) {
+            const permission = typeof item === "string" ? item : item?.permission;
+            const scope = typeof item === "string" ? "*" : item?.scope;
+            if (typeof permission !== "string" || typeof scope !== "string" || !(await extRepo.hasPluginGrant(tenant, tool.pluginId, permission, scope))) return false;
+          }
+          return true;
+        },
       })
     : undefined;
 
@@ -504,6 +533,7 @@ export async function runLoopTurnOnce(
         get tools() {
           return (rawTools.tools || []).filter((t) => t.readOnly);
         },
+        async listTools() { return (rawTools.listTools ? await rawTools.listTools() : rawTools.tools).filter(t => t.readOnly); },
         async execute(callInput) {
           const spec = rawTools.tools?.find((t) => t.name === callInput.name);
           if (spec && !spec.readOnly) {
@@ -530,6 +560,7 @@ export async function runLoopTurnOnce(
   let history: ReturnType<SqliteConversationRepository["getSessionHistory"]> | undefined;
   let memoryContext: Promise<string | null> | undefined;
   let contextBuilder = createComposedContextBuilder({
+    inbox: true,
     base: {
       async build(context) {
         history ??= repo.getSessionHistory(tenant, {
@@ -585,9 +616,11 @@ export async function runLoopTurnOnce(
       },
     };
   }
+  const control = new ControlContext({ turnId: input.turnId, attemptId: input.attemptId, sessionId: input.sessionId, localProcessingOnly });
   const result = await executeTurn(
     {
       execution: broadcastingStore,
+      controlContext: control,
       provider,
       contextBuilder,
       tools,
@@ -602,7 +635,7 @@ export async function runLoopTurnOnce(
         : undefined,
     },
     input,
-  );
+  ).finally(() => control.dispose());
   const turnDurationMs = Date.now() - turnStartTime;
   deps.observability?.metrics.emit({
     type: "histogram",

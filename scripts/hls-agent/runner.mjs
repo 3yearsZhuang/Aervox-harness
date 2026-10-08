@@ -72,6 +72,7 @@ export async function runSample({ config, task, group, sample = 0, directory, ed
           text += chunk.text; final ||= chunk.isFinal;
           if (chunk.usage) usage = chunk.usage.totalTokens;
           await journal('model_chunk', { call, chunk });
+          if (chunk.stopReason && !['stop', 'tool_calls'].includes(chunk.stopReason)) throw new Error(`incomplete_model_stream:${chunk.stopReason}`);
           yield chunk;
         }
         if (!final) throw new Error('incomplete_model_stream');
