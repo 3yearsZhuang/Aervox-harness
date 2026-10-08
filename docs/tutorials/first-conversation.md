@@ -15,7 +15,7 @@ review_interval_days: 90
 # 教程：构建并运行你的第一个对话
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-10-04
+- 修改人：3yearszhuang · 2026-10-06
 
 关联：[从哪开始](../getting-started.md)、[流式协议契约](../reference/STREAMING_PROTOCOL.md)
 

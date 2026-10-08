@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.6.0
+version: 0.7.0
 updated_at: 2026-10-06
 reviewed_at: 2026-10-06
 review_interval_days: 90
@@ -15,7 +15,7 @@ review_interval_days: 90
 # Aervox｜思隅 系统架构设计（SAD）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-30
+- 修改人：3yearszhuang · 2026-10-06
 
 关联 PRD：[PRD.md](PRD.md) · 追踪：[REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md)
 

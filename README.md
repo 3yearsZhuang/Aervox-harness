@@ -14,7 +14,7 @@ Aervox 处于**开发者预览阶段**，正在快速演进，API 契约与本�
 
 ### 从源码运行
 
-项目由 [mise.toml](mise.toml) 严格锁定工具链版本（Node 24、pnpm 11、Vale 3.18）。安装 [mise](https://mise.jdx.dev) 后在仓库根目录执行：
+项目由 [mise.toml](mise.toml) 严格锁定工具链版本（Node 24、pnpm 11、Vale 3.18、markdownlint-cli2 0.23.3）。安装 [mise](https://mise.jdx.dev) 后在仓库根目录执行：
 
 ```sh
 git clone https://github.com/3yearsZhuang/Aervox-harness.git

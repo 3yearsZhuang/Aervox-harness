@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.12.0
+version: 0.13.0
 updated_at: 2026-10-06
 reviewed_at: 2026-10-06
 review_interval_days: 90
@@ -15,7 +15,7 @@ review_interval_days: 90
 # Aervox｜思隅 产品需求文档（伴学桌宠）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-10-04
+- 修改人：3yearszhuang · 2026-10-06
 
 关联文档：[架构设计](ARCHITECTURE.md) · [需求追踪与交付标准](REQUIREMENTS_TRACEABILITY.md) · [数据与隐私规范](DATA_PRIVACY.md) · [AI 质量与安全规范](AI_QUALITY_SAFETY.md) · [文档索引](../README.md)
 
