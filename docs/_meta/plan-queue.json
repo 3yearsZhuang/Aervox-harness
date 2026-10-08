@@ -930,7 +930,7 @@
     {
       "id": "ITER-044",
       "batch": "first",
-      "status": "执行中",
+      "status": "已移交",
       "delivery": "2026-10-08 Core 审核整改第 1/5 迭代：执行正确性收口。修复审批等待后的取消/租约竞态、模型截断工具执行、父子控制传播和 next-step Inbox 丢失；结构化工具超时原因；原队列相关范围：ITER-007/ITER-039",
       "gate": "用户于 2026-10-08 授权五迭代实施；保持本地单用户、现有部署及持久化枚举；新恢复/Provider 合同先登记 CR；公开 npm 发布和生产换库不在本轮",
       "acceptance": [
@@ -942,17 +942,18 @@
       ],
       "owner": "platform",
       "branch": "fix/core-audit-five-iterations",
-      "statusNote": "2026-10-08 分支实现与回归验证中；等待全量门禁和 PR 移交",
+      "statusNote": "2026-10-08 五阶段实现与本地完整门禁通过，PR #257 移交评审；恢复默认关闭，公开发布另行决策",
       "dependsOn": [],
       "links": [
         "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
-        "docs/reference/changes/CR-061-core-execution-contract-hardening.md"
+        "docs/reference/changes/CR-061-core-execution-contract-hardening.md",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/257"
       ]
     },
     {
       "id": "ITER-045",
       "batch": "next",
-      "status": "就绪",
+      "status": "已移交",
       "delivery": "2026-10-08 Core 审核整改第 2/5 迭代：工具运行时与合同收敛。API 复用 core HostToolRuntime，保留 SQLite 注册表和业务授权；跨内存/API 适配验证门控、撤权与取消；原队列相关范围：ITER-007/ITER-040",
       "gate": "用户于 2026-10-08 授权五迭代实施；保持本地单用户、现有部署及持久化枚举；新恢复/Provider 合同先登记 CR；公开 npm 发布和生产换库不在本轮",
       "acceptance": [
@@ -964,19 +965,20 @@
       ],
       "owner": "platform",
       "branch": "fix/core-audit-five-iterations",
-      "statusNote": "2026-10-08 分支实现与回归验证中；等待全量门禁和 PR 移交",
+      "statusNote": "2026-10-08 五阶段实现与本地完整门禁通过，PR #257 移交评审；恢复默认关闭，公开发布另行决策",
       "dependsOn": [
         "ITER-044"
       ],
       "links": [
         "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
-        "docs/reference/changes/CR-061-core-execution-contract-hardening.md"
+        "docs/reference/changes/CR-061-core-execution-contract-hardening.md",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/257"
       ]
     },
     {
       "id": "ITER-046",
       "batch": "next",
-      "status": "就绪",
+      "status": "已移交",
       "delivery": "2026-10-08 Core 审核整改第 3/5 迭代：上下文与有界流式。动态工具受权快照、最终请求容量检查、工具组完整压缩、有界安全正文窗口与静默源取消；原队列相关范围：ITER-032/ITER-013",
       "gate": "用户于 2026-10-08 授权五迭代实施；保持本地单用户、现有部署及持久化枚举；新恢复/Provider 合同先登记 CR；公开 npm 发布和生产换库不在本轮",
       "acceptance": [
@@ -989,19 +991,20 @@
       ],
       "owner": "platform",
       "branch": "fix/core-audit-five-iterations",
-      "statusNote": "2026-10-08 分支实现与回归验证中；等待全量门禁和 PR 移交",
+      "statusNote": "2026-10-08 五阶段实现与本地完整门禁通过，PR #257 移交评审；恢复默认关闭，公开发布另行决策",
       "dependsOn": [
         "ITER-045"
       ],
       "links": [
         "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
-        "docs/reference/changes/CR-061-core-execution-contract-hardening.md"
+        "docs/reference/changes/CR-061-core-execution-contract-hardening.md",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/257"
       ]
     },
     {
       "id": "ITER-047",
       "batch": "next",
-      "status": "就绪",
+      "status": "已移交",
       "delivery": "2026-10-08 Core 审核整改第 4/5 迭代：恢复与 Provider 合同。修复 Resume 完整账本/最新意图/事件高水位并验证宿主接线；统一模型能力、终止与用量合同；原队列相关范围：ITER-010/ITER-033",
       "gate": "用户于 2026-10-08 授权五迭代实施；保持本地单用户、现有部署及持久化枚举；新恢复/Provider 合同先登记 CR；公开 npm 发布和生产换库不在本轮",
       "acceptance": [
@@ -1014,19 +1017,20 @@
       ],
       "owner": "platform",
       "branch": "fix/core-audit-five-iterations",
-      "statusNote": "2026-10-08 分支实现与回归验证中；等待全量门禁和 PR 移交",
+      "statusNote": "2026-10-08 五阶段实现与本地完整门禁通过，PR #257 移交评审；恢复默认关闭，公开发布另行决策",
       "dependsOn": [
         "ITER-046"
       ],
       "links": [
         "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
-        "docs/reference/changes/CR-061-core-execution-contract-hardening.md"
+        "docs/reference/changes/CR-061-core-execution-contract-hardening.md",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/257"
       ]
     },
     {
       "id": "ITER-048",
       "batch": "next",
-      "status": "就绪",
+      "status": "已移交",
       "delivery": "2026-10-08 Core 审核整改第 5/5 迭代：性能基线与发行边界。建立首段可见/取消/缓冲内存与 SQLite 写竞争可复跑基线；整理 core 稳定公共出口及兼容说明；原队列相关范围：ITER-017/ITER-027",
       "gate": "用户于 2026-10-08 授权五迭代实施；保持本地单用户、现有部署及持久化枚举；新恢复/Provider 合同先登记 CR；公开 npm 发布和生产换库不在本轮",
       "acceptance": [
@@ -1041,13 +1045,14 @@
       ],
       "owner": "platform",
       "branch": "fix/core-audit-five-iterations",
-      "statusNote": "2026-10-08 分支实现与回归验证中；等待全量门禁和 PR 移交",
+      "statusNote": "2026-10-08 五阶段实现与本地完整门禁通过，PR #257 移交评审；恢复默认关闭，公开发布另行决策",
       "dependsOn": [
         "ITER-047"
       ],
       "links": [
         "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
-        "docs/reference/changes/CR-061-core-execution-contract-hardening.md"
+        "docs/reference/changes/CR-061-core-execution-contract-hardening.md",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/257"
       ]
     }
   ]
