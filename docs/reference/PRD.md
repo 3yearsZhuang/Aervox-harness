@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.12.0
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
+version: 0.13.0
+updated_at: 2026-10-06
+reviewed_at: 2026-10-06
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 产品需求文档（伴学桌宠）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-10-04
+- 修改人：3yearszhuang · 2026-10-06
 
 关联文档：[架构设计](ARCHITECTURE.md) · [需求追踪与交付标准](REQUIREMENTS_TRACEABILITY.md) · [数据与隐私规范](DATA_PRIVACY.md) · [AI 质量与安全规范](AI_QUALITY_SAFETY.md) · [文档索引](../README.md)
 
@@ -112,6 +112,15 @@ review_interval_days: 90
 | 本地记忆/Agent 工具 | 可扩展、可自托管、数据控制潜力高 | 面向技术用户，学习业务规则与安全边界不足 | TypeScript-first 内核加稳定业务 API，P2 再开放受限插件和本地模式 |
 
 参考项目用于设计验证而非市场证据，具体借鉴和许可证边界见第 15 节。
+
+### 1.8 核心设计理念与四大支柱
+
+Aervox 的产品架构围绕四个核心理念展开，所有业务能力与系统实现均服务于这些支柱：
+
+1. **交互减法（Ambient Presence）**：不再强迫用户面对复杂的管理后台与长篇大论的提示词调试。以独立半透明桌宠窗口（支持 CSS 骨架、Codex 精灵图、Live2D Mizuki 三种渲染引擎）为灵动触点，平时彻底隐入工作流背景；以视觉小说级极简气泡承载日常交流与轻量提醒；深度探索时一键呼出伴学工作台。
+2. **主动智能（Proactive Intelligence）**：告别“不问不答、一问一答”的机械被动响应。内置 Home Assistant 智能家居网关与小米运动健康适配器，连接真实物理环境与生理节奏；后台独立 Worker 进程结合 SQLite Outbox 事务可靠投递，在适宜节点主动发起问候、日程提示与复习关怀，同时配备完备的静默窗口、频控策略与物理熔断机制。
+3. **自进化认知闭环（Self-Evolving Loop）**：伴随日常使用自主进化。工作记忆、情境记忆、语义记忆、系统记忆逐级沉淀，构建层次分明的个人知识与偏好树；每日凌晨自动萃取全天对话、练习与事件关键素材，生成带有情感温度的复盘日记；基于 SM-2 遗忘曲线算法演进错题本与复习排期引擎（`@aervox/practice-review`），以科学节律巩固长期记忆。
+4. **纯本地数据主权与解耦生态（Local-First & Decoupled）**：去租户化纯单用户架构（CR-030），本地 SQLite (WAL 模式) 单库存储，FTS5 全文检索 + 嵌入式向量 RRF 混合重排，彻底隔绝云端外泄风险；支持 `.aervox-plugin` 单文件分发包（ZIP 容器）原子安装与安全预检；内置 Streamable HTTP MCP 客户端，兼容 AstrBot 技能生态与动态 Web 扩展页面。
 
 ## 2. 目标与范围边界
 
