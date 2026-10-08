@@ -9,8 +9,7 @@
  *
  * 注意：本模块只提供裁决，不实现续跑执行；续跑接线属阶段 4 `host-agent`。
  */
-import type { LoopEventType } from "./types.js";
-import type { PromptMessage } from "./types.js";
+import type { LoopEventType, PromptMessage, ToolCallRequest } from "./types.js";
 
 /** 裁决输入的最小事件面（持久事件流） */
 export interface ResumeEventLike {
@@ -151,8 +150,14 @@ export function decideResume(
  * 事件到消息的映射（与 executor 写入顺序一致）：
  * - `message`：仅取 messageId；
  * - `delta`：累积文本（续跑前已提交的 assistant 文本）；
- * - `tool_request`：闭合上一文本段为 assistant 消息（携带 toolCallId），并登记请求以关联结果；
+ * - `tool_request`：登记本 Step 的工具调用（ID/名称/参数），不立即成消息；
  * - `tool_result`：按请求登记补 tool 消息（executionId 对齐；输出以事件 data 为准）。
+ *
+ * 配对形态必须与 executor 续跑写入的形态一致（见 executor.ts「工具结果回填上下文」）：
+ * 每个 Step 的**全部** tool_request 聚合成**一条** assistant 消息的 `toolCalls`，
+ * 其后紧跟同批次的 tool 消息。若沿用旧的 `{assistant, toolCallId, name}` 形状，
+ * 重建出的 assistant 消息没有 `tool_calls`，而紧随其后的 tool 消息却带 `tool_call_id`
+ * —— 严格 OpenAI 兼容端（vLLM 等）会直接 400，且「逐项配对」只在首轮成立、续跑仍坏。
  */
 export function buildResumeHistory(input: {
   userMessage: string;
@@ -161,8 +166,31 @@ export function buildResumeHistory(input: {
   const history: PromptMessage[] = [{ role: "user", content: input.userMessage }];
   let messageId = "";
   let assistantText = "";
-  let pendingToolCall: { id: string; name: string } | null = null;
-  let assistantEmitted = false;
+  // 当前 Step 累积中的工具调用与结果；遇到下一个 delta 或事件流结束时闭合为一条 assistant 消息。
+  let stepCalls: ToolCallRequest[] = [];
+  let stepResults: PromptMessage[] = [];
+
+  const flushStep = (): void => {
+    if (stepCalls.length === 0) {
+      // 无调用可配对：孤儿 tool 结果（事件被截断/裁决遗漏）一律丢弃，避免孤立 tool_call_id；
+      // 但已提交正文要保留——不能因配对缺失就吃掉模型已产出的内容。
+      if (assistantText) history.push({ role: "assistant", content: assistantText });
+      assistantText = "";
+      stepResults = [];
+      return;
+    }
+    // 有调用：必须产出 assistant 消息（OpenAI 协议要求 tool_calls 有载体）；
+    // 即便正文为空（模型直接请求工具、无前置文本）也不能省，否则后续 tool 消息失去归属。
+    history.push({
+      role: "assistant",
+      content: assistantText,
+      toolCalls: stepCalls,
+    });
+    for (const result of stepResults) history.push(result);
+    assistantText = "";
+    stepCalls = [];
+    stepResults = [];
+  };
 
   for (const ev of input.events) {
     const data = ev.data ?? {};
@@ -171,62 +199,38 @@ export function buildResumeHistory(input: {
       continue;
     }
     if (ev.eventType === "delta") {
-      if (typeof data.text === "string") assistantText += data.text;
+      if (typeof data.text === "string" && data.text) {
+        // 新正文 ⇒ 上一 Step 已结束（executor 每 Step 先落 delta 再落工具批次）
+        if (assistantText) flushStep();
+        assistantText += data.text;
+      }
       continue;
     }
     if (ev.eventType === "tool_request") {
-      // 闭合已提交文本为 assistant 消息（携带即将注入的工具调用）
-      if (assistantText) {
-        history.push({
-          role: "assistant",
-          content: assistantText,
-          toolCallId: pendingToolCall?.id,
-          name: pendingToolCall?.name,
-        });
-        assistantText = "";
-      }
-      pendingToolCall = {
+      stepCalls.push({
         id: typeof data.invocationId === "string" ? data.invocationId : "",
         name: typeof data.name === "string" ? data.name : "",
-      };
-      assistantEmitted = false;
+        arguments: data.arguments,
+      });
       continue;
     }
     if (ev.eventType === "tool_result") {
-      // 该工具批次的 assistant 消息尚未闭合 → 先补发
-      if (!assistantEmitted && assistantText) {
-        history.push({
-          role: "assistant",
-          content: assistantText,
-          toolCallId: pendingToolCall?.id,
-          name: pendingToolCall?.name,
-        });
-        assistantText = "";
-      }
-      assistantEmitted = true;
       const ok = typeof data.ok === "boolean" ? data.ok : false;
-      history.push({
+      stepResults.push({
         role: "tool",
         content: JSON.stringify({
           ok,
           output: data.output,
           error: data.error,
         }),
-        toolCallId: pendingToolCall?.id,
-        name: pendingToolCall?.name,
+        toolCallId: typeof data.invocationId === "string" ? data.invocationId : "",
+        name: typeof data.name === "string" ? data.name : "",
       });
       continue;
     }
     // 其它事件（done/error/approval 等）：不参与上下文重建
   }
-  // 尾部残留文本（无后续工具请求）：闭合为纯 assistant 消息
-  if (assistantText) {
-    history.push({
-      role: "assistant",
-      content: assistantText,
-      toolCallId: pendingToolCall?.id,
-      name: pendingToolCall?.name,
-    });
-  }
+  // 尾部残留（无后续 delta）：闭合为最后一条 assistant 消息
+  flushStep();
   return { history, messageId };
 }
