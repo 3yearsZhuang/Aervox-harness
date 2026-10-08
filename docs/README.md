@@ -6,16 +6,13 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.18.0
+version: 1.19.0
 updated_at: 2026-10-08
 reviewed_at: 2026-10-08
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 产品与工程文档索引
-
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-10-05
 
 本目录把产品目标、可测试需求、架构决策、数据权利和 AI 质量分开维护，避免单一 PRD 同时承担所有细节。所有上线范围必须能从用户价值追踪到需求、设计、测试和发布证据。
 
@@ -40,7 +37,7 @@ review_interval_days: 90
 | [ADR 索引](reference/adr/README.md) | 为什么选择当前架构、舍弃了什么方案 | 架构决策状态、后果、迁移和回滚边界 |
 | [能力组合与可选化目录规范](reference/capability-composition.md)（AVX-CAP-001） | 所有业务能力最终如何通过 Manifest、Provider、Adapter 和 Profile 自由组合 | 目标目录、Kernel 不变量、依赖解析、生命周期、DSH/pi 适配与迁移验收 |
 | [能力注册表](reference/capability-registry.md)（AVX-CAP-REG-001） | 哪些能力纳入自选机制、以什么方式启用、当前处于哪个状态 | 交付载体与启用方式、CAP 分类与已注册模块登记；判定规则与交付机制见 AVX-CAP-001 |
-| [变更请求索引与归档导航](reference/changes/README.md)（CR-000） | 架构变更请求（CR）的生命周期、现行活跃提案与历史归档导航 | 活跃提案（CR-055 移动端落地）及已归档历史变更（CR-002～CR-059，外迁至 Aervox-docs-archive） |
+| [变更请求索引与归档导航](reference/changes/README.md)（CR-000） | 架构变更请求（CR）的生命周期、现行活跃提案与历史归档导航 | 现存 CR 与历史归档的入口；状态以各 CR 元数据为准 |
 
 ### Agent 与流式协议
 
@@ -88,7 +85,7 @@ review_interval_days: 90
 | [桌宠角色设定文档化与多人格模板组织](explanation/persona-organization.md)（AVX-EXPL-003） | 桌宠 IP 与多人格模板（CAP-019）的角色如何文档化、版本化并维护 | 角色文档清单、字段化结构（prompt/开场白/语气/技能/错误兜底语）、人设目录与模板版本化、维护责任 |
 | [主动智能模式](explanation/proactive-intelligence-mode.md)（AVX-EXPL-008） | 完全访问上如何以广域画像授权、OS 能力、特权观察 Host、本地私密数据和主动操作组合既有 CAP | 评审提案；不替代 PRD/SRS/DATA_PRIVACY/ADR，不表示运行时已实现 |
 | [ESP32-S3 硬件延伸方案](explanation/esp32-s3-hardware-extension.md)（AVX-EXPL-005） | 如何把 ESP32-S3 做成物理桌宠终端 | 器件级设计输入：硬件边界、表现映射、设备协议与隐私红线；跨产品方向取舍与阶段准入见[配套硬件方向](explanation/companion-hardware-directions.md)（AVX-EXPL-011） |
-| [当前架构实现与演进评估](explanation/architecture-implementation-review.md)（AVX-EXPL-012） | 实际进程、数据和执行链路如何运转，底层应如何继续演进；§9 并入原底层优化评估（AVX-EXPL-010，FND-01～10） | 14 个深入专题、故障实验、模块边界、持久恢复、资源与部署、选项权衡、测量计划与 FND 分项证据；不改写已接受决策 |
+| [当前架构实现与演进评估](explanation/architecture-implementation-review.md)（AVX-EXPL-012） | 当前代码/仓库审计及历史架构证据如何定位；[2026-10-08 审计见 §10](explanation/architecture-implementation-review.md#10-2026-10-08-仓库审计) | §2～§9 为历史 ARC/FND 快照，§10 为当前复核；不改写已接受决策，排序只在 plan.md |
 | [HLS 本地智能体竞赛：能力拓展与验证规划](explanation/hls-agent-competition-plan.md)（AVX-EXPL-013） | 三人团队如何验证本地模型在 HLS 设计中的工具反馈增益并准备竞赛交付 | 赛规来源、能力缺口、阶段准入、对照实验、去留标准与冻结产物；当前认领和排序见根 plan.md，不代表实现或产品化已批准；[详细实施步骤](../plan.md#hls-plugin-delivery)覆盖真实验证、竞赛冻结与条件性插件集成 |
 | [纯本地多端点对点加密同步架构探索](explanation/p2p-local-sync-exploration.md)（AVX-EXPL-014） | 纯本地多设备同步的威胁模型、配对与冲突合并应如何取舍 | 探索性设计输入与未实现清单；不代表已接线能力或发布承诺，当前状态见根 plan.md 与追踪基线 |
 | [Pi AI 竞品差距分析与改进建议](explanation/pi-competitive-gap-improvements.md)（AVX-EXPL-015） | Pi AI 的关系型 AI 体验如何暴露思隅陪伴层的结构性缺陷 | 七项差距评估、三波改进建议、涉及 CAP/ADR 兼容性分析与实施优先级；设计输入，不代表实施授权 |
@@ -103,7 +100,7 @@ review_interval_days: 90
 | 文档 | 负责回答 | 事实源边界 |
 |---|---|---|
 | [文档治理与事实源规范](reference/document-governance.md)（AVX-DOC-GOV-001） | 文档如何分类、标记状态、确定唯一事实源并触发复核 | 分类、事实源矩阵、元数据、状态模型、owner、复核触发器与分阶段迁移 |
-| [文档写作规范](reference/standards/doc-standards.md)（AVX-STD-001） | 每份文档如何使用模板、命名、写作并通过门禁 | 写作体例、签名、命名、风格基线、Vale 术语门禁与模板族；治理规则见 AVX-DOC-GOV-001 |
+| [文档写作规范](reference/standards/doc-standards.md)（AVX-STD-001） | 每份文档如何使用模板、命名、写作并通过门禁 | 写作体例、元数据、命名、风格基线、Vale 术语门禁与模板族；治理规则见 AVX-DOC-GOV-001 |
 | [代码与 API 命名规范](reference/standards/naming-conventions.md)（AVX-STD-002） | 代码 / API 命名的唯一一致性标准 | 标识符与上下文 `ctx`、路由与 HTTP 语义、包名与目录组织、禁止词与术语开关；陈旧信号见 DOC_REGISTRY |
 | [术语表](reference/standards/terminology.md)（AVX-TERM-001） | 项目术语的唯一含义与规范写法 | 缩写/产品名唯一语义；Vale 依据「禁写」列自动校验 |
 | [文档生命周期登记表](DOC_REGISTRY.md) | 每份文档何时核验、多久复核、什么信号表示陈旧 | 核验节奏/陈旧信号；独立于索引维护 |
@@ -125,7 +122,7 @@ review_interval_days: 90
 
 ### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
 
-每份关键文档的最后核验时间、核验节奏与陈旧信号，独立维护在[文档生命周期登记表](DOC_REGISTRY.md)（AVX-DOC-CONF-001）；文档历史责任由各文档标题下的 `- 提出人 / - 修改人` 点阵签名追踪。何时更新登记、哪些代码路径触发复核，以[文档治理规范 §5-6](reference/document-governance.md#5-维护责任和更新触发器)为准。
+每份关键文档的最后核验时间、核验节奏与陈旧信号，独立维护在[文档生命周期登记表](DOC_REGISTRY.md)（AVX-DOC-CONF-001）；文档作者与修改历史由 Git 追踪。何时更新登记、哪些代码路径触发复核，以[文档治理规范 §5-6](reference/document-governance.md#5-维护责任和更新触发器)为准。
 
 ## 2. 权威顺序与冲突处理
 
@@ -136,7 +133,7 @@ review_interval_days: 90
 5. OpenAPI、数据库迁移和事件契约是实现接口的机器可验证事实源。
 6. 测试和发布记录证明某一版本是否兑现需求，但不能反向修改需求含义。
 
-文档冲突时停止相关发布，创建 `CR-*`，记录受影响的 `CAP/FR/NFR/DATA/AIQ/SEC/PRIV`，经评审批准后同步修订；不得在代码或口头沟通中静默选择一种解释。变更留痕见各文档头部的 `- 修改人` 签名。
+文档冲突时停止相关发布，创建 `CR-*`，记录受影响的 `CAP/FR/NFR/DATA/AIQ/SEC/PRIV`，经评审批准后同步修订；不得在代码或口头沟通中静默选择一种解释。变更留痕见 Git 与关联 PR。
 
 ## 3. 文档状态
 
@@ -146,14 +143,7 @@ review_interval_days: 90
 
 ## 4. 更新与评审节奏
 
-- 每个版本规划开始时：确认 CAP 范围、实验、NFR、数据影响。
-- 需求进入开发前：通过 Definition of Ready，并冻结对应 AC 和测试策略。
-- 每个 RC：执行需求、架构、隐私、安全、AI 评估和恢复门禁。
-- 上线后 7/30 天：核对业务指标、错误预算、AI 错误、安全事件、删除积压和成本。
-- 每季度：复核数据保留表、供应商、许可证、依赖版本、灾备演练和风险登记。
-- 文档每次变更：更新版本、日期、变更摘要、`- 修改人` 签名和关联 `CR/ADR/EXP`，不得只修改正文。
-
-阶段命名唯一映射：`R0=原型验证`、`R1=MVP`、`R1.5=MVP+`、`R2=P1 学习深化`、`R3=端形态扩展`、`R4=P2 连接智能化`、`R5=P3 生态规模化`。`P0～P3` 是能力优先级，不是发布阶段；产品发布计划表必须同时写两者。工程工作包的迭代批次不重新定义产品阶段。
+文档复核与生成视图同步见[治理规范 §5–6](reference/document-governance.md#5-维护责任和更新触发器)；改动等级见[写作规范 §3.1](reference/standards/doc-standards.md#31-改动等级与同步要求)。产品阶段、需求就绪与发布门禁以[追踪基线](reference/REQUIREMENTS_TRACEABILITY.md)为准，本索引不重复枚举。
 
 ### 4.1 能力拆分路线（建议批次）
 
@@ -161,32 +151,11 @@ review_interval_days: 90
 
 ## 5. 专业基线自检
 
-一个能力只有同时满足以下条件，才可称为“需求已就绪”：
-
-- 有稳定 ID、目标用户、业务理由、范围和非目标；
-- 主流程、异常、权限、空状态、撤销和删除影响明确；
-- 有可观测且可重复的验收条件，不以“智能、自然、友好”等形容词代替；
-- 数据、AI、安全、隐私、无障碍、性能、成本和迁移影响已评审；
-- 与 UX、API、数据实体、ADR、测试、埋点和目标版本双向关联；
-- 待验证判断登记为 `EXP-*`，风险登记为 `RISK-*`，不可逆决策登记为 `ADR-*`；
-- 发布后仍支持导出、更正、删除、降级、回滚和服务退出。
+就绪条件与验证证据见[追踪基线](reference/REQUIREMENTS_TRACEABILITY.md)；本索引只负责导航。
 
 ## 6. 参考项目
 
-以下 8 个项目均已作为固定 commit 的子模块放入仓库 `reference/`，用于验证设计假设与寻找实现模式；不作为 MVP 运行时强依赖：
-
-- `reference/baishou-next`（[BaiShou-Next](https://github.com/foxletters-hq/BaiShou-Next)）：研究 TypeScript 多端、本地数据、记忆与日记设计；AGPLv3，默认只借鉴公开思想，不复制代码。
-- `reference/dsh-synapse`（[dsh-synapse](https://github.com/liangmianya/dsh-synapse)）：研究会话分支、地图投影和 DSH 插件边界；MIT。
-- `reference/deepseek-harness`（[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)）：研究稳定接口、会话、模型提供方与扩展能力；MIT。
-- `reference/pi`（[pi monorepo](https://github.com/earendil-works/pi)）：研究可替换模型、会话与扩展接口；MIT。
-- `reference/AstrBot`（[AstrBot](https://github.com/AstrBotDevs/AstrBot)）：研究管线阶段、会话锁、插件元数据与人设管理；AGPLv3，默认只借鉴公开思想，不复制代码。
-- `reference/Petra`（[Petra](https://github.com/Wumiu/Petra)）：研究桌宠表现命令通道、自主行为引擎与记忆条目字段；MIT。
-- `reference/OpenMAIC`：研究多智能体间通信；MIT。
-- `reference/archify`：研究系统设计文档与代码的一致性验证；MIT。
-
-借鉴设计不等于验证用户需求，也不等于自动通过许可证、安全或维护性评审。
-
-固定 commit 与许可证清单以 [PRD 15.1](reference/PRD.md#prd-reference-manifest) 为唯一事实源（复核日期 2026-08-26）；任何升级需建立 `CR-*`、重跑许可证/契约测试并更新复核日期。
+固定版本、来源及许可证只在 [PRD §15.1](reference/PRD.md#prd-reference-manifest)维护，借鉴结论见[参考设计评估](explanation/reference-design-transfer.md)。`reference/` 是只读设计输入；源码版本以 Git 子模块指针核验，不能凭索引摘要推断许可证或运行时准入。
 
 ## 7. 从哪开始
 

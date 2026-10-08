@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.3.3
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
+version: 0.4.0
+updated_at: 2026-10-08
+reviewed_at: 2026-10-08
 review_interval_days: 90
 review_triggers:
   - docs/**
@@ -24,9 +24,6 @@ sources:
 
 # 文档治理与事实源规范
 
-- 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-09-28
-
 关联：[文档索引](../README.md)、[文档写作规范](standards/doc-standards.md)、[生命周期登记表](../DOC_REGISTRY.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)、[新增与规格化 CAP 能力](../how-to/add-capability.md)
 
 本文规定 Aervox 文档如何分类、归档、标记事实源、维护状态、触发复核并由工具校验。目标是让文档数量可控、同一事实只有一个维护入口，并能在代码变化后尽早发现描述漂移。
@@ -35,16 +32,7 @@ sources:
 
 ## 1. 当前基线与主要问题
 
-截至 2026-08-28，治理改造前的仓库基线为 64 份 Markdown 文档和 3 份 Mermaid 图，其中 45 份 Markdown 位于 `docs/reference/`；本分支新增治理规范与 CR 后为 66 份 Markdown。篇幅最长的 10 份文档约占基线正文的一半以上。目录数量本身不是阻断项，真正的维护风险来自以下四类不一致：
-
-| 风险 | 当前表现 | 造成的后果 |
-|---|---|---|
-| 元数据格式不统一 | 部分文档使用 blockquote 字段，部分 ADR/CR 使用 bullet 字段，部分字段缺失 | 无法可靠生成索引、状态统计和过期提醒 |
-| 状态语义混用 | `Review Candidate`、`Proposed`、`Implemented`、`More Evidence Required` 有时出现在同一份文档中 | 读者无法判断文档是否可用、决策是否批准、代码是否完成 |
-| 事实源重复 | README、索引、登记表、CR 和专题文档重复描述同一规则 | 修改一处后其它位置容易过期 |
-| 代码与文档异步 | 代码已经进入下一阶段，规范仍保留旧的“尚未实现”描述 | Agent 按旧文档修改错误层或重复实现 |
-
-本分支只建立治理基线和校验入口，不在一次变更中搬迁全部文件。目录搬迁、历史文档整理和内容拆分按第 7 节分阶段执行。
+治理关注四类风险：重复维护同一事实、混淆决策与交付状态、历史评估冒充当前实现，以及生成视图与来源不一致。数量与陈旧指标由校验器输出，不在规范中维护历史统计。
 
 ## 2. 文档分类与目录职责
 
@@ -60,7 +48,7 @@ sources:
 | `docs/reference/changes/` | Reference / CR | 某次变更的差量、影响、迁移和回滚 | 复制整份目标规范 |
 | `docs/templates/` | Template | 新文档应有的最小结构 | 真实项目结论 |
 | `docs/_meta/` | Machine data | 校验器和生成器需要哪些机器配置 | 面向用户的叙述 |
-| `docs/proposals/`（后续） | 暂存提案 | 尚未进入基线的方案是什么 | 已批准规则或实现承诺 |
+| `docs/proposals/` | 暂存提案 | 尚未进入基线的方案是什么 | 已批准规则或实现承诺 |
 
 目录规则：
 
@@ -78,7 +66,7 @@ sources:
 | 事实 | 唯一维护入口 | 允许的派生视图/引用 |
 |---|---|---|
 | 产品目标、用户场景、CAP、产品优先级和生命周期 | `docs/reference/PRD.md` | `README.md`、`plan.md` 中的引用、索引摘要 |
-| 当前迭代建议、工作排序、依赖、负责人认领与待决策项 | 根目录 `plan.md`（AVX-PLAN-001） | 专题评估、Issue/PR、Agent 入口仅链接条目，不维护第二份当前排期 |
+| 当前迭代建议、工作排序、依赖、负责人认领与待决策项 | `docs/_meta/plan-queue.json` 的条目与根 `plan.md` 的手写决策区（AVX-PLAN-001） | 专题评估、Issue/PR、Agent 入口仅链接条目，不维护第二份当前排期 |
 | 可测试业务行为、FR/BR/AC | `docs/reference/SRS.md` | 需求追踪矩阵、教程中的步骤说明 |
 | 需求状态、DoR/DoD、测试证据、代码落地状态 | `docs/reference/REQUIREMENTS_TRACEABILITY.md` | `docs/README.md`、PR 描述、发布说明 |
 | 当前系统边界、部署和模块所有权 | `docs/reference/ARCHITECTURE.md` | 数据流说明、README 架构速览 |
@@ -87,7 +75,7 @@ sources:
 | 数据表、仓储 Port、迁移和删除传播 | `packages/schema/`、`packages/repositories/` 及 `DATABASE.md` | ERD、数据流、CR 影响说明 |
 | 模型质量、安全和评估门槛 | `AI_QUALITY_SAFETY.md`、`THREAT_MODEL.md`、`DATA_PRIVACY.md` 各自负责的章节 | SRS/架构中的边界摘要 |
 | 变更差量、迁移和回滚 | 对应 `docs/reference/changes/CR-*.md` | PR、发布说明；不反向定义基线规则 |
-| 文档路径、核验日期和陈旧信号 | `docs/DOC_REGISTRY.md` | 文档索引、健康报告 |
+| 文档路径、核验日期和陈旧信号 | 各文档 Front Matter；`DOC_REGISTRY.md` 保留登记及复核信号 | 日期同步、目录快照与健康报告 |
 | 分类、字段、状态和校验规则 | 本文 + `docs/_meta/document-policy.json` | 校验脚本和模板 |
 
 `docs/README.md` 只回答“去哪里找”；`DOC_REGISTRY.md` 只回答“何时核验、什么信号表示陈旧”；两者都不再承担完整规则正文。
@@ -105,7 +93,7 @@ sources:
 5. **控制长度**：只保留当前、下一批及有限候选工作，不复制完整代码证据、API、Schema、CAP 全生命周期列表或已完成日志。完成条目保留稳定锚点与证据链接；每轮复盘收缩其描述，历史用 Git/外部归档仓库保存。不要为“永久留存”建立第二份活跃计划。
 6. **分支协作**：功能分支更新同一根路径；并行变更合并时按条目 ID 逐项协调，禁止用整文件覆盖消解冲突。其它分支未合入的草稿仅登记为候选和待决策输入，不视为当前基线。源分支有无关工作时，使用独立 worktree 迁移明确文件与差量。
 7. **机器与人工职责**：文档门禁校验固定根入口、唯一 `planning_role: current`、元数据、登记、链接及目录生成，并校验队列真源与 §2 派生视图同步（见第 8 条）；`plan.md` 单独变化也触发 Docs CI；删除入口不能被增量检查当作“没有文档变化”。机器不推断任意散文是否暗含排期，Code Review 负责检查是否产生第二份当前队列。
-8. **队列真源与派生视图**：工作条目维护在 `docs/_meta/plan-queue.json`（机器真源：编号、批次、状态、最小交付、CR 门槛、完成判定、责任、分支、依赖与证据链接），`plan.md` §2 的表格是它渲染出的派生视图，**禁止手改**。改条目后运行 `mise tasks run plan-render` 生成视图，`mise tasks run plan-check` 校验；校验项包括编号唯一、状态/批次枚举、依赖悬空与成环、在制并发上限、执行中须标分支、已移交须带证据、暂停须写阻碍，以及生成区与真源一致。强制级别写在策略 `currentIterationPlan.queue.enforcement`，当前为 `error`（2026-09-18 从观察期 `warning` 升级，升级前已验证 S1/S2/S3 三类纪律提示归零、ITER-001 跑通一次认领→移交闭环）：H1–H6 结构性规则与 S1–S4 纪律规则一律阻断，仅 S5（依赖次序）保持提示，以保留 §2 允许的可并行前置设计与测试夹具空间。§1/§3/§4/§5/§6 的叙述、待决策项与归并结论仍为手写。
+8. **队列真源与派生视图**：工作条目维护在 `docs/_meta/plan-queue.json`（机器真源：编号、批次、状态、最小交付、CR 门槛、完成判定、责任、分支、依赖与证据链接），`plan.md` §2 的表格是它渲染出的派生视图，**禁止手改**。改条目后运行 `mise tasks run plan-render` 生成视图，`mise tasks run plan-check` 校验；校验项包括编号唯一、状态/批次枚举、依赖悬空与成环、在制并发上限、执行中须标分支、已移交须带证据、暂停须写阻碍，以及生成区与真源一致。强制级别以 `document-policy.json` 的 `currentIterationPlan.queue` 为准；结构与纪律错误阻断，仅依赖次序 S5 提示，允许有证据的前置设计与夹具并行。§1/§3/§4/§5/§6 的叙述、待决策项与归并结论仍为手写。
 
 既有计划清点与归并结果记在 [plan.md](../../plan.md) 的材料清点部分。隐藏忽略目录、外部参考子模块和其它工作区不由脚本自动删除或改写；其中会话笔记不具有本项目当前排期权威。
 
@@ -124,8 +112,8 @@ doc_status: review-candidate
 decision_status: proposed
 delivery_status: planned
 version: 0.2.0
-updated_at: 2026-09-28
-reviewed_at: 2026-09-28
+updated_at: 2026-10-08
+reviewed_at: 2026-10-08
 review_interval_days: 90
 review_triggers:
   - packages/core/**
@@ -152,7 +140,7 @@ sources:
 - CR 的 `decision_status` 和 `delivery_status` 不得只写在正文中；必须各有一个机器字段。
 - `superseded` 文档必须填写 `superseded_by`，并在旧文档顶部放迁移链接。
 - “More Evidence Required”只能作为决策状态，不能同时当作文档类型状态。
-- **提案（Proposals）生命周期**：`docs/proposals/` 用于存放尚未进入基线的探索提案（`doc_status: draft` / `scope: proposal`）。提案在经评审决定采纳后，须转写为正式的 ADR（架构决策）或 CR（变更请求）并迁移至 `reference/` 进入基线；若未被采纳或搁置，状态转为 `rejected` 或 `retired`，移入 `docs/archive/` 留存，不留存在生产基线中。
+- **提案（Proposals）生命周期**：`docs/proposals/` 用于存放尚未进入基线的探索提案（`doc_status: draft` / `scope: proposal`）。提案在经评审决定采纳后，须转写为正式的 ADR（架构决策）或 CR（变更请求）并迁移至 `reference/` 进入基线；若未被采纳或搁置，分别将决策状态置为 `rejected` 或文档状态置为 `retired`，按[归档导航](changes/README.md)移交外部归档仓库，不留存在生产基线中。
 
 ## 5. 维护责任和更新触发器
 
@@ -170,56 +158,30 @@ sources:
 
 文档核验日期和代码提交日期是两个概念：`updated_at` 记录内容变更，`reviewed_at` 记录责任人确认内容仍与事实源一致。没有内容变化但完成核验时只更新 `reviewed_at`。
 
-`mise tasks run docs-triggers` 使用 Git porcelain v1 的 NUL 分隔输出识别当前工作区变动，必须保留路径首字符、空格以及重命名/复制操作的新旧路径。解析行为由 `scripts/docs-governance.test.mjs` 回归测试保护，并纳入 `mise tasks run ci-docs`；触发器输出是复核清单，不自动修改被命中的文档。
+`mise tasks run docs-triggers` 使用 Git porcelain v1 的 NUL 分隔输出识别当前工作区变动，必须保留路径首字符、空格以及重命名/复制操作的新旧路径。解析行为由 `scripts/docs-governance.test.mjs` 回归测试保护，并纳入 `mise tasks run ci-docs`；触发器输出是复核清单，不自动修改被命中的文档。确认无文档影响时，在 PR 使用 `docs-impact: none` 并说明理由；当前脚本不强制检查该声明。
 
 ## 6. 索引、登记和生成视图
 
-推荐的维护方向是“一个结构化目录，多个只读视图”：
+生成流程以现有脚本为准：
 
-```text
-docs/_meta/document-policy.json       # 分类、状态、校验策略
-docs/_meta/document-catalog.json      # 后续作为文档目录唯一输入
-        │
-        ├── docs/README.md             # 阅读导航
-        ├── docs/DOC_REGISTRY.md       # 生命周期视图
-        └── docs/reference/adr/README.md  # ADR 状态视图
-```
+| 来源 | 派生内容 | 更新 / 校验 |
+|---|---|---|
+| 各文档 Front Matter | `DOC_REGISTRY.md` 核验日期、`document-catalog.json` 目录快照 | `docs-sync` / `docs-catalog`；`docs-validate` 校验登记与日期 |
+| `docs/_meta/plan-queue.json` | `plan.md` §2 | `plan-render` / `plan-check` |
+| ADR 文件集合及 `decision_status` | ADR 索引与 ARCHITECTURE 的标记表格 | `docs-render` / `ci-docs` |
 
-在 `document-catalog.json` 落地前，`DOC_REGISTRY.md` 仍是人工维护的过渡事实源；任何生成器上线后必须先在 CI 中做双写比对，连续两个版本一致后再切换为单向生成。
+表内任务通过 `mise tasks run <任务名>` 调用。目录快照是输出，不是另一份编辑入口；`docs/README.md` 的主题导航及登记表的复核信号仍由人工维护。修改受治文档后同步日期并重建目录快照；结构变化再更新导航与登记条目。不要手改已有生成区。
 
-索引的最小字段为：`id`、标题、路径、类型、owner、doc_status、reviewed_at、review_interval_days、review_triggers。正文摘要不进入目录数据，避免索引复制规范。
+当前门禁会核对计划/ADR 生成区，但不会自动判断散文是否过时，也未校验目录快照的新鲜度。不能以全绿替代内容复核。若进一步自动生成导航，须先在 CI 双写比对，连续两个版本一致后再切换为单向生成；新增字段应保留 ID、路径、类型、owner、状态、核验日期与复核触发器，不复制规范正文。
 
 ## 7. 分阶段迁移
 
-以下是治理迁移方法与既有设计切片，不是当前排期；尚待执行的具体工作统一进入 [plan.md](../../plan.md)。已经存在的生成器、元数据或检查能力以当前实现核验，不能根据历史阶段标题重复建设。
+维护按触碰原则进行，具体工作只在 [plan.md](../../plan.md) 排期：
 
-### 阶段 A：不搬目录，先止血
-
-- 新增文档必须有唯一 ID、owner、状态和核验日期；
-- 修复失效本地链接和重复状态字段；
-- 把“当前实现”和“目标形态”分成明确小节；
-- 由 `mise tasks run docs-validate` 检查重复 ID、路径、链接和过渡期元数据；兼容期历史格式只报告迁移 warning，canonical 文档结构错误阻断。
-
-### 阶段 B：统一元数据和状态
-
-- 将 ADR/CR/核心 Reference 逐批转换为 front matter；
-- 对 ADR 使用 `decision_status`，对 CR 使用 `decision_status` + `delivery_status`；
-- 将 `DOC_REGISTRY.md` 与文档头的核验日期做机器比对；
-- 清理 `README`、索引、CR 中重复的完整规则。
-
-### 阶段 C：生成派生视图
-
-- 建立 `document-catalog.json`；
-- 自动生成 `docs/README.md` 的核心导航、`DOC_REGISTRY.md` 和 ADR/CR 索引；
-- CI 阻止手工修改生成区，生成差异必须在同一提交中更新；
-- 代码路径命中 review trigger 而文档未更新时，要求填写可审计的 `docs-impact: none`。
-
-### 阶段 D：按触碰原则拆分和归档
-
-- 优先拆分超过 500 行且同时承担两个以上职责的文档；
-- 先拆 `DATABASE.md`、`PRD.md`、`REQUIREMENTS_TRACEABILITY.md` 的附录/清单，再移动路径；
-- 旧文档保留迁移 stub 和 `superseded_by`，至少一个发布周期后再删除；
-- 将长期未采用的探索方案移入 `docs/proposals/` 或标记 `retired`，不混入生产 Reference。
+1. 修正事实冲突与失效引用；明确哪段是现行契约、历史证据或待实施目标。
+2. 将重复的规则、字段与状态替换为权威深链；保留读者完成当前任务所需的最小摘要。
+3. 已有生成器负责的视图只改来源；新增生成范围需先完成差异比对。
+4. 文档超过 500 行且承担多个职责时优先拆分；搬迁保留稳定编号与迁移入口至少一个发布周期，历史材料按归档导航移交。
 
 ## 8. 文档健康指标
 
@@ -238,12 +200,4 @@ docs/_meta/document-catalog.json      # 后续作为文档目录唯一输入
 
 ## 9. 本轮改造的验收边界
 
-本轮分支完成以下治理基线即可合并：
-
-1. 本文和 `document-policy.json` 成为文档治理规则的单一入口；
-2. `docs/README.md`、`DOC_REGISTRY.md`、getting-started 和文档写作规范均链接到本文，而不是复制其完整规则；
-3. `docs-validate` 能在无额外服务的情况下检查路径、ID、链接、登记关系和过渡期元数据；
-4. Agent Loop、能力组合和近期代码实现的“当前/目标”状态不互相矛盾；
-5. 现有目录结构不因本轮治理发生不可逆搬迁，后续迁移有明确阶段和回滚路径。
-
-本规范不批准自动删除历史文档、不批准把 `reference/` 外部项目作为运行时依赖，也不把治理脚本本身视为产品能力。
+治理整理必须保留需求、安全、迁移和发布门槛；历史测试记录转为证据链接，不据此提升交付状态。文档缩减不得删除未完成的要求，也不批准数据删除、外部项目运行时接入或架构替换。作者与修改历史由 Git 追踪，内容与核验日期按第 5 节维护。

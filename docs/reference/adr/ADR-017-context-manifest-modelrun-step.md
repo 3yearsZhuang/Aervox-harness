@@ -5,121 +5,90 @@ scope: decision
 owner: maintainers
 doc_status: review-candidate
 decision_status: accepted
-version: 0.2.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 0.3.0
+updated_at: 2026-10-08
+reviewed_at: 2026-10-08
 review_interval_days: 90
 ---
 
 # ADR-017 冻结 ContextManifest / ModelRun / AgentStep 关联与 Inbox 数据模型
 
-- 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-09-11
+决策已接受，经 CR-030 对齐本地单用户边界。`Accepted` 不表示完整实现或 G2 发布门禁通过；当前实现与差量见[验证入口](#verification-evidence)，发布状态以[追踪基线](../REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)为准。
 
-- 状态：Accepted（经 CR-030 修订目标边界）
-- 日期：2026-08-28
-- 接受日期：（待 G2 架构与数据门禁）
-
-- 关联：`AVX-HAR-001 §7.1/§7.2/§2.1/§4`（Context 组装与 AgentInboxItem）、`AVX-HAR-001 §13 阶段 5`（Inbox、压缩与高级能力）、`ADR-016`（底座边界冻结）、`ADR-005`（Provider Port）、`CAP-002/007`、NFR-DATA
-- 前置决策：[ADR-016](ADR-016-base-boundaries.md) 已把 `packages/agent-loop` 限定为不得导入 `@aervox/database`/Drizzle/SQLite，本 ADR 冻结的是**数据所有权分层**（模型/记录归属）与 **shop 关系基数**，两者正交。
+关联：[Agent Loop 的 Context 与 Inbox](../agent-harness-loop.md#7-context-与收件箱)、[ADR-005](ADR-005-provider-port.md)、[ADR-016](ADR-016-base-boundaries.md)、[ADR-021](ADR-021-aervox-core-standalone-package.md)、CAP-002/007、NFR-DATA。
 
 ## Context
 
-[AVX-HAR-001 §7.1](../agent-harness-loop.md#71-context-组装) 明确要求在此之前冻结 `ContextManifest` / `ModelRun` / `AgentStep` 的关联基数，并明确"不能继续用『按 Step/ModelRun 固化』这一含糊表述"：
-
-- 当前 `context_manifests`、`model_runs` 是通用 CRUD 记录，只以 `modelRunId` 间接关联，**没有** `attemptId`/`stepId` 字段；
-- `AgentStep` 是目标实体，当前尚未创建 schema；
-- `AgentInboxItem` 在 §7.2 已定义语义（followup/steer/inject），但仍无 schema、仓储与消费实现。
-
-同时，[阶段 5](../agent-harness-loop.md#阶段-5inbox压缩与高级能力)Inbox 落地需要先确立数据模型，而该数据模型与 `sessionId`/`attemptId`/`stepId` 的绑定关系必须线上冻结，避免进入实现后反向漂移。
+**提案时背景（2026-08-28）**：ModelRun 与 ContextManifest 当时只有通用记录，缺少 Attempt/Step 关联；Inbox 已定义 followup/steer/inject 语义，尚无持久化消费链。该背景解释为何冻结关联基数，不表示今天仍无这些实现。当前内核为 `packages/core`，Schema 与 Repository 分属 `packages/schema`、`packages/repositories`；不得恢复已退役的 `packages/database` 或 `packages/agent-loop` 包。
 
 ## Decision drivers
 
-1. **可追溯性（NFR-DATA）**：每个 ModelRun、ContextManifest、AgentStep、AgentInboxItem 必须能追溯到 `(sessionId, attemptId[, stepId])` 以及适用的来源/授权修订。缺少 `attemptId`/`stepId` 会使恢复、巡检和删除/撤权无法按 Attempt 粒度 fail-closed。
-2. **唯一父级**：`ContextManifest` 唯一父级应为 `ModelRun`（一次模型调用一个 manifest），避免"按 Step/按 ModelRun 固化"两可表述造成的基数漂移；ModelRun 的唯一父级应为 `AgentStep`；AgentStep 的唯一父级应为 TurnAttempt。
-3. **可重放恢复**：inbox 消费采用 claim/ack，崩溃后安全重放，因此必须绑定不可变来源、幂等键和状态字段。
-4. **扩展点接入**：高级能力（压缩/Skill/Subagent）通过扩展点接入，不修改 Loop 核心控制流（AVX-HAR-001 §13 阶段 5 退出条件）；Inbox 只作为 ContextBuilder 的追加输入源，不改 Event 流契约。
+- **可追溯性**：模型调用、来源清单、Step 与 Inbox 必须能追溯到 Session、Attempt、适用 Step 及来源/授权修订，使恢复、巡检、删除和撤权能按粒度 fail closed。
+- **唯一父级**：一次精确模型请求对应一份 Manifest；同 Step 的重试不能共用不变的请求身份或错配来源。
+- **持久消费**：Inbox 的来源、幂等键、目标和状态不可只存在内存；claim/ack 必须支持崩溃后的安全重放。
+- **扩展边界**：Inbox 经 ContextBuilder 追加输入，压缩/Skill/Subagent 经扩展点接入，不另写 Loop 或改写已提交事件。
 
 ## Considered options
 
-1. **保持"按 Step/ModelRun 固化"的含糊表述**：拒绝。无法冻结基数，恢复/巡检无法按粒度定位，违背 driver 1。
-2. **ModelRun 直接关联 Step 且 manifest 关联 Step（双父级）**：拒绝。一次 Step 可含多次重试模型调用（每次重试新 ModelRun），manifest 若直接挂 Step 会造出一对多且与模型调用不对齐的语义；必须保持 ModelRun 唯一父级。
-3. **新增 `attemptId`、`stepId`，并以 ModelRun 作为唯一父级（本决策）**：选定。上游模型调用→(ModelRun, manifest) 一对一对齐；ModelRun→AgentStep→TurnAttempt 严格单父下溯，满足可追溯与删除/撤权。
+| 选项 | 结论 |
+|---|---|
+| 模糊地“按 Step/ModelRun 固化” | 拒绝：不能确定一份来源清单对应哪次模型请求 |
+| ModelRun 与 Manifest 各自关联 Step | 拒绝：Step 可含重试，两个直接父级无法保证请求与来源一一对应 |
+| ModelRun 关联 Step，Manifest 只关联 ModelRun | 采用：调用、来源、Attempt 严格单父追踪 |
 
-### Inbox 数据模型选项（阶段 5a）
+<a id="inbox-数据模型选项阶段-5a"></a>
 
-1. **全内存 inbox**：拒绝。崩溃即丢，违背 claim/ack 安全重放与 NFR-DATA。
-2. **复用 Session 日志（直接写 TurnStreamEvent）**：拒绝。外部插件不能直接修改 Session 日志，只能提交受限 inbox command（§7.2），与安全边界冲突。
-3. **独立 `agent_inbox_items` 表 + 仓储（本决策）**：选定。绑定租户/session/attempt、来源 actor、幂等键、类型、顺序、状态、消费时间与过期时间；消费用 claim/ack。
+Inbox 采用独立 `agent_inbox_items` 表与仓储：全内存实现无法满足恢复要求，直接复用 Session 日志又会让外部输入越权改写 TurnStreamEvent，均不采用。
 
 ## Decision
 
-冻结以下数据所有权与关联基数（阶段 5a 起进入实现，未落地前保持"目标"状态）：
+以下为已接受合同；当前部分实现不能降低这些要求。
 
 ### 关联链（单父严格下溯）
 
 ```text
 TurnAttempt
-  └─ AgentStep            （一次模型请求及其工具结果闭环；Step 序号单调）
-       └─ ModelRun         （一次精确 Provider 调用；每次重试新 ModelRun）
-            └─ ContextManifest（本次模型调用实际使用的来源清单；唯一父级 = ModelRun）
+  └─ AgentStep             一次模型请求及工具结果闭环，序号单调
+       └─ ModelRun          一次精确 Provider 调用，每次重试新建
+            └─ ContextManifest  本次调用的不可变来源清单
 ```
 
-- `ModelRun`：唯一父级 = `AgentStep`；每 Step ≥1 条，重试产生新 ModelRun；**新增** `attemptId`、`stepId` 两个关联字段（迁移新增列，非新表）。
-- `ContextManifest`：唯一父级 = `ModelRun`；一个 ModelRun 对应一个不可变 Manifest，多来源为多行 manifest entries；**新增** `modelRunId → attemptId/stepId` 冗余可推导但不冗余存储，仅保留 `modelRunId`。
-- `AgentStep`：唯一父级 = `TurnAttempt`；`stepId` 在 Attempt 内单调递增，`executionId` 派生自 attemptId+stepId。
-- 消除 §7.1 的"按 Step/ModelRun 固化"含糊表述，统一为：**以 ModelRun 为唯一父级**。
+- `ModelRun` 的唯一父级为 AgentStep；每 Step 至少一条，重试产生新记录；以 `attemptId`、`stepId` 定位所属 Step。
+- `ContextManifest` 的唯一父级为 ModelRun；每次 ModelRun 对应一份不可变 Manifest，多来源用多个条目表达。仅保存 `modelRunId`，不重复保存可由父级推导的 attemptId/stepId。
+- AgentStep 的唯一父级为 TurnAttempt；`stepId` 在 Attempt 内单调递增，执行身份由 attemptId 与 stepId 派生。
 
-### AgentInboxItem（新增 `agent_inbox_items` 表）
+<a id="agentinboxitem新增-agent_inbox_items-表"></a>
 
-| 字段 | 说明 |
-|---|---|
-| `id` | UUID 幂等键，claim 依赖 |
-| `sessionId` + 来源/授权修订 | 本地目标与权限边界（不可变） |
-| `attemptId` / `stepId` | 消费目标（`next-turn`=null / `next-step` 定位 Step） |
-| `type` | `followup`/`steer`/`inject` |
-| `orderingSeq` | 顺序（同目标边界内单调） |
-| `sourceActor` | 来源 actor（用户/Agent/Plugin） |
-| `payload` | 内容载荷（compact 编码，含来源与用途标注） |
-| `status` | `pending`/`claimed`/`acknowledged`/`expired` |
-| `claimedAt` / `ackedAt` / `expiresAt` | 消费时间与过期时间 |
-| `consumeBoundary` | `next-turn`/`next-step`（= §7.2 消费边界） |
+### AgentInboxItem
 
-- 所有权：表属 `packages/database`（数据真源底座）；`packages/agent-loop`/host 仅通过 Port 读写（不导入 database/Drizzle，遵循 ADR-016）。
-- 外部插件只能通过受限 inbox command 提交，不能直接写表（§7.2 安全边界）。
-- 消费采用 **claim/ack**：`claimed` 后崩溃可安全重放；`steer` 只作用于下一 Step 输入，不能改写已提交事件；`expiresAt` 兜底回收。
+目标数据合同保留以下身份与消费语义；当前物理字段以 [Schema](../../../packages/schema/src/agent-inbox.ts) 和 [Repository Port](../../../packages/repositories/src/repositories/types/agent-inbox.ts)为机器真源，缺失字段仍是实现差量：
+
+- `id` 为 UUID 幂等身份；Session、来源 actor、来源/授权修订与用途绑定不可变；`payload` 保存受限内容及来源标注。
+- `type` 为 `followup` / `steer` / `inject`；`consumeBoundary` 为 `next-turn` / `next-step`，后者通过 attemptId/stepId 定位，前者不绑定当前 Step。
+- 同一目标边界以 `orderingSeq` 排序；状态为 `pending` / `claimed` / `acknowledged` / `expired`，记录 claimedAt/ackedAt/expiresAt。
+- 消费采用 claim/ack；claimed 后崩溃可安全重放，steer 只影响下一 Step 输入，不得改写已提交事件，expiresAt 负责过期回收。
+- Schema 属 `@aervox/schema`，仓储和迁移属 `@aervox/repositories`；Core 只消费 Port，不导入数据库。外部插件只提交受限 inbox command，不能直接写表。
 
 ## Positive consequences
 
-- 恢复/巡检/删除/撤权可按 Attempt→Step→ModelRun 严格粒度 fail-closed；
-- Inbox 独立表不污染 Session 日志，外部贡献体无法越权改写；
-- 高级能力（压缩/Skill/Subagent）以 ContextBuilder 追加输入接入，不改 Loop 核心控制流，满足阶段 5 退出条件。
+单父链允许按 Attempt/Step 定位请求、来源与删除影响；独立 Inbox 保持 Session 事件不可由外部贡献体直接改写，高级能力仍从受控扩展点接入。
 
 ## Negative consequences and risks
 
-- `model_runs`/`context_manifests` 需 Expand 迁移新增 `attemptId`/`stepId` 列；存量数据按现有 `modelRunId` 反填（历史数据多数为空，接受慢启动回填）。
-- `agent_inbox_items` 为新增表，需随阶段 5a 建表迁移；未建立前保持"目标"，不得在代码中假设其存在。
-- 需在 CI 中为 inbox 读写增加 Adapter/Port 边界校验，防止 future drift（段 5a 落地时落地 `import-boundary.mjs` 追加规则或仓储自测）。
+关联字段、独立 Step 与完整 Manifest 需要迁移和故障测试；仅增加列或记录一份 Turn 快照不能证明请求级来源链完整。历史记录缺少关联时不得伪造回填；Adapter、Port 与仓储的边界需要持续机器校验。
 
 ## Migration / rollback
 
-- 前向：用数据库 Expand 迁移（ADD COLUMN，不回填==空）新增 `model_runs.attemptId`、`model_runs.stepId`；不立即回填，待阶段 5b（user-initted backfill）补齐。
-- 回滚：仅舍这些列，不影响已写入的 `modelRunId` 主关联；`agent_inbox_items` 表未实现前无删除面。
+- 兼容前向迁移为 `model_runs` 增加可空 attemptId/stepId，不立即回填；初始化必须幂等。Manifest 通过 modelRunId 关联，不增加第二份父级身份。
+- 历史字段为空时保留“未知”语义；后续回填须有可核验来源，不能因迁移方便制造关联。
+- 回滚旧代码可忽略兼容新增字段，但必须保留已提交 ModelRun、Manifest 与 Inbox 数据；不得借回滚删除来源或改变 modelRunId 关系。删列、改关联或删除记录按[数据库迁移与回滚合同](../DATABASE.md#9-cr-030-破坏性迁移)评审和验证。
+
+<a id="实施进展2026-08-28阶段-7"></a>
+<a id="验收差距复核2026-08-31"></a>
 
 ## Verification evidence
 
-- 阶段 5a 落地时：`packages/database` 新增 `agent_inbox_items` 表 + 仓储自测；`packages/agent-loop` 通过 Port 消费，不导入 `@aervox/database`（由 `scripts/import-boundary.mjs` 机器校验）。
-- 关联链：ModelRun/ContextManifest 明确 `attemptId`/`stepId` 后，恢复/追溯测试（`agent-loop-recovery.test`）断言粒度定位。
-- 本 ADR 状态为 `Proposed`，仅当 G2 架构与数据门禁通过后置 `Accepted` 并落实现有 `ADR README` 登记。
-
-## 实施进展（2026-08-28，阶段 7）
-
-- `model_runs` Expand 迁移已落地：新增 `attempt_id`/`step_id` 列（init 幂等 PRAGMA 检查 + ADD COLUMN 不回填==空，对应本 ADR Migration 前向语义）；`context_manifests` 新增 `snapshot_json`（每 Turn 上下文快照）。
-- `@aervox/agent-loop`：`ExecutionStorePort.recordModelRun`（每 Step 一条，attemptId/stepId 关联）/ `recordContextManifest`（每 Turn 首 Step，snapshot=messages）——可观测副作用，不进入控制流（扩展点接入，同 recordToolExecution）。
-- API 接线：conversation 注入 `SqlitePlatformRepository` 落库（Step 级 model_runs + manifest 快照 + attach 关联回写）。
-- Verification evidence 对应：`context-manifest.test.ts`（executor Step 级写入）与 `platform-modelrun.test.ts`（Expand 幂等/仓储）已落地。
-
-## 验收差距复核（2026-08-31）
-
-- **已满足**：阶段 7/5a 落地（`model_runs.attempt_id/step_id`、`context_manifests.snapshot_json`、`agent_inbox_items` 与 claim/ack 消费；§16.20 登记）；`check:boundary` 零违规。
-- **未满足**：按文档头约定，接受仍待 G2 架构与数据门禁。
+- 已有 ModelRun attemptId/stepId、Manifest 快照和 Inbox 表/消费链；实现见 [Platform Schema](../../../packages/schema/src/platform.ts)、[Core executor](../../../packages/core/src/executor.ts)、[API sink](../../../apps/api/src/modules/companion/conversation/agent-executor.ts) 与 [Inbox API](../../../apps/api/src/modules/companion/inbox/routes.ts)。
+- 当前 ModelRun 在成功返回的 Step 后尽力写入，Manifest 仅首 Step 记录 `turn:history` 快照；失败/重试独立身份、每次请求来源条目与独立 AgentStep 尚未完整兑现，不能据此宣布本 ADR 全部验收完成。
+- 回归入口：[context-manifest](../../../packages/core/test/context-manifest.test.ts)、[platform-modelrun](../../../packages/repositories/test/platform-modelrun.test.ts)、[agent-inbox](../../../packages/repositories/test/agent-inbox.test.ts)、[Inbox API](../../../apps/api/test/inbox-routes.test.ts)。测试存在不等于本次已运行或覆盖完整目标。
+- 依赖边界由 [`import-boundary.mjs`](../../../scripts/import-boundary.mjs)守卫；恢复、删除/撤权、请求级关联与 G2 门禁须有独立证据。后续排序只在根 [plan.md](../../../plan.md)维护。
