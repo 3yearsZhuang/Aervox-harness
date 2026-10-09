@@ -39,4 +39,57 @@ describe("自动记忆召回资格", () => {
     // Recall expiry must not delete history retained by the user.
     expect((await memories.getRecord(local, "expired"))?.content).toBe("evidence");
   });
+
+  it("用途闸门：无有效授权或授权读取失败时不召回；授权有效时正常召回（fail-closed）", async () => {
+    const memories = new SqliteMemoryRepository(database.db, database.client);
+    await memories.createRecord(local, {
+      id: "eligible", layer: "long_term", type: "user_fact", content: "evidence", verificationStatus: "verified",
+    });
+    await indexMemoryFts(database.client, local, { id: "eligible", content: "evidence" });
+
+    const denied = createSqliteMemoryRecall({
+      db: database.db, client: database.client, embeddingProvider: null,
+      consentCheck: async () => false,
+    });
+    expect(await denied.recall(local, "evidence")).toEqual([]);
+
+    const broken = createSqliteMemoryRecall({
+      db: database.db, client: database.client, embeddingProvider: null,
+      consentCheck: async () => {
+        throw new Error("privacy store unavailable");
+      },
+    });
+    expect(await broken.recall(local, "evidence")).toEqual([]);
+
+    const granted = createSqliteMemoryRecall({
+      db: database.db, client: database.client, embeddingProvider: null,
+      consentCheck: async (purpose, scope) => purpose === "memory_long" && scope === "auto_recall",
+    });
+    expect(await granted.recall(local, "evidence")).toEqual([
+      expect.objectContaining({ id: "eligible", content: "evidence" }),
+    ]);
+  });
+
+  it("过采样补位：不合格命中不挤占合格结果名额（候选池覆盖后召回上限 5 全部合格）", async () => {
+    const memories = new SqliteMemoryRepository(database.db, database.client);
+    for (let i = 0; i < 6; i += 1) {
+      const id = `eligible-${i}`;
+      await memories.createRecord(local, {
+        id, layer: "long_term", type: "user_fact", content: "evidence", verificationStatus: "verified",
+      });
+      await indexMemoryFts(database.client, local, { id, content: "evidence" });
+    }
+    for (let i = 0; i < 18; i += 1) {
+      const id = `sensitive-${i}`;
+      await memories.createRecord(local, {
+        id, layer: "long_term", type: "user_fact", content: "evidence", verificationStatus: "verified",
+      });
+      await indexMemoryFts(database.client, local, { id, content: "evidence" });
+      await database.client.execute(`UPDATE memory_records SET sensitivity_class = 'sensitive' WHERE id = '${id}'`);
+    }
+    const recall = createSqliteMemoryRecall({ db: database.db, client: database.client, embeddingProvider: null });
+    const hits = await recall.recall(local, "evidence");
+    expect(hits).toHaveLength(5);
+    expect(hits.every((hit) => hit.id.startsWith("eligible-"))).toBe(true);
+  });
 });

@@ -165,13 +165,13 @@ review_interval_days: 90
 
 每个删除任务必须有 `DeletionRequest`、`idempotencyKey`、状态（`Requested/Blocked/Running/PartiallyCompleted/Completed/Failed`）、重试次数、失败原因、Owner 和最后验证时间。`PartiallyCompleted` 或 `Failed` 状态必须触发告警和用户可见进度；在完成前已删除来源始终不可召回。SLA 变更必须通过 `CR-*` 和隐私/安全批准。
 
-### 8.1 当前 Memory 清理切片
+### 8.2 当前 Memory 清理切片
 
 删除 Worker 只处理清单显式指定的 Memory 目标：清空正文、修订、摘要和证据片段，失效关联证据，删除全部模型向量及 FTS 索引，保留 tombstone；独立查询验证无残留后才登记完成。空目标、未知处理器或清理失败保持阻断，重试成功前不因 `failed` 解闸。迟到的 FTS/向量写入必须重新检查 tombstone。回归见[删除 Worker 测试](../../apps/worker/test/deletion-worker.test.ts)。
 
-自动召回仅接受已确认的长期记忆，并排除已删除、召回期限到期/非法及敏感或未知分级的数据；召回到期不删除仍在用户保留期内的历史，见[召回资格测试](../../apps/api/test/memory-recall-eligibility.test.ts)。当前仍在候选回读后检查期限/敏感度，不能据此宣称候选排序或授权过滤已完整。
+自动召回仅接受已确认的长期记忆，并排除已删除、召回期限到期/非法及敏感或未知分级的数据；主对话召回与主动回合上下文共用同一资格谓词，候选按过采样读取后逐条判定，防止不合格命中挤占注入名额，见[召回资格测试](../../apps/api/test/memory-recall-eligibility.test.ts)。自动召回另受 `memory_long` 用途闸门约束：宿主接线后无有效授权（或授权读取失败）即不召回，撤权立即生效；历史查看与导出不受该闸门影响。召回到期不删除仍在用户保留期内的历史。
 
-本切片不自动解释 `scope`、不把空清单当作全量删除，也不回写既有 completed 请求。HTTP 删除入口尚未形成来源到 Targets 的完整解析链；来源、日记、模型上下文快照、备份及独立恢复账本仍需按本规范继续实现。显式 Memory 清理测试不能替代全链路删除 E2E 或生产恢复演练。
+本切片不自动解释 `scope`、不把空清单当作全量删除，也不回写既有 completed 请求；创建面按 `(targetType, targetId)` 去重并拒绝同 target 不同 `ownerModule` 的声明，重复幂等键返回既有请求。HTTP 删除入口尚未形成来源到 Targets 的完整解析链；来源、日记、模型上下文快照、备份及独立恢复账本仍需按本规范继续实现。显式 Memory 清理测试不能替代全链路删除 E2E 或生产恢复演练。
 
 ## 9. 导出、更正与迁移
 

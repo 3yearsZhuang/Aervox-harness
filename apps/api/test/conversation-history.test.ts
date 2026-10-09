@@ -79,6 +79,14 @@ describe("跨 Turn 会话历史进入模型请求", () => {
   });
 
   it("已验证长期记忆经混合检索进入实际模型上下文", async () => {
+    // 自动召回受 memory_long 用途闸门约束（fail-closed）：先授予有效同意，未授权时不会注入
+    const consent = await built.app.inject({
+      method: "POST",
+      url: "/v1/consent",
+      headers,
+      payload: { purpose: "memory_long", scope: "auto_recall", policyVersion: "privacy-v1" },
+    });
+    expect(consent.statusCode).toBe(201);
     await built.toolRuntime.callTool(
       { workspaceId: "ws_history", subjectUserId: "usr_history" },
       "aervox_memory_store",

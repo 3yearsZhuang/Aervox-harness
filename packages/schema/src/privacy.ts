@@ -14,7 +14,7 @@ export const consentGrants = sqliteTable(
   {
     id: text("id").primaryKey(),
     actorId: text("actor_id").notNull(),
-    purpose: text("purpose").notNull(), // "diary" | "model_invocation" | "analytics" | "external_sync" | "device"
+    purpose: text("purpose").notNull(), // "core_learning" | "model_processing" | "memory_short" | "memory_long" | "daily_diary" | "analytics_optional" | "external_sync" | "plugin" | "device" | "proactive_profile"（词表与 DATA_PRIVACY §4 对齐）
     scope: text("scope").notNull(),
     policyVersion: text("policy_version").notNull(),
     grantedAt: text("granted_at").notNull(),
