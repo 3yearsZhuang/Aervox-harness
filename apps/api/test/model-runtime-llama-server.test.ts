@@ -152,4 +152,116 @@ describe("LlamaServerManager (CR-054)", () => {
     expect(handle.status).toBe("error");
     expect(handle.error).toContain("意外退出");
   });
+
+  it("健康请求挂起时按单请求超时结束（悬挂探针不拖死启动预算）", async () => {
+    const hangingFetch = ((_url: string, init?: RequestInit) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new DOMException("The operation was aborted.", "AbortError")));
+      })) as unknown as typeof fetch;
+    const manager = new LlamaServerManager({
+      resolveBin: () => "/fake/llama-server",
+      spawn: (() => createFakeChild()) as unknown as typeof import("node:child_process").spawn,
+      fetchImpl: hangingFetch,
+      probeIntervalMs: 10,
+      probeTimeoutMs: 120,
+      probeRequestTimeoutMs: 30,
+      killGraceMs: 20,
+    });
+
+    const t0 = Date.now();
+    await expect(manager.start(MODEL, { port: 8090, ctxSize: 1024, gpuLayers: 0, threads: 1 }))
+      .rejects.toThrow(/健康检查超时/);
+    expect(Date.now() - t0).toBeLessThan(1000);
+    expect(manager.getHandle().status).toBe("error");
+  });
+
+  it("旧代际迟到 exit/error 不污染新进程状态", async () => {
+    const children: FakeChild[] = [];
+    let mode: "hang" | "ok" = "hang";
+    const fetchImpl = ((_url: string, init?: RequestInit) => {
+      if (mode === "hang") {
+        return new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new DOMException("The operation was aborted.", "AbortError")));
+        });
+      }
+      return Promise.resolve(new Response("ok", { status: 200 }));
+    }) as unknown as typeof fetch;
+    const manager = new LlamaServerManager({
+      resolveBin: () => "/fake/llama-server",
+      spawn: (() => {
+        const child = createFakeChild(1000 + children.length);
+        children.push(child);
+        return child;
+      }) as unknown as typeof import("node:child_process").spawn,
+      fetchImpl,
+      probeIntervalMs: 10,
+      probeTimeoutMs: 80,
+      probeRequestTimeoutMs: 20,
+      killGraceMs: 20,
+    });
+
+    // A：探测挂起直至超时 → 强杀收尾
+    await expect(manager.start(MODEL, { port: 8091, ctxSize: 1024, gpuLayers: 0, threads: 1 }))
+      .rejects.toThrow(/健康检查超时/);
+    const childA = children[0]!;
+
+    // B：正常启动
+    mode = "ok";
+    const handleB = await manager.start(MODEL, { port: 8092, ctxSize: 1024, gpuLayers: 0, threads: 1 });
+    expect(handleB.status).toBe("running");
+
+    // A 的迟到回调：不得把 B 打成 error，也不得清掉 B 的引用
+    childA.emit("exit", 1, "SIGKILL");
+    childA.emit("error", new Error("late spawn error"));
+    const after = manager.getHandle();
+    expect(after.status).toBe("running");
+    expect(after.pid).toBe(children[1]!.pid);
+    expect(after.error).toBeNull();
+  });
+
+  it("无换行 stderr 洪泛有界：残片截断进环形缓冲，日志总量受限", async () => {
+    const child = createFakeChild();
+    const manager = new LlamaServerManager({
+      resolveBin: () => "/fake/llama-server",
+      spawn: (() => child) as unknown as typeof import("node:child_process").spawn,
+      fetchImpl: (async () => new Response("ok", { status: 200 })) as typeof fetch,
+      probeIntervalMs: 10,
+      probeTimeoutMs: 2000,
+    });
+    const startPromise = manager.start(MODEL, { port: 8093, ctxSize: 1024, gpuLayers: 0, threads: 1 });
+    const flood = Buffer.alloc(1024 * 1024, "x"); // 1MB 无换行
+    for (let i = 0; i < 4; i += 1) child.stderr.write(flood);
+    child.stderr.end();
+    await startPromise;
+
+    const logs = manager.getHandle().logs;
+    expect(logs.length).toBeGreaterThan(0);
+    expect(logs.length).toBeLessThanOrEqual(60);
+    expect(logs.every((line) => line.length <= 800)).toBe(true);
+  });
+
+  it("指标请求挂起时按超时返回 null（采样不悬挂）", async () => {
+    const fetchImpl = ((url: string, init?: RequestInit) => {
+      if (String(url).includes("/metrics")) {
+        return new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new DOMException("The operation was aborted.", "AbortError")));
+        });
+      }
+      return Promise.resolve(new Response("ok", { status: 200 }));
+    }) as unknown as typeof fetch;
+    const manager = new LlamaServerManager({
+      resolveBin: () => "/fake/llama-server",
+      spawn: (() => createFakeChild()) as unknown as typeof import("node:child_process").spawn,
+      fetchImpl,
+      probeIntervalMs: 10,
+      probeTimeoutMs: 2000,
+      metricsTimeoutMs: 40,
+    });
+    await manager.start(MODEL, { port: 8094, ctxSize: 1024, gpuLayers: 0, threads: 1 });
+
+    const t0 = Date.now();
+    const sample = await manager.sampleMetrics();
+    expect(sample).toBeNull();
+    expect(Date.now() - t0).toBeLessThan(500);
+  });
 });

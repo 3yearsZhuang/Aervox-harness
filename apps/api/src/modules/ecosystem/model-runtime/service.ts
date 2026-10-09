@@ -41,6 +41,10 @@ export interface ModelRuntimeServiceOptions {
   /** 自定义或注入的模型运行时驱动 SPI（缺省为不可用；具体实现由组合根提供） */
   driver?: ModelRuntimeDriver | null;
   stopTimeoutMs?: number;
+  /** 单文件下载体积上限 bytes（缺省 64 GiB；0 关闭） */
+  maxDownloadBytes?: number;
+  /** 单次下载时长上限 ms（缺省 0 不限；设置后超时中止并清理残片） */
+  maxDownloadDurationMs?: number;
 }
 
 interface TaskState extends DownloadTask {
@@ -139,6 +143,9 @@ export class ModelRuntimeService {
   private disposed = false;
   private generation = 0;
   private readonly stopTimeoutMs: number;
+  private readonly maxDownloadBytes: number;
+  private readonly maxDownloadDurationMs: number;
+  private metricsInFlight = false;
   private closing: Promise<void> | null = null;
   private stopping: Promise<unknown> | null = null;
   private starting: Promise<ModelRuntimeState> | null = null;
@@ -175,6 +182,8 @@ export class ModelRuntimeService {
     this.catalog = DEFAULT_CATALOG;
     this.llama = options.driver ?? unavailableModelRuntimeDriver;
     this.stopTimeoutMs = options.stopTimeoutMs ?? 10_000;
+    this.maxDownloadBytes = options.maxDownloadBytes ?? 64 * 1024 ** 3;
+    this.maxDownloadDurationMs = options.maxDownloadDurationMs ?? 0;
     const metricsInterval = options.metricsIntervalMs ?? 2000;
     if (metricsInterval > 0) {
       this.metricsTimer = setInterval(() => {
@@ -192,6 +201,48 @@ export class ModelRuntimeService {
 
   private partPathOf(task: TaskState): string {
     return `${path.join(this.modelsDir, task.fileName)}.part`;
+  }
+
+  /**
+   * 归一模型文件名（显式名/URL 派生名/持久化恢复名三路共用）：
+   * 单次解码后要求为纯 basename，拒绝空、`.`/`..`、路径分隔符与 NUL、超长，强制 .gguf 后缀。
+   */
+  private normalizeModelFileName(raw: string): string {
+    let name = raw;
+    try {
+      name = decodeURIComponent(raw);
+    } catch {
+      name = raw;
+    }
+    name = name.trim();
+    if (!name) throw new Error("invalid_model_file_name: 模型文件名为空");
+    if (name.includes("/") || name.includes("\\") || name.includes("\0")) {
+      throw new Error("invalid_model_file_name: 模型文件名不得包含路径分隔符");
+    }
+    if (name === "." || name === "..") throw new Error("invalid_model_file_name: 模型文件名不合法");
+    if (name.length > 200) throw new Error("invalid_model_file_name: 模型文件名过长");
+    if (!/\.gguf$/i.test(name)) throw new Error("invalid_model_url: 模型文件需为 .gguf 后缀");
+    return name;
+  }
+
+  /** 根包含断言：目标必须是模型目录的直接子文件（纵深防御，防越根写入） */
+  private assertWithinModelsDir(target: string): void {
+    const root = path.resolve(this.modelsDir);
+    if (path.dirname(path.resolve(target)) !== root) {
+      throw new Error("invalid_model_file_name: 模型路径超出模型目录");
+    }
+  }
+
+  /** 拒绝符号链接目标（防经 symlink 把字节写出模型根） */
+  private async assertNotSymlink(target: string): Promise<void> {
+    let stat: Awaited<ReturnType<typeof fs.lstat>>;
+    try {
+      stat = await fs.lstat(target);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+      throw error;
+    }
+    if (stat.isSymbolicLink()) throw new Error("invalid_model_file_name: 拒绝符号链接目标");
   }
 
   /** 读取持久化状态（缺失/损坏静默返回 null） */
@@ -251,13 +302,18 @@ export class ModelRuntimeService {
       if (saved.params) this.lastParams = { ...DEFAULT_PARAMS, ...saved.params };
       let restoredCount = 0;
       for (const t of saved.downloads ?? []) {
-        if (!/\.gguf$/i.test(t.fileName)) continue;
+        let fileName: string;
+        try {
+          fileName = this.normalizeModelFileName(t.fileName);
+        } catch {
+          continue; // 非法持久化名（历史残留/被篡改）：丢弃该项，不重建任务
+        }
         if (this.tasks.has(t.id)) continue;
         if (models.some((m) => m.id === t.id)) continue; // 已完成入库（或已删）的不再恢复
         const task: TaskState = {
           id: t.id,
           url: t.url,
-          fileName: t.fileName,
+          fileName,
           modelId: t.modelId,
           status: t.status === "paused" ? "paused" : "queued",
           receivedBytes: t.receivedBytes ?? 0,
@@ -313,7 +369,7 @@ export class ModelRuntimeService {
     for (const entry of entries) {
       if (!entry.isFile() || !/\.gguf$/i.test(entry.name)) continue;
       const modelPath = path.join(this.modelsDir, entry.name);
-      const sidecar: { url?: string; sha256?: string; status?: LocalModel["status"]; downloadedAt?: string } = {};
+      const sidecar: { url?: string; sha256?: string; status?: LocalModel["status"]; downloadedAt?: string; error?: string } = {};
       try {
         Object.assign(sidecar, JSON.parse(await fs.readFile(this.sidecarPath(modelPath), "utf8")));
       } catch {
@@ -327,6 +383,7 @@ export class ModelRuntimeService {
         url: sidecar.url,
         sha256: sidecar.sha256,
         status: sidecar.status === "error" ? "error" : "downloaded",
+        error: sidecar.error,
         downloadedAt: sidecar.downloadedAt ?? stat.mtime.toISOString(),
         path: modelPath,
       });
@@ -407,10 +464,7 @@ export class ModelRuntimeService {
   /** 发起下载：进入队列（排队或立即执行） */
   async startDownload(request: ModelDownloadRequest): Promise<ModelRuntimeState> {
     this.assertOpen();
-    const fileName = request.fileName ?? this.basenameFromUrl(request.url);
-    if (!/\.gguf$/i.test(fileName) && !request.fileName) {
-      throw new Error("invalid_model_url: 模型文件需为 .gguf 后缀");
-    }
+    const fileName = this.normalizeModelFileName(request.fileName ?? this.basenameFromUrl(request.url));
     const id = fileName.replace(/\.gguf$/i, "");
     const models = await this.scanModels();
     if (models.some((m) => m.id === id)) {
@@ -420,6 +474,9 @@ export class ModelRuntimeService {
       throw new Error(`download_busy: 模型「${id}」已在下载队列`);
     }
     const destPath = path.join(this.modelsDir, fileName);
+    this.assertWithinModelsDir(destPath);
+    await this.assertNotSymlink(destPath);
+    await this.assertNotSymlink(`${destPath}.part`);
     const task: TaskState = {
       id,
       url: request.url,
@@ -461,6 +518,9 @@ export class ModelRuntimeService {
       task.status = "running";
       task.controller = new AbortController();
       const destPath = path.join(this.modelsDir, task.fileName);
+      this.assertWithinModelsDir(destPath);
+      await this.assertNotSymlink(destPath);
+      await this.assertNotSymlink(`${destPath}.part`);
       task.partPath = `${destPath}.part`;
       let resumeFrom = 0;
       try {
@@ -481,6 +541,9 @@ export class ModelRuntimeService {
         signal: task.controller.signal,
         resumeOffsetBytes: resumeFrom,
         rateLimitBps: task.rateLimitBps ?? 0,
+        maxBytes: this.maxDownloadBytes,
+        maxDurationMs: this.maxDownloadDurationMs,
+        rootDir: this.modelsDir,
         onProgress: (p) => {
           task.receivedBytes = p.receivedBytes;
           task.totalBytes = p.totalBytes;
@@ -500,7 +563,14 @@ export class ModelRuntimeService {
         try {
           await this.start({ modelId: id });
         } catch (error) {
-          task.error = `autoStart 失败: ${error instanceof Error ? error.message : String(error)}`;
+          const message = `autoStart 失败: ${error instanceof Error ? error.message : String(error)}`;
+          task.error = message;
+          // 任务已移出队列，失败不以任务承载：改写侧车由注册表（models[].error）曝光
+          await fs.writeFile(
+            this.sidecarPath(destPath),
+            JSON.stringify({ url: task.url, sha256: result.sha256, status: "downloaded", error: message, downloadedAt: new Date().toISOString() }),
+            "utf8",
+          ).catch(() => undefined);
         }
       }
     } catch (error) {
@@ -637,9 +707,10 @@ export class ModelRuntimeService {
     return this.getState();
   }
 
-  /** 采样运行指标（llama.cpp /metrics；失败静默） */
+  /** 采样运行指标（llama.cpp /metrics；失败静默；在途采样时不叠加请求） */
   private async sampleMetrics(): Promise<void> {
-    if (this.disposed || !this.llama.running || this.llama.getHandle().port === null) return;
+    if (this.disposed || this.metricsInFlight || !this.llama.running || this.llama.getHandle().port === null) return;
+    this.metricsInFlight = true;
     const generation = this.generation;
     try {
       if (typeof this.llama.sampleMetrics === "function") {
@@ -651,6 +722,8 @@ export class ModelRuntimeService {
       }
     } catch {
       // 采样失败静默
+    } finally {
+      this.metricsInFlight = false;
     }
   }
 

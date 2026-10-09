@@ -108,7 +108,14 @@ export const modelRuntimeStateSchema = z.object({
 export const modelDownloadRequestSchema = z.object({
   url: z.string().url(),
   sha256: z.string().optional(),
-  fileName: z.string().optional(),
+  /** 纯文件名（无路径分隔符），必须为 .gguf 后缀；缺省时由 URL 末段派生并经同一约束校验 */
+  fileName: z
+    .string()
+    .min(1)
+    .max(200)
+    .regex(/^[^/\\\0]+$/, "模型文件名不得包含路径分隔符")
+    .refine((value) => /\.gguf$/i.test(value), "模型文件需为 .gguf 后缀")
+    .optional(),
   /** 下载完成后自动启动 llama-server 并联动 LLM 预设 */
   autoStart: z.boolean().optional().default(false),
   /** 限速（bytes/sec，缺省不限） */
