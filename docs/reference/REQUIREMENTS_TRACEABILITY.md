@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.56.1
-updated_at: 2026-10-08
-reviewed_at: 2026-10-08
+version: 1.56.2
+updated_at: 2026-10-09
+reviewed_at: 2026-10-09
 review_interval_days: 90
 ---
 
@@ -181,6 +181,8 @@ review_interval_days: 90
 
 代码与能力的落地完成情况由 Git 提交记录、PR 审查证据以及全自动化测试套件直接证明，不再在此维护手工同步的终端测试日志巨型表格。
 
+- `framework-decoupling-20261009`：ITER-052 框架解耦整改（[PR #262](https://github.com/3yearsZhuang/Aervox-harness/pull/262)）：模型事件流并入 Transport（fetch/IPC 双实现，桌面主进程按 sender 归属与释放；`packages/api-client/src/transport.ts`、`apps/desktop/src/main/api-event-streams.ts`）、插件状态按上下文实例化且注销释放监听（`packages/ui/src/composables/plugin-state.ts`、`plugins/focus-mode/src/ui/`）、模块消费改经公开窄 Port 且边界例外清零（`apps/api/src/modules/context.ts`、`scripts/import-boundary.mjs`）、日记素材抽 Port 且发布+版本+游标同事务（`packages/contracts/src/diary-material.ts`、`packages/repositories/src/repositories/sqlite/diary-material.ts`）、平台能力与提示词策略改宿主注入（`apps/api/src/modules/companion/conversation/prompt-policy.ts`、`packages/core/src/base-prompt.ts`）；验收证据见 PR #262 与 `ITER-052` 计划条目，不提升关联 CAP 的发布状态。
+- `orphan-turn-recovery-20261009`：ITER-002 剩余接单差量收口：新增孤儿 Turn 恢复 `recoverOrphanTurns`（Turn 已提交而首个 Attempt 从未创建 → Interrupted + done 终态，不自动重放，接入 Worker 周期恢复）与子任务委托原子接单 `createTurnWithAttempt`（Turn/消息/首个 Attempt 单写者事务，崩溃重试复用既有 Turn 与 Running Attempt）；实现位置 `packages/repositories/src/repositories/sqlite/conversation/turn-store.ts`、`attempt-store.ts`、`packages/host-agent/src/subagent-executor.ts`、`apps/worker/src/attempt-recovery.ts`；回归见 `packages/repositories/test/turn-acceptance.test.ts` 与 `packages/host-agent/test/subagent-executor.test.ts`；验收证据见 [PR #265](https://github.com/3yearsZhuang/Aervox-harness/pull/265) 与 `ITER-002` 计划条目。
 - `repository-audit-implementation-20261008`：ITER-050 在 [PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258) 落实审计的原子接单、消息/配置组合写、动态工具取消接线、取消恢复、锁回收与资产单源；Memory 删除仅完成无共享派生关系的明确目标切片。逐项验证与未完成范围见[审计 §10.2](../explanation/architecture-implementation-review.md#audit-findings)，不提升关联 CAP 的发布状态。
 - 历史落地日志（2026-08 至 2026-09 的阶段性切片流水账）已归档至外部归档仓库 `Aervox-docs-archive`；
 - 现行能力的生命周期推进（Mapped → Specified → Implemented → Verified → Released）统一维护在上方 **§4 覆盖矩阵** 中；

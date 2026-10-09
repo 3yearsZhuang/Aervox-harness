@@ -49,23 +49,24 @@
     {
       "id": "ITER-002",
       "batch": "first",
-      "status": "建议",
+      "status": "已移交",
       "delivery": "可靠接单剩余差量：Inbox 确认、Turn/Outbox 与 Attempt 的原子接单或可重放恢复；ARC-01；CAP-007。",
       "gate": "PR #228 的消费隔离、死信与已有 Attempt 恢复保留；修改接单或重放合同先 CR。",
       "acceptance": [
-        "Inbox 确认后写 Turn 失败不丢输入",
-        "Turn 已提交而 Attempt 创建失败时仍能发现并恢复；同幂等键不产生重复副作用"
+        "切片验收见 [PR #265](https://github.com/3yearsZhuang/Aervox-harness/pull/265)；适用限制见本条移交摘要。"
       ],
       "checks": [
+        "`packages/repositories/test/turn-acceptance.test.ts`",
         "`apps/api/test/conversation-dispatch-resilience.test.ts`",
-        "`packages/repositories/src/repositories/sqlite/conversation/attempt-store.ts`"
+        "`packages/host-agent/test/subagent-executor.test.ts`"
       ],
       "owner": "platform",
-      "branch": "fix/iter-002-reliable-dispatch-and-outbox",
-      "statusNote": "2026-10-08 审计重开剩余范围：PR #228 已修预加载失败和无租约 Attempt，但未覆盖 Inbox/Turn/Attempt 分离提交窗口；不得将部分修复标为整项闭环。",
+      "branch": "fix/iter-002-orphan-turn-recovery",
+      "statusNote": "2026-10-09 收口：原子接单与幂等由 PR #258 交付（Turn/消息/Outbox/首个 Attempt 单写者事务 + 五写点故障注入与并发回归）；本轮补「Turn 已提交而首个 Attempt 从未创建」的孤儿 Turn 恢复（recoverOrphanTurns → Interrupted + done，不自动重放，接入 Worker 恢复周期）与子任务委托原子接单 + 崩溃重试复用。适用限制：subagent_runs 行自身的中断恢复与跨进程同幂等键的 HTTP 语义不在本切片，重复副作用仍由唯一索引兜底。",
       "dependsOn": [],
       "links": [
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/265",
         "https://github.com/3yearsZhuang/Aervox-harness/pull/228",
         "docs/explanation/architecture-implementation-review.md#audit-findings"
       ]
@@ -1108,14 +1109,11 @@
     {
       "id": "ITER-052",
       "batch": "first",
-      "status": "执行中",
+      "status": "已移交",
       "delivery": "框架解耦审计整改：事件传输与平台能力注入、插件实例生命周期、API 窄依赖、日记素材访问、内核提示词策略与边界守卫；CAP-002/007/018/020。",
       "gate": "2026-10-09 用户授权继续解耦；遵循 ADR-014/016/021 与现行插件合同，保持本地 SQLite、HTTP/数据与权限语义；不执行生产迁移。",
       "acceptance": [
-        "自定义传输与认证覆盖模型事件流，取消释放资源",
-        "插件重建与并存实例互不影响，移除后无旧监听回写",
-        "模块消费者经公开窄 Port，领域服务不直接查询物理表，平台与产品策略由宿主注入",
-        "边界守卫拒绝解析遗漏和宿主子路径，相关回归及双门禁通过"
+        "切片验收见 [PR #262](https://github.com/3yearsZhuang/Aervox-harness/pull/262)；适用限制见本条移交摘要。"
       ],
       "checks": [
         "scripts/import-boundary.test.mjs",
@@ -1124,12 +1122,14 @@
       ],
       "owner": "Codex",
       "branch": "fix/framework-decoupling",
-      "statusNote": "2026-10-09 自 main c9d92cbc：事件流并入 Transport（fetch/IPC 双实现，桌面主进程按 sender 归属与释放）、插件状态按上下文实例化且注销释放监听、模块消费改经公开窄 Port（边界例外清零）、日记素材抽 Port 且发布+版本+游标同事务、平台能力与提示词策略改宿主注入、边界守卫按类型解析且失败阻断；另修类型边界重复声明与 CR-030 端口命名。增量与全量门禁通过，PR #262。",
+      "statusNote": "2026-10-09 自 main c9d92cbc：事件流并入 Transport（fetch/IPC 双实现，桌面主进程按 sender 归属与释放）、插件状态按上下文实例化且注销释放监听、模块消费改经公开窄 Port（边界例外清零）、日记素材抽 Port 且发布+版本+游标同事务、平台能力与提示词策略改宿主注入、边界守卫按类型解析且失败阻断；另修类型边界重复声明与 CR-030 端口命名。增量与全量门禁通过，PR #262。2026-10-09 核实 PR #262 已随 76319c26 合入；本轮切片移交，组合根注入无独立渲染用例等适用限制见 §4.2 登记，不提升发布状态。",
       "dependsOn": [],
       "links": [
         "docs/reference/ARCHITECTURE.md",
         "docs/reference/adr/ADR-014-modular-monolith-structure.md",
-        "docs/reference/adr/ADR-021-aervox-core-standalone-package.md"
+        "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/262"
       ]
     }
   ]
