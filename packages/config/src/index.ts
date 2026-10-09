@@ -178,6 +178,8 @@ export interface ApiConfig {
   turnExecution: TurnExecution;
   /** Context 压缩方式：rule | off（AERVOX_LOOP_COMPACTION，默认 off） */
   loopCompaction: "rule" | "off";
+  /** Startup recovery is local-only and cannot dispatch new tools. */
+  loopResume: "off" | "local-results";
   /** 3b privileged 工具管理员白名单（AERVOX_ADMIN_IDS，逗号分隔，默认空） */
   adminIds: string[];
   gptSovits: GptSovitsConfig;
@@ -266,6 +268,7 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
       ["background", "inline"] as const,
       "background",
     ),
+    loopResume: requireEnum("AERVOX_LOOP_RESUME", env.AERVOX_LOOP_RESUME, ["off", "local-results"] as const, "off"),
     loopCompaction: requireEnum(
       "AERVOX_LOOP_COMPACTION",
       env.AERVOX_LOOP_COMPACTION,

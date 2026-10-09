@@ -11,3 +11,4 @@ export * from "./dsh-reference.js";
 export * from "./dsh-adapter.js";
 export * from "./profile.js";
 export * from "./sqlite-observability.js";
+export * from "./resume-dispatcher.js";

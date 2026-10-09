@@ -150,6 +150,7 @@ export async function buildLoopProvider(
         modelId: snapshot.modelId,
         temperature: matchedPreset?.temperature ?? 0.7,
         maxTokens: effectiveMaxTokens,
+        ...(Number.isFinite(discoveredContextWindow) && discoveredContextWindow > 0 ? { contextWindowTokens: discoveredContextWindow } : {}),
         ...(Number.isFinite(requestTimeoutMs) && requestTimeoutMs > 0 ? { timeoutMs: requestTimeoutMs } : {}),
         redirect: options.requireLocalOnly ? "error" : undefined,
       });
@@ -184,6 +185,7 @@ export async function buildLoopProvider(
       modelId: cfg.modelId,
       temperature: cfg.temperature,
       maxTokens: effectiveMaxTokens,
+        ...(Number.isFinite(discoveredContextWindow) && discoveredContextWindow > 0 ? { contextWindowTokens: discoveredContextWindow } : {}),
       ...(Number.isFinite(requestTimeoutMs) && requestTimeoutMs > 0 ? { timeoutMs: requestTimeoutMs } : {}),
       redirect: options.requireLocalOnly ? "error" : undefined,
     });

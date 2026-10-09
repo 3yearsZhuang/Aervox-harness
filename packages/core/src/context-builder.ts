@@ -159,13 +159,25 @@ export function createSummaryCompaction(
       if (input.messages.length <= maxMessages) {
         return { messages: input.messages };
       }
-      const head = input.messages.slice(0, 2);
-      const tail = input.messages.slice(-2);
-      const summary: PromptMessage = {
-        role: "system",
-        content: `[Context compaction: ${input.messages.length - 4} messages between the first two and last two were summarized. Total context: ${input.messages.length} messages → ${head.length + tail.length + 1} entries.]`,
-      };
-      return { messages: [...head, summary, ...tail] };
+      const systems = input.messages.filter(m => m.role === "system");
+      const groups: PromptMessage[][] = [];
+      for (const message of input.messages.filter(m => m.role !== "system")) {
+        if (message.role === "tool") {
+          const group = groups.at(-1);
+          if (group?.[0]?.toolCalls?.some(c => c.id === message.toolCallId)) group.push(message);
+          continue;
+        }
+        groups.push([message]);
+      }
+      const kept: PromptMessage[][] = [];
+      let count = systems.length + 1;
+      for (const group of groups.toReversed()) {
+        if (count + group.length > maxMessages && kept.length) break;
+        kept.unshift(group); count += group.length;
+      }
+      const omitted = input.messages.length - systems.length - kept.flat().length;
+      const notice: PromptMessage = { role: "system", content: `[Context compaction: ${omitted} earlier messages omitted. No summary was generated; do not infer missing facts.]` };
+      return { messages: [...systems, notice, ...kept.flat()] };
     },
   };
 }

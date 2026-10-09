@@ -58,6 +58,21 @@ export function composeToolProviders(
   }
   return {
     tools,
+    async listTools() {
+      const visible = new Map<string, ToolSpec>();
+      nameToProvider.clear();
+      for (const provider of [...providers, ...(fallback ? [fallback] : [])]) {
+        for (const tool of provider.listTools ? await provider.listTools() : provider.tools) {
+          if (visible.has(tool.name)) {
+            if (provider !== fallback) throw new Error(`duplicate tool name: ${tool.name}`);
+            continue;
+          }
+          visible.set(tool.name, tool);
+          nameToProvider.set(tool.name, provider);
+        }
+      }
+      return [...visible.values()];
+    },
     async execute(input: ToolExecutionInput): Promise<ToolExecutionResult> {
       const provider = nameToProvider.get(input.name);
       if (provider) {

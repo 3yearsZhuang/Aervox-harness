@@ -7,8 +7,8 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 0.7.6
-updated_at: 2026-10-05
-reviewed_at: 2026-10-05
+updated_at: 2026-10-08
+reviewed_at: 2026-10-08
 review_interval_days: 90
 ---
 
@@ -22,6 +22,20 @@ review_interval_days: 90
 本文规定 Aervox Agent Harness Loop 的职责、状态机、Port、持久化边界、工具执行、取消恢复和阶段验收条件。阶段 0/1/2a-2e/3a/3b-A/3b-B 的历史记录包含原生实现：`packages/agent-loop` 提供 Replay/Scripted/真实 OpenAI 兼容 Provider、多 Step 工具循环、API/SSE 持久化、工具账本、写工具审批、`ask_user_question` 人机提问交互、lease TTL/续租、过期抢占、fencing 单一终态和 Worker 恢复；原阶段设计另列 3c+ 生产级安全补强、完整 Inbox/ContextManifest 关联、独立 Host 以及 DSH/pi Adapter 目标。文中标为“目标”的接口、表和状态转换，只有在对应代码、迁移和契约测试落地后才可视为运行能力。
 
 当前迭代建议、工作排序和待决策入口统一为根 [plan.md](../../plan.md)（AVX-PLAN-001），规划边界见[文档治理规范 §3.1](document-governance.md#31-当前迭代计划的唯一入口)。本文件保留阶段设计、退出条件与历史证据；旧阶段编号及当时的完成描述不代表默认生产接线或当前排期。实现与验收状态以[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)及其关联证据为准，已接受的契约和退出条件不因调整计划而失效。
+
+## 当前执行合同补充（CR-061）
+
+本节记录 ITER-044～048 的实现边界，裁决见 [CR-061](changes/CR-061-core-execution-contract-hardening.md)。API 和内存宿主复用 `HostToolRuntime`；审批完成后再次检查控制信号，工具派发复验注册代际、启用状态和当前授权。动态工具每 Step 重新发现，模型工具声明使用该次快照，旧声明不能调用替换后的 Handler。门控上下文缺失、未知算子与畸形条件均拒绝。
+
+Provider 的 `capabilities` 可报告工具/推理协议支持、已知上下文窗口与输出上限。OpenAI 兼容实现检查**最终序列化请求**（含完整消息和工具 Schema）加输出预留：可注入 Token 估计器，缺省用 UTF-8 字节与协议余量保守估算；未知窗口不伪造数值。用量可附缓存读写 Token。`length`、`content_filter`、无完整结束标记及非法工具参数不得执行工具，正文前缀保留且回合不标为完成。
+
+正文按至多 4096 UTF-8 字节的窗口提交，源静默时每 50 ms 刷新待发前缀；单 Step 累计响应上限为 8 MiB，OpenAI HTTP 响应缺省也受 8 MiB 限制。50 ms 控制轮询可打断静默模型等待；已提交正文后不再重试模型。限制针对收集与提交路径，不能替代宿主对子进程或忽略信号的外部服务的资源管理。规则压缩保留系统约束和完整工具调用/结果组，以明确省略提示替代旧占位摘要；单组过大时保留整组，由最终窗口检查拒绝超限请求。
+
+`AERVOX_LOOP_RESUME=local-results` 显式启用 API 启动恢复，缺省 `off`。单次最多扫描 10 个过期候选，串行重新取得 fencing 租约，只用当前准入的本机模型根据权威结果补完一轮正文，单候选截止 30 秒。恢复不运行回合插件钩子，不派发新工具；需要新动作时由用户发起新回合。已终态、缺失/重复配对、未知结果（即使 `replay: safe`）、审批待决、脱敏/删除内容或删除闸门阻断均不自动恢复。Worker 同时恢复时由 CAS 决定唯一执行者，Worker 已终结的 Attempt 不会复活。下一序号来自完整持久事件上界。停用开关回到既有 Worker 中断收敛，无数据迁移。
+
+公共入口仍为 `@aervox/core` 与 `@aervox/core/core`，执行收集器、终态收敛器、工具管线/账本及内部序列化函数不再从根入口暴露。工作区消费者通过公开 Port 与 `executeTurn` 集成，内部单元测试直接引用源码模块；软件包保持 `private: true` 和零运行时依赖。公开发布前仍需独立版本与发布审核。
+
+性能基线通过 `mise exec -- node scripts/benchmark-core.mjs --samples=5 --out=<path>` 生成 JSON，已记录的[受控基线](../_meta/core-benchmark-baseline.json)带构建产物摘要与环境，记录首段可见、取消延迟、提交批次字节与写入点采样堆内存；先构建 `@aervox/core`。SQLite 跨进程竞争继续使用 `scripts/worker-write-contention-drill.mjs` 的临时库和独立 Socket。基线为受控夹具测量，不能当成真实模型或用户磁盘的服务等级承诺；不把机器负载敏感的延迟阈值放入单元门禁。
 
 ## 1. 范围与非目标
 

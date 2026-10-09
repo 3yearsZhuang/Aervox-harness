@@ -1,3 +1,4 @@
+import { inspectToolResult } from "./tool-result-safe.js";
 /**
  * Aervox｜思隅 @aervox/core — 恢复裁决（AVX-HAR-001 §11.3「工具结果已权威提交但尚未注入」）
  *
@@ -60,7 +61,7 @@ export type ResumeDecision =
     };
 
 /** 从 Host executionId（attempt:step:seq）提取 step 段；非法返回空串 */
-const stepOf = (executionId: string): string => executionId.split(":")[1] ?? "";
+const stepOf = (executionId: string): string => executionId.split(":").at(-2) ?? "";
 
 /**
  * 裁决 Attempt 是否可在权威工具结果后安全续跑（§11.3 首范式）。
@@ -70,7 +71,8 @@ export function decideResume(
   executions: ResumeExecutionLike[],
 ): ResumeDecision {
   // 1) 已存在终态（done）→ 不得续跑
-  const done = events.find((e) => e.eventType === "done");
+  events = [...events].sort((a, b) => a.sequence - b.sequence);
+  const done = events.find((e) => e.eventType === "done" || e.eventType === "error");
   if (done) {
     return { resume: false, reason: "terminal_event", lastSequence: done.sequence };
   }
@@ -85,8 +87,16 @@ export function decideResume(
 
   // 3) 取最后已提交结果所在 Step 的完整工具批次（含同 Step 已请求但未收口的
   //    tool_request——崩溃残留的「工具意图已提交」边界，§11.3 行 4/5）并核对账本
-  const lastResult = toolResults[toolResults.length - 1]!; // 上方已保证非空
-  const lastBatchStep = stepOf(lastResult.data!.executionId!);
+  const intents = events.filter(e => (e.eventType === "tool_request" || e.eventType === "tool_result") && typeof e.data?.executionId === "string");
+  const allIds = new Set(intents.map(e => e.data!.executionId!));
+  const ledger = new Map(executions.map(e => [e.invocationId, e]));
+  if ([...allIds].some(id => !ledger.has(id))) return { resume: false, reason: "outcome_unknown" };
+  const latestIntent = intents.at(-1)!;
+  const lastBatchStep = stepOf(latestIntent.data!.executionId!);
+  const lastSequence = Math.max(...events.map(e => e.sequence));
+  if ([...allIds].some(id => stepOf(id) !== lastBatchStep && ["pending", "outcome_unknown", "pending_approval", "timeout_error"].includes(ledger.get(id)!.status))) {
+    return { resume: false, reason: "outcome_unknown" };
+  }
   const batchExecutionIds = new Set<string>();
   for (const ev of events) {
     const executionId = typeof ev.data?.executionId === "string" ? ev.data.executionId : "";
@@ -106,7 +116,7 @@ export function decideResume(
   const executionsInBatch = executions.filter((x) => batchExecutionIds.has(x.invocationId));
 
   // 4) 账本缺失 → 无可依据的确定性（不自动重放，§11.3）
-  if (executionsInBatch.length === 0) {
+  if (executionsInBatch.length !== batchExecutionIds.size) {
     return { resume: false, reason: "outcome_unknown" };
   }
 
@@ -124,7 +134,7 @@ export function decideResume(
     return {
       resume: true,
       reason: "synthesized",
-      lastSequence: lastResult.sequence,
+      lastSequence,
       synthesized: undetermined.map((x) => ({
         executionId: x.invocationId,
         status: x.status,
@@ -134,8 +144,8 @@ export function decideResume(
   }
 
   // 6) 批次全部已权威执行 → 可在该批结果后继续；否则混合批次按严格批次语义收敛
-  if (executionsInBatch.every((x) => x.status === "executed")) {
-    return { resume: true, reason: "resumable", lastSequence: lastResult.sequence };
+  if (executionsInBatch.every((x) => x.status === "executed" && toolResults.some(e => e.data?.executionId === x.invocationId))) {
+    return { resume: true, reason: "resumable", lastSequence };
   }
   return { resume: false, reason: "mixed_batch" };
 }
@@ -169,8 +179,11 @@ export function buildResumeHistory(input: {
   // 当前 Step 累积中的工具调用与结果；遇到下一个 delta 或事件流结束时闭合为一条 assistant 消息。
   let stepCalls: ToolCallRequest[] = [];
   let stepResults: PromptMessage[] = [];
+  let currentStep = "";
+  const callsByExecution = new Map<string, ToolCallRequest>();
 
   const flushStep = (): void => {
+    currentStep = "";
     if (stepCalls.length === 0) {
       // 无调用可配对：孤儿 tool 结果（事件被截断/裁决遗漏）一律丢弃，避免孤立 tool_call_id；
       // 但已提交正文要保留——不能因配对缺失就吃掉模型已产出的内容。
@@ -192,7 +205,7 @@ export function buildResumeHistory(input: {
     stepResults = [];
   };
 
-  for (const ev of input.events) {
+  for (const ev of [...input.events].sort((a, b) => a.sequence - b.sequence)) {
     const data = ev.data ?? {};
     if (ev.eventType === "message") {
       if (typeof data.messageId === "string") messageId = data.messageId;
@@ -201,31 +214,34 @@ export function buildResumeHistory(input: {
     if (ev.eventType === "delta") {
       if (typeof data.text === "string" && data.text) {
         // 新正文 ⇒ 上一 Step 已结束（executor 每 Step 先落 delta 再落工具批次）
-        if (assistantText) flushStep();
+        if (stepCalls.length) flushStep();
         assistantText += data.text;
       }
       continue;
     }
     if (ev.eventType === "tool_request") {
-      stepCalls.push({
+      const executionId = typeof data.executionId === "string" ? data.executionId : "";
+      const step = stepOf(executionId);
+      if (currentStep && step !== currentStep) flushStep();
+      currentStep = step;
+      const call: ToolCallRequest = {
         id: typeof data.invocationId === "string" ? data.invocationId : "",
         name: typeof data.name === "string" ? data.name : "",
         arguments: data.arguments,
-      });
+      };
+      stepCalls.push(call);
+      callsByExecution.set(executionId, call);
       continue;
     }
     if (ev.eventType === "tool_result") {
-      const ok = typeof data.ok === "boolean" ? data.ok : false;
-      stepResults.push({
-        role: "tool",
-        content: JSON.stringify({
-          ok,
-          output: data.output,
-          error: data.error,
-        }),
-        toolCallId: typeof data.invocationId === "string" ? data.invocationId : "",
-        name: typeof data.name === "string" ? data.name : "",
-      });
+      const call = callsByExecution.get(typeof data.executionId === "string" ? data.executionId : "");
+      if (!call) continue;
+      const raw = JSON.stringify({ ok: data.ok === true, output: data.output, error: data.error });
+      const inspected = inspectToolResult(raw);
+      const content = inspected.injection
+        ? JSON.stringify({ ok: false, error: "blocked_tool_injection: 工具输出疑似含提示注入样本，已拦截且不注入完整内容" })
+        : inspected.text;
+      stepResults.push({ role: "tool", content, toolCallId: call.id, name: call.name });
       continue;
     }
     // 其它事件（done/error/approval 等）：不参与上下文重建

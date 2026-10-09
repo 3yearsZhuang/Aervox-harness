@@ -103,9 +103,16 @@ export function createApprovalGatedToolProvider(
   proactiveActionAuthorizer?: ProactiveActionAuthorizer,
   observability?: Observability,
 ): ToolProviderPort {
-  const specs = new Map(provider.tools.map((tool) => [tool.name, tool]));
+  let specs = new Map(provider.tools.map((tool) => [tool.name, { ...tool }]));
   return {
     tools: provider.tools,
+    listTools: provider.listTools ? async () => {
+      // A failed refresh must not leave previously advertised tools authorized.
+      specs.clear();
+      const tools = await provider.listTools!();
+      specs = new Map(tools.map((tool) => [tool.name, { ...tool }]));
+      return tools;
+    } : undefined,
     async execute(input: ToolExecutionInput): Promise<ToolExecutionResult> {
       const emitResult = (res: ToolExecutionResult): ToolExecutionResult => {
         if (res.ok) {
@@ -122,7 +129,8 @@ export function createApprovalGatedToolProvider(
       }
 
       const spec = specs.get(input.name);
-      if (!spec || spec.readOnly) return emitResult(await provider.execute(input));
+      if (!spec) return emitResult({ ok: false, error: `unregistered_tool: ${input.name}` });
+      if (spec.readOnly) return emitResult(await provider.execute(input));
 
       const argumentsHash = stableStringify(input.arguments);
       const granted = await findExplicitToolApproval(repo, tenant, {
@@ -215,11 +223,26 @@ export function createRuntimeToolProvider(
     proactiveActionAuthorizer?: ProactiveActionAuthorizer;
     observability?: Observability;
     capabilityTier?: string;
+    isToolAllowed?: (tool: Awaited<ReturnType<ToolRuntime["listTools"]>>[number]) => Promise<boolean>;
   },
 ): ToolProviderPort {
+  let declared: Map<string, { id: string; revision?: string }> | undefined;
   return {
     // 工具清单随注册表动态变化，不在此静态缓存（execute 时实时校验）
     tools: [],
+    async listTools() {
+      const rows = await runtime.exportRegistry();
+      const visible = [];
+      declared = new Map();
+      for (const tool of rows) {
+        if (deps.capabilityTier === "restricted" && tool.safetyLevel !== "read_only") continue;
+        if (deps.isToolAllowed && !(await deps.isToolAllowed(tool))) continue;
+        declared.set(tool.name, { id: tool.id, revision: (tool as typeof tool & { runtimeRevision?: string }).runtimeRevision });
+        visible.push({ name: tool.name, description: tool.description, readOnly: tool.safetyLevel === "read_only",
+          parameters: tool.inputSchemaJson && typeof tool.inputSchemaJson === "object" ? tool.inputSchemaJson as Record<string, unknown> : undefined });
+      }
+      return visible;
+    },
     async execute(input: ToolExecutionInput): Promise<ToolExecutionResult> {
       const emitResult = (res: ToolExecutionResult): ToolExecutionResult => {
         if (res.ok) {
@@ -242,10 +265,16 @@ export function createRuntimeToolProvider(
         return emitResult({ ok: false, error: `unregistered_tool: ${input.name}` });
       }
 
+      if (declared && declared.get(input.name)?.id !== tool.id) return emitResult({ ok: false, error: "tool_not_declared" });
+      const expectedRevision = declared?.get(input.name)?.revision;
+      const authorize = async () => !deps.isToolAllowed || await deps.isToolAllowed(tool);
+      input.signal?.throwIfAborted();
+      if (deps.isToolAllowed && !(await deps.isToolAllowed(tool))) return emitResult({ ok: false, error: "tool_permission_denied" });
+      input.signal?.throwIfAborted();
       // 只读工具：自主执行
       if (tool.safetyLevel === "read_only") {
         try {
-          const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: false });
+          const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: false, signal: input.signal, controlContext: input.controlContext, expectedRevision, authorize });
           return emitResult({ ok: true, output });
         } catch (err) {
           return emitResult({ ok: false, error: errorMessage(err) });
@@ -270,7 +299,7 @@ export function createRuntimeToolProvider(
         });
         if (granted) {
           try {
-            const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: true });
+            const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: true, signal: input.signal, controlContext: input.controlContext, expectedRevision, authorize });
             return emitResult({ ok: true, output });
           } catch (err) {
             return emitResult({ ok: false, error: errorMessage(err) });
@@ -318,6 +347,7 @@ export function createRuntimeToolProvider(
                   const output = await runtime.callTool(tenant, tool.id, input.arguments, {
                     approval: true,
                     proactiveAuthorization: true,
+              signal: input.signal, controlContext: input.controlContext, expectedRevision, authorize,
                   });
                   return { ok: true, output };
                 } catch (error) {
@@ -343,7 +373,7 @@ export function createRuntimeToolProvider(
           }, `${FULL_ACCESS_DECIDER_PREFIX}${actor}`);
           if (!recorded) return emitResult({ ok: false, error: "full_access_approval_not_recorded" });
           try {
-            const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: true });
+            const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: true, signal: input.signal, controlContext: input.controlContext, expectedRevision, authorize });
             return emitResult({ ok: true, output });
           } catch (err) {
             return emitResult({ ok: false, error: errorMessage(err) });

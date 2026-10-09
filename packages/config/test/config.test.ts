@@ -21,6 +21,7 @@ describe("loadApiConfig（缺陷 E）", () => {
     expect(cfg.loopProvider).toBe("llm");
     expect(cfg.loopDriver).toBe("native");
     expect(cfg.loopCompaction).toBe("off");
+    expect(cfg.loopResume).toBe("off");
     expect(cfg.adminIds).toEqual([]);
     expect(cfg.gptSovits).toMatchObject({ protocol: "http", modelId: "default-remote", allowedRoots: [] });
     expect(cfg.asr.whisperModelId).toBe("whisper-1");

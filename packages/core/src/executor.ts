@@ -1,4 +1,4 @@
-import { abortableStream } from "./abortable.js";
+import { ControlContext } from "./control-context.js";
 import { dedupeKey } from "./stable-serialize.js";
 /**
  * Aervox｜思隅 @aervox/core — Turn 执行器（阶段 2：只读工具多 Step Loop）
@@ -122,7 +122,8 @@ export async function executeTurn(
   const maxConsecutiveSameTool = options?.maxConsecutiveSameTool ?? 0;
   const maxModelRetries = options?.maxModelRetries ?? 1;
   const startedAt = Date.now();
-  const control = input.controlContext ?? deps.controlContext;
+  const parentControl = input.controlContext ?? deps.controlContext;
+  const control = parentControl?.deriveSubtask() ?? new ControlContext();
 
   // 4b 续跑：以「抢占续跑」语义重新 claim（预期 = 原执行已持有的 fencing）；
   // 全新执行为 0（首次 claim）。
@@ -133,6 +134,7 @@ export async function executeTurn(
     expectedFencingToken: resume?.expectedFencingToken ?? 0,
   });
   if (!claim.ok) {
+    control.dispose();
     return { status: "skipped", attemptId: input.attemptId, reason: claim.reason };
   }
   const claimLeaseId = claim.leaseId;
@@ -161,6 +163,9 @@ export async function executeTurn(
 
   // ITER-041：终态收敛器已切至 turn-terminator.ts（取消 / 预算 / 删除闸门 / 租约丢失
   // 四条收敛路径与主循环解耦）。stepsTaken 以 getter 传入，保持与主循环同步递增。
+  let interruption: string | undefined;
+  let monitorFailure: unknown;
+  let monitoring = true;
   const terminator = createTurnTerminator({
     execution,
     turnId: input.turnId,
@@ -174,8 +179,26 @@ export async function executeTurn(
     control,
     maxTurnDurationMs,
     startedAt,
+    interruptionReason: () => interruption,
+    checkFailure: () => {
+      heartbeat?.throwIfLost();
+      if (monitorFailure) throw monitorFailure;
+    },
   });
   const { finalizeCancelled, finalizeInterrupted, prematureTermination } = terminator;
+
+  let checking = false;
+  const removeLost = heartbeat?.onLost(() => control.abort(new LeaseLostError()));
+  const monitor = setInterval(() => {
+    if (!monitoring || checking || control.isAborted()) return;
+    checking = true;
+    void (async () => {
+      if (await execution.isCancelRequested(input)) interruption = "cancelled";
+      else if (deletionGate && await deletionGate.isBlocked(input)) interruption = "deletion_blocked";
+      else if (maxTurnDurationMs > 0 && Date.now() - startedAt >= maxTurnDurationMs) interruption = "turn_timeout";
+      if (monitoring && interruption) control.abort(new Error(interruption));
+    })().catch(error => { if (monitoring) { monitorFailure = error; control.abort(error); } }).finally(() => { checking = false; });
+  }, 50);
 
   try {
     // 4b 续跑：sequence 沿用已存在事件之后（lastSequence+1 起），message 身份事件已有则跳过、
@@ -235,6 +258,7 @@ export async function executeTurn(
             limit: 20, // maxInboxItemsPerStep
           })
         : [];
+      const stepTools = tools?.listTools ? await tools.listTools() : tools?.tools;
       const context = await contextBuilder.build({
         turnId: input.turnId,
         sessionId: input.sessionId,
@@ -273,7 +297,7 @@ export async function executeTurn(
         new StepCollector({
           provider,
           context,
-          tools: tools?.tools,
+          tools: stepTools,
           turnId: input.turnId,
           attemptId: input.attemptId,
           step,
@@ -283,7 +307,22 @@ export async function executeTurn(
           prematureTermination: () => prematureTermination(sequence),
           finalizeInterrupted: (reason) => finalizeInterrupted(sequence, reason),
           appendReasoningDelta,
+          appendTextWindow: async (window) => {
+            control.abortSignal.throwIfAborted();
+            heartbeat?.throwIfLost();
+            const segments = window.filter(c => c.text.length).map(c => ({
+              turnId: input.turnId, attemptId: input.attemptId, expectedFencingToken: claimFencingToken,
+              sequence: sequence++, text: c.text, eventData: { messageId, text: c.text, isFinal: false }, safetyDecision: "approved" as const,
+            }));
+            // A failed non-atomic host batch may already have exposed a prefix; never retry it.
+            visibleText ||= segments.length > 0;
+            if (execution.recordSafeSegments) await execution.recordSafeSegments(segments);
+            else for (const segment of segments) await execution.recordSafeSegment(segment);
+            persistedChunks += window.length;
+          },
         });
+      let persistedChunks = 0;
+      let visibleText = false;
       let activeCollector = makeCollector();
       let collected: StepCollection;
       try {
@@ -292,10 +331,11 @@ export async function executeTurn(
         const stop = await prematureTermination(sequence);
         if (stop) return stop;
         // B4-C：仅【首个可见片段前且无副作用】时允许重试（§10 maxModelRetries）
-        const canRetry = canRetryModel && !activeCollector.hasEmittedReasoning
+        const canRetry = canRetryModel && !visibleText && !activeCollector.hasEmittedReasoning
           && !(err instanceof LeaseLostError) && !heartbeat?.lost;
         if (!canRetry) throw err;
         canRetryModel = false;
+        persistedChunks = 0;
         activeCollector = makeCollector();
         collected = await activeCollector.collect();
       }
@@ -319,7 +359,7 @@ export async function executeTurn(
       // commit the whole step in a bounded transaction to avoid a SQLite
       // BEGIN/fencing round-trip for every token-sized chunk.
       const persistSafeSegments = async (isFinal: boolean): Promise<void> => {
-        const inputs = chunks
+        const inputs = chunks.slice(persistedChunks)
           .filter((chunk) => chunk.text.length > 0)
           .map((chunk) => ({
             turnId: input.turnId,
@@ -370,6 +410,16 @@ export async function executeTurn(
         }
       } catch {
         // 可观测写入失败不影响主流程（审计/指标侧写失败收敛）
+      }
+
+      if (!chunks.some(c => c.isFinal)) {
+        await persistSafeSegments(false);
+        return finalizeInterrupted(sequence, "model_incomplete");
+      }
+      const incomplete = chunks.find(c => c.stopReason && c.stopReason !== "stop" && c.stopReason !== "tool_calls");
+      if (incomplete) {
+        await persistSafeSegments(false);
+        return finalizeInterrupted(sequence, `model_${incomplete.stopReason}`);
       }
 
       // 无工具请求 → 正文完成，终止循环
@@ -620,12 +670,14 @@ export async function executeTurn(
     });
     return { status: "interrupted", attemptId: input.attemptId, reason: "max_steps" };
   } catch (err) {
+    if (interruption === "deletion_blocked" || interruption === "turn_timeout") return finalizeInterrupted(await execution.nextSequence(input.turnId), interruption);
+    if (err instanceof LeaseLostError || heartbeat?.lost) return { status: "failed", attemptId: input.attemptId, reason: "lease_lost" };
     if (control?.budgetExceeded) return finalizeInterrupted(await execution.nextSequence(input.turnId), "token_or_call_budget_exceeded");
     if (control?.isExpired()) {
       const atSeq = await execution.nextSequence(input.turnId);
       return finalizeInterrupted(atSeq, "deadline_exceeded");
     }
-    if (control?.isAborted()) {
+    if (control?.isAborted() && !monitorFailure) {
       const atSeq = await execution.nextSequence(input.turnId);
       return finalizeCancelled(atSeq);
     }
@@ -653,6 +705,10 @@ export async function executeTurn(
     return { status: "failed", attemptId: input.attemptId, reason: "execution error" };
   } finally {
     // B2：无论正常/中止均停止心跳，避免泄漏定时器或在终态后继续续租
+    monitoring = false;
+    clearInterval(monitor);
+    removeLost?.();
+    control.dispose();
     heartbeat?.stop();
   }
 }

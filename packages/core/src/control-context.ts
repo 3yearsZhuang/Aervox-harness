@@ -5,6 +5,8 @@
  * 作用：为模型调用、执行循环、工具运行及派生子任务提供不可逆收紧的执行控制输入。
  */
 
+class ControlDeadlineError extends Error {}
+
 export interface TokenBudget {
   readonly maxTokens: number;
   usedTokens: number;
@@ -91,10 +93,10 @@ export class ControlContext {
       const now = Date.now();
       const delay = Math.max(0, this.deadlineEpochMs - now);
       if (delay === 0) {
-        this.abortController.abort(new Error(`ControlContext deadline reached (${this.deadlineEpochMs})`));
+        this.abortController.abort(new ControlDeadlineError(`ControlContext deadline reached (${this.deadlineEpochMs})`));
       } else {
         this.timer = setTimeout(() => {
-          this.abortController.abort(new Error(`ControlContext deadline reached (${this.deadlineEpochMs})`));
+          this.abortController.abort(new ControlDeadlineError(`ControlContext deadline reached (${this.deadlineEpochMs})`));
         }, delay);
         if (typeof this.timer === "object" && "unref" in this.timer) {
           (this.timer as { unref(): void }).unref();
@@ -106,6 +108,7 @@ export class ControlContext {
   }
 
   isExpired(): boolean {
+    if (this.abortSignal.reason instanceof ControlDeadlineError) return true;
     if (this.deadlineEpochMs !== undefined && Date.now() >= this.deadlineEpochMs) {
       return true;
     }

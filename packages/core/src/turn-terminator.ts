@@ -34,6 +34,8 @@ export interface TerminatorContext {
   maxTurnDurationMs?: number;
   /** Turn 起始时刻（Date.now() 基准，用于总耗时判定） */
   startedAt: number;
+  interruptionReason?: () => string | undefined;
+  checkFailure?: () => void;
 }
 
 /** 收敛器出口：三个终态提交器 + 一个 Step 边界守卫 */
@@ -98,6 +100,9 @@ export function createTurnTerminator(ctx: TerminatorContext): TurnTerminator {
 
   /** Step 边界守卫 —— 取消 / 删除撤权水位 / 总耗时预算 / ControlContext，任一命中即收敛 */
   const prematureTermination = async (atSequence: number): Promise<ExecuteResult | null> => {
+    ctx.checkFailure?.();
+    const reason = ctx.interruptionReason?.();
+    if (reason && reason !== "cancelled") return finalizeInterrupted(atSequence, reason);
     if (control?.isExpired()) {
       return finalizeInterrupted(atSequence, "deadline_exceeded");
     }
