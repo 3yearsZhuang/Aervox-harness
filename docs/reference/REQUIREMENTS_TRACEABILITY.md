@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.56.4
+version: 1.56.5
 updated_at: 2026-10-09
 reviewed_at: 2026-10-09
 review_interval_days: 90
@@ -181,6 +181,7 @@ review_interval_days: 90
 
 代码与能力的落地完成情况由 Git 提交记录、PR 审查证据以及全自动化测试套件直接证明，不再在此维护手工同步的终端测试日志巨型表格。
 
+- `recall-eligibility-and-deletion-hardening-20261009`：ITER-003 剩余切片（[PR #268](https://github.com/3yearsZhuang/Aervox-harness/pull/268)）：自动召回资格收敛为单一真源谓词并由主对话与主动回合上下文共用（`packages/repositories/src/memory-eligibility.ts`、`apps/api/src/modules/companion/memory/recall.ts`、`apps/worker/src/proactive/turn-context.ts`），`memory_long` 用途闸门 fail-closed（无授权或授权读取失败不召回、撤权立即生效）、候选过采样补位、删除创建面去重/幂等与拒绝原因码固化（`apps/api/src/modules/platform/privacy/routes.ts`、`apps/worker/src/deletion-worker.ts`）、账本单语句原子取号/同键幂等/只读一致性检查（`packages/repositories/src/repositories/sqlite/recovery-ledger-repository.ts`）；回归见 `apps/api/test/privacy-deletion-routes.test.ts`、`apps/api/test/memory-recall-eligibility.test.ts`、`apps/worker/test/proactive-turn-context.test.ts`、`packages/repositories/test/mvp-domains-smoke.test.ts`；scope 派生、来源传播、grant 修订绑定与账本命令路径接线仍留 CR。
 - `control-inheritance-hardening-20261009`：ITER-007 既有策略接线切片（[PR #267](https://github.com/3yearsZhuang/Aervox-harness/pull/267)）：Workflow 步骤可见取消句柄（`signal`/`controlContext`）且中止原样上抛、不进入下一步（`packages/core/src/subagent-contribution.ts`、`types.ts`）、子任务截止继承与失败原因透出（`packages/host-agent/src/subagent-executor.ts`）、DSH 进程外路径的本地处理限制与删除闸门 fail-closed（`apps/api/src/modules/companion/conversation/agent-executor.ts`）、写工具授权 `toolVersion` 与工具定义修订核对（`apps/api/src/modules/companion/conversation/tool-providers.ts`）；回归见 `packages/core/test/subagent-contribution.test.ts`、`packages/host-agent/test/subagent-executor.test.ts`、`apps/api/test/conversation-dsh.test.ts`、`apps/api/test/conversation-tool-sandbox.test.ts`；非 0 根预算、Driver 合同与一次性授权/有效期仍留 CR。
 - `model-artifact-hardening-20261009`：ITER-008 制品与进程正确性收口（[PR #266](https://github.com/3yearsZhuang/Aervox-harness/pull/266)）：文件名归一与根包含断言、symlink 拒绝（`apps/api/src/modules/ecosystem/model-runtime/service.ts`）、416/405 重取复查、206 偏移/实体校验与错位自愈重下、流式前缀哈希、截断核对与体积/时长上限（`apps/api/src/modules/ecosystem/model-runtime/downloader.ts`）、进程代际归属与有界探针/日志/指标请求（`apps/api/src/modules/ecosystem/model-runtime/llama-server.ts`）；回归见 `apps/api/test/model-runtime-downloader.test.ts`、`model-runtime-llama-server.test.ts`、`model-runtime-api.test.ts`；信任摘要与计算摘要的字段区分属制品信任等级变化，先 CR 再做。
 - `framework-decoupling-20261009`：ITER-052 框架解耦整改（[PR #262](https://github.com/3yearsZhuang/Aervox-harness/pull/262)）：模型事件流并入 Transport（fetch/IPC 双实现，桌面主进程按 sender 归属与释放；`packages/api-client/src/transport.ts`、`apps/desktop/src/main/api-event-streams.ts`）、插件状态按上下文实例化且注销释放监听（`packages/ui/src/composables/plugin-state.ts`、`plugins/focus-mode/src/ui/`）、模块消费改经公开窄 Port 且边界例外清零（`apps/api/src/modules/context.ts`、`scripts/import-boundary.mjs`）、日记素材抽 Port 且发布+版本+游标同事务（`packages/contracts/src/diary-material.ts`、`packages/repositories/src/repositories/sqlite/diary-material.ts`）、平台能力与提示词策略改宿主注入（`apps/api/src/modules/companion/conversation/prompt-policy.ts`、`packages/core/src/base-prompt.ts`）；验收证据见 PR #262 与 `ITER-052` 计划条目，不提升关联 CAP 的发布状态。
