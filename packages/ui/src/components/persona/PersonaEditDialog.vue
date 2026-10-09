@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AervoxCard, AervoxDialog, AervoxButton } from '../../primitives';
 import {computed, ref, watch} from 'vue'
 import {ElMessage} from '../../utils/element'
 import {Heart, Wrench, Zap} from 'lucide-vue-next'
@@ -7,9 +8,7 @@ import {
   type SkillItemDto,
   type ToolItemDto,
 } from '@aervox/api-client'
-import { AervoxDialog, AervoxButton } from '../../primitives'
 import VoiceAbilityCard, {type VoiceSelectionValue} from './VoiceAbilityCard.vue'
-
 
 const props = defineProps<{
   open: boolean
@@ -229,7 +228,6 @@ async function save() {
     @close="emit('close')"
   >
 
-
     <div v-if="loading" class="dialog-loading">正在加载人格配置…</div>
     <div v-else class="persona-form-grid">
       <!-- 左侧：基础信息与系统提示词 -->
@@ -239,7 +237,7 @@ async function save() {
           <input
             id="persona-name"
             v-model="name"
-            class="persona-input"
+            class="aervox-field persona-input"
             placeholder="例如：Momoiairi"
             maxlength="64"
           />
@@ -250,7 +248,7 @@ async function save() {
           <textarea
             id="persona-prompt"
             v-model="systemPromptAppend"
-            class="persona-textarea"
+            class="aervox-field persona-textarea"
             rows="9"
             placeholder="在此输入角色的核心设定、口吻风格、交互习惯与背景故事…"
           />
@@ -261,7 +259,7 @@ async function save() {
           <input
             id="persona-desc"
             v-model="description"
-            class="persona-input"
+            class="aervox-field persona-input"
             placeholder="角色简述，便于在列表中快速辨别"
             maxlength="200"
           />
@@ -276,10 +274,10 @@ async function save() {
         </div>
 
         <!-- 工具块 -->
-        <div class="ability-card">
+        <AervoxCard as="div" class="ability-card">
           <div class="ability-card-header" @click="toggleAllTools">
             <label class="checkbox-label" @click.stop>
-              <input
+              <input class="aervox-checkbox"
                 type="checkbox"
                 :checked="useAllTools"
                 @change="toggleAllTools"
@@ -297,7 +295,7 @@ async function save() {
                 class="ability-item-row"
                 :class="{selected: isToolSelected(tool.id)}"
               >
-                <input
+                <input class="aervox-checkbox"
                   type="checkbox"
                   :checked="isToolSelected(tool.id)"
                   @change="toggleTool(tool.id)"
@@ -309,16 +307,16 @@ async function save() {
               </label>
             </div>
           </div>
-        </div>
+        </AervoxCard>
 
         <!-- 语音块 -->
         <VoiceAbilityCard v-model="voice" />
 
         <!-- 技能块 -->
-        <div class="ability-card">
+        <AervoxCard as="div" class="ability-card">
           <div class="ability-card-header" @click="toggleAllSkills">
             <label class="checkbox-label" @click.stop>
-              <input
+              <input class="aervox-checkbox"
                 type="checkbox"
                 :checked="useAllSkills"
                 @change="toggleAllSkills"
@@ -336,7 +334,7 @@ async function save() {
                 class="ability-item-row"
                 :class="{selected: isSkillSelected(skill.name)}"
               >
-                <input
+                <input class="aervox-checkbox"
                   type="checkbox"
                   :checked="isSkillSelected(skill.name)"
                   @change="toggleSkill(skill.name)"
@@ -348,7 +346,7 @@ async function save() {
               </label>
             </div>
           </div>
-        </div>
+        </AervoxCard>
       </div>
     </div>
 
@@ -368,7 +366,6 @@ async function save() {
   color: var(--text-muted);
   font-size: 13px;
 }
-
 
 .persona-form-grid {
   display: grid;
@@ -406,42 +403,17 @@ async function save() {
 
 .persona-input {
   width: 100%;
-  padding: 9px 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-input, var(--bg-soft));
-  color: var(--text-primary);
-  font-size: 13px;
-  outline: none;
-  box-sizing: border-box;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
 
-.persona-input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  box-sizing: border-box;
+
 }
 
 .persona-textarea {
   width: 100%;
-  min-height: 160px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-input, var(--bg-soft));
-  color: var(--text-primary);
-  font-size: 12px;
-  line-height: 1.5;
-  outline: none;
+
   resize: vertical;
   box-sizing: border-box;
-  font-family: inherit;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
 
-.persona-textarea:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .ability-heading {
@@ -461,9 +433,6 @@ async function save() {
 }
 
 .ability-card {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg-soft);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -490,7 +459,7 @@ async function save() {
 
 .checkbox-label input,
 .ability-item-row input {
-  accent-color: var(--accent);
+
   cursor: pointer;
 }
 

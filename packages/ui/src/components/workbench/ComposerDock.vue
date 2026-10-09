@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { AervoxButton, AervoxCard } from '../../primitives';
 import { computed, nextTick, watch } from 'vue';
 import {
   AlertTriangle,
   BrainCircuit,
+  ChevronDown,
   ChevronUp,
   MessageCircle,
   Mic,
@@ -42,7 +44,7 @@ const {
   voiceInput,
   voiceInputError,
   expandComposer,
-  handleDockFocusOut,
+  collapseComposer,
   triggerAttachmentPicker,
   handleFilesChosen,
   toggleVoiceInput,
@@ -53,15 +55,12 @@ const {
 } = composer;
 const { streaming, toolApprovalMode, toggleToolApprovalMode } = conversation;
 const { proactiveActive } = proactive;
-
 watch([input, standardMode], async () => {
   await nextTick();
   const textarea = composerTextarea.value;
-  if (standardMode.value && textarea) {
-    textarea.style.height = '54px';
-    textarea.style.height = `${Math.max(54, textarea.scrollHeight)}px`;
-  } else if (textarea) {
-    textarea.style.height = '';
+  if (textarea) {
+    textarea.style.height = '32px';
+    textarea.style.height = `${Math.min(160, Math.max(32, textarea.scrollHeight))}px`;
   }
 }, { immediate: true });
 
@@ -110,7 +109,7 @@ function handleVoiceTrigger() {
 </script>
 
 <template>
-  <section class="composer-dock" :class="{ open: composerOpen || standardMode }" @focusout="!standardMode && handleDockFocusOut($event)">
+  <AervoxCard as="section" class="composer-dock companion-panel" :class="{ open: composerOpen || standardMode, 'has-draft': input.trim() || pendingAttachments.length }" aria-label="消息输入">
     <button v-if="!composerOpen && !standardMode" class="composer-collapsed" type="button" @click="expandComposer">
       <MessageCircle :size="16" />
       <span class="composer-collapsed-hint">
@@ -128,7 +127,20 @@ function handleVoiceTrigger() {
     </button>
 
     <form v-else class="composer-expanded" @submit.prevent="onFormSubmit">
-      <label class="sr-only" for="aervox-composer">输入要发送给思隅的内容</label>
+      <header v-if="!standardMode" class="companion-panel-head">
+        <MessageCircle class="companion-panel-icon" :size="18" aria-hidden="true" />
+        <label class="companion-panel-title" for="aervox-composer">发消息</label>
+        <AervoxButton variant="ghost" icon-only
+          class="companion-panel-action"
+          type="button"
+          aria-label="收起输入框"
+          title="收起输入框"
+          @click="collapseComposer"
+        >
+          <ChevronDown :size="16" />
+        </AervoxButton>
+      </header>
+      <label v-else class="sr-only" for="aervox-composer">输入要发送给思隅的内容</label>
       <input
         ref="attachmentFileInput"
         type="file"
@@ -143,9 +155,10 @@ function handleVoiceTrigger() {
         id="aervox-composer"
         ref="composerTextarea"
         v-model="input"
-        rows="3"
+        aria-label="输入要发送给思隅的内容"
+        rows="1"
         :placeholder="standardMode ? '发送消息' : composerPlaceholder"
-        :disabled="streaming"
+        :disabled="attachmentUploading"
         @keydown.enter="handleComposerEnter"
         @input="handleComposerInputOrKey"
         @compositionstart="handleCompositionStart"
@@ -159,10 +172,15 @@ function handleVoiceTrigger() {
         <AlertTriangle :size="13" />
         <span>{{ voiceInputError }}</span>
       </div>
-      <div class="composer-footer">
+      <p v-if="streaming || attachmentUploading" class="composer-status" role="status">
+        <span class="composer-status-dot" aria-hidden="true" />
+        {{ attachmentUploading ? '正在上传附件…' : '正在回复，你可以先写下一条消息' }}
+      </p>
+      <div class="composer-footer companion-panel-footer">
         <div class="composer-ops">
-          <button
+          <AervoxButton variant="ghost"
             class="composer-op-btn composer-access-btn"
+            :icon="accessChipIcon"
             type="button"
             :title="toolApprovalMode === 'full_access' ? '当前已开启完全访问（点击切换）' : '当前处于普通授权模式（点击开启完全访问）'"
             :class="{ active: toolApprovalMode === 'full_access', full: toolApprovalMode === 'full_access' }"
@@ -170,62 +188,60 @@ function handleVoiceTrigger() {
             :disabled="streaming"
             @click="toggleToolApprovalMode"
           >
-            <component :is="accessChipIcon" :size="15" />
             <span>{{ accessChipLabel }}</span>
-          </button>
-          <button
+          </AervoxButton>
+          <AervoxButton variant="ghost"
             v-if="!isWeb"
             class="composer-op-btn composer-proactive-btn"
+            :icon="BrainCircuit"
             type="button"
             :title="proactiveActive ? '主动智能模式已生效（点击管理）' : '开启全量本地画像与主动智能模式'"
             :class="{ active: proactiveActive }"
             :aria-pressed="proactiveActive"
             @click="openSettingsCategory('proactive')"
           >
-            <BrainCircuit :size="15" />
             <span>{{ proactiveActive ? '主动智能生效中' : '主动智能模式' }}</span>
-          </button>
-          <button
+          </AervoxButton>
+          <AervoxButton variant="ghost"
             class="composer-op-btn composer-attachment-btn"
+            :icon="Paperclip"
+            icon-only
+            aria-label="添加附件"
             type="button"
             title="上传附件（图片 / PDF / 文档 / 音频，单文件 ≤10MB）"
             :class="{ uploading: attachmentUploading }"
             :disabled="streaming || attachmentUploading || pendingAttachments.length >= 10"
             @click="handleAttachmentTrigger"
           >
-            <Paperclip :size="15" />
-            <span>{{ attachmentUploading ? '上传中…' : '附件' }}</span>
             <span v-if="pendingAttachments.length > 0" class="composer-op-count">{{ pendingAttachments.length }}</span>
-          </button>
-          <button
+          </AervoxButton>
+          <AervoxButton variant="ghost"
             class="composer-op-btn composer-voice-btn"
+            :icon="voiceInput.isListening.value ? MicOff : Mic"
+            icon-only
+            :aria-label="voiceInput.isListening.value ? '停止语音输入' : '语音输入'"
             type="button"
             :title="voiceInput.isListening.value ? '点击停止语音输入' : '语音输入（点击开始录音）'"
             :class="{ active: voiceInput.isListening.value, recording: voiceInput.isListening.value }"
             :aria-pressed="voiceInput.isListening.value"
             :disabled="streaming"
             @click="handleVoiceTrigger"
-          >
-            <Mic v-if="!voiceInput.isListening.value" :size="15" />
-            <MicOff v-else :size="15" />
-            <span>{{ voiceInput.isListening.value ? '录音中…' : '语音' }}</span>
-          </button>
+          />
           <ExtensionSlot name="composer:toolbar-actions" />
         </div>
         <div class="composer-actions">
           <span class="composer-shortcut-hint">{{ enterToSend ? 'Enter 发送 · Shift+Enter 换行' : '点击发送或使用快捷键' }}</span>
-          <button
+          <AervoxButton variant="ghost"
             class="composer-send"
+            :icon="Send"
+            icon-only
             type="submit"
             :disabled="(!input.trim() && pendingAttachments.length === 0) || streaming || attachmentUploading"
             :aria-label="streaming ? '思隅正在回应' : (attachmentUploading ? '正在上传附件' : '发送消息')"
-          >
-            <Send :size="15" />
-            <span>{{ streaming ? '回应中…' : (attachmentUploading ? '上传中…' : '发送') }}</span>
-          </button>
+          />
         </div>
       </div>
       <ExtensionSlot name="composer:bottom-bar" />
     </form>
-  </section>
+  </AervoxCard>
 </template>

@@ -1,0 +1,266 @@
+/* Shared experience refinements for the companion and reading layouts. */
+.aervox-workbench.mode-companion {
+  --console-max-width: 640px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 46%);
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 16px;
+  padding: 72px 28px 20px;
+}
+
+.companion-stage {
+  display: contents;
+}
+
+.mode-companion .immersive-pet {
+  inset: 28px auto 0 1%;
+  width: 54%;
+}
+
+.mode-companion .side-cards {
+  position: relative;
+  inset: auto;
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+  gap: 12px;
+  padding: 0 0 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.mode-companion .side-card-slot,
+.mode-companion .side-card-slot-inner { flex-shrink: 0; }
+
+.mode-companion .side-card {
+  min-height: 0;
+  gap: 12px;
+}
+
+.mode-companion .side-card-title small,
+.mode-companion .side-card-foot { color: var(--text-secondary); font-size: 12px; }
+.mode-companion .side-card-summary { margin: 0; color: var(--text-primary); font-size: 15px; font-weight: 400; }
+.side-card-picker { flex-shrink: 0; }
+
+.side-card-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  cursor: pointer;
+}
+
+.side-card-picker .side-card-grid { margin-top: 8px; }
+.side-card-picker .side-card-grid-item { min-height: 40px; background: var(--glass-bg-strong); }
+
+.mode-companion .immersive-console {
+  grid-column: 2;
+  grid-row: 2;
+  position: relative;
+  inset: auto;
+  gap: 12px;
+  padding: 0;
+  max-height: 64dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.mode-companion .message-panel {
+  flex-shrink: 0;
+  max-height: 30dvh;
+  gap: 12px;
+}
+
+.mode-companion .message-panel.collapsed { max-height: none; }
+.mode-companion .message-text { font-size: 15px; line-height: 1.7; white-space: normal; }
+.mode-companion .message-text .markdown-body > :first-child { margin-top: 0; }
+.mode-companion .message-text .markdown-body > :last-child { margin-bottom: 0; }
+.mode-companion .novel-meta-row { margin-top: 6px; }
+
+/* Inputs, replies and tools use AervoxCard for the same surface and spacing. */
+.aervox-workbench .companion-panel-head {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 10px;
+  min-height: 32px;
+}
+.aervox-workbench .companion-panel-icon { flex: 0 0 18px; color: var(--text-secondary); }
+.aervox-workbench .companion-panel-title {
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.aervox-workbench .companion-panel-action {
+  position: static;
+  flex: 0 0 32px;
+  min-width: 32px;
+  min-height: 32px;
+  width: 32px;
+  height: 32px;
+  margin-left: auto;
+  opacity: 1;
+}
+.aervox-workbench .companion-panel-footer {
+  flex-shrink: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.aervox-workbench .composer-dock:focus-within { border-color: var(--border-strong); }
+.aervox-workbench .companion-panel:is(:focus-visible, :has(textarea:focus-visible)) { outline: 2px solid var(--accent); outline-offset: -2px; }
+.aervox-workbench .composer-collapsed {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+}
+.aervox-workbench .composer-collapsed:hover { color: var(--text-primary); }
+.aervox-workbench .composer-collapsed:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.aervox-workbench .composer-expanded {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+  animation: none;
+}
+.aervox-workbench .composer-expanded textarea {
+  flex: none;
+  min-height: 32px;
+  max-height: 160px;
+  padding: 0;
+  resize: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.7;
+}
+.aervox-workbench .composer-expanded textarea::placeholder { color: var(--text-secondary); }
+.aervox-workbench .composer-expanded textarea:focus-visible { outline: none; }
+.aervox-workbench .composer-footer { gap: 8px; }
+.aervox-workbench .composer-ops { gap: 2px; }
+
+.aervox-workbench .composer-op-btn:is(.full, .recording) { background: var(--accent-soft); color: var(--accent); }
+.aervox-workbench .composer-send {
+  min-width: 36px;
+}
+
+.aervox-workbench .composer-send:disabled { opacity: 0.4; }
+.aervox-workbench .composer-shortcut-hint { color: var(--text-secondary); font-size: 11px; }
+.mode-companion .composer-shortcut-hint { display: none; }
+.composer-status { display: flex; align-items: center; gap: 7px; margin: 0; color: var(--text-secondary); font-size: 12px; }
+.composer-status-dot { width: 6px; height: 6px; flex-shrink: 0; border-radius: 50%; background: var(--accent); }
+
+.mode-standard .standard-topbar { background: var(--bg-main); }
+.mode-standard .standard-message-actions > button { width: 36px; height: 36px; }
+.workbench-standard-sidebar .session-group-title,
+.workbench-standard-sidebar .empty-sessions { color: var(--text-secondary); }
+.workbench-standard-sidebar .session-item { padding: 0 4px 0 0; gap: 0; }
+
+.session-select {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+  min-width: 0;
+
+  text-align: left;
+
+  cursor: pointer;
+}
+
+.session-more-btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  cursor: pointer;
+}
+
+.sidebar-error { padding: 0 10px; color: var(--danger); font-size: 13px; }
+.workbench-standard-sidebar .session-rename-form { padding: 4px; min-width: 0; }
+.workbench-standard-sidebar .session-rename-input { min-width: 0; }
+
+.sidebar-backdrop { position: absolute; inset: 0; z-index: 35; background: rgb(12 16 23 / 36%); }
+.aervox-workbench .workbench-standard-sidebar.is-overlay {
+  position: absolute;
+  inset: env(safe-area-inset-top, 0px) auto env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  z-index: 40;
+  width: min(300px, calc(100% - 48px));
+  min-width: 0;
+  margin: 0;
+  background: var(--bg-main);
+  box-shadow: var(--shadow-lg);
+}
+.aervox-workbench .workbench-standard-sidebar.is-overlay.is-collapsed {
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(-100%);
+}
+
+.el-dropdown-menu__item { gap: 8px; }
+
+@media (max-width: 760px) {
+  .aervox-workbench.mode-companion { padding-inline: 16px; gap: 12px; }
+  .mode-companion .immersive-pet { inset-inline-start: -5%; width: 58%; }
+  .mode-companion .side-card { gap: 8px; }
+
+  .aervox-workbench .composer-footer { flex-wrap: wrap; }
+  .aervox-workbench .composer-ops { flex-wrap: wrap; }
+  .aervox-workbench .composer-shortcut-hint { display: none; }
+  .mode-standard .standard-topbar .topbar-icon-btn,
+  .workbench-standard-sidebar .sidebar-action-btn,
+  .workbench-standard-sidebar .sidebar-mini-icon-btn,
+  .workbench-standard-sidebar .search-clear-btn,
+  .session-more-btn { min-width: 40px; }
+  .workbench-standard-sidebar .sidebar-search-input {  padding-right: 44px; }
+  .workbench-standard-sidebar .sidebar-project-bar { padding-inline: 12px; gap: 4px; }
+}
+
+@media (max-width: 560px) {
+  .aervox-workbench.mode-companion { grid-template-columns: 1fr; padding: 64px 12px 12px; }
+  .mode-companion .immersive-pet { inset: 40px auto 0 -24%; width: 100%; }
+  .mode-companion .side-cards { grid-column: 1; width: 48%; justify-self: end; }
+  .mode-companion .immersive-console { grid-column: 1; max-height: 56dvh; }
+  .mode-companion .side-card .companion-panel-head { flex-wrap: wrap; gap: 6px; }
+  .mode-companion .side-card .companion-panel-icon { display: none; }
+}
+
+@media (pointer: coarse) {
+  .aervox-workbench .composer-op-btn,
+  .aervox-workbench .composer-send,
+  .aervox-workbench .companion-panel-action,
+  .side-card-add,
+  .session-more-btn,
+  .mode-standard .standard-message-actions > button { min-width: 44px; min-height: 44px; }
+}
+
+.composer-attachment-btn { position: relative; }
+.composer-attachment-btn .composer-op-count { position: absolute; top: -2px; right: -2px; }

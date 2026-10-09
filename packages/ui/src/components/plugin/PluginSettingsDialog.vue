@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AervoxCard, AervoxSegmentedControl, AervoxSwitch, AervoxButton, AervoxDialog, aervoxConfirm } from '../../primitives';
 import { computed, ref, watch } from 'vue'
 import {
   BookOpen,
@@ -30,7 +31,6 @@ import {
   type SkillDto,
   type ToolRegistrationDto,
 } from '@aervox/api-client'
-import { AervoxButton, AervoxDialog, aervoxConfirm } from '../../primitives'
 import PluginConfigForm from './PluginConfigForm.vue'
 import SkillContentDialog from './SkillContentDialog.vue'
 import ToolCallDialog from './ToolCallDialog.vue'
@@ -425,7 +425,7 @@ async function handleExport(): Promise<void> {
     @close="emit('close')"
   >
     <template #header-actions>
-      <button
+      <AervoxButton variant="secondary"
         v-if="plugin"
         type="button"
         class="header-action-btn plugin-export-btn"
@@ -435,84 +435,24 @@ async function handleExport(): Promise<void> {
       >
         <Download :size="13" />
         <span>{{ isExporting ? '导出中...' : '导出分发包' }}</span>
-      </button>
+      </AervoxButton>
     </template>
     <div class="plugin-settings-layout">
       <!-- 左侧 / 顶部能力分类导航 -->
-      <nav class="settings-subnav" role="tablist">
-        <button
-          v-if="hasConfig"
-          type="button"
-          role="tab"
-          class="subnav-item"
-          :class="{ active: currentTab === 'config' }"
-          @click="currentTab = 'config'"
-        >
-          <Settings :size="15" />
-          <span>运行配置</span>
-        </button>
-
-        <button
-          type="button"
-          role="tab"
-          class="subnav-item"
-          :class="{ active: currentTab === 'skills' }"
-          @click="currentTab = 'skills'"
-        >
-          <Zap :size="15" />
-          <span>专属技能</span>
-          <span v-if="pluginSkills.length > 0" class="subnav-badge">{{ pluginSkills.length }}</span>
-        </button>
-
-        <button
-          type="button"
-          role="tab"
-          class="subnav-item"
-          :class="{ active: currentTab === 'tools' }"
-          @click="currentTab = 'tools'"
-        >
-          <Wrench :size="15" />
-          <span>工具与 MCP</span>
-          <span v-if="pluginTools.length > 0" class="subnav-badge">{{ pluginTools.length }}</span>
-        </button>
-
-        <button
-          v-if="hasProactive"
-          type="button"
-          role="tab"
-          class="subnav-item"
-          :class="{ active: currentTab === 'proactive' }"
-          @click="currentTab = 'proactive'"
-        >
-          <BrainCircuit :size="15" />
-          <span>主动智能</span>
-          <span v-if="declaredSensors.length > 0" class="subnav-badge">{{ declaredSensors.length }}</span>
-        </button>
-
-        <button
-          v-if="pluginPages.length > 0"
-          type="button"
-          role="tab"
-          class="subnav-item"
-          :class="{ active: currentTab === 'pages' }"
-          @click="currentTab = 'pages'"
-        >
-          <LayoutGrid :size="15" />
-          <span>扩展页面</span>
-          <span class="subnav-badge">{{ pluginPages.length }}</span>
-        </button>
-
-        <button
-          type="button"
-          role="tab"
-          class="subnav-item"
-          :class="{ active: currentTab === 'info' }"
-          @click="currentTab = 'info'"
-        >
-          <Info :size="15" />
-          <span>基本信息</span>
-        </button>
-      </nav>
+      <AervoxSegmentedControl
+        :model-value="currentTab"
+        :options="[
+          ...(hasConfig ? [{ value: 'config', label: '运行配置' }] : []),
+          { value: 'skills', label: `专属技能 ${pluginSkills.length}` },
+          { value: 'tools', label: `工具与 MCP ${pluginTools.length}` },
+          ...(hasProactive ? [{ value: 'proactive', label: '主动智能' }] : []),
+          ...(pluginPages.length ? [{ value: 'pages', label: '扩展页面' }] : []),
+          { value: 'info', label: '基本信息' },
+        ]"
+        variant="tabs"
+        label="插件管理页面"
+        @update:model-value="currentTab = $event as TabKey"
+      />
 
       <!-- 右侧内容呈现区 -->
       <div class="settings-tab-pane">
@@ -547,17 +487,17 @@ async function handleExport(): Promise<void> {
             该插件未声明专有 Skill 技能。
           </div>
           <div v-else class="capability-list">
-            <article v-for="skill in pluginSkills" :key="skill.id || skill.name" class="capability-item">
+            <AervoxCard as="article" v-for="skill in pluginSkills" :key="skill.id || skill.name" class="capability-item">
               <div class="capability-main">
                 <div class="capability-header">
                   <strong>{{ skill.name }}</strong>
-                  <span class="capability-tag is-readonly">插件内置·只读</span>
-                  <span class="capability-tag is-source">{{ skill.source }}</span>
+                  <span class="aervox-badge capability-tag is-readonly">插件内置·只读</span>
+                  <span class="aervox-badge capability-tag is-source">{{ skill.source }}</span>
                 </div>
                 <p class="capability-desc">{{ skill.description || '暂无描述' }}</p>
               </div>
               <div class="capability-actions">
-                <button
+                <AervoxButton variant="secondary"
                   type="button"
                   class="action-btn"
                   title="查看 SKILL.md 全文"
@@ -565,17 +505,15 @@ async function handleExport(): Promise<void> {
                 >
                   <FileText :size="14" />
                   <span>查看说明</span>
-                </button>
-                <button
-                  type="button"
-                  class="settings-switch"
-                  :class="{ checked: isSkillActive(skill) }"
+                </AervoxButton>
+                <AervoxSwitch
+                  :checked="isSkillActive(skill)"
                   :disabled="busySkillId === (skill.id || skill.name)"
                   :aria-label="`${isSkillActive(skill) ? '停用' : '启用'} ${skill.name}`"
-                  @click="toggleSkillActive(skill)"
-                />
+                  @change="toggleSkillActive(skill)"
+                 />
               </div>
-            </article>
+            </AervoxCard>
           </div>
         </section>
 
@@ -591,22 +529,22 @@ async function handleExport(): Promise<void> {
             该插件未声明任何专有工具或绑定 MCP 服务。
           </div>
           <div v-else class="capability-list">
-            <article v-for="tool in pluginTools" :key="tool.id" class="capability-item">
+            <AervoxCard as="article" v-for="tool in pluginTools" :key="tool.id" class="capability-item">
               <div class="capability-main">
                 <div class="capability-header">
                   <strong>{{ tool.name }}</strong>
                   <code class="tool-id">{{ tool.id }}</code>
-                  <span class="capability-tag" :class="getSafetyLabel(tool.safetyLevel).class">
+                  <span class="aervox-badge capability-tag" :class="getSafetyLabel(tool.safetyLevel).class">
                     {{ getSafetyLabel(tool.safetyLevel).label }}
                   </span>
-                  <span v-if="tool.pluginId?.startsWith('mcp:')" class="capability-tag is-mcp">
+                  <span v-if="tool.pluginId?.startsWith('mcp:')" class="aervox-badge capability-tag is-mcp">
                     MCP 绑定
                   </span>
                 </div>
                 <p class="capability-desc">{{ tool.description || '暂无描述' }}</p>
               </div>
               <div class="capability-actions">
-                <button
+                <AervoxButton variant="secondary"
                   type="button"
                   class="action-btn"
                   title="调试调用该工具"
@@ -615,17 +553,15 @@ async function handleExport(): Promise<void> {
                 >
                   <Terminal :size="14" />
                   <span>调试</span>
-                </button>
-                <button
-                  type="button"
-                  class="settings-switch"
-                  :class="{ checked: isToolEnabled(tool) }"
+                </AervoxButton>
+                <AervoxSwitch
+                  :checked="isToolEnabled(tool)"
                   :disabled="busyToolId === tool.id"
                   :aria-label="`${isToolEnabled(tool) ? '停用' : '启用'} ${tool.name}`"
-                  @click="toggleToolEnabled(tool)"
-                />
+                  @change="toggleToolEnabled(tool)"
+                 />
               </div>
-            </article>
+            </AervoxCard>
           </div>
         </section>
 
@@ -639,20 +575,18 @@ async function handleExport(): Promise<void> {
               <small>未授权的感知源将被内核 fail-closed 阻断事件输入</small>
             </div>
             <ul class="sensor-list">
-              <li v-for="sensor in declaredSensors" :key="sensor.sourceId" class="sensor-item">
+              <AervoxCard as="li" v-for="sensor in declaredSensors" :key="sensor.sourceId" class="sensor-item">
                 <div class="sensor-info">
                   <code>{{ sensor.sourceId }}</code>
                   <p>{{ sensor.description || '读取系统特定状态用于主动智能感知' }}</p>
                 </div>
-                <button
-                  type="button"
-                  class="settings-switch"
-                  :class="{ checked: Boolean(sensorGrants[sensor.sourceId]) }"
+                <AervoxSwitch
+                  :checked="Boolean(sensorGrants[sensor.sourceId])"
                   :disabled="sensorBusy === sensor.sourceId"
                   :aria-label="`${sensorGrants[sensor.sourceId] ? '撤销' : '授予'} ${sensor.sourceId} 授权`"
-                  @click="toggleSensorGrant(sensor)"
-                />
-              </li>
+                  @change="toggleSensorGrant(sensor)"
+                 />
+              </AervoxCard>
             </ul>
           </div>
 
@@ -664,18 +598,18 @@ async function handleExport(): Promise<void> {
               <small>由 Worker 防打扰裁决器进行节流与触发</small>
             </div>
             <ul class="trigger-list">
-              <li v-for="trig in declaredTriggers" :key="trig.ruleId" class="trigger-item">
+              <AervoxCard as="li" v-for="trig in declaredTriggers" :key="trig.ruleId" class="trigger-item">
                 <div class="trigger-header">
                   <strong>{{ trig.name }}</strong>
                   <code>{{ trig.ruleId }}</code>
-                  <span class="trigger-type-tag">{{ trig.triggerType }}</span>
-                  <span v-if="trig.cooldownSeconds" class="trigger-cd-tag">冷却: {{ trig.cooldownSeconds }}s</span>
+                  <span class="aervox-badge trigger-type-tag">{{ trig.triggerType }}</span>
+                  <span v-if="trig.cooldownSeconds" class="aervox-badge trigger-cd-tag">冷却: {{ trig.cooldownSeconds }}s</span>
                 </div>
                 <div v-if="trig.petPresentation" class="trigger-presentation">
                   <span>桌宠动画: <code>{{ trig.petPresentation.animation || 'stretch_body' }}</code></span>
                   <span>气泡预设: <code>{{ trig.petPresentation.bubblePreset || 'gentle_care' }}</code></span>
                 </div>
-              </li>
+              </AervoxCard>
             </ul>
           </div>
         </section>
@@ -687,7 +621,7 @@ async function handleExport(): Promise<void> {
             <span>该插件包含基于 iframe 沙箱的独立受控扩展页面，可通过 Bridge 与工作台安全交互。</span>
           </div>
           <div class="capability-list">
-            <article v-for="page in pluginPages" :key="page.id" class="capability-item">
+            <AervoxCard as="article" v-for="page in pluginPages" :key="page.id" class="capability-item">
               <div class="capability-main">
                 <div class="capability-header">
                   <strong>{{ page.title || page.id }}</strong>
@@ -696,22 +630,22 @@ async function handleExport(): Promise<void> {
                 <p class="capability-desc">{{ page.description || '无描述页面' }}</p>
               </div>
               <div class="capability-actions">
-                <button
+                <AervoxButton variant="primary"
                   type="button"
                   class="action-btn is-primary"
                   @click="openPage(page)"
                 >
                   <Play :size="14" />
                   <span>打开页面</span>
-                </button>
+                </AervoxButton>
               </div>
-            </article>
+            </AervoxCard>
           </div>
         </section>
 
         <!-- 6. 基本信息 -->
         <section v-else class="tab-pane-content info-pane">
-          <div class="info-card">
+          <AervoxCard as="div" class="info-card">
             <div class="info-row">
               <span class="info-label">插件标识:</span>
               <code class="info-val">{{ plugin?.id }}</code>
@@ -742,7 +676,7 @@ async function handleExport(): Promise<void> {
               <span class="info-label">专属工具:</span>
               <span class="info-val">{{ pluginTools.map((t) => t.name).join(', ') }}</span>
             </div>
-          </div>
+          </AervoxCard>
         </section>
       </div>
     </div>
@@ -781,56 +715,9 @@ async function handleExport(): Promise<void> {
 <style scoped>
 .plugin-settings-layout {
   display: grid;
-  grid-template-columns: 160px 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   min-height: 380px;
-}
-
-.settings-subnav {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  border-right: 1px solid var(--border);
-  padding-right: 12px;
-}
-
-.subnav-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  text-align: left;
-  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-}
-
-.subnav-item:hover {
-  background: color-mix(in srgb, var(--bg-soft) 70%, transparent);
-  color: var(--text-primary);
-}
-
-.subnav-item.active {
-  background: var(--bg-soft);
-  color: var(--accent);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  font-weight: 600;
-}
-
-.subnav-badge {
-  margin-left: auto;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
-  color: var(--accent);
 }
 
 .settings-tab-pane {
@@ -861,24 +748,17 @@ async function handleExport(): Promise<void> {
 .capability-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .capability-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: var(--bg-soft);
-  border: 1px solid var(--border);
-  gap: 12px;
-  transition: border-color 0.2s ease;
-}
-.capability-item:hover {
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-}
 
+  gap: 12px;
+
+}
 .capability-main {
   display: flex;
   flex-direction: column;
@@ -938,43 +818,16 @@ async function handleExport(): Promise<void> {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg-input);
-  color: var(--text-secondary);
-  font-size: 11px;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.action-btn:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-soft);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(78, 119, 209, 0.15);
-}
-
-.action-btn.is-primary {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
 .action-btn.is-primary:hover:not(:disabled) {
   opacity: 0.92;
-  box-shadow: 0 3px 8px rgba(78, 119, 209, 0.25);
 }
 
 .action-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-  background: var(--bg-soft);
-  color: var(--text-muted);
-  border-color: var(--border);
-  box-shadow: none;
-  transform: none;
 }
 
 .tool-id {
@@ -992,10 +845,7 @@ async function handleExport(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 14px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--bg-soft);
+
 }
 
 .block-title {
@@ -1025,10 +875,7 @@ async function handleExport(): Promise<void> {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
-  border-radius: 8px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
+
 }
 
 .sensor-info {
@@ -1053,10 +900,7 @@ async function handleExport(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
+
 }
 
 .trigger-header {
@@ -1095,10 +939,6 @@ async function handleExport(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 14px;
-  border-radius: 12px;
-  background: var(--bg-soft);
-  border: 1px solid var(--border);
 }
 
 .info-row {
@@ -1131,28 +971,16 @@ async function handleExport(): Promise<void> {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: 28px;
-  padding: 0 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg-input);
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.header-action-btn:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-soft);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(78, 119, 209, 0.15);
 }
 
 .header-action-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+@media (max-width: 680px) {
+  .capability-item { flex-direction: column; align-items: stretch; }
+  .capability-actions { justify-content: flex-end; }
+  .block-title, .trigger-header { flex-wrap: wrap; }
 }
 </style>

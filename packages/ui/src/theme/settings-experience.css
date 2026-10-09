@@ -1,0 +1,68 @@
+/* Settings share a single rhythm: plain navigation, rows, and quiet controls. */
+.settings-dialog .aervox-nav-layout { grid-template-columns: 180px minmax(0, 1fr); }
+.settings-dialog .aervox-nav-sidebar { padding: 20px 12px; background: var(--bg-main); gap: 4px; }
+.settings-dialog .nav-sidebar-item { min-height: 42px; border: 0; border-radius: 6px; padding: 10px 12px; }
+.settings-dialog .nav-sidebar-item.active { background: var(--bg-soft); color: var(--text-primary); }
+.settings-dialog .nav-item-text small { display: none; }
+.settings-dialog .nav-item-text strong { font-weight: 500; }
+.settings-dialog .nav-item-icon { width: 16px; height: 16px; }
+.settings-dialog .aervox-nav-detail { padding: 24px 28px; }
+.settings-dialog .settings-page-switcher { margin: 0 0 28px; }
+.settings-dialog .settings-section { display: block; min-width: 0; }
+.settings-dialog .settings-heading { margin-bottom: 24px; }
+.settings-dialog .settings-row,
+.settings-dialog .settings-field { display: flex; align-items: center; justify-content: space-between; flex-direction: row; gap: 24px; padding: 16px 0; min-height: 68px; box-sizing: border-box; }
+.settings-dialog .settings-row strong,
+.settings-dialog .settings-field strong { font-size: 13px; font-weight: 500; }
+.settings-dialog .settings-row small,
+.settings-dialog .settings-field small { color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
+.settings-dialog .settings-field > :is(input, select, textarea, .api-key-input-wrapper, .voice-key-wrapper, .voice-picker, .voice-slider-row, .slider-field-row) { width: 52%; min-width: 0; flex-shrink: 0; }
+.settings-dialog .settings-field :is(input:not([type="range"]):not([type="checkbox"]), select, textarea) { min-height: 36px; border-radius: 6px; font: inherit; font-size: 13px; background: var(--bg-main); }
+.settings-dialog .settings-field :is(.voice-picker, .voice-key-wrapper, .api-key-input-wrapper) input { min-width: 0; }
+.settings-dialog .settings-autosave-note { display: flex; align-items: center; gap: 6px; margin: 20px 0 0; color: var(--text-secondary); font-size: 12px; }
+.settings-dialog .llm-actions { bottom: -24px; padding: 16px 0; margin-top: 24px; background: var(--bg-main); }
+.settings-dialog .voice-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; padding: 16px 0; margin-top: 8px; background: transparent; border-radius: 0; }
+.settings-dialog .voice-divider { margin-block: 28px; }
+.settings-dialog .advanced-section { padding: 14px 0; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; }
+.settings-dialog .llm-preset-header,
+.settings-dialog .voice-preset-header,
+.settings-dialog .plugins-toolbar { min-height: 36px; margin: 0 0 12px; }
+.settings-dialog .plugin-manager > .aervox-segmented,
+.settings-dialog .voice-preset-panel > .aervox-segmented { margin-block: 20px; }
+.settings-dialog .tab-toolbar { flex-wrap: wrap; align-items: flex-start; margin-top: 20px; }
+.settings-dialog .tab-toolbar > .aervox-segmented { width: auto; flex: 1; }
+.settings-dialog .market-toolbar > .aervox-segmented { order: 3; flex-basis: 100%; }
+
+/* All reusable records share one card component and list spacing. */
+.settings-dialog .aervox-nav-detail .settings-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 0 0 20px; }
+.settings-dialog .aervox-nav-detail .settings-list:empty { display: none; }
+
+.settings-dialog .aervox-nav-detail :is(.llm-preset-card, .voice-preset-card) { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 16px; }
+.settings-dialog :is(.llm-preset-card-head, .voice-preset-card-head, .llm-preset-meta, .voice-preset-meta) { grid-column: 1; }
+.settings-dialog :is(.llm-preset-actions, .voice-preset-actions) { grid-column: 2; grid-row: 1 / span 2; align-self: center; margin-top: 0; }
+.settings-dialog :is(.plugin-card-icon, .skill-card-icon, .tool-card-icon) { background: transparent; border-radius: 0; color: var(--text-secondary); }
+.settings-dialog :is(.llm-preset-active-badge, .voice-preset-active-badge, .active-badge) { padding: 0; background: transparent; border: 0; color: var(--accent); font-size: 11px; }
+.settings-dialog .quick-tools { grid-template-columns: minmax(0, 1fr); gap: 0; }
+.settings-dialog .quick-tools button { padding: 14px 0; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; box-shadow: none; }
+.settings-dialog .control-center-item { gap: 12px; border-radius: 0; background: transparent; border-bottom: 1px solid var(--border); }
+.settings-dialog .control-center-item-icon { background: transparent; border-radius: 0; }
+.settings-dialog .control-center-item-order { gap: 4px; }
+
+@media (max-width: 680px) {
+  .settings-dialog .aervox-nav-layout { grid-template-columns: 1fr; }
+  .settings-dialog .aervox-nav-sidebar { padding: 8px 12px; flex-direction: row; }
+  .settings-dialog .nav-sidebar-item { flex-shrink: 0; padding: 8px 10px; min-height: 40px; }
+  .settings-dialog .nav-item-icon { display: none; }
+  .settings-dialog .nav-item-text strong { font-size: 12px; }
+  .settings-dialog .aervox-nav-detail { padding: 20px; }
+  .settings-dialog .settings-field,
+  .settings-dialog .settings-choice-row:has(.aervox-segmented) { align-items: stretch; flex-direction: column; gap: 12px; }
+  .settings-dialog .settings-field > :is(input, select, textarea, .api-key-input-wrapper, .voice-key-wrapper, .voice-picker, .voice-slider-row, .slider-field-row) { width: 100%; }
+  .settings-dialog .settings-choice-row .aervox-segmented { width: 100%; }
+  .settings-dialog .llm-actions { bottom: -20px; }
+  .settings-dialog .llm-save-status { flex-basis: 100%; }
+  .settings-dialog .tab-toolbar { flex-direction: column; align-items: stretch; gap: 12px; }
+  .settings-dialog .tab-actions { display: flex; justify-content: flex-end; }
+  .settings-dialog .aervox-nav-detail :is(.llm-preset-card, .voice-preset-card) { grid-template-columns: minmax(0, 1fr); }
+  .settings-dialog :is(.llm-preset-actions, .voice-preset-actions) { grid-column: 1; grid-row: auto; margin-top: 12px; }
+}

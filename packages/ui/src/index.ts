@@ -71,3 +71,6 @@ export * from './proactive/profile-authorization';
 import './theme/index.css';
 import './theme/hero.css';
 import './theme/workbench.css';
+import './theme/standard-workbench.css';
+import './theme/workbench-experience.css';
+import './theme/settings-experience.css';

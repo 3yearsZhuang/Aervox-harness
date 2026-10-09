@@ -275,11 +275,4 @@ function handleClose() {
   padding-top: 0;
 }
 
-.el-message-box.aervox-message-box .el-message-box__btns button {
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 500;
-  padding: 8px 16px;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
 </style>

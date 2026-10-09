@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AervoxSwitch, AervoxNavDialog, AervoxConfirmDialog, AervoxDialog, AervoxSettingsHeading, AervoxButton, AervoxSegmentedControl } from '../../../primitives';
 import { computed, ref } from 'vue';
 
 import {
@@ -34,9 +35,9 @@ import VoicePresetManagerPanel from '../../voice/VoicePresetManagerPanel.vue';
 import PluginManagerPanel from '../../plugin/PluginManagerPanel.vue';
 import ExtensionSlot from '../../extension/ExtensionSlot.vue';
 import { useAervoxPlugins } from '@aervox/api-client';
+import { settingCategories, settingPages, type WorkbenchMode } from '../../../composables/useWorkbenchLayout';
 import type { CardDefinition } from '../../../composables/useWorkbenchCards';
 import { useWorkbenchContext } from '../../../composables/workbench-context';
-import { AervoxNavDialog, AervoxConfirmDialog, AervoxDialog, AervoxButton } from '../../../primitives';
 
 const props = withDefaults(
   defineProps<{
@@ -75,8 +76,6 @@ const {
   assistantDisplayName,
   settingsOpen,
   settingsCategory,
-  settingsScope,
-  scopedSettingCategories,
   switchSettingsCategory,
   openTool,
   workbenchMode,
@@ -84,6 +83,16 @@ const {
   setTheme,
   saveSettings,
 } = layout;
+
+const activeSettingsGroup = computed(() => settingCategories.find(group =>
+  (group.categories as readonly string[]).includes(settingsCategory.value)) ?? settingCategories[1]);
+const settingsPages = computed(() => settingPages.filter(page =>
+  (activeSettingsGroup.value.categories as readonly string[]).includes(page.value)));
+const modeOptions = [{ value: 'companion', label: '桌宠陪伴' }, { value: 'standard', label: '标准工作台' }];
+const themeOptions = [{ value: 'light', label: '亮色', icon: Sun }, { value: 'dark', label: '暗色', icon: Moon }];
+function selectSettingsPage(value: string) {
+  switchSettingsCategory(value as typeof settingsCategory.value);
+}
 
 const { timerMinutes } = timer;
 const { toolApprovalMode } = conversation;
@@ -154,24 +163,31 @@ async function onPluginChange(): Promise<void> {
   <AervoxNavDialog
     v-model="settingsOpen"
     title="设置"
-    :items="scopedSettingCategories"
-    :active-key="settingsCategory"
+    :items="settingCategories"
+    :active-key="activeSettingsGroup.id"
     nav-aria-label="设置分类"
     custom-class="settings-dialog"
-    @update:active-key="switchSettingsCategory($event as any)"
+    @update:active-key="selectSettingsPage"
   >
     <template #nav-footer>
       <ExtensionSlot name="settings:tabs" />
     </template>
     <template #content>
+      <AervoxSegmentedControl
+        v-if="settingsPages.length > 1"
+        class="settings-page-switcher"
+        variant="tabs"
+        :model-value="settingsCategory"
+        :options="settingsPages"
+        label="设置页面"
+        @update:model-value="selectSettingsPage"
+      />
+      <KeepAlive>
+        <LLMConfigPanel v-if="settingsCategory === 'model'" class="settings-section" />
+      </KeepAlive>
       <div v-if="settingsCategory === 'tools'" class="settings-section">
-        <div class="settings-section-heading quick-tools-heading">
-          <div class="quick-tools-heading-title">
-            <span class="heading-icon-wrap"><LayoutGrid :size="18" /></span>
-            <span><strong>快捷工具</strong><small>{{ isEditingQuickTools ? '自定义控制中心中的快捷方式' : '打开学习面板与常用小工具' }}</small></span>
-          </div>
-          <div class="quick-tools-actions">
-            <button
+        <AervoxSettingsHeading title="工具布局" :description="isEditingQuickTools ? '选择和排列常用工具' : '打开常用工具，或自定义排列'">
+            <AervoxButton variant="secondary"
               v-if="isEditingQuickTools"
               type="button"
               class="quick-tools-action-btn btn-reset"
@@ -180,18 +196,18 @@ async function onPluginChange(): Promise<void> {
             >
               <RotateCcw :size="13" />
               <span>恢复默认</span>
-            </button>
-            <button
+            </AervoxButton>
+            <AervoxButton
               type="button"
               class="quick-tools-action-btn"
-              :class="{ 'btn-done': isEditingQuickTools }"
+              :variant="isEditingQuickTools ? 'primary' : 'secondary'"
               @click="isEditingQuickTools = !isEditingQuickTools"
             >
               <component :is="isEditingQuickTools ? Check : SlidersHorizontal" :size="13" />
               <span>{{ isEditingQuickTools ? '完成' : '自定义' }}</span>
-            </button>
-          </div>
-        </div>
+            </AervoxButton>
+
+        </AervoxSettingsHeading>
 
         <!-- Normal Mode -->
         <div v-if="!isEditingQuickTools" class="quick-tools">
@@ -223,7 +239,7 @@ async function onPluginChange(): Promise<void> {
                 :key="card.id"
                 class="control-center-item is-included"
               >
-                <button
+                <AervoxButton variant="danger" icon-only
                   type="button"
                   class="action-circle-btn btn-minus"
                   :title="`从控制中心移除 ${card.label}`"
@@ -231,7 +247,7 @@ async function onPluginChange(): Promise<void> {
                   @click="removeQuickTool(card.id)"
                 >
                   <Minus :size="14" />
-                </button>
+                </AervoxButton>
                 <div class="control-center-item-icon">
                   <component :is="card.icon" :size="18" />
                 </div>
@@ -240,7 +256,7 @@ async function onPluginChange(): Promise<void> {
                   <small>{{ card.description }}</small>
                 </div>
                 <div class="control-center-item-order">
-                  <button
+                  <AervoxButton variant="ghost" icon-only
                     type="button"
                     class="order-btn"
                     :disabled="idx === 0"
@@ -249,8 +265,8 @@ async function onPluginChange(): Promise<void> {
                     @click="moveQuickTool(card.id, 'up')"
                   >
                     <ChevronUp :size="14" />
-                  </button>
-                  <button
+                  </AervoxButton>
+                  <AervoxButton variant="ghost" icon-only
                     type="button"
                     class="order-btn"
                     :disabled="idx === activeQuickCards.length - 1"
@@ -259,7 +275,7 @@ async function onPluginChange(): Promise<void> {
                     @click="moveQuickTool(card.id, 'down')"
                   >
                     <ChevronDown :size="14" />
-                  </button>
+                  </AervoxButton>
                 </div>
               </div>
               <div v-if="activeQuickCards.length === 0" class="control-center-empty-hint">
@@ -280,7 +296,7 @@ async function onPluginChange(): Promise<void> {
                 :key="card.id"
                 class="control-center-item is-available"
               >
-                <button
+                <AervoxButton variant="secondary" icon-only
                   type="button"
                   class="action-circle-btn btn-plus"
                   :title="`添加 ${card.label} 至控制中心`"
@@ -288,7 +304,7 @@ async function onPluginChange(): Promise<void> {
                   @click="addQuickTool(card.id)"
                 >
                   <Plus :size="14" />
-                </button>
+                </AervoxButton>
                 <div class="control-center-item-icon">
                   <component :is="card.icon" :size="18" />
                 </div>
@@ -296,23 +312,13 @@ async function onPluginChange(): Promise<void> {
                   <strong>{{ card.label }}</strong>
                   <small>{{ card.description }}</small>
                 </div>
-                <button
-                  type="button"
-                  class="btn-add-pill"
-                  @click="addQuickTool(card.id)"
-                >
-                  添加
-                </button>
               </div>
             </div>
           </div>
         </div>
       </div>
         <div v-else-if="settingsCategory === 'proactive'" class="settings-section proactive-settings">
-          <div class="settings-section-heading">
-            <span class="heading-icon-wrap"><BrainCircuit :size="18" /></span>
-            <span><strong>主动智能模式</strong><small>全量画像、持续本地处理与主动操作授权</small></span>
-          </div>
+          <AervoxSettingsHeading title="主动智能模式" description="全量画像、持续本地处理与主动操作授权" />
 
           <div class="proactive-status-banner" :class="`is-${proactiveStatus?.effectiveState ?? 'unavailable'}`">
             <component :is="proactiveActive ? BrainCircuit : AlertTriangle" :size="20" />
@@ -322,7 +328,7 @@ async function onPluginChange(): Promise<void> {
               <small v-else>主动智能模式需要受信的 Electron 本地 Host，Web 端不会伪造授权。</small>
               <small v-if="proactiveSuspendHint(proactiveStatus)" class="proactive-suspend-hint">{{ proactiveSuspendHint(proactiveStatus) }}</small>
             </span>
-            <button v-if="!isWeb" type="button" class="proactive-icon-button" aria-label="刷新主动智能状态" title="刷新状态" :disabled="proactiveBusy" @click="refreshProactiveStatus"><RefreshCw :size="15" /></button>
+            <AervoxButton variant="secondary" icon-only v-if="!isWeb" type="button" class="proactive-icon-button" aria-label="刷新主动智能状态" title="刷新状态" :disabled="proactiveBusy" @click="refreshProactiveStatus"><RefreshCw :size="15" /></AervoxButton>
           </div>
 
           <div v-if="isWeb" class="settings-note proactive-warning"><AlertTriangle :size="16" />请在桌面端完成设备授权；浏览器端不会读取系统级来源。</div>
@@ -330,35 +336,32 @@ async function onPluginChange(): Promise<void> {
             <p v-if="proactiveError" class="proactive-error" role="alert">{{ proactiveError }}</p>
             <p v-if="proactiveNotice" class="settings-note" role="status">{{ proactiveNotice }}</p>
             <div class="proactive-actions">
-              <button
+              <AervoxButton variant="primary"
                 v-if="!proactiveStatus || proactiveStatus.desiredState === 'none' || proactiveStatus.desiredState === 'revoked'"
                 type="button"
                 class="proactive-primary-action"
                 :disabled="proactiveBusy || toolApprovalMode !== 'full_access'"
                 :title="toolApprovalMode !== 'full_access' ? '请先开启完全访问' : '打开全量画像授权向导'"
                 @click="openProactiveAuthorization"
-              ><BrainCircuit :size="15" />授权并启用</button>
-              <button v-else-if="proactiveStatus.desiredState === 'paused'" type="button" :disabled="proactiveBusy || toolApprovalMode !== 'full_access'" @click="setProactiveDesiredState('enabled')"><PlayCircle :size="15" />恢复观察</button>
-              <button v-else type="button" :disabled="proactiveBusy" @click="setProactiveDesiredState('paused')"><PauseCircle :size="15" />暂停观察</button>
-              <button v-if="proactiveStatus && (proactiveStatus.effectiveState === 'limited' || proactiveStatus.effectiveState === 'suspended') && proactiveStatus.desiredState !== 'none' && proactiveStatus.desiredState !== 'revoked'" type="button" :disabled="proactiveBusy || toolApprovalMode !== 'full_access'" @click="openProactiveAuthorization"><RefreshCw :size="15" />重新确认授权</button>
-              <button v-if="proactiveStatus?.desiredState === 'enabled' || proactiveStatus?.desiredState === 'paused'" type="button" class="danger" :disabled="proactiveBusy" @click="setProactiveDesiredState('revoked')"><ShieldAlert :size="15" />撤销授权</button>
-              <button v-if="proactiveStatus" type="button" :disabled="proactiveBusy" @click="exportProactiveData(false)"><Download :size="15" />导出画像</button>
-              <button v-if="proactiveStatus" type="button" :disabled="proactiveBusy" @click="exportProactiveData(true)"><Database :size="15" />导出含原始副本</button>
+              ><BrainCircuit :size="15" />授权并启用</AervoxButton>
+              <AervoxButton variant="secondary" v-else-if="proactiveStatus.desiredState === 'paused'" type="button" :disabled="proactiveBusy || toolApprovalMode !== 'full_access'" @click="setProactiveDesiredState('enabled')"><PlayCircle :size="15" />恢复观察</AervoxButton>
+              <AervoxButton variant="secondary" v-else type="button" :disabled="proactiveBusy" @click="setProactiveDesiredState('paused')"><PauseCircle :size="15" />暂停观察</AervoxButton>
+              <AervoxButton variant="secondary" v-if="proactiveStatus && (proactiveStatus.effectiveState === 'limited' || proactiveStatus.effectiveState === 'suspended') && proactiveStatus.desiredState !== 'none' && proactiveStatus.desiredState !== 'revoked'" type="button" :disabled="proactiveBusy || toolApprovalMode !== 'full_access'" @click="openProactiveAuthorization"><RefreshCw :size="15" />重新确认授权</AervoxButton>
+              <AervoxButton variant="danger" v-if="proactiveStatus?.desiredState === 'enabled' || proactiveStatus?.desiredState === 'paused'" type="button" class="danger" :disabled="proactiveBusy" @click="setProactiveDesiredState('revoked')"><ShieldAlert :size="15" />撤销授权</AervoxButton>
+              <AervoxButton variant="secondary" v-if="proactiveStatus" type="button" :disabled="proactiveBusy" @click="exportProactiveData(false)"><Download :size="15" />导出画像</AervoxButton>
+              <AervoxButton variant="secondary" v-if="proactiveStatus" type="button" :disabled="proactiveBusy" @click="exportProactiveData(true)"><Database :size="15" />导出含原始副本</AervoxButton>
             </div>
 
             <div class="settings-row settings-choice-row proactive-persistence-row">
               <span><strong>开机自启</strong><small>允许 Host 在设备登录后恢复；系统实际状态以权限回执为准</small></span>
-              <input v-model="proactiveAutostart" type="checkbox" class="settings-switch" :disabled="proactiveBusy" @change="setProactivePersistence({ autostart: proactiveAutostart })" />
+              <AervoxSwitch aria-label="开机自启" v-model="proactiveAutostart"  :disabled="proactiveBusy" @change="setProactivePersistence({ autostart: proactiveAutostart })"  />
             </div>
             <div class="settings-row settings-choice-row proactive-persistence-row">
               <span><strong>后台持续运行</strong><small>允许应用窗口关闭后保持主动 Host；平台不支持时会显示受限</small></span>
-              <input v-model="proactiveBackground" type="checkbox" class="settings-switch" :disabled="proactiveBusy" @change="setProactivePersistence({ background: proactiveBackground })" />
+              <AervoxSwitch aria-label="后台持续运行" v-model="proactiveBackground"  :disabled="proactiveBusy" @change="setProactivePersistence({ background: proactiveBackground })"  />
             </div>
 
-            <div class="settings-segmented proactive-view-tabs" role="tablist" aria-label="主动智能视图">
-              <button type="button" role="tab" :aria-selected="proactiveView === 'overview'" :class="{ active: proactiveView === 'overview' }" @click="proactiveView = 'overview'"><BrainCircuit :size="15" />能力概览</button>
-              <button type="button" role="tab" :aria-selected="proactiveView === 'integrations'" :class="{ active: proactiveView === 'integrations' }" @click="proactiveView = 'integrations'"><Link2 :size="15" />外部连接</button>
-            </div>
+            <AervoxSegmentedControl variant="tabs" v-model="proactiveView" :options="[{ value: 'overview', label: '能力概览', icon: BrainCircuit }, { value: 'integrations', label: '外部连接', icon: Link2 }]" label="主动智能视图" />
 
             <template v-if="proactiveView === 'overview'">
               <div class="proactive-capability-heading"><strong>主动智能能力</strong><small>数字表示当前本地 Vault 中可用于该能力的记录数。</small></div>
@@ -377,15 +380,14 @@ async function onPluginChange(): Promise<void> {
                   <span class="proactive-capability-copy"><strong>{{ capability.label }}</strong><small>{{ capability.description }}<template v-if="capability.reason"> · {{ capability.reason }}</template></small></span>
                   <span class="proactive-capability-state" :class="capabilityStatusClass(capability.osStatus)">{{ capabilityStatusLabel(capability.osStatus) }}</span>
                   <span class="proactive-capability-actions">
-                    <input
-                      type="checkbox"
-                      class="settings-switch proactive-capability-switch"
+                    <AervoxSwitch
+                      class="proactive-capability-switch"
                       :checked="capability.osStatus === 'granted'"
                       :disabled="proactiveCapabilitySwitchDisabled(capability)"
                       :title="proactiveCapabilitySwitchTitle(capability)"
                       :aria-label="`${capability.label}授权开关`"
                       @change="toggleProactiveCapability(capability, $event)"
-                    />
+                     />
                   </span>
                 </li>
                 <li v-if="!proactiveStatus" class="settings-empty-hint">等待桌面 Host 返回能力快照。</li>
@@ -395,8 +397,8 @@ async function onPluginChange(): Promise<void> {
                 <li v-for="claim in proactiveClaims" :key="claim.id" class="proactive-claim-item">
                   <span class="proactive-claim-copy"><strong>{{ claim.content }}</strong><small>{{ claim.claimType }} · 置信度 {{ claim.confidence }} · {{ proactiveClaimStateLabel(claim.state) }}</small></span>
                   <span class="proactive-claim-actions">
-                    <button type="button" :class="{ active: claim.state === 'confirmed' }" :disabled="proactiveBusy" title="确认这条画像记忆" aria-label="确认画像记忆" @click="updateProactiveClaimState(claim, 'confirmed')"><Check :size="14" /></button>
-                    <button type="button" :class="{ rejected: claim.state === 'rejected' }" :disabled="proactiveBusy" title="拒绝这条画像记忆" aria-label="拒绝画像记忆" @click="updateProactiveClaimState(claim, 'rejected')"><Trash2 :size="14" /></button>
+                    <AervoxButton variant="secondary" type="button" :class="{ active: claim.state === 'confirmed' }" :disabled="proactiveBusy" title="确认这条画像记忆" aria-label="确认画像记忆" @click="updateProactiveClaimState(claim, 'confirmed')"><Check :size="14" /></AervoxButton>
+                    <AervoxButton variant="secondary" type="button" :class="{ rejected: claim.state === 'rejected' }" :disabled="proactiveBusy" title="拒绝这条画像记忆" aria-label="拒绝画像记忆" @click="updateProactiveClaimState(claim, 'rejected')"><Trash2 :size="14" /></AervoxButton>
                   </span>
                 </li>
                 <li v-if="proactiveClaims.length === 0" class="settings-empty-hint">尚未形成画像记忆。</li>
@@ -408,25 +410,25 @@ async function onPluginChange(): Promise<void> {
               <section class="proactive-integration-section">
                 <div class="proactive-capability-heading"><strong>Home Assistant</strong><small>局域网状态订阅与实体级服务授权。</small></div>
                 <form class="proactive-integration-form" @submit.prevent="connectHomeAssistant">
-                  <label><span>名称</span><input v-model="homeAssistantForm.displayName" autocomplete="off" /></label>
-                  <label class="wide"><span>实例地址</span><input v-model="homeAssistantForm.endpoint" inputmode="url" autocomplete="url" /></label>
-                  <label class="wide"><span>长期访问令牌</span><input v-model="homeAssistantForm.accessToken" type="password" autocomplete="off" /></label>
-                  <button type="submit" :disabled="proactiveBusy || !proactiveActive"><Link2 :size="15" />连接</button>
+                  <label><span>名称</span><input class="aervox-field" v-model="homeAssistantForm.displayName" autocomplete="off" /></label>
+                  <label class="wide"><span>实例地址</span><input class="aervox-field" v-model="homeAssistantForm.endpoint" inputmode="url" autocomplete="url" /></label>
+                  <label class="wide"><span>长期访问令牌</span><input class="aervox-field" v-model="homeAssistantForm.accessToken" type="password" autocomplete="off" /></label>
+                  <AervoxButton variant="secondary" type="submit" :disabled="proactiveBusy || !proactiveActive"><Link2 :size="15" />连接</AervoxButton>
                 </form>
                 <ul class="proactive-connection-list">
                   <li v-for="connection in homeAssistantConnections" :key="connection.id">
                     <span><strong>{{ connection.displayName }}</strong><small>{{ connection.endpoint }} · {{ integrationTime(connection.lastSyncAt) }}</small></span>
                     <em :class="`is-${connection.state}`">{{ connection.state }}</em>
-                    <button type="button" title="立即同步" aria-label="立即同步 Home Assistant" :disabled="proactiveBusy" @click="syncProactiveConnection(connection.provider, connection.id)"><RefreshCw :size="14" /></button>
-                    <button type="button" title="撤销连接" aria-label="撤销 Home Assistant 连接" :disabled="proactiveBusy" @click="deleteProactiveConnection(connection.provider, connection.id, connection.displayName)"><Trash2 :size="14" /></button>
+                    <AervoxButton variant="secondary" type="button" title="立即同步" aria-label="立即同步 Home Assistant" :disabled="proactiveBusy" @click="syncProactiveConnection(connection.provider, connection.id)"><RefreshCw :size="14" /></AervoxButton>
+                    <AervoxButton variant="danger" type="button" title="撤销连接" aria-label="撤销 Home Assistant 连接" :disabled="proactiveBusy" @click="deleteProactiveConnection(connection.provider, connection.id, connection.displayName)"><Trash2 :size="14" /></AervoxButton>
                   </li>
                   <li v-if="homeAssistantConnections.length === 0" class="settings-empty-hint">尚未连接 Home Assistant。</li>
                 </ul>
                 <ul v-if="homeAssistantEntities.length > 0" class="proactive-entity-list">
                   <li v-for="entity in homeAssistantEntities" :key="entity.id">
-                    <input :checked="entity.enabled" type="checkbox" class="settings-switch" :disabled="proactiveBusy" :aria-label="`授权 ${entity.displayName ?? entity.entityId}`" @change="toggleHomeEntity(entity, $event)" />
+                    <AervoxSwitch :checked="entity.enabled"  :disabled="proactiveBusy" :aria-label="`授权 ${entity.displayName ?? entity.entityId}`" @change="toggleHomeEntity(entity, $event)"  />
                     <span><strong>{{ entity.displayName ?? entity.entityId }}</strong><small>{{ entity.entityId }} · {{ entity.state.state ?? 'unknown' }}</small></span>
-                    <input v-model="homeEntityOpsDrafts[entity.id]" class="proactive-ops-input" placeholder="turn_on, turn_off" :disabled="proactiveBusy || !entity.enabled" @change="saveHomeEntityOps(entity)" />
+                    <input v-model="homeEntityOpsDrafts[entity.id]" class="aervox-field proactive-ops-input" placeholder="turn_on, turn_off" :disabled="proactiveBusy || !entity.enabled" @change="saveHomeEntityOps(entity)" />
                   </li>
                 </ul>
               </section>
@@ -434,22 +436,22 @@ async function onPluginChange(): Promise<void> {
               <section class="proactive-integration-section">
                 <div class="proactive-capability-heading"><strong>小米运动健康</strong><small>使用用户自有的官方开放平台配置同步步数、睡眠与静息心率。</small></div>
                 <form class="proactive-integration-form" @submit.prevent="connectXiaomiHealth">
-                  <label><span>名称</span><input v-model="xiaomiHealthForm.displayName" autocomplete="off" /></label>
-                  <label class="wide"><span>API 地址</span><input v-model="xiaomiHealthForm.apiBaseUrl" inputmode="url" autocomplete="url" /></label>
-                  <label><span>Access Token</span><input v-model="xiaomiHealthForm.accessToken" type="password" autocomplete="off" /></label>
-                  <label><span>Refresh Token</span><input v-model="xiaomiHealthForm.refreshToken" type="password" autocomplete="off" /></label>
-                  <label class="wide"><span>Token Endpoint</span><input v-model="xiaomiHealthForm.tokenEndpoint" inputmode="url" autocomplete="off" /></label>
-                  <label><span>Client ID</span><input v-model="xiaomiHealthForm.clientId" autocomplete="off" /></label>
-                  <label><span>Client Secret</span><input v-model="xiaomiHealthForm.clientSecret" type="password" autocomplete="off" /></label>
-                  <label class="wide"><span>每日汇总路径</span><input v-model="xiaomiHealthForm.dailyPath" autocomplete="off" /></label>
-                  <button type="submit" :disabled="proactiveBusy || !proactiveActive"><Heart :size="15" />连接</button>
+                  <label><span>名称</span><input class="aervox-field" v-model="xiaomiHealthForm.displayName" autocomplete="off" /></label>
+                  <label class="wide"><span>API 地址</span><input class="aervox-field" v-model="xiaomiHealthForm.apiBaseUrl" inputmode="url" autocomplete="url" /></label>
+                  <label><span>Access Token</span><input class="aervox-field" v-model="xiaomiHealthForm.accessToken" type="password" autocomplete="off" /></label>
+                  <label><span>Refresh Token</span><input class="aervox-field" v-model="xiaomiHealthForm.refreshToken" type="password" autocomplete="off" /></label>
+                  <label class="wide"><span>Token Endpoint</span><input class="aervox-field" v-model="xiaomiHealthForm.tokenEndpoint" inputmode="url" autocomplete="off" /></label>
+                  <label><span>Client ID</span><input class="aervox-field" v-model="xiaomiHealthForm.clientId" autocomplete="off" /></label>
+                  <label><span>Client Secret</span><input class="aervox-field" v-model="xiaomiHealthForm.clientSecret" type="password" autocomplete="off" /></label>
+                  <label class="wide"><span>每日汇总路径</span><input class="aervox-field" v-model="xiaomiHealthForm.dailyPath" autocomplete="off" /></label>
+                  <AervoxButton variant="secondary" type="submit" :disabled="proactiveBusy || !proactiveActive"><Heart :size="15" />连接</AervoxButton>
                 </form>
                 <ul class="proactive-connection-list">
                   <li v-for="connection in xiaomiHealthConnections" :key="connection.id">
                     <span><strong>{{ connection.displayName }}</strong><small>{{ integrationTime(connection.lastSyncAt) }}</small></span>
                     <em :class="`is-${connection.state}`">{{ connection.state }}</em>
-                    <button type="button" title="同步今日健康数据" aria-label="同步今日健康数据" :disabled="proactiveBusy" @click="syncProactiveConnection(connection.provider, connection.id)"><RefreshCw :size="14" /></button>
-                    <button type="button" title="撤销连接" aria-label="撤销小米运动健康连接" :disabled="proactiveBusy" @click="deleteProactiveConnection(connection.provider, connection.id, connection.displayName)"><Trash2 :size="14" /></button>
+                    <AervoxButton variant="secondary" type="button" title="同步今日健康数据" aria-label="同步今日健康数据" :disabled="proactiveBusy" @click="syncProactiveConnection(connection.provider, connection.id)"><RefreshCw :size="14" /></AervoxButton>
+                    <AervoxButton variant="danger" type="button" title="撤销连接" aria-label="撤销小米运动健康连接" :disabled="proactiveBusy" @click="deleteProactiveConnection(connection.provider, connection.id, connection.displayName)"><Trash2 :size="14" /></AervoxButton>
                   </li>
                   <li v-if="xiaomiHealthConnections.length === 0" class="settings-empty-hint">尚未连接小米运动健康。</li>
                 </ul>
@@ -461,57 +463,44 @@ async function onPluginChange(): Promise<void> {
           </template>
         </div>
         <div v-else-if="settingsCategory === 'appearance'" class="settings-section">
-          <div class="settings-section-heading">
-            <span class="heading-icon-wrap"><Sun :size="18" /></span>
-            <span><strong>外观</strong><small>让工作台更符合你的节奏与喜好</small></span>
-          </div>
+          <AervoxSettingsHeading title="外观" description="让工作台更符合你的节奏与喜好" />
           <div class="settings-row settings-choice-row">
             <span><strong>交互模式</strong><small>切换标准工作台（侧栏多会话）或桌宠陪伴（沉浸式交互）</small></span>
-            <span class="settings-segmented">
-              <button type="button" :class="{ active: workbenchMode === 'companion' }" @click="switchWorkbenchMode('companion')">桌宠陪伴</button>
-              <button type="button" :class="{ active: workbenchMode === 'standard' }" @click="switchWorkbenchMode('standard')">标准工作台</button>
-            </span>
+            <AervoxSegmentedControl :model-value="workbenchMode" :options="modeOptions" label="交互模式" @update:model-value="switchWorkbenchMode($event as WorkbenchMode)" />
           </div>
-          <div class="settings-row settings-choice-row"><span><strong>主题</strong><small>选择工作台的明暗模式</small></span><span class="settings-segmented"><button type="button" :class="{ active: !isDark }" @click="setTheme('light', timerMinutes)"><Sun :size="16" />亮色</button><button type="button" :class="{ active: isDark }" @click="setTheme('dark', timerMinutes)"><Moon :size="16" />暗色</button></span></div>
-          <label class="settings-row settings-choice-row"><span><strong>界面密度</strong><small>紧凑模式会减少面板间距</small></span><input v-model="compactMode" type="checkbox" class="settings-switch" @change="saveSettings(timerMinutes)" /></label>
-          <label v-if="!isWeb && showCompanion" class="settings-row settings-choice-row"><span><strong>工作台桌宠</strong><small>控制桌面端主窗口中的桌宠区域</small></span><input v-model="desktopCompanionEnabled" type="checkbox" class="settings-switch" @change="saveSettings(timerMinutes)" /></label>
+          <div class="settings-row settings-choice-row"><span><strong>主题</strong><small>选择工作台的明暗模式</small></span><AervoxSegmentedControl :model-value="isDark ? 'dark' : 'light'" :options="themeOptions" label="主题" @update:model-value="setTheme($event as 'light' | 'dark', timerMinutes)" /></div>
+          <label class="settings-row settings-choice-row"><span><strong>紧凑布局</strong><small>减少面板间距，让同一屏容纳更多内容</small></span><AervoxSwitch v-model="compactMode"  @change="saveSettings(timerMinutes)"  /></label>
+          <label v-if="!isWeb && showCompanion" class="settings-row settings-choice-row"><span><strong>工作台桌宠</strong><small>控制桌面端主窗口中的桌宠区域</small></span><AervoxSwitch v-model="desktopCompanionEnabled"  @change="saveSettings(timerMinutes)"  /></label>
           <div v-if="!isWeb" class="settings-row settings-choice-row">
             <span><strong>重看新手引导</strong><small>重新播放首次启动的相遇序章，回放期间会暂时离开工作台</small></span>
-            <button type="button" class="settings-replay-action" @click="emit('replay-onboarding')"><PlayCircle :size="15" />回放</button>
+            <AervoxButton variant="secondary" type="button" class="settings-replay-action" @click="emit('replay-onboarding')"><PlayCircle :size="15" />回放</AervoxButton>
           </div>
           <div v-if="!isWeb" class="settings-row settings-choice-row">
             <span><strong>完整产品介绍</strong><small>内嵌播放 10 页产品叙事（约 8 分钟），随时可以关闭</small></span>
-            <button type="button" class="settings-replay-action" @click="emit('open-intro-deck')"><PlayCircle :size="15" />观看</button>
+            <AervoxButton variant="secondary" type="button" class="settings-replay-action" @click="emit('open-intro-deck')"><PlayCircle :size="15" />观看</AervoxButton>
           </div>
         </div>
         <div v-else-if="settingsCategory === 'conversation'" class="settings-section">
-          <div class="settings-section-heading">
-            <span class="heading-icon-wrap"><MessageCircle :size="18" /></span>
-            <span><strong>对话</strong><small>调整你与思隅交流的输入与展示方式</small></span>
-          </div>
-          <label class="settings-field"><span><strong>助手称呼</strong><small>工作台中显示的名字</small></span><input v-model="assistantDisplayName" maxlength="12" @change="saveSettings(timerMinutes)" /></label>
+          <AervoxSettingsHeading title="对话" description="调整你与思隅交流的输入与展示方式" />
+          <label class="settings-field"><span><strong>助手称呼</strong><small>工作台中显示的名字</small></span><input class="aervox-field" v-model="assistantDisplayName" maxlength="12" @change="saveSettings(timerMinutes)" /></label>
           <!-- CR-060：插件自有设置行经通用插槽注入，宿主不内建任何插件行 -->
           <ExtensionSlot name="settings:conversation-rows" />
-          <label class="settings-row settings-choice-row"><span><strong>回车发送</strong><small>关闭后，回车只换行</small></span><input v-model="enterToSend" type="checkbox" class="settings-switch" @change="saveSettings(timerMinutes)" /></label>
+          <label class="settings-row settings-choice-row"><span><strong>回车发送</strong><small>关闭后，回车只换行</small></span><AervoxSwitch v-model="enterToSend"  @change="saveSettings(timerMinutes)"  /></label>
         </div>
-        <LLMConfigPanel v-else-if="settingsCategory === 'model'" class="settings-section" />
         <ModelRuntimePanel v-else-if="settingsCategory === 'local-models'" class="settings-section" />
         <PersonaManagerPanel v-else-if="settingsCategory === 'persona'" class="settings-section" />
         <div v-else-if="settingsCategory === 'notifications'" class="settings-section">
-          <div class="settings-section-heading">
-            <span class="heading-icon-wrap"><Bell :size="18" /></span>
-            <span><strong>提醒</strong><small>控制学习过程中的轻量通知与节奏提醒</small></span>
-          </div>
+          <AervoxSettingsHeading title="提醒" description="控制学习过程中的轻量通知与节奏提醒" />
           <div class="settings-note"><Check :size="16" />设置会自动保存在当前设备</div>
         </div>
         <div v-else-if="settingsCategory === 'voice'" class="settings-section">
-          <div class="settings-section-heading">
-            <span class="heading-icon-wrap"><Volume2 :size="18" /></span>
-            <span><strong>语音</strong><small>多预设保存与切换本地或在线语音模型</small></span>
-          </div>
+          <AervoxSettingsHeading title="语音" description="多预设保存与切换本地或在线语音模型" />
           <VoicePresetManagerPanel />
         </div>
-        <PluginManagerPanel v-else class="settings-section" @change="onPluginChange" />
+        <PluginManagerPanel v-else-if="settingsCategory === 'plugins'" class="settings-section" @change="onPluginChange" />
+        <p v-if="settingsCategory === 'appearance' || settingsCategory === 'conversation' || settingsCategory === 'tools'" class="settings-autosave-note">
+          <Check :size="14" />更改会自动保存在当前设备
+        </p>
     </template>
   </AervoxNavDialog>
 
@@ -553,10 +542,10 @@ async function onPluginChange(): Promise<void> {
       <strong>本次授权范围</strong>
       <span>应用与窗口、浏览器、键鼠与剪贴板、屏幕、文件、通信、音视频、位置、传感器、敏感私人资料，以及后台与主动动作权限。</span>
     </div>
-    <label class="settings-row settings-choice-row proactive-dialog-choice"><span><strong>开机自启</strong><small>设备登录后恢复 Host（会告知系统设置结果）</small></span><input v-model="proactiveAutostart" type="checkbox" class="settings-switch" /></label>
-    <label class="settings-row settings-choice-row proactive-dialog-choice"><span><strong>后台持续运行</strong><small>窗口关闭后继续运行已授权观察与处理</small></span><input v-model="proactiveBackground" type="checkbox" class="settings-switch" /></label>
+    <label class="settings-row settings-choice-row proactive-dialog-choice"><span><strong>开机自启</strong><small>设备登录后恢复 Host（会告知系统设置结果）</small></span><AervoxSwitch aria-label="开机自启" v-model="proactiveAutostart"   /></label>
+    <label class="settings-row settings-choice-row proactive-dialog-choice"><span><strong>后台持续运行</strong><small>窗口关闭后继续运行已授权观察与处理</small></span><AervoxSwitch aria-label="后台持续运行" v-model="proactiveBackground"   /></label>
     <label class="permission-acknowledgement proactive-acknowledgement">
-      <input v-model="proactiveAcknowledged" type="checkbox" />
+      <input class="aervox-checkbox" v-model="proactiveAcknowledged" type="checkbox" />
       <span>我已阅读全量画像范围，确认这些来源和动作由我单独授权，并知悉数据仅在本机持久化。</span>
     </label>
     <template #footer>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { AervoxCard, AervoxSwitch, AervoxSettingsHeading, AervoxButton } from '../../primitives';
+import { computed, onActivated, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from '../../utils/element'
 import {
   Bot,
@@ -28,6 +29,7 @@ const config = ref<LLMConfigDto | null>(null)
 const loading = ref(true)
 const saving = ref(false)
 const savedFlash = ref(false)
+const savedSnapshot = ref('')
 const showApiKey = ref(false)
 const showAdvanced = ref(false)
 const testBusy = ref(false)
@@ -62,6 +64,32 @@ const draft = computed<LLMConfigDto>({
   },
 })
 
+const hasUnsavedChanges = computed(() => Boolean(savedSnapshot.value)
+  && JSON.stringify(draft.value) !== savedSnapshot.value)
+
+function discardDraft() {
+  if (savedSnapshot.value) config.value = JSON.parse(savedSnapshot.value) as LLMConfigDto
+}
+
+watch(() => JSON.stringify(draft.value), () => {
+  testResult.value = null
+  detectedModels.value = []
+})
+
+async function confirmReplaceDraft(): Promise<boolean> {
+  if (!hasUnsavedChanges.value) return true
+  try {
+    await ElMessageBox.confirm('当前配置有未保存的修改，继续会放弃这些修改。', '切换模型预设', {
+      confirmButtonText: '放弃修改并继续',
+      cancelButtonText: '返回编辑',
+      type: 'warning',
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
 const currentPreset = computed(() => {
   return api.presetProviders.find((p) => p.id === draft.value.providerType)
 })
@@ -75,9 +103,20 @@ onMounted(async () => {
   loading.value = false
 })
 
+onActivated(() => {
+  if (!loading.value && !hasUnsavedChanges.value) {
+    void Promise.all([loadConfig(), loadPresets()])
+  }
+})
+
 async function loadConfig(): Promise<void> {
+  const previousDraft = JSON.stringify(draft.value)
   try {
-    config.value = await api.getConfig()
+    const loaded = await api.getConfig()
+    if (JSON.stringify(draft.value) !== previousDraft) return
+    config.value = loaded
+    savedSnapshot.value = JSON.stringify(loaded)
+    error.value = null
   } catch (e) {
     error.value = e instanceof Error ? e.message : '读取大语言模型配置失败'
   }
@@ -117,7 +156,9 @@ async function handleCreatePreset(): Promise<void> {
 
 /** 激活指定预设并加载其配置 */
 async function handleActivatePreset(preset: LLMPresetDto): Promise<void> {
+  if (saving.value || busyPresetId.value) return
   if (preset.isActive) return
+  if (!(await confirmReplaceDraft())) return
   busyPresetId.value = preset.id
   try {
     await api.activatePreset(preset.id)
@@ -132,6 +173,8 @@ async function handleActivatePreset(preset: LLMPresetDto): Promise<void> {
 
 /** 删除预设 */
 async function handleDeletePreset(preset: LLMPresetDto): Promise<void> {
+  if (saving.value || busyPresetId.value) return
+  if (!(await confirmReplaceDraft())) return
   try {
     await ElMessageBox.confirm(`确定删除模型预设「${preset.name}」吗？`, '删除确认', {
       confirmButtonText: '删除',
@@ -174,6 +217,7 @@ async function handleTestConnection(): Promise<void> {
   }
 
   testBusy.value = true
+  const testedDraft = JSON.stringify(draft.value)
   testResult.value = null
   error.value = null
   detectedModels.value = []
@@ -185,12 +229,14 @@ async function handleTestConnection(): Promise<void> {
       apiKey: draft.value.apiKey?.trim() || undefined,
       modelId: draft.value.modelId.trim(),
     })
+    if (JSON.stringify(draft.value) !== testedDraft) return
     testResult.value = res
     // 本地端点 /models 自动感知：探测到可用模型时供一键选择
     if (res.ok && Array.isArray(res.availableModels) && res.availableModels.length > 0) {
       detectedModels.value = res.availableModels
     }
   } catch (e) {
+    if (JSON.stringify(draft.value) !== testedDraft) return
     testResult.value = {
       ok: false,
       latencyMs: 0,
@@ -217,10 +263,11 @@ async function handleSave(): Promise<void> {
   }
 
   saving.value = true
+  const submittedDraft = JSON.stringify(draft.value)
   error.value = null
 
   try {
-    config.value = await api.saveConfig({
+    const saved = await api.saveConfig({
       enabled: draft.value.enabled,
       providerType: draft.value.providerType,
       baseUrl: draft.value.baseUrl.trim(),
@@ -230,6 +277,8 @@ async function handleSave(): Promise<void> {
       maxTokens: Number(draft.value.maxTokens) || 4096,
       settings: draft.value.settings ?? {},
     })
+    savedSnapshot.value = JSON.stringify(saved)
+    if (JSON.stringify(draft.value) === submittedDraft) config.value = saved
     savedFlash.value = true
     await loadPresets()
     setTimeout(() => {
@@ -245,29 +294,26 @@ async function handleSave(): Promise<void> {
 
 <template>
   <div class="llm-config-panel">
-    <div class="settings-section-heading">
-      <span class="heading-icon-wrap"><Bot :size="18" /></span>
-      <span><strong>模型与服务</strong><small>配置大语言模型供应商与运行时调用参数</small></span>
-    </div>
+    <AervoxSettingsHeading title="模型与服务" description="配置大语言模型供应商与运行时调用参数" />
 
     <!-- 多预设：卡片列表（对齐人格设定同款交互） -->
     <div v-if="presetsLoading" class="pcfg-loading">加载模型预设…</div>
     <div v-else class="llm-preset-header">
       <strong class="llm-preset-title">模型预设</strong>
-      <button type="button" class="llm-preset-add-btn" @click="handleCreatePreset">
+      <AervoxButton variant="secondary" type="button" class="llm-preset-add-btn" @click="handleCreatePreset">
         <Plus :size="15" />新建预设
-      </button>
+      </AervoxButton>
     </div>
-    <div v-if="!presetsLoading" class="llm-preset-grid">
-      <article
+    <div v-if="!presetsLoading" class="settings-list llm-preset-grid">
+      <AervoxCard as="article"
         v-for="preset in presets"
         :key="preset.id"
-        class="llm-preset-card"
+        class="settings-item llm-preset-card"
         :class="{active: preset.id === activePresetId}"
       >
         <div class="llm-preset-card-head">
           <strong class="llm-preset-name">{{ preset.name }}</strong>
-          <span v-if="preset.id === activePresetId" class="llm-preset-active-badge">
+          <span v-if="preset.id === activePresetId" class="aervox-badge llm-preset-active-badge">
             <Sparkles :size="11" />当前
           </span>
         </div>
@@ -275,23 +321,23 @@ async function handleSave(): Promise<void> {
           {{ preset.providerType }} · {{ preset.modelId }}
         </small>
         <div class="llm-preset-actions">
-          <button
+          <AervoxButton variant="secondary"
             v-if="preset.id !== activePresetId"
             type="button"
             class="llm-preset-action"
-            :disabled="busyPresetId === preset.id"
+            :disabled="saving || Boolean(busyPresetId)"
             @click="handleActivatePreset(preset)"
-          >设为当前</button>
-          <button
+          >设为当前</AervoxButton>
+          <AervoxButton variant="danger"
             type="button"
             class="llm-preset-action danger"
-            :disabled="busyPresetId === preset.id"
+            :disabled="saving || Boolean(busyPresetId)"
             @click="handleDeletePreset(preset)"
           >
             <Trash2 :size="12" />删除
-          </button>
+          </AervoxButton>
         </div>
-      </article>
+      </AervoxCard>
     </div>
 
     <div v-if="loading" class="pcfg-loading">加载模型配置…</div>
@@ -299,14 +345,15 @@ async function handleSave(): Promise<void> {
     <template v-else>
       <label class="settings-row settings-choice-row">
         <span><strong>启用大模型服务</strong><small>控制是否在会话中启用此模型配置</small></span>
-        <input v-model="draft.enabled" type="checkbox" class="settings-switch" />
+        <AervoxSwitch v-model="draft.enabled"   />
       </label>
 
       <div class="settings-field">
         <span><strong>模型供应商</strong><small>选择主流预设或自定义兼容端点</small></span>
         <select
           :value="draft.providerType"
-          class="llm-select-field"
+          aria-label="模型供应商"
+          class="aervox-field llm-select-field"
           @change="handleProviderChange(($event.target as HTMLSelectElement).value as LLMProviderType)"
         >
           <option
@@ -323,8 +370,9 @@ async function handleSave(): Promise<void> {
         <span><strong>服务基址 (Base URL)</strong><small>{{ currentPreset?.description }}</small></span>
         <input
           v-model="draft.baseUrl"
+          aria-label="服务基址"
           type="text"
-          class="llm-input-field"
+          class="aervox-field llm-input-field"
           placeholder="http://127.0.0.1:11434/v1"
         />
       </div>
@@ -337,12 +385,13 @@ async function handleSave(): Promise<void> {
         <div class="api-key-input-wrapper">
           <input
             v-model="draft.apiKey"
+            aria-label="API Key"
             :type="showApiKey ? 'text' : 'password'"
-            class="llm-input-field key-input"
+            class="aervox-field llm-input-field key-input"
             placeholder="sk-..."
             autocomplete="off"
           />
-          <button
+          <AervoxButton variant="secondary" icon-only
             type="button"
             class="key-toggle-btn"
             :title="showApiKey ? '隐藏密钥' : '查看密钥'"
@@ -350,7 +399,7 @@ async function handleSave(): Promise<void> {
           >
             <EyeOff v-if="showApiKey" :size="15" />
             <Eye v-else :size="15" />
-          </button>
+          </AervoxButton>
         </div>
       </div>
 
@@ -358,8 +407,9 @@ async function handleSave(): Promise<void> {
         <span><strong>模型名称 (Model ID)</strong><small>要调用的具体模型标识符</small></span>
         <input
           v-model="draft.modelId"
+          aria-label="模型名称"
           type="text"
-          class="llm-input-field"
+          class="aervox-field llm-input-field"
           placeholder="llama3.2"
           list="recommended-llm-models"
         />
@@ -395,9 +445,9 @@ async function handleSave(): Promise<void> {
                 min="0"
                 max="2"
                 step="0.05"
-                class="llm-slider"
+                class="aervox-range llm-slider"
               />
-              <span class="slider-value-badge">{{ draft.temperature }}</span>
+              <span class="aervox-badge slider-value-badge">{{ draft.temperature }}</span>
             </div>
           </div>
 
@@ -409,7 +459,7 @@ async function handleSave(): Promise<void> {
               min="128"
               max="65536"
               step="256"
-              class="llm-input-field number-input"
+              class="aervox-field llm-input-field number-input"
               placeholder="4096"
             />
           </div>
@@ -417,7 +467,12 @@ async function handleSave(): Promise<void> {
       </div>
 
       <div class="settings-note llm-actions">
-        <button
+        <div class="llm-save-status" role="status">
+          <strong>{{ saving ? '正在保存…' : hasUnsavedChanges ? '有未保存的修改' : savedFlash ? '配置已保存' : '保存后生效' }}</strong>
+          <small>{{ hasUnsavedChanges ? '切换分类时会保留草稿' : '模型配置需要手动保存' }}</small>
+        </div>
+        <AervoxButton variant="secondary" v-if="hasUnsavedChanges" type="button" class="llm-action-btn" :disabled="saving" @click="discardDraft">放弃修改</AervoxButton>
+        <AervoxButton variant="secondary"
           type="button"
           class="llm-action-btn test-btn"
           :disabled="testBusy"
@@ -425,17 +480,17 @@ async function handleSave(): Promise<void> {
         >
           <Zap :size="15" />
           {{ testBusy ? '测试连接中…' : '测试连接' }}
-        </button>
-        <button
+        </AervoxButton>
+        <AervoxButton variant="primary"
           type="button"
           class="llm-action-btn save-btn"
-          :disabled="saving"
+          :disabled="saving || Boolean(busyPresetId) || !savedSnapshot"
           @click="handleSave"
         >
           <Check v-if="savedFlash" :size="15" />
           <RotateCcw v-else :size="15" />
           {{ saving ? '保存中…' : savedFlash ? '已保存' : '保存配置' }}
-        </button>
+        </AervoxButton>
       </div>
 
       <div
@@ -467,7 +522,7 @@ async function handleSave(): Promise<void> {
       <div v-if="detectedModels.length > 0" class="detected-models-row">
         <span class="detected-models-label">探测到 {{ detectedModels.length }} 个可用模型：</span>
         <select
-          class="llm-select-field detected-model-select"
+          class="aervox-field llm-select-field detected-model-select"
           :value="draft.modelId"
           @change="applyDetectedModel(($event.target as HTMLSelectElement).value)"
         >
@@ -478,7 +533,8 @@ async function handleSave(): Promise<void> {
         </select>
       </div>
 
-      <p v-if="error" class="llm-error">{{ error }}</p>
+      <p v-if="error" class="llm-error" role="alert">{{ error }}</p>
+      <AervoxButton variant="secondary" v-if="!savedSnapshot" type="button" class="llm-action-btn" @click="loadConfig">重新加载配置</AervoxButton>
     </template>
   </div>
 </template>
@@ -496,26 +552,6 @@ async function handleSave(): Promise<void> {
   color: var(--text-secondary);
 }
 
-.llm-preset-add-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 12px;
-  border: 1px solid var(--accent);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.llm-preset-add-btn:hover {
-  background: var(--accent);
-  color: #fff;
-}
-
 .llm-preset-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -524,16 +560,7 @@ async function handleSave(): Promise<void> {
 }
 
 .llm-preset-card {
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  background: var(--bg-main);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.llm-preset-card.active {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 .llm-preset-card-head {
@@ -579,49 +606,10 @@ async function handleSave(): Promise<void> {
   margin-top: 8px;
 }
 
-.llm-preset-action {
-  padding: 3px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.llm-preset-action:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.llm-preset-action.danger:hover:not(:disabled) {
-  border-color: var(--danger, #e5484d);
-  color: var(--danger, #e5484d);
-}
-
-.llm-preset-action:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
 .llm-select-field,
 .llm-input-field {
   width: min(380px, 58%);
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  outline: 0;
-  background: var(--bg-input, var(--bg-soft));
-  color: var(--text-primary);
-  font-size: 12.5px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
 
-.llm-select-field:focus,
-.llm-input-field:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .api-key-input-wrapper {
@@ -634,24 +622,6 @@ async function handleSave(): Promise<void> {
 .api-key-input-wrapper .key-input {
   flex: 1;
   width: auto;
-}
-
-.key-toggle-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 7px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-main);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.key-toggle-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
 }
 
 .advanced-section {
@@ -697,7 +667,7 @@ async function handleSave(): Promise<void> {
 
 .llm-slider {
   flex: 1;
-  accent-color: var(--accent);
+
 }
 
 .slider-value-badge {
@@ -717,37 +687,17 @@ async function handleSave(): Promise<void> {
   gap: 10px;
   flex-wrap: wrap;
   margin-top: 12px;
-}
-
-.llm-action-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  position: sticky;
+  bottom: -32px;
+  z-index: 1;
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
   background: var(--bg-main);
-  color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 550;
-  cursor: pointer;
-  transition: all 0.15s ease;
 }
 
-.llm-action-btn:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.llm-action-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.test-btn:hover:not(:disabled) {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-}
+.llm-save-status { display: grid; gap: 3px; flex: 1 0 150px; color: var(--text-primary); }
+.llm-save-status strong { font-size: 13px; font-weight: 500; }
+.llm-save-status small { font-size: 12px; color: var(--text-secondary); }
 
 .test-result-badge {
   display: inline-flex;

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useWorkbenchContext } from '@aervox/ui/plugin-api';
+import { AervoxSwitch } from '@aervox/ui/primitives';
 import { useFocusModeState } from './plugin-state';
 const { focusModeEnabled, setFocusModeEnabled } = useFocusModeState();
 
@@ -14,18 +15,11 @@ const isAvailable = pluginRuntime?.isPluginAvailable('focus-mode') ?? true;
 </script>
 
 <template>
-  <div v-if="isAvailable" class="setting-row">
-    <div class="setting-label">
+  <label v-if="isAvailable" class="settings-row settings-choice-row">
+    <span>
       <strong>专注模式</strong>
       <small>启用专属启发式教学与防剧透规则</small>
-    </div>
-    <label class="switch">
-      <input
-        type="checkbox"
-        :checked="focusModeEnabled"
-        @change="setFocusModeEnabled(($event.target as HTMLInputElement).checked)"
-      />
-      <span class="slider" />
-    </label>
-  </div>
+    </span>
+    <AervoxSwitch :model-value="focusModeEnabled" @update:model-value="setFocusModeEnabled" />
+  </label>
 </template>

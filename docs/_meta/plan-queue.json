@@ -1153,6 +1153,32 @@
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
         "https://github.com/3yearsZhuang/Aervox-harness/pull/262"
       ]
+    },
+    {
+      "id": "ITER-053",
+      "batch": "first",
+      "status": "待评审",
+      "delivery": "前端体验优化：大比例 Live2D、轻量聊天输入、跨页面统一开关/卡片/按钮/表单/标签导航、草稿保存和窄窗口导航；CAP-001/002/018/020。",
+      "gate": "用户已授权按设计审视落地；沿用雾蓝视觉、双形态和插件扩展接缝，不改变后端与授权契约。",
+      "acceptance": [
+        "Live2D 保持左侧大比例展示并随容器缩放；首页输入、回复与功能卡片共用表面、标题和操作区设计，窄屏不重叠；生成期间可编辑下一条草稿",
+        "设置整合为五个主题分类，跨页面复用同一开关、卡片、操作按钮、表单及标签导航样式；模型草稿跨分类保留，插件操作无重复入口",
+        "窄窗口导航可展开和关闭，会话支持键盘操作；回归与代码、文档门禁通过"
+      ],
+      "owner": "Codex",
+      "branch": "feat/frontend-experience",
+      "dependsOn": [],
+      "statusNote": "2026-10-09 随主线 rebase 改号：原条目与框架解耦整改撞用 ITER-052，现改为 ITER-053 并基于最新 main 重放。PR #260 评审修订：首页输入、回复与功能卡片统一表面、标题及操作区，保留大比例 Live2D 与紧凑输入；插件状态改用按上下文实例化的 useFocusModeState，开关控件复用 AervoxSwitch；桌面、窄屏、明暗主题及折叠状态已复核，待视觉与代码评审。真实模型端到端验收和发布仍未声明。",
+      "checks": [
+        "`packages/ui/test/frontend-experience.test.ts`",
+        "`packages/ui/test/standard-workbench.test.ts`",
+        "`packages/ui/test/plugin-settings-dialog.test.ts`",
+        "`plugins/focus-mode/test/ui-components.test.ts`"
+      ],
+      "links": [
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/260",
+        "docs/how-to/develop-plugin-ui-extension.md#33-复用工作台控件"
+      ]
     }
   ]
 }

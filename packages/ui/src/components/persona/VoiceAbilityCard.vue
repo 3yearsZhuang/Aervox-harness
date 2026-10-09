@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AervoxSwitch, AervoxButton, AervoxCard } from '../../primitives';
 import {computed, onMounted, ref, watch} from 'vue'
 import {FolderOpen, Play, Volume2} from 'lucide-vue-next'
 import {
@@ -141,11 +142,10 @@ async function preview(): Promise<void> {
 </script>
 
 <template>
-  <div class="ability-card voice-card" :class="{'is-open': enabled}">
+  <AervoxCard as="div" class="ability-card voice-card" :class="{'is-open': enabled}">
     <div class="ability-card-header" @click="onToggle">
       <label class="checkbox-label" @click.stop>
-        <input
-          type="checkbox"
+        <AervoxSwitch
           :checked="enabled"
           @change="onToggle"
         />
@@ -154,7 +154,7 @@ async function preview(): Promise<void> {
           <strong>语音</strong>
         </span>
       </label>
-      <span class="voice-card-badge" :class="{active: enabled}">
+      <span class="aervox-badge voice-card-badge" :class="{active: enabled}">
         {{ enabled ? '已启用' : '未启用' }}
       </span>
     </div>
@@ -164,7 +164,7 @@ async function preview(): Promise<void> {
         <span class="voice-field-label">模型</span>
         <select
           v-model="modelId"
-          class="voice-select"
+          class="aervox-field voice-select"
           @change="onModelChange"
         >
           <option value="" disabled>选择语音模型</option>
@@ -183,11 +183,11 @@ async function preview(): Promise<void> {
           <input
             v-model="speakerId"
             type="text"
-            class="voice-picker-input-field"
+            class="aervox-field voice-picker-input-field"
             placeholder="默认音色"
             @input="push"
           />
-          <button
+          <AervoxButton variant="secondary"
             type="button"
             class="voice-picker-btn"
             :disabled="desktopOnly"
@@ -195,21 +195,21 @@ async function preview(): Promise<void> {
             @click="pickSpeakerFolder"
           >
             <FolderOpen :size="13" />选择文件夹
-          </button>
+          </AervoxButton>
         </div>
       </div>
 
       <div class="voice-field voice-preview-row">
         <span class="voice-field-label">试听</span>
         <div class="voice-preview-actions">
-          <button
+          <AervoxButton variant="ghost"
             type="button"
             class="voice-preview-btn"
             :disabled="previewBusy"
             @click="preview"
           >
             <Play :size="13" />{{ previewBusy ? '合成中…' : '试听' }}
-          </button>
+          </AervoxButton>
           <audio v-if="previewAudio" :src="previewAudio" class="voice-audio" controls />
         </div>
       </div>
@@ -217,14 +217,11 @@ async function preview(): Promise<void> {
       <p v-if="previewError" class="voice-hint voice-error">{{ previewError }}</p>
       <p v-else-if="voices.length === 0" class="voice-hint">暂无可用语音模型，请先在设置中配置语音</p>
     </div>
-  </div>
+  </AervoxCard>
 </template>
 
 <style scoped>
 .ability-card {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg-soft);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -256,11 +253,11 @@ async function preview(): Promise<void> {
 }
 
 .checkbox-label input {
-  accent-color: var(--accent);
+
   cursor: pointer;
   margin: 0;
   width: 14px;
-  height: 14px;
+
 }
 
 .header-title {
@@ -316,19 +313,7 @@ async function preview(): Promise<void> {
 .voice-select {
   flex: 1;
   min-width: 0;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  outline: 0;
-  background: var(--bg-input, var(--bg-main));
-  color: var(--text-primary);
-  font-size: 12px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
 
-.voice-select:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .voice-picker {
@@ -342,40 +327,15 @@ async function preview(): Promise<void> {
 .voice-picker-input-field {
   flex: 1;
   min-width: 0;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  outline: 0;
-  background: var(--bg-input, var(--bg-main));
-  color: var(--text-primary);
-  font-size: 12px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
 
-.voice-picker-input-field:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .voice-picker-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 6px 11px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-main);
-  color: var(--text-primary);
-  font-size: 11.5px;
-  font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.15s ease;
-}
-
-.voice-picker-btn:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
 }
 
 .voice-picker-btn:disabled {
@@ -398,20 +358,7 @@ async function preview(): Promise<void> {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-main);
-  color: var(--text-primary);
-  font-size: 11.5px;
-  font-weight: 550;
   cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.voice-preview-btn:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
 }
 
 .voice-preview-btn:disabled {

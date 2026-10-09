@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.1
-updated_at: 2026-09-18
-reviewed_at: 2026-09-18
+version: 1.0.2
+updated_at: 2026-10-09
+reviewed_at: 2026-10-09
 review_interval_days: 90
 review_triggers:
   - plugins/**
@@ -312,6 +312,17 @@ export const focusDraftPlugin: BuiltinUIPlugin = {
 预期：工具栏出现“起草下一步”，空输入时填入草稿；已有输入不被覆盖；停用时按钮注销，再启用仅出现一次。参照 [plugin-registration.test.ts](../../plugins/focus-mode/test/plugin-registration.test.ts)验证重复同步与清理。真实功能应复用宿主按钮样式与无障碍规则。
 
 卡片、其他槽位和组件替换的完整接口见[规范 §5–§7](../reference/plugin-config-and-pages.md#5-前端-ui-插槽扩展规范ui-extension-slots)。特别注意：`overrideComponent` 没有 disposer，不能用 `registry.clear()` 停用单个插件；替换 `ComposerDock` 时必须由宿主安排恢复，并验证输入法、附件、语音与单次发送。
+
+### 3.3 复用工作台控件
+
+第一方插件从 `@aervox/ui/primitives` 导入[共享控件](../../packages/ui/src/primitives/index.ts)，让插件设置、工具栏和宿主页面使用一致的外观与交互：
+
+- 操作按钮使用 `AervoxButton`，按用途选择 `primary`、`secondary`、`ghost` 或 `danger`；图标按钮提供 `aria-label`，异步操作绑定 `loading` 或 `disabled`。
+- 布尔启停使用 `AervoxSwitch`，通过 `v-model` 更新本地状态；授权操作采用受控 `checked`，请求成功后再更新权威状态。勾选多项和确认条款仍用原生复选框及 `aervox-checkbox`。
+- 记录卡片使用 `AervoxCard`；图标、名称和操作并列时设置 `layout="record"`，正文、操作和附加内容分别使用 `record-main`、`record-actions`、`record-detail`。共享布局负责窄窗口折行。
+- 表单沿用原生 `input`、`select`、`textarea` 与 `aervox-field`，滑块使用 `aervox-range`；页面标题使用 `AervoxSettingsHeading`，互斥选项和页面切换使用 `AervoxSegmentedControl`（页面切换设置 `variant="tabs"`）。
+
+局部样式只补充内容布局，不覆盖共享控件的颜色、圆角、尺寸和焦点状态。提交前检查明暗主题、窄窗口，以及禁用、加载和失败后的状态；插件启停仍按既有生命周期验证。可参考[插件开关与导航用例](../../plugins/focus-mode/test/ui-components.test.ts)。
 
 ## 4. 接入第一方 Server Turn Hook
 

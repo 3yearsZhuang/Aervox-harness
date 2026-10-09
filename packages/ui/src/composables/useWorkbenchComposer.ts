@@ -71,7 +71,7 @@ export function useWorkbenchComposer(options: {
   const input = ref('');
   const isComposing = ref(false);
   const enterToSend = options.enterToSend ?? ref(true);
-  const composerOpen = ref(false);
+  const composerOpen = ref(true);
   const composerPlaceholder = '和思隅聊聊学习或任何事…';
   const composerTextarea = ref<HTMLTextAreaElement | null>(null);
   const attachmentFileInput = ref<HTMLInputElement | null>(null);
@@ -85,7 +85,7 @@ export function useWorkbenchComposer(options: {
   const draftSessionId = options.draftSessionId ?? ref('');
   const draftsEnabled = options.draftsEnabled ?? ref(false);
   let restoringDraft = false;
-  let pendingSubmittedDraft: { sessionId: string; text: string } | null = null;
+  let pendingSubmittedDraft: { sessionId: string; text: string; hasNewerDraft: boolean } | null = null;
 
   function draftStorageKey(sessionId: string): string {
     return `${MOBILE_DRAFT_STORAGE_PREFIX}${encodeURIComponent(sessionId)}`;
@@ -96,7 +96,7 @@ export function useWorkbenchComposer(options: {
     try {
       const value = text.trim();
       if (value) localStorage.setItem(draftStorageKey(sessionId), text);
-      else if (!pendingSubmittedDraft || pendingSubmittedDraft.sessionId !== sessionId) {
+      else if (!pendingSubmittedDraft || pendingSubmittedDraft.sessionId !== sessionId || pendingSubmittedDraft.hasNewerDraft) {
         localStorage.removeItem(draftStorageKey(sessionId));
       }
     } catch {
@@ -121,24 +121,29 @@ export function useWorkbenchComposer(options: {
 
   function beginDraftSubmission(text: string, sessionId = draftSessionId.value): void {
     if (!draftsEnabled.value || !sessionId || !text.trim()) return;
-    pendingSubmittedDraft = { sessionId, text };
+    pendingSubmittedDraft = { sessionId, text, hasNewerDraft: false };
     saveDraft(text, sessionId);
   }
 
   function completeDraftSubmission(sessionId = draftSessionId.value): void {
     if (typeof localStorage !== 'undefined' && sessionId) {
       try {
-        localStorage.removeItem(draftStorageKey(sessionId));
+        // A newer draft may already be stored for a conversation the user left.
+        if (pendingSubmittedDraft?.sessionId !== sessionId || !pendingSubmittedDraft.hasNewerDraft) {
+          localStorage.removeItem(draftStorageKey(sessionId));
+        }
       } catch {
         // Ignore storage failures after a successful send.
       }
     }
     if (pendingSubmittedDraft?.sessionId === sessionId) pendingSubmittedDraft = null;
+    // A reply may finish after the user has already started their next draft.
+    if (sessionId === draftSessionId.value) saveDraft();
   }
 
   function restoreFailedDraft(): void {
     if (!pendingSubmittedDraft || pendingSubmittedDraft.sessionId !== draftSessionId.value) return;
-    input.value = pendingSubmittedDraft.text;
+    if (!input.value.trim()) input.value = pendingSubmittedDraft.text;
     composerOpen.value = true;
   }
 
@@ -147,7 +152,12 @@ export function useWorkbenchComposer(options: {
   }, { immediate: true });
 
   watch(input, (value) => {
-    if (!restoringDraft) saveDraft(value);
+    if (!restoringDraft) {
+      if (value.trim() && pendingSubmittedDraft?.sessionId === draftSessionId.value) {
+        pendingSubmittedDraft.hasNewerDraft = true;
+      }
+      saveDraft(value);
+    }
   }, { flush: 'post' });
 
   function expandComposer() {
@@ -298,6 +308,7 @@ export function useWorkbenchComposer(options: {
 
   function handleComposerEnter(event: KeyboardEvent) {
     if (event.isComposing || isComposing.value) return;
+    if (options.streaming.value || attachmentUploading.value) return;
     if (voiceInput.isListening.value) {
       voiceInput.stopListening();
     }

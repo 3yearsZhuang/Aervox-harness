@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AervoxSwitch, AervoxCard, AervoxSegmentedControl, AervoxDialog, AervoxButton } from '../../primitives';
 import { ref } from 'vue'
 import { ElMessage } from '../../utils/element'
 import {
@@ -16,7 +17,6 @@ import {
   Sliders,
 } from 'lucide-vue-next'
 import { useAervoxPlugins, type PluginPackageInspectionDto } from '@aervox/api-client'
-import { AervoxDialog, AervoxButton } from '../../primitives'
 import { validatePluginInstallForm } from './plugin-install-form'
 
 const props = defineProps<{
@@ -184,28 +184,13 @@ async function handleManualInstall(): Promise<void> {
   >
     <div class="install-dialog-body">
       <!-- 模式切换分段导航 -->
-      <div class="install-mode-tabs" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          class="mode-tab-btn"
-          :class="{ active: currentMode === 'package' }"
-          @click="currentMode = 'package'"
-        >
-          <FileArchive :size="14" />
-          <span>离线安装包 (推荐)</span>
-        </button>
-        <button
-          type="button"
-          role="tab"
-          class="mode-tab-btn"
-          :class="{ active: currentMode === 'manual' }"
-          @click="currentMode = 'manual'"
-        >
-          <Sliders :size="14" />
-          <span>开发者手动声明 (JSON)</span>
-        </button>
-      </div>
+      <AervoxSegmentedControl
+        :model-value="currentMode"
+        :options="[{ value: 'package', label: '离线安装包' }, { value: 'manual', label: '开发者手动声明' }]"
+        variant="tabs"
+        label="插件安装方式"
+        @update:model-value="currentMode = $event as InstallMode"
+      />
 
       <!-- 模式 1：离线包上传与安装前预检 (CAP-020) -->
       <div v-if="currentMode === 'package'" class="package-mode-wrap">
@@ -245,16 +230,16 @@ async function handleManualInstall(): Promise<void> {
         </div>
 
         <!-- PRD CAP-020 安装前预检卡片 -->
-        <div v-else-if="inspection" class="inspection-result-card">
+        <AervoxCard as="div" v-else-if="inspection" class="inspection-result-card">
           <div class="inspection-header">
             <div class="header-main">
               <span class="plugin-title">{{ inspection.displayName || inspection.id }}</span>
-              <span class="plugin-id-tag"><code>{{ inspection.id }}</code></span>
+              <span class="aervox-badge plugin-id-tag"><code>{{ inspection.id }}</code></span>
             </div>
             <div class="header-badges">
-              <span class="badge version-badge">v{{ inspection.version }}</span>
-              <span class="badge pub-badge">{{ inspection.publisher }}</span>
-              <span v-if="inspection.license" class="badge license-badge">{{ inspection.license }}</span>
+              <span class="aervox-badge badge version-badge">v{{ inspection.version }}</span>
+              <span class="aervox-badge badge pub-badge">{{ inspection.publisher }}</span>
+              <span v-if="inspection.license" class="aervox-badge badge license-badge">{{ inspection.license }}</span>
             </div>
           </div>
 
@@ -278,7 +263,7 @@ async function handleManualInstall(): Promise<void> {
               <span>权限与数据范围要求（默认无多余系统越权）：</span>
             </div>
             <div v-if="inspection.dataScope.length > 0" class="scope-badges">
-              <span v-for="(scope, idx) in inspection.dataScope" :key="idx" class="scope-badge">
+              <span v-for="(scope, idx) in inspection.dataScope" :key="idx" class="aervox-badge scope-badge">
                 {{ scope }}
               </span>
             </div>
@@ -298,7 +283,7 @@ async function handleManualInstall(): Promise<void> {
                 <span>包含技能 ({{ inspection.skills.length }})</span>
               </div>
               <div v-if="inspection.skills.length > 0" class="cap-names">
-                <span v-for="s in inspection.skills" :key="s.name" class="cap-tag">
+                <span v-for="s in inspection.skills" :key="s.name" class="aervox-badge cap-tag">
                   {{ s.name }}
                 </span>
               </div>
@@ -310,7 +295,7 @@ async function handleManualInstall(): Promise<void> {
                 <span>包含工具 ({{ inspection.tools.length }})</span>
               </div>
               <div v-if="inspection.tools.length > 0" class="cap-names">
-                <span v-for="t in inspection.tools" :key="t.name" class="cap-tag">
+                <span v-for="t in inspection.tools" :key="t.name" class="aervox-badge cap-tag">
                   {{ t.name }}
                 </span>
               </div>
@@ -322,7 +307,7 @@ async function handleManualInstall(): Promise<void> {
                 <span>扩展页面 ({{ inspection.pages.length }})</span>
               </div>
               <div v-if="inspection.pages.length > 0" class="cap-names">
-                <span v-for="p in inspection.pages" :key="p.id" class="cap-tag">
+                <span v-for="p in inspection.pages" :key="p.id" class="aervox-badge cap-tag">
                   {{ p.id }}
                 </span>
               </div>
@@ -332,11 +317,11 @@ async function handleManualInstall(): Promise<void> {
           <!-- 重复安装覆盖选项 -->
           <div v-if="inspection.alreadyInstalled" class="overwrite-section">
             <label class="overwrite-checkbox-label">
-              <input v-model="overwrite" type="checkbox" />
+              <AervoxSwitch v-model="overwrite" />
               <span>当前已安装该插件 (v{{ inspection.installedVersion }})，确认覆盖替换</span>
             </label>
           </div>
-        </div>
+        </AervoxCard>
       </div>
 
       <!-- 模式 2：手动 JSON 声明 -->
@@ -347,7 +332,7 @@ async function handleManualInstall(): Promise<void> {
             <input
               id="plugin-id-input"
               v-model="pluginId"
-              class="input-control"
+              class="aervox-field input-control"
               placeholder="例如：com.example.notes"
               maxlength="128"
             />
@@ -358,7 +343,7 @@ async function handleManualInstall(): Promise<void> {
             <input
               id="plugin-publisher-input"
               v-model="publisher"
-              class="input-control"
+              class="aervox-field input-control"
               placeholder="例如：aervox-official"
               maxlength="128"
             />
@@ -369,7 +354,7 @@ async function handleManualInstall(): Promise<void> {
             <input
               id="plugin-version-input"
               v-model="version"
-              class="input-control"
+              class="aervox-field input-control"
               placeholder="例如：0.1.0"
               maxlength="64"
             />
@@ -380,7 +365,7 @@ async function handleManualInstall(): Promise<void> {
             <textarea
               id="plugin-permissions-input"
               v-model="rawPermissions"
-              class="textarea-control"
+              class="aervox-field textarea-control"
               rows="2"
               spellcheck="false"
               placeholder='["fs.read", "net.fetch"]'
@@ -392,7 +377,7 @@ async function handleManualInstall(): Promise<void> {
             <textarea
               id="plugin-tools-input"
               v-model="rawTools"
-              class="textarea-control"
+              class="aervox-field textarea-control"
               rows="3"
               spellcheck="false"
               placeholder='例：[{"name": "search_notes", "description": "检索学习笔记", "category": "search", "safetyLevel": "read_only"}]'
@@ -404,7 +389,7 @@ async function handleManualInstall(): Promise<void> {
             <textarea
               id="plugin-skills-input"
               v-model="rawSkills"
-              class="textarea-control"
+              class="aervox-field textarea-control"
               rows="3"
               spellcheck="false"
               placeholder='例：[{"name": "note-taking", "content": "---\ndescription: 记笔记\n---\n…"}]'
@@ -449,42 +434,6 @@ async function handleManualInstall(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: 14px;
-}
-
-.install-mode-tabs {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--bg-input);
-  padding: 3px;
-  border-radius: 9px;
-  border: 1px solid var(--border);
-}
-.mode-tab-btn {
-  flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 5px 12px;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 500;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.mode-tab-btn:hover {
-  color: var(--text-primary);
-  background: color-mix(in srgb, var(--bg-soft) 70%, transparent);
-}
-.mode-tab-btn.active {
-  background: var(--bg-soft);
-  color: var(--accent);
-  font-weight: 600;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .package-dropzone {
@@ -553,10 +502,6 @@ async function handleManualInstall(): Promise<void> {
 }
 
 .inspection-result-card {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 14px;
-  background: var(--bg-soft);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -764,36 +709,14 @@ async function handleManualInstall(): Promise<void> {
 .input-control {
   width: 100%;
   box-sizing: border-box;
-  padding: 7px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font-size: 12px;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease;
-}
-.input-control:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+
 }
 .textarea-control {
   width: 100%;
   box-sizing: border-box;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 11px;
+
   resize: vertical;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease;
-}
-.textarea-control:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+
 }
 
 .package-footer-left {

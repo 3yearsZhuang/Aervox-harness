@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AervoxButton } from '../../primitives';
 import { nextTick, onMounted, ref, watch } from 'vue';
 import { ArrowDown, Check, Copy, FileText } from 'lucide-vue-next';
 import ExtensionSlot from '../extension/ExtensionSlot.vue';
@@ -71,9 +72,9 @@ async function copyMessage(id: number, text: string) {
             </div>
           </div>
           <div v-if="line.speaker === 'assistant' && line.text && line.state !== 'streaming'" class="standard-message-actions">
-            <button type="button" :aria-label="copiedId === line.id ? '已复制回复' : '复制回复'" :title="copiedId === line.id ? '已复制' : '复制回复'" @click="copyMessage(line.id, line.text)">
+            <AervoxButton variant="ghost" icon-only type="button" :aria-label="copiedId === line.id ? '已复制回复' : '复制回复'" :title="copiedId === line.id ? '已复制' : '复制回复'" @click="copyMessage(line.id, line.text)">
               <Check v-if="copiedId === line.id" :size="15" /><Copy v-else :size="15" />
-            </button>
+            </AervoxButton>
             <ExtensionSlot name="message:bubble-actions" :context="{ message: line, text: line.text, speaker: line.speaker }" />
           </div>
         </article>
@@ -83,7 +84,7 @@ async function copyMessage(id: number, text: string) {
         <p v-if="copyError" class="standard-copy-error" role="alert">{{ copyError }}</p>
       </div>
     </div>
-    <button v-if="!following" class="standard-jump-latest" type="button" @click="scrollToLatest"><ArrowDown :size="14" />回到最新</button>
+    <AervoxButton variant="secondary" v-if="!following" class="standard-jump-latest" type="button" @click="scrollToLatest"><ArrowDown :size="14" />回到最新</AervoxButton>
     <span class="sr-only" role="status">{{ streaming ? '思隅正在生成回复' : '回复已就绪' }}</span>
   </section>
 </template>

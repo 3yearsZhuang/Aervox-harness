@@ -140,7 +140,7 @@ describe('Plugin Distribution (CAP-020)', () => {
       const wrapper = mount(PluginMarketTab);
       await flushPromises();
 
-      const filterBtns = wrapper.findAll('.filter-seg-btn');
+      const filterBtns = wrapper.findAll('[aria-label="插件集市筛选"] button');
       const proactiveBtn = filterBtns.find((b) => b.text().includes('主动智能'));
       expect(proactiveBtn).toBeDefined();
       await proactiveBtn!.trigger('click');
@@ -196,7 +196,7 @@ describe('Plugin Distribution (CAP-020)', () => {
       expect(wrapper.find('.package-dropzone').exists()).toBe(true);
       expect(wrapper.find('.manual-mode-wrap').exists()).toBe(false);
 
-      const modeButtons = wrapper.findAll('.mode-tab-btn');
+      const modeButtons = wrapper.findAll('[aria-label="插件安装方式"] button');
       const manualBtn = modeButtons.find((btn) => btn.text().includes('开发者手动声明'));
       expect(manualBtn).toBeDefined();
       await manualBtn!.trigger('click');

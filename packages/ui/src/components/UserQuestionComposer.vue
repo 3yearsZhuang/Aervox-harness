@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AervoxButton, AervoxCard } from '../primitives';
 import { computed, ref } from 'vue'
 import { Check, ChevronRight, HelpCircle, Send } from 'lucide-vue-next'
 import type { AskUserQuestionAnswerItem, UserQuestionRequiredEventData } from '@aervox/contracts'
@@ -65,7 +66,7 @@ function handleSubmit() {
 </script>
 
 <template>
-  <div class="user-question-card" role="region" aria-label="AI 提问向用户确认">
+  <AervoxCard as="div" class="user-question-card" role="region" aria-label="AI 提问向用户确认">
     <div class="uq-header">
       <HelpCircle :size="18" class="uq-icon" />
       <span class="uq-title">思隅需要你的确认与决策</span>
@@ -109,7 +110,7 @@ function handleSubmit() {
 
         <!-- 自由补充 / 自定义输入 -->
         <div class="uq-custom-input">
-          <input
+          <input class="aervox-field"
             v-model="customAnswers[item.id]"
             type="text"
             placeholder="或者输入其他补充说明…"
@@ -121,7 +122,7 @@ function handleSubmit() {
     </div>
 
     <div class="uq-actions">
-      <button
+      <AervoxButton variant="primary"
         type="button"
         class="uq-submit-btn"
         :disabled="!isComplete || submitting"
@@ -129,20 +130,14 @@ function handleSubmit() {
       >
         <Send :size="16" />
         <span>{{ submitting ? '正在提交…' : '确认并继续' }}</span>
-      </button>
+      </AervoxButton>
     </div>
-  </div>
+  </AervoxCard>
 </template>
 
 <style scoped>
 .user-question-card {
   margin: 1rem 0;
-  padding: 1rem 1.25rem;
-  background: var(--bg-card, rgba(255, 255, 255, 0.85));
-  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
-  backdrop-filter: blur(8px);
 }
 
 .uq-header {
@@ -262,16 +257,7 @@ function handleSubmit() {
 
 .uq-custom-input input {
   width: 100%;
-  padding: 0.4rem 0.65rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  outline: none;
-  transition: border-color 0.15s;
-}
 
-.uq-custom-input input:focus {
-  border-color: #3b82f6;
 }
 
 .uq-actions {
@@ -284,15 +270,7 @@ function handleSubmit() {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.45rem 1rem;
-  background: var(--accent-color, #3b82f6);
-  color: #ffffff;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 500;
   cursor: pointer;
-  transition: opacity 0.15s;
 }
 
 .uq-submit-btn:disabled {

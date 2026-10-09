@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AervoxCard, AervoxDialog, AervoxButton } from '../../primitives';
 import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from '../../utils/element'
 import {
@@ -10,8 +11,6 @@ import {
   Zap,
 } from 'lucide-vue-next';
 import { useAervoxMcp, type McpPresetDto } from '@aervox/api-client';
-import { AervoxDialog, AervoxButton } from '../../primitives';
-
 
 const emit = defineEmits<{
   (e: 'changed'): void
@@ -134,7 +133,7 @@ async function handleDisconnect(preset: McpPresetDto): Promise<void> {
     <p v-else-if="error" class="preset-empty">{{ error }}</p>
     <p v-else-if="presets.length === 0" class="preset-empty">暂无预设 MCP 服务。</p>
 
-    <article v-for="preset in presets" :key="preset.id" class="preset-card">
+    <AervoxCard as="article" v-for="preset in presets" :key="preset.id" class="preset-card">
       <span class="preset-icon">
         <Zap :size="18" />
       </span>
@@ -158,7 +157,7 @@ async function handleDisconnect(preset: McpPresetDto): Promise<void> {
         <p v-if="preset.lastError" class="preset-error">最近错误：{{ preset.lastError }}</p>
       </div>
       <div class="preset-actions">
-        <button
+        <AervoxButton variant="primary"
           type="button"
           class="preset-btn preset-btn-primary"
           :disabled="connecting"
@@ -166,8 +165,8 @@ async function handleDisconnect(preset: McpPresetDto): Promise<void> {
         >
           <ShieldCheck :size="14" />
           <span>{{ preset.configured ? '重新接入' : (preset.authType === 'none' ? '一键接入' : '接入') }}</span>
-        </button>
-        <button
+        </AervoxButton>
+        <AervoxButton variant="secondary"
           type="button"
           class="preset-btn"
           :disabled="!preset.configured || syncingId === preset.id"
@@ -176,8 +175,8 @@ async function handleDisconnect(preset: McpPresetDto): Promise<void> {
         >
           <RefreshCw :size="14" />
           <span>同步</span>
-        </button>
-        <button
+        </AervoxButton>
+        <AervoxButton variant="danger" icon-only
           type="button"
           class="preset-btn preset-btn-danger"
           :disabled="!preset.enabled || disconnectingId === preset.id"
@@ -185,7 +184,7 @@ async function handleDisconnect(preset: McpPresetDto): Promise<void> {
           @click="handleDisconnect(preset)"
         >
           <Unplug :size="14" />
-        </button>
+        </AervoxButton>
         <a
           class="preset-btn preset-link"
           :href="preset.tokenApplyUrl || preset.docsUrl || preset.homepage"
@@ -196,7 +195,7 @@ async function handleDisconnect(preset: McpPresetDto): Promise<void> {
           <ExternalLink :size="14" />
         </a>
       </div>
-    </article>
+    </AervoxCard>
 
     <AervoxDialog
       :model-value="tokenDialogOpen"
@@ -212,7 +211,7 @@ async function handleDisconnect(preset: McpPresetDto): Promise<void> {
           <input
             id="mcp-token-input"
             v-model="tokenInput"
-            class="input-control"
+            class="aervox-field input-control"
             type="password"
             autocomplete="off"
             :placeholder="activePreset?.tokenConfigured ? '留空则沿用已保存的 Token' : '粘贴在官方平台申请的 MCP Token'"
@@ -284,17 +283,10 @@ async function handleDisconnect(preset: McpPresetDto): Promise<void> {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg-soft);
   transition: border-color 0.22s ease, background-color 0.22s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease;
 }
 .preset-card:hover {
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-  background: color-mix(in srgb, var(--bg-soft) 85%, var(--accent-soft));
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(15, 20, 32, 0.05);
 }
 .preset-icon {
   width: 36px;
@@ -391,52 +383,19 @@ async function handleDisconnect(preset: McpPresetDto): Promise<void> {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-input);
-  color: var(--text-secondary);
-  font-size: 11px;
   cursor: pointer;
   text-decoration: none;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.preset-btn:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-soft);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(78, 119, 209, 0.15);
-}
-.preset-btn:active:not(:disabled) {
-  transform: translateY(0) scale(0.97);
-}
+
 .preset-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-  background: var(--bg-soft);
-  color: var(--text-muted);
-  border-color: var(--border);
-  box-shadow: none;
-  transform: none;
 }
-.preset-btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
+
 .preset-btn-primary:hover:not(:disabled) {
-  color: #fff;
   opacity: 0.92;
-  box-shadow: 0 3px 8px rgba(78, 119, 209, 0.25);
 }
-.preset-btn-danger:hover:not(:disabled) {
-  border-color: var(--danger);
-  color: var(--danger);
-  background: var(--danger-soft);
-  box-shadow: 0 2px 6px rgba(166, 73, 60, 0.15);
-}
+
 .preset-link {
   padding: 6px 8px;
 }
@@ -481,18 +440,8 @@ async function handleDisconnect(preset: McpPresetDto): Promise<void> {
 }
 .input-control {
   width: 100%;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font-size: 12px;
-  outline: none;
+
   box-sizing: border-box;
-}
-.input-control:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 .token-hint {
   margin: 0;

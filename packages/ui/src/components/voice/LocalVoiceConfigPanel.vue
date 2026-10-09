@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AervoxSwitch, AervoxSettingsHeading, AervoxButton } from '../../primitives';
 import {computed, onMounted, ref} from 'vue'
 import {Check, Download, FolderOpen, Loader2, Mic, Play, RotateCcw, Volume2} from 'lucide-vue-next'
 import {
@@ -231,22 +232,19 @@ async function preview(): Promise<void> {
 <template>
   <div class="local-voice-panel">
     <!-- 语音输入 (ASR) 分块 -->
-    <div class="settings-section-heading">
-      <span class="heading-icon-wrap"><Mic :size="18" /></span>
-      <span><strong>离线语音输入 (ASR)</strong><small>配置 SenseVoice 离线语音识别或 Whisper 兼容端点</small></span>
-    </div>
+    <AervoxSettingsHeading title="离线语音输入 (ASR)" description="配置 SenseVoice 离线语音识别或 Whisper 兼容端点" />
 
     <div v-if="loading" class="pcfg-loading">加载语音配置…</div>
 
     <template v-else>
       <label class="settings-row settings-choice-row">
         <span><strong>启用语音输入</strong><small>在输入框操作栏显示麦克风听写按钮</small></span>
-        <input v-model="inputDraft.enabled" type="checkbox" class="settings-switch" />
+        <AervoxSwitch v-model="inputDraft.enabled"   />
       </label>
 
       <div class="settings-field">
         <span><strong>识别引擎</strong><small>选择 SenseVoice 本地轻量模型或 OpenAI Whisper 兼容接口</small></span>
-        <select v-model="inputDraft.engineType" class="voice-select-field">
+        <select v-model="inputDraft.engineType" class="aervox-field voice-select-field">
           <option value="sensevoice-local">SenseVoice-Small (本地轻量离线)</option>
           <option value="whisper-compatible">OpenAI Whisper 兼容端点</option>
         </select>
@@ -262,10 +260,10 @@ async function preview(): Promise<void> {
             <input
               v-model="inputDraft.modelPath"
               type="text"
-              class="voice-picker-input-field"
+              class="aervox-field voice-picker-input-field"
               placeholder="/opt/sensevoice"
             />
-            <button
+            <AervoxButton variant="secondary"
               type="button"
               class="voice-picker-btn"
               :disabled="desktopOnly"
@@ -273,7 +271,7 @@ async function preview(): Promise<void> {
               @click="pickSenseVoiceFolder"
             >
               <FolderOpen :size="14" />选择文件夹
-            </button>
+            </AervoxButton>
           </div>
         </div>
 
@@ -282,7 +280,7 @@ async function preview(): Promise<void> {
           <div class="model-status-info">
             <div class="model-status-tag-row">
               <span
-                class="model-status-tag"
+                class="aervox-badge model-status-tag"
                 :class="{
                   ready: modelStatus?.downloaded && modelStatus?.verified,
                   missing: !modelStatus?.downloaded && !downloadingModel,
@@ -300,7 +298,7 @@ async function preview(): Promise<void> {
                       : '未检测到离线模型'
                 }}
               </span>
-              <span v-if="modelStatus?.checksum" class="model-hash-badge">
+              <span v-if="modelStatus?.checksum" class="aervox-badge model-hash-badge">
                 SHA256: {{ modelStatus.checksum.slice(0, 8) }}…
               </span>
             </div>
@@ -326,7 +324,7 @@ async function preview(): Promise<void> {
               }}
             </small>
           </div>
-          <button
+          <AervoxButton variant="secondary"
             v-if="!modelStatus?.downloaded"
             type="button"
             class="download-model-btn"
@@ -336,7 +334,7 @@ async function preview(): Promise<void> {
             <Loader2 v-if="downloadingModel || modelStatus?.downloading" class="spin" :size="14" />
             <Download v-else :size="14" />
             {{ downloadingModel || modelStatus?.downloading ? '下载中…' : '下载离线模型' }}
-          </button>
+          </AervoxButton>
         </div>
         <div v-if="downloadMessage" class="download-tip-msg">{{ downloadMessage }}</div>
       </template>
@@ -347,7 +345,7 @@ async function preview(): Promise<void> {
           <input
             v-model="inputDraft.endpoint"
             type="text"
-            class="voice-input-field-full"
+            class="aervox-field voice-input-field-full"
             placeholder="http://127.0.0.1:8000/v1"
           />
         </div>
@@ -356,7 +354,7 @@ async function preview(): Promise<void> {
           <input
             v-model="inputDraft.apiKey"
             type="password"
-            class="voice-input-field-full"
+            class="aervox-field voice-input-field-full"
             placeholder="sk-..."
             autocomplete="off"
           />
@@ -368,14 +366,14 @@ async function preview(): Promise<void> {
         <input
           v-model="inputDraft.modelId"
           type="text"
-          class="voice-input-field-full"
+          class="aervox-field voice-input-field-full"
           placeholder="sensevoice-small"
         />
       </div>
 
       <label class="settings-row settings-choice-row">
         <span><strong>键盘输入自动关闭麦克风</strong><small>录音期间打字/中文输入法/粘贴时立即停止，防止污染手打文本</small></span>
-        <input v-model="inputDraft.autoStopOnKeyboard" type="checkbox" class="settings-switch" />
+        <AervoxSwitch v-model="inputDraft.autoStopOnKeyboard"   />
       </label>
 
       <div class="settings-field">
@@ -386,30 +384,27 @@ async function preview(): Promise<void> {
           min="300"
           max="3000"
           step="50"
-          class="voice-input-field-full number-input"
+          class="aervox-field voice-input-field-full number-input"
         />
       </div>
 
       <div class="settings-note voice-actions">
-        <button type="button" class="voice-action" :disabled="savingInput" @click="saveInput">
+        <AervoxButton variant="primary" type="button" class="voice-action" :disabled="savingInput" @click="saveInput">
           <Check v-if="savedInputFlash" :size="15" />
           <RotateCcw v-else :size="15" />
           {{ savingInput ? '保存中…' : savedInputFlash ? '已保存' : '保存语音输入配置' }}
-        </button>
+        </AervoxButton>
       </div>
       <p v-if="inputError" class="voice-error">{{ inputError }}</p>
 
       <div class="voice-divider" />
 
       <!-- 语音输出 (TTS) 分块 -->
-      <div class="settings-section-heading">
-        <span class="heading-icon-wrap"><Volume2 :size="18" /></span>
-        <span><strong>本地语音合成 (TTS)</strong><small>配置 gpt-sovits-local 本地语音合成模型</small></span>
-      </div>
+      <AervoxSettingsHeading title="本地语音合成 (TTS)" description="配置 gpt-sovits-local 本地语音合成模型" />
 
       <label class="settings-row settings-choice-row">
         <span><strong>启用语音输出</strong><small>关闭后系统不进行语音合成</small></span>
-        <input v-model="draft.enabled" type="checkbox" class="settings-switch" />
+        <AervoxSwitch v-model="draft.enabled"   />
       </label>
 
       <div class="settings-field">
@@ -418,10 +413,10 @@ async function preview(): Promise<void> {
           <input
             v-model="draft.modelPath"
             type="text"
-            class="voice-picker-input-field"
+            class="aervox-field voice-picker-input-field"
             placeholder="/opt/gpt-sovits/model"
           />
-          <button
+          <AervoxButton variant="secondary"
             type="button"
             class="voice-picker-btn"
             :disabled="desktopOnly"
@@ -429,13 +424,13 @@ async function preview(): Promise<void> {
             @click="pickModelFolder"
           >
             <FolderOpen :size="14" />选择文件夹
-          </button>
+          </AervoxButton>
         </div>
       </div>
 
       <div class="settings-field">
         <span><strong>模型 ID</strong><small>本地 GPT-SoVITS 模型标识</small></span>
-        <input v-model="draft.modelId" type="text" placeholder="gpt-sovits-v2" list="voice-model-options" class="voice-input-field-full" />
+        <input v-model="draft.modelId" type="text" placeholder="gpt-sovits-v2" list="voice-model-options" class="aervox-field voice-input-field-full" />
       </div>
       <datalist id="voice-model-options">
         <option v-for="v in voices" :key="v.modelId" :value="v.modelId">{{ v.displayName }}</option>
@@ -447,10 +442,10 @@ async function preview(): Promise<void> {
           <input
             v-model="draft.speakerId"
             type="text"
-            class="voice-picker-input-field"
+            class="aervox-field voice-picker-input-field"
             placeholder="留空使用默认音色"
           />
-          <button
+          <AervoxButton variant="secondary"
             type="button"
             class="voice-picker-btn"
             :disabled="desktopOnly"
@@ -458,12 +453,12 @@ async function preview(): Promise<void> {
             @click="pickSpeakerFolder"
           >
             <FolderOpen :size="14" />选择音色文件夹
-          </button>
+          </AervoxButton>
         </div>
       </div>
 
       <div class="settings-note voice-actions">
-        <button
+        <AervoxButton variant="secondary"
           type="button"
           class="voice-action"
           :disabled="previewBusy"
@@ -472,12 +467,12 @@ async function preview(): Promise<void> {
           <Play v-if="!previewBusy" :size="15" />
           <Mic v-else :size="15" />
           {{ previewBusy ? '合成中…' : '试听' }}
-        </button>
-        <button type="button" class="voice-action" :disabled="saving" @click="save">
+        </AervoxButton>
+        <AervoxButton variant="primary" type="button" class="voice-action" :disabled="saving" @click="save">
           <Check v-if="savedFlash" :size="15" />
           <RotateCcw v-else :size="15" />
           {{ saving ? '保存中…' : savedFlash ? '已保存' : '保存语音输出配置' }}
-        </button>
+        </AervoxButton>
         <audio v-if="previewAudio" :src="previewAudio" class="voice-audio" controls />
       </div>
 
@@ -495,20 +490,7 @@ async function preview(): Promise<void> {
 .voice-select-field,
 .voice-input-field-full {
   width: min(380px, 58%);
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  outline: 0;
-  background: var(--bg-input, var(--bg-soft));
-  color: var(--text-primary);
-  font-size: 12.5px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
 
-.voice-select-field:focus,
-.voice-input-field-full:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .number-input {
@@ -526,74 +508,11 @@ async function preview(): Promise<void> {
 .voice-picker-input-field {
   flex: 1;
   min-width: 0;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  outline: 0;
-  background: var(--bg-input, var(--bg-soft));
-  color: var(--text-primary);
-  font-size: 12.5px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
 
-.voice-picker-input-field:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
-}
-
-.voice-picker-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 7px 11px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-main);
-  color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 550;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s ease;
-}
-
-.voice-picker-btn:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.voice-picker-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
 }
 
 .voice-actions {
   flex-wrap: wrap;
-}
-
-.voice-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-main);
-  color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 550;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.voice-action:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.voice-action:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .voice-audio {
@@ -691,32 +610,6 @@ async function preview(): Promise<void> {
   color: var(--text-secondary);
   font-size: 11px;
   line-height: 1.4;
-}
-
-.download-model-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border: 1px solid var(--accent);
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--accent);
-  font-size: 11.5px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s ease;
-}
-
-.download-model-btn:hover:not(:disabled) {
-  background: var(--accent);
-  color: #fff;
-}
-
-.download-model-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .download-tip-msg {

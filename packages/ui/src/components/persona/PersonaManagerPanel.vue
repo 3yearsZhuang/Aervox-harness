@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AervoxCard, AervoxSettingsHeading, AervoxButton } from '../../primitives';
 import {computed, onMounted, ref} from 'vue'
 import {ElMessage, ElMessageBox} from '../../utils/element'
 import {
@@ -165,16 +166,7 @@ function formatDate(isoString: string): string {
 <template>
   <div class="persona-manager">
     <!-- 顶部标题与操作栏（对齐全局标题设计） -->
-    <div class="persona-header">
-      <div class="persona-title-group">
-        <span class="heading-icon-wrap"><Heart :size="18" /></span>
-        <div class="header-titles">
-          <strong>人格设定</strong>
-          <small>管理人格角色设定</small>
-        </div>
-      </div>
-
-      <div class="header-actions">
+    <AervoxSettingsHeading title="人格设定" description="选择角色，调整交流风格">
         <input
           ref="fileInput"
           type="file"
@@ -184,11 +176,11 @@ function formatDate(isoString: string): string {
         />
 
         <el-dropdown trigger="click" @command="(cmd: string) => cmd === 'create' ? openCreate() : triggerImport()">
-          <button type="button" class="btn-create-persona">
+          <AervoxButton variant="primary" type="button" class="btn-create-persona">
             <Plus :size="16" />
             <span>创建人格</span>
             <ChevronDown :size="14" />
-          </button>
+          </AervoxButton>
           <template #dropdown>
             <el-dropdown-menu class="persona-dropdown-menu">
               <el-dropdown-item command="create">
@@ -200,8 +192,8 @@ function formatDate(isoString: string): string {
             </el-dropdown-menu>
           </template>
         </el-dropdown>
-      </div>
-    </div>
+
+    </AervoxSettingsHeading>
 
     <!-- 人格卡片列表（对齐图 1 / 图 2） -->
     <div v-if="loading" class="persona-loading">加载人格设定…</div>
@@ -210,26 +202,26 @@ function formatDate(isoString: string): string {
       暂无自定义人格角色。点击右上角「创建人格」或「导入人格」开始配置。
     </p>
 
-    <div v-else class="persona-card-grid">
-      <article
+    <div v-else class="settings-list persona-card-grid">
+      <AervoxCard as="article"
         v-for="persona in personas"
         :key="persona.id"
-        class="persona-card"
+        class="settings-item persona-card"
         :class="{active: persona.id === activePersonaId}"
       >
         <div class="card-top-row">
           <div class="card-title-group">
             <strong class="persona-name">{{ persona.name }}</strong>
-            <span v-if="persona.id === activePersonaId" class="active-badge">
+            <span v-if="persona.id === activePersonaId" class="aervox-badge active-badge">
               <Sparkles :size="12" />当前激活
             </span>
           </div>
 
           <!-- 更多操作下拉菜单（对齐图 2） -->
           <el-dropdown trigger="click" :teleported="true">
-            <button type="button" class="card-more-btn" aria-label="更多操作">
+            <AervoxButton variant="ghost" icon-only type="button" class="card-more-btn" aria-label="更多操作">
               <MoreVertical :size="16" />
-            </button>
+            </AervoxButton>
             <template #dropdown>
               <el-dropdown-menu class="card-dropdown-menu">
                 <el-dropdown-item @click="openEdit(persona)">
@@ -262,15 +254,15 @@ function formatDate(isoString: string): string {
 
         <!-- 标签徽章栏（对齐图 1） -->
         <div class="persona-badges">
-          <span class="badge-tag">
+          <span class="aervox-badge badge-tag">
             <MessageSquare :size="12" />
             <span>设定就绪</span>
           </span>
-          <span class="badge-tag">
+          <span class="aervox-badge badge-tag">
             <Wrench :size="12" />
             <span>使用可用工具</span>
           </span>
-          <span class="badge-tag">
+          <span class="aervox-badge badge-tag">
             <Zap :size="12" />
             <span>系统技能就绪</span>
           </span>
@@ -280,7 +272,7 @@ function formatDate(isoString: string): string {
         <div class="card-footer">
           <small>创建时间: {{ formatDate(persona.createdAt) }}</small>
         </div>
-      </article>
+      </AervoxCard>
     </div>
 
     <!-- 编辑/创建弹窗（对齐图 4） -->
@@ -344,27 +336,6 @@ function formatDate(isoString: string): string {
   line-height: 1.4;
 }
 
-.btn-create-persona {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 7px 14px;
-  border: none;
-  border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 28%, transparent);
-  transition: background-color 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
-}
-
-.btn-create-persona:hover {
-  background: var(--accent-hover);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 36%, transparent);
-}
-
 .menu-icon {
   margin-right: 6px;
 }
@@ -392,21 +363,7 @@ function formatDate(isoString: string): string {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg-soft);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.persona-card:hover {
-  border-color: var(--border-strong, var(--accent));
-}
-
-.persona-card.active {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1.5px var(--accent);
-  background: color-mix(in srgb, var(--accent-soft) 30%, var(--bg-soft));
 }
 
 .card-top-row {
@@ -443,25 +400,6 @@ function formatDate(isoString: string): string {
   border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
   font-size: 10.5px;
   font-weight: 600;
-}
-
-.card-more-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
-}
-
-.card-more-btn:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
 }
 
 .persona-description {

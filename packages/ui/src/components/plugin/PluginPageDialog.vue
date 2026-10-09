@@ -6,7 +6,6 @@ import {getApiBase, useAervoxPlugins, type PluginPageDto, type PluginSummaryDto}
 import type {PluginConfigSnapshot} from '@aervox/contracts'
 import {AervoxDialog, AervoxButton} from '../../primitives'
 
-
 const props = defineProps<{
   open: boolean
   plugin: PluginSummaryDto | null

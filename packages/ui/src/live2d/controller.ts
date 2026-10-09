@@ -24,6 +24,7 @@ export class AervoxLive2DController {
   model: Live2DModelType | null = null
   assets: ResolvedCubismAsset | null = null
   private resizeListener: (() => void) | null = null
+  private resizeObserver: ResizeObserver | null = null
   private visibilityListener: (() => void) | null = null
   private idleTimer: number | null = null
   private blinkTimer: number | null = null
@@ -85,10 +86,17 @@ export class AervoxLive2DController {
       const scaleFactor = modelDefinition.scale ?? 1
       this.resizeListener = () => {
         if (!this.model) return
+        // Fit against the current host size, including layout changes that do
+        // not fire window.resize. Pixi's window resize handler is deferred.
+        this.app.resize()
         fitLive2DModelToViewport(this.app, this.model, { scaleFactor })
       }
       this.resizeListener()
       window.addEventListener('resize', this.resizeListener)
+      if (typeof ResizeObserver !== 'undefined') {
+        this.resizeObserver = new ResizeObserver(this.resizeListener)
+        this.resizeObserver.observe(this.host)
+      }
       this.visibilityListener = () => {
         if (typeof document === 'undefined') return
         if (document.hidden) {
@@ -332,6 +340,8 @@ export class AervoxLive2DController {
     if (this.blinkReleaseTimer !== null) window.clearTimeout(this.blinkReleaseTimer)
     if (this.speakingTimer !== null) window.clearInterval(this.speakingTimer)
     if (this.resizeListener) window.removeEventListener('resize', this.resizeListener)
+    this.resizeObserver?.disconnect()
+    this.resizeObserver = null
     if (this.visibilityListener && typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', this.visibilityListener)
       this.visibilityListener = null

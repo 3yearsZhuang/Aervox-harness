@@ -1,7 +1,6 @@
 import { getPlatformServices } from '@aervox/api-client';
-import { computed, ref, type Component, type Ref } from 'vue';
+import { computed, getCurrentScope, onScopeDispose, ref, type Component, type Ref } from 'vue';
 import {
-  Bell,
   Bot,
   BrainCircuit,
   Clock3,
@@ -30,16 +29,21 @@ export type WorkbenchMode = 'companion' | 'standard';
 export type ToolId = 'todo' | 'timer' | 'history' | 'diary' | 'task_center';
 
 export const settingCategories = [
-  { id: 'tools', label: '快捷工具', description: '学习面板与小工具', icon: LayoutGrid, scope: 'detail' as const },
-  { id: 'model', label: '模型与服务', description: '大语言模型与供应商配置', icon: Bot, scope: 'detail' as const },
-  { id: 'local-models', label: '本地模型', description: 'GGUF 下载与 llama.cpp 运行', icon: Cpu, scope: 'detail' as const },
-  { id: 'persona', label: '人格设定', description: '管理人格角色设定', icon: Heart, scope: 'detail' as const },
-  { id: 'voice', label: '语音', description: '本地与在线语音模型配置', icon: Volume2, scope: 'detail' as const },
-  { id: 'conversation', label: '对话', description: '称呼与输入方式', icon: MessageCircle, scope: 'detail' as const },
-  { id: 'proactive', label: '主动智能', description: '全量画像与本地权限', icon: BrainCircuit, scope: 'detail' as const },
-  { id: 'appearance', label: '外观', description: '主题与界面密度', icon: Sun, scope: 'detail' as const },
-  { id: 'notifications', label: '提醒', description: '学习节奏与通知', icon: Bell, scope: 'detail' as const },
-  { id: 'plugins', label: '扩展与插件', description: '管理插件、技能包 (Skills) 与 MCP 工具端点', icon: Puzzle, scope: 'detail' as const },
+  { id: 'appearance', label: '通用', description: '外观与工具布局', icon: Settings, categories: ['appearance', 'tools'] },
+  { id: 'conversation', label: '对话与陪伴', description: '输入、人格与声音', icon: MessageCircle, categories: ['conversation', 'persona', 'voice'] },
+  { id: 'model', label: '模型服务', description: '服务连接与本地运行', icon: Bot, categories: ['model', 'local-models'] },
+  { id: 'proactive', label: '主动智能', description: '本地感知与授权', icon: BrainCircuit, categories: ['proactive'] },
+  { id: 'plugins', label: '扩展插件', description: '插件、技能与工具', icon: Puzzle, categories: ['plugins'] },
+] as const;
+
+export const settingPages = [
+  { value: 'appearance', label: '外观', icon: Sun },
+  { value: 'tools', label: '工具布局', icon: LayoutGrid },
+  { value: 'conversation', label: '对话', icon: MessageCircle },
+  { value: 'persona', label: '人格设定', icon: Heart },
+  { value: 'voice', label: '语音', icon: Volume2 },
+  { value: 'model', label: '连接配置', icon: Bot },
+  { value: 'local-models', label: '本地模型', icon: Cpu },
 ] as const;
 
 export function useWorkbenchLayout(props: {
@@ -73,7 +77,17 @@ export function useWorkbenchLayout(props: {
     // 忽略异常
   }
   const workbenchMode = ref<WorkbenchMode>(initialWorkbenchMode);
-  const standardSidebarCollapsed = ref(false);
+  const narrowWindow = typeof window !== 'undefined' ? window.matchMedia?.('(max-width: 760px)') : undefined;
+  const narrowSidebar = ref(isMobile.value || Boolean(narrowWindow?.matches));
+  const standardSidebarCollapsed = ref(narrowSidebar.value);
+  function syncSidebarViewport() {
+    narrowSidebar.value = isMobile.value || Boolean(narrowWindow?.matches);
+    standardSidebarCollapsed.value = narrowSidebar.value;
+  }
+  if (getCurrentScope()) {
+    narrowWindow?.addEventListener('change', syncSidebarViewport);
+    onScopeDispose(() => narrowWindow?.removeEventListener('change', syncSidebarViewport));
+  }
   const taskCenterOpen = ref(false);
 
   const isDark = ref(false);
@@ -99,7 +113,7 @@ export function useWorkbenchLayout(props: {
 
   // 设置弹窗
   const settingsOpen = ref(false);
-  const settingsCategory = ref<'tools' | 'appearance' | 'conversation' | 'model' | 'local-models' | 'persona' | 'notifications' | 'voice' | 'plugins' | 'proactive'>('tools');
+  const settingsCategory = ref<'tools' | 'appearance' | 'conversation' | 'model' | 'local-models' | 'persona' | 'notifications' | 'voice' | 'plugins' | 'proactive'>('conversation');
   const settingsScope = ref<'siyu' | 'detail'>('detail');
 
   const scopedSettingCategories = computed(() => settingCategories);
@@ -256,6 +270,7 @@ export function useWorkbenchLayout(props: {
     desktopCompanionEnabled,
     showCompanionEnabled,
     workbenchMode,
+    narrowSidebar,
     standardSidebarCollapsed,
     taskCenterOpen,
     isDark,

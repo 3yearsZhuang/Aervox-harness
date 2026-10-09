@@ -72,7 +72,7 @@ export function useWorkbenchCards(options: {
     dueReviews,
   } = api;
 
-  const cardSlots = ref<Array<CardId | null>>([null, null]);
+  const cardSlots = ref<Array<CardId | null>>(['todo', null]);
   let savedCardSlots: Array<CardId | null> | null = null;
   let diarySlotRestore: CardId | null | undefined = undefined;
 

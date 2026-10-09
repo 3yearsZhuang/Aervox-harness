@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AervoxSwitch, AervoxCard, AervoxSettingsHeading, AervoxButton } from '../../primitives';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElMessage } from '../../utils/element'
 import {
@@ -352,10 +353,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="model-runtime-panel">
-    <div class="settings-section-heading">
-      <span class="heading-icon-wrap"><Cpu :size="18" /></span>
-      <span><strong>本地模型</strong><small>GGUF 下载与 llama.cpp（llama-server）运行管理</small></span>
-    </div>
+    <AervoxSettingsHeading title="本地模型" description="GGUF 下载与 llama.cpp（llama-server）运行管理" />
 
     <div v-if="loading" class="mr-loading">加载本地模型状态…</div>
 
@@ -370,7 +368,7 @@ onBeforeUnmount(() => {
       </div>
 
       <!-- 运行时状态卡（含实时指标） -->
-      <div v-if="runtimeRunning" class="mr-runtime-card">
+      <AervoxCard as="div" v-if="runtimeRunning" class="mr-runtime-card">
         <span class="mr-runtime-dot" :class="{ active: state?.runtime.status === 'running' }" />
         <strong>{{ state?.runtime.status === 'running' ? '运行中' : '启动中…' }}</strong>
         <small v-if="state?.runtime.port">端口 {{ state?.runtime.port }}</small>
@@ -380,11 +378,11 @@ onBeforeUnmount(() => {
           <Gauge :size="13" />{{ metricsText }}
         </span>
         <span class="mr-runtime-actions">
-          <button type="button" class="mr-btn mr-btn-danger" :disabled="stopBusy" @click="handleStop">
+          <AervoxButton variant="danger" type="button" class="mr-btn mr-btn-danger" :disabled="stopBusy" @click="handleStop">
             <Power :size="13" />{{ stopBusy ? '停止中…' : '停止' }}
-          </button>
+          </AervoxButton>
         </span>
-      </div>
+      </AervoxCard>
 
       <!-- 精选模型目录 -->
       <div class="mr-section">
@@ -400,11 +398,11 @@ onBeforeUnmount(() => {
                 <span class="mr-catalog-name">{{ entry.name }}</span>
                 <span class="mr-catalog-meta">{{ entry.family }} · {{ entry.sizeLabel }}</span>
               </span>
-              <span class="mr-badge mr-badge-quant">{{ entry.quant }}</span>
+              <span class="aervox-badge mr-badge mr-badge-quant">{{ entry.quant }}</span>
               <a v-if="entry.url" class="mr-catalog-link" :href="entry.url" target="_blank" rel="noopener noreferrer" title="查看源文件">
                 <ExternalLink :size="12" />
               </a>
-              <button
+              <AervoxButton variant="primary"
                 type="button"
                 class="mr-btn mr-btn-primary mr-catalog-download"
                 :disabled="catalogBusyId === entry.id"
@@ -412,7 +410,7 @@ onBeforeUnmount(() => {
               >
                 <Loader2 v-if="catalogBusyId === entry.id" :size="13" class="spin" />
                 <Download v-else :size="13" />下载
-              </button>
+              </AervoxButton>
             </div>
           </div>
         </template>
@@ -425,13 +423,13 @@ onBeforeUnmount(() => {
           <input
             v-model="downloadUrl"
             type="url"
-            class="mr-input mr-input-url"
+            class="aervox-field mr-input mr-input-url"
             placeholder="GGUF 文件 URL（如 https://huggingface.co/.../model-q4_k_m.gguf）"
           />
           <input
             v-model="downloadSha"
             type="text"
-            class="mr-input mr-input-mono"
+            class="aervox-field mr-input mr-input-mono"
             placeholder="SHA-256（可选，填写则强制校验）"
           />
           <input
@@ -439,30 +437,30 @@ onBeforeUnmount(() => {
             type="number"
             min="0"
             step="1024"
-            class="mr-input mr-input-rate"
+            class="aervox-field mr-input mr-input-rate"
             placeholder="限速 bytes/s"
             title="下载限速（bytes/sec），0 或留空表示不限"
           />
-          <button
+          <AervoxButton variant="primary"
             type="button"
             class="mr-btn mr-btn-primary"
             :disabled="downloadBusy"
             @click="handleDownload"
           >
             <Download :size="14" />{{ downloadBusy ? '提交中…' : '发起下载' }}
-          </button>
+          </AervoxButton>
         </div>
         <label class="mr-auto-start-row">
-          <input v-model="downloadAutoStart" type="checkbox" />
+          <AervoxSwitch v-model="downloadAutoStart" />
           <span>下载完成后自动启动并连接（切换为 llama.cpp 预设）</span>
         </label>
 
         <div v-if="!state?.downloads?.length" class="mr-empty">暂无下载任务。可从上方的精选目录一键下载，或粘贴任意 GGUF URL。</div>
 
-        <div v-for="task in state?.downloads ?? []" :key="task.id" class="mr-task-card" :class="`mr-task-${task.status}`">
+        <AervoxCard as="div" v-for="task in state?.downloads ?? []" :key="task.id" class="settings-item mr-task-card" :class="`mr-task-${task.status}`">
           <div class="mr-task-head">
             <span class="mr-task-name" :title="task.fileName">{{ task.modelId }}</span>
-            <span class="mr-task-badge" :class="`mr-badge-${task.status}`">{{ taskStatusLabel(task) }}</span>
+            <span class="aervox-badge mr-task-badge" :class="`mr-badge-${task.status}`">{{ taskStatusLabel(task) }}</span>
           </div>
           <div class="mr-task-meta">
             {{ taskBytesLabel(task) }}
@@ -474,22 +472,22 @@ onBeforeUnmount(() => {
           </div>
           <span v-if="task.error" class="mr-error-text">{{ task.error }}</span>
           <div class="mr-task-actions">
-            <button v-if="task.status === 'running'" type="button" class="mr-btn mr-btn-ghost" @click="handlePauseTask(task.id)">
+            <AervoxButton variant="secondary" v-if="task.status === 'running'" type="button" class="mr-btn mr-btn-ghost" @click="handlePauseTask(task.id)">
               <Pause :size="12" />暂停
-            </button>
-            <button v-if="task.status === 'paused'" type="button" class="mr-btn mr-btn-ghost" @click="handleResumeTask(task.id)">
+            </AervoxButton>
+            <AervoxButton variant="secondary" v-if="task.status === 'paused'" type="button" class="mr-btn mr-btn-ghost" @click="handleResumeTask(task.id)">
               <Play :size="12" />恢复
-            </button>
-            <button
+            </AervoxButton>
+            <AervoxButton variant="secondary"
               v-if="task.status === 'queued' || task.status === 'running' || task.status === 'paused'"
               type="button"
               class="mr-btn mr-btn-ghost"
               @click="handleCancelTask(task.id)"
             >
               <X :size="12" />取消
-            </button>
+            </AervoxButton>
           </div>
-        </div>
+        </AervoxCard>
 
         <span v-if="state?.llamaServer?.maxConcurrentDownloads" class="mr-task-meta mr-task-hint">
           并发上限 {{ state.llamaServer.maxConcurrentDownloads }}，当前 {{ runningTaskCount }} 个任务执行中
@@ -505,14 +503,14 @@ onBeforeUnmount(() => {
         </div>
 
         <template v-else>
-          <div class="mr-model-list">
+          <div class="settings-list mr-model-list">
             <label
               v-for="model in state?.models"
               :key="model.id"
-              class="mr-model-row"
+              class="settings-item mr-model-row"
               :class="{ selected: selectedModelId === model.id }"
             >
-              <input
+              <input class="aervox-field"
                 type="radio"
                 :checked="selectedModelId === model.id"
                 @change="selectedModelId = model.id"
@@ -520,7 +518,7 @@ onBeforeUnmount(() => {
               <span class="mr-model-name">{{ model.fileName }}</span>
               <span class="mr-model-meta">{{ formatSize(model.sizeBytes) }}</span>
               <span v-if="model.sha256" class="mr-model-meta mono" :title="model.sha256">sha256 ✓</span>
-              <button
+              <AervoxButton variant="danger" icon-only
                 type="button"
                 class="mr-btn mr-model-delete"
                 :disabled="runtimeRunning && state?.runtime.modelId === model.id"
@@ -528,7 +526,7 @@ onBeforeUnmount(() => {
                 @click.stop="handleDeleteModel(model.id)"
               >
                 <Trash2 :size="12" />
-              </button>
+              </AervoxButton>
             </label>
           </div>
 
@@ -541,24 +539,24 @@ onBeforeUnmount(() => {
           <div class="mr-params-grid">
             <label class="mr-param-field">
               <span>端口 (--port)</span>
-              <input v-model.number="port" type="number" min="1024" max="65535" class="mr-input" />
+              <input v-model.number="port" type="number" min="1024" max="65535" class="aervox-field mr-input" />
             </label>
             <label class="mr-param-field">
               <span>上下文 (-c)</span>
-              <input v-model.number="ctxSize" type="number" min="512" step="512" class="mr-input" />
+              <input v-model.number="ctxSize" type="number" min="512" step="512" class="aervox-field mr-input" />
             </label>
             <label class="mr-param-field">
               <span>GPU 层数 (-ngl)</span>
-              <input v-model.number="gpuLayers" type="number" min="0" class="mr-input" />
+              <input v-model.number="gpuLayers" type="number" min="0" class="aervox-field mr-input" />
             </label>
             <label class="mr-param-field">
               <span>线程 (-t)</span>
-              <input v-model.number="threads" type="number" min="1" max="64" class="mr-input" />
+              <input v-model.number="threads" type="number" min="1" max="64" class="aervox-field mr-input" />
             </label>
           </div>
 
           <div class="mr-actions">
-            <button
+            <AervoxButton variant="primary"
               type="button"
               class="mr-btn mr-btn-primary"
               :disabled="startBusy || runtimeRunning"
@@ -567,7 +565,7 @@ onBeforeUnmount(() => {
               <Loader2 v-if="startBusy" :size="14" class="spin" />
               <Play v-else :size="14" />
               {{ runtimeRunning ? '运行中' : '启动服务' }}
-            </button>
+            </AervoxButton>
             <span class="mr-hint">启动成功后自动切换到 llama.cpp 模型预设</span>
           </div>
         </template>
@@ -615,10 +613,6 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, #22c55e 35%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, #22c55e 8%, transparent);
   flex-wrap: wrap;
 }
 
@@ -771,21 +765,6 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
 }
 
-.mr-input {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-input, var(--bg-soft));
-  color: var(--text-primary);
-  font-size: 12.5px;
-  padding: 8px 12px;
-  outline: 0;
-  transition: border-color 0.15s ease;
-}
-
-.mr-input:focus {
-  border-color: var(--accent);
-}
-
 .mr-input-url {
   flex: 1 1 320px;
   min-width: 220px;
@@ -794,7 +773,7 @@ onBeforeUnmount(() => {
 .mr-input-mono {
   flex: 1 1 220px;
   min-width: 160px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+
 }
 
 .mr-input-rate {
@@ -802,59 +781,10 @@ onBeforeUnmount(() => {
   min-width: 110px;
 }
 
-.mr-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-main);
-  color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 550;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.mr-btn:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.mr-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.mr-btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
-.mr-btn-primary:hover:not(:disabled) {
-  opacity: 0.9;
-  color: #fff;
-}
-
-.mr-btn-danger {
-  border-color: var(--danger, #e5484d);
-  color: var(--danger, #e5484d);
-}
-
-.mr-btn-ghost {
-  padding: 3px 8px;
-  font-size: 11px;
-}
-
 .mr-task-card {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 9px 11px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
 }
 
 .mr-task-running {
@@ -983,23 +913,6 @@ onBeforeUnmount(() => {
 .mr-model-meta.mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   margin-left: auto;
-}
-
-.mr-model-delete {
-  padding: 3px 8px;
-  color: var(--danger, #e5484d);
-  border-color: transparent;
-  flex-shrink: 0;
-}
-
-.mr-model-delete:hover:not(:disabled) {
-  border-color: var(--danger, #e5484d);
-  color: var(--danger, #e5484d);
-}
-
-.mr-model-delete:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
 }
 
 .mr-auto-start-row {
