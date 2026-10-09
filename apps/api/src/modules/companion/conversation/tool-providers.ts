@@ -22,8 +22,8 @@ import {
 } from "../../../shared/tool-approval-policy.js";
 import {
   PROACTIVE_ACTION_DECIDER_PREFIX,
-  type ProactiveActionAuthorizer,
-} from "../../proactive/proactive/action-authorizer.js";
+  type ProactiveActionPort,
+} from "../../proactive/proactive/index.js";
 import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index.js";
 import { stableStringify } from "./llm-adapter.js";
 
@@ -74,7 +74,7 @@ async function recordAutomaticApproval(
 }
 
 async function executeAuthorizedProactiveAction(
-  authorizer: ProactiveActionAuthorizer,
+  authorizer: ProactiveActionPort,
   tenant: LocalContext,
   actionId: string,
   execute: () => Promise<ToolExecutionResult>,
@@ -100,7 +100,7 @@ export function createApprovalGatedToolProvider(
   provider: ToolProviderPort,
   tenant: LocalContext,
   repo: ToolApprovalRepository,
-  proactiveActionAuthorizer?: ProactiveActionAuthorizer,
+  proactiveActionAuthorizer?: ProactiveActionPort,
   observability?: Observability,
 ): ToolProviderPort {
   let specs = new Map(provider.tools.map((tool) => [tool.name, { ...tool }]));
@@ -220,7 +220,7 @@ export function createRuntimeToolProvider(
   tenant: LocalContext,
   deps: {
     conversationRepo: SqliteConversationRepository;
-    proactiveActionAuthorizer?: ProactiveActionAuthorizer;
+    proactiveActionAuthorizer?: ProactiveActionPort;
     observability?: Observability;
     capabilityTier?: string;
     isToolAllowed?: (tool: Awaited<ReturnType<ToolRuntime["listTools"]>>[number]) => Promise<boolean>;

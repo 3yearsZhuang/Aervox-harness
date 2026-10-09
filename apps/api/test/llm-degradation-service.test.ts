@@ -60,7 +60,7 @@ describe("LlmDegradationService (CR-034 / CR-042)", () => {
       errorMessage: null,
     });
 
-    const snapshot = await service.getRoutingSnapshot({ tenant, sessionId: "sess_1" });
+    const snapshot = await service.getRoutingSnapshot({ localContext: tenant, sessionId: "sess_1" });
     expect(snapshot.tier).toBe("L0");
     expect(snapshot.capabilityTier).toBe("full");
     expect(snapshot.isLocal).toBe(false);
@@ -96,11 +96,11 @@ describe("LlmDegradationService (CR-034 / CR-042)", () => {
     });
 
     // 第一次探测失败 (failureCount=1 < 2)
-    const snap1 = await service.getRoutingSnapshot({ tenant, sessionId: "sess_sticky" });
+    const snap1 = await service.getRoutingSnapshot({ localContext: tenant, sessionId: "sess_sticky" });
     expect(snap1.tier).toBe("L0"); // 尚未达到 failureThreshold=2，仍为 L0
 
     // 第二次探测失败 (failureCount=2 >= 2)，触发切层到 L1
-    const snap2 = await service.getRoutingSnapshot({ tenant, sessionId: "sess_sticky" });
+    const snap2 = await service.getRoutingSnapshot({ localContext: tenant, sessionId: "sess_sticky" });
     expect(snap2.tier).toBe("L1");
     expect(snap2.capabilityTier).toBe("restricted");
     expect(snap2.isLocal).toBe(true);
@@ -108,7 +108,7 @@ describe("LlmDegradationService (CR-034 / CR-042)", () => {
     expect(snap2.modelId).toBe("llama3.2");
 
     // 验证会话粘滞：后续请求仍然处于 L1
-    const snap3 = await service.getRoutingSnapshot({ tenant, sessionId: "sess_sticky" });
+    const snap3 = await service.getRoutingSnapshot({ localContext: tenant, sessionId: "sess_sticky" });
     expect(snap3.tier).toBe("L1");
     expect(snap3.stickySession).toBe(true);
 
@@ -146,9 +146,9 @@ describe("LlmDegradationService (CR-034 / CR-042)", () => {
       return { ok: false, status: "unavailable", latencyMs: 5000, errorCategory: "timeout", errorMessage: "timeout" };
     });
 
-    const snap1 = await service.getRoutingSnapshot({ tenant, sessionId: "sess_llamacpp" });
+    const snap1 = await service.getRoutingSnapshot({ localContext: tenant, sessionId: "sess_llamacpp" });
     expect(snap1.tier).toBe("L0"); // failureCount=1 < 2
-    const snap2 = await service.getRoutingSnapshot({ tenant, sessionId: "sess_llamacpp" });
+    const snap2 = await service.getRoutingSnapshot({ localContext: tenant, sessionId: "sess_llamacpp" });
     expect(snap2.tier).toBe("L1");
     expect(snap2.capabilityTier).toBe("restricted");
     expect(snap2.providerType).toBe("llamacpp");
@@ -185,17 +185,17 @@ describe("LlmDegradationService (CR-034 / CR-042)", () => {
     });
 
     // 连续两次失败，切入 L1
-    await service.getRoutingSnapshot({ tenant, sessionId: "sess_recover" });
-    const snapL1 = await service.getRoutingSnapshot({ tenant, sessionId: "sess_recover" });
+    await service.getRoutingSnapshot({ localContext: tenant, sessionId: "sess_recover" });
+    const snapL1 = await service.getRoutingSnapshot({ localContext: tenant, sessionId: "sess_recover" });
     expect(snapL1.tier).toBe("L1");
 
     // 云端恢复，第一轮探测成功 (successCount=1 < successThreshold=2)，仍粘滞在 L1
     cloudOk = true;
-    const snapStillL1 = await service.getRoutingSnapshot({ tenant, sessionId: "sess_recover" });
+    const snapStillL1 = await service.getRoutingSnapshot({ localContext: tenant, sessionId: "sess_recover" });
     expect(snapStillL1.tier).toBe("L1");
 
     // 第二轮探测成功 (successCount=2 >= successThreshold=2)，新回合回切到 L0
-    const snapBackL0 = await service.getRoutingSnapshot({ tenant, sessionId: "sess_recover" });
+    const snapBackL0 = await service.getRoutingSnapshot({ localContext: tenant, sessionId: "sess_recover" });
     expect(snapBackL0.tier).toBe("L0");
     expect(snapBackL0.reason).toBe("l0_recovered_from_sticky_l1");
   });
@@ -226,8 +226,8 @@ describe("LlmDegradationService (CR-034 / CR-042)", () => {
     });
 
     // 触发连续失败
-    await service.getRoutingSnapshot({ tenant, sessionId: "sess_l2" });
-    const snapshot = await service.getRoutingSnapshot({ tenant, sessionId: "sess_l2" });
+    await service.getRoutingSnapshot({ localContext: tenant, sessionId: "sess_l2" });
+    const snapshot = await service.getRoutingSnapshot({ localContext: tenant, sessionId: "sess_l2" });
 
     expect(snapshot.tier).toBe("L2");
     expect(snapshot.capabilityTier).toBe("minimal");
@@ -261,7 +261,7 @@ describe("LlmDegradationService (CR-034 / CR-042)", () => {
     });
 
     const snapshot = await service.getRoutingSnapshot({
-      tenant,
+      localContext: tenant,
       sessionId: "sess_local",
       requireLocalOnly: true,
     });
@@ -282,7 +282,7 @@ describe("LlmDegradationService (CR-034 / CR-042)", () => {
     });
 
     service.updatePolicy({ manualLockTier: "L2" });
-    const snapshot = await service.getRoutingSnapshot({ tenant, sessionId: "sess_lock" });
+    const snapshot = await service.getRoutingSnapshot({ localContext: tenant, sessionId: "sess_lock" });
     expect(snapshot.tier).toBe("L2");
     expect(snapshot.capabilityTier).toBe("minimal");
     expect(snapshot.reason).toBe("manual_locked_l2");
@@ -298,10 +298,10 @@ describe("LlmDegradationService (CR-034 / CR-042)", () => {
       temperature: 0.7,
     });
 
-    const snapshot = await service.getRoutingSnapshot({ tenant, sessionId: "sess_anthropic" });
+    const snapshot = await service.getRoutingSnapshot({ localContext: tenant, sessionId: "sess_anthropic" });
     // 由于无本地预设且 Anthropic 不支持，应触发连续失败降级至 L2
-    await service.getRoutingSnapshot({ tenant, sessionId: "sess_anthropic" });
-    const finalSnap = await service.getRoutingSnapshot({ tenant, sessionId: "sess_anthropic" });
+    await service.getRoutingSnapshot({ localContext: tenant, sessionId: "sess_anthropic" });
+    const finalSnap = await service.getRoutingSnapshot({ localContext: tenant, sessionId: "sess_anthropic" });
     expect(finalSnap.tier).toBe("L2");
   });
 });

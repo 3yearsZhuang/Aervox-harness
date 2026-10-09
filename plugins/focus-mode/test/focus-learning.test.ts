@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ref } from 'vue';
-import { initFocusLearning, useFocusLearning } from '../src/ui/useFocusLearning';
+import { createFocusLearning } from '../src/ui/useFocusLearning';
 
 /**
  * CR-060 §B9b：刷题 / 错题 / 学习规划状态机自宿主迁入本插件包后的行为契约。
@@ -33,8 +33,7 @@ describe('useFocusLearning（CR-060 §B9b 自宿主迁入）', () => {
         { questionId: 'q3', status: 'active', reasonCode: 'careless' },
       ]),
     });
-    initFocusLearning(api);
-    const learning = useFocusLearning();
+    const learning = createFocusLearning(api);
 
     expect(learning.activeMistakeCount.value).toBe(2);
     expect(learning.visibleMistakes.value.map((m) => m.questionId)).toEqual(['q1', 'q3']);
@@ -52,8 +51,7 @@ describe('useFocusLearning（CR-060 §B9b 自宿主迁入）', () => {
 
   it('无可用错题时不发起重练并给出提示', async () => {
     const api = stubApi({ mistakes: ref([]) });
-    initFocusLearning(api);
-    const learning = useFocusLearning();
+    const learning = createFocusLearning(api);
 
     await learning.startMistakePractice();
 
@@ -66,8 +64,7 @@ describe('useFocusLearning（CR-060 §B9b 自宿主迁入）', () => {
       mistakes: ref([{ questionId: 'q1', status: 'active', reasonCode: null }]),
       startMistakePractice: vi.fn(async () => ({ sessionId: 's1', items: [{ id: 'q1', prompt: '一' }, { id: 'q2', prompt: '二' }] })),
     });
-    initFocusLearning(api);
-    const learning = useFocusLearning();
+    const learning = createFocusLearning(api);
 
     await learning.startMistakePractice();
 
@@ -82,8 +79,7 @@ describe('useFocusLearning（CR-060 §B9b 自宿主迁入）', () => {
       mistakes: ref([{ questionId: 'q1', status: 'active', reasonCode: null }]),
       startMistakePractice: vi.fn(async () => ({ sessionId: 's1', items: [{ id: 'q1', prompt: '一' }] })),
     });
-    initFocusLearning(api);
-    const learning = useFocusLearning();
+    const learning = createFocusLearning(api);
     await learning.startMistakePractice();
 
     learning.practiceAnswer.value = '42';
@@ -100,8 +96,7 @@ describe('useFocusLearning（CR-060 §B9b 自宿主迁入）', () => {
         throw new Error('llm_disabled');
       }),
     });
-    initFocusLearning(api);
-    const learning = useFocusLearning();
+    const learning = createFocusLearning(api);
 
     learning.newPlanTopic.value = '线性代数';
     await learning.generatePlan();
@@ -117,29 +112,41 @@ describe('useFocusLearning（CR-060 §B9b 自宿主迁入）', () => {
       mistakes: ref([{ questionId: 'q1', status: 'active', reasonCode: null }]),
       startMistakePractice: vi.fn(async () => ({ sessionId: 'sA', items: [{ id: 'q1', prompt: '一' }] })),
     });
-    initFocusLearning(apiA);
-    const learning = useFocusLearning();
+    const learning = createFocusLearning(apiA);
     await learning.startMistakePractice();
     expect(learning.practiceSession.value?.sessionId).toBe('sA');
 
-    initFocusLearning(stubApi());
+    learning.dispose();
+    const other = createFocusLearning(stubApi());
+    expect(other.practiceSession.value).toBeNull();
     expect(learning.practiceSession.value).toBeNull();
     expect(learning.practiceError.value).toBeNull();
   });
 
   it('宿主未提供 api 端口时显式解绑，只读视图回落为空而不沿用上一实例', () => {
-    initFocusLearning(stubApi({
+    const learning = createFocusLearning(stubApi({
       mistakes: ref([{ questionId: 'q1', status: 'active', reasonCode: null }]),
       learningPlans: ref([{ id: 'plan_1' }]),
     }));
-    const learning = useFocusLearning();
     expect(learning.activeMistakeCount.value).toBe(1);
     expect(learning.learningPlans.value).toHaveLength(1);
 
     // 解绑后组件读到的是空视图，而不是上一个渲染器实例的错题与规划
-    initFocusLearning(null);
+    learning.dispose();
     expect(learning.activeMistakeCount.value).toBe(0);
     expect(learning.learningPlans.value).toEqual([]);
     expect(learning.apiError.value).toBeNull();
   });
+});
+
+it('两份学习状态持有各自 API，销毁其中一份不影响另一份', async () => {
+  const a = stubApi({ mistakes: ref([{ questionId: 'qa', status: 'active' }]) });
+  const b = stubApi({ mistakes: ref([{ questionId: 'qb', status: 'active' }]) });
+  const first = createFocusLearning(a); const second = createFocusLearning(b);
+  first.dispose();
+  await second.startMistakePractice();
+  expect(first.mistakes.value).toEqual([]);
+  expect(second.mistakes.value[0]?.questionId).toBe('qb');
+  expect((a as any).startMistakePractice).not.toHaveBeenCalled();
+  expect((b as any).startMistakePractice).toHaveBeenCalledWith(['qb']);
 });

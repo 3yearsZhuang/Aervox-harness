@@ -3,15 +3,10 @@ import { onBeforeUnmount, watch } from 'vue';
 import { Sparkles } from 'lucide-vue-next';
 import { useWorkbenchContext } from '@aervox/ui/plugin-api';
 import TermExploreDialog from './TermExploreDialog.vue';
-import { focusModeEnabled } from './plugin-state';
-import {
-  exploreDialogOpen,
-  extractedTerms,
-  openTermExplore,
-  resetTermsState,
-  selectedTerm,
-  subscribeTermsEvents,
-} from './plugin-events';
+import { useFocusModeState } from './plugin-state';
+const { focusModeEnabled } = useFocusModeState();
+import { createTermsState } from './plugin-events';
+const { exploreDialogOpen, extractedTerms, openTermExplore, resetTermsState, selectedTerm, subscribeTermsEvents } = createTermsState();
 
 const { conversation, pluginEvents } = useWorkbenchContext();
 const { streaming, latestAssistantLine } = conversation;

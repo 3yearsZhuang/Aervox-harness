@@ -74,7 +74,7 @@ export const RULES = [
     docRef: "ADR-016",
     fromDir: /^packages\/[^/]+\/(src|test)\//,
     forbid: [
-      { pattern: /^@aervox\/(api|worker|web|desktop|mobile|cli)$/, label: "宿主 Shell 包" },
+      { pattern: /^@aervox\/(api|worker|web|desktop|mobile|cli)($|\/)/, label: "宿主 Shell 包" },
     ],
   },
   {
@@ -95,7 +95,7 @@ export const RULES = [
       { pattern: /^@aervox\/(database|schema|repositories)($|\/)/, label: "数据库/模式/仓储" },
       { pattern: /^@libsql\//, label: "@libsql/client" },
       { pattern: /^drizzle-orm($|\/)/, label: "drizzle-orm" },
-      { pattern: /^@aervox\/(api|worker|web|desktop|mobile|cli)$/, label: "宿主 Shell 包" },
+      { pattern: /^@aervox\/(api|worker|web|desktop|mobile|cli)($|\/)/, label: "宿主 Shell 包" },
     ],
   },
   {
@@ -119,13 +119,13 @@ export const RULES = [
       { pattern: /^@aervox\/(database|schema|repositories)($|\/)/, label: "数据库/模式/仓储" },
       { pattern: /^@libsql\//, label: "@libsql/client" },
       { pattern: /^drizzle-orm($|\/)/, label: "drizzle-orm" },
-      { pattern: /^@aervox\/(api|worker|web|desktop|mobile|cli)$/, label: "宿主 Shell 包" },
+      { pattern: /^@aervox\/(api|worker|web|desktop|mobile|cli)($|\/)/, label: "宿主 Shell 包" },
     ],
   },
 ];
 
 /** 源码文件扩展（含 .vue：提取 <script> 块再解析） */
-export const SOURCE_EXT_RE = /\.(ts|tsx|js|mjs|cjs|vue)$/;
+export const SOURCE_EXT_RE = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|vue)$/;
 export const IGNORE_DIR_RE = /(^|\/)(node_modules|dist|out|reference|\.git)(\/|$)/;
 
 /** 从文本中提取 .vue 的 <script> 块（多 script 块全部提取） */
@@ -136,30 +136,24 @@ function extractSpecifiers(source, fileName, strict = false) {
   const specifiers = [];
   if (fileName.endsWith(".vue")) {
     for (const match of source.matchAll(SCRIPT_BLOCK_RE)) {
-      collectFromTs(match[1], specifiers, strict);
+      collectFromTs(match[1], specifiers, strict, /\blang\s*=\s*["'](?:t|j)sx["']/.test(match[0].split('>')[0]) ? 'script.tsx' : 'script.ts');
     }
     return specifiers;
   }
-  collectFromTs(source, specifiers, strict);
+  collectFromTs(source, specifiers, strict, fileName);
   return specifiers;
 }
 
 /** 解析单个 TS/JS/Vue-script 片段为 AST 并收集模块说明符（@babel/parser，不承担编译） */
-function collectFromTs(text, out, strict) {
-  let ast;
-  try {
-    ast = parse(text, {
+function collectFromTs(text, out, strict, fileName) {
+  const ast = parse(text, {
       sourceType: "module",
-      plugins: ["typescript", "jsx"],
+      plugins: /\.[jt]sx$/.test(fileName) ? ["typescript", "jsx"] : ["typescript"],
       // 必须显式开启：否则动态 import() 被解析为 CallExpression(callee=Import)，
       // 下方 case "ImportExpression" 成为死分支，`await import("@libsql/client")`
       // 这类违规会整体漏检（与 check-removable-implementation.mjs 保持一致）。
       createImportExpressions: true,
     });
-  } catch (error) {
-    if (strict) throw error;
-    return; // 未纳管范围保持既有行为
-  }
   const visit = (node) => {
     if (!node || typeof node !== "object" || typeof node.type !== "string") return;
     switch (node.type) {
@@ -231,19 +225,19 @@ function resolveRepoRelative(fromRelFile, specifier) {
 
 /** 仓库相对路径 → 所属 workspace 包键（packages/x 或 apps/x）；非包内返回 null */
 function ownPackage(repoRel) {
-  const m = repoRel.match(/^(packages|apps)\/([^/]+)\//);
+  const m = repoRel.match(/^(packages|apps|plugins)\/([^/]+)\//);
   return m ? `${m[1]}/${m[2]}` : null;
 }
 
 /** 仓库相对路径 → 伪包名（packages/x → @aervox/x；apps/x → @aervox/x）用于规则匹配 */
 function toPseudoSpecifier(repoRel) {
-  const m = repoRel.match(/^(packages|apps)\/([^/]+)\//);
+  const m = repoRel.match(/^(packages|apps|plugins)\/([^/]+)\//);
   if (!m) return null;
-  return `@aervox/${m[2]}`;
+  return `@aervox/${m[1] === 'plugins' ? 'plugin-' : ''}${m[2]}`;
 }
 
 /** 全量遍历目录（repo 根相对），返回源码文件相对路径列表 */
-export function collectSourceFiles(rootDirs = ["apps", "packages", "plugins"]) {
+export function collectSourceFiles(rootDirs = ["apps", "packages", "plugins", "capabilities", "providers", "adapters", "modules"]) {
   const out = [];
   const walk = (dir) => {
     for (const entry of readdirSync(dir)) {

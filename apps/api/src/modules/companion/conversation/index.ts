@@ -1,3 +1,4 @@
+import { hostPromptPolicy } from "./prompt-policy.js";
 import { loadApiConfig } from "@aervox/config";
 import { createBroadcastingStore } from "./broadcasting-store.js";
 /**
@@ -7,7 +8,7 @@ import { createBroadcastingStore } from "./broadcasting-store.js";
  * 阶段 2d/2e/5c：ToolRuntime / LLMConfigService / workflows 等共享依赖由
  * 模块上下文（ModuleContext）提供（tools/llm 模块在其之前注册并填充）。
  */
-import type { ModuleContext } from "../../context.js";
+import type { ModuleDependencies } from "../../context.js";
 import {
   SqliteAgentInboxRepository,
   SqliteConversationRepository,
@@ -25,7 +26,7 @@ import { buildLoopProvider } from "./llm-adapter.js";
 import { registerConversationRoutes } from "./routes.js";
 import { UserQuestionCoordinator } from "./user-question-coordinator.js";
 
-export function registerConversationModule(ctx: ModuleContext): void {
+export function registerConversationModule(ctx: ModuleDependencies<"app" | "client" | "db" | "getPersona" | "getPluginRegistrations" | "llmConfigService" | "memoryRecall" | "modelRoutingService" | "observability" | "pluginHostServices" | "pluginRegistry" | "proactiveActionAuthorizer" | "proactiveRepository" | "safetyService" | "toolRuntime" | "workflows">): void {
   const {
     app,
     db,
@@ -56,6 +57,7 @@ export function registerConversationModule(ctx: ModuleContext): void {
     let recovery: Promise<unknown> | undefined;
     app.addHook("onReady", async () => {
       recovery = resumeCommittedTurns({
+        baseSystemPrompt: hostPromptPolicy(),
         source: createSqliteResumeSource({ repo: conversationRepo, client: ctx.client }),
         createStore: () => createBroadcastingStore(new SqliteExecutionStore(conversationRepo, local)),
         createProvider: (turn, control) => buildLoopProvider(local, llmConfigService, {
@@ -85,10 +87,10 @@ export function registerConversationModule(ctx: ModuleContext): void {
         description: s.description,
       })),
     // 人格提示词摘要：激活人格时由其覆盖系统默认名称/设定并约束技能白名单。
-    // persona 模块在 conversation 之后注册，这里惰性读取 ctx；读取失败按无人格兜底。
+    // 人格服务通过显式查询端口获取；组合根负责其生命周期。
     personaLoader: async (tenant) => {
       try {
-        return await ctx.personaService?.describeActivePersonaSummary(tenant);
+        return await ctx.getPersona?.()?.describeActivePersonaSummary(tenant);
       } catch {
         return undefined;
       }
@@ -111,7 +113,7 @@ export function registerConversationModule(ctx: ModuleContext): void {
     userQuestionCoordinator,
     // CR-060：第一方插件工具贡献（注册单元由 plugins 模块在装配后填充，故惰性读取；
     // 宿主服务工厂由组合根提供，按 request 级本地上下文产出窄端口）
-    pluginRegistrations: () => ctx.pluginRegistrations,
+    pluginRegistrations: () => ctx.getPluginRegistrations?.(),
     pluginHostServices: ctx.pluginHostServices,
     proactiveActionAuthorizer,
     proactiveRepository,

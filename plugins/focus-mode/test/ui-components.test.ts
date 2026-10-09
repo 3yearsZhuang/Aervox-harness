@@ -7,7 +7,7 @@ import FocusModeSwitch from '../src/ui/FocusModeSwitch.vue';
 import FocusNavMenuItem from '../src/ui/FocusNavMenuItem.vue';
 import FocusStudyCardActions from '../src/ui/FocusStudyCardActions.vue';
 import FocusTaskCenterCard from '../src/ui/FocusTaskCenterCard.vue';
-import { activeLearningView, focusModeEnabled, learningOpen } from '../src/ui/plugin-state';
+import { useFocusModeState } from '../src/ui/plugin-state';
 import { openDailyProblem } from '../src/ui/daily-problem';
 
 // CR-060 §B9b：每日一题入口已迁入插件包，组件不再经宿主 cards 调用
@@ -35,43 +35,29 @@ describe('plugins/focus-mode UI 组件', () => {
 
       // CR-060：开关状态归插件（宿主 layout 不再持有该字段）
 
-      focusModeEnabled.value = false;
-
-
-
-      const wrapper = mount(FocusModeSwitch);
-
-
+      const context = contextWith();
+      const { focusModeEnabled } = useFocusModeState(context);
+      const wrapper = mountWith(FocusModeSwitch, context);
 
       expect(wrapper.find('.study-switch-track').attributes('aria-checked')).toBe('false');
 
       expect(wrapper.find('.study-switch-label').text()).toBe('专注模式');
 
-
-
       await wrapper.find('.study-switch-track').trigger('click');
 
       expect(focusModeEnabled.value).toBe(true);
-
-
 
       await wrapper.vm.$nextTick();
 
       expect(wrapper.find('.study-switch-track').attributes('aria-checked')).toBe('true');
 
-
-
       focusModeEnabled.value = false;
 
     });
 
-
-
     it('FocusNavMenuItem.vue mounts, displays label, tooltip and handles active state & click action', async () => {
 
       const runMenuAction = vi.fn((action: () => void) => action());
-
-
 
       const mockContext = {
 
@@ -79,23 +65,17 @@ describe('plugins/focus-mode UI 组件', () => {
 
       } as unknown as WorkbenchContext;
 
+      const { learningOpen, activeLearningView } = useFocusModeState(mockContext);
       learningOpen.value = false;
-
       activeLearningView.value = 'study';
 
-
-
       const wrapper = mountWith(FocusNavMenuItem, mockContext);
-
-
 
       expect(wrapper.text()).toContain('学习能力');
 
       expect(wrapper.attributes('title')).toBe('学习能力');
 
       expect(wrapper.classes()).not.toContain('is-active');
-
-
 
       // Activate study drawer
 
@@ -105,8 +85,6 @@ describe('plugins/focus-mode UI 组件', () => {
 
       expect(wrapper.classes()).toContain('is-active');
 
-
-
       // Switch to mistake view -> should not be active for study item
 
       activeLearningView.value = 'mistake';
@@ -114,8 +92,6 @@ describe('plugins/focus-mode UI 组件', () => {
       await wrapper.vm.$nextTick();
 
       expect(wrapper.classes()).not.toContain('is-active');
-
-
 
       // Trigger click：打开插件自有视图（宿主不再提供该 ToolId）
 
@@ -129,16 +105,11 @@ describe('plugins/focus-mode UI 组件', () => {
 
     });
 
-
-
     it('FocusStudyCardActions.vue mounts and triggers operations on button clicks', async () => {
 
       const hostOpenDailyProblem = vi.fn();
 
       const openTool = vi.fn();
-
-      focusModeEnabled.value = true;
-
 
 
       const mockContext = {
@@ -149,11 +120,9 @@ describe('plugins/focus-mode UI 组件', () => {
 
       } as unknown as WorkbenchContext;
 
-
-
+      const { focusModeEnabled, learningOpen, activeLearningView } = useFocusModeState(mockContext);
+      focusModeEnabled.value = true;
       const wrapper = mountWith(FocusStudyCardActions, mockContext);
-
-
 
       const buttons = wrapper.findAll('button');
 
@@ -165,29 +134,21 @@ describe('plugins/focus-mode UI 组件', () => {
 
       expect(buttons[2].text()).toContain('错题重练');
 
-
-
       await buttons[0].trigger('click');
 
       // 调用插件自有入口，且完全不再触碰宿主 cards 上的同名旧入口
       expect(vi.mocked(openDailyProblem)).toHaveBeenCalledTimes(1);
       expect(hostOpenDailyProblem).not.toHaveBeenCalled();
 
-
-
       await buttons[1].trigger('click');
 
       expect(openTool).toHaveBeenCalledWith('timer');
-
-
 
       await buttons[2].trigger('click');
 
       expect(learningOpen.value).toBe(true);
 
       expect(activeLearningView.value).toBe('mistake');
-
-
 
       // When focus mode is toggled off, action container is hidden
 
@@ -198,18 +159,13 @@ describe('plugins/focus-mode UI 组件', () => {
       expect(wrapper.find('.focus-study-card-actions').exists()).toBe(false);
 
       learningOpen.value = false;
-
       activeLearningView.value = 'study';
 
     });
 
-
-
     it('FocusTaskCenterCard.vue renders review tag and triggers navigation on button clicks', async () => {
 
       const taskCenterOpen = ref(true);
-
-
 
       const mockContext = {
 
@@ -219,15 +175,12 @@ describe('plugins/focus-mode UI 组件', () => {
 
       } as unknown as WorkbenchContext;
 
+      const { learningOpen, activeLearningView } = useFocusModeState(mockContext);
       learningOpen.value = false;
 
       activeLearningView.value = 'study';
 
-
-
       const wrapper = mountWith(FocusTaskCenterCard, mockContext);
-
-
 
       expect(wrapper.find('.focus-task-center-card').exists()).toBe(true);
 
@@ -235,13 +188,9 @@ describe('plugins/focus-mode UI 组件', () => {
 
       expect(wrapper.text()).toContain('5 个待复习');
 
-
-
       const buttons = wrapper.findAll('button');
 
       expect(buttons).toHaveLength(2);
-
-
 
       await buttons[0].trigger('click');
 
@@ -250,8 +199,6 @@ describe('plugins/focus-mode UI 组件', () => {
       expect(learningOpen.value).toBe(true);
 
       expect(taskCenterOpen.value).toBe(false);
-
-
 
       taskCenterOpen.value = true;
 

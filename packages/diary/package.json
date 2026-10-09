@@ -17,9 +17,7 @@
   },
   "dependencies": {
     "@aervox/core": "workspace:*",
-    "@aervox/repositories": "workspace:*",
-    "@aervox/schema": "workspace:*",
-    "drizzle-orm": "^0.39.3"
+    "@aervox/contracts": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.10.0"

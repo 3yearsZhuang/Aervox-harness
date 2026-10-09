@@ -1,3 +1,5 @@
+import { createSqliteDiaryMaterialPort } from "@aervox/repositories";
+import { loadApiConfig } from "@aervox/config";
 /**
  * Aervox｜思隅 @aervox/api — 日记模块入口
  *
@@ -6,7 +8,7 @@
  * 经 ctx.toolRuntime 登记 aervox_diary_write（PET-05 write_with_approval）。
  * 生成能力统一来自 @aervox/diary（与 Worker 定时路径共用单源）。
  */
-import type { ModuleContext } from "../../context.js";
+import type { ModuleDependencies } from "../../context.js";
 import { SqliteDiaryRepository } from "@aervox/repositories";
 import { registerDiaryRoutes } from "./routes.js";
 import { DiaryWriteTool } from "./diary-write-tool.js";
@@ -17,7 +19,7 @@ import {
   type DiaryLlmConfigPort,
 } from "@aervox/diary";
 
-export async function registerDiaryModule(ctx: ModuleContext): Promise<void> {
+export async function registerDiaryModule(ctx: ModuleDependencies<"app" | "db" | "llmConfigService" | "toolRuntime">): Promise<void> {
   const { app, db } = ctx;
   const diaryRepo = new SqliteDiaryRepository(db);
 
@@ -38,7 +40,8 @@ export async function registerDiaryModule(ctx: ModuleContext): Promise<void> {
     },
   };
   const generation = new DiaryGenerationService({
-    db,
+    materials: createSqliteDiaryMaterialPort(db),
+    useModel: loadApiConfig().loopProvider === "llm",
     model: ctx.llmConfigService ? createLlmDiaryModelPort(llmConfigPort) : null,
   });
   const service = new DiaryApplicationService({ diaryRepo, generation });

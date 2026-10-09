@@ -7,7 +7,7 @@
 import type { AervoxDatabase, ProactiveVaultCipher } from "@aervox/repositories";
 import type { ProactiveFeatureFlag } from "@aervox/config";
 import { safeTimingCompare } from "../../../shared/auth.js";
-import type { ModuleContext } from "../../context.js";
+import type { ModuleDependencies } from "../../context.js";
 import {
   SqlitePrivacyRepository,
   SqliteProactiveIntelligenceRepository,
@@ -37,7 +37,7 @@ export interface ProactiveModuleServices {
   integrationManager: ProactiveIntegrationManager;
 }
 
-export async function registerProactiveModule(ctx: ModuleContext, options: ProactiveModuleOptions = {}): Promise<ProactiveModuleServices> {
+export async function registerProactiveModule(ctx: ModuleDependencies<"app" | "db" | "proactiveAccessToken" | "proactiveCipher" | "proactiveDb" | "toolRuntime">, options: ProactiveModuleOptions = {}): Promise<ProactiveModuleServices> {
   const repository = new SqliteProactiveProfileRepository(
     options.db ?? ctx.proactiveDb ?? ctx.db,
     options.cipher ?? ctx.proactiveCipher,
@@ -55,9 +55,6 @@ export async function registerProactiveModule(ctx: ModuleContext, options: Proac
     options.cipher ?? ctx.proactiveCipher,
   );
   const integrationManager = new ProactiveIntegrationManager(intelligenceRepository, repository);
-  ctx.proactiveRepository = repository;
-  ctx.proactiveIntelligenceRepository = intelligenceRepository;
-  ctx.proactiveActionAuthorizer = actionAuthorizer;
   const accessToken = options.accessToken ?? ctx.proactiveAccessToken;
   if (accessToken) {
     ctx.app.addHook("preHandler", async (req, reply) => {
@@ -99,3 +96,8 @@ export async function registerProactiveModule(ctx: ModuleContext, options: Proac
   ctx.app.addHook("onClose", async () => integrationManager.stop());
   return { repository, intelligenceRepository, actionAuthorizer, integrationManager };
 }
+
+export type ProactiveActionPort = Pick<import("./action-authorizer.js").ProactiveActionAuthorizer, "authorize" | "markRunning" | "markExecuted" | "markFailed">;
+
+export { loadProactiveProfilePrompt, isLiteralLoopbackUrl } from "./profile-context.js";
+export { PROACTIVE_ACTION_DECIDER_PREFIX } from "./action-authorizer.js";

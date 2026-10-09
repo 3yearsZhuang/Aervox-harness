@@ -299,4 +299,4 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
     return scope;
   });
 }
-import { FileExistsError } from "../../ecosystem/skills/skill-manager.js";
+import { FileExistsError } from "../../ecosystem/skills/index.js";

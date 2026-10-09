@@ -30,6 +30,7 @@ describe('useAervoxVoice / 语音组合式 API', () => {
   });
 
   afterEach(() => {
+    configureAervoxClient({ platform: {} });
     vi.restoreAllMocks();
   });
 
@@ -60,6 +61,7 @@ describe('useAervoxVoice / 语音组合式 API', () => {
           pickDirectory: vi.fn().mockResolvedValue('/opt/model'),
         },
       };
+      configureAervoxClient({ platform: (globalThis as any).window.fairyDesktop });
       expect(canPickDirectory()).toBe(true);
     });
   });
@@ -277,6 +279,7 @@ describe('useAervoxVoice / 语音组合式 API', () => {
       };
 
       const api = useAervoxVoice();
+      configureAervoxClient({ platform: (globalThis as any).window?.fairyDesktop ?? {} });
       const res = await api.pickDirectory();
 
       expect(pickMock).toHaveBeenCalled();
@@ -285,6 +288,7 @@ describe('useAervoxVoice / 语音组合式 API', () => {
 
     it('pickDirectory 在无桌面桥时安全返回 null', async () => {
       const api = useAervoxVoice();
+      configureAervoxClient({ platform: (globalThis as any).window?.fairyDesktop ?? {} });
       const res = await api.pickDirectory();
 
       expect(res).toBeNull();

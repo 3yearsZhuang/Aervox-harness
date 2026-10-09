@@ -85,9 +85,9 @@ export class LlmDegradationService implements ModelRoutingPort {
     sessionId?: string;
     turnId?: string;
     requireLocalOnly?: boolean;
-    tenant?: LocalContext;
+    localContext?: LocalContext;
   }): Promise<ModelRoutingSnapshot> {
-    const tenant = sessionContext?.tenant ?? {
+    const tenant = sessionContext?.localContext ?? {
       workspaceId: "local",
       subjectUserId: "local_user",
     };

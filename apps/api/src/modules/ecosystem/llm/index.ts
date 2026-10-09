@@ -1,4 +1,5 @@
-import type { ModuleContext } from "../../context.js";
+import type { ModuleDependencies } from "../../context.js";
+import type { ModelRoutingPort } from "@aervox/contracts";
 import { SqliteLLMConfigRepository, SqliteModelRoutingRepository } from "@aervox/repositories";
 import { LLMConfigService } from "./service.js";
 import { registerLLMRoutes } from "./routes.js";
@@ -7,9 +8,9 @@ import { LlmDegradationService } from "./degradation-service.js";
 import type { LLMServiceOptions } from "./types.js";
 
 export function registerLLMModule(
-  ctx: ModuleContext,
+  ctx: ModuleDependencies<"app" | "db">,
   options?: LLMServiceOptions,
-): LLMConfigService {
+): { config: LLMConfigPort; routing: ModelRoutingPort } {
   const { app, db } = ctx;
   const repo = new SqliteLLMConfigRepository(db);
   const service = new LLMConfigService(repo, options);
@@ -17,13 +18,15 @@ export function registerLLMModule(
   const degradationService = new LlmDegradationService(repo, routingRepo, {
     prober: new LlmHealthProber(),
   });
-  ctx.llmConfigService = service;
-  ctx.modelRoutingService = degradationService;
   registerLLMRoutes(app, service);
-  return service;
+  return { config: service, routing: degradationService };
 }
 
 export * from "./service.js";
 export * from "./health-prober.js";
 export * from "./degradation-service.js";
 export * from "./types.js";
+
+export type LLMConfigPort = Pick<import("./service.js").LLMConfigService, "getConfig" | "listPresets">;
+
+export type { ModelRoutingPort } from "@aervox/contracts";

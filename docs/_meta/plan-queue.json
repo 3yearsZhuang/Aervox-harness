@@ -1053,7 +1053,7 @@
     {
       "id": "ITER-050",
       "batch": "first",
-      "status": "执行中",
+      "status": "已移交",
       "delivery": "PR #258 审计发现落地：删除效果验证、原子接单/组合写入、动态工具取消、取消恢复、锁回收与资产单源；关联 ITER-002/003/004/007/010/017。",
       "gate": "用户已授权在本 PR 落实已接受契约下的修复；不扩展删除范围、不执行生产迁移，不启动架构替换。",
       "acceptance": [
@@ -1065,7 +1065,7 @@
       ],
       "owner": "Codex",
       "branch": "docs/repository-audit-and-docs-slimming",
-      "statusNote": "2026-10-08 PR #258 评审修复：删除完成前清除压缩 Outbox 载荷，摘要、事件与迟到生产者在写者事务内检查墓碑；与 PR #257 并行分配的计划编号改为 ITER-049/050，正在回归与整合。",
+      "statusNote": "2026-10-09 核实 PR #258 已随 15a68e6c 合入；本条修复切片移交，剩余接单、删除范围与授权差量继续由关联条目承接。",
       "dependsOn": [
         "ITER-049"
       ],
@@ -1103,6 +1103,33 @@
         "packages/core/test/model-terminal.test.ts",
         "packages/core/test/context-manifest.test.ts",
         "apps/api/test/plugin-distribution.test.ts"
+      ]
+    },
+    {
+      "id": "ITER-052",
+      "batch": "first",
+      "status": "执行中",
+      "delivery": "框架解耦审计整改：事件传输与平台能力注入、插件实例生命周期、API 窄依赖、日记素材访问、内核提示词策略与边界守卫；CAP-002/007/018/020。",
+      "gate": "2026-10-09 用户授权继续解耦；遵循 ADR-014/016/021 与现行插件合同，保持本地 SQLite、HTTP/数据与权限语义；不执行生产迁移。",
+      "acceptance": [
+        "自定义传输与认证覆盖模型事件流，取消释放资源",
+        "插件重建与并存实例互不影响，移除后无旧监听回写",
+        "模块消费者经公开窄 Port，领域服务不直接查询物理表，平台与产品策略由宿主注入",
+        "边界守卫拒绝解析遗漏和宿主子路径，相关回归及双门禁通过"
+      ],
+      "checks": [
+        "scripts/import-boundary.test.mjs",
+        "packages/api-client/test/transport.test.ts",
+        "plugins/focus-mode/test/ui-components.test.ts"
+      ],
+      "owner": "Codex",
+      "branch": "fix/framework-decoupling",
+      "statusNote": "2026-10-09 自 main c9d92cbc：事件流并入 Transport（fetch/IPC 双实现，桌面主进程按 sender 归属与释放）、插件状态按上下文实例化且注销释放监听、模块消费改经公开窄 Port（边界例外清零）、日记素材抽 Port 且发布+版本+游标同事务、平台能力与提示词策略改宿主注入、边界守卫按类型解析且失败阻断；另修类型边界重复声明与 CR-030 端口命名。增量与全量门禁通过，PR #262。",
+      "dependsOn": [],
+      "links": [
+        "docs/reference/ARCHITECTURE.md",
+        "docs/reference/adr/ADR-014-modular-monolith-structure.md",
+        "docs/reference/adr/ADR-021-aervox-core-standalone-package.md"
       ]
     }
   ]

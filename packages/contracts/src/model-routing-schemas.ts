@@ -10,6 +10,7 @@
 import { z } from "zod";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { llmProviderTypeSchema, type LLMProviderType } from "./llm-schemas.js";
+import type { LocalContext } from "./local-context.js";
 
 extendZodWithOpenApi(z);
 
@@ -103,7 +104,9 @@ export type ModelRoutingPolicy = z.infer<typeof modelRoutingPolicySchema>;
 export interface ModelRoutingPort {
   getRoutingSnapshot(sessionContext?: {
     sessionId?: string;
+    turnId?: string;
     requireLocalOnly?: boolean;
+    localContext?: LocalContext;
   }): Promise<ModelRoutingSnapshot>;
 }
 

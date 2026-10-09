@@ -5,6 +5,7 @@ import type { ClaimableTurn, TurnSourcePort } from "./agent-host.js";
 /** Opt-in recovery: only continue from committed results, without new tools or lifecycle hooks. */
 export async function resumeCommittedTurns(deps: {
   source: TurnSourcePort;
+  baseSystemPrompt?: import("@aervox/core").BaseSystemPromptOptions;
   createStore(turn: ClaimableTurn): ExecutionStorePort;
   /** Must enforce control.localProcessingOnly before selecting a provider. */
   createProvider(turn: ClaimableTurn, control: ControlContext): Promise<ModelProviderPort>;
@@ -23,7 +24,7 @@ export async function resumeCommittedTurns(deps: {
       control.abortSignal.throwIfAborted();
       results.push(await executeTurn({
         execution: deps.createStore(turn), provider, controlContext: control, deletionGate: deps.deletionGate,
-        contextBuilder: createComposedContextBuilder({ baseSystemPrompt: { extraSections: ["Continue using the committed tool results. No tools are available during recovery; explain any remaining work without claiming it was performed."] } }),
+        contextBuilder: createComposedContextBuilder({ baseSystemPrompt: { ...deps.baseSystemPrompt, extraSections: ["Continue using the committed tool results. No tools are available during recovery; explain any remaining work without claiming it was performed."] } }),
         options: { resume: turn.resume, maxSteps: turn.resume.lastStep + 1, maxModelRetries: 0 },
       }, turn));
     } catch {

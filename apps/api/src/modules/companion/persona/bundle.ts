@@ -4,7 +4,7 @@
 import { createHash } from "node:crypto";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import type { LocalContext, SqlitePersonaRepository, SkillRegistrationModel } from "@aervox/repositories";
-import type { SkillManager } from "../../ecosystem/skills/skill-manager.js";
+import type { SkillCatalogPort } from "../../ecosystem/skills/index.js";
 import {
   assertNonEmpty,
   computeRevisionChecksum,
@@ -27,7 +27,7 @@ function readJsonFile(files: Record<string, Uint8Array>, path: string): unknown 
 export async function exportPersonaBundle(input: {
   persona: Persona;
   revision: PersonaRevision;
-  skillManager: SkillManager;
+  skillManager: SkillCatalogPort;
   availableToolIds?: string[];
   availableVoiceProviderIds?: string[];
 }): Promise<PersonaBundleExportResult> {
@@ -204,7 +204,7 @@ export async function importPersonaBundle(input: {
   bytes: Uint8Array;
   tenant: LocalContext;
   personaRepo: SqlitePersonaRepository;
-  skillManager: SkillManager;
+  skillManager: SkillCatalogPort;
   conflictResolution?: "error" | "replace";
 }): Promise<{
   persona: Persona;

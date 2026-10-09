@@ -16,7 +16,7 @@ import focusModePluginDefinition, {
   FocusModeIndicator,
   LearningDrawer,
 } from '../src/ui';
-import { focusModeEnabled } from '../src/ui';
+import { useFocusModeState } from '../src/ui';
 
 /**
  * CR-060：插件 UI 侧契约。
@@ -56,7 +56,9 @@ describe('FocusModePlugin（CR-060 无别名单一 id）', () => {
 
   it('注册开关、术语条、导航项、抽屉、设置行与输入区指示器到对应插槽', () => {
     const registry = createUIRegistry();
-    const unregister = registerFocusModePlugin(registry, createContext());
+    const context = createContext();
+    const { focusModeEnabled } = useFocusModeState(context);
+    const unregister = registerFocusModePlugin(registry, context);
 
     expect(registry.getSlotComponents('header:actions').find((i) => i.id === 'focus-mode:header-switch')?.component).toBe(FocusModeSwitch);
     expect(registry.getSlotComponents('conversation:bottom').find((i) => i.id === 'focus-mode:terms-bar')?.component).toBe(FocusTermsBar);
@@ -80,7 +82,9 @@ describe('FocusModePlugin（CR-060 无别名单一 id）', () => {
 
   it('专注模式开关经消息变换器自述出站 metadata（不再改写消息文本）', () => {
     const registry = createUIRegistry();
-    const unregister = registerFocusModePlugin(registry, createContext());
+    const context = createContext();
+    const { focusModeEnabled } = useFocusModeState(context);
+    const unregister = registerFocusModePlugin(registry, context);
 
     // 关闭：文本原样、不产生 metadata
     expect(registry.transformMessage('请讲解算法')).toEqual({ text: '请讲解算法', metadata: undefined });
@@ -104,7 +108,9 @@ describe('FocusModePlugin（CR-060 无别名单一 id）', () => {
 
   it('回归守卫：开关打开后「普通发送」（无显式 metadata）仍带出专注模式语义', () => {
     const registry = createUIRegistry();
-    const unregister = registerFocusModePlugin(registry, createContext());
+    const context = createContext();
+    const { focusModeEnabled } = useFocusModeState(context);
+    const unregister = registerFocusModePlugin(registry, context);
 
     // 关闭时：普通发送不携带任何模式语义
     expect(resolveOutgoingMessage(registry, '请讲解算法')).toEqual({
@@ -137,6 +143,7 @@ describe('FocusModePlugin（CR-060 无别名单一 id）', () => {
     const context = createContext() as unknown as { cards: Record<string, unknown> };
     context.cards = { ...(context.cards as object), applySlotPreset, restoreSlotPreset };
 
+    const { focusModeEnabled } = useFocusModeState(context as never);
     const unregister = registerFocusModePlugin(registry, context as never);
     // 初始化时开关为关：只应表达"恢复"，不应应用预设
     expect(applySlotPreset).not.toHaveBeenCalled();
@@ -159,6 +166,7 @@ describe('FocusModePlugin（CR-060 无别名单一 id）', () => {
       layout: Record<string, unknown>;
       pluginState: ReturnType<typeof createPluginStateStore>;
     };
+    const { focusModeEnabled } = useFocusModeState(context as never);
     registerFocusModePlugin(createUIRegistry(), context as never);
 
     expect(context.layout).not.toHaveProperty('focusModeEnabled');
@@ -181,7 +189,8 @@ describe('WorkbenchPluginRuntime（CR-060：不内建插件、fail-closed）', (
 
   it('sync 依据仓储启停记录装配与卸载插件插槽', async () => {
     const registry = createUIRegistry();
-    const runtime = createWorkbenchPluginRuntime(registry, () => createContext(), definitions);
+    const context = createContext();
+    const runtime = createWorkbenchPluginRuntime(registry, () => context, definitions);
 
     // 初始：未经 sync 一律未启用（fail-closed），不注册任何插槽
     expect(runtime.isPluginAvailable('focus-mode')).toBe(false);
@@ -206,7 +215,8 @@ describe('WorkbenchPluginRuntime（CR-060：不内建插件、fail-closed）', (
   it('配置同步只按主 id 拉取，且陈旧 sync 不得覆盖已停用状态', async () => {
     const registry = createUIRegistry();
     const requestedIds: string[] = [];
-    const runtime = createWorkbenchPluginRuntime(registry, () => createContext(), definitions);
+    const context = createContext();
+    const runtime = createWorkbenchPluginRuntime(registry, () => context, definitions);
 
     let resolveFirstConfig: ((value: { values: Record<string, unknown> }) => void) | undefined;
     const firstConfigPromise = new Promise<{ values: Record<string, unknown> }>((resolve) => {
@@ -220,17 +230,50 @@ describe('WorkbenchPluginRuntime（CR-060：不内建插件、fail-closed）', (
     const sync2 = runtime.sync([{ id: 'focus-mode', enabled: 0 }], async () => ({ values: {} }));
     await sync2;
 
-    expect(focusModeEnabled.value).toBe(false);
+    expect(registry.transformMessage('hello').metadata).toBeUndefined();
     expect(runtime.isPluginAvailable('focus-mode')).toBe(false);
 
     resolveFirstConfig?.({ values: { autoEnableFocusMode: true } });
     await sync1;
 
     // 陈旧 sync 不得复活已停用插件
-    expect(focusModeEnabled.value).toBe(false);
+    expect(registry.transformMessage('hello').metadata).toBeUndefined();
     expect(runtime.isPluginAvailable('focus-mode')).toBe(false);
     expect(requestedIds.every((id) => id === 'focus-mode')).toBe(true);
-    focusModeEnabled.value = false;
     runtime.destroy();
   });
+});
+
+it('不同工作台状态隔离，注销后旧 Ref 和迟到配置不能回写宿主', async () => {
+  const a = createContext(); const b = createContext();
+  const quietA = vi.fn(); const quietB = vi.fn();
+  (a as any).layout.setQuietStartup = quietA;
+  (b as any).layout.setQuietStartup = quietB;
+  const offA = registerFocusModePlugin(createUIRegistry(), a);
+  const offB = registerFocusModePlugin(createUIRegistry(), b);
+  const stateA = useFocusModeState(a); const stateB = useFocusModeState(b);
+  quietA.mockClear(); quietB.mockClear();
+  stateB.setFocusModeEnabled(true);
+  expect(stateA.focusModeEnabled.value).toBe(false);
+  expect(quietA).not.toHaveBeenCalled();
+  expect(quietB).toHaveBeenCalledWith(true);
+  offA(); quietA.mockClear();
+  stateA.focusModeEnabled.value = true;
+  await nextTick();
+  expect(quietA).not.toHaveBeenCalled();
+  expect(stateB.focusModeEnabled.value).toBe(true);
+  offB();
+});
+
+it('销毁后等待中的配置不会复活插件，新实例可恢复自己的开关', async () => {
+  const context = createContext(); const registry = createUIRegistry();
+  const runtime = createWorkbenchPluginRuntime(registry, () => context, [focusModePluginDefinition]);
+  let finish!: (config: { values: Record<string, unknown> }) => void;
+  const pending = runtime.sync([{ id: 'focus-mode', enabled: 1 }], () => new Promise(resolve => { finish = resolve; }));
+  runtime.destroy();
+  finish({ values: { autoEnableFocusMode: true } });
+  await pending;
+  await runtime.sync([{ id: 'focus-mode', enabled: 1 }], async () => ({ values: {} }));
+  expect(registry.getCards()).toEqual([]);
+  expect(runtime.isPluginAvailable('focus-mode')).toBe(false);
 });

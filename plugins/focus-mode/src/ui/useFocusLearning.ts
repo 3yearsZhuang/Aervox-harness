@@ -9,23 +9,13 @@
  * （宿主仍是唯一请求编排者与本地上下文持有者；插件只消费该实例，不自行新建，
  * 以免出现两份互相不可见的 API 状态）。
  *
- * 生命周期：模块级单例，与本插件其它视图状态（`plugin-state.ts`）同一模式；
- * 由插件 `setup()` 经 `initFocusLearning(api)` 绑定，换实例（HMR / 测试 / 宿主重建）时重置视图态。
+ * 生命周期：每个工作台上下文独立创建，插件清理时解除 API 引用。
  */
 import { computed, ref, shallowRef } from 'vue';
 import type { useAervoxApi } from '@aervox/api-client';
-import { aervoxConfirm } from '@aervox/ui/plugin-api';
+import { aervoxConfirm, useWorkbenchContext, type WorkbenchContext } from '@aervox/ui/plugin-api';
 
 type FocusLearningApi = ReturnType<typeof useAervoxApi>;
-
-/**
- * 已绑定的宿主 api 实例。
- *
- * 用 `shallowRef` 而不是普通变量：只读视图是 `computed`，若绑定本身不可响应，
- * 换绑/解绑后已创建的 computed 不会失效，会继续返回上一个实例的数据
- * （CR-060 评审：降级上下文会读到别的渲染器的错题与规划）。
- */
-const boundApi = shallowRef<FocusLearningApi | null>(null);
 
 /** 练习会话视图（与宿主 `practiceSession` 契约一致） */
 interface PracticeSessionView {
@@ -34,6 +24,29 @@ interface PracticeSessionView {
   nextQuestionIndex?: number;
 }
 
+export const mistakeReasonOptions = [
+  { value: 'concept_gap', label: '概念不清' },
+  { value: 'calculation', label: '计算失误' },
+  { value: 'careless', label: '粗心' },
+  { value: 'misread', label: '审题偏差' },
+  { value: 'other', label: '其他' },
+] as const;
+
+const instances = new WeakMap<WorkbenchContext, ReturnType<typeof createFocusLearning>>();
+
+export function useFocusLearning(context: WorkbenchContext = useWorkbenchContext()) {
+  let learning = instances.get(context);
+  if (!learning) { learning = createFocusLearning(context.cards?.api ?? null); instances.set(context, learning); }
+  return learning;
+}
+
+export function disposeFocusLearning(context: WorkbenchContext): void {
+  instances.get(context)?.dispose();
+  instances.delete(context);
+}
+
+export function createFocusLearning(api: FocusLearningApi | null) {
+const boundApi = shallowRef(api);
 // ── 练习状态 ──
 const practiceSession = ref<PracticeSessionView | null>(null);
 const practiceIndex = ref(0);
@@ -73,14 +86,6 @@ const planGenerating = ref(false);
 const planBusyId = ref<string | null>(null);
 const planError = ref<string | null>(null);
 
-export const mistakeReasonOptions = [
-  { value: 'concept_gap', label: '概念不清' },
-  { value: 'calculation', label: '计算失误' },
-  { value: 'careless', label: '粗心' },
-  { value: 'misread', label: '审题偏差' },
-  { value: 'other', label: '其他' },
-] as const;
-
 function requireApi(): FocusLearningApi {
   if (!boundApi.value) throw new Error('[focus-mode] initFocusLearning() 必须先于使用学习状态调用');
   return boundApi.value;
@@ -93,7 +98,7 @@ function requireApi(): FocusLearningApi {
  * 宿主未提供 api 端口（自定义嵌入 / 降级上下文）时传 `null` **显式解绑**：
  * 只读视图回落为空，写操作经 `requireApi()` 明确失败，而不是静默读到别的渲染器的数据。
  */
-export function initFocusLearning(api: FocusLearningApi | null): void {
+function bindApi(api: FocusLearningApi | null): void {
   if (boundApi.value === api) return;
   boundApi.value = api;
   practiceSession.value = null;
@@ -118,7 +123,7 @@ export function initFocusLearning(api: FocusLearningApi | null): void {
   planError.value = null;
 }
 
-export function useFocusLearning() {
+
   // 宿主 api 实例上的只读视图（插件不持有数据真源，只消费）
   const mistakes = computed(() => boundApi.value?.mistakes.value ?? []);
   const learningPlans = computed(() => boundApi.value?.learningPlans.value ?? []);
@@ -323,6 +328,7 @@ export function useFocusLearning() {
   }
 
   return {
+    dispose: () => bindApi(null),
     // 宿主 api 只读视图
     mistakes,
     learningPlans,

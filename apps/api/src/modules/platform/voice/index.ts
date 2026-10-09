@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/api — 系统级语音模块入口
  */
 import path from "node:path";
-import type { ModuleContext } from "../../context.js";
+import type { ModuleDependencies } from "../../context.js";
 import { loadApiConfig } from "@aervox/config";
 import {
   SqliteVoiceConfigRepository,
@@ -67,7 +67,7 @@ export function createDefaultASRProviders(): ASRProviderPort[] {
 }
 
 export function registerVoiceModule(
-  ctx: ModuleContext,
+  ctx: ModuleDependencies<"app" | "db">,
   options: VoiceModuleOptions = {},
 ): VoiceService {
   const { app, db } = ctx;
@@ -84,3 +84,5 @@ export function registerVoiceModule(
   registerVoiceRoutes(app, service);
   return service;
 }
+
+export type VoiceCatalogPort = Pick<import("./service.js").VoiceService, "listProviderIds">;

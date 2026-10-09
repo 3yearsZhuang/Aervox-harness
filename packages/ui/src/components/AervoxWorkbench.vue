@@ -478,6 +478,7 @@ function handleGlobalKeydown(e: KeyboardEvent) {
 
 onUnmounted(() => {
   pluginRuntime?.destroy();
+  pluginState.dispose();
   document.removeEventListener('click', layout.handleMenuDocumentClick);
   document.removeEventListener('keydown', layout.handleHistoryEscape);
   document.removeEventListener('keydown', handleGlobalKeydown);

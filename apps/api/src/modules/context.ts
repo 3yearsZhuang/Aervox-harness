@@ -15,14 +15,14 @@ import type { IProactiveProfileRepository, SqliteProactiveIntelligenceRepository
 import type { WorkflowDefinition } from "@aervox/core";
 import type { ToolRuntimePort } from "./ecosystem/tools/index.js";
 import type { MemoryRecallPort } from "./companion/memory/index.js";
-import type { LLMConfigService } from "./ecosystem/llm/service.js";
-import type { ModelRuntimeService } from "./ecosystem/model-runtime/service.js";
-import type { VoiceService } from "./platform/voice/service.js";
-import type { SkillManager } from "./ecosystem/skills/skill-manager.js";
-import type { ProactiveActionAuthorizer } from "./proactive/proactive/action-authorizer.js";
-import type { PersonaService } from "./companion/persona/service.js";
+import type { LLMConfigPort } from "./ecosystem/llm/index.js";
+import type { ModelRuntimePort } from "./ecosystem/model-runtime/index.js";
+import type { VoiceCatalogPort } from "./platform/voice/index.js";
+import type { SkillCatalogPort } from "./ecosystem/skills/index.js";
+import type { ProactiveActionPort } from "./proactive/proactive/index.js";
+import type { PersonaSummaryPort } from "./companion/persona/index.js";
 import type { Observability } from "@aervox/observability";
-import type { SafetyService } from "./platform/safety/service.js";
+import type { SafetyPort } from "./platform/safety/index.js";
 
 export interface ModuleContext {
   app: FastifyInstance;
@@ -38,24 +38,24 @@ export interface ModuleContext {
   /** CAP-033 主动动作授权器（由 proactive 模块填充） */
   proactiveRepository?: IProactiveProfileRepository;
   proactiveIntelligenceRepository?: SqliteProactiveIntelligenceRepository;
-  proactiveActionAuthorizer?: ProactiveActionAuthorizer;
+  proactiveActionAuthorizer?: ProactiveActionPort;
   /** Agent Loop 只读工具提供者（tools 模块填充；conversation/persona/skills 读取） */
   toolRuntime?: ToolRuntimePort;
   memoryRecall?: MemoryRecallPort;
   /** LLM 配置服务（llm 模块填充；conversation 读取） */
-  llmConfigService?: LLMConfigService;
+  llmConfigService?: LLMConfigPort;
   /** 本地模型运行时服务（model-runtime 模块填充；对话工具/UI 读取） */
-  modelRuntimeService?: ModelRuntimeService;
+  modelRuntimeService?: ModelRuntimePort;
   /** CR-034 模型降级与路由决策服务（llm 模块填充；conversation/proactive 读取） */
-  modelRoutingService?: import("./ecosystem/llm/degradation-service.js").LlmDegradationService;
+  modelRoutingService?: import("./ecosystem/llm/index.js").ModelRoutingPort;
   /** 安全与危机干预服务（safety 模块填充；conversation 读取） */
-  safetyService?: SafetyService;
+  safetyService?: SafetyPort;
   /** 语音服务（voice 模块填充；persona 读取） */
-  voiceService?: VoiceService;
+  voiceService?: VoiceCatalogPort;
   /** Skill 管理器（skills 模块填充；persona 读取） */
-  skillManager?: SkillManager;
+  skillManager?: SkillCatalogPort;
   /** Persona 服务（persona 模块填充；conversation 读取人格提示词摘要） */
-  personaService?: PersonaService;
+  getPersona?: () => PersonaSummaryPort | undefined;
   /** 阶段 5c：已注册 Workflow 定义清单（conversation 读取） */
   workflows?: WorkflowDefinition[];
   /** Skill 内容落盘根目录（缺省 <repo>/data/skills） */
@@ -64,11 +64,14 @@ export interface ModuleContext {
   pluginsRoot?: string;
   builtinPluginsSourceRoot?: string;
   /** 服务端插件注册表（由 plugins 模块填充；conversation/tools 读取） */
-  pluginRegistry?: import("./ecosystem/plugins/turn-plugins/registry.js").ServerPluginRegistry;
+  pluginRegistry?: import("./ecosystem/plugins/index.js").ServerPluginRegistry;
   /** 已装配的第一方插件注册单元（由 plugins 模块填充；conversation 按回合请求其工具贡献） */
-  pluginRegistrations?: import("@aervox/host-plugin-api").ServerPluginRegistration[];
+  getPluginRegistrations?: () => import("@aervox/host-plugin-api").ServerPluginRegistration[] | undefined;
   /** 插件宿主服务工厂（由 buildApp 填充；plugins 模块用于端点装配，conversation 用于工具贡献） */
   pluginHostServices?: import("../plugin-assembly.js").PluginHostServicesFactory;
   /** 附件二进制落盘根目录（缺省 <repo>/data/attachments；CAP-012 多模态输入） */
   attachmentsRoot?: string;
 }
+
+/** A module sees only its declared inputs; only the composition root owns assembly order. */
+export type ModuleDependencies<K extends keyof ModuleContext> = Readonly<Pick<ModuleContext, K>>;

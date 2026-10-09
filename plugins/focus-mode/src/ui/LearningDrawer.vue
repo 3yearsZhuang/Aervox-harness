@@ -9,7 +9,8 @@ import {
   X,
 } from 'lucide-vue-next';
 import { AervoxNavDialog } from '@aervox/ui/primitives';
-import { activeLearningView, learningNavItems, learningOpen } from './plugin-state';
+import { useFocusModeState, learningNavItems } from './plugin-state';
+const { activeLearningView, learningOpen } = useFocusModeState();
 import { useFocusLearning } from './useFocusLearning';
 
 // CR-060 §B9b：刷题 / 错题 / 学习规划的状态机已自宿主迁入本插件包

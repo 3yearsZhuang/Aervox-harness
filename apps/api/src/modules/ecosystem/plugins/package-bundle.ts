@@ -30,7 +30,7 @@ import type {
   SqliteToolRegistryRepository,
   PluginModel,
 } from "@aervox/repositories";
-import { parseFrontmatter, isValidSkillName } from "../skills/skill-manager.js";
+import { parseFrontmatter, isValidSkillName } from "../skills/index.js";
 import type { PluginBundleStore } from "./bundle-store.js";
 import type { PluginConfigService } from "./config-service.js";
 import type { PluginService } from "./service.js";

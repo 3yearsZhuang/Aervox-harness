@@ -59,7 +59,6 @@ import { registerAnalyticsModule } from "./modules/platform/analytics/index.js";
 import { registerPreferencesModule } from "./modules/platform/preferences/index.js";
 import { registerVoiceModule, type VoiceModuleOptions } from "./modules/platform/voice/index.js";
 import { registerSafetyModule } from "./modules/platform/safety/index.js";
-import type { ModuleContext } from "./modules/context.js";
 import type { ToolRuntimePort as ToolRuntime } from "./modules/ecosystem/tools/index.js";
 import type { MemoryEmbeddingProvider } from "./modules/companion/memory/index.js";
 import { assertAuthConfigSafe, createAuthHook, loadAuthConfig, type AuthConfig } from "./shared/auth.js";
@@ -290,7 +289,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   });
 
 // 模块装配上下文：基础设施 + 构建期配置；共享服务按注册顺序填充
-  const ctx: ModuleContext = {
+  const ctx = {
     app,
     db,
     client,
@@ -309,41 +308,53 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
     pluginHostServices: options.pluginHostServices ?? createPluginHostServicesFactory(db),
   };
 
-  // 先注册「被依赖」模块并填充共享服务（依赖方经 ctx 读取；顺序显式）：
+  // 组合根显式构造依赖；模块只能接收其声明的只读输入。
   // tools → llm 必须早于 conversation（Agent Loop 依赖）；voice/skills 早于 persona。
   // 注册顺序保持既有依赖序（Fastify hook/路由顺序敏感，不做域重排）；
   // 域归属见 import 分组（CR-052 / ADR-014 0.3.0）。
-  ctx.toolRuntime = registerToolsModule(ctx);
-  await registerMemoryModule(ctx, { embeddingProvider: options.embeddingProvider }); // ecosystem
-  // MCP 预设模块：复用 toolRuntime 注册远程工具（依赖 tools 先行装配）
-  registerMcpModule(ctx, options.mcpOptions); // ecosystem
-  ctx.llmConfigService = registerLLMModule(ctx, options.llmOptions); // ecosystem
-  ctx.modelRuntimeService = registerModelRuntimeModule(ctx, options.modelRuntimeOptions); // ecosystem
-  ctx.safetyService = registerSafetyModule(ctx); // platform
-  await registerProactiveModule(ctx, { // proactive
+  const toolRuntime = registerToolsModule(ctx);
+  const withTools = { ...ctx, toolRuntime };
+  const memoryRecall = await registerMemoryModule(withTools, { embeddingProvider: options.embeddingProvider });
+  registerMcpModule(withTools, options.mcpOptions);
+  const llm = registerLLMModule(withTools, options.llmOptions);
+  const withModel = { ...withTools, memoryRecall, llmConfigService: llm.config, modelRoutingService: llm.routing };
+  const modelRuntimeService = registerModelRuntimeModule(withModel, options.modelRuntimeOptions);
+  const safetyService = registerSafetyModule(withModel);
+  const proactive = await registerProactiveModule(withModel, {
     db: proactiveDb,
     cipher: proactiveCipher,
     accessToken: proactiveAccessToken,
     featureFlags: options.proactiveFeatureFlags ?? apiConfig.proactiveFeatureFlags,
   });
-  registerConversationModule(ctx); // companion
-  registerLearningModule(ctx); // learning
-  registerFeedbackModule(ctx); // platform
-  await registerDiaryModule(ctx); // learning
-  registerContentModule(ctx); // knowledge
-  registerNotificationModule(ctx); // proactive
-  registerPrivacyModule(ctx); // platform
-  registerAnalyticsModule(ctx); // platform
-  registerKnowledgeModule(ctx); // knowledge
-  registerBranchModule(ctx); // companion
-  registerProjectModule(ctx); // knowledge
-  await registerPluginsModule(ctx); // ecosystem
-  ctx.voiceService = registerVoiceModule(ctx, options.voiceOptions); // platform
-  ctx.skillManager = await registerSkillsModule(ctx); // ecosystem
-  registerPreferencesModule(ctx); // platform
-  registerStudyMaterialModule(ctx); // learning
-  ctx.personaService = registerPersonaModule(ctx); // companion
-  registerInboxModule(ctx); // companion
+  let personaService: ReturnType<typeof registerPersonaModule> | undefined;
+  let pluginRegistrations: Awaited<ReturnType<typeof registerPluginsModule>> | undefined;
+  const services = {
+    ...withModel, modelRuntimeService, safetyService,
+    proactiveRepository: proactive.repository,
+    proactiveIntelligenceRepository: proactive.intelligenceRepository,
+    proactiveActionAuthorizer: proactive.actionAuthorizer,
+    getPersona: () => personaService,
+    getPluginRegistrations: () => pluginRegistrations,
+  };
+  // 保留路由与 Hook 的注册顺序；晚装配服务通过显式查询端口提供。
+  registerConversationModule(services);
+  registerLearningModule(services);
+  registerFeedbackModule(services);
+  await registerDiaryModule(services);
+  registerContentModule(services);
+  registerNotificationModule(services);
+  registerPrivacyModule(services);
+  registerAnalyticsModule(services);
+  registerKnowledgeModule(services);
+  registerBranchModule(services);
+  registerProjectModule(services);
+  pluginRegistrations = await registerPluginsModule(services);
+  const voiceService = registerVoiceModule(services, options.voiceOptions);
+  const skillManager = await registerSkillsModule(services);
+  registerPreferencesModule(services);
+  registerStudyMaterialModule(services);
+  personaService = registerPersonaModule({ ...services, voiceService, skillManager });
+  registerInboxModule(services);
 
   if (ownsProactiveClient) {
     app.addHook("onClose", async () => {
@@ -355,7 +366,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
     app,
     db,
     client,
-    toolRuntime: ctx.toolRuntime!,
+    toolRuntime,
     observability,
     metricsRegistry,
     proactiveDb,

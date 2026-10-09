@@ -13,9 +13,9 @@ import type {
   SqlitePersonaRepository,
   LocalContext,
 } from "@aervox/repositories";
-import type { SkillManager } from "../../ecosystem/skills/skill-manager.js";
+import type { SkillCatalogPort } from "../../ecosystem/skills/index.js";
 import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index.js";
-import type { VoiceService } from "../../platform/voice/service.js";
+import type { VoiceCatalogPort } from "../../platform/voice/index.js";
 import {
   exportPersonaBundle,
   importPersonaBundle,
@@ -83,9 +83,9 @@ function selectionToDomain(model: ActivePersonaSelectionModel): ActivePersonaSel
 
 export interface PersonaServiceDeps {
   personaRepo: SqlitePersonaRepository;
-  skillManager?: SkillManager;
+  skillManager?: SkillCatalogPort;
   toolRuntime?: ToolRuntime;
-  voiceService?: VoiceService;
+  voiceService?: VoiceCatalogPort;
 }
 
 export class PersonaService {
@@ -341,7 +341,7 @@ export class PersonaService {
     if (!revisionRecord) throw new Error("Persona revision is missing");
 
     if (!this.deps.skillManager) {
-      throw new Error("SkillManager is not available for bundle export");
+      throw new Error("SkillCatalogPort is not available for bundle export");
     }
 
     const availableTools = this.deps.toolRuntime
@@ -375,7 +375,7 @@ export class PersonaService {
     missingDependencies: string[];
   }> {
     if (!this.deps.skillManager) {
-      throw new Error("SkillManager is not available for bundle import");
+      throw new Error("SkillCatalogPort is not available for bundle import");
     }
     return importPersonaBundle({
       bytes,

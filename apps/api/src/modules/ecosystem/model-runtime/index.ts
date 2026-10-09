@@ -1,4 +1,4 @@
-import type { ModuleContext } from "../../context.js";
+import type { ModuleDependencies } from "../../context.js";
 import { ModelRuntimeService, type ModelRuntimeServiceOptions } from "./service.js";
 import { registerModelRuntimeRoutes } from "./routes.js";
 import { LlamaServerManager, type LlamaServerManagerDeps } from "./llama-server.js";
@@ -12,12 +12,11 @@ export interface ModelRuntimeModuleOptions extends ModelRuntimeServiceOptions { 
  * - 与 `ecosystem/llm` 的 llamacpp 预设联动（UI 层一键切换 baseUrl/modelId）。
  */
 export function registerModelRuntimeModule(
-  ctx: ModuleContext,
+  ctx: ModuleDependencies<"app">,
   options: ModelRuntimeModuleOptions = {},
 ): ModelRuntimeService {
   const service = new ModelRuntimeService({ ...options, driver: options.driver === undefined ? new LlamaServerManager(options.llamaDeps) : options.driver });
   registerModelRuntimeRoutes(ctx.app, service);
-  ctx.modelRuntimeService = service;
 
   // 应用关闭（进程退出 / 测试 teardown）时终止子进程
   ctx.app.addHook("onClose", async () => {
@@ -33,3 +32,4 @@ export * from "./downloader.js";
 export * from "./driver.js";
 
 export type { LlamaServerManagerDeps };
+export type ModelRuntimePort = Pick<import("./service.js").ModelRuntimeService, "getState" | "start" | "stop">;

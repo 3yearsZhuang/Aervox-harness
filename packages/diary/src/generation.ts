@@ -7,8 +7,8 @@
  */
 import { createOpenAICompatProvider } from "@aervox/core";
 import type { ModelProviderPort, ModelRequest } from "@aervox/core";
-import type { AervoxDatabase, SqliteLLMConfigRepository, LocalContext } from "@aervox/repositories";
-import { collectDiaryMaterial, diaryMaterialCount } from "./material.js";
+import type { DiaryMaterialPort, LocalContext } from "@aervox/contracts";
+import { diaryMaterialCount } from "./material.js";
 import { buildDiarySystemPrompt, buildDiaryUserPrompt } from "./prompts.js";
 import { renderTemplateDiary, type DiaryDraft } from "./template.js";
 
@@ -39,9 +39,17 @@ export interface DiaryLlmConfigPort {
 const DEFAULT_LLM_BASE_URL = "http://127.0.0.1:11434/v1";
 const DEFAULT_LLM_MODEL_ID = "llama3.2";
 
-/** 由 SqliteLLMConfigRepository 构建配置端口：无配置行走 ollama 缺省，显式禁用返回 null */
+/** 配置读取契约；宿主负责提供持久化或内存实现。 */
+export interface DiaryConfigSource {
+  getConfig(context: LocalContext): Promise<{
+    enabled: number | boolean; baseUrl: string; apiKey?: string | null; modelId: string;
+    temperature: number; maxTokens?: number | null;
+  } | null>;
+}
+
+/** 无配置行使用缺省配置，显式禁用返回 null。 */
 export function createRepoDiaryLlmConfigPort(
-  repo: SqliteLLMConfigRepository,
+  repo: DiaryConfigSource,
 ): DiaryLlmConfigPort {
   return {
     async getConfig(ctx) {
@@ -147,7 +155,9 @@ export function todayWindow(now = new Date()): { startIso: string; endIso: strin
 import { DiaryStyleRegistry, defaultDiaryStyleRegistry } from "./styles.js";
 
 export interface DiaryGenerationServiceDeps {
-  db: AervoxDatabase;
+  materials: DiaryMaterialPort;
+  /** 宿主显式决定是否使用模型，领域服务不读取进程环境。 */
+  useModel?: boolean;
   /** llm 模式端口；未注入或租户未启用 LLM 时模板降级 */
   model: DiaryModelPort | null;
   /** 可选的日记提炼风格注册表；缺省时使用 defaultDiaryStyleRegistry */
@@ -172,11 +182,10 @@ export class DiaryGenerationService {
       (input.styleId ? styleRegistry.get(input.styleId) : undefined) ??
       styleRegistry.getDefault();
 
-    const material = await collectDiaryMaterial(this.deps.db, tenant, input.window);
+    const material = await this.deps.materials.collect(tenant, input.window);
     const materialCount = diaryMaterialCount(material);
 
-    const mode = process.env.AERVOX_LOOP_PROVIDER ?? "llm";
-    if (mode !== "llm" || !this.deps.model) {
+    if (this.deps.useModel === false || !this.deps.model) {
       return renderTemplateDiary(material, input.localDate, style.id);
     }
 

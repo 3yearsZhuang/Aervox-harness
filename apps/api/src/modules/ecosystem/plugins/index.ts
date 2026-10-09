@@ -10,7 +10,7 @@ import { pluginManifestSchema } from "@aervox/contracts";
 import { assembleFirstPartyPlugins, createHttpEndpointSink } from "../../../plugin-assembly.js";
 import { isPluginEnabled } from "./turn-plugins/index.js";
 import { createPluginHostServicesFactory } from "../../../plugin-host-services.js";
-import type { ModuleContext } from "../../context.js";
+import type { ModuleDependencies } from "../../context.js";
 import {
   SqliteExtensionRepository,
   SqlitePluginConfigRepository,
@@ -25,7 +25,7 @@ import { PluginService } from "./service.js";
 import { PluginConfigService } from "./config-service.js";
 import { registerPluginConfigRoutes } from "./config-routes.js";
 import { PluginBundleStore } from "./bundle-store.js";
-import { DEFAULT_SKILLS_ROOT } from "../skills/skill-manager.js";
+import { DEFAULT_SKILLS_ROOT } from "../skills/index.js";
 import {
   defaultServerPluginRegistry,
   defaultServerTurnPluginRegistry,
@@ -144,8 +144,8 @@ async function syncBuiltinPlugins(
   }
 }
 
-export async function registerPluginsModule(ctx: ModuleContext): Promise<void> {
-  ctx.pluginRegistry ??= createServerPluginRegistry();
+export async function registerPluginsModule(ctx: ModuleDependencies<"app" | "builtinPluginsSourceRoot" | "db" | "pluginHostServices" | "pluginRegistry" | "pluginsRoot" | "proactiveIntelligenceRepository" | "skillsRoot">): Promise<import("@aervox/host-plugin-api").ServerPluginRegistration[]> {
+  const pluginRegistry = ctx.pluginRegistry ?? createServerPluginRegistry();
   const { app, db, skillsRoot, pluginsRoot } = ctx;
   const extensionRepo = new SqliteExtensionRepository(db);
   const registry = new SqliteToolRegistryRepository(db);
@@ -211,9 +211,8 @@ export async function registerPluginsModule(ctx: ModuleContext): Promise<void> {
   // 插件是否生效仍由 Runner 按仓储启停记录门控（CR-056 代码缺席语义）。
   const warn = (message: string, error?: unknown) => console.warn(message, error);
   const hostServices = ctx.pluginHostServices ?? createPluginHostServicesFactory(db);
-  ctx.pluginHostServices = hostServices;
   const assembly = await assembleFirstPartyPlugins({
-    turnRegistry: ctx.pluginRegistry,
+    turnRegistry: pluginRegistry,
     // 端点与面向模型的贡献同一判据：停用、缺记录或不可用的插件一律 404
     onHttpEndpoints: createHttpEndpointSink(
       app,
@@ -224,10 +223,11 @@ export async function registerPluginsModule(ctx: ModuleContext): Promise<void> {
     warn,
   });
   // 工具贡献按回合上下文构造，故只把注册单元交给宿主；是否合入模型工具面由启用门控决定
-  ctx.pluginRegistrations = assembly.registrations;
+
   if (assembly.failed.length > 0) {
     console.warn(`[plugins] 以下第一方插件未能装配：${assembly.failed.join(", ")}`);
   }
+  return assembly.registrations;
 }
 
 export * from "./turn-plugins/index.js";

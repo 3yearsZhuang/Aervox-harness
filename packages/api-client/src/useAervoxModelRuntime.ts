@@ -4,7 +4,7 @@
  * 封装模型下载（多任务队列）/ llama-server 生命周期 / 状态查询 / SSE 实时订阅，
  * 供 Web 与 Desktop 共用。
  */
-import { getApiBase, getTransport } from './transport';
+import { getTransport } from './transport';
 
 export interface LocalModelDto {
   id: string;
@@ -162,7 +162,7 @@ export function useAervoxModelRuntime() {
 
   /**
    * 订阅运行时状态实时快照（GET /v1/model-runtime/events）。
-   * 基于 fetch 流式读取，Web/Desktop 同源走直连；失败由调用方回退轮询 state。
+   * 由注入的 Transport 负责平台通道和认证；不支持订阅时由调用方回退轮询 state。
    * 返回退订函数。
    */
   const subscribeState = (
@@ -172,34 +172,14 @@ export function useAervoxModelRuntime() {
     const controller = new AbortController();
     void (async () => {
       try {
-        const res = await fetch(`${getApiBase()}/v1/model-runtime/events`, {
-          headers: { Accept: 'text/event-stream' },
-          signal: controller.signal,
-        });
-        if (!res.ok || !res.body) throw new Error(`SSE 连接失败 HTTP ${res.status}`);
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const blocks = buffer.split('\n\n');
-          buffer = blocks.pop() ?? '';
-          for (const block of blocks) {
-            let data = '';
-            for (const line of block.split('\n')) {
-              if (line.startsWith('data:')) data += line.slice(5).trim();
-            }
-            if (!data) continue;
-            try {
-              const payload = JSON.parse(data) as { event?: string; data?: ModelRuntimeStateDto };
-              if (payload.event === 'snapshot' && payload.data) onSnapshot(payload.data);
-            } catch {
-              // 忽略坏帧
-            }
-          }
-        }
+        if (!transport.streamEvents) throw new Error('event_stream_unavailable');
+        await transport.streamEvents('/v1/model-runtime/events', {
+          onEvent(value) {
+            if (!value || typeof value !== 'object') return;
+            const payload = value as { event?: string; data?: ModelRuntimeStateDto };
+            if (payload.event === 'snapshot' && payload.data) onSnapshot(payload.data);
+          },
+        }, controller.signal);
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') return;
         onError?.(err);

@@ -3,7 +3,7 @@
  *
  * Web / Desktop 共用：通过统一 Transport 读写本地语音模型配置、列出本地模型、试听合成。
  */
-import { getTransport } from './transport';
+import { getTransport, getPlatformServices } from './transport';
 
 /** 本地语音模型配置（对应 GET/PUT /v1/voice/config） */
 export interface LocalVoiceConfigDto {
@@ -101,7 +101,7 @@ export function basenameOf(path: string): string {
 
 /** 当前环境是否支持系统「选择文件夹」对话框（仅 Electron 桌面端） */
 export function canPickDirectory(): boolean {
-  return typeof window !== 'undefined' && typeof window.fairyDesktop?.pickDirectory === 'function';
+  return typeof getPlatformServices().pickDirectory === 'function';
 }
 
 export function useAervoxVoice() {
@@ -163,7 +163,7 @@ export function useAervoxVoice() {
   /** 打开系统目录选择器（Electron 桌面端）；Web 浏览器无桥时返回 null */
   const pickDirectory = async (): Promise<string | null> => {
     if (!canPickDirectory()) return null;
-    return (await window.fairyDesktop!.pickDirectory!()) ?? null;
+    return (await getPlatformServices().pickDirectory!()) ?? null;
   };
 
   /** 列出语音配置预设（含激活标记与三块配置） */

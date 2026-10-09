@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useWorkbenchContext } from '@aervox/ui/plugin-api';
-import { focusModeEnabled, setFocusModeEnabled } from './plugin-state';
+import { useFocusModeState } from './plugin-state';
+const { focusModeEnabled, setFocusModeEnabled } = useFocusModeState();
 
 /**
  * 插件自有设置行。

@@ -1,3 +1,4 @@
+import { getPlatformServices } from '@aervox/api-client';
 import { computed, ref, type Ref } from 'vue';
 import {
   Activity,
@@ -32,8 +33,7 @@ import { profileStatusLabel } from '@aervox/contracts/proactive';
 import { aervoxConfirm } from '../primitives';
 
 export function proactiveBridge(): ProactiveDesktopBridge | undefined {
-  if (typeof window === 'undefined') return undefined;
-  return (window as Window & { fairyDesktop?: { proactive?: ProactiveDesktopBridge } }).fairyDesktop?.proactive;
+  return getPlatformServices().proactive;
 }
 
 export function useWorkbenchProactive(options: {
