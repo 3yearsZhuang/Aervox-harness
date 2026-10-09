@@ -5543,7 +5543,10 @@
             "type": "string"
           },
           "fileName": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^/\\\\\\0]+$"
           },
           "autoStart": {
             "type": "boolean",
@@ -19580,7 +19583,10 @@
                     "type": "string"
                   },
                   "fileName": {
-                    "type": "string"
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^[^/\\\\\\0]+$"
                   },
                   "autoStart": {
                     "type": "boolean",

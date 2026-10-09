@@ -667,4 +667,118 @@ describe("Model Runtime API (CR-054 v2)", () => {
       await fs.rm(dir, { recursive: true, force: true });
     }
   }, 25_000);
+
+  it("fileName 路径穿越被拒绝：显式名/编码穿越/非 gguf 均 400，且不写出模型根", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-mr-guard-"));
+    const built = await buildApp({ db, client, modelRuntimeOptions: { modelsDir: dir, llamaDeps: FAKE_LLAMA_DEPS } });
+    const app = built.app;
+    await app.ready();
+    const headers = { "x-workspace-id": "ws_guard", "x-user-id": "usr_guard" };
+    try {
+      for (const fileName of ["../escaped.gguf", "..%2Fescaped.gguf", "sub/evil.gguf", "plain.bin"]) {
+        const res = await app.inject({
+          method: "POST",
+          url: "/v1/model-runtime/downloads",
+          headers,
+          payload: { url: modelUrl, fileName },
+        });
+        expect(res.statusCode).toBe(400);
+      }
+      await expect(fs.access(path.join(path.dirname(dir), "escaped.gguf"))).rejects.toThrow();
+      await expect(fs.access(path.join(dir, "evil.gguf"))).rejects.toThrow();
+      const state = JSON.parse((await app.inject({ method: "GET", url: "/v1/model-runtime/state", headers })).payload);
+      expect(state.downloads).toEqual([]);
+      expect(state.models).toEqual([]);
+    } finally {
+      await app.close();
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("符号链接残片被拒绝：不写出模型根", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-mr-sym-"));
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-mr-outside-"));
+    const built = await buildApp({ db, client, modelRuntimeOptions: { modelsDir: dir, llamaDeps: FAKE_LLAMA_DEPS } });
+    const app = built.app;
+    await app.ready();
+    const headers = { "x-workspace-id": "ws_sym", "x-user-id": "usr_sym" };
+    try {
+      await fs.symlink(path.join(outside, "victim.bin"), path.join(dir, "link-model.gguf.part"));
+      const res = await app.inject({
+        method: "POST",
+        url: "/v1/model-runtime/downloads",
+        headers,
+        payload: { url: modelUrl.replace("qwen2.5-7b-instruct.gguf", "link-model.gguf") },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(JSON.parse(res.payload).message).toContain("符号链接");
+      await expect(fs.access(path.join(outside, "victim.bin"))).rejects.toThrow();
+    } finally {
+      await app.close();
+      await fs.rm(dir, { recursive: true, force: true });
+      await fs.rm(outside, { recursive: true, force: true });
+    }
+  });
+
+  it("持久化恢复丢弃非法文件名：不为穿越名重建任务", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-mr-dirty-"));
+    await fs.writeFile(
+      path.join(dir, "runtime-state.json"),
+      JSON.stringify({
+        version: 1,
+        savedAt: new Date().toISOString(),
+        downloads: [
+          { id: "bad", url: "http://127.0.0.1:1/bad.gguf", fileName: "../escaped.gguf", modelId: "bad", status: "paused", receivedBytes: 0 },
+          { id: "good", url: modelUrl, fileName: "good-model.gguf", modelId: "good", status: "paused", receivedBytes: 0 },
+        ],
+      }),
+      "utf8",
+    );
+    const built = await buildApp({ db, client, modelRuntimeOptions: { modelsDir: dir, llamaDeps: FAKE_LLAMA_DEPS } });
+    const app = built.app;
+    await app.ready();
+    const headers = { "x-workspace-id": "ws_dirty", "x-user-id": "usr_dirty" };
+    try {
+      const state = await pollState(app, headers, (b) => (b.runtime?.restored?.downloads ?? 0) >= 1);
+      expect(state.downloads.some((t: { id: string }) => t.id === "bad")).toBe(false);
+      expect(state.downloads.some((t: { id: string }) => t.id === "good" && t.status === "paused")).toBe(true);
+      await expect(fs.access(path.join(path.dirname(dir), "escaped.gguf"))).rejects.toThrow();
+    } finally {
+      await app.close();
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("autoStart 失败在注册表中可见（模型保持 downloaded 且带 error）", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-mr-as-"));
+    const built = await buildApp({
+      db,
+      client,
+      modelRuntimeOptions: { modelsDir: dir, llamaDeps: { ...FAKE_LLAMA_DEPS, resolveBin: () => null } },
+    });
+    const app = built.app;
+    await app.ready();
+    const headers = { "x-workspace-id": "ws_autostart", "x-user-id": "usr_autostart" };
+    try {
+      const dl = await app.inject({
+        method: "POST",
+        url: "/v1/model-runtime/downloads",
+        headers,
+        payload: { url: modelUrl.replace("qwen2.5-7b-instruct.gguf", "auto-fail.gguf"), autoStart: true },
+      });
+      expect(dl.statusCode).toBe(200);
+      const state = await pollState(
+        app,
+        headers,
+        (b) => b.models.some((m: { id: string; error?: string }) => m.id === "auto-fail" && Boolean(m.error)),
+      );
+      const model = state.models.find((m: { id: string }) => m.id === "auto-fail");
+      expect(model.status).toBe("downloaded");
+      expect(model.error).toContain("autoStart 失败");
+      expect(state.runtime.status).toBe("idle");
+    } finally {
+      await app.close();
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  }, 20_000);
 });

@@ -14,11 +14,13 @@ import type { AddressInfo } from "node:net";
 import { downloadToFile, ModelDownloadError } from "../src/modules/ecosystem/model-runtime/downloader.js";
 
 const PAYLOAD = Buffer.from("Aervox local model runtime download probe\n".repeat(1024));
+const BIG_PAYLOAD = Buffer.alloc(3 * 1024 * 1024, 7);
 let server: http.Server;
 let baseUrl: string;
 
 beforeAll(async () => {
   server = http.createServer((req, res) => {
+    res.on("error", () => undefined); // 客户端中止后写入不抛未捕获错误
     if (req.url === "/model.bin" || req.url?.startsWith("/model.bin")) {
       const range = req.headers.range;
       if (range) {
@@ -53,6 +55,88 @@ beforeAll(async () => {
     if (req.url === "/not-found") {
       res.writeHead(404);
       res.end("missing");
+      return;
+    }
+    if (req.url === "/re-range-fail.bin") {
+      // Range 请求 → 416；回退整量请求 → 500 错误正文（复现“错误正文被注册为模型”窗口）
+      if (req.headers.range) {
+        res.writeHead(416, { "Content-Range": `bytes */${PAYLOAD.length}` });
+        res.end();
+        return;
+      }
+      res.writeHead(500, { "Content-Type": "text/plain" });
+      res.end("server-error");
+      return;
+    }
+    if (req.url === "/misaligned.bin") {
+      // 206 起点与请求偏移不符（错位）
+      if (req.headers.range) {
+        const slice = PAYLOAD.subarray(0, Math.floor(PAYLOAD.length / 2));
+        res.writeHead(206, {
+          "Content-Type": "application/octet-stream",
+          "Content-Length": String(slice.length),
+          "Content-Range": `bytes 0-${slice.length - 1}/${PAYLOAD.length}`,
+        });
+        res.end(slice);
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "application/octet-stream", "Content-Length": String(PAYLOAD.length) });
+      res.end(PAYLOAD);
+      return;
+    }
+    if (req.url === "/no-range-header.bin") {
+      // 206 但缺少 Content-Range 头
+      if (req.headers.range) {
+        const slice = PAYLOAD.subarray(Math.floor(PAYLOAD.length / 2));
+        res.writeHead(206, { "Content-Type": "application/octet-stream", "Content-Length": String(slice.length) });
+        res.end(slice);
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "application/octet-stream", "Content-Length": String(PAYLOAD.length) });
+      res.end(PAYLOAD);
+      return;
+    }
+    if (req.url === "/partial-always.bin") {
+      // 无 Range 请求也返回部分内容（协议异常）
+      const half = PAYLOAD.subarray(0, Math.floor(PAYLOAD.length / 2));
+      res.writeHead(206, {
+        "Content-Type": "application/octet-stream",
+        "Content-Length": String(half.length),
+        "Content-Range": `bytes 0-${half.length - 1}/${PAYLOAD.length}`,
+      });
+      res.end(half);
+      return;
+    }
+    if (req.url === "/truncated.bin") {
+      // 声明全量长度但提前断流：写完半量后立即 FIN（不等 keep-alive 超时）
+      res.writeHead(200, { "Content-Type": "application/octet-stream", "Content-Length": String(PAYLOAD.length) });
+      res.write(PAYLOAD.subarray(0, Math.floor(PAYLOAD.length / 2)));
+      setTimeout(() => {
+        try {
+          res.socket?.end();
+        } catch {
+          // 已关闭
+        }
+      }, 10);
+      return;
+    }
+    if (req.url === "/slow.bin") {
+      // 慢速分块：为时长上限提供确定性窗口
+      res.writeHead(200, { "Content-Type": "application/octet-stream", "Content-Length": String(PAYLOAD.length) });
+      setTimeout(() => res.write(PAYLOAD.subarray(0, 16)), 300);
+      setTimeout(() => { try { res.end(PAYLOAD.subarray(16)); } catch { /* 已中止 */ } }, 600);
+      return;
+    }
+    if (req.url === "/big.bin") {
+      const range = req.headers.range;
+      const start = range ? Number(/bytes=(\d+)-/.exec(String(range))?.[1] ?? 0) : 0;
+      const slice = BIG_PAYLOAD.subarray(start);
+      res.writeHead(start > 0 ? 206 : 200, {
+        "Content-Type": "application/octet-stream",
+        "Content-Length": String(slice.length),
+        ...(start > 0 ? { "Content-Range": `bytes ${start}-${BIG_PAYLOAD.length - 1}/${BIG_PAYLOAD.length}` } : {}),
+      });
+      res.end(slice);
       return;
     }
     res.writeHead(404);
@@ -168,6 +252,122 @@ describe("downloadToFile (CR-054)", () => {
       await expect(
         downloadToFile({ url: "http://127.0.0.1:1/model.gguf", destPath: dest }),
       ).rejects.toThrow(ModelDownloadError);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("416 回退重取后仍复查成功状态：错误正文不注册为模型", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-mrdl-"));
+    const dest = path.join(dir, "model.gguf");
+    try {
+      await fs.writeFile(`${dest}.part`, PAYLOAD.subarray(0, 4)); // 触发 Range → 416 → 回退整量 → 500
+      await expect(
+        downloadToFile({ url: `${baseUrl}/re-range-fail.bin`, destPath: dest }),
+      ).rejects.toMatchObject({ kind: "http", httpStatus: 500 });
+      await expect(fs.access(dest)).rejects.toThrow();
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("206 起点错位时丢弃残片整量重下（不拼接错位字节）", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-mrdl-"));
+    const dest = path.join(dir, "model.gguf");
+    const expectedSha = createHash("sha256").update(PAYLOAD).digest("hex");
+    try {
+      await fs.writeFile(`${dest}.part`, Buffer.from("misaligned-garbage"));
+      const result = await downloadToFile({ url: `${baseUrl}/misaligned.bin`, destPath: dest, sha256: expectedSha });
+      expect(result.receivedBytes).toBe(PAYLOAD.length);
+      expect(result.transferredBytes).toBe(PAYLOAD.length);
+      expect(result.sha256).toBe(expectedSha);
+      expect(await fs.readFile(dest, "utf8")).toBe(PAYLOAD.toString("utf8"));
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("206 缺少 Content-Range 时丢弃残片整量重下", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-mrdl-"));
+    const dest = path.join(dir, "model.gguf");
+    try {
+      await fs.writeFile(`${dest}.part`, Buffer.from("stale-part"));
+      const result = await downloadToFile({ url: `${baseUrl}/no-range-header.bin`, destPath: dest });
+      expect(result.receivedBytes).toBe(PAYLOAD.length);
+      expect(await fs.readFile(dest, "utf8")).toBe(PAYLOAD.toString("utf8"));
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("无 Range 请求返回的意外 206 被拒绝（不落部分内容为模型）", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-mrdl-"));
+    const dest = path.join(dir, "model.gguf");
+    try {
+      await expect(
+        downloadToFile({ url: `${baseUrl}/partial-always.bin`, destPath: dest }),
+      ).rejects.toMatchObject({ kind: "http" });
+      await expect(fs.access(dest)).rejects.toThrow();
+      await expect(fs.access(`${dest}.part`)).rejects.toThrow();
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("已知总长下截断流不注册正式文件，保留 .part 供续传", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-mrdl-"));
+    const dest = path.join(dir, "model.gguf");
+    try {
+      await expect(
+        downloadToFile({ url: `${baseUrl}/truncated.bin`, destPath: dest }),
+      ).rejects.toMatchObject({ kind: "io" });
+      await expect(fs.access(dest)).rejects.toThrow();
+      expect((await fs.stat(`${dest}.part`)).size).toBe(Math.floor(PAYLOAD.length / 2));
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("超出体积上限时中止并清理残片", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-mrdl-"));
+    const dest = path.join(dir, "model.gguf");
+    try {
+      await expect(
+        downloadToFile({ url: `${baseUrl}/model.bin`, destPath: dest, maxBytes: 16 }),
+      ).rejects.toMatchObject({ kind: "io" });
+      await expect(fs.access(dest)).rejects.toThrow();
+      await expect(fs.access(`${dest}.part`)).rejects.toThrow();
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("超出时长上限时中止并清理残片", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-mrdl-"));
+    const dest = path.join(dir, "model.gguf");
+    try {
+      await expect(
+        downloadToFile({ url: `${baseUrl}/slow.bin`, destPath: dest, maxDurationMs: 80 }),
+      ).rejects.toMatchObject({ kind: "io" });
+      await expect(fs.access(dest)).rejects.toThrow();
+      await expect(fs.access(`${dest}.part`)).rejects.toThrow();
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("大残片续传：前缀哈希流式重算且全文件校验一致（多 MB）", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-mrdl-"));
+    const dest = path.join(dir, "model.gguf");
+    const half = Math.floor(BIG_PAYLOAD.length / 2);
+    const expectedSha = createHash("sha256").update(BIG_PAYLOAD).digest("hex");
+    try {
+      await fs.writeFile(`${dest}.part`, BIG_PAYLOAD.subarray(0, half));
+      const result = await downloadToFile({ url: `${baseUrl}/big.bin`, destPath: dest, sha256: expectedSha });
+      expect(result.receivedBytes).toBe(BIG_PAYLOAD.length);
+      expect(result.transferredBytes).toBe(BIG_PAYLOAD.length - half);
+      expect(result.sha256).toBe(expectedSha);
+      expect((await fs.stat(dest)).size).toBe(BIG_PAYLOAD.length);
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
     }

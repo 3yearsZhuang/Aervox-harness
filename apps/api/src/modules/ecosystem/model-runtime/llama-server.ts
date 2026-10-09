@@ -25,6 +25,10 @@ export interface LlamaServerManagerDeps {
   /** 健康探测间隔 / 总超时 */
   probeIntervalMs?: number;
   probeTimeoutMs?: number;
+  /** 单次健康请求超时（挂起请求不越过探测总预算） */
+  probeRequestTimeoutMs?: number;
+  /** /metrics 采样请求超时 */
+  metricsTimeoutMs?: number;
   /** SIGTERM 后强杀宽限 */
   killGraceMs?: number;
 }
@@ -49,18 +53,26 @@ export class LlamaServerManager implements ModelRuntimeDriver {
   private readonly fetchFn: typeof fetch;
   private readonly probeIntervalMs: number;
   private readonly probeTimeoutMs: number;
+  private readonly probeRequestTimeoutMs: number;
+  private readonly metricsTimeoutMs: number;
   private readonly killGraceMs: number;
   private resolvedBin: string | null | undefined = undefined;
   /** stderr 环形缓冲（单条上限免超长行刷爆内存） */
   private readonly logs: string[] = [];
   private static readonly MAX_LOGS = 60;
   private static readonly MAX_LINE_LENGTH = 800;
+  /** stderr 尾迹字节上限（退出/超时错误只取尾部片段） */
+  private static readonly MAX_STDERR_TAIL_BYTES = 64 * 1024;
+  /** 未换行残片字符上限（无换行洪泛时截断为一行） */
+  private static readonly MAX_STDERR_PARTIAL_CHARS = 16 * 1024;
 
   constructor(private readonly deps: LlamaServerManagerDeps = {}) {
     this.spawnFn = deps.spawn ?? nodeSpawn;
     this.fetchFn = deps.fetchImpl ?? fetch;
     this.probeIntervalMs = deps.probeIntervalMs ?? 600;
     this.probeTimeoutMs = deps.probeTimeoutMs ?? 30_000;
+    this.probeRequestTimeoutMs = deps.probeRequestTimeoutMs ?? 5_000;
+    this.metricsTimeoutMs = deps.metricsTimeoutMs ?? 2_000;
     this.killGraceMs = deps.killGraceMs ?? 3_000;
   }
 
@@ -124,7 +136,9 @@ export class LlamaServerManager implements ModelRuntimeDriver {
   async sampleMetrics(): Promise<{ at: string; tokensPerSec?: number; promptTokensPerSec?: number } | null> {
     if (!this.running || this.port === null) return null;
     try {
-      const res = await this.fetchFn(`http://127.0.0.1:${this.port}/metrics`);
+      const res = await this.fetchFn(`http://127.0.0.1:${this.port}/metrics`, {
+        signal: AbortSignal.timeout(this.metricsTimeoutMs),
+      });
       if (!res.ok) return null;
       const text = await res.text();
       const parse = (name: string): number | undefined => {
@@ -189,9 +203,14 @@ export class LlamaServerManager implements ModelRuntimeDriver {
     this.child = child;
 
     const stderrChunks: Buffer[] = [];
-    let stderrPartial = ""; // 未换行残片
+    let stderrBytes = 0;
+    let stderrPartial = ""; // 未换行残片（超限截断，防无换行洪泛无限增长）
     child.stderr?.on("data", (chunk: Buffer) => {
       stderrChunks.push(chunk);
+      stderrBytes += chunk.byteLength;
+      while (stderrBytes > LlamaServerManager.MAX_STDERR_TAIL_BYTES && stderrChunks.length > 1) {
+        stderrBytes -= stderrChunks.shift()?.byteLength ?? 0;
+      }
       stderrPartial += chunk.toString("utf8");
       let newlineIndex: number;
       while ((newlineIndex = stderrPartial.indexOf("\n")) >= 0) {
@@ -199,10 +218,15 @@ export class LlamaServerManager implements ModelRuntimeDriver {
         stderrPartial = stderrPartial.slice(newlineIndex + 1);
         this.pushLog(line);
       }
+      if (stderrPartial.length > LlamaServerManager.MAX_STDERR_PARTIAL_CHARS) {
+        this.pushLog(stderrPartial);
+        stderrPartial = "";
+      }
     });
     child.stdout?.on("data", () => undefined);
 
     child.on("exit", (code, signal) => {
+      if (this.child !== child) return; // 迟到代际（旧 run 的 exit）：不得污染新进程状态
       if (this.stopping) {
         // stop() 主动停止：转入 idle
         this.status = "idle";
@@ -217,6 +241,7 @@ export class LlamaServerManager implements ModelRuntimeDriver {
       this.child = null;
     });
     child.on("error", (err) => {
+      if (this.child !== child) return; // 迟到代际：不触碰新进程状态
       if (!this.stopping && !this.forceTerminating) {
         this.status = "error";
         this.error = `llama-server 启动失败: ${err.message}`;
@@ -224,31 +249,36 @@ export class LlamaServerManager implements ModelRuntimeDriver {
       this.child = null;
     });
 
-    // 健康探测：轮询 http://127.0.0.1:<port>/health 直至 ok 或超时
+    // 健康探测：轮询 http://127.0.0.1:<port>/health 直至 ok 或超时；
+    // 单请求与轮询间隔都不越过总预算（挂起请求按期结束，不把整个启动悬死）
     const deadline = Date.now() + this.probeTimeoutMs;
     while (Date.now() < deadline) {
-      if (this.stopping || !this.child) break;
+      if (this.stopping || this.child !== child) break;
+      const remaining = deadline - Date.now();
       try {
-        const res = await this.fetchFn(`http://127.0.0.1:${params.port}${HEALTH_CHECK_PATH}`);
-        if (res.ok && this.child) {
+        const res = await this.fetchFn(`http://127.0.0.1:${params.port}${HEALTH_CHECK_PATH}`, {
+          signal: AbortSignal.timeout(Math.max(1, Math.min(remaining, this.probeRequestTimeoutMs))),
+        });
+        if (res.ok && this.child === child && !this.stopping) {
           this.status = "running";
           return this.getHandle();
         }
       } catch {
-        // 服务尚未就绪，继续轮询
+        // 服务尚未就绪或单请求超时，继续轮询
       }
-      await new Promise((resolve) => setTimeout(resolve, this.probeIntervalMs));
+      const sleepMs = Math.min(this.probeIntervalMs, Math.max(0, deadline - Date.now()));
+      if (sleepMs > 0) await new Promise((resolve) => setTimeout(resolve, sleepMs));
     }
 
-    // 循环退出：进程已崩溃（exit/error 已置 status=error 并清空 child）→ 终结进程后抛错；
-    // 否则视为健康探测超时 → 强杀后抛错。统一以启动失败收尾（调用方按错误处理）。
-    if (this.child) {
+    // 循环退出：本代进程仍存活 → 视为健康探测超时，强杀并回写错误；
+    // 否则进程已崩溃（exit/error 回调已置 error 并清空 child），沿用其错误语义。
+    if (this.child === child) {
       await this.forceStop();
-    }
-    if (this.status === "starting" || this.status === "running") {
-      const tail = Buffer.concat(stderrChunks.slice(-4)).toString("utf8").slice(-400);
-      this.status = "error";
-      this.error = `llama-server 健康检查超时（${this.probeTimeoutMs}ms）: ${tail || "无 stderr 输出"}`;
+      if (this.status === "starting" || this.status === "running") {
+        const tail = Buffer.concat(stderrChunks.slice(-4)).toString("utf8").slice(-400);
+        this.status = "error";
+        this.error = `llama-server 健康检查超时（${this.probeTimeoutMs}ms）: ${tail || "无 stderr 输出"}`;
+      }
     }
     throw new Error(this.error ?? "llama-server 启动失败");
   }
@@ -276,7 +306,7 @@ export class LlamaServerManager implements ModelRuntimeDriver {
       }
     }
     this.status = "idle";
-    this.child = null;
+    if (this.child === child) this.child = null; // 仅回收本代引用，迟到回调不得清掉新进程
     this.port = null;
     this.modelId = null;
     return this.getHandle();
@@ -310,7 +340,7 @@ export class LlamaServerManager implements ModelRuntimeDriver {
         // ignore
       }
     }
-    this.child = null;
+    if (this.child === child) this.child = null; // 仅回收本代引用
     this.forceTerminating = false;
   }
 }
