@@ -102,28 +102,39 @@ export function createSqliteSubagentPort(deps: SqliteSubagentPortDeps): Subagent
       const subAttemptId = genId("attempt");
       const runId = genId("subrun");
 
-      // 1) 子任务落库（独立 turn/attempt ← 子事件流在子 turn 下审计；不写 Outbox）
-      await conversationRepo.createTurnWithOutbox(
-        ctx,
-        { id: subTurnId, sessionId, idempotencyKey: `subagent:${parentExecutionId}` },
-        { id: `msg_${subTurnId}_user`, content: task },
-      );
-      await conversationRepo.createTurnAttempt(ctx, subTurnId, { id: subAttemptId });
+      // 1) 子任务落库：Turn/消息/首个 Attempt 单写者事务（崩溃窗口不可再产生无 Attempt 的孤儿 Turn；
+      //    不消费 Inbox、不写 Outbox）。命中既有幂等键时复用其 Turn 与 Running Attempt（崩溃重试）。
+      const acceptance = await conversationRepo.createTurnWithAttempt(ctx, {
+        turnId: subTurnId,
+        sessionId,
+        idempotencyKey: `subagent:${parentExecutionId}`,
+        message: { id: `msg_${subTurnId}_user`, content: task },
+        attemptId: subAttemptId,
+      });
+      const effectiveTurnId = acceptance.turn.id;
+      let effectiveAttemptId: string;
+      if (acceptance.created) {
+        effectiveAttemptId = acceptance.attempt.id;
+      } else {
+        const attempts = await conversationRepo.listTurnAttempts(ctx, effectiveTurnId);
+        effectiveAttemptId = attempts.find((a) => a.status === "Running")?.id
+          ?? (await conversationRepo.createTurnAttempt(ctx, effectiveTurnId, { id: subAttemptId })).id;
+      }
       await runRepo.createRun(ctx, {
         id: runId,
         sessionId,
         parentTurnId,
         parentAttemptId,
         parentExecutionId,
-        subTurnId,
-        subAttemptId,
+        subTurnId: effectiveTurnId,
+        subAttemptId: effectiveAttemptId,
         task,
       });
 
       // 2) 嵌套执行（executeTurn 内部 claim 子 attempt：Running+fencing0 → 可领）
       let status: AttemptStatus = "Failed";
       try {
-        const provider = await providerBuilder({ turnId: subTurnId, sessionId, attemptId: subAttemptId, controlContext });
+        const provider = await providerBuilder({ turnId: effectiveTurnId, sessionId, attemptId: effectiveAttemptId, controlContext });
         const result = await executeTurn(
           {
             execution: store,
@@ -133,7 +144,7 @@ export function createSqliteSubagentPort(deps: SqliteSubagentPortDeps): Subagent
             controlContext,
             options: { maxSteps: subMaxSteps },
           },
-          { turnId: subTurnId, sessionId, attemptId: subAttemptId, userMessage: task },
+          { turnId: effectiveTurnId, sessionId, attemptId: effectiveAttemptId, userMessage: task },
         );
         status =
           result.status === "completed"
@@ -151,7 +162,7 @@ export function createSqliteSubagentPort(deps: SqliteSubagentPortDeps): Subagent
       let error: string | undefined;
       if (status === "Completed") {
         try {
-          const events = await store.listEvents(subTurnId);
+          const events = await store.listEvents(effectiveTurnId);
           resultText = events
             .filter((e) => e.eventType === "delta")
             .map((e) => ((e.data as { text?: string }).text ?? ""))
@@ -164,7 +175,7 @@ export function createSqliteSubagentPort(deps: SqliteSubagentPortDeps): Subagent
       }
       await runRepo.finalizeRun(ctx, runId, { status, resultText, error });
 
-      return { subTurnId, subAttemptId, status, resultText, error };
+      return { subTurnId: effectiveTurnId, subAttemptId: effectiveAttemptId, status, resultText, error };
     },
   };
 }

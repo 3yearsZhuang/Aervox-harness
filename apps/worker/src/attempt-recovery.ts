@@ -5,6 +5,8 @@
  * - fencing +1：使残留在跑执行器的后续写入（finalize/renew）失效（单一终态与迟到结果丢弃）；
  * - 状态置 Interrupted：释放供用户重试（新请求新 Attempt）。
  *
+ * 并回收「Turn 已提交但首个 Attempt 从未创建」的孤儿 Turn（无 Attempt → Interrupted + done，不自动重放）。
+ *
  * 规则依据：AVX-HAR-001 §11.3 恢复。
  */
 import { SqliteConversationRepository } from "@aervox/repositories";
@@ -27,6 +29,11 @@ export async function runAttemptRecoveryCycle(opts: {
     // 2c：释放后遗留 pending 预留结果不可知（§11.3 unknown outcome，不自动重放）
     const unknown = await repo.markPendingOutcomeUnknown(opts.client);
     console.log(`[worker:${opts.workerId}] turn_attempt_recovery=${recovered} tool_outcome_unknown=${unknown}`);
+  }
+  // ARC-01 补：回收「Turn 已提交但首个 Attempt 从未创建」的孤儿 Turn（无 Attempt → Interrupted + done 终态）
+  const orphans = await repo.recoverOrphanTurns();
+  if (orphans > 0) {
+    console.log(`[worker:${opts.workerId}] orphan_turn_recovery=${orphans}`);
   }
   return recovered;
 }

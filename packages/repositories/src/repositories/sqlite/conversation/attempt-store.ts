@@ -246,4 +246,45 @@ export class AttemptStore {
       return recovered.length;
     });
   }
+
+  /**
+   * ARC-01 补：恢复「Turn 已提交但首个 Attempt 从未创建」的孤儿 Turn。
+   * - 候选：状态 Created/Running、无任何 Attempt、且创建时间早于阈值；
+   * - 收敛：同事务置 Interrupted 并写入 done 终态事件（不自动重放，供用户重试）；
+   * - 幂等：二次执行候选为空；带 Attempt 的 Turn 由 recoverExpiredAttempts 负责，不在此误伤。
+   */
+  async recoverOrphanTurns(options?: { orphanTimeoutMs?: number }): Promise<number> {
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const orphanTimeoutMs = options?.orphanTimeoutMs ?? 60_000;
+    const thresholdIso = new Date(now.getTime() - orphanTimeoutMs).toISOString();
+
+    return this.db.transaction(async (tx) => {
+      const candidates = await tx.select().from(turns).where(and(
+        inArray(turns.status, ["Created", "Running"]),
+        lt(turns.createdAt, thresholdIso),
+      )).limit(50);
+      let recovered = 0;
+      for (const candidate of candidates) {
+        const [attempt] = await tx.select({ id: turnAttempts.id }).from(turnAttempts)
+          .where(eq(turnAttempts.turnId, candidate.id)).limit(1);
+        if (attempt) continue;
+        const [turn] = await tx.update(turns).set({ status: "Interrupted", updatedAt: nowIso })
+          .where(and(eq(turns.id, candidate.id), inArray(turns.status, ["Created", "Running"]))).returning();
+        if (!turn) continue;
+        const [last] = await tx.select({ sequence: turnStreamEvents.sequence }).from(turnStreamEvents)
+          .where(eq(turnStreamEvents.turnId, turn.id)).orderBy(desc(turnStreamEvents.sequence)).limit(1);
+        const sequence = Math.max(turn.lastSequence, last?.sequence ?? 0) + 1;
+        await tx.insert(turnStreamEvents).values({
+          id: `tev_${turn.id}_${sequence}`, turnId: turn.id, attemptId: null,
+          sequence, eventType: "done", occurredAt: nowIso, committedAt: nowIso,
+          safetyDecision: "approved",
+          data: { status: "Interrupted", isComplete: false, lastSequence: sequence, reason: "orphan_turn_recovered" },
+        });
+        await tx.update(turns).set({ lastSequence: sequence }).where(eq(turns.id, turn.id));
+        recovered += 1;
+      }
+      return recovered;
+    });
+  }
 }

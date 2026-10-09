@@ -57,6 +57,35 @@ export class TurnStore {
     return result;
   }
 
+  /**
+   * 编程式接单（子任务/宿主内部）：Turn、消息与首个 Attempt 单写者事务。
+   * 对齐 acceptTurn 的原子接单不变量，但不消费 Inbox、不写 Outbox；
+   * 同幂等键命中既有 Turn 时返回 created:false（崩溃重试复用，不重复创建）。
+   */
+  async createTurnWithAttempt(
+    ctx: LocalContext,
+    input: {
+      turnId: string;
+      sessionId: string;
+      idempotencyKey: string;
+      message: { id: string; content: string };
+      attemptId: string;
+    },
+  ): Promise<TurnAcceptanceResult> {
+    return withSessionLock(`turn-accept:${input.sessionId}`, () => this.db.transaction(async (tx): Promise<TurnAcceptanceResult> => {
+      const [existing] = await tx.select().from(turns).where(eq(turns.idempotencyKey, input.idempotencyKey));
+      if (existing) return { created: false, turn: existing as TurnModel };
+      const now = new Date().toISOString();
+      const created = await this.insertTurn(tx, {
+        id: input.turnId, sessionId: input.sessionId, idempotencyKey: input.idempotencyKey,
+      }, input.message);
+      const [attempt] = await tx.insert(turnAttempts).values({
+        id: input.attemptId, turnId: input.turnId, attempt: 1, fencingToken: 0, status: "Running", startedAt: now,
+      }).returning();
+      return { created: true, ...created, attempt: attempt as TurnAttemptModel };
+    }));
+  }
+
   private async insertTurn(
     tx: Parameters<Parameters<AervoxDatabase["transaction"]>[0]>[0],
     turnData: { id: string; sessionId: string; idempotencyKey: string; status?: string },
