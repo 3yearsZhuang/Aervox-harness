@@ -27,6 +27,7 @@ import { settleDuplicateToolCall, settleToolLedger } from "./tool-ledger.js";
 import { runToolExecution, ToolExecutionAborted } from "./tool-pipeline.js";
 import { StepCollector } from "./step-collector.js";
 import type { StepCollection } from "./step-collector.js";
+import { createRecordingProvider } from "./recording-provider.js";
 
 export interface ExecuteTurnInput {
   turnId: string;
@@ -116,6 +117,7 @@ export async function executeTurn(
   input: ExecuteTurnInput,
 ): Promise<ExecuteResult> {
   const { execution, provider, contextBuilder, tools, deletionGate, inbox, options } = deps;
+  const recordingProvider = createRecordingProvider(provider, execution, deps.modelRunMeta);
   const maxSteps = options?.maxSteps ?? 8;
   const toolTimeoutMs = options?.toolTimeoutMs ?? 5000;
   const maxTurnDurationMs = options?.maxTurnDurationMs ?? 0;
@@ -271,7 +273,6 @@ export async function executeTurn(
       }
 
       // 收集本 Step 输出（文本增量 + 工具请求）；模型流式可能长于租约 TTL，心跳续租
-      const stepStartedAt = Date.now();
       // B4-C：模型调用重试 —— 仅【首个可见片段前且无副作用】时允许（§10 maxModelRetries）
       let canRetryModel = maxModelRetries > 0 && step === stepBase + 1 && textAccumulator.length === 0;
       // ITER-041 第四段：流式收集（计量 / 预算守卫 / 心跳检查点 / 取消节流 /
@@ -295,7 +296,7 @@ export async function executeTurn(
       // 失败 attempt 的未落缓冲随旧实例一并丢弃，不得串入重试 attempt。
       const makeCollector = (): StepCollector =>
         new StepCollector({
-          provider,
+          provider: recordingProvider,
           context,
           tools: stepTools,
           turnId: input.turnId,
@@ -380,36 +381,15 @@ export async function executeTurn(
         }
       };
 
-      // 阶段 7（ADR-017）：Step 级 ModelRun 可追溯写入 + 每 Turn 首个 Step 的 ContextManifest 快照。
-      // 可观测副作用（同 recordToolExecution）：写入失败不阻断执行（no-op 宿主天然兼容）。
-      try {
-        const runId = `mr_${input.turnId}_${step}`;
-        await execution.recordModelRun({
-          runId,
-          turnId: input.turnId,
-          sessionId: input.sessionId,
-          attemptId: input.attemptId,
-          stepId: step,
-          provider: deps.modelRunMeta?.provider ?? provider.id,
-          modelId: deps.modelRunMeta?.modelId ?? "n/a",
-          purpose: deps.modelRunMeta?.purpose ?? "agent.loop",
-          status: "completed",
-          latencyMs: Date.now() - stepStartedAt,
-        });
-        if (step === stepBase + 1) {
-          await execution.recordContextManifest({
-            manifestId: `mcm_${input.turnId}`,
-            turnId: input.turnId,
-            sessionId: input.sessionId,
-            attemptId: input.attemptId,
-            stepId: step,
-            modelRunId: runId,
-            purpose: "agent.loop",
-            snapshot: context.messages,
-          });
-        }
-      } catch {
-        // 可观测写入失败不影响主流程（审计/指标侧写失败收敛）
+      // Any explicit abnormal terminal invalidates the whole step's tool batch,
+      // including calls a custom provider emitted before its terminal chunk.
+      const abnormalStop = chunks.find((chunk) => chunk.stopReason
+        && chunk.stopReason !== "stop" && chunk.stopReason !== "tool_calls")?.stopReason;
+      if (abnormalStop) {
+        if (abnormalStop !== "content_filter") await persistSafeSegments(false);
+        const cancelled = await prematureTermination(sequence);
+        if (cancelled) return cancelled;
+        return finalizeInterrupted(sequence, `model_${abnormalStop}`);
       }
 
       if (!chunks.some(c => c.isFinal)) {

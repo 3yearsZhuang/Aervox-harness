@@ -58,6 +58,9 @@ export function createSqliteMemoryRecall(deps: {
       for (const hit of hits) {
         const record = recordMap.get(hit.id);
         if (!record || record.verificationStatus !== "verified" || record.layer !== "long_term") continue;
+        // Automatic recall has no grant for sensitive data. Keep history retention independent.
+        if (!["public", "normal"].includes(record.sensitivityClass ?? "")) continue;
+        if (record.aiRecallUntil != null && !(Date.parse(record.aiRecallUntil) > Date.now())) continue;
         recalled.push({
           id: record.id,
           content: record.content,
@@ -70,4 +73,3 @@ export function createSqliteMemoryRecall(deps: {
     },
   };
 }
-
