@@ -155,8 +155,6 @@ export type ModelStopReason = "stop" | "tool_calls" | "length" | "content_filter
 
 /** 用量分账：总账保留（既有消费方），输入/输出分账由支持 stream_options.include_usage 的端点提供 */
 export interface ModelUsage {
-  cacheReadTokens?: number;
-  cacheWriteTokens?: number;
   /** Cumulative input + output tokens for this model request. */
   totalTokens: number;
   /** 提示词（输入）token 数 */

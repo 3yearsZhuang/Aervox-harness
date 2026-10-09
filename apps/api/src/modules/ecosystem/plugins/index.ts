@@ -162,10 +162,6 @@ export async function registerPluginsModule(ctx: ModuleContext): Promise<void> {
     extensionRepo,
     configRepo,
     secretRepo,
-    withConfigTransaction: (work) => db.transaction((tx) => work({
-      configRepo: new SqlitePluginConfigRepository(tx),
-      secretRepo: new SqlitePluginSecretRepository(tx),
-    })),
     pageRepo,
     auditRepo,
     bundleStore,

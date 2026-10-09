@@ -21,4 +21,3 @@ export * from "./sync/index.js";
 export * from "./worker-ipc.js";
 export * from "./repositories/index.js";
 export * from "./schema/ddl/index.js";
-export { clearMemoryForDeletion, verifyMemoryDeletion } from "./memory-deletion.js";
