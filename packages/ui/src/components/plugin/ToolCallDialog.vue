@@ -1,10 +1,9 @@
 <script setup lang="ts">
+import { AervoxSwitch, AervoxDialog, AervoxButton } from '../../primitives';
 import { computed, ref, watch } from 'vue'
 import { ElMessage } from '../../utils/element'
 import { Play, ShieldCheck, Terminal } from 'lucide-vue-next'
 import { useAervoxTools, type ToolRegistrationDto } from '@aervox/api-client'
-import { AervoxDialog, AervoxButton } from '../../primitives'
-
 
 const props = defineProps<{
   open: boolean
@@ -94,7 +93,7 @@ async function handleCall(): Promise<void> {
         <div class="field-title-row">
           <label class="field-label" for="tool-args-input">调用入参 (JSON 格式)</label>
           <label v-if="!isReadOnly" class="approval-toggle">
-            <input v-model="needApproval" type="checkbox" />
+            <AervoxSwitch v-model="needApproval" />
             <ShieldCheck :size="14" />
             <span>携带用户显式授权 (approval: true)</span>
           </label>
@@ -102,7 +101,7 @@ async function handleCall(): Promise<void> {
         <textarea
           id="tool-args-input"
           v-model="rawArgs"
-          class="args-textarea"
+          class="aervox-field args-textarea"
           rows="6"
           placeholder="{}"
           spellcheck="false"
@@ -198,19 +197,8 @@ async function handleCall(): Promise<void> {
 .args-textarea {
   width: 100%;
   box-sizing: border-box;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 12px;
-  line-height: 1.5;
+
   resize: vertical;
-}
-.args-textarea:focus {
-  outline: none;
-  border-color: var(--accent);
 }
 .result-section {
   display: grid;

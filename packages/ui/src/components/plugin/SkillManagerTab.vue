@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AervoxCard, AervoxSwitch, AervoxButton, AervoxSegmentedControl } from '../../primitives';
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from '../../utils/element'
 import {
@@ -169,38 +170,17 @@ async function handleFileSelected(event: Event): Promise<void> {
     if (target) target.value = ''
   }
 }
+const filterOptions = computed(() => [
+  { value: 'pure', label: `独立技能 (${pureSkillCount.value})` },
+  ...(pluginSkillCount.value > 0 ? [{ value: 'plugin', label: `插件内置 (${pluginSkillCount.value})` }] : []),
+  { value: 'all', label: `全部 (${skills.value.length})` },
+])
 </script>
 
 <template>
   <div class="skill-manager-tab">
     <div class="tab-toolbar">
-      <div class="tab-filters">
-        <button
-          type="button"
-          class="filter-pill-btn"
-          :class="{ active: filterMode === 'pure' }"
-          @click="filterMode = 'pure'"
-        >
-          独立技能 ({{ pureSkillCount }})
-        </button>
-        <button
-          v-if="pluginSkillCount > 0"
-          type="button"
-          class="filter-pill-btn"
-          :class="{ active: filterMode === 'plugin' }"
-          @click="filterMode = 'plugin'"
-        >
-          插件内置 ({{ pluginSkillCount }})
-        </button>
-        <button
-          type="button"
-          class="filter-pill-btn"
-          :class="{ active: filterMode === 'all' }"
-          @click="filterMode = 'all'"
-        >
-          全部 ({{ skills.length }})
-        </button>
-      </div>
+      <AervoxSegmentedControl variant="tabs" v-model="filterMode" :options="filterOptions" label="来源筛选" />
       <div class="tab-actions">
         <input
           ref="fileInput"
@@ -209,7 +189,7 @@ async function handleFileSelected(event: Event): Promise<void> {
           style="display: none"
           @change="handleFileSelected"
         />
-        <button
+        <AervoxButton variant="primary"
           type="button"
           class="btn-primary-action"
           :disabled="uploading"
@@ -217,7 +197,7 @@ async function handleFileSelected(event: Event): Promise<void> {
         >
           <Upload :size="15" />
           <span>{{ uploading ? '安装中…' : '上传技能 (ZIP)' }}</span>
-        </button>
+        </AervoxButton>
       </div>
     </div>
 
@@ -225,7 +205,7 @@ async function handleFileSelected(event: Event): Promise<void> {
     <div v-if="filterMode === 'pure' && pluginSkillCount > 0" class="plugin-skills-banner">
       <Sparkles :size="15" />
       <span>当前已过滤 {{ pluginSkillCount }} 个插件内置技能（可前往对应插件设置单独管理）。</span>
-      <button type="button" class="banner-link-btn" @click="filterMode = 'plugin'">查看插件技能</button>
+      <AervoxButton variant="ghost" type="button" class="banner-link-btn" @click="filterMode = 'plugin'">查看插件技能</AervoxButton>
     </div>
 
     <div v-if="loading" class="tab-loading">加载技能列表中…</div>
@@ -234,36 +214,35 @@ async function handleFileSelected(event: Event): Promise<void> {
       暂无可用的技能。点击右上角「上传技能」安装符合 Anthropic Skills 规范的 ZIP 包。
     </p>
 
-    <div v-else class="skill-list">
-      <article
+    <div v-else class="settings-list skill-list">
+      <AervoxCard layout="record" as="article"
         v-for="skill in displaySkills"
         :key="skill.id || skill.name"
-        class="skill-card"
+        class="settings-item skill-card"
         :class="{ inactive: !isSkillActive(skill) }"
       >
         <span class="skill-card-icon">
           <Zap :size="18" />
         </span>
-        <div class="skill-card-main">
+        <div class="record-main skill-card-main">
           <div class="skill-card-header">
             <strong class="skill-title">{{ skill.name }}</strong>
-            <span class="skill-badge" :class="`badge-${skill.source || 'local'}`">
+            <span class="aervox-badge skill-badge" :class="`badge-${skill.source || 'local'}`">
               {{ getSourceLabel(skill.source) }}
             </span>
-            <span v-if="isSkillReadonly(skill)" class="skill-badge badge-readonly">只读保护</span>
+            <span v-if="isSkillReadonly(skill)" class="aervox-badge skill-badge badge-readonly">只读保护</span>
           </div>
           <p class="skill-desc">{{ skill.description || '暂无描述' }}</p>
         </div>
-        <div class="skill-card-actions">
-          <button
-            type="button"
-            class="settings-switch skill-toggle"
-            :class="{ checked: isSkillActive(skill) }"
+        <div class="record-actions skill-card-actions">
+          <AervoxSwitch
+            class="skill-toggle"
+            :checked="isSkillActive(skill)"
             :disabled="busySkillId === (skill.id || skill.name)"
             :aria-label="`${isSkillActive(skill) ? '停用' : '启用'} ${skill.name}`"
-            @click="toggleActive(skill)"
-          />
-          <button
+            @change="toggleActive(skill)"
+           />
+          <AervoxButton
             type="button"
             class="skill-action-btn"
             title="查看 SKILL.md 正文"
@@ -271,8 +250,8 @@ async function handleFileSelected(event: Event): Promise<void> {
           >
             <FileText :size="14" />
             <span>说明</span>
-          </button>
-          <button
+          </AervoxButton>
+          <AervoxButton variant="danger" icon-only
             v-if="!isSkillReadonly(skill)"
             type="button"
             class="skill-action-btn btn-danger"
@@ -281,9 +260,9 @@ async function handleFileSelected(event: Event): Promise<void> {
             @click="handleDelete(skill)"
           >
             <Trash2 :size="14" />
-          </button>
+          </AervoxButton>
         </div>
-      </article>
+      </AervoxCard>
     </div>
 
     <SkillContentDialog
@@ -314,27 +293,6 @@ async function handleFileSelected(event: Event): Promise<void> {
   border-radius: 9px;
   border: 1px solid var(--border);
 }
-.filter-pill-btn {
-  background: transparent;
-  border: none;
-  font-size: 11px;
-  font-weight: 500;
-  padding: 5px 12px;
-  border-radius: 6px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.filter-pill-btn:hover {
-  color: var(--text-primary);
-  background: color-mix(in srgb, var(--bg-soft) 70%, transparent);
-}
-.filter-pill-btn.active {
-  background: var(--bg-soft);
-  color: var(--accent);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  font-weight: 600;
-}
 .plugin-skills-banner {
   display: flex;
   align-items: center;
@@ -346,45 +304,6 @@ async function handleFileSelected(event: Event): Promise<void> {
   font-size: 11px;
   color: var(--text-secondary);
   line-height: 1.4;
-}
-.banner-link-btn {
-  margin-left: auto;
-  background: transparent;
-  border: none;
-  color: var(--accent);
-  font-size: 11px;
-  font-weight: 500;
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.banner-link-btn:hover {
-  opacity: 0.85;
-}
-.btn-primary-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  font-size: 11px;
-  font-weight: 500;
-  cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.btn-primary-action:hover:not(:disabled) {
-  opacity: 0.92;
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(78, 119, 209, 0.25);
-}
-.btn-primary-action:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 .tab-loading,
 .tab-empty {
@@ -402,17 +321,7 @@ async function handleFileSelected(event: Event): Promise<void> {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg-soft);
   transition: border-color 0.22s ease, background-color 0.22s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease;
-}
-.skill-card:hover {
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-  background: color-mix(in srgb, var(--bg-soft) 85%, var(--accent-soft));
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(15, 20, 32, 0.05);
 }
 .skill-card.inactive {
   opacity: 0.72;
@@ -427,9 +336,6 @@ async function handleFileSelected(event: Event): Promise<void> {
   background: var(--accent-soft);
   color: var(--accent);
   transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.22s ease;
-}
-.skill-card:hover .skill-card-icon {
-  transform: scale(1.05);
 }
 .skill-card-main {
   min-width: 0;
@@ -497,43 +403,5 @@ async function handleFileSelected(event: Event): Promise<void> {
   width: 40px;
   height: 22px;
   flex: 0 0 40px;
-}
-.skill-action-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-input);
-  color: var(--text-secondary);
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.skill-action-btn:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-soft);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(78, 119, 209, 0.15);
-}
-.skill-action-btn:active:not(:disabled) {
-  transform: translateY(0) scale(0.97);
-}
-.btn-danger:hover:not(:disabled) {
-  border-color: var(--danger);
-  color: var(--danger);
-  background: var(--danger-soft);
-  box-shadow: 0 2px 6px rgba(166, 73, 60, 0.15);
-}
-.skill-action-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  background: var(--bg-soft);
-  color: var(--text-muted);
-  border-color: var(--border);
-  box-shadow: none;
-  transform: none;
 }
 </style>

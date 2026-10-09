@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AervoxButton } from '../../../primitives';
 import { ref, watch } from 'vue';
 import {
   AlertCircle,
@@ -174,13 +175,13 @@ async function handleImport() {
               <p class="text-xs text-neutral-400">导入 ChatGPT、Claude 或本地 JSON 对话历史为标准本地会话</p>
             </div>
           </div>
-          <button
+          <AervoxButton variant="ghost" icon-only
             type="button"
-            class="rounded-lg p-1 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-colors"
+            class=""
             @click="close"
           >
             <X class="h-4 w-4" />
-          </button>
+          </AervoxButton>
         </div>
 
         <!-- Body -->
@@ -193,14 +194,14 @@ async function handleImport() {
                 v-model="title"
                 type="text"
                 placeholder="缺省自动从首条消息提炼"
-                class="w-full rounded-lg border border-white/10 bg-neutral-800 px-3 py-2 text-xs text-white placeholder-neutral-500 focus:border-emerald-500 focus:outline-none"
+                class="aervox-field w-full rounded-lg border border-white/10 bg-neutral-800 px-3 py-2 text-xs text-white placeholder-neutral-500 focus:border-emerald-500 focus:outline-none"
               />
             </div>
             <div>
               <label class="block text-xs font-medium text-neutral-300 mb-1">归属项目（可选）</label>
               <select
                 v-model="selectedProjectId"
-                class="w-full rounded-lg border border-white/10 bg-neutral-800 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                class="aervox-field w-full rounded-lg border border-white/10 bg-neutral-800 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
               >
                 <option value="">无项目（未分类）</option>
                 <option
@@ -228,7 +229,7 @@ async function handleImport() {
   { "role": "user", "content": "你好，请解释微积分" },
   { "role": "assistant", "content": "微积分是研究极限、微分与积分的数学分支..." }
 ]'
-              class="w-full font-mono rounded-lg border border-white/10 bg-neutral-800/90 px-3 py-2 text-xs text-white placeholder-neutral-500 focus:border-emerald-500 focus:outline-none resize-none"
+              class="aervox-field w-full font-mono rounded-lg border border-white/10 bg-neutral-800/90 px-3 py-2 text-xs text-white placeholder-neutral-500 focus:border-emerald-500 focus:outline-none resize-none"
             />
           </div>
 
@@ -252,22 +253,22 @@ async function handleImport() {
 
         <!-- Footer -->
         <div class="border-t border-white/10 px-5 py-3 bg-neutral-900/50 flex justify-end gap-2">
-          <button
+          <AervoxButton variant="secondary"
             type="button"
-            class="rounded-lg px-3.5 py-1.5 text-xs text-neutral-300 hover:bg-neutral-800 transition-colors"
+            class=""
             @click="close"
           >
             取消
-          </button>
-          <button
+          </AervoxButton>
+          <AervoxButton variant="primary"
             type="button"
-            class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 transition-colors disabled:opacity-50"
+            class=""
             :disabled="!rawText.trim() || isImporting"
             @click="handleImport"
           >
             <Upload class="h-3.5 w-3.5" />
             {{ isImporting ? '导入中...' : '开始导入' }}
-          </button>
+          </AervoxButton>
         </div>
       </div>
     </div>

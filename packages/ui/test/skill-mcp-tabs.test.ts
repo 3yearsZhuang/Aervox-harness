@@ -115,7 +115,7 @@ describe('SkillManagerTab.vue and McpToolsTab.vue Pure Views', () => {
       expect(skillCards[0].text()).not.toContain('focus-timer');
 
       // 切换至「全部」
-      const allFilterBtn = wrapper.findAll('.filter-pill-btn').find((b) => b.text().includes('全部'));
+      const allFilterBtn = wrapper.findAll('[aria-label="来源筛选"] button').find((b) => b.text().includes('全部'));
       expect(allFilterBtn).toBeDefined();
       await allFilterBtn!.trigger('click');
       await flushPromises();
@@ -154,7 +154,7 @@ describe('SkillManagerTab.vue and McpToolsTab.vue Pure Views', () => {
       expect(wrapper.text()).not.toContain('plugin_specific_tool');
 
       // 切换至「全部」
-      const allFilterBtn = wrapper.findAll('.filter-pill-btn').find((b) => b.text().includes('全部'));
+      const allFilterBtn = wrapper.findAll('[aria-label="来源筛选"] button').find((b) => b.text().includes('全部'));
       expect(allFilterBtn).toBeDefined();
       await allFilterBtn!.trigger('click');
       await flushPromises();

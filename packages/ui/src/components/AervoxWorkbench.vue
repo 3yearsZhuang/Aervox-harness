@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AervoxButton } from '../primitives';
 import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue';
 import type { Platform } from '../composables/useWorkbenchLayout';
 import PetHero from './PetHero.vue';
@@ -11,7 +12,6 @@ import WorkbenchNavPill from './workbench/WorkbenchNavPill.vue';
 import WorkbenchSideCards from './workbench/WorkbenchSideCards.vue';
 import ConversationConsole from './workbench/ConversationConsole.vue';
 import StandardConversation from './workbench/StandardConversation.vue';
-import '../theme/standard-workbench.css';
 import ComposerDock from './workbench/ComposerDock.vue';
 import { PanelLeft } from 'lucide-vue-next';
 
@@ -72,7 +72,6 @@ provideUIRegistry(registry);
 // CR-060：通用插件事件总线与命名空间化插件状态——宿主只提供容器，不解释语义
 const pluginEvents = createPluginEventBus();
 const pluginState = createPluginStateStore();
-
 
 // 1. Proactive Composable
 const proactive = useWorkbenchProactive({
@@ -196,7 +195,6 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
   const turnMetadata = resolvedOutgoing.metadata;
   const submittedSessionId = sessions.activeSessionId.value;
   composer.beginDraftSubmission(displayText, submittedSessionId);
-
 
   const assistantLine = conversation.createStoryLine('assistant', '', 'streaming');
 
@@ -353,7 +351,6 @@ provideWorkbenchContext(workbenchContext);
 
 pluginRuntime = createWorkbenchPluginRuntime(registry, () => workbenchContext, props.plugins);
 
-
 // 组件替换支持（允许插件通过 uiRegistry.overrideComponent('ComposerDock', CustomComp) 替换输入底座）
 const resolvedComposerComponent = computed(() => {
   return registry.getComponent('ComposerDock', ComposerDock);
@@ -362,7 +359,6 @@ const resolvedComposerComponent = computed(() => {
 function handleComposerInputUpdate(val: string) {
   composer.input.value = val;
 }
-
 
 let removeProactiveStatusListener: (() => void) | undefined;
 
@@ -505,21 +501,29 @@ onUnmounted(() => {
   >
     <!-- 标准工作台模式 (CR-035 / W1) -->
     <template v-if="layout.workbenchMode.value === 'standard'">
+      <div
+        v-if="layout.narrowSidebar.value && !layout.standardSidebarCollapsed.value"
+        class="sidebar-backdrop"
+        aria-hidden="true"
+        @click="layout.toggleStandardSidebar()"
+      />
       <WorkbenchSidebar />
 
-      <main class="workbench-standard-main">
+      <main class="workbench-standard-main" :inert="layout.narrowSidebar.value && !layout.standardSidebarCollapsed.value">
         <header class="standard-topbar">
           <div class="topbar-left">
-            <button
+            <AervoxButton variant="ghost" icon-only
               v-if="layout.standardSidebarCollapsed.value"
               type="button"
               class="topbar-icon-btn"
               title="展开侧边栏 (⌘/)"
               aria-label="展开侧边栏"
+              aria-controls="workbench-sidebar"
+              :aria-expanded="!layout.standardSidebarCollapsed.value"
               @click="layout.toggleStandardSidebar()"
             >
               <PanelLeft :size="18" />
-            </button>
+            </AervoxButton>
             <h2 class="session-active-title">{{ sessions.activeSession.value?.title || '新对话' }}</h2>
           </div>
 
@@ -553,17 +557,19 @@ onUnmounted(() => {
 
     <!-- 桌宠陪伴模式 (经典沉浸式双形态) -->
     <template v-else>
-      <div v-if="layout.showCompanionEnabled.value" class="immersive-pet" aria-label="桌宠区域">
-        <Live2DPet>
-          <template #fallback><PetHero /></template>
-        </Live2DPet>
+      <div class="companion-stage">
+        <div v-if="layout.showCompanionEnabled.value" class="immersive-pet" aria-label="桌宠区域">
+          <Live2DPet>
+            <template #fallback><PetHero /></template>
+          </Live2DPet>
+        </div>
+        <WorkbenchSideCards />
       </div>
 
       <WorkbenchHeader />
       <PomodoroToast />
       <ProactiveToast />
       <WorkbenchNavPill />
-      <WorkbenchSideCards />
 
       <div class="immersive-console">
         <ConversationConsole />

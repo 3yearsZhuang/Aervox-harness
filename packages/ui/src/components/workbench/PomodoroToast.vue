@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AervoxButton } from '../../primitives';
 import { Pause, TimerReset } from 'lucide-vue-next';
 import { useWorkbenchContext } from '../../composables/workbench-context';
 import { TOAST_RING_RADIUS, TOAST_RING_CIRCUMFERENCE } from '../../composables/useWorkbenchTimer';
@@ -33,12 +34,12 @@ const {
         <small class="timer-toast-label">专注中 · {{ timerMinutes }} 分钟回合</small>
       </div>
       <div class="timer-toast-ops">
-        <button type="button" aria-label="暂停专注" @click="toggleTimer()">
+        <AervoxButton variant="ghost" icon-only type="button" aria-label="暂停专注" @click="toggleTimer()">
           <Pause :size="14" />
-        </button>
-        <button type="button" aria-label="重置番茄钟" @click="resetTimer()">
+        </AervoxButton>
+        <AervoxButton variant="ghost" icon-only type="button" aria-label="重置番茄钟" @click="resetTimer()">
           <TimerReset :size="14" />
-        </button>
+        </AervoxButton>
       </div>
     </div>
   </Transition>

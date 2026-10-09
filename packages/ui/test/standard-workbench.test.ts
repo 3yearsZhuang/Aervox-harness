@@ -144,8 +144,11 @@ describe('Standard Workbench Mode (CR-035 / W1 & W2)', () => {
     expect(createNewSession).toHaveBeenCalled();
 
     // 点击第二个会话切换
-    await items[1].trigger('click');
+    expect(items[0].find('.session-select').attributes('aria-current')).toBe('page');
+    expect(items[1].find('.session-select').element.tagName).toBe('BUTTON');
+    await items[1].find('.session-select').trigger('click');
     expect(switchSession).toHaveBeenCalledWith('ses_2');
+    expect(items[1].find('.session-select').attributes('aria-current')).toBe('page');
 
     // 点击底部切换模式按钮
     await wrapper.find('.mode-switch-btn').trigger('click');

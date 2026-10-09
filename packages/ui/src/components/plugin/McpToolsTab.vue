@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AervoxCard, AervoxSwitch, AervoxButton, AervoxSegmentedControl } from '../../primitives';
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from '../../utils/element'
 import {
@@ -124,47 +125,26 @@ function handlePresetChanged(): void {
   emit('change')
   void loadTools()
 }
+const filterOptions = computed(() => [
+  { value: 'pure', label: `系统与独立 MCP (${pureToolCount.value})` },
+  ...(pluginToolCount.value > 0 ? [{ value: 'plugin', label: `插件内置 (${pluginToolCount.value})` }] : []),
+  { value: 'all', label: `全部 (${tools.value.length})` },
+])
 </script>
 
 <template>
   <div class="mcp-tools-tab">
     <div class="tab-toolbar">
-      <div class="tab-filters">
-        <button
-          type="button"
-          class="filter-pill-btn"
-          :class="{ active: filterMode === 'pure' }"
-          @click="filterMode = 'pure'"
-        >
-          系统与独立 MCP ({{ pureToolCount }})
-        </button>
-        <button
-          v-if="pluginToolCount > 0"
-          type="button"
-          class="filter-pill-btn"
-          :class="{ active: filterMode === 'plugin' }"
-          @click="filterMode = 'plugin'"
-        >
-          插件专属工具 ({{ pluginToolCount }})
-        </button>
-        <button
-          type="button"
-          class="filter-pill-btn"
-          :class="{ active: filterMode === 'all' }"
-          @click="filterMode = 'all'"
-        >
-          全部 ({{ tools.length }})
-        </button>
-      </div>
+      <AervoxSegmentedControl variant="tabs" v-model="filterMode" :options="filterOptions" label="来源筛选" />
       <div class="tab-actions">
-        <button
+        <AervoxButton variant="primary"
           type="button"
           class="btn-primary-action"
           @click="registerDialogOpen = true"
         >
           <Plus :size="15" />
           <span>注册 MCP 工具</span>
-        </button>
+        </AervoxButton>
       </div>
     </div>
 
@@ -186,44 +166,43 @@ function handlePresetChanged(): void {
       {{ filterMode === 'pure' ? '暂无可用的系统或独立 MCP 工具。点击右上角「注册 MCP 工具」登记新的外部端点。' : '当前筛选下暂无可展示的工具。' }}
     </p>
 
-    <div v-else class="tool-list">
-      <article
+    <div v-else class="settings-list tool-list">
+      <AervoxCard layout="record" as="article"
         v-for="tool in displayTools"
         :key="tool.id"
-        class="tool-card"
+        class="settings-item tool-card"
         :class="{ inactive: !isToolEnabled(tool) }"
       >
         <span class="tool-card-icon">
           <Wrench :size="18" />
         </span>
-        <div class="tool-card-main">
+        <div class="record-main tool-card-main">
           <div class="tool-card-header">
             <strong class="tool-title">{{ tool.name }}</strong>
             <code class="tool-id-code">{{ tool.id }}</code>
-            <span class="tool-badge badge-category">{{ tool.category || 'system' }}</span>
-            <span class="tool-badge" :class="getSafetyLabel(tool.safetyLevel).class">
+            <span class="aervox-badge tool-badge badge-category">{{ tool.category || 'system' }}</span>
+            <span class="aervox-badge tool-badge" :class="getSafetyLabel(tool.safetyLevel).class">
               {{ getSafetyLabel(tool.safetyLevel).label }}
             </span>
-            <span v-if="isBuiltin(tool)" class="tool-badge badge-builtin">系统内置</span>
-            <span v-else-if="tool.pluginId?.startsWith('mcp:')" class="tool-badge badge-mcp-server">
+            <span v-if="isBuiltin(tool)" class="aervox-badge tool-badge badge-builtin">系统内置</span>
+            <span v-else-if="tool.pluginId?.startsWith('mcp:')" class="aervox-badge tool-badge badge-mcp-server">
               MCP: {{ tool.pluginId.slice(4) }}
             </span>
-            <span v-else-if="tool.pluginId" class="tool-badge badge-plugin">
+            <span v-else-if="tool.pluginId" class="aervox-badge tool-badge badge-plugin">
               插件: {{ tool.pluginId }}
             </span>
           </div>
           <p class="tool-desc">{{ tool.description || '暂无描述' }}</p>
         </div>
-        <div class="tool-card-actions">
-          <button
-            type="button"
-            class="settings-switch tool-toggle"
-            :class="{ checked: isToolEnabled(tool) }"
+        <div class="record-actions tool-card-actions">
+          <AervoxSwitch
+            class="tool-toggle"
+            :checked="isToolEnabled(tool)"
             :disabled="busyToolId === tool.id"
             :aria-label="`${isToolEnabled(tool) ? '停用' : '启用'} ${tool.name}`"
-            @click="toggleEnabled(tool)"
-          />
-          <button
+            @change="toggleEnabled(tool)"
+           />
+          <AervoxButton
             type="button"
             class="tool-action-btn"
             title="调试测试调用"
@@ -232,8 +211,8 @@ function handlePresetChanged(): void {
           >
             <Terminal :size="14" />
             <span>调试</span>
-          </button>
-          <button
+          </AervoxButton>
+          <AervoxButton variant="danger" icon-only
             v-if="!isBuiltin(tool)"
             type="button"
             class="tool-action-btn btn-danger"
@@ -242,9 +221,9 @@ function handlePresetChanged(): void {
             @click="handleDelete(tool)"
           >
             <Trash2 :size="14" />
-          </button>
+          </AervoxButton>
         </div>
-      </article>
+      </AervoxCard>
     </div>
 
     <ToolCallDialog
@@ -281,27 +260,6 @@ function handlePresetChanged(): void {
   border-radius: 9px;
   border: 1px solid var(--border);
 }
-.filter-pill-btn {
-  border: none;
-  background: transparent;
-  padding: 5px 12px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.filter-pill-btn:hover {
-  color: var(--text-primary);
-  background: color-mix(in srgb, var(--bg-soft) 70%, transparent);
-}
-.filter-pill-btn.active {
-  background: var(--bg-soft);
-  color: var(--accent);
-  font-weight: 600;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
 .tab-hint-banner {
   display: flex;
   align-items: center;
@@ -321,31 +279,6 @@ function handlePresetChanged(): void {
 .tab-summary strong {
   color: var(--text-primary);
 }
-.btn-primary-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  font-size: 11px;
-  font-weight: 500;
-  cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.btn-primary-action:hover:not(:disabled) {
-  opacity: 0.92;
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(78, 119, 209, 0.25);
-}
-.btn-primary-action:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 .tab-loading,
 .tab-empty {
   padding: 32px 16px;
@@ -362,17 +295,7 @@ function handlePresetChanged(): void {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--bg-soft);
   transition: border-color 0.22s ease, background-color 0.22s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease;
-}
-.tool-card:hover {
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-  background: color-mix(in srgb, var(--bg-soft) 85%, var(--accent-soft));
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(15, 20, 32, 0.05);
 }
 .tool-card.inactive {
   opacity: 0.72;
@@ -387,9 +310,6 @@ function handlePresetChanged(): void {
   background: var(--accent-soft);
   color: var(--accent);
   transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.22s ease;
-}
-.tool-card:hover .tool-card-icon {
-  transform: scale(1.05);
 }
 .tool-card-main {
   min-width: 0;
@@ -479,43 +399,5 @@ function handlePresetChanged(): void {
   width: 40px;
   height: 22px;
   flex: 0 0 40px;
-}
-.tool-action-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-input);
-  color: var(--text-secondary);
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.tool-action-btn:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-soft);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(78, 119, 209, 0.15);
-}
-.tool-action-btn:active:not(:disabled) {
-  transform: translateY(0) scale(0.97);
-}
-.btn-danger:hover:not(:disabled) {
-  border-color: var(--danger);
-  color: var(--danger);
-  background: var(--danger-soft);
-  box-shadow: 0 2px 6px rgba(166, 73, 60, 0.15);
-}
-.tool-action-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  background: var(--bg-soft);
-  color: var(--text-muted);
-  border-color: var(--border);
-  box-shadow: none;
-  transform: none;
 }
 </style>

@@ -93,7 +93,7 @@ async function handleRegister() {
           <input
             id="tool-id-input"
             v-model="id"
-            class="input-control"
+            class="aervox-field input-control"
             placeholder="例如：mcp__weather__get_forecast"
             maxlength="128"
           />
@@ -104,7 +104,7 @@ async function handleRegister() {
           <input
             id="tool-name-input"
             v-model="name"
-            class="input-control"
+            class="aervox-field input-control"
             placeholder="例如：get_forecast"
             maxlength="128"
           />
@@ -115,7 +115,7 @@ async function handleRegister() {
           <input
             id="tool-desc-input"
             v-model="description"
-            class="input-control"
+            class="aervox-field input-control"
             placeholder="例如：查询指定城市的实时天气预报"
             maxlength="500"
           />
@@ -123,7 +123,7 @@ async function handleRegister() {
 
         <div class="field-block">
           <label class="field-label" for="tool-category-select">分类类别</label>
-          <select id="tool-category-select" v-model="category" class="select-control">
+          <select id="tool-category-select" v-model="category" class="aervox-field select-control">
             <option value="external">外部扩展 (external)</option>
             <option value="search">搜索查询 (search)</option>
             <option value="learning">学习练习 (learning)</option>
@@ -134,20 +134,19 @@ async function handleRegister() {
 
         <div class="field-block">
           <label class="field-label" for="tool-safety-select">安全级别</label>
-          <select id="tool-safety-select" v-model="safetyLevel" class="select-control">
+          <select id="tool-safety-select" v-model="safetyLevel" class="aervox-field select-control">
             <option value="read_only">只读无副作用 (AI 可自主调用)</option>
             <option value="write_with_approval">写操作 (需用户确认)</option>
             <option value="privileged">特权级 (仅管理员)</option>
           </select>
         </div>
 
-
         <div class="field-block full-width">
           <label class="field-label" for="tool-schema-input">入参结构 (JSON Schema)</label>
           <textarea
             id="tool-schema-input"
             v-model="inputSchemaJson"
-            class="textarea-control"
+            class="aervox-field textarea-control"
             rows="6"
             placeholder="{ type: 'object', properties: { ... } }"
           />
@@ -191,29 +190,12 @@ async function handleRegister() {
 .select-control {
   width: 100%;
   box-sizing: border-box;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font-size: 12px;
-}
-.input-control:focus,
-.select-control:focus,
-.textarea-control:focus {
-  outline: none;
-  border-color: var(--accent);
+
 }
 .textarea-control {
   width: 100%;
   box-sizing: border-box;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 11px;
+
   resize: vertical;
 }
 .register-dialog-footer {

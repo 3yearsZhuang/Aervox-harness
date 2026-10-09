@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AervoxButton } from '../../primitives';
 import { computed } from 'vue';
 import { BrainCircuit, LayoutGrid, Menu, Settings, X } from 'lucide-vue-next';
 import ExtensionSlot from '../extension/ExtensionSlot.vue';
@@ -45,7 +46,7 @@ const menuItems = computed(() => [
 
 <template>
   <nav ref="menuPillRef" class="menu-pill" :class="{ open: menuOpen }" aria-label="主导航" @click="handlePillClick">
-    <button
+    <AervoxButton variant="ghost" icon-only
       class="menu-toggle"
       type="button"
       :aria-expanded="menuOpen"
@@ -54,7 +55,7 @@ const menuItems = computed(() => [
     >
       <Menu v-if="!menuOpen" :size="19" />
       <X v-else :size="19" />
-    </button>
+    </AervoxButton>
     <div class="menu-items">
       <button
         v-for="item in menuItems"
@@ -71,7 +72,7 @@ const menuItems = computed(() => [
       <ExtensionSlot name="nav:menu-items">
         <template #fallback="{ item }">
           <span
-            class="extension-fallback-badge menu-item-fallback"
+            class="aervox-badge extension-fallback-badge menu-item-fallback"
             :title="`插件组件 [${item.id}] 执行异常已隔离`"
           >
             ⚠️ {{ item.id }}

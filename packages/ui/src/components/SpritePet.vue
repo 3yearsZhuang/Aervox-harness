@@ -24,7 +24,6 @@ import {
 export type { PetSheetState, PetSheetLayout, PetManifest };
 export { DEFAULT_ROW_FRAMES };
 
-
 /** 状态 → 行索引（协议固定顺序） */
 export const STATE_ROW_INDEX: Record<PetSheetState, number> = {
   idle: 0,

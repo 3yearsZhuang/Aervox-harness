@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AervoxCard, AervoxButton, AervoxSegmentedControl } from '../../primitives';
 import { computed, onMounted, ref } from 'vue'
 import {
   ShoppingBag,
@@ -15,7 +16,6 @@ import {
 } from 'lucide-vue-next'
 import { useAervoxPlugins, type PluginMarketItemDto } from '@aervox/api-client'
 import { ElMessage } from '../../utils/element'
-import { AervoxButton } from '../../primitives'
 
 const emit = defineEmits<{
   (e: 'installed'): void
@@ -96,6 +96,11 @@ async function handleExport(item: PluginMarketItemDto): Promise<void> {
     actionBusy.value = null
   }
 }
+const filterOptions = computed(() => [
+  { value: 'all', label: `全部 (${marketItems.value.length})` },
+  { value: 'proactive', label: '主动智能' }, { value: 'skills', label: '技能扩展' },
+  { value: 'tools', label: '工具/MCP' }, { value: 'pages', label: '扩展页面' },
+])
 </script>
 
 <template>
@@ -108,56 +113,15 @@ async function handleExport(item: PluginMarketItemDto): Promise<void> {
           v-model="searchQuery"
           type="text"
           placeholder="搜索插件名称、标识或功能说明…"
-          class="search-input"
+          class="aervox-field search-input"
         />
       </div>
 
-      <div class="filter-segments" role="radiogroup">
-        <button
-          type="button"
-          class="filter-seg-btn"
-          :class="{ active: selectedFilter === 'all' }"
-          @click="selectedFilter = 'all'"
-        >
-          全部 ({{ marketItems.length }})
-        </button>
-        <button
-          type="button"
-          class="filter-seg-btn"
-          :class="{ active: selectedFilter === 'proactive' }"
-          @click="selectedFilter = 'proactive'"
-        >
-          主动智能
-        </button>
-        <button
-          type="button"
-          class="filter-seg-btn"
-          :class="{ active: selectedFilter === 'skills' }"
-          @click="selectedFilter = 'skills'"
-        >
-          技能扩展
-        </button>
-        <button
-          type="button"
-          class="filter-seg-btn"
-          :class="{ active: selectedFilter === 'tools' }"
-          @click="selectedFilter = 'tools'"
-        >
-          工具/MCP
-        </button>
-        <button
-          type="button"
-          class="filter-seg-btn"
-          :class="{ active: selectedFilter === 'pages' }"
-          @click="selectedFilter = 'pages'"
-        >
-          扩展页面
-        </button>
-      </div>
+      <AervoxSegmentedControl variant="tabs" v-model="selectedFilter" :options="filterOptions" label="插件集市筛选" />
 
-      <button type="button" class="btn-refresh" :disabled="loading" @click="loadMarket">
+      <AervoxButton variant="secondary" icon-only aria-label="刷新插件集市" type="button" class="btn-refresh" :disabled="loading" @click="loadMarket">
         <RefreshCw :size="14" :class="{ rotating: loading }" />
-      </button>
+      </AervoxButton>
     </div>
 
     <!-- 加载态 -->
@@ -172,11 +136,11 @@ async function handleExport(item: PluginMarketItemDto): Promise<void> {
     </div>
 
     <!-- 插件集市卡片网格 -->
-    <div v-else class="market-grid">
-      <div
+    <div v-else class="settings-list market-grid">
+      <AervoxCard as="div"
         v-for="item in filteredItems"
         :key="item.id"
-        class="market-card"
+        class="settings-item market-card"
         :class="{ 'card-installed': item.installed }"
       >
         <div class="card-header">
@@ -185,12 +149,12 @@ async function handleExport(item: PluginMarketItemDto): Promise<void> {
             <code class="card-id">{{ item.id }}</code>
           </div>
           <div class="card-status-badge">
-            <span v-if="item.hasUpdate" class="badge badge-update">可更新</span>
-            <span v-else-if="item.installed" class="badge badge-installed">
+            <span v-if="item.hasUpdate" class="aervox-badge badge badge-update">可更新</span>
+            <span v-else-if="item.installed" class="aervox-badge badge badge-installed">
               <CheckCircle2 :size="11" />
               <span>已安装</span>
             </span>
-            <span v-else class="badge badge-available">出厂预设</span>
+            <span v-else class="aervox-badge badge badge-available">出厂预设</span>
           </div>
         </div>
 
@@ -261,7 +225,7 @@ async function handleExport(item: PluginMarketItemDto): Promise<void> {
             </AervoxButton>
           </div>
         </div>
-      </div>
+      </AervoxCard>
     </div>
   </div>
 </template>
@@ -295,73 +259,12 @@ async function handleExport(item: PluginMarketItemDto): Promise<void> {
 .search-input {
   width: 100%;
   box-sizing: border-box;
-  padding: 6px 10px 6px 32px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font-size: 12px;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease;
-}
-.search-input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+
 }
 .search-input::placeholder {
   color: var(--text-muted);
 }
 
-.filter-segments {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--bg-input);
-  padding: 3px;
-  border-radius: 9px;
-  border: 1px solid var(--border);
-}
-.filter-seg-btn {
-  border: none;
-  background: transparent;
-  padding: 5px 12px;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.filter-seg-btn:hover {
-  color: var(--text-primary);
-  background: color-mix(in srgb, var(--bg-soft) 70%, transparent);
-}
-.filter-seg-btn.active {
-  background: var(--bg-soft);
-  color: var(--accent);
-  font-weight: 600;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
-
-.btn-refresh {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--border);
-  background: var(--bg-input);
-  border-radius: 8px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.btn-refresh:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-soft);
-  transform: translateY(-1px);
-}
 .rotating {
   animation: spin 0.8s linear infinite;
 }
@@ -389,20 +292,13 @@ async function handleExport(item: PluginMarketItemDto): Promise<void> {
 }
 
 .market-card {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 14px;
-  background: var(--bg-soft);
   display: flex;
   flex-direction: column;
   gap: 10px;
   transition: border-color 0.22s ease, background-color 0.22s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease;
 }
 .market-card:hover {
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-  background: color-mix(in srgb, var(--bg-soft) 85%, var(--accent-soft));
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(15, 20, 32, 0.05);
 }
 .card-installed {
   border-left: 3px solid #10b981;

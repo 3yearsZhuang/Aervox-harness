@@ -10,7 +10,6 @@
 .mode-standard .workbench-standard-sidebar.is-collapsed { width: 0; min-width: 0; margin-left: 0; visibility: hidden; }
 .mode-standard .sidebar-header { padding: 18px 16px 12px; }
 .mode-standard .brand-title { font-size: 15px; font-weight: 600; letter-spacing: 0; }
-.mode-standard .new-chat-btn { min-height: 38px; font-size: 14px; font-weight: 500; }
 .mode-standard .session-item { min-height: 40px; border-radius: 9px; font-size: 14px; }
 .mode-standard .session-group-title { font-size: 12px; }
 .mode-standard .session-hover-actions { opacity: 0; }
@@ -37,32 +36,24 @@
 .mode-standard .standard-user-text { white-space: pre-wrap; }
 .mode-standard .standard-message.error .standard-message-content { color: var(--danger); }
 .mode-standard .standard-message-actions { display: flex; align-items: center; gap: 10px; margin-top: 9px; }
-.mode-standard .standard-message-actions > button { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 0; border-radius: 7px; background: transparent; color: var(--text-secondary); cursor: pointer; }
-.mode-standard .standard-message-actions > button:hover { background: var(--accent-soft); color: var(--accent); }
 .mode-standard .standard-message-attachments { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .mode-standard .standard-message-attachments > span { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 6px 9px; border: 1px solid var(--glass-border); border-radius: 8px; }
 .mode-standard .standard-stream-indicator { display: inline-block; width: 6px; height: 6px; margin: 8px 0 0; border-radius: 50%; background: var(--accent); }
 .mode-standard .standard-empty { color: var(--text-secondary); text-align: center; padding: 48px 0; }
 .mode-standard .standard-copy-error { color: var(--danger); font-size: 13px; }
-.mode-standard .standard-jump-latest { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); display: inline-flex; gap: 6px; align-items: center; padding: 8px 12px; border: 1px solid var(--glass-border); border-radius: 24px; background: var(--glass-bg-strong); color: var(--text-secondary); cursor: pointer; box-shadow: var(--shadow-sm); }
+.mode-standard .standard-jump-latest { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); }
 .mode-standard .standard-composer-wrap { width: min(calc(100% - 64px), var(--standard-composer-width)); margin: 0 auto; padding: 0 0 24px; }
 .mode-standard .composer-dock { width: 100%; min-width: 0; }
-.mode-standard .composer-expanded { padding: 14px; border-radius: 16px; gap: 10px; animation: none; box-shadow: 0 3px 14px rgb(32 50 80 / 6%), inset 0 1px 0 rgb(255 255 255 / 20%); }
-.mode-standard .composer-expanded:focus-within { border-color: var(--accent); }
 .mode-standard .composer-expanded textarea { height: 54px; min-height: 54px; max-height: min(240px, 28vh); padding: 2px 4px; border: 0; border-radius: 0; background: transparent; box-shadow: none; resize: none; overflow-y: auto; font-family: inherit; font-size: 16px; line-height: 1.65; }
 .mode-standard .composer-expanded textarea:focus { border: 0; outline: none; box-shadow: none; }
 .mode-standard .composer-footer { gap: 8px; flex-wrap: wrap; }
 .mode-standard .composer-ops { flex: 1; gap: 6px; }
-.mode-standard .composer-op-btn { font-size: 13px; font-weight: 400; height: 32px; padding: 0 9px; }
 .mode-standard .composer-attachment-btn { order: 1; }
 .mode-standard .composer-voice-btn { order: 2; }
 .mode-standard .composer-access-btn { order: 3; }
-.mode-standard .composer-proactive-btn { order: 4; width: 32px; padding: 0; justify-content: center; }
-.mode-standard .composer-proactive-btn span { display: none; }
+.mode-standard .composer-proactive-btn { order: 4; }
 .mode-standard .composer-actions { gap: 10px; margin-left: auto; }
 .mode-standard .composer-shortcut-hint { font-size: 11px; }
-.mode-standard .composer-send { width: 34px; height: 34px; min-width: 34px; padding: 0; border-radius: 10px; justify-content: center; }
-.mode-standard .composer-send > span { display: none; }
 .mode-standard button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 @media (max-width: 1050px) {
   .mode-standard .composer-shortcut-hint { display: none; }
@@ -76,5 +67,4 @@
   .mode-standard .standard-message-list { padding: 24px 16px; }
   .mode-standard .standard-composer-wrap { width: calc(100% - 24px); padding-bottom: 12px; }
   .mode-standard .standard-message.user .standard-message-content { max-width: 94%; }
-  .mode-standard .composer-expanded { padding: 10px; }
 }

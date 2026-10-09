@@ -17,6 +17,8 @@ export async function aervoxConfirm(options: ConfirmOptions): Promise<boolean> {
     await ElMessageBox.confirm(options.message, options.title ?? '请确认', {
       confirmButtonText: options.confirmText ?? '确认',
       cancelButtonText: options.cancelText ?? '取消',
+      confirmButtonClass: `aervox-btn aervox-btn--md aervox-btn--${options.variant ?? 'primary'}`,
+      cancelButtonClass: 'aervox-btn aervox-btn--md aervox-btn--secondary',
       type: options.variant === 'danger' ? 'warning' : 'info',
       customClass: 'aervox-message-box',
       showClose: false,

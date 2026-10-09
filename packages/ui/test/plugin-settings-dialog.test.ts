@@ -194,7 +194,7 @@ describe('PluginSettingsDialog.vue', () => {
     expect(wrapper.text()).toContain('aervox-official@1.0.0');
 
     // 导航项
-    const navItems = wrapper.findAll('.subnav-item');
+    const navItems = wrapper.findAll('[aria-label="插件管理页面"] button');
     expect(navItems.length).toBeGreaterThanOrEqual(4);
 
     const navTexts = navItems.map((n) => n.text());
@@ -220,7 +220,7 @@ describe('PluginSettingsDialog.vue', () => {
     await flushPromises();
 
     // 切换至 skills Tab
-    const skillsTabBtn = wrapper.findAll('.subnav-item').find((n) => n.text().includes('专属技能'));
+    const skillsTabBtn = wrapper.findAll('[aria-label="插件管理页面"] button').find((n) => n.text().includes('专属技能'));
     expect(skillsTabBtn).toBeDefined();
     await skillsTabBtn!.trigger('click');
     await flushPromises();
@@ -232,9 +232,9 @@ describe('PluginSettingsDialog.vue', () => {
     expect(skillCards[0].text()).toContain('专注计时技能');
 
     // 点击切换启用/停用按钮
-    const toggleBtn = skillCards[0].find('.settings-switch');
+    const toggleBtn = skillCards[0].find('[role="switch"]');
     expect(toggleBtn.exists()).toBe(true);
-    await toggleBtn.trigger('click');
+    await toggleBtn.setValue(false);
     await flushPromises();
 
     expect(mockSetSkillActive).toHaveBeenCalledWith('focus-timer', false);
@@ -253,7 +253,7 @@ describe('PluginSettingsDialog.vue', () => {
     await flushPromises();
 
     // 切换至 tools Tab
-    const toolsTabBtn = wrapper.findAll('.subnav-item').find((n) => n.text().includes('工具与 MCP'));
+    const toolsTabBtn = wrapper.findAll('[aria-label="插件管理页面"] button').find((n) => n.text().includes('工具与 MCP'));
     expect(toolsTabBtn).toBeDefined();
     await toolsTabBtn!.trigger('click');
     await flushPromises();
@@ -265,9 +265,9 @@ describe('PluginSettingsDialog.vue', () => {
     expect(toolCards[1].text()).toContain('mcp_order');
 
     // 切换工具启用状态
-    const toggleBtn = toolCards[1].find('.settings-switch');
+    const toggleBtn = toolCards[1].find('[role="switch"]');
     expect(toggleBtn.exists()).toBe(true);
-    await toggleBtn.trigger('click');
+    await toggleBtn.setValue(true);
     await flushPromises();
 
     expect(mockSetToolEnabled).toHaveBeenCalledWith('mcp_order', true);
@@ -286,7 +286,7 @@ describe('PluginSettingsDialog.vue', () => {
     await flushPromises();
 
     // 切换至 proactive Tab
-    const proactiveTabBtn = wrapper.findAll('.subnav-item').find((n) => n.text().includes('主动智能'));
+    const proactiveTabBtn = wrapper.findAll('[aria-label="插件管理页面"] button').find((n) => n.text().includes('主动智能'));
     expect(proactiveTabBtn).toBeDefined();
     await proactiveTabBtn!.trigger('click');
     await flushPromises();
@@ -298,9 +298,9 @@ describe('PluginSettingsDialog.vue', () => {
     expect(wrapper.text()).toContain('专注排期');
 
     // 点击撤销感知源授权
-    const sensorToggleBtn = wrapper.find('.sensor-item .settings-switch');
+    const sensorToggleBtn = wrapper.find('.sensor-item [role="switch"]');
     expect(sensorToggleBtn.exists()).toBe(true);
-    await sensorToggleBtn.trigger('click');
+    await sensorToggleBtn.setValue(false);
     await flushPromises();
 
     expect(mockRevokeSensorGrant).toHaveBeenCalledWith('focus-mode', 'grant-1');
