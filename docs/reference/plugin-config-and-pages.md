@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.5
-updated_at: 2026-10-03
-reviewed_at: 2026-10-03
+version: 1.0.7
+updated_at: 2026-10-08
+reviewed_at: 2026-10-08
 review_interval_days: 90
 review_triggers:
   - plugins/**
@@ -33,9 +33,6 @@ sources:
 ---
 
 # Aervox 插件开发规范
-
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-28
 
 关联：[开发指南](../how-to/develop-plugin-ui-extension.md)、[能力组合规范](capability-composition.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-015](adr/ADR-015-vue-full-stack.md)、[数据隐私](DATA_PRIVACY.md)、[落地追踪](REQUIREMENTS_TRACEABILITY.md)。
 
@@ -343,7 +340,7 @@ pages/dashboard/style.css
 
 ### 8.4 官方出厂与内置插件集市（Built-in Market）
 
-[出厂同步](../../apps/api/src/modules/ecosystem/plugins/index.ts)扫描 `plugins/*`，同步主记录、根 Skill、Config 与主动声明；没有执行任意包内代码，也不等同完整包导入（工具/Page 贡献需走分发安装验证）。API 启动发现消失的 `installSource=builtin` 插件会清理其记录。
+[出厂同步](../../apps/api/src/modules/ecosystem/plugins/index.ts)扫描 `plugins/*`，同步主记录、根 Skill、Config 与主动声明；没有执行任意包内代码，也不等同完整包导入（工具/Page 贡献需走分发安装验证）。API 启动发现缺失、无效或不可读的 `installSource=builtin` 插件时，仅更新可用性状态，保留用户开关、配置、Secret 与授权记录；恢复包不会恢复已撤销授权（见[缺包回归](../../apps/api/test/builtin-plugin-absence.test.ts)）。
 
 集市 `GET /v1/plugins/market` 当前来自本地出厂目录，不是远程公共插件商店；`POST /v1/plugins/market/:id/install` 走该目录打包安装，内部固定 `overwrite: true`；对已安装插件执行集市安装/更新也会先卸载重装，没有默认拒绝覆盖保护，数据影响同 §8.3。就地打包与构建期导出共用同一份**允许清单**（只收 Manifest、Config、Skill 与 `skills/`、`pages/` 资源；排除 `src/`、`dist/`、`node_modules/`、`test/`、构建配置），两份清单的一致性由 `apps/api/test/plugin-bundle-allowlist.test.ts` 机器断言。更新提示采用版本字符串是否不同，不是 SemVer 新旧判断。根 `mise tasks run package-plugins` 批量生成 `dist-plugins/<id>-<version>.aervox-plugin`（等价 `pnpm package:plugins`）；脚本只打包，不完成契约校验或安全认证。产物字节可重现（ZIP 条目时间戳固化、目录与条目排序），同源码重复打包的 SHA-256 稳定；`dist-plugins/` 是 gitignore 产物，测试不得依赖它，需分发包时经导出端点现场生成。
 
@@ -360,7 +357,7 @@ MCP 使用独立[服务适配器](../../apps/api/src/modules/ecosystem/mcp/servi
 | 验证范围 | 当前回归证据 | 不应据此推断 |
 |---|---|---|
 | Bundle 预检、安装、冲突、基本导出、集市 | [plugin-distribution.test.ts](../../apps/api/test/plugin-distribution.test.ts) | 原子安装、签名、完整导出回滚、ZIP 资源配额 |
-| Config 校验、串行旧版本拒绝、重置、资源路径、清理 | [plugin-config.test.ts](../../apps/api/test/plugin-config.test.ts) | Secret 静态加密、并发 CAS、配置与 Secret 原子性、全 Page 撤权 |
+| Config 校验、并发 CAS、同库 Config/Secret 原子保存与重置 | [plugin-config.test.ts](../../apps/api/test/plugin-config.test.ts)、[atomic-edits.test.ts](../../packages/repositories/test/atomic-edits.test.ts) | Secret 静态加密、外部 SecretStore 补偿、全 Page 撤权 |
 | 工具与权限登记 | [tools-plugins.test.ts](../../apps/api/test/tools-plugins.test.ts) | 任意工具声明自动提供 handler 或 grant 强制检查 |
 | Hook 与领域切面 | [study-term-plugins.test.ts](../../apps/api/test/study-term-plugins.test.ts) | 第三方 Hook 隔离、硬超时或即时取消 |
 | UI 注册/清理/配置竞态 | [ui-registry.test.ts](../../packages/ui/test/ui-registry.test.ts)、[plugin-registration.test.ts](../../plugins/focus-mode/test/plugin-registration.test.ts) | 任意第三方 Vue 热加载或安全沙箱 |
@@ -381,4 +378,4 @@ MCP 使用独立[服务适配器](../../apps/api/src/modules/ecosystem/mcp/servi
 
 停用、撤权、代码缺席、显式卸载和显式数据清理是不同操作。启动扫描遇到缺包、不可读根目录或非法清单时，必须阻断相应执行并保留安装记录、配置、Secret、授权历史和恢复诊断，不能调用卸载清理推断用户意图。恢复有效包只恢复实现的可用性，不能恢复已撤销权限或改变用户开关。数据导出/删除入口必须在实现退出后继续可用。
 
-内存注册与持久数据分开管理，注册释放绑定实例代际且幂等；双 App 不共享隐式全局注册表。显式卸载继续遵循本文既有流程；Config/Secret 原子提交仍由 ITER-004 验收。本节为已接受契约，实施证据按 CR-056（已归档至 Aervox-docs-archive）逐切片登记。
+内存注册与持久数据分开管理，注册释放绑定实例代际且幂等；双 App 不共享隐式全局注册表。显式卸载继续遵循本文既有流程；Config/Secret 的同库原子保存与重置已由 PR #258 落实，外部 SecretStore 补偿仍须独立定义。本节为已接受契约，实施证据按 CR-056（已归档至 Aervox-docs-archive）逐切片登记。

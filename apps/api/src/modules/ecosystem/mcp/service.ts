@@ -309,19 +309,22 @@ export class McpService {
     serverId: string,
     toolName: string,
     args: unknown,
+    signal?: AbortSignal,
   ): Promise<unknown> {
+    signal?.throwIfAborted();
     const row = await this.requireServer(serverId);
     if (row.enabled !== 1) {
       throw new McpUpstreamError(`MCP 服务器 ${serverId} 已断开，无法调用工具 ${toolName}`);
     }
     const client = this.getClient(row);
     await client.initialize();
-    return client.callTool(toolName, args);
+    signal?.throwIfAborted();
+    return client.callTool(toolName, args, signal);
   }
 
   private registerProxyHandler(serverId: string, toolName: string): void {
     this.deps.toolRuntime.registerHandler(mcpToolId(serverId, toolName), {
-      call: async (_tenant, args) => this.callRemote(serverId, toolName, args),
+      call: async (_tenant, args, control) => this.callRemote(serverId, toolName, args, control.signal),
     });
   }
 

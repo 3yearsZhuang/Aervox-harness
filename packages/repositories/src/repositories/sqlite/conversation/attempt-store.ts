@@ -1,9 +1,9 @@
 /**
  * Aervox｜思隅 @aervox/repositories — TurnAttempt（领取/租约/终态/恢复）Store
  */
-import { eq, and, or, lt, isNull, inArray, notInArray, desc } from "drizzle-orm";
+import { eq, and, or, lt, isNull, inArray, notInArray, desc, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
-import { turnAttempts, turns } from "@aervox/schema";
+import { turnAttempts, turns, turnStreamEvents, toolExecutions } from "@aervox/schema";
 import type { LocalContext } from "../../../local-context.js";
 import type { TurnAttemptModel } from "../../types/index.js";
 
@@ -212,34 +212,38 @@ export class AttemptStore {
     const unclaimedTimeoutMs = options?.unclaimedTimeoutMs ?? 60_000;
     const unclaimedThresholdIso = new Date(now.getTime() - unclaimedTimeoutMs).toISOString();
 
-    const result = await client.execute(`
-      UPDATE turn_attempts
-      SET status = 'Interrupted',
-          fencing_token = fencing_token + 1,
-          finished_at = '${nowIso}'
-      WHERE status = 'Running'
-        AND (
-          (lease_expires_at IS NOT NULL AND lease_expires_at < '${nowIso}')
-          OR
-          (lease_expires_at IS NULL AND started_at < '${unclaimedThresholdIso}')
-        )
-    `);
-
-    const rowsAffected = result.rowsAffected ?? 0;
-    if (rowsAffected > 0) {
-      await client.execute(`
-        UPDATE turns
-        SET status = 'Interrupted'
-        WHERE status IN ('Created', 'Running')
-          AND id IN (
-            SELECT turn_id FROM turn_attempts WHERE status = 'Interrupted'
-          )
-          AND id NOT IN (
-            SELECT turn_id FROM turn_attempts WHERE status = 'Running'
-          )
-      `);
-    }
-
-    return rowsAffected;
+    return this.db.transaction(async (tx) => {
+      const recovered = await tx.update(turnAttempts).set({
+        status: sql`CASE WHEN ${turnAttempts.status} = 'CancelRequested' THEN 'Cancelled' ELSE 'Interrupted' END`,
+        fencingToken: sql`${turnAttempts.fencingToken} + 1`, finishedAt: nowIso,
+      }).where(and(
+        inArray(turnAttempts.status, ["Running", "CancelRequested"]),
+        or(lt(turnAttempts.leaseExpiresAt, nowIso), and(isNull(turnAttempts.leaseExpiresAt), lt(turnAttempts.startedAt, unclaimedThresholdIso))),
+      )).returning();
+      for (const attempt of recovered) {
+        // A reservation without an authoritative result is uncertain, never a replay instruction.
+        await tx.update(toolExecutions).set({ status: "outcome_unknown", error: "recovery_outcome_unknown", finishedAt: nowIso })
+          .where(and(eq(toolExecutions.attemptId, attempt.id), eq(toolExecutions.status, "pending")));
+        const [latest] = await tx.select().from(turnAttempts).where(eq(turnAttempts.turnId, attempt.turnId))
+          .orderBy(desc(turnAttempts.attempt)).limit(1);
+        const [active] = await tx.select({ id: turnAttempts.id }).from(turnAttempts).where(and(
+          eq(turnAttempts.turnId, attempt.turnId), inArray(turnAttempts.status, ["Running", "CancelRequested"]),
+        )).limit(1);
+        if (active || latest?.id !== attempt.id) continue;
+        const [turn] = await tx.update(turns).set({ status: attempt.status, updatedAt: nowIso })
+          .where(and(eq(turns.id, attempt.turnId), inArray(turns.status, ["Created", "Running", "Cancelled"]))).returning();
+        if (!turn) continue;
+        const [last] = await tx.select({ sequence: turnStreamEvents.sequence }).from(turnStreamEvents)
+          .where(eq(turnStreamEvents.turnId, turn.id)).orderBy(desc(turnStreamEvents.sequence)).limit(1);
+        const sequence = Math.max(turn.lastSequence, last?.sequence ?? 0) + 1;
+        await tx.insert(turnStreamEvents).values({
+          id: `tev_${turn.id}_${sequence}`, turnId: turn.id, attemptId: attempt.id,
+          sequence, eventType: "done", occurredAt: nowIso, committedAt: nowIso,
+          safetyDecision: "approved", data: { status: attempt.status, isComplete: false, lastSequence: sequence, reason: "execution_recovered" },
+        });
+        await tx.update(turns).set({ lastSequence: sequence }).where(eq(turns.id, turn.id));
+      }
+      return recovered.length;
+    });
   }
 }

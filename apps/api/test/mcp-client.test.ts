@@ -170,3 +170,22 @@ describe("maskToken / mcpToolId", () => {
     expect(mcpToolId("mcd-mcp", "create-order")).toBe("mcp__mcd-mcp__create-order");
   });
 });
+
+it("per-call cancellation aborts the remote request and pre-cancelled calls send nothing", async () => {
+  const controller = new AbortController();
+  let started!: () => void;
+  const start = new Promise<void>((resolve) => { started = resolve; });
+  let calls = 0;
+  const client = new McpHttpClient({ endpointUrl: "https://mcp.test", fetchImpl: async (_url, init) => {
+    calls++;
+    started();
+    return new Promise<Response>((_resolve, reject) => {
+      init!.signal!.addEventListener("abort", () => reject(init!.signal!.reason), { once: true });
+    });
+  } });
+  const pending = client.callTool("write", {}, controller.signal);
+  const rejected = expect(pending).rejects.toThrow("cancelled");
+  await start; controller.abort(new Error("cancelled")); await rejected;
+  await expect(client.callTool("write", {}, controller.signal)).rejects.toThrow("cancelled");
+  expect(calls).toBe(1);
+});

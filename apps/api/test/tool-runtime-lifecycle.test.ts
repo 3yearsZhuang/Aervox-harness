@@ -122,5 +122,55 @@ it("开关轮换取消在途调用，原贡献句柄仍释放最新代际且不�
   runtime.dispose();
 });
 
+
+it("call cancellation reaches the dynamic handler through the provider and prevents its next effect", async () => {
+  const { createRuntimeToolProvider } = await import("../src/modules/companion/conversation/tool-providers.js");
+  const { ControlContext } = await import("@aervox/core");
+  const { runtime } = fixture();
+  const control = new ControlContext({ localProcessingOnly: true, fencingToken: 7 });
+  const started = deferred<AbortSignal>();
+  const resume = deferred<void>();
+  const effect = vi.fn();
+  await runtime.registerContribution(definition(), { call: async (_ctx, _args, input) => {
+    expect(input.controlContext).toBe(control);
+    started.resolve(input.signal);
+    await resume.promise;
+    input.signal.throwIfAborted();
+    effect();
+  } });
+  const provider = createRuntimeToolProvider(runtime, ctx, { conversationRepo: {} as never });
+  const call = provider.execute({ name: "test", arguments: {}, turnId: "t", attemptId: "a", invocationId: "i", controlContext: control });
+  const signal = await started.promise;
+  control.abort(new Error("turn cancelled"));
+  expect(signal.aborted).toBe(true);
+  expect(await call).toMatchObject({ ok: false, error: "turn cancelled" });
+  resume.resolve();
+  await Promise.resolve();
+  expect(effect).not.toHaveBeenCalled();
+  runtime.dispose(); control.dispose();
+});
+
+it("pre-aborted and cancelled-during-lookup calls cannot enter a handler; listeners detach on abort/settle", async () => {
+  const { runtime, registry } = fixture();
+  const handler = vi.fn(async () => "done");
+  await runtime.registerContribution(definition(), { call: handler });
+  await expect(runtime.callTool(ctx, "test", {}, { signal: AbortSignal.abort(new Error("pre-aborted")) })).rejects.toThrow("pre-aborted");
+  const read = deferred<ToolRegistrationModel | null>();
+  const original = await registry.getTool("test");
+  vi.spyOn(registry, "getTool").mockImplementationOnce(() => read.promise);
+  const cancelled = new AbortController();
+  const pending = runtime.callTool(ctx, "test", {}, { signal: cancelled.signal });
+  cancelled.abort(new Error("cancelled during lookup"));
+  read.resolve(original);
+  await expect(pending).rejects.toThrow("cancelled during lookup");
+  expect(handler).not.toHaveBeenCalled();
+  const active = new AbortController();
+  const add = vi.spyOn(active.signal, "addEventListener");
+  const remove = vi.spyOn(active.signal, "removeEventListener");
+  expect(await runtime.callTool(ctx, "test", {}, { signal: active.signal })).toBe("done");
+  await Promise.resolve();
+  expect(remove.mock.calls[0]?.[1]).toBe(add.mock.calls[0]?.[1]);
+  runtime.dispose();
+});
 import { runtimeContract } from "../../../packages/core/test/runtime-contract.js";
 runtimeContract("API runtime contract", () => fixture().runtime);

@@ -102,8 +102,10 @@ export async function indexMemoryFts(
   assertLocalContext(ctx);
   await client.execute({ sql: `DELETE FROM memories_fts WHERE id = ?`, args: [memory.id] });
   await client.execute({
-    sql: `INSERT INTO memories_fts(id, content) VALUES (?, ?)`,
-    args: [memory.id, memory.content],
+    // A late indexer must not resurrect a scrubbed Memory tombstone.
+    sql: `INSERT INTO memories_fts(id, content) SELECT ?, ?
+          WHERE NOT EXISTS (SELECT 1 FROM memory_records WHERE id = ? AND is_deleted = 1)`,
+    args: [memory.id, memory.content, memory.id],
   });
 }
 

@@ -7,7 +7,7 @@
  */
 import { eq, and } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
-import { memoryEmbeddings } from "@aervox/schema";
+import { memoryEmbeddings, memoryRecords } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
 import { cosineSimilarity } from "../../search/vector-port.js";
 import type { IMemoryEmbeddingRepository } from "../types/index.js";
@@ -56,6 +56,10 @@ export class SqliteMemoryEmbeddingRepository implements IMemoryEmbeddingReposito
         try {
           await this.db.transaction(async (tx) => {
             for (const item of chunk) {
+              // Recheck under the writer lock after any asynchronous embedding generation.
+              const [source] = await tx.select({ isDeleted: memoryRecords.isDeleted }).from(memoryRecords)
+                .where(eq(memoryRecords.id, item.memoryId));
+              if (source?.isDeleted === 1) continue;
               await tx
                 .insert(memoryEmbeddings)
                 .values({

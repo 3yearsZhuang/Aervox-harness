@@ -90,8 +90,9 @@ export class McpHttpClient {
   private async rpc<T = unknown>(
     method: string,
     params?: unknown,
-    opts?: { notification?: boolean },
+    opts?: { notification?: boolean; signal?: AbortSignal },
   ): Promise<T> {
+    opts?.signal?.throwIfAborted();
     const isNotification = opts?.notification === true;
     const id = isNotification ? undefined : ++this.nextId;
     const headers: Record<string, string> = {
@@ -108,7 +109,7 @@ export class McpHttpClient {
         method: "POST",
         headers,
         body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
-        signal: AbortSignal.timeout(this.options.timeoutMs ?? DEFAULT_TIMEOUT_MS),
+        signal: AbortSignal.any([AbortSignal.timeout(this.options.timeoutMs ?? DEFAULT_TIMEOUT_MS), ...(opts?.signal ? [opts.signal] : [])]),
       });
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
@@ -168,7 +169,7 @@ export class McpHttpClient {
   }
 
   /** tools/call：调用远程工具，返回 MCP result（content 数组 / isError 等） */
-  async callTool(name: string, args: unknown): Promise<unknown> {
-    return this.rpc("tools/call", { name, arguments: args ?? {} });
+  async callTool(name: string, args: unknown, signal?: AbortSignal): Promise<unknown> {
+    return this.rpc("tools/call", { name, arguments: args ?? {} }, { signal });
   }
 }

@@ -203,46 +203,22 @@ export function registerConversationRoutes(
       userMessage = `${userMessage}\n\n[附件清单]\n${list}`;
     }
 
-    // 阶段 5a-2：消费本 session 的 next-turn 收件箱项（followup 排队为新 Turn 输入，§7.2）
-    if (deps.inboxRepo) {
-      const followups = await deps.inboxRepo.claimForConsumption(tenant, {
-        sessionId,
-        type: "next-turn",
-        limit: 20,
-      });
-      if (followups.length > 0) {
-        const extra = followups.map((f) =>
-          typeof f.payload === "string" ? f.payload : JSON.stringify(f.payload),
-        );
-        await deps.inboxRepo.acknowledge(
-          tenant,
-          followups.map((f) => f.id),
-        );
-        userMessage = [...extra, userMessage].join("\n\n");
-      }
-    }
-
     const turnId = nextTurnId();
     const messageId = `msg_${Date.now().toString(36)}_${(++seq).toString(36)}`;
-
-    await conversationRepo.createTurnWithOutbox(
-      tenant,
-      { id: turnId, sessionId, idempotencyKey, status: "Created" },
-      { id: messageId, content: userMessage },
-      {
-        id: `outbox_${turnId}`,
-        eventType: "turn.created",
-        idempotencyKey: `idem_outbox_${turnId}`,
-        payload: { turnId, sessionId },
-      },
-    );
-
-    // 阶段 1/2d（AVX-HAR-001 §15）：创建 Attempt 并由 Agent Loop 执行一次。
-    // CR-027：Loop 执行与 HTTP 响应解耦——background（默认）落库后立即 201，
-    // Loop 后台执行，客户端经 SSE 活流（重放 + tail + 心跳）观察进度；
-    // 深度思考等长回合不再把 POST 拖过客户端超时。inline 保留旧同步语义（测试/排查）。
     const attemptId = `atp_${turnId}`;
-    await conversationRepo.createTurnAttempt(tenant, turnId, { id: attemptId, attempt: 1 });
+    const accepted = await conversationRepo.acceptTurn(tenant, {
+      turnId, sessionId, idempotencyKey, attemptId,
+      message: { id: messageId, content: userMessage }, consumeInbox: Boolean(deps.inboxRepo),
+    });
+    if (!accepted.created) {
+      return reply.code(200).send({
+        turnId: accepted.turn.id, status: accepted.turn.status,
+        eventsUrl: `/v1/turns/${accepted.turn.id}/events`, cancelUrl: `/v1/turns/${accepted.turn.id}/cancel`,
+      });
+    }
+    // Execute precisely the persisted input; only the committing request dispatches the Loop.
+    userMessage = accepted.message.content;
+    // CR-027: acceptance remains independent of background execution and SSE observation.
     const uqPort = deps.userQuestionCoordinator ? deps.userQuestionCoordinator.createPort(tenant) : undefined;
     const runLoop = async () => {
       // ITER-027: 会话流式/多轮密集执行期间下发写入压力信号，协调后台 Worker 降频退避。

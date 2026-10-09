@@ -73,3 +73,8 @@ apps/*/src/**/*.d.ts.map
 !**/env.d.ts
 !**/sherpa-onnx-node.d.ts
 !**/*.min.js
+
+# Generated shared assets; source: packages/public (build restores consumer copies).
+apps/desktop/src/renderer/public/aervox-intro/
+apps/desktop/src/renderer/public/aervox-mark.svg
+apps/web/public/aervox-mark.svg

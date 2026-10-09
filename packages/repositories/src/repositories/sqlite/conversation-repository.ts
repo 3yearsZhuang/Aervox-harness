@@ -9,6 +9,7 @@ import type { AervoxDatabase } from "../../client.js";
 import type { LocalContext } from "../../local-context.js";
 import type {
   IConversationRepository,
+  TurnAcceptanceInput,
   SessionModel,
   TurnModel,
   MessageModel,
@@ -96,6 +97,10 @@ export class SqliteConversationRepository implements IConversationRepository {
     sessionId: string,
   ): Promise<boolean> {
     return this.sessionStore.deleteSession(_tenant, sessionId);
+  }
+
+  acceptTurn(ctx: LocalContext, input: TurnAcceptanceInput) {
+    return this.turnStore.acceptTurn(ctx, input);
   }
 
   async createTurnWithOutbox(

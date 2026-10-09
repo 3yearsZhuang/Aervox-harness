@@ -3,6 +3,7 @@
  *
  * 删除传播与 RecoveryControlLedger 内部账本由 Worker 处理，不对外暴露。
  */
+import { createDeletionRequestSchema } from "@aervox/contracts";
 import type { FastifyInstance } from "fastify";
 import type { SqlitePrivacyRepository } from "@aervox/repositories";
 import { resolveLocalContext } from "../../../shared/local-context.js";
@@ -52,19 +53,15 @@ export function registerPrivacyRoutes(
 
   app.post("/v1/deletions", async (req, reply) => {
     const tenant = resolveLocalContext(req);
-    const body = (req.body ?? {}) as {
-      scope?: string;
-      idempotencyKey?: string;
-      ownerModule?: string;
-    };
-    if (!body.scope || !body.ownerModule) {
-      return reply.code(400).send({ error: "scope and ownerModule are required" });
-    }
+    const parsed = createDeletionRequestSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid deletion request" });
+    const body = parsed.data;
     const request = await privacyRepo.createDeletionRequest(tenant, {
       id: id("dr"),
       scope: body.scope,
       idempotencyKey: body.idempotencyKey ?? id("del"),
       ownerModule: body.ownerModule,
+      targets: body.targets,
     });
     return reply.code(202).send(request);
   });

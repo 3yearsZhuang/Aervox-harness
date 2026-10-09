@@ -141,13 +141,16 @@ describe("FND-01: Outbox 消费归属、抢先完成防御与失败死信测试"
   });
 
   it("失败重试与死信机制：达到 maxRetries 后自动收敛至 dead_letter 状态并保留错误信息", async () => {
+    await memoryRepo.createRecord(localCtx, {
+      id: "mem_faulty", layer: "short_term", type: "learning_event", content: "Retry fixture",
+    });
     // 插入一个载荷缺少 snapshotId 的压缩事件（必定引发校验失败）
     await outboxRepo.insertEvent(localCtx, {
       id: "evt_faulty",
       idempotencyKey: "idem_faulty",
       eventType: COMPACTION_EVENT_TYPE,
       payload: {
-        memoryId: "mem_nonexistent",
+        memoryId: "mem_faulty",
         // missing snapshotId
       },
     });

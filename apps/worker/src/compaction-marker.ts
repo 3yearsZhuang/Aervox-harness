@@ -16,8 +16,9 @@ import type {
   SqliteMemoryCompactionRepository,
   SqliteOutboxRepository,
 } from "@aervox/repositories";
+import { MemoryCompactionUnavailableError, MEMORY_COMPACTION_EVENT_TYPE } from "@aervox/repositories";
 
-export const COMPACTION_EVENT_TYPE = "memory.compaction.requested";
+export const COMPACTION_EVENT_TYPE = MEMORY_COMPACTION_EVENT_TYPE;
 
 export interface CompactionMarkerContext {
   outboxRepo: SqliteOutboxRepository;
@@ -78,6 +79,11 @@ export async function runCompactionMarkerCycle(deps: CompactionMarkerContext): P
       await deps.outboxRepo.markPublished(event.id);
       markers += 1;
     } catch (err) {
+      if (err instanceof MemoryCompactionUnavailableError) {
+        // A previously fetched payload cannot write through a deletion tombstone.
+        await deps.outboxRepo.markPublished(event.id);
+        continue;
+      }
       await deps.outboxRepo.markFailed(
         event.id,
         err instanceof Error ? err.message : String(err),

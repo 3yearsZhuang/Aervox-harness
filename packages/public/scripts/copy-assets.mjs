@@ -7,7 +7,7 @@
  *
  * 由 @aervox/public 的 build 脚本触发（turbo dependsOn ^build 保证顺序）。
  */
-import { cpSync, mkdirSync, existsSync } from 'node:fs'
+import { cpSync, mkdirSync, existsSync, rmSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -30,5 +30,6 @@ for (const targetDir of [desktopPublic, webPublic]) {
 const introSrc = join(pkgDir, 'aervox-intro')
 if (!existsSync(introSrc)) throw new Error(`共享资产不存在: ${introSrc}`)
 mkdirSync(desktopPublic, { recursive: true })
+rmSync(join(desktopPublic, 'aervox-intro'), { recursive: true, force: true })
 cpSync(introSrc, join(desktopPublic, 'aervox-intro'), { recursive: true })
 console.log(`✓ 已拷贝 aervox-intro → ${join(desktopPublic, 'aervox-intro')}`)

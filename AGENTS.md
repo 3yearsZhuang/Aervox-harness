@@ -1,8 +1,5 @@
 # AGENTS.md — AI 协作指南（薄入口）
 
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-10-06
-
 本文件是所有 AI 编码助手（包括 Antigravity、Cursor、GitHub Copilot、Roo Code、Windsurf 等）的进入点与协作底线协议：
 **只索引，不复制**：权威技术规范、产品定义与架构事实源一律深链至 `docs/`，严禁在入口复制可能变更的业务逻辑，杜绝双源漂移。
 当前迭代从根目录 [plan.md](plan.md) 开始：它是项目当前迭代建议、排序、依赖与待决策事项的唯一权威入口。长期维护规则见[迭代计划治理](docs/reference/document-governance.md#31-当前迭代计划的唯一入口)，需求、架构决策与交付证据仍按各自事实源维护。
@@ -15,7 +12,7 @@
 Aervox｜思隅：更好上手的“主动智能” Agent——以桌宠为入口，视觉小说 + 工作台双形态交互，承载陪伴与学习双重任务。
 
 - **技术族**：TypeScript 全栈 monorepo（Vue 全栈单栈，[ADR-015](docs/reference/adr/ADR-015-vue-full-stack.md)）：Fastify 5 API（:3000）+ 独立 Worker 进程（Outbox / 复习排期 / 日记提炼 / 证据清理）+ Electron 桌面端（Fairy）+ Vue 3 Web 工作台（:5173）。
-- **存储真源**：纯本地单用户真源（`CR-030`，已归档），永久本地 SQLite (WAL 模式) 单库存储。去租户化已完全落地，全面移除了历史 Postgres、Redis、BullMQ 和 S3 依赖。
+- **存储真源**：纯本地单用户真源（`CR-030`，已归档），本地 SQLite（WAL 模式）存储，物理文件拓扑见 [SQLite 数据库契约](docs/reference/DATABASE.md#3-本地存储拓扑)。去租户化已完全落地，全面移除了历史 Postgres、Redis、BullMQ 和 S3 依赖。
 
 ---
 
@@ -30,7 +27,7 @@ Aervox｜思隅：更好上手的“主动智能” Agent——以桌宠为入�
    - [从哪开始](docs/getting-started.md) — 仓库目录组织、阅读流向、写作硬规则与 Docs CI 自检。
 2. **规范、契约与红线**：
    - [文档治理与事实源规范](docs/reference/document-governance.md) — 事实源矩阵、文档状态模型、所有权与复核触发器；
-   - [文档写作规范](docs/reference/standards/doc-standards.md) — Diátaxis 四分类、Front Matter 规范、点阵签名与 Markdownlint 规则；
+   - [文档写作规范](docs/reference/standards/doc-standards.md) — Diátaxis 四分类、Front Matter 规范、Git 留痕与 Markdownlint 规则；
    - [术语表](docs/reference/standards/terminology.md) — 大小写规范与禁写词库（Vale 门禁基准）。
 3. **架构与业务核心真源**：
    - [架构设计说明书](docs/reference/ARCHITECTURE.md) & [ADR 决策索引](docs/reference/adr/README.md) — 模块化单体边界、C4 模型与关键技术裁决；
@@ -80,15 +77,15 @@ Aervox｜思隅：更好上手的“主动智能” Agent——以桌宠为入�
 | 场景 | 推荐命令 | 说明 |
 | ---------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | 极速增量门禁 | `./aervox ci` 或 `mise tasks run ci-fast` | 本地推荐：CI 配置一致性 + 仅对变更包及下游（含包外输入命中包）运行边界/构建/测试 + 文档增量检查（15~30s） |
-| 全量终审门禁 | `./aervox ci all` | 全量兜底：全量 19 包构建/类型/测试 + 全量文档严格检查（PR 推送前终验） |
+| 全量终审门禁 | `./aervox ci all` | 全量兜底：全量 workspace 构建/类型/测试 + 全量文档严格检查（PR 推送前终验） |
 | 增量代码门禁 | `mise tasks run check-affected` | 仅运行变更包及其下游的依赖边界检查 + 构建 + 类型检查 + 增量测试 |
 | 增量文档门禁 | `mise tasks run docs-lint-affected` | 仅对 Git 变动的 Markdown 文档执行 Vale + Markdownlint + 治理校验 |
 | 智能增量测试 | `./aervox test` 或 `mise tasks run test-affected` | 自动识别基准分支并仅运行变更包及其全部下游依赖（日常高频推荐，受控 2 并发） |
 | 极速单元层 | `./aervox test fast` 或 `mise tasks run test-fast` | 仅运行不建库、不起服务的 9 个轻量包（纯逻辑 + DOM 组件测试，约 3~10s） |
-| 全量受控测试 | `./aervox test all` 或 `mise tasks run test` | 全量 19 包测试（受控 2 并发 + 单 Worker 串行，彻底杜绝 SQLite 锁冲突） |
+| 全量受控测试 | `./aervox test all` 或 `mise tasks run test` | 全量 workspace 测试（受控 2 并发 + 单 Worker 串行，限制资源竞争；写入仍须处理 SQLite 锁冲突） |
 | 专项单包测试 | `./aervox test api` / `./aervox test repos` | 针对重型核心包运行独立定向测试（已接入 SQLite 模板克隆加速） |
 | E2E 测试 | `mise x -- pnpm test:e2e` | Playwright API 级端到端（spawn 真实 API 进程 + 文件 SQLite，45 用例约 45s，需先构建 api）；CI 中以观察期非阻塞运行 |
-| 格式化修复 | `npx markdownlint-cli2 --fix <files>` | 自动修复 Markdownlint 可自愈的排版问题 |
+| 格式化修复 | `mise exec -- markdownlint-cli2 --fix <files>` | 自动修复 Markdownlint 可自愈的排版问题 |
 | 术语检查 | `vale --minAlertLevel=error <files>` | 针对指定文件执行 Vale 散文与术语一致性检查 |
 | 注册表自动同步 | `mise tasks run docs-sync` | 自动从文档 Front Matter 读取日期并回写 `docs/DOC_REGISTRY.md` |
 | 计划队列渲染 | `mise tasks run plan-render` | 从 `docs/_meta/plan-queue.json` 重新生成 `plan.md` §2 的派生表格（生成区禁止手改） |
