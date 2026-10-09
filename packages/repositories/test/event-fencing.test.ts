@@ -95,7 +95,9 @@ describe("B1 事件写入 fencing CAS（appendStreamEvent）", () => {
     ).rejects.toThrow(FencingMismatchError);
 
     const events = await repo.getStreamEvents(ctx, turnId, 0);
-    expect(events).toHaveLength(0); // 事件流零污染
+    expect(events).toHaveLength(1); // Only the authoritative recovery event; no late tool result.
+    expect(events[0]).toMatchObject({ eventType: "done", attemptId, data: { status: "Interrupted" } });
+    expect(events.some((event) => event.id === "tev_f2_late")).toBe(false);
   });
 
   it("attempt 不存在：拒绝并抛 FencingMismatchError", async () => {

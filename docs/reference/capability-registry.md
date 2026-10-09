@@ -6,22 +6,21 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.5.0
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
+version: 0.5.1
+updated_at: 2026-10-08
+reviewed_at: 2026-10-08
 review_interval_days: 90
 ---
 
 # 能力注册表（交付与自选状态登记）
-
-- 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-09-17
 
 关联：[能力组合与可选化目录规范](capability-composition.md)、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)、[文档索引](../README.md)
 
 本表是"哪些能力纳入自选机制、以什么方式启用、当前处于哪个状态"的唯一登记处。判定规则由[能力组合与可选化目录规范](capability-composition.md)的[边界判定](capability-composition.md#核心与可选的边界判定)裁决；原 [submodule 协作指南](../how-to/) 已于 2026-10-04 移除（`modules/*` 机制未落地），实施 CR 立项时再恢复操作细节。需求语义、优先级与交付状态以[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)为准，本表只登记**交付载体与启用方式**，不替代该基线。
 
 **宿主形态组件（非自选能力，不进下表）**：`apps/desktop`（`@aervox/desktop`，ADR-009）、`apps/cli`（`siyu` 终端宿主，CR-058 已归档，仅消费 `@aervox/api-client/transport`）、`apps/mobile`（Capacitor 壳，CR-055 待评审）。
+
+**CAP-027 不属于自选候选**：CR-030 和[数据库契约](DATABASE.md#1-适用范围与不变量)确立的本地 SQLite 真源、保留、导出、删除及恢复责任，是不可关闭的系统边界。这里纠正旧“本地优先/构建自选”分类，不提升能力交付状态；备份、迁移、恢复和发布验收仍查[追踪矩阵](REQUIREMENTS_TRACEABILITY.md#4-cap-001cap-035-覆盖矩阵全部能力状态唯一速览)。
 
 ## 状态与启用方式
 
@@ -48,7 +47,6 @@ review_interval_days: 90
 | CAP | 功能 | 状态 | 启用方式 | 接口/适配边界 | 依赖的 ADR |
 |---|---|---|---|---|---|
 | CAP-020 | 技能/插件系统 | 候选 | 双 | 插件 SDK + 沙箱；MVP 依赖内部稳定 API，不承诺插件兼容（PRD 14.3 末尾）；CR-032 起支持声明式主动触发规则（`spec.proactive`）与感知源授权；CR-034/CR-042 起支持本地模型路由降级阶梯与探活切回 | ADR-009/ADR-010（插件/生态）；CR-032；CR-034 |
-| CAP-027 | 本地数据主权/可移植性 | 候选 | 构建 | 本地单用户 SQLite、可读导出、备份/恢复与 CR-030 显式迁移 | CR-030；ADR-008 已替代 |
 | CAP-023 | 第三方刷题接入 | 候选 | 运行 | OAuth 授权撤销、同步方向与冲突可见 | — |
 | CAP-024 | 文献阅读与发散 | 候选 | 运行 | 外部内容不可信，防 prompt injection | — |
 | CAP-025 | 线下试卷扫描 | 候选 | 运行 | OCR 低置信不自动入掌握度 | — |

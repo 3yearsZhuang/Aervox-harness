@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.7.6
+version: 0.8.1
 updated_at: 2026-10-08
 reviewed_at: 2026-10-08
 review_interval_days: 90
@@ -14,14 +14,11 @@ review_interval_days: 90
 
 # Agent Harness Loop 设计与落地规范
 
-- 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-10-05
-
 关联：[能力组合与可选化目录规范](capability-composition.md)、[架构设计](ARCHITECTURE.md)、[流式协议](STREAMING_PROTOCOL.md)、[ADR-004](adr/ADR-004-outbox-idempotent-jobs.md)、[ADR-005](adr/ADR-005-provider-port.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](adr/ADR-010-dsh-pi-adapters.md)、[ADR-012](adr/ADR-012-streaming-safety-persistence.md)、[ADR-016](adr/ADR-016-base-boundaries.md)、[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md)、`CR-012`（已归档）、`CR-021`（已归档）、`CR-022`（已归档）、[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)
 
-本文规定 Aervox Agent Harness Loop 的职责、状态机、Port、持久化边界、工具执行、取消恢复和阶段验收条件。阶段 0/1/2a-2e/3a/3b-A/3b-B 的历史记录包含原生实现：`packages/agent-loop` 提供 Replay/Scripted/真实 OpenAI 兼容 Provider、多 Step 工具循环、API/SSE 持久化、工具账本、写工具审批、`ask_user_question` 人机提问交互、lease TTL/续租、过期抢占、fencing 单一终态和 Worker 恢复；原阶段设计另列 3c+ 生产级安全补强、完整 Inbox/ContextManifest 关联、独立 Host 以及 DSH/pi Adapter 目标。文中标为“目标”的接口、表和状态转换，只有在对应代码、迁移和契约测试落地后才可视为运行能力。
+本文规定 Agent Turn 的执行、持久化、工具授权、取消恢复与验收契约。内核实现位于 [`packages/core`](../../packages/core/src/index.ts)，SQLite 适配与宿主构件位于 [`packages/host-agent`](../../packages/host-agent/src/index.ts)；原 `packages/agent-loop` 及兼容壳已按 [ADR-021](adr/ADR-021-aervox-core-standalone-package.md) 移除。接口与字段以代码和 Schema 为机器真源，本文保留跨模块不变量及尚未兑现的目标，不复制实现历史。
 
-当前迭代建议、工作排序和待决策入口统一为根 [plan.md](../../plan.md)（AVX-PLAN-001），规划边界见[文档治理规范 §3.1](document-governance.md#31-当前迭代计划的唯一入口)。本文件保留阶段设计、退出条件与历史证据；旧阶段编号及当时的完成描述不代表默认生产接线或当前排期。实现与验收状态以[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)及其关联证据为准，已接受的契约和退出条件不因调整计划而失效。
+当前工作排序与认领只在根 [plan.md](../../plan.md) 维护；实现、剩余差量与交付证据以[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)为准。下列代码入口用于定位现状，不表示完整生产验收或发布批准；已接受的安全要求不因现状有缺口而降低。
 
 ## 当前执行合同补充（CR-061）
 
@@ -60,33 +57,28 @@ Agent Harness Loop 是驱动一次 Agent Turn 的执行能力：它领取已持�
 
 ### 2.1 已有构件
 
-| 构件 | 当前实现 | 可复用边界 |
+| 构件 | 实现入口 | 当前边界 |
 |---|---|---|
-| Turn 创建 | `apps/api/src/modules/companion/conversation/routes.ts`；Outbox 兼容事件为 `turn.created` | 已有幂等创建 Turn、Message 和 Outbox，并创建 Attempt；目标 `agent.turn.requested` 仍需迁移期双读映射 |
-| TurnAttempt | `turn_attempts` schema 与仓储 | 已落地 `leaseExpiresAt`、claim/renew/recover、CAS/fencing 单一终态；事件和工具写入的 fencing 绑定、Step 持久化仍待后续阶段 |
-| TurnStreamEvent | `turn_stream_events` schema、append/list 仓储与 SSE 路由 | 已接收 attempt/safetyDecision 并从持久化事件重放；完整安全分段和更高水位订阅仍需增强 |
-| ModelProviderPort | `packages/core` + API 接线 | Replay/Scripted 与 OpenAI 兼容流已可用；`llm` 模式从 LLM 配置构造真实 Provider，Provider 仍由迁移期 API 组合根选择，独立 Host/多 Provider Resolver 待后续阶段 |
-| ToolRuntime | `apps/api/src/modules/ecosystem/tools/runtime.ts` + `createRuntimeToolProvider` | 只读白名单、写工具授权、工具结果账本和 fail-closed 已由模型输出驱动；并行度、幂等预留和完整沙箱仍规划中 |
-| ModelRun/ContextManifest | `model_runs`、`context_manifests` schema 与通用 CRUD | 目前仍是通用记录，未接入每个 Turn/Attempt/Step；需 ADR 冻结 `stepId`/`attemptId` 关联和 cardinality |
-| Worker loop | `apps/worker/src/index.ts` + `attempt-recovery.ts` | 已接入过期 Attempt 恢复 cycle（3b-B）；尚未由 Worker 消费 `agent.turn.requested` 驱动异步 Loop（当前 API 迁移期同步执行） |
-| Pipeline | `apps/worker/src/pipeline.ts` | 已定义显式顺序与短路 helper，但不直接承担 Agent Step |
+| Turn 受理与执行 | [Conversation routes](../../apps/api/src/modules/companion/conversation/routes.ts) | 持久化 Turn、Message、`turn.created` Outbox 后建立 Attempt；默认在 API 进程后台执行并立即返回 201，`inline` 仅用于测试/排查；不是持久队列驱动的独立执行进程 |
+| Loop 与 Provider | [executor](../../packages/core/src/executor.ts)、[Provider](../../packages/core/src/openai-compat-provider.ts) | Replay/Scripted/OpenAI 兼容流、多 Step、审批 SPI、取消与预算；API 组合根负责注入产品上下文和权限 |
+| 租约与公开事件 | [SQLite ExecutionStore](../../packages/host-agent/src/sqlite-execution-store.ts)、[心跳](../../packages/core/src/lease-heartbeat.ts) | claim/renew、事件 fencing、安全片段与事件原子提交、工具结果与事件原子提交、终态 CAS 已存在；不能据此推定全部旧写入口均有相同保护 |
+| 工具执行 | [工具管线](../../packages/core/src/tool-pipeline.ts)、[工具账本](../../packages/core/src/tool-ledger.ts)、[API Runtime](../../apps/api/src/modules/ecosystem/tools/runtime.ts) | 已有输入检查、审批、幂等预留、超时、结果检查与账本；动态权限快照、资源隔离及完整副作用恢复仍需专项验收 |
+| 模型调用记录 | [executor 写入](../../packages/core/src/executor.ts)、[API sink](../../apps/api/src/modules/companion/conversation/agent-executor.ts) | 每个成功返回的 Step 写 ModelRun，关联 attemptId/stepId；首 Step 写上下文快照。写入为可选、尽力而为，尚不满足每次请求/重试独立且不可缺失的 Manifest 合同 |
+| Inbox 与扩展 | [Inbox API](../../apps/api/src/modules/companion/inbox/routes.ts)、[ContextBuilder](../../packages/core/src/context-builder.ts) | 已有持久 inbox、claim/ack、followup/steer/inject 消费、Skill 与压缩接缝、Subagent/Workflow Contribution；唤醒和恢复的端到端语义仍按下文验收 |
+| 可复用 Host/Profile | [Agent Host](../../packages/host-agent/src/agent-host.ts)、[Profile](../../packages/host-agent/src/profile.ts)、[恢复源](../../packages/host-agent/src/sqlite-resume-source.ts) | 已有轮询、claim、容量限制、健康检查、排空和最小 Provider/Adapter 选择；这些库构件不等于 API/Worker 已切换到独立 Host |
+| Worker 恢复 | [attempt-recovery](../../apps/worker/src/attempt-recovery.ts) | 默认周期把过期 Attempt 收敛为 Interrupted；续跑候选只作观测，不自动调度 Host 续跑 |
 
-### 2.2 当前缺口
+<a id="22-当前缺口"></a>
 
-当前 API 已可通过 `AERVOX_LOOP_PROVIDER=replay|scripted|scripted-write|llm` 执行原生 Loop，SSE 从持久化 `turn_stream_events` 重放；阶段 2e/3a/3b-A/3b-B 已覆盖真实 OpenAI 兼容流、写工具审批、lease TTL/续租、过期抢占、fencing 和 Worker 恢复。仍缺少异步 Outbox 驱动、完整分段安全门、Step/ModelRun/ContextManifest 持久化关联、Inbox、3c+ 生产级副作用恢复；外部 Driver 方面 DSH 已可经 `AERVOX_LOOP_DRIVER=dsh` 整 Turn 接入（§16.29，库内 Cordis 容器组装仍为 P2），pi 待真 Adapter；客户端 `for (;;)`/`while (true)` 只读取 SSE，不是 Agent Loop。
+### 2.2 尚未兑现的目标
 
-仍需补齐的核心能力包括：
+当前差量包括持久接单与独立 Host 的生产接线、完整 `LoopDriverPort`、AgentStep/ToolInvocation 独立持久化、每请求/重试的 ModelRun 与来源 Manifest、工具 Schema/授权修订的一致快照，以及完整安全、背压、取消和恢复矩阵。对应验收见 §15～16，排序与认领见根计划，不在本文另建任务队列。
 
-1. 异步 Outbox 驱动和独立可扩展的 `LoopDriverPort`；
-2. 按 Step 持久化 Prompt、ContextManifest、ModelRun 和 AgentStep；
-3. 完整分段安全门、取消传播、预算与背压；
-4. Tool 并行/幂等预留、沙箱和结果安全校验；
-5. follow-up、steer 和 context injection 的受控收件箱；
-6. DSH/pi 进程外 Adapter、Provider parity 和迁移回放。
+DSH 已有整 Turn 进程外 Adapter 接口和模拟器/夹具验证，API 可用 `AERVOX_LOOP_DRIVER=dsh` 选择；真实外部运行时及其兼容性验收不得从开关或夹具通过推定。pi 仍需真实 Adapter。客户端 SSE 读取循环不承担 Agent Loop。
 
 ## 3. 在能力组合模型中的位置
 
-Agent Harness Loop 是 Profile 可选择的业务执行 Capability，不属于不可关闭的 Kernel Substrate。Profile 可以选择一个 Loop Driver 实现：
+按 [ADR-021](adr/ADR-021-aervox-core-standalone-package.md)，`@aervox/core` 提供宿主无关的执行内核；学习、人格等业务能力由宿主注入。业务能力是否启用与 Driver 选择遵循[能力组合规范](capability-composition.md)，不允许借替换 Driver 绕过持久化和授权责任。目标 Profile 可选择：
 
 - Aervox 原生 `native-agent-loop` Driver；
 - `adapter-dsh` 暴露的 DSH Loop Driver；
@@ -95,7 +87,7 @@ Agent Harness Loop 是 Profile 可选择的业务执行 Capability，不属于�
 
 Resolver 不变量：对话能力一旦启用，且某个 Turn 需要执行模型—工具流程，Profile 必须且只能解析出一个兼容的 `LoopDriverPort`。可以不安装 DSH 或 pi，但不能出现“有 Conversation 能力却没有 Native/Replay/其他 Loop Driver”，也不能同时激活两个竞争性的 Driver。模型 Provider 可以有多个候选，但每个 Step 最终只能绑定一个已解析的 Model Provider。
 
-当前实现尚未落地 Profile Resolver，而是通过 `AERVOX_LOOP_PROVIDER` 在 API 组合根选择 Replay、Scripted 或 OpenAI 兼容 Provider；Driver 侧另有 `AERVOX_LOOP_DRIVER`（native | dsh）选择整 Turn 进程外 DSH Adapter（§16.29）；两个环境变量开关是迁移机制，不是最终的 Loop Driver 组合模型。
+当前 [`createAgentProfile`](../../packages/host-agent/src/profile.ts) 已解析 native/replay Provider 或显式注入的 dsh/pi Adapter，并拒绝缺失配置及 Driver/Adapter ID 不匹配。API 仍由 `AERVOX_LOOP_PROVIDER` 选择 Replay/Scripted/OpenAI 兼容 Provider，由 `AERVOX_LOOP_DRIVER` 选择 native/dsh；该接线不等于已完成全量 Capability Manifest/Profile 解析。
 
 无论选择哪一种 Driver，以下 Kernel 不变量不变：
 
@@ -124,20 +116,20 @@ AgentLoop Definition ──> LoopDriverPort <── Native / DSH / pi / Replay D
 
 ## 4. 核心对象
 
-| 对象 | 责任 | 持久化要求 |
-|---|---|---|
-| `AgentInstance` | 一个可接收 Turn/inbox 的逻辑 Agent 身份 | 可由 Profile/Persona 派生；不能替代用户或租户身份 |
-| `Turn` | 一次用户可观察请求—响应边界 | 已有业务表；当前没有 revision/CAS 字段，目标是终态唯一 |
-| `TurnAttempt` | Turn 的一次可领取执行尝试 | 已有 schema/仓储与 3b-A/3b-B claim/renew/recover 基础；目标是所有写边界都绑定有效 lease/fencing token |
-| `AgentStep` | Attempt 中的一次模型请求及其工具结果闭环 | 新增；Step 序号单调，记录起止和终止原因 |
-| `ModelRun` | 一次精确 Provider 调用 | 已有通用 schema/CRUD；目标是每 Step 至少一个，重试产生新 ModelRun，并关联 TurnAttempt/AgentStep |
-| `ContextManifest` | 本次模型调用实际使用的来源清单 | 已有通用 schema/CRUD；当前仅以 `modelRunId` 关联且 Loop 尚未写入，目标粒度与 `stepId`/`attemptId` 需由 ADR/迁移冻结 |
-| `ToolInvocation` | 模型提出的一次规范化工具请求 | 目标实体；当前只有 `tool_request` 事件和 invocationId，尚未持久化 schemaVersion、参数 hash 与授权快照 |
-| `ToolExecution` | 一次受控工具执行尝试 | 已有阶段 2d 最小 `tool_executions` 账本；目标是补齐幂等键、资源用量、replay 声明和未知结果状态 |
-| `AgentInboxItem` | follow-up、steer 或 context injection | 新增；有目标边界、顺序、来源、状态和过期时间 |
-| `TurnStreamEvent` | 客户端可重放事件 | 已有 schema、仓储和 SSE 重放接线；目标是只能在真实安全检查和事务提交后发送，并在所有写入上校验 fencing |
+| 对象 | 责任与持久化合同 |
+|---|---|
+| `AgentInstance` | 可接收 Turn/inbox 的逻辑执行身份；由 Profile/Persona 派生，不替代本地用户或授权主体 |
+| `Turn` | 用户可观察的请求—响应边界；终态唯一，客户端只读取权威状态 |
+| `TurnAttempt` | 可领取的执行尝试；claim/renew/recover 与终态 CAS 均绑定租约及 fencing |
+| `AgentStep` | Attempt 内一次模型请求及工具结果闭环；序号单调，目标为独立持久实体 |
+| `ModelRun` | 一次精确 Provider 请求；已存 attemptId/stepId，目标为每次重试另建记录并归属同一 Step |
+| `ContextManifest` | 模型请求的不可变来源清单；唯一父级为 ModelRun，来源条目与关联基数由 [ADR-017](adr/ADR-017-context-manifest-modelrun-step.md) 冻结；当前首 Step 快照不等于完整来源清单 |
+| `ToolInvocation` | 规范化工具请求，目标独立持久化 Schema 版本、参数 hash 和授权快照；当前由事件、审批及 ToolExecution 组合承载 |
+| `ToolExecution` | 受控执行的预留、结果和未知状态账本；失败/未知不能被包装成已成功执行 |
+| `AgentInboxItem` | 已有持久表与仓储；绑定 Session、消费边界、顺序、来源、状态和过期时间 |
+| `TurnStreamEvent` | 已有持久事件与 SSE 重放；只能发布经安全检查且已提交的公开事件 |
 
-`AgentStep`、`ToolInvocation` 和 `AgentInboxItem` 仍是目标实体；`ToolExecution` 已有阶段 2d 最小账本，但仍需通过 CR/数据库 Expand/Contract 迁移补齐目标状态和字段。关键恢复状态不能只存在于内存日志。
+完整字段以 [`packages/schema`](../../packages/schema/src/index.ts) 与 [Core 类型](../../packages/core/src/types.ts)为准。AgentStep/ToolInvocation 的独立实体仍是目标；关键恢复状态不能只存在于内存日志。
 
 ## 5. Loop 状态机
 
@@ -159,7 +151,7 @@ Claimed/InputChecking/ContextBuilding/Running/Finalizing
   -> LeaseExpired
 ```
 
-只有持有当前 lease 和 fencing token 的执行器可以追加 Step、TurnStreamEvent、ToolExecution 或提交终态。`LeaseExpired` 的旧执行器即使随后收到 Provider/Tool 结果，也必须丢弃结果并记录诊断，不能推进 Turn。这是目标不变量；当前 3b-B 已在 Step 首部用续租探活，并在 Attempt 终态提交时校验 fencing，但 TurnStreamEvent 和 ToolExecution 的每次写入尚未携带 expected fencing，须在 3c+ 补齐。
+以上是概念状态机，不是数据库状态枚举或 HTTP 状态集合；机器取值以 Schema 和[流式协议](STREAMING_PROTOCOL.md)为准。只有持有当前 lease 和 fencing token 的执行器可以追加 Step、TurnStreamEvent、ToolExecution 或提交终态。旧执行器随后收到的 Provider/Tool 结果必须丢弃并记录诊断；现有事件、工具结果、安全片段与终态写入已通过带 fencing 的组合方法保护，全部旁路及恢复竞争仍需 §16 的故障验证。
 
 ### 5.2 Step 状态
 
@@ -195,7 +187,7 @@ Any active state
 
 ```text
 1. claim TurnAttempt lease/fencing
-2. validate tenant, consent, input safety and current deny watermark
+2. validate local authorization, consent, input safety and current deny watermark
 3. claim inbox items for this Turn/Step
 4. assemble Prompt sections, ContextManifest and visible Tool schemas
 5. persist AgentStep start + ModelRun + request header
@@ -219,48 +211,9 @@ Any active state
 13. release lease and emit audit/metrics
 ```
 
-伪代码：
+以上是目标执行顺序，不是已经全部实现的事务合同。原生控制流以 [executor](../../packages/core/src/executor.ts)为准，数据提交边界见 §12.2。
 
-```ts
-async function executeTurn(command: ExecuteTurnCommand): Promise<TurnOutcome> {
-  const attempt = await store.claimAttempt(command.turnId, command.workerId);
-  try {
-    for (let stepNo = 1; stepNo <= policy.maxSteps; stepNo += 1) {
-      attempt.assertLease();
-      const prepared = await prepareStep(attempt, stepNo);
-      const modelResult = await runModelStep(prepared);
-      const toolPlan = await normalizeAndAuthorizeTools(modelResult);
-
-      if (toolPlan.length === 0) {
-        return await finalizeCompleted(attempt, modelResult);
-      }
-
-      const results = await executeTools(toolPlan, attempt.signal);
-      // 终止语义由 Aervox 策略统一决定，Adapter 不得泄漏上游 any/every 语义。
-      if (shouldConcludeToolBatch(results, policy.toolBatchTermination)) {
-        return await finalizeCompleted(attempt, results);
-      }
-      await injectToolResults(attempt, results);
-    }
-    return await finalizeLimitReached(attempt, "max-steps");
-  } catch (error) {
-    return await containFailure(attempt, error);
-  } finally {
-    await store.releaseAttempt(attempt);
-  }
-}
-
-function shouldConcludeToolBatch(
-  results: ToolResult[],
-  mode: "all-results-conclude",
-): boolean {
-  return mode === "all-results-conclude"
-    && results.length > 0
-    && results.every((result) => result.concludesTurn === true);
-}
-```
-
-该伪代码只表达目标控制流；`all-results-conclude` 是 Aervox 第一版策略：批次必须非空，所有已启动工具都要完成并提交确定结果，且每个结果都声明终止，才可结束 Turn；空批次和混合批次都继续下一 Step。当前阶段 2d/3a 实现尚未提供 `concludesTurn` 字段，因此实际会继续下一 Step 或命中 `maxSteps`。真实实现必须在每个持久化边界比较 Turn revision、lease 和 fencing token。
+`all-results-conclude` 的目标语义为：批次非空，所有已启动工具均已提交确定结果，且全部声明终止，才可结束 Turn；空批次或混合批次必须继续。当前原生 `ToolCallResult` 未提供 `concludesTurn` 字段，工具往返后仍进入下一 Step，直至模型自然结束或触发限额；Adapter 的终止翻译已有独立[合同与测试](../../packages/core/test/adapter-contract.test.ts)，不能与原生工具结束能力混为一谈。每个持久化边界都必须比较有效租约、fencing 与适用 revision。
 
 ## 7. Context 与收件箱
 
@@ -276,11 +229,11 @@ function shouldConcludeToolBatch(
 6. 上一 Step 的规范化工具结果；
 7. 当前可消费 inbox item。
 
-当前 API 的跨 Turn 历史由会话仓储读取，并在固定系统提示词后、本轮输入前注入，每轮执行只读取一次。范围为同租户、同 Session、当前 Turn 插入之前的最近 20 个已完成非子任务 Turn；采用最新有效用户版本及完成 Attempt 的已批准助手正文，不包含工具原始结果或思考过程。删除、脱敏、不完整或未通过安全门的轮次不进入历史；32000 字符预算按完整对话轮保留近期内容，不生成摘要。SQLite 适配器使用插入序号区分同毫秒 Turn，后续数据库适配需保持同等顺序边界。恢复器复用同一读取规则，再追加当前 Turn 的权威事件重建历史；子任务仍保持上下文隔离。超出窗口的对话仍需后续摘要策略。
+当前 API 的跨 Turn 历史由会话仓储读取，并在固定系统提示词后、本轮输入前注入，每轮执行只读取一次。范围为同一本地数据库、同 Session、当前 Turn 插入之前的最近 20 个已完成非子任务 Turn；采用最新有效用户版本及完成 Attempt 的已批准助手正文，不包含工具原始结果或思考过程。删除、脱敏、不完整或未通过安全门的轮次不进入历史；32000 字符预算按完整对话轮保留近期内容，不生成摘要。SQLite 适配器使用插入序号区分同毫秒 Turn，后续数据库适配需保持同等顺序边界。恢复器复用同一读取规则，再追加当前 Turn 的权威事件重建历史；子任务仍保持上下文隔离。超出窗口的对话仍需后续摘要策略。
 
-普通长期记忆由独立召回来源进入 ContextBuilder：当前用户消息使用与写入侧相同的 embedding provider 生成查询向量，与租户隔离的 `memories_fts` 结果并行检索，经 RRF 融合后最多回读 5 条权威记录。只允许 `verified`、未删除、`long_term` 记录进入模型上下文；召回失败按无记忆降级，不阻断 Turn。默认 Provider 是 256 维本地特征哈希，只提供词面和局部相似度、无需联网；生产可注入语义 embedding provider，并由 `modelId` 隔离向量空间。召回正文上限 4000 字符，以不可信数据形式注入，不能作为系统指令、工具调用或授权。
+普通长期记忆由独立召回来源进入 ContextBuilder：当前用户消息使用与写入侧相同的 embedding provider 生成查询向量，与本地 `memories_fts` 结果并行检索，经 RRF 融合后最多回读 5 条权威记录。只允许 `verified`、未删除、`long_term` 记录进入模型上下文；召回失败按无记忆降级，不阻断 Turn。默认 Provider 是 256 维本地特征哈希，只提供词面和局部相似度、无需联网；生产可注入语义 embedding provider，并由 `modelId` 隔离向量空间。召回正文上限 4000 字符，以不可信数据形式注入，不能作为系统指令、工具调用或授权。
 
-每个来源必须进入 ContextManifest，记录来源 ID/版本、purpose、权限快照、截断/压缩方式和内容 hash。原始 Restricted 内容默认不进入日志。目标模型是“一次 ModelRun 对应一个不可变 Manifest，多个来源对应多行 manifest entries”；当前表通过 `modelRunId` 间接表达该关系，没有 `stepId`/`attemptId`，且当前 Loop 尚未创建 ModelRun/Manifest 记录，因此在 ADR/数据库迁移中必须冻结是否新增这两个关联字段（推荐新增 `attemptId`、`stepId`，并以 ModelRun 作为唯一父级），以及每个 Step/ModelRun 的 cardinality，不能继续用“按 Step/ModelRun 固化”这一含糊表述。
+每个来源必须进入 ContextManifest，记录来源 ID/版本、purpose、权限快照、截断/压缩方式和内容 hash。原始 Restricted 内容默认不进入日志。[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md) 已冻结一次 ModelRun 对应一个不可变 Manifest，多来源对应条目，Manifest 只以 ModelRun 为父级；attemptId/stepId 存在于 ModelRun。当前实现仅在首 Step 写 `turn:history` 快照，后续 Step、失败请求及重试尚未形成完整来源证据链，不能将该快照解释为满足目标的每请求 Manifest。
 
 ### 7.2 AgentInboxItem
 
@@ -316,7 +269,7 @@ interface LoopDriverPort {
 
 Loop 必须在调用前固化 Provider、model、PromptVersion、ContextManifest、Tool schema、reasoning 配置和预算。一次重试创建新的 ModelRun，但仍属于同一 AgentStep；只有尚未持久化用户可见片段且没有工具副作用时才允许自动重试。
 
-2026-10-05 协议修复（[CR-057](changes/CR-057-hls-local-agent-validation.md)）：同一执行循环的 assistant 历史保留完整 `toolCalls`（ID、名称、参数）及该步骤的 `reasoning`，兼容 Provider 映射为 `tool_calls` / `reasoning_content`，与后续 tool 结果逐项配对。推理内容由历史持有，不在 Provider 实例跨请求共享；旧历史缺少参数时不虚构参数。该修复不代表跨进程恢复源已补齐全部历史字段，研究执行器暂不支持断点续跑。
+同一执行循环的 assistant 历史保留完整 `toolCalls`（ID、名称、参数）及该步骤的 `reasoning`，兼容 Provider 映射为 `tool_calls` / `reasoning_content`，与后续 tool 结果逐项配对。推理内容由历史持有，不在 Provider 实例跨请求共享；旧历史缺少参数时不虚构参数。跨进程恢复仍须独立验证历史保真，研究执行器暂不支持断点续跑；协议回归见 [Provider 测试](../../packages/core/test/openai-compat-provider.test.ts)。
 
 Provider chunk 先进入有界 assembler，不得直接写 HTTP、日志或 Message。文本、结构化输出、tool-call、usage 和 finish reason 必须被规范化为 Aervox 类型。
 
@@ -328,7 +281,7 @@ Provider chunk 先进入有界 assembler，不得直接写 HTTP、日志或 Mess
 resolve definition
   -> schema validate
   -> capability/profile gating
-  -> tenant/consent/purpose policy
+  -> local authorization/consent/purpose policy
   -> approval decision
   -> idempotency reservation
   -> timeout/quota/sandbox execution
@@ -361,7 +314,7 @@ CAP-033 的后台主动动作仍复用本管线，但授权来源改为用户确
 
 ## 10. 限额与终止策略
 
-以下是第一版建议基线，最终数值需通过 ADR/压测冻结：
+以下保留第一版建议基线，最终数值需通过 ADR/压测冻结；它们不是当前运行默认值。实际默认值以 [executor options](../../packages/core/src/executor.ts) 和宿主配置为准（例如当前 `toolTimeoutMs` 默认 5000，Turn 时长和连续工具限制默认 0，表示关闭）。
 
 | 限额 | 建议初值 | 触发行为 |
 |---|---:|---|
@@ -377,7 +330,7 @@ CAP-033 的后台主动动作仍复用本管线，但授权来源改为用户确
 
 原生执行路径使用 `ControlContext`（BTD-05 统一控制）：模型请求（含重试）与工具派发共享调用预算；子任务继承父截止、本地处理限制和剩余额度，子任务消耗回记父级，额外取消信号与父信号合并。Token 执行预算是保守准入/消费限额：输入消息和工具定义、输出正文/思考/工具请求先按 UTF-8 字节计量，Provider 累计 `totalTokens` 只可向上补记；它不等同供应商账单。OpenAI 兼容 Provider 同时收到剩余 `max_tokens`。零额或不足以容纳输入时不派发，流式超额中断并写明原因。没有设置预算时沿用原行为；费用、模型窗口和动态授权修订的全量验收仍在原队列。
 
-`SessionLedgerPort` 仅选取状态/事件方法，工具副作用和模型遥测仍属执行 Port。API 组合根继续选择 SQLite；独立 CLI 使用内存实现与规则模型/模拟笔记，不表示生产 Host 已全部解耦。原生 Loop 及 Adapter 的执行终态通过带 fencing 的原子提交更新 Turn、Attempt 和终止事件；CAS 失败不由 API 补写覆盖。当前 Adapter 尚无预算/本地策略协商能力，对这些约束明确拒绝派发，不能静默忽略。
+`SessionLedgerPort` 仅选取状态/事件方法，工具副作用和模型遥测仍属执行 Port。API 组合根选择 SQLite；Core 的 headless/内存示例证明库可以独立运行，连接版 `apps/cli` 则消费本机 API，两者不是同一宿主形态。原生 Loop 及 Adapter 的执行终态通过带 fencing 的原子提交更新 Turn、Attempt 和终止事件；CAS 失败不由 API 补写覆盖。当前 Adapter 尚无预算/本地策略协商能力，对这些约束明确拒绝派发，不能静默忽略。
 
 ## 11. 取消、租约与恢复
 
@@ -397,7 +350,7 @@ CAP-033 的后台主动动作仍复用本管线，但授权来源改为用户确
 - 恢复器只领取未终态且 lease 过期的 Attempt；
 - 同 Session 的写入结合 SessionLock 和数据库 CAS，避免两个 Turn 修改同一事实。
 
-当前 3b-A/3b-B 已实现 claim TTL、Step 首部续租探活、过期抢占、Worker 收敛和 Attempt 终态 fencing；**事件写入的 fencing CAS 已落地（B1，§16.22）**；**长模型/工具调用期间的周期心跳续租已落地（B2，§16.23）**——工具结果/账本写入的 fencing 仍属 3c+。
+现有实现已覆盖 Step 首部续租、长调用期间心跳、过期抢占，以及事件/工具结果/安全片段/终态的 fencing 校验；位置见 §2.1，反例回归见 §16.1。该范围不自动覆盖独立审批/预留等所有旧写入口，也不能代替真实副作用取消的故障演练。
 
 ### 11.3 恢复
 
@@ -413,7 +366,9 @@ CAP-033 的后台主动动作仍复用本管线，但授权来源改为用户确
 | 终态已提交但事件未发送 | 重发持久 done 事件 |
 | 删除/撤权水位未追平 | fail closed，不继续模型或工具调用 |
 
-这里的恢复规则是 Aervox 自身的安全策略，不声称与 DSH/pi 完全相同。当前 3b-B Worker 恢复器只把过期的 Running Attempt 以 fencing+1 收敛为 Interrupted，不会自动继续原 Turn。DSH 的 crash repair 会为开放的 tool call 补 `TOOL_NOT_STARTED` 或 `TOOL_OUTCOME_UNKNOWN` 等 synthetic result，并把原 Turn 收敛为 Interrupted；pi 的 Harness 设计以 durable program counter 和工具的 `replay: never/safe` 约定决定是否重放，但固定版本公开 Harness 仍未完成该恢复能力。Aervox 只有在副作用状态和结果均已权威确定时，才允许继续原 Attempt；副作用或结果未知时必须记录 `unknown outcome` 并收敛或等待人工确认。**B3 已落地三态政策（§16.24）**：`tool_registrations.replay` 声明（safe/never/未声明）+ 恢复裁决——结果未确定（pending/outcome_unknown）且相关工具全部声明 `replay: safe` 时，视为「合成结果」注入 `TOOL_NOT_STARTED` / `TOOL_OUTCOME_UNKNOWN` 后继续原 Attempt；未声明 / `never` / `pending_approval` 一律 fail-closed 收敛。
+这些是 Aervox 的恢复规则，不继承外部 Driver 的默认行为。当前 [Worker 恢复周期](../../apps/worker/src/attempt-recovery.ts)仍将过期 Attempt 收敛，不调度续跑；[Core 裁决](../../packages/core/src/resume.ts)与 [Host 恢复源](../../packages/host-agent/src/sqlite-resume-source.ts)已经提供基于权威工具结果的续跑构件。
+
+对于已识别批次中的 `pending/outcome_unknown`，只有相关未确定工具全部声明 `replay: safe`，才可注入 `TOOL_NOT_STARTED` / `TOOL_OUTCOME_UNKNOWN` 合成结果后继续；合成结果不证明副作用成功，也不授权重放。未声明、`never` 或 `pending_approval` 一律收敛。没有权威依据的结果不得猜测；完整生产恢复还须验证候选领取竞争、上下文保真和所有故障边界。
 
 ## 12. 事件与持久化边界
 
@@ -443,63 +398,30 @@ agent.attempt.lease-expired
 
 ### 12.2 事务边界
 
-以下动作必须原子提交：
+以下是必须维持或补齐的原子提交边界：
 
-- Turn + 用户 MessageVersion + `agent.turn.requested` Outbox；
-- 安全片段 + TurnStreamEvent + Draft prefix（**已落地：E §16.27**，`recordSafeSegmentAtomically` 同事务写 safe_segments(committed) 与 delta 事件）；
-- ToolInvocation + 授权快照 + 幂等预留（**授权快照幂等已落地：E §16.27**，`recordToolApproval` 复用 pending 行；ToolInvocation 独立持久化仍属 3c+ 后续）；
-- ToolExecution 结果 + result event（**已落地：B4-D §16.26**，`recordToolOutcomeAtomically`）；
-- Turn 终态 + done TurnStreamEvent + 下游 Outbox（**终态 + done/error 事件已落地：B4-D §16.26**，`finalizeAttemptWithEventAtomically`；下游 Outbox 仍为既有 outbox 通道）。
+| 原子边界 | 当前实现与剩余要求 |
+|---|---|
+| Turn + 用户 MessageVersion + 接单 Outbox | 当前写 `turn.created`；切换为 `agent.turn.requested` 须遵守 §12.1 的兼容、去重与保留窗口 |
+| 安全片段 + TurnStreamEvent + Draft prefix | 仓储已提供 `recordSafeSegmentAtomically` / 批量变体；完整 Draft 与安全校验语义仍按流式协议验收 |
+| ToolInvocation + 授权快照 + 幂等预留 | 已有审批幂等复用和执行预留；独立 ToolInvocation 及全体快照的一次性提交仍待补齐 |
+| ToolExecution 结果 + result event | 已有 `recordToolOutcomeAtomically`，同一事务核对 fencing 并提交 |
+| Turn 终态 + done/error 事件 + 下游 Outbox | 已有 `finalizeAttemptWithEventAtomically` 提交终态及收尾事件；下游 Outbox 同事务要求不能由该方法名推定已满足 |
 
-模型调用和外部工具不能与 SQLite 事务保持同一个长事务；采用“持久意图 → 外部调用 → fencing 校验后的结果提交”。
+具体方法由 [ExecutionStore 适配](../../packages/host-agent/src/sqlite-execution-store.ts)委托仓储。模型调用和外部工具不得置于 SQLite 长事务内；采用“持久意图 → 外部调用 → fencing 校验后的结果提交”。
 
 ## 13. 目录规范
 
-目标目录：
+当前路径按职责分工，不复制另一套实现：
 
-```text
-capabilities/
-  agent-runtime/
-    capability.yaml
-    src/
-      definition.ts
-      policies.ts
-      events.ts
-      application/
-        execute-turn.ts
-        prepare-step.ts
-        finalize-turn.ts
-      consumers/
-        turn-outbox.ts
-        api-admin.ts
+| 目录 | 职责 |
+|---|---|
+| `packages/core/src` | Loop 状态机、控制、通用工具/Provider/Context Port 与内存实现；不得依赖 SQLite、Drizzle、UI 或伴学产品模块 |
+| `packages/host-agent/src` | SQLite ExecutionStore 适配、Profile、可复用 Host、恢复源与进程外 Adapter |
+| `apps/api/src/modules/companion/conversation` | HTTP/SSE、产品上下文、Provider/工具装配与执行触发 |
+| `apps/worker/src` | 周期恢复、Outbox 与其他后台任务；不自行复制模型—工具循环 |
 
-providers/
-  agent-loop/
-    native/
-      provider.yaml
-      src/
-        executor.ts
-        inbox.ts
-        model-step.ts
-        tool-pipeline.ts
-        recovery.ts
-    replay/
-    dsh/
-    pi/
-
-packages/
-  capability-contracts/src/agent-loop/
-  host-agent/
-
-apps/
-  agent/                       # 独立部署形态；迁移期可在 API 内挂载
-
-adapters/
-  dsh/agent-loop/
-  pi/agent-loop/
-```
-
-迁移期允许 `native-agent-loop` 运行在 API 进程，但必须通过相同 Definition/LoopDriver/ModelProvider 接口。生产分离时，只替换 Host/Driver 绑定，API Turn/SSE 和业务数据不变。
+目标 `capabilities/`、`providers/`、`adapters/`、独立 `apps/agent` 等目录只由[能力组合规范](capability-composition.md)维护。独立部署前须冻结 Host/Driver 绑定与数据责任；迁移不能改变 API Turn/SSE、业务数据所有权或 claim/fencing。
 
 ## 14. DSH 与 pi 适配边界
 
@@ -514,7 +436,7 @@ adapters/
 - DSH 权限系统替代 Aervox Consent/ToolPolicy；
 - DSH Loop 直接连接 Aervox SQLite。
 
-`adapter-dsh` 必须把 DSH 事件、工具调用和终止原因规范化为本文件的 Port/事件，并使用 Aervox Attempt/fencing 持久化。它可以实现完整 `LoopDriverPort`，也可以只提供 `ModelProviderPort`/受限 Contribution；Manifest 必须声明实际等级，并在收集整批确定结果后调用 `shouldConcludeToolBatch()` 重新判定；无法保证该翻译时必须拒绝激活完整 Driver，不得静默提前结束。
+`adapter-dsh` 必须把 DSH 事件、工具调用和终止原因规范化为本文件的 Port/事件，并使用 Aervox Attempt/fencing 持久化。它可以实现完整 `LoopDriverPort`，也可以只提供 `ModelProviderPort`/受限 Contribution；Manifest 必须声明实际等级，并在收集整批确定结果后通过 [`concludeAdapterBatch`](../../packages/core/src/adapter-contract.ts) 重新判定；无法保证该翻译时必须拒绝激活完整 Driver，不得静默提前结束。
 
 ### 14.2 pi
 
@@ -522,106 +444,50 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 
 <a id="15-分阶段落地计划"></a>
 
-## 15. 阶段设计、退出条件与历史进展
+<a id="15-阶段设计退出条件与历史进展"></a>
 
-以下保留原阶段设计及历史实现摘要，供理解依赖和核对验收；“后续”“待补”均是原阶段记录中的边界说明，不构成独立的当前待办队列。采纳其中工作时，先核对源码与历史落地证据（见 `Aervox-docs-archive` 归档），再纳入根 [plan.md](../../plan.md)。阶段的安全不变量、准入和退出条件继续适用；变更已接受约束仍须履行 CR/ADR 流程。
+## 15. 阶段设计与退出条件
 
-### 阶段 0：冻结契约与测试骨架（已落地基础路径）
+原阶段编号保留为契约引用；历史实现过程见 [Aervox-docs-archive](https://github.com/3yearsZhuang/Aervox-docs-archive) 的 `archive/agent-loop-rollout-history.md`。当前代码边界集中于 §2，以下验收不能用历史通过记录替代。
 
-目标：建立可独立测试的 Definition，不改变现有 HTTP 行为。当前已落地阶段性 Port、Replay/Scripted Provider、内存 Store 和契约测试；完整 `LoopDriverPort` 抽象仍待收敛。
+<a id="阶段-0冻结契约与测试骨架已落地基础路径"></a>
+<a id="阶段-1无工具的单-step-loop已落地基础路径"></a>
+<a id="阶段-2只读工具多-step-loop2a-2e-已落地基础路径"></a>
+<a id="阶段-3写工具审批与恢复3a3b-a3b-b-已落地基础路径"></a>
+<a id="阶段-3c生产级安全与恢复补强规划"></a>
+<a id="阶段-4独立-host-与-profile-选择"></a>
 
-- 新建 `AgentLoopDefinition`、`LoopDriverPort`、`ModelProviderPort`、Context/Tool/Execution Store Port；
-- 定义 Step、ToolInvocation、ToolExecution、Inbox schema；
-- 建立 replay Loop Driver、replay Model Provider 和内存 Execution Store；
-- 加 import 边界：Loop 应用层不能导入 SQLite/Drizzle；
-- 建立契约测试、状态机属性测试和固定回放夹具。
+| 原阶段 | 退出条件 |
+|---|---|
+| 0 契约与骨架 | Definition/Driver/Provider/Context/Tool/Store 边界明确；Schema、内存 Store、固定回放与状态机测试可验证；相同 replay 输入产生确定的 Step/Event/终态，Loop 不导入数据库 |
+| 1 单 Step | Turn/Attempt 受理与事件兼容映射可回放；刷新后从持久事件恢复完整回答，原始 Provider chunk 不直达客户端 |
+| 2 多 Step 工具 | 固定夹具覆盖两步工具链、失败、超时、重复工具和 maxSteps；ToolSpec、参数 Schema 快照、空/全量/混合终止批次、受限并行、结果安全和背压均有证据 |
+| 3 审批与租约 | 写工具绑定参数 hash 与授权快照；租约丢失、重复终态、CancelRequested 竞争和过期抢占可重现；未知副作用不自动重试 |
+| 3c+ 安全与恢复 | 每个写边界核对 fencing；ToolInvocation、幂等预留、replay 声明、未知结果、删除/撤权水位、预算、取消与恢复矩阵闭合；每请求 ModelRun/Manifest 和 Step 可追溯 |
+| 4 独立 Host | 独立接单、claim、容量背压、优雅排空与健康检查真实接线；切换 Driver 保持客户端契约/数据责任；无 DSH/pi 时 native/replay 可运行，崩溃后已受理工作可追踪 |
+| 5 Inbox 与扩展 | followup/steer/inject、压缩、Skill、Subagent/Workflow 经受控 Port/Contribution 接入；独立子任务可审计、上下文隔离且递归受限；外部 Adapter 通过兼容、许可证及安全验收 |
 
-当前基础路径已满足同一 replay 输入产生确定的 Step/Event/终态序列；`all-results-conclude` 的空批次、全终止和混合终止契约测试仍归入 3c+。
+<a id="阶段-5inbox压缩与高级能力"></a>
 
-### 阶段 1：无工具的单 Step Loop（已落地基础路径）
-
-目标：已完成基础替换；保留迁移期回退开关。
-
-- API 创建 Turn 并创建 Attempt；Outbox 仍写 `turn.created`，迁移映射待异步消费者接入；
-- Native executor claim TurnAttempt；
-- Replay Provider 产生文本流，SSE 事件持久化后可重连重放；
-- 完整分段安全门、ContextManifest 持久化和异步消费仍是后续补强项。
-
-退出条件：客户端刷新后可以从持久事件恢复真实单 Step 回答，原始 Provider chunk 不直达客户端。
-
-### 阶段 2：只读工具多 Step Loop（2a-2e 已落地基础路径）
-
-目标：基础只读工具链和真实 OpenAI 兼容 Provider 已完成；并行、完整安全门和生产级背压继续补强。
-
-- 已接入 ToolRuntime 的只读工具、`tool_request/tool_result` 事件和 `tool_executions` 账本；
-- 已支持串行多 Step、timeout、重复工具检测、结果回填和 `maxSteps`；
-- 阶段 2e 已接入 OpenAI 兼容流，并把当前 ToolSpec 清单传给模型；
-- 完整 ToolInvocation 实体、参数 schema 快照、受限并行和结果安全门仍待 3c+。
-
-退出条件（已满足基础路径）：固定回放覆盖两步工具链、工具失败、超时和 `maxSteps`；终端工具的空/全量/混合终止批次、生产级并行与背压测试仍待 3c+。
-
-### 阶段 3：写工具、审批与恢复（3a/3b-A/3b-B 已落地基础路径）
-
-目标：基础审批、租约与恢复已完成；生产级副作用幂等和恢复矩阵继续补强。
-
-- 阶段 3a 已接入 `write_with_approval`、参数 hash 匹配、授权决定端点和 `pending_approval` 证据；
-- 阶段 3b-A 已接入 lease TTL 与 Step 首部续租探活；
-- 阶段 3b-B 已接入过期抢占、fencing 单一 Attempt 终态和 Worker 恢复器；
-- 完整 CancelRequested 竞争、事件/工具迟到写入丢弃、删除/撤权水位和未知副作用恢复仍待 3c+。
-
-退出条件（基础路径已满足）：租约丢失、过期抢占和重复终态提交有测试覆盖；非幂等工具的进程崩溃恢复与至多一次语义仍需按工具声明扩展。
-
-### 阶段 3c+：生产级安全与恢复补强（规划）
-
-目标：把当前最小实现提升为可长期运行的安全执行器。
-
-- 将 lease/fencing 校验扩展到每个事件、工具结果和终态写边界（**事件写边界已落地：B1 §16.22**；工具结果/账本写入、终态其余写边界仍待补）；
-- 完成 ToolInvocation 持久化、幂等预留、unknown outcome 收敛和工具 replay 声明（**unknown outcome 三态政策 + 工具 replay 声明已落地：B3 §16.24**；ToolInvocation 独立持久化仍属 3c+ 后续）；
-- 接入真实分段安全门、取消传播、预算、并行调度和背压；
-- 为 ModelRun/ContextManifest 增加 Turn/Attempt/Step 关联并补齐删除/撤权水位检查。
-
-退出条件：故障注入、重复投递、租约抢占和未知副作用场景均有可重放证据，且旧执行器不能写入任何公开事件或终态。
-
-### 阶段 4：独立 Host 与 Profile 选择
-
-目标：把 Loop 从 API 组合根中抽出；独立 Host 已落地（4a/4b/4c/4d 全闭环），DSH/pi Adapter 仍未实现。
-
-- 新建 `packages/host-agent` 和可选 `apps/agent`（已新建 `packages/host-agent`：内嵌异步 Host + SQLite ExecutionStore 组合适配 + 恢复源 + 最小 Profile + 健康检查）；
-- Profile 绑定 Native/Replay/DSH/pi Loop Driver，并为每个 Driver 解析一个 Model Provider（已落地最小 Profile：replay 无依赖 / native 需 CR-015 同源配置；DSH/pi 仅在完成进程外 Adapter、许可证和安全评审后启用）；
-- API 只负责 Turn command 和 SSE query；
-- Agent Host 通过 Outbox/claim 驱动；
-- 增加健康检查、并发调度、背压和优雅停机（已全落地：轮询/claim+背压/优雅停机 drain；4d 健康检查 `health()` 含 liveness 五态 + readiness 依赖探针 + 容量 gauge）。
-
-退出条件：切换 Loop Driver 不改变客户端契约和业务数据库所有权，且无 DSH/pi 时原生 Profile 仍可运行。（已验证：`agent-loop-provider-parity.test.ts` driver 切换事件流契约骨架同构；`agent-loop-no-db` import-boundary 健身函数机器验证 agent-loop 不触数据库；`profile.test.ts` 验证无 DSH/pi 时原生 Profile 可运行。）
-
-### 阶段 5：Inbox、压缩与高级能力
-
-目标：支持持续 Agent 工作而不污染基本 Loop。
-
-- followup、steer、inject（已落地 5a 数据面与消费闭环 + 5a-2 API/插件受控入口：`agent_inbox_items` 表 + InboxPort + executor 消费 + `POST /v1/sessions/:sessionId/inbox` 统一端点（x-plugin-id 受控）+ 过期回收 Worker）；
-- Context compaction seam（已落地 5b：`ContextCompactionPort` + 规则式摘要 `createSummaryCompaction` + composer 集成，宿主持有可注入 LLM 摘要）；
-- Skill 渐进式披露接入 ContextBuilder（已落地 5b：`buildSkillsPrompt` 迁入 agent-loop + `createSkillAwareContextBuilder`，API 对话默认注入 activeOnly 技能清单）；
-- Subagent/Workflow 通过独立 Tool/Provider Contribution 接入（已落地 5c：`SubagentPort` + `composeToolProviders` + `createSubagentToolProvider`（`subagent_delegate` 写类走既有审批）+ `createWorkflowToolProvider`（TS 步骤定义 `workflow_run`）；子任务独立 turn/attempt 落库 `subagent_runs`，隔离上下文+递归防护，审计端点 `GET /v1/turns/:id/subagents` + 注册清单 `GET /v1/workflows`）；模型可见工具名必须匹配 `[A-Za-z0-9_-]+`，内部名称不得使用点号；
-- DSH/pi Adapter 进行兼容、许可证和安全验证（阶段 6 已落地契约面 + 模拟器：`AdapterDriverPort`/`AdapterManifest`/JSON 行 stdio 协议/`concludeAdapterBatch` 收紧/`verifyAdapterManifest` 准入 + fixture 子进程与内存模拟器双实现；真实运行时接入与 `Accepted` 验收仍待推进）。
-
-退出条件：高级能力均通过扩展点接入，不修改 Loop 核心控制流。（5a 已按此兑现：Inbox 注入经 `ContextBuilderPort` 扩展点 + 可选 `InboxPort`，未改动 Loop 状态机与事件流；`agent-loop-no-db` 健身函数持续机器验证。）
+阶段 5 的数据合同由 [ADR-017](adr/ADR-017-context-manifest-modelrun-step.md)规定，工具授权仍遵守 §9。模型可见工具名必须匹配 `[A-Za-z0-9_-]+`；高级能力通过扩展点组合，不另写一套 Loop 或绕过状态机。
 
 ## 16. 测试与验收
 
 ### 16.1 必测矩阵
 
-| 测试 | 覆盖 |
-|---|---|
-| `agent-loop-contract.test` | Definition/Loop Driver/Model Provider/Store 一致性 |
-| `agent-loop-replay.test` | 固定模型流和工具流的确定性回放 |
-| `agent-loop-state-machine.test` | Attempt/Step 合法转换与终态唯一性 |
-| `agent-loop-fencing.test` | 旧 executor 不能提交 chunk/tool/终态 |
-| `agent-loop-tool-policy.test` | read/write/privileged、审批、撤权和 `all-results-conclude`（后者待 3c+） |
-| `agent-loop-recovery.test` | 首片段前重试、首片段后 Interrupted、确定结果继续、unknown outcome 收敛（完整矩阵待 3c+） |
-| `agent-loop-sse.test` | 持久后发送、高水位重放、断线恢复 |
-| `agent-loop-budget.test` | step/token/time/cost/tool 限额 |
-| `agent-loop-deletion.test` | 删除/撤权后零召回与 fail closed |
-| `agent-loop-provider-parity.test` | Native/Replay/DSH any/pi every 映射为 Aervox `all-results-conclude`（DSH/pi 接入时建立） |
+下面链接到当前测试入口，描述必须持续守卫的行为；文件存在不代表所有目标均已验证，也不替代本次运行结果。
+
+| 行为 | 当前测试入口 | 验收边界 |
+|---|---|---|
+| 契约、回放与状态机 | [contract](../../packages/core/test/contract.test.ts)、[replay](../../packages/core/test/replay.test.ts)、[state-machine](../../packages/core/test/state-machine.test.ts) | 确定性与终态唯一 |
+| fencing 与原子提交 | [executor-fencing](../../packages/core/test/executor-fencing.test.ts)、[SQLite Store](../../packages/host-agent/test/sqlite-execution-store-fencing.test.ts) | 旧执行器不能提交 chunk、工具结果或终态；全体旁路仍须覆盖 |
+| 审批与工具 | [tool-policy](../../packages/core/test/tool-policy.test.ts)、[tool-ledger](../../packages/core/test/tool-ledger.test.ts)、[adapter-contract](../../packages/core/test/adapter-contract.test.ts) | 权限、预留、未知结果与 Adapter 批次翻译；原生终端工具合同仍待实现 |
+| 恢复 | [派发与取消恢复](../../apps/api/test/conversation-dispatch-resilience.test.ts)、[recovery](../../packages/core/test/recovery.test.ts)、[resume-source](../../packages/host-agent/test/sqlite-resume-source.test.ts) | 首片段前重试、可见后中断、确定结果续跑和合成结果；生产接线与完整故障矩阵独立验收 |
+| 输入与上下文 | [原子接单](../../packages/repositories/test/turn-acceptance.test.ts)、[inbox](../../packages/core/test/inbox.test.ts)、[Inbox API](../../apps/api/test/inbox-routes.test.ts)、[context-manifest](../../packages/core/test/context-manifest.test.ts) | 受控消费与当前快照粒度；每请求来源证据链仍待闭合 |
+| 限额与取消 | [动态工具取消](../../apps/api/test/tool-runtime-lifecycle.test.ts)、[budget](../../packages/core/test/budget.test.ts)、[control-context](../../packages/core/test/control-context.test.ts)、[cancel](../../packages/core/test/cancel.test.ts) | step/token/time/tool 限额与取消传播；费用和 Provider 窗口不得由字节预算替代 |
+| Host 与 Provider | [profile](../../packages/host-agent/test/profile.test.ts)、[host-health](../../packages/host-agent/test/host-health.test.ts)、[provider-parity](../../packages/core/test/provider-parity.test.ts) | native/replay 独立可用与接口一致；真实 DSH/pi 运行时另验 |
+
+SSE 必须验证持久后发送、高水位补读、弱网重连与游标过期，见[流式协议](STREAMING_PROTOCOL.md)及[测试策略](TEST_STRATEGY.md)。删除/撤权后的零召回、零副作用和 fail closed 必须跨 API、Host、记忆与工具路径验证，不能只由 Loop 单元测试证明。
 
 ### 16.2 架构验收
 
@@ -651,11 +517,7 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 
 ### 16.4 落地进展与追溯
 
-> 各阶段（阶段 2b 至阶段 6f）详细的代码落位、数据库表变更、测试用例清单与历史进展记录，已独立归档至外部归档仓库：
->
-> 👉 **Agent Harness Loop 分阶段落地进展与追溯历史**（`Aervox-docs-archive/archive/agent-loop-rollout-history.md`）
->
-> 完整覆盖取消闭环、预算闸门、工具幂等预留、可观测性、三级恢复、受控收件箱（Inbox）、Context 压缩、Subagent/Workflow 贡献接入、DSH 外部适配器全流程及 CAP-033 本地动作授权等全部历史落地条目。
+代码合入与发布证据维护于[追踪基线](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)，原阶段 2b～6f 的历史记录见 §15 的归档入口。新增证据直接关联 PR 与自动化测试，不在本文追加终端日志或复刻历史状态表。
 
 ## 17. 回滚策略
 
@@ -670,19 +532,19 @@ pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具�
 
 当前需要推进哪些决策以及它们的先后关系，由根 [plan.md](../../plan.md)维护。本节保留实施相关阶段时必须处理的架构决策范围，不能用计划中的排序代替评审或豁免验收。
 
-本文是 `CR-012` 的 Reference，既记录阶段 0/1/2a-2e/3a/3b-A/3b-B 的已落地边界，也记录 3c+、独立 Host 和 DSH/pi Adapter 的目标。正式实施下一阶段前应新增架构决策，冻结以下难以逆转的内容：
+新增或改写以下已接受边界前，须按 CR/ADR 流程审议；已有 [ADR-017](adr/ADR-017-context-manifest-modelrun-step.md) 的关联链和 Inbox 决策无需重复立项：
 
-- Agent Loop 是否作为独立 `apps/agent` 部署；
-- AgentStep/ToolInvocation/ToolExecution/Inbox 的数据模型；
-- 默认 Step、时间、成本和工具并行上限；
-- Native、DSH 和 pi Loop Driver、Model Provider 的兼容等级；
-- followup/steer/inject 的公开与内部接口边界。
+- 独立 `apps/agent` 部署、接单和恢复所有权；
+- AgentStep/ToolInvocation 的持久模型或既有模型关联基数；
+- 默认 Step、时间、成本和并行上限；
+- Native/DSH/pi Driver 与 Model Provider 的兼容等级；
+- followup/steer/inject 公开范围、权限或唤醒语义的变化。
 
 实现每一阶段后必须更新[需求追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)，并在[参考设计迁移 §6.1](../explanation/reference-design-transfer.md#61-落地登记唯一真源)查询 `DSH-01` 与 `PI-01` 来源说明。
 
 ## 19. 机器验证
 
-当前文档通过 `mise tasks run ci-docs` 验证。代码落地后，Manifest、Port、事件、数据库状态机和 Provider parity 必须由 schema/contract tests 机器验证；任何只写在本文、无法由类型、schema、测试或运行时断言约束的关键不变量都视为未完成。
+文档使用 `mise tasks run ci-docs` 校验。代码落地后，Manifest、Port、事件、数据库状态机和 Provider parity 必须由 schema/contract tests 机器验证；任何只写在本文、无法由类型、schema、测试或运行时断言约束的关键不变量都视为未完成。
 
 ## CR-056 执行边界补充
 

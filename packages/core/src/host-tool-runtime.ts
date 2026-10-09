@@ -451,7 +451,18 @@ export class HostToolRuntime {
     const signal = AbortSignal.any(signals);
 
     return new Promise((resolve, reject) => {
-      const abort = () => reject(new HostToolForbiddenError(`tool registration expired: ${toolId}`));
+      const abort = () => {
+        // 注册生命周期取消保持「注册过期」语义；调用方 / controlContext 取消保留原始原因。
+        if (entry.controller.signal.aborted && entry.controller.signal.reason === signal.reason) {
+          reject(new HostToolForbiddenError(`tool registration expired: ${toolId}`));
+          return;
+        }
+        reject(
+          signal.reason instanceof Error
+            ? signal.reason
+            : new HostToolForbiddenError(`tool registration expired: ${toolId}`),
+        );
+      };
       signal.addEventListener("abort", abort, { once: true });
       if (signal.aborted) {
         signal.removeEventListener("abort", abort);

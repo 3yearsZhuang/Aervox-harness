@@ -117,10 +117,12 @@ describe("CAP-020 插件 Config / Page API", () => {
       method: "PUT",
       url: "/v1/plugins/cfg-demo/config",
       headers,
-      payload: { revision: 1, values: { endpoint: "x", enabled: false } },
+      payload: { revision: 1, values: { endpoint: "x", enabled: false }, secretValues: { apiKey: "stale-secret" } },
     });
     expect(stale.statusCode).toBe(409);
     expect(stale.json().error).toBe("PLUGIN_CONFIG_REVISION_CONFLICT");
+    const credential = await client.execute("SELECT value_json FROM plugin_config_secrets WHERE field_key = 'apiKey'");
+    expect(JSON.parse(String(credential.rows[0]!.value_json))).toBe("topsecret");
 
     // 清除 secret
     const clear = await app.inject({

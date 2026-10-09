@@ -7,9 +7,9 @@ owner: platform
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.3.0
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
+version: 0.4.1
+updated_at: 2026-10-08
+reviewed_at: 2026-10-08
 review_interval_days: 30
 review_triggers:
   - apps/api/src/**
@@ -36,29 +36,24 @@ sources:
 
 # 当前架构实现与演进评估
 
-- 提出人：3yearszhuang · 2026-09-18
-- 修改人：3yearszhuang · 2026-10-04
-
 关联：第一轮底层评估（FND-01～10，已并入本文 §9）、[架构事实源](../reference/ARCHITECTURE.md)、[数据库契约](../reference/DATABASE.md)、[数据隐私](../reference/DATA_PRIVACY.md)、[Agent 执行契约](../reference/agent-harness-loop.md)、[硬件方向](companion-hardware-directions.md)、[变更流程](../how-to/cr-workflow.md)
 
-> [!NOTE] 调研生命周期状态：已落地 / 演进中 (Adopted / In Progress)
-> 本文梳理的 14 项深层架构问题中，ARC-01（Outbox 可靠派发与接单状态恢复）与 ARC-14（冷 CI 与插件验证入口）已在 ITER-001/002 闭环落地并进入基线代码；其余条目作为演进凭据留存。§9 收录原独立文档《底层优化评估》（AVX-EXPL-010，2026-10-04 并入）的 FND-01～10。
+> [!NOTE]
+> 本文分开保存当前复核与历史证据：2026-10-08 的审计见 [§10](#10-2026-10-08-仓库审计)。§2～§9 是 2026-09-18 基线 `6b20e7e` 的评估快照，除明确标注的闭环摘要外，不宣称全部反映当前实现。当前排期只读 [plan.md](../../plan.md)，生产接线以源码与测试核实。
 
 ## 1. 结论与使用范围
 
-当前架构适合继续沿“本地单用户、模块化单体、独立后台 Worker、可替换 Provider”演进。主要限制来自实现链路中的缺口：接单与领取之间存在无法恢复的窗口；统一删除流程可以在没有清理数据时报告完成；部分版本变更没有原子事务；运行时工具没有进入真实模型的工具清单；模型下载、进程管理及分发验证尚未形成完整边界。更换 SQLite 或拆分业务服务不会自动消除这些问题。
+本地单用户 SQLite、模块化单体与独立 Worker 仍是当前基线。应先修复可证明的正确性、权限和恢复问题，再按固定负载决定性能优化；本评估不批准数据库替换、微服务拆分或新的设备范围。
 
-因此应先投入正确性和恢复能力，再优化延迟、内存与吞吐。对配套硬件，优先证明断连、取消、断电恢复、制品更新和资源不足时行为可控，之后再决定设备规格。现阶段不能仅凭包构建成功、局部测试通过或健康端点返回 200，推断独立设备可长期稳定运行。
+FND-01 的 Outbox、ARC-01 的预加载失败/已有 Attempt 恢复切片、ARC-14 的冷 CI 已分别通过 PR [#228](https://github.com/3yearsZhuang/Aervox-harness/pull/228) 和 [#221](https://github.com/3yearsZhuang/Aervox-harness/pull/221) 合入。FND-10 的资源复制仍由禁用缓存保护正确性，是否重构取决于测量。ARC-01 的分离提交窗口已由 PR #258 的原子接单修复，验证与范围见 §10；其它发现逐项复核后进入已有队列，不能从旧文中的“现状”直接推导新缺陷。
 
-本文件是对第一轮底层评估（FND-01～10，2026-10-04 自 AVX-EXPL-010 并入为本文 §9）的深入补充，新增 `ARC-01～14` 作为评估定位编号，不新增 CAP，不修改已接受的 ADR，不表示建议获批或修复完成。采用建议后，行为修复分别交付；改变执行、权限、恢复或部署契约的部分先建立 CR。
-
-证据基于 2026-09-18 工作区与 Git 基线 `6b20e7e317940eb0027c5a664b9e07d0c986372b`。工作区已有其它变动，本轮只编辑文档。核查包括源代码追踪、AST 依赖统计、临时文件 SQLite 故障注入、Fake Provider/子进程、内存 HTTP 注入和 Turbo dry-run。未访问真实用户库，未下载模型，未执行真实推理、生产搬库、硬件实验或负载基准。下文性能方案和验收指标均为待验证建议。
+历史评估使用临时 SQLite、Fake Provider/子进程与静态检查。真实推理、生产搬库、平台签名、硬件和持续负载不在其验证范围内；当前审计的范围与证据见 §10。所有性能数字与工期估算均是原评估建议，不是实测或交付承诺。
 
 ## 2. 当前系统实际如何运行
 
 ### 2.1 进程与数据拓扑
 
-下图表示当前源码接线；虚线表示可选路径或尚未接入默认启动链路的组件。它是实现快照，不替代架构契约。
+下图表示 2026-09-18 的源码接线；虚线表示可选路径或尚未接入默认启动链路的组件。它是实现快照，不替代架构契约。
 
 ```mermaid
 flowchart TD
@@ -118,7 +113,7 @@ P1 表示优先修复或对应能力开放前必须通过的验证；P2 表示�
 
 | 编号 | 评估方向 | 优先级与生效范围 | 与第一轮关系 |
 |---|---|---|---|
-| ARC-01 | 接单、调度与未领取任务恢复 | P1；默认 API | 深化 FND-01/05，优先修实际入口 |
+| ARC-01 | 接单、调度与未领取任务恢复 | P1；接单切片已修复 | ITER-002 / PR #228、#258 / §10 |
 | ARC-02 | 执行树取消、预算和本地处理策略 | P1 策略继承；P2 全树计量；Subagent/可选 Driver | 补充 FND-08 的执行控制层 |
 | ARC-03 | 模型工具发现 | P1；原生动态工具接线 | 新发现 |
 | ARC-04 | 自动恢复与互动续跑 | P1 在启用自动恢复前；当前库级 | 深化 FND-05/06 |
@@ -131,19 +126,15 @@ P1 表示优先修复或对应能力开放前必须通过的验证；P2 表示�
 | ARC-11 | 模型制品接收与续传 | P1；默认注册、下载操作时触发 | 新发现 |
 | ARC-12 | 模型进程和多模态资源生命周期 | P1 进程正确性；P2 资源协调 | 深化 FND-04/05/09 |
 | ARC-13 | 部署完整性与客户端认证 | P1 已有认证路径修复；P2 部署主管 | 面向独立设备的运行边界 |
-| ARC-14 | 冷环境 CI 与真实依赖输入 | P1；代码门禁及插件验证 | 补充 FND-10 |
+| ARC-14 | 冷环境 CI 与真实依赖输入 | 历史 P1；已移交 | ITER-001 / PR #221 |
 
 ## 4. 分项实现评估
 
 ### 4.1 ARC-01：从接单成功到可恢复执行
 
-**现状与证据。** [对话路由](../../apps/api/src/modules/companion/conversation/routes.ts)的 POST Turn 先确认 next-turn Inbox，再通过 `createTurnWithOutbox` 提交 Turn/消息/事件，随后单独创建 Attempt，最后执行 `runLoop` 闭包。默认 background 分支使用 `void runLoop().catch(() => undefined)`；Persona/Skill 预加载发生在 `executeTurn` claim 之前。[AttemptStore](../../packages/repositories/src/repositories/sqlite/conversation/attempt-store.ts)新记录为 `Running`、lease 为空，而恢复扫描只选择 lease 非空且过期的 Running 记录。
+原评估复现了领取前失败留下无租约 Running Attempt 的问题。消费隔离、死信、预加载失败与已有无租约 Attempt 恢复已由 [ITER-002](../../plan.md#iter-002) / PR [#228](https://github.com/3yearsZhuang/Aervox-harness/pull/228) 修复，回归入口为[对话派发恢复测试](../../apps/api/test/conversation-dispatch-resilience.test.ts)及 [Outbox 测试](../../apps/worker/test/outbox-worker.test.ts)。历史过程见 Git。PR #258 随后以原子接单闭合提前确认 Inbox 和尚未创建 Attempt 的窗口，故障与并发回归见 §10。
 
-**已复现。** 在临时 SQLite 注册真实路由，仅让 `skillLoader` 抛出合成错误：请求返回 201，随后查得 `Turn=Created`、`Attempt=Running`、`lease=null`、`fencing=0`；`recoverExpiredAttempts` 返回 0；同一幂等键重试返回 200，Turn 仍为 Created。已有 Turn 事务、幂等键和 claim fencing 无法覆盖这个领取前窗口。默认 API 也未使用 AgentHost 的并发槽，不能以 Host 库有限流来证明 API 接单有界。
-
-**建议。** 先在 API 内建立一个受控调度入口。成功接单时，以短事务持久化可查询的待执行状态和足够重放的执行输入，关联 Inbox 消费；预加载失败也必须推进可见状态。重放输入至少保留原请求模式、必要 metadata 和策略修订，恢复时重新验证授权，不能只按 `turnId/sessionId` 猜测。明确 `turn.created` 是事实通知还是执行命令，并与 FND-01 的消费归属统一；不能让审计消费者确认“已执行”。
-
-**验收与代价。** 在 Inbox 确认、Turn 提交、Attempt 创建、预加载、claim 各点注入故障；每个已返回成功的请求都可被重新发现并进入执行或明确失败，同一幂等键不重复消费消息和副作用。排队容量、拒绝/等待语义需显式定义。先接入进程内有界执行，恢复输入与状态可靠后，再评估独立执行进程；增加进程本身不能补回未持久化输入。
+已受理任务须可追踪、重试不得重复消费或产生副作用，这些约束继续有效。容量准入、独立 Host 与完整互动恢复不由此切片自动证明，分别按 ITER-013/010 继续核验。
 
 ### 4.2 ARC-02：执行控制必须沿父子任务与 Driver 传递
 
@@ -287,19 +278,9 @@ P1 表示优先修复或对应能力开放前必须通过的验证；P2 表示�
 
 ### 4.14 ARC-14：CI 必须证明冷启动和真实输入
 
-**冷环境问题。** [CI 工作流](../../.github/workflows/ci.yml)的 build/e2e 两个 Job 安装 mise 工具并恢复 pnpm store，但没有 `pnpm install`；build 调用的 [ci-code](../../mise.toml)刻意不含安装，带安装的是 `ci-code-full`。恢复 store 不会生成项目 `node_modules`。这属于工作流静态缺口，未在本轮触发远程 CI，不报告虚构的运行失败记录。
+锁文件安装、包外输入触发、插件制品恢复与可重现导出任务已由 [ITER-001](../../plan.md#iter-001) / PR [#221](https://github.com/3yearsZhuang/Aervox-harness/pull/221) 交付。回归入口为 [ci-scope](../../scripts/ci-scope.test.mjs) 与 [export-plugins](../../scripts/export-plugins.test.mjs)，实际 Job 步骤见 [CI 工作流](../../.github/workflows/ci.yml)。
 
-**2026-09-18 状态。** 以上静态缺口已由 [ITER-001](../../plan.md) 受理并在 PR [#221](https://github.com/3yearsZhuang/Aervox-harness/pull/221) 修复：两个 Job 增加显式 `pnpm install --frozen-lockfile`，冷 CI 复跑通过（该 Job 5m23s 全绿）。本段保留为评估当时的核对记录，不再代表当前状态；实现位置与验证证据见[§4.2](../reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
-
-**输入遗漏已核对。** 工作流 path filter 没有根 `plugins/**` 和 `vitest.shared.ts`；[插件集市测试](../../apps/api/test/builtin-plugins-market.test.ts)实际读取根插件源与 `dist-plugins`。Turbo dry-run 显示 `@aervox/api#test` 有 211 项输入，唯一包外显式文件是 `../../vitest.shared.ts`，没有根插件源/分发包，global 文件仅 `.gitattributes`。因此共享测试配置会影响 Turbo hash，却可能不触发工作流；插件源变化既可能不触发代码 CI，也未表达为 API 测试输入。
-
-**2026-09-18 状态。** 三层缺口（工作流触发、Turbo 失效、本地增量选择）已一并修复并有回归守住：`ci.yml` 触发路径补齐 `plugins/**`、`vitest.shared.ts`、`tsconfig.base.node.json`，根级 tsconfig 进入 `globalDependencies`，`scripts/ci-scope.mjs` 把包外输入显式映射回受影响包；抽取任何一条触发路径都会让 `scripts/ci-scope.test.mjs` 变红。未开启任何此前禁用的缓存。
-
-**制品前置条件。** 当前插件包生成脚本是 `package:plugins`，`dist-plugins` 未纳入 Git 跟踪；测试直接读该目录的分发包。冷 CI 除安装依赖外，还需要显式生成制品，不能依赖开发机上已有文件。FND-10 的静态资产 `cache:false` 已经保护另一类产物副作用，不应为解决本项直接开启其缓存。
-
-**2026-09-18 状态。** 测试已改为经产品导出端点现场生成分发包，不再读 `dist-plugins/`；冷 CI 由声明任务 `mise tasks run package-plugins` 重建制品并断言数量，同一任务的分发包字节已改为可重现（固定 ZIP 时间戳、目录与条目排序，回归见 `scripts/export-plugins.test.mjs`）。`cache:false` 未改动。产品侧导出端点自身的打包仍不可重现，属插件生命周期范围（见 plan.md ITER-005）。
-
-**建议与验收。** 修复每个独立 Job 的锁文件安装与制品构建前置条件，将根插件源映射到验证任务和缓存输入，统一工作流触发、增量选择、Turbo 输入与输出归属。干净 checkout 必须能跑通；只改一个插件也必须重新验证其契约和分发包；删除生成物后可由声明的任务重建。缓存只是加速，不能承担缺失的构建步骤。保留受控测试并发和临时库模板，不用扩大数据库测试并发换表面速度。
+冷检出可恢复产物、仅插件变动仍触发验证、缓存不替代构建前置条件，这三项仍是验收要求。产品导出端点的可重现性属于 ITER-005，不能以构建脚本通过推定它已完成；静态资源缓存归属见 FND-10。
 
 ## 5. 推荐的演进结构与备选比较
 
@@ -361,19 +342,7 @@ P1 表示优先修复或对应能力开放前必须通过的验证；P2 表示�
 
 ## 8. 本轮验证与剩余限制
 
-| 验证方式 | 已取得的结果 | 不能据此推断 |
-|---|---|---|
-| 临时 SQLite 与真实 Repository/路由/Worker | 接单孤儿、删除完成但数据仍在、消息编辑中断、过期资格、中文 FTS、可选回填旧列、完整 Schema staging、账本并发序列等结果见对应专题 | 发生了生产数据事故，或完成了迁移/恢复发布演练 |
-| Fake Provider、HTTP body 捕获、纯函数 | 取消信号丢失、工具发现缺失、恢复覆盖/游标缺口 | 真实模型的任务成功率、token 成本或完整 Agent 恢复已验证 |
-| 临时模型目录与 Fake 子进程/fetch | 越界写、错误响应落盘、错位续传、探针未截止、旧进程事件污染 | 下载源真实性、真实进程性能或实际内存峰值 |
-| Fastify 内存注入 | open Origin 反射、Token 预检 401 与业务 Bearer 200 | 绕过具体浏览器安全机制或完成 Electron 端到端测试 |
-| AST、边界 fixtures、Turbo dry-run | 模块依赖快照、边界覆盖缺口、测试输入清单；现有边界检查及 14 测试通过 | 所有运行时调用边都已枚举，或远程冷 CI 已跑通 |
-
-实验均由 mise 管理的 Node 执行；数据库断言使用写者连接，临时数据库与文件已清理。模型运行时及认证组合使用源码临时副本，仅调整本地导入扩展以执行 TypeScript；认证实验是 auth hook/CORS 的最小 Fastify 路由，不是完整 `buildApp`。其余按真实模块或本轮已构建产物调用。实施阶段应将这些最小场景转成相关组件的持久回归测试，本轮没有为文档交付修改产品代码或新增测试套件。
-
-2026-09-18 已完成 `docs-sync`、`docs-catalog` 与全量 `ci-docs`：74 份 Markdown 的 Markdownlint/Vale 通过，治理、链接、锚点和登记日期校验零错误；`git diff --check` 通过。本轮没有运行全量代码构建/测试或远程 CI，现有边界测试通过仅证明其当前覆盖范围。
-
-后续每项修复必须重新验证对应源码与默认接线，尤其不能继续引用本文的“当前缺口”作为修复后状态，也不能把历史局部测试结果当作完整系统发布凭证。
+2026-09-18 评估的执行过程由 Git 基线与后续 PR 保留，当前测试入口以[测试策略](../reference/TEST_STRATEGY.md)、[工具任务](../../mise.toml)及关联测试为准。本文不复制测试耗时和终端日志，也不把历史绿色结果当作当前版本的发布证据。
 
 ## 9. 底层优化评估（FND-01～10，自 AVX-EXPL-010 并入）
 
@@ -402,7 +371,7 @@ ARC 深入评估（本文 §1～§8）在此基础上补充进程/数据拓扑�
 
 | 编号 | 优先级 | 性质 | 建议 | 粗估 |
 |---|---|---|---|---|
-| FND-01 | P1 | 已复现缺陷 + 静态缺口 | 修正 Outbox 消费归属、失败重入和幂等完成 | 3～5 人日 |
+| FND-01 | 历史 P1 | 已移交切片 | ITER-002 / PR #228 | 不再估算 |
 | FND-02 | P1 | 静态故障路径 | 插件升级采用 staging 与可恢复激活 | 4～7 人日 |
 | FND-03 | P1 | 静态权限缺口 | Page Bridge 绑定窗口身份、权限及禁用状态 | 2～4 人日 |
 | FND-04 | P2 | 静态资源风险 | 插件归档限制展开资源并移出事件循环 | 2～4 人日 |
@@ -419,15 +388,7 @@ P1 表示优先安排修复评审，尤其应在扩大插件安装范围前完�
 
 #### 9.3.1 FND-01：Outbox 消费归属与失败恢复
 
-**证据。** [通用消费者](../../apps/worker/src/outbox-worker.ts) `runOutboxCycle` 第 20～37 行读取全部 `pending` 事件，写审计后直接标记 `published`；[压缩消费者](../../apps/worker/src/compaction-marker.ts) `runCompactionMarkerCycle` 第 34～79 行同样读取 `pending`，再筛选 `memory.compaction.requested`。两者在 [Worker 组合根](../../apps/worker/src/index.ts) 独立注册，默认频率分别为 3 秒、60 秒。[Outbox 仓储](../../packages/repositories/src/repositories/sqlite/outbox-repository.ts) `markFailed` 写入 `failed`，而 `fetchPendingEvents` 只读取 `pending`；本次未找到将失败事件重新调度或转入死信的运行路径。
-
-**触发与影响。** 通用循环先读到压缩事件时会提前完成它，后续压缩循环读不到事件，标记与对应业务审计不会生成。进程在审计成功、发布标记前退出时也可能重复写审计；瞬时失败进入 `failed` 后不会自动重试。
-
-**已有保护。** 生产事件有唯一幂等键、队列查询有索引和批量上限，压缩标记使用幂等 upsert，Worker 的同一任务不会自重叠。这些保护不能解决两个不同消费者争用同一完成状态。
-
-**建议与权衡。** 明确每个事件的业务处理者，将按类型分发与最终确认收敛到一个调度入口；业务完成前不得由通用审计消费者标记完成。处理成功、幂等记录与完成标记应尽量同事务提交；涉及外部副作用时使用持久意图和独立幂等键。按可重试错误、下一次执行时间和最大次数建立重入/死信机制。若同一事件需要多个独立订阅者，才评估每订阅者游标或投递记录，避免提前引入复杂发布订阅系统。
-
-**验证。** 本次通过 `mise exec -- node --input-type=module` 导入两个 Worker 源文件，以纯内存仓储先执行通用循环、再执行压缩循环，结果为 `status=published`、`auditCount=1`、`markers=0`、`result=0`。修复验收应覆盖相反执行顺序、重复投递、两消费者并发、审计后崩溃和瞬时失败；预期每事件恰有一次业务结果，未完成事件可追踪且最终进入成功或明确死信。新增重试表字段按扩展迁移处理，修改既有投递契约先走 CR。
+原缺陷是通用审计消费者提前发布压缩事件，导致业务消费者无法读取。消费归属与失败恢复已纳入 [ARC-01](#41-arc-01从接单成功到可恢复执行) 的闭环，保留 FND 编号供历史引用。业务完成前不得由审计消费者确认、重复处理必须幂等；新增多订阅契约仍需单独评审。
 
 #### 9.3.2 FND-02：插件升级与失败恢复
 
@@ -554,3 +515,42 @@ SQLite 写竞争的独立证据在 [客户端](../../packages/repositories/src/c
 建议不包含更换 SQLite、恢复多用户隔离、拆微服务或引入独立队列。涉及插件激活/权限语义、新进程信任边界、Outbox 多订阅契约或数据库模型的改动，先按 [CR 工作流](../how-to/cr-workflow.md)冻结差量。任何破坏性数据库迁移继续遵循[换库与回滚演练](../how-to/run-database-migration-drill.md)的停写、备份、显式范围选择、staging 校验、原子换库与保留回滚包流程。
 
 每项采纳后分别登记代码落位、验证和发布门禁；本节完成的是评估交付，不代替[追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)中的实现或发布验收。
+
+## 10. 2026-10-08 仓库审计
+
+### 10.1 范围与方法
+
+基线为 `d7fd6d87`。本次全量盘点第一方 Git 文件、workspace、工具任务、生成物与文档入口，并抽查 API、Worker、仓储、执行内核、插件和客户端的关键调用链；`reference/` 八个子模块仅核对边界，不把外部源码纳入产品审计。初始结论来自静态路径复核与会话锁独立复现；随后按用户授权在同一 PR 实施 §10.2 的明确切片，并补故障注入、并发、取消和冷构建回归。
+
+主仓有 21 个 workspace 包，自动化入口已覆盖依赖边界、类型、构建、测试及 HLS 合同，但并非每个资源包都有独立测试脚本。未发现被跟踪的依赖目录、数据库、日志或常见编译缓存。大型源码集中在 P2P 传输/变更集、Desktop 主进程与配置界面；文件体积是维护信号，不能单独当作缺陷。
+
+<a id="audit-findings"></a>
+
+### 10.2 审计发现与实施边界
+
+以下八项由 [PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258) 承接；严重性描述的是原缺陷。源码和测试是行为证据，关联队列的其它验收仍独立保留。
+
+1. **P1：删除完成没有清理证明（ITER-003，有限切片）。** [删除 Worker](../../apps/worker/src/deletion-worker.ts) 已按明确 owner/target 派发 [Memory 清理与独立验证](../../packages/repositories/src/repositories/sqlite/memory-deletion-store.ts)，清除正文、版本正文、摘要、FTS 和向量，保留无正文的 tombstone；索引写入端拒绝已删除记录的迟到结果。失败可重复轮询，空目标、未知范围/目标、旧占位证明不能解闸；已有共享树、时态事实或技能派生关系的目标明确拒绝完成，留待其 owner 实施清理。实效与保留无关数据由[删除回归](../../apps/worker/test/deletion-worker.test.ts)证明，完整来源传播和独立 deny 账本仍未闭环。
+2. **P1：接单存在分离提交窗口（ITER-002）。** [Turn Store](../../packages/repositories/src/repositories/sqlite/conversation/turn-store.ts) 以一个写者事务关联 next-turn Inbox、Turn、消息、Outbox 和首个 Attempt；重复幂等键不再次消费或派发，执行器读取实际持久化输入。[接单回归](../../packages/repositories/test/turn-acceptance.test.ts)覆盖五个写点失败及并发，[API 回归](../../apps/api/test/conversation-dispatch-resilience.test.ts)覆盖 HTTP 重试、预加载失败和恢复。
+3. **P1：动态工具没有收到调用级取消（ITER-007，接线切片）。** [Tool Provider](../../apps/api/src/modules/companion/conversation/tool-providers.ts) 的全部调用路径已传递 signal/controlContext；[Runtime](../../apps/api/src/modules/ecosystem/tools/runtime.ts) 合并调用、控制上下文和注册信号，结束/取消时解绑，MCP 代理继续传至 HTTP 请求。[生命周期回归](../../apps/api/test/tool-runtime-lifecycle.test.ts)与 [MCP 回归](../../apps/api/test/mcp-client.test.ts)覆盖预取消、在途取消、下一副作用拒绝和注册替换。取消需要 handler 在 I/O/副作用边界协作，尚不等于所有 Driver、子任务和授权修订合同完成。
+4. **P1：消息版本更新缺乏原子 CAS（ITER-004）。** [Message Store](../../packages/repositories/src/repositories/sqlite/conversation/message-store.ts) 将旧版废弃、新版插入与指针切换纳入短事务和条件更新，同一消息在进程内按键串行；[组合写回归](../../packages/repositories/test/atomic-edits.test.ts)验证三处失败回滚与同版本竞争仅一项成功。
+5. **P1：返回配置冲突前已改 Secret（ITER-004）。** [配置仓储](../../packages/repositories/src/repositories/sqlite/plugin-config-repository.ts) 同事务校验 revision、写 Config/Secret，重置也一致提交；不存在的配置仅接受初始 revision 或显式无条件写。[组合写回归](../../packages/repositories/test/atomic-edits.test.ts)与 [API 回归](../../apps/api/test/plugin-config.test.ts)证明 409 不改凭据、中途失败回滚、同 revision 仅一次成功；外部 SecretStore 补偿不在此范围。
+6. **P2：取消后崩溃无法收敛（ITER-010，恢复切片）。** [Attempt 恢复](../../packages/repositories/src/repositories/sqlite/conversation/attempt-store.ts) 将过期 CancelRequested 收敛为 Cancelled，并在同事务推进 fencing、Turn 与终态事件；pending 工具结果记为 outcome_unknown，不自动重放。[重连回归](../../apps/api/test/conversation-dispatch-resilience.test.ts)验证旧 fencing 拒绝落库、重复恢复幂等及 SSE 观察终态；自动 Resume 仍不启用。
+7. **P2：会话锁尾链泄漏（ITER-004）。** [SessionLockManager](../../packages/repositories/src/session-lock.ts) 现在比较实际存储的尾 Promise，观测值直接读取尾链 Map；[锁回归](../../packages/repositories/test/session-lock.test.ts)验证一万个 key 回收及异常后队列仍保留到末项完成。
+8. **P2：共享资产与消费产物双份入库（ITER-017，资产切片）。** `packages/public` 成为介绍页和标记图的唯一源码；九个消费文件取消跟踪并忽略。冷构建已逐字节验证 Desktop/Web 消费目录和打包输入，已有禁用缓存保护保留；[资产回归](../../packages/public/scripts/copy-assets.test.mjs)验证从空目录恢复与重建清除旧派生文件。正式签名分发不由构建输入检查证明。
+
+### 10.3 文档多源偏移与本次收敛
+
+- **同一规则相反**：AGENTS 已免手工签名，写作规范仍强制；Markdownlint 已固定版本，入门示例仍用 `npx`。本次统一为 Git 留痕与受控工具入口，模板和导航同步。
+- **实现状态相反**：Agent Loop 仍称 Inbox、ModelRun 等未实现；ADR-017 同时写 Accepted/Proposed；架构把已接受决策写成全部落地。现改为源码/测试入口、当前接线边界与未完成合同；每请求 Manifest、独立持久 Host 和生产验证仍保留为差量。
+- **生命周期与权限边界相反**：插件缺包被写成清理记录，实际只标记 availability 并保留状态；CAP-027 被列为可关闭的本地优先候选，冲突于 CR-030。现按实现及已接受的数据权利合同纠偏，不提升能力交付状态。
+- **队列与合并证据相反**：ITER-038 已随 PR #247 合入却仍占在制；ITER-002 的部分修复被扩大为全部闭环。前者修正为已移交，后者重开剩余范围；已完成项仅保留摘要、适用限制与 PR 链接。
+- **生成视图被当成第二份来源**：文档目录已可生成，治理正文仍写“尚未建立”。现说明 Front Matter、队列、ADR 与各派生视图的方向。目录快照的新鲜度尚无阻断检查，散文矛盾也不会被格式/链接门禁发现，建议补确定性的快照比对和评审中的事实源核对。
+
+### 10.4 改进顺序与验证边界
+
+§10.2 已将可复现的正确性问题转成实现与故障回归；下一步继续 ITER-003/007/010 中明确保留的来源传播、Driver 控制与恢复合同。优先补跨边界失败场景，而非继续添加只检查表面状态的测试。P2P、Desktop 与配置界面随后按职责和现有测试边界渐进拆分，不以本次审计启动大范围重构。
+
+文档继续保留 PRD/SRS 的需求与验收、ADR 的已接受决定和安全/迁移/发布门槛；完整日志及旧分支过程留给 Git/PR，入口只做导航。超过 500 行且混合多个职责的文档逐篇处理，避免再次建立新的汇总真源。
+
+交付和门禁证据见 [PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258)。本轮没有变更数据库 Schema 或执行生产换库；真实 DSH、模型/硬件、正式签名打包与生产恢复演练仍需各自证据，不以本地测试提升为 Released。

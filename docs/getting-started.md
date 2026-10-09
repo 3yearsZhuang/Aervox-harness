@@ -6,16 +6,13 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.3.0
-updated_at: 2026-10-06
-reviewed_at: 2026-10-06
+version: 1.4.0
+updated_at: 2026-10-08
+reviewed_at: 2026-10-08
 review_interval_days: 90
 ---
 
 # 从哪开始（新成员 / AI Agent 入口）
-
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-10-06
 
 关联：[文档索引](README.md)（AVX-DOC-001）
 
@@ -23,47 +20,21 @@ review_interval_days: 90
 
 ## 1. 仓库结构
 
-```text
-plan.md                 # 当前迭代建议唯一入口（AVX-PLAN-001）
-docs/
-  README.md              # 文档索引 + 权威顺序（AVX-DOC-001）
-  DOC_REGISTRY.md        # 文档生命周期登记表（AVX-DOC-CONF-001）
-  getting-started.md     # 从哪开始（本文件，AVX-DOC-002）
-  _meta/                 # 文档治理机器策略（校验器读取，不承载正文）
-  tutorials/             # 教程（AVX-TUT-001～003）
-  how-to/                # 操作指南（AVX-GUIDE-*）
-  explanation/           # 概念讲解（AVX-EXPL-*）/ 实现规划 / 能力拆分路线
-  templates/             # 新建文档模板（How-to / Reference / Explanation）
-  proposals/             # 暂存提案（未采纳或待补充证据的技术与架构方案）
-  archive/               # 已迁移至外部独立归档仓 Aervox-docs-archive
-  reference/             # 参考类（AVX-PRD/SRS/SAD/TRC/SPC/DB/DATA/AIQ/SEC/QA/OPS 等）
-    adr/                 # ADR-001~019 + 索引
-    changes/             # 当前 CR 差量；历史编号见归档说明
-    standards/           # 文档写作规范（AVX-STD-001）· 代码与 API 命名规范（AVX-STD-002）· 术语表（AVX-TERM-001）
-    diagrams/            # 数据库 ERD（.mmd）
-    PRD.md · ARCHITECTURE.md · SRS.md · REQUIREMENTS_TRACEABILITY.md
-    capability-composition.md
-    capability-registry.md
-    agent-harness-loop.md
-    document-governance.md
-    DATABASE.md · STREAMING_PROTOCOL.md
-    plugin-config-and-pages.md
-    DATA_PRIVACY.md · AI_QUALITY_SAFETY.md · THREAT_MODEL.md · TEST_STRATEGY.md
-    operations.md
-reference/               # 固定 commit 的子模块（只读参考，见 PRD 15.1；与上文 docs/reference/ 不同）
-```
+| 路径 | 用途 |
+|---|---|
+| `apps/`、`packages/`、`plugins/`、`modules/` | 宿主、共享包与扩展；实际拓扑见[架构设计](reference/ARCHITECTURE.md) |
+| `plan.md` | 当前迭代入口，条目由 `docs/_meta/plan-queue.json` 生成 |
+| `docs/` | 导航、教程、指南、契约与解释；目录职责见[治理规范 §2](reference/document-governance.md#2-文档分类与目录职责) |
+| `reference/` | 固定版本的外部设计输入；清单与许可证见 [PRD §15](reference/PRD.md#prd-reference-manifest) |
+| `scripts/`、`mise.toml` | 自动化检查、生成任务与工具链真源 |
 
 ## 2. 阅读顺序
 
-1. 先读根目录 [plan.md](../plan.md) 确认当前工作条目、依赖与待决策事项，再读[文档索引的体系表](README.md#1-文档体系与事实源)与[权威顺序](README.md#2-权威顺序与冲突处理)，弄清每份文档回答什么、冲突时谁优先。
-2. 修改或新增文档前读[文档治理与事实源规范](reference/document-governance.md)，确认唯一事实源、状态维度和复核触发器；写作体例再查[文档写作规范](reference/standards/doc-standards.md)。
-3. 历史 CR-033、CR-034、CR-035 及临时落地计划已确认闭环并移至私有归档仓库；当前迭代建议统一进入根 `plan.md`；现行需求、契约和架构决策仍以各自事实源为准。
-4. 读 [PRD](reference/PRD.md) 第 1 节产品决策摘要与功能地图，了解产品边界。
-5. 开发插件先读 [Aervox 插件开发规范](reference/plugin-config-and-pages.md)，再按[开发指南](how-to/develop-plugin-ui-extension.md)完成最小插件；规划能力宿主和目标目录时读[能力组合与可选化目录规范](reference/capability-composition.md)，现有能力迁移从[迁移教程](tutorials/migrate-integrated-capabilities.md)开始。
-6. 规划模型调用、工具执行、多 Step、取消或恢复时，读 [Agent Harness Loop 规范](reference/agent-harness-loop.md)。 评估 HLS 竞赛扩展时，再读 [HLS 验证规划](explanation/hls-agent-competition-plan.md)，按根计划的 ITER-020～022 查看文档交付、实验和提交边界。
-7. 规划 CAP-033 完整画像、十二项主动智能派生、Home Assistant、小米健康、OS 能力授权、特权观察 Host、本地模型/存储或主动提醒时，读[主动智能设计方案](explanation/proactive-intelligence-mode.md)、`CR-023`、`CR-024`（已归档）与 [ADR-019](reference/adr/ADR-019-proactive-integrations-local-gateway.md)；当前分支已实现本地 Vault、部分来源、十二项派生、HA/健康连接和动作授权，生产平台与厂商门禁仍未完成。
-8. 拉取子模块：clone 后按需执行 `git submodule update --init --recursive`，reference/* 子模块是设计输入参考代码，**并不影响 pnpm build**，不拉取也不会报错。这些设计输入子仓库已在 `.gitmodules` 配置 `shallow = true`，新 clone 只取 pinned commit 单层历史（合计约 4.4G 全量历史 → 浅克隆显著缩减，CI `submodules: recursive` 同样受益）；已完整 clone 的历史**不会自动缩减**，需要时手动执行 `git submodule update --init --depth 1`。设计输入按需 init 即可，不参与构建。
-9. 贡献者流程见根级 [CONTRIBUTING](../CONTRIBUTING.md)；按需进入 [how-to](how-to)：新增 CAP / 插件开发 / CR 闭环 / 换库演练。
+1. 先读 [plan.md](../plan.md)，核对当前条目与依赖；用户本次授权优先。
+2. 按[文档索引](README.md)进入所需事实源：产品范围查 PRD，行为查 SRS，边界查 ARCHITECTURE/ADR，交付查追踪基线。
+3. 本地启动按[第一个对话](tutorials/first-conversation.md)操作；贡献流程查 [CONTRIBUTING](../CONTRIBUTING.md)。外部参考子模块按需初始化，不作为默认构建前置条件；专项适配测试的要求见贡献指南。
+4. 开发扩展先读[插件规范](reference/plugin-config-and-pages.md)及[开发指南](how-to/develop-plugin-ui-extension.md)；执行、取消与恢复查 [Agent Harness Loop](reference/agent-harness-loop.md)。
+5. 修改文档先读[治理规范](reference/document-governance.md)与[写作规范](reference/standards/doc-standards.md)。硬件、移动、HLS 等探索从[解释索引](explanation/README.md)进入，实施状态回到队列核实。
 
 ## 3. 写作与改动的硬性规则
 
@@ -71,20 +42,16 @@ reference/               # 固定 commit 的子模块（只读参考，见 PRD 1
 
 - ID/优先级/阶段语义与不可改动原则：[追踪基线 §1](reference/REQUIREMENTS_TRACEABILITY.md#1-目的与使用方式)；
 - 文档分类、状态、事实源与复核触发：[文档治理规范 §2-5](reference/document-governance.md#2-文档分类与目录职责)；
-- 新增/改版文档的头字段、签名与模板：[文档写作规范 §1-2/§6](reference/standards/doc-standards.md#1-文档分类diátaxis-四分类)；
+- 新增/改版文档的头字段、Git 留痕与模板：[文档写作规范 §1-2/§6](reference/standards/doc-standards.md#1-文档分类diátaxis-四分类)；
 - 已批准文档的变更（含 `CR-*`）与变更豁免：[追踪基线 §11](reference/REQUIREMENTS_TRACEABILITY.md#11-变更控制)；
 - 登记强度分级（L1/L2/L3）与登记表同步：[文档写作规范 §3.1](reference/standards/doc-standards.md#31-改动等级与同步要求)、[生命周期登记表](DOC_REGISTRY.md)；
 - 参考仓库使用边界：[PRD §15](reference/PRD.md#15-参考项目与借鉴边界)。
 
 ## 4. 提交前自检（Docs CI 门禁）
 
-改动 `docs/**`、根 `README.md`、`CONTRIBUTING.md` 、`AGENTS.md`、根 `plan.md`，或计划队列真源 `docs/_meta/plan-queue.json` / 脚本 `scripts/plan-queue.mjs` 的 PR 必须通过：
+文档修改后运行 `mise tasks run ci-docs`；提交前运行 `./aervox ci all`。前者组合 Markdownlint、Vale、治理、架构拓扑与计划校验，任务内容以 [mise.toml](../mise.toml) 为准。需要修复排版时使用 `mise exec -- markdownlint-cli2 --fix <files>`，避免绕开固定工具版本。
 
-- **Markdown lint**：`mise x -- npx markdownlint-cli2 --config .markdownlint-cli2.jsonc "docs/**/*.md" "README.md" "CONTRIBUTING.md" "AGENTS.md" "plan.md"`（配置关闭 MD013/033/060）；
-- **治理校验**：`mise tasks run docs-validate`（重复 ID、签名、本地路径/锚点、登记路径与日期）；
-- **计划队列**：`mise tasks run plan-check`（编号/状态枚举、依赖悬空与成环、在制并发、分支与证据、§2 生成区与真源一致；已接入文档治理，强制级别 `error`）；
-- **链接检查**：CI 中另由 `lychee` 检查仓库链接，排除只读子模块 `reference/` 与原型 `demos/`；
-- 本地统一运行 `mise tasks run ci-docs`，确保 Markdown、Vale、治理校验与队列校验均为 0 错误后再提交。
+队列变更先运行 `mise tasks run plan-render`；文档日期变更用 `mise tasks run docs-sync` 同步登记表。其余生成视图与校验入口见[治理规范 §6](reference/document-governance.md#6-索引登记和生成视图)。
 
 ## 5. 需要介入时
 
@@ -94,23 +61,8 @@ reference/               # 固定 commit 的子模块（只读参考，见 PRD 1
 
 ## 6. 下一步
 
-- 开始动手：[教程：构建并运行第一个对话](tutorials/first-conversation.md)；
-- 了解架构：[架构设计](reference/ARCHITECTURE.md) 与 [数据流总览](explanation/data-flow-overview.md)；
-- 需求与落地状态：[需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md)。
-- 当前迭代：先读 [plan.md](../plan.md)，任务开始、改序和移交时更新队列真源 `docs/_meta/plan-queue.json` 并运行 `mise tasks run plan-render` 重新生成 §2 表格（规则见[计划治理](reference/document-governance.md#31-当前迭代计划的唯一入口)）；
-- 底层与架构评估证据（ARC-01～14 与 FND-01～10）：[架构实现与演进评估](explanation/architecture-implementation-review.md)；
-- 规划可替换实现与类 pi 分层：CR-056（已归档至 Aervox-docs-archive）给出公开 Port、生命周期、试点与退出验收；当前架构评审见 ITER-014，本次规划交付见 ITER-023，实施状态不由 CR 内切片另行维护；
-- 规划配套设备：[配套硬件方向：能力核查、移动协同取舍与原型路线](explanation/companion-hardware-directions.md)，器件级设计输入见 [ESP32-S3 硬件延伸方案](explanation/esp32-s3-hardware-extension.md)；
-- 规划手机体验：[移动端落地规划](reference/changes/CR-055-mobile-delivery-plan.md)（CR-055，待评审），比较配套端与独立端，核对连接、数据边界与逐阶段验收。
+按[第一个对话](tutorials/first-conversation.md)完成启动与验证，再从 [plan.md](../plan.md)认领具体工作。历史评估只用于理解证据，最新实现以代码、测试和[交付基线](reference/REQUIREMENTS_TRACEABILITY.md)核实。
 
 ## 7. 常用开发环境变量
 
-| 作用域 | 环境变量 | 说明与推荐默认值 |
-|---|---|---|
-| API | `PORT` | 监听端口（默认 `3000`） |
-| API | `AERVOX_LOOP_DRIVER` | Turn 执行驱动：`native`（默认，内置 Harness Loop）/ `dsh`（外部 DSH 进程驱动，准入失败 fail-closed） |
-| API | `AERVOX_TRUST_LOCAL_DEV_HOST` | 本地未签名开发宿主信任开关：开发模式置 `1`（主动智能可用）；设 `0` 恢复挂起 |
-| Web / Mobile | `VITE_API_URL` | 后端 API 服务地址（默认 `http://127.0.0.1:3000`） |
-| Web / Mobile | `VITE_SESSION_ID` | 默认会话 ID（默认 `web_default`） |
-| Desktop | `AERVOX_API_URL` / `AERVOX_SESSION_ID` | 桌面端直连的 API 地址与绑定会话 ID |
-| 数据持久化 | `DATABASE_URL` | 本地 SQLite 数据库文件路径；默认指向 `<repo>/data/aervox.db`（详见 [AVX-DB-001 §3](reference/DATABASE.md#3-本地存储拓扑)） |
+启动参数与默认值见根 [README](../README.md) 的使用说明和[第一个对话](tutorials/first-conversation.md)；可配置键见 [.env.example](../.env.example)，数据库路径规则见 [DATABASE §3](reference/DATABASE.md#3-本地存储拓扑)。本入口不再复制一张可能与代码漂移的默认值表。

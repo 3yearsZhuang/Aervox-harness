@@ -9,6 +9,7 @@ import { outboxEvents } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
 import type { FetchPendingEventsOptions, IOutboxRepository, OutboxEventModel } from "../types/index.js";
 import { notifyWorkerWakeup } from "../../worker-ipc.js";
+import { assertMemoryCompactionAvailable, MEMORY_COMPACTION_EVENT_TYPE, MemoryCompactionUnavailableError } from "./memory-compaction-guard.js";
 
 export class SqliteOutboxRepository implements IOutboxRepository {
   constructor(private readonly db: AervoxDatabase) {}
@@ -24,7 +25,7 @@ export class SqliteOutboxRepository implements IOutboxRepository {
     },
   ): Promise<OutboxEventModel> {
     const now = new Date().toISOString();
-    const [created] = await this.db
+    const insert = async (db: Pick<AervoxDatabase, "insert">) => db
       .insert(outboxEvents)
       .values({
         id: eventData.id,
@@ -37,6 +38,14 @@ export class SqliteOutboxRepository implements IOutboxRepository {
         createdAt: now,
       })
       .returning();
+    const [created] = eventData.eventType === MEMORY_COMPACTION_EVENT_TYPE
+      ? await this.db.transaction(async (tx) => {
+          const memoryId = (eventData.payload as { memoryId?: unknown } | null)?.memoryId;
+          if (typeof memoryId !== "string") throw new MemoryCompactionUnavailableError();
+          await assertMemoryCompactionAvailable(tx, memoryId);
+          return insert(tx);
+        })
+      : await insert(this.db);
 
     // 事务提交后触发跨进程 Worker IPC 秒级唤醒（尽力而为：不 await、不抛出，Worker 未启动
     // 或 socket 不可达时返回 false，由 Worker 的轮询兜底，不阻塞本写入路径）。

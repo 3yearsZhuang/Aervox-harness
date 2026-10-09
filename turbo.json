@@ -23,6 +23,10 @@
       "dependsOn": ["^build"],
       "cache": false
     },
+    "@aervox/public#test": {
+      "dependsOn": ["^build"],
+      "inputs": ["scripts/**", "aervox-intro/**", "aervox-mark.svg", "package.json"]
+    },
     "@aervox/mobile#build": {
       "dependsOn": ["^build"],
       "cache": false

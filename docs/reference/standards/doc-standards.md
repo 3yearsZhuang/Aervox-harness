@@ -6,20 +6,17 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.3.1
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
+version: 0.4.0
+updated_at: 2026-10-08
+reviewed_at: 2026-10-08
 review_interval_days: 90
 ---
 
 # 文档写作规范（Docs-as-Code × Diátaxis）
 
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-18
-
 关联：[文档治理与事实源规范](../document-governance.md)、[文档索引](../../README.md)、[生命周期登记表](../../DOC_REGISTRY.md)、[术语表](terminology.md)
 
-本规范定义文档如何套用模板、维护标题下签名、命名、写作并通过门禁。文档分类、唯一事实源、状态模型、owner 与复核触发器以[文档治理与事实源规范](../document-governance.md)为唯一事实源；本文不重复定义这些治理规则。
+本规范定义文档如何套用模板、维护元数据与 Git 留痕、命名、写作并通过门禁。文档分类、唯一事实源、状态模型、owner 与复核触发器以[文档治理与事实源规范](../document-governance.md)为唯一事实源；本文不重复定义这些治理规则。
 
 ## 1. 文档分类（Diátaxis 四分类）
 
@@ -34,54 +31,16 @@ review_interval_days: 90
 
 - 一份文档只服务一种类型，混写时拆分；
 - 目录可归属类型的文档，类型由目录推断；`docs/` 根层只保留导航/登记类文档（文档索引、生命周期登记表）；
-- 导航/登记类（[文档索引](../../README.md)、[生命周期登记表](../../DOC_REGISTRY.md)）不属于四分类，登记编号即可，不标 `类型`；
+- 导航/登记类（[文档索引](../../README.md)、[生命周期登记表](../../DOC_REGISTRY.md)）使用 `type: reference` 元数据，正文只承载导航与登记；
 - ADR 整体属于 Reference（决策事实），其单篇的 Context/Consequences 承担讲解职责，不再另设类型。
 
 ## 2. 文档头元数据
 
 新建文档使用 YAML front matter；历史 blockquote/bullet 元数据在迁移期继续兼容，但不得为新文档引入第三种格式。字段语义与允许状态见[文档治理规范 §4](../document-governance.md#4-元数据和状态模型)。
 
-最低必填字段：
+字段清单、状态枚举与完整示例只在[治理规范 §4](../document-governance.md#4-元数据和状态模型)维护；新文档直接使用[模板族](#6-模板族)。
 
-| 字段 | 示例 | 说明 |
-|---|---|---|
-| `id` | `AVX-DB-001` | `AVX-###-###`、`ADR-###` 或 `CR-###`；编号一经分配不复用 |
-| `type` | `reference` | `tutorial` / `how-to` / `reference` / `explanation`，与目录一致 |
-| `scope` | `baseline` | 文档在治理生命周期中的作用域 |
-| `owner` | `platform` | 稳定团队角色，不使用临时个人作为长期 owner |
-| `doc_status` | `review-candidate` | 只表达文档可用性；决策与交付状态另列 |
-| `version` | `0.2.0` | 语义化版本，不加 `v` 前缀 |
-| `updated_at` | `2026-08-28` | 正文或元数据最近变更日期 |
-| `reviewed_at` | `2026-08-28` | owner 最近确认内容仍与事实源一致的日期 |
-
-示例：
-
-```yaml
----
-id: AVX-STD-001
-type: reference
-scope: baseline
-owner: maintainers
-doc_status: review-candidate
-decision_status: not-applicable
-delivery_status: not-applicable
-version: 0.2.0
-updated_at: 2026-08-28
-reviewed_at: 2026-08-28
-review_interval_days: 90
----
-```
-
-front matter 后写标题与点阵签名：
-
-```markdown
-# 文档标题
-
-- 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-08-28
-```
-
-**文档签名（强制）**：每份文档标题下第一位置必须带两行点阵签名 `- 提出人：<GitHub 账号> · <日期>` 与 `- 修改人：<GitHub 账号> · <日期>`（提出人填文档首次建立者，修改人填最近一次内容变更者，两者可相同）。内容或文档头字段每次变更都必须更新 `修改人` 账号与日期，禁止只改正文不动签名（对应 [AGENTS.md 硬约束](../../../AGENTS.md)）。导航/登记类文档同样适用。
+Front matter 后写一个 H1 标题。作者和修改历史由 Git 追踪，不再手工维护标题下的提出人/修改人签名；既有签名在触碰文档时移除。`updated_at` 和 `reviewed_at` 仍保留，分别表示内容变更与事实复核，不能用刷新日期代替复核。
 
 ADR 另填 `decision_status`；CR 同时填写 `decision_status` 与 `delivery_status`。不适用时显式写 `not-applicable`。关联事实源使用 `sources`，正文中的同仓库引用继续使用相对链接。
 
@@ -92,7 +51,7 @@ ADR 另填 `decision_status`；CR 同时填写 `decision_status` 与 `delivery_s
 - 文档迁移后旧路径自动失效：任何跨文档引用一律用相对链接，由链接检查（CI lychee + 本地相对链接检查）兜底；
 - 新增文档后必须同步 [DOC_REGISTRY.md](../../DOC_REGISTRY.md) 与 [文档索引](../../README.md) 体系表。
 
-当前迭代计划是固定根路径例外：[plan.md](../../../plan.md) 使用 Reference 的 canonical 元数据、`AVX-PLAN-001` 与 `planning_role: current`，接受同等签名、登记、链接和术语门禁。条目字段、状态及归档责任以[迭代计划治理](../document-governance.md#31-当前迭代计划的唯一入口)为准；不要另造计划模板或平行 roadmap。
+当前迭代计划是固定根路径例外：[plan.md](../../../plan.md) 使用 Reference 的 canonical 元数据、`AVX-PLAN-001` 与 `planning_role: current`，接受同等元数据、登记、链接和术语门禁。条目字段、状态及归档责任以[迭代计划治理](../document-governance.md#31-当前迭代计划的唯一入口)为准；不要另造计划模板或平行 roadmap。
 
 ### 3.1 改动等级与同步要求
 
@@ -124,8 +83,8 @@ ADR 另填 `decision_status`；CR 同时填写 `decision_status` 与 `delivery_s
 ## 5. Vale 术语与风格检查
 
 - 配置：根目录 [.vale.ini](../../../.vale.ini) + `.vale/styles/`（Vocab 词典 + `Project/Terms.yml` 检查规则）；
-- 本地：`mise tasks run docs-lint-prose`（等价 `vale --minAlertLevel=error docs README.md CONTRIBUTING.md AGENTS.md`）；
-- CI：并入 `mise tasks run ci-docs`，改动 `docs/`、`README.md`、`CONTRIBUTING.md`、`AGENTS.md`、`.vale/` 或 `.vale.ini` 的 PR 与 main 推送都会执行；
+- 本地：`mise tasks run docs-lint-prose`（参数以 `mise.toml` 为准）；
+- CI：并入 `mise tasks run ci-docs`，改动 `docs/`、`README.md`、`CONTRIBUTING.md`、`AGENTS.md`、`plan.md`、`.vale/` 或 `.vale.ini` 的 PR 与 main 推送都会执行；
 - 新增术语：先在 `Vocab/Aervox/accept.txt` 登记（缩写/产品名），再考虑追加 `Terms.yml` 检查规则。
 
 ## 6. 模板族
@@ -141,7 +100,7 @@ ADR 另填 `decision_status`；CR 同时填写 `decision_status` 与 `delivery_s
 
 ## 7. 提交前自检
 
-1. `mise tasks run docs-validate`：重复 ID、签名、本地路径/锚点、登记路径与日期 0 错误；
+1. `mise tasks run docs-validate`：重复 ID、元数据、本地路径/锚点、登记路径与日期 0 错误；
 2. `mise tasks run docs-lint-prose`：Vale 0 错误；
 3. `mise tasks run ci-docs`：一次执行 Markdown、Vale 与治理校验；CI 另有 lychee 检查（排除 `reference/`、`demos/`）；
 4. L3 新增/改版文档后在 [DOC_REGISTRY.md](../../DOC_REGISTRY.md) 与 [文档索引](../../README.md) 同步编号、类型、核验日期和导航入口。
