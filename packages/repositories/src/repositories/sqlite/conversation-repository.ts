@@ -10,6 +10,7 @@ import type { LocalContext } from "../../local-context.js";
 import type {
   IConversationRepository,
   TurnAcceptanceInput,
+  TurnAcceptanceResult,
   SessionModel,
   TurnModel,
   MessageModel,
@@ -101,6 +102,20 @@ export class SqliteConversationRepository implements IConversationRepository {
 
   acceptTurn(ctx: LocalContext, input: TurnAcceptanceInput) {
     return this.turnStore.acceptTurn(ctx, input);
+  }
+
+  /** 编程式接单（子任务/宿主内部）：Turn/消息/首个 Attempt 单写者事务（不消费 Inbox、不写 Outbox） */
+  async createTurnWithAttempt(
+    ctx: LocalContext,
+    input: {
+      turnId: string;
+      sessionId: string;
+      idempotencyKey: string;
+      message: { id: string; content: string };
+      attemptId: string;
+    },
+  ): Promise<TurnAcceptanceResult> {
+    return this.turnStore.createTurnWithAttempt(ctx, input);
   }
 
   async createTurnWithOutbox(
@@ -301,6 +316,11 @@ export class SqliteConversationRepository implements IConversationRepository {
     options?: { unclaimedTimeoutMs?: number },
   ): Promise<number> {
     return this.attemptStore.recoverExpiredAttempts(client, options);
+  }
+
+  /** ARC-01 补：回收「Turn 已提交但首个 Attempt 从未创建」的孤儿 Turn（无 Attempt → Interrupted + done） */
+  async recoverOrphanTurns(options?: { orphanTimeoutMs?: number }): Promise<number> {
+    return this.attemptStore.recoverOrphanTurns(options);
   }
 
   async recordToolExecution(

@@ -49,4 +49,30 @@ describe("atomic Turn acceptance", () => {
     expect(await repo.listTurnAttempts(ctx, "t")).toMatchObject([{ status: "Cancelled", fencingToken: 1 }]);
   });
 
+  it("orphan Turn (no Attempt) converges to Interrupted once with a terminal done event", async () => {
+    await repo.createTurnWithOutbox(ctx, { id: "orphan", sessionId: "s", idempotencyKey: "orphan" }, { id: "m_orphan", content: "queued" });
+    expect(await repo.recoverOrphanTurns()).toBe(0); // 新 Turn 不在回收窗口
+    await accept(); // 带 Attempt 的 Turn 不受孤儿回收影响
+    await database.client.execute("UPDATE turns SET created_at = '2000-01-01T00:00:00.000Z'");
+    expect(await repo.recoverOrphanTurns()).toBe(1);
+    expect((await repo.getTurn(ctx, "orphan"))?.status).toBe("Interrupted");
+    expect(await repo.getStreamEvents(ctx, "orphan")).toMatchObject([
+      { eventType: "done", data: { status: "Interrupted", reason: "orphan_turn_recovered" } },
+    ]);
+    expect((await repo.getTurn(ctx, "t"))?.status).toBe("Created");
+    expect(await repo.recoverOrphanTurns()).toBe(0); // 幂等：二次执行无候选
+  });
+
+  it("orphan Turn recovery failure rolls back status and event, then succeeds on retry", async () => {
+    await repo.createTurnWithOutbox(ctx, { id: "orphan2", sessionId: "s", idempotencyKey: "orphan2" }, { id: "m_orphan2", content: "queued" });
+    await database.client.execute("UPDATE turns SET created_at = '2000-01-01T00:00:00.000Z'");
+    await database.client.execute("CREATE TRIGGER fail_orphan BEFORE INSERT ON turn_stream_events BEGIN SELECT RAISE(ABORT, 'injected'); END");
+    await expect(repo.recoverOrphanTurns()).rejects.toThrow("injected");
+    expect((await repo.getTurn(ctx, "orphan2"))?.status).toBe("Created");
+    expect(await repo.getStreamEvents(ctx, "orphan2")).toEqual([]);
+    await database.client.execute("DROP TRIGGER fail_orphan");
+    expect(await repo.recoverOrphanTurns()).toBe(1);
+    expect((await repo.getTurn(ctx, "orphan2"))?.status).toBe("Interrupted");
+  });
+
 });

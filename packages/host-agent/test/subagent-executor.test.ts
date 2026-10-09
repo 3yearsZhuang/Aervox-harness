@@ -149,4 +149,46 @@ describe("SqliteSubagentPort（子任务委托执行器）", () => {
     expect(runs[0]?.status).toBe("Failed");
     expect(runs[0]?.error).toBe("subagent_failed");
   });
+
+  it("Attempt 创建失败整体回滚：无孤儿 Turn，重试无唯一键冲突", async () => {
+    const subagent = createSqliteSubagentPort({
+      ctx,
+      store: new SqliteExecutionStore(repo, ctx),
+      conversationRepo: repo,
+      runRepo,
+      providerBuilder: () => createScriptedProvider([{ text: "ok", toolCalls: [] }]),
+      genId: gen,
+    });
+    await client.execute("CREATE TRIGGER fail_sub_attempt BEFORE INSERT ON turn_attempts BEGIN SELECT RAISE(ABORT, 'injected'); END");
+    await expect(subagent.delegate(delegateInput)).rejects.toThrow("injected");
+    expect(Number((await client.execute("SELECT COUNT(*) AS n FROM turns")).rows[0]!.n)).toBe(0);
+    expect(await runRepo.listRunsByTurn(ctx, "turn_parent")).toHaveLength(0);
+    await client.execute("DROP TRIGGER fail_sub_attempt");
+    const result = await subagent.delegate(delegateInput);
+    expect(result.status).toBe("Completed");
+    expect(await repo.listTurnAttempts(ctx, result.subTurnId)).toHaveLength(1);
+  });
+
+  it("崩溃窗口重放：既有无 Attempt 的子 Turn 被复用并补建 Attempt，不重复落库", async () => {
+    const subagent = createSqliteSubagentPort({
+      ctx,
+      store: new SqliteExecutionStore(repo, ctx),
+      conversationRepo: repo,
+      runRepo,
+      providerBuilder: () => createScriptedProvider([{ text: "ok", toolCalls: [] }]),
+      genId: gen,
+    });
+    await repo.createTurnWithOutbox(
+      ctx,
+      { id: "turn_crashed", sessionId: "ses_sub", idempotencyKey: "subagent:attempt_parent:2:3" },
+      { id: "msg_crashed", content: "总结这段对话" },
+    );
+    const result = await subagent.delegate(delegateInput);
+    expect(result.status).toBe("Completed");
+    expect(result.subTurnId).toBe("turn_crashed");
+    expect(await repo.listTurnAttempts(ctx, "turn_crashed")).toHaveLength(1);
+    const runs = await runRepo.listRunsByTurn(ctx, "turn_parent");
+    expect(runs).toHaveLength(1);
+    expect(runs[0]?.subTurnId).toBe("turn_crashed");
+  });
 });
