@@ -1,0 +1,5 @@
+# Aervox｜思隅 — 提交身份归一（GitHub 按 .mailmap 合并贡献者归因）
+# 历史提交中的 AI 代理/工具署名统一映射到维护者真人账号；
+# 后续提交禁止任何 AI 署名（见 AGENTS.md §3「提交署名与贡献者身份」）。
+庄某三岁 <wenyuanzhuang@outlook.com> Claude Opus 5 <noreply@anthropic.com>
+庄某三岁 <wenyuanzhuang@outlook.com> CommandCodeBot <noreply@commandcode.ai>
