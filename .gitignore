@@ -56,6 +56,7 @@ app.js
 # IDE / 协作工具本地工作目录（不应入库）
 .workbuddy/
 .zcode/
+.commandcode/
 
 # tsc 产物误入 src/ 的提交兜底（根因护栏见 tsconfig.base.json 的 "include": []）
 # 编译产物与同名 .ts 并存时，vitest/tsx 会优先解析到过期的 .js ——
