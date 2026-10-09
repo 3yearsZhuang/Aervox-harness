@@ -12,6 +12,7 @@ import {
   composeToolProviders,
   createSubagentToolProvider,
   createWorkflowToolProvider,
+  ControlContext,
   SUBAGENT_DELEGATE_TOOL,
   WORKFLOW_RUN_TOOL,
 } from "../src/index.js";
@@ -197,5 +198,90 @@ describe("5c createWorkflowToolProvider", () => {
         error: expect.stringContaining('workflow "thrower" step 1 (抛) threw: boom'),
       }),
     );
+  });
+
+  it("取消句柄透传：步骤可见 signal/controlContext，步骤内 abort 原样上抛且不进入下一步", async () => {
+    const controller = new AbortController();
+    const control = new ControlContext();
+    const seen: Array<{ signalAborted: boolean; hasControl: boolean }> = [];
+    const steps: string[] = [];
+    const cancelAware: WorkflowDefinition = {
+      name: "cancel-aware",
+      description: "第一步内中止",
+      steps: [
+        {
+          description: "等待中止",
+          execute: async (ctx) => {
+            seen.push({ signalAborted: Boolean(ctx.signal?.aborted), hasControl: Boolean(ctx.controlContext) });
+            controller.abort(new Error("user_cancelled"));
+            ctx.signal?.throwIfAborted();
+            return { ok: true, output: "unreachable" };
+          },
+        },
+        {
+          description: "不应执行",
+          execute: async () => {
+            steps.push("step2");
+            return { ok: true, output: "ran" };
+          },
+        },
+      ],
+    };
+    try {
+      await expect(
+        createWorkflowToolProvider([cancelAware]).execute(
+          call(WORKFLOW_RUN_TOOL, { name: "cancel-aware", input: null }, { signal: controller.signal, controlContext: control }),
+        ),
+      ).rejects.toThrow(/user_cancelled/);
+      expect(seen).toEqual([{ signalAborted: false, hasControl: true }]);
+      expect(steps).toEqual([]);
+    } finally {
+      control.dispose();
+    }
+  });
+
+  it("controlContext 透传：步骤前已中止的上下文不进入任何步骤；未中止时步骤间共享同一上下文", async () => {
+    const executed: string[] = [];
+    const observed: boolean[] = [];
+    const def: WorkflowDefinition = {
+      name: "control-aware",
+      description: "控制透传",
+      steps: [
+        {
+          description: "s1",
+          execute: async (ctx, input) => {
+            executed.push("s1");
+            observed.push(ctx.controlContext === control);
+            return { ok: true, output: input };
+          },
+        },
+        {
+          description: "s2",
+          execute: async () => {
+            executed.push("s2");
+            return { ok: true, output: "done" };
+          },
+        },
+      ],
+    };
+    const control = new ControlContext();
+    const provider = createWorkflowToolProvider([def]);
+    try {
+      await expect(provider.execute(call(WORKFLOW_RUN_TOOL, { name: "control-aware", input: 1 }, { controlContext: control }))).resolves.toEqual({
+        ok: true,
+        output: { steps: [1, "done"] },
+      });
+      expect(executed).toEqual(["s1", "s2"]);
+      expect(observed).toEqual([true]);
+
+      const aborted = new ControlContext();
+      aborted.abort(new Error("cancelled-before-step"));
+      await expect(
+        provider.execute(call(WORKFLOW_RUN_TOOL, { name: "control-aware", input: 1 }, { controlContext: aborted })),
+      ).rejects.toThrow(/cancelled-before-step/);
+      expect(executed).toEqual(["s1", "s2"]); // 未新增执行
+    } finally {
+      control.dispose();
+    }
   });
 });

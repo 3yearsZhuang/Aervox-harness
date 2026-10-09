@@ -133,6 +133,7 @@ export function createSqliteSubagentPort(deps: SqliteSubagentPortDeps): Subagent
 
       // 2) 嵌套执行（executeTurn 内部 claim 子 attempt：Running+fencing0 → 可领）
       let status: AttemptStatus = "Failed";
+      let failureReason: string | undefined;
       try {
         const provider = await providerBuilder({ turnId: effectiveTurnId, sessionId, attemptId: effectiveAttemptId, controlContext });
         const result = await executeTurn(
@@ -142,7 +143,13 @@ export function createSqliteSubagentPort(deps: SqliteSubagentPortDeps): Subagent
             contextBuilder: builder,
             tools: childTools,
             controlContext,
-            options: { maxSteps: subMaxSteps },
+            options: {
+              maxSteps: subMaxSteps,
+              // 截止继承：父级有截止时把剩余墙钟交给子 Turn 终结器（无父截止保持既有行为）
+              ...(controlContext?.deadlineEpochMs !== undefined
+                ? { maxTurnDurationMs: Math.max(1, controlContext.deadlineEpochMs - Date.now()) }
+                : {}),
+            },
           },
           { turnId: effectiveTurnId, sessionId, attemptId: effectiveAttemptId, userMessage: task },
         );
@@ -154,7 +161,8 @@ export function createSqliteSubagentPort(deps: SqliteSubagentPortDeps): Subagent
               : "Failed"; // Interrupted/skipped 收敛为 Failed：子任务无续跑，父侧可据 error 重试
       } catch (err) {
         status = "Failed";
-        void err; // 终态信息由事件流 + run 行承载，不在此吞掉可观测面
+        // 终态信息仍由事件流 + run 行承载；此处保留原始失败原因（如本地处理限制拒绝）供父级与审计可见
+        failureReason = err instanceof Error ? err.message : String(err);
       }
 
       // 3) 聚合子任务正文（delta 事件文本）→ 终态收口 run 行
@@ -171,7 +179,7 @@ export function createSqliteSubagentPort(deps: SqliteSubagentPortDeps): Subagent
           resultText = undefined;
         }
       } else {
-        error = status === "Cancelled" ? "subagent_cancelled" : "subagent_failed";
+        error = status === "Cancelled" ? "subagent_cancelled" : (failureReason ?? "subagent_failed");
       }
       await runRepo.finalizeRun(ctx, runId, { status, resultText, error });
 

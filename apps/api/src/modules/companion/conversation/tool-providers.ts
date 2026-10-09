@@ -297,7 +297,9 @@ export function createRuntimeToolProvider(
           toolName: tool.name,
           argumentsHash: hash,
         });
-        if (granted) {
+        // 逐项核对授权记录的 toolVersion 与当前工具定义修订：定义已更新（旧 revision）的授权不再放行；
+        // 未记录版本的历史行保持兼容（按名 + 参数哈希授权，回溯兼容）。
+        if (granted && (!granted.toolVersion || granted.toolVersion === tool.updatedAt)) {
           try {
             const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: true, signal: input.signal, controlContext: input.controlContext, expectedRevision, authorize });
             return emitResult({ ok: true, output });

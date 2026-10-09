@@ -191,4 +191,23 @@ describe("SqliteSubagentPort（子任务委托执行器）", () => {
     expect(runs).toHaveLength(1);
     expect(runs[0]?.subTurnId).toBe("turn_crashed");
   });
+
+  it("providerBuilder 拒绝（如本地处理限制）时保留原始失败原因，不再一律 subagent_failed", async () => {
+    const subagent = createSqliteSubagentPort({
+      ctx,
+      store: new SqliteExecutionStore(repo, ctx),
+      conversationRepo: repo,
+      runRepo,
+      providerBuilder: () => {
+        throw new Error("proactive_local_provider_required");
+      },
+      genId: gen,
+    });
+    const result = await subagent.delegate(delegateInput);
+    expect(result.status).toBe("Failed");
+    expect(result.error).toBe("proactive_local_provider_required");
+    const runs = await runRepo.listRunsByTurn(ctx, "turn_parent");
+    expect(runs[0]?.status).toBe("Failed");
+    expect(runs[0]?.error).toBe("proactive_local_provider_required");
+  });
 });
