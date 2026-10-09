@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.7
+version: 1.0.8
 updated_at: 2026-10-08
 reviewed_at: 2026-10-08
 review_interval_days: 90
@@ -100,7 +100,7 @@ sources:
 | `publisher` / `displayName` | 非空字符串，最长 128 | `publisher` 是声明值，不代表身份认证 |
 | `version` | 非空字符串，最长 64 | 使用 SemVer；运行时未执行 SemVer 兼容解析或降级阻断 |
 | `description` / `license` | 可选字符串 | 发布必须提供说明和真实许可证；预检默认许可证不构成授权证据 |
-| `spec.config` | `schemaVersion: 1`，可声明 `entry` | 当前包安装只读取根 `config.schema.json`；不要依赖自定义入口 |
+| `spec.config` | `schemaVersion: 1`，可声明 `entry` | 包安装按声明入口读取并预校验；省略时读取根 `config.schema.json` |
 | `spec.pages` | 最多 50 个 Page | 入口位于 `pages/<pageId>/`，ID 唯一 |
 | `spec.tools` / `skills` | 最多 100 个工具 / 50 个声明技能 | 元数据登记不保证工具可调用；技能使用唯一全局名称 |
 | `spec.skill` / `skills[].entry` | 可声明字符串路径 | 当前通用包安装没有按这两个入口读取内容；使用 §8 的已支持布局 |
@@ -157,9 +157,9 @@ Config 是 Aervox 自有 DSL，不是任意 JSON Schema，也不兼容 AstrBot �
 | `PUT /v1/plugins/:id/config` | 输入 `revision`、`values`、`secretValues`；校验失败 400，版本冲突 409 |
 | `POST /v1/plugins/:id/config/reset` | 恢复默认值并清除该插件 Secret |
 
-**机器强制**：普通值保存按已有顶层对象合并；省略字段保留旧值。Secret 输入位于 `secretValues`，省略保留、字符串写入、`null` 清除；API 只返回 `{configured: boolean}`。禁用插件的配置读写返回 `409 PLUGIN_DISABLED`。普通配置在更新前读取并比较 revision，能拒绝串行的旧版本保存；成功保存递增 revision，保存/重置写审计。
+**机器强制**：普通值保存按已有顶层对象合并；省略字段保留旧值。Secret 输入位于 `secretValues`，省略保留、字符串写入、`null` 清除；API 只返回 `{configured: boolean}`。禁用插件的配置读写返回 `409 PLUGIN_DISABLED`。普通配置保存使用 SQL revision CAS，首次写入也检查 revision；成功保存递增 revision，保存/重置写审计。
 
-**边界**：当前仓储先 SELECT 比较 revision，再仅按 ID UPDATE，不是原子 CAS；两个并发请求可能都通过前置检查并覆盖，尚未完整实现并发防丢更新。[当前 Secret Repository](../../packages/repositories/src/repositories/sqlite/plugin-config-repository.ts)在本地 SQLite 保存原值，不具备默认静态加密或 OS Keychain 保证。Secret 写入发生在普通配置版本检查/保存之前，409 不保证 Secret 未发生变化；含 Secret 的并发保存须串行，冲突后重新读取状态。没有“配置 + Secret + 审计”整体原子提交保证。
+**边界**：当前 SQLite 组合根把配置与同库 Secret 的保存、重置放入同一短事务；旧 revision 返回 409 前不修改 Secret，事务失败保留完整旧版。[当前 Secret Repository](../../packages/repositories/src/repositories/sqlite/plugin-config-repository.ts)在本地 SQLite 保存原值，不具备默认静态加密或 OS Keychain 保证。此保证不覆盖外部 SecretStore；审计仍在事务后写入，不宣称“配置 + Secret + 审计”整体原子提交。回归见[配置 API 测试](../../apps/api/test/plugin-config.test.ts)。
 
 **作者规则**：不得在日志、Skill、页面 URL、普通配置或导出包放置 Secret；避免发送不必要的原始数据；重置/覆盖安装/卸载前说明数据影响并由用户发起。数据访问与删除责任继承 [DATA_PRIVACY](DATA_PRIVACY.md)，扩展不得自建数据库直写或绕开核心数据删除传播。
 
@@ -324,19 +324,21 @@ pages/dashboard/style.css
 
 `POST /v1/plugins/inspect-package` 输入 `{packageBase64}`，返回摘要、包 SHA-256、权限/数据范围提示、贡献列表、已安装版本与 `isValid/issues`。安装端再次预检；HTTP JSON body 上限为 20 MiB，包含 Base64 开销，不等于展开后的包大小限制。
 
-**机器强制**：可解析 ZIP、归档根 Manifest、Manifest 的已知字段类型、条目路径的绝对路径/`.`/`..` 等检查。**未实现**：ZIP 展开总量/文件数/压缩比配额、全部资源和 Config 内容校验、签名认证、发布者认证、依赖兼容校验、完整数据范围分析。预检 `permissions` 是推断展示，未包含工具 `requiredPermissions` 的完整授权评估；`signature` 当前为 `null`。`isValid: true` 只表示当前静态检查通过。
+**机器强制**：可解析 ZIP、归档根 Manifest、Manifest 的已知字段类型、条目路径的绝对路径/`.`/`..` 等检查。Config 内容与 Page 入口执行预校验，归档采用展开大小和条目数量上限（见 §8.3）。**未实现**：全部资源依赖的可运行性校验、签名认证、发布者认证、依赖兼容校验、完整数据范围分析。预检 `permissions` 是推断展示，未包含工具 `requiredPermissions` 的完整授权评估；`signature` 当前为 `null`。`isValid: true` 只表示当前静态检查通过。
 
 ### 8.3 安装、覆盖与导出边界
 
 [分发引擎](../../apps/api/src/modules/ecosystem/plugins/package-bundle.ts)的实际流程是预检 →（覆盖时先卸载旧插件）→登记插件/工具/技能→尝试配置和 Page 资源。新安装成功返回 201；同 ID 且 `overwrite: false` 返回 `409 PLUGIN_ALREADY_EXISTS`。
 
-配置、Page 和部分资源错误只记录 warning，可能返回 201 但贡献不完整；没有跨文件和数据库的事务回滚。`overwrite: true` 是破坏性的卸载重装，会删除旧配置、Secret、授权和插件资源，并非保留状态的升级。新版本失败时不会自动恢复旧版本。
+配置、Page 或资源注册/写入失败会返回错误；没有跨文件和数据库的事务回滚。`overwrite: true` 是破坏性的卸载重装，会删除旧配置、Secret、授权和插件资源，并非保留状态的升级。新版本失败时不会自动恢复旧版本。
 
 **作者规则**：发布保留完整源码包、版本、完整 SHA-256 和变更说明；升级前记录配置、确认 Secret 可重新配置并备份本地数据，按[换库与回滚指南](../how-to/run-database-migration-drill.md)处理涉及核心库的恢复。验证新包全部贡献后再宣布安装成功。禁止在无数据副本时测试覆盖真实插件。
 
-`GET /v1/plugins/:id/export` 返回 ZIP Base64：出厂插件优先从源码目录打包；动态插件从仓储重建，但当前未完整重建工具声明、原始元信息及 Page 静态资产。因此导出不是无损备份，也不是用户配置/Secret 备份；发布与回滚使用原始分发包，不能仅依赖 UI“导出”。
+`GET /v1/plugins/:id/export` 返回 ZIP Base64：出厂插件优先从源码目录打包；动态插件从仓储重建并包含 Page 静态资产，但未完整重建工具声明和原始元信息。因此导出不是无损备份，也不是用户配置/Secret 备份；发布与回滚使用原始分发包，不能仅依赖 UI“导出”。
 
 停用通过 `PATCH /v1/plugins/:id` 联动工具/技能及已装配的主动规则；卸载通过 DELETE 清理这些登记及 Config/Secret/Page。部分文件或主动状态清理采用容错处理，且内存 Hook/handler 已随宿主编译，不等于卸载任意代码。作者须验证无残留监听器、待执行动作或访问路径。
+
+**当前预检边界**：在解压分配前检查压缩包 20 MiB、展开总量 50 MiB、单条目 5 MiB、最多 2048 条目；拒绝不安全/重复路径。配置 Schema 与全部 Page 入口先验证，失败时不卸载旧版本；注册或资源写入异常不再返回安装成功。有效包的覆盖仍沿用卸载再安装，尚无 staging 激活、配置保留或跨数据库/文件系统原子回滚保证；这些由 ITER-005 继续承接。回归见[插件分发测试](../../apps/api/test/plugin-distribution.test.ts)。
 
 ### 8.4 官方出厂与内置插件集市（Built-in Market）
 

@@ -158,6 +158,46 @@ describe("CAP-020 插件 Config / Page API", () => {
     expect(reset.json().secretFields.apiKey).toEqual({ configured: false });
   });
 
+  it("旧 revision 的替换/清除请求及不存在的 revision 均不修改密钥", async () => {
+    await app.inject({ method: "PUT", url: "/v1/plugins/cfg-demo/config/schema", payload: CONFIG_SCHEMA });
+    const save = (revision: number, apiKey: string | null) => app.inject({
+      method: "PUT", url: "/v1/plugins/cfg-demo/config",
+      payload: { revision, values: { endpoint: "saved" }, secretValues: { apiKey } },
+    });
+    expect((await save(4, "unexpected")).statusCode).toBe(409);
+    expect((await client.execute("SELECT value_json FROM plugin_config_secrets WHERE plugin_id = 'cfg-demo'")).rows).toEqual([]);
+    expect((await save(0, "original")).statusCode).toBe(200);
+    for (const value of ["replacement", null]) {
+      expect((await save(0, value)).statusCode).toBe(409);
+      const [row] = (await client.execute("SELECT value_json FROM plugin_config_secrets WHERE plugin_id = 'cfg-demo'")).rows;
+      expect(JSON.parse(String(row!.value_json))).toBe("original");
+    }
+  });
+
+  it("配置保存或重置失败会回滚同事务内的密钥变更", async () => {
+    await app.inject({ method: "PUT", url: "/v1/plugins/cfg-demo/config/schema", payload: CONFIG_SCHEMA });
+    expect((await app.inject({
+      method: "PUT", url: "/v1/plugins/cfg-demo/config",
+      payload: { revision: 0, values: { endpoint: "old" }, secretValues: { apiKey: "original" } },
+    })).statusCode).toBe(200);
+    await client.execute(`CREATE TRIGGER reject_config_update BEFORE UPDATE ON plugin_configs
+      WHEN NEW.plugin_id = 'cfg-demo' BEGIN SELECT RAISE(ABORT, 'injected config failure'); END`);
+    for (const request of [
+      { method: "PUT" as const, url: "/v1/plugins/cfg-demo/config", payload: {
+        revision: 1, values: { endpoint: "new" }, secretValues: { apiKey: "replacement" },
+      } },
+      { method: "POST" as const, url: "/v1/plugins/cfg-demo/config/reset" },
+    ]) {
+      expect((await app.inject(request)).statusCode).toBe(500);
+      const [config] = (await client.execute("SELECT revision, values_json FROM plugin_configs WHERE plugin_id = 'cfg-demo'")).rows;
+      const [secret] = (await client.execute("SELECT value_json FROM plugin_config_secrets WHERE plugin_id = 'cfg-demo'")).rows;
+      expect(config!.revision).toBe(1);
+      expect(JSON.parse(String(config!.values_json)).endpoint).toBe("old");
+      expect(JSON.parse(String(secret!.value_json))).toBe("original");
+    }
+    await client.execute(`DROP TRIGGER reject_config_update`);
+  });
+
   it("Page：注册 → 写入资源 → 读取入口与静态资源 → 路径穿越拒绝", async () => {
     const page = await app.inject({
       method: "POST",

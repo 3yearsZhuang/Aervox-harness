@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach } from "vitest";
 import type { Client } from "@libsql/client";
 import {
   createInMemoryDatabase,
-  initFtsTables,
+  initDatabaseSchema,
+  SqliteMemoryRepository,
   indexMessageFts,
   indexMemoryFts,
   InMemoryVectorSearchAdapter,
@@ -31,7 +32,7 @@ describe("T-02 混合检索（FTS + 向量 RRF 融合）", () => {
     const res = await createInMemoryDatabase();
     db = res.db;
     client = res.client;
-    await initFtsTables(client);
+    await initDatabaseSchema(client);
     vectorPort = new InMemoryVectorSearchAdapter();
   });
 
@@ -108,6 +109,10 @@ describe("T-02 混合检索（FTS + 向量 RRF 融合）", () => {
   });
 
   it("memory 域：memories_fts 与向量融合", async () => {
+    const memories = new SqliteMemoryRepository(db, client);
+    for (const id of ["mem_a", "mem_b"]) {
+      await memories.createRecord(ctx, { id, layer: "long_term", type: "user_fact", content: id });
+    }
     await indexMemoryFts(client, ctx, { id: "mem_a", content: "用户喜欢学习 TypeScript" });
     await indexMemoryFts(client, ctx, { id: "mem_b", content: "用户偏好深色主题" });
     await vectorPort.upsert(ctx, [
