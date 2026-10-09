@@ -35,24 +35,56 @@ export class SqliteRecoveryLedgerRepository implements IRecoveryLedgerPort {
     occurredAt?: string;
     tamperEvidence?: unknown;
   }): Promise<RecoveryLedgerEventModel> {
+    // 同键幂等：同摘要（eventId/eventType 一致）返回既有事件；摘要不同则冲突拒绝，不静默追加
+    const existing = await this.getByIdempotencyKey(event.idempotencyKey);
+    if (existing) {
+      if (existing.eventId !== event.eventId || existing.eventType !== event.eventType) {
+        throw new Error("recovery_ledger_conflict");
+      }
+      return existing;
+    }
     const now = new Date().toISOString();
-    const max = await this.getMaxSequence();
-    const sequence = max + 1;
-    const [created] = await this.db
-      .insert(recoveryControlLedger)
-      .values({
-        eventId: event.eventId,
-        idempotencyKey: event.idempotencyKey,
-        eventType: event.eventType,
-        workspaceRef: event.workspaceRef ?? null,
-        subjectRef: event.subjectRef ?? null,
-        targetRef: event.targetRef ?? null,
-        occurredAt: event.occurredAt ?? now,
-        sequence,
-        tamperEvidence: event.tamperEvidence ?? null,
-      })
-      .returning();
-    return created as RecoveryLedgerEventModel;
+    // 序列在单条 INSERT ... SELECT 内原子分配（MAX+1 与写入同一语句，避免并发重复序列）
+    await this.db.run(sql`
+      INSERT INTO recovery_control_ledger
+        (event_id, idempotency_key, event_type, workspace_ref, subject_ref, target_ref, occurred_at, sequence, tamper_evidence)
+      SELECT
+        ${event.eventId}, ${event.idempotencyKey}, ${event.eventType},
+        ${event.workspaceRef ?? null}, ${event.subjectRef ?? null}, ${event.targetRef ?? null},
+        ${event.occurredAt ?? now}, COALESCE(MAX(${recoveryControlLedger.sequence}), 0) + 1,
+        ${event.tamperEvidence === undefined ? null : JSON.stringify(event.tamperEvidence)}
+      FROM ${recoveryControlLedger}
+    `);
+    const created = await this.getByIdempotencyKey(event.idempotencyKey);
+    if (!created) throw new Error("recovery_ledger_append_failed");
+    return created;
+  }
+
+  /**
+   * 只读一致性检查（不修改任何数据）：报告重复序列、序列缺口与总量，
+   * 供对账/演练按契约 fail-closed 判断（缺口或重复即认为账本不可信）。
+   */
+  async inspectConsistency(): Promise<{
+    eventCount: number;
+    maxSequence: number;
+    duplicatedSequences: number[];
+    missingSequences: number[];
+  }> {
+    const rows = await this.db
+      .select({ sequence: recoveryControlLedger.sequence })
+      .from(recoveryControlLedger);
+    const counts = new Map<number, number>();
+    for (const row of rows) counts.set(row.sequence, (counts.get(row.sequence) ?? 0) + 1);
+    const duplicatedSequences = [...counts.entries()]
+      .filter(([, count]) => count > 1)
+      .map(([sequence]) => sequence)
+      .sort((a, b) => a - b);
+    const maxSequence = counts.size > 0 ? Math.max(...counts.keys()) : 0;
+    const missingSequences: number[] = [];
+    for (let sequence = 1; sequence <= maxSequence; sequence += 1) {
+      if (!counts.has(sequence)) missingSequences.push(sequence);
+    }
+    return { eventCount: rows.length, maxSequence, duplicatedSequences, missingSequences };
   }
 
   async getMaxSequence(): Promise<number> {

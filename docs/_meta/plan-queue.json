@@ -74,17 +74,26 @@
     {
       "id": "ITER-003",
       "batch": "first",
-      "status": "建议",
+      "status": "已移交",
       "delivery": "删除效果与召回资格：先做 Memory 及其索引的完整清理/独立验证切片，检查期限、用途、撤权与 Restricted；ARC-06/08；CAP-005/013/027/033",
       "gate": "已有隐私契约的修复先做；扩大删除范围或改变保留/恢复语义先 CR；失败继续拒绝受影响范围",
       "acceptance": [
-        "completed 有可重做的清理证据；空目标有明确依据",
-        "失败/未知不解闸；混合夹具越权结果为零"
+        "切片验收见 [PR #268](https://github.com/3yearsZhuang/Aervox-harness/pull/268)；适用限制见本条移交摘要。"
+      ],
+      "checks": [
+        "`apps/worker/test/deletion-worker.test.ts`",
+        "`apps/api/test/memory-recall-eligibility.test.ts`",
+        "`apps/api/test/privacy-deletion-routes.test.ts`",
+        "`apps/worker/test/proactive-turn-context.test.ts`",
+        "`packages/repositories/test/mvp-domains-smoke.test.ts`"
       ],
       "owner": "data/privacy",
       "dependsOn": [],
-      "statusNote": "2026-10-08 ITER-050（PR #258）交付显式 Memory 目标清理/独立验证、失败不解闸与迟到索引/压缩副本阻断；ITER-051（PR #259）补自动召回期限/敏感度资格检查；范围解析、用途/授权修订、恢复账本与全来源传播仍保留。",
+      "branch": "fix/iter-003-privacy-eligibility",
+      "statusNote": "2026-10-08 ITER-050（PR #258）交付显式 Memory 目标清理/独立验证、失败不解闸与迟到索引/压缩副本阻断；ITER-051（PR #259）补自动召回期限/敏感度资格检查。2026-10-09 本轮：召回资格收敛为单一真源谓词（主对话与主动回合共用、过采样补位）、memory_long 用途闸门（无授权或读取失败不召回）、删除创建面去重与幂等、账本单语句原子取号/同键幂等/只读一致性检查。适用限制：scope→targets 派生、来源→派生传播、grant 修订绑定与恢复账本接线仍留 CR；账本数据库级唯一序列约束待迁移演练。",
       "links": [
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/268",
         "https://github.com/3yearsZhuang/Aervox-harness/pull/258",
         "https://github.com/3yearsZhuang/Aervox-harness/pull/259"
       ]

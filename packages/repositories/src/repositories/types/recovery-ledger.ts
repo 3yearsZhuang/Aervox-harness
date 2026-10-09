@@ -17,6 +17,13 @@ export interface IRecoveryLedgerPort {
   getMaxSequence(): Promise<number>;
   getBySequence(sequence: number): Promise<RecoveryLedgerEventModel | null>;
   getByIdempotencyKey(idempotencyKey: string): Promise<RecoveryLedgerEventModel | null>;
+  /** 只读一致性检查：重复序列 / 序列缺口 / 总量（缺口或重复即账本不可信，供 fail-closed 判断） */
+  inspectConsistency(): Promise<{
+    eventCount: number;
+    maxSequence: number;
+    duplicatedSequences: number[];
+    missingSequences: number[];
+  }>;
 }
 
 export interface ExternalSourceModel {

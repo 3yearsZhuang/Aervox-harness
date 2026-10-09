@@ -11,6 +11,13 @@ export interface DeletionWorkerContext {
 }
 const local = { workspaceId: "local", subjectUserId: "local" };
 
+/** 删除拒绝原因码（稳定字符串；失败保持解闸关闭，供用户可见与审计） */
+export const DELETION_FAILURE_REASONS = {
+  scopeUnsupported: "deletion_scope_unsupported",
+  targetsEmpty: "deletion_targets_empty",
+  targetUnsupported: "deletion_target_unsupported",
+} as const;
+
 /** Failed work is idempotently retried by later polling cycles and stays denied throughout. */
 export async function runDeletionCycle(ctx: DeletionWorkerContext): Promise<number> {
   const requests = await ctx.db.select().from(deletionRequests)
@@ -24,11 +31,11 @@ export async function runDeletionCycle(ctx: DeletionWorkerContext): Promise<numb
         attemptCount: request.attemptCount + 1, lastError: null,
       });
       const targets = await ctx.db.select().from(deletionTargets).where(eq(deletionTargets.requestId, request.id));
-      if (request.scope !== "memory" || request.ownerModule !== "memory") throw new Error("deletion_scope_unsupported");
-      if (!targets.length) throw new Error("deletion_targets_empty");
+      if (request.scope !== "memory" || request.ownerModule !== "memory") throw new Error(DELETION_FAILURE_REASONS.scopeUnsupported);
+      if (!targets.length) throw new Error(DELETION_FAILURE_REASONS.targetsEmpty);
       // Validate the whole dispatch set before mutating any target.
       if (targets.some((t) => t.ownerModule !== "memory" || t.targetType !== "memory" || !t.targetId)) {
-        throw new Error("deletion_target_unsupported");
+        throw new Error(DELETION_FAILURE_REASONS.targetUnsupported);
       }
       for (const target of targets) {
         const key = { requestId: request.id, targetType: target.targetType, targetId: target.targetId };

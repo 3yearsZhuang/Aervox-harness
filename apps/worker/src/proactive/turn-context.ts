@@ -11,6 +11,7 @@ import type {
   SqlitePersonaRepository,
   SqliteSkillRegistryRepository,
 } from "@aervox/repositories";
+import { isAutoRecallEligible } from "@aervox/repositories";
 
 export interface ResolvedProactiveTurnContext {
   turnContext: ProactiveTurnContext;
@@ -43,7 +44,8 @@ export async function resolveProactiveTurnContext(input: {
   const allowedSkills = [...configuredSkills].filter((name) => activeSkills.has(name)).sort();
 
   const memories = (await input.memoryRepo.listRecordsByLayer(input.ctx, "long_term"))
-    .filter((memory) => memory.verificationStatus === "verified")
+    // 与主对话召回共用同一资格谓词：verified 长期记忆 + 分级允许 + 期限有效（防止第二路径越权）
+    .filter((memory) => isAutoRecallEligible(memory))
     .sort((left, right) => (right.lastUsedAt ?? right.updatedAt).localeCompare(left.lastUsedAt ?? left.updatedAt))
     .slice(0, 5);
   const safety = classifySafety(input.evidenceText);

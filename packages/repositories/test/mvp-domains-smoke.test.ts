@@ -286,4 +286,31 @@ describe("PRD §8：RecoveryControlLedger 独立故障域账本", () => {
       ledger.appendEvent({ eventId: "ev_3", idempotencyKey: "del:1", eventType: "delete" }),
     ).rejects.toThrow();
   });
+
+  it("同键同摘要幂等返回既有事件；并发追加序列唯一（单语句原子取号）", async () => {
+    const first = await ledger.appendEvent({ eventId: "ev_same", idempotencyKey: "del:same", eventType: "delete", subjectRef: "usr_1" });
+    const second = await ledger.appendEvent({ eventId: "ev_same", idempotencyKey: "del:same", eventType: "delete", subjectRef: "usr_1" });
+    expect(second).toMatchObject({ eventId: "ev_same", sequence: first.sequence });
+    expect(await ledger.inspectConsistency()).toMatchObject({ eventCount: 1, duplicatedSequences: [], missingSequences: [] });
+
+    await Promise.all(Array.from({ length: 8 }, (_, index) =>
+      ledger.appendEvent({ eventId: `ev_c${index}`, idempotencyKey: `del:c${index}`, eventType: "delete" }),
+    ));
+    const rows = await ledgerClient.execute("SELECT sequence FROM recovery_control_ledger ORDER BY sequence");
+    expect(rows.rows.map((row) => Number(row.sequence))).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(await ledger.inspectConsistency()).toMatchObject({
+      eventCount: 9, maxSequence: 9, duplicatedSequences: [], missingSequences: [],
+    });
+  });
+
+  it("一致性检查只读报告重复序列与缺口（不修改数据）", async () => {
+    await ledger.appendEvent({ eventId: "ev_1", idempotencyKey: "del:1", eventType: "delete" });
+    // 人为构造历史损坏：重复序列与缺口（外部写入/迁移残留），检查器只报告
+    await ledgerClient.execute("INSERT INTO recovery_control_ledger (event_id, idempotency_key, event_type, occurred_at, sequence) VALUES ('ev_dup', 'dup:1', 'delete', '2026-01-01T00:00:00Z', 1)");
+    await ledgerClient.execute("INSERT INTO recovery_control_ledger (event_id, idempotency_key, event_type, occurred_at, sequence) VALUES ('ev_gap', 'gap:1', 'delete', '2026-01-01T00:00:00Z', 4)");
+    const report = await ledger.inspectConsistency();
+    expect(report).toMatchObject({
+      eventCount: 3, maxSequence: 4, duplicatedSequences: [1], missingSequences: [2, 3],
+    });
+  });
 });
