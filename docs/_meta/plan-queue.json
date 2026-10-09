@@ -1124,7 +1124,7 @@
       ],
       "owner": "Codex",
       "branch": "fix/framework-decoupling",
-      "statusNote": "2026-10-09 自 main c9d92cbc：事件流并入 Transport（fetch/IPC 双实现，桌面主进程按 sender 归属与释放）、插件状态按上下文实例化且注销释放监听、模块消费改经公开窄 Port（边界例外清零）、日记素材抽 Port 且发布+版本+游标同事务、平台能力与提示词策略改宿主注入、边界守卫按类型解析且失败阻断；另修类型边界重复声明与 CR-030 端口命名。本地门禁通过，待 PR 全量终验。",
+      "statusNote": "2026-10-09 自 main c9d92cbc：事件流并入 Transport（fetch/IPC 双实现，桌面主进程按 sender 归属与释放）、插件状态按上下文实例化且注销释放监听、模块消费改经公开窄 Port（边界例外清零）、日记素材抽 Port 且发布+版本+游标同事务、平台能力与提示词策略改宿主注入、边界守卫按类型解析且失败阻断；另修类型边界重复声明与 CR-030 端口命名。增量与全量门禁通过，PR #262。",
       "dependsOn": [],
       "links": [
         "docs/reference/ARCHITECTURE.md",
