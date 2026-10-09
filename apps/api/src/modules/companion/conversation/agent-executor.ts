@@ -364,9 +364,45 @@ export async function runLoopTurnOnce(
     }
   }
 
+  // CAP-033：主动智能本地处理限制在驱动分支之前求值——进程外 Adapter 同样不得绕过（fail-closed）。
+  let proactiveActive = false;
+  if (deps.proactiveRepository) {
+    try {
+      const proactiveStatus = await deps.proactiveRepository.getEffectiveStatus(tenant);
+      proactiveActive = proactiveStatus?.effectiveState === "active";
+    } catch (err) {
+      await failTurnWithError(broadcastingStore, input.turnId, input.attemptId, err instanceof Error ? err.message : "provider_unavailable");
+      await repo.updateTurnStatus(tenant, input.turnId, "Failed").catch(() => undefined);
+      return;
+    }
+  }
+  const localProcessingOnly = proactiveActive;
+
   // ADR-010 阶段 6f：AERVOX_LOOP_DRIVER=dsh → 整 Turn 走 DSH 进程外 Adapter
   // （自带 Agent 循环与模型回合，Provider/工具/上下文组合全部跳过；未就绪 fail-closed 不回退 native）。
   if (loadApiConfig().loopDriver === "dsh") {
+    // 主动智能本地处理期间：进程外 Adapter 不得代执行（既有策略接进本分支，不新增政策）
+    if (localProcessingOnly) {
+      await failTurnWithError(
+        broadcastingStore,
+        input.turnId,
+        input.attemptId,
+        "proactive_local_provider_required: 主动智能本地处理期间不允许进程外 Adapter",
+      );
+      await repo.updateTurnStatus(tenant, input.turnId, "Failed").catch(() => undefined);
+      return;
+    }
+    // 删除/撤权水位未追平：进程外路径同样 fail-closed（水位读取失败按阻断处理）
+    if (deps.deletionGate && await deps.deletionGate.isBlocked({ turnId: input.turnId, sessionId: input.sessionId }).catch(() => true)) {
+      await failTurnWithError(
+        broadcastingStore,
+        input.turnId,
+        input.attemptId,
+        "deletion_gate_blocked: 删除/撤权水位未追平，进程外 Adapter 拒绝执行",
+      );
+      await repo.updateTurnStatus(tenant, input.turnId, "Failed").catch(() => undefined);
+      return;
+    }
     let dshLlm: TurnLlmPort | undefined;
     if (deps.llmConfigService && loadApiConfig().loopProvider === "llm") {
       try {
@@ -396,13 +432,7 @@ export async function runLoopTurnOnce(
 
   let provider: ModelProviderPort;
   let proactiveProfilePrompt = "";
-  let localProcessingOnly = false;
   try {
-    const proactiveStatus = deps.proactiveRepository
-      ? await deps.proactiveRepository.getEffectiveStatus(tenant)
-      : null;
-    const proactiveActive = proactiveStatus?.effectiveState === "active";
-    localProcessingOnly = proactiveActive;
     const loopProvider = await buildLoopProvider(tenant, deps.llmConfigService, {
       requireLocalOnly: proactiveActive,
       sessionId: input.sessionId,

@@ -18,9 +18,11 @@ import {
 import {
   createRuntimeToolProvider,
 } from "../src/modules/companion/conversation/tool-providers.js";
+import { stableStringify } from "../src/modules/companion/conversation/llm-adapter.js";
 import { setRequestToolApprovalMode } from "../src/shared/tool-approval-policy.js";
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";
+import type { Client } from "@libsql/client";
 import { ForbiddenError } from "../src/shared/errors.js";
 
 const tenant = { workspaceId: "ws_sandbox", subjectUserId: "usr_sandbox" } as const;
@@ -32,11 +34,13 @@ describe("B 阶段安全加固：工具沙箱与不可绕过策略执行机制",
   let app: FastifyInstance;
   let built: Awaited<ReturnType<typeof buildApp>>;
   let cleanup: () => Promise<void>;
+  let client: Client;
 
   beforeEach(async () => {
     const memory = await createInMemoryDatabase();
     await initDatabaseSchema(memory.client);
     db = memory.db;
+    client = memory.client;
     cleanup = memory.cleanup;
     repo = new SqliteConversationRepository(db);
     registry = new SqliteToolRegistryRepository(db);
@@ -242,6 +246,57 @@ describe("B 阶段安全加固：工具沙箱与不可绕过策略执行机制",
       expect(result.error).toContain("path_traversal_sequence");
       const approvals = await repo.listToolApprovalsByTurn(tenant, "turn_traversal_test");
       expect(approvals).toHaveLength(0);
+    });
+
+    it("授权记录的 toolVersion 与工具定义修订核对：修订变化后旧授权不放行并重新挂起（ITER-007）", async () => {
+      await createTurn("turn_revise", "attempt_revise");
+      await registry.registerTool({
+        id: "aervox_revise_note",
+        name: "aervox_revise_note",
+        description: "修订笔记",
+        category: "memory",
+        safetyLevel: "write_with_approval",
+        requiredPermissions: [],
+        inputSchema: { type: "object", properties: { title: { type: "string" } } },
+        builtin: false,
+        gatingConditions: [],
+        priority: 10,
+      });
+      built.toolRuntime.registerHandler("aervox_revise_note", {
+        call: async (_t, args) => ({ revised: true, title: (args as { title: string }).title }),
+      });
+      setRequestToolApprovalMode(tenant, "ask");
+
+      const tool = (await built.toolRuntime.listTools()).find((t) => t.name === "aervox_revise_note");
+      expect(tool).toBeDefined();
+      const pending = await repo.recordToolApproval(tenant, {
+        turnId: "turn_revise",
+        attemptId: "attempt_revise",
+        toolName: "aervox_revise_note",
+        argumentsHash: stableStringify({ title: "复盘" }),
+        requester: tenant.subjectUserId,
+        state: "pending",
+        toolVersion: tool!.updatedAt,
+      });
+      await repo.decideToolApproval(tenant, pending.id, "granted", tenant.subjectUserId);
+
+      const provider = createRuntimeToolProvider(built.toolRuntime, tenant, { conversationRepo: repo });
+      const input = {
+        turnId: "turn_revise",
+        attemptId: "attempt_revise",
+        invocationId: "call_revise_1",
+        name: "aervox_revise_note",
+        arguments: { title: "复盘" },
+      };
+      expect(await provider.execute(input)).toMatchObject({ ok: true, output: { revised: true, title: "复盘" } });
+
+      // 工具定义修订变化（updatedAt 前移）→ 旧授权失配：不执行，重新生成 pending
+      await client.execute("UPDATE tool_registrations SET updated_at = '2099-01-01T00:00:00.000Z' WHERE id = 'aervox_revise_note'");
+      const stale = await provider.execute(input);
+      expect(stale.ok).toBe(false);
+      expect(stale.needsApproval?.toolName).toBe("aervox_revise_note");
+      const approvalsAfter = await repo.listToolApprovalsByTurn(tenant, "turn_revise");
+      expect(approvalsAfter.some((a) => a.state === "pending")).toBe(true);
     });
   });
 });

@@ -156,21 +156,28 @@
     {
       "id": "ITER-007",
       "batch": "first",
-      "status": "建议",
+      "status": "已移交",
       "delivery": "三个切片：父子任务/Driver 继承取消、截止、删除/授权修订与 local-only；执行时逐项核对 requiredPermissions/grants 的 scope/revision，由受信宿主映射 guarded/full_access 安全等级；动态工具 Schema 快照进入模型请求并在执行时重验；ARC-02/03、插件规范 §8.1；CAP-007/020/033",
       "gate": "既有策略接线优先；动态工具开放依赖真实 grant/审批校验及最终输入容量检查；新根预算与 Driver/授权合同先 CR；进一步压缩与成本优化留 ITER-017",
       "acceptance": [
-        "父取消后不进入子下一步；本地任务拒绝远程 Provider；工具可见",
-        "缺权限、错 scope、旧 revision、撤权/禁用和未批准写操作无副作用",
-        "最终输入加预留输出不超 Provider 窗口，超额有明确有界处理"
+        "切片验收见 [PR #267](https://github.com/3yearsZhuang/Aervox-harness/pull/267)；适用限制见本条移交摘要。"
+      ],
+      "checks": [
+        "`packages/core/test/subagent-contribution.test.ts`",
+        "`packages/host-agent/test/subagent-executor.test.ts`",
+        "`apps/api/test/conversation-dsh.test.ts`",
+        "`apps/api/test/conversation-tool-sandbox.test.ts`"
       ],
       "owner": "platform/ecosystem",
       "dependsOn": [],
+      "branch": "fix/iter-007-control-inheritance",
+      "statusNote": "2026-10-08 复核更新：动态工具调用级 signal/controlContext（含 MCP 透传）已随 PR #257/#258 打通；每次实际模型调用（含重试/失败）的消息与工具 Schema 快照由 PR #259 补齐。2026-10-09 本轮收口：Workflow 取消句柄与中止上抛、子任务截止继承与失败原因透出、DSH 本地处理限制/删除闸门 fail-closed、写工具授权 toolVersion 与定义修订核对。适用限制：非 0 根预算与跨重启计量、Driver 合同（取消即进程 kill/能力声明/adapter 工具纳审批账本）、一次性授权与有效期仍留 CR。",
       "links": [
         "docs/explanation/reference-design-transfer.md#upstream-20260929",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/267",
         "https://github.com/3yearsZhuang/Aervox-harness/pull/259"
-      ],
-      "statusNote": "2026-10-08 复核更新：动态工具调用级 signal/controlContext（含 MCP 透传）已随 PR #257/#258 打通；每次实际模型调用（含重试/失败）的消息与工具 Schema 快照由 PR #259 补齐；动态工具开放仍受授权修订及最终容量检查前置约束，本条目不整项关闭。"
+      ]
     },
     {
       "id": "ITER-008",

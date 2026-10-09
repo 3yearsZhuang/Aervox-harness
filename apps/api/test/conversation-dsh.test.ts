@@ -9,9 +9,10 @@
  * - resolver 进程内缓存语义：禁用态缓存后同进程重复 Turn 快速失败。
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createInMemoryDatabase } from "@aervox/repositories";
+import { createInMemoryDatabase, SqliteConversationRepository } from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
 import { resetDshTurnAdapterForTests, resolveDshTurnAdapter } from "../src/modules/companion/conversation/dsh-adapter.js";
+import { runLoopTurnOnce } from "../src/modules/companion/conversation/agent-executor.js";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer, type Server } from "node:http";
@@ -63,6 +64,7 @@ const parseSse = (body: string): ParsedEvent[] =>
 describe("Agent Loop 阶段 6f：AERVOX_LOOP_DRIVER=dsh API 接线", () => {
   let app: FastifyInstance;
   let cleanup: (() => Promise<void>) | undefined;
+  let repo: SqliteConversationRepository;
   const closeFns: Array<() => Promise<void>> = [];
 
   const createTurn = async (sessionId = "ses_dsh") =>
@@ -93,6 +95,7 @@ describe("Agent Loop 阶段 6f：AERVOX_LOOP_DRIVER=dsh API 接线", () => {
     resetDshTurnAdapterForTests();
     const res = await createInMemoryDatabase();
     cleanup = res.cleanup;
+    repo = new SqliteConversationRepository(res.db);
     const built = await buildApp({ db: res.db, client: res.client });
     app = built.app;
     await app.ready();
@@ -189,4 +192,45 @@ describe("Agent Loop 阶段 6f：AERVOX_LOOP_DRIVER=dsh API 接线", () => {
     },
     40_000,
   );
+
+  it("主动智能 active：DSH 路径 fail-closed（不 spawn、不回退 native）", async () => {
+    const tenant = { workspaceId: "ws_dsh", subjectUserId: "usr_dsh" };
+    const sessionId = "ses_dsh_proactive";
+    await repo.getOrCreateSession(tenant, sessionId, "dsh-proactive");
+    await repo.createTurnWithOutbox(tenant, { id: "turn_pa", sessionId, idempotencyKey: "idem_pa" }, { id: "msg_pa", content: "hi" });
+    await repo.createTurnAttempt(tenant, "turn_pa", { id: "attempt_pa" });
+
+    await runLoopTurnOnce(
+      repo,
+      tenant,
+      { turnId: "turn_pa", sessionId, attemptId: "attempt_pa", userMessage: "hi" },
+      { proactiveRepository: { getEffectiveStatus: async () => ({ effectiveState: "active" }) } as never },
+    );
+
+    const events = await repo.getStreamEvents(tenant, "turn_pa");
+    const error = events.find((e) => e.eventType === "error");
+    expect((error?.data as { message?: string }).message).toContain("proactive_local_provider_required");
+    expect((await repo.getTurn(tenant, "turn_pa"))?.status).toBe("Failed");
+    expect(events.some((e) => e.eventType === "delta")).toBe(false);
+  });
+
+  it("删除/撤权水位未追平：DSH 路径 fail-closed", async () => {
+    const tenant = { workspaceId: "ws_dsh", subjectUserId: "usr_dsh" };
+    const sessionId = "ses_dsh_gate";
+    await repo.getOrCreateSession(tenant, sessionId, "dsh-gate");
+    await repo.createTurnWithOutbox(tenant, { id: "turn_dg", sessionId, idempotencyKey: "idem_dg" }, { id: "msg_dg", content: "hi" });
+    await repo.createTurnAttempt(tenant, "turn_dg", { id: "attempt_dg" });
+
+    await runLoopTurnOnce(
+      repo,
+      tenant,
+      { turnId: "turn_dg", sessionId, attemptId: "attempt_dg", userMessage: "hi" },
+      { deletionGate: { isBlocked: async () => true } },
+    );
+
+    const events = await repo.getStreamEvents(tenant, "turn_dg");
+    const error = events.find((e) => e.eventType === "error");
+    expect((error?.data as { message?: string }).message).toContain("deletion_gate_blocked");
+    expect((await repo.getTurn(tenant, "turn_dg"))?.status).toBe("Failed");
+  });
 });

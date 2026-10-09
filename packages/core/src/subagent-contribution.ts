@@ -175,6 +175,8 @@ export function createWorkflowToolProvider(defs: WorkflowDefinition[]): ToolProv
         turnId: input.turnId,
         attemptId: input.attemptId,
         sessionId: input.sessionId ?? "",
+        signal: input.signal,
+        controlContext: input.controlContext,
       };
       const partial: unknown[] = [];
       let value = args.input;
@@ -183,9 +185,10 @@ export function createWorkflowToolProvider(defs: WorkflowDefinition[]): ToolProv
         if (!step) {
           return { ok: false, error: `workflow "${def.name}" step ${i + 1} missing definition` };
         }
+        // 取消先于步骤：中止原样上抛（交回工具管线/执行器按取消收敛），不进入下一步
+        input.signal?.throwIfAborted();
+        input.controlContext?.abortSignal.throwIfAborted();
         try {
-          input.signal?.throwIfAborted();
-          input.controlContext?.abortSignal.throwIfAborted();
           const res = await step.execute(ctx, value);
           if (!res.ok) {
             return {
@@ -197,6 +200,8 @@ export function createWorkflowToolProvider(defs: WorkflowDefinition[]): ToolProv
           partial.push(res.output);
           value = res.output;
         } catch (err) {
+          // 步骤内取消：保持取消语义上抛，不降级为普通步骤失败
+          if (input.signal?.aborted || input.controlContext?.abortSignal.aborted) throw err;
           return {
             ok: false,
             error: `workflow "${def.name}" step ${i + 1} (${step.description}) threw: ${err instanceof Error ? err.message : String(err)}`,

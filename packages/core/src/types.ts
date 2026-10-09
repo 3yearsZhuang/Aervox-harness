@@ -319,6 +319,10 @@ export interface WorkflowContext {
   turnId: string;
   attemptId: string;
   sessionId: string;
+  /** 父级取消信号（步骤在长任务中协作感知；取消不在此层被吞没） */
+  signal?: AbortSignal;
+  /** 控制上下文（预算/截止与工具调用同源收紧；步骤不得放松其约束） */
+  controlContext?: import("./control-context.js").ControlContext;
 }
 
 /** Workflow 步骤结果（上一步输出作为下一步输入） */
