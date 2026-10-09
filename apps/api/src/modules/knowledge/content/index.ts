@@ -4,7 +4,7 @@
  * 自管仓储实例化：本模块唯一对外入口，业务路由不依赖任何全局容器。
  */
 import path from "node:path";
-import type { ModuleContext } from "../../context.js";
+import type { ModuleDependencies } from "../../context.js";
 import { SqliteContentRepository } from "@aervox/repositories";
 import { registerContentRoutes } from "./routes.js";
 
@@ -16,7 +16,7 @@ const DEFAULT_ATTACHMENTS_ROOT = (): string => {
 
 export * from "./parser-port.js";
 
-export function registerContentModule(ctx: ModuleContext): void {
+export function registerContentModule(ctx: ModuleDependencies<"app" | "attachmentsRoot" | "db">): void {
   const { app, db, attachmentsRoot } = ctx;
   const contentRepo = new SqliteContentRepository(db);
   registerContentRoutes(app, contentRepo, attachmentsRoot ?? DEFAULT_ATTACHMENTS_ROOT());

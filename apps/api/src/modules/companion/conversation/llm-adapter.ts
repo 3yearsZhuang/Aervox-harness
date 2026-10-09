@@ -16,10 +16,10 @@ import type { TurnLlmPort } from "@aervox/host-plugin-api";
 import type { LocalContext } from "@aervox/repositories";
 import { loadApiConfig } from "@aervox/config";
 import type { ModelRoutingSnapshot } from "@aervox/contracts";
-import type { LLMConfigService } from "../../ecosystem/llm/service.js";
-import type { LlmDegradationService } from "../../ecosystem/llm/degradation-service.js";
+import type { LLMConfigPort } from "../../ecosystem/llm/index.js";
+import type { ModelRoutingPort } from "../../ecosystem/llm/index.js";
 import { createRuleResponseProvider } from "./rule-response-provider.js";
-import { isLiteralLoopbackUrl } from "../../proactive/proactive/profile-context.js";
+import { isLiteralLoopbackUrl } from "../../proactive/proactive/index.js";
 import { API_TOOL_SCRIPT, API_WRITE_SCRIPT, API_PRIVILEGED_SCRIPT } from "./replay-scripts.js";
 
 /** 将 ModelProviderPort 适配为插件契约的 TurnLlmPort 窄端口 */
@@ -73,12 +73,12 @@ export function stableStringify(value: unknown): string {
  */
 export async function buildLoopProvider(
   ctx: LocalContext,
-  llmConfigService?: LLMConfigService,
+  llmConfigService?: LLMConfigPort,
   options: {
     requireLocalOnly?: boolean;
     sessionId?: string;
     turnId?: string;
-    modelRoutingService?: LlmDegradationService;
+    modelRoutingService?: ModelRoutingPort;
     persona?: { name?: string };
     /**
      * CR-060：插件贡献的确定性回放脚本（键为 `AERVOX_LOOP_PROVIDER` 模式名）。
@@ -105,7 +105,7 @@ export async function buildLoopProvider(
         sessionId: options.sessionId,
         turnId: options.turnId,
         requireLocalOnly: options.requireLocalOnly,
-        tenant: ctx,
+        localContext: ctx,
       });
 
       if (snapshot.tier === "L2" || !snapshot.baseUrl || !snapshot.modelId) {
@@ -159,7 +159,7 @@ export async function buildLoopProvider(
     }
 
     if (!llmConfigService) {
-      throw new Error("llm_provider_unavailable: LLMConfigService 未接线");
+      throw new Error("llm_provider_unavailable: LLMConfigPort 未接线");
     }
     const cfg = await llmConfigService.getConfig(ctx);
     if (!cfg.enabled) throw new Error("llm_disabled: 当前租户未启用 LLM 配置");

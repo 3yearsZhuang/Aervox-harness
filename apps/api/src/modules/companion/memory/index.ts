@@ -1,4 +1,4 @@
-import type { ModuleContext } from "../../context.js";
+import type { ModuleDependencies } from "../../context.js";
 import { SqliteMemoryRepository, SqliteMemoryEmbeddingRepository } from "@aervox/repositories";
 import { registerMemoryRoutes } from "./routes.js";
 import { MemoryStoreTool } from "./memory-store-tool.js";
@@ -10,19 +10,20 @@ export type { MemoryRecallPort, RecalledMemory } from "./recall.js";
 export type { MemoryEmbeddingProvider } from "./embedding-provider.js";
 export type { MemoryWritePort } from "./tool-contribution.js";
 
-export async function registerMemoryModule(ctx: ModuleContext, options: {
+export async function registerMemoryModule(ctx: ModuleDependencies<"app" | "client" | "db" | "toolRuntime">, options: {
   embeddingProvider?: MemoryEmbeddingProvider | null;
   contributeTool?: boolean;
-} = {}): Promise<void> {
+} = {}): Promise<import("./recall.js").MemoryRecallPort> {
   const { app, db, client } = ctx;
   const repo = new SqliteMemoryRepository(db, client);
   const embeddingProvider = options.embeddingProvider === undefined
     ? new LocalFeatureHashEmbeddingProvider() : options.embeddingProvider;
-  ctx.memoryRecall = createSqliteMemoryRecall({ db, client, embeddingProvider });
+  const memoryRecall = createSqliteMemoryRecall({ db, client, embeddingProvider });
   registerMemoryRoutes(app, repo);
   if (ctx.toolRuntime && options.contributeTool !== false) {
     const tool = new MemoryStoreTool({ memoryRepo: repo, embeddingRepo: new SqliteMemoryEmbeddingRepository(db), client, embeddingProvider });
     const release = await contributeMemoryTool(ctx.toolRuntime, { store: (context, input) => tool.run(context, input) });
     app.addHook("onClose", async () => release());
   }
+  return memoryRecall;
 }

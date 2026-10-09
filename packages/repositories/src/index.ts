@@ -21,3 +21,5 @@ export * from "./sync/index.js";
 export * from "./worker-ipc.js";
 export * from "./repositories/index.js";
 export * from "./schema/ddl/index.js";
+
+export { collectDiaryMaterial, createSqliteDiaryMaterialPort } from "./repositories/sqlite/diary-material.js";

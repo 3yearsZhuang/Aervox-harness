@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { getPlatformServices } from '@aervox/api-client'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import type { PetCommand } from '@aervox/contracts'
 import { AervoxLive2DController } from '../live2d/controller'
@@ -79,9 +80,7 @@ onMounted(async () => {
   try {
     await controller.load(DEFAULT_AERVOX_MODEL)
     exposeApi()
-    // 桌面端专属：桌宠独立窗口通过 preload 桥下发 PetCommand
-    // （web 工作台无 fairyDesktop，特性探测自动跳过）
-    removePetCommandListener = (window as Window & { fairyDesktop?: { onPetCommand: (callback: (command: unknown) => void) => () => void } }).fairyDesktop?.onPetCommand((value: unknown) => onCommand(value as PetCommand)) ?? null
+    removePetCommandListener = getPlatformServices().onPetCommand?.((value: unknown) => onCommand(value as PetCommand)) ?? null
     status.value = 'ready'
   } catch (error) {
     console.warn('[Aervox] Live2D unavailable; using fallback', error)

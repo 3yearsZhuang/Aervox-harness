@@ -53,6 +53,10 @@ export const BASE_TOOL_GUIDANCE: readonly ToolGuidance[] = [
 
 export interface BaseSystemPromptOptions {
   assistantName?: string;
+  /** 宿主身份与职责；缺省使用中立助手描述。 */
+  identity?: string;
+  /** 宿主输出策略，内核不指定产品表现格式。 */
+  outputStyle?: string;
   personaPrompt?: string;
   activeTools?: ToolSpec[];
   customGuidance?: ToolGuidance[];
@@ -61,25 +65,16 @@ export interface BaseSystemPromptOptions {
 }
 
 /**
- * 全局输出格式规则（置于系统提示词末尾，优先级高于人格风格偏好）
- */
-export const OUTPUT_STYLE_RULES = `# 输出格式 (Output Style)
-1. 禁止使用任何 emoji 表情符号（聊天、解释、总结、转述一律不用）。
-2. 聊天内容使用纯文本，不使用 Markdown 语法：不用标题（#）、加粗/斜体星号、列表符号（- 或 *）、表格与代码块围栏。
-3. 需要条理化时，用「1.」「2.」等纯文本编号或自然分段表达；需要给出代码时直接给出代码文本行，不加围栏。`.trim();
-
-/**
  * 构建系统根提示词 (Base System Prompt)
  */
 export function buildBaseSystemPrompt(options: BaseSystemPromptOptions = {}): string {
-  const name = options.assistantName || "思隅 (Aervox)";
+  const name = options.assistantName || "Assistant";
   const guidanceList = [...BASE_TOOL_GUIDANCE, ...(options.customGuidance || [])];
   const hasPersona = Boolean(options.personaPrompt?.trim());
 
   const sections: string[] = [
     `# 身份与角色`,
-    `你是 ${name}，一个专注陪伴、学习辅助与任务执行的主动智能助手。`,
-    `你的职责是帮助用户高效学习、管理知识、规划任务，并在必要时协助执行各项工具操作。`,
+    options.identity ?? `你是 ${name}，协助用户完成任务。`,
     ...(hasPersona
       ? [
           `注意：若下方「人格设定」对名称、称呼、性格、语气、行为风格或可用技能另有定义，以人格设定为准，本节仅作缺省兜底。`,
@@ -125,8 +120,7 @@ export function buildBaseSystemPrompt(options: BaseSystemPromptOptions = {}): st
     );
   }
 
-  // 全局输出格式规则（置末，具有最强约束力）
-  sections.push(``, OUTPUT_STYLE_RULES);
+  if (options.outputStyle?.trim()) sections.push(``, options.outputStyle.trim());
 
   return sections.join("\n");
 }

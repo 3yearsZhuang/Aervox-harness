@@ -5,7 +5,7 @@
  * 并把 Neo 生命周期操作登记为 aervox_skill_* 工具（ToolRuntime 存在时绑定 handler）。
  * skillsRoot 可注入（测试用临时目录）；缺省为 <repo>/data/skills。
  */
-import type { ModuleContext } from "../../context.js";
+import type { ModuleDependencies } from "../../context.js";
 import {
   SqliteSkillLifecycleRepository,
   SqliteSkillRegistryRepository,
@@ -16,7 +16,7 @@ import { SkillManager } from "./skill-manager.js";
 import { SkillLifecycleService } from "./lifecycle.js";
 import { registerSkillLifecycleTools } from "./skill-tools.js";
 
-export async function registerSkillsModule(ctx: ModuleContext): Promise<SkillManager> {
+export async function registerSkillsModule(ctx: ModuleDependencies<"app" | "db" | "skillsRoot" | "toolRuntime">): Promise<SkillManager> {
   const { app, db, skillsRoot, toolRuntime } = ctx;
   const registry = new SqliteSkillRegistryRepository(db);
   const manager = new SkillManager(registry, skillsRoot);
@@ -33,3 +33,7 @@ export async function registerSkillsModule(ctx: ModuleContext): Promise<SkillMan
   await registerSkillLifecycleTools(toolRegistry, lifecycle, toolRuntime);
   return manager;
 }
+
+export type SkillCatalogPort = Pick<import("./skill-manager.js").SkillManager, "getSkill" | "installFromZip" | "listSkills" | "readSkillFolderFiles" | "readSkillMarkdown" | "buildPrompt">;
+
+export { FileExistsError, DEFAULT_SKILLS_ROOT, parseFrontmatter, isValidSkillName } from "./skill-manager.js";

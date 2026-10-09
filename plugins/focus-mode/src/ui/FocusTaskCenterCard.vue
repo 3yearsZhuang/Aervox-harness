@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ArrowRight, GraduationCap } from 'lucide-vue-next';
 import { useWorkbenchContext } from '@aervox/ui/plugin-api';
-import { openLearningView } from './plugin-state';
+import { useFocusModeState } from './plugin-state';
+const { openLearningView } = useFocusModeState();
 
 const { layout, cards } = useWorkbenchContext();
 

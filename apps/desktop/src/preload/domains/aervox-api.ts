@@ -8,6 +8,24 @@ export interface ApiRequestResult<T = unknown> {
 }
 
 export const aervoxApi = {
+    streamEvents: (path: string, callback: (message: unknown) => void) => {
+        const requestId = crypto.randomUUID()
+        let stopped = false
+        const stop = () => {
+            if (stopped) return
+            stopped = true
+            ipcRenderer.removeListener('aervox:events:event', listener)
+            ipcRenderer.send('aervox:events:cancel', requestId)
+        }
+        const listener = (_event: IpcRendererEvent, message: unknown) => {
+            if (!message || typeof message !== 'object' || (message as {requestId?: unknown}).requestId !== requestId) return
+            const type = (message as {type?: unknown}).type
+            try { callback(message) } finally { if (type === 'closed' || type === 'error') stop() }
+        }
+        ipcRenderer.on('aervox:events:event', listener)
+        ipcRenderer.send('aervox:events:start', { requestId, path })
+        return stop
+    },
     streamTurn: (
         content: string,
         options: {

@@ -124,21 +124,15 @@ describe("基础系统提示词与工具指引 (Base System Prompt & Tool Guidan
     expect(withoutPersona).not.toContain("以人格设定为准");
   });
 
-  it("buildBaseSystemPrompt：始终注入输出格式规则（禁 emoji 与禁 Markdown）", async () => {
+  it("默认提示词不包含产品身份或输出限制，允许宿主注入策略", async () => {
     const { buildBaseSystemPrompt } = await import("../src/base-prompt.js");
-    const withPersona = buildBaseSystemPrompt({ assistantName: "思隅", personaPrompt: "活泼" });
-    const withoutPersona = buildBaseSystemPrompt({ assistantName: "思隅" });
-    for (const prompt of [withPersona, withoutPersona]) {
-      expect(prompt).toContain("输出格式 (Output Style)");
-      expect(prompt).toContain("禁止使用任何 emoji");
-      expect(prompt).toContain("不使用 Markdown 语法");
-      // 输出格式规则位于人格设定之后（末尾最强约束）
-      if (prompt.includes("人格设定")) {
-        expect(prompt.indexOf("输出格式 (Output Style)")).toBeGreaterThan(
-          prompt.indexOf("人格设定"),
-        );
-      }
-    }
+    const generic = buildBaseSystemPrompt();
+    expect(generic).not.toContain("思隅");
+    expect(generic).not.toContain("陪伴");
+    expect(generic).not.toContain("不使用 Markdown");
+    const configured = buildBaseSystemPrompt({ identity: "You are a code reviewer.", outputStyle: "Use Markdown tables.", personaPrompt: "Be concise." });
+    expect(configured).toContain("You are a code reviewer.");
+    expect(configured).toMatch(/Use Markdown tables\.$/);
   });
 
   it("buildBaseSystemPrompt：作为纯净底座，默认不含任何插件领域内容", async () => {
@@ -161,6 +155,7 @@ describe("基础系统提示词与工具指引 (Base System Prompt & Tool Guidan
       assistantName: "思隅",
       extraSections: [focusSection, customSection],
       personaPrompt: "专业严谨",
+      outputStyle: "### 输出格式 (Output Style)\n按宿主注入的输出策略呈现。",
     });
 
     expect(prompt).toContain("专注模式核心教学原则");

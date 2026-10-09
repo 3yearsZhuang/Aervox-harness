@@ -5,11 +5,8 @@
  * identifiers for the legacy schema. They are not an authorization boundary
  * after CR-030; the durable boundary is the local OS account and API host.
  */
-export interface LocalContext {
-  readonly workspaceId: string;
-  readonly subjectUserId: string;
-  readonly actorId?: string;
-}
+import type { LocalContext } from "@aervox/contracts";
+export type { LocalContext } from "@aervox/contracts";
 
 export function assertLocalContext(context: LocalContext): void {
   if (!context || typeof context !== "object") {

@@ -3,13 +3,13 @@
  *
  * 自管仓储实例化：本模块唯一对外入口，业务路由不依赖任何全局容器。
  */
-import type { ModuleContext } from "../../context.js";
+import type { ModuleDependencies } from "../../context.js";
 import { SqliteLearningRepository } from "@aervox/repositories";
 import { registerLearningRoutes } from "./routes.js";
 import { registerLearningPlanRoutes } from "./plan-routes.js";
 import { LearningPlanGenerationService, createLlmPlanModelPort } from "./plan-generation.js";
 
-export function registerLearningModule(ctx: ModuleContext): void {
+export function registerLearningModule(ctx: ModuleDependencies<"app" | "db" | "llmConfigService">): void {
   const { app, db } = ctx;
   const learningRepo = new SqliteLearningRepository(db);
   registerLearningRoutes(app, learningRepo);

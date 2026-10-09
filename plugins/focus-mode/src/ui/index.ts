@@ -13,17 +13,8 @@ import FocusTaskCenterCard from './FocusTaskCenterCard.vue';
 import FocusSettingsRow from './FocusSettingsRow.vue';
 import FocusModeIndicator from './FocusModeIndicator.vue';
 import LearningDrawer from './LearningDrawer.vue';
-import {
-  focusModeEnabled,
-  initFocusModeState,
-  learningNavItems,
-  openLearningView,
-  setFocusModeEnabled,
-} from './plugin-state';
-import { initFocusLearning, useFocusLearning } from './useFocusLearning';
-
-/** 插件学习状态机句柄：setup 绑定宿主 api 实例后可用（卡片摘要在渲染期读取） */
-let focusLearning: ReturnType<typeof useFocusLearning> | null = null;
+import { useFocusModeState, disposeFocusModeState } from './plugin-state';
+import { useFocusLearning, disposeFocusLearning } from './useFocusLearning';
 
 export {
   FocusModeSwitch,
@@ -51,13 +42,9 @@ export function registerFocusModePlugin(
   registry: UIRegistry = defaultUIRegistry,
   context?: WorkbenchContext,
 ): () => void {
-  // CR-060：插件状态（开关持久化、抽屉、启动期静默）由插件自持
-  if (context) initFocusModeState(context);
-  // CR-060 §B9b：刷题 / 错题 / 学习规划状态机归插件；绑定宿主通用 api 端口实例。
-  // 端口缺席时**显式解绑**而不是跳过：组件一律读模块单例，跳过会让降级上下文
-  // （自定义嵌入 / 重绑）沿用上一个实例的数据，读到别的渲染器的错题与规划。
-  initFocusLearning(context?.cards?.api ?? null);
-  focusLearning = useFocusLearning();
+  if (!context) throw new Error('focus_mode_context_required');
+  const { focusModeEnabled, openLearningView } = useFocusModeState(context);
+  const focusLearning = useFocusLearning(context);
 
   const unregisterSwitch = registry.registerSlotComponent('header:actions', FocusModeSwitch, {
     id: 'focus-mode:header-switch',
@@ -157,6 +144,8 @@ export function registerFocusModePlugin(
     unregisterTaskCard();
     unregisterSettingsRow();
     unregisterComposerIndicator();
+    disposeFocusModeState(context);
+    disposeFocusLearning(context);
   };
 }
 
@@ -170,34 +159,17 @@ export const focusModePluginDefinition: BuiltinUIPlugin = {
     if (!values) return;
     // CR-060：只认主 id 与当前配置键，不保留历史键回退
     if (typeof values.autoEnableFocusMode === 'boolean') {
-      initFocusModeState(context);
-      setFocusModeEnabled(values.autoEnableFocusMode);
+      useFocusModeState(context).setFocusModeEnabled(values.autoEnableFocusMode);
     }
   },
   onDisable(context) {
-    initFocusModeState(context);
-    setFocusModeEnabled(false);
+    context.pluginState?.write('focus-mode', 'enabled', false);
+    disposeFocusModeState(context);
+    disposeFocusLearning(context);
   },
 };
 
-export {
-  activeLearningView,
-  focusModeEnabled,
-  learningOpen,
-  openLearningView,
-  setFocusModeEnabled,
-  toggleFocusMode,
-} from './plugin-state';
-export {
-  TERMS_EXTRACTED_EVENT,
-  extractedTerms,
-  exploreDialogOpen,
-  openTermExplore,
-  parseTermsExtracted,
-  resetTermsState,
-  selectedTerm,
-  subscribeTermsEvents,
-} from './plugin-events';
+export { useFocusModeState } from './plugin-state';
 export type { ExtractedTerm, TermsExtractedEventData } from './plugin-events';
 
 /**

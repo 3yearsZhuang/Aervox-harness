@@ -308,18 +308,12 @@ importers:
 
   packages/diary:
     dependencies:
+      '@aervox/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@aervox/core':
         specifier: workspace:*
         version: link:../core
-      '@aervox/repositories':
-        specifier: workspace:*
-        version: link:../repositories
-      '@aervox/schema':
-        specifier: workspace:*
-        version: link:../schema
-      drizzle-orm:
-        specifier: ^0.39.3
-        version: 0.39.3(@libsql/client@0.14.0)
     devDependencies:
       '@types/node':
         specifier: ^22.10.0
@@ -4985,7 +4979,7 @@ snapshots:
 
   '@jridgewell/source-map@0.3.11':
     dependencies:
-      '@jridgewell/gen-mapping': 0.3.5
+      '@jridgewell/gen-mapping': 0.3.12
       '@jridgewell/trace-mapping': 0.3.31
     optional: true
 

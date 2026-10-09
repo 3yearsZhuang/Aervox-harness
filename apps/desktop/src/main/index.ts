@@ -1,4 +1,6 @@
 import {app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, Menu, nativeImage, nativeTheme, Notification, powerMonitor, screen, shell, systemPreferences, Tray} from 'electron'
+import {createFetchTransport} from '@aervox/api-client/transport'
+import {createApiEventStreams} from './api-event-streams'
 import {createHash} from 'node:crypto'
 import {chmod, mkdir, readFile, rename, writeFile} from 'node:fs/promises'
 import os from 'node:os'
@@ -1117,6 +1119,12 @@ app.whenReady().then(async () => {
         if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
         return proactiveHost.shouldKeepAlive()
     })
+    const apiEvents = createApiEventStreams(createFetchTransport(apiBaseUrl, {
+        headers: process.env.AERVOX_AUTH_TOKEN?.trim() ? { Authorization: `Bearer ${process.env.AERVOX_AUTH_TOKEN.trim()}` } : {},
+        redirect: 'error',
+    }))
+    ipcMain.on('aervox:events:start', (event, payload: unknown) => { void apiEvents.start(event.sender, payload) })
+    ipcMain.on('aervox:events:cancel', (event, requestId: unknown) => apiEvents.cancel(event.sender, requestId))
     ipcMain.on('aervox:turn:start', streamAervoxTurn)
     // CR-027：中止在途 Turn 请求（渲染层空闲超时收敛后调用，避免幽灵回合继续消耗上游 tokens）
     ipcMain.on('aervox:turn:cancel', (_event, requestId: unknown) => {

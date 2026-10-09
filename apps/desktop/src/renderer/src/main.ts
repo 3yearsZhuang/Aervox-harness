@@ -9,7 +9,12 @@ import './styles/shell.css'
 import App from './App.vue'
 
 // 桌面端统一走 IPC transport（无桥环境可换 fetch，见 @aervox/api-client）
-configureAervoxClient({transport: desktopTransport})
+configureAervoxClient({ transport: desktopTransport, platform: {
+    setTheme: window.fairyDesktop?.setTheme,
+    onPetCommand: window.fairyDesktop?.onPetCommand,
+    pickDirectory: window.fairyDesktop?.pickDirectory,
+    proactive: window.fairyDesktop?.proactive,
+} })
 
 const fallbackTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 document.documentElement.dataset.theme = fallbackTheme

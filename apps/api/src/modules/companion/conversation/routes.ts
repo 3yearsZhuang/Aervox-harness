@@ -22,18 +22,18 @@ import {
   type SqlitePlatformRepository,
 } from "@aervox/repositories";
 import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index.js";
-import type { LLMConfigService } from "../../ecosystem/llm/service.js";
+import type { LLMConfigPort } from "../../ecosystem/llm/index.js";
 import { resolveLocalContext } from "../../../shared/local-context.js";
 import {
   acquireWorkerPressureLease,
   releaseWorkerPressureLease,
 } from "../../../shared/worker-pressure-lease.js";
-import { createTenantInboxPort } from "../inbox/port.js";
+import { createTenantInboxPort } from "../inbox/index.js";
 import { runLoopTurnOnce } from "./agent-executor.js";
 import { UserQuestionCoordinator } from "./user-question-coordinator.js";
 import { turnStreamHub, type StreamEventFrame } from "./stream-hub.js";
 import { loadApiConfig } from "@aervox/config";
-import type { ProactiveActionAuthorizer } from "../../proactive/proactive/action-authorizer.js";
+import type { ProactiveActionPort } from "../../proactive/proactive/index.js";
 import type { MemoryRecallPort } from "./memory-recall.js";
 import type { Observability } from "@aervox/observability";
 
@@ -44,11 +44,11 @@ export interface ConversationRouteDeps {
   /** 阶段 2d：Agent Loop 只读工具提供者（缺失时工具请求 fail-closed） */
   toolRuntime?: ToolRuntime;
   /** 阶段 2e：AERVOX_LOOP_PROVIDER=llm 时的模型配置来源（CR-015） */
-  llmConfigService?: LLMConfigService;
+  llmConfigService?: LLMConfigPort;
   /** CR-034 模型降级与健康路由决策服务 */
-  modelRoutingService?: import("../../ecosystem/llm/degradation-service.js").LlmDegradationService;
+  modelRoutingService?: import("../../ecosystem/llm/index.js").ModelRoutingPort;
   /** CAP-008：安全与危机干预服务（危急阻断/资源注入/中度困扰支持） */
-  safetyService?: import("../../platform/safety/service.js").SafetyService;
+  safetyService?: import("../../platform/safety/index.js").SafetyPort;
   /** 2d：删除/撤权闸门数据源（缺失时 Loop 不做删除 fail-closed） */
   privacyRepo?: SqlitePrivacyRepository;
   /** 5a-2：受控收件箱（followup 排队为新 Turn 输入；next-step 由 Loop 每 Step 消费） */
@@ -74,7 +74,7 @@ export interface ConversationRouteDeps {
   /** CR-060：插件宿主服务工厂（按 request 级本地上下文产出窄端口集合） */
   pluginHostServices?: import("../../../plugin-assembly.js").PluginHostServicesFactory;
   /** CAP-033：主动智能全动作授权与本地动作账本。 */
-  proactiveActionAuthorizer?: ProactiveActionAuthorizer;
+  proactiveActionAuthorizer?: ProactiveActionPort;
   /** CAP-033：本地画像上下文来源。 */
   proactiveRepository?: import("@aervox/repositories").IProactiveProfileRepository;
   /** CAP-005：普通长期记忆混合召回，按 request tenant 绑定。 */
@@ -84,7 +84,7 @@ export interface ConversationRouteDeps {
   /** 插件配置仓储：用于加载插件运行时配置 */
   pluginConfigRepo?: import("@aervox/repositories").IPluginConfigRepository;
   /** 服务端插件注册表（提供回合插件生命周期与别名解析） */
-  pluginRegistry?: import("../../ecosystem/plugins/turn-plugins/registry.js").ServerPluginRegistry;
+  pluginRegistry?: import("../../ecosystem/plugins/index.js").ServerPluginRegistry;
   /** 全链路可观测性门面（结构化日志与指标采集） */
   observability?: Observability;
 }

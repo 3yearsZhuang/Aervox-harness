@@ -17,6 +17,7 @@ import type {
 } from '@aervox/contracts';
 import type {
   AervoxTransport,
+  EventStreamCallbacks,
   AttachmentUploadInput,
   StreamTurnOptions,
   TurnCallbacks,
@@ -27,6 +28,7 @@ import { TurnStreamProjector } from './projector';
 declare global {
   interface Window {
     fairyDesktop?: {
+      streamEvents?: (path: string, callback: (message: unknown) => void) => () => void;
       apiRequest: <T = unknown>(
         method: string,
         path: string,
@@ -67,6 +69,39 @@ declare global {
  */
 export const DESKTOP_TURN_TIMEOUT_MS = 60_000;
 export const desktopTransport: AervoxTransport = {
+  streamEvents(path: string, callbacks: EventStreamCallbacks, signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted();
+    const bridge = window.fairyDesktop;
+    if (!bridge?.streamEvents) return Promise.reject(new Error('event_stream_unavailable'));
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      let stop: (() => void) | undefined;
+      const finish = (error?: unknown) => {
+        if (settled) return;
+        settled = true;
+        signal?.removeEventListener('abort', onAbort);
+        stop?.();
+        if (error) reject(error); else resolve();
+      };
+      const onAbort = () => finish(signal?.reason ?? new DOMException('Aborted', 'AbortError'));
+      signal?.addEventListener('abort', onAbort, { once: true });
+      try {
+        stop = bridge.streamEvents!(path, message => {
+          if (settled || !message || typeof message !== 'object') return;
+          const envelope = message as { type?: string; event?: unknown; message?: string };
+          try {
+            if (envelope.type === 'event') callbacks.onEvent(envelope.event);
+            else if (envelope.type === 'heartbeat') callbacks.onHeartbeat?.();
+            else if (envelope.type === 'closed') finish();
+            else if (envelope.type === 'error') finish(new Error(envelope.message ?? 'event_stream_failed'));
+          } catch (error) { finish(error); }
+        });
+        if (settled) stop();
+        else if (signal?.aborted) onAbort();
+      } catch (error) { finish(error); }
+    });
+  },
+
   async request<T = unknown>(method: string, path: string, body?: unknown, options?: { headers?: Record<string, string> }): Promise<T> {
     const bridge = window.fairyDesktop;
     if (!bridge) throw new Error('fairyDesktop 桥不可用，请通过 Electron 启动应用。');

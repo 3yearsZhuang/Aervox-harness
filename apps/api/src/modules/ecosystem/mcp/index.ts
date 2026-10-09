@@ -5,7 +5,7 @@
  * 服务器做进程内 handler 恢复（不触网）。必须在 registerToolsModule 之后装配
  * （依赖 ctx.toolRuntime）。
  */
-import type { ModuleContext } from "../../context.js";
+import type { ModuleDependencies } from "../../context.js";
 import { SqliteMcpServerRepository } from "@aervox/repositories";
 import { DshMcpBridge } from "./dsh-bridge.js";
 import { registerMcpRoutes } from "./routes.js";
@@ -18,7 +18,7 @@ export interface McpModuleOptions {
   dshRepoRoot?: string;
 }
 
-export function registerMcpModule(ctx: ModuleContext, options: McpModuleOptions = {}): McpService {
+export function registerMcpModule(ctx: ModuleDependencies<"app" | "db" | "toolRuntime">, options: McpModuleOptions = {}): McpService {
   const repo = new SqliteMcpServerRepository(ctx.db);
   const dshBridge = new DshMcpBridge({ repoRoot: options.dshRepoRoot });
   const service = new McpService({

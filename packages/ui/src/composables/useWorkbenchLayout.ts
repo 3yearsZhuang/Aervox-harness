@@ -1,3 +1,4 @@
+import { getPlatformServices } from '@aervox/api-client';
 import { computed, ref, type Component, type Ref } from 'vue';
 import {
   Bell,
@@ -242,8 +243,7 @@ export function useWorkbenchLayout(props: {
   }
 
   async function setTheme(theme: 'light' | 'dark', timerMinutesVal?: number) {
-    const desktopBridge = (window as Window & { fairyDesktop?: { setTheme: (value: 'light' | 'dark') => Promise<'light' | 'dark'> } }).fairyDesktop;
-    const appliedTheme = isWeb.value ? theme : (await desktopBridge?.setTheme(theme)) ?? theme;
+    const appliedTheme = isWeb.value ? theme : (await getPlatformServices().setTheme?.(theme)) ?? theme;
     applyTheme(appliedTheme);
     saveSettings(timerMinutesVal);
   }

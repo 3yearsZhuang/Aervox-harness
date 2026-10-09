@@ -10,7 +10,7 @@ import { createOpenAICompatProvider } from "@aervox/core";
 import type { ModelProviderPort, ModelRequest } from "@aervox/core";
 import type { AervoxDatabase, LocalContext, LearningPlanModel } from "@aervox/repositories";
 import type { ILearningRepository } from "@aervox/repositories";
-import type { LLMConfigService } from "../../ecosystem/llm/service.js";
+import type { LLMConfigPort } from "../../ecosystem/llm/index.js";
 
 /** 单次规划生成的模型端口（宿主注入；测试注入确定性实现） */
 export interface PlanModelPort {
@@ -22,7 +22,7 @@ export interface PlanModelPort {
 }
 
 /** LLM 模式端口：租户配置 → OpenAI 兼容 provider，消费流式输出拼接全文 */
-export function createLlmPlanModelPort(llmConfigService: LLMConfigService): PlanModelPort {
+export function createLlmPlanModelPort(llmConfigService: LLMConfigPort): PlanModelPort {
   return {
     async generate({ tenant, system, user }) {
       const cfg = await llmConfigService.getConfig(tenant);

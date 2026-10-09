@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { BookOpen } from 'lucide-vue-next';
-import { focusModeEnabled, toggleFocusMode } from './plugin-state';
+import { useFocusModeState } from './plugin-state';
+const { focusModeEnabled, toggleFocusMode } = useFocusModeState();
 </script>
 
 <template>

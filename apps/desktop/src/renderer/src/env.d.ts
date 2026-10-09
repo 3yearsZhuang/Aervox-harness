@@ -33,6 +33,7 @@ interface Window {
     getTheme: () => Promise<'light' | 'dark'>
     setTheme: (theme: 'light' | 'dark') => Promise<'light' | 'dark'>
     onThemeChange: (callback: (theme: 'light' | 'dark') => void) => () => void
+    streamEvents?: (path: string, callback: (message: unknown) => void) => () => void
     streamTurn: (
       content: string,
       options: {
@@ -45,6 +46,7 @@ interface Window {
     ) => () => void
     cancelTurn?: (requestId: string) => void
     apiRequest: <T = unknown>(method: string, path: string, body?: unknown, headers?: Record<string, string>) => Promise<ApiRequestResult<T>>
+    pickDirectory?: () => Promise<string | null>
     proactive: import('@aervox/contracts/proactive').ProactiveDesktopBridge
     uploadAttachment?: (payload: {fileName: string; mediaType: string; purpose: string; dataBase64: string; idempotencyKey?: string}) => Promise<unknown>
   }

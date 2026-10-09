@@ -2,6 +2,8 @@
 export {
   configureAervoxClient,
   getTransport,
+  getPlatformServices,
+  type PlatformServices,
   getSessionId,
   setSessionId,
   getApiBase,

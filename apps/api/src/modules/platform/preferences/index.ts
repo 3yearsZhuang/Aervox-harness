@@ -3,11 +3,11 @@
  *
  * 自管仓储实例化。
  */
-import type { ModuleContext } from "../../context.js";
+import type { ModuleDependencies } from "../../context.js";
 import { SqlitePersonaPreferencesRepository } from "@aervox/repositories";
 import { registerPreferencesRoutes } from "./routes.js";
 
-export function registerPreferencesModule(ctx: ModuleContext): void {
+export function registerPreferencesModule(ctx: ModuleDependencies<"app" | "db">): void {
   const { app, db } = ctx;
   const repo = new SqlitePersonaPreferencesRepository(db);
   registerPreferencesRoutes(app, repo);

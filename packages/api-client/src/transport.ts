@@ -14,6 +14,7 @@ import type {
   TurnStreamEvent,
   UserQuestionRequiredEventData,
 } from '@aervox/contracts';
+import type { ProactiveDesktopBridge } from '@aervox/contracts/proactive';
 import { TurnStreamProjector } from './projector.js';
 
 export interface TurnCallbacks {
@@ -71,8 +72,15 @@ export interface UploadedAttachment {
   [key: string]: unknown;
 }
 
+export interface EventStreamCallbacks {
+  onEvent: (value: unknown) => void;
+  onHeartbeat?: () => void;
+}
+
 /** 两端能力的最小契约：普通请求 + Turn 流式 + 问答提交 + 附件上传（可选） */
 export interface AervoxTransport {
+  /** 普通 JSON 事件流；地址、认证和平台通道由传输实现负责。 */
+  streamEvents?(path: string, callbacks: EventStreamCallbacks, signal?: AbortSignal): Promise<void>;
   request<T = unknown>(method: string, path: string, body?: unknown, options?: { headers?: Record<string, string>; signal?: AbortSignal }): Promise<T>;
   streamTurn(sessionId: string, content: string, callbacks: TurnCallbacks, options?: StreamTurnOptions): Promise<void>;
   submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[], signal?: AbortSignal): Promise<void>;
@@ -84,7 +92,15 @@ export interface AervoxTransport {
 
 // ── 运行时配置（由宿主端在入口注入 import.meta.env 等信息） ──────────────
 
+export interface PlatformServices {
+  setTheme?: (theme: 'light' | 'dark') => Promise<'light' | 'dark'>;
+  onPetCommand?: (callback: (command: unknown) => void) => () => void;
+  pickDirectory?: () => Promise<string | null>;
+  proactive?: ProactiveDesktopBridge;
+}
+
 export interface AervoxClientConfig {
+  platform?: PlatformServices;
   /** API 基址，仅 fetchTransport 使用（默认 http://127.0.0.1:3000） */
   apiBase?: string;
   /** 学习调度使用的 IANA 时区；默认读取当前系统时区。 */
@@ -96,6 +112,7 @@ export interface AervoxClientConfig {
 }
 
 interface RuntimeConfig {
+  platform: PlatformServices;
   apiBase: string;
   timeZone: string;
   sessionId: string;
@@ -103,6 +120,7 @@ interface RuntimeConfig {
 }
 
 const DEFAULTS: RuntimeConfig = {
+  platform: {},
   apiBase: 'http://127.0.0.1:3000',
   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
   sessionId: 'web_default',
@@ -111,8 +129,11 @@ const DEFAULTS: RuntimeConfig = {
 
 let runtime: RuntimeConfig = { ...DEFAULTS };
 
+export function getPlatformServices(): PlatformServices { return runtime.platform; }
+
 export function configureAervoxClient(config: AervoxClientConfig): void {
   runtime = {
+    platform: config.platform ?? runtime.platform,
     apiBase: config.apiBase?.replace(/\/+$/, '') || runtime.apiBase,
     timeZone: config.timeZone ?? runtime.timeZone,
     sessionId: config.sessionId ?? runtime.sessionId,
@@ -197,6 +218,56 @@ export function createFetchTransport(apiBase: string, config: FetchTransportOpti
     if (!res.ok) throw new AervoxHttpError(res.status, `${method} ${path}`);
     if (res.status === 204) return undefined as T;
     return (await res.json()) as T;
+  };
+
+  const streamEvents = async (path: string, callbacks: EventStreamCallbacks, signal?: AbortSignal): Promise<void> => {
+    if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\') || path.includes('://')) throw new Error('invalid_event_path');
+    signal?.throwIfAborted();
+    const controller = new AbortController();
+    const combined = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
+    let timer: ReturnType<typeof setTimeout>;
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+    const cancelReader = () => { void reader?.cancel().catch(() => undefined); };
+    const arm = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => controller.abort(new DOMException('event_stream_idle', 'TimeoutError')), config.streamIdleTimeoutMs ?? TURN_STREAM_IDLE_TIMEOUT_MS);
+    };
+    arm();
+    combined.addEventListener('abort', cancelReader, { once: true });
+    try {
+      const response = await fetch(`${base}${path}`, {
+        headers: { ...config.headers, Accept: 'text/event-stream' }, signal: combined, redirect: config.redirect,
+      });
+      if (!response.ok || !response.body) throw new AervoxHttpError(response.status, 'SSE');
+      reader = response.body.getReader();
+      combined.throwIfAborted();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      for (;;) {
+        const chunk = await reader.read();
+        combined.throwIfAborted();
+        if (chunk.done) return;
+        arm();
+        buffer = (buffer + decoder.decode(chunk.value, { stream: true })).replace(/\r\n/g, '\n');
+        const frames = buffer.split('\n\n');
+        buffer = frames.pop() ?? '';
+        if (new TextEncoder().encode(buffer).byteLength > 1_048_576) throw new Error('sse_event_too_large');
+        for (const frame of frames) {
+          combined.throwIfAborted();
+          if (new TextEncoder().encode(frame).byteLength > 1_048_576) throw new Error('sse_event_too_large');
+          const data = frame.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).replace(/^ /, '')).join('\n');
+          if (!data) { callbacks.onHeartbeat?.(); continue; }
+          let value: unknown;
+          try { value = JSON.parse(data); } catch { continue; }
+          callbacks.onEvent(value);
+        }
+      }
+    } finally {
+      clearTimeout(timer!);
+      combined.removeEventListener('abort', cancelReader);
+      await reader?.cancel().catch(() => undefined);
+      reader?.releaseLock();
+    }
   };
 
   const streamTurn = async (
@@ -353,5 +424,5 @@ export function createFetchTransport(apiBase: string, config: FetchTransportOpti
   const cancelTurn = (turnId: string, signal?: AbortSignal): Promise<unknown> =>
     request('POST', `/v1/turns/${encodeURIComponent(turnId)}/cancel`, {}, { signal });
 
-  return { request, streamTurn, watchTurn, cancelTurn, submitQuestionAnswers, uploadAttachment, decideToolApproval };
+  return { request, streamEvents, streamTurn, watchTurn, cancelTurn, submitQuestionAnswers, uploadAttachment, decideToolApproval };
 }

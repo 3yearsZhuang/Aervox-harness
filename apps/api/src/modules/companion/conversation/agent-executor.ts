@@ -1,3 +1,4 @@
+import { hostPromptPolicy } from "./prompt-policy.js";
 import { ControlContext } from "@aervox/core";
 /**
  * Aervox｜思隅 @aervox/api — 会话回合编排（runLoopTurnOnce）
@@ -49,15 +50,15 @@ import {
   defaultServerPluginRegistry,
   type ServerPluginRegistry,
   type TurnPluginContext,
-} from "../../ecosystem/plugins/turn-plugins/index.js";
+} from "../../ecosystem/plugins/index.js";
 import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index.js";
 import { HOST_TOOL_GUIDANCE } from "../../ecosystem/tools/index.js";
-import type { LLMConfigService } from "../../ecosystem/llm/service.js";
-import type { LlmDegradationService } from "../../ecosystem/llm/degradation-service.js";
+import type { LLMConfigPort } from "../../ecosystem/llm/index.js";
+import type { ModelRoutingPort } from "../../ecosystem/llm/index.js";
 import type { ModelRoutingSnapshot } from "@aervox/contracts";
 import { isKnownStreamEventType, registerToolResultProjection } from "@aervox/contracts";
-import { loadProactiveProfilePrompt } from "../../proactive/proactive/profile-context.js";
-import type { ProactiveActionAuthorizer } from "../../proactive/proactive/action-authorizer.js";
+import { loadProactiveProfilePrompt } from "../../proactive/proactive/index.js";
+import type { ProactiveActionPort } from "../../proactive/proactive/index.js";
 import { buildMemoryContext, type MemoryRecallPort } from "./memory-recall.js";
 import { buildLoopProvider, createLLMCallable } from "./llm-adapter.js";
 import { createApprovalGatedToolProvider, createRuntimeToolProvider } from "./tool-providers.js";
@@ -99,11 +100,11 @@ export async function runLoopTurnOnce(
   },
   deps: {
     toolRuntime?: ToolRuntime;
-    llmConfigService?: LLMConfigService;
+    llmConfigService?: LLMConfigPort;
     /** CR-034 模型降级与健康路由决策服务 */
-    modelRoutingService?: LlmDegradationService;
+    modelRoutingService?: ModelRoutingPort;
     /** CAP-008：安全与危机干预服务（危急阻断/资源注入/中度困扰支持） */
-    safetyService?: import("../../platform/safety/service.js").SafetyService;
+    safetyService?: import("../../platform/safety/index.js").SafetyPort;
     /** 2d：删除/撤权水位未追平 → Loop fail-closed（AVX-HAR-001 §11.3） */
     deletionGate?: import("@aervox/core").DeletionGatePort;
     /** 5a-2：受控收件箱消费（每 Step claim next-step → 注入 → ack；缺失时跳过） */
@@ -131,7 +132,7 @@ export async function runLoopTurnOnce(
     /** CR-060：插件宿主服务工厂（按当前本地上下文产出窄端口集合） */
     pluginHostServices?: (ctx: LocalContext) => PluginHostServices;
     /** CAP-033：主动智能全动作授权与本地动作账本。 */
-    proactiveActionAuthorizer?: ProactiveActionAuthorizer;
+    proactiveActionAuthorizer?: ProactiveActionPort;
     /** CAP-033：本地画像声明来源；仅在有效且本地模型准入时注入。 */
     proactiveRepository?: IProactiveProfileRepository;
     /** CAP-005：普通长期记忆 FTS + 向量混合召回。 */
@@ -590,7 +591,7 @@ export async function runLoopTurnOnce(
       },
     },
     baseSystemPrompt: {
-      assistantName: deps.persona?.name || "思隅 (Aervox)",
+      ...hostPromptPolicy(deps.persona?.name),
       personaPrompt: deps.persona?.prompt,
       activeTools: tools?.tools,
       extraSections: beforeTurnExec.extraSections,

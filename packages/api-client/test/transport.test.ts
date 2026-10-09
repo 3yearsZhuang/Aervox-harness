@@ -128,3 +128,41 @@ it('外部取消在提交前生效，错误响应不泄露响应正文', async (
   await expect(transport.streamTurn('s', 'hi', { onDelta() {}, onDone() {} }, { signal: AbortSignal.abort(new Error('stop')) })).rejects.toThrow('stop');
   await expect(transport.request('GET', '/v1/sessions')).rejects.toMatchObject({ status: 403, message: 'API GET /v1/sessions → HTTP 403' });
 });
+
+it('普通事件流复用地址和认证，兼容跨块 CRLF，取消释放 reader 并停止派发', async () => {
+  let source!: ReadableStreamDefaultController<Uint8Array>;
+  const cancel = vi.fn();
+  const fetchMock = vi.fn().mockResolvedValue(new Response(new ReadableStream({ start(controller) { source = controller; }, cancel })));
+  vi.stubGlobal('fetch', fetchMock);
+  const controller = new AbortController();
+  const events: unknown[] = [];
+  const pending = createFetchTransport('http://custom.test', { headers: { Authorization: 'Bearer token' } }).streamEvents!('/v1/model-runtime/events', {
+    onEvent(event) { events.push(event); controller.abort(); },
+  }, controller.signal);
+  const result = expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+  await Promise.resolve();
+  source.enqueue(new TextEncoder().encode('data: {"state":1}\r'));
+  source.enqueue(new TextEncoder().encode('\n\r\ndata: {"state":2}\r\n\r\n'));
+  await result;
+  expect(events).toEqual([{ state: 1 }]);
+  expect(fetchMock).toHaveBeenCalledWith('http://custom.test/v1/model-runtime/events', expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer token' }) }));
+  expect(cancel).toHaveBeenCalledTimes(1);
+});
+
+it('模型运行时订阅完全使用注入的传输', async () => {
+  const { configureAervoxClient } = await import('../src/transport.js');
+  const { useAervoxModelRuntime } = await import('../src/useAervoxModelRuntime.js');
+  const transport = createFetchTransport('http://unused.test');
+  const events = vi.fn(async (_path, callbacks) => { callbacks.onEvent({ event: 'snapshot', data: { status: 'running' } }); });
+  configureAervoxClient({ transport: { ...transport, streamEvents: events } });
+  const fetchMock = vi.fn(); vi.stubGlobal('fetch', fetchMock);
+  const snapshot = vi.fn();
+  const stop = useAervoxModelRuntime().subscribeState(snapshot);
+  await Promise.resolve();
+  expect(events).toHaveBeenCalledWith('/v1/model-runtime/events', expect.any(Object), expect.any(AbortSignal));
+  expect(snapshot).toHaveBeenCalledWith({ status: 'running' });
+  expect(fetchMock).not.toHaveBeenCalled();
+  stop();
+  expect(events.mock.calls[0]?.[2].aborted).toBe(true);
+  configureAervoxClient({ transport });
+});

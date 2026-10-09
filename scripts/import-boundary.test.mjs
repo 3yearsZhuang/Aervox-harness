@@ -183,3 +183,23 @@ test("共享包和能力层不得反向导入 CLI 宿主", () => {
   assert.deepEqual(v("packages/api-client/src/transport.ts", 'import "@aervox/cli";'), ["packages-no-host-imports"]);
   assert.deepEqual(v("modules/example/src/index.ts", 'import "@aervox/cli";'), ["capability-layer-no-db-no-host"]);
 });
+
+test('宿主子路径与相对插件引用不能绕过边界', () => {
+  for (const file of ['packages/ui/src/example.ts', 'plugins/focus-mode/src/example.ts', 'modules/example/src/index.ts']) {
+    assert.equal(v(file, 'import type { App } from "@aervox/api/src/app.js";').length, 1);
+  }
+  assert.deepEqual(v('packages/ui/src/example.ts', 'import "../../../plugins/focus-mode/src/ui/index.ts";'), ['host-no-plugin-implementation']);
+});
+
+test('合法 TypeScript 断言不会导致整文件导入被跳过', () => {
+  const source = 'import type { Database } from "@aervox/repositories"; const value: unknown = ""; const text = <string>value;';
+  assert.deepEqual(v('packages/core/src/assertion.ts', source), ['core-no-db']);
+  assert.deepEqual(v('packages/ui/src/Example.vue', `<script setup lang="ts">${source}</script>`), ['ui-client-no-db']);
+  assert.deepEqual(v('packages/ui/src/Example.tsx', 'import "@aervox/repositories"; const view = <div />;'), ['ui-client-no-db']);
+});
+
+test('所有扫描范围的解析失败均阻断，而非静默放行', () => {
+  for (const file of ['packages/core/src/broken.ts', 'apps/desktop/src/broken.ts', 'plugins/focus-mode/src/broken.ts']) {
+    assert.deepEqual(v(file, 'export const broken = ;'), ['module-parse-error']);
+  }
+});

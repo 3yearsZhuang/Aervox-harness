@@ -2,7 +2,8 @@
 import { computed } from 'vue';
 import { GraduationCap } from 'lucide-vue-next';
 import { useWorkbenchContext } from '@aervox/ui/plugin-api';
-import { activeLearningView, learningOpen, openLearningView } from './plugin-state';
+import { useFocusModeState } from './plugin-state';
+const { activeLearningView, learningOpen, openLearningView } = useFocusModeState();
 
 const { layout } = useWorkbenchContext();
 

@@ -35,6 +35,7 @@ export function createWorkbenchPluginRuntime(
   const activeCleanups = new Map<string, () => void>();
   const availablePlugins = ref<Record<string, boolean>>({});
   let currentSyncSeq = 0;
+  let destroyed = false;
 
   function deactivate(def: BuiltinUIPlugin): void {
     const cleanup = activeCleanups.get(def.id);
@@ -63,6 +64,7 @@ export function createWorkbenchPluginRuntime(
     plugins: Array<{ id: string; enabled?: number }>,
     getConfig: (pluginId: string) => Promise<{ values?: Record<string, unknown> } | null>,
   ): Promise<void> {
+    if (destroyed) return;
     const syncSeq = ++currentSyncSeq;
     const context = getContext();
 
@@ -117,7 +119,9 @@ export function createWorkbenchPluginRuntime(
   }
 
   function destroy(): void {
+    destroyed = true;
     currentSyncSeq++;
+    availablePlugins.value = {};
     for (const cleanup of activeCleanups.values()) {
       try {
         cleanup();

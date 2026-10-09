@@ -255,12 +255,7 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
       ["json", "pretty"] as const,
       defaultLogFormat,
     ),
-    loopProvider: requireEnum(
-      "AERVOX_LOOP_PROVIDER",
-      env.AERVOX_LOOP_PROVIDER,
-      ["replay", "scripted", "scripted-write", "scripted-privileged", "scripted-plugin", "llm"] as const,
-      "llm",
-    ),
+    loopProvider: loadLoopProvider(env),
     loopDriver: requireEnum("AERVOX_LOOP_DRIVER", env.AERVOX_LOOP_DRIVER, ["native", "dsh"] as const, "native"),
     turnExecution: requireEnum(
       "AERVOX_TURN_EXECUTION",
@@ -335,4 +330,13 @@ export function loadWorkerConfig(env: NodeJS.ProcessEnv = process.env): WorkerCo
     proactiveFeatureFlags: loadProactiveFeatureFlags(env),
     modelRoutingFeatureFlags: loadModelRoutingFeatureFlags(env),
   };
+}
+
+export function loadLoopProvider(env: NodeJS.ProcessEnv = process.env): LoopProvider {
+  return requireEnum(
+      "AERVOX_LOOP_PROVIDER",
+      env.AERVOX_LOOP_PROVIDER,
+      ["replay", "scripted", "scripted-write", "scripted-privileged", "scripted-plugin", "llm"] as const,
+      "llm",
+    );
 }

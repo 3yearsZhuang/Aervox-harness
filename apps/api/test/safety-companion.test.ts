@@ -27,7 +27,7 @@ import {
   noopAudit,
   type LogRecord,
 } from "@aervox/observability";
-import { collectDiaryMaterial } from "@aervox/diary";
+import { collectDiaryMaterial } from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
 import { classifySafety } from "../src/modules/platform/safety/classifier.js";
 import { getCrisisHelplines, formatCrisisResponse } from "../src/modules/platform/safety/crisis-resources.js";

@@ -22,7 +22,7 @@ import {
   type PluginModel,
   type LocalContext,
 } from "@aervox/repositories";
-import { isValidSkillName, parseFrontmatter } from "../skills/skill-manager.js";
+import { isValidSkillName, parseFrontmatter } from "../skills/index.js";
 import {
   type ServerPluginRegistry,
   defaultServerPluginRegistry,

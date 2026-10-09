@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { focusModeEnabled, toggleFocusMode } from './plugin-state';
+import { useFocusModeState } from './plugin-state';
+const { focusModeEnabled, toggleFocusMode } = useFocusModeState();
 
 /**
  * 输入区模式指示器（插件自有）。
