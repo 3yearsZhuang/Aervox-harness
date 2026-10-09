@@ -121,3 +121,6 @@ it("开关轮换取消在途调用，原贡献句柄仍释放最新代际且不�
   pending.resolve("stale");
   runtime.dispose();
 });
+
+import { runtimeContract } from "../../../packages/core/test/runtime-contract.js";
+runtimeContract("API runtime contract", () => fixture().runtime);

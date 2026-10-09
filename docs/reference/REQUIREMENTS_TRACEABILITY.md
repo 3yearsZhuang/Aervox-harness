@@ -7,8 +7,8 @@ doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 1.56.0
-updated_at: 2026-10-06
-reviewed_at: 2026-10-06
+updated_at: 2026-10-08
+reviewed_at: 2026-10-08
 review_interval_days: 90
 ---
 
@@ -185,6 +185,7 @@ review_interval_days: 90
 - 现行能力的生命周期推进（Mapped → Specified → Implemented → Verified → Released）统一维护在上方 **§4 覆盖矩阵** 中；
 - 每次功能与修复的交付证据（测试结果、影响范围、迁移方案）直接保留在 Pull Request 与 Git 提交日志中，杜绝多源漂移与人肉记账负担；
 - `core-control-approval-20261002`：Aervox Core 高优先级内核切片重落（`ControlContext` / `abortable` / `ApprovalPolicyPort` SPI 与 executor 接线，BTD-05 / ITER-007 / ITER-013 / PET-05），实现位置 `packages/core/src/control-context.ts`、`packages/core/src/approval-policy.ts`、`packages/core/src/cli-approval.ts`；均为可选注入，API/Worker 下游行为不变，验收证据见对应 PR 与 `ITER-034` 计划条目。
+- `core-audit-five-iterations-20261008`：ITER-044～048 / [CR-061](changes/CR-061-core-execution-contract-hardening.md) 落地执行取消/截断/父子控制/Inbox 修复、共享工具运行时与调用边界合同、动态工具声明代际/授权复验、最终上下文窗口与有界正文流、安全的本机结果恢复、Provider 能力/缓存用量、公共出口收敛及可重复性能基准。恢复以 `AERVOX_LOOP_RESUME=local-results` 显式启用，只补完已提交结果正文，无新工具或插件钩子。验证真源为 core 的 `audit-*.test.ts` / `runtime-contract.ts` / `public-api.test.ts`、API 工具生命周期和 SQLite 恢复集成测试，以及代码/文档门禁、headless 冒烟与两类基准脚本；PR 证据见 [#257](https://github.com/3yearsZhuang/Aervox-harness/pull/257)。维持 SQLite 单用户、部署及 SSE 事件形状，不升级产品 CAP 或公开发布状态。
 - `core-standalone-package-20261003`：Aervox Core 独立内核包建立（ADR-021 / ITER-035），新建 `packages/core`（`@aervox/core`，运行时零依赖、Apache-2.0 许可）吸收 `agent-loop` 全量实现 + `cli-approval` 迁入 + `HostToolRuntime` 内存版；`packages/agent-loop` 降级为纯 re-export 壳（四下游 diary/host-agent/api/worker 零改动）；headless 冒烟脚本 `scripts/run-headless-agent.mjs` 在无 Fastify / 无 SQLite 进程内跑通完整多步工具回路；验收证据见对应 PR 与 `ITER-035` 计划条目。
 - `focus-mode-host-decoupling-20261003`：专注模式宿主去领域化与实现内聚（CR-060 / ITER-026）。`CAP-002`/`CAP-007`/`CAP-016` 的实现（回合切面、术语抽取管线、作答落库工具、概念探索与练习报告端点、UI 组件与专属样式）全部内聚于 `plugins/focus-mode/`（`src/server` 与 `src/ui`）；宿主只保留通用接缝（`packages/host-plugin-api` 契约、`plugin-assembly.ts` 装配点、`plugin-host-services.ts` 窄端口实现点、`pluginState`/`pluginEvents`/`metadata` 透传/`applySlotPreset` 等前端接缝），`check-host-domain-purity` 棘轮收敛至**零命中、零豁免**，历史别名 `study-mode`/`quiz-mode` 已清除，内核（`packages/core`）与共享复习包不再导出产品域提示词与作答工具。`check-removable-implementation` 新增 `focus-mode-plugin`（BTD-11）目标，`run-removability-drill.mjs` 删除插件实现并剥离组合根引用后，API/Worker 冷构建通过；验收证据见对应 PR 与 `ITER-026` 计划条目。**不影响**学习的真源边界：`packages/schema` 学习事实表、`/v1/mistakes`、`/v1/review-items`、`/v1/learning-plans`、`/v1/practice/sessions*` 与 `packages/practice-review` 复习排期算法仍保留主仓。
 - `core-companion-extraction-20261003`：Aervox Core 内核提纯与伴学功能回归插件宿主（ADR-021 内核提纯修订 / ITER-036），`focus-mode-prompt` 迁回 apps/api 专注模式回合插件，`practice-attempt-tool` 与 `PracticeAttemptPort` 契约迁回 apps/api companion 会话装配链，宿主工具 guidance 迁回宿主 `HOST_TOOL_GUIDANCE`（`customGuidance` 注入）；内核导出面收窄后 `user-question-tool` / `subagent-contribution` 判定为内核能力保留；实现位置 `apps/api/src/modules/ecosystem/plugins/turn-plugins/focus-mode-prompt.ts`、`apps/api/src/modules/companion/conversation/practice-attempt-tool.ts`、`apps/api/src/modules/ecosystem/tools/host-tool-guidance.ts`；验收证据见对应 PR 与 `ITER-036` 计划条目。
@@ -497,8 +498,8 @@ doc_status: draft
 decision_status: proposed
 delivery_status: planned
 version: 0.1.0
-updated_at: 2026-09-28
-reviewed_at: 2026-09-28
+updated_at: 2026-10-08
+reviewed_at: 2026-10-08
 review_interval_days: 90
 ---
 

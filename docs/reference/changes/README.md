@@ -7,8 +7,8 @@ doc_status: approved
 decision_status: not-applicable
 delivery_status: not-applicable
 version: 1.0.0
-updated_at: 2026-10-01
-reviewed_at: 2026-10-01
+updated_at: 2026-10-08
+reviewed_at: 2026-10-08
 review_interval_days: 90
 ---
 
@@ -33,6 +33,7 @@ review_interval_days: 90
 |---|---|---|---|
 | `CR-055` | [CR-055 移动端落地范围与分阶段交付规划](CR-055-mobile-delivery-plan.md) | Proposed | Planned |
 | `CR-057` | [CR-057 实施 HLS 本地智能体验证执行器](CR-057-hls-local-agent-validation.md) | Accepted | Implemented |
+| `CR-061` | [CR-061 内核执行合同与五阶段审核整改](CR-061-core-execution-contract-hardening.md) | Accepted | Implemented |
 | `CR-060` | [CR-060 专注模式宿主去领域化与插件实现内聚](CR-060-focus-mode-host-decoupling.md) | Accepted | Implemented |
 
 ---

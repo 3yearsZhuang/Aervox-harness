@@ -20,11 +20,11 @@ describe("MemoryStore 工具贡献与可移除性演练 (BTD-03 / BTD-07)", () =
           description: tool.description,
           category: tool.category,
           safetyLevel: tool.safetyLevel ?? "write_with_approval",
-          requiredPermissionsJson: JSON.stringify(tool.requiredPermissions ?? []),
-          inputSchemaJson: JSON.stringify(tool.inputSchema),
+          requiredPermissionsJson: tool.requiredPermissions ?? [],
+          inputSchemaJson: tool.inputSchema,
           pluginId: tool.pluginId ?? null,
           builtin: tool.builtin ? 1 : 0,
-          gatingConditionsJson: JSON.stringify(tool.gatingConditions ?? []),
+          gatingConditionsJson: tool.gatingConditions ?? [],
           enabled: existing ? existing.enabled : 1,
           priority: tool.priority ?? 0,
           replay: tool.replay ?? "allowed",
@@ -37,6 +37,7 @@ describe("MemoryStore 工具贡献与可移除性演练 (BTD-03 / BTD-07)", () =
       setEnabled: async (id, enabled) => {
         const item = store.get(id);
         if (item) item.enabled = enabled ? 1 : 0;
+        return item ?? null;
       },
       unregisterTool: async (id) => {
         store.delete(id);

@@ -25,7 +25,7 @@ import type { ToolCallRequest, ToolCallResult, ToolExecutionStatus } from "./typ
 export function classifyToolOutcome(result: ToolCallResult): ToolExecutionStatus {
   if (result.needsApproval) return "pending_approval";
   if (result.ok) return "executed";
-  if (result.error === "tool_timeout") return "timeout_error";
+  if (result.failureKind === "timeout" || result.error === "tool_timeout") return "timeout_error";
   return "rejected";
 }
 

@@ -76,7 +76,7 @@ describe("阶段 5b Context 压缩 seam", () => {
     expect(res.messages).toEqual(messages);
   });
 
-  it("createSummaryCompaction：超阈值保留首尾 + 摘要占位", async () => {
+  it("createSummaryCompaction：超阈值保留近期完整消息并明确省略", async () => {
     const messages = Array.from({ length: 20 }, (_, i) => ({
       role: "user" as const,
       content: `消息 ${i + 1}`,
@@ -86,11 +86,9 @@ describe("阶段 5b Context 压缩 seam", () => {
       sessionId: "s1",
       messages,
     });
-    expect(res.messages).toHaveLength(5); // 首2 + 摘要 + 尾2
-    expect(res.messages[0]).toEqual(messages[0]);
-    expect(res.messages[1]).toEqual(messages[1]);
-    expect(res.messages[2]!.role).toBe("system");
-    expect(res.messages[2]!.content).toContain("Context compaction");
+    expect(res.messages.length).toBeLessThanOrEqual(10);
+    expect(res.messages[0]!.role).toBe("system");
+    expect(res.messages[0]!.content).toContain("No summary was generated");
     expect(res.messages[res.messages.length - 2]).toEqual(messages[messages.length - 2]);
     expect(res.messages[res.messages.length - 1]).toEqual(messages[messages.length - 1]);
   });
@@ -258,11 +256,10 @@ describe("阶段 5b 统一组合 composer", () => {
       content: `消息 ${i + 1}`,
     }));
     const ctx = await builder.build({ turnId: "t1", sessionId: "s1", messages: many });
-    // skills system 前置 + 原 8 条被压缩：head=[skillSystem, m1]、summary、tail=[m7, m8] → 5 条
-    expect(ctx.messages).toHaveLength(5);
+    // 保留系统约束、真实省略提示与最近完整消息。
+    expect(ctx.messages).toHaveLength(3);
     expect(ctx.messages[0]!.content).toContain("## Skills");
-    expect(ctx.messages[1]).toEqual(many[0]);
-    expect(ctx.messages[2]!.content).toContain("Context compaction");
+    expect(ctx.messages[1]!.content).toContain("Context compaction");
     expect(ctx.messages[ctx.messages.length - 1]).toEqual(many[many.length - 1]);
   });
 

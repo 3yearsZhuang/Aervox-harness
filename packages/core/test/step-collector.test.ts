@@ -15,7 +15,8 @@
  * - 守卫命中时 stop 非空且分块已收集到该点。
  */
 import { describe, expect, it } from "vitest";
-import { StepCollector, createControlContext } from "../src/index.js";
+import { StepCollector } from "../src/step-collector.js";
+import { createControlContext } from "../src/index.js";
 import type { ModelChunk, ModelProviderPort, PromptContext } from "../src/index.js";
 
 const ctxOf = (messages: PromptContext["messages"] = [{ role: "user", content: "hi" }]): PromptContext => ({

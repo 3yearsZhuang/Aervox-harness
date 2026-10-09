@@ -1,0 +1,70 @@
+{
+  "builtCodeSha256": "6bf739e84d77d7951742bf9e492fbae55fd1b1743b4a76bedfe739504edf34bc",
+  "schemaVersion": 1,
+  "commit": "d7fd6d8746a9490c9be95840b408ed47d19421cd",
+  "workingTree": "implementation under test",
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "darwin",
+    "arch": "arm64"
+  },
+  "fixture": {
+    "samples": 5,
+    "chunks": 32,
+    "chunkBytes": 768,
+    "intervalMs": 5
+  },
+  "limits": {
+    "textWindowBytes": 4096,
+    "stepResponseBytes": 8388608,
+    "cancelPollMs": 50
+  },
+  "metrics": {
+    "firstVisibleP50Ms": 29.61587499999996,
+    "firstVisibleP95Ms": 33.605374999999995,
+    "cancelP95Ms": 55.21849999999995,
+    "durationP95Ms": 187.86233299999998
+  },
+  "runs": [
+    {
+      "firstVisibleMs": 33.605374999999995,
+      "durationMs": 187.86233299999998,
+      "cancelMs": 55.21849999999995,
+      "maxBatchBytes": 3840,
+      "sampledPeakHeapBytes": 7388792
+    },
+    {
+      "firstVisibleMs": 30.000833999999998,
+      "durationMs": 187.10762500000004,
+      "cancelMs": 50.30304100000001,
+      "maxBatchBytes": 3840,
+      "sampledPeakHeapBytes": 7132584
+    },
+    {
+      "firstVisibleMs": 29.61587499999996,
+      "durationMs": 183.481,
+      "cancelMs": 50.48837500000002,
+      "maxBatchBytes": 3840,
+      "sampledPeakHeapBytes": 7617912
+    },
+    {
+      "firstVisibleMs": 28.893957999999998,
+      "durationMs": 183.74754199999995,
+      "cancelMs": 51.28179199999988,
+      "maxBatchBytes": 3840,
+      "sampledPeakHeapBytes": 7667464
+    },
+    {
+      "firstVisibleMs": 28.088917000000038,
+      "durationMs": 185.24087499999996,
+      "cancelMs": 50.23412499999995,
+      "maxBatchBytes": 3840,
+      "sampledPeakHeapBytes": 7570160
+    }
+  ],
+  "limitations": [
+    "fake provider and memory store; not production LLM or disk latency",
+    "heap sampled at writes; not a process memory bound",
+    "SQLite contention measured separately by worker-write-contention-drill.mjs"
+  ]
+}

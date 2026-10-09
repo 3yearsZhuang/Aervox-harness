@@ -23,3 +23,23 @@ export async function* abortableStream<T>(stream: AsyncIterable<T>, signal?: Abo
     void iterator.return?.().catch(() => undefined);
   }
 }
+
+/** Yield idle ticks without concurrent next() calls; flushers remain serialized with chunks. */
+export async function* streamWithTicks<T>(stream: AsyncIterable<T>, signal?: AbortSignal, intervalMs = 50): AsyncIterable<T | null> {
+  const iterator = stream[Symbol.asyncIterator]();
+  let pending = iterator.next();
+  try {
+    for (;;) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        const item = await awaitWithSignal(Promise.race([
+          pending, new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), intervalMs); }),
+        ]), signal);
+        if (item === null) { yield null; continue; }
+        if (item.done) return;
+        yield item.value;
+        pending = iterator.next();
+      } finally { clearTimeout(timer); }
+    }
+  } finally { void pending.catch(() => {}); void iterator.return?.().catch(() => {}); }
+}

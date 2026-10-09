@@ -239,16 +239,21 @@ export class SafeSegmentStore {
                 WHERE mv.turn_id = ta.turn_id AND mv.role = 'user'
                 ORDER BY mv.version DESC LIMIT 1) AS user_message,
                (SELECT COALESCE(MAX(sequence), 0) FROM turn_stream_events e
-                WHERE e.turn_id = ta.turn_id AND e.event_type = 'tool_result') AS last_sequence
+                WHERE e.turn_id = ta.turn_id) AS last_sequence
         FROM turn_attempts ta
         JOIN turns t ON t.id = ta.turn_id
         WHERE ta.status = 'Running'
           AND ta.lease_expires_at IS NOT NULL
           AND ta.lease_expires_at < ?
+          AND t.status IN ('Created', 'Running')
+          AND NOT EXISTS (SELECT 1 FROM message_versions mv
+                          LEFT JOIN messages m ON m.id = mv.message_id
+                          WHERE mv.turn_id = ta.turn_id
+                            AND (mv.is_redacted = 1 OR m.deleted_at IS NOT NULL))
           AND EXISTS (SELECT 1 FROM tool_executions te
                       WHERE te.attempt_id = ta.id AND te.status = 'executed')
           AND NOT EXISTS (SELECT 1 FROM turn_stream_events e2
-                          WHERE e2.turn_id = ta.turn_id AND e2.event_type = 'done')
+                          WHERE e2.turn_id = ta.turn_id AND e2.event_type IN ('done', 'error', 'redacted'))
         ORDER BY ta.lease_expires_at ASC, ta.id ASC
         LIMIT ?
       `,
