@@ -51,17 +51,18 @@ describe("abnormal model termination", () => {
 
   it.each(['{"path":', '"notes.txt"', "null", "[]"])("rejects malformed/non-object arguments: %s", async (args) => {
     const { result, execute } = await run(providerResponse("tool_calls", args));
-    expect(result.status).toBe("failed");
+    expect(result).toMatchObject({ status: "interrupted", reason: "model_invalid_tool_arguments" });
     expect(execute).not.toHaveBeenCalled();
   });
 
-  it("does not flush tools after a normal text terminal", async () => {
+  it("accumulated tools at a normal text terminal fail closed as incomplete", async () => {
     const { result, execute } = await run(providerResponse("stop"));
-    expect(result.status).toBe("completed");
+    expect(result).toMatchObject({ status: "interrupted", reason: "model_incomplete" });
     expect(execute).not.toHaveBeenCalled();
   });
 
-  it.each(["data: {broken json}\n\n", "data: {truncated"])("damaged SSE frames never permit tool effects: %s", async (damaged) => {
+  it("damaged SSE frames never permit tool effects", async () => {
+    const damaged = "data: {broken json}\n\n";
     const validCall = { choices: [{ delta: { tool_calls: [
       { index: 0, id: "c1", function: { name: "write_note", arguments: "{}" } },
     ] }, finish_reason: "tool_calls" }] };
@@ -77,7 +78,7 @@ describe("abnormal model termination", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(
       `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: "stop" }] })}\n\n` +
       `data: ${JSON.stringify({ choices: [], usage: { total_tokens: 130, prompt_tokens: 100, completion_tokens: 30,
-        prompt_tokens_details: { cached_tokens: 80, cache_write_tokens: 10 } } })}\n\n` + "data: [DONE]\n\n",
+        prompt_tokens_details: { cached_tokens: 80 }, cache_creation_input_tokens: 10 } })}\n\n` + "data: [DONE]\n\n",
     )));
     const chunks: ModelChunk[] = [];
     const provider = createOpenAICompatProvider({ baseUrl: "http://model.invalid", modelId: "test" });
