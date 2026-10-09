@@ -175,19 +175,25 @@
     {
       "id": "ITER-008",
       "batch": "first",
-      "status": "执行中",
+      "status": "已移交",
       "delivery": "模型制品与进程：路径/symlink、响应与续传验证；启动 epoch、有界探针/日志/指标请求；ARC-11/12；本地模型基础设施",
       "gate": "正确性修复可独立进行；制品来源/信任等级变化先 CR",
       "acceptance": [
-        "不写出模型根、不注册错误正文/错位字节",
-        "旧 exit 不污染新进程；悬挂探针按期结束；停止状态真实"
+        "切片验收见 [PR #266](https://github.com/3yearszhuang/Aervox-harness/pull/266)；适用限制见本条移交摘要。"
+      ],
+      "checks": [
+        "`apps/api/test/model-runtime-downloader.test.ts`",
+        "`apps/api/test/model-runtime-llama-server.test.ts`",
+        "`apps/api/test/model-runtime-api.test.ts`"
       ],
       "owner": "platform",
       "dependsOn": [],
-      "branch": "docs/build-to-delete-pi-architecture-plan",
-      "statusNote": "2026-09-28 CR-056 BTD-04 模型 Driver 替换与代际生命周期已落地并通过扩展 SPI 4 项测试，下载其余正确性要求仍保留",
+      "branch": "fix/iter-008-model-artifact-correctness",
+      "statusNote": "2026-09-28 CR-056 BTD-04 模型 Driver 替换与代际生命周期已落地；2026-10-09 本轮补下载与进程正确性：文件名归一/根包含/symlink 拒绝、416/405 重取复查、206 偏移与实体校验（错位自愈重下）、流式前缀哈希、截断核对与体积/时长上限、autoStart 失败可见、代际归属与有界探针/日志/指标。适用限制：未持久化 ETag/If-Range、磁盘余量与默认时长策略、health-prober 就绪分级；信任摘要与计算摘要区分属制品信任等级变化，先 CR。",
       "links": [
-        "docs/explanation/reference-design-transfer.md#upstream-20260929"
+        "docs/explanation/reference-design-transfer.md#upstream-20260929",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
+        "https://github.com/3yearszhuang/Aervox-harness/pull/266"
       ]
     },
     {
