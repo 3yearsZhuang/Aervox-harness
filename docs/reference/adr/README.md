@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.3.0
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
+version: 0.3.1
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 ---
 
@@ -35,7 +35,7 @@ ADR 记录难以逆转、影响多个模块或改变数据/运维边界的技术
 | ADR-005 | Accepted（经 ADR-021 修订） | 内部 Provider Port 包裹 AI SDK | [ADR-005](ADR-005-provider-port.md) |
 | ADR-006 | Accepted | AI 召回期限与历史保留期限分离 | [ADR-006](ADR-006-recall-retention.md) |
 | ADR-007 | Accepted | 系统记忆树作为可重建投影 | [ADR-007](ADR-007-memory-tree-projection.md) |
-| ADR-008 | Superseded by CR-030 | Cloud-first 与本地/自托管 Port | [ADR-008](ADR-008-cloud-first-local-port.md) |
+| ADR-008 | Superseded by CR-030 | Cloud-first 与本地/自托管 Port（已归档） | [ADR-008](ADR-008-cloud-first-local-port.md) |
 | ADR-009 | Accepted | Electron 最小权限壳与进程外插件 | [ADR-009](ADR-009-electron-plugin-sandbox.md) |
 | ADR-010 | Accepted | DSH/pi 仅为可选适配器 | [ADR-010](ADR-010-dsh-pi-adapters.md) |
 | ADR-011 | Accepted | 日记周期、计划修订与连续窗口 | [ADR-011](ADR-011-diary-cycle-schedule-revision.md) |

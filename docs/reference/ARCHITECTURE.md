@@ -422,7 +422,7 @@ CR-030 后部署形态为「永久本地单用户实例」：不存在多用户�
 | [ADR-005](adr/ADR-005-provider-port.md) | Accepted（经 ADR-021 修订） | 内部 Provider Port 包裹 AI SDK |
 | [ADR-006](adr/ADR-006-recall-retention.md) | Accepted | AI 召回期限与历史保留期限分离 |
 | [ADR-007](adr/ADR-007-memory-tree-projection.md) | Accepted | 系统记忆树作为可重建投影 |
-| [ADR-008](adr/ADR-008-cloud-first-local-port.md) | Superseded by CR-030 | Cloud-first 与本地/自托管 Port |
+| [ADR-008](adr/ADR-008-cloud-first-local-port.md) | Superseded by CR-030 | Cloud-first 与本地/自托管 Port（已归档） |
 | [ADR-009](adr/ADR-009-electron-plugin-sandbox.md) | Accepted | Electron 最小权限壳与进程外插件 |
 | [ADR-010](adr/ADR-010-dsh-pi-adapters.md) | Accepted | DSH/pi 仅为可选适配器 |
 | [ADR-011](adr/ADR-011-diary-cycle-schedule-revision.md) | Accepted | 日记周期、计划修订与连续窗口 |
