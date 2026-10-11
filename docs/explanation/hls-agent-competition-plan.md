@@ -31,9 +31,6 @@ sources:
 
 # HLS 本地智能体竞赛：能力拓展与验证规划
 
-- 提出人：3yearszhuang · 2026-09-22
-- 修改人：3yearszhuang · 2026-10-05
-
 > [!NOTE] 调研生命周期状态：未落地 / 候选验证 (Pending / Candidate)
 > 本文梳理的 HLS 本地智能体竞赛方案已由 ITER-020 交付规划，后续可行性实测待 ITER-021 启动。
 

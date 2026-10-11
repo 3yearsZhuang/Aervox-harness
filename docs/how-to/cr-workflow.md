@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.4
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
+version: 1.0.5
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 review_triggers:
   - docs/reference/changes/**
@@ -20,9 +20,6 @@ sources:
 ---
 
 # 操作指南：提出、撰写与闭环变更请求（CR）
-
-- 提出人：3yearszhuang · 2026-09-13
-- 修改人：3yearszhuang · 2026-10-04
 
 关联：[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md#11-变更控制) · [文档治理规范](../reference/document-governance.md) · [文档写作规范](../reference/standards/doc-standards.md) · [历史 CR 归档说明](../README.md#历史变更请求与临时落地计划归档说明)
 
@@ -52,7 +49,7 @@ sources:
 
 在 `docs/reference/changes/` 目录下创建文件，文件名严格遵守命名规范 `CR-###-kebab-case.md`。已闭环提案（CR-002～059）的原文在归档仓库，不在主仓重建历史文件；新提案一律以新编号的新文件承载差量。
 
-在文件头部写入标准 YAML Front Matter 与点阵签名：
+在文件头部写入标准 YAML Front Matter（作者与修改历史由 Git 追踪，不写点阵签名）：
 
 ```markdown
 ---
@@ -74,13 +71,8 @@ sources:
 
 # CR-999 <清晰动宾短语标题>
 
-- 提出人：<账号> · 2026-09-13
-- 修改人：3yearszhuang · 2026-09-17
-
 关联：[PRD](../PRD.md) · [需求追踪基线](../REQUIREMENTS_TRACEABILITY.md)
 
-- 状态：Proposed / Planned
-- 提出人 / 日期：<姓名或账号> / 2026-09-13
 - 目标版本：<如 R1 MVP / R2 学习深化>
 - 关联能力：`CAP-###`
 ```

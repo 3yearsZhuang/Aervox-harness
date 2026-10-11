@@ -28,9 +28,6 @@ sources:
 
 # Pi AI 竞品差距分析与改进建议
 
-- 提出人：3yearszhuang · 2026-10-01
-- 修改人：3yearszhuang · 2026-10-10
-
 关联：[PRD](../reference/PRD.md)、[能力注册表](../reference/capability-registry.md)、[架构设计说明书](../reference/ARCHITECTURE.md)、CR-056（Build to Delete 规划，已归档至 Aervox-docs-archive）
 
 > [!NOTE] 调研生命周期状态：未入队候选 (Candidate, Not Queued)

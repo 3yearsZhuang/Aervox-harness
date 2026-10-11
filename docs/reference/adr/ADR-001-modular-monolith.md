@@ -13,9 +13,6 @@ review_interval_days: 90
 
 # ADR-001 模块化单体 + 独立 Worker
 
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-10-10
-
 - 状态：Accepted
 - 日期：2026-08-23
 

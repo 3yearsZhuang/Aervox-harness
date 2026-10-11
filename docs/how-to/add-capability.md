@@ -24,9 +24,6 @@ sources:
 
 # 操作指南：新增与规格化 CAP 业务能力
 
-- 提出人：3yearszhuang · 2026-09-13
-- 修改人：3yearszhuang · 2026-10-04
-
 关联：[PRD](../reference/PRD.md) · [SRS 原子需求](../reference/SRS.md) · [能力注册表](../reference/capability-registry.md) · [需求追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)
 
 本指南指导产品经理、架构师与开发人员如何在 Aervox 中立项、规格化、推进并落地一个全新的业务能力（Capability，简称 CAP）。能力与原子需求的权威定义以 [PRD.md](../reference/PRD.md) 和 [REQUIREMENTS_TRACEABILITY.md](../reference/REQUIREMENTS_TRACEABILITY.md) 为准，本页聚焦操作步骤。

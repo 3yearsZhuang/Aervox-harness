@@ -19,9 +19,6 @@ sources:
 
 # 操作指南（How-to Guides）索引
 
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-18
-
 关联：[文档索引](../README.md) · [从哪开始](../getting-started.md) · [文档治理规范](../reference/document-governance.md)
 
 本目录归档 Aervox 项目的 **Diátaxis 操作指南（How-to Guides）**：以目标为导向、面向特定工程任务的一系列分步操作指南。回答“如何完成某项具体工程任务”。

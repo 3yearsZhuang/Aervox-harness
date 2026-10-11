@@ -20,9 +20,6 @@ sources:
 
 # ADR-021 Aervox Core 独立内核包与最小发行边界
 
-- 提出人：3yearszhuang · 2026-10-03
-- 修改人：3yearszhuang · 2026-10-10
-
 ## Status
 
 已接受（2026-10-03）。实现载体为 ITER-035；Provider 统一面由 ITER-033 在本包内落地。

@@ -13,9 +13,6 @@ review_interval_days: 90
 
 # ADR-005 内部 Provider Port 包裹 AI SDK
 
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-10-10
-
 - 状态：Accepted（经 ADR-021 修订）
 - 日期：2026-08-23
 - 关联：`AIQ-TEACH-001`、`AIQ-MEM-001`、`AIQ-DIA-001`、`RISK-010`
