@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.0
-updated_at: 2026-10-08
-reviewed_at: 2026-10-08
+version: 0.4.1
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 ---
 
@@ -43,6 +43,8 @@ review_interval_days: 90
 Front matter 后写一个 H1 标题。作者和修改历史由 Git 追踪，不再手工维护标题下的提出人/修改人签名；既有签名在触碰文档时移除。`updated_at` 和 `reviewed_at` 仍保留，分别表示内容变更与事实复核，不能用刷新日期代替复核。
 
 ADR 另填 `decision_status`；CR 同时填写 `decision_status` 与 `delivery_status`。不适用时显式写 `not-applicable`。关联事实源使用 `sources`，正文中的同仓库引用继续使用相对链接。
+
+`review_triggers` 必须是现存路径，或对仓库文件至少命中一个的 glob；无路径语义的复核条件写成 YAML 注释行（`# …`），不作为列表元素（否则会被有效性校验在严格模式阻断）。`doc_status: superseded` 的文档必须在 front matter 声明 `superseded_by`。
 
 ## 3. 目录与命名
 
