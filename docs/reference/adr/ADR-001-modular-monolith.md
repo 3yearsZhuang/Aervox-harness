@@ -5,16 +5,16 @@ scope: decision
 owner: maintainers
 doc_status: review-candidate
 decision_status: accepted
-version: 0.1.1
-updated_at: 2026-09-13
-reviewed_at: 2026-09-13
+version: 0.1.2
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 ---
 
 # ADR-001 模块化单体 + 独立 Worker
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-13
+- 修改人：3yearszhuang · 2026-10-10
 
 - 状态：Accepted
 - 日期：2026-08-23
@@ -74,3 +74,8 @@ MVP 不存在从微服务回迁。若某模块需拆分，先定义数据所有�
 - **已满足**：仓库即目标形态（`apps/api` + `apps/worker` + SQLite 真源）；`ci-code` 全绿、`check:boundary` 零违规（2026-08-31 复核）。
 - **未满足**：100 并发流式压测与 2 倍峰值压测；Redis/S3 集成测试与丢失重建、灾备演练（组件未接入）。
 - **推进路径**：Redis/S3 接入与容量基线建立后补压测与演练，走 G2 评审。
+
+> [!NOTE]
+> **CR-030 修订（2026-10-10）**：本 ADR 的验收证据含 Redis/S3 集成测试与云端 100 并发容量基线。
+> CR-030 纯本地改造后 Redis/S3 已完全移除、云端容量基线取消；上述未满足项与推进路径仅作历史记录保留，
+> 现行验收以本地单用户基线与 SQLite 实况为准。

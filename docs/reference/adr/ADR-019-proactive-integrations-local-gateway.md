@@ -6,13 +6,13 @@ owner: product-platform
 doc_status: review-candidate
 decision_status: accepted
 delivery_status: verified
-version: 1.0.0
-updated_at: 2026-09-17
-reviewed_at: 2026-09-17
+version: 1.0.1
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 60
 review_triggers:
   - apps/api/src/modules/proactive/proactive/integration-*.ts
-  - packages/database/src/schema/proactive-intelligence.ts
+  - packages/schema/src/proactive-intelligence.ts
   - Home Assistant REST/WebSocket 或小米 OAuth 契约变化
 sources:
   - docs/reference/adr/ADR-018-proactive-local-privacy-host.md
@@ -23,7 +23,7 @@ sources:
 # ADR-019 主动智能外部连接采用本地网关与受控工具
 
 - 提出人：3yearszhuang · 2026-08-29
-- 修改人：3yearszhuang · 2026-09-17
+- 修改人：3yearszhuang · 2026-10-10
 
 ## Context
 
@@ -74,5 +74,5 @@ API 本地进程承载 `ProactiveIntegrationManager`。Home Assistant 使用 RES
 - `apps/api/test/proactive-integrations.test.ts`：凭据不回显、HA 白名单与动作审计、小米健康同步、工具注册和撤销删除；
 - `apps/api/test/proactive-integration-spi.test.ts`：验证 `ProactiveIntegrationProvider` SPI 扩展性与第三方 Provider 动态注册/同步分发；
 - `apps/worker/test/proactive-intelligence-worker.test.ts`：十二项能力及日/周回顾；
-- `packages/database/test/proactive-intelligence.test.ts`：租户隔离、字段加密、HA/健康仓储和导出；
+- `packages/repositories/test/proactive-intelligence.test.ts`：字段加密、HA/健康仓储和导出；
 - Contracts OpenAPI 生成与 Database/API/Worker/UI/Desktop typecheck。

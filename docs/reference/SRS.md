@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.3.1
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
+version: 1.3.2
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 软件需求规格（SRS）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-17
+- 修改人：3yearszhuang · 2026-10-10
 
 产品事实源：[PRD](PRD.md)
 
@@ -122,7 +122,7 @@ review_interval_days: 90
 ### BR-CONV-001 代码执行边界
 
 - **Parent CAP**：`CAP-007`
-- **规则**：MVP 默认不自动执行用户代码；任何执行必须明确授权、受限沙箱、超时、资源配额与审计；模型只能请求工具，执行与否由服务端权限代理决定。客户端可为后续 Turn 明确选择 `full_access`：该模式只预授权 `write_with_approval` 普通写工具，每次调用仍写入可审计授权快照；CAP-033 另以独立 `FullProfileActionGrant` 在用户确认的主动智能模式下覆盖声明的 `local`、`external`、`privileged` 和不可逆动作。租户隔离、同意/撤权、删除水位、沙箱、超时与配额不得被绕过。默认 `ask` 模式和关闭完全访问/主动智能后，不得复用此前自动授权。
+- **规则**：MVP 默认不自动执行用户代码；任何执行必须明确授权、受限沙箱、超时、资源配额与审计；模型只能请求工具，执行与否由服务端权限代理决定。客户端可为后续 Turn 明确选择 `full_access`：该模式只预授权 `write_with_approval` 普通写工具，每次调用仍写入可审计授权快照；CAP-033 另以独立 `FullProfileActionGrant` 在用户确认的主动智能模式下覆盖声明的 `local`、`external`、`privileged` 和不可逆动作。本地单用户数据边界、同意/撤权、删除水位、沙箱、超时与配额不得被绕过。默认 `ask` 模式和关闭完全访问/主动智能后，不得复用此前自动授权。
 - **验收**：
   - `AC-BR-CONV-001-01`：Given 用户提供代码且未获执行授权，When 请求处理，Then 只提供讲解/建议，不执行、不调用未授权工具。
   - `AC-BR-CONV-001-02`：Given 获授权执行环境，When 执行，Then 在受限沙箱内，超时/配额/审计完备，失败不产生部分结果泄漏。

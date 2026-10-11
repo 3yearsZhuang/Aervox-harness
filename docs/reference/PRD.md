@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.13.0
-updated_at: 2026-10-06
-reviewed_at: 2026-10-06
+version: 0.13.1
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 产品需求文档（伴学桌宠）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-10-06
+- 修改人：3yearszhuang · 2026-10-10
 
 关联文档：[架构设计](ARCHITECTURE.md) · [需求追踪与交付标准](REQUIREMENTS_TRACEABILITY.md) · [数据与隐私规范](DATA_PRIVACY.md) · [AI 质量与安全规范](AI_QUALITY_SAFETY.md) · [文档索引](../README.md)
 
@@ -38,6 +38,8 @@ review_interval_days: 90
 | v0.11.2 | 2026-09-16 | 补齐 CR-030 D0 文档同步残留：§14.1 基线表移除 Redis/BullMQ、S3 与 Testcontainers 残留，队列与附件基线对齐本地 SQLite Outbox 与本地附件目录；§8 实体表修正 `OutboxEvent` 重放描述 |
 | v0.11.3 | 2026-09-16 | §14.2 核心包清单对齐当前 `packages/*` 实际分包：`domain`/`identity-consent`/`conversation`/`learning`/`memory`/`ai-runtime`/`safety`/`content-ingestion`/`integrations`/`plugin-sdk`/`database` 等设想包未单列包名，职责由 `agent-loop`/`repositories`/`schema`/`apps/*` 模块承载；新增命名规范 AVX-STD-002 登记对应关系 |
 | v0.11.4 | 2026-09-30 | 经 CR-058 纳入思隅 CLI 连接版基础入口；首个切片只交付基础问答、交互与诊断，学习/复习与记忆专用命令、独立宿主、跨平台与正式分发分别验收 |
+| v0.12.0 | 2026-10-04 | 文档全量审计修正：NFR-AVAIL/SCALE 云端基线随 CR-030 标注暂缓（对齐架构 §9 容量模型）；§14 技术基线修正（Vercel AI SDK → `@aervox/core` 自研零依赖 Provider、`agent-loop` → `core`、OpenTelemetry 标注未接线、补 `apps/cli` 登记） |
+| v0.13.0 | 2026-10-06 | README 极简重构后核心事实源迁入本文（新增 §1.8 核心设计理念与四大支柱）；版本号与修改人签名对齐 |
 
 ## 1. 产品决策摘要
 
@@ -930,7 +932,7 @@ dsh、pi-ai、ACP/RPC、Cordis、FSRS、桌面外壳和插件权限模型属于�
 1. **记忆所有权**：用户确认后的学习记忆必须可查看、编辑、删除和导出；AI 自动提取的候选记忆默认不直接成为长期事实。
 2. **内容与视图分离**：会话消息、答题和复习数据由业务数据层拥有；会话地图、排序、节点位置和折叠状态属于可重建的视图元数据。
 3. **分支可回溯**：P1 会话地图中的每个分支必须指向一个真实的会话或学习尝试，不允许只在前端复制文本制造“假分支”。
-4. **本地优先作为后续选项**：MVP 先采用 Web 账户与服务端存储验证闭环，但数据模型不依赖云端 RAG；后续可评估本地 SQLite/Markdown 导出或自托管模式。
+4. **本地优先为既定架构**：数据与推理在用户本机运行，采用永久本地单用户 SQLite 真源（`CR-030`（已归档）确立），不依赖 Web 账户或服务端存储；数据模型不依赖云端 RAG。
 
 ## 附录：术语
 
