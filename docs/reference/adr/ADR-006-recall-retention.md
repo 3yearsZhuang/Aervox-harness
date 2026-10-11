@@ -13,9 +13,6 @@ review_interval_days: 90
 
 # ADR-006 AI 召回期限与历史保留期限分离
 
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-13
-
 - 状态：Accepted
 - 日期：2026-08-23
 - 关联：`CAP-005/009/013`、`PRIV-RET-001`、`NFR-PRIV-001`

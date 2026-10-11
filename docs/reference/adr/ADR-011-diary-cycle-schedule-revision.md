@@ -13,9 +13,6 @@ review_interval_days: 90
 
 # ADR-011 日记周期、计划修订与连续窗口
 
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-10-10
-
 - 状态：Accepted（经 CR-030 修订数据归属字段）
 - 日期：2026-08-24
 - 关联：`CAP-009`、`FR-DIA-001`、`DATA-DIA-001`、`NFR-JOB-001`、`NFR-I18N-001`、`OPS-QUEUE-001`、`RISK-004/005`、`ADR-013`

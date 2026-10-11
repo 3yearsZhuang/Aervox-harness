@@ -13,9 +13,6 @@ review_interval_days: 90
 
 # ADR-015 Vue 全栈单栈：Web 复用桌面端技术族
 
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-10-10
-
 - 状态：Accepted（替代 ADR-002）
 - 日期：2026-08-25
 

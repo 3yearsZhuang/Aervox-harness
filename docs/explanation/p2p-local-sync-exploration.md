@@ -27,9 +27,6 @@ sources:
 
 # 纯本地多端点对点加密同步架构探索
 
-- 提出人：3yearszhuang · 2026-09-29
-- 修改人：3yearszhuang · 2026-09-29
-
 > [!NOTE] 调研生命周期状态：首切片完成，待评审 (First Slice Delivered, Pending Review)
 > 密码学原语、Changeset 引擎、UDP 多播发现与环回端到端切片已完成（69 项 P2P 用例通过，见 §3.1）；ITER-028 于 2026-10-02 完成验收重述后保持待评审，真实 mDNS/DNS-SD、生产接线与真实多设备直连待后续推进。
 

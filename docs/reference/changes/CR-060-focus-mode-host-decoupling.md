@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: accepted
 delivery_status: implemented
-version: 1.0.0
-updated_at: 2026-10-03
-reviewed_at: 2026-10-03
+version: 1.0.1
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 30
 review_triggers:
   - plugins/**
@@ -35,9 +35,6 @@ sources:
 ---
 
 # CR-060 专注模式宿主去领域化与插件实现内聚
-
-- 提出人：3yearszhuang · 2026-10-03
-- 修改人：3yearszhuang · 2026-10-03
 
 关联：[PRD](../PRD.md) · [架构设计](../ARCHITECTURE.md) · [能力组合规范](../capability-composition.md) · [插件开发规范](../plugin-config-and-pages.md) · [需求追踪基线](../REQUIREMENTS_TRACEABILITY.md) · [CR 工作流指南](../../how-to/cr-workflow.md)
 
@@ -124,7 +121,7 @@ sources:
 
 ### 1.5 代码评审后的修正（第二轮，同分支）
 
-首轮交付后经独立代码评审（宿主门禁 + 并行深审），发现若干**缺陷与不实陈述**，已在本分支修正：
+首轮交付后经独立代码评审（宿主门禁 + 并行深审），发现若干**缺陷与不实陈述**，已在实施分支修正：
 
 | 类别 | 问题 | 处理 |
 |---|---|---|

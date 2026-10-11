@@ -37,9 +37,6 @@ sources:
 
 # 主动智能模式设计方案
 
-- 提出人：3yearszhuang · 2026-08-29
-- 修改人：3yearszhuang · 2026-10-10
-
 关联：`CR-023`（已归档）、`CR-022 完全访问`（已归档）、[需求追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)、[数据与隐私](../reference/DATA_PRIVACY.md)
 
 当前迭代建议、待决策事项的推进顺序和跨专题依赖统一见根 [plan.md](../../plan.md)（AVX-PLAN-001），规划边界见[文档治理规范 §3.1](../reference/document-governance.md#31-当前迭代计划的唯一入口)。本文保留已确认方案输入、设计理由、阻断项依据和决策编号，不另立当前排期。已接受的授权、数据边界与实现门禁继续有效；实现及验收状态由[追踪基线 §4.2](../reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)和关联证据维护。

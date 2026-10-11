@@ -17,9 +17,6 @@ sources:
 
 # ESP32-S3-WROOM-2-N32R16V 硬件延伸方案
 
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-18
-
 关联：[PRD](../reference/PRD.md)、[架构设计](../reference/ARCHITECTURE.md)、[数据与隐私规范](../reference/DATA_PRIVACY.md)、[威胁模型](../reference/THREAT_MODEL.md)、[需求追踪与交付基线](../reference/REQUIREMENTS_TRACEABILITY.md)
 
 > [!NOTE] 调研生命周期状态：未落地 / 原型笔记 (Pending / Prototype)

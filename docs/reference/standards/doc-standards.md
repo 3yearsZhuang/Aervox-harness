@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.1
+version: 0.4.2
 updated_at: 2026-10-10
 reviewed_at: 2026-10-10
 review_interval_days: 90
@@ -78,7 +78,8 @@ ADR 另填 `decision_status`；CR 同时填写 `decision_status` 与 `delivery_s
 - 编号与分级：二级标题 `## 1.`、三级标题 `### 1.1`；列表项使用 `-`；
 - 代码块：必须标注语言标识符（`ts` `bash` `yaml` `json` `text` 等），禁止裸 ``` 块；
 - 引用与警告：使用 GitHub 风格警告块（`> [!NOTE]`、`> [!WARNING]`、`> [!IMPORTANT]` 等）；
-- 相对链接：一律使用相对于当前文件的相对路径，严禁使用本地绝对路径；锚点引用必须可达。
+- 相对链接：一律使用相对于当前文件的相对路径，严禁使用本地绝对路径；锚点引用必须可达；
+- **易漂移表述**：避免 `本 PR`、`本分支`、`当前仍`、`最新`、`尚未` 等相对措辞——改用绑定事实源的表述（具体 PR 号、日期、功能名或「现实现」）；引用已闭环 CR 建议补「（已归档）」标注。其中 `本 PR`、`本分支` 由 [DriftPhrases 规则](../../../.vale/styles/Project/DriftPhrases.yml)在 `docs-lint-prose` 中以 error 级阻断。
 
 <a id="5-vale-术语门禁"></a>
 
@@ -93,10 +94,12 @@ ADR 另填 `decision_status`；CR 同时填写 `decision_status` 与 `delivery_s
 
 | 文档类 | 模板 | 场景 |
 |---|---|---|
+| Tutorials | [Tutorial 教程模板](../../templates/tutorial.md) | 从 0 跑起来的第一课 |
 | How-to | [How-to 指南模板](../../templates/how-to.md) | 操作指南 |
 | Reference | [Reference 规范模板](../../templates/reference.md) | 契约、策略、数据库等规范 |
 | Explanation | [Explanation 概念阐释模板](../../templates/explanation.md) | 概念讲解、数据流总览 |
 | ADR | [ADR 索引](../adr/README.md)（何时写/状态推进/模板） | 架构决策记录 |
+| CR | [CR 工作流](../../how-to/cr-workflow.md)（第二步含完整模板） | 变更请求差量与影响分析 |
 
 - 提交前自检第 3 步会校验全部相对链接，任何目录迁移后先跑链接检查再推送。
 

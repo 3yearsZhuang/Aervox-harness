@@ -14,9 +14,6 @@ review_interval_days: 90
 
 # Aervox｜思隅 本地运行与演练手册
 
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-10-04
-
 关联：[架构设计](ARCHITECTURE.md) · [数据与隐私](DATA_PRIVACY.md) · [威胁模型](THREAT_MODEL.md) · [换库与回滚演练](../how-to/run-database-migration-drill.md)
 
 本文覆盖 Aervox 纯本地单用户部署形态（CR-030 后）的故障止损/恢复/验证、模型与侧车运维和演练留证。原 SaaS 值班/灰度章节（多用户升级矩阵、按比例灰度、云灾备 RPO/RTO 目标）已随本地化转型移除，历史文本可从 Git 历史回溯。日记与删除的语义规则分别以 [SRS](SRS.md) 与 [数据库契约 §8](DATABASE.md#8-删除撤权与恢复) 为真源，本文只保留运维处置动作。
