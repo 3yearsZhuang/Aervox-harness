@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 2.2.4
-updated_at: 2026-09-29
-reviewed_at: 2026-09-29
+version: 2.2.5
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 30
 review_triggers:
   - packages/schema/**
@@ -16,7 +16,6 @@ review_triggers:
   - apps/api/src/shared/auth.ts
   - apps/api/src/index.ts
   - apps/worker/**
-  - docs/reference/changes/CR-030-pure-local-sqlite-database.md
 sources:
   - packages/schema/src/**
   - packages/repositories/src/schema/ddl/**
@@ -29,7 +28,7 @@ sources:
 # Aervox｜思隅 SQLite 本地单用户数据库契约
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-29
+- 修改人：3yearszhuang · 2026-10-10
 
 本文规定 Aervox 持久化层的目标契约、机器事实源、关键不变量、破坏性迁移协议和发布门禁。
 字段与 DDL 的机器真源是 `packages/schema` 和 `packages/repositories/src/schema/ddl`；本文不复制

@@ -5,16 +5,16 @@ scope: decision
 owner: maintainers
 doc_status: review-candidate
 decision_status: accepted
-version: 0.1.1
-updated_at: 2026-09-13
-reviewed_at: 2026-09-13
+version: 0.1.2
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 ---
 
 # ADR-007 系统记忆树作为可重建投影
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-13
+- 修改人：3yearszhuang · 2026-10-10
 
 - 状态：Accepted
 - 日期：2026-08-23
@@ -68,3 +68,7 @@ review_interval_days: 90
 
 - **未满足**：`TC-INTEG-MEM-001`（无环/跨主题权限/删除传播）与 `TC-AIEVAL-MEM-001`（冲突/重建一致性）自动化缺失。
 - **推进路径**：随 CAP-005 规格化（现为 `Specified`/Not Ready）补齐。
+
+> [!NOTE]
+> **CR-030 修订（2026-10-10）**：本 ADR 撰写时存在多租户工作区。CR-030 后已无工作区概念，
+> 记忆树按本地数据库实例构建；文中"工作区"表述仅作历史记录保留。

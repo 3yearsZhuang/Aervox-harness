@@ -6,16 +6,17 @@ owner: product
 doc_status: draft
 decision_status: proposed
 delivery_status: not-applicable
-version: 0.2.0
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
+version: 0.2.1
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 review_triggers:
   - docs/reference/PRD.md
   - docs/reference/capability-registry.md
-  - packages/prompt-engine/**
-  - apps/web/src/components/Onboarding*
-  - apps/fairy/**
+  - packages/core/src/base-prompt.ts
+  - packages/core/src/context-builder.ts
+  - apps/desktop/src/renderer/src/components/Onboarding*
+  - apps/desktop/**
 sources:
   - docs/reference/PRD.md
   - docs/reference/ARCHITECTURE.md
@@ -28,7 +29,7 @@ sources:
 # Pi AI 竞品差距分析与改进建议
 
 - 提出人：3yearszhuang · 2026-10-01
-- 修改人：3yearszhuang · 2026-10-01
+- 修改人：3yearszhuang · 2026-10-10
 
 关联：[PRD](../reference/PRD.md)、[能力注册表](../reference/capability-registry.md)、[架构设计说明书](../reference/ARCHITECTURE.md)、CR-056（Build to Delete 规划，已归档至 Aervox-docs-archive）
 
@@ -442,7 +443,7 @@ Pi 的 "Call Pi" 是用户反馈中被提及最多的黏性特性：全双工对
 | 改进 | 预估工作量 | 协同性 | 建议方式 |
 |:---|:---|:---|:---|
 | G2 标签内化 | 小（纯前端） | 独立于所有 ITER | 直接 PR，不需 CR |
-| G6 空状态设计 | 小–中 | 可搭载 ITER-031 | 直接 PR |
+| G6 空状态设计 | 小–中 | 随工作台 UI 迭代推进（ITER-031 已移交） | 直接 PR |
 | G4 用户可控引导强度 | 中 | 可搭载 CAP-010 | 需 CR（修改 §3 规则） |
 
 ### 4.2 第二波：需要独立立项的结构性改进

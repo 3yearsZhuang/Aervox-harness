@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.1.2
-updated_at: 2026-09-18
-reviewed_at: 2026-09-18
+version: 0.1.3
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 ---
 
 # Web 工作台实现说明（Vue 单栈）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-18
+- 修改人：3yearszhuang · 2026-10-10
 
 关联：[ADR-015](../reference/adr/ADR-015-vue-full-stack.md)（Web 技术基线）· [ADR-014](../reference/adr/ADR-014-modular-monolith-structure.md)（apps/api 模块组织）· [架构设计](../reference/ARCHITECTURE.md) · [PRD](../reference/PRD.md)
 
@@ -25,7 +25,7 @@ review_interval_days: 90
 
 ## 1. 目标与范围
 
-**目标**：交付登录后的流式工作台（对话 + 学习 + 日记 + 复习 + 通知/反馈），与桌面端共享同一套 Vue 技术族与契约，最终可被 Capacitor 打包为移动端壳。
+**目标**：交付本机流式工作台（对话 + 学习 + 日记 + 复习 + 通知/反馈），与桌面端共享同一套 Vue 技术族与契约，最终可被 Capacitor 打包为移动端壳。
 
 **范围（MVP）**：
 
@@ -44,7 +44,7 @@ review_interval_days: 90
 | 框架 | Vue 3 + `<script setup>` | 与 desktop 一致（单栈统一） |
 | 构建 | Vite 7 + `@vitejs/plugin-vue` | 与 desktop 的 `electron-vite` 渲染层同源 |
 | UI | Element Plus（复用）+ `@aervox/ui` 共享工作台与主题 CSS | Electron 与 Web 使用同一套工作台组件；桌面壳和桌宠表现层按平台保留 |
-| 状态/路由 | 组件内 composables + 少量父组件协调；多页用 Vue Router | 与 desktop 的"无 router、单一注入"模式对齐，不引入 Pinia 等额外依赖 |
+| 状态/路由 | 组件内 composables + 少量父组件协调 | 与 desktop 的"无 router、单一注入"模式对齐，不引入 Vue Router、Pinia 等额外依赖 |
 | HTTP/SSE | 浏览器 Fetch（`useAervoxApi` 既有降级路径）+ `useAervoxTurn` 新增 SSE 分支 | 无桌面桥时自动直连 `VITE_API_URL` |
 | 校验 | `@aervox/contracts` Zod schema | OpenAPI/请求体验证统一 |
 
@@ -53,7 +53,7 @@ review_interval_days: 90
 | 资产 | 处置 |
 |---|---|
 | `useAervoxApi.ts` | **直接复用**：`request()` 的 `window.fairyDesktop` 判断在 web 恒为 undefined，天然走 fetch 分支 |
-| `useAervoxTurn.ts` | **补分支**：新增 `streamTurnViaSSE()`（`fetch(…/events)` + `Last-Event-ID` + SSE 解析），桌面桥分支保留 |
+| `useAervoxTurn.ts` | **补分支**：新增 `streamTurnViaSSE()`（`fetch(…/events)` + `Last-Event-ID` + SSE 解析），桌面桥分支保留；后经 ITER-052 收敛为 `@aervox/api-client/transport` 共享实现（现行入口 `streamAervoxTurn`） |
 | `PetWindow.vue` / `AppTitlebar.vue` | 桌面壳组件不迁移；Web 不引入 `PetBubble` 或 Electron 窗口控制 |
 | `packages/ui` `AervoxWorkbench.vue` / `workbench.css` | 共享对话、学习、工具面板和主题；通过 `platform` / `showCompanion` 处理桌面与 Web 差异 |
 | `types/chat.ts` | 复用 |

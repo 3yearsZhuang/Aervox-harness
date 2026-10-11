@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.6.1
-updated_at: 2026-10-08
-reviewed_at: 2026-10-08
+version: 0.6.2
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 ---
 
@@ -431,7 +431,7 @@ pi 下表概念映射的历史参考 commit 为 `c49906ec77788625aacbdc53ebca6fb
 | A | `packages/contracts`、`apps/api/src/shared` | 冻结 Manifest、Port、Event Envelope 和依赖规则 |
 | B | `apps/api/src/modules/*` | 路由改为 Application Service + Port Consumer |
 | C | `apps/worker/src/*.ts` | cycle 改为可注册 Job Handler |
-| D | `packages/database/src/repositories/sqlite` | 具体实现迁移到 `providers/*` |
+| D | `packages/repositories/src/repositories/sqlite` | 具体实现迁移到 `providers/*` |
 | E | `apps/api/src/modules/ecosystem/tools/plugins/skills` | 注册为原生 Capability |
 | F | 尚无正式 Adapter | 接入 DSH、pi、MCP 外部 Host |
 | G | `apps/api/src/app.ts` 手工清单 | Profile + Resolver 驱动组合 |
@@ -459,7 +459,7 @@ pi 下表概念映射的历史参考 commit 为 `c49906ec77788625aacbdc53ebca6fb
 - `ADR-014` 是迁移期结构：`apps/api/src/modules/*` 可以继续作为起点，但最终由组合根选择 Provider，能力不能自行实例化具体 SQLite 类。
 - `AVX-MOD-001`（可选功能模块化方案）已并入本文（见[交付载体与自选机制](#交付载体与自选机制必选)）：不变量、双轴自选、接口边界与边界判定提升为必选机制，功能清单迁至[能力注册表](capability-registry.md)；原 `docs/explanation/optional_modules.md` 与 submodule 协作指南均已删除，操作细节随 `modules/*` 实施 CR 恢复。
 
-接受该目标前必须建立 `ADR-016`（或等效决策）并完成相关 `CR-*`。字段、目录、Kernel 范围、外部代码信任域或数据所有权的改变都必须保留迁移、回滚和追踪证据。
+该目标的前置决策已由 `ADR-016`（已接受）承担，其余前置按相关 `CR-*` 推进。字段、目录、Kernel 范围、外部代码信任域或数据所有权的改变都必须保留迁移、回滚和追踪证据。
 
 ## Build to Delete 的公开边界（CR-056）
 

@@ -6,16 +6,16 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.3
-updated_at: 2026-10-03
-reviewed_at: 2026-10-03
+version: 0.4.4
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 Turn 流式协议（SPC）
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-30
+- 修改人：3yearszhuang · 2026-10-10
 
 关联：`ADR-002`、`ADR-012`、`CR-019`、`CR-022`、`CR-027`、`CR-030`、`NFR-PERF-001`、`NFR-REL-001`、`NFR-SEC-001`
 
@@ -41,8 +41,8 @@ review_interval_days: 90
 
 | Header | 要求 |
 |---|---|
-| `Authorization` | 按当前登录方式鉴权；不允许把 bearer token 放入 URL |
-| `Idempotency-Key` | 调用方生成的稳定键；同一认证主体、工作区、规范化端点、Session 和键只产生一个 Turn |
+| `Authorization` | 按本机访问令牌鉴权（loopback 默认；非 loopback 强制 Token）；不允许把 bearer token 放入 URL |
+| `Idempotency-Key` | 调用方生成的稳定键；同一认证主体、规范化端点、Session 和键只产生一个 Turn |
 | `Content-Type` | `application/json` |
 
 请求体最小字段：
@@ -177,14 +177,14 @@ Created -> InputChecking -> Running -> Finalizing -> Completed
 ## 5. 重连、保留与断点恢复
 
 1. 客户端保存最后已处理的 `eventId`，断线后以 `Last-Event-ID` 重连；服务端解析该事件的 sequence，先重放同一 Turn 中 `sequence > cursorSequence` 的持久事件。
-2. 重放及实时连接存续期间，每个业务事件发送前都必须校验当前授权/同意策略版本；成员移除、来源删除、同意或插件/外部权限撤销必须主动关闭相关连接。仍可披露撤回状态时发送不含旧正文的 `redacted`，否则返回不泄露资源存在性的统一终止结果；不得把历史正文重新泄露。
+2. 重放及实时连接存续期间，每个业务事件发送前都必须校验当前授权/同意策略版本；来源删除、同意或插件/外部权限撤销必须主动关闭相关连接。仍可披露撤回状态时发送不含旧正文的 `redacted`，否则返回不泄露资源存在性的统一终止结果；不得把历史正文重新泄露。
 3. `TurnStreamEvent` 是传输/恢复数据而非长期会话副本。MVP 在线正文重放窗口默认 24 小时，具体值必须进入保留策略；任何事件正文的保留上限不得超过对应 `MessageVersion` 的可见保留、有效同意和来源可用期三者中的最短者。窗口结束、来源删除或权限撤销后只保留不含正文的最小事件元数据/tombstone，长期历史由 `MessageVersion` 承担。
 4. 游标过期返回 `410 STREAM_CURSOR_EXPIRED` 和当前 Turn 状态/`lastSequence`。客户端只能读取已持久化 MessageVersion 或显示重新开始按钮，不得隐式重跑模型。
 5. 客户端收到重复、乱序或未知 `payloadVersion`：按 `eventId/sequence` 去重；未知版本停止渲染并请求兼容降级，不猜测字段含义。
 
 ## 6. 超时、失败、降级和取消
 
-- 服务端必须限制 Turn 总时长、累计输出、单段大小、并发流和空闲时间；SSE heartbeat 只维持连接，不改变业务状态。Provider 上游超时应采用**空闲超时**语义（每收到一段流数据即重置，含思考增量），不得以固定总时限掐断持续输出的思考型模型（CR-027）；租户可经 LLM 配置 `settings.requestTimeoutMs` 调整空闲上限。客户端（Web/Desktop）侧同样以空闲超时收敛 UI，超时后必须中止上游在途请求（如桌面 `cancelTurn` IPC → 主进程 `AbortController`），避免"UI 已失败、后台继续消耗 tokens"的幽灵回合。
+- 服务端必须限制 Turn 总时长、累计输出、单段大小、并发流和空闲时间；SSE heartbeat 只维持连接，不改变业务状态。Provider 上游超时应采用**空闲超时**语义（每收到一段流数据即重置，含思考增量），不得以固定总时限掐断持续输出的思考型模型（CR-027）；用户可经 LLM 配置 `settings.requestTimeoutMs` 调整空闲上限。客户端（Web/Desktop）侧同样以空闲超时收敛 UI，超时后必须中止上游在途请求（如桌面 `cancelTurn` IPC → 主进程 `AbortController`），避免"UI 已失败、后台继续消耗 tokens"的幽灵回合。
 - Provider 超时/5xx/限流按路由策略熔断；只可切换已通过同一 EvalSet 和安全审查的备用模型。没有合格备用时保留 User Message，返回可重试状态。
 - 输出安全分类服务不可用时，普通对话停止发送新片段；高风险输入使用固定保守响应。不得为降低延迟跳过安全门。
 - API/Worker 崩溃后，恢复器依据 Turn 状态和最后 sequence 决定是否用新 `TurnAttempt` 重试或收敛为 `Interrupted`；旧 Worker 必须通过 fencing token，不能晚提交。

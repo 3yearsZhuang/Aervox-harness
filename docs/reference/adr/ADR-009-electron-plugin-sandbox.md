@@ -5,16 +5,16 @@ scope: decision
 owner: maintainers
 doc_status: review-candidate
 decision_status: accepted
-version: 0.1.1
-updated_at: 2026-09-13
-reviewed_at: 2026-09-13
+version: 0.1.2
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 ---
 
 # ADR-009 Electron 最小权限壳与进程外插件
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-13
+- 修改人：3yearszhuang · 2026-10-10
 
 - 状态：Accepted（R3/P2 前必须 Accepted）
 - 日期：2026-08-23
@@ -72,3 +72,7 @@ Electron 启用 `contextIsolation`、关闭 `nodeIntegration`、schema 化 IPC�
 - **已满足**：无插件核心端完整可用（conversation 全链与删除传播测试）。
 - **未满足**：`TC-SEC-DESKTOP-001` 未登记；`TC-SEC-PLUG-001` 沙箱逃逸/Prompt injection 矩阵未建（插件运行时未实现，P2）。
 - **推进路径**：插件运行时立项时验收（死线：R3/P2 前）。
+
+> [!NOTE]
+> **后续落地修订（2026-10-10）**：写作时插件运行时未实现（P2）。首方插件运行时、Host Bridge 与声明式分发包现已落地
+> 并冻结（见 AVX-PLUG-001）；相关验收项按现行插件契约为准，原文仅作历史记录保留。

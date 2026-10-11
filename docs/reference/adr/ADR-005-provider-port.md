@@ -5,16 +5,16 @@ scope: decision
 owner: maintainers
 doc_status: review-candidate
 decision_status: accepted
-version: 0.2.0
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
+version: 0.2.1
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 ---
 
 # ADR-005 内部 Provider Port 包裹 AI SDK
 
 - 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-10-04
+- 修改人：3yearszhuang · 2026-10-10
 
 - 状态：Accepted（经 ADR-021 修订）
 - 日期：2026-08-23
@@ -72,3 +72,7 @@ Provider adapter 按版本并行；新模型先离线评估、灰度，再切路
 - **已满足**：ProviderPort 契约与 OpenAI 兼容流测试（`@aervox/agent-loop` 阶段 2e）；CR-027 活流与空闲超时。
 - **未满足**：`TC-RES-DEGRADE-001` 故障/结构化输出失败/降级矩阵；`TC-AIEVAL-LRN-001` 等 AI Eval 门槛未建立。
 - **推进路径**：降级注入测试与 AI Eval 基线落地后走 G2 评审。
+
+> [!NOTE]
+> **ADR-021 修订（2026-10-10）**：实现载体已由 `@aervox/agent-loop` 迁移至 `packages/core`（该包已删除）；
+> 文中阶段编号与证据路径仅作历史记录保留，现行契约与测试见 `packages/core` 与 AVX-HAR-001。

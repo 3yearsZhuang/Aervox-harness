@@ -6,16 +6,15 @@ owner: product-platform
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.5.3
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
+version: 0.5.4
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 60
 review_triggers:
   - docs/reference/PRD.md
   - docs/reference/SRS.md
   - docs/reference/DATA_PRIVACY.md
   - docs/reference/THREAT_MODEL.md
-  - docs/reference/adr/ADR-008-cloud-first-local-port.md
   # CR-022（已归档至 Aervox-docs-archive）：工具全量访问边界变更时复核
   - docs/reference/adr/ADR-018-proactive-local-privacy-host.md
   # CR-024（已归档至 Aervox-docs-archive）：主动智能套件集成变更时复核
@@ -31,7 +30,6 @@ sources:
   - docs/reference/DATA_PRIVACY.md
   - docs/reference/capability-composition.md
   - docs/reference/capability-registry.md
-  - docs/reference/adr/ADR-008-cloud-first-local-port.md
   - "docs/reference/adr/ADR-009-electron-plugin-sandbox.md"
   - docs/reference/REQUIREMENTS_TRACEABILITY.md
   - docs/reference/adr/ADR-018-proactive-local-privacy-host.md
@@ -40,7 +38,7 @@ sources:
 # 主动智能模式设计方案
 
 - 提出人：3yearszhuang · 2026-08-29
-- 修改人：3yearszhuang · 2026-09-18
+- 修改人：3yearszhuang · 2026-10-10
 
 关联：`CR-023`（已归档）、`CR-022 完全访问`（已归档）、[需求追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)、[数据与隐私](../reference/DATA_PRIVACY.md)
 
@@ -62,9 +60,9 @@ sources:
 
 用户先开启「完全访问」，再经过独立授权向导一次性确认当前版本支持的全量画像范围。该范围可包括 Aervox 使用与操作、系统应用与窗口、浏览器、键鼠与输入信号、屏幕/剪贴板、全部用户文件、通信资料以及平台可提供的音视频、定位和其它私人资料。产品可以一次确认整包，但服务端仍按来源和用途保存可撤销记录，并由操作系统逐项弹出能力授权。当授权包、本地工作区、本地处理器和设备激活状态均有效时，输入区的「完全访问」显示为「主动智能模式」。该文案只是 Host 有效状态的投影，不是权限事实源。
 
-CR-022 当前仍把 `full_access` 作为每次 CreateTurn 请求的快照；本分支已增加可供后台 Host 使用的本地 activation lease/epoch 和 owner-only loopback token，但完整设备仲裁与生产证明仍待验证。
+Turn 级 `full_access` 仍按现行契约（`BR-CONV-001`）作为每次 CreateTurn 请求的快照；现有实现已增加可供后台 Host 使用的本地 activation lease/epoch 和 owner-only loopback token，但完整设备仲裁与生产证明仍待验证。
 
-本方案会将广域画像与本地全权处理作为 CAP-033 的目标方向；当前已实现本地 Vault、授权/lease、全动作授权运行时、Aervox activity/operation、剪贴板、屏幕/浏览器/显式文件根适配器、Worker 提炼、本地画像上下文、导出和后台 heartbeat，CAP-033 仍为 partial/Not Ready。应用活动正文、通信、音视频、位置和传感器仍 limited/待签名 provider；`CAP-022/024/026/027/030` 仍为 `Mapped`，关联 CAP 的原子需求和实现门禁继续推进。
+本方案会将广域画像与本地全权处理作为 CAP-033 的目标方向；当前已实现本地 Vault、授权/lease、全动作授权运行时、Aervox activity/operation、剪贴板、屏幕/浏览器/显式文件根适配器、Worker 提炼、本地画像上下文、导出和后台 heartbeat，CAP-033 在能力矩阵中为 `Specified`/Not Ready。应用活动正文、通信、音视频、位置和传感器仍 limited/待签名 provider；`CAP-022/024/026/030` 仍为 `Mapped`（CAP-027 已推进为 `Specified`），关联 CAP 的原子需求和实现门禁继续推进。
 
 ## 2. 已经确认的方案输入
 
@@ -95,7 +93,7 @@ CR-022 当前仍把 `full_access` 作为每次 CreateTurn 请求的快照；本�
 | `CAP-020` 工具/技能 | 把工具和插件以受限 Contribution 接入既有 Host/Inbox，并按清单授予外部来源和主动动作 | 第三方插件不因主动智能模式自动获得画像数据；仍需 Manifest、沙箱、动作授权和撤权 |
 | `CAP-022` 兴趣分析 | 从全量授权行为、内容和环境信号中生成可解释、可纠正、可关闭的完整画像推断 | 推断可以本地包含高敏感信息，但不得用于商业定向、情感操控或临床结论 |
 | `CAP-024/026` 文档/知识库 | 连续索引全量授权文件、浏览与其他私人内容，保留来源、修订、引用和导出 | 外部内容仍是不可信输入，Prompt injection 不能提升工具权限 |
-| `CAP-027` 本地优先 | 提供本地工作区、隔离、快照、导出和恢复边界 | 仍为 `Mapped`；当前 SQLite 实现不等于已承诺数据不出本机 |
+| `CAP-027` 本地优先 | 提供本地数据主权、隔离、快照、导出和恢复边界 | 已推进为 `Specified`（Not Ready）；当前 SQLite 实现不等于已承诺数据不出本机 |
 | `CAP-030` 主动提醒 | 根据完整画像主动触发提供本地提醒、建议与已授权任务执行 | 每条输出保留触发原因、频控、免打扰、暂停和关闭入口，不做情感施压 |
 | CR-022 完全访问 | 为当前 Turn 内普通写工具提供可审计预授权，并与 CAP-033 的动作授权组合 | `full_access` 仍不是画像同意；CAP-033 的 `FullProfileActionGrant` 单独决定主动动作，激活租约和 loopback token 不代替 Turn 模式 |
 
@@ -200,7 +198,7 @@ full_access + 全量 revoking
 
 控制面认证还必须经过 owner-only `proactive-access.token`（私密目录 `0600`），只接受字面 loopback 请求并拒绝 redirect；该令牌只证明本机控制面调用者，不授予任何来源或动作权限，也不进入主动数据导出。
 
-`ADR-008` 当前仍采用 Cloud-first 基线且状态为 Proposed。实现本方案前必须修订 `ADR-008` 或新建并接受「本地私密存储 + 特权观察 Host + OS 授权代理」 ADR，再冻结存储位置、密钥、文件权限、后台生命周期和备份边界。
+`ADR-008` 已由 `CR-030`（已归档）替代为永久本地单用户 SQLite 真源；「本地私密存储 + 特权观察 Host + OS 授权代理」边界已由 [ADR-018](../reference/adr/ADR-018-proactive-local-privacy-host.md) 接受。实现本方案前仍须冻结存储位置、密钥、文件权限、后台生命周期和备份边界。
 
 ## 7. 逻辑数据模型（未冻结 Schema）
 
@@ -209,7 +207,7 @@ full_access + 全量 revoking
 | `ProfileAuthorizationRevision` | 版本化「全量画像授权包」、用户期望状态与有效 source/purpose 集合 | 设备级、可撤销，新增来源/用途必须升级修订并重新确认 |
 | `ProactiveModeRevision` | 记录模式 enabled/paused 等用户期望状态与 policyVersion | 只表示用户期望与模式配置，不代替 Consent；前置条件失效只生成 effective `suspended/limited`，不改写该修订 |
 | `DeviceCapabilityGrant` | 记录应用/窗口/浏览器/键鼠/剪贴板/屏幕/文件/传感器的 OS 授权快照 | 与 deviceId、政策版本、状态、lastVerifiedAt 和 collectorVersion 绑定；OS 撤销即停用 |
-| `LocalActivationLease` | 绑定本地 Host/后台 helper、设备、full_access 确认与 heartbeat/expiry | 当前未实现；过期/断连立即使 effective state suspended；不能代替 Turn 级工具授权 |
+| `LocalActivationLease` | 绑定本地 Host/后台 helper、设备、full_access 确认与 heartbeat/expiry | 基础租约已实现；多窗口/设备所有权与断连收敛仍待完善；过期/断连立即使 effective state suspended；不能代替 Turn 级工具授权 |
 | `ConsentGrant` | 按 purpose/scope 记录主动数据授权 | 包含来源界面、证据、政策版本、本地处理边界与撤权时间；属本地私密控制面 |
 | `AuthorizedLocalSource` | 记录 Aervox、应用、浏览器、设备、文件或目录来源及 allowedOps | 资源引用需加密；每个来源可单独撤销，不自动扩大范围 |
 | `RawCaptureSegment` | 加密保存屏幕/音频/输入/剪贴板/文件等原始观察分段 | `observedAt + 7 天` 为保留期限，且必须完成记忆提炼后才可物理清理；用户主动删除可提前触发；不进入普通日志或分析 |
@@ -296,7 +294,7 @@ RecoveryControlLedger 先追加 revoke/deny
 | `PRO-BLOCK-005` | 已建立独立的 CAP-033 observation/claim 数据面，但 `aervox_memory_store` 与普通分析/审计旁路的隔离仍需验证 | 在 `CAP-022` 下建立用途受限的本地行为来源，不复用分析/审计旁路 |
 | `PRO-BLOCK-006` | 当前桌面端已具备本地 Host、后台 helper/heartbeat 和部分生命周期控制，但系统级观察适配器、生产签名、OS entitlement、功耗和崩溃恢复仍不完整 | 完成受信首方 helper、操作系统 entitlement/usage description、权限降级、后台生命周期和平台测试 |
 | `PRO-BLOCK-007` | CAP-033 已增加 owner-only loopback token；测试注入可显式关闭，生产配置与代理/redirect 禁止仍需部署验证 | 本地私密模式需绑定受信 IPC/loopback + 本地身份，不以开发默认值作为产品边界 |
-| `PRO-BLOCK-008` | CR-022 的 `full_access` 仍是 CreateTurn 请求快照；本分支已实现本地 ProfileRevision/activation lease/heartbeat/token，但 Web+Host 多窗口/设备所有权与断连收敛未完整验证 | 完成 `FullProfileGrant`/激活 epoch/heartbeat/expiry、多窗口/设备所有权与断连收敛；不以该状态代替 Turn 级 ToolApproval |
+| `PRO-BLOCK-008` | Turn 级 `full_access` 仍是 CreateTurn 请求快照；现有实现已覆盖本地 ProfileRevision/activation lease/heartbeat/token，但 Web+Host 多窗口/设备所有权与断连收敛未完整验证 | 完成 `FullProfileGrant`/激活 epoch/heartbeat/expiry、多窗口/设备所有权与断连收敛；不以该状态代替 Turn 级 ToolApproval |
 | `PRO-BLOCK-009` | 广域捕获可包含 symlink/path escape、隐藏凭据、压缩炸弹、未知类型、Secure Input 或旁观者数据 | 冻结 canonical path/time-of-read 复验、symlink 边界、类型/大小/解压比、secret/Secure Input filter、旁观者处理、未知分类 fail closed 和分类测试 |
 | `PRO-BLOCK-010` | 当前已接入 Aervox activity/operation、剪贴板、屏幕、浏览器历史元数据、显式文件根、HA 授权实体事件和小米健康每日指标；应用活动正文、通信、音视频、位置及其它平台传感器尚未完成 | 为剩余来源建立签名 provider、权限状态机、收集失败降级和功耗/磁盘配额测试；HA/健康仍须生产兼容门禁 |
 | `PRO-BLOCK-011` | 当前已建立原始捕获、行为观察、画像声明、权限回执和导出模型；全量来源时间线、外部动作历史和生产迁移仍未完整验证 | 完成 `RawCaptureSegment` 七天/提炼门、`ProfileClaim` 证据链、画像版本和导出 manifest/checksum 验证 |
@@ -308,7 +306,7 @@ RecoveryControlLedger 先追加 revoke/deny
 
 `DEC-PRO-*` 用于追溯方案输入和决策边界；当前决策推进顺序见根 [plan.md](../../plan.md)。下表中已确认的方向不因计划收敛而降为候选；未决项采纳后仍须进入相应 PRD、ADR 或专项契约，计划本身不授予权限或修改数据承诺。
 
-本次已确认的方向是「完整画像 + 广域本地权限」，而不是只做 Aervox 内部统计。以下是把 CAP-033 冻结成可实现合同所需的工程细节；当前允许数据面和 UI/Host 契约骨架，真实采集和动作执行仍须通过第 13 节门禁：
+本次已确认的方向是「完整画像 + 广域本地权限」，而不是只做 Aervox 内部统计。以下是把 CAP-033 冻结成可实现合同所需的工程细节；当前数据面、UI/Host 契约骨架与部分已接入来源（见 §11 阻断表）可用，未接入来源的真实采集与全量动作执行仍须通过第 13 节门禁：
 
 | 决策 ID | 待确认问题 | 当前基线 | 状态 |
 |---|---|---|---|
@@ -330,7 +328,7 @@ RecoveryControlLedger 先追加 revoke/deny
 
 ## 13. 进入实现的门禁
 
-在任何运行时代码开始前，至少完成：
+在任何运行时代码开始前，至少完成以下门禁（2026-10-10 现状：CR-023 已接受并归档、本地私密存储 ADR 已接受；其余各项按 §11 阻断表跟踪）：
 
 1. CR-023 已接受；第 12 节中标记为「已确认」的 CAP-033 范围决策进入需求基线，剩余「待确认/部分确认」细节在进入对应实现前补齐；
 2. 为 `CAP-033` 及其关联 `CAP-002/005/007/008/009/010/012/013/018/020/022/023/024/026/027/030` 补齐 FR/BR/AC/TC，明确失败、取消、暂停/挂起、撤权、删除、迁移和回滚路径；
@@ -341,7 +339,7 @@ RecoveryControlLedger 先追加 revoke/deny
 7. 评审 UI 授权回执、来源管理、推断纠错、暂停/撤权和导出原型；
 8. 完成控制面、原始捕获、画像、确认后记忆、提醒历史和 ContextManifest 全链路不出本机的出网/存储故障注入验证。
 
-达到上述门禁前，只允许继续文档评审、静态原型、schema/契约骨架和不读取用户数据的测试；不得启用真实广域采集、私人文档索引或后台主动动作。
+在上述剩余门禁关闭前，只允许继续文档评审、静态原型、schema/契约骨架和不读取用户数据的测试；不得扩大真实广域采集范围、打通私人文档索引或对未纳入已授权来源的范围执行后台主动动作。
 
 ## 14. 平台能力清单（提案）
 

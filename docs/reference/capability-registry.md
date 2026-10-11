@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.5.1
-updated_at: 2026-10-08
-reviewed_at: 2026-10-08
+version: 0.5.2
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 ---
 
@@ -18,7 +18,7 @@ review_interval_days: 90
 
 本表是"哪些能力纳入自选机制、以什么方式启用、当前处于哪个状态"的唯一登记处。判定规则由[能力组合与可选化目录规范](capability-composition.md)的[边界判定](capability-composition.md#核心与可选的边界判定)裁决；原 [submodule 协作指南](../how-to/) 已于 2026-10-04 移除（`modules/*` 机制未落地），实施 CR 立项时再恢复操作细节。需求语义、优先级与交付状态以[需求追踪基线](REQUIREMENTS_TRACEABILITY.md)为准，本表只登记**交付载体与启用方式**，不替代该基线。
 
-**宿主形态组件（非自选能力，不进下表）**：`apps/desktop`（`@aervox/desktop`，ADR-009）、`apps/cli`（`siyu` 终端宿主，CR-058 已归档，仅消费 `@aervox/api-client/transport`）、`apps/mobile`（Capacitor 壳，CR-055 待评审）。
+**宿主形态组件（非自选能力，不进下表）**：`apps/desktop`（`@aervox/desktop`，ADR-009）、`apps/cli`（`siyu` 终端宿主，CR-058 已归档，仅消费 `@aervox/api-client/transport`）、`apps/mobile`（Capacitor 壳，CR-055 `Proposed`）。
 
 **CAP-027 不属于自选候选**：CR-030 和[数据库契约](DATABASE.md#1-适用范围与不变量)确立的本地 SQLite 真源、保留、导出、删除及恢复责任，是不可关闭的系统边界。这里纠正旧“本地优先/构建自选”分类，不提升能力交付状态；备份、迁移、恢复和发布验收仍查[追踪矩阵](REQUIREMENTS_TRACEABILITY.md#4-cap-001cap-035-覆盖矩阵全部能力状态唯一速览)。
 

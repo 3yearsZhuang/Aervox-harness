@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.7.1
-updated_at: 2026-10-08
-reviewed_at: 2026-10-08
+version: 0.7.2
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 ---
 
@@ -43,7 +43,7 @@ MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应
 | Object | 本地文件系统目录（attachments/exports） | 本地安全存储、上传前后做大小/格式/解压比扫描；删除遵循数据 SLA（CR-030） |
 | AI | 内部 `ProviderPort`：`@aervox/core` 自研 OpenAI 兼容流式 Provider（运行时零外部依赖，ADR-021） | 业务通过内部接口调用模型；本地 llama.cpp 侧车以 OpenAI 兼容端点接入（model-runtime）；模型不能直写业务表 |
 | Desktop/mobile | Electron（P1）、Capacitor（后续，打包 web UI） | `contextIsolation`、关闭 `nodeIntegration`、受限 IPC、签名更新包、逐项设备授权；CAP-033 使用独立签名 Privacy Host/OS Permission Broker 管理后台和设备能力；移动端优先 WebView 壳，团队用 RN 仅当细粒化需要原生能力时评估 |
-| Test/observability | Vitest、Playwright、Testing Library、Testcontainers、fast-check、OpenTelemetry、Pino、Prometheus/Grafana、Sentry | 正常 CI 不依赖实时供应商；日志默认不含完整用户内容 |
+| Test/observability | Vitest、Playwright、Testing Library、fast-check、OpenTelemetry、Pino、Prometheus/Grafana、Sentry | 正常 CI 不依赖实时供应商；日志默认不含完整用户内容 |
 
 ## 3. 仓库与领域边界
 
@@ -203,14 +203,14 @@ apps/api/test/                       # 集成测试
 ### 4.1 System Context
 
 ```text
-[Learner / Creator / Organization Member]
+[Learner / Creator]
                   │ uses and controls personal data
                   v
              [Aervox System]
       ┌───────────┼──────────────┐
       v           v              v
-[OIDC Identity] [AI Providers] [Notification Providers]
- authenticate   inference only  email/push by consent
+[Local Auth] [AI Providers] [External Integrations]
+ loopback+Token inference only  by consent (ADR-019)
       │           │              │
       └────── contractual privacy/security boundaries ──────┘
 
@@ -422,7 +422,7 @@ CR-030 后部署形态为「永久本地单用户实例」：不存在多用户�
 | [ADR-005](adr/ADR-005-provider-port.md) | Accepted（经 ADR-021 修订） | 内部 Provider Port 包裹 AI SDK |
 | [ADR-006](adr/ADR-006-recall-retention.md) | Accepted | AI 召回期限与历史保留期限分离 |
 | [ADR-007](adr/ADR-007-memory-tree-projection.md) | Accepted | 系统记忆树作为可重建投影 |
-| [ADR-008](adr/ADR-008-cloud-first-local-port.md) | Superseded by CR-030 | Cloud-first 与本地/自托管 Port |
+| [ADR-008](adr/ADR-008-cloud-first-local-port.md) | Superseded by CR-030 | Cloud-first 与本地/自托管 Port（已归档） |
 | [ADR-009](adr/ADR-009-electron-plugin-sandbox.md) | Accepted | Electron 最小权限壳与进程外插件 |
 | [ADR-010](adr/ADR-010-dsh-pi-adapters.md) | Accepted | DSH/pi 仅为可选适配器 |
 | [ADR-011](adr/ADR-011-diary-cycle-schedule-revision.md) | Accepted | 日记周期、计划修订与连续窗口 |
@@ -475,7 +475,7 @@ CR-030 后部署形态为「永久本地单用户实例」：不存在多用户�
 
 - **Guard 1 (P0 表结构双源等价守卫)**：内存 SQLite DDL 与 Drizzle Schema 全量 134 表双向等价断言，杜绝建表遗漏 Schema 或 Schema 遗漏 DDL；
 - **Guard 2 (P0 AST 级租户遗留标识拦截)**：基于 Babel AST 语法树遍历，硬性阻断 `TenantContext`、`tenantId` 及承载 `LocalContext` 的 `tenant` 变量复发；
-- **Guard 3 (P1 文档-代码自动渲染与校验)**：校验全部业务表在覆盖矩阵中的登记完整性、校验 19 个工作区包与架构拓扑对齐、自动化 ADR 索引生成与 `--check` 一致性门禁；
+- **Guard 3 (P1 文档-代码自动渲染与校验)**：校验全部业务表在覆盖矩阵中的登记完整性、校验 21 个工作区包与架构拓扑对齐、自动化 ADR 索引生成与 `--check` 一致性门禁；
 - **Guard 4 (P1 跨层 DTO 类型单一真源)**：扫描下游应用层，严禁本地重复声明已由 `@aervox/contracts` 导出的 DTO 类型；
 - **Guard 5 (P2 依赖提升与版本分裂治理)**：扫描子包 `package.json`，严禁重复声明根级构建工具（`typescript`、`turbo`、`vitest` 等）。
 
