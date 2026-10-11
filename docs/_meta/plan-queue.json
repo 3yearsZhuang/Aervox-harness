@@ -180,7 +180,7 @@
       "owner": "platform/ecosystem",
       "dependsOn": [],
       "branch": "fix/iter-007-control-inheritance",
-      "statusNote": "2026-10-08 复核更新：动态工具调用级 signal/controlContext（含 MCP 透传）已随 PR #257/#258 打通；每次实际模型调用（含重试/失败）的消息与工具 Schema 快照由 PR #259 补齐。2026-10-09 本轮收口：Workflow 取消句柄与中止上抛、子任务截止继承与失败原因透出、DSH 本地处理限制/删除闸门 fail-closed、写工具授权 toolVersion 与定义修订核对。适用限制：非 0 根预算与跨重启计量、Driver 合同（取消即进程 kill/能力声明/adapter 工具纳审批账本）、一次性授权与有效期仍留 CR。",
+      "statusNote": "2026-10-08 复核更新与 2026-10-09 收口：动态工具调用级 signal/controlContext（含 MCP 透传）与逐调用消息/Schema 快照已随 PR #257/#258/#259 打通；Workflow 取消句柄与中止上抛、子任务截止继承、DSH 本地处理/删除闸门 fail-closed、写工具授权修订核对已落地。适用限制：非 0 根预算与跨重启计量、Driver 合同、一次性授权与有效期仍留 CR。",
       "links": [
         "docs/explanation/reference-design-transfer.md#upstream-20260929",
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
@@ -530,7 +530,7 @@
       "delivery": "伴学业务与会话执行器深度解耦插件化：宿主去领域化——CAP-002/007/016 的实现全部内聚于 `plugins/focus-mode`，宿主只保留通用扩展接缝（插件自有状态、出站 metadata 透传、插件流事件订阅、卡片槽位预设、设置与 Composer 贡献、工具与路由贡献）；清除 Turn 协议失效刷题字段与 `study-mode`/`quiz-mode` 历史别名；内核 `@aervox/core` 出口去除产品域提示词与刷题工具（对齐 Apache-2.0 分层）；建立宿主纯净性棘轮守卫与插件可移除目标（BTD-11，移除演练通过）；CR-060（Accepted / Implemented）；CAP-002/007/016",
       "gate": "学习闭环为 P0 且属学习事实真源，按 AVX-CAP-001 反向检查保留主仓，故不新增 ADR、不转自选模块、不新建 `modules/*` submodule；不修改 learning 表结构与 CAP-003/004/006 端点；破坏性契约变更（`streamEventTypeSchema`、`@aervox/ui` 发送选项、`@aervox/core` 出口）先落 CR-060 并同步 OpenAPI 生成；插件实现目录不得进入分发包；代码缺席须保留安装记录、配置与数据管理入口",
       "acceptance": [
-        "宿主（apps/api、apps/worker、apps/web、apps/desktop、packages/ui、packages/api-client、packages/core）零 domain 命中：check-host-domain-purity 零违规且豁免清单已清空，规则已覆盖 B9 迁出的全部样式类名（该守卫为字面量黑名单 + 棘轮：新增领域词汇须同步扩规则，已按此办理）",
+        "宿主（apps/api、apps/worker、apps/web、apps/desktop、packages/ui、packages/api-client、packages/core）零 domain 命中：check-host-domain-purity 零违规且豁免清单已清空，规则已覆盖 B9 迁出的全部样式类名",
         "物理删除 plugins/focus-mode 的实现目录后宿主仍可编译运行，且保留安装记录、配置与数据管理入口：run-removability-drill 三相位通过（API/Worker 冷构建 + 被剥离的 Web/桌面组合根 typecheck）",
         "分发包只含 plugin.manifest.json / config.schema.json / SKILL.md，SHA-256 仍字节可重现",
         "别名体系整体删除（ServerTurnPlugin.aliases、注册表别名映射与候选 id 探测循环），插件 id 唯一；刷新前旧配置由插件自行一次性迁移至 pluginState 命名空间，不静默丢失",
@@ -552,7 +552,7 @@
       ],
       "owner": "platform/ecosystem",
       "branch": "feat/iter-026-focus-mode-decoupling",
-      "statusNote": "2026-10-03 立项：CR-060 提出（审计基线 169720c，确认 43 个宿主文件含专注模式领域知识）；前置门禁缺陷修复随 3ede34e 独立交付。实施完成 S1–S7：服务端实现（回合切面/术语管线/作答工具/端点/回放夹具）迁入插件包并去宿主硬装配；宿主服务窄端口与装配点唯一实现点建立；内核与共享复习包去产品域内容；插件 API 契约改由登记表扩展；前端接缝通用化（pluginState / pluginEvents / metadata 透传 / applySlotPreset / plugins 注入 / 两个新插槽 / fail-closed 运行时）；插件 UI 与专属样式物理迁入 plugins/focus-mode/src/ui；宿主纯净性棘轮收敛至零命中零豁免；移除演练（BTD-11）删除插件整包并剥离组合根引用后 API/Worker 冷构建通过。评审第二轮修正：专注模式普通发送失效（补变换器回传 metadata 接缝）、quietStartup 不可观测（宿主先 await 插件同步）、applySlotPreset 零调用（插件接续调用）、CR 文档 Vale 红灯、插件 OpenAPI 可劫持内核契约（独立注册表 + 冲突拒绝）、投影白名单失去归属校验（随工具贡献声明 + 宿主代登记）、回合与工具门控 fail-open（统一为 fail-closed，端点门控必填）、别名体系死代码与内核事件外泄、旧配置迁移归插件、check-type-boundary 覆盖 plugins、移除演练纳入 Web/桌面编译。B9 物理搬迁补齐：宿主主题 48 条插件专属规则迁入插件样式表（混合选择器就地拆分，迁出后宿主源码引用数归零）；useWorkbenchCards 的刷题/错题/学习规划状态机与每日一题入口迁入插件自有组合式函数（宿主 752→471 行，保留 CAP-006 复习结果提交）；纯净性样式规则扩至该词汇并保持零豁免；补宿主侧「不再暴露已迁字段」断言与插件侧状态机行为用例。评审第三轮修正：插件端点诊断留痕（warn 与门控同列必填，失败不再静默 500）、复习结果保存失败恢复用户可见提示、槽位预设恢复同步落盘、消息 metadata 键冲突改高优先级胜出、插件学习状态机绑定改 shallowRef 并支持显式解绑、initFocusModeState 初始化标记移至容器守卫之后、清理遗留别名用法与外链 noreferrer。2026-10-03 已开 PR #250 待评审合入。",
+      "statusNote": "2026-10-03 立项（CR-060）并完成 S1–S7 实施与三轮评审修正：服务端实现、插件 UI/专属样式、学习状态机物理迁入 `plugins/focus-mode`；宿主去领域化并建立纯净性棘轮与移除演练（BTD-11）；2026-10-03 已开 PR #250，逐轮修复明细见 PR 与 CR-060 §1.5。",
       "dependsOn": [],
       "links": [
         "docs/reference/changes/CR-060-focus-mode-host-decoupling.md",
@@ -583,7 +583,7 @@
       ],
       "owner": "platform/data",
       "branch": "feat/iter-027-028-sqlite-worker-p2p",
-      "statusNote": "2026-09-29 落地 IPC 唤醒、Worker 写入压力退避、API 侧压力租约与客户端连接自愈；并发与恢复单测全绿。2026-10-02 长周期压测补证（drill:worker-contention，10 分钟×2 轮）：真实单用户节奏（1 写入者 @1s）下验收 1/3 字面达成——写锁冲突率 0（0 换连接）、0 逃逸 busy、0 污染、退避全程生效（轮询 min 5297ms / p50 6005ms）、P99 10.5ms 无抖动、outbox 无积压完整性 OK；双写入者 @200ms 极端持续负载（≈每分钟 570 轮，超出单用户真实负载）下 0 逃逸错误、0 污染、P99 稳定 15.2ms，但存在被自愈吸收的冲突（640 次换连接）与 outbox 吞吐上限（487 条积压，生产 9.6 事件/s 超压力模式消费 8.75 事件/s），属负载边界行为而非锁错误，保持待评审",
+      "statusNote": "2026-09-29 落地 IPC 唤醒、Worker 写入压力退避、API 压力租约与客户端连接自愈；2026-10-02 `drill:worker-contention` 长周期压测补证（10 分钟×2 轮）：真实单用户节奏下验收 1/3 达成（写锁冲突率 0、无 busy 逃逸、退避生效、outbox 完整）；双写入者极端负载下仅现负载边界行为（outbox 吞吐上限），无锁错误，保持待评审；完整指标见压测脚本证据。",
       "dependsOn": [
         "ITER-002"
       ],
@@ -612,7 +612,7 @@
       ],
       "owner": "desktop/mobile",
       "branch": "feat/iter-027-028-sqlite-worker-p2p",
-      "statusNote": "2026-09-29 已完成：承诺-揭示零信任配对、设备身份 0600 落盘、分向密钥与 Changeset 引擎设计，含 UDP 多播信标发现、分帧传输与真实环回 socket 端到端，P2P 用例合计 69 项通过（见 p2p-local-sync-exploration.md §3.1）；真实 mDNS/DNS-SD、生产接线与真实多设备直连待后续推进。2026-10-02 验收重述裁定（轻量文档裁定，依据 p2p-local-sync-exploration.md §2.2/§3.1 技术论证，维护者复核）：验收 1/2 按实际实现重述——承诺-揭示配对替代 TLS 证书配对、行时间戳水位线替代 Session Extension；验收 3 保留原文，保持待评审",
+      "statusNote": "2026-09-29 完成：承诺-揭示零信任配对、设备身份 0600 落盘、分向密钥与 Changeset 引擎（UDP 信标发现、分帧传输、环回 socket 端到端，P2P 用例 69 项通过，见 p2p 评估 §3.1）。2026-10-02 验收重述裁定（维护者复核）：验收 1/2 按实现重述，验收 3 保持原文待评审；真实 mDNS、生产接线与多设备直连待推进。",
       "dependsOn": [],
       "links": [
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
@@ -738,7 +738,7 @@
       "id": "ITER-033",
       "batch": "next",
       "status": "建议",
-      "delivery": "统一模型 Provider 抽象面：收敛两套模型接入栈——`@aervox/core` 的 OpenAI 兼容 Provider（对话路径，`src/openai-compat-provider.ts`；原 `@aervox/agent-loop` 过渡壳已移除）与 `apps/api` model-runtime 的 Driver SPI（本地 llama 侧车）；补齐统一 Provider 目录与代际注册、跨栈一致的 stop reason 归一与 usage 分账（复用 T-10）、跨 Provider 上下文交接与标准化测试 Provider；收敛 BTD-04 剩余 `Llama*` 类型泄漏，为多模型路由与成本治理铺路；参考 PI-01 `packages/ai` 设计（参考评估 §8.3）；CAP-002/007；本地模型基础设施",
+      "delivery": "统一模型 Provider 抽象面：收敛两套模型接入栈——`@aervox/core` 的 OpenAI 兼容 Provider（对话路径，原 `@aervox/agent-loop` 过渡壳已移除）与 `apps/api` model-runtime 的 Driver SPI（本地 llama 侧车）；补齐统一 Provider 目录与代际注册、跨栈 stop reason 归一与 usage 分账（T-10）、跨 Provider 上下文交接与标准化测试 Provider；收敛 BTD-04 剩余 `Llama*` 类型泄漏；参考 PI-01 设计（参考评估 §8.3）；CAP-002/007；本地模型基础设施",
       "gate": "保持本地单用户与不出网红线：Driver 缺省仍为 unavailable 明确拒绝，受限本地任务缺合规 Provider 时不静默转远程；新增远程 Provider、改变制品信任等级或合并两栈持久化语义先 CR；不引入第二套 Provider 注册表真源；与 ITER-008 下载/进程正确性协同",
       "acceptance": [
         "同一 Fake/Replay Provider 轨迹下，对话与本地模型两条路径产出一致的规范化终止语义与 usage 分账（对照 provider-parity 表）",
@@ -827,7 +827,7 @@
       "id": "ITER-039",
       "batch": "next",
       "status": "已移交",
-      "delivery": "内核对标增强（PI-01 pi-ai 对比结论，2026-10-03 内核自查）：①截断 fail-closed——executor 消费 `ModelStopReason=length`，截断 Step 的工具调用整批拒绝升级为可执行（含参数不完整拒绝），补 Provider 边界坏响应夹具；②usage 缓存/成本分账——`ModelUsage` 扩展 cacheRead/cacheWrite（OpenAI prompt_tokens_details.cached_tokens 透传），为 ModelRun 埋点与成本治理铺路（对应 T-10）",
+      "delivery": "内核对标增强（PI-01 pi-ai 对比结论，2026-10-03 内核自查）：①截断 fail-closed——消费 `ModelStopReason=length` 并整批拒绝截断工具调用（含参数不完整），补 Provider 边界坏响应夹具；②usage 缓存/成本分账——`ModelUsage` 扩展 cacheRead/cacheWrite（透传 OpenAI `cached_tokens`），支撑 ModelRun 埋点与成本治理（T-10）",
       "gate": "不新增 Provider 与依赖；截断 fail-closed 属安全收敛（更严格方向），length 终态 isFinal 行为变更需同时更新 executor Step 终止测试；不引入 pi 运行时代码（自研重写）",
       "acceptance": [
         "length 截断 Step 的 toolCalls 全部 fail-closed 且有坏响应夹具测试（含部分 JSON 参数）",
@@ -1078,7 +1078,7 @@
       "batch": "first",
       "status": "已移交",
       "delivery": "PR #258 审计发现落地：删除效果验证、原子接单/组合写入、动态工具取消、取消恢复、锁回收与资产单源；关联 ITER-002/003/004/007/010/017。",
-      "gate": "用户已授权在本 PR 落实已接受契约下的修复；不扩展删除范围、不执行生产迁移，不启动架构替换。",
+      "gate": "用户已授权在 PR #258 内落实已接受契约下的修复；不扩展删除范围、不执行生产迁移，不启动架构替换。",
       "acceptance": [
         "切片验收见 [PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258)；实施边界见审计 §10.2，不提升为 Released。"
       ],
