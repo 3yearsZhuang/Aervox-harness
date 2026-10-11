@@ -348,6 +348,9 @@ test("增量 CLI 保留已提交重命名的旧文档路径并检查悬空引用
 
 test("触发器能识别根计划已经同步修改", { skip: process.platform === "win32" }, (t) => {
   const root = fixture(t);
+  // 触发器有效性校验要求 glob 至少命中一个仓库文件；materialize 命中目标。
+  fs.mkdirSync(path.join(root, "apps/api/src"), { recursive: true });
+  fs.writeFileSync(path.join(root, "apps/api/src/app.ts"), "export {};\n");
   writePlanDocument(root, { fields: { review_triggers: ["apps/**"] } });
   const result = spawnSync(process.execPath, ["scripts/docs-governance.mjs", "--strict", "--check-triggers"], {
     cwd: root,
@@ -360,6 +363,8 @@ test("触发器能识别根计划已经同步修改", { skip: process.platform =
 
 test("触发器覆盖已提交差量而非只看工作区", { skip: process.platform === "win32" }, (t) => {
   const root = fixture(t);
+  fs.mkdirSync(path.join(root, "apps/api/src"), { recursive: true });
+  fs.writeFileSync(path.join(root, "apps/api/src/app.ts"), "export {};\n");
   writePlanDocument(root, { fields: { review_triggers: ["apps/**"] }, body: "" });
   // 工作区干净，命中信息只存在于 base...HEAD 差量中。
   const result = spawnSync(process.execPath, ["scripts/docs-governance.mjs", "--check-triggers"], {
@@ -399,4 +404,61 @@ test("队列强制级别升级为 error 后不同步将阻断", { skip: process.
   const result = runGovernance(root);
   assert.equal(result.status, 1, output(result));
   assert.match(output(result), /error: \[plan-queue:H6\]/);
+});
+
+test("review_triggers 死路径与空命中 glob 在 strict 下阻断，叙述型条目豁免", async (t) => {
+  await t.test("missing path", (child) => {
+    const root = fixture(child);
+    writePlanDocument(root, { fields: { review_triggers: ["packages/gone/file.ts", "gone.md"] } });
+    const result = runGovernance(root);
+    assert.equal(result.status, 1, output(result));
+    assert.match(output(result), /review_triggers 路径不存在：packages\/gone\/file\.ts/);
+    assert.match(output(result), /review_triggers 路径不存在：gone\.md/);
+  });
+  await t.test("glob matches nothing", (child) => {
+    const root = fixture(child);
+    writePlanDocument(root, { fields: { review_triggers: ["apps/nowhere/**"] } });
+    const result = runGovernance(root);
+    assert.equal(result.status, 1, output(result));
+    assert.match(output(result), /review_triggers 未命中任何仓库文件：apps\/nowhere\/\*\*/);
+  });
+  await t.test("narrative entries exempt and live glob passes", (child) => {
+    const root = fixture(child);
+    fs.mkdirSync(path.join(root, "apps/api/src"), { recursive: true });
+    fs.writeFileSync(path.join(root, "apps/api/src/app.ts"), "export {};\n");
+    writePlanDocument(root, {
+      fields: {
+        review_triggers: [
+          "apps/**",
+          "plan.md",
+          "Home Assistant REST/WebSocket 或小米 OAuth 契约变化",
+          "应用行为变化",
+        ],
+      },
+    });
+    const result = runGovernance(root);
+    assert.equal(result.status, 0, output(result));
+  });
+});
+
+test("superseded 文档必须声明 superseded_by", async (t) => {
+  const writeSuperseded = (root, fields) => {
+    fs.writeFileSync(path.join(root, "docs/reference/superseded-adr.md"),
+      document("ADR-999", { doc_status: "superseded", decision_status: "rejected", ...fields }));
+    fs.appendFileSync(path.join(root, "docs/DOC_REGISTRY.md"),
+      `| \`ADR-999\` | [记录](reference/superseded-adr.md) | ${today} |\n`);
+  };
+  await t.test("missing superseded_by", (child) => {
+    const root = fixture(child);
+    writeSuperseded(root, {});
+    const result = runGovernance(root);
+    assert.equal(result.status, 1, output(result));
+    assert.match(output(result), /doc_status=superseded 必须在 front matter 声明 superseded_by/);
+  });
+  await t.test("declared superseded_by passes", (child) => {
+    const root = fixture(child);
+    writeSuperseded(root, { superseded_by: "ADR-015" });
+    const result = runGovernance(root);
+    assert.equal(result.status, 0, output(result));
+  });
 });

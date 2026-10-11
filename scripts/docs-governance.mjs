@@ -4,8 +4,8 @@
  * Aervox 文档治理校验器。
  *
  * 默认是兼容模式：历史文档的旧头格式和缺失字段只报告 warning；
- * 路径不存在、重复 ID、策略损坏和 canonical 文档未登记始终阻断。
- * 设置 DOCS_GOVERNANCE_STRICT=1 或传入 --strict 后，迁移 warning 也会阻断。
+ * 路径不存在、重复 ID、策略损坏、canonical 文档未登记、superseded 缺 superseded_by 始终阻断。
+ * 设置 DOCS_GOVERNANCE_STRICT=1 或传入 --strict 后，迁移 warning（含 sources/review_triggers 失效路径）也会阻断。
  *
  * 当前迭代队列（`docs/_meta/plan-queue.json` → `plan.md` §2）的结构、依赖与
  * 同步校验见 checkPlanQueue，强制级别由策略 `currentIterationPlan.queue` 控制。
@@ -40,6 +40,7 @@ const metrics = {
   registryDateMismatches: 0,
   registryMissingEntries: 0,
   staleFiles: 0,
+  triggerIssues: 0,
 };
 
 function reportWarning(message) {
@@ -407,14 +408,18 @@ function generateCatalog(metadataByFile, policy) {
   console.log(`[docs-catalog] 成功生成 ${relativeToRoot(catalogPath)}，共收录 ${documents.length} 篇文档`);
 }
 
-function matchGlob(filePath, pattern) {
-  const normalizedFile = filePath.split(path.sep).join("/");
+function compileGlob(pattern) {
   const normalizedPattern = pattern.trim().split(path.sep).join("/");
   const regexStr = "^" + normalizedPattern
     .replace(/[.+^${}()|[\]\\]/g, "\\$&")
     .replace(/\*\*/g, ".*")
     .replace(/(?<!\.)\*/g, "[^/]*") + "$";
-  return new RegExp(regexStr).test(normalizedFile);
+  return new RegExp(regexStr);
+}
+
+function matchGlob(filePath, pattern) {
+  const normalizedFile = filePath.split(path.sep).join("/");
+  return compileGlob(pattern).test(normalizedFile);
 }
 
 /**
@@ -513,6 +518,72 @@ function checkReviewTriggers(metadataByFile) {
     }
   } else {
     console.log("[docs-trigger] 当前变动（工作区 + 增量基准差量）未命中任何文档触发器");
+  }
+}
+
+/**
+ * 仓库文件清单（POSIX 相对路径）。优先 `git ls-files`（天然遵守 .gitignore），
+ * 非 Git 目录（测试 fixture）回退为带忽略清单的目录遍历。
+ */
+let repositoryFilesCache = null;
+function listRepositoryFiles() {
+  if (repositoryFilesCache) return repositoryFilesCache;
+  try {
+    const output = execSync("git ls-files -z", { cwd: rootDir, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+    const files = output.split("\0").filter(Boolean);
+    if (files.length > 0) {
+      repositoryFilesCache = files;
+      return files;
+    }
+  } catch {
+    // 非 Git 目录：继续走遍历回退
+  }
+  const ignored = new Set([
+    "node_modules", ".git", "dist", "out", "dist-plugins", ".turbo",
+    "coverage", "test-results", "playwright-report", "data", ".commandcode", ".workbuddy", ".zcode",
+  ]);
+  const files = [];
+  const visit = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (ignored.has(entry.name)) continue;
+      const absolute = path.join(dir, entry.name);
+      if (entry.isDirectory()) visit(absolute);
+      else files.push(path.relative(rootDir, absolute).split(path.sep).join("/"));
+    }
+  };
+  visit(rootDir);
+  repositoryFilesCache = files;
+  return files;
+}
+
+/**
+ * `review_triggers` 有效性：路径/glob 型条目必须命中现存文件或至少一个仓库文件；
+ * 叙述型条目（含空格或非路径字符，如「HA REST 契约变化」）不参与路径校验，作者应
+ * 将其写成 YAML 注释行。级别为 migration warning（compat 提示、strict 阻断）。
+ */
+function validateReviewTriggers(metadataByFile) {
+  const pathLike = /^[A-Za-z0-9._\/*?{}-]+$/;
+  const fileLike = /\.(md|ts|mjs|cjs|json|toml|yml|yaml)$/i;
+  for (const [, metadata] of metadataByFile) {
+    if (metadata.isTemplate || metadata.isArchive || metadata.basename === "LICENSE") continue;
+    const triggers = Array.isArray(metadata.fields.review_triggers) ? metadata.fields.review_triggers : [];
+    for (const raw of triggers) {
+      if (typeof raw !== "string") continue;
+      const trigger = raw.trim();
+      if (!trigger) continue;
+      if (!pathLike.test(trigger) || (!trigger.includes("/") && !fileLike.test(trigger))) continue;
+      if (/[*?{]/.test(trigger)) {
+        const regex = compileGlob(trigger);
+        const matched = listRepositoryFiles().some((file) => regex.test(file));
+        if (!matched) {
+          metrics.triggerIssues += 1;
+          reportMigrationWarning(`${metadata.relative}: review_triggers 未命中任何仓库文件：${trigger}（请改指现存路径或删除）`);
+        }
+      } else if (!fs.existsSync(path.resolve(rootDir, trigger))) {
+        metrics.triggerIssues += 1;
+        reportMigrationWarning(`${metadata.relative}: review_triggers 路径不存在：${trigger}`);
+      }
+    }
   }
 }
 
@@ -706,6 +777,9 @@ function checkMetadata(metadataByFile, policy) {
     } else if (documentStatus && !allowedDocumentStatuses.has(documentStatus)) {
       reportMigrationWarning(`${metadata.relative}: 文档状态不在策略允许集合中：${metadata.documentStatus}`);
     }
+    if (metadata.usesCanonicalFrontMatter && documentStatus === "superseded" && !metadata.fields.superseded_by) {
+      reportError(`${metadata.relative}: doc_status=superseded 必须在 front matter 声明 superseded_by`);
+    }
     if (metadata.decisionStatus && !allowedDecisionStatuses.has(normalizeStatus(metadata.decisionStatus))) {
       reportMigrationWarning(`${metadata.relative}: 决策状态不在策略允许集合中：${metadata.decisionStatus}`);
     }
@@ -746,6 +820,7 @@ function main() {
     metadataByFile.set(file, parseMetadata(file, text));
   }
   checkMetadata(metadataByFile, policy);
+  validateReviewTriggers(metadataByFile);
   checkCurrentIterationPlan(metadataByFile, policy);
   checkPlanQueue(metadataByFile, policy);
   const linkFiles = new Map(metadataByFile);
@@ -772,7 +847,7 @@ function finish() {
   console.log(`[docs-validate] mode=${strict ? "strict" : "compatibility"}`);
   console.log(`[docs-validate] markdown=${metrics.markdownFiles} governed=${metrics.governedFiles} canonical=${metrics.canonicalFiles} legacy=${metrics.legacyFiles}`);
   console.log(`[docs-validate] duplicate_ids=${metrics.duplicateIds} missing_links=${metrics.missingLocalLinks} broken_anchors=${metrics.brokenAnchors}`);
-  console.log(`[docs-validate] registry_date_mismatches=${metrics.registryDateMismatches} registry_missing=${metrics.registryMissingEntries} stale=${metrics.staleFiles}`);
+  console.log(`[docs-validate] registry_date_mismatches=${metrics.registryDateMismatches} registry_missing=${metrics.registryMissingEntries} stale=${metrics.staleFiles} trigger_issues=${metrics.triggerIssues}`);
   const warningLimit = strict ? warnings.length : 40;
   for (const warning of warnings.slice(0, warningLimit)) console.warn(`warning: ${warning}`);
   if (warnings.length > warningLimit) console.warn(`warning: 另有 ${warnings.length - warningLimit} 条迁移 warning 已省略；使用 --strict 查看并阻断全部`);
