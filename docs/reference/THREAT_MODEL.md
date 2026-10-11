@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.5.1
+version: 0.5.2
 updated_at: 2026-10-10
 reviewed_at: 2026-10-10
 review_interval_days: 90
@@ -14,16 +14,13 @@ review_interval_days: 90
 
 # Aervox｜思隅 威胁模型
 
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-10-10
-
 关联：[架构设计](ARCHITECTURE.md) · [数据与隐私](DATA_PRIVACY.md) · `CR-023`（已归档） · `CR-024`（已归档） · `CR-030`（已归档）
 
 ## 1. 范围与资产
 
 范围包括本机 Web/API/Worker、SQLite、独立故障域 `RecoveryControlLedger`、模型/通知供应商、Electron、插件/外部连接、CAP-033 主动智能模式本地 Host，以及 CAP-034/035 的 Home Assistant 和小米健康连接。关键资产包括本地数据库与备份、迁移状态清单、HA Token、实体/服务白名单、小米 OAuth 凭据、睡眠与心率样本。
 
-尚未进入生产启用范围：未成年人、CAP-033 尚未接入的平台设备捕获/全量文件 watcher、社区私信、市场支付和任意第三方插件执行；本分支已启用本地 Vault、Aervox activity/operation 与剪贴板采集、画像提炼、动作授权和后台 heartbeat 的测试路径，真实能力扩大前必须完成本模型扩展与专项门禁。
+尚未进入生产启用范围：未成年人、CAP-033 尚未接入的平台设备捕获/全量文件 watcher、社区私信、市场支付和任意第三方插件执行；现有实现已启用本地 Vault、Aervox activity/operation 与剪贴板采集、画像提炼、动作授权和后台 heartbeat 的测试路径，真实能力扩大前必须完成本模型扩展与专项门禁。
 
 ## 2. 信任边界
 

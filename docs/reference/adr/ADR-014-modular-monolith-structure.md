@@ -5,16 +5,13 @@ scope: decision
 owner: maintainers
 doc_status: approved
 decision_status: accepted
-version: 0.3.1
-updated_at: 2026-09-28
-reviewed_at: 2026-09-28
+version: 0.3.2
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 ---
 
 # ADR-014 演进式模块化单体：apps/api 目录结构
-
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-28
 
 - 状态：Accepted（2026-08-31；2026-09-16 修订 0.3.0，见修订记录与 `CR-052`（已归档））
 - 日期：2026-08-25
@@ -203,3 +200,7 @@ registerLearningModule(app, db);
 
 - **0.3.0（2026-09-16，`CR-052`（已归档））**：目录结构由 `modules/<module>/` 一层演进为 `modules/<domain>/<module>/` 两层（25 模块 → 6 域）；核心规则新增「领域分组」，其余规则语义不变；`shared/tenant.ts` 示例名修正为 `local-context.ts`（对齐 CR-030 去租户化后的实际文件名）；Decision 目录树与迁移指引同步两层结构。实施随 CR-052 PR-C1 落地。
 - 0.2.1（2026-09-11）：维护性升版（元数据与关联补齐），无决策变更。
+
+> [!NOTE]
+> **落地对齐（2026-10-10）**：Negative consequences 中的「8 个小模块」与「Worker 层尚未模块化」为 0.1.0 撰写时点表述；
+> 现状为 `apps/api` 25 模块 / 6 域两层（见 0.3.0 修订记录），`apps/worker` 已按 `proactive/` 域分组。
