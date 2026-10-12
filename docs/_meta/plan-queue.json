@@ -363,11 +363,12 @@
       ],
       "owner": "platform/data/quality",
       "branch": "feat/rust-native-search-pilot",
-      "statusNote": "2026-10-12 CR-062 切片已实施并通过全量双门禁：异步 ripgrep 搜索与取消/进程共享限额、稳定有界 top-K、Rust 合成向量对照及 SQLite 结果一致性回归；等待 PR 审查。合成基准不代替 ITER-013 指标；生产查询测量、索引准入及其它性能治理差量仍未完成。",
+      "statusNote": "2026-10-12 CR-062 切片已实施并通过全量双门禁：异步 ripgrep 搜索与取消/进程共享限额、稳定有界 top-K、Rust 合成向量对照及 SQLite 结果一致性回归；PR #272 待审查。合成基准不代替 ITER-013 指标；生产查询测量、索引准入及其它性能治理差量仍未完成。",
       "dependsOn": [
         "ITER-013"
       ],
       "links": [
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/272",
         "docs/explanation/reference-design-transfer.md#upstream-20260929"
       ]
     },
