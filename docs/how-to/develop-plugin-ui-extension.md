@@ -27,9 +27,6 @@ sources:
 
 # 操作指南：开发 Aervox 扩展插件（How-to）
 
-- 提出人：linge · 2026-09-09
-- 修改人：3yearszhuang · 2026-09-18
-
 关联：[Aervox 插件开发规范](../reference/plugin-config-and-pages.md)、[能力组合规范](../reference/capability-composition.md)、[ADR-009](../reference/adr/ADR-009-electron-plugin-sandbox.md)、[ADR-015](../reference/adr/ADR-015-vue-full-stack.md)。
 
 本指南先制作一个可打包、预检、安装和保存配置的 Page 插件，再给出第一方 UI 与 Server Turn 的接入步骤。详细字段和安全边界以插件开发规范为准。Page 示例不需要模型密钥或新增依赖；第一方源码扩展需要随宿主构建，安装 ZIP 不会加载其中的任意 Vue/TypeScript 代码。

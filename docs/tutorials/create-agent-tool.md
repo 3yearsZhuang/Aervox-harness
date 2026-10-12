@@ -18,9 +18,6 @@ sources:
 
 # 教程：编写并注册一个自定义 Agent 工具
 
-- 提出人：3yearszhuang · 2026-09-10
-- 修改人：3yearszhuang · 2026-10-04
-
 关联：[Agent Harness Loop 规范](../reference/agent-harness-loop.md) · [能力组合规范](../reference/capability-composition.md)
 
 本教程带领开发者一步步为 Aervox Agent 编写一个自定义工具（Tool），完成参数 Schema 定义、安全级别配置、运行时 Handler 编写、数据库注册表持久化及集成测试验证。

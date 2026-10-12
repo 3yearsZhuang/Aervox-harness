@@ -1,0 +1,10 @@
+# 易漂移措辞检查：相对措辞须绑定事实源或编号（AVX-STD-001 §4）。
+# 命中即阻断；如需表达，请替换为具体 PR 号、日期、功能名或「现实现」。
+extends: existence
+message: "易漂移措辞：'%s' 须改为绑定事实源/编号的表述（如具体 PR 号、日期或功能名）"
+level: error
+ignorecase: false
+scope: sentence
+tokens:
+  - 本 PR
+  - 本分支

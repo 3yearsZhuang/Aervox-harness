@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 2.2.4
-updated_at: 2026-09-29
-reviewed_at: 2026-09-29
+version: 2.2.6
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 30
 review_triggers:
   - packages/schema/**
@@ -16,7 +16,6 @@ review_triggers:
   - apps/api/src/shared/auth.ts
   - apps/api/src/index.ts
   - apps/worker/**
-  - docs/reference/changes/CR-030-pure-local-sqlite-database.md
 sources:
   - packages/schema/src/**
   - packages/repositories/src/schema/ddl/**
@@ -27,9 +26,6 @@ sources:
 ---
 
 # Aervox｜思隅 SQLite 本地单用户数据库契约
-
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-29
 
 本文规定 Aervox 持久化层的目标契约、机器事实源、关键不变量、破坏性迁移协议和发布门禁。
 字段与 DDL 的机器真源是 `packages/schema` 和 `packages/repositories/src/schema/ddl`；本文不复制
@@ -267,7 +263,7 @@ D1～D3 每阶段都必须运行 `mise tasks run ci-code` 与 `mise tasks run ci
 
 | CR-030 阶段 | 状态 | 说明 |
 |---|---|---|
-| D0 决策基线 | 本 PR 交付 | 文档、需求、安全、隐私、测试和架构同步 |
+| D0 决策基线 | Implemented | 文档、需求、安全、隐私、测试和架构同步 |
 | D1 迁移器与安全入口 | Implemented | 预检、备份清单、范围选择、staging、校验、原子换库和 loopback 守卫已落地；运行编排与故障注入演练为发布前门禁 |
 | D2 Schema/Repository 去租户 | Implemented | 最终 Schema/DDL、Repository、API、Worker 和 Host Agent 不再读写租户列；`LocalContext` 仅保留兼容签名 |
 | D3 清理与发布 | Implemented | 静态审计、旧测试迁移和文档登记完成；完整 DSH 环境、停写协调与 rollback 保留仍需发布前复核 |

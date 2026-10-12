@@ -6,16 +6,13 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.5.0
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
+version: 0.5.2
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 威胁模型
-
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-17
 
 关联：[架构设计](ARCHITECTURE.md) · [数据与隐私](DATA_PRIVACY.md) · `CR-023`（已归档） · `CR-024`（已归档） · `CR-030`（已归档）
 
@@ -23,7 +20,7 @@ review_interval_days: 90
 
 范围包括本机 Web/API/Worker、SQLite、独立故障域 `RecoveryControlLedger`、模型/通知供应商、Electron、插件/外部连接、CAP-033 主动智能模式本地 Host，以及 CAP-034/035 的 Home Assistant 和小米健康连接。关键资产包括本地数据库与备份、迁移状态清单、HA Token、实体/服务白名单、小米 OAuth 凭据、睡眠与心率样本。
 
-尚未进入生产启用范围：未成年人、CAP-033 尚未接入的平台设备捕获/全量文件 watcher、社区私信、市场支付和任意第三方插件执行；本分支已启用本地 Vault、Aervox activity/operation 与剪贴板采集、画像提炼、动作授权和后台 heartbeat 的测试路径，真实能力扩大前必须完成本模型扩展与专项门禁。
+尚未进入生产启用范围：未成年人、CAP-033 尚未接入的平台设备捕获/全量文件 watcher、社区私信、市场支付和任意第三方插件执行；现有实现已启用本地 Vault、Aervox activity/operation 与剪贴板采集、画像提炼、动作授权和后台 heartbeat 的测试路径，真实能力扩大前必须完成本模型扩展与专项门禁。
 
 ## 2. 信任边界
 
@@ -79,7 +76,7 @@ review_interval_days: 90
 
 - 所有 Critical/High 威胁有自动化测试、告警和残余风险批准；
 - OWASP ASVS L2 基线、依赖/Secret/SBOM/许可证扫描通过；
-- 跨工作区、管理员、组织、插件、附件、Prompt injection 和 Electron IPC 测试通过；
+- loopback/Token 越权、文件 ACL、插件沙箱、附件、Prompt injection 和 Electron IPC 测试通过；
 - 删除、导出、备份恢复、SQLite 换库回滚（[CR-030 演练协议](../how-to/run-database-migration-drill.md)）和供应商故障演练通过；
 - CAP-033 设备捕获、后台恢复、全动作授权、本地出网阻断、七天提炼清理和导出删除的新增数据流已经加入本威胁模型，专项测试仍是启用前置；未成年人、社区、市场、支付或机构能力仍须各自扩展模型。
 - CAP-034/035 发布前必须完成 HA SSRF/重连/白名单、外部凭据零回显、小米真实厂商沙箱和健康连接级删除验证；当前本地集成测试不替代厂商审批或生产安全评审。

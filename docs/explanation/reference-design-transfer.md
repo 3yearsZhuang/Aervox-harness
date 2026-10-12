@@ -6,16 +6,13 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.10.0
-updated_at: 2026-09-29
-reviewed_at: 2026-09-29
+version: 0.10.1
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 ---
 
 # 参考项目能力迁移与借鉴评估
-
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-29
 
 关联：[参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[SQLite 本地单用户数据库契约](../reference/DATABASE.md)、[能力注册表](../reference/capability-registry.md)、[Agent Harness Loop 规范](../reference/agent-harness-loop.md)、[AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)
 
@@ -96,9 +93,9 @@ BaiShou-Next 对 `database is locked` / `sqlite_busy` 错误做指数退避重�
 
 BaiShou-Next 并行执行 FTS 粗筛与向量细筛，用 RRF（Reciprocal Rank Fusion）融合排序，支持 `ftsWeight/vectorWeight` 权重；任一通道不可用时降级返回另一通道结果；在无原生向量库时用 JS 遍历余弦相似度兜底（参考 `reference/baishou-next/packages/ai/src/rag/hybrid-search.ts` 及其 service）。
 
-Aervox 已具备两块输入：FTS5 虚表（`memory_records_fts` 等）与内存向量 Port（`packages/repositories/src/search/vector-port.ts` 的 `InMemoryVectorSearchAdapter`），目前尚未融合。
+Aervox 已具备两块输入：FTS5 虚表（`memory_records_fts` 等）与向量检索 Port（`packages/repositories/src/search/vector-port.ts`）；混合检索已落地（`packages/repositories/src/search/hybrid-search.ts`，纯 RRF 融合 + 单通道降级）并接入记忆召回。
 
-落点：在 `packages/repositories/src/search` 新增混合检索服务，复用现有 `IVectorSearchPort` 与 FTS5，输出统一召回结果。这是记忆召回窗口期检索的第一步，也是后续更换向量检索实现（如 `sqlite-vec` 扩展）时仅替换 Port 实现的边界。
+落点（已落地）：`packages/repositories/src/search/hybrid-search.ts` 复用 `IVectorSearchPort` 与 FTS5，输出统一召回结果；后续更换向量检索实现（如 `sqlite-vec` 扩展）只需替换 Port 实现。
 
 ### 3.3 T-03 上下文压缩标记
 
@@ -112,7 +109,7 @@ Aervox 的 PRD §7.5 要求"短期记忆必须能查看由哪些临时记忆整�
 
 BaiShou-Next 以 `ToolRegistry` 统一注册/过滤/导出工具（`disabledToolIds`、能力开关），并实现 `MemoryStoreTool` 让 Agent 主动存储长期记忆：调用 embedding、去重（外部服务或向量 fallback）、写入长期记忆索引；内部工具通过 MCP server 以 `baishou_*` 名称暴露（参考 `reference/baishou-next/packages/ai/src/tools/` 与 `packages/ai/src/mcp/baishou-mcp-server.ts`）。
 
-Aervox 的 CAP-020 技能插件系统尚未落地，记忆生成链路也未接线。此设计为两者提供一个收敛的落地形态：
+Aervox 的 CAP-020 技能插件系统与记忆生成链路已落地；T-04 的两点设计在现有实现中的对应关系为：
 
 - `ToolRegistry` 的开关注册模型可作 CAP-020 插件权限模型的雏形（安装前展示权限、逐项撤销）；
 - `MemoryStoreTool` 的"主动记忆 + 推断标记"模式与"模型推断只能作为候选"约束天然匹配：候选写入默认 `verificationStatus=unverified`，用户确认后才晋升。
@@ -127,9 +124,9 @@ Aervox 已经采用 `memory_embeddings` 独立表与 SQLite Vector Port；换 em
 
 AstrBot 以 `SessionLockManager` 实现按会话粒度的写串行化：`asyncio.Lock` 引用计数、计数归零即回收、按事件循环隔离实例（weakref 持有，不跨循环共享锁）（参考 `reference/AstrBot/astrbot/core/utils/session_lock.py`）。
 
-Aervox 的 API 与 Worker 都会写同一会话的 Outbox/MemoryEvent：T-01 的 busy 重试解决进程间竞争，进程内同一会话的并发写尚无串行化约束。会话锁与 busy 重试互补：锁降低冲突发生概率，重试兜底残留冲突。
+Aervox 的 API 与 Worker 都会写同一会话的 Outbox/MemoryEvent：T-01 的 busy 重试解决进程间竞争，进程内同一会话的并发写已由会话级写锁串行化（`packages/repositories/src/session-lock.ts`）。会话锁与 busy 重试互补：锁降低冲突发生概率，重试兜底残留冲突。
 
-落点：Worker/API 会话写路径的进程内工具；纯函数级自研，与 T-01 同批排期。
+落点（已落地）：`packages/repositories/src/session-lock.ts`，供 Worker/API 会话写路径复用；纯函数级自研。
 
 ### 3.7 AST-02 向量库 Port 接口形态
 

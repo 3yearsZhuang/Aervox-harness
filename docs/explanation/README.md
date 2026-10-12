@@ -4,9 +4,9 @@ type: explanation
 scope: baseline
 owner: maintainers
 doc_status: approved
-version: 1.1.0
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
+version: 1.1.1
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 ---
 
@@ -25,7 +25,7 @@ review_interval_days: 90
 | [数据流总览](data-flow-overview.md) | 一次对话与 Turn 如何在各进程间流转 | 跨进程通讯、生命周期、持久化时序 |
 | [桌宠角色与多人格组织](persona-organization.md) | 桌宠设定、提示词注入与人格切换如何运作 | 人格资产、Prompt 分层、本地持久化 |
 | [主动智能模式设计方案](proactive-intelligence-mode.md) | 主动智能、环境感知与免打扰机制的设计理念 | 四轴状态、画像构建、动作提议闭环 |
-| [Web 工作台实现说明](web-implementation.md) | Vue 单栈下 Web 与桌面端如何共用组件 | 共享工作台、无桌宠形态、响应式适配 |
+| [Web 工作台实现说明](web-implementation.md) | Vue 单栈下 Web 与桌面端如何共用组件 | 共享工作台、响应式适配、桌宠内嵌形态 |
 
 ---
 

@@ -6,14 +6,12 @@ owner: platform
 doc_status: review-candidate
 decision_status: accepted
 delivery_status: planned
-version: 1.1.0
-updated_at: 2026-10-03
-reviewed_at: 2026-10-03
+version: 1.1.1
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 review_triggers:
   - packages/core/**
-  - packages/agent-loop/**
-  - packages/host-agent/src/cli-approval.ts
 sources:
   - docs/reference/adr/README.md
   - docs/reference/agent-harness-loop.md
@@ -21,9 +19,6 @@ sources:
 ---
 
 # ADR-021 Aervox Core 独立内核包与最小发行边界
-
-- 提出人：3yearszhuang · 2026-10-03
-- 修改人：3yearszhuang · 2026-10-03
 
 ## Status
 

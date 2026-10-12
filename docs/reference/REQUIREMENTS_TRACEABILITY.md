@@ -6,16 +6,13 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.56.5
-updated_at: 2026-10-09
-reviewed_at: 2026-10-09
+version: 1.56.6
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 ---
 
 # Aervox｜思隅 需求追踪与交付质量基线
-
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-10-06
 
 产品需求来源：[PRD.md](PRD.md)
 
@@ -512,9 +509,6 @@ review_interval_days: 90
 ---
 
 # CR-001 变更标题
-
-- 提出人：<账号> · YYYY-MM-DD
-- 修改人：3yearszhuang · 2026-09-28
 
 ## 变更原因与证据
 ## 关联能力与需求

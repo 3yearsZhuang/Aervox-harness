@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { replyBubbleDurationMs, stripMarkdownForBubble } from '../src/renderer/src/quick-chat.js'
+import { replyBubbleDurationMs, stripMarkdownForBubble } from '../src/quick-chat.js'
 
 describe('stripMarkdownForBubble', () => {
   it('空文本返回空串', () => {

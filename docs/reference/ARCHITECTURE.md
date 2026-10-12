@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.7.1
-updated_at: 2026-10-08
-reviewed_at: 2026-10-08
+version: 0.7.3
+updated_at: 2026-10-12
+reviewed_at: 2026-10-12
 review_interval_days: 90
 ---
 
@@ -43,7 +43,7 @@ MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应
 | Object | 本地文件系统目录（attachments/exports） | 本地安全存储、上传前后做大小/格式/解压比扫描；删除遵循数据 SLA（CR-030） |
 | AI | 内部 `ProviderPort`：`@aervox/core` 自研 OpenAI 兼容流式 Provider（运行时零外部依赖，ADR-021） | 业务通过内部接口调用模型；本地 llama.cpp 侧车以 OpenAI 兼容端点接入（model-runtime）；模型不能直写业务表 |
 | Desktop/mobile | Electron（P1）、Capacitor（后续，打包 web UI） | `contextIsolation`、关闭 `nodeIntegration`、受限 IPC、签名更新包、逐项设备授权；CAP-033 使用独立签名 Privacy Host/OS Permission Broker 管理后台和设备能力；移动端优先 WebView 壳，团队用 RN 仅当细粒化需要原生能力时评估 |
-| Test/observability | Vitest、Playwright、Testing Library、Testcontainers、fast-check、OpenTelemetry、Pino、Prometheus/Grafana、Sentry | 正常 CI 不依赖实时供应商；日志默认不含完整用户内容 |
+| Test/observability | Vitest、Playwright、Testing Library、fast-check、OpenTelemetry、Pino、Prometheus/Grafana、Sentry | 正常 CI 不依赖实时供应商；日志默认不含完整用户内容 |
 
 ## 3. 仓库与领域边界
 
@@ -69,8 +69,11 @@ packages/
   observability/     # 结构化日志与指标可观测性接口
   live2d/            # Live2D Mizuki 静态模型单一真源资产包
   public/            # 共享图标与 aervox-intro 介绍页静态资产
+  ui-host/           # 根界面加载、失败重试与实例生命周期（CR-063，仅依赖 Vue）
   ui/                # 共享 Vue 3 组件库、Live2D 控制器与主题 Token
 plugins/
+  workbench-ui/        # 默认工作台根组件；各端复用并注入业务 UI 扩展（CR-063）
+  companion-ui/        # 独立桌宠根组件、快捷对话、姿态与样式（CR-063）
   focus-mode/          # 专注模式第一方插件：CAP-002 启发式教学 / CAP-007 概念探索 / CAP-016 现场刷题
                      # 声明（manifest/config/SKILL）与实现（src/server 服务端、src/ui UI 与专属样式）
                      # 内聚于此；实现源码不随 .aervox-plugin 分发包发布（CR-060）
@@ -154,63 +157,31 @@ apps/api/test/                       # 集成测试
 
 **与 ADR-001 的关系**：本结构是 ADR-001（模块化单体）在 API 层的细化设计，由 ADR-014 记录完整决策。实现通过公开 Port 和组合根替换；跨进程拆分须重新验证事务、幂等和失败模式，不承诺零业务改动。CR-056 首轮保持现有部署形态。
 
-### 3.2 UI 共享包规划（packages/ui / api-client）
+### 3.2 根界面插件与共享 UI
 
-**现状（2026-08-25）——逻辑层与核心工作台已收敛为共享包，平台壳按端保留**：
+Web、桌面和移动 WebView 由各自组合根选择 `@aervox/plugin-workbench-ui`，通过 `@aervox/ui-host` 加载；独立桌宠窗口选择 `@aervox/plugin-companion-ui`。插件均为受信构建输入，默认产品继续包含 P0 学习与陪伴能力。定义与生命周期详见[插件规范](plugin-config-and-pages.md#04-根界面插件cr-063)。
 
-| 层级 | 桌面端（Electron/Vue） | Web 工作台（Vue） | 复用形态 |
-|---|---|---|---|
-| 契约/协议 | `@aervox/contracts`、`@aervox/api` | 同一份 | ✅ 真共享（import 同一包） |
-| 逻辑（transport + composables） | 注入 `desktopTransport`（preload IPC 适配，`@aervox/api-client`） | 默认 `fetchTransport`（浏览器 fetch/SSE，同包） | ✅ 真共享：两端各注入传输适配，composables（`useAervoxApi`/`useAervoxTurn`）收敛到 `@aervox/api-client`，本地副本已删除 |
-| UI 组件/主题 | `AervoxWorkbench`（含桌宠区）+ `AppTitlebar` / `PetWindow` 等窗口壳 | 同一 `AervoxWorkbench`（`showCompanion=false`，不渲染桌宠）+ 浏览器顶栏 | ✅ 真共享：对话、学习、工具面板、主题和响应式布局来自 `@aervox/ui`；窗口壳与桌宠表现层仍按端适配 |
+| 层级 | 责任 | 依赖方向 |
+|---|---|---|
+| 平台壳 | 启动、认证传输、窗口、受限 IPC、新手引导、主题同步 | 在组合根选择界面插件与宿主 |
+| `@aervox/ui-host` | 平台/版本匹配、加载超时、失败重试、实例取消和卸载 | 只依赖 Vue，不引用具体界面或业务服务 |
+| 第一方根界面插件 | 工作台装配或桌宠对话与表现 | 消费公共 UI、客户端与界面上下文 |
+| `@aervox/ui` | 通用展示、工作台服务、Live2D 与主题 | 不反向引用插件或平台壳 |
+| `@aervox/api-client` | API 传输、事件流与共享业务组合式函数 | 桌面注入 IPC，Web/移动注入 HTTP/SSE |
 
-- 共享包清单：`@aervox/api-client`（transport 抽象 + Vue composables，源码出口）与 `@aervox/ui`（AervoxWorkbench / PetHero / MessageBubble / 主题 token，源码出口）均由两端直接消费源码。
-- 渲染层差异收敛为同一对话、学习与设置工作台；设置窗口采用共享的左侧分类/右侧详情结构，偏好只存储在当前 renderer 设备；Electron 的标题栏、独立桌宠窗口和桌宠区属于平台壳能力，Web 不提供桌宠表现层。
-
-**规划（ADR-014/015 演进式，仍有触发式上收）**：
-
-- **创建时机**：当同一展示组件被 ≥2 个端（web / desktop / mobile）真实复用且实现开始分叉时，把两端实现收敛为 `packages/ui` 的共享组件 + 主题 token（以 desktop styles 为基础），例如对话消息渲染、学习卡片和工作台工具面板。
-- **内容边界**：只放跨端复用且**无壳依赖**（Electron IPC / Capacitor）的展示组件与主题 token；页面壳、窗口控制、preload 桥接、平台通道逻辑一律留在各端。
-- **允许端内差异**：Electron 多窗口桌宠与 Web 无桌宠表现层属于壳能力差异；桌面保留桌宠区域和 `pet.html`，Web 只承载共享工作台。
-- **约束**：建包不改变 ADR-014/015 决策；若仅两端复用亦可在各自端内先收敛再提升，避免为假想需求建包。
-
-#### 3.2.1 桌宠多形态渲染引擎
-
-桌面端与 Web 端共用一套协议契约与 SSE `emote` 情感表现，支持三种按需渲染模式：
-
-1. **CSS 骨架（`PetHero`）**：纯静态 DOM + CSS 变换驱动动作与表情，零外部素材依赖，极速轻量启动。
-2. **Codex 精灵图（`SpritePet`）**：消费标准 9 状态 Spritesheet（`pet.json` + 8×9 atlas），支持依据工具调用成败（`waving` / `failed`）实时改变姿态。
-3. **Live2D 动态模型（`Live2D`）**：加载标准 Live2D Cubism 模型（真源位于 `packages/live2d/mizuki`），在 Web 与桌面独立桌宠窗口中呈现细腻骨骼动作，加载异常时自动平滑回退至 CSS 骨架。
-
-领域模块：
-
-- **Local Profile & Consent**：本地用户档案、年龄组、同意、actor 和设备授权；不提供共享数据库身份租户。
-- **Conversation**：Session、MessageVersion、引用和真实分支；消息是会话内容真源。
-- **Learning**：目标、知识点、计划、掌握度观测/推断。
-- **Practice & Review**：题目、作答、错题和调度器。
-- **Memory**：四段记忆、证据、冲突、晋升、衰减、树投影和删除传播。
-- **Diary**：计划、滚动窗口素材缓冲、生成运行、版本、段落来源和通知。
-- **AI Runtime**：上下文组装、模型路由、Prompt、工具权限代理、结构验证。
-- **Safety**：输入/输出分类、固定危机响应、人工升级和安全审计。
-- **Content/Ingestion**：附件、OCR、引用、许可和不可信输入隔离。
-- **Integrations/Plugins**：OAuth、外部同步、适配器、沙箱和权限代理；P2 才启用。
-- **Community/Organization**：P3 独立模块，不能提前污染单用户数据权限模型。
-
-跨模块只能调用公开服务接口或发布领域事件。会话和日记只能提交“记忆候选”；只有 Memory 模块能写 `MemoryRecord`/`MemoryRevision`。画布是可重建投影，不复制会话正文。
-
-## 4. C4 级别部署视图
+工作台通过 `@aervox/ui/workbench` 消费共享构件，业务扩展继续使用 `@aervox/ui/plugin-api`；根界面契约不依赖 `WorkbenchContext`。独立桌宠的窗口创建与透明置顶策略属于 Electron 主进程，呈现内容属于插件。移动端代码复用不代表 Android/iOS 真机交付已经验收。CLI 继续使用独立终端入口和纯传输出口。
 
 ### 4.1 System Context
 
 ```text
-[Learner / Creator / Organization Member]
+[Learner / Creator]
                   │ uses and controls personal data
                   v
              [Aervox System]
       ┌───────────┼──────────────┐
       v           v              v
-[OIDC Identity] [AI Providers] [Notification Providers]
- authenticate   inference only  email/push by consent
+[Local Auth] [AI Providers] [External Integrations]
+ loopback+Token inference only  by consent (ADR-019)
       │           │              │
       └────── contractual privacy/security boundaries ──────┘
 
@@ -422,7 +393,7 @@ CR-030 后部署形态为「永久本地单用户实例」：不存在多用户�
 | [ADR-005](adr/ADR-005-provider-port.md) | Accepted（经 ADR-021 修订） | 内部 Provider Port 包裹 AI SDK |
 | [ADR-006](adr/ADR-006-recall-retention.md) | Accepted | AI 召回期限与历史保留期限分离 |
 | [ADR-007](adr/ADR-007-memory-tree-projection.md) | Accepted | 系统记忆树作为可重建投影 |
-| [ADR-008](adr/ADR-008-cloud-first-local-port.md) | Superseded by CR-030 | Cloud-first 与本地/自托管 Port |
+| [ADR-008](adr/ADR-008-cloud-first-local-port.md) | Superseded by CR-030 | Cloud-first 与本地/自托管 Port（已归档） |
 | [ADR-009](adr/ADR-009-electron-plugin-sandbox.md) | Accepted | Electron 最小权限壳与进程外插件 |
 | [ADR-010](adr/ADR-010-dsh-pi-adapters.md) | Accepted | DSH/pi 仅为可选适配器 |
 | [ADR-011](adr/ADR-011-diary-cycle-schedule-revision.md) | Accepted | 日记周期、计划修订与连续窗口 |
@@ -475,7 +446,7 @@ CR-030 后部署形态为「永久本地单用户实例」：不存在多用户�
 
 - **Guard 1 (P0 表结构双源等价守卫)**：内存 SQLite DDL 与 Drizzle Schema 全量 134 表双向等价断言，杜绝建表遗漏 Schema 或 Schema 遗漏 DDL；
 - **Guard 2 (P0 AST 级租户遗留标识拦截)**：基于 Babel AST 语法树遍历，硬性阻断 `TenantContext`、`tenantId` 及承载 `LocalContext` 的 `tenant` 变量复发；
-- **Guard 3 (P1 文档-代码自动渲染与校验)**：校验全部业务表在覆盖矩阵中的登记完整性、校验 19 个工作区包与架构拓扑对齐、自动化 ADR 索引生成与 `--check` 一致性门禁；
+- **Guard 3 (P1 文档-代码自动渲染与校验)**：校验全部业务表在覆盖矩阵中的登记完整性、校验 21 个工作区包与架构拓扑对齐、自动化 ADR 索引生成与 `--check` 一致性门禁；
 - **Guard 4 (P1 跨层 DTO 类型单一真源)**：扫描下游应用层，严禁本地重复声明已由 `@aervox/contracts` 导出的 DTO 类型；
 - **Guard 5 (P2 依赖提升与版本分裂治理)**：扫描子包 `package.json`，严禁重复声明根级构建工具（`typescript`、`turbo`、`vitest` 等）。
 

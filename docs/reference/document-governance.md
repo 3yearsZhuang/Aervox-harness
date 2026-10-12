@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.0
-updated_at: 2026-10-08
-reviewed_at: 2026-10-08
+version: 0.4.1
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 review_triggers:
   - docs/**
@@ -138,7 +138,7 @@ sources:
 
 - `doc_status=approved` 不自动代表 `delivery_status=released`。
 - CR 的 `decision_status` 和 `delivery_status` 不得只写在正文中；必须各有一个机器字段。
-- `superseded` 文档必须填写 `superseded_by`，并在旧文档顶部放迁移链接。
+- `superseded` 文档必须填写 `superseded_by`（机器校验：canonical 文档缺失即严格模式阻断），并在旧文档顶部放迁移链接。
 - “More Evidence Required”只能作为决策状态，不能同时当作文档类型状态。
 - **提案（Proposals）生命周期**：`docs/proposals/` 用于存放尚未进入基线的探索提案（`doc_status: draft` / `scope: proposal`）。提案在经评审决定采纳后，须转写为正式的 ADR（架构决策）或 CR（变更请求）并迁移至 `reference/` 进入基线；若未被采纳或搁置，分别将决策状态置为 `rejected` 或文档状态置为 `retired`，按[归档导航](changes/README.md)移交外部归档仓库，不留存在生产基线中。
 
@@ -159,6 +159,8 @@ sources:
 文档核验日期和代码提交日期是两个概念：`updated_at` 记录内容变更，`reviewed_at` 记录责任人确认内容仍与事实源一致。没有内容变化但完成核验时只更新 `reviewed_at`。
 
 `mise tasks run docs-triggers` 使用 Git porcelain v1 的 NUL 分隔输出识别当前工作区变动，必须保留路径首字符、空格以及重命名/复制操作的新旧路径。解析行为由 `scripts/docs-governance.test.mjs` 回归测试保护，并纳入 `mise tasks run ci-docs`；触发器输出是复核清单，不自动修改被命中的文档。确认无文档影响时，在 PR 使用 `docs-impact: none` 并说明理由；当前脚本不强制检查该声明。
+
+`review_triggers` 条目必须是**现存路径**，或对仓库文件清单（`git ls-files`，非 Git 目录回退遍历）至少命中一个的 glob；无路径语义的叙述型复核条件写成 YAML 注释行（`# …`），不作为列表元素。空命中与不存在路径由 `docs-validate` 校验并在严格模式阻断，回归测试同由 `scripts/docs-governance.test.mjs` 保护。
 
 ## 6. 索引、登记和生成视图
 
@@ -192,6 +194,7 @@ sources:
 - 失效链接和失效锚点数量；
 - registry 与文档头日期不一致数量；
 - 超过 `review_interval_days` 未核验的文档数；
+- 失效复核触发器（`review_triggers` 路径不存在或 glob 空命中）数量；
 - 代码触发后未复核的文档数；
 - 同一主题出现多个“唯一事实源”声明的数量；
 - `Approved` 但没有关联 ADR/CR/测试证据的文档数。

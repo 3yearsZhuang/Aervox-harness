@@ -7,9 +7,9 @@ owner: product-platform
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.3.0
-updated_at: 2026-09-18
-reviewed_at: 2026-09-18
+version: 0.3.1
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 60
 review_triggers:
   - apps/mobile/**
@@ -34,9 +34,6 @@ sources:
 ---
 
 # 配套硬件方向：能力核查、移动协同取舍与原型路线
-
-- 提出人：3yearszhuang · 2026-09-18
-- 修改人：3yearszhuang · 2026-09-18
 
 关联：[移动端规划 CR-055](../reference/changes/CR-055-mobile-delivery-plan.md)、[PRD](../reference/PRD.md)、[架构](../reference/ARCHITECTURE.md)、[能力注册表](../reference/capability-registry.md)、[交付追踪](../reference/REQUIREMENTS_TRACEABILITY.md)、[早期 ESP32 设计输入](esp32-s3-hardware-extension.md)
 
@@ -103,7 +100,7 @@ Aervox 已具备学习业务、桌面表现与本地服务基础，适合把“�
 
 ### 2.2 本轮重新核验的软件基础
 
-代码核验采用 `0a12ea4` 业务代码与移动规划分支 `dff68b8` 的文档。两份合并输入包含原工作区的未提交规划；其中部分 SPI 路径不在该基线中，以下使用本分支真实入口，不把旧工作稿的描述当作已合入实现。
+代码核验采用 `0a12ea4` 业务代码与移动规划分支 `dff68b8` 的文档。两份合并输入包含原工作区的未提交规划；其中部分 SPI 路径不在该基线中，以下使用该规划分支的真实入口，不把旧工作稿的描述当作已合入实现。
 
 | 可复用部分 | 核验入口 | 对硬件的限制 |
 |---|---|---|

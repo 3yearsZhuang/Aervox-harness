@@ -1,46 +1,59 @@
 <script setup lang="ts">
-import { AervoxButton } from '../primitives';
-import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue';
-import type { Platform } from '../composables/useWorkbenchLayout';
-import PetHero from './PetHero.vue';
-import { createWorkbenchPluginRuntime, type BuiltinUIPlugin } from '../plugins';
-import WorkbenchHeader from './workbench/WorkbenchHeader.vue';
-import WorkbenchSidebar from './workbench/WorkbenchSidebar.vue';
-import PomodoroToast from './workbench/PomodoroToast.vue';
-import ProactiveToast from './workbench/ProactiveToast.vue';
-import WorkbenchNavPill from './workbench/WorkbenchNavPill.vue';
-import WorkbenchSideCards from './workbench/WorkbenchSideCards.vue';
-import ConversationConsole from './workbench/ConversationConsole.vue';
-import StandardConversation from './workbench/StandardConversation.vue';
-import ComposerDock from './workbench/ComposerDock.vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import {
+  type Platform,
+  PetHero,
+  createWorkbenchPluginRuntime,
+  type BuiltinUIPlugin,
+  WorkbenchHeader,
+  WorkbenchSidebar,
+  PomodoroToast,
+  ProactiveToast,
+  WorkbenchNavPill,
+  WorkbenchSideCards,
+  ConversationConsole,
+  StandardConversation,
+  ComposerDock,
+  ExtensionSlot,
+  Live2DPet,
+  ToolsDrawer,
+  HistoryDrawer,
+  TaskCenterDrawer,
+  SettingsModal,
+  CommandPalette,
+  ProjectManagerModal,
+  ImportSessionModal,
+  AervoxButton,
+  useWorkbenchLayout,
+  useWorkbenchTimer,
+  useWorkbenchComposer,
+  createStreamingDeltaBatcher,
+  useWorkbenchConversation,
+  useWorkbenchCards,
+  todayLocalDate,
+  type CardId,
+  useWorkbenchProactive,
+  proactiveBridge,
+  provideWorkbenchContext,
+  createPluginEventBus,
+  createPluginStateStore,
+  resolveStartupQuiet,
+  runStartupDiary,
+  createUIRegistry,
+  provideUIRegistry,
+  resolveOutgoingMessage,
+  MizukiExpression,
+  petReact,
+  petReactKind,
+} from '@aervox/ui/workbench';
+import '@aervox/ui/theme/standard-workbench';
+import { useUISurfaceContext } from '@aervox/ui-host';
 import { PanelLeft } from 'lucide-vue-next';
 
-import ExtensionSlot from './extension/ExtensionSlot.vue';
-
-const Live2DPet = defineAsyncComponent(() => import('./Live2DPet.vue'));
-const ToolsDrawer = defineAsyncComponent(() => import('./workbench/drawers/ToolsDrawer.vue'));
-const HistoryDrawer = defineAsyncComponent(() => import('./workbench/drawers/HistoryDrawer.vue'));
-const TaskCenterDrawer = defineAsyncComponent(() => import('./workbench/drawers/TaskCenterDrawer.vue'));
-const SettingsModal = defineAsyncComponent(() => import('./workbench/drawers/SettingsModal.vue'));
-const CommandPalette = defineAsyncComponent(() => import('./workbench/CommandPalette.vue'));
-const ProjectManagerModal = defineAsyncComponent(() => import('./workbench/modals/ProjectManagerModal.vue'));
-const ImportSessionModal = defineAsyncComponent(() => import('./workbench/modals/ImportSessionModal.vue'));
-
-import { useWorkbenchLayout } from '../composables/useWorkbenchLayout';
-import { useWorkbenchTimer } from '../composables/useWorkbenchTimer';
-import { useWorkbenchComposer } from '../composables/useWorkbenchComposer';
-import { createStreamingDeltaBatcher, useWorkbenchConversation } from '../composables/useWorkbenchConversation';
-import { useWorkbenchCards, todayLocalDate, type CardId } from '../composables/useWorkbenchCards';
-import { useWorkbenchProactive, proactiveBridge } from '../composables/useWorkbenchProactive';
-import { provideWorkbenchContext } from '../composables/workbench-context';
-import { createPluginEventBus } from '../composables/plugin-events';
-import { createPluginStateStore } from '../composables/plugin-state';
-import { resolveStartupQuiet, runStartupDiary } from '../composables/workbench-startup';
-import { useUIRegistry, provideUIRegistry, resolveOutgoingMessage } from '../registry/ui-registry';
 import { streamAervoxTurn, useAervoxPlugins, useAervoxProjects, useAervoxSessions } from '@aervox/api-client';
 import type { TurnAttachmentRef } from '@aervox/contracts';
-import { MizukiExpression } from '../live2d/model';
-import { petReact, petReactKind } from '../live2d/petReactions';
+
+const surfaceContext = useUISurfaceContext();
 
 const props = withDefaults(
   defineProps<{
@@ -66,7 +79,7 @@ const emit = defineEmits<{
   'open-intro-deck': [];
 }>();
 
-const registry = useUIRegistry();
+const registry = createUIRegistry();
 provideUIRegistry(registry);
 
 // CR-060：通用插件事件总线与命名空间化插件状态——宿主只提供容器，不解释语义
@@ -293,6 +306,7 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
         },
       },
       {
+        signal: surfaceContext.signal,
         toolApprovalMode: conversation.toolApprovalMode.value,
         attachments: attachmentRefs.length > 0 ? attachmentRefs : undefined,
         metadata: turnMetadata,
@@ -300,6 +314,7 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
       },
     );
   } catch (error) {
+    if (surfaceContext.signal.aborted) return;
     console.error('对话流式失败', error);
     deltaBatch.flush();
     liveAssistantLine.state = 'error';
@@ -417,12 +432,14 @@ onMounted(() => {
 
   void (async () => {
     const quietStartup = await resolveStartupQuiet(pluginStartupReady, () => layout.quietStartup.value);
+    if (surfaceContext.signal.aborted) return;
     await runStartupDiary({
       quietStartup,
       markerKey: `aervox-diary-first-open-${todayLocalDate()}`,
       storage: localStorage,
       generateToday: () => cards.diaryApi.generateToday(),
       applyGenerated: (result) => {
+        if (surfaceContext.signal.aborted) return;
         cards.todayDiary.value = result;
         cards.setDiarySlotRestore(cards.cardSlots.value[0]);
         cards.cardSlots.value[0] = 'diary';
@@ -475,6 +492,7 @@ function handleGlobalKeydown(e: KeyboardEvent) {
 onUnmounted(() => {
   pluginRuntime?.destroy();
   pluginState.dispose();
+  registry.clear();
   document.removeEventListener('click', layout.handleMenuDocumentClick);
   document.removeEventListener('keydown', layout.handleHistoryEscape);
   document.removeEventListener('keydown', handleGlobalKeydown);

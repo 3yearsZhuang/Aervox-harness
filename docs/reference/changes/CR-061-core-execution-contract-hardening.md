@@ -6,9 +6,9 @@ owner: platform
 doc_status: review-candidate
 decision_status: accepted
 delivery_status: implemented
-version: 0.1.0
-updated_at: 2026-10-08
-reviewed_at: 2026-10-08
+version: 0.1.1
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 sources:
   - docs/reference/adr/ADR-021-aervox-core-standalone-package.md
@@ -38,4 +38,4 @@ sources:
 
 自动化用例覆盖 core、API 和 SQLite 适配，检查实际副作用与模型请求，包含取消/丢租约、截断、门控缺失、父子控制、收件箱、工具配对、事件高水位与慢源。运行完整代码和文档门禁、headless 冒烟及可重复负载基准。
 
-失败时回退本分支代码；恢复接线以 `AERVOX_LOOP_RESUME=local-results` 显式启用，只由本机模型补完已知工具结果的正文，禁止新工具和回合插件钩子；停用后保持既有失败收敛。没有历史数据转换，无需换库。截断输出和未知副作用不得在降级时自动重试。
+失败时回退本次变更的代码；恢复接线以 `AERVOX_LOOP_RESUME=local-results` 显式启用，只由本机模型补完已知工具结果的正文，禁止新工具和回合插件钩子；停用后保持既有失败收敛。没有历史数据转换，无需换库。截断输出和未知副作用不得在降级时自动重试。

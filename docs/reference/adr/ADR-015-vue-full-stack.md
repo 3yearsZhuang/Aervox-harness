@@ -5,16 +5,13 @@ scope: decision
 owner: maintainers
 doc_status: review-candidate
 decision_status: accepted
-version: 0.1.1
-updated_at: 2026-09-13
-reviewed_at: 2026-09-13
+version: 0.1.2
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 ---
 
 # ADR-015 Vue 全栈单栈：Web 复用桌面端技术族
-
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-13
 
 - 状态：Accepted（替代 ADR-002）
 - 日期：2026-08-25
@@ -76,3 +73,7 @@ ADR-002 将 Web 层基线定为 React 19/Vite 7；但首版桌面端 `apps/deskt
 - **已满足**：`apps/web` 构建 + `ci-code` 全绿；无桌面桥时浏览器降级。
 - **未满足**：`TC-RES-STREAM-001` 客户端重连（Last-Event-ID）测试；Playwright E2E 未引入（`TC-E2E-STREAM-001`/`TC-E2E-COMPAT-001` 未落地）。
 - **推进路径**：引入 Playwright 基线后走 G2 评审。
+
+> [!NOTE]
+> **验收差距修订（2026-10-10）**：Playwright 基线已引入并常驻（`playwright.config.ts`、`e2e/`，CI 观察期运行）；
+> 原「Playwright E2E 未引入」与推进路径仅作历史记录保留，具体 TC 证据仍按追踪基线维护。

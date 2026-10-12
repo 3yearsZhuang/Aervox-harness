@@ -14,9 +14,6 @@ review_interval_days: 90
 
 # Aervox 视觉系统与设计规范 (Design System & Tokens)
 
-- 提出人：3yearszhuang · 2026-09-17
-- 修改人：3yearszhuang · 2026-09-17
-
 关联：[架构设计说明书](ARCHITECTURE.md)、[能力注册表](capability-registry.md)、[需求追踪与交付标准](REQUIREMENTS_TRACEABILITY.md)
 
 ---

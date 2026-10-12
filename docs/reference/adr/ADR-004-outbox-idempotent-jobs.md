@@ -13,9 +13,6 @@ review_interval_days: 90
 
 # ADR-004 业务状态 + Outbox + 幂等队列
 
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-18
-
 - 状态：Accepted
 - 日期：2026-08-23
 - 关联：`NFR-REL-001`、`OPS-QUEUE-001`、`CAP-005/009/013`

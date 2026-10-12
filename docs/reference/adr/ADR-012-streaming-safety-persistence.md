@@ -5,16 +5,13 @@ scope: decision
 owner: maintainers
 doc_status: review-candidate
 decision_status: accepted
-version: 0.2.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 0.2.1
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 ---
 
 # ADR-012 可恢复 Turn 流式协议、输出安全门与部分响应持久化
-
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-11
 
 - 状态：Accepted（经 CR-030 修订访问边界）
 - 日期：2026-08-24
@@ -199,3 +196,7 @@ Running/Finalizing
 - **已满足**：OpenAPI 契约测试（`openapi-contract.test.ts`）；CR-027 活流、重放高水位、幂等与取消闭环。
 - **未满足**：撤权/删除中断流并发、同键异 payload、跨 Session 幂等冲突与 Provider chunk 泄漏安全专项。
 - **推进路径**：CR-027 后续安全批次补齐。
+
+> [!NOTE]
+> **CR-030 修订（2026-10-10）**：幂等/并发作用域不再包含工作区，API 访问边界为 loopback + Token；
+> 文中 workspace 相关表述仅作历史记录保留。

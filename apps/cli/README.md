@@ -1,8 +1,5 @@
 # 思隅 CLI
 
-- 提出人：3yearszhuang · 2026-09-29
-- 修改人：3yearszhuang · 2026-09-30
-
 连接本机思隅 API 的终端入口，需要 Node.js 24+ 和已启动的兼容服务。完整合同与当前边界见 [CR-058](../../docs/reference/changes/CR-058-siyu-cli-attached-client.md)。
 
 从仓库根目录构建：

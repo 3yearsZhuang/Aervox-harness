@@ -23,9 +23,6 @@ sources:
 
 # CR-057 实施 HLS 本地智能体验证执行器
 
-- 提出人：3yearszhuang · 2026-09-29
-- 修改人：3yearszhuang · 2026-10-05
-
 关联：[HLS 规划](../../explanation/hls-agent-competition-plan.md) · [ITER-021](../../../plan.md#iter-021) · [执行规范](../agent-harness-loop.md) · [实现登记](../REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)
 
 ## 1. 授权、基线与范围

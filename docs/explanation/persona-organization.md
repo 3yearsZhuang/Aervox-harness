@@ -6,16 +6,13 @@ owner: maintainers
 doc_status: draft
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.1.0
-updated_at: 2026-08-26
-reviewed_at: 2026-08-26
+version: 0.1.1
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 ---
 
 # 桌宠角色设定文档化与多人格模板组织
-
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-08-26
 
 关联：[参考项目能力迁移与借鉴评估](reference-design-transfer.md)、[架构设计](../reference/ARCHITECTURE.md)、[AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)、[文档写作规范](../reference/standards/doc-standards.md)
 
@@ -40,7 +37,7 @@ Aervox 的桌宠角色是一等公民资产：每个角色由一份独立文档�
 
 ### 范围
 
-本文覆盖角色文档的目录归属、内容清单、字段化结构与维护流程。运行时解析、多人格切换、记忆隔离的落地规则随 CAP-019 立项（参考 [参考项目能力迁移与借鉴评估 §4.6](reference-design-transfer.md#46-ast-03-人设字段化与解析链)）；AI 生成内容的正确性与安全门槛见 [AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)。
+本文覆盖角色文档的目录归属、内容清单、字段化结构与维护流程。运行时解析与多人格切换已随 CAP-019 在主仓落地（参考 [参考项目能力迁移与借鉴评估 §4.6](reference-design-transfer.md#46-ast-03-人设字段化与解析链)）；人格记忆的隔离与显式共享按共享安全边界继续演进；AI 生成内容的正确性与安全门槛见 [AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)。
 
 ## 角色设定文档清单
 
@@ -67,13 +64,13 @@ Aervox 的桌宠角色是一等公民资产：每个角色由一份独立文档�
 | 技能 | 该人格可用的工具/能力开关 | 与人格切换一致，受共享安全边界约束 |
 | 错误兜底语 | 失败或超范围时的固定回话 | 避免模型自由发挥，保证失败如实转述 |
 
-字段与解析链的完整定义、默认兜底语义随 CAP-019 立项时落地（[参考项目能力迁移与借鉴评估 §4.6](reference-design-transfer.md#46-ast-03-人设字段化与解析链)）。
+字段与解析链的完整定义、默认兜底语义已随 CAP-019 落地（[参考项目能力迁移与借鉴评估 §4.6](reference-design-transfer.md#46-ast-03-人设字段化与解析链)）。
 
 ## 多人格模板组织
 
 CAP-019 要求「提供经过审核的教学/陪伴人格，可切换但共享安全边界；人格记忆相互隔离或显式共享」。对应到文档组织：
 
-- **按人设目录组织**：每个模板独立成目录，内含一份 `README.md` 索引 + 上述四部分文档。持久化的人设数据（供产品浏览、校验）作为契约字段随立项定义，与文档双写；文档是事实源，代码 schema 是对照。
+- **按人设目录组织**：每个模板独立成目录，内含一份 `README.md` 索引 + 上述四部分文档。持久化的人设数据（供产品浏览、校验）作为契约字段定义并与文档双写；文档是事实源，代码 schema 是对照。
 - **模板版本化**：每个模板目录带版本与更新日期；对外切换以模板版本为标识，释放旧版本仅作追溯保留，不走静默覆盖。跨人格记忆默认隔离，显式共享前展示范围并取得确认（对齐 [PRD 能力验收 CAP-019](../reference/PRD.md)）。
 - **共享安全边界**：所有模板共用同一套安全、事实判断、权限与学习数据规则，人格只影响表达、外观与互动节奏。
 

@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: accepted
 delivery_status: implemented
-version: 1.0.0
-updated_at: 2026-10-03
-reviewed_at: 2026-10-03
+version: 1.0.2
+updated_at: 2026-10-12
+reviewed_at: 2026-10-12
 review_interval_days: 30
 review_triggers:
   - plugins/**
@@ -35,9 +35,6 @@ sources:
 ---
 
 # CR-060 专注模式宿主去领域化与插件实现内聚
-
-- 提出人：3yearszhuang · 2026-10-03
-- 修改人：3yearszhuang · 2026-10-03
 
 关联：[PRD](../PRD.md) · [架构设计](../ARCHITECTURE.md) · [能力组合规范](../capability-composition.md) · [插件开发规范](../plugin-config-and-pages.md) · [需求追踪基线](../REQUIREMENTS_TRACEABILITY.md) · [CR 工作流指南](../../how-to/cr-workflow.md)
 
@@ -67,7 +64,7 @@ sources:
 | [stream-projection.ts:22,35-36](../../../packages/contracts/src/stream-projection.ts#L22-L36) | 投影白名单按事件类型泛化校验 | 核心投影函数特判 `tool.name === "record_practice_attempt"` 并内联 `practiceResultSchema`，为单个插件工具开后门 |
 | [useWorkbenchLayout.ts:78-79,186-205](../../../packages/ui/src/composables/useWorkbenchLayout.ts#L78-L205) | 工作台宿主提供通用 layout/composer/conversation 组合式函数 | 插件域状态 `focusModeEnabled` 长在通用 layout 组合式函数内，含插件专属活动事件名与**插件 DOM class** `.floating-study-switch-wrap` |
 | [useWorkbenchCards.ts:625-634](../../../packages/ui/src/composables/useWorkbenchCards.ts#L625-L634) | 卡片目录由核心卡片与 `registry.getCards()` 合并 | 核心组合式函数硬编码插件贡献的卡片 id：`cardSlots.value = ['study', 'timer']` |
-| [`AervoxWorkbench.vue:243-245`](../../../packages/ui/src/components/AervoxWorkbench.vue#L243-L245) | Turn 协议的 `metadata` 为开放结构 `z.record(z.string(), z.unknown())` | 宿主壳体直接产出插件私有语义 `{ mode: 'focus', intent: 'quiz' }` |
+| [`AervoxWorkbench.vue`](../../../plugins/workbench-ui/src/AervoxWorkbench.vue) | Turn 协议的 `metadata` 为开放结构 `z.record(z.string(), z.unknown())` | 宿主壳体直接产出插件私有语义 `{ mode: 'focus', intent: 'quiz' }` |
 | [plugin-runtime.ts:68,73-74,110-111,127-131](../../../packages/ui/src/plugins/plugin-runtime.ts#L68-L74) | 插件运行时按 id 泛化同步启用状态 | 宿主加载器硬编码 `focus-mode ↔ study-mode` 别名映射、配置回退与双向可用性回退 |
 | [workbench-context.ts:26](../../../packages/ui/src/composables/workbench-context.ts#L26)、[registry/types.ts:48,56](../../../packages/ui/src/registry/types.ts#L48) | 宿主上下文与 Composer 契约是通用扩展面 | 契约内写死 `quizMode` 插件私有标识 |
 | [theme/workbench.css:96-184,1186-1316](../../../packages/ui/src/theme/workbench.css#L96-L184) | 宿主主题承载全局 Token 与布局 | 全套插件组件样式位于宿主主题；插件单文件组件除 `TermExploreDialog.vue` 外均无 `<style>` 块 |
@@ -124,7 +121,7 @@ sources:
 
 ### 1.5 代码评审后的修正（第二轮，同分支）
 
-首轮交付后经独立代码评审（宿主门禁 + 并行深审），发现若干**缺陷与不实陈述**，已在本分支修正：
+首轮交付后经独立代码评审（宿主门禁 + 并行深审），发现若干**缺陷与不实陈述**，已在实施分支修正：
 
 | 类别 | 问题 | 处理 |
 |---|---|---|

@@ -6,9 +6,9 @@ owner: product-platform
 doc_status: review-candidate
 decision_status: accepted
 delivery_status: planned
-version: 0.2.0
-updated_at: 2026-09-17
-reviewed_at: 2026-09-17
+version: 0.2.1
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 60
 sources:
   - docs/explanation/proactive-intelligence-mode.md
@@ -19,9 +19,6 @@ sources:
 ---
 
 # ADR-018 CAP-033 本地私密存储与主动智能 Host
-
-- 提出人：3yearszhuang · 2026-08-29
-- 修改人：3yearszhuang · 2026-09-17
 
 关联：`CR-023`（已归档）、[主动智能设计方案](../../explanation/proactive-intelligence-mode.md)、[数据与隐私](../DATA_PRIVACY.md)、[威胁模型](../THREAT_MODEL.md)、[数据库契约](../DATABASE.md)
 
@@ -34,7 +31,7 @@ CAP-033 需要在用户确认后持续观察设备全部可用来源、形成完
 - 用户明确要求画像原始数据、派生数据、记忆、动作和控制面不上传云端；
 - 用户明确允许全量来源、后台生命周期和全动作授权，但授权必须可见、可撤销、可审计；
 - 原始捕获副本保留七天，完成记忆提炼后才允许物理清理；
-- 观察内容和模型输出不能改变授权范围、租户边界或删除权；
+- 观察内容和模型输出不能改变授权范围、本地数据边界或删除权；
 - 现有 Web/API/Worker 仍需保持可用，CAP-033 失败不得破坏核心学习闭环。
 
 ## Considered options
@@ -53,7 +50,7 @@ CAP-033 采用受信签名的本地 Privacy Host/Helper 作为唯一主动观察
 
 用户确认的 persistence grant 可启用开机自启、应用退出后常驻、休眠恢复和重启自动恢复。恢复前重新校验授权、Host 签名、版本、OS grant 和 deny 水位；暂停、撤权和删除优先于恢复。原始捕获按 `observedAt + 7 天` 计算保留期限，且完成记忆提炼后才可物理清理；用户主动删除可提前触发传播。
 
-当前分支已落地本 ADR 的部分可验证路径：本地 Vault/加密、loopback token、授权/lease、已接入来源采集、动作授权器、提炼 Worker、来源级删除、导出和 heartbeat；其余平台 entitlement、系统级来源适配器、出网阻断、旁观者/凭据过滤和生产灾备语义仍待验证。本 ADR 保持 `Proposed`，在上述门禁完成前不得将 CAP-033 标为 `Ready` 或宣称全量广域能力已发布。
+现有实现已落地本 ADR 的部分可验证路径：本地 Vault/加密、loopback token、授权/lease、已接入来源采集、动作授权器、提炼 Worker、来源级删除、导出和 heartbeat；其余平台 entitlement、系统级来源适配器、出网阻断、旁观者/凭据过滤和生产灾备语义仍待验证。本 ADR 已接受（`decision_status: accepted`）；在上述门禁完成前不得将 CAP-033 标为 `Ready` 或宣称全量广域能力已发布。
 
 ## Positive consequences
 

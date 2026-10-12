@@ -5,16 +5,13 @@ scope: decision
 owner: maintainers
 doc_status: approved
 decision_status: accepted
-version: 0.2.3
-updated_at: 2026-10-03
-reviewed_at: 2026-10-03
+version: 0.2.4
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 ---
 
 # ADR-016 底座边界冻结：Kernel Substrate 与能力层的依赖边界
-
-- 提出人：3yearszhuang · 2026-08-28
-- 修改人：3yearszhuang · 2026-09-28
 
 - 状态：Accepted
 - 日期：2026-08-28
@@ -55,8 +52,8 @@ review_interval_days: 90
 | 层 | 落点 | 允许依赖 |
 |---|---|---|
 | L0 | `packages/contracts` | 仅第三方契约库；不得依赖任何 `@aervox/*` |
-| L1 | `packages/database` | `@aervox/contracts`、libsql、Drizzle（数据真源底座） |
-| L1 | `packages/core` | `@aervox/contracts`（仅 type-only）；不得导入 database/libsql/Drizzle；运行时应保持零依赖（ADR-021）；`packages/agent-loop` 为指向它的 re-export 过渡壳，同受本条约束 |
+| L1 | `packages/schema`、`packages/repositories` | `@aervox/contracts`、`@aervox/schema`、libsql、Drizzle（数据真源底座） |
+| L1 | `packages/core` | `@aervox/contracts`（仅 type-only）；不得导入 database/libsql/Drizzle；运行时应保持零依赖（ADR-021） |
 | L2 | `packages/api-client`、`packages/ui` | 契约/传输/共享组件；不得导入 database/libsql/Drizzle、不得依赖宿主 Shell |
 | L3 | `apps/*` | 上述所有底座（宿主单向消费底座） |
 | 预留 | `capabilities/`、`providers/`、`adapters/`、`modules/` | 仅经 Port/Contract 与宿主受限接口交互；不得导入 database/libsql/Drizzle、不得依赖宿主 Shell |
@@ -123,3 +120,7 @@ review_interval_days: 90
 保留五条包级规则，新增 API `src` 下 `modules/<domain>/<module>` 所有权检查；跨模块仅允许 `index.ts`。组合根没有目录豁免，历史私有引用清单精确到源/目标，见 [module-boundary-exceptions.json](../../../scripts/module-boundary-exceptions.json)，逐条包含 Owner 与删除条件，迁移后移除。当前仍有历史边，不能据门禁通过宣称全仓已完成 Port 迁移。
 
 覆盖 type import、TSImportType、re-export、动态字面量、目录入口和 `.js` 到 `.ts`；纳管源码的解析错误、缺失相对目标、非字面量动态导入均阻断。测试目录可以验证私有实现；原包级范围保持原行为。19 项自测和全仓检查通过，正式命令使用 `mise exec -- node scripts/import-boundary.mjs`。
+
+> [!NOTE]
+> **落地对齐（2026-10-10）**：`packages/database` 已由 ITER-037/ADR-021 拆分退役为 `packages/schema` + `packages/repositories`（不得恢复旧包）；
+> `packages/agent-loop` re-export 过渡壳已物理删除，内核为 `packages/core`。表内 L1 落点已按现状更新，依赖规则不变。

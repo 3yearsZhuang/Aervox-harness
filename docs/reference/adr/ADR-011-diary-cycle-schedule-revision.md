@@ -5,16 +5,13 @@ scope: decision
 owner: maintainers
 doc_status: review-candidate
 decision_status: accepted
-version: 0.2.0
-updated_at: 2026-09-10
-reviewed_at: 2026-09-10
+version: 0.2.1
+updated_at: 2026-10-10
+reviewed_at: 2026-10-10
 review_interval_days: 90
 ---
 
 # ADR-011 日记周期、计划修订与连续窗口
-
-- 提出人：3yearszhuang · 2026-08-26
-- 修改人：3yearszhuang · 2026-09-11
 
 - 状态：Accepted（经 CR-030 修订数据归属字段）
 - 日期：2026-08-24
@@ -198,3 +195,8 @@ Buffer 只保存来源引用和获单独授权的最小临时快照。撤权或�
 - **已满足**：diary cycle CAS/发布事务与 on-demand 路径测试（diary-repository、CR-026）。
 - **未满足**：窗口 coverage 链性质测试、DST gap/fold 与 tzdata 升级、重复 Job/lease 过期/Redis 丢失矩阵、停机补跑清单。
 - **推进路径**：CAP-009 阶段 2（定时任务硬化）时补齐。
+
+> [!NOTE]
+> **CR-030 修订（2026-10-10）**：本 ADR 撰写时的传输层为 Redis/BullMQ、身份模型含工作区/用户字段。
+> CR-030 后异步任务改由 SQLite `outbox_events` + Worker 轮询承载，Redis/BullMQ 已完全移除，数据归属字段已去租户化；
+> 文中相关表述（含 `tstzrange` 等 PostgreSQL 构造）仅作历史记录保留。

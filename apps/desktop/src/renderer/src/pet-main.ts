@@ -1,9 +1,9 @@
 import {createApp} from 'vue'
 import {configureAervoxClient, desktopTransport} from '@aervox/api-client'
-import './styles/pet.css'
-import PetWindow from './components/PetWindow.vue'
+import {UISurfaceHost} from '@aervox/ui-host'
+import defaultSurface from '@aervox/plugin-companion-ui'
 
-// 与主窗口一致走 Electron IPC 桥：主进程注入租户/鉴权头，桌宠窗口的
+// 与主窗口一致走 Electron IPC 桥：主进程注入鉴权头，桌宠窗口的
 // 快捷对话与选择肢提交不再裸 fetch 直连 API
 configureAervoxClient({ transport: desktopTransport, platform: {
     setTheme: window.fairyDesktop?.setTheme,
@@ -21,4 +21,10 @@ applyTheme(fallbackTheme)
 window.fairyDesktop?.getTheme().then(applyTheme)
 window.fairyDesktop?.onThemeChange(applyTheme)
 
-createApp(PetWindow).mount('#pet-app')
+createApp(UISurfaceHost, {
+    plugin: defaultSurface,
+    surface: 'companion',
+    platform: 'desktop',
+    requestClose: () => window.close(),
+    requestReload: () => window.location.reload(),
+}).mount('#pet-app')
