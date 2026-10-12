@@ -11,11 +11,13 @@ const emit = defineEmits<{ onSpeak: [text: string, preset?: string] }>()
 const canvasHost = ref<HTMLDivElement | null>(null)
 const status = ref<'loading' | 'ready' | 'error'>('loading')
 let controller: AervoxLive2DController | null = null
+let disposed = false
+let exposedApi: Window['aervoxLive2D']
 let removePetCommandListener: (() => void) | null = null
 
 function exposeApi() {
   if (typeof window === 'undefined') return
-  ;(window as Window & { aervoxLive2D?: unknown }).aervoxLive2D = {
+  exposedApi = {
     motions: MIZUKI_MOTIONS,
     expressions: MIZUKI_EXPRESSIONS,
     playMotion: (motion: string) => controller?.playNamedMotion('Motion', motion) ?? false,
@@ -28,6 +30,7 @@ function exposeApi() {
       controller?.focusViewportPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
     },
   }
+  window.aervoxLive2D = exposedApi
 }
 
 function onCommand(command: PetCommand) {
@@ -76,13 +79,15 @@ onMounted(async () => {
     status.value = 'error'
     return
   }
-  controller = new AervoxLive2DController(canvasHost.value)
   try {
+    controller = new AervoxLive2DController(canvasHost.value)
     await controller.load(DEFAULT_AERVOX_MODEL)
+    if (disposed) return
     exposeApi()
     removePetCommandListener = getPlatformServices().onPetCommand?.((value: unknown) => onCommand(value as PetCommand)) ?? null
     status.value = 'ready'
   } catch (error) {
+    if (disposed) return
     console.warn('[Aervox] Live2D unavailable; using fallback', error)
     status.value = 'error'
   }
@@ -90,12 +95,13 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  disposed = true
   removePetCommandListener?.()
   removePetCommandListener = null
   window.removeEventListener(PET_REACT_EVENT, handlePetReact)
   controller?.destroy()
   controller = null
-  if (typeof window !== 'undefined') delete (window as Window & { aervoxLive2D?: unknown }).aervoxLive2D
+  if (typeof window !== 'undefined' && window.aervoxLive2D === exposedApi) delete window.aervoxLive2D
 })
 </script>
 

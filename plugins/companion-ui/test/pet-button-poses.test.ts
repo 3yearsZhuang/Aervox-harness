@@ -1,10 +1,11 @@
+// @vitest-environment node
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { PET_BUTTON_POSES, pickPetButtonPose } from '../src/renderer/src/pet-button-poses.js'
+import { PET_BUTTON_POSES, pickPetButtonPose } from '../src/pet-button-poses.js'
 
-const modelRoot = fileURLToPath(new URL('../src/renderer/public/live2d/mizuki', import.meta.url))
+const modelRoot = fileURLToPath(new URL('../../../packages/live2d/mizuki', import.meta.url))
 
 describe('PET_BUTTON_POSES', () => {
   it('每个按钮都绑定了至少一组动作+表情', () => {

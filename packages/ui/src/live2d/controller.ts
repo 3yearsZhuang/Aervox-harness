@@ -23,6 +23,7 @@ export class AervoxLive2DController {
   status: Live2DControllerStatus = 'idle'
   model: Live2DModelType | null = null
   assets: ResolvedCubismAsset | null = null
+  private destroyed = false
   private resizeListener: (() => void) | null = null
   private visibilityListener: (() => void) | null = null
   private idleTimer: number | null = null
@@ -64,15 +65,19 @@ export class AervoxLive2DController {
   }
 
   async load(modelDefinition: AervoxLive2DModel): Promise<void> {
+    if (this.destroyed) throw new DOMException('Live2D disposed', 'AbortError')
     this.status = 'loading'
     try {
-      this.assets = await fetchModel3Json(modelDefinition)
+      const assets = await fetchModel3Json(modelDefinition)
+      if (this.destroyed) throw new DOMException('Live2D disposed', 'AbortError')
+      this.assets = assets
       // Idle 组常只有一个动作，库的动作结束自动循环会永远重复它（僵硬）；
       // 替换成多样待机池后，库的 idle 随机循环本身就足够自然。
       this.diversifyIdleGroup()
       // Load the renderer lazily so a missing optional browser runtime cannot
       // crash the host application before the PetHero fallback can render.
       const { Live2DModel } = await import('@sekai-world/pixi-live2d-display-mulmotion')
+      if (this.destroyed) throw new DOMException('Live2D disposed', 'AbortError')
       // Pass the validated JSON so external motion metadata reaches the runtime.
       const loadedModel = await Live2DModel.from({ ...this.assets.manifest, url: this.assets.manifestUrl }, {
         autoHitTest: false,
@@ -80,6 +85,10 @@ export class AervoxLive2DController {
         autoUpdate: true,
         ticker: this.app.ticker,
       })
+      if (this.destroyed) {
+        loadedModel.destroy({ children: true })
+        throw new DOMException('Live2D disposed', 'AbortError')
+      }
       this.model = loadedModel
       this.stage.addChild(loadedModel)
       const scaleFactor = modelDefinition.scale ?? 1
@@ -326,6 +335,8 @@ export class AervoxLive2DController {
   }
 
   destroy(): void {
+    if (this.destroyed) return
+    this.destroyed = true
     this.app.ticker.remove(this.focusTicker)
     if (this.idleTimer !== null) window.clearTimeout(this.idleTimer)
     if (this.blinkTimer !== null) window.clearTimeout(this.blinkTimer)

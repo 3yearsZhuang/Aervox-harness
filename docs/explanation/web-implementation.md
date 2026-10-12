@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.1.3
-updated_at: 2026-10-10
-reviewed_at: 2026-10-10
+version: 0.1.4
+updated_at: 2026-10-12
+reviewed_at: 2026-10-12
 review_interval_days: 90
 ---
 
@@ -51,8 +51,8 @@ review_interval_days: 90
 |---|---|
 | `useAervoxApi.ts` | **直接复用**：`request()` 的 `window.fairyDesktop` 判断在 web 恒为 undefined，天然走 fetch 分支 |
 | `useAervoxTurn.ts` | **补分支**：新增 `streamTurnViaSSE()`（`fetch(…/events)` + `Last-Event-ID` + SSE 解析），桌面桥分支保留；后经 ITER-052 收敛为 `@aervox/api-client/transport` 共享实现（现行入口 `streamAervoxTurn`） |
-| `PetWindow.vue` / `AppTitlebar.vue` | 桌面壳组件不迁移；Web 不引入 `PetBubble` 或 Electron 窗口控制 |
-| `packages/ui` `AervoxWorkbench.vue` / `workbench.css` | 共享对话、学习、工具面板和主题；通过 `platform` / `showCompanion` 处理桌面与 Web 差异 |
+| `PetWindow.vue` / `AppTitlebar.vue` | CR-063 将桌宠呈现迁入 `plugins/companion-ui`；标题栏和 Electron 窗口控制保留平台壳 |
+| `plugins/workbench-ui` / `packages/ui` | 根工作台由 `@aervox/ui-host` 装配，共享组件与主题由 `@aervox/ui` 提供；`platform` / `showCompanion` 处理端差异 |
 | `types/chat.ts` | 复用 |
 | preload/main（Electron 主进程） | **不复用**（web 无主进程）；窗口控制改空实现或隐藏 |
 

@@ -98,12 +98,12 @@ export const REMOVABLE_TARGETS = [
     removalPlan: {
       removeDirectories: ["plugins/focus-mode"],
       strips: [
-        { file: "apps/api/src/plugin-assembly.ts", pattern: "^.*@aervox/plugin-[^\\n]*\\n", flags: "gm" },
-        { file: "apps/web/src/App.vue", pattern: "^.*(@aervox/plugin-|firstPartyPlugin|firstPartyPlugins)[^\\n]*\\n", flags: "gm" },
-        { file: "apps/desktop/src/renderer/src/App.vue", pattern: "^.*(@aervox/plugin-|firstPartyPlugin|firstPartyPlugins)[^\\n]*\\n", flags: "gm" },
-        { file: "apps/api/package.json", pattern: "^\\s*\"@aervox/plugin-[^\"]*\": \"[^\"]*\",?\\n", flags: "gm" },
-        { file: "apps/web/package.json", pattern: "^\\s*\"@aervox/plugin-[^\"]*\": \"[^\"]*\",?\\n", flags: "gm" },
-        { file: "apps/desktop/package.json", pattern: "^\\s*\"@aervox/plugin-[^\"]*\": \"[^\"]*\",?\\n", flags: "gm" },
+        { file: "apps/api/src/plugin-assembly.ts", pattern: "^.*@aervox/plugin-focus-mode[^\\n]*\\n", flags: "gm" },
+        { file: "apps/web/src/App.vue", pattern: "^.*(@aervox/plugin-focus-mode|firstPartyPlugin|firstPartyPlugins)[^\\n]*\\n", flags: "gm" },
+        { file: "apps/desktop/src/renderer/src/App.vue", pattern: "^.*(@aervox/plugin-focus-mode|firstPartyPlugin|firstPartyPlugins)[^\\n]*\\n", flags: "gm" },
+        { file: "apps/api/package.json", pattern: "^\\s*\"@aervox/plugin-focus-mode\": \"[^\"]*\",?\\n", flags: "gm" },
+        { file: "apps/web/package.json", pattern: "^\\s*\"@aervox/plugin-focus-mode\": \"[^\"]*\",?\\n", flags: "gm" },
+        { file: "apps/desktop/package.json", pattern: "^\\s*\"@aervox/plugin-focus-mode\": \"[^\"]*\",?\\n", flags: "gm" },
       ],
     },
     dataRetentionRule:

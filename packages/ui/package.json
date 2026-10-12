@@ -16,7 +16,10 @@
     "./theme": "./src/theme/index.css",
     "./plugin-api": "./src/plugin-api.ts",
     "./markdown": "./src/utils/markdown.ts",
-    "./primitives": "./src/primitives/index.ts"
+    "./primitives": "./src/primitives/index.ts",
+    "./workbench": "./src/workbench.ts",
+    "./theme/standard-workbench": "./src/theme/standard-workbench.css",
+    "./env": "./src/env.d.ts"
   },
   "scripts": {
     "typecheck": "vue-tsc --noEmit",

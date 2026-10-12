@@ -1153,6 +1153,27 @@
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
         "https://github.com/3yearsZhuang/Aervox-harness/pull/262"
       ]
+    },
+    {
+      "id": "ITER-054",
+      "batch": "first",
+      "status": "执行中",
+      "delivery": "根界面插件首个切片：薄 UI 宿主、默认工作台与桌宠插件、跨端组合根；CAP-001/002/018/020；CR-063。",
+      "gate": "2026-10-12 用户授权建分支落地；默认 P0 能力保留，先交付受信构建装配，不扩展第三方运行时代码权限。",
+      "acceptance": [
+        "替换根组件可真实渲染；失败/超时可重试；旧加载和已卸载实例不覆盖当前界面。",
+        "Web/桌面构建与共享 UI、桌宠、生命周期回归通过；移动端继续复用 Web。"
+      ],
+      "checks": [
+        "packages/ui-host/test/surface-host.test.ts"
+      ],
+      "owner": "frontend",
+      "branch": "feat/ui-surface-plugins",
+      "statusNote": "根界面实现迁移及装配合同实施中；原生移动验收、独立安装和业务面板细拆留后续切片。",
+      "dependsOn": [],
+      "links": [
+        "docs/reference/changes/CR-063-ui-surface-plugins.md"
+      ]
     }
   ]
 }

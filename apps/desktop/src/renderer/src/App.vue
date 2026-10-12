@@ -3,12 +3,14 @@ import {defineAsyncComponent, onBeforeUnmount, onMounted, ref} from 'vue'
 import {X} from 'lucide-vue-next'
 import AppTitlebar from '@/components/AppTitlebar.vue'
 import {hasCompletedOnboarding, markOnboardingCompleted} from '@/onboarding-state'
-import {AervoxWorkbench} from '@aervox/ui'
+import {UISurfaceHost} from '@aervox/ui-host'
+import defaultSurface from '@aervox/plugin-workbench-ui'
 // CR-060：第一方插件按**包路径**装配，宿主不绑定插件私有符号（见 check-host-domain-purity）
 import * as firstPartyPlugin from '@aervox/plugin-focus-mode/ui'
 
 const OnboardingFlow = defineAsyncComponent(() => import('@/components/OnboardingFlow.vue'))
 const showOnboarding = ref(!hasCompletedOnboarding(window.localStorage))
+const reloadSurface = () => window.location.reload()
 const firstPartyPlugins = [firstPartyPlugin.default]
 const showIntroDeck = ref(false)
 
@@ -43,10 +45,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
   <div class="window-shell">
     <AppTitlebar />
     <OnboardingFlow v-if="showOnboarding" @complete="completeOnboarding" />
-    <AervoxWorkbench
+    <UISurfaceHost
+      :plugin="defaultSurface"
+      :request-reload="reloadSurface"
+      surface="main"
       v-else
       platform="desktop"
-      :show-companion="true"
+      :view-props="{ showCompanion: true }"
       :plugins="firstPartyPlugins"
       @replay-onboarding="replayOnboarding"
       @open-intro-deck="openIntroDeck"

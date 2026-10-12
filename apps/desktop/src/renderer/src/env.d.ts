@@ -1,3 +1,4 @@
+/// <reference types="@aervox/ui/env" />
 /// <reference types="vite/client" />
 interface ImportMetaEnv {
   readonly VITE_AERVOX_LIVE2D_MODEL_URL?: string
@@ -17,13 +18,6 @@ interface ApiRequestResult<T = unknown> {
   text: string
 }
 interface Window {
-  aervoxLive2D?: {
-    readonly motions: readonly string[]
-    readonly expressions: readonly string[]
-    playMotion: (motion: string) => boolean
-    playExpression: (expression: string) => void
-    playPose: (pose: { motion?: string; expression?: string }) => void
-  }
   fairyDesktop?: {
     minimize: () => Promise<void>
     toggleMaximize: () => Promise<boolean>

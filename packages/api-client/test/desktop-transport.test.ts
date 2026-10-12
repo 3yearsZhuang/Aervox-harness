@@ -137,3 +137,46 @@ describe('desktopTransport', () => {
     expect(onReasoning).toHaveBeenCalledWith('思考中')
   })
 })
+
+
+it('root unmount detaches IPC streaming and ignores late callbacks', async () => {
+  vi.useFakeTimers()
+  const controller = new AbortController()
+  let callback!: (message: unknown) => void
+  const stop = vi.fn()
+  const cancelTurn = vi.fn()
+  const apiRequest = vi.fn()
+  ;(globalThis as { window: unknown }).window = {
+    fairyDesktop: { apiRequest, cancelTurn, streamTurn: vi.fn((_c, _o, cb) => { callback = cb; return stop }) },
+  }
+  const onDelta = vi.fn()
+  const result = desktopTransport.streamTurn('s', 'hello', { onDelta, onDone: vi.fn() }, { signal: controller.signal })
+  const assertion = expect(result).rejects.toMatchObject({ name: 'AbortError' })
+  controller.abort()
+  await assertion
+  callback({ type: 'event', event: { eventType: 'delta', data: { text: 'late' } } })
+  await vi.advanceTimersByTimeAsync(DESKTOP_TURN_TIMEOUT_MS)
+  expect(stop).toHaveBeenCalledOnce()
+  expect(cancelTurn).toHaveBeenCalledOnce()
+  expect(onDelta).not.toHaveBeenCalled()
+  expect(apiRequest).not.toHaveBeenCalled() // No logical Turn cancellation request.
+})
+
+it('an already detached surface cannot start an IPC turn', async () => {
+  const controller = new AbortController()
+  controller.abort()
+  const streamTurn = vi.fn()
+  ;(globalThis as { window: unknown }).window = { fairyDesktop: { apiRequest: vi.fn(), streamTurn } }
+  await expect(desktopTransport.streamTurn('s', 'hello', { onDelta: vi.fn(), onDone: vi.fn() }, { signal: controller.signal }))
+    .rejects.toMatchObject({ name: 'AbortError' })
+  expect(streamTurn).not.toHaveBeenCalled()
+})
+
+it('synchronous bridge completion still releases the returned subscription', async () => {
+  const stop = vi.fn()
+  ;(globalThis as { window: unknown }).window = {
+    fairyDesktop: { apiRequest: vi.fn(), streamTurn: vi.fn((_c, _o, cb) => { cb({ type: 'closed' }); return stop }) },
+  }
+  await desktopTransport.streamTurn('s', 'hello', { onDelta: vi.fn(), onDone: vi.fn() })
+  expect(stop).toHaveBeenCalledOnce()
+})

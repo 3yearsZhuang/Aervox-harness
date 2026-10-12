@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.21.0
-updated_at: 2026-10-10
-reviewed_at: 2026-10-10
+version: 1.21.1
+updated_at: 2026-10-12
+reviewed_at: 2026-10-12
 review_interval_days: 90
 ---
 
@@ -22,7 +22,7 @@ review_interval_days: 90
 |---|---|---|---|---|
 | `AVX-PRD-001` | [PRD](reference/PRD.md) | 2026-10-10 | 每次版本立项 / G0 | CAP 范围或优先级变更未建立 `CR-*` |
 | `AVX-SRS-001` | [SRS](reference/SRS.md) | 2026-10-10 | G1 需求基线前 | 版本内 FR/BR/AC 变化未同步或未过 DoR |
-| `AVX-SAD-001` | [架构设计](reference/ARCHITECTURE.md) | 2026-10-10 | G2 评审 + 架构变更 | CR-030 本地单用户边界、API 安全或数据拓扑未同步 |
+| `AVX-SAD-001` | [架构设计](reference/ARCHITECTURE.md) | 2026-10-12 | G2 评审 + 架构变更 | CR-030 本地单用户边界、API 安全或数据拓扑未同步 |
 | `AVX-DS-001` | [视觉系统与设计规范](reference/DESIGN.md) | 2026-09-17 | UI 重构 / 主题演进 | 视觉规范、Token 或禁止模式未同步 |
 | `ADR-001~021` | [ADR 索引](reference/adr/README.md) | 2026-10-10 | G2 评审 + 决策变更 | 决策被 `Superseded/Rejected` 未登记 |
 | `ADR-001` | [模块化单体架构与 Worker 拆分](reference/adr/ADR-001-modular-monolith.md) | 2026-10-10 | G2 评审 + 决策变更 | 决策被 Superseded/Rejected 未登记 |
@@ -61,8 +61,8 @@ review_interval_days: 90
 | `ADR-019` | [主动智能外部连接本地网关](reference/adr/ADR-019-proactive-integrations-local-gateway.md) | 2026-10-10 | HA/健康连接、凭据隔离、工具白名单或撤销语义变更 | REST/WS、OAuth、实体/service 白名单、健康最小化或连接删除与实现不一致 |
 | `ADR-021` | [Aervox Core 独立内核包与最小发行边界](reference/adr/ADR-021-aervox-core-standalone-package.md) | 2026-10-10 | packages/core 边界、吸收范围、内核许可证或 Provider 统一载体变更 | core 包结构、re-export 壳、Apache-2.0 分层或 ITER-033 落点与实现不一致 |
 | `AVX-HAR-001` | [Agent Harness Loop 设计与落地规范](reference/agent-harness-loop.md) | 2026-10-08 | G2 评审 + Agent Loop/Provider/工具/持久化边界变更 | Turn/Attempt/Step、Provider、Tool、Inbox、恢复或 Profile 语义与实现/ADR 不一致 |
-| `AVX-WEB-001` | [Web 工作台实现说明](explanation/web-implementation.md) | 2026-10-10 | Web 端实现或技术基线变更 | `apps/web` 结构与 ADR-015/规划不一致 |
-| `AVX-PLUG-001` | [Aervox 插件开发规范](reference/plugin-config-and-pages.md) | 2026-10-08 | 插件声明、分发、生命周期或运行时机制变更 | Manifest、Config、Page Bridge、Turn、UI、开发者约束与机器强制范围不一致 |
+| `AVX-WEB-001` | [Web 工作台实现说明](explanation/web-implementation.md) | 2026-10-12 | Web 端实现或技术基线变更 | `apps/web` 结构与 ADR-015/规划不一致 |
+| `AVX-PLUG-001` | [Aervox 插件开发规范](reference/plugin-config-and-pages.md) | 2026-10-12 | 插件声明、分发、生命周期或运行时机制变更 | Manifest、Config、Page Bridge、Turn、UI、开发者约束与机器强制范围不一致 |
 | `AVX-PLAN-001` | [当前迭代计划](../plan.md) | 2026-10-09 | 每次认领、改序、范围变化、移交与迭代复盘 | 出现第二份活动队列，或依赖、证据、状态与当前工作不符 |
 | `AVX-DOC-GOV-001` | [文档治理与事实源规范](reference/document-governance.md) | 2026-10-10 | 文档分类、状态、事实源、复核触发或迁移策略变更 | 策略 JSON、校验器、索引、登记表或写作规范与治理基线不一致 |
 | `AVX-STD-001` | [文档写作规范](reference/standards/doc-standards.md) | 2026-10-10 | 写作规则、模板或季度评审 | 新文档未使用规范元数据，或 Vale 规则与术语表不一致 |
@@ -82,14 +82,14 @@ review_interval_days: 90
 | `AVX-EXPL-015` | [Pi AI 竞品差距分析与改进建议](explanation/pi-competitive-gap-improvements.md) | 2026-10-10 | PRD §4.2/§4.3、CAP-007/008/030、Onboarding 或语音交互变更 | 差距评估、改进优先级或 CAP 状态与当前基线不一致 |
 | `AVX-EXPL-011` | [配套硬件方向：能力核查、移动协同取舍与原型路线](explanation/companion-hardware-directions.md) | 2026-10-10 | 移动范围、设备宿主、语音、表现协议、本地模型或外部连接能力变更 | 能力现状、手机重合、器件候选、原型范围、成本或停止条件与实际证据不一致 |
 | `AVX-EXPL-008` | [主动智能模式设计方案](explanation/proactive-intelligence-mode.md) | 2026-10-10 | CR-023/CAP-033、完全访问、全量画像、OS 能力授权、特权观察 Host、本地处理、动作授权、CAP-022/026/027/030 变更 | 四维状态、完整画像 manifest、平台能力清单、OS grant、本地出网边界、七天提炼保留、动作授权、阻断项或实现门禁与基线不一致 |
-| `AVX-DOC-001` | [文档索引](README.md) | 2026-10-08 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
+| `AVX-DOC-001` | [文档索引](README.md) | 2026-10-12 | 每季度 + 每次文档集变更 | 事实源映射与仓库实际不符 |
 | `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-10-08 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |
-| `AVX-DOC-CONF-001` | [文档生命周期登记表](DOC_REGISTRY.md) | 2026-10-10 | 每季度 + 每次文档集变更 | 登记条目与实际文档集不一致 |
-| `CR-000` | [变更请求索引与归档导航](reference/changes/README.md) | 2026-10-08 | 变更提案生命周期或归档目录变更 | 提案生命周期规则或归档索引与实际不符 |
+| `AVX-DOC-CONF-001` | [文档生命周期登记表](DOC_REGISTRY.md) | 2026-10-12 | 每季度 + 每次文档集变更 | 登记条目与实际文档集不一致 |
+| `CR-000` | [变更请求索引与归档导航](reference/changes/README.md) | 2026-10-12 | 变更提案生命周期或归档目录变更 | 提案生命周期规则或归档索引与实际不符 |
 | `CR-055` | [CR-055 移动端落地范围与分阶段交付规划](reference/changes/CR-055-mobile-delivery-plan.md) | 2026-09-18 | 移动宿主、连接认证、跨设备数据边界或阶段范围变更 | 配套/独立端定位、原生支持范围、实际实现证据或隐私约束与规划不一致 |
 | `CR-057` | [CR-057 实施 HLS 本地智能体验证执行器](reference/changes/CR-057-hls-local-agent-validation.md) | 2026-10-05 | 研究执行器、模型协议、容器或评测口径变化 | 模拟证据混入真机结论、预算或双入口行为与实现不符 |
 | `CR-061` | [CR-061 内核执行合同与五阶段审核整改](reference/changes/CR-061-core-execution-contract-hardening.md) | 2026-10-10 | 内核执行、Provider、恢复或工具合同变更 | 实现与已接受合同不一致 |
-| `CR-060` | [CR-060 专注模式宿主去领域化与插件实现内聚](reference/changes/CR-060-focus-mode-host-decoupling.md) | 2026-10-10 | 专注模式去领域化或插件系统收敛时 | 实现状态与声明不符 |
+| `CR-060` | [CR-060 专注模式宿主去领域化与插件实现内聚](reference/changes/CR-060-focus-mode-host-decoupling.md) | 2026-10-12 | 专注模式去领域化或插件系统收敛时 | 实现状态与声明不符 |
 
 ## 维护规则
 
@@ -100,3 +100,4 @@ review_interval_days: 90
 - 每份文档创建/改版时，按上一条分级在此登记或更新对应条目（编号、核验日期、陈旧信号）；
 - 新增文档按[文档治理规范 §4](reference/document-governance.md#4-元数据和状态模型)标注元数据，并按[文档写作规范](reference/standards/doc-standards.md)维护标题、签名与体例；
 - 核验时更新 `最后核验` 日期；长期未核验或陈旧信号命中时按[更新与评审节奏](README.md#4-更新与评审节奏)处置。
+| `CR-063` | [CR-063 根界面插件与薄平台宿主](reference/changes/CR-063-ui-surface-plugins.md) | 2026-10-12 | 根界面装配、平台适配或生命周期改变时 | 实现与受信装配及恢复合同不一致 |

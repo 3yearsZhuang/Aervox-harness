@@ -4,8 +4,12 @@ import {onBeforeUnmount, onMounted, ref} from 'vue'
 import {Live2DPet, PetHero} from '@aervox/ui'
 import {streamAervoxTurn, submitQuestionAnswers} from '@aervox/api-client'
 import type {AskUserQuestionAnswerItem, UserQuestionRequiredEventData} from '@aervox/contracts'
-import {replyBubbleDurationMs, stripMarkdownForBubble} from '../quick-chat'
-import {pickPetButtonPose, type PetButtonPose, type PetButtonPoseKind} from '../pet-button-poses'
+import {replyBubbleDurationMs, stripMarkdownForBubble} from './quick-chat'
+import {pickPetButtonPose, type PetButtonPose, type PetButtonPoseKind} from './pet-button-poses'
+
+import './pet.css'
+import {useUISurfaceContext} from '@aervox/ui-host'
+const surfaceContext = useUISurfaceContext()
 
 const bubbleText = ref('')
 const activeQuestion = ref<UserQuestionRequiredEventData | null>(null)
@@ -111,8 +115,9 @@ async function sendQuickChat() {
                 showStreamingBubble('这个请求需要到工作台确认工具使用哦')
                 scheduleReplyDismiss('这个请求需要到工作台确认工具使用哦')
             },
-        })
+        }, {signal: surfaceContext.signal})
     } catch (err) {
+        if (surfaceContext.signal.aborted) return
         const message = err instanceof Error ? err.message : 'Aervox 请求失败'
         showStreamingBubble(`出了点小问题：${message}`)
         scheduleReplyDismiss(`出了点小问题：${message}`)
@@ -138,7 +143,7 @@ async function selectPetOption(questionId: string, optionLabel: string) {
         selected: [optionLabel],
     }]
     try {
-        await submitQuestionAnswers(activeQuestion.value.turnId, answers)
+        await submitQuestionAnswers(activeQuestion.value.turnId, answers, surfaceContext.signal)
         activeQuestion.value = null
         questionBubbleActive.value = false
         showBubble(`已确认：${optionLabel}`)
@@ -171,7 +176,7 @@ function closePet() {
     if (closingTimer !== null) return
     playButtonPose('farewell')
     showBubble('那下次再见啦～')
-    closingTimer = window.setTimeout(() => window.close(), 1_600)
+    closingTimer = window.setTimeout(() => surfaceContext.requestClose?.(), 1_600)
 }
 
 /** 展开/收起功能坞，两个方向各有独立的动作+表情响应 */
