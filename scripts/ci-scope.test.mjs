@@ -179,3 +179,14 @@ test("无法解析路径声明时按失败处理（fail-closed）", () => {
   assert.deepEqual(findUncoveredPaths(null, ["plugins/**"]), ["plugins/**"]);
   assert.deepEqual(findUncoveredPaths([], ["plugins/**"]), ["plugins/**"]);
 });
+
+test("Rust pilot and executable contracts remain in local and CI gates", () => {
+  const config = fs.readFileSync(MISE_CONFIG, "utf8");
+  for (const gate of ["ci-fast", "ci-code", "ci-code-full"]) {
+    const command = config.split(/\r?\n/).find((line) => line.startsWith(`${gate} =`));
+    assert.ok(command?.includes("mise tasks run native-search-check"), `${gate} must check the Rust pilot`);
+  }
+  assert.match(config, /rust = "\d+\.\d+\.\d+"/);
+  assert.match(config, /cargo test --locked --manifest-path scripts\/native-vector\/Cargo.toml/);
+  assert.match(config, /node --test scripts\/native-search.test.mjs/);
+});

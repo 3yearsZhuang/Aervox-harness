@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.7.2
-updated_at: 2026-10-10
-reviewed_at: 2026-10-10
+version: 0.7.3
+updated_at: 2026-10-12
+reviewed_at: 2026-10-12
 review_interval_days: 90
 ---
 
@@ -46,6 +46,8 @@ MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应
 | Test/observability | Vitest、Playwright、Testing Library、fast-check、OpenTelemetry、Pino、Prometheus/Grafana、Sentry | 正常 CI 不依赖实时供应商；日志默认不含完整用户内容 |
 
 ## 3. 仓库与领域边界
+
+本地 `dsh_search_code` 经 API 调用受控 `ripgrep` 子进程，平台二进制由锁定的 npm 依赖分发；取消、扫描范围与资源限额见 [CR-062](changes/CR-062-native-search-pilot.md)。向量召回仍由 SQLite 仓储执行 JSON 行扫描与有界 top-K，授权资格仍回读业务真源。`scripts/native-vector` 是只读合成夹具的 Rust 计算试点，不进入默认 API/Worker 运行路径；工具版本统一锁定于 `mise.toml`。
 
 ```text
 apps/

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-11",
-  "totalCount": 70,
+  "generatedAt": "2026-10-12",
+  "totalCount": 71,
   "documents": [
     {
       "id": "AVX-PLAN-001",
@@ -14,9 +14,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.6.5",
-      "updated_at": "2026-10-09",
-      "reviewed_at": "2026-10-09",
+      "version": "0.6.6",
+      "updated_at": "2026-10-12",
+      "reviewed_at": "2026-10-12",
       "review_interval_days": 7,
       "review_triggers": [
         "apps/**/src/**",
@@ -49,9 +49,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.21.0",
-      "updated_at": "2026-10-10",
-      "reviewed_at": "2026-10-10",
+      "version": "1.21.1",
+      "updated_at": "2026-10-12",
+      "reviewed_at": "2026-10-12",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -67,9 +67,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.4.1",
-      "updated_at": "2026-10-08",
-      "reviewed_at": "2026-10-08",
+      "version": "0.4.2",
+      "updated_at": "2026-10-12",
+      "reviewed_at": "2026-10-12",
       "review_interval_days": 30,
       "review_triggers": [
         "apps/api/src/**",
@@ -525,9 +525,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.19.0",
-      "updated_at": "2026-10-08",
-      "reviewed_at": "2026-10-08",
+      "version": "1.19.1",
+      "updated_at": "2026-10-12",
+      "reviewed_at": "2026-10-12",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -953,9 +953,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "0.7.2",
-      "updated_at": "2026-10-10",
-      "reviewed_at": "2026-10-10",
+      "version": "0.7.3",
+      "updated_at": "2026-10-12",
+      "reviewed_at": "2026-10-12",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -1114,6 +1114,27 @@
       ]
     },
     {
+      "id": "CR-062",
+      "title": "CR-062 有界代码搜索与原生向量计算试点",
+      "path": "reference/changes/CR-062-native-search-pilot.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "platform",
+      "doc_status": "review-candidate",
+      "decision_status": "accepted",
+      "delivery_status": "implemented",
+      "version": "0.1.1",
+      "updated_at": "2026-10-12",
+      "reviewed_at": "2026-10-12",
+      "review_interval_days": 90,
+      "review_triggers": [],
+      "sources": [
+        "docs/reference/ARCHITECTURE.md",
+        "docs/explanation/architecture-implementation-review.md",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md"
+      ]
+    },
+    {
       "id": "CR-000",
       "title": "变更请求索引与归档导航 (Change Requests Index)",
       "path": "reference/changes/README.md",
@@ -1123,9 +1144,9 @@
       "doc_status": "approved",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.0.0",
-      "updated_at": "2026-10-08",
-      "reviewed_at": "2026-10-08",
+      "version": "1.0.1",
+      "updated_at": "2026-10-12",
+      "reviewed_at": "2026-10-12",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []
@@ -1302,9 +1323,9 @@
       "doc_status": "review-candidate",
       "decision_status": "not-applicable",
       "delivery_status": "not-applicable",
-      "version": "1.56.6",
-      "updated_at": "2026-10-10",
-      "reviewed_at": "2026-10-10",
+      "version": "1.56.7",
+      "updated_at": "2026-10-12",
+      "reviewed_at": "2026-10-12",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": []

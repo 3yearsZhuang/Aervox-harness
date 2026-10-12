@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.56.6
-updated_at: 2026-10-10
-reviewed_at: 2026-10-10
+version: 1.56.7
+updated_at: 2026-10-12
+reviewed_at: 2026-10-12
 review_interval_days: 90
 ---
 
@@ -177,6 +177,8 @@ review_interval_days: 90
 ### 4.2 落地实现原则
 
 代码与能力的落地完成情况由 Git 提交记录、PR 审查证据以及全自动化测试套件直接证明，不再在此维护手工同步的终端测试日志巨型表格。
+
+- `native-search-pilot-20261012`：ITER-017 / [CR-062](changes/CR-062-native-search-pilot.md) 的局部切片，关联 CAP-005/020/027，沿用 DSH-01 本地工具桥接合同：`apps/api/src/modules/ecosystem/mcp/code-search.ts` 采用锁定的 `ripgrep` 平台二进制与受控子进程，信号沿 MCP 本地回路及 HTTP 断连传播，并发限额由进程内所有桥接实例共享；`packages/repositories/src/repositories/sqlite/memory-embedding-repository.ts` 保留 SQLite JSON 读入并使用稳定有界 top-K。`scripts/native-vector` 的 Rust 原型仅消费合成夹具，不接入生产索引或业务数据库。验证入口为 `apps/api/test/code-search.test.ts`、`packages/repositories/test/top-k.test.ts`、`packages/repositories/test/memory-embedding.test.ts`、`scripts/native-search.test.mjs` 及 `native-search-check`；[基准](../_meta/native-search-baseline.json)记录对照、环境、完整进程开销和限制。原生系统宿主、数据库/索引迁移与发布状态均未推进，当前审查状态见根计划。
 
 - `recall-eligibility-and-deletion-hardening-20261009`：ITER-003 剩余切片（[PR #268](https://github.com/3yearsZhuang/Aervox-harness/pull/268)）：自动召回资格收敛为单一真源谓词并由主对话与主动回合上下文共用（`packages/repositories/src/memory-eligibility.ts`、`apps/api/src/modules/companion/memory/recall.ts`、`apps/worker/src/proactive/turn-context.ts`），`memory_long` 用途闸门 fail-closed（无授权或授权读取失败不召回、撤权立即生效）、候选过采样补位、删除创建面去重/幂等与拒绝原因码固化（`apps/api/src/modules/platform/privacy/routes.ts`、`apps/worker/src/deletion-worker.ts`）、账本单语句原子取号/同键幂等/只读一致性检查（`packages/repositories/src/repositories/sqlite/recovery-ledger-repository.ts`）；回归见 `apps/api/test/privacy-deletion-routes.test.ts`、`apps/api/test/memory-recall-eligibility.test.ts`、`apps/worker/test/proactive-turn-context.test.ts`、`packages/repositories/test/mvp-domains-smoke.test.ts`；scope 派生、来源传播、grant 修订绑定与账本命令路径接线仍留 CR。
 - `control-inheritance-hardening-20261009`：ITER-007 既有策略接线切片（[PR #267](https://github.com/3yearsZhuang/Aervox-harness/pull/267)）：Workflow 步骤可见取消句柄（`signal`/`controlContext`）且中止原样上抛、不进入下一步（`packages/core/src/subagent-contribution.ts`、`types.ts`）、子任务截止继承与失败原因透出（`packages/host-agent/src/subagent-executor.ts`）、DSH 进程外路径的本地处理限制与删除闸门 fail-closed（`apps/api/src/modules/companion/conversation/agent-executor.ts`）、写工具授权 `toolVersion` 与工具定义修订核对（`apps/api/src/modules/companion/conversation/tool-providers.ts`）；回归见 `packages/core/test/subagent-contribution.test.ts`、`packages/host-agent/test/subagent-executor.test.ts`、`apps/api/test/conversation-dsh.test.ts`、`apps/api/test/conversation-tool-sandbox.test.ts`；非 0 根预算、Driver 合同与一次性授权/有效期仍留 CR。

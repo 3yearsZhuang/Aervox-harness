@@ -354,14 +354,16 @@
     {
       "id": "ITER-017",
       "batch": "candidate",
-      "status": "建议",
+      "status": "执行中",
       "delivery": "测量后分别决定 Prompt 预算/保真压缩、SQLite 写竞争、向量 topK、计算隔离和资产归属；FND-07/08/10、ARC-05/08/12；相关基础设施",
-      "gate": "依赖正确性修复与 ITER-013 指标；全局单写者、独立执行进程、二进制索引扩展先 CR",
+      "gate": "依赖正确性修复与 ITER-013 指标；CR-062 承接有界代码搜索与合成向量对照试点；全局单写者、生产向量索引切换与原生系统宿主另行评审",
       "acceptance": [
         "同设备同数据报告延迟分位数、失败率、内存和质量",
         "未达收益门槛即可停止；不承诺未测倍数"
       ],
       "owner": "platform/data/quality",
+      "branch": "feat/rust-native-search-pilot",
+      "statusNote": "2026-10-12 CR-062 切片已实施并通过全量双门禁：异步 ripgrep 搜索与取消/进程共享限额、稳定有界 top-K、Rust 合成向量对照及 SQLite 结果一致性回归；等待 PR 审查。合成基准不代替 ITER-013 指标；生产查询测量、索引准入及其它性能治理差量仍未完成。",
       "dependsOn": [
         "ITER-013"
       ],
