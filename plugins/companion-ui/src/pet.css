@@ -84,15 +84,6 @@ html, body, #pet-app {
     height: 100%
 }
 
-.pet-hero-scale {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: end center;
-    transform: scale(.86);
-    transform-origin: bottom center
-}
-
 /* ---------- 顶部对话气泡：最小液态玻璃 + 尾巴 ---------- */
 
 .pet-bubble {

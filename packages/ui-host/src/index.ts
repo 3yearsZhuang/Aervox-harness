@@ -1,3 +1,10 @@
 export { default as UISurfaceHost } from './UISurfaceHost.vue';
-export { useUISurfaceContext } from './surface-context';
-export type { UISurfaceContext, UISurfacePlugin, UISurfaceKind, UIPlatform } from './surface-context';
+export { defineUISurface, useUISurfaceContext, UI_HOST_API_VERSION } from './surface-context';
+export type {
+  UISurfaceContext,
+  UISurfacePlugin,
+  UISurfaceManifest,
+  UISurfaceFailureReason,
+  UISurfaceKind,
+  UIPlatform,
+} from './surface-context';

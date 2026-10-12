@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {ChevronDown, ChevronUp, Hand, Smile, X} from 'lucide-vue-next'
 import {onBeforeUnmount, onMounted, ref} from 'vue'
-import {Live2DPet, PetHero} from '@aervox/ui'
+import {PetWithFallback} from '@aervox/ui'
 import {streamAervoxTurn, submitQuestionAnswers} from '@aervox/api-client'
 import type {AskUserQuestionAnswerItem, UserQuestionRequiredEventData} from '@aervox/contracts'
 import {replyBubbleDurationMs, stripMarkdownForBubble} from './quick-chat'
@@ -238,11 +238,7 @@ onBeforeUnmount(() => {
     </transition>
     <div class="pet-stage">
       <div class="pet-character">
-        <Live2DPet @onSpeak="onSpeak">
-          <template #fallback>
-            <span class="pet-hero-scale"><PetHero /></span>
-          </template>
-        </Live2DPet>
+        <PetWithFallback @on-speak="onSpeak" />
       </div>
     </div>
     <!-- 底部常驻条：快捷输入 + 展开/收起按钮；功能坞向上展开 -->

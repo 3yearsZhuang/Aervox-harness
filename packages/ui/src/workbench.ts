@@ -14,6 +14,7 @@ export { default as ConversationConsole } from './components/workbench/Conversat
 export { default as StandardConversation } from './components/workbench/StandardConversation.vue';
 export { default as ComposerDock } from './components/workbench/ComposerDock.vue';
 export { AervoxButton } from './primitives';
+export { default as PetWithFallback } from './components/PetWithFallback.vue';
 export { default as ExtensionSlot } from './components/extension/ExtensionSlot.vue';
 export { useWorkbenchLayout } from './composables/useWorkbenchLayout';
 export { useWorkbenchTimer } from './composables/useWorkbenchTimer';

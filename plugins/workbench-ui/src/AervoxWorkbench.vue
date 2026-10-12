@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import {
   type Platform,
-  PetHero,
+  PetWithFallback,
   createWorkbenchPluginRuntime,
   type BuiltinUIPlugin,
   WorkbenchHeader,
@@ -15,7 +15,6 @@ import {
   StandardConversation,
   ComposerDock,
   ExtensionSlot,
-  Live2DPet,
   ToolsDrawer,
   HistoryDrawer,
   TaskCenterDrawer,
@@ -577,9 +576,7 @@ onUnmounted(() => {
     <template v-else>
       <div class="companion-stage">
         <div v-if="layout.showCompanionEnabled.value" class="immersive-pet" aria-label="桌宠区域">
-          <Live2DPet>
-            <template #fallback><PetHero /></template>
-          </Live2DPet>
+          <PetWithFallback />
         </div>
         <WorkbenchSideCards />
       </div>

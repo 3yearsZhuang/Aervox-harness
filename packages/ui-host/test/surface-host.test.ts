@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils';
 import { defineComponent, h, onUnmounted, type Component } from 'vue';
-import { UISurfaceHost, useUISurfaceContext, type UISurfacePlugin, type UISurfaceContext } from '../src';
+import { defineUISurface, UISurfaceHost, useUISurfaceContext, type UISurfacePlugin, type UISurfaceContext } from '../src';
 
 enableAutoUnmount(afterEach);
 afterEach(() => vi.useRealTimers());
@@ -42,6 +42,71 @@ describe('trusted root UI surfaces', () => {
     await flushPromises();
     expect(wrapper.get('[role="alert"]').text()).toContain('界面暂时无法打开');
     expect(definition.load).not.toHaveBeenCalled();
+  });
+
+  it('rejects a manifest requiring newer host api or missing capabilities before loading', async () => {
+    const newerHost = open({ ...plugin(), requires: { hostApiVersion: 99 } });
+    await flushPromises();
+    expect(newerHost.get('[role="alert"]').attributes('data-failure-reason')).toBe('host-api-version');
+
+    const capable = plugin();
+    const needsCap = open({ ...capable, requires: { capabilities: ['window-controls'] } });
+    await flushPromises();
+    expect(needsCap.get('[role="alert"]').attributes('data-failure-reason')).toBe('capability-unsupported');
+    expect(capable.load).not.toHaveBeenCalled();
+
+    const satisfied = open(
+      { ...capable, requires: { capabilities: ['window-controls'] } },
+      { hostCapabilities: ['window-controls'] },
+    );
+    await flushPromises();
+    expect(satisfied.text()).toBe('工作台');
+  });
+
+  it('shows a structural skeleton preview while loading', async () => {
+    const definition = plugin();
+    definition.load = vi.fn(() => new Promise(() => {}));
+    const wrapper = open(definition);
+    await flushPromises();
+    expect(wrapper.get('[role="status"]').text()).toContain('正在打开界面');
+    expect(wrapper.get('.surface-skeleton').exists()).toBe(true);
+  });
+
+  it('retries transient load failures automatically with backoff, then stops', async () => {
+    vi.useFakeTimers();
+    const definition = plugin();
+    definition.load = vi.fn()
+      .mockRejectedValueOnce(new Error('chunk 1'))
+      .mockRejectedValueOnce(new Error('chunk 2'))
+      .mockResolvedValue(view('自动恢复'));
+    const wrapper = open(definition, { autoRetryDelaysMs: [800, 2400] });
+    await flushPromises();
+    expect(wrapper.get('[role="alert"]').attributes('data-failure-reason')).toBe('load-failed');
+    expect(wrapper.text()).toContain('正在自动重试（第 1 次）');
+    await vi.advanceTimersByTimeAsync(800);
+    await flushPromises();
+    expect(wrapper.text()).toContain('正在自动重试（第 2 次）');
+    await vi.advanceTimersByTimeAsync(2400);
+    await flushPromises();
+    expect(wrapper.text()).toBe('自动恢复');
+    expect(definition.load).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not auto-retry permanent contract rejections', async () => {
+    vi.useFakeTimers();
+    const definition = { ...plugin(), platforms: ['desktop'] } as UISurfacePlugin;
+    const wrapper = open(definition, { autoRetryDelaysMs: [800, 2400] });
+    await flushPromises();
+    expect(wrapper.get('[role="alert"]').attributes('data-failure-reason')).toBe('platform-unsupported');
+    await vi.advanceTimersByTimeAsync(10_000);
+    await flushPromises();
+    expect(wrapper.find('[role="alert"]').exists()).toBe(true);
+  });
+
+  it('fails fast at build time for malformed surface definitions', () => {
+    expect(() => defineUISurface({ id: '', apiVersion: 1, surface: 'main', platforms: ['web'], load: async () => ({}) })).toThrow(/non-empty id/);
+    expect(() => defineUISurface({ id: 'x', apiVersion: 2, surface: 'main', platforms: ['web'], load: async () => ({}) } as unknown as UISurfacePlugin)).toThrow(/apiVersion 1/);
+    expect(() => defineUISurface({ id: 'x', apiVersion: 1, surface: 'main', platforms: [], load: async () => ({}) })).toThrow(/platforms/);
   });
 
   it('recovers from a synchronous load failure by retrying', async () => {
