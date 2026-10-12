@@ -369,7 +369,11 @@
       ],
       "owner": "platform/data/quality",
       "branch": "feat/rust-native-search-pilot",
-      "statusNote": "CR-062/063 切片已实现并通过本地全量双门禁：有界代码搜索、文件 SQLite 向量对照、三平台活动 Helper、可选音频与插件 Worker；PR #272 审查中。缓存重建和音频 IPC 成本纳入基准，生产签名及实机权限验收独立取证。",
+      "statusNote": "CR-062/063 切片已实现：有界代码搜索、文件 SQLite 向量对照、三平台活动 Helper、可选音频与插件 Worker；2026-10-13 审查修复补授权查询及排队采集的撤权失效、覆盖安装解压失败保留旧插件回归；PR #272 审查中。缓存重建和音频 IPC 成本纳入基准，生产签名及实机权限验收独立取证。",
+      "checks": [
+        "apps/desktop/test/native-app-activity.test.ts",
+        "apps/api/test/plugin-distribution.test.ts"
+      ],
       "dependsOn": [
         "ITER-013"
       ],

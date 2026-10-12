@@ -442,11 +442,8 @@ export async function installPluginFromBundle(
     );
   }
 
-  // 覆盖安装时先卸载既有插件及能力
-  if (inspection.alreadyInstalled && options.overwrite) {
-    await deps.service.uninstallPlugin(inspection.id);
-  }
-
+  // Worker admission, timeout and decoding can fail even after successful inspection.
+  // Finish those fallible steps while the existing plugin and its data are intact.
   const files = await unpackPluginBundle(bytes);
   const manifestBytes =
     files["plugin.manifest.json"] ?? files["manifest.json"]!;
@@ -454,6 +451,11 @@ export async function installPluginFromBundle(
     JSON.parse(strFromU8(manifestBytes)),
   );
   const pluginId = manifest.metadata.id;
+
+  // 覆盖安装时先卸载既有插件及能力
+  if (inspection.alreadyInstalled && options.overwrite) {
+    await deps.service.uninstallPlugin(inspection.id);
+  }
 
   // 1. 组装技能定义
   const declaredSkills: PluginDeclaredSkill[] = [];

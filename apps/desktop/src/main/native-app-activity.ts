@@ -11,19 +11,29 @@ export function createNativeAppActivityProvider(options: {
 }): AppActivityProvider & { close(): Promise<void>; revoke(): Promise<void> } {
   const runtime = new NativeRuntimeClient(options.artifact, { idleMs: 15_000 });
   let serial: Promise<unknown> = Promise.resolve();
+  let generation = 0;
+  let closed = false;
   return {
     async probe() {
       try { return await runtime.request<ProactiveSourceProbeOverride>("activity.probe"); }
       catch { return { status: "unavailable", osStatus: "unknown", ready: false, canRequest: false, reason: "native_activity_artifact_unavailable" }; }
     },
     async list() {
+      // Capture ownership before queuing: revoke also invalidates work waiting on getLease().
+      const epoch = generation;
+      const isCurrent = () => !closed && epoch === generation;
       const run = serial.then(async () => {
+        if (!isCurrent()) return [];
         const lease = await options.getLease();
+        if (!isCurrent()) return [];
         if (!lease) { await runtime.reset(); return []; }
         await runtime.request("activity.lease", lease);
+        if (!isCurrent()) return [];
         const captured = await runtime.request<{ records: AppActivityRecord[] }>("activity.capture", lease);
+        if (!isCurrent()) return [];
         // An asynchronous OS capture cannot outlive the authorization snapshot it started with.
         const current = await options.getLease();
+        if (!isCurrent()) return [];
         if (!current || current.deviceId !== lease.deviceId || current.revisionId !== lease.revisionId || current.epoch !== lease.epoch) {
           await runtime.reset(); return [];
         }
@@ -40,7 +50,7 @@ export function createNativeAppActivityProvider(options: {
       return run;
     },
     async request() { await runtime.request("activity.request"); },
-    async close() { await runtime.close(); await serial; },
-    async revoke() { await runtime.reset(); },
+    async close() { closed = true; generation++; await runtime.close(); await serial; },
+    async revoke() { generation++; await runtime.reset(); },
   };
 }
