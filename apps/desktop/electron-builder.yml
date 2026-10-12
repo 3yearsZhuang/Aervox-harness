@@ -11,6 +11,8 @@ directories:
 files:
   - out/**
 extraResources:
+  - from: ../../packages/native-runtime/dist/bin
+    to: native
   - from: build/icon.ico
     to: icon.ico
 asar: true

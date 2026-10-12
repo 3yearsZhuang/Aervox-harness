@@ -21,6 +21,8 @@ import type {
 } from '@aervox/contracts/proactive'
 import {isProfileSourceId} from '@aervox/contracts/proactive'
 import {resolveDesktopSessionId} from './runtime-config.js'
+import {nativeArtifactFromEnvironment, loadNativeArtifact, type NativeArtifact} from '@aervox/native-runtime'
+import {createNativeAppActivityProvider} from './native-app-activity.js'
 
 let mainWindow: BrowserWindow | null = null
 let petWindow: BrowserWindow | null = null
@@ -36,7 +38,32 @@ let proactiveFileRoots = (process.env.AERVOX_PROACTIVE_FILE_ROOTS ?? '')
     .split(delimiter)
     .map((value) => value.trim())
     .filter(Boolean)
+const nativeActivityArtifact = nativeArtifactFromEnvironment()
+function makeNativeAppActivity(artifact: NativeArtifact) { return createNativeAppActivityProvider({
+    artifact: {...artifact, requireSignature: app.isPackaged,
+        signature: artifact.signature ?? process.env.AERVOX_NATIVE_SIGNATURE,
+        // A release trust anchor is fixed at build time, never selected by renderer or env.
+        publicKey: __AERVOX_NATIVE_PUBLIC_KEY__ || undefined},
+    getLease: async () => {
+        if (!proactiveHost.shouldCollect()) return null
+        const local = latestProactiveStatus
+        const capability = local?.capabilities.find(c => c.id === 'device.app_activity')
+        if (!local?.activation || capability?.osStatus !== 'granted') return null
+        const server = await getProactiveServerStatus()
+        const source = server.sources.find(s => s.sourceKey === 'device.app_activity')
+        if (server.effectiveState !== 'active' || !server.revision || !server.activationLease
+            || server.revision.deviceId !== local.host.hostId
+            || source?.state !== 'granted' || server.activationLease.deviceId !== local.host.hostId
+            || server.activationLease.epoch !== local.activation.epoch) return null
+        const ttlMs = Math.min(15000, Date.parse(local.activation.expiresAt) - Date.now())
+        if (ttlMs <= 0) return null
+        return {deviceId: local.host.hostId, revisionId: server.revision.id,
+            epoch: local.activation.epoch, ttlMs, source: 'device.app_activity'}
+    },
+}) }
+let nativeAppActivity = nativeActivityArtifact ? makeNativeAppActivity(nativeActivityArtifact) : undefined
 let proactiveSourceAdapters = createProactiveSourceAdapters({
+    appActivity: nativeAppActivity,
     systemPreferences,
     screen,
     desktopCapturer,
@@ -54,6 +81,7 @@ let proactiveSourceAdapters = createProactiveSourceAdapters({
 
 function rebuildProactiveSourceAdapters() {
     proactiveSourceAdapters = createProactiveSourceAdapters({
+        appActivity: nativeAppActivity,
         systemPreferences,
         screen,
         desktopCapturer,
@@ -138,6 +166,11 @@ interface ProactiveAuthorizationResponse {
 let latestProactiveStatus: ProactiveProfileStatus | null = null
 function rememberProactiveStatus(status: ProactiveProfileStatus): ProactiveProfileStatus {
     latestProactiveStatus = status
+    if (status.desiredState !== 'enabled' || status.toolApprovalMode !== 'full_access'
+        || status.effectiveState === 'suspended' || status.effectiveState === 'inactive'
+        || status.capabilities.find(c => c.id === 'device.app_activity')?.osStatus !== 'granted') {
+        void nativeAppActivity?.revoke()
+    }
     return status
 }
 
@@ -458,10 +491,10 @@ async function pollProactiveIdleState(): Promise<void> {
     })
 }
 
-async function pollProactiveWideSources(): Promise<void> {
+async function pollProactiveWideSources(sourceIds: readonly ProactiveWideSourceId[] = scheduledWideSources): Promise<void> {
     if (!proactiveHost.shouldCollect()) return
     const localStatus = await proactiveHost.getStatus('full_access')
-    for (const sourceId of scheduledWideSources) {
+    for (const sourceId of sourceIds) {
         const capability = localStatus.capabilities.find((item) => item.id === sourceId)
         if (capability?.osStatus !== 'granted') continue
         const batch = await proactiveSourceAdapters.capture(sourceId, {
@@ -875,6 +908,12 @@ function createPetWindow() {
 }
 
 app.whenReady().then(async () => {
+    if (!nativeAppActivity) {
+        try {
+            const artifact = await loadNativeArtifact(app.isPackaged ? join(process.resourcesPath, 'native', `${process.platform}-${process.arch}`, 'artifact.json') : undefined)
+            if (artifact) { nativeAppActivity = makeNativeAppActivity(artifact); rebuildProactiveSourceAdapters() }
+        } catch { console.warn('[native] 活动 Helper 制品不可用') }
+    }
     Menu.setApplicationMenu(null)
     await loadProactiveSourceConfig()
     await proactiveHost.initialize()
@@ -941,6 +980,7 @@ app.whenReady().then(async () => {
         desiredState: 'enabled' | 'paused' | 'revoked',
         toolApprovalMode: 'ask' | 'full_access' = 'full_access',
     ): Promise<ProactiveProfileStatus> => {
+        if (desiredState !== 'enabled') await nativeAppActivity?.revoke()
         const status = await proactiveHost.setDesiredState(desiredState, toolApprovalMode)
         if (await refreshProactiveLocalReady()) {
             const serverStatus = await getProactiveServerStatus()
@@ -1172,6 +1212,9 @@ app.whenReady().then(async () => {
     setInterval(() => {
         void pollProactiveWideSources().catch(() => undefined)
     }, 5 * 60_000)
+    setInterval(() => {
+        void pollProactiveWideSources(['device.app_activity']).catch(() => undefined)
+    }, 5_000)
     // CR-038：5s 检测 + 边沿聚合，状态变化可在秒级进入事件流。
     void pollProactiveIdleState().catch(() => undefined)
     setInterval(() => {
@@ -1259,4 +1302,12 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin' && !proactiveHost.shouldKeepAlive()) app.quit()
+})
+
+let nativeActivityClosed = false
+app.on('before-quit', event => {
+    if (!nativeAppActivity || nativeActivityClosed) return
+    event.preventDefault()
+    nativeActivityClosed = true
+    void nativeAppActivity.close().finally(() => app.quit())
 })

@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.21.1
+version: 1.21.2
 updated_at: 2026-10-12
 reviewed_at: 2026-10-12
 review_interval_days: 90
@@ -50,10 +50,11 @@ review_interval_days: 90
 | `AVX-QA-001` | [测试策略](reference/TEST_STRATEGY.md) | 2026-10-04 | G1/G4 门禁 | 本地安全或 CR-030 故障注入 AC/TC 状态未回填 |
 | `AVX-OPS-001` | [本地运行与演练手册](reference/operations.md) | 2026-10-04 | 每季度演练 + 每次发布 + 运行拓扑变更 | 本地恢复、CR-030 回滚或观测/拓扑变化未更新 |
 | `AVX-TRC-001` | [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) | 2026-10-12 | 版本立项 / G1 / G4 / 落地登记 | CAP/AC/TC 状态或追踪关系变化未回填；§4.2 落地登记与实现不符 |
-| `AVX-HOW-001` | [操作指南索引](how-to/README.md) | 2026-10-04 | 新增指南或操作流程变更 | 指南清单与实际目录不一致 |
+| `AVX-HOW-001` | [操作指南索引](how-to/README.md) | 2026-10-12 | 新增指南或操作流程变更 | 指南清单与实际目录不一致 |
 | `AVX-GUIDE-004` | [开发 Aervox 扩展插件](how-to/develop-plugin-ui-extension.md) | 2026-09-18 | 插件 Bundle、Turn 管道或 UI 扩展契约变更 | 指南与插件运行时、插槽注册表或安全边界不一致 |
 | `AVX-GUIDE-005` | [提出、撰写与闭环变更请求（CR）](how-to/cr-workflow.md) | 2026-10-10 | 变更控制规则或模板变更 | 指南与追踪基线 §11、CR 规范或落地登记流程不符 |
 | `AVX-GUIDE-006` | [执行 SQLite 数据库迁移与换库回滚演练](how-to/run-database-migration-drill.md) | 2026-10-04 | 数据库架构或演练流程变更 | 指南与 DATABASE.md、CR-030 契约或 operations.md 演练项不符 |
+| `AVX-GUIDE-008` | [构建与运行原生组件](how-to/run-native-components.md) | 2026-10-12 | 原生协议、制品或主管生命周期变化 | 指南与权限、缓存一致性或实际平台制品不一致 |
 | `AVX-GUIDE-007` | [新增与规格化 CAP 业务能力](how-to/add-capability.md) | 2026-10-04 | 需求流程或 CAP 规则变更 | 指南与 PRD、SRS 或追踪基线立项流程不符 |
 | `AVX-CAP-REG-001` | [能力注册表](reference/capability-registry.md) | 2026-10-10 | 每次自选状态 / 模块变更 | 交付载体、启用方式或已注册模块与实现/CR 不一致 |
 | `AVX-CAP-001` | [能力组合与可选化目录规范](reference/capability-composition.md) | 2026-10-10 | G2 评审 + 能力宿主/适配器机制变更 | Manifest、Profile、Provider、Adapter、Kernel 边界与实现或 ADR/CR 不一致 |
@@ -86,6 +87,7 @@ review_interval_days: 90
 | `AVX-DOC-002` | [从哪开始](getting-started.md) | 2026-10-08 | 每季度 + 每次文档集变更 | 仓库结构/阅读顺序/自检清单与索引或实际不符 |
 | `AVX-DOC-CONF-001` | [文档生命周期登记表](DOC_REGISTRY.md) | 2026-10-12 | 每季度 + 每次文档集变更 | 登记条目与实际文档集不一致 |
 | `CR-000` | [变更请求索引与归档导航](reference/changes/README.md) | 2026-10-12 | 变更提案生命周期或归档目录变更 | 提案生命周期规则或归档索引与实际不符 |
+| `CR-063` | [原生计算、活动 Helper 与进程主管](reference/changes/CR-063-native-runtime-components.md) | 2026-10-12 | 原生计算、OS 能力或进程归属变化 | 缓存/Helper 被当作授权真源，或发布签名与平台验收缺失 |
 | `CR-062` | [有界代码搜索与原生向量计算试点](reference/changes/CR-062-native-search-pilot.md) | 2026-10-12 | 搜索实现、资源边界或原生试点范围变化 | 合成基准被当作生产索引证据，或宿主方案未经专项评审进入运行时 |
 | `CR-055` | [CR-055 移动端落地范围与分阶段交付规划](reference/changes/CR-055-mobile-delivery-plan.md) | 2026-09-18 | 移动宿主、连接认证、跨设备数据边界或阶段范围变更 | 配套/独立端定位、原生支持范围、实际实现证据或隐私约束与规划不一致 |
 | `CR-057` | [CR-057 实施 HLS 本地智能体验证执行器](reference/changes/CR-057-hls-local-agent-validation.md) | 2026-10-05 | 研究执行器、模型协议、容器或评测口径变化 | 模拟证据混入真机结论、预算或双入口行为与实现不符 |

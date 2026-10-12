@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.56.7
+version: 1.56.8
 updated_at: 2026-10-12
 reviewed_at: 2026-10-12
 review_interval_days: 90
@@ -177,6 +177,8 @@ review_interval_days: 90
 ### 4.2 落地实现原则
 
 代码与能力的落地完成情况由 Git 提交记录、PR 审查证据以及全自动化测试套件直接证明，不再在此维护手工同步的终端测试日志巨型表格。
+
+- `native-runtime-components-20261012`：ITER-017/015 / [CR-063](changes/CR-063-native-runtime-components.md)，关联 CAP-005/018/020/027/033。`packages/native-runtime` 提供 Rust 只读 SQLite 缓存与受控进程协议、OS 应用活动元数据、短租约和制品签名校验，以及目录锁、就绪和 Unix 守护通道/Windows Job 主管；`packages/repositories/src/search` 沿既有向量 Port 装配 Rust 与连续数组 Worker，API 返回前复核用途与召回资格；桌面端经原有 Provider、设备/修订/epoch/来源 Grant 与后台授权接线。音频预处理保持 TypeScript 默认，原生路径显式可选；插件包沿原配额与压缩库迁入有界 Worker。[基准](../_meta/native-runtime-baseline.json)记录真实仓储、`sqlite-vec`、冷/热 IPC 和负结果。验证入口为 `native-runtime-check`、`scripts/native-runtime-smoke.test.mjs`、`packages/repositories/test/cached-vector-port.test.ts`、`apps/api/test/memory-recall-eligibility.test.ts`、`apps/api/test/archive-worker.test.ts` 和 `apps/desktop/test/native-app-activity.test.ts`；交付审查见 [PR #272](https://github.com/3yearsZhuang/Aervox-harness/pull/272)。三平台可执行合同进入 Native runtime CI，签名、公证、真实桌面权限、安装升级与完整 ITER-015 发布验收仍独立取证，未提升 Released。
 
 - `native-search-pilot-20261012`：ITER-017 / [CR-062](changes/CR-062-native-search-pilot.md) 的局部切片，关联 CAP-005/020/027，沿用 DSH-01 本地工具桥接合同：`apps/api/src/modules/ecosystem/mcp/code-search.ts` 采用锁定的 `ripgrep` 平台二进制与受控子进程，信号沿 MCP 本地回路及 HTTP 断连传播，并发限额由进程内所有桥接实例共享；`packages/repositories/src/repositories/sqlite/memory-embedding-repository.ts` 保留 SQLite JSON 读入并使用稳定有界 top-K。`scripts/native-vector` 的 Rust 原型仅消费合成夹具，不接入生产索引或业务数据库。验证入口为 `apps/api/test/code-search.test.ts`、`packages/repositories/test/top-k.test.ts`、`packages/repositories/test/memory-embedding.test.ts`、`scripts/native-search.test.mjs` 及 `native-search-check`；[基准](../_meta/native-search-baseline.json)记录对照、环境、完整进程开销和限制。原生系统宿主、数据库/索引迁移与发布状态均未推进，当前审查状态见根计划。
 

@@ -32,6 +32,7 @@ import { createDatabase,
   loadProactiveVaultCipher,
 } from "@aervox/repositories";
 import { loadWorkerConfig } from "@aervox/config";
+import { createServer } from "node:http";
 import { createStandardLogger } from "@aervox/observability";
 import { runOutboxCycle } from "./outbox-worker.js";
 import { runReviewNotificationCycle } from "./review-notifier.js";
@@ -190,6 +191,20 @@ host
 
 host.start();
 
+// An optional loopback readiness endpoint is owned by the deployment supervisor.
+// It exposes no database, credentials, task data or mutation surface.
+const healthPort = process.env.AERVOX_WORKER_HEALTH_PORT ? Number(process.env.AERVOX_WORKER_HEALTH_PORT) : undefined;
+const healthServer = healthPort === undefined ? undefined : createServer((request, response) => {
+  if (request.method !== "GET" || request.url !== "/health") { response.writeHead(404); response.end(); return; }
+  response.writeHead(200, { "content-type": "application/json" }); response.end('{"status":"ok","role":"worker"}');
+});
+if (healthServer) {
+  if (!Number.isSafeInteger(healthPort) || healthPort! < 1024 || healthPort! > 65535) throw new Error("Invalid Worker health port");
+  await new Promise<void>((resolve, reject) => {
+    healthServer.once("error", reject); healthServer.listen(healthPort, "127.0.0.1", resolve);
+  });
+}
+
 /**
  * 优雅退出：收到 SIGINT/SIGTERM 时停止调度、清理 IPC socket 并关闭数据库连接。
  * 在此之前没有任何代码调用 host.stop()，socket 只能依赖下次启动的僵死探测清理；
@@ -205,6 +220,7 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
     fields: { signal },
   });
   try {
+    if (healthServer) await new Promise<void>((resolve, reject) => healthServer.close(error => error ? reject(error) : resolve()));
     await host.stop();
     client.close();
     proactiveClient.close();

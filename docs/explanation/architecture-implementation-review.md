@@ -7,7 +7,7 @@ owner: platform
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.4.2
+version: 0.4.3
 updated_at: 2026-10-12
 reviewed_at: 2026-10-12
 review_interval_days: 30
@@ -342,11 +342,15 @@ P1 表示优先修复或对应能力开放前必须通过的验证；P2 表示�
 
 ## 8. 本轮验证与剩余限制
 
+2026-10-12 CR-063 的[文件 SQLite 与运行时基准](../_meta/native-runtime-baseline.json)比较实际 LibSQL 仓储、稳定 top-K、连续数组 Worker、Rust 冷/热连接和 `sqlite-vec`。缓存、数据表示与预计算范数贡献主要收益；Rust 仍需计入启动、IPC、读入及 JSON 解码。缓存使用独立只读连接，LibSQL 池化调用的连接水位不能当全局修订；普通业务提交也会触发保守重建，因此热查询不等于真实对话延迟。生产默认不切换索引，两个缓存 Port 均有跨连接删除、仓储直写、模型和资格回归。
+
+音频对照包含传输成本，保持 TypeScript 默认；原生预处理仅作为显式可选路径。插件 Worker 增加总处理时间，但缩短主事件循环阻塞，沿用成熟压缩实现与原有预检配额。三平台活动 Helper 和声明主管补齐进程与平台边界，权限缺口、签名和 OS 发布验收见 CR-063 与操作指南，不把编译或合同测试当作真实桌面权限验证。
+
 2026-10-12 [CR-062](../reference/changes/CR-062-native-search-pilot.md) 增补[机器可读原生搜索基准](../_meta/native-search-baseline.json)：同设备、固定种子、三档 256 维向量，比较 JSON 全排序、JSON 有界 top-K、连续数组与 Rust；每档校验候选 ID 和分数一致性。查询计时与进程启动/加载分账，内存为间隔采样，短命进程可能没有有效样本。JSON 解析成本明显高于排序差量，不能把预加载的 Rust 计算时间当作端到端召回提速。
 
 代码搜索对照覆盖无匹配、末尾匹配和结果上限：原生搜索让 API 的定时器保持可调度，但进程启动使很快命中的查询可能更慢。采纳依据是有界运行与主事件循环响应；不承诺所有搜索更快。基准为探索性样本，没有覆盖 SQLite 读入、真实语义召回质量、生产索引生命周期或跨平台发布。
 
-复跑入口为 `mise tasks run native-search-benchmark`，默认报告写入忽略目录 `artifacts/native-search/`。Rust 合同、格式与静态检查入口为 `mise tasks run native-search-check`，已进入代码门禁。后续受信原生 Helper 与进程主管的待评审范围见 CR-062 §4。
+复跑入口为 `mise tasks run native-search-benchmark`，默认报告写入忽略目录 `artifacts/native-search/`。Rust 合同、格式与静态检查入口为 `mise tasks run native-search-check`，已进入代码门禁。后续受信原生 Helper 与进程主管由 [CR-063](../reference/changes/CR-063-native-runtime-components.md) 接续实施，签名与发布证据独立取证。
 
 2026-09-18 评估的执行过程由 Git 基线与后续 PR 保留，当前测试入口以[测试策略](../reference/TEST_STRATEGY.md)、[工具任务](../../mise.toml)及关联测试为准。本文不复制测试耗时和终端日志，也不把历史绿色结果当作当前版本的发布证据。
 

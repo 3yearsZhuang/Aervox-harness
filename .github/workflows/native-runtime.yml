@@ -1,0 +1,45 @@
+name: Native runtime
+on:
+  pull_request:
+    paths: ["packages/native-runtime/**", "packages/repositories/src/search/**", "scripts/native-runtime*", "scripts/benchmark-native-runtime.mjs", "mise.toml", "pnpm-lock.yaml", ".github/workflows/native-runtime.yml"]
+  push:
+    branches: [main]
+    paths: ["packages/native-runtime/**", "packages/repositories/src/search/**", "scripts/native-runtime*", "scripts/benchmark-native-runtime.mjs", "mise.toml", "pnpm-lock.yaml", ".github/workflows/native-runtime.yml"]
+permissions:
+  contents: read
+jobs:
+  contracts:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Read locked Rust version
+        id: versions
+        run: node -e 'const fs=require("fs");const version=fs.readFileSync("mise.toml","utf8").match(/^rust = "([^"]+)"/m)[1];fs.appendFileSync(process.env.GITHUB_OUTPUT,`rust=${version}\n`);'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ steps.versions.outputs.rust }}
+          components: rustfmt, clippy
+      - run: pnpm install --frozen-lockfile
+      - run: cargo fmt --manifest-path packages/native-runtime/native/Cargo.toml --check
+      - run: cargo test --locked --manifest-path packages/native-runtime/native/Cargo.toml
+      - run: cargo clippy --locked --manifest-path packages/native-runtime/native/Cargo.toml -- -D warnings
+      - run: pnpm exec turbo run build --filter=@aervox/native-runtime
+      - run: pnpm --filter @aervox/native-runtime test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.os }}
+          path: packages/native-runtime/dist/bin/**
+          if-no-files-found: error

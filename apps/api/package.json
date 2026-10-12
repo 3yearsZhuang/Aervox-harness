@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@aervox/native-runtime": "workspace:*",
     "@aervox/core": "workspace:*",
     "@aervox/config": "workspace:*",
     "@aervox/contracts": "workspace:*",

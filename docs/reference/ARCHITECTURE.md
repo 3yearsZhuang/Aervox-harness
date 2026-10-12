@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.7.3
+version: 0.7.4
 updated_at: 2026-10-12
 reviewed_at: 2026-10-12
 review_interval_days: 90
@@ -47,7 +47,7 @@ MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应
 
 ## 3. 仓库与领域边界
 
-本地 `dsh_search_code` 经 API 调用受控 `ripgrep` 子进程，平台二进制由锁定的 npm 依赖分发；取消、扫描范围与资源限额见 [CR-062](changes/CR-062-native-search-pilot.md)。向量召回仍由 SQLite 仓储执行 JSON 行扫描与有界 top-K，授权资格仍回读业务真源。`scripts/native-vector` 是只读合成夹具的 Rust 计算试点，不进入默认 API/Worker 运行路径；工具版本统一锁定于 `mise.toml`。
+本地 `dsh_search_code` 经 API 调用受控 `ripgrep` 子进程，平台二进制由锁定的 npm 依赖分发；取消、扫描范围与资源限额见 [CR-062](changes/CR-062-native-search-pilot.md)。向量召回仍由 SQLite 仓储执行 JSON 行扫描与有界 top-K，授权资格仍回读业务真源。`scripts/native-vector` 是只读合成夹具的 Rust 计算试点，不进入默认 API/Worker 运行路径；工具版本统一锁定于 `mise.toml`。后续 `@aervox/native-runtime` 经现有 Port 提供只读 SQLite 向量缓存、受租约控制的应用活动 Helper 与声明进程主管，具体授权、平台和生命周期差量见 [CR-063](changes/CR-063-native-runtime-components.md)。
 
 ```text
 apps/
@@ -67,6 +67,7 @@ packages/
   practice-review/   # 练习、错题本与间隔复习调度算法
   diary/             # 学习日记提炼与生成领域服务
   config/            # 类型化环境变量与运行时配置解析
+  native-runtime/    # 有界原生进程 Port、Rust 只读计算、活动 Helper 与进程主管（CR-063）
   api-client/        # 共享 API 传输层与 Vue Composable
   observability/     # 结构化日志与指标可观测性接口
   live2d/            # Live2D Mizuki 静态模型单一真源资产包

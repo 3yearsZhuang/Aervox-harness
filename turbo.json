@@ -1,6 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalEnv": ["AERVOX_WEB_PORT", "AERVOX_DESKTOP_PORT"],
+  "globalEnv": ["AERVOX_WEB_PORT", "AERVOX_DESKTOP_PORT", "AERVOX_NATIVE_RELEASE_PUBLIC_KEY"],
   "globalDependencies": ["tsconfig.base.json", "tsconfig.base.node.json"],
   "globalPassThroughEnv": [
     "XDG_CONFIG_HOME",
@@ -11,6 +11,8 @@
     "VITEST_MAX_WORKERS"
   ],
   "tasks": {
+    "@aervox/native-runtime#build": { "dependsOn": ["^build"], "cache": false, "env": ["AERVOX_NATIVE_BUILD_TARGETS"] },
+    "@aervox/native-runtime#test": { "dependsOn": ["build"], "cache": false },
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", "out/**"]

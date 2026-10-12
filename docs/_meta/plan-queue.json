@@ -320,7 +320,7 @@
     {
       "id": "ITER-015",
       "batch": "next",
-      "status": "建议",
+      "status": "执行中",
       "delivery": "单机部署主管：API/Worker/模型归属，数据目录、端口、Token、版本、就绪与退出；ARC-13；CAP-001/018/027",
       "gate": "依赖 ITER-006/008 与 ITER-011/013 的必要部分；新主管先 CR；与移动端决策协调",
       "acceptance": [
@@ -333,6 +333,12 @@
         "ITER-008",
         "ITER-011",
         "ITER-013"
+      ],
+      "branch": "feat/rust-native-search-pilot",
+      "statusNote": "CR-063 声明主管切片已实现：目录单一归属、摘要、API/Worker 就绪和进程树回收，真实宿主演练通过；PR #272 审查中。整体安装、升级、签名与平台实机发布验收继续按本条目推进。",
+      "links": [
+        "docs/reference/changes/CR-063-native-runtime-components.md",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/272"
       ]
     },
     {
@@ -356,20 +362,21 @@
       "batch": "candidate",
       "status": "执行中",
       "delivery": "测量后分别决定 Prompt 预算/保真压缩、SQLite 写竞争、向量 topK、计算隔离和资产归属；FND-07/08/10、ARC-05/08/12；相关基础设施",
-      "gate": "依赖正确性修复与 ITER-013 指标；CR-062 承接有界代码搜索与合成向量对照试点；全局单写者、生产向量索引切换与原生系统宿主另行评审",
+      "gate": "依赖正确性修复与 ITER-013 指标；CR-062/063 承接代码搜索、向量端到端对照、三平台原生活动 Helper 与计算隔离；生产索引迁移与发行签名单独取证",
       "acceptance": [
         "同设备同数据报告延迟分位数、失败率、内存和质量",
         "未达收益门槛即可停止；不承诺未测倍数"
       ],
       "owner": "platform/data/quality",
       "branch": "feat/rust-native-search-pilot",
-      "statusNote": "2026-10-12 CR-062 切片已实施并通过全量双门禁：异步 ripgrep 搜索与取消/进程共享限额、稳定有界 top-K、Rust 合成向量对照及 SQLite 结果一致性回归；PR #272 待审查。合成基准不代替 ITER-013 指标；生产查询测量、索引准入及其它性能治理差量仍未完成。",
+      "statusNote": "CR-062/063 切片已实现并通过本地全量双门禁：有界代码搜索、文件 SQLite 向量对照、三平台活动 Helper、可选音频与插件 Worker；PR #272 审查中。缓存重建和音频 IPC 成本纳入基准，生产签名及实机权限验收独立取证。",
       "dependsOn": [
         "ITER-013"
       ],
       "links": [
         "https://github.com/3yearsZhuang/Aervox-harness/pull/272",
-        "docs/explanation/reference-design-transfer.md#upstream-20260929"
+        "docs/explanation/reference-design-transfer.md#upstream-20260929",
+        "docs/reference/changes/CR-063-native-runtime-components.md"
       ]
     },
     {

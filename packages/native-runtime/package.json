@@ -1,0 +1,10 @@
+{
+  "name": "@aervox/native-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
+  "scripts": { "build": "node build.mjs", "typecheck": "tsc -p tsconfig.json --noEmit", "test": "vitest run" },
+  "devDependencies": { "@types/node": "^22.10.0" }
+}
