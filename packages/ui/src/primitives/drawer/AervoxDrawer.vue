@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AervoxButton from '../button/AervoxButton.vue';
 import { onUnmounted, watch, type Component } from 'vue';
 import { X } from 'lucide-vue-next';
 
@@ -104,15 +105,13 @@ onUnmounted(() => {
                 <component :is="icon" v-if="icon" :size="17" class="drawer-icon" />
                 <span>{{ title }}</span>
               </div>
-              <button
+              <AervoxButton variant="ghost" icon-only :icon="X"
                 v-if="showClose"
                 type="button"
                 class="drawer-close-btn"
                 aria-label="关闭"
                 @click="close"
-              >
-                <X :size="17" />
-              </button>
+               />
             </slot>
           </header>
 
@@ -179,24 +178,6 @@ onUnmounted(() => {
 
 .drawer-icon {
   color: var(--accent);
-}
-
-.drawer-close-btn {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.drawer-close-btn:hover {
-  background: var(--border);
-  color: var(--text-primary);
 }
 
 .drawer-body {

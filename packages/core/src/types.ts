@@ -73,6 +73,7 @@ export interface ContextCompactionInput {
   turnId: string;
   sessionId: string;
   messages: PromptMessage[];
+  signal?: AbortSignal;
 }
 
 /** Context 压缩结果：压缩后的消息列表 + 可选摘要文本（审计/可观测） */

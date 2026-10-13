@@ -94,7 +94,7 @@ id: AVX-TRC-001
 
 | 能力 ID | 能力 | 优先级 · 阶段 | 当前状态 | 分类、载体与启用方式 | 依据与已有证据 | 剩余验收 |
 |---|---|---|---|---|---|---|
-| `CAP-001` | 桌宠入口 | `P0 · R1` | `Specified` | 标准产品 · 主仓 | [首页工作台](SRS.md#prd-home)、[视觉小说式对话形态](SRS.md#prd-conversation-ui)、`CR-005`（已归档）、`CR-007`（已归档）；已有局部实现；验证范围见 PR | 进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready`；Web/Desktop 表现层边界按 CR-005/CR-007 验证 |
+| `CAP-001` | 桌宠入口 | `P0 · R1` | `Specified` | 标准产品 · 第一方根界面与共享 UI | [首页工作台](SRS.md#prd-home)、[视觉小说式对话形态](SRS.md#prd-conversation-ui)、`CR-005`（已归档）、`CR-007`（已归档）；已有局部实现；验证范围见 PR | [ADR-025](adr/ADR-025-ui-surface-hosts.md) 与 [PR #275](https://github.com/3yearsZhuang/Aervox-harness/pull/275) 承接根界面/设置切片；补齐自动化 `TC-*`、埋点和真实场景验收后推进 `Ready` |
 | `CAP-002` | 学习目标与对话 | `P0 · R1` | `Specified` | 标准产品 · `focus-mode` 第一方插件；学习事实主仓 | [学习目标](SRS.md#prd-cap-002)、[引导式学习对话](SRS.md#prd-cap-007)、`CR-060`；已有局部实现；验证范围见 PR | 拆分 `FR/BR/AC`，明确会话状态、并发修改、归档和恢复规则；实现载体已由 `CR-060` 明确（第一方插件 `focus-mode`，见 §4.2） |
 | `CAP-003` | 互动刷题 | `P0 · R1` | `Specified` | 标准产品 · 主仓 | [互动练习与错题本](SRS.md#prd-cap-003-004)；已有局部实现；验证范围见 PR | 已由 `CR-008`（已归档） 与 `CR-013`（已归档） 补齐题目选择、快照、恢复、幂等和完成边界；新增 CR-020 guidance E2E + 错因筛选 E2E + 刷题闭环 E2E；仍需评审证据后推进 Ready |
 | `CAP-004` | 错题本 | `P0 · R1` | `Specified` | 标准产品 · 主仓 | [互动练习与错题本](SRS.md#prd-cap-003-004)、`CR-009`（已归档）、`CR-018`（已归档）；已有局部实现；验证范围见 PR | 错因记录与筛选已进入实现；仍需补重复题合并的产品决策，以及 E2E 与评审证据 |
@@ -111,7 +111,7 @@ id: AVX-TRC-001
 | `CAP-015` | 思维宇宙 | `P1 · R2` | `Mapped` | 主仓交付；不纳入自选 | [P1 验收原则](SRS.md#prd-cap-014-019)；已有局部实现：[PR #64](https://github.com/3yearsZhuang/Aervox-harness/pull/64) | 仍补节点/边类型、证据、纠错传播、版本和可视化交互验收并推进 `Specified` |
 | `CAP-016` | 自适应刷题与报告 | `P1 · R2` | `Mapped` | `focus-mode` 第一方插件；学习事实主仓 | [P1 验收原则](SRS.md#prd-cap-014-019)、`CR-020`（已归档）、`CR-060`；已有局部实现：[PR #64](https://github.com/3yearsZhuang/Aervox-harness/pull/64) | CR-020 已落地确定性练习反馈与下一轮建议（用时/提示数观测 + guidance 规则 + 报告展示）；CR-060 把现场刷题闭环（作答落库工具与报告端点）实现载体明确为第一方插件 `focus-mode`，学习事实真源仍留主仓；仍补算法升级、冷启动策略和偏差评估并推进 `Specified` |
 | `CAP-017` | 考试日计划 | `P1 · R2` | `Mapped` | 主仓交付；不纳入自选 | [P1 验收原则](SRS.md#prd-cap-014-019)；已有局部实现：[PR #64](https://github.com/3yearsZhuang/Aervox-harness/pull/64) | 仍补计划生成约束、滚动调整、冲突、跳过、过期和完成定义并推进 `Specified` |
-| `CAP-018` | 桌面化与 Live2D | `P1 · R3` | `Specified` | 主仓 `apps/desktop` 宿主；构建选择，皮肤可替换 | [P1 验收原则](SRS.md#prd-cap-014-019)、`CR-002`（已归档）、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)；已有局部实现；验证范围见 PR | 已移植 `apps/desktop` Electron/Vue UI 与 Turn/SSE 边界；仍需补平台矩阵、签名更新、资源预算、崩溃恢复、后台行为及可执行 TC 证据后进入 Ready |
+| `CAP-018` | 桌面化与 Live2D | `P1 · R3` | `Specified` | `apps/desktop` 薄宿主与第一方 UI 包；构建选择，皮肤可替换 | [P1 验收原则](SRS.md#prd-cap-014-019)、`CR-002`（已归档）、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)；已有局部实现；验证范围见 PR | 已移植 `apps/desktop` Electron/Vue UI 与 Turn/SSE 边界；仍需补平台矩阵、签名更新、资源预算、崩溃恢复、后台行为及可执行 TC 证据后进入 Ready |
 | `CAP-019` | 多人格模板 | `P1 · R2` | `Mapped` | 主仓交付；不纳入自选 | [P1 验收原则](SRS.md#prd-cap-014-019)；已有局部实现：[PR #64](https://github.com/3yearsZhuang/Aervox-harness/pull/64) | 补模板审核、切换、记忆隔离/共享、回滚和人格回归评估 |
 | `CAP-020` | 技能与插件系统 | `P2 · R4` | `Mapped` | 自选候选 · 构建 + 运行；插件 SDK/沙箱 | [P2 验收原则](SRS.md#prd-cap-020-027)；已有局部实现；验证范围见 PR | 补清单格式、权限模型、沙箱、签名、版本兼容、撤权和卸载残留；插件配置规格见 [AVX-PLUG-001](plugin-config-and-pages.md) 与 `CR-006`（已归档） |
 | `CAP-021` | 学习路线与视频推荐 | `P2 · R4` | `Mapped` | 远期 · 运行时选择 | [P2 验收原则](SRS.md#prd-cap-020-027)；尚无实现登记 | 补来源、排序、失效链接、用户反馈、商业内容标识和推荐评估 |
@@ -413,3 +413,7 @@ PR、自动化测试和目标环境验证是交付证据，不抄写终端日志
 
 - 云端月可用性及 RPO/RTO 指标不能直接作为本地桌面发布目标，需结合设备、分发和备份恢复形态重估；保留 SRS 的历史目标及暂缓说明，备份/删除/恢复账本责任不因此暂停。
 - 进入相关架构与数据发布验收前，产品/技术/财务须批准每有效学习会话成本、每活跃用户月成本 P50/P95 和总月预算。当前数值未定；成本降级策略见架构，不能用降低安全或删除能力达标。
+
+- `core-execution-boundaries-20261013`：ITER-057 延续 CR-061 执行合同，统一终态 CAS 与返回值映射，修复连续小块正文刷新饥饿，并为工具发现、上下文构建和压缩传播取消信号；迟到准备结果不启动后续步骤。回归入口为 `packages/core/test/execution-boundaries.test.ts`、`audit-streaming.test.ts` 和 `packages/host-agent/test/sqlite-execution-store-fencing.test.ts`；`scripts/benchmark-core.mjs` 覆盖大小分块，合成负载不代表生产模型延迟。保持零运行时依赖、SQLite 与公开 SSE 合同；审查证据见 [ITER-057](../../plan.md#iter-057)。
+
+- `ui-surface-integration-20261013`：ITER-053/054/055 / [CR-065](adr/ADR-025-ui-surface-hosts.md#cr-065)，关联 CAP-001/002/018/020。前端体验与根界面切片统一由 `feat/ui-surface-experience` 交付；工作台、桌宠及设置面板迁入受信第一方 UI 包，平台组合根负责清单选择与装配，`@aervox/ui-host` 负责加载、失败重试与实例释放。验证入口为 UI 宿主、面板及工作台测试和 `test:e2e:ui`；第三方信任/独立安装仍为 [CR-064](adr/ADR-026-ui-surface-open-ecosystem.md#cr-064) 提案，未提升实机或 Released 状态。

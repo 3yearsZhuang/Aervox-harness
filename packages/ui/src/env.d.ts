@@ -16,3 +16,14 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+interface Window {
+  aervoxLive2D?: {
+    readonly motions: readonly string[]
+    readonly expressions: readonly string[]
+    lookAt: (target: string | Element) => void
+    playMotion: (motion: string) => boolean
+    playExpression: (expression: string) => void
+    playPose: (pose: { motion?: string; expression?: string }) => void
+  }
+}

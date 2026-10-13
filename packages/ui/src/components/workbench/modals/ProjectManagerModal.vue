@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AervoxButton } from '../../../primitives';
 import { computed, ref, watch } from 'vue';
 import {
   Archive,
@@ -126,27 +127,27 @@ async function handleDelete(id: string) {
               <p class="text-xs text-neutral-400">组织归类会话，构建专注的工作与学习上下文</p>
             </div>
           </div>
-          <button
+          <AervoxButton variant="ghost" icon-only
             type="button"
-            class="rounded-lg p-1 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-colors"
+            class=""
             @click="close"
           >
             <X class="h-4 w-4" />
-          </button>
+          </AervoxButton>
         </div>
 
         <!-- Body -->
         <div class="flex-1 overflow-y-auto p-5 space-y-4">
           <!-- Create Toggle or Form -->
           <div v-if="!isCreating" class="flex justify-end">
-            <button
+            <AervoxButton variant="primary"
               type="button"
-              class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 transition-colors shadow-sm"
+              class=""
               @click="isCreating = true"
             >
               <Plus class="h-3.5 w-3.5" />
               新建项目
-            </button>
+            </AervoxButton>
           </div>
 
           <!-- Create Form -->
@@ -156,26 +157,26 @@ async function handleDelete(id: string) {
           >
             <div class="flex items-center justify-between">
               <span class="text-xs font-medium text-indigo-300">新建项目</span>
-              <button
+              <AervoxButton variant="ghost" icon-only
                 type="button"
-                class="text-neutral-400 hover:text-white"
+                class=""
                 @click="isCreating = false"
               >
                 <X class="h-3.5 w-3.5" />
-              </button>
+              </AervoxButton>
             </div>
             <input
               v-model="newName"
               type="text"
               placeholder="项目名称（例如：考研数学、算法竞赛）"
-              class="w-full rounded-lg border border-white/10 bg-neutral-800 px-3 py-2 text-xs text-white placeholder-neutral-500 focus:border-indigo-500 focus:outline-none"
+              class="aervox-field w-full rounded-lg border border-white/10 bg-neutral-800 px-3 py-2 text-xs text-white placeholder-neutral-500 focus:border-indigo-500 focus:outline-none"
               autofocus
             />
             <input
               v-model="newDescription"
               type="text"
               placeholder="项目简短描述（可选）"
-              class="w-full rounded-lg border border-white/10 bg-neutral-800 px-3 py-2 text-xs text-white placeholder-neutral-500 focus:border-indigo-500 focus:outline-none"
+              class="aervox-field w-full rounded-lg border border-white/10 bg-neutral-800 px-3 py-2 text-xs text-white placeholder-neutral-500 focus:border-indigo-500 focus:outline-none"
             />
             <div class="flex items-center gap-2">
               <span class="text-xs text-neutral-400">强调色：</span>
@@ -192,21 +193,21 @@ async function handleDelete(id: string) {
               </div>
             </div>
             <div class="flex justify-end gap-2 pt-1">
-              <button
+              <AervoxButton variant="secondary"
                 type="button"
-                class="rounded-lg px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-800"
+                class=""
                 @click="isCreating = false"
               >
                 取消
-              </button>
-              <button
+              </AervoxButton>
+              <AervoxButton variant="primary"
                 type="button"
-                class="rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
+                class=""
                 :disabled="!newName.trim()"
                 @click="handleCreate"
               >
                 创建
-              </button>
+              </AervoxButton>
             </div>
           </div>
 
@@ -249,30 +250,30 @@ async function handleDelete(id: string) {
                 </div>
 
                 <div class="flex items-center gap-1 opacity-80 group-hover:opacity-100">
-                  <button
+                  <AervoxButton variant="ghost" icon-only
                     type="button"
-                    class="rounded-md p-1 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200 transition-colors"
+                    class=""
                     title="编辑项目"
                     @click="startEdit(p)"
                   >
                     <Pencil class="h-3.5 w-3.5" />
-                  </button>
-                  <button
+                  </AervoxButton>
+                  <AervoxButton variant="ghost" icon-only
                     type="button"
-                    class="rounded-md p-1 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200 transition-colors"
+                    class=""
                     :title="p.archivedAt ? '取消归档' : '归档项目'"
                     @click="handleToggleArchive(p)"
                   >
                     <Archive class="h-3.5 w-3.5" />
-                  </button>
-                  <button
+                  </AervoxButton>
+                  <AervoxButton variant="danger" icon-only
                     type="button"
-                    class="rounded-md p-1 text-neutral-400 hover:bg-red-950/50 hover:text-red-400 transition-colors"
+                    class=""
                     title="删除项目"
                     @click="handleDelete(p.id)"
                   >
                     <Trash2 class="h-3.5 w-3.5" />
-                  </button>
+                  </AervoxButton>
                 </div>
               </div>
 
@@ -281,13 +282,13 @@ async function handleDelete(id: string) {
                 <input
                   v-model="editName"
                   type="text"
-                  class="w-full rounded-lg border border-white/10 bg-neutral-700/80 px-2.5 py-1 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                  class="aervox-field w-full rounded-lg border border-white/10 bg-neutral-700/80 px-2.5 py-1 text-xs text-white focus:border-indigo-500 focus:outline-none"
                 />
                 <input
                   v-model="editDescription"
                   type="text"
                   placeholder="项目描述"
-                  class="w-full rounded-lg border border-white/10 bg-neutral-700/80 px-2.5 py-1 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                  class="aervox-field w-full rounded-lg border border-white/10 bg-neutral-700/80 px-2.5 py-1 text-xs text-white focus:border-indigo-500 focus:outline-none"
                 />
                 <div class="flex items-center justify-between pt-1">
                   <div class="flex items-center gap-1.5">
@@ -302,20 +303,20 @@ async function handleDelete(id: string) {
                     />
                   </div>
                   <div class="flex items-center gap-1.5">
-                    <button
+                    <AervoxButton variant="secondary"
                       type="button"
-                      class="rounded px-2 py-1 text-xs text-neutral-400 hover:bg-neutral-700"
+                      class=""
                       @click="editingId = null"
                     >
                       取消
-                    </button>
-                    <button
+                    </AervoxButton>
+                    <AervoxButton variant="primary"
                       type="button"
-                      class="rounded bg-indigo-600 px-2.5 py-1 text-xs text-white hover:bg-indigo-500"
+                      class=""
                       @click="handleUpdate(p.id)"
                     >
                       保存
-                    </button>
+                    </AervoxButton>
                   </div>
                 </div>
               </div>
@@ -325,13 +326,13 @@ async function handleDelete(id: string) {
 
         <!-- Footer -->
         <div class="border-t border-white/10 px-5 py-3 bg-neutral-900/50 flex justify-end">
-          <button
+          <AervoxButton variant="secondary"
             type="button"
-            class="rounded-lg bg-neutral-800 px-4 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700 transition-colors"
+            class=""
             @click="close"
           >
             关闭
-          </button>
+          </AervoxButton>
         </div>
       </div>
     </div>

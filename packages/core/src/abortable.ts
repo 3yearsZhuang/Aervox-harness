@@ -24,18 +24,31 @@ export async function* abortableStream<T>(stream: AsyncIterable<T>, signal?: Abo
   }
 }
 
-/** Yield idle ticks without concurrent next() calls; flushers remain serialized with chunks. */
+/** Yield periodic ticks even while chunks keep arriving; only one next() stays in flight. */
 export async function* streamWithTicks<T>(stream: AsyncIterable<T>, signal?: AbortSignal, intervalMs = 50): AsyncIterable<T | null> {
   const iterator = stream[Symbol.asyncIterator]();
   let pending = iterator.next();
+  let nextTickAt = Date.now() + intervalMs;
   try {
     for (;;) {
+      signal?.throwIfAborted();
+      // A ready chunk can win every race, including against a zero-delay timer.
+      // Check wall time too so synchronous or frequent chunks cannot starve flushes.
+      if (Date.now() >= nextTickAt) {
+        yield null;
+        nextTickAt = Date.now() + intervalMs;
+        continue;
+      }
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
         const item = await awaitWithSignal(Promise.race([
-          pending, new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), intervalMs); }),
+          pending, new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), Math.max(0, nextTickAt - Date.now())); }),
         ]), signal);
-        if (item === null) { yield null; continue; }
+        if (item === null) {
+          yield null;
+          nextTickAt = Date.now() + intervalMs;
+          continue;
+        }
         if (item.done) return;
         yield item.value;
         pending = iterator.next();

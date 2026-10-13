@@ -289,6 +289,17 @@ export const focusDraftPlugin: BuiltinUIPlugin = {
 
 卡片、其他槽位和组件替换的完整接口见[规范 §5–§7](../reference/plugin-config-and-pages.md#5-前端-ui-插槽扩展规范ui-extension-slots)。特别注意：`overrideComponent` 没有 disposer，不能用 `registry.clear()` 停用单个插件；替换 `ComposerDock` 时必须由宿主安排恢复，并验证输入法、附件、语音与单次发送。
 
+### 3.3 复用工作台控件
+
+第一方插件从 `@aervox/ui/primitives` 导入[共享控件](../../packages/ui/src/primitives/index.ts)，让插件设置、工具栏和宿主页面使用一致的外观与交互：
+
+- 操作按钮使用 `AervoxButton`，按用途选择 `primary`、`secondary`、`ghost` 或 `danger`；图标按钮提供 `aria-label`，异步操作绑定 `loading` 或 `disabled`。
+- 布尔启停使用 `AervoxSwitch`，通过 `v-model` 更新本地状态；授权操作采用受控 `checked`，请求成功后再更新权威状态。勾选多项和确认条款仍用原生复选框及 `aervox-checkbox`。
+- 记录卡片使用 `AervoxCard`；图标、名称和操作并列时设置 `layout="record"`，正文、操作和附加内容分别使用 `record-main`、`record-actions`、`record-detail`。共享布局负责窄窗口折行。
+- 表单沿用原生 `input`、`select`、`textarea` 与 `aervox-field`，滑块使用 `aervox-range`；页面标题使用 `AervoxSettingsHeading`，互斥选项和页面切换使用 `AervoxSegmentedControl`（页面切换设置 `variant="tabs"`）。
+
+局部样式只补充内容布局，不覆盖共享控件的颜色、圆角、尺寸和焦点状态。提交前检查明暗主题、窄窗口，以及禁用、加载和失败后的状态；插件启停仍按既有生命周期验证。可参考[插件开关与导航用例](../../plugins/focus-mode/test/ui-components.test.ts)。
+
 ## 4. 接入第一方 Server Turn Hook
 
 ### 4.1 定义 Hook 并显式注册

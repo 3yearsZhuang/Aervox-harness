@@ -49,8 +49,10 @@ MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应
 | `packages/contracts` / `schema` / `repositories` | 公共协议、数据库 Schema 与事务仓储；业务写入不能绕过仓储 |
 | `packages/core` | 零运行时依赖的内核；宿主注入持久化、Provider 与业务工具 |
 | `packages/host-plugin-api` / `plugins/` | 窄接口与插件自有实现；领域逻辑不回流到宿主或内核 |
-| `packages/ui` / `api-client` | 跨端组件、主题和传输；不依赖平台壳或数据库 |
+| `packages/ui` / `ui-host` / `api-client` | 跨端组件、主题和传输；不依赖平台壳或数据库 |
 | `native/` / `packages/native-runtime` | Rust 计算与受控进程，TypeScript 负责业务、授权、写入与生命周期 |
+
+根界面由平台组合根选择受信第一方 UI 包，`@aervox/ui-host` 负责清单校验、加载和实例释放。工作台、桌宠与设置面板的实现各归所属插件，`@aervox/ui` 保留跨界面构件和主题；详见 [ADR-025](adr/ADR-025-ui-surface-hosts.md)。第三方界面开放仍为 [ADR-026](adr/ADR-026-ui-surface-open-ecosystem.md) 提案。
 
 实际包与依赖以 workspace 清单、各包清单和[导入边界守卫](../../scripts/import-boundary.mjs)为准；本表说明架构职责，不逐项镜像磁盘目录。
 

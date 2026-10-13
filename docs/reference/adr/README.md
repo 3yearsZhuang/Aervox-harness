@@ -31,6 +31,8 @@
 - [ADR-022](ADR-022-mobile-runtime-access.md)：移动端运行与跨设备访问边界。
 - [ADR-023](ADR-023-hls-research-execution.md)：隔离 HLS 研究执行边界。
 - [ADR-024](ADR-024-native-runtime-boundaries.md)：原生计算、活动采集与进程边界。
+- [ADR-025](ADR-025-ui-surface-hosts.md)：根界面插件与薄平台宿主。
+- [ADR-026](ADR-026-ui-surface-open-ecosystem.md)：第三方界面开放与安装回滚提案。
 
 ## 原 CR 编号迁移索引
 
@@ -44,6 +46,9 @@ CR 流程已退役；下列编号只作为历史别名，不再创建独立 CR �
 | CR-061 | [ADR-021：执行与恢复合同](ADR-021-aervox-core-standalone-package.md#cr-061) |
 | CR-062 | [ADR-024：搜索与测量](ADR-024-native-runtime-boundaries.md#cr-062) |
 | CR-063 | [ADR-024：原生运行](ADR-024-native-runtime-boundaries.md#cr-063)，[源码与 IPC 结构](ADR-024-native-runtime-boundaries.md#cr-063-layout) |
+
+| CR-064 | [ADR-026：界面开放提案](ADR-026-ui-surface-open-ecosystem.md#cr-064) |
+| CR-065 | [ADR-025：根界面装配](ADR-025-ui-surface-hosts.md#cr-065) |
 
 ## 最小记录格式
 
@@ -65,3 +70,5 @@ decision_status: proposed
 ```
 
 状态使用 `proposed`、`accepted`、`rejected` 或 `superseded`；被替代时添加 `superseded_by: ADR-###`。作者和日期由 Git 追踪。
+| `ADR-025` | [根界面插件与薄平台宿主](ADR-025-ui-surface-hosts.md) | Accepted |
+| `ADR-026` | [界面插件开放生态与安装回滚](ADR-026-ui-surface-open-ecosystem.md) | Proposed |

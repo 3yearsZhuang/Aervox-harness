@@ -8,7 +8,7 @@ import { collectSourceFiles, inspectSource, RULES } from "./import-boundary.mjs"
 
 const v = (file, source) => inspectSource(file, source).map((x) => x.rule);
 
-test("规则矩阵：7 条底座健身函数齐备", () => {
+test("规则矩阵：8 条底座健身函数齐备", () => {
   assert.deepEqual(
     RULES.map((r) => r.name).sort(),
     [
@@ -19,6 +19,7 @@ test("规则矩阵：7 条底座健身函数齐备", () => {
       "packages-no-host-imports",
       "plugins-domain-no-db-no-host",
       "ui-client-no-db",
+      "ui-host-no-business-dependencies",
     ].sort(),
   );
 });
@@ -202,4 +203,14 @@ test('所有扫描范围的解析失败均阻断，而非静默放行', () => {
   for (const file of ['packages/core/src/broken.ts', 'apps/desktop/src/broken.ts', 'plugins/focus-mode/src/broken.ts']) {
     assert.deepEqual(v(file, 'export const broken = ;'), ['module-parse-error']);
   }
+});
+
+
+test("根界面宿主与桌宠组合根保持单向依赖（CR-063）", () => {
+  for (const dep of ["@aervox/ui", "@aervox/api-client", "electron", "node:fs"]) {
+    assert.ok(v("packages/ui-host/src/root.ts", `import x from "${dep}";`).includes("ui-host-no-business-dependencies"));
+  }
+  assert.deepEqual(v("packages/ui-host/src/root.ts", 'import { h } from "vue";'), []);
+  assert.deepEqual(v("apps/desktop/src/renderer/src/pet-main.ts", 'import p from "@aervox/plugin-companion-ui";'), []);
+  assert.ok(v("apps/desktop/src/renderer/src/elsewhere.ts", 'import p from "@aervox/plugin-companion-ui";').includes("host-no-plugin-implementation"));
 });

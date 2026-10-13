@@ -49,10 +49,20 @@ export const PLUGIN_COMPOSITION_ROOTS = new Set([
   "apps/api/src/plugin-assembly.ts",
   "apps/web/src/App.vue",
   "apps/desktop/src/renderer/src/App.vue",
+  "apps/desktop/src/renderer/src/pet-main.ts",
 ]);
 
 /** 每条规则即 ADR-016 的一条健身函数 */
 export const RULES = [
+  {
+    name: "ui-host-no-business-dependencies",
+    docRef: "CR-063 · AVX-PLUG-001",
+    fromDir: /^packages\/ui-host\/src\//,
+    forbid: [
+      { pattern: /^@aervox\//, label: "业务包、插件或 API 客户端（界面宿主仅依赖 Vue）" },
+      { pattern: /^(electron|node:)/, label: "原生平台或 Node.js（经宿主注入）" },
+    ],
+  },
   {
     name: "contracts-must-be-leaf",
     docRef: "ADR-016 · AVX-CAP-001 L0",
@@ -80,7 +90,7 @@ export const RULES = [
   {
     name: "ui-client-no-db",
     docRef: "ADR-016 · AVX-CAP-001",
-    fromDir: /^packages\/(ui|api-client)\//,
+    fromDir: /^packages\/(ui|ui-host|api-client)\//,
     forbid: [
       { pattern: /^@aervox\/(database|schema|repositories)($|\/)/, label: "数据库/模式/仓储" },
       { pattern: /^@libsql\//, label: "@libsql/client" },

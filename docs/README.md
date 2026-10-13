@@ -29,3 +29,5 @@ id: AVX-DOC-001
 产品范围由 PRD 定义，可观察行为由 SRS 定义，技术决定由架构与 ADR 说明，机器契约由代码及 Schema 提供。测试和 PR 证明实现情况，不能反向修改需求或法律、安全、隐私承诺；文档冲突按[贡献指南](../CONTRIBUTING.md#documentation)处理。
 
 既有稳定编号用于追溯。已归档的 CR 与退役记录仍见 [Aervox-docs-archive](https://github.com/3yearsZhuang/Aervox-docs-archive)，主仓原 CR-055/057/060/061/062/063 已并入 [ADR](reference/adr/README.md)。参考项目版本与许可证只维护在[参考设计评估](explanation/reference-design-transfer.md)。
+
+第一方根界面与平台装配见 [ADR-025](reference/adr/ADR-025-ui-surface-hosts.md)，第三方界面开放的未决提案见 [ADR-026](reference/adr/ADR-026-ui-surface-open-ecosystem.md)。

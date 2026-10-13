@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AervoxButton, AervoxCard, AervoxSegmentedControl, AervoxNavDialog } from '../../../primitives';
 import {
   Check,
   History,
@@ -13,8 +14,6 @@ import {
 import { useWorkbenchContext } from '../../../composables/workbench-context';
 import { renderMarkdown } from '../../../utils/markdown';
 import { DIAL_RADIUS, DIAL_CIRCUMFERENCE } from '../../../composables/useWorkbenchTimer';
-import { AervoxNavDialog } from '../../../primitives';
-
 
 const { layout, timer, cards, conversation } = useWorkbenchContext();
 const {
@@ -91,15 +90,15 @@ function openHistoryView() {
           <p class="drawer-intro">用小任务保持节奏，不需要一次完成所有事情。</p>
           <form class="todo-form" @submit.prevent="addTodo">
             <label class="sr-only" for="new-todo">添加待办</label>
-            <input id="new-todo" v-model="newTodo" placeholder="添加一件小事" />
-            <button type="submit" aria-label="添加待办"><Plus :size="20" /></button>
+            <input class="aervox-field" id="new-todo" v-model="newTodo" placeholder="添加一件小事" />
+            <AervoxButton variant="ghost" icon-only type="submit" aria-label="添加待办"><Plus :size="20" /></AervoxButton>
           </form>
           <div class="todo-summary">
             已完成 {{ completedTodoCount }} 件 · 待完成 {{ unfinishedTodos.length + syncedTodoCount }} 件（含学习同步）
           </div>
           <div class="todo-list">
             <label v-for="todo in todos" :key="todo.id" class="todo-item" :class="{ done: todo.done }">
-              <input v-model="todo.done" type="checkbox" />
+              <input class="aervox-checkbox" v-model="todo.done" type="checkbox" />
               <span>{{ todo.text }}</span>
               <Check v-if="todo.done" :size="18" />
             </label>
@@ -112,7 +111,7 @@ function openHistoryView() {
             <ul class="tool-list">
               <li v-for="goal in syncGoals" :key="goal.id">
                 <label class="todo-item" :class="{ done: goal.status === 'completed' }">
-                  <input
+                  <input class="aervox-checkbox"
                     type="checkbox"
                     :disabled="goalBusyId === goal.id"
                     @change="completeGoalFromTodo(goal.id)"
@@ -120,17 +119,17 @@ function openHistoryView() {
                   <span>目标：{{ goal.topic }} · {{ goal.availableMinutes }} 分钟/天</span>
                 </label>
                 <div class="goal-actions">
-                  <button v-if="goal.status === 'active'" type="button" :disabled="goalBusyId === goal.id" @click="toggleGoalPausedFromTodo(goal.id, 'paused')">
+                  <AervoxButton variant="secondary" v-if="goal.status === 'active'" type="button" :disabled="goalBusyId === goal.id" @click="toggleGoalPausedFromTodo(goal.id, 'paused')">
                     <Pause :size="14" />暂停
-                  </button>
-                  <button v-else type="button" :disabled="goalBusyId === goal.id" @click="toggleGoalPausedFromTodo(goal.id, 'active')">
+                  </AervoxButton>
+                  <AervoxButton variant="secondary" v-else type="button" :disabled="goalBusyId === goal.id" @click="toggleGoalPausedFromTodo(goal.id, 'active')">
                     <Play :size="14" />继续
-                  </button>
+                  </AervoxButton>
                 </div>
               </li>
               <li v-for="item in cards.api.dueReviews.value" :key="item.id">
                 <label class="todo-item">
-                  <input
+                  <input class="aervox-checkbox"
                     type="checkbox"
                     :disabled="reviewBusyId === item.id"
                     @change="completeReview(item.id, true)"
@@ -138,9 +137,9 @@ function openHistoryView() {
                   <span>复习：知识点 #{{ item.knowledgeId }} · 间隔 {{ item.intervalDays }} 天</span>
                 </label>
                 <div class="goal-actions">
-                  <button type="button" :disabled="reviewBusyId === item.id" @click="completeReview(item.id, false)">
+                  <AervoxButton variant="secondary" type="button" :disabled="reviewBusyId === item.id" @click="completeReview(item.id, false)">
                     <RotateCcw :size="14" />忘了
-                  </button>
+                  </AervoxButton>
                 </div>
               </li>
             </ul>
@@ -205,29 +204,24 @@ function openHistoryView() {
               {{ timerRunning ? '保持当前节奏，结束后记得休息。' : `滑动圆环设定 ${timerMinutes} 分钟专注回合` }}
             </p>
 
-            <div v-if="!timerRunning" class="timer-presets" role="radiogroup" aria-label="快捷预设时长">
-              <button
-                v-for="preset in [15, 25, 45, 60]"
-                :key="preset"
-                type="button"
-                class="timer-preset-btn"
-                :class="{ active: timerMinutes === preset }"
-                @click="selectPresetMinutes(preset)"
-              >
-                {{ preset }} 分钟
-              </button>
-            </div>
+            <AervoxSegmentedControl
+              v-if="!timerRunning"
+              :model-value="String(timerMinutes)"
+              :options="[15, 25, 45, 60].map(value => ({ value: String(value), label: `${value} 分钟` }))"
+              label="快捷预设时长"
+              @update:model-value="selectPresetMinutes(Number($event))"
+            />
 
             <div class="timer-actions">
-              <button type="button" @click="toggleTimer">
+              <AervoxButton variant="primary" type="button" @click="toggleTimer">
                 <Pause v-if="timerRunning" :size="20" />
                 <Play v-else :size="20" />
                 {{ timerRunning ? '暂停' : '开始专注' }}
-              </button>
-              <button type="button" @click="resetTimer">
+              </AervoxButton>
+              <AervoxButton variant="secondary" type="button" @click="resetTimer">
                 <TimerReset :size="20" />
                 重置
-              </button>
+              </AervoxButton>
             </div>
           </div>
         </template>
@@ -235,39 +229,39 @@ function openHistoryView() {
         <template v-else-if="activeToolView === 'history'">
           <p class="drawer-intro">完整上下文回看：视觉小说式滚动浏览与思隅的全部对话。</p>
           <div class="diary-actions">
-            <button type="button" class="diary-generate-btn" @click="openHistoryView">
+            <AervoxButton variant="primary" type="button" class="diary-generate-btn" @click="openHistoryView">
               <History :size="16" />
               <span>打开对话回看（{{ story.length }} 条记录）</span>
-            </button>
+            </AervoxButton>
           </div>
         </template>
 
         <template v-else-if="activeToolView === 'diary'">
           <p class="drawer-intro">思思根据今天我们一起聊过、记下和做过的事，替你写一篇日记。</p>
           <div class="diary-actions">
-            <button type="button" class="diary-generate-btn" :disabled="diaryBusy" @click="generateDiaryNow">
+            <AervoxButton variant="primary" type="button" class="diary-generate-btn" :disabled="diaryBusy" @click="generateDiaryNow">
               <NotebookPen v-if="!diaryBusy" :size="16" />
               <span>{{ diaryBusy ? '思思正在写…' : (viewingDiary ? '让思思改写今天的' : '让思思现在写') }}</span>
-            </button>
+            </AervoxButton>
           </div>
           <p v-if="diaryError" class="drawer-empty" role="alert">{{ diaryError }}</p>
-          <article v-if="viewingDiary" class="diary-card">
+          <AervoxCard as="article" v-if="viewingDiary" class="diary-card">
             <header class="diary-head">
               <strong>{{ viewingDiary.title }}</strong>
               <small class="diary-meta">{{ viewingDiary.localDate }} · {{ viewingDiary.generatedBy === 'template' ? '模板生成' : '思思手写' }}</small>
             </header>
             <div class="markdown-body diary-body" v-html="renderMarkdown(diaryDisplayContent)" />
-          </article>
+          </AervoxCard>
           <p v-else-if="!diaryBusy" class="drawer-empty">今天还没有日记，点上面的按钮让思思写一篇。</p>
 
           <div v-if="diaryHistory.length > 0" class="settings-section" style="margin-top: 20px;">
             <h4>历史日记 <small>{{ diaryHistory.length }}</small></h4>
             <ul class="diary-history-list">
               <li v-for="item in diaryHistory" :key="item.localDate">
-                <button type="button" :class="{ active: viewingDiary?.localDate === item.localDate }" @click="selectDiaryDate(item.localDate)">
+                <AervoxButton variant="secondary" type="button" :class="{ active: viewingDiary?.localDate === item.localDate }" @click="selectDiaryDate(item.localDate)">
                   <span class="diary-history-date">{{ item.localDate }}</span>
                   <span class="diary-history-title">{{ item.title }}</span>
-                </button>
+                </AervoxButton>
               </li>
             </ul>
           </div>

@@ -38,6 +38,9 @@ export const ALLOWED_DUPLICATES = new Map([
     "typescript",
     new Set([
       "packages/ui",
+      "packages/ui-host",
+      "plugins/workbench-ui",
+      "plugins/companion-ui",
       "apps/web",
       "apps/desktop",
     ]),

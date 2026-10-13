@@ -1,0 +1,11 @@
+/**
+ * 工作台主题完整装配入口（CR-063 修复）：@aervox/ui/workbench 出口只带组件不带样式，
+ * 工作台类根界面统一经本文件装载完整主题链——令牌 → 基础别名 → 工作台核心 →
+ * 标准模式 → 体验层（窄屏抽屉/遮罩）→ 设置体验 → Hero 桌宠。
+ */
+@import './index.css';
+@import './workbench.css';
+@import './standard-workbench.css';
+@import './workbench-experience.css';
+@import './settings-experience.css';
+@import './hero.css';
