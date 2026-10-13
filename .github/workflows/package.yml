@@ -54,6 +54,20 @@ jobs:
           node-version: 24
           cache: pnpm
 
+      - name: Read locked Rust version
+        id: native-versions
+        shell: bash
+        run: node -e 'const fs=require("fs");const version=fs.readFileSync("mise.toml","utf8").match(/^rust = "([^"]+)"/m)[1];fs.appendFileSync(process.env.GITHUB_OUTPUT,`rust=${version}\n`);'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ steps.native-versions.outputs.rust }}
+      - name: Add macOS native architectures
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          rustup target add aarch64-apple-darwin x86_64-apple-darwin
+          echo "AERVOX_NATIVE_BUILD_TARGETS=aarch64-apple-darwin,x86_64-apple-darwin" >> "$GITHUB_ENV"
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -70,6 +84,9 @@ jobs:
         with:
           path: ~/.cache/electron
           key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Build native artifacts
+        run: pnpm exec turbo run native:build --filter=@aervox/native-runtime
 
       - name: Build desktop bundle
         env:

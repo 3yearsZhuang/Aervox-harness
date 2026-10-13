@@ -11,6 +11,7 @@ import {
   type AervoxDatabase,
   type LocalContext,
 } from "../src/index.js";
+import { cosineSimilarity } from "../src/search/vector-port.js";
 
 describe("T-05 记忆向量独立存储", () => {
   let db: AervoxDatabase;
@@ -78,6 +79,31 @@ describe("T-05 记忆向量独立存储", () => {
     // modelId 过滤：无对应模型时为空
     const noModel = await embeddingRepo.retrieve(ctx, [1, 0], 10, 0, "model_b");
     expect(noModel).toEqual([]);
+  });
+
+  it("bounded retrieval preserves full-sort results, ties, thresholds and deletion", async () => {
+    const vectors = [[1, 0], [1, 0], [0, 0], [-1, 0], [0.5, 0.5], [0, 1]];
+    for (const [index, vector] of vectors.entries()) {
+      const memoryId = `parity_${index}`;
+      await memoryRepo.createRecord(ctx, { id: memoryId, layer: "long_term", type: "user_fact", content: memoryId });
+      await embeddingRepo.insertBatch(ctx, [{ id: `emb_${index}`, memoryId, vector, modelId: "parity" }]);
+    }
+    // Use the writer's actual row encounter order, as the old stable sort did.
+    const rows = await client.execute("SELECT memory_id, embedding_json FROM memory_embeddings WHERE model_id = 'parity'");
+    for (const query of [[1, 0], [0, 0], [0, 1]]) {
+      for (const threshold of [-1, 0, 0.8]) {
+        const expected = rows.rows.map((row) => ({
+          memoryId: String(row.memory_id),
+          score: cosineSimilarity(query, JSON.parse(String(row.embedding_json))),
+        })).filter((hit) => hit.score >= threshold).sort((a, b) => b.score - a.score);
+        for (const limit of [0, 1, 3, 10]) {
+          expect(await embeddingRepo.retrieve(ctx, query, limit, threshold, "parity")).toEqual(expected.slice(0, limit));
+        }
+      }
+    }
+    await embeddingRepo.deleteByMemoryId(ctx, "parity_0");
+    expect((await embeddingRepo.retrieve(ctx, [1, 0], 1, 0, "parity"))[0]?.memoryId).toBe("parity_1");
+    expect(await embeddingRepo.retrieve(ctx, [1, 0], 3, 0, "other-model")).toEqual([]);
   });
 
   it("deleteByMemoryId 与 clearAll", async () => {

@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.9
-updated_at: 2026-10-12
-reviewed_at: 2026-10-12
+version: 1.0.10
+updated_at: 2026-10-13
+reviewed_at: 2026-10-13
 review_interval_days: 90
 review_triggers:
   - plugins/**
@@ -74,7 +74,7 @@ sources:
 - **代码缺席**：注册与门控两端一致 fail-closed；插件记录缺失时不得默认启用，且必须保留安装记录、配置与数据管理入口。
 - **兼容别名**：不保留历史别名；`study-mode`/`quiz-mode` 不再是 `focus-mode` 的注册别名。
 
-### 0.4 根界面插件（CR-063）
+### 0.4 根界面插件（CR-065）
 
 根界面使用 [`UISurfacePlugin`](../../packages/ui-host/src/surface-context.ts)：`id`、`apiVersion: 1`、`surface`（`main` 或 `companion`）、`platforms` 与异步 `load(signal)`。这是受信源码装配接口，不是可安装的 `PluginManifest`；`plugins/workbench-ui` 与 `plugins/companion-ui` 不生成声明式分发包，也不使用市场开关关闭标准产品能力。
 
@@ -340,9 +340,9 @@ pages/dashboard/style.css
 
 ### 8.3 安装、覆盖与导出边界
 
-[分发引擎](../../apps/api/src/modules/ecosystem/plugins/package-bundle.ts)的实际流程是预检 →（覆盖时先卸载旧插件）→登记插件/工具/技能→尝试配置和 Page 资源。新安装成功返回 201；同 ID 且 `overwrite: false` 返回 `409 PLUGIN_ALREADY_EXISTS`。
+[分发引擎](../../apps/api/src/modules/ecosystem/plugins/package-bundle.ts)的实际流程是预检 → 有界解压与 Manifest 解析 →（覆盖时先卸载旧插件）→登记插件/工具/技能→尝试配置和 Page 资源。解压 Worker 忙、超时或退出时返回错误，保留旧插件及其配置、Secret 和能力。新安装成功返回 201；同 ID 且 `overwrite: false` 返回 `409 PLUGIN_ALREADY_EXISTS`。
 
-配置、Page 或资源注册/写入失败会返回错误；没有跨文件和数据库的事务回滚。`overwrite: true` 是破坏性的卸载重装，会删除旧配置、Secret、授权和插件资源，并非保留状态的升级。新版本失败时不会自动恢复旧版本。
+配置、Page 或资源注册/写入失败会返回错误；没有跨文件和数据库的事务回滚。`overwrite: true` 是破坏性的卸载重装，会删除旧配置、Secret、授权和插件资源，并非保留状态的升级。卸载开始后的新版本安装失败不会自动恢复旧版本。
 
 **作者规则**：发布保留完整源码包、版本、完整 SHA-256 和变更说明；升级前记录配置、确认 Secret 可重新配置并备份本地数据，按[换库与回滚指南](../how-to/run-database-migration-drill.md)处理涉及核心库的恢复。验证新包全部贡献后再宣布安装成功。禁止在无数据副本时测试覆盖真实插件。
 

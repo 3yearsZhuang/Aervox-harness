@@ -14,6 +14,7 @@ import { isAbsolute, join, relative, resolve, dirname } from "node:path";
 import { promisify } from "node:util";
 import { probeDSHReference, type DSHReferenceProbeResult } from "@aervox/host-agent";
 import type { McpRemoteTool } from "./client.js";
+import { RipgrepCodeSearch } from "./code-search.js";
 
 const execAsync = promisify(exec);
 
@@ -86,7 +87,7 @@ export const DSH_MCP_TOOLS: McpRemoteTool[] = [
   },
   {
     name: "dsh_search_code",
-    description: "在代码库中基于文本模式进行全文匹配检索（带行号与代码行内容）",
+    description: "在代码库中按字面文本检索（行号与行内容；Unicode 大小写匹配；单文件最多 8 MiB，忽略隐藏/依赖/产物目录与二进制扩展名，最多 200 条，10 秒截止）",
     inputSchema: {
       type: "object",
       properties: {
@@ -154,13 +155,14 @@ interface JsonRpcError {
 
 export class DshMcpBridge {
   readonly repoRoot: string;
+  private readonly codeSearch = new RipgrepCodeSearch();
 
   constructor(options: DshMcpBridgeOptions = {}) {
     this.repoRoot = options.repoRoot ?? process.env.AERVOX_DSH_REPO_ROOT?.trim() ?? findRepoRoot();
   }
 
   /** 分发并处理 JSON-RPC 2.0 请求 */
-  async handleRpc(raw: unknown): Promise<JsonRpcSuccess | JsonRpcError | undefined> {
+  async handleRpc(raw: unknown, signal?: AbortSignal): Promise<JsonRpcSuccess | JsonRpcError | undefined> {
     if (!raw || typeof raw !== "object") {
       return {
         jsonrpc: "2.0",
@@ -219,7 +221,7 @@ export class DshMcpBridge {
           const params = (req.params ?? {}) as { name?: string; arguments?: Record<string, unknown> };
           const toolName = params.name;
           const args = params.arguments ?? {};
-          const result = await this.executeTool(toolName, args);
+          const result = await this.executeTool(toolName, args, signal);
           return {
             jsonrpc: "2.0",
             id,
@@ -255,6 +257,7 @@ export class DshMcpBridge {
   private async executeTool(
     name: string | undefined,
     args: Record<string, unknown>,
+    signal?: AbortSignal,
   ): Promise<{ content: Array<{ type: "text"; text: string }>; isError?: boolean }> {
     if (!name) {
       return { content: [{ type: "text", text: "Tool call missing name parameter" }], isError: true };
@@ -318,8 +321,9 @@ export class DshMcpBridge {
           const caseSensitive = Boolean(args.caseSensitive);
           const maxResults = Math.min(200, Math.max(1, Number(args.maxResults ?? 50)));
 
-          const safeDir = resolveSafePath(this.repoRoot, searchPath);
-          const results = this.searchInDir(safeDir, this.repoRoot, query, caseSensitive, maxResults);
+          const results = await this.codeSearch.search({
+            root: this.repoRoot, path: searchPath, query, caseSensitive, maxResults, signal,
+          });
           return {
             content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
             isError: false,
@@ -440,58 +444,4 @@ export class DshMcpBridge {
     return results;
   }
 
-  private searchInDir(
-    currentDir: string,
-    root: string,
-    query: string,
-    caseSensitive: boolean,
-    maxResults: number,
-  ): Array<{ file: string; line: number; content: string }> {
-    const results: Array<{ file: string; line: number; content: string }> = [];
-    const normalizedQuery = caseSensitive ? query : query.toLowerCase();
-
-    const searchQueue = [currentDir];
-    while (searchQueue.length > 0 && results.length < maxResults) {
-      const dir = searchQueue.shift()!;
-      let items;
-      try {
-        items = readdirSync(dir, { withFileTypes: true });
-      } catch {
-        continue;
-      }
-
-      for (const item of items) {
-        if (item.name.startsWith(".") || item.name === "node_modules" || item.name === "dist") {
-          continue;
-        }
-        const fullPath = join(dir, item.name);
-        if (item.isDirectory()) {
-          searchQueue.push(fullPath);
-        } else if (item.isFile()) {
-          // 仅检索常见文本文件，跳过可能的大型二进制
-          if (/\.(png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|eot|pdf|zip|tar|gz|sqlite|db)$/i.test(item.name)) {
-            continue;
-          }
-          try {
-            const content = readFileSync(fullPath, "utf-8");
-            const lines = content.split(/\r?\n/);
-            const relPath = relative(root, fullPath);
-
-            for (let i = 0; i < lines.length; i++) {
-              const line = lines[i];
-              if (line === undefined) continue;
-              const lineMatch = caseSensitive ? line : line.toLowerCase();
-              if (lineMatch.includes(normalizedQuery)) {
-                results.push({ file: relPath, line: i + 1, content: line.trim() });
-                if (results.length >= maxResults) break;
-              }
-            }
-          } catch {
-            // 编码错误跳过
-          }
-        }
-      }
-    }
-    return results;
-  }
 }

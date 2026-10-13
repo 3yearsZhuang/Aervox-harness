@@ -28,6 +28,7 @@ import { runToolExecution, ToolExecutionAborted } from "./tool-pipeline.js";
 import { StepCollector } from "./step-collector.js";
 import type { StepCollection } from "./step-collector.js";
 import { createRecordingProvider } from "./recording-provider.js";
+import { awaitWithSignal } from "./abortable.js";
 
 export interface ExecuteTurnInput {
   turnId: string;
@@ -187,7 +188,7 @@ export async function executeTurn(
       if (monitorFailure) throw monitorFailure;
     },
   });
-  const { finalizeCancelled, finalizeInterrupted, prematureTermination } = terminator;
+  const { finalize, finalizeCancelled, finalizeInterrupted, prematureTermination } = terminator;
 
   let checking = false;
   const removeLost = heartbeat?.onLost(() => control.abort(new LeaseLostError()));
@@ -260,13 +261,19 @@ export async function executeTurn(
             limit: 20, // maxInboxItemsPerStep
           })
         : [];
-      const stepTools = tools?.listTools ? await tools.listTools() : tools?.tools;
-      const context = await contextBuilder.build({
+      control.abortSignal.throwIfAborted();
+      const stepTools = tools?.listTools
+        ? await awaitWithSignal(tools.listTools({ signal: control.abortSignal }), control.abortSignal)
+        : tools?.tools;
+      control.abortSignal.throwIfAborted();
+      const context = await awaitWithSignal(Promise.resolve(contextBuilder.build({
         turnId: input.turnId,
         sessionId: input.sessionId,
         messages: history,
         inboxItems: stepInboxItems,
-      });
+        signal: control.abortSignal,
+      })), control.abortSignal);
+      control.abortSignal.throwIfAborted();
       // 读入即消费：注入 context 后 ack（未 ack 项在崩溃恢复后会被重新 claim，安全重放）
       if (stepInboxItems.length > 0 && inbox) {
         await inbox.ack({ itemIds: stepInboxItems.map((i) => i.id) });
@@ -410,17 +417,11 @@ export async function executeTurn(
         const finalCancel = await prematureTermination(sequence);
         if (finalCancel) return finalCancel;
         // B4-D：终态 + done 事件原子提交（§12.2）
-        await execution.finalizeAttemptWithEvent({
-          turnId: input.turnId,
-          attemptId: input.attemptId,
-          status: "Completed",
-          expectedFencingToken: claimFencingToken,
-          sequence,
+        return await finalize(sequence, { status: "completed" }, {
           eventType: "done",
           eventData: { status: "Completed", messageId, isComplete: true, lastSequence: sequence },
           safetyDecision: "approved",
         });
-        return { status: "completed", attemptId: input.attemptId, lastSequence: sequence, stepsTaken };
       }
 
       // 工具请求 → 先落文本 delta（未完成），再逐个执行工具
@@ -466,17 +467,11 @@ export async function executeTurn(
         const disabledCancel = await prematureTermination(sequence);
         if (disabledCancel) return disabledCancel;
         // B4-D：终态 + error 事件原子提交（§12.2）
-        await execution.finalizeAttemptWithEvent({
-          turnId: input.turnId,
-          attemptId: input.attemptId,
-          status: "Failed",
-          expectedFencingToken: claimFencingToken,
-          sequence,
+        return await finalize(sequence, { status: "failed", reason: "tools_disabled" }, {
           eventType: "error",
           eventData: { code: "TOOLS_DISABLED", retryable: true, message: "tools_disabled", lastSequence: sequence },
           safetyDecision: "approved",
         });
-        return { status: "failed", attemptId: input.attemptId, reason: "tools_disabled" };
       }
 
       // 2b：检查点 · 工具批次执行前（未开始副作用即取消则立即中止）
@@ -585,18 +580,11 @@ export async function executeTurn(
             safetyDecision: "approved",
           });
           // B4-D：审批路径终态 + done 原子提交（§12.2）
-          const approvalFinalized = await execution.finalizeAttemptWithEvent({
-            turnId: input.turnId,
-            attemptId: input.attemptId,
-            status: "Interrupted",
-            expectedFencingToken: claimFencingToken,
-            sequence,
+          return await finalize(sequence, { status: "interrupted", reason: "pending_approval" }, {
             eventType: "done",
             eventData: { status: "Interrupted", messageId, isComplete: false, lastSequence: sequence },
             safetyDecision: "approved",
           });
-          void approvalFinalized;
-          return { status: "interrupted", attemptId: input.attemptId, reason: "pending_approval" };
         }
 
       }
@@ -633,12 +621,7 @@ export async function executeTurn(
     const budgetCancel = await prematureTermination(sequence);
     if (budgetCancel) return budgetCancel;
     // B4-D：终态 + done 事件原子提交（§12.2）
-    await execution.finalizeAttemptWithEvent({
-      turnId: input.turnId,
-      attemptId: input.attemptId,
-      status: "Interrupted",
-      expectedFencingToken: claimFencingToken,
-      sequence,
+    return await finalize(sequence, { status: "interrupted", reason: "max_steps" }, {
       eventType: "done",
       eventData: {
         status: "Interrupted",
@@ -648,7 +631,6 @@ export async function executeTurn(
       },
       safetyDecision: "approved",
     });
-    return { status: "interrupted", attemptId: input.attemptId, reason: "max_steps" };
   } catch (err) {
     if (interruption === "deletion_blocked" || interruption === "turn_timeout") return finalizeInterrupted(await execution.nextSequence(input.turnId), interruption);
     if (err instanceof LeaseLostError || heartbeat?.lost) return { status: "failed", attemptId: input.attemptId, reason: "lease_lost" };
@@ -667,12 +649,7 @@ export async function executeTurn(
       return { status: "failed", attemptId: input.attemptId, reason: "lease_lost" };
     }
     // B4-D：终态 + error 事件原子提交（§12.2；失败即他方已终结/锁定 → 静默，无孤儿 error）
-    await execution.finalizeAttemptWithEvent({
-      turnId: input.turnId,
-      attemptId: input.attemptId,
-      status: "Failed",
-      expectedFencingToken: claimFencingToken,
-      sequence: await execution.nextSequence(input.turnId),
+    return await finalize(await execution.nextSequence(input.turnId), { status: "failed", reason: "execution error" }, {
       eventType: "error",
       eventData: {
         code: "MODEL_UNAVAILABLE",
@@ -681,8 +658,7 @@ export async function executeTurn(
         lastSequence: Math.max(0, (await execution.nextSequence(input.turnId)) - 1),
       },
       safetyDecision: "approved",
-    }).catch(() => undefined);
-    return { status: "failed", attemptId: input.attemptId, reason: "execution error" };
+    }).catch((): ExecuteResult => ({ status: "failed", attemptId: input.attemptId, reason: "execution error" }));
   } finally {
     // B2：无论正常/中止均停止心跳，避免泄漏定时器或在终态后继续续租
     monitoring = false;

@@ -13,7 +13,8 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
+import { strFromU8, strToU8 } from "fflate";
+import { executeArchive } from "./archive-worker.js";
 import {
   pluginManifestSchema,
   type PluginManifest,
@@ -44,23 +45,8 @@ export const PLUGIN_ARCHIVE_LIMITS = {
 } as const;
 
 /** Check declared sizes before fflate allocates decompression buffers. */
-function unpackPluginBundle(bytes: Uint8Array): Record<string, Uint8Array> {
-  if (bytes.byteLength > PLUGIN_ARCHIVE_LIMITS.compressedBytes) throw new Error("Plugin archive exceeds compressed size limit");
-  let expanded = 0;
-  const names = new Set<string>();
-  return unzipSync(bytes, { filter(entry) {
-    if (!isSafeZipEntryPath(entry.name)) throw new Error(`Unsafe entry path in archive: ${entry.name}`);
-    if (names.has(entry.name)) throw new Error(`Duplicate archive entry: ${entry.name}`);
-    names.add(entry.name);
-    expanded += Math.max(entry.originalSize, entry.size);
-    if (names.size > PLUGIN_ARCHIVE_LIMITS.entries
-      || entry.originalSize > PLUGIN_ARCHIVE_LIMITS.entryBytes
-      || entry.size > PLUGIN_ARCHIVE_LIMITS.entryBytes
-      || expanded > PLUGIN_ARCHIVE_LIMITS.expandedBytes) {
-      throw new Error("Plugin archive exceeds expansion limits");
-    }
-    return true;
-  } });
+async function unpackPluginBundle(bytes: Uint8Array): Promise<Record<string, Uint8Array>> {
+  return executeArchive({ kind: "unpack", input: bytes, limits: PLUGIN_ARCHIVE_LIMITS, isSafePath: isSafeZipEntryPath });
 }
 
 /** 单条目路径安全校验（拒绝绝对路径、.. 段、反斜杠穿越、超限路径） */
@@ -105,7 +91,7 @@ export async function inspectPluginBundle(
 
   let files: Record<string, Uint8Array>;
   try {
-    files = unpackPluginBundle(bytes);
+    files = await unpackPluginBundle(bytes);
   } catch (e) {
     return {
       id: "",
@@ -456,18 +442,20 @@ export async function installPluginFromBundle(
     );
   }
 
-  // 覆盖安装时先卸载既有插件及能力
-  if (inspection.alreadyInstalled && options.overwrite) {
-    await deps.service.uninstallPlugin(inspection.id);
-  }
-
-  const files = unpackPluginBundle(bytes);
+  // Worker admission, timeout and decoding can fail even after successful inspection.
+  // Finish those fallible steps while the existing plugin and its data are intact.
+  const files = await unpackPluginBundle(bytes);
   const manifestBytes =
     files["plugin.manifest.json"] ?? files["manifest.json"]!;
   const manifest = pluginManifestSchema.parse(
     JSON.parse(strFromU8(manifestBytes)),
   );
   const pluginId = manifest.metadata.id;
+
+  // 覆盖安装时先卸载既有插件及能力
+  if (inspection.alreadyInstalled && options.overwrite) {
+    await deps.service.uninstallPlugin(inspection.id);
+  }
 
   // 1. 组装技能定义
   const declaredSkills: PluginDeclaredSkill[] = [];
@@ -702,7 +690,7 @@ export async function exportPluginBundle(
   }
 
   const version = plugin?.version ?? "1.0.0";
-  const bytes = zipSync(zipFiles, { level: 6 });
+  const bytes = await executeArchive<Uint8Array>({ kind: "pack", input: zipFiles, limits: PLUGIN_ARCHIVE_LIMITS, isSafePath: isSafeZipEntryPath });
   const checksum = createHash("sha256").update(bytes).digest("hex");
   const filename = `${pluginId}-${version}.aervox-plugin`;
 
@@ -897,6 +885,6 @@ export async function installFromMarket(
   }
 
   const zipFiles = await collectMarketBundleFiles(pluginDir);
-  const bytes = zipSync(zipFiles, { level: 6 });
+  const bytes = await executeArchive<Uint8Array>({ kind: "pack", input: zipFiles, limits: PLUGIN_ARCHIVE_LIMITS, isSafePath: isSafeZipEntryPath });
   return installPluginFromBundle(bytes, { overwrite: true }, deps);
 }

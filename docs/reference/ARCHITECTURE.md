@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.7.4
+version: 0.7.6
 updated_at: 2026-10-13
 reviewed_at: 2026-10-13
 review_interval_days: 90
@@ -47,6 +47,8 @@ MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应
 
 ## 3. 仓库与领域边界
 
+本地 `dsh_search_code` 经 API 调用受控 `ripgrep` 子进程，平台二进制由锁定的 npm 依赖分发；取消、扫描范围与资源限额见 [CR-062](changes/CR-062-native-search-pilot.md)。向量召回仍由 SQLite 仓储执行 JSON 行扫描与有界 top-K，授权资格仍回读业务真源。`native/tools/vector-pilot` 是只读合成夹具的 Rust 计算试点，不进入默认 API/Worker 运行路径；工具版本统一锁定于 `mise.toml`。`@aervox/native-runtime` 经现有 Port 提供只读 SQLite 向量缓存、受租约控制的应用活动 Helper 与声明进程主管，具体授权、平台和生命周期差量见 [CR-063](changes/CR-063-native-runtime-components.md)。
+
 ```text
 apps/
   cli/          # 思隅终端连接版：HTTP/SSE 客户端，复用 api-client/transport（CR-058）
@@ -65,22 +67,41 @@ packages/
   practice-review/   # 练习、错题本与间隔复习调度算法
   diary/             # 学习日记提炼与生成领域服务
   config/            # 类型化环境变量与运行时配置解析
+  native-runtime/    # TypeScript 原生接入：进程通信、协议、制品校验与生命周期（CR-063）
   api-client/        # 共享 API 传输层与 Vue Composable
   observability/     # 结构化日志与指标可观测性接口
   live2d/            # Live2D Mizuki 静态模型单一真源资产包
   public/            # 共享图标与 aervox-intro 介绍页静态资产
-  ui-host/           # 根界面加载、失败重试与实例生命周期（CR-063，仅依赖 Vue）
+  ui-host/           # 根界面加载、失败重试与实例生命周期（CR-065，仅依赖 Vue）
   ui/                # 共享 Vue 3 组件库、Live2D 控制器与主题 Token
 plugins/
-  workbench-ui/        # 默认工作台根组件；各端复用并注入业务 UI 扩展（CR-063）
-  companion-ui/        # 独立桌宠根组件、快捷对话、姿态与样式（CR-063）
-  panels-ui/           # 五块内置设置面板（模型/本地模型/人格/语音/插件管理），经 settings:panel:* 槽位注入（CR-063 二阶段）
-  proactive-ui/        # 思隅·主动陪伴替代主界面：对话盒 + 双主动建议卡 + 淡化输入（CR-063 多根界面试验田）
-  proactive-ui/        # 可选主动陪伴根界面；沿用受信构建装配
+  workbench-ui/        # 默认工作台根组件；各端复用并注入业务 UI 扩展（CR-065）
+  companion-ui/        # 独立桌宠根组件、快捷对话、姿态与样式（CR-065）
+  panels-ui/           # 五块内置设置面板（模型/本地模型/人格/语音/插件管理），经 settings:panel:* 槽位注入（CR-065 二阶段）
+  proactive-ui/        # 思隅·主动陪伴替代主界面：对话盒 + 双主动建议卡 + 淡化输入（CR-065 多根界面试验田）
   focus-mode/          # 专注模式第一方插件：CAP-002 启发式教学 / CAP-007 概念探索 / CAP-016 现场刷题
                      # 声明（manifest/config/SKILL）与实现（src/server 服务端、src/ui UI 与专属样式）
                      # 内聚于此；实现源码不随 .aervox-plugin 分发包发布（CR-060）
 ```
+
+原生源码由顶层 Cargo 工作区统一管理；TypeScript 接入包不拥有 Rust 源码，原生制品仍归集到 `packages/native-runtime/dist/bin/<platform>-<arch>/`。精确工具版本由 `mise.toml` 管理，Cargo 工作区继承依赖、最低版本与许可证。
+
+```text
+native/
+  Cargo.toml                    # 工作区：runtime 默认成员，vector-pilot 显式运行
+  Cargo.lock                    # 唯一 Rust 依赖锁文件
+  protocol/                     # 内部 IPC 机读定义与跨语言夹具
+  crates/runtime/src/
+    main.rs                     # 运行模式与模块接线
+    protocol.rs                 # 有界帧、消息校验与响应
+    vector/                     # 只读 SQLite、可丢弃缓存、有界 top-K
+    audio.rs                    # 可选 WAV 预处理
+    activity/platform/          # macOS、Windows、Linux 采集实现
+    supervisor/                 # Unix 守护通道与 Windows Job
+  tools/vector-pilot/           # 合成基准，无运行时依赖
+```
+
+普通 `build` 仅生成 TypeScript 接口；`native:build` 显式生成原生制品，原生与仓储集成测试、桌面安装包和完整门禁依赖该任务。顶层原生源码、协议与构建脚本纳入 Turbo 包外输入和 CI 触发范围。每个调用客户端独立拥有进程，目录拆分不合并向量、活动与主管生命周期；需要独立签名身份或独立部署时，再评审拆分发行制品。
 
 连接版终端入口 `apps/cli` 只消费 `@aervox/api-client/transport` 的纯传输构建出口，该子路径不加载 Vue composables；CLI 使用根目录统一管理的 esbuild 生成独立 ESM 制品，业务数据与执行权威仍在已有 API/Worker。配置与请求标识回执是宿主私有文件，CLI 不导入 API 私有模块、不直接访问业务库，也不因此新增服务端路由或授权口径；独立 Core 组合另立条目认领。命令边界、受限本机地址、审批与取消语义及兼容范围见 CR-058（已归档至 Aervox-docs-archive），实施状态与剩余差量见 [§4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
@@ -162,7 +183,7 @@ apps/api/test/                       # 集成测试
 
 ### 3.2 根界面插件与共享 UI
 
-Web、桌面和移动 WebView 由各自组合根选择 `@aervox/plugin-workbench-ui`（含紧凑变体 `compactSurface`，组合根按用户选择装配），通过 `@aervox/ui-host` 加载；独立桌宠窗口选择 `@aervox/plugin-companion-ui`。五块内置设置面板（模型/本地模型/人格/语音/插件管理）位于 `@aervox/plugin-panels-ui`，由组合根经 `settingsPanels` prop 注入工作台根并注册进 `settings:panel:*` 槽位。插件均为受信构建输入，默认产品继续包含 P0 学习与陪伴能力。定义与生命周期详见[插件规范](plugin-config-and-pages.md#04-根界面插件cr-063)。
+Web、桌面和移动 WebView 由各自组合根选择 `@aervox/plugin-workbench-ui`（含紧凑变体 `compactSurface`，组合根按用户选择装配），通过 `@aervox/ui-host` 加载；独立桌宠窗口选择 `@aervox/plugin-companion-ui`。五块内置设置面板（模型/本地模型/人格/语音/插件管理）位于 `@aervox/plugin-panels-ui`，由组合根经 `settingsPanels` prop 注入工作台根并注册进 `settings:panel:*` 槽位。插件均为受信构建输入，默认产品继续包含 P0 学习与陪伴能力。定义与生命周期详见[插件规范](plugin-config-and-pages.md#04-根界面插件cr-065)。
 
 | 层级 | 责任 | 依赖方向 |
 |---|---|---|

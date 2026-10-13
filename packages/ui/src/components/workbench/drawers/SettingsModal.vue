@@ -84,7 +84,7 @@ const activeSettingsGroup = computed(() => settingCategories.find(group =>
 const settingsPages = computed(() => settingPages.filter(page =>
   (activeSettingsGroup.value.categories as readonly string[]).includes(page.value)));
 const modeOptions = [{ value: 'companion', label: '桌宠陪伴' }, { value: 'standard', label: '标准工作台' }];
-// CR-063 切片六（多根界面试验田）：界面变体是组合根装配层契约，经 localStorage 持久化、重载后生效
+// CR-065 切片六（多根界面试验田）：界面变体是组合根装配层契约，经 localStorage 持久化、重载后生效
 const SURFACE_STORAGE_KEY = 'aervox.surface.main';
 const SURFACE_VARIANT_VALUES = ['workbench-compact-ui', 'proactive-ui'] as const;
 const surfaceVariant = ref(
@@ -195,7 +195,7 @@ async function onPluginChange(): Promise<void> {
         label="设置页面"
         @update:model-value="selectSettingsPage"
       />
-      <!-- CR-063 切片四：设置面板经槽位注入，宿主不内建具体面板 -->
+      <!-- CR-065 切片四：设置面板经槽位注入，宿主不内建具体面板 -->
       <KeepAlive>
         <ExtensionSlot v-if="settingsCategory === 'model'" name="settings:panel:model" wrapper-class="settings-section" />
       </KeepAlive>

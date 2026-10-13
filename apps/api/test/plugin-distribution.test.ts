@@ -14,13 +14,14 @@
  * 4. GET /v1/plugins/market 与 POST /v1/plugins/market/:id/install:
  *    - 官方出厂插件集市检索与一键安装。
  */
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { strToU8, zipSync } from "fflate";
 import { createInMemoryDatabase, initDatabaseSchema, type AervoxDatabase } from "@aervox/repositories";
 import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
 import { inspectPluginBundle, PLUGIN_ARCHIVE_LIMITS } from "../src/modules/ecosystem/plugins/package-bundle.js";
+import * as archiveWorker from "../src/modules/ecosystem/plugins/archive-worker.js";
 
 function buildTestPluginBundle(overrides: {
   id?: string;
@@ -138,6 +139,7 @@ describe("CAP-020 插件分发与打包集成测试", () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await app.close();
     await cleanup();
   });
@@ -241,6 +243,36 @@ describe("CAP-020 插件分发与打包集成测试", () => {
     expect(plugin!.version).toBe("1.0.0");
     const secret = (await client.execute("SELECT value_json FROM plugin_config_secrets WHERE plugin_id = 'pkg.preserve'")).rows[0];
     expect(JSON.parse(String(secret!.value_json))).toBe("original");
+  });
+
+  it.each([
+    "Plugin archive processing is busy; retry later",
+    "Plugin archive processing timed out",
+    "Plugin archive worker exited without a result",
+  ])("覆盖安装解压失败保留旧插件、密钥与能力：%s", async (failure) => {
+    const install = (version: string, overwrite = false) => app.inject({
+      method: "POST", url: "/v1/plugins/install-package",
+      payload: { packageBase64: buildTestPluginBundle({ id: "pkg.worker-preserve", version }).toString("base64"), overwrite },
+    });
+    expect((await install("1.0.0")).statusCode).toBe(201);
+    expect((await app.inject({
+      method: "PUT", url: "/v1/plugins/pkg.worker-preserve/config",
+      payload: { revision: 0, values: {}, secretValues: { testApiKey: "original" } },
+    })).statusCode).toBe(200);
+    const execute = archiveWorker.executeArchive;
+    const spy = vi.spyOn(archiveWorker, "executeArchive")
+      .mockImplementationOnce(execute)
+      .mockRejectedValueOnce(new Error(failure));
+    expect((await install("2.0.0", true)).statusCode).toBeGreaterThanOrEqual(400);
+    expect(spy).toHaveBeenCalledTimes(2);
+    const plugin = (await client.execute("SELECT version FROM plugins WHERE id = 'pkg.worker-preserve'")).rows[0];
+    expect(plugin?.version).toBe("1.0.0");
+    const secret = (await client.execute("SELECT value_json FROM plugin_config_secrets WHERE plugin_id = 'pkg.worker-preserve'")).rows[0];
+    expect(JSON.parse(String(secret?.value_json))).toBe("original");
+    const tools = (await app.inject({ method: "GET", url: "/v1/tools" })).json().items;
+    expect(tools.some((tool: { name: string; pluginId?: string }) => tool.name === "dist_echo" && tool.pluginId === "pkg.worker-preserve")).toBe(true);
+    const skills = (await app.inject({ method: "GET", url: "/v1/skills" })).json().items;
+    expect(skills.some((skill: { pluginId?: string }) => skill.pluginId === "pkg.worker-preserve")).toBe(true);
   });
 
   it("解压前拒绝超额条目数量和压缩炸弹", async () => {

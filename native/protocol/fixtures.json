@@ -1,0 +1,348 @@
+[
+  {
+    "name": "hello params",
+    "method": "hello",
+    "side": "params",
+    "value": {},
+    "valid": true
+  },
+  {
+    "name": "vector.open params",
+    "method": "vector.open",
+    "side": "params",
+    "value": {
+      "path": "/tmp/test.db"
+    },
+    "valid": true
+  },
+  {
+    "name": "vector.search params",
+    "method": "vector.search",
+    "side": "params",
+    "value": {
+      "modelId": "m",
+      "query": [
+        1,
+        0
+      ],
+      "topK": 3,
+      "minScore": 0
+    },
+    "valid": true
+  },
+  {
+    "name": "vector.clear params",
+    "method": "vector.clear",
+    "side": "params",
+    "value": {},
+    "valid": true
+  },
+  {
+    "name": "audio.preprocess params",
+    "method": "audio.preprocess",
+    "side": "params",
+    "value": {
+      "wav": "UklGRg=="
+    },
+    "valid": true
+  },
+  {
+    "name": "activity.probe params",
+    "method": "activity.probe",
+    "side": "params",
+    "value": {},
+    "valid": true
+  },
+  {
+    "name": "activity.request params",
+    "method": "activity.request",
+    "side": "params",
+    "value": {},
+    "valid": true
+  },
+  {
+    "name": "activity.lease params",
+    "method": "activity.lease",
+    "side": "params",
+    "value": {
+      "deviceId": "d",
+      "revisionId": "r",
+      "epoch": "e",
+      "ttlMs": 1000,
+      "source": "device.app_activity"
+    },
+    "valid": true
+  },
+  {
+    "name": "activity.capture params",
+    "method": "activity.capture",
+    "side": "params",
+    "value": {
+      "deviceId": "d",
+      "revisionId": "r",
+      "epoch": "e"
+    },
+    "valid": true
+  },
+  {
+    "name": "activity.revoke params",
+    "method": "activity.revoke",
+    "side": "params",
+    "value": {},
+    "valid": true
+  },
+  {
+    "name": "supervisor.start params",
+    "method": "supervisor.start",
+    "side": "params",
+    "value": {},
+    "valid": true
+  },
+  {
+    "name": "supervisor.stop params",
+    "method": "supervisor.stop",
+    "side": "params",
+    "value": {},
+    "valid": true
+  },
+  {
+    "name": "supervisor.status params",
+    "method": "supervisor.status",
+    "side": "params",
+    "value": {},
+    "valid": true
+  },
+  {
+    "name": "hello response",
+    "method": "hello",
+    "side": "result",
+    "value": {
+      "protocol": 1,
+      "version": "0.1.0",
+      "platform": "macos"
+    },
+    "valid": true
+  },
+  {
+    "name": "wrong protocol",
+    "method": "hello",
+    "side": "result",
+    "value": {
+      "protocol": 2,
+      "version": "0.1.0",
+      "platform": "macos"
+    },
+    "valid": false
+  },
+  {
+    "name": "wrong platform",
+    "method": "hello",
+    "side": "result",
+    "value": {
+      "protocol": 1,
+      "version": "0.1.0",
+      "platform": "darwin"
+    },
+    "valid": false
+  },
+  {
+    "name": "vector result",
+    "method": "vector.search",
+    "side": "result",
+    "value": {
+      "hits": [
+        {
+          "id": "a",
+          "score": 0.7
+        }
+      ],
+      "cacheHit": true,
+      "rows": 2
+    },
+    "valid": true
+  },
+  {
+    "name": "missing score",
+    "method": "vector.search",
+    "side": "result",
+    "value": {
+      "hits": [
+        {
+          "id": "a"
+        }
+      ],
+      "cacheHit": true
+    },
+    "valid": false
+  },
+  {
+    "name": "mistyped score",
+    "method": "vector.search",
+    "side": "result",
+    "value": {
+      "hits": [
+        {
+          "id": "a",
+          "score": "0.7"
+        }
+      ],
+      "cacheHit": true
+    },
+    "valid": false
+  },
+  {
+    "name": "fractional count",
+    "method": "vector.search",
+    "side": "params",
+    "value": {
+      "modelId": "m",
+      "query": [],
+      "topK": 1.5,
+      "minScore": 0
+    },
+    "valid": false
+  },
+  {
+    "name": "unknown method",
+    "method": "vector.migrate",
+    "side": "params",
+    "value": {},
+    "valid": false
+  },
+  {
+    "name": "invalid source",
+    "method": "activity.lease",
+    "side": "params",
+    "value": {
+      "deviceId": "d",
+      "revisionId": "r",
+      "epoch": "e",
+      "ttlMs": 1000,
+      "source": "device.screen_capture"
+    },
+    "valid": false
+  },
+  {
+    "name": "expired lease",
+    "method": "activity.lease",
+    "side": "params",
+    "value": {
+      "deviceId": "d",
+      "revisionId": "r",
+      "epoch": "e",
+      "ttlMs": 0,
+      "source": "device.app_activity"
+    },
+    "valid": false
+  },
+  {
+    "name": "missing revision",
+    "method": "activity.capture",
+    "side": "params",
+    "value": {
+      "deviceId": "d",
+      "epoch": "e"
+    },
+    "valid": false
+  },
+  {
+    "name": "OS probe",
+    "method": "activity.probe",
+    "side": "result",
+    "value": {
+      "status": "unavailable",
+      "osStatus": "unknown",
+      "ready": false,
+      "canRequest": false,
+      "reason": "wayland_foreground_provider_unavailable"
+    },
+    "valid": true
+  },
+  {
+    "name": "nullable OS metadata",
+    "method": "activity.capture",
+    "side": "result",
+    "value": {
+      "records": [
+        {
+          "applicationId": "pid:3",
+          "applicationName": null,
+          "bundleId": null,
+          "processId": 3,
+          "isFrontmost": true,
+          "activeSinceMs": 10,
+          "activeForMs": 0
+        }
+      ]
+    },
+    "valid": true
+  },
+  {
+    "name": "unexpected OS content",
+    "method": "activity.capture",
+    "side": "result",
+    "value": {
+      "records": [
+        {
+          "applicationId": "pid:3",
+          "applicationName": null,
+          "bundleId": null,
+          "processId": 3,
+          "isFrontmost": true,
+          "activeSinceMs": 10,
+          "activeForMs": 0,
+          "windowTitle": "private"
+        }
+      ]
+    },
+    "valid": false
+  },
+  {
+    "name": "wrong sample rate",
+    "method": "audio.preprocess",
+    "side": "result",
+    "value": {
+      "pcm": "AAAAAA==",
+      "frames": 1,
+      "sampleRate": 8000
+    },
+    "valid": false
+  },
+  {
+    "name": "empty supervisor",
+    "method": "supervisor.status",
+    "side": "result",
+    "value": {
+      "version": "test",
+      "processes": [],
+      "failures": {}
+    },
+    "valid": true
+  },
+  {
+    "name": "supervisor exit",
+    "method": "supervisor.status",
+    "side": "result",
+    "value": {
+      "version": "test",
+      "processes": [],
+      "failures": {
+        "api": "process_exited"
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "malformed failures",
+    "method": "supervisor.status",
+    "side": "result",
+    "value": {
+      "version": "test",
+      "processes": [],
+      "failures": {
+        "api": 0
+      }
+    },
+    "valid": false
+  }
+]

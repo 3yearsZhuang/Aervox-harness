@@ -32,7 +32,7 @@
     "docs:render": "node scripts/render-adr-index.mjs --render",
     "package:plugins": "node scripts/export-plugins.mjs",
     "drill:worker-contention": "node scripts/worker-write-contention-drill.mjs",
-    "dist:desktop": "turbo run build --filter=@aervox/desktop && pnpm --filter @aervox/desktop dist:pack",
+    "dist:desktop": "turbo run native:build --filter=@aervox/native-runtime && turbo run build --filter=@aervox/desktop && pnpm --filter @aervox/desktop dist:pack",
     "test:cli:integration": "turbo run build --filter=@aervox/cli --filter=@aervox/api && node --test scripts/cli-smoke.test.mjs",
     "check:hls": "turbo run build --filter=@aervox/core... && node --test scripts/hls-agent.test.mjs"
   },
@@ -47,8 +47,13 @@
     "happy-dom": "^20.14.0",
     "playwright": "^1.62.1",
     "sharp": "^0.35.4",
+    "sqlite-vec": "0.1.7",
     "turbo": "2.10.11",
     "typescript": "7.0.2",
     "vitest": "4.0.18"
+  },
+  "dependencies": {
+    "@aervox/native-runtime": "workspace:*",
+    "@vscode/ripgrep": "1.18.0"
   }
 }

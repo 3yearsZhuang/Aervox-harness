@@ -262,7 +262,7 @@ export interface ToolExecutionResult {
 export interface ToolProviderPort {
   /** 当前可执行工具的只读清单 */
   readonly tools: ToolSpec[];
-  listTools?(): Promise<ToolSpec[]>;
+  listTools?(options?: { signal?: AbortSignal }): Promise<ToolSpec[]>;
   /** 执行命名工具；未注册或非只读一律拒绝（fail-closed） */
   execute(input: ToolExecutionInput): Promise<ToolExecutionResult>;
 }
@@ -275,6 +275,8 @@ export interface ContextBuilderPort {
     messages: PromptMessage[];
     /** 阶段 5a：本 Step 可消费的 inbox items（§7.1 第 7 项；缺省为空） */
     inboxItems?: AgentInboxItem[];
+    /** Preparation shares the execution deadline and cancellation signal. */
+    signal?: AbortSignal;
   }): PromptContext | Promise<PromptContext>;
 }
 

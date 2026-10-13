@@ -3,7 +3,10 @@ import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
-  main: { plugins: [externalizeDepsPlugin()] },
+  main: {
+    plugins: [externalizeDepsPlugin()],
+    define: { __AERVOX_NATIVE_PUBLIC_KEY__: JSON.stringify(process.env.AERVOX_NATIVE_RELEASE_PUBLIC_KEY ?? '') },
+  },
   preload: {
     plugins: [externalizeDepsPlugin()],
     build: {
