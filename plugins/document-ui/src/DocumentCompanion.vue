@@ -16,7 +16,7 @@ const surface = useUISurfaceContext();
 const sessions = useAervoxSessions();
 
 const greeting = '你好，我是思隅。今天想继续昨天的进度，还是先安静专注一会儿？';
-const dialogueCtx = ref('今日建议');
+const dialogueCtx = ref('思隅 · 每日开场');
 const { shown: dialogueText, streaming: dialogueTyping, say, appendDelta, finish } = useDialogueTyper(greeting);
 
 interface Suggestion {
