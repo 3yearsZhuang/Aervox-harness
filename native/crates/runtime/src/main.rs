@@ -1,10 +1,11 @@
 mod activity;
 mod audio;
+mod protocol;
 mod supervisor;
 mod vector;
-use serde_json::{Value, json};
+use serde_json::json;
 use std::{
-    io::{self, BufRead, Write},
+    io::{self, Write},
     sync::mpsc,
     time::Duration,
 };
@@ -28,42 +29,20 @@ fn run() -> Result<(), String> {
     std::thread::spawn(move || {
         let mut input = io::stdin().lock();
         loop {
-            // Bound allocation before parsing or waiting for the rest of a hostile frame.
-            let mut bytes = Vec::new();
-            let mut ended = false;
-            while let Ok(chunk) = input.fill_buf() {
-                if chunk.is_empty() {
-                    ended = true;
-                    break;
+            match protocol::read_frame(&mut input) {
+                Ok(Some(request)) => {
+                    if tx.send(Ok(request)).is_err() {
+                        return;
+                    }
                 }
-                let n = chunk
-                    .iter()
-                    .position(|b| *b == b'\n')
-                    .map(|n| n + 1)
-                    .unwrap_or(chunk.len());
-                if bytes.len() + n > 48 * 1024 * 1024 {
-                    let _ = tx.send(Err("native_input_limit".into()));
+                Ok(None) => {
+                    INPUT_OPEN.store(false, std::sync::atomic::Ordering::Release);
                     return;
                 }
-                let complete = chunk[n - 1] == b'\n';
-                bytes.extend_from_slice(&chunk[..n]);
-                input.consume(n);
-                if complete {
-                    break;
+                Err(error) => {
+                    let _ = tx.send(Err(error));
+                    return;
                 }
-            }
-            if ended {
-                INPUT_OPEN.store(false, std::sync::atomic::Ordering::Release);
-                return;
-            }
-            if tx
-                .send(
-                    serde_json::from_slice::<Value>(&bytes)
-                        .map_err(|_| "native_request_invalid".into()),
-                )
-                .is_err()
-            {
-                return;
             }
         }
     });
@@ -81,11 +60,10 @@ fn run() -> Result<(), String> {
             Err(mpsc::RecvTimeoutError::Timeout) => continue,
             Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
         };
-        let id = &request["id"];
         let p = &request["params"];
-        let result = match request["method"].as_str().unwrap_or("") {
+        let result = protocol::validate_request(&request).and_then(|()| match request["method"].as_str().unwrap_or("") {
             "hello" => Ok(
-                json!({"protocol":1,"version":env!("CARGO_PKG_VERSION"),"platform":std::env::consts::OS}),
+                json!({"protocol":protocol::version(),"version":env!("CARGO_PKG_VERSION"),"platform":std::env::consts::OS}),
             ),
             "vector.open" => p["path"]
                 .as_str()
@@ -109,11 +87,16 @@ fn run() -> Result<(), String> {
                 .ok_or("supervisor_not_configured".into())
                 .and_then(|s| s.handle(m, p)),
             _ => Err("native_method_unknown".into()),
-        };
-        let response = match result {
-            Ok(value) => json!({"id":id,"result":value}),
-            Err(error) => json!({"id":id,"error":error}),
-        };
+        });
+        if result.is_err()
+            && matches!(
+                request["method"].as_str(),
+                Some("activity.lease" | "activity.capture")
+            )
+        {
+            activity.revoke();
+        }
+        let response = protocol::response(&request, result);
         writeln!(out, "{response}").map_err(|_| "native_output_failed")?;
         out.flush().map_err(|_| "native_output_failed")?;
     }

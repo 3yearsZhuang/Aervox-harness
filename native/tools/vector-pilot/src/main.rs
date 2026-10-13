@@ -173,7 +173,9 @@ mod tests {
         for k in [0, 1, 7, 200, 1001] {
             for threshold in [-1.0, 0.0, 0.9] {
                 let mut expected: Vec<Hit> = matrix
-                    .chunks_exact(3)
+                    .as_chunks::<3>()
+                    .0
+                    .iter()
                     .enumerate()
                     .map(|(index, row)| Hit {
                         index,

@@ -11,8 +11,8 @@
     "VITEST_MAX_WORKERS"
   ],
   "tasks": {
-    "@aervox/native-runtime#build": { "dependsOn": ["^build"], "cache": false, "env": ["AERVOX_NATIVE_BUILD_TARGETS"] },
-    "@aervox/native-runtime#test": { "dependsOn": ["build"], "cache": false },
+    "@aervox/native-runtime#build": {"dependsOn": ["^build"], "outputs": ["dist/**", "!dist/bin/**"], "inputs": ["$TURBO_DEFAULT$", "../../native/protocol/**", "../../scripts/generate-native-protocol.mjs"]},
+    "@aervox/native-runtime#test": {"dependsOn": ["build", "native:build"], "cache": false, "inputs": ["$TURBO_DEFAULT$", "../../native/protocol/**"]},
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", "out/**"]
@@ -68,6 +68,8 @@
         "../../vitest.shared.ts",
         "../../plugins/**"
       ]
-    }
+    },
+    "@aervox/native-runtime#native:build": {"dependsOn": ["build"], "cache": false, "env": ["AERVOX_NATIVE_BUILD_TARGETS"], "inputs": ["$TURBO_DEFAULT$", "../../scripts/build-native-runtime.mjs", "../../mise.toml", "../../native/**"], "outputs": ["dist/bin/**"]},
+    "@aervox/repositories#test": {"dependsOn": ["^build", "@aervox/native-runtime#native:build"]}
   }
 }

@@ -20,6 +20,33 @@ function client(artifact: NativeArtifact, options?: ConstructorParameters<typeof
 afterEach(async () => { await Promise.all(clients.splice(0).map(c => c.close())); await Promise.all(work.splice(0).map(p => rm(p, { recursive: true, force: true }))); });
 
 describe("native artifact and stream boundaries", () => {
+  it("checks protocol compatibility before sending a business request", async () => {
+    const path = await directory(), fake = join(path, "incompatible.cjs"), calls = join(path, "calls.jsonl");
+    const binary = process.execPath, sha256 = createHash("sha256").update(await readFile(binary)).digest("hex");
+    await writeFile(fake, `const fs = require('node:fs');
+      require('node:readline').createInterface({ input: process.stdin }).on('line', line => {
+        const request = JSON.parse(line);
+        fs.appendFileSync(process.argv[2], JSON.stringify(request.method) + '\\n');
+        process.stdout.write(JSON.stringify({ id: request.id, result: { protocol: 2, version: 'future', platform: 'macos' } }) + '\\n');
+      });`);
+    const runtime = client({ binary, sha256 }, { args: [fake, calls] });
+    await expect(runtime.request("vector.open", { path: join(path, "unused.db") })).rejects.toThrow("native_response_invalid");
+    await runtime.close();
+    expect((await readFile(calls, "utf8")).trim()).toBe('"hello"');
+    expect(runtime.running).toBe(false);
+  });
+  it("keeps component instances independent and handshakes a replacement process", async () => {
+    const first = client(await nativeArtifact()), second = client(await nativeArtifact());
+    await first.request("hello"); await second.request("hello");
+    const firstEpoch = first.epoch, secondPid = second.pid;
+    expect(first.pid).not.toBe(secondPid);
+    process.kill(first.pid!, "SIGKILL");
+    await expect.poll(() => first.running).toBe(false);
+    expect(await second.request("vector.clear")).toEqual({ cleared: true });
+    expect(second.pid).toBe(secondPid);
+    expect(await first.request("vector.clear")).toEqual({ cleared: true });
+    expect(first.epoch).toBeGreaterThan(firstEpoch);
+  });
   it("checks digest and trusted Ed25519 signature before launch", async () => {
     const artifact = await nativeArtifact();
     const { privateKey, publicKey } = generateKeyPairSync("ed25519");
@@ -61,7 +88,7 @@ describe("SQLite native cache", () => {
     const runtime = client(await nativeArtifact());
     try {
       expect(await runtime.request("vector.open", { path })).toEqual({ readonly: true });
-      const search = (modelId = "m", query = [1, 0], minScore = 0) => runtime.request<{ hits: { id: string; score: number }[]; cacheHit: boolean }>("vector.search", { modelId, query, minScore, topK: 3 });
+      const search = (modelId = "m", query = [1, 0], minScore = 0) => runtime.request("vector.search", { modelId, query, minScore, topK: 3 });
       expect((await search()).hits).toEqual([{ id: "a", score: 1 }, { id: "b", score: 1 }, { id: "zero", score: 0 }]);
       expect((await search()).cacheHit).toBe(true);
       db.prepare("UPDATE memory_embeddings SET embedding_json=? WHERE memory_id=?").run("[0,1]", "a");
@@ -88,7 +115,7 @@ describe("activity control", () => {
   it("reports the real platform and refuses capture without a current lease", async () => {
     const runtime = client(await nativeArtifact());
     expect(await runtime.request("hello")).toMatchObject({ protocol: 1 });
-    const probe = await runtime.request<{ status: string; ready: boolean }>("activity.probe");
+    const probe = await runtime.request("activity.probe");
     expect(typeof probe.ready).toBe("boolean");
     await expect(runtime.request("activity.capture", { deviceId: "d", revisionId: "r", epoch: "e" })).rejects.toThrow("lease");
     expect(await runtime.request("activity.revoke")).toEqual({ stopped: true });
@@ -102,7 +129,7 @@ describe("audio compute", () => {
     b.writeUInt16LE(1, 20); b.writeUInt16LE(2, 22); b.writeUInt32LE(8000, 24); b.writeUInt32LE(32000, 28); b.writeUInt16LE(4, 32); b.writeUInt16LE(16, 34);
     b.write("data", 36); b.writeUInt32LE(8, 40); [32767, -32767, 16384, 16384].forEach((v,i) => b.writeInt16LE(v, 44+i*2));
     const runtime = client(await nativeArtifact());
-    const result = await runtime.request<{ pcm: string; sampleRate: number; frames: number }>("audio.preprocess", { wav: b.toString("base64") });
+    const result = await runtime.request("audio.preprocess", { wav: b.toString("base64") });
     const bytes = Buffer.from(result.pcm, "base64");
     expect(result).toMatchObject({ sampleRate: 16000, frames: 4 });
     expect(Array.from({ length: 4 }, (_,i) => bytes.readFloatLE(i*4))).toEqual([0, 0.25, 0.5, 0.5]);

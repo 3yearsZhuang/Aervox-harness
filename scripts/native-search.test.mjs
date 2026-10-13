@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { encodeFixture, readFixture, cosine } from "./native-search-fixture.mjs";
 
 const exec = promisify(execFile);
-const binary = fileURLToPath(new URL(`./native-vector/target/debug/aervox-vector-pilot${process.platform === "win32" ? ".exe" : ""}`, import.meta.url));
+const binary = fileURLToPath(new URL(`../native/target/debug/aervox-vector-pilot${process.platform === "win32" ? ".exe" : ""}`, import.meta.url));
 
 test("Rust executable agrees with reference cosine and stable sorting", async () => {
   const work = await mkdtemp(join(tmpdir(), "aervox-rust-contract-"));

@@ -6,9 +6,9 @@ owner: platform
 doc_status: review-candidate
 decision_status: accepted
 delivery_status: implemented
-version: 0.1.1
-updated_at: 2026-10-12
-reviewed_at: 2026-10-12
+version: 0.1.2
+updated_at: 2026-10-13
+reviewed_at: 2026-10-13
 review_interval_days: 90
 sources:
   - docs/reference/ARCHITECTURE.md
@@ -52,3 +52,15 @@ Provider 只产出当前应用标识、名称及 PID，不采集窗口标题、�
 关闭原生选项或移除制品后业务走 TypeScript 路径；停用 Helper 不恢复授权，主管停止只回收自己创建的进程。没有业务数据格式迁移，也不因实现完成直接提升 Released 状态。
 
 实现与基准见[追踪基线 §4.2](../REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)和[原生组件操作指南](../../how-to/run-native-components.md)。本切片提供可配置的 Rust 与连续数组 Worker 向量 Port、三平台活动 Provider、租约/签名闸门、声明主管、可选音频预处理与插件 Worker。未执行生产迁移、OS 系统服务注册或公开发布。
+
+## 6. 原生源码与 IPC 结构收敛
+
+维护者于 2026-10-13 授权按结构建议顺序实施：分离构建任务、统一 Cargo 工作区、拆分平台模块与 IPC 契约。沿用既有数据所有权和进程边界，目录事实源见[架构 §3](../ARCHITECTURE.md#3-仓库与领域边界)。
+
+迁移将 `packages/native-runtime/native` 与 `scripts/native-vector` 合并为顶层 `native/` 的两个 Cargo 成员，共用锁文件并保留依赖版本。TypeScript 公共出口和发行制品路径保持兼容；源码回退须同时回退构建路径、增量范围和协议生成物，不触及业务数据。
+
+`native/protocol/runtime.json` 是内部 IPC 的唯一机读定义，声明方法、输入输出、错误码、版本与帧限额。采用生成器显式支持的 JSON Schema 子集；Rust 嵌入同一文件，TypeScript 类型从该文件生成，双端执行同一组正反夹具。公共 HTTP/OpenAPI 契约继续由 `packages/contracts` 管理。
+
+协议维持 v1，宿主在每个进程代际的首次业务调用前校验握手；非法消息、错误结果形状和未知错误码明确失败。活动租约或采集请求校验失败会失效该实例授权；有效请求沿原有授权与租约复核执行。生成物漂移、协议不匹配、冷构建缺失制品和包外源码未触发验证均由自动化门禁覆盖。
+
+独立 Helper/主管发行物以独立权限、签名身份或部署生命周期需求为前提；本切片继续使用单一生产可执行文件和各宿主分别拥有的进程实例。签名、公证、安装升级与平台实机发布验收仍按 ITER-015 取证。

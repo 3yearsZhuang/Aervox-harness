@@ -4,7 +4,19 @@
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-or-later",
-  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
-  "scripts": { "build": "node build.mjs", "typecheck": "tsc -p tsconfig.json --noEmit", "test": "vitest run" },
-  "devDependencies": { "@types/node": "^22.10.0" }
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "native:build": "node ../../scripts/build-native-runtime.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0"
+  }
 }

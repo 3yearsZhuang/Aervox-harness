@@ -85,6 +85,9 @@ jobs:
           path: ~/.cache/electron
           key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
+      - name: Build native artifacts
+        run: pnpm exec turbo run native:build --filter=@aervox/native-runtime
+
       - name: Build desktop bundle
         env:
           TURBO_CACHE_DIR: ${{ runner.temp }}/turbo-cache

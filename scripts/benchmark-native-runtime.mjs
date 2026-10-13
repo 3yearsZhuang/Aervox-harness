@@ -1,5 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir, cpus, platform, arch } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -102,7 +102,13 @@ try {
   for(const mode of ["sync","worker"]) {const measured=await measure(async()=>mode==="sync"?unzipSync(archive):executeArchive({kind:"unpack",input:archive,limits:PLUGIN_ARCHIVE_LIMITS,isSafePath:isSafeZipEntryPath}));if(Object.keys(measured.result).length!==100)throw new Error("Archive parity mismatch");const {result:_result,...m}=measured;report.archive.push({mode,...m,files:100,compressedBytes:archive.length,expandedBytes:22000000,parity:true});}
   const output=resolve(options.out??"artifacts/native-search/runtime-benchmark.json");await mkdir(dirname(output),{recursive:true});
   const digest=createHash("sha256");
-  for(const path of ["scripts/benchmark-native-runtime.mjs","packages/native-runtime/src/index.ts","packages/native-runtime/native/Cargo.toml","packages/native-runtime/native/Cargo.lock","packages/repositories/src/search/cached-memory-vector-port.ts","packages/repositories/src/search/native-memory-vector-port.ts","apps/api/src/modules/ecosystem/plugins/archive-worker.ts"]) digest.update(path).update(await readFile(join(root,path)));
+  const sources = ["scripts/benchmark-native-runtime.mjs", "scripts/build-native-runtime.mjs", "scripts/generate-native-protocol.mjs", "native/Cargo.toml", "native/Cargo.lock", "native/crates/runtime/Cargo.toml", "packages/repositories/src/search/cached-memory-vector-port.ts", "packages/repositories/src/search/native-memory-vector-port.ts", "apps/api/src/modules/ecosystem/plugins/archive-worker.ts"];
+  for (const directory of ["packages/native-runtime/src", "native/crates/runtime/src", "native/protocol"]) {
+    for (const entry of await readdir(join(root, directory), { recursive: true })) {
+      if (/\.(?:rs|ts|json)$/.test(entry)) sources.push(`${directory}/${entry.replaceAll("\\", "/")}`);
+    }
+  }
+  for (const path of sources.sort()) digest.update(path).update(await readFile(join(root, path)));
   report.implementationSha256=digest.update(artifact.sha256).digest("hex");
   await writeFile(output,JSON.stringify(report,null,2)+"\n");process.stdout.write(`Report: ${output}\n`);
 } finally {await rm(work,{recursive:true,force:true});}

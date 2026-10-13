@@ -24,7 +24,7 @@ const dimensions = integer("dimensions", 256, 320);
 const sizes = (args.sizes ?? "1000,10000,100000").split(",").map(Number);
 if (sizes.some((n) => !Number.isSafeInteger(n) || n < 1 || n > 100_000)) throw new Error("Invalid sizes");
 const output = resolve(args.out ?? "artifacts/native-search/benchmark.json");
-const rustBinary = join(root, "scripts/native-vector/target/release", process.platform === "win32" ? "aervox-vector-pilot.exe" : "aervox-vector-pilot");
+const rustBinary = join(root, "native/target/release", process.platform === "win32" ? "aervox-vector-pilot.exe" : "aervox-vector-pilot");
 const work = await mkdtemp(join(tmpdir(), "aervox-native-benchmark-"));
 const quantiles = (values) => {
   const sorted = [...values].sort((a, b) => a - b);
@@ -89,7 +89,7 @@ function legacySearch(directory, query, maxResults) {
 
 try {
   const digest = createHash("sha256");
-  for (const path of ["scripts/native-vector/src/main.rs", "scripts/native-vector/Cargo.toml", "scripts/native-vector/Cargo.lock", "pnpm-lock.yaml", "scripts/benchmark-native-search.mjs", "scripts/native-search-fixture.mjs", "scripts/vector-benchmark-worker.mjs", "packages/repositories/dist/search/top-k.js", "apps/api/dist/modules/ecosystem/mcp/code-search.js"]) {
+  for (const path of ["native/Cargo.toml", "native/tools/vector-pilot/src/main.rs", "native/tools/vector-pilot/Cargo.toml", "native/Cargo.lock", "pnpm-lock.yaml", "scripts/benchmark-native-search.mjs", "scripts/native-search-fixture.mjs", "scripts/vector-benchmark-worker.mjs", "packages/repositories/dist/search/top-k.js", "apps/api/dist/modules/ecosystem/mcp/code-search.js"]) {
     digest.update(path).update(await readFile(join(root, path)));
   }
   const report = {

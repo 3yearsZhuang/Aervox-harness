@@ -1,3 +1,14 @@
+#[cfg(unix)]
+mod unix;
+#[cfg(unix)]
+use unix::Owned;
+#[cfg(unix)]
+pub use unix::run_guard;
+#[cfg(windows)]
+mod windows;
+#[cfg(windows)]
+use windows::Owned;
+
 use fs2::FileExt;
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -8,7 +19,6 @@ use std::{
     io::{Read, Write},
     net::{SocketAddr, TcpStream},
     path::PathBuf,
-    process::{Child, Command, Stdio},
     time::{Duration, Instant},
 };
 
@@ -43,15 +53,6 @@ struct Ready {
 }
 fn startup_ms() -> u64 {
     10_000
-}
-struct Owned {
-    #[cfg(unix)]
-    guarded: bool,
-    role: String,
-    child: Child,
-    pid: u32,
-    #[cfg(windows)]
-    job: windows_sys::Win32::Foundation::HANDLE,
 }
 pub struct Supervisor {
     manifest: Manifest,
@@ -211,80 +212,13 @@ impl Supervisor {
                 }
                 .into(),
             );
-            #[cfg(windows)]
-            let mut command = Command::new(&spec.executable);
-            #[cfg(unix)]
-            let mut command =
-                Command::new(std::env::current_exe().map_err(|_| "supervisor_guard_unavailable")?);
-            #[cfg(windows)]
-            command
-                .args(&spec.args)
-                .current_dir(&spec.cwd)
-                .envs(&spec.env)
-                .env("AERVOX_NATIVE_SUPERVISOR_MANAGED", "1")
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(Stdio::null());
-            #[cfg(unix)]
-            {
-                use std::os::unix::process::CommandExt;
-                command
-                    .arg("guard")
-                    .stdin(Stdio::piped())
-                    .stdout(Stdio::null())
-                    .stderr(Stdio::null())
-                    .process_group(0);
-            }
-            #[cfg(windows)]
-            {
-                use std::os::windows::process::CommandExt;
-                use windows_sys::Win32::System::Threading::{CREATE_NO_WINDOW, CREATE_SUSPENDED};
-                command.creation_flags(CREATE_SUSPENDED | CREATE_NO_WINDOW);
-            }
-            let child = match command.spawn() {
-                Ok(c) => c,
-                Err(_) => {
+            match Owned::spawn(&spec) {
+                Ok(child) => self.children.push(child),
+                Err(error) => {
                     self.stop();
-                    return Err("supervisor_spawn_failed".into());
-                }
-            };
-            #[cfg(unix)]
-            let mut child = child;
-            #[cfg(unix)]
-            {
-                let encoded = serde_json::to_vec(&spec).map_err(|_| "supervisor_guard_invalid")?;
-                if child.stdin.as_mut().is_none_or(|s| {
-                    s.write_all(&encoded)
-                        .and_then(|_| s.write_all(b"\n"))
-                        .is_err()
-                }) {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    self.stop();
-                    return Err("supervisor_guard_failed".into());
+                    return Err(error);
                 }
             }
-            let pid = child.id();
-            #[cfg(windows)]
-            let job = match attach_job(&child) {
-                Ok(job) => job,
-                Err(e) => {
-                    let mut c = child;
-                    let _ = c.kill();
-                    let _ = c.wait();
-                    self.stop();
-                    return Err(e);
-                }
-            };
-            self.children.push(Owned {
-                #[cfg(unix)]
-                guarded: true,
-                role: spec.role.clone(),
-                child,
-                pid,
-                #[cfg(windows)]
-                job,
-            });
             let begin = Instant::now();
             loop {
                 if !crate::INPUT_OPEN.load(std::sync::atomic::Ordering::Acquire) {
@@ -338,112 +272,9 @@ impl Supervisor {
     }
 }
 
-// A small guardian owns each Unix child group and a private parent pipe. The
-// kernel closes the pipe even after SIGKILL, so descendants are not orphaned
-// when the supervisor cannot run its Drop implementation.
-#[cfg(unix)]
-pub fn run_guard() -> Result<(), String> {
-    use std::os::unix::process::CommandExt;
-    use std::sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    };
-    static STOP: AtomicBool = AtomicBool::new(false);
-    extern "C" fn terminate(_: i32) {
-        STOP.store(true, Ordering::Release);
-    }
-    unsafe {
-        libc::signal(libc::SIGTERM, terminate as *const () as usize);
-        libc::signal(libc::SIGINT, terminate as *const () as usize);
-    }
-    let mut first = String::new();
-    std::io::stdin()
-        .read_line(&mut first)
-        .map_err(|_| "supervisor_guard_declaration_invalid")?;
-    if first.len() > 65536 {
-        return Err("supervisor_guard_declaration_invalid".into());
-    }
-    let spec: Spec =
-        serde_json::from_str(&first).map_err(|_| "supervisor_guard_declaration_invalid")?;
-    if digest(&spec.executable)? != spec.sha256 {
-        return Err("supervisor_digest_mismatch".into());
-    }
-    let alive = Arc::new(AtomicBool::new(true));
-    let watcher = Arc::clone(&alive);
-    std::thread::spawn(move || {
-        let mut buffer = [0u8; 16];
-        while std::io::stdin().read(&mut buffer).is_ok_and(|n| n > 0) {}
-        watcher.store(false, Ordering::Release);
-    });
-    let child = Command::new(&spec.executable)
-        .args(&spec.args)
-        .current_dir(&spec.cwd)
-        .envs(&spec.env)
-        .env("AERVOX_NATIVE_SUPERVISOR_MANAGED", "1")
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .process_group(0)
-        .spawn()
-        .map_err(|_| "supervisor_spawn_failed")?;
-    let pid = child.id();
-    let mut owned = Owned {
-        guarded: false,
-        role: spec.role,
-        child,
-        pid,
-    };
-    let mut status = None;
-    while alive.load(Ordering::Acquire) && !STOP.load(Ordering::Acquire) {
-        status = owned
-            .child
-            .try_wait()
-            .map_err(|_| "supervisor_wait_failed")?;
-        if status.is_some() {
-            break;
-        }
-        std::thread::sleep(Duration::from_millis(10));
-    }
-    owned.stop();
-    if status.is_some_and(|s| !s.success()) {
-        return Err("supervisor_child_failed".into());
-    }
-    Ok(())
-}
 impl Drop for Supervisor {
     fn drop(&mut self) {
         self.stop();
-    }
-}
-impl Owned {
-    fn stop(&mut self) {
-        #[cfg(unix)]
-        {
-            // A private process group is created at spawn; never enumerate or kill foreign PIDs.
-            unsafe {
-                libc::kill(-(self.pid as i32), libc::SIGTERM);
-            }
-            let start = Instant::now();
-            while start.elapsed() < Duration::from_millis(if self.guarded { 1200 } else { 500 }) {
-                if self.child.try_wait().ok().flatten().is_some() {
-                    break;
-                }
-                std::thread::sleep(Duration::from_millis(10));
-            }
-            unsafe {
-                libc::kill(-(self.pid as i32), libc::SIGKILL);
-            }
-        }
-        #[cfg(windows)]
-        unsafe {
-            use windows_sys::Win32::{
-                Foundation::CloseHandle, System::JobObjects::TerminateJobObject,
-            };
-            TerminateJobObject(self.job, 1);
-            CloseHandle(self.job);
-        }
-        let _ = self.child.kill();
-        let _ = self.child.wait();
     }
 }
 fn http_ready(r: &Ready, env: &BTreeMap<String, String>) -> bool {
@@ -478,41 +309,4 @@ fn http_ready(r: &Ready, env: &BTreeMap<String, String>) -> bool {
         return false;
     };
     buffer[..n].starts_with(b"HTTP/1.1 200 ") || buffer[..n].starts_with(b"HTTP/1.0 200 ")
-}
-#[cfg(windows)]
-fn attach_job(child: &Child) -> Result<windows_sys::Win32::Foundation::HANDLE, String> {
-    use std::os::windows::io::AsRawHandle;
-    use windows_sys::Win32::{
-        Foundation::CloseHandle,
-        System::JobObjects::{
-            AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
-            JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectExtendedLimitInformation,
-            SetInformationJobObject,
-        },
-    };
-    #[link(name = "ntdll")]
-    unsafe extern "system" {
-        fn NtResumeProcess(handle: windows_sys::Win32::Foundation::HANDLE) -> i32;
-    }
-    unsafe {
-        let job = CreateJobObjectW(std::ptr::null(), std::ptr::null());
-        if job.is_null() {
-            return Err("supervisor_job_failed".into());
-        }
-        let mut limits: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
-        limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-        if SetInformationJobObject(
-            job,
-            JobObjectExtendedLimitInformation,
-            &limits as *const _ as *const _,
-            std::mem::size_of_val(&limits) as u32,
-        ) == 0
-            || AssignProcessToJobObject(job, child.as_raw_handle()) == 0
-            || NtResumeProcess(child.as_raw_handle()) < 0
-        {
-            CloseHandle(job);
-            return Err("supervisor_job_failed".into());
-        }
-        Ok(job)
-    }
 }

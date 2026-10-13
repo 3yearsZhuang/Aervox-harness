@@ -31,7 +31,7 @@ describe("native process ownership", () => {
     try {
       await owner.request("hello");
       await expect(duplicate.request("hello")).rejects.toThrow();
-      const result = await owner.request<{ processes: { role: string; pid: number }[] }>("supervisor.start");
+      const result = await owner.request("supervisor.start");
       expect(result.processes).toHaveLength(1);
       pids = JSON.parse(await readFile(descendants, "utf8"));
       expect(pids.every(alive)).toBe(true);

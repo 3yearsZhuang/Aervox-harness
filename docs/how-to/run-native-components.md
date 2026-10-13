@@ -6,9 +6,9 @@ owner: platform
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.0
-updated_at: 2026-10-12
-reviewed_at: 2026-10-12
+version: 1.0.1
+updated_at: 2026-10-13
+reviewed_at: 2026-10-13
 review_interval_days: 90
 sources:
   - docs/reference/changes/CR-063-native-runtime-components.md
@@ -22,10 +22,11 @@ sources:
 
 ## 1. 构建和验证
 
-在仓库根运行，工具版本统一由 `mise.toml` 管理：
+在仓库根运行，工具版本统一由 `mise.toml` 管理。普通 `pnpm build` 只构建 TypeScript；显式启用原生能力前执行原生构建：
 
 ```sh
 mise install
+mise tasks run native-toolchain-setup
 mise tasks run native-runtime-build
 mise tasks run native-runtime-check
 mise tasks run native-runtime -- info
@@ -34,7 +35,18 @@ mise tasks run native-runtime -- probe
 
 构建生成 `packages/native-runtime/dist/bin/<platform>-<arch>/` 内的可执行文件与摘要清单；该目录是派生制品，不提交 Git。工具先检查制品摘要，协议、输出、排队数量与时长均受限。系统探测报告真实 OS 状态，探测本身不会创建应用活动租约。
 
-`native-runtime-check` 包含 Rust 格式、单元测试、Clippy 与可执行合同。三平台构建/合同由 Native runtime 工作流验证；跨目标类型检查不代替目标 OS 上的实际执行。
+`native-runtime-check` 校验生成物和构建拓扑，执行 Rust 格式、单元测试、Clippy 与可执行合同，并构建 API/Worker 后运行真实主管启停演练。三平台构建/合同由 Native runtime 工作流验证；跨目标类型检查不代替目标 OS 上的实际执行。
+
+修改内部协议时，先编辑 `native/protocol/runtime.json` 与共用夹具 `native/protocol/fixtures.json`，再生成 TypeScript 类型：
+
+```sh
+mise tasks run native-protocol-generate
+mise tasks run native-runtime-check
+```
+
+生成器只接受已实现的 JSON Schema 关键字；新增关键字须同时更新双端校验器和共用正反夹具。手写业务 DTO 不放入该内部协议。只验证合成试验时运行 `mise tasks run native-search-check`；工作区默认成员为生产 runtime，试验须显式指定。
+
+桌面发行入口 `pnpm dist:desktop` 会先构建原生制品，再生成安装包；直接运行 Electron Builder 前也须先运行 `native-runtime-build`。制品签名和系统签名仍按下文发行要求执行。
 
 ## 2. 对照向量、音频与插件计算
 

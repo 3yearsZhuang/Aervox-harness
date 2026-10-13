@@ -1,10 +1,40 @@
 name: Native runtime
 on:
   pull_request:
-    paths: ["packages/native-runtime/**", "packages/repositories/src/search/**", "scripts/native-runtime*", "scripts/benchmark-native-runtime.mjs", "mise.toml", "pnpm-lock.yaml", ".github/workflows/native-runtime.yml"]
+    paths:
+      - "native/**"
+      - "scripts/build-native-runtime.mjs"
+      - "scripts/generate-native-protocol.mjs"
+      - "scripts/native-layout.test.mjs"
+      - "scripts/native-search*"
+      - "scripts/benchmark-native-search.mjs"
+      - "scripts/vector-benchmark-worker.mjs"
+      - "turbo.json"
+      - "packages/native-runtime/**"
+      - "packages/repositories/src/search/**"
+      - "scripts/native-runtime*"
+      - "scripts/benchmark-native-runtime.mjs"
+      - "mise.toml"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/native-runtime.yml"
   push:
     branches: [main]
-    paths: ["packages/native-runtime/**", "packages/repositories/src/search/**", "scripts/native-runtime*", "scripts/benchmark-native-runtime.mjs", "mise.toml", "pnpm-lock.yaml", ".github/workflows/native-runtime.yml"]
+    paths:
+      - "native/**"
+      - "scripts/build-native-runtime.mjs"
+      - "scripts/generate-native-protocol.mjs"
+      - "scripts/native-layout.test.mjs"
+      - "scripts/native-search*"
+      - "scripts/benchmark-native-search.mjs"
+      - "scripts/vector-benchmark-worker.mjs"
+      - "turbo.json"
+      - "packages/native-runtime/**"
+      - "packages/repositories/src/search/**"
+      - "scripts/native-runtime*"
+      - "scripts/benchmark-native-runtime.mjs"
+      - "mise.toml"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/native-runtime.yml"
 permissions:
   contents: read
 jobs:
@@ -33,10 +63,12 @@ jobs:
           toolchain: ${{ steps.versions.outputs.rust }}
           components: rustfmt, clippy
       - run: pnpm install --frozen-lockfile
-      - run: cargo fmt --manifest-path packages/native-runtime/native/Cargo.toml --check
-      - run: cargo test --locked --manifest-path packages/native-runtime/native/Cargo.toml
-      - run: cargo clippy --locked --manifest-path packages/native-runtime/native/Cargo.toml -- -D warnings
-      - run: pnpm exec turbo run build --filter=@aervox/native-runtime
+      - run: node scripts/generate-native-protocol.mjs --check
+      - run: node --test scripts/native-layout.test.mjs
+      - run: cargo fmt --manifest-path native/crates/runtime/Cargo.toml --check
+      - run: cargo test --locked --manifest-path native/crates/runtime/Cargo.toml
+      - run: cargo clippy --all-targets --locked --manifest-path native/crates/runtime/Cargo.toml -- -D warnings
+      - run: pnpm exec turbo run native:build --filter=@aervox/native-runtime
       - run: pnpm --filter @aervox/native-runtime test
       - uses: actions/upload-artifact@v4
         with:

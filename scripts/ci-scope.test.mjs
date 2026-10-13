@@ -187,6 +187,6 @@ test("Rust pilot and executable contracts remain in local and CI gates", () => {
     assert.ok(command?.includes("mise tasks run native-search-check"), `${gate} must check the Rust pilot`);
   }
   assert.match(config, /rust = "\d+\.\d+\.\d+"/);
-  assert.match(config, /cargo test --locked --manifest-path scripts\/native-vector\/Cargo.toml/);
+  assert.match(config, /cargo test --locked --manifest-path native\/tools\/vector-pilot\/Cargo.toml/);
   assert.match(config, /node --test scripts\/native-search.test.mjs/);
 });

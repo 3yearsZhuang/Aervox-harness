@@ -1,0 +1,641 @@
+// Generated from native/protocol/runtime.json by scripts/generate-native-protocol.mjs.
+// Do not edit; run mise tasks run native-protocol-generate.
+
+export const nativeContract = {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Aervox native IPC v1",
+  "protocol": 1,
+  "limits": {
+    "inputBytes": 50331648,
+    "outputBytes": 67108864,
+    "queuedRequests": 16
+  },
+  "$defs": {
+    "Empty": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "Hello": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "platform": {
+          "enum": [
+            "macos",
+            "windows",
+            "linux"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "version",
+        "platform"
+      ],
+      "additionalProperties": false
+    },
+    "VectorOpen": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "VectorOpened": {
+      "type": "object",
+      "properties": {
+        "readonly": {
+          "const": true
+        }
+      },
+      "required": [
+        "readonly"
+      ],
+      "additionalProperties": false
+    },
+    "VectorQuery": {
+      "type": "object",
+      "properties": {
+        "modelId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "query": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 1024
+        },
+        "topK": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 200
+        },
+        "minScore": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "modelId",
+        "query",
+        "topK",
+        "minScore"
+      ],
+      "additionalProperties": false
+    },
+    "VectorResult": {
+      "type": "object",
+      "properties": {
+        "hits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "score": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "id",
+              "score"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 200
+        },
+        "cacheHit": {
+          "type": "boolean"
+        },
+        "rows": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "hits",
+        "cacheHit"
+      ],
+      "additionalProperties": false
+    },
+    "VectorCleared": {
+      "type": "object",
+      "properties": {
+        "cleared": {
+          "const": true
+        }
+      },
+      "required": [
+        "cleared"
+      ],
+      "additionalProperties": false
+    },
+    "AudioInput": {
+      "type": "object",
+      "properties": {
+        "wav": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "wav"
+      ],
+      "additionalProperties": false
+    },
+    "AudioResult": {
+      "type": "object",
+      "properties": {
+        "pcm": {
+          "type": "string"
+        },
+        "sampleRate": {
+          "const": 16000
+        },
+        "frames": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9600000
+        }
+      },
+      "required": [
+        "pcm",
+        "sampleRate",
+        "frames"
+      ],
+      "additionalProperties": false
+    },
+    "ActivityProbe": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "granted",
+            "denied",
+            "unavailable"
+          ]
+        },
+        "osStatus": {
+          "enum": [
+            "granted",
+            "denied",
+            "unknown"
+          ]
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "canRequest": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "osStatus",
+        "ready",
+        "canRequest"
+      ],
+      "additionalProperties": false
+    },
+    "ActivityLease": {
+      "type": "object",
+      "properties": {
+        "deviceId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revisionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "epoch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ttlMs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 15000
+        },
+        "source": {
+          "const": "device.app_activity"
+        }
+      },
+      "required": [
+        "deviceId",
+        "revisionId",
+        "epoch",
+        "ttlMs",
+        "source"
+      ],
+      "additionalProperties": false
+    },
+    "ActivityCapture": {
+      "type": "object",
+      "properties": {
+        "deviceId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revisionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "epoch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ttlMs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 15000
+        },
+        "source": {
+          "const": "device.app_activity"
+        }
+      },
+      "required": [
+        "deviceId",
+        "revisionId",
+        "epoch"
+      ],
+      "additionalProperties": false
+    },
+    "ActivityLeased": {
+      "type": "object",
+      "properties": {
+        "active": {
+          "const": true
+        }
+      },
+      "required": [
+        "active"
+      ],
+      "additionalProperties": false
+    },
+    "ActivityRevoked": {
+      "type": "object",
+      "properties": {
+        "stopped": {
+          "const": true
+        }
+      },
+      "required": [
+        "stopped"
+      ],
+      "additionalProperties": false
+    },
+    "ActivityRecord": {
+      "type": "object",
+      "properties": {
+        "applicationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "applicationName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "bundleId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "processId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "isFrontmost": {
+          "const": true
+        },
+        "activeSinceMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "activeForMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "applicationId",
+        "processId",
+        "isFrontmost",
+        "activeSinceMs",
+        "activeForMs"
+      ],
+      "additionalProperties": false
+    },
+    "ActivityResult": {
+      "type": "object",
+      "properties": {
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ActivityRecord"
+          },
+          "maxItems": 1
+        }
+      },
+      "required": [
+        "records"
+      ],
+      "additionalProperties": false
+    },
+    "SupervisorStatus": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "processes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "enum": [
+                  "api",
+                  "worker",
+                  "model"
+                ]
+              },
+              "pid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4294967295
+              },
+              "state": {
+                "const": "ready"
+              }
+            },
+            "required": [
+              "role",
+              "pid",
+              "state"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 8
+        },
+        "failures": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "version",
+        "processes",
+        "failures"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "methods": {
+    "hello": {
+      "params": {
+        "$ref": "#/$defs/Empty"
+      },
+      "result": {
+        "$ref": "#/$defs/Hello"
+      }
+    },
+    "vector.open": {
+      "params": {
+        "$ref": "#/$defs/VectorOpen"
+      },
+      "result": {
+        "$ref": "#/$defs/VectorOpened"
+      }
+    },
+    "vector.search": {
+      "params": {
+        "$ref": "#/$defs/VectorQuery"
+      },
+      "result": {
+        "$ref": "#/$defs/VectorResult"
+      }
+    },
+    "vector.clear": {
+      "params": {
+        "$ref": "#/$defs/Empty"
+      },
+      "result": {
+        "$ref": "#/$defs/VectorCleared"
+      }
+    },
+    "audio.preprocess": {
+      "params": {
+        "$ref": "#/$defs/AudioInput"
+      },
+      "result": {
+        "$ref": "#/$defs/AudioResult"
+      }
+    },
+    "activity.probe": {
+      "params": {
+        "$ref": "#/$defs/Empty"
+      },
+      "result": {
+        "$ref": "#/$defs/ActivityProbe"
+      }
+    },
+    "activity.request": {
+      "params": {
+        "$ref": "#/$defs/Empty"
+      },
+      "result": {
+        "$ref": "#/$defs/ActivityProbe"
+      }
+    },
+    "activity.lease": {
+      "params": {
+        "$ref": "#/$defs/ActivityLease"
+      },
+      "result": {
+        "$ref": "#/$defs/ActivityLeased"
+      }
+    },
+    "activity.capture": {
+      "params": {
+        "$ref": "#/$defs/ActivityCapture"
+      },
+      "result": {
+        "$ref": "#/$defs/ActivityResult"
+      }
+    },
+    "activity.revoke": {
+      "params": {
+        "$ref": "#/$defs/Empty"
+      },
+      "result": {
+        "$ref": "#/$defs/ActivityRevoked"
+      }
+    },
+    "supervisor.start": {
+      "params": {
+        "$ref": "#/$defs/Empty"
+      },
+      "result": {
+        "$ref": "#/$defs/SupervisorStatus"
+      }
+    },
+    "supervisor.stop": {
+      "params": {
+        "$ref": "#/$defs/Empty"
+      },
+      "result": {
+        "$ref": "#/$defs/SupervisorStatus"
+      }
+    },
+    "supervisor.status": {
+      "params": {
+        "$ref": "#/$defs/Empty"
+      },
+      "result": {
+        "$ref": "#/$defs/SupervisorStatus"
+      }
+    }
+  },
+  "errors": [
+    "activity_lease_expired_or_mismatched",
+    "activity_lease_invalid",
+    "activity_method_unknown",
+    "activity_os_revoked",
+    "activity_os_unavailable",
+    "activity_source_invalid",
+    "audio_base64_invalid",
+    "audio_chunk_invalid",
+    "audio_data_missing",
+    "audio_duration_limit",
+    "audio_fmt_invalid",
+    "audio_fmt_missing",
+    "audio_format_unsupported",
+    "audio_frames_invalid",
+    "audio_input_limit",
+    "audio_nonfinite",
+    "audio_riff_length_invalid",
+    "audio_truncated",
+    "audio_wav_invalid",
+    "native_input_failed",
+    "native_input_limit",
+    "native_method_unknown",
+    "native_output_failed",
+    "native_request_invalid",
+    "native_request_truncated",
+    "native_response_invalid",
+    "supervisor_already_owned",
+    "supervisor_already_started",
+    "supervisor_child_failed",
+    "supervisor_cwd_missing",
+    "supervisor_data_directory_unavailable",
+    "supervisor_digest_mismatch",
+    "supervisor_executable_limit",
+    "supervisor_executable_missing",
+    "supervisor_executable_read_failed",
+    "supervisor_guard_declaration_invalid",
+    "supervisor_guard_failed",
+    "supervisor_guard_invalid",
+    "supervisor_guard_unavailable",
+    "supervisor_job_failed",
+    "supervisor_lock_symlink",
+    "supervisor_lock_unavailable",
+    "supervisor_manifest_invalid",
+    "supervisor_manifest_limit",
+    "supervisor_manifest_missing",
+    "supervisor_manifest_required",
+    "supervisor_method_unknown",
+    "supervisor_not_configured",
+    "supervisor_owner_disconnected",
+    "supervisor_port_occupied",
+    "supervisor_readiness_timeout",
+    "supervisor_spawn_failed",
+    "supervisor_startup_exit",
+    "supervisor_wait_failed",
+    "vector_cache_missing",
+    "vector_capacity_exceeded",
+    "vector_data_invalid",
+    "vector_database_busy",
+    "vector_database_missing",
+    "vector_database_open_failed",
+    "vector_id_invalid",
+    "vector_model_invalid",
+    "vector_not_open",
+    "vector_path_invalid",
+    "vector_query_invalid",
+    "vector_read_failed",
+    "vector_readonly_failed",
+    "vector_record_limit",
+    "vector_schema_unavailable",
+    "vector_snapshot_changed",
+    "vector_snapshot_failed",
+    "vector_threshold_invalid",
+    "vector_topk_invalid",
+    "vector_watermark_failed"
+  ]
+} as const;
+
+export type Empty = Record<string, never>;
+export type Hello = { "protocol": 1; "version": string; "platform": "macos" | "windows" | "linux" };
+export type VectorOpen = { "path": string };
+export type VectorOpened = { "readonly": true };
+export type VectorQuery = { "modelId": string; "query": Array<number>; "topK": number; "minScore": number };
+export type VectorResult = { "hits": Array<{ "id": string; "score": number }>; "cacheHit": boolean; "rows"?: number };
+export type VectorCleared = { "cleared": true };
+export type AudioInput = { "wav": string };
+export type AudioResult = { "pcm": string; "sampleRate": 16000; "frames": number };
+export type ActivityProbe = { "status": "granted" | "denied" | "unavailable"; "osStatus": "granted" | "denied" | "unknown"; "ready": boolean; "canRequest": boolean; "reason"?: string };
+export type ActivityLease = { "deviceId": string; "revisionId": string; "epoch": string; "ttlMs": number; "source": "device.app_activity" };
+export type ActivityCapture = { "deviceId": string; "revisionId": string; "epoch": string; "ttlMs"?: number; "source"?: "device.app_activity" };
+export type ActivityLeased = { "active": true };
+export type ActivityRevoked = { "stopped": true };
+export type ActivityRecord = { "applicationId": string; "applicationName"?: string | null; "bundleId"?: string | null; "processId": number; "isFrontmost": true; "activeSinceMs": number; "activeForMs": number };
+export type ActivityResult = { "records": Array<ActivityRecord> };
+export type SupervisorStatus = { "version": string; "processes": Array<{ "role": "api" | "worker" | "model"; "pid": number; "state": "ready" }>; "failures": Record<string, string> };
+
+export type NativeError = (typeof nativeContract.errors)[number];
+
+export interface NativeMethods {
+  "hello": { params: Empty; result: Hello };
+  "vector.open": { params: VectorOpen; result: VectorOpened };
+  "vector.search": { params: VectorQuery; result: VectorResult };
+  "vector.clear": { params: Empty; result: VectorCleared };
+  "audio.preprocess": { params: AudioInput; result: AudioResult };
+  "activity.probe": { params: Empty; result: ActivityProbe };
+  "activity.request": { params: Empty; result: ActivityProbe };
+  "activity.lease": { params: ActivityLease; result: ActivityLeased };
+  "activity.capture": { params: ActivityCapture; result: ActivityResult };
+  "activity.revoke": { params: Empty; result: ActivityRevoked };
+  "supervisor.start": { params: Empty; result: SupervisorStatus };
+  "supervisor.stop": { params: Empty; result: SupervisorStatus };
+  "supervisor.status": { params: Empty; result: SupervisorStatus };
+}

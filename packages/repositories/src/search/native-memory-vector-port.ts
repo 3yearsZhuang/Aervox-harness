@@ -31,7 +31,7 @@ export class NativeMemoryVectorSearchAdapter implements IVectorSearchPort {
           await this.runtime.request("vector.open", { path: this.options.databasePath });
           this.openedEpoch = this.runtime.epoch;
         }
-        const result = await this.runtime.request<{ hits: VectorSearchResult[] }>("vector.search", {
+        const result = await this.runtime.request("vector.search", {
           modelId: this.options.modelId, query: queryVector, topK, minScore,
         });
         if (!Array.isArray(result.hits) || result.hits.length > topK || result.hits.some(h => typeof h.id !== "string" || !Number.isFinite(h.score) || h.score < minScore)) throw new Error("native_vector_response_invalid");

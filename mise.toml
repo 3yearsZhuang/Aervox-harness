@@ -107,25 +107,33 @@ run = "node scripts/hls-agent/cli.mjs"
 description = "Build core and test HLS research contracts"
 run = "pnpm check:hls"
 
+[tasks.native-toolchain-setup]
+description = "Install format/lint components for the pinned Rust toolchain"
+run = "node scripts/install-native-tools.mjs"
+
+[tasks.native-protocol-generate]
+description = "Generate TypeScript IPC types from the shared native contract"
+run = "node scripts/generate-native-protocol.mjs"
+
 [tasks.native-search-check]
 description = "Check the dependency-free Rust vector pilot and benchmark contracts"
-run = "cargo fmt --manifest-path scripts/native-vector/Cargo.toml --check && cargo test --locked --manifest-path scripts/native-vector/Cargo.toml && cargo build --locked --manifest-path scripts/native-vector/Cargo.toml && cargo clippy --locked --manifest-path scripts/native-vector/Cargo.toml -- -D warnings && node --test scripts/native-search.test.mjs"
+run = "cargo fmt --manifest-path native/tools/vector-pilot/Cargo.toml --check && cargo test --locked --manifest-path native/tools/vector-pilot/Cargo.toml && cargo build --locked --manifest-path native/tools/vector-pilot/Cargo.toml && cargo clippy --all-targets --locked --manifest-path native/tools/vector-pilot/Cargo.toml -- -D warnings && node --test scripts/native-search.test.mjs"
 
 [tasks.native-search-benchmark]
 description = "Compare fixed synthetic search workloads (no production database access)"
-run = "pnpm exec turbo run build --filter=@aervox/repositories --filter=@aervox/api && cargo build --release --locked --manifest-path scripts/native-vector/Cargo.toml && node scripts/benchmark-native-search.mjs"
+run = "pnpm exec turbo run build --filter=@aervox/repositories --filter=@aervox/api && cargo build --release --locked --manifest-path native/tools/vector-pilot/Cargo.toml && node scripts/benchmark-native-search.mjs"
 
 [tasks.native-runtime-build]
 description = "Build the native component and its verified platform artifact"
-run = "pnpm exec turbo run build --filter=@aervox/native-runtime"
+run = "pnpm exec turbo run native:build --filter=@aervox/native-runtime"
 
 [tasks.native-runtime-check]
 description = "Check native platform code and executable lifecycle contracts"
-run = "cargo fmt --manifest-path packages/native-runtime/native/Cargo.toml --check && cargo test --locked --manifest-path packages/native-runtime/native/Cargo.toml && cargo clippy --locked --manifest-path packages/native-runtime/native/Cargo.toml -- -D warnings && pnpm exec turbo run build --filter=@aervox/native-runtime && pnpm --filter @aervox/native-runtime test && node --test scripts/native-runtime-smoke.test.mjs"
+run = "node scripts/generate-native-protocol.mjs --check && node --test scripts/native-layout.test.mjs && cargo fmt --manifest-path native/crates/runtime/Cargo.toml --check && cargo test --locked --manifest-path native/crates/runtime/Cargo.toml && cargo clippy --all-targets --locked --manifest-path native/crates/runtime/Cargo.toml -- -D warnings && pnpm exec turbo run native:build --filter=@aervox/native-runtime && pnpm --filter @aervox/native-runtime test && pnpm exec turbo run build --filter=@aervox/api --filter=@aervox/worker && node --test scripts/native-runtime-smoke.test.mjs"
 
 [tasks.native-runtime-benchmark]
 description = "Compare file SQLite engines, native audio and isolated archive CPU work"
-run = "pnpm exec turbo run build --filter=@aervox/api && node scripts/benchmark-native-runtime.mjs"
+run = "pnpm exec turbo run native:build --filter=@aervox/native-runtime && pnpm exec turbo run build --filter=@aervox/api && node scripts/benchmark-native-runtime.mjs"
 
 [tasks.native-runtime]
 description = "Native info, OS probe, signing and explicit supervisor lifecycle"
