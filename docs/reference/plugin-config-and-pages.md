@@ -38,7 +38,7 @@ id: AVX-PLUG-001
 
 根界面使用 [`UISurfacePlugin`](../../packages/ui-host/src/surface-context.ts)：`id`、`apiVersion: 1`、`surface`（`main` 或 `companion`）、`platforms` 与异步 `load(signal)`。这是受信源码装配接口，不是可安装的 `PluginManifest`；`plugins/workbench-ui` 与 `plugins/companion-ui` 不生成声明式分发包，也不使用市场开关关闭标准产品能力。
 
-- 组合根：Web/桌面 `App.vue` 选择工作台，桌面 `pet-main.ts` 选择独立桌宠；移动端沿用 Web。只有组合根允许引用具体插件包。
+- 组合根：Web/桌面 `App.vue` 从默认工作台、紧凑工作台与主动陪伴界面选择，桌面 `pet-main.ts` 选择独立桌宠；移动端沿用 Web。只有组合根允许引用具体插件包。
 - [`UISurfaceHost`](../../packages/ui-host/src/UISurfaceHost.vue) 校验平台、根类型和版本；默认加载上限 15 秒。加载或 Vue 渲染失败显示宿主恢复界面，可重试；浏览器缓存失败导入时，使用组合根注入的 `requestReload` 重新加载当前窗口。刷新仅由用户点击触发。插件加载结果迟到时丢弃。
 - 每次根实例获得独立的 `UISurfaceContext`，含平台、根类型、取消信号及可选 `requestClose`。取消信号和 Vue 卸载负责结束本实例订阅、事件监听与计时器；工作台注册表也按实例创建。关闭界面不会请求取消已受理的 API 回合。
 - `viewProps` 与事件用于受信界面装配，平台由宿主固定；这些参数不是第三方权限代理。根界面不能通过该接口取得任意 Electron 或数据库访问权。

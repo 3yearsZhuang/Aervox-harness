@@ -41,6 +41,11 @@ decision_status: accepted
 - **设计令牌单源**：新增 `theme/tokens.css`（`--avx-*`，明暗双主题），六个主题文件统一消费，令牌值全部提取自既有样式，视觉零变更。
 - **多根界面试验田**：`workbench-ui` 包新增 `compactSurface`（紧凑单栏变体，复用同一工作台根、`variant="compact"`）；`ui-host` 新增 `resolveSurfaceChoice()`，组合根按 `?surface=` / localStorage `aervox.surface.main` 选择根界面；设置外观区提供切换器（重载生效）。
 
+### 2026-10-13 · v0.2.2 主动陪伴界面插件（ITER-059）
+
+- **新界面插件 `@aervox/plugin-proactive-ui`**（方向 D）：视觉小说式对话盒（打字机呈现问候与流式回复）、两张主动建议卡（接续最近会话 / 开始专注，附推荐理由行）、输入淡化为「悄悄话」药丸（展开时建议卡让位）；默认工作台保持不变，组合根经 `resolveSurfaceChoice` 三选一，设置外观区新增「思隅陪伴」切换项。
+- 沿用真实会话与流式回合接口，首次发送创建会话，连接失败允许重试；返回默认工作台同时清除界面查询参数。建议首版来自最近会话与固定专注动作，学习记录驱动的推荐与历史消息加载尚未交付。整合编号统一为 ITER-059，Core 继续使用 ITER-057。
+
 ### 2026-10-13 · v0.2.1 遗留收口（同分支）
 
 - **设置面板按需分包**：`panels-ui` 的 `settingsPanels` 一律改为 `defineAsyncComponent`，Web 构建产物中五块面板各自成 chunk（不进工作台首包），分类首次激活时按需加载；模型面板草稿保留由 KeepAlive 继续覆盖（`plugins/panels-ui/test/lazy-panels.test.ts`）。

@@ -417,3 +417,5 @@ PR、自动化测试和目标环境验证是交付证据，不抄写终端日志
 - `core-execution-boundaries-20261013`：ITER-057 延续 CR-061 执行合同，统一终态 CAS 与返回值映射，修复连续小块正文刷新饥饿，并为工具发现、上下文构建和压缩传播取消信号；迟到准备结果不启动后续步骤。回归入口为 `packages/core/test/execution-boundaries.test.ts`、`audit-streaming.test.ts` 和 `packages/host-agent/test/sqlite-execution-store-fencing.test.ts`；`scripts/benchmark-core.mjs` 覆盖大小分块，合成负载不代表生产模型延迟。保持零运行时依赖、SQLite 与公开 SSE 合同；审查证据见 [ITER-057](../../plan.md#iter-057)。
 
 - `ui-surface-integration-20261013`：ITER-053/054/055 / [CR-065](adr/ADR-025-ui-surface-hosts.md#cr-065)，关联 CAP-001/002/018/020。前端体验与根界面切片统一由 `feat/ui-surface-experience` 交付；工作台、桌宠及设置面板迁入受信第一方 UI 包，平台组合根负责清单选择与装配，`@aervox/ui-host` 负责加载、失败重试与实例释放。验证入口为 UI 宿主、面板及工作台测试和 `test:e2e:ui`；第三方信任/独立安装仍为 [CR-064](adr/ADR-026-ui-surface-open-ecosystem.md#cr-064) 提案，未提升实机或 Released 状态。
+
+- `proactive-ui-integration-20261013`：[ITER-059](../../plan.md#iter-059) 沿用 ADR-025，关联 CAP-001/018。主动陪伴界面通过设置或查询参数选择，复用会话与流式回合接口；建议首版为最近会话接续与固定专注动作。验证入口为 `plugins/proactive-ui/test/proactive-companion.test.ts` 和 `e2e-ui/proactive-surface.spec.ts`。学习记录驱动的推荐、历史消息加载与真实模型/移动实机验收尚未交付，不提升 CAP 的发布状态。
