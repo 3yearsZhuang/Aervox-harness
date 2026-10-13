@@ -1,24 +1,10 @@
 ---
 id: AVX-GUIDE-008
-type: how-to
-scope: guide
-owner: platform
-doc_status: review-candidate
-decision_status: not-applicable
-delivery_status: not-applicable
-version: 1.0.1
-updated_at: 2026-10-13
-reviewed_at: 2026-10-13
-review_interval_days: 90
-sources:
-  - docs/reference/changes/CR-063-native-runtime-components.md
-  - docs/reference/ARCHITECTURE.md
-  - docs/reference/DATABASE.md
 ---
 
 # 构建与运行原生组件
 
-本指南用于开发者构建、对照和显式启用 [CR-063](../reference/changes/CR-063-native-runtime-components.md) 的组件。授权、缓存一致性和回滚合同见 CR；生产发行须具备签名、公证和真实桌面权限验证证据。
+本指南用于开发者构建、对照和显式启用 [ADR-024](../reference/adr/ADR-024-native-runtime-boundaries.md) 的组件。授权与进程边界见该 ADR，缓存一致性见[数据库契约](../reference/DATABASE.md#71-只读向量缓存)；生产发行须具备签名、公证和真实桌面权限验证证据。
 
 ## 1. 构建和验证
 
@@ -44,7 +30,7 @@ mise tasks run native-protocol-generate
 mise tasks run native-runtime-check
 ```
 
-生成器只接受已实现的 JSON Schema 关键字；新增关键字须同时更新双端校验器和共用正反夹具。手写业务 DTO 不放入该内部协议。只验证合成试验时运行 `mise tasks run native-search-check`；工作区默认成员为生产 runtime，试验须显式指定。
+生成器只接受已实现的 JSON Schema 关键字；新增关键字须同时更新双端校验器和共用正反夹具。手写业务 DTO 不放入该内部协议。只验证合成试验时运行 `mise tasks run native-search-check`，生成对照报告运行 `mise tasks run native-search-benchmark`。试点位于 `native/tools/vector-pilot`，只消费固定种子合成夹具，不接入业务库；报告须区分纯计算与冷进程/IPC。工作区默认成员为生产 runtime，试验须显式指定。
 
 桌面发行入口 `pnpm dist:desktop` 会先构建原生制品，再生成安装包；直接运行 Electron Builder 前也须先运行 `native-runtime-build`。制品签名和系统签名仍按下文发行要求执行。
 

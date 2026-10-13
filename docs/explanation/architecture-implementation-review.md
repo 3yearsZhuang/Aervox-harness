@@ -1,42 +1,10 @@
 ---
 id: AVX-EXPL-012
-type: explanation
-scope: guide
-planning_role: evidence
-owner: platform
-doc_status: review-candidate
-decision_status: not-applicable
-delivery_status: not-applicable
-version: 0.4.3
-updated_at: 2026-10-12
-reviewed_at: 2026-10-12
-review_interval_days: 30
-review_triggers:
-  - apps/api/src/**
-  - apps/worker/src/**
-  - apps/desktop/src/main/**
-  - apps/desktop/electron-builder.yml
-  - packages/core/**
-  - packages/host-agent/**
-  - packages/repositories/**
-  - packages/schema/**
-  - scripts/import-boundary.mjs
-  - .github/workflows/ci.yml
-  - turbo.json
-  - mise.toml
-sources:
-  - docs/reference/ARCHITECTURE.md
-  - docs/reference/DATABASE.md
-  - docs/reference/DATA_PRIVACY.md
-  - docs/reference/agent-harness-loop.md
-  - docs/reference/STREAMING_PROTOCOL.md
-  - docs/reference/adr/ADR-014-modular-monolith-structure.md
-  - docs/explanation/companion-hardware-directions.md
 ---
 
 # 当前架构实现与演进评估
 
-关联：第一轮底层评估（FND-01～10，已并入本文 §9）、[架构事实源](../reference/ARCHITECTURE.md)、[数据库契约](../reference/DATABASE.md)、[数据隐私](../reference/DATA_PRIVACY.md)、[Agent 执行契约](../reference/agent-harness-loop.md)、[硬件方向](companion-hardware-directions.md)、[变更流程](../how-to/cr-workflow.md)
+关联：第一轮底层评估（FND-01～10，已并入本文 §9）、[架构事实源](../reference/ARCHITECTURE.md)、[数据库契约](../reference/DATABASE.md)、[数据隐私](../reference/DATA_PRIVACY.md)、[Agent 执行契约](../reference/agent-harness-loop.md)、[硬件方向](companion-hardware-directions.md)、[变更流程](../reference/adr/README.md)
 
 > [!NOTE]
 > 本文分开保存当前复核与历史证据：2026-10-08 的审计见 [§10](#10-2026-10-08-仓库审计)。§2～§9 是 2026-09-18 基线 `6b20e7e` 的评估快照，除明确标注的闭环摘要外，不宣称全部反映当前实现。当前排期只读 [plan.md](../../plan.md)，生产接线以源码与测试核实。
@@ -188,7 +156,7 @@ P1 表示优先修复或对应能力开放前必须通过的验证；P2 表示�
 
 **恢复账本的区别。** [RecoveryLedgerRepository](../../packages/repositories/src/repositories/sqlite/recovery-ledger-repository.ts)目前仅见库/测试调用；撤权路由没有独立账本确认及恢复追平。[账本 Schema](../../packages/schema/src/ledger.ts)的 sequence 索引非唯一，追加使用 `MAX+1`；临时库并发追加得到 `[1,1]`，这是未接线库级问题。`tamperEvidence` 接收调用方值也不等于实现了防篡改链。
 
-**演进与代价。** 基于既有恢复契约建立原子单调序列、幂等追加、账本确认后投影 deny、恢复水位追平。当前主库、Vault 与账本使用独立连接，不能据此获得跨库原子提交保证，应采用持久事件与幂等投影。独立文件也不自动具备独立故障域或防回滚能力；保留、密钥与备份部署按 CR 明确。
+**演进与代价。** 基于既有恢复契约建立原子单调序列、幂等追加、账本确认后投影 deny、恢复水位追平。当前主库、Vault 与账本使用独立连接，不能据此获得跨库原子提交保证，应采用持久事件与幂等投影。独立文件也不自动具备独立故障域或防回滚能力；保留、密钥与备份部署按 ADR 明确。
 
 **验收。** 删除中断、清理失败、并发新写、重复投递和旧备份恢复均不得让已删除/撤权内容重新可用；每个 completed 都有可重做的验证证据。账本不可读或水位不足时，受影响操作保持关闭。物理清理不应破坏用户数据恢复包的既定保留政策，继续遵循[数据隐私契约](../reference/DATA_PRIVACY.md)。
 
@@ -232,7 +200,7 @@ P1 表示优先修复或对应能力开放前必须通过的验证；P2 表示�
 
 **与 ADR 的差异。** [ADR-014](../reference/adr/ADR-014-modular-monolith-structure.md)要求模块仅 `index.ts` 对外、跨模块经 shared 总线，而 `event-bus.ts` 没有领域调用者（已在卫生清理中移除）；[ModuleContext](../../apps/api/src/modules/context.ts)仍提供 raw db/client 和按顺序填入的可选服务。对话模块也直接创建多个领域仓储。目录分组已经完成，数据所有权与接口强制还没有同等程度的保证。
 
-**候选演进，需 CR。** 同步查询/命令使用明确类型的公开 Port，异步业务副作用走有归属的持久 Outbox，短暂 UI 通知走进程内广播；三者各自声明失败和重放语义。先冻结实际需要的公开接口，再增加 API 内部深层引用限制、数据写入所有权和解析失败报告。已有违规用带 owner/退出条件的迁移清单逐步收敛，不一次性把所有业务塞进 shared，也不机械改成异步事件调用。
+**候选演进，需 ADR。** 同步查询/命令使用明确类型的公开 Port，异步业务副作用走有归属的持久 Outbox，短暂 UI 通知走进程内广播；三者各自声明失败和重放语义。先冻结实际需要的公开接口，再增加 API 内部深层引用限制、数据写入所有权和解析失败报告。已有违规用带 owner/退出条件的迁移清单逐步收敛，不一次性把所有业务塞进 shared，也不机械改成异步事件调用。
 
 **验收与代价。** 注入跨模块私有路径必须失败；批准的公开 Port 必须通过；模块可在 Fake Port 下独立测试。将可变全局槽替换为每模块所需的窄依赖对象，组合根在启动时检查必需依赖。此举增加接口维护成本，但能让后续变更范围可预测；它不要求拆服务，也不需要立即改造所有 26 个模块。
 
@@ -246,7 +214,7 @@ P1 表示优先修复或对应能力开放前必须通过的验证；P2 表示�
 
 **建议。** 请求规范化后进入私有 staging，服务端拒绝路径分隔/编码越界，最终 resolve 并检查根目录与 symlink 边界；逐次请求验证状态、范围、实体标识、总长和截断。内容验证后再原子提升并注册。可信摘要校验与“计算出了摘要”应区分，未验证来源应有明确状态。续传前缀哈希目前整段读入内存，可改为流式，并增加磁盘、大小与总时限配额。
 
-**验收与代价。** 越界、符号链接、错误响应、内容变化和重启不得写出模型根或注册坏文件；成功下载与 autoStart 失败分开可见。代价是校验 I/O、侧车状态和失败恢复逻辑，收益首先是正确性；制品信任策略变更再走 CR，无需新增下载服务。
+**验收与代价。** 越界、符号链接、错误响应、内容变化和重启不得写出模型根或注册坏文件；成功下载与 autoStart 失败分开可见。代价是校验 I/O、侧车状态和失败恢复逻辑，收益首先是正确性；制品信任策略变更记录 ADR，无需新增下载服务。
 
 ### 4.12 ARC-12：进程代际、资源准入与真实就绪
 
@@ -314,7 +282,7 @@ P1 表示优先修复或对应能力开放前必须通过的验证；P2 表示�
 
 跨专题批次、依赖和待决策项已收敛到根目录 [plan.md](../../plan.md)，本节不再维护活动排期。本报告保留实现证据、方案权衡和下面的测量设计；问题编号 ARC/FND 不替代计划条目 ID。
 
-采纳建议后，现有行为修复按独立切片交付；恢复账本、授权、部署主管、公开 Port 等架构差量先走 CR。每项分别记录相关 CAP、验证和回滚并移交[追踪基线 §4.2](../reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。文档交付、代码验证和产品发布继续分开。
+采纳建议后，现有行为修复按独立切片交付；恢复账本、授权、部署主管、公开 Port 等架构差量先走 ADR。每项分别记录相关 CAP、验证和回滚并移交[追踪基线 §4.2](../reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。文档交付、代码验证和产品发布继续分开。
 
 ## 7. 如何测量优化是否值得
 
@@ -346,11 +314,11 @@ P1 表示优先修复或对应能力开放前必须通过的验证；P2 表示�
 
 音频对照包含传输成本，保持 TypeScript 默认；原生预处理仅作为显式可选路径。插件 Worker 增加总处理时间，但缩短主事件循环阻塞，沿用成熟压缩实现与原有预检配额。三平台活动 Helper 和声明主管补齐进程与平台边界，权限缺口、签名和 OS 发布验收见 CR-063 与操作指南，不把编译或合同测试当作真实桌面权限验证。
 
-2026-10-12 [CR-062](../reference/changes/CR-062-native-search-pilot.md) 增补[机器可读原生搜索基准](../_meta/native-search-baseline.json)：同设备、固定种子、三档 256 维向量，比较 JSON 全排序、JSON 有界 top-K、连续数组与 Rust；每档校验候选 ID 和分数一致性。查询计时与进程启动/加载分账，内存为间隔采样，短命进程可能没有有效样本。JSON 解析成本明显高于排序差量，不能把预加载的 Rust 计算时间当作端到端召回提速。
+2026-10-12 [CR-062](../reference/adr/ADR-024-native-runtime-boundaries.md#cr-062) 增补[机器可读原生搜索基准](../_meta/native-search-baseline.json)：同设备、固定种子、三档 256 维向量，比较 JSON 全排序、JSON 有界 top-K、连续数组与 Rust；每档校验候选 ID 和分数一致性。查询计时与进程启动/加载分账，内存为间隔采样，短命进程可能没有有效样本。JSON 解析成本明显高于排序差量，不能把预加载的 Rust 计算时间当作端到端召回提速。
 
 代码搜索对照覆盖无匹配、末尾匹配和结果上限：原生搜索让 API 的定时器保持可调度，但进程启动使很快命中的查询可能更慢。采纳依据是有界运行与主事件循环响应；不承诺所有搜索更快。基准为探索性样本，没有覆盖 SQLite 读入、真实语义召回质量、生产索引生命周期或跨平台发布。
 
-复跑入口为 `mise tasks run native-search-benchmark`，默认报告写入忽略目录 `artifacts/native-search/`。Rust 合同、格式与静态检查入口为 `mise tasks run native-search-check`，已进入代码门禁。后续受信原生 Helper 与进程主管由 [CR-063](../reference/changes/CR-063-native-runtime-components.md) 接续实施，签名与发布证据独立取证。
+复跑入口为 `mise tasks run native-search-benchmark`，默认报告写入忽略目录 `artifacts/native-search/`。Rust 合同、格式与静态检查入口为 `mise tasks run native-search-check`，已进入代码门禁。后续受信原生 Helper 与进程主管由 [CR-063](../reference/adr/ADR-024-native-runtime-boundaries.md#cr-063) 接续实施，签名与发布证据独立取证。
 
 2026-09-18 评估的执行过程由 Git 基线与后续 PR 保留，当前测试入口以[测试策略](../reference/TEST_STRATEGY.md)、[工具任务](../../mise.toml)及关联测试为准。本文不复制测试耗时和终端日志，也不把历史绿色结果当作当前版本的发布证据。
 
@@ -410,7 +378,7 @@ P1 表示优先安排修复评审，尤其应在扩大插件安装范围前完�
 
 配置写入也有并发边界：[配置仓储](../../packages/repositories/src/repositories/sqlite/plugin-config-repository.ts) `saveConfig` 先读取 revision，再仅按 ID 更新，未用 revision 条件保护 UPDATE；并发旧版本请求可能都通过检查而互相覆盖。[配置服务](../../apps/api/src/modules/ecosystem/plugins/config-service.ts)还先写 Secret、后检查普通配置版本，发生 409 不保证 Secret 未变。现有串行过期版本测试不能证明原子 CAS。该判断来自源代码审阅，本轮未执行并发配置复现。
 
-**建议与权衡。** 在独立 staging 目录验证全部声明、配置和资源，生成安装计划后再激活新版本；用持久安装状态记录、短数据库事务及目录切换构成可恢复流程。旧版本、配置修订与 Secret 引用保留到激活成功，配置迁移需明确而不能复用卸载清理。数据库事务内禁止进行解压和文件复制。代价是额外磁盘空间及崩溃恢复逻辑；升级/卸载语义改变需在相应 CR 中明确。
+**建议与权衡。** 在独立 staging 目录验证全部声明、配置和资源，生成安装计划后再激活新版本；用持久安装状态记录、短数据库事务及目录切换构成可恢复流程。旧版本、配置修订与 Secret 引用保留到激活成功，配置迁移需明确而不能复用卸载清理。数据库事务内禁止进行解压和文件复制。代价是额外磁盘空间及崩溃恢复逻辑；升级/卸载语义改变需在相应 ADR 中明确。
 
 **验收。** 对预检、文件写入、注册、激活的每个失败点注入异常或进程退出；重启后只能处于完整旧版本或完整新版本，旧配置与 Secret 不因失败升级丢失。返回成功必须表示所有声明入口可读取；同一包重试安装不生成重复能力。
 
@@ -462,7 +430,7 @@ P1 表示优先安排修复评审，尤其应在扩大插件安装范围前完�
 
 **已有保护。** 先订阅再重放、序号去重、稳定游标查询、15 秒心跳、10 分钟连接时限及终态排空均已存在。
 
-**建议与权衡。** 使用按序号分页的高水位重放，写入遇到背压时等待 `drain`，对单连接和全局缓冲设上限；超限慢消费者可主动断开，客户端按持久游标续传。跨进程终态优先增加受控状态通知，必要时使用低频、有界的持久水位核对；继续保留当前总线用于低延迟路径。不要恢复每连接高频空查询。跨进程通道若改变部署/信任边界需 CR。
+**建议与权衡。** 使用按序号分页的高水位重放，写入遇到背压时等待 `drain`，对单连接和全局缓冲设上限；超限慢消费者可主动断开，客户端按持久游标续传。跨进程终态优先增加受控状态通知，必要时使用低频、有界的持久水位核对；继续保留当前总线用于低延迟路径。不要恢复每连接高频空查询。跨进程通道若改变部署/信任边界需 ADR。
 
 **验收。** 覆盖限速客户端、10 万条合成事件重放、重放中断线、终态发生于另一进程和广播遗漏；连接内存受配置上限约束、重连无缺号、重复事件可去重、终态在规定窗口内可见。合成规模用于暴露边界，不代表当前用户会产生此流量。
 
@@ -522,7 +490,7 @@ SQLite 写竞争的独立证据在 [客户端](../../packages/repositories/src/c
 
 硬件立项还需先做 Provider 真实性验证：[本地 GPT-SoVITS](../../apps/api/src/modules/platform/voice/gpt-sovits.ts) `GptSovitsLocalProvider.synthesize` 当前返回文本编码的占位字节却标为 `audio/wav`，路径健康检查不能证明真实合成成功；[OCR 默认解析器](../../apps/api/src/modules/knowledge/content/parser-port.ts) `MockOcrParserProvider` 返回随机置信度及固定题文，不能支撑扫描硬件的真实识别验收。应把这两条对应硬件路线的验证列为 P1：真实解码器可播放的合成产物、固定实物输入对应的 OCR 输出，以及显式区分 Mock/未配置/真实可用的健康状态。远程 TTS 适配和真实 ASR 属于其它 Provider，应按各自实现与实测评价，不能由这两项推断语音整体未实现。
 
-建议不包含更换 SQLite、恢复多用户隔离、拆微服务或引入独立队列。涉及插件激活/权限语义、新进程信任边界、Outbox 多订阅契约或数据库模型的改动，先按 [CR 工作流](../how-to/cr-workflow.md)冻结差量。任何破坏性数据库迁移继续遵循[换库与回滚演练](../how-to/run-database-migration-drill.md)的停写、备份、显式范围选择、staging 校验、原子换库与保留回滚包流程。
+建议不包含更换 SQLite、恢复多用户隔离、拆微服务或引入独立队列。涉及插件激活/权限语义、新进程信任边界、Outbox 多订阅契约或数据库模型的改动，先按 [ADR 流程](../reference/adr/README.md)冻结差量。任何破坏性数据库迁移继续遵循[换库与回滚演练](../how-to/run-database-migration-drill.md)的停写、备份、显式范围选择、staging 校验、原子换库与保留回滚包流程。
 
 每项采纳后分别登记代码落位、验证和发布门禁；本节完成的是评估交付，不代替[追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)中的实现或发布验收。
 

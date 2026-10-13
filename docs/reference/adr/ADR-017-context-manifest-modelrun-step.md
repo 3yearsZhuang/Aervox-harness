@@ -1,14 +1,6 @@
 ---
 id: ADR-017
-type: reference
-scope: decision
-owner: maintainers
-doc_status: review-candidate
 decision_status: accepted
-version: 0.3.0
-updated_at: 2026-10-08
-reviewed_at: 2026-10-08
-review_interval_days: 90
 ---
 
 # ADR-017 冻结 ContextManifest / ModelRun / AgentStep 关联与 Inbox 数据模型

@@ -1,23 +1,6 @@
 ---
 id: ADR-019
-type: reference
-scope: decision
-owner: product-platform
-doc_status: review-candidate
 decision_status: accepted
-delivery_status: verified
-version: 1.0.1
-updated_at: 2026-10-10
-reviewed_at: 2026-10-10
-review_interval_days: 60
-review_triggers:
-  - apps/api/src/modules/proactive/proactive/integration-*.ts
-  - packages/schema/src/proactive-intelligence.ts
-  - Home Assistant REST/WebSocket 或小米 OAuth 契约变化
-sources:
-  - docs/reference/adr/ADR-018-proactive-local-privacy-host.md
-  - docs/reference/DATA_PRIVACY.md
-  - docs/reference/THREAT_MODEL.md
 ---
 
 # ADR-019 主动智能外部连接采用本地网关与受控工具
@@ -64,7 +47,7 @@ API 本地进程承载 `ProactiveIntegrationManager`。Home Assistant 使用 RES
 
 ## Migration / rollback
 
-采用新增表和新增路由的 Expand 迁移。回滚时先停止 Manager 与工具，再删除连接记录和缓存；不删除 CAP-033 其它画像数据。未来 OAuth、移动端 HealthKit/Health Connect 或插件载体通过新的 CR/ADR 扩展，不修改本 ADR 的凭据隔离和授权不变量。
+采用新增表和新增路由的 Expand 迁移。回滚时先停止 Manager 与工具，再删除连接记录和缓存；不删除 CAP-033 其它画像数据。未来 OAuth、移动端 HealthKit/Health Connect 或插件载体通过新的 ADR 扩展，不修改本 ADR 的凭据隔离和授权不变量。
 
 ## Verification evidence
 

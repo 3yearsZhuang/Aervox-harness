@@ -1,14 +1,6 @@
 ---
 id: ADR-014
-type: reference
-scope: decision
-owner: maintainers
-doc_status: approved
 decision_status: accepted
-version: 0.3.2
-updated_at: 2026-10-10
-reviewed_at: 2026-10-10
-review_interval_days: 90
 ---
 
 # ADR-014 演进式模块化单体：apps/api 目录结构

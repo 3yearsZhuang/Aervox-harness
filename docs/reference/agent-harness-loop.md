@@ -1,15 +1,5 @@
 ---
 id: AVX-HAR-001
-type: reference
-scope: baseline
-owner: maintainers
-doc_status: review-candidate
-decision_status: not-applicable
-delivery_status: not-applicable
-version: 0.8.2
-updated_at: 2026-10-08
-reviewed_at: 2026-10-08
-review_interval_days: 90
 ---
 
 # Agent Harness Loop 设计与落地规范
@@ -20,15 +10,17 @@ review_interval_days: 90
 
 当前工作排序与认领只在根 [plan.md](../../plan.md) 维护；实现、剩余差量与交付证据以[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)为准。下列代码入口用于定位现状，不表示完整生产验收或发布批准；已接受的安全要求不因现状有缺口而降低。
 
-## 当前执行合同补充（CR-061）
+<a id="execution-contract"></a>
 
-本节记录 ITER-044～048 的实现边界，裁决见 [CR-061](changes/CR-061-core-execution-contract-hardening.md)。API 和内存宿主复用 `HostToolRuntime`；审批完成后再次检查控制信号，工具派发复验注册代际、启用状态和当前授权。动态工具每 Step 重新发现，模型工具声明使用该次快照，旧声明不能调用替换后的 Handler。门控上下文缺失、未知算子与畸形条件均拒绝。
+## 当前执行合同
+
+决定见 [ADR-021](adr/ADR-021-aervox-core-standalone-package.md#cr-061)（原 CR-061）。API 和内存宿主复用 `HostToolRuntime`；审批完成后再次检查控制信号，工具派发复验注册代际、启用状态和当前授权。动态工具每 Step 重新发现，模型工具声明使用该次快照，旧声明不能调用替换后的 Handler。门控上下文缺失、未知算子与畸形条件均拒绝。
 
 Provider 的 `capabilities` 可报告工具/推理协议支持、已知上下文窗口与输出上限。OpenAI 兼容实现检查**最终序列化请求**（含完整消息和工具 Schema）加输出预留：可注入 Token 估计器，缺省用 UTF-8 字节与协议余量保守估算；未知窗口不伪造数值。用量可附缓存读写 Token。`length`、`content_filter`、无完整结束标记及非法工具参数不得执行工具，正文前缀保留且回合不标为完成。
 
 正文按至多 4096 UTF-8 字节的窗口提交，源静默时每 50 ms 刷新待发前缀；单 Step 累计响应上限为 8 MiB，OpenAI HTTP 响应缺省也受 8 MiB 限制。50 ms 控制轮询可打断静默模型等待；已提交正文后不再重试模型。限制针对收集与提交路径，不能替代宿主对子进程或忽略信号的外部服务的资源管理。规则压缩保留系统约束和完整工具调用/结果组，以明确省略提示替代旧占位摘要；单组过大时保留整组，由最终窗口检查拒绝超限请求。
 
-`AERVOX_LOOP_RESUME=local-results` 显式启用 API 启动恢复，缺省 `off`。单次最多扫描 10 个过期候选，串行重新取得 fencing 租约，只用当前准入的本机模型根据权威结果补完一轮正文，单候选截止 30 秒。恢复不运行回合插件钩子，不派发新工具；需要新动作时由用户发起新回合。已终态、缺失/重复配对、未知结果（即使 `replay: safe`）、审批待决、脱敏/删除内容或删除闸门阻断均不自动恢复。Worker 同时恢复时由 CAS 决定唯一执行者，Worker 已终结的 Attempt 不会复活。下一序号来自完整持久事件上界。停用开关回到既有 Worker 中断收敛，无数据迁移。
+`AERVOX_LOOP_RESUME=local-results` 显式启用 API 启动恢复，缺省 `off`。单次最多扫描 10 个过期候选，串行重新取得 fencing 租约，只用当前准入的本机模型根据权威结果补完一轮正文，单候选截止 30 秒。恢复不运行回合插件钩子，不派发新工具；需要新动作时由用户发起新回合。恢复先核对完整账本、最新意图和持久事件高水位，再按执行标识关联结果；已终态、缺失/重复配对、未知结果（即使 `replay: safe`）、审批待决、脱敏/删除内容或删除闸门阻断均不自动恢复。Worker 同时恢复时由 CAS 决定唯一执行者，Worker 已终结的 Attempt 不会复活。下一序号来自完整持久事件上界。停用开关回到既有 Worker 中断收敛，无数据迁移。
 
 公共入口仍为 `@aervox/core` 与 `@aervox/core/core`，执行收集器、终态收敛器、工具管线/账本及内部序列化函数不再从根入口暴露。工作区消费者通过公开 Port 与 `executeTurn` 集成，内部单元测试直接引用源码模块；软件包保持 `private: true` 和零运行时依赖。公开发布前仍需独立版本与发布审核。
 
@@ -36,7 +28,7 @@ Provider 的 `capabilities` 可报告工具/推理协议支持、已知上下文
 
 当前审计修复补齐两条运行时不变量：OpenAI 兼容流只在 `tool_calls` 正常终止且参数为完整 JSON 对象时交出工具调用；截断、内容过滤、损坏帧及未完成调用不会执行副作用。`ModelRun` 与输入快照按每次实际调用记录，覆盖多 Step、重试和失败，标识包含 Attempt；快照保留调用边界的消息、工具 Schema 和请求生成参数。缓存读取/写入 token 作为输入 usage 的细分传递，不额外累加总量。验证见[模型终止测试](../../packages/core/test/model-terminal.test.ts)与[调用快照测试](../../packages/core/test/context-manifest.test.ts)。
 
-这些快照沿用可观测侧写语义，失败不会阻断执行，不能充当恢复账本或授权证明；API 的快照格式为 `{version:1,messages,tools,maxOutputTokens,temperature}`，旧宿主可继续接受 messages 数组。动态工具授权、最终模型窗口检查、真正的摘要压缩、正文流式背压和完整来源删除仍在当前队列内，本次不提升它们的交付状态。
+这些快照沿用可观测侧写语义，失败不会阻断执行，不能充当恢复账本或授权证明；API 的快照格式为 `{version:1,messages,tools,maxOutputTokens,temperature}`，旧宿主可继续接受 messages 数组。快照不替代实际派发时的授权、最终窗口和账本检查；真实摘要策略、完整来源删除及生产流式效果仍须独立验收。
 
 ## 1. 范围与非目标
 
@@ -442,6 +434,17 @@ agent.attempt.lease-expired
 
 `adapter-dsh` 必须把 DSH 事件、工具调用和终止原因规范化为本文件的 Port/事件，并使用 Aervox Attempt/fencing 持久化。它可以实现完整 `LoopDriverPort`，也可以只提供 `ModelProviderPort`/受限 Contribution；Manifest 必须声明实际等级，并在收集整批确定结果后通过 [`concludeAdapterBatch`](../../packages/core/src/adapter-contract.ts) 重新判定；无法保证该翻译时必须拒绝激活完整 Driver，不得静默提前结束。
 
+<a id="bounded-code-search"></a>
+
+#### 有界本地代码搜索
+
+`dsh_search_code` 的 [实现](../../apps/api/src/modules/ecosystem/mcp/code-search.ts)使用锁定 npm 平台包的 `ripgrep` 子进程，不通过 PATH 选程序、运行期下载或 Shell 拼接。决定见 [ADR-024](adr/ADR-024-native-runtime-boundaries.md#cr-062)。
+
+- 字面文本匹配，默认大小写不敏感并采用 Unicode 简单折叠；返回相对路径、行号和行内容，全局结果数有上限。换行、空字符或超过 4096 字节的查询拒绝。
+- 不用 `.gitignore` 缩小搜索范围；跳过隐藏条目、`node_modules`、`dist` 及已有二进制扩展名，不跟随符号链接，起始目录真实路径须在仓库根内。
+- 单文件最多 8 MiB，单次截止 10 秒，同一 API 进程最多两路搜索，消息总量和单条记录均受限；文件上限在工具说明中可见。匹配数量达标即终止进程，取消/超时/限额/程序失败明确返回错误，不冒充完整空结果。
+- 参数数组传递；调用者取消沿 MCP 本地回路及 HTTP 断连传播，进程退出后释放共享并发名额。真实二进制、字面匹配、过滤、全局上限、越界路径、输出洪泛、取消及失败清理由[搜索回归](../../apps/api/test/code-search.test.ts)覆盖。
+
 ### 14.2 pi
 
 pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具批次采用 every/all：非空且所有结果 `terminate=true` 才能终止；2026-09-29 更新后的固定参考版本中，lane Harness 已实现 `prompt`、`resume`、`abort`，但 `watchSession` 仍未完成；CLI/SDK 继续走 `Agent + AgentSession + SessionManager`，新 durable 路线在本次最终固定 SHA 已完成首个可持久恢复的无工具聊天回合，但工具执行和忙时 Inbox 尚未完成，三者不能合并表述为完整持久内核（[版本与证据](../explanation/reference-design-transfer.md#upstream-20260929)）。pi Extension 的事件、Tool、Provider 和上下文注入可映射为 Agent Loop Contribution，但 Extension 默认拥有完整宿主权限。`adapter-pi` 必须进程外执行，且只能通过受限 RPC 提交 Tool/Provider/Inbox Contribution；若包装低层 loop，仍需实现 Aervox 的 lease、fencing、持久化和恢复契约，不能直接把外部 Harness 当作 API 进程内 Loop。
@@ -536,7 +539,7 @@ SSE 必须验证持久后发送、高水位补读、弱网重连与游标过期�
 
 当前需要推进哪些决策以及它们的先后关系，由根 [plan.md](../../plan.md)维护。本节保留实施相关阶段时必须处理的架构决策范围，不能用计划中的排序代替评审或豁免验收。
 
-新增或改写以下已接受边界前，须按 CR/ADR 流程审议；已有 [ADR-017](adr/ADR-017-context-manifest-modelrun-step.md) 的关联链和 Inbox 决策无需重复立项：
+新增或改写以下已接受边界前，须通过 ADR 评审重大边界；已有 [ADR-017](adr/ADR-017-context-manifest-modelrun-step.md) 的关联链和 Inbox 决策无需重复立项：
 
 - 独立 `apps/agent` 部署、接单和恢复所有权；
 - AgentStep/ToolInvocation 的持久模型或既有模型关联基数；
@@ -544,7 +547,7 @@ SSE 必须验证持久后发送、高水位补读、弱网重连与游标过期�
 - Native/DSH/pi Driver 与 Model Provider 的兼容等级；
 - followup/steer/inject 公开范围、权限或唤醒语义的变化。
 
-实现每一阶段后必须更新[需求追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)，并在[参考设计迁移 §6.1](../explanation/reference-design-transfer.md#61-落地登记唯一真源)查询 `DSH-01` 与 `PI-01` 来源说明。
+实现切片通过 PR 关联测试与必要契约；在[参考设计迁移 §6.1](../explanation/reference-design-transfer.md#61-落地登记唯一真源)查询 `DSH-01` 与 `PI-01` 来源说明。
 
 ## 19. 机器验证
 

@@ -1,22 +1,12 @@
 ---
 id: AVX-TERM-001
-type: reference
-scope: baseline
-owner: maintainers
-doc_status: review-candidate
-decision_status: not-applicable
-delivery_status: not-applicable
-version: 0.4.1
-updated_at: 2026-09-18
-reviewed_at: 2026-09-18
-review_interval_days: 90
 ---
 
 # 术语表（唯一含义与规范写法）
 
-关联：[文档写作规范](doc-standards.md)
+关联：[文档写作规范](../../../CONTRIBUTING.md#documentation)
 
-本表是项目术语的唯一事实源。正文一律使用「规范写法」列；「禁写」列由 Vale 的 [`Project/Terms.yml`](../../../.vale/styles/Project/Terms.yml) 自动校验（规则见 [文档写作规范 §5](doc-standards.md#5-vale-术语门禁)），应为其它拼写变体时在提交前修正。
+本表是项目术语的唯一事实源。正文一律使用「规范写法」列；「禁写」列由 Vale 的 [`Project/Terms.yml`](../../../.vale/styles/Project/Terms.yml) 自动校验（规则见 [文档写作规范 §5](../../../CONTRIBUTING.md#documentation)），应为其它拼写变体时在提交前修正。
 
 ## 产品与代号
 
@@ -24,7 +14,7 @@ review_interval_days: 90
 |---|---|---|
 | Aervox（思隅） | 产品名 | `Aervox`；禁 `aervox`（命令与仓库路径除外） |
 | `CAP-###` | 用户可感知的能力条目 | `CAP-010`；禁裸写 `cap` |
-| `CR-###` | 变更请求，记录已批准文档的修订 | `CR-003`；禁裸写 `cr`/`变更单` |
+| `CR-###` | 已退役的历史变更请求编号；新变更使用 PR/ADR | `CR-003`；禁裸写 `cr`/`变更单` |
 | `ADR-###` | 架构决策记录 | `ADR-014`；禁裸写 `adr` |
 | `EXP-###` | 待验证假设（实验） | `EXP-001`；禁裸写 `exp` |
 | `RISK-###` | 风险登记项 | `RISK-001`；禁裸写 `risk` |
@@ -85,5 +75,5 @@ review_interval_days: 90
 
 ## 维护规则
 
-- 新增或更改术语含义时，本表与 [文档写作规范 §5](doc-standards.md#5-vale-术语门禁) 一并更新，必要时登记 `CR-*`；
+- 新增或更改术语含义时，本表与 [文档写作规范 §5](../../../CONTRIBUTING.md#documentation) 一并更新，必要时登记 `CR-*`；
 - 正文使用被禁止的拼写且未在本表登记豁免时，Vale 会在文档 CI 中报错。

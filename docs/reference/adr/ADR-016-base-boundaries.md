@@ -1,126 +1,62 @@
 ---
 id: ADR-016
-type: reference
-scope: decision
-owner: maintainers
-doc_status: approved
 decision_status: accepted
-version: 0.2.4
-updated_at: 2026-10-10
-reviewed_at: 2026-10-10
-review_interval_days: 90
 ---
 
 # ADR-016 底座边界冻结：Kernel Substrate 与能力层的依赖边界
 
-- 状态：Accepted
-- 日期：2026-08-28
-- 接受日期：2026-08-28（G2 架构与数据门禁）
-
-- 关联：`CAP-001～035`、`ADR-001`（模块化单体）、`ADR-014`（演进式模块化单体）、`AVX-CAP-001`（能力组合与可选化目录规范）、`AVX-HAR-001 §16.2`（Loop 架构验收）、`ADR-018`（CAP-033 主动智能 Host）、`ADR-019`（主动智能连接网关）
-
 ## Context
 
-底座边界此前只存在于文档声明，没有编码层机器校验：
-
-- [AVX-CAP-001](../capability-composition.md) 规定 Kernel Substrate（Composition/Lifecycle、Contract/Protocol、Policy/Consent、Data Rights、Outbox/Audit、Sandbox/Revocation、Observability/Recovery）不可关闭，能力层不得直写核心数据；
-- [AVX-HAR-001 §16.2](../agent-harness-loop.md) 架构验收要求 Loop 应用层不导入 `@aervox/repositories`/Drizzle/具体 SQLite；
-- [ADR-014](ADR-014-modular-monolith-structure.md) 早已提出"ESLint import 规则进一步强制模块边界"，但从未实施，边界约束仍靠评审自觉。
-
-仓库当前没有 `capabilities/`、`providers/`、`adapters/`、`modules/` 目录，但 AVX-CAP-001 的能力组合目标是既定方向。一旦能力层出现，若无机器校验，"能力直写数据库表/宿主 Shell"的违规只会在评审中偶然被发现。AVX-CAP-001 也已预留本决策："接受该目标前必须建立 ADR-016（或等效决策）"。
-
-## Decision drivers
-
-1. **防止未来漂移**：文档约束无法静态阻止 import 反向依赖；必须把底座边界固化为可机器验证的健身函数；
-2. **出事方向一致**：依赖方向是底座可演进性的关键不变量，需要在 CI 层 fail-closed；
-3. **零负担演进**：能力层未来纳入 `modules/*` 自选时，同一套分层不变式继续生效，不依赖人肉评审；
-4. **工具链现实**：仓库 TypeScript 为 7.0.2（mise.toml 唯一真源），主流依赖图工具的 TS 转译器兼容性未跟上（见 Considered options 3）。
+底座的依赖方向不能只靠文档和人工评审约束。内核、共享组件与可选能力必须通过 Port 访问宿主资源，避免导入数据库或应用 Shell；方向遵循 [ADR-014](ADR-014-modular-monolith-structure.md) 与[能力组合规范](../capability-composition.md)。本决定于 2026-08-28 接受。
 
 ## Considered options
 
-1. **零改动（仅文档声明）**：拒绝。与现状无差异，漂移风险不消除，不符合"落地即机器验证"的仓库纪律。
-2. **eslint `no-restricted-imports`**：拒绝。仓库无任何 eslint 配置，引入全家桶在 TS 7.0.2 下兼容性未验证；且该规则只按路径 forbid，无法表达"from 目录 × to 包名"的边界矩阵，表达力不足。
-3. **dependency-cruiser**：实测后否决。先以 `-w` 安装 v18.2.0 并配置 forbid 矩阵，但运行告警缺失兼容 TypeScript 转译器（其转译支持为 `>=2.0.0 <7.0.0`）。向 `packages/agent-loop/src` 注入数据库层 import 的真实违规后，扫描仍报零违规——**TS 源文件依赖被漏检，门禁形同虚设**。
-4. **自写边界脚本 + 解析专用依赖（本决策）**：选定。初版正则提取 import 说明符，经漏检验证后升级为 AST（`@babel/parser`，纯 JS、不承担编译、与 TS 版本无关）；规则矩阵与本文健身函数一一对应，避免引入 eslint/dependency-cruiser 类工具链；注入违规样例实测可拦截并返回非零退出码。
+| 方案 | 取舍 |
+|---|---|
+| 仅文档或人工评审 | 拒绝；无法及时阻止反向依赖 |
+| 引入 ESLint 全套 | 未采用；现有工程未使用，简单禁词规则不能充分表达来源与目标矩阵 |
+| dependency-cruiser | 当时拒绝；与仓库 TypeScript 版本兼容失败，实际违规注入漏检 |
+| 自有规则脚本与专用 AST 解析器 | 采用；`@babel/parser` 只解析语法，不承担 TypeScript 编译，可表达矩阵与 Vue 源码规则 |
 
 ## Decision
 
-采用**自写边界脚本（AST 解析）**，把底座分层固化为 5 条依赖禁令，作为 `ci-code` 的组成部分。
+以 [import-boundary.mjs](../../../scripts/import-boundary.mjs) 为可执行规则真源，纳入代码门禁；规则、负向样例与受影响契约在同一 PR 修改。正则抽取不能完整识别 Vue、动态字面量、类型导入和重新导出，采用 AST。
 
-### 底座分层（自底向上）
+| 边界 | 不变量 |
+|---|---|
+| Contracts | 叶子契约包，不依赖其他 `@aervox/*` |
+| Schema / Repositories | 数据真源底座，分别负责结构与仓储；禁止恢复旧 database 巨包 |
+| Core | 宿主无关，零运行时依赖，不导入 SQLite、Drizzle 或仓储；具体发行边界见 ADR-021 |
+| UI / API Client | 只承载展示、传输与共享契约，不导入数据库或宿主 Shell |
+| Apps | 单向消费底座，具体业务通过显式装配与 Port 组合 |
+| 能力与插件 | 不直连数据库或宿主内部，只使用受限公共接口；目录变化须保持同一依赖方向 |
 
-| 层 | 落点 | 允许依赖 |
-|---|---|---|
-| L0 | `packages/contracts` | 仅第三方契约库；不得依赖任何 `@aervox/*` |
-| L1 | `packages/schema`、`packages/repositories` | `@aervox/contracts`、`@aervox/schema`、libsql、Drizzle（数据真源底座） |
-| L1 | `packages/core` | `@aervox/contracts`（仅 type-only）；不得导入 database/libsql/Drizzle；运行时应保持零依赖（ADR-021） |
-| L2 | `packages/api-client`、`packages/ui` | 契约/传输/共享组件；不得导入 database/libsql/Drizzle、不得依赖宿主 Shell |
-| L3 | `apps/*` | 上述所有底座（宿主单向消费底座） |
-| 预留 | `capabilities/`、`providers/`、`adapters/`、`modules/` | 仅经 Port/Contract 与宿主受限接口交互；不得导入 database/libsql/Drizzle、不得依赖宿主 Shell |
-
-### 5 条禁止规则（健身函数）
-
-| # | 规则 | from | 禁止 import 到 |
-|---|---|---|---|
-| 1 | `contracts-must-be-leaf` | `packages/contracts/` | 任何 `@aervox/*` |
-| 2 | `core-no-db` | `packages/core/` | `@aervox/repositories`、`@libsql/*`、`Drizzle ORM` |
-| 3 | `packages-no-host-imports` | `packages/*` 的 `src`/`test` | `@aervox/api\|worker\|web\|desktop\|mobile`、`apps/` |
-| 4 | `ui-client-no-db` | `packages/ui`、`packages/api-client` | `@aervox/repositories`、`@libsql/*`、`Drizzle ORM` |
-| 5 | `capability-layer-no-db-no-host` | `capabilities/`、`providers/`、`adapters/`、`modules/` | 同 #4 + 宿主 Shell |
-
-### 落地形态
-
-- 规则事实源：[scripts/import-boundary.mjs](../../../scripts/import-boundary.mjs)（`--list` 打印规则）；自测 [import-boundary.test.mjs](../../../scripts/import-boundary.test.mjs)（`node --test`）；
-- 门禁：根 `pnpm check:boundary` → `mise tasks run ci-code`；`.github/workflows/ci.yml` 触发路径补充 `scripts/**`；
-- 边界增删必须**双写**：同步更新脚本与本文/AVX-CAP-001，任何单一改动视为未闭环；
-- **落地点修正（2026-08-28）**：解析器由正则升级为 AST。初版尝试复用根 `typescript@7` 主入口未果——其仅暴露版本号、不再提供运行时 API（API 迁至 `./unstable/ast` 原生绑定）；改用 `@babel/parser`（纯 JS 解析专用包，不承担编译），作为根 devDependency 引入。决策不变，仅解析实现调整：旧正则方案已确认漏检 Vue 单文件组件/export-from 等场景，升级不改动 5 条禁令与分层。
-
-### 明确不在本 ADR 底座的
-
-- 各业务能力（Conversation、Learning、Review……）与[能力注册表](../capability-registry.md)登记的 P1/P2/P3 候选：保留主仓期间同样受上述分层约束；纳入自选机制后由分层不变式（#5）接管，不属于 Kernel Substrate。
-
-## Positive consequences
-
-- **机器可验证**：边界不变量进入 `ci-code`，违规即阻断，不再依赖评审自觉；
-- **fail-closed 预置**：能力层目录尚未出现，规则已先行生效（#5），未来迁移不会产生"真空期"；
-- **轻依赖**：仅引入解析专用 `@babel/parser`（根 devDependency），不引入 eslint/dependency-cruiser 类工具链，不受 TypeScript 版本影响；
-- **可测**：规则矩阵有 14 项自测，覆盖 type import、副作用导入、动态 `import()`、Vue 单文件组件、export-from、相对跨包与合法宿主消费。
-
-## Negative consequences and risks
-
-- **解析依赖**：脚本依赖 `@babel/parser`（根 devDependency），不再是零依赖；取舍理由见落地形态中「落地点修正」。缓解：仅解析不承担编译，无版本耦合（与 TypeScript 7 无关）。
-- **仍有解析盲区**：动态 `import()` 为带表达式的模板字符串（拼接变量路径、目标无法静态确定）、CommonJS `require()`、解析不到实际文件的相对引用不在扫描范围。缓解：登记为已知限制并在脚本注释明示，由代码评审兜底；Vue 单文件组件与相对跨包引用已由本次 AST 升级覆盖。
-
-## Migration / rollback
-
-迁移：
-
-1. 新增 `scripts/import-boundary.mjs` 与测试（本决策落地即完成）；
-2. 根 `package.json` 增加 `check:boundary`，`mise.toml` 的 `ci-code` 前置执行；
-3. `ci.yml` 触发路径含 `scripts/**`（本决策已完成，PR 合入后 CI 生效）。
-
-回滚：
-
-- 代码层：`git revert` 删除脚本与 `ci-code` 前置段即可，零残留依赖；
-- 文档层：保留本 ADR 标记为 `Superseded/Rejected`（不复用编号），或同步降级 AVX-CAP-001 关联。
-- 回滚不破坏任何既有行为：本改动未修改任何模块的 import 或运行时逻辑，只增加静态检查。
-
-## Verification evidence
-
-决策接受（`Proposed → Accepted`）前至少提供：
-
-- [x] `node scripts/import-boundary.mjs`：全仓扫描零违规（含 Vue 单文件组件源扫描）；
-- [x] `node --test scripts/import-boundary.test.mjs`：14/14 通过；覆盖 5 条规则、type import、副作用导入、动态 `import()`、Vue 单文件组件、export-from、纯模板字符串、相对跨包判定、宿主合法消费与已知限制；
-- [x] 注入违规实测：`packages/contracts/src` 注入 `@aervox/agent-loop`（#1）、`packages/agent-loop` 注入 database/libsql/Drizzle（#2）、`packages/ui/.../_boundary-sanity.vue` 注入 database（#4）均被拦截且退出码 1（dependency-cruiser 对相同注入漏检）；
-- [x] `mise tasks run ci-code` 全量通过（2026-08-28，分支执行）；
-- [x] `mise tasks run ci-docs` 通过（2026-08-28，本文与索引登记改动）。
+当前确切扫描范围与规则名通过 `mise exec -- node scripts/import-boundary.mjs --list` 查询，本文不复制不断变化的禁词与路径清单。动态表达式、CommonJS 或无法静态求值的行为不能仅凭静态扫描证明安全，仍需运行验证与审查。
 
 ## CR-056 模块边界门禁（2026-09-28）
 
-保留五条包级规则，新增 API `src` 下 `modules/<domain>/<module>` 所有权检查；跨模块仅允许 `index.ts`。组合根没有目录豁免，历史私有引用清单精确到源/目标，见 [module-boundary-exceptions.json](../../../scripts/module-boundary-exceptions.json)，逐条包含 Owner 与删除条件，迁移后移除。当前仍有历史边，不能据门禁通过宣称全仓已完成 Port 迁移。
+API `src/modules/<domain>/<module>` 的跨模块引用仅允许公开 `index.ts`。组合根不获目录级豁免；历史私有引用精确登记源/目标、Owner 与删除条件于 [module-boundary-exceptions.json](../../../scripts/module-boundary-exceptions.json)，迁移后移除。门禁通过不代表全部历史 Port 迁移完成。
 
-覆盖 type import、TSImportType、re-export、动态字面量、目录入口和 `.js` 到 `.ts`；纳管源码的解析错误、缺失相对目标、非字面量动态导入均阻断。测试目录可以验证私有实现；原包级范围保持原行为。19 项自测和全仓检查通过，正式命令使用 `mise exec -- node scripts/import-boundary.mjs`。
+模块扫描识别类型导入、TSImportType、re-export、动态字面量、目录入口及 `.js` 到 `.ts`；纳管源码的解析失败、缺失相对目标及非字面量动态导入阻断。测试可以验证私有实现，原包级扫描范围保持原边界。
 
-> [!NOTE]
-> **落地对齐（2026-10-10）**：`packages/database` 已由 ITER-037/ADR-021 拆分退役为 `packages/schema` + `packages/repositories`（不得恢复旧包）；
-> `packages/agent-loop` re-export 过渡壳已物理删除，内核为 `packages/core`。表内 L1 落点已按现状更新，依赖规则不变。
+<a id="cr-060"></a>
+
+## 第一方插件与宿主分工
+
+原 CR-060 的已接受修订将专注模式声明与实现内聚于 `plugins/focus-mode/`。API/Web/Desktop 组合根显式注入，宿主提供通用注册表、事件、状态、元数据与受限服务，不解释插件身份或持有插件样式、状态机、提示词和工具业务。插件只从公共入口消费 UI 与 `@aervox/host-plugin-api`；数据库、仓储和实时总线由宿主封装为窄端口。
+
+模型工具、guidance、Hook 和插件 HTTP 入口统一按启用记录与可用性拒绝式准入；没有记录或实现缺席不能默认启用。缺包不等于卸载，保留配置、Secret、授权历史、数据导出与删除入口，恢复包不恢复已撤销授权。具体贡献、消息合并、投影与生命周期合同只维护在[插件规范](../plugin-config-and-pages.md#03-插件与宿主分工)。
+
+本决定不把学习闭环变为可选模块：`CAP-001～013` 继续进入标准 Profile 与默认构建，学习事实表、仓储、复习排期及其服务留在主仓。插件经 `learningFacts` 访问，不能自建第二真源；本次无表结构或数据迁移。内核产品提纯及 Apache-2.0/AGPL 分层由 [ADR-021](ADR-021-aervox-core-standalone-package.md#amendment) 承接。
+
+第一方源码随主仓编译；`.aervox-plugin` 只打包明确允许的声明和资源，不含源码、依赖或构建产物。通用分发器不因目录内有实现而执行第三方代码。
+
+## Consequences and verification
+
+边界违规可在 CI 阻断；代价是维护 AST 解析、精确例外和契约。验证包括真实违规注入、动态/类型导入与 Vue 场景、插件停用/缺包、端点失败可观测、投影归属和组合根编译；详见[边界测试](../../../scripts/import-boundary.test.mjs)、[插件契约测试](../../../packages/contracts/test/plugin-api-registry.test.ts)及[物理移除演练](../../../scripts/run-removability-drill.mjs)。
+
+插件移除演练须删除实现并剥离包清单和三处装配后冷构建 API/Worker、检查 Web/Desktop 类型与数据权利入口。纯净性棘轮零命中仅证明已登记规则未命中，不证明语义上没有领域知识。分发清单与字节可重现性独立验证，结果以相关 PR 为证，不在本文累积运行日志。
+
+## Migration / rollback
+
+依赖重组按可审查 PR 切片推进，边界测试随接口迁移。停用插件或移除装配只影响其贡献，保留数据和管理入口；回退源码须恢复一致的两端准入与注册生命周期，不能因缺包体验回退直接降为默认允许。跨文件分发升级的回退另按插件生命周期处理，本决定没有数据库换库步骤。

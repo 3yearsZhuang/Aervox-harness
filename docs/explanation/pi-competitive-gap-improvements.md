@@ -1,34 +1,10 @@
 ---
 id: AVX-EXPL-015
-type: explanation
-scope: proposal
-owner: product
-doc_status: draft
-decision_status: proposed
-delivery_status: not-applicable
-version: 0.2.1
-updated_at: 2026-10-10
-reviewed_at: 2026-10-10
-review_interval_days: 90
-review_triggers:
-  - docs/reference/PRD.md
-  - docs/reference/capability-registry.md
-  - packages/core/src/base-prompt.ts
-  - packages/core/src/context-builder.ts
-  - apps/desktop/src/renderer/src/components/Onboarding*
-  - apps/desktop/**
-sources:
-  - docs/reference/PRD.md
-  - docs/reference/ARCHITECTURE.md
-  - docs/reference/capability-registry.md
-  - docs/reference/adr/ADR-012-streaming-safety-persistence.md
-  - docs/reference/adr/ADR-018-proactive-local-privacy-host.md
-  - docs/explanation/companion-hardware-directions.md
 ---
 
 # Pi AI 竞品差距分析与改进建议
 
-关联：[PRD](../reference/PRD.md)、[能力注册表](../reference/capability-registry.md)、[架构设计说明书](../reference/ARCHITECTURE.md)、CR-056（Build to Delete 规划，已归档至 Aervox-docs-archive）
+关联：[PRD](../reference/PRD.md)、[能力注册表](../reference/REQUIREMENTS_TRACEABILITY.md#capability-delivery)、[架构设计说明书](../reference/ARCHITECTURE.md)、CR-056（Build to Delete 规划，已归档至 Aervox-docs-archive）
 
 > [!NOTE] 调研生命周期状态：未入队候选 (Candidate, Not Queued)
 > 本文的产品体验差距（G1～G7）尚无队列条目承接，是否立项待维护者裁定。内核侧结论已由 pi 代码库复评（[参考评估 §8.3](reference-design-transfer.md#upstream-20260929)）吸收为 ITER-032/033/039/040，架构侧由 CR-056（Build to Delete，已归档）承载——但这两条线与本节产品差距是不同维度，不构成本文七项差距的转化。
@@ -37,7 +13,7 @@ sources:
 
 本文基于 Pi AI（Inflection AI）的产品设计与用户反馈，对照思隅当前 PRD 与能力基线，识别**关系型 AI 体验**维度上的七项结构性差距，并提出具体改进建议。
 
-**本文是设计输入，不是实施授权。** 每项改进建议需经独立评审后决定是否立项 CR 或纳入迭代计划。改进方案不修改已批准的安全、隐私与伦理基线（PRD §2.4、§4.3），也不要求推翻已接受的架构决策（ADR）。
+**本文是设计输入，不是实施授权。** 每项改进建议需经独立评审后决定是否提出 PR 或纳入迭代计划。改进方案不修改已批准的安全、隐私与伦理基线（PRD §2.4、§4.3），也不要求推翻已接受的架构决策（ADR）。
 
 ### 1.1 Pi AI 速览
 
@@ -114,7 +90,7 @@ Pi 的设计选择截然不同：陪伴本身就是目的。用户可以纯粹�
 | 影响面 | 具体位置 | 变更性质 |
 |:---|:---|:---|
 | PRD §4.3 | 关系边界增加"自由陪伴"场景 | 内容扩展 |
-| CAP-008 | 增加 `companion` 对话状态 | 功能扩展，需 CR |
+| CAP-008 | 增加 `companion` 对话状态 | 功能扩展，需 PR 需求评审 |
 | CAP-009 | `DiaryMaterialBuffer` 接收非学习素材 | 接口扩展 |
 | Prompt Engine | 新增陪伴模式系统提示模板 | 新增组件 |
 
@@ -154,7 +130,7 @@ Pi 的对话中不存在任何功能标签——用户感受到的只是自然�
 | 设置面板 | 新增高级开关 | 小功能 |
 
 > [!NOTE]
-> 此项变更不涉及数据模型或 API 契约，属于纯前端表现层调整，不需要 CR。
+> 此项变更不涉及数据模型或 API 契约，属于纯前端表现层调整，无需 ADR。
 
 ---
 
@@ -209,7 +185,7 @@ Pi 的关键设计是在用户表达困扰时**显式询问意图**：
 
 | 影响面 | 具体位置 | 变更性质 |
 |:---|:---|:---|
-| PRD §3 Scenario D | 扩展为三路分叉 | 场景扩展，需 CR |
+| PRD §3 Scenario D | 扩展为三路分叉 | 场景扩展，需 PR 需求评审 |
 | CAP-008 | 增加情绪分叉决策点 | 功能扩展 |
 | Prompt Engine | 三套分叉后的系统提示策略 | 新增模板 |
 
@@ -258,7 +234,7 @@ Pi 被批评最多的一点就是过度追问（"circular Socratic trap"）。�
 
 | 影响面 | 具体位置 | 变更性质 |
 |:---|:---|:---|
-| PRD §3 Scenario A | 从硬规则改为弹性策略 | 规则修订，需 CR |
+| PRD §3 Scenario A | 从硬规则改为弹性策略 | 规则修订，需 PR 需求评审 |
 | CAP-007 | 引导强度与掌握度联动 | 逻辑扩展 |
 | CAP-010 | 人格问卷增加学习风格维度 | 字段扩展 |
 | Prompt Engine | 三级引导强度的系统提示差异 | 模板修改 |
@@ -326,7 +302,7 @@ Step 3: 完成首个学习闭环后：
 | CAP-010 | 对话式偏好采集 | 交互模式变更 |
 
 > [!IMPORTANT]
-> 本项改进涉及 Onboarding 核心流程的结构性变更，需要独立 CR 立项。但**不改变**模型配置的安全要求——只改变触发时机。
+> 本项改进涉及 Onboarding 核心流程的结构性变更，需要独立 PR 评审。但**不改变**模型配置的安全要求——只改变触发时机。
 
 ---
 
@@ -378,7 +354,7 @@ Pi 的 Discover Feed 和 Daily Brief 确保用户**在没有任何需求时也�
 
 | 影响面 | 具体位置 | 变更性质 |
 |:---|:---|:---|
-| PRD §4.1 | 工作台增加第六门户 | 功能扩展，需 CR |
+| PRD §4.1 | 工作台增加第六门户 | 功能扩展，需 PR 需求评审 |
 | CAP-030 | 无目标场景的主动话题策略 | 规则扩展 |
 | 新 CAP 候选 | "探索与发现"能力（待编号） | 新能力提案 |
 | UI 组件 | 工作台空状态 + 探索页面 | 新增页面 |
@@ -426,7 +402,7 @@ Pi 的 "Call Pi" 是用户反馈中被提及最多的黏性特性：全双工对
 
 | 影响面 | 具体位置 | 变更性质 |
 |:---|:---|:---|
-| PRD §2.3 | 语音从"不做"改为分阶段路线图 | 边界修订，需 CR |
+| PRD §2.3 | 语音从"不做"改为分阶段路线图 | 边界修订，需 PR 需求评审 |
 | CAP 新增候选 | "语音交互"能力（待编号） | 新能力提案 |
 | Live2D 控制器 | 口型同步（lip-sync） | 功能扩展 |
 | ADR 候选 | 本地 vs 远程 TTS/STT 架构决策 | 新 ADR |
@@ -439,9 +415,9 @@ Pi 的 "Call Pi" 是用户反馈中被提及最多的黏性特性：全双工对
 
 | 改进 | 预估工作量 | 协同性 | 建议方式 |
 |:---|:---|:---|:---|
-| G2 标签内化 | 小（纯前端） | 独立于所有 ITER | 直接 PR，不需 CR |
+| G2 标签内化 | 小（纯前端） | 独立于所有 ITER | 直接 PR，无需 ADR |
 | G6 空状态设计 | 小–中 | 随工作台 UI 迭代推进（ITER-031 已移交） | 直接 PR |
-| G4 用户可控引导强度 | 中 | 可搭载 CAP-010 | 需 CR（修改 §3 规则） |
+| G4 用户可控引导强度 | 中 | 可搭载 CAP-010 | 需 PR 需求评审（修改 §3 规则） |
 
 ### 4.2 第二波：需要独立立项的结构性改进
 
@@ -494,4 +470,4 @@ Pi 的 "Call Pi" 是用户反馈中被提及最多的黏性特性：全双工对
 
 ---
 
-*本文为设计输入。各项改进的实施需经独立评审、CR 立项和迭代排期。*
+*本文为设计输入。各项改进的实施需经独立评审、PR 评审和迭代排期。*

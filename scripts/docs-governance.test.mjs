@@ -1,7 +1,3 @@
-/**
- * Aervox｜思隅文档治理门禁自测（Node.js test runner）。
- * 运行：node --test scripts/docs-governance.test.mjs
- */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -9,456 +5,281 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { parsePorcelainStatus } from "./docs-governance.mjs";
+import { checkDocumentation, parsePorcelainStatus } from "./docs-governance.mjs";
 import { selectDocumentationChecks } from "./docs-lint-affected.mjs";
 
 const scriptsDirectory = path.dirname(fileURLToPath(import.meta.url));
-const today = new Date().toISOString().slice(0, 10);
-
-function document(id, fields = {}, body = "") {
-  const metadata = {
-    id,
-    type: "reference",
-    scope: "guide",
-    owner: "maintainers",
-    doc_status: "review-candidate",
-    decision_status: "not-applicable",
-    delivery_status: "not-applicable",
-    version: "0.1.0",
-    updated_at: today,
-    reviewed_at: today,
-    ...fields,
-  };
-  const frontMatter = Object.entries(metadata)
-    .filter(([, value]) => value !== undefined)
-    .map(([key, value]) => Array.isArray(value)
-      ? `${key}:\n${value.map((item) => `  - ${item}`).join("\n")}`
-      : `${key}: ${value}`)
-    .join("\n");
-  return `---\n${frontMatter}\n---\n\n# Fixture\n\n- 提出人：fixture · ${today}\n- 修改人：fixture · ${today}\n\n${body}\n`;
-}
 
 function fixture(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "aervox-docs-governance-"));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "aervox-docs-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  fs.mkdirSync(path.join(root, "scripts"), { recursive: true });
-  fs.mkdirSync(path.join(root, "docs", "_meta"), { recursive: true });
-  fs.mkdirSync(path.join(root, "docs", "reference"), { recursive: true });
-  for (const name of ["docs-governance.mjs", "docs-lint-affected.mjs", "plan-queue.mjs"]) {
+  fs.mkdirSync(path.join(root, "scripts"));
+  fs.mkdirSync(path.join(root, "docs/reference/adr"), { recursive: true });
+  for (const name of ["docs-governance.mjs", "docs-lint-affected.mjs"]) {
     fs.copyFileSync(path.join(scriptsDirectory, name), path.join(root, "scripts", name));
   }
-  fs.copyFileSync(
-    path.resolve(scriptsDirectory, "../docs/_meta/document-policy.json"),
-    path.join(root, "docs/_meta/document-policy.json"),
-  );
-  // 迷你真源（自包含，不依赖真实 19 条队列，避免真实渲染区里的仓库链接在 fixture 中悬空）。
-  fs.writeFileSync(
-    path.join(root, "docs/_meta/plan-queue.json"),
-    JSON.stringify({
-      schemaVersion: 1,
-      statuses: ["建议", "执行中", "已移交", "暂停"],
-      batches: [{ id: "first", label: "第一批" }],
-      items: [
-        {
-          id: "ITER-001",
-          batch: "first",
-          status: "建议",
-          delivery: "迷你交付",
-          gate: "迷你门槛",
-          acceptance: ["迷你判定"],
-          owner: "fixture",
-          dependsOn: [],
-        },
-      ],
-    }, null, 2),
-  );
-  const registry = path.join(root, "docs/DOC_REGISTRY.md");
-  fs.writeFileSync(registry, document("AVX-DOC-CONF-001", {},
-    `| ID | 文档 | 核验日期 |\n|---|---|---|\n| \`AVX-PLAN-001\` | [当前计划](../plan.md) | ${today} |`));
-  // 真源被复制进 fixture 后，plan.md 必须包含其渲染的生成区，
-  // 否则 error 强制级别下 checkPlanQueue 的 H6（生成区不同步）会把无关测试阻断。
-  // 先写带 front matter 与占位生成区标记的 plan.md，再用复制进 fixture 的
-  // plan-queue.mjs --render 填充生成区（applyQueueRegion 要求已有标记）。
-  fs.writeFileSync(path.join(root, "plan.md"), document("AVX-PLAN-001", { planning_role: "current" },
-    `<!-- plan-queue:begin -->\n<!-- plan-queue:end -->\n\n[文档登记](docs/DOC_REGISTRY.md)`));
-  const rendered = spawnSync(process.execPath, ["scripts/plan-queue.mjs", "--render"], {
-    cwd: root,
-    encoding: "utf8",
-  });
-  if (rendered.status !== 0) {
-    throw new Error(`fixture 渲染 plan.md 生成区失败：${rendered.stderr}`);
-  }
+  write(root, "plan.md", "# 当前计划\n\n直接维护内容。\n");
+  write(root, "README.md", "# Project\n\n[当前计划](plan.md)\n");
+  write(root, "CHANGELOG.md", "# Changelog\n");
   return root;
 }
 
-function runGovernance(root, ...args) {
-  return spawnSync(process.execPath, ["scripts/docs-governance.mjs", "--strict", ...args], {
-    cwd: root,
-    encoding: "utf8",
-  });
+function write(root, file, text) {
+  fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+  fs.writeFileSync(path.join(root, file), text);
 }
 
-function output(result) {
-  return `${result.stdout ?? ""}${result.stderr ?? ""}`;
+function adr(root, id, metadata = "decision_status: accepted") {
+  write(root, `docs/reference/adr/${id}-example.md`, `---\nid: ${id}\n${metadata}\n---\n\n# ${id}\n`);
 }
 
-/**
- * 覆写 plan.md 并渲染同步的生成区。
- * 注意：数组字段必须经 document() 序列化为 YAML 块序列（内联 `["a"]` 会被解析成字符串），
- * 因此这里统一走 document() + plan-queue.mjs --render，避免手写 front matter。
- */
-function writePlanDocument(root, { fields = {}, body = "[文档登记](docs/DOC_REGISTRY.md)" } = {}) {
-  fs.writeFileSync(path.join(root, "plan.md"), document("AVX-PLAN-001",
-    { planning_role: "current", ...fields },
-    `<!-- plan-queue:begin -->\n<!-- plan-queue:end -->\n\n${body}`));
-  const rendered = spawnSync(process.execPath, ["scripts/plan-queue.mjs", "--render"], {
-    cwd: root,
-    encoding: "utf8",
-  });
-  if (rendered.status !== 0) {
-    throw new Error(`覆写 plan.md 后渲染生成区失败：${rendered.stderr}`);
-  }
-}
-
-function addRegisteredDocument(root, name, id, role) {
-  fs.writeFileSync(path.join(root, "docs/reference", name), document(id, { planning_role: role }));
-  fs.appendFileSync(path.join(root, "docs/DOC_REGISTRY.md"), `| \`${id}\` | [记录](reference/${name}) | ${today} |\n`);
-}
-
-function mockGitEnvironment(root, status, branchRename = false) {
+function mockGitEnvironment(root, status, committedRename = false) {
   const bin = path.join(root, "fixture-bin");
-  fs.mkdirSync(bin, { recursive: true });
-  const git = path.join(bin, "git");
-  const source = `#!${process.execPath}
+  fs.mkdirSync(bin);
+  write(root, "fixture-bin/git", `#!${process.execPath}
 const args = process.argv.slice(2);
 if (args[0] === "status") process.stdout.write(${JSON.stringify(status)});
 else if (args[0] === "rev-parse") process.stdout.write("fixture-commit");
 else if (args[0] === "diff") {
-  // 模拟 Git 的重命名检测：默认仅报告新路径，--no-renames 同时报告删除和新增。
-  if (${branchRename} && args.includes("--no-renames")) process.stdout.write("docs/reference/deleted.md\\0renamed.txt\\0");
-  else if (${branchRename}) process.stdout.write("renamed.txt\\0");
-  else process.stdout.write("");
+  if (${committedRename} && args.includes("--no-renames")) process.stdout.write("docs/deleted.md\\0renamed.txt\\0");
+  else if (${committedRename}) process.stdout.write("renamed.txt\\0");
 } else process.exitCode = 1;
-`;
-  fs.writeFileSync(git, source, { mode: 0o755 });
+`);
+  fs.chmodSync(path.join(bin, "git"), 0o755);
   return { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH ?? ""}` };
 }
 
-test("porcelain 普通状态保留完整路径首字符与空格", () => {
-  const output = [
-    " M apps/worker/src/index.ts",
-    "?? docs/reference/new document.md",
-  ].join("\0") + "\0";
-
-  assert.deepEqual(parsePorcelainStatus(output), [
-    "apps/worker/src/index.ts",
-    "docs/reference/new document.md",
-  ]);
-});
-
-test("porcelain 重命名状态同时返回新旧路径", () => {
-  const output = "R  docs/reference/new-name.md\0docs/reference/old-name.md\0";
-
-  assert.deepEqual(parsePorcelainStatus(output), [
-    "docs/reference/new-name.md",
-    "docs/reference/old-name.md",
-  ]);
-});
-
-test("porcelain 去重并忽略空记录", () => {
-  const output = " M docs/README.md\0 M docs/README.md\0\0";
-
-  assert.deepEqual(parsePorcelainStatus(output), ["docs/README.md"]);
-});
-
-test("根计划进入完整治理和 docs-relative catalog", (t) => {
+test("普通文档和手写 plan 无需元数据、策略、队列或登记表", (t) => {
   const root = fixture(t);
-  const result = runGovernance(root, "--generate-catalog");
-  assert.equal(result.status, 0, output(result));
-  const catalog = JSON.parse(fs.readFileSync(path.join(root, "docs/_meta/document-catalog.json"), "utf8"));
-  const plan = catalog.documents.find((item) => item.id === "AVX-PLAN-001");
-  assert.equal(plan.path, "../plan.md");
-  assert.equal(plan.type, "reference");
-  assert.equal(plan.scope, "guide");
-  assert.equal(plan.planning_role, "current");
+  write(root, "docs/guide.md", "# 指南\n\n[计划](../plan.md)\n");
+  assert.deepEqual(checkDocumentation(root).errors, []);
+  const result = spawnSync(process.execPath, ["scripts/docs-governance.mjs"], { cwd: root, encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr);
 });
 
-test("缺少根计划不能用 docs 内的 current 计划替代", (t) => {
+test("仅校验已经声明的稳定 ID，模板占位 ID 不参与唯一性", (t) => {
   const root = fixture(t);
-  fs.renameSync(path.join(root, "plan.md"), path.join(root, "docs/plan.md"));
-  const result = runGovernance(root);
-  assert.equal(result.status, 1);
-  assert.match(output(result), /根 plan\.md 必须存在/);
-  assert.match(output(result), /planning_role: current 必须唯一且仅能由根 plan\.md 声明/);
+  write(root, "docs/first.md", "---\nid: AVX-TEST-001\n---\n\n# First\n");
+  write(root, "docs/second.md", "# Second\n");
+  write(root, "docs/templates/example.md", "---\nid: AVX-TEST-001\n---\n\n# Template\n");
+  assert.deepEqual(checkDocumentation(root).errors, []);
+  write(root, "plan.md", "---\nid: AVX-TEST-001\n---\n\n# Plan\n");
+  assert.match(checkDocumentation(root).errors.join("\n"), /重复文档编号 AVX-TEST-001/);
 });
 
-test("策略不能将当前计划路径改到其它位置", (t) => {
+test("声明了 Front Matter 时必须正确闭合", (t) => {
   const root = fixture(t);
-  const policyFile = path.join(root, "docs/_meta/document-policy.json");
-  const policy = JSON.parse(fs.readFileSync(policyFile, "utf8"));
-  policy.currentIterationPlan.path = "docs/plan.md";
-  fs.writeFileSync(policyFile, JSON.stringify(policy));
-  const result = runGovernance(root);
-  assert.equal(result.status, 1);
-  assert.match(output(result), /策略 currentIterationPlan 必须指定根 plan\.md/);
+  write(root, "docs/broken.md", "---\nid: AVX-TEST-001\n\n# Broken\n");
+  assert.match(checkDocumentation(root).errors.join("\n"), /front matter 未正确闭合/);
 });
 
-test("根计划缺少必填元数据、签名或固定角色时阻断", async (t) => {
-  for (const [name, transform, expected] of [
-    ["owner", (text) => text.replace(/^owner:.*\n/m, ""), /缺少必填字段 owner/],
-    ["updated_at", (text) => text.replace(/^updated_at:.*\n/m, ""), /缺少必填字段 updated_at/],
-    ["id", (text) => text.replace("id: AVX-PLAN-001", "id: AVX-PLAN-002"), /id 必须为 AVX-PLAN-001/],
-    ["type", (text) => text.replace("type: reference", "type: explanation"), /type 必须为 reference/],
-    ["scope", (text) => text.replace("scope: guide", "scope: baseline"), /scope 必须为 guide/],
-    ["front matter", (text) => text.replace(/^---\n[\s\S]*?\n---\n/, ""), /plan\.md 必须使用 canonical YAML front matter/],
-    ["role", (text) => text.replace("planning_role: current", "planning_role: history"), /plan\.md 必须声明 planning_role: current/],
-  ]) {
-    await t.test(name, (child) => {
-      const root = fixture(child);
-      const planFile = path.join(root, "plan.md");
-      fs.writeFileSync(planFile, transform(fs.readFileSync(planFile, "utf8")));
-      const result = runGovernance(root);
-      assert.equal(result.status, 1);
-      assert.match(output(result), expected);
-    });
+test("ADR 必须声明与文件名前缀一致的稳定编号", (t) => {
+  const root = fixture(t);
+  const file = "docs/reference/adr/ADR-001-example.md";
+  write(root, file, "---\ndecision_status: accepted\n---\n\n# ADR-001\n");
+  assert.match(checkDocumentation(root).errors.join("\n"), /ADR 必须声明 id: ADR-001/);
+  write(root, file, "---\nid: ADR-002\ndecision_status: accepted\n---\n\n# ADR-001\n");
+  assert.match(checkDocumentation(root).errors.join("\n"), /ADR id 必须与文件名前缀 ADR-001 一致/);
+  adr(root, "ADR-002");
+  assert.match(checkDocumentation(root).errors.join("\n"), /重复文档编号 ADR-002/);
+});
+
+test("ADR 目录内不能通过非数字编号或普通文件名绕过决策校验", (t) => {
+  for (const name of ["ADR-XYZ-test.md", "new-decision.md"]) {
+    const root = fixture(t);
+    write(root, `docs/reference/adr/${name}`, "# New decision\n");
+    const errors = checkDocumentation(root).errors.join("\n");
+    assert.match(errors, /ADR 文件名必须以 ADR-三位数字命名/);
+    assert.match(errors, /ADR 必须声明 id/);
+    assert.match(errors, /ADR decision_status 必须/);
   }
 });
 
-test("current 角色在 docs 和其它根 Markdown 中均不能重复", async (t) => {
-  for (const location of ["docs", "root"]) {
-    await t.test(location, (child) => {
+test("ADR 保留编号和决策状态，不要求日期版本或交付登记", async (t) => {
+  for (const status of ["proposed", "accepted", "rejected"]) {
+    await t.test(status, (child) => {
       const root = fixture(child);
-      if (location === "docs") addRegisteredDocument(root, "another-plan.md", "AVX-PLAN-999", "current");
-      else fs.writeFileSync(path.join(root, "another-plan.md"), document("AVX-PLAN-999", { planning_role: "current" }));
-      const result = runGovernance(root);
-      assert.equal(result.status, 1);
-      assert.match(output(result), /planning_role: current 必须唯一/);
+      adr(root, "ADR-001", `decision_status: ${status}`);
+      assert.deepEqual(checkDocumentation(root).errors, []);
     });
+  }
+  for (const metadata of ["", "decision_status: implemented"]) {
+    const root = fixture(t);
+    adr(root, "ADR-001", metadata);
+    assert.match(checkDocumentation(root).errors.join("\n"), /ADR decision_status 必须/);
   }
 });
 
-test("历史计划和证据文档不被 current 唯一性规则误禁", (t) => {
+test("被替代 ADR 要指明替代来源，当前 ADR 引用不能悬空或指向自身", (t) => {
   const root = fixture(t);
-  addRegisteredDocument(root, "history-plan.md", "AVX-PLAN-998", "history");
-  addRegisteredDocument(root, "plan-evidence.md", "AVX-PLAN-999", "evidence");
-  const result = runGovernance(root, "--generate-catalog");
-  assert.equal(result.status, 0, output(result));
-  const catalog = JSON.parse(fs.readFileSync(path.join(root, "docs/_meta/document-catalog.json"), "utf8"));
-  assert.equal(catalog.documents.find((item) => item.id === "AVX-PLAN-998").planning_role, "history");
-  assert.equal(catalog.documents.find((item) => item.id === "AVX-PLAN-999").planning_role, "evidence");
+  adr(root, "ADR-001", "decision_status: superseded");
+  assert.match(checkDocumentation(root).errors.join("\n"), /必须声明 superseded_by/);
+  for (const replacement of ["ADR-001", "ADR-999", "unknown"]) {
+    adr(root, "ADR-001", `decision_status: superseded\nsuperseded_by: ${replacement}`);
+    assert.match(checkDocumentation(root).errors.join("\n"), /superseded_by/);
+  }
+  adr(root, "ADR-002");
+  adr(root, "ADR-001", "decision_status: superseded\nsuperseded_by: ADR-002");
+  assert.deepEqual(checkDocumentation(root).errors, []);
 });
 
-test("声明 planning_role 时只允许 current、history、evidence", (t) => {
+test("历史 CR 替代来源可保留原编号或归档 URL", (t) => {
   const root = fixture(t);
-  addRegisteredDocument(root, "unknown-role.md", "AVX-PLAN-998", "upcoming");
-  const result = runGovernance(root);
-  assert.equal(result.status, 1);
-  assert.match(output(result), /planning_role 必须为 current、history 或 evidence/);
+  for (const replacement of ["CR-030", "https://example.com/archive/CR-030.md"]) {
+    adr(root, "ADR-001", `decision_status: superseded\nsuperseded_by: ${replacement}`);
+    assert.deepEqual(checkDocumentation(root).errors, []);
+  }
 });
 
-test("根计划的本地链接与登记缺失均被检查", async (t) => {
-  await t.test("bad link", (child) => {
-    const root = fixture(child);
-    fs.appendFileSync(path.join(root, "plan.md"), "\n[失效链接](docs/missing.md)\n");
-    const result = runGovernance(root);
-    assert.equal(result.status, 1);
-    assert.match(output(result), /本地链接目标不存在：docs\/missing\.md/);
-  });
-  await t.test("unregistered", (child) => {
-    const root = fixture(child);
-    fs.writeFileSync(path.join(root, "docs/DOC_REGISTRY.md"), document("AVX-DOC-CONF-001"));
-    const result = runGovernance(root);
-    assert.equal(result.status, 1);
-    assert.match(output(result), /\.\.\/plan\.md: canonical 文档必须登记/);
-  });
-});
-
-test("根计划登记日期必须一致且 docs-sync 能对齐根路径", (t) => {
+test("ADR 替代关系不能成环，允许多步替代终止于历史 CR", (t) => {
   const root = fixture(t);
-  const registryFile = path.join(root, "docs/DOC_REGISTRY.md");
-  fs.writeFileSync(registryFile, fs.readFileSync(registryFile, "utf8").replace(`](../plan.md) | ${today}`, "](../plan.md) | 2000-01-01"));
-  const invalid = runGovernance(root);
-  assert.equal(invalid.status, 1);
-  assert.match(output(invalid), /登记日期 2000-01-01 与文档核验日期/);
-  const synced = runGovernance(root, "--sync-registry");
-  assert.equal(synced.status, 0, output(synced));
-  assert.match(fs.readFileSync(registryFile, "utf8"), new RegExp(`\\]\\(\\.\\./plan\\.md\\) \\| ${today}`));
+  adr(root, "ADR-001", "decision_status: superseded\nsuperseded_by: ADR-002");
+  adr(root, "ADR-002", "decision_status: superseded\nsuperseded_by: ADR-001");
+  assert.match(checkDocumentation(root).errors.join("\n"), /ADR 替代关系成环：ADR-001 → ADR-002 → ADR-001/);
+  adr(root, "ADR-002", "decision_status: superseded\nsuperseded_by: ADR-003");
+  adr(root, "ADR-003", "decision_status: superseded\nsuperseded_by: CR-030");
+  assert.deepEqual(checkDocumentation(root).errors, []);
 });
 
-test("增量检查保留删除和治理关键输入，普通代码变动仍可快退", () => {
-  const exists = (file) => file === "plan.md";
-  assert.deepEqual(selectDocumentationChecks(["docs/deleted.md"], exists), { markdownFiles: [], runGovernance: true });
-  for (const file of ["docs/_meta/document-policy.json", "scripts/docs-governance.test.mjs", "scripts/docs-lint-affected.mjs", "mise.toml", ".github/workflows/docs.yml"]) {
+test("本地链接检查覆盖根文档、引用式链接、重复标题与显式锚点", (t) => {
+  const root = fixture(t);
+  write(root, "docs/target page.md", '# Target\n\n## 重复\n\n## 重复\n\n<a id="stable"></a>\n');
+  write(root, "plan.md", '# Plan\n\n[标题](docs/target%20page.md#重复-1)\n[显式](<docs/target page.md#stable>)\n\n[ref]: <docs/target page.md#target>\n');
+  assert.deepEqual(checkDocumentation(root).errors, []);
+  fs.appendFileSync(path.join(root, "plan.md"), "\n[坏锚点](docs/target%20page.md#gone)\n[坏引用]: docs/gone.md\n");
+  const errors = checkDocumentation(root).errors.join("\n");
+  assert.match(errors, /锚点不存在/);
+  assert.match(errors, /本地链接目标不存在：docs\/gone.md/);
+});
+
+test("HTML href/src 检查本地文档、锚点与图片，忽略代码围栏和注释", (t) => {
+  const root = fixture(t);
+  write(root, "docs/page.md", "# Page\n");
+  write(root, "docs/image.png", "image fixture");
+  write(root, "CHANGELOG.md", [
+    "# Changelog",
+    '<a href="docs/page.md#page">Page</a>',
+    "<img alt='preview > detail' src='docs/image.png'>",
+    "<img\n src=docs/image.png>",
+    '<a href="https://example.com">External</a>',
+    '<img src="data:image/png;base64,abc">',
+    "<!-- <img src='docs/comment-example.png'> -->",
+    "```html",
+    "<a href='docs/code-example.md'>Example</a>",
+    "<img src='docs/code-example.png'>",
+    "```",
+  ].join("\n"));
+  assert.deepEqual(checkDocumentation(root).errors, []);
+  fs.appendFileSync(path.join(root, "CHANGELOG.md"), [
+    "",
+    "<a href='docs/missing.md'>Missing</a>",
+    '<img src="docs/missing.png">',
+    "<a href=docs/page.md#missing>Missing anchor</a>",
+  ].join("\n"));
+  const errors = checkDocumentation(root).errors.join("\n");
+  assert.match(errors, /本地链接目标不存在：docs\/missing.md/);
+  assert.match(errors, /本地链接目标不存在：docs\/missing.png/);
+  assert.match(errors, /锚点不存在：docs\/page.md#missing/);
+});
+
+test("代码示例内的链接和标题不当作文档链接或真实锚点", (t) => {
+  const root = fixture(t);
+  write(root, "docs/code.md", "# Code\n\n````md\n[示例](gone.md)\n## 虚构标题\n```\n````\n");
+  assert.deepEqual(checkDocumentation(root).errors, []);
+  fs.appendFileSync(path.join(root, "plan.md"), "\n[不存在的正文标题](docs/code.md#虚构标题)\n");
+  assert.match(checkDocumentation(root).errors.join("\n"), /锚点不存在/);
+});
+
+test("porcelain 保留空格路径、重命名和复制两端，并去重", () => {
+  assert.deepEqual(parsePorcelainStatus(" M apps/worker/src/index.ts\0?? docs/new document.md\0"), [
+    "apps/worker/src/index.ts", "docs/new document.md",
+  ]);
+  for (const status of ["R ", " C"]) {
+    assert.deepEqual(parsePorcelainStatus(`${status} docs/new-name.md\0docs/old-name.md\0`), [
+      "docs/new-name.md", "docs/old-name.md",
+    ]);
+  }
+  assert.deepEqual(parsePorcelainStatus(" M docs/README.md\0 M docs/README.md\0\0"), ["docs/README.md"]);
+});
+
+test("增量检查保留删除和文档工具输入，普通源码变动快退", () => {
+  const exists = () => false;
+  assert.deepEqual(selectDocumentationChecks(["docs/deleted.md"], exists), { markdownFiles: [], runGovernance: true, lintAll: false });
+  assert.deepEqual(selectDocumentationChecks(["docs/deleted.png"], exists), { markdownFiles: [], runGovernance: true, lintAll: false });
+  for (const file of ["scripts/docs-governance.test.mjs", "scripts/docs-lint-affected.mjs", "mise.toml", ".github/workflows/docs.yml"]) {
     assert.equal(selectDocumentationChecks([file], exists).runGovernance, true, file);
   }
-  assert.deepEqual(selectDocumentationChecks(["apps/api/src/app.ts"], exists), { markdownFiles: [], runGovernance: false });
-  assert.equal(selectDocumentationChecks([], () => false).runGovernance, true);
+  assert.deepEqual(selectDocumentationChecks(["apps/api/src/app.ts"], exists), { markdownFiles: [], runGovernance: false, lintAll: false });
+  assert.deepEqual(selectDocumentationChecks(["docs/README.md", "plan.md", "CHANGELOG.md", ".agents/example.md", "plugins/example/SKILL.md"], () => true), {
+    markdownFiles: ["docs/README.md", "plan.md", "CHANGELOG.md"], runGovernance: true, lintAll: false,
+  });
 });
 
-test("增量检查只 lint 受治 Markdown 范围（与 ci-docs 一致），非受治路径不纳入", () => {
-  const everything = () => true;
-  assert.deepEqual(
-    selectDocumentationChecks(
-      ["docs/README.md", "plan.md", ".agents/skills/stitch-design-taste/SKILL.md", "plugins/home-assistant/SKILL.md"],
-      everything,
-    ),
-    { markdownFiles: ["docs/README.md", "plan.md"], runGovernance: true },
-  );
+test("排版、术语和工具版本变化必须重查全部文档", () => {
+  for (const file of [".markdownlint-cli2.jsonc", ".vale.ini", ".vale/Aervox/Terms.yml", "mise.toml"]) {
+    assert.equal(selectDocumentationChecks([file], () => false).lintAll, true, file);
+  }
+  assert.equal(selectDocumentationChecks(["docs/guide.md"], () => true).lintAll, false);
 });
 
-test("增量 CLI 在仅删除 plan.md 时运行真实治理并失败", { skip: process.platform === "win32" }, (t) => {
+test("配置单独变化时增量 CLI 也向两个 linter 传入未修改文档并传播失败", { skip: process.platform === "win32" }, (t) => {
+  for (const config of [".markdownlint-cli2.jsonc", ".vale.ini", ".vale/Aervox/Terms.yml"]) {
+    const root = fixture(t);
+    write(root, "docs/untouched.md", "# Existing document\n");
+    const env = mockGitEnvironment(root, ` M ${config}\0`);
+    const calls = path.join(root, "linter-calls.jsonl");
+    for (const command of ["markdownlint-cli2", "vale"]) {
+      const executable = path.join(root, "fixture-bin", command);
+      fs.writeFileSync(executable, `#!${process.execPath}
+require("node:fs").appendFileSync(${JSON.stringify(calls)}, JSON.stringify([${JSON.stringify(command)}, ...process.argv.slice(2)]) + "\\n");
+if (${JSON.stringify(command)} === "vale") process.exitCode = 7;
+`, { mode: 0o755 });
+    }
+    const result = spawnSync(process.execPath, ["scripts/docs-lint-affected.mjs"], { cwd: root, encoding: "utf8", env });
+    assert.equal(result.status, 7, result.stdout + result.stderr);
+    const recorded = fs.readFileSync(calls, "utf8").trim().split("\n").map(JSON.parse);
+    assert.deepEqual(recorded.map((args) => args[0]), ["markdownlint-cli2", "vale"]);
+    for (const args of recorded) {
+      assert.ok(args.includes("docs/untouched.md"), `${config} -> ${args[0]}`);
+      assert.ok(args.includes("plan.md"));
+      assert.ok(args.includes("CHANGELOG.md"));
+    }
+  }
+});
+
+test("增量 CLI 删除被引用的 plan 时仍检查入链并失败", { skip: process.platform === "win32" }, (t) => {
   const root = fixture(t);
   fs.rmSync(path.join(root, "plan.md"));
   const result = spawnSync(process.execPath, ["scripts/docs-lint-affected.mjs"], {
-    cwd: root,
-    encoding: "utf8",
-    env: mockGitEnvironment(root, " D plan.md\0"),
+    cwd: root, encoding: "utf8", env: mockGitEnvironment(root, " D plan.md\0"),
   });
-  assert.equal(result.status, 1, output(result));
-  assert.match(output(result), /无现存 Markdown 待 lint/);
-  assert.match(output(result), /根 plan\.md 必须存在/);
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stdout, /无现存 Markdown 待 lint/);
+  assert.match(result.stderr, /本地链接目标不存在：plan.md/);
 });
 
-test("增量 CLI 只有策略变动时也检查真实元数据", { skip: process.platform === "win32" }, (t) => {
+test("增量 CLI 仅删除文档图片资产时也检查 HTML 入链并失败", { skip: process.platform === "win32" }, (t) => {
   const root = fixture(t);
-  const planFile = path.join(root, "plan.md");
-  fs.writeFileSync(planFile, fs.readFileSync(planFile, "utf8").replace(/^owner:.*\n/m, ""));
+  write(root, "docs/page.md", '# Page\n\n<img src="image.png">\n');
+  write(root, "docs/image.png", "image fixture");
+  assert.deepEqual(checkDocumentation(root).errors, []);
+  fs.rmSync(path.join(root, "docs/image.png"));
   const result = spawnSync(process.execPath, ["scripts/docs-lint-affected.mjs"], {
-    cwd: root,
-    encoding: "utf8",
-    env: mockGitEnvironment(root, " M docs/_meta/document-policy.json\0"),
+    cwd: root, encoding: "utf8", env: mockGitEnvironment(root, " D docs/image.png\0"),
   });
-  assert.equal(result.status, 1, output(result));
-  assert.match(output(result), /缺少必填字段 owner/);
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stdout, /无现存 Markdown 待 lint/);
+  assert.match(result.stderr, /本地链接目标不存在：image.png/);
 });
 
-test("增量 CLI 保留已提交重命名的旧文档路径并检查悬空引用", { skip: process.platform === "win32" }, (t) => {
+test("增量 CLI 保留已提交重命名的旧路径并检查悬空引用", { skip: process.platform === "win32" }, (t) => {
   const root = fixture(t);
-  fs.appendFileSync(path.join(root, "plan.md"), "\n[旧记录](docs/reference/deleted.md)\n");
-  fs.writeFileSync(path.join(root, "renamed.txt"), "renamed document\n");
+  fs.appendFileSync(path.join(root, "plan.md"), "\n[旧记录](docs/deleted.md)\n");
+  write(root, "renamed.txt", "renamed document\n");
   const result = spawnSync(process.execPath, ["scripts/docs-lint-affected.mjs"], {
-    cwd: root,
-    encoding: "utf8",
-    env: mockGitEnvironment(root, "", true),
+    cwd: root, encoding: "utf8", env: mockGitEnvironment(root, "", true),
   });
-  assert.equal(result.status, 1, output(result));
-  assert.match(output(result), /无现存 Markdown 待 lint/);
-  assert.match(output(result), /本地链接目标不存在：docs\/reference\/deleted\.md/);
-});
-
-test("触发器能识别根计划已经同步修改", { skip: process.platform === "win32" }, (t) => {
-  const root = fixture(t);
-  // 触发器有效性校验要求 glob 至少命中一个仓库文件；materialize 命中目标。
-  fs.mkdirSync(path.join(root, "apps/api/src"), { recursive: true });
-  fs.writeFileSync(path.join(root, "apps/api/src/app.ts"), "export {};\n");
-  writePlanDocument(root, { fields: { review_triggers: ["apps/**"] } });
-  const result = spawnSync(process.execPath, ["scripts/docs-governance.mjs", "--strict", "--check-triggers"], {
-    cwd: root,
-    encoding: "utf8",
-    env: mockGitEnvironment(root, " M apps/api/src/app.ts\0 M plan.md\0"),
-  });
-  assert.equal(result.status, 0, output(result));
-  assert.match(output(result), /\.\.\/plan\.md （已同步修改/);
-});
-
-test("触发器覆盖已提交差量而非只看工作区", { skip: process.platform === "win32" }, (t) => {
-  const root = fixture(t);
-  fs.mkdirSync(path.join(root, "apps/api/src"), { recursive: true });
-  fs.writeFileSync(path.join(root, "apps/api/src/app.ts"), "export {};\n");
-  writePlanDocument(root, { fields: { review_triggers: ["apps/**"] }, body: "" });
-  // 工作区干净，命中信息只存在于 base...HEAD 差量中。
-  const result = spawnSync(process.execPath, ["scripts/docs-governance.mjs", "--check-triggers"], {
-    cwd: root,
-    encoding: "utf8",
-    env: mockGitEnvironment(root, "", true),
-  });
-  assert.equal(result.status, 0, output(result));
-  assert.match(output(result), /未命中任何文档触发器|renamed\.txt/, output(result));
-});
-
-test("计划队列与 plan.md 不同步时观察期只报提示", { skip: process.platform === "win32" }, (t) => {
-  const root = fixture(t);
-  // fixture 默认 policy 已是 error（复制真实策略）；本测试验证观察期语义，先切回 warning。
-  const policyPath = path.join(root, "docs/_meta/document-policy.json");
-  const policy = JSON.parse(fs.readFileSync(policyPath, "utf8"));
-  policy.currentIterationPlan.queue.enforcement = "warning";
-  fs.writeFileSync(policyPath, JSON.stringify(policy, null, 2));
-  // 手动篡改一行构造「不同步」，warning 级别只提示不阻断。
-  const planPath = path.join(root, "plan.md");
-  fs.writeFileSync(planPath, fs.readFileSync(planPath, "utf8").replace("ITER-001 · ", "ITER-001 · 建议 · "));
-  const result = runGovernance(root);
-  assert.equal(result.status, 0, output(result));
-  assert.match(output(result), /\[plan-queue:H6\]/, output(result));
-});
-
-test("队列强制级别升级为 error 后不同步将阻断", { skip: process.platform === "win32" }, (t) => {
-  const root = fixture(t);
-  const policyPath = path.join(root, "docs/_meta/document-policy.json");
-  const policy = JSON.parse(fs.readFileSync(policyPath, "utf8"));
-  policy.currentIterationPlan.queue.enforcement = "error";
-  fs.writeFileSync(policyPath, JSON.stringify(policy, null, 2));
-  // fixture 默认渲染同步的生成区；手动篡改一行构造「不同步」，error 级别下必须阻断。
-  const planPath = path.join(root, "plan.md");
-  fs.writeFileSync(planPath, fs.readFileSync(planPath, "utf8").replace("ITER-001 · ", "ITER-001 · 建议 · "));
-
-  const result = runGovernance(root);
-  assert.equal(result.status, 1, output(result));
-  assert.match(output(result), /error: \[plan-queue:H6\]/);
-});
-
-test("review_triggers 死路径与空命中 glob 在 strict 下阻断，叙述型条目豁免", async (t) => {
-  await t.test("missing path", (child) => {
-    const root = fixture(child);
-    writePlanDocument(root, { fields: { review_triggers: ["packages/gone/file.ts", "gone.md"] } });
-    const result = runGovernance(root);
-    assert.equal(result.status, 1, output(result));
-    assert.match(output(result), /review_triggers 路径不存在：packages\/gone\/file\.ts/);
-    assert.match(output(result), /review_triggers 路径不存在：gone\.md/);
-  });
-  await t.test("glob matches nothing", (child) => {
-    const root = fixture(child);
-    writePlanDocument(root, { fields: { review_triggers: ["apps/nowhere/**"] } });
-    const result = runGovernance(root);
-    assert.equal(result.status, 1, output(result));
-    assert.match(output(result), /review_triggers 未命中任何仓库文件：apps\/nowhere\/\*\*/);
-  });
-  await t.test("narrative entries exempt and live glob passes", (child) => {
-    const root = fixture(child);
-    fs.mkdirSync(path.join(root, "apps/api/src"), { recursive: true });
-    fs.writeFileSync(path.join(root, "apps/api/src/app.ts"), "export {};\n");
-    writePlanDocument(root, {
-      fields: {
-        review_triggers: [
-          "apps/**",
-          "plan.md",
-          "Home Assistant REST/WebSocket 或小米 OAuth 契约变化",
-          "应用行为变化",
-        ],
-      },
-    });
-    const result = runGovernance(root);
-    assert.equal(result.status, 0, output(result));
-  });
-});
-
-test("superseded 文档必须声明 superseded_by", async (t) => {
-  const writeSuperseded = (root, fields) => {
-    fs.writeFileSync(path.join(root, "docs/reference/superseded-adr.md"),
-      document("ADR-999", { doc_status: "superseded", decision_status: "rejected", ...fields }));
-    fs.appendFileSync(path.join(root, "docs/DOC_REGISTRY.md"),
-      `| \`ADR-999\` | [记录](reference/superseded-adr.md) | ${today} |\n`);
-  };
-  await t.test("missing superseded_by", (child) => {
-    const root = fixture(child);
-    writeSuperseded(root, {});
-    const result = runGovernance(root);
-    assert.equal(result.status, 1, output(result));
-    assert.match(output(result), /doc_status=superseded 必须在 front matter 声明 superseded_by/);
-  });
-  await t.test("declared superseded_by passes", (child) => {
-    const root = fixture(child);
-    writeSuperseded(root, { superseded_by: "ADR-015" });
-    const result = runGovernance(root);
-    assert.equal(result.status, 0, output(result));
-  });
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stdout, /无现存 Markdown 待 lint/);
+  assert.match(result.stderr, /本地链接目标不存在：docs\/deleted.md/);
 });

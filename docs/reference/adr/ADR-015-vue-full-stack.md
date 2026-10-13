@@ -1,14 +1,6 @@
 ---
 id: ADR-015
-type: reference
-scope: decision
-owner: maintainers
-doc_status: review-candidate
 decision_status: accepted
-version: 0.1.2
-updated_at: 2026-10-10
-reviewed_at: 2026-10-10
-review_interval_days: 90
 ---
 
 # ADR-015 Vue 全栈单栈：Web 复用桌面端技术族

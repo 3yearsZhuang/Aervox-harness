@@ -1,33 +1,23 @@
 ---
 id: AVX-EXPL-002
-type: explanation
-scope: baseline
-owner: maintainers
-doc_status: review-candidate
-decision_status: not-applicable
-delivery_status: not-applicable
-version: 0.10.1
-updated_at: 2026-10-10
-reviewed_at: 2026-10-10
-review_interval_days: 90
 ---
 
 # 参考项目能力迁移与借鉴评估
 
-关联：[参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[SQLite 本地单用户数据库契约](../reference/DATABASE.md)、[能力注册表](../reference/capability-registry.md)、[Agent Harness Loop 规范](../reference/agent-harness-loop.md)、[AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)
+关联：[参考项目与借鉴边界](#reference-manifest)、[SQLite 本地单用户数据库契约](../reference/DATABASE.md)、[能力追踪](../reference/REQUIREMENTS_TRACEABILITY.md#capability-delivery)、[Agent Harness Loop 规范](../reference/agent-harness-loop.md)、[AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)
 
 > [!NOTE] 调研生命周期状态：已落地 (Adopted)
 > 本文梳理的外部参考项目（DSH、pi、AstrBot 等）能力借鉴与上游版本固定已在 ITER-030 落地并完成准入固定。
 
-当前迭代建议与实施排序统一见根 [plan.md](../../plan.md)（AVX-PLAN-001），规划边界见[文档治理规范 §3.1](../reference/document-governance.md#31-当前迭代计划的唯一入口)。本文保留参考设计的判定理由、来源编号、许可证边界及历史映射；A/B/C 判定与旧批次不表示当前排期或最新实现状态。
+当前迭代建议与实施排序统一见根 [plan.md](../../plan.md)（AVX-PLAN-001），规划边界见[贡献指南](../../CONTRIBUTING.md)。本文保留参考设计的判定理由、来源编号、许可证边界及历史映射；A/B/C 判定与旧批次不表示当前排期或最新实现状态。
 
 ## 1. 评估范围与判定框架
 
-本评估回答：`reference/` 内参考项目中哪些设计适合在本项目落地，哪些仅作为设计参考。当前覆盖 BaiShou-Next、AstrBot、Petra、dsh-synapse、DeepSeek Harness（DSH）与 pi 六个固定版本。DSH 与 pi 的 Agent Loop 设计来源分别登记为 `DSH-01` 与 `PI-01`；它们只用于验证目标控制流和接口边界，不改变 Aervox 的数据所有权或安全模型。评估结论与 [PRD §15](../reference/PRD.md#15-参考项目与借鉴边界) 的参考项目策略保持一致。
+本评估回答：`reference/` 内参考项目中哪些设计适合在本项目落地，哪些仅作为设计参考。当前覆盖 BaiShou-Next、AstrBot、Petra、dsh-synapse、DeepSeek Harness（DSH）与 pi 六个固定版本。DSH 与 pi 的 Agent Loop 设计来源分别登记为 `DSH-01` 与 `PI-01`；它们只用于验证目标控制流和接口边界，不改变 Aervox 的数据所有权或安全模型。评估结论与 [上游借鉴边界](#reference-manifest) 的参考项目策略保持一致。
 
 判定框架有三条边界：
 
-1. **许可证边界**：BaiShou-Next 与 AstrBot 均采用 AGPLv3，按 [PRD §15.1](../reference/PRD.md#151-参考实现要求)，除非完成许可证评审，只借鉴公开设计和数据模型，不直接复制其代码或形成链接依赖；Petra 采用 MIT，可作为较低风险的表现与交互实现参考，但复制代码仍需按 PRD §15.1 记录文件来源、版权声明与许可证影响。因此下文"建议落地"一律指在 Aervox 内**自研重写其设计**，不拷贝源码。
+1. **许可证边界**：BaiShou-Next 与 AstrBot 均采用 AGPLv3，按 [上游借鉴边界](#reference-manifest)，除非完成许可证评审，只借鉴公开设计和数据模型，不直接复制其代码或形成链接依赖；Petra 采用 MIT，可作为较低风险的表现与交互实现参考，但复制代码仍需按 本文件 §10.1 记录文件来源、版权声明与许可证影响。因此下文"建议落地"一律指在 Aervox 内**自研重写其设计**，不拷贝源码。
 2. **架构契合度**：BaiShou-Next 是 Electron/Expo 本地优先应用，AstrBot 是 Python 异步 IM 机器人框架，Petra 是 Tauri 2 桌宠（Windows 优先）；Aervox 是 Fastify 服务端 + Web/Desktop 客户端。仅评估与 Aervox 模块化单体、Port 存储、Worker 异步链路兼容的设计。
 3. **落地成本与优先级**：以 P0/P1 能力为优先，避免为远期功能引入当前不需要的复杂度。
 
@@ -54,13 +44,13 @@ review_interval_days: 90
 |---|---|---|---|---|
 | T-01 | SQLite 写路径 busy 重试（指数退避） | A | `packages/repositories` 写路径 | WAL 多进程并发（DATABASE.md） |
 | T-02 | FTS + 向量 RRF 混合检索 + JS 余弦降级 | A | `packages/repositories/src/search` | 记忆召回窗口 |
-| T-03 | 上下文压缩标记（snapshotId 写回会话） | A | 临时→短期整理链路 | PRD §7.5 记忆验收标准 |
+| T-03 | 上下文压缩标记（snapshotId 写回会话） | A | 临时→短期整理链路 | SRS 记忆验收标准 |
 | T-04 | 工具注册表 + 主动记忆工具 | A | AI 运行时工具系统 | CAP-020、记忆晋升候选 |
 | T-05 | Embedding 独立存储 + 可中止的迁移控制 | A | `memory_embeddings` 独立表 | SQLite Vector Port（ADR-003） |
 | T-06 | 数据库迁移服务（journal + 旧库补齐） | B | 存储层演进 | DATABASE.md 迁移三阶段 |
 | T-07 | 桌面 preload 按域划分 IPC API | B | `apps/desktop` | 桌面端功能扩展 |
 | T-08 | 桌宠角色设定文档化 | B | 文档组织 | 桌宠 IP、CAP-019 |
-| T-09 | Git 作为数据版本/同步层 | B | 本地优先与导出 | PRD §15.2 决策 4 |
+| T-09 | Git 作为数据版本/同步层 | B | 本地优先与导出 | CR-030 本地数据边界 |
 | T-10 | Token 用量分账（缓存/非缓存） | B | `ModelRun` 埋点 | AI 质量与安全规范 |
 | T-11 | 多工作区 vault 双库模型 | C | — | 与 CR-030 本地单用户边界冲突 |
 | T-12 | Expo 移动端与 WebView 日记编辑器 | C | — | 与 ADR-015（Capacitor）冲突 |
@@ -75,7 +65,7 @@ review_interval_days: 90
 | AST-08 | 声明式插件配置（`_conf_schema.json` 模式） | B | CAP-020 插件配置解析与可视化 | 自研 Aervox Config Schema v1 |
 | AST-09 | 插件页面 + 受限 iframe Bridge | B | CAP-020 插件 Page | 自研 Aervox Page Bridge，仅本地 Bundle 资源 |
 | PET-01 | 桌宠表现命令通道（speak/emote/gesture/move/react） | A | 消息/SSE 契约预留表现指令 | 桌宠 IP、表现层与大脑解耦 |
-| PET-02 | 结构化记忆条目字段（source 区分用户自述/AI 推断） | A | 记忆 schema 字段对照 | PRD §7.5 记忆验收标准、T-03/T-04 |
+| PET-02 | 结构化记忆条目字段（source 区分用户自述/AI 推断） | A | 记忆 schema 字段对照 | SRS 记忆验收标准、T-03/T-04 |
 | PET-03 | 自主行为引擎参数化（活动频率三档/躲避/待机） | B | 桌面端角色行为 | T-07、桌宠 IP |
 | PET-04 | 表现驱动数据对象 + 视图接口分离 | B | 桌宠表现层抽象 | 桌宠 IP、CAP-019 |
 | PET-05 | AI 工具只读白名单与提示词使用原则 | B | 工具链安全规范 | AI 质量与安全规范 |
@@ -87,7 +77,7 @@ review_interval_days: 90
 
 BaiShou-Next 对 `database is locked` / `sqlite_busy` 错误做指数退避重试（参考 `reference/baishou-next/packages/repositories/src/sqlite-busy.util.ts`）。Aervox 的 API、Worker、Desktop 共用同一 `data/aervox.db`（WAL 模式），多进程写竞争是既有风险点。
 
-落点：在 `packages/repositories` 封装统一的写入重试工具，对所有事务性写操作包一层；重试参数（初始退避、最大次数）可配置。此为纯函数级自研，风险低，可在任意批次排期。
+借鉴点是有界退避，具体写路径以[数据库契约](../reference/DATABASE.md)为准；事务不能无条件整体重放，尤其不能包裹外部副作用或假定 libSQL BEGIN 自动重试。只有已证明可重放的操作才使用统一 busy 重试。
 
 ### 3.2 T-02 混合检索（FTS + 向量 RRF）
 
@@ -101,7 +91,7 @@ Aervox 已具备两块输入：FTS5 虚表（`memory_records_fts` 等）与向�
 
 BaiShou-Next 在上下文压缩时生成 compaction 标记并写回会话：压缩摘要与时间轴锚点落库，按 `snapshotId` 可恢复被压缩内容与耗时信息（参考 `reference/baishou-next/packages/ai/src/agent/compaction-marker.ts`）。
 
-Aervox 的 PRD §7.5 要求"短期记忆必须能查看由哪些临时记忆整理而来"，且任何模型更新不得改变已锁定记忆。compaction 标记与 `snapshotId` 正是满足该验收的溯源载体。
+[SRS 记忆验收](../reference/SRS.md#记忆验收标准)要求"短期记忆必须能查看由哪些临时记忆整理而来"，且任何模型更新不得改变已锁定记忆。compaction 标记与 `snapshotId` 正是满足该验收的溯源载体。
 
 落点：临时→短期异步整理链路（Worker）写入 `MemoryEvent`/revision 溯源；`snapshotId` 关联源 `Turn/MessageVersion` 区间。需与[数据流总览](data-flow-overview.md)的"先写后投递"顺序一致，仅在完整响应持久化后生成标记。
 
@@ -150,7 +140,7 @@ Petra 的 `MemoryEntry` 显式区分 `source: user_said | ai_inferred`，并以 
 
 这与 Aervox "模型推断只能作为候选"约束同构：`user_said` 可直接置信，`ai_inferred` 默认降入候选（对照 T-04 的 `verificationStatus=unverified`）。`category` + `keywords` 便于记忆树投影与检索归类，`lastUsedAt` 支撑召回窗口淘汰。
 
-落点：记忆 schema 演进时对照该字段集，属第二批；schema 已批准部分按[变更控制](../reference/REQUIREMENTS_TRACEABILITY.md#11-变更控制)处理。
+落点：记忆 schema 演进时对照该字段集，属第二批；schema 已批准部分按[变更控制](../reference/REQUIREMENTS_TRACEABILITY.md#12-变更与维护)处理。
 
 ## 4. B 类：值得借鉴（本阶段不落地）
 
@@ -170,7 +160,7 @@ BaiShou-Next 将桌宠人设独立成文档（`Latte/角色設定.md` 与多语�
 
 ### 4.4 T-09 Git 作为数据版本/同步层
 
-BaiShou-Next 用 git 提交作为数据版本历史：`git log` 分页历史、按 commit 回滚文件、三向合并（参考 `reference/baishou-next/packages/core/src/sync/`）。PRD §15.2 决策 4 承认本地优先是后续选项；若进入该阶段，git 方案比自建版本表省一个数量级的工程量。
+BaiShou-Next 用 git 提交作为数据版本历史：`git log` 分页历史、按 commit 回滚文件、三向合并（参考 `reference/baishou-next/packages/core/src/sync/`）。CR-030 已确立本地数据真源；Git 快照仅是待评估的版本/导出载体，不能由此引入多个可写副本或绕过一致性备份、删除与恢复规则。
 
 ### 4.5 T-10 Token 用量分账
 
@@ -243,69 +233,22 @@ Aervox 自研落地（AGPLv3 仅借鉴设计，不复制源码）：
 
 <a id="6-落地顺序建议"></a>
 
-## 6. 历史批次与来源追溯
-
-以下是原评估按“见效快、不改结构、先服务现有痛点”形成的四批快照，用于解释来源映射中的批次编号。保留当时的判断，不将其视为当前执行顺序；候选改动须核对现行契约和源码后进入根 [plan.md](../../plan.md)。
-
-1. **第一批（低风险，独立可排）**：T-01 busy 重试 → AST-01 会话级写锁 → T-02 混合检索。三者都是 `packages/repositories`/写路径内收口改动，直接解除多进程锁风险并打通记忆召回首链路。
-2. **第二批（需要契约与 Worker 配合）**：T-03 压缩标记 → T-05 embedding 独立表（对照 AST-02 对齐 Port 语义）→ PET-01 表现指令字段、PET-02 记忆条目字段（随契约冻结对照）。涉及记忆溯源与运行时代价，先冻结 `packages/contracts` 相关 schema 再实现。
-3. **第三批（随 CAP 排期）**：T-04 工具系统随 CAP-020 立项（对照 AST-04 元数据模型，安全对照 PET-05 白名单）；AST-03 人设解析链随 CAP-019 立项（对照 T-08 文档化）；PET-03 自主行为、PET-04 表现驱动抽象随桌面端功能扩展引入；T-06～T-10、AST-05 按对应功能阶段引入。
-4. **第四批（运行时接线）**：为第一批至第三批已落地的契约/存储接通真实调用链——T-04 tools 运行时与 `/v1/tools` 路由、T-03/T-05 Worker 异步消费、PET-01 前端 emote 消费、CAP-020 插件运行时、T-06 迁移服务与 AST-05 完成标记、T-09 快照与 T-10 分账（详见 §6.1）。
+## 6. 设计来源追溯
 
 <a id="61-落地登记唯一真源"></a>
-
-### 6.1 来源映射与历史证据
-
-实现状态和验证结果只由[追踪基线 §4.2](../reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)维护；本表保留参考设计编号与历史实现记录的映射，供来源追溯，不另行推进完成状态。新增实现仍须在追踪基线注明 `T-*`、`AST-*`、`PET-*`、`DSH-01`、`PI-01` 等来源并遵循许可证要求。下表中的判定、批次、位置和说明均按原记录理解，`目标已文档化` 不等于 `运行时已接入`，历史测试也不等于当前发布证明。
-
-| 编号 | 历史判定 | 历史批次 | 记录日期 | 历史实现位置 | 当时说明 |
-|---|---|---|---|---|---|
-| `DSH-01` | B（目标已文档化） | Agent Loop 阶段 0 前 | 2026-08-28 | `docs/reference/agent-harness-loop.md`（AVX-HAR-001）、`docs/reference/changes/CR-012-agent-harness-loop.md` | 已固化 Turn/Step、typed event、工具管线和 Adapter 边界；DSH 运行时尚未接入，不能标记为已实现 |
-| `PI-01` | B（目标已文档化） | Agent Loop 阶段 0 前 | 2026-08-28 | `docs/reference/agent-harness-loop.md`（AVX-HAR-001）、`docs/reference/changes/CR-012-agent-harness-loop.md` | 已固化 outer/inner loop、Inbox、lease/fencing 和进程外 Host 约束；pi 运行时尚未接入，不能标记为已实现 |
-| `GPH-01` | 设计借鉴，规则原型 | 当前复评第一步 | 2026-09-25 | `packages/repositories/src/temporal-fact-policy.ts` | 参考 Graphiti 的事实有效时间与来源时间分离；仅实现已确认事实的单步判定，未接入数据库或召回 |
-| `GPH-02` | 设计借鉴，投影实验 | 当前复评第二步 | 2026-09-26 | `packages/schema/src/temporal-facts.ts`、`packages/repositories/src/schema/ddl/temporal-facts.ts`、`packages/repositories/src/temporal-fact-projection.ts` | 承接 GPH-01 的单步判定，落实 SQLite 侧时态事实投影：事务内新增事实、关闭旧有效区间或追加证据；支持按时点查询与证据追溯，来源删除、来源修订或记忆失效后查询即时屏蔽；实验性质，不接入生产写入与召回 |
-| T-03 | A | 第二批 | 2026-08-26 | `packages/schema/src/memory-compaction.ts`、`repositories/sqlite/memory-compaction-repository.ts` | `memory_compaction_markers` 表 + 幂等仓储 |
-| T-05 | A | 第二批 | 2026-08-26 | `packages/schema/src/embeddings.ts`、`repositories/sqlite/memory-embedding-repository.ts` | `memory_embeddings` 独立表 + 批量/重试/余弦检索（对照 AST-02） |
-| PET-01 | A | 第二批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（`petCommandSchema`/`emoteEventDataSchema`） | SSE 表现指令契约预留 |
-| PET-02 | A | 第二批 | 2026-08-26 | `packages/schema/src/memories.ts`、`repositories/types.ts` | 记忆条目字段 `source`/`category`/`keywordsJson`/`lastUsedAt` |
-| T-04 | A | 第三批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（工具注册表契约）、`packages/schema/src/tool-registry.ts`、`repositories/sqlite/tool-registry-repository.ts` | 工具注册表 + 主动记忆契约 + 幂等/过滤/门控导出 |
-| AST-04 | B→已落地雏形 | 第三批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（`pluginMetadataSchema`、`toolGatingConditionSchema`）、`packages/schema/src/tool-registry.ts` | 插件元数据字段 + 工具条件门控（CAP-020 雏形） |
-| PET-05 | B→已落地雏形 | 第三批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（`toolSafetyLevelSchema`） | 工具安全级别（read_only 白名单）有线 |
-| T-08 | B→已落地 | 第三批 | 2026-08-26 | `docs/explanation/persona-organization.md`（AVX-EXPL-003） | 桌宠角色设定独立成文档（核心概念/外形/提示词边界/识别边界），按人设目录版本化（CAP-019） |
-| T-04 | A（运行时接线） | 第四批 | 2026-08-26 | `apps/api/src/modules/ecosystem/tools/`（`runtime.ts`/`memory-store-tool.ts`/`mcp.ts`/`routes.ts`） | MemoryStoreTool 运行时 + ToolRuntime + `/v1/tools` 路由 + MCP 形态 listTools/callTool；PET-05 在调用侧强制授权 |
-| T-03 | A（消费接线） | 第四批 | 2026-08-26 | `apps/worker/src/compaction-marker.ts` | 消费 outbox `memory.compaction.requested` 事件异步落库压缩标记 + 审计（先写后投递） |
-| T-05 | A（迁移接线） | 第四批 | 2026-08-26 | `apps/worker/src/embedding-migration.ts` | 扫描缺向量记忆 → 批量生成 → insertBatch；可中止 + 进度回调；provider 未注入诚实跳过 |
-| T-06 | B→已落地 | 第四批 | 2026-08-26 | `packages/repositories/src/migration/migration-service.ts` | 迁移 journal（`_migration_journal`）+ 幂等重入 + 旧库列补齐纳入迁移步骤 |
-| AST-05 | B→已落地 | 第四批 | 2026-08-26 | `packages/repositories/src/migration/migration-service.ts`（完成标记；Worker 任务执行已收敛为独立任务节拍器调度） | `isMigrationCompleted` 双条件幂等；流水线执行已由 Worker 独立节拍器调度接管 |
-| T-09 | B→已落地 | 第四批 | 2026-08-26 | `packages/repositories/src/sync/git-snapshot.ts` | 行级快照导出/恢复 + 快照命名约定；git 提交/回滚由宿主（CLI/桌面）按需调用 |
-| T-10 | B→已落地 | 第四批 | 2026-08-26 | `packages/repositories/src/token-usage.ts` | Token 用量分账（非缓存/缓存读/缓存写），兼容 OpenAI/旧形态 |
-| PET-01 | A（前端消费） | 第四批 | 2026-08-26 | `packages/api-client/src/transport.ts`、`desktop-transport.ts`、`useAervoxTurn.ts`、`packages/ui/src/components/PetHero.vue` | emote 事件透传 + `PetHero` activeEmote/activeGesture 消费 |
-| PET-01 | A（Live2D 表现接线） | 第四批 | 2026-08-26 | `packages/ui/src/live2d/{model,controller}.ts`、`packages/ui/src/components/Live2DPet.vue`、`apps/desktop/src/renderer/src/components/PetWindow.vue` | model3.json 兼容加载、动作/表情 Enum 与 API、SSE 表现命令映射；Web 工作台显示 Live2D，Electron 主工作台隐藏左侧区域，独立桌宠窗口保留 Live2D |
-| AST-04 | B→已落地（运行时） | 第四批 | 2026-08-26 | `apps/api/src/modules/ecosystem/plugins/` | CAP-020 插件运行时：安装/启停/卸载 + 工具注册联动 + 权限授予/撤销/查询 |
-| AST-08 | B→已落地 | 第六批 | 2026-08-26 | `packages/contracts/src/plugin-config-schemas.ts`、`packages/schema/src/plugin-config.ts`、`apps/api/src/modules/ecosystem/plugins/config-*.ts` | 插件 Config Schema v1：声明式解析/默认值/校验/secret 状态/租户持久化/CAS（CR-006） |
-| AST-09 | B→已落地 | 第六批 | 2026-08-26 | `apps/api/src/modules/ecosystem/plugins/bundle-store.ts`、`bridge-sdk.ts`、`packages/ui/src/components/plugin/` | 插件 Page：本地 Bundle 静态资源 + 沙箱 iframe + Host Bridge（config.read/write、notify、close） |
-| Skill | B→已落地（契约+存储） | 第五批 | 2026-08-26 | `packages/contracts/src/schemas.ts`（Skill 契约）、`packages/schema/src/skills.ts`、`repositories/sqlite/skill-registry-repository.ts`、`skill-lifecycle-repository.ts` | `skill_registrations` + `skill_payloads`/`skill_candidates`/`skill_releases` 四表 + 幂等/门控导出/生命周期仓储 |
-| Skill | B→已落地（管理 + 生命周期运行时） | 第五批 | 2026-08-26 | `apps/api/src/modules/ecosystem/skills/`（`zip.ts`/`skill-manager.ts`/`skill-prompt.ts`/`lifecycle.ts`/`routes.ts`/`skill-tools.ts`） | zip 安装（安全校验）+ 渐进式披露 prompt + Neo 生命周期（payload→candidate→evaluate→promote→rollback/sync）+ `aervox_skill_*` 工具（PET-05 安全级别） |
-| Skill | B→已落地（插件联动） | 第五批 | 2026-08-26 | `apps/api/src/modules/ecosystem/plugins/service.ts` | 插件声明技能只读注册（source=plugin/readonly/pluginId）+ 启停/卸载联动 |
-
 <a id="62-待接线缺口现状如实记录"></a>
 
-### 6.2 历史接线缺口
+设计编号用于说明借鉴来源，实际状态与适用限制见[追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md#42-证据与适用限制)，历史批次、实现位置和测试日志从 Git/PR 追溯，不再维护第二张完成表。
 
-以下保留原第四批评估留下的接线缺口，不作为持续维护的待办或当前能力结论。后续实现可能已改变这些边界；采纳前须核对[追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)与当前源码，再由根 [plan.md](../../plan.md)记录仍需处理的工作。
-
-| 缺口 | 关联设计 | 说明 |
-|---|---|---|
-| 真实向量库接入 | T-05 | 当前为 SQLite 行扫描 + JS 余弦兜底，未接原生向量扩展（如 `sqlite-vec`）；embedding provider（真实服务）需在生产注入 |
-| 压缩摘要由模型生成 | T-03 | Worker 已消费事件落库；`summaryText` 的生成仍待接入摘要模型 |
-| AST-03 人设解析链 | AST-03 | 文档组织已就绪（AVX-EXPL-003），运行时解析链随 CAP-019 立项 |
-| PET-03 / PET-04 桌宠自主行为与表现驱动抽象 | PET-03/04 | 前端已消费 emote 指令，完整行为引擎与 PetDriver 抽象随桌面端功能扩展引入 |
-| T-07 桌面 preload 分域迁移覆盖 | T-07 | 已提供按域 API 结构（`preload/domains/`）并兼容旧通道；桌面端全面迁移到新域通道待功能扩展时推进 |
-| Skill 渐进式披露注入 AI 对话运行时 | Skill | `/v1/skills/prompt` 已提供清单；真实对话构建时注入系统提示词待 AI 运行时（Turn 链路）接线 |
+- `DSH-01`、`PI-01`：Agent Loop/Harness 设计参照；不代表相应外部运行时已经完整集成。
+- `GPH-01`：事实有效时间与来源时间分离的单步规则；`GPH-02`：SQLite 时态投影实验，来源删除/修订后查询屏蔽。实验不自动进入生产写入与召回，见 §7.3。
+- `T-08`、`AST-03`：人格资产与字段化解析；独有需求见 [FR-PER-004](../reference/SRS.md#fr-per-004-多人格模板与角色资产)，不要求模板和文档逐字段双写。
+- `AST-08`、`AST-09`：插件 Config Schema 与 Page/Host Bridge，契约见[插件配置与页面](../reference/plugin-config-and-pages.md)。
+- `T-*`、`AST-*`、`PET-*` 与 Skill 的其他设计依据见上文对应条目；版本/许可证只在[固定清单](#reference-manifest)维护。
 
 ## 7. 长期记忆、人格与主动行为参考项目复评（2026-09-25）
 
-本节按当前源码重新评估 Letta / Letta Code、Graphiti 与 Generative Agents。三者都采用 Apache-2.0，但用途不同：Letta Code 是持续演进的状态化 Agent Harness，Graphiti 是需要独立图数据库与模型服务的时态知识图谱框架，Generative Agents 则是 2023 年论文配套的研究模拟器。许可证允许借鉴或复用不等于适合直接引入；若后续复制代码，仍须按 PRD §15.1 记录来源、许可证与修改。
+本节按当前源码重新评估 Letta / Letta Code、Graphiti 与 Generative Agents。三者都采用 Apache-2.0，但用途不同：Letta Code 是持续演进的状态化 Agent Harness，Graphiti 是需要独立图数据库与模型服务的时态知识图谱框架，Generative Agents 则是 2023 年论文配套的研究模拟器。许可证允许借鉴或复用不等于适合直接引入；若后续复制代码，仍须按 本文件 §10.1 记录来源、许可证与修改。
 
 ### 7.1 当前基线与总判断
 
@@ -472,28 +415,52 @@ Package 15 又补充了“观察者只看已提交 partial”的实现：按 100
 
 建议先把前三行用于已存在问题的修复设计和回归，再验证面向用户的提醒、阅读及拍题体验。多模型路由、`codemode`、多 Agent 只在明确场景和对照收益成立后投入。没有证据支持为了本轮上游变化更换 SQLite、引入 JSONL 第二真源、复制 Cordis 全插件结构，或立即开放第三方可执行插件。
 
-### 8.6 本次更新的兼容性与验证记录
+### 8.6 兼容性证据边界
 
-DSH 的 `packages/core/agent`、`packages/core/agent-loop` 路径与 `./lib/index.js` 入口仍在；runner 关注的 `AgentRegistry`、`assembleContextFor`、`emitAgentEvent`、`installModelSelection` 仍在源码导出面。成功结果的 `concludesTurn` 仍采用 any 语义，思隅保留 Adapter 对混合批次的严格收紧。同步修改 DSH 固定 SHA、runner 的版本/握手 SHA 与既有测试断言，没有引入上游代码依赖。
+此轮复评是固定 SHA 的源码/测试阅读与 Aervox 自身回归，不是新 SHA 下真实 DSH 库内构建、完整 Cordis 回合、pi durable 聊天或 AstrBot 跨平台沙箱验证。保留旧 node_modules/lib 的条件加载不能作为新 SHA 构建证明；Aervox 兼容端点测试只证明自身协议骨架。DSH `concludesTurn` 的上游 any 语义仍需由 Adapter 按混合批次收紧。
 
-[参考探测](../../packages/host-agent/src/dsh-reference.ts)读取父仓已提交的 gitlink，因此提交前代码门禁在与待提交 DSH 代码/gitlink 一致的临时 Git 对象视图中验证，保留正常 SHA 检查。该视图不移动分支 HEAD、不更改产品探测规则；使用 `TURBO_ENV_MODE=loose` 将临时 Git 视图传到测试子进程，显式关闭外部 DSH 模型调用，完成后删除临时替换引用。首轮严格环境过滤掉该视图，导致旧 HEAD 与新常量不匹配；这次环境问题不计作代码通过。
-
-本地 `mise tasks run ci-code` 全量通过：构建 18/18、类型检查 29/29、测试 27/27 任务，Host Agent 为 94 通过、1 条件跳过；`mise tasks run ci-docs` 全量通过：治理 33/33、队列 9/9、81 文件 Markdownlint/Vale 与严格治理通过，保留原有 ITER-005 的 S5 依赖次序提示。三份最终子模块工作树均干净，SHA 与清单一致；pi 收尾三笔增量为参考源码，不参与思隅构建。最终状态回填再经文档增量门禁。上游仅完成源码/测试阅读；未运行新的 DSH 库内构建、完整 Cordis 回合、pi durable 聊天或 AstrBot 跨平台沙箱。本地保留此前已有的 `node_modules/lib`，条件库加载烟测不计作新 SHA 的构建证明。Aervox runner 的本地兼容端点测试只证明自身协议骨架，不能视为真实 DSH 工具循环、审批、恢复均兼容。
-
-如需回退，恢复本节表中的旧 gitlink，同时恢复 DSH 常量、runner manifest 和参考登记；无需改动业务数据库。历史 CR/教程中的旧 SHA 保留为当时的设计证据，并明确链接当前复评。
+上游回退须一起恢复 gitlink、DSH 常量、runner manifest 与参考清单，不修改业务数据库；具体构建环境和测试日志保留在对应 PR/Git 证据中。
 
 ## 9. 参照
 
-- [PRD §15 参考项目与借鉴边界](../reference/PRD.md#15-参考项目与借鉴边界)、[§15.1 参考实现要求](../reference/PRD.md#151-参考实现要求)
-- [文档索引 §6 参考项目](../README.md#6-参考项目)
+- [上游借鉴边界](#reference-manifest)、[参考实现要求](#101-参考实现要求)
+- [文档索引](../README.md)
 - [SQLite 本地单用户数据库契约](../reference/DATABASE.md)
-- [能力注册表](../reference/capability-registry.md)（AVX-CAP-REG-001）
+- [能力追踪](../reference/REQUIREMENTS_TRACEABILITY.md#capability-delivery)
 - [Agent Harness Loop 设计与落地规范](../reference/agent-harness-loop.md)（AVX-HAR-001）
-- DeepSeek Harness 固定 commit `639ed015397290b3745d163aafe02ffee4aa3f84`（MIT，仅以 `DSH-01` 借鉴 Agent Loop 设计，不作为运行时依赖）
-- pi 固定 commit `5257d0d5f3ab7d42550804f32c67a77b49f485d4`（MIT，仅以 `PI-01` 借鉴 Agent Harness 设计，不作为运行时依赖）
-- BaiShou-Next 固定 commit `d95bae0f6f3184a94bbc3a77eb71ca987bfcadba`（AGPLv3，仅参考设计，不复制源码）
-- AstrBot 固定 commit `b53999e959cfc3b71d7b74713ddee837be843fcb`（AGPLv3，仅参考设计，不复制源码）
-- Petra 固定 commit `b629b295b5ae535d80e09cd59bd3d515bcd8150f`（MIT，复制代码需记录来源与版权声明）
 - [Letta Code 官方仓库](https://github.com/letta-ai/letta-code)与[上下文架构说明](https://github.com/letta-ai/letta-code/blob/main/src/agent/prompts/letta.md)（Apache-2.0；品牌资产除外；本次只作 Harness 设计参照）
 - [Graphiti 官方仓库](https://github.com/getzep/graphiti)与[quickstart](https://github.com/getzep/graphiti/tree/main/examples/quickstart)（Apache-2.0；本次只作时态事实与检索设计参照）
 - [Generative Agents 原始论文](https://arxiv.org/abs/2304.03442)与[官方配套仓库](https://github.com/joonspk-research/generative_agents)（Apache-2.0；本次只作行为闭环与消融设计参照）
+
+<a id="reference-manifest"></a>
+
+## 10. 上游版本与许可证清单
+
+以下项目作为固定版本的可选代码参考登记在仓库 `reference/`。它们用于验证设计假设和寻找实现模式，不代表产品必须复制其架构、交互或许可策略。
+
+| 项目 | 参考方向 | 纳入本产品的启发 | 明确不照搬 |
+|---|---|---|---|
+| [BaiShou-Next](https://github.com/foxletters-hq/BaiShou-Next) | 本地优先的 AI 记忆陪伴；Markdown/SQLite 数据；RAG 与全文检索；日记和分层总结；多工作区；导入导出 | 将学习记忆设计为用户可见、可编辑、可删除的数据；建立临时、短期、长期、系统四段记忆及来源链；借鉴每日记录、工作区隔离和备份恢复思路 | 不把生活日记、情感记忆和学习记忆混为一体；不在 MVP 引入完整 RAG、完整日记总结金字塔或多伙伴系统；不把“记住更多”作为情感依赖目标 |
+| [dsh-synapse](https://github.com/liangmianya/dsh-synapse) | DSH Web 插件；会话地图；原生 session fork；工作区映射；流式投影；画布布局元数据与会话日志分离 | P1 探索会话地图、追问分支和替代解法；让业务会话系统拥有消息和权限，地图只保存节点位置、分支锚点和展示状态；参考原生会话与可视化视图双向同步 | 不把画布作为第二套会话源；不在 MVP 引入无限画布、跨用户协作或插件依赖；不允许可视化层绕过原生权限和删除规则 |
+
+<a id="prd-reference-manifest"></a>
+
+### 10.1 参考实现要求
+
+本次评审使用的固定清单（DSH、pi、AstrBot 于 2026-09-29 按上游默认分支更新；区间差异与实际验证见[参考设计复评](#upstream-20260929)，固定参考头不代表真实外部运行时已通过集成验收）：
+
+| 本地路径 | 上游项目 | 固定 commit | 许可证 | 复核日期 |
+|---|---|---|---|---|
+| `reference/baishou-next` | BaiShou-Next | `d95bae0f6f3184a94bbc3a77eb71ca987bfcadba` | AGPLv3 | 2026-08-24 |
+| `reference/dsh-synapse` | dsh-synapse | `a323f76b0c47ffad59194d8ac7efacb3aa6bdfba` | MIT | 2026-08-24 |
+| `reference/deepseek-harness` | DeepSeek Harness | `639ed015397290b3745d163aafe02ffee4aa3f84` | MIT | 2026-09-29 |
+| `reference/pi` | pi monorepo | `5257d0d5f3ab7d42550804f32c67a77b49f485d4` | MIT | 2026-09-29 |
+| `reference/AstrBot` | AstrBot | `b53999e959cfc3b71d7b74713ddee837be843fcb` | AGPLv3 | 2026-09-29 |
+| `reference/Petra` | Petra | `b629b295b5ae535d80e09cd59bd3d515bcd8150f` | MIT | 2026-08-26 |
+
+- 参考仓库的行为和 API 只能通过固定 commit 复核，升级时需记录变更原因和回归结果；
+- 任何从参考项目复制或改写的代码，都必须在实现设计中记录文件来源、版权声明和许可证影响；
+- BaiShou-Next 与 AstrBot 当前均采用 AGPLv3。除非完成许可证评审并接受网络服务开源义务，否则只借鉴公开设计和数据模型，不直接复制其代码或形成链接依赖；
+- dsh-synapse 当前采用 MIT，可作为较低风险的交互和插件实现参考，但仍需独立检查其对 DSH 版本、Node.js 版本和 Web profile 的依赖；
+- Petra 当前采用 MIT，可作为较低风险的表现与交互实现参考，但仍需独立检查其对 Tauri、pixi.js 版本与 Windows 平台的依赖；
+- 参考项目不是本产品的运行时依赖。MVP 的核心学习流程必须在不安装 BaiShou-Next、AstrBot 或 dsh-synapse 的情况下正常运行。

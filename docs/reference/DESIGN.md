@@ -1,20 +1,10 @@
 ---
 id: AVX-DS-001
-type: reference
-scope: baseline
-owner: maintainers
-doc_status: approved
-decision_status: not-applicable
-delivery_status: not-applicable
-version: 1.0.0
-updated_at: 2026-09-17
-reviewed_at: 2026-09-17
-review_interval_days: 90
 ---
 
 # Aervox 视觉系统与设计规范 (Design System & Tokens)
 
-关联：[架构设计说明书](ARCHITECTURE.md)、[能力注册表](capability-registry.md)、[需求追踪与交付标准](REQUIREMENTS_TRACEABILITY.md)
+关联：[架构设计说明书](ARCHITECTURE.md)、[能力注册表](REQUIREMENTS_TRACEABILITY.md#capability-delivery)、[需求追踪与交付标准](REQUIREMENTS_TRACEABILITY.md)
 
 ---
 

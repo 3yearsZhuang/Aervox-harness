@@ -1,106 +1,20 @@
-# AGENTS.md — AI 协作指南（薄入口）
+# AGENTS.md — 协作入口
 
-本文件是所有 AI 编码助手（包括 Antigravity、Cursor、GitHub Copilot、Roo Code、Windsurf 等）的进入点与协作底线协议：
-**只索引，不复制**：权威技术规范、产品定义与架构事实源一律深链至 `docs/`，严禁在入口复制可能变更的业务逻辑，杜绝双源漂移。
-当前迭代从根目录 [plan.md](plan.md) 开始：它是项目当前迭代建议、排序、依赖与待决策事项的唯一权威入口。长期维护规则见[迭代计划治理](docs/reference/document-governance.md#31-当前迭代计划的唯一入口)，需求、架构决策与交付证据仍按各自事实源维护。
-详细协作指南见 [从哪开始](docs/getting-started.md)（新成员与 Agent 完整 onboarding）、[文档治理规范](docs/reference/document-governance.md) 与 [文档写作规范](docs/reference/standards/doc-standards.md)。
+按任务取读，不要求通读文档。当前迭代与依赖见 [plan.md](plan.md)，用户当次指令优先；计划中的建议不构成执行授权，已有授权无需重复确认。
 
----
+## 寻路
 
-## 1. 这是什么仓库（架构现状速览）
+- 环境与首次运行：[从哪开始](docs/getting-started.md)。
+- 开发、写作和验证：[贡献指南](CONTRIBUTING.md)。
+- 产品范围、需求、架构及专项契约：[文档导航](docs/README.md)。
+- 重大架构、权限或数据责任决定：[ADR](docs/reference/adr/README.md)。
 
-Aervox｜思隅：更好上手的“主动智能” Agent——以桌宠为入口，视觉小说 + 工作台双形态交互，承载陪伴与学习双重任务。
+## 协作底线
 
-- **技术族**：TypeScript 全栈 monorepo（Vue 全栈单栈，[ADR-015](docs/reference/adr/ADR-015-vue-full-stack.md)）：Fastify 5 API（:3000）+ 独立 Worker 进程（Outbox / 复习排期 / 日记提炼 / 证据清理）+ Electron 桌面端（Fairy）+ Vue 3 Web 工作台（:5173）。
-- **存储真源**：纯本地单用户真源（`CR-030`，已归档），本地 SQLite（WAL 模式）存储，物理文件拓扑见 [SQLite 数据库契约](docs/reference/DATABASE.md#3-本地存储拓扑)。去租户化已完全落地，全面移除了历史 Postgres、Redis、BullMQ 和 S3 依赖。
-
----
-
-## 2. AI 必读与寻路顺序（按需取读，不必通读）
-
-在执行具体任务前，请按需顺着权威事实源树状深入，严禁仅凭猜测进行编码或修改：
-
-先读 [plan.md](plan.md) 确认当前条目与依赖；用户当次指令优先，计划不构成对所有建议的执行授权，也不要求对已经授权的工作重复确认。新增、改序、暂停和完成移交按[计划维护规则](docs/reference/document-governance.md#31-当前迭代计划的唯一入口)更新（改队列真源 `docs/_meta/plan-queue.json` 后运行 `mise tasks run plan-render`，不要手改 §2 生成区），同一迭代不要另建 `TODO.md`、`roadmap.md` 或工具私有计划作为并行权威。
-
-1. **宏观上下文与目录全景**：
-   - [docs/README.md](docs/README.md) — 8 大主题域分类索引与事实源权威顺序；
-   - [从哪开始](docs/getting-started.md) — 仓库目录组织、阅读流向、写作硬规则与 Docs CI 自检。
-2. **规范、契约与红线**：
-   - [文档治理与事实源规范](docs/reference/document-governance.md) — 事实源矩阵、文档状态模型、所有权与复核触发器；
-   - [文档写作规范](docs/reference/standards/doc-standards.md) — Diátaxis 四分类、Front Matter 规范、Git 留痕与 Markdownlint 规则；
-   - [术语表](docs/reference/standards/terminology.md) — 大小写规范与禁写词库（Vale 门禁基准）。
-3. **架构与业务核心真源**：
-   - [架构设计说明书](docs/reference/ARCHITECTURE.md) & [ADR 决策索引](docs/reference/adr/README.md) — 模块化单体边界、C4 模型与关键技术裁决；
-   - [产品需求 PRD](docs/reference/PRD.md) & [能力注册表](docs/reference/capability-registry.md) — 业务功能定义与 CAP 能力验收准则；
-   - [SQLite 数据库契约](docs/reference/DATABASE.md) — 数据模型拓扑、仓储层职责与变更流程；
-   - [需求追踪与交付标准](docs/reference/REQUIREMENTS_TRACEABILITY.md) — CAP 覆盖矩阵与落地登记。
-4. **高频实战操作指南**（遇到具体开发流转时查阅）：
-   - [提出与闭环 CR 指南](docs/how-to/cr-workflow.md) (`AVX-GUIDE-005`) — 针对架构性改动的变更流程；
-   - [SQLite 换库与回滚演练](docs/how-to/run-database-migration-drill.md) (`AVX-GUIDE-006`) — 数据库破坏性迁移演练；
-   - [新增 CAP 业务能力](docs/how-to/add-capability.md) (`AVX-GUIDE-007`) — 端到端立项与规格化新业务能力。
-
----
-
-## 3. 硬性开发约束（违反即打回）
-
-以下规则为全仓库不可妥协的硬约束，任何违反都会在自动化门禁或人工 Code Review 中被直接拒绝：
-
-- **工具链唯一真源**：工具版本以 [mise.toml](mise.toml) 为唯一真源（Node 24 / pnpm 11 / Vale 3.18 / markdownlint-cli2 0.23.3）。严禁使用系统全局不受控的 Node 执行 `.ts` 脚本，统一运行 `./aervox <cmd>` 或 `mise exec -- <cmd>`；**Markdown 门禁必须用 `mise` 注入的 `markdownlint-cli2`，严禁 `npx` 现取**（不受版本约束，且 `~/.npm/_npx` 缓存锁残留会让整条门禁失败）。
-- **纯本地单用户数据隔离**：CR-030 已全面去租户化。严禁在代码或契约中引入 `tenantId`、`TenantContext` 等多租户隔离概念，统一使用本地上下文 `LocalContext`。
-- **SQLite / LibSQL 事务与读写一致性**：
-  - 所有数据写入操作必须通过“写者连接”执行；
-  - 由于 SQLite WAL 模式的快照隔离特性，事务提交后其它连接存在读快照滞后，测试用例断言必须使用写者连接自身；
-  - 事务内严禁嵌套，严禁在事务内执行耗时 I/O 或长时间持锁；libsql 0.4.x 事务在 BEGIN 阶段不会自动重试（详见 [ADR-003](docs/reference/adr/ADR-003-postgres-retrieval.md) 与 `packages/repositories`）。
-- **统一依赖治理**：新增依赖一律在根目录执行 `pnpm add -w <pkg>`（开发依赖 `-Dw`），严禁进入各个子包目录单独安装，坚决防止依赖版本分裂与幽灵依赖。
-- **中间件与异步流**：Fastify 路由与中间件一律采用 `async/await`，严禁使用回调函数；中间件重构期间禁止随意修改路由文件。
-- **OpenAPI 契约生成规范**：`zod-to-openapi` 固定版本为 v9，统一使用 `OpenApiGeneratorV31`（禁止使用 `generateDocument`）；在定义任何 Zod schema 之前，必须确保已调用 `extendZodWithOpenApi(z)`，否则 `.openapi()` 元数据注入失效。
-- **文档架构与精益维护**：
-  - 严格捍卫 Diátaxis 文档架构体系（Tutorials / How-to / Reference / Explanation 各司其职，不跨层混写）；
-  - 文档作者与修改日期完全由 Git 追踪，免除正文手工维护点阵签名（`- 修改人：`）；
-  - 结构性变更（增删文档、路径迁移、编号变更）须同步 [docs/README.md](docs/README.md) 与 [docs/DOC_REGISTRY.md](docs/DOC_REGISTRY.md)；日常修改可运行 `mise tasks run docs-sync` 自动对齐注册表日期。
-- **Markdownlint 与 Vale 排版红线**：
-  - 在列表项内书写代码块（Code Fence）时，代码块前后**必须各保留一行空行**，否则会触发 MD031 / MD032 语法门禁中断；
-  - 正文散文中严禁使用全小写专有名词（如 `sqlite`、`vue`、`electron`、`fastify`、`zod` 等），必须严格使用规范大小写（如 `SQLite`、`Vue`、`Electron`）或用反引号包裹代码标识符（见 [术语表](docs/reference/standards/terminology.md)）。
-- **代码即契约与敏捷交付凭证**：
-  - 代码与功能交付以**自动化测试用例全绿、代码规范与 PR 审查**为最终交付事实源；严禁在 Markdown 表格中人肉抄写终端测试运行日志；
-  - 核心能力推进直接在 [PRD.md](docs/reference/PRD.md) 与 [追踪基线 §4](docs/reference/REQUIREMENTS_TRACEABILITY.md#4-cap-001cap-035-覆盖矩阵全部能力状态唯一速览) 能力矩阵中更新；
-  - 历史阶段性流水账与已交付变更（CR-002~059）外迁至专用归档仓库 `Aervox-docs-archive`，主仓仅保留现行真源（Living System Truth）。
-- **当前迭代计划维护**：任务开始、范围/依赖变化及交付时同步队列真源 `docs/_meta/plan-queue.json` 并重新渲染 [plan.md](plan.md)（`mise tasks run plan-render`）；计划单元格只保留核心切片与验收指标，不堆砌大段测试运行日志。完成项直接关联 PR 证据。
-- **Git 功能分支工作流**：
-  - 严禁直接向 `main` 分支提交或推送代码；
-  - 所有变更必须按 `feat/`、`fix/`、`docs/` 前缀创建功能分支，提交前本地通过双门禁，经由 Pull Request 审查后合入 `main`。
-- **提交署名与贡献者身份**：严禁任何 AI 代理或工具在提交信息、PR 或文档中将自身列为贡献者/共同作者——提交信息禁止 `Co-authored-by` AI 署名（如 `CommandCodeBot`、`Claude`、`Codex` 等），贡献者身份只保留真人账号；发现历史混入须清理，且不得在后续提交中复现。
-
----
-
-## 4. AI 常用命令与工具箱速查
-
-| 场景 | 推荐命令 | 说明 |
-| ---------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| 极速增量门禁 | `./aervox ci` 或 `mise tasks run ci-fast` | 本地推荐：CI 配置一致性 + 仅对变更包及下游（含包外输入命中包）运行边界/构建/测试 + 文档增量检查（15~30s） |
-| 全量终审门禁 | `./aervox ci all` | 全量兜底：全量 workspace 构建/类型/测试 + 全量文档严格检查（PR 推送前终验） |
-| 增量代码门禁 | `mise tasks run check-affected` | 仅运行变更包及其下游的依赖边界检查 + 构建 + 类型检查 + 增量测试 |
-| 增量文档门禁 | `mise tasks run docs-lint-affected` | 仅对 Git 变动的 Markdown 文档执行 Vale + Markdownlint + 治理校验 |
-| 智能增量测试 | `./aervox test` 或 `mise tasks run test-affected` | 自动识别基准分支并仅运行变更包及其全部下游依赖（日常高频推荐，受控 2 并发） |
-| 极速单元层 | `./aervox test fast` 或 `mise tasks run test-fast` | 仅运行不建库、不起服务的 9 个轻量包（纯逻辑 + DOM 组件测试，约 3~10s） |
-| 全量受控测试 | `./aervox test all` 或 `mise tasks run test` | 全量 workspace 测试（受控 2 并发 + 单 Worker 串行，限制资源竞争；写入仍须处理 SQLite 锁冲突） |
-| 专项单包测试 | `./aervox test api` / `./aervox test repos` | 针对重型核心包运行独立定向测试（已接入 SQLite 模板克隆加速） |
-| E2E 测试 | `mise x -- pnpm test:e2e` | Playwright API 级端到端（spawn 真实 API 进程 + 文件 SQLite，45 用例约 45s，需先构建 api）；CI 中以观察期非阻塞运行 |
-| 格式化修复 | `mise exec -- markdownlint-cli2 --fix <files>` | 自动修复 Markdownlint 可自愈的排版问题 |
-| 术语检查 | `vale --minAlertLevel=error <files>` | 针对指定文件执行 Vale 散文与术语一致性检查 |
-| 注册表自动同步 | `mise tasks run docs-sync` | 自动从文档 Front Matter 读取日期并回写 `docs/DOC_REGISTRY.md` |
-| 计划队列渲染 | `mise tasks run plan-render` | 从 `docs/_meta/plan-queue.json` 重新生成 `plan.md` §2 的派生表格（生成区禁止手改） |
-| 计划队列校验 | `mise tasks run plan-check` | 校验队列结构、依赖、在制并发与“状态—证据”一致性；已接入文档治理，强制级别 `error`（H1–H6 与 S1–S4 阻断，S5 提示） |
-| 机器目录生成 | `mise tasks run docs-catalog` | 重新生成标准化全量元数据 `docs/_meta/document-catalog.json` |
-| 变更触发器排查 | `mise tasks run docs-triggers` | 比对 Git 改动与各文档触发规则，排查待联动复核文档 |
-| 插件分发包生成 | `mise tasks run package-plugins` | 重建 gitignore 产物 `dist-plugins/*.aervox-plugin`；冷检出后的声明恢复入口（测试不得依赖该目录） |
-| 清理工作区 | `./aervox clean` | 清理编译产物与 Turborepo 缓存（保留 node_modules） |
-
----
-
-## 5. 需要介入时的处理路径
-
-在协作过程中若遇到以下情况，请遵循 [从哪开始 §5](docs/getting-started.md#5-需要介入时) 标准升级流程：
-
-- **文档冲突 / 架构分歧**：若两份权威文档产生矛盾，以 `PRD.md`（业务范围）与 `ARCHITECTURE.md`（架构技术选型）为优先事实源，并向维护者提出澄清；
-- **重大设计变更**：如需推翻或修正已批准的 ADR / 架构基线，必须先建立 `CR-###` 变更提案（遵循 [CR 工作流指南](docs/how-to/cr-workflow.md) 与 [追踪基线 §11](docs/reference/REQUIREMENTS_TRACEABILITY.md#11-变更控制)），禁止在未经评审的日常分支中直接更改架构核心。
+- 使用 [mise.toml](mise.toml) 锁定的工具链，通过 `./aervox` 或 `mise exec --` 运行命令；依赖统一在仓库根安装。
+- 遵守现行本地单用户、数据所有权和依赖边界；不得重新引入租户隔离。具体合同以文档导航所指真源为准。
+- 普通修复提交代码、必要测试和 PR；行为变化更新对应契约，重大决定进入 ADR。无需为普通修改创建计划条目或额外文档。
+- 需要协调的迭代直接编辑 `plan.md`，保留依赖、未决事项与证据；不创建并行权威队列。
+- 在 `feat/`、`fix/` 或 `docs/` 分支工作，经 PR 审查合入；禁止直接向 `main` 提交或推送。保留他人的工作，不把并行变更纳入自己的提交。
+- 贡献者署名仅保留真人账号，提交、PR 和文档不得添加 AI 共同作者或贡献者署名。
+- 如权威合同冲突，先定位差异并澄清受影响决定；验证结果、实现完成与正式发布分别陈述。

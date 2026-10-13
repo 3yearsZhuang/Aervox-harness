@@ -1,21 +1,6 @@
 ---
 id: ADR-018
-type: reference
-scope: decision
-owner: product-platform
-doc_status: review-candidate
 decision_status: accepted
-delivery_status: planned
-version: 0.2.1
-updated_at: 2026-10-10
-reviewed_at: 2026-10-10
-review_interval_days: 60
-sources:
-  - docs/explanation/proactive-intelligence-mode.md
-  - docs/reference/DATA_PRIVACY.md
-  - docs/reference/THREAT_MODEL.md
-  - docs/reference/DATABASE.md
-  - docs/reference/adr/ADR-009-electron-plugin-sandbox.md
 ---
 
 # ADR-018 CAP-033 本地私密存储与主动智能 Host
