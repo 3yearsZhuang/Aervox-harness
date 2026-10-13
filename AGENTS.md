@@ -86,6 +86,7 @@ Aervox｜思隅：更好上手的“主动智能” Agent——以桌宠为入�
 | 全量受控测试 | `./aervox test all` 或 `mise tasks run test` | 全量 workspace 测试（受控 2 并发 + 单 Worker 串行，限制资源竞争；写入仍须处理 SQLite 锁冲突） |
 | 专项单包测试 | `./aervox test api` / `./aervox test repos` | 针对重型核心包运行独立定向测试（已接入 SQLite 模板克隆加速） |
 | E2E 测试 | `mise x -- pnpm test:e2e` | Playwright API 级端到端（spawn 真实 API 进程 + 文件 SQLite，45 用例约 45s，需先构建 api）；CI 中以观察期非阻塞运行 |
+| 浏览器级 UI E2E | `mise x -- pnpm test:e2e:ui` | Playwright chromium 浏览器级回归（e2e-ui/：窄屏抽屉、跨会话草稿、焦点归还；真 API + Vite dev server，需先构建 api） |
 | 格式化修复 | `mise exec -- markdownlint-cli2 --fix <files>` | 自动修复 Markdownlint 可自愈的排版问题 |
 | 术语检查 | `vale --minAlertLevel=error <files>` | 针对指定文件执行 Vale 散文与术语一致性检查 |
 | 注册表自动同步 | `mise tasks run docs-sync` | 自动从文档 Front Matter 读取日期并回写 `docs/DOC_REGISTRY.md` |

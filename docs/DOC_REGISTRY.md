@@ -100,4 +100,4 @@ review_interval_days: 90
 - 每份文档创建/改版时，按上一条分级在此登记或更新对应条目（编号、核验日期、陈旧信号）；
 - 新增文档按[文档治理规范 §4](reference/document-governance.md#4-元数据和状态模型)标注元数据，并按[文档写作规范](reference/standards/doc-standards.md)维护标题、签名与体例；
 - 核验时更新 `最后核验` 日期；长期未核验或陈旧信号命中时按[更新与评审节奏](README.md#4-更新与评审节奏)处置。
-| `CR-063` | [CR-063 根界面插件与薄平台宿主](reference/changes/CR-063-ui-surface-plugins.md) | 2026-10-12 | 根界面装配、平台适配或生命周期改变时 | 实现与受信装配及恢复合同不一致 |
+| `CR-063` | [CR-063 根界面插件与薄平台宿主](reference/changes/CR-063-ui-surface-plugins.md) | 2026-10-13 | 根界面装配、平台适配或生命周期改变时 | 实现与受信装配及恢复合同不一致 |

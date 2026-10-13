@@ -1195,8 +1195,39 @@
       ],
       "owner": "frontend",
       "branch": "feat/ui-surface-experience",
-      "statusNote": "根界面实现迁移及装配合同实施中；2026-10-12 与 ITER-053 前端体验分支合并至 feat/ui-surface-experience；原生移动验收、独立安装和业务面板细拆留后续切片。",
+      "statusNote": "根界面实现迁移及装配合同实施中；2026-10-12 与 ITER-053 前端体验分支合并至 feat/ui-surface-experience；2026-10-13 面板细拆已由 ITER-055 落地（panels-ui），原生移动验收与独立安装仍留后续。",
       "dependsOn": [],
+      "links": [
+        "docs/reference/changes/CR-063-ui-surface-plugins.md"
+      ]
+    },
+    {
+      "id": "ITER-055",
+      "batch": "first",
+      "status": "待评审",
+      "delivery": "界面插件化二阶段：UISurfaceManifest 清单契约与宿主校验、加载骨架与退避重试、宠物降级链（PetWithFallback）、浏览器级 E2E、五块设置面板迁入 panels-ui、设计令牌单源、紧凑工作台多根界面试验田；修复 workbench 出口主题链缺失；CAP-001/002/018/020；CR-063。",
+      "gate": "2026-10-13 用户授权按建议一次性完成第一波与第二波迭代；保持受信构建输入口径，不引入第三方运行时代码与后端契约变更。",
+      "acceptance": [
+        "宿主装配前按清单校验版本/平台/能力并给出结构化失败原因，契约拒绝不自动重试，瞬时故障按退避表自动重试后可手动恢复",
+        "窄屏抽屉、跨会话草稿、设置焦点归还三条浏览器级回归在 Playwright chromium 下通过",
+        "设置五分类面板经 settings:panel:<category> 槽位渲染，panels-ui 移除后宿主仍可构建（共享包不反向依赖插件）",
+        "设计令牌 --avx-* 单源且明暗主题值与迁移前一致；紧凑变体经组合根选择可挂载且无侧栏"
+      ],
+      "checks": [
+        "packages/ui-host/test/surface-host.test.ts",
+        "packages/ui-host/test/resolve-surface.test.ts",
+        "packages/ui/test/pet-fallback.test.ts",
+        "plugins/panels-ui/test/llm-config-panel.test.ts",
+        "plugins/workbench-ui/test/workbench-surface.test.ts",
+        "mise x -- pnpm test:e2e:ui"
+      ],
+      "owner": "frontend",
+      "branch": "feat/ui-surface-experience",
+      "statusNote": "2026-10-13 六个条目一次性落地；E2E 发现并已修复 CR-063 主题装配缺口（workbench-all.css）；真实模型端到端与视觉走查未声明。",
+      "dependsOn": [
+        "ITER-053",
+        "ITER-054"
+      ],
       "links": [
         "docs/reference/changes/CR-063-ui-surface-plugins.md"
       ]

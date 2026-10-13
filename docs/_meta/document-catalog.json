@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-12",
+  "generatedAt": "2026-10-13",
   "totalCount": 71,
   "documents": [
     {
@@ -1122,10 +1122,10 @@
       "owner": "frontend",
       "doc_status": "review-candidate",
       "decision_status": "accepted",
-      "delivery_status": "planned",
-      "version": "0.1.0",
-      "updated_at": "2026-10-12",
-      "reviewed_at": "2026-10-12",
+      "delivery_status": "implemented",
+      "version": "0.2.0",
+      "updated_at": "2026-10-13",
+      "reviewed_at": "2026-10-13",
       "review_interval_days": 90,
       "review_triggers": [],
       "sources": [
@@ -1282,7 +1282,7 @@
         "packages/ui/src/registry/**",
         "packages/ui/src/plugins/**",
         "packages/ui/src/components/extension/**",
-        "packages/ui/src/components/plugin/**",
+        "plugins/panels-ui/src/plugin/**",
         "packages/ui/src/composables/workbench-context.ts",
         "apps/api/src/modules/ecosystem/plugins/**",
         "apps/api/src/modules/ecosystem/tools/**",

@@ -18,7 +18,7 @@ review_triggers:
   - packages/ui/src/registry/**
   - packages/ui/src/plugins/**
   - packages/ui/src/components/extension/**
-  - packages/ui/src/components/plugin/**
+  - plugins/panels-ui/src/plugin/**
   - packages/ui/src/composables/workbench-context.ts
   - apps/api/src/modules/ecosystem/plugins/**
   - apps/api/src/modules/ecosystem/tools/**
@@ -203,7 +203,7 @@ Page 元数据为 `id/title/description/entry/capabilities/checksum`。`id` 最�
 
 ### 3.2 已有防护与未完成边界
 
-[PluginPageDialog](../../packages/ui/src/components/plugin/PluginPageDialog.vue)使用 `sandbox="allow-scripts allow-forms allow-downloads"`，未授予 `allow-same-origin`；资源响应设置 CSP：默认拒绝、脚本和样式允许本地及内联、图片允许本地及 `data:`、`connect-src 'none'`、`form-action 'none'`，另有 `nosniff/no-store/no-referrer`。这些是浏览器页面约束，不是 OS 进程沙箱。
+[PluginPageDialog](../../plugins/panels-ui/src/plugin/PluginPageDialog.vue)使用 `sandbox="allow-scripts allow-forms allow-downloads"`，未授予 `allow-same-origin`；资源响应设置 CSP：默认拒绝、脚本和样式允许本地及内联、图片允许本地及 `data:`、`connect-src 'none'`、`form-action 'none'`，另有 `nosniff/no-store/no-referrer`。这些是浏览器页面约束，不是 OS 进程沙箱。
 
 [BundleStore](../../apps/api/src/modules/ecosystem/plugins/bundle-store.ts)检查相对资源路径与词法目录包含关系；尚未检查真实路径/符号链接，也不会拒绝所有未知扩展名。作者禁止链接文件、路径逃逸、远程资源和动态下载代码；服务端不能把这条作者规则当作已实现的隔离证明。
 

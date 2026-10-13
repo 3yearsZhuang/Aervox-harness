@@ -5,10 +5,10 @@ scope: change
 owner: frontend
 doc_status: review-candidate
 decision_status: accepted
-delivery_status: planned
-version: 0.1.0
-updated_at: 2026-10-12
-reviewed_at: 2026-10-12
+delivery_status: implemented
+version: 0.2.0
+updated_at: 2026-10-13
+reviewed_at: 2026-10-13
 review_interval_days: 90
 sources:
   - docs/reference/ARCHITECTURE.md
@@ -38,3 +38,19 @@ sources:
 验证替代根组件真实渲染、平台与版本不匹配拒绝、加载失败重试、加载超时、旧加载迟到、卸载取消与多窗口实例隔离；复用工作台与桌宠回归，构建 Web 与桌面产物并运行完整代码和文档门禁。共享包不得反向依赖插件或宿主，插件只使用公共包出口。
 
 失败时保留宿主提示与重试入口，旧实例不得覆盖当前界面。回退本次代码与锁文件即可恢复原入口，无数据迁移。Vue 错误边界不承担第三方权限隔离或同步死循环防护，独立安装与升级回滚仍需后续合同。
+
+## 4. 修订记录
+
+### 2026-10-13 · v0.2.0 二阶段切片（ITER-055，feat/ui-surface-experience）
+
+用户授权按迭代建议一次性完成第一波（收口与硬化）与第二波（结构深化）：
+
+- **清单契约化**：`UISurfacePlugin` 升级为显式 `UISurfaceManifest`（`displayName`/`description`/`requires.hostApiVersion`/`requires.capabilities`），`defineUISurface()` 构建期 fail-fast；宿主装配前校验并输出结构化失败原因（`data-failure-reason`），契约类拒绝不自动重试。
+- **加载体验**：宿主加载态改为结构骨架屏（遵循 `prefers-reduced-motion`）；加载失败/超时按 800ms→2400ms 退避自动重试，手动「重新打开」重置重试链；新增 `PetWithFallback` 桌宠降级链（Live2D → SpritePet（提供精灵图清单时）→ PetHero），两个根界面统一接入。
+- **浏览器级 E2E**：新增 `e2e-ui/` 与 `playwright.ui.config.ts`（独立于 API 级 `playwright.config.ts`），覆盖窄屏抽屉焦点归还、跨会话草稿保留、设置弹层焦点归还三条回归（chromium，真 API + Vite dev server）。
+- **集成缺口修复**：E2E 发现 `@aervox/ui/workbench` 出口未装配主题链（遮罩/抽屉/设置样式缺失），新增 `theme/workbench-all.css` 由出口统一装载。
+- **面板细拆**：模型/本地模型/人格/语音/插件管理五块设置面板（22 组件 + 6 测试文件）迁入 `@aervox/plugin-panels-ui`；设置弹层改经 `settings:panel:<category>` 槽位渲染，面板由组合根以受信构建输入经 `settingsPanels` prop 显式注入，不受插件启停门控；`@aervox/ui` 不再内建具体业务面板。
+- **设计令牌单源**：新增 `theme/tokens.css`（`--avx-*`，明暗双主题），六个主题文件统一消费，令牌值全部提取自既有样式，视觉零变更。
+- **多根界面试验田**：`workbench-ui` 包新增 `compactSurface`（紧凑单栏变体，复用同一工作台根、`variant="compact"`）；`ui-host` 新增 `resolveSurfaceChoice()`，组合根按 `?surface=` / localStorage `aervox.surface.main` 选择根界面；设置外观区提供切换器（重载生效）。
+
+仍未覆盖（留后续切片或另立 CR）：原生移动验收、界面插件独立安装与升级回滚、第三方 UI 插件信任模型、设置面板按需分包懒加载（当前随工作台首包加载）。
