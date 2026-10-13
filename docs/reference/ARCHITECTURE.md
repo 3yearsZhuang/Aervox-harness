@@ -74,6 +74,7 @@ packages/
 plugins/
   workbench-ui/        # 默认工作台根组件；各端复用并注入业务 UI 扩展（CR-063）
   companion-ui/        # 独立桌宠根组件、快捷对话、姿态与样式（CR-063）
+  panels-ui/           # 五块内置设置面板（模型/本地模型/人格/语音/插件管理），经 settings:panel:* 槽位注入（CR-063 二阶段）
   focus-mode/          # 专注模式第一方插件：CAP-002 启发式教学 / CAP-007 概念探索 / CAP-016 现场刷题
                      # 声明（manifest/config/SKILL）与实现（src/server 服务端、src/ui UI 与专属样式）
                      # 内聚于此；实现源码不随 .aervox-plugin 分发包发布（CR-060）
@@ -159,7 +160,7 @@ apps/api/test/                       # 集成测试
 
 ### 3.2 根界面插件与共享 UI
 
-Web、桌面和移动 WebView 由各自组合根选择 `@aervox/plugin-workbench-ui`，通过 `@aervox/ui-host` 加载；独立桌宠窗口选择 `@aervox/plugin-companion-ui`。插件均为受信构建输入，默认产品继续包含 P0 学习与陪伴能力。定义与生命周期详见[插件规范](plugin-config-and-pages.md#04-根界面插件cr-063)。
+Web、桌面和移动 WebView 由各自组合根选择 `@aervox/plugin-workbench-ui`（含紧凑变体 `compactSurface`，组合根按用户选择装配），通过 `@aervox/ui-host` 加载；独立桌宠窗口选择 `@aervox/plugin-companion-ui`。五块内置设置面板（模型/本地模型/人格/语音/插件管理）位于 `@aervox/plugin-panels-ui`，由组合根经 `settingsPanels` prop 注入工作台根并注册进 `settings:panel:*` 槽位。插件均为受信构建输入，默认产品继续包含 P0 学习与陪伴能力。定义与生命周期详见[插件规范](plugin-config-and-pages.md#04-根界面插件cr-063)。
 
 | 层级 | 责任 | 依赖方向 |
 |---|---|---|

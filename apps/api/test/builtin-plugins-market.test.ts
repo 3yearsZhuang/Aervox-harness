@@ -27,10 +27,10 @@ describe("出厂官方插件集市与全量插件打包验证 (Market & Builtin 
 
     for (const dirName of dirNames) {
       const manifestPath = path.join(PLUGINS_SOURCE_ROOT, dirName, "plugin.manifest.json");
-      // CR-063: these two mandatory UI implementations are bundled by the app,
+      // CR-063: these mandatory UI implementations are bundled by the app,
       // not installed/enabled via the declaration marketplace. Unknown directories
       // still require a valid manifest; a missing existing manifest must fail.
-      if (dirName === "workbench-ui" || dirName === "companion-ui") {
+      if (dirName === "workbench-ui" || dirName === "companion-ui" || dirName === "panels-ui") {
         await expect(fs.access(manifestPath)).rejects.toMatchObject({ code: "ENOENT" });
         continue;
       }
