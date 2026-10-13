@@ -256,9 +256,10 @@ onBeforeUnmount(() => {
 }
 .pc-pet-wrap {
   position: relative;
-  width: min(300px, 34vw);
-  height: min(400px, 52vh);
-  transform: translate(-14vw, -5vh);
+  /* 大比例 Live2D：与默认工作台视觉权重对齐，避免舞台主角过小 */
+  width: min(420px, 40vw);
+  height: min(560px, 62vh);
+  transform: translate(-13vw, -7vh);
   pointer-events: auto;
 }
 .pc-pet-status {
