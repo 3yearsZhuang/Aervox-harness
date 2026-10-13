@@ -1,31 +1,10 @@
 ---
 id: AVX-GUIDE-004
-type: how-to
-scope: baseline
-owner: maintainers
-doc_status: review-candidate
-decision_status: not-applicable
-delivery_status: not-applicable
-version: 1.0.2
-updated_at: 2026-10-09
-reviewed_at: 2026-10-09
-review_interval_days: 90
-review_triggers:
-  - plugins/**
-  - apps/api/src/modules/ecosystem/plugins/**
-  - packages/ui/src/registry/**
-  - packages/ui/src/plugins/**
-  - packages/ui/src/components/extension/**
-  - packages/ui/src/composables/workbench-context.ts
-  - scripts/export-plugins.mjs
-sources:
-  - docs/reference/plugin-config-and-pages.md
-  - docs/reference/capability-composition.md
-  - docs/reference/adr/ADR-009-electron-plugin-sandbox.md
-  - docs/reference/adr/ADR-015-vue-full-stack.md
 ---
 
 # 操作指南：开发 Aervox 扩展插件（How-to）
+
+<a id="AVX-TUT-003"></a>
 
 关联：[Aervox 插件开发规范](../reference/plugin-config-and-pages.md)、[能力组合规范](../reference/capability-composition.md)、[ADR-009](../reference/adr/ADR-009-electron-plugin-sandbox.md)、[ADR-015](../reference/adr/ADR-015-vue-full-stack.md)。
 
@@ -378,10 +357,20 @@ mise tasks run ci-docs
 ./aervox ci all
 ```
 
-2026-09-18 本轮核验：上面首条 API 定向命令通过 4 文件 / 23 用例，UI 定向命令通过 2 文件 / 15 用例；这是已有回归的结果，不证明规范中列出的实现缺口已修复，也不替代新功能测试或本次 PR 全量门禁。
-
-本轮也已按 §1 完成 API 及依赖的拓扑构建，并实际连续执行 §2 的文件生成、契约/默认值校验、ZIP 打包和临时数据库验证脚本，得到 `PASS: inspect/install/config/revision-check/page/disable/enable/uninstall`。该结果验证串行旧版本拒绝与 API 闭环；未执行 §2.5 的浏览器人工验证、Token 模式 Page 访问、并发配置写入或真实模型调用。
-
 交付包含：源码与原始 `.aervox-plugin`、目标宿主版本/commit、完整 SHA-256、许可证与第三方依赖来源、权限和数据流说明、实际验证结果、升级/卸载影响及恢复步骤。先核对[规范发布清单](../reference/plugin-config-and-pages.md#9-验证与发布清单)，再在[落地追踪 §4.2](../reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)登记 CAP、位置、日期和验证证据。
 
-覆盖安装先卸载旧版本，会清理配置、Secret 和授权；不可把 `overwrite: true` 当作无损升级。原始包及必要数据副本必须保留，动态插件的当前导出不等于完整备份。源码与规范修改走功能分支/PR；扩大第三方执行权限或改变核心架构先走 CR，不以一份安装包绕过评审。
+覆盖安装先卸载旧版本，会清理配置、Secret 和授权；不可把 `overwrite: true` 当作无损升级。原始包及必要数据副本必须保留，动态插件的当前导出不等于完整备份。源码与规范修改走功能分支/PR；扩大第三方执行权限或改变核心架构先走 ADR，不以一份安装包绕过评审。
+
+<a id="avx-tut-003"></a>
+<a id="agent-tools"></a>
+
+## 6. 添加 Agent 工具
+
+工具通过第一方插件的 `toolContributions` 暴露给宿主。可运行参考为 [focus-mode 注册单元](../../plugins/focus-mode/src/server/index.ts)与[工具贡献](../../plugins/focus-mode/src/server/focus-tools.ts)，契约为 [PluginToolContribution](../../packages/host-plugin-api/src/index.ts)。不要照搬已删除教程中向宿主私有注册表直接注入的示意代码。
+
+1. 在插件中定义 `ToolSpec` 的名称、描述、参数 Schema 与安全等级，写清真实副作用；`readOnly` 影响逐次审批，不能用于规避写入授权。
+2. 在工具 Provider 中验证参数，通过宿主窄接口完成实际操作，不直接导入仓储。检查调用者取消、截止及授权修订，耗时 I/O 保持有界，失败明确返回错误。
+3. 通过 `ServerPluginRegistration.toolContributions(services)` 构造贡献，必要的 `guidance`、结果投影和专用协议归插件所有；注册单元由宿主组合根显式装配。
+4. 工具列表可见性与执行时资格分别验证：停用、缺包、撤权或旧实例不能继续执行。声明和提示词不能替代运行时检查。
+5. 回归覆盖合法输入、非法参数、拒绝审批、停用后调用、取消/超时及结果投影；有写入时断言实际数据副作用和失败后的状态。跨进程工具同时检查子进程回收。
+6. 按 §5 运行定向与边界检查，在 PR 中记录覆盖范围。涉及新权限、隔离模型或数据责任时先修订对应 ADR。

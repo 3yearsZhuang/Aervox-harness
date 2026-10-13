@@ -1,14 +1,6 @@
 ---
 id: ADR-006
-type: reference
-scope: decision
-owner: maintainers
-doc_status: review-candidate
 decision_status: accepted
-version: 0.1.1
-updated_at: 2026-09-13
-reviewed_at: 2026-09-13
-review_interval_days: 90
 ---
 
 # ADR-006 AI 召回期限与历史保留期限分离

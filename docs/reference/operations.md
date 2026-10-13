@@ -1,15 +1,5 @@
 ---
 id: AVX-OPS-001
-type: reference
-scope: baseline
-owner: maintainers
-doc_status: review-candidate
-decision_status: not-applicable
-delivery_status: not-applicable
-version: 0.3.0
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
-review_interval_days: 90
 ---
 
 # Aervox｜思隅 本地运行与演练手册
@@ -138,6 +128,6 @@ review_interval_days: 90
 
 ### 12.3 复盘与关闭
 
-- 偏差项建立的 `CR-*` / `RISK-*` 编号：
+- 偏差项关联的 PR、`ADR-*` / `RISK-*` 编号：
 - 下季度前需关闭的改进项：
 - 演练整体结论：

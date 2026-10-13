@@ -17,6 +17,7 @@ const PAYLOAD = Buffer.from("Aervox local model runtime download probe\n".repeat
 const BIG_PAYLOAD = Buffer.alloc(3 * 1024 * 1024, 7);
 let server: http.Server;
 let baseUrl: string;
+let truncateStream: (() => void) | undefined;
 
 beforeAll(async () => {
   server = http.createServer((req, res) => {
@@ -108,16 +109,12 @@ beforeAll(async () => {
       return;
     }
     if (req.url === "/truncated.bin") {
-      // 声明全量长度但提前断流：写完半量后立即 FIN（不等 keep-alive 超时）
+      // Hold the truncated response until the client has persisted the first half.
+      // A wall-clock close can discard queued body data before the file is opened.
       res.writeHead(200, { "Content-Type": "application/octet-stream", "Content-Length": String(PAYLOAD.length) });
       res.write(PAYLOAD.subarray(0, Math.floor(PAYLOAD.length / 2)));
-      setTimeout(() => {
-        try {
-          res.socket?.end();
-        } catch {
-          // 已关闭
-        }
-      }, 10);
+      truncateStream = () => res.destroy();
+      res.once("close", () => { truncateStream = undefined; });
       return;
     }
     if (req.url === "/slow.bin") {
@@ -319,7 +316,12 @@ describe("downloadToFile (CR-054)", () => {
     const dest = path.join(dir, "model.gguf");
     try {
       await expect(
-        downloadToFile({ url: `${baseUrl}/truncated.bin`, destPath: dest }),
+        downloadToFile({
+          url: `${baseUrl}/truncated.bin`, destPath: dest, maxDurationMs: 5000,
+          onProgress: ({ receivedBytes }) => {
+            if (receivedBytes === Math.floor(PAYLOAD.length / 2)) truncateStream?.();
+          },
+        }),
       ).rejects.toMatchObject({ kind: "io" });
       await expect(fs.access(dest)).rejects.toThrow();
       expect((await fs.stat(`${dest}.part`)).size).toBe(Math.floor(PAYLOAD.length / 2));

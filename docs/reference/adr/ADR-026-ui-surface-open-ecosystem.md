@@ -1,23 +1,11 @@
 ---
-id: CR-064
-type: reference
-scope: change
-owner: frontend
-doc_status: review-candidate
+id: ADR-026
 decision_status: proposed
-delivery_status: planned
-version: 0.1.0
-updated_at: 2026-10-13
-reviewed_at: 2026-10-13
-review_interval_days: 90
-sources:
-  - docs/reference/changes/CR-065-ui-surface-plugins.md
-  - docs/reference/ARCHITECTURE.md
-  - docs/reference/plugin-config-and-pages.md
-  - docs/reference/THREAT_MODEL.md
 ---
 
-# CR-064 界面插件开放：第三方信任模型与独立安装回滚合同
+# ADR-026 界面插件开放生态与安装回滚（提案）
+
+<a id="cr-064"></a>
 
 ## 1. 背景与问题
 

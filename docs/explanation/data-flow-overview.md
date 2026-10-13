@@ -1,15 +1,5 @@
 ---
 id: AVX-EXPL-001
-type: explanation
-scope: baseline
-owner: maintainers
-doc_status: review-candidate
-decision_status: not-applicable
-delivery_status: not-applicable
-version: 0.3.1
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
-review_interval_days: 90
 ---
 
 # 数据流总览：一次对话如何流动
@@ -35,11 +25,7 @@ Aervox 是一条"先写后投递"的单向管道：客户端把输入按幂等 T
 
 1. 客户端提交输入 → `POST /v1/sessions/{sessionId}/turns` 幂等创建 Turn（同一请求键重放返回同一 Turn），并在同一事务内原子写入 Outbox 记录（[ADR-004](../reference/adr/ADR-004-outbox-idempotent-jobs.md)）。
 2. 客户端用 `GET /v1/turns/{turnId}/events` 以 SSE 消费事件流；断线时用 `Last-Event-ID` 重连，服务端去重（[流式协议](../reference/STREAMING_PROTOCOL.md)）。
-3. Worker 任务按各自节拍运行（默认 tick 仅作为显式全局回退；任务默认频率见 `apps/worker/src/task-scheduling.ts`），并在上一次执行未结束时跳过本轮：
-   - outbox 循环每 3 秒消费待投递事件：写审计记录并标记发布，失败的转 retry/dead_letter（下游投递按 eventType 逐步扩展，[ADR-004](../reference/adr/ADR-004-outbox-idempotent-jobs.md)）；
-   - review-notifier 每 10 秒把到期复习的会话生成提醒，并批量关联 `knowledge_relations` 中的相关知识（对应复习排期，PRD CAP-006）；
-   - diary-generator 每 60 秒按日记周期生成日记，deletion 每 30 秒按删除请求逐 target 清除并验证（[ADR-011](../reference/adr/ADR-011-diary-cycle-schedule-revision.md)、[数据库契约 §8](../reference/DATABASE.md#8-删除撤权与恢复)）；
-   - compaction、embedding、attempt-recovery、inbox-expiry 与主动智能任务分别使用较低频率，扫描通过有界查询和索引控制单轮工作量。
+3. Worker 按任务独立节拍处理 Outbox、复习、日记和删除，错峰启动并跳过重叠轮次。频率与退避由[调度配置](../../apps/worker/src/task-scheduling.ts)决定，单轮扫描有界；失败按对应合同重试或进入死信。
 4. SSE 事件先写入 `turn_stream_events`，同时经进程内 `TurnStreamHub` 直推；客户端重连时按 `Last-Event-ID` 重放存量事件并合并实时事件，终态排空后关闭连接，不再以高频数据库空轮询维持活流。
 5. 会话中的记忆节点与知识关系由 memory / knowledge 模块维护（如 `POST /v1/memory/nodes`），供召回与分支查询（[ADR-007](../reference/adr/ADR-007-memory-tree-projection.md)）。
 

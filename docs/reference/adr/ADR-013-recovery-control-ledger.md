@@ -1,14 +1,6 @@
 ---
 id: ADR-013
-type: reference
-scope: decision
-owner: maintainers
-doc_status: review-candidate
 decision_status: accepted
-version: 0.1.1
-updated_at: 2026-09-13
-reviewed_at: 2026-09-13
-review_interval_days: 90
 ---
 
 # ADR-013 独立恢复控制账本与撤权先行

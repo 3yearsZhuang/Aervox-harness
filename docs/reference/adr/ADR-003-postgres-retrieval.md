@@ -1,14 +1,6 @@
 ---
 id: ADR-003
-type: reference
-scope: decision
-owner: maintainers
-doc_status: review-candidate
 decision_status: accepted
-version: 0.3.0
-updated_at: 2026-09-17
-reviewed_at: 2026-09-17
-review_interval_days: 90
 ---
 
 # ADR-003 仓储抽象架构：SQLite 业务真源与 FTS5/Vector Port

@@ -1,29 +1,17 @@
 ---
-id: CR-065
-type: reference
-scope: change
-owner: frontend
-doc_status: review-candidate
+id: ADR-025
 decision_status: accepted
-delivery_status: implemented
-version: 0.2.2
-updated_at: 2026-10-13
-reviewed_at: 2026-10-13
-review_interval_days: 90
-sources:
-  - docs/reference/ARCHITECTURE.md
-  - docs/reference/plugin-config-and-pages.md
-  - docs/reference/capability-composition.md
-  - docs/reference/REQUIREMENTS_TRACEABILITY.md
 ---
 
-# CR-065 根界面插件与薄平台宿主
+# ADR-025 根界面插件与薄平台宿主
+
+<a id="cr-065"></a>
 
 ## 1. 决策与范围
 
 维护者于 2026-10-12 授权新建分支实施界面插件化。2026-10-13 整合时将 UI 决定编号协调为 CR-065，避免与已合入的 CR-063 原生组件重复；原 UI 分支的同号历史由 Git 保留。本次交付首个切片：工作台和独立桌宠根界面作为随应用构建的第一方插件，由各端组合根选择并交给通用界面宿主加载。当前队列见[根计划](../../../plan.md)。
 
-标准产品继续内置 P0 学习与陪伴能力。保持 Vue 单栈、本地 SQLite、API 与数据权利边界；保留窗口、受限 IPC、连接认证及新手引导的宿主责任。移动端复用 Web 入口，不提升原生平台交付状态。CLI 命令插件、各业务面板进一步拆分和第三方代码独立安装不属于本切片。
+标准产品继续内置 P0 学习与陪伴能力。保持 Vue 单栈、本地 SQLite、API 与数据权利边界；保留窗口、受限 IPC、连接认证及新手引导的宿主责任。移动端复用 Web 入口，不提升原生平台交付状态。CLI 命令插件与第三方代码独立安装不属于本决定；内置设置面板已按受信构建输入拆分。
 
 ## 2. 行为差量
 
@@ -53,12 +41,13 @@ sources:
 - **设计令牌单源**：新增 `theme/tokens.css`（`--avx-*`，明暗双主题），六个主题文件统一消费，令牌值全部提取自既有样式，视觉零变更。
 - **多根界面试验田**：`workbench-ui` 包新增 `compactSurface`（紧凑单栏变体，复用同一工作台根、`variant="compact"`）；`ui-host` 新增 `resolveSurfaceChoice()`，组合根按 `?surface=` / localStorage `aervox.surface.main` 选择根界面；设置外观区提供切换器（重载生效）。
 
-### 2026-10-13 · v0.2.2 主动陪伴界面插件（同分支，ITER-057）
+### 2026-10-13 · v0.2.2 主动陪伴界面插件（ITER-059）
 
 - **新界面插件 `@aervox/plugin-proactive-ui`**（方向 D）：视觉小说式对话盒（打字机呈现问候与流式回复）、两张主动建议卡（接续最近会话 / 开始专注，附推荐理由行）、输入淡化为「悄悄话」药丸（展开时建议卡让位）；默认工作台保持不变，组合根经 `resolveSurfaceChoice` 三选一，设置外观区新增「思隅陪伴」切换项。
+- 沿用真实会话与流式回合接口，首次发送创建会话，连接失败允许重试；返回默认工作台同时清除界面查询参数。建议首版来自最近会话与固定专注动作，学习记录驱动的推荐与历史消息加载尚未交付。整合编号统一为 ITER-059，Core 继续使用 ITER-057。
 
 ### 2026-10-13 · v0.2.1 遗留收口（同分支）
 
 - **设置面板按需分包**：`panels-ui` 的 `settingsPanels` 一律改为 `defineAsyncComponent`，Web 构建产物中五块面板各自成 chunk（不进工作台首包），分类首次激活时按需加载；模型面板草稿保留由 KeepAlive 继续覆盖（`plugins/panels-ui/test/lazy-panels.test.ts`）。
 
-仍未覆盖（另立 CR-064 提案跟踪）：原生移动真机验收、界面插件独立安装与升级回滚、第三方 UI 插件信任模型。
+原生移动真机验收仍待完成；界面插件独立安装、升级回滚与第三方信任模型由 [ADR-026](ADR-026-ui-surface-open-ecosystem.md) 保持提案状态。

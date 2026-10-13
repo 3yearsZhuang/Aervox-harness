@@ -1,15 +1,5 @@
 ---
 id: AVX-SPC-001
-type: reference
-scope: baseline
-owner: maintainers
-doc_status: review-candidate
-decision_status: not-applicable
-delivery_status: not-applicable
-version: 0.4.4
-updated_at: 2026-10-10
-reviewed_at: 2026-10-10
-review_interval_days: 90
 ---
 
 # Aervox｜思隅 Turn 流式协议（SPC）

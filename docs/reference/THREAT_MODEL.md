@@ -1,15 +1,5 @@
 ---
 id: AVX-SEC-001
-type: reference
-scope: baseline
-owner: maintainers
-doc_status: review-candidate
-decision_status: not-applicable
-delivery_status: not-applicable
-version: 0.5.2
-updated_at: 2026-10-10
-reviewed_at: 2026-10-10
-review_interval_days: 90
 ---
 
 # Aervox｜思隅 威胁模型
@@ -20,7 +10,7 @@ review_interval_days: 90
 
 范围包括本机 Web/API/Worker、SQLite、独立故障域 `RecoveryControlLedger`、模型/通知供应商、Electron、插件/外部连接、CAP-033 主动智能模式本地 Host，以及 CAP-034/035 的 Home Assistant 和小米健康连接。关键资产包括本地数据库与备份、迁移状态清单、HA Token、实体/服务白名单、小米 OAuth 凭据、睡眠与心率样本。
 
-尚未进入生产启用范围：未成年人、CAP-033 尚未接入的平台设备捕获/全量文件 watcher、社区私信、市场支付和任意第三方插件执行；现有实现已启用本地 Vault、Aervox activity/operation 与剪贴板采集、画像提炼、动作授权和后台 heartbeat 的测试路径，真实能力扩大前必须完成本模型扩展与专项门禁。
+部署与生产启用状态统一见[追踪矩阵](REQUIREMENTS_TRACEABILITY.md#4-cap-001cap-035-覆盖矩阵全部能力状态唯一速览)；新增来源、跨设备访问或外部处理者必须扩展本模型。
 
 ## 2. 信任边界
 
@@ -66,19 +56,8 @@ review_interval_days: 90
 
 ## 4. 数据流安全规则
 
-- 客户端不能直接调用模型或持久对象服务；附件经本机 API 鉴权访问（loopback 加 Token），凭据不进入 URL。
-- 模型收到的是经同意、权限和 token budget 过滤的 ContextManifest；Restricted 数据默认排除。
-- 模型只能请求工具，服务端 ToolPolicy 作最终授权；插件/外部内容不能修改该策略。
-- 输入先安全分类；输出在持久化/展示前做 schema、引用和安全验证。分类不可用时采用固定保守响应。
-- 所有来源删除/撤权先向独立 `RecoveryControlLedger` 追加不可变 deny 事件并取得 durable ack，再提交业务状态和异步清理；账本事件使用幂等键和连续 sequence。账本已写而业务提交失败由 reconciler 重放；账本不可用、签名/序列校验失败或应用水位未追平时相关范围 fail closed。恢复环境在对外服务前校验最老备份覆盖、重放账本并完成零召回/零越权验证。
+来源、控制水位与删除/恢复顺序见[数据隐私](DATA_PRIVACY.md#8-删除传播)和 [BR-CTRL-001](SRS.md#srs-br-ctrl)；输入/输出检查与失败响应见[AI 质量](AI_QUALITY_SAFETY.md#3-编排流水线)。客户端不能直接持有模型/持久对象服务凭据，附件经受限本机 API 访问且凭据不进入 URL。威胁控制必须覆盖普通历史、SSE、工具结果和派生内容，不能只检查直接捕获接口。
 
 ## 5. 发布门禁
 
-- 所有 Critical/High 威胁有自动化测试、告警和残余风险批准；
-- OWASP ASVS L2 基线、依赖/Secret/SBOM/许可证扫描通过；
-- loopback/Token 越权、文件 ACL、插件沙箱、附件、Prompt injection 和 Electron IPC 测试通过；
-- 删除、导出、备份恢复、SQLite 换库回滚（[CR-030 演练协议](../how-to/run-database-migration-drill.md)）和供应商故障演练通过；
-- CAP-033 设备捕获、后台恢复、全动作授权、本地出网阻断、七天提炼清理和导出删除的新增数据流已经加入本威胁模型，专项测试仍是启用前置；未成年人、社区、市场、支付或机构能力仍须各自扩展模型。
-- CAP-034/035 发布前必须完成 HA SSRF/重连/白名单、外部凭据零回显、小米真实厂商沙箱和健康连接级删除验证；当前本地集成测试不替代厂商审批或生产安全评审。
-
-本文件仍为评审候选，目标部署/供应商确定后必须重新评分概率和影响。
+安全、供应链、删除恢复与 CAP-033～035 的发布条件集中在[追踪基线](REQUIREMENTS_TRACEABILITY.md#91-专项发布门禁)。本文件维护攻击面、控制和残余威胁；目标部署或供应商改变时重新评估，不能把测试路径当作生产许可。

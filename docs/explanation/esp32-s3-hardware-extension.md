@@ -1,18 +1,5 @@
 ---
 id: AVX-EXPL-005
-type: explanation
-scope: baseline
-planning_role: evidence
-owner: maintainers
-doc_status: review-candidate
-decision_status: not-applicable
-delivery_status: not-applicable
-version: 0.3.1
-updated_at: 2026-09-18
-reviewed_at: 2026-09-18
-review_interval_days: 90
-sources:
-  - docs/explanation/companion-hardware-directions.md
 ---
 
 # ESP32-S3-WROOM-2-N32R16V 硬件延伸方案
@@ -24,7 +11,7 @@ sources:
 
 本文恢复并完善 ESP32-S3 硬件延伸提案，说明如何把 `ESP32-S3-WROOM-2-N32R16V` 做成 Aervox｜思隅的物理桌宠终端。本文是评审输入，不是已批准的生产规格、设备协议、固件安全标准或新增 CAP。
 
-2026-09-18 复核：当前仓库尚无本文设想的 DeviceHost、串口传输与设备固件。跨产品方向与当前能力证据见[配套硬件评估](companion-hardware-directions.md)。旧稿预留的 CR/ADR 编号不再作为立项依据；[ADR-016](../reference/adr/ADR-016-base-boundaries.md) 已用于其他决策，设备专项编号应按现行索引另行分配。下文参数仍是原设计输入，本轮未重新核验供应商数据手册或完成电气验证。
+2026-09-18 复核：当前仓库尚无本文设想的 DeviceHost、串口传输与设备固件。跨产品方向与当前能力证据见[配套硬件评估](companion-hardware-directions.md)。旧稿预留的 ADR 编号不再作为立项依据；[ADR-016](../reference/adr/ADR-016-base-boundaries.md) 已用于其他决策，设备专项编号应按现行索引另行分配。下文参数仍是原设计输入，本轮未重新核验供应商数据手册或完成电气验证。
 
 ## 一句话模型
 
@@ -67,7 +54,7 @@ ESP32-S3 物理桌宠
 | `CAP-027` 本地数据主权与可移植性 | 后续 | 有限状态缓存、设备撤权与删除传播 | 独立业务数据库或双向多主同步 |
 | `CAP-002/007/012` | 后续 | Push-to-Talk 专项评审后 | 首版麦克风采集 |
 
-若配网、设备身份、OTA、离线同步或传感器形成独立生命周期能力，应建立设备专属的新能力基线（编号须另经 CR 裁定），不能占用或静默扩写已登记的 `CAP-033`/`CAP-018`。
+若配网、设备身份、OTA、离线同步或传感器形成独立生命周期能力，应建立设备专属的新能力基线（编号须经 PR/ADR 评审），不能占用或静默扩写已登记的 `CAP-033`/`CAP-018`。
 
 ## 2. 模组事实和工程约束
 
@@ -176,15 +163,15 @@ R0 必须测试正常/重复/乱序/过期/未知版本、大包拒绝、掉电�
 
 | 阶段 | 交付 | 准入 | 退出 |
 |---|---|---|---|
-| R0 | 开发板、USB CDC、LCD/RGB/按键 | 新设备专项 CR、EXP 分层、无捕获能力 | 核心流程无设备可用，表现稳定 |
+| R0 | 开发板、USB CDC、LCD/RGB/按键 | 新设备专项 ADR、EXP 分层、无捕获能力 | 核心流程无设备可用，表现稳定 |
 | R3 | Rev-A PCB、DeviceHost、ACK/重连 | R0 有价值证据，设备专项 ADR 评审 | soak、断线、重启、回滚通过 |
 | H1 | 配网、绑定、TLS 网关、短期凭据 | 身份、隐私和威胁评审 | 撤销、丢失、OTA 和隔离通过 |
 | H2 | 低敏双向输入、有限离线队列 | H1 控制面稳定 | 幂等、删除、导出和指标闭环通过 |
-| H3 | Push-to-Talk、硬件静音 | 设备捕获专项 CR 批准 | 同意、指示、删除和音频质量通过 |
+| H3 | Push-to-Talk、硬件静音 | 设备捕获专项 ADR 批准 | 同意、指示、删除和音频质量通过 |
 
 进入编码前必须：
 
-1. 按[CR 工作流](../how-to/cr-workflow.md)分配新的设备专项 CR，列出受影响的 CAP/FR/BR/NFR/DATA/SEC/PRIV/OPS/AC/TC，不复用已归档编号。
+1. 按[ADR 流程](../reference/adr/README.md)分配新的设备专项 ADR，列出受影响的 CAP/FR/BR/NFR/DATA/SEC/PRIV/OPS/AC/TC，不复用已归档编号。
 2. 按 [ADR 索引](../reference/adr/README.md)分配新编号，冻结固件位置、ESP-IDF 工具链、设备身份、USB/Wi-Fi、配网、OTA、撤销和恢复出厂。
 3. 建立 `docs/reference/DEVICE_PROTOCOL.md`，收敛 schema、帧边界、状态机、错误和兼容规则。
 4. 建立 `firmware/esp32-s3/` 或经 ADR 批准的独立仓库，并用 `mise.toml` 固定 ESP-IDF、CMake、Ninja、esptool。

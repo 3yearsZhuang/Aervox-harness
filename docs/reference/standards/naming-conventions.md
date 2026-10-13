@@ -1,22 +1,12 @@
 ---
 id: AVX-STD-002
-type: reference
-scope: baseline
-owner: maintainers
-doc_status: review-candidate
-decision_status: not-applicable
-delivery_status: not-applicable
-version: 0.1.0
-updated_at: 2026-09-17
-reviewed_at: 2026-09-17
-review_interval_days: 90
 ---
 
 # 代码与 API 命名规范（Naming Conventions）
 
-关联：[文档写作规范](doc-standards.md)（AVX-STD-001）、[术语表](terminology.md)、[产品需求 PRD](../PRD.md) §14.2、[演进式模块化单体架构](../adr/ADR-014-modular-monolith-structure.md)、SQLite 本地单用户去租户化（已归档）
+关联：[文档写作规范](../../../CONTRIBUTING.md#documentation)（AVX-STD-001）、[术语表](terminology.md)、[产品需求 PRD](../PRD.md) §14.2、[演进式模块化单体架构](../adr/ADR-014-modular-monolith-structure.md)、SQLite 本地单用户去租户化（已归档）
 
-本规范固化 Aervox 代码与 OpenAPI 事实层面的统一命名约定，消除历史残留并作为新增代码的强制门禁。变更一律走 CR/ADR 流程，新增命名规则须先登记再落地，禁止在功能分支里引入第三套约定。
+本规范固化 Aervox 代码与 OpenAPI 事实层面的统一命名约定，消除历史残留并作为新增代码的强制门禁。命名规则变化同步本文，涉及公开兼容性或跨模块边界的重大决定记录 ADR；禁止在功能分支里引入第三套约定。
 
 ## 1. 上下文与状态对象命名
 
@@ -60,10 +50,10 @@ CR-030 已去租户化，上层统一使用本地上下文 `LocalContext`，**�
 
 ## 4. 包名与目录组织
 
-- **包名**：内部包一律 `@aervox/*`，目录用 kebab-case（`packages/practice-review`）；包清单与演进意图以 `PRD §14.2` 为唯一事实源，**实际包列表以 `packages/*` 为准**，两者出现分歧时先修订 PRD 再动包。
-- **Monorepo 分层**：`apps/*`（部署单元）与 `packages/*`（可复用包）分离；`scripts/` 只放被 CI/工具链引用的脚本；`docs/` 按 Diátaxis 归属（doc-standards §1）。
+- **包名**：内部包一律 `@aervox/*`，目录用 kebab-case（`packages/practice-review`）；实际包清单以 workspace 配置和磁盘为准，职责与演进边界见[架构](../ARCHITECTURE.md)。
+- **Monorepo 分层**：`apps/*`（部署单元）与 `packages/*`（可复用包）分离；`scripts/` 只放被 CI/工具链引用的脚本；`docs/` 按 Diátaxis 归属（见[写作规则](../../../CONTRIBUTING.md#documentation)）。
 - **依赖方向**：`packages/schema` → `packages/repositories` → `apps/*`；禁止反向依赖或 `apps` 间平级互引。
-- **临时/生成物**：生成代码与签入物（OpenAPI、Catalog）与手写代码分目录存放，生成来源标注在头部注释；无主零引用文件不得滞留仓库根层。
+- **临时/生成物**：生成代码与签入物（OpenAPI、内部 IPC 类型）与手写代码分目录存放，生成来源标注在头部注释；无主零引用文件不得滞留仓库根层。
 
 ## 5. 禁止项与术语开关
 
@@ -75,4 +65,4 @@ CR-030 已去租户化，上层统一使用本地上下文 `LocalContext`，**�
 
 - 新增/修改代码提交前本地过 `ci-code` 与 `ci-docs`；路由与 OpenAPI 变更必须同步 `packages/contracts` schema 并重新生成契约文档。
 - 全仓抽样命令：`rg "\btenant\b" packages apps`（期望命中仅剩注释/字符串/历史方法名）、`rg "@aervox/database"`（期望零命中）。
-- 新增命名规则必须先更新本文档（升版 + 修改人签名 + 注册表核验）再落地实现，防止规则先行、实现滞后。
+- 新增命名规则与实现一起更新本文，并在 PR 说明兼容性和验证；历史由 Git 维护。

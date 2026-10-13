@@ -15,18 +15,27 @@ import {
   describeChangeScope,
   getBaseRef,
   getChangedFiles,
+  isDocumentationOnlyChange,
   loadTurboScope,
   resolveChangeScope,
 } from "./ci-scope.mjs";
 
 const baseRef = getBaseRef();
-const changeScope = resolveChangeScope(getChangedFiles(baseRef), loadTurboScope());
+const changedFiles = getChangedFiles(baseRef);
+const turboScope = loadTurboScope();
+if (baseRef && isDocumentationOnlyChange(changedFiles, turboScope)) {
+  console.log("[check-affected] 仅项目文档变更，跳过代码守卫、业务构建与原生编译。");
+  process.exit(0);
+}
+const changeScope = resolveChangeScope(changedFiles, turboScope);
 const filterArgs = buildTurboFilterArgs(baseRef, changeScope);
 
 console.log(`[check-affected] 增量基准分支: ${baseRef ?? "无（全量模式）"}`);
 console.log(`[check-affected] ${describeChangeScope(baseRef, changeScope).trimStart()}`);
 
 // 1. 依赖边界检查（AST 解析，保证架构整洁）
+const guardsRes = spawnSync("pnpm", ["check:guards"], { stdio: "inherit" });
+if (guardsRes.status !== 0) process.exit(guardsRes.status ?? 1);
 console.log("\n[check-affected] 1/3 依赖边界检查...");
 const boundaryRes = spawnSync(
   "node",
@@ -52,4 +61,8 @@ console.log(`\n[check-affected] 3/3 增量受控测试 (${scopeLabel})...`);
 const testArgs = ["exec", "turbo", "run", "test", "--concurrency=2", ...filterArgs];
 
 const testRes = spawnSync("pnpm", testArgs, { stdio: "inherit" });
-process.exit(testRes.status ?? 0);
+if (testRes.status !== 0) process.exit(testRes.status ?? 1);
+
+// 保留原增量门禁中的 Rust pilot 校验；工具配置、锁文件和原生源码都不能走文档快退。
+const nativeRes = spawnSync("mise", ["tasks", "run", "native-search-check"], { stdio: "inherit" });
+process.exit(nativeRes.status ?? 1);

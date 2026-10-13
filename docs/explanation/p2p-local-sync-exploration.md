@@ -1,28 +1,5 @@
 ---
 id: AVX-EXPL-014
-type: explanation
-scope: architecture
-owner: desktop/mobile
-doc_status: review-candidate
-decision_status: not-applicable
-delivery_status: not-applicable
-planning_role: evidence
-version: 0.4.1
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
-review_interval_days: 30
-review_triggers:
-  - packages/repositories/src/sync/**
-  - packages/repositories/test/p2p-changeset-sync.test.ts
-  - packages/repositories/test/p2p-changeset-merge.test.ts
-  - packages/repositories/test/p2p-pairing-security.test.ts
-  - packages/repositories/test/p2p-discovery.test.ts
-  - packages/repositories/test/p2p-lan-sync.test.ts
-  - packages/repositories/src/schema/ddl/sync-metadata.ts
-sources:
-  - docs/reference/PRD.md
-  - docs/reference/DATABASE.md
-  - docs/reference/changes/CR-055-mobile-delivery-plan.md
 ---
 
 # 纯本地多端点对点加密同步架构探索

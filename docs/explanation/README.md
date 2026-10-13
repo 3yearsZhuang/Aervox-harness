@@ -1,64 +1,25 @@
 ---
 id: AVX-EXPL-000
-type: explanation
-scope: baseline
-owner: maintainers
-doc_status: approved
-version: 1.1.1
-updated_at: 2026-10-10
-reviewed_at: 2026-10-10
-review_interval_days: 90
 ---
 
-# Explanation 概念与架构解释索引 (Diátaxis)
+# 解释与研究
 
-根据 Diátaxis 文档架构，本目录承载**理解导向（Understanding-oriented）**的解释性内容：回答“为什么这样设计”、“系统的核心机制如何运作”以及“重要技术探索的权衡与结论”。
+本目录解释机制、研究问题与取舍。当前排期见[计划](../../plan.md)，实现证据与发布限制见[追踪基线](../reference/REQUIREMENTS_TRACEABILITY.md)，不在索引重复维护状态。
 
----
+## 理解现有机制
 
-## 1. 长青系统机制 (Living Architectural Explanations)
+- [一次对话的数据流](data-flow-overview.md)
+- [主动智能的四轴状态模型](proactive-intelligence-mode.md)
+- [跨端工作台与平台壳](../reference/ARCHITECTURE.md#32-跨端工作台与平台壳)
 
-此类文档解释 Aervox 的核心运作机理，随着架构演进而持续更新：
+## 研究与评估
 
-| 文档 | 负责回答 | 核心主题 |
-|---|---|---|
-| [数据流总览](data-flow-overview.md) | 一次对话与 Turn 如何在各进程间流转 | 跨进程通讯、生命周期、持久化时序 |
-| [桌宠角色与多人格组织](persona-organization.md) | 桌宠设定、提示词注入与人格切换如何运作 | 人格资产、Prompt 分层、本地持久化 |
-| [主动智能模式设计方案](proactive-intelligence-mode.md) | 主动智能、环境感知与免打扰机制的设计理念 | 四轴状态、画像构建、动作提议闭环 |
-| [Web 工作台实现说明](web-implementation.md) | Vue 单栈下 Web 与桌面端如何共用组件 | 共享工作台、响应式适配、桌宠内嵌形态 |
+- [架构实现与演进评估](architecture-implementation-review.md)
+- [参考项目、版本、许可与设计迁移](reference-design-transfer.md)
+- [Pi AI 差距与改进建议](pi-competitive-gap-improvements.md)
+- [配套硬件方向](companion-hardware-directions.md)
+- [ESP32-S3 器件方案](esp32-s3-hardware-extension.md)
+- [HLS 研究规划](hls-agent-competition-plan.md)与[执行指南](../how-to/run-hls-agent.md)
+- [点对点加密同步探索](p2p-local-sync-exploration.md)
 
----
-
-## 2. 技术探索与评估生命周期矩阵 (Explorations & Assessments)
-
-技术调研与方案论证具有明确的生命周期。为避免历史过程文档污染现行真源，所有调研按以下三态分类维护：
-
-### 2.1 [已落地] (Adopted / Implemented)
-
-调研结论已转化为现有架构、核心代码或固定基线：
-
-| 调研文档 | 转化成果与落地位置 | 状态 |
-|---|---|---|
-| [当前架构实现与演进评估](architecture-implementation-review.md) | ARC-01（Outbox 可靠派发）、ARC-14（CI 校验）已在 ITER-001/002 落地并进入基线；§9 并入原《底层优化评估》（AVX-EXPL-010，FND-01～10，FND-01/05 已闭环） | 已落地部分，其余推进中 |
-| [参考项目能力迁移与借鉴评估](reference-design-transfer.md) | DSH、pi、AstrBot 上游版本固定已在 ITER-030 落地并完成准入固定 | 已落地 |
-| [Pi AI 竞品差距分析与改进建议](pi-competitive-gap-improvements.md) | 内核侧结论经 pi 代码库复评（参考评估 §8.3）吸收为 ITER-032/033/039/040；产品体验差距（G1～G7）未入队，待维护者裁定 | 内核已入队，产品差距未入队 |
-
-### 2.2 [未落地 / 候选待决策] (Pending / Candidate)
-
-调研结论成立、技术方案完备，作为未来迭代的候选储备池，等待排期或前置决策拉起：
-
-| 调研文档 | 候选储备内容与拉起条件 | 对应规划条目 |
-|---|---|---|
-| [配套硬件方向评估](companion-hardware-directions.md) | 9 个硬件陪伴形态比较与成本边界；待硬件决策拉起 | ITER-009 / ITER-016 |
-| [ESP32-S3 硬件延伸笔记](esp32-s3-hardware-extension.md) | 开发板原型笔记与串口协议验证；待硬件方向敲定 | 配套候选 |
-| [HLS 本地智能体竞赛规划](hls-agent-competition-plan.md) | 三人团队、C++ 与 RX 9070 XT 实测方案；待资源到位拉起 | ITER-021 |
-| [纯本地多端点对点加密同步架构探索](p2p-local-sync-exploration.md) | 承诺-揭示握手与 SQLite Changeset 局域网同步；首切片（配对/引擎/UDP 发现/环回端到端）已完成，真实 mDNS、生产接线与多设备直连待推进 | ITER-028（待评审） |
-
-### 2.3 [已放弃] (Abandoned / Rejected)
-
-技术调研后证明不适用、成本过高或被新决策推翻的方向，负责记录“为什么不这么做”，防范重复踩坑：
-
-| 放弃方向 | 放弃原因与替代结论 | 归档位置 |
-|---|---|---|
-| **早期云端多租户架构 (PostgreSQL + Redis + BullMQ + S3)** | 与本地单用户隐私底线冲突，运维沉重；已由 CR-030 彻底放弃，全面重构为纯本地 SQLite WAL | 图表已归档至 `Aervox-docs-archive/archive/` |
-| **全局分布式事务与全局单写锁** | 引入全局锁导致性能雪崩；已由 ITER-027 改为本地自愈连接 + 压力租约机制替代 | 见 `client-self-heal.test.ts` |
+研究或原型不能直接作为产品承诺。被替代的历史决定通过 [ADR](../reference/adr/README.md)或[外部归档](https://github.com/3yearsZhuang/Aervox-docs-archive)追溯。
