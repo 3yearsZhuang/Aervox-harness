@@ -1298,6 +1298,31 @@
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现原则",
         "https://github.com/3yearsZhuang/Aervox-harness/pull/274"
       ]
+    },
+    {
+      "id": "ITER-059",
+      "batch": "first",
+      "status": "已移交",
+      "delivery": "思隅·主动陪伴界面插件（方向 D 落地）：视觉小说对话盒、双主动建议卡、淡化悄悄话输入；@aervox/plugin-proactive-ui，经 resolveSurfaceChoice 三选一与设置切换器装配；CAP-001/018；CR-065。",
+      "gate": "2026-10-13 用户授权以 D 方向开发新 UI 插件并保留现有设计为默认插件；不改变默认工作台与后端契约。",
+      "acceptance": [
+        "宿主加载 proactive-ui 后一级页面包含品牌、工作台返回入口、桌宠、对话盒、双建议卡与输入药丸",
+        "接续卡反映最近会话并切回，专注卡与悄悄话发送真实回合且回复流入对话盒",
+        "默认 workbench-ui 与紧凑变体回归不受影响"
+      ],
+      "checks": [
+        "plugins/proactive-ui/test/proactive-companion.test.ts"
+      ],
+      "owner": "frontend",
+      "branch": "feat/proactive-ui-integration",
+      "statusNote": "2026-10-13 由 PR #276 移交；全量双门禁与浏览器回归通过，首次发送建会话、连接失败重试及查询参数退出已验证。建议首版来自最近会话与固定专注动作，学习记录驱动推荐与历史消息加载留后续；整合编号统一为 ITER-059，Core 保留 ITER-057。",
+      "dependsOn": [
+        "ITER-055"
+      ],
+      "links": [
+        "docs/reference/changes/CR-065-ui-surface-plugins.md",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/276"
+      ]
     }
   ]
 }

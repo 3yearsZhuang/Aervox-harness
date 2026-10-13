@@ -37,7 +37,8 @@
     "@aervox/ui-host": "workspace:*",
     "@aervox/plugin-workbench-ui": "workspace:*",
     "@aervox/plugin-companion-ui": "workspace:*",
-    "@aervox/plugin-panels-ui": "workspace:*"
+    "@aervox/plugin-panels-ui": "workspace:*",
+    "@aervox/plugin-proactive-ui": "workspace:*"
   },
   "devDependencies": {
     "@aervox/contracts": "workspace:^",

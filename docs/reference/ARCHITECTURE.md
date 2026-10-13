@@ -78,6 +78,7 @@ plugins/
   workbench-ui/        # 默认工作台根组件；各端复用并注入业务 UI 扩展（CR-065）
   companion-ui/        # 独立桌宠根组件、快捷对话、姿态与样式（CR-065）
   panels-ui/           # 五块内置设置面板（模型/本地模型/人格/语音/插件管理），经 settings:panel:* 槽位注入（CR-065 二阶段）
+  proactive-ui/        # 思隅·主动陪伴替代主界面：对话盒 + 双主动建议卡 + 淡化输入（CR-065 多根界面试验田）
   focus-mode/          # 专注模式第一方插件：CAP-002 启发式教学 / CAP-007 概念探索 / CAP-016 现场刷题
                      # 声明（manifest/config/SKILL）与实现（src/server 服务端、src/ui UI 与专属样式）
                      # 内聚于此；实现源码不随 .aervox-plugin 分发包发布（CR-060）
