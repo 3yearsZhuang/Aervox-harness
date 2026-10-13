@@ -320,7 +320,7 @@
     {
       "id": "ITER-015",
       "batch": "next",
-      "status": "执行中",
+      "status": "待评审",
       "delivery": "单机部署主管：API/Worker/模型归属，数据目录、端口、Token、版本、就绪与退出；ARC-13；CAP-001/018/027",
       "gate": "依赖 ITER-006/008 与 ITER-011/013 的必要部分；新主管先 CR；与移动端决策协调",
       "acceptance": [
@@ -335,7 +335,7 @@
         "ITER-013"
       ],
       "branch": "feat/rust-native-search-pilot",
-      "statusNote": "CR-063 声明主管切片已实现：目录单一归属、摘要、API/Worker 就绪和进程树回收，真实宿主演练通过；PR #272 审查中。整体安装、升级、签名与平台实机发布验收继续按本条目推进。",
+      "statusNote": "CR-063 声明主管切片已实现：目录单一归属、摘要、API/Worker 就绪和进程树回收，真实宿主演练通过；PR #272 已合入。整体安装、升级、签名与平台实机发布验收继续按本条目推进。 2026-10-13 原生切片已由 PR #272 合入；当前实施收口，剩余测量与发行门槛待评审，不提升 Released。",
       "links": [
         "docs/reference/changes/CR-063-native-runtime-components.md",
         "https://github.com/3yearsZhuang/Aervox-harness/pull/272"
@@ -360,7 +360,7 @@
     {
       "id": "ITER-017",
       "batch": "candidate",
-      "status": "执行中",
+      "status": "待评审",
       "delivery": "测量后分别决定 Prompt 预算/保真压缩、SQLite 写竞争、向量 topK、计算隔离和资产归属；FND-07/08/10、ARC-05/08/12；相关基础设施",
       "gate": "依赖正确性修复与 ITER-013 指标；CR-062/063 承接代码搜索、向量端到端对照、三平台原生活动 Helper 与计算隔离；生产索引迁移与发行签名单独取证",
       "acceptance": [
@@ -369,7 +369,7 @@
       ],
       "owner": "platform/data/quality",
       "branch": "feat/rust-native-search-pilot",
-      "statusNote": "CR-062/063 切片已实现：有界搜索、向量对照、三平台活动 Helper、可选音频与插件 Worker，含撤权和解压失败回归；2026-10-13 完成 TypeScript/原生构建分离、Cargo 工作区与平台模块收敛、共用 IPC 定义及握手校验，PR #272 审查中。缓存失效和 IPC 成本保留对照，生产签名与实机权限验收独立取证。",
+      "statusNote": "CR-062/063 切片已实现：有界搜索、向量对照、三平台活动 Helper、可选音频与插件 Worker，含撤权和解压失败回归；2026-10-13 完成 TypeScript/原生构建分离、Cargo 工作区与平台模块收敛、共用 IPC 定义及握手校验，PR #272 已合入。缓存失效和 IPC 成本保留对照，生产签名与实机权限验收独立取证。 2026-10-13 原生切片已由 PR #272 合入；当前实施收口，剩余测量与发行门槛待评审，不提升 Released。",
       "checks": [
         "apps/desktop/test/native-app-activity.test.ts",
         "apps/api/test/plugin-distribution.test.ts",
@@ -1168,6 +1168,33 @@
         "docs/reference/adr/ADR-021-aervox-core-standalone-package.md",
         "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记",
         "https://github.com/3yearsZhuang/Aervox-harness/pull/262"
+      ]
+    },
+    {
+      "id": "ITER-057",
+      "batch": "first",
+      "status": "已移交",
+      "delivery": "内核执行边界修复：终态提交与返回值一致、连续小块正文限时刷新、准备阶段取消传播；CAP-002/007；延续 CR-061 的既有执行合同。",
+      "gate": "2026-10-13 用户授权按评估建议优化 Core；保持 TypeScript 零运行时依赖、既有 SSE 和 SQLite 合同；真实摘要、根预算策略及整体原生化独立评估。",
+      "acceptance": [
+        "终态 CAS 失败返回争抢原因，不覆盖权威状态或追加孤儿终态事件。",
+        "连续小块正文在固定刷新周期内提交，保留 4 KiB 批次上限、事件顺序与取消边界。",
+        "工具发现、上下文构建和压缩支持取消；取消后不派发模型或启动后续准备步骤。"
+      ],
+      "checks": [
+        "`packages/core/test/execution-boundaries.test.ts`",
+        "`packages/core/test/audit-streaming.test.ts`",
+        "`packages/host-agent/test/sqlite-execution-store-fencing.test.ts`",
+        "`scripts/benchmark-core.mjs`"
+      ],
+      "owner": "platform",
+      "branch": "fix/core-execution-polish",
+      "statusNote": "2026-10-13 完成全量终审并由 PR #274 移交；终态争抢、密集流刷新与准备取消回归通过，基准仅为假 Provider 与内存存储。",
+      "dependsOn": [],
+      "links": [
+        "docs/reference/changes/CR-061-core-execution-contract-hardening.md",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现原则",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/274"
       ]
     }
   ]

@@ -1,11 +1,53 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ControlContext, defaultContextBuilder, executeTurn, InMemoryExecutionStore } from "../src/index.js";
 import type { ModelChunk, ModelProviderPort } from "../src/index.js";
 const input = { turnId: "t", attemptId: "a", sessionId: "s", userMessage: "hello" };
 const seeded = () => { const s = new InMemoryExecutionStore(); s.seedAttempt({ id: "a", turnId: "t" }); return s; };
 const pendingProvider: ModelProviderPort = { id: "silent", stream: () => ({ [Symbol.asyncIterator]: () => ({ next: () => new Promise(() => {}) }) }) };
 
+afterEach(() => vi.useRealTimers());
+
 describe("bounded streaming", () => {
+  it("flushes continuous small chunks before the stream finishes, preserving exact event order", async () => {
+    vi.useFakeTimers();
+    const store = seeded();
+    const entered = Promise.withResolvers<void>();
+    const parent = new ControlContext();
+    let finished = false;
+    const parts = Array.from({ length: 20 }, (_, i) => `${i}:你好 `);
+    const provider: ModelProviderPort = {
+      id: "small-chunks",
+      async *stream() {
+        entered.resolve();
+        for (const text of parts) {
+          yield { text, isFinal: false };
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+        finished = true;
+        yield { text: "done", isFinal: true };
+      },
+    };
+    const job = executeTurn({ execution: store, contextBuilder: defaultContextBuilder, provider, controlContext: parent }, input);
+    try {
+      await entered.promise;
+      await vi.advanceTimersByTimeAsync(60);
+      const early = (await store.listEvents("t")).filter(e => e.eventType === "delta");
+      expect(finished).toBe(false);
+      expect(early.length).toBeGreaterThan(0);
+      expect(early.map(e => e.data.text).join("")).toBe(parts.slice(0, early.length).join(""));
+      await vi.advanceTimersByTimeAsync(200);
+      expect((await job).status).toBe("completed");
+      const events = await store.listEvents("t");
+      expect(events.filter(e => e.eventType === "delta").map(e => e.data.text).join("")).toBe(parts.join("") + "done");
+      expect(events.map(e => e.sequence)).toEqual(events.map((_, i) => i + 1));
+    } finally {
+      parent.abort();
+      await vi.runAllTimersAsync();
+      await job;
+      parent.dispose();
+    }
+  });
+
   it.each(["cancel", "timeout", "deletion"])("quiet provider terminates for %s", async kind => {
     const store = seeded(); let blocked = false;
     const job = executeTurn({ execution: store, provider: pendingProvider, contextBuilder: defaultContextBuilder,

@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 0.8.2
-updated_at: 2026-10-08
-reviewed_at: 2026-10-08
+version: 0.8.3
+updated_at: 2026-10-13
+reviewed_at: 2026-10-13
 review_interval_days: 90
 ---
 
@@ -26,7 +26,11 @@ review_interval_days: 90
 
 Provider 的 `capabilities` 可报告工具/推理协议支持、已知上下文窗口与输出上限。OpenAI 兼容实现检查**最终序列化请求**（含完整消息和工具 Schema）加输出预留：可注入 Token 估计器，缺省用 UTF-8 字节与协议余量保守估算；未知窗口不伪造数值。用量可附缓存读写 Token。`length`、`content_filter`、无完整结束标记及非法工具参数不得执行工具，正文前缀保留且回合不标为完成。
 
-正文按至多 4096 UTF-8 字节的窗口提交，源静默时每 50 ms 刷新待发前缀；单 Step 累计响应上限为 8 MiB，OpenAI HTTP 响应缺省也受 8 MiB 限制。50 ms 控制轮询可打断静默模型等待；已提交正文后不再重试模型。限制针对收集与提交路径，不能替代宿主对子进程或忽略信号的外部服务的资源管理。规则压缩保留系统约束和完整工具调用/结果组，以明确省略提示替代旧占位摘要；单组过大时保留整组，由最终窗口检查拒绝超限请求。
+正文按至多 4096 UTF-8 字节的窗口提交，以 50 ms 周期刷新待发前缀；新分块不重置刷新周期，连续小块与静默源均能触发提交。刷新和存储写入串行，实际可见延迟还包含事件循环调度与宿主提交耗时。单 Step 累计响应上限为 8 MiB，OpenAI HTTP 响应缺省也受 8 MiB 限制。50 ms 控制轮询可打断静默模型等待；已提交正文后不再重试模型。限制针对收集与提交路径，不能替代宿主对子进程或忽略信号的外部服务的资源管理。规则压缩保留系统约束和完整工具调用/结果组，以明确省略提示替代旧占位摘要；单组过大时保留整组，由最终窗口检查拒绝超限请求。
+
+所有内核终态分支共享 CAS 提交与执行结果映射。提交返回 `ok: false` 时，执行结果为 `failed` 并携带对应 `*_finalize_contested` 原因，不宣称取得终态、不覆盖已提交事件。工具发现、上下文构建和压缩接收执行信号；内核可取消等待，迟到结果不触发后续准备或模型调用。信号不代表外部操作已物理停止，宿主仍负责资源回收。反例回归见 [执行边界](../../packages/core/test/execution-boundaries.test.ts)和 [SQLite 终态争抢](../../packages/host-agent/test/sqlite-execution-store-fencing.test.ts)。
+
+首段可见与取消基准由 `scripts/benchmark-core.mjs` 生成；`--scenario=small-chunks` 覆盖持续小块负载，缺省为大块负载。报告分别见[小块基准](../_meta/core-small-chunks-baseline.json)和[大块基准](../_meta/core-benchmark-baseline.json)，仅代表假 Provider 与内存存储，不能替代真实模型、磁盘和客户端测量。
 
 `AERVOX_LOOP_RESUME=local-results` 显式启用 API 启动恢复，缺省 `off`。单次最多扫描 10 个过期候选，串行重新取得 fencing 租约，只用当前准入的本机模型根据权威结果补完一轮正文，单候选截止 30 秒。恢复不运行回合插件钩子，不派发新工具；需要新动作时由用户发起新回合。已终态、缺失/重复配对、未知结果（即使 `replay: safe`）、审批待决、脱敏/删除内容或删除闸门阻断均不自动恢复。Worker 同时恢复时由 CAS 决定唯一执行者，Worker 已终结的 Attempt 不会复活。下一序号来自完整持久事件上界。停用开关回到既有 Worker 中断收敛，无数据迁移。
 
