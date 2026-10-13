@@ -335,7 +335,7 @@
         "ITER-013"
       ],
       "branch": "feat/rust-native-search-pilot",
-      "statusNote": "CR-063 声明主管切片已实现：目录单一归属、摘要、API/Worker 就绪和进程树回收，真实宿主演练通过；PR #272 审查中。整体安装、升级、签名与平台实机发布验收继续按本条目推进。 2026-10-13 原生切片已由 PR #272 合入；当前实施收口，剩余测量与发行门槛待评审，不提升 Released。",
+      "statusNote": "CR-063 声明主管切片已实现：目录单一归属、摘要、API/Worker 就绪和进程树回收，真实宿主演练通过；PR #272 已合入。整体安装、升级、签名与平台实机发布验收继续按本条目推进。 2026-10-13 原生切片已由 PR #272 合入；当前实施收口，剩余测量与发行门槛待评审，不提升 Released。",
       "links": [
         "docs/reference/changes/CR-063-native-runtime-components.md",
         "https://github.com/3yearsZhuang/Aervox-harness/pull/272"
@@ -369,7 +369,7 @@
       ],
       "owner": "platform/data/quality",
       "branch": "feat/rust-native-search-pilot",
-      "statusNote": "CR-062/063 切片已实现：有界搜索、向量对照、三平台活动 Helper、可选音频与插件 Worker，含撤权和解压失败回归；2026-10-13 完成 TypeScript/原生构建分离、Cargo 工作区与平台模块收敛、共用 IPC 定义及握手校验，PR #272 审查中。缓存失效和 IPC 成本保留对照，生产签名与实机权限验收独立取证。 2026-10-13 原生切片已由 PR #272 合入；当前实施收口，剩余测量与发行门槛待评审，不提升 Released。",
+      "statusNote": "CR-062/063 切片已实现：有界搜索、向量对照、三平台活动 Helper、可选音频与插件 Worker，含撤权和解压失败回归；2026-10-13 完成 TypeScript/原生构建分离、Cargo 工作区与平台模块收敛、共用 IPC 定义及握手校验，PR #272 已合入。缓存失效和 IPC 成本保留对照，生产签名与实机权限验收独立取证。 2026-10-13 原生切片已由 PR #272 合入；当前实施收口，剩余测量与发行门槛待评审，不提升 Released。",
       "checks": [
         "apps/desktop/test/native-app-activity.test.ts",
         "apps/api/test/plugin-distribution.test.ts",
@@ -1173,7 +1173,7 @@
     {
       "id": "ITER-057",
       "batch": "first",
-      "status": "执行中",
+      "status": "已移交",
       "delivery": "内核执行边界修复：终态提交与返回值一致、连续小块正文限时刷新、准备阶段取消传播；CAP-002/007；延续 CR-061 的既有执行合同。",
       "gate": "2026-10-13 用户授权按评估建议优化 Core；保持 TypeScript 零运行时依赖、既有 SSE 和 SQLite 合同；真实摘要、根预算策略及整体原生化独立评估。",
       "acceptance": [
@@ -1189,11 +1189,12 @@
       ],
       "owner": "platform",
       "branch": "fix/core-execution-polish",
-      "statusNote": "2026-10-13 基于已合入原生切片的 main e75ac250；编号与 UI/文档并行条目协调为 ITER-057，补终态争抢、密集流刷新与准备取消回归并执行全量终审。",
+      "statusNote": "2026-10-13 完成全量终审并由 PR #274 移交；终态争抢、密集流刷新与准备取消回归通过，基准仅为假 Provider 与内存存储。",
       "dependsOn": [],
       "links": [
         "docs/reference/changes/CR-061-core-execution-contract-hardening.md",
-        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现原则"
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现原则",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/274"
       ]
     }
   ]
