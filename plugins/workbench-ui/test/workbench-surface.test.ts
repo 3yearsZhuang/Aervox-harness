@@ -3,7 +3,7 @@ import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils';
 import { UISurfaceHost } from '@aervox/ui-host';
 import { configureAervoxClient } from '@aervox/api-client';
 import type { BuiltinUIPlugin, UIRegistry } from '@aervox/ui/plugin-api';
-import definition from '../src';
+import definition, { compactSurface } from '../src';
 
 enableAutoUnmount(afterEach);
 beforeEach(() => {
@@ -32,6 +32,18 @@ it('loads the real workbench on each client platform through the same definition
     expect(wrapper.find('.standard-conversation').exists()).toBe(true);
     wrapper.unmount();
   }
+});
+
+it('compact surface mounts the same workbench as a single-column variant without sidebar', async () => {
+  const wrapper = mount(UISurfaceHost, { props: {
+    plugin: compactSurface, surface: 'main', platform: 'web', viewProps: { showCompanion: false },
+  } });
+  await vi.waitFor(() => expect(wrapper.find('.aervox-workbench').exists()).toBe(true), { timeout: 5000 });
+  await flushPromises();
+  expect(wrapper.find('.aervox-workbench.is-variant-compact').exists()).toBe(true);
+  expect(wrapper.find('.workbench-standard-sidebar').exists()).toBe(false);
+  expect(wrapper.find('.menu-pill').exists()).toBe(false);
+  expect(wrapper.find('.standard-conversation').exists()).toBe(true);
 });
 
 it('keeps extension registries and cleanup separate across mounted workbenches', async () => {

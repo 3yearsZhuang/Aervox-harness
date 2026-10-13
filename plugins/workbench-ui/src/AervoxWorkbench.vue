@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch, type Component } from 'vue';
 import {
   type Platform,
   PetWithFallback,
@@ -45,7 +45,6 @@ import {
   petReact,
   petReactKind,
 } from '@aervox/ui/workbench';
-import '@aervox/ui/theme/standard-workbench';
 import { useUISurfaceContext } from '@aervox/ui-host';
 import { PanelLeft } from 'lucide-vue-next';
 
@@ -64,12 +63,25 @@ const props = withDefaults(
      * 宿主工作台不内建任何具体插件，从而保证"删掉插件后宿主仍可构建运行"。
      */
     plugins?: BuiltinUIPlugin[];
+    /**
+     * CR-063 切片四：内置设置面板（模型/本地模型/人格/语音/插件管理）由组合根
+     * 以受信构建输入显式注入；工作台根注册进 settings:panel:<category> 槽位，
+     * 设置弹层按分类经 ExtensionSlot 渲染，宿主不内建任何具体面板。
+     */
+    settingsPanels?: readonly { category: string; component: Component }[];
+    /**
+     * 界面变体：'full' 完整双形态；'compact' 紧凑单栏（强制标准模式，无侧栏与模式切换）。
+     * 用于多根界面试验田（CR-063 切片六），由组合根按用户选择装配不同界面插件。
+     */
+    variant?: 'full' | 'compact';
   }>(),
   {
     platform: 'web',
     showCompanion: false,
     assistantName: '思隅',
     plugins: () => [],
+    settingsPanels: () => [],
+    variant: 'full',
   },
 );
 
@@ -78,8 +90,21 @@ const emit = defineEmits<{
   'open-intro-deck': [];
 }>();
 
+const isCompactVariant = computed(() => props.variant === 'compact');
+const showStandardWorkbench = computed(() => isCompactVariant.value || layout.workbenchMode.value === 'standard');
+
 const registry = createUIRegistry();
 provideUIRegistry(registry);
+
+// CR-063 切片四：注册组合根注入的内置设置面板（始终可用，不受插件启停门控）
+type PanelSlotName = Parameters<typeof registry.registerSlotComponent>[0];
+for (const panel of props.settingsPanels) {
+  registry.registerSlotComponent(
+    `settings:panel:${panel.category}` as PanelSlotName,
+    panel.component,
+    { id: `settings-panel-${panel.category}` },
+  );
+}
 
 // CR-060：通用插件事件总线与命名空间化插件状态——宿主只提供容器，不解释语义
 const pluginEvents = createPluginEventBus();
@@ -510,6 +535,7 @@ onUnmounted(() => {
       {
         'has-companion': layout.showCompanionEnabled.value,
         'is-compact': layout.compactMode.value,
+        'is-variant-compact': isCompactVariant,
         'sidebar-collapsed': layout.standardSidebarCollapsed.value,
       }
     ]"
@@ -517,20 +543,20 @@ onUnmounted(() => {
     :data-workbench-mode="layout.workbenchMode.value"
   >
     <!-- 标准工作台模式 (CR-035 / W1) -->
-    <template v-if="layout.workbenchMode.value === 'standard'">
+    <template v-if="showStandardWorkbench">
       <div
-        v-if="layout.narrowSidebar.value && !layout.standardSidebarCollapsed.value"
+        v-if="!isCompactVariant && layout.narrowSidebar.value && !layout.standardSidebarCollapsed.value"
         class="sidebar-backdrop"
         aria-hidden="true"
         @click="layout.toggleStandardSidebar()"
       />
-      <WorkbenchSidebar />
+      <WorkbenchSidebar v-if="!isCompactVariant" />
 
       <main class="workbench-standard-main" :inert="layout.narrowSidebar.value && !layout.standardSidebarCollapsed.value">
         <header class="standard-topbar">
           <div class="topbar-left">
             <AervoxButton variant="ghost" icon-only
-              v-if="layout.standardSidebarCollapsed.value"
+              v-if="!isCompactVariant && layout.standardSidebarCollapsed.value"
               type="button"
               class="topbar-icon-btn"
               title="展开侧边栏 (⌘/)"

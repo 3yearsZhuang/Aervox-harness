@@ -20,6 +20,7 @@
     "./primitives": "./src/primitives/index.ts",
     "./workbench": "./src/workbench.ts",
     "./theme/standard-workbench": "./src/theme/standard-workbench.css",
+    "./theme/workbench-all": "./src/theme/workbench-all.css",
     "./theme/tokens": "./src/theme/tokens.css",
     "./env": "./src/env.d.ts"
   },

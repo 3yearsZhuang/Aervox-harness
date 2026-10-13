@@ -84,6 +84,19 @@ const activeSettingsGroup = computed(() => settingCategories.find(group =>
 const settingsPages = computed(() => settingPages.filter(page =>
   (activeSettingsGroup.value.categories as readonly string[]).includes(page.value)));
 const modeOptions = [{ value: 'companion', label: '桌宠陪伴' }, { value: 'standard', label: '标准工作台' }];
+// CR-063 切片六（多根界面试验田）：界面变体是组合根装配层契约，经 localStorage 持久化、重载后生效
+const SURFACE_STORAGE_KEY = 'aervox.surface.main';
+const surfaceVariant = ref(
+  typeof localStorage !== 'undefined' && localStorage.getItem(SURFACE_STORAGE_KEY) === 'workbench-compact-ui'
+    ? 'workbench-compact-ui'
+    : 'workbench-ui',
+);
+const surfaceOptions = [{ value: 'workbench-ui', label: '完整工作台' }, { value: 'workbench-compact-ui', label: '紧凑工作台' }];
+function selectSurfaceVariant(value: string) {
+  surfaceVariant.value = value;
+  try { localStorage.setItem(SURFACE_STORAGE_KEY, value); } catch { /* 存储不可用时忽略 */ }
+  window.location.reload();
+}
 const themeOptions = [{ value: 'light', label: '亮色', icon: Sun }, { value: 'dark', label: '暗色', icon: Moon }];
 function selectSettingsPage(value: string) {
   switchSettingsCategory(value as typeof settingsCategory.value);
@@ -465,6 +478,10 @@ async function onPluginChange(): Promise<void> {
             <AervoxSegmentedControl :model-value="workbenchMode" :options="modeOptions" label="交互模式" @update:model-value="switchWorkbenchMode($event as WorkbenchMode)" />
           </div>
           <div class="settings-row settings-choice-row"><span><strong>主题</strong><small>选择工作台的明暗模式</small></span><AervoxSegmentedControl :model-value="isDark ? 'dark' : 'light'" :options="themeOptions" label="主题" @update:model-value="setTheme($event as 'light' | 'dark', timerMinutes)" /></div>
+          <div class="settings-row settings-choice-row">
+            <span><strong>工作台界面</strong><small>在完整工作台与紧凑单栏界面之间切换（试验功能，切换后自动重载）</small></span>
+            <AervoxSegmentedControl :model-value="surfaceVariant" :options="surfaceOptions" label="工作台界面" @update:model-value="selectSurfaceVariant" />
+          </div>
           <label class="settings-row settings-choice-row"><span><strong>紧凑布局</strong><small>减少面板间距，让同一屏容纳更多内容</small></span><AervoxSwitch v-model="compactMode"  @change="saveSettings(timerMinutes)"  /></label>
           <label v-if="!isWeb && showCompanion" class="settings-row settings-choice-row"><span><strong>工作台桌宠</strong><small>控制桌面端主窗口中的桌宠区域</small></span><AervoxSwitch v-model="desktopCompanionEnabled"  @change="saveSettings(timerMinutes)"  /></label>
           <div v-if="!isWeb" class="settings-row settings-choice-row">
