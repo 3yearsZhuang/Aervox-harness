@@ -138,6 +138,8 @@ Page 元数据为 `id/title/description/entry/capabilities/checksum`。`id` 最�
 
 Hook 必须由 API 组合根 import 并注册到 [ServerPluginRegistry](../../apps/api/src/modules/ecosystem/plugins/turn-plugins/registry.ts)；仅在 Bundle 放置 `.ts/.js` 或 Manifest 字段不会激活 Hook。当前没有对第三方暴露的 Hook npm SDK、进程隔离或运行时代码热加载。第一方实现位于 `plugins/<id>/src/server`，由唯一装配点 [apps/api/src/plugin-assembly.ts](../../apps/api/src/plugin-assembly.ts) 以容错方式加载并注入其贡献（缺包或加载失败不中断宿主启动）。注册只按插件唯一 ID，不提供历史别名互查；需要旧配置迁移时由插件自己处理，不让宿主解释领域键。
 
+装配器持有每次 Hook、HTTP 准入和 API 契约登记的注销函数；装配失败逆序释放已取得的贡献，正常装配由 API `onClose` 释放。重复注册身份或已有 Hook 冲突会拒绝本次装配，不替换原插件。HTTP 在挂载前检查整组路由冲突；框架挂载中途失败时关闭整组准入。Fastify 的物理路由不能运行时移除，残留入口返回 404；这不是动态代码卸载或第三方沙箱。
+
 ### 4.2 提示词动态插槽机制（Dynamic Extra Sections）
 
 领域提示词通过 `beforeTurn` 返回 `extraSections: string[]`，由上下文构建器拼入回合；禁止向通用 Base Prompt 增加插件业务分支。插件私有语义一律经 `BeforeTurnResult.state`（回合内传递）与 Turn `metadata`（出站）自行承载，宿主通用契约不再为任何插件预留协议字段。
@@ -158,11 +160,13 @@ Hook 必须由 API 组合根 import 并注册到 [ServerPluginRegistry](../../ap
 
 ### 4.5 HTTP、工具投影与事件贡献
 
-`ServerPluginRegistration` 经 `@aervox/host-plugin-api` 声明 `turnPlugins`、`toolContributions(services)`、`httpEndpoints` 和 `replayScripts`。宿主服务由 [plugin-host-services.ts](../../apps/api/src/plugin-host-services.ts) 将仓储封装为 `sessions`/`learningFacts` 意图级端口；插件不导入 Schema、Repositories、LibSQL 或宿主实时总线，报告载荷按不透明数据转发。
+`ServerPluginRegistration` 经 `@aervox/host-plugin-api` 声明 `turnPlugins`、`toolContributions(services)`、`httpEndpoints`、`replayScripts` 和可选 `registerApiContract()`。后者返回本次契约贡献的注销函数，由装配器持有；模块导入本身不得登记全局契约。宿主服务由 [plugin-host-services.ts](../../apps/api/src/plugin-host-services.ts) 将仓储封装为 `sessions`/`learningFacts` 意图级端口；插件不导入 Schema、Repositories、LibSQL 或宿主实时总线，报告载荷按不透明数据转发。
 
 HTTP 适配负责鉴权、限流、本地上下文、出参包装、每请求生效检查及异常日志；门控和诊断出口都是必填。未生效返回 404 且不进入 handler，缺包不挂载端点。插件回放只在 `scripted-plugin` 等受信装配中提供，不能覆盖宿主内建模式。
 
-OpenAPI 片段使用独立贡献注册表，惰性生成公共文档；非法路径、重复或内核端点冲突不得覆盖，忽略并告警，注销/重建须清理旧贡献。工具结果投影随 `PluginToolContribution.resultProjection` 声明，宿主只为该插件自有工具登记，跨插件同名抢注及对内核工具登记投影均拒绝。
+OpenAPI 片段使用独立贡献注册表，惰性生成公共文档；非法路径和内核端点冲突忽略并告警，同一方法与路径的插件片段使用最后仍存活的登记，注销/重建须清理旧贡献。工具结果投影随 `PluginToolContribution.resultProjection` 声明，宿主只为该插件自有工具登记，跨插件同名抢注及对内核工具登记投影均拒绝。
+
+`registerPluginApiContribution()` 返回幂等注销函数。每次登记有独立身份；注销不会删除其它宿主实例的同名贡献，后登记的覆盖贡献注销后恢复仍在场的前一贡献。登记与注销自动使 OpenAPI 缓存失效。契约登记持续到装配释放，用户停用只阻断执行入口；历史事件的识别和投影不因开关消失。工具结果投影仍使用宿主按工具归属登记的既有路径，不纳入本次契约注销。
 
 插件流事件须显式登记；宿主写入前验证内核事件全集与插件已登记类型的并集，未知类型拒绝。当前受信写流端口仍能写内核事件，这是既有边界而非已实现的插件专属隔离；API Client 的通用插件出口会过滤内核事件。事件名和负载白名单不允许通过领域硬编码扩入内核。
 
@@ -199,9 +203,13 @@ OpenAPI 片段使用独立贡献注册表，惰性生成公共文档；非法路
 
 `registerSlotComponent(slot, component, {id, priority, props})` 和别名 `registerSlotItem` 返回注销函数；也可传 `{component,id,priority,props}` 对象。同槽相同 ID 替换旧项，priority 降序排列。**作者规则**：ID 使用 `<pluginId>:<contribution>`、同插件内唯一，不依赖相同 priority 的跨插件顺序，不用他人 ID 覆盖贡献。
 
-使用宿主注入的 `registry`；不要假定全局 `uiRegistry` 就是当前工作台实例。[BuiltinUIPlugin](../../packages/ui/src/plugins/plugin-runtime.ts)的 `setup(registry, context)` 必须返回清理函数，即使是空函数，避免未被登记 cleanup 的实例再次 setup。停用时释放槽位、事件监听、定时器、订阅与请求；清理应幂等。
+使用 setup 参数中的作用域 `registry`；不要通过全局 `uiRegistry` 或宿主 `context.registry` 登记插件贡献。[BuiltinUIPlugin](../../packages/ui/src/plugins/plugin-runtime.ts)的 `setup(registry, context, lifecycle)` 同步执行，可以返回清理函数或 `void`；成功的实例只 setup 一次。每次激活获得独立注册表和 Vue effect 作用域，自动回收通过该注册表登记的插槽、卡片、消息转换器、组件替换及同步创建的 Vue watcher。setup 中途失败也会回收已登记贡献，不影响其他插件。工作台上下文保持原对象身份，确保 Hook 与 Vue 控件共享插件自有状态。
+
+外部计时器、连接和订阅通过 `lifecycle.effect(() => disposer)` 或 `lifecycle.onDispose(disposer)` 登记，例如 `lifecycle.onDispose(context.pluginEvents.on(handler))`；清理函数同步执行、幂等，单项抛错不阻断其它资源释放。`lifecycle.signal` 在停用或工作台销毁时中止；`onConfig(values, context, lifecycle)` 的异步工作必须观察该信号并在提交副作用前重验。普通异步回调和原始宿主对象不是自动撤权代理，作用域不能硬杀同进程代码。注销后的作用域注册表拒绝迟到注册；其 `clear()` 只清理自身贡献。
 
 当前 runtime 只装配**组合根显式注入**的插件定义（`createWorkbenchPluginRuntime(registry, getContext, pluginDefinitions)`；宿主包内不内建任何具体插件）。插件是否生效统一由 `sync()` 依据仓储启停记录判定：**无记录、记录停用或不可用一律不启用（fail-closed）**，与服务端 Runner 同一判据；不再保留"离线默认可用"或历史别名互查。不得借此接入不受信代码。
+
+运行时要求 `enabled === 1` 且可用；`getPluginState(id)` 区分 `disabled/activating/active/failed/disposed`，`isPluginAvailable()` 仅在成功激活时为真。setup 失败不拉取配置，下次同步可重试；迟到的配置快照不能回写新实例。`onDisable` 只在停用状态转换时调用；工作台销毁释放实例并中止信号，不调用 `onDisable`，避免把关闭窗口误当用户停用并清除已保存偏好。
 
 插件状态通过 `pluginState` 的 `aervox-plugin-state:<pluginId>` 命名空间持有，旧配置仅在插件命名空间无记录时由插件迁入。宿主先等待插件同步，再读取 `quietStartup` 等通用启动诉求。状态绑定须随工作台换绑/解绑失效，缺少必要端口不能提前记为已初始化。
 
@@ -209,13 +217,13 @@ OpenAPI 片段使用独立贡献注册表，惰性生成公共文档；非法路
 
 ### 5.3 功能卡片注册与操作区扩展（Functional Cards & Side Cards）
 
-`registerCard({id,label,description,icon,summary,action,extraComponent?,priority?})` 返回注销函数。卡片消费宿主状态和受控方法，不持有独立业务真源；`summary` 不做网络/数据库 I/O。卡片与插槽注销分别登记并在 setup cleanup 内逆序调用。
+`registerCard({id,label,description,icon,summary,action,extraComponent?,priority?})` 返回注销函数，也由插件作用域自动收集。卡片消费宿主状态和受控方法，不持有独立业务真源；`summary` 不做网络/数据库 I/O。旧注册的注销函数不能删除同 ID 的后来注册。
 
 ## 6. 核心组件替换契约（Component Overrides）
 
 ### 6.1 替换机制
 
-`overrideComponent(name, component): void` 仅在宿主调用 `getComponent(name, fallback)` 的位置生效；不能任意替换所有 Vue 组件。当前明确消费的扩展点包括 `ComposerDock`。注册表没有单项撤销、替换栈或优先级仲裁；`clear()` 会清除整个实例，插件不能用它卸载自身。需要替换的第一方扩展应由宿主拥有恢复默认值的生命周期，并提供停用/多实例回归用例。
+`overrideComponent(name, component)` 返回注销函数，仅在宿主调用 `getComponent(name, fallback)` 的位置生效；不能任意替换所有 Vue 组件。当前明确消费的扩展点包括 `ComposerDock`。替换按登记顺序入栈，最近仍存活的替换生效；乱序停用不会复活已注销的旧替换，全部注销后使用 fallback。插件作用域自动收集替换；根注册表 `clear()` 清除整个工作台，作用域 `clear()` 仅清理自身贡献。替换输入组件仍须验证输入法、附件、语音与单次发送。
 
 ### 6.2 ComposerContractProps 契约规范
 

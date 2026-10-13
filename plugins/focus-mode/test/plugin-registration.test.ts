@@ -3,7 +3,7 @@ import { nextTick } from 'vue';
 import { createUIRegistry, resolveOutgoingMessage } from '@aervox/ui/plugin-api';
 import { createPluginStateStore } from '@aervox/ui/plugin-api';
 import { createPluginEventBus } from '@aervox/ui/plugin-api';
-import { createWorkbenchPluginRuntime, type BuiltinUIPlugin } from '@aervox/ui/plugin-api';
+import { createWorkbenchPluginRuntime, type BuiltinUIPlugin, type WorkbenchContext } from '@aervox/ui/plugin-api';
 import focusModePluginDefinition, {
   registerFocusModePlugin,
   FocusModeSwitch,
@@ -177,6 +177,40 @@ describe('FocusModePlugin（CR-060 无别名单一 id）', () => {
 
 describe('WorkbenchPluginRuntime（CR-060：不内建插件、fail-closed）', () => {
   const definitions: BuiltinUIPlugin[] = [focusModePluginDefinition];
+
+  it('运行时卡片动作与控件上下文共享抽屉状态，关闭窗口保留模式偏好', async () => {
+    // 本文件为 Node 环境；显式提供存储，验证新工作台从持久化偏好恢复。
+    const stored = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: (key: string, value: string) => stored.set(key, value),
+    });
+    const registry = createUIRegistry();
+    const context = createContext() as WorkbenchContext;
+    const runtime = createWorkbenchPluginRuntime(registry, () => context, definitions);
+    let next: ReturnType<typeof createWorkbenchPluginRuntime> | undefined;
+    let freshContext: WorkbenchContext | undefined;
+    try {
+      await runtime.sync([{ id: 'focus-mode', enabled: 1 }], async () => ({ values: {} }));
+      const state = useFocusModeState(context);
+      expect(state.learningOpen.value).toBe(false);
+      registry.getCards().find((card) => card.id === 'study')!.action();
+      expect(state.learningOpen.value).toBe(true);
+      state.setFocusModeEnabled(true);
+      expect(registry.transformMessage('hello').metadata).toEqual({ mode: 'focus' });
+      runtime.destroy();
+      expect(state.learningOpen.value).toBe(false);
+      expect(context.pluginState.read('focus-mode', 'enabled', false)).toBe(true);
+      freshContext = createContext();
+      next = createWorkbenchPluginRuntime(registry, () => freshContext!, definitions);
+      await next.sync([{ id: 'focus-mode', enabled: 1 }], async () => ({ values: {} }));
+      expect(registry.transformMessage('hello').metadata).toEqual({ mode: 'focus' });
+    } finally {
+      runtime.destroy(); next?.destroy();
+      context.pluginState.dispose(); freshContext?.pluginState.dispose();
+      vi.unstubAllGlobals();
+    }
+  });
 
   it('未注入插件定义时注册表为空，且可用性判定 fail-closed', () => {
     const registry = createUIRegistry();

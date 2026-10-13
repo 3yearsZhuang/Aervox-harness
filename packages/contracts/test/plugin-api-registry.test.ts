@@ -11,6 +11,7 @@ import { z } from "zod";
 import {
   buildOpenApiDocument,
   getPluginOpenApiRoutes,
+  getPluginEventProjection,
   getPluginStreamEventTypes,
   getPluginToolResultProjection,
   getToolResultProjectionOwner,
@@ -65,6 +66,56 @@ afterEach(() => {
 });
 
 describe("CR-060 插件 API 贡献登记", () => {
+  it("注销本次贡献时保留其它实例，注销后者恢复前者投影与文档", () => {
+    const route = { method: 'get' as const, path: '/v1/fixture/lifecycle', responses: { 200: { description: 'ok' } } };
+    const firstSchema = z.object({ first: z.string() });
+    const secondSchema = z.object({ second: z.string() });
+    const disposeFirst = registerPluginApiContribution({
+      eventProjections: { lifecycle_event: firstSchema },
+      openApiRoutes: [{ ...route, summary: 'first' }],
+    });
+    expect(buildOpenApiDocument().paths?.[route.path]?.get?.summary).toBe('first');
+    const disposeSecond = registerPluginApiContribution({
+      eventProjections: { lifecycle_event: secondSchema },
+      openApiRoutes: [{ ...route, summary: 'second' }],
+    });
+    expect(getPluginEventProjection('lifecycle_event')).toBe(secondSchema);
+    expect(buildOpenApiDocument().paths?.[route.path]?.get?.summary).toBe('second');
+    disposeSecond(); disposeSecond();
+    expect(getPluginEventProjection('lifecycle_event')).toBe(firstSchema);
+    expect(buildOpenApiDocument().paths?.[route.path]?.get?.summary).toBe('first');
+    disposeFirst();
+    expect(isKnownStreamEventType('lifecycle_event')).toBe(false);
+    expect(buildOpenApiDocument().paths?.[route.path]).toBeUndefined();
+    expect(buildOpenApiDocument().paths?.['/v1/sessions']).toBeTruthy();
+  });
+
+  it("乱序注销与过期注销函数不会清除后来登记的同名贡献", () => {
+    const disposeOld = registerPluginApiContribution({ eventProjections: { shared_event: termsSchema } });
+    const disposeNew = registerPluginApiContribution({ eventProjections: { shared_event: toolResultSchema } });
+    disposeOld();
+    expect(getPluginEventProjection('shared_event')).toBe(toolResultSchema);
+    resetPluginApiContributions();
+    const disposeAfterReset = registerPluginApiContribution({ streamEventTypes: ['shared_event'] });
+    disposeNew();
+    expect(isKnownStreamEventType('shared_event')).toBe(true);
+    disposeAfterReset();
+    expect(isKnownStreamEventType('shared_event')).toBe(false);
+    expect(getPluginEventProjection('toString')).toBeUndefined();
+    expect(isKnownStreamEventType('toString')).toBe(false);
+  });
+
+  it("文档重建失败不会把旧缓存标记为已包含新贡献，注销后可以恢复", () => {
+    const baseline = buildOpenApiDocument();
+    const dispose = registerPluginApiContribution({
+      openApiRoutes: [{ method: 'post', path: '/v1/fixture/unsupported', body: z.custom(), responses: { 200: { description: 'ok' } } }],
+    });
+    expect(() => buildOpenApiDocument()).toThrow();
+    expect(() => buildOpenApiDocument()).toThrow();
+    dispose();
+    expect(buildOpenApiDocument()).toBe(baseline);
+  });
+
   it("默认零插件登记：内核不认识任何插件事件类型", () => {
     expect(getPluginStreamEventTypes()).toEqual([]);
     expect(getPluginOpenApiRoutes()).toEqual([]);
