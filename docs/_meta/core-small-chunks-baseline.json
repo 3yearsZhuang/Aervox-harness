@@ -1,0 +1,107 @@
+{
+  "builtCodeSha256": "9cfeaa047354940e529d10ee2e69df19678961cf0f0f3550271875c38b29368b",
+  "schemaVersion": 1,
+  "commit": "cf8b6be876853e3c07f1ee7b83339065a3d7e98a",
+  "workingTree": "implementation under test",
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "darwin",
+    "arch": "arm64"
+  },
+  "scenario": "small-chunks",
+  "fixture": {
+    "samples": 10,
+    "chunks": 100,
+    "chunkBytes": 16,
+    "intervalMs": 10
+  },
+  "limits": {
+    "textWindowBytes": 4096,
+    "textFlushIntervalMs": 50,
+    "stepResponseBytes": 8388608,
+    "cancelPollMs": 50
+  },
+  "metrics": {
+    "firstVisibleP50Ms": 50.72087500000089,
+    "firstVisibleP95Ms": 76.830542,
+    "cancelP95Ms": 58.062374999999975,
+    "durationP95Ms": 1361.5765840000001
+  },
+  "runs": [
+    {
+      "firstVisibleMs": 76.830542,
+      "durationMs": 1361.5765840000001,
+      "cancelMs": 58.062374999999975,
+      "maxBatchBytes": 80,
+      "sampledPeakHeapBytes": 7700528
+    },
+    {
+      "firstVisibleMs": 51.437832999999955,
+      "durationMs": 1247.2540410000001,
+      "cancelMs": 52.91562500000009,
+      "maxBatchBytes": 80,
+      "sampledPeakHeapBytes": 8068432
+    },
+    {
+      "firstVisibleMs": 52.21629200000007,
+      "durationMs": 1210.2288749999998,
+      "cancelMs": 49.399625000000015,
+      "maxBatchBytes": 80,
+      "sampledPeakHeapBytes": 8217120
+    },
+    {
+      "firstVisibleMs": 53.21174999999994,
+      "durationMs": 1247.788833,
+      "cancelMs": 51.72687499999938,
+      "maxBatchBytes": 80,
+      "sampledPeakHeapBytes": 8340488
+    },
+    {
+      "firstVisibleMs": 49.68883399999959,
+      "durationMs": 1093.6642499999998,
+      "cancelMs": 50.85570900000039,
+      "maxBatchBytes": 80,
+      "sampledPeakHeapBytes": 8449616
+    },
+    {
+      "firstVisibleMs": 50.35637499999939,
+      "durationMs": 1095.716375,
+      "cancelMs": 51.32037499999933,
+      "maxBatchBytes": 80,
+      "sampledPeakHeapBytes": 8631728
+    },
+    {
+      "firstVisibleMs": 50.35179100000005,
+      "durationMs": 1090.1045000000004,
+      "cancelMs": 51.32533300000068,
+      "maxBatchBytes": 80,
+      "sampledPeakHeapBytes": 8682488
+    },
+    {
+      "firstVisibleMs": 50.773416,
+      "durationMs": 1118.737916,
+      "cancelMs": 51.47900000000118,
+      "maxBatchBytes": 80,
+      "sampledPeakHeapBytes": 8713584
+    },
+    {
+      "firstVisibleMs": 50.62845799999923,
+      "durationMs": 1214.118790999999,
+      "cancelMs": 51.25758300000052,
+      "maxBatchBytes": 80,
+      "sampledPeakHeapBytes": 8829400
+    },
+    {
+      "firstVisibleMs": 50.72087500000089,
+      "durationMs": 1165.5341250000001,
+      "cancelMs": 50.94449999999961,
+      "maxBatchBytes": 80,
+      "sampledPeakHeapBytes": 8899144
+    }
+  ],
+  "limitations": [
+    "fake provider and memory store; not production LLM or disk latency",
+    "heap sampled at writes; not a process memory bound",
+    "SQLite contention measured separately by worker-write-contention-drill.mjs"
+  ]
+}

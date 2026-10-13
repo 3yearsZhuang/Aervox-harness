@@ -254,6 +254,9 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   const authConfig = options.auth ?? loadAuthConfig();
   assertAuthConfigSafe(authConfig);
   app.addHook("onRequest", createAuthHook(authConfig));
+  if (process.env.AERVOX_NATIVE_SUPERVISOR_MANAGED === "1") {
+    app.get("/v1/native-ready", async () => ({ status: "ready", role: "api", protocol: 1 }));
+  }
   app.addHook("preValidation", createToolApprovalPolicyHook());
 
   // CORS：允许本地 Web/移动端跨源访问（生产环境按部署配置收紧 origin）

@@ -16,6 +16,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@aervox/native-runtime": "workspace:*",
     "@aervox/contracts": "workspace:*",
     "@aervox/schema": "workspace:*",
     "@libsql/client": "^0.14.0",

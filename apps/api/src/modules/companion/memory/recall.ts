@@ -32,6 +32,7 @@ export const AUTO_RECALL_CONSENT_SCOPE = "auto_recall";
 
 /** SQLite 记忆召回：本地 FTS + 同模型向量通道，经 RRF 排序后回读权威记录并逐条做资格判定。 */
 export function createSqliteMemoryRecall(deps: {
+  vectorPort?: import("@aervox/repositories").IVectorSearchPort;
   db: AervoxDatabase;
   client: Client;
   embeddingProvider: MemoryEmbeddingProvider | null;
@@ -43,7 +44,7 @@ export function createSqliteMemoryRecall(deps: {
 }): MemoryRecallPort {
   const memoryRepo = new SqliteMemoryRepository(deps.db, deps.client);
   const embeddingRepo = new SqliteMemoryEmbeddingRepository(deps.db);
-  const vectorPort = new SqliteMemoryVectorSearchAdapter(
+  const vectorPort = deps.vectorPort ?? new SqliteMemoryVectorSearchAdapter(
     embeddingRepo,
     deps.embeddingProvider?.modelId ?? "embedding-disabled",
   );
@@ -87,6 +88,7 @@ export function createSqliteMemoryRecall(deps: {
         });
         if (recalled.length === AUTO_RECALL_LIMIT) break;
       }
+      if (deps.consentCheck && !await deps.consentCheck(AUTO_RECALL_CONSENT_PURPOSE, AUTO_RECALL_CONSENT_SCOPE).catch(() => false)) return [];
       return recalled;
     },
   };

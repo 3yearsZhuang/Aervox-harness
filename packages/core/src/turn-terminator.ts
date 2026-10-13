@@ -5,10 +5,8 @@
  * 中剥离。二者原先混在一个 900+ 行函数里，导致取消/预算/删除闸门/租约丢失四条收敛
  * 路径与主循环交织，任何控制流改动都要在七个嵌套层之间穿行。
  *
- * 收敛器只依赖三样东西：执行存储端口、本次 claim 的 fencing 租约标识、已执行步数 ——
- * 不读`ControlContext`、不碰 Provider 与工具，因此可独立推理与测试。
- *
- * 行为等价性（ITER-041 gate）：本段为纯搬迁，未改任何判定顺序、CAS 参数或 reason 字符串。
+ * 终态提交统一检查 CAS，再映射执行结果；检查点另消费控制上下文，
+ * 不调用 Provider 或工具。
  */
 import type { DeletionGatePort, ExecutionStorePort } from "./ports.js";
 import type { ExecuteResult } from "./types.js";
@@ -38,8 +36,14 @@ export interface TerminatorContext {
   checkFailure?: () => void;
 }
 
-/** 收敛器出口：三个终态提交器 + 一个 Step 边界守卫 */
+type TerminalOutcome =
+  | { status: "completed" | "cancelled" }
+  | { status: "interrupted" | "failed"; reason: string };
+type TerminalEvent = Pick<Parameters<ExecutionStorePort["finalizeAttemptWithEvent"]>[0], "eventType" | "eventData" | "safetyDecision">;
+
+/** 所有终态共享提交与结果映射，检查点复用取消和中断入口。 */
 export interface TurnTerminator {
+  finalize(atSequence: number, outcome: TerminalOutcome, event: TerminalEvent): Promise<ExecuteResult>;
   /** 2b：用户取消闭环（AVX-HAR-001 §11.1）——CAS 夺终态成功才写 done */
   finalizeCancelled(atSequence: number): Promise<ExecuteResult>;
   /** 2d：预算/环境原因终止（Interrupted + done） */
@@ -53,24 +57,30 @@ export interface TurnTerminator {
 export function createTurnTerminator(ctx: TerminatorContext): TurnTerminator {
   const { execution, turnId, attemptId, sessionId, claimFencingToken, control } = ctx;
 
-  const finalizeCancelled = async (atSequence: number): Promise<ExecuteResult> => {
-    // B4-D：终态 + done 事件原子提交（§12.2；CAS 失败即他方已终结 → 无孤儿 done）
+  const finalize: TurnTerminator["finalize"] = async (atSequence, outcome, event) => {
+    const statuses = { completed: "Completed", cancelled: "Cancelled", interrupted: "Interrupted", failed: "Failed" } as const;
     const finalized = await execution.finalizeAttemptWithEvent({
       turnId,
       attemptId,
-      status: "Cancelled",
+      status: statuses[outcome.status],
       expectedFencingToken: claimFencingToken,
       sequence: atSequence,
+      ...event,
+    });
+    if (!finalized.ok) {
+      const reason = "reason" in outcome ? outcome.reason.replaceAll(" ", "_") : outcome.status;
+      return { status: "failed", attemptId, reason: `${reason}_finalize_contested` };
+    }
+    if ("reason" in outcome) return { ...outcome, attemptId };
+    return { ...outcome, attemptId, lastSequence: atSequence, stepsTaken: ctx.stepsTaken };
+  };
+
+  const finalizeCancelled = (atSequence: number): Promise<ExecuteResult> =>
+    finalize(atSequence, { status: "cancelled" }, {
       eventType: "done",
       eventData: { status: "Cancelled", isComplete: false, lastSequence: atSequence },
       safetyDecision: "approved",
     });
-    if (!finalized.ok) {
-      // 终态 CAS 失败（他方已终结/抢占）→ 不写 done，返回 contested
-      return { status: "failed", attemptId, reason: "cancelled_finalize_contested" };
-    }
-    return { status: "cancelled", attemptId, lastSequence: atSequence, stepsTaken: ctx.stepsTaken };
-  };
 
   const abortIfCancelled = async (atSequence: number): Promise<ExecuteResult | null> => {
     if (await execution.isCancelRequested({ turnId, attemptId })) {
@@ -79,24 +89,12 @@ export function createTurnTerminator(ctx: TerminatorContext): TurnTerminator {
     return null;
   };
 
-  const finalizeInterrupted = async (atSequence: number, reason: string): Promise<ExecuteResult> => {
-    // B4-D：终态 + done 事件原子提交（§12.2；CAS 失败即他方已终结 → 无孤儿 done）
-    const finalized = await execution.finalizeAttemptWithEvent({
-      turnId,
-      attemptId,
-      status: "Interrupted",
-      expectedFencingToken: claimFencingToken,
-      sequence: atSequence,
+  const finalizeInterrupted = (atSequence: number, reason: string): Promise<ExecuteResult> =>
+    finalize(atSequence, { status: "interrupted", reason }, {
       eventType: "done",
       eventData: { status: "Interrupted", isComplete: false, lastSequence: atSequence, reason },
       safetyDecision: "approved",
     });
-    if (!finalized.ok) {
-      return { status: "failed", attemptId, reason: `${reason}_finalize_contested` };
-    }
-    // 收敛语义：库内终态 Interrupted ↔ 返回值 interrupted（ITER-042 命名收敛）
-    return { status: "interrupted", attemptId, reason };
-  };
 
   /** Step 边界守卫 —— 取消 / 删除撤权水位 / 总耗时预算 / ControlContext，任一命中即收敛 */
   const prematureTermination = async (atSequence: number): Promise<ExecuteResult | null> => {
@@ -122,5 +120,5 @@ export function createTurnTerminator(ctx: TerminatorContext): TurnTerminator {
     return null;
   };
 
-  return { finalizeCancelled, finalizeInterrupted, abortIfCancelled, prematureTermination };
+  return { finalize, finalizeCancelled, finalizeInterrupted, abortIfCancelled, prematureTermination };
 }

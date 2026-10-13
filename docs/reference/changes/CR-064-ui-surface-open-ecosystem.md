@@ -11,7 +11,7 @@ updated_at: 2026-10-13
 reviewed_at: 2026-10-13
 review_interval_days: 90
 sources:
-  - docs/reference/changes/CR-063-ui-surface-plugins.md
+  - docs/reference/changes/CR-065-ui-surface-plugins.md
   - docs/reference/ARCHITECTURE.md
   - docs/reference/plugin-config-and-pages.md
   - docs/reference/THREAT_MODEL.md
@@ -21,7 +21,7 @@ sources:
 
 ## 1. 背景与问题
 
-CR-063（已 Implemented）把根界面与设置面板改造成"受信构建输入"的第一方 UI 插件：`UISurfaceManifest` 描述符、`@aervox/ui-host` 装配校验、组合根显式选择均已落地，但明确排除了两类开放能力：
+CR-065（已 Implemented）把根界面与设置面板改造成"受信构建输入"的第一方 UI 插件：`UISurfaceManifest` 描述符、`@aervox/ui-host` 装配校验、组合根显式选择均已落地，但明确排除了两类开放能力：
 
 1. **第三方 UI 插件**：社区开发者编写的根界面 / 面板 / 桌宠皮肤，代码来源不受信；
 2. **界面插件独立安装与升级回滚**：UI 插件脱离应用发版节奏，单独分发、安装、升级与回滚。

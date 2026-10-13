@@ -15,15 +15,11 @@ import type {
 } from "./types.js";
 import type { ContextBuilderPort, ContextCompactionPort } from "./ports.js";
 import { buildBaseSystemPrompt, type BaseSystemPromptOptions } from "./base-prompt.js";
+import { awaitWithSignal } from "./abortable.js";
 
 /** 默认 builder：仅透传原始输入（inbox 项不注入，由宿主按需开启） */
 export const defaultContextBuilder: ContextBuilderPort = {
-  build(input: {
-    turnId: string;
-    sessionId: string;
-    messages: PromptMessage[];
-    inboxItems?: AgentInboxItem[];
-  }): PromptContext {
+  build(input: Parameters<ContextBuilderPort["build"]>[0]): PromptContext {
     return {
       turnId: input.turnId,
       sessionId: input.sessionId,
@@ -54,17 +50,13 @@ export function createInboxAwareContextBuilder(
   base: ContextBuilderPort = defaultContextBuilder,
 ): ContextBuilderPort {
   return {
-    build(input: {
-      turnId: string;
-      sessionId: string;
-      messages: PromptMessage[];
-      inboxItems?: AgentInboxItem[];
-    }): PromptContext | Promise<PromptContext> {
+    build(input: Parameters<ContextBuilderPort["build"]>[0]): PromptContext | Promise<PromptContext> {
       const inboxMessages = inboxItemsToMessages(input.inboxItems ?? []);
       const baseInput = {
         turnId: input.turnId,
         sessionId: input.sessionId,
         messages: [...inboxMessages, ...input.messages],
+        signal: input.signal,
       };
       return base.build(baseInput);
     },
@@ -121,12 +113,7 @@ export function createSkillAwareContextBuilder(
 ): ContextBuilderPort {
   const skillSystemPrompt = buildSkillsPrompt(skills);
   return {
-    build(input: {
-      turnId: string;
-      sessionId: string;
-      messages: PromptMessage[];
-      inboxItems?: AgentInboxItem[];
-    }): PromptContext | Promise<PromptContext> {
+    build(input: Parameters<ContextBuilderPort["build"]>[0]): PromptContext | Promise<PromptContext> {
       const msgs = input.messages;
       const messages: PromptMessage[] = [{ role: "system" as const, content: skillSystemPrompt }, ...msgs];
       return base.build({ ...input, messages });
@@ -244,15 +231,17 @@ export function createComposedContextBuilder(
   if (compaction !== defaultCompactionPort) {
     const inner = builder;
     builder = {
-      build(input) {
-        return Promise.resolve(inner.build(input)).then(async (ctx) => {
-          const { messages } = await compaction.compact({
-            turnId: ctx.turnId,
-            sessionId: ctx.sessionId,
-            messages: ctx.messages,
-          });
-          return { ...ctx, messages };
-        });
+      async build(input) {
+        input.signal?.throwIfAborted();
+        const ctx = await awaitWithSignal(Promise.resolve(inner.build(input)), input.signal);
+        input.signal?.throwIfAborted();
+        const { messages } = await awaitWithSignal(compaction.compact({
+          turnId: ctx.turnId,
+          sessionId: ctx.sessionId,
+          messages: ctx.messages,
+          signal: input.signal,
+        }), input.signal);
+        return { ...ctx, messages };
       },
     };
   }

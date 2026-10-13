@@ -320,7 +320,7 @@
     {
       "id": "ITER-015",
       "batch": "next",
-      "status": "建议",
+      "status": "待评审",
       "delivery": "单机部署主管：API/Worker/模型归属，数据目录、端口、Token、版本、就绪与退出；ARC-13；CAP-001/018/027",
       "gate": "依赖 ITER-006/008 与 ITER-011/013 的必要部分；新主管先 CR；与移动端决策协调",
       "acceptance": [
@@ -333,6 +333,12 @@
         "ITER-008",
         "ITER-011",
         "ITER-013"
+      ],
+      "branch": "feat/rust-native-search-pilot",
+      "statusNote": "CR-063 声明主管切片已实现：目录单一归属、摘要、API/Worker 就绪和进程树回收，真实宿主演练通过；PR #272 已合入。整体安装、升级、签名与平台实机发布验收继续按本条目推进。 2026-10-13 原生切片已由 PR #272 合入；当前实施收口，剩余测量与发行门槛待评审，不提升 Released。",
+      "links": [
+        "docs/reference/changes/CR-063-native-runtime-components.md",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/272"
       ]
     },
     {
@@ -354,19 +360,29 @@
     {
       "id": "ITER-017",
       "batch": "candidate",
-      "status": "建议",
+      "status": "待评审",
       "delivery": "测量后分别决定 Prompt 预算/保真压缩、SQLite 写竞争、向量 topK、计算隔离和资产归属；FND-07/08/10、ARC-05/08/12；相关基础设施",
-      "gate": "依赖正确性修复与 ITER-013 指标；全局单写者、独立执行进程、二进制索引扩展先 CR",
+      "gate": "依赖正确性修复与 ITER-013 指标；CR-062/063 承接代码搜索、向量端到端对照、三平台原生活动 Helper 与计算隔离；生产索引迁移与发行签名单独取证",
       "acceptance": [
         "同设备同数据报告延迟分位数、失败率、内存和质量",
         "未达收益门槛即可停止；不承诺未测倍数"
       ],
       "owner": "platform/data/quality",
+      "branch": "feat/rust-native-search-pilot",
+      "statusNote": "CR-062/063 切片已实现：有界搜索、向量对照、三平台活动 Helper、可选音频与插件 Worker，含撤权和解压失败回归；2026-10-13 完成 TypeScript/原生构建分离、Cargo 工作区与平台模块收敛、共用 IPC 定义及握手校验，PR #272 已合入。缓存失效和 IPC 成本保留对照，生产签名与实机权限验收独立取证。 2026-10-13 原生切片已由 PR #272 合入；当前实施收口，剩余测量与发行门槛待评审，不提升 Released。",
+      "checks": [
+        "apps/desktop/test/native-app-activity.test.ts",
+        "apps/api/test/plugin-distribution.test.ts",
+        "scripts/native-layout.test.mjs",
+        "packages/native-runtime/test/protocol.test.ts"
+      ],
       "dependsOn": [
         "ITER-013"
       ],
       "links": [
-        "docs/explanation/reference-design-transfer.md#upstream-20260929"
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/272",
+        "docs/explanation/reference-design-transfer.md#upstream-20260929",
+        "docs/reference/changes/CR-063-native-runtime-components.md"
       ]
     },
     {
@@ -1184,7 +1200,7 @@
       "id": "ITER-054",
       "batch": "first",
       "status": "执行中",
-      "delivery": "根界面插件首个切片：薄 UI 宿主、默认工作台与桌宠插件、跨端组合根；CAP-001/002/018/020；CR-063。",
+      "delivery": "根界面插件首个切片：薄 UI 宿主、默认工作台与桌宠插件、跨端组合根；CAP-001/002/018/020；CR-065。",
       "gate": "2026-10-12 用户授权建分支落地；默认 P0 能力保留，先交付受信构建装配，不扩展第三方运行时代码权限。",
       "acceptance": [
         "替换根组件可真实渲染；失败/超时可重试；旧加载和已卸载实例不覆盖当前界面。",
@@ -1195,17 +1211,17 @@
       ],
       "owner": "frontend",
       "branch": "feat/ui-surface-experience",
-      "statusNote": "根界面实现迁移及装配合同实施中；2026-10-12 与 ITER-053 前端体验分支合并至 feat/ui-surface-experience；2026-10-13 面板细拆已由 ITER-055 落地（panels-ui），原生移动验收与独立安装仍留后续。",
+      "statusNote": "根界面实现迁移及装配合同实施中；2026-10-12 与 ITER-053 前端体验分支合并至 feat/ui-surface-experience；2026-10-13 面板细拆已由 ITER-055 落地（panels-ui），原生移动验收与独立安装仍留后续。 2026-10-13 收口分支统一为 feat/ui-surface-experience，UI 决定协调为 CR-065；整合终审进行中。",
       "dependsOn": [],
       "links": [
-        "docs/reference/changes/CR-063-ui-surface-plugins.md"
+        "docs/reference/changes/CR-065-ui-surface-plugins.md"
       ]
     },
     {
       "id": "ITER-055",
       "batch": "first",
       "status": "待评审",
-      "delivery": "界面插件化二阶段：UISurfaceManifest 清单契约与宿主校验、加载骨架与退避重试、宠物降级链（PetWithFallback）、浏览器级 E2E、五块设置面板迁入 panels-ui、设计令牌单源、紧凑工作台多根界面试验田；修复 workbench 出口主题链缺失；CAP-001/002/018/020；CR-063。",
+      "delivery": "界面插件化二阶段：UISurfaceManifest 清单契约与宿主校验、加载骨架与退避重试、宠物降级链（PetWithFallback）、浏览器级 E2E、五块设置面板迁入 panels-ui、设计令牌单源、紧凑工作台多根界面试验田；修复 workbench 出口主题链缺失；CAP-001/002/018/020；CR-065。",
       "gate": "2026-10-13 用户授权按建议一次性完成第一波与第二波迭代；保持受信构建输入口径，不引入第三方运行时代码与后端契约变更。",
       "acceptance": [
         "宿主装配前按清单校验版本/平台/能力并给出结构化失败原因，契约拒绝不自动重试，瞬时故障按退避表自动重试后可手动恢复",
@@ -1223,13 +1239,13 @@
       ],
       "owner": "frontend",
       "branch": "feat/ui-surface-experience",
-      "statusNote": "2026-10-13 六个条目一次性落地；E2E 发现并已修复 CR-063 主题装配缺口（workbench-all.css）；真实模型端到端与视觉走查未声明。",
+      "statusNote": "2026-10-13 六个条目一次性落地；E2E 发现并已修复 CR-065 主题装配缺口（workbench-all.css）；真实模型端到端与视觉走查未声明。",
       "dependsOn": [
         "ITER-053",
         "ITER-054"
       ],
       "links": [
-        "docs/reference/changes/CR-063-ui-surface-plugins.md"
+        "docs/reference/changes/CR-065-ui-surface-plugins.md"
       ]
     },
     {
@@ -1251,6 +1267,33 @@
       ],
       "links": [
         "docs/reference/changes/CR-064-ui-surface-open-ecosystem.md"
+      ]
+    },
+    {
+      "id": "ITER-057",
+      "batch": "first",
+      "status": "已移交",
+      "delivery": "内核执行边界修复：终态提交与返回值一致、连续小块正文限时刷新、准备阶段取消传播；CAP-002/007；延续 CR-061 的既有执行合同。",
+      "gate": "2026-10-13 用户授权按评估建议优化 Core；保持 TypeScript 零运行时依赖、既有 SSE 和 SQLite 合同；真实摘要、根预算策略及整体原生化独立评估。",
+      "acceptance": [
+        "终态 CAS 失败返回争抢原因，不覆盖权威状态或追加孤儿终态事件。",
+        "连续小块正文在固定刷新周期内提交，保留 4 KiB 批次上限、事件顺序与取消边界。",
+        "工具发现、上下文构建和压缩支持取消；取消后不派发模型或启动后续准备步骤。"
+      ],
+      "checks": [
+        "`packages/core/test/execution-boundaries.test.ts`",
+        "`packages/core/test/audit-streaming.test.ts`",
+        "`packages/host-agent/test/sqlite-execution-store-fencing.test.ts`",
+        "`scripts/benchmark-core.mjs`"
+      ],
+      "owner": "platform",
+      "branch": "fix/core-execution-polish",
+      "statusNote": "2026-10-13 完成全量终审并由 PR #274 移交；终态争抢、密集流刷新与准备取消回归通过，基准仅为假 Provider 与内存存储。",
+      "dependsOn": [],
+      "links": [
+        "docs/reference/changes/CR-061-core-execution-contract-hardening.md",
+        "docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现原则",
+        "https://github.com/3yearsZhuang/Aervox-harness/pull/274"
       ]
     }
   ]

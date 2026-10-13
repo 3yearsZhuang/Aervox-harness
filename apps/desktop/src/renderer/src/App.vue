@@ -14,7 +14,7 @@ const showOnboarding = ref(!hasCompletedOnboarding(window.localStorage))
 const reloadSurface = () => window.location.reload()
 const firstPartyPlugins = [firstPartyPlugin.default]
 const showIntroDeck = ref(false)
-// CR-063 切片六：组合根按用户选择装配主界面（本地存储 aervox.surface.main）
+// CR-065 切片六：组合根按用户选择装配主界面（本地存储 aervox.surface.main）
 const mainSurface = resolveSurfaceChoice([defaultSurface, compactSurface], window.localStorage, {
   storageKey: 'aervox.surface.main',
 })

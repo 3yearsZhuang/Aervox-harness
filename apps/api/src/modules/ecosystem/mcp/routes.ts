@@ -75,8 +75,17 @@ export function registerMcpRoutes(
 
     app.post("/v1/mcp/dsh", async (req, reply) => {
       reply.header("Content-Type", "application/json");
-      const result = await dshBridge.handleRpc(req.body);
-      return result;
+      const controller = new AbortController();
+      const abort = () => controller.abort();
+      const close = () => { if (!reply.raw.writableEnded) abort(); };
+      req.raw.once("aborted", abort);
+      reply.raw.once("close", close);
+      try {
+        return await dshBridge.handleRpc(req.body, controller.signal);
+      } finally {
+        req.raw.off("aborted", abort);
+        reply.raw.off("close", close);
+      }
     });
   }
 }

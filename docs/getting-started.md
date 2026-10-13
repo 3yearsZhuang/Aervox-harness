@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.4.0
-updated_at: 2026-10-08
-reviewed_at: 2026-10-08
+version: 1.4.1
+updated_at: 2026-10-13
+reviewed_at: 2026-10-13
 review_interval_days: 90
 ---
 
@@ -26,6 +26,7 @@ review_interval_days: 90
 | `plan.md` | 当前迭代入口，条目由 `docs/_meta/plan-queue.json` 生成 |
 | `docs/` | 导航、教程、指南、契约与解释；目录职责见[治理规范 §2](reference/document-governance.md#2-文档分类与目录职责) |
 | `reference/` | 固定版本的外部设计输入；清单与许可证见 [PRD §15](reference/PRD.md#prd-reference-manifest) |
+| `native/` | Rust 工作区与内部 IPC；构建和验证见[原生组件操作](how-to/run-native-components.md) |
 | `scripts/`、`mise.toml` | 自动化检查、生成任务与工具链真源 |
 
 ## 2. 阅读顺序
