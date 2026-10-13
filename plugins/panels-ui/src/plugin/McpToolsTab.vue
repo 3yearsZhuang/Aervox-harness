@@ -1,0 +1,403 @@
+<script setup lang="ts">
+import { AervoxCard, AervoxSwitch, AervoxButton, AervoxSegmentedControl } from '@aervox/ui/primitives';
+import { computed, onMounted, ref } from 'vue'
+import { ElMessage, ElMessageBox } from '@aervox/ui/utils/element'
+import {
+  Play,
+  Plus,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  Terminal,
+  Trash2,
+  Wrench,
+} from 'lucide-vue-next'
+import { useAervoxTools, type ToolRegistrationDto } from '@aervox/api-client'
+import ToolCallDialog from './ToolCallDialog.vue'
+import McpRegisterDialog from './McpRegisterDialog.vue'
+import McpPresetServers from './McpPresetServers.vue'
+
+const emit = defineEmits<{
+  'change': []
+}>()
+
+const api = useAervoxTools()
+const { tools, loading, error, loadTools, setToolEnabled, unregisterTool } = api
+
+const callDialogOpen = ref(false)
+const registerDialogOpen = ref(false)
+const selectedTool = ref<ToolRegistrationDto | null>(null)
+const busyToolId = ref<string | null>(null)
+
+type ToolFilter = 'pure' | 'plugin' | 'all'
+const filterMode = ref<ToolFilter>('pure')
+
+function isPluginTool(tool: ToolRegistrationDto): boolean {
+  return Boolean(tool.pluginId && !tool.pluginId.startsWith('mcp:'))
+}
+
+const displayTools = computed(() => {
+  if (filterMode.value === 'pure') {
+    return tools.value.filter((t) => !isPluginTool(t))
+  }
+  if (filterMode.value === 'plugin') {
+    return tools.value.filter(isPluginTool)
+  }
+  return tools.value
+})
+
+const pureToolCount = computed(() => tools.value.filter((t) => !isPluginTool(t)).length)
+const pluginToolCount = computed(() => tools.value.filter(isPluginTool).length)
+
+onMounted(() => {
+  void loadTools()
+})
+
+function isToolEnabled(tool: ToolRegistrationDto): boolean {
+  return tool.enabled === 1 || tool.enabled === true
+}
+
+function isBuiltin(tool: ToolRegistrationDto): boolean {
+  return tool.builtin === 1 || tool.builtin === true
+}
+
+function getSafetyLabel(level?: string): { label: string; class: string } {
+  switch (level) {
+    case 'read_only':
+      return { label: '只读安全', class: 'safety-read-only' }
+    case 'privileged':
+      return { label: '特权保护', class: 'safety-privileged' }
+    case 'write_with_approval':
+    default:
+      return { label: '需授权写', class: 'safety-approval' }
+  }
+}
+
+async function toggleEnabled(tool: ToolRegistrationDto): Promise<void> {
+  const next = !isToolEnabled(tool)
+  busyToolId.value = tool.id
+  try {
+    await setToolEnabled(tool.id, next)
+    emit('change')
+    ElMessage.success(`已${next ? '启用' : '停用'}工具「${tool.name}」`)
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : '切换工具状态失败')
+  } finally {
+    busyToolId.value = null
+  }
+}
+
+function openCallDialog(tool: ToolRegistrationDto): void {
+  selectedTool.value = tool
+  callDialogOpen.value = true
+}
+
+async function handleDelete(tool: ToolRegistrationDto): Promise<void> {
+  try {
+    await ElMessageBox.confirm(
+      `确定注销工具「${tool.name}」(${tool.id}) 吗？`,
+      '注销工具确认',
+      {
+        confirmButtonText: '注销',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+    busyToolId.value = tool.id
+    await unregisterTool(tool.id)
+    emit('change')
+    ElMessage.success('工具已注销')
+  } catch (e) {
+    if (e !== 'cancel') {
+      ElMessage.error(e instanceof Error ? e.message : '注销工具失败')
+    }
+  } finally {
+    busyToolId.value = null
+  }
+}
+
+function handleRegistered(): void {
+  emit('change')
+  void loadTools()
+}
+
+function handlePresetChanged(): void {
+  emit('change')
+  void loadTools()
+}
+const filterOptions = computed(() => [
+  { value: 'pure', label: `系统与独立 MCP (${pureToolCount.value})` },
+  ...(pluginToolCount.value > 0 ? [{ value: 'plugin', label: `插件内置 (${pluginToolCount.value})` }] : []),
+  { value: 'all', label: `全部 (${tools.value.length})` },
+])
+</script>
+
+<template>
+  <div class="mcp-tools-tab">
+    <div class="tab-toolbar">
+      <AervoxSegmentedControl variant="tabs" v-model="filterMode" :options="filterOptions" label="来源筛选" />
+      <div class="tab-actions">
+        <AervoxButton variant="primary"
+          type="button"
+          class="btn-primary-action"
+          @click="registerDialogOpen = true"
+        >
+          <Plus :size="15" />
+          <span>注册 MCP 工具</span>
+        </AervoxButton>
+      </div>
+    </div>
+
+    <!-- 提示横幅 -->
+    <div v-if="filterMode === 'pure' && pluginToolCount > 0" class="tab-hint-banner">
+      <Wrench :size="14" />
+      <span>当前仅管理系统内置与独立 MCP 服务端点。另有 <strong>{{ pluginToolCount }}</strong> 个插件专属工具已归由对应「插件」设置统一管理。</span>
+    </div>
+    <div v-else-if="filterMode === 'plugin'" class="tab-hint-banner">
+      <Wrench :size="14" />
+      <span>以下为各扩展插件内置声明的专属工具，其生命周期随插件统一管理，建议在对应插件设置中调试与启停。</span>
+    </div>
+
+    <McpPresetServers @changed="handlePresetChanged" />
+
+    <div v-if="loading" class="tab-loading">加载工具注册表中…</div>
+    <p v-else-if="error" class="tab-empty">{{ error }}</p>
+    <p v-else-if="displayTools.length === 0" class="tab-empty">
+      {{ filterMode === 'pure' ? '暂无可用的系统或独立 MCP 工具。点击右上角「注册 MCP 工具」登记新的外部端点。' : '当前筛选下暂无可展示的工具。' }}
+    </p>
+
+    <div v-else class="settings-list tool-list">
+      <AervoxCard layout="record" as="article"
+        v-for="tool in displayTools"
+        :key="tool.id"
+        class="settings-item tool-card"
+        :class="{ inactive: !isToolEnabled(tool) }"
+      >
+        <span class="tool-card-icon">
+          <Wrench :size="18" />
+        </span>
+        <div class="record-main tool-card-main">
+          <div class="tool-card-header">
+            <strong class="tool-title">{{ tool.name }}</strong>
+            <code class="tool-id-code">{{ tool.id }}</code>
+            <span class="aervox-badge tool-badge badge-category">{{ tool.category || 'system' }}</span>
+            <span class="aervox-badge tool-badge" :class="getSafetyLabel(tool.safetyLevel).class">
+              {{ getSafetyLabel(tool.safetyLevel).label }}
+            </span>
+            <span v-if="isBuiltin(tool)" class="aervox-badge tool-badge badge-builtin">系统内置</span>
+            <span v-else-if="tool.pluginId?.startsWith('mcp:')" class="aervox-badge tool-badge badge-mcp-server">
+              MCP: {{ tool.pluginId.slice(4) }}
+            </span>
+            <span v-else-if="tool.pluginId" class="aervox-badge tool-badge badge-plugin">
+              插件: {{ tool.pluginId }}
+            </span>
+          </div>
+          <p class="tool-desc">{{ tool.description || '暂无描述' }}</p>
+        </div>
+        <div class="record-actions tool-card-actions">
+          <AervoxSwitch
+            class="tool-toggle"
+            :checked="isToolEnabled(tool)"
+            :disabled="busyToolId === tool.id"
+            :aria-label="`${isToolEnabled(tool) ? '停用' : '启用'} ${tool.name}`"
+            @change="toggleEnabled(tool)"
+           />
+          <AervoxButton
+            type="button"
+            class="tool-action-btn"
+            title="调试测试调用"
+            :disabled="!isToolEnabled(tool)"
+            @click="openCallDialog(tool)"
+          >
+            <Terminal :size="14" />
+            <span>调试</span>
+          </AervoxButton>
+          <AervoxButton variant="danger" icon-only
+            v-if="!isBuiltin(tool)"
+            type="button"
+            class="tool-action-btn btn-danger"
+            title="注销工具"
+            :disabled="busyToolId === tool.id"
+            @click="handleDelete(tool)"
+          >
+            <Trash2 :size="14" />
+          </AervoxButton>
+        </div>
+      </AervoxCard>
+    </div>
+
+    <ToolCallDialog
+      :open="callDialogOpen"
+      :tool="selectedTool"
+      @close="callDialogOpen = false"
+    />
+    <McpRegisterDialog
+      :open="registerDialogOpen"
+      @close="registerDialogOpen = false"
+      @registered="handleRegistered"
+    />
+  </div>
+</template>
+
+<style scoped>
+.mcp-tools-tab {
+  display: grid;
+  gap: 14px;
+}
+.tab-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.tab-filters {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-input);
+  padding: 3px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+}
+.tab-hint-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-soft) 45%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--accent) 30%, var(--border));
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.tab-summary {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.tab-summary strong {
+  color: var(--text-primary);
+}
+.tab-loading,
+.tab-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.tool-list {
+  display: grid;
+  gap: 10px;
+}
+.tool-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: border-color 0.22s ease, background-color 0.22s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease;
+}
+.tool-card.inactive {
+  opacity: 0.72;
+}
+.tool-card-icon {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.22s ease;
+}
+.tool-card-main {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 3px;
+}
+.tool-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.tool-title {
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+.tool-id-code {
+  font-size: 10px;
+  padding: 1px 5px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+.tool-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+.badge-category {
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+.safety-read-only {
+  background: color-mix(in srgb, #10b981 14%, transparent);
+  color: #10b981;
+  border-color: color-mix(in srgb, #10b981 28%, transparent);
+}
+.safety-approval {
+  background: color-mix(in srgb, #f59e0b 14%, transparent);
+  color: #f59e0b;
+  border-color: color-mix(in srgb, #f59e0b 28%, transparent);
+}
+.safety-privileged {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 28%, transparent);
+}
+.badge-builtin {
+  background: var(--bg-input);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+.badge-mcp-server {
+  background: color-mix(in srgb, #06b6d4 14%, transparent);
+  color: #0891b2;
+  border-color: color-mix(in srgb, #06b6d4 28%, transparent);
+}
+.badge-plugin {
+  background: color-mix(in srgb, #8b5cf6 14%, transparent);
+  color: #8b5cf6;
+  border-color: color-mix(in srgb, #8b5cf6 28%, transparent);
+}
+.tool-desc {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tool-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tool-toggle {
+  width: 40px;
+  height: 22px;
+  flex: 0 0 40px;
+}
+</style>

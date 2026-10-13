@@ -7,6 +7,7 @@ import {UISurfaceHost} from '@aervox/ui-host'
 import defaultSurface from '@aervox/plugin-workbench-ui'
 // CR-060：第一方插件按**包路径**装配，宿主不绑定插件私有符号（见 check-host-domain-purity）
 import * as firstPartyPlugin from '@aervox/plugin-focus-mode/ui'
+import { settingsPanels } from '@aervox/plugin-panels-ui'
 
 const OnboardingFlow = defineAsyncComponent(() => import('@/components/OnboardingFlow.vue'))
 const showOnboarding = ref(!hasCompletedOnboarding(window.localStorage))
@@ -53,6 +54,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
       platform="desktop"
       :view-props="{ showCompanion: true }"
       :plugins="firstPartyPlugins"
+      :settings-panels="settingsPanels"
       @replay-onboarding="replayOnboarding"
       @open-intro-deck="openIntroDeck"
     />

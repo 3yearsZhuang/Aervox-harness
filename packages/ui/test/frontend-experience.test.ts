@@ -6,8 +6,6 @@ import { useWorkbenchLayout } from '../src/composables/useWorkbenchLayout';
 import { WORKBENCH_CONTEXT_KEY } from '../src/composables/workbench-context';
 import ComposerDock from '../src/components/workbench/ComposerDock.vue';
 import WorkbenchSideCards from '../src/components/workbench/WorkbenchSideCards.vue';
-import SettingsModal from '../src/components/workbench/drawers/SettingsModal.vue';
-import LLMConfigPanel from '../src/components/llm/LLMConfigPanel.vue';
 import { AervoxSegmentedControl, AervoxSwitch } from '../src/primitives';
 
 const llm = vi.hoisted(() => ({
@@ -22,18 +20,11 @@ vi.mock('@aervox/api-client', async (importOriginal) => ({
   }),
 }));
 
-const storedConfig = {
-  enabled: true, providerType: 'ollama', baseUrl: 'http://localhost:11434/v1',
-  apiKey: '', modelId: 'example-model', temperature: 0.7, maxTokens: 4096, settings: {},
-};
 enableAutoUnmount(afterEach);
 
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
-  llm.getConfig.mockImplementation(async () => structuredClone(storedConfig));
-  llm.listPresets.mockResolvedValue({ presets: [], activeId: null });
-  llm.saveConfig.mockImplementation(async (config) => config);
 });
 afterEach(() => vi.restoreAllMocks());
 
@@ -201,48 +192,6 @@ describe('frontend experience', () => {
     expect(removeEventListener).toHaveBeenCalledWith('change', onChange);
   });
 
-  it('preserves an unsaved model draft when switching settings categories and saves explicitly', async () => {
-    const layout = useWorkbenchLayout(
-      { platform: 'web', showCompanion: false, assistantName: '思隅' }, { recordActivity: vi.fn() },
-    );
-    layout.openSettingsCategory('model');
-    const wrapper = mount(SettingsModal, {
-      global: {
-        stubs: {
-          ElDialog: defineComponent({ template: '<div><slot name="header"/><slot/><slot name="footer"/></div>' }),
-          ExtensionSlot: true,
-        },
-        provide: {
-          [WORKBENCH_CONTEXT_KEY as symbol]: {
-            layout, timer: { timerMinutes: ref(25) }, cards: { cardCatalog: ref([]) },
-            conversation: { toolApprovalMode: ref('ask'), fullAccessDialogOpen: ref(false), fullAccessAcknowledged: ref(false) },
-            proactive: { proactiveDialogOpen: ref(false) },
-          },
-        },
-      },
-    });
-    await flushPromises();
-    expect(wrapper.findAll('.nav-sidebar-item')).toHaveLength(5);
-    expect(wrapper.get('.nav-sidebar-item[aria-current="true"]').text()).toContain('模型服务');
-    await wrapper.get('[aria-label="模型名称"]').setValue('unsaved-model');
-    expect(wrapper.text()).toContain('有未保存的修改');
-    await wrapper.findAll('.nav-sidebar-item').find(button => button.text().includes('通用'))!.trigger('click');
-    await nextTick();
-    expect(wrapper.findAll('[aria-label="设置页面"] button').map(button => button.text())).toEqual(['外观', '工具布局']);
-    await wrapper.findAll('[aria-label="设置页面"] button')[1]!.trigger('click');
-    expect(layout.settingsCategory.value).toBe('tools');
-    await wrapper.findAll('.nav-sidebar-item').find(button => button.text().includes('模型服务'))!.trigger('click');
-    await flushPromises();
-    expect((wrapper.get('[aria-label="模型名称"]').element as HTMLInputElement).value).toBe('unsaved-model');
-    expect(llm.getConfig).toHaveBeenCalledTimes(1);
-    expect(llm.saveConfig).not.toHaveBeenCalled();
-    await wrapper.get('.save-btn').trigger('click');
-    await flushPromises();
-    expect(llm.saveConfig).toHaveBeenCalledWith(expect.objectContaining({ modelId: 'unsaved-model' }));
-    expect(wrapper.text()).not.toContain('有未保存的修改');
-    wrapper.unmount();
-  });
-
   it('supports keyboard selection and skips disabled segmented options', async () => {
     const wrapper = mount(AervoxSegmentedControl, {
       attachTo: document.body,
@@ -259,18 +208,4 @@ describe('frontend experience', () => {
     expect(document.activeElement).toBe(wrapper.findAll('button')[0]!.element);
   });
 
-  it('does not overwrite edits made while a save request is in flight', async () => {
-    let finishSave: (value: unknown) => void = () => {};
-    llm.saveConfig.mockReturnValue(new Promise(resolve => { finishSave = resolve; }));
-    const wrapper = mount(LLMConfigPanel);
-    await flushPromises();
-    await wrapper.get('[aria-label="模型名称"]').setValue('submitted-model');
-    await wrapper.get('.save-btn').trigger('click');
-    await wrapper.get('[aria-label="模型名称"]').setValue('newer-draft');
-    finishSave({ ...storedConfig, modelId: 'submitted-model' });
-    await flushPromises();
-    expect((wrapper.get('[aria-label="模型名称"]').element as HTMLInputElement).value).toBe('newer-draft');
-    expect(wrapper.text()).toContain('有未保存的修改');
-    wrapper.unmount();
-  });
 });

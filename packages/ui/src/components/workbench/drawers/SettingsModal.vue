@@ -28,11 +28,6 @@ import {
   Trash2,
   Volume2,
 } from 'lucide-vue-next';
-import LLMConfigPanel from '../../llm/LLMConfigPanel.vue';
-import ModelRuntimePanel from '../../llm/ModelRuntimePanel.vue';
-import PersonaManagerPanel from '../../persona/PersonaManagerPanel.vue';
-import VoicePresetManagerPanel from '../../voice/VoicePresetManagerPanel.vue';
-import PluginManagerPanel from '../../plugin/PluginManagerPanel.vue';
 import ExtensionSlot from '../../extension/ExtensionSlot.vue';
 import { useAervoxPlugins } from '@aervox/api-client';
 import { settingCategories, settingPages, type WorkbenchMode } from '../../../composables/useWorkbenchLayout';
@@ -182,8 +177,9 @@ async function onPluginChange(): Promise<void> {
         label="设置页面"
         @update:model-value="selectSettingsPage"
       />
+      <!-- CR-063 切片四：设置面板经槽位注入，宿主不内建具体面板 -->
       <KeepAlive>
-        <LLMConfigPanel v-if="settingsCategory === 'model'" class="settings-section" />
+        <ExtensionSlot v-if="settingsCategory === 'model'" name="settings:panel:model" wrapper-class="settings-section" />
       </KeepAlive>
       <div v-if="settingsCategory === 'tools'" class="settings-section">
         <AervoxSettingsHeading title="工具布局" :description="isEditingQuickTools ? '选择和排列常用工具' : '打开常用工具，或自定义排列'">
@@ -487,17 +483,17 @@ async function onPluginChange(): Promise<void> {
           <ExtensionSlot name="settings:conversation-rows" />
           <label class="settings-row settings-choice-row"><span><strong>回车发送</strong><small>关闭后，回车只换行</small></span><AervoxSwitch v-model="enterToSend"  @change="saveSettings(timerMinutes)"  /></label>
         </div>
-        <ModelRuntimePanel v-else-if="settingsCategory === 'local-models'" class="settings-section" />
-        <PersonaManagerPanel v-else-if="settingsCategory === 'persona'" class="settings-section" />
+        <ExtensionSlot v-else-if="settingsCategory === 'local-models'" name="settings:panel:local-models" wrapper-class="settings-section" />
+        <ExtensionSlot v-else-if="settingsCategory === 'persona'" name="settings:panel:persona" wrapper-class="settings-section" />
         <div v-else-if="settingsCategory === 'notifications'" class="settings-section">
           <AervoxSettingsHeading title="提醒" description="控制学习过程中的轻量通知与节奏提醒" />
           <div class="settings-note"><Check :size="16" />设置会自动保存在当前设备</div>
         </div>
         <div v-else-if="settingsCategory === 'voice'" class="settings-section">
           <AervoxSettingsHeading title="语音" description="多预设保存与切换本地或在线语音模型" />
-          <VoicePresetManagerPanel />
+          <ExtensionSlot name="settings:panel:voice" />
         </div>
-        <PluginManagerPanel v-else-if="settingsCategory === 'plugins'" class="settings-section" @change="onPluginChange" />
+        <ExtensionSlot v-else-if="settingsCategory === 'plugins'" name="settings:panel:plugins" wrapper-class="settings-section" :context="{ onChange: onPluginChange }" />
         <p v-if="settingsCategory === 'appearance' || settingsCategory === 'conversation' || settingsCategory === 'tools'" class="settings-autosave-note">
           <Check :size="14" />更改会自动保存在当前设备
         </p>

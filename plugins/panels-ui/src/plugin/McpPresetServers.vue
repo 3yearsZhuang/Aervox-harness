@@ -1,0 +1,482 @@
+<script setup lang="ts">
+import { AervoxCard, AervoxDialog, AervoxButton } from '@aervox/ui/primitives';
+import { onMounted, ref } from 'vue'
+import { ElMessage, ElMessageBox } from '@aervox/ui/utils/element'
+import {
+  ExternalLink,
+  RefreshCw,
+  ShieldCheck,
+  Store,
+  Unplug,
+  Zap,
+} from 'lucide-vue-next';
+import { useAervoxMcp, type McpPresetDto } from '@aervox/api-client';
+
+const emit = defineEmits<{
+  (e: 'changed'): void
+}>()
+
+const api = useAervoxMcp()
+const { presets, loading, error, loadPresets } = api
+
+const tokenDialogOpen = ref(false)
+const activePreset = ref<McpPresetDto | null>(null)
+const tokenInput = ref('')
+const connecting = ref(false)
+const syncingId = ref<string | null>(null)
+const disconnectingId = ref<string | null>(null)
+
+onMounted(() => {
+  void loadPresets()
+})
+
+function getStatusLabel(preset: McpPresetDto): { label: string; class: string } {
+  if (preset.enabled && preset.status === 'connected') {
+    return { label: `已连接 · ${preset.toolCount} 个工具`, class: 'preset-status-connected' }
+  }
+  if (preset.status === 'error') return { label: '连接异常', class: 'preset-status-error' }
+  if (preset.configured) return { label: '未启用', class: 'preset-status-idle' }
+  return { label: '未接入', class: 'preset-status-idle' }
+}
+
+function openTokenDialog(preset: McpPresetDto): void {
+  activePreset.value = preset
+  tokenInput.value = ''
+  tokenDialogOpen.value = true
+}
+
+async function handleDirectConnect(preset: McpPresetDto): Promise<void> {
+  connecting.value = true
+  try {
+    await api.connectServer(preset.id)
+    ElMessage.success(`已接入「${preset.name}」并同步工具`)
+    emit('changed')
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : '接入失败')
+  } finally {
+    connecting.value = false
+    void loadPresets()
+  }
+}
+
+async function handleConnect(): Promise<void> {
+  const preset = activePreset.value
+  if (!preset) return
+  const token = tokenInput.value.trim()
+  if (preset.authType === 'bearer' && !token && !preset.tokenConfigured) {
+    ElMessage.warning(`请先申请「${preset.name}」的 Token 后粘贴到此处`)
+    return
+  }
+  connecting.value = true
+  try {
+    await api.connectServer(preset.id, token || undefined)
+    ElMessage.success(`已接入「${preset.name}」并同步工具`)
+    tokenDialogOpen.value = false
+    emit('changed')
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : '接入失败，请检查配置与状态')
+  } finally {
+    connecting.value = false
+    void loadPresets()
+  }
+}
+
+async function handleSync(preset: McpPresetDto): Promise<void> {
+  syncingId.value = preset.id
+  try {
+    await api.syncServer(preset.id)
+    ElMessage.success(`「${preset.name}」工具已重新同步`)
+    emit('changed')
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : '同步失败')
+  } finally {
+    syncingId.value = null
+    void loadPresets()
+  }
+}
+
+async function handleDisconnect(preset: McpPresetDto): Promise<void> {
+  try {
+    await ElMessageBox.confirm(
+      `断开后将停用并注销「${preset.name}」同步的全部工具（Token 会保留在本地，重新接入无需重填）。`,
+      '断开 MCP 服务器',
+      { confirmButtonText: '断开', cancelButtonText: '取消', type: 'warning' },
+    )
+  } catch {
+    return
+  }
+  disconnectingId.value = preset.id
+  try {
+    await api.disconnectServer(preset.id)
+    ElMessage.success(`已断开「${preset.name}」`)
+    emit('changed')
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : '断开失败')
+  } finally {
+    disconnectingId.value = null
+    void loadPresets()
+  }
+}
+</script>
+
+<template>
+  <section class="preset-servers">
+    <header class="preset-header">
+      <span class="preset-title">
+        <Store :size="14" />
+        <span>预设 MCP 服务</span>
+      </span>
+      <small class="preset-hint">出厂内置的官方 MCP 接入档案，补 Token 即可一键接入</small>
+    </header>
+
+    <div v-if="loading" class="preset-empty">加载预设 MCP 服务中…</div>
+    <p v-else-if="error" class="preset-empty">{{ error }}</p>
+    <p v-else-if="presets.length === 0" class="preset-empty">暂无预设 MCP 服务。</p>
+
+    <AervoxCard as="article" v-for="preset in presets" :key="preset.id" class="preset-card">
+      <span class="preset-icon">
+        <Zap :size="18" />
+      </span>
+      <div class="preset-main">
+        <div class="preset-line">
+          <strong class="preset-name">{{ preset.name }}</strong>
+          <code class="preset-endpoint">{{ preset.endpointUrl }}</code>
+          <span class="preset-status" :class="getStatusLabel(preset).class">
+            {{ getStatusLabel(preset).label }}
+          </span>
+          <span v-if="preset.tokenConfigured" class="preset-token" :title="preset.tokenMasked ?? ''">
+            Token 已配置（{{ preset.tokenMasked }}）
+          </span>
+        </div>
+        <p class="preset-desc">{{ preset.description }}</p>
+        <p class="preset-meta">
+          <span v-if="preset.regionNote">{{ preset.regionNote }}</span>
+          <span v-if="preset.rateLimitNote"> · {{ preset.rateLimitNote }}</span>
+          <span> · 协议 {{ preset.protocolVersion }} / {{ preset.transport }}</span>
+        </p>
+        <p v-if="preset.lastError" class="preset-error">最近错误：{{ preset.lastError }}</p>
+      </div>
+      <div class="preset-actions">
+        <AervoxButton variant="primary"
+          type="button"
+          class="preset-btn preset-btn-primary"
+          :disabled="connecting"
+          @click="preset.authType === 'none' ? handleDirectConnect(preset) : openTokenDialog(preset)"
+        >
+          <ShieldCheck :size="14" />
+          <span>{{ preset.configured ? '重新接入' : (preset.authType === 'none' ? '一键接入' : '接入') }}</span>
+        </AervoxButton>
+        <AervoxButton variant="secondary"
+          type="button"
+          class="preset-btn"
+          :disabled="!preset.configured || syncingId === preset.id"
+          title="重新同步工具清单"
+          @click="handleSync(preset)"
+        >
+          <RefreshCw :size="14" />
+          <span>同步</span>
+        </AervoxButton>
+        <AervoxButton variant="danger" icon-only
+          type="button"
+          class="preset-btn preset-btn-danger"
+          :disabled="!preset.enabled || disconnectingId === preset.id"
+          title="断开并注销同步工具"
+          @click="handleDisconnect(preset)"
+        >
+          <Unplug :size="14" />
+        </AervoxButton>
+        <a
+          class="preset-btn preset-link"
+          :href="preset.tokenApplyUrl || preset.docsUrl || preset.homepage"
+          target="_blank"
+          rel="noreferrer noopener"
+          :title="preset.authType === 'bearer' ? '打开官方平台申请 Token' : '查看官方文档与主页'"
+        >
+          <ExternalLink :size="14" />
+        </a>
+      </div>
+    </AervoxCard>
+
+    <AervoxDialog
+      :model-value="tokenDialogOpen"
+      :title="`接入「${activePreset?.name ?? ''}」`"
+      :subtitle="activePreset?.authType === 'bearer' ? 'Token 仅保存在本地数据库，接口不会回传原文' : '本地免密服务，直接确认即可完成接入与工具同步'"
+      :icon="ShieldCheck"
+      size="sm"
+      @close="tokenDialogOpen = false"
+    >
+      <div class="token-body">
+        <div v-if="activePreset?.authType === 'bearer'" class="field-block">
+          <label class="field-label" for="mcp-token-input">MCP Token</label>
+          <input
+            id="mcp-token-input"
+            v-model="tokenInput"
+            class="aervox-field input-control"
+            type="password"
+            autocomplete="off"
+            :placeholder="activePreset?.tokenConfigured ? '留空则沿用已保存的 Token' : '粘贴在官方平台申请的 MCP Token'"
+            maxlength="256"
+          />
+        </div>
+        <p v-if="activePreset?.authType === 'bearer'" class="token-hint">
+          尚无 Token？打开
+          <a :href="activePreset?.tokenApplyUrl" target="_blank" rel="noreferrer noopener">
+            {{ activePreset?.tokenApplyUrl }}
+          </a>
+          登录后在「控制台」申请。{{ activePreset?.rateLimitNote }}
+        </p>
+        <p v-else class="token-hint">
+          该服务基于本地协议桥接运行，无需配置远端 Token。点击确定后将立即同步本地 DSH 工具。
+        </p>
+        <p class="token-hint">
+          接入后将立即同步工具清单：只读类工具可被 AI 自主调用，修改与执行类写操作每次都需你确认授权（PET-05）。
+        </p>
+      </div>
+
+      <template #footer>
+        <AervoxButton variant="secondary" @click="tokenDialogOpen = false">取消</AervoxButton>
+        <AervoxButton
+          variant="primary"
+          :icon="ShieldCheck"
+          :loading="connecting"
+          @click="handleConnect"
+        >
+          接入并同步
+        </AervoxButton>
+      </template>
+    </AervoxDialog>
+  </section>
+
+</template>
+
+<style scoped>
+.preset-servers {
+  display: grid;
+  gap: 10px;
+}
+.preset-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.preset-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+.preset-hint {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+.preset-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.preset-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  transition: border-color 0.22s ease, background-color 0.22s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease;
+}
+.preset-card:hover {
+  transform: translateY(-1px);
+}
+.preset-icon {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.22s ease;
+}
+.preset-card:hover .preset-icon {
+  transform: scale(1.05);
+}
+.preset-main {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 3px;
+}
+.preset-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.preset-name {
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+.preset-endpoint {
+  font-size: 10px;
+  padding: 1px 5px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+.preset-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+.preset-status-connected {
+  background: color-mix(in srgb, #10b981 14%, transparent);
+  color: #10b981;
+  border-color: color-mix(in srgb, #10b981 28%, transparent);
+}
+.preset-status-error {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 28%, transparent);
+}
+.preset-status-idle {
+  background: var(--bg-input);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+.preset-token {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.preset-desc {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.preset-meta {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+.preset-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 10px;
+}
+.preset-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.preset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.preset-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.preset-btn-primary:hover:not(:disabled) {
+  opacity: 0.92;
+}
+
+.preset-link {
+  padding: 6px 8px;
+}
+.token-header-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.heading-icon-wrap {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.token-header-text {
+  display: grid;
+  gap: 2px;
+}
+.token-header-text strong {
+  color: var(--text-primary);
+  font-size: 13px;
+}
+.token-header-text small {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+.token-body {
+  display: grid;
+  gap: 12px;
+}
+.field-block {
+  display: grid;
+  gap: 6px;
+}
+.field-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.input-control {
+  width: 100%;
+
+  box-sizing: border-box;
+}
+.token-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.token-hint a {
+  color: var(--accent);
+}
+.token-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.btn-token-submit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-token-submit:hover:not(:disabled) {
+  opacity: 0.9;
+  box-shadow: 0 2px 8px rgba(78, 119, 209, 0.25);
+}
+.btn-token-submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+</style>

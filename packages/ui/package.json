@@ -16,9 +16,11 @@
     "./theme": "./src/theme/index.css",
     "./plugin-api": "./src/plugin-api.ts",
     "./markdown": "./src/utils/markdown.ts",
+    "./utils/element": "./src/utils/element.ts",
     "./primitives": "./src/primitives/index.ts",
     "./workbench": "./src/workbench.ts",
     "./theme/standard-workbench": "./src/theme/standard-workbench.css",
+    "./theme/tokens": "./src/theme/tokens.css",
     "./env": "./src/env.d.ts"
   },
   "scripts": {
