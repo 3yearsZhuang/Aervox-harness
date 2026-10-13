@@ -1231,6 +1231,27 @@
       "links": [
         "docs/reference/changes/CR-063-ui-surface-plugins.md"
       ]
+    },
+    {
+      "id": "ITER-056",
+      "batch": "candidate",
+      "status": "建议",
+      "delivery": "界面插件开放评审与实施：第三方 UI 插件信任模型（信任分级/能力白名单/隔离降级）、界面插件独立安装升级回滚合同；CR-064。",
+      "gate": "必须先评审 CR-064 并回答其 §4 待决策问题（签名基础设施、L2 放行范围、崩溃回退适用范围、市场展示口径）；批准后按切片实施，不提前写码。",
+      "acceptance": [
+        "CR-064 四个待评审问题有明确结论并回填提案",
+        "信任分级、安装/升级/回滚演练与兼容矩阵负向测试全绿"
+      ],
+      "checks": [],
+      "owner": "frontend",
+      "branch": "",
+      "statusNote": "2026-10-13 立项提案（CR-064，Proposed）；原生移动真机验收继续由 CR-055 / ITER-009 承载，不在本条目扩张。",
+      "dependsOn": [
+        "ITER-055"
+      ],
+      "links": [
+        "docs/reference/changes/CR-064-ui-surface-open-ecosystem.md"
+      ]
     }
   ]
 }

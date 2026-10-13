@@ -6,7 +6,7 @@ owner: frontend
 doc_status: review-candidate
 decision_status: accepted
 delivery_status: implemented
-version: 0.2.0
+version: 0.2.1
 updated_at: 2026-10-13
 reviewed_at: 2026-10-13
 review_interval_days: 90
@@ -53,4 +53,8 @@ sources:
 - **设计令牌单源**：新增 `theme/tokens.css`（`--avx-*`，明暗双主题），六个主题文件统一消费，令牌值全部提取自既有样式，视觉零变更。
 - **多根界面试验田**：`workbench-ui` 包新增 `compactSurface`（紧凑单栏变体，复用同一工作台根、`variant="compact"`）；`ui-host` 新增 `resolveSurfaceChoice()`，组合根按 `?surface=` / localStorage `aervox.surface.main` 选择根界面；设置外观区提供切换器（重载生效）。
 
-仍未覆盖（留后续切片或另立 CR）：原生移动验收、界面插件独立安装与升级回滚、第三方 UI 插件信任模型、设置面板按需分包懒加载（当前随工作台首包加载）。
+### 2026-10-13 · v0.2.1 遗留收口（同分支）
+
+- **设置面板按需分包**：`panels-ui` 的 `settingsPanels` 一律改为 `defineAsyncComponent`，Web 构建产物中五块面板各自成 chunk（不进工作台首包），分类首次激活时按需加载；模型面板草稿保留由 KeepAlive 继续覆盖（`plugins/panels-ui/test/lazy-panels.test.ts`）。
+
+仍未覆盖（另立 CR-064 提案跟踪）：原生移动真机验收、界面插件独立安装与升级回滚、第三方 UI 插件信任模型。
