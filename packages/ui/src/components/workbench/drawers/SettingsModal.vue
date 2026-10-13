@@ -86,12 +86,17 @@ const settingsPages = computed(() => settingPages.filter(page =>
 const modeOptions = [{ value: 'companion', label: '桌宠陪伴' }, { value: 'standard', label: '标准工作台' }];
 // CR-063 切片六（多根界面试验田）：界面变体是组合根装配层契约，经 localStorage 持久化、重载后生效
 const SURFACE_STORAGE_KEY = 'aervox.surface.main';
+const SURFACE_VARIANT_VALUES = ['workbench-compact-ui', 'proactive-ui'] as const;
 const surfaceVariant = ref(
-  typeof localStorage !== 'undefined' && localStorage.getItem(SURFACE_STORAGE_KEY) === 'workbench-compact-ui'
-    ? 'workbench-compact-ui'
+  typeof localStorage !== 'undefined' && SURFACE_VARIANT_VALUES.includes(localStorage.getItem(SURFACE_STORAGE_KEY) as never)
+    ? (localStorage.getItem(SURFACE_STORAGE_KEY) as string)
     : 'workbench-ui',
 );
-const surfaceOptions = [{ value: 'workbench-ui', label: '完整工作台' }, { value: 'workbench-compact-ui', label: '紧凑工作台' }];
+const surfaceOptions = [
+  { value: 'workbench-ui', label: '完整工作台' },
+  { value: 'workbench-compact-ui', label: '紧凑工作台' },
+  { value: 'proactive-ui', label: '思隅陪伴' },
+];
 function selectSurfaceVariant(value: string) {
   surfaceVariant.value = value;
   try { localStorage.setItem(SURFACE_STORAGE_KEY, value); } catch { /* 存储不可用时忽略 */ }

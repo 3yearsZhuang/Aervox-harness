@@ -132,6 +132,9 @@ importers:
       '@aervox/plugin-panels-ui':
         specifier: workspace:*
         version: link:../../plugins/panels-ui
+      '@aervox/plugin-proactive-ui':
+        specifier: workspace:*
+        version: link:../../plugins/proactive-ui
       '@aervox/plugin-workbench-ui':
         specifier: workspace:*
         version: link:../../plugins/workbench-ui
@@ -209,6 +212,9 @@ importers:
       '@aervox/plugin-panels-ui':
         specifier: workspace:*
         version: link:../../plugins/panels-ui
+      '@aervox/plugin-proactive-ui':
+        specifier: workspace:*
+        version: link:../../plugins/proactive-ui
       '@aervox/plugin-workbench-ui':
         specifier: workspace:*
         version: link:../../plugins/workbench-ui
@@ -524,6 +530,34 @@ importers:
       element-plus:
         specifier: ^2.11.5
         version: 2.14.5(vue@3.5.41(typescript@5.9.3))
+      lucide-vue-next:
+        specifier: ^0.468.0
+        version: 0.468.0(vue@3.5.41(typescript@5.9.3))
+      vue:
+        specifier: ^3.5.21
+        version: 3.5.41(typescript@5.9.3)
+      vue-tsc:
+        specifier: ^2.2.12
+        version: 2.2.12(typescript@5.9.3)
+
+  plugins/proactive-ui:
+    dependencies:
+      '@aervox/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+      '@aervox/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@aervox/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      '@aervox/ui-host':
+        specifier: workspace:*
+        version: link:../../packages/ui-host
+    devDependencies:
+      '@aervox/live2d':
+        specifier: workspace:*
+        version: link:../../packages/live2d
       lucide-vue-next:
         specifier: ^0.468.0
         version: 0.468.0(vue@3.5.41(typescript@5.9.3))
