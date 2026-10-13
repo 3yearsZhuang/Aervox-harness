@@ -1,0 +1,37 @@
+/* Shared native form controls preserve browser semantics and Vue v-model behavior. */
+:is(input, select, textarea).aervox-field.aervox-field {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-main);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  box-shadow: none;
+  transition: border-color 160ms ease;
+}
+.aervox-field::placeholder { color: var(--text-muted); }
+.aervox-field.aervox-field:hover:not(:disabled) { border-color: var(--border-strong); }
+.aervox-field.aervox-field:focus-visible { border-color: var(--accent); outline: 2px solid var(--accent-soft); outline-offset: 1px; }
+.aervox-field:disabled { opacity: 0.5; cursor: not-allowed; }
+textarea.aervox-field { resize: vertical; }
+input.aervox-checkbox.aervox-checkbox {
+  appearance: auto;
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  flex: 0 0 auto;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.aervox-checkbox:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.aervox-badge.aervox-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 500; line-height: 1.5; }
+input.aervox-range.aervox-range { min-width: 0; height: 24px; padding: 0; border: 0; accent-color: var(--accent); background: transparent; cursor: pointer; box-shadow: none; }
+@media (pointer: coarse) { :is(input, select).aervox-field.aervox-field { min-height: 44px; } }
+@media (prefers-reduced-motion: reduce) { .aervox-field { transition: none; } }

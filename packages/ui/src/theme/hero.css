@@ -26,13 +26,13 @@
   width: 112px;
   height: 104px;
   border-radius: 47% 47% 44% 44%;
-  background: #f6c9b6;
+  background: var(--avx-hero-skin);
 }
 
 .hero-hair {
   top: -18px;
   left: 33px;
-  color: #d99072;
+  color: var(--avx-hero-hair);
   font-size: 61px;
   line-height: 1;
 }
@@ -42,7 +42,7 @@
   width: 19px;
   height: 26px;
   border-radius: 55%;
-  background: #f1b5a4;
+  background: var(--avx-hero-ear);
 }
 
 .hero-ear.ear-left {
@@ -60,7 +60,7 @@
   width: 9px;
   height: 13px;
   border-radius: 50%;
-  background: #2f3a4e;
+  background: var(--avx-hero-eye);
 }
 
 .hero-eye.eye-left {
@@ -76,7 +76,7 @@
   width: 17px;
   height: 8px;
   border-radius: 50%;
-  background: #ec9c96;
+  background: var(--avx-hero-cheek);
   opacity: 0.7;
 }
 
@@ -91,7 +91,7 @@
 .hero-mouth {
   left: 49px;
   top: 69px;
-  color: #ae5e5a;
+  color: var(--avx-hero-mouth);
   font-size: 25px;
   transform: rotate(180deg);
 }
@@ -103,7 +103,7 @@
   width: 128px;
   height: 112px;
   border-radius: 42% 42% 34% 34%;
-  background: #dbe5f7;
+  background: var(--avx-hero-body);
 }
 
 .hero-collar {
@@ -112,7 +112,7 @@
   width: 73px;
   height: 16px;
   border-radius: 10px;
-  background: #7d9bd6;
+  background: var(--avx-hero-collar);
 }
 
 .hero-wing {
@@ -120,9 +120,9 @@
   top: 128px;
   width: 55px;
   height: 84px;
-  border: 2px solid #efcf91;
+  border: 2px solid var(--avx-hero-wing-border);
   border-radius: 75% 20% 70% 30%;
-  background: #f7dfae;
+  background: var(--avx-hero-wing);
   opacity: 0.9;
 }
 
@@ -141,7 +141,7 @@
   width: 36px;
   height: 18px;
   border-radius: 50%;
-  background: #efb28f;
+  background: var(--avx-hero-foot);
 }
 
 .hero-foot.foot-left {

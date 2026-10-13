@@ -6,9 +6,9 @@ owner: maintainers
 doc_status: approved
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.2
-updated_at: 2026-10-12
-reviewed_at: 2026-10-12
+version: 1.0.3
+updated_at: 2026-10-13
+reviewed_at: 2026-10-13
 review_interval_days: 90
 ---
 
@@ -34,6 +34,8 @@ review_interval_days: 90
 | `CR-055` | [CR-055 移动端落地范围与分阶段交付规划](CR-055-mobile-delivery-plan.md) | Proposed | Planned |
 | `CR-057` | [CR-057 实施 HLS 本地智能体验证执行器](CR-057-hls-local-agent-validation.md) | Accepted | Implemented |
 | `CR-061` | [CR-061 内核执行合同与五阶段审核整改](CR-061-core-execution-contract-hardening.md) | Accepted | Implemented |
+| `CR-065` | [CR-065 根界面插件与薄平台宿主](CR-065-ui-surface-plugins.md) | Accepted | Implemented |
+| `CR-064` | [CR-064 界面插件开放：第三方信任模型与独立安装回滚合同](CR-064-ui-surface-open-ecosystem.md) | Proposed | Planned |
 | `CR-060` | [CR-060 专注模式宿主去领域化与插件实现内聚](CR-060-focus-mode-host-decoupling.md) | Accepted | Implemented |
 | `CR-063` | [CR-063 原生计算、活动 Helper 与进程主管](CR-063-native-runtime-components.md) | Accepted | Implemented |
 | `CR-062` | [CR-062 有界代码搜索与原生向量计算试点](CR-062-native-search-pilot.md) | Accepted | Implemented |

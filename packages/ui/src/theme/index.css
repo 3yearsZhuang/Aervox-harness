@@ -2,66 +2,69 @@
  * Aervox｜思隅 @aervox/ui — 权威主题令牌 (Design Tokens)
  *
  * 符合 AVX-DS-001 规范：单钴蓝主色、Slate/Zinc 冷灰底板、Doppelrand 嵌套微质感、现代无衬线字阶。
+ * 字面量单源位于 tokens.css（--avx-*）；本文件保留 --accent / --bg-* 等历史语义别名。
  */
+@import './tokens.css';
+
 :root {
   color-scheme: light;
-  font-family: system-ui, -apple-system, "SF Pro Text", "Plus Jakarta Sans", "Geist", "Segoe UI Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-  --font-mono: "JetBrains Mono", "Geist Mono", SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--avx-font-family-sans);
+  --font-mono: var(--avx-font-family-mono);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
   /* 品牌与圆角规范 */
-  --aervox-primary: #3b66db;
-  --aervox-primary-light: rgba(59, 102, 219, 0.08);
-  --aervox-fill-light: #f4f6fa;
-  --aervox-text: #1e2532;
-  --aervox-text-secondary: #4f5b70;
-  --aervox-border-lighter: rgba(15, 23, 42, 0.08);
-  --aervox-radius: 12px;
-  --aervox-radius-sm: 8px;
-  --aervox-radius-lg: 16px;
-  --aervox-radius-pill: 9999px;
+  --aervox-primary: var(--avx-color-accent);
+  --aervox-primary-light: var(--avx-color-accent-soft);
+  --aervox-fill-light: var(--avx-color-fill-light);
+  --aervox-text: var(--avx-color-text-primary);
+  --aervox-text-secondary: var(--avx-color-text-secondary);
+  --aervox-border-lighter: var(--avx-color-border);
+  --aervox-radius: var(--avx-radius-lg);
+  --aervox-radius-sm: var(--avx-radius-sm);
+  --aervox-radius-lg: var(--avx-radius-xl);
+  --aervox-radius-pill: var(--avx-radius-pill);
 
   /* 亮色表面与背景 */
-  --bg-app: #f4f6fa;
-  --bg-titlebar: rgba(255, 255, 255, 0.82);
-  --bg-main: #ffffff;
+  --bg-app: var(--avx-color-bg-app);
+  --bg-titlebar: var(--avx-color-bg-titlebar);
+  --bg-main: var(--avx-color-bg-main);
   --bg-card: var(--bg-main);
-  --bg-card-soft: #f8fafc;
-  --bg-card-hover: #f1f4f9;
-  --bg-soft: #f1f4f9;
-  --bg-hover: #eaeff6;
-  --bg-input: #ffffff;
+  --bg-card-soft: var(--avx-color-bg-card-soft);
+  --bg-card-hover: var(--avx-color-bg-card-hover);
+  --bg-soft: var(--avx-color-bg-soft);
+  --bg-hover: var(--avx-color-bg-hover);
+  --bg-input: var(--avx-color-bg-input);
 
   /* 文本阶梯 */
-  --text-primary: #1e2532;
-  --text-secondary: #4f5b70;
-  --text-muted: #8592a6;
+  --text-primary: var(--avx-color-text-primary);
+  --text-secondary: var(--avx-color-text-secondary);
+  --text-muted: var(--avx-color-text-muted);
 
   /* 边框体系 */
-  --border-subtle: rgba(15, 23, 42, 0.04);
-  --border: rgba(15, 23, 42, 0.08);
-  --border-strong: rgba(15, 23, 42, 0.16);
+  --border-subtle: var(--avx-color-border-subtle);
+  --border: var(--avx-color-border);
+  --border-strong: var(--avx-color-border-strong);
 
   /* 主强调色（钴蓝） */
-  --accent: #3b66db;
-  --accent-hover: #2f54bd;
-  --accent-soft: rgba(59, 102, 219, 0.08);
-  --accent-glow: rgba(59, 102, 219, 0.2);
+  --accent: var(--avx-color-accent);
+  --accent-hover: var(--avx-color-accent-hover);
+  --accent-soft: var(--avx-color-accent-soft);
+  --accent-glow: var(--avx-color-accent-glow);
 
   /* 状态警示色 */
-  --danger-soft: #fef2f2;
-  --danger: #dc2626;
-  --success: #16a34a;
-  --warning: #d97706;
+  --danger-soft: var(--avx-color-danger-soft);
+  --danger: var(--avx-color-danger);
+  --success: var(--avx-color-success);
+  --warning: var(--avx-color-warning);
 
   /* 漫射与内嵌阴影 */
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
-  --shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
-  --shadow-lg: 0 14px 40px -4px rgba(15, 23, 42, 0.1), 0 2px 6px rgba(15, 23, 42, 0.04);
-  --shadow-inner: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --shadow-sm: var(--avx-shadow-sm);
+  --shadow: var(--avx-shadow-md);
+  --shadow-lg: var(--avx-shadow-lg);
+  --shadow-inner: var(--avx-shadow-inner);
 
   /* Element Plus 变量适配 */
   --el-color-primary: var(--accent);
@@ -82,51 +85,51 @@
   color-scheme: dark;
 
   /* 品牌与圆角规范 */
-  --aervox-primary: #7899f8;
-  --aervox-primary-light: rgba(120, 153, 248, 0.12);
-  --aervox-fill-light: #161c28;
-  --aervox-text: #e6ebf5;
-  --aervox-text-secondary: #a4b0c6;
-  --aervox-border-lighter: rgba(255, 255, 255, 0.08);
+  --aervox-primary: var(--avx-color-accent);
+  --aervox-primary-light: var(--avx-color-accent-soft);
+  --aervox-fill-light: var(--avx-color-fill-light);
+  --aervox-text: var(--avx-color-text-primary);
+  --aervox-text-secondary: var(--avx-color-text-secondary);
+  --aervox-border-lighter: var(--avx-color-border);
 
   /* 暗色表面与背景 */
-  --bg-app: #0c1017;
-  --bg-titlebar: rgba(18, 23, 33, 0.85);
-  --bg-main: #141923;
+  --bg-app: var(--avx-color-bg-app);
+  --bg-titlebar: var(--avx-color-bg-titlebar);
+  --bg-main: var(--avx-color-bg-main);
   --bg-card: var(--bg-main);
-  --bg-card-soft: #181f2c;
-  --bg-card-hover: #1e2636;
-  --bg-soft: #181f2c;
-  --bg-hover: #20293a;
-  --bg-input: #11151e;
+  --bg-card-soft: var(--avx-color-bg-card-soft);
+  --bg-card-hover: var(--avx-color-bg-card-hover);
+  --bg-soft: var(--avx-color-bg-soft);
+  --bg-hover: var(--avx-color-bg-hover);
+  --bg-input: var(--avx-color-bg-input);
 
   /* 文本阶梯 */
-  --text-primary: #e6ebf5;
-  --text-secondary: #a4b0c6;
-  --text-muted: #6a778e;
+  --text-primary: var(--avx-color-text-primary);
+  --text-secondary: var(--avx-color-text-secondary);
+  --text-muted: var(--avx-color-text-muted);
 
   /* 边框体系 */
-  --border-subtle: rgba(255, 255, 255, 0.04);
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.15);
+  --border-subtle: var(--avx-color-border-subtle);
+  --border: var(--avx-color-border);
+  --border-strong: var(--avx-color-border-strong);
 
   /* 主强调色（高可读浅钴蓝） */
-  --accent: #7899f8;
-  --accent-hover: #92affc;
-  --accent-soft: rgba(120, 153, 248, 0.12);
-  --accent-glow: rgba(120, 153, 248, 0.28);
+  --accent: var(--avx-color-accent);
+  --accent-hover: var(--avx-color-accent-hover);
+  --accent-soft: var(--avx-color-accent-soft);
+  --accent-glow: var(--avx-color-accent-glow);
 
   /* 状态警示色 */
-  --danger-soft: rgba(239, 68, 68, 0.15);
-  --danger: #f87171;
-  --success: #34d399;
-  --warning: #fbbf24;
+  --danger-soft: var(--avx-color-danger-soft);
+  --danger: var(--avx-color-danger);
+  --success: var(--avx-color-success);
+  --warning: var(--avx-color-warning);
 
   /* 深度微光阴影 */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 16px 48px -4px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.35);
-  --shadow-inner: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --shadow-sm: var(--avx-shadow-sm);
+  --shadow: var(--avx-shadow-md);
+  --shadow-lg: var(--avx-shadow-lg);
+  --shadow-inner: var(--avx-shadow-inner);
 
   /* Element Plus 变量适配 */
   --el-color-primary: var(--accent);
@@ -146,12 +149,12 @@
 /* 触感微动效通用基类 */
 .tactile-btn,
 button:not(.no-tactile):not(:disabled) {
-  transition: transform 0.14s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.14s ease, border-color 0.14s ease, color 0.14s ease, box-shadow 0.14s ease;
+  transition: transform var(--avx-duration-fast) var(--avx-ease-standard), background-color var(--avx-duration-fast) ease, border-color var(--avx-duration-fast) ease, color var(--avx-duration-fast) ease, box-shadow var(--avx-duration-fast) ease;
 }
 
 button:not(.no-tactile):not(:disabled):active {
   transform: scale(0.98) translateY(0.5px);
-  transition-duration: 0.05s;
+  transition-duration: var(--avx-duration-instant);
 }
 
 /* 全局弹窗与抽屉覆盖 */
@@ -168,8 +171,8 @@ button:not(.no-tactile):not(:disabled):active {
 
 .el-dialog {
   --el-dialog-bg-color: var(--bg-main);
-  --el-dialog-border-radius: 16px;
-  border-radius: 16px !important;
+  --el-dialog-border-radius: var(--avx-radius-xl);
+  border-radius: var(--avx-radius-xl) !important;
   overflow: hidden;
   border: 1px solid var(--border);
   box-shadow: var(--shadow-lg);
@@ -179,7 +182,7 @@ button:not(.no-tactile):not(:disabled):active {
 .el-dialog__header,
 .el-message-box__header {
   margin: 0;
-  padding: 16px 20px 14px;
+  padding: var(--avx-space-8) var(--avx-space-9) var(--avx-space-7);
   border-bottom: 1px solid var(--border);
 }
 
@@ -187,7 +190,7 @@ button:not(.no-tactile):not(:disabled):active {
 .el-dialog__title,
 .el-message-box__title {
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--avx-font-size-base);
   font-weight: 650;
   letter-spacing: -0.01em;
 }
@@ -203,7 +206,7 @@ button:not(.no-tactile):not(:disabled):active {
   background: var(--bg-main) !important;
   border: 1px solid var(--border) !important;
   box-shadow: var(--shadow) !important;
-  border-radius: 10px !important;
+  border-radius: var(--avx-radius-md) !important;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
 }
@@ -224,10 +227,10 @@ button:not(.no-tactile):not(:disabled):active {
 .el-dropdown-menu__item {
   color: var(--text-primary) !important;
   font-size: 12.5px !important;
-  border-radius: 6px !important;
-  padding: 8px 12px !important;
-  gap: 8px !important;
-  transition: background-color 0.14s ease, color 0.14s ease !important;
+  border-radius: var(--avx-radius-xs) !important;
+  padding: var(--avx-space-4) var(--avx-space-6) !important;
+  gap: var(--avx-space-4) !important;
+  transition: background-color var(--avx-duration-fast) ease, color var(--avx-duration-fast) ease !important;
 }
 
 .el-dropdown-menu__item:hover,
@@ -244,7 +247,7 @@ button:not(.no-tactile):not(:disabled):active {
 
 .el-dropdown-menu__item--divided {
   border-top: 1px solid var(--border) !important;
-  margin: 4px 0 !important;
+  margin: var(--avx-space-2) 0 !important;
 }
 
 .el-dropdown-menu__item.danger-item {

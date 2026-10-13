@@ -191,6 +191,8 @@ describe('Workbench Composables Logic', () => {
       composer.restoreFailedDraft();
       expect(composer.input.value).toBe('网络失败后仍应保留');
 
+      // A retry clears the submitted text before the request completes.
+      composer.input.value = '';
       composer.completeDraftSubmission('session_a');
       expect(storage['aervox-mobile-draft:session_a']).toBeUndefined();
     } finally {

@@ -46,7 +46,7 @@ onErrorCaptured((err, instance, info) => {
       >
         <slot name="fallback" :item="item">
           <!-- 降级占位符：轻量提醒并隔离，避免白屏与重复报错 -->
-          <span class="extension-fallback-badge" :title="`插件组件 [${item.id}] 执行异常已隔离`">
+          <span class="aervox-badge extension-fallback-badge" :title="`插件组件 [${item.id}] 执行异常已隔离`">
             ⚠️ [插件 {{ item.id }} 异常]
           </span>
         </slot>

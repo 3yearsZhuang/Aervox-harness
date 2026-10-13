@@ -8,6 +8,7 @@ export interface NavDialogItem {
   description?: string;
   icon?: Component;
   badge?: string | number;
+  group?: string;
 }
 
 const props = withDefaults(
@@ -80,9 +81,9 @@ function selectItem(id: string) {
 
     <div class="aervox-nav-layout">
       <nav class="aervox-nav-sidebar" :aria-label="navAriaLabel">
-        <button
-          v-for="item in items"
-          :key="item.id"
+        <template v-for="(item, index) in items" :key="item.id">
+          <span v-if="item.group && item.group !== items[index - 1]?.group" class="nav-sidebar-group">{{ item.group }}</span>
+          <button
           type="button"
           class="nav-sidebar-item"
           :class="{ active: item.id === activeKey }"
@@ -97,7 +98,8 @@ function selectItem(id: string) {
             </span>
             <span v-if="item.badge !== undefined" class="nav-item-badge">{{ item.badge }}</span>
           </slot>
-        </button>
+          </button>
+        </template>
         <slot name="nav-footer" />
       </nav>
 
@@ -186,12 +188,22 @@ function selectItem(id: string) {
 
 .nav-item-text small {
   font-size: 11px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   line-height: 1.25;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.nav-sidebar-group {
+  padding: 12px 12px 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.nav-sidebar-group:first-child { padding-top: 2px; }
+.nav-sidebar-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 .nav-sidebar-item.active .nav-item-text small {
   color: color-mix(in srgb, var(--accent) 80%, black);
@@ -225,6 +237,7 @@ function selectItem(id: string) {
 }
 
 @media (max-width: 680px) {
+  .nav-sidebar-group { display: none; }
   .aervox-nav-layout {
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
@@ -240,6 +253,8 @@ function selectItem(id: string) {
   .nav-sidebar-item {
     width: auto;
     white-space: nowrap;
+    flex-shrink: 0;
+    min-height: 44px;
   }
   .nav-item-text small {
     display: none;

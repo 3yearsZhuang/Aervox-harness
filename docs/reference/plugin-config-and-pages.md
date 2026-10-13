@@ -6,7 +6,7 @@ owner: maintainers
 doc_status: review-candidate
 decision_status: not-applicable
 delivery_status: not-applicable
-version: 1.0.9
+version: 1.0.10
 updated_at: 2026-10-13
 reviewed_at: 2026-10-13
 review_interval_days: 90
@@ -18,7 +18,7 @@ review_triggers:
   - packages/ui/src/registry/**
   - packages/ui/src/plugins/**
   - packages/ui/src/components/extension/**
-  - packages/ui/src/components/plugin/**
+  - plugins/panels-ui/src/plugin/**
   - packages/ui/src/composables/workbench-context.ts
   - apps/api/src/modules/ecosystem/plugins/**
   - apps/api/src/modules/ecosystem/tools/**
@@ -46,6 +46,7 @@ sources:
 |---|---|---|
 | 声明式 Bundle | Manifest、Config、Page、Skill、工具元数据、主动规则 | `.aervox-plugin` 安装登记；不会自动加载包内任意服务端 JavaScript |
 | Page | 包内 HTML/CSS/JavaScript 与 Bridge | 浏览器受限 iframe；只暴露本插件配置、通知、关闭接口 |
+| 第一方根界面 | 完整工作台或独立桌宠根组件 | 组合根选择、随宿主构建；通过 `@aervox/ui-host` 加载，详见 §0.4 |
 | 第一方 UI 扩展 | Vue 插槽、卡片、消息转换与组件替换 | 随宿主编译的受信代码；具有宿主渲染进程权限，不是第三方沙箱 |
 | 第一方 Server Turn 扩展 | `beforeTurn` / `afterTurn` | 随 API 编译并显式注册；运行于 API 进程，拥有受信代码能力 |
 | MCP | 外部工具服务的发现、同步与调用 | 独立 MCP 接入流程；插件 Manifest 的 `mcpServers` 不自动连接服务 |
@@ -72,6 +73,17 @@ sources:
 - **对外契约贡献**：插件自有流事件类型、事件负载投影白名单、工具结果投影白名单与端点 OpenAPI 片段一律由插件经 `registerPluginApiContribution` 显式登记；内核契约源码不得出现插件事件名、工具名或路径字面量，投影对未登记项 fail-closed。
 - **代码缺席**：注册与门控两端一致 fail-closed；插件记录缺失时不得默认启用，且必须保留安装记录、配置与数据管理入口。
 - **兼容别名**：不保留历史别名；`study-mode`/`quiz-mode` 不再是 `focus-mode` 的注册别名。
+
+### 0.4 根界面插件（CR-065）
+
+根界面使用 [`UISurfacePlugin`](../../packages/ui-host/src/surface-context.ts)：`id`、`apiVersion: 1`、`surface`（`main` 或 `companion`）、`platforms` 与异步 `load(signal)`。这是受信源码装配接口，不是可安装的 `PluginManifest`；`plugins/workbench-ui` 与 `plugins/companion-ui` 不生成声明式分发包，也不使用市场开关关闭标准产品能力。
+
+- 组合根：Web/桌面 `App.vue` 选择工作台，桌面 `pet-main.ts` 选择独立桌宠；移动端沿用 Web。只有组合根允许引用具体插件包。
+- [`UISurfaceHost`](../../packages/ui-host/src/UISurfaceHost.vue) 校验平台、根类型和版本；默认加载上限 15 秒。加载或 Vue 渲染失败显示宿主恢复界面，可重试；浏览器缓存失败导入时，使用组合根注入的 `requestReload` 重新加载当前窗口。刷新仅由用户点击触发。插件加载结果迟到时丢弃。
+- 每次根实例获得独立的 `UISurfaceContext`，含平台、根类型、取消信号及可选 `requestClose`。取消信号和 Vue 卸载负责结束本实例订阅、事件监听与计时器；工作台注册表也按实例创建。关闭界面不会请求取消已受理的 API 回合。
+- `viewProps` 与事件用于受信界面装配，平台由宿主固定；这些参数不是第三方权限代理。根界面不能通过该接口取得任意 Electron 或数据库访问权。
+- 工作台根组件位于 `plugins/workbench-ui/src/AervoxWorkbench.vue`，经 `@aervox/ui/workbench` 使用共享构件；旧 `@aervox/ui` 的 `AervoxWorkbench` 根导出已移除。`@aervox/ui/env` 提供共享资源与 Live2D 浏览器类型。
+- 独立安装、用户切换界面预设、第三方隔离和跨版本升级回滚未在本切片交付。Vue 错误边界不能中断同步死循环或隔离全局样式；可信权限和数据管理责任仍由平台宿主与 API 持有。
 
 ### 0.1 Manifest、版本与命名
 
@@ -191,7 +203,7 @@ Page 元数据为 `id/title/description/entry/capabilities/checksum`。`id` 最�
 
 ### 3.2 已有防护与未完成边界
 
-[PluginPageDialog](../../packages/ui/src/components/plugin/PluginPageDialog.vue)使用 `sandbox="allow-scripts allow-forms allow-downloads"`，未授予 `allow-same-origin`；资源响应设置 CSP：默认拒绝、脚本和样式允许本地及内联、图片允许本地及 `data:`、`connect-src 'none'`、`form-action 'none'`，另有 `nosniff/no-store/no-referrer`。这些是浏览器页面约束，不是 OS 进程沙箱。
+[PluginPageDialog](../../plugins/panels-ui/src/plugin/PluginPageDialog.vue)使用 `sandbox="allow-scripts allow-forms allow-downloads"`，未授予 `allow-same-origin`；资源响应设置 CSP：默认拒绝、脚本和样式允许本地及内联、图片允许本地及 `data:`、`connect-src 'none'`、`form-action 'none'`，另有 `nosniff/no-store/no-referrer`。这些是浏览器页面约束，不是 OS 进程沙箱。
 
 [BundleStore](../../apps/api/src/modules/ecosystem/plugins/bundle-store.ts)检查相对资源路径与词法目录包含关系；尚未检查真实路径/符号链接，也不会拒绝所有未知扩展名。作者禁止链接文件、路径逃逸、远程资源和动态下载代码；服务端不能把这条作者规则当作已实现的隔离证明。
 
@@ -278,7 +290,7 @@ CR-060 已落地通用接缝：[WorkbenchContext](../../packages/ui/src/composab
 
 ### 6.2 ComposerContractProps 契约规范
 
-以 [ComposerContractProps](../../packages/ui/src/registry/types.ts) 为准：`input/streaming/isComposing/enterToSend/onSend` 为必需项，另有 `placeholder/onVoiceTrigger/onAttachmentPicker/onUpdateInput/'onUpdate:input'`。`onSend` 支持 `quizMode/resend`；没有任意 metadata 或附件对象参数。
+以 [ComposerContractProps](../../packages/ui/src/registry/types.ts) 为准：`input/streaming/isComposing/enterToSend/onSend` 为必需项，另有 `placeholder/onVoiceTrigger/onAttachmentPicker/onUpdateInput/'onUpdate:input'`。`onSend` 支持 `metadata/resend`；附件上传与引用仍由工作台发送流程管理。
 
 提交只走一个通道：宿主提供 `onSend` 时调用一次，不同时 emit `send`。遵守输入法组合、流式、发送中与附件上传的宿主互斥；保留键盘、焦点、无障碍、语音与附件入口或明确限定替换范围。不能把示例简易 textarea 当作完整默认输入坞的功能等价实现。
 

@@ -1,0 +1,137 @@
+.aervox-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-weight: 500;
+  line-height: 1.4;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.aervox-btn.is-block {
+  display: flex;
+  width: 100%;
+}
+
+/* 尺寸变体 */
+.aervox-btn.aervox-btn--sm {
+  min-height: 32px;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.aervox-btn.aervox-btn--md {
+  min-height: 36px;
+  padding: 7px 14px;
+  font-size: 13px;
+}
+
+.aervox-btn.aervox-btn--lg {
+  min-height: 44px;
+  padding: 10px 18px;
+  font-size: 14px;
+}
+
+/* 风格变体 */
+.aervox-btn.aervox-btn--primary {
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid var(--accent);
+}
+
+.aervox-btn.aervox-btn--primary:hover:not(.is-disabled) {
+  background: color-mix(in srgb, var(--accent) 90%, var(--text-primary));
+}
+
+.aervox-btn.aervox-btn--primary:active:not(.is-disabled) {
+  background: color-mix(in srgb, var(--accent) 80%, var(--text-primary));
+}
+
+.aervox-btn.aervox-btn--secondary {
+  background: var(--bg-main, #fcfdfe);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.aervox-btn.aervox-btn--secondary:hover:not(.is-disabled) {
+  background: var(--bg-hover, #e9edf4);
+  border-color: var(--border-strong, var(--border));
+}
+
+.aervox-btn.aervox-btn--secondary:active:not(.is-disabled) {
+  background: var(--bg-soft);
+}
+
+.aervox-btn.aervox-btn--danger {
+  background: color-mix(in srgb, var(--danger) 8%, var(--bg-main));
+  color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--border));
+}
+
+.aervox-btn.aervox-btn--danger:hover:not(.is-disabled) {
+  background: color-mix(in srgb, var(--danger) 14%, var(--bg-main));
+}
+
+.aervox-btn.aervox-btn--ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+}
+
+.aervox-btn.aervox-btn--ghost:hover:not(.is-disabled) {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* 禁用与加载态 */
+.aervox-btn.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.aervox-btn .btn-spinner {
+  animation: aervox-spin 0.9s linear infinite;
+}
+
+.aervox-btn .btn-icon {
+  flex-shrink: 0;
+}
+
+.aervox-btn .btn-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.aervox-btn.is-icon-only { width: 36px; padding: 7px; flex-shrink: 0; }
+.aervox-btn.aervox-btn--sm.is-icon-only { width: 32px; padding: 5px; }
+.aervox-btn.aervox-btn--lg.is-icon-only { width: 44px; padding: 10px; }
+.aervox-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+@media (pointer: coarse) {
+  .aervox-btn.aervox-btn { min-height: 44px; }
+  .aervox-btn.aervox-btn.is-icon-only { width: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aervox-btn { transition: none; }
+  .btn-spinner { animation: none; }
+}
+
+@keyframes aervox-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

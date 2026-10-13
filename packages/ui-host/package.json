@@ -1,0 +1,24 @@
+{
+  "name": "@aervox/ui-host",
+  "version": "0.1.0",
+  "license": "AGPL-3.0-or-later",
+  "private": true,
+  "type": "module",
+  "description": "Trusted UI surface loader and recovery shell.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "vue-tsc --noEmit",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.21"
+  },
+  "devDependencies": {
+    "vue": "^3.5.21",
+    "vue-tsc": "^2.2.12",
+    "typescript": "^5.8.3"
+  }
+}

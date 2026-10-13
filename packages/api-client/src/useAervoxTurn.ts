@@ -33,7 +33,7 @@ export interface StreamAervoxTurnCallbacks {
 export async function streamAervoxTurn(
   content: string,
   callbacks: StreamAervoxTurnCallbacks,
-  options: { toolApprovalMode?: ToolApprovalMode; attachments?: TurnAttachmentRef[]; metadata?: Record<string, unknown>; sessionId?: string } = {},
+  options: { signal?: AbortSignal; toolApprovalMode?: ToolApprovalMode; attachments?: TurnAttachmentRef[]; metadata?: Record<string, unknown>; sessionId?: string } = {},
 ): Promise<void> {
   await getTransport().streamTurn(options.sessionId ?? getSessionId(), content, callbacks, options);
 }
@@ -47,8 +47,8 @@ export async function uploadAervoxAttachment(input: AttachmentUploadInput): Prom
   return transport.uploadAttachment(input);
 }
 
-export async function submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[]): Promise<void> {
-  await getTransport().submitQuestionAnswers(turnId, answers);
+export async function submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[], signal?: AbortSignal): Promise<void> {
+  await getTransport().submitQuestionAnswers(turnId, answers, signal);
 }
 
 /**

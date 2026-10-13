@@ -270,7 +270,8 @@ it.each(["stop", "dispose"] as const)("%s 对挂起启动有界失败，迟到�
     release();
     await rejected;
     expect(running).toBe(false);
-    expect(driver.stop).toHaveBeenCalledTimes(2);
+    // dispose may finish persisting after its bounded public wait has timed out.
+    await vi.waitFor(() => expect(driver.stop).toHaveBeenCalledTimes(2));
   } finally {
     release();
     await service.dispose().catch(() => undefined);

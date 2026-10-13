@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AervoxButton, AervoxCard, AervoxDialog } from '../../../primitives';
 import { computed } from 'vue';
 import {
   ArrowRight,
@@ -11,11 +12,9 @@ import {
 } from 'lucide-vue-next';
 import ExtensionSlot from '../../extension/ExtensionSlot.vue';
 import { useWorkbenchContext } from '../../../composables/workbench-context';
-import { AervoxDialog } from '../../../primitives';
 
 const { layout, cards, timer } = useWorkbenchContext();
 const { taskCenterOpen, openTool, openSettingsCategory } = layout;
-
 
 const diaryStatusText = computed(() => {
   if (cards.todayDiary.value?.content) return '今日日记已提炼完成';
@@ -59,36 +58,36 @@ function goToProactive() {
         <ExtensionSlot name="taskcenter:cards" />
 
         <!-- 每日日记提炼 -->
-        <div class="task-summary-card">
+        <AervoxCard as="div" class="task-summary-card">
           <div class="task-card-header">
             <div class="task-card-icon diary-icon">
               <NotebookPen :size="20" />
             </div>
             <div class="task-card-meta">
               <h4>每日对话提炼与日记本</h4>
-              <span class="task-status-tag" :class="{ 'tag-success': isDiaryDone }">
+              <span class="aervox-badge task-status-tag" :class="{ 'tag-success': isDiaryDone }">
                 {{ isDiaryDone ? '今日已提炼' : '待提炼' }}
               </span>
             </div>
           </div>
           <p class="task-card-desc">{{ diaryStatusText }}</p>
           <div class="task-card-actions">
-            <button type="button" class="task-link-btn" @click="goToDiary">
+            <AervoxButton variant="secondary" type="button" class="task-link-btn" @click="goToDiary">
               <span>查看日记本</span>
               <ArrowRight :size="14" />
-            </button>
+            </AervoxButton>
           </div>
-        </div>
+        </AervoxCard>
 
         <!-- 专注时钟与节奏 -->
-        <div class="task-summary-card">
+        <AervoxCard as="div" class="task-summary-card">
           <div class="task-card-header">
             <div class="task-card-icon timer-icon">
               <Clock3 :size="20" />
             </div>
             <div class="task-card-meta">
               <h4>番茄专注钟</h4>
-              <span class="task-status-tag" :class="{ 'tag-running': timer.timerRunning.value }">
+              <span class="aervox-badge task-status-tag" :class="{ 'tag-running': timer.timerRunning.value }">
                 {{ timer.timerRunning.value ? `进行中 · ${timer.formattedTime.value}` : `就绪 · ${timer.timerMinutes.value} 分钟` }}
               </span>
             </div>
@@ -97,22 +96,22 @@ function goToProactive() {
             保持学习心流状态，劳逸结合。专注倒计时与桌宠反馈紧密联动。
           </p>
           <div class="task-card-actions">
-            <button type="button" class="task-link-btn" @click="goToTimer">
+            <AervoxButton variant="secondary" type="button" class="task-link-btn" @click="goToTimer">
               <span>{{ timer.timerRunning.value ? '管理当前计时' : '开启专注计时' }}</span>
               <ArrowRight :size="14" />
-            </button>
+            </AervoxButton>
           </div>
-        </div>
+        </AervoxCard>
 
         <!-- 主动智能与规则引擎 -->
-        <div class="task-summary-card">
+        <AervoxCard as="div" class="task-summary-card">
           <div class="task-card-header">
             <div class="task-card-icon proactive-icon">
               <BrainCircuit :size="20" />
             </div>
             <div class="task-card-meta">
               <h4>主动智能与规则策略</h4>
-              <span class="task-status-tag tag-normal">
+              <span class="aervox-badge task-status-tag tag-normal">
                 画像已加载
               </span>
             </div>
@@ -121,12 +120,12 @@ function goToProactive() {
             本地运行的端侧智能决策，在不打扰用户的前提下捕捉疲劳、复习节点与提醒时机。
           </p>
           <div class="task-card-actions">
-            <button type="button" class="task-link-btn" @click="goToProactive">
+            <AervoxButton variant="secondary" type="button" class="task-link-btn" @click="goToProactive">
               <span>主动智能设置</span>
               <ArrowRight :size="14" />
-            </button>
+            </AervoxButton>
           </div>
-        </div>
+        </AervoxCard>
       </div>
 
       <!-- 系统与存储真源状态 -->

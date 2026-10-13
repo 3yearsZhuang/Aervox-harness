@@ -227,7 +227,7 @@ function handleKeydown(e: KeyboardEvent) {
             v-model="query"
             type="text"
             placeholder="搜索功能、项目或会话... (↑↓ 导航，回车执行)"
-            class="w-full bg-transparent text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none"
+            class="aervox-field w-full bg-transparent text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none"
           />
           <kbd
             class="hidden sm:inline-flex items-center rounded border border-white/10 bg-neutral-800 px-1.5 py-0.5 text-[10px] text-neutral-400 font-mono"

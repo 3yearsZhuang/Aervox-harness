@@ -102,10 +102,12 @@ export const desktopTransport: AervoxTransport = {
     });
   },
 
-  async request<T = unknown>(method: string, path: string, body?: unknown, options?: { headers?: Record<string, string> }): Promise<T> {
+  async request<T = unknown>(method: string, path: string, body?: unknown, options?: { headers?: Record<string, string>; signal?: AbortSignal }): Promise<T> {
+    options?.signal?.throwIfAborted();
     const bridge = window.fairyDesktop;
     if (!bridge) throw new Error('fairyDesktop 桥不可用，请通过 Electron 启动应用。');
     const res = await bridge.apiRequest<T>(method, path, body, options?.headers);
+    options?.signal?.throwIfAborted();
     if (!res.ok) throw new Error(`API ${method} ${path} → HTTP ${res.status}: ${res.text}`);
     return res.json as T;
   },
@@ -118,14 +120,15 @@ export const desktopTransport: AervoxTransport = {
   ): Promise<void> {
     const bridge = window.fairyDesktop;
     if (!bridge) throw new Error('fairyDesktop 桥不可用，请通过 Electron 启动应用。');
-    await streamTurnViaBridge(bridge, content, options.toolApprovalMode ?? 'ask', callbacks, options.attachments, options.metadata);
+    await streamTurnViaBridge(bridge, content, options.toolApprovalMode ?? 'ask', callbacks, options.attachments, options.metadata, options.signal);
   },
 
-  async submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[]): Promise<void> {
+  async submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[], signal?: AbortSignal): Promise<void> {
     await this.request(
       'POST',
       `/v1/turns/${encodeURIComponent(turnId)}/questions/answers`,
       { answers },
+      { signal },
     );
   },
 
@@ -166,7 +169,9 @@ function streamTurnViaBridge(
   callbacks: TurnCallbacks,
   attachments?: TurnAttachmentRef[],
   metadata?: Record<string, unknown>,
+  signal?: AbortSignal,
 ): Promise<void> {
+  signal?.throwIfAborted();
   return new Promise((resolve, reject) => {
     let settled = false;
     let stop: () => void = () => undefined;
@@ -174,9 +179,15 @@ function streamTurnViaBridge(
     const settle = (finish: () => void) => {
       if (settled) return;
       settled = true;
+      signal?.removeEventListener('abort', onAbort);
       if (idleTimer) clearTimeout(idleTimer);
       stop();
       finish();
+    };
+    const onAbort = () => {
+      settle(() => reject(signal?.reason ?? new DOMException('Aborted', 'AbortError')));
+      // This detaches the main-process HTTP/SSE request, not the accepted API Turn.
+      bridge.cancelTurn?.(requestId);
     };
     // 空闲超时（替代旧 60s 绝对总时限）：每收到一条桥消息即重置。
     let idleTimer: ReturnType<typeof setTimeout> | undefined;
@@ -193,28 +204,34 @@ function streamTurnViaBridge(
     armIdleTimer();
 
     const projector = new TurnStreamProjector();
-    stop = bridge.streamTurn(content, { toolApprovalMode, attachments, requestId, metadata }, (message) => {
-      if (settled) return;
-      armIdleTimer();
-      if (!message || typeof message !== 'object') return;
-      const envelope = message as { type?: unknown; event?: unknown; message?: unknown };
-      if (envelope.type === 'error') {
-        settle(() => reject(new Error(typeof envelope.message === 'string' ? envelope.message : 'Aervox 请求失败')));
-        return;
-      }
-      if (envelope.type === 'closed') {
-        settle(resolve);
-        return;
-      }
-      if (envelope.type !== 'event' || !envelope.event || typeof envelope.event !== 'object') return;
-      const event = envelope.event as TurnStreamEvent;
-      projector.project(event, {
-        ...callbacks,
-        onError: (err) => {
-          callbacks.onError?.(err);
-          settle(() => reject(err));
-        },
+    signal?.addEventListener('abort', onAbort, { once: true });
+    try {
+      stop = bridge.streamTurn(content, { toolApprovalMode, attachments, requestId, metadata }, (message) => {
+        if (settled) return;
+        armIdleTimer();
+        if (!message || typeof message !== 'object') return;
+        const envelope = message as { type?: unknown; event?: unknown; message?: unknown };
+        if (envelope.type === 'error') {
+          settle(() => reject(new Error(typeof envelope.message === 'string' ? envelope.message : 'Aervox 请求失败')));
+          return;
+        }
+        if (envelope.type === 'closed') {
+          settle(resolve);
+          return;
+        }
+        if (envelope.type !== 'event' || !envelope.event || typeof envelope.event !== 'object') return;
+        const event = envelope.event as TurnStreamEvent;
+        projector.project(event, {
+          ...callbacks,
+          onError: (err) => {
+            try { callbacks.onError?.(err); } finally { settle(() => reject(err)); }
+          },
+        });
       });
-    });
+      if (settled) stop();
+      else if (signal?.aborted) onAbort();
+    } catch (error) {
+      settle(() => reject(error));
+    }
   });
 }

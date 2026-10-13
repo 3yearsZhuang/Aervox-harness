@@ -1,0 +1,178 @@
+/**
+ * Aervox｜思隅 @aervox/ui — 设计令牌单一事实源（Design Tokens, --avx-*）
+ *
+ * 符合 AVX-DS-001 规范。本文件所有令牌值均提取自 theme/ 现有样式中已使用的真实值，
+ * 不引入任何新视觉值。暗色主题沿用现有机制：:root[data-theme="dark"] 覆盖同名令牌。
+ * index.css 在本文件之上保留 --accent / --bg-* 等历史语义别名，组件样式统一消费 --avx-*。
+ */
+
+:root {
+  /* ---------- 色彩 · 品牌与强调（钴蓝） ---------- */
+  --avx-color-accent: #3b66db;
+  --avx-color-accent-hover: #2f54bd;
+  --avx-color-accent-soft: rgba(59, 102, 219, 0.08);
+  --avx-color-accent-glow: rgba(59, 102, 219, 0.2);
+
+  /* ---------- 色彩 · 表面与背景 ---------- */
+  --avx-color-bg-app: #f4f6fa;
+  --avx-color-bg-titlebar: rgba(255, 255, 255, 0.82);
+  --avx-color-bg-main: #ffffff;
+  --avx-color-bg-card-soft: #f8fafc;
+  --avx-color-bg-card-hover: #f1f4f9;
+  --avx-color-bg-soft: #f1f4f9;
+  --avx-color-bg-hover: #eaeff6;
+  --avx-color-bg-input: #ffffff;
+  --avx-color-fill-light: #f4f6fa;
+
+  /* ---------- 色彩 · 文本阶梯 ---------- */
+  --avx-color-text-primary: #1e2532;
+  --avx-color-text-secondary: #4f5b70;
+  --avx-color-text-muted: #8592a6;
+
+  /* ---------- 色彩 · 边框体系 ---------- */
+  --avx-color-border-subtle: rgba(15, 23, 42, 0.04);
+  --avx-color-border: rgba(15, 23, 42, 0.08);
+  --avx-color-border-strong: rgba(15, 23, 42, 0.16);
+
+  /* ---------- 色彩 · 状态警示 ---------- */
+  --avx-color-danger-soft: #fef2f2;
+  --avx-color-danger: #dc2626;
+  --avx-color-success: #16a34a;
+  --avx-color-warning: #d97706;
+
+  /* ---------- 色彩 · 恒定功能色（不随主题切换） ---------- */
+  --avx-color-on-accent: #fff;
+  --avx-color-danger-vivid: #ef4444;
+  --avx-color-success-vivid: #10b981;
+  --avx-color-warning-vivid: #f59e0b;
+
+  /* ---------- 云母（Mica）与亚克力玻璃材质 ---------- */
+  --avx-mica-base: #edf0f5;
+  --avx-mica-wash-a: rgba(183, 199, 227, 0.35);
+  --avx-mica-wash-b: rgba(207, 216, 236, 0.28);
+  --avx-mica-wash-c: rgba(255, 255, 255, 0.4);
+  --avx-glass-bg: rgba(255, 255, 255, 0.72);
+  --avx-glass-bg-strong: rgba(255, 255, 255, 0.88);
+  --avx-glass-bg-overlay: rgba(255, 255, 255, 0.92);
+  --avx-glass-blur: blur(24px) saturate(1.2);
+
+  /* ---------- 桌宠（Hero）配色 ---------- */
+  --avx-hero-skin: #f6c9b6;
+  --avx-hero-ear: #f1b5a4;
+  --avx-hero-hair: #d99072;
+  --avx-hero-eye: #2f3a4e;
+  --avx-hero-cheek: #ec9c96;
+  --avx-hero-mouth: #ae5e5a;
+  --avx-hero-body: #dbe5f7;
+  --avx-hero-collar: #7d9bd6;
+  --avx-hero-wing: #f7dfae;
+  --avx-hero-wing-border: #efcf91;
+  --avx-hero-foot: #efb28f;
+
+  /* ---------- 间距阶梯 ---------- */
+  --avx-space-1: 2px;
+  --avx-space-2: 4px;
+  --avx-space-3: 6px;
+  --avx-space-4: 8px;
+  --avx-space-5: 10px;
+  --avx-space-6: 12px;
+  --avx-space-7: 14px;
+  --avx-space-8: 16px;
+  --avx-space-9: 20px;
+  --avx-space-10: 24px;
+  --avx-space-11: 28px;
+  --avx-space-12: 32px;
+
+  /* ---------- 圆角 ---------- */
+  --avx-radius-2xs: 4px;
+  --avx-radius-xs: 6px;
+  --avx-radius-sm: 8px;
+  --avx-radius-md: 10px;
+  --avx-radius-lg: 12px;
+  --avx-radius-xl: 16px;
+  --avx-radius-pill: 9999px;
+
+  /* ---------- 阴影（漫射与内嵌） ---------- */
+  --avx-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --avx-shadow-md: 0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --avx-shadow-lg: 0 14px 40px -4px rgba(15, 23, 42, 0.1), 0 2px 6px rgba(15, 23, 42, 0.04);
+  --avx-shadow-inner: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  /* 液态玻璃高光阴影（恒定，不随主题切换） */
+  --avx-shadow-glass: 0 2px 10px rgba(23, 32, 54, .07), inset 0 1px 0 rgba(255, 255, 255, .18);
+  --avx-shadow-glass-open: 0 3px 12px rgba(23, 32, 54, .09), inset 0 1px 0 rgba(255, 255, 255, .18);
+  --avx-shadow-overlay: 0 10px 36px rgba(12, 18, 32, .2), inset 0 1px 0 rgba(255, 255, 255, .18);
+
+  /* ---------- 字体层级 ---------- */
+  --avx-font-family-sans: system-ui, -apple-system, "SF Pro Text", "Plus Jakarta Sans", "Geist", "Segoe UI Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --avx-font-family-mono: "JetBrains Mono", "Geist Mono", SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --avx-font-size-2xs: 10px;
+  --avx-font-size-xs: 11px;
+  --avx-font-size-sm: 12px;
+  --avx-font-size-md: 13px;
+  --avx-font-size-base: 14px;
+  --avx-font-size-lg: 15px;
+  --avx-font-size-xl: 16px;
+  --avx-line-height-tight: 1.5;
+  --avx-line-height-base: 1.6;
+  --avx-line-height-relaxed: 1.7;
+  --avx-line-height-loose: 1.75;
+
+  /* ---------- 过渡时长与缓动 ---------- */
+  --avx-duration-instant: 0.05s;
+  --avx-duration-fast: 0.14s;
+  --avx-duration-base: 0.16s;
+  --avx-duration-moderate: 0.2s;
+  --avx-duration-slow: 0.3s;
+  --avx-ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
+  --avx-ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:root[data-theme="dark"] {
+  /* ---------- 色彩 · 品牌与强调（高可读浅钴蓝） ---------- */
+  --avx-color-accent: #7899f8;
+  --avx-color-accent-hover: #92affc;
+  --avx-color-accent-soft: rgba(120, 153, 248, 0.12);
+  --avx-color-accent-glow: rgba(120, 153, 248, 0.28);
+
+  /* ---------- 色彩 · 暗色表面与背景 ---------- */
+  --avx-color-bg-app: #0c1017;
+  --avx-color-bg-titlebar: rgba(18, 23, 33, 0.85);
+  --avx-color-bg-main: #141923;
+  --avx-color-bg-card-soft: #181f2c;
+  --avx-color-bg-card-hover: #1e2636;
+  --avx-color-bg-soft: #181f2c;
+  --avx-color-bg-hover: #20293a;
+  --avx-color-bg-input: #11151e;
+  --avx-color-fill-light: #161c28;
+
+  /* ---------- 色彩 · 文本阶梯 ---------- */
+  --avx-color-text-primary: #e6ebf5;
+  --avx-color-text-secondary: #a4b0c6;
+  --avx-color-text-muted: #6a778e;
+
+  /* ---------- 色彩 · 边框体系 ---------- */
+  --avx-color-border-subtle: rgba(255, 255, 255, 0.04);
+  --avx-color-border: rgba(255, 255, 255, 0.08);
+  --avx-color-border-strong: rgba(255, 255, 255, 0.15);
+
+  /* ---------- 色彩 · 状态警示 ---------- */
+  --avx-color-danger-soft: rgba(239, 68, 68, 0.15);
+  --avx-color-danger: #f87171;
+  --avx-color-success: #34d399;
+  --avx-color-warning: #fbbf24;
+
+  /* ---------- 云母（Mica）与亚克力玻璃材质 ---------- */
+  --avx-mica-base: #0c1017;
+  --avx-mica-wash-a: rgba(30, 42, 66, 0.45);
+  --avx-mica-wash-b: rgba(20, 28, 45, 0.4);
+  --avx-mica-wash-c: rgba(45, 58, 85, 0.15);
+  --avx-glass-bg: rgba(20, 25, 35, 0.72);
+  --avx-glass-bg-strong: rgba(23, 30, 42, 0.88);
+  --avx-glass-bg-overlay: rgba(20, 25, 35, 0.92);
+
+  /* ---------- 阴影（深度微光） ---------- */
+  --avx-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --avx-shadow-md: 0 4px 24px -2px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --avx-shadow-lg: 0 16px 48px -4px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --avx-shadow-inner: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}

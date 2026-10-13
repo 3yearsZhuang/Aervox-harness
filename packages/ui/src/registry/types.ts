@@ -13,6 +13,11 @@ export type ExtensionSlotName =
   | 'composer:indicator'
   | 'settings:tabs'
   | 'settings:conversation-rows'
+  | 'settings:panel:model'
+  | 'settings:panel:local-models'
+  | 'settings:panel:persona'
+  | 'settings:panel:voice'
+  | 'settings:panel:plugins'
   | 'workbench:drawers'
   | 'taskcenter:cards';
 

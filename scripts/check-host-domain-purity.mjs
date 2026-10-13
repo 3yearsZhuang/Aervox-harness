@@ -35,6 +35,7 @@ export const HOST_ROOTS = [
   "apps/desktop/src",
   "apps/cli/src",
   "packages/ui/src",
+  "packages/ui-host/src",
   "packages/api-client/src",
   "packages/contracts/src",
   "packages/core/src",

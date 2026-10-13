@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
-import { describe, expect, it, vi } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { enableAutoUnmount, mount } from '@vue/test-utils';
 import { ref } from 'vue';
 import { WORKBENCH_CONTEXT_KEY, type WorkbenchContext } from '@aervox/ui/plugin-api';
+import FocusSettingsRow from '../src/ui/FocusSettingsRow.vue';
 import FocusModeSwitch from '../src/ui/FocusModeSwitch.vue';
 import FocusNavMenuItem from '../src/ui/FocusNavMenuItem.vue';
 import FocusStudyCardActions from '../src/ui/FocusStudyCardActions.vue';
@@ -30,31 +31,31 @@ function mountWith(component: unknown, context: WorkbenchContext) {
   });
 }
 
+enableAutoUnmount(afterEach);
+
 describe('plugins/focus-mode UI 组件', () => {
-    it('FocusModeSwitch.vue reads its own plugin state and toggles mode on click', async () => {
-
-      // CR-060：开关状态归插件（宿主 layout 不再持有该字段）
-
-      const context = contextWith();
+    it('shares the mode state between the header switch and settings row', async () => {
+      const context = contextWith({ pluginRuntime: { isPluginAvailable: () => true } });
       const { focusModeEnabled } = useFocusModeState(context);
-      const wrapper = mountWith(FocusModeSwitch, context);
-
-      expect(wrapper.find('.study-switch-track').attributes('aria-checked')).toBe('false');
-
-      expect(wrapper.find('.study-switch-label').text()).toBe('专注模式');
-
-      await wrapper.find('.study-switch-track').trigger('click');
-
-      expect(focusModeEnabled.value).toBe(true);
-
-      await wrapper.vm.$nextTick();
-
-      expect(wrapper.find('.study-switch-track').attributes('aria-checked')).toBe('true');
-
       focusModeEnabled.value = false;
-
+      const header = mountWith(FocusModeSwitch, context);
+      const settings = mountWith(FocusSettingsRow, context);
+      expect(header.find('.study-switch-label').text()).toBe('专注模式');
+      expect((settings.get('[role="switch"]').element as HTMLInputElement).checked).toBe(false);
+      await header.get('[role="switch"]').setValue(true);
+      expect(focusModeEnabled.value).toBe(true);
+      expect((settings.get('[role="switch"]').element as HTMLInputElement).checked).toBe(true);
+      await settings.get('[role="switch"]').setValue(false);
+      expect(focusModeEnabled.value).toBe(false);
+      expect((header.get('[role="switch"]').element as HTMLInputElement).checked).toBe(false);
     });
 
+    it('keeps the settings switch unavailable when the plugin is disabled', () => {
+      const settings = mountWith(FocusSettingsRow, contextWith({
+        pluginRuntime: { isPluginAvailable: () => false },
+      }));
+      expect(settings.find('[role="switch"]').exists()).toBe(false);
+    });
     it('FocusNavMenuItem.vue mounts, displays label, tooltip and handles active state & click action', async () => {
 
       const runMenuAction = vi.fn((action: () => void) => action());
@@ -110,7 +111,6 @@ describe('plugins/focus-mode UI 组件', () => {
       const hostOpenDailyProblem = vi.fn();
 
       const openTool = vi.fn();
-
 
       const mockContext = {
 

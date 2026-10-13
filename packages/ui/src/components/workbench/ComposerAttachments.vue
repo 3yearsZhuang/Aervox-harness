@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AervoxButton } from '../../primitives';
 import { FileText, Image as ImageIcon, Music, X } from 'lucide-vue-next';
 import { useWorkbenchContext } from '../../composables/workbench-context';
 import { formatAttachmentSize } from '../../composables/useWorkbenchComposer';
@@ -27,7 +28,7 @@ function attachmentIconFor(mediaType: string) {
         <span class="attachment-name" :title="item.name">{{ item.name }}</span>
         <span class="attachment-size">{{ formatAttachmentSize(item.size) }}</span>
       </span>
-      <button
+      <AervoxButton variant="ghost" icon-only
         type="button"
         class="attachment-remove"
         :aria-label="`移除附件 ${item.name}`"
@@ -35,7 +36,7 @@ function attachmentIconFor(mediaType: string) {
         @click="removePendingAttachment(item.key)"
       >
         <X :size="13" />
-      </button>
+      </AervoxButton>
     </div>
   </div>
 </template>
