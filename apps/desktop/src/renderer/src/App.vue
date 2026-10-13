@@ -6,6 +6,7 @@ import {hasCompletedOnboarding, markOnboardingCompleted} from '@/onboarding-stat
 import {resolveSurfaceChoice, UISurfaceHost} from '@aervox/ui-host'
 import defaultSurface, {compactSurface} from '@aervox/plugin-workbench-ui'
 import proactiveSurface from '@aervox/plugin-proactive-ui'
+import documentSurface from '@aervox/plugin-document-ui'
 // CR-060：第一方插件按**包路径**装配，宿主不绑定插件私有符号（见 check-host-domain-purity）
 import * as firstPartyPlugin from '@aervox/plugin-focus-mode/ui'
 import { settingsPanels } from '@aervox/plugin-panels-ui'
@@ -16,7 +17,7 @@ const reloadSurface = () => window.location.reload()
 const firstPartyPlugins = [firstPartyPlugin.default]
 const showIntroDeck = ref(false)
 // CR-063 切片六：组合根按用户选择装配主界面（本地存储 aervox.surface.main）
-const mainSurface = resolveSurfaceChoice([defaultSurface, compactSurface, proactiveSurface], window.localStorage, {
+const mainSurface = resolveSurfaceChoice([defaultSurface, compactSurface, proactiveSurface, documentSurface], window.localStorage, {
   storageKey: 'aervox.surface.main',
 })
 

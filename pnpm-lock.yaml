@@ -126,6 +126,9 @@ importers:
       '@aervox/plugin-companion-ui':
         specifier: workspace:*
         version: link:../../plugins/companion-ui
+      '@aervox/plugin-document-ui':
+        specifier: workspace:*
+        version: link:../../plugins/document-ui
       '@aervox/plugin-focus-mode':
         specifier: workspace:*
         version: link:../../plugins/focus-mode
@@ -206,6 +209,9 @@ importers:
       '@aervox/live2d':
         specifier: workspace:*
         version: link:../../packages/live2d
+      '@aervox/plugin-document-ui':
+        specifier: workspace:*
+        version: link:../../plugins/document-ui
       '@aervox/plugin-focus-mode':
         specifier: workspace:*
         version: link:../../plugins/focus-mode
@@ -480,6 +486,34 @@ importers:
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
+      vue:
+        specifier: ^3.5.21
+        version: 3.5.41(typescript@5.9.3)
+      vue-tsc:
+        specifier: ^2.2.12
+        version: 2.2.12(typescript@5.9.3)
+
+  plugins/document-ui:
+    dependencies:
+      '@aervox/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+      '@aervox/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@aervox/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      '@aervox/ui-host':
+        specifier: workspace:*
+        version: link:../../packages/ui-host
+    devDependencies:
+      '@aervox/live2d':
+        specifier: workspace:*
+        version: link:../../packages/live2d
+      lucide-vue-next:
+        specifier: ^0.468.0
+        version: 0.468.0(vue@3.5.41(typescript@5.9.3))
       vue:
         specifier: ^3.5.21
         version: 3.5.41(typescript@5.9.3)

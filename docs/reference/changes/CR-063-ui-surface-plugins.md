@@ -6,7 +6,7 @@ owner: frontend
 doc_status: review-candidate
 decision_status: accepted
 delivery_status: implemented
-version: 0.2.2
+version: 0.2.3
 updated_at: 2026-10-13
 reviewed_at: 2026-10-13
 review_interval_days: 90
@@ -52,6 +52,10 @@ sources:
 - **面板细拆**：模型/本地模型/人格/语音/插件管理五块设置面板（22 组件 + 6 测试文件）迁入 `@aervox/plugin-panels-ui`；设置弹层改经 `settings:panel:<category>` 槽位渲染，面板由组合根以受信构建输入经 `settingsPanels` prop 显式注入，不受插件启停门控；`@aervox/ui` 不再内建具体业务面板。
 - **设计令牌单源**：新增 `theme/tokens.css`（`--avx-*`，明暗双主题），六个主题文件统一消费，令牌值全部提取自既有样式，视觉零变更。
 - **多根界面试验田**：`workbench-ui` 包新增 `compactSurface`（紧凑单栏变体，复用同一工作台根、`variant="compact"`）；`ui-host` 新增 `resolveSurfaceChoice()`，组合根按 `?surface=` / localStorage `aervox.surface.main` 选择根界面；设置外观区提供切换器（重载生效）。
+
+### 2026-10-13 · v0.2.3 素简文档界面插件（同分支，ITER-057 延伸）
+
+- **新界面插件 `@aervox/plugin-document-ui`**（方向 G，minimalist-ui 语言）：暖纸文档式主界面——桌宠小像边栏、文档条目式双建议卡（编号 + 理由行 + 箭头）、全平无阴影、主建议仅以灰绿左边条标识；信息结构与 proactive-ui 一致，供对照评审两种设计语言。组合根四界面可选，设置外观区新增「素简文档」。
 
 ### 2026-10-13 · v0.2.2 主动陪伴界面插件（同分支，ITER-057）
 
