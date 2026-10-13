@@ -287,7 +287,7 @@ export class McpService {
       const bridge = this.deps.dshBridge;
       fetchImpl = (async (_url: string | URL | Request, init?: RequestInit) => {
         const body = typeof init?.body === "string" ? JSON.parse(init.body) : init?.body;
-        const result = await bridge.handleRpc(body);
+        const result = await bridge.handleRpc(body, init?.signal ?? undefined);
         return new Response(JSON.stringify(result), {
           status: 200,
           headers: { "content-type": "application/json" },

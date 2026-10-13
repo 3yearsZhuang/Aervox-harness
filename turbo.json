@@ -1,6 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalEnv": ["AERVOX_WEB_PORT", "AERVOX_DESKTOP_PORT"],
+  "globalEnv": ["AERVOX_WEB_PORT", "AERVOX_DESKTOP_PORT", "AERVOX_NATIVE_RELEASE_PUBLIC_KEY"],
   "globalDependencies": ["tsconfig.base.json", "tsconfig.base.node.json"],
   "globalPassThroughEnv": [
     "XDG_CONFIG_HOME",
@@ -11,6 +11,8 @@
     "VITEST_MAX_WORKERS"
   ],
   "tasks": {
+    "@aervox/native-runtime#build": {"dependsOn": ["^build"], "outputs": ["dist/**", "!dist/bin/**"], "inputs": ["$TURBO_DEFAULT$", "../../native/protocol/**", "../../scripts/generate-native-protocol.mjs"]},
+    "@aervox/native-runtime#test": {"dependsOn": ["build", "native:build"], "cache": false, "inputs": ["$TURBO_DEFAULT$", "../../native/protocol/**"]},
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", "out/**"]
@@ -66,6 +68,8 @@
         "../../vitest.shared.ts",
         "../../plugins/**"
       ]
-    }
+    },
+    "@aervox/native-runtime#native:build": {"dependsOn": ["build"], "cache": false, "env": ["AERVOX_NATIVE_BUILD_TARGETS"], "inputs": ["$TURBO_DEFAULT$", "../../scripts/build-native-runtime.mjs", "../../mise.toml", "../../native/**"], "outputs": ["dist/bin/**"]},
+    "@aervox/repositories#test": {"dependsOn": ["^build", "@aervox/native-runtime#native:build"]}
   }
 }

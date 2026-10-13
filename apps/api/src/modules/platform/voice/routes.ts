@@ -201,9 +201,15 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
       });
     }
     const tenant = resolveLocalContext(request);
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    const close = () => { if (!reply.raw.writableEnded) abort(); };
+    request.raw.once("aborted", abort);
+    reply.raw.once("close", close);
     try {
       const audioBuffer = fromBase64(parsed.data.audioBase64);
       const result = await service.transcribe(tenant, {
+        signal: controller.signal,
         audioBuffer,
         mimeType: parsed.data.mimeType,
         language: parsed.data.language,
@@ -215,6 +221,9 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
         code: "VOICE_INPUT_PROVIDER_UNAVAILABLE",
         message: error instanceof Error ? error.message : "转写异常",
       });
+    } finally {
+      request.raw.off("aborted", abort);
+      reply.raw.off("close", close);
     }
   });
 

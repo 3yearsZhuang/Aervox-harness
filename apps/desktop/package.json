@@ -23,6 +23,7 @@
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "dependencies": {
+    "@aervox/native-runtime": "workspace:*",
     "@aervox/api-client": "workspace:*",
     "@aervox/live2d": "workspace:*",
     "@aervox/plugin-focus-mode": "workspace:*",

@@ -24,3 +24,5 @@ export * from "./repositories/index.js";
 export * from "./schema/ddl/index.js";
 
 export { collectDiaryMaterial, createSqliteDiaryMaterialPort } from "./repositories/sqlite/diary-material.js";
+export { NativeMemoryVectorSearchAdapter } from "./search/native-memory-vector-port.js";
+export { CachedMemoryVectorSearchAdapter } from "./search/cached-memory-vector-port.js";

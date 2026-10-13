@@ -1,0 +1,513 @@
+{
+  "schemaVersion": 1,
+  "commit": "cf8b6be876853e3c07f1ee7b83339065a3d7e98a",
+  "workingTree": "implementation under test",
+  "implementationSha256": "baafed714fba1d92ab8de748eef96e231ab37af32e159107de850b1fe8d6fb6c",
+  "rustBinarySha256": "f099801a2c1bd686ff947a4f68dfb5a8568953dc84e4adff6782f7a224294f6c",
+  "environment": {
+    "node": "v24.19.0",
+    "rust": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
+    "ripgrep": "ripgrep 15.0.0 (rev 3a612f88b8)\n\nfeatures:+pcre2\nsimd(compile):+NEON\nsimd(runtime):+NEON\n\nPCRE2 10.45 is available (JIT is available)",
+    "platform": "darwin",
+    "release": "27.2.0",
+    "arch": "arm64",
+    "cpu": "Apple M5",
+    "ramBytes": 17179869184
+  },
+  "fixture": {
+    "seed": 42,
+    "sizes": [
+      1000,
+      10000,
+      100000
+    ],
+    "dimensions": 256,
+    "topK": 10,
+    "minScore": 0,
+    "warmup": 3,
+    "samples": 7
+  },
+  "vector": [
+    {
+      "rows": 1000,
+      "cases": [
+        {
+          "mode": "json-sort",
+          "processWallMs": 253.327916,
+          "sampledPeakRssBytes": 80003072,
+          "loadMs": 51.64429199999999,
+          "matrixBytes": 2048000,
+          "p50Ms": 13.70712499999999,
+          "p95Ms": 21.43187499999999,
+          "p99Ms": 21.43187499999999,
+          "sampleMs": [
+            12.575874999999996,
+            13.309124999999995,
+            13.70712499999999,
+            13.822209000000015,
+            13.404083000000014,
+            14.553291000000002,
+            21.43187499999999
+          ],
+          "parity": {
+            "queries": 10,
+            "identicalIds": true,
+            "maxScoreDelta": 0
+          }
+        },
+        {
+          "mode": "json-topk",
+          "processWallMs": 339.87295900000004,
+          "sampledPeakRssBytes": 78823424,
+          "loadMs": 67.256709,
+          "matrixBytes": 2048000,
+          "p50Ms": 18.27395899999999,
+          "p95Ms": 32.77158300000002,
+          "p99Ms": 32.77158300000002,
+          "sampleMs": [
+            18.900915999999995,
+            32.77158300000002,
+            18.27395899999999,
+            15.408333999999996,
+            14.153875,
+            15.690500000000014,
+            28.32125000000002
+          ],
+          "parity": {
+            "queries": 10,
+            "identicalIds": true,
+            "maxScoreDelta": 0
+          }
+        },
+        {
+          "mode": "typed-topk",
+          "processWallMs": 156.848792,
+          "sampledPeakRssBytes": 48873472,
+          "loadMs": 43.34287499999999,
+          "matrixBytes": 2048000,
+          "p50Ms": 0.6225419999999957,
+          "p95Ms": 1.0705420000000032,
+          "p99Ms": 1.0705420000000032,
+          "sampleMs": [
+            0.6007080000000116,
+            0.6058749999999975,
+            0.6097500000000053,
+            0.6225419999999957,
+            0.6977499999999992,
+            1.0705420000000032,
+            0.644999999999996
+          ],
+          "parity": {
+            "queries": 10,
+            "identicalIds": true,
+            "maxScoreDelta": 0
+          }
+        },
+        {
+          "mode": "rust-topk",
+          "processWallMs": 332.86525000000006,
+          "sampledPeakRssBytes": 32768,
+          "loadMs": 1.336875,
+          "matrixBytes": 2048000,
+          "p50Ms": 0.282083,
+          "p95Ms": 0.362958,
+          "p99Ms": 0.362958,
+          "sampleMs": [
+            0.281333,
+            0.281334,
+            0.282083,
+            0.362958,
+            0.282417,
+            0.281,
+            0.2825
+          ],
+          "parity": {
+            "queries": 10,
+            "identicalIds": true,
+            "maxScoreDelta": 0
+          }
+        }
+      ]
+    },
+    {
+      "rows": 10000,
+      "cases": [
+        {
+          "mode": "json-sort",
+          "processWallMs": 2262.203625,
+          "sampledPeakRssBytes": 267124736,
+          "loadMs": 509.115416,
+          "matrixBytes": 20480000,
+          "p50Ms": 165.90420799999993,
+          "p95Ms": 176.9934589999998,
+          "p99Ms": 176.9934589999998,
+          "sampleMs": [
+            172.28674999999998,
+            165.90420799999993,
+            176.9934589999998,
+            157.8961670000001,
+            161.94058300000006,
+            151.52295800000002,
+            167.6957500000001
+          ],
+          "parity": {
+            "queries": 10,
+            "identicalIds": true,
+            "maxScoreDelta": 0
+          }
+        },
+        {
+          "mode": "json-topk",
+          "processWallMs": 2427.948083,
+          "sampledPeakRssBytes": 267321344,
+          "loadMs": 620.9055,
+          "matrixBytes": 20480000,
+          "p50Ms": 179.198625,
+          "p95Ms": 185.3422089999999,
+          "p99Ms": 185.3422089999999,
+          "sampleMs": [
+            184.27966700000002,
+            179.198625,
+            157.7444579999999,
+            172.39266599999996,
+            182.64583300000004,
+            185.3422089999999,
+            150.75004199999967
+          ],
+          "parity": {
+            "queries": 10,
+            "identicalIds": true,
+            "maxScoreDelta": 0
+          }
+        },
+        {
+          "mode": "typed-topk",
+          "processWallMs": 243.0647089999993,
+          "sampledPeakRssBytes": 78413824,
+          "loadMs": 68.12741700000001,
+          "matrixBytes": 20480000,
+          "p50Ms": 8.44874999999999,
+          "p95Ms": 11.169667000000004,
+          "p99Ms": 11.169667000000004,
+          "sampleMs": [
+            6.408917000000002,
+            6.008459000000016,
+            9.016666000000015,
+            7.772207999999978,
+            11.169667000000004,
+            9.41549999999998,
+            8.44874999999999
+          ],
+          "parity": {
+            "queries": 10,
+            "identicalIds": true,
+            "maxScoreDelta": 0
+          }
+        },
+        {
+          "mode": "rust-topk",
+          "processWallMs": 67.16525000000001,
+          "sampledPeakRssBytes": 22544384,
+          "loadMs": 15.712582999999999,
+          "matrixBytes": 20480000,
+          "p50Ms": 3.073125,
+          "p95Ms": 8.469334,
+          "p99Ms": 8.469334,
+          "sampleMs": [
+            3.292458,
+            8.469334,
+            3.074458,
+            2.882834,
+            3.073125,
+            2.815916,
+            2.8413340000000002
+          ],
+          "parity": {
+            "queries": 10,
+            "identicalIds": true,
+            "maxScoreDelta": 0
+          }
+        }
+      ]
+    },
+    {
+      "rows": 100000,
+      "cases": [
+        {
+          "mode": "json-sort",
+          "processWallMs": 24276.149375,
+          "sampledPeakRssBytes": 946044928,
+          "loadMs": 5809.869625,
+          "matrixBytes": 204800000,
+          "p50Ms": 1826.0729579999988,
+          "p95Ms": 2198.159667,
+          "p99Ms": 2198.159667,
+          "sampleMs": [
+            1731.8676250000008,
+            1826.0729579999988,
+            1860.5103330000002,
+            1563.6728750000002,
+            1718.117209,
+            2197.0438329999997,
+            2198.159667
+          ],
+          "parity": {
+            "queries": 10,
+            "identicalIds": true,
+            "maxScoreDelta": 0
+          }
+        },
+        {
+          "mode": "json-topk",
+          "processWallMs": 25216.278625,
+          "sampledPeakRssBytes": 801062912,
+          "loadMs": 6982.845458,
+          "matrixBytes": 204800000,
+          "p50Ms": 1797.8295419999995,
+          "p95Ms": 2023.9331249999996,
+          "p99Ms": 2023.9331249999996,
+          "sampleMs": [
+            1649.874291,
+            1993.1623749999999,
+            2019.6087079999998,
+            2023.9331249999996,
+            1797.8295419999995,
+            1737.1690409999974,
+            1754.5672090000007
+          ],
+          "parity": {
+            "queries": 10,
+            "identicalIds": true,
+            "maxScoreDelta": 0
+          }
+        },
+        {
+          "mode": "typed-topk",
+          "processWallMs": 1684.1104999999952,
+          "sampledPeakRssBytes": 264110080,
+          "loadMs": 585.8254999999999,
+          "matrixBytes": 204800000,
+          "p50Ms": 97.27308299999993,
+          "p95Ms": 125.17908299999999,
+          "p99Ms": 125.17908299999999,
+          "sampleMs": [
+            97.27308299999993,
+            125.17908299999999,
+            110.64379200000008,
+            103.07070900000008,
+            94.86024999999995,
+            89.95612499999993,
+            96.40154200000006
+          ],
+          "parity": {
+            "queries": 10,
+            "identicalIds": true,
+            "maxScoreDelta": 0
+          }
+        },
+        {
+          "mode": "rust-topk",
+          "processWallMs": 551.5491659999971,
+          "sampledPeakRssBytes": 206880768,
+          "loadMs": 161.638959,
+          "matrixBytes": 204800000,
+          "p50Ms": 36.881833,
+          "p95Ms": 48.293375,
+          "p99Ms": 48.293375,
+          "sampleMs": [
+            36.489958,
+            36.881833,
+            48.293375,
+            44.76525,
+            35.437749999999994,
+            31.635000000000005,
+            37.373625000000004
+          ],
+          "parity": {
+            "queries": 10,
+            "identicalIds": true,
+            "maxScoreDelta": 0
+          }
+        }
+      ]
+    }
+  ],
+  "codeSearch": [
+    {
+      "mode": "legacy-sync",
+      "query": "missing-value",
+      "files": 1000,
+      "p50Ms": 151.72704199999862,
+      "p95Ms": 181.3402500000011,
+      "p99Ms": 181.3402500000011,
+      "sampleMs": [
+        151.72704199999862,
+        147.29491699999926,
+        139.42554199999722,
+        139.88404199999786,
+        153.6073749999996,
+        164.06420799999614,
+        181.3402500000011
+      ],
+      "timerDelayMs": [
+        151.7742919999946,
+        147.3853750000053,
+        139.47020899999916,
+        139.93045799999527,
+        153.64774999999645,
+        164.19674999999552,
+        181.38904100000218
+      ],
+      "apiRssSampleBytes": 67174400,
+      "identicalResults": true
+    },
+    {
+      "mode": "ripgrep",
+      "query": "missing-value",
+      "files": 1000,
+      "p50Ms": 120.90129100000195,
+      "p95Ms": 155.36866700000246,
+      "p99Ms": 155.36866700000246,
+      "sampleMs": [
+        120.85316600000078,
+        130.34645799999998,
+        102.3538750000007,
+        155.36866700000246,
+        124.1028340000048,
+        120.90129100000195,
+        97.35566699999617
+      ],
+      "timerDelayMs": [
+        2.3355830000000424,
+        0.609083000003011,
+        2.052000000003318,
+        0.17670899999939138,
+        2.1140420000010636,
+        0.08079100000031758,
+        5.793332999994163
+      ],
+      "apiRssSampleBytes": 67420160,
+      "identicalResults": true
+    },
+    {
+      "mode": "legacy-sync",
+      "query": "needle 999",
+      "files": 1000,
+      "p50Ms": 152.89545800000633,
+      "p95Ms": 184.4780000000028,
+      "p99Ms": 184.4780000000028,
+      "sampleMs": [
+        184.4780000000028,
+        155.296583000003,
+        161.74608299999818,
+        151.7514169999995,
+        152.89545800000633,
+        142.575791999996,
+        152.79508299999725
+      ],
+      "timerDelayMs": [
+        184.51766599999974,
+        155.55108299999847,
+        161.7841249999983,
+        151.7884170000034,
+        152.93637500000477,
+        142.6987089999966,
+        152.82833299999766
+      ],
+      "apiRssSampleBytes": 94437376,
+      "identicalResults": true
+    },
+    {
+      "mode": "ripgrep",
+      "query": "needle 999",
+      "files": 1000,
+      "p50Ms": 134.29049999999552,
+      "p95Ms": 149.30529100000422,
+      "p99Ms": 149.30529100000422,
+      "sampleMs": [
+        134.29049999999552,
+        120.18720900000335,
+        142.54174999999668,
+        149.30529100000422,
+        135.92324999999983,
+        119.97699999999895,
+        109.20470799999748
+      ],
+      "timerDelayMs": [
+        2.099833000000217,
+        0.5288340000042808,
+        1.9254999999975553,
+        0.06966600000305334,
+        2.511084000005212,
+        2.2333749999961583,
+        1.8869159999958356
+      ],
+      "apiRssSampleBytes": 94453760,
+      "identicalResults": true
+    },
+    {
+      "mode": "legacy-sync",
+      "query": "needle",
+      "files": 1000,
+      "p50Ms": 7.581458000000566,
+      "p95Ms": 15.957625000002736,
+      "p99Ms": 15.957625000002736,
+      "sampleMs": [
+        7.581458000000566,
+        10.379625000001397,
+        5.974042000001646,
+        15.957625000002736,
+        7.0274999999965075,
+        7.006042000000889,
+        10.750625000000582
+      ],
+      "timerDelayMs": [
+        7.67604100000608,
+        10.589583000000857,
+        6.012209000000439,
+        16.030707999998413,
+        7.0885419999976875,
+        7.020125000002736,
+        10.796875
+      ],
+      "apiRssSampleBytes": 96206848,
+      "identicalResults": true
+    },
+    {
+      "mode": "ripgrep",
+      "query": "needle",
+      "files": 1000,
+      "p50Ms": 19.411292000004323,
+      "p95Ms": 24.457875000000058,
+      "p99Ms": 24.457875000000058,
+      "sampleMs": [
+        19.157124999997905,
+        23.108915999997407,
+        21.986792000003334,
+        19.411292000004323,
+        13.114332999997714,
+        24.457875000000058,
+        12.254167000006419
+      ],
+      "timerDelayMs": [
+        1.685749999996915,
+        2.2712499999979627,
+        0.350709000005736,
+        2.481707999999344,
+        0.19520799999736482,
+        2.106082999998762,
+        0.06895900000381516
+      ],
+      "apiRssSampleBytes": 97026048,
+      "identicalResults": true
+    }
+  ],
+  "limitations": [
+    "Synthetic vectors; no production database, SQL I/O, embedding quality or index lifecycle measurement.",
+    "Vector query timings exclude loading/conversion; processWallMs includes startup, fixture I/O, conversion, warmup and queries.",
+    "JSON modes materialize JSON from binary fixtures; this startup cost is not a SQLite read benchmark.",
+    "RSS is sampled per child every 100 ms using ps on macOS/Linux; it may miss peaks and is null on Windows.",
+    "Code search timer delay is a scheduled zero-delay timer, not a production event-loop percentile; API RSS excludes ripgrep.",
+    "Seven default samples are an exploratory comparison, not an SLA or a statistical confidence interval."
+  ]
+}
