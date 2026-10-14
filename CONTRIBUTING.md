@@ -69,7 +69,7 @@ Markdownlint 必须使用 mise 注入的固定版本，不用 `npx` 临时下载
 
 ## 参考项目与许可
 
-固定参考版本、来源、许可证及借鉴要求见[参考设计评估](docs/explanation/reference-design-transfer.md)。引用代码保留原许可、版权和来源；重新实现需说明接口与边界，不因改写变量名而免除许可责任。
+架构与参考学习统一维护在[架构总文档](docs/reference/ARCHITECTURE.md#reference-learning)。引用代码保留原许可、版权和来源；重新实现需说明接口与边界，不因改写变量名而免除许可责任。
 
 主仓源码采用 AGPL-3.0-or-later，独立 `packages/core` 采用 Apache-2.0，文档采用 CC BY-NC-SA 4.0；具体以各目录许可证为准。
 

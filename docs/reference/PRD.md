@@ -80,7 +80,7 @@ id: AVX-PRD-001
 | AI 陪伴产品 | 互动连续、角色感强 | 容易把时长或依赖当作价值，学习效果难验证 | 陪伴只服务于开始、坚持和复盘，禁止排他和情绪操控 |
 | 本地记忆/Agent 工具 | 可扩展、可自托管、数据控制潜力高 | 面向技术用户，学习业务规则与安全边界不足 | TypeScript-first 内核加稳定业务 API，P2 再开放受限插件和本地模式 |
 
-参考项目用于设计验证而非市场证据，具体借鉴和许可证边界见[参考设计评估](../explanation/reference-design-transfer.md#reference-manifest)。
+参考项目用于设计验证而非市场证据，具体借鉴和许可证边界见[架构与参考学习](ARCHITECTURE.md#reference-manifest)。
 
 ### 1.8 核心设计理念与四大支柱
 
@@ -339,4 +339,4 @@ id: AVX-PRD-001
 - CAP 状态、交付载体、证据、未决项与发布门禁：[需求追踪](REQUIREMENTS_TRACEABILITY.md)。
 - 技术选型与数据实体：[架构](ARCHITECTURE.md)、[数据库契约](DATABASE.md)。
 - AI 质量和数据权利：[AI 质量与安全](AI_QUALITY_SAFETY.md)、[数据与隐私](DATA_PRIVACY.md)。
-- 上游版本、许可证与借鉴边界：[参考设计评估](../explanation/reference-design-transfer.md#reference-manifest)。
+- 上游版本、许可证与借鉴边界：[架构与参考学习](ARCHITECTURE.md#reference-manifest)。

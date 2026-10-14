@@ -24,7 +24,7 @@ P0（CAP-001～013）必须进入标准产品 Profile 与默认构建；环境�
 
 原 AVX-MOD-001 的交付约束继续有效：已裁决为独立演进、自选交付的非核心功能使用独立仓库及固定 commit/tag，经 `modules/*` 与 workspace 包消费，不复制实现或用路径绕过。当前尚无已注册的独立模块，`modules/*` 的完整构建/初始化门禁是目标机制，不是已存在运行能力；主仓已经交付的能力不自动重新分类。
 
-每个模块接口只有一个可编辑来源（公共类型/Schema 与契约），不得在模块和主仓维护平行实现。只有组合根选择 Provider，消费者经公开 Query/Command Port；接口、迁移和回滚兼容随模块版本验证。`reference/` 是固定版本的只读研究材料，不作为 workspace 业务依赖；许可规则见[上游清单](../explanation/reference-design-transfer.md#reference-manifest)。
+每个模块接口只有一个可编辑来源（公共类型/Schema 与契约），不得在模块和主仓维护平行实现。只有组合根选择 Provider，消费者经公开 Query/Command Port；接口、迁移和回滚兼容随模块版本验证。`reference/` 是固定版本的只读研究材料，不作为 workspace 业务依赖；许可规则见[上游清单](ARCHITECTURE.md#reference-manifest)。
 
 ## 概念与依赖方向
 
