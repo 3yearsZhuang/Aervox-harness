@@ -37,7 +37,7 @@ MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应
 | 层 | 选择 | 约束 |
 |---|---|---|
 | Runtime | Node.js 24 LTS | `engines`、容器和 CI 精确锁定；参考仓库最低 Node 22.19，适配器独立兼容 |
-| Language/build | TypeScript 6.x strict、pnpm 11、Turborepo 2.x | lockfile 必须提交；禁止 `latest`；Renovate 升级需通过契约/安全测试 |
+| Language/build | TypeScript strict、pnpm、Turborepo | 工具和依赖版本分别取 [mise.toml](../../mise.toml)、[根包清单](../../package.json)与锁文件，不在架构表另行冻结；升级需通过契约/安全测试 |
 | Web | Vue 3、Vite 7、Element Plus（Vue 全栈单栈，见 ADR-015） | Web 复用桌面端 renderer 核心（composables/主题），首发是登录后流式应用；不依赖任何框架私有后端能力 |
 | UI/editor | Element Plus + 定制主题（迁移自 desktop styles）、CodeMirror 6 | 组件共享、键盘可用和 WCAG 2.2 AA |
 | API | Fastify 5、Zod 4、OpenAPI 3.1、POST Turn + GET SSE（Fetch 消费） | 客户端和插件通过契约访问；事件 envelope、重连、取消、幂等和安全持久化遵循[流式协议契约](STREAMING_PROTOCOL.md)；不以 tRPC 锁定消费者 |
@@ -732,7 +732,7 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 <a id="arc-01"></a>
 
-#### 15.3.1 ARC-01：从接单成功到可恢复执行
+#### 15.3.1 ARC-01：从接单成功到可恢复执行（历史评估）
 
 原评估复现了领取前失败留下无租约 Running Attempt 的问题。消费隔离、死信、预加载失败与已有无租约 Attempt 恢复已由 [ITER-002](../../plan.md#iter-002) / PR [#228](https://github.com/3yearsZhuang/Aervox-harness/pull/228) 修复，回归入口为[对话派发恢复测试](../../apps/api/test/conversation-dispatch-resilience.test.ts)及 [Outbox 测试](../../apps/worker/test/outbox-worker.test.ts)。历史过程见 Git。PR #258 随后以原子接单闭合提前确认 Inbox 和尚未创建 Attempt 的窗口，故障与并发回归见[历史审计](#audit-findings)。
 
@@ -740,9 +740,9 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 <a id="arc-02"></a>
 
-#### 15.3.2 ARC-02：执行控制必须沿父子任务与 Driver 传递
+#### 15.3.2 ARC-02：执行控制必须沿父子任务与 Driver 传递（历史评估）
 
-**现状与证据。** [原生执行器](../../packages/core/src/executor.ts)已有工具 AbortSignal、租约心跳、默认 8 Step 和通常 5 秒工具超时；API 没有注入总 Turn 时长，相关默认值为 0。[OpenAI 兼容 Provider](../../packages/core/src/openai-compat-provider.ts)的默认 45 秒是随上游数据重置的空闲超时。持续输出不受它约束为固定总时长。
+**历史实现与证据。** [原生执行器](../../packages/core/src/executor.ts)已有工具 AbortSignal、租约心跳、默认 8 Step 和通常 5 秒工具超时；API 没有注入总 Turn 时长，相关默认值为 0。[OpenAI 兼容 Provider](../../packages/core/src/openai-compat-provider.ts)的默认 45 秒是随上游数据重置的空闲超时。持续输出不受它约束为固定总时长。
 
 [Subagent/Workflow Contribution](../../packages/core/src/subagent-contribution.ts)没有把工具信号传入 delegate/WorkflowContext。[子任务执行器](../../packages/host-agent/src/subagent-executor.ts)另起 lease、仅限制 4 Step；[API 组合根](../../apps/api/src/modules/companion/conversation/index.ts)为子任务构造 Provider 时，没有传入父执行器使用的 `requireLocalOnly`、路由和会话上下文。父本地处理约束不能据此推断子任务已继承。Workflow 需注入定义才出现；Subagent 已在生产组合根注册，默认子任务无工具且禁止递归委托，这些保护应保留。
 
@@ -756,9 +756,9 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 <a id="arc-03"></a>
 
-#### 15.3.3 ARC-03：动态工具的可执行性与可发现性
+#### 15.3.3 ARC-03：动态工具的可执行性与可发现性（历史评估）
 
-**现状与证据。** [createRuntimeToolProvider](../../apps/api/src/modules/companion/conversation/tool-providers.ts)返回 `tools: []`，执行时才读取注册表。[组合器](../../packages/core/src/subagent-contribution.ts)只合并已有清单，模型 Provider 又只将 `request.tools` 转成 function Schema。因此静态 Subagent/Question/Practice/已配置 Workflow 可见，Memory、MCP 和插件注册工具不会自动进入真实模型请求。
+**历史实现与证据。** [createRuntimeToolProvider](../../apps/api/src/modules/companion/conversation/tool-providers.ts)返回 `tools: []`，执行时才读取注册表。[组合器](../../packages/core/src/subagent-contribution.ts)只合并已有清单，模型 Provider 又只将 `request.tools` 转成 function Schema。因此静态 Subagent/Question/Practice/已配置 Workflow 可见，Memory、MCP 和插件注册工具不会自动进入真实模型请求。
 
 **已复现。** Fake 注册表包含一个只读 `fake_memory`，静态 Provider 包含 `fake_static`。捕获真实 OpenAI 兼容序列化生成的请求体，只看到 `avx_fake_static`；直接调用动态 `fake_memory` 却成功。这个实验解释了为什么手写 ToolCall 的执行测试可以通过，同时真实模型无法自然选择该工具。
 
@@ -766,7 +766,7 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 <a id="arc-04"></a>
 
-#### 15.3.4 ARC-04：自动恢复与互动等待的连续性
+#### 15.3.4 ARC-04：自动恢复与互动等待的连续性（历史评估）
 
 **接线边界。** 当前 [Attempt Recovery Worker](../../apps/worker/src/attempt-recovery.ts)主要将过期 Running 收敛为 Interrupted，并处理未知工具结果；`createAgentHost` 和 `createSqliteResumeSource` 尚未接入默认生产启动。已提交答案、已批准工具与已恢复执行是三个不同事实。
 
@@ -778,9 +778,9 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 <a id="arc-05"></a>
 
-#### 15.3.5 ARC-05：流式输出需要贯通整个链路
+#### 15.3.5 ARC-05：流式输出需要贯通整个链路（历史评估）
 
-**现状与证据。** [collectStep](../../packages/core/src/executor.ts)将普通文本 chunk 收进数组，等待 Provider 当前 Step 完成后才批量 `recordSafeSegments`。reasoning 会在流中节流持久化；普通文本不会随上游首段立即可见。批量落库减少事务开销是已有收益，但整个 Step 并没有按字节数或时间切成有界窗口。DSH Adapter 则先收齐事件，runner 本身也未使用流式请求。
+**历史实现与证据。** [collectStep](../../packages/core/src/executor.ts)将普通文本 chunk 收进数组，等待 Provider 当前 Step 完成后才批量 `recordSafeSegments`。reasoning 会在流中节流持久化；普通文本不会随上游首段立即可见。批量落库减少事务开销是已有收益，但整个 Step 并没有按字节数或时间切成有界窗口。DSH Adapter 则先收齐事件，runner 本身也未使用流式请求。
 
 **影响。** 长文本可能表现为持续等待后集中出现；进程中途退出时，已接收但未落库的普通文本没有重放依据。FND-06 处理 SSE 的下游慢连接，无法单独解决这个上游等待。本轮是源码审阅，没有测量真实首字延迟或内存峰值。
 
@@ -790,7 +790,7 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 <a id="arc-06"></a>
 
-#### 15.3.6 ARC-06：删除完成证明和恢复后的撤权保留
+#### 15.3.6 ARC-06：删除完成证明和恢复后的撤权保留（历史评估）
 
 **活动路径的缺口。** [隐私路由](../../apps/api/src/modules/platform/privacy/routes.ts)创建 DeletionRequest，但没有物化目标；[删除 Worker](../../apps/worker/src/deletion-worker.ts)的 owner 清理仍是骨架，直接将目标标 completed 并生成 evidenceRef。空目标数组也可通过 `every(completed)`。已有消息/记忆软删与读取过滤有效，本项限定为统一删除编排，不能概括为所有删除入口无效。
 
@@ -806,9 +806,9 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 <a id="arc-07"></a>
 
-#### 15.3.7 ARC-07：消息版本变更需要一个业务工作单元
+#### 15.3.7 ARC-07：消息版本变更需要一个业务工作单元（历史评估）
 
-**现状与已复现。** [MessageStore.editMessage](../../packages/repositories/src/repositories/sqlite/conversation/message-store.ts)被 PATCH 消息路径直接调用。它先检查 expectedVersion，再依次标旧版本 superseded、插入新版本、更新当前指针，三步不在同一事务，写条件也没有真正的版本 CAS。临时库用触发器在插入第二版时抛错，结果是当前指针仍指第一版、第一版已 superseded、未被替代版本数为 0。
+**历史实现与复现。** [MessageStore.editMessage](../../packages/repositories/src/repositories/sqlite/conversation/message-store.ts)被 PATCH 消息路径直接调用。它先检查 expectedVersion，再依次标旧版本 superseded、插入新版本、更新当前指针，三步不在同一事务，写条件也没有真正的版本 CAS。临时库用触发器在插入第二版时抛错，结果是当前指针仍指第一版、第一版已 superseded、未被替代版本数为 0。
 
 **建议。** 将“一个活动消息恰有一个当前版本”作为仓储命令不变量，以短写事务完成创建版本、版本条件更新和旧版本推进；核对影响行数。与编辑相关的索引失效或派生重建意图可同事务进入 Outbox，文件/模型 I/O 留在事务外。复用现有 Turn、工具结果和安全片段的原子实现经验，不为所有仓储强行增加泛型事务层。
 
@@ -816,11 +816,11 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 <a id="arc-08"></a>
 
-#### 15.3.8 ARC-08：检索资格与派生索引生命周期
+#### 15.3.8 ARC-08：检索资格与派生索引生命周期（历史评估）
 
-**当前读路径。** [createSqliteMemoryRecall](../../apps/api/src/modules/companion/conversation/memory-recall.ts)进行混合检索，再核对软删、verified 和 long_term；尚未统一执行 `aiRecallUntil`、用途与分类资格检查。临时夹具把记忆设为已过期且 Restricted，该条仍进入 recall。生产创建路径尚未见这些字段赋值，所以这是资格边界验证，不是已发现真实敏感数据泄露。按[隐私授权](DATA_PRIVACY.md)，Restricted 默认不进入普通记忆；`restricted.profile` 仅授权 CAP-033 指定范围的本地处理，不自动授权普通长期记忆召回，不能增加一个通用授权开关就放行。
+**历史读路径。** [createSqliteMemoryRecall](../../apps/api/src/modules/companion/conversation/memory-recall.ts)进行混合检索，再核对软删、verified 和 long_term；尚未统一执行 `aiRecallUntil`、用途与分类资格检查。临时夹具把记忆设为已过期且 Restricted，该条仍进入 recall。生产创建路径尚未见这些字段赋值，所以这是资格边界验证，不是已发现真实敏感数据泄露。按[隐私授权](DATA_PRIVACY.md)，Restricted 默认不进入普通记忆；`restricted.profile` 仅授权 CAP-033 指定范围的本地处理，不自动授权普通长期记忆召回，不能增加一个通用授权开关就放行。
 
-**当前索引。** [记忆写工具](../../apps/api/src/modules/companion/memory/memory-store-tool.ts)先写业务记录，再更新 FTS，再调用 embedding；任一步失败不代表前一步已撤销。[FTS](../../packages/repositories/src/search/fts.ts)默认 `unicode61`，临时中文样本“今天学习数学”全文命中 1 条、子词“学习”命中 0 条；这说明需中文检索质量基线，不代表所有中文查询都失败。
+**历史索引。** [记忆写工具](../../apps/api/src/modules/companion/memory/memory-store-tool.ts)先写业务记录，再更新 FTS，再调用 embedding；任一步失败不代表前一步已撤销。[FTS](../../packages/repositories/src/search/fts.ts)默认 `unicode61`，临时中文样本“今天学习数学”全文命中 1 条、子词“学习”命中 0 条；这说明需中文检索质量基线，不代表所有中文查询都失败。
 
 **可选回填的缺口。** [Embedding Worker](../../apps/worker/src/embedding-migration.ts)默认没有注入 Provider，直接返回 0。注入最小 Provider 后，真实临时库报 `no such column: r.workspace_id`，说明扫描仍引用已移除的历史列；修复应采用当前 LocalContext，不能重新加入旧隔离列。扫描也未按模型区分缺失；[向量适配器](../../packages/repositories/src/repositories/sqlite/memory-embedding-repository.ts)的通用 upsert 使用 `vec_<memoryId>`，不符合多个模型版本共存方向。后者是库级静态风险，当前主要生产调用是 search，不能声称已经覆盖了用户旧向量。
 
@@ -832,9 +832,9 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 <a id="arc-09"></a>
 
-#### 15.3.9 ARC-09：启动建表、Schema 迁移和索引重建分工
+#### 15.3.9 ARC-09：启动建表、Schema 迁移和索引重建分工（历史评估）
 
-**现状与已复现。** API 与 Worker 默认启动均调用 `initDatabaseSchema`，已有索引等价性测试；现有 [runMigrations](../../packages/repositories/src/migration/migration-service.ts)提供名称/时间 journal，但本轮只见测试调用，未接入默认启动，也没有校验和或恢复状态。这些基础不等于完整旧版本升级已经验证。[buildCr030Staging](../../packages/repositories/src/migration/staging-migration.ts)只识别虚表 SQL，仍会复制 FTS shadow 表。两个当前完整 Schema 的临时库执行该流程，报 `UNIQUE constraint failed: memories_fts_config.k`；现有 staging 测试主要使用简单父子表。此路径属于迁移库/演练，正常启动不自动执行搬库，不能描述成线上搬库事故。
+**历史实现与复现。** API 与 Worker 默认启动均调用 `initDatabaseSchema`，已有索引等价性测试；现有 [runMigrations](../../packages/repositories/src/migration/migration-service.ts)提供名称/时间 journal，但本轮只见测试调用，未接入默认启动，也没有校验和或恢复状态。这些基础不等于完整旧版本升级已经验证。[buildCr030Staging](../../packages/repositories/src/migration/staging-migration.ts)只识别虚表 SQL，仍会复制 FTS shadow 表。两个当前完整 Schema 的临时库执行该流程，报 `UNIQUE constraint failed: memories_fts_config.k`；现有 staging 测试主要使用简单父子表。此路径属于迁移库/演练，正常启动不自动执行搬库，不能描述成线上搬库事故。
 
 **建议。** 明确主库、Vault、账本各自的受支持 Schema 版本和迁移计划，业务表按清单迁移；排除虚表及其 shadow 表，FTS/向量从有效源记录重建。完善并接线现有迁移 Runner，记录步骤、校验和与恢复状态；服务启动只在兼容性检查和受控协调后放行，避免多个进程同时尝试未版本化 DDL。主库和 Vault 使用完整初始化的表集合可以后续收窄，不应因此合并隐私边界。
 
@@ -842,7 +842,7 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 <a id="arc-10"></a>
 
-#### 15.3.10 ARC-10：领域目录需要可执行的所有权边界
+#### 15.3.10 ARC-10：领域目录需要可执行的所有权边界（历史评估）
 
 **实测结构。** 对 `apps/api/src/modules/<domain>/<module>/` 下 130 个 TypeScript 文件做只读 AST 统计，得到 6 域、26 模块、14 条不同的模块间有向边，其中 10 条跨域；语法层面 10 处 value import、19 处显式 type-only 引用，解析失败和未解析相对路径均为 0。统计仅含顶层静态相对 import/export，不包含动态导入、ModuleContext 服务调用或真实调用图；value import 不保证最终保留在编译产物中。
 
@@ -858,7 +858,7 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 <a id="arc-11"></a>
 
-#### 15.3.11 ARC-11：模型制品接收需要受限且可验证
+#### 15.3.11 ARC-11：模型制品接收需要受限且可验证（历史评估）
 
 **生产范围。** [Model Runtime](../../apps/api/src/modules/ecosystem/model-runtime/index.ts)默认注册；下载端点受全局认证，生产/strict 要求 Token，开发 open 模式仅允许 loopback 监听。它不是未认证的公网接口，但仍需对已接收请求做路径和内容验证。
 
@@ -872,7 +872,7 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 <a id="arc-12"></a>
 
-#### 15.3.12 ARC-12：进程代际、资源准入与真实就绪
+#### 15.3.12 ARC-12：进程代际、资源准入与真实就绪（历史评估）
 
 **模型进程问题。** [LlamaServerManager](../../apps/api/src/modules/ecosystem/model-runtime/llama-server.ts)的启动 deadline 只在循环外计算，等待 `/health` 的 fetch 没有单次超时；旧 child 的 exit/error 回调可修改当前全局状态。Fake 实验中，设置 20 ms 超时后观察到 136 ms 仍在 starting，说明等待未受总截止控制，136 ms 不是性能基准。另一实验在新 child 已 running 后触发旧 child exit，状态变成 error、PID 为空。
 
@@ -890,7 +890,7 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 <a id="arc-13"></a>
 
-#### 15.3.13 ARC-13：部署主管与客户端访问边界
+#### 15.3.13 ARC-13：部署主管与客户端访问边界（历史评估）
 
 **认证组合已验证。** 按 [app.ts](../../apps/api/src/app.ts)的顺序装配真实 [auth hook](../../apps/api/src/shared/auth.ts) 与 CORS，用内存 `/probe` 路由注入请求：open 模式对未知 Origin 返回 200 并反射允许源；Token 模式对标准浏览器 OPTIONS 预检返回 401，而直接带正确 Bearer 的 POST 返回 200。实验只证明服务端配置，不代表已经绕过具体浏览器的本地网络权限策略。
 
@@ -904,7 +904,7 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 <a id="arc-14"></a>
 
-#### 15.3.14 ARC-14：CI 必须证明冷启动和真实输入
+#### 15.3.14 ARC-14：CI 必须证明冷启动和真实输入（历史评估）
 
 锁文件安装、包外输入触发、插件制品恢复与可重现导出任务已由 [ITER-001](../../plan.md#iter-001) / PR [#221](https://github.com/3yearsZhuang/Aervox-harness/pull/221) 交付。回归入口为 [ci-scope](../../scripts/ci-scope.test.mjs) 与 [export-plugins](../../scripts/export-plugins.test.mjs)，实际 Job 步骤见 [CI 工作流](../../.github/workflows/ci.yml)。
 
@@ -916,11 +916,11 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 本节同属 2026-09-18 历史快照，旧安装/锁/流式/调度诊断不覆盖后续修复。保留触发条件和验证设计，不恢复旧工期、P1/P2 排序或第二张活动任务表。
 
-#### 15.4.1 FND-01：Outbox 消费归属与失败恢复
+#### 15.4.1 FND-01：Outbox 消费归属与失败恢复（历史评估）
 
 原缺陷是通用审计消费者提前发布压缩事件，导致业务消费者无法读取。消费归属与失败恢复已纳入 [ARC-01](#arc-01) 的闭环，保留 FND 编号供历史引用。业务完成前不得由审计消费者确认、重复处理必须幂等；新增多订阅契约仍需单独评审。
 
-#### 15.4.2 FND-02：插件升级与失败恢复
+#### 15.4.2 FND-02：插件升级与失败恢复（历史评估）
 
 **证据。** [分发引擎](../../apps/api/src/modules/ecosystem/plugins/package-bundle.ts) `installPluginFromBundle` 第 410～412 行在覆盖时先卸载旧插件；第 477～531 行先建立主记录，随后注册配置、Page 和资源，后几步异常只记 warning 并继续返回成功。[配置服务](../../apps/api/src/modules/ecosystem/plugins/config-service.ts) `cleanupPlugin` 第 391～399 行会清除配置、Secret 和 Page 数据。
 
@@ -936,7 +936,7 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 配置保存应使用带预期 revision 的条件更新，核对影响行数，并使同库 Secret 变更与配置在短事务内一致提交；未来外部 SecretStore 需另定义补偿策略。增加两个窗口同时提交同一 revision 的验证，预期恰有一个成功，其余返回冲突且不留下 Secret 部分写入。
 
-#### 15.4.3 FND-03：Page Bridge 的身份、权限与撤权
+#### 15.4.3 FND-03：Page Bridge 的身份、权限与撤权（历史评估）
 
 **证据。** [Page 宿主](../../plugins/panels-ui/src/plugin/PluginPageDialog.vue) `onMessage` 第 97～104 行校验 nonce，但未校验 `event.source` 与当前 iframe 的绑定；`handleBridgeCall` 第 60～89 行对配置读写检查 capability，`notify` 与 `close` 未做同等检查。nonce 由时间与 `Math.random()` 生成。[配置服务](../../apps/api/src/modules/ecosystem/plugins/config-service.ts) `readPageEntry` 第 370～378 行直接读取 Page，未检查插件启用状态；一般资源读取已调用 `requirePlugin` 检查存在性与启用状态，因此缺口集中在入口路径。
 
@@ -950,7 +950,7 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 **验收。** 覆盖错误窗口、错误 nonce、导航后的旧响应、无权限通知、禁用后直接访问入口、禁用期间未完成调用；被拒绝调用不能产生配置写入或 UI 副作用，拒绝原因可审计。
 
-#### 15.4.4 FND-04：归档预检的资源配额
+#### 15.4.4 FND-04：归档预检的资源配额（历史评估）
 
 **证据。** [分发引擎](../../apps/api/src/modules/ecosystem/plugins/package-bundle.ts) `inspectPluginBundle` 第 76～108 行先 `unzipSync` 完整展开，再检查路径；`installPluginFromBundle` 第 415 行再次展开。[插件路由](../../apps/api/src/modules/ecosystem/plugins/routes.ts) 已设置 20 MiB HTTP body 上限，但这不是展开体积或文件数量上限。
 
@@ -962,7 +962,7 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 **验收。** 使用高压缩比、多文件、声明大小不符、超时和正常最大包夹具；超额包在配额内终止，安装失败不改变旧插件，API 心跳仍可响应。具体配额经正常插件样本统计后确定。
 
-#### 15.4.5 FND-05：宿主轮询故障与停机
+#### 15.4.5 FND-05：宿主轮询故障与停机（历史评估）
 
 **证据。** [Agent Host](../../packages/host-agent/src/agent-host.ts) `tick/start/stop` 第 186～235 行使用 `setInterval(() => void tick())`，候选查询没有轮询在途锁和异常收敛；`stop` 持续等待运行数归零，没有总截止时间。[WorkerHost](../../apps/worker/src/worker-host.ts) `stop` 第 162～172 行只清定时器，不等待已开始的 Job；[Worker 入口](../../apps/worker/src/index.ts) 启动后没有相应信号停机与连接关闭流程。当前 `createAgentHost` 的直接调用主要在测试，不能据此宣称默认 API 已经由此宿主驱动。
 
@@ -974,7 +974,7 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 **验收。** 模拟 source 查询超过两个周期、连续拒绝、Provider 永不结束和 SIGTERM 到达写入中途；最多一个候选查询在途，无未处理拒绝，停机在配置截止时间内结束，重启后由原有恢复/幂等机制接续。无需为此拆成新服务。
 
-#### 15.4.6 FND-06：SSE 的有界缓冲与持久恢复
+#### 15.4.6 FND-06：SSE 的有界缓冲与持久恢复（历史评估）
 
 **证据。** [SSE 路由](../../apps/api/src/modules/companion/conversation/routes.ts) 第 343～362 行忽略 `raw.write()` 的布尔返回值；第 371～438 行重放期间使用无容量上限的数组；[流事件仓储](../../packages/repositories/src/repositories/sqlite/conversation/stream-event-store.ts) `getStreamEvents` 第 92～107 行一次读取游标后的全部事件。路由第 470～481 行心跳不读取数据库；[恢复 Worker](../../apps/worker/src/attempt-recovery.ts) 在另一进程更新 Attempt，不会经过 API 的 [广播桥](../../apps/api/src/modules/companion/conversation/broadcasting-store.ts)。
 
@@ -986,7 +986,7 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 **验收。** 覆盖限速客户端、10 万条合成事件重放、重放中断线、终态发生于另一进程和广播遗漏；连接内存受配置上限约束、重连无缺号、重复事件可去重、终态在规定窗口内可见。合成规模用于暴露边界，不代表当前用户会产生此流量。
 
-#### 15.4.7 FND-07：会话锁回收与 SQLite 写竞争
+#### 15.4.7 FND-07：会话锁回收与 SQLite 写竞争（历史评估）
 
 **证据。** [会话锁](../../packages/repositories/src/session-lock.ts) `runExclusive` 第 38～44 行把 `run.then(...)` 存进 `tails`，第 54 行却比较 `tails.get(key) === run`，两者不是同一个 Promise。本次对 100 个不同 key 依次执行空任务后，纯内存复现得到 `activeLockCount=0`、实际 `tails.size=100`。仓库搜索只发现定义和测试调用，未找到 `apps/` 生产接入，因此这是库级缺陷，不能推断它已造成当前 API 长期内存增长。
 
@@ -1000,7 +1000,7 @@ SQLite 写竞争的独立证据在 [客户端](../../packages/repositories/src/c
 
 **验收。** 10,000 个不同 key 完成后真实内部尾链条目归零，同 key 顺序和异常后继续执行不变；用两个独立进程写同一临时库测量 P50/P95/P99 等待及失败率，并测试长读快照。先记录基线再设改善目标，不能承诺未经测试的吞吐倍数。
 
-#### 15.4.8 FND-08：完整上下文预算与保真压缩
+#### 15.4.8 FND-08：完整上下文预算与保真压缩（历史评估）
 
 **证据。** [历史读取](../../packages/repositories/src/repositories/sqlite/session-history.ts) 已限制 20 轮、32,000 字符，保留完整对话轮并排除删除/脱敏内容；[上下文组合根](../../apps/api/src/modules/companion/conversation/agent-executor.ts) 第 449～500 行还会加入技能、工具说明、召回和画像。[规则压缩](../../packages/core/src/context-builder.ts) `createSummaryCompaction` 第 154～168 行在超过消息数阈值后只保留首尾各两条，中间用数量说明占位，并不含中间内容摘要；该模式默认关闭，通过 `AERVOX_LOOP_COMPACTION=rule` 启用。
 
@@ -1012,7 +1012,7 @@ SQLite 写竞争的独立证据在 [客户端](../../packages/repositories/src/c
 
 **验收。** 对长中文、代码、大型 Schema、工具多轮和删除后再召回建立固定回放；最终输入不超窗口，工具消息结构合法，最近目标与关键约束可追溯，压缩前后按任务完成率和上下文成本比较，而非只验证消息条数减少。
 
-#### 15.4.9 FND-09：让已有观测能支持决策
+#### 15.4.9 FND-09：让已有观测能支持决策（历史评估）
 
 **证据。** [SQLite 观测门面](../../packages/host-agent/src/sqlite-observability.ts) `createSqliteObservability` 第 65～74 行将 metrics 存入最多 10,000 条的内部数组，`flush` 为空，返回接口未提供读取这些样本的路径；审计插入失败在第 90～92 行输出错误后返回。[WorkerHost](../../apps/worker/src/worker-host.ts) 只在处理数量大于零时记录完成日志，跳过重叠周期直接返回。这些是具体实现的限制，不能推断整个仓库没有任何指标或日志。
 
@@ -1026,7 +1026,7 @@ SQLite 写竞争的独立证据在 [客户端](../../packages/repositories/src/c
 
 **验收。** 人工注入一次队列积压、数据库忙、审计失败和慢连接，诊断数据能明确指出受影响路径；清空队列后相应 gauge 恢复。诊断输出不含用户正文、Secret 或设备敏感原始数据，存储容量长期有界。
 
-#### 15.4.10 FND-10：静态资产与构建缓存的产物归属
+#### 15.4.10 FND-10：静态资产与构建缓存的产物归属（历史评估）
 
 **证据。** [Turbo 配置](../../turbo.json) 对 `@aervox/live2d#build`、`@aervox/public#build` 和移动端构建明确设置 `cache: false`。[Live2D 复制脚本](../../packages/live2d/scripts/copy-assets.mjs) 与 [公共资源复制脚本](../../packages/public/scripts/copy-assets.mjs) 从依赖包直接写入消费端目录，因此普通包内 `outputs` 不能完整表达其副作用。
 

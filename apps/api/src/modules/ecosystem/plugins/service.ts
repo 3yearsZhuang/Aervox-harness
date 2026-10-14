@@ -10,7 +10,7 @@
  * - 权限：grant/revoke/hasPluginPermission 复用既有仓储；门控求值默认实现
  *   与 tools 模块一致（defaultGatingEvaluator）。
  *
- * 规则依据：docs/explanation/reference-design-transfer.md §4.7 AST-04（安装态与激活态分离）
+ * 规则依据：docs/reference/ARCHITECTURE.md §14.1 AST-04（安装态与激活态分离）
  * 与 Skill 能力（插件内置技能为只读指令包，生命周期归插件）。
  */
 import fs from "node:fs/promises";

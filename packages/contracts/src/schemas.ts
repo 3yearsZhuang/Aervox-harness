@@ -594,7 +594,7 @@ export const petStateToCommandSchema = z.record(
 // 设计依据：reference/AstrBot astrbot/core/skills/skill_manager.py（SkillInfo/渐进式披露、
 // payload→candidate→promote 生命周期）与 astrbot/core/tools/computer_tools/shipyard_neo/neo_skills.py。
 // 借鉴协议形态、自研字段；AstrBot 沙盒「执行证据」适配为 Aervox 业务对象
-// （turns / memory_records / learning_goals），语义见 docs/explanation/reference-design-transfer.md。
+// （turns / memory_records / learning_goals），语义见 docs/reference/ARCHITECTURE.md#reference-learning。
 
 /** Skill 来源类型（来源决定可管理性与生命周期归属） */
 export const skillSourceSchema = z.enum([

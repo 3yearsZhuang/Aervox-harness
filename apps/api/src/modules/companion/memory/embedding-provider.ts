@@ -5,7 +5,7 @@
  * - 生产环境注入真实 embedding 服务（如 OpenAI embeddings / 本地模型）；
  * - 未注入时工具与迁移链路诚实降级（embeddingStatus = skipped），不伪造向量。
  *
- * 规则依据：docs/explanation/reference-design-transfer.md §3.5 T-05。
+ * 规则依据：docs/reference/ARCHITECTURE.md §14.1 T-05 T-05。
  */
 
 /** 向量生成能力：文本 → 向量数组（维度由实现决定） */
