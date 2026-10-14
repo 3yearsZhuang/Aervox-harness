@@ -321,6 +321,8 @@ mise exec -- pnpm audit --json
 
 实施分支 `fix/repository-hygiene` 基于 `511f9d1e`，保留插件生命周期前置变更；原始主工作区未改动。整改提交 `e5316da` 见 [PR #277](https://github.com/3yearsZhuang/Aervox-harness/pull/277)，以 `feat/plugin-lifecycle-reliability` 为基线单独评审，尚未合入。本节记录整改，不把基线测试通过当作修改后的验证。
 
+**2026-10-14 自查更正：不能认定 HYG-01～14 已全部关闭。** 下表是首轮实现与已有测试；逐项重读验收后确认了录音入口、Skill 目录所有权、Adapter 坏协议清理的残留问题，以及归档取消接线和部分验收证据缺口，见 §8.3。此前“整改完成”仅能表示首轮修改和门禁完成，不代表发现全部解决。
+
 | 编号 | 实现结果 | 回归证据 |
 |---|---|---|
 | HYG-01 | 会话 ID 穿过 transport/preload/主进程；仅缺省字段使用默认值，显式非法值拒绝 | `apps/desktop/test/turn-session.test.ts`：两会话与非法 ID |
@@ -366,3 +368,36 @@ Drizzle 升级后的回归同时验证底层原因、事务回滚数据和 ESM/C
 整改验证摘要追加在[证据快照](../_meta/repository-hygiene-audit-2026-10-13.json)的 `remediation` 字段；本轮日志存于工作树 `artifacts/repository-hygiene-2026-10-14/`，不入 Git。原始审计数据保持为整改前快照；本地终审不等同于远端 CI 或 PR 已合入。
 
 验证不代表真实模型、麦克风硬件、操作系统打包/签名或正式发布验收，也不代表 ITER-013 等关联迭代整体完成。未执行数据库迁移、生产停机或数据删除。
+
+### 8.3 逐项自查：未完整关闭
+
+本轮审查提交为 `f63a3c86`。其远端 CI、Docs、API/UI E2E、依赖审计和三平台 Native 检查均已成功；以下残留仍能复现，说明现有门禁不足以证明发现全部关闭。本轮只复核和更正状态，未修改这些生产实现。
+
+| 编号 | 自查结论 | 尚缺内容或依据 |
+|---|---|---|
+| HYG-01 | 原会话 ID 丢弃已修；跨层验收未齐 | 双会话测试止于模拟 IPC 和 ID 解析，未断言真实主进程请求 URL、两份历史和项目关联 |
+| HYG-02 | 原写入失败伪成功已修 | 401/503 保留原状态，删除成功但替代创建失败保留删除结果；UI 有错误展示 |
+| HYG-03 | 部分修复，仍有入口缺陷 | 底层 stop 和 scope dispose 已修；工作台等待授权时的键盘输入、再次点击和收起输入框均未触发取消 |
+| HYG-04 | 原选择错误已修；写入验收未齐 | 四类仓储覆盖第 51 项读取、激活、删除和无激活回退；专门回归尚未断言 `saveConfig` 修改第 51 项且第一项不变 |
+| HYG-05 | 部分修复，目录所有权仍可越界 | 同名注册保护有效；本地 Skill 名称与插件 ID 重合时，覆盖操作仍能递归删除插件技能目录 |
+| HYG-06 | 原握手拒绝泄漏已修 | 工厂拒绝会等待进程退出；准入后的异常清理仍有 HYG-07 所列差量 |
+| HYG-07 | 原旧计时器误杀已修，协议失败清理未齐 | 提前结束迭代会清 timer；坏协议只标记 unavailable，finally 随后清 timer，子进程继续存活 |
+| HYG-08 | 原排空缺口已修；入口验收未齐 | 在途任务、挂起、重复 stop 与重启已有回归；真实退出信号下数据库关闭顺序和非零退出码尚无进程级断言 |
+| HYG-09 | 预算已统一，业务取消未接通 | 共享 Worker 支持 signal 且有测试，但 Plugin/Skill/Persona 业务入口未把取消信号传入；不能据 helper 测试宣布三个入口均支持取消 |
+| HYG-10 | 原 CI 覆盖缺口已修 | 触发路径与启动脚本回归已补，远端 UI E2E 成功；API E2E 保持原观察期策略 |
+| HYG-11 | 治理已补，依赖告警未清零 | 仍有 §8.1 的 3 项中危限期例外，不能记为告警消除 |
+| HYG-12 | 报告指定的删除项已完成 | 7 个死函数及其独占导入已删除；未扩大为公开 API 的批量删除 |
+| HYG-13 | 报告指定的残留已清理 | 32 处空条件、指定旧描述和 Playwright 全局旧请求头已清除；不等于全仓历史术语归零 |
+| HYG-14 | 指定重复实现已收敛 | 拆包策略进入 Turbo 哈希；三类守卫共享遍历机制并保留参数策略 |
+
+#### 已确认的实现残留
+
+1. **P1 · HYG-05：本地覆盖能删除插件技能正文。** [安装逻辑](../../apps/api/src/modules/ecosystem/skills/skill-manager.ts) 130～145 行只查询与本地 Skill 同名的注册，再递归删除 `<skillsRoot>/<name>`；[插件写盘](../../apps/api/src/modules/ecosystem/plugins/service.ts) 使用 `<skillsRoot>/<pluginId>/<skillName>`。临时 API/SQLite 实验先安装 `flashcards` 插件和只读 `flashcard-review`，再以 `name=flashcards, overwrite=true` 安装本地 ZIP：接口返回 201，原技能注册仍为 readonly=1，正文文件已不存在。须在删除/替换前核对整个目录的所有权，覆盖插件 ID 与本地名称碰撞场景。
+2. **P2 · HYG-03：工作台无法取消等待中的录音。** [Composer](../../packages/ui/src/composables/useWorkbenchComposer.ts) 的 toggle、键盘和收起逻辑只判断 `isListening`。分别执行启动→等待授权→键盘输入/再次点击/收起→授权返回，三次均观察到 `isListening=true`、已停止音轨数为 0。底层有代次失效并不足够；应把等待配置/权限阶段纳入 UI 生命周期和停止接线。
+3. **P2 · HYG-07：坏协议使驱动失效但不终止进程。** [stdio Adapter](../../packages/host-agent/src/stdio-adapter.ts) 151～155 行在解码失败时只调用 `failUnavailable`；迭代 finally 又清除请求截止。受控子进程完成准入后发送非法 JSON，消费端收到 `adapter_unavailable`，超过原请求截止后 PID 仍存活，直至实验显式调用 close。不可恢复的协议失败应进入统一有界关闭路径。
+
+#### 接线与证据缺口
+
+[Skill 安装](../../apps/api/src/modules/ecosystem/skills/skill-manager.ts) 87～88 行调用 `unzip(zipData)`，[Persona 解包](../../apps/api/src/modules/companion/persona/bundle.ts) 141～142 行和[插件解包](../../apps/api/src/modules/ecosystem/plugins/package-bundle.ts) 43～44 行均不传 signal；路由也未建立相应取消传递。HYG-09 的静态缺口与已复现实现残留分别记录，未声称已经完成断连实验。HYG-01/04/08 的证据缺口同样不直接等同于确认运行失败。
+
+5 个隔离复现用例（录音 3、目录所有权 1、Adapter 1）均成功复现坏行为；这些断言不是修复验收通过。用例、日志和结果保存在 `artifacts/repository-hygiene-selfcheck-2026-10-14/`，未把“期望坏行为”的临时用例加入正常测试套件；实验使用临时目录/库，结束后关闭音轨和子进程。长期摘要追加在证据快照的 `remediation.selfReview` 中。

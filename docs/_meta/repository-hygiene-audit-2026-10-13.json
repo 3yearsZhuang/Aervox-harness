@@ -1812,7 +1812,7 @@
     "timezone": "Asia/Shanghai",
     "branch": "fix/repository-hygiene",
     "base": "511f9d1ed8da263855dd4337cd1beb4680dc6bdd",
-    "status": "implemented_pending_pr_review",
+    "status": "partial_requires_followup",
     "findingIds": [
       "HYG-01",
       "HYG-02",
@@ -1913,6 +1913,53 @@
     ],
     "commit": "e5316da",
     "pullRequest": "https://github.com/3yearsZhuang/Aervox-harness/pull/277",
-    "pullRequestBase": "feat/plugin-lifecycle-reliability"
+    "pullRequestBase": "feat/plugin-lifecycle-reliability",
+    "selfReview": {
+      "reviewedCommit": "f63a3c86eb1a3fa50ad90211e50825a97d8edda8",
+      "cases": [
+        {
+          "finding": "HYG-03",
+          "actions": [
+            "keyboard",
+            "second-click",
+            "collapse"
+          ],
+          "each": {
+            "listeningAfterGrant": true,
+            "stoppedTracks": 0
+          },
+          "exitCode": 0,
+          "note": "Assertions reproduce undesired behavior, not acceptance tests"
+        },
+        {
+          "finding": "HYG-05",
+          "localInstallStatus": 201,
+          "pluginSkillReadonly": 1,
+          "pluginFileExists": false,
+          "exitCode": 0
+        },
+        {
+          "finding": "HYG-06/07",
+          "protocolRejected": true,
+          "childAliveAfterRequestDeadline": true,
+          "exitCode": 0
+        }
+      ],
+      "staticGaps": [
+        "HYG-09 production archive callers do not propagate AbortSignal",
+        "HYG-01 desktop IPC test does not assert backend URL, histories or project isolation",
+        "HYG-04 preset regression does not assert saveConfig writes to the 51st preset",
+        "HYG-08 shutdown exit codes have no process-level regression"
+      ],
+      "date": "2026-10-14",
+      "timezone": "Asia/Shanghai",
+      "conclusion": "Not all findings are fully resolved. Three reproduced implementation gaps, one static cancellation wiring gap, three acceptance evidence gaps, and three existing dependency exceptions remain.",
+      "remoteChecks": {
+        "headRevision": "f63a3c86eb1a3fa50ad90211e50825a97d8edda8",
+        "checks": 8,
+        "success": 8
+      },
+      "productionFixesAppliedInSelfReview": false
+    }
   }
 }
