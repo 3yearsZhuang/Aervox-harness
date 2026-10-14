@@ -114,6 +114,35 @@ button:active,
 在药丸与卡片容器内部的折叠/展开、切换等次级交互按钮，统一采用幽灵圆环形态（`border-radius: 9999px; background: transparent; border: 1px solid transparent;`）：
 静息态保持低视觉侵入（`color: var(--text-muted); opacity: 0.75`），悬停时以钴蓝微晕渐显（`background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent)`），并在收起态严格垂直居中对齐文本基线。
 
+### 5.5 工作台模式输入区与空态（Workbench Mode Input & Empty States）
+
+标准工作台模式（`.mode-standard`）复用同一套令牌，交互反馈遵循以下基线；陪伴与文档模式不因此改变观感。
+
+**输入区三态。** 发送按钮必须具备三种可区分的形态，不得只靠整体透明度表达禁用：可用态为强调色实心（`background: var(--avx-color-accent); color: var(--avx-color-on-accent)`）并带同色微光；禁用态回到无底色 + `var(--text-muted)`；输入容器在 `:focus-within` 时给出容器级反馈（`border-color` 混入强调色，外圈 `0 0 0 3px var(--avx-color-accent-soft)`）。textarea 自身保持无轮廓，焦点反馈由容器承担。
+
+**快捷键提示不重复 placeholder。** 输入为空且未聚焦时收起「Enter 发送」一类提示：
+
+```css
+.composer-dock:has(textarea:placeholder-shown:not(:focus)) .composer-shortcut-hint {
+  opacity: 0;
+}
+```
+
+**空态构成。** 空列表与空会话统一为「图标 + 标题 + 单行说明 + 主动作」，禁止只留一行灰字：
+
+```html
+<span class="empty-sessions-icon"><MessageSquare :size="16" /></span>
+<strong>还没有对话</strong>
+<small>新建对话，从卡点开始。</small>
+<button type="button">新建对话</button>
+```
+
+说明文案必须能在最窄侧栏（200px）内一行排完，避免末行孤字。
+
+**次级图标按钮命中区。** 侧栏工具行一类次级图标按钮统一 26px 见方命中区与 8px 圆角，并具备悬停强调色微晕、`:active` 下沉以及 `:focus-visible` 外环；不得只给图标不给命中区。
+
+**未决。** 标准工作台模式的强调色沿用全局 `--avx-color-accent`（钴蓝），与陪伴模式的品牌淡紫色域并存；是否收敛为品牌色域属品牌决策，未决前不得擅自改动全局令牌。
+
 ---
 
 ## 6. 严厉禁止事项 (Explicit Anti-Patterns)
