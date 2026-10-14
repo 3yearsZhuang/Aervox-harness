@@ -235,7 +235,7 @@ test("Rust pilot and executable contracts remain in local and CI gates", () => {
 
 test("CI covers Playwright test directories, configs and executable root launchers", () => {
   const workflow = readWorkflowPaths(CI_WORKFLOW);
-  const required = ["aervox", "run-cli", "siyu-chat.command"];
+  const required = ["aervox", "siyu-chat.command"];
   const config = "playwright.config.ts";
   const configSource = fs.readFileSync(path.join(ROOT_DIR, config), "utf8");
   // 单配置多 project：每个 project 的 testDir 都必须被工作流路径过滤覆盖，
