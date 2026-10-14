@@ -40,7 +40,7 @@ function syntheticScope() {
 test("glob 语义：`*` 不跨目录，`**` 跨目录且允许零层", () => {
   assert.equal(matchesGlob("plugins/anki-sync/plugin.manifest.json", "plugins/**"), true);
   assert.equal(matchesGlob("plugins/readme.md", "plugins/**"), true);
-  assert.equal(matchesGlob("dist-plugins/x.aervox-plugin", "plugins/**"), false);
+  assert.equal(matchesGlob("dist/plugins/x.aervox-plugin", "plugins/**"), false);
   assert.equal(matchesGlob("apps/api/src/app.ts", "packages/**"), false);
   assert.equal(matchesGlob("vitest.shared.ts", "vitest.shared.ts"), true);
   assert.equal(matchesGlob("nested/vitest.shared.ts", "vitest.shared.ts"), false);
