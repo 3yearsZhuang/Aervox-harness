@@ -274,7 +274,7 @@ git grep -n -E 'resolveI18n|voiceReferenceFingerprint|validDistillationStatus|cr
 - `@aervox/live2d`、`@aervox/public` 通过 Turbo 依赖边恢复资源；两者 `cache:false` 有跨目录产物责任，不能作为“缓存没开”卫生问题直接修改。
 - Vue 动态组件、UI surface 注册、`declare global` 类型文件、Capacitor CLI 和 mobile → web 构建依赖均有入口。
 - proactive-ui 的 `@aervox/contracts`、`lucide-vue-next` 在包源码/测试/配置中没有直接文本消费，保留为依赖删除候选；需独立构建、类型及 peer/锁文件验证后决定，本次未计为确定死依赖。
-- 已登记的 Embedding Worker 历史列/接线、Resume、迁移和发布门槛继续见[既有架构评估](architecture-implementation-review.md)及计划；未把旧审计原文复制成新的确定发现。
+- 已登记的 Embedding Worker 历史列/接线、Resume、迁移和发布门槛继续见[架构总文档的历史评估](../reference/ARCHITECTURE.md#architecture-evolution)及计划；未把旧审计原文复制成新的确定发现。
 
 ## 6. 验证结果与证据边界
 
