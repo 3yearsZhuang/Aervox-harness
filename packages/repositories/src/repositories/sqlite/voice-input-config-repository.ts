@@ -5,6 +5,7 @@
  * - 支持 SenseVoice 本地模型 / OpenAI Whisper 兼容端点配置。
  */
 import { and, asc, eq } from "drizzle-orm";
+import { activePresetOrder, activatePreset, deletePreset } from "./preset-lifecycle.js";
 import type { AervoxDatabase } from "../../client.js";
 import { voiceInputConfigs } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
@@ -40,15 +41,10 @@ export class SqliteVoiceInputConfigRepository implements IVoiceInputConfigReposi
     const rows = await this.db
       .select()
       .from(voiceInputConfigs)
-      .where(
-        and(
-        ),
-      )
-      .orderBy(asc(voiceInputConfigs.createdAt))
-      .limit(50);
+      .orderBy(...activePresetOrder(voiceInputConfigs))
+      .limit(1);
     if (rows.length === 0) return null;
-    const active = rows.find((row) => row.isActive === 1) ?? rows[0]!;
-    return rowToModel(active);
+    return rowToModel(rows[0]!);
   }
 
   async saveConfig(
@@ -85,10 +81,6 @@ export class SqliteVoiceInputConfigRepository implements IVoiceInputConfigReposi
     const rows = await this.db
       .select()
       .from(voiceInputConfigs)
-      .where(
-        and(
-        ),
-      )
       .orderBy(asc(voiceInputConfigs.createdAt));
     return rows.map(rowToModel);
   }
@@ -137,66 +129,14 @@ export class SqliteVoiceInputConfigRepository implements IVoiceInputConfigReposi
     ctx: LocalContext,
     presetId: string,
   ): Promise<VoiceInputConfigModel | null> {
-    return this.db.transaction(async (tx) => {
-      const [target] = await tx
-        .select()
-        .from(voiceInputConfigs)
-        .where(
-          and(
-            eq(voiceInputConfigs.id, presetId),
-          ),
-        )
-        .limit(1);
-      if (!target) return null;
-      await tx
-        .update(voiceInputConfigs)
-        .set({ isActive: 0, updatedAt: new Date().toISOString() })
-        .where(
-          and(
-          ),
-        );
-      const [activated] = await tx
-        .update(voiceInputConfigs)
-        .set({ isActive: 1, updatedAt: new Date().toISOString() })
-        .where(eq(voiceInputConfigs.id, presetId))
-        .returning();
-      return rowToModel(activated!);
+    return activatePreset(this.db, voiceInputConfigs, presetId, async tx => {
+      const [row] = await tx.select().from(voiceInputConfigs).where(eq(voiceInputConfigs.id, presetId)).limit(1);
+      return row ? rowToModel(row) : null;
     });
   }
 
   async deletePreset(ctx: LocalContext, presetId: string): Promise<boolean> {
-    return this.db.transaction(async (tx) => {
-      const [target] = await tx
-        .select()
-        .from(voiceInputConfigs)
-        .where(
-          and(
-            eq(voiceInputConfigs.id, presetId),
-          ),
-        )
-        .limit(1);
-      if (!target) return false;
-      const wasActive = target.isActive === 1;
-      await tx.delete(voiceInputConfigs).where(eq(voiceInputConfigs.id, presetId));
-      if (wasActive) {
-        const [first] = await tx
-          .select()
-          .from(voiceInputConfigs)
-          .where(
-            and(
-            ),
-          )
-          .orderBy(asc(voiceInputConfigs.createdAt))
-          .limit(1);
-        if (first) {
-          await tx
-            .update(voiceInputConfigs)
-            .set({ isActive: 1, updatedAt: new Date().toISOString() })
-            .where(eq(voiceInputConfigs.id, first.id));
-        }
-      }
-      return true;
-    });
+    return deletePreset(this.db, voiceInputConfigs, presetId);
   }
 }
 

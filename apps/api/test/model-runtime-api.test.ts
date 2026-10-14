@@ -18,7 +18,7 @@ import { PassThrough } from "node:stream";
 import type { AddressInfo } from "node:net";
 import type { ChildProcess } from "node:child_process";
 import type { FastifyInstance } from "fastify";
-import { buildApp } from "../src/app.js";
+import { buildApp } from "./app-fixture.js";
 import { createInMemoryDatabase, type AervoxDatabase } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 

@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/repositories — Persona/修订/激活/上下文快照 SQLite 仓储实现
  *
  * 规则依据：docs/reference/PRD.md §8 + docs/reference/DATABASE.md §14
- * 修订采用乐观锁 CAS（expectedRevision）；激活按租户 upsert；删除为归档。
+ * 修订采用乐观锁 CAS（expectedRevision）；激活按本地实例 upsert；删除为归档。
  */
 import { eq, and, desc, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
@@ -270,11 +270,7 @@ export class SqlitePersonaRepository implements IPersonaRepository {
   async getActivePersona(ctx: LocalContext): Promise<ActivePersonaSelectionModel | null> {
     const [row] = await this.db
       .select()
-      .from(personaSelections)
-      .where(
-        and(
-        ),
-      );
+      .from(personaSelections);
     return (row as ActivePersonaSelectionModel) ?? null;
   }
 

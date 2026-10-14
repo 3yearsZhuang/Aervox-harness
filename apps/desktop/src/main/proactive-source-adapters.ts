@@ -1371,13 +1371,3 @@ export function createProactiveSourceAdapters(
     },
   };
 }
-
-/** Build a host-compatible probe callback without granting unsupported sources. */
-function createProactiveCapabilityProbe(
-  adapters: ProactiveSourceAdapters,
-): (sourceId: ProfileSourceId) => Promise<ProactiveCapabilityProbeResult | undefined> {
-  return async (sourceId) => {
-    const result = await adapters.probe(sourceId);
-    return result ? toCapabilityProbe(result) : undefined;
-  };
-}

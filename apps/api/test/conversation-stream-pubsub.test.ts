@@ -14,7 +14,7 @@ import {
   type AervoxDatabase,
   type LocalContext,
 } from "@aervox/repositories";
-import { buildApp } from "../src/app.js";
+import { buildApp } from "./app-fixture.js";
 import type { FastifyInstance } from "fastify";
 import { turnStreamHub } from "../src/modules/companion/conversation/stream-hub.js";
 import { runLoopTurnOnce } from "../src/modules/companion/conversation/agent-executor.js";

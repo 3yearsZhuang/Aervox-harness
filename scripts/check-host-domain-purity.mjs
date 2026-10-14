@@ -1,3 +1,4 @@
+import { collectFiles } from "./source-files.mjs";
 /**
  * Aervox｜思隅 宿主领域纯净性守卫（Host Domain Purity Ratchet）
  *
@@ -20,8 +21,7 @@
  *   node scripts/check-host-domain-purity.mjs --list     # 打印规则清单
  */
 
-import { readdirSync, readFileSync, statSync, existsSync, writeFileSync } from "node:fs";
-import { join, relative, sep } from "node:path";
+import { readFileSync, existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 /**
@@ -139,28 +139,7 @@ export function loadExceptions(url = EXCEPTIONS_URL) {
 
 /** 遍历宿主根目录，返回源码文件相对路径（含 .css，跳过迁移期插件自有目录） */
 export function collectHostFiles(roots = HOST_ROOTS) {
-  const out = [];
-  const walk = (dir) => {
-    for (const entry of readdirSync(dir)) {
-      const full = join(dir, entry);
-      let stat;
-      try {
-        stat = statSync(full);
-      } catch {
-        continue;
-      }
-      const rel = relative(process.cwd(), full).split(sep).join("/");
-      if (stat.isDirectory()) {
-        if (!IGNORE_DIR_RE.test(rel)) walk(full);
-      } else if (SOURCE_EXT_RE.test(rel)) {
-        out.push(rel);
-      }
-    }
-  };
-  for (const dir of roots) {
-    if (statSync(dir, { throwIfNoEntry: false })) walk(dir);
-  }
-  return out.sort();
+  return collectFiles(roots, { extensions: SOURCE_EXT_RE, ignoreDirectories: IGNORE_DIR_RE, sorted: true });
 }
 
 /** 逐行扫描单个文件，返回领域命中 [{ file, rule, label, line, text }] */

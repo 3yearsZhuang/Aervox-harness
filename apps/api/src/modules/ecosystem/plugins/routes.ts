@@ -1,3 +1,4 @@
+import { withRequestSignal } from "../../../shared/request-signal.js";
 /**
  * Aervox｜思隅 @aervox/api — 插件运行时路由（CAP-020）
  *
@@ -17,6 +18,7 @@ import {
 } from "@aervox/contracts";
 import { resolveLocalContext } from "../../../shared/local-context.js";
 import type { PluginService } from "./service.js";
+import { FileExistsError } from "../skills/index.js";
 
 let seq = 0;
 const id = (prefix: string): string =>
@@ -166,7 +168,7 @@ export function registerPluginRoutes(app: FastifyInstance, service: PluginServic
         return reply.code(400).send({ error: "packageBase64 is required" });
       }
       try {
-        const report = await service.inspectPackage(body.packageBase64);
+        const report = await withRequestSignal(req, reply, signal => service.inspectPackage(body.packageBase64!, signal));
         return reply.code(200).send(report);
       } catch (e) {
         return reply.code(400).send({
@@ -187,9 +189,10 @@ export function registerPluginRoutes(app: FastifyInstance, service: PluginServic
         return reply.code(400).send({ error: "packageBase64 is required" });
       }
       try {
-        const plugin = await service.installPackage(body.packageBase64, Boolean(body.overwrite));
+        const plugin = await withRequestSignal(req, reply, signal => service.installPackage(body.packageBase64!, Boolean(body.overwrite), signal));
         return reply.code(201).send(plugin);
       } catch (e: any) {
+        if (e instanceof FileExistsError) return reply.code(409).send({ error: e.message });
         if (e?.code === "PLUGIN_ALREADY_EXISTS") {
           return reply.code(409).send({ error: e.message, code: "PLUGIN_ALREADY_EXISTS" });
         }
@@ -205,7 +208,7 @@ export function registerPluginRoutes(app: FastifyInstance, service: PluginServic
   app.get("/v1/plugins/:id/export", async (req, reply) => {
     const { id: pluginId } = req.params as { id: string };
     try {
-      const exported = await service.exportPackage(pluginId);
+      const exported = await withRequestSignal(req, reply, signal => service.exportPackage(pluginId, signal));
       return reply.code(200).send({
         pluginId,
         filename: exported.filename,
@@ -230,9 +233,10 @@ export function registerPluginRoutes(app: FastifyInstance, service: PluginServic
   app.post("/v1/plugins/market/:id/install", async (req, reply) => {
     const { id: pluginId } = req.params as { id: string };
     try {
-      const plugin = await service.installFromMarket(pluginId);
+      const plugin = await withRequestSignal(req, reply, signal => service.installFromMarket(pluginId, signal));
       return reply.code(201).send(plugin);
     } catch (e) {
+      if (e instanceof FileExistsError) return reply.code(409).send({ error: e.message });
       return reply.code(404).send({
         error: "Market plugin not found or failed to install",
         message: e instanceof Error ? e.message : String(e),

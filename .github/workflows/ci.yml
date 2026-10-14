@@ -23,7 +23,13 @@ on:
       - "vitest.shared.ts"
       - "mise.toml"
       - "scripts/**"
+      - "patches/**"
       - "e2e/**"
+      - "e2e-ui/**"
+      - "playwright.ui.config.ts"
+      - "aervox"
+      - "run-cli"
+      - "siyu-chat.command"
       - "playwright.config.ts"
       - ".github/workflows/ci.yml"
   push:
@@ -45,7 +51,13 @@ on:
       - "vitest.shared.ts"
       - "mise.toml"
       - "scripts/**"
+      - "patches/**"
       - "e2e/**"
+      - "e2e-ui/**"
+      - "playwright.ui.config.ts"
+      - "aervox"
+      - "run-cli"
+      - "siyu-chat.command"
       - "playwright.config.ts"
       - ".github/workflows/ci.yml"
 
@@ -224,3 +236,38 @@ jobs:
 
       - name: Run E2E tests
         run: mise exec -- pnpm run test:e2e
+
+  ui-e2e:
+    name: E2E (Chromium UI)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install mise
+        run: |
+          curl https://mise.run | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - run: mise install
+      - run: mise exec -- pnpm install --frozen-lockfile
+      - run: mise exec -- pnpm exec playwright install --with-deps chromium
+      - run: mise exec -- pnpm exec turbo run build --filter=@aervox/api --filter=@aervox/web
+      - run: mise exec -- pnpm test:e2e:ui
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ui-e2e-failure
+          path: test-results/
+
+  dependency-audit:
+    name: Dependency advisory review
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install mise
+        run: |
+          curl https://mise.run | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - run: mise install
+      - run: mise exec -- pnpm install --frozen-lockfile --ignore-scripts
+      - run: mise exec -- pnpm check:dependency-audit

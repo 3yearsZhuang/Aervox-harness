@@ -11,7 +11,7 @@ import {
   SqliteConversationRepository,
   type AervoxDatabase,
 } from "@aervox/repositories";
-import { buildApp } from "../src/app.js";
+import { buildApp } from "./app-fixture.js";
 import { createRuntimeToolProvider } from "../src/modules/companion/conversation/tool-providers.js";
 import type { FastifyInstance } from "fastify";
 

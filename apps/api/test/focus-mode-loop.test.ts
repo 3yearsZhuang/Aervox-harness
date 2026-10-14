@@ -16,7 +16,7 @@ import {
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 import type { FastifyInstance } from "fastify";
-import { buildApp } from "../src/app.js";
+import { buildApp } from "./app-fixture.js";
 import { createPluginHostServicesFactory } from "../src/plugin-host-services.js";
 
 const headers = {

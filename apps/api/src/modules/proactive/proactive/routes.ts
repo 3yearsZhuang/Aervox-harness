@@ -10,7 +10,6 @@ import type {
   IProactiveProfileRepository,
   IPrivacyRepository,
   ProactiveActionState,
-  ProactiveCaptureDistillationStatus,
   ProactiveClaimState,
   ProactiveDesiredState,
   ProactiveSourceGrantState,
@@ -77,10 +76,6 @@ function validClaimState(value: unknown): value is ProactiveClaimState {
 
 function validActionState(value: unknown): value is ProactiveActionState {
   return value === "pending" || value === "approved" || value === "running" || value === "executed" || value === "denied" || value === "failed" || value === "revoked";
-}
-
-function validDistillationStatus(value: unknown): value is ProactiveCaptureDistillationStatus {
-  return value === "pending" || value === "distilled" || value === "failed" || value === "blocked" || value === "deleted";
 }
 
 function sha256(value: string): string {

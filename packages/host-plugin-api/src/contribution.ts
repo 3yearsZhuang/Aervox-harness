@@ -85,6 +85,8 @@ export interface PluginToolContribution {
 export interface ServerPluginRegistration {
   /** 提供该注册单元的插件 id（与 Manifest `metadata.id` 一致） */
   pluginId: string;
+  /** 对外 API 契约登记；宿主持有注销函数，在装配失败或宿主关闭时释放。不得在 import 时登记。 */
+  registerApiContract?: () => (() => void);
   /** 回合切面：与本地上下文无关，装配期一次性注册，启用门控由 Runner 负责 */
   turnPlugins?: ServerTurnPlugin[];
   /**

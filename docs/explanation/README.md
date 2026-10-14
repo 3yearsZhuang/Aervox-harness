@@ -15,6 +15,7 @@ id: AVX-EXPL-000
 ## 研究与评估
 
 - [架构设计、参考项目学习与演进候选](../reference/ARCHITECTURE.md#reference-learning)
+- [仓库卫生与代码质量审计（2026-10-13）](repository-hygiene-audit-2026-10-13.md)
 - [配套硬件方向](companion-hardware-directions.md)
 - [ESP32-S3 器件方案](esp32-s3-hardware-extension.md)
 - [HLS 研究规划](hls-agent-competition-plan.md)与[执行指南](../how-to/run-hls-agent.md)

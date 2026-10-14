@@ -222,6 +222,7 @@ export async function registerPluginsModule(ctx: ModuleDependencies<"app" | "bui
     ),
     warn,
   });
+  app.addHook("onClose", async () => { assembly.dispose(); });
   // 工具贡献按回合上下文构造，故只把注册单元交给宿主；是否合入模型工具面由启用门控决定
 
   if (assembly.failed.length > 0) {

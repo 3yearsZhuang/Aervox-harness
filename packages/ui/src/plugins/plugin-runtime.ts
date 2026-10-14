@@ -1,140 +1,144 @@
-import { ref } from 'vue';
+import { shallowReactive } from 'vue';
 import type { UIRegistry } from '../registry/ui-registry';
 import type { WorkbenchContext } from '../composables/workbench-context';
+import { createUIPluginScope, type UIPluginLifecycle } from './plugin-scope';
+
+export type { UIPluginLifecycle } from './plugin-scope';
 
 export interface BuiltinUIPlugin {
   id: string;
-  setup: (registry: UIRegistry, context?: WorkbenchContext) => (() => void) | void;
-  onConfig?: (values: Record<string, unknown>, context: WorkbenchContext) => void | Promise<void>;
+  setup: (registry: UIRegistry, context?: WorkbenchContext, lifecycle?: UIPluginLifecycle) => (() => void) | void;
+  onConfig?: (values: Record<string, unknown>, context: WorkbenchContext, lifecycle?: UIPluginLifecycle) => void | Promise<void>;
   onDisable?: (context: WorkbenchContext) => void;
+}
+
+export interface UIPluginState {
+  status: 'disabled' | 'activating' | 'active' | 'failed' | 'disposed';
+  error?: unknown;
 }
 
 export interface WorkbenchPluginRuntime {
   sync(
-    plugins: Array<{ id: string; enabled?: number }>,
+    plugins: Array<{ id: string; enabled?: number; availability?: string }>,
     getConfig: (pluginId: string) => Promise<{ values?: Record<string, unknown> } | null>,
   ): Promise<void>;
   isPluginAvailable(pluginId: string): boolean;
+  getPluginState(pluginId: string): Readonly<UIPluginState>;
   destroy(): void;
 }
 
-/**
- * 创建工作台插件运行时
- * 负责内置第一方 UI 插件的生命周期编排、插槽动态注册/卸载与零硬编码配置分发。
- *
- * @param registry UI 注册表实例
- * @param getContext 延迟获取 WorkbenchContext 的函数
- * @param pluginDefinitions 插件定义清单（由组合根显式注入；宿主内不内建任何具体插件）
- */
+/** 编排组合根注入的受信插件；每次激活独占注册、Vue effect 与取消作用域。 */
 export function createWorkbenchPluginRuntime(
   registry: UIRegistry,
   getContext: () => WorkbenchContext,
   pluginDefinitions: BuiltinUIPlugin[] = [],
 ): WorkbenchPluginRuntime {
+  const ids = new Set<string>();
+  for (const def of pluginDefinitions) {
+    if (!def.id || ids.has(def.id)) throw new Error(`Duplicate or empty UI plugin id: ${def.id}`);
+    ids.add(def.id);
+  }
 
-  const activeCleanups = new Map<string, () => void>();
-  const availablePlugins = ref<Record<string, boolean>>({});
+  type Instance = { scope: ReturnType<typeof createUIPluginScope>; context: WorkbenchContext };
+  const instances = new Map<string, Instance>();
+  const states = shallowReactive<Record<string, UIPluginState>>(Object.create(null));
   let currentSyncSeq = 0;
   let destroyed = false;
+  for (const def of pluginDefinitions) states[def.id] = { status: 'disabled' };
+
+  function disposeInstance(def: BuiltinUIPlugin): void {
+    const instance = instances.get(def.id);
+    if (!instance) return;
+    instances.delete(def.id);
+    try { instance.scope.dispose(); }
+    catch (error) { console.error(`[PluginRuntime] Error cleaning up plugin "${def.id}":`, error); }
+  }
 
   function deactivate(def: BuiltinUIPlugin): void {
-    const cleanup = activeCleanups.get(def.id);
-    if (cleanup) {
-      try {
-        cleanup();
-      } catch (err) {
-        console.error(`[PluginRuntime] Error cleaning up plugin "${def.id}":`, err);
-      }
-      activeCleanups.delete(def.id);
-    }
-    try {
-      def.onDisable?.(getContext());
-    } catch (err) {
-      console.error(`[PluginRuntime] Error in onDisable for plugin "${def.id}":`, err);
+    const previous = states[def.id]?.status;
+    const context = instances.get(def.id)?.context;
+    states[def.id] = { status: destroyed ? 'disposed' : 'disabled' };
+    disposeInstance(def);
+    // 只在状态转换时通知，避免每次列表刷新都执行停用副作用。
+    if (previous !== 'disabled' && previous !== 'disposed') {
+      try { def.onDisable?.(context ?? getContext()); }
+      catch (error) { console.error(`[PluginRuntime] Error in onDisable for plugin "${def.id}":`, error); }
     }
   }
 
-  // CR-060：不预启动任何插件。插件是否生效统一由 `sync()` 依据仓储启停记录判定
-  // （fail-closed：无记录即不启用），避免"离线/无网络时默认可用"与宿主列表不一致。
-  for (const plugin of pluginDefinitions) {
-    availablePlugins.value[plugin.id] = false;
+  function activate(def: BuiltinUIPlugin): Instance | undefined {
+    const scope = createUIPluginScope(registry);
+    // 保留上下文对象身份：Hook 与 Vue 控件经同一对象索引插件自有状态。
+    // 注册使用 setup 的 scoped registry 参数，外部订阅经 lifecycle 登记。
+    const context = getContext();
+    const instance = { scope, context };
+    instances.set(def.id, instance);
+    states[def.id] = { status: 'activating' };
+    try {
+      const cleanup = scope.run(() => def.setup(scope.registry, context, scope.lifecycle));
+      if (typeof cleanup === 'function') scope.lifecycle.onDispose(cleanup);
+      else if (cleanup != null) throw new TypeError('UI plugin setup must return a synchronous disposer or void');
+      if (destroyed || instances.get(def.id) !== instance) return undefined;
+      states[def.id] = { status: 'active' };
+      return instance;
+    } catch (error) {
+      if (instances.get(def.id) === instance) {
+        states[def.id] = { status: destroyed ? 'disposed' : 'failed', error };
+        // 清理可重入激活；先记录旧实例失败，避免覆盖清理期间成功重试的新状态。
+        disposeInstance(def);
+      } else {
+        // setup 可重入停用/重启；旧实例失败不得回收或覆盖新实例。
+        try { scope.dispose(); }
+        catch (cleanupError) { console.error(`[PluginRuntime] Error cleaning up plugin "${def.id}":`, cleanupError); }
+      }
+      console.error(`[PluginRuntime] Error activating plugin "${def.id}":`, error);
+      return undefined;
+    }
   }
 
   async function sync(
-    plugins: Array<{ id: string; enabled?: number }>,
+    plugins: Array<{ id: string; enabled?: number; availability?: string }>,
     getConfig: (pluginId: string) => Promise<{ values?: Record<string, unknown> } | null>,
   ): Promise<void> {
     if (destroyed) return;
-    const syncSeq = ++currentSyncSeq;
-    const context = getContext();
-
-    await Promise.all(
-      pluginDefinitions.map(async (def) => {
-        // CR-060：不保留历史别名映射，只按主 id 匹配
-        const match = plugins.find((p) => p.id === def.id);
-        // fail-closed：仓储无记录、记录为停用或不可用，一律不启用（与服务端门控一致）
-        const isEnabled = Boolean(match) && match!.enabled !== 0;
-
-        availablePlugins.value[def.id] = isEnabled;
-
-        if (!isEnabled) {
-          deactivate(def);
-        } else {
-          // 插件启用：若此前未激活或已被注销，则重新激活
-          if (!activeCleanups.has(def.id)) {
-            try {
-              const unregister = def.setup(registry, context);
-              if (typeof unregister === 'function') {
-                activeCleanups.set(def.id, unregister);
-              }
-            } catch (err) {
-              console.error(`[PluginRuntime] Error re-activating plugin "${def.id}":`, err);
-            }
-          }
-
-          // 通用拉取配置并分发给插件自身处理（宿主零硬编码感知具体字段）
-          if (def.onConfig) {
-            try {
-              // CR-060：只按主 id 拉配置，不保留历史配置键回退
-              const snapshot = await getConfig(def.id);
-              // 并发防竞态校验：仅当本轮 sync 为最新且该插件当前仍处于启用状态时才生效
-              if (syncSeq === currentSyncSeq && availablePlugins.value[def.id] && snapshot?.values) {
-                await def.onConfig(snapshot.values, context);
-              }
-            } catch {
-              // 忽略非致命配置拉取异常
-            }
-          }
-        }
-      }),
-    );
+    const seq = ++currentSyncSeq;
+    await Promise.all(pluginDefinitions.map(async (def) => {
+      if (destroyed || seq !== currentSyncSeq) return;
+      const record = plugins.find((plugin) => plugin.id === def.id);
+      const enabled = record?.enabled === 1 && (record.availability ?? 'available') === 'available';
+      if (!enabled) { deactivate(def); return; }
+      const instance = instances.get(def.id) ?? activate(def);
+      if (!instance || !def.onConfig) return;
+      try {
+        const config = await getConfig(def.id);
+        if (seq !== currentSyncSeq || destroyed || instances.get(def.id) !== instance || !config?.values) return;
+        await instance.scope.run(() => def.onConfig!(config.values!, instance.context, instance.scope.lifecycle));
+      } catch (error) {
+        // 配置读取失败保留当前实例；回调失败可观测。
+        console.error(`[PluginRuntime] Error configuring plugin "${def.id}":`, error);
+      }
+    }));
   }
 
-  /**
-   * CR-060：可用性判定 fail-closed —— 无记录即不可用，且不保留历史别名互查。
-   * 与服务端 Runner 的启用门控保持同一判据（两端不得再次不对称）。
-   */
-  function isPluginAvailable(pluginId: string): boolean {
-    return availablePlugins.value[pluginId] ?? false;
+  function getPluginState(pluginId: string): Readonly<UIPluginState> {
+    return { ...(states[pluginId] ?? { status: destroyed ? 'disposed' : 'disabled' }) };
   }
 
   function destroy(): void {
+    if (destroyed) return;
     destroyed = true;
     currentSyncSeq++;
-    availablePlugins.value = {};
-    for (const cleanup of activeCleanups.values()) {
-      try {
-        cleanup();
-      } catch {
-        // ignore
-      }
+    // 关闭工作台只结束实例，不把用户保存的模式偏好当作显式停用清除。
+    for (const def of pluginDefinitions) {
+      states[def.id] = { status: 'disposed' };
+      disposeInstance(def);
     }
-    activeCleanups.clear();
   }
 
   return {
     sync,
-    isPluginAvailable,
+    isPluginAvailable: (id) => states[id]?.status === 'active',
+    getPluginState,
     destroy,
   };
 }

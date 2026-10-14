@@ -12,7 +12,7 @@
  * - `toolResultProjections`：插件工具结果的对外投影白名单（同上，替代内核特判具体工具名）；
  * - `openApiRoutes`：插件自有端点的 OpenAPI 片段。
  *
- * 登记发生在插件模块加载时（宿主组合根以容错方式动态 import），故必须先于任何
+ * 登记发生在插件装配时，由宿主持有注销函数，故必须先于任何
  * 读取（API 请求、OpenAPI 文档生成）发生；文档按需惰性生成以反映登记结果。
  */
 import { z } from "zod";
@@ -59,18 +59,20 @@ interface ToolResultProjectionEntry {
 }
 
 interface PluginApiRegistryState {
-  streamEventTypes: Set<string>;
-  eventProjections: Map<string, z.ZodType>;
+  contributions: PluginApiContribution[];
   toolResultProjections: Map<string, ToolResultProjectionEntry>;
-  openApiRoutes: PluginOpenApiRoute[];
 }
 
 const state: PluginApiRegistryState = {
-  streamEventTypes: new Set<string>(),
-  eventProjections: new Map<string, z.ZodType>(),
+  contributions: [],
   toolResultProjections: new Map<string, ToolResultProjectionEntry>(),
-  openApiRoutes: [],
 };
+let revision = 0;
+
+/** OpenAPI 缓存随贡献登记/注销失效，不依赖调用方手工重置。 */
+export function getPluginApiRevision(): number {
+  return revision;
+}
 
 /**
  * 插件端点路径合法性判据（唯一事实源，被内核文档登记与宿主路由挂载共同复用）。
@@ -93,25 +95,30 @@ export function isValidPluginRoutePath(path: string): boolean {
  * `streamEventTypes` 与 `eventProjections` 可分别声明（有负载模式的类型必须同时登记投影）。
  * 非法路径的 OpenAPI 片段被忽略并告警，避免污染对外文档契约。
  */
-export function registerPluginApiContribution(contribution: PluginApiContribution): void {
-  for (const eventType of contribution.streamEventTypes ?? []) {
-    state.streamEventTypes.add(eventType);
-  }
-  for (const [eventType, schema] of Object.entries(contribution.eventProjections ?? {})) {
-    state.eventProjections.set(eventType, schema);
-    state.streamEventTypes.add(eventType);
-  }
+export function registerPluginApiContribution(contribution: PluginApiContribution): () => void {
+  const routes: PluginOpenApiRoute[] = [];
   for (const route of contribution.openApiRoutes ?? []) {
     if (!isValidPluginRoutePath(route.path)) {
       console.warn(`[contracts] 插件 OpenAPI 路由路径非法，已忽略：${route.path}`);
       continue;
     }
-    const index = state.openApiRoutes.findIndex(
-      (existing) => existing.method === route.method && existing.path === route.path,
-    );
-    if (index >= 0) state.openApiRoutes[index] = route;
-    else state.openApiRoutes.push(route);
+    routes.push(route);
   }
+  // 每次登记有独立身份；多个宿主实例或重载共享相同键时，注销不会删掉后来者。
+  const entry: PluginApiContribution = {
+    streamEventTypes: [...(contribution.streamEventTypes ?? [])],
+    eventProjections: Object.assign(Object.create(null), contribution.eventProjections),
+    openApiRoutes: routes,
+  };
+  state.contributions.push(entry);
+  revision++;
+  return () => {
+    const index = state.contributions.indexOf(entry);
+    if (index >= 0) {
+      state.contributions.splice(index, 1);
+      revision++;
+    }
+  };
 }
 
 /**
@@ -143,12 +150,19 @@ export function registerToolResultProjection(
 
 /** 插件登记的流事件类型（不含内核枚举） */
 export function getPluginStreamEventTypes(): readonly string[] {
-  return [...state.streamEventTypes];
+  return [...new Set(state.contributions.flatMap((entry) => [
+    ...(entry.streamEventTypes ?? []),
+    ...Object.keys(entry.eventProjections ?? {}),
+  ]))];
 }
 
 /** 插件登记的事件负载投影模式 */
 export function getPluginEventProjection(eventType: string): z.ZodType | undefined {
-  return state.eventProjections.get(eventType);
+  for (let i = state.contributions.length - 1; i >= 0; i--) {
+    const schema = state.contributions[i]!.eventProjections?.[eventType];
+    if (schema) return schema;
+  }
+  return undefined;
 }
 
 /** 插件登记的工具结果投影模式（仅对该工具的实际贡献方可见） */
@@ -171,21 +185,25 @@ export function getToolResultProjectionOwner(toolName: string): string | undefin
 export function isKnownStreamEventType(eventType: string): boolean {
   return (
     (KERNEL_STREAM_EVENT_TYPES as readonly string[]).includes(eventType) ||
-    state.streamEventTypes.has(eventType)
+    state.contributions.some((entry) =>
+      entry.streamEventTypes?.includes(eventType) || Object.hasOwn(entry.eventProjections ?? {}, eventType))
   );
 }
 
 /** 插件登记的 OpenAPI 路由片段（按登记顺序） */
 export function getPluginOpenApiRoutes(): readonly PluginOpenApiRoute[] {
-  return [...state.openApiRoutes];
+  const routes = new Map<string, PluginOpenApiRoute>();
+  for (const entry of state.contributions) {
+    for (const route of entry.openApiRoutes ?? []) routes.set(`${route.method}:${route.path}`, route);
+  }
+  return [...routes.values()];
 }
 
 /**
  * 清空登记表。仅供测试隔离使用；生产路径不得调用。
  */
 export function resetPluginApiContributions(): void {
-  state.streamEventTypes.clear();
-  state.eventProjections.clear();
+  state.contributions.length = 0;
   state.toolResultProjections.clear();
-  state.openApiRoutes.length = 0;
+  revision++;
 }

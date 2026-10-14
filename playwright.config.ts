@@ -8,10 +8,6 @@ export default defineConfig({
   workers: 1,
   use: {
     baseURL: "http://localhost:3000",
-    extraHTTPHeaders: {
-      "x-workspace-id": "ws_e2e",
-      "x-user-id": "usr_e2e",
-    },
   },
   // 不使用 webServer 自动管理，各测试文件手动启动/停止
 });

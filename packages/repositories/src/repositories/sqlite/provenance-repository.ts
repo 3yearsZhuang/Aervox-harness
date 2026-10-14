@@ -111,7 +111,7 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
       algorithmVersion?: string | null;
     },
   ): Promise<MemoryRevisionModel> {
-    // 记忆必须属于当前租户
+    // 目标记忆必须存在
     const [memory] = await this.db
       .select()
       .from(memoryRecords)

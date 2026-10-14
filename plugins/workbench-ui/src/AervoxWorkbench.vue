@@ -503,7 +503,7 @@ function handleGlobalKeydown(e: KeyboardEvent) {
   const isCmdOrCtrl = e.metaKey || e.ctrlKey;
   if (isCmdOrCtrl && (e.key === 'n' || e.key === 'N')) {
     e.preventDefault();
-    void sessions.createNewSession('新对话');
+    void sessions.createNewSession('新对话').catch(() => undefined);
   } else if (isCmdOrCtrl && (e.key === 'k' || e.key === 'K')) {
     e.preventDefault();
     commandPaletteOpen.value = !commandPaletteOpen.value;

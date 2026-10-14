@@ -62,7 +62,7 @@ export class AttemptStore {
     const ttlMs = input.ttlMs ?? 60_000;
     const nowIso = new Date().toISOString();
     const leaseExpiresAt = new Date(Date.now() + ttlMs).toISOString();
-    // turn_attempts 无租户列，经 turns 关联校验租户后做 CAS 更新
+    // 按 Turn/Attempt 关联与预期 fencing token 做 CAS 更新
     const [updated] = await this.db
       .update(turnAttempts)
       .set({

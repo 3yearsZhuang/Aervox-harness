@@ -1,0 +1,36 @@
+[
+  {
+    "advisory": "GHSA-67mh-4wv8-2f99",
+    "package": "esbuild",
+    "version": "0.18.20",
+    "paths": [
+      "packages__schema>drizzle-kit>@esbuild-kit/esm-loader>@esbuild-kit/core-utils>esbuild"
+    ],
+    "expiresOn": "2026-11-13",
+    "owner": "maintainers",
+    "reason": "Drizzle Kit legacy loader uses transform, not the vulnerable esbuild development server. No esbuild serve endpoint is exposed. Upstream loader replacement requires a separate compatibility check; a cross-major override is not applied."
+  },
+  {
+    "advisory": "GHSA-w5hq-g745-h8pq",
+    "package": "uuid",
+    "version": "7.0.3",
+    "paths": [
+      "apps__mobile>@capacitor/cli>xcode>uuid"
+    ],
+    "expiresOn": "2026-11-13",
+    "owner": "maintainers",
+    "reason": "Xcode project tooling uses random UUIDs for local project identifiers, not authorization or untrusted buffer writes. The installed CLI retains uuid 7 through xcode; forcing uuid 11 changes the dependency contract. Recheck upstream xcode support before mobile distribution."
+  },
+  {
+    "advisory": "GHSA-hp3w-g68c-fv3c",
+    "package": "sprintf-js",
+    "version": "1.1.3",
+    "paths": [
+      ".>electron-builder>app-builder-lib>@electron/get>global-agent>roarr>sprintf-js",
+      ".>electron-builder>dmg-builder>app-builder-lib>@electron/get>global-agent>roarr>sprintf-js"
+    ],
+    "expiresOn": "2026-11-13",
+    "owner": "maintainers",
+    "reason": "Only the optional electron-builder download proxy logger uses this package. global-agent supplies fixed log format strings and places network data in structured fields. Registry versions checked on 2026-10-13 contain no 1.1.4 release. Recheck the advisory and published fix before the next desktop packaging release."
+  }
+]

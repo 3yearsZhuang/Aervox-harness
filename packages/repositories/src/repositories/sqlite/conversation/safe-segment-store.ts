@@ -210,7 +210,7 @@ export class SafeSegmentStore {
    *
    * 命中条件：过期 Running Attempt + 存在 executed 工具执行 + 无 done 终态事件
    * （§11.3 首范式「工具结果已权威提交但尚未注入」）。
-   * 返回含续跑所需完整数据面：租户、session、用户消息、当前 fencing（续跑 claim 预期）与 lastSequence。
+   * 返回含续跑所需完整数据面：本地上下文、session、用户消息、当前 fencing（续跑 claim 预期）与 lastSequence。
    */
   async findResumeCandidates(
     client: import("@libsql/client").Client,

@@ -48,7 +48,7 @@ export interface PluginAssemblyTargets {
   /** 回合插件注册表；装配点按插件启用状态无关地注册，门控由 Runner 负责 */
   turnRegistry: TurnPluginRegistryPort;
   /** HTTP 端点接收器（宿主适配为真实路由） */
-  onHttpEndpoints?: (pluginId: string, endpoints: ServerPluginRegistration["httpEndpoints"]) => void;
+  onHttpEndpoints?: (pluginId: string, endpoints: ServerPluginRegistration["httpEndpoints"]) => (() => void) | void;
   /** 诊断输出；缺省静默，便于测试 */
   warn?: (message: string, error?: unknown) => void;
 }
@@ -58,6 +58,8 @@ export interface PluginAssemblyResult {
   failed: string[];
   /** 成功加载的注册单元：宿主据此在回合内按需请求工具贡献（按上下文构造） */
   registrations: ServerPluginRegistration[];
+  /** 释放本次装配的 Hook、API 契约与端点准入；幂等，交给宿主 onClose。 */
+  dispose: () => void;
 }
 
 /**
@@ -71,6 +73,15 @@ export async function assembleFirstPartyPlugins(
   const loaded: string[] = [];
   const failed: string[] = [];
   const registrations: ServerPluginRegistration[] = [];
+  const assemblyCleanups: Array<() => void> = [];
+  const seen = new Set<string>();
+
+  function release(cleanups: Array<() => void>): void {
+    for (const cleanup of cleanups.splice(0).reverse()) {
+      try { cleanup(); }
+      catch (error) { targets.warn?.('[plugin-assembly] 插件贡献清理失败', error); }
+    }
+  }
 
   for (const loader of loaders) {
     let registration: ServerPluginRegistration | undefined;
@@ -89,22 +100,41 @@ export async function assembleFirstPartyPlugins(
       continue;
     }
 
+    const cleanups: Array<() => void> = [];
     try {
+      if (registration.pluginId !== loader.pluginId || seen.has(registration.pluginId)) {
+        throw new Error('插件注册身份不匹配或重复');
+      }
+      seen.add(registration.pluginId);
+      const hookIds = new Set<string>();
       for (const plugin of registration.turnPlugins ?? []) {
-        targets.turnRegistry.register(plugin);
+        if (hookIds.has(plugin.id) || targets.turnRegistry.get(plugin.id)) {
+          throw new Error(`插件回合切面重复：${plugin.id}`);
+        }
+        hookIds.add(plugin.id);
+      }
+      if (registration.registerApiContract) cleanups.push(registration.registerApiContract());
+      for (const plugin of registration.turnPlugins ?? []) {
+        cleanups.push(targets.turnRegistry.register(plugin));
       }
       if (registration.httpEndpoints?.length) {
-        targets.onHttpEndpoints?.(registration.pluginId, registration.httpEndpoints);
+        const dispose = targets.onHttpEndpoints?.(registration.pluginId, registration.httpEndpoints);
+        if (dispose) cleanups.push(dispose);
       }
       registrations.push(registration);
       loaded.push(registration.pluginId);
+      assemblyCleanups.push(() => release(cleanups));
     } catch (error) {
+      release(cleanups);
       failed.push(registration.pluginId);
       targets.warn?.(`[plugin-assembly] 插件 ${registration.pluginId} 贡献装配失败`, error);
     }
   }
 
-  return { loaded, failed, registrations };
+  return { loaded, failed, registrations, dispose: () => {
+    release(assemblyCleanups);
+    registrations.length = 0;
+  } };
 }
 
 /** 宿主按本地上下文产出插件服务集合的工厂（组合根注入，见 plugin-host-services.ts） */
@@ -138,50 +168,53 @@ export function mountPluginHttpEndpoints(
   services: PluginHostServicesFactory,
   isEnabled: PluginEnablementPredicate,
   warn: (message: string, error?: unknown) => void,
-): void {
-  for (const endpoint of endpoints ?? []) {
-    if (!isValidPluginRoutePath(endpoint.path)) {
-      warn(`[plugin-assembly] 插件 ${pluginId} 端点路径非法，已跳过：${endpoint.path}`);
-      continue;
+): () => void {
+  let active = false;
+  const accepted = (endpoints ?? []).filter((endpoint) => {
+    if (isValidPluginRoutePath(endpoint.path)) return true;
+    warn(`[plugin-assembly] 插件 ${pluginId} 端点路径非法，已跳过：${endpoint.path}`);
+    return false;
+  });
+  // 在挂载第一个路由前检查全部冲突，避免已失败插件占用其它插件的正常入口。
+  const routeKeys = new Set<string>();
+  for (const endpoint of accepted) {
+    const key = `${endpoint.method}:${endpoint.path.replace(/:[A-Za-z0-9_-]+/g, ':param')}`;
+    if (routeKeys.has(key) || app.hasRoute({ method: endpoint.method, url: endpoint.path })) {
+      throw new Error(`插件 HTTP 端点重复：${endpoint.method} ${endpoint.path}`);
     }
-    const handler = async (request: FastifyRequest, reply: FastifyReply) => {
-      try {
-        if (!(await isEnabled(pluginId))) {
-          return reply.status(404).send({ error: "Plugin endpoint unavailable" });
-        }
-        const result = await endpoint.handler(
-          {
-            params: (request.params ?? {}) as Record<string, string>,
-            query: (request.query ?? {}) as Record<string, string>,
-            body: request.body,
-          },
-          services(resolveLocalContext(request)),
-        );
-        return reply.status(result.status ?? 200).send(result.payload);
-      } catch (error) {
-        warn(`[plugin-assembly] 插件 ${pluginId} 端点 ${endpoint.path} 处理失败`, error);
-        return reply.status(500).send({ error: "Plugin endpoint failed" });
-      }
-    };
-
-    switch (endpoint.method) {
-      case "GET":
-        app.get(endpoint.path, handler);
-        break;
-      case "POST":
-        app.post(endpoint.path, handler);
-        break;
-      case "PUT":
-        app.put(endpoint.path, handler);
-        break;
-      case "PATCH":
-        app.patch(endpoint.path, handler);
-        break;
-      case "DELETE":
-        app.delete(endpoint.path, handler);
-        break;
-    }
+    routeKeys.add(key);
   }
+  try {
+    for (const endpoint of accepted) {
+      const handler = async (request: FastifyRequest, reply: FastifyReply) => {
+        try {
+          if (!active || !(await isEnabled(pluginId)) || !active) {
+            return reply.status(404).send({ error: "Plugin endpoint unavailable" });
+          }
+          const result = await endpoint.handler(
+            {
+              params: (request.params ?? {}) as Record<string, string>,
+              query: (request.query ?? {}) as Record<string, string>,
+              body: request.body,
+            },
+            services(resolveLocalContext(request)),
+          );
+          return reply.status(result.status ?? 200).send(result.payload);
+        } catch (error) {
+          warn(`[plugin-assembly] 插件 ${pluginId} 端点 ${endpoint.path} 处理失败`, error);
+          return reply.status(500).send({ error: "Plugin endpoint failed" });
+        }
+      };
+
+      app.route({ method: endpoint.method, url: endpoint.path, handler });
+    }
+    active = true;
+  } catch (error) {
+    // Fastify 已注册的路由不能移除；失败时整组准入关闭，任何残留入口都返回 404。
+    active = false;
+    throw error;
+  }
+  return () => { active = false; };
 }
 
 /** 便捷装配：直接接管端点挂载（组合根唯一调用点；门控与诊断出口均必填，见上） */
@@ -190,7 +223,7 @@ export function createHttpEndpointSink(
   services: PluginHostServicesFactory,
   isEnabled: PluginEnablementPredicate,
   warn: (message: string, error?: unknown) => void,
-): (pluginId: string, endpoints: ServerPluginRegistration["httpEndpoints"]) => void {
+): NonNullable<PluginAssemblyTargets['onHttpEndpoints']> {
   return (pluginId, endpoints) =>
     mountPluginHttpEndpoints(app, pluginId, endpoints, services, isEnabled, warn);
 }

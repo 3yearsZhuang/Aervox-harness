@@ -35,7 +35,7 @@ export {
 } from './primitives/feedback/confirm-service';
 
 export { createWorkbenchPluginRuntime } from './plugins/plugin-runtime';
-export type { BuiltinUIPlugin, WorkbenchPluginRuntime } from './plugins/plugin-runtime';
+export type { BuiltinUIPlugin, WorkbenchPluginRuntime, UIPluginLifecycle, UIPluginState } from './plugins/plugin-runtime';
 
 export type {
   ComposerContractProps,

@@ -5,6 +5,7 @@
  * - 本地 provider 固定 gpt-sovits-local；modelPath 白名单校验由 API 层负责。
  */
 import { and, asc, eq } from "drizzle-orm";
+import { activePresetOrder, activatePreset, deletePreset } from "./preset-lifecycle.js";
 import type { AervoxDatabase } from "../../client.js";
 import { voiceConfigs } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
@@ -37,15 +38,10 @@ export class SqliteVoiceConfigRepository implements IVoiceConfigRepository {
     const rows = await this.db
       .select()
       .from(voiceConfigs)
-      .where(
-        and(
-        ),
-      )
-      .orderBy(asc(voiceConfigs.createdAt))
-      .limit(50);
+      .orderBy(...activePresetOrder(voiceConfigs))
+      .limit(1);
     if (rows.length === 0) return null;
-    const active = rows.find((row) => row.isActive === 1) ?? rows[0]!;
-    return rowToModel(active);
+    return rowToModel(rows[0]!);
   }
 
   async saveConfig(
@@ -82,10 +78,6 @@ export class SqliteVoiceConfigRepository implements IVoiceConfigRepository {
     const rows = await this.db
       .select()
       .from(voiceConfigs)
-      .where(
-        and(
-        ),
-      )
       .orderBy(asc(voiceConfigs.createdAt));
     return rows.map(rowToModel);
   }
@@ -134,66 +126,14 @@ export class SqliteVoiceConfigRepository implements IVoiceConfigRepository {
     ctx: LocalContext,
     presetId: string,
   ): Promise<LocalVoiceConfigModel | null> {
-    return this.db.transaction(async (tx) => {
-      const [target] = await tx
-        .select()
-        .from(voiceConfigs)
-        .where(
-          and(
-            eq(voiceConfigs.id, presetId),
-          ),
-        )
-        .limit(1);
-      if (!target) return null;
-      await tx
-        .update(voiceConfigs)
-        .set({ isActive: 0, updatedAt: new Date().toISOString() })
-        .where(
-          and(
-          ),
-        );
-      const [activated] = await tx
-        .update(voiceConfigs)
-        .set({ isActive: 1, updatedAt: new Date().toISOString() })
-        .where(eq(voiceConfigs.id, presetId))
-        .returning();
-      return rowToModel(activated!);
+    return activatePreset(this.db, voiceConfigs, presetId, async tx => {
+      const [row] = await tx.select().from(voiceConfigs).where(eq(voiceConfigs.id, presetId)).limit(1);
+      return row ? rowToModel(row) : null;
     });
   }
 
   async deletePreset(ctx: LocalContext, presetId: string): Promise<boolean> {
-    return this.db.transaction(async (tx) => {
-      const [target] = await tx
-        .select()
-        .from(voiceConfigs)
-        .where(
-          and(
-            eq(voiceConfigs.id, presetId),
-          ),
-        )
-        .limit(1);
-      if (!target) return false;
-      const wasActive = target.isActive === 1;
-      await tx.delete(voiceConfigs).where(eq(voiceConfigs.id, presetId));
-      if (wasActive) {
-        const [first] = await tx
-          .select()
-          .from(voiceConfigs)
-          .where(
-            and(
-            ),
-          )
-          .orderBy(asc(voiceConfigs.createdAt))
-          .limit(1);
-        if (first) {
-          await tx
-            .update(voiceConfigs)
-            .set({ isActive: 1, updatedAt: new Date().toISOString() })
-            .where(eq(voiceConfigs.id, first.id));
-        }
-      }
-      return true;
-    });
+    return deletePreset(this.db, voiceConfigs, presetId);
   }
 }
 

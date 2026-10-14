@@ -10,7 +10,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createInMemoryDatabase, SqliteConversationRepository } from "@aervox/repositories";
-import { buildApp } from "../src/app.js";
+import { buildApp } from "./app-fixture.js";
 import { resetDshTurnAdapterForTests, resolveDshTurnAdapter } from "../src/modules/companion/conversation/dsh-adapter.js";
 import { runLoopTurnOnce } from "../src/modules/companion/conversation/agent-executor.js";
 import { dirname, join } from "node:path";

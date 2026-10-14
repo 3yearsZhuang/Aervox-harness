@@ -297,10 +297,6 @@ export class SqliteMemoryRepository implements IMemoryRepository {
     const rows = await this.db
       .select()
       .from(memoryNodes)
-      .where(
-        and(
-        ),
-      )
       .orderBy(memoryNodes.updatedAt);
     return rows as MemoryNodeModel[];
   }

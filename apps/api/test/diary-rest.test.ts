@@ -9,7 +9,7 @@ import {
   SqliteDiaryRepository,
   type AervoxDatabase,
 } from "@aervox/repositories";
-import { buildApp } from "../src/app.js";
+import { buildApp } from "./app-fixture.js";
 import type { FastifyInstance } from "fastify";
 
 const headers = {
