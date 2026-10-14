@@ -119,4 +119,89 @@ describe("HLS-DEC-01: Worker 异步接单与执行消费测试", () => {
     const pending = await outboxRepo.fetchPendingEvents({ limit: 10 });
     expect(pending).toHaveLength(0);
   });
+
+  it("支持在 Worker 进程中驱动 HostToolRuntime 工具调用并记录事件与结果", async () => {
+    const turnId = "turn_tool_1";
+    const sessionId = "session_tool_1";
+    const attemptId = "atp_tool_1";
+
+    await conversationRepo.createSession(localCtx, "工具测试会话", { id: sessionId });
+    await conversationRepo.acceptTurn(localCtx, {
+      turnId,
+      sessionId,
+      idempotencyKey: "idem_tool_1",
+      attemptId,
+      message: { id: "msg_user_tool", content: "请帮我计算 2+3" },
+      consumeInbox: false,
+    });
+
+    const { HostToolRuntime } = await import("@aervox/core");
+    const { createHostToolProvider } = await import("@aervox/host-agent");
+
+    const runtime = new HostToolRuntime();
+    await runtime.registerContribution(
+      {
+        id: "calculator_add",
+        name: "calculator_add",
+        description: "加法计算",
+        safetyLevel: "read_only",
+        inputSchemaJson: {
+          type: "object",
+          properties: { a: { type: "number" }, b: { type: "number" } },
+        },
+      },
+      {
+        async call(_ctx, args: any) {
+          return { sum: (args.a ?? 0) + (args.b ?? 0) };
+        },
+      },
+    );
+
+    const tools = createHostToolProvider(runtime, conversationRepo);
+
+    const { createScriptedProvider } = await import("@aervox/core");
+
+    // 构造带工具调用的两步脚本模型
+    const provider = createScriptedProvider([
+      {
+        toolCalls: [
+          {
+            id: "call_1",
+            name: "calculator_add",
+            arguments: { a: 2, b: 3 },
+          },
+        ],
+      },
+      {
+        text: "计算结果是 5。",
+      },
+    ]);
+
+    const handler = createTurnConsumerHandler({
+      repo: conversationRepo,
+      provider: async () => provider,
+      tools,
+    });
+
+    const processed = await runOutboxCycle({
+      outboxRepo,
+      platformRepo,
+      workerId: "worker-node-1",
+      handlers: { "turn.created": handler },
+    });
+
+    expect(processed).toBe(1);
+
+    // 验证 Attempt 已完成
+    const attempts = await conversationRepo.listTurnAttempts(localCtx, turnId);
+    expect(attempts[0]?.status).toBe("Completed");
+
+    // 验证工具调用及结果事件均记录在 SQLite 中
+    const events = await conversationRepo.getStreamEvents(localCtx, turnId);
+    const eventTypes = events.map((e) => e.eventType);
+    expect(eventTypes).toContain("tool_request");
+    expect(eventTypes).toContain("tool_result");
+    expect(eventTypes).toContain("done");
+  });
 });
+

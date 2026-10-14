@@ -36,7 +36,8 @@ import { loadWorkerConfig } from "@aervox/config";
 import { registerWorkerShutdown } from "./shutdown.js";
 import { createServer } from "node:http";
 import { createStandardLogger } from "@aervox/observability";
-import { createReplayProvider } from "@aervox/core";
+import { createReplayProvider, HostToolRuntime } from "@aervox/core";
+import { resolveEmbeddingProvider, resolveModelProvider, createHostToolProvider } from "@aervox/host-agent";
 import { runOutboxCycle } from "./outbox-worker.js";
 import { createTurnConsumerHandler } from "./turn-consumer.js";
 import { runReviewNotificationCycle } from "./review-notifier.js";
@@ -87,16 +88,21 @@ const defaultTickMs = config.tickMs;
 const outboxRepo = new SqliteOutboxRepository(db);
 const platformRepo = new SqlitePlatformRepository(db);
 const conversationRepo = new SqliteConversationRepository(db);
+const llmConfigRepo = new SqliteLLMConfigRepository(db);
+const toolRuntime = new HostToolRuntime();
+const hostToolProvider = createHostToolProvider(toolRuntime, conversationRepo);
+
 const turnConsumer = createTurnConsumerHandler({
   repo: conversationRepo,
-  provider: createReplayProvider(),
+  provider: () => resolveModelProvider(process.env, { llmConfigRepo }),
+  tools: hostToolProvider,
 });
 const diaryRepo = new SqliteDiaryRepository(db);
-const llmConfigRepo = new SqliteLLMConfigRepository(db);
 const privacyRepo = new SqlitePrivacyRepository(db);
 const learningRepo = new SqliteLearningRepository(db);
 const compactionRepo = new SqliteMemoryCompactionRepository(db);
 const embeddingRepo = new SqliteMemoryEmbeddingRepository(db);
+const embeddingProvider = resolveEmbeddingProvider(process.env);
 const memoryRepo = new SqliteMemoryRepository(db, client);
 const personaRepo = new SqlitePersonaRepository(db);
 const inboxRepo = new SqliteAgentInboxRepository(db);
@@ -151,11 +157,11 @@ host
   })
   .registerJob({
     name: "embedding",
-    run: () => runEmbeddingMigrationCycle({ db, client, embeddingRepo, workerId }),
+    run: () => runEmbeddingMigrationCycle({ db, client, embeddingRepo, provider: embeddingProvider, workerId }),
   })
   .registerJob({
     name: "attempt-recovery",
-    run: () => runAttemptRecoveryCycle({ db, client, workerId }),
+    run: () => runAttemptRecoveryCycle({ db, client, workerId, provider: createReplayProvider(), privacyRepo }),
   })
   .registerJob({
     name: "inbox-expiry",

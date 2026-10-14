@@ -9,7 +9,7 @@
  *
  * 规则依据：AVX-HAR-001 §12.1、§12.2、ADR-004、ADR-021。
  */
-import type { OutboxEventModel, SqliteConversationRepository, LocalContext } from "@aervox/repositories";
+import type { OutboxEventModel, SqliteConversationRepository, LocalContext, TurnModel } from "@aervox/repositories";
 import type { OutboxEventHandler, OutboxCycleContext } from "./outbox-worker.js";
 import { executeTurn, defaultContextBuilder } from "@aervox/core";
 import type { ModelProviderPort, ToolProviderPort, InboxPort, DeletionGatePort } from "@aervox/core";
@@ -17,7 +17,7 @@ import { SqliteExecutionStore } from "@aervox/host-agent";
 
 export interface TurnConsumerDeps {
   repo: SqliteConversationRepository;
-  provider: ModelProviderPort;
+  provider: ModelProviderPort | ((turn: TurnModel) => Promise<ModelProviderPort>);
   tools?: ToolProviderPort;
   inbox?: InboxPort;
   deletionGate?: DeletionGatePort;
@@ -50,11 +50,12 @@ export function createTurnConsumerHandler(deps: TurnConsumerDeps): OutboxEventHa
       "";
 
     const store = new SqliteExecutionStore(deps.repo, localCtx);
+    const provider = typeof deps.provider === "function" ? await deps.provider(turn) : deps.provider;
 
     const result = await executeTurn(
       {
         execution: store,
-        provider: deps.provider,
+        provider,
         tools: deps.tools,
         inbox: deps.inbox,
         deletionGate: deps.deletionGate,
