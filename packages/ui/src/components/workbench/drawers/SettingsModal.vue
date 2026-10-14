@@ -502,7 +502,7 @@ async function onPluginChange(): Promise<void> {
         </div>
         <div v-else-if="settingsCategory === 'conversation'" class="settings-section">
           <AervoxSettingsHeading title="对话" description="调整你与思隅交流的输入与展示方式" />
-          <!-- CR-065：思隅是空间名；角色名与 TA 对你的称呼分开自定义 -->
+          <!-- ADR-027：思隅是空间名；角色名与 TA 对你的称呼分开自定义 -->
           <label class="settings-field"><span><strong>TA 的名字</strong><small>陪伴角色的名字（默认「小隅」）</small></span><input class="aervox-field" v-model="companionDisplayName" maxlength="12" @change="saveSettings(timerMinutes)" /></label>
           <label class="settings-field"><span><strong>TA 怎么称呼你</strong><small>角色对你的称呼（默认「你」）</small></span><input class="aervox-field" v-model="userAddress" maxlength="12" placeholder="你" @change="saveSettings(timerMinutes)" /></label>
           <!-- CR-060：插件自有设置行经通用插槽注入，宿主不内建任何插件行 -->

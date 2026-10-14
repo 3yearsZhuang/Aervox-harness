@@ -119,3 +119,30 @@ it('creates a real session before the first turn when the session list is empty'
   expect(request.mock.calls.some(([method, path]) => method === 'POST' && path === '/v1/sessions')).toBe(true);
   expect(streamTurn.mock.calls[0]![0]).toBe('ses_new');
 });
+
+it('sends configured companion identity with the active session', async () => {
+  localStorage.setItem('aervox-settings', JSON.stringify({ companionName: '团子', userAddress: '掌柜' }));
+  const wrapper = await mountSurface();
+  expect(wrapper.find('.pc-dialogue-name').text()).toBe('团子');
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');
+  await flushPromises();
+  expect(streamTurn.mock.calls[0]![0]).toBe('ses_recent');
+  expect(streamTurn.mock.calls[0]![3]).toMatchObject({
+    sessionId: 'ses_recent', metadata: { companionName: '团子', userAddress: '掌柜' },
+  });
+});
+
+it('keeps a failed whisper editable until retry succeeds', async () => {
+  streamTurn.mockRejectedValueOnce(new Error('connection lost'));
+  const wrapper = await mountSurface();
+  await wrapper.find('.pc-whisper-pill').trigger('click');
+  const input = wrapper.find('.pc-whisper-input input');
+  await input.setValue('讲讲环路等待');
+  await input.trigger('keydown', { key: 'Enter' });
+  await flushPromises();
+  expect((input.element as HTMLInputElement).value).toBe('讲讲环路等待');
+  await input.trigger('keydown', { key: 'Enter' });
+  await flushPromises();
+  expect(streamTurn).toHaveBeenCalledTimes(2);
+  expect(wrapper.find('.pc-whisper-input').exists()).toBe(false);
+});
