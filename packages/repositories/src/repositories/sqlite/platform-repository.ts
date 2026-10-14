@@ -128,10 +128,6 @@ export class SqlitePlatformRepository implements IPlatformRepository {
     const rows = await this.db
       .select()
       .from(notifications)
-      .where(
-        and(
-        ),
-      )
       .orderBy(desc(notifications.createdAt))
       .limit(limit);
     return rows as NotificationModel[];
@@ -336,10 +332,6 @@ export class SqlitePlatformRepository implements IPlatformRepository {
     const rows = await this.db
       .select()
       .from(auditRecords)
-      .where(
-        and(
-        ),
-      )
       .orderBy(desc(auditRecords.createdAt))
       .limit(limit);
     return rows as AuditRecordModel[];

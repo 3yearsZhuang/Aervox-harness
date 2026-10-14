@@ -14,20 +14,20 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@aervox/ui-host": "workspace:*",
-    "@aervox/ui": "workspace:*",
     "@aervox/api-client": "workspace:*",
-    "@aervox/contracts": "workspace:*"
+    "@aervox/contracts": "workspace:*",
+    "@aervox/ui": "workspace:*",
+    "@aervox/ui-host": "workspace:*"
   },
   "peerDependencies": {
-    "vue": "^3.5.21",
-    "lucide-vue-next": "^0.468.0"
+    "lucide-vue-next": "^0.468.0",
+    "vue": "^3.5.21"
   },
   "devDependencies": {
-    "vue": "^3.5.21",
-    "vue-tsc": "^2.2.12",
-    "typescript": "^5.8.3",
+    "@aervox/live2d": "workspace:*",
     "lucide-vue-next": "^0.468.0",
-    "@aervox/live2d": "workspace:*"
+    "typescript": "^5.8.3",
+    "vue": "^3.5.43",
+    "vue-tsc": "^2.2.12"
   }
 }

@@ -6,7 +6,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createInMemoryDatabase } from "@aervox/repositories";
-import { buildApp } from "../src/app.js";
+import { buildApp } from "./app-fixture.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
 

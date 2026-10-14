@@ -5,7 +5,7 @@ import {
   CsvQuestionBankProvider,
   type QuestionBankProviderPort,
 } from "../src/modules/learning/learning/question-bank/index.js";
-import { buildApp } from "../src/app.js";
+import { buildApp } from "./app-fixture.js";
 import { createInMemoryDatabase } from "@aervox/repositories";
 
 describe("QuestionBank SPI (外部题库与练习同步, CAP-023)", () => {

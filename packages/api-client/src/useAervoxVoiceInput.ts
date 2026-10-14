@@ -3,7 +3,7 @@
  *
  * 提供：配置读写、录音启动/停止、句子级断句实时转写回调。
  */
-import { ref } from 'vue';
+import { getCurrentScope, onScopeDispose, ref } from 'vue';
 import { getTransport } from './transport';
 import { VoiceInputRecorder } from './voice-input-recorder';
 
@@ -59,12 +59,15 @@ export function useAervoxVoiceInput() {
   const isListening = ref(false);
   const isTranscribing = ref(false);
   let recorder: VoiceInputRecorder | null = null;
+  let generation = 0;
+  let disposed = false;
+  let transcriptionController = new AbortController();
 
-  /** 读取当前租户的语音输入配置 */
-  const getInputConfig = async (): Promise<VoiceInputConfigDto> =>
-    transport.request<VoiceInputConfigDto>('GET', '/v1/voice/input/config');
+  /** 读取本地实例的语音输入配置 */
+  const getInputConfig = async (signal?: AbortSignal): Promise<VoiceInputConfigDto> =>
+    transport.request<VoiceInputConfigDto>('GET', '/v1/voice/input/config', undefined, { signal });
 
-  /** 保存当前租户的语音输入配置 */
+  /** 保存本地实例的语音输入配置 */
   const saveInputConfig = async (
     body: VoiceInputConfigDto,
   ): Promise<VoiceInputConfigDto> =>
@@ -74,11 +77,12 @@ export function useAervoxVoiceInput() {
   const transcribeAudio = async (
     audioBytes: Uint8Array,
     mimeType = 'audio/wav',
+    signal?: AbortSignal,
   ): Promise<VoiceTranscribeResultDto> => {
     return transport.request<VoiceTranscribeResultDto>('POST', '/v1/voice/transcribe', {
       audioBase64: asBase64(audioBytes),
       mimeType,
-    });
+    }, { signal });
   };
 
   /** 启动连续录音与句子级断句转写 */
@@ -87,48 +91,64 @@ export function useAervoxVoiceInput() {
     onError?: (err: Error) => void;
     silenceThresholdMs?: number;
   }): Promise<void> => {
-    if (isListening.value) return;
-
+    if (disposed) throw new Error('voice_input_disposed');
+    if (recorder) return;
+    const epoch = ++generation;
+    transcriptionController.abort();
+    const controller = transcriptionController = new AbortController();
+    let pending = 0;
+    isTranscribing.value = false;
+    const current = new VoiceInputRecorder({
+      silenceThresholdMs: callbacks.silenceThresholdMs ?? 700,
+      onSpeechSegment: async wavBytes => {
+        if (controller.signal.aborted) return;
+        pending += 1;
+        isTranscribing.value = true;
+        try {
+          const result = await transcribeAudio(wavBytes, 'audio/wav', controller.signal);
+          if (!controller.signal.aborted && result.text?.trim()) callbacks.onText(result.text.trim());
+        } catch (error) {
+          if (!controller.signal.aborted) callbacks.onError?.(error instanceof Error ? error : new Error(String(error)));
+        } finally {
+          pending -= 1;
+          if (epoch === generation) isTranscribing.value = pending > 0;
+        }
+      },
+      onError: error => {
+        if (!controller.signal.aborted) callbacks.onError?.(error);
+        if (recorder === current) stopListening();
+      },
+    });
+    recorder = current;
     try {
-      recorder = new VoiceInputRecorder({
-        silenceThresholdMs: callbacks.silenceThresholdMs ?? 700,
-        onSpeechSegment: async (wavBytes) => {
-          try {
-            isTranscribing.value = true;
-            const res = await transcribeAudio(wavBytes);
-            if (res.text && res.text.trim()) {
-              callbacks.onText(res.text.trim());
-            }
-          } catch (e) {
-            callbacks.onError?.(e instanceof Error ? e : new Error(String(e)));
-          } finally {
-            isTranscribing.value = false;
-          }
-        },
-        onError: (err) => {
-          callbacks.onError?.(err);
-          stopListening();
-        },
-      });
-
-      await recorder.start();
-      isListening.value = true;
-    } catch (e) {
-      isListening.value = false;
-      throw e;
+      await current.start();
+      if (recorder === current) isListening.value = current.active;
+    } catch (error) {
+      if (recorder === current) {
+        recorder = null;
+        isListening.value = false;
+      }
+      throw error;
     }
   };
 
-  /** 停止录音 */
+  /** User stop keeps the final submitted transcription alive. */
   const stopListening = (): void => {
-    if (!isListening.value && !recorder) return;
-    try {
-      recorder?.stop();
-    } finally {
-      recorder = null;
-      isListening.value = false;
-    }
+    const current = recorder;
+    recorder = null;
+    isListening.value = false;
+    current?.stop();
   };
+
+  if (getCurrentScope()) onScopeDispose(() => {
+    disposed = true;
+    ++generation;
+    transcriptionController.abort();
+    recorder?.stop(false);
+    recorder = null;
+    isListening.value = false;
+    isTranscribing.value = false;
+  });
 
   /** 读取离线语音输入模型状态 */
   const getModelStatus = async (): Promise<VoiceInputModelStatusDto> =>

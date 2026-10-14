@@ -57,6 +57,8 @@ export interface AdaptiveBackoffOptions {
 }
 
 export interface WorkerHostOptions {
+  /** Maximum wait for in-flight jobs and IPC shutdown; default 5000 ms. */
+  shutdownTimeoutMs?: number;
   workerId: string;
   defaultTickMs?: number;
   intervalOverrides?: Readonly<Record<string, number>>;
@@ -111,6 +113,10 @@ export class WorkerHost {
   private readonly jobStates: JobRunnerState[] = [];
   private readonly startupTimeouts: Array<ReturnType<typeof setTimeout>> = [];
   private running = false;
+  private readonly inFlight = new Set<Promise<void>>();
+  private stopping: Promise<void> | null = null;
+  private drained = false;
+  private readonly shutdownTimeoutMs: number;
   private pressureMode = false;
   private pressureWatchdogTimer: ReturnType<typeof setTimeout> | null = null;
   /** 压力窗口的到期时间戳（ms）；单调递增，避免并发会话互相截断 */
@@ -118,6 +124,8 @@ export class WorkerHost {
 
   constructor(options: WorkerHostOptions) {
     this.workerId = options.workerId;
+    this.shutdownTimeoutMs = options.shutdownTimeoutMs ?? 5000;
+    if (!Number.isFinite(this.shutdownTimeoutMs) || this.shutdownTimeoutMs <= 0) throw new Error("invalid_worker_shutdown_timeout");
     this.defaultTickMs = options.defaultTickMs ?? DEFAULT_WORKER_TICK_MS;
     this.intervalOverrides = options.intervalOverrides ?? {};
     this.initialStaggerMs = options.initialStaggerMs ?? 250;
@@ -168,7 +176,7 @@ export class WorkerHost {
       runOnce: async () => {},
     };
 
-    state.runOnce = async (): Promise<void> => {
+    const runOnce = async (): Promise<void> => {
       if (!this.running) return;
       if (state.isTaskRunning) {
         state.hasPendingWakeup = true;
@@ -260,6 +268,12 @@ export class WorkerHost {
       }
     };
 
+    state.runOnce = () => {
+      const task = runOnce();
+      this.inFlight.add(task);
+      void task.then(() => this.inFlight.delete(task), () => this.inFlight.delete(task));
+      return task;
+    };
     this.jobStates.push(state);
     return this;
   }
@@ -310,6 +324,7 @@ export class WorkerHost {
    * 常用于 API 产生 Outbox 事件后直接唤醒消费。
    */
   wakeJob(name: string): boolean {
+    if (!this.running) return false;
     const state = this.jobStates.find((s) => s.job.name === name);
     if (!state) return false;
 
@@ -353,6 +368,7 @@ export class WorkerHost {
    *   本地任意进程无法无限期抑制后台任务。
    */
   setPressureMode(active: boolean, durationMs?: number): void {
+    if (!this.running) return;
     if (!active) {
       this.clearPressureWatchdog();
       this.pressureMode = false;
@@ -463,6 +479,9 @@ export class WorkerHost {
   /** 启动 Worker 宿主 */
   start(): void {
     if (this.running) return;
+    if ((this.stopping && !this.drained) || this.inFlight.size) throw new Error("worker_host_stopping");
+    this.stopping = null;
+    this.drained = false;
     this.running = true;
 
     this.logger.info({
@@ -514,7 +533,11 @@ export class WorkerHost {
   }
 
   /** 停止宿主调度（清理全部定时器与 IPC 服务）；可重复调用，可 await 等待 socket 清理完成 */
-  async stop(): Promise<void> {
+  stop(): Promise<void> {
+    return this.stopping ??= this.drain();
+  }
+
+  private async drain(): Promise<void> {
     this.running = false;
 
     this.clearPressureWatchdog();
@@ -537,12 +560,17 @@ export class WorkerHost {
 
     const ipcServer = this.ipcServer;
     this.ipcServer = null;
-    if (ipcServer) {
-      try {
-        await ipcServer.stop();
-      } catch {
-        // 关闭失败不应阻断退出流程
-      }
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        Promise.all([Promise.all([...this.inFlight]), ipcServer?.stop()]),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error("worker_shutdown_timeout")), this.shutdownTimeoutMs);
+        }),
+      ]);
+      this.drained = true;
+    } finally {
+      clearTimeout(timer);
     }
   }
 }

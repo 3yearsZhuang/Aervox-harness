@@ -15,23 +15,23 @@
     "@aervox/api-client": "workspace:*",
     "@aervox/live2d": "workspace:*",
     "@aervox/plugin-focus-mode": "workspace:*",
+    "@aervox/plugin-panels-ui": "workspace:*",
+    "@aervox/plugin-proactive-ui": "workspace:*",
+    "@aervox/plugin-workbench-ui": "workspace:*",
     "@aervox/public": "workspace:*",
     "@aervox/ui": "workspace:*",
+    "@aervox/ui-host": "workspace:*",
     "@sekai-world/pixi-live2d-display-mulmotion": "^0.5.1",
     "element-plus": "^2.11.5",
     "lucide-vue-next": "^0.468.0",
     "pixi.js": "^7.4.3",
-    "vue": "^3.5.21",
-    "@aervox/ui-host": "workspace:*",
-    "@aervox/plugin-workbench-ui": "workspace:*",
-    "@aervox/plugin-panels-ui": "workspace:*",
-    "@aervox/plugin-proactive-ui": "workspace:*"
+    "vue": "^3.5.43"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
     "@vitejs/plugin-vue": "^6.0.1",
+    "typescript": "^5.8.3",
     "vite": "^7.0.0",
-    "vue-tsc": "^2.2.12",
-    "typescript": "^5.8.3"
+    "vue-tsc": "^2.2.12"
   }
 }

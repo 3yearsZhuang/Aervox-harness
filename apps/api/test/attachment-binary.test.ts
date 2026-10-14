@@ -10,7 +10,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createInMemoryDatabase, type AervoxDatabase } from "@aervox/repositories";
-import { buildApp } from "../src/app.js";
+import { buildApp } from "./app-fixture.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
 

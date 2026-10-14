@@ -24,8 +24,10 @@ export class VoiceInputRecorder {
   private sourceNode: MediaStreamAudioSourceNode | null = null;
 
   private isRunning = false;
+  private starting = false;
+  private generation = 0;
   private isSpeaking = false;
-  private silenceTimer: any = null;
+  private silenceTimer: ReturnType<typeof setTimeout> | null = null;
 
   private readonly sampleRate: number;
   private readonly silenceThresholdMs: number;
@@ -47,73 +49,74 @@ export class VoiceInputRecorder {
   }
 
   async start(): Promise<void> {
-    if (this.isRunning) return;
-
+    if (this.isRunning || this.starting) return;
     if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
       throw new Error("当前环境不支持录音 (navigator.mediaDevices 不可用)");
     }
-
-    this.mediaStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        channelCount: 1,
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
-    });
-
-    const AudioContextClass =
-      window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    this.audioContext = new AudioContextClass({ sampleRate: this.sampleRate });
-
-    this.sourceNode = this.audioContext.createMediaStreamSource(this.mediaStream);
-    // 使用 4096 buffer size 进行流式帧处理
-    this.processorNode = this.audioContext.createScriptProcessor(4096, 1, 1);
-
-    this.processorNode.onaudioprocess = (event) => {
-      if (!this.isRunning) return;
-      const inputData = event.inputBuffer.getChannelData(0);
-      this.processAudioFrame(inputData);
-    };
-
-    this.sourceNode.connect(this.processorNode);
-    this.processorNode.connect(this.audioContext.destination);
-
-    this.isRunning = true;
-    this.isSpeaking = false;
-    this.preRollBuffer = [];
-    this.speechChunks = [];
+    const generation = ++this.generation;
+    this.starting = true;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      if (generation !== this.generation) {
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
+      this.mediaStream = stream;
+      const AudioContextClass = window.AudioContext
+        || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      this.audioContext = new AudioContextClass({ sampleRate: this.sampleRate });
+      this.sourceNode = this.audioContext.createMediaStreamSource(stream);
+      this.processorNode = this.audioContext.createScriptProcessor(4096, 1, 1);
+      this.processorNode.onaudioprocess = event => {
+        if (this.isRunning) this.processAudioFrame(event.inputBuffer.getChannelData(0));
+      };
+      this.sourceNode.connect(this.processorNode);
+      this.processorNode.connect(this.audioContext.destination);
+      this.isRunning = true;
+      this.isSpeaking = false;
+      this.preRollBuffer = [];
+      this.speechChunks = [];
+    } catch (error) {
+      if (generation !== this.generation) return;
+      this.stop(false);
+      throw error;
+    } finally {
+      if (generation === this.generation) this.starting = false;
+    }
   }
 
-  stop(): void {
-    if (!this.isRunning) return;
-
-    // 若停止时有尚未提交的语音片段，完成最后一次切片转写
-    if (this.isSpeaking && this.speechChunks.length > 0) {
-      this.flushSegment();
-    }
-
-    this.isRunning = false;
-    this.isSpeaking = false;
-    clearTimeout(this.silenceTimer);
-
+  /** User stop may submit the final segment; disposal discards it. */
+  stop(flush = true): void {
+    ++this.generation;
+    this.starting = false;
     try {
-      this.processorNode?.disconnect();
-      this.sourceNode?.disconnect();
-      this.mediaStream?.getTracks().forEach((t) => t.stop());
-      if (this.audioContext?.state !== "closed") {
-        void this.audioContext?.close();
+      if (flush && this.isRunning && this.isSpeaking) this.flushSegment();
+    } finally {
+      this.isRunning = false;
+      this.isSpeaking = false;
+      if (this.silenceTimer) clearTimeout(this.silenceTimer ?? undefined);
+      this.silenceTimer = null;
+      // Release every resource even if another resource fails to disconnect.
+      for (const node of [this.processorNode, this.sourceNode]) {
+        try { node?.disconnect(); } catch { /* already detached */ }
       }
-    } catch {
-      // 忽略清理异常
+      for (const track of this.mediaStream?.getTracks() ?? []) {
+        try { track.stop(); } catch { /* already stopped */ }
+      }
+      try {
+        if (this.audioContext && this.audioContext.state !== "closed") {
+          void this.audioContext.close().catch(() => undefined);
+        }
+      } catch { /* already closed */ }
+      this.processorNode = null;
+      this.sourceNode = null;
+      this.mediaStream = null;
+      this.audioContext = null;
+      this.preRollBuffer = [];
+      this.speechChunks = [];
     }
-
-    this.processorNode = null;
-    this.sourceNode = null;
-    this.mediaStream = null;
-    this.audioContext = null;
-    this.preRollBuffer = [];
-    this.speechChunks = [];
   }
 
   private processAudioFrame(frame: Float32Array): void {
@@ -135,7 +138,7 @@ export class VoiceInputRecorder {
         this.speechChunks.push(...this.preRollBuffer);
         this.preRollBuffer = [];
       }
-      clearTimeout(this.silenceTimer);
+      clearTimeout(this.silenceTimer ?? undefined);
       this.silenceTimer = null;
       this.speechChunks.push(copy);
     } else {

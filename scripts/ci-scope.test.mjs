@@ -93,6 +93,19 @@ test("仅插件目录变更时命中声明它的包（而非选中 0 个任务�
   );
 });
 
+test("桌面主进程桥接变更会重新验证 API 会话落库验收", () => {
+  const scope = loadTurboScope();
+  for (const file of [
+    "apps/desktop/src/main/turn-bridge.ts",
+    "apps/desktop/src/main/runtime-config.ts",
+  ]) {
+    const changeScope = resolveChangeScope([file], scope);
+    assert.equal(changeScope.mode, "scoped", file);
+    assert.ok(changeScope.packages.includes("@aervox/api"), `${file} must invalidate API acceptance`);
+    assert.ok(buildTurboFilterArgs("origin/main", changeScope).includes("--filter=@aervox/api..."));
+  }
+});
+
 test("共享输入与根级依赖变更时收敛为全量，不按包收窄", () => {
   for (const changed of [["vitest.shared.ts"], ["tsconfig.base.json"], ["tsconfig.base.node.json"]]) {
     const changeScope = resolveChangeScope(changed, syntheticScope());
@@ -217,4 +230,22 @@ test("Rust pilot and executable contracts remain in local and CI gates", () => {
   assert.match(config, /rust = "\d+\.\d+\.\d+"/);
   assert.match(config, /cargo test --locked --manifest-path native\/tools\/vector-pilot\/Cargo.toml/);
   assert.match(config, /node --test scripts\/native-search.test.mjs/);
+});
+
+
+test("CI covers Playwright test directories, configs and executable root launchers", () => {
+  const workflow = readWorkflowPaths(CI_WORKFLOW);
+  const required = ["aervox", "run-cli", "siyu-chat.command"];
+  for (const config of ["playwright.config.ts", "playwright.ui.config.ts"]) {
+    const source = fs.readFileSync(path.join(ROOT_DIR, config), "utf8");
+    const match = source.match(/testDir:\s*["']\.\/([^"']+)["']/);
+    assert.ok(match, `${config} must declare a testDir`);
+    required.push(config, `${match[1]}/**`);
+  }
+  assert.deepEqual(findUncoveredPaths(workflow.pullRequest, required), []);
+  assert.deepEqual(findUncoveredPaths(workflow.push, required), []);
+  const source = fs.readFileSync(CI_WORKFLOW, "utf8");
+  assert.match(source, /playwright install --with-deps chromium/);
+  assert.match(source, /pnpm test:e2e:ui/);
+  assert.match(source, /pnpm check:dependency-audit/);
 });

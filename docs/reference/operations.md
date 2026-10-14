@@ -38,6 +38,8 @@ id: AVX-OPS-001
 - 不得：跳过输入/输出安全分类、使用未评估模型、把失败输出写入记忆/日记/掌握度。
 - 验证：ModelRun、路由比例、TTFT、事实/安全抽检、成本；恢复需渐进放量。
 
+Worker 收到退出信号后先停止新调度与 IPC 唤醒，等待正在执行的任务结束，再关闭数据库连接。默认排空期限为 5 秒（`WorkerHost.shutdownTimeoutMs`）；超时记录 `worker.shutdown.failed` 并以非零状态退出，不报告为成功停机。未完成任务的恢复仍由任务本身的持久化/租约语义负责。
+
 ## 4. Outbox 积压与 Worker 异常
 
 - 暂停非核心生产者和重复重放；保留 API 核心写入及 SQLite Outbox。

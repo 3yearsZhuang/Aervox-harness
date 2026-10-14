@@ -71,8 +71,13 @@ const items = computed<PaletteItem[]>(() => {
       icon: Plus,
       handler: async () => {
         const pId = projects?.selectedProjectId.value || undefined;
-        await sessions.createNewSession('新对话', undefined, pId);
-        close();
+        try {
+          await sessions.createNewSession('新对话', undefined, pId);
+          close();
+        } catch {
+          // The shared session error remains visible in the sidebar.
+          close();
+        }
       },
     },
     {

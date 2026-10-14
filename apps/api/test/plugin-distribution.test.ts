@@ -1,3 +1,6 @@
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 /**
  * Aervox｜思隅 @aervox/api — CAP-020 插件分发集成测试
  *
@@ -17,11 +20,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { strToU8, zipSync } from "fflate";
 import { createInMemoryDatabase, initDatabaseSchema, type AervoxDatabase } from "@aervox/repositories";
-import { buildApp } from "../src/app.js";
+import { buildApp } from "./app-fixture.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
 import { inspectPluginBundle, PLUGIN_ARCHIVE_LIMITS } from "../src/modules/ecosystem/plugins/package-bundle.js";
-import * as archiveWorker from "../src/modules/ecosystem/plugins/archive-worker.js";
+import * as archiveWorker from "../src/shared/archive-worker.js";
 
 function buildTestPluginBundle(overrides: {
   id?: string;
@@ -126,6 +129,7 @@ describe("CAP-020 插件分发与打包集成测试", () => {
   let db: AervoxDatabase;
   let client: Client;
   let cleanup: () => Promise<void>;
+  let filesRoot: string;
 
   beforeEach(async () => {
     const res = await createInMemoryDatabase();
@@ -133,7 +137,8 @@ describe("CAP-020 插件分发与打包集成测试", () => {
     client = res.client;
     cleanup = res.cleanup;
     await initDatabaseSchema(client);
-    const built = await buildApp({ db, client });
+    filesRoot = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-plugin-distribution-"));
+    const built = await buildApp({ db, client, skillsRoot: path.join(filesRoot, "skills"), pluginsRoot: path.join(filesRoot, "plugins") });
     app = built.app;
     await app.ready();
   });
@@ -142,6 +147,25 @@ describe("CAP-020 插件分发与打包集成测试", () => {
     vi.restoreAllMocks();
     await app.close();
     await cleanup();
+    await fs.rm(filesRoot, { recursive: true, force: true });
+  });
+
+  it("market directory conflicts return 409 and preserve the local skill", async () => {
+    const removed = await app.inject({ method: "DELETE", url: "/v1/plugins/home-assistant" });
+    expect([204, 404]).toContain(removed.statusCode);
+    const content = "# Local home assistant";
+    const zip = zipSync({ "SKILL.md": strToU8(content) });
+    const installed = await app.inject({ method: "POST", url: "/v1/skills", payload: {
+      name: "home-assistant", zipBase64: Buffer.from(zip).toString("base64"),
+    } });
+    expect(installed.statusCode).toBe(201);
+    const before = (await app.inject({ method: "GET", url: "/v1/skills" })).json();
+    const response = await app.inject({ method: "POST", url: "/v1/plugins/market/home-assistant/install" });
+    expect(response.statusCode).toBe(409);
+    expect((await app.inject({ method: "GET", url: "/v1/skills" })).json()).toEqual(before);
+    expect(await fs.readFile(path.join(filesRoot, "skills/home-assistant/SKILL.md"), "utf8")).toBe(content);
+    const plugins = (await app.inject({ method: "GET", url: "/v1/plugins" })).json().items;
+    expect(plugins.some((plugin: { id: string }) => plugin.id === "home-assistant")).toBe(false);
   });
 
   it("POST /v1/plugins/inspect-package: 预检合法安装包并提取 PRD CAP-020 安全元数据", async () => {
@@ -280,7 +304,23 @@ describe("CAP-020 插件分发与打包集成测试", () => {
     expect(oversized.byteLength).toBeLessThan(100_000);
     expect((await inspectPluginBundle(oversized)).issues.join(" ")).toContain("expansion limits");
     const entries = Object.fromEntries(Array.from({ length: PLUGIN_ARCHIVE_LIMITS.entries + 1 }, (_, i) => [`entry-${i}`, new Uint8Array()]));
-    expect((await inspectPluginBundle(zipSync(entries))).issues.join(" ")).toContain("expansion limits");
+    expect((await inspectPluginBundle(zipSync(entries))).issues.join(" ")).toContain("entry limit");
+  });
+
+  it("rejects foreign skill ownership before uninstalling a replacement target", async () => {
+    const original = await app.inject({ method: "POST", url: "/v1/plugins/install-package", payload: { packageBase64: buildTestPluginBundle({ id: "pkg.ownership" }).toString("base64") } });
+    expect(original.statusCode).toBe(201);
+    const local = await app.inject({ method: "POST", url: "/v1/skills", payload: { name: "foreign-local", zipBase64: Buffer.from(zipSync({ "SKILL.md": strToU8("local original") })).toString("base64") } });
+    expect(local.statusCode).toBe(201);
+    const before = (await app.inject({ url: "/v1/skills" })).json();
+    const response = await app.inject({ method: "POST", url: "/v1/plugins/install-package", payload: {
+      overwrite: true, packageBase64: buildTestPluginBundle({ id: "pkg.ownership", version: "2.0.0", files: { "skills/foreign-local/SKILL.md": "replacement" } }).toString("base64"),
+    } });
+    expect(response.statusCode, response.body).toBe(409);
+    const installed = (await app.inject({ url: "/v1/plugins" })).json().items.find((item: { id: string }) => item.id === "pkg.ownership");
+    expect(installed.version).toBe("1.0.0");
+    expect((await app.inject({ url: "/v1/skills" })).json()).toEqual(before);
+    expect(await fs.readFile(path.join(filesRoot, "skills", "foreign-local", "SKILL.md"), "utf8")).toBe("local original");
   });
 
   it("POST /v1/plugins/install-package: 重复安装冲突返回 409，支持 overwrite=true 覆盖安装", async () => {

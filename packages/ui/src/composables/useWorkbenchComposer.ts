@@ -1,4 +1,4 @@
-import { nextTick, ref, watch, type Ref } from 'vue';
+import { getCurrentScope, nextTick, onScopeDispose, ref, watch, type Ref } from 'vue';
 import { useAervoxVoiceInput, uploadAervoxAttachment } from '@aervox/api-client';
 import {
   allowedMediaTypesSchema,
@@ -82,6 +82,21 @@ export function useWorkbenchComposer(options: {
 
   const voiceInput = useAervoxVoiceInput();
   const voiceInputError = ref<string | null>(null);
+  const voiceInputStarting = ref(false);
+  let voiceStartGeneration = 0;
+  let voiceConfigController: AbortController | undefined;
+  function cancelVoiceStart() {
+    ++voiceStartGeneration;
+    voiceConfigController?.abort();
+    voiceConfigController = undefined;
+    voiceInputStarting.value = false;
+  }
+  function stopVoiceInput() {
+    cancelVoiceStart();
+    voiceInput.stopListening();
+  }
+  // The voice composable owns disposal of recordings and transcriptions.
+  if (getCurrentScope()) onScopeDispose(cancelVoiceStart);
   const draftSessionId = options.draftSessionId ?? ref('');
   const draftsEnabled = options.draftsEnabled ?? ref(false);
   let restoringDraft = false;
@@ -167,16 +182,14 @@ export function useWorkbenchComposer(options: {
   }
 
   function collapseComposer() {
-    if (voiceInput.isListening.value) {
-      voiceInput.stopListening();
-    }
+    stopVoiceInput();
     composerOpen.value = false;
   }
 
   function handleDockFocusOut(event: FocusEvent) {
     if (!composerOpen.value || isComposing.value) return;
     if (options.fullAccessDialogOpen.value) return;
-    if (input.value.trim() || voiceInput.isListening.value) return;
+    if (input.value.trim() || voiceInput.isListening.value || voiceInputStarting.value) return;
     const dock = event.currentTarget as HTMLElement;
     const next = event.relatedTarget as Node | null;
     if (next && dock.contains(next)) return;
@@ -184,7 +197,7 @@ export function useWorkbenchComposer(options: {
     window.setTimeout(() => {
       if (!composerOpen.value || isComposing.value) return;
       if (options.fullAccessDialogOpen.value) return;
-      if (input.value.trim() || voiceInput.isListening.value) return;
+      if (input.value.trim() || voiceInput.isListening.value || voiceInputStarting.value) return;
       if (dock.contains(document.activeElement)) return;
       composerOpen.value = false;
     }, 160);
@@ -285,13 +298,17 @@ export function useWorkbenchComposer(options: {
 
   async function toggleVoiceInput() {
     voiceInputError.value = null;
-    if (voiceInput.isListening.value) {
-      voiceInput.stopListening();
+    if (voiceInput.isListening.value || voiceInputStarting.value) {
+      stopVoiceInput();
       return;
     }
 
+    const generation = ++voiceStartGeneration;
+    const controller = voiceConfigController = new AbortController();
+    voiceInputStarting.value = true;
     try {
-      const config = await voiceInput.getInputConfig();
+      const config = await voiceInput.getInputConfig(controller.signal);
+      if (generation !== voiceStartGeneration) return;
       await voiceInput.startListening({
         silenceThresholdMs: config.vadSilenceThresholdMs,
         onText: (text) => {
@@ -302,16 +319,21 @@ export function useWorkbenchComposer(options: {
         },
       });
     } catch (err) {
-      voiceInputError.value = err instanceof Error ? err.message : '启动语音输入失败';
+      if (generation === voiceStartGeneration) {
+        voiceInputError.value = err instanceof Error ? err.message : '启动语音输入失败';
+      }
+    } finally {
+      if (generation === voiceStartGeneration) {
+        voiceInputStarting.value = false;
+        voiceConfigController = undefined;
+      }
     }
   }
 
   function handleComposerEnter(event: KeyboardEvent) {
     if (event.isComposing || isComposing.value) return;
     if (options.streaming.value || attachmentUploading.value) return;
-    if (voiceInput.isListening.value) {
-      voiceInput.stopListening();
-    }
+    stopVoiceInput();
     if (event.shiftKey || !enterToSend.value) return;
     event.preventDefault();
     void options.onSendMessage();
@@ -327,9 +349,7 @@ export function useWorkbenchComposer(options: {
   }
 
   function handleComposerInputOrKey() {
-    if (voiceInput.isListening.value) {
-      voiceInput.stopListening();
-    }
+    stopVoiceInput();
   }
 
   return {
@@ -346,6 +366,7 @@ export function useWorkbenchComposer(options: {
     attachmentUploading,
     voiceInput,
     voiceInputError,
+    voiceInputStarting,
     saveDraft,
     beginDraftSubmission,
     completeDraftSubmission,

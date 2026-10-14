@@ -288,3 +288,9 @@ D1～D3 每阶段都必须运行 `mise tasks run ci-code` 与 `mise tasks run ci
 `plugins.availability` 为非空文本，默认 `available`，允许写入 `available/missing/invalid/unreadable`。由启动清单扫描写入，独立于用户的 `enabled`、配置/Secret、授权及页面数据。旧库通过幂等新增列兼容，保留原记录，不换库、不清理历史表。未知可用性值按不可执行处理。实现缺席时工具执行/导出、Skill 运行时导出、会话插件切面与 Worker 主动规则均须检查该状态；管理读取和显式数据清理继续可用。
 
 恢复有效包只恢复可用性，不重建撤销的授权或启用用户关闭的插件。旧应用不识别该列，不能直接作为缺包保护的回滚版本；回滚须保留等价门控。元数据与 DDL 同步，验证见 CR-056（已归档至 Aervox-docs-archive）。
+
+## ORM 错误边界
+
+Drizzle 0.45 将驱动错误包装在 `cause` 中。锁竞争、连接污染与约束冲突识别从驱动原因读取，不能把 SQL 或绑定参数中的文字当作错误类型。事务回滚测试同时断言原因与回滚后的数据状态。
+
+锁定的 Drizzle 版本应用[错误脱敏补丁](../../patches/drizzle-orm@0.45.4.patch)：错误文案固定为 `Database query failed`，SQL 与绑定值保留为不可枚举诊断属性，避免 API 响应、普通日志和 JSON 序列化携带密钥或正文；底层 `cause` 保留用于内部分类。升级 Drizzle 时必须复查补丁与 ESM/CJS 回归，不能静默丢失此边界。

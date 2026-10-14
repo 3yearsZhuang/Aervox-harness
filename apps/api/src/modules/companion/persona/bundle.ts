@@ -2,7 +2,8 @@
  * Aervox｜思隅 @aervox/api — 系统级 Persona Bundle 导入导出
  */
 import { createHash } from "node:crypto";
-import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
+import { strFromU8, strToU8 } from "fflate";
+import { executeArchive, ARCHIVE_LIMITS, normalizeSkillArchivePath } from "../../../shared/archive-worker.js";
 import type { LocalContext, SqlitePersonaRepository, SkillRegistrationModel } from "@aervox/repositories";
 import type { SkillCatalogPort } from "../../ecosystem/skills/index.js";
 import {
@@ -28,6 +29,7 @@ export async function exportPersonaBundle(input: {
   persona: Persona;
   revision: PersonaRevision;
   skillManager: SkillCatalogPort;
+  signal?: AbortSignal;
   availableToolIds?: string[];
   availableVoiceProviderIds?: string[];
 }): Promise<PersonaBundleExportResult> {
@@ -113,15 +115,13 @@ export async function exportPersonaBundle(input: {
     config: input.revision.config,
   };
 
-  const skillZip = zipSync(skillZipFiles, { level: 6 });
-  const bundleBytes = zipSync(
-    {
+  const skillZip = await executeArchive<Uint8Array>({ kind: "pack", input: skillZipFiles, limits: ARCHIVE_LIMITS, signal: input.signal });
+  const bundleBytes = await executeArchive<Uint8Array>({ kind: "pack", limits: ARCHIVE_LIMITS, signal: input.signal, input: {
       "manifest.json": strToU8(JSON.stringify(manifest, null, 2)),
       "persona.json": strToU8(JSON.stringify(personaJson, null, 2)),
       "skills/skills.zip": skillZip,
     },
-    { level: 6 },
-  );
+  });
 
   return {
     bytes: bundleBytes,
@@ -131,11 +131,20 @@ export async function exportPersonaBundle(input: {
   };
 }
 
-export function previewPersonaBundle(
+export async function previewPersonaBundle(
   bytes: Uint8Array,
   workspaceId: string,
-): PersonaBundleImportPreview {
-  const files = unzipSync(bytes);
+  signal?: AbortSignal,
+): Promise<PersonaBundleImportPreview> {
+  const files = await unpackPersonaFiles(bytes, signal);
+  return previewPersonaFiles(files, workspaceId, signal);
+}
+
+async function unpackPersonaFiles(bytes: Uint8Array, signal?: AbortSignal): Promise<Record<string, Uint8Array>> {
+  return executeArchive({ kind: "unpack", input: bytes, limits: ARCHIVE_LIMITS, signal });
+}
+
+async function previewPersonaFiles(files: Record<string, Uint8Array>, workspaceId: string, signal?: AbortSignal): Promise<PersonaBundleImportPreview> {
   const manifest = readJsonFile(files, "manifest.json") as PersonaBundleManifest;
   const personaJson = readJsonFile(files, "persona.json") as {
     schemaVersion: number;
@@ -162,7 +171,12 @@ export function previewPersonaBundle(
     [];
 
   if (skillZipBytes) {
-    const unzippedSkills = unzipSync(skillZipBytes);
+    const outerBytes = Object.values(files).reduce((sum, file) => sum + file.byteLength, 0);
+    const unzippedSkills = await executeArchive<Record<string, Uint8Array>>({
+      kind: "unpack", input: skillZipBytes, signal, normalizePath: normalizeSkillArchivePath,
+      limits: { ...ARCHIVE_LIMITS, expandedBytes: ARCHIVE_LIMITS.expandedBytes - outerBytes,
+        entries: ARCHIVE_LIMITS.entries - Object.keys(files).length },
+    });
     const skillNames = new Set(
       Object.keys(unzippedSkills).map((k) => k.split("/")[0]).filter(Boolean),
     );
@@ -205,6 +219,7 @@ export async function importPersonaBundle(input: {
   tenant: LocalContext;
   personaRepo: SqlitePersonaRepository;
   skillManager: SkillCatalogPort;
+  signal?: AbortSignal;
   conflictResolution?: "error" | "replace";
 }): Promise<{
   persona: Persona;
@@ -212,22 +227,26 @@ export async function importPersonaBundle(input: {
   skills: SkillRegistrationModel[];
   missingDependencies: string[];
 }> {
-  const files = unzipSync(input.bytes);
-  const preview = previewPersonaBundle(input.bytes, input.tenant.workspaceId);
+  const files = await unpackPersonaFiles(input.bytes, input.signal);
+  const preview = await previewPersonaFiles(files, input.tenant.workspaceId, input.signal);
   const skillZipBytes = files["skills/skills.zip"];
   let installedSkills: SkillRegistrationModel[] = [];
 
+  input.signal?.throwIfAborted();
   if (skillZipBytes && skillZipBytes.length > 0) {
     if (input.conflictResolution === "replace") {
       installedSkills = await input.skillManager.installFromZip(Buffer.from(skillZipBytes), {
         overwrite: true,
+        signal: input.signal,
       });
     } else {
       try {
         installedSkills = await input.skillManager.installFromZip(Buffer.from(skillZipBytes), {
           overwrite: false,
+          signal: input.signal,
         });
       } catch (err) {
+        input.signal?.throwIfAborted();
         // 如果同名技能已存在且 checksum 相同，复用既有技能注册
         const existingSkills: SkillRegistrationModel[] = [];
         let allMatched = preview.skills.length > 0;
@@ -241,6 +260,7 @@ export async function importPersonaBundle(input: {
           }
         }
         if (allMatched && existingSkills.length === preview.skills.length) {
+          input.signal?.throwIfAborted();
           installedSkills = existingSkills;
         } else {
           throw err;

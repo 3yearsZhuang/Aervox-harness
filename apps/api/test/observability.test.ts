@@ -20,7 +20,7 @@ import {
   noopAudit,
   type LogRecord,
 } from "@aervox/observability";
-import { buildApp } from "../src/app.js";
+import { buildApp } from "./app-fixture.js";
 import type { FastifyInstance } from "fastify";
 
 const tenant: LocalContext = { workspaceId: "ws_obs", subjectUserId: "usr_obs" };

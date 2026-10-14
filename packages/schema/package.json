@@ -17,10 +17,10 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
-    "drizzle-orm": "^0.39.3"
+    "drizzle-orm": "^0.45.4"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
-    "drizzle-kit": "^0.30.4"
+    "drizzle-kit": "^0.31.11"
   }
 }

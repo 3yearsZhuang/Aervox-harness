@@ -37,3 +37,5 @@ export async function registerSkillsModule(ctx: ModuleDependencies<"app" | "db" 
 export type SkillCatalogPort = Pick<import("./skill-manager.js").SkillManager, "getSkill" | "installFromZip" | "listSkills" | "readSkillFolderFiles" | "readSkillMarkdown" | "buildPrompt">;
 
 export { FileExistsError, DEFAULT_SKILLS_ROOT, parseFrontmatter, isValidSkillName } from "./skill-manager.js";
+
+export { assertSkillDirectoryOwner, withSkillMutation } from "./ownership.js";

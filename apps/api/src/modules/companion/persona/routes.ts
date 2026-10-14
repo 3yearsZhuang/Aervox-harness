@@ -1,3 +1,4 @@
+import { withRequestSignal } from "../../../shared/request-signal.js";
 /**
  * Aervox｜思隅 @aervox/api — 系统级 Persona HTTP 路由
  */
@@ -130,7 +131,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
     const { personaId } = request.params as { personaId: string };
     const tenant = resolveLocalContext(request);
     try {
-      const exported = await service.exportBundle(tenant, personaId);
+      const exported = await withRequestSignal(request, reply, signal => service.exportBundle(tenant, personaId, signal));
       const persona = await service.getPersona(tenant, personaId);
       const name = persona?.persona.name ?? "persona";
       return {
@@ -158,7 +159,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
     }
     const tenant = resolveLocalContext(request);
     try {
-      return service.previewBundle(fromBase64(parsed.data.bundleBase64), tenant.workspaceId);
+      return await withRequestSignal(request, reply, signal => service.previewBundle(fromBase64(parsed.data.bundleBase64), tenant.workspaceId, signal));
     } catch (error) {
       return sendError(
         reply,
@@ -177,11 +178,12 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
     }
     const tenant = resolveLocalContext(request);
     try {
-      const imported = await service.importBundle(
+      const imported = await withRequestSignal(request, reply, signal => service.importBundle(
         tenant,
         fromBase64(parsed.data.bundleBase64),
         parsed.data.conflictResolution,
-      );
+        signal,
+      ));
       return reply.code(201).send({
         persona: imported.persona,
         revision: imported.revision,

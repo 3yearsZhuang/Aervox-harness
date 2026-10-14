@@ -3,9 +3,10 @@
  *
  * - 配置属于本地单用户实例，可保存多个预设，至多一行激活；
  * - 支持 Ollama / DeepSeek / OpenAI / Anthropic / 自定义 OpenAI 兼容端点参数持久化；
- * - 激活语义：同租户至多一个预设 is_active=1（部分唯一索引 tenant_active_idx 兜底）。
+ * - 激活语义：本地实例至多一个激活预设（部分唯一索引兜底）。
  */
 import { and, asc, eq } from "drizzle-orm";
+import { activePresetOrder, activatePreset, deletePreset } from "./preset-lifecycle.js";
 import type { AervoxDatabase } from "../../client.js";
 import { llmConfigs } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
@@ -37,18 +38,13 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async getConfig(ctx: LocalContext): Promise<LLMConfigModel | null> {
-    const tenantRows = await this.db
+    const rows = await this.db
       .select()
       .from(llmConfigs)
-      .where(
-        and(
-        ),
-      )
-      .orderBy(asc(llmConfigs.createdAt))
-      .limit(50);
-    if (tenantRows.length === 0) return null;
-    const active = tenantRows.find((row) => row.isActive === 1) ?? tenantRows[0]!;
-    return rowToModel(active);
+      .orderBy(...activePresetOrder(llmConfigs))
+      .limit(1);
+    if (rows.length === 0) return null;
+    return rowToModel(rows[0]!);
   }
 
   async saveConfig(
@@ -88,10 +84,6 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
     const rows = await this.db
       .select()
       .from(llmConfigs)
-      .where(
-        and(
-        ),
-      )
       .orderBy(asc(llmConfigs.createdAt));
     return rows.map(rowToModel);
   }
@@ -140,66 +132,14 @@ export class SqliteLLMConfigRepository implements ILLMConfigRepository {
     ctx: LocalContext,
     presetId: string,
   ): Promise<LLMConfigModel | null> {
-    return this.db.transaction(async (tx) => {
-      const [target] = await tx
-        .select()
-        .from(llmConfigs)
-        .where(
-          and(
-            eq(llmConfigs.id, presetId),
-          ),
-        )
-        .limit(1);
-      if (!target) return null;
-      await tx
-        .update(llmConfigs)
-        .set({ isActive: 0, updatedAt: new Date().toISOString() })
-        .where(
-          and(
-          ),
-        );
-      const [activated] = await tx
-        .update(llmConfigs)
-        .set({ isActive: 1, updatedAt: new Date().toISOString() })
-        .where(eq(llmConfigs.id, presetId))
-        .returning();
-      return rowToModel(activated!);
+    return activatePreset(this.db, llmConfigs, presetId, async tx => {
+      const [row] = await tx.select().from(llmConfigs).where(eq(llmConfigs.id, presetId)).limit(1);
+      return row ? rowToModel(row) : null;
     });
   }
 
   async deletePreset(ctx: LocalContext, presetId: string): Promise<boolean> {
-    return this.db.transaction(async (tx) => {
-      const [target] = await tx
-        .select()
-        .from(llmConfigs)
-        .where(
-          and(
-            eq(llmConfigs.id, presetId),
-          ),
-        )
-        .limit(1);
-      if (!target) return false;
-      const wasActive = target.isActive === 1;
-      await tx.delete(llmConfigs).where(eq(llmConfigs.id, presetId));
-      if (wasActive) {
-        const [first] = await tx
-          .select()
-          .from(llmConfigs)
-          .where(
-            and(
-            ),
-          )
-          .orderBy(asc(llmConfigs.createdAt))
-          .limit(1);
-        if (first) {
-          await tx
-            .update(llmConfigs)
-            .set({ isActive: 1, updatedAt: new Date().toISOString() })
-            .where(eq(llmConfigs.id, first.id));
-        }
-      }
-      return true;
-    });
+    return deletePreset(this.db, llmConfigs, presetId);
   }
 }
 

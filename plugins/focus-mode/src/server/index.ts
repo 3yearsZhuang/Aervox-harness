@@ -15,12 +15,9 @@ import { focusModeExploreEndpoints } from "./terms-routes.js";
 import { focusModeReportEndpoints } from "./practice-reports-routes.js";
 import { registerFocusModeApiContract } from "./contracts.js";
 
-// 模块加载即登记对外 API 契约（事件类型、投影白名单、OpenAPI 片段），
-// 必须先于宿主文档生成与请求处理发生
-registerFocusModeApiContract();
-
 export const focusModeRegistration: ServerPluginRegistration = {
   pluginId: PLUGIN_ID,
+  registerApiContract: registerFocusModeApiContract,
   turnPlugins: [focusModeTurnPlugin],
   // 工具贡献按当前本地上下文构造（端口随上下文绑定）；宿主仅在插件启用时合入模型工具面
   toolContributions: (services) => createFocusModeToolContributions(services.learningFacts),

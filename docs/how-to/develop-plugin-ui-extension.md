@@ -283,11 +283,26 @@ export const focusDraftPlugin: BuiltinUIPlugin = {
 
 ### 3.2 接入宿主并验证生命周期
 
-经评审后，将定义显式加入 [plugin-runtime.ts](../../packages/ui/src/plugins/plugin-runtime.ts) 的受信插件清单，或在已有宿主组合点传入 `customPlugins`。使用当前工作台的 registry，避免依赖全局单例造成多窗口串扰。新增插件不会因 ZIP 里多了这个文件就被自动发现。
+经评审后，在 Web/桌面组合根的插件定义清单中加入该定义，由工作台的 `plugins` 参数注入 [plugin-runtime.ts](../../packages/ui/src/plugins/plugin-runtime.ts)。使用 setup 参数中的作用域注册表，避免依赖全局单例造成多窗口串扰。新增插件不会因 ZIP 里多了这个文件就被自动发现。
 
 预期：工具栏出现“起草下一步”，空输入时填入草稿；已有输入不被覆盖；停用时按钮注销，再启用仅出现一次。参照 [plugin-registration.test.ts](../../plugins/focus-mode/test/plugin-registration.test.ts)验证重复同步与清理。真实功能应复用宿主按钮样式与无障碍规则。
 
-卡片、其他槽位和组件替换的完整接口见[规范 §5–§7](../reference/plugin-config-and-pages.md#5-前端-ui-插槽扩展规范ui-extension-slots)。特别注意：`overrideComponent` 没有 disposer，不能用 `registry.clear()` 停用单个插件；替换 `ComposerDock` 时必须由宿主安排恢复，并验证输入法、附件、语音与单次发送。
+卡片、其他槽位和组件替换的完整接口见[规范 §5–§7](../reference/plugin-config-and-pages.md#5-前端-ui-插槽扩展规范ui-extension-slots)。运行时自动收集通过作用域注册表登记的贡献，setup 返回 `void` 也只激活一次；组件替换可通过返回的注销函数撤销，停用时自动恢复仍存活的前一个替换或默认组件。替换 `ComposerDock` 仍须验证输入法、附件、语音与单次发送。
+
+有外部计时器或异步请求时，在 setup 的第三个参数中登记资源并观察取消信号：
+
+```ts
+setup(registry, context, lifecycle) {
+  if (!lifecycle) return;
+  const { signal } = lifecycle;
+  lifecycle.effect(() => {
+    const timer = setInterval(() => refreshStatus(signal), 1000);
+    return () => clearInterval(timer);
+  });
+}
+```
+
+`refreshStatus` 由插件实现，传入的信号供其请求取消及结果提交前检查。验证 setup 中途抛错后贡献消失、重复同步没有重复计时器、停用后迟到结果不回写；状态可通过 `getPluginState(id)` 查看。运行时关闭只释放本实例，不清除用户保存的插件偏好。
 
 ### 3.3 复用工作台控件
 

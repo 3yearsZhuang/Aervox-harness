@@ -160,7 +160,7 @@ describe("SqliteSubagentPort（子任务委托执行器）", () => {
       genId: gen,
     });
     await client.execute("CREATE TRIGGER fail_sub_attempt BEFORE INSERT ON turn_attempts BEGIN SELECT RAISE(ABORT, 'injected'); END");
-    await expect(subagent.delegate(delegateInput)).rejects.toThrow("injected");
+    await expect(subagent.delegate(delegateInput)).rejects.toMatchObject({ cause: expect.objectContaining({ message: expect.stringContaining("injected") }) });
     expect(Number((await client.execute("SELECT COUNT(*) AS n FROM turns")).rows[0]!.n)).toBe(0);
     expect(await runRepo.listRunsByTurn(ctx, "turn_parent")).toHaveLength(0);
     await client.execute("DROP TRIGGER fail_sub_attempt");

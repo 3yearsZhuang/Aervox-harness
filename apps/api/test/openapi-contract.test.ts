@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildOpenApiDocument, resetOpenApiDocumentCache } from "@aervox/contracts";
 import { assembleFirstPartyPlugins } from "../src/plugin-assembly.js";
 
@@ -7,12 +7,14 @@ import { assembleFirstPartyPlugins } from "../src/plugin-assembly.js";
  * `registerPluginApiContribution({ openApiRoutes })` 登记后由内核泛化补全。
  * 因此断言插件端点前必须先跑一次真实装配（不硬编码插件 id）。
  */
+let assembly: Awaited<ReturnType<typeof assembleFirstPartyPlugins>>;
 beforeAll(async () => {
-  await assembleFirstPartyPlugins({
+  assembly = await assembleFirstPartyPlugins({
     turnRegistry: { register: () => () => undefined, get: () => undefined, getAll: () => [] },
   });
   resetOpenApiDocumentCache();
 });
+afterAll(() => { assembly?.dispose(); });
 
 describe("Learning OpenAPI 契约", () => {
   it("将作答幂等键声明为请求头，并区分首次写入与重试响应", () => {

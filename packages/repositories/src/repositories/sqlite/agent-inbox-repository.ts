@@ -38,7 +38,7 @@ const toModel = (row: InboxRow): AgentInboxItemModel => ({
   updatedAt: row.updatedAt,
 });
 
-/** 幂等键归一化（租户内唯一；同 key 不同 payload 视为重复提交，保留既有项） */
+/** 幂等键归一化（本地实例内唯一；同 key 不同 payload 视为重复提交，保留既有项） */
 const normalizeIdempotencyKey = (ctx: LocalContext, key: string): string =>
   key;
 

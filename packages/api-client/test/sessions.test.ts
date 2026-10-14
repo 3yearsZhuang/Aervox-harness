@@ -133,4 +133,29 @@ describe('useAervoxSessions', () => {
     expect(activeSessionId.value).toBe('ses_2');
     expect(mockTransport.request).toHaveBeenCalledWith('DELETE', '/v1/sessions/ses_1');
   });
+  it.each([401, 503])('keeps authoritative state when session writes fail with %i', async status => {
+    const original = { id: 'ses_1', title: 'original', projectId: null, createdAt: '2026-10-13', updatedAt: '2026-10-13' };
+    const api = useAervoxSessions();
+    api.sessions.value = [original];
+    api.switchSession(original.id);
+    vi.mocked(mockTransport.request).mockRejectedValue(new Error('HTTP ' + status));
+    await expect(api.createNewSession('new')).rejects.toThrow('HTTP ' + status);
+    await expect(api.renameSession('ses_1', 'changed')).rejects.toThrow('HTTP ' + status);
+    await expect(api.deleteSession('ses_1')).rejects.toThrow('HTTP ' + status);
+    expect(api.sessions.value).toEqual([original]);
+    expect(api.activeSessionId.value).toBe('ses_1');
+    expect(store[ACTIVE_SESSION_STORAGE_KEY]).toBe('ses_1');
+    expect(api.error.value).toBe('HTTP ' + status);
+  });
+  it('does not revive a deleted last session if creating its replacement fails', async () => {
+    const api = useAervoxSessions();
+    api.sessions.value = [{ id: 'ses_1', title: 'original', projectId: null, createdAt: '2026-10-13', updatedAt: '2026-10-13' }];
+    api.switchSession('ses_1');
+    vi.mocked(mockTransport.request).mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('HTTP 503'));
+    await expect(api.deleteSession('ses_1')).resolves.toBe(true);
+    expect(api.sessions.value).toEqual([]);
+    expect(api.activeSessionId.value).toBe('');
+    expect(api.error.value).toBe('HTTP 503');
+  });
+
 });

@@ -60,10 +60,6 @@ export class AuditExportStore {
     const rows = await this.db
       .select()
       .from(proactiveAuditEvents)
-      .where(
-        and(
-        ),
-      )
       .orderBy(desc(proactiveAuditEvents.occurredAt))
       .limit(clampLimit(limit));
     return rows.map(toAudit);

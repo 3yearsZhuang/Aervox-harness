@@ -1,3 +1,4 @@
+import { assertSkillDirectoryOwner, withSkillMutation } from "./ownership.js";
 /**
  * Aervox｜思隅 @aervox/api — Skill Neo 生命周期服务（CAP-020）
  *
@@ -224,23 +225,26 @@ export class SkillLifecycleService {
     const meta = (payload.content as { meta?: { description?: string } }).meta;
     const description = frontmatter.description || meta?.description || `Skill: ${skillKey}`;
 
-    const skillDir = path.join(this.deps.skillsRoot, skillKey);
-    await fs.mkdir(skillDir, { recursive: true });
-    const skillMd = path.join(skillDir, "SKILL.md");
-    await fs.writeFile(skillMd, markdown, "utf8");
+    return withSkillMutation(this.deps.skillsRoot, async () => {
+      await assertSkillDirectoryOwner(this.deps.registry, this.deps.skillsRoot, { kind: "local", id: skillKey });
+      const skillDir = path.join(this.deps.skillsRoot, skillKey);
+      await fs.mkdir(skillDir, { recursive: true });
+      const skillMd = path.join(skillDir, "SKILL.md");
+      await fs.writeFile(skillMd, markdown, "utf8");
 
-    await this.deps.registry.registerSkill({
-      id: skillKey,
-      name: skillKey,
-      description,
-      source: "ai_authored",
-      active: true,
-      checksum: createHash("sha256").update(markdown).digest("hex"),
-      contentPath: skillMd,
+      await this.deps.registry.registerSkill({
+        id: skillKey,
+        name: skillKey,
+        description,
+        source: "ai_authored",
+        active: true,
+        checksum: createHash("sha256").update(markdown).digest("hex"),
+        contentPath: skillMd,
+      });
+
+      const synced = await this.deps.lifecycle.markSyncedToLocal(releaseId);
+      if (!synced) throw new SkillNotFoundError(`release not found: ${releaseId}`);
+      return synced;
     });
-
-    const synced = await this.deps.lifecycle.markSyncedToLocal(releaseId);
-    if (!synced) throw new SkillNotFoundError(`release not found: ${releaseId}`);
-    return synced;
   }
 }

@@ -7,6 +7,8 @@
  *   → done；
  * - SIM_BATCH=mixed 用于验证 Aervox 严格策略对 dsh-any 混合批次的拒绝（不静默放行）。
  */
+import { writeFileSync } from "node:fs";
+if (process.env.SIM_PID_FILE) writeFileSync(process.env.SIM_PID_FILE, String(process.pid));
 import { createInterface } from "node:readline";
 
 process.stdout.write(
@@ -33,6 +35,7 @@ rl.on("line", (raw) => {
   }
   if (msg.kind !== "request") return;
 
+  if (process.env.SIM_HANG) return;
   const batchMode = process.env.SIM_BATCH ?? "all";
   const writes = [
     {

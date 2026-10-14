@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ModelRequest, PromptMessage } from "@aervox/core";
 import { createInMemoryDatabase } from "@aervox/repositories";
-import { buildApp } from "../src/app.js";
+import { buildApp } from "./app-fixture.js";
 
 const captured = vi.hoisted(() => ({ requests: [] as ModelRequest[], useTool: false }));
 vi.mock("@aervox/core", async (importOriginal) => {

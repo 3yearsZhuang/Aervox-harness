@@ -1,3 +1,4 @@
+import { sqliteErrorDetails } from "../sqlite-errors.js";
 /**
  * Aervox｜思隅 @aervox/repositories — P2P SQLite 增量 Changeset 提取、对齐与冲突自愈引擎（ITER-028）
  *
@@ -436,12 +437,12 @@ function resolveIncomingDevice(raw: unknown, fallback: string): string {
 
 /** 读取 libsql 错误的 code 字段 */
 function sqliteErrorCode(err: unknown): string {
-  return (err as { code?: string } | null)?.code ?? "";
+  return sqliteErrorDetails(err).code;
 }
 
 /** 读取 libsql 错误的 message 字段 */
 function sqliteErrorMessage(err: unknown): string {
-  return (err as { message?: string } | null)?.message ?? "";
+  return sqliteErrorDetails(err).message;
 }
 
 /**
@@ -793,8 +794,7 @@ async function prefetchLocalSnapshots(
 
 /** 判断是否为 UNIQUE 约束冲突（含主键冲突） */
 function isUniqueConstraintError(err: unknown): boolean {
-  const code = (err as { code?: string } | null)?.code ?? "";
-  const message = (err as { message?: string } | null)?.message ?? "";
+  const { code, message } = sqliteErrorDetails(err);
   return (
     code.startsWith("SQLITE_CONSTRAINT_UNIQUE") ||
     code.startsWith("SQLITE_CONSTRAINT_PRIMARYKEY") ||

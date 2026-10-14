@@ -16,11 +16,11 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@aervox/native-runtime": "workspace:*",
     "@aervox/contracts": "workspace:*",
+    "@aervox/native-runtime": "workspace:*",
     "@aervox/schema": "workspace:*",
     "@libsql/client": "^0.14.0",
-    "drizzle-orm": "^0.39.3"
+    "drizzle-orm": "^0.45.4"
   },
   "devDependencies": {
     "@types/node": "^22.10.0"

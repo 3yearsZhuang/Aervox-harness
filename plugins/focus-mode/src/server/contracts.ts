@@ -2,7 +2,7 @@
  * Aervox｜思隅 plugins/focus-mode — 对外 API 契约贡献（CAP-002 / CAP-007 / CAP-016）
  *
  * CR-060：本插件对外暴露的模式与端点契约**归插件所有**，内核（`@aervox/contracts`）
- * 不含任何插件领域标识。插件在模块加载时经 `registerPluginApiContribution` 显式登记：
+ * 不含任何插件领域标识。插件在宿主装配时经 `registerPluginApiContribution` 显式登记：
  *
  * - `streamEventTypes` + `eventProjections`：插件自有回合流事件（术语抽取）及其对外投影；
  * - `openApiRoutes`：概念探索与练习报告端点的 OpenAPI 片段。
@@ -74,9 +74,9 @@ export const createPracticeReportSchema = z.object({
 
 // ============ 登记 ============
 
-/** 登记本插件对外 API 契约贡献（模块加载时执行，须先于文档生成与请求处理） */
-export function registerFocusModeApiContract(): void {
-  registerPluginApiContribution({
+/** 登记并返回本次贡献的注销函数，须先于文档生成与请求处理。 */
+export function registerFocusModeApiContract(): () => void {
+  return registerPluginApiContribution({
     streamEventTypes: [TERMS_EXTRACTED_EVENT],
     eventProjections: { [TERMS_EXTRACTED_EVENT]: termsExtractedEventDataSchema },
     openApiRoutes: [
