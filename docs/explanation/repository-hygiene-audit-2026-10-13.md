@@ -319,7 +319,7 @@ mise exec -- pnpm audit --json
 
 ## 8. 授权后的整改记录
 
-实施分支 `fix/repository-hygiene` 基于 `511f9d1e`，保留插件生命周期前置变更；原始主工作区未改动。本节记录整改，不把基线测试通过当作修改后的验证。
+实施分支 `fix/repository-hygiene` 基于 `511f9d1e`，保留插件生命周期前置变更；原始主工作区未改动。整改提交 `e5316da` 见 [PR #277](https://github.com/3yearsZhuang/Aervox-harness/pull/277)，以 `feat/plugin-lifecycle-reliability` 为基线单独评审，尚未合入。本节记录整改，不把基线测试通过当作修改后的验证。
 
 | 编号 | 实现结果 | 回归证据 |
 |---|---|---|

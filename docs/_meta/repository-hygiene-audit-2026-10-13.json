@@ -1910,6 +1910,9 @@
       "No Electron/mobile packaging or release signing acceptance",
       "No production migration or release",
       "Dependency exceptions remain open"
-    ]
+    ],
+    "commit": "e5316da",
+    "pullRequest": "https://github.com/3yearsZhuang/Aervox-harness/pull/277",
+    "pullRequestBase": "feat/plugin-lifecycle-reliability"
   }
 }
