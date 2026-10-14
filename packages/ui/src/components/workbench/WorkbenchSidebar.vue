@@ -343,7 +343,17 @@ function toggleTheme() {
     <div class="sidebar-sessions-scroll" role="navigation" aria-label="会话历史">
       <p v-if="sessionError || sessions.error.value" class="sidebar-error" role="alert">{{ sessionError || sessions.error.value }}</p>
       <div v-if="groupedSessions.length === 0" class="empty-sessions">
-        <span>{{ searchQuery ? '未找到匹配的对话' : '暂无对话，点击上方新建' }}</span>
+        <span class="empty-sessions-icon" aria-hidden="true"><MessageSquare :size="16" /></span>
+        <strong>{{ searchQuery ? '没有匹配的对话' : '还没有对话' }}</strong>
+        <small>{{ searchQuery ? '换个关键词再试，或清空搜索。' : '新建对话，从卡点开始。' }}</small>
+        <AervoxButton variant="ghost"
+          v-if="!searchQuery"
+          type="button"
+          class="empty-sessions-action"
+          @click="handleCreateSession"
+        >
+          <Plus :size="14" />新建对话
+        </AervoxButton>
       </div>
 
       <div
