@@ -1,7 +1,6 @@
 /**
  * Aervox｜思隅 @aervox/api — 系统级 GPT-SoVITS 本地与远程适配器
  */
-import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import type {
   AudioArtifact,
@@ -283,19 +282,4 @@ export class GptSovitsRemoteProvider implements VoiceProviderPort {
       generatedAt: new Date().toISOString(),
     };
   }
-}
-
-export function voiceReferenceFingerprint(ref: {
-  providerId: string;
-  kind: string;
-  endpoint?: string;
-  protocol?: string;
-  modelId?: string;
-  speakerId?: string;
-  modelPath?: string;
-  secretRef?: string;
-}): string {
-  const safe = { ...ref };
-  delete safe.secretRef;
-  return createHash("sha256").update(JSON.stringify(safe)).digest("hex");
 }

@@ -51,15 +51,6 @@ function removeArrayItem(index: number): void {
   emit('change', next)
 }
 
-function onInputChange(event: Event): void {
-  emit('change', (event.target as HTMLInputElement).value)
-}
-function onTextChange(event: Event): void {
-  emit('change', (event.target as HTMLTextAreaElement).value)
-}
-function onNumberChange(event: Event): void {
-  emit('change', Number((event.target as HTMLInputElement).value))
-}
 function onBoolChange(event: Event): void {
   emit('change', (event.target as HTMLInputElement).checked)
 }

@@ -2,7 +2,8 @@
  * Aervox｜思隅 @aervox/api — 系统级 Persona Bundle 导入导出
  */
 import { createHash } from "node:crypto";
-import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
+import { strFromU8, strToU8 } from "fflate";
+import { executeArchive, ARCHIVE_LIMITS, normalizeSkillArchivePath } from "../../../shared/archive-worker.js";
 import type { LocalContext, SqlitePersonaRepository, SkillRegistrationModel } from "@aervox/repositories";
 import type { SkillCatalogPort } from "../../ecosystem/skills/index.js";
 import {
@@ -113,15 +114,13 @@ export async function exportPersonaBundle(input: {
     config: input.revision.config,
   };
 
-  const skillZip = zipSync(skillZipFiles, { level: 6 });
-  const bundleBytes = zipSync(
-    {
+  const skillZip = await executeArchive<Uint8Array>({ kind: "pack", input: skillZipFiles, limits: ARCHIVE_LIMITS });
+  const bundleBytes = await executeArchive<Uint8Array>({ kind: "pack", limits: ARCHIVE_LIMITS, input: {
       "manifest.json": strToU8(JSON.stringify(manifest, null, 2)),
       "persona.json": strToU8(JSON.stringify(personaJson, null, 2)),
       "skills/skills.zip": skillZip,
     },
-    { level: 6 },
-  );
+  });
 
   return {
     bytes: bundleBytes,
@@ -131,11 +130,19 @@ export async function exportPersonaBundle(input: {
   };
 }
 
-export function previewPersonaBundle(
+export async function previewPersonaBundle(
   bytes: Uint8Array,
   workspaceId: string,
-): PersonaBundleImportPreview {
-  const files = unzipSync(bytes);
+): Promise<PersonaBundleImportPreview> {
+  const files = await unpackPersonaFiles(bytes);
+  return previewPersonaFiles(files, workspaceId);
+}
+
+async function unpackPersonaFiles(bytes: Uint8Array): Promise<Record<string, Uint8Array>> {
+  return executeArchive({ kind: "unpack", input: bytes, limits: ARCHIVE_LIMITS });
+}
+
+async function previewPersonaFiles(files: Record<string, Uint8Array>, workspaceId: string): Promise<PersonaBundleImportPreview> {
   const manifest = readJsonFile(files, "manifest.json") as PersonaBundleManifest;
   const personaJson = readJsonFile(files, "persona.json") as {
     schemaVersion: number;
@@ -162,7 +169,12 @@ export function previewPersonaBundle(
     [];
 
   if (skillZipBytes) {
-    const unzippedSkills = unzipSync(skillZipBytes);
+    const outerBytes = Object.values(files).reduce((sum, file) => sum + file.byteLength, 0);
+    const unzippedSkills = await executeArchive<Record<string, Uint8Array>>({
+      kind: "unpack", input: skillZipBytes, normalizePath: normalizeSkillArchivePath,
+      limits: { ...ARCHIVE_LIMITS, expandedBytes: ARCHIVE_LIMITS.expandedBytes - outerBytes,
+        entries: ARCHIVE_LIMITS.entries - Object.keys(files).length },
+    });
     const skillNames = new Set(
       Object.keys(unzippedSkills).map((k) => k.split("/")[0]).filter(Boolean),
     );
@@ -212,8 +224,8 @@ export async function importPersonaBundle(input: {
   skills: SkillRegistrationModel[];
   missingDependencies: string[];
 }> {
-  const files = unzipSync(input.bytes);
-  const preview = previewPersonaBundle(input.bytes, input.tenant.workspaceId);
+  const files = await unpackPersonaFiles(input.bytes);
+  const preview = await previewPersonaFiles(files, input.tenant.workspaceId);
   const skillZipBytes = files["skills/skills.zip"];
   let installedSkills: SkillRegistrationModel[] = [];
 

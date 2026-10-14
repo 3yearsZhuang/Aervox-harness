@@ -44,6 +44,17 @@ describe("CAP-020: Skill 注册表仓储", () => {
     expect(updated.active).toBe(1);
   });
 
+  it("preserves ownership across local/plugin collisions and permits same-owner updates", async () => {
+    const original = { id: "owned", name: "owned", description: "original", source: "plugin", pluginId: "plugin-a", readonly: true };
+    await repo.registerSkill(original);
+    await expect(repo.registerSkill({ id: "owned", name: "owned", description: "local" })).rejects.toThrow("skill_owner_conflict");
+    await expect(repo.registerSkill({ ...original, pluginId: "plugin-b" })).rejects.toThrow("skill_owner_conflict");
+    expect((await repo.getSkill("owned"))?.description).toBe("original");
+    expect((await repo.registerSkill({ ...original, description: "updated" })).description).toBe("updated");
+    await repo.registerSkill({ id: "local", name: "local", description: "local" });
+    await expect(repo.registerSkill({ ...original, id: "local" })).rejects.toThrow("skill_owner_conflict");
+  });
+
   it("listSkills(activeOnly) 只返回启用技能；setActive 切换启停", async () => {
     await repo.registerSkill({ id: "a", name: "a", description: "A" });
     await repo.registerSkill({ id: "b", name: "b", description: "B" });

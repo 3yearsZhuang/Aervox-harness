@@ -15,7 +15,7 @@ describe("atomic Turn acceptance", () => {
   const accept = (id = "t") => repo.acceptTurn(ctx, { turnId: id, sessionId: "s", idempotencyKey: "same", attemptId: `a_${id}`, message: { id: `m_${id}`, content: "current" }, consumeInbox: true });
   it.each(["BEFORE INSERT ON turns", "BEFORE INSERT ON message_versions", "BEFORE INSERT ON outbox_events", "BEFORE INSERT ON turn_attempts", "BEFORE UPDATE ON agent_inbox_items"])("%s failure leaves input replayable and no partial Turn", async (point) => {
     await database.client.execute(`CREATE TRIGGER fail_accept ${point} BEGIN SELECT RAISE(ABORT, 'injected'); END`);
-    await expect(accept()).rejects.toThrow("injected");
+    await expect(accept()).rejects.toMatchObject({ cause: expect.objectContaining({ message: expect.stringContaining("injected") }) });
     for (const table of ["turns", "message_versions", "outbox_events", "turn_attempts"]) {
       expect(Number((await database.client.execute(`SELECT COUNT(*) AS n FROM ${table}`)).rows[0]!.n)).toBe(0);
     }
@@ -40,7 +40,7 @@ describe("atomic Turn acceptance", () => {
     expect(await repo.recoverExpiredAttempts(database.client)).toBe(0);
     await database.client.execute("UPDATE turn_attempts SET started_at = '2000-01-01T00:00:00.000Z'");
     await database.client.execute("CREATE TRIGGER fail_recovery BEFORE INSERT ON turn_stream_events BEGIN SELECT RAISE(ABORT, 'injected'); END");
-    await expect(repo.recoverExpiredAttempts(database.client)).rejects.toThrow("injected");
+    await expect(repo.recoverExpiredAttempts(database.client)).rejects.toMatchObject({ cause: expect.objectContaining({ message: expect.stringContaining("injected") }) });
     expect(await repo.listTurnAttempts(ctx, "t")).toMatchObject([{ status: "CancelRequested", fencingToken: 0, finishedAt: null }]);
     expect((await repo.listToolExecutionsByTurn(ctx, "t"))[0]?.status).toBe("pending");
     expect(await repo.getStreamEvents(ctx, "t")).toEqual([]);
@@ -67,7 +67,7 @@ describe("atomic Turn acceptance", () => {
     await repo.createTurnWithOutbox(ctx, { id: "orphan2", sessionId: "s", idempotencyKey: "orphan2" }, { id: "m_orphan2", content: "queued" });
     await database.client.execute("UPDATE turns SET created_at = '2000-01-01T00:00:00.000Z'");
     await database.client.execute("CREATE TRIGGER fail_orphan BEFORE INSERT ON turn_stream_events BEGIN SELECT RAISE(ABORT, 'injected'); END");
-    await expect(repo.recoverOrphanTurns()).rejects.toThrow("injected");
+    await expect(repo.recoverOrphanTurns()).rejects.toMatchObject({ cause: expect.objectContaining({ message: expect.stringContaining("injected") }) });
     expect((await repo.getTurn(ctx, "orphan2"))?.status).toBe("Created");
     expect(await repo.getStreamEvents(ctx, "orphan2")).toEqual([]);
     await database.client.execute("DROP TRIGGER fail_orphan");

@@ -4,6 +4,7 @@
 import { and, desc, eq } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
 import { proactiveActivationLeases } from "@aervox/schema";
+import { sqliteErrorDetails } from "../../../sqlite-errors.js";
 import { RepositoryNotFoundError } from "../../../errors.js";
 import type { LocalContext } from "../../../local-context.js";
 import type {
@@ -78,8 +79,7 @@ export class ActivationLeaseStore {
     } catch (error) {
       // 并发竞态：两个 authorize 同帧到达时彼此都查不到对方的未提交行，后插入者
       // 撞 UNIQUE(device_id, epoch)。捕获后重查复用，保证接口幂等。
-      const constraintCode = (error as {code?: string} | null)?.code ?? "";
-      const message = error instanceof Error ? error.message : String(error);
+      const { code: constraintCode, message } = sqliteErrorDetails(error);
       if (!constraintCode.startsWith("SQLITE_CONSTRAINT") || !message.includes("UNIQUE")) throw error;
       const [raced] = await this.db
         .select()
@@ -234,10 +234,6 @@ export class ActivationLeaseStore {
     const rows = await this.db
       .select()
       .from(proactiveActivationLeases)
-      .where(
-        and(
-        ),
-      )
       .orderBy(desc(proactiveActivationLeases.issuedAt))
       .limit(MAX_LIST_LIMIT);
     return rows.map(toLease);

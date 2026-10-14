@@ -34,10 +34,6 @@ export class SqliteSafetyRepository implements ISafetyRepository {
     const rows = await this.db
       .select()
       .from(safetyIncidents)
-      .where(
-        and(
-        ),
-      )
       .orderBy(desc(safetyIncidents.createdAt))
       .limit(limit);
     return rows as SafetyIncidentModel[];

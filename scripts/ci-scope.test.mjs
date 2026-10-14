@@ -218,3 +218,21 @@ test("Rust pilot and executable contracts remain in local and CI gates", () => {
   assert.match(config, /cargo test --locked --manifest-path native\/tools\/vector-pilot\/Cargo.toml/);
   assert.match(config, /node --test scripts\/native-search.test.mjs/);
 });
+
+
+test("CI covers Playwright test directories, configs and executable root launchers", () => {
+  const workflow = readWorkflowPaths(CI_WORKFLOW);
+  const required = ["aervox", "run-cli", "siyu-chat.command"];
+  for (const config of ["playwright.config.ts", "playwright.ui.config.ts"]) {
+    const source = fs.readFileSync(path.join(ROOT_DIR, config), "utf8");
+    const match = source.match(/testDir:\s*["']\.\/([^"']+)["']/);
+    assert.ok(match, `${config} must declare a testDir`);
+    required.push(config, `${match[1]}/**`);
+  }
+  assert.deepEqual(findUncoveredPaths(workflow.pullRequest, required), []);
+  assert.deepEqual(findUncoveredPaths(workflow.push, required), []);
+  const source = fs.readFileSync(CI_WORKFLOW, "utf8");
+  assert.match(source, /playwright install --with-deps chromium/);
+  assert.match(source, /pnpm test:e2e:ui/);
+  assert.match(source, /pnpm check:dependency-audit/);
+});

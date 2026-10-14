@@ -85,7 +85,7 @@ export class SkillManager {
 
   /** 安装 zip（可含一个或多个技能目录；根含 SKILL.md 为单技能形态，需显式 name） */
   async installFromZip(zipData: Buffer, opts: SkillInstallOptions = {}): Promise<SkillRegistrationModel[]> {
-    const entries = unzip(zipData);
+    const entries = await unzip(zipData);
     const files = entries.filter((e) => !e.isDirectory);
     if (files.length === 0) throw new Error("Zip archive is empty.");
 
@@ -127,6 +127,10 @@ export class SkillManager {
     overwrite: boolean,
     stripFirstSegment: boolean,
   ): Promise<SkillRegistrationModel> {
+    const registered = await this.registry.getSkill(name);
+    if (registered && (registered.readonly === 1 || registered.pluginId || !overwrite)) {
+      throw new FileExistsError(`Skill ${name} already exists or belongs to a plugin.`);
+    }
     await fs.mkdir(this.skillsRoot, { recursive: true });
     const destDir = path.join(this.skillsRoot, name);
     const exists = await fs

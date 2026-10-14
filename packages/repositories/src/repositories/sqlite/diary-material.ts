@@ -7,7 +7,7 @@ export function createSqliteDiaryMaterialPort(db: AervoxDatabase): DiaryMaterial
   return { collect: (context, window) => collectDiaryMaterial(db, context, window) };
 }
 
-/** 收集 [windowStartIso, windowEndIso] 窗口内的日记素材（跨会话，按租户） */
+/** 收集 [windowStartIso, windowEndIso] 窗口内的日记素材（本地实例内跨会话） */
 export async function collectDiaryMaterial(
   db: AervoxDatabase,
   ctx: LocalContext,

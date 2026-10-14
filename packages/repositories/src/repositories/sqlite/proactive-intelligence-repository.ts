@@ -340,8 +340,7 @@ export class SqliteProactiveIntelligenceRepository {
   }
 
   async listRelationships(ctx: LocalContext, limit?: number) {
-    const rows = await this.db.select().from(proactiveRelationships).where(and(
-    )).orderBy(desc(proactiveRelationships.lastInteractionAt)).limit(limitOf(limit));
+    const rows = await this.db.select().from(proactiveRelationships).orderBy(desc(proactiveRelationships.lastInteractionAt)).limit(limitOf(limit));
     return rows.map((row) => this.relationshipModel(row));
   }
 
@@ -486,8 +485,7 @@ export class SqliteProactiveIntelligenceRepository {
   }
 
   async listTriggerEvents(ctx: LocalContext, limit?: number) {
-    const rows = await this.db.select().from(proactiveTriggerEvents).where(and(
-    )).orderBy(desc(proactiveTriggerEvents.occurredAt)).limit(limitOf(limit));
+    const rows = await this.db.select().from(proactiveTriggerEvents).orderBy(desc(proactiveTriggerEvents.occurredAt)).limit(limitOf(limit));
     return rows.map((row) => this.triggerEventModel(row));
   }
 
@@ -662,8 +660,7 @@ export class SqliteProactiveIntelligenceRepository {
   }
 
   async listAttentionStates(ctx: LocalContext, limit?: number) {
-    const rows = await this.db.select().from(proactiveAttentionStates).where(and(
-    )).orderBy(desc(proactiveAttentionStates.windowEnd)).limit(limitOf(limit));
+    const rows = await this.db.select().from(proactiveAttentionStates).orderBy(desc(proactiveAttentionStates.windowEnd)).limit(limitOf(limit));
     return rows.map((row) => this.attentionModel(row));
   }
 
@@ -707,8 +704,7 @@ export class SqliteProactiveIntelligenceRepository {
   }
 
   async listScenes(ctx: LocalContext, limit?: number) {
-    const rows = await this.db.select().from(proactiveSceneSnapshots).where(and(
-    )).orderBy(desc(proactiveSceneSnapshots.capturedAt)).limit(limitOf(limit));
+    const rows = await this.db.select().from(proactiveSceneSnapshots).orderBy(desc(proactiveSceneSnapshots.capturedAt)).limit(limitOf(limit));
     return rows.map((row) => this.sceneModel(row));
   }
 
@@ -735,8 +731,7 @@ export class SqliteProactiveIntelligenceRepository {
   }
 
   async listReviews(ctx: LocalContext, limit?: number) {
-    const rows = await this.db.select().from(proactiveReviewReports).where(and(
-    )).orderBy(desc(proactiveReviewReports.periodEnd)).limit(limitOf(limit));
+    const rows = await this.db.select().from(proactiveReviewReports).orderBy(desc(proactiveReviewReports.periodEnd)).limit(limitOf(limit));
     return rows.map((row) => this.reviewModel(row));
   }
 

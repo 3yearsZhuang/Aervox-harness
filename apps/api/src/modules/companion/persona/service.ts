@@ -360,7 +360,7 @@ export class PersonaService {
     });
   }
 
-  previewBundle(bytes: Uint8Array, workspaceId: string): PersonaBundleImportPreview {
+  previewBundle(bytes: Uint8Array, workspaceId: string): Promise<PersonaBundleImportPreview> {
     return previewPersonaBundle(bytes, workspaceId);
   }
 

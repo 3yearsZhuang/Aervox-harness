@@ -74,6 +74,7 @@ export async function createStdioAdapterDriver(
     env: { ...process.env, ...deps.env },
     stdio: ["pipe", "pipe", "pipe"],
   });
+  const childClosed = new Promise<void>(resolve => child.once("close", () => resolve()));
   const readline = createInterface({ input: child.stdout! });
 
   let admitted = false;
@@ -98,36 +99,51 @@ export async function createStdioAdapterDriver(
   child.on("exit", () => failUnavailable());
   child.on("error", () => failUnavailable());
 
-  /** 返回已准入的 manifest（hello 行解析；超时/失配 → 抛错并 kill） */
-  const handshake = (): Promise<AdapterManifest> =>
-    withTimeout(
-      new Promise<AdapterManifest>((resolve, reject) => {
-        const onLine = (line: string) => {
-          try {
-            const msg = decodeAdapterLine(line);
-            if (msg.kind !== "hello") {
-              throw new Error(`adapter_protocol_invalid: expected hello, got ${msg.kind}`);
-            }
-            const verification = verifyAdapterManifest(msg.manifest, {
-              adapterId: deps.expected.adapterId,
-              sha256: deps.expected.sha256,
-            });
-            if (!verification.ok) {
-              reject(new Error(`adapter_admission_failed: ${verification.error}`));
-              return;
-            }
-            resolve(msg.manifest);
-          } catch (err) {
-            reject(err instanceof Error ? err : new Error(String(err)));
-            return; // 不再消费该行
-          }
-        };
-        readline.once("line", onLine);
-        readline.once("close", () => reject(new Error("adapter_handshake_eof")));
-      }),
-      handshakeTimeoutMs,
-      "adapter_handshake_timeout",
-    );
+  const requestTimers = new Set<ReturnType<typeof setTimeout>>();
+  let closing: Promise<void> | undefined;
+  const close = (): Promise<void> => {
+    if (closing) return closing;
+    failUnavailable();
+    for (const timer of requestTimers) clearTimeout(timer);
+    requestTimers.clear();
+    readline.close();
+    child.stdin?.destroy();
+    closing = (async () => {
+      if (child.exitCode !== null || child.signalCode !== null || child.pid === undefined) return;
+      child.kill();
+      try { await withTimeout(childClosed, 1000, "adapter_stop_timeout"); }
+      catch {
+        child.kill("SIGKILL");
+        await withTimeout(childClosed, 1000, "adapter_kill_timeout");
+      }
+    })();
+    return closing;
+  };
+
+  const handshake = (): Promise<AdapterManifest> => new Promise((resolve, reject) => {
+    const finish = (error?: unknown, manifest?: AdapterManifest) => {
+      clearTimeout(timer);
+      readline.off("line", onHello);
+      readline.off("close", onEof);
+      child.off("error", onError);
+      if (error) reject(error); else resolve(manifest!);
+    };
+    const onEof = () => finish(new Error("adapter_handshake_eof"));
+    const onError = (error: Error) => finish(error);
+    const onHello = (line: string) => {
+      try {
+        const message = decodeAdapterLine(line);
+        if (message.kind !== "hello") throw new Error("adapter_protocol_invalid: expected hello");
+        const verification = verifyAdapterManifest(message.manifest, deps.expected);
+        if (!verification.ok) throw new Error(`adapter_admission_failed: ${verification.error}`);
+        finish(undefined, message.manifest);
+      } catch (error) { finish(error); }
+    };
+    const timer = setTimeout(() => finish(new Error("adapter_handshake_timeout")), handshakeTimeoutMs);
+    readline.once("line", onHello);
+    readline.once("close", onEof);
+    child.once("error", onError);
+  });
 
   const onLine = (line: string): void => {
     if (!admitted) return; // 握手行已由 handshake 消费
@@ -158,7 +174,9 @@ export async function createStdioAdapterDriver(
   };
   readline.on("line", onLine);
 
-  const manifest = await handshake();
+  let manifest: AdapterManifest;
+  try { manifest = await handshake(); }
+  catch (error) { await close(); throw error; }
   admitted = true;
 
   const run = async function* (request: AdapterRequest): AsyncIterable<AdapterEvent> {
@@ -210,16 +228,14 @@ export async function createStdioAdapterDriver(
 
     child.stdin?.write(`${encodeAdapterLine({ kind: "request", id: requestId, request })}\n`);
 
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
       // 每次请求整体超时：超时 kill（失败自动禁用）
-      const timeout = setTimeout(() => {
-        void (async () => {
-          const s = streams.get(requestId);
-          if (s) s.onError(new Error("adapter_request_timeout").message);
-          child.kill();
-          closed = true;
-        })();
+      timeout = setTimeout(() => {
+        streams.get(requestId)?.onError("adapter_request_timeout");
+        void close().catch(error => process.stderr.write(`[adapter-stop] ${String(error)}\n`));
       }, requestTimeoutMs);
+      requestTimers.add(timeout);
 
       for (;;) {
         const ev = await new Promise<AdapterEvent | "done">((resolve, reject) => {
@@ -229,8 +245,9 @@ export async function createStdioAdapterDriver(
         if (ev === "done") break;
         yield ev;
       }
-      clearTimeout(timeout);
     } finally {
+      clearTimeout(timeout);
+      if (timeout) requestTimers.delete(timeout);
       streams.delete(requestId);
     }
   };
@@ -241,10 +258,7 @@ export async function createStdioAdapterDriver(
       manifest,
       run,
     },
-    close: async () => {
-      closed = true;
-      child.kill();
-    },
+    close,
   };
 }
 

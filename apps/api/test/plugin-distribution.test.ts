@@ -21,7 +21,7 @@ import { buildApp } from "../src/app.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
 import { inspectPluginBundle, PLUGIN_ARCHIVE_LIMITS } from "../src/modules/ecosystem/plugins/package-bundle.js";
-import * as archiveWorker from "../src/modules/ecosystem/plugins/archive-worker.js";
+import * as archiveWorker from "../src/shared/archive-worker.js";
 
 function buildTestPluginBundle(overrides: {
   id?: string;
@@ -280,7 +280,7 @@ describe("CAP-020 插件分发与打包集成测试", () => {
     expect(oversized.byteLength).toBeLessThan(100_000);
     expect((await inspectPluginBundle(oversized)).issues.join(" ")).toContain("expansion limits");
     const entries = Object.fromEntries(Array.from({ length: PLUGIN_ARCHIVE_LIMITS.entries + 1 }, (_, i) => [`entry-${i}`, new Uint8Array()]));
-    expect((await inspectPluginBundle(zipSync(entries))).issues.join(" ")).toContain("expansion limits");
+    expect((await inspectPluginBundle(zipSync(entries))).issues.join(" ")).toContain("entry limit");
   });
 
   it("POST /v1/plugins/install-package: 重复安装冲突返回 409，支持 overwrite=true 覆盖安装", async () => {

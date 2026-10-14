@@ -219,18 +219,24 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
     message: `Worker received ${signal}; stopping scheduler and closing connections`,
     fields: { signal },
   });
+  let exitCode = 0;
   try {
-    if (healthServer) await new Promise<void>((resolve, reject) => healthServer.close(error => error ? reject(error) : resolve()));
     await host.stop();
+    if (healthServer) {
+      const closed = new Promise<void>((resolve, reject) => healthServer.close(error => error ? reject(error) : resolve()));
+      healthServer.closeAllConnections();
+      await closed;
+    }
     client.close();
     proactiveClient.close();
   } catch (err) {
+    exitCode = 1;
     logger.error({
       event: "worker.shutdown.failed",
       message: `Worker shutdown encountered an error: ${err instanceof Error ? err.message : String(err)}`,
     });
   } finally {
-    process.exit(0);
+    process.exit(exitCode);
   }
 }
 

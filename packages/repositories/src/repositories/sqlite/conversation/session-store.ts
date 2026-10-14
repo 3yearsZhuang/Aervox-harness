@@ -58,7 +58,7 @@ export class SessionStore {
    *
    * 用于修复 API 直接以外部 sessionId 创建 Turn 时的外键违约
    * （turns.session_id 引用 sessions.id）。注意 sessions.id 为主键，
-   * 全局唯一，多租户调用方应自行提供租户限定的 sessionId。
+   * 在本地实例内唯一；调用方应复用同一对话的 sessionId。
    */
   async getOrCreateSession(
     ctx: LocalContext,

@@ -77,7 +77,7 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
     return !!found;
   }
 
-  /** 2d：该租户是否存在未完成的删除/撤权请求（删除/撤权水位未追平；AVX-HAR-001 §11.3 fail-closed 闸门数据源） */
+  /** 2d：本地实例是否存在未完成的删除/撤权请求（删除/撤权水位未追平；AVX-HAR-001 §11.3 fail-closed 闸门数据源） */
   async hasPendingDeletionRequest(ctx: LocalContext): Promise<boolean> {
     const rows = await this.db
       .select({ id: deletionRequests.id })

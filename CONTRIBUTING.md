@@ -58,12 +58,15 @@ PRD 定义产品价值与范围，SRS 定义可观察行为和验收，架构/AD
 | 日常增量检查 | `./aervox ci` |
 | 定向测试 | `./aervox test`、`./aervox test api`、`./aervox test repos` |
 | 文档增量 / 全量检查 | `mise tasks run docs-lint-affected` / `mise tasks run ci-docs` |
+| 依赖公告审计 | `mise exec -- pnpm check:dependency-audit` |
 | 全量代码检查 | `mise tasks run ci-code` |
 | 全量终审 | `./aervox ci all` |
 | Markdown 排版修复 | `mise exec -- markdownlint-cli2 --fix <files>` |
 | 插件分发包恢复 | `mise tasks run package-plugins` |
 
 Markdownlint 必须使用 mise 注入的固定版本，不用 `npx` 临时下载。纯文档 PR 运行文档门禁；代码或 CI 工具变更按影响范围验证，推送代码 PR 前运行全量终审。CI 配置变更本身需要相应脚本回归。测试通过证明所覆盖行为，不能代替实机、签名、迁移或发布验收。
+
+依赖审计在独立 CI job 执行，扫描包含开发依赖与桌面运行时的完整锁文件；新增命中、错误响应或过期豁免均失败。临时豁免只匹配 `scripts/dependency-audit-exceptions.json` 中的公告、版本和依赖路径，必须有原因、负责方与到期日；修复后删除过时豁免。
 
 外部参考子模块不属于默认构建前置条件；完整代码门禁中的 DSH 适配测试要求先运行 `git submodule update --init reference/deepseek-harness`。其他参考代码按需初始化。工具版本、测试选择及脚本入口以配置为准，不在本文手工维护用例数量和耗时。
 

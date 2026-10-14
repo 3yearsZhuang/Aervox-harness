@@ -40,6 +40,7 @@
  * 设计依据：reference/baishou-next（AGPLv3，仅借鉴公开思想，自研实现）。
  * 与 AST-01 会话级写锁互补：锁降低冲突概率，重试兜底残留冲突。
  */
+import { sqliteErrorDetails } from "./sqlite-errors.js";
 import type { Client, Transaction, TransactionMode } from "@libsql/client";
 
 /** busy 错误特征文本（libsql/sqlite 常见形态） */
@@ -78,7 +79,7 @@ export interface BusyRetryConfig {
 
 /** 判断错误是否为 SQLite 写锁竞争（非损坏、可安全重试） */
 export function isSqliteBusyError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
+  const { message } = sqliteErrorDetails(error);
   // 终态/编程类错误优先排除，绝不重试（见 NON_RETRYABLE_PATTERNS 说明）。
   if (NON_RETRYABLE_PATTERNS.some((p) => p.test(message))) {
     return false;
@@ -93,7 +94,7 @@ export function isSqliteBusyError(error: unknown): boolean {
  * 只有进程退出才释放被遗弃事务持有的写锁。调用方应记致命日志并提示重启。
  */
 export function isSqliteConnectionPoisonedError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
+  const { message } = sqliteErrorDetails(error);
   return NON_RETRYABLE_PATTERNS.some((p) => p.test(message));
 }
 

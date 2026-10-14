@@ -1,3 +1,4 @@
+import { manualChunks } from '../../scripts/vendor-chunks'
 import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
@@ -15,25 +16,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 500,
     rollupOptions: {
       output: {
-        manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('@sekai-world/pixi-live2d-display-mulmotion')) {
-              return 'vendor-live2d'
-            }
-            if (id.includes('pixi.js')) {
-              return 'vendor-pixi'
-            }
-            if (id.includes('element-plus')) {
-              return 'vendor-element'
-            }
-            if (id.includes('lucide-vue-next')) {
-              return 'vendor-icons'
-            }
-            if (id.includes('vue')) {
-              return 'vendor-vue'
-            }
-          }
-        },
+        manualChunks,
       },
     },
   },

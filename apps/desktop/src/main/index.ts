@@ -20,7 +20,7 @@ import type {
     ProactiveProfileStatus,
 } from '@aervox/contracts/proactive'
 import {isProfileSourceId} from '@aervox/contracts/proactive'
-import {resolveDesktopSessionId} from './runtime-config.js'
+import {resolveTurnSessionId} from './runtime-config.js'
 import {nativeArtifactFromEnvironment, loadNativeArtifact, type NativeArtifact} from '@aervox/native-runtime'
 import {createNativeAppActivityProvider} from './native-app-activity.js'
 
@@ -623,6 +623,7 @@ function isTurnAttachment(value: unknown): value is {attachmentId: string; name?
 
 function isTurnRequest(value: unknown): value is {
     requestId: string
+    sessionId?: string
     content: string
     toolApprovalMode?: 'ask' | 'full_access'
     attachments?: Array<{attachmentId: string; name?: string; mediaType?: string}>
@@ -651,7 +652,6 @@ async function streamAervoxTurn(event: Electron.IpcMainEvent, payload: unknown) 
     if (!isTurnRequest(payload)) return
     const {requestId, content} = payload
     const toolApprovalMode = payload.toolApprovalMode ?? 'ask'
-    const sessionId = resolveDesktopSessionId(process.env.AERVOX_SESSION_ID)
     const send = (message: Record<string, unknown>) => {
         if (!event.sender.isDestroyed()) event.sender.send('aervox:turn:event', {requestId, ...message})
     }
@@ -662,6 +662,7 @@ async function streamAervoxTurn(event: Electron.IpcMainEvent, payload: unknown) 
     }
 
     try {
+        const sessionId = resolveTurnSessionId(payload.sessionId, process.env.AERVOX_SESSION_ID)
         const headers: Record<string, string> = {
             Accept: 'application/json',
             'Content-Type': 'application/json',

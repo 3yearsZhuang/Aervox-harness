@@ -210,18 +210,6 @@ export function diffSchema(
   return { defaults, orphaned };
 }
 
-/** 取字段本地化文案（字符串直用，否则按 locale 回退 zh-CN/首键） */
-export function resolveI18n(
-  value: string | Record<string, string> | undefined,
-  locale = "zh-CN",
-  fallback = "",
-): string {
-  if (value === undefined) return fallback;
-  if (typeof value === "string") return value;
-  if (value[locale]) return value[locale];
-  return value["zh-CN"] ?? Object.values(value)[0] ?? fallback;
-}
-
 function deepClone(value: unknown): unknown {
   if (value === undefined) return undefined;
   return JSON.parse(JSON.stringify(value));

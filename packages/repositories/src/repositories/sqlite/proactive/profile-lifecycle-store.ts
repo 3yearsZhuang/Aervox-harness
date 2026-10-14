@@ -304,10 +304,6 @@ export class ProfileLifecycleStore {
     const rows = await this.db
       .select()
       .from(proactiveProfileRevisions)
-      .where(
-        and(
-        ),
-      )
       .orderBy(desc(proactiveProfileRevisions.revision))
       .limit(clampLimit(limit));
     return rows.map((row) => toRevision(row, this.cipher));

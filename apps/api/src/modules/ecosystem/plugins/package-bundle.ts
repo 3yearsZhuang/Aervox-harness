@@ -14,7 +14,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { strFromU8, strToU8 } from "fflate";
-import { executeArchive } from "./archive-worker.js";
+import { executeArchive, ARCHIVE_LIMITS, isSafeArchivePath } from "../../../shared/archive-worker.js";
 import {
   pluginManifestSchema,
   type PluginManifest,
@@ -37,27 +37,15 @@ import type { PluginConfigService } from "./config-service.js";
 import type { PluginService } from "./service.js";
 import { parseConfigSchema } from "./config-schema.js";
 
-export const PLUGIN_ARCHIVE_LIMITS = {
-  compressedBytes: 20 * 1024 * 1024,
-  expandedBytes: 50 * 1024 * 1024,
-  entryBytes: 5 * 1024 * 1024,
-  entries: 2048,
-} as const;
+export const PLUGIN_ARCHIVE_LIMITS = ARCHIVE_LIMITS;
 
-/** Check declared sizes before fflate allocates decompression buffers. */
+/** Bound declared and actual expansion before accepting archive contents. */
 async function unpackPluginBundle(bytes: Uint8Array): Promise<Record<string, Uint8Array>> {
   return executeArchive({ kind: "unpack", input: bytes, limits: PLUGIN_ARCHIVE_LIMITS, isSafePath: isSafeZipEntryPath });
 }
 
 /** 单条目路径安全校验（拒绝绝对路径、.. 段、反斜杠穿越、超限路径） */
-export function isSafeZipEntryPath(name: string): boolean {
-  if (!name || name.length > 512 || name.includes("\0") || name.includes("\\") || name.includes("//")) return false;
-  const normalized = name.replace(/\\/g, "/");
-  if (normalized.startsWith("/") || /^[A-Za-z]:/.test(normalized)) return false;
-  const parts = normalized.split("/");
-  if (parts.some((p) => p === ".." || p === "." || p === "__proto__")) return false;
-  return true;
-}
+export const isSafeZipEntryPath = isSafeArchivePath;
 
 export class PluginAlreadyExistsError extends Error {
   readonly code = "PLUGIN_ALREADY_EXISTS";

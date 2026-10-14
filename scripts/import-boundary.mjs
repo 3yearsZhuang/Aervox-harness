@@ -1,3 +1,4 @@
+import { collectFiles } from "./source-files.mjs";
 /**
  * Aervox｜思隅 依赖边界校验（AST 解析，依赖 @babel/parser，不承担编译）
  *
@@ -31,7 +32,7 @@
  *   - 解析不到实际文件的相对引用（按忽略处理）
  */
 
-import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
+import { readFileSync, statSync, existsSync } from "node:fs";
 import { join, relative, sep, dirname, resolve } from "node:path";
 import { parse } from "@babel/parser";
 
@@ -248,28 +249,7 @@ function toPseudoSpecifier(repoRel) {
 
 /** 全量遍历目录（repo 根相对），返回源码文件相对路径列表 */
 export function collectSourceFiles(rootDirs = ["apps", "packages", "plugins", "capabilities", "providers", "adapters", "modules"]) {
-  const out = [];
-  const walk = (dir) => {
-    for (const entry of readdirSync(dir)) {
-      const full = join(dir, entry);
-      let stat;
-      try {
-        stat = statSync(full);
-      } catch {
-        continue;
-      }
-      const rel = relative(process.cwd(), full).split(sep).join("/");
-      if (stat.isDirectory()) {
-        if (!IGNORE_DIR_RE.test(rel)) walk(full);
-      } else if (SOURCE_EXT_RE.test(rel)) {
-        out.push(rel);
-      }
-    }
-  };
-  for (const dir of rootDirs) {
-    if (statSync(dir, { throwIfNoEntry: false })) walk(dir);
-  }
-  return out;
+  return collectFiles(rootDirs, { extensions: SOURCE_EXT_RE, ignoreDirectories: IGNORE_DIR_RE });
 }
 
 /** 对单个文件执行全部规则，返回违规列表 [{ file, rule, module, label }] */

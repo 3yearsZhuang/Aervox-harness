@@ -124,6 +124,19 @@ describe("CAP-020 Skill 模块", () => {
     await cleanup();
   });
 
+  it.each([false, true])("local install cannot overwrite a plugin-owned skill (overwrite=%s)", async overwrite => {
+    const registry = new SqliteSkillRegistryRepository(db);
+    const contentPath = path.join(skillsRoot, "plugin-original.md");
+    await fs.writeFile(contentPath, "plugin content");
+    const original = await registry.registerSkill({ id: "owned", name: "owned", description: "plugin", source: "plugin", pluginId: "owner", readonly: true, contentPath });
+    const zip = buildStoreZip([{ name: "SKILL.md", content: SKILL_MD("owned", "replacement") }]);
+    const response = await app.inject({ method: "POST", url: "/v1/skills", payload: { name: "owned", zipBase64: zip.toString("base64"), overwrite } });
+    expect(response.statusCode).toBe(409);
+    expect(await registry.getSkill("owned")).toEqual(original);
+    expect(await fs.readFile(contentPath, "utf8")).toBe("plugin content");
+    await expect(fs.access(path.join(skillsRoot, "owned"))).rejects.toThrow();
+  });
+
   it("安装单技能 zip（根含 SKILL.md）：注册 + 内容落盘 + frontmatter 描述解析", async () => {
     const zip = buildStoreZip([{ name: "SKILL.md", content: SKILL_MD("review-notes", "整理复习笔记") }]);
     const res = await app.inject({

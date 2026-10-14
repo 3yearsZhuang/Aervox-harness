@@ -14,6 +14,7 @@ id: AVX-EXPL-000
 
 ## 研究与评估
 
+- [仓库卫生与代码质量审计（2026-10-13）](repository-hygiene-audit-2026-10-13.md)
 - [架构实现与演进评估](architecture-implementation-review.md)
 - [参考项目、版本、许可与设计迁移](reference-design-transfer.md)
 - [Pi AI 差距与改进建议](pi-competitive-gap-improvements.md)
