@@ -193,6 +193,36 @@ describe('UI plugin activation ownership', () => {
     expect(runtime.getPluginState('probe').status).toBe('disposed');
   });
 
+  it('keeps a retry active when failed setup cleanup reenters activation', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const registry = createUIRegistry();
+    let generation = 0;
+    let runtime!: ReturnType<typeof createWorkbenchPluginRuntime>;
+    const restarted: Promise<void>[] = [];
+    runtime = createWorkbenchPluginRuntime(registry, context, [{
+      id: 'probe', setup(scoped, _ctx, life) {
+        const current = ++generation;
+        scoped.registerSlotItem('header:actions', Component, { id: 'probe:item', props: { generation: current } });
+        if (current === 1) {
+          life!.onDispose(() => { restarted.push(runtime.sync(enabled, config)); });
+          throw new Error('first setup failed');
+        }
+      },
+    }]);
+    try {
+      await runtime.sync(enabled, config);
+      await Promise.all(restarted);
+      expect(generation).toBe(2);
+      expect(runtime.getPluginState('probe')).toEqual({ status: 'active' });
+      expect(runtime.isPluginAvailable('probe')).toBe(true);
+      expect(registry.getSlotComponents('header:actions')).toHaveLength(1);
+      expect(registry.getSlotComponents('header:actions')[0].props).toEqual({ generation: 2 });
+    } finally {
+      runtime.destroy();
+    }
+    expect(registry.getSlotComponents('header:actions')).toEqual([]);
+  });
+
   it('an old setup failure cannot dispose a replacement created by reentrant enablement', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const registry = createUIRegistry();

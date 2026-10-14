@@ -83,8 +83,9 @@ export function createWorkbenchPluginRuntime(
       return instance;
     } catch (error) {
       if (instances.get(def.id) === instance) {
-        disposeInstance(def);
         states[def.id] = { status: destroyed ? 'disposed' : 'failed', error };
+        // 清理可重入激活；先记录旧实例失败，避免覆盖清理期间成功重试的新状态。
+        disposeInstance(def);
       } else {
         // setup 可重入停用/重启；旧实例失败不得回收或覆盖新实例。
         try { scope.dispose(); }
