@@ -27,6 +27,14 @@ describe("Memory Embedding Providers", () => {
       expect(await provider.embed("")).toEqual([]);
       expect(await provider.embed("   ")).toEqual([]);
     });
+
+    it("embedBatch 批量生成向量", async () => {
+      const provider = new LocalFeatureHashEmbeddingProvider();
+      const results = await provider.embedBatch(["文本一", "文本二"]);
+      expect(results).toHaveLength(2);
+      expect(results[0]).toHaveLength(256);
+      expect(results[1]).toHaveLength(256);
+    });
   });
 
   describe("OpenAiCompatibleEmbeddingProvider", () => {
@@ -110,6 +118,33 @@ describe("Memory Embedding Providers", () => {
       });
 
       await expect(provider.embed("测试报错")).rejects.toThrow("Embedding request failed with status 500");
+    });
+
+    it("embedBatch 批量生成向量并按输入索引对齐", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          object: "list",
+          data: [
+            { object: "embedding", index: 1, embedding: [0.3, 0.4] },
+            { object: "embedding", index: 0, embedding: [0.1, 0.2] },
+          ],
+        }),
+      });
+
+      const provider = new OpenAiCompatibleEmbeddingProvider({
+        baseUrl: "https://api.openai.com/v1",
+        fetch: mockFetch as unknown as typeof fetch,
+      });
+
+      const results = await provider.embedBatch(["文本一", "文本二"]);
+      expect(results).toHaveLength(2);
+      expect(results[0]).toEqual([0.1, 0.2]);
+      expect(results[1]).toEqual([0.3, 0.4]);
+
+      const [, calledInit] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(JSON.parse(calledInit.body as string).input).toEqual(["文本一", "文本二"]);
     });
   });
 

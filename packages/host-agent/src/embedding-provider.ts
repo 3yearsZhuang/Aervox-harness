@@ -8,12 +8,9 @@
  * 规则依据：AVX-HAR-001 §7.1，docs/reference/ARCHITECTURE.md §14.1 T-05。
  */
 
-export interface MemoryEmbeddingProvider {
-  /** 模型标识（写 memory_embeddings.model_id，用于按模型分版本） */
-  readonly modelId: string;
-  /** 生成向量 */
-  embed(text: string): Promise<number[]>;
-}
+import type { TextEmbeddingPort } from "@aervox/core";
+
+export type MemoryEmbeddingProvider = TextEmbeddingPort;
 
 const LOCAL_DIMENSIONS = 256;
 
@@ -41,6 +38,7 @@ function localFeatures(text: string): string[] {
 
 export class LocalFeatureHashEmbeddingProvider implements MemoryEmbeddingProvider {
   readonly modelId = "aervox-local-feature-hash-v1-256";
+  readonly dimensions = LOCAL_DIMENSIONS;
 
   async embed(text: string): Promise<number[]> {
     const vector = Array<number>(LOCAL_DIMENSIONS).fill(0);
@@ -51,6 +49,10 @@ export class LocalFeatureHashEmbeddingProvider implements MemoryEmbeddingProvide
     }
     const norm = Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0));
     return norm === 0 ? [] : vector.map((value) => value / norm);
+  }
+
+  async embedBatch(texts: string[]): Promise<number[][]> {
+    return Promise.all(texts.map((t) => this.embed(t)));
   }
 }
 
@@ -121,6 +123,54 @@ export class OpenAiCompatibleEmbeddingProvider implements MemoryEmbeddingProvide
       }
 
       return embedding;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async embedBatch(texts: string[]): Promise<number[][]> {
+    if (texts.length === 0) return [];
+    const sanitized = texts.map((t) => t.trim());
+
+    const url = this.baseUrl.endsWith("/embeddings")
+      ? this.baseUrl
+      : `${this.baseUrl}/embeddings`;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs * 2);
+
+    try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (this.apiKey) {
+        headers["Authorization"] = `Bearer ${this.apiKey}`;
+      }
+
+      const response = await this.fetchFn(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          model: this.modelId,
+          input: sanitized,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Batch embedding request failed with status ${response.status}`);
+      }
+
+      const json = (await response.json()) as {
+        data?: Array<{ embedding?: number[]; index?: number }>;
+      };
+
+      if (!Array.isArray(json.data) || json.data.length === 0) {
+        throw new Error("Invalid batch embedding response: missing or empty data array");
+      }
+
+      const sorted = [...json.data].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+      return sorted.map((d) => d.embedding ?? []);
     } finally {
       clearTimeout(timer);
     }

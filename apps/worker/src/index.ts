@@ -37,7 +37,7 @@ import { registerWorkerShutdown } from "./shutdown.js";
 import { createServer } from "node:http";
 import { createStandardLogger } from "@aervox/observability";
 import { createReplayProvider, HostToolRuntime } from "@aervox/core";
-import { resolveEmbeddingProvider, resolveModelProvider, createHostToolProvider } from "@aervox/host-agent";
+import { resolveEmbeddingProvider, resolveModelProvider, createHostToolProvider, createSqliteMemoryRecall } from "@aervox/host-agent";
 import { runOutboxCycle } from "./outbox-worker.js";
 import { createTurnConsumerHandler } from "./turn-consumer.js";
 import { runReviewNotificationCycle } from "./review-notifier.js";
@@ -92,17 +92,25 @@ const llmConfigRepo = new SqliteLLMConfigRepository(db);
 const toolRuntime = new HostToolRuntime();
 const hostToolProvider = createHostToolProvider(toolRuntime, conversationRepo);
 
+const privacyRepo = new SqlitePrivacyRepository(db);
+const embeddingRepo = new SqliteMemoryEmbeddingRepository(db);
+const embeddingProvider = resolveEmbeddingProvider(process.env);
+const memoryRecall = createSqliteMemoryRecall({
+  db,
+  client,
+  embeddingProvider,
+  consentCheck: (purpose, scope) => privacyRepo.hasActiveConsent({ workspaceId: "local", subjectUserId: "local" }, purpose, scope),
+});
+
 const turnConsumer = createTurnConsumerHandler({
   repo: conversationRepo,
   provider: () => resolveModelProvider(process.env, { llmConfigRepo }),
   tools: hostToolProvider,
+  memoryRecall,
 });
 const diaryRepo = new SqliteDiaryRepository(db);
-const privacyRepo = new SqlitePrivacyRepository(db);
 const learningRepo = new SqliteLearningRepository(db);
 const compactionRepo = new SqliteMemoryCompactionRepository(db);
-const embeddingRepo = new SqliteMemoryEmbeddingRepository(db);
-const embeddingProvider = resolveEmbeddingProvider(process.env);
 const memoryRepo = new SqliteMemoryRepository(db, client);
 const personaRepo = new SqlitePersonaRepository(db);
 const inboxRepo = new SqliteAgentInboxRepository(db);

@@ -90,4 +90,42 @@ describe("Worker 记忆向量平滑迁移 (Embedding Migration)", () => {
     });
     expect(secondCycle).toBe(0);
   });
+
+  it("当 provider 支持 embedBatch 时，优先使用批量生成加速迁移", async () => {
+    await memoryRepo.createRecord(localCtx, {
+      id: "mem_batch_1",
+      layer: "long_term",
+      type: "fact",
+      content: "内容 1",
+    });
+    await memoryRepo.createRecord(localCtx, {
+      id: "mem_batch_2",
+      layer: "long_term",
+      type: "fact",
+      content: "内容 2",
+    });
+
+    let batchCalled = false;
+    const batchProvider = {
+      modelId: "mock-batch",
+      async embed(_text: string) {
+        return [0.1, 0.2];
+      },
+      async embedBatch(texts: string[]) {
+        batchCalled = true;
+        return texts.map(() => [0.1, 0.2]);
+      },
+    };
+
+    const count = await runEmbeddingMigrationCycle({
+      db,
+      client,
+      embeddingRepo,
+      provider: batchProvider,
+      workerId: "worker-batch-test",
+    });
+
+    expect(count).toBe(2);
+    expect(batchCalled).toBe(true);
+  });
 });

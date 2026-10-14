@@ -11,9 +11,9 @@
  */
 import type { OutboxEventModel, SqliteConversationRepository, LocalContext, TurnModel } from "@aervox/repositories";
 import type { OutboxEventHandler, OutboxCycleContext } from "./outbox-worker.js";
-import { executeTurn, defaultContextBuilder } from "@aervox/core";
+import { executeTurn, createComposedContextBuilder } from "@aervox/core";
 import type { ModelProviderPort, ToolProviderPort, InboxPort, DeletionGatePort } from "@aervox/core";
-import { SqliteExecutionStore } from "@aervox/host-agent";
+import { SqliteExecutionStore, buildMemoryContext, type MemoryRecallPort } from "@aervox/host-agent";
 
 export interface TurnConsumerDeps {
   repo: SqliteConversationRepository;
@@ -21,6 +21,7 @@ export interface TurnConsumerDeps {
   tools?: ToolProviderPort;
   inbox?: InboxPort;
   deletionGate?: DeletionGatePort;
+  memoryRecall?: MemoryRecallPort;
 }
 
 export function createTurnConsumerHandler(deps: TurnConsumerDeps): OutboxEventHandler {
@@ -52,6 +53,38 @@ export function createTurnConsumerHandler(deps: TurnConsumerDeps): OutboxEventHa
     const store = new SqliteExecutionStore(deps.repo, localCtx);
     const provider = typeof deps.provider === "function" ? await deps.provider(turn) : deps.provider;
 
+    const historyPromise = deps.repo.getSessionHistory(localCtx, {
+      sessionId: turn.sessionId,
+      beforeTurnId: turnId,
+    });
+    const memoryPromise = deps.memoryRecall
+      ? deps.memoryRecall
+          .recall(localCtx, userMessage)
+          .then(buildMemoryContext)
+          .catch(() => null)
+      : Promise.resolve(null);
+    const [previous, recalled] = await Promise.all([historyPromise, memoryPromise]);
+
+    const contextBuilder = createComposedContextBuilder({
+      inbox: Boolean(deps.inbox),
+      base: {
+        build(context) {
+          const index = context.messages.findIndex((m) => m.role !== "system");
+          const insertion = index < 0 ? context.messages.length : index;
+          return {
+            turnId: context.turnId,
+            sessionId: context.sessionId,
+            messages: [
+              ...context.messages.slice(0, insertion),
+              ...previous,
+              ...(recalled ? [{ role: "system" as const, content: recalled }] : []),
+              ...context.messages.slice(insertion),
+            ],
+          };
+        },
+      },
+    });
+
     const result = await executeTurn(
       {
         execution: store,
@@ -59,7 +92,7 @@ export function createTurnConsumerHandler(deps: TurnConsumerDeps): OutboxEventHa
         tools: deps.tools,
         inbox: deps.inbox,
         deletionGate: deps.deletionGate,
-        contextBuilder: defaultContextBuilder,
+        contextBuilder,
       },
       {
         turnId,

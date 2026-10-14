@@ -15,11 +15,7 @@ import {
   type LocalContext,
 } from "@aervox/repositories";
 
-/** 向量生成能力（注入真实 embedding 服务；未注入时循环诚实跳过） */
-export interface MemoryEmbeddingProvider {
-  readonly modelId: string;
-  embed(text: string): Promise<number[]>;
-}
+import type { MemoryEmbeddingProvider } from "@aervox/host-agent";
 
 export interface EmbeddingMigrationContext {
   db: AervoxDatabase;
@@ -82,15 +78,22 @@ export async function runEmbeddingMigrationCycle(
   const total = missing.length;
   let migrated = 0;
 
-  const items = await Promise.all(
-    missing.map(async (row) => ({
-      id: id("emb"),
-      memoryId: row.memory_id,
-      vector: await ctx.provider!.embed(row.content),
-      modelId: ctx.provider!.modelId,
-      sourceCreatedAt: new Date().toISOString(),
-    })),
-  );
+  let vectors: number[][];
+  if (typeof ctx.provider.embedBatch === "function") {
+    vectors = await ctx.provider.embedBatch(missing.map((r) => r.content));
+  } else {
+    vectors = await Promise.all(
+      missing.map((row) => ctx.provider!.embed(row.content)),
+    );
+  }
+
+  const items = missing.map((row, idx) => ({
+    id: id("emb"),
+    memoryId: row.memory_id,
+    vector: vectors[idx] ?? [],
+    modelId: ctx.provider!.modelId,
+    sourceCreatedAt: new Date().toISOString(),
+  }));
 
   if (ctx.abortSignal?.aborted) return 0;
 

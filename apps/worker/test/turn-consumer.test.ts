@@ -203,5 +203,108 @@ describe("HLS-DEC-01: Worker 异步接单与执行消费测试", () => {
     expect(eventTypes).toContain("tool_result");
     expect(eventTypes).toContain("done");
   });
+
+  it("Worker 执行回合时自动注入前序会话历史与验证过的长期记忆", async () => {
+    const sessionId = "session_with_memory";
+    await conversationRepo.createSession(localCtx, "带记忆会话", { id: sessionId });
+
+    // 1. 模拟前序已完成对话历史
+    const prevTurnId = "turn_prev_1";
+    await conversationRepo.createTurnWithOutbox(
+      localCtx,
+      {
+        id: prevTurnId,
+        sessionId,
+        idempotencyKey: "idem_prev_1",
+        status: "Completed",
+      },
+      { id: "msg_prev_user", content: "你好，请记住我最喜欢的茶是大红袍" },
+    );
+    await conversationRepo.appendStreamEvent(localCtx, {
+      id: "event_prev_1",
+      turnId: prevTurnId,
+      sequence: 1,
+      eventType: "delta",
+      attemptId: "atp_prev_1",
+      safetyDecision: "approved",
+      payloadVersion: 1,
+      occurredAt: new Date().toISOString(),
+      data: { messageId: "assistant_prev_1", text: "好的，我已经记住了，你最喜欢的茶是大红袍！" },
+    });
+    await conversationRepo.appendStreamEvent(localCtx, {
+      id: "event_prev_2",
+      turnId: prevTurnId,
+      sequence: 2,
+      eventType: "done",
+      attemptId: "atp_prev_1",
+      safetyDecision: "approved",
+      payloadVersion: 1,
+      occurredAt: new Date().toISOString(),
+      data: { messageId: "assistant_prev_1", status: "Completed", isComplete: true },
+    });
+
+    // 2. 当前待执行回合
+    const turnId = "turn_memory_check";
+    const attemptId = "atp_memory_check";
+    await conversationRepo.acceptTurn(localCtx, {
+      turnId,
+      sessionId,
+      idempotencyKey: "idem_mem_check",
+      attemptId,
+      message: { id: "msg_user_mem", content: "请问我喜欢喝什么茶？" },
+      consumeInbox: false,
+    });
+
+    let receivedMessages: any[] = [];
+    const replay = createReplayProvider([
+      { type: "text", delta: "根据你的喜好，你喜欢喝大红袍。" },
+    ]);
+    const memoryCapturingProvider = {
+      id: "capturing-provider",
+      async *stream(request: any) {
+        receivedMessages = request.context.messages;
+        yield* replay.stream(request);
+      },
+    };
+
+    const mockMemoryRecall = {
+      async recall(_tenant: any, _query: string) {
+        return [
+          {
+            id: "mem_rec_1",
+            content: "用户最喜爱的饮品是大红袍武夷岩茶",
+            category: "preference",
+            source: "hybrid" as const,
+          },
+        ];
+      },
+    };
+
+    const handler = createTurnConsumerHandler({
+      repo: conversationRepo,
+      provider: memoryCapturingProvider as any,
+      memoryRecall: mockMemoryRecall,
+    });
+
+    const processed = await runOutboxCycle({
+      outboxRepo,
+      platformRepo,
+      workerId: "worker-node-1",
+      handlers: { "turn.created": handler },
+    });
+
+    expect(processed).toBeGreaterThanOrEqual(1);
+
+    // 验证接收到的消息清单：
+    // 1. 前序对话历史被成功拉取并传入
+    const contents = receivedMessages.map((m) => m.content);
+    expect(contents.some((c) => typeof c === "string" && c.includes("大红袍武夷岩茶"))).toBe(true);
+    expect(contents.some((c) => typeof c === "string" && c.includes("你好，请记住我最喜欢的茶是大红袍"))).toBe(true);
+    expect(contents.some((c) => typeof c === "string" && c.includes("请问我喜欢喝什么茶？"))).toBe(true);
+
+    // 验证 Attempt 已完成
+    const attempts = await conversationRepo.listTurnAttempts(localCtx, turnId);
+    expect(attempts[0]?.status).toBe("Completed");
+  });
 });
 
