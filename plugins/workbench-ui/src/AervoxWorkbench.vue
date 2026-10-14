@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch, type Component } from 'vue';
 import {
-  COMPANION_DEFAULT_NAME,
   readCompanionIdentity,
   type Platform,
   PetWithFallback,
@@ -81,7 +80,7 @@ const props = withDefaults(
   {
     platform: 'web',
     showCompanion: false,
-    companionName: COMPANION_DEFAULT_NAME,
+    companionName: undefined,
     plugins: () => [],
     settingsPanels: () => [],
     variant: 'full',
@@ -337,8 +336,8 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
         toolApprovalMode: conversation.toolApprovalMode.value,
         attachments: attachmentRefs.length > 0 ? attachmentRefs : undefined,
         // CR-065：宿主显式元数据（角色名/用户称呼）优先级最高，插件变换不得覆盖
-        metadata: { ...turnMetadata, companionName: readCompanionIdentity().companionName, userAddress: readCompanionIdentity().userAddress },
-        sessionId: sessions.activeSessionId.value,
+        metadata: { ...turnMetadata, ...readCompanionIdentity() },
+        sessionId: submittedSessionId,
       },
     );
   } catch (error) {

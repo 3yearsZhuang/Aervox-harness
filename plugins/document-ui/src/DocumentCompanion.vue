@@ -26,7 +26,7 @@ interface Suggestion {
   label: string;
   reason: string;
   primary: boolean;
-  action: () => Promise<void> | void;
+  action: () => Promise<boolean> | void;
 }
 
 function relativeDay(iso: string): string {
@@ -40,25 +40,39 @@ function relativeDay(iso: string): string {
 
 const sending = ref(false);
 
+function reportConnectionError(err: unknown) {
+  if (surface.signal.aborted) return;
+  finish();
+  dialogueCtx.value = '连接异常';
+  say(`出了点小问题：${err instanceof Error ? err.message : '回复失败，请稍后再试'}`, '连接异常');
+}
+
 async function sendTurn(content: string) {
-  if (sending.value) return;
+  if (sending.value || surface.signal.aborted) return false;
   sending.value = true;
-  if (!sessions.activeSessionId.value) {
-    await sessions.createNewSession();
+  try {
+    if (!sessions.sessions.value.some(session => session.id === sessions.activeSessionId.value)) {
+      await sessions.createNewSession();
+    }
+    surface.signal.throwIfAborted();
+    const sessionId = sessions.activeSessionId.value;
+    say('', '你刚刚说');
+    await streamAervoxTurn(content, {
+      onDelta: text => { if (!surface.signal.aborted) appendDelta(text); },
+      onDone: () => {
+        if (surface.signal.aborted) return;
+        finish();
+        dialogueCtx.value = companionName.value + ' · 刚刚回复';
+      },
+      onError: err => { throw err; },
+    }, { signal: surface.signal, sessionId, metadata: { ...identity } });
+    return !surface.signal.aborted;
+  } catch (err) {
+    reportConnectionError(err);
+    return false;
+  } finally {
+    sending.value = false;
   }
-  say('', '你刚刚说');
-  await streamAervoxTurn(content, {
-    onDelta: (text) => appendDelta(text),
-    onDone: () => {
-      finish();
-      dialogueCtx.value = companionName.value + ' · 刚刚回复';
-    },
-    onError: (err) => {
-      finish();
-      say(`出了点小问题：${err instanceof Error ? err.message : '回复失败，请稍后再试'}`, '连接异常');
-    },
-  }, { signal: surface.signal });
-  sending.value = false;
 }
 
 const suggestions = computed<Suggestion[]>(() => {
@@ -106,17 +120,20 @@ function closeWhisper() {
 }
 async function sendWhisper() {
   const text = whisperText.value.trim();
-  if (!text) return;
-  whisperText.value = '';
-  closeWhisper();
-  await sendTurn(text);
+  if (!text || sending.value) return;
+  if (await sendTurn(text) && whisperText.value.trim() === text) {
+    whisperText.value = '';
+    closeWhisper();
+  }
 }
 
 function backToDefaultSurface() {
   try {
     localStorage.setItem('aervox.surface.main', 'workbench-ui');
   } catch { /* 存储不可用时忽略 */ }
-  window.location.reload();
+  const target = new URL(window.location.href);
+  target.searchParams.delete('surface');
+  window.location.replace(target.toString());
 }
 
 onMounted(() => {

@@ -17,11 +17,12 @@ const recentSession = {
 };
 
 const streamTurn = vi.fn();
-const request = vi.fn(async (method: string, path: string) => {
+const requestImplementation = async (method: string, path: string) => {
   if (path === '/v1/sessions' && method === 'GET') return { items: [recentSession] };
   if (path === '/v1/sessions' && method === 'POST') return { id: 'ses_new', title: '新对话', createdAt: '', updatedAt: '' };
   return { items: [] };
-});
+};
+const request = vi.fn(requestImplementation);
 
 beforeEach(() => {
   localStorage.clear();
@@ -30,7 +31,8 @@ beforeEach(() => {
     callbacks.onDelta('我们接着昨天的进度。');
     callbacks.onDone();
   });
-  request.mockClear();
+  request.mockReset();
+  request.mockImplementation(requestImplementation);
   configureAervoxClient({
     sessionId: 'test_initial',
     transport: {
@@ -67,8 +69,7 @@ it('resume card reflects the most recent session and switches to it', async () =
   expect(resume.text()).toContain('死锁复习');
   expect(resume.text()).toContain('昨天');
   await resume.trigger('click');
-  // 接续动作：对话盒切换为接续语（activeSession 持久化由 useAervoxSessions 既有契约覆盖；
-  // 跨用例 transport 会话单态，localStorage 不作断言依据）
+  expect(localStorage.getItem('aervox_active_session_id')).toBe('ses_recent');
   await vi.waitFor(() => expect(wrapper.find('.dc-dialogue').text()).toContain('接着上次的地方继续'), { timeout: 2000 });
 });
 
@@ -93,4 +94,86 @@ it('whisper input replaces the choices while open and sends on Enter', async () 
   expect(String(streamTurn.mock.calls[0]![1])).toBe('讲讲环路等待');
   // 发送后回到卡片主导
   expect(wrapper.find('.dc-whisper-input').exists()).toBe(false);
+});
+
+it('creates a real session before the first turn with an empty session list', async () => {
+  request.mockImplementation(async (method, path) => path === '/v1/sessions' && method === 'GET'
+    ? { items: [] } : requestImplementation(method, path));
+  const wrapper = await mountSurface();
+  await wrapper.findAll('.dc-choice')[0]!.trigger('click');
+  await flushPromises();
+  expect(streamTurn.mock.calls[0]![0]).toBe('ses_new');
+});
+
+it('releases sending state after session creation fails and permits retry', async () => {
+  request.mockImplementation(async (method, path) => {
+    if (method === 'GET' && path === '/v1/sessions') return { items: [] };
+    if (method === 'POST' && path === '/v1/sessions') throw new Error('session unavailable');
+    return requestImplementation(method, path);
+  });
+  const wrapper = await mountSurface();
+  const goal = wrapper.findAll('.dc-choice')[0]!;
+  await goal.trigger('click');
+  await flushPromises();
+  expect(streamTurn).not.toHaveBeenCalled();
+  expect(goal.attributes('disabled')).toBeUndefined();
+  expect(wrapper.find('.dc-ctx').text()).toBe('连接异常');
+  request.mockImplementation(requestImplementation);
+  await goal.trigger('click');
+  await flushPromises();
+  expect(streamTurn.mock.calls[0]![0]).toBe('ses_new');
+});
+
+it('keeps a failed whisper for retry and sends configured identity with the active session', async () => {
+  localStorage.setItem('aervox-settings', JSON.stringify({ companionName: '团子', userAddress: '掌柜' }));
+  streamTurn.mockRejectedValueOnce(new Error('connection lost'));
+  const wrapper = await mountSurface();
+  expect(wrapper.find('.dc-name').text()).toBe('团子');
+  await wrapper.find('.dc-whisper-pill').trigger('click');
+  const input = wrapper.find('.dc-whisper-input input');
+  await input.setValue('讲讲环路等待');
+  await input.trigger('keydown', { key: 'Enter' });
+  await flushPromises();
+  expect((input.element as HTMLInputElement).value).toBe('讲讲环路等待');
+  expect(wrapper.find('.dc-whisper-input button').attributes('disabled')).toBeUndefined();
+  await input.trigger('keydown', { key: 'Enter' });
+  await flushPromises();
+  expect(streamTurn).toHaveBeenCalledTimes(2);
+  expect(streamTurn.mock.calls[1]![0]).toBe('ses_recent');
+  expect(streamTurn.mock.calls[1]![3]).toMatchObject({
+    sessionId: 'ses_recent', metadata: { companionName: '团子', userAddress: '掌柜' },
+  });
+  expect(wrapper.find('.dc-whisper-input').exists()).toBe(false);
+});
+
+it('keeps a new draft edited during the current submission', async () => {
+  let resolveTurn!: () => void;
+  streamTurn.mockImplementation(() => new Promise<void>(resolve => { resolveTurn = resolve; }));
+  const wrapper = await mountSurface();
+  await wrapper.find('.dc-whisper-pill').trigger('click');
+  const input = wrapper.find('.dc-whisper-input input');
+  await input.setValue('第一条');
+  await input.trigger('keydown', { key: 'Enter' });
+  await flushPromises();
+  await input.setValue('下一条');
+  await input.trigger('keydown', { key: 'Enter' });
+  expect(streamTurn).toHaveBeenCalledOnce();
+  resolveTurn();
+  await flushPromises();
+  expect((input.element as HTMLInputElement).value).toBe('下一条');
+  expect(wrapper.find('.dc-whisper-input').exists()).toBe(true);
+});
+
+it('aborts the instance stream when the surface is removed', async () => {
+  let resolveTurn!: () => void;
+  streamTurn.mockImplementation(() => new Promise<void>(resolve => { resolveTurn = resolve; }));
+  const wrapper = await mountSurface();
+  await wrapper.findAll('.dc-choice')[1]!.trigger('click');
+  await flushPromises();
+  const signal = streamTurn.mock.calls[0]![3].signal as AbortSignal;
+  expect(signal.aborted).toBe(false);
+  wrapper.unmount();
+  expect(signal.aborted).toBe(true);
+  resolveTurn();
+  await flushPromises();
 });

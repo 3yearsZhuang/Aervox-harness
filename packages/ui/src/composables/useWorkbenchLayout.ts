@@ -51,7 +51,7 @@ export function useWorkbenchLayout(props: {
   platform: Platform;
   showCompanion: boolean;
   /** CR-065：陪伴角色名（空间名「思隅」固定，不再是角色名） */
-  companionName: string;
+  companionName?: string;
 }, options: {
   onOpenDiary?: () => void;
   getTimerMinutes?: () => number;
