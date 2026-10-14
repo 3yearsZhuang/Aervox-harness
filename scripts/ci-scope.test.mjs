@@ -236,16 +236,23 @@ test("Rust pilot and executable contracts remain in local and CI gates", () => {
 test("CI covers Playwright test directories, configs and executable root launchers", () => {
   const workflow = readWorkflowPaths(CI_WORKFLOW);
   const required = ["aervox", "run-cli", "siyu-chat.command"];
-  for (const config of ["playwright.config.ts", "playwright.ui.config.ts"]) {
-    const source = fs.readFileSync(path.join(ROOT_DIR, config), "utf8");
-    const match = source.match(/testDir:\s*["']\.\/([^"']+)["']/);
-    assert.ok(match, `${config} must declare a testDir`);
-    required.push(config, `${match[1]}/**`);
+  const config = "playwright.config.ts";
+  const configSource = fs.readFileSync(path.join(ROOT_DIR, config), "utf8");
+  // 单配置多 project：每个 project 的 testDir 都必须被工作流路径过滤覆盖，
+  // 否则改动某个 project 的用例会既不触发工作流、也不使缓存失效。
+  const testDirs = [...configSource.matchAll(/testDir:\s*["']\.\/([^"']+)["']/g)].map((match) => match[1]);
+  assert.ok(testDirs.length > 0, `${config} must declare at least one testDir`);
+  for (const project of ["api", "ui"]) {
+    assert.match(configSource, new RegExp(`name:\\s*["']${project}["']`), `${config} must declare the ${project} project`);
   }
+  required.push(config, ...testDirs.map((dir) => `${dir}/**`));
   assert.deepEqual(findUncoveredPaths(workflow.pullRequest, required), []);
   assert.deepEqual(findUncoveredPaths(workflow.push, required), []);
   const source = fs.readFileSync(CI_WORKFLOW, "utf8");
   assert.match(source, /playwright install --with-deps chromium/);
+  // 两个 project 都要在 CI 里被显式执行：合并配置后 `playwright test` 会同时跑到
+  // UI 用例，而 API job 不安装浏览器二进制，因此它必须锁定 --project=api。
+  assert.match(source, /pnpm run test:e2e:api/);
   assert.match(source, /pnpm test:e2e:ui/);
   assert.match(source, /pnpm check:dependency-audit/);
 });

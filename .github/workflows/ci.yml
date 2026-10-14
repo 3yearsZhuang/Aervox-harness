@@ -25,8 +25,6 @@ on:
       - "scripts/**"
       - "patches/**"
       - "e2e/**"
-      - "e2e-ui/**"
-      - "playwright.ui.config.ts"
       - "aervox"
       - "run-cli"
       - "siyu-chat.command"
@@ -53,8 +51,6 @@ on:
       - "scripts/**"
       - "patches/**"
       - "e2e/**"
-      - "e2e-ui/**"
-      - "playwright.ui.config.ts"
       - "aervox"
       - "run-cli"
       - "siyu-chat.command"
@@ -228,14 +224,14 @@ jobs:
           git submodule status --recursive
 
       # E2E 为纯 API 级测试（Playwright request fixture，无浏览器用例），
-      # 无需 playwright install 安装浏览器二进制。
+      # 无需 playwright install 安装浏览器二进制；UI project 由下方 ui-e2e job 承担。
       - name: Build API (with dependencies)
         env:
           TURBO_CACHE_DIR: ${{ runner.temp }}/turbo-cache
         run: mise exec -- pnpm exec turbo run build --filter=@aervox/api
 
       - name: Run E2E tests
-        run: mise exec -- pnpm run test:e2e
+        run: mise exec -- pnpm run test:e2e:api
 
   ui-e2e:
     name: E2E (Chromium UI)
