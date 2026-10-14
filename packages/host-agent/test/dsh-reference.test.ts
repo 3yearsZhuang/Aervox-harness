@@ -2,8 +2,8 @@
  * Aervox｜思隅 @aervox/host-agent — 阶段 6c DSH 参考源复核测试
  *
  * 覆盖 ADR-010 TC-CONTRACT-STREAM-001「固定 SHA 复核」真实化：
- * - 父仓库 gitlink 复核：reference/deepseek-harness 的 gitlink 与 reference-design-transfer
- *   §1.1 登记的固定 SHA（DSH_REFERENCE_SHA）一致 → ready true + manifest（MIT 白名单）；
+ * - 父仓库 gitlink 复核：reference/deepseek-harness 的 gitlink 与 ARCHITECTURE.md
+ *   §13.1 登记的固定 SHA（DSH_REFERENCE_SHA）一致 → ready true + manifest（MIT 白名单）；
  * - 未初始化/目录缺失 → reason=submodule_missing（带指引）；
  * - gitlink 缺失（非 git 仓库路径）→ reason=submodule_missing。
  * 注：参考仓库为 pnpm monorepo，真实 Turn 需 `pnpm install && pnpm build:lib:host`，
@@ -26,7 +26,7 @@ describe("阶段 6c probeDSHReference（固定 SHA 复核真实化）", () => {
       terminationPolicy: "any",
     });
     expect(result.manifest?.sha256).toBe(
-      "639ed015397290b3745d163aafe02ffee4aa3f84",
+      "d743267388641bc76f17c45ce8b4c231aed1d32c",
     );
   });
 

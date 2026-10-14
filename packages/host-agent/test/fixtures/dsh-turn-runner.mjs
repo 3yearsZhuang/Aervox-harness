@@ -32,8 +32,8 @@ const modelId = process.env.DSH_MODEL_ID ?? "deepseek-chat";
 
 const manifest = {
   adapterId: "dsh",
-  version: "0.2.0-rc.2",
-  sha256: "639ed015397290b3745d163aafe02ffee4aa3f84",
+  version: "0.2.1-alpha.2",
+  sha256: "d743267388641bc76f17c45ce8b4c231aed1d32c",
   license: "MIT",
   terminationPolicy: "any",
 };

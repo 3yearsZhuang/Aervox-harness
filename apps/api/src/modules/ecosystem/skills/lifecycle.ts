@@ -7,7 +7,7 @@ import { assertSkillDirectoryOwner, withSkillMutation } from "./ownership.js";
  *
  * 规则依据：reference/AstrBot astrbot/core/tools/computer_tools/shipyard_neo/neo_skills.py
  * 与 neo_skill_sync.py。AstrBot 沙盒「执行证据」适配为 Aervox 业务对象
- * （turns / memory_records / learning_goals），见 reference-design-transfer.md。
+ * （turns / memory_records / learning_goals），见 ARCHITECTURE.md §14.1。
  *
  * promote 联动（stable + syncToLocal）：
  * - payload.content.skill_markdown 落盘 <skillsRoot>/<skill_key>/SKILL.md；

@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/api — MemoryStoreTool 运行时实现（T-04）
  *
  * 主动记忆工具：AI 将对话长期记忆显式沉淀到 memory_records。
- * 规则依据：docs/explanation/reference-design-transfer.md §3.4；
+ * 规则依据：docs/reference/ARCHITECTURE.md §14.1 T-04；
  * 行为与契约对齐 packages/contracts memoryStoreToolInputSchema/Output。
  *
  * 关键约束（PRD §7.5 记忆验收标准）：

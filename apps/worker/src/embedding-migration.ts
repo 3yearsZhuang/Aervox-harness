@@ -5,7 +5,7 @@
  * 批量写入 memory_embeddings（幂等 upsert，按 model_id 分版本）。
  * 可中止（AbortController）+ 进度回调，避免长迁移阻塞 Worker 主循环。
  *
- * 规则依据：docs/explanation/reference-design-transfer.md §3.5（可中止 + 断点续跑）。
+ * 规则依据：docs/reference/ARCHITECTURE.md §14.1 T-05（可中止 + 断点续跑）。
  * provider 未注入时本循环直接返回 0（诚实降级，不伪造向量）。
  */
 import type { Client } from "@libsql/client";

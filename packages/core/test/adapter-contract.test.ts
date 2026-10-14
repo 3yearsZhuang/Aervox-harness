@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/core — 阶段 6 DSH/pi Adapter 契约测试
  *
- * 覆盖 ADR-010 + reference-design-transfer §1.1：
+ * 覆盖 ADR-010 + ARCHITECTURE.md §14.2：
  * - concludeAdapterBatch：上游 any/every 批次收紧为 Aervox `all-results-conclude`
  *   （空/全结论/全不结论/混合批次一律拒绝并回传声明策略，不静默放行 any）；
  * - verifyAdapterManifest：固定 SHA 复核 + 许可证白名单（AGPL 拒绝）+ 策略白名单；
@@ -69,7 +69,7 @@ describe("阶段 6 concludeAdapterBatch（any/every 收紧为 all-results-conclu
       reason: "mixed_batch",
       declaredPolicy: "every",
     });
-    // dsh any：Aervox 严格策略同样拒绝（reference-design-transfer §1.1：必须收紧，不静默放行）
+    // dsh any：Aervox 严格策略同样拒绝（ARCHITECTURE.md §14.2：必须收紧，不静默放行）
     expect(concludeAdapterBatch("any", { concludes: [true, false] })).toEqual({
       concluded: false,
       reason: "mixed_batch",

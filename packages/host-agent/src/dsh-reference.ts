@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/host-agent — DSH 参考源复核与探测（阶段 6c）
  *
- * 规则依据：reference-design-transfer §1.1（`DSH-01` 固定 commit MIT + 版本锁定）与
+ * 规则依据：ARCHITECTURE.md#reference-manifest（`DSH-01` 固定 commit MIT + 版本锁定）与
  * ADR-010（TC-CONTRACT-STREAM-001：固定 SHA 复核）。本文件把「固定 SHA 复核」从
  * 模拟器骨架升级为**机器可验证**的真实复核：
  * - 父仓库的 submodule gitlink SHA（`git ls-tree HEAD -- reference/deepseek-harness`）
@@ -16,8 +16,8 @@ import { join } from "node:path";
 import { verifyAdapterManifest } from "@aervox/core";
 import type { AdapterManifest } from "@aervox/core";
 
-/** DSH-01 固定参考 commit（reference-design-transfer §1.1 登记） */
-export const DSH_REFERENCE_SHA = "639ed015397290b3745d163aafe02ffee4aa3f84";
+/** DSH-01 固定参考 commit（ARCHITECTURE.md#reference-manifest 登记） */
+export const DSH_REFERENCE_SHA = "d743267388641bc76f17c45ce8b4c231aed1d32c";
 
 /** 参考仓库相对父仓库根目录的路径 */
 export const DSH_REFERENCE_RELATIVE_PATH = "reference/deepseek-harness";
@@ -65,7 +65,7 @@ export function probeDSHReference(
     return { ready: false, reason: "submodule_missing（需 `git submodule update --init reference/deepseek-harness`）" };
   }
   if (gitlinkSha !== DSH_REFERENCE_SHA) {
-    return { ready: false, reason: `sha_mismatch: gitlink=${gitlinkSha} expected=${DSH_REFERENCE_SHA}（参考 commit 已漂移，核对 reference-design-transfer §1.1）` };
+    return { ready: false, reason: `sha_mismatch: gitlink=${gitlinkSha} expected=${DSH_REFERENCE_SHA}（参考 commit 已漂移，核对 ARCHITECTURE.md#reference-manifest）` };
   }
 
   const dir = join(repoRoot, relativePath);

@@ -451,7 +451,7 @@ agent.attempt.lease-expired
 
 ### 14.2 pi
 
-pi 的低层 `agent-loop.ts` 已实现内存中的 outer/inner loop，其工具批次采用 every/all：非空且所有结果 `terminate=true` 才能终止；2026-09-29 更新后的固定参考版本中，lane Harness 已实现 `prompt`、`resume`、`abort`，但 `watchSession` 仍未完成；CLI/SDK 继续走 `Agent + AgentSession + SessionManager`，新 durable 路线在本次最终固定 SHA 已完成首个可持久恢复的无工具聊天回合，但工具执行和忙时 Inbox 尚未完成，三者不能合并表述为完整持久内核（[版本与证据](../explanation/reference-design-transfer.md#upstream-20260929)）。pi Extension 的事件、Tool、Provider 和上下文注入可映射为 Agent Loop Contribution，但 Extension 默认拥有完整宿主权限。`adapter-pi` 必须进程外执行，且只能通过受限 RPC 提交 Tool/Provider/Inbox Contribution；若包装低层 loop，仍需实现 Aervox 的 lease、fencing、持久化和恢复契约，不能直接把外部 Harness 当作 API 进程内 Loop。
+pi 的低层 `agent-loop.ts` 采用 outer/inner loop，其工具批次采用 every/all：非空且所有结果 `terminate=true` 才能终止。2026-10-14 固定参考版本已移除低层包的实验 lane Harness，持久会话进入独立 `pi-durable`；旧 prompt/resume/abort 与初始 durable 成熟度只作为历史证据，不能概括为完整持久内核（[当前源码与采用边界](ARCHITECTURE.md#reference-learning)、[历史来源](ARCHITECTURE.md#upstream-20260929)）。pi Extension 的事件、Tool、Provider 和上下文注入可映射为 Agent Loop Contribution，但 Extension 默认拥有完整宿主权限。`adapter-pi` 必须进程外执行，且只能通过受限 RPC 提交 Tool/Provider/Inbox Contribution；若包装低层 loop，仍需实现 Aervox 的 lease、fencing、持久化和恢复契约，不能直接把外部 Harness 当作 API 进程内 Loop。
 
 <a id="15-分阶段落地计划"></a>
 
@@ -551,7 +551,7 @@ SSE 必须验证持久后发送、高水位补读、弱网重连与游标过期�
 - Native/DSH/pi Driver 与 Model Provider 的兼容等级；
 - followup/steer/inject 公开范围、权限或唤醒语义的变化。
 
-实现切片通过 PR 关联测试与必要契约；在[参考设计迁移 §6.1](../explanation/reference-design-transfer.md#61-落地登记唯一真源)查询 `DSH-01` 与 `PI-01` 来源说明。
+实现切片通过 PR 关联测试与必要契约；在[架构设计来源 §14.1](ARCHITECTURE.md#61-落地登记唯一真源)查询 `DSH-01` 与 `PI-01` 来源说明。
 
 ## 19. 机器验证
 
