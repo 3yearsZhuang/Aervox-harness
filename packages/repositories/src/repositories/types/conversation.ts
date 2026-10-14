@@ -107,6 +107,7 @@ export interface IConversationRepository {
     outboxEvent?: { id: string; eventType: string; idempotencyKey: string; payload: unknown },
   ): Promise<{ turn: TurnModel; message: MessageVersionModel }>;
   getTurn(ctx: LocalContext, turnId: string): Promise<TurnModel | null>;
+  getTurnUserMessage(ctx: LocalContext, turnId: string): Promise<string | null>;
   getTurnByIdempotencyKey(ctx: LocalContext, idempotencyKey: string): Promise<TurnModel | null>;
   updateTurnStatus(
     ctx: LocalContext,

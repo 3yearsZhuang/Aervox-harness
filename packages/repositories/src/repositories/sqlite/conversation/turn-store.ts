@@ -40,7 +40,7 @@ export class TurnStore {
         id: input.turnId, sessionId: input.sessionId, idempotencyKey: input.idempotencyKey,
       }, { ...input.message, content }, {
         id: `outbox_${input.turnId}`, eventType: "turn.created", idempotencyKey: `idem_outbox_${input.turnId}`,
-        payload: { turnId: input.turnId, sessionId: input.sessionId },
+        payload: { turnId: input.turnId, sessionId: input.sessionId, userMessage: content },
       });
       const [attempt] = await tx.insert(turnAttempts).values({
         id: input.attemptId, turnId: input.turnId, attempt: 1, fencingToken: 0, status: "Running", startedAt: now,
@@ -114,6 +114,16 @@ export class TurnStore {
         ),
       );
     return (found as TurnModel) ?? null;
+  }
+
+  async getTurnUserMessage(ctx: LocalContext, turnId: string): Promise<string | null> {
+    const [found] = await this.db
+      .select({ content: messageVersions.content })
+      .from(messageVersions)
+      .where(and(eq(messageVersions.turnId, turnId), eq(messageVersions.role, "user")))
+      .orderBy(messageVersions.version)
+      .limit(1);
+    return found?.content ?? null;
   }
 
   async getTurnByIdempotencyKey(

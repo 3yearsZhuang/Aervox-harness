@@ -59,3 +59,100 @@ export class LocalFeatureHashEmbeddingProvider implements MemoryEmbeddingProvide
     return norm === 0 ? [] : vector.map((value) => value / norm);
   }
 }
+
+export interface OpenAiCompatibleEmbeddingOptions {
+  readonly baseUrl?: string;
+  readonly apiKey?: string;
+  readonly model?: string;
+  readonly timeoutMs?: number;
+  readonly fetch?: typeof fetch;
+}
+
+/**
+ * 生产/本地兼容的语义 Embedding Provider：
+ * 对接标准 OpenAI / Ollama / 本地推理服务的 /v1/embeddings 接口。
+ * 支持传入自定义 fetch（方便测试与隔离），并带有超时控制与格式健壮性保障。
+ */
+export class OpenAiCompatibleEmbeddingProvider implements MemoryEmbeddingProvider {
+  readonly modelId: string;
+  private readonly baseUrl: string;
+  private readonly apiKey?: string;
+  private readonly timeoutMs: number;
+  private readonly fetchFn: typeof fetch;
+
+  constructor(options: OpenAiCompatibleEmbeddingOptions = {}) {
+    this.modelId = options.model ?? "text-embedding-3-small";
+    const rawUrl = options.baseUrl ?? process.env.AERVOX_EMBEDDING_URL ?? "http://localhost:11434/v1";
+    this.baseUrl = rawUrl.replace(/\/+$/, "");
+    this.apiKey = options.apiKey ?? process.env.AERVOX_EMBEDDING_API_KEY;
+    this.timeoutMs = options.timeoutMs ?? 10_000;
+    this.fetchFn = options.fetch ?? globalThis.fetch;
+  }
+
+  async embed(text: string): Promise<number[]> {
+    const trimmed = text.trim();
+    if (!trimmed) return [];
+
+    const url = this.baseUrl.endsWith("/embeddings")
+      ? this.baseUrl
+      : `${this.baseUrl}/embeddings`;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+
+    try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (this.apiKey) {
+        headers["Authorization"] = `Bearer ${this.apiKey}`;
+      }
+
+      const response = await this.fetchFn(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          model: this.modelId,
+          input: trimmed,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Embedding request failed with status ${response.status}`);
+      }
+
+      const json = (await response.json()) as {
+        data?: Array<{ embedding?: number[] }>;
+      };
+
+      const embedding = json.data?.[0]?.embedding;
+      if (!Array.isArray(embedding) || embedding.length === 0) {
+        throw new Error("Invalid embedding response: missing or empty embedding array");
+      }
+
+      return embedding;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+}
+
+/** 解析环境配置生成对应的 Embedding Provider */
+export function resolveEmbeddingProvider(
+  env: Record<string, string | undefined> = process.env,
+  overrides?: OpenAiCompatibleEmbeddingOptions,
+): MemoryEmbeddingProvider {
+  const url = overrides?.baseUrl ?? env.AERVOX_EMBEDDING_URL;
+  const isExplicit = env.AERVOX_EMBEDDING_PROVIDER === "openai" || Boolean(url);
+  if (isExplicit) {
+    return new OpenAiCompatibleEmbeddingProvider({
+      baseUrl: url,
+      apiKey: overrides?.apiKey ?? env.AERVOX_EMBEDDING_API_KEY,
+      model: overrides?.model ?? env.AERVOX_EMBEDDING_MODEL,
+      fetch: overrides?.fetch,
+      timeoutMs: overrides?.timeoutMs,
+    });
+  }
+  return new LocalFeatureHashEmbeddingProvider();
+}

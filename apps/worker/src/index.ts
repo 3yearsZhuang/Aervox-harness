@@ -11,6 +11,7 @@
 import { createDatabase,
   initDatabaseSchema,
   SqliteAgentInboxRepository,
+  SqliteConversationRepository,
   SqliteExtensionRepository,
   SqliteOutboxRepository,
   SqlitePlatformRepository,
@@ -35,7 +36,9 @@ import { loadWorkerConfig } from "@aervox/config";
 import { registerWorkerShutdown } from "./shutdown.js";
 import { createServer } from "node:http";
 import { createStandardLogger } from "@aervox/observability";
+import { createReplayProvider } from "@aervox/core";
 import { runOutboxCycle } from "./outbox-worker.js";
+import { createTurnConsumerHandler } from "./turn-consumer.js";
 import { runReviewNotificationCycle } from "./review-notifier.js";
 import { runDiaryGenerationCycle } from "./diary-generator.js";
 import { runDeletionCycle } from "./deletion-worker.js";
@@ -83,6 +86,11 @@ const defaultTickMs = config.tickMs;
 
 const outboxRepo = new SqliteOutboxRepository(db);
 const platformRepo = new SqlitePlatformRepository(db);
+const conversationRepo = new SqliteConversationRepository(db);
+const turnConsumer = createTurnConsumerHandler({
+  repo: conversationRepo,
+  provider: createReplayProvider(),
+});
 const diaryRepo = new SqliteDiaryRepository(db);
 const llmConfigRepo = new SqliteLLMConfigRepository(db);
 const privacyRepo = new SqlitePrivacyRepository(db);
@@ -114,7 +122,16 @@ const host = new WorkerHost({
 host
   .registerJob({
     name: "outbox",
-    run: () => runOutboxCycle({ outboxRepo, platformRepo, workerId }),
+    run: () =>
+      runOutboxCycle({
+        outboxRepo,
+        platformRepo,
+        workerId,
+        handlers: {
+          "turn.created": turnConsumer,
+          "agent.turn.requested": turnConsumer,
+        },
+      }),
   })
   .registerJob({
     name: "review",

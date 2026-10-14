@@ -16,6 +16,7 @@
     "@aervox/contracts": "workspace:*",
     "@aervox/core": "workspace:*",
     "@aervox/diary": "workspace:*",
+    "@aervox/host-agent": "workspace:*",
     "@aervox/observability": "workspace:*",
     "@aervox/repositories": "workspace:*",
     "@aervox/schema": "workspace:*",

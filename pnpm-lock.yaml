@@ -304,6 +304,9 @@ importers:
       '@aervox/diary':
         specifier: workspace:*
         version: link:../../packages/diary
+      '@aervox/host-agent':
+        specifier: workspace:*
+        version: link:../../packages/host-agent
       '@aervox/observability':
         specifier: workspace:*
         version: link:../../packages/observability

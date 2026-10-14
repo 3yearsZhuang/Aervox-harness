@@ -2,7 +2,13 @@ import type { ModuleDependencies } from "../../context.js";
 import { SqliteMemoryRepository, SqliteMemoryEmbeddingRepository, SqlitePrivacyRepository } from "@aervox/repositories";
 import { registerMemoryRoutes } from "./routes.js";
 import { MemoryStoreTool } from "./memory-store-tool.js";
-import { LocalFeatureHashEmbeddingProvider, type MemoryEmbeddingProvider } from "./embedding-provider.js";
+import {
+  LocalFeatureHashEmbeddingProvider,
+  OpenAiCompatibleEmbeddingProvider,
+  resolveEmbeddingProvider,
+  type MemoryEmbeddingProvider,
+  type OpenAiCompatibleEmbeddingOptions,
+} from "./embedding-provider.js";
 import { createSqliteMemoryRecall } from "./recall.js";
 import { contributeMemoryTool } from "./tool-contribution.js";
 import { NativeMemoryVectorSearchAdapter, CachedMemoryVectorSearchAdapter, SqliteMemoryVectorSearchAdapter } from "@aervox/repositories";
@@ -10,7 +16,8 @@ import { nativeArtifactFromEnvironment, loadNativeArtifact } from "@aervox/nativ
 import { isAbsolute } from "node:path";
 
 export type { MemoryRecallPort, RecalledMemory } from "./recall.js";
-export type { MemoryEmbeddingProvider } from "./embedding-provider.js";
+export type { MemoryEmbeddingProvider, OpenAiCompatibleEmbeddingOptions } from "./embedding-provider.js";
+export { LocalFeatureHashEmbeddingProvider, OpenAiCompatibleEmbeddingProvider, resolveEmbeddingProvider } from "./embedding-provider.js";
 export type { MemoryWritePort } from "./tool-contribution.js";
 
 const local = { workspaceId: "local", subjectUserId: "local" } as const;
@@ -23,7 +30,7 @@ export async function registerMemoryModule(ctx: ModuleDependencies<"app" | "clie
   const repo = new SqliteMemoryRepository(db, client);
   const privacyRepo = new SqlitePrivacyRepository(db);
   const embeddingProvider = options.embeddingProvider === undefined
-    ? new LocalFeatureHashEmbeddingProvider() : options.embeddingProvider;
+    ? resolveEmbeddingProvider() : options.embeddingProvider;
   const engine = process.env.AERVOX_MEMORY_VECTOR_ENGINE;
   const artifact = engine === "rust" ? nativeArtifactFromEnvironment() ?? await loadNativeArtifact() : undefined;
   const databasePath = artifact || engine === "typed" ? String((await client.execute("PRAGMA database_list")).rows.find(r => r.name === "main")?.file ?? "") : "";

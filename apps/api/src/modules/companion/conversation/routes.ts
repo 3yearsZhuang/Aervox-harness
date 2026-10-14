@@ -291,8 +291,15 @@ export function registerConversationRoutes(
         releaseWorkerPressureLease(pressureLease);
       }
     };
-    if (loadApiConfig().turnExecution === "inline") {
+    const dispatchMode = process.env.AERVOX_LOOP_DISPATCH;
+    if (loadApiConfig().turnExecution === "inline" || (parsed.data as any).inline) {
       await runLoop();
+    } else if (dispatchMode === "worker") {
+      deps.observability?.log.info({
+        event: "turn.dispatched_to_worker",
+        message: `Turn ${turnId} dispatched to background worker via outbox`,
+        fields: { turnId, sessionId },
+      });
     } else {
       // 后台执行：异常已在 runLoop 内部捕获并推进 Failed 终态，此处仅兜底防 unhandledRejection
       void runLoop().catch(() => undefined);
@@ -475,19 +482,37 @@ export function registerConversationRoutes(
       return;
     }
 
-    // 低频纯心跳与超时安全兜底（15 秒一次，不执行任何数据库读操作）
+    // 跨进程/Worker 增量轮询与心跳安全兜底（每 100ms 增量拉取 SQLite 新事件；15s 一次心跳）
+    const CROSS_PROCESS_POLL_MS = 100;
     const tailStartedAt = Date.now();
+    let polling = false;
     tailTimer = setInterval(() => {
-      if (closed) return;
+      if (closed || polling) return;
       if (Date.now() - tailStartedAt >= TAIL_MAX_DURATION_MS) {
         finish();
         return;
       }
-      if (Date.now() - lastWriteAt >= TAIL_HEARTBEAT_MS) {
-        raw.write(`: ping\n\n`);
-        lastWriteAt = Date.now();
-      }
-    }, TAIL_HEARTBEAT_MS);
+      polling = true;
+      void (async () => {
+        try {
+          const freshEvents = await conversationRepo.getStreamEvents(tenant, turnId, lastSequence);
+          for (const ev of freshEvents) writeIfNew(ev);
+          flushBuffered();
+          if (await attemptSettled()) {
+            await drainAndFinish();
+            return;
+          }
+          if (Date.now() - lastWriteAt >= TAIL_HEARTBEAT_MS) {
+            raw.write(`: ping\n\n`);
+            lastWriteAt = Date.now();
+          }
+        } catch {
+          // 连接关闭或临时异常不打断轮询
+        } finally {
+          polling = false;
+        }
+      })();
+    }, CROSS_PROCESS_POLL_MS);
   });
 
   // POST /v1/turns/{turnId}/cancel — 取消 Turn（AVX-HAR-001 §11.1：Attempt CAS 置 CancelRequested，executor 检查点中止）
