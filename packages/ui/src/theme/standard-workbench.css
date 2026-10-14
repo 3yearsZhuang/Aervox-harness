@@ -135,28 +135,31 @@
   line-height: var(--avx-line-height-relaxed);
 }
 
-/* 输入区：发送按钮三态——可用为强调色实心，禁用不再只是整体降透明度 */
-.mode-standard .composer-send {
+/* 输入区：发送按钮三态——可用为强调色实心，禁用不再只是整体降透明度。
+ * 选择器带上 .composer-actions 以提高权重：原语 .aervox-btn--ghost:hover 与本组同权重，
+ * 不加限定会随样式加载顺序决定胜负。 */
+.mode-standard .composer-actions .composer-send {
   border-radius: 999px;
   transition: background-color var(--avx-duration-fast) ease, color var(--avx-duration-fast) ease, transform var(--avx-duration-fast) ease, box-shadow var(--avx-duration-fast) ease;
 }
 
-.mode-standard .composer-send:not(:disabled) {
+.mode-standard .composer-actions .composer-send:not(:disabled) {
   background: var(--avx-color-accent);
   color: var(--avx-color-on-accent);
   box-shadow: 0 2px 10px var(--avx-color-accent-glow);
 }
 
-.mode-standard .composer-send:not(:disabled):hover {
+.mode-standard .composer-actions .composer-send:not(:disabled):hover {
   background: var(--avx-color-accent-hover);
+  color: var(--avx-color-on-accent);
   transform: translateY(-1px);
 }
 
-.mode-standard .composer-send:not(:disabled):active {
+.mode-standard .composer-actions .composer-send:not(:disabled):active {
   transform: translateY(0) scale(.96);
 }
 
-.mode-standard .composer-send:disabled {
+.mode-standard .composer-actions .composer-send:disabled {
   background: transparent;
   color: var(--text-muted);
   opacity: 1;
