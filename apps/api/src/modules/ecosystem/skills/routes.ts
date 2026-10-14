@@ -1,3 +1,4 @@
+import { withRequestSignal } from "../../../shared/request-signal.js";
 /**
  * Aervox｜思隅 @aervox/api — Skill 管理路由（CAP-020）
  *
@@ -57,10 +58,11 @@ export function registerSkillRoutes(
       return reply.code(400).send({ error: "zipBase64 is not valid base64" });
     }
     try {
-      const installed = await manager.installFromZip(zipData, {
+      const installed = await withRequestSignal(req, reply, signal => manager.installFromZip(zipData, {
+        signal,
         name: body.name,
         overwrite: body.overwrite,
-      });
+      }));
       return reply.code(201).send({ installed });
     } catch (err) {
       if (err instanceof FileExistsError) {

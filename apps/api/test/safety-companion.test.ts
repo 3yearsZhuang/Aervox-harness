@@ -28,7 +28,7 @@ import {
   type LogRecord,
 } from "@aervox/observability";
 import { collectDiaryMaterial } from "@aervox/repositories";
-import { buildApp } from "../src/app.js";
+import { buildApp } from "./app-fixture.js";
 import { classifySafety } from "../src/modules/platform/safety/classifier.js";
 import { getCrisisHelplines, formatCrisisResponse } from "../src/modules/platform/safety/crisis-resources.js";
 import type { FastifyInstance } from "fastify";

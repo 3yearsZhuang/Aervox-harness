@@ -20,7 +20,7 @@ import {
 } from "../src/modules/companion/conversation/tool-providers.js";
 import { stableStringify } from "../src/modules/companion/conversation/llm-adapter.js";
 import { setRequestToolApprovalMode } from "../src/shared/tool-approval-policy.js";
-import { buildApp } from "../src/app.js";
+import { buildApp } from "./app-fixture.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
 import { ForbiddenError } from "../src/shared/errors.js";

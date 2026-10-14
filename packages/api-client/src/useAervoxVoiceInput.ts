@@ -64,8 +64,8 @@ export function useAervoxVoiceInput() {
   let transcriptionController = new AbortController();
 
   /** 读取本地实例的语音输入配置 */
-  const getInputConfig = async (): Promise<VoiceInputConfigDto> =>
-    transport.request<VoiceInputConfigDto>('GET', '/v1/voice/input/config');
+  const getInputConfig = async (signal?: AbortSignal): Promise<VoiceInputConfigDto> =>
+    transport.request<VoiceInputConfigDto>('GET', '/v1/voice/input/config', undefined, { signal });
 
   /** 保存本地实例的语音输入配置 */
   const saveInputConfig = async (

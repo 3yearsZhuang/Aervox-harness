@@ -93,6 +93,19 @@ test("仅插件目录变更时命中声明它的包（而非选中 0 个任务�
   );
 });
 
+test("桌面主进程桥接变更会重新验证 API 会话落库验收", () => {
+  const scope = loadTurboScope();
+  for (const file of [
+    "apps/desktop/src/main/turn-bridge.ts",
+    "apps/desktop/src/main/runtime-config.ts",
+  ]) {
+    const changeScope = resolveChangeScope([file], scope);
+    assert.equal(changeScope.mode, "scoped", file);
+    assert.ok(changeScope.packages.includes("@aervox/api"), `${file} must invalidate API acceptance`);
+    assert.ok(buildTurboFilterArgs("origin/main", changeScope).includes("--filter=@aervox/api..."));
+  }
+});
+
 test("共享输入与根级依赖变更时收敛为全量，不按包收窄", () => {
   for (const changed of [["vitest.shared.ts"], ["tsconfig.base.json"], ["tsconfig.base.node.json"]]) {
     const changeScope = resolveChangeScope(changed, syntheticScope());

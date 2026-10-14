@@ -11,7 +11,7 @@ import { createServer, type AddressInfo } from "node:http";
 import { createInMemoryDatabase, type AervoxDatabase } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 import type { FastifyInstance } from "fastify";
-import { buildApp } from "../src/app.js";
+import { buildApp } from "./app-fixture.js";
 import {
   GptSovitsLocalProvider,
   GptSovitsRemoteProvider,

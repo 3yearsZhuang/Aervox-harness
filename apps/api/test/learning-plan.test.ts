@@ -13,7 +13,7 @@ import {
   type AervoxDatabase,
   type LocalContext,
 } from "@aervox/repositories";
-import { buildApp } from "../src/app.js";
+import { buildApp } from "./app-fixture.js";
 import {
   LearningPlanGenerationService,
   extractJsonObject,

@@ -151,7 +151,7 @@ export async function createStdioAdapterDriver(
     try {
       msg = decodeAdapterLine(line);
     } catch {
-      failUnavailable();
+      void close().catch(error => process.stderr.write(`[adapter-stop] ${String(error)}\n`));
       return;
     }
     if (msg.kind === "error") {

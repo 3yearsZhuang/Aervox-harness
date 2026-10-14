@@ -265,7 +265,7 @@ pages/dashboard/app.js
 pages/dashboard/style.css
 ```
 
-包内安装识别根 `SKILL.md`/`skill.md`、`skills/<name>/SKILL.md`、`spec.skills[].content`。当前不是全目录技能资产复制：不要假定 Skill 的 `scripts/` 或任意资源自动安装、自动执行。根技能预检可能显示 front matter name，而实际安装使用 pluginId；保持二者一致。Skill name 必须匹配 `/^(?!\.{1,2}$)[\w.-]+$/`：使用 ASCII 字母、数字、下划线、点和短横线，排除单独 `.`/`..`，并使用插件前缀保证全局唯一。Manifest 只检查非空字符串等基础长度；Service 会静默跳过不合格名称，因此中文或空格名称可能在返回 201 后仍未登记。`spec.skills` 使用同名条目时会优先于扫描文件，避免重复声明覆盖正文。
+包内安装识别根 `SKILL.md`/`skill.md`、`skills/<name>/SKILL.md`、`spec.skills[].content`。当前不是全目录技能资产复制：不要假定 Skill 的 `scripts/` 或任意资源自动安装、自动执行。根技能预检可能显示 front matter name，而实际安装使用 pluginId；保持二者一致。Skill name 必须匹配 `/^(?!\.{1,2}$)[\w.-]+$/`：使用 ASCII 字母、数字、下划线、点和短横线，排除单独 `.`/`..`，并使用插件前缀保证全局唯一。Manifest 只检查非空字符串等基础长度；Service 在写入前拒绝不合格或重复名称，返回 409；不会以 201 掩盖未登记的技能。`spec.skills` 使用同名条目时会优先于扫描文件，避免重复声明覆盖正文。
 
 工具 ID 自动加 `<pluginId>.` 前缀，但工具 `name` 与技能名没有同等自动命名空间保证；作者使用唯一名称。`spec.tools` 只登记描述和 schema，受信组合根还需 `ToolRuntime.registerHandler`；无 handler 的工具调用会失败。`read_only/guarded/full_access` 是 Manifest 当前接受的枚举；它们没有完整映射到 Loop 使用的 `read_only/write_with_approval/privileged`。通用 [ToolRuntime](../../apps/api/src/modules/ecosystem/tools/runtime.ts) 的直接调用对非只读工具要求 approval，但[会话工具提供器](../../apps/api/src/modules/companion/conversation/tool-providers.ts)对 `guarded/full_access` 返回不支持级别的 `requires_approval`，不会仅凭包声明获得完整执行链。包内写工具还须由受信宿主显式映射/登记安全等级并验证审批链，单独注册 handler 不足以完成接入。API 会话组合根在工具发现及派发时重新读取插件生效状态，并逐项检查 `requiredPermissions` 的 permission/scope；参数不是有效数组、缺 Grant 或失效插件均拒绝。通用 Core Runtime 通过宿主传入的 `authorize` 回调复验，单独注册 handler 或绕过该组合根不自动获得等价权限检查。
 
@@ -333,6 +333,6 @@ MCP 使用独立[服务适配器](../../apps/api/src/modules/ecosystem/mcp/servi
 
 ## 归档资源与 Skill 所有权
 
-插件、Skill 和 Persona 的 API 压缩/解压统一使用共享 Worker 池：最多 2 个操作并行，单次期限 10 秒；压缩输入最多 20 MiB、累计展开最多 50 MiB、单条目最多 5 MiB、最多 2048 个条目。超时或取消终止 Worker 并释放容量，池满立即失败。解包同时校验目录声明、实际输出大小和 CRC；ZIP64、重复规范化路径、绝对路径和路径穿越均拒绝。Persona 内嵌的 Skill ZIP 消耗外层剩余展开/条目预算。
+插件、Skill 和 Persona 的 API 压缩/解压统一使用共享 Worker 池：最多 2 个操作并行，单次期限 10 秒；压缩输入最多 20 MiB、累计展开最多 50 MiB、单条目最多 5 MiB、最多 2048 个条目。超时或取消终止 Worker 并释放容量，池满立即失败。解包同时校验目录声明、实际输出大小和 CRC；ZIP64、重复规范化路径、绝对路径和路径穿越均拒绝。Persona 内嵌的 Skill ZIP 消耗外层剩余展开/条目预算。HTTP 请求中断或响应连接提前关闭会取消准备中的归档操作，嵌套归档沿用同一信号；正常接收完请求体不构成取消。安装在首次写入或卸载旧版本前检查取消；越过该提交边界后完成已接受的修改，不因断连中途停止写入。这不承诺跨文件系统和数据库的事务回滚。
 
-Skill 安装保留 `./` 前缀与反斜杠路径的规范化兼容，忽略 `__MACOSX`；绝对路径在规范化之前拒绝。`overwrite` 只允许覆盖本地可写 Skill，不能覆盖注册表中插件所有或只读的同名项。仓储更新必须维持原 `pluginId` 所有权；同一所有者可以更新元数据，不能借注册转移所有权。
+Skill 安装保留 `./` 前缀与反斜杠路径的规范化兼容，忽略 `__MACOSX`；绝对路径在规范化之前拒绝。`overwrite` 只允许覆盖本地可写 Skill，不能覆盖注册表中插件所有或只读的同名项。目录所有权检查覆盖整个目标目录及其祖先、后代注册：本地名称与插件 ID 相撞、旧注册相互重叠、未登记的非空目录或符号链接均拒绝写入和递归删除。插件安装及本地多技能安装在变更前检查全部声明，API 内同一技能根目录的安装、同步与删除串行执行；插件卸载只清理由该插件登记的技能目录，不因同名插件不存在而删除本地技能。仓储更新必须维持原 `pluginId` 所有权；同一所有者可以更新元数据，不能借注册转移所有权。冲突返回 409，原目录与注册保留；不自动迁移或合并既有冲突数据。

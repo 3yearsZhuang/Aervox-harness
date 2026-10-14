@@ -330,7 +330,7 @@ export class PersonaService {
     };
   }
 
-  async exportBundle(tenant: LocalContext, personaId: string): Promise<PersonaBundleExportResult> {
+  async exportBundle(tenant: LocalContext, personaId: string, signal?: AbortSignal): Promise<PersonaBundleExportResult> {
     const personaRecord = await this.deps.personaRepo.getPersona(tenant, personaId);
     if (!personaRecord) throw new Error("Persona not found");
     const revisionRecord = await this.deps.personaRepo.getPersonaRevision(
@@ -357,17 +357,19 @@ export class PersonaService {
       skillManager: this.deps.skillManager,
       availableToolIds: availableTools,
       availableVoiceProviderIds: availableVoiceProviders,
+      signal,
     });
   }
 
-  previewBundle(bytes: Uint8Array, workspaceId: string): Promise<PersonaBundleImportPreview> {
-    return previewPersonaBundle(bytes, workspaceId);
+  previewBundle(bytes: Uint8Array, workspaceId: string, signal?: AbortSignal): Promise<PersonaBundleImportPreview> {
+    return previewPersonaBundle(bytes, workspaceId, signal);
   }
 
   async importBundle(
     tenant: LocalContext,
     bytes: Uint8Array,
     conflictResolution: "error" | "replace" = "error",
+    signal?: AbortSignal,
   ): Promise<{
     persona: Persona;
     revision: PersonaRevision;
@@ -383,6 +385,7 @@ export class PersonaService {
       personaRepo: this.deps.personaRepo,
       skillManager: this.deps.skillManager,
       conflictResolution,
+      signal,
     });
   }
 

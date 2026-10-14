@@ -23,6 +23,18 @@ describe.each(cases)("$label preset lifecycle", ({ Repo, table }) => {
         isActive: i === 50 ? 1 : 0, createdAt: "2026-01-01", updatedAt: "2026-01-01",
       })));
       expect((await repo.getConfig(context))?.id).toBe("preset_050");
+      const before = (await db.select().from(table)).find(row => row.id === "preset_000");
+      const saved = await repo.saveConfig(context, {
+        enabled: true, modelId: "changed-active-model", providerId: "gpt-sovits-local",
+        providerType: "openai-compatible", engineType: "whisper-compatible",
+        baseUrl: "http://localhost/changed", endpoint: "http://localhost/changed", temperature: 0.4,
+      });
+      expect(saved.id).toBe("preset_050");
+      expect(saved.modelId).toBe("changed-active-model");
+      const after = await db.select().from(table);
+      expect(after.find(row => row.id === "preset_000")).toEqual(before);
+      expect(after.find(row => row.id === "preset_050")?.modelId).toBe("changed-active-model");
+
       expect(await repo.activatePreset(context, "missing")).toBeNull();
       expect((await repo.getConfig(context))?.id).toBe("preset_050");
       expect((await repo.activatePreset(context, "preset_010"))?.id).toBe("preset_010");

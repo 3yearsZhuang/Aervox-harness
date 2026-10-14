@@ -66,6 +66,8 @@
         "tsconfig.json",
         "vitest.config.*",
         "../../vitest.shared.ts",
+        "../../apps/desktop/src/main/turn-bridge.ts",
+        "../../apps/desktop/src/main/runtime-config.ts",
         "../../plugins/**"
       ]
     },

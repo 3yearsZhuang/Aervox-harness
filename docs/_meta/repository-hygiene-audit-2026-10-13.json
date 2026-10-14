@@ -1812,7 +1812,7 @@
     "timezone": "Asia/Shanghai",
     "branch": "fix/repository-hygiene",
     "base": "511f9d1ed8da263855dd4337cd1beb4680dc6bdd",
-    "status": "partial_requires_followup",
+    "status": "verified_with_dependency_exceptions",
     "findingIds": [
       "HYG-01",
       "HYG-02",
@@ -1960,6 +1960,187 @@
         "success": 8
       },
       "productionFixesAppliedInSelfReview": false
+    },
+    "followup": {
+      "date": "2026-10-14",
+      "baseCommit": "91770f41f633f18cce75526e4295a8897ca32611",
+      "status": "verified_pending_pr_review",
+      "fixes": [
+        {
+          "finding": "HYG-03",
+          "result": "Composer cancels both configuration and permission waits; stale completions cannot restore recording.",
+          "tests": "packages/ui/test/composer-voice-lifecycle.test.ts",
+          "cases": 11
+        },
+        {
+          "finding": "HYG-05",
+          "result": "Shared directory ownership checks and serialized local API mutations cover local install/delete, release sync and plugin install/uninstall. Batch conflicts fail before mutation; unknown and symlinked directories are preserved. Marketplace directory conflicts return 409 and preserve local files and registrations.",
+          "tests": [
+            "apps/api/test/skills.test.ts",
+            "apps/api/test/plugin-distribution.test.ts"
+          ]
+        },
+        {
+          "finding": "HYG-07",
+          "result": "Malformed admitted protocol invokes bounded close, including SIGKILL escalation for a child ignoring SIGTERM.",
+          "tests": "packages/host-agent/test/stdio-adapter-protocol.test.ts"
+        },
+        {
+          "finding": "HYG-09",
+          "result": "HTTP lifetime signal reaches Skill/Plugin/Persona workers including nested and market operations. Cancellation is checked before commit; accepted writes continue after disconnect.",
+          "tests": "apps/api/test/archive-disconnect.test.ts",
+          "disconnectCases": 8,
+          "postCommitCases": 3,
+          "asyncErrorMappingCases": 1
+        }
+      ],
+      "acceptanceGapsClosed": [
+        {
+          "finding": "HYG-01",
+          "tests": "apps/api/test/desktop-turn-session.test.ts",
+          "assertions": [
+            "real main-process HTTP/SSE bridge",
+            "A/B request URLs",
+            "separate persisted histories",
+            "separate project associations",
+            "default session absent"
+          ]
+        },
+        {
+          "finding": "HYG-04",
+          "tests": "packages/repositories/test/preset-lifecycle.test.ts",
+          "assertions": [
+            "all four saveConfig implementations update the active 51st row",
+            "writer connection confirms first row unchanged"
+          ]
+        },
+        {
+          "finding": "HYG-08",
+          "tests": "apps/worker/test/shutdown-process.test.ts",
+          "assertions": [
+            "real SIGTERM",
+            "both file SQLite writes precede client close",
+            "drained exit 0",
+            "hung exit 1 without premature database close"
+          ]
+        }
+      ],
+      "testIsolation": "API test app fixture supplies temporary installed-file roots for each database and closes/removes them; explicit test roots remain unchanged.",
+      "validation": [
+        {
+          "command": "Initial ./aervox ci all",
+          "exitCode": 1,
+          "reason": "7 assertions in 3 plugin suites reused installed files with new databases; production protection correctly rejected the unregistered files."
+        },
+        {
+          "command": "Plugin fixture regression: study-term-plugins, focus-mode-loop, builtin-plugins-market",
+          "exitCode": 0,
+          "files": 3,
+          "passed": 17
+        },
+        {
+          "command": "Archive disconnect and commit-boundary regression",
+          "exitCode": 0,
+          "passed": 12
+        },
+        {
+          "command": "API Playwright integration",
+          "exitCode": 0,
+          "passed": 45
+        },
+        {
+          "command": "Chromium UI Playwright integration",
+          "exitCode": 0,
+          "passed": 4
+        },
+        {
+          "command": "CLI integration",
+          "exitCode": 0,
+          "passed": 2
+        },
+        {
+          "command": "pnpm check:dependency-audit",
+          "exitCode": 0,
+          "unreviewedPaths": 0,
+          "reviewedPaths": 4,
+          "staleExceptions": 0
+        },
+        {
+          "command": "Intermediate ./aervox ci all",
+          "exitCode": 1,
+          "reason": "Code, Native and tests passed; one unquoted package name failed Vale terminology. Corrected before the final gate."
+        },
+        {
+          "command": "Plugin distribution including marketplace conflict regression",
+          "exitCode": 0,
+          "files": 1,
+          "passed": 14
+        },
+        {
+          "command": "mise exec -- pnpm check:ci-config",
+          "exitCode": 0,
+          "passed": 17
+        },
+        {
+          "command": "./aervox ci all",
+          "exitCode": 0,
+          "log": "artifacts/repository-hygiene-followup-2026-10-14/ci-all-head.log",
+          "build": {
+            "successful": 27,
+            "total": 27,
+            "cached": 24
+          },
+          "typecheck": {
+            "successful": 46,
+            "total": 46,
+            "cached": 43
+          },
+          "test": {
+            "successful": 45,
+            "total": 45,
+            "cached": 40
+          },
+          "api": {
+            "files": 83,
+            "passed": 598
+          },
+          "repositories": {
+            "files": 67,
+            "passed": 402
+          },
+          "ui": {
+            "files": 18,
+            "passed": 112
+          },
+          "worker": {
+            "files": 17,
+            "passed": 97
+          },
+          "desktop": {
+            "files": 8,
+            "passed": 29
+          },
+          "hostAgent": {
+            "files": 13,
+            "passed": 79,
+            "skipped": 2
+          },
+          "docs": {
+            "tests": 22,
+            "documents": 67,
+            "errors": 0
+          },
+          "native": "Rust fmt/test/clippy and Native lifecycle passed; smoke rebuilt final API sources."
+        }
+      ],
+      "dependencyRegistryRecheck": {
+        "sprintf-js": "1.1.3",
+        "xcode": "3.0.1",
+        "drizzle-kit": "0.31.11"
+      },
+      "remaining": "3 reviewed moderate dependency advisories (4 paths), expiring 2026-11-13; PR review, hardware/packaging and release gates remain distinct.",
+      "ciScope": "Desktop turn-bridge and runtime-config are API test inputs; actual scope resolution regression selects API for desktop-only edits.",
+      "conclusion": "Self-review implementation, cancellation wiring and acceptance gaps are resolved and locally verified. Three reviewed moderate dependency advisories remain under expiring exceptions; PR review and release acceptance are separate."
     }
   }
 }

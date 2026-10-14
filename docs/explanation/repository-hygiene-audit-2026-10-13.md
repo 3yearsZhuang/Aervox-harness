@@ -321,7 +321,7 @@ mise exec -- pnpm audit --json
 
 实施分支 `fix/repository-hygiene` 基于 `511f9d1e`，保留插件生命周期前置变更；原始主工作区未改动。整改提交 `e5316da` 见 [PR #277](https://github.com/3yearsZhuang/Aervox-harness/pull/277)，以 `feat/plugin-lifecycle-reliability` 为基线单独评审，尚未合入。本节记录整改，不把基线测试通过当作修改后的验证。
 
-**2026-10-14 自查更正：不能认定 HYG-01～14 已全部关闭。** 下表是首轮实现与已有测试；逐项重读验收后确认了录音入口、Skill 目录所有权、Adapter 坏协议清理的残留问题，以及归档取消接线和部分验收证据缺口，见 §8.3。此前“整改完成”仅能表示首轮修改和门禁完成，不代表发现全部解决。
+**首轮自查结论（历史）：不能认定 HYG-01～14 已全部关闭。** 下表是首轮实现与已有测试；逐项重读验收后确认了录音入口、Skill 目录所有权、Adapter 坏协议清理的残留问题，以及归档取消接线和部分验收证据缺口，见 §8.3；后续修复与新增验收见 §8.4。此前“整改完成”仅能表示首轮修改和门禁完成，不代表发现全部解决。
 
 | 编号 | 实现结果 | 回归证据 |
 |---|---|---|
@@ -349,7 +349,7 @@ mise exec -- pnpm audit --json
 | uuid 7.0.3 | Capacitor/Xcode 构建工具调用 v4 生成本地工程 ID；公告涉及提供外部 buffer 的 v3/v5/v6 | 跟踪 xcode 兼容升级，移动发行前复查 |
 | sprintf-js 1.1.3 | Electron 构建工具可选下载代理日志链；global-agent 使用固定格式文案与结构化网络字段 | 本次查询 registry 尚无公告所述 1.1.4；桌面打包发行前复查 |
 
-### 8.2 修改后的验证与交付
+### 8.2 首轮修改后的验证与交付（历史记录）
 
 2026-10-14 接续复核并完成最终验证，以下命令均已记录退出码 0：
 
@@ -369,7 +369,7 @@ Drizzle 升级后的回归同时验证底层原因、事务回滚数据和 ESM/C
 
 验证不代表真实模型、麦克风硬件、操作系统打包/签名或正式发布验收，也不代表 ITER-013 等关联迭代整体完成。未执行数据库迁移、生产停机或数据删除。
 
-### 8.3 逐项自查：未完整关闭
+### 8.3 首轮逐项自查：未完整关闭（历史记录）
 
 本轮审查提交为 `f63a3c86`。其远端 CI、Docs、API/UI E2E、依赖审计和三平台 Native 检查均已成功；以下残留仍能复现，说明现有门禁不足以证明发现全部关闭。本轮只复核和更正状态，未修改这些生产实现。
 
@@ -401,3 +401,29 @@ Drizzle 升级后的回归同时验证底层原因、事务回滚数据和 ESM/C
 [Skill 安装](../../apps/api/src/modules/ecosystem/skills/skill-manager.ts) 87～88 行调用 `unzip(zipData)`，[Persona 解包](../../apps/api/src/modules/companion/persona/bundle.ts) 141～142 行和[插件解包](../../apps/api/src/modules/ecosystem/plugins/package-bundle.ts) 43～44 行均不传 signal；路由也未建立相应取消传递。HYG-09 的静态缺口与已复现实现残留分别记录，未声称已经完成断连实验。HYG-01/04/08 的证据缺口同样不直接等同于确认运行失败。
 
 5 个隔离复现用例（录音 3、目录所有权 1、Adapter 1）均成功复现坏行为；这些断言不是修复验收通过。用例、日志和结果保存在 `artifacts/repository-hygiene-selfcheck-2026-10-14/`，未把“期望坏行为”的临时用例加入正常测试套件；实验使用临时目录/库，结束后关闭音轨和子进程。长期摘要追加在证据快照的 `remediation.selfReview` 中。
+
+### 8.4 自查残留的修复与验收
+
+2026-10-14 在同一修复分支继续处理 §8.3 差量。以下验收断言要求正确结果；首轮证明坏行为的临时复现保留为历史证据。
+
+| 范围 | 本轮修改与验收 |
+|---|---|
+| HYG-01 | 桌面主进程实际使用可独立测试的 HTTP/SSE 处理函数。新增 API 测试启动真实 HTTP 服务及临时 SQLite，发送 A/B 各两轮，断言 URL、持久历史、项目关联和默认会话未被创建；原 transport/preload 回归继续覆盖 IPC 透传 |
+| HYG-03 | Composer 对配置读取与权限等待统一标记启动代次；输入、Enter、再次点击、收起与卸载均取消等待。配置请求携带 signal，迟到完成或旧错误不能重启采集或覆盖新状态；保留用户停止提交末片段、卸载丢弃并取消转写的底层语义 |
+| HYG-04 | 四种仓储对第 51 个活跃预设调用真实 `saveConfig`；通过写者连接断言目标字段已修改、第一个预设整行不变 |
+| HYG-05 | 本地安装/删除、技能发布同步、插件安装/卸载共用目录所有权检查及 API 内串行修改；先检查全部声明，再写盘。覆盖正反向名称碰撞、旧注册重叠、未登记目录、符号链接、并发安装和覆盖包卸载前冲突，失败时保留原文件与注册，不自动迁移 |
+| HYG-07 | 准入后坏协议进入幂等有界 close；新增实际子进程回归让驱动忽略 SIGTERM，断言随后强制终止、PID 消失且不能继续运行 |
+| HYG-08 | 入口使用共享退出处理函数；子进程验收发送真实 SIGTERM，放行在途任务后确认两个文件 SQLite 库先写入、再关闭、退出 0；永久挂起则有界退出 1，并且没有提前关闭数据库 |
+| HYG-09 | Skill、Plugin、Persona 的准备阶段贯通请求断连信号，包含市场打包和嵌套 ZIP。8 个真实 HTTP 断连回归观察实际 Worker 拒绝、两个并发名额可重新使用、安装数据不变；Persona 异步预检错误返回 400。另有 3 项回归在首次文件写入后断连，确认 Skill 多文件、Plugin 替换与 Persona 导入仍完成已接受的修改。安装提交前检查取消，详见[归档契约](../reference/plugin-config-and-pages.md#归档资源与-skill-所有权) |
+
+新增长期回归位于 `apps/api/test/archive-disconnect.test.ts`、`apps/api/test/desktop-turn-session.test.ts`、`apps/api/test/skills.test.ts`、`apps/api/test/plugin-distribution.test.ts`、`apps/worker/test/shutdown-process.test.ts`、`packages/host-agent/test/stdio-adapter-protocol.test.ts`、`packages/ui/test/composer-voice-lifecycle.test.ts` 和四类预设生命周期测试。API 测试共用夹具为每个 App 分配独立的技能和插件目录，在 App 关闭时清理；显式传入的目录保持原测试设置。此修复解决了全量测试重新创建数据库却复用上一轮文件目录的问题，避免将未登记残留当成合法插件数据。
+
+桌面桥接及运行配置已纳入 API 验收任务的 Turbo 输入；范围回归确认仅修改这些桌面文件也会重新验证 API，避免跨包验收重放旧缓存。集市安装的目录冲突统一返回 409，接口回归同时断言本地正文、注册和未安装状态保持不变。
+
+**本轮结论：§8.3 的实现残留、取消接线与验收缺口均已修复并验证；HYG-11 仍有 3 项中危限期例外，不能记为依赖告警清零。** [PR #277](https://github.com/3yearsZhuang/Aervox-harness/pull/277) 待审查，尚未合入。
+
+2026-10-14 最终 `./aervox ci all` **退出 0**：构建 27/27、类型检查 46/46、测试 45/45 个 Turbo 任务成功，分别复用 24、43、40 个缓存任务；包含 Rust fmt/test/clippy 与 Native 生命周期检查。API 83 文件、598 项，仓储 402 项，UI 112 项，Worker 97 项，桌面 29 项，Host Agent 79 项通过；Host Agent 的 2 项既有条件跳过不计为通过。CI 范围回归 17 项、文档脚本 22 项通过，67 份文档的排版、术语和本地链接无错误。
+
+补充 API E2E、Chromium UI E2E、CLI 集成分别 **45 / 4 / 2 项通过，退出 0**；依赖审计退出 0，0 未审阅路径、4 已审阅路径、0 过期或失效例外。首次全量验证暴露了上述测试目录复用问题，修正夹具后通过；后续一处包名术语格式错误也已修正并通过终审。
+
+日志位于工作树 `artifacts/repository-hygiene-followup-2026-10-14/`，长期结果进入证据快照的 `remediation.followup`。§8.1 的 3 项依赖限期例外继续保留，均于 2026-11-13 到期；registry 复查仍为 `sprintf-js` 1.1.3、`xcode` 3.0.1、`drizzle-kit` 0.31.11，没有用跨主版本强制覆盖宣称告警消失。远端检查以 PR 当前提交为准；真实硬件、打包签名、正式发布与关联迭代的其余门槛不在本轮关闭范围。
