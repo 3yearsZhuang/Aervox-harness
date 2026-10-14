@@ -105,6 +105,32 @@
   outline-offset: 2px;
 }
 
+/* 会话列表加载态：加载期间不得闪空态（此前 loading 为 true 时会显示「还没有对话」）。
+ * 骨架形状对齐会话项行高；动画在 prefers-reduced-motion 下由全局覆盖关闭。 */
+.mode-standard .workbench-standard-sidebar .sidebar-sessions-skeleton {
+  display: grid;
+  gap: 10px;
+  padding: 8px 12px;
+}
+
+.mode-standard .workbench-standard-sidebar .sidebar-sessions-skeleton-row {
+  height: 34px;
+  border-radius: var(--avx-radius-sm);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--glass-border) 44%, transparent),
+    color-mix(in srgb, var(--glass-border) 16%, transparent),
+    color-mix(in srgb, var(--glass-border) 44%, transparent)
+  );
+  background-size: 200% 100%;
+  animation: sidebar-skeleton-sheen 1.4s ease-in-out infinite;
+}
+
+@keyframes sidebar-skeleton-sheen {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
 /* 会话空态：图标 + 说明 + 新建入口，替掉单行灰字 */
 .mode-standard .workbench-standard-sidebar .empty-sessions {
   display: grid;

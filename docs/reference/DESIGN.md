@@ -128,7 +128,7 @@ button:active,
 }
 ```
 
-**空态构成。** 空列表与空会话统一为「图标 + 标题 + 单行说明 + 主动作」，禁止只留一行灰字：
+**空态构成（只适用于真正可能为空的容器）。** 空列表统一为「图标 + 标题 + 单行说明 + 主动作」，禁止只留一行灰字（当前适用：侧栏会话列表）：
 
 ```html
 <span class="empty-sessions-icon"><MessageSquare :size="16" /></span>
@@ -138,6 +138,8 @@ button:active,
 ```
 
 说明文案必须能在最窄侧栏（200px）内一行排完，避免末行孤字。
+
+**会话流不在空态约束内。** `useWorkbenchConversation` 在初始化与 `resetStory` 时都会写入一条 assistant 问候，`story` 永不为空，消费方只做 `push`；因此 `StandardConversation` 的 `.standard-empty` 与 `HistoryDrawer` 的 `.vn-history-empty` 都是不可达的防御分支。新增空态前先确认容器确实可能为空，不要为空态而造空态。
 
 **次级图标按钮命中区。** 侧栏工具行一类次级图标按钮统一 26px 见方命中区与 8px 圆角，并具备悬停强调色微晕、`:active` 下沉以及 `:focus-visible` 外环；不得只给图标不给命中区。
 
