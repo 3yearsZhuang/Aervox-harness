@@ -27,7 +27,7 @@ describe("atomic message and config writes", () => {
   ])("rolls back message edits on %s failure", async (point) => {
     await seedMessage();
     await database.client.execute(`CREATE TRIGGER fail_edit ${point} BEGIN SELECT RAISE(ABORT, 'injected'); END`);
-    await expect(conversations.editMessage(ctx, "m", "new", 1)).rejects.toThrow("injected");
+    await expect(conversations.editMessage(ctx, "m", "new", 1)).rejects.toMatchObject({ cause: expect.objectContaining({ message: expect.stringContaining("injected") }) });
     expect(await conversations.listMessageVersions(ctx, "m")).toMatchObject([{ id: "v1", content: "old", supersededAt: null }]);
     expect((await conversations.getMessage(ctx, "m"))?.currentVersionId).toBe("v1");
   });
@@ -58,7 +58,7 @@ describe("atomic message and config writes", () => {
     await save(0, "old");
     const before = await secrets();
     await database.client.execute(`CREATE TRIGGER fail_config ${point} BEGIN SELECT RAISE(ABORT, 'injected'); END`);
-    await expect(save(1, "new")).rejects.toThrow("injected");
+    await expect(save(1, "new")).rejects.toMatchObject({ cause: expect.objectContaining({ message: expect.stringContaining("injected") }) });
     expect(await secrets()).toEqual(before);
     expect(await configs.getConfig(ctx, "p")).toMatchObject({ revision: 1, valuesJson: { endpoint: "old" } });
   });
@@ -74,7 +74,7 @@ describe("atomic message and config writes", () => {
     await save(0, "old");
     const before = await secrets();
     await database.client.execute("CREATE TRIGGER fail_reset BEFORE UPDATE ON plugin_configs BEGIN SELECT RAISE(ABORT, 'injected'); END");
-    await expect(configs.resetConfig(ctx, "p", 1, {})).rejects.toThrow("injected");
+    await expect(configs.resetConfig(ctx, "p", 1, {})).rejects.toMatchObject({ cause: expect.objectContaining({ message: expect.stringContaining("injected") }) });
     expect(await secrets()).toEqual(before);
   });
 });

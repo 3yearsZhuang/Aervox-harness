@@ -10,6 +10,7 @@ import type { AervoxDatabase } from "../../client.js";
 import { memoryEmbeddings, memoryRecords } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
 import { cosineSimilarity } from "../../search/vector-port.js";
+import { TopK } from "../../search/top-k.js";
 import type { IMemoryEmbeddingRepository } from "../types/index.js";
 
 /** 把 JSON 字符串还原为 number[]；非法数据视为空向量 */
@@ -106,6 +107,8 @@ export class SqliteMemoryEmbeddingRepository implements IMemoryEmbeddingReposito
     minScore: number = 0,
     modelId?: string,
   ): Promise<Array<{ memoryId: string; score: number }>> {
+    const scored = new TopK<{ memoryId: string; score: number }>(topK);
+    if (topK === 0) return [];
     const rows = await this.db
       .select()
       .from(memoryEmbeddings)
@@ -115,14 +118,12 @@ export class SqliteMemoryEmbeddingRepository implements IMemoryEmbeddingReposito
         ),
       );
 
-    const scored: Array<{ memoryId: string; score: number }> = [];
     for (const row of rows) {
       const vector = parseVector((row as { embeddingJson: string }).embeddingJson);
       const score = cosineSimilarity(queryVector, vector);
-      if (score >= minScore) scored.push({ memoryId: String(row.memoryId), score });
+      if (score >= minScore) scored.add({ memoryId: String(row.memoryId), score }, score);
     }
-    scored.sort((a, b) => b.score - a.score);
-    return scored.slice(0, topK);
+    return scored.values();
   }
 
   async deleteByMemoryId(ctx: LocalContext, memoryId: string): Promise<void> {

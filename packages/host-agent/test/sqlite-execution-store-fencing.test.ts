@@ -4,9 +4,9 @@
  * 宿主适配把 @aervox/repositories 的 FencingMismatchError 转译为 Loop 的 LeaseLostError，
  * 使 executor 可识别「被抢占」并立即收敛。未携带期望值时保持既有无校验行为。
  */
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SqliteExecutionStore } from "../src/index.js";
-import { LeaseLostError } from "@aervox/core";
+import { defaultContextBuilder, executeTurn, LeaseLostError } from "@aervox/core";
 import {
   createInMemoryDatabase,
   initDatabaseSchema,
@@ -21,11 +21,12 @@ const ctx: LocalContext = { workspaceId: "ws_fhost", subjectUserId: "usr_fhost" 
 describe("SqliteExecutionStore 事件写入 fencing 桥接", () => {
   let db: AervoxDatabase;
   let client: Client;
+  let cleanup: () => Promise<void>;
   let repo: SqliteConversationRepository;
   let store: SqliteExecutionStore;
   let seq = 0;
 
-  const nextTurn = async (): Promise<{ turnId: string; attemptId: string }> => {
+  const nextTurn = async (): Promise<{ turnId: string; attemptId: string; sessionId: string }> => {
     const n = (++seq).toString(36);
     const turnId = `turn_fhost_${n}`;
     const sessionId = `ses_fhost_${n}`;
@@ -38,16 +39,41 @@ describe("SqliteExecutionStore 事件写入 fencing 桥接", () => {
     );
     const attemptId = `atp_fhost_${n}`;
     await repo.createTurnAttempt(ctx, turnId, { id: attemptId, attempt: 1 });
-    return { turnId, attemptId };
+    return { turnId, attemptId, sessionId };
   };
 
   beforeEach(async () => {
     const res = await createInMemoryDatabase();
     db = res.db;
     client = res.client;
+    cleanup = res.cleanup;
     await initDatabaseSchema(client);
     repo = new SqliteConversationRepository(db);
     store = new SqliteExecutionStore(repo, ctx);
+  });
+
+  afterEach(async () => cleanup?.());
+
+  it("executeTurn returns contested when a competing terminal wins in SQLite", async () => {
+    const turn = await nextTurn();
+    const finalize = store.finalizeAttemptWithEvent.bind(store);
+    vi.spyOn(store, "finalizeAttemptWithEvent").mockImplementationOnce(async terminal => {
+      const winner = await finalize({
+        ...terminal, status: "Interrupted", eventType: "done",
+        eventData: { status: "Interrupted", isComplete: false, reason: "competing_runner" },
+      });
+      expect(winner.ok).toBe(true);
+      return finalize(terminal);
+    });
+    const result = await executeTurn({
+      execution: store, contextBuilder: defaultContextBuilder,
+      provider: { id: "answer", async *stream() { yield { text: "answer", isFinal: true }; } },
+    }, { ...turn, userMessage: "hello" });
+    expect(result).toMatchObject({ status: "failed", reason: "completed_finalize_contested" });
+    expect((await repo.listTurnAttempts(ctx, turn.turnId))[0]?.status).toBe("Interrupted");
+    const terminalEvents = (await store.listEvents(turn.turnId)).filter(e => e.eventType === "done" || e.eventType === "error");
+    expect(terminalEvents).toHaveLength(1);
+    expect(terminalEvents[0]?.data).toMatchObject({ status: "Interrupted", reason: "competing_runner" });
   });
 
   it("claim 后携带正确 fencing 写入通过", async () => {

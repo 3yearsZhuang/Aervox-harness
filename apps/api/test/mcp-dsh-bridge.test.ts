@@ -7,14 +7,15 @@
  * - 路径越界沙箱防护（禁止 ../ 逃逸）；
  * - Fastify 端点挂载（GET /v1/mcp/dsh 与 POST /v1/mcp/dsh）。
  */
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DshMcpBridge, resolveSafePath } from "../src/modules/ecosystem/mcp/dsh-bridge.js";
-import { buildApp } from "../src/app.js";
+import { buildApp } from "./app-fixture.js";
 import { createInMemoryDatabase, initDatabaseSchema } from "@aervox/repositories";
 import type { FastifyInstance } from "fastify";
+import { RipgrepCodeSearch } from "../src/modules/ecosystem/mcp/code-search.js";
 
 describe("DSH MCP 桥接器 (DshMcpBridge)", () => {
   let sandboxDir: string;
@@ -237,6 +238,29 @@ describe("DSH MCP Fastify 端点集成 (/v1/mcp/dsh)", () => {
   afterEach(async () => {
     await app.close();
     await cleanup();
+  });
+
+  it("cancels in-flight search when the HTTP caller disconnects", async () => {
+    let searchSignal: AbortSignal | undefined;
+    const spy = vi.spyOn(RipgrepCodeSearch.prototype, "search").mockImplementation(({ signal }) => {
+      searchSignal = signal;
+      return new Promise((_, reject) => signal?.addEventListener("abort", () => reject(new Error("cancelled")), { once: true }));
+    });
+    const controller = new AbortController();
+    try {
+      const url = await app.listen({ host: "127.0.0.1", port: 0 });
+      const request = fetch(`${url}/v1/mcp/dsh`, {
+        method: "POST", headers: { "content-type": "application/json" }, signal: controller.signal,
+        body: JSON.stringify({ jsonrpc: "2.0", id: 99, method: "tools/call", params: { name: "dsh_search_code", arguments: { query: "needle" } } }),
+      }).catch(() => undefined);
+      await vi.waitFor(() => expect(searchSignal).toBeDefined());
+      controller.abort();
+      await request;
+      await vi.waitFor(() => expect(searchSignal?.aborted).toBe(true));
+    } finally {
+      controller.abort();
+      spy.mockRestore();
+    }
   });
 
   it("GET /v1/mcp/dsh 返回健康探测状态", async () => {

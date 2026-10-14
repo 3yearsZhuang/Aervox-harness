@@ -164,8 +164,13 @@ function getProjectName(projectId?: string | null): string {
 
 async function handleCreateSession() {
   const pId = projects?.selectedProjectId.value || undefined;
-  await sessions.createNewSession('新对话', undefined, pId);
-  closeNarrowSidebar();
+  sessionError.value = '';
+  try {
+    await sessions.createNewSession('新对话', undefined, pId);
+    closeNarrowSidebar();
+  } catch {
+    sessionError.value = '会话未能创建，请重试。';
+  }
 }
 
 function handleSelectSession(sessionId: string) {
@@ -336,7 +341,7 @@ function toggleTheme() {
 
     <!-- 会话列表 -->
     <div class="sidebar-sessions-scroll" role="navigation" aria-label="会话历史">
-      <p v-if="sessionError" class="sidebar-error" role="alert">{{ sessionError }}</p>
+      <p v-if="sessionError || sessions.error.value" class="sidebar-error" role="alert">{{ sessionError || sessions.error.value }}</p>
       <div v-if="groupedSessions.length === 0" class="empty-sessions">
         <span>{{ searchQuery ? '未找到匹配的对话' : '暂无对话，点击上方新建' }}</span>
       </div>

@@ -47,6 +47,7 @@ export interface VoiceProviderPort {
 export type ASRProviderKind = "sensevoice-local" | "whisper-compatible";
 
 export interface ASRTranscribeRequest {
+  signal?: AbortSignal;
   audioBuffer: Buffer;
   mimeType?: string;
   language?: string;

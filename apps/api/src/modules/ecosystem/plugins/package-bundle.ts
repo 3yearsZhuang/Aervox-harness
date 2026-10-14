@@ -13,7 +13,8 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
+import { strFromU8, strToU8 } from "fflate";
+import { executeArchive, ARCHIVE_LIMITS, isSafeArchivePath } from "../../../shared/archive-worker.js";
 import {
   pluginManifestSchema,
   type PluginManifest,
@@ -30,48 +31,21 @@ import type {
   SqliteToolRegistryRepository,
   PluginModel,
 } from "@aervox/repositories";
-import { parseFrontmatter, isValidSkillName } from "../skills/index.js";
+import { withSkillMutation, parseFrontmatter, isValidSkillName } from "../skills/index.js";
 import type { PluginBundleStore } from "./bundle-store.js";
 import type { PluginConfigService } from "./config-service.js";
 import type { PluginService } from "./service.js";
 import { parseConfigSchema } from "./config-schema.js";
 
-export const PLUGIN_ARCHIVE_LIMITS = {
-  compressedBytes: 20 * 1024 * 1024,
-  expandedBytes: 50 * 1024 * 1024,
-  entryBytes: 5 * 1024 * 1024,
-  entries: 2048,
-} as const;
+export const PLUGIN_ARCHIVE_LIMITS = ARCHIVE_LIMITS;
 
-/** Check declared sizes before fflate allocates decompression buffers. */
-function unpackPluginBundle(bytes: Uint8Array): Record<string, Uint8Array> {
-  if (bytes.byteLength > PLUGIN_ARCHIVE_LIMITS.compressedBytes) throw new Error("Plugin archive exceeds compressed size limit");
-  let expanded = 0;
-  const names = new Set<string>();
-  return unzipSync(bytes, { filter(entry) {
-    if (!isSafeZipEntryPath(entry.name)) throw new Error(`Unsafe entry path in archive: ${entry.name}`);
-    if (names.has(entry.name)) throw new Error(`Duplicate archive entry: ${entry.name}`);
-    names.add(entry.name);
-    expanded += Math.max(entry.originalSize, entry.size);
-    if (names.size > PLUGIN_ARCHIVE_LIMITS.entries
-      || entry.originalSize > PLUGIN_ARCHIVE_LIMITS.entryBytes
-      || entry.size > PLUGIN_ARCHIVE_LIMITS.entryBytes
-      || expanded > PLUGIN_ARCHIVE_LIMITS.expandedBytes) {
-      throw new Error("Plugin archive exceeds expansion limits");
-    }
-    return true;
-  } });
+/** Bound declared and actual expansion before accepting archive contents. */
+async function unpackPluginBundle(bytes: Uint8Array, signal?: AbortSignal): Promise<Record<string, Uint8Array>> {
+  return executeArchive({ kind: "unpack", input: bytes, limits: PLUGIN_ARCHIVE_LIMITS, isSafePath: isSafeZipEntryPath, signal });
 }
 
 /** 单条目路径安全校验（拒绝绝对路径、.. 段、反斜杠穿越、超限路径） */
-export function isSafeZipEntryPath(name: string): boolean {
-  if (!name || name.length > 512 || name.includes("\0") || name.includes("\\") || name.includes("//")) return false;
-  const normalized = name.replace(/\\/g, "/");
-  if (normalized.startsWith("/") || /^[A-Za-z]:/.test(normalized)) return false;
-  const parts = normalized.split("/");
-  if (parts.some((p) => p === ".." || p === "." || p === "__proto__")) return false;
-  return true;
-}
+export const isSafeZipEntryPath = isSafeArchivePath;
 
 export class PluginAlreadyExistsError extends Error {
   readonly code = "PLUGIN_ALREADY_EXISTS";
@@ -100,13 +74,15 @@ export interface BundleEngineDeps {
 export async function inspectPluginBundle(
   bytes: Uint8Array,
   deps?: { extensionRepo?: SqliteExtensionRepository },
+  signal?: AbortSignal,
 ): Promise<PluginPackageInspection> {
   const checksum = createHash("sha256").update(bytes).digest("hex");
 
   let files: Record<string, Uint8Array>;
   try {
-    files = unpackPluginBundle(bytes);
+    files = await unpackPluginBundle(bytes, signal);
   } catch (e) {
+    signal?.throwIfAborted();
     return {
       id: "",
       displayName: "",
@@ -439,12 +415,12 @@ export async function inspectPluginBundle(
  */
 export async function installPluginFromBundle(
   bytes: Uint8Array,
-  options: { overwrite?: boolean } = {},
+  options: { overwrite?: boolean; signal?: AbortSignal } = {},
   deps: BundleEngineDeps,
 ): Promise<PluginModel> {
   const inspection = await inspectPluginBundle(bytes, {
     extensionRepo: deps.extensionRepo,
-  });
+  }, options.signal);
 
   if (!inspection.isValid) {
     throw new Error(`Invalid plugin package: ${inspection.issues.join("; ")}`);
@@ -456,12 +432,9 @@ export async function installPluginFromBundle(
     );
   }
 
-  // 覆盖安装时先卸载既有插件及能力
-  if (inspection.alreadyInstalled && options.overwrite) {
-    await deps.service.uninstallPlugin(inspection.id);
-  }
-
-  const files = unpackPluginBundle(bytes);
+  // Worker admission, timeout and decoding can fail even after successful inspection.
+  // Finish those fallible steps while the existing plugin and its data are intact.
+  const files = await unpackPluginBundle(bytes, options.signal);
   const manifestBytes =
     files["plugin.manifest.json"] ?? files["manifest.json"]!;
   const manifest = pluginManifestSchema.parse(
@@ -523,49 +496,58 @@ export async function installPluginFromBundle(
     }
   }
 
-  // 3. 安装插件主记录、工具、技能与主动规则
-  const created = await deps.service.installPlugin({
-    id: pluginId,
-    publisher: manifest.metadata.publisher,
-    version: manifest.metadata.version,
-    checksum: `sha256:${inspection.checksum}`,
-    signature: inspection.signature,
-    permissions: inspection.permissions,
-    installSource: "package",
-    tools: declaredTools,
-    skills: declaredSkills,
-    proactiveSpec: manifest.spec.proactive,
-  });
+  return withSkillMutation(deps.skillsRoot, async () => {
+    await deps.service.checkSkillOwnership(pluginId, declaredSkills);
+    // Recheck after acquiring the lock; another install may have completed during preparation.
+    const existing = await deps.extensionRepo.getPlugin(pluginId);
+    if (existing && !options.overwrite) throw new PluginAlreadyExistsError(`Plugin "${pluginId}" is already installed.`);
+    options.signal?.throwIfAborted();
+    // Commit boundary: no further cancellation checks once removing/replacing installed data.
+    if (existing && options.overwrite) await deps.service.uninstallPlugin(pluginId);
+    // 3. 安装插件主记录、工具、技能与主动规则
+    const created = await deps.service.installPlugin({
+      id: pluginId,
+      publisher: manifest.metadata.publisher,
+      version: manifest.metadata.version,
+      checksum: `sha256:${inspection.checksum}`,
+      signature: inspection.signature,
+      permissions: inspection.permissions,
+      installSource: "package",
+      tools: declaredTools,
+      skills: declaredSkills,
+      proactiveSpec: manifest.spec.proactive,
+    });
 
-  // 4. 注册并持久化配置 Schema（若存在）
-  const schemaBytes = files[manifest.spec.config?.entry ?? "config.schema.json"];
-  if (schemaBytes) {
-    const schemaJson = JSON.parse(strFromU8(schemaBytes));
-    await deps.configService.registerConfigSchema(pluginId, schemaJson);
-  }
+    // 4. 注册并持久化配置 Schema（若存在）
+    const schemaBytes = files[manifest.spec.config?.entry ?? "config.schema.json"];
+    if (schemaBytes) {
+      const schemaJson = JSON.parse(strFromU8(schemaBytes));
+      await deps.configService.registerConfigSchema(pluginId, schemaJson);
+    }
 
-  // 5. 解包注册 Page 及其静态资源
-  if (manifest.spec.pages && manifest.spec.pages.length > 0) {
-    for (const page of manifest.spec.pages) {
-      await deps.configService.registerPage(pluginId, page);
+    // 5. 解包注册 Page 及其静态资源
+    if (manifest.spec.pages && manifest.spec.pages.length > 0) {
+      for (const page of manifest.spec.pages) {
+        await deps.configService.registerPage(pluginId, page);
 
-      // 提取 pages/<pageId>/ 下的所有静态资产并写入 BundleStore
-      const prefix = `pages/${page.id}/`;
-      for (const [filePath, fileData] of Object.entries(files)) {
-        if (filePath.startsWith(prefix) && !filePath.endsWith("/")) {
-          const relInside = filePath.slice(prefix.length);
-          await deps.bundleStore.writeAsset(
-              pluginId,
-              page.id,
-              relInside,
-              Buffer.from(fileData),
-          );
+        // 提取 pages/<pageId>/ 下的所有静态资产并写入 BundleStore
+        const prefix = `pages/${page.id}/`;
+        for (const [filePath, fileData] of Object.entries(files)) {
+          if (filePath.startsWith(prefix) && !filePath.endsWith("/")) {
+            const relInside = filePath.slice(prefix.length);
+            await deps.bundleStore.writeAsset(
+                pluginId,
+                page.id,
+                relInside,
+                Buffer.from(fileData),
+            );
+          }
         }
       }
     }
-  }
 
-  return created;
+    return created;
+  });
 }
 
 /**
@@ -574,6 +556,7 @@ export async function installPluginFromBundle(
 export async function exportPluginBundle(
   pluginId: string,
   deps: BundleEngineDeps,
+  signal?: AbortSignal,
 ): Promise<{ filename: string; bytes: Uint8Array; checksum: string }> {
   const plugin = await deps.extensionRepo.getPlugin(pluginId);
   const zipFiles: Record<string, Uint8Array> = {};
@@ -702,7 +685,7 @@ export async function exportPluginBundle(
   }
 
   const version = plugin?.version ?? "1.0.0";
-  const bytes = zipSync(zipFiles, { level: 6 });
+  const bytes = await executeArchive<Uint8Array>({ kind: "pack", input: zipFiles, limits: PLUGIN_ARCHIVE_LIMITS, isSafePath: isSafeZipEntryPath, signal });
   const checksum = createHash("sha256").update(bytes).digest("hex");
   const filename = `${pluginId}-${version}.aervox-plugin`;
 
@@ -886,6 +869,7 @@ export async function collectMarketBundleFiles(
 export async function installFromMarket(
   pluginId: string,
   deps: BundleEngineDeps,
+  signal?: AbortSignal,
 ): Promise<PluginModel> {
   const pluginDir = path.join(deps.builtinPluginsSourceRoot, pluginId);
   const manifestPath = path.join(pluginDir, "plugin.manifest.json");
@@ -897,6 +881,6 @@ export async function installFromMarket(
   }
 
   const zipFiles = await collectMarketBundleFiles(pluginDir);
-  const bytes = zipSync(zipFiles, { level: 6 });
-  return installPluginFromBundle(bytes, { overwrite: true }, deps);
+  const bytes = await executeArchive<Uint8Array>({ kind: "pack", input: zipFiles, limits: PLUGIN_ARCHIVE_LIMITS, isSafePath: isSafeZipEntryPath, signal });
+  return installPluginFromBundle(bytes, { overwrite: true, signal }, deps);
 }

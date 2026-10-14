@@ -1,3 +1,4 @@
+import { collectFiles } from "./source-files.mjs";
 /**
  * Aervox｜思隅 禁用标识符守卫（CR-030 去租户化不变量）
  *
@@ -9,8 +10,7 @@
  *   node scripts/check-banned-identifiers.mjs --list     # 打印规则清单
  */
 
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative, sep } from "node:path";
+import { readFileSync, } from "node:fs";
 import { parse } from "@babel/parser";
 
 export const RULES = [
@@ -42,28 +42,7 @@ export const IGNORE_DIR_RE = /(^|\/)(node_modules|dist|out|reference|\.git)(\/|$
 const SCRIPT_BLOCK_RE = /<script\b[^>]*>([\s\S]*?)<\/script>/g;
 
 export function collectSourceFiles(rootDirs = ["apps", "packages", "plugins"]) {
-  const out = [];
-  const walk = (dir) => {
-    for (const entry of readdirSync(dir)) {
-      const full = join(dir, entry);
-      let stat;
-      try {
-        stat = statSync(full);
-      } catch {
-        continue;
-      }
-      const rel = relative(process.cwd(), full).split(sep).join("/");
-      if (stat.isDirectory()) {
-        if (!IGNORE_DIR_RE.test(rel)) walk(full);
-      } else if (SOURCE_EXT_RE.test(rel)) {
-        out.push(rel);
-      }
-    }
-  };
-  for (const dir of rootDirs) {
-    if (statSync(dir, { throwIfNoEntry: false })) walk(dir);
-  }
-  return out;
+  return collectFiles(rootDirs, { extensions: SOURCE_EXT_RE, ignoreDirectories: IGNORE_DIR_RE });
 }
 
 export function extractIdentifiers(source, fileName) {

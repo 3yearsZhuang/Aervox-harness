@@ -125,8 +125,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       .from(learningGoals)
       .where(
         includeArchived
-          ? and(
-            )
+          ? undefined
           : and(
               ne(learningGoals.status, "archived"),
             ),
@@ -1144,7 +1143,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       .from(learningPlans)
       .where(
         includeArchived
-          ? and()
+          ? undefined
           : and(
               eq(learningPlans.status, "active"),
             ),

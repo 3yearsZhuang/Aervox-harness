@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, onTestFinished } from "vitest";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,7 +7,7 @@ import {
   pluginConfigSchema,
 } from "@aervox/contracts";
 import { createInMemoryDatabase } from "@aervox/repositories";
-import { buildApp } from "../src/app.js";
+import { buildApp } from "./app-fixture.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PLUGINS_SOURCE_ROOT = path.resolve(__dirname, "../../../plugins");
@@ -27,7 +27,7 @@ describe("出厂官方插件集市与全量插件打包验证 (Market & Builtin 
 
     for (const dirName of dirNames) {
       const manifestPath = path.join(PLUGINS_SOURCE_ROOT, dirName, "plugin.manifest.json");
-      // CR-063: these mandatory UI implementations are bundled by the app,
+      // CR-065: these mandatory UI implementations are bundled by the app,
       // not installed/enabled via the declaration marketplace. Unknown directories
       // still require a valid manifest; a missing existing manifest must fail.
       if (["workbench-ui", "companion-ui", "panels-ui", "proactive-ui", "document-ui"].includes(dirName)) {
@@ -63,8 +63,9 @@ describe("出厂官方插件集市与全量插件打包验证 (Market & Builtin 
   });
 
   it("GET /v1/plugins/market 成功自发现全部 7 个插件及其能力指标明细", async () => {
-    const { db, client } = await createInMemoryDatabase();
+    const { db, client, cleanup } = await createInMemoryDatabase();
     const { app } = await buildApp({ db, client });
+    onTestFinished(async () => { await app.close(); await cleanup(); });
 
     const res = await app.inject({
       method: "GET",
@@ -109,8 +110,9 @@ describe("出厂官方插件集市与全量插件打包验证 (Market & Builtin 
   });
 
   it("POST /v1/plugins/market/:id/install 支持从出厂集市一键安装并注册工具与配置", async () => {
-    const { db, client } = await createInMemoryDatabase();
+    const { db, client, cleanup } = await createInMemoryDatabase();
     const { app } = await buildApp({ db, client });
+    onTestFinished(async () => { await app.close(); await cleanup(); });
 
     // 安装 home-assistant
     const resHa = await app.inject({
@@ -149,8 +151,9 @@ describe("出厂官方插件集市与全量插件打包验证 (Market & Builtin 
   });
 
   it("GET /v1/plugins/:id/export 导出的 .aervox-plugin 分发包支持 POST /v1/plugins/inspect-package 安全预检", async () => {
-    const { db, client } = await createInMemoryDatabase();
+    const { db, client, cleanup } = await createInMemoryDatabase();
     const { app } = await buildApp({ db, client });
+    onTestFinished(async () => { await app.close(); await cleanup(); });
 
     // 分发包由产品自身的导出端点现场生成，不依赖 dist-plugins/ 下的本地构建产物：
     // 该目录已由 .gitignore 忽略，CI 全新检出时并不存在，直接读文件会导致 ENOENT 假失败。

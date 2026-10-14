@@ -1,0 +1,42 @@
+diff --git a/errors.cjs b/errors.cjs
+index b593f0da263a7ad7904f44e89f1c0992c39c4aad..fcc4644f4a1143da97e26e1f68b3e3279a515350 100644
+--- a/errors.cjs
++++ b/errors.cjs
+@@ -34,10 +34,12 @@ class DrizzleError extends Error {
+ }
+ class DrizzleQueryError extends Error {
+   constructor(query, params, cause) {
+-    super(`Failed query: ${query}
+-params: ${params}`);
+-    this.query = query;
+-    this.params = params;
++    super("Database query failed");
++    // Aervox: SQL and bound values must not enter API responses or ordinary logs.
++    Object.defineProperties(this, {
++      query: { value: query, writable: true, configurable: true },
++      params: { value: params, writable: true, configurable: true }
++    });
+     this.cause = cause;
+     Error.captureStackTrace(this, DrizzleQueryError);
+     if (cause) this.cause = cause;
+diff --git a/errors.js b/errors.js
+index 6db8b6365e30f239bf2738504937ed81733e82dd..f39b8ef30e3b0ad89293a6f8e998bc2bb8489f38 100644
+--- a/errors.js
++++ b/errors.js
+@@ -9,10 +9,12 @@ class DrizzleError extends Error {
+ }
+ class DrizzleQueryError extends Error {
+   constructor(query, params, cause) {
+-    super(`Failed query: ${query}
+-params: ${params}`);
+-    this.query = query;
+-    this.params = params;
++    super("Database query failed");
++    // Aervox: SQL and bound values must not enter API responses or ordinary logs.
++    Object.defineProperties(this, {
++      query: { value: query, writable: true, configurable: true },
++      params: { value: params, writable: true, configurable: true }
++    });
+     this.cause = cause;
+     Error.captureStackTrace(this, DrizzleQueryError);
+     if (cause) this.cause = cause;

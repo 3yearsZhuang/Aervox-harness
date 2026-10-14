@@ -15,6 +15,7 @@ import {
   describeChangeScope,
   getBaseRef,
   getChangedFiles,
+  isDocumentationOnlyChange,
   loadTurboScope,
   resolveChangeScope,
 } from "./ci-scope.mjs";
@@ -26,7 +27,13 @@ if (!baseRef) {
   process.exit(res.status ?? 0);
 }
 
-const changeScope = resolveChangeScope(getChangedFiles(baseRef), loadTurboScope());
+const changedFiles = getChangedFiles(baseRef);
+const turboScope = loadTurboScope();
+if (isDocumentationOnlyChange(changedFiles, turboScope)) {
+  console.log("[test-affected] 仅项目文档变更，无需运行业务测试。");
+  process.exit(0);
+}
+const changeScope = resolveChangeScope(changedFiles, turboScope);
 const filterArgs = buildTurboFilterArgs(baseRef, changeScope);
 
 console.log(`[test-affected] 增量对比基准: ${baseRef}`);

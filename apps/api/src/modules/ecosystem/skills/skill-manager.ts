@@ -12,12 +12,13 @@
  */
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { SqliteSkillRegistryRepository, SkillRegistrationModel } from "@aervox/repositories";
 import { buildSkillsPrompt } from "@aervox/core";
 import { unzip } from "./zip.js";
+import { assertSkillDirectoryOwner, FileExistsError, withSkillMutation } from "./ownership.js";
+export { FileExistsError } from "./ownership.js";
 
 /** 技能目录名合法字符集（Anthropic Skills 规范）；`.` 与 `..` 会被 path.join 解析为层级，显式排除防目录穿越 */
 const SKILL_NAME_RE = /^(?!\.{1,2}$)[\w.-]+$/;
@@ -30,6 +31,8 @@ export interface SkillInstallOptions {
   name?: string;
   /** 已存在同名技能时是否覆盖（缺省 false，冲突即报错） */
   overwrite?: boolean;
+  /** Cancellation applies to preparation, before any files are changed. */
+  signal?: AbortSignal;
 }
 
 export interface SkillContent {
@@ -85,40 +88,44 @@ export class SkillManager {
 
   /** 安装 zip（可含一个或多个技能目录；根含 SKILL.md 为单技能形态，需显式 name） */
   async installFromZip(zipData: Buffer, opts: SkillInstallOptions = {}): Promise<SkillRegistrationModel[]> {
-    const entries = unzip(zipData);
+    const entries = await unzip(zipData, opts.signal);
     const files = entries.filter((e) => !e.isDirectory);
     if (files.length === 0) throw new Error("Zip archive is empty.");
 
     const hasRootSkillMd = files.some((f) => f.name === "SKILL.md" || f.name === "skill.md");
     const topDirs = [...new Set(files.map((f) => f.name.split("/")[0]))];
 
-    const installed: SkillRegistrationModel[] = [];
-
+    const folders: Array<{ name: string; files: typeof files; strip: boolean }> = [];
     if (hasRootSkillMd) {
-      // 单技能：根含 SKILL.md（文件路径即相对路径）
       const name = normalizeSkillName(opts.name ?? "");
-      if (!isValidSkillName(name)) {
-        throw new Error("Invalid skill name: name is required for a single-skill zip and must match [\\w.-]+");
+      if (!isValidSkillName(name)) throw new Error("Invalid skill name: name is required for a single-skill zip");
+      folders.push({ name, files, strip: false });
+    } else {
+      for (const rawTopDir of topDirs) {
+        const topDir = rawTopDir ?? "";
+        const name = normalizeSkillName(topDir);
+        if (!isValidSkillName(name)) continue;
+        const subFiles = files.filter(file => file.name.startsWith(`${topDir}/`));
+        if (subFiles.some(file => file.name === `${topDir}/SKILL.md` || file.name === `${topDir}/skill.md`)) {
+          folders.push({ name, files: subFiles, strip: true });
+        }
       }
-      installed.push(await this.installSkillFolder(name, files, opts.overwrite ?? false, false));
+    }
+    if (!folders.length) throw new Error("No valid SKILL.md found in the zip archive.");
+    if (new Set(folders.map(folder => folder.name)).size !== folders.length) throw new FileExistsError("Duplicate normalized skill names.");
+    return withSkillMutation(this.skillsRoot, async () => {
+      for (const folder of folders) {
+        await assertSkillDirectoryOwner(this.registry, this.skillsRoot, { kind: "local", id: folder.name });
+        if (!opts.overwrite && (await this.registry.getSkill(folder.name)
+          || await fs.lstat(path.join(this.skillsRoot, folder.name)).then(() => true, () => false))) {
+          throw new FileExistsError(`Skill ${folder.name} already exists.`);
+        }
+      }
+      opts.signal?.throwIfAborted(); // Commit boundary: finish the accepted mutation even after disconnect.
+      const installed: SkillRegistrationModel[] = [];
+      for (const folder of folders) installed.push(await this.installSkillFolder(folder.name, folder.files, opts.overwrite ?? false, folder.strip));
       return installed;
-    }
-
-    // 多技能：按顶层目录逐个安装（缺 SKILL.md 的目录跳过）
-    for (const rawTopDir of topDirs) {
-      const topDir = rawTopDir ?? "";
-      const dirName = normalizeSkillName(topDir);
-      if (!isValidSkillName(dirName)) continue;
-      const subFiles = files.filter((f) => f.name.startsWith(`${topDir}/`));
-      const hasSkillMd = subFiles.some((f) => f.name === `${topDir}/SKILL.md` || f.name === `${topDir}/skill.md`);
-      if (!hasSkillMd) continue;
-      installed.push(await this.installSkillFolder(dirName, subFiles, opts.overwrite ?? false, true));
-    }
-
-    if (installed.length === 0) {
-      throw new Error("No valid SKILL.md found in the zip archive.");
-    }
-    return installed;
+    });
   }
 
   private async installSkillFolder(
@@ -127,6 +134,10 @@ export class SkillManager {
     overwrite: boolean,
     stripFirstSegment: boolean,
   ): Promise<SkillRegistrationModel> {
+    const registered = await this.registry.getSkill(name);
+    if (registered && (registered.readonly === 1 || registered.pluginId || !overwrite)) {
+      throw new FileExistsError(`Skill ${name} already exists or belongs to a plugin.`);
+    }
     await fs.mkdir(this.skillsRoot, { recursive: true });
     const destDir = path.join(this.skillsRoot, name);
     const exists = await fs
@@ -203,12 +214,14 @@ export class SkillManager {
 
  /** 删除技能：readonly 拒绝；清理文件系统 + 注销注册表 */
  async deleteSkill(name: string): Promise<boolean> {
-   const skill = await this.registry.getSkill(name);
-   if (!skill) return false;
-   if (skill.readonly === 1) return false;
-   const dir = path.join(this.skillsRoot, name);
-   await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
-   return this.registry.unregisterSkill(name);
+   if (!isValidSkillName(name)) return false;
+   return withSkillMutation(this.skillsRoot, async () => {
+     const skill = await this.registry.getSkill(name);
+     if (!skill || skill.readonly === 1 || skill.pluginId) return false;
+     await assertSkillDirectoryOwner(this.registry, this.skillsRoot, { kind: "local", id: name });
+     await fs.rm(path.join(this.skillsRoot, name), { recursive: true, force: true });
+     return this.registry.unregisterSkill(name);
+   });
  }
 
   /** 读取技能文件夹内所有文件（供 Persona Bundle 导出与打包） */
@@ -240,12 +253,4 @@ export class SkillManager {
     const filtered = allowedSet ? skills.filter((s) => allowedSet.has(s.name)) : skills;
     return buildSkillsPrompt(filtered.map((s) => ({ name: s.name, description: s.description })));
  }
-}
-
-/** 技能已存在冲突错误（路由层映射 409） */
-export class FileExistsError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "FileExistsError";
-  }
 }

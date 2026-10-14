@@ -1,15 +1,5 @@
 ---
 id: AVX-OPS-001
-type: reference
-scope: baseline
-owner: maintainers
-doc_status: review-candidate
-decision_status: not-applicable
-delivery_status: not-applicable
-version: 0.3.0
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
-review_interval_days: 90
 ---
 
 # Aervox｜思隅 本地运行与演练手册
@@ -47,6 +37,8 @@ review_interval_days: 90
 - 本地侧车动作：`GET /v1/model-runtime/state` 查看状态；异常时 `POST /v1/model-runtime/stop` 后重新 `start`；启动失败先检查模型文件完整性与磁盘空间，再查端口占用。模型下载中断依赖 `.part` 原子落盘恢复，不产出损坏制品。
 - 不得：跳过输入/输出安全分类、使用未评估模型、把失败输出写入记忆/日记/掌握度。
 - 验证：ModelRun、路由比例、TTFT、事实/安全抽检、成本；恢复需渐进放量。
+
+Worker 收到退出信号后先停止新调度与 IPC 唤醒，等待正在执行的任务结束，再关闭数据库连接。默认排空期限为 5 秒（`WorkerHost.shutdownTimeoutMs`）；超时记录 `worker.shutdown.failed` 并以非零状态退出，不报告为成功停机。未完成任务的恢复仍由任务本身的持久化/租约语义负责。
 
 ## 4. Outbox 积压与 Worker 异常
 
@@ -138,6 +130,6 @@ review_interval_days: 90
 
 ### 12.3 复盘与关闭
 
-- 偏差项建立的 `CR-*` / `RISK-*` 编号：
+- 偏差项关联的 PR、`ADR-*` / `RISK-*` 编号：
 - 下季度前需关闭的改进项：
 - 演练整体结论：

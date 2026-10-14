@@ -12,6 +12,9 @@ import { createAgentProfile, createStdioAdapterDriver } from "../src/index.js";
 import { drainAdapterDriver, createSimAdapterDriver } from "@aervox/core";
 import type { AdapterManifest } from "@aervox/core";
 import { fileURLToPath } from "node:url";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { setTimeout as delay } from "node:timers/promises";
 import { dirname, join } from "node:path";
 
 const fixturePath = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "sim-adapter.mjs");
@@ -51,6 +54,38 @@ describe("阶段 6 createStdioAdapterDriver（子进程 JSON-RPC）", () => {
       handles.push(h);
       return h;
     });
+
+  it("rejected admission waits until the child has exited", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "adapter-pid-"));
+    try {
+      const pidFile = join(dir, "pid");
+      await expect(open({ SIM_PID_FILE: pidFile, ADAPTER_SHA: "wrong" })).rejects.toThrow("sha_mismatch");
+      const pid = Number(await readFile(pidFile, "utf8"));
+      expect(() => process.kill(pid, 0)).toThrow();
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
+
+  it("early iterator return cancels its deadline without killing later requests", async () => {
+    const handle = await createStdioAdapterDriver({
+      command: process.execPath, args: [fixturePath], env: { ADAPTER_SHA: dshSha },
+      expected: { adapterId: "dsh", sha256: dshSha }, requestTimeoutMs: 100,
+    });
+    handles.push(handle);
+    for await (const event of handle.driver.run(request)) { expect(event.type).toBe("delta"); break; }
+    await delay(150);
+    expect((await drainAdapterDriver(handle.driver, { ...request, attemptId: "next" })).decision).toEqual({ concluded: true });
+  });
+
+  it("an actual request deadline disables the hung child", async () => {
+    const handle = await createStdioAdapterDriver({
+      command: process.execPath, args: [fixturePath], env: { ADAPTER_SHA: dshSha, SIM_HANG: "1" },
+      expected: { adapterId: "dsh", sha256: dshSha }, requestTimeoutMs: 50,
+    });
+    handles.push(handle);
+    await expect(async () => { for await (const _ of handle.driver.run(request)) {} }).rejects.toThrow("adapter_request_timeout");
+    await handle.close();
+    await expect(async () => { for await (const _ of handle.driver.run(request)) {} }).rejects.toThrow("adapter_unavailable");
+  });
 
   it("握手准入通过（SHA 匹配）→ 整 Turn 事件 + 全结论批次 → concluded", async () => {
     const { driver } = await open({ ADAPTER_ID: "dsh", ADAPTER_SHA: dshSha, SIM_BATCH: "all" });

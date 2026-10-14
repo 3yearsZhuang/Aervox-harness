@@ -13,7 +13,7 @@ import {
   type AervoxDatabase,
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
-import { buildApp } from "../src/app.js";
+import { buildApp } from "./app-fixture.js";
 
 const headers = {
   "x-workspace-id": "ws_integrations",

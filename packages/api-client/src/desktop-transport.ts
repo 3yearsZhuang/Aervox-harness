@@ -38,6 +38,7 @@ declare global {
       streamTurn: (
         content: string,
         options: {
+          sessionId?: string;
           toolApprovalMode: ToolApprovalMode;
           attachments?: TurnAttachmentRef[];
           /** CR-027：渲染层生成的请求 ID，供 cancelTurn 定位主进程在途请求 */
@@ -113,14 +114,14 @@ export const desktopTransport: AervoxTransport = {
   },
 
   async streamTurn(
-    _sessionId: string,
+    sessionId: string,
     content: string,
     callbacks: TurnCallbacks,
     options: StreamTurnOptions = {},
   ): Promise<void> {
     const bridge = window.fairyDesktop;
     if (!bridge) throw new Error('fairyDesktop 桥不可用，请通过 Electron 启动应用。');
-    await streamTurnViaBridge(bridge, content, options.toolApprovalMode ?? 'ask', callbacks, options.attachments, options.metadata, options.signal);
+    await streamTurnViaBridge(bridge, sessionId, content, options.toolApprovalMode ?? 'ask', callbacks, options.attachments, options.metadata, options.signal);
   },
 
   async submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[], signal?: AbortSignal): Promise<void> {
@@ -164,6 +165,7 @@ export const desktopTransport: AervoxTransport = {
 
 function streamTurnViaBridge(
   bridge: NonNullable<Window['fairyDesktop']>,
+  sessionId: string,
   content: string,
   toolApprovalMode: ToolApprovalMode,
   callbacks: TurnCallbacks,
@@ -206,7 +208,7 @@ function streamTurnViaBridge(
     const projector = new TurnStreamProjector();
     signal?.addEventListener('abort', onAbort, { once: true });
     try {
-      stop = bridge.streamTurn(content, { toolApprovalMode, attachments, requestId, metadata }, (message) => {
+      stop = bridge.streamTurn(content, { sessionId, toolApprovalMode, attachments, requestId, metadata }, (message) => {
         if (settled) return;
         armIdleTimer();
         if (!message || typeof message !== 'object') return;

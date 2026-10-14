@@ -113,7 +113,7 @@ export function toLLMConfigRequest(body: LLMConfigDto): LLMConfigDto {
 export function useAervoxLLM() {
   const transport = getTransport();
 
-  /** 读取当前租户的大语言模型与供应商配置 */
+  /** 读取本地实例的大语言模型与供应商配置 */
   const getConfig = async (): Promise<LLMConfigDto> =>
     transport.request<LLMConfigDto>('GET', '/v1/llm/config');
 

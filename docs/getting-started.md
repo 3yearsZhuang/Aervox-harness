@@ -1,68 +1,53 @@
 ---
 id: AVX-DOC-002
-type: tutorial
-scope: guide
-owner: maintainers
-doc_status: review-candidate
-decision_status: not-applicable
-delivery_status: not-applicable
-version: 1.4.0
-updated_at: 2026-10-08
-reviewed_at: 2026-10-08
-review_interval_days: 90
 ---
 
-# 从哪开始（新成员 / AI Agent 入口）
+# 从哪开始
 
-关联：[文档索引](README.md)（AVX-DOC-001）
+<a id="AVX-TUT-001"></a>
 
-面向新成员或首次接触本仓库的 AI Agent：仓库里有什么、从哪里看、提交前自检什么。规则详情以各专项文档为准。
+本页带你完成安装、启动和首次对话。协作规则见[贡献指南](../CONTRIBUTING.md)，任务相关契约从[文档导航](README.md)进入。
 
-## 1. 仓库结构
+<a id="avx-tut-001"></a>
 
-| 路径 | 用途 |
+## 1. 准备工具链
+
+安装 mise 后，在仓库根运行：
+
+```bash
+./aervox setup
+```
+
+工具版本由 [mise.toml](../mise.toml) 锁定。外部 `reference/` 子模块是设计输入，默认构建无需全部拉取；阅读参考代码或运行要求真实适配库的专项测试时再按需初始化。
+
+## 2. 配置与启动
+
+按根 [README](../README.md) 的启动说明配置模型和会话，可配置键见 [.env.example](../.env.example)。桌面连接参数 `AERVOX_API_URL` 指向本地 API，`AERVOX_SESSION_ID` 指向已有会话；不要把未配置模型造成的失败解释为对话已验证。
+
+```bash
+./aervox dev
+```
+
+该命令启动 API、Worker、Web 和桌面端。只需要浏览器时用 `./aervox dev web`，API 默认地址为 `http://127.0.0.1:3000`，Web 为 `http://127.0.0.1:5173`。检查终端中的监听及 Worker 启动结果。
+
+## 3. 发起第一条对话
+
+在工作台输入“你好”并发送，检查流式回复与取消。模型连接失败时先查看 API 的错误信息和配置。协议入口是创建 Turn 后消费其事件流，细节见[流式协议](reference/STREAMING_PROTOCOL.md)；Worker 的投递状态由其日志提供。
+
+| 现象 | 检查 |
 |---|---|
-| `apps/`、`packages/`、`plugins/`、`modules/` | 宿主、共享包与扩展；实际拓扑见[架构设计](reference/ARCHITECTURE.md) |
-| `plan.md` | 当前迭代入口，条目由 `docs/_meta/plan-queue.json` 生成 |
-| `docs/` | 导航、教程、指南、契约与解释；目录职责见[治理规范 §2](reference/document-governance.md#2-文档分类与目录职责) |
-| `reference/` | 固定版本的外部设计输入；清单与许可证见 [PRD §15](reference/PRD.md#prd-reference-manifest) |
-| `scripts/`、`mise.toml` | 自动化检查、生成任务与工具链真源 |
+| 端口被占用 | 停止自己启动的冲突进程，或按配置选择可用端口 |
+| 桌面无法连接 | 核对 API 地址、会话是否存在及 Token 配置 |
+| 跨包导入出现 TS2307 | 先完成依赖安装及相关包的拓扑构建，不在子包重复安装 |
+| 缺少原生制品 | 按[原生组件操作](how-to/run-native-components.md)构建；区分开发合同与平台实机验收 |
 
-## 2. 阅读顺序
+## 4. 继续开发
 
-1. 先读 [plan.md](../plan.md)，核对当前条目与依赖；用户本次授权优先。
-2. 按[文档索引](README.md)进入所需事实源：产品范围查 PRD，行为查 SRS，边界查 ARCHITECTURE/ADR，交付查追踪基线。
-3. 本地启动按[第一个对话](tutorials/first-conversation.md)操作；贡献流程查 [CONTRIBUTING](../CONTRIBUTING.md)。外部参考子模块按需初始化，不作为默认构建前置条件；专项适配测试的要求见贡献指南。
-4. 开发扩展先读[插件规范](reference/plugin-config-and-pages.md)及[开发指南](how-to/develop-plugin-ui-extension.md)；执行、取消与恢复查 [Agent Harness Loop](reference/agent-harness-loop.md)。
-5. 修改文档先读[治理规范](reference/document-governance.md)与[写作规范](reference/standards/doc-standards.md)。硬件、移动、HLS 等探索从[解释索引](explanation/README.md)进入，实施状态回到队列核实。
+- 了解产品与行为：[PRD](reference/PRD.md)、[SRS](reference/SRS.md)。
+- 了解组件关系：[架构](reference/ARCHITECTURE.md)、[数据流](explanation/data-flow-overview.md)。
+- 开发插件或工具：[扩展指南](how-to/develop-plugin-ui-extension.md)。
+- 处理迭代依赖：[当前计划](../plan.md)；提交和检查：[贡献指南](../CONTRIBUTING.md#validation)。
 
-## 3. 写作与改动的硬性规则
+<a id="7-常用开发环境变量"></a>
 
-硬性规则以专项文档为事实源，先读再改：
-
-- ID/优先级/阶段语义与不可改动原则：[追踪基线 §1](reference/REQUIREMENTS_TRACEABILITY.md#1-目的与使用方式)；
-- 文档分类、状态、事实源与复核触发：[文档治理规范 §2-5](reference/document-governance.md#2-文档分类与目录职责)；
-- 新增/改版文档的头字段、Git 留痕与模板：[文档写作规范 §1-2/§6](reference/standards/doc-standards.md#1-文档分类diátaxis-四分类)；
-- 已批准文档的变更（含 `CR-*`）与变更豁免：[追踪基线 §11](reference/REQUIREMENTS_TRACEABILITY.md#11-变更控制)；
-- 登记强度分级（L1/L2/L3）与登记表同步：[文档写作规范 §3.1](reference/standards/doc-standards.md#31-改动等级与同步要求)、[生命周期登记表](DOC_REGISTRY.md)；
-- 参考仓库使用边界：[PRD §15](reference/PRD.md#15-参考项目与借鉴边界)。
-
-## 4. 提交前自检（Docs CI 门禁）
-
-文档修改后运行 `mise tasks run ci-docs`；提交前运行 `./aervox ci all`。前者组合 Markdownlint、Vale、治理、架构拓扑与计划校验，任务内容以 [mise.toml](../mise.toml) 为准。需要修复排版时使用 `mise exec -- markdownlint-cli2 --fix <files>`，避免绕开固定工具版本。
-
-队列变更先运行 `mise tasks run plan-render`；文档日期变更用 `mise tasks run docs-sync` 同步登记表。其余生成视图与校验入口见[治理规范 §6](reference/document-governance.md#6-索引登记和生成视图)。
-
-## 5. 需要介入时
-
-- 文档冲突：停止相关发布，按[文档索引的权威顺序](README.md#2-权威顺序与冲突处理)仲裁；
-- 生产问题：按[运行、值班与演练手册](reference/operations.md)升级；
-- 变更请求：走[变更流程](reference/REQUIREMENTS_TRACEABILITY.md#113-变更流程)。
-
-## 6. 下一步
-
-按[第一个对话](tutorials/first-conversation.md)完成启动与验证，再从 [plan.md](../plan.md)认领具体工作。历史评估只用于理解证据，最新实现以代码、测试和[交付基线](reference/REQUIREMENTS_TRACEABILITY.md)核实。
-
-## 7. 常用开发环境变量
-
-启动参数与默认值见根 [README](../README.md) 的使用说明和[第一个对话](tutorials/first-conversation.md)；可配置键见 [.env.example](../.env.example)，数据库路径规则见 [DATABASE §3](reference/DATABASE.md#3-本地存储拓扑)。本入口不再复制一张可能与代码漂移的默认值表。
+数据库路径与数据目录规则见[数据库契约](reference/DATABASE.md#3-本地存储拓扑)，不在入门页复制默认值表。

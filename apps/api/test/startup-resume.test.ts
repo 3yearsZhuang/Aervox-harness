@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createInMemoryDatabase, initDatabaseSchema, SqliteConversationRepository } from "@aervox/repositories";
-import { buildApp } from "../src/app.js";
+import { buildApp } from "./app-fixture.js";
 const local = { workspaceId: "local", subjectUserId: "local" };
 afterEach(() => vi.unstubAllEnvs());
 

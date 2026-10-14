@@ -8,7 +8,7 @@
  * 事件载荷约定（payload）：
  * { memoryId, snapshotId, coveredUpToMessageId?, summaryText?, thoughtDurationMs?, summaryDurationMs? }
  *
- * 规则依据：docs/explanation/reference-design-transfer.md §3.3（先写后投递：
+ * 规则依据：docs/reference/ARCHITECTURE.md §14.1 T-03（先写后投递：
  * 仅在完整响应持久化后投递该事件）。
  */
 import type {

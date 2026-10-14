@@ -5,11 +5,12 @@
  * 覆盖：预设清单 → 接入（Token）→ 工具同步落注册表 → PET-05 分级与授权调用 →
  * Token 脱敏不回传 → 断开注销 → 上游 401 映射 502。
  */
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { createInMemoryDatabase, initDatabaseSchema, type AervoxDatabase } from "@aervox/repositories";
-import { buildApp } from "../src/app.js";
+import { buildApp } from "./app-fixture.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
+import { RipgrepCodeSearch } from "../src/modules/ecosystem/mcp/code-search.js";
 
 const headers = {
   "x-workspace-id": "ws_it",
@@ -309,6 +310,26 @@ describe("DSH 官方 MCP 预设（dsh-mcp）端到端集成", () => {
   afterEach(async () => {
     await app.close();
     await cleanup();
+  });
+
+  it("carries the MCP client signal through the local bridge into search", async () => {
+    let receivedSignal: AbortSignal | undefined;
+    const spy = vi.spyOn(RipgrepCodeSearch.prototype, "search").mockImplementation(async (input) => {
+      receivedSignal = input.signal;
+      return [];
+    });
+    try {
+      const connect = await app.inject({ method: "POST", url: "/v1/mcp/servers/dsh-mcp/connect", payload: {} });
+      expect(connect.statusCode).toBe(200);
+      const call = await app.inject({ method: "POST", url: "/v1/tools/mcp__dsh-mcp__dsh_search_code/call", payload: { arguments: { query: "needle" } } });
+      expect(call.statusCode).toBe(200);
+      expect(spy).toHaveBeenCalledOnce();
+      expect(receivedSignal).toBeInstanceOf(AbortSignal);
+      expect(receivedSignal?.aborted).toBe(false);
+      expect(JSON.parse(call.json().content[0].text)).toMatchObject({ isError: false });
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("免密一键接入 → 同步 6 个研发工具（PET-05 安全分级）→ 代理调用 → 断开注销", async () => {

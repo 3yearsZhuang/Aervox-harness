@@ -1,22 +1,5 @@
 ---
 id: AVX-GUIDE-006
-type: how-to
-scope: guide
-owner: maintainers
-doc_status: review-candidate
-decision_status: not-applicable
-delivery_status: not-applicable
-version: 1.1.0
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
-review_interval_days: 90
-review_triggers:
-  - docs/reference/DATABASE.md
-  - packages/schema/**
-  - packages/repositories/**
-sources:
-  - docs/reference/DATABASE.md
-  - docs/reference/operations.md
 ---
 
 # 操作指南：执行 SQLite 本地数据库迁移与换库回滚演练

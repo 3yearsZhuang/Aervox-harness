@@ -622,7 +622,7 @@ export async function runLoopTurnOnce(
     },
     baseSystemPrompt: {
       ...hostPromptPolicy(
-        // CR-065：角色名取人格名（角色名的服务端形态），否则取客户端随轮注入的
+        // ADR-027：角色名取人格名（角色名的服务端形态），否则取客户端随轮注入的
         // companionName；用户称呼同理。人格设定 prompt 仍可覆盖（既有优先级不变）。
         deps.persona?.name ||
           (typeof input.metadata?.companionName === "string" && input.metadata.companionName.trim()) ||

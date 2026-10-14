@@ -6,7 +6,7 @@
  */
 import { z } from "zod";
 import type { OpenAPIObject } from "openapi3-ts/oas31";
-import { getPluginOpenApiRoutes, type PluginOpenApiRoute } from "./plugin-api-registry.js";
+import { getPluginOpenApiRoutes, getPluginApiRevision, type PluginOpenApiRoute } from "./plugin-api-registry.js";
 import {
   OpenAPIRegistry,
   OpenApiGeneratorV31,
@@ -1387,6 +1387,7 @@ function collectRouteKeys(doc: OpenAPIObject): Set<string> {
 }
 
 let cachedDocument: OpenAPIObject | null = null;
+let cachedPluginApiRevision = -1;
 /** 内核端点文档（不含插件贡献）；插件路由不再写入内核注册表，故可安全缓存 */
 let cachedKernelDocument: OpenAPIObject | null = null;
 
@@ -1416,11 +1417,12 @@ function buildKernelDocument(): OpenAPIObject {
  * 惰性生成并缓存：插件模块在宿主装配阶段动态加载并登记其路由片段，
  * 故文档必须晚于登记构建；测试可用 `resetPluginApiContributions()` 清理后重建。
  *
- * 冲突语义：插件**不得**声明与内核端点相同的方法+路径，也不得重复声明同一端点；
- * 命中即忽略该插件片段并告警，保证对外文档始终以内核契约为准（fail-closed）。
+ * 冲突语义：内核端点冲突忽略并告警；插件的同名贡献由注册表选择最后仍存活的一次登记。
+ * 贡献注销会使缓存失效，保证旧片段不因缓存继续暴露。
  */
 export function buildOpenApiDocument(): OpenAPIObject {
-  if (cachedDocument) return cachedDocument;
+  const revision = getPluginApiRevision();
+  if (cachedDocument && cachedPluginApiRevision === revision) return cachedDocument;
 
   const kernel = buildKernelDocument();
   const occupied = collectRouteKeys(kernel);
@@ -1438,6 +1440,7 @@ export function buildOpenApiDocument(): OpenAPIObject {
 
   if (accepted.length === 0) {
     cachedDocument = kernel;
+    cachedPluginApiRevision = revision;
     return cachedDocument;
   }
 
@@ -1445,6 +1448,7 @@ export function buildOpenApiDocument(): OpenAPIObject {
   for (const route of accepted) registerPluginRouteInto(pluginRegistry, route);
 
   cachedDocument = generateDocument([...registry.definitions, ...pluginRegistry.definitions]);
+  cachedPluginApiRevision = revision;
   return cachedDocument;
 }
 

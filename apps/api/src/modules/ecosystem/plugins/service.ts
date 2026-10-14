@@ -10,7 +10,7 @@
  * - 权限：grant/revoke/hasPluginPermission 复用既有仓储；门控求值默认实现
  *   与 tools 模块一致（defaultGatingEvaluator）。
  *
- * 规则依据：docs/explanation/reference-design-transfer.md §4.7 AST-04（安装态与激活态分离）
+ * 规则依据：docs/reference/ARCHITECTURE.md §14.1 AST-04（安装态与激活态分离）
  * 与 Skill 能力（插件内置技能为只读指令包，生命周期归插件）。
  */
 import fs from "node:fs/promises";
@@ -22,7 +22,7 @@ import {
   type PluginModel,
   type LocalContext,
 } from "@aervox/repositories";
-import { isValidSkillName, parseFrontmatter } from "../skills/index.js";
+import { assertSkillDirectoryOwner, FileExistsError, withSkillMutation, isValidSkillName, parseFrontmatter } from "../skills/index.js";
 import {
   type ServerPluginRegistry,
   defaultServerPluginRegistry,
@@ -120,20 +120,20 @@ export class PluginService {
   }
 
   /** 预检插件分发包（内存解包与静态结构分析，零副作用） */
-  async inspectPackage(packageBase64: string): Promise<PluginPackageInspection> {
+  async inspectPackage(packageBase64: string, signal?: AbortSignal): Promise<PluginPackageInspection> {
     const bytes = new Uint8Array(Buffer.from(packageBase64, "base64"));
-    return inspectPluginBundle(bytes, { extensionRepo: this.deps.extensionRepo });
+    return inspectPluginBundle(bytes, { extensionRepo: this.deps.extensionRepo }, signal);
   }
 
   /** 从分发包安装插件 */
-  async installPackage(packageBase64: string, overwrite: boolean = false): Promise<PluginModel> {
+  async installPackage(packageBase64: string, overwrite: boolean = false, signal?: AbortSignal): Promise<PluginModel> {
     const bytes = new Uint8Array(Buffer.from(packageBase64, "base64"));
-    return installPluginFromBundle(bytes, { overwrite }, this.getBundleEngineDeps());
+    return installPluginFromBundle(bytes, { overwrite, signal }, this.getBundleEngineDeps());
   }
 
   /** 导出插件分发包 */
-  async exportPackage(pluginId: string): Promise<{ filename: string; packageBase64: string; checksum: string }> {
-    const result = await exportPluginBundle(pluginId, this.getBundleEngineDeps());
+  async exportPackage(pluginId: string, signal?: AbortSignal): Promise<{ filename: string; packageBase64: string; checksum: string }> {
+    const result = await exportPluginBundle(pluginId, this.getBundleEngineDeps(), signal);
     return {
       filename: result.filename,
       packageBase64: Buffer.from(result.bytes).toString("base64"),
@@ -150,8 +150,8 @@ export class PluginService {
   }
 
   /** 从出厂集市一键安装插件 */
-  async installFromMarket(pluginId: string): Promise<PluginModel> {
-    return installFromMarket(pluginId, this.getBundleEngineDeps());
+  async installFromMarket(pluginId: string, signal?: AbortSignal): Promise<PluginModel> {
+    return installFromMarket(pluginId, this.getBundleEngineDeps(), signal);
   }
 
   /** 列出全部插件 */
@@ -173,59 +173,75 @@ export class PluginService {
     /** CR-032：主动智能声明（pluginProactiveSpecSchema 校验后的结果） */
     proactiveSpec?: unknown;
   }): Promise<PluginModel> {
-    const created = await this.deps.extensionRepo.createPlugin({
-      id: plugin.id,
-      publisher: plugin.publisher,
-      version: plugin.version,
-      checksum: plugin.checksum ?? `sha256:${plugin.id}:${plugin.version}`,
-      signature: plugin.signature ?? null,
-      permissions: plugin.permissions ?? [],
-      installSource: plugin.installSource ?? "registry",
-      // 显式 null 清空旧声明：重装未声明 proactive 的插件不得残留历史声明
-      proactiveSpecJson: plugin.proactiveSpec ?? null,
+    return withSkillMutation(this.deps.skillsRoot, async () => {
+      await this.checkSkillOwnership(plugin.id, plugin.skills ?? []);
+      const created = await this.deps.extensionRepo.createPlugin({
+        id: plugin.id,
+        publisher: plugin.publisher,
+        version: plugin.version,
+        checksum: plugin.checksum ?? `sha256:${plugin.id}:${plugin.version}`,
+        signature: plugin.signature ?? null,
+        permissions: plugin.permissions ?? [],
+        installSource: plugin.installSource ?? "registry",
+        // 显式 null 清空旧声明：重装未声明 proactive 的插件不得残留历史声明
+        proactiveSpecJson: plugin.proactiveSpec ?? null,
+      });
+
+      for (const tool of plugin.tools ?? []) {
+        const baseId = tool.id ?? tool.name;
+        const toolId = baseId.startsWith(`${plugin.id}.`)
+          ? baseId
+          : `${plugin.id}.${baseId}`;
+        await this.deps.registry.registerTool({
+          id: toolId,
+          name: tool.name,
+          description: tool.description ?? "",
+          category: tool.category ?? "plugin",
+          safetyLevel: tool.safetyLevel,
+          requiredPermissions: tool.requiredPermissions,
+          inputSchema: tool.inputSchema,
+          builtin: false,
+          pluginId: plugin.id,
+          gatingConditions: tool.gatingConditions,
+          priority: tool.priority ?? 0,
+        });
+      }
+
+      // 声明技能：写入本地 + 只读注册（生命周期归插件，启停联动）
+      for (const skill of plugin.skills ?? []) {
+        if (!isValidSkillName(skill.name)) continue;
+        const content = skill.content ?? "";
+        const frontmatter = parseFrontmatter(content);
+        const skillDir = path.join(this.deps.skillsRoot, plugin.id, skill.name);
+        await fs.mkdir(skillDir, { recursive: true });
+        await fs.writeFile(path.join(skillDir, "SKILL.md"), content, "utf8");
+        await this.deps.skillRegistry.registerSkill({
+          id: skill.name,
+          name: skill.name,
+          description: skill.description || frontmatter.description || `Plugin skill: ${skill.name}`,
+          source: "plugin",
+          active: true,
+          readonly: true,
+          pluginId: plugin.id,
+          contentPath: path.join(skillDir, "SKILL.md"),
+        });
+      }
+
+      return created;
     });
+  }
 
-    for (const tool of plugin.tools ?? []) {
-      const baseId = tool.id ?? tool.name;
-      const toolId = baseId.startsWith(`${plugin.id}.`)
-        ? baseId
-        : `${plugin.id}.${baseId}`;
-      await this.deps.registry.registerTool({
-        id: toolId,
-        name: tool.name,
-        description: tool.description ?? "",
-        category: tool.category ?? "plugin",
-        safetyLevel: tool.safetyLevel,
-        requiredPermissions: tool.requiredPermissions,
-        inputSchema: tool.inputSchema,
-        builtin: false,
-        pluginId: plugin.id,
-        gatingConditions: tool.gatingConditions,
-        priority: tool.priority ?? 0,
-      });
+  /** Preflight the full declaration before creating plugin/tool rows or removing an old version. */
+  async checkSkillOwnership(id: string, skills: PluginDeclaredSkill[]): Promise<void> {
+    if (!isValidSkillName(id)) throw new FileExistsError("Invalid plugin directory name.");
+    if (skills.length) await assertSkillDirectoryOwner(this.deps.skillRegistry, this.deps.skillsRoot, { kind: "plugin", id });
+    const names = new Set<string>();
+    for (const skill of skills) {
+      if (!isValidSkillName(skill.name) || names.has(skill.name)) throw new FileExistsError("Invalid or duplicate plugin skill name.");
+      names.add(skill.name);
+      const existing = await this.deps.skillRegistry.getSkill(skill.name);
+      if (existing && existing.pluginId !== id) throw new FileExistsError(`Skill ${skill.name} belongs to another owner.`);
     }
-
-    // 声明技能：写入本地 + 只读注册（生命周期归插件，启停联动）
-    for (const skill of plugin.skills ?? []) {
-      if (!isValidSkillName(skill.name)) continue;
-      const content = skill.content ?? "";
-      const frontmatter = parseFrontmatter(content);
-      const skillDir = path.join(this.deps.skillsRoot, plugin.id, skill.name);
-      await fs.mkdir(skillDir, { recursive: true });
-      await fs.writeFile(path.join(skillDir, "SKILL.md"), content, "utf8");
-      await this.deps.skillRegistry.registerSkill({
-        id: skill.name,
-        name: skill.name,
-        description: skill.description || frontmatter.description || `Plugin skill: ${skill.name}`,
-        source: "plugin",
-        active: true,
-        readonly: true,
-        pluginId: plugin.id,
-        contentPath: path.join(skillDir, "SKILL.md"),
-      });
-    }
-
-    return created;
   }
 
   /** 启停插件 + 联动其工具 enabled 与技能 active */
@@ -258,13 +274,20 @@ export class PluginService {
 
   /** 卸载：先注销插件工具与技能（含 readonly），再删插件（grants 级联清理） */
   async uninstallPlugin(id: string): Promise<boolean> {
-    await this.deps.registry.unregisterToolsByPlugin(id);
-    await this.deps.skillRegistry.removeSkillsByPlugin(id);
-    await fs.rm(path.join(this.deps.skillsRoot, id), { recursive: true, force: true }).catch(() => undefined);
-    if (this.deps.cleanup) await this.deps.cleanup(id);
-    // CR-032：先清除物化规则与待办动作，再删除插件行（杜绝幽灵规则）
-    await this.deps.proactiveRuleSync?.purgePluginProactiveState(id).catch(() => undefined);
-    return this.deps.extensionRepo.deletePlugin(id);
+    if (!isValidSkillName(id)) return false;
+    return withSkillMutation(this.deps.skillsRoot, async () => {
+      if (!await this.deps.extensionRepo.getPlugin(id)) return false;
+      const owned = (await this.deps.skillRegistry.listSkills()).some(skill => skill.pluginId === id);
+      if (owned) {
+        await assertSkillDirectoryOwner(this.deps.skillRegistry, this.deps.skillsRoot, { kind: "plugin", id });
+        await fs.rm(path.join(this.deps.skillsRoot, id), { recursive: true, force: true });
+      }
+      await this.deps.registry.unregisterToolsByPlugin(id);
+      await this.deps.skillRegistry.removeSkillsByPlugin(id);
+      if (this.deps.cleanup) await this.deps.cleanup(id);
+      await this.deps.proactiveRuleSync?.purgePluginProactiveState(id).catch(() => undefined);
+      return this.deps.extensionRepo.deletePlugin(id);
+    });
   }
 
   /** 授予插件权限 */

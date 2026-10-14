@@ -1,16 +1,16 @@
 /**
  * Aervox｜思隅 @aervox/repositories — CAP-020 Skill 注册表 SQLite 仓储实现
  *
- * 规则依据：docs/explanation/reference-design-transfer.md（Skill 能力）与
+ * 规则依据：docs/reference/ARCHITECTURE.md#reference-learning（Skill 能力）与
  * reference/AstrBot astrbot/core/skills/skill_manager.py。
  *
  * 设计要点：
- * - 技能注册为系统级（无租户列），所有租户共享同一注册表（与 tool_registrations 同构）；
+ * - 技能归属本地实例，插件所有权由 pluginId 标识（与 tool_registrations 同构）；
  * - 幂等注册：同一 id 覆盖元数据，active/readonly 保持既有状态；
  * - readonly=1（插件内置）拒绝注销，只允许启停；
  * - exportSkills 按 active + 门控条件过滤，供渐进式披露/运行时消费。
  */
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { skillRegistrations, plugins } from "@aervox/schema";
 import type { ISkillRegistryRepository, SkillRegistrationModel } from "../types/index.js";
@@ -47,6 +47,10 @@ export class SqliteSkillRegistryRepository implements ISkillRegistryRepository {
       .limit(1);
 
     if (existing) {
+      if ((existing.pluginId ?? null) !== (skill.pluginId ?? null)
+        || (existing.readonly === 1 && skill.readonly !== true)) {
+        throw new Error("skill_owner_conflict");
+      }
       const [updated] = await this.db
         .update(skillRegistrations)
         .set({
@@ -60,8 +64,13 @@ export class SqliteSkillRegistryRepository implements ISkillRegistryRepository {
           contentPath: skill.contentPath ?? existing.contentPath,
           updatedAt: now,
         })
-        .where(eq(skillRegistrations.id, skill.id))
+        .where(and(
+          eq(skillRegistrations.id, skill.id),
+          existing.pluginId === null ? isNull(skillRegistrations.pluginId) : eq(skillRegistrations.pluginId, existing.pluginId),
+          eq(skillRegistrations.readonly, existing.readonly),
+        ))
         .returning();
+      if (!updated) throw new Error("skill_owner_conflict");
       return updated as SkillRegistrationModel;
     }
 

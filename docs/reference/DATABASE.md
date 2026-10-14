@@ -1,28 +1,5 @@
 ---
 id: AVX-DB-001
-type: reference
-scope: baseline
-owner: maintainers
-doc_status: review-candidate
-decision_status: not-applicable
-delivery_status: not-applicable
-version: 2.2.6
-updated_at: 2026-10-10
-reviewed_at: 2026-10-10
-review_interval_days: 30
-review_triggers:
-  - packages/schema/**
-  - packages/repositories/**
-  - apps/api/src/shared/auth.ts
-  - apps/api/src/index.ts
-  - apps/worker/**
-sources:
-  - packages/schema/src/**
-  - packages/repositories/src/schema/ddl/**
-  - packages/repositories/src/repositories/types/**
-  - packages/repositories/src/repositories/sqlite/**
-  - docs/reference/PRD.md
-  - docs/reference/SRS.md
 ---
 
 # Aervox｜思隅 SQLite 本地单用户数据库契约
@@ -127,6 +104,14 @@ POSIX 权限目标为目录 `0700`、数据库/状态清单/token `0600`；Windo
 如果旧库在用户选中的单一数据范围内违反最终唯一约束，CR-030 迁移必须停止并输出冲突报告。
 不得自动修改幂等键、撤销授权、归档日记或删除较旧记录。
 
+### 5.3 事实、来源与投影
+
+`Session`、不可变 `MessageVersion` 和 `QuestionAttempt` 是学习事实；摘要、掌握度、记忆树与日记不得反向覆盖它们。压缩、纠错、合并产生新的 Memory/Diary 修订，不覆盖旧证据。来源通过 `SourceArtifact/SourceRevision` 或类型化关联表建立真实外键；`occurredAt` 用于业务窗口，`ingestedAt` 用于迟到、重放和管道审计，不能互换。`actorId` 记录动作来源，不冒充用户事实。
+
+系统记忆只由有效长期记忆重建。用户锁定、改名和父节点调整写入 `MemoryProjectionOverride`，先重建投影，再叠加有效覆盖；算法重建不能丢弃用户操作。覆盖与已删来源或无效父节点冲突时进入用户可见的待解决状态。层级只有一个 canonical parent 且无环，跨主题关系使用独立边并继承来源可见性，证据经外键关联。
+
+上述语义是持久化契约，不表示每个概念实体均已有物理表或完整验收；字段真源仍是 Schema，实现与限制由对应 PR 证明。召回期限与用户历史保留独立，不能用临时记忆 TTL 删除仍获保留的会话历史；分类、删除 SLA 与保留期以[隐私规范](DATA_PRIVACY.md)为准。
+
 ## 6. Repository Port 契约
 
 D2 完成后的 Repository 方法直接接收业务参数，不再把 `tenant` 作为首参。以下原则保持不变：
@@ -150,7 +135,7 @@ F0/F1 存储底座，不改变 CR-032 生产读写路径。其 Repository 必须
 - SituationModel 写入前校验版本、结构与大小；同 revision/sequence 不允许用不同 checksum 覆盖；
 - 态势水印清理只删除目标水位之前的快照，重建时快照正文、水印、checksum 和行级字段同步推进；
 - 预算反馈先写幂等账本，再与预算 CAS 更新在同一事务提交；插件预算与全局预算均通过才允许派发；
-- F0/F1 表允许兼容新增，不允许仅因关闭 Feature Flag 而删表；后续运行时接线、迁移和退役旧管线必须由子 CR 批准。
+- F0/F1 表允许兼容新增，不允许仅因关闭 Feature Flag 而删表；后续运行时接线、迁移和退役旧管线须另行评审重大边界 ADR。
 
 ### 6.2 CR-034 / CR-042 本地模型路由与健康探测基础设施
 
@@ -160,6 +145,26 @@ F0/F1 存储底座，不改变 CR-032 生产读写路径。其 Repository 必须
 - `llm_routing_events` 记录每次降级与切回事件，保留会话 ID、起止层级、预设、决策原因与元数据，支持按会话或时间倒序审计排查；
 - 写入均通过写者连接完成，与对话回合执行解耦异步排入或事务随行，不阻塞主对话流。
 
+### 6.3 日记周期、时区与原子发布
+
+日记窗口及计划修订决定见 [ADR-011](adr/ADR-011-diary-cycle-schedule-revision.md#decision)。`DiaryCycle` 是窗口真源，`DiaryScheduleRevision` 是不可变计划快照，`DiaryRunAttempt` 只表示可重试执行；`Diary` 是用户可见叙事，段落保存来源修订和生成时权限快照。Buffer 关联 `cycleId`，不得用 `localDate` 替代窗口身份或被普通对话召回。
+
+- `nextRunAt`、`lastCutoffAt` 使用 UTC，另存 IANA 时区与启用/授权提交时的 `initialWindowStart`。Scheduler 每分钟批量领取到期记录，不为每个计划注册长期 Cron；Job 携带业务实体、来源修订与幂等键，有限重试、取消和死信处理不能缺席。
+- 普通窗口为 `(previousCutoffAt, cutoffAt]`，首次启用/重启为 `[initialWindowStart, cutoffAt]`；归属只按 `occurredAt`。生成前冻结窗口、来源 ID/版本、发生/入库时间与权限。自动日记每天至多一个身份，日期仅是 cutoff 的时区标签，不代表零点分片；同日标签冲突顺延到下个合法未占用标签，不覆盖旧版本或推进虚假 cursor。
+- 默认迟到宽限为 **30 分钟**，`bufferClosedAt = cutoffAt + 30m`；初版不等待宽限结束，须在设定时间后 **15 分钟内发布**。宽限内入库且发生在该窗口的迟到素材仅形成用户可见补写候选，确认后生成新版本；关闭后不自动改写或生成候选。只有 `occurredAt > cutoffAt` 进入下一周期；下界之前的历史迟到仅可显式关联原周期或忽略。当前窗口已授权素材不因临时记忆 TTL 提前丢失。
+- 已领取窗口冻结，计划/时区变更从下一合法 cutoff 生效，既不重叠也不留空洞；未领取窗口的 CAS 重算、同日碰撞审计和显式排除区间遵循 ADR-011。停用结束当前 epoch，重启创建新 epoch，默认不补停用期间资料。DST 缺口取下个合法时点，重复时点只执行一次并保存解析快照。
+- 领取和提交检查计划版本、授权修订、cursor 与 lease/fencing。只有 `Published` 或具备原因、操作者和时间证据的 `Skipped`，才与日记引用、cursor 和 Outbox 在同一写者事务提交；失败、取消、过期 Worker 不推进 cursor。空日记若已发布仍是 `Published`，不能为疏通队列静默跳过。实际枚举以 Schema 为准，历史 ADR 的存储语法不恢复到当前 SQLite。
+- 发布前验证失败须保持可见失败与重试/死信状态，不产生重复版本；保存成功才发送通知。quiet hours 只延迟或合并通知，不改变 cutoff、生成和发布 SLO。撤权使未执行任务与素材失效，账本水位未追平不能领取、读 Buffer 或发布。
+- 宕机跨多个截止点时按 cutoff 从旧到新独立补跑，不合并或静默跳过；超过已批准 `maxCatchUpCycles` 转为可见待决定状态。用户编辑或确认的内容才能产生记忆候选，日记不自动写入系统记忆。
+
+窗口链、DST/tzdata、重复任务、lease 到期、停机补跑与迟到边界均需独立验证；已有 CAS 或按需生成测试不代表完整定时调度验收。
+
+### 6.4 CAP-033 实体准入
+
+画像授权修订、设备/来源 Grant、激活租约、原始捕获、观察、画像声明、动作和审计均在独立本地处理边界内。来源、授权和处理边界贯穿全部派生实体，不能只保护原始捕获：普通 Outbox、远程对象存储、远程模型和分析均不得成为旁路，用户显式导出才允许数据离开。
+
+使用前复核设备、授权 revision、来源 Grant、激活 epoch、期限与撤权状态；OS 权限回执不等于产品授权。新增来源或用途须重新确认。原始捕获按 `observedAt + 7 天` 计算保留期限，只有到期且对应记忆提炼已提交才可物理清理，保留来源哈希、授权修订与证据链；删除/撤权先立即阻断使用，传播与例外遵循[隐私规范](DATA_PRIVACY.md)。
+
 ## 7. FTS、向量与递归查询
 
 - SQLite FTS5 只保存可重建全文索引；来源删除/撤权后立即从查询面屏蔽，并在 SLA 内重建或清除。
@@ -167,13 +172,23 @@ F0/F1 存储底座，不改变 CR-032 生产读写路径。其 Repository 必须
 - 记忆树使用 `WITH RECURSIVE`；层级边必须无环，跨主题关系使用显式边。
 - FTS、向量和树投影失败不得损坏事实表；降级为关系数据读取或列表检索。
 
+### 7.1 只读向量缓存
+
+[ADR-024](adr/ADR-024-native-runtime-boundaries.md#cr-063) 允许连续数组 Worker/Rust 实现 `VectorSearchPort`，SQLite 仍是唯一真源。只读连接打开写者确认的显式本地数据库，按模型缓存浮点向量，不复制业务正文；每次查询检查 `data_version`，其他连接提交、模型变化或文件替换均使缓存失效，新进程不复用旧缓存。
+
+查询保持余弦、零向量、维度不匹配、阈值及同分稳定顺序；只在水位改变时重新读入与解码，查询 IPC 传向量及 top-K，不逐行调用。内存、记录数、维度、消息、并发和截止均有限额。读入中失去一致性时有界重试或明确失败，不回写业务库。
+
+模型上下文返回前，TypeScript 宿主重新从真源检查来源、用途、授权及删除资格。原生失败可降级到权威 SQLite 查询，禁止返回旧缓存；关闭原生选择不迁移数据。每次提交导致缓存失效的实际成本、IPC 和质量差量均须纳入端到端比较，成熟索引扩展只在隔离基准库试验。操作与测量见[原生组件指南](../how-to/run-native-components.md#2-对照向量音频与插件计算)。
+
 ## 8. 删除、撤权与恢复
 
-1. 删除、Consent 撤销、插件撤权和外部连接撤权先写独立 `RecoveryControlLedger` 并取得 durable ack。
-2. 业务库再幂等写入 deny 投影、`DeletionRequest`、Targets 和 Outbox；失败由 reconciler 按 sequence 重放。
-3. 账本不可用、签名/sequence 异常或业务水位未追平时，受影响来源 fail closed。
-4. 来源失效后立即停止模型召回、FTS/向量查询、日记派生、插件读取和主动动作；物理删除按隐私 SLA 完成。
-5. 恢复备份后先进入维护/全局 deny，重放账本并验证零召回/零动作后才开放本地服务。
+`RecoveryControlLedger` 是独立凭据、故障域和保留策略下的不可变 deny 事实源，只有最小假名化引用及防篡改证明，不含用户正文，不能与业务 SQLite 假装共享事务。业务投影不得反向覆盖账本。
+
+1. 删除、Consent 撤销、插件及外部授权撤权先用确定性 `eventId/idempotencyKey` 追加账本并取得 durable ack。
+2. 业务库再幂等提交 deny 投影、`DeletionRequest`、Targets 与 Outbox；账本成功而业务失败由 reconciler 按单调 sequence 重放，不制造第二次撤权事实。
+3. 账本不可用、完整性/签名错误、sequence 缺口或应用水位未追平时，受影响来源 fail closed，不确认操作完成或开放相关写流量。
+4. 来源失效立即停止模型召回、FTS/向量、日记派生、插件读取和主动动作；物理清理/重建依[隐私规范](DATA_PRIVACY.md)执行。可保留无正文的 tombstone 证明传播，不得用于恢复、推断或展示已删内容。
+5. 备份恢复进入维护/全局 deny，验证账本完整性及水位、幂等重放并重建派生数据；零召回/零越权验证通过后才恢复流量。
 
 ### 8.1 P2P 同步行状态与删除墓碑
 
@@ -231,7 +246,7 @@ planned -> quiesced -> backup_verified -> scope_selected
 | Web/Desktop/Mobile | OpenAPI/API client | 直接打开 SQLite 文件 |
 | 插件/MCP | Host Bridge、ToolPolicy、Grant | 直接数据库、任意文件或网络访问 |
 
-引入新的数据库消费者必须更新导入边界测试、本文 review trigger 和迁移消费者清单。CR-030 D1 在开始
+引入新的数据库消费者必须更新导入边界测试、迁移消费者清单与数据责任。CR-030 D1 在开始
 备份前扫描已知进程/锁；无法证明消费者已停写时拒绝迁移。
 
 ## 11. 测试与发布门禁
@@ -253,7 +268,7 @@ D1～D3 每阶段都必须运行 `mise tasks run ci-code` 与 `mise tasks run ci
 
 ## 12. 兼容、回滚与未来变更
 
-- 普通新增可空列/索引可以采用兼容迁移；删除字段、修改唯一性或改变数据用途必须建立 CR。
+- 普通新增可空列/索引可以采用兼容迁移；删除字段、修改唯一性或改变数据用途须在 PR 中评审迁移；改变数据责任或不可逆边界时记录 ADR。
 - CR-030 的旧二进制回滚必须同时恢复迁移前备份；新库产生写入后不得自动降级旧 Schema。
 - 备份和导出格式必须可读并带 manifest/checksum，不得要求专有云服务才能恢复。
 - 若未来重新引入多人协作、远程同步或 PostgreSQL，必须从身份、冲突、加密、审计和迁移重新设计，
@@ -273,3 +288,9 @@ D1～D3 每阶段都必须运行 `mise tasks run ci-code` 与 `mise tasks run ci
 `plugins.availability` 为非空文本，默认 `available`，允许写入 `available/missing/invalid/unreadable`。由启动清单扫描写入，独立于用户的 `enabled`、配置/Secret、授权及页面数据。旧库通过幂等新增列兼容，保留原记录，不换库、不清理历史表。未知可用性值按不可执行处理。实现缺席时工具执行/导出、Skill 运行时导出、会话插件切面与 Worker 主动规则均须检查该状态；管理读取和显式数据清理继续可用。
 
 恢复有效包只恢复可用性，不重建撤销的授权或启用用户关闭的插件。旧应用不识别该列，不能直接作为缺包保护的回滚版本；回滚须保留等价门控。元数据与 DDL 同步，验证见 CR-056（已归档至 Aervox-docs-archive）。
+
+## ORM 错误边界
+
+Drizzle 0.45 将驱动错误包装在 `cause` 中。锁竞争、连接污染与约束冲突识别从驱动原因读取，不能把 SQL 或绑定参数中的文字当作错误类型。事务回滚测试同时断言原因与回滚后的数据状态。
+
+锁定的 Drizzle 版本应用[错误脱敏补丁](../../patches/drizzle-orm@0.45.4.patch)：错误文案固定为 `Database query failed`，SQL 与绑定值保留为不可枚举诊断属性，避免 API 响应、普通日志和 JSON 序列化携带密钥或正文；底层 `cause` 保留用于内部分类。升级 Drizzle 时必须复查补丁与 ESM/CJS 回归，不能静默丢失此边界。

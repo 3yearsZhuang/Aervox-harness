@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/repositories — CAP-020 Skill Neo 生命周期 SQLite 仓储实现
  *
- * 规则依据：docs/explanation/reference-design-transfer.md（Skill 能力）与
+ * 规则依据：docs/reference/ARCHITECTURE.md#reference-learning（Skill 能力）与
  * reference/AstrBot astrbot/core/tools/computer_tools/shipyard_neo/neo_skills.py
  * （payload → candidate → evaluate → promote → release 流程）。
  *

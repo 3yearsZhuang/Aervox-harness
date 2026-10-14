@@ -1,163 +1,33 @@
 ---
 id: AVX-DOC-001
-type: reference
-scope: baseline
-owner: maintainers
-doc_status: review-candidate
-decision_status: not-applicable
-delivery_status: not-applicable
-version: 1.19.1
-updated_at: 2026-10-12
-reviewed_at: 2026-10-12
-review_interval_days: 90
 ---
 
-# Aervox｜思隅 产品与工程文档索引
+# 文档导航
 
-本目录把产品目标、可测试需求、架构决策、数据权利和 AI 质量分开维护，避免单一 PRD 同时承担所有细节。所有上线范围必须能从用户价值追踪到需求、设计、测试和发布证据。
+按当前任务选入口。需要安装和首次运行时，从[从哪开始](getting-started.md)开始；开发与写作规则见[贡献指南](../CONTRIBUTING.md)，迭代排序见[当前计划](../plan.md)。
 
-## 1. 文档体系与事实源
+## 按任务查阅
 
-### 产品与需求
+| 要解决的问题 | 入口 |
+|---|---|
+| 产品面向谁、为什么做、哪些能力在范围内 | [产品需求](reference/PRD.md) |
+| 功能应如何表现、怎样验收 | [SRS](reference/SRS.md) |
+| 能力做到哪一步、还有哪些阻断 | [需求追踪与发布门槛](reference/REQUIREMENTS_TRACEABILITY.md) |
+| 模块职责、参考项目学习和演进取舍 | [架构](reference/ARCHITECTURE.md)、[ADR](reference/adr/README.md)、[能力组合](reference/capability-composition.md) |
+| 数据、事务、迁移和删除 | [数据库契约](reference/DATABASE.md)、[迁移演练](how-to/run-database-migration-drill.md) |
+| 执行、取消、恢复与事件流 | [Agent Harness Loop](reference/agent-harness-loop.md)、[流式协议](reference/STREAMING_PROTOCOL.md) |
+| 开发插件、Page、Tool 或 UI 扩展 | [扩展指南](how-to/develop-plugin-ui-extension.md)、[插件契约](reference/plugin-config-and-pages.md) |
+| AI 质量、安全威胁、隐私责任 | [AI 质量与安全](reference/AI_QUALITY_SAFETY.md)、[威胁模型](reference/THREAT_MODEL.md)、[数据隐私](reference/DATA_PRIVACY.md) |
+| 设计、测试与运行维护 | [交互设计](reference/DESIGN.md)、[测试策略](reference/TEST_STRATEGY.md)、[运行手册](reference/operations.md) |
+| 执行具体工程操作 | [操作指南](how-to/README.md) |
+| 理解研究背景与未来方案 | [解释与研究](explanation/README.md) |
 
-| 文档 | 负责回答 | 事实源边界 |
-|---|---|---|
-| [当前迭代计划](../plan.md)（AVX-PLAN-001） | 接下来建议做什么、依赖什么、谁认领、怎样移交 | 当前迭代建议的唯一入口；不改写需求、决策或发布事实 |
-| [PRD](reference/PRD.md) | 为什么做、为谁做、全生命周期做什么、用户层面如何验收 | 产品定位、场景、CAP-001～CAP-035、全量验收标准、优先级、路线和用户级指标 |
-| [SRS](reference/SRS.md)（AVX-SRS-001） | 发布范围内每个行为、异常和业务规则如何原子化 | FR/BR/NFR、Given/When/Then 验收、测试 ID 及主动智能与外部信号规格 |
-| [需求追踪与交付标准](reference/REQUIREMENTS_TRACEABILITY.md) | 每条需求是否完整、由谁负责、怎样证明交付，以及代码落地完成情况 | ID、状态、DoR/DoD、CAP 映射、测试证据、发布门禁、风险和变更控制；§4.1 规格化原则与计划入口；§4.2 落地实现原则 |
-| 能力拆分路线（AVX-EXPL-004，已归档至归档库，见[§4.1](#41-能力拆分路线建议批次)） | CAP 按什么批次、什么顺序进入规格化与开发 | 历史存根；当前建议已统一到根 plan.md，追踪基线保留依赖与规格化原则 |
+<a id="2-权威顺序与冲突处理"></a>
 
-### 架构与决策
+## 事实源与历史
 
-| 文档 | 负责回答 | 事实源边界 |
-|---|---|---|
-| [架构设计](reference/ARCHITECTURE.md) | 系统如何实现和演进 | TypeScript 全栈选型、C4、模块/数据所有权、部署、可靠性、安全和 ADR |
-| [视觉系统与设计规范](reference/DESIGN.md)（AVX-DS-001） | 界面视觉哲学、色彩矩阵、字阶架构与组件实体触感规范 | 统一 Design Tokens、单主色秩序、Doppelrand 双层边框、禁止模式与微动效 |
-| [ADR 索引](reference/adr/README.md) | 为什么选择当前架构、舍弃了什么方案 | 架构决策状态、后果、迁移和回滚边界 |
-| [能力组合与可选化目录规范](reference/capability-composition.md)（AVX-CAP-001） | 所有业务能力最终如何通过 Manifest、Provider、Adapter 和 Profile 自由组合 | 目标目录、Kernel 不变量、依赖解析、生命周期、DSH/pi 适配与迁移验收 |
-| [能力注册表](reference/capability-registry.md)（AVX-CAP-REG-001） | 哪些能力纳入自选机制、以什么方式启用、当前处于哪个状态 | 交付载体与启用方式、CAP 分类与已注册模块登记；判定规则与交付机制见 AVX-CAP-001 |
-| [变更请求索引与归档导航](reference/changes/README.md)（CR-000） | 架构变更请求（CR）的生命周期、现行活跃提案与历史归档导航 | 现存 CR 与历史归档的入口；状态以各 CR 元数据为准 |
+产品范围由 PRD 定义，可观察行为由 SRS 定义，技术决定由架构与 ADR 说明，机器契约由代码及 Schema 提供。测试和 PR 证明实现情况，不能反向修改需求或法律、安全、隐私承诺；文档冲突按[贡献指南](../CONTRIBUTING.md#documentation)处理。
 
-### Agent 与流式协议
+既有稳定编号用于追溯。已归档的 CR 与退役记录仍见 [Aervox-docs-archive](https://github.com/3yearsZhuang/Aervox-docs-archive)，主仓原 CR-055/057/060/061/062/063 已并入 [ADR](reference/adr/README.md)。架构设计、参考项目版本、许可证与演进研究统一维护在[架构与参考学习](reference/ARCHITECTURE.md#reference-learning)。
 
-| 文档 | 负责回答 | 事实源边界 |
-|---|---|---|
-| [Agent Harness Loop 设计与落地规范](reference/agent-harness-loop.md)（AVX-HAR-001） | 一次 Agent Turn 如何经过 Context、模型、工具、多 Step、取消恢复并安全终止 | Loop 状态机、Port、持久化、工具管线、限额、DSH/pi Driver 与分阶段迁移 |
-| [流式协议契约](reference/STREAMING_PROTOCOL.md) | Turn 创建、SSE 事件、幂等、重连、取消和部分响应如何保持一致 | OpenAPI 配套的机器可验证事件 envelope、状态机、游标、保留和安全持久化规则 |
-| [Aervox 插件开发规范](reference/plugin-config-and-pages.md)（AVX-PLUG-001） | 插件如何声明、开发、打包、安装、授权、扩展与维护 | Manifest、Config、Page、工具与 Skill、Turn 与 UI、兼容性、验证清单及当前实现边界 |
-
-### 数据与隐私
-
-| 文档 | 负责回答 | 事实源边界 |
-|---|---|---|
-| [SQLite 本地单用户数据库契约](reference/DATABASE.md) | SQLite 永久本地真源、Schema/Repository 双包、无租户目标、破坏性迁移与删除传播规则 | 机器事实源、Repository Port、CR-030 staging/原子换库、回滚与 TC 门禁 |
-| [数据与隐私规范](reference/DATA_PRIVACY.md) | 数据为什么收集、何时召回/保留/删除、谁能访问 | 数据分类、同意、来源链、保留表、删除传播、导出和审计 |
-
-### 质量、安全与运维
-
-| 文档 | 负责回答 | 事实源边界 |
-|---|---|---|
-| [AI 质量与安全规范](reference/AI_QUALITY_SAFETY.md) | 模型、记忆和日记怎样达到可复现质量与安全门槛 | 模型运行记录、评估集、记忆压缩、日记事实性、安全分类和回滚 |
-| [威胁模型](reference/THREAT_MODEL.md) | 哪些资产和信任边界会受到何种攻击 | 威胁场景、控制、验证、残余风险和安全评审输入 |
-| [测试策略](reference/TEST_STRATEGY.md) | 各类需求怎样验证、哪些路径阻断发布 | 测试分层、P0 必测路径、AI 评估、覆盖门槛和证据要求 |
-| [运行与演练手册](reference/operations.md) | 本地单机故障怎样止损、恢复和验证；演练留什么证 | 观测口径、事件分级、供应商/侧车降级、恢复、回滚、演练项与证据字段；G5 门禁引用 |
-
-### 教程与操作指南
-
-| 文档 | 负责回答 | 事实源边界 |
-|---|---|---|
-| [教程：第一个对话](tutorials/first-conversation.md)（AVX-TUT-001） | 新成员如何从 0 跑到第一条对话 | 可执行步骤与验证 |
-| [教程：迁移已集成能力并接入 DSH/pi](tutorials/migrate-integrated-capabilities.md)（AVX-TUT-002） | 如何把现有 tools/plugins/skills 迁移为可组合能力，并设计 DSH/pi 适配器 | 原生能力迁移、Job Handler、外部 Host、Profile、撤权和回滚演练 |
-| [教程：编写自定义 Agent 工具](tutorials/create-agent-tool.md)（AVX-TUT-003） | 如何为 Aervox Agent 编写一个自定义工具并接入运行时与安全检查 | 工具参数 Schema、ToolHandler 实现、只读/审批安全级别与单测验证 |
-| [操作指南](how-to/README.md)（AVX-HOW-001） | 怎么新增 CAP 能力、开发插件、闭环 CR、执行换库演练；贡献者流程见根级 [CONTRIBUTING](../CONTRIBUTING.md) | 任务型流程导航与操作指引；规则以对应专项文档为事实源（原工程流程/写 ADR/submodule 三份指南已于 2026-10-04 退役并入专项文档） |
-| [开发 Aervox 扩展插件](how-to/develop-plugin-ui-extension.md)（AVX-GUIDE-004） | 如何完成最小插件并验证打包、配置和扩展行为 | 可跟做示例、声明式分发包、第一方扩展接线与验证步骤 |
-| [操作指南：提出与闭环 CR](how-to/cr-workflow.md)（AVX-GUIDE-005） | 如何为 Aervox 提出、撰写、实施并闭环一个变更请求（CR） | 变更分级、差量分析、CR 模板、回滚预案与 §4.2 落地登记 |
-| [操作指南：执行 SQLite 换库演练](how-to/run-database-migration-drill.md)（AVX-GUIDE-006） | 如何执行 CR-030 破坏性迁移、staging 隔离校验与原子换库回滚 | 不可变备份、单用户数据抽取、双向校验、原子换库与回滚命令 |
-| [操作指南：新增与规格化 CAP 能力](how-to/add-capability.md)（AVX-GUIDE-007） | 如何在 Aervox 中立项、规格化、推进并落地一个全新的 CAP 业务能力 | PRD 场景、SRS 原子需求、AC 验收条件、DoR 门禁与追踪矩阵 |
-
-### 概念与设计方案
-
-| 文档 | 负责回答 | 事实源边界 |
-|---|---|---|
-| [数据流总览](explanation/data-flow-overview.md)（AVX-EXPL-001） | 消息端到端如何流动 | 先写后投递、Worker 周期、记忆/知识写入 |
-| [参考项目能力迁移与借鉴评估](explanation/reference-design-transfer.md)（AVX-EXPL-002） | 参考项目哪些设计值得落地或借鉴 | 判定框架、来源映射、历史评估与 AGPL 边界；当前排序见根 plan.md |
-| [桌宠角色设定文档化与多人格模板组织](explanation/persona-organization.md)（AVX-EXPL-003） | 桌宠 IP 与多人格模板（CAP-019）的角色如何文档化、版本化并维护 | 角色文档清单、字段化结构（prompt/开场白/语气/技能/错误兜底语）、人设目录与模板版本化、维护责任 |
-| [主动智能模式](explanation/proactive-intelligence-mode.md)（AVX-EXPL-008） | 完全访问上如何以广域画像授权、OS 能力、特权观察 Host、本地私密数据和主动操作组合既有 CAP | 评审提案；不替代 PRD/SRS/DATA_PRIVACY/ADR，不表示运行时已实现 |
-| [ESP32-S3 硬件延伸方案](explanation/esp32-s3-hardware-extension.md)（AVX-EXPL-005） | 如何把 ESP32-S3 做成物理桌宠终端 | 器件级设计输入：硬件边界、表现映射、设备协议与隐私红线；跨产品方向取舍与阶段准入见[配套硬件方向](explanation/companion-hardware-directions.md)（AVX-EXPL-011） |
-| [当前架构实现与演进评估](explanation/architecture-implementation-review.md)（AVX-EXPL-012） | 当前代码/仓库审计及历史架构证据如何定位；[2026-10-08 审计见 §10](explanation/architecture-implementation-review.md#10-2026-10-08-仓库审计) | §2～§9 为历史 ARC/FND 快照，§10 为当前复核；不改写已接受决策，排序只在 plan.md |
-| [HLS 本地智能体竞赛：能力拓展与验证规划](explanation/hls-agent-competition-plan.md)（AVX-EXPL-013） | 三人团队如何验证本地模型在 HLS 设计中的工具反馈增益并准备竞赛交付 | 赛规来源、能力缺口、阶段准入、对照实验、去留标准与冻结产物；当前认领和排序见根 plan.md，不代表实现或产品化已批准；[详细实施步骤](../plan.md#hls-plugin-delivery)覆盖真实验证、竞赛冻结与条件性插件集成 |
-| [纯本地多端点对点加密同步架构探索](explanation/p2p-local-sync-exploration.md)（AVX-EXPL-014） | 纯本地多设备同步的威胁模型、配对与冲突合并应如何取舍 | 探索性设计输入与未实现清单；不代表已接线能力或发布承诺，当前状态见根 plan.md 与追踪基线 |
-| [Pi AI 竞品差距分析与改进建议](explanation/pi-competitive-gap-improvements.md)（AVX-EXPL-015） | Pi AI 的关系型 AI 体验如何暴露思隅陪伴层的结构性缺陷 | 七项差距评估、三波改进建议、涉及 CAP/ADR 兼容性分析与实施优先级；设计输入，不代表实施授权 |
-| [配套硬件方向：能力核查、移动协同取舍与原型路线](explanation/companion-hardware-directions.md)（AVX-EXPL-011） | 当前能力能支撑哪些硬件、手机已替代什么、哪些值得保留、如何从最小原型推进 | 能力现状与真机缺口、九方向实证、手机重合与过度设计取舍、ESP32 工程边界、成本口径、阶段准入、停止条件与验证矩阵；不冻结设备协议；器件级事实仍见 [ESP32-S3 硬件延伸方案](explanation/esp32-s3-hardware-extension.md) |
-| Home Assistant 集成评估（已归档）（AVX-EXPL-006） | 如何为 Aervox 引入 Home Assistant 支持 | 候选方案与后续路线；推荐组合已由 CR-024/ADR-019 接受 |
-| 运动与健康数据接入评估（已归档）（AVX-EXPL-007） | 是否可以接入苹果/小米运动健康数据（步数、睡眠、情绪） | 小米每日指标路径已由 CR-024/ADR-019 接受；苹果与情绪健康仍为评估输入 |
-| 数据库拆分计划（已归档）（AVX-EXPL-009） | `packages/database` 如何拆分为 `@aervox/schema` 与 `@aervox/repositories` | 已完成的六阶段拆分执行记录；架构决策见 ADR-014 |
-| [Web 工作台实现说明](explanation/web-implementation.md)（AVX-WEB-001） | `apps/web` 工作台如何基于 Vue 单栈复用 Desktop 核心组件 | 实现边界、历史里程碑与目录结构；技术栈见 ADR-015，当前排序见根 plan.md |
-
-### 文档治理与生命周期
-
-| 文档 | 负责回答 | 事实源边界 |
-|---|---|---|
-| [文档治理与事实源规范](reference/document-governance.md)（AVX-DOC-GOV-001） | 文档如何分类、标记状态、确定唯一事实源并触发复核 | 分类、事实源矩阵、元数据、状态模型、owner、复核触发器与分阶段迁移 |
-| [文档写作规范](reference/standards/doc-standards.md)（AVX-STD-001） | 每份文档如何使用模板、命名、写作并通过门禁 | 写作体例、元数据、命名、风格基线、Vale 术语门禁与模板族；治理规则见 AVX-DOC-GOV-001 |
-| [代码与 API 命名规范](reference/standards/naming-conventions.md)（AVX-STD-002） | 代码 / API 命名的唯一一致性标准 | 标识符与上下文 `ctx`、路由与 HTTP 语义、包名与目录组织、禁止词与术语开关；陈旧信号见 DOC_REGISTRY |
-| [术语表](reference/standards/terminology.md)（AVX-TERM-001） | 项目术语的唯一含义与规范写法 | 缩写/产品名唯一语义；Vale 依据「禁写」列自动校验 |
-| [文档生命周期登记表](DOC_REGISTRY.md) | 每份文档何时核验、多久复核、什么信号表示陈旧 | 核验节奏/陈旧信号；独立于索引维护 |
-| [从这里开始](getting-started.md)（AVX-DOC-002，见[§7](#7-从哪开始)） | 新成员/Agent 从哪看起、提交前自检什么 | 导航型；不承载规则 |
-| [暂存提案](proposals) | 尚未进入基线的方案是什么 | 待补充证据（More Evidence Required）或未采纳的技术探索提案；不承载已批准规则 |
-| [变更请求](reference/changes/README.md)（现行 CR） | 现行变更请求索引与活跃提案（CR-055 移动端落地、CR-057 HLS 研究执行器、CR-060 专注模式去领域化、[CR-061 内核执行合同](reference/changes/CR-061-core-execution-contract-hardening.md)） | 变更差量、决策状态与回滚预案；已闭环提案（CR-002~059）见外部归档库 |
-| [根界面插件](reference/changes/CR-063-ui-surface-plugins.md)（CR-063） | 工作台与桌宠如何通过薄界面宿主加载 | 受信构建装配、跨端入口与实例生命周期；不包含第三方运行时代码安装 |
-| [移动端落地规划](reference/changes/CR-055-mobile-delivery-plan.md)（CR-055） | 移动 Web、Capacitor 配套端与独立手机端如何分阶段推进 | 待评审提案：范围、连接与数据边界、实施切片及验收；不代表移动端已交付 |
-| [HLS 本地智能体验证执行器](reference/changes/CR-057-hls-local-agent-validation.md)（CR-057） | 如何诊断环境、运行裸跑与 Agent、生成配对实验报告 | 本地研究链路与协议回归；GPU/Vitis 及官方评分验收待补 |
-| 已归档记录（外部归档库） | 历史变更与已退役决策的原始记录是什么 | 已完成或已退役的历史变更；已整体移入独立归档仓库，避免混淆当前活跃规范 |
-
-### 历史变更请求与临时落地计划归档说明
-
-为保持主仓库文档精炼、避免历史推演过程污染日常检索与 AI 编程上下文，**已确认闭环实施的变更提案（CR-002 至 CR-054、CR-056、CR-058、CR-059，共 55 篇）以及阶段性临时落地计划（CR-033/034/035 plan）已整体归档至独立外部归档仓库 [Aervox-docs-archive](https://github.com/3yearsZhuang/Aervox-docs-archive)**。主仓库 `docs/reference/changes/` 仅保留当前活跃的未闭环提案（如 `CR-055`）。
-
-- 主仓库只维护反映当前系统状态的**现行权威真源（Living System Truth）**；
-- 业务需求以 [PRD](reference/PRD.md) 与 [需求追踪与交付基线](reference/REQUIREMENTS_TRACEABILITY.md) 为准；
-- 架构设计与数据库契约以 [架构设计](reference/ARCHITECTURE.md) 与 [数据库契约](reference/DATABASE.md) 为准；
-- 如需回溯历史提案细节或阶段性计划推演，请查阅私有归档仓库 [Aervox-docs-archive](https://github.com/3yearsZhuang/Aervox-docs-archive)。
-
-### 1.1 文档生命周期登记表（核验节奏与陈旧信号）
-
-每份关键文档的最后核验时间、核验节奏与陈旧信号，独立维护在[文档生命周期登记表](DOC_REGISTRY.md)（AVX-DOC-CONF-001）；文档作者与修改历史由 Git 追踪。何时更新登记、哪些代码路径触发复核，以[文档治理规范 §5-6](reference/document-governance.md#5-维护责任和更新触发器)为准。
-
-## 2. 权威顺序与冲突处理
-
-1. 已批准的法律、安全和隐私政策优先于产品或技术便利。
-2. PRD 决定用户价值、范围和不可突破的产品边界。
-3. 原子需求/SRS 决定具体行为和验收条件。
-4. 架构设计与 ADR 决定已批准实现方案。
-5. OpenAPI、数据库迁移和事件契约是实现接口的机器可验证事实源。
-6. 测试和发布记录证明某一版本是否兑现需求，但不能反向修改需求含义。
-
-文档冲突时停止相关发布，创建 `CR-*`，记录受影响的 `CAP/FR/NFR/DATA/AIQ/SEC/PRIV`，经评审批准后同步修订；不得在代码或口头沟通中静默选择一种解释。变更留痕见 Git 与关联 PR。
-
-## 3. 文档状态
-
-文档可用性、决策批准情况和代码交付进度是三个独立维度，允许值与组合规则以[文档治理规范 §4](reference/document-governance.md#4-元数据和状态模型)为唯一事实源。本索引只展示入口，不从 CR/ADR 正文反推交付状态。
-
-当前文档集整体仍为 `Review Candidate`：它可以指导进一步规格化和原型实现，但不能替代生产发布批准或对应测试证据。
-
-## 4. 更新与评审节奏
-
-文档复核与生成视图同步见[治理规范 §5–6](reference/document-governance.md#5-维护责任和更新触发器)；改动等级见[写作规范 §3.1](reference/standards/doc-standards.md#31-改动等级与同步要求)。产品阶段、需求就绪与发布门禁以[追踪基线](reference/REQUIREMENTS_TRACEABILITY.md)为准，本索引不重复枚举。
-
-### 4.1 能力拆分路线（建议批次）
-
-当前迭代的建议顺序、依赖和认领状态统一在根目录 [plan.md](../plan.md) 维护。[需求追踪基线 §4.1](reference/REQUIREMENTS_TRACEABILITY.md#41-建议交付批次与拆分原则)保留 CAP 依赖与规格化原则（历史原文见私有归档仓库 AVX-EXPL-004）；能力从 `Mapped` 转 `Specified` 的实际状态仍以[追踪基线覆盖矩阵](reference/REQUIREMENTS_TRACEABILITY.md#4-cap-001cap-035-覆盖矩阵全部能力状态唯一速览)为准。
-
-## 5. 专业基线自检
-
-就绪条件与验证证据见[追踪基线](reference/REQUIREMENTS_TRACEABILITY.md)；本索引只负责导航。
-
-## 6. 参考项目
-
-固定版本、来源及许可证只在 [PRD §15.1](reference/PRD.md#prd-reference-manifest)维护，借鉴结论见[参考设计评估](explanation/reference-design-transfer.md)。`reference/` 是只读设计输入；源码版本以 Git 子模块指针核验，不能凭索引摘要推断许可证或运行时准入。
-
-## 7. 从哪开始
-
-> 面向新成员或首次接触本仓库的 AI Agent 的完整 onboarding（仓库结构、阅读顺序、写作硬规则、Docs CI 自检、介入路径），见[从哪开始](getting-started.md)（AVX-DOC-002）。
+第一方根界面与平台装配见 [ADR-025](reference/adr/ADR-025-ui-surface-hosts.md)，第三方界面开放的未决提案见 [ADR-026](reference/adr/ADR-026-ui-surface-open-ecosystem.md)。

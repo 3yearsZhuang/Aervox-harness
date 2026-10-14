@@ -319,7 +319,7 @@ export class SqliteDiaryRepository implements IDiaryRepository {
       modelRunId?: string | null;
     },
   ): Promise<DiaryVersionModel> {
-    // 校验日记属于当前租户
+    // 校验目标日记存在
     const [diary] = await this.db
       .select()
       .from(diaries)

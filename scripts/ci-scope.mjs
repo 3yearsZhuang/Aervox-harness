@@ -109,6 +109,21 @@ export function matchesGlob(file, pattern) {
   return globToRegExp(pattern).test(file);
 }
 
+/**
+ * 只跳过明确位于项目文档区域的改动；插件技能、包内 Markdown 等可能是产品输入。
+ * Turbo 明确声明的输入优先于文档路径判断，新增文档型构建输入也不能被静默跳过。
+ */
+export function isDocumentationOnlyChange(changedFiles, scope) {
+  const declaredInputs = collectRequiredCodePaths(scope);
+  return changedFiles.every((file) =>
+    (file.startsWith("docs/") ||
+      ["README.md", "AGENTS.md", "CONTRIBUTING.md", "CHANGELOG.md", "plan.md"].includes(file) ||
+      file === ".markdownlint-cli2.jsonc" || file === ".vale.ini" ||
+      file === ".lycheeignore" || file.startsWith(".vale/")) &&
+    !declaredInputs.some((glob) => matchesGlob(file, glob)),
+  );
+}
+
 /** 把包内相对声明（`../../plugins/**`）归一化为仓库根相对 glob。 */
 export function normalizeDeclaredInput(glob) {
   let normalized = glob;

@@ -9,6 +9,7 @@ describe("WorkerHost (模块化后台任务调度器)", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   const createMockLogger = () => ({
@@ -18,6 +19,42 @@ describe("WorkerHost (模块化后台任务调度器)", () => {
     debug: vi.fn(),
     trace: vi.fn(),
     fatal: vi.fn(),
+  });
+
+  it("stop drains an active job, shares the drain and prevents rescheduling", async () => {
+    let finish!: (count: number) => void;
+    const run = vi.fn(() => new Promise<number>(resolve => { finish = resolve; }));
+    const host = new WorkerHost({ workerId: "drain", logger: createMockLogger() });
+    host.registerJob({ name: "job", run });
+    host.start();
+    const stop = host.stop();
+    expect(host.stop()).toBe(stop);
+    let settled = false;
+    void stop.then(() => { settled = true; });
+    await vi.advanceTimersByTimeAsync(100);
+    expect(settled).toBe(false);
+    expect(host.wakeJob("job")).toBe(false);
+    expect(() => host.start()).toThrow("worker_host_stopping");
+    finish(1);
+    await stop;
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+    host.start();
+    expect(run).toHaveBeenCalledTimes(2);
+    finish(0);
+    await host.stop();
+  });
+
+  it("a hung job rejects shutdown at the deadline and cannot restart", async () => {
+    const host = new WorkerHost({ workerId: "hung", logger: createMockLogger(), shutdownTimeoutMs: 50 });
+    host.registerJob({ name: "job", run: () => new Promise(() => {}) });
+    host.start();
+    const stopped = expect(host.stop()).rejects.toThrow("worker_shutdown_timeout");
+    await vi.advanceTimersByTimeAsync(50);
+    await stopped;
+    expect(() => host.start()).toThrow("worker_host_stopping");
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("正确注册任务并解析调度间隔（继承系统默认与配置覆盖）", () => {

@@ -1,15 +1,5 @@
 ---
 id: AVX-DATA-001
-type: reference
-scope: baseline
-owner: maintainers
-doc_status: review-candidate
-decision_status: not-applicable
-delivery_status: not-applicable
-version: 0.5.1
-updated_at: 2026-10-08
-reviewed_at: 2026-10-08
-review_interval_days: 90
 ---
 
 # Aervox｜思隅 数据与隐私规范
@@ -73,6 +63,12 @@ review_interval_days: 90
 
 <a id="privacy-retention"></a>
 
+<a id="analytics-events"></a>
+
+### 分析事件最小字段
+
+所有分析事件的通用必填字段为 `eventId`、`eventName`、`eventSchemaVersion`、`occurredAt`、本地生成且不可反推身份的 `analyticsSubjectId`、客户端版本和平台。`sessionId`、`goalId`、`questionId`、`diaryId` 等业务标识仅在事件确实属于相应对象时填写；模型相关事件另须包含模型版本、提示版本和 `modelRunId`。不得用虚构或空占位 ID 满足 schema。用户可拒绝非必要分析埋点，拒绝后只保留安全和可靠性所必需且已最小化的事件。
+
 ## 5. 召回、保留与删除基线
 
 | 数据/层级 | AI 自动召回期限 | 用户可见/业务保留 | 删除/失效规则 |
@@ -99,27 +95,13 @@ review_interval_days: 90
 
 ## 6. 四段记忆的隐私规则
 
-- 临时层保存精确内容是为了短期上下文连续性；不得把“精确”误解为无限期复制到日志、分析或向量库。
-- 短期摘要首次压缩必须保留关键约束、时间、尝试、错误和例子；同时删除与学习无关、无后续价值的敏感细节。
-- 客观学习事件（完成题目、答错知识点）可按规则自动形成长期候选；用户身份事实、经历、称呼、敏感偏好必须由用户确认；掌握度可推断但标记 `inferred` 和依据。
-- CAP-033 在有效全量画像授权下可从本地广域观察自动形成 `inferred` 习惯/操作/兴趣候选，并在七天原始副本窗口内完成记忆提炼；提炼结果必须保留来源捕获、grant revision、处理边界和算法版本，不能把观察直接写成无来源用户事实。
-- 系统记忆是长期记忆的树状投影。canonical parent 构成无环层级；跨主题边单独存储并各自有证据。不能用树节点规避原始来源删除。
-- 每次创建、压缩、晋升、合并、降权、纠错和删除记录算法、模型/Prompt 版本、证据范围、权限和 actor。
-- 记忆被锁定只阻止自动衰减；不阻止用户删除、卸载清理、安全纠错或法定清理。
+分层、晋升与投影行为见 [SRS](SRS.md#3-记忆业务规则)，质量阈值见 [AI 质量](AI_QUALITY_SAFETY.md#ai-memory)。隐私约束是：临时层精确内容不能无限复制到日志/分析/向量；摘要在保留学习关键约束时去掉无必要敏感细节；CAP-033 提炼继承来源、grant revision 和 `local_only`；锁定只阻止自动衰减，不能阻止用户删除、安全纠错或法定清理。
 
 ## 7. 日记数据窗口
 
-日记不能依赖“生成时仍未过期的临时记忆”，否则晚于 6 小时生成会丢失早期素材。每次生成需固化连续滚动窗口：
+不可变 Cycle 和时间归属规则见 [FR-DIA-001](SRS.md#fr-dia-001-ai-每日日记)。素材缓冲只为该 Cycle 保存来源引用、修订、权限快照和必要结构化事实，不是第五层记忆，不延长普通召回或原始业务保留；来源正文不复制到 DiarySource。时区快照保留 IANA 时区与适用 UTC 偏移/DST 规则，供重放解释。
 
-- `localDate`：`cutoffAt` 按用户 IANA 时区映射得到的日记日期标签，不要求窗口从本地零点开始；
-- `timezoneSnapshot`：生成计划生效时的时区及 DST 规则版本；
-- `previousCutoffAt`：上一条已完成或已确定跳过的日记截止点；首次运行使用 `initialWindowStart`；
-- `cutoffAt`：该篇日记允许纳入素材的 UTC 截止时点；
-- `sourceWindowStart/End`：`(previousCutoffAt, cutoffAt]` 的有效素材窗口；
-- `contentScopes` 与 `permissionSnapshot`：生成时允许的内容类型；
-- 来源 ID、来源版本和最小 tombstone；来源正文不复制到 `DiarySource`。
-
-滚动周期素材缓冲保存来源引用和必要的结构化事实，覆盖到生成完成或 `bufferClosedAt` 补写期限；它不是第五层记忆，也不能延长原始内容的业务保留。生成后按目的删除缓冲。用户撤销日记授权后，未执行任务和缓冲立即失效。修改生成时间只改变未来截止点，已锁定截止点不移动；停用/重新启用默认以重新启用时点建立新的 `initialWindowStart`，不回填停用期间素材。系统必须以上一截止点作为下一窗口起点，避免跨午夜、DST 或计划变更造成重叠/空洞。
+若历史保留策略会在生成前清理来源，只有用户另行授权才可保存最小加密临时快照；生成成功后 24 小时内、最终失败后 72 小时内清除。一般缓冲在生成/补写用途结束后清理，撤销日记授权后未执行任务和缓冲立即失效。手动选择历史补写不改变自动 cursor，停用期间素材不自动回填。
 
 ## 8. 删除传播
 
@@ -134,8 +116,6 @@ review_interval_days: 90
   -> 验证无召回 + 回填审计证据
   -> 备份到期；恢复时校验 ledger 水位并按序重放
 ```
-
-**当前实现切片（PR #258）**：`POST /v1/deletions` 可按[请求模式](../../packages/contracts/src/privacy-schemas.ts)提交显式 targets，并与请求同事务落库。Worker 仅完成 `scope=memory`、请求与目标 `ownerModule=memory`、`targetType=memory` 的既存记录；清理正文、修订正文、摘要、FTS/向量后独立验证，索引、压缩摘要及压缩事件写入端在写者事务内拒绝向已删除记录回填迟到结果；同一清理事务清除压缩 Outbox 的载荷与错误正文，保留不含正文的已消费标记，并独立验证该副本。已取出的旧事件同样受墓碑检查约束。存在共享树、时态事实、技能或子记忆投影时，保留数据并报告需要 owner 清理；空目标、未知范围和失败不解闸，旧 completed 占位记录及未覆盖队列副本的旧版证明也保持阻断，并与失败请求共用重试判据。此处不是账户/来源全链删除、全用途准入门或独立 `RecoveryControlLedger` 的完整实现；差量见[审计 §10.2](../explanation/architecture-implementation-review.md#audit-findings)。
 
 删除 SLA：立即停止在线使用；24 小时内完成 Aervox 控制的在线存储清除/重建；外部处理者按合同 SLA，若不能满足则不得承载相应数据。失败进入队列重试和告警，用户可查看进度。删除失败不能以“后台处理中”为由继续召回。
 
@@ -160,15 +140,17 @@ review_interval_days: 90
 | RecoveryControlLedger | 先 durable append 假名化 deny/revoke 事件；禁止正文进入账本，按 sequence 对账业务水位 | 请求确认前；持续对账 | Platform/Security/Privacy | `TC-RES-LEDGER-001`、签名/序列/水位证据 |
 | 备份/灾备副本 | 不改写历史备份；轮转到期，恢复时校验最老备份覆盖、水位和 sequence 后重放 `RecoveryControlLedger` | 按已批准备份周期 | Platform/Privacy | 恢复演练、账本水位/序列证据和回放 |
 
-每个删除任务必须有 `DeletionRequest`、`idempotencyKey`、状态（`Requested/Blocked/Running/PartiallyCompleted/Completed/Failed`）、重试次数、失败原因、Owner 和最后验证时间。`PartiallyCompleted` 或 `Failed` 状态必须触发告警和用户可见进度；在完成前已删除来源始终不可召回。SLA 变更必须通过 `CR-*` 和隐私/安全批准。
+每个删除任务必须有 `DeletionRequest`、`idempotencyKey`、状态（`Requested/Blocked/Running/PartiallyCompleted/Completed/Failed`）、重试次数、失败原因、Owner 和最后验证时间。`PartiallyCompleted` 或 `Failed` 状态必须触发告警和用户可见进度；在完成前已删除来源始终不可召回。SLA 变更必须通过 `ADR-*` 和隐私/安全批准。
 
-### 8.2 当前 Memory 清理切片
+<a id="82-当前-memory-清理切片"></a>
 
-删除 Worker 只处理清单显式指定的 Memory 目标：清空正文、修订、摘要和证据片段，失效关联证据，删除全部模型向量及 FTS 索引，保留 tombstone；独立查询验证无残留后才登记完成。空目标、未知处理器或清理失败保持阻断，重试成功前不因 `failed` 解闸。迟到的 FTS/向量写入必须重新检查 tombstone。回归见[删除 Worker 测试](../../apps/worker/test/deletion-worker.test.ts)。
+### 8.2 显式 Memory 清理与召回准入
+
+`POST /v1/deletions` 可按[请求模式](../../packages/contracts/src/privacy-schemas.ts)提交显式 targets，并与请求同事务落库。Worker 仅完成 `scope=memory`、请求与目标 `ownerModule=memory`、`targetType=memory` 的既存记录；清理正文、修订正文、摘要、FTS/向量后独立验证，索引、压缩摘要及压缩事件写入端在写者事务内拒绝向已删除记录回填迟到结果；同一清理事务清除压缩 Outbox 的载荷与错误正文，保留不含正文的已消费标记，并独立验证该副本。已取出的旧事件同样受墓碑检查约束。存在共享树、时态事实、技能或子记忆投影时，保留数据并报告需要 owner 清理；空目标、未知范围和失败不解闸，旧 completed 占位记录及未覆盖队列副本的旧版证明也保持阻断，并与失败请求共用重试判据。
 
 自动召回仅接受已确认的长期记忆，并排除已删除、召回期限到期/非法及敏感或未知分级的数据；主对话召回与主动回合上下文共用同一资格谓词，候选按过采样读取后逐条判定，防止不合格命中挤占注入名额，见[召回资格测试](../../apps/api/test/memory-recall-eligibility.test.ts)。自动召回另受 `memory_long` 用途闸门约束：宿主接线后无有效授权（或授权读取失败）即不召回，撤权立即生效；历史查看与导出不受该闸门影响。召回到期不删除仍在用户保留期内的历史。
 
-本切片不自动解释 `scope`、不把空清单当作全量删除，也不回写既有 completed 请求；创建面按 `(targetType, targetId)` 去重并拒绝同 target 不同 `ownerModule` 的声明，重复幂等键返回既有请求。HTTP 删除入口尚未形成来源到 Targets 的完整解析链；来源、日记、模型上下文快照、备份及独立恢复账本仍需按本规范继续实现。显式 Memory 清理测试不能替代全链路删除 E2E 或生产恢复演练。
+创建面按 `(targetType, targetId)` 去重并拒绝同目标不同 ownerModule；重复幂等键返回原请求。行为回归见[删除 Worker 测试](../../apps/worker/test/deletion-worker.test.ts)，现行实现范围与尚未闭合的全链删除/恢复限制只在[追踪基线](REQUIREMENTS_TRACEABILITY.md#42-证据与适用限制)维护。
 
 ## 9. 导出、更正与迁移
 
@@ -182,27 +164,13 @@ CAP-033 的本地导出还必须能够按用户选择包含原始捕获副本、
 
 ## 10. 安全控制
 
-- Web 使用同源 HttpOnly/Secure/SameSite Cookie、CSRF、防重放、CSP 和速率限制；桌面/移动端与本机 API 之间使用 loopback 加 Token 认证（CR-030 后无 OIDC 依赖，ADR-008 已 Superseded）。
-- API 默认仅监听 loopback；非 loopback 必须显式启用并强制 token 认证。数据目录使用当前操作系统用户私有 ACL；插件和供应商访问使用独立 `actorId`/Grant 并分别审计。
-- 静态和传输加密；Restricted 内容和对象使用 KMS envelope encryption；密钥不以明文入库或进入模型。
-- 模型、日志、错误监控和分析使用字段级脱敏；`ModelRun` 保存 ContextManifest，不默认复制完整 Prompt。
-- 附件限制类型、大小、解压比例和扫描状态；不可信内容不能执行或提升工具权限。
-- 供应商上线前完成数据处理、保留、训练、地区、删除、事件通知和子处理者评审。
-- CAP-033 的全量画像、后台生命周期和主动动作必须使用独立的 `ConsentGrant`/`FullProfileActionGrant`；用户确认后可以覆盖声明的本地、外部、特权和不可逆动作，但不能由模型、插件或外部内容自行扩大范围。
-- CAP-033 的原始捕获、画像、动作、授权和审计数据必须进入强制本地加密边界；本地处理证明失效时挂起，不向远端模型、Embedding、分析、日志或备份降级。
-- CAP-033 生产控制面必须使用私密目录 `0600` 的 owner-only `proactive-access.token`，仅接受字面 loopback 请求并拒绝 redirect；令牌本身不得进入任何业务数据、日志、分析、备份或导出。
+- 认证、loopback、文件 ACL、插件与 Electron 攻击面见[威胁模型](THREAT_MODEL.md)和 [SEC-LOC-001](SRS.md#srs-sec-local)；Web Cookie/移动认证的部署选择须经相应架构决定。
+- 静态与传输加密，Restricted 内容采用 envelope encryption；密钥由受控密钥存储管理，不以明文进入业务库、模型或导出。实际本地密钥与备份边界按 [ADR-018](adr/ADR-018-proactive-local-privacy-host.md)冻结。
+- 日志、错误监控与分析按字段脱敏，ModelRun 使用 ContextManifest，不默认复制完整 Prompt。供应商须评审用途、保留、训练、地区、删除、通知与子处理者。
+- CAP-033 的独立来源/动作授权、本地存储与控制面凭据限制以 [SRS §8](SRS.md#8-cap-033-全域感知与个人画像主动智能模式) 为准；确认推断不解除 `local_only`。
 
 <a id="privacy-gates"></a>
 
 ## 11. 隐私发布门禁
 
-- 所有版本内数据实体有用途、分类、Owner、保留/召回/删除规则；
-- 同意界面、撤销路径、历史影响和默认值通过产品/隐私评审；
-- 删除 E2E 证明消息、摘要、记忆、日记、索引、缓存、对象和外部处理者均按策略处理；
-- 导出在独立工具中可读取，并包含版本、来源和缺失状态；
-- 分析事件使用事件专属 schema，不把 `sessionId/goalId/modelVersion` 设为全局必填；
-- 未认证非 loopback、其他操作系统用户、插件和分享越权测试通过；
-- CR-030 多范围破坏性迁移必须证明备份可读、范围选择明确、冲突 fail closed、staging 校验和 rollback 演练通过；
-- 备份恢复后先处于全局 deny，校验独立 `RecoveryControlLedger` 的签名、连续 sequence、最老备份覆盖和业务水位；按序幂等重放后，已删除/撤权数据不会重新可见或可召回。账本不可用、缺口或 reconciliation 未完成时不得开放流量；
-- 未成年人、设备捕获、社区、市场或机构能力未完成专项评审前保持禁用。
-- CAP-033 发布前必须证明七天原始副本/记忆提炼删除门、后台自启/恢复通知、全动作授权快照、来源撤权零召回/零动作、本地出网阻断和可读导出均通过专项测试；仅有 UI 开关或 schema 不得视为通过。
+统一见[追踪基线专项门禁](REQUIREMENTS_TRACEABILITY.md#91-专项发布门禁)。本文件维护数据规则和责任，不重复记录发布状态。

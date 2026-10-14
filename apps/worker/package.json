@@ -12,15 +12,15 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@aervox/core": "workspace:*",
     "@aervox/config": "workspace:*",
     "@aervox/contracts": "workspace:*",
+    "@aervox/core": "workspace:*",
     "@aervox/diary": "workspace:*",
     "@aervox/observability": "workspace:*",
     "@aervox/repositories": "workspace:*",
     "@aervox/schema": "workspace:*",
     "@libsql/client": "^0.14.0",
-    "drizzle-orm": "^0.39.3"
+    "drizzle-orm": "^0.45.4"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

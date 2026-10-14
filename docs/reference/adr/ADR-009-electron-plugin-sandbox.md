@@ -1,14 +1,6 @@
 ---
 id: ADR-009
-type: reference
-scope: decision
-owner: maintainers
-doc_status: review-candidate
 decision_status: accepted
-version: 0.1.2
-updated_at: 2026-10-10
-reviewed_at: 2026-10-10
-review_interval_days: 90
 ---
 
 # ADR-009 Electron 最小权限壳与进程外插件

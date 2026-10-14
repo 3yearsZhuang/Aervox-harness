@@ -1,0 +1,1430 @@
+{
+  "schemaVersion": 1,
+  "measuredAt": "2026-10-12T15:37:16.323Z",
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M5"
+  },
+  "artifact": {
+    "binary": "/Users/3yearszhuang/Documents/Z-Projects/Aervox-harness/packages/native-runtime/dist/bin/darwin-arm64/aervox-native",
+    "sha256": "6af9e753abcf686fc2467e2e010da8b9747f37e5ded6b4bfb66e3e6723a23f1c"
+  },
+  "fixture": {
+    "seed": 42,
+    "sizes": [
+      1000,
+      10000,
+      100000
+    ],
+    "dimensions": 256,
+    "samples": 7,
+    "warmup": 3,
+    "topK": 10,
+    "minScore": 0
+  },
+  "vector": [
+    {
+      "rows": 1000,
+      "cases": [
+        {
+          "mode": "sqlite-json-sort",
+          "p50Ms": 33.34195899999986,
+          "p95Ms": 49.84637500000008,
+          "p99Ms": 49.84637500000008,
+          "sampleMs": [
+            49.84637500000008,
+            39.395208999999795,
+            31.790584000000308,
+            42.31137499999977,
+            33.34195899999986,
+            30.362624999999753,
+            30.257666000000427
+          ],
+          "parentRssBytes": 283017216,
+          "timerDelayMs": [
+            50.003875000000335,
+            39.755041999999776,
+            32.322584000000006,
+            42.40341699999999,
+            33.92095900000004,
+            30.740249999999833,
+            30.451416000000336
+          ],
+          "parity": [
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            }
+          ]
+        },
+        {
+          "mode": "sqlite-json-topk",
+          "p50Ms": 34.296499999999924,
+          "p95Ms": 43.71004200000016,
+          "p99Ms": 43.71004200000016,
+          "sampleMs": [
+            32.79633299999978,
+            32.631374999999935,
+            38.14254200000005,
+            36.153707999999824,
+            43.71004200000016,
+            32.86695799999961,
+            34.296499999999924
+          ],
+          "parentRssBytes": 283312128,
+          "timerDelayMs": [
+            32.87304099999983,
+            32.74437499999976,
+            39.02712500000007,
+            36.367249999999785,
+            44.23191700000007,
+            32.936457999999675,
+            34.38149999999996
+          ],
+          "parity": [
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            }
+          ]
+        },
+        {
+          "mode": "sqlite-typed-cache",
+          "p50Ms": 1.7234589999998207,
+          "p95Ms": 5.791165999999976,
+          "p99Ms": 5.791165999999976,
+          "sampleMs": [
+            2.278708999999708,
+            1.4173749999999927,
+            1.7282909999998992,
+            5.791165999999976,
+            1.371708000000126,
+            1.7234589999998207,
+            1.0488330000002861
+          ],
+          "parentRssBytes": 294518784,
+          "timerDelayMs": [
+            1.094749999999749,
+            1.4283750000004147,
+            1.618832999999995,
+            1.022041000000172,
+            1.3260000000000218,
+            1.740624999999909,
+            0.9970410000000811
+          ],
+          "parity": [
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            }
+          ]
+        },
+        {
+          "mode": "rust-sqlite-warm",
+          "p50Ms": 1.6023749999999382,
+          "p95Ms": 2.416458000000148,
+          "p99Ms": 2.416458000000148,
+          "sampleMs": [
+            2.416458000000148,
+            1.4631669999998849,
+            2.129417000000103,
+            1.6663750000002437,
+            1.6023749999999382,
+            1.2217500000001564,
+            1.2689159999999902
+          ],
+          "parentRssBytes": 297713664,
+          "timerDelayMs": [
+            0.7444580000001224,
+            1.4831249999997453,
+            2.1449170000000777,
+            1.6785840000002281,
+            1.6159170000000813,
+            1.2329169999998157,
+            1.2779160000000047
+          ],
+          "parity": [
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            }
+          ]
+        },
+        {
+          "mode": "rust-sqlite-cold",
+          "p50Ms": 55.45237499999985,
+          "p95Ms": 67.4978329999999,
+          "p99Ms": 67.4978329999999,
+          "sampleMs": [
+            64.06962500000009,
+            62.19695899999988,
+            54.955375000000004,
+            67.4978329999999,
+            55.45237499999985,
+            54.611625000000004,
+            47.48900000000003
+          ],
+          "parentRssBytes": 326500352,
+          "timerDelayMs": [
+            10.98666699999967,
+            1.783292000000074,
+            1.694083999999748,
+            1.190874999999778,
+            0.7895419999999831,
+            0.7015830000000278,
+            1.933875000000171
+          ],
+          "parity": [
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            }
+          ]
+        },
+        {
+          "mode": "sqlite-vec",
+          "p50Ms": 0.544832999999926,
+          "p95Ms": 0.6878750000000764,
+          "p99Ms": 0.6878750000000764,
+          "sampleMs": [
+            0.6121669999997721,
+            0.544832999999926,
+            0.6878750000000764,
+            0.5511669999996229,
+            0.47424999999975626,
+            0.46241600000030303,
+            0.4922919999999067
+          ],
+          "parentRssBytes": 327254016,
+          "timerDelayMs": [
+            1.5475830000000315,
+            0.7592079999999441,
+            0.7282089999998789,
+            0.5946669999998448,
+            0.5526669999999285,
+            0.4892500000000837,
+            1.6781670000000304
+          ],
+          "parity": [
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 1.5380053064451005e-7
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 1.3195486842088044e-7
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 1.1177829709052567e-7
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 2.6863648777686322e-8
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 8.623382222183729e-8
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 6.73918019722386e-8
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 6.13469636201458e-8
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 1.2404433089030498e-7
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 1.0216026088971653e-7
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 1.4954933830191308e-7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "rows": 10000,
+      "cases": [
+        {
+          "mode": "sqlite-json-sort",
+          "p50Ms": 354.17133300000023,
+          "p95Ms": 379.58475,
+          "p99Ms": 379.58475,
+          "sampleMs": [
+            333.8996670000006,
+            354.17133300000023,
+            366.47183399999994,
+            379.58475,
+            337.9031250000007,
+            356.32137499999953,
+            335.8550830000004
+          ],
+          "parentRssBytes": 648560640,
+          "timerDelayMs": [
+            333.9622500000005,
+            354.22441700000036,
+            379.4345000000003,
+            379.67933300000004,
+            346.8034580000003,
+            356.37629200000083,
+            335.90270800000144
+          ],
+          "parity": [
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            }
+          ]
+        },
+        {
+          "mode": "sqlite-json-topk",
+          "p50Ms": 386.140625,
+          "p95Ms": 396.01983299999847,
+          "p99Ms": 396.01983299999847,
+          "sampleMs": [
+            364.55254199999945,
+            383.74766699999964,
+            391.36654199999975,
+            386.140625,
+            373.6050000000014,
+            396.01983299999847,
+            386.4239170000001
+          ],
+          "parentRssBytes": 648921088,
+          "timerDelayMs": [
+            364.6022919999996,
+            384.26233299999876,
+            391.43475000000035,
+            386.20074999999997,
+            373.72262500000033,
+            396.1477500000001,
+            387.014541999999
+          ],
+          "parity": [
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            }
+          ]
+        },
+        {
+          "mode": "sqlite-typed-cache",
+          "p50Ms": 7.192665999999008,
+          "p95Ms": 8.155499999998938,
+          "p99Ms": 8.155499999998938,
+          "sampleMs": [
+            7.154000000000451,
+            7.9791669999995065,
+            7.339041999999608,
+            8.155499999998938,
+            7.192665999999008,
+            6.279042000000118,
+            7.049666000000798
+          ],
+          "parentRssBytes": 660783104,
+          "timerDelayMs": [
+            0.6522500000010041,
+            1.7966669999987062,
+            1.4846249999991414,
+            3.2414169999992737,
+            1.4619160000002012,
+            1.3259170000001177,
+            1.3857499999994616
+          ],
+          "parity": [
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            }
+          ]
+        },
+        {
+          "mode": "rust-sqlite-warm",
+          "p50Ms": 3.7110830000001442,
+          "p95Ms": 10.442457999999533,
+          "p99Ms": 10.442457999999533,
+          "sampleMs": [
+            4.826165999998921,
+            3.7067499999993743,
+            3.430166999998619,
+            3.8935419999997976,
+            3.7110830000001442,
+            10.442457999999533,
+            3.365916999999172
+          ],
+          "parentRssBytes": 663617536,
+          "timerDelayMs": [
+            0.7196659999990516,
+            0.39979200000016135,
+            1.3654589999987365,
+            0.7692079999997077,
+            1.5887910000001284,
+            10.30083299999933,
+            1.760958999999275
+          ],
+          "parity": [
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            }
+          ]
+        },
+        {
+          "mode": "rust-sqlite-cold",
+          "p50Ms": 350.06145900000047,
+          "p95Ms": 359.71987499999886,
+          "p99Ms": 359.71987499999886,
+          "sampleMs": [
+            359.71987499999886,
+            343.5434580000001,
+            351.726458000001,
+            344.74908300000243,
+            326.77800000000207,
+            350.06145900000047,
+            354.5266249999986
+          ],
+          "parentRssBytes": 691961856,
+          "timerDelayMs": [
+            2.115582999998878,
+            2.0424160000002303,
+            0.7121250000000146,
+            2.802332999999635,
+            0.9445410000007541,
+            0.9280839999992168,
+            0.9708339999997406
+          ],
+          "parity": [
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            }
+          ]
+        },
+        {
+          "mode": "sqlite-vec",
+          "p50Ms": 8.139708000002429,
+          "p95Ms": 8.910625000000437,
+          "p99Ms": 8.910625000000437,
+          "sampleMs": [
+            8.910625000000437,
+            7.511209000000235,
+            8.340958000000683,
+            8.124875000001339,
+            8.139708000002429,
+            8.291000000001077,
+            7.495792000001529
+          ],
+          "parentRssBytes": 691961856,
+          "timerDelayMs": [
+            9.017667000000074,
+            7.6102089999985765,
+            8.673707999998442,
+            8.351708999998664,
+            8.31562500000291,
+            8.358625000000757,
+            7.575874999998632
+          ],
+          "parity": [
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 1.7141620339833352e-7
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 1.3473362528437782e-7
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 1.0302781353055401e-7
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 5.8481408965471715e-8
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 1.1653605833106262e-7
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 8.225363851144252e-8
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 1.0835780933637906e-7
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 1.454406783063522e-7
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 1.0440413969470264e-7
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 1.4954933830191308e-7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "rows": 100000,
+      "cases": [
+        {
+          "mode": "sqlite-json-sort",
+          "p50Ms": 4096.768334000008,
+          "p95Ms": 4395.203375000005,
+          "p99Ms": 4395.203375000005,
+          "sampleMs": [
+            3732.059917000006,
+            4339.838541000005,
+            4395.203375000005,
+            3948.599749999994,
+            4096.768334000008,
+            4152.876374999993,
+            3828.1459590000013
+          ],
+          "parentRssBytes": 1460961280,
+          "timerDelayMs": [
+            3732.137625000003,
+            4340.488625000005,
+            4395.302250000001,
+            3948.868709000002,
+            4096.836625000011,
+            4157.418082999997,
+            3828.2041670000035
+          ],
+          "parity": [
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            }
+          ]
+        },
+        {
+          "mode": "sqlite-json-topk",
+          "p50Ms": 5242.616957999999,
+          "p95Ms": 6343.74775000001,
+          "p99Ms": 6343.74775000001,
+          "sampleMs": [
+            5269.115417000008,
+            6343.74775000001,
+            5559.5270420000015,
+            4752.368875,
+            5038.403166999997,
+            4405.8758750000125,
+            5242.616957999999
+          ],
+          "parentRssBytes": 960331776,
+          "timerDelayMs": [
+            5269.345499999996,
+            6345.356500000009,
+            5559.664250000002,
+            4754.620708999995,
+            5040.401874999996,
+            4407.439208000011,
+            5242.986540999991
+          ],
+          "parity": [
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            }
+          ]
+        },
+        {
+          "mode": "sqlite-typed-cache",
+          "p50Ms": 74.7247910000151,
+          "p95Ms": 96.35083300000406,
+          "p99Ms": 96.35083300000406,
+          "sampleMs": [
+            96.35083300000406,
+            92.87666699997499,
+            77.87695800000802,
+            73.22349999999278,
+            70.67499999998836,
+            74.7247910000151,
+            67.71354200001224
+          ],
+          "parentRssBytes": 472711168,
+          "timerDelayMs": [
+            1.371041000005789,
+            1.2986669999954756,
+            1.9230830000014976,
+            1.6383749999804422,
+            0.23858299999847077,
+            0.39945799999986775,
+            2.1900000000023283
+          ],
+          "parity": [
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            }
+          ]
+        },
+        {
+          "mode": "rust-sqlite-warm",
+          "p50Ms": 42.33941699998104,
+          "p95Ms": 54.40362499997718,
+          "p99Ms": 54.40362499997718,
+          "sampleMs": [
+            42.33941699998104,
+            42.94341599999461,
+            42.666041999997105,
+            33.44612499998766,
+            54.40362499997718,
+            40.25108400001773,
+            30.59454099999857
+          ],
+          "parentRssBytes": 36110336,
+          "timerDelayMs": [
+            1.5147500000020955,
+            1.1285409999836702,
+            1.7221669999998994,
+            1.8377089999848977,
+            4.2829579999961425,
+            1.52833400000236,
+            0.9175830000021961
+          ],
+          "parity": [
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            }
+          ]
+        },
+        {
+          "mode": "rust-sqlite-cold",
+          "p50Ms": 4267.318457999994,
+          "p95Ms": 4518.8192500000005,
+          "p99Ms": 4518.8192500000005,
+          "sampleMs": [
+            4267.318457999994,
+            3601.641082999995,
+            4518.8192500000005,
+            3822.9237079999875,
+            3826.112584000017,
+            4268.601999999984,
+            4378.142083000013
+          ],
+          "parentRssBytes": 21151744,
+          "timerDelayMs": [
+            0.5934159999887925,
+            0.7007079999893904,
+            0.6102499999979045,
+            2.2071669999859296,
+            0.4572090000147,
+            0.9185409999918193,
+            2.343458000017563
+          ],
+          "parity": [
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 0
+            }
+          ]
+        },
+        {
+          "mode": "sqlite-vec",
+          "p50Ms": 130.96366700000362,
+          "p95Ms": 163.45087500000955,
+          "p99Ms": 163.45087500000955,
+          "sampleMs": [
+            109.69441699999152,
+            140.18283399997745,
+            149.2637500000128,
+            163.45087500000955,
+            130.32841600000393,
+            130.96366700000362,
+            112.35995800001547
+          ],
+          "parentRssBytes": 32374784,
+          "timerDelayMs": [
+            110.40254199999617,
+            140.2481249999837,
+            149.60037500000908,
+            165.33941600000253,
+            130.39154100001906,
+            131.2721250000177,
+            112.52079199999571
+          ],
+          "parity": [
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 1.8552117336811946e-7
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 1.2478040839480897e-7
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 1.4510200233019965e-7
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 1.1377025960213061e-7
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 1.1238351366182897e-7
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 1.053332842337884e-7
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 1.445372267983025e-7
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 1.454406783063522e-7
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 1.7197334126195507e-7
+            },
+            {
+              "identicalIds": true,
+              "maxScoreDelta": 1.267408903660172e-7
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "audio": [
+    {
+      "seconds": 1,
+      "mode": "ts",
+      "p50Ms": 0.3196659999957774,
+      "p95Ms": 1.436667000001762,
+      "p99Ms": 1.436667000001762,
+      "sampleMs": [
+        1.436667000001762,
+        1.2469159999745898,
+        0.37716599999112077,
+        0.3196659999957774,
+        0.26087500000721775,
+        0.3160830000124406,
+        0.2621249999792781
+      ],
+      "parentRssBytes": 74563584,
+      "timerDelayMs": [
+        1.528375000023516,
+        1.3169579999812413,
+        1.55345799998031,
+        0.40154099999926984,
+        1.4692500000237487,
+        1.521416000003228,
+        0.30099999997764826
+      ],
+      "parity": true
+    },
+    {
+      "seconds": 1,
+      "mode": "rust-ipc",
+      "p50Ms": 2.367208000010578,
+      "p95Ms": 2.7768750000104774,
+      "p99Ms": 2.7768750000104774,
+      "sampleMs": [
+        2.7768750000104774,
+        1.6169579999987036,
+        2.367208000010578,
+        2.4221249999827705,
+        1.5898339999839664,
+        2.0734170000068843,
+        2.5670830000017304
+      ],
+      "parentRssBytes": 87638016,
+      "timerDelayMs": [
+        1.521666999993613,
+        0.5544579999987036,
+        0.8277079999970738,
+        1.4312079999945126,
+        0.5498339999758173,
+        0.9025829999882262,
+        1.3921249999839347
+      ],
+      "parity": true
+    },
+    {
+      "seconds": 60,
+      "mode": "ts",
+      "p50Ms": 17.47562499999185,
+      "p95Ms": 80.89579199999571,
+      "p99Ms": 80.89579199999571,
+      "sampleMs": [
+        70.25474999999278,
+        43.948208000016166,
+        14.960625000006985,
+        17.47562499999185,
+        15.65166699999827,
+        15.928249999997206,
+        80.89579199999571
+      ],
+      "parentRssBytes": 517472256,
+      "timerDelayMs": [
+        71.35441699999501,
+        44.41329200001201,
+        15.058416999992914,
+        17.567500000004657,
+        15.736375000007683,
+        16.30258300001151,
+        84.33250000001863
+      ],
+      "parity": true
+    },
+    {
+      "seconds": 60,
+      "mode": "rust-ipc",
+      "p50Ms": 203.91700000001583,
+      "p95Ms": 246.63987499999348,
+      "p99Ms": 246.63987499999348,
+      "sampleMs": [
+        206.5741670000134,
+        224.65412500000093,
+        164.06379200000083,
+        184.5958329999994,
+        160.65187499998137,
+        203.91700000001583,
+        246.63987499999348
+      ],
+      "parentRssBytes": 658259968,
+      "timerDelayMs": [
+        32.50695800001267,
+        63.675167000008514,
+        30.909375000017462,
+        60.488458000007086,
+        46.77370799999335,
+        58.133167000021785,
+        44.4699580000015
+      ],
+      "parity": true
+    }
+  ],
+  "archive": [
+    {
+      "mode": "sync",
+      "p50Ms": 49.96820800000569,
+      "p95Ms": 79.8468339999963,
+      "p99Ms": 79.8468339999963,
+      "sampleMs": [
+        68.95483299999614,
+        40.32016599999042,
+        79.8468339999963,
+        49.96820800000569,
+        46.61545899999328,
+        43.709957999992184,
+        64.13624999998137
+      ],
+      "parentRssBytes": 471662592,
+      "timerDelayMs": [
+        69.05224999997881,
+        41.33620799999335,
+        80.44779199999175,
+        52.10741599998437,
+        46.67866700000013,
+        44.125582999986364,
+        64.2010420000006
+      ],
+      "files": 100,
+      "compressedBytes": 58502,
+      "expandedBytes": 22000000,
+      "parity": true
+    },
+    {
+      "mode": "worker",
+      "p50Ms": 160.9802909999853,
+      "p95Ms": 166.43450000000303,
+      "p99Ms": 166.43450000000303,
+      "sampleMs": [
+        120.12645899999188,
+        166.43450000000303,
+        140.82733300002292,
+        124.2184160000179,
+        164.11029199999757,
+        162.13837499998044,
+        160.9802909999853
+      ],
+      "parentRssBytes": 566870016,
+      "timerDelayMs": [
+        1.9032920000026934,
+        2.4699169999803416,
+        2.0555420000164304,
+        1.1677910000144038,
+        2.504416999989189,
+        1.0953339999832679,
+        1.8777079999854323
+      ],
+      "files": 100,
+      "compressedBytes": 58502,
+      "expandedBytes": 22000000,
+      "parity": true
+    }
+  ],
+  "limitations": [
+    "Synthetic file SQLite: production corpus quality, eligibility and deletion are verified in separate regressions.",
+    "Seven samples are exploratory; P95 and P99 can equal the maximum. No SLA or statistical confidence claim.",
+    "Rust cold timing includes executable validation, startup, SQLite loading and JSON parsing; warm timing includes process IPC and watermark checks.",
+    "SQLite-vec stores float32; cosine scores have a separate tolerance and zero-vector semantics are not assumed interchangeable.",
+    "RSS is the parent sample after each case, not a sampled process-tree peak; native and Worker allocations are not included.",
+    "OS page cache is not flushed; cold means a new Rust process and vector cache, not cold disk. Parent retains the reference cache in all modes, so RSS is not a per-mode memory comparison.",
+    "Native audio timing includes base64 and IPC; TS reference uses the same float32 mixing and linear resampling."
+  ],
+  "implementationSha256": "a384ff1c605839dec75d19fec180b31d1e8a1ca2b42b03cfa52ab40a275498dd"
+}

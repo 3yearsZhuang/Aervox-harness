@@ -50,7 +50,7 @@ export const settingPages = [
 export function useWorkbenchLayout(props: {
   platform: Platform;
   showCompanion: boolean;
-  /** CR-065：陪伴角色名（空间名「思隅」固定，不再是角色名） */
+  /** ADR-027：陪伴角色名（空间名「思隅」固定，不再是角色名） */
   companionName?: string;
 }, options: {
   onOpenDiary?: () => void;
@@ -241,7 +241,7 @@ export function useWorkbenchLayout(props: {
     const resolvedTimerMinutes = timerMinutesVal ?? options.getTimerMinutes?.() ?? 25;
     // 注：workbenchMode 单独持久化在 'aervox-workbench-mode'（switchWorkbenchMode 内联写入），
     // 此处不重复写入 settings JSON，避免双源漂移。
-    // CR-065：角色名与称呼经身份工具写入（负责旧字段迁移与「思隅」误命名纠正）
+    // ADR-027：角色名与称呼经身份工具写入（负责旧字段迁移与「思隅」误命名纠正）
     const identity = saveCompanionIdentity({
       companionName: companionDisplayName.value,
       userAddress: userAddress.value,

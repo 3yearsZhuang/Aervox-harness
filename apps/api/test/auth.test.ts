@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
-import { buildApp, type BuildAppOptions } from "../src/app.js";
+import { buildApp, type BuildAppOptions } from "./app-fixture.js";
 import { createInMemoryDatabase } from "@aervox/repositories";
 import { assertAuthConfigSafe, assertSafeApiListenHost, loadAuthConfig, safeTimingCompare } from "../src/shared/auth.js";
 import { resolveLocalContext } from "../src/shared/local-context.js";

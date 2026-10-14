@@ -90,7 +90,7 @@ export class MessageStore {
    * 恢复已删除的消息 — 清除 deletedAt
    */
   async restoreMessage(ctx: LocalContext, messageId: string): Promise<MessageModel | null> {
-    // 先校验租户归属
+    // 先校验消息存在
     const message = await this.getMessage(ctx, messageId);
     if (!message) return null;
 

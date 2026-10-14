@@ -116,17 +116,7 @@ export function useAervoxSessions(): UseAervoxSessionsReturn {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       error.value = msg;
-      // 降级本地虚拟会话
-      const fallbackSession: SessionItem = {
-        id: id || `ses_local_${Date.now()}`,
-        title: title || '新对话',
-        projectId: projectId ?? null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      sessions.value = [fallbackSession, ...sessions.value];
-      persistActiveSession(fallbackSession.id);
-      return fallbackSession;
+      throw err;
     } finally {
       loading.value = false;
     }
@@ -142,6 +132,7 @@ export function useAervoxSessions(): UseAervoxSessionsReturn {
     updates: string | { title?: string; projectId?: string | null },
   ): Promise<SessionItem | null> => {
     if (!sessionId) return null;
+    error.value = null;
     try {
       const body: RenameSessionRequest =
         typeof updates === 'string'
@@ -160,29 +151,19 @@ export function useAervoxSessions(): UseAervoxSessionsReturn {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       error.value = msg;
-      // 本地乐观更新
-      const existing = sessions.value.find((s) => s.id === sessionId);
-      if (existing) {
-        if (typeof updates === 'string') {
-          existing.title = updates.trim();
-        } else {
-          if (updates.title !== undefined) existing.title = updates.title;
-          if (updates.projectId !== undefined) existing.projectId = updates.projectId;
-        }
-        existing.updatedAt = new Date().toISOString();
-        return existing;
-      }
-      return null;
+      throw err;
     }
   };
 
   const deleteSession = async (sessionId: string): Promise<boolean> => {
     if (!sessionId) return false;
+    error.value = null;
     try {
       await getTransport().request<void>('DELETE', `/v1/sessions/${encodeURIComponent(sessionId)}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       error.value = msg;
+      throw err;
     }
     // 本地移除
     sessions.value = sessions.value.filter((s) => s.id !== sessionId);
@@ -192,7 +173,9 @@ export function useAervoxSessions(): UseAervoxSessionsReturn {
       if (sessions.value.length > 0 && sessions.value[0]) {
         persistActiveSession(sessions.value[0].id);
       } else {
-        await createNewSession('新对话');
+        persistActiveSession('');
+        // Deletion is committed; failure to create a replacement must not revive it.
+        await createNewSession('新对话').catch(() => undefined);
       }
     }
     return true;

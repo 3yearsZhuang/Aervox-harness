@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/core — DSH/pi 进程外 Adapter 契约（阶段 6）
  *
  * 规则依据：ADR-010（DSH/pi 仅为可选适配器；Aervox 数据唯一真源）与
- * reference-design-transfer §1.1（DSH-01/PI-01 固定 commit、MIT 可参考；
+ * ARCHITECTURE.md §14.2（DSH-01/PI-01 固定 commit、MIT 可参考；
  * 「DSH 任一成功即 concludesTurn（any）/ pi 非空批次全部 terminate（every）」
  * 的终止语义差异——Aervox 统一采用严格（every）策略，混合批次拒绝、不静默放行）。
  *
@@ -18,7 +18,7 @@ import type { ToolSpec } from "./types.js";
 export type AdapterDriverId = "dsh" | "pi";
 
 /**
- * 终止语义声明（reference-design-transfer §1.1）：
+ * 终止语义声明（ARCHITECTURE.md §14.2）：
  * - `any`：DSH 原语义——任一成功结果即可声明 concludesTurn；
  * - `every`：pi 原语义——非空批次所有结果 terminate=true 才收敛（= Aervox 严格策略）。
  * Aervox host 一律按严格语义收紧：混合批次拒绝，any 声明不被静默放行。

@@ -5,7 +5,7 @@ test("explicit proactive selection persists and returns to the default workbench
   await expect(page.locator(".proactive-companion")).toBeVisible({ timeout: 90_000 });
   await expect(page.locator(".pc-choice")).toHaveCount(2);
   await expect(page.locator(".pc-whisper-input")).toHaveCount(0);
-  await page.goto(servers.webUrl);
+  await page.reload();
   await expect(page.locator(".proactive-companion")).toBeVisible();
   await page.getByTitle("回到完整工作台").click();
   await expect(page.locator(".aervox-workbench")).toBeVisible({ timeout: 90_000 });

@@ -1,18 +1,10 @@
 ---
 id: AVX-TRC-001
-type: reference
-scope: baseline
-owner: maintainers
-doc_status: review-candidate
-decision_status: not-applicable
-delivery_status: not-applicable
-version: 1.56.6
-updated_at: 2026-10-10
-reviewed_at: 2026-10-10
-review_interval_days: 90
 ---
 
 # Aervox｜思隅 需求追踪与交付质量基线
+
+<a id="AVX-CAP-REG-001"></a>
 
 产品需求来源：[PRD.md](PRD.md)
 
@@ -20,7 +12,7 @@ review_interval_days: 90
 
 ## 1. 目的与使用方式
 
-本文档为 [PRD.md](PRD.md) 提供稳定的需求编号、覆盖状态、交付准入、测试追踪、发布门禁、风险登记和变更控制规则。PRD 负责说明产品价值、用户场景、生命周期范围和功能优先级；本文档负责证明每项需求是否已经被完整定义、实现、验证并发布。
+本文档集中维护能力分类与载体、覆盖状态、交付证据、未决项、风险和发布门禁。行为与验收条件见 [SRS](SRS.md)，工作顺序见 [plan.md](../../plan.md)。PRD 负责说明产品价值、用户场景、生命周期范围和功能优先级；本文档负责证明每项需求是否已经被完整定义、实现、验证并发布。
 
 本文件遵循以下原则：
 
@@ -39,7 +31,7 @@ review_interval_days: 90
 |---|---|---|
 | `Proposed` | 新想法，尚未进入正式产品范围 | 有来源、提出人和初步价值说明 |
 | `Mapped` | 已进入能力地图并确定优先级/生命周期位置 | 已关联一个 `CAP-*`，但详细行为或验收仍不完整 |
-| `Specified` | 主要范围、流程、规则、异常和可测试验收条件已形成可评审草案 | PRD 或 SRS 已有独立详细说明，且剩余缺口已列出；尚未通过 DoR |
+| `Specified` | 主要范围、流程、规则、异常和可测试验收条件已形成可评审草案 | SRS 或专项契约已有独立详细说明，且剩余缺口已列出；尚未通过 DoR |
 | `Ready` | 已满足 Definition of Ready，可进入开发 | DoR 全部通过，阻塞问题已关闭或获批准豁免 |
 | `Implemented` | 实现完成，尚未完成全部验证 | 代码、配置和迁移已合并，构建通过 |
 | `Verified` | 已通过规定测试和产品验收 | 测试结果与验收证据已回填 |
@@ -70,7 +62,7 @@ review_interval_days: 90
 | `RISK` | 风险记录 | `RISK-003` 记忆失真 |
 | `DEC` | 产品或跨团队决策 | `DEC-001` 首发仅支持成人用户 |
 | `ADR` | 架构决策 | `ADR-001` 模块化单体 + Worker |
-| `CR` | 基线后的需求变更请求 | `CR-001` 调整日记默认视角 |
+| `CR` | 历史变更请求编号，流程已退役 | `CR-001` 调整日记默认视角 |
 
 ### 3.2 领域代码
 
@@ -98,203 +90,94 @@ review_interval_days: 90
 
 ## 4. CAP-001～CAP-035 覆盖矩阵（全部能力状态唯一速览）
 
-本矩阵是全部 35 个 CAP 的**唯一一眼速览**（DoR 细分已并入本表；批次顺序见 [§4.1 建议交付批次与拆分原则](#41-建议交付批次与拆分原则)）。当前状态依据 PRD 中是否已有独立、可测试的详细行为和验收条件判定。
+本表是 CAP 分类、载体、状态和剩余验收的唯一登记处；优先级的产品理由见 [PRD 功能地图](PRD.md#prd-cap-map)。`Specified` 只表示已有规格，`Mapped` 只表示范围已登记；已有局部代码不代表整个 CAP 通过评审、验证或发布。原“DoR 就绪”“落地”列并入剩余验收和证据，不再另记重复状态。
 
-- `当前状态`：`Mapped`＝未完整规格；`Specified`＝已规格未过 DoR。`Specified` 仍不等于 `Ready`，进入开发前必须继续拆分原子需求并通过 DoR；
-- `DoR 就绪`：按 [§6 Definition of Ready](#6-definition-of-ready) 评估；未规格 CAP 为 `—`，进入 `Specified` 后回填；
-- `落地`：✔＝该 CAP 在 [§4.2 落地实现原则](#42-落地实现登记) 已有代码/运行时实现条目（纯文档治理条目不计）；`—`＝尚无；
-- TC 覆盖占位 ID 不再在此重复，测试追踪见 [§8.2](#82-当前基线需求覆盖) 与[测试策略](TEST_STRATEGY.md)。
+| 能力 ID | 能力 | 优先级 · 阶段 | 当前状态 | 分类、载体与启用方式 | 依据与已有证据 | 剩余验收 |
+|---|---|---|---|---|---|---|
+| `CAP-001` | 桌宠入口 | `P0 · R1` | `Specified` | 标准产品 · 第一方根界面与共享 UI | [首页工作台](SRS.md#prd-home)、[视觉小说式对话形态](SRS.md#prd-conversation-ui)、`CR-005`（已归档）、`CR-007`（已归档）；已有局部实现；验证范围见 PR | [ADR-025](adr/ADR-025-ui-surface-hosts.md) 与 [PR #275](https://github.com/3yearsZhuang/Aervox-harness/pull/275) 承接根界面/设置切片；补齐自动化 `TC-*`、埋点和真实场景验收后推进 `Ready` |
+| `CAP-002` | 学习目标与对话 | `P0 · R1` | `Specified` | 标准产品 · `focus-mode` 第一方插件；学习事实主仓 | [学习目标](SRS.md#prd-cap-002)、[引导式学习对话](SRS.md#prd-cap-007)、`CR-060`；已有局部实现；验证范围见 PR | 拆分 `FR/BR/AC`，明确会话状态、并发修改、归档和恢复规则；实现载体已由 `CR-060` 明确（第一方插件 `focus-mode`，见 §4.2） |
+| `CAP-003` | 互动刷题 | `P0 · R1` | `Specified` | 标准产品 · 主仓 | [互动练习与错题本](SRS.md#prd-cap-003-004)；已有局部实现；验证范围见 PR | 已由 `CR-008`（已归档） 与 `CR-013`（已归档） 补齐题目选择、快照、恢复、幂等和完成边界；新增 CR-020 guidance E2E + 错因筛选 E2E + 刷题闭环 E2E；仍需评审证据后推进 Ready |
+| `CAP-004` | 错题本 | `P0 · R1` | `Specified` | 标准产品 · 主仓 | [互动练习与错题本](SRS.md#prd-cap-003-004)、`CR-009`（已归档）、`CR-018`（已归档）；已有局部实现；验证范围见 PR | 错因记录与筛选已进入实现；仍需补重复题合并的产品决策，以及 E2E 与评审证据 |
+| `CAP-005` | 四段式记忆与记忆树 | `P0 · R1–R2` | `Specified` | 标准产品 · 主仓 | [四段式记忆与记忆树](SRS.md#prd-cap-005)；已有局部实现；验证范围见 PR | 拆分各层状态转换、TTL、压缩、冲突、删除、重建和迁移测试 |
+| `CAP-006` | 间隔重复 | `P0 · R1` | `Specified` | 标准产品 · 主仓 | [间隔复习](SRS.md#prd-cap-006)、`CR-010`（已归档）、`CR-011`（已归档）；已有局部实现；验证范围见 PR | AC-FR-REV-001-03 已闭环（DST·跨时区·逾期汇总全覆盖）；仍需长期算法升级和批量历史重算策略 |
+| `CAP-007` | 文本与代码答疑 | `P0 · R1` | `Specified` | 标准产品 · `focus-mode` 第一方插件；事实主仓 | [引导式学习对话](SRS.md#prd-cap-007)、`CR-060`；已有局部实现；验证范围见 PR | 进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready`（讲解触发复用 `FR-CONV-001`）；概念探索端点与术语管线实现载体为第一方插件 `focus-mode` |
+| `CAP-008` | 情绪价值与安全陪伴 | `P0 · R1` | `Specified` | 标准产品 · 主仓 | [关系与情绪边界](PRD.md#prd-safety-boundary)、[轻量陪伴](SRS.md#prd-cap-008)；已有局部实现；验证范围见 PR | 固定风险分级、地区化求助热线、不可篡改求助响应、安全门禁前置硬阻断、isRedacted=1 数据隔离红线（日记与记忆素材零泄漏）、审计事件落库已闭环验证（AC-FR-SAFE-001-01~03 / TC-SEC-SAFE-001）；仍需补充更多小众地区资源与大规模线上对抗样本集 |
+| `CAP-009` | AI 每日日记 | `P0 · R1.5` | `Specified` | 标准产品 · 主仓 | [AI 每日日记](SRS.md#prd-cap-009)、[日记与记忆层的关系](SRS.md#prd-diary-memory)、`CR-026`（已归档）；已有局部实现；验证范围见 PR | 对话触发路径已落地（CR-026，已归档）；定时任务幂等、重试、版本冲突、来源快照、通知和时区边界测试仍待阶段 2 |
+| `CAP-010` | 人格问卷与基础偏好 | `P0 · R1.5` | `Specified` | 标准产品 · 主仓 | [全生命周期功能地图](PRD.md#prd-cap-map)、[P0 最低验收](SRS.md#prd-cap-001-010-013)；已有局部实现：[PR #64](https://github.com/3yearsZhuang/Aervox-harness/pull/64) | 进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready` |
+| `CAP-011` | 学习资料整理 | `P0 · R1.5` | `Specified` | 标准产品 · 主仓 | [全生命周期功能地图](PRD.md#prd-cap-map)、[P0 最低验收](SRS.md#prd-cap-001-010-013)；已有局部实现：[PR #64](https://github.com/3yearsZhuang/Aervox-harness/pull/64) | 进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready` |
+| `CAP-012` | 多模态答疑 | `P0 · R1.5` | `Specified` | 标准产品 · 主仓 | [全生命周期功能地图](PRD.md#prd-cap-map)、[P0 最低验收](SRS.md#prd-cap-001-010-013)；已有局部实现：[PR #64](https://github.com/3yearsZhuang/Aervox-harness/pull/64) | 进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready` |
+| `CAP-013` | 消息编辑、删除与引用 | `P0 · R1.5` | `Specified` | 标准产品 · 主仓 | [学习记录与数据控制](SRS.md#prd-cap-013)、[P0 最低验收](SRS.md#prd-cap-001-010-013)；已有局部实现；验证范围见 PR | 进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready` |
+| `CAP-014` | 层级对话与会话地图 | `P1 · R2` | `Mapped` | 主仓交付；不纳入自选 | [P1 验收原则](SRS.md#prd-cap-014-019)；已有局部实现：[PR #64](https://github.com/3yearsZhuang/Aervox-harness/pull/64) | 仍补分支归属、删除决策、布局恢复和大图性能验收并推进 `Specified` |
+| `CAP-015` | 思维宇宙 | `P1 · R2` | `Mapped` | 主仓交付；不纳入自选 | [P1 验收原则](SRS.md#prd-cap-014-019)；已有局部实现：[PR #64](https://github.com/3yearsZhuang/Aervox-harness/pull/64) | 仍补节点/边类型、证据、纠错传播、版本和可视化交互验收并推进 `Specified` |
+| `CAP-016` | 自适应刷题与报告 | `P1 · R2` | `Mapped` | `focus-mode` 第一方插件；学习事实主仓 | [P1 验收原则](SRS.md#prd-cap-014-019)、`CR-020`（已归档）、`CR-060`；已有局部实现：[PR #64](https://github.com/3yearsZhuang/Aervox-harness/pull/64) | CR-020 已落地确定性练习反馈与下一轮建议（用时/提示数观测 + guidance 规则 + 报告展示）；CR-060 把现场刷题闭环（作答落库工具与报告端点）实现载体明确为第一方插件 `focus-mode`，学习事实真源仍留主仓；仍补算法升级、冷启动策略和偏差评估并推进 `Specified` |
+| `CAP-017` | 考试日计划 | `P1 · R2` | `Mapped` | 主仓交付；不纳入自选 | [P1 验收原则](SRS.md#prd-cap-014-019)；已有局部实现：[PR #64](https://github.com/3yearsZhuang/Aervox-harness/pull/64) | 仍补计划生成约束、滚动调整、冲突、跳过、过期和完成定义并推进 `Specified` |
+| `CAP-018` | 桌面化与 Live2D | `P1 · R3` | `Specified` | `apps/desktop` 薄宿主与第一方 UI 包；构建选择，皮肤可替换 | [P1 验收原则](SRS.md#prd-cap-014-019)、`CR-002`（已归档）、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)；已有局部实现；验证范围见 PR | 已移植 `apps/desktop` Electron/Vue UI 与 Turn/SSE 边界；仍需补平台矩阵、签名更新、资源预算、崩溃恢复、后台行为及可执行 TC 证据后进入 Ready |
+| `CAP-019` | 多人格模板 | `P1 · R2` | `Mapped` | 主仓交付；不纳入自选 | [P1 验收原则](SRS.md#prd-cap-014-019)；已有局部实现：[PR #64](https://github.com/3yearsZhuang/Aervox-harness/pull/64) | 补模板审核、切换、记忆隔离/共享、回滚和人格回归评估 |
+| `CAP-020` | 技能与插件系统 | `P2 · R4` | `Mapped` | 自选候选 · 构建 + 运行；插件 SDK/沙箱 | [P2 验收原则](SRS.md#prd-cap-020-027)；已有局部实现；验证范围见 PR | 补清单格式、权限模型、沙箱、签名、版本兼容、撤权和卸载残留；插件配置规格见 [AVX-PLUG-001](plugin-config-and-pages.md) 与 `CR-006`（已归档） |
+| `CAP-021` | 学习路线与视频推荐 | `P2 · R4` | `Mapped` | 远期 · 运行时选择 | [P2 验收原则](SRS.md#prd-cap-020-027)；尚无实现登记 | 补来源、排序、失效链接、用户反馈、商业内容标识和推荐评估 |
+| `CAP-022` | 兴趣分析与跨域推荐 | `P2 · R4` | `Mapped` | 远期 · 运行时选择 | [P2 验收原则](SRS.md#prd-cap-020-027)；尚无实现登记 | 补授权信号、解释、关闭/重置、敏感属性禁用和偏差评估 |
+| `CAP-023` | 第三方刷题接入 | `P2 · R4` | `Mapped` | 自选候选 · 运行时连接 | [P2 验收原则](SRS.md#prd-cap-020-027)；已有局部实现；验证范围见 PR | 补 OAuth、字段映射、增量同步、冲突、限流、撤权和删除 |
+| `CAP-024` | 文献阅读与发散 | `P2 · R4` | `Mapped` | 自选候选 · 运行时选择 | [P2 验收原则](SRS.md#prd-cap-020-027)；尚无实现登记 | 补解析格式、引用定位、长文分段、版权、模型上下文和失败恢复 |
+| `CAP-025` | 线下试卷扫描 | `P2 · R4` | `Mapped` | 自选候选 · 运行时选择 | [P2 验收原则](SRS.md#prd-cap-020-027)；已有局部实现；验证范围见 PR | 补图像质量、分题/批改识别、人工校正、置信度和附件删除 |
+| `CAP-026` | 收藏空间与知识库 | `P2 · R4` | `Mapped` | 自选候选 · 构建 + 运行 | [P2 验收原则](SRS.md#prd-cap-020-027)；已有局部实现；验证范围见 PR | 补收藏状态、去重、检索、标签、来源失效、导入导出和容量限制 |
+| `CAP-027` | 本地数据主权与可移植性 | `P2 · R4` | `Specified` | 强制系统责任 · 不可关闭 | [P2 验收原则](SRS.md#prd-cap-020-027)、`CR-030`（已归档）；CR-030 D1～D3 实现；生产演练未闭合 | CR-030 D1～D3 的迁移基础能力、去租户数据库边界和安全入口已实现；完整运行编排、rollback 演练和发布环境证据完成前保持 Not Ready |
+| `CAP-028` | 社区互助 | `P3 · R5` | `Mapped` | 远期 · 运行时选择 | [P3 验收原则](SRS.md#prd-cap-028-033)；尚无实现登记 | 补角色、发布/回答状态机、信誉、举报申诉、审核 SLA 和未成年保护 |
+| `CAP-029` | 名词解释网页 | `P3 · R5` | `Mapped` | 远期 · 运行时选择 | [P3 验收原则](SRS.md#prd-cap-028-033)；尚无实现登记 | 补发布、更新、撤回、来源失效、SEO/分享、隐私预览和版权规则 |
+| `CAP-030` | 主动提醒深化 | `P3 · R5` | `Mapped` | 远期 · 运行时选择 | [P3 验收原则](SRS.md#prd-cap-028-033)；已有局部实现；验证范围见 PR | 补触发优先级、频控、去重、解释、免打扰、跨端和退订验收 |
+| `CAP-031` | 内容与技能市场 | `P3 · R5` | `Mapped` | 远期 · 构建 + 运行 | [P3 验收原则](SRS.md#prd-cap-028-033)；尚无实现登记 | 补商品、版本、审核、结算、退款、下架、许可证和供应链治理 |
+| `CAP-032` | 机构与监护模式 | `P3 · R5` | `Mapped` | 远期 · 运行时选择 | [P3 验收原则](SRS.md#prd-cap-028-033)；尚无实现登记 | 补组织角色、邀请/移除、授权报表、最小可见、审计和监护同意 |
+| `CAP-033` | 全域感知与个人画像（主动智能模式） | `P3 · R5` | `Specified` | 构建 Privacy Host + 运行时独立授权 | [SRS CAP-033](SRS.md#prd-cap-033)、`CR-023`（已归档）、`CR-024`（已归档）、[ADR-018](adr/ADR-018-proactive-local-privacy-host.md)；本地 Vault、十二项派生、部分来源与导出切片；未生产启用 | 十二项本地派生、日/周回顾和仪表盘已验证；应用活动正文、通信、音视频、位置等平台 Provider、生产 OS Broker 和全链本地证明仍未闭合，保持 `Not Ready` |
+| `CAP-034` | Home Assistant 家庭环境连接 | `P3 · R5` | `Specified` | 运行时连接 · 依赖 CAP-033 / `device.sensors` | [SRS CAP-034](SRS.md#prd-cap-034)、`CR-024`（已归档）、[ADR-019](adr/ADR-019-proactive-integrations-local-gateway.md)；本地集成验证；真实平台与发布证据未闭合 | REST/WS Client、私网校验、实体/service 白名单、Agent 工具、动作审计与撤销删除已验证；生产重连、OAuth 和 HA 版本矩阵仍待门禁 |
+| `CAP-035` | 运动健康信号连接 | `P3 · R5` | `Specified` | 运行时连接 · 依赖 CAP-033 / `restricted.profile` | [SRS CAP-035](SRS.md#prd-cap-035)、`CR-024`（已归档）、[ADR-019](adr/ADR-019-proactive-integrations-local-gateway.md)；本地集成验证；真实平台与发布证据未闭合 | 小米官方开放平台通用适配、Token 刷新、每日指标、只读工具与撤销删除已验证；厂商账号审批、真实沙箱契约和长期兼容测试仍待完成 |
 
-| 能力 ID | 能力 | 优先级 · 交付阶段 | 当前状态 | DoR 就绪 | 落地 | PRD 依据 | 达到下一状态所需工作 |
-|---|---|---|---|---|---|---|---|
-| `CAP-001` | 桌宠入口 | `P0 · R1` | `Specified` | Not Ready | ✔ | [首页工作台](PRD.md#prd-home)、[视觉小说式对话形态](PRD.md#prd-conversation-ui)、`CR-005`（已归档）、`CR-007`（已归档） | 进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready`；Web/Desktop 表现层边界按 CR-005/CR-007 验证 |
-| `CAP-002` | 学习目标与对话 | `P0 · R1` | `Specified` | Not Ready | ✔ | [学习目标](PRD.md#prd-cap-002)、[引导式学习对话](PRD.md#prd-cap-007)、`CR-060` | 拆分 `FR/BR/AC`，明确会话状态、并发修改、归档和恢复规则；实现载体已由 `CR-060` 明确（第一方插件 `focus-mode`，见 §4.2） |
-| `CAP-003` | 互动刷题 | `P0 · R1` | `Specified` | Not Ready | ✔ | [互动练习与错题本](PRD.md#prd-cap-003-004) | 已由 `CR-008`（已归档） 与 `CR-013`（已归档） 补齐题目选择、快照、恢复、幂等和完成边界；新增 CR-020 guidance E2E + 错因筛选 E2E + 刷题闭环 E2E；仍需评审证据后推进 Ready |
-| `CAP-004` | 错题本 | `P0 · R1` | `Specified` | Not Ready | ✔ | [互动练习与错题本](PRD.md#prd-cap-003-004)、`CR-009`（已归档）、`CR-018`（已归档） | 错因记录与筛选已进入实现；仍需补重复题合并的产品决策，以及 E2E 与评审证据 |
-| `CAP-005` | 四段式记忆与记忆树 | `P0 · R1–R2` | `Specified` | Not Ready | ✔ | [四段式记忆与记忆树](PRD.md#prd-cap-005) | 拆分各层状态转换、TTL、压缩、冲突、删除、重建和迁移测试 |
-| `CAP-006` | 间隔重复 | `P0 · R1` | `Specified` | Not Ready | ✔ | [间隔复习](PRD.md#prd-cap-006)、`CR-010`（已归档）、`CR-011`（已归档） | AC-FR-REV-001-03 已闭环（DST·跨时区·逾期汇总全覆盖）；仍需长期算法升级和批量历史重算策略 |
-| `CAP-007` | 文本与代码答疑 | `P0 · R1` | `Specified` | Not Ready | ✔ | [引导式学习对话](PRD.md#prd-cap-007)、`CR-060` | 进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready`（讲解触发复用 `FR-CONV-001`）；概念探索端点与术语管线实现载体为第一方插件 `focus-mode`（见 §4.2） |
-| `CAP-008` | 情绪价值与安全陪伴 | `P0 · R1` | `Specified` | Not Ready | ✔ | [关系与情绪边界](PRD.md#prd-safety-boundary)、[轻量陪伴](PRD.md#prd-cap-008) | 固定风险分级、地区化求助热线、不可篡改求助响应、安全门禁前置硬阻断、isRedacted=1 数据隔离红线（日记与记忆素材零泄漏）、审计事件落库已闭环验证（AC-FR-SAFE-001-01~03 / TC-SEC-SAFE-001）；仍需补充更多小众地区资源与大规模线上对抗样本集 |
-| `CAP-009` | AI 每日日记 | `P0 · R1.5` | `Specified` | Not Ready | ✔ | [AI 每日日记](PRD.md#prd-cap-009)、[日记与记忆层的关系](PRD.md#prd-diary-memory)、`CR-026`（已归档） | 对话触发路径已落地（CR-026 §4.2）；定时任务幂等、重试、版本冲突、来源快照、通知和时区边界测试仍待阶段 2 |
-| `CAP-010` | 人格问卷与基础偏好 | `P0 · R1.5` | `Specified` | Not Ready | ✔ | [全生命周期功能地图](PRD.md#prd-cap-map)、[P0 最低验收](PRD.md#prd-cap-001-010-013) | 实现已落地（PR #64 §4.2）；进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready` |
-| `CAP-011` | 学习资料整理 | `P0 · R1.5` | `Specified` | Not Ready | ✔ | [全生命周期功能地图](PRD.md#prd-cap-map)、[P0 最低验收](PRD.md#prd-cap-001-010-013) | 实现已落地（PR #64 §4.2）；进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready` |
-| `CAP-012` | 多模态答疑 | `P0 · R1.5` | `Specified` | Not Ready | ✔ | [全生命周期功能地图](PRD.md#prd-cap-map)、[P0 最低验收](PRD.md#prd-cap-001-010-013) | 实现已落地（PR #64 §4.2）；进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready` |
-| `CAP-013` | 消息编辑、删除与引用 | `P0 · R1.5` | `Specified` | Not Ready | ✔ | [学习记录与数据控制](PRD.md#prd-cap-013)、[P0 最低验收](PRD.md#prd-cap-001-010-013) | 进入 DoR：补齐自动化 `TC-*` 与埋点后推进 `Ready` |
-| `CAP-014` | 层级对话与会话地图 | `P1 · R2` | `Mapped` | — | ✔ | [P1 验收原则](PRD.md#prd-cap-014-019) | 实现已落地（PR #64 §4.2）；仍补分支归属、删除决策、布局恢复和大图性能验收并推进 `Specified` |
-| `CAP-015` | 思维宇宙 | `P1 · R2` | `Mapped` | — | ✔ | [P1 验收原则](PRD.md#prd-cap-014-019) | 实现已落地（PR #64 §4.2）；仍补节点/边类型、证据、纠错传播、版本和可视化交互验收并推进 `Specified` |
-| `CAP-016` | 自适应刷题与报告 | `P1 · R2` | `Mapped` | — | ✔ | [P1 验收原则](PRD.md#prd-cap-014-019)、`CR-020`（已归档）、`CR-060` | CR-020 已落地确定性练习反馈与下一轮建议（用时/提示数观测 + guidance 规则 + 报告展示）；CR-060 把现场刷题闭环（作答落库工具与报告端点）实现载体明确为第一方插件 `focus-mode`，学习事实真源仍留主仓（见 §4.2）；仍补算法升级、冷启动策略和偏差评估并推进 `Specified` |
-| `CAP-017` | 考试日计划 | `P1 · R2` | `Mapped` | — | ✔ | [P1 验收原则](PRD.md#prd-cap-014-019) | 实现已落地（PR #64 §4.2）；仍补计划生成约束、滚动调整、冲突、跳过、过期和完成定义并推进 `Specified` |
-| `CAP-018` | 桌面化与 Live2D | `P1 · R3` | `Specified` | —（待评估） | ✔ | [P1 验收原则](PRD.md#prd-cap-014-019)、`CR-002`（已归档）、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md) | 已移植 `apps/desktop` Electron/Vue UI 与 Turn/SSE 边界；仍需补平台矩阵、签名更新、资源预算、崩溃恢复、后台行为及可执行 TC 证据后进入 Ready |
-| `CAP-019` | 多人格模板 | `P1 · R2` | `Mapped` | — | ✔ | [P1 验收原则](PRD.md#prd-cap-014-019) | 补模板审核、切换、记忆隔离/共享、回滚和人格回归评估 |
-| `CAP-020` | 技能与插件系统 | `P2 · R4` | `Mapped` | — | ✔ | [P2 验收原则](PRD.md#prd-cap-020-027) | 补清单格式、权限模型、沙箱、签名、版本兼容、撤权和卸载残留；插件配置规格见 [AVX-PLUG-001](plugin-config-and-pages.md) 与 `CR-006`（已归档） |
-| `CAP-021` | 学习路线与视频推荐 | `P2 · R4` | `Mapped` | — | — | [P2 验收原则](PRD.md#prd-cap-020-027) | 补来源、排序、失效链接、用户反馈、商业内容标识和推荐评估 |
-| `CAP-022` | 兴趣分析与跨域推荐 | `P2 · R4` | `Mapped` | — | — | [P2 验收原则](PRD.md#prd-cap-020-027) | 补授权信号、解释、关闭/重置、敏感属性禁用和偏差评估 |
-| `CAP-023` | 第三方刷题接入 | `P2 · R4` | `Mapped` | — | ✔ | [P2 验收原则](PRD.md#prd-cap-020-027) | 补 OAuth、字段映射、增量同步、冲突、限流、撤权和删除 |
-| `CAP-024` | 文献阅读与发散 | `P2 · R4` | `Mapped` | — | — | [P2 验收原则](PRD.md#prd-cap-020-027) | 补解析格式、引用定位、长文分段、版权、模型上下文和失败恢复 |
-| `CAP-025` | 线下试卷扫描 | `P2 · R4` | `Mapped` | — | ✔ | [P2 验收原则](PRD.md#prd-cap-020-027) | 补图像质量、分题/批改识别、人工校正、置信度和附件删除 |
-| `CAP-026` | 收藏空间与知识库 | `P2 · R4` | `Mapped` | — | ✔ | [P2 验收原则](PRD.md#prd-cap-020-027) | 补收藏状态、去重、检索、标签、来源失效、导入导出和容量限制 |
-| `CAP-027` | 本地数据主权与可移植性 | `P2 · R4` | `Specified` | Not Ready | ✔ | [P2 验收原则](PRD.md#prd-cap-020-027)、`CR-030`（已归档） | CR-030 D1～D3 的迁移基础能力、去租户数据库边界和安全入口已实现；完整运行编排、rollback 演练和发布环境证据完成前保持 Not Ready |
-| `CAP-028` | 社区互助 | `P3 · R5` | `Mapped` | — | — | [P3 验收原则](PRD.md#prd-cap-028-033) | 补角色、发布/回答状态机、信誉、举报申诉、审核 SLA 和未成年保护 |
-| `CAP-029` | 名词解释网页 | `P3 · R5` | `Mapped` | — | — | [P3 验收原则](PRD.md#prd-cap-028-033) | 补发布、更新、撤回、来源失效、SEO/分享、隐私预览和版权规则 |
-| `CAP-030` | 主动提醒深化 | `P3 · R5` | `Mapped` | — | ✔ | [P3 验收原则](PRD.md#prd-cap-028-033) | 补触发优先级、频控、去重、解释、免打扰、跨端和退订验收 |
-| `CAP-031` | 内容与技能市场 | `P3 · R5` | `Mapped` | — | — | [P3 验收原则](PRD.md#prd-cap-028-033) | 补商品、版本、审核、结算、退款、下架、许可证和供应链治理 |
-| `CAP-032` | 机构与监护模式 | `P3 · R5` | `Mapped` | — | — | [P3 验收原则](PRD.md#prd-cap-028-033) | 补组织角色、邀请/移除、授权报表、最小可见、审计和监护同意 |
-| `CAP-033` | 全域感知与个人画像（主动智能模式） | `P3 · R5` | `Specified` | Not Ready | ✔（本地 Vault、十二项派生、授权动作、部分来源、导出） | [PRD CAP-033](PRD.md#prd-cap-033)、`CR-023`（已归档）、`CR-024`（已归档）、[ADR-018](adr/ADR-018-proactive-local-privacy-host.md) | 十二项本地派生、日/周回顾和仪表盘已验证；应用活动正文、通信、音视频、位置等平台 Provider、生产 OS Broker 和全链本地证明仍未闭合，保持 `Not Ready` |
-| `CAP-034` | Home Assistant 家庭环境连接 | `P3 · R5` | `Specified` | Not Ready | ✔ | [PRD CAP-034](PRD.md#prd-cap-034)、`CR-024`（已归档）、[ADR-019](adr/ADR-019-proactive-integrations-local-gateway.md) | REST/WS Client、私网校验、实体/service 白名单、Agent 工具、动作审计与撤销删除已验证；生产重连、OAuth 和 HA 版本矩阵仍待门禁 |
-| `CAP-035` | 运动健康信号连接 | `P3 · R5` | `Specified` | Not Ready | ✔ | [PRD CAP-035](PRD.md#prd-cap-035)、`CR-024`（已归档）、[ADR-019](adr/ADR-019-proactive-integrations-local-gateway.md) | 小米官方开放平台通用适配、Token 刷新、每日指标、只读工具与撤销删除已验证；厂商账号审批、真实沙箱契约和长期兼容测试仍待完成 |
+CAP-027 的 SQLite 本地真源、保留、导出、删除和恢复责任不可关闭；完整实现与演练仍须验收。CAP-033 保持 `Specified`、未通过 Ready、未 Released；签名 Privacy Host、OS Broker、本地出网证明、撤权删除和恢复证据闭合前不得生产启用。关联能力不会因 CAP-033 的局部实现自动升级。
 
-矩阵状态按 §12 维护规则更新：`Verified` 证据核实与 `Released` 状态确认留痕；任何状态变化必须在变更记录中留下日期与修改人。
+<a id="capability-delivery"></a>
 
-**DoR 清单逐项结论（[§6](#6-definition-of-ready) 12 项）**：当前 18 个 `Specified` CAP 均未全部满足（`CAP-018`、`CAP-033`～`CAP-035` 尚未完成 DoR 评估，进入发布批次前补齐）。共性未满足项：
+### 4.1 交付载体与依赖
 
-- `TC-*` 为稳定占位 ID，无关联代码/CI/人工证据（见[测试策略 §6](TEST_STRATEGY.md#6-当前阻断)）；
-- API/数据实体/状态转换/UX 原型评审未完成；
-- 埋点与指标事件未定义；
-- 阻塞型 `EXP/RISK/DEC/ADR` 未全部关闭。
+自选分类按[能力组合边界](capability-composition.md#核心与可选的边界判定)判定；“候选/远期”是是否纳入自选及近期范围的分类，不是另一套交付状态。构建选择决定产物是否包含代码，运行选择决定当前用户是否可用，均不能关闭数据权利。
 
-满足 DoR 的路径：按[新增与规格化 CAP 能力](../how-to/add-capability.md)与[§5 字段模板](#5-原子需求字段模板)补齐字段与证据，在对应批次启动时逐 CAP 关闭上述阻断项并推进 `Ready`。
+CAP-014～017/019 已按 CR-019 转主仓交付，重新自选需重新裁决；CAP-002/007/016 的实现按 CR-060 内聚到第一方 `focus-mode`，Schema、复习算法与学习事实仍归主仓。当前没有已注册的 `modules/*` 独立模块；不存在的目录不作为运行能力。`apps/desktop`、`apps/cli` 是宿主；移动宿主仍按 [ADR-022](adr/ADR-022-mobile-runtime-access.md) 提案评审。
 
-### 4.1 建议交付批次与拆分原则
+CAP-033 依赖记忆、桌面权限、插件、本地数据与提醒边界；CAP-034/035 分别要求有效 `device.sensors`/`restricted.profile`，HA 实体默认禁用且受 service 白名单控制，健康连接只接受用户有权使用的官方平台。插件主动触发与模型降级不能扩大授权，外部内容始终按不可信输入处理。
 
-当前迭代建议、批次与执行状态统一维护在根目录 [plan.md](../../plan.md)。本节保留规格化原则与 CAP 依赖，不再维护另一张交付顺序表；原 AVX-EXPL-004 的历史批次可从 Git/既有归档追溯。产品阶段和能力优先级仍以 PRD 为准。
+<a id="41-建议交付批次与拆分原则"></a>
 
-#### 1. 拆分原则
-
-- 临近实际开发时才把 `Mapped` 能力推进为 `Specified`，不要为清空状态提前细化远期功能；规则见 [SRS §6](SRS.md#6-p1p2p3-规格化规则)。
-- 安全、数据控制与删除传播先固定验收；共享附件管线的 CAP-011/012 联合设计依赖，避免重复建设。
-- CAP-033 依赖 CAP-005/018/020/022/024/026/027/030 及本地权限/存储 ADR；完整来源、后台恢复、动作授权和保留要求须通过独立 DoR。
-- CAP-034/035 依赖 CAP-033 的连接和授权边界；HA 的私网/白名单/重连、小米健康的账号/真实沙箱/Restricted 门禁仍分别验收。
-- 拆分与原子化步骤按[新增与规格化 CAP 能力](../how-to/add-capability.md)与[追踪基线 §5 字段模板 / §6 DoR](#5-原子需求字段模板)执行，在计划条目关联 CAP/CR；交付后在 §4.2 登记，不以计划状态替代证据。
-
-#### 2. 建议批次
-
-请直接维护 [plan.md 的当前队列](../../plan.md#2-当前建议工作)。旧章节锚点保留用于已有引用，不另写本季度或跨能力批次。
+当前执行顺序只在 [plan.md](../../plan.md) 维护；仅在能力范围、载体、状态或验收缺口变化时修改本表，普通修复不另写流水登记。
 
 <a id="42-落地实现登记"></a>
+<a id="42-落地实现原则"></a>
 <a id="cli-attached-20260930"></a>
 <a id="core-control-approval-20261002"></a>
 
-### 4.2 落地实现原则
+### 4.2 证据与适用限制
 
-代码与能力的落地完成情况由 Git 提交记录、PR 审查证据以及全自动化测试套件直接证明，不再在此维护手工同步的终端测试日志巨型表格。
+PR、自动化测试和目标环境验证是交付证据，不抄写终端日志。已完成切片仍须保留会影响后续判断的范围限制：
 
-- `recall-eligibility-and-deletion-hardening-20261009`：ITER-003 剩余切片（[PR #268](https://github.com/3yearsZhuang/Aervox-harness/pull/268)）：自动召回资格收敛为单一真源谓词并由主对话与主动回合上下文共用（`packages/repositories/src/memory-eligibility.ts`、`apps/api/src/modules/companion/memory/recall.ts`、`apps/worker/src/proactive/turn-context.ts`），`memory_long` 用途闸门 fail-closed（无授权或授权读取失败不召回、撤权立即生效）、候选过采样补位、删除创建面去重/幂等与拒绝原因码固化（`apps/api/src/modules/platform/privacy/routes.ts`、`apps/worker/src/deletion-worker.ts`）、账本单语句原子取号/同键幂等/只读一致性检查（`packages/repositories/src/repositories/sqlite/recovery-ledger-repository.ts`）；回归见 `apps/api/test/privacy-deletion-routes.test.ts`、`apps/api/test/memory-recall-eligibility.test.ts`、`apps/worker/test/proactive-turn-context.test.ts`、`packages/repositories/test/mvp-domains-smoke.test.ts`；scope 派生、来源传播、grant 修订绑定与账本命令路径接线仍留 CR。
-- `control-inheritance-hardening-20261009`：ITER-007 既有策略接线切片（[PR #267](https://github.com/3yearsZhuang/Aervox-harness/pull/267)）：Workflow 步骤可见取消句柄（`signal`/`controlContext`）且中止原样上抛、不进入下一步（`packages/core/src/subagent-contribution.ts`、`types.ts`）、子任务截止继承与失败原因透出（`packages/host-agent/src/subagent-executor.ts`）、DSH 进程外路径的本地处理限制与删除闸门 fail-closed（`apps/api/src/modules/companion/conversation/agent-executor.ts`）、写工具授权 `toolVersion` 与工具定义修订核对（`apps/api/src/modules/companion/conversation/tool-providers.ts`）；回归见 `packages/core/test/subagent-contribution.test.ts`、`packages/host-agent/test/subagent-executor.test.ts`、`apps/api/test/conversation-dsh.test.ts`、`apps/api/test/conversation-tool-sandbox.test.ts`；非 0 根预算、Driver 合同与一次性授权/有效期仍留 CR。
-- `model-artifact-hardening-20261009`：ITER-008 制品与进程正确性收口（[PR #266](https://github.com/3yearsZhuang/Aervox-harness/pull/266)）：文件名归一与根包含断言、symlink 拒绝（`apps/api/src/modules/ecosystem/model-runtime/service.ts`）、416/405 重取复查、206 偏移/实体校验与错位自愈重下、流式前缀哈希、截断核对与体积/时长上限（`apps/api/src/modules/ecosystem/model-runtime/downloader.ts`）、进程代际归属与有界探针/日志/指标请求（`apps/api/src/modules/ecosystem/model-runtime/llama-server.ts`）；回归见 `apps/api/test/model-runtime-downloader.test.ts`、`model-runtime-llama-server.test.ts`、`model-runtime-api.test.ts`；信任摘要与计算摘要的字段区分属制品信任等级变化，先 CR 再做。
-- `framework-decoupling-20261009`：ITER-052 框架解耦整改（[PR #262](https://github.com/3yearsZhuang/Aervox-harness/pull/262)）：模型事件流并入 Transport（fetch/IPC 双实现，桌面主进程按 sender 归属与释放；`packages/api-client/src/transport.ts`、`apps/desktop/src/main/api-event-streams.ts`）、插件状态按上下文实例化且注销释放监听（`packages/ui/src/composables/plugin-state.ts`、`plugins/focus-mode/src/ui/`）、模块消费改经公开窄 Port 且边界例外清零（`apps/api/src/modules/context.ts`、`scripts/import-boundary.mjs`）、日记素材抽 Port 且发布+版本+游标同事务（`packages/contracts/src/diary-material.ts`、`packages/repositories/src/repositories/sqlite/diary-material.ts`）、平台能力与提示词策略改宿主注入（`apps/api/src/modules/companion/conversation/prompt-policy.ts`、`packages/core/src/base-prompt.ts`）；验收证据见 PR #262 与 `ITER-052` 计划条目，不提升关联 CAP 的发布状态。
-- `orphan-turn-recovery-20261009`：ITER-002 剩余接单差量收口：新增孤儿 Turn 恢复 `recoverOrphanTurns`（Turn 已提交而首个 Attempt 从未创建 → Interrupted + done 终态，不自动重放，接入 Worker 周期恢复）与子任务委托原子接单 `createTurnWithAttempt`（Turn/消息/首个 Attempt 单写者事务，崩溃重试复用既有 Turn 与 Running Attempt）；实现位置 `packages/repositories/src/repositories/sqlite/conversation/turn-store.ts`、`attempt-store.ts`、`packages/host-agent/src/subagent-executor.ts`、`apps/worker/src/attempt-recovery.ts`；回归见 `packages/repositories/test/turn-acceptance.test.ts` 与 `packages/host-agent/test/subagent-executor.test.ts`；验收证据见 [PR #265](https://github.com/3yearsZhuang/Aervox-harness/pull/265) 与 `ITER-002` 计划条目。
-- `repository-audit-implementation-20261008`：ITER-050 在 [PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258) 落实审计的原子接单、消息/配置组合写、动态工具取消接线、取消恢复、锁回收与资产单源；Memory 删除仅完成无共享派生关系的明确目标切片。逐项验证与未完成范围见[审计 §10.2](../explanation/architecture-implementation-review.md#audit-findings)，不提升关联 CAP 的发布状态。
-- 历史落地日志（2026-08 至 2026-09 的阶段性切片流水账）已归档至外部归档仓库 `Aervox-docs-archive`；
-- 现行能力的生命周期推进（Mapped → Specified → Implemented → Verified → Released）统一维护在上方 **§4 覆盖矩阵** 中；
-- 每次功能与修复的交付证据（测试结果、影响范围、迁移方案）直接保留在 Pull Request 与 Git 提交日志中，杜绝多源漂移与人肉记账负担；
-- `core-control-approval-20261002`：Aervox Core 高优先级内核切片重落（`ControlContext` / `abortable` / `ApprovalPolicyPort` SPI 与 executor 接线，BTD-05 / ITER-007 / ITER-013 / PET-05），实现位置 `packages/core/src/control-context.ts`、`packages/core/src/approval-policy.ts`、`packages/core/src/cli-approval.ts`；均为可选注入，API/Worker 下游行为不变，验收证据见对应 PR 与 `ITER-034` 计划条目。
-- `core-audit-five-iterations-20261008`：ITER-044～048 / [CR-061](changes/CR-061-core-execution-contract-hardening.md) 落地执行取消/截断/父子控制/Inbox 修复、共享工具运行时与调用边界合同、动态工具声明代际/授权复验、最终上下文窗口与有界正文流、安全的本机结果恢复、Provider 能力/缓存用量、公共出口收敛及可重复性能基准。恢复以 `AERVOX_LOOP_RESUME=local-results` 显式启用，只补完已提交结果正文，无新工具或插件钩子。验证真源为 core 的 `audit-*.test.ts` / `runtime-contract.ts` / `public-api.test.ts`、API 工具生命周期和 SQLite 恢复集成测试，以及代码/文档门禁、headless 冒烟与两类基准脚本；PR 证据见 [#257](https://github.com/3yearsZhuang/Aervox-harness/pull/257)。维持 SQLite 单用户、部署及 SSE 事件形状，不升级产品 CAP 或公开发布状态。
-- `core-standalone-package-20261003`：Aervox Core 独立内核包建立（ADR-021 / ITER-035），新建 `packages/core`（`@aervox/core`，运行时零依赖、Apache-2.0 许可）吸收 `agent-loop` 全量实现 + `cli-approval` 迁入 + `HostToolRuntime` 内存版；`packages/agent-loop` 降级为纯 re-export 壳（四下游 diary/host-agent/api/worker 零改动）；headless 冒烟脚本 `scripts/run-headless-agent.mjs` 在无 Fastify / 无 SQLite 进程内跑通完整多步工具回路；验收证据见对应 PR 与 `ITER-035` 计划条目。
-- `focus-mode-host-decoupling-20261003`：专注模式宿主去领域化与实现内聚（CR-060 / ITER-026）。`CAP-002`/`CAP-007`/`CAP-016` 的实现（回合切面、术语抽取管线、作答落库工具、概念探索与练习报告端点、UI 组件与专属样式）全部内聚于 `plugins/focus-mode/`（`src/server` 与 `src/ui`）；宿主只保留通用接缝（`packages/host-plugin-api` 契约、`plugin-assembly.ts` 装配点、`plugin-host-services.ts` 窄端口实现点、`pluginState`/`pluginEvents`/`metadata` 透传/`applySlotPreset` 等前端接缝），`check-host-domain-purity` 棘轮收敛至**零命中、零豁免**，历史别名 `study-mode`/`quiz-mode` 已清除，内核（`packages/core`）与共享复习包不再导出产品域提示词与作答工具。`check-removable-implementation` 新增 `focus-mode-plugin`（BTD-11）目标，`run-removability-drill.mjs` 删除插件实现并剥离组合根引用后，API/Worker 冷构建通过；验收证据见对应 PR 与 `ITER-026` 计划条目。**不影响**学习的真源边界：`packages/schema` 学习事实表、`/v1/mistakes`、`/v1/review-items`、`/v1/learning-plans`、`/v1/practice/sessions*` 与 `packages/practice-review` 复习排期算法仍保留主仓。
-- `core-companion-extraction-20261003`：Aervox Core 内核提纯与伴学功能回归插件宿主（ADR-021 内核提纯修订 / ITER-036），`focus-mode-prompt` 迁回 apps/api 专注模式回合插件，`practice-attempt-tool` 与 `PracticeAttemptPort` 契约迁回 apps/api companion 会话装配链，宿主工具 guidance 迁回宿主 `HOST_TOOL_GUIDANCE`（`customGuidance` 注入）；内核导出面收窄后 `user-question-tool` / `subagent-contribution` 判定为内核能力保留；实现位置 `apps/api/src/modules/ecosystem/plugins/turn-plugins/focus-mode-prompt.ts`、`apps/api/src/modules/companion/conversation/practice-attempt-tool.ts`、`apps/api/src/modules/ecosystem/tools/host-tool-guidance.ts`；验收证据见对应 PR 与 `ITER-036` 计划条目。
-- `core-shell-removal-20261003`：过渡壳移除与内核类型自持（ADR-021 Decision 2 闭环 / ITER-037），`packages/agent-loop` 壳与 host-agent `cli-approval` 兼容壳删除，四下游 import 直连 `@aervox/core`；内核本地声明 `AskUserQuestion*` 负载类型（`packages/core/test/type-compat.test.ts` 锁定与 contracts 结构兼容），core 源码零 contracts 引用；import-boundary `core-no-db` 规则承接内核禁库边界；验收证据见对应 PR 与 `ITER-037` 计划条目。
-- `core-provider-contract-20261003`：Provider 补全契约归一第一刀（ADR-021 Decision 4 / ITER-033 拆分切片 ITER-038），core `ModelChunk` 增加结构化 `stopReason`（`ModelStopReason`）与 `ModelUsage` 输入/输出用量分账，`openai-compat-provider` 透传；api 对话路径（本地 llama 与远程兼容端点）已统一经 `ModelProviderPort` 单一补全面；实现位置 `packages/core/src/types.ts`、`packages/core/src/openai-compat-provider.ts`；验收证据见对应 PR 与 `ITER-038` 计划条目。
-- `core-dedupe-stable-key-20261003`：工具调用去重键稳定序列化（缺陷 D-KEY / AVX-HAR-001 §9 幂等预留），`executor` 的 `dedupeKey` 由 `JSON.stringify(args)` 改为 `stableSerialize`（对象键字典序递归、数组保序、循环引用降级为 `[Circular]` 标记），修复键序不同的等价参数被误判为两次独立调用、导致幂等账本被绕过与副作用重复发生；实现位置 `packages/core/src/executor.ts`；回归由 `packages/core/test/dedupe-key.test.ts` 锁定（键序无关、嵌套键序无关、数组保序三条契约，验证手法为临时回退实现观察用例变红）；验收证据见对应 PR。
-- `core-circular-args-resilience-20261003`：循环引用工具参数可降级（缺陷 D-CIRC），模型返回自引用 `arguments` 时，预算计量行的裸 `JSON.stringify(chunk.toolCalls)` 原会抛 `Converting circular structure to JSON` 并逃出流式循环，把计量偏差放大为整 Turn 的 `execution error`；改用 `safeStringify`（保持原形不排序键，仅对环回引用与不可序列化值降级为标记），使畸形参数成为可降级输入异常而非致命错误，入参安全判定仍由 `inspectToolInput` 负责；回归由 `packages/core/test/circular-args-resilience.test.ts` 锁定（单层自引用、深度自引用、工具不执行、事件仍留痕、非循环引用路径行为不变）；实现位置 `packages/core/src/executor.ts`、`packages/core/src/safe-serialize.ts`；验收证据见对应 PR。
-- `core-executor-decoupling-20261003`：executor 单函数复杂度收口与审批裁决单点收敛（ITER-041），`executeTurn` 由 911 行单函数拆为「编排 + 四个职责模块」，外部端口签名（`ExecutionStorePort` / `ModelProviderPort` / `ToolProviderPort` / `ApprovalPolicyPort`）与公开 SSE 契约零变更：终态收敛切至 `packages/core/src/turn-terminator.ts`（取消 / 预算 / 删除闸门四条路径与主循环解耦）、工具执行管线切至 `packages/core/src/tool-pipeline.ts`（入参沙箱 → 审批 → 子任务 ControlContext 派生 → 执行 → 租约丢失中止）、账本收口切至 `packages/core/src/tool-ledger.ts`（结果分类与账本状态映射，幂等正确性关键）、Step 流式收集切至 `packages/core/src/step-collector.ts`（计量 / 预算守卫 / 心跳检查点 / 思考增量节流）；审批裁决映射收敛为单一真源 `packages/core/src/approval-decision.ts` 的 `decideToolCall`，消除 executor 内联段与 `withApprovalPolicy` 装饰器的双实现分叉；两个序列化函数各自独立为单一真源且明确不可合并（`stable-serialize.ts` 排序键供去重，`safe-serialize.ts` 不排序供事件账本保真）；实现位置 `packages/core/src/executor.ts` 及上述五个新模块；回归由 `dedupe-key` / `circular-args-resilience` / `approval-decision` / `tool-ledger` / `tool-pipeline` / `step-collector` 六个测试文件与 `executor-b4` 重试补录用例共 41 条新增用例锁定，core 用例由 225 增至 266；executor 由 911 行降至 655 行、最大缩进层级由 5.5 降至 3.5；同日审核整改修复重试路径 reasoning 尾部丢失（收尾 flush 归位至生效收集器）并清理 `safe-serialize` 残留副本与 `decideToolCall` 未用入参，`DeletionGatePort` 迁至 `ports.ts`；`ExecuteResult` 以 `failed` 承载 `Interrupted` 终态的命名收敛未动（涉持久化枚举需先立 CR）；验收证据见对应 PR 与 `ITER-041` 计划条目。
-- `core-execute-result-interrupted-20261003`：ExecuteResult 终态命名收敛（ITER-041 遗留交付项③ / ITER-042），`ExecuteResult` 增加 `interrupted` 变体，返回值 status 与 Attempt 库内终态一一镜像——库内 `Interrupted`（`finalizeInterrupted` 全路径、`max_steps`、`pending_approval`）返回 `interrupted`，库内 `Failed` 与本 runner 未能终态化路径（`tools_disabled` / `execution error` / `lease_lost` / finalize contested）保持 `failed`；`reason` 字段全保留，`AttemptStatus` 持久化枚举与公开 SSE 契约零变更（不满足 CR 触发条件）；实现位置 `packages/core/src/types.ts`、`packages/core/src/turn-terminator.ts`、`packages/core/src/executor.ts`；回归由 `packages/core/test/execute-result-status.test.ts` 对齐矩阵 2 条与 13 处既有断言语义同步锁定，headless 冒烟断言同步（status=interrupted + 原 reason）；验收证据见对应 PR。
-- `hls-agent-research-executor-20261005`：HLS 本地智能体研究执行器合流（CR-057 / ITER-021 研究切片），`scripts/hls-agent/` 提供配置校验、环境诊断、裸跑（B0）/普通诊断（A1）/结构化诊断+技能（A2）/独立采样（C1）双入口四组对照、Vitis 容器隔离适配（禁网、只读根目录、最小挂载、资源上限、强制清理）、候选与事件证据落盘、固定分母批跑与 pass@1/pass@5 汇总；内核协议修复随迁 `@aervox/core`：assistant 历史逐项配对 `tool_calls`（ID/名称/参数）、`reasoning` 由每条 assistant 消息持有（Provider 不再跨请求共享推理状态）、可选采样种子 `seed`、原始流字节上限 `maxResponseBytes` 与错误正文 200 字节截断；实现位置 `scripts/hls-agent/`、`scripts/hls-agent.test.mjs`、`packages/core/src/types.ts`、`packages/core/src/executor.ts`、`packages/core/src/openai-compat-provider.ts`；`mise tasks run hls-check`（构建 `@aervox/core...` + HLS 合同）接入 ci-code/ci-code-full（**不接入 ci-fast**：该任务含构建与 14 个起服务/拉子进程用例，约 13s 固定成本，与 ci-fast「增量 15~30s」定位冲突）；验证：`packages/core` 40 文件 272/272（含逐消息推理隔离、错误截断 2 项 + resume 配对回归 2 项）、`@aervox/host-agent` 68 通过 1 跳过、HLS 合同 16/16；研究执行器不接入默认应用启动，不改变 API、数据库与业务 CAP 合同；真实 GPU/Vitis、官方评分与留出集增益差量保持；验收证据见对应 PR 与 [CR-057 §4](changes/CR-057-hls-local-agent-validation.md#4-回滚与交付记录)。
-- `hls-agent-review-fixes-20261006`：PR #255 评审意见落地。①**resume 路径协议补齐**（必修）：`buildResumeHistory` 原只产出旧形状 `{assistant, toolCallId, name}`，与 executor 已改的逐项 `tool_calls` 不同形——重建的 assistant 缺 `tool_calls` 而其后tool 消息带 `tool_call_id`，严格 OpenAI 兼容端（vLLM 等）直接 400，「逐项配对」只在首轮成立、续跑仍坏；现按每 Step 全部 `tool_request` 聚合成一条 assistant 的 `toolCalls` 重建，与 executor 续跑写入逐字段一致，边界含「单 Step 多调用聚合」「无正文但有调用仍须产出 assistant」「孤儿 `tool_result` 丢弃但保留已提交正文」；`sqlite-resume-source.ts` 合成结果注入前校验末条 assistant 是否已声明该调用，缺则补齐，避免孤立 `tool_call_id`。②`seed` 上界 2147483000 → 2000000000，为派生 `seed + sample*64 + call` 留int32 余量（原最坏 2147489400 溢出 INT32_MAX）。③`eda.image` 缺省视作 `null` 并归一，使 `doctor` 的 `eda_image_not_configured` 可操作提示可达。④`hash()` 改为键序无关的规范化序列化，同义配置得同一 `configHash`（原`JSON.stringify` 受键插入序影响）。⑤`check:hls` 移出 ci-fast（保留 ci-code/ci-code-full）。实现位置 `packages/core/src/resume.ts`、`packages/host-agent/src/sqlite-resume-source.ts`、`scripts/hls-agent/config.mjs`、`mise.toml`；回归：`packages/core/test/resume-executor.test.ts` 新增 2 例（单/多调用与跨 Step 配对不变量、孤儿结果）、`scripts/hls-agent.test.mjs` 新增 2 例（image 缺省与哈希一致性、seed int32 边界）；验证：`packages/core` 272/272、`@aervox/host-agent` 68 通过 1 跳过、HLS 合同 16/16、`pnpm typecheck` 34/34、`check:boundary` 22/22、`check:guards` 与 `check:ci-config` 12/12 全绿；不改变 API 路由、SSE 契约、数据库 Schema 与业务 CAP 合同。
-- `docs-lint-toolchain-pinning-20261006`：Markdown 门禁工具链治理。`ci-docs` 与 `docs-lint-affected.mjs` 此前以 `npx markdownlint-cli2` 现取工具——既不在 `mise.toml [tools]` 也不在 `package.json`，违反 [AGENTS.md §51](../../AGENTS.md) 工具版本唯一真源与 [§57](../../AGENTS.md) 统一依赖治理；且 `~/.npm/_npx/<hash>/concurrency.lock` 残留（空目录、无进程占用）会使 npm `mkdir` 报 `EEXIST`/`CODEBUDDY_BROKER_DENY`，导致 `ci-fast` 与 `ci-docs` 在文档步骤整体失败（**已在干净基线复现，确认与业务改动无关**）。现将`"npm:markdownlint-cli2" = "0.23.3"` 纳入 `mise.toml [tools]`（与 `vale` 同列，由 `mise install` 统一安装、`mise x` 注入 PATH），两处调用改为直接 `spawnSync("markdownlint-cli2", …)`；同步更新 `AGENTS.md` §51 工具清单与禁 npx 约束、`docs.yml` 步骤名。CI侧 `docs.yml` 的 mise 缓存键含 `hashFiles('mise.toml')`，声明变更会正确失效并重装。实现位置 `mise.toml`、`scripts/docs-lint-affected.mjs`、`.github/workflows/docs.yml`、`AGENTS.md`；验证：`ci-fast` 退出码 0（172s，此前因该步骤失败）、`ci-docs` 退出码 0（48s）、markdownlint 75 文件 0 issue、Vale 75 文件 0 error、`docs-governance --strict` passed；不改变 Markdown 规则集（仍用 `.markdownlint-cli2.jsonc`），不引入业务 CAP。
-- `hls-plugin-delivery-plan-20261005`：HLS 插件详细落成规划纳入唯一计划入口（[plan.md §4.1](../../plan.md#hls-plugin-delivery)）：H1～H4 对应 ITER-021 真实验证与去留，S1～S3 对应 ITER-022 竞赛适配与冻结提交，M1～M6 对应新增条件候选 ITER-043 可选插件产品化（原规划占用的 ITER-029 编号已归属 CLI 条目，随合流重登记）；关联 CAP-007/020/027 仅作规划关联，不改变能力状态；本轮仅改计划与登记，不新增产品代码、不注册业务 CAP、不创建独立仓库；边界参考 [CR-057](changes/CR-057-hls-local-agent-validation.md) 与[能力组合规范](capability-composition.md#模块化交付不变量)。
+| 切片与证据 | 已覆盖范围 | 尚未覆盖或不能推定 |
+|---|---|---|
+| ITER-002 · [#258](https://github.com/3yearsZhuang/Aervox-harness/pull/258)、[#265](https://github.com/3yearsZhuang/Aervox-harness/pull/265) | 原子接单、孤儿 Turn 收敛为 Interrupted + done、子任务委托原子接单与崩溃重试复用 | `subagent_runs` 行自身中断恢复、跨进程同幂等键 HTTP 语义未纳入；重复副作用仍由唯一索引兜底，不自动重放 |
+| ITER-003 · [#258](https://github.com/3yearsZhuang/Aervox-harness/pull/258)、[#259](https://github.com/3yearsZhuang/Aervox-harness/pull/259) | 显式 Memory 清理/独立验证、迟到副本阻断、共享召回资格与 `memory_long` 用途闸门、创建去重、账本原子取号 | `scope→targets`、来源→派生传播、grant 修订绑定及恢复账本接线仍待完成；数据库级唯一 sequence 约束仍须迁移演练，不能宣称全链删除 |
+| ITER-004 · [#258](https://github.com/3yearsZhuang/Aervox-harness/pull/258)、[#259](https://github.com/3yearsZhuang/Aervox-harness/pull/259) | 消息短事务/CAS、同库 Config/Secret 一致提交、会话锁回收 | 外部 SecretStore 不在范围 |
+| ITER-007 · [#257](https://github.com/3yearsZhuang/Aervox-harness/pull/257)、[#258](https://github.com/3yearsZhuang/Aervox-harness/pull/258)、[#259](https://github.com/3yearsZhuang/Aervox-harness/pull/259) | 调用级取消/上下文、Workflow 与子任务截止继承、DSH 本地/删除拒绝、写工具授权修订核对 | 非 0 根预算及跨重启计量、Driver 合同、一次性授权与有效期仍待 ADR |
+| ITER-008 · [#266](https://github.com/3yearsZhuang/Aervox-harness/pull/266) | 下载偏移/实体/哈希/截断校验、路径与 symlink 防护、代际进程、有界探针 | 未持久化 ETag/If-Range；磁盘余量与默认时长策略、health-prober 就绪分级未覆盖；信任摘要与计算摘要区分须先 ADR |
+| ITER-052 · [#262](https://github.com/3yearsZhuang/Aervox-harness/pull/262) | Transport 事件流、实例级插件状态、公开 Port、日记原子提交、宿主注入 | 组合根注入无独立渲染用例；不提升 CAP 发布状态 |
+| CR-058 / CLI | 连接本机服务的基础问答、交互与诊断 | 学习/复习、记忆专用命令、独立宿主、跨平台和正式分发分别验收 |
 
-审计修复 ITER-050（[PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258)）与 ITER-051（[PR #259](https://github.com/3yearsZhuang/Aervox-harness/pull/259)）的当前切片覆盖 CAP-007/013/020 的既有正确性要求：消息编辑短事务、配置与同库 Secret 一致提交、会话锁尾链回收、显式 Memory 清理验证、自动召回资格、异常模型终止及逐调用输入快照、插件安装预检；重叠实现按已合入版本收敛，不重复计数。具体行为和限制分别见[数据隐私 §8.2](DATA_PRIVACY.md#82-当前-memory-清理切片)、[插件规范](plugin-config-and-pages.md)与[Harness 规范](agent-harness-loop.md)；测试入口由[当前队列 ITER-050](../../plan.md#iter-050)与 ITER-051 关联。此切片不提升整个 CAP 的 Released 状态，剩余范围按原 ITER 条目继续验收。
+跨切片重复实现只计一次；历史过程从 Git/PR 或归档仓库追溯。本文保留的是现行限制，不是另一份执行队列。
 
 ## 5. 原子需求字段模板
 
-每条 `US/FR/BR/NFR/DATA/AIQ/SEC/PRIV/OPS` 应使用以下字段。没有影响的字段填写“不适用”并说明原因，不得留空。
-
-| 字段 | 要求 |
-|---|---|
-| ID / 标题 | 唯一稳定 ID 和单一行为标题 |
-| Parent CAP | 所属 `CAP-*`；允许多能力关联，但必须指定一个主能力 |
-| 类型 / 状态 | 需求类型及当前生命周期状态 |
-| 来源 / 理由 | 用户研究、产品目标、法规、风险或技术约束 |
-| 用户 / 权限角色 | 谁能触发、查看、修改或删除 |
-| 需求陈述 | 使用“当……时，系统必须……”表达一个可验证行为 |
-| 前置条件 / 触发 | 状态、权限、输入和外部依赖 |
-| 主流程 | 从触发到可观察结果的最短完整流程 |
-| 异常与恢复 | 超时、失败、重复、取消、撤销、并发和部分成功 |
-| 业务规则 | 状态转换、优先级、频率、幂等、默认值和禁止条件 |
-| 输入 / 输出 | 类型、格式、大小、范围、错误信息和可访问性 |
-| 数据影响 | 实体、来源、分类、保留期、索引、导出和删除传播 |
-| AI 影响 | 模型任务、允许/禁止输出、评估集、阈值、失败降级和版本记录 |
-| 安全与隐私 | 权限、同意、敏感数据、审计和威胁控制 |
-| 非功能要求 | 性能、容量、可用性、兼容性、成本和可观测性 |
-| 验收条件 | 一个或多个原子 `AC-*`，包含正常、边界和失败场景 |
-| 测试与证据 | `TC-*`、自动化层级、人工验收人和证据位置 |
-| 埋点与指标 | 事件名、必要字段、成功/失败定义和隐私级别 |
-| 交付信息 | 优先级、目标版本、依赖、Feature Flag 和回滚方案 |
-| 变更记录 | 创建/修改日期、CR、修改人及替代关系 |
-
-推荐模板：
-
-```markdown
-### FR-LRN-001 创建学习目标
-
-- Parent CAP：CAP-002
-- 状态：Specified
-- 优先级 / 目标版本：P0 / MVP
-- 来源：PRD 6.1
-- 前置条件：用户已完成登录并拥有可写工作区
-- 需求：当用户提交合法的主题、水平和可用时间时，系统必须创建一个活动学习目标并显示其状态。
-- 异常：重复提交、请求超时、写入失败、权限失效。
-- 数据影响：LearningGoal；说明保留、导出和删除规则。
-- 依赖：API、数据库、埋点。
-- Feature Flag / 回滚：learning_goal_v1 / 关闭新建但保留已有数据读取。
-
-#### 验收条件
-
-- AC-FR-LRN-001-01：Given 必填字段为空，When 用户提交，Then 不创建目标并定位到具体错误字段。
-- AC-FR-LRN-001-02：Given 字段合法，When 用户提交，Then 只创建一个目标并展示主题、水平、预计时长和状态。
-
-#### 测试
-
-- TC-E2E-LRN-001
-- TC-API-LRN-001
-```
+在 SRS 或所属契约中记录稳定 ID、Parent CAP、可观察行为、适用的权限/数据影响、异常与恢复，以及验收条件。只有确有影响时才增加性能、AI、迁移等字段，不填写整表“不适用”，不手写修改人或日期。
 
 ## 6. Definition of Ready
 
-需求只有在以下条件全部满足后才能从 `Specified` 进入 `Ready`：
-
-- ID、Parent CAP、标题、优先级和目标版本已经确定。
-- 用户价值、范围内和范围外行为明确，并与 PRD 一致。
-- 主流程、空态、错误态、取消、重试、重复提交和并发行为明确。
-- 验收条件已原子化，能够由非作者独立判断通过或失败。
-- UX 流程和关键文案已评审；无障碍和响应式影响已说明。
-- API、数据实体、状态转换、保留、导出、更正和删除传播已评审。
-- AI 任务已定义输入、输出、禁止行为、评估集、门槛和失败降级。
-- 身份、权限、隐私、安全和合规影响已完成分级；高风险项已有评审结论。
-- 性能、容量、可用性、兼容性、成本和观测要求可测量。
-- 外部依赖、许可证、迁移和向后兼容方案明确。
-- 测试策略、埋点、Feature Flag、灰度和回滚方案已关联。
-- 阻塞型 `EXP/RISK/DEC/ADR` 已关闭；豁免项有批准记录和截止日期。
-- 产品、设计、工程和 QA 评审已完成并留痕；涉及数据、安全或未成年人时增加相应专业评审。
-
-DoR 不允许以“开发中再确定”代替。确需并行探索的内容应建立 `EXP-*`，不得将实验假设伪装为 `Ready` 需求。
+进入开发的范围须明确用户价值、正常与适用的失败/并发/撤销路径，可由他人判断的验收条件，以及受影响 API、数据、安全、AI、兼容与回退边界。阻塞决策已关闭或有明确、有效期内的豁免；测试和观测方法足以证明范围。未确认假设以实验/提案保留，不伪装为 Ready。
 
 ## 7. Definition of Done
 
-需求只有在以下条件全部满足后才能从 `Implemented` 进入 `Verified`，并在完成发布检查后进入 `Released`：
-
-- 实现、配置、数据库迁移和 Feature Flag 已合并并通过代码评审。
-- 单元、集成、API/事件契约、E2E 和回归测试按风险级别通过。
-- 涉及 AI 时，固定评估集、对抗样本和人工抽检通过，模型/提示版本可回滚。
-- 涉及用户数据时，查看、导出、更正、删除、索引清理和备份处理经过验证。
-- 涉及权限或外部集成时，授权、撤销、过期、越权和依赖故障测试通过。
-- 性能、容量、可访问性、弱网、跨时区和兼容性达到需求阈值。
-- 监控、结构化日志、指标、告警和审计记录已上线，且不泄露敏感内容。
-- 发布说明、迁移说明、客服说明和必要运行手册已完成。
-- 每条验收条件都有测试结果或经批准的人工证据，追踪矩阵无孤立项。
-- 无未关闭的阻断/严重缺陷；接受的残余风险已有期限和批准记录。
-- 灰度、回滚和数据恢复已演练；回滚不会破坏已写入数据或已发布权限承诺。
-- 用户结果、测试证据与生产验证均已确认。
+实现经评审并通过与风险相称的自动化/人工验证才可记为 Verified；涉及数据、权限、AI 或迁移时，还须完成对应专项门禁。Released 另需目标环境发布、监控、回退和发布后验证，不能由代码合并或本地测试推定。
 
 ## 8. 测试双向追踪
 
@@ -312,19 +195,19 @@ DoR 不允许以“开发中再确定”代替。确需并行探索的内容应�
 
 ### 8.2 当前基线需求覆盖
 
-下表把 PRD、架构、数据和 AI 专项规范中已经写成基线的跨能力要求纳入同一追踪入口。它们仍需在目标版本进入 `Ready` 前补充具体测试证据和批准记录；没有证据时不得把 `Specified` 视为已发布。
+下表把 SRS、架构、数据和 AI 专项规范中已经写成基线的跨能力要求纳入同一追踪入口。它们仍需在目标版本进入 `Ready` 前补充具体测试证据和批准记录；没有证据时不得把 `Specified` 视为已发布。
 
 | 需求 ID | 类别 | Parent CAP | 当前状态 | 规范/来源 | AC | 测试/证据 |
 |---|---|---|---|---|---|---|
-| `NFR-AVAIL-001` | 可用性 | CAP-001～035 | `Specified` | [PRD NFR](PRD.md#prd-nfr) | `AC-NFR-AVAIL-001` | `TC-PERF-AVAIL-001` |
-| `NFR-PERF-001` | 性能 | CAP-001～035 | `Specified` | [PRD NFR](PRD.md#prd-nfr)、[流式协议](STREAMING_PROTOCOL.md) | `AC-NFR-PERF-001` | `TC-PERF-API-001`、`TC-CONTRACT-STREAM-001` |
-| `NFR-SCALE-001` | 容量 | CAP-001～035 | `Specified` | [PRD NFR](PRD.md#prd-nfr) | `AC-NFR-SCALE-001` | `TC-PERF-SCALE-001` |
-| `NFR-REL-001` | 可靠性/幂等 | CAP-002/003/005/009/013 | `Specified` | [PRD NFR](PRD.md#prd-nfr) | `AC-NFR-REL-001` | `TC-RES-RETRY-001` |
+| `NFR-AVAIL-001` | 可用性 | CAP-001～035 | `Specified` | [SRS NFR](SRS.md#srs-nfr) | `AC-NFR-AVAIL-001` | `TC-PERF-AVAIL-001` |
+| `NFR-PERF-001` | 性能 | CAP-001～035 | `Specified` | [SRS NFR](SRS.md#srs-nfr)、[流式协议](STREAMING_PROTOCOL.md) | `AC-NFR-PERF-001` | `TC-PERF-API-001`、`TC-CONTRACT-STREAM-001` |
+| `NFR-SCALE-001` | 容量 | CAP-001～035 | `Specified` | [SRS NFR](SRS.md#srs-nfr) | `AC-NFR-SCALE-001` | `TC-PERF-SCALE-001` |
+| `NFR-REL-001` | 可靠性/幂等 | CAP-002/003/005/009/013 | `Specified` | [SRS NFR](SRS.md#srs-nfr) | `AC-NFR-REL-001` | `TC-RES-RETRY-001` |
 | `NFR-JOB-001` | 后台任务 SLA | CAP-006/009/030 | `Specified` | [SRS](SRS.md#srs-nfr) | `AC-NFR-JOB-001` | `TC-INTEG-JOB-001` |
 | `NFR-DR-001` | 灾备 | CAP-001～035 | `Specified` | [SRS](SRS.md#srs-nfr)、[架构灾备](ARCHITECTURE.md#arch-nfr) | `AC-NFR-DR-001` | `TC-RES-DR-001`、`TC-RES-LEDGER-001` |
-| `NFR-A11Y-001` | 无障碍 | CAP-001/002/003/009 | `Specified` | [PRD NFR](PRD.md#prd-nfr) | `AC-NFR-A11Y-001` | `TC-A11Y-CORE-001` |
-| `NFR-COMPAT-001` | 兼容性 | CAP-001/018/027 | `Mapped` | [PRD NFR](PRD.md#prd-nfr) | `AC-NFR-COMPAT-001` | `TC-E2E-COMPAT-001` |
-| `NFR-I18N-001` | 国际化/时区 | CAP-006/009/030 | `Specified` | [PRD NFR](PRD.md#prd-nfr) | `AC-NFR-I18N-001` | `TC-INTEG-TZ-001` |
+| `NFR-A11Y-001` | 无障碍 | CAP-001/002/003/009 | `Specified` | [SRS NFR](SRS.md#srs-nfr) | `AC-NFR-A11Y-001` | `TC-A11Y-CORE-001` |
+| `NFR-COMPAT-001` | 兼容性 | CAP-001/018/027 | `Mapped` | [SRS NFR](SRS.md#srs-nfr) | `AC-NFR-COMPAT-001` | `TC-E2E-COMPAT-001` |
+| `NFR-I18N-001` | 国际化/时区 | CAP-006/009/030 | `Specified` | [SRS NFR](SRS.md#srs-nfr) | `AC-NFR-I18N-001` | `TC-INTEG-TZ-001` |
 | `NFR-SEC-001` | 安全 | CAP-001～035 | `Specified` | [SRS](SRS.md#srs-nfr)、[数据隐私](DATA_PRIVACY.md#privacy-security) | `AC-NFR-SEC-001` | `TC-SEC-BASELINE-001` |
 | `NFR-PRIV-001` | 隐私 | CAP-005/009/013/027 | `Specified` | [数据隐私](DATA_PRIVACY.md#privacy-gates) | `AC-NFR-PRIV-001` | `TC-PRIV-DEL-001` |
 | `NFR-OBS-001` | 可观测性 | CAP-001～035 | `Mapped` | [架构告警](ARCHITECTURE.md#arch-nfr) | `AC-NFR-OBS-001` | `TC-OPS-OBS-001` |
@@ -332,8 +215,8 @@ DoR 不允许以“开发中再确定”代替。确需并行探索的内容应�
 | `AIQ-MEM-001` | 记忆压缩/晋升/来源 | CAP-005/015 | `Specified` | [AI 记忆](AI_QUALITY_SAFETY.md#ai-memory) | `AC-AIQ-MEM-001` | `TC-AIEVAL-MEM-001` |
 | `AIQ-DIA-001` | 日记事实与时间窗口 | CAP-009 | `Specified` | [AI 日记](AI_QUALITY_SAFETY.md#ai-diary) | `AC-AIQ-DIA-001` | `TC-AIEVAL-DIA-001` |
 | `AIQ-SAFE-001` | 安全分类与响应 | CAP-008/019/030 | `Specified` | [AI 安全响应](AI_QUALITY_SAFETY.md#ai-safety) | `AC-AIQ-SAFE-001` | `TC-AIEVAL-SAFE-001` |
-| `DATA-MEM-001` | 记忆来源链与投影 | CAP-005 | `Specified` | [PRD 数据规则](PRD.md#prd-data) | `AC-DATA-MEM-001` | `TC-INTEG-MEM-001` |
-| `DATA-DIA-001` | 日记版本/来源/缓冲 | CAP-009 | `Specified` | [PRD 数据模型](PRD.md#prd-data) | `AC-DATA-DIA-001` | `TC-INTEG-DIA-001` |
+| `DATA-MEM-001` | 记忆来源链与投影 | CAP-005 | `Specified` | [数据库契约](DATABASE.md) | `AC-DATA-MEM-001` | `TC-INTEG-MEM-001` |
+| `DATA-DIA-001` | 日记版本/来源/缓冲 | CAP-009 | `Specified` | [数据库契约](DATABASE.md) | `AC-DATA-DIA-001` | `TC-INTEG-DIA-001` |
 | `FR-STREAM-001` | Turn 流式响应、恢复与取消 | CAP-002/007/008 | `Specified` | [SRS 流式需求](SRS.md#srs-fr-stream)、[流式协议](STREAMING_PROTOCOL.md) | `AC-FR-STREAM-001-01～05` | `TC-CONTRACT-STREAM-001`、`TC-RES-STREAM-001`、`TC-SEC-STREAM-001`、`TC-E2E-STREAM-001` |
 | `BR-CONV-001` | 工具执行授权与完全访问边界 | CAP-002/007/020/033 | `Specified` | [SRS 代码执行边界](SRS.md#br-conv-001-代码执行边界)、`CR-022`（已归档）、`CR-023`（已归档）、[Agent Harness Loop §9](agent-harness-loop.md#9-工具执行管线) | `AC-BR-CONV-001-01～07` | `TC-SEC-CONV-001`、`TC-RES-CONV-001`、`TC-API-CONV-APPROVAL-001`、`TC-API-CONV-PRIV-001`、`TC-E2E-CONV-PERM-001`、`TC-SEC-PRO-ACTION-001` |
 | `FR-PRO-001` | 全量画像授权包与主动智能激活 | CAP-033 | `Specified` | [SRS 主动智能规格](SRS.md#srs-pro-001-全量画像授权与激活)、`CR-023`（已归档） | `AC-FR-PRO-001-01～04` | `TC-API-PRO-001`、`TC-E2E-PRO-001` |
@@ -373,38 +256,9 @@ DoR 不允许以“开发中再确定”代替。确需并行探索的内容应�
 
 反向必须能够从任一失败测试定位到 `AC-*`、原子需求、`CAP-*` 和对应产品目标。测试不得只引用需求标题或自然语言章节名。
 
-### 8.3 测试类型
+### 8.3 验证证据
 
-| 测试前缀 | 用途 | 典型对象 |
-|---|---|---|
-| `TC-UNIT` | 纯函数、状态转换和算法边界 | 调度器、TTL、评分和压缩规则 |
-| `TC-API` | API、鉴权、幂等和错误契约 | 目标、消息、日记、导入导出 |
-| `TC-CONTRACT` | 服务、事件和外部集成契约 | 模型适配、队列、插件和第三方题库 |
-| `TC-INTEG` | 数据库、队列、索引和后台任务 | 日记任务、记忆晋升、删除传播 |
-| `TC-E2E` | 用户关键路径 | 学习闭环、复习、日记纠错 |
-| `TC-AIEVAL` | AI 正确性、来源、安全和压缩质量 | 教学、危机、记忆、日记、OCR |
-| `TC-SEC` | 权限、攻击面和供应链 | 越权、提示注入、插件沙箱 |
-| `TC-PRIV` | 同意、最小化、导出和删除 | 账户删除、撤权、来源失效 |
-| `TC-PERF` | 延迟、吞吐、容量和资源使用 | 流式首字、地图规模、桌面资源 |
-| `TC-RES` | 超时、重试、恢复和降级 | 模型不可用、队列积压、同步冲突 |
-| `TC-A11Y` | 键盘、读屏、对比度和减少动画 | 首页、对话、练习和图谱 |
-| `TC-MIG` | 模式、算法和版本迁移 | 记忆、调度、插件和本地工作区 |
-
-### 8.4 覆盖规则
-
-- 目标版本内的 `FR/BR/NFR/DATA/AIQ/SEC/PRIV/OPS` 必须 100% 关联至少一个 `AC-*`。
-- 每个 `AC-*` 必须至少关联一个 `TC-*`；高风险验收不得只依赖人工测试。
-- 每个 `TC-*` 必须反向关联至少一个需求；无需求来源的测试应补充需求或标记为探索性测试。
-- P0 关键路径必须具备自动化 E2E；数据删除、权限和迁移必须具备集成测试。
-- AI 指标必须记录评估集版本、样本量、领域/语言分布、标注规则、评估器版本、结果和置信区间。
-- 概率型 AI 指标不得以单次手工体验代替评估；安全门槛还需要对抗测试和生产监控。
-- 验收证据至少包含构建号、代码版本、环境、执行时间、结果、执行人或 CI 任务链接。
-
-### 8.5 测试追踪记录模板
-
-| TC ID | AC ID | Requirement ID | CAP ID | 类型 | 自动化 | 环境 | 最近结果 | 证据 |
-|---|---|---|---|---|---|---|---|---|
-| `TC-E2E-LRN-001` | `AC-FR-LRN-001-02` | `FR-LRN-001` | `CAP-002` | E2E | 是 | Staging | 待执行 | 待补充 |
+验证策略与测试分层见[测试策略](TEST_STRATEGY.md)。证据直接链接用例、CI、人工验收或生产验证；包含代码版本、环境和结果，避免再维护一张“最近运行结果”表。安全、删除、迁移和权限不能只凭一次人工体验通过。
 
 ## 9. 发布门禁
 
@@ -430,30 +284,39 @@ DoR 不允许以“开发中再确定”代替。确需并行探索的内容应�
 - 参考代码、模型、内容或插件的许可证和使用权未确认。
 - 核心指标、错误率和安全事件没有可用埋点、监控或告警联系通道。
 
+<a id="privacy-gates"></a>
+<a id="security-gates"></a>
+
+### 9.1 专项发布门禁
+
+| 专项 | 必须闭合的证据 | 规则来源 |
+|---|---|---|
+| AI/人格/Prompt | 固定版本评估集、可重放输入、标注协议/样本与置信区间；教学、记忆、日记和安全阈值；对抗样本、灰度与回滚条件 | [AI 质量](AI_QUALITY_SAFETY.md) |
+| 数据与同意 | 发布内实体用途/分类/责任/保留规则；同意界面、撤权、历史影响与默认值；导出独立可读且保留来源/缺失状态；分析字段最小化 | [数据隐私](DATA_PRIVACY.md) |
+| 删除与恢复 | 消息、摘要、记忆、日记、索引、缓存、附件与外部处理者的全链 E2E；全局 deny 下校验独立恢复账本签名/连续 sequence/最老备份覆盖/业务水位并按序重放；零召回/零越权后恢复 | [删除 SLA](DATA_PRIVACY.md#privacy-deletion-sla)、[恢复账本](SRS.md#srs-br-ctrl) |
+| SQLite 破坏性迁移 | 停写、一致性可读备份、显式数据范围、冲突拒绝、staging 完整性、原子换库、可用 rollback 包与恢复演练 | [迁移演练](../how-to/run-database-migration-drill.md) |
+| 安全/供应链 | Critical/High 威胁的自动化测试、告警与残余风险批准；ASVS L2、依赖/Secret/SBOM/许可证；loopback/Token、文件 ACL、插件/附件/Prompt injection、Electron IPC 与供应商故障演练 | [威胁模型](THREAT_MODEL.md) |
+| CAP-033 | 签名 Host/OS Broker、全来源/授权修订、本地 Provider/存储/出网故障注入、七天+提炼、后台恢复通知、全动作快照、撤权零召回/零动作、可读导出；控制面、原文、确认记忆、触发与 ContextManifest 均证明不出本机 | [主动智能阻断项](#proactive-blockers) |
+| CAP-034/035 | HA SSRF/私网白名单/重连与版本矩阵、凭据零回显、真实小米厂商沙箱/账号资格、健康连接级删除；本地集成测试不能代替厂商审批和生产安全评审 | [ADR-019](adr/ADR-019-proactive-integrations-local-gateway.md) |
+| 后续高风险范围 | 未成年人、社区、市场、支付、机构及新增设备捕获先扩展数据/威胁与专项评审，未完成保持禁用 | [PRD 范围](PRD.md#23-mvp-边界不是产品终局) |
+
 ## 10. 风险登记
 
-### 10.1 风险字段与评分
+风险保留稳定 ID、影响、缓解和状态；接受或关闭时链接证据，注明有效期和重评条件。P/I 评分沿用原基线，发布前按实际范围复核。
 
-每项风险必须记录：`RISK-ID`、原因、风险事件、业务/用户影响、关联需求、发生概率、影响等级、评分、缓解措施、应急方案、触发条件、截止日期和状态。
-
-- 概率 `P`：1 极低，2 低，3 中，4 高，5 极高。
-- 影响 `I`：1 可忽略，2 轻微，3 中等，4 严重，5 灾难性。
-- 分数 `P × I`：1～4 低，5～9 中，10～14 高，15～25 严重。
-- 严重风险必须有专项评审、明确应急方案和发布门禁；不能只记录“持续关注”。
-
-### 10.2 初始风险基线
+### 10.1 风险基线
 
 以下评分为立项初值，应在阶段启动时复核。
 
 | 风险 ID | 风险 | 关联能力 | P | I | 分数 | 初始缓解措施 | 状态 |
-|---|---|---|---:|---:|---:|---|---|---|
+|---|---|---|---:|---:|---:|---|---|
 | `RISK-001` | 教学幻觉、错误答案或不可验证题目进入掌握数据 | `CAP-002/003/007/011/012` | 4 | 5 | 20 | 标准题评估集、来源标注、不可验证结果禁止入库、模型回滚 | Open |
 | `RISK-002` | 高风险情绪漏判、错误响应或人格覆盖安全规则 | `CAP-008/019` | 3 | 5 | 15 | 固定安全响应、独立分类、对抗集、地区化求助和审计 | Open |
 | `RISK-003` | 记忆过度压缩、错误晋升、冲突合并或虚假关系 | `CAP-005/015` | 4 | 5 | 20 | 分层版本、来源链、关键约束评估、用户确认和回滚 | Open |
 | `RISK-004` | 删除未传播到摘要、日记、记忆树、索引或缓存 | `CAP-005/009/013/026/027` | 3 | 5 | 15 | 删除依赖图、异步补偿、审计任务和端到端删除测试 | Open |
 | `RISK-005` | 日记虚构用户经历、言论或敏感情绪并形成错误记忆 | `CAP-009` | 3 | 4 | 12 | 段落级来源、禁止无来源生成、纠错阻断晋升 | Open |
 | `RISK-006` | 插件越权、恶意依赖、升级破坏或供应链攻击 | `CAP-020/031` | 3 | 5 | 15 | 沙箱、签名、最小权限、版本锁定、SBOM 和一键撤权 | Open |
-| `RISK-007` | 本地与云端同步冲突造成数据丢失或权限泄露 | `CAP-023/027` | 3 | 4 | 12 | 冲突模型、不可变事件、备份恢复、加密和迁移演练 | Open |
+| `RISK-007` | 未来跨设备同步若引入多个可写副本，冲突可能造成数据丢失或权限泄露 | `CAP-023/027` | 3 | 4 | 12 | 冲突模型、不可变事件、备份恢复、加密和迁移演练 | Open |
 | `RISK-008` | 未成年人、情绪/健康内容和监护可见范围不合规 | `CAP-008/028/032` | 3 | 5 | 15 | 成人首发边界、独立年龄方案、最小可见和法务评审 | Open |
 | `RISK-009` | 参考代码、生成内容、题库、论文或市场内容侵权 | `CAP-011/020/021/023/024/029/031` | 3 | 4 | 12 | 许可证清单、来源记录、版权审核、下架和申诉流程 | Open |
 | `RISK-010` | 模型延迟、调用成本或供应商故障破坏核心体验 | `CAP-002/003/005/009/012` | 4 | 4 | 16 | 模型路由、预算、缓存、超时降级、限流和供应商替换 | Open |
@@ -463,65 +326,96 @@ DoR 不允许以“开发中再确定”代替。确需并行探索的内容应�
 
 风险关闭必须提供风险已经消失或降低到可接受级别的证据。接受风险必须记录接受理由、有效期限和重新评估触发条件。
 
-## 11. 变更控制
+## 11. 未决项与决定索引
 
-### 11.1 基线与版本
+未决项只在本节维护，推进顺序由 [plan.md](../../plan.md) 决定。已确认方向回链 ADR 或 SRS；部分确认仅允许已确认范围，不能借文档迁移扩大实现或授权。日期、修改人和讨论过程由 Git/PR 保存。
 
-- `G1` 通过时形成版本需求基线，记录 PRD、追踪矩阵、需求和验收条件的版本。
-- 文档主版本变更表示范围、权限、数据承诺或兼容性发生重大变化；次版本表示新增或实质调整需求；修订版本仅用于不改变语义的文字和链接修正。
-- 优先级或目标版本变化不修改需求 ID，只更新属性并建立 `CR-*`。
-- 已发布行为、数据格式、权限或删除承诺不得静默改变。
+### 11.1 产品待验证问题
 
-### 11.2 变更分类与决策
+`EXP-001～003` 的价值假设与指标仍在 [PRD](PRD.md#13-核心假设)。以下从原 PRD 待验证问题收拢；新增 `DEC-PRD-*` 仅提供追踪身份，不表示新增产品承诺。现行日记视角、空素材处理、记忆期限等已定义行为以 SRS/数据隐私为准，研究结果改变它们时另行决策。
 
-| 类型 | 示例 |
-|---|---|
-| 编辑性 | 拼写、格式、无语义变化的链接 |
-| 轻微 | 文案、默认值或不改变数据/API 的局部行为 |
-| 重大 | 范围、验收、数据、API、权限、指标或版本调整 |
-| 紧急 | 生产安全、隐私、数据损坏或严重事故处置；先止损，一个工作日内补齐 CR 和追认 |
+| ID | 待验证问题 | 边界 |
+|---|---|---|
+| `EXP-001` | 用户是否真的愿意使用“桌宠式入口”，还是只需要一个轻量学习工作台？ | 待验证；不改变现行需求 |
+| `EXP-001` | 提示而非答案是否提高学习效果，还是增加了挫败感？ | 待验证；不改变现行需求 |
+| `DEC-PRD-003` | 用户愿意保存哪些学习和情绪信息，哪些信息必须默认不保存？ | 待验证；不改变现行需求 |
+| `DEC-PRD-004` | 复习提醒的频率和主动程度如何平衡价值与打扰？ | 待验证；不改变现行需求 |
+| `DEC-PRD-005` | Web 版在验证阶段是否足够，桌面常驻是否能带来可测量增益？ | 待验证；不改变现行需求 |
+| `DEC-PRD-006` | 会话地图是否能帮助用户回到关键推理节点，还是会增加学习认知负担？ | 待验证；不改变现行需求 |
+| `DEC-PRD-007` | 在永久本地单用户真源下，是否需要受控跨设备体验；独立端与同步须先裁决所有权、删除及授权传播，不重启云端多租户目标。 | 待验证；不改变现行需求 |
+| `DEC-PRD-008` | 外部题库、插件、社区和机构模式分别能否带来足够价值，抵消权限、审核和运营成本？ | 待验证；不改变现行需求 |
+| `DEC-PRD-009` | 未成年人版本是否应作为独立产品线，而不是在成人版本上简单打开年龄开关？ | 待验证；不改变现行需求 |
+| `DEC-PRD-010` | 四段记忆的默认 AI 召回期限、用户历史保留期限、压缩程度和晋升阈值如何在“记得足够”和“不过度保存”之间平衡？ | 待验证；不改变现行需求 |
+| `DEC-PRD-011` | 系统记忆已采用树状投影视图和跨主题关系边；仍需验证哪些关系类型默认展示、何时折叠，以及怎样避免视图复杂度增加认知负担？ | 待验证；不改变现行需求 |
+| `DEC-PRD-012` | 每日日记的默认视角应是桌宠第一人称、客观学习日报，还是由用户首次选择？ | 待验证；不改变现行需求 |
+| `DEC-PRIV-001` | 原账户删除的可撤销等待期如何映射到纯本地单用户删除；具体期限须按上线地区评审，不能静默改为无等待或无限保留 | 待裁决；立即 deny 与已承诺删除 SLA 仍有效 |
+| `DEC-PRD-013` | 无互动日是生成简短日记、邀请补充，还是默认跳过，哪种方式更少打扰且更有陪伴感？ | 待验证；不改变现行需求 |
 
-### 11.3 变更流程
+<a id="proactive-decisions"></a>
 
-1. 创建 `CR-*`，说明来源、原因、预期价值和不变更的后果。
-2. 列出受影响的 `CAP/FR/BR/NFR/DATA/AIQ/SEC/PRIV/OPS/AC/TC`。
-3. 评估 UX、API、数据迁移、权限、安全、隐私、许可证、成本、排期、指标和向后兼容。
-4. 更新风险登记，并说明灰度、回滚、数据修复和用户通知方案。
-5. 记录 `Approved / Rejected / Deferred / More Evidence Required` 决策。
-6. 批准后同步更新需求、追踪矩阵、设计、测试、ADR、发布计划和变更日志。
-7. 发布后核对实际结果；未达到预期时回滚、重新评审或建立后续 CR。
+### 11.2 主动智能决定与未决细节
 
-### 11.4 CR 模板
+| 决策 ID | 待确认问题 | 当前基线 | 状态与权威需求 |
+|---|---|---|---|
+| `DEC-PRO-001` | 完整画像授权包的实际清单是否包含应用/窗口、浏览器、键鼠/剪贴板、屏幕、音视频、位置和其他来源，以及原始内容的粒度 | 全部列入版本化 manifest，用户可一次确认；受保护输入和凭据仍不持久化 | 已确认  [SRS](SRS.md#srs-pro-001-全量画像授权与激活) |
+| `DEC-PRO-002` | 授权包是否允许设备重启、开机自启、应用退出后持续和休眠恢复 | 允许；启用、恢复和异常必须告知用户 | 已确认  [SRS](SRS.md#fr-pro-004-后台生命周期与恢复) |
+| `DEC-PRO-003` | 关闭后默认保留还是删除本地数据 | 立即停止使用，由用户在保留/导出/删除中显式选择 | 部分确认  [SRS](SRS.md#fr-pro-006-暂停撤权与删除) |
+| `DEC-PRO-004` | 文件是一次性导入、持续 watcher 还是两者同时支持 | 支持用户明确授权的持续 watcher，并显示每个来源状态 | 已确认  [SRS](SRS.md#fr-pro-002-全量来源观察) |
+| `DEC-PRO-005` | 源文件离线后是否保留加密原文副本，原始屏幕/音频/输入缓冲保留多久 | 原始捕获副本保留 7 天，且完成记忆提炼后才可删除；用户主动删除可提前触发 | 已确认  [SRS](SRS.md#br-pro-004-原始副本保留与提炼) |
+| `DEC-PRO-006` | 「本地」是否允许局域网模型/自托管主机 | 首版只允许同机 loopback/本地进程 | 待确认  [SRS](SRS.md#br-pro-003-本地处理边界) |
+| `DEC-PRO-007` | Restricted 文档、健康/情绪内容是否进入主动分析 | 可纳入专用 `restricted.profile` scope，仅本地分析并单独展示高敏风险提示；不做商业定向、临床诊断或操控 | 部分确认  [SRS](SRS.md#priv-pro-001-全量画像同意) |
+| `DEC-PRO-008` | 是否允许习惯推断自动持久化并参与个性化，什么状态才叫 verified | 允许自动保存 `inferred` 并参与本地个性化；`verified` 仍需用户确认 | 部分确认  [SRS](SRS.md#aiq-pro-001-画像推断质量) |
+| `DEC-PRO-009` | 主动输出是否包含后台自动执行普通本地操作 | 允许全部声明动作，包括本地、外部、浏览器/家居、特权和不可逆动作；均以用户确认的 `FullProfileActionGrant` 为授权来源 | 已确认  [SRS](SRS.md#br-pro-005-全动作授权快照) |
+| `DEC-PRO-010` | 导出是否包含原文件/绝对路径，是否增加密码加密包 | 默认只导出可读结构化数据和来源清单，不包含密钥 | 部分确认  [SRS](SRS.md#fr-pro-007-主动画像导出) |
+| `DEC-PRO-011` | 哪个设备/安装实例拥有主动激活权，多窗口/Web+桌面如何仲裁，后台 helper 是否保持常驻 | 设备级 `FullProfileGrant` + activation epoch；只允许用户可见的受信 Host 持有 | 部分确认  [SRS](SRS.md#sec-pro-001-受信-host-与-os-权限) |
+| `DEC-PRO-012` | OS/iCloud/OneDrive 自动备份和用户将导出写入云同步目录是否违反「不上传云端」 | 主动存储不进入自动云备份；用户显式导出是独立行为，目标清单与提示待冻结 | 部分确认  [SRS](SRS.md#priv-pro-002-本地持久化与不出云) |
+| `DEC-PRO-013` | 非用户原因的 `suspended` 在前置恢复后是否自动继续，哪些原因必须重新确认 | 允许在用户已授权的自启/休眠/重启设置下自动恢复并告知用户；显式暂停仍需手动恢复 | 已确认  [SRS](SRS.md#br-pro-006-后台恢复与通知) |
+| `DEC-PRO-014` | 继续作为现有 CAP Overlay，还是新建「全域感知与个人画像」 CAP | 新建 `CAP-033`，并与既有 CAP 建立显式关联 | 已确认  [SRS](SRS.md#8-cap-033-全域感知与个人画像主动智能模式) |
+| `DEC-PRO-015` | 当前平台的 mandatory 权限不完整时，是否禁止模式，还是显示「主动智能模式受限」 | 纳入当前平台全部可用能力；缺失 OS 能力必须显示缺口，不静默声称已获得该能力 | 已确认  [SRS](SRS.md#br-pro-001-激活前置与状态) |
 
-```markdown
----
-id: CR-001
-type: reference
-scope: change
-owner: <team-role>
-doc_status: draft
-decision_status: proposed
-delivery_status: planned
-version: 0.1.0
-updated_at: 2026-10-08
-reviewed_at: 2026-10-08
-review_interval_days: 90
----
+<a id="proactive-blockers"></a>
+<a id="11-当前实现阻断项"></a>
 
-# CR-001 变更标题
+### 11.3 主动智能实现阻断
 
-## 变更原因与证据
-## 关联能力与需求
-## 当前行为与目标行为
-## 范围外
-## UX/API/数据/AI/安全/隐私影响
-## 迁移与向后兼容
-## 测试、埋点和验收影响
-## 风险、成本、灰度、回滚和用户通知
-## 更新的文档和测试
-## 发布后结果
-```
+以下保留原 `PRO-BLOCK-001～012` 的问题与关闭条件；这是既有证据边界，本轮文档整理未重新执行平台或生产验证。关闭需要对应 PR/测试证据，不能仅改计划状态。剩余门禁关闭前，可继续文档、静态原型、契约骨架和无用户数据测试，不扩大真实广域采集或对未授权来源执行后台动作。
 
-## 12. 维护规则与审计
+| 阻断 ID | 已记录缺口 | 进入实现前的最少处置 |
+|---|---|---|
+| `PRO-BLOCK-001` | `aervox_memory_store` 仍是普通工具注册表路径，尚未完成与 CAP-033 `profile_observation/profile_action` grant 的全链路一致性校验 | 记忆工具执行前校验 purpose/scope；推断只写未验证候选和证据，不直接成为长期事实；已接入的本地提炼器先写 CAP-033 claim |
+| `PRO-BLOCK-002` | CAP-033 已使用独立本地 Vault 和加密 Port，但生产部署仍需证明连接不会回退到远程 `DATABASE_URL`，并完成全量实体准入 | 建立强制本地的私密存储 Port 和连接准入校验，覆盖正文、控制面、确认后记忆与触发历史 |
+| `PRO-BLOCK-003` | CAP-033 确定性本地提炼器已接入；通用 LLM/Embedding/OCR/ASR Provider 仍可指向远端 | 在 ContextBuilder 和处理器入口校验 Provider 身份/进程/传输与出网策略，禁止 redirect/代理转发，非本地 Provider fail closed |
+| `PRO-BLOCK-004` | 当前附件以 `objectKey` 键建模并落盘本地附件目录（无远程对象存储依赖），但尚无面向私人文档的独立适配层 | 为私人文档提供独立本地文件适配器，禁止隐式进入远程对象存储 |
+| `PRO-BLOCK-005` | 已建立独立的 CAP-033 observation/claim 数据面，但 `aervox_memory_store` 与普通分析/审计旁路的隔离仍需验证 | 在 `CAP-022` 下建立用途受限的本地行为来源，不复用分析/审计旁路 |
+| `PRO-BLOCK-006` | 当前桌面端已具备本地 Host、后台 helper/heartbeat 和部分生命周期控制，但系统级观察适配器、生产签名、OS entitlement、功耗和崩溃恢复仍不完整 | 完成受信首方 helper、操作系统 entitlement/usage description、权限降级、后台生命周期和平台测试 |
+| `PRO-BLOCK-007` | CAP-033 已增加 owner-only loopback token；测试注入可显式关闭，生产配置与代理/redirect 禁止仍需部署验证 | 本地私密模式需绑定受信 IPC/loopback + 本地身份，不以开发默认值作为产品边界 |
+| `PRO-BLOCK-008` | Turn 级 `full_access` 仍是 CreateTurn 请求快照；现有实现已覆盖本地 ProfileRevision/activation lease/heartbeat/token，但 Web+Host 多窗口/设备所有权与断连收敛未完整验证 | 完成 `FullProfileGrant`/激活 epoch/heartbeat/expiry、多窗口/设备所有权与断连收敛；不以该状态代替 Turn 级 ToolApproval |
+| `PRO-BLOCK-009` | 广域捕获可包含 symlink/path escape、隐藏凭据、压缩炸弹、未知类型、Secure Input 或旁观者数据 | 冻结 canonical path/time-of-read 复验、symlink 边界、类型/大小/解压比、secret/Secure Input filter、旁观者处理、未知分类 fail closed 和分类测试 |
+| `PRO-BLOCK-010` | 当前已接入 Aervox activity/operation、剪贴板、屏幕、浏览器历史元数据、显式文件根、HA 授权实体事件和小米健康每日指标；应用活动正文、通信、音视频、位置及其它平台传感器尚未完成 | 为剩余来源建立签名 provider、权限状态机、收集失败降级和功耗/磁盘配额测试；HA/健康仍须生产兼容门禁 |
+| `PRO-BLOCK-011` | 当前已建立原始捕获、行为观察、画像声明、权限回执和导出模型；全量来源时间线、外部动作历史和生产迁移仍未完整验证 | 完成 `RawCaptureSegment` 七天/提炼门、`ProfileClaim` 证据链、画像版本和导出 manifest/checksum 验证 |
+| `PRO-BLOCK-012` | 当前已建立本地 Vault、动作授权器和确定性提炼器；全链 `local_only`、Provider 本地证明、远端旁路隔离和零外传故障注入仍待验证 | 完成全链 provenance 传播、本地 Provider 证明、控制面隔离和零外传故障注入 |
 
-至少在每次版本立项、`G1` 基线、Release Candidate 和生产发布后复核一次矩阵。审计时重点检查：孤立需求、孤立测试、无归属风险、过期豁免、已发布但未验证的状态，以及 PRD、实现和用户实际行为之间的偏差。对矩阵内所有改动，在变更记录中更新修改人与日期。
+上述阻断未关闭前，主动智能模式不得进入 `Ready`，也不得通过改 UI 文案对外声称已满足「不上传云端」。
+
+<a id="mobile-decisions"></a>
+
+### 11.4 移动端提案
+
+原 CR-055 的移动端方案由 [ADR-022](adr/ADR-022-mobile-runtime-access.md) 承接，保持 Proposed。M0 尚须裁决配套/独立优先级、平台顺序、认证与跨设备可见范围；[M-AC-01～09](SRS.md#mobile-proposal-acceptance) 仍是建议，原生签名、真机网络、生命周期、`local_only` 拒绝和发布证据不得由 Web 构建或本地 API 测试代替。
+
+## 12. 变更与维护
+
+日常修复只更新受影响的行为/契约和测试；新增或调整能力时更新 SRS 与本表受影响行。重大架构、数据、权限或已发布承诺的变更先形成可评审决定，流程见[贡献指南](../../CONTRIBUTING.md)。不用为每次提交新增交付日志或重复登记表；具体测试结果留在 PR，公开发布状态须有目标环境证据。
+
+<a id="operational-decisions"></a>
+
+### 本地发布与成本目标待复审
+
+- 云端月可用性及 RPO/RTO 指标不能直接作为本地桌面发布目标，需结合设备、分发和备份恢复形态重估；保留 SRS 的历史目标及暂缓说明，备份/删除/恢复账本责任不因此暂停。
+- 进入相关架构与数据发布验收前，产品/技术/财务须批准每有效学习会话成本、每活跃用户月成本 P50/P95 和总月预算。当前数值未定；成本降级策略见架构，不能用降低安全或删除能力达标。
+
+- `core-execution-boundaries-20261013`：ITER-057 延续 CR-061 执行合同，统一终态 CAS 与返回值映射，修复连续小块正文刷新饥饿，并为工具发现、上下文构建和压缩传播取消信号；迟到准备结果不启动后续步骤。回归入口为 `packages/core/test/execution-boundaries.test.ts`、`audit-streaming.test.ts` 和 `packages/host-agent/test/sqlite-execution-store-fencing.test.ts`；`scripts/benchmark-core.mjs` 覆盖大小分块，合成负载不代表生产模型延迟。保持零运行时依赖、SQLite 与公开 SSE 合同；审查证据见 [ITER-057](../../plan.md#iter-057)。
+
+- `ui-surface-integration-20261013`：ITER-053/054/055 / [CR-065](adr/ADR-025-ui-surface-hosts.md#cr-065)，关联 CAP-001/002/018/020。前端体验与根界面切片统一由 `feat/ui-surface-experience` 交付；工作台、桌宠及设置面板迁入受信第一方 UI 包，平台组合根负责清单选择与装配，`@aervox/ui-host` 负责加载、失败重试与实例释放。验证入口为 UI 宿主、面板及工作台测试和 `test:e2e:ui`；第三方信任/独立安装仍为 [CR-064](adr/ADR-026-ui-surface-open-ecosystem.md#cr-064) 提案，未提升实机或 Released 状态。
+
+- `proactive-ui-integration-20261013`：[ITER-059](../../plan.md#iter-059) 沿用 ADR-025，关联 CAP-001/018。主动陪伴界面通过设置或查询参数选择，复用会话与流式回合接口；建议首版为最近会话接续与固定专注动作。验证入口为 `plugins/proactive-ui/test/proactive-companion.test.ts` 和 `e2e-ui/proactive-surface.spec.ts`。学习记录驱动的推荐、历史消息加载与真实模型/移动实机验收尚未交付，不提升 CAP 的发布状态。

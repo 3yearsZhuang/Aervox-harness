@@ -1,14 +1,6 @@
 ---
 id: ADR-005
-type: reference
-scope: decision
-owner: maintainers
-doc_status: review-candidate
 decision_status: accepted
-version: 0.2.1
-updated_at: 2026-10-10
-reviewed_at: 2026-10-10
-review_interval_days: 90
 ---
 
 # ADR-005 内部 Provider Port 包裹 AI SDK

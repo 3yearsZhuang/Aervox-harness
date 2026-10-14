@@ -1,41 +1,10 @@
 ---
 id: AVX-EXPL-011
-type: explanation
-scope: baseline
-planning_role: evidence
-owner: product-platform
-doc_status: review-candidate
-decision_status: not-applicable
-delivery_status: not-applicable
-version: 0.3.1
-updated_at: 2026-10-10
-reviewed_at: 2026-10-10
-review_interval_days: 60
-review_triggers:
-  - apps/mobile/**
-  - apps/desktop/src/main/**
-  - apps/api/src/modules/platform/voice/**
-  - apps/api/src/modules/knowledge/content/**
-  - apps/api/src/modules/ecosystem/model-runtime/**
-  - apps/api/src/modules/proactive/proactive/**
-  - packages/contracts/src/**
-  - docs/reference/changes/CR-055-mobile-delivery-plan.md
-  - docs/reference/capability-registry.md
-sources:
-  - docs/reference/changes/CR-055-mobile-delivery-plan.md
-  - docs/reference/PRD.md
-  - docs/reference/ARCHITECTURE.md
-  - docs/reference/DATA_PRIVACY.md
-  - docs/reference/capability-registry.md
-  - docs/reference/REQUIREMENTS_TRACEABILITY.md
-  - docs/reference/adr/ADR-016-base-boundaries.md
-  - docs/reference/adr/ADR-018-proactive-local-privacy-host.md
-  - docs/reference/adr/ADR-019-proactive-integrations-local-gateway.md
 ---
 
 # 配套硬件方向：能力核查、移动协同取舍与原型路线
 
-关联：[移动端规划 CR-055](../reference/changes/CR-055-mobile-delivery-plan.md)、[PRD](../reference/PRD.md)、[架构](../reference/ARCHITECTURE.md)、[能力注册表](../reference/capability-registry.md)、[交付追踪](../reference/REQUIREMENTS_TRACEABILITY.md)、[早期 ESP32 设计输入](esp32-s3-hardware-extension.md)
+关联：[移动端规划 CR-055](../reference/adr/ADR-022-mobile-runtime-access.md#cr-055)、[PRD](../reference/PRD.md)、[架构](../reference/ARCHITECTURE.md)、[能力注册表](../reference/REQUIREMENTS_TRACEABILITY.md#capability-delivery)、[交付追踪](../reference/REQUIREMENTS_TRACEABILITY.md)、[早期 ESP32 设计输入](esp32-s3-hardware-extension.md)
 
 > [!NOTE] 调研生命周期状态：未落地 / 候选待决策 (Pending / Candidate)
 > 本文梳理的 9 个硬件陪伴方向属于重要候选储备池，等待当前迭代建议条目 ITER-009 与 ITER-016 产品决策拉起。
@@ -83,7 +52,7 @@ Aervox 已具备学习业务、桌面表现与本地服务基础，适合把“�
 - 设备身份、配网、密钥注入、OTA、离线同步、恢复出厂和遗失撤销尚无完整产品闭环；不能把“安装一个插件”视为这些能力自动具备。
 - 未发现 Aervox 自有 BLE 手环直连、HealthKit/Health Connect、唤醒词、硬件 AEC、机器人运动控制或 ESP32 上的主模型/Live2D 实现。
 - 默认 OCR 和本地 GPT-SoVITS 路径的占位实现，需要真实 Provider 与实际媒体验收；插件市场条目、配置页面或 Provider SPI 只能证明扩展入口存在。
-- [ADR-016](../reference/adr/ADR-016-base-boundaries.md)已用于底座依赖边界，不能复用为硬件决策编号。后续硬件 CR/ADR 必须重新核对可用编号；[AVX-EXPL-005](esp32-s3-hardware-extension.md)中的设备协议内容继续作为设计输入，不能当作冻结标准。
+- [ADR-016](../reference/adr/ADR-016-base-boundaries.md)已用于底座依赖边界，不能复用为硬件决策编号。后续硬件 ADR 必须重新核对可用编号；[AVX-EXPL-005](esp32-s3-hardware-extension.md)中的设备协议内容继续作为设计输入，不能当作冻结标准。
 
 ## 2. 手机能替代什么，尚不能替代什么
 
@@ -109,7 +78,7 @@ Aervox 已具备学习业务、桌面表现与本地服务基础，适合把“�
 | 语音入口 | [录音控制器](../../packages/api-client/src/voice-input-recorder.ts)、[ASR Provider](../../apps/api/src/modules/platform/voice/asr-providers.ts)、[TTS](../../apps/api/src/modules/platform/voice/gpt-sovits.ts) | 有录音与识别路径；本地 TTS 仍以文本字节充当 WAV，占位路径不能证明可播放；HTTP TTS 需验证实际端点与声音 |
 | 拍题入口 | [内容路由](../../apps/api/src/modules/knowledge/content/routes.ts) | 当前 `mockOcrParse` 返回固定内容和随机置信度；换摄像头不会解决 OCR 软件缺口 |
 | 主机部署 | [模型服务](../../apps/api/src/modules/ecosystem/model-runtime/service.ts)、[进程驱动](../../apps/api/src/modules/ecosystem/model-runtime/llama-server.ts) | 可复用模型管理，但芯片兼容、并发内存、模型质量、耗电和无界面运行需实测 |
-| 家庭/健康边界 | [能力登记](../reference/capability-registry.md)、[ADR-019](../reference/adr/ADR-019-proactive-integrations-local-gateway.md) | 不等于已有自研 BLE 手环、手机健康授权或通用 IoT 网关；CAP-033 尚不代表生产可用 |
+| 家庭/健康边界 | [能力登记](../reference/REQUIREMENTS_TRACEABILITY.md#capability-delivery)、[ADR-019](../reference/adr/ADR-019-proactive-integrations-local-gateway.md) | 不等于已有自研 BLE 手环、手机健康授权或通用 IoT 网关；CAP-033 尚不代表生产可用 |
 | 实体硬件接入 | 当前 `apps/`、`packages/` 未找到专用 DeviceHost、USB CDC 传输与固件 | USB 宿主、设备权限和恢复都是新增工作；插件配置页不替代可信 I/O 层 |
 
 ### 2.3 九个旧方向与手机的重合及处置
@@ -150,7 +119,7 @@ flowchart LR
   HA --> SENSOR[受支持传感器与灯]
 ```
 
-图中应用和模型可以运行在用户电脑，也可以全部迁到独立主机。两种部署使用同一个业务真源，不设计两份可同时写入的 SQLite。LAN 设备不是同机 loopback；不得把 CAP-033 的 `local_only` 数据自动发往另一台局域网算力机。普通远程客户端接入须遵循[架构](../reference/ARCHITECTURE.md)的显式非 loopback 开启与认证约束，CAP-033 跨设备边界若需改变则另走 CR。
+图中应用和模型可以运行在用户电脑，也可以全部迁到独立主机。两种部署使用同一个业务真源，不设计两份可同时写入的 SQLite。LAN 设备不是同机 loopback；不得把 CAP-033 的 `local_only` 数据自动发往另一台局域网算力机。普通远程客户端接入须遵循[架构](../reference/ARCHITECTURE.md)的显式非 loopback 开启与认证约束，CAP-033 跨设备边界若需改变则另立 ADR。
 
 ESP32-S3 适合承担显示、输入、短音效和低级控制；它不能替代承载主 LLM、数据库、完整 Live2D 与高层授权的主机。型号、电源和引脚评估延用 [AVX-EXPL-005](esp32-s3-hardware-extension.md)，本文不复制其协议与电气表。
 
@@ -184,7 +153,7 @@ flowchart LR
 
 - **硬件组成**：ESP32-S3 开发板、小尺寸 SPI LCD、RGB 指示灯、两至三个按键、可选短音效扬声器、USB-C 供电与外壳；首版不装麦克风、电池或电机。
 - **复用与拓扑**：USB 依附终端；复用 `CAP-001/018` 的表现语义及 `CAP-006/030` 的复习/提醒结果。Desktop 消费 `emote`，待实现的设备宿主映射为预制动画，主机保留通知策略。
-- **需补软件**：USB 宿主、表现映射、有限队列、重连、设备状态与按键命令；固件使用精灵图或简短逐帧动画，设备 ACK 与业务完成分别展示。设备协议走新 CR/ADR 收敛。
+- **需补软件**：USB 宿主、表现映射、有限队列、重连、设备状态与按键命令；固件使用精灵图或简短逐帧动画，设备 ACK 与业务完成分别展示。设备协议走新 ADR 收敛。
 - **离线、功耗与隐私**：无公网且同机模型就绪时可用；主机不在线则显示明确离线状态。原型按 USB 5 V、约 1～3 W 工作预算测量峰值，不承诺电池续航。默认只传表情/状态编号和少量提示，不复制完整会话。
 - **BOM 粗估**：人民币 120～300 元/套，含开发板、屏、按键、线材与简单外壳；不含电脑与工装。
 - **主要风险**：低帧率动画观感、串口驱动、主机休眠、重复提醒；装饰价值可能高于学习价值。
@@ -220,7 +189,7 @@ flowchart LR
 
 - **硬件组成**：标准 USB Audio 声卡/麦克风、扬声器、小功放、实体 PTT 键、独立麦克风静音开关、采集状态灯；可另用 MCU 上报按键。标准 USB Audio 可减少首版自研音频固件范围。
 - **复用与拓扑**：USB 依附终端；复用 `CAP-002/007/008`、[语音输入客户端](../../packages/api-client/src/useAervoxVoiceInput.ts)与[语音输出客户端](../../packages/api-client/src/useAervoxVoice.ts)。同机 SenseVoice 转写，普通对话后通过已部署的本地 HTTP TTS 服务播放。
-- **需补软件**：PTT 状态机、选择输入输出设备、取消和抢断、播放时避免再次拾音、麦克风授权/拔出收尾；先修复本地 TTS 占位路径或使用经验证的 HTTP TTS 服务。硬件 PTT 采集范围按 [AVX-EXPL-005](esp32-s3-hardware-extension.md)另做专项 CR。
+- **需补软件**：PTT 状态机、选择输入输出设备、取消和抢断、播放时避免再次拾音、麦克风授权/拔出收尾；先修复本地 TTS 占位路径或使用经验证的 HTTP TTS 服务。硬件 PTT 采集范围按 [AVX-EXPL-005](esp32-s3-hardware-extension.md)另做专项 ADR。
 - **离线、功耗与隐私**：离线依赖 ASR、LLM、TTS 三者均在同机可用；任一端使用云服务就不是全离线链路。USB 约 1～5 W 预算，随播放音量变化。麦克风静音应真实切断采集通路，灯与实际采集状态一致；原始音频默认短暂缓冲，用户提交的文本再进入会话。
 - **BOM 粗估**：人民币 180～500 元/套，不含承载模型的电脑；用现成 USB 音频模组先验证体验，再考虑集成 PCB。
 - **主要风险**：风扇/键盘噪声、回声、吞首字、识别错误、TTS 延迟，以及硬件静音只有 UI 图标而未真正生效。
@@ -280,7 +249,7 @@ flowchart LR
 
 - **硬件组成**：MCU、一个至两个低扭矩舵机/执行器、限位/电流检测、独立急停或电机断电、软性外壳、稳定底座和独立电源；首版固定底座，不做轮式移动。
 - **复用与拓扑**：USB 依附终端；仅复用 `CAP-001/018/008` 的情绪/手势语义。宿主选择经过验证的有限动作库，控制器执行受限轨迹；`PetCommand.move` 的桌面坐标不得直接变成舵机角度或速度。
-- **需补软件**：独立运动控制契约、动作仲裁、角度/速度/电流边界、机械零位、看门狗和掉线停机；通过专项 CR/ADR 明确动作授权、安全状态及恢复方式。模型不能输出任意电机指令。
+- **需补软件**：独立运动控制契约、动作仲裁、角度/速度/电流边界、机械零位、看门狗和掉线停机；通过专项 ADR/ADR 明确动作授权、安全状态及恢复方式。模型不能输出任意电机指令。
 - **离线、功耗与隐私**：无主机时只进入安全静止态，不能重放旧动作；断公网不影响已授权的本地表现。原型约 3～10 W 工作、按 15～30 W 短时峰值选电源并实测堵转，禁止从普通 USB 口盲目取电。首版不增加摄像头或持续人脸跟踪。
 - **BOM 粗估**：人民币 350～1,000 元/套，包括执行器、驱动、传感器、电源和简单机械件；精密模具、可靠性工装不在范围内。
 - **主要风险**：夹伤、堵转发热、桌面倾倒、噪声、齿轮寿命与运动惊扰；难度主要在机电可靠性，而不是表现指令映射。
@@ -416,7 +385,7 @@ ESP32-S3 可以用于小屏与输入原型；若仅按键/灯，具有合适 USB
 
 ## 7. 建议共享的硬件接入层
 
-这里描述后续设计方向，不定义新接口字段或冻结包名。现有插件契约、底座边界与 [AVX-EXPL-005](esp32-s3-hardware-extension.md)仍分别负责各自范围；具体硬件协议需在新 CR/ADR 评审后建立单一 Reference。
+这里描述后续设计方向，不定义新接口字段或冻结包名。现有插件契约、底座边界与 [AVX-EXPL-005](esp32-s3-hardware-extension.md)仍分别负责各自范围；具体硬件协议需在新 ADR 评审后建立单一 Reference。
 
 | 接入层职责 | 建议归属 | 复用价值与约束 |
 |---|---|---|
@@ -441,12 +410,12 @@ ESP32-S3 可以用于小屏与输入原型；若仅按键/灯，具有合适 USB
 | 阶段 | 工作与产物 | 退出条件（继续投入条件） |
 |---|---|---|
 | 阶段 0：手机/现成外设对照与能力实证 | 核实目标主机、OS、模型和既有 USB 外设；修复准备采用路径的占位实现；用现有软件和可明确标为模拟的界面，比较手机支架、键鼠/现成按键与实体原型概念，选定一个场景 | 把能用、不能用和需付出的成本逐项量化；5～10 位成人、顺序平衡的同任务比较，明确手机未解决的操作负担及进入原型的理由；不以接口或市场条目代替实物证据，模拟结果不能证明真实持续使用、网络或提醒能力 |
-| 阶段 1：一个 USB 原型 | 先设备专项 CR，必要的 ADR 和最小协议契约；按键+灯与可选角色屏；固件/宿主可重复构建；形成开发板原型与接口评审 | 不依赖 CR-055 手机完整发布，可经桌面现有业务验证；无设备时核心流程可用，误投任务/重复业务副作用为 0；断连/重复/撤权测试与五至十人使用记录齐备 |
+| 阶段 1：一个 USB 原型 | 先设备专项 ADR，必要的 ADR 和最小协议契约；按键+灯与可选角色屏；固件/宿主可重复构建；形成开发板原型与接口评审 | 不依赖 CR-055 手机完整发布，可经桌面现有业务验证；无设备时核心流程可用，误投任务/重复业务副作用为 0；断连/重复/撤权测试与五至十人使用记录齐备 |
 | 阶段 2：针对性分支与共享底座验证 | 根据真实原型使用证据只选电子纸、常在线主机或专门外设之一；加入第二种终端并抽取真正共有的宿主部分；可以停止硬件投入而保留软件改进 | 完成 §8.3 的真实使用评估；电子纸须证明减少手机干扰，主机须证明原电脑在线限制，音频/OCR 须先解除占位实现；两个产品不靠复制宿主实现维持，更新/回滚与数据删除可测 |
 | 阶段 3：工程样机 | 做 PCB、结构、电源、系统镜像、更新恢复、安装与维护；按实际部件补无线/电池/机电测试 | USB 热插拔、24 小时功能运行和 72 小时长稳、温升/功耗与升级回滚证据齐备；工程样机不等同生产发布 |
 | 阶段 4：小批验证 | 单一形态的工装、追溯、可信更新、维修/解绑、适用认证与交付文件 | 通过适用认证与真实使用验收；产品/架构/硬件负责人核验全部证据后另行登记发布状态，不能从“代码实现”自动升级为“已发布” |
 
-阶段 0 可安排一周使用研究；阶段 1 先预留二至四周净工程验证窗口，不含采购等待、定制 PCB、认证或全部移动端工作。阶段 1 的设备协议不能沿用已占用的 `ADR-016` 或历史 `CR-013` 编号，实施时按[现行 CR 流程](../how-to/cr-workflow.md)和 [ADR 索引](../reference/adr/README.md)分配。
+阶段 0 可安排一周使用研究；阶段 1 先预留二至四周净工程验证窗口，不含采购等待、定制 PCB、认证或全部移动端工作。阶段 1 的设备协议不能沿用已占用的 `ADR-016` 或历史 `CR-013` 编号，实施时按[现行 ADR 流程](../reference/adr/README.md)和 [ADR 索引](../reference/adr/README.md)分配。
 
 统一记录任务完成率、复习完成情况、入口使用频次和主动关闭比例；设备侧记录连接成功率、迟到/重复动作、恢复时间、功耗与温升。只有当一种形态改善了真实学习或陪伴体验，且维护成本可接受，才进入下一阶段。
 
@@ -487,6 +456,6 @@ ESP32-S3 可以用于小屏与输入原型；若仅按键/灯，具有合适 USB
 | AVX-EXPL-011 0.2.0，移动端协同硬件规划 | 手机重合分析、过度设计取舍、推荐组合、端/主机/数据分工、验证矩阵与停止条件 | 第 2 章记录手机前提，第 5.2、5.3 节收敛范围，第 8、9 章给出阶段、停止规则与回退；原先依次评估的前三项进一步收敛为一个 USB 原型与条件性电子纸实验 |
 | CR-055，移动端规划 | 手机能力阶段、主机依赖、跨设备数据与恢复边界 | 第 2.1 节明确手机未交付与后续能力，第 2.3 节用作重复能力比较；移动实现顺序与契约仍只在 CR-055 维护 |
 
-本次只合并和更新规划，未创建设备协议、固件仓库、硬件 CR/ADR 或新 CAP。进入实施时，在对应事实源维护产品范围、协议、安全与数据契约，再按[追踪基线 §4.2](../reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)登记实际代码和测试；本页只保留选型依据、实验结果和阶段取舍。
+本次只合并和更新规划，未创建设备协议、固件仓库、硬件 ADR 或新 CAP。进入实施时，在对应事实源维护产品范围、协议、安全与数据契约，再按[追踪基线 §4.2](../reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)登记实际代码和测试；本页只保留选型依据、实验结果和阶段取舍。
 
 保留的厂商入口：[ESP32-S3-WROOM-2 数据手册](https://www.espressif.com/sites/default/files/documentation/esp32-s3-wroom-2_datasheet_en.pdf)、[ESP32-S3 系列数据手册](https://www.espressif.com/sites/default/files/documentation/esp32-s3_datasheet_en.pdf)、[ESP-IDF 指南](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/)。这些链接用于后续器件核验，本轮未重新核对在线版本。

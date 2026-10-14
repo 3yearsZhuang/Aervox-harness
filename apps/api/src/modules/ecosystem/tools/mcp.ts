@@ -6,7 +6,7 @@
  * 本实现为自研轻量协议层，不引入第三方 MCP SDK；协议形态与 MCP initialize
  * 之后的 tools/list、tools/call 对齐，便于未来替换为完整 MCP server。
  *
- * 规则依据：docs/explanation/reference-design-transfer.md §3.4。
+ * 规则依据：docs/reference/ARCHITECTURE.md §14.1 T-04。
  */
 import type { ToolRuntime } from "./runtime.js";
 

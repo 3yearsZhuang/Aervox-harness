@@ -29,6 +29,7 @@ export const aervoxApi = {
     streamTurn: (
         content: string,
         options: {
+            sessionId?: string
             toolApprovalMode: 'ask' | 'full_access'
             attachments?: Array<{attachmentId: string; name?: string; mediaType?: string}>
             /** CR-027：渲染层生成的请求 ID；缺省时由 preload 生成。供 cancelTurn 定位在途请求 */
@@ -53,7 +54,7 @@ export const aervoxApi = {
                 safeMetadata = undefined
             }
         }
-        ipcRenderer.send('aervox:turn:start', {requestId, content, toolApprovalMode: options.toolApprovalMode, attachments: options.attachments, metadata: safeMetadata})
+        ipcRenderer.send('aervox:turn:start', {requestId, content, sessionId: options.sessionId, toolApprovalMode: options.toolApprovalMode, attachments: options.attachments, metadata: safeMetadata})
         return () => ipcRenderer.removeListener('aervox:turn:event', listener)
     },
     /** CR-027：通知主进程中止在途 Turn 请求（渲染层空闲超时或 UI 主动放弃时调用） */

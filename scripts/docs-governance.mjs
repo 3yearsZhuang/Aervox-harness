@@ -1,223 +1,51 @@
 #!/usr/bin/env node
-
 /**
- * Aervox 文档治理校验器。
- *
- * 默认是兼容模式：历史文档的旧头格式和缺失字段只报告 warning；
- * 路径不存在、重复 ID、策略损坏、canonical 文档未登记、superseded 缺 superseded_by 始终阻断。
- * 设置 DOCS_GOVERNANCE_STRICT=1 或传入 --strict 后，迁移 warning（含 sources/review_triggers 失效路径）也会阻断。
- *
- * 当前迭代队列（`docs/_meta/plan-queue.json` → `plan.md` §2）的结构、依赖与
- * 同步校验见 checkPlanQueue，强制级别由策略 `currentIterationPlan.queue` 控制。
+ * 文档只检查可执行的完整性约束：声明的 ID 唯一、ADR 状态与替代关系、
+ * 本地链接及锚点。普通文档无需 Front Matter，历史与作者由 Git 记录。
  */
-
 import fs from "node:fs";
 import path from "node:path";
-import process from "node:process";
-import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { checkQueueSync, validateQueue } from "./plan-queue.mjs";
 
-const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const rootDir = path.resolve(scriptDir, "..");
-const docsDir = path.join(rootDir, "docs");
-const policyPath = path.join(docsDir, "_meta", "document-policy.json");
-const strict = process.argv.includes("--strict") || process.env.DOCS_GOVERNANCE_STRICT === "1";
-const doSync = process.argv.includes("--sync-registry") || process.argv.includes("--sync");
-const doCatalog = process.argv.includes("--generate-catalog") || process.argv.includes("--catalog");
-const checkTriggers = process.argv.includes("--check-triggers");
-
-const errors = [];
-const warnings = [];
-const metrics = {
-  markdownFiles: 0,
-  governedFiles: 0,
-  canonicalFiles: 0,
-  legacyFiles: 0,
-  duplicateIds: 0,
-  missingLocalLinks: 0,
-  brokenAnchors: 0,
-  registryDateMismatches: 0,
-  registryMissingEntries: 0,
-  staleFiles: 0,
-  triggerIssues: 0,
-};
-
-function reportWarning(message) {
-  warnings.push(message);
-}
-
-function reportMigrationWarning(message) {
-  if (strict) errors.push(message);
-  else reportWarning(message);
-}
-
-function reportError(message) {
-  errors.push(message);
-}
+const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT_DOCUMENTS = ["README.md", "AGENTS.md", "CONTRIBUTING.md", "CHANGELOG.md", "plan.md"];
+const ADR_STATUSES = new Set(["proposed", "accepted", "rejected", "superseded"]);
 
 function walk(directory) {
-  const entries = fs.readdirSync(directory, { withFileTypes: true });
-  const files = [];
-  for (const entry of entries) {
-    const absolute = path.join(directory, entry.name);
-    if (entry.isDirectory()) files.push(...walk(absolute));
-    else files.push(absolute);
-  }
-  return files;
-}
-
-function relativeToRoot(file) {
-  return path.relative(rootDir, file).split(path.sep).join("/");
-}
-
-function relativeToDocs(file) {
-  return path.relative(docsDir, file).split(path.sep).join("/");
-}
-
-function stripQuotes(value) {
-  const trimmed = value.trim();
-  if ((trimmed.startsWith("\"") && trimmed.endsWith("\"")) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
-    return trimmed.slice(1, -1);
-  }
-  return trimmed;
+  if (!fs.existsSync(directory)) return [];
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const file = path.join(directory, entry.name);
+    return entry.isDirectory() ? walk(file) : file.endsWith(".md") ? [file] : [];
+  });
 }
 
 function parseFrontMatter(text) {
-  if (!text.startsWith("---\n")) return { present: false, fields: {}, endOffset: 0 };
-  const endMatch = text.match(/^---\n([\s\S]*?)\n---\n/);
-  if (!endMatch) return { present: true, fields: {}, endOffset: 0, malformed: true };
-
+  if (!text.startsWith("---\n")) return { fields: {} };
+  const match = text.match(/^---\n([\s\S]*?)\n---(?:\n|$)/);
+  if (!match) return { fields: {}, malformed: true };
   const fields = {};
-  let currentArrayKey = "";
-  for (const line of endMatch[1].split("\n")) {
-    const field = line.match(/^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/);
-    if (field) {
-      const [, key, rawValue] = field;
-      if (rawValue.trim() === "") {
-        fields[key] = [];
-        currentArrayKey = key;
-      } else {
-        fields[key] = stripQuotes(rawValue);
-        currentArrayKey = "";
-      }
-      continue;
+  for (const line of match[1].split("\n")) {
+    const field = line.match(/^(id|decision_status|superseded_by):\s*(.*?)\s*$/);
+    if (field) fields[field[1]] = field[2].replace(/^(['"])(.*)\1$/, "$2");
+  }
+  return { fields };
+}
+
+function removeFencedCode(text) {
+  let fence = null;
+  return text.split("\n").map((line) => {
+    const marker = line.match(/^\s*(`{3,}|~{3,})/);
+    if (marker) {
+      if (!fence) fence = marker[1];
+      else if (marker[1][0] === fence[0] && marker[1].length >= fence.length) fence = null;
+      return "";
     }
-    const item = line.match(/^\s+-\s+(.+)$/);
-    if (item && currentArrayKey) fields[currentArrayKey].push(stripQuotes(item[1]));
-  }
-  return { present: true, fields, endOffset: endMatch[0].length, malformed: false };
-}
-
-function firstMatch(text, expressions) {
-  for (const expression of expressions) {
-    const match = text.match(expression);
-    if (match?.[1]) return match[1].trim();
-  }
-  return "";
-}
-
-function normalizeId(value) {
-  return String(value ?? "")
-    .trim()
-    .replace(/[（(].*?[）)]/g, "")
-    .trim();
-}
-
-function parseMetadata(file, text) {
-  const relative = relativeToDocs(file);
-  const basename = path.basename(file);
-  const frontMatter = parseFrontMatter(text);
-  const headerText = frontMatter.present
-    ? text.slice(frontMatter.endOffset, Math.min(text.length, frontMatter.endOffset + 4_000))
-    : text.split("\n").slice(0, 30).join("\n");
-  const fields = frontMatter.fields;
-  const isTemplate = relative.startsWith("templates/");
-  const isArchive = relative.startsWith("archive/");
-  const isNavigation = relative === "README.md" || relative === "DOC_REGISTRY.md" || relative === "getting-started.md" || relative === "reference/adr/README.md";
-  const isAdr = relative.startsWith("reference/adr/") && basename !== "README.md";
-  const isChange = relative.startsWith("reference/changes/");
-  const title = fields.title || firstMatch(text, [/^#\s+(.+)$/m]);
-  const idFromField = fields.id || firstMatch(headerText, [/^>\s*文档编号：\s*(.+)$/m]);
-  const idFromTitle = firstMatch(text, [/^#\s+(ADR-\d{3})\b/m, /^#\s+(CR-\d{3})\b/m]);
-  const id = normalizeId(idFromField || idFromTitle);
-  const type = fields.type || firstMatch(headerText, [/^>\s*类型：\s*(.+)$/m]);
-  let documentStatus = fields.doc_status || firstMatch(headerText, [
-    /^>\s*文档状态：\s*(.+)$/m,
-    /^>\s*状态：\s*(.+)$/m,
-  ]);
-  let decisionStatus = fields.decision_status || firstMatch(headerText, [
-    /^>\s*决策状态：\s*(.+)$/m,
-    /^-\s*决策：\s*((?:Proposed|Accepted|Rejected|Deferred|More Evidence Required|提议|已接受|已拒绝|延期|需要更多证据))/m,
-    /^-\s*状态：\s*(Proposed|Accepted|Rejected|Deferred|More Evidence Required)\b/m,
-  ]);
-  const deliveryStatus = fields.delivery_status || firstMatch(headerText, [
-    /^>\s*交付状态：\s*(.+)$/m,
-    /^-\s*交付状态：\s*(.+)$/m,
-  ]);
-  // Legacy CR/ADR files often use one "状态" field for the decision dimension.
-  // Treat the explicit "More Evidence Required" value as a decision status when
-  // no separate document status is present, while retaining Review Candidate as
-  // the document status for files that declare both dimensions.
-  if ((isAdr || isChange) && !fields.doc_status && normalizeStatus(documentStatus) === "more-evidence-required") {
-    decisionStatus ||= documentStatus;
-    documentStatus = "";
-  }
-  const updatedAt = fields.updated_at || firstMatch(headerText, [/^>\s*(?:更新日期|创建\/更新日期)：\s*(\d{4}-\d{2}-\d{2})/m]);
-  const reviewedAt = fields.reviewed_at || firstMatch(headerText, [/^>\s*最后核验：\s*(\d{4}-\d{2}-\d{2})/m]) || updatedAt;
-  const hasProposer = /^-\s*提出人：.+$/m.test(headerText);
-  const hasModifier = /^-\s*修改人：.+$/m.test(headerText);
-  const statusLabels = [...headerText.matchAll(/(?:^|\n)(?:>\s*)?(?:文档状态|决策状态|交付状态|状态)：/g)].map((match) => match[0].trim());
-
-  return {
-    relative,
-    basename,
-    title,
-    id,
-    type,
-    documentStatus,
-    decisionStatus,
-    deliveryStatus,
-    updatedAt,
-    reviewedAt,
-    hasProposer,
-    hasModifier,
-    usesCanonicalFrontMatter: frontMatter.present && !frontMatter.malformed,
-    frontMatter,
-    fields,
-    isTemplate,
-    isArchive,
-    isNavigation,
-    isAdr,
-    isChange,
-    statusLabels,
-    text,
-  };
-}
-
-function normalizeStatus(value) {
-  const normalized = String(value ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[（(].*?[）)]/g, "")
-    .replace(/[_\s]+/g, "-");
-  const aliases = new Map([
-    ["草稿", "draft"],
-    ["评审候选", "review-candidate"],
-    ["已批准", "approved"],
-    ["已替代", "superseded"],
-    ["已退役", "retired"],
-  ]);
-  return aliases.get(normalized) ?? normalized;
-}
-
-function normalizePath(value) {
-  return value.split(path.sep).join("/");
+    return fence ? "" : line;
+  }).join("\n");
 }
 
 function githubSlug(value) {
-  return value
-    .toLowerCase()
+  return value.toLowerCase()
     .replace(/<[^>]*>/g, "")
     .replace(/[`*_~]/g, "")
     .replace(/[^\p{L}\p{N}\s-]/gu, "")
@@ -228,7 +56,7 @@ function githubSlug(value) {
 function anchorsFor(text) {
   const anchors = new Set();
   const counts = new Map();
-  for (const line of text.split("\n")) {
+  for (const line of removeFencedCode(text).split("\n")) {
     const heading = line.match(/^#{1,6}\s+(.+?)\s*#*$/);
     if (heading) {
       const base = githubSlug(heading[1]);
@@ -241,191 +69,32 @@ function anchorsFor(text) {
   return anchors;
 }
 
-function decodeFragment(fragment) {
-  try {
-    return decodeURIComponent(fragment);
-  } catch {
-    return fragment;
-  }
+function decode(value) {
+  try { return decodeURIComponent(value); } catch { return value; }
 }
 
-function parseLinkTarget(rawTarget) {
-  let target = rawTarget.trim();
-  if (target.startsWith("<")) {
-    const closing = target.indexOf(">");
-    if (closing >= 0) target = target.slice(1, closing);
-  } else {
-    const titleStart = target.search(/\s+["']/);
-    if (titleStart >= 0) target = target.slice(0, titleStart);
-  }
-  return target;
+function parseLinkTarget(raw) {
+  const target = raw.trim();
+  if (target.startsWith("<")) return target.slice(1, target.indexOf(">"));
+  return target.replace(/\s+["'].*$/, "");
 }
 
-function removeFencedCode(text) {
-  return text.replace(/^\s*(```|~~~)[^\n]*\n[\s\S]*?^\s*\1\s*$/gm, "");
-}
-
-function checkLinks(metadataByFile) {
-  for (const [file, metadata] of metadataByFile) {
-    if (metadata.isArchive) continue;
-    const linkText = removeFencedCode(metadata.text);
-    for (const match of linkText.matchAll(/\[[^\]]*\]\(([^)]+)\)/g)) {
-      const target = parseLinkTarget(match[1]);
-      if (!target || /^(?:https?:|mailto:|tel:)/i.test(target)) continue;
-      const [rawPath, rawFragment] = target.split("#", 2);
-      const targetFile = path.resolve(path.dirname(file), rawPath || path.basename(file));
-      if (!fs.existsSync(targetFile)) {
-        metrics.missingLocalLinks += 1;
-        reportError(`${metadata.relative}: 本地链接目标不存在：${target}`);
-        continue;
-      }
-      if (rawFragment && fs.statSync(targetFile).isFile() && path.extname(targetFile).toLowerCase() === ".md") {
-        const fragment = decodeFragment(rawFragment);
-        const targetText = fs.readFileSync(targetFile, "utf8");
-        if (!anchorsFor(targetText).has(fragment)) {
-          metrics.brokenAnchors += 1;
-          reportError(`${metadata.relative}: 锚点不存在：${target}`);
-        }
-      }
+function checkLocalTarget(file, rawTarget, errors, root) {
+  const target = parseLinkTarget(rawTarget);
+  if (!target || /^[a-z][a-z0-9+.-]*:/i.test(target) || target.startsWith("//")) return;
+  const [rawPath, rawFragment] = target.split("#", 2);
+  const targetFile = rawPath ? path.resolve(path.dirname(file), decode(rawPath)) : file;
+  const relative = path.relative(root, file);
+  if (!fs.existsSync(targetFile)) {
+    errors.push(`${relative}: 本地链接目标不存在：${target}`);
+  } else if (rawFragment && path.extname(targetFile).toLowerCase() === ".md" && fs.statSync(targetFile).isFile()) {
+    if (!anchorsFor(fs.readFileSync(targetFile, "utf8")).has(decode(rawFragment))) {
+      errors.push(`${relative}: 锚点不存在：${target}`);
     }
   }
 }
 
-function parseRegistry(registryFile) {
-  const text = fs.readFileSync(registryFile, "utf8");
-  const entries = [];
-  const rowPattern = /^\|\s*`([^`]+)`\s*\|\s*\[[^\]]+\]\(([^)#\s]+)(?:#[^)]*)?\)\s*\|\s*(\d{4}-\d{2}-\d{2})\s*\|/gm;
-  for (const match of text.matchAll(rowPattern)) {
-    entries.push({ id: match[1], relativePath: normalizePath(match[2]), reviewedAt: match[3] });
-  }
-  return entries;
-}
-
-function checkRegistry(metadataByFile) {
-  const registryFile = path.join(docsDir, "DOC_REGISTRY.md");
-  if (!fs.existsSync(registryFile)) {
-    reportError("docs/DOC_REGISTRY.md 不存在");
-    return;
-  }
-
-  const entries = parseRegistry(registryFile);
-  const registeredPaths = new Set();
-  const registeredIds = new Map();
-  for (const entry of entries) {
-    const target = path.resolve(docsDir, entry.relativePath.trim());
-    if (registeredIds.has(entry.id)) reportError(`DOC_REGISTRY.md: 重复登记编号 ${entry.id}`);
-    registeredIds.set(entry.id, target);
-    if (registeredPaths.has(target)) reportError(`DOC_REGISTRY.md: 重复登记路径 ${entry.relativePath}`);
-    registeredPaths.add(target);
-    if (!fs.existsSync(target)) {
-      reportError(`DOC_REGISTRY.md: 登记路径不存在：${entry.relativePath}`);
-      continue;
-    }
-    const metadata = metadataByFile.get(target);
-    if (!metadata) continue;
-    if (metadata.id && !metadata.id.includes("~") && metadata.id !== entry.id) {
-      reportMigrationWarning(`DOC_REGISTRY.md: 编号 ${entry.id} 与文档 ${metadata.relative} 的编号 ${metadata.id} 不一致`);
-    }
-    if (!metadata.reviewedAt || metadata.reviewedAt === "YYYY-MM-DD") continue;
-    if (metadata.reviewedAt !== entry.reviewedAt) {
-      metrics.registryDateMismatches += 1;
-      reportMigrationWarning(`DOC_REGISTRY.md: ${entry.id} 登记日期 ${entry.reviewedAt} 与文档核验日期 ${metadata.reviewedAt} 不一致（${entry.relativePath}）`);
-    }
-  }
-
-  for (const [file, metadata] of metadataByFile) {
-    if (metadata.isTemplate || metadata.isArchive || metadata.basename === "LICENSE" || metadata.isNavigation || !metadata.usesCanonicalFrontMatter) continue;
-    metrics.canonicalFiles += 1;
-    if (!registeredPaths.has(file)) {
-      metrics.registryMissingEntries += 1;
-      reportError(`${metadata.relative}: canonical 文档必须登记在 docs/DOC_REGISTRY.md`);
-    }
-  }
-}
-
-function syncRegistry(metadataByFile) {
-  const registryFile = path.join(docsDir, "DOC_REGISTRY.md");
-  if (!fs.existsSync(registryFile)) {
-    reportError("docs/DOC_REGISTRY.md 不存在");
-    return;
-  }
-  let text = fs.readFileSync(registryFile, "utf8");
-  let updatedCount = 0;
-  const linePattern = /^(\|\s*`([^`]+)`\s*\|\s*\[([^\]]+)\]\(([^)#\s]+)(?:#[^)]*)?\)\s*\|\s*)(\d{4}-\d{2}-\d{2})(\s*\|.*)$/gm;
-  text = text.replace(linePattern, (full, prefix, id, title, relPath, oldDate, suffix) => {
-    const targetFile = path.resolve(docsDir, normalizePath(relPath.trim()));
-    const meta = metadataByFile.get(targetFile);
-    if (!meta || !meta.reviewedAt || !/^\d{4}-\d{2}-\d{2}$/.test(meta.reviewedAt)) {
-      return full;
-    }
-    if (meta.reviewedAt !== oldDate) {
-      updatedCount += 1;
-      return `${prefix}${meta.reviewedAt}${suffix}`;
-    }
-    return full;
-  });
-
-  if (updatedCount > 0) {
-    fs.writeFileSync(registryFile, text, "utf8");
-    console.log(`[docs-sync] 成功同步 DOC_REGISTRY.md 中 ${updatedCount} 处核验日期`);
-  } else {
-    console.log("[docs-sync] DOC_REGISTRY.md 日期已全部与文档核验日期一致");
-  }
-}
-
-function generateCatalog(metadataByFile, policy) {
-  const catalogPath = path.join(docsDir, "_meta", "document-catalog.json");
-  const documents = [];
-  for (const [file, meta] of metadataByFile) {
-    if (meta.isTemplate || meta.basename === "LICENSE") continue;
-    documents.push({
-      id: meta.id || null,
-      title: meta.title,
-      path: meta.relative,
-      type: meta.type,
-      scope: meta.fields.scope || (meta.isArchive ? "archive" : "baseline"),
-      ...(meta.fields.planning_role === undefined ? {} : { planning_role: meta.fields.planning_role }),
-      owner: meta.fields.owner || "maintainers",
-      doc_status: meta.documentStatus || "draft",
-      decision_status: meta.decisionStatus || "not-applicable",
-      delivery_status: meta.deliveryStatus || "not-applicable",
-      version: meta.fields.version || null,
-      updated_at: meta.updatedAt || null,
-      reviewed_at: meta.reviewedAt || null,
-      review_interval_days: meta.fields.review_interval_days ? Number(meta.fields.review_interval_days) : Number(policy.defaultReviewIntervalDays),
-      review_triggers: meta.fields.review_triggers || [],
-      sources: meta.fields.sources || [],
-    });
-  }
-  documents.sort((a, b) => a.path.localeCompare(b.path));
-  const output = {
-    schemaVersion: 1,
-    generatedAt: new Date().toISOString().slice(0, 10),
-    totalCount: documents.length,
-    documents,
-  };
-  fs.writeFileSync(catalogPath, JSON.stringify(output, null, 2) + "\n", "utf8");
-  console.log(`[docs-catalog] 成功生成 ${relativeToRoot(catalogPath)}，共收录 ${documents.length} 篇文档`);
-}
-
-function compileGlob(pattern) {
-  const normalizedPattern = pattern.trim().split(path.sep).join("/");
-  const regexStr = "^" + normalizedPattern
-    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-    .replace(/\*\*/g, ".*")
-    .replace(/(?<!\.)\*/g, "[^/]*") + "$";
-  return new RegExp(regexStr);
-}
-
-function matchGlob(filePath, pattern) {
-  const normalizedFile = filePath.split(path.sep).join("/");
-  return compileGlob(pattern).test(normalizedFile);
-}
-
-/**
- * 解析 `git status --porcelain=v1 -z`，保留带空格路径，并同时返回重命名/复制的
- * 新旧路径。porcelain 的 XY 状态固定占前两字节，第 3 字节为空格，路径从索引 3 开始。
- */
+/** 保留工作区重命名/复制的新旧路径，删除目标也必须触发全仓入链校验。 */
 export function parsePorcelainStatus(output) {
   const records = output.split("\0");
   const paths = [];
@@ -444,422 +113,94 @@ export function parsePorcelainStatus(output) {
   return [...new Set(paths)];
 }
 
-function resolveTriggerBaseRef() {
-  for (const ref of ["origin/main", "main", "HEAD~1"]) {
-    try {
-      execSync(`git rev-parse --verify ${ref}`, { cwd: rootDir, stdio: "ignore" });
-      return ref;
-    } catch {
-      // 尝试下一个候选
-    }
-  }
-  return null;
-}
-
-function checkReviewTriggers(metadataByFile) {
-  let changedFiles = [];
-  try {
-    const gitOutput = execSync("git status --porcelain=v1 -z --untracked-files=all", {
-      cwd: rootDir,
-      encoding: "utf8",
-    });
-    changedFiles = parsePorcelainStatus(gitOutput);
-    // 已提交的差量也必须参与命中判定：只看工作区会让"提交后再查"变成静默通过，
-    // 与 check-affected.mjs / docs-lint-affected.mjs 的基准口径保持一致。
-    const baseRef = resolveTriggerBaseRef();
-    if (baseRef) {
-      const diffOutput = execSync(`git diff --no-renames --name-only -z ${baseRef}...HEAD`, {
-        cwd: rootDir,
-        encoding: "utf8",
-      });
-      for (const file of diffOutput.split("\0")) {
-        if (file) changedFiles.push(file);
-      }
-    }
-    changedFiles = [...new Set(changedFiles)];
-  } catch {
-    return;
-  }
-  if (changedFiles.length === 0) return;
-
-  const modifiedDocs = new Set(
-    changedFiles
-      .map((file) => path.resolve(rootDir, file))
-      .filter((file) => metadataByFile.has(file))
-  );
-
-  const triggeredDocs = new Map();
-  for (const [absDocPath, meta] of metadataByFile) {
-    if (!Array.isArray(meta.fields.review_triggers) || meta.fields.review_triggers.length === 0) continue;
-    for (const trigger of meta.fields.review_triggers) {
-      if (typeof trigger !== "string" || !trigger.trim()) continue;
-      for (const changedFile of changedFiles) {
-        if (matchGlob(changedFile, trigger)) {
-          if (!triggeredDocs.has(meta.relative)) triggeredDocs.set(meta.relative, { absDocPath, triggers: [] });
-          triggeredDocs.get(meta.relative).triggers.push({ changedFile, trigger });
-        }
-      }
-    }
-  }
-
-  if (triggeredDocs.size > 0) {
-    console.log(`[docs-trigger] 检查到 ${triggeredDocs.size} 篇文档命中代码路径变动触发器：`);
-    for (const [docRel, { absDocPath, triggers }] of triggeredDocs) {
-      const isDocUpdated = modifiedDocs.has(absDocPath);
-      const statusText = isDocUpdated ? "（已同步修改 ✅）" : "（未被修改 ⚠️ 建议复核）";
-      console.log(`  - ${docRel} ${statusText}`);
-      for (const { changedFile, trigger } of triggers.slice(0, 2)) {
-        console.log(`    ↳ 变动源: ${changedFile} 命中 [${trigger}]`);
-      }
-      // 命中而本次未同步复核的文档登记为提示：观察期不阻断，便于在 ci-docs 输出中留痕。
-      if (!isDocUpdated) {
-        reportWarning(`${docRel}: 命中复核触发器 [${triggers[0].trigger}] 但本次未同步修改，请确认是否需要联动更新`);
-      }
-    }
-  } else {
-    console.log("[docs-trigger] 当前变动（工作区 + 增量基准差量）未命中任何文档触发器");
-  }
-}
-
-/**
- * 仓库文件清单（POSIX 相对路径）。优先 `git ls-files`（天然遵守 .gitignore），
- * 非 Git 目录（测试 fixture）回退为带忽略清单的目录遍历。
- */
-let repositoryFilesCache = null;
-function listRepositoryFiles() {
-  if (repositoryFilesCache) return repositoryFilesCache;
-  try {
-    const output = execSync("git ls-files -z", { cwd: rootDir, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-    const files = output.split("\0").filter(Boolean);
-    if (files.length > 0) {
-      repositoryFilesCache = files;
-      return files;
-    }
-  } catch {
-    // 非 Git 目录：继续走遍历回退
-  }
-  const ignored = new Set([
-    "node_modules", ".git", "dist", "out", "dist-plugins", ".turbo",
-    "coverage", "test-results", "playwright-report", "data", ".commandcode", ".workbuddy", ".zcode",
-  ]);
-  const files = [];
-  const visit = (dir) => {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (ignored.has(entry.name)) continue;
-      const absolute = path.join(dir, entry.name);
-      if (entry.isDirectory()) visit(absolute);
-      else files.push(path.relative(rootDir, absolute).split(path.sep).join("/"));
-    }
-  };
-  visit(rootDir);
-  repositoryFilesCache = files;
-  return files;
-}
-
-/**
- * `review_triggers` 有效性：路径/glob 型条目必须命中现存文件或至少一个仓库文件；
- * 叙述型条目（含空格或非路径字符，如「HA REST 契约变化」）不参与路径校验，作者应
- * 将其写成 YAML 注释行。级别为 migration warning（compat 提示、strict 阻断）。
- */
-function validateReviewTriggers(metadataByFile) {
-  const pathLike = /^[A-Za-z0-9._\/*?{}-]+$/;
-  const fileLike = /\.(md|ts|mjs|cjs|json|toml|yml|yaml)$/i;
-  for (const [, metadata] of metadataByFile) {
-    if (metadata.isTemplate || metadata.isArchive || metadata.basename === "LICENSE") continue;
-    const triggers = Array.isArray(metadata.fields.review_triggers) ? metadata.fields.review_triggers : [];
-    for (const raw of triggers) {
-      if (typeof raw !== "string") continue;
-      const trigger = raw.trim();
-      if (!trigger) continue;
-      if (!pathLike.test(trigger) || (!trigger.includes("/") && !fileLike.test(trigger))) continue;
-      if (/[*?{]/.test(trigger)) {
-        const regex = compileGlob(trigger);
-        const matched = listRepositoryFiles().some((file) => regex.test(file));
-        if (!matched) {
-          metrics.triggerIssues += 1;
-          reportMigrationWarning(`${metadata.relative}: review_triggers 未命中任何仓库文件：${trigger}（请改指现存路径或删除）`);
-        }
-      } else if (!fs.existsSync(path.resolve(rootDir, trigger))) {
-        metrics.triggerIssues += 1;
-        reportMigrationWarning(`${metadata.relative}: review_triggers 路径不存在：${trigger}`);
-      }
-    }
-  }
-}
-
-function validatePolicy(policy) {
-  const requiredArrays = ["documentStatus", "decisionStatus", "deliveryStatus"];
-  for (const key of requiredArrays) {
-    if (!Array.isArray(policy[key]) || policy[key].length === 0) reportError(`策略字段 ${key} 必须是非空数组`);
-  }
-  if (!policy.policyId || !policy.registryPath) reportError("策略必须包含 policyId 和 registryPath");
-  if (!Number.isInteger(policy.defaultReviewIntervalDays) || policy.defaultReviewIntervalDays <= 0) {
-    reportError("策略 defaultReviewIntervalDays 必须是正整数");
-  }
-  const currentPlan = policy.currentIterationPlan;
-  if (!currentPlan || currentPlan.path !== "plan.md" || currentPlan.planningRole !== "current") {
-    reportError("策略 currentIterationPlan 必须指定根 plan.md 与 planningRole=current");
-  }
-  for (const field of ["id", "type", "scope"]) {
-    if (typeof currentPlan?.[field] !== "string" || !currentPlan[field].trim()) {
-      reportError(`策略 currentIterationPlan.${field} 必须是非空字符串`);
-    }
-  }
-}
-
-function checkCurrentIterationPlan(metadataByFile, policy) {
-  const planFile = path.join(rootDir, "plan.md");
-  const plan = metadataByFile.get(planFile);
-  if (!plan) {
-    reportError("根 plan.md 必须存在并纳入文档治理");
-  } else {
-    if (!plan.usesCanonicalFrontMatter) reportError("plan.md 必须使用 canonical YAML front matter");
-    for (const field of ["id", "type", "scope"]) {
-      const expected = policy.currentIterationPlan?.[field];
-      if (expected && plan.fields[field] !== expected) {
-        reportError(`plan.md: ${field} 必须为 ${expected}`);
-      }
-    }
-    if (plan.fields.planning_role !== "current") reportError("plan.md 必须声明 planning_role: current");
-  }
-
-  const roleCandidates = new Map(metadataByFile);
-  for (const entry of fs.readdirSync(rootDir, { withFileTypes: true })) {
-    if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
-    const file = path.join(rootDir, entry.name);
-    if (!roleCandidates.has(file)) roleCandidates.set(file, parseMetadata(file, fs.readFileSync(file, "utf8")));
-  }
-  const currentPlans = [];
-  for (const [file, metadata] of roleCandidates) {
-    const role = metadata.fields.planning_role;
-    if (role === undefined) continue;
-    if (!["current", "history", "evidence"].includes(role)) {
-      reportError(`${metadata.relative}: planning_role 必须为 current、history 或 evidence`);
-    }
-    if (role === "current") currentPlans.push(file);
-  }
-  if (currentPlans.length !== 1 || currentPlans[0] !== planFile) {
-    reportError("planning_role: current 必须唯一且仅能由根 plan.md 声明");
-  }
-}
-
-/**
- * 计划队列校验（结构、依赖、纪律与"渲染即校验"）。
- *
- * 真源是 `docs/_meta/plan-queue.json`，`plan.md` §2 是派生视图；强制级别取自策略
- * `currentIterationPlan.queue.enforcement`（当前 `error`）：结构违规（编号/枚举/
- * 依赖/成环/缺验收/生成区不同步）与纪律违规（在制并发/执行中缺分支/已移交缺证据/
- * 暂停缺阻碍）一律阻断，仅依赖次序（S5）保持提示；`warning` 时全部降级为提示。
- */
-function checkPlanQueue(metadataByFile, policy) {
-  const queuePolicy = policy.currentIterationPlan?.queue;
-  if (!queuePolicy?.source) return;
-
-  const sourcePath = path.resolve(rootDir, queuePolicy.source);
-  if (!fs.existsSync(sourcePath)) {
-    reportWarning(`[plan-queue] 真源 ${queuePolicy.source} 不存在，无法校验队列`);
-    return;
-  }
-
-  let queue;
-  try {
-    queue = JSON.parse(fs.readFileSync(sourcePath, "utf8"));
-  } catch (error) {
-    reportWarning(`[plan-queue] 无法解析 ${queuePolicy.source}：${error instanceof Error ? error.message : String(error)}`);
-    return;
-  }
-
-  const targetPath = path.join(rootDir, queuePolicy.target ?? "plan.md");
-  const planText = metadataByFile.get(targetPath)?.text ?? (fs.existsSync(targetPath) ? fs.readFileSync(targetPath, "utf8") : "");
-  const options = { wipLimit: queuePolicy.wipLimit, enforcement: queuePolicy.enforcement };
-  const findings = [...validateQueue(queue, options), ...checkQueueSync(queue, planText, options.enforcement)];
-
-  for (const finding of findings) {
-    const message = `[plan-queue:${finding.rule}] ${finding.message}`;
-    if (finding.severity === "error") reportError(message);
-    else reportWarning(message);
-  }
-  if (findings.length === 0) {
-    const wip = (queue.items ?? []).filter((item) => item.status === "执行中").length;
-    console.log(`[plan-queue] 队列校验通过（${queue.items?.length ?? 0} 个条目，在制 ${wip}/${options.wipLimit}，强制级别 ${options.enforcement}）`);
-  }
-}
-
-function expectedTypeFor(relative) {
-  const segment = relative.split("/")[0];
-  return {
-    tutorials: "tutorial",
-    "how-to": "how-to",
-    explanation: "explanation",
-    reference: "reference",
-  }[segment] ?? "";
-}
-
-function checkMetadata(metadataByFile, policy) {
+export function checkDocumentation(root = rootDir) {
+  const files = [
+    ...walk(path.join(root, "docs")),
+    ...ROOT_DOCUMENTS.map((name) => path.join(root, name)).filter((file) => fs.existsSync(file)),
+  ];
+  const errors = [];
   const ids = new Map();
-  const allowedDocumentStatuses = new Set((policy.documentStatus ?? []).map(normalizeStatus));
-  const allowedDecisionStatuses = new Set((policy.decisionStatus ?? []).map(normalizeStatus));
-  const allowedDeliveryStatuses = new Set((policy.deliveryStatus ?? []).map(normalizeStatus));
-  const requiredFields = Array.isArray(policy.requiredFrontMatterFields) ? policy.requiredFrontMatterFields : [];
-
-  for (const [file, metadata] of metadataByFile) {
-    metrics.markdownFiles += 1;
-    if (metadata.isTemplate || metadata.isArchive || metadata.basename === "LICENSE") continue;
-    metrics.governedFiles += 1;
-
-    if (metadata.id && !metadata.id.includes("###") && !metadata.id.includes("~")) {
-      const existing = ids.get(metadata.id);
-      if (existing) {
-        metrics.duplicateIds += 1;
-        reportError(`重复文档编号 ${metadata.id}：${relativeToRoot(existing)} 与 ${metadata.relative}`);
-      } else ids.set(metadata.id, file);
-    }
-
-    if (!metadata.id && !metadata.isNavigation) reportMigrationWarning(`${metadata.relative}: 缺少可解析的文档编号`);
-    if (!metadata.type && !metadata.isNavigation && !metadata.isAdr && !metadata.isChange) reportMigrationWarning(`${metadata.relative}: 缺少类型字段`);
-    if (!metadata.updatedAt && !metadata.isNavigation) reportMigrationWarning(`${metadata.relative}: 缺少更新日期`);
-
-    if (!metadata.usesCanonicalFrontMatter) {
-      metrics.legacyFiles += 1;
-      if (metadata.frontMatter.present && metadata.frontMatter.malformed) {
-        reportError(`${metadata.relative}: YAML front matter 未正确闭合`);
-      } else if (strict) {
-        reportMigrationWarning(`${metadata.relative}: 使用兼容头格式；新文档应迁移到 canonical metadata`);
+  const documents = files.map((file) => {
+    const relative = path.relative(root, file).split(path.sep).join("/");
+    const text = fs.readFileSync(file, "utf8").replace(/\r\n/g, "\n");
+    const { fields, malformed } = parseFrontMatter(text);
+    const isArchive = relative.startsWith("docs/archive/");
+    const exempt = relative.startsWith("docs/templates/") || isArchive;
+    const isAdr = relative.startsWith("docs/reference/adr/") && relative !== "docs/reference/adr/README.md";
+    if (!exempt) {
+      if (malformed) errors.push(`${relative}: YAML front matter 未正确闭合`);
+      if (fields.id) {
+        if (ids.has(fields.id)) errors.push(`重复文档编号 ${fields.id}：${ids.get(fields.id)} 与 ${relative}`);
+        else ids.set(fields.id, relative);
       }
-    } else {
-      if (metadata.frontMatter.malformed) reportError(`${metadata.relative}: YAML front matter 未正确闭合`);
-      for (const field of requiredFields) {
-        const value = metadata.fields[field];
-        if (value === undefined || value === "" || (Array.isArray(value) && value.length === 0)) {
-          reportError(`${metadata.relative}: canonical front matter 缺少必填字段 ${field}`);
+    }
+    return { file, relative, text, fields, isArchive, isAdr };
+  });
+  const adrs = new Map(documents.filter((doc) => doc.isAdr).map((doc) => [
+    doc.fields.id, doc,
+  ]));
+
+  for (const doc of documents) {
+    if (doc.isArchive) continue;
+    if (doc.isAdr) {
+      const filenameId = path.basename(doc.file).match(/^(ADR-\d{3})(?:-[^/]+)?\.md$/)?.[1];
+      if (!filenameId) errors.push(`${doc.relative}: ADR 文件名必须以 ADR-三位数字命名`);
+      if (!doc.fields.id) errors.push(`${doc.relative}: ADR 必须声明 id: ${filenameId ?? "ADR-###"}`);
+      else if (filenameId && doc.fields.id !== filenameId) errors.push(`${doc.relative}: ADR id 必须与文件名前缀 ${filenameId} 一致`);
+      const status = doc.fields.decision_status;
+      if (!ADR_STATUSES.has(status)) {
+        errors.push(`${doc.relative}: ADR decision_status 必须为 proposed、accepted、rejected 或 superseded`);
+      }
+      const replacement = doc.fields.superseded_by;
+      if (status === "superseded" && !replacement) errors.push(`${doc.relative}: superseded ADR 必须声明 superseded_by`);
+      if (replacement) {
+        if (/^ADR-\d+$/.test(replacement)) {
+          if (!adrs.has(replacement) || adrs.get(replacement).file === doc.file) {
+            errors.push(`${doc.relative}: superseded_by 必须指向另一篇现存 ADR：${replacement}`);
+          }
+        } else if (!/^CR-\d+$/.test(replacement) && !/^https?:\/\/\S+$/.test(replacement)) {
+          // 历史 CR 已在独立归档仓库；保留原编号或归档 URL，无需复制回主仓。
+          errors.push(`${doc.relative}: superseded_by 应为 ADR 编号、历史 CR 编号或归档 URL`);
         }
       }
-      if (metadata.isAdr && !metadata.fields.decision_status) reportError(`${metadata.relative}: ADR 必须声明 decision_status`);
-      if (metadata.isChange && (!metadata.fields.decision_status || !metadata.fields.delivery_status)) {
-        reportError(`${metadata.relative}: CR 必须声明 decision_status 和 delivery_status`);
-      }
-      const expectedType = expectedTypeFor(metadata.relative);
-      if (expectedType && metadata.fields.type !== expectedType && !(metadata.isNavigation && !metadata.fields.type)) {
-        reportError(`${metadata.relative}: type=${metadata.fields.type} 与目录推断的 ${expectedType} 不一致`);
-      }
-      if (!/^(?:AVX-[A-Z0-9-]+-\d{3}|ADR-\d{3}(?:~\d{3})?|CR-\d{3})$/.test(metadata.id)) {
-        reportError(`${metadata.relative}: id 格式不符合 AVX/ADR/CR 编号规范：${metadata.id}`);
-      }
-      if (!/^\d+\.\d+\.\d+$/.test(String(metadata.fields.version ?? ""))) {
-        reportError(`${metadata.relative}: version 必须是三段语义化版本`);
-      }
-      for (const dateField of ["updated_at", "reviewed_at"]) {
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(String(metadata.fields[dateField] ?? ""))) {
-          reportError(`${metadata.relative}: ${dateField} 必须是 YYYY-MM-DD`);
-        }
-      }
-      const updatedTime = Date.parse(`${metadata.fields.updated_at}T00:00:00Z`);
-      const reviewedTime = Date.parse(`${metadata.fields.reviewed_at}T00:00:00Z`);
-      if (Number.isFinite(updatedTime) && Number.isFinite(reviewedTime) && reviewedTime < updatedTime) {
-        reportError(`${metadata.relative}: reviewed_at 不能早于 updated_at`);
-      }
-      if (metadata.fields.review_interval_days !== undefined &&
-          (!/^\d+$/.test(String(metadata.fields.review_interval_days)) || Number(metadata.fields.review_interval_days) <= 0)) {
-        reportError(`${metadata.relative}: review_interval_days 必须是正整数`);
-      }
-      const sourceEntries = Array.isArray(metadata.fields.sources) ? metadata.fields.sources : [];
-      for (const source of sourceEntries) {
-        const sourcePath = String(source).replace(/\/$/, "");
-        if (!sourcePath || sourcePath.includes("*")) continue;
-        const absoluteSource = path.resolve(rootDir, sourcePath);
-        if (!fs.existsSync(absoluteSource)) reportMigrationWarning(`${metadata.relative}: sources 路径不存在：${source}`);
-      }
     }
-
-    const documentStatus = normalizeStatus(metadata.documentStatus);
-    if (metadata.isChange && !metadata.usesCanonicalFrontMatter && metadata.decisionStatus && !metadata.documentStatus) {
-      // Legacy CR files commonly use a single "状态" field for decision status.
-    } else if (documentStatus && !allowedDocumentStatuses.has(documentStatus)) {
-      reportMigrationWarning(`${metadata.relative}: 文档状态不在策略允许集合中：${metadata.documentStatus}`);
+    const linkText = removeFencedCode(doc.text);
+    for (const match of linkText.matchAll(/\[[^\]]*\]\(([^)]+)\)/g)) {
+      checkLocalTarget(doc.file, match[1], errors, root);
     }
-    if (metadata.usesCanonicalFrontMatter && documentStatus === "superseded" && !metadata.fields.superseded_by) {
-      reportError(`${metadata.relative}: doc_status=superseded 必须在 front matter 声明 superseded_by`);
+    // 引用式链接的定义也指向真实资源，不只检查行内链接。
+    for (const match of linkText.matchAll(/^\s{0,3}\[(?!\^)[^\]]+\]:\s*(.+)$/gm)) {
+      checkLocalTarget(doc.file, match[1], errors, root);
     }
-    if (metadata.decisionStatus && !allowedDecisionStatuses.has(normalizeStatus(metadata.decisionStatus))) {
-      reportMigrationWarning(`${metadata.relative}: 决策状态不在策略允许集合中：${metadata.decisionStatus}`);
-    }
-    if (metadata.deliveryStatus && !allowedDeliveryStatuses.has(normalizeStatus(metadata.deliveryStatus))) {
-      reportMigrationWarning(`${metadata.relative}: 交付状态不在策略允许集合中：${metadata.deliveryStatus}`);
-    }
-
-    const duplicateLabels = metadata.statusLabels.filter((label, index, labels) => labels.indexOf(label) !== index);
-    if (duplicateLabels.length > 0) reportMigrationWarning(`${metadata.relative}: 重复状态字段：${[...new Set(duplicateLabels)].join(", ")}`);
-
-    if (metadata.reviewedAt && /^\d{4}-\d{2}-\d{2}$/.test(metadata.reviewedAt)) {
-      const ageDays = Math.floor((Date.now() - Date.parse(`${metadata.reviewedAt}T00:00:00Z`)) / 86_400_000);
-      if (ageDays > Number(policy.defaultReviewIntervalDays)) {
-        metrics.staleFiles += 1;
-        reportWarning(`${metadata.relative}: 距离最后核验 ${ageDays} 天，超过 ${policy.defaultReviewIntervalDays} 天复核周期`);
+    // Markdown 可直接嵌入 HTML；href/src 与 Markdown 链接共用本地目标检查。
+    const htmlText = linkText.replace(/<!--[\s\S]*?-->/g, "");
+    for (const tag of htmlText.matchAll(/<[a-z][a-z0-9:-]*\b(?:[^"'<>]|"[^"]*"|'[^']*')*>/gi)) {
+      for (const attribute of tag[0].matchAll(/\s(?:href|src)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi)) {
+        checkLocalTarget(doc.file, attribute[1] ?? attribute[2] ?? attribute[3], errors, root);
       }
     }
   }
-}
-
-function main() {
-  let policy;
-  try {
-    policy = JSON.parse(fs.readFileSync(policyPath, "utf8"));
-  } catch (error) {
-    reportError(`无法读取 ${relativeToRoot(policyPath)}：${error instanceof Error ? error.message : String(error)}`);
-    finish();
-    return;
+  const completed = new Set();
+  for (const id of adrs.keys()) {
+    const chain = [];
+    let current = id;
+    while (current && adrs.has(current) && !completed.has(current)) {
+      const cycleStart = chain.indexOf(current);
+      if (cycleStart >= 0) {
+        errors.push(`ADR 替代关系成环：${[...chain.slice(cycleStart), current].join(" → ")}`);
+        break;
+      }
+      chain.push(current);
+      current = adrs.get(current).fields.superseded_by;
+    }
+    for (const visited of chain) completed.add(visited);
   }
-  validatePolicy(policy);
-
-  const markdownFiles = walk(docsDir).filter((file) => file.endsWith(".md"));
-  const planFile = path.join(rootDir, "plan.md");
-  if (fs.existsSync(planFile) && fs.statSync(planFile).isFile()) markdownFiles.push(planFile);
-  const metadataByFile = new Map();
-  for (const file of markdownFiles) {
-    const text = fs.readFileSync(file, "utf8");
-    metadataByFile.set(file, parseMetadata(file, text));
-  }
-  checkMetadata(metadataByFile, policy);
-  validateReviewTriggers(metadataByFile);
-  checkCurrentIterationPlan(metadataByFile, policy);
-  checkPlanQueue(metadataByFile, policy);
-  const linkFiles = new Map(metadataByFile);
-  for (const rootDocument of ["README.md", "AGENTS.md", "CONTRIBUTING.md", "CHANGELOG.md"]) {
-    const file = path.join(rootDir, rootDocument);
-    if (!fs.existsSync(file)) continue;
-    linkFiles.set(file, { relative: rootDocument, text: fs.readFileSync(file, "utf8") });
-  }
-  checkLinks(linkFiles);
-  if (doSync) {
-    syncRegistry(metadataByFile);
-  }
-  if (doCatalog) {
-    generateCatalog(metadataByFile, policy);
-  }
-  if (checkTriggers) {
-    checkReviewTriggers(metadataByFile);
-  }
-  checkRegistry(metadataByFile);
-  finish();
-}
-
-function finish() {
-  console.log(`[docs-validate] mode=${strict ? "strict" : "compatibility"}`);
-  console.log(`[docs-validate] markdown=${metrics.markdownFiles} governed=${metrics.governedFiles} canonical=${metrics.canonicalFiles} legacy=${metrics.legacyFiles}`);
-  console.log(`[docs-validate] duplicate_ids=${metrics.duplicateIds} missing_links=${metrics.missingLocalLinks} broken_anchors=${metrics.brokenAnchors}`);
-  console.log(`[docs-validate] registry_date_mismatches=${metrics.registryDateMismatches} registry_missing=${metrics.registryMissingEntries} stale=${metrics.staleFiles} trigger_issues=${metrics.triggerIssues}`);
-  const warningLimit = strict ? warnings.length : 40;
-  for (const warning of warnings.slice(0, warningLimit)) console.warn(`warning: ${warning}`);
-  if (warnings.length > warningLimit) console.warn(`warning: 另有 ${warnings.length - warningLimit} 条迁移 warning 已省略；使用 --strict 查看并阻断全部`);
-  for (const error of errors) console.error(`error: ${error}`);
-  if (errors.length > 0) {
-    console.error(`[docs-validate] failed: ${errors.length} error(s), ${warnings.length} warning(s)`);
-    process.exitCode = 1;
-  } else {
-    console.log(`[docs-validate] passed: ${warnings.length} warning(s)`);
-  }
+  return { files: files.length, errors };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main();
+  const result = checkDocumentation();
+  for (const error of result.errors) console.error(`error: ${error}`);
+  console.log(`[docs-validate] ${result.files} documents, ${result.errors.length} error(s)`);
+  process.exitCode = result.errors.length > 0 ? 1 : 0;
 }

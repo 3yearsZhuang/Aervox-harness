@@ -11,7 +11,7 @@ import {
 } from "@aervox/repositories";
 import { ToolRuntime } from "../src/modules/ecosystem/tools/runtime.js";
 import { createRuntimeToolProvider } from "../src/modules/companion/conversation/tool-providers.js";
-import { buildApp } from "../src/app.js";
+import { buildApp } from "./app-fixture.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
 

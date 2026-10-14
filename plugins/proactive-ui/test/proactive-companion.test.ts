@@ -17,11 +17,12 @@ const recentSession = {
 };
 
 const streamTurn = vi.fn();
-const request = vi.fn(async (method: string, path: string) => {
+const requestImplementation = async (method: string, path: string) => {
   if (path === '/v1/sessions' && method === 'GET') return { items: [recentSession] };
   if (path === '/v1/sessions' && method === 'POST') return { id: 'ses_new', title: '新对话', createdAt: '', updatedAt: '' };
   return { items: [] };
-});
+};
+const request = vi.fn(requestImplementation);
 
 beforeEach(() => {
   localStorage.clear();
@@ -30,7 +31,8 @@ beforeEach(() => {
     callbacks.onDelta('我们接着昨天的进度。');
     callbacks.onDone();
   });
-  request.mockClear();
+  request.mockReset();
+  request.mockImplementation(requestImplementation);
   configureAervoxClient({
     sessionId: 'test_initial',
     transport: {
@@ -67,8 +69,7 @@ it('resume card reflects the most recent session and switches to it', async () =
   expect(resume.text()).toContain('死锁复习');
   expect(resume.text()).toContain('昨天');
   await resume.trigger('click');
-  // 接续动作：对话盒切换为接续语（activeSession 持久化由 useAervoxSessions 既有契约覆盖；
-  // 跨用例 transport 会话单态，localStorage 不作断言依据）
+  expect(localStorage.getItem('aervox_active_session_id')).toBe('ses_recent');
   await vi.waitFor(() => expect(wrapper.find('.pc-dialogue-text').text()).toContain('接着上次的地方继续'), { timeout: 2000 });
 });
 
@@ -93,4 +94,28 @@ it('whisper input replaces the choices while open and sends on Enter', async () 
   expect(String(streamTurn.mock.calls[0]![1])).toBe('讲讲环路等待');
   // 发送后回到卡片主导
   expect(wrapper.find('.pc-whisper-input').exists()).toBe(false);
+});
+
+
+it('allows retry after the transport rejects', async () => {
+  streamTurn.mockRejectedValueOnce(new Error('connection lost'));
+  const wrapper = await mountSurface();
+  const focus = wrapper.findAll('.pc-choice').find(c => c.text().includes('专注'))!;
+  await focus.trigger('click');
+  await flushPromises();
+  expect(focus.attributes('disabled')).toBeUndefined();
+  await focus.trigger('click');
+  await flushPromises();
+  expect(streamTurn).toHaveBeenCalledTimes(2);
+  expect(wrapper.find('.pc-dialogue-text').text()).toContain('我们接着昨天的进度');
+});
+
+it('creates a real session before the first turn when the session list is empty', async () => {
+  request.mockImplementation(async (method, path) => path === '/v1/sessions' && method === 'GET'
+    ? { items: [] } : requestImplementation(method, path));
+  const wrapper = await mountSurface();
+  await wrapper.findAll('.pc-choice')[0]!.trigger('click');
+  await flushPromises();
+  expect(request.mock.calls.some(([method, path]) => method === 'POST' && path === '/v1/sessions')).toBe(true);
+  expect(streamTurn.mock.calls[0]![0]).toBe('ses_new');
 });

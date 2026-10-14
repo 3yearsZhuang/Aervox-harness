@@ -1,14 +1,6 @@
 ---
 id: ADR-004
-type: reference
-scope: decision
-owner: maintainers
-doc_status: review-candidate
 decision_status: accepted
-version: 0.1.1
-updated_at: 2026-09-18
-reviewed_at: 2026-09-18
-review_interval_days: 90
 ---
 
 # ADR-004 业务状态 + Outbox + 幂等队列

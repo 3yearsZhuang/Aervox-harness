@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/ui — 陪伴身份模型（CR-065）
+ * Aervox｜思隅 @aervox/ui — 陪伴身份模型（ADR-027）
  *
  * 命名分层：思隅 = 空间与介质（固定软件名）；companionName = 陪伴角色名（可改）；
  * userAddress = 角色对用户的称呼（可改）。旧设置的 assistantName 语义并入

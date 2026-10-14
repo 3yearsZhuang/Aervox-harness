@@ -389,7 +389,7 @@ export class CaptureStore {
             isNull(proactiveCaptures.deletedAt),
           ),
         );
-      // 每个租户分别写一条不含正文的 retention blocked 告警。
+      // 每条受阻 capture 分别写一条不含正文的 retention blocked 告警。
       for (const row of blockedRows) {
         await this.db.insert(proactiveAuditEvents).values({
           id: `${row.id}_audit_retention_blocked_${Date.now().toString(36)}`,
@@ -432,10 +432,6 @@ export class CaptureStore {
     const rows = await this.db
       .select()
       .from(proactiveCaptures)
-      .where(
-        and(
-        ),
-      )
       .orderBy(desc(proactiveCaptures.observedAt))
       .limit(MAX_LIST_LIMIT);
     return rows.map((row) => toCapture(row, includeRaw, this.cipher));

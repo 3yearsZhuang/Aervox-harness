@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/schema — CAP-020 Skill 能力表（基础注册表 + Neo 生命周期）
  *
- * 规则依据：docs/explanation/reference-design-transfer.md（Skill 能力）与
+ * 规则依据：docs/reference/ARCHITECTURE.md#reference-learning（Skill 能力）与
  * reference/AstrBot astrbot/core/skills/skill_manager.py、neo_skills.py。
  *
  * 设计要点：

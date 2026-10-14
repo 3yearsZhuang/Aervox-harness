@@ -22,12 +22,14 @@ import type {
 } from "./types.js";
 
 export interface SenseVoiceProviderOptions {
+  audioPreprocessor?: { preprocess(wav: Buffer, signal?: AbortSignal): Promise<Float32Array>; close(): Promise<void> };
   modelPath?: string;
   allowedRoots?: string[];
   modelId?: string;
 }
 
 export class SenseVoiceLocalProvider implements ASRProviderPort, DownloadableModelPort {
+  private readonly audioPreprocessor?: SenseVoiceProviderOptions["audioPreprocessor"];
   readonly kind = "sensevoice-local";
   private currentModelPath?: string;
   private currentModelId: string;
@@ -79,6 +81,7 @@ export class SenseVoiceLocalProvider implements ASRProviderPort, DownloadableMod
     readonly id: string = "sensevoice-local",
     options: SenseVoiceProviderOptions = {},
   ) {
+    this.audioPreprocessor = options.audioPreprocessor;
     this.currentModelPath = options.modelPath;
     this.currentModelId = options.modelId ?? "sensevoice-small";
     this.allowedRoots = options.allowedRoots ?? [];
@@ -422,14 +425,18 @@ export class SenseVoiceLocalProvider implements ASRProviderPort, DownloadableMod
       );
     }
 
-    let wav: DecodedWav;
+    let samples: Float32Array;
     try {
-      wav = decodeWavToPcm(request.audioBuffer);
+      if (this.audioPreprocessor) samples = await this.audioPreprocessor.preprocess(request.audioBuffer, request.signal);
+      else {
+        const wav = decodeWavToPcm(request.audioBuffer);
+        samples = resampleLinearTo16k(wav.samples, wav.sampleRate);
+      }
     } catch {
+      if (this.audioPreprocessor) throw new Error("原生音频预处理失败，请检查音频格式与本地组件状态");
       // 非 WAV / 无法解析的音频：不产出文本，避免向输入框插入噪音
       return { text: "", durationMs, isFinal: true };
     }
-    const samples = resampleLinearTo16k(wav.samples, wav.sampleRate);
     if (samples.length === 0) {
       return { text: "", durationMs, isFinal: true };
     }
@@ -463,6 +470,7 @@ export class SenseVoiceLocalProvider implements ASRProviderPort, DownloadableMod
     }
     return { text, durationMs, isFinal: true };
   }
+  async close(): Promise<void> { await this.audioPreprocessor?.close(); }
 }
 
 export interface WhisperCompatibleProviderOptions {

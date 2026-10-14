@@ -1,15 +1,5 @@
 ---
 id: AVX-QA-001
-type: reference
-scope: baseline
-owner: maintainers
-doc_status: review-candidate
-decision_status: not-applicable
-delivery_status: not-applicable
-version: 0.5.0
-updated_at: 2026-10-04
-reviewed_at: 2026-10-04
-review_interval_days: 90
 ---
 
 # Aervox｜思隅 测试策略

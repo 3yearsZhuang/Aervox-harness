@@ -17,6 +17,7 @@ import {
   collectRequiredCodePaths,
   findUncoveredPaths,
   globToRegExp,
+  isDocumentationOnlyChange,
   loadTurboScope,
   matchesGlob,
   normalizeDeclaredInput,
@@ -92,6 +93,19 @@ test("仅插件目录变更时命中声明它的包（而非选中 0 个任务�
   );
 });
 
+test("桌面主进程桥接变更会重新验证 API 会话落库验收", () => {
+  const scope = loadTurboScope();
+  for (const file of [
+    "apps/desktop/src/main/turn-bridge.ts",
+    "apps/desktop/src/main/runtime-config.ts",
+  ]) {
+    const changeScope = resolveChangeScope([file], scope);
+    assert.equal(changeScope.mode, "scoped", file);
+    assert.ok(changeScope.packages.includes("@aervox/api"), `${file} must invalidate API acceptance`);
+    assert.ok(buildTurboFilterArgs("origin/main", changeScope).includes("--filter=@aervox/api..."));
+  }
+});
+
 test("共享输入与根级依赖变更时收敛为全量，不按包收窄", () => {
   for (const changed of [["vitest.shared.ts"], ["tsconfig.base.json"], ["tsconfig.base.node.json"]]) {
     const changeScope = resolveChangeScope(changed, syntheticScope());
@@ -104,6 +118,21 @@ test("仅包内变更时交给差异过滤器，不额外扩容", () => {
   const changeScope = resolveChangeScope(["apps/api/src/app.ts", "docs/README.md"], syntheticScope());
   assert.equal(changeScope.mode, "diff-only");
   assert.deepEqual(buildTurboFilterArgs("origin/main", changeScope), ["--filter=...[origin/main]"]);
+});
+
+test("纯项目文档跳过代码检查，工具配置、锁文件和产品 Markdown 仍验证", () => {
+  const scope = syntheticScope();
+  assert.equal(isDocumentationOnlyChange(["docs/guide.md", "plan.md", "README.md"], scope), true);
+  assert.equal(isDocumentationOnlyChange([".vale.ini", ".vale/Styles/Terms.yml"], scope), true);
+  for (const file of [
+    "mise.toml", "package.json", "pnpm-lock.yaml", "turbo.json", "vitest.shared.ts",
+    "native/Cargo.lock", "native/crates/runtime/src/lib.rs", "plugins/example/SKILL.md",
+    "apps/api/src/app.ts", "scripts/check-affected.mjs",
+  ]) {
+    assert.equal(isDocumentationOnlyChange(["docs/guide.md", file], scope), false, file);
+  }
+  scope.packageInputs.push({ pkg: "@aervox/api", task: "test", glob: "docs/fixtures/**" });
+  assert.equal(isDocumentationOnlyChange(["docs/fixtures/input.md"], scope), false, "显式 Turbo 输入优先");
 });
 
 test("无基准分支时退化为全量", () => {
@@ -146,6 +175,18 @@ test("工作流的 pull_request 与 push 触发路径保持一致", () => {
   }
 });
 
+test("项目文档只触发 Docs，工具链与原生输入仍触发代码工作流", () => {
+  for (const workflow of [CI_WORKFLOW, path.join(ROOT_DIR, ".github/workflows/native-runtime.yml")]) {
+    const paths = readWorkflowPaths(workflow).pullRequest;
+    for (const file of ["docs/guide.md", "README.md", "plan.md"]) {
+      assert.equal(paths.some((pattern) => matchesGlob(file, pattern)), false, file);
+    }
+    for (const file of ["mise.toml", "pnpm-lock.yaml", "native/Cargo.lock"]) {
+      assert.equal(paths.some((pattern) => matchesGlob(file, pattern)), true, file);
+    }
+  }
+});
+
 test("Docs 触发路径覆盖文档门禁声明的 Markdown 范围与治理输入", () => {
   const docs = readWorkflowPaths(DOCS_WORKFLOW);
 
@@ -165,9 +206,6 @@ test("Docs 触发路径覆盖文档门禁声明的 Markdown 范围与治理输�
     ".vale/**",
     "scripts/docs-governance.mjs",
     "scripts/docs-lint-affected.mjs",
-    "scripts/plan-queue.mjs",
-    "scripts/plan-queue.test.mjs",
-    "docs/_meta/plan-queue.json",
     "mise.toml",
   ];
 
@@ -178,4 +216,36 @@ test("Docs 触发路径覆盖文档门禁声明的 Markdown 范围与治理输�
 test("无法解析路径声明时按失败处理（fail-closed）", () => {
   assert.deepEqual(findUncoveredPaths(null, ["plugins/**"]), ["plugins/**"]);
   assert.deepEqual(findUncoveredPaths([], ["plugins/**"]), ["plugins/**"]);
+});
+
+test("Rust pilot and executable contracts remain in local and CI gates", () => {
+  const config = fs.readFileSync(MISE_CONFIG, "utf8");
+  for (const gate of ["ci-code", "ci-code-full"]) {
+    const command = config.split(/\r?\n/).find((line) => line.startsWith(`${gate} =`));
+    assert.ok(command?.includes("mise tasks run native-search-check"), `${gate} must check the Rust pilot`);
+  }
+  const incremental = fs.readFileSync(path.join(ROOT_DIR, "scripts/check-affected.mjs"), "utf8");
+  assert.match(config, /ci-fast = ".*node scripts\/check-affected\.mjs/);
+  assert.match(incremental, /"native-search-check"/, "增量代码路径仍保留 Rust pilot 校验");
+  assert.match(config, /rust = "\d+\.\d+\.\d+"/);
+  assert.match(config, /cargo test --locked --manifest-path native\/tools\/vector-pilot\/Cargo.toml/);
+  assert.match(config, /node --test scripts\/native-search.test.mjs/);
+});
+
+
+test("CI covers Playwright test directories, configs and executable root launchers", () => {
+  const workflow = readWorkflowPaths(CI_WORKFLOW);
+  const required = ["aervox", "run-cli", "siyu-chat.command"];
+  for (const config of ["playwright.config.ts", "playwright.ui.config.ts"]) {
+    const source = fs.readFileSync(path.join(ROOT_DIR, config), "utf8");
+    const match = source.match(/testDir:\s*["']\.\/([^"']+)["']/);
+    assert.ok(match, `${config} must declare a testDir`);
+    required.push(config, `${match[1]}/**`);
+  }
+  assert.deepEqual(findUncoveredPaths(workflow.pullRequest, required), []);
+  assert.deepEqual(findUncoveredPaths(workflow.push, required), []);
+  const source = fs.readFileSync(CI_WORKFLOW, "utf8");
+  assert.match(source, /playwright install --with-deps chromium/);
+  assert.match(source, /pnpm test:e2e:ui/);
+  assert.match(source, /pnpm check:dependency-audit/);
 });

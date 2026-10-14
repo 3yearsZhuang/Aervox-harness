@@ -15,7 +15,7 @@ function memoryStorage(initial: Record<string, string> = {}) {
   };
 }
 
-describe('companion identity（CR-065 命名分层）', () => {
+describe('companion identity（ADR-027 命名分层）', () => {
   it('defaults to 小隅 / 你 with no stored settings', () => {
     expect(readCompanionIdentity(memoryStorage())).toEqual({ companionName: '小隅', userAddress: '你' });
     expect(COMPANION_DEFAULT_NAME).toBe('小隅');

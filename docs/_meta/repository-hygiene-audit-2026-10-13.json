@@ -1,0 +1,2146 @@
+{
+  "auditDate": "2026-10-13",
+  "timezone": "Asia/Shanghai",
+  "baseline": "511f9d1ed8da263855dd4337cd1beb4680dc6bdd",
+  "sourceBranch": "feat/plugin-lifecycle-reliability",
+  "originMain": "151c36bf4a47859ea8f3dc5e5aefd85ac27ca9b8",
+  "scope": {
+    "trackedEntries": 1628,
+    "trackedFiles": 1620,
+    "submodules": [
+      "reference/AstrBot",
+      "reference/OpenMAIC",
+      "reference/Petra",
+      "reference/archify",
+      "reference/baishou-next",
+      "reference/deepseek-harness",
+      "reference/dsh-synapse",
+      "reference/pi"
+    ],
+    "workspacePackages": 27,
+    "codeExtensions": [
+      "ts",
+      "tsx",
+      "vue",
+      "rs",
+      "mjs",
+      "cjs",
+      "js",
+      "sh"
+    ],
+    "codeFiles": 1064,
+    "codeLines": 175939,
+    "groups": {
+      "apps": {
+        "files": 309,
+        "lines": 55408,
+        "tests": 105,
+        "testLines": 22262
+      },
+      "e2e-ui": {
+        "files": 5,
+        "lines": 356,
+        "tests": 5,
+        "testLines": 356
+      },
+      "e2e": {
+        "files": 8,
+        "lines": 1305,
+        "tests": 8,
+        "testLines": 1305
+      },
+      "native": {
+        "files": 16,
+        "lines": 1811,
+        "tests": 0,
+        "testLines": 0
+      },
+      "packages": {
+        "files": 597,
+        "lines": 92818,
+        "tests": 178,
+        "testLines": 27993
+      },
+      "plugins": {
+        "files": 79,
+        "lines": 16556,
+        "tests": 18,
+        "testLines": 2481
+      },
+      "scripts": {
+        "files": 50,
+        "lines": 7685,
+        "tests": 15,
+        "testLines": 2009
+      }
+    },
+    "generated": [
+      {
+        "file": "packages/native-runtime/src/generated/protocol.ts",
+        "lines": 641,
+        "bytes": 15736,
+        "test": false,
+        "generated": true
+      }
+    ],
+    "exclusions": [
+      "reference submodule implementations",
+      "node_modules and generated build directories",
+      "declaration files",
+      "minified vendor JavaScript"
+    ],
+    "limitations": [
+      "No exhaustive per-line proof",
+      "No Electron/mobile/Windows/Linux device validation",
+      "No production migration or live-model test",
+      "No historical secret scan",
+      "No RustSec advisory scan"
+    ]
+  },
+  "hotspots": [
+    {
+      "file": "scripts/worker-write-contention-drill.mjs",
+      "lines": 1852,
+      "bytes": 75478,
+      "test": false,
+      "generated": false
+    },
+    {
+      "file": "packages/repositories/src/sync/p2p-transport.ts",
+      "lines": 1748,
+      "bytes": 64447,
+      "test": false,
+      "generated": false
+    },
+    {
+      "file": "packages/repositories/src/sync/p2p-changeset.ts",
+      "lines": 1547,
+      "bytes": 63922,
+      "test": false,
+      "generated": false
+    },
+    {
+      "file": "packages/contracts/src/openapi.ts",
+      "lines": 1458,
+      "bytes": 76273,
+      "test": false,
+      "generated": false
+    },
+    {
+      "file": "apps/desktop/src/main/proactive-source-adapters.ts",
+      "lines": 1383,
+      "bytes": 50139,
+      "test": false,
+      "generated": false
+    },
+    {
+      "file": "packages/repositories/src/repositories/sqlite/learning-repository.ts",
+      "lines": 1317,
+      "bytes": 41081,
+      "test": false,
+      "generated": false
+    },
+    {
+      "file": "apps/desktop/src/main/index.ts",
+      "lines": 1313,
+      "bytes": 61798,
+      "test": false,
+      "generated": false
+    },
+    {
+      "file": "packages/repositories/src/sync/p2p-pairing.ts",
+      "lines": 1167,
+      "bytes": 42870,
+      "test": false,
+      "generated": false
+    },
+    {
+      "file": "packages/contracts/src/schemas.ts",
+      "lines": 1063,
+      "bytes": 38857,
+      "test": false,
+      "generated": false
+    },
+    {
+      "file": "packages/repositories/src/repositories/sqlite/proactive-intelligence-repository.ts",
+      "lines": 1030,
+      "bytes": 55064,
+      "test": false,
+      "generated": false
+    },
+    {
+      "file": "plugins/panels-ui/src/llm/ModelRuntimePanel.vue",
+      "lines": 1000,
+      "bytes": 29139,
+      "test": false,
+      "generated": false
+    },
+    {
+      "file": "plugins/panels-ui/src/plugin/PluginSettingsDialog.vue",
+      "lines": 986,
+      "bytes": 30532,
+      "test": false,
+      "generated": false
+    },
+    {
+      "file": "apps/worker/src/proactive/intelligence-worker.ts",
+      "lines": 967,
+      "bytes": 46639,
+      "test": false,
+      "generated": false
+    },
+    {
+      "file": "apps/api/src/modules/ecosystem/plugins/package-bundle.ts",
+      "lines": 890,
+      "bytes": 28242,
+      "test": false,
+      "generated": false
+    },
+    {
+      "file": "apps/api/src/modules/platform/voice/service.ts",
+      "lines": 862,
+      "bytes": 30463,
+      "test": false,
+      "generated": false
+    },
+    {
+      "file": "packages/repositories/src/sync/p2p-discovery.ts",
+      "lines": 819,
+      "bytes": 32075,
+      "test": false,
+      "generated": false
+    },
+    {
+      "file": "plugins/panels-ui/src/llm/LLMConfigPanel.vue",
+      "lines": 794,
+      "bytes": 23077,
+      "test": false,
+      "generated": false
+    },
+    {
+      "file": "apps/api/src/modules/ecosystem/model-runtime/service.ts",
+      "lines": 756,
+      "bytes": 29347,
+      "test": false,
+      "generated": false
+    },
+    {
+      "file": "apps/api/src/modules/companion/conversation/routes.ts",
+      "lines": 746,
+      "bytes": 32463,
+      "test": false,
+      "generated": false
+    },
+    {
+      "file": "apps/api/src/modules/companion/conversation/agent-executor.ts",
+      "lines": 727,
+      "bytes": 31607,
+      "test": false,
+      "generated": false
+    },
+    {
+      "file": "plugins/panels-ui/src/plugin/PluginInstallDialog.vue",
+      "lines": 725,
+      "bytes": 20719,
+      "test": false,
+      "generated": false
+    },
+    {
+      "file": "apps/api/src/modules/platform/voice/asr-providers.ts",
+      "lines": 692,
+      "bytes": 24447,
+      "test": false,
+      "generated": false
+    },
+    {
+      "file": "apps/api/src/modules/learning/learning/routes.ts",
+      "lines": 688,
+      "bytes": 29467,
+      "test": false,
+      "generated": false
+    },
+    {
+      "file": "apps/api/src/modules/proactive/proactive/routes.ts",
+      "lines": 685,
+      "bytes": 31178,
+      "test": false,
+      "generated": false
+    },
+    {
+      "file": "packages/core/src/executor.ts",
+      "lines": 670,
+      "bytes": 32423,
+      "test": false,
+      "generated": false
+    }
+  ],
+  "workspaceManifests": [
+    {
+      "file": "apps/api/package.json",
+      "name": "@aervox/api",
+      "scripts": {
+        "dev": "tsx watch src/index.ts",
+        "build": "tsc -p tsconfig.json",
+        "start": "node dist/index.js",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "test": "vitest run"
+      },
+      "depCount": 18
+    },
+    {
+      "file": "apps/cli/package.json",
+      "name": "@aervox/cli",
+      "scripts": {
+        "build": "node build.mjs",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "test": "vitest run"
+      },
+      "depCount": 0
+    },
+    {
+      "file": "apps/desktop/package.json",
+      "name": "@aervox/desktop",
+      "scripts": {
+        "dev": "node scripts/generate-icons.mjs && electron-vite dev",
+        "build": "vue-tsc --noEmit && node scripts/generate-icons.mjs && electron-vite build",
+        "start": "electron-vite preview",
+        "dist": "pnpm run build && pnpm run dist:pack",
+        "dist:pack": "electron-builder --config electron-builder.yml",
+        "dist:dir": "pnpm run build && electron-builder --dir --config electron-builder.yml",
+        "test": "vitest run",
+        "typecheck": "vue-tsc --noEmit"
+      },
+      "depCount": 16
+    },
+    {
+      "file": "apps/mobile/package.json",
+      "name": "@aervox/mobile",
+      "scripts": {
+        "build": "VITE_AERVOX_PLATFORM=mobile pnpm --filter @aervox/web build && cap sync web",
+        "dev": "VITE_AERVOX_PLATFORM=mobile pnpm --filter @aervox/web dev",
+        "preview": "cap serve web",
+        "cap:sync": "cap sync",
+        "cap:sync:web": "cap sync web",
+        "cap:doctor": "cap doctor"
+      },
+      "depCount": 2
+    },
+    {
+      "file": "apps/web/package.json",
+      "name": "@aervox/web",
+      "scripts": {
+        "dev": "vite",
+        "build": "vue-tsc --noEmit && vite build",
+        "typecheck": "vue-tsc --noEmit",
+        "start": "vite preview"
+      },
+      "depCount": 14
+    },
+    {
+      "file": "apps/worker/package.json",
+      "name": "@aervox/worker",
+      "scripts": {
+        "dev": "tsx watch src/index.ts",
+        "build": "tsc -p tsconfig.json",
+        "start": "node dist/index.js",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "test": "vitest run"
+      },
+      "depCount": 9
+    },
+    {
+      "file": "packages/api-client/package.json",
+      "name": "@aervox/api-client",
+      "scripts": {
+        "build": "tsc -p tsconfig.json && tsc -p tsconfig.transport.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "test": "vitest run"
+      },
+      "depCount": 1
+    },
+    {
+      "file": "packages/config/package.json",
+      "name": "@aervox/config",
+      "scripts": {
+        "build": "rm -rf dist && tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "test": "vitest run"
+      },
+      "depCount": 0
+    },
+    {
+      "file": "packages/contracts/package.json",
+      "name": "@aervox/contracts",
+      "scripts": {
+        "build": "rm -rf dist && tsc -p tsconfig.json && pnpm generate:openapi",
+        "test": "vitest run",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "generate:openapi": "node scripts/generate-openapi.ts"
+      },
+      "depCount": 3
+    },
+    {
+      "file": "packages/core/package.json",
+      "name": "@aervox/core",
+      "scripts": {
+        "build": "rm -rf dist && tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "test": "vitest run"
+      },
+      "depCount": 0
+    },
+    {
+      "file": "packages/diary/package.json",
+      "name": "@aervox/diary",
+      "scripts": {
+        "build": "rm -rf dist && tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "test": "vitest run"
+      },
+      "depCount": 2
+    },
+    {
+      "file": "packages/host-agent/package.json",
+      "name": "@aervox/host-agent",
+      "scripts": {
+        "build": "rm -rf dist && tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "test": "vitest run"
+      },
+      "depCount": 5
+    },
+    {
+      "file": "packages/host-plugin-api/package.json",
+      "name": "@aervox/host-plugin-api",
+      "scripts": {
+        "build": "rm -rf dist && tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit"
+      },
+      "depCount": 1
+    },
+    {
+      "file": "packages/live2d/package.json",
+      "name": "@aervox/live2d",
+      "scripts": {
+        "build": "node scripts/copy-assets.mjs"
+      },
+      "depCount": 0
+    },
+    {
+      "file": "packages/native-runtime/package.json",
+      "name": "@aervox/native-runtime",
+      "scripts": {
+        "build": "node build.mjs",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "test": "vitest run",
+        "native:build": "node ../../scripts/build-native-runtime.mjs"
+      },
+      "depCount": 0
+    },
+    {
+      "file": "packages/observability/package.json",
+      "name": "@aervox/observability",
+      "scripts": {
+        "build": "rm -rf dist && tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "test": "vitest run"
+      },
+      "depCount": 0
+    },
+    {
+      "file": "packages/practice-review/package.json",
+      "name": "@aervox/practice-review",
+      "scripts": {
+        "build": "rm -rf dist && tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "test": "vitest run"
+      },
+      "depCount": 0
+    },
+    {
+      "file": "packages/public/package.json",
+      "name": "@aervox/public",
+      "scripts": {
+        "build": "node scripts/copy-assets.mjs",
+        "test": "node --test scripts/copy-assets.test.mjs"
+      },
+      "depCount": 0
+    },
+    {
+      "file": "packages/repositories/package.json",
+      "name": "@aervox/repositories",
+      "scripts": {
+        "build": "rm -rf dist && tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "test": "vitest run"
+      },
+      "depCount": 5
+    },
+    {
+      "file": "packages/schema/package.json",
+      "name": "@aervox/schema",
+      "scripts": {
+        "build": "rm -rf dist && tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "db:generate": "drizzle-kit generate",
+        "db:migrate": "drizzle-kit migrate"
+      },
+      "depCount": 1
+    },
+    {
+      "file": "packages/ui-host/package.json",
+      "name": "@aervox/ui-host",
+      "scripts": {
+        "build": "vue-tsc --noEmit",
+        "typecheck": "vue-tsc --noEmit",
+        "test": "vitest run"
+      },
+      "depCount": 0
+    },
+    {
+      "file": "packages/ui/package.json",
+      "name": "@aervox/ui",
+      "scripts": {
+        "typecheck": "vue-tsc --noEmit",
+        "build": "vue-tsc --noEmit",
+        "test": "vitest run"
+      },
+      "depCount": 0
+    },
+    {
+      "file": "plugins/companion-ui/package.json",
+      "name": "@aervox/plugin-companion-ui",
+      "scripts": {
+        "build": "vue-tsc --noEmit",
+        "typecheck": "vue-tsc --noEmit",
+        "test": "vitest run"
+      },
+      "depCount": 4
+    },
+    {
+      "file": "plugins/focus-mode/package.json",
+      "name": "@aervox/plugin-focus-mode",
+      "scripts": {
+        "build": "rm -rf dist && tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "test": "vitest run"
+      },
+      "depCount": 6
+    },
+    {
+      "file": "plugins/panels-ui/package.json",
+      "name": "@aervox/plugin-panels-ui",
+      "scripts": {
+        "build": "vue-tsc --noEmit",
+        "typecheck": "vue-tsc --noEmit",
+        "test": "vitest run"
+      },
+      "depCount": 3
+    },
+    {
+      "file": "plugins/proactive-ui/package.json",
+      "name": "@aervox/plugin-proactive-ui",
+      "scripts": {
+        "build": "vue-tsc --noEmit",
+        "typecheck": "vue-tsc --noEmit",
+        "test": "vitest run"
+      },
+      "depCount": 4
+    },
+    {
+      "file": "plugins/workbench-ui/package.json",
+      "name": "@aervox/plugin-workbench-ui",
+      "scripts": {
+        "build": "vue-tsc --noEmit",
+        "typecheck": "vue-tsc --noEmit",
+        "test": "vitest run"
+      },
+      "depCount": 4
+    }
+  ],
+  "cloneScan": {
+    "files": 716,
+    "parseErrors": [],
+    "functions": 2102,
+    "minimumLines": 6,
+    "minimumTokens": 60,
+    "identifierNormalized": true,
+    "groups": [
+      [
+        {
+          "file": "packages/repositories/src/repositories/sqlite/llm-config-repository.ts",
+          "line": 170,
+          "end": 203,
+          "name": "deletePreset",
+          "tokens": 191
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/voice-config-repository.ts",
+          "line": 164,
+          "end": 197,
+          "name": "deletePreset",
+          "tokens": 191
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/voice-input-config-repository.ts",
+          "line": 167,
+          "end": 200,
+          "name": "deletePreset",
+          "tokens": 191
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/voice-remote-config-repository.ts",
+          "line": 171,
+          "end": 204,
+          "name": "deletePreset",
+          "tokens": 191
+        }
+      ],
+      [
+        {
+          "file": "packages/repositories/src/repositories/sqlite/llm-config-repository.ts",
+          "line": 171,
+          "end": 202,
+          "name": "<anonymous>",
+          "tokens": 175
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/voice-config-repository.ts",
+          "line": 165,
+          "end": 196,
+          "name": "<anonymous>",
+          "tokens": 175
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/voice-input-config-repository.ts",
+          "line": 168,
+          "end": 199,
+          "name": "<anonymous>",
+          "tokens": 175
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/voice-remote-config-repository.ts",
+          "line": 172,
+          "end": 203,
+          "name": "<anonymous>",
+          "tokens": 175
+        }
+      ],
+      [
+        {
+          "file": "packages/repositories/src/repositories/sqlite/llm-config-repository.ts",
+          "line": 139,
+          "end": 168,
+          "name": "activatePreset",
+          "tokens": 157
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/voice-config-repository.ts",
+          "line": 133,
+          "end": 162,
+          "name": "activatePreset",
+          "tokens": 157
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/voice-input-config-repository.ts",
+          "line": 136,
+          "end": 165,
+          "name": "activatePreset",
+          "tokens": 157
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/voice-remote-config-repository.ts",
+          "line": 140,
+          "end": 169,
+          "name": "activatePreset",
+          "tokens": 157
+        }
+      ],
+      [
+        {
+          "file": "scripts/check-banned-identifiers.mjs",
+          "line": 44,
+          "end": 67,
+          "name": "collectSourceFiles",
+          "tokens": 156
+        },
+        {
+          "file": "scripts/import-boundary.mjs",
+          "line": 250,
+          "end": 273,
+          "name": "collectSourceFiles",
+          "tokens": 156
+        }
+      ],
+      [
+        {
+          "file": "packages/repositories/src/repositories/sqlite/llm-config-repository.ts",
+          "line": 143,
+          "end": 167,
+          "name": "<anonymous>",
+          "tokens": 141
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/voice-config-repository.ts",
+          "line": 137,
+          "end": 161,
+          "name": "<anonymous>",
+          "tokens": 141
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/voice-input-config-repository.ts",
+          "line": 140,
+          "end": 164,
+          "name": "<anonymous>",
+          "tokens": 141
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/voice-remote-config-repository.ts",
+          "line": 144,
+          "end": 168,
+          "name": "<anonymous>",
+          "tokens": 141
+        }
+      ],
+      [
+        {
+          "file": "packages/repositories/src/repositories/sqlite/proactive/capture-store.ts",
+          "line": 277,
+          "end": 292,
+          "name": "listObservations",
+          "tokens": 117
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/proactive/claim-action-store.ts",
+          "line": 165,
+          "end": 180,
+          "name": "listClaims",
+          "tokens": 117
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/proactive/claim-action-store.ts",
+          "line": 277,
+          "end": 292,
+          "name": "listActions",
+          "tokens": 117
+        }
+      ],
+      [
+        {
+          "file": "scripts/check-banned-identifiers.mjs",
+          "line": 46,
+          "end": 62,
+          "name": "walk",
+          "tokens": 110
+        },
+        {
+          "file": "scripts/check-host-domain-purity.mjs",
+          "line": 143,
+          "end": 159,
+          "name": "walk",
+          "tokens": 110
+        },
+        {
+          "file": "scripts/import-boundary.mjs",
+          "line": 252,
+          "end": 268,
+          "name": "walk",
+          "tokens": 110
+        }
+      ],
+      [
+        {
+          "file": "packages/repositories/src/repositories/sqlite/skill-registry-repository.ts",
+          "line": 122,
+          "end": 132,
+          "name": "setSkillsActiveByPlugin",
+          "tokens": 104
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/tool-registry-repository.ts",
+          "line": 120,
+          "end": 130,
+          "name": "setToolsEnabledByPlugin",
+          "tokens": 104
+        }
+      ],
+      [
+        {
+          "file": "packages/repositories/src/repositories/sqlite/conversation/session-store.ts",
+          "line": 196,
+          "end": 210,
+          "name": "mergeBranch",
+          "tokens": 92
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/learning-repository.ts",
+          "line": 876,
+          "end": 895,
+          "name": "mergeKnowledgeRelations",
+          "tokens": 92
+        }
+      ],
+      [
+        {
+          "file": "packages/repositories/src/repositories/sqlite/conversation/attempt-store.ts",
+          "line": 33,
+          "end": 45,
+          "name": "listTurnAttempts",
+          "tokens": 85
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/provenance-repository.ts",
+          "line": 233,
+          "end": 245,
+          "name": "listMemoryEvents",
+          "tokens": 85
+        }
+      ],
+      [
+        {
+          "file": "packages/repositories/src/repositories/sqlite/conversation/session-store.ts",
+          "line": 228,
+          "end": 241,
+          "name": "deleteBranch",
+          "tokens": 83
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/learning-repository.ts",
+          "line": 917,
+          "end": 933,
+          "name": "deleteKnowledgeRelation",
+          "tokens": 83
+        }
+      ],
+      [
+        {
+          "file": "packages/repositories/src/repositories/sqlite/llm-config-repository.ts",
+          "line": 39,
+          "end": 52,
+          "name": "getConfig",
+          "tokens": 83
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/voice-config-repository.ts",
+          "line": 36,
+          "end": 49,
+          "name": "getConfig",
+          "tokens": 83
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/voice-input-config-repository.ts",
+          "line": 39,
+          "end": 52,
+          "name": "getConfig",
+          "tokens": 83
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/voice-remote-config-repository.ts",
+          "line": 43,
+          "end": 56,
+          "name": "getConfig",
+          "tokens": 83
+        }
+      ],
+      [
+        {
+          "file": "packages/repositories/src/repositories/sqlite/skill-registry-repository.ts",
+          "line": 134,
+          "end": 146,
+          "name": "unregisterSkill",
+          "tokens": 82
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/tool-registry-repository.ts",
+          "line": 132,
+          "end": 144,
+          "name": "unregisterTool",
+          "tokens": 82
+        }
+      ],
+      [
+        {
+          "file": "packages/repositories/src/repositories/sqlite/content-repository.ts",
+          "line": 209,
+          "end": 221,
+          "name": "invalidateParseResults",
+          "tokens": 80
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/study-material-repository.ts",
+          "line": 298,
+          "end": 310,
+          "name": "invalidateSources",
+          "tokens": 80
+        }
+      ],
+      [
+        {
+          "file": "apps/desktop/electron.vite.config.ts",
+          "line": 34,
+          "end": 52,
+          "name": "manualChunks",
+          "tokens": 78
+        },
+        {
+          "file": "apps/web/vite.config.ts",
+          "line": 18,
+          "end": 36,
+          "name": "manualChunks",
+          "tokens": 78
+        }
+      ],
+      [
+        {
+          "file": "packages/repositories/src/repositories/sqlite/extension-repository.ts",
+          "line": 183,
+          "end": 195,
+          "name": "revokePluginGrant",
+          "tokens": 72
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/platform-repository.ts",
+          "line": 225,
+          "end": 241,
+          "name": "attachContextManifest",
+          "tokens": 72
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/provenance-repository.ts",
+          "line": 85,
+          "end": 101,
+          "name": "setCurrentRevision",
+          "tokens": 72
+        }
+      ],
+      [
+        {
+          "file": "packages/repositories/src/repositories/sqlite/extension-repository.ts",
+          "line": 147,
+          "end": 155,
+          "name": "setPluginEnabled",
+          "tokens": 71
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/skill-registry-repository.ts",
+          "line": 112,
+          "end": 120,
+          "name": "setActive",
+          "tokens": 71
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/tool-registry-repository.ts",
+          "line": 110,
+          "end": 118,
+          "name": "setEnabled",
+          "tokens": 71
+        }
+      ],
+      [
+        {
+          "file": "packages/repositories/src/repositories/sqlite/llm-config-repository.ts",
+          "line": 122,
+          "end": 137,
+          "name": "updatePreset",
+          "tokens": 71
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/voice-config-repository.ts",
+          "line": 116,
+          "end": 131,
+          "name": "updatePreset",
+          "tokens": 71
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/voice-input-config-repository.ts",
+          "line": 119,
+          "end": 134,
+          "name": "updatePreset",
+          "tokens": 71
+        },
+        {
+          "file": "packages/repositories/src/repositories/sqlite/voice-remote-config-repository.ts",
+          "line": 123,
+          "end": 138,
+          "name": "updatePreset",
+          "tokens": 71
+        }
+      ],
+      [
+        {
+          "file": "packages/repositories/src/sync/p2p-transport.ts",
+          "line": 1513,
+          "end": 1527,
+          "name": "<anonymous>",
+          "tokens": 69
+        },
+        {
+          "file": "packages/repositories/src/worker-ipc.ts",
+          "line": 320,
+          "end": 336,
+          "name": "<anonymous>",
+          "tokens": 69
+        }
+      ]
+    ],
+    "warning": "Groups include parent/nested overlap; not a duplication percentage or independent finding count"
+  },
+  "importScan": {
+    "files": 1040,
+    "parseErrors": 0,
+    "confirmedDeadFiles": 0,
+    "warning": "No confirmed whole-file deletion candidate is not proof that none exist"
+  },
+  "deadCode": {
+    "unreferencedExportCandidates": 578,
+    "singleOccurrenceRuntimeExportCandidates": 24,
+    "confirmedFunctions": [
+      [
+        "apps/api/src/modules/ecosystem/plugins/config-schema.ts",
+        214,
+        "resolveI18n"
+      ],
+      [
+        "apps/api/src/modules/platform/voice/gpt-sovits.ts",
+        288,
+        "voiceReferenceFingerprint"
+      ],
+      [
+        "apps/api/src/modules/proactive/proactive/routes.ts",
+        82,
+        "validDistillationStatus"
+      ],
+      [
+        "apps/desktop/src/main/proactive-source-adapters.ts",
+        1376,
+        "createProactiveCapabilityProbe"
+      ],
+      [
+        "plugins/panels-ui/src/plugin/PluginConfigFieldInput.vue",
+        54,
+        "onInputChange"
+      ],
+      [
+        "plugins/panels-ui/src/plugin/PluginConfigFieldInput.vue",
+        57,
+        "onTextChange"
+      ],
+      [
+        "plugins/panels-ui/src/plugin/PluginConfigFieldInput.vue",
+        60,
+        "onNumberChange"
+      ]
+    ],
+    "removalRequires": "Check public API/barrel commitments and exclusive imports before removal"
+  },
+  "residuals": {
+    "emptyAndCalls": 32,
+    "emptyAndFiles": 14,
+    "emptyAndLocations": [
+      {
+        "file": "packages/repositories/src/repositories/sqlite/learning-repository.ts",
+        "line": 128
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/learning-repository.ts",
+        "line": 1147
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/llm-config-repository.ts",
+        "line": 44
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/llm-config-repository.ts",
+        "line": 92
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/llm-config-repository.ts",
+        "line": 158
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/llm-config-repository.ts",
+        "line": 189
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/memory-repository.ts",
+        "line": 301
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/persona-repository.ts",
+        "line": 275
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/platform-repository.ts",
+        "line": 132
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/platform-repository.ts",
+        "line": 340
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/proactive-intelligence-repository.ts",
+        "line": 343
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/proactive-intelligence-repository.ts",
+        "line": 489
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/proactive-intelligence-repository.ts",
+        "line": 665
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/proactive-intelligence-repository.ts",
+        "line": 710
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/proactive-intelligence-repository.ts",
+        "line": 738
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/proactive/activation-lease-store.ts",
+        "line": 238
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/proactive/audit-export-store.ts",
+        "line": 64
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/proactive/capture-store.ts",
+        "line": 436
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/proactive/profile-lifecycle-store.ts",
+        "line": 308
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/safety-repository.ts",
+        "line": 38
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/voice-config-repository.ts",
+        "line": 41
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/voice-config-repository.ts",
+        "line": 86
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/voice-config-repository.ts",
+        "line": 152
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/voice-config-repository.ts",
+        "line": 183
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/voice-input-config-repository.ts",
+        "line": 44
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/voice-input-config-repository.ts",
+        "line": 89
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/voice-input-config-repository.ts",
+        "line": 155
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/voice-input-config-repository.ts",
+        "line": 186
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/voice-remote-config-repository.ts",
+        "line": 48
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/voice-remote-config-repository.ts",
+        "line": 93
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/voice-remote-config-repository.ts",
+        "line": 159
+      },
+      {
+        "file": "packages/repositories/src/repositories/sqlite/voice-remote-config-repository.ts",
+        "line": 190
+      }
+    ],
+    "tenantTextOccurrences": 836,
+    "tenantTextFiles": 62,
+    "warning": "Raw text counts are not counts of isolation logic or vulnerabilities"
+  },
+  "dependencyAudit": {
+    "command": "mise exec -- pnpm audit --json",
+    "exitCode": 1,
+    "advisoryRecords": 55,
+    "uniqueGhsa": 39,
+    "metadata": {
+      "vulnerabilities": {
+        "info": 0,
+        "low": 4,
+        "moderate": 20,
+        "high": 29,
+        "critical": 2
+      },
+      "dependencies": 200,
+      "devDependencies": 599,
+      "optionalDependencies": 233,
+      "totalDependencies": 829
+    },
+    "records": [
+      {
+        "id": "GHSA-qqgx-2p2h-9c37",
+        "module": "ini",
+        "severity": "high",
+        "version": "1.3.4",
+        "devOnly": true,
+        "path": ".>@vue/test-utils>js-beautify>config-chain>ini",
+        "patched": ">=1.3.6"
+      },
+      {
+        "id": "GHSA-67mh-4wv8-2f99",
+        "module": "esbuild",
+        "severity": "moderate",
+        "version": "0.18.20,0.19.12",
+        "devOnly": true,
+        "path": "packages__schema>drizzle-kit>@esbuild-kit/esm-loader>@esbuild-kit/core-utils>esbuild",
+        "patched": ">=0.24.3"
+      },
+      {
+        "id": "GHSA-gpj5-g38j-94v9",
+        "module": "drizzle-orm",
+        "severity": "high",
+        "version": "0.39.3",
+        "devOnly": false,
+        "path": "apps__worker>drizzle-orm",
+        "patched": ">=0.45.2"
+      },
+      {
+        "id": "GHSA-w5hq-g745-h8pq",
+        "module": "uuid",
+        "severity": "moderate",
+        "version": "7.0.3",
+        "devOnly": true,
+        "path": "apps__mobile>@capacitor/cli>xcode>uuid",
+        "patched": ">=11.1.1"
+      },
+      {
+        "id": "GHSA-5xrq-8626-4rwp",
+        "module": "vitest",
+        "severity": "critical",
+        "version": "4.0.18",
+        "devOnly": true,
+        "path": ".>vitest",
+        "patched": ">=4.1.0"
+      },
+      {
+        "id": "GHSA-x5fp-wj9c-mxmx",
+        "module": "qs",
+        "severity": "moderate",
+        "version": "6.15.3",
+        "devOnly": false,
+        "path": "apps__desktop>@sekai-world/pixi-live2d-display-mulmotion>pixi.js>@pixi/accessibility>@pixi/core>@pixi/ticker>@pixi/utils>url>qs",
+        "patched": ">=6.15.4"
+      },
+      {
+        "id": "GHSA-4mjr-xmp4-gh2g",
+        "module": "qs",
+        "severity": "moderate",
+        "version": "6.15.3",
+        "devOnly": false,
+        "path": "apps__desktop>@sekai-world/pixi-live2d-display-mulmotion>pixi.js>@pixi/accessibility>@pixi/core>@pixi/ticker>@pixi/utils>url>qs",
+        "patched": ">=6.16.0"
+      },
+      {
+        "id": "GHSA-5jgf-p345-68v8",
+        "module": "fast-uri",
+        "severity": "high",
+        "version": "4.1.2",
+        "devOnly": false,
+        "path": "apps__api>fastify>@fastify/ajv-compiler>fast-uri",
+        "patched": ">=4.1.3"
+      },
+      {
+        "id": "GHSA-5jgf-p345-68v8",
+        "module": "fast-uri",
+        "severity": "high",
+        "version": "3.1.5",
+        "devOnly": false,
+        "path": ".>electron-builder>app-builder-lib>ajv>fast-uri",
+        "patched": ">=3.1.6"
+      },
+      {
+        "id": "GHSA-f65p-4m7j-42xc",
+        "module": "fast-uri",
+        "severity": "high",
+        "version": "4.1.2",
+        "devOnly": false,
+        "path": "apps__api>fastify>@fastify/ajv-compiler>fast-uri",
+        "patched": ">=4.1.3"
+      },
+      {
+        "id": "GHSA-f65p-4m7j-42xc",
+        "module": "fast-uri",
+        "severity": "high",
+        "version": "3.1.5",
+        "devOnly": false,
+        "path": ".>electron-builder>app-builder-lib>ajv>fast-uri",
+        "patched": ">=3.1.6"
+      },
+      {
+        "id": "GHSA-fph4-wmhf-6fwf",
+        "module": "fast-uri",
+        "severity": "high",
+        "version": "4.1.2",
+        "devOnly": false,
+        "path": "apps__api>fastify>@fastify/ajv-compiler>fast-uri",
+        "patched": ">=4.1.3"
+      },
+      {
+        "id": "GHSA-fph4-wmhf-6fwf",
+        "module": "fast-uri",
+        "severity": "high",
+        "version": "3.1.5",
+        "devOnly": false,
+        "path": ".>electron-builder>app-builder-lib>ajv>fast-uri",
+        "patched": ">=3.1.6"
+      },
+      {
+        "id": "GHSA-jqff-g426-hqxp",
+        "module": "fast-uri",
+        "severity": "high",
+        "version": "4.1.2",
+        "devOnly": false,
+        "path": "apps__api>fastify>@fastify/ajv-compiler>fast-uri",
+        "patched": ">=4.1.3"
+      },
+      {
+        "id": "GHSA-jqff-g426-hqxp",
+        "module": "fast-uri",
+        "severity": "high",
+        "version": "3.1.5",
+        "devOnly": false,
+        "path": ".>electron-builder>app-builder-lib>ajv>fast-uri",
+        "patched": ">=3.1.6"
+      },
+      {
+        "id": "GHSA-px8p-9vwx-vf98",
+        "module": "fflate",
+        "severity": "moderate",
+        "version": "0.8.2",
+        "devOnly": false,
+        "path": ".>fflate",
+        "patched": ">=0.8.3"
+      },
+      {
+        "id": "GHSA-82fw-gwwq-j7x9",
+        "module": "vitest",
+        "severity": "moderate",
+        "version": "4.0.18",
+        "devOnly": true,
+        "path": ".>vitest",
+        "patched": ">=4.1.11"
+      },
+      {
+        "id": "GHSA-82fw-gwwq-j7x9",
+        "module": "@vitest/mocker",
+        "severity": "moderate",
+        "version": "4.0.18",
+        "devOnly": true,
+        "path": ".>vitest>@vitest/mocker",
+        "patched": ">=4.1.11"
+      },
+      {
+        "id": "GHSA-3wwx-pv8p-q78v",
+        "module": "undici",
+        "severity": "moderate",
+        "version": "7.29.0",
+        "devOnly": true,
+        "path": "apps__desktop>electron>@electron/get>undici",
+        "patched": ">=7.29.1"
+      },
+      {
+        "id": "GHSA-3wwx-pv8p-q78v",
+        "module": "undici",
+        "severity": "moderate",
+        "version": "6.28.0",
+        "devOnly": true,
+        "path": ".>electron-builder>app-builder-lib>@electron/rebuild>node-gyp>undici",
+        "patched": ">=6.28.1"
+      },
+      {
+        "id": "GHSA-qw65-cvwx-89v3",
+        "module": "fast-uri",
+        "severity": "high",
+        "version": "4.1.2",
+        "devOnly": false,
+        "path": "apps__api>fastify>@fastify/ajv-compiler>fast-uri",
+        "patched": ">=4.1.4"
+      },
+      {
+        "id": "GHSA-qw65-cvwx-89v3",
+        "module": "fast-uri",
+        "severity": "high",
+        "version": "3.1.5",
+        "devOnly": false,
+        "path": ".>electron-builder>app-builder-lib>ajv>fast-uri",
+        "patched": ">=3.1.7"
+      },
+      {
+        "id": "GHSA-qmv3-fv6v-rmhq",
+        "module": "electron",
+        "severity": "high",
+        "version": "43.4.1",
+        "devOnly": true,
+        "path": "apps__desktop>electron",
+        "patched": ">=43.5.0"
+      },
+      {
+        "id": "GHSA-pmjh-fq2x-6v4x",
+        "module": "undici",
+        "severity": "moderate",
+        "version": "7.29.0",
+        "devOnly": true,
+        "path": "apps__desktop>electron>@electron/get>undici",
+        "patched": ">=7.29.1"
+      },
+      {
+        "id": "GHSA-r53p-7pc4-xj5r",
+        "module": "undici",
+        "severity": "low",
+        "version": "7.29.0",
+        "devOnly": true,
+        "path": "apps__desktop>electron>@electron/get>undici",
+        "patched": ">=7.29.1"
+      },
+      {
+        "id": "GHSA-r53p-7pc4-xj5r",
+        "module": "undici",
+        "severity": "low",
+        "version": "6.28.0",
+        "devOnly": true,
+        "path": ".>electron-builder>app-builder-lib>@electron/rebuild>node-gyp>undici",
+        "patched": ">=6.28.1"
+      },
+      {
+        "id": "GHSA-rfgv-xxqx-mfg5",
+        "module": "undici",
+        "severity": "high",
+        "version": "7.29.0",
+        "devOnly": true,
+        "path": "apps__desktop>electron>@electron/get>undici",
+        "patched": ">=7.29.1"
+      },
+      {
+        "id": "GHSA-rfgv-xxqx-mfg5",
+        "module": "undici",
+        "severity": "high",
+        "version": "6.28.0",
+        "devOnly": true,
+        "path": ".>electron-builder>app-builder-lib>@electron/rebuild>node-gyp>undici",
+        "patched": ">=6.28.1"
+      },
+      {
+        "id": "GHSA-3xpg-4rpp-hhhm",
+        "module": "undici",
+        "severity": "moderate",
+        "version": "7.29.0",
+        "devOnly": true,
+        "path": "apps__desktop>electron>@electron/get>undici",
+        "patched": ">=7.29.1"
+      },
+      {
+        "id": "GHSA-2jfj-6hjv-fm6j",
+        "module": "undici",
+        "severity": "moderate",
+        "version": "7.29.0",
+        "devOnly": true,
+        "path": "apps__desktop>electron>@electron/get>undici",
+        "patched": ">=7.29.1"
+      },
+      {
+        "id": "GHSA-2gqq-gqf2-x968",
+        "module": "undici",
+        "severity": "low",
+        "version": "7.29.0",
+        "devOnly": true,
+        "path": "apps__desktop>electron>@electron/get>undici",
+        "patched": ">=7.29.1"
+      },
+      {
+        "id": "GHSA-w293-vg96-wgc3",
+        "module": "undici",
+        "severity": "high",
+        "version": "7.29.0",
+        "devOnly": true,
+        "path": "apps__desktop>electron>@electron/get>undici",
+        "patched": ">=7.29.1"
+      },
+      {
+        "id": "GHSA-8436-99hf-9mmv",
+        "module": "undici",
+        "severity": "low",
+        "version": "7.29.0",
+        "devOnly": true,
+        "path": "apps__desktop>electron>@electron/get>undici",
+        "patched": ">=7.29.1"
+      },
+      {
+        "id": "GHSA-rx4f-c7p8-82vq",
+        "module": "undici",
+        "severity": "moderate",
+        "version": "7.29.0",
+        "devOnly": true,
+        "path": "apps__desktop>electron>@electron/get>undici",
+        "patched": ">=7.29.1"
+      },
+      {
+        "id": "GHSA-hrr3-gc8f-f4qj",
+        "module": "fast-uri",
+        "severity": "moderate",
+        "version": "4.1.2",
+        "devOnly": false,
+        "path": "apps__api>fastify>@fastify/ajv-compiler>fast-uri",
+        "patched": ">=4.1.5"
+      },
+      {
+        "id": "GHSA-hrr3-gc8f-f4qj",
+        "module": "fast-uri",
+        "severity": "moderate",
+        "version": "3.1.5",
+        "devOnly": false,
+        "path": ".>electron-builder>app-builder-lib>ajv>fast-uri",
+        "patched": ">=3.1.8"
+      },
+      {
+        "id": "GHSA-q2hr-2g5m-vwhr",
+        "module": "brace-expansion",
+        "severity": "moderate",
+        "version": "1.1.18",
+        "devOnly": true,
+        "path": ".>electron-builder>app-builder-lib>@electron/asar>glob>minimatch>brace-expansion",
+        "patched": ">=1.1.21"
+      },
+      {
+        "id": "GHSA-q2hr-2g5m-vwhr",
+        "module": "brace-expansion",
+        "severity": "moderate",
+        "version": "2.1.4",
+        "devOnly": true,
+        "path": ".>electron-builder>app-builder-lib>@electron/universal>minimatch>brace-expansion",
+        "patched": ">=2.1.7"
+      },
+      {
+        "id": "GHSA-q2hr-2g5m-vwhr",
+        "module": "brace-expansion",
+        "severity": "moderate",
+        "version": "5.0.9",
+        "devOnly": true,
+        "path": ".>@vue/test-utils>js-beautify>editorconfig>minimatch>brace-expansion",
+        "patched": ">=5.0.12"
+      },
+      {
+        "id": "GHSA-qhr7-859c-m2p7",
+        "module": "brace-expansion",
+        "severity": "high",
+        "version": "1.1.18",
+        "devOnly": true,
+        "path": ".>electron-builder>app-builder-lib>@electron/asar>glob>minimatch>brace-expansion",
+        "patched": ">=1.1.20"
+      },
+      {
+        "id": "GHSA-qhr7-859c-m2p7",
+        "module": "brace-expansion",
+        "severity": "high",
+        "version": "2.1.4",
+        "devOnly": true,
+        "path": ".>electron-builder>app-builder-lib>@electron/universal>minimatch>brace-expansion",
+        "patched": ">=2.1.6"
+      },
+      {
+        "id": "GHSA-qhr7-859c-m2p7",
+        "module": "brace-expansion",
+        "severity": "high",
+        "version": "5.0.9",
+        "devOnly": true,
+        "path": ".>@vue/test-utils>js-beautify>editorconfig>minimatch>brace-expansion",
+        "patched": ">=5.0.11"
+      },
+      {
+        "id": "GHSA-6j4f-fj2g-mc7p",
+        "module": "brace-expansion",
+        "severity": "high",
+        "version": "1.1.18",
+        "devOnly": true,
+        "path": ".>electron-builder>app-builder-lib>@electron/asar>glob>minimatch>brace-expansion",
+        "patched": ">=1.1.19"
+      },
+      {
+        "id": "GHSA-6j4f-fj2g-mc7p",
+        "module": "brace-expansion",
+        "severity": "high",
+        "version": "2.1.4",
+        "devOnly": true,
+        "path": ".>electron-builder>app-builder-lib>@electron/universal>minimatch>brace-expansion",
+        "patched": ">=2.1.5"
+      },
+      {
+        "id": "GHSA-6j4f-fj2g-mc7p",
+        "module": "brace-expansion",
+        "severity": "high",
+        "version": "5.0.9",
+        "devOnly": true,
+        "path": ".>@vue/test-utils>js-beautify>editorconfig>minimatch>brace-expansion",
+        "patched": ">=5.0.10"
+      },
+      {
+        "id": "GHSA-4mh8-r7rc-xpvc",
+        "module": "fastify",
+        "severity": "moderate",
+        "version": "5.12.1",
+        "devOnly": false,
+        "path": "apps__api>fastify",
+        "patched": ">=5.12.5"
+      },
+      {
+        "id": "GHSA-667r-xxjv-c9mm",
+        "module": "fastify",
+        "severity": "high",
+        "version": "5.12.1",
+        "devOnly": false,
+        "path": "apps__api>fastify",
+        "patched": ">=5.12.2"
+      },
+      {
+        "id": "GHSA-p68q-wchp-6fh7",
+        "module": "fastify",
+        "severity": "high",
+        "version": "5.12.1",
+        "devOnly": false,
+        "path": "apps__api>fastify",
+        "patched": ">=5.12.2"
+      },
+      {
+        "id": "GHSA-hwr6-493r-vm6h",
+        "module": "fastify",
+        "severity": "high",
+        "version": "5.12.1",
+        "devOnly": false,
+        "path": "apps__api>fastify",
+        "patched": ">=5.12.2"
+      },
+      {
+        "id": "GHSA-9q9j-q6p8-xq58",
+        "module": "fastify",
+        "severity": "high",
+        "version": "5.12.1",
+        "devOnly": false,
+        "path": "apps__api>fastify",
+        "patched": ">=5.12.2"
+      },
+      {
+        "id": "GHSA-ch52-4w7c-c8xp",
+        "module": "http-cache-semantics",
+        "severity": "high",
+        "version": "4.2.0",
+        "devOnly": true,
+        "path": ".>electron-builder>app-builder-lib>@electron/get>got>cacheable-request>http-cache-semantics",
+        "patched": ">=4.2.1"
+      },
+      {
+        "id": "GHSA-hp3w-g68c-fv3c",
+        "module": "sprintf-js",
+        "severity": "moderate",
+        "version": "1.1.3",
+        "devOnly": true,
+        "path": ".>electron-builder>app-builder-lib>@electron/get>global-agent>roarr>sprintf-js",
+        "patched": ">=1.1.4"
+      },
+      {
+        "id": "GHSA-g2v6-rqmx-r4w6",
+        "module": "@vue/server-renderer",
+        "severity": "high",
+        "version": "3.5.41",
+        "devOnly": false,
+        "path": ".>@vitejs/plugin-vue>vue>@vue/server-renderer",
+        "patched": ">=3.5.42"
+      },
+      {
+        "id": "GHSA-wq5f-xc86-pv6w",
+        "module": "sharp",
+        "severity": "high",
+        "version": "0.35.4",
+        "devOnly": true,
+        "path": ".>sharp",
+        "patched": ">=0.35.5"
+      },
+      {
+        "id": "GHSA-pqg4-j6r4-53mv",
+        "module": "shell-quote",
+        "severity": "critical",
+        "version": "1.10.0",
+        "devOnly": true,
+        "path": "packages__schema>drizzle-kit>gel>shell-quote",
+        "patched": ">=1.11.0"
+      }
+    ],
+    "warning": "Registry-reported matching versions; exploitability and upgrade compatibility not established. devOnly is package metadata; Electron is a deployed runtime."
+  },
+  "validation": [
+    {
+      "command": "mise tasks run ci-code",
+      "exitCode": 0,
+      "build": {
+        "successful": 27,
+        "total": 27,
+        "cached": 24
+      },
+      "typecheck": {
+        "successful": 46,
+        "total": 46,
+        "cached": 44
+      },
+      "test": {
+        "successful": 45,
+        "total": 45,
+        "cached": 39
+      },
+      "frozenInstall": false
+    },
+    {
+      "command": "mise tasks run ci-docs (baseline)",
+      "exitCode": 0,
+      "tests": 22,
+      "documents": 66,
+      "errors": 0
+    },
+    {
+      "command": "mise exec -- pnpm exec playwright test --output=<temporary API output directory>",
+      "exitCode": 0,
+      "passed": 45
+    },
+    {
+      "command": "mise exec -- pnpm exec playwright test --config playwright.ui.config.ts --output=<temporary UI output directory>",
+      "exitCode": 0,
+      "passed": 4
+    },
+    {
+      "command": "mise exec -- pnpm test:cli:integration",
+      "exitCode": 0,
+      "passed": 2
+    },
+    {
+      "command": "mise tasks run ci-docs (report delivery)",
+      "exitCode": 0,
+      "tests": 22,
+      "documents": 67,
+      "errors": 0
+    }
+  ],
+  "reproductionResults": {
+    "HYG-01": {
+      "sessionIds": [
+        "ses_A",
+        "ses_B"
+      ],
+      "bridgeSessionIds": [
+        null,
+        null
+      ]
+    },
+    "HYG-02": {
+      "requestError": "HTTP 503",
+      "renameReturnedTitle": "changed",
+      "deleteReturned": true,
+      "deletedFromLocalList": "ses_A"
+    },
+    "HYG-03": {
+      "sequence": [
+        "start",
+        "stop",
+        "grant"
+      ],
+      "activeAfterStop": true,
+      "tracksStopped": 0
+    },
+    "HYG-04": {
+      "presetCount": 51,
+      "expectedActiveModel": "model-50",
+      "getConfigModel": "model-0",
+      "saveModifiedActivePreset": false,
+      "activeModelAfterSave": "model-50"
+    },
+    "HYG-05": {
+      "overwriteOptionProvided": false,
+      "readonly": 1,
+      "source": "local",
+      "pluginId": "plugin-x",
+      "content": "# overwritten local content"
+    },
+    "HYG-06": {
+      "error": "adapter_admission_failed: sha_mismatch",
+      "killed": false,
+      "exitCode": null
+    },
+    "HYG-07": {
+      "sequence": [
+        "read first delta",
+        "return iterator",
+        "wait request timeout",
+        "new request"
+      ],
+      "newRequestError": "adapter_unavailable"
+    },
+    "HYG-08": {
+      "stopReturnedWhileJobUnfinished": true
+    },
+    "HYG-09": {
+      "compressedBytes": 8308,
+      "expandedBytes": 8388608,
+      "accepted": true
+    }
+  },
+  "findingCounts": {
+    "P1": 1,
+    "P2": 10,
+    "P3": 3,
+    "total": 14
+  },
+  "remediation": {
+    "date": "2026-10-14",
+    "timezone": "Asia/Shanghai",
+    "branch": "fix/repository-hygiene",
+    "base": "511f9d1ed8da263855dd4337cd1beb4680dc6bdd",
+    "status": "verified_with_dependency_exceptions",
+    "findingIds": [
+      "HYG-01",
+      "HYG-02",
+      "HYG-03",
+      "HYG-04",
+      "HYG-05",
+      "HYG-06",
+      "HYG-07",
+      "HYG-08",
+      "HYG-09",
+      "HYG-10",
+      "HYG-11",
+      "HYG-12",
+      "HYG-13",
+      "HYG-14"
+    ],
+    "validation": [
+      {
+        "command": "mise exec -- pnpm install --frozen-lockfile",
+        "exitCode": 0
+      },
+      {
+        "command": "./aervox ci all",
+        "exitCode": 0,
+        "build": {
+          "successful": 27,
+          "total": 27,
+          "cached": 24
+        },
+        "typecheck": {
+          "successful": 46,
+          "total": 46,
+          "cached": 44
+        },
+        "test": {
+          "successful": 45,
+          "total": 45,
+          "cached": 39
+        },
+        "api": {
+          "files": 81,
+          "passed": 575
+        },
+        "repositories": {
+          "files": 67,
+          "passed": 402
+        },
+        "hostAgentSkipped": 2,
+        "docs": {
+          "tests": 22,
+          "documents": 67,
+          "errors": 0
+        }
+      },
+      {
+        "command": "mise exec -- pnpm exec playwright test --output=<temporary API output directory>",
+        "exitCode": 0,
+        "passed": 45
+      },
+      {
+        "command": "mise exec -- pnpm exec playwright test --config playwright.ui.config.ts --output=<temporary UI output directory>",
+        "exitCode": 0,
+        "passed": 4
+      },
+      {
+        "command": "mise exec -- pnpm test:cli:integration",
+        "exitCode": 0,
+        "passed": 2
+      },
+      {
+        "command": "mise exec -- pnpm check:dependency-audit",
+        "exitCode": 0,
+        "unreviewedPaths": 0,
+        "reviewedPaths": 4,
+        "staleExceptions": 0
+      },
+      {
+        "command": "mise exec -- node --test scripts/check-dependency-audit.test.mjs",
+        "exitCode": 0,
+        "passed": 4
+      }
+    ],
+    "dependencyAudit": {
+      "advisoryRecords": 3,
+      "critical": 0,
+      "high": 0,
+      "moderate": 3,
+      "low": 0,
+      "exceptionsFile": "scripts/dependency-audit-exceptions.json",
+      "expiresOn": "2026-11-13"
+    },
+    "limitations": [
+      "Local validation only; remote CI and merge tracked in the PR",
+      "No live-model or microphone hardware validation",
+      "No Electron/mobile packaging or release signing acceptance",
+      "No production migration or release",
+      "Dependency exceptions remain open"
+    ],
+    "commit": "e5316da",
+    "pullRequest": "https://github.com/3yearsZhuang/Aervox-harness/pull/277",
+    "pullRequestBase": "feat/plugin-lifecycle-reliability",
+    "selfReview": {
+      "reviewedCommit": "f63a3c86eb1a3fa50ad90211e50825a97d8edda8",
+      "cases": [
+        {
+          "finding": "HYG-03",
+          "actions": [
+            "keyboard",
+            "second-click",
+            "collapse"
+          ],
+          "each": {
+            "listeningAfterGrant": true,
+            "stoppedTracks": 0
+          },
+          "exitCode": 0,
+          "note": "Assertions reproduce undesired behavior, not acceptance tests"
+        },
+        {
+          "finding": "HYG-05",
+          "localInstallStatus": 201,
+          "pluginSkillReadonly": 1,
+          "pluginFileExists": false,
+          "exitCode": 0
+        },
+        {
+          "finding": "HYG-06/07",
+          "protocolRejected": true,
+          "childAliveAfterRequestDeadline": true,
+          "exitCode": 0
+        }
+      ],
+      "staticGaps": [
+        "HYG-09 production archive callers do not propagate AbortSignal",
+        "HYG-01 desktop IPC test does not assert backend URL, histories or project isolation",
+        "HYG-04 preset regression does not assert saveConfig writes to the 51st preset",
+        "HYG-08 shutdown exit codes have no process-level regression"
+      ],
+      "date": "2026-10-14",
+      "timezone": "Asia/Shanghai",
+      "conclusion": "Not all findings are fully resolved. Three reproduced implementation gaps, one static cancellation wiring gap, three acceptance evidence gaps, and three existing dependency exceptions remain.",
+      "remoteChecks": {
+        "headRevision": "f63a3c86eb1a3fa50ad90211e50825a97d8edda8",
+        "checks": 8,
+        "success": 8
+      },
+      "productionFixesAppliedInSelfReview": false
+    },
+    "followup": {
+      "date": "2026-10-14",
+      "baseCommit": "91770f41f633f18cce75526e4295a8897ca32611",
+      "status": "verified_pending_pr_review",
+      "fixes": [
+        {
+          "finding": "HYG-03",
+          "result": "Composer cancels both configuration and permission waits; stale completions cannot restore recording.",
+          "tests": "packages/ui/test/composer-voice-lifecycle.test.ts",
+          "cases": 11
+        },
+        {
+          "finding": "HYG-05",
+          "result": "Shared directory ownership checks and serialized local API mutations cover local install/delete, release sync and plugin install/uninstall. Batch conflicts fail before mutation; unknown and symlinked directories are preserved. Marketplace directory conflicts return 409 and preserve local files and registrations.",
+          "tests": [
+            "apps/api/test/skills.test.ts",
+            "apps/api/test/plugin-distribution.test.ts"
+          ]
+        },
+        {
+          "finding": "HYG-07",
+          "result": "Malformed admitted protocol invokes bounded close, including SIGKILL escalation for a child ignoring SIGTERM.",
+          "tests": "packages/host-agent/test/stdio-adapter-protocol.test.ts"
+        },
+        {
+          "finding": "HYG-09",
+          "result": "HTTP lifetime signal reaches Skill/Plugin/Persona workers including nested and market operations. Cancellation is checked before commit; accepted writes continue after disconnect.",
+          "tests": "apps/api/test/archive-disconnect.test.ts",
+          "disconnectCases": 8,
+          "postCommitCases": 3,
+          "asyncErrorMappingCases": 1
+        }
+      ],
+      "acceptanceGapsClosed": [
+        {
+          "finding": "HYG-01",
+          "tests": "apps/api/test/desktop-turn-session.test.ts",
+          "assertions": [
+            "real main-process HTTP/SSE bridge",
+            "A/B request URLs",
+            "separate persisted histories",
+            "separate project associations",
+            "default session absent"
+          ]
+        },
+        {
+          "finding": "HYG-04",
+          "tests": "packages/repositories/test/preset-lifecycle.test.ts",
+          "assertions": [
+            "all four saveConfig implementations update the active 51st row",
+            "writer connection confirms first row unchanged"
+          ]
+        },
+        {
+          "finding": "HYG-08",
+          "tests": "apps/worker/test/shutdown-process.test.ts",
+          "assertions": [
+            "real SIGTERM",
+            "both file SQLite writes precede client close",
+            "drained exit 0",
+            "hung exit 1 without premature database close"
+          ]
+        }
+      ],
+      "testIsolation": "API test app fixture supplies temporary installed-file roots for each database and closes/removes them; explicit test roots remain unchanged.",
+      "validation": [
+        {
+          "command": "Initial ./aervox ci all",
+          "exitCode": 1,
+          "reason": "7 assertions in 3 plugin suites reused installed files with new databases; production protection correctly rejected the unregistered files."
+        },
+        {
+          "command": "Plugin fixture regression: study-term-plugins, focus-mode-loop, builtin-plugins-market",
+          "exitCode": 0,
+          "files": 3,
+          "passed": 17
+        },
+        {
+          "command": "Archive disconnect and commit-boundary regression",
+          "exitCode": 0,
+          "passed": 12
+        },
+        {
+          "command": "API Playwright integration",
+          "exitCode": 0,
+          "passed": 45
+        },
+        {
+          "command": "Chromium UI Playwright integration",
+          "exitCode": 0,
+          "passed": 4
+        },
+        {
+          "command": "CLI integration",
+          "exitCode": 0,
+          "passed": 2
+        },
+        {
+          "command": "pnpm check:dependency-audit",
+          "exitCode": 0,
+          "unreviewedPaths": 0,
+          "reviewedPaths": 4,
+          "staleExceptions": 0
+        },
+        {
+          "command": "Intermediate ./aervox ci all",
+          "exitCode": 1,
+          "reason": "Code, Native and tests passed; one unquoted package name failed Vale terminology. Corrected before the final gate."
+        },
+        {
+          "command": "Plugin distribution including marketplace conflict regression",
+          "exitCode": 0,
+          "files": 1,
+          "passed": 14
+        },
+        {
+          "command": "mise exec -- pnpm check:ci-config",
+          "exitCode": 0,
+          "passed": 17
+        },
+        {
+          "command": "./aervox ci all",
+          "exitCode": 0,
+          "log": "artifacts/repository-hygiene-followup-2026-10-14/ci-all-head.log",
+          "build": {
+            "successful": 27,
+            "total": 27,
+            "cached": 24
+          },
+          "typecheck": {
+            "successful": 46,
+            "total": 46,
+            "cached": 43
+          },
+          "test": {
+            "successful": 45,
+            "total": 45,
+            "cached": 40
+          },
+          "api": {
+            "files": 83,
+            "passed": 598
+          },
+          "repositories": {
+            "files": 67,
+            "passed": 402
+          },
+          "ui": {
+            "files": 18,
+            "passed": 112
+          },
+          "worker": {
+            "files": 17,
+            "passed": 97
+          },
+          "desktop": {
+            "files": 8,
+            "passed": 29
+          },
+          "hostAgent": {
+            "files": 13,
+            "passed": 79,
+            "skipped": 2
+          },
+          "docs": {
+            "tests": 22,
+            "documents": 67,
+            "errors": 0
+          },
+          "native": "Rust fmt/test/clippy and Native lifecycle passed; smoke rebuilt final API sources."
+        }
+      ],
+      "dependencyRegistryRecheck": {
+        "sprintf-js": "1.1.3",
+        "xcode": "3.0.1",
+        "drizzle-kit": "0.31.11"
+      },
+      "remaining": "3 reviewed moderate dependency advisories (4 paths), expiring 2026-11-13; PR review, hardware/packaging and release gates remain distinct.",
+      "ciScope": "Desktop turn-bridge and runtime-config are API test inputs; actual scope resolution regression selects API for desktop-only edits.",
+      "conclusion": "Self-review implementation, cancellation wiring and acceptance gaps are resolved and locally verified. Three reviewed moderate dependency advisories remain under expiring exceptions; PR review and release acceptance are separate."
+    }
+  }
+}

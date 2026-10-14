@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@aervox/native-runtime": "workspace:*",
     "@aervox/core": "workspace:*",
     "@aervox/config": "workspace:*",
     "@aervox/contracts": "workspace:*",
@@ -25,8 +26,9 @@
     "@aervox/schema": "workspace:*",
     "@fastify/cors": "^11.3.0",
     "@libsql/client": "^0.14.0",
-    "fastify": "5.12.1",
-    "fflate": "0.8.2",
+    "@vscode/ripgrep": "1.18.0",
+    "fastify": "5.12.5",
+    "fflate": "0.8.3",
     "sherpa-onnx-node": "^1.13.5"
   },
   "devDependencies": {

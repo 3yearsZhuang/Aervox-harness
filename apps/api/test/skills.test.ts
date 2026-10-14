@@ -9,7 +9,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { createInMemoryDatabase, initDatabaseSchema, SqliteSkillRegistryRepository, type AervoxDatabase } from "@aervox/repositories";
-import { buildApp } from "../src/app.js";
+import { buildApp } from "./app-fixture.js";
 import { DEFAULT_SKILLS_ROOT } from "../src/modules/ecosystem/skills/skill-manager.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
@@ -122,6 +122,19 @@ describe("CAP-020 Skill 模块", () => {
     await app.close();
     await fs.rm(skillsRoot, { recursive: true, force: true }).catch(() => undefined);
     await cleanup();
+  });
+
+  it.each([false, true])("local install cannot overwrite a plugin-owned skill (overwrite=%s)", async overwrite => {
+    const registry = new SqliteSkillRegistryRepository(db);
+    const contentPath = path.join(skillsRoot, "plugin-original.md");
+    await fs.writeFile(contentPath, "plugin content");
+    const original = await registry.registerSkill({ id: "owned", name: "owned", description: "plugin", source: "plugin", pluginId: "owner", readonly: true, contentPath });
+    const zip = buildStoreZip([{ name: "SKILL.md", content: SKILL_MD("owned", "replacement") }]);
+    const response = await app.inject({ method: "POST", url: "/v1/skills", payload: { name: "owned", zipBase64: zip.toString("base64"), overwrite } });
+    expect(response.statusCode).toBe(409);
+    expect(await registry.getSkill("owned")).toEqual(original);
+    expect(await fs.readFile(contentPath, "utf8")).toBe("plugin content");
+    await expect(fs.access(path.join(skillsRoot, "owned"))).rejects.toThrow();
   });
 
   it("安装单技能 zip（根含 SKILL.md）：注册 + 内容落盘 + frontmatter 描述解析", async () => {
@@ -540,6 +553,86 @@ describe("CAP-020 插件 Skill 联动（阶段5）", () => {
         ],
       },
     });
+
+  it.each([false, true])("local install preserves a colliding plugin directory (overwrite=%s)", async overwrite => {
+    expect((await installPluginWithSkill()).statusCode).toBe(201);
+    const registry = new SqliteSkillRegistryRepository(db);
+    const original = await registry.getSkill("flashcard-review");
+    const zip = buildStoreZip([{ name: "SKILL.md", content: "replacement" }]);
+    const response = await app.inject({ method: "POST", url: "/v1/skills", payload: { name: "flashcards", overwrite, zipBase64: zip.toString("base64") } });
+    expect(response.statusCode).toBe(409);
+    expect(await registry.getSkill("flashcard-review")).toEqual(original);
+    expect(await fs.readFile(original!.contentPath!, "utf8")).toContain("按卡复习");
+  });
+
+  it("rejects inverse plugin install and does not let an absent plugin delete a local skill", async () => {
+    const zip = buildStoreZip([{ name: "SKILL.md", content: "local original" }]);
+    expect((await app.inject({ method: "POST", url: "/v1/skills", payload: { name: "flashcards", zipBase64: zip.toString("base64") } })).statusCode).toBe(201);
+    expect((await installPluginWithSkill()).statusCode).toBe(409);
+    expect((await app.inject({ method: "DELETE", url: "/v1/plugins/flashcards" })).statusCode).toBe(404);
+    expect(await fs.readFile(path.join(skillsRoot, "flashcards", "SKILL.md"), "utf8")).toBe("local original");
+    expect(await new SqliteSkillRegistryRepository(db).getSkill("flashcard-review")).toBeNull();
+  });
+
+  it("preflights all local folders before modifying any of them", async () => {
+    await installPluginWithSkill();
+    const zip = buildStoreZip([{ name: "new-skill/SKILL.md", content: "new" }, { name: "flashcards/SKILL.md", content: "collision" }]);
+    const response = await app.inject({ method: "POST", url: "/v1/skills", payload: { overwrite: true, zipBase64: zip.toString("base64") } });
+    expect(response.statusCode).toBe(409);
+    expect(await new SqliteSkillRegistryRepository(db).getSkill("new-skill")).toBeNull();
+    await expect(fs.access(path.join(skillsRoot, "new-skill"))).rejects.toThrow();
+  });
+
+  it("preflights all plugin skills before creating plugin rows, tools or files", async () => {
+    const zip = buildStoreZip([{ name: "SKILL.md", content: "local original" }]);
+    await app.inject({ method: "POST", url: "/v1/skills", payload: { name: "local-owned", zipBase64: zip.toString("base64") } });
+    const response = await app.inject({ method: "POST", url: "/v1/plugins", payload: {
+      id: "owner-test", publisher: "test", version: "1.0.0",
+      tools: [{ name: "should-not-exist" }], skills: [{ name: "new-first", content: "new" }, { name: "local-owned", content: "bad" }],
+    } });
+    expect(response.statusCode).toBe(409);
+    expect((await app.inject({ method: "GET", url: "/v1/plugins" })).json().items.some((item: { id: string }) => item.id === "owner-test")).toBe(false);
+    expect(await new SqliteSkillRegistryRepository(db).getSkill("new-first")).toBeNull();
+    await expect(fs.access(path.join(skillsRoot, "owner-test"))).rejects.toThrow();
+  });
+
+  it("blocks both delete paths when old registrations overlap", async () => {
+    await installPluginWithSkill();
+    const registry = new SqliteSkillRegistryRepository(db);
+    await fs.writeFile(path.join(skillsRoot, "flashcards", "SKILL.md"), "legacy local");
+    await registry.registerSkill({ id: "flashcards", name: "flashcards", description: "legacy", contentPath: path.join(skillsRoot, "flashcards", "SKILL.md") });
+    expect((await app.inject({ method: "DELETE", url: "/v1/skills/flashcards" })).statusCode).toBe(409);
+    expect((await app.inject({ method: "DELETE", url: "/v1/plugins/flashcards" })).statusCode).toBe(409);
+    expect(await fs.readFile(path.join(skillsRoot, "flashcards", "SKILL.md"), "utf8")).toBe("legacy local");
+    expect(await registry.getSkill("flashcard-review")).not.toBeNull();
+  });
+
+  it("serializes competing local and plugin installs under the shared root", async () => {
+    const zip = buildStoreZip([{ name: "SKILL.md", content: "local original" }]);
+    const responses = await Promise.all([
+      installPluginWithSkill(),
+      app.inject({ method: "POST", url: "/v1/skills", payload: { name: "flashcards", overwrite: true, zipBase64: zip.toString("base64") } }),
+    ]);
+    expect(responses.map(response => response.statusCode).sort()).toEqual([201, 409]);
+    const registry = new SqliteSkillRegistryRepository(db);
+    const local = await registry.getSkill("flashcards");
+    const plugin = await registry.getSkill("flashcard-review");
+    expect(Boolean(local)).not.toBe(Boolean(plugin));
+    expect(await fs.readFile((local ?? plugin)!.contentPath!, "utf8")).toContain(local ? "local original" : "按卡复习");
+  });
+
+  it("refuses unregistered and symlinked content before overwrite", async () => {
+    const unknown = path.join(skillsRoot, "unknown");
+    await fs.mkdir(unknown);
+    await fs.writeFile(path.join(unknown, "keep.txt"), "keep");
+    const link = path.join(skillsRoot, "linked");
+    await fs.symlink(unknown, link, "dir");
+    const zip = buildStoreZip([{ name: "SKILL.md", content: "replacement" }]);
+    for (const name of ["unknown", "linked"]) {
+      expect((await app.inject({ method: "POST", url: "/v1/skills", payload: { name, overwrite: true, zipBase64: zip.toString("base64") } })).statusCode).toBe(409);
+    }
+    expect(await fs.readFile(path.join(unknown, "keep.txt"), "utf8")).toBe("keep");
+  });
 
   it("安装插件：技能只读注册 + pluginId 关联 + 内容落盘与可读", async () => {
     const res = await installPluginWithSkill();

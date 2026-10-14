@@ -1,11 +1,11 @@
 /**
  * Aervox｜思隅 @aervox/repositories — T-04 工具注册表 SQLite 仓储实现
  *
- * 规则依据：docs/explanation/reference-design-transfer.md §3.4 T-04 工具注册表与主动记忆工具
+ * 规则依据：docs/reference/ARCHITECTURE.md §14.1 T-04 T-04 工具注册表与主动记忆工具
  * 与 §4.7 AST-04 插件元数据与工具配置门控。
  *
  * 设计要点：
- * - 工具注册为系统级（无租户列），所有租户共享同一注册表；
+ * - 工具注册属于本地实例，由 pluginId 区分插件所有权；
  * - enabled = 0 对应 disabledToolIds，exportRegistry 按 enabled + 全局禁用 + 门控过滤；
  * - 内置工具（builtin = 1）不可注销，只能禁用；
  * - PET-05 safetyLevel 标记只读白名单，read_only 可被 AI 自主调用。

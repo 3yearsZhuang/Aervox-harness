@@ -58,7 +58,7 @@ const props = withDefaults(
   defineProps<{
     platform?: Platform;
     showCompanion?: boolean;
-    /** CR-065：陪伴角色名（默认「小隅」）；「思隅」是空间名，不再是角色名 */
+    /** ADR-027：陪伴角色名（默认「小隅」）；「思隅」是空间名，不再是角色名 */
     companionName?: string;
     /**
      * CR-060：第一方插件定义清单由**组合根**（Web / 桌面壳）显式注入。
@@ -66,14 +66,14 @@ const props = withDefaults(
      */
     plugins?: BuiltinUIPlugin[];
     /**
-     * CR-063 切片四：内置设置面板（模型/本地模型/人格/语音/插件管理）由组合根
+     * CR-065 切片四：内置设置面板（模型/本地模型/人格/语音/插件管理）由组合根
      * 以受信构建输入显式注入；工作台根注册进 settings:panel:<category> 槽位，
      * 设置弹层按分类经 ExtensionSlot 渲染，宿主不内建任何具体面板。
      */
     settingsPanels?: readonly { category: string; component: Component }[];
     /**
      * 界面变体：'full' 完整双形态；'compact' 紧凑单栏（强制标准模式，无侧栏与模式切换）。
-     * 用于多根界面试验田（CR-063 切片六），由组合根按用户选择装配不同界面插件。
+     * 用于多根界面试验田（CR-065 切片六），由组合根按用户选择装配不同界面插件。
      */
     variant?: 'full' | 'compact';
   }>(),
@@ -98,7 +98,7 @@ const showStandardWorkbench = computed(() => isCompactVariant.value || layout.wo
 const registry = createUIRegistry();
 provideUIRegistry(registry);
 
-// CR-063 切片四：注册组合根注入的内置设置面板（始终可用，不受插件启停门控）
+// CR-065 切片四：注册组合根注入的内置设置面板（始终可用，不受插件启停门控）
 type PanelSlotName = Parameters<typeof registry.registerSlotComponent>[0];
 for (const panel of props.settingsPanels) {
   registry.registerSlotComponent(
@@ -335,7 +335,7 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
         signal: surfaceContext.signal,
         toolApprovalMode: conversation.toolApprovalMode.value,
         attachments: attachmentRefs.length > 0 ? attachmentRefs : undefined,
-        // CR-065：宿主显式元数据（角色名/用户称呼）优先级最高，插件变换不得覆盖
+        // ADR-027：宿主显式元数据（角色名/用户称呼）优先级最高，插件变换不得覆盖
         metadata: { ...turnMetadata, ...readCompanionIdentity() },
         sessionId: submittedSessionId,
       },
@@ -416,7 +416,7 @@ onMounted(() => {
       desktopCompanionEnabled: boolean;
       dailyReminder: boolean;
     }>;
-    // CR-065：角色名与称呼由 readCompanionIdentity 统一读取（含旧字段迁移），此处不再恢复
+    // ADR-027：角色名与称呼由 readCompanionIdentity 统一读取（含旧字段迁移），此处不再恢复
     if (typeof savedSettings.enterToSend === 'boolean') layout.enterToSend.value = savedSettings.enterToSend;
     if (typeof savedSettings.compactMode === 'boolean') layout.compactMode.value = savedSettings.compactMode;
     if (typeof savedSettings.timerMinutes === 'number' && savedSettings.timerMinutes >= 1 && savedSettings.timerMinutes <= 60) {
@@ -505,7 +505,7 @@ function handleGlobalKeydown(e: KeyboardEvent) {
   const isCmdOrCtrl = e.metaKey || e.ctrlKey;
   if (isCmdOrCtrl && (e.key === 'n' || e.key === 'N')) {
     e.preventDefault();
-    void sessions.createNewSession('新对话');
+    void sessions.createNewSession('新对话').catch(() => undefined);
   } else if (isCmdOrCtrl && (e.key === 'k' || e.key === 'K')) {
     e.preventDefault();
     commandPaletteOpen.value = !commandPaletteOpen.value;
