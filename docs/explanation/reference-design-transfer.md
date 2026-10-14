@@ -6,14 +6,13 @@ id: AVX-EXPL-002
 
 关联：[参考项目与借鉴边界](#reference-manifest)、[SQLite 本地单用户数据库契约](../reference/DATABASE.md)、[能力追踪](../reference/REQUIREMENTS_TRACEABILITY.md#capability-delivery)、[Agent Harness Loop 规范](../reference/agent-harness-loop.md)、[AI 质量与安全规范](../reference/AI_QUALITY_SAFETY.md)
 
-> [!NOTE] 调研生命周期状态：已落地 (Adopted)
-> 本文梳理的外部参考项目（DSH、pi、AstrBot 等）能力借鉴与上游版本固定已在 ITER-030 落地并完成准入固定。
+> 本文 §1～§8 保留历史设计来源与当时的评估，不作为当前实现状态或优先级依据。最新八个项目的上游差异、思隅实际代码对照与建议见 [2026-10-14 源码审查](reference-upstream-review-2026-10-14.md)；当前固定版本统一维护在 [§10.1](#101-参考实现要求)。固定参考版本不等于相应能力已经落地。
 
 当前迭代建议与实施排序统一见根 [plan.md](../../plan.md)（AVX-PLAN-001），规划边界见[贡献指南](../../CONTRIBUTING.md)。本文保留参考设计的判定理由、来源编号、许可证边界及历史映射；A/B/C 判定与旧批次不表示当前排期或最新实现状态。
 
 ## 1. 评估范围与判定框架
 
-本评估回答：`reference/` 内参考项目中哪些设计适合在本项目落地，哪些仅作为设计参考。当前覆盖 BaiShou-Next、AstrBot、Petra、dsh-synapse、DeepSeek Harness（DSH）与 pi 六个固定版本。DSH 与 pi 的 Agent Loop 设计来源分别登记为 `DSH-01` 与 `PI-01`；它们只用于验证目标控制流和接口边界，不改变 Aervox 的数据所有权或安全模型。评估结论与 [上游借鉴边界](#reference-manifest) 的参考项目策略保持一致。
+本节记录早期对 BaiShou-Next、AstrBot、Petra、dsh-synapse、DeepSeek Harness（DSH）与 pi 六个固定版本的评估；后续纳入的 OpenMAIC、archify 及八仓当前差异见最新源码审查。DSH 与 pi 的 Agent Loop 设计来源分别登记为 `DSH-01` 与 `PI-01`；它们只用于验证目标控制流和接口边界，不改变 Aervox 的数据所有权或安全模型。
 
 判定框架有三条边界：
 
@@ -25,7 +24,7 @@ id: AVX-EXPL-002
 
 ### 1.1 Agent Loop 参考来源登记
 
-`DSH-01` 与 `PI-01` 是 Agent Harness Loop 相关参考设计的唯一来源编号。实现登记中的 `来源` 列只能使用这两个编号指向下表，不能把外部仓库当作 Aervox 的运行时依赖或事实源。
+`DSH-01` 与 `PI-01` 是 Agent Harness Loop 相关参考设计的来源编号。下表保留历史设计证据的 SHA，不再表示当前子模块 HEAD；当前准入版本取 §10.1。实现登记可以通过来源编号追溯设计，不能把外部仓库当作 Aervox 的运行时依赖或事实源。
 
 历史来源说明：2026-09-28 的 CR-056（Build to Delete 与类 pi 分层架构规划，已归档至 Aervox-docs-archive）继续使用 `PI-01`：在同一固定版本上补充模型注册的代际控制、扩展上下文失效、协议 DTO 映射和客户端快照设计参考，具体源码见 CR §2.2。当时首先交付规划，后续接受与部分实施状态见 CR 本身；该次旧 SHA 的设计证据保留，本次最新源码复评见[§8](#upstream-20260929)。不复制参考运行时代码，实现证据仍只登记 §4.2。
 
@@ -447,16 +446,18 @@ Package 15 又补充了“观察者只看已提交 partial”的实现：按 100
 
 ### 10.1 参考实现要求
 
-本次评审使用的固定清单（DSH、pi、AstrBot 于 2026-09-29 按上游默认分支更新；区间差异与实际验证见[参考设计复评](#upstream-20260929)，固定参考头不代表真实外部运行时已通过集成验收）：
+当前固定清单：八个项目均于 2026-10-14 更新至抓取时上游默认分支 HEAD。更新区间、实际代码证据与验证范围见 [2026-10-14 源码审查](reference-upstream-review-2026-10-14.md)；固定参考头不代表外部运行时已通过集成验收。
 
 | 本地路径 | 上游项目 | 固定 commit | 许可证 | 复核日期 |
 |---|---|---|---|---|
-| `reference/baishou-next` | BaiShou-Next | `d95bae0f6f3184a94bbc3a77eb71ca987bfcadba` | AGPLv3 | 2026-08-24 |
-| `reference/dsh-synapse` | dsh-synapse | `a323f76b0c47ffad59194d8ac7efacb3aa6bdfba` | MIT | 2026-08-24 |
-| `reference/deepseek-harness` | DeepSeek Harness | `639ed015397290b3745d163aafe02ffee4aa3f84` | MIT | 2026-09-29 |
-| `reference/pi` | pi monorepo | `5257d0d5f3ab7d42550804f32c67a77b49f485d4` | MIT | 2026-09-29 |
-| `reference/AstrBot` | AstrBot | `b53999e959cfc3b71d7b74713ddee837be843fcb` | AGPLv3 | 2026-09-29 |
-| `reference/Petra` | Petra | `b629b295b5ae535d80e09cd59bd3d515bcd8150f` | MIT | 2026-08-26 |
+| `reference/baishou-next` | BaiShou-Next | `91c8d9fcf5bf6524e67f96b1c5146eb107b736ca` | AGPLv3；美术资产单独许可 | 2026-10-14 |
+| `reference/dsh-synapse` | dsh-synapse | `847b712b14579ca5e5c5fcf414f4559589c44d93` | MIT | 2026-10-14 |
+| `reference/deepseek-harness` | DeepSeek Harness | `d743267388641bc76f17c45ce8b4c231aed1d32c` | MIT | 2026-10-14 |
+| `reference/pi` | pi monorepo | `6374c2baf432419ccb4541a99ce4958ecd03dae0` | MIT | 2026-10-14 |
+| `reference/AstrBot` | AstrBot | `6ca3931925ab60a05c638fd66cb3c977b0d97f39` | AGPLv3 | 2026-10-14 |
+| `reference/Petra` | Petra | `d34e6add082ff388ff57b0e4a0da931770067bd0` | MIT；第三方资源单独许可 | 2026-10-14 |
+| `reference/OpenMAIC` | OpenMAIC | `ecb940c136cc5b4ea56dc81b2505e64eff1dea29` | MIT | 2026-10-14 |
+| `reference/archify` | archify | `c21c31ffb879668900c5487ea24993bf45d89b15` | MIT | 2026-10-14 |
 
 - 参考仓库的行为和 API 只能通过固定 commit 复核，升级时需记录变更原因和回归结果；
 - 任何从参考项目复制或改写的代码，都必须在实现设计中记录文件来源、版权声明和许可证影响；

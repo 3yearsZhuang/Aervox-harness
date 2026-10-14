@@ -16,6 +16,7 @@ id: AVX-EXPL-000
 
 - [架构实现与演进评估](architecture-implementation-review.md)
 - [参考项目、版本、许可与设计迁移](reference-design-transfer.md)
+- [参考项目上游源码审查（2026-10-14）](reference-upstream-review-2026-10-14.md)
 - [Pi AI 差距与改进建议](pi-competitive-gap-improvements.md)
 - [配套硬件方向](companion-hardware-directions.md)
 - [ESP32-S3 器件方案](esp32-s3-hardware-extension.md)
