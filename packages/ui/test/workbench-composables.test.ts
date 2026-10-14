@@ -106,7 +106,7 @@ describe('Workbench Composables Logic', () => {
       let currentTimerMinutes = 45;
       const { useWorkbenchLayout } = await import('../src/composables/useWorkbenchLayout');
       const layout = useWorkbenchLayout(
-        { platform: 'web', showCompanion: true, assistantName: '思隅' },
+        { platform: 'web', showCompanion: true, companionName: '小隅' },
         {
           recordActivity: () => {},
           getTimerMinutes: () => currentTimerMinutes,
@@ -138,7 +138,7 @@ describe('Workbench Composables Logic', () => {
 
     try {
       const layout = useWorkbenchLayout(
-        { platform: 'mobile', showCompanion: false, assistantName: '思隅' },
+        { platform: 'mobile', showCompanion: false, companionName: '小隅' },
         { recordActivity: () => {} },
       );
 
@@ -530,7 +530,7 @@ describe('Workbench Composables Logic', () => {
   it('does not open historyOpen when switching or opening tool view to history', async () => {
     const { useWorkbenchLayout } = await import('../src/composables/useWorkbenchLayout');
     const layout = useWorkbenchLayout(
-      { platform: 'web', showCompanion: true, assistantName: '思隅' },
+      { platform: 'web', showCompanion: true, companionName: '小隅' },
       {
         recordActivity: () => {},
         getTimerMinutes: () => 25,

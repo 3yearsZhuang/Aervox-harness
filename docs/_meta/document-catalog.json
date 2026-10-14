@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-13",
-  "totalCount": 72,
+  "generatedAt": "2026-10-14",
+  "totalCount": 73,
   "documents": [
     {
       "id": "AVX-PLAN-001",
@@ -1123,7 +1123,7 @@
       "doc_status": "review-candidate",
       "decision_status": "accepted",
       "delivery_status": "implemented",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "updated_at": "2026-10-13",
       "reviewed_at": "2026-10-13",
       "review_interval_days": 90,
@@ -1155,6 +1155,26 @@
         "docs/reference/ARCHITECTURE.md",
         "docs/reference/plugin-config-and-pages.md",
         "docs/reference/THREAT_MODEL.md"
+      ]
+    },
+    {
+      "id": "CR-065",
+      "title": "CR-065 命名模型分层：思隅为空间，陪伴角色有自己的名字",
+      "path": "reference/changes/CR-065-companion-identity.md",
+      "type": "reference",
+      "scope": "change",
+      "owner": "frontend",
+      "doc_status": "review-candidate",
+      "decision_status": "accepted",
+      "delivery_status": "planned",
+      "version": "0.1.0",
+      "updated_at": "2026-10-13",
+      "reviewed_at": "2026-10-13",
+      "review_interval_days": 90,
+      "review_triggers": [],
+      "sources": [
+        "docs/reference/changes/CR-063-ui-surface-plugins.md",
+        "docs/reference/PRD.md"
       ]
     },
     {

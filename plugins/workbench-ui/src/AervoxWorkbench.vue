@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch, type Component } from 'vue';
 import {
+  COMPANION_DEFAULT_NAME,
+  readCompanionIdentity,
   type Platform,
   PetWithFallback,
   createWorkbenchPluginRuntime,
@@ -57,7 +59,8 @@ const props = withDefaults(
   defineProps<{
     platform?: Platform;
     showCompanion?: boolean;
-    assistantName?: string;
+    /** CR-065：陪伴角色名（默认「小隅」）；「思隅」是空间名，不再是角色名 */
+    companionName?: string;
     /**
      * CR-060：第一方插件定义清单由**组合根**（Web / 桌面壳）显式注入。
      * 宿主工作台不内建任何具体插件，从而保证"删掉插件后宿主仍可构建运行"。
@@ -78,7 +81,7 @@ const props = withDefaults(
   {
     platform: 'web',
     showCompanion: false,
-    assistantName: '思隅',
+    companionName: COMPANION_DEFAULT_NAME,
     plugins: () => [],
     settingsPanels: () => [],
     variant: 'full',
@@ -333,7 +336,8 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
         signal: surfaceContext.signal,
         toolApprovalMode: conversation.toolApprovalMode.value,
         attachments: attachmentRefs.length > 0 ? attachmentRefs : undefined,
-        metadata: turnMetadata,
+        // CR-065：宿主显式元数据（角色名/用户称呼）优先级最高，插件变换不得覆盖
+        metadata: { ...turnMetadata, companionName: readCompanionIdentity().companionName, userAddress: readCompanionIdentity().userAddress },
         sessionId: sessions.activeSessionId.value,
       },
     );
@@ -407,14 +411,13 @@ onMounted(() => {
   try {
     const savedSettings = JSON.parse(localStorage.getItem('aervox-settings') ?? '{}') as Partial<{
       theme: 'light' | 'dark';
-      assistantName: string;
       enterToSend: boolean;
       compactMode: boolean;
       timerMinutes: number;
       desktopCompanionEnabled: boolean;
       dailyReminder: boolean;
     }>;
-    if (savedSettings.assistantName) layout.assistantDisplayName.value = savedSettings.assistantName;
+    // CR-065：角色名与称呼由 readCompanionIdentity 统一读取（含旧字段迁移），此处不再恢复
     if (typeof savedSettings.enterToSend === 'boolean') layout.enterToSend.value = savedSettings.enterToSend;
     if (typeof savedSettings.compactMode === 'boolean') layout.compactMode.value = savedSettings.compactMode;
     if (typeof savedSettings.timerMinutes === 'number' && savedSettings.timerMinutes >= 1 && savedSettings.timerMinutes <= 60) {

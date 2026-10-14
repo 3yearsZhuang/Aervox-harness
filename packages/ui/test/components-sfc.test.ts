@@ -256,7 +256,7 @@ describe('Real SFC Component Mounting', () => {
 
     const mockContext = {
       layout: {
-        assistantDisplayName: ref('思隅'),
+        companionDisplayName: ref('思隅'),
       },
       timer: {
         timerRunning: ref(false),
@@ -340,7 +340,7 @@ describe('Real SFC Component Mounting', () => {
         compactMode: ref(false),
         enterToSend: ref(true),
         desktopCompanionEnabled: ref(false),
-        assistantDisplayName: ref('思隅'),
+        companionDisplayName: ref('思隅'),
         settingsScope: ref('global'),
         scopedSettingCategories: ref([]),
         openTool: vi.fn(),
@@ -433,7 +433,7 @@ describe('Real SFC Component Mounting', () => {
         compactMode: ref(false),
         enterToSend: ref(true),
         desktopCompanionEnabled: ref(false),
-        assistantDisplayName: ref('思隅'),
+        companionDisplayName: ref('思隅'),
         settingsScope: ref('global'),
         scopedSettingCategories: ref([]),
         openTool: vi.fn(),

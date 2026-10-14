@@ -2,6 +2,8 @@
 /** Public building blocks for trusted workbench surfaces; no root implementation. */
 // 工作台类根界面的完整主题链随出口装配（窄屏抽屉遮罩、设置体验、Hero 均依赖此链）
 import './theme/workbench-all.css';
+export { COMPANION_DEFAULT_NAME, USER_DEFAULT_ADDRESS, SPACE_NAME, readCompanionIdentity, saveCompanionIdentity } from './utils/companion-identity';
+export type { CompanionIdentity } from './utils/companion-identity';
 import { defineAsyncComponent } from 'vue';
 export type { Platform } from './composables/useWorkbenchLayout';
 export { default as PetHero } from './components/PetHero.vue';

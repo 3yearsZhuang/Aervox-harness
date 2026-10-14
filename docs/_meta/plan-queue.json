@@ -1300,6 +1300,29 @@
       "links": [
         "docs/reference/changes/CR-063-ui-surface-plugins.md"
       ]
+    },
+    {
+      "id": "ITER-060",
+      "batch": "first",
+      "status": "待评审",
+      "delivery": "命名模型分层落地（CR-065）：companionName/userAddress 身份工具与旧字段迁移、设置双字段、问候语与发送 metadata、提示词身份段与执行器接线、三个界面插件统一接入；CAP-001/018。",
+      "gate": "2026-10-13 用户明确授权：立 CR 后直接开始；不改空间名「思隅」，不改变人格 prompt 覆盖优先级。",
+      "acceptance": [
+        "设置对话分类可分别编辑角色名与对你的称呼，旧 assistantName 自定义值迁移、值为思隅时回默认小隅",
+        "工作台与 proactive-ui / document-ui 问候语与署名跟随角色名；每轮发送 metadata 携带身份，提示词身份段声明空间-角色-称呼关系"
+      ],
+      "checks": [
+        "packages/ui/test/companion-identity.test.ts"
+      ],
+      "owner": "frontend",
+      "branch": "feat/companion-identity",
+      "statusNote": "2026-10-13 落地；人格面板（persona）与服务端角色名的统一入册留后续——当前人格名优先于 UI 设置角色名进入提示词。",
+      "dependsOn": [
+        "ITER-057"
+      ],
+      "links": [
+        "docs/reference/changes/CR-065-companion-identity.md"
+      ]
     }
   ]
 }

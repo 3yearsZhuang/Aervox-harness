@@ -8,15 +8,17 @@
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useUISurfaceContext } from '@aervox/ui-host';
-import { PetWithFallback } from '@aervox/ui';
+import { PetWithFallback, readCompanionIdentity } from '@aervox/ui';
 import { streamAervoxTurn, useAervoxSessions } from '@aervox/api-client';
 import { useDialogueTyper } from './dialogue-typer';
 
 const surface = useUISurfaceContext();
 const sessions = useAervoxSessions();
 
-const greeting = '你好，我是思隅。今天想继续昨天的进度，还是先安静专注一会儿？';
-const dialogueCtx = ref('思隅 · 每日开场');
+const identity = readCompanionIdentity();
+const companionName = ref(identity.companionName);
+const greeting = '你好' + (identity.userAddress === '你' ? '' : '，' + identity.userAddress) + '，我是' + identity.companionName + '。今天想继续昨天的进度，还是先安静专注一会儿？';
+const dialogueCtx = ref(companionName.value + ' · 每日开场');
 const { shown: dialogueText, streaming: dialogueTyping, say, appendDelta, finish } = useDialogueTyper(greeting);
 
 interface Suggestion {
@@ -49,7 +51,7 @@ async function sendTurn(content: string) {
     onDelta: (text) => appendDelta(text),
     onDone: () => {
       finish();
-      dialogueCtx.value = '思隅 · 刚刚回复';
+      dialogueCtx.value = companionName.value + ' · 刚刚回复';
     },
     onError: (err) => {
       finish();
@@ -78,7 +80,7 @@ const suggestions = computed<Suggestion[]>(() => {
   list.push({
     key: 'focus',
     label: '先专注 25 分钟',
-    reason: '番茄钟 · 到点思隅提醒你',
+    reason: '番茄钟 · 到点' + companionName.value + '提醒你',
     primary: list.length === 0,
     action: () => sendTurn('我想专注 25 分钟，帮我开始一个番茄钟。'),
   });
@@ -136,11 +138,11 @@ onBeforeUnmount(() => {
       <div class="dc-doc">
         <aside class="dc-side">
           <div class="dc-pet"><PetWithFallback /></div>
-          <div class="dc-name">思隅</div>
+          <div class="dc-name">{{ companionName }}</div>
           <div class="dc-status">伴学中</div>
         </aside>
         <section class="dc-main">
-          <div class="dc-who">思隅 · 今日建议</div>
+          <div class="dc-who">{{ companionName }} · 今日建议</div>
           <p class="dc-dialogue" aria-live="polite">{{ dialogueText }}<span v-if="dialogueTyping" class="dc-caret" /></p>
           <div class="dc-ctx">{{ dialogueCtx }}</div>
           <div class="dc-choices">
@@ -164,11 +166,11 @@ onBeforeUnmount(() => {
     </div>
 
     <aside class="dc-whisper" :class="{ 'dc-whisper--open': whisperOpen }">
-      <button v-if="!whisperOpen" type="button" class="dc-whisper-pill" @click="openWhisper">对思隅说…</button>
+      <button v-if="!whisperOpen" type="button" class="dc-whisper-pill" @click="openWhisper">对{{ companionName }}说…</button>
       <div v-else class="dc-whisper-input">
         <input
           v-model="whisperText"
-          placeholder="想到什么，直接告诉思隅"
+          :placeholder="'想到什么，直接告诉' + companionName"
           @keydown.enter="sendWhisper"
         />
         <button type="button" :disabled="sending" @click="sendWhisper">发送</button>

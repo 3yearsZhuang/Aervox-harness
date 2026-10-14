@@ -36,6 +36,7 @@ review_interval_days: 90
 | `CR-061` | [CR-061 内核执行合同与五阶段审核整改](CR-061-core-execution-contract-hardening.md) | Accepted | Implemented |
 | `CR-063` | [CR-063 根界面插件与薄平台宿主](CR-063-ui-surface-plugins.md) | Accepted | Implemented |
 | `CR-064` | [CR-064 界面插件开放：第三方信任模型与独立安装回滚合同](CR-064-ui-surface-open-ecosystem.md) | Proposed | Planned |
+| `CR-065` | [CR-065 命名模型分层：思隅为空间，陪伴角色有自己的名字](CR-065-companion-identity.md) | Accepted | Implemented |
 | `CR-060` | [CR-060 专注模式宿主去领域化与插件实现内聚](CR-060-focus-mode-host-decoupling.md) | Accepted | Implemented |
 
 ---

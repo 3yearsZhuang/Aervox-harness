@@ -68,7 +68,8 @@ const {
   compactMode,
   enterToSend,
   desktopCompanionEnabled,
-  assistantDisplayName,
+  companionDisplayName,
+  userAddress,
   settingsOpen,
   settingsCategory,
   switchSettingsCategory,
@@ -501,7 +502,9 @@ async function onPluginChange(): Promise<void> {
         </div>
         <div v-else-if="settingsCategory === 'conversation'" class="settings-section">
           <AervoxSettingsHeading title="对话" description="调整你与思隅交流的输入与展示方式" />
-          <label class="settings-field"><span><strong>助手称呼</strong><small>工作台中显示的名字</small></span><input class="aervox-field" v-model="assistantDisplayName" maxlength="12" @change="saveSettings(timerMinutes)" /></label>
+          <!-- CR-065：思隅是空间名；角色名与 TA 对你的称呼分开自定义 -->
+          <label class="settings-field"><span><strong>TA 的名字</strong><small>陪伴角色的名字（默认「小隅」）</small></span><input class="aervox-field" v-model="companionDisplayName" maxlength="12" @change="saveSettings(timerMinutes)" /></label>
+          <label class="settings-field"><span><strong>TA 怎么称呼你</strong><small>角色对你的称呼（默认「你」）</small></span><input class="aervox-field" v-model="userAddress" maxlength="12" placeholder="你" @change="saveSettings(timerMinutes)" /></label>
           <!-- CR-060：插件自有设置行经通用插槽注入，宿主不内建任何插件行 -->
           <ExtensionSlot name="settings:conversation-rows" />
           <label class="settings-row settings-choice-row"><span><strong>回车发送</strong><small>关闭后，回车只换行</small></span><AervoxSwitch v-model="enterToSend"  @change="saveSettings(timerMinutes)"  /></label>

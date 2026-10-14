@@ -42,6 +42,8 @@ export * from './composables/useWorkbenchConversation';
 export * from './composables/useWorkbenchCards';
 export * from './composables/useWorkbenchProactive';
 export * from './composables/workbench-context';
+export { COMPANION_DEFAULT_NAME, USER_DEFAULT_ADDRESS, SPACE_NAME, readCompanionIdentity, saveCompanionIdentity } from './utils/companion-identity';
+export type { CompanionIdentity } from './utils/companion-identity';
 
 export const Live2DPet = defineAsyncComponent(() => import('./components/Live2DPet.vue'));
 export { default as AervoxBrandMark } from './components/AervoxBrandMark.vue';

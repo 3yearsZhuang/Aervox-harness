@@ -18,6 +18,7 @@ import {
 } from 'lucide-vue-next';
 import { MizukiExpression } from '../live2d/model';
 import { petReact, petReactKind } from '../live2d/petReactions';
+import { readCompanionIdentity, saveCompanionIdentity } from '../utils/companion-identity';
 
 export type Platform = 'desktop' | 'web' | 'mobile';
 export type WorkbenchMode = 'companion' | 'standard';
@@ -49,7 +50,8 @@ export const settingPages = [
 export function useWorkbenchLayout(props: {
   platform: Platform;
   showCompanion: boolean;
-  assistantName: string;
+  /** CR-065：陪伴角色名（空间名「思隅」固定，不再是角色名） */
+  companionName: string;
 }, options: {
   onOpenDiary?: () => void;
   getTimerMinutes?: () => number;
@@ -60,7 +62,9 @@ export function useWorkbenchLayout(props: {
   const isWeb = computed(() => props.platform !== 'desktop');
   const isMobile = computed(() => props.platform === 'mobile');
   const isDesktop = computed(() => props.platform === 'desktop');
-  const assistantDisplayName = ref(props.assistantName);
+  const initialIdentity = readCompanionIdentity();
+  const companionDisplayName = ref(props.companionName || initialIdentity.companionName);
+  const userAddress = ref(initialIdentity.userAddress);
   const desktopCompanionEnabled = ref(props.showCompanion);
   const showCompanionEnabled = computed(() => props.showCompanion && (isWeb.value || desktopCompanionEnabled.value));
 
@@ -237,16 +241,23 @@ export function useWorkbenchLayout(props: {
     const resolvedTimerMinutes = timerMinutesVal ?? options.getTimerMinutes?.() ?? 25;
     // 注：workbenchMode 单独持久化在 'aervox-workbench-mode'（switchWorkbenchMode 内联写入），
     // 此处不重复写入 settings JSON，避免双源漂移。
+    // CR-065：角色名与称呼经身份工具写入（负责旧字段迁移与「思隅」误命名纠正）
+    const identity = saveCompanionIdentity({
+      companionName: companionDisplayName.value,
+      userAddress: userAddress.value,
+    });
+    companionDisplayName.value = identity.companionName;
+    userAddress.value = identity.userAddress;
     const settings = {
       theme: isDark.value ? 'dark' : 'light',
-      assistantName: assistantDisplayName.value.trim() || props.assistantName,
+      companionName: identity.companionName,
+      userAddress: identity.userAddress,
       enterToSend: enterToSend.value,
       compactMode: compactMode.value,
       timerMinutes: resolvedTimerMinutes,
       desktopCompanionEnabled: desktopCompanionEnabled.value,
       dailyReminder: dailyReminder.value,
     };
-    assistantDisplayName.value = settings.assistantName;
     localStorage.setItem('aervox-settings', JSON.stringify(settings));
   }
 
@@ -266,7 +277,8 @@ export function useWorkbenchLayout(props: {
     isWeb,
     isMobile,
     isDesktop,
-    assistantDisplayName,
+    companionDisplayName,
+    userAddress,
     desktopCompanionEnabled,
     showCompanionEnabled,
     workbenchMode,
