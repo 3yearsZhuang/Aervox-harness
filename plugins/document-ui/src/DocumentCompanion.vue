@@ -295,7 +295,7 @@ onBeforeUnmount(() => {
   background: var(--dc-card); border: 1px solid var(--dc-line); border-radius: 10px; padding: 12px 16px;
 }
 .dc-whisper-input input {
-  flex: 1; border: 0; outline: 0; font: inherit; font-size: 13.5px;
+  flex: 1; min-width: 0; border: 0; outline: 0; font: inherit; font-size: 13.5px;
   color: var(--dc-ink); background: transparent;
 }
 .dc-whisper-input button {

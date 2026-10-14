@@ -1,6 +1,6 @@
 import { test, expect, openWorkbench } from "./fixtures";
 
-for (const viewport of [{ width: 1366, height: 768 }, { width: 460, height: 740 }]) {
+for (const viewport of [{ width: 1366, height: 768 }, { width: 460, height: 740 }, { width: 320, height: 700 }]) {
   test(`document surface keeps identity and keyboard input usable at ${viewport.width}px`, async ({ page, servers }) => {
     await page.setViewportSize(viewport);
     await page.goto(`${servers.webUrl}/?surface=document-ui`, { timeout: 90_000 });
