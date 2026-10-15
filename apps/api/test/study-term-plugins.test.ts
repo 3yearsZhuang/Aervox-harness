@@ -308,7 +308,7 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
   });
 
   it("createLLMCallable 适配器：正确透传 temperature 参数与 systemPrompt", async () => {
-    const { createLLMCallable } = await import("../src/modules/companion/conversation/llm-adapter.js");
+    const { createLLMCallable } = await import("@aervox/host-runtime/modules/companion/conversation/llm-adapter");
     let capturedRequest: any;
     const mockProvider = {
       id: "mock",
@@ -334,7 +334,7 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
   });
 
   it("ServerTurnPluginRegistry：无别名体系，插件 id 唯一（同名重复注册自动替换）", async () => {
-    const { ServerTurnPluginRegistry } = await import("../src/modules/ecosystem/plugins/turn-plugins/registry.js");
+    const { ServerTurnPluginRegistry } = await import("@aervox/host-runtime/modules/ecosystem/plugins/turn-plugins/registry");
     const reg = new ServerTurnPluginRegistry();
 
     reg.register({ id: "focus-mode" });

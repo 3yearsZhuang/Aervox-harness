@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { ProactiveProfileClaimModel } from "@aervox/repositories";
-import { buildLoopProvider } from "../src/modules/companion/conversation/llm-adapter.js";
+import { buildLoopProvider } from "@aervox/host-runtime/modules/companion/conversation/llm-adapter";
 import {
   buildProactiveProfilePrompt,
   isLiteralLoopbackUrl,
-} from "../src/modules/proactive/proactive/profile-context.js";
+} from "@aervox/host-runtime/modules/proactive/proactive/profile-context";
 
 const claim = (overrides: Partial<ProactiveProfileClaimModel> = {}): ProactiveProfileClaimModel => ({
   id: "claim_1",

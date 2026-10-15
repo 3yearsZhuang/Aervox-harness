@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { zipSync, unzipSync, strToU8 } from "fflate";
-import { previewPersonaBundle } from "../src/modules/companion/persona/bundle.js";
-import { computeRevisionChecksum, validatePersonaConfig } from "../src/modules/companion/persona/types.js";
-import { unzip } from "../src/modules/ecosystem/skills/zip.js";
-import { executeArchive } from "../src/shared/archive-worker.js";
-import { isSafeZipEntryPath, PLUGIN_ARCHIVE_LIMITS } from "../src/modules/ecosystem/plugins/package-bundle.js";
+import { previewPersonaBundle } from "@aervox/host-runtime/modules/companion/persona/bundle";
+import { computeRevisionChecksum, validatePersonaConfig } from "@aervox/host-runtime/modules/companion/persona/types";
+import { unzip } from "@aervox/host-runtime/modules/ecosystem/skills/zip";
+import { executeArchive } from "@aervox/host-runtime/shared/archive-worker";
+import { isSafeZipEntryPath, PLUGIN_ARCHIVE_LIMITS } from "@aervox/host-runtime/modules/ecosystem/plugins/package-bundle";
 
 describe("bounded plugin archive CPU isolation", () => {
   it("preserves bytes and path/expansion checks through the Worker", async () => {

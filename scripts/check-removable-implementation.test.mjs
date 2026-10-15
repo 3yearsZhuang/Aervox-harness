@@ -10,12 +10,13 @@ import {
 
 const PLUGIN_TARGET_ID = "focus-mode-plugin";
 const COMPOSITION_ROOTS = [
-  "apps/api/src/plugin-assembly.ts",
+  "packages/host-runtime/src/plugin-assembly.ts",
   "apps/web/src/App.vue",
   "apps/desktop/src/renderer/src/App.vue",
 ];
 const PLUGIN_PACKAGE_MANIFESTS = [
   "apps/api/package.json",
+  "packages/host-runtime/package.json",
   "apps/web/package.json",
   "apps/desktop/package.json",
 ];
@@ -42,10 +43,11 @@ test("check-removable-implementation: 全仓扫描 0 处非法私有引用", () 
 test("check-removable-implementation: Worker 静态、动态、类型及显式扩展引用均被拒绝", () => {
   const dir = mkdtempSync("apps/worker/src/removability-fixture-");
   const file = `${dir}/consumer.ts`;
-  const specifier = "../../../api/src/modules/companion/memory/tool-contribution";
+  const specifier = "../../../../packages/host-runtime/src/modules/companion/memory/tool-contribution";
   try {
     for (const statement of [
       `import { contributeMemoryTool } from "${specifier}.js";`,
+      'import { contributeMemoryTool } from "@aervox/host-runtime/modules/companion/memory/tool-contribution";',
       `export * from "${specifier}.ts";`,
       `const mod = import("${specifier}.js");`,
       `const mod = import(\`${specifier}.js\`);`,
@@ -56,7 +58,7 @@ test("check-removable-implementation: Worker 静态、动态、类型及显式�
     }
     writeFileSync(file, 'const broken = ;');
     assert.match(auditTarget(REMOVABLE_TARGETS[0], [file])[0].message, /无法解析/);
-    writeFileSync(file, 'import { registerMemoryModule } from "../../../api/src/modules/companion/memory/index.js";');
+    writeFileSync(file, 'import { registerMemoryModule } from "../../../../packages/host-runtime/src/modules/companion/memory/index.js";');
     assert.deepEqual(auditTarget(REMOVABLE_TARGETS[0], [file]), []);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

@@ -74,7 +74,7 @@ test("包内相对声明归一化为仓库根相对 glob", () => {
 
 test("loadTurboScope 只提取包目录之外的声明", () => {
   const scope = loadTurboScope();
-  const apiPluginInput = scope.packageInputs.find((decl) => decl.glob === "plugins/**");
+  const apiPluginInput = scope.packageInputs.find((decl) => decl.glob === "plugins/**" && decl.pkg === "@aervox/api");
   assert.ok(apiPluginInput, "应识别 @aervox/api#test 的 ../../plugins/** 包外输入");
   assert.equal(apiPluginInput.pkg, "@aervox/api");
   assert.equal(apiPluginInput.task, "test");

@@ -75,18 +75,16 @@ importers:
       '@aervox/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@aervox/host-runtime':
+        specifier: workspace:*
+        version: link:../../packages/host-runtime
+    devDependencies:
       '@aervox/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
       '@aervox/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@aervox/diary':
-        specifier: workspace:*
-        version: link:../../packages/diary
-      '@aervox/host-agent':
-        specifier: workspace:*
-        version: link:../../packages/host-agent
       '@aervox/host-plugin-api':
         specifier: workspace:*
         version: link:../../packages/host-plugin-api
@@ -99,37 +97,21 @@ importers:
       '@aervox/plugin-focus-mode':
         specifier: workspace:*
         version: link:../../plugins/focus-mode
-      '@aervox/practice-review':
-        specifier: workspace:*
-        version: link:../../packages/practice-review
       '@aervox/repositories':
         specifier: workspace:*
         version: link:../../packages/repositories
       '@aervox/schema':
         specifier: workspace:*
         version: link:../../packages/schema
-      '@fastify/cors':
-        specifier: ^11.3.0
-        version: 11.3.0
       '@libsql/client':
         specifier: ^0.14.0
         version: 0.14.0
-      '@vscode/ripgrep':
-        specifier: 1.18.0
-        version: 1.18.0
-      fastify:
-        specifier: 5.12.5
-        version: 5.12.5
-      fflate:
-        specifier: 0.8.3
-        version: 0.8.3
-      sherpa-onnx-node:
-        specifier: ^1.13.5
-        version: 1.13.6
-    devDependencies:
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.1
+      fastify:
+        specifier: 5.12.5
+        version: 5.12.5
       tsx:
         specifier: ^4.19.2
         version: 4.23.12
@@ -307,6 +289,9 @@ importers:
       '@aervox/host-agent':
         specifier: workspace:*
         version: link:../../packages/host-agent
+      '@aervox/host-runtime':
+        specifier: workspace:*
+        version: link:../../packages/host-runtime
       '@aervox/observability':
         specifier: workspace:*
         version: link:../../packages/observability
@@ -407,6 +392,67 @@ importers:
       '@aervox/core':
         specifier: workspace:*
         version: link:../core
+
+  packages/host-runtime:
+    dependencies:
+      '@aervox/config':
+        specifier: workspace:*
+        version: link:../config
+      '@aervox/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@aervox/core':
+        specifier: workspace:*
+        version: link:../core
+      '@aervox/diary':
+        specifier: workspace:*
+        version: link:../diary
+      '@aervox/host-agent':
+        specifier: workspace:*
+        version: link:../host-agent
+      '@aervox/host-plugin-api':
+        specifier: workspace:*
+        version: link:../host-plugin-api
+      '@aervox/native-runtime':
+        specifier: workspace:*
+        version: link:../native-runtime
+      '@aervox/observability':
+        specifier: workspace:*
+        version: link:../observability
+      '@aervox/plugin-focus-mode':
+        specifier: workspace:*
+        version: link:../../plugins/focus-mode
+      '@aervox/practice-review':
+        specifier: workspace:*
+        version: link:../practice-review
+      '@aervox/repositories':
+        specifier: workspace:*
+        version: link:../repositories
+      '@aervox/schema':
+        specifier: workspace:*
+        version: link:../schema
+      '@fastify/cors':
+        specifier: ^11.3.0
+        version: 11.3.0
+      '@libsql/client':
+        specifier: ^0.14.0
+        version: 0.14.0
+      '@vscode/ripgrep':
+        specifier: 1.18.0
+        version: 1.18.0
+      fastify:
+        specifier: 5.12.5
+        version: 5.12.5
+      fflate:
+        specifier: 0.8.3
+        version: 0.8.3
+      sherpa-onnx-node:
+        specifier: ^1.13.5
+        version: 1.13.6
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
 
   packages/live2d: {}
 
@@ -4599,10 +4645,6 @@ snapshots:
     dependencies:
       vue: 3.5.43(typescript@5.9.3)
 
-  '@element-plus/icons-vue@2.3.2(vue@3.5.43(typescript@7.0.2))':
-    dependencies:
-      vue: 3.5.43(typescript@7.0.2)
-
   '@emnapi/runtime@1.11.3':
     dependencies:
       tslib: 2.8.1
@@ -5714,14 +5756,6 @@ snapshots:
     optionalDependencies:
       typescript: 5.9.3
 
-  '@volar/typescript@2.4.15(typescript@7.0.2)':
-    dependencies:
-      '@volar/language-core': 2.4.15
-      path-browserify: 1.0.1
-      vscode-uri: 3.1.0
-    optionalDependencies:
-      typescript: 7.0.2
-
   '@vscode/ripgrep-darwin-arm64@1.18.0':
     optional: true
 
@@ -5834,19 +5868,6 @@ snapshots:
     optionalDependencies:
       typescript: 5.9.3
 
-  '@vue/language-core@2.2.12(typescript@7.0.2)':
-    dependencies:
-      '@volar/language-core': 2.4.15
-      '@vue/compiler-dom': 3.5.41
-      '@vue/compiler-vue2': 2.7.16
-      '@vue/shared': 3.5.41
-      alien-signals: 1.0.3
-      minimatch: 9.0.9
-      muggle-string: 0.4.1
-      path-browserify: 1.0.1
-    optionalDependencies:
-      typescript: 7.0.2
-
   '@vue/reactivity@3.5.43':
     dependencies:
       '@vue/shared': 3.5.43
@@ -5889,22 +5910,11 @@ snapshots:
       '@vueuse/shared': 14.4.0(vue@3.5.43(typescript@5.9.3))
       vue: 3.5.43(typescript@5.9.3)
 
-  '@vueuse/core@14.4.0(vue@3.5.43(typescript@7.0.2))':
-    dependencies:
-      '@types/web-bluetooth': 0.0.21
-      '@vueuse/metadata': 14.4.0
-      '@vueuse/shared': 14.4.0(vue@3.5.43(typescript@7.0.2))
-      vue: 3.5.43(typescript@7.0.2)
-
   '@vueuse/metadata@14.4.0': {}
 
   '@vueuse/shared@14.4.0(vue@3.5.43(typescript@5.9.3))':
     dependencies:
       vue: 3.5.43(typescript@5.9.3)
-
-  '@vueuse/shared@14.4.0(vue@3.5.43(typescript@7.0.2))':
-    dependencies:
-      vue: 3.5.43(typescript@7.0.2)
 
   '@xmldom/xmldom@0.8.15': {}
 
@@ -6393,25 +6403,6 @@ snapshots:
       memoize-one: 6.0.0
       normalize-wheel-es: 1.2.0
       vue: 3.5.43(typescript@5.9.3)
-      vue-component-type-helpers: 3.3.11
-
-  element-plus@2.14.5(vue@3.5.43(typescript@7.0.2)):
-    dependencies:
-      '@ctrl/tinycolor': 4.2.0
-      '@element-plus/icons-vue': 2.3.2(vue@3.5.43(typescript@7.0.2))
-      '@floating-ui/dom': 1.8.0
-      '@popperjs/core': '@sxzz/popperjs-es@2.11.8'
-      '@types/lodash': 4.17.25
-      '@types/lodash-es': 4.17.12
-      '@vueuse/core': 14.4.0(vue@3.5.43(typescript@7.0.2))
-      async-validator: 4.2.5
-      dayjs: 1.11.23
-      lodash: 4.18.1
-      lodash-es: 4.18.1
-      lodash-unified: 1.0.3(@types/lodash-es@4.17.12)(lodash-es@4.18.1)(lodash@4.18.1)
-      memoize-one: 6.0.0
-      normalize-wheel-es: 1.2.0
-      vue: 3.5.43(typescript@7.0.2)
       vue-component-type-helpers: 3.3.11
 
   elementtree@0.1.7:
@@ -7863,12 +7854,6 @@ snapshots:
       '@volar/typescript': 2.4.15(typescript@5.9.3)
       '@vue/language-core': 2.2.12(typescript@5.9.3)
       typescript: 5.9.3
-
-  vue-tsc@2.2.12(typescript@7.0.2):
-    dependencies:
-      '@volar/typescript': 2.4.15(typescript@7.0.2)
-      '@vue/language-core': 2.2.12(typescript@7.0.2)
-      typescript: 7.0.2
 
   vue@3.5.43(typescript@5.9.3):
     dependencies:

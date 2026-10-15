@@ -17,13 +17,13 @@ import {
 } from "@aervox/repositories";
 import {
   createRuntimeToolProvider,
-} from "../src/modules/companion/conversation/tool-providers.js";
-import { stableStringify } from "../src/modules/companion/conversation/llm-adapter.js";
-import { setRequestToolApprovalMode } from "../src/shared/tool-approval-policy.js";
+} from "@aervox/host-runtime/modules/companion/conversation/tool-providers";
+import { stableStringify } from "@aervox/host-runtime/modules/companion/conversation/llm-adapter";
+import { setRequestToolApprovalMode } from "@aervox/host-runtime/shared/tool-approval-policy";
 import { buildApp } from "./app-fixture.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
-import { ForbiddenError } from "../src/shared/errors.js";
+import { ForbiddenError } from "@aervox/host-runtime/shared/errors";
 
 const tenant = { workspaceId: "ws_sandbox", subjectUserId: "usr_sandbox" } as const;
 

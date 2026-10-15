@@ -10,7 +10,7 @@ import {
   type LocalContext,
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
-import { registerConversationRoutes } from "../src/modules/companion/conversation/routes.js";
+import { registerConversationRoutes } from "@aervox/host-runtime/modules/companion/conversation/routes";
 
 describe("ARC-01: 对话接单弹性、Claim 前故障追踪与孤儿 Attempt 恢复测试", () => {
   let app: FastifyInstance;
@@ -211,7 +211,7 @@ describe("ARC-01: 对话接单弹性、Claim 前故障追踪与孤儿 Attempt �
     expect(skillLoader).not.toHaveBeenCalled();
 
     // 验证 Outbox 表已写入该事件，等待独立 Worker 消费
-    const outboxRows = await client.execute("SELECT event_type, payload FROM outbox_events WHERE event_type = 'turn.created'");
+    const outboxRows = await client.execute("SELECT event_type, payload FROM outbox_events WHERE event_type = 'agent.turn.requested'");
     expect(outboxRows.rows.length).toBeGreaterThan(0);
     const latestPayload = JSON.parse(outboxRows.rows[outboxRows.rows.length - 1]!.payload as string);
     expect(latestPayload.turnId).toBe(body.turnId);

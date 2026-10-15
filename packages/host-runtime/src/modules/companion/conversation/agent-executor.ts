@@ -99,6 +99,10 @@ export async function runLoopTurnOnce(
     metadata?: Record<string, unknown>;
   },
   deps: {
+    signal?: AbortSignal;
+    claimTurnAttempt?: SqliteExecutionStore["claimTurnAttempt"];
+    preparationFencingToken?: number;
+    isMcpToolAllowed?: (tool: { id: string; name: string; pluginId?: string | null }) => Promise<boolean>;
     toolRuntime?: ToolRuntime;
     llmConfigService?: LLMConfigPort;
     /** CR-034 模型降级与健康路由决策服务 */
@@ -245,6 +249,7 @@ export async function runLoopTurnOnce(
         }
       : undefined,
   );
+  if (deps.claimTurnAttempt) store.claimTurnAttempt = deps.claimTurnAttempt;
   const broadcastingStore = createBroadcastingStore(store);
 
   // CAP-008：前置安全门禁拦截（Crisis Safety Gate & Emotional Companionship）
@@ -315,7 +320,7 @@ export async function runLoopTurnOnce(
           text: crisisText,
         },
         safetyDecision: "redacted",
-        expectedFencingToken: 0,
+        expectedFencingToken: deps.preparationFencingToken ?? 0,
       }).catch(() => undefined);
 
       await broadcastingStore.appendEvent({
@@ -330,7 +335,7 @@ export async function runLoopTurnOnce(
           lastSequence: 2,
         },
         safetyDecision: "approved",
-        expectedFencingToken: 0,
+        expectedFencingToken: deps.preparationFencingToken ?? 0,
       }).catch(() => undefined);
 
       await broadcastingStore.finalizeAttempt({
@@ -371,7 +376,7 @@ export async function runLoopTurnOnce(
       const proactiveStatus = await deps.proactiveRepository.getEffectiveStatus(tenant);
       proactiveActive = proactiveStatus?.effectiveState === "active";
     } catch (err) {
-      await failTurnWithError(broadcastingStore, input.turnId, input.attemptId, err instanceof Error ? err.message : "provider_unavailable");
+      await failTurnWithError(broadcastingStore, input.turnId, input.attemptId, err instanceof Error ? err.message : "provider_unavailable", undefined, deps.preparationFencingToken);
       await repo.updateTurnStatus(tenant, input.turnId, "Failed").catch(() => undefined);
       return;
     }
@@ -388,6 +393,7 @@ export async function runLoopTurnOnce(
         input.turnId,
         input.attemptId,
         "proactive_local_provider_required: 主动智能本地处理期间不允许进程外 Adapter",
+        undefined, deps.preparationFencingToken,
       );
       await repo.updateTurnStatus(tenant, input.turnId, "Failed").catch(() => undefined);
       return;
@@ -399,6 +405,7 @@ export async function runLoopTurnOnce(
         input.turnId,
         input.attemptId,
         "deletion_gate_blocked: 删除/撤权水位未追平，进程外 Adapter 拒绝执行",
+        undefined, deps.preparationFencingToken,
       );
       await repo.updateTurnStatus(tenant, input.turnId, "Failed").catch(() => undefined);
       return;
@@ -412,7 +419,7 @@ export async function runLoopTurnOnce(
         // ignore
       }
     }
-    const dshInput = {
+    const dshInput = { preparationFencingToken: deps.preparationFencingToken,
       ...input,
       ...(beforeTurnExec.extraSections.length > 0
         ? { systemPrompt: beforeTurnExec.extraSections.join("\n\n") }
@@ -446,7 +453,7 @@ export async function runLoopTurnOnce(
       proactiveProfilePrompt = await loadProactiveProfilePrompt(deps.proactiveRepository, tenant);
     }
   } catch (err) {
-    await failTurnWithError(broadcastingStore, input.turnId, input.attemptId, err instanceof Error ? err.message : "provider_unavailable");
+    await failTurnWithError(broadcastingStore, input.turnId, input.attemptId, err instanceof Error ? err.message : "provider_unavailable", undefined, deps.preparationFencingToken);
     await repo.updateTurnStatus(tenant, input.turnId, "Failed").catch(() => undefined);
     return;
   }
@@ -541,6 +548,7 @@ export async function runLoopTurnOnce(
         capabilityTier: isL1Tier && isCapabilityTiering ? "restricted" : undefined,
         async isToolAllowed(tool) {
           // Native tools retain their domain-owned authorization. Plugin grants are re-read per dispatch.
+          if (tool.pluginId?.startsWith("mcp:")) return deps.isMcpToolAllowed?.(tool) ?? false;
           if (!tool.pluginId) return tool.builtin === 1 || !tool.requiredPermissionsJson || (Array.isArray(tool.requiredPermissionsJson) && !tool.requiredPermissionsJson.length);
           if (!extRepo || !(await isPluginEnabled(tool.pluginId, extRepo))) return false;
           const required = tool.requiredPermissionsJson ?? [];
@@ -656,7 +664,7 @@ export async function runLoopTurnOnce(
       },
     };
   }
-  const control = new ControlContext({ turnId: input.turnId, attemptId: input.attemptId, sessionId: input.sessionId, localProcessingOnly });
+  const control = new ControlContext({ turnId: input.turnId, attemptId: input.attemptId, sessionId: input.sessionId, localProcessingOnly, abortSignal: deps.signal });
   const result = await executeTurn(
     {
       execution: broadcastingStore,
