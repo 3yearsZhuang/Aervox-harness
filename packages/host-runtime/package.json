@@ -1,0 +1,48 @@
+{
+  "name": "@aervox/host-runtime",
+  "version": "0.1.0",
+  "license": "AGPL-3.0-or-later",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@aervox/native-runtime": "workspace:*",
+    "@aervox/core": "workspace:*",
+    "@aervox/config": "workspace:*",
+    "@aervox/contracts": "workspace:*",
+    "@aervox/diary": "workspace:*",
+    "@aervox/host-agent": "workspace:*",
+    "@aervox/host-plugin-api": "workspace:*",
+    "@aervox/observability": "workspace:*",
+    "@aervox/plugin-focus-mode": "workspace:*",
+    "@aervox/plugin-bot-weixin": "workspace:*",
+    "@aervox/plugin-bot-onebot": "workspace:*",
+    "@aervox/practice-review": "workspace:*",
+    "@aervox/repositories": "workspace:*",
+    "@aervox/schema": "workspace:*",
+    "@fastify/cors": "^11.3.0",
+    "@libsql/client": "^0.14.0",
+    "@vscode/ripgrep": "1.18.0",
+    "fastify": "5.12.5",
+    "fflate": "0.8.3",
+    "sherpa-onnx-node": "^1.13.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0"
+  },
+  "description": "Shared product host composition and execution for API and Worker",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  }
+}

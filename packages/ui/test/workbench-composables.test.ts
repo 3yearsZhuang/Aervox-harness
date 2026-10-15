@@ -5,6 +5,38 @@ import { resolveMediaType, formatAttachmentSize } from '../src/composables/useWo
 import { DIAL_RADIUS, DIAL_CIRCUMFERENCE } from '../src/composables/useWorkbenchTimer';
 
 describe('Workbench Composables Logic', () => {
+  it('restores configured companion identity and saves both fields with existing preferences', async () => {
+    const originalStorage = globalThis.localStorage;
+    const storage: Record<string, string> = {
+      'aervox-settings': JSON.stringify({ companionName: '团子', userAddress: '掌柜', theme: 'dark' }),
+    };
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (key: string) => storage[key] ?? null,
+        setItem: (key: string, value: string) => { storage[key] = value; },
+      },
+    });
+    try {
+      const { useWorkbenchLayout } = await import('../src/composables/useWorkbenchLayout');
+      const layout = useWorkbenchLayout({ platform: 'web', showCompanion: false }, { recordActivity: vi.fn() });
+      expect(layout.companionDisplayName.value).toBe('团子');
+      expect(layout.userAddress.value).toBe('掌柜');
+      layout.companionDisplayName.value = '阿雾';
+      layout.userAddress.value = '阿庄';
+      layout.enterToSend.value = false;
+      layout.isDark.value = true;
+      await layout.saveSettings();
+      expect(JSON.parse(storage['aervox-settings']!)).toMatchObject({
+        companionName: '阿雾', userAddress: '阿庄', enterToSend: false, theme: 'dark',
+      });
+      const restored = useWorkbenchLayout({ platform: 'web', showCompanion: false }, { recordActivity: vi.fn() });
+      expect(restored.companionDisplayName.value).toBe('阿雾');
+      expect(restored.userAddress.value).toBe('阿庄');
+    } finally {
+      Object.defineProperty(globalThis, 'localStorage', { value: originalStorage, configurable: true });
+    }
+  });
   it('splits text into visual novel sentences properly', () => {
     const text = '你好！ 这是第一句。 这是第二句？ 没错！';
     const sentences = splitIntoSentences(text);
@@ -106,7 +138,7 @@ describe('Workbench Composables Logic', () => {
       let currentTimerMinutes = 45;
       const { useWorkbenchLayout } = await import('../src/composables/useWorkbenchLayout');
       const layout = useWorkbenchLayout(
-        { platform: 'web', showCompanion: true, assistantName: '思隅' },
+        { platform: 'web', showCompanion: true, companionName: '小隅' },
         {
           recordActivity: () => {},
           getTimerMinutes: () => currentTimerMinutes,
@@ -138,7 +170,7 @@ describe('Workbench Composables Logic', () => {
 
     try {
       const layout = useWorkbenchLayout(
-        { platform: 'mobile', showCompanion: false, assistantName: '思隅' },
+        { platform: 'mobile', showCompanion: false, companionName: '小隅' },
         { recordActivity: () => {} },
       );
 
@@ -530,7 +562,7 @@ describe('Workbench Composables Logic', () => {
   it('does not open historyOpen when switching or opening tool view to history', async () => {
     const { useWorkbenchLayout } = await import('../src/composables/useWorkbenchLayout');
     const layout = useWorkbenchLayout(
-      { platform: 'web', showCompanion: true, assistantName: '思隅' },
+      { platform: 'web', showCompanion: true, companionName: '小隅' },
       {
         recordActivity: () => {},
         getTimerMinutes: () => 25,

@@ -279,12 +279,13 @@ export class WeixinAdapter implements BotAdapterInstance {
 
   private async createLogin(): Promise<BotLoginResult> {
     await this.load();
-    await this.pausePolling();
-    this.live();
     const data = await this.request("ilink/bot/get_bot_qrcode?bot_type=3", undefined, undefined, false);
     const pollingToken = string(data.qrcode);
     const qrCodeUrl = string(data.qrcode_img_content);
     if (!pollingToken || !qrCodeUrl || errorCode(data) !== 0) throw new Error("weixin_invalid_login_response");
+    // Keep the authenticated connection receiving until a usable replacement login exists.
+    await this.pausePolling();
+    this.live();
     this.login = { pollingToken, status: "waiting", qrCodeUrl, expiresAt: new Date(Date.now() + 300_000).toISOString() };
     await this.context.setState("login_required");
     return this.loginResult(this.login);

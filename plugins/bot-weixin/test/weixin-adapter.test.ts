@@ -63,6 +63,39 @@ describe("Weixin protocol normalization", () => {
 });
 
 describe("Weixin transport lifecycle", () => {
+  it.each(["http", "json", "shape", "missing_qr"])("keeps valid credentials and receiving after a %s QR refresh failure", async (failure) => {
+    const env = harness({ token: "OLD_TOKEN", accountId: "account" });
+    let finishPoll!: (value: Response) => void;
+    let pollSignal!: AbortSignal;
+    let polls = 0;
+    const fetcher = vi.fn(async (url, init) => {
+      if (String(url).includes("get_bot_qrcode")) {
+        if (failure === "http") return new Response("unavailable", { status: 503 });
+        if (failure === "json") return new Response("invalid json", { status: 200 });
+        return response(failure === "shape" ? [] : { qrcode: "private", ret: 0 });
+      }
+      if (++polls === 1) {
+        pollSignal = init!.signal!;
+        return new Promise<Response>((resolve, reject) => {
+          finishPoll = resolve;
+          pollSignal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+        });
+      }
+      return pending(init!.signal!);
+    }) as typeof fetch;
+    const receiver = vi.fn();
+    const bot = adapter(env.context, fetcher);
+    await bot.start(receiver);
+    await vi.waitFor(() => expect(finishPoll).toBeDefined());
+    await expect(bot.beginLogin()).rejects.toThrow();
+    expect(pollSignal.aborted).toBe(false);
+    expect(env.secrets()).toEqual({ token: "OLD_TOKEN", accountId: "account" });
+    finishPoll(response({ ret: 0, msgs: [incoming], get_updates_buf: "resumed" }));
+    await vi.waitFor(() => expect(receiver).toHaveBeenCalledOnce());
+    expect(env.context.setState).toHaveBeenCalledWith("connected", { accountId: "account" });
+    expect(env.context.setState).not.toHaveBeenCalledWith("login_required");
+  });
+
   it("waits for restored account state to commit before requesting or admitting the first update", async () => {
     const env = harness();
     let release!: () => void;

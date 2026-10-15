@@ -45,7 +45,7 @@ describe('model settings panel (settings:panel:model)', () => {
     const registry = createUIRegistry();
     registry.registerSlotComponent('settings:panel:model', LLMConfigPanel, { id: 'settings-panel-model' });
     const layout = useWorkbenchLayout(
-      { platform: 'web', showCompanion: false, assistantName: '思隅' }, { recordActivity: vi.fn() },
+      { platform: 'web', showCompanion: false, companionName: '小隅' }, { recordActivity: vi.fn() },
     );
     layout.openSettingsCategory('model');
     const wrapper = mount(SettingsModal, {

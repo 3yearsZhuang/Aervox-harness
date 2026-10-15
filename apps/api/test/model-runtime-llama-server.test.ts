@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 import type { ChildProcess } from "node:child_process";
-import { LlamaServerManager } from "../src/modules/ecosystem/model-runtime/llama-server.js";
+import { LlamaServerManager } from "@aervox/host-runtime/modules/ecosystem/model-runtime/llama-server";
 
 interface FakeChild extends EventEmitter {
   pid: number;

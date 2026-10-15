@@ -32,7 +32,7 @@ describe("出厂官方插件集市与全量插件打包验证 (Market & Builtin 
       // CR-065: these mandatory UI implementations are bundled by the app,
       // not installed/enabled via the declaration marketplace. Unknown directories
       // still require a valid manifest; a missing existing manifest must fail.
-      if (dirName === "workbench-ui" || dirName === "companion-ui" || dirName === "panels-ui" || dirName === "proactive-ui") {
+      if (["workbench-ui", "companion-ui", "panels-ui", "proactive-ui"].includes(dirName)) {
         await expect(fs.access(manifestPath)).rejects.toMatchObject({ code: "ENOENT" });
         continue;
       }
@@ -162,7 +162,7 @@ describe("出厂官方插件集市与全量插件打包验证 (Market & Builtin 
     const { app } = await buildApp({ db, client });
     onTestFinished(async () => { await app.close(); await cleanup(); });
 
-    // 分发包由产品自身的导出端点现场生成，不依赖 dist-plugins/ 下的本地构建产物：
+    // 分发包由产品自身的导出端点现场生成，不依赖 dist/plugins/ 下的本地构建产物：
     // 该目录已由 .gitignore 忽略，CI 全新检出时并不存在，直接读文件会导致 ENOENT 假失败。
     const exportRes = await app.inject({
       method: "GET",

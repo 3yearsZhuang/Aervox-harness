@@ -104,7 +104,7 @@ export class SqliteExecutionStore implements ExecutionStorePort {
 
   async nextSequence(turnId: string): Promise<number> {
     const events = await this.repo.getStreamEvents(this.ctx, turnId, 0);
-    return events.length + 1;
+    return events.reduce((max, event) => Math.max(max, event.sequence), 0) + 1;
   }
 
   async appendEvent(input: AgentStreamEventInput): Promise<AgentStreamEvent> {

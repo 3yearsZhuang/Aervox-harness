@@ -21,6 +21,7 @@ const TARGET_DIRS = [
   "apps/web/src",
   "apps/desktop/src",
   "apps/api/src",
+  "packages/host-runtime/src",
   "apps/worker/src",
 ];
 

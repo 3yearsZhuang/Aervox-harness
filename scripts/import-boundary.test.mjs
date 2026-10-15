@@ -26,9 +26,9 @@ test("规则矩阵：8 条底座健身函数齐备", () => {
 
 test("宿主不得接入插件实现包：仅组合根白名单放行（CR-060）", () => {
   const src = `import * as plugin from "@aervox/plugin-focus-mode/ui";`;
-  assert.deepEqual(v("apps/api/src/modules/foo.ts", src), ["host-no-plugin-implementation"]);
+  assert.deepEqual(v("packages/host-runtime/src/modules/foo.ts", src), ["host-no-plugin-implementation"]);
   // 三个组合根是 AVX-PLUG-001 §4.1 允许的显式装配位
-  assert.deepEqual(v("apps/api/src/plugin-assembly.ts", `const m = import("@aervox/plugin-focus-mode/server");`), []);
+  assert.deepEqual(v("packages/host-runtime/src/plugin-assembly.ts", `const m = import("@aervox/plugin-focus-mode/server");`), []);
   assert.deepEqual(v("apps/web/src/App.vue", `<script setup lang="ts">\nimport * as p from "@aervox/plugin-focus-mode/ui";\n</script>`), []);
   // 规则只覆盖宿主源码目录（src/）；宿主测试可引用插件包以验证插件行为
   assert.deepEqual(v("packages/ui/test/components.test.ts", src), []);
@@ -89,7 +89,7 @@ test("插件实现层禁触库、禁反向依赖宿主 Shell（CR-060）", () =>
 
 test("宿主 Shell 允许消费底座（不违规）", () => {
   const src = `import { AervoxDatabase } from "@aervox/database";\nimport { executeTurn } from "@aervox/core";`;
-  assert.deepEqual(v("apps/api/src/modules/conversation/agent-executor.ts", src), []);
+  assert.deepEqual(v("packages/host-runtime/src/modules/conversation/agent-executor.ts", src), []);
 });
 
 test("AST 提取：type import / 副作用导入 / 动态 import() 均覆盖", () => {
@@ -139,7 +139,7 @@ test("collectSourceFiles：收 .ts/.vue、排除 reference/dist/node_modules", (
   assert.ok(files.some((f) => f.endsWith(".vue")), "应包含 .vue 组件");
   assert.ok(!files.some((f) => f.includes("reference/") || f.includes("node_modules/") || f.includes("/dist/")));
 });
-const consumer = "apps/api/src/modules/companion/conversation/_boundary-fixture.ts";
+const consumer = "packages/host-runtime/src/modules/companion/conversation/_boundary-fixture.ts";
 const checkModule = (source) => inspectSource(consumer, source, { exceptions: [] }).map((v) => v.rule);
 
 test("模块公开入口可解析 .js、目录 index、相对绕行；同模块内部合法", () => {
@@ -168,11 +168,11 @@ test("纳管源码解析错误、缺失目标、动态非字面量不能静默�
 
 test("组合根无目录豁免；过渡授权必须精确到边且具备责任与退出条件", () => {
   const source = 'import "./modules/ecosystem/tools/runtime.js";';
-  const edge = { from: "apps/api/src/app.ts", to: "apps/api/src/modules/ecosystem/tools/runtime.ts", owner: "platform", removeWhen: "Port migration" };
+  const edge = { from: "packages/host-runtime/src/runtime.ts", to: "packages/host-runtime/src/modules/ecosystem/tools/runtime.ts", owner: "platform", removeWhen: "Port migration" };
   assert.equal(inspectSource(edge.from, source, { exceptions: [] }).length, 1);
   assert.equal(inspectSource(edge.from, source, { exceptions: [edge] }).length, 0);
   assert.equal(inspectSource(edge.from, source, { exceptions: [{ ...edge, owner: "" }] }).length, 1);
-  assert.equal(inspectSource("apps/api/src/other.ts", source, { exceptions: [edge] }).length, 1);
+  assert.equal(inspectSource("packages/host-runtime/src/other.ts", source, { exceptions: [edge] }).length, 1);
 });
 
 test("TSImportType 也遵循原有包边界", () => {

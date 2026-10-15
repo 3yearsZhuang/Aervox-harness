@@ -3,7 +3,7 @@ import {
   LocalFeatureHashEmbeddingProvider,
   OpenAiCompatibleEmbeddingProvider,
   resolveEmbeddingProvider,
-} from "../src/modules/companion/memory/embedding-provider.js";
+} from "@aervox/host-runtime/modules/companion/memory/embedding-provider";
 
 describe("Memory Embedding Providers", () => {
   describe("LocalFeatureHashEmbeddingProvider", () => {

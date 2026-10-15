@@ -6,10 +6,12 @@ import {
 } from "@aervox/repositories";
 import type { BotAdapterContext, BotAdapterContribution, BotMessage, BotSendReceipt } from "@aervox/host-plugin-api";
 import { SqliteBotRepository } from "@aervox/repositories";
-import { BotManager } from "../src/modules/ecosystem/bots/manager.js";
+import { BotManager } from "@aervox/host-runtime/modules/ecosystem/bots/manager";
 
 const { execute } = vi.hoisted(() => ({ execute: vi.fn() }));
-vi.mock("../src/modules/companion/conversation/index.js", () => ({
+vi.mock("@aervox/host-runtime/modules/companion/conversation/index", () => ({
+  recoverApiOwnedTurn: async (repo: SqliteConversationRepository, turnId: string) =>
+    (await import("@aervox/host-runtime/modules/companion/conversation/api-owned-recovery")).recoverApiOwnedTurn(repo, turnId),
   acceptConversationTurn: (repo: SqliteConversationRepository, ctx: object, input: never) => repo.acceptTurn(ctx as never, input),
   executeAcceptedConversationTurn: execute,
 }));
@@ -83,6 +85,40 @@ describe("Bot manager transport durability and lifetime", () => {
     return row;
   }
   async function drain(current = manager) { for (let round = 0; round < 4; round++) await current.settle(); }
+
+  it.each(["cancel_requested", "terminal_gap", "expired_tool"])("recovers %s atomically and unblocks the following member request without replay", async (mode) => {
+    const row = await connection();
+    await receivers[0]!(message("crashed"));
+    const item = (await store.listPending(row.id))[0]!;
+    await conversations.acceptTurn(local, { turnId: "crashed-turn", sessionId: item.sessionId, idempotencyKey: `bot:${item.id}`,
+      attemptId: "crashed-attempt", message: { id: "crashed-message", content: "hello" } });
+    await store.updateInbox(item.id, { state: "processing", turnId: "crashed-turn" });
+    await conversations.updateTurnStatus(local, "crashed-turn", "Running");
+    const claim = await conversations.claimTurnAttempt(local, { turnId: "crashed-turn", attemptId: "crashed-attempt",
+      expectedFencingToken: 0, leaseId: "dead-host", ttlMs: -1000 });
+    if (mode === "cancel_requested") {
+      await conversations.requestCancelTurnAttempt(local, { turnId: "crashed-turn", attemptId: "crashed-attempt" });
+    } else if (mode === "terminal_gap") {
+      await conversations.finalizeTurnAttempt(local, { turnId: "crashed-turn", attemptId: "crashed-attempt", status: "Completed", expectedFencingToken: claim.fencingToken });
+    } else {
+      await conversations.reserveToolExecution(local, { turnId: "crashed-turn", attemptId: "crashed-attempt", invocationId: "uncertain-write", name: "write" });
+    }
+    await receivers[0]!(message("followup"));
+    await drain();
+    await drain();
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(execute.mock.calls[0]?.[2]?.turnId).not.toBe("crashed-turn");
+    expect((await store.getInbox(item.id))?.state).toBe("done");
+    const expected = mode === "terminal_gap" ? "Completed" : mode === "cancel_requested" ? "Cancelled" : "Interrupted";
+    expect((await conversations.getTurn(local, "crashed-turn"))?.status).toBe(expected);
+    const [attempt] = await conversations.listTurnAttempts(local, "crashed-turn");
+    expect(attempt).toMatchObject({ status: expected, fencingToken: mode === "terminal_gap" ? claim.fencingToken : claim.fencingToken + 1 });
+    expect((await conversations.getStreamEvents(local, "crashed-turn")).filter(event => event.eventType === "done")).toHaveLength(1);
+    if (mode === "expired_tool") {
+      expect((await conversations.listToolExecutionsByTurn(local, "crashed-turn"))[0]).toMatchObject({ status: "outcome_unknown", error: "recovery_outcome_unknown" });
+      expect(await conversations.finalizeTurnAttempt(local, { turnId: "crashed-turn", attemptId: "crashed-attempt", status: "Completed", expectedFencingToken: claim.fencingToken })).toBeNull();
+    }
+  });
 
   it("does not hold management requests behind an adapter's network startup", async () => {
     startGate = deferred<void>();

@@ -18,16 +18,18 @@ export function createHostToolProvider(
   options: CreateHostToolProviderOptions = {},
 ): ToolProviderPort {
   const localCtx = options.ctx ?? { workspaceId: "local", subjectUserId: "local" };
-  const autoApprove = options.autoApprove ?? true;
+  const autoApprove = options.autoApprove ?? false;
 
   return {
     tools: [],
-    async listTools() {
-      const tools = await runtime.listTools();
+    async listTools(options) {
+      options?.signal?.throwIfAborted();
+      const tools = await runtime.exportRegistry();
+      options?.signal?.throwIfAborted();
       return tools.map((t) => ({
         name: t.name,
         description: t.description,
-        readOnly: (t.safetyLevel ?? "read_only") === "read_only",
+        readOnly: t.safetyLevel === "read_only",
         parameters:
           t.inputSchemaJson && typeof t.inputSchemaJson === "object"
             ? (t.inputSchemaJson as Record<string, unknown>)
@@ -49,6 +51,8 @@ export function createHostToolProvider(
       try {
         const output = await runtime.callTool(localCtx, tool.id, input.arguments, {
           approval: autoApprove,
+          signal: input.signal,
+          controlContext: input.controlContext,
         });
         return { ok: true, output };
       } catch (err) {

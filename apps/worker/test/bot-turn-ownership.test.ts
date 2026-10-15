@@ -28,6 +28,7 @@ describe("Bot turns remain owned by the API across Worker cycles", () => {
     await repo.createSession(local, policy, { id: policy, executionPolicy: policy });
     return repo.acceptTurn(local, {
       turnId: `turn_${policy}`, sessionId: policy, idempotencyKey: policy,
+      execution: "worker",
       attemptId: `attempt_${policy}`, message: { id: `message_${policy}`, content: policy }, consumeInbox: false,
     });
   }
@@ -37,10 +38,10 @@ describe("Bot turns remain owned by the API across Worker cycles", () => {
     await accept("bot-group-member-v1");
     const provider = vi.fn(async () => createReplayProvider([{ type: "text", delta: "PRIVATE_MODEL_SECRET" }]));
     const recall = vi.fn();
-    const handler = createTurnConsumerHandler({ repo, provider, memoryRecall: { recall } });
+    const handler = createTurnConsumerHandler({ repo, execute: async () => { await provider(); await recall(); } });
     expect(await runOutboxCycle({
       outboxRepo: new SqliteOutboxRepository(db), platformRepo: new SqlitePlatformRepository(db), workerId: "bot-ownership-test",
-      handlers: { "turn.created": handler },
+      handlers: { "agent.turn.requested": handler },
     })).toBe(2);
     expect(provider).not.toHaveBeenCalled();
     expect(recall).not.toHaveBeenCalled();
@@ -63,7 +64,7 @@ describe("Bot turns remain owned by the API across Worker cycles", () => {
     }
     await client.execute("UPDATE turn_attempts SET lease_expires_at = '2000-01-01T00:00:00.000Z', started_at = '2000-01-01T00:00:00.000Z'");
     expect(await repo.findResumeCandidates(client)).toEqual([]);
-    expect(await runAttemptRecoveryCycle({ db, client, workerId: "bot-recovery-test", provider: createReplayProvider([{ type: "text", delta: "forbidden" }]) })).toBe(0);
+    expect(await runAttemptRecoveryCycle({ db, client, workerId: "bot-recovery-test" })).toBe(0);
     for (const policy of ["bot-owner-v1", "bot-group-member-v1"] as const) {
       expect((await repo.getTurn(local, `turn_${policy}`))?.executionPolicy).toBe(policy);
       expect((await repo.listTurnAttempts(local, `turn_${policy}`))[0]).toMatchObject({ status: "Running", fencingToken: 0 });

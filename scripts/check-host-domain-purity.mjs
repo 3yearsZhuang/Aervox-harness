@@ -30,6 +30,7 @@ import { fileURLToPath } from "node:url";
  */
 export const HOST_ROOTS = [
   "apps/api/src",
+  "packages/host-runtime/src",
   "apps/worker/src",
   "apps/web/src",
   "apps/desktop/src",
@@ -120,7 +121,7 @@ export const EXCEPTIONS_URL = new URL("./host-domain-purity-exceptions.json", im
  * 插件的**可达性**由 `check-removable-implementation` 的 allowedAssemblyFiles 另行约束。
  */
 export const ASSEMBLY_FILES = new Set([
-  "apps/api/src/plugin-assembly.ts",
+  "packages/host-runtime/src/plugin-assembly.ts",
   "apps/web/src/App.vue",
   "apps/desktop/src/renderer/src/App.vue",
 ]);

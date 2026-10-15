@@ -47,7 +47,7 @@
  * ## 它证明什么
  *
  * - 在**真实多进程**竞争下，写入路径是否出现逃逸的 `SQLITE_BUSY` 与连接污染（poisoned）；
- * - API 侧压力租约（`apps/api/dist/shared/worker-pressure-lease.js`，与线上同一份实现）是否
+ * - API 侧压力租约（`packages/host-runtime/dist/shared/worker-pressure-lease.js`，与线上同一份实现）是否
  *   真的让真实 `WorkerHost` 进入压力模式，并把真实 outbox 轮询间隔拉长到 3s 以上
  *   （同时读 `host.isPressureMode()` 与真实相邻轮询间隔）；
  * - 竞争是否造成写入延迟长尾（p50/p95/p99）与数据完整性问题（应有行数 vs 实际行数、
@@ -99,7 +99,7 @@ const REPO_ROOT = path.resolve(path.dirname(SCRIPT_PATH), "..");
 const REPOSITORIES_DIST = path.join(REPO_ROOT, "packages/repositories/dist/index.js");
 const WORKER_HOST_DIST = path.join(REPO_ROOT, "apps/worker/dist/worker-host.js");
 const OUTBOX_WORKER_DIST = path.join(REPO_ROOT, "apps/worker/dist/outbox-worker.js");
-const PRESSURE_LEASE_DIST = path.join(REPO_ROOT, "apps/api/dist/shared/worker-pressure-lease.js");
+const PRESSURE_LEASE_DIST = path.join(REPO_ROOT, "packages/host-runtime/dist/shared/worker-pressure-lease.js");
 
 /** 写入事件类型与 ID 前缀刻意与线上 API 一致（apps/api/.../conversation/routes.ts） */
 const OUTBOX_EVENT_TYPE = "turn.created";

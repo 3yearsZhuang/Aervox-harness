@@ -87,18 +87,16 @@ importers:
       '@aervox/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@aervox/host-runtime':
+        specifier: workspace:*
+        version: link:../../packages/host-runtime
+    devDependencies:
       '@aervox/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
       '@aervox/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@aervox/diary':
-        specifier: workspace:*
-        version: link:../../packages/diary
-      '@aervox/host-agent':
-        specifier: workspace:*
-        version: link:../../packages/host-agent
       '@aervox/host-plugin-api':
         specifier: workspace:*
         version: link:../../packages/host-plugin-api
@@ -108,46 +106,24 @@ importers:
       '@aervox/observability':
         specifier: workspace:*
         version: link:../../packages/observability
-      '@aervox/plugin-bot-onebot':
-        specifier: workspace:*
-        version: link:../../plugins/bot-onebot
-      '@aervox/plugin-bot-weixin':
-        specifier: workspace:*
-        version: link:../../plugins/bot-weixin
       '@aervox/plugin-focus-mode':
         specifier: workspace:*
         version: link:../../plugins/focus-mode
-      '@aervox/practice-review':
-        specifier: workspace:*
-        version: link:../../packages/practice-review
       '@aervox/repositories':
         specifier: workspace:*
         version: link:../../packages/repositories
       '@aervox/schema':
         specifier: workspace:*
         version: link:../../packages/schema
-      '@fastify/cors':
-        specifier: ^11.3.0
-        version: 11.3.0
       '@libsql/client':
         specifier: ^0.14.0
         version: 0.14.0
-      '@vscode/ripgrep':
-        specifier: 1.18.0
-        version: 1.18.0
-      fastify:
-        specifier: 5.12.5
-        version: 5.12.5
-      fflate:
-        specifier: 0.8.3
-        version: 0.8.3
-      sherpa-onnx-node:
-        specifier: ^1.13.5
-        version: 1.13.6
-    devDependencies:
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.1
+      fastify:
+        specifier: 5.12.5
+        version: 5.12.5
       tsx:
         specifier: ^4.19.2
         version: 4.23.12
@@ -325,6 +301,9 @@ importers:
       '@aervox/host-agent':
         specifier: workspace:*
         version: link:../../packages/host-agent
+      '@aervox/host-runtime':
+        specifier: workspace:*
+        version: link:../../packages/host-runtime
       '@aervox/observability':
         specifier: workspace:*
         version: link:../../packages/observability
@@ -425,6 +404,73 @@ importers:
       '@aervox/core':
         specifier: workspace:*
         version: link:../core
+
+  packages/host-runtime:
+    dependencies:
+      '@aervox/config':
+        specifier: workspace:*
+        version: link:../config
+      '@aervox/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@aervox/core':
+        specifier: workspace:*
+        version: link:../core
+      '@aervox/diary':
+        specifier: workspace:*
+        version: link:../diary
+      '@aervox/host-agent':
+        specifier: workspace:*
+        version: link:../host-agent
+      '@aervox/host-plugin-api':
+        specifier: workspace:*
+        version: link:../host-plugin-api
+      '@aervox/native-runtime':
+        specifier: workspace:*
+        version: link:../native-runtime
+      '@aervox/observability':
+        specifier: workspace:*
+        version: link:../observability
+      '@aervox/plugin-bot-onebot':
+        specifier: workspace:*
+        version: link:../../plugins/bot-onebot
+      '@aervox/plugin-bot-weixin':
+        specifier: workspace:*
+        version: link:../../plugins/bot-weixin
+      '@aervox/plugin-focus-mode':
+        specifier: workspace:*
+        version: link:../../plugins/focus-mode
+      '@aervox/practice-review':
+        specifier: workspace:*
+        version: link:../practice-review
+      '@aervox/repositories':
+        specifier: workspace:*
+        version: link:../repositories
+      '@aervox/schema':
+        specifier: workspace:*
+        version: link:../schema
+      '@fastify/cors':
+        specifier: ^11.3.0
+        version: 11.3.0
+      '@libsql/client':
+        specifier: ^0.14.0
+        version: 0.14.0
+      '@vscode/ripgrep':
+        specifier: 1.18.0
+        version: 1.18.0
+      fastify:
+        specifier: 5.12.5
+        version: 5.12.5
+      fflate:
+        specifier: 0.8.3
+        version: 0.8.3
+      sherpa-onnx-node:
+        specifier: ^1.13.5
+        version: 1.13.6
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
 
   packages/live2d: {}
 
@@ -5195,7 +5241,7 @@ snapshots:
 
   '@jridgewell/source-map@0.3.11':
     dependencies:
-      '@jridgewell/gen-mapping': 0.3.12
+      '@jridgewell/gen-mapping': 0.3.5
       '@jridgewell/trace-mapping': 0.3.31
     optional: true
 

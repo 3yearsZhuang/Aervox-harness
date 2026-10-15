@@ -7,14 +7,14 @@ import {
   type AervoxDatabase, type ConversationExecutionPolicy,
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
-import { registerConversationRoutes, type ConversationRouteDeps } from "../src/modules/companion/conversation/routes.js";
-import { acceptConversationTurn, executeAcceptedConversationTurn } from "../src/modules/companion/conversation/application.js";
-import { ApiOwnedTurnRecovery } from "../src/modules/companion/conversation/api-owned-recovery.js";
-import { runLoopTurnOnce } from "../src/modules/companion/conversation/agent-executor.js";
-import { ToolRuntime } from "../src/modules/ecosystem/tools/runtime.js";
-import { ServerPluginRegistry } from "../src/modules/ecosystem/plugins/turn-plugins/registry.js";
-import { contributeMemoryTool, type MemoryWritePort } from "../src/modules/companion/memory/index.js";
-import { createToolApprovalPolicyHook, setRequestToolApprovalMode } from "../src/shared/tool-approval-policy.js";
+import { registerConversationRoutes, type ConversationRouteDeps } from "@aervox/host-runtime/modules/companion/conversation/routes";
+import { acceptConversationTurn, executeAcceptedConversationTurn } from "@aervox/host-runtime/modules/companion/conversation/application";
+import { ApiOwnedTurnRecovery } from "@aervox/host-runtime/modules/companion/conversation/api-owned-recovery";
+import { runLoopTurnOnce } from "@aervox/host-runtime/modules/companion/conversation/agent-executor";
+import { ToolRuntime } from "@aervox/host-runtime/modules/ecosystem/tools/runtime";
+import { ServerPluginRegistry } from "@aervox/host-runtime/modules/ecosystem/plugins/turn-plugins/registry";
+import { contributeMemoryTool, type MemoryWritePort } from "@aervox/host-runtime/modules/companion/memory/index";
+import { createToolApprovalPolicyHook, setRequestToolApprovalMode } from "@aervox/host-runtime/shared/tool-approval-policy";
 
 const local = { workspaceId: "local", subjectUserId: "local" };
 type ModelRequest = { messages: Array<{ role: string; content: string }>; tools?: Array<{ function: { name: string } }> };

@@ -7,6 +7,8 @@ export function registerWorkerShutdown(deps: {
   host: Pick<WorkerHost, "stop">;
   clients: Array<{ close(): void }>;
   healthServer?: Server;
+  disposeRuntime?: () => Promise<void>;
+  abortExecution?: () => void;
   logger: LoggerPort;
 }): void {
   let shuttingDown = false;
@@ -20,7 +22,9 @@ export function registerWorkerShutdown(deps: {
     });
     let exitCode = 0;
     try {
+      deps.abortExecution?.();
       await deps.host.stop();
+      await deps.disposeRuntime?.();
       const healthServer = deps.healthServer;
       if (healthServer) {
         const closed = new Promise<void>((resolve, reject) => healthServer.close(error => error ? reject(error) : resolve()));

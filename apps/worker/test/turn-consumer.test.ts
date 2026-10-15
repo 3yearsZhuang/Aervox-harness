@@ -1,310 +1,209 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import {
-  createInMemoryDatabase,
-  initDatabaseSchema,
-  SqliteConversationRepository,
-  SqliteOutboxRepository,
-  SqlitePlatformRepository,
-  type AervoxDatabase,
-  type LocalContext,
-} from "@aervox/repositories";
-import type { Client } from "@libsql/client";
-import { createReplayProvider } from "@aervox/core";
-import { runOutboxCycle } from "../src/outbox-worker.js";
-import { createTurnConsumerHandler } from "../src/turn-consumer.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SqlitePrivacyRepository, SqliteSkillRegistryRepository, SqliteMemoryRepository, indexMemoryFts } from "@aervox/repositories";
+import { ProactiveIntegrationManager } from "@aervox/host-runtime/modules/proactive/proactive/integration-manager";
+import { createHostFixture, llmSse, toolSse, local } from "./host-fixture.js";
 
-describe("HLS-DEC-01: Worker 异步接单与执行消费测试", () => {
-  let db: AervoxDatabase;
-  let client: Client;
-  let conversationRepo: SqliteConversationRepository;
-  let outboxRepo: SqliteOutboxRepository;
-  let platformRepo: SqlitePlatformRepository;
+interface ModelRequest { messages: Array<{ role: string; content: string }>; tools?: Array<{ function: { name: string } }> }
 
-  const localCtx: LocalContext = {
-    workspaceId: "local",
-    subjectUserId: "local",
-  };
-
+describe("Worker uses the complete product host", () => {
+  let fixture: Awaited<ReturnType<typeof createHostFixture>>;
   beforeEach(async () => {
-    const res = await createInMemoryDatabase();
-    db = res.db;
-    client = res.client;
-    await initDatabaseSchema(client);
-    conversationRepo = new SqliteConversationRepository(db);
-    outboxRepo = new SqliteOutboxRepository(db);
-    platformRepo = new SqlitePlatformRepository(db);
+    vi.stubEnv("AERVOX_LOOP_PROVIDER", "llm");
+    vi.stubEnv("AERVOX_LOOP_DISPATCH", "worker");
+    vi.stubEnv("AERVOX_TURN_EXECUTION", "background");
+    vi.stubEnv("AERVOX_LOOP_RESUME", "off");
+    vi.spyOn(ProactiveIntegrationManager.prototype, "start");
+    fixture = await createHostFixture();
+  });
+  afterEach(async () => { await fixture?.close(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks(); });
+
+  it("starts background integrations only in the API role", () => {
+    expect(ProactiveIntegrationManager.prototype.start).toHaveBeenCalledTimes(1);
   });
 
-  it("通过 Outbox 事件领取 turn.created，由 Worker 异步执行并推进终态", async () => {
-    const turnId = "turn_async_1";
-    const sessionId = "session_async_1";
-    const attemptId = "atp_turn_async_1";
-
-    // 0. 准备关联 Session 记录以满足外键约束
-    await conversationRepo.createSession(localCtx, "测试会话", { id: sessionId });
-
-    // 1. 模拟 API 端写入接单（acceptTurn 产生 turn.created Outbox 事件）
-    const accepted = await conversationRepo.acceptTurn(localCtx, {
-      turnId,
-      sessionId,
-      idempotencyKey: "idem_async_1",
-      attemptId,
-      message: { id: "msg_user_1", content: "请问 1+1 等于几？" },
-      consumeInbox: false,
-    });
-    expect(accepted.created).toBe(true);
-
-    // 2. 构造确定性回放模型 Provider
-    const provider = createReplayProvider([
-      { type: "text", delta: "1+1 等于 2。" },
-    ]);
-
-    // 3. 配置并启动 Worker Outbox 消费
-    const handler = createTurnConsumerHandler({
-      repo: conversationRepo,
-      provider,
-    });
-
-    const processed = await runOutboxCycle({
-      outboxRepo,
-      platformRepo,
-      workerId: "worker-node-1",
-      handlers: { "turn.created": handler },
-    });
-
-    expect(processed).toBe(1);
-
-    // 4. 验证 Attempt 状态已由 Running/Pending 推进为 Completed
-    const attempts = await conversationRepo.listTurnAttempts(localCtx, turnId);
-    expect(attempts).toHaveLength(1);
-    expect(attempts[0]?.status).toBe("Completed");
-
-    // 5. 验证事件流已权威写入 SQLite
-    const events = await conversationRepo.getStreamEvents(localCtx, turnId);
-    expect(events.length).toBeGreaterThan(0);
-    const eventTypes = events.map((e) => e.eventType);
-    expect(eventTypes).toContain("done");
-
-    // 6. 验证 Outbox 事件已被标记为 published
-    const pendingEvents = await outboxRepo.fetchPendingEvents({ limit: 10 });
-    expect(pendingEvents).toHaveLength(0);
+  it("claims before product hooks so concurrent delivery cannot repeat preparatory side effects", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const beforeTurn = vi.fn(async () => { await gate; });
+    fixture.pluginRegistry.register({ id: "focus-mode", beforeTurn });
+    const fetch = vi.fn(async () => llmSse("只执行一次")); vi.stubGlobal("fetch", fetch);
+    const id = await fixture.accept();
+    const first = fixture.consume();
+    try {
+      await vi.waitFor(() => expect(beforeTurn).toHaveBeenCalledTimes(1));
+      await fixture.consume();
+      expect(beforeTurn).toHaveBeenCalledTimes(1);
+    } finally { release(); }
+    await first;
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect((await fixture.repo.getTurn(local, id))?.status).toBe("Completed");
   });
 
-  it("无待执行 Attempt 时安全跳过，不阻塞 Outbox 队列", async () => {
-    const turnId = "turn_orphan_1";
-    const sessionId = "session_orphan_1";
-
-    // 手动插入一条孤儿事件
-    await outboxRepo.insertEvent(localCtx, {
-      id: "outbox_orphan_1",
-      idempotencyKey: "idem_orphan_1",
-      eventType: "turn.created",
-      payload: { turnId, sessionId },
-    });
-
-    const provider = createReplayProvider([]);
-    const handler = createTurnConsumerHandler({
-      repo: conversationRepo,
-      provider,
-    });
-
-    const processed = await runOutboxCycle({
-      outboxRepo,
-      platformRepo,
-      workerId: "worker-node-1",
-      handlers: { "turn.created": handler },
-    });
-
-    expect(processed).toBe(1);
-    const pending = await outboxRepo.fetchPendingEvents({ limit: 10 });
-    expect(pending).toHaveLength(0);
+  it("loads MCP tools connected after Worker startup and rejects them after disconnect", async () => {
+    let toolCalls = 0;
+    vi.stubGlobal("fetch", vi.fn(async (url, init) => {
+      const body = JSON.parse(init.body);
+      if (String(url).includes("mcp.mcd.cn")) {
+        const respond = (result: unknown) => new Response(JSON.stringify({ jsonrpc: "2.0", id: body.id, result }), { headers: { "content-type": "application/json" } });
+        if (body.method === "initialize") return respond({ protocolVersion: "2025-06-18", capabilities: {}, serverInfo: { name: "test", version: "1" } });
+        if (body.method === "notifications/initialized") return new Response(null, { status: 202 });
+        if (body.method === "tools/list") return respond({ tools: [{ name: "list-nutrition", inputSchema: { type: "object", properties: {} } }] });
+        if (body.method === "tools/call") { toolCalls += 1; return respond({ content: [{ type: "text", text: "nutrition result" }] }); }
+        throw new Error(`Unexpected RPC ${body.method}`);
+      }
+      return body.messages.some((m: { role: string }) => m.role === "tool") ? llmSse("完成") : toolSse("mcp__mcd-mcp__list-nutrition");
+    }));
+    const connected = await fixture.api.app.inject({ method: "POST", url: "/v1/mcp/servers/mcd-mcp/connect", payload: { token: "test-token" } });
+    expect(connected.statusCode).toBe(200);
+    const id = await fixture.accept(); await fixture.consume();
+    expect((await fixture.repo.getTurn(local, id))?.status).toBe("Completed");
+    expect(toolCalls, JSON.stringify(await fixture.repo.listToolExecutionsByTurn(local, id))).toBe(1);
+    const disconnected = await fixture.api.app.inject({ method: "POST", url: "/v1/mcp/servers/mcd-mcp/disconnect", payload: {} });
+    expect(disconnected.statusCode).toBe(200);
+    await fixture.accept({}, "after-disconnect"); await fixture.consume();
+    expect(toolCalls, JSON.stringify(await fixture.repo.listToolExecutionsByTurn(local, id))).toBe(1);
   });
 
-  it("支持在 Worker 进程中驱动 HostToolRuntime 工具调用并记录事件与结果", async () => {
-    const turnId = "turn_tool_1";
-    const sessionId = "session_tool_1";
-    const attemptId = "atp_tool_1";
-
-    await conversationRepo.createSession(localCtx, "工具测试会话", { id: sessionId });
-    await conversationRepo.acceptTurn(localCtx, {
-      turnId,
-      sessionId,
-      idempotencyKey: "idem_tool_1",
-      attemptId,
-      message: { id: "msg_user_tool", content: "请帮我计算 2+3" },
-      consumeInbox: false,
-    });
-
-    const { HostToolRuntime } = await import("@aervox/core");
-    const { createHostToolProvider } = await import("@aervox/host-agent");
-
-    const runtime = new HostToolRuntime();
-    await runtime.registerContribution(
-      {
-        id: "calculator_add",
-        name: "calculator_add",
-        description: "加法计算",
-        safetyLevel: "read_only",
-        inputSchemaJson: {
-          type: "object",
-          properties: { a: { type: "number" }, b: { type: "number" } },
-        },
-      },
-      {
-        async call(_ctx, args: any) {
-          return { sum: (args.a ?? 0) + (args.b ?? 0) };
-        },
-      },
-    );
-
-    const tools = createHostToolProvider(runtime, conversationRepo);
-
-    const { createScriptedProvider } = await import("@aervox/core");
-
-    // 构造带工具调用的两步脚本模型
-    const provider = createScriptedProvider([
-      {
-        toolCalls: [
-          {
-            id: "call_1",
-            name: "calculator_add",
-            arguments: { a: 2, b: 3 },
-          },
-        ],
-      },
-      {
-        text: "计算结果是 5。",
-      },
-    ]);
-
-    const handler = createTurnConsumerHandler({
-      repo: conversationRepo,
-      provider: async () => provider,
-      tools,
-    });
-
-    const processed = await runOutboxCycle({
-      outboxRepo,
-      platformRepo,
-      workerId: "worker-node-1",
-      handlers: { "turn.created": handler },
-    });
-
-    expect(processed).toBe(1);
-
-    // 验证 Attempt 已完成
-    const attempts = await conversationRepo.listTurnAttempts(localCtx, turnId);
-    expect(attempts[0]?.status).toBe("Completed");
-
-    // 验证工具调用及结果事件均记录在 SQLite 中
-    const events = await conversationRepo.getStreamEvents(localCtx, turnId);
-    const eventTypes = events.map((e) => e.eventType);
-    expect(eventTypes).toContain("tool_request");
-    expect(eventTypes).toContain("tool_result");
-    expect(eventTypes).toContain("done");
+  it("accepts once, leaves the turn pending until Worker consumes, and completes through registered Skill tools", async () => {
+    const requests: ModelRequest[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url, init) => {
+      requests.push(JSON.parse(init.body));
+      return requests.length === 1 ? toolSse("aervox_skill_list_candidates") : llmSse("已查询技能候选。");
+    }));
+    const id = await fixture.accept({}, "session", "once");
+    expect(await fixture.accept({}, "session", "once")).toBe(id);
+    expect(requests).toHaveLength(0);
+    const pending = (await fixture.outboxRepo.fetchPendingEvents({ limit: 100 })).filter(e => e.eventType === "agent.turn.requested");
+    expect(pending).toHaveLength(1);
+    await fixture.consume();
+    expect((await fixture.repo.getTurn(local, id))?.status).toBe("Completed");
+    expect((await fixture.repo.listToolExecutionsByTurn(local, id))[0]).toMatchObject({ name: "aervox_skill_list_candidates", status: "executed" });
+    expect(requests[0].tools?.map(t => t.function.name)).toContain("avx_aervox_skill_list_candidates");
+    expect((await fixture.repo.getStreamEvents(local, id)).at(-1)?.eventType).toBe("done");
+    await fixture.consume();
+    expect(requests).toHaveLength(2);
   });
 
-  it("Worker 执行回合时自动注入前序会话历史与验证过的长期记忆", async () => {
-    const sessionId = "session_with_memory";
-    await conversationRepo.createSession(localCtx, "带记忆会话", { id: sessionId });
+  it.each(["default", "inline"])("%s API execution is never stolen by Worker", async mode => {
+    if (mode === "default") vi.stubEnv("AERVOX_LOOP_DISPATCH", "api");
+    else vi.stubEnv("AERVOX_TURN_EXECUTION", "inline");
+    const fetch = vi.fn(async () => llmSse("API 回复")); vi.stubGlobal("fetch", fetch);
+    const id = await fixture.accept();
+    await fixture.consume();
+    await vi.waitFor(async () => expect((await fixture.repo.getTurn(local, id))?.status).toBe("Completed"));
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect((await fixture.outboxRepo.fetchPendingEvents({ limit: 100 })).some(e => e.eventType === "agent.turn.requested")).toBe(false);
+  });
 
-    // 1. 模拟前序已完成对话历史
-    const prevTurnId = "turn_prev_1";
-    await conversationRepo.createTurnWithOutbox(
-      localCtx,
-      {
-        id: prevTurnId,
-        sessionId,
-        idempotencyKey: "idem_prev_1",
-        status: "Completed",
-      },
-      { id: "msg_prev_user", content: "你好，请记住我最喜欢的茶是大红袍" },
-    );
-    await conversationRepo.appendStreamEvent(localCtx, {
-      id: "event_prev_1",
-      turnId: prevTurnId,
-      sequence: 1,
-      eventType: "delta",
-      attemptId: "atp_prev_1",
-      safetyDecision: "approved",
-      payloadVersion: 1,
-      occurredAt: new Date().toISOString(),
-      data: { messageId: "assistant_prev_1", text: "好的，我已经记住了，你最喜欢的茶是大红袍！" },
-    });
-    await conversationRepo.appendStreamEvent(localCtx, {
-      id: "event_prev_2",
-      turnId: prevTurnId,
-      sequence: 2,
-      eventType: "done",
-      attemptId: "atp_prev_1",
-      safetyDecision: "approved",
-      payloadVersion: 1,
-      occurredAt: new Date().toISOString(),
-      data: { messageId: "assistant_prev_1", status: "Completed", isComplete: true },
-    });
+  it("loads active persona, persisted metadata, Skill catalog, conversation history and consented memory", async () => {
+    const persona = await fixture.api.app.inject({ method: "POST", url: "/v1/personas", payload: { name: "雾老师", config: { systemPromptAppend: "请保持简洁。" } } });
+    expect(persona.statusCode).toBe(201);
+    await fixture.api.app.inject({ method: "POST", url: `/v1/personas/${persona.json().persona.id}/activate`, payload: {} });
+    await new SqliteSkillRegistryRepository(fixture.db).registerSkill({ id: "tea", name: "tea", description: "茶叶复习技能", contentPath: `${fixture.root}/tea/SKILL.md` });
+    const privacy = new SqlitePrivacyRepository(fixture.db);
+    await privacy.grantConsent(local, { id: "recall", actorId: "local", purpose: "memory_long", scope: "auto_recall", policyVersion: "1" });
+    await new SqliteMemoryRepository(fixture.db, fixture.client).createRecord(local, { id: "tea-memory", layer: "long_term", type: "user_fact", content: "请帮我复习大红袍 大红袍是用户最爱的茶", verificationStatus: "verified" });
+    await indexMemoryFts(fixture.client, local, { id: "tea-memory", content: "请帮我复习大红袍 大红袍是用户最爱的茶" });
+    await fixture.repo.getOrCreateSession(local, "session", "复习");
+    await fixture.repo.createTurnWithOutbox(local, { id: "prior", sessionId: "session", idempotencyKey: "prior", status: "Completed" }, { id: "prior-input", content: "之前说过我喜欢武夷岩茶" });
+    await fixture.repo.appendStreamEvent(local, { id: "prior-delta", turnId: "prior", attemptId: "prior-attempt", sequence: 1, eventType: "delta", safetyDecision: "approved", data: { messageId: "prior-assistant", text: "记住了。" } });
+    await fixture.repo.appendStreamEvent(local, { id: "prior-done", turnId: "prior", attemptId: "prior-attempt", sequence: 2, eventType: "done", safetyDecision: "approved", data: { messageId: "prior-assistant", status: "Completed", isComplete: true } });
+    const requests: ModelRequest[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url, init) => { requests.push(JSON.parse(init.body)); return llmSse("收到。"); }));
+    const id = await fixture.accept({ companionName: "团子", userAddress: "掌柜" });
+    await fixture.consume();
+    expect((await fixture.repo.getTurn(local, id))?.status).toBe("Completed");
+    const content = requests[0].messages.map(m => m.content).join("\n");
+    for (const text of ["你是 雾老师", "掌柜", "请保持简洁", "茶叶复习技能", "之前说过我喜欢武夷岩茶", "大红袍是用户最爱的茶"]) expect(content).toContain(text);
+  });
 
-    // 2. 当前待执行回合
-    const turnId = "turn_memory_check";
-    const attemptId = "atp_memory_check";
-    await conversationRepo.acceptTurn(localCtx, {
-      turnId,
-      sessionId,
-      idempotencyKey: "idem_mem_check",
-      attemptId,
-      message: { id: "msg_user_mem", content: "请问我喜欢喝什么茶？" },
-      consumeInbox: false,
-    });
+  it("blocks pending deletion before calling a model", async () => {
+    const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
+    const id = await fixture.accept();
+    await new SqlitePrivacyRepository(fixture.db).createDeletionRequest(local, { id: "delete", idempotencyKey: "delete", scope: "memory", ownerModule: "memory", targets: [] });
+    await fixture.consume();
+    expect(fetch).not.toHaveBeenCalled();
+    expect((await fixture.repo.getTurn(local, id))?.status).toBe("Interrupted");
+  });
 
-    let receivedMessages: any[] = [];
-    const replay = createReplayProvider([
-      { type: "text", delta: "根据你的喜好，你喜欢喝大红袍。" },
-    ]);
-    const memoryCapturingProvider = {
-      id: "capturing-provider",
-      async *stream(request: any) {
-        receivedMessages = request.context.messages;
-        yield* replay.stream(request);
-      },
-    };
+  it("requires approval for a real Skill write and honors an API grant on resubmission", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (_url, init) => {
+      const req: ModelRequest = JSON.parse(init.body);
+      return req.messages.some(m => m.role === "tool") ? llmSse("创建成功") : toolSse("aervox_skill_create_payload", { payloadRef: "payload-test", payload: { skill_markdown: "# Review" } });
+    }));
+    const first = await fixture.accept({ toolApprovalMode: "ask" });
+    await fixture.consume();
+    expect((await fixture.repo.getTurn(local, first))?.status).toBe("Interrupted");
+    const [approval] = await fixture.repo.listToolApprovalsByTurn(local, first);
+    expect(approval.state).toBe("pending");
+    expect((await fixture.client.execute("SELECT * FROM skill_payloads")).rows).toHaveLength(0);
+    const grant = await fixture.api.app.inject({ method: "POST", url: `/v1/turns/${first}/tool-approvals`, payload: { approvalId: approval.id, decision: "granted", decidedBy: "local" } });
+    expect(grant.statusCode).toBe(200);
+    const second = await fixture.accept({ toolApprovalMode: "ask" });
+    await fixture.consume();
+    expect((await fixture.repo.getTurn(local, second))?.status).toBe("Completed");
+    expect((await fixture.client.execute("SELECT * FROM skill_payloads")).rows).toHaveLength(1);
+  });
 
-    const mockMemoryRecall = {
-      async recall(_tenant: any, _query: string) {
-        return [
-          {
-            id: "mem_rec_1",
-            content: "用户最喜爱的饮品是大红袍武夷岩茶",
-            category: "preference",
-            source: "hybrid" as const,
-          },
-        ];
-      },
-    };
+  it("persists full_access per accepted Turn and ignores a forged mode in metadata", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (_url, init) => {
+      const req: ModelRequest = JSON.parse(init.body);
+      return req.messages.some(m => m.role === "tool") ? llmSse("完成") : toolSse("aervox_skill_create_payload", { payloadRef: "full-access", payload: { skill_markdown: "# Review" } });
+    }));
+    const full = await fixture.accept({}, "session", undefined, "full_access");
+    await fixture.consume();
+    expect((await fixture.repo.listToolApprovalsByTurn(local, full))[0]).toMatchObject({ state: "granted", decidedBy: "permission:full_access:local" });
+    expect((await fixture.repo.getTurn(local, full))?.status).toBe("Completed");
+    const ask = await fixture.accept({ toolApprovalMode: "full_access" }, "ask-session");
+    await fixture.consume();
+    expect((await fixture.repo.listToolApprovalsByTurn(local, ask))[0].state).toBe("pending");
+    expect((await fixture.repo.getTurn(local, ask))?.status).toBe("Interrupted");
+  });
 
-    const handler = createTurnConsumerHandler({
-      repo: conversationRepo,
-      provider: memoryCapturingProvider as any,
-      memoryRecall: mockMemoryRecall,
-    });
+  it("runs enabled plugin contributions using persisted turn metadata", async () => {
+    vi.stubEnv("AERVOX_LOOP_PROVIDER", "scripted-plugin");
+    const id = await fixture.accept({ mode: "focus", intent: "quiz" });
+    await fixture.consume();
+    const events = await fixture.repo.getStreamEvents(local, id);
+    expect(events.find(e => e.eventType === "tool_result")?.data).toMatchObject({ name: "record_practice_attempt", ok: true });
+    expect((await fixture.api.app.inject({ method: "GET", url: "/v1/mistakes" })).json().items).toHaveLength(1);
+  });
 
-    const processed = await runOutboxCycle({
-      outboxRepo,
-      platformRepo,
-      workerId: "worker-node-1",
-      handlers: { "turn.created": handler },
-    });
+  it("accepts two successive answers through the independent API coordinator and wakes the Worker", async () => {
+    let step = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      step += 1;
+      return step <= 2 ? toolSse("ask_user_question", { questions: [{ id: `q${step}`, question: `问题 ${step}`, options: [{ label: "确认" }] }] }) : llmSse("两个答案已收到。");
+    }));
+    const id = await fixture.accept();
+    const work = fixture.consume();
+    for (let n = 1; n <= 2; n++) {
+      await vi.waitFor(async () => {
+        const pending = (await fixture.api.app.inject({ method: "GET", url: `/v1/turns/${id}/questions/pending` })).json();
+        expect(pending.pending).toBe(true);
+        expect(pending.questions[0].id).toBe(`q${n}`);
+      });
+      const answer = await fixture.api.app.inject({ method: "POST", url: `/v1/turns/${id}/questions/answers`, payload: { answers: [{ id: `q${n}`, selected: ["确认"] }] } });
+      expect(answer.statusCode).toBe(200);
+    }
+    await work;
+    expect((await fixture.repo.getTurn(local, id))?.status).toBe("Completed");
+    expect((await fixture.repo.getStreamEvents(local, id)).filter(e => e.eventType === "user_question_answered")).toHaveLength(2);
+    expect((await fixture.api.app.inject({ method: "GET", url: `/v1/turns/${id}/questions/pending` })).json().pending).toBe(false);
+  });
 
-    expect(processed).toBeGreaterThanOrEqual(1);
-
-    // 验证接收到的消息清单：
-    // 1. 前序对话历史被成功拉取并传入
-    const contents = receivedMessages.map((m) => m.content);
-    expect(contents.some((c) => typeof c === "string" && c.includes("大红袍武夷岩茶"))).toBe(true);
-    expect(contents.some((c) => typeof c === "string" && c.includes("你好，请记住我最喜欢的茶是大红袍"))).toBe(true);
-    expect(contents.some((c) => typeof c === "string" && c.includes("请问我喜欢喝什么茶？"))).toBe(true);
-
-    // 验证 Attempt 已完成
-    const attempts = await conversationRepo.listTurnAttempts(localCtx, turnId);
-    expect(attempts[0]?.status).toBe("Completed");
+  it("aborts active model execution during Worker shutdown", async () => {
+    let modelSignal: AbortSignal | undefined;
+    vi.stubGlobal("fetch", vi.fn((_url, init) => new Promise((_resolve, reject) => {
+      modelSignal = init.signal;
+      modelSignal!.addEventListener("abort", () => reject(modelSignal!.reason), { once: true });
+    })));
+    const id = await fixture.accept();
+    const work = fixture.consume();
+    await vi.waitFor(() => expect(modelSignal).toBeDefined());
+    fixture.worker.conversation.abort();
+    await work;
+    expect(modelSignal?.aborted).toBe(true);
+    expect((await fixture.repo.getTurn(local, id))?.status).not.toBe("Running");
   });
 });
-

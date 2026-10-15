@@ -80,7 +80,7 @@ TurnAttempt
 
 ## Verification evidence
 
-- 已有 ModelRun attemptId/stepId、Manifest 快照和 Inbox 表/消费链；实现见 [Platform Schema](../../../packages/schema/src/platform.ts)、[Core executor](../../../packages/core/src/executor.ts)、[API sink](../../../apps/api/src/modules/companion/conversation/agent-executor.ts) 与 [Inbox API](../../../apps/api/src/modules/companion/inbox/routes.ts)。
+- 已有 ModelRun attemptId/stepId、Manifest 快照和 Inbox 表/消费链；实现见 [Platform Schema](../../../packages/schema/src/platform.ts)、[Core executor](../../../packages/core/src/executor.ts)、[API sink](../../../packages/host-runtime/src/modules/companion/conversation/agent-executor.ts) 与 [Inbox API](../../../packages/host-runtime/src/modules/companion/inbox/routes.ts)。
 - 当前 ModelRun 在成功返回的 Step 后尽力写入，Manifest 仅首 Step 记录 `turn:history` 快照；失败/重试独立身份、每次请求来源条目与独立 AgentStep 尚未完整兑现，不能据此宣布本 ADR 全部验收完成。
 - 回归入口：[context-manifest](../../../packages/core/test/context-manifest.test.ts)、[platform-modelrun](../../../packages/repositories/test/platform-modelrun.test.ts)、[agent-inbox](../../../packages/repositories/test/agent-inbox.test.ts)、[Inbox API](../../../apps/api/test/inbox-routes.test.ts)。测试存在不等于本次已运行或覆盖完整目标。
 - 依赖边界由 [`import-boundary.mjs`](../../../scripts/import-boundary.mjs)守卫；恢复、删除/撤权、请求级关联与 G2 门禁须有独立证据。后续排序只在根 [plan.md](../../../plan.md)维护。

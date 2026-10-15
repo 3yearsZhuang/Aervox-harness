@@ -9,6 +9,7 @@
  * provider 未注入时本循环直接返回 0（诚实降级，不伪造向量）。
  */
 import type { Client } from "@libsql/client";
+import { createHash } from "node:crypto";
 import {
   SqliteMemoryEmbeddingRepository,
   type AervoxDatabase,
@@ -31,37 +32,37 @@ export interface EmbeddingMigrationContext {
   onProgress?: (progress: { current: number; total: number }) => void;
 }
 
-let seq = 0;
-const id = (prefix: string): string =>
-  `${prefix}_${Date.now().toString(36)}_${(++seq).toString(36)}`;
-
 interface MissingMemoryRow {
   memory_id: string;
   content: string;
+  created_at: string;
 }
 
 /** 扫描缺向量记忆：memory_records LEFT JOIN memory_embeddings（按 memory_id 关联） */
 async function findMemoriesMissingEmbeddings(
   client: Client,
+  modelId: string,
   limit: number,
 ): Promise<MissingMemoryRow[]> {
   const res = await client.execute({
     sql: `
-      SELECT r.id AS memory_id, r.content
+      SELECT r.id AS memory_id, r.content, r.created_at
       FROM memory_records r
       LEFT JOIN memory_embeddings e
         ON e.memory_id = r.id
+        AND e.model_id = ?
       WHERE r.is_deleted = 0
         AND r.layer IN ('short_term', 'long_term')
         AND e.id IS NULL
       ORDER BY r.created_at ASC
       LIMIT ?;
     `,
-    args: [limit],
+    args: [modelId, limit],
   });
   return res.rows.map((row) => ({
     memory_id: String(row.memory_id),
     content: String(row.content),
+    created_at: String(row.created_at),
   }));
 }
 
@@ -69,9 +70,9 @@ async function findMemoriesMissingEmbeddings(
 export async function runEmbeddingMigrationCycle(
   ctx: EmbeddingMigrationContext,
 ): Promise<number> {
-  if (!ctx.provider) return 0; // 未接入 embedding 服务时诚实跳过
+  if (!ctx.provider || ctx.abortSignal?.aborted) return 0;
 
-  const missing = await findMemoriesMissingEmbeddings(ctx.client, ctx.limit ?? 50);
+  const missing = await findMemoriesMissingEmbeddings(ctx.client, ctx.provider.modelId, ctx.limit ?? 50);
   if (missing.length === 0) return 0;
 
   const localCtx: LocalContext = { workspaceId: "local", subjectUserId: "local" };
@@ -87,12 +88,16 @@ export async function runEmbeddingMigrationCycle(
     );
   }
 
+  if (vectors.length !== missing.length || vectors.some(vector =>
+    !Array.isArray(vector) || vector.length === 0 || !vector.every(Number.isFinite) || vector.length !== vectors[0]?.length)) {
+    throw new Error("Invalid embedding batch: expected one finite, non-empty vector of equal dimension per memory");
+  }
   const items = missing.map((row, idx) => ({
-    id: id("emb"),
+    id: `emb_${createHash("sha256").update(JSON.stringify([ctx.provider!.modelId, row.memory_id])).digest("hex")}`,
     memoryId: row.memory_id,
-    vector: vectors[idx] ?? [],
+    vector: vectors[idx]!,
     modelId: ctx.provider!.modelId,
-    sourceCreatedAt: new Date().toISOString(),
+    sourceCreatedAt: row.created_at,
   }));
 
   if (ctx.abortSignal?.aborted) return 0;
