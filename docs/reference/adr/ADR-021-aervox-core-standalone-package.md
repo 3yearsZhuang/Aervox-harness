@@ -49,6 +49,16 @@ decision_status: accepted
 
 该修订不改变数据库 Schema、持久化终态枚举、公开 SSE 形状或本地单用户部署；没有历史数据转换，不含公开软件包发布与生产数据库操作。
 
+## API 与 Worker 共享产品宿主
+
+维护者在 PR #280 审核修复中选择完整提取宿主装配。`@aervox/host-runtime` 统一持有产品模块、人格、Skill、插件、工具、审批、隐私闸门与模型路由；`apps/api` 负责监听，`apps/worker` 负责持久队列与调度，二者调用同一会话执行入口。`@aervox/host-agent` 保持 SQLite 执行适配职责，Core 保持无产品依赖。
+
+默认 Turn 仍由 API 执行。只有 `AERVOX_LOOP_DISPATCH=worker` 的后台接单写入 `agent.turn.requested` 并由 Worker 消费；`turn.created` 保留 API 归属，不能投影成 Worker 工作。inline 模式始终由 API 执行。接单事务同时保存执行归属、metadata、独立的工具审批模式、认证审计身份、用户输入和首个 Attempt，产品前置钩子之前即领取 Attempt，准备阶段续租并将租约交给内核；重复投递由 fencing 拒绝，不能重复触发前置副作用。
+
+共享宿主目前保留 Fastify 模块生命周期及路由装配；Worker 调用 ready/close 而不监听产品 HTTP 端口。主动集成的周期同步只由 API 启动，Worker 保留按需调用工具；MCP handler 启动时及执行前从持久注册表恢复。两进程的用户提问通过持久事件唤醒，审批继续使用共同账本。关闭顺序为取消执行、排空任务、释放宿主与数据库。
+
+这一步接受 Worker 加载完整产品依赖的成本，避免两套装配产生权限和工具差异；不把所有模块再次拆成独立服务。恢复仍遵循上节的本机已知结果限制，不自动重跑插件、工具或未决副作用。关闭 dispatch 开关只影响后续接单；已有 Worker 事件需排空或按既有恢复规则中断，不转交 API 抢跑。上线需先更新 Worker 再开启 dispatch，不能让旧通用 Outbox 消费器吞掉委托事件。
+
 ## Consequences
 
 轻量消费者无需启动 Fastify 或 SQLite 即可使用多步工具循环；产品与宽松许可内核分离。代价是维护包公开面、许可与宿主 Port，不能把内存实现的独立性当作生产持久化、撤权或进程管理已完成。

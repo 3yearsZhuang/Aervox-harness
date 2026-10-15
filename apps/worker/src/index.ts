@@ -11,6 +11,7 @@
 import { createDatabase,
   initDatabaseSchema,
   SqliteAgentInboxRepository,
+  SqliteConversationRepository,
   SqliteExtensionRepository,
   SqliteOutboxRepository,
   SqlitePlatformRepository,
@@ -31,11 +32,14 @@ import { createDatabase,
   createProactiveVaultDatabase,
   loadProactiveVaultCipher,
 } from "@aervox/repositories";
-import { loadWorkerConfig } from "@aervox/config";
+import { loadWorkerConfig, loadApiConfig } from "@aervox/config";
 import { registerWorkerShutdown } from "./shutdown.js";
 import { createServer } from "node:http";
 import { createStandardLogger } from "@aervox/observability";
+import { resolveEmbeddingProvider } from "@aervox/host-agent";
+import { buildHostRuntime } from "@aervox/host-runtime";
 import { runOutboxCycle } from "./outbox-worker.js";
+import { createTurnConsumerHandler } from "./turn-consumer.js";
 import { runReviewNotificationCycle } from "./review-notifier.js";
 import { runDiaryGenerationCycle } from "./diary-generator.js";
 import { runDeletionCycle } from "./deletion-worker.js";
@@ -83,12 +87,18 @@ const defaultTickMs = config.tickMs;
 
 const outboxRepo = new SqliteOutboxRepository(db);
 const platformRepo = new SqlitePlatformRepository(db);
-const diaryRepo = new SqliteDiaryRepository(db);
 const llmConfigRepo = new SqliteLLMConfigRepository(db);
 const privacyRepo = new SqlitePrivacyRepository(db);
+const embeddingRepo = new SqliteMemoryEmbeddingRepository(db);
+const embeddingProvider = resolveEmbeddingProvider(process.env);
+const runtime = await buildHostRuntime({
+  role: "worker", db, client, proactiveDb, proactiveClient, proactiveCipher, embeddingProvider,
+});
+await runtime.app.ready();
+const turnConsumer = createTurnConsumerHandler(runtime.conversation);
+const diaryRepo = new SqliteDiaryRepository(db);
 const learningRepo = new SqliteLearningRepository(db);
 const compactionRepo = new SqliteMemoryCompactionRepository(db);
-const embeddingRepo = new SqliteMemoryEmbeddingRepository(db);
 const memoryRepo = new SqliteMemoryRepository(db, client);
 const personaRepo = new SqlitePersonaRepository(db);
 const inboxRepo = new SqliteAgentInboxRepository(db);
@@ -114,7 +124,15 @@ const host = new WorkerHost({
 host
   .registerJob({
     name: "outbox",
-    run: () => runOutboxCycle({ outboxRepo, platformRepo, workerId }),
+    run: () =>
+      runOutboxCycle({
+        outboxRepo,
+        platformRepo,
+        workerId,
+        handlers: {
+          "agent.turn.requested": turnConsumer,
+        },
+      }),
   })
   .registerJob({
     name: "review",
@@ -134,11 +152,13 @@ host
   })
   .registerJob({
     name: "embedding",
-    run: () => runEmbeddingMigrationCycle({ db, client, embeddingRepo, workerId }),
+    run: () => runEmbeddingMigrationCycle({ db, client, embeddingRepo, provider: embeddingProvider, workerId }),
   })
   .registerJob({
     name: "attempt-recovery",
-    run: () => runAttemptRecoveryCycle({ db, client, workerId }),
+    run: () => runAttemptRecoveryCycle({ db, client, workerId,
+      resume: loadApiConfig().loopResume === "local-results" ? () => runtime.conversation.resume() : undefined,
+    }),
   })
   .registerJob({
     name: "inbox-expiry",
@@ -206,4 +226,4 @@ if (healthServer) {
   });
 }
 
-registerWorkerShutdown({ host, clients: [client, proactiveClient], healthServer, logger });
+registerWorkerShutdown({ host, abortExecution: () => runtime.conversation.abort(), disposeRuntime: () => runtime.app.close(), clients: [client, proactiveClient], healthServer, logger });

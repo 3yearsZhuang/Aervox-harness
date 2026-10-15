@@ -75,18 +75,16 @@ importers:
       '@aervox/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@aervox/host-runtime':
+        specifier: workspace:*
+        version: link:../../packages/host-runtime
+    devDependencies:
       '@aervox/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
       '@aervox/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@aervox/diary':
-        specifier: workspace:*
-        version: link:../../packages/diary
-      '@aervox/host-agent':
-        specifier: workspace:*
-        version: link:../../packages/host-agent
       '@aervox/host-plugin-api':
         specifier: workspace:*
         version: link:../../packages/host-plugin-api
@@ -99,37 +97,21 @@ importers:
       '@aervox/plugin-focus-mode':
         specifier: workspace:*
         version: link:../../plugins/focus-mode
-      '@aervox/practice-review':
-        specifier: workspace:*
-        version: link:../../packages/practice-review
       '@aervox/repositories':
         specifier: workspace:*
         version: link:../../packages/repositories
       '@aervox/schema':
         specifier: workspace:*
         version: link:../../packages/schema
-      '@fastify/cors':
-        specifier: ^11.3.0
-        version: 11.3.0
       '@libsql/client':
         specifier: ^0.14.0
         version: 0.14.0
-      '@vscode/ripgrep':
-        specifier: 1.18.0
-        version: 1.18.0
-      fastify:
-        specifier: 5.12.5
-        version: 5.12.5
-      fflate:
-        specifier: 0.8.3
-        version: 0.8.3
-      sherpa-onnx-node:
-        specifier: ^1.13.5
-        version: 1.13.6
-    devDependencies:
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.1
+      fastify:
+        specifier: 5.12.5
+        version: 5.12.5
       tsx:
         specifier: ^4.19.2
         version: 4.23.12
@@ -156,19 +138,19 @@ importers:
         version: link:../../packages/native-runtime
       '@aervox/plugin-companion-ui':
         specifier: workspace:*
-        version: link:../../plugins/companion-ui
+        version: link:../../surfaces/companion-ui
       '@aervox/plugin-focus-mode':
         specifier: workspace:*
         version: link:../../plugins/focus-mode
       '@aervox/plugin-panels-ui':
         specifier: workspace:*
-        version: link:../../plugins/panels-ui
+        version: link:../../surfaces/panels-ui
       '@aervox/plugin-proactive-ui':
         specifier: workspace:*
-        version: link:../../plugins/proactive-ui
+        version: link:../../surfaces/proactive-ui
       '@aervox/plugin-workbench-ui':
         specifier: workspace:*
-        version: link:../../plugins/workbench-ui
+        version: link:../../surfaces/workbench-ui
       '@aervox/public':
         specifier: workspace:*
         version: link:../../packages/public
@@ -242,13 +224,13 @@ importers:
         version: link:../../plugins/focus-mode
       '@aervox/plugin-panels-ui':
         specifier: workspace:*
-        version: link:../../plugins/panels-ui
+        version: link:../../surfaces/panels-ui
       '@aervox/plugin-proactive-ui':
         specifier: workspace:*
-        version: link:../../plugins/proactive-ui
+        version: link:../../surfaces/proactive-ui
       '@aervox/plugin-workbench-ui':
         specifier: workspace:*
-        version: link:../../plugins/workbench-ui
+        version: link:../../surfaces/workbench-ui
       '@aervox/public':
         specifier: workspace:*
         version: link:../../packages/public
@@ -304,6 +286,12 @@ importers:
       '@aervox/diary':
         specifier: workspace:*
         version: link:../../packages/diary
+      '@aervox/host-agent':
+        specifier: workspace:*
+        version: link:../../packages/host-agent
+      '@aervox/host-runtime':
+        specifier: workspace:*
+        version: link:../../packages/host-runtime
       '@aervox/observability':
         specifier: workspace:*
         version: link:../../packages/observability
@@ -405,6 +393,67 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/host-runtime:
+    dependencies:
+      '@aervox/config':
+        specifier: workspace:*
+        version: link:../config
+      '@aervox/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@aervox/core':
+        specifier: workspace:*
+        version: link:../core
+      '@aervox/diary':
+        specifier: workspace:*
+        version: link:../diary
+      '@aervox/host-agent':
+        specifier: workspace:*
+        version: link:../host-agent
+      '@aervox/host-plugin-api':
+        specifier: workspace:*
+        version: link:../host-plugin-api
+      '@aervox/native-runtime':
+        specifier: workspace:*
+        version: link:../native-runtime
+      '@aervox/observability':
+        specifier: workspace:*
+        version: link:../observability
+      '@aervox/plugin-focus-mode':
+        specifier: workspace:*
+        version: link:../../plugins/focus-mode
+      '@aervox/practice-review':
+        specifier: workspace:*
+        version: link:../practice-review
+      '@aervox/repositories':
+        specifier: workspace:*
+        version: link:../repositories
+      '@aervox/schema':
+        specifier: workspace:*
+        version: link:../schema
+      '@fastify/cors':
+        specifier: ^11.3.0
+        version: 11.3.0
+      '@libsql/client':
+        specifier: ^0.14.0
+        version: 0.14.0
+      '@vscode/ripgrep':
+        specifier: 1.18.0
+        version: 1.18.0
+      fastify:
+        specifier: 5.12.5
+        version: 5.12.5
+      fflate:
+        specifier: 0.8.3
+        version: 0.8.3
+      sherpa-onnx-node:
+        specifier: ^1.13.5
+        version: 1.13.6
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
+
   packages/live2d: {}
 
   packages/native-runtime:
@@ -496,7 +545,35 @@ importers:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.9.3)
 
-  plugins/companion-ui:
+  plugins/focus-mode:
+    dependencies:
+      '@aervox/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+      '@aervox/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@aervox/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@aervox/host-plugin-api':
+        specifier: workspace:*
+        version: link:../../packages/host-plugin-api
+      '@aervox/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      lucide-vue-next:
+        specifier: ^0.468.0
+        version: 0.468.0(vue@3.5.43(typescript@7.0.2))
+      vue:
+        specifier: ^3.5.43
+        version: 3.5.43(typescript@7.0.2)
+
+  surfaces/companion-ui:
     dependencies:
       '@aervox/api-client':
         specifier: workspace:*
@@ -527,35 +604,7 @@ importers:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.9.3)
 
-  plugins/focus-mode:
-    dependencies:
-      '@aervox/api-client':
-        specifier: workspace:*
-        version: link:../../packages/api-client
-      '@aervox/contracts':
-        specifier: workspace:*
-        version: link:../../packages/contracts
-      '@aervox/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@aervox/host-plugin-api':
-        specifier: workspace:*
-        version: link:../../packages/host-plugin-api
-      '@aervox/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
-      zod:
-        specifier: 4.4.3
-        version: 4.4.3
-    devDependencies:
-      lucide-vue-next:
-        specifier: ^0.468.0
-        version: 0.468.0(vue@3.5.43(typescript@7.0.2))
-      vue:
-        specifier: ^3.5.43
-        version: 3.5.43(typescript@7.0.2)
-
-  plugins/panels-ui:
+  surfaces/panels-ui:
     dependencies:
       '@aervox/api-client':
         specifier: workspace:*
@@ -573,6 +622,9 @@ importers:
       lucide-vue-next:
         specifier: ^0.468.0
         version: 0.468.0(vue@3.5.43(typescript@5.9.3))
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
       vue:
         specifier: ^3.5.43
         version: 3.5.43(typescript@5.9.3)
@@ -580,7 +632,7 @@ importers:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.9.3)
 
-  plugins/proactive-ui:
+  surfaces/proactive-ui:
     dependencies:
       '@aervox/api-client':
         specifier: workspace:*
@@ -601,6 +653,9 @@ importers:
       lucide-vue-next:
         specifier: ^0.468.0
         version: 0.468.0(vue@3.5.43(typescript@5.9.3))
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
       vue:
         specifier: ^3.5.43
         version: 3.5.43(typescript@5.9.3)
@@ -608,7 +663,7 @@ importers:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.9.3)
 
-  plugins/workbench-ui:
+  surfaces/workbench-ui:
     dependencies:
       '@aervox/api-client':
         specifier: workspace:*

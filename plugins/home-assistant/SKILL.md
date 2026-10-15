@@ -9,12 +9,10 @@ description: 联动本地 Home Assistant 智能家居网关，实现环境温湿
 
 当用户需要调节书房/卧室设备（如开启护眼台灯、调节空调温度、切换专注场景），或桌宠需要根据室内传感器状态（温度过高/过低、光线变暗、人体离席）进行主动关怀时，调用此技能与工具。
 
-## 可用工具 (Tools)
-
-1. `homeassistant_get_state`：查询指定实体的当前状态与属性。
-   - 示例：`entityId: "sensor.study_temperature"` 查询书房当前温度。
-2. `homeassistant_call_service`：向 Home Assistant 发送控制指令。
-   - 示例：`domain: "light"`, `service: "turn_on"`, `entityId: "light.study_desk"` 开启护眼灯。
+## 可用工具与接入通道
+1. **系统原生集成通道**：若在「系统设置 -> 主动感知」中配置并授权了 Home Assistant 连接，可使用原生工具 `ha_list_entities`、`ha_get_entity_state` 与 `ha_call_service`。
+2. **MCP 服务通道**：若接入了 Home Assistant MCP 外部服务，工具将以 `mcp__homeassistant__*` 动态挂载。
+3. **未配置提醒**：若未检测到上述通道就绪，请礼貌提示用户先在设置中配置 Home Assistant 连接或启动 MCP Server，避免盲目猜测实体状态。
 
 ## 主动关怀准则
 

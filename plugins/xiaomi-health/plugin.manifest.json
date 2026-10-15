@@ -14,6 +14,9 @@
       "schemaVersion": 1,
       "entry": "config.schema.json"
     },
+    "mcpServers": [
+      "xiaomi-health"
+    ],
     "tools": [
       {
         "name": "xiaomi_health_sync_daily",

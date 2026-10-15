@@ -5,7 +5,7 @@
  * 点击「展开侧边栏」按钮展开为覆盖式抽屉（role=dialog + 背景遮罩），焦点移入抽屉；
  * 按 Escape 关闭抽屉，焦点归还到「展开侧边栏」触发按钮。
  *
- * 实现依据：plugins/workbench-ui/src/AervoxWorkbench.vue（展开按钮 aria-label="展开侧边栏"）、
+ * 实现依据：surfaces/workbench-ui/src/AervoxWorkbench.vue（展开按钮 aria-label="展开侧边栏"）、
  * packages/ui/src/components/workbench/WorkbenchSidebar.vue（Escape 关闭 + 焦点归还 watch）。
  */
 import { test, expect, openWorkbench } from "./fixtures";

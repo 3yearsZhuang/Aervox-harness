@@ -11,11 +11,11 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DshMcpBridge, resolveSafePath } from "../src/modules/ecosystem/mcp/dsh-bridge.js";
+import { DshMcpBridge, resolveSafePath } from "@aervox/host-runtime/modules/ecosystem/mcp/dsh-bridge";
 import { buildApp } from "./app-fixture.js";
 import { createInMemoryDatabase, initDatabaseSchema } from "@aervox/repositories";
 import type { FastifyInstance } from "fastify";
-import { RipgrepCodeSearch } from "../src/modules/ecosystem/mcp/code-search.js";
+import { RipgrepCodeSearch } from "@aervox/host-runtime/modules/ecosystem/mcp/code-search";
 
 describe("DSH MCP 桥接器 (DshMcpBridge)", () => {
   let sandboxDir: string;

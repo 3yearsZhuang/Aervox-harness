@@ -26,12 +26,12 @@ Aervox 已具备学习业务、桌面表现与本地服务基础，适合把“�
 | 对话、练习、复习与学习记录 | [共享 API 客户端](../../packages/api-client/src/useAervoxApi.ts)已有开始练习、完成复习等请求；[练习集成测试](../../apps/api/test/practice-session.test.ts)覆盖业务路径 | 按键可以调用现有业务动作；设备无需自建学习数据库 | 设备按钮须绑定当前任务上下文，不能把“已按下”当成“答题正确”或“掌握知识” |
 | 桌宠与视觉反馈 | [表现契约](../../packages/contracts/src/schemas.ts)定义 `speak/emote/gesture/move/react`；[桌面主进程](../../apps/desktop/src/main/index.ts)转发 `emote`；[主动表现映射](../../apps/desktop/src/main/proactive-events.ts)复用桌宠指令 | 可将既有语义映射为小屏动画、灯光和短音效 | 现有 `PetCommand` 是表现语义，缺少设备确认等线协议要素；Live2D 运行在桌面渲染端 |
 | 实时与异步处理 | [流式协议](../reference/STREAMING_PROTOCOL.md)、API/Worker 与本地 SQLite 的分工已建立 | 主机接收流式回复，设备展示经过筛选的状态；通知和复习排期仍由主机负责 | 设备 ACK 只能证明端点处理情况；业务成功仍由 API 确认 |
-| 语音输入 | [录音控制器](../../packages/api-client/src/voice-input-recorder.ts)使用 Web Audio、静音断句和 WAV 切片；[SenseVoice Provider](../../apps/api/src/modules/platform/voice/asr-providers.ts)使用 `sherpa-onnx-node` 执行离线识别，另有 Whisper 兼容接口 | USB 麦克风或音频底座可复用转写入口 | 需准备真实模型、兼容的原生运行库和输入设备；当前是音频切片转写，不代表硬件唤醒词、全双工或远场声学已完成 |
-| 语音输出接口 | [GPT-SoVITS 适配器](../../apps/api/src/modules/platform/voice/gpt-sovits.ts)的 HTTP Provider 会调用合成服务；[语音测试](../../apps/api/test/voice.test.ts)覆盖请求与配置 | 可连接用户主机上单独部署的 GPT-SoVITS HTTP 服务 | `GptSovitsLocalProvider.synthesize()` 当前返回带 `GPT-SOVITS-LOCAL:` 前缀的文本字节，却标为 WAV，属于占位实现；不能宣称已具备可播放的本地 TTS。HTTP Provider 的“remote”名称也不等于必须使用云端，实际边界取决于端点 |
-| 附件与内容解析扩展 | [二进制附件测试](../../apps/api/test/attachment-binary.test.ts)覆盖上传与回读；[解析 Port](../../apps/api/src/modules/knowledge/content/parser-port.ts)支持替换 Provider | 文档摄像头可以先接入“拍摄、预览、明确提交”的入口 | 默认 `ocr.mock` 返回固定题目和随机置信度，不能识别真实图片；附件登记与 SPI 注册不等于 OCR 已工作 |
-| 本地模型管理 | [模型运行时服务](../../apps/api/src/modules/ecosystem/model-runtime/service.ts)有 GGUF 下载、目录、队列与状态；[进程驱动](../../apps/api/src/modules/ecosystem/model-runtime/llama-server.ts)启动并探测 `llama-server`；[运行时测试](../../apps/api/test/model-runtime-api.test.ts)覆盖编排流程 | 可为独立算力主机复用模型安装、启停、状态及普通对话模型入口 | 二进制与模型仍需部署；测试使用注入式进程/网络替身，不证明特定芯片的速度、模型质量、显存占用或离线体验 |
-| 家庭环境连接 | [HA Provider](../../apps/api/src/modules/proactive/proactive/providers/home-assistant-provider.ts)实现 REST/WS、实体默认禁用与 service 白名单；[受控工具](../../apps/api/src/modules/proactive/proactive/integration-tools.ts)包括读实体和调用服务 | 可借 Home Assistant 承接已支持的灯、温湿度和存在传感器 | 这是 Aervox 到 HA 的连接，不是自研 Zigbee、Matter、BLE 驱动；还依赖 CAP-033 状态和来源/动作授权 |
-| 运动健康连接 | [健康 Provider](../../apps/api/src/modules/proactive/proactive/providers/xiaomi-health-provider.ts)规范化每日步数、睡眠分钟和静息心率；[集成测试](../../apps/api/test/proactive-integrations.test.ts)覆盖同步、工具及撤销 | 可用每日活动信息调整提醒强度或生成回顾 | 依赖用户获准使用的厂商端点和凭据；当前工具读取步数/睡眠，代码不代表手环蓝牙直连、连续心率或医疗判断 |
+| 语音输入 | [录音控制器](../../packages/api-client/src/voice-input-recorder.ts)使用 Web Audio、静音断句和 WAV 切片；[SenseVoice Provider](../../packages/host-runtime/src/modules/platform/voice/asr-providers.ts)使用 `sherpa-onnx-node` 执行离线识别，另有 Whisper 兼容接口 | USB 麦克风或音频底座可复用转写入口 | 需准备真实模型、兼容的原生运行库和输入设备；当前是音频切片转写，不代表硬件唤醒词、全双工或远场声学已完成 |
+| 语音输出接口 | [GPT-SoVITS 适配器](../../packages/host-runtime/src/modules/platform/voice/gpt-sovits.ts)的 HTTP Provider 会调用合成服务；[语音测试](../../apps/api/test/voice.test.ts)覆盖请求与配置 | 可连接用户主机上单独部署的 GPT-SoVITS HTTP 服务 | `GptSovitsLocalProvider.synthesize()` 当前返回带 `GPT-SOVITS-LOCAL:` 前缀的文本字节，却标为 WAV，属于占位实现；不能宣称已具备可播放的本地 TTS。HTTP Provider 的“remote”名称也不等于必须使用云端，实际边界取决于端点 |
+| 附件与内容解析扩展 | [二进制附件测试](../../apps/api/test/attachment-binary.test.ts)覆盖上传与回读；[解析 Port](../../packages/host-runtime/src/modules/knowledge/content/parser-port.ts)支持替换 Provider | 文档摄像头可以先接入“拍摄、预览、明确提交”的入口 | 默认 `ocr.mock` 返回固定题目和随机置信度，不能识别真实图片；附件登记与 SPI 注册不等于 OCR 已工作 |
+| 本地模型管理 | [模型运行时服务](../../packages/host-runtime/src/modules/ecosystem/model-runtime/service.ts)有 GGUF 下载、目录、队列与状态；[进程驱动](../../packages/host-runtime/src/modules/ecosystem/model-runtime/llama-server.ts)启动并探测 `llama-server`；[运行时测试](../../apps/api/test/model-runtime-api.test.ts)覆盖编排流程 | 可为独立算力主机复用模型安装、启停、状态及普通对话模型入口 | 二进制与模型仍需部署；测试使用注入式进程/网络替身，不证明特定芯片的速度、模型质量、显存占用或离线体验 |
+| 家庭环境连接 | [HA Provider](../../packages/host-runtime/src/modules/proactive/proactive/providers/home-assistant-provider.ts)实现 REST/WS、实体默认禁用与 service 白名单；[受控工具](../../packages/host-runtime/src/modules/proactive/proactive/integration-tools.ts)包括读实体和调用服务 | 可借 Home Assistant 承接已支持的灯、温湿度和存在传感器 | 这是 Aervox 到 HA 的连接，不是自研 Zigbee、Matter、BLE 驱动；还依赖 CAP-033 状态和来源/动作授权 |
+| 运动健康连接 | [健康 Provider](../../packages/host-runtime/src/modules/proactive/proactive/providers/xiaomi-health-provider.ts)规范化每日步数、睡眠分钟和静息心率；[集成测试](../../apps/api/test/proactive-integrations.test.ts)覆盖同步、工具及撤销 | 可用每日活动信息调整提醒强度或生成回顾 | 依赖用户获准使用的厂商端点和凭据；当前工具读取步数/睡眠，代码不代表手环蓝牙直连、连续心率或医疗判断 |
 | 主动智能基础设施 | [桌面 Host](../../apps/desktop/src/main/proactive-host.ts)、[来源适配器](../../apps/desktop/src/main/proactive-source-adapters.ts)、本地 Vault、授权/lease 和 Worker 已有代码 | 后续硬件信号有明确的授权与处理框架可对接 | CAP-033 仍是 `Specified`、生产能力默认关闭；默认广域适配器主要采集元数据，不能将适配器存在等同 OS 已授权或全部来源可采集 |
 
 ### 1.2 平台与真机待验证项
@@ -75,9 +75,9 @@ Aervox 已具备学习业务、桌面表现与本地服务基础，适合把“�
 |---|---|---|
 | 学习、复习、会话请求 | [API 客户端](../../packages/api-client/src/useAervoxApi.ts)、[传输](../../packages/api-client/src/transport.ts) | 按键是业务请求；收到按键不等于答对、掌握或提交成功 |
 | 表现语义 | [PetCommand](../../packages/contracts/src/schemas.ts)、[桌面主动表现](../../apps/desktop/src/main/proactive-events.ts) | 有 `speak/emote/gesture/move/react`，没有设备线协议；`speak` 可携带正文，不能原样广播给外设 |
-| 语音入口 | [录音控制器](../../packages/api-client/src/voice-input-recorder.ts)、[ASR Provider](../../apps/api/src/modules/platform/voice/asr-providers.ts)、[TTS](../../apps/api/src/modules/platform/voice/gpt-sovits.ts) | 有录音与识别路径；本地 TTS 仍以文本字节充当 WAV，占位路径不能证明可播放；HTTP TTS 需验证实际端点与声音 |
-| 拍题入口 | [内容路由](../../apps/api/src/modules/knowledge/content/routes.ts) | 当前 `mockOcrParse` 返回固定内容和随机置信度；换摄像头不会解决 OCR 软件缺口 |
-| 主机部署 | [模型服务](../../apps/api/src/modules/ecosystem/model-runtime/service.ts)、[进程驱动](../../apps/api/src/modules/ecosystem/model-runtime/llama-server.ts) | 可复用模型管理，但芯片兼容、并发内存、模型质量、耗电和无界面运行需实测 |
+| 语音入口 | [录音控制器](../../packages/api-client/src/voice-input-recorder.ts)、[ASR Provider](../../packages/host-runtime/src/modules/platform/voice/asr-providers.ts)、[TTS](../../packages/host-runtime/src/modules/platform/voice/gpt-sovits.ts) | 有录音与识别路径；本地 TTS 仍以文本字节充当 WAV，占位路径不能证明可播放；HTTP TTS 需验证实际端点与声音 |
+| 拍题入口 | [内容路由](../../packages/host-runtime/src/modules/knowledge/content/routes.ts) | 当前 `mockOcrParse` 返回固定内容和随机置信度；换摄像头不会解决 OCR 软件缺口 |
+| 主机部署 | [模型服务](../../packages/host-runtime/src/modules/ecosystem/model-runtime/service.ts)、[进程驱动](../../packages/host-runtime/src/modules/ecosystem/model-runtime/llama-server.ts) | 可复用模型管理，但芯片兼容、并发内存、模型质量、耗电和无界面运行需实测 |
 | 家庭/健康边界 | [能力登记](../reference/REQUIREMENTS_TRACEABILITY.md#capability-delivery)、[ADR-019](../reference/adr/ADR-019-proactive-integrations-local-gateway.md) | 不等于已有自研 BLE 手环、手机健康授权或通用 IoT 网关；CAP-033 尚不代表生产可用 |
 | 实体硬件接入 | 当前 `apps/`、`packages/` 未找到专用 DeviceHost、USB CDC 传输与固件 | USB 宿主、设备权限和恢复都是新增工作；插件配置页不替代可信 I/O 层 |
 
@@ -200,7 +200,7 @@ flowchart LR
 用户把作业或书页放在支架下，按键拍摄、校对识别内容，再选择提问或建立练习。价值在于纸面学习与 Aervox 之间更顺畅的输入，不依赖手持手机对焦。
 
 - **硬件组成**：带固定支架的 USB UVC 摄像头、手动快门按钮、物理遮挡盖、漫射补光、可定位的纸面底板；先不做机械翻页或自动批改。
-- **复用与拓扑**：USB 依附终端；复用 `CAP-012/025/007/004`、附件上传与[内容解析 Port](../../apps/api/src/modules/knowledge/content/parser-port.ts)。摄像头画面在主机预览，由用户确认拍摄和提交。
+- **复用与拓扑**：USB 依附终端；复用 `CAP-012/025/007/004`、附件上传与[内容解析 Port](../../packages/host-runtime/src/modules/knowledge/content/parser-port.ts)。摄像头画面在主机预览，由用户确认拍摄和提交。
 - **需补软件**：真实 OCR Provider、透视/裁剪/旋转、题目边界和公式处理、识别纠错界面、来源关联；默认 `ocr.mock` 必须退出该产品运行路径。低置信识别不自动转为学习事实或掌握度。
 - **离线、功耗与隐私**：本地 OCR 与后续模型都可用才可离线；如果选择云视觉模型，需要明确该次上传行为。摄像头与照明合计约 2～8 W 预算，补光按额定要求独立供电；默认快门式采集，避免持续保存周围人物、姓名或学籍信息。
 - **BOM 粗估**：人民币 250～800 元/套；镜头、支架刚度和均匀照明优先于额外屏幕；不含电脑。

@@ -24,7 +24,7 @@ Provider 的 `capabilities` 可报告工具/推理协议支持、已知上下文
 
 首段可见与取消基准由 `scripts/benchmark-core.mjs` 生成；`--scenario=small-chunks` 覆盖持续小块负载，缺省为大块负载。报告分别见[小块基准](../_meta/core-small-chunks-baseline.json)和[大块基准](../_meta/core-benchmark-baseline.json)，仅代表假 Provider 与内存存储，不能替代真实模型、磁盘和客户端测量。
 
-`AERVOX_LOOP_RESUME=local-results` 显式启用 API 启动恢复，缺省 `off`。单次最多扫描 10 个过期候选，串行重新取得 fencing 租约，只用当前准入的本机模型根据权威结果补完一轮正文，单候选截止 30 秒。恢复不运行回合插件钩子，不派发新工具；需要新动作时由用户发起新回合。恢复先核对完整账本、最新意图和持久事件高水位，再按执行标识关联结果；已终态、缺失/重复配对、未知结果（即使 `replay: safe`）、审批待决、脱敏/删除内容或删除闸门阻断均不自动恢复。Worker 同时恢复时由 CAS 决定唯一执行者，Worker 已终结的 Attempt 不会复活。下一序号来自完整持久事件上界。停用开关回到既有 Worker 中断收敛，无数据迁移。
+`AERVOX_LOOP_RESUME=local-results` 显式启用 API 启动恢复和 Worker 周期恢复，缺省 `off`。单次最多扫描 10 个过期候选，串行重新取得 fencing 租约，只用当前准入的本机模型根据权威结果补完一轮正文，单候选截止 30 秒。恢复不运行回合插件钩子，不派发新工具；需要新动作时由用户发起新回合。恢复先核对完整账本、最新意图和持久事件高水位，再按执行标识关联结果；已终态、缺失/重复配对、未知结果（即使 `replay: safe`）、审批待决、脱敏/删除内容或删除闸门阻断均不自动恢复。Worker 同时恢复时由 CAS 决定唯一执行者，Worker 已终结的 Attempt 不会复活。下一序号来自完整持久事件上界。停用开关回到既有 Worker 中断收敛，无数据迁移。
 
 公共入口仍为 `@aervox/core` 与 `@aervox/core/core`，执行收集器、终态收敛器、工具管线/账本及内部序列化函数不再从根入口暴露。工作区消费者通过公开 Port 与 `executeTurn` 集成，内部单元测试直接引用源码模块；软件包保持 `private: true` 和零运行时依赖。公开发布前仍需独立版本与发布审核。
 
@@ -59,20 +59,20 @@ Agent Harness Loop 是驱动一次 Agent Turn 的执行能力：它领取已持�
 
 | 构件 | 实现入口 | 当前边界 |
 |---|---|---|
-| Turn 受理与执行 | [Conversation routes](../../apps/api/src/modules/companion/conversation/routes.ts) | 持久化 Turn、Message、`turn.created` Outbox 后建立 Attempt；默认在 API 进程后台执行并立即返回 201，`inline` 仅用于测试/排查；不是持久队列驱动的独立执行进程 |
-| Loop 与 Provider | [executor](../../packages/core/src/executor.ts)、[Provider](../../packages/core/src/openai-compat-provider.ts) | Replay/Scripted/OpenAI 兼容流、多 Step、审批 SPI、取消与预算；API 组合根负责注入产品上下文和权限 |
+| Turn 受理与执行 | [Conversation routes](../../packages/host-runtime/src/modules/companion/conversation/routes.ts) | 同一事务持久化 Turn、Message、首个 Attempt 与接单 Outbox；默认由 API 后台执行，显式 `AERVOX_LOOP_DISPATCH=worker` 通过 `agent.turn.requested` 委托 Worker；inline 始终由 API 执行 |
+| Loop 与 Provider | [executor](../../packages/core/src/executor.ts)、[Provider](../../packages/core/src/openai-compat-provider.ts) | Replay/Scripted/OpenAI 兼容流、多 Step、审批 SPI、取消与预算；API 与 Worker 共用产品宿主注入上下文和权限 |
 | 租约与公开事件 | [SQLite ExecutionStore](../../packages/host-agent/src/sqlite-execution-store.ts)、[心跳](../../packages/core/src/lease-heartbeat.ts) | claim/renew、事件 fencing、安全片段与事件原子提交、工具结果与事件原子提交、终态 CAS 已存在；不能据此推定全部旧写入口均有相同保护 |
-| 工具执行 | [工具管线](../../packages/core/src/tool-pipeline.ts)、[工具账本](../../packages/core/src/tool-ledger.ts)、[API Runtime](../../apps/api/src/modules/ecosystem/tools/runtime.ts) | 已有输入检查、审批、幂等预留、超时、结果检查与账本；动态权限快照、资源隔离及完整副作用恢复仍需专项验收 |
-| 模型调用记录 | [executor 写入](../../packages/core/src/executor.ts)、[API sink](../../apps/api/src/modules/companion/conversation/agent-executor.ts) | 每个成功返回的 Step 写 ModelRun，关联 attemptId/stepId；首 Step 写上下文快照。写入为可选、尽力而为，尚不满足每次请求/重试独立且不可缺失的 Manifest 合同 |
-| Inbox 与扩展 | [Inbox API](../../apps/api/src/modules/companion/inbox/routes.ts)、[ContextBuilder](../../packages/core/src/context-builder.ts) | 已有持久 inbox、claim/ack、followup/steer/inject 消费、Skill 与压缩接缝、Subagent/Workflow Contribution；唤醒和恢复的端到端语义仍按下文验收 |
-| 可复用 Host/Profile | [Agent Host](../../packages/host-agent/src/agent-host.ts)、[Profile](../../packages/host-agent/src/profile.ts)、[恢复源](../../packages/host-agent/src/sqlite-resume-source.ts) | 已有轮询、claim、容量限制、健康检查、排空和最小 Provider/Adapter 选择；这些库构件不等于 API/Worker 已切换到独立 Host |
-| Worker 恢复 | [attempt-recovery](../../apps/worker/src/attempt-recovery.ts) | 默认周期把过期 Attempt 收敛为 Interrupted；续跑候选只作观测，不自动调度 Host 续跑 |
+| 工具执行 | [工具管线](../../packages/core/src/tool-pipeline.ts)、[工具账本](../../packages/core/src/tool-ledger.ts)、[API Runtime](../../packages/host-runtime/src/modules/ecosystem/tools/runtime.ts) | 已有输入检查、审批、幂等预留、超时、结果检查与账本；动态权限快照、资源隔离及完整副作用恢复仍需专项验收 |
+| 模型调用记录 | [executor 写入](../../packages/core/src/executor.ts)、[API sink](../../packages/host-runtime/src/modules/companion/conversation/agent-executor.ts) | 每个成功返回的 Step 写 ModelRun，关联 attemptId/stepId；首 Step 写上下文快照。写入为可选、尽力而为，尚不满足每次请求/重试独立且不可缺失的 Manifest 合同 |
+| Inbox 与扩展 | [Inbox API](../../packages/host-runtime/src/modules/companion/inbox/routes.ts)、[ContextBuilder](../../packages/core/src/context-builder.ts) | 已有持久 inbox、claim/ack、followup/steer/inject 消费、Skill 与压缩接缝、Subagent/Workflow Contribution；唤醒和恢复的端到端语义仍按下文验收 |
+| 可复用 Host/Profile | [Agent Host](../../packages/host-agent/src/agent-host.ts)、[Profile](../../packages/host-agent/src/profile.ts)、[恢复源](../../packages/host-agent/src/sqlite-resume-source.ts) | 已有轮询、claim、容量限制、健康检查、排空和最小 Provider/Adapter 选择；API/Worker 通过 `@aervox/host-runtime` 共用产品装配，Worker 继续使用自己的任务调度器 |
+| Worker 恢复 | [attempt-recovery](../../apps/worker/src/attempt-recovery.ts) | 默认把过期 Attempt 收敛为 Interrupted；显式 local-results 通过共享宿主的本机模型补完已提交结果 |
 
 <a id="22-当前缺口"></a>
 
 ### 2.2 尚未兑现的目标
 
-当前差量包括持久接单与独立 Host 的生产接线、完整 `LoopDriverPort`、AgentStep/ToolInvocation 独立持久化、每请求/重试的 ModelRun 与来源 Manifest、工具 Schema/授权修订的一致快照，以及完整安全、背压、取消和恢复矩阵。对应验收见 §15～16，排序与认领见根计划，不在本文另建任务队列。
+当前差量包括独立 Worker 的生产部署验收、完整 `LoopDriverPort`、AgentStep/ToolInvocation 独立持久化、每请求/重试的 ModelRun 与来源 Manifest、工具 Schema/授权修订的一致快照，以及完整安全、背压、取消和恢复矩阵。对应验收见 §15～16，排序与认领见根计划，不在本文另建任务队列。
 
 DSH 已有整 Turn 进程外 Adapter 接口和模拟器/夹具验证，API 可用 `AERVOX_LOOP_DRIVER=dsh` 选择；真实外部运行时及其兼容性验收不得从开关或夹具通过推定。pi 仍需真实 Adapter。客户端 SSE 读取循环不承担 Agent Loop。
 
@@ -366,7 +366,7 @@ CAP-033 的后台主动动作仍复用本管线，但授权来源改为用户确
 | 终态已提交但事件未发送 | 重发持久 done 事件 |
 | 删除/撤权水位未追平 | fail closed，不继续模型或工具调用 |
 
-这些是 Aervox 的恢复规则，不继承外部 Driver 的默认行为。当前 [Worker 恢复周期](../../apps/worker/src/attempt-recovery.ts)仍将过期 Attempt 收敛，不调度续跑；[Core 裁决](../../packages/core/src/resume.ts)与 [Host 恢复源](../../packages/host-agent/src/sqlite-resume-source.ts)已经提供基于权威工具结果的续跑构件。
+这些是 Aervox 的恢复规则，不继承外部 Driver 的默认行为。当前 [Worker 恢复周期](../../apps/worker/src/attempt-recovery.ts)默认将过期 Attempt 收敛；显式 `AERVOX_LOOP_RESUME=local-results` 才通过共享宿主准入本机模型补完已知结果；[Core 裁决](../../packages/core/src/resume.ts)与 [Host 恢复源](../../packages/host-agent/src/sqlite-resume-source.ts)已经提供基于权威工具结果的续跑构件。
 
 对于已识别批次中的 `pending/outcome_unknown`，只有相关未确定工具全部声明 `replay: safe`，才可注入 `TOOL_NOT_STARTED` / `TOOL_OUTCOME_UNKNOWN` 合成结果后继续；合成结果不证明副作用成功，也不授权重放。未声明、`never` 或 `pending_approval` 一律收敛。没有权威依据的结果不得猜测；完整生产恢复还须验证候选领取竞争、上下文保真和所有故障边界。
 
@@ -394,7 +394,7 @@ agent.attempt.lease-expired
 
 跨进程事件通过 Outbox，包含 `turnId`、`attemptId`、`stepId`、来源/授权修订、`idempotencyKey`、`occurredAt` 和 `payloadVersion`。内部事件不等于客户端 SSE；只有经过公开契约筛选的事件才能成为 TurnStreamEvent。
 
-当前 `apps/api` 创建 Turn 时写入的事件名仍是 `turn.created`，而目标 Loop 消费事件名为 `agent.turn.requested`。迁移期间必须保留兼容映射：Outbox consumer 同时接受两种事件，按同一个 `(turnId, idempotencyKey)` 去重，并将旧事件投影为 `agent.turn.requested`；新生产者切换后再经过一个完整的重试保留窗口，才能停止消费 `turn.created`。不能只修改事件字符串而不更新消费者和回放夹具。
+接单事务保存执行归属、metadata、独立的工具审批模式和认证审计身份。metadata 不能覆盖审批模式；每个 Turn 创建独立授权上下文，避免并发串用。默认 API 后台执行与 inline 执行写入 `turn.created`，Worker 只作普通事件审计；显式 `AERVOX_LOOP_DISPATCH=worker` 的后台接单写入 `agent.turn.requested`。Worker 只消费后者且复验 `execution=worker`，从数据库读取已接受的用户输入，进入 `@aervox/host-runtime` 的完整会话装配。两类事件不能兼容映射为同一执行任务，否则会抢跑 API Turn。发布时先更新 Worker，再开启委托开关；开关回退不改变已有事件归属。
 
 ### 12.2 事务边界
 
@@ -402,7 +402,7 @@ agent.attempt.lease-expired
 
 | 原子边界 | 当前实现与剩余要求 |
 |---|---|
-| Turn + 用户 MessageVersion + 接单 Outbox | 当前写 `turn.created`；切换为 `agent.turn.requested` 须遵守 §12.1 的兼容、去重与保留窗口 |
+| Turn + 用户 MessageVersion + 接单 Outbox | API 归属写 `turn.created`；Worker 归属写 `agent.turn.requested`，与 metadata、首个 Attempt 原子提交 |
 | 安全片段 + TurnStreamEvent + Draft prefix | 仓储已提供 `recordSafeSegmentAtomically` / 批量变体；完整 Draft 与安全校验语义仍按流式协议验收 |
 | ToolInvocation + 授权快照 + 幂等预留 | 已有审批幂等复用和执行预留；独立 ToolInvocation 及全体快照的一次性提交仍待补齐 |
 | ToolExecution 结果 + result event | 已有 `recordToolOutcomeAtomically`，同一事务核对 fencing 并提交 |
@@ -418,7 +418,8 @@ agent.attempt.lease-expired
 |---|---|
 | `packages/core/src` | Loop 状态机、控制、通用工具/Provider/Context Port 与内存实现；不得依赖 SQLite、Drizzle、UI 或伴学产品模块 |
 | `packages/host-agent/src` | SQLite ExecutionStore 适配、Profile、可复用 Host、恢复源与进程外 Adapter |
-| `apps/api/src/modules/companion/conversation` | HTTP/SSE、产品上下文、Provider/工具装配与执行触发 |
+| `packages/host-runtime/src/modules/companion/conversation` | HTTP/SSE、产品上下文、Provider/工具装配与执行触发 |
+| `packages/host-runtime/src` | API 与 Worker 共用产品模块、人格、Skill、插件、审批及执行策略；Worker 不监听产品路由 |
 | `apps/worker/src` | 周期恢复、Outbox 与其他后台任务；不自行复制模型—工具循环 |
 
 目标 `capabilities/`、`providers/`、`adapters/`、独立 `apps/agent` 等目录只由[能力组合规范](capability-composition.md)维护。独立部署前须冻结 Host/Driver 绑定与数据责任；迁移不能改变 API Turn/SSE、业务数据所有权或 claim/fencing。
@@ -442,7 +443,7 @@ agent.attempt.lease-expired
 
 #### 有界本地代码搜索
 
-`dsh_search_code` 的 [实现](../../apps/api/src/modules/ecosystem/mcp/code-search.ts)使用锁定 npm 平台包的 `ripgrep` 子进程，不通过 PATH 选程序、运行期下载或 Shell 拼接。决定见 [ADR-024](adr/ADR-024-native-runtime-boundaries.md#cr-062)。
+`dsh_search_code` 的 [实现](../../packages/host-runtime/src/modules/ecosystem/mcp/code-search.ts)使用锁定 npm 平台包的 `ripgrep` 子进程，不通过 PATH 选程序、运行期下载或 Shell 拼接。决定见 [ADR-024](adr/ADR-024-native-runtime-boundaries.md#cr-062)。
 
 - 字面文本匹配，默认大小写不敏感并采用 Unicode 简单折叠；返回相对路径、行号和行内容，全局结果数有上限。换行、空字符或超过 4096 字节的查询拒绝。
 - 不用 `.gitignore` 缩小搜索范围；跳过隐藏条目、`node_modules`、`dist` 及已有二进制扩展名，不跟随符号链接，起始目录真实路径须在仓库根内。

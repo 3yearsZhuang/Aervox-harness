@@ -45,7 +45,7 @@ CR-030 已去租户化，上层统一使用本地上下文 `LocalContext`，**�
 | 任务型异步 | `202` + `Location` 轮询 | 附件/异步生成 |
 | 版本前缀 | `/v1` 统一版本前缀，契约变更先升版 | `/v1/...` |
 
-- 路由文件按模块挂在 `apps/api/src/modules/*/routes.ts`，每个模块 `index.ts` 注册（ADR-014）；跨模块事件进进程内总线，不直接 import 对方仓储。
+- 路由文件按模块挂在 `packages/host-runtime/src/modules/*/routes.ts`，每个模块 `index.ts` 注册（ADR-014）；跨模块事件进进程内总线，不直接 import 对方仓储。
 - 契约 schema 由 `zod-to-openapi` v9 + `OpenApiGeneratorV31` 生成后统一提交 `@aervox/contracts`。
 
 ## 4. 包名与目录组织

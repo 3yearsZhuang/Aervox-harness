@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { ToolRuntime, type ToolRegistryPort, type ToolDefinition } from "../src/modules/ecosystem/tools/index.js";
-import { contributeMemoryTool } from "../src/modules/companion/memory/tool-contribution.js";
+import { ToolRuntime, type ToolRegistryPort, type ToolDefinition } from "@aervox/host-runtime/modules/ecosystem/tools/index";
+import { contributeMemoryTool } from "@aervox/host-runtime/modules/companion/memory/tool-contribution";
 import type { ToolRegistrationModel } from "@aervox/repositories";
 
 const ctx = { workspaceId: "local", subjectUserId: "local" } as const;
@@ -124,7 +124,7 @@ it("开关轮换取消在途调用，原贡献句柄仍释放最新代际且不�
 
 
 it("call cancellation reaches the dynamic handler through the provider and prevents its next effect", async () => {
-  const { createRuntimeToolProvider } = await import("../src/modules/companion/conversation/tool-providers.js");
+  const { createRuntimeToolProvider } = await import("@aervox/host-runtime/modules/companion/conversation/tool-providers");
   const { ControlContext } = await import("@aervox/core");
   const { runtime } = fixture();
   const control = new ControlContext({ localProcessingOnly: true, fencingToken: 7 });

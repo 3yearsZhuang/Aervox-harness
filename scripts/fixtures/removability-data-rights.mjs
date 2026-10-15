@@ -5,9 +5,9 @@ import path from "node:path";
 import { createRequire } from "node:module";
 const Fastify = createRequire(new URL("../../apps/api/package.json", import.meta.url))("fastify");
 import { createDatabase, initDatabaseSchema, SqliteMemoryRepository, SqliteToolRegistryRepository, exportSnapshot } from "../../packages/repositories/dist/index.js";
-import { ToolRuntime } from "../../apps/api/dist/modules/ecosystem/tools/index.js";
-import { registerMemoryModule } from "../../apps/api/dist/modules/companion/memory/index.js";
-import { registerModelRuntimeModule } from "../../apps/api/dist/modules/ecosystem/model-runtime/index.js";
+import { ToolRuntime } from "../../packages/host-runtime/dist/modules/ecosystem/tools/index.js";
+import { registerMemoryModule } from "../../packages/host-runtime/dist/modules/companion/memory/index.js";
+import { registerModelRuntimeModule } from "../../packages/host-runtime/dist/modules/ecosystem/model-runtime/index.js";
 
 const [phase, root] = process.argv.slice(2);
 assert.ok(root && path.basename(root).startsWith("aervox-removal-"));

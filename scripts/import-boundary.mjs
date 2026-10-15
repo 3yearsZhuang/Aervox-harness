@@ -47,7 +47,7 @@ import { parse } from "@babel/parser";
  * 宿主**测试**不在本规则范围（`src/` 限定），可引用插件包以验证插件行为。
  */
 export const PLUGIN_COMPOSITION_ROOTS = new Set([
-  "apps/api/src/plugin-assembly.ts",
+  "packages/host-runtime/src/plugin-assembly.ts",
   "apps/web/src/App.vue",
   "apps/desktop/src/renderer/src/App.vue",
   "apps/desktop/src/renderer/src/pet-main.ts",
@@ -125,7 +125,7 @@ export const RULES = [
   {
     name: "plugins-domain-no-db-no-host",
     docRef: "CR-060 · AVX-PLUG-001 §0.3",
-    fromDir: /^plugins\/[^/]+\//,
+    fromDir: /^(plugins|surfaces)\/[^/]+\//,
     forbid: [
       { pattern: /^@aervox\/(database|schema|repositories)($|\/)/, label: "数据库/模式/仓储" },
       { pattern: /^@libsql\//, label: "@libsql/client" },
@@ -212,9 +212,12 @@ const JS_TO_TS = [
 
 /** 相对导入（./ ../）解析为仓库相对路径；解析不到返回 null */
 function resolveRepoRelative(fromRelFile, specifier) {
-  if (!specifier.startsWith("./") && !specifier.startsWith("../")) return null;
+  const hostPath = specifier.startsWith("@aervox/host-runtime/")
+    ? specifier.slice("@aervox/host-runtime/".length) : null;
+  if (hostPath === null && !specifier.startsWith(".")) return null;
   const baseDir = dirname(join(process.cwd(), fromRelFile));
-  const absTarget = resolve(baseDir, specifier);
+  const absTarget = hostPath === null ? resolve(baseDir, specifier)
+    : resolve(process.cwd(), "packages/host-runtime/src", hostPath);
   for (const ext of CANDIDATE_EXTS) {
     const candidate = absTarget + ext;
     if (existsSync(candidate) && statSync(candidate).isFile()) {
@@ -256,13 +259,13 @@ export function collectSourceFiles(rootDirs = ["apps", "packages", "plugins", "c
 export const MODULE_EXCEPTIONS = JSON.parse(readFileSync(new URL("./module-boundary-exceptions.json", import.meta.url), "utf8"));
 
 export function moduleOwner(file) {
-  return file.match(/^(apps\/api\/src\/modules\/[^/]+\/[^/]+)\//)?.[1] ?? null;
+  return file.match(/^((?:apps\/api|packages\/host-runtime)\/src\/modules\/[^/]+\/[^/]+)\//)?.[1] ?? null;
 }
 
 /** Exceptions are individual migration edges, never directory-wide bypasses. */
 export function inspectSource(relFile, source, { exceptions = MODULE_EXCEPTIONS } = {}) {
   const violations = [];
-  const governed = relFile.startsWith("apps/api/src/");
+  const governed = /^(apps\/(api|worker)|packages\/host-runtime)\/src\//.test(relFile);
   const add = (rule, module, label) => violations.push({ file: relFile, rule, module, label, docRef: "CR-056 / ADR-016" });
   let rawSpecifiers;
   try {

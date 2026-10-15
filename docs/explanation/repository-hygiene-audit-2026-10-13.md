@@ -77,7 +77,7 @@ P1 表示应优先修复的核心行为错误；P2 表示明确缺陷或需要�
 
 ### HYG-01 · 桌面端丢弃当前会话 ID
 
-**位置**：[desktop-transport.ts](../../packages/api-client/src/desktop-transport.ts) 115–123 行；[preload API](../../apps/desktop/src/preload/domains/aervox-api.ts) 29–56 行；[桌面主进程](../../apps/desktop/src/main/index.ts) 650–673 行。调用方[工作台组件](../../plugins/workbench-ui/src/AervoxWorkbench.vue) 337 行传入 `activeSessionId`。
+**位置**：[desktop-transport.ts](../../packages/api-client/src/desktop-transport.ts) 115–123 行；[preload API](../../apps/desktop/src/preload/domains/aervox-api.ts) 29–56 行；[桌面主进程](../../apps/desktop/src/main/index.ts) 650–673 行。调用方[工作台组件](../../surfaces/workbench-ui/src/AervoxWorkbench.vue) 337 行传入 `activeSessionId`。
 
 `desktopTransport.streamTurn` 将第一个参数命名为 `_sessionId` 并丢弃；桥协议没有传递该字段，主进程改用 `resolveDesktopSessionId(env)`，通常得到 `desktop_default`。在会话 A、B 间切换后，发送请求仍落到同一个后端会话，历史与项目上下文无法按所选会话区分。
 
@@ -97,7 +97,7 @@ P1 表示应优先修复的核心行为错误；P2 表示明确缺陷或需要�
 
 ### HYG-03 · 录音启动不感知取消，卸载不收回资源
 
-**位置**：[voice-input-recorder.ts](../../packages/api-client/src/voice-input-recorder.ts) 49–89 行；[useWorkbenchComposer.ts](../../packages/ui/src/composables/useWorkbenchComposer.ts)；[工作台组件](../../plugins/workbench-ui/src/AervoxWorkbench.vue) 516–526 行。
+**位置**：[voice-input-recorder.ts](../../packages/api-client/src/voice-input-recorder.ts) 49–89 行；[useWorkbenchComposer.ts](../../packages/ui/src/composables/useWorkbenchComposer.ts)；[工作台组件](../../surfaces/workbench-ui/src/AervoxWorkbench.vue) 516–526 行。
 
 `start()` 等待 `getUserMedia` 后直接启动资源，直到末尾才置 `isRunning=true`；授权尚未返回时 `stop()` 因 `isRunning=false` 直接退出。另一个缺口是 Composer 没有 scope dispose，工作台卸载只清附件，没有停止录音及其后续转写。
 
@@ -127,7 +127,7 @@ P1 表示应优先修复的核心行为错误；P2 表示明确缺陷或需要�
 
 ### HYG-05 · 只读插件 Skill 可被同名本地安装改写
 
-**位置**：[skill-manager.ts](../../apps/api/src/modules/ecosystem/skills/skill-manager.ts) 129–179 行；[skill-registry-repository.ts](../../packages/repositories/src/repositories/sqlite/skill-registry-repository.ts) 42–64 行；入口为 `POST /v1/skills`。
+**位置**：[skill-manager.ts](../../packages/host-runtime/src/modules/ecosystem/skills/skill-manager.ts) 129–179 行；[skill-registry-repository.ts](../../packages/repositories/src/repositories/sqlite/skill-registry-repository.ts) 42–64 行；入口为 `POST /v1/skills`。
 
 本地安装只检查 `<skillsRoot>/<name>` 是否存在，没有检查同名注册记录。插件技能位于不同的插件子目录，因而文件路径检查不能保护其注册身份。注册表遇到同 ID 就更新元数据，同时保留旧 readonly/pluginId，使本地 ZIP 替换插件技能的读取路径与正文。
 
@@ -137,7 +137,7 @@ P1 表示应优先修复的核心行为错误；P2 表示明确缺陷或需要�
 
 ### HYG-06 · 握手失败未清理 Adapter 子进程
 
-**位置**：[stdio-adapter.ts](../../packages/host-agent/src/stdio-adapter.ts) 101–130、161 行；实际 API 经 [dsh-adapter.ts](../../apps/api/src/modules/companion/conversation/dsh-adapter.ts) 使用该实现。
+**位置**：[stdio-adapter.ts](../../packages/host-agent/src/stdio-adapter.ts) 101–130、161 行；实际 API 经 [dsh-adapter.ts](../../packages/host-runtime/src/modules/companion/conversation/dsh-adapter.ts) 使用该实现。
 
 `await handshake()` 失败直接抛出，缺少 kill/readline/listener 清理，调用方尚未取得 close 句柄。源码注释及测试名称声称“失配 kill”，但现有测试只断言 rejection。
 
@@ -169,9 +169,9 @@ stop 只停止未来调度、清定时器和 IPC，没有等待 `isTaskRunning` 
 
 | 路径 | 当前机制 | 差异 |
 |---|---|---|
-| [skills/zip.ts](../../apps/api/src/modules/ecosystem/skills/zip.ts) 71–143 行 | 自行解析 ZIP，133 行 `inflateRawSync` | 无累计展开/单条目/条目数业务预算，同步占用 API 事件循环；解压后才核对尺寸 |
-| [persona/bundle.ts](../../apps/api/src/modules/companion/persona/bundle.ts) 138、165、215 行 | `fflate.unzipSync`，还展开嵌套 Skill ZIP | 同步解压，未传入展开过滤预算 |
-| [plugins/archive-worker.ts](https://github.com/3yearsZhuang/Aervox-harness/blob/511f9d1ed8da263855dd4337cd1beb4680dc6bdd/apps/api/src/modules/ecosystem/plugins/archive-worker.ts) 14–80 行 | Worker、展开过滤、并发限额、10 秒截止和取消 | 已有独立资源控制，不能据此宣称另外两个入口也受保护 |
+| [skills/zip.ts](../../packages/host-runtime/src/modules/ecosystem/skills/zip.ts) 71–143 行 | 自行解析 ZIP，133 行 `inflateRawSync` | 无累计展开/单条目/条目数业务预算，同步占用 API 事件循环；解压后才核对尺寸 |
+| [persona/bundle.ts](../../packages/host-runtime/src/modules/companion/persona/bundle.ts) 138、165、215 行 | `fflate.unzipSync`，还展开嵌套 Skill ZIP | 同步解压，未传入展开过滤预算 |
+| [plugins/archive-worker.ts](https://github.com/3yearsZhuang/Aervox-harness/blob/511f9d1ed8da263855dd4337cd1beb4680dc6bdd/packages/host-runtime/src/modules/ecosystem/plugins/archive-worker.ts) 14–80 行 | Worker、展开过滤、并发限额、10 秒截止和取消 | 已有独立资源控制，不能据此宣称另外两个入口也受保护 |
 
 **复现**：Skill 解包接受 8,308 字节的合法压缩样本，展开为 8,388,608 字节；样本有界，未执行内存耗尽攻击。HTTP 压缩请求体上限无法约束这种展开倍数。Persona 差异由源码确认，没有另行进行大包压力实验。
 
@@ -215,11 +215,11 @@ stop 只停止未来调度、清定时器和 IPC，没有等待 `isTaskRunning` 
 
 | 文件与行 | 函数 | 依据与删除前条件 |
 |---|---|---|
-| [config-schema.ts](../../apps/api/src/modules/ecosystem/plugins/config-schema.ts):214 | `resolveI18n` | 只定义；实际 UI 使用 panels 的 localize。删除后不能让 UI 反向依赖 API 来“统一”本地化 |
-| [gpt-sovits.ts](../../apps/api/src/modules/platform/voice/gpt-sovits.ts):288 | `voiceReferenceFingerprint` | 无生产/测试消费；voice barrel 通配再导出，先确认不承诺外部 API；createHash 仅服务此函数 |
-| [proactive/routes.ts](../../apps/api/src/modules/proactive/proactive/routes.ts):82 | `validDistillationStatus` | 模块内部未调用，对应类型导入仅供此函数 |
+| [config-schema.ts](../../packages/host-runtime/src/modules/ecosystem/plugins/config-schema.ts):214 | `resolveI18n` | 只定义；实际 UI 使用 panels 的 localize。删除后不能让 UI 反向依赖 API 来“统一”本地化 |
+| [gpt-sovits.ts](../../packages/host-runtime/src/modules/platform/voice/gpt-sovits.ts):288 | `voiceReferenceFingerprint` | 无生产/测试消费；voice barrel 通配再导出，先确认不承诺外部 API；createHash 仅服务此函数 |
+| [proactive/routes.ts](../../packages/host-runtime/src/modules/proactive/proactive/routes.ts):82 | `validDistillationStatus` | 模块内部未调用，对应类型导入仅供此函数 |
 | [proactive-source-adapters.ts](../../apps/desktop/src/main/proactive-source-adapters.ts):1376 | `createProactiveCapabilityProbe` | 当前 main 124 行自行装配，额外处理来源；删除前以实际装配为准 |
-| [配置字段组件](../../plugins/panels-ui/src/plugin/PluginConfigFieldInput.vue):54 | `onInputChange` | 模板 137 行已内联 |
+| [配置字段组件](../../surfaces/panels-ui/src/plugin/PluginConfigFieldInput.vue):54 | `onInputChange` | 模板 137 行已内联 |
 | 同文件 57 行 | `onTextChange` | 模板 144 行已内联 |
 | 同文件 60 行 | `onNumberChange` | 模板 150 行已内联 |
 
@@ -262,7 +262,7 @@ git grep -n -E 'resolveI18n|voiceReferenceFingerprint|validDistillationStatus|cr
 | `apps/desktop/src/main/proactive-source-adapters.ts` | 1,383 | 平台实现与来源生命周期 |
 | `packages/repositories/src/repositories/sqlite/learning-repository.ts` | 1,317 | 查询投影、统计与写入责任 |
 | `apps/desktop/src/main/index.ts` | 1,313 | IPC、窗口、采集与退出编排，优先围绕 HYG-01 补跨层测试 |
-| `plugins/panels-ui/src/llm/ModelRuntimePanel.vue` | 1,000 | 异步操作、轮询、错误和资源状态 |
+| `surfaces/panels-ui/src/llm/ModelRuntimePanel.vue` | 1,000 | 异步操作、轮询、错误和资源状态 |
 
 建议随着具体修复抽离责任，不把“大文件”当作必须重写的证据。全仓已有 strict TypeScript、边界和可移除守卫，当前未配置通用死代码/克隆棘轮；可先对内部 unused 符号和新增重复建立增量基线，再决定工具，避免大规模误报阻断工作。
 
@@ -392,13 +392,13 @@ Drizzle 升级后的回归同时验证底层原因、事务回滚数据和 ESM/C
 
 #### 已确认的实现残留
 
-1. **P1 · HYG-05：本地覆盖能删除插件技能正文。** [安装逻辑](../../apps/api/src/modules/ecosystem/skills/skill-manager.ts) 130～145 行只查询与本地 Skill 同名的注册，再递归删除 `<skillsRoot>/<name>`；[插件写盘](../../apps/api/src/modules/ecosystem/plugins/service.ts) 使用 `<skillsRoot>/<pluginId>/<skillName>`。临时 API/SQLite 实验先安装 `flashcards` 插件和只读 `flashcard-review`，再以 `name=flashcards, overwrite=true` 安装本地 ZIP：接口返回 201，原技能注册仍为 readonly=1，正文文件已不存在。须在删除/替换前核对整个目录的所有权，覆盖插件 ID 与本地名称碰撞场景。
+1. **P1 · HYG-05：本地覆盖能删除插件技能正文。** [安装逻辑](../../packages/host-runtime/src/modules/ecosystem/skills/skill-manager.ts) 130～145 行只查询与本地 Skill 同名的注册，再递归删除 `<skillsRoot>/<name>`；[插件写盘](../../packages/host-runtime/src/modules/ecosystem/plugins/service.ts) 使用 `<skillsRoot>/<pluginId>/<skillName>`。临时 API/SQLite 实验先安装 `flashcards` 插件和只读 `flashcard-review`，再以 `name=flashcards, overwrite=true` 安装本地 ZIP：接口返回 201，原技能注册仍为 readonly=1，正文文件已不存在。须在删除/替换前核对整个目录的所有权，覆盖插件 ID 与本地名称碰撞场景。
 2. **P2 · HYG-03：工作台无法取消等待中的录音。** [Composer](../../packages/ui/src/composables/useWorkbenchComposer.ts) 的 toggle、键盘和收起逻辑只判断 `isListening`。分别执行启动→等待授权→键盘输入/再次点击/收起→授权返回，三次均观察到 `isListening=true`、已停止音轨数为 0。底层有代次失效并不足够；应把等待配置/权限阶段纳入 UI 生命周期和停止接线。
 3. **P2 · HYG-07：坏协议使驱动失效但不终止进程。** [stdio Adapter](../../packages/host-agent/src/stdio-adapter.ts) 151～155 行在解码失败时只调用 `failUnavailable`；迭代 finally 又清除请求截止。受控子进程完成准入后发送非法 JSON，消费端收到 `adapter_unavailable`，超过原请求截止后 PID 仍存活，直至实验显式调用 close。不可恢复的协议失败应进入统一有界关闭路径。
 
 #### 接线与证据缺口
 
-[Skill 安装](../../apps/api/src/modules/ecosystem/skills/skill-manager.ts) 87～88 行调用 `unzip(zipData)`，[Persona 解包](../../apps/api/src/modules/companion/persona/bundle.ts) 141～142 行和[插件解包](../../apps/api/src/modules/ecosystem/plugins/package-bundle.ts) 43～44 行均不传 signal；路由也未建立相应取消传递。HYG-09 的静态缺口与已复现实现残留分别记录，未声称已经完成断连实验。HYG-01/04/08 的证据缺口同样不直接等同于确认运行失败。
+[Skill 安装](../../packages/host-runtime/src/modules/ecosystem/skills/skill-manager.ts) 87～88 行调用 `unzip(zipData)`，[Persona 解包](../../packages/host-runtime/src/modules/companion/persona/bundle.ts) 141～142 行和[插件解包](../../packages/host-runtime/src/modules/ecosystem/plugins/package-bundle.ts) 43～44 行均不传 signal；路由也未建立相应取消传递。HYG-09 的静态缺口与已复现实现残留分别记录，未声称已经完成断连实验。HYG-01/04/08 的证据缺口同样不直接等同于确认运行失败。
 
 5 个隔离复现用例（录音 3、目录所有权 1、Adapter 1）均成功复现坏行为；这些断言不是修复验收通过。用例、日志和结果保存在 `artifacts/repository-hygiene-selfcheck-2026-10-14/`，未把“期望坏行为”的临时用例加入正常测试套件；实验使用临时目录/库，结束后关闭音轨和子进程。长期摘要追加在证据快照的 `remediation.selfReview` 中。
 

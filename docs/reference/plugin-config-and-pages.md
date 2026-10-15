@@ -36,18 +36,18 @@ id: AVX-PLUG-001
 
 ### 0.4 根界面插件（CR-065）
 
-根界面使用 [`UISurfacePlugin`](../../packages/ui-host/src/surface-context.ts)：`id`、`apiVersion: 1`、`surface`（`main` 或 `companion`）、`platforms` 与异步 `load(signal)`。这是受信源码装配接口，不是可安装的 `PluginManifest`；`plugins/workbench-ui` 与 `plugins/companion-ui` 不生成声明式分发包，也不使用市场开关关闭标准产品能力。
+根界面使用 [`UISurfacePlugin`](../../packages/ui-host/src/surface-context.ts)：`id`、`apiVersion: 1`、`surface`（`main` 或 `companion`）、`platforms` 与异步 `load(signal)`。这是受信源码装配接口，不是可安装的 `PluginManifest`；`surfaces/workbench-ui` 与 `surfaces/companion-ui` 不生成声明式分发包，也不使用市场开关关闭标准产品能力。
 
 - 组合根：Web/桌面 `App.vue` 从默认工作台、紧凑工作台与主动陪伴界面选择，桌面 `pet-main.ts` 选择独立桌宠；移动端沿用 Web。只有组合根允许引用具体插件包。
 - [`UISurfaceHost`](../../packages/ui-host/src/UISurfaceHost.vue) 校验平台、根类型和版本；默认加载上限 15 秒。加载或 Vue 渲染失败显示宿主恢复界面，可重试；浏览器缓存失败导入时，使用组合根注入的 `requestReload` 重新加载当前窗口。刷新仅由用户点击触发。插件加载结果迟到时丢弃。
 - 每次根实例获得独立的 `UISurfaceContext`，含平台、根类型、取消信号及可选 `requestClose`。取消信号和 Vue 卸载负责结束本实例订阅、事件监听与计时器；工作台注册表也按实例创建。关闭界面不会请求取消已受理的 API 回合。
 - `viewProps` 与事件用于受信界面装配，平台由宿主固定；这些参数不是第三方权限代理。根界面不能通过该接口取得任意 Electron 或数据库访问权。
-- 工作台根组件位于 `plugins/workbench-ui/src/AervoxWorkbench.vue`，经 `@aervox/ui/workbench` 使用共享构件；旧 `@aervox/ui` 的 `AervoxWorkbench` 根导出已移除。`@aervox/ui/env` 提供共享资源与 Live2D 浏览器类型。
+- 工作台根组件位于 `surfaces/workbench-ui/src/AervoxWorkbench.vue`，经 `@aervox/ui/workbench` 使用共享构件；旧 `@aervox/ui` 的 `AervoxWorkbench` 根导出已移除。`@aervox/ui/env` 提供共享资源与 Live2D 浏览器类型。
 - 受信内置界面可由组合根与设置切换；独立安装、第三方隔离和跨版本升级回滚未在本切片交付。Vue 错误边界不能中断同步死循环或隔离全局样式；可信权限和数据管理责任仍由平台宿主与 API 持有。
 
 ## 1. Config Schema v1
 
-Config 是 Aervox 自有 DSL，不是任意 JSON Schema，也不兼容 AstrBot 配置文件直接导入。[契约](../../packages/contracts/src/plugin-config-schemas.ts)和[解析器](../../apps/api/src/modules/ecosystem/plugins/config-schema.ts)共同定义行为。
+Config 是 Aervox 自有 DSL，不是任意 JSON Schema，也不兼容 AstrBot 配置文件直接导入。[契约](../../packages/contracts/src/plugin-config-schemas.ts)和[解析器](../../packages/host-runtime/src/modules/ecosystem/plugins/config-schema.ts)共同定义行为。
 
 ```json
 {
@@ -116,9 +116,9 @@ Page 元数据为 `id/title/description/entry/capabilities/checksum`。`id` 最�
 
 ### 3.2 已有防护与未完成边界
 
-[PluginPageDialog](../../plugins/panels-ui/src/plugin/PluginPageDialog.vue)使用 `sandbox="allow-scripts allow-forms allow-downloads"`，未授予 `allow-same-origin`；资源响应设置 CSP：默认拒绝、脚本和样式允许本地及内联、图片允许本地及 `data:`、`connect-src 'none'`、`form-action 'none'`，另有 `nosniff/no-store/no-referrer`。这些是浏览器页面约束，不是 OS 进程沙箱。
+[PluginPageDialog](../../surfaces/panels-ui/src/plugin/PluginPageDialog.vue)使用 `sandbox="allow-scripts allow-forms allow-downloads"`，未授予 `allow-same-origin`；资源响应设置 CSP：默认拒绝、脚本和样式允许本地及内联、图片允许本地及 `data:`、`connect-src 'none'`、`form-action 'none'`，另有 `nosniff/no-store/no-referrer`。这些是浏览器页面约束，不是 OS 进程沙箱。
 
-[BundleStore](../../apps/api/src/modules/ecosystem/plugins/bundle-store.ts)检查相对资源路径与词法目录包含关系；尚未检查真实路径/符号链接，也不会拒绝所有未知扩展名。作者禁止链接文件、路径逃逸、远程资源和动态下载代码；服务端不能把这条作者规则当作已实现的隔离证明。
+[BundleStore](../../packages/host-runtime/src/modules/ecosystem/plugins/bundle-store.ts)检查相对资源路径与词法目录包含关系；尚未检查真实路径/符号链接，也不会拒绝所有未知扩展名。作者禁止链接文件、路径逃逸、远程资源和动态下载代码；服务端不能把这条作者规则当作已实现的隔离证明。
 
 截至本次核验仍有以下缺口，发布安全评估必须覆盖：
 
@@ -134,9 +134,9 @@ Page 元数据为 `id/title/description/entry/capabilities/checksum`。`id` 最�
 
 ### 4.1 核心契约与执行生命周期
 
-[ServerTurnPlugin](../../packages/host-plugin-api/src/turn-plugin.ts)定义 `id`、可选 `name`、`beforeTurn(ctx, config)` 和 `afterTurn(ctx, config, beforeResult)`。契约位于 `@aervox/host-plugin-api`（仅类型，零运行时依赖）；[本地出口](../../apps/api/src/modules/ecosystem/plugins/turn-plugins/types.ts)只做聚合，不再定义任何插件领域字段。上下文含 Turn/Session/Attempt ID、用户消息与窄端口（回合流读写 `stream`、可选 `llm`）；`LocalContext` 与仓储属宿主侧依赖，经 Runner 的宿主依赖注入，**不进入插件上下文**。后置状态为 `Completed/Failed/Interrupted`。
+[ServerTurnPlugin](../../packages/host-plugin-api/src/turn-plugin.ts)定义 `id`、可选 `name`、`beforeTurn(ctx, config)` 和 `afterTurn(ctx, config, beforeResult)`。契约位于 `@aervox/host-plugin-api`（仅类型，零运行时依赖）；[本地出口](../../packages/host-runtime/src/modules/ecosystem/plugins/turn-plugins/types.ts)只做聚合，不再定义任何插件领域字段。上下文含 Turn/Session/Attempt ID、用户消息与窄端口（回合流读写 `stream`、可选 `llm`）；`LocalContext` 与仓储属宿主侧依赖，经 Runner 的宿主依赖注入，**不进入插件上下文**。后置状态为 `Completed/Failed/Interrupted`。
 
-Hook 必须由 API 组合根 import 并注册到 [ServerPluginRegistry](../../apps/api/src/modules/ecosystem/plugins/turn-plugins/registry.ts)；仅在 Bundle 放置 `.ts/.js` 或 Manifest 字段不会激活 Hook。当前没有对第三方暴露的 Hook npm SDK、进程隔离或运行时代码热加载。第一方实现位于 `plugins/<id>/src/server`，由唯一装配点 [apps/api/src/plugin-assembly.ts](../../apps/api/src/plugin-assembly.ts) 以容错方式加载并注入其贡献（缺包或加载失败不中断宿主启动）。注册只按插件唯一 ID，不提供历史别名互查；需要旧配置迁移时由插件自己处理，不让宿主解释领域键。
+Hook 必须由 API 组合根 import 并注册到 [ServerPluginRegistry](../../packages/host-runtime/src/modules/ecosystem/plugins/turn-plugins/registry.ts)；仅在 Bundle 放置 `.ts/.js` 或 Manifest 字段不会激活 Hook。当前没有对第三方暴露的 Hook npm SDK、进程隔离或运行时代码热加载。第一方实现位于 `plugins/<id>/src/server`，由唯一装配点 [packages/host-runtime/src/plugin-assembly.ts](../../packages/host-runtime/src/plugin-assembly.ts) 以容错方式加载并注入其贡献（缺包或加载失败不中断宿主启动）。注册只按插件唯一 ID，不提供历史别名互查；需要旧配置迁移时由插件自己处理，不让宿主解释领域键。
 
 装配器持有每次 Hook、HTTP 准入和 API 契约登记的注销函数；装配失败逆序释放已取得的贡献，正常装配由 API `onClose` 释放。重复注册身份或已有 Hook 冲突会拒绝本次装配，不替换原插件。HTTP 在挂载前检查整组路由冲突；框架挂载中途失败时关闭整组准入。Fastify 的物理路由不能运行时移除，残留入口返回 404；这不是动态代码卸载或第三方沙箱。
 
@@ -148,7 +148,7 @@ Hook 必须由 API 组合根 import 并注册到 [ServerPluginRegistry](../../ap
 
 ### 4.3 本地配置与运行时门控（Gating & Config Injection）
 
-[Runner](../../apps/api/src/modules/ecosystem/plugins/turn-plugins/runner.ts)按注册顺序串行执行；仓储缺失、查询失败、无记录、停用或不可用均不运行。测试与自定义调用同样需要明确提供有效记录，不能把缺省依赖当作授权。配置来自已保存 `valuesJson`，未保存时可能为 `undefined`，Hook 必须自行提供默认值；它不是 Config Service 的完整快照，也不包含 Secret。
+[Runner](../../packages/host-runtime/src/modules/ecosystem/plugins/turn-plugins/runner.ts)按注册顺序串行执行；仓储缺失、查询失败、无记录、停用或不可用均不运行。测试与自定义调用同样需要明确提供有效记录，不能把缺省依赖当作授权。配置来自已保存 `valuesJson`，未保存时可能为 `undefined`，Hook 必须自行提供默认值；它不是 Config Service 的完整快照，也不包含 Secret。
 
 前置结果记录启用和配置快照，后置阶段可复用该快照。因此回合中途禁用插件不保证取消已开始的后置工作。异常按插件捕获并通过 `onPluginError` 或日志留痕，但没有 Hook 超时、硬取消、幂等执行或资源配额；异常捕获也无法阻止同步死循环。后置函数是异步函数不代表独立后台任务；耗时工作应通过既有受信任务边界设计，不在数据库事务内执行外部 I/O。
 
@@ -160,7 +160,7 @@ Hook 必须由 API 组合根 import 并注册到 [ServerPluginRegistry](../../ap
 
 ### 4.5 HTTP、工具投影与事件贡献
 
-`ServerPluginRegistration` 经 `@aervox/host-plugin-api` 声明 `turnPlugins`、`toolContributions(services)`、`httpEndpoints`、`replayScripts` 和可选 `registerApiContract()`。后者返回本次契约贡献的注销函数，由装配器持有；模块导入本身不得登记全局契约。宿主服务由 [plugin-host-services.ts](../../apps/api/src/plugin-host-services.ts) 将仓储封装为 `sessions`/`learningFacts` 意图级端口；插件不导入 Schema、Repositories、LibSQL 或宿主实时总线，报告载荷按不透明数据转发。
+`ServerPluginRegistration` 经 `@aervox/host-plugin-api` 声明 `turnPlugins`、`toolContributions(services)`、`httpEndpoints`、`replayScripts` 和可选 `registerApiContract()`。后者返回本次契约贡献的注销函数，由装配器持有；模块导入本身不得登记全局契约。宿主服务由 [plugin-host-services.ts](../../packages/host-runtime/src/plugin-host-services.ts) 将仓储封装为 `sessions`/`learningFacts` 意图级端口；插件不导入 Schema、Repositories、LibSQL 或宿主实时总线，报告载荷按不透明数据转发。
 
 HTTP 适配负责鉴权、限流、本地上下文、出参包装、每请求生效检查及异常日志；门控和诊断出口都是必填。未生效返回 404 且不进入 handler，缺包不挂载端点。插件回放只在 `scripted-plugin` 等受信装配中提供，不能覆盖宿主内建模式。
 
@@ -267,7 +267,7 @@ pages/dashboard/style.css
 
 包内安装识别根 `SKILL.md`/`skill.md`、`skills/<name>/SKILL.md`、`spec.skills[].content`。当前不是全目录技能资产复制：不要假定 Skill 的 `scripts/` 或任意资源自动安装、自动执行。根技能预检可能显示 front matter name，而实际安装使用 pluginId；保持二者一致。Skill name 必须匹配 `/^(?!\.{1,2}$)[\w.-]+$/`：使用 ASCII 字母、数字、下划线、点和短横线，排除单独 `.`/`..`，并使用插件前缀保证全局唯一。Manifest 只检查非空字符串等基础长度；Service 在写入前拒绝不合格或重复名称，返回 409；不会以 201 掩盖未登记的技能。`spec.skills` 使用同名条目时会优先于扫描文件，避免重复声明覆盖正文。
 
-工具 ID 自动加 `<pluginId>.` 前缀，但工具 `name` 与技能名没有同等自动命名空间保证；作者使用唯一名称。`spec.tools` 只登记描述和 schema，受信组合根还需 `ToolRuntime.registerHandler`；无 handler 的工具调用会失败。`read_only/guarded/full_access` 是 Manifest 当前接受的枚举；它们没有完整映射到 Loop 使用的 `read_only/write_with_approval/privileged`。通用 [ToolRuntime](../../apps/api/src/modules/ecosystem/tools/runtime.ts) 的直接调用对非只读工具要求 approval，但[会话工具提供器](../../apps/api/src/modules/companion/conversation/tool-providers.ts)对 `guarded/full_access` 返回不支持级别的 `requires_approval`，不会仅凭包声明获得完整执行链。包内写工具还须由受信宿主显式映射/登记安全等级并验证审批链，单独注册 handler 不足以完成接入。API 会话组合根在工具发现及派发时重新读取插件生效状态，并逐项检查 `requiredPermissions` 的 permission/scope；参数不是有效数组、缺 Grant 或失效插件均拒绝。通用 Core Runtime 通过宿主传入的 `authorize` 回调复验，单独注册 handler 或绕过该组合根不自动获得等价权限检查。
+工具 ID 自动加 `<pluginId>.` 前缀，但工具 `name` 与技能名没有同等自动命名空间保证；作者使用唯一名称。`spec.tools` 只登记描述和 schema，受信组合根还需 `ToolRuntime.registerHandler`；无 handler 的工具调用会失败。`read_only/guarded/full_access` 是 Manifest 当前接受的枚举；它们没有完整映射到 Loop 使用的 `read_only/write_with_approval/privileged`。通用 [ToolRuntime](../../packages/host-runtime/src/modules/ecosystem/tools/runtime.ts) 的直接调用对非只读工具要求 approval，但[会话工具提供器](../../packages/host-runtime/src/modules/companion/conversation/tool-providers.ts)对 `guarded/full_access` 返回不支持级别的 `requires_approval`，不会仅凭包声明获得完整执行链。包内写工具还须由受信宿主显式映射/登记安全等级并验证审批链，单独注册 handler 不足以完成接入。API 会话组合根在工具发现及派发时重新读取插件生效状态，并逐项检查 `requiredPermissions` 的 permission/scope；参数不是有效数组、缺 Grant 或失效插件均拒绝。通用 Core Runtime 通过宿主传入的 `authorize` 回调复验，单独注册 handler 或绕过该组合根不自动获得等价权限检查。
 
 ### 8.2 安全门禁与安装前预检（Pre-install Inspection）
 
@@ -277,7 +277,7 @@ pages/dashboard/style.css
 
 ### 8.3 安装、覆盖与导出边界
 
-[分发引擎](../../apps/api/src/modules/ecosystem/plugins/package-bundle.ts)的实际流程是预检 → 有界解压与 Manifest 解析 →（覆盖时先卸载旧插件）→登记插件/工具/技能→尝试配置和 Page 资源。解压 Worker 忙、超时或退出时返回错误，保留旧插件及其配置、Secret 和能力。新安装成功返回 201；同 ID 且 `overwrite: false` 返回 `409 PLUGIN_ALREADY_EXISTS`。
+[分发引擎](../../packages/host-runtime/src/modules/ecosystem/plugins/package-bundle.ts)的实际流程是预检 → 有界解压与 Manifest 解析 →（覆盖时先卸载旧插件）→登记插件/工具/技能→尝试配置和 Page 资源。解压 Worker 忙、超时或退出时返回错误，保留旧插件及其配置、Secret 和能力。新安装成功返回 201；同 ID 且 `overwrite: false` 返回 `409 PLUGIN_ALREADY_EXISTS`。
 
 配置、Page 或资源注册/写入失败会返回错误；没有跨文件和数据库的事务回滚。`overwrite: true` 是破坏性的卸载重装，会删除旧配置、Secret、授权和插件资源，并非保留状态的升级。卸载开始后的新版本安装失败不会自动恢复旧版本。
 
@@ -291,7 +291,7 @@ pages/dashboard/style.css
 
 ### 8.4 官方出厂与内置插件集市（Built-in Market）
 
-[出厂同步](../../apps/api/src/modules/ecosystem/plugins/index.ts)扫描 `plugins/*`，同步主记录、根 Skill、Config 与主动声明；没有执行任意包内代码，也不等同完整包导入（工具/Page 贡献需走分发安装验证）。API 启动发现缺失、无效或不可读的 `installSource=builtin` 插件时，仅更新可用性状态，保留用户开关、配置、Secret 与授权记录；恢复包不会恢复已撤销授权（见[缺包回归](../../apps/api/test/builtin-plugin-absence.test.ts)）。
+[出厂同步](../../packages/host-runtime/src/modules/ecosystem/plugins/index.ts)扫描 `plugins/*`，同步主记录、根 Skill、Config 与主动声明；没有执行任意包内代码，也不等同完整包导入（工具/Page 贡献需走分发安装验证）。API 启动发现缺失、无效或不可读的 `installSource=builtin` 插件时，仅更新可用性状态，保留用户开关、配置、Secret 与授权记录；恢复包不会恢复已撤销授权（见[缺包回归](../../apps/api/test/builtin-plugin-absence.test.ts)）。
 
 集市 `GET /v1/plugins/market` 当前来自本地出厂目录，不是远程公共插件商店；`POST /v1/plugins/market/:id/install` 走该目录打包安装，内部固定 `overwrite: true`；对已安装插件执行集市安装/更新也会先卸载重装，没有默认拒绝覆盖保护，数据影响同 §8.3。就地打包与构建期导出共用同一份**允许清单**（只收 Manifest、Config、Skill 与 `skills/`、`pages/` 资源；排除 `src/`、`dist/`、`node_modules/`、`test/`、构建配置），两份清单的一致性由 `apps/api/test/plugin-bundle-allowlist.test.ts` 机器断言。更新提示采用版本字符串是否不同，不是 SemVer 新旧判断。根 `mise tasks run package-plugins` 批量生成 `dist-plugins/<id>-<version>.aervox-plugin`（等价 `pnpm package:plugins`）；脚本只打包，不完成契约校验或安全认证。产物字节可重现（ZIP 条目时间戳固化、目录与条目排序），同源码重复打包的 SHA-256 稳定；`dist-plugins/` 是 gitignore 产物，测试不得依赖它，需分发包时经导出端点现场生成。
 
@@ -301,7 +301,7 @@ pages/dashboard/style.css
 
 原始登记接口 `POST /v1/plugins` 会执行额外 DSL 静态验证；分发安装路径当前没有复用完全相同的验证流程。作者必须在主动 DSL 测试与 Worker 执行路径验证规则，不能只依据 Manifest 可解析判定可运行。证据见 [API 生命周期测试](../../apps/api/test/proactive-plugin-lifecycle.test.ts)与 [Worker 派发测试](../../apps/worker/test/proactive-plugin-dispatch.test.ts)。
 
-MCP 使用独立[服务适配器](../../apps/api/src/modules/ecosystem/mcp/service.ts)，工具 ID 为 `mcp__<serverId>__<toolName>`，注册归属为 `mcp:<serverId>`。连接、Token、网络与工具授权在 MCP 流程管理，不随任意引用它的 Bundle 自动授予或撤销；发布说明必须列明这些外部依赖及数据去向。Skill 文本不能提升工具、MCP 或 OS 权限。
+MCP 使用独立[服务适配器](../../packages/host-runtime/src/modules/ecosystem/mcp/service.ts)，工具 ID 为 `mcp__<serverId>__<toolName>`，注册归属为 `mcp:<serverId>`。连接、Token、网络与工具授权在 MCP 流程管理，不随任意引用它的 Bundle 自动授予或撤销；发布说明必须列明这些外部依赖及数据去向。Skill 文本不能提升工具、MCP 或 OS 权限。
 
 ## 9. 验证与发布清单
 

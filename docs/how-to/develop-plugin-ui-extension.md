@@ -149,7 +149,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { zipSync } from 'fflate';
 import { pluginManifestSchema } from './packages/contracts/dist/index.js';
-import { parseConfigSchema, applyDefaults, validateValues } from './apps/api/dist/modules/ecosystem/plugins/config-schema.js';
+import { parseConfigSchema, applyDefaults, validateValues } from './packages/host-runtime/dist/modules/ecosystem/plugins/config-schema.js';
 const root = process.argv[2];
 const bundle = path.join(root, 'bundle');
 const manifest = pluginManifestSchema.parse(JSON.parse(await fs.readFile(path.join(bundle, 'plugin.manifest.json'), 'utf8')));
@@ -319,7 +319,7 @@ setup(registry, context, lifecycle) {
 
 ### 4.1 定义 Hook 并显式注册
 
-在 `apps/api/src/modules/ecosystem/plugins/turn-plugins/<id>.ts` 定义，导入路径按当前位置调整：
+在 `packages/host-runtime/src/modules/ecosystem/plugins/turn-plugins/<id>.ts` 定义，导入路径按当前位置调整：
 
 ```ts
 import type { ServerTurnPlugin } from './types.js';
@@ -340,7 +340,7 @@ export const focusCardTurnPlugin: ServerTurnPlugin = {
 };
 ```
 
-在 API 受信组合位置 import 该定义并调用 `registry.register(focusCardTurnPlugin)`；与[现有 focus-mode 装配](../../apps/api/src/plugin-assembly.ts)保持同一种装配方式（实现位于 `plugins/focus-mode/src/server/`，由该装配点以容错方式加载并注入）。也可在测试中通过 `buildApp({pluginRegistry})` 注入独立 `ServerPluginRegistry`。同时安装/登记相同 ID 的主记录，否则生产 Runner 的 enabled 门控不会激活它。
+在 API 受信组合位置 import 该定义并调用 `registry.register(focusCardTurnPlugin)`；与[现有 focus-mode 装配](../../packages/host-runtime/src/plugin-assembly.ts)保持同一种装配方式（实现位于 `plugins/focus-mode/src/server/`，由该装配点以容错方式加载并注入）。也可在测试中通过 `buildApp({pluginRegistry})` 注入独立 `ServerPluginRegistry`。同时安装/登记相同 ID 的主记录，否则生产 Runner 的 enabled 门控不会激活它。
 
 ### 4.2 验证触发与边界
 

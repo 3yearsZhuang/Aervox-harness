@@ -371,6 +371,18 @@ export interface ApprovalPolicyPort {
   evaluate(req: ToolApprovalRequest, signal?: AbortSignal): Promise<ToolApprovalDecision>;
 }
 
+/** 文本向量生成能力端口（无数据库依赖） */
+export interface TextEmbeddingPort {
+  /** 模型标识（如 text-embedding-3-small, aervox-local-feature-hash-v1-256） */
+  readonly modelId: string;
+  /** 向量维度（可选） */
+  readonly dimensions?: number;
+  /** 生成单条文本的向量 */
+  embed(text: string): Promise<number[]>;
+  /** 批量生成向量（可选批量加速） */
+  embedBatch?(texts: string[]): Promise<number[][]>;
+}
+
 export type {
   AgentInboxCommand,
   AgentInboxConsumeBoundary,

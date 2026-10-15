@@ -53,6 +53,12 @@
         "AERVOX_LOG_FORMAT",
         "AERVOX_SESSION_ID",
         "AERVOX_LOOP_PROVIDER",
+        "AERVOX_LOOP_DISPATCH",
+        "AERVOX_LOOP_RESUME",
+        "AERVOX_EMBEDDING_PROVIDER",
+        "AERVOX_EMBEDDING_URL",
+        "AERVOX_EMBEDDING_API_KEY",
+        "AERVOX_EMBEDDING_MODEL",
         "AERVOX_LOOP_DRIVER",
         "AERVOX_TURN_EXECUTION",
         "AERVOX_LOOP_COMPACTION",
@@ -118,6 +124,10 @@
         "vitest.config.*",
         "../../vitest.shared.ts"
       ]
+    },
+    "@aervox/worker#test": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", "test/**", "package.json", "tsconfig.json", "vitest.config.*", "../../vitest.shared.ts", "../../plugins/**"]
     },
     "@aervox/api#test": {
       "dependsOn": ["^build"],

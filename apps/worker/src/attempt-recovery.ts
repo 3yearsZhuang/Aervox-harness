@@ -13,27 +13,26 @@ import { SqliteConversationRepository } from "@aervox/repositories";
 import type { AervoxDatabase } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 
-export async function runAttemptRecoveryCycle(opts: {
+export interface AttemptRecoveryOptions {
   db: AervoxDatabase;
   client: Client;
   workerId: string;
-}): Promise<number> {
+  /** Explicit local-only recovery supplied by the shared product host. */
+  resume?: () => Promise<unknown>;
+}
+
+export async function runAttemptRecoveryCycle(opts: AttemptRecoveryOptions): Promise<number> {
   const repo = new SqliteConversationRepository(opts.db);
-  // 3c：先收集「工具结果已权威提交但尚未注入」的续跑候选（阶段 4 host 恢复器接续；当前仅观测）
-  const candidates = await repo.findResumeCandidates(opts.client);
-  if (candidates.length > 0) {
-    console.log(`[worker:${opts.workerId}] resume_candidates=${candidates.length} ${candidates.map((c) => `${c.attemptId}@${c.lastSequence}`).join(",")}`);
+  if (opts.resume) {
+    try { await opts.resume(); }
+    catch (error) { console.error(`[worker:${opts.workerId}] resume_error:`, error); }
   }
   const recovered = await repo.recoverExpiredAttempts(opts.client);
   if (recovered > 0) {
-    // 2c：释放后遗留 pending 预留结果不可知（§11.3 unknown outcome，不自动重放）
     const unknown = await repo.markPendingOutcomeUnknown(opts.client);
     console.log(`[worker:${opts.workerId}] turn_attempt_recovery=${recovered} tool_outcome_unknown=${unknown}`);
   }
-  // ARC-01 补：回收「Turn 已提交但首个 Attempt 从未创建」的孤儿 Turn（无 Attempt → Interrupted + done 终态）
   const orphans = await repo.recoverOrphanTurns();
-  if (orphans > 0) {
-    console.log(`[worker:${opts.workerId}] orphan_turn_recovery=${orphans}`);
-  }
+  if (orphans > 0) console.log(`[worker:${opts.workerId}] orphan_turn_recovery=${orphans}`);
   return recovered;
 }

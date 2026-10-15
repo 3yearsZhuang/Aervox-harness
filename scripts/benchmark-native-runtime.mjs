@@ -10,8 +10,8 @@ import { NativeRuntimeClient, NativeAudioPreprocessor } from "../packages/native
 import { createDatabase, SqliteMemoryEmbeddingRepository, SqliteMemoryVectorSearchAdapter, CachedMemoryVectorSearchAdapter } from "../packages/repositories/dist/index.js";
 import { TopK } from "../packages/repositories/dist/search/top-k.js";
 import { cosineSimilarity } from "../packages/repositories/dist/search/vector-port.js";
-import { executeArchive } from "../apps/api/dist/modules/ecosystem/plugins/archive-worker.js";
-import { isSafeZipEntryPath, PLUGIN_ARCHIVE_LIMITS } from "../apps/api/dist/modules/ecosystem/plugins/package-bundle.js";
+import { executeArchive } from "../packages/host-runtime/dist/shared/archive-worker.js";
+import { isSafeZipEntryPath, PLUGIN_ARCHIVE_LIMITS } from "../packages/host-runtime/dist/modules/ecosystem/plugins/package-bundle.js";
 import { zipSync, unzipSync } from "fflate";
 import * as sqliteVec from "sqlite-vec";
 
@@ -102,7 +102,7 @@ try {
   for(const mode of ["sync","worker"]) {const measured=await measure(async()=>mode==="sync"?unzipSync(archive):executeArchive({kind:"unpack",input:archive,limits:PLUGIN_ARCHIVE_LIMITS,isSafePath:isSafeZipEntryPath}));if(Object.keys(measured.result).length!==100)throw new Error("Archive parity mismatch");const {result:_result,...m}=measured;report.archive.push({mode,...m,files:100,compressedBytes:archive.length,expandedBytes:22000000,parity:true});}
   const output=resolve(options.out??"artifacts/native-search/runtime-benchmark.json");await mkdir(dirname(output),{recursive:true});
   const digest=createHash("sha256");
-  const sources = ["scripts/benchmark-native-runtime.mjs", "scripts/build-native-runtime.mjs", "scripts/generate-native-protocol.mjs", "native/Cargo.toml", "native/Cargo.lock", "native/crates/runtime/Cargo.toml", "packages/repositories/src/search/cached-memory-vector-port.ts", "packages/repositories/src/search/native-memory-vector-port.ts", "apps/api/src/modules/ecosystem/plugins/archive-worker.ts"];
+  const sources = ["scripts/benchmark-native-runtime.mjs", "scripts/build-native-runtime.mjs", "scripts/generate-native-protocol.mjs", "native/Cargo.toml", "native/Cargo.lock", "native/crates/runtime/Cargo.toml", "packages/repositories/src/search/cached-memory-vector-port.ts", "packages/repositories/src/search/native-memory-vector-port.ts", "packages/host-runtime/src/shared/archive-worker.ts"];
   for (const directory of ["packages/native-runtime/src", "native/crates/runtime/src", "native/protocol"]) {
     for (const entry of await readdir(join(root, directory), { recursive: true })) {
       if (/\.(?:rs|ts|json)$/.test(entry)) sources.push(`${directory}/${entry.replaceAll("\\", "/")}`);

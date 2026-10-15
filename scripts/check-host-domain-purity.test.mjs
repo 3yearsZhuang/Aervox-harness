@@ -190,7 +190,7 @@ test("当前仓库状态：宿主零领域命中且豁免清单为空（CR-060 �
 });
 
 test("装配点白名单：仅放行 plugin-id，其余规则仍生效", () => {
-  const assembly = "apps/api/src/plugin-assembly.ts";
+  const assembly = "packages/host-runtime/src/plugin-assembly.ts";
   // 组合根按 id 引用插件是实现装配的必要行为（AVX-PLUG-001 §4.1），仅 plugin-id 放行
   const result = evaluateHostPurity(
     [{ file: assembly, source: 'const loaders = [{ pluginId: "focus-mode", load: () => import("@aervox/plugin-focus-mode/server") }];' }],
@@ -210,6 +210,6 @@ test("装配点白名单：仅放行 plugin-id，其余规则仍生效", () => {
   }
 
   // 非装配文件不享受该放行
-  const other = evaluateHostPurity([{ file: "apps/api/src/modules/x.ts", source: 'const id = "focus-mode";' }], []);
+  const other = evaluateHostPurity([{ file: "packages/host-runtime/src/modules/x.ts", source: 'const id = "focus-mode";' }], []);
   assert.equal(other.valid, false);
 });

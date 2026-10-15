@@ -10,7 +10,7 @@ import {
   type LocalContext,
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
-import { registerConversationRoutes } from "../src/modules/companion/conversation/routes.js";
+import { registerConversationRoutes } from "@aervox/host-runtime/modules/companion/conversation/routes";
 
 describe("ARC-01: 对话接单弹性、Claim 前故障追踪与孤儿 Attempt 恢复测试", () => {
   let app: FastifyInstance;
@@ -184,4 +184,92 @@ describe("ARC-01: 对话接单弹性、Claim 前故障追踪与孤儿 Attempt �
     expect(frame.data.lastSequence).toBe(frame.sequence);
   });
 
+  it("AERVOX_LOOP_DISPATCH=worker 模式下：API 仅创建 Outbox 记录，不触发进程内执行", async () => {
+    vi.stubEnv("AERVOX_LOOP_DISPATCH", "worker");
+    const skillLoader = vi.fn();
+    registerConversationRoutes(app, conversationRepo, { skillLoader });
+    await app.ready();
+
+    await conversationRepo.getOrCreateSession(localCtx, "s_worker_dispatch");
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/sessions/s_worker_dispatch/turns",
+      headers: { ...headers, "idempotency-key": "idem_worker_dispatch_1" },
+      payload: {
+        message: { content: "worker dispatch test", contentType: "text" },
+        clientVersion: "test",
+        references: [],
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.turnId).toBeDefined();
+    expect(body.status).toBe("Created");
+
+    // 验证未在 API 进程内执行 Loop
+    expect(skillLoader).not.toHaveBeenCalled();
+
+    // 验证 Outbox 表已写入该事件，等待独立 Worker 消费
+    const outboxRows = await client.execute("SELECT event_type, payload FROM outbox_events WHERE event_type = 'agent.turn.requested'");
+    expect(outboxRows.rows.length).toBeGreaterThan(0);
+    const latestPayload = JSON.parse(outboxRows.rows[outboxRows.rows.length - 1]!.payload as string);
+    expect(latestPayload.turnId).toBe(body.turnId);
+
+    vi.unstubAllEnvs();
+  });
+
+  it("跨进程 SSE 流式支持：外部 Worker 写入 SQLite 事件可被 SSE 端点增量感知并正常排空关闭", async () => {
+    registerConversationRoutes(app, conversationRepo, {});
+    await app.ready();
+
+    const turnId = "turn_xp_sse_1";
+    const sessionId = "ses_xp_sse_1";
+    const attemptId = "atp_xp_sse_1";
+
+    await conversationRepo.getOrCreateSession(localCtx, sessionId);
+    await conversationRepo.acceptTurn(localCtx, {
+      turnId,
+      sessionId,
+      idempotencyKey: "idem_xp_sse_1",
+      attemptId,
+      message: { id: "msg_xp_1", content: "跨进程流式测试" },
+      consumeInbox: false,
+    });
+
+    // 模拟后台独立 Worker 进程异步写入事件流与推进终态
+    setTimeout(async () => {
+      await conversationRepo.appendStreamEvent(localCtx, {
+        id: "ev_xp_1",
+        turnId,
+        sequence: 1,
+        eventType: "delta",
+        data: { text: "来自 Worker 的增量内容" },
+        attemptId,
+      });
+
+      await conversationRepo.finalizeAttemptWithEventAtomically(localCtx, {
+        turnId,
+        attemptId,
+        status: "Completed",
+        expectedFencingToken: 0,
+        sequence: 2,
+        eventType: "done",
+        eventData: { reason: "stop", lastSequence: 2 },
+      });
+      await conversationRepo.updateTurnStatus(localCtx, turnId, "Completed");
+    }, 50);
+
+    // 客户端发起 SSE 请求
+    const stream = await app.inject({
+      method: "GET",
+      url: `/v1/turns/${turnId}/events`,
+      headers,
+    });
+
+    expect(stream.statusCode).toBe(200);
+    expect(stream.body).toContain("来自 Worker 的增量内容");
+    expect(stream.body).toContain('"eventType":"done"');
+    expect(stream.body).toContain('"lastSequence":2');
+  });
 });

@@ -11,7 +11,7 @@ import {
   ForbiddenError,
   NotFoundError,
   ValidationError,
-} from "../src/shared/errors.js";
+} from "@aervox/host-runtime/shared/errors";
 
 describe("统一错误序列化（缺陷6）", () => {
   let app: FastifyInstance;

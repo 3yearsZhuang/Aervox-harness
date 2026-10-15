@@ -24,11 +24,11 @@ export const REMOVABLE_TARGETS = [
     name: "MemoryStore 工具贡献",
     pilot: "BTD-03",
     implementationFiles: [
-      "apps/api/src/modules/companion/memory/tool-contribution.ts",
-      "apps/api/src/modules/companion/memory/memory-store-tool.ts",
+      "packages/host-runtime/src/modules/companion/memory/tool-contribution.ts",
+      "packages/host-runtime/src/modules/companion/memory/memory-store-tool.ts",
     ],
     allowedAssemblyFiles: [
-      "apps/api/src/modules/companion/memory/index.ts",
+      "packages/host-runtime/src/modules/companion/memory/index.ts",
       "apps/api/test/memory-tool-contribution.test.ts",
       "apps/api/test/tool-runtime-lifecycle.test.ts",
     ],
@@ -39,10 +39,10 @@ export const REMOVABLE_TARGETS = [
     name: "LlamaServerManager 模型驱动",
     pilot: "BTD-04",
     implementationFiles: [
-      "apps/api/src/modules/ecosystem/model-runtime/llama-server.ts",
+      "packages/host-runtime/src/modules/ecosystem/model-runtime/llama-server.ts",
     ],
     allowedAssemblyFiles: [
-      "apps/api/src/modules/ecosystem/model-runtime/index.ts",
+      "packages/host-runtime/src/modules/ecosystem/model-runtime/index.ts",
       "apps/api/test/model-runtime-llama-server.test.ts",
       "apps/api/test/model-runtime-api.test.ts",
     ],
@@ -80,7 +80,7 @@ export const REMOVABLE_TARGETS = [
     // CR-060：宿主中唯一允许接入插件实现的位置（AVX-PLUG-001 §4.1 组合根）；
     // 插件自带测试直接引用其私有文件属合法（测试随实现内聚）。
     allowedAssemblyFiles: [
-      "apps/api/src/plugin-assembly.ts",
+      "packages/host-runtime/src/plugin-assembly.ts",
       "apps/web/src/App.vue",
       "apps/desktop/src/renderer/src/App.vue",
       "plugins/focus-mode/test/focus-tools.test.ts",
@@ -98,10 +98,11 @@ export const REMOVABLE_TARGETS = [
     removalPlan: {
       removeDirectories: ["plugins/focus-mode"],
       strips: [
-        { file: "apps/api/src/plugin-assembly.ts", pattern: "^.*@aervox/plugin-focus-mode[^\\n]*\\n", flags: "gm" },
+        { file: "packages/host-runtime/src/plugin-assembly.ts", pattern: "^.*@aervox/plugin-focus-mode[^\\n]*\\n", flags: "gm" },
         { file: "apps/web/src/App.vue", pattern: "^.*(@aervox/plugin-focus-mode|firstPartyPlugin|firstPartyPlugins)[^\\n]*\\n", flags: "gm" },
         { file: "apps/desktop/src/renderer/src/App.vue", pattern: "^.*(@aervox/plugin-focus-mode|firstPartyPlugin|firstPartyPlugins)[^\\n]*\\n", flags: "gm" },
         { file: "apps/api/package.json", pattern: "^\\s*\"@aervox/plugin-focus-mode\": \"[^\"]*\",?\\n", flags: "gm" },
+        { file: "packages/host-runtime/package.json", pattern: "^\\s*\"@aervox/plugin-focus-mode\": \"[^\"]*\",?\\n", flags: "gm" },
         { file: "apps/web/package.json", pattern: "^\\s*\"@aervox/plugin-focus-mode\": \"[^\"]*\",?\\n", flags: "gm" },
         { file: "apps/desktop/package.json", pattern: "^\\s*\"@aervox/plugin-focus-mode\": \"[^\"]*\",?\\n", flags: "gm" },
       ],
@@ -119,9 +120,12 @@ const JS_TS_MAP = [
 ];
 
 function resolveSpecifier(fromRelFile, specifier) {
-  if (!specifier.startsWith(".")) return null;
+  const hostPath = specifier.startsWith("@aervox/host-runtime/")
+    ? specifier.slice("@aervox/host-runtime/".length) : null;
+  if (hostPath === null && !specifier.startsWith(".")) return null;
   const baseDir = dirname(resolve(process.cwd(), fromRelFile));
-  const absTarget = resolve(baseDir, specifier);
+  const absTarget = hostPath === null ? resolve(baseDir, specifier)
+    : resolve(process.cwd(), "packages/host-runtime/src", hostPath);
   for (const ext of CANDIDATE_EXTS) {
     const candidate = absTarget + ext;
     if (existsSync(candidate)) {

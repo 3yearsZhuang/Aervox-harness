@@ -12,27 +12,21 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@aervox/native-runtime": "workspace:*",
-    "@aervox/core": "workspace:*",
     "@aervox/config": "workspace:*",
-    "@aervox/contracts": "workspace:*",
-    "@aervox/diary": "workspace:*",
-    "@aervox/host-agent": "workspace:*",
-    "@aervox/host-plugin-api": "workspace:*",
-    "@aervox/observability": "workspace:*",
-    "@aervox/plugin-focus-mode": "workspace:*",
-    "@aervox/practice-review": "workspace:*",
-    "@aervox/repositories": "workspace:*",
-    "@aervox/schema": "workspace:*",
-    "@fastify/cors": "^11.3.0",
-    "@libsql/client": "^0.14.0",
-    "@vscode/ripgrep": "1.18.0",
-    "fastify": "5.12.5",
-    "fflate": "0.8.3",
-    "sherpa-onnx-node": "^1.13.5"
+    "@aervox/host-runtime": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
-    "tsx": "^4.19.2"
+    "tsx": "^4.19.2",
+    "@aervox/native-runtime": "workspace:*",
+    "@aervox/core": "workspace:*",
+    "@aervox/contracts": "workspace:*",
+    "@aervox/host-plugin-api": "workspace:*",
+    "@aervox/observability": "workspace:*",
+    "@aervox/plugin-focus-mode": "workspace:*",
+    "@aervox/repositories": "workspace:*",
+    "@aervox/schema": "workspace:*",
+    "@libsql/client": "^0.14.0",
+    "fastify": "5.12.5"
   }
 }

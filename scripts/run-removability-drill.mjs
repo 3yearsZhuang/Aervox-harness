@@ -16,8 +16,8 @@ const run = (cmd, args) => new Promise((resolve, reject) => {
   p.on("error", reject);
   p.on("exit", (code) => code === 0 ? resolve() : reject(new Error(`${cmd} exited ${code}`)));
 });
-const memory = "apps/api/src/modules/companion/memory/index.ts";
-const model = "apps/api/src/modules/ecosystem/model-runtime/index.ts";
+const memory = "packages/host-runtime/src/modules/companion/memory/index.ts";
+const model = "packages/host-runtime/src/modules/ecosystem/model-runtime/index.ts";
 
 /** CR-060 移除计划：删除的目录与需剥离引用的宿主文件（组合根 + 其包清单）。 */
 const plans = REMOVABLE_TARGETS.map((t) => t.removalPlan).filter(Boolean);
@@ -51,6 +51,7 @@ const files = [
     ...REMOVABLE_TARGETS.flatMap((t) => t.implementationFiles.filter((f) => !removedDirs.some((d) => f.startsWith(`${d}/`)))),
     memory,
     model,
+    "pnpm-lock.yaml",
     ...stripFiles,
     ...dirFiles,
   ]),
@@ -78,13 +79,18 @@ try {
   await fs.writeFile(memory, originals.get(memory).toString()
     .replace(/^import .*MemoryStoreTool.*\n/m, "").replace(/^import .*contributeMemoryTool.*\n/m, "")
     .replace(/^export type \{ MemoryWritePort.*\n/m, "")
-    .replace(/  if \(ctx.toolRuntime[\s\S]*?\n  }\n}/, "}"));
+    .replace(/^  if \(ctx.toolRuntime[\s\S]*?^  }\n/m, ""));
   await fs.writeFile(model, originals.get(model).toString()
     .replace(/^import .*LlamaServerManager.*\n/m, "")
     .replace(/export interface ModelRuntimeModuleOptions[^\n]+/, "export type ModelRuntimeModuleOptions = ModelRuntimeServiceOptions;")
-    .replace(/new ModelRuntimeService\(\{[^\n]+/, "new ModelRuntimeService(options);")
+    .replace(/new LlamaServerManager\(options\.llamaDeps\)/, "unavailableModelRuntimeDriver")
     .replace(/^export \* from "\.\/llama-server.js";\n/m, "")
     .replace(/^export type \{ LlamaServerManagerDeps \};(?:\n|$)/m, ""));
+  for (const [file, forbidden] of [[memory, /MemoryStoreTool|contributeMemoryTool/], [model, /LlamaServerManager|llamaDeps/]]) {
+    if (forbidden.test(await fs.readFile(file, "utf8"))) {
+      throw new Error(`移除演练未清除可选实现引用，需同步更新装配剥离：${file}`);
+    }
+  }
 
   // CR-060：剥离组合根与包清单中的插件引用（等价于发布一个不含该插件的宿主版本）
   for (const plan of plans) {

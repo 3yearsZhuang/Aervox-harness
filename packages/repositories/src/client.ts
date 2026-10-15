@@ -132,7 +132,7 @@ export function createReconnectableClient(options: {
             try {
               return await (value as (...a: unknown[]) => Promise<unknown>).apply(target, args);
             } catch (error) {
-              if (isSqliteConnectionPoisonedError(error)) {
+              if (isRecoverable(error, String(prop))) {
                 poisoned = true;
                 await reconnect().catch(() => undefined);
               }

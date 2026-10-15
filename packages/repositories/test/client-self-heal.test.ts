@@ -191,4 +191,25 @@ describe("client 连接自愈：BEGIN 竞争后自动换连接", () => {
     const rows = await client.execute("SELECT COUNT(*) AS c FROM t WHERE v = 'drizzle-after'");
     expect(Number(rows.rows[0]!.c)).toBe(1);
   }, 30_000);
+
+  it("事务内部操作遇到竞争异常时自动换连接，不阻断后续新事务", async () => {
+    await owner.execute("BEGIN IMMEDIATE");
+    let txBusy: unknown;
+    try {
+      const tx = await client.transaction("write");
+      await tx.execute("INSERT INTO t (v) VALUES ('inside-tx-busy')");
+    } catch (error) {
+      txBusy = error;
+    }
+    expect(txBusy).toMatchObject({ code: "SQLITE_BUSY" });
+    await owner.execute("ROLLBACK");
+
+    // 竞争失败后，client 自动换连接并保持健康
+    const tx2 = await client.transaction();
+    await tx2.execute("INSERT INTO t (v) VALUES ('after-tx-busy')");
+    await tx2.commit();
+
+    const rows = await client.execute("SELECT COUNT(*) AS c FROM t WHERE v = 'after-tx-busy'");
+    expect(Number(rows.rows[0]!.c)).toBe(1);
+  }, 30_000);
 });

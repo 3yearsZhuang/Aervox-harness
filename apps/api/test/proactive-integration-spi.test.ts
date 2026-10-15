@@ -10,7 +10,7 @@ import {
   ProactiveIntegrationManager,
   type ProactiveIntegrationProvider,
   type ProactiveIntegrationContext,
-} from "../src/modules/proactive/proactive/integration-manager.js";
+} from "@aervox/host-runtime/modules/proactive/proactive/integration-manager";
 
 describe("Proactive Integration SPI extensibility", () => {
   it("allows registering custom integration providers and routes sync via registry", async () => {
