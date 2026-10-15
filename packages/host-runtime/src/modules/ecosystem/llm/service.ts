@@ -6,21 +6,13 @@ import type {
   LLMProviderType,
 } from "@aervox/contracts";
 import type { SqliteLLMConfigRepository, LocalContext } from "@aervox/repositories";
+import { defaultModelProviderRegistry } from "@aervox/core";
 import type {
   LLMServiceOptions,
   ModelCapabilities,
   TestConnectionParams,
   TestConnectionResult,
 } from "./types.js";
-
-const DEFAULT_CONFIGS: Record<LLMProviderType, { baseUrl: string; modelId: string }> = {
-  ollama: { baseUrl: "http://127.0.0.1:11434/v1", modelId: "llama3.2" },
-  deepseek: { baseUrl: "https://api.deepseek.com/v1", modelId: "deepseek-chat" },
-  openai: { baseUrl: "https://api.openai.com/v1", modelId: "gpt-4o" },
-  anthropic: { baseUrl: "https://api.anthropic.com/v1", modelId: "claude-3-5-sonnet-20241022" },
-  custom_openai: { baseUrl: "http://127.0.0.1:8000/v1", modelId: "default" },
-  llamacpp: { baseUrl: "http://127.0.0.1:8080/v1", modelId: "qwen2.5-7b-instruct" },
-};
 
 function toResponse(found: {
   enabled: number;
@@ -67,7 +59,14 @@ function toPreset(found: {
 
 function getConfiguredDefault(options: LLMServiceOptions): LLMConfigResponse {
   const defaultProvider = options.defaultProviderType ?? "ollama";
-  const preset = DEFAULT_CONFIGS[defaultProvider];
+  assertConfiguredProvider(defaultProvider);
+  const descriptor = defaultModelProviderRegistry.getDescriptor(defaultProvider);
+  const preset = defaultProvider === "anthropic"
+    ? { baseUrl: "https://api.anthropic.com/v1", modelId: "claude-3-5-sonnet-20241022" }
+    : {
+        baseUrl: descriptor?.defaultBaseUrl ?? "http://127.0.0.1:8000/v1",
+        modelId: descriptor?.recommendedModels?.[0] ?? "default",
+      };
   return {
     enabled: true,
     providerType: defaultProvider,
@@ -77,6 +76,14 @@ function getConfiguredDefault(options: LLMServiceOptions): LLMConfigResponse {
     maxTokens: 4096,
     settings: {},
   };
+}
+
+function assertConfiguredProvider(id: string): void {
+  // Preserve existing Anthropic configuration; execution still reports its unsupported protocol explicitly.
+  if (id === "anthropic") return;
+  if (defaultModelProviderRegistry.getDescriptor(id)?.protocol !== "openai-compat") {
+    throw new Error(`unknown_model_provider: ${id}`);
+  }
 }
 
 export class LLMConfigService {
@@ -101,6 +108,7 @@ export class LLMConfigService {
 
   /** 新建 LLM 配置预设（首个预设自动激活） */
   async createPreset(tenant: LocalContext, name: string, config: LLMConfig): Promise<LLMPreset> {
+    assertConfiguredProvider(config.providerType);
     try {
       new URL(config.baseUrl);
     } catch {
@@ -131,6 +139,7 @@ export class LLMConfigService {
   }
 
   async saveConfig(tenant: LocalContext, config: LLMConfig): Promise<LLMConfigResponse> {
+    assertConfiguredProvider(config.providerType);
     // 校验 Base URL 格式
     try {
       new URL(config.baseUrl);
@@ -237,6 +246,8 @@ export class LLMConfigService {
   }
 
   async testConnection(params: TestConnectionParams): Promise<TestConnectionResult> {
+    try { assertConfiguredProvider(params.providerType); }
+    catch (error) { return { ok: false, latencyMs: 0, message: (error as Error).message }; }
     const start = Date.now();
     const cleanBaseUrl = params.baseUrl.replace(/\/+$/, "");
 

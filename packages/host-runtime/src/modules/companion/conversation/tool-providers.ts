@@ -26,6 +26,31 @@ import {
 } from "../../proactive/proactive/index.js";
 import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index.js";
 import { stableStringify } from "./llm-adapter.js";
+import { FULL_PROFILE_SOURCE_MANIFEST } from "@aervox/repositories";
+
+const profilePermissions = new Set<string>(FULL_PROFILE_SOURCE_MANIFEST.map(source => source.sourceKey));
+
+/** Bot transports cannot expose CAP-033 sources or use its action authorization package. */
+export function hasBotExcludedPermissions(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  if (!Array.isArray(value)) return true;
+  return value.some(item => {
+    const permission = typeof item === "string" ? item : item?.permission;
+    return typeof permission !== "string" || profilePermissions.has(permission)
+      || /^(device|profile|restricted|background)\./.test(permission);
+  });
+}
+
+function bindAuthoritativeToolSource(input: ToolExecutionInput): ToolExecutionInput {
+  if (input.name !== "aervox_memory_store" || !input.arguments || typeof input.arguments !== "object" || Array.isArray(input.arguments)) return input;
+  return { ...input, arguments: { ...input.arguments, sourceTurnId: input.turnId } };
+}
+
+function approvalArguments(input: ToolExecutionInput): unknown {
+  if (input.name !== "aervox_memory_store" || !input.arguments || typeof input.arguments !== "object" || Array.isArray(input.arguments)) return input.arguments;
+  const { sourceTurnId: _hostProvenance, ...argumentsToApprove } = input.arguments as Record<string, unknown>;
+  return argumentsToApprove;
+}
 
 /** 自动授权决策人前缀；显式授权查询排除该类记录，避免关闭完全访问后泄漏。 */
 export const FULL_ACCESS_DECIDER_PREFIX = "permission:full_access:";
@@ -114,6 +139,7 @@ export function createApprovalGatedToolProvider(
       return tools;
     } : undefined,
     async execute(input: ToolExecutionInput): Promise<ToolExecutionResult> {
+      input = bindAuthoritativeToolSource(input);
       const emitResult = (res: ToolExecutionResult): ToolExecutionResult => {
         if (res.ok) {
           observability?.metrics.emit({ type: "counter", name: "agent.tool.executed", value: 1 });
@@ -132,7 +158,7 @@ export function createApprovalGatedToolProvider(
       if (!spec) return emitResult({ ok: false, error: `unregistered_tool: ${input.name}` });
       if (spec.readOnly) return emitResult(await provider.execute(input));
 
-      const argumentsHash = stableStringify(input.arguments);
+      const argumentsHash = stableStringify(approvalArguments(input));
       const granted = await findExplicitToolApproval(repo, tenant, {
         toolName: input.name,
         argumentsHash,
@@ -244,6 +270,7 @@ export function createRuntimeToolProvider(
       return visible;
     },
     async execute(input: ToolExecutionInput): Promise<ToolExecutionResult> {
+      input = bindAuthoritativeToolSource(input);
       const emitResult = (res: ToolExecutionResult): ToolExecutionResult => {
         if (res.ok) {
           deps.observability?.metrics.emit({ type: "counter", name: "agent.tool.executed", value: 1 });
@@ -292,7 +319,7 @@ export function createRuntimeToolProvider(
       // 写工具（write_with_approval / privileged）：须已授权（参数哈希匹配 + granted），否则生成待决授权。
       // privileged 与 write 同流程；「仅管理员可批准」由路由 decideToolApproval 的管理员校验把关（3b）。
       if (tool.safetyLevel === "write_with_approval" || tool.safetyLevel === "privileged") {
-        const hash = stableStringify(input.arguments);
+        const hash = stableStringify(approvalArguments(input));
         const granted = await findExplicitToolApproval(deps.conversationRepo, tenant, {
           toolName: tool.name,
           argumentsHash: hash,

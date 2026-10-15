@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, isNull, lt, notLike, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
-import { messages, messageVersions, turns, turnStreamEvents } from "@aervox/schema";
+import { messages, messageVersions, sessions, turns, turnStreamEvents } from "@aervox/schema";
+import { assertConversationExecutionPolicy } from "../../conversation-execution-policy.js";
 import type { LocalContext } from "../../local-context.js";
 import type { SessionHistoryMessage } from "../types/index.js";
 
@@ -26,14 +27,19 @@ export async function readSessionHistory(
   const [current] = await db.select({
     position: sql<number>`rowid`,
     idempotencyKey: turns.idempotencyKey,
+    executionPolicy: turns.executionPolicy,
   }).from(turns).where(and(
     eq(turns.id, input.beforeTurnId),
     eq(turns.sessionId, input.sessionId),
   ));
   if (!current || current.idempotencyKey.startsWith("subagent:")) return [];
+  assertConversationExecutionPolicy(current.executionPolicy);
+  const [session] = await db.select({ policy: sessions.executionPolicy }).from(sessions).where(eq(sessions.id, input.sessionId));
+  if (!session || session.policy !== current.executionPolicy) throw new Error("conversation_execution_policy_mismatch");
 
   const previous = await db.select({ id: turns.id }).from(turns).where(and(
     eq(turns.sessionId, input.sessionId),
+    eq(turns.executionPolicy, current.executionPolicy),
     eq(turns.status, "Completed"),
     notLike(turns.idempotencyKey, "subagent:%"),
     lt(sql`rowid`, current.position),

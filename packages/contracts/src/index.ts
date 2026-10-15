@@ -92,6 +92,8 @@ export * from "./schemas.js";
 export * from "./persona-schemas.js";
 export * from "./mcp-schemas.js";
 export * from "./plugin-config-schemas.js";
+export * from "./plugin-compatibility.js";
+export * from "./plugin-validation.js";
 export * from "./practice-schemas.js";
 export * from "./llm-schemas.js";
 export * from "./inbox-schemas.js";
@@ -107,6 +109,10 @@ export * from "./safety-classifier.js";
 export * from "./session-schemas.js";
 export * from "./project-schemas.js";
 export * from "./model-runtime-schemas.js";
+export * from "./bot-schemas.js";
+export * from "./http-api.js";
+export * from "./model-runtime-api.js";
+export * from "./memory-api.js";
 export { buildOpenApiDocument, resetOpenApiDocumentCache } from "./openapi.js";
 
 export type TurnStatus = z.infer<typeof turnStatusSchema>;
@@ -199,6 +205,7 @@ export {
   getPluginToolResultProjection,
   getToolResultProjectionOwner,
   getPluginOpenApiRoutes,
+  getPluginApiRevision,
   isKnownStreamEventType,
   isValidPluginRoutePath,
   registerToolResultProjection,

@@ -28,11 +28,13 @@ import { executeConversationTurn, type ConversationRouteDeps, type ConversationT
 export type { ConversationTurnInput } from "./execution.js";
 export interface ConversationHost {
   repo: SqliteConversationRepository;
+  deps: ConversationRouteDeps;
   execute(input: ConversationTurnInput): Promise<void>;
   resume(signal?: AbortSignal): Promise<unknown>;
   abort(): void;
 }
 import { UserQuestionCoordinator } from "./user-question-coordinator.js";
+import { ApiOwnedTurnRecovery } from "./api-owned-recovery.js";
 
 export function registerConversationModule(ctx: ModuleDependencies<"app" | "client" | "db" | "getPersona" | "getPluginRegistrations" | "llmConfigService" | "memoryRecall" | "modelRoutingService" | "observability" | "pluginHostServices" | "pluginRegistry" | "proactiveActionAuthorizer" | "proactiveRepository" | "safetyService" | "toolRuntime" | "workflows">, options: { startupRecovery?: boolean; prepareExecution?: () => Promise<void>; isMcpToolAllowed?: ConversationRouteDeps["isMcpToolAllowed"] } = {}): ConversationHost {
   const {
@@ -143,9 +145,17 @@ export function registerConversationModule(ctx: ModuleDependencies<"app" | "clie
     observability: ctx.observability,
   };
   const execute = (input: ConversationTurnInput) => track(executeConversationTurn(conversationRepo, { ...local, ...(input.actorId ? { actorId: input.actorId } : {}) }, input, deps));
+  if (options.startupRecovery !== false) {
+    const recovery = new ApiOwnedTurnRecovery(conversationRepo, deps);
+    app.addHook("onReady", async () => recovery.start());
+    app.addHook("onClose", () => recovery.close());
+  }
   registerConversationRoutes(app, conversationRepo, deps, execute);
   return {
-    repo: conversationRepo, resume, execute,
+    repo: conversationRepo, deps, resume, execute,
     abort: () => executionAbort.abort(new Error("host_shutdown")),
   };
 }
+export { acceptConversationTurn, executeAcceptedConversationTurn } from "./application.js";
+export { recoverApiOwnedTurn } from "./api-owned-recovery.js";
+export type { ConversationRouteDeps } from "./execution.js";

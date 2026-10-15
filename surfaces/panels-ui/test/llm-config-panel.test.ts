@@ -64,7 +64,7 @@ describe('model settings panel (settings:panel:model)', () => {
       },
     });
     await flushPromises();
-    expect(wrapper.findAll('.nav-sidebar-item')).toHaveLength(5);
+    expect(wrapper.findAll('.nav-sidebar-item')).toHaveLength(6);
     expect(wrapper.get('.nav-sidebar-item[aria-current="true"]').text()).toContain('模型服务');
     await wrapper.get('[aria-label="模型名称"]').setValue('unsaved-model');
     expect(wrapper.text()).toContain('有未保存的修改');

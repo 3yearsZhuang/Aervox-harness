@@ -6,6 +6,10 @@
 import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { timestampColumns } from "./common.js";
 
+export const conversationExecutionPolicies = ["local-v1", "bot-owner-v1", "bot-group-member-v1"] as const;
+export type ConversationExecutionPolicy = typeof conversationExecutionPolicies[number];
+export type TurnDispatchTarget = "default" | "api";
+
 /** 会话表 */
 export const sessions = sqliteTable(
   "sessions",
@@ -13,6 +17,7 @@ export const sessions = sqliteTable(
     id: text("id").primaryKey(),
     title: text("title").notNull(),
     projectId: text("project_id"),
+    executionPolicy: text("execution_policy", { enum: conversationExecutionPolicies }).notNull().default("local-v1"),
     ...timestampColumns,
   },
   (table) => ({
@@ -29,6 +34,8 @@ export const turns = sqliteTable(
       .notNull()
       .references(() => sessions.id, { onDelete: "cascade" }),
     idempotencyKey: text("idempotency_key").notNull(),
+    executionPolicy: text("execution_policy", { enum: conversationExecutionPolicies }).notNull().default("local-v1"),
+    dispatchTarget: text("dispatch_target", { enum: ["default", "api"] }).notNull().default("default"),
     status: text("status").notNull().default("Created"),
     lastSequence: integer("last_sequence").notNull().default(0),
     error: text("error", { mode: "json" }),

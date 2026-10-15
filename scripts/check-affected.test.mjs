@@ -56,6 +56,8 @@ test("工具配置、锁文件和原生源码仍经过代码守卫与原生门�
     assert.deepEqual(calls[0], ["pnpm", "check:guards"], file);
     assert.ok(calls.some((args) => args.includes("build") && args.includes("typecheck")), file);
     assert.ok(calls.some((args) => args[0] === "pnpm" && args.includes("test")), file);
+    assert.ok(calls.some((args) => args[0] === "pnpm" && args.includes("check:standards")), file);
+    assert.ok(calls.some((args) => args[0] === "pnpm" && args.includes("check:memory-deletion")), file);
     assert.deepEqual(calls.at(-1), ["mise", "tasks", "run", "native-search-check"], file);
   }
 });

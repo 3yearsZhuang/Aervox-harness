@@ -12,6 +12,7 @@ export function createTurnConsumerHandler(host: Pick<ConversationHost, "repo" | 
     const local = { workspaceId: "local", subjectUserId: "local" };
     const turn = await host.repo.getTurn(local, payload.turnId);
     if (!turn || !["Created", "Running"].includes(turn.status)) return;
+    if (turn.dispatchTarget !== "default" || turn.executionPolicy !== "local-v1") return;
     const attempts = await host.repo.listTurnAttempts(local, turn.id);
     const attempt = attempts.find(a => a.status === "Running" && a.fencingToken === 0 && !a.leaseId);
     if (!attempt) return;

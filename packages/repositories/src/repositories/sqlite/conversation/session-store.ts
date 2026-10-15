@@ -9,7 +9,10 @@ import {
   messages,
   messageVersions,
   conversationBranches,
+  type ConversationExecutionPolicy,
 } from "@aervox/schema";
+import { assertConversationExecutionPolicy } from "../../../conversation-execution-policy.js";
+import { deleteBotConversationData } from "./bot-data-deletion.js";
 import type { LocalContext } from "../../../local-context.js";
 import { readSessionHistory } from "../session-history.js";
 import type { SessionModel, ConversationBranchModel } from "../../types/index.js";
@@ -24,8 +27,10 @@ export class SessionStore {
   async createSession(
     _tenant: LocalContext,
     title: string,
-    options?: { id?: string; projectId?: string | null },
+    options?: { id?: string; projectId?: string | null; executionPolicy?: ConversationExecutionPolicy },
   ): Promise<SessionModel> {
+    const executionPolicy = options?.executionPolicy ?? "local-v1";
+    assertConversationExecutionPolicy(executionPolicy);
     const id = options?.id?.trim() || `ses_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     const now = new Date().toISOString();
     const [created] = await this.db
@@ -34,6 +39,7 @@ export class SessionStore {
         id,
         title,
         projectId: options?.projectId ?? null,
+        executionPolicy,
         createdAt: now,
         updatedAt: now,
       })
@@ -50,6 +56,7 @@ export class SessionStore {
           eq(sessions.id, sessionId),
         ),
       );
+    if (found) assertConversationExecutionPolicy(found.executionPolicy);
     return (found as SessionModel) ?? null;
   }
 
@@ -65,9 +72,14 @@ export class SessionStore {
     sessionId: string,
     title = "默认会话",
     projectId?: string | null,
+    executionPolicy?: ConversationExecutionPolicy,
   ): Promise<SessionModel> {
+    if (executionPolicy !== undefined) assertConversationExecutionPolicy(executionPolicy);
     const existing = await this.getSession(ctx, sessionId);
-    if (existing) return existing;
+    if (existing) {
+      if (executionPolicy !== undefined && executionPolicy !== existing.executionPolicy) throw new Error("conversation_execution_policy_mismatch");
+      return existing;
+    }
     const now = new Date().toISOString();
     const [created] = await this.db
       .insert(sessions)
@@ -75,11 +87,17 @@ export class SessionStore {
         id: sessionId,
         title,
         projectId: projectId ?? null,
+        executionPolicy: executionPolicy ?? "local-v1",
         createdAt: now,
         updatedAt: now,
       })
+      .onConflictDoNothing()
       .returning();
-    return created as SessionModel;
+    if (created) return created as SessionModel;
+    const concurrent = await this.getSession(ctx, sessionId);
+    if (!concurrent) throw new Error("conversation_session_unavailable");
+    if (executionPolicy !== undefined && executionPolicy !== concurrent.executionPolicy) throw new Error("conversation_execution_policy_mismatch");
+    return concurrent;
   }
 
   async listSessions(
@@ -127,11 +145,14 @@ export class SessionStore {
     _tenant: LocalContext,
     sessionId: string,
   ): Promise<boolean> {
-    const result = await this.db
-      .delete(sessions)
-      .where(eq(sessions.id, sessionId))
-      .returning();
-    return result.length > 0;
+    return this.db.transaction(async (tx) => {
+      await deleteBotConversationData(tx, { sessionId });
+      const result = await tx
+        .delete(sessions)
+        .where(eq(sessions.id, sessionId))
+        .returning();
+      return result.length > 0;
+    });
   }
 
   // ============ P1（R2 · CAP-014）：会话地图分支 ============
@@ -147,22 +168,30 @@ export class SessionStore {
       branchReason?: string;
     },
   ): Promise<ConversationBranchModel> {
-    const now = new Date().toISOString();
-    const [created] = await this.db
-      .insert(conversationBranches)
-      .values({
-        id: branchData.id,
-        parentSessionId: branchData.parentSessionId,
-        forkAtMessageId: branchData.forkAtMessageId ?? null,
-        childSessionId: branchData.childSessionId,
-        title: branchData.title ?? null,
-        branchReason: branchData.branchReason ?? null,
-        status: "active",
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
-    return created as ConversationBranchModel;
+    return this.db.transaction(async (tx) => {
+      const [parent] = await tx.select({ policy: sessions.executionPolicy }).from(sessions).where(eq(sessions.id, branchData.parentSessionId));
+      const [child] = await tx.select({ policy: sessions.executionPolicy }).from(sessions).where(eq(sessions.id, branchData.childSessionId));
+      if (!parent || !child) throw new Error("conversation_session_unavailable");
+      assertConversationExecutionPolicy(parent.policy);
+      assertConversationExecutionPolicy(child.policy);
+      if (parent.policy !== child.policy) throw new Error("conversation_execution_policy_mismatch");
+      const now = new Date().toISOString();
+      const [created] = await tx
+        .insert(conversationBranches)
+        .values({
+          id: branchData.id,
+          parentSessionId: branchData.parentSessionId,
+          forkAtMessageId: branchData.forkAtMessageId ?? null,
+          childSessionId: branchData.childSessionId,
+          title: branchData.title ?? null,
+          branchReason: branchData.branchReason ?? null,
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
+      return created as ConversationBranchModel;
+    });
   }
 
   async listBranchesByParent(ctx: LocalContext, parentSessionId: string): Promise<ConversationBranchModel[]> {

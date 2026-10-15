@@ -24,6 +24,7 @@ import type {
   UploadedAttachment,
 } from './transport';
 import { TurnStreamProjector } from './projector';
+import { AervoxHttpError } from './transport';
 
 declare global {
   interface Window {
@@ -109,7 +110,13 @@ export const desktopTransport: AervoxTransport = {
     if (!bridge) throw new Error('fairyDesktop 桥不可用，请通过 Electron 启动应用。');
     const res = await bridge.apiRequest<T>(method, path, body, options?.headers);
     options?.signal?.throwIfAborted();
-    if (!res.ok) throw new Error(`API ${method} ${path} → HTTP ${res.status}: ${res.text}`);
+    if (!res.ok) {
+      const error = new AervoxHttpError(res.status, `${method} ${path}`);
+      // Preserve the existing desktop diagnostic body while exposing the same
+      // HTTP status contract as fetchTransport (for revision-conflict recovery).
+      error.message += `: ${res.text}`;
+      throw error;
+    }
     return res.json as T;
   },
 

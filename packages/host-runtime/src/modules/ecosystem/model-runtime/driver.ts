@@ -7,15 +7,15 @@
  * - 核心编排服务统一管理模型目录、下载队列与并发限速，通过 SPI 调度底层运行时驱动。
  */
 import type {
-  LlamaMetricSample,
-  LlamaRuntimeParams,
-  LlamaRuntimeStatus,
+  ModelRuntimeMetricSample,
+  ModelRuntimeParams,
+  ModelRuntimeStatus,
   LocalModel,
 } from "@aervox/contracts";
 
 export interface ModelRuntimeDriverHandle {
   pid: number | null;
-  status: LlamaRuntimeStatus;
+  status: ModelRuntimeStatus;
   port: number | null;
   modelId: string | null;
   startedAt: string | null;
@@ -31,9 +31,9 @@ export interface ModelRuntimeDriver {
   readonly running: boolean;
   resolveBinary(): string | null;
   getHandle(): ModelRuntimeDriverHandle;
-  start(model: LocalModel, params: LlamaRuntimeParams): Promise<ModelRuntimeDriverHandle>;
+  start(model: LocalModel, params: ModelRuntimeParams): Promise<ModelRuntimeDriverHandle>;
   stop(): Promise<ModelRuntimeDriverHandle>;
-  sampleMetrics?(): Promise<LlamaMetricSample | null>;
+  sampleMetrics?(): Promise<ModelRuntimeMetricSample | null>;
 }
 
 /** Missing implementation preserves model management and never chooses a remote provider. */

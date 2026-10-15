@@ -8,6 +8,7 @@ import {
   Heart,
   History,
   LayoutGrid,
+  Link2,
   ListTodo,
   MessageCircle,
   NotebookPen,
@@ -34,6 +35,7 @@ export const settingCategories = [
   { id: 'conversation', label: '对话与陪伴', description: '输入、人格与声音', icon: MessageCircle, categories: ['conversation', 'persona', 'voice'] },
   { id: 'model', label: '模型服务', description: '服务连接与本地运行', icon: Bot, categories: ['model', 'local-models'] },
   { id: 'proactive', label: '主动智能', description: '本地感知与授权', icon: BrainCircuit, categories: ['proactive'] },
+  { id: 'bots', label: '机器人连接', description: '微信私聊与 QQ 群', icon: Link2, categories: ['bots'] },
   { id: 'plugins', label: '扩展插件', description: '插件、技能与工具', icon: Puzzle, categories: ['plugins'] },
 ] as const;
 
@@ -117,7 +119,7 @@ export function useWorkbenchLayout(props: {
 
   // 设置弹窗
   const settingsOpen = ref(false);
-  const settingsCategory = ref<'tools' | 'appearance' | 'conversation' | 'model' | 'local-models' | 'persona' | 'notifications' | 'voice' | 'plugins' | 'proactive'>('conversation');
+  const settingsCategory = ref<'tools' | 'appearance' | 'conversation' | 'model' | 'local-models' | 'persona' | 'notifications' | 'voice' | 'plugins' | 'bots' | 'proactive'>('conversation');
   const settingsScope = ref<'siyu' | 'detail'>('detail');
 
   const scopedSettingCategories = computed(() => settingCategories);

@@ -1,11 +1,31 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createFetchTransport } from "../src/transport.js";
+import { AervoxHttpError, createFetchTransport } from "../src/transport.js";
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
 describe("createFetchTransport", () => {
+  it.each(['application/problem+json', 'application/json'])('preserves machine errors from %s', async (contentType) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      type: 'about:blank', title: 'Conflict', status: 409, code: 'DOWNLOAD_BUSY', message: 'Model already exists',
+      detail: 'Model already exists', requestId: 'req-17', details: { modelId: 'm' }, stack: 'private-stack',
+    }), { status: 409, headers: { 'content-type': contentType } })));
+    const error = await createFetchTransport('http://api.test').request('POST', '/v1/model-runtime/downloads').catch(error => error);
+    expect(error).toBeInstanceOf(AervoxHttpError);
+    expect(error).toMatchObject({ status: 409, code: 'DOWNLOAD_BUSY', message: 'Model already exists', requestId: 'req-17', details: { modelId: 'm' } });
+    expect(error.problem).not.toHaveProperty('stack');
+  });
+
+  it('bounds error bodies and keeps invalid JSON errors on the generic fallback', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: 'x'.repeat(70_000) }), { status: 500, headers: { 'content-type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response('{secret', { status: 502, headers: { 'content-type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    const transport = createFetchTransport('http://api.test');
+    await expect(transport.request('GET', '/v1/state')).rejects.toMatchObject({ status: 500, message: 'API GET /v1/state → HTTP 500' });
+    await expect(transport.request('GET', '/v1/state')).rejects.toMatchObject({ status: 502, message: 'API GET /v1/state → HTTP 502' });
+  });
   it("透传调用方提供的幂等键", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);

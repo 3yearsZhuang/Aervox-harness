@@ -9,6 +9,8 @@
 export * from "./types.js";
 export * from "./ports.js";
 export * from "./errors.js";
+export * from "./grounding-facts.js";
+export * from "./context-projection.js";
 export * from "./context-builder.js";
 export * from "./replay-provider.js";
 export * from "./openai-compat-provider.js";
@@ -30,4 +32,6 @@ export * from "./approval-policy.js";
 export * from "./cli-approval.js";
 export * from "./host-tool-runtime.js";
 export * from "./approval-decision.js";
+export * from "./faux-provider.js";
+export * from "./provider-registry.js";
 export * from "./core.js";

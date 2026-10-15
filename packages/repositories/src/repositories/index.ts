@@ -3,3 +3,4 @@
  */
 export * from "./types/index.js";
 export * from "./sqlite/index.js";
+export * from "./sqlite/bot-repository.js";

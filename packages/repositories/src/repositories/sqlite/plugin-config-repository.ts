@@ -6,12 +6,14 @@
  * - Page 元数据为系统级（生命周期归插件，启停/卸载联动由 API 层处理）。
  */
 import { withSessionLock } from "../../session-lock.js";
+import { DomainConflictError } from "../../errors.js";
 import { and, eq, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import {
   pluginConfigs,
   pluginConfigSecrets,
   pluginPages,
+  plugins,
 } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
 import type {
@@ -47,6 +49,12 @@ export class SqlitePluginConfigRepository implements IPluginConfigRepository {
     return withSessionLock(`plugin-config:${input.pluginId}`, () => this.db.transaction(async (tx) => {
       const now = new Date().toISOString();
       const [existing] = await tx.select().from(pluginConfigs).where(eq(pluginConfigs.pluginId, input.pluginId));
+      if (input.expectedSchema !== undefined) {
+        const [plugin] = await tx.select({ schema: plugins.configSchemaJson }).from(plugins).where(eq(plugins.id, input.pluginId));
+        if (!plugin || JSON.stringify(plugin.schema) !== JSON.stringify(input.expectedSchema)) {
+          return { saved: (existing as PluginConfigModel) ?? null, conflict: true as const };
+        }
+      }
       if (input.expectedRevision >= 0 && (existing?.revision ?? 0) !== input.expectedRevision) {
         return { saved: (existing as PluginConfigModel) ?? null, conflict: true as const };
       }
@@ -93,8 +101,15 @@ export class SqlitePluginConfigRepository implements IPluginConfigRepository {
     pluginId: string,
     schemaVersion: number,
     defaults: Record<string, unknown>,
+    expectedSchema?: unknown,
   ): Promise<PluginConfigModel> {
     return withSessionLock(`plugin-config:${pluginId}`, () => this.db.transaction(async (tx) => {
+      if (expectedSchema !== undefined) {
+        const [plugin] = await tx.select({ schema: plugins.configSchemaJson }).from(plugins).where(eq(plugins.id, pluginId));
+        if (!plugin || JSON.stringify(plugin.schema) !== JSON.stringify(expectedSchema)) {
+          throw new DomainConflictError("Plugin configuration schema changed; reload before resetting");
+        }
+      }
       const now = new Date().toISOString();
       await tx.delete(pluginConfigSecrets).where(eq(pluginConfigSecrets.pluginId, pluginId));
       const [saved] = await tx.insert(pluginConfigs).values({

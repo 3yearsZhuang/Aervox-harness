@@ -205,7 +205,7 @@ export class AttemptStore {
    */
   async recoverExpiredAttempts(
     client: import("@libsql/client").Client,
-    options?: { unclaimedTimeoutMs?: number },
+    options?: { unclaimedTimeoutMs?: number; dispatchTarget?: "default" | "api" },
   ): Promise<number> {
     const now = new Date();
     const nowIso = now.toISOString();
@@ -218,6 +218,10 @@ export class AttemptStore {
         fencingToken: sql`${turnAttempts.fencingToken} + 1`, finishedAt: nowIso,
       }).where(and(
         inArray(turnAttempts.status, ["Running", "CancelRequested"]),
+        options?.dispatchTarget ? inArray(turnAttempts.turnId, tx.select({ id: turns.id }).from(turns).where(and(
+          eq(turns.dispatchTarget, options.dispatchTarget),
+          options.dispatchTarget === "default" ? eq(turns.executionPolicy, "local-v1") : undefined,
+        ))) : undefined,
         or(lt(turnAttempts.leaseExpiresAt, nowIso), and(isNull(turnAttempts.leaseExpiresAt), lt(turnAttempts.startedAt, unclaimedThresholdIso))),
       )).returning();
       for (const attempt of recovered) {
@@ -253,7 +257,7 @@ export class AttemptStore {
    * - 收敛：同事务置 Interrupted 并写入 done 终态事件（不自动重放，供用户重试）；
    * - 幂等：二次执行候选为空；带 Attempt 的 Turn 由 recoverExpiredAttempts 负责，不在此误伤。
    */
-  async recoverOrphanTurns(options?: { orphanTimeoutMs?: number }): Promise<number> {
+  async recoverOrphanTurns(options?: { orphanTimeoutMs?: number; dispatchTarget?: "default" | "api" }): Promise<number> {
     const now = new Date();
     const nowIso = now.toISOString();
     const orphanTimeoutMs = options?.orphanTimeoutMs ?? 60_000;
@@ -262,6 +266,8 @@ export class AttemptStore {
     return this.db.transaction(async (tx) => {
       const candidates = await tx.select().from(turns).where(and(
         inArray(turns.status, ["Created", "Running"]),
+        options?.dispatchTarget ? eq(turns.dispatchTarget, options.dispatchTarget) : undefined,
+        options?.dispatchTarget === "default" ? eq(turns.executionPolicy, "local-v1") : undefined,
         lt(turns.createdAt, thresholdIso),
       )).limit(50);
       let recovered = 0;

@@ -13,6 +13,7 @@ import { createPluginHostServicesFactory } from "../../../plugin-host-services.j
 import type { ModuleDependencies } from "../../context.js";
 import {
   SqliteExtensionRepository,
+  SqlitePluginInstallationRepository,
   SqlitePluginConfigRepository,
   SqlitePluginPageRepository,
   SqlitePluginSecretRepository,
@@ -95,6 +96,12 @@ async function syncBuiltinPlugins(
       }
       const manifest = parsedManifest.data;
       const pluginId = manifest.metadata.id;
+      // An explicitly installed release is authoritative until the user installs another version.
+      // Startup discovery must not pair builtin metadata with a different generation's files.
+      if ((await extensionRepo.getPlugin(pluginId))?.bundleGeneration) {
+        diskPluginIds.add(pluginId);
+        continue;
+      }
 
 
       let skillContent = "";
@@ -144,7 +151,7 @@ async function syncBuiltinPlugins(
   }
 }
 
-export async function registerPluginsModule(ctx: ModuleDependencies<"app" | "builtinPluginsSourceRoot" | "db" | "pluginHostServices" | "pluginRegistry" | "pluginsRoot" | "proactiveIntelligenceRepository" | "skillsRoot">): Promise<import("@aervox/host-plugin-api").ServerPluginRegistration[]> {
+export async function registerPluginsModule(ctx: ModuleDependencies<"app" | "builtinPluginsSourceRoot" | "db" | "pluginHostServices" | "pluginRegistry" | "pluginsRoot" | "proactiveIntelligenceRepository" | "skillsRoot">, beforeDeactivate?: (pluginId: string, uninstall: boolean) => Promise<void>): Promise<import("@aervox/host-plugin-api").ServerPluginRegistration[]> {
   const pluginRegistry = ctx.pluginRegistry ?? createServerPluginRegistry();
   const { app, db, skillsRoot, pluginsRoot } = ctx;
   const extensionRepo = new SqliteExtensionRepository(db);
@@ -187,6 +194,8 @@ export async function registerPluginsModule(ctx: ModuleDependencies<"app" | "bui
   const builtinRoot = ctx.builtinPluginsSourceRoot ?? defaultBuiltinPluginsSourceRoot();
 
   const service = new PluginService({
+    beforeDeactivate,
+    installationRepo: new SqlitePluginInstallationRepository(db),
     extensionRepo,
     registry,
     skillRegistry,

@@ -10,6 +10,7 @@ export * from "./proactive-vault-crypto.js";
 export * from "./proactive-vault-auth.js";
 export * from "./errors.js";
 export * from "./local-context.js";
+export * from "./conversation-execution-policy.js";
 export * from "./memory-eligibility.js";
 export * from "./search/index.js";
 export * from "./write-retry.js";
@@ -21,6 +22,7 @@ export * from "./migration/index.js";
 export * from "./sync/index.js";
 export * from "./worker-ipc.js";
 export * from "./repositories/index.js";
+export * from "./repositories/sqlite/plugin-installation-repository.js";
 export * from "./schema/ddl/index.js";
 
 export { collectDiaryMaterial, createSqliteDiaryMaterialPort } from "./repositories/sqlite/diary-material.js";

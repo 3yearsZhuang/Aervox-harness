@@ -19,6 +19,8 @@
     "@aervox/host-plugin-api": "workspace:*",
     "@aervox/observability": "workspace:*",
     "@aervox/plugin-focus-mode": "workspace:*",
+    "@aervox/plugin-bot-weixin": "workspace:*",
+    "@aervox/plugin-bot-onebot": "workspace:*",
     "@aervox/practice-review": "workspace:*",
     "@aervox/repositories": "workspace:*",
     "@aervox/schema": "workspace:*",

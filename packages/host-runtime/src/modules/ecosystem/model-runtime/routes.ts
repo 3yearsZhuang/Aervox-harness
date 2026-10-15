@@ -1,18 +1,20 @@
 import type { FastifyInstance } from "fastify";
 import {
-  modelDownloadRequestSchema,
+  modelRuntimeApi,
+  type ModelDownloadRequest,
   modelRuntimeStartRequestSchema,
 } from "@aervox/contracts";
 import type { ModelRuntimeService } from "./service.js";
+import { registerContractRoute } from "../../../shared/contract-route.js";
 
 export function registerModelRuntimeRoutes(app: FastifyInstance, service: ModelRuntimeService): void {
   // GET /v1/model-runtime/state — 全量状态
-  app.get("/v1/model-runtime/state", async () => {
+  registerContractRoute(app, modelRuntimeApi.state, async () => {
     return service.getState();
   });
 
   // GET /v1/model-runtime/catalog — 内置精选 GGUF 目录（任意 URL 下载入口仍保留）
-  app.get("/v1/model-runtime/catalog", async () => {
+  registerContractRoute(app, modelRuntimeApi.catalog, async () => {
     return { entries: service.getCatalog() };
   });
 
@@ -43,17 +45,9 @@ export function registerModelRuntimeRoutes(app: FastifyInstance, service: ModelR
   });
 
   // POST /v1/model-runtime/downloads — 发起下载（进入队列）
-  app.post("/v1/model-runtime/downloads", async (req, reply) => {
-    const parsed = modelDownloadRequestSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return reply.code(400).send({
-        code: "INVALID_MODEL_DOWNLOAD_REQUEST",
-        message: "Invalid model download payload",
-        details: parsed.error.issues,
-      });
-    }
+  registerContractRoute(app, modelRuntimeApi.download, async (req, reply) => {
     try {
-      return await service.startDownload(parsed.data);
+      return await service.startDownload(req.body as ModelDownloadRequest);
     } catch (err) {
       const message = err instanceof Error ? err.message : "下载发起失败";
       const busy = message.startsWith("download_busy") || message.startsWith("model_exists");

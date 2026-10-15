@@ -8,7 +8,7 @@ export interface SettingsPanelRegistration {
 }
 
 /**
- * 五块内置设置面板：模型服务 / 本地模型 / 人格 / 语音 / 插件管理。
+ * 内置设置面板：模型服务 / 本地模型 / 人格 / 语音 / 机器人连接 / 插件管理。
  * 宿主不内建任何具体面板（CR-065 口径）：组合根显式注入，
  * 工作台根注册进 `settings:panel:<category>` 槽位，设置弹层按分类渲染。
  *
@@ -21,5 +21,6 @@ export const settingsPanels: readonly SettingsPanelRegistration[] = [
   { category: 'local-models', component: defineAsyncComponent(() => import('./llm/ModelRuntimePanel.vue')) },
   { category: 'persona', component: defineAsyncComponent(() => import('./persona/PersonaManagerPanel.vue')) },
   { category: 'voice', component: defineAsyncComponent(() => import('./voice/VoicePresetManagerPanel.vue')) },
+  { category: 'bots', component: defineAsyncComponent(() => import('./bot/BotConnectionsPanel.vue')) },
   { category: 'plugins', component: defineAsyncComponent(() => import('./plugin/PluginManagerPanel.vue')) },
 ];

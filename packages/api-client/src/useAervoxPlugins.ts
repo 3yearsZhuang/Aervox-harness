@@ -28,6 +28,8 @@ export interface PluginSummaryDto {
   permissions?: unknown;
   installSource: string;
   enabled: number;
+  /** Package availability is independent of the saved user enablement choice. */
+  availability?: 'available' | 'missing' | 'invalid' | 'unreadable';
   configSchemaJson?: unknown;
   configSchemaVersion?: number;
   /** CR-032：主动智能声明（spec.proactive，含 sensors/triggers） */

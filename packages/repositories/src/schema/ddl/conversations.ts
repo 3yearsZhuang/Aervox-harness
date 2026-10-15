@@ -11,17 +11,21 @@ export async function createConversationsTables(client: Client): Promise<void> {
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
         project_id TEXT,
+        execution_policy TEXT NOT NULL DEFAULT 'local-v1',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
     `);
   await addColumnIfMissing(client, "sessions", "project_id", "project_id TEXT");
+  await addColumnIfMissing(client, "sessions", "execution_policy", "execution_policy TEXT NOT NULL DEFAULT 'local-v1'");
   await client.execute(`CREATE INDEX IF NOT EXISTS sessions_project_idx ON sessions(project_id);`);
   await client.execute(`
       CREATE TABLE IF NOT EXISTS turns (
         id TEXT PRIMARY KEY,
         session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
         idempotency_key TEXT NOT NULL,
+        execution_policy TEXT NOT NULL DEFAULT 'local-v1',
+        dispatch_target TEXT NOT NULL DEFAULT 'default',
         status TEXT NOT NULL DEFAULT 'Created',
         last_sequence INTEGER NOT NULL DEFAULT 0,
         error TEXT,
@@ -38,6 +42,8 @@ export async function createConversationsTables(client: Client): Promise<void> {
       CREATE UNIQUE INDEX IF NOT EXISTS turns_local_idempotency_idx ON turns(idempotency_key);
     `);
   // CAP-013：为存量 turns 表补充 quote_message_id 列（迁移）
+  await addColumnIfMissing(client, "turns", "execution_policy", "execution_policy TEXT NOT NULL DEFAULT 'local-v1'");
+  await addColumnIfMissing(client, "turns", "dispatch_target", "dispatch_target TEXT NOT NULL DEFAULT 'default'");
     await client.execute(`ALTER TABLE turns ADD COLUMN quote_message_id TEXT;`).catch(() => {});
   await client.execute(`
       CREATE INDEX IF NOT EXISTS turns_session_idx ON turns(session_id);

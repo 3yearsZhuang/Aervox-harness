@@ -3,14 +3,16 @@ import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 
 extendZodWithOpenApi(z);
 
-/** llama-server 运行时状态（易失，内存持有） */
-export const llamaRuntimeStatusSchema = z.enum([
+/** 本地模型运行时驱动状态（易失，内存持有） */
+export const modelRuntimeStatusSchema = z.enum([
   "idle",
   "starting",
   "running",
   "stopping",
   "error",
 ]);
+/** @deprecated 兼容既有命名，请优先使用 modelRuntimeStatusSchema */
+export const llamaRuntimeStatusSchema = modelRuntimeStatusSchema;
 
 /** 已下载 / 下载中的本地模型条目（以 <models>/<file>.json 侧车元数据为真源） */
 export const localModelSchema = z.object({
@@ -26,20 +28,24 @@ export const localModelSchema = z.object({
   error: z.string().optional(),
 });
 
-/** llama-server 启动参数（详见 llama.cpp server 命令行） */
-export const llamaRuntimeParamsSchema = z.object({
+/** 本地模型运行时启动参数 */
+export const modelRuntimeParamsSchema = z.object({
   port: z.number().int().min(1024).max(65535).default(8080),
   ctxSize: z.number().int().positive().default(8192),
   gpuLayers: z.number().int().min(0).default(99),
   threads: z.number().int().positive().default(4),
 });
+/** @deprecated 兼容既有命名，请优先使用 modelRuntimeParamsSchema */
+export const llamaRuntimeParamsSchema = modelRuntimeParamsSchema;
 
-/** 运行指标采样（llama.cpp /metrics tokens/s；非持久化） */
-export const llamaMetricSampleSchema = z.object({
+/** 运行指标采样（非持久化） */
+export const modelRuntimeMetricSampleSchema = z.object({
   at: z.string().datetime(),
   tokensPerSec: z.number().nonnegative().optional(),
   promptTokensPerSec: z.number().nonnegative().optional(),
 });
+/** @deprecated 兼容既有命名，请优先使用 modelRuntimeMetricSampleSchema */
+export const llamaMetricSampleSchema = modelRuntimeMetricSampleSchema;
 
 /** 下载任务（多任务队列；状态机 queued→running→done|error|cancelled|paused，paused 可 resume） */
 export const downloadTaskSchema = z.object({
@@ -67,32 +73,42 @@ export const modelCatalogEntrySchema = z.object({
   sizeBytes: z.number().int().positive().optional(),
   url: z.string().url(),
   sha256: z.string().optional(),
-  recommendedParams: llamaRuntimeParamsSchema.partial().optional(),
+  recommendedParams: modelRuntimeParamsSchema.partial().optional(),
 });
 
 /** 模型运行时全量状态快照 */
 export const modelRuntimeStateSchema = z.object({
   models: z.array(localModelSchema),
   runtime: z.object({
-    status: llamaRuntimeStatusSchema,
+    status: modelRuntimeStatusSchema,
     pid: z.number().int().positive().nullable().optional(),
     port: z.number().int().positive().optional(),
     modelId: z.string().optional(),
     binPath: z.string().optional(),
     startedAt: z.string().datetime().optional(),
     error: z.string().optional(),
-    /** llama-server stderr 环形缓冲 */
+    /** 运行时 stderr 环形缓冲 */
     logs: z.array(z.string()).optional(),
     /** 运行指标采样（最近 N 条） */
-    metrics: z.array(llamaMetricSampleSchema).optional(),
+    metrics: z.array(modelRuntimeMetricSampleSchema).optional(),
     /** 本次会话从服务端持久化恢复的下载任务数（进程重启场景） */
     restored: z.object({ at: z.string().datetime(), downloads: z.number().int().nonnegative() }).optional(),
     /** 下次服务启动时自动恢复的运行时（上次会话末仍在运行，重启自动拉起） */
     resume: z.object({ enabled: z.boolean(), modelId: z.string().optional() }).optional(),
   }),
-  params: llamaRuntimeParamsSchema.optional(),
+  params: modelRuntimeParamsSchema.optional(),
   /** 多任务下载队列（含执行中与排队任务） */
   downloads: z.array(downloadTaskSchema).default([]),
+  driver: z
+    .object({
+      id: z.string().default("llama-server"),
+      name: z.string().default("llama.cpp server"),
+      configured: z.boolean(),
+      binPath: z.string().optional(),
+      source: z.enum(["env", "default", "missing"]).default("missing"),
+      maxConcurrentDownloads: z.number().int().positive().default(2),
+    })
+    .optional(),
   llamaServer: z
     .object({
       configured: z.boolean(),
@@ -116,7 +132,7 @@ export const modelDownloadRequestSchema = z.object({
     .regex(/^[^/\\\0]+$/, "模型文件名不得包含路径分隔符")
     .refine((value) => /\.gguf$/i.test(value), "模型文件需为 .gguf 后缀")
     .optional(),
-  /** 下载完成后自动启动 llama-server 并联动 LLM 预设 */
+  /** 下载完成后自动启动本地运行时并联动 LLM 预设 */
   autoStart: z.boolean().optional().default(false),
   /** 限速（bytes/sec，缺省不限） */
   rateLimitBps: z.number().int().nonnegative().optional(),
@@ -125,7 +141,7 @@ export const modelDownloadRequestSchema = z.object({
 /** 启动本地模型运行时请求 */
 export const modelRuntimeStartRequestSchema = z.object({
   modelId: z.string().min(1),
-  params: llamaRuntimeParamsSchema.partial().optional(),
+  params: modelRuntimeParamsSchema.partial().optional(),
 });
 
 /** SSE 状态推送事件载荷（与 state 快照一致；event=snapshot） */
@@ -134,13 +150,17 @@ export const modelRuntimeEventSchema = z.discriminatedUnion("event", [
   z.object({ event: z.literal("error"), data: z.object({ message: z.string() }) }),
 ]);
 
-export type LlamaRuntimeStatus = z.infer<typeof llamaRuntimeStatusSchema>;
+export type ModelRuntimeStatus = z.infer<typeof modelRuntimeStatusSchema>;
+export type LlamaRuntimeStatus = ModelRuntimeStatus;
 export type LocalModel = z.infer<typeof localModelSchema>;
-export type LlamaRuntimeParams = z.infer<typeof llamaRuntimeParamsSchema>;
-export type LlamaMetricSample = z.infer<typeof llamaMetricSampleSchema>;
+export type ModelRuntimeParams = z.infer<typeof modelRuntimeParamsSchema>;
+export type LlamaRuntimeParams = ModelRuntimeParams;
+export type ModelRuntimeMetricSample = z.infer<typeof modelRuntimeMetricSampleSchema>;
+export type LlamaMetricSample = ModelRuntimeMetricSample;
 export type DownloadTask = z.infer<typeof downloadTaskSchema>;
 export type ModelCatalogEntry = z.infer<typeof modelCatalogEntrySchema>;
 export type ModelRuntimeState = z.infer<typeof modelRuntimeStateSchema>;
+export type ModelDownloadRequestInput = z.input<typeof modelDownloadRequestSchema>;
 export type ModelDownloadRequest = z.infer<typeof modelDownloadRequestSchema>;
 export type ModelRuntimeStartRequest = z.infer<typeof modelRuntimeStartRequestSchema>;
 export type ModelRuntimeEvent = z.infer<typeof modelRuntimeEventSchema>;

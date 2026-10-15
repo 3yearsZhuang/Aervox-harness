@@ -3,14 +3,8 @@ import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 
 extendZodWithOpenApi(z);
 
-export const llmProviderTypeSchema = z.enum([
-  "ollama",
-  "deepseek",
-  "openai",
-  "anthropic",
-  "custom_openai",
-  "llamacpp",
-]);
+/** Provider IDs are syntax-checked here and resolved against the host registry before use. */
+export const llmProviderTypeSchema = z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/);
 
 /** 大语言模型与供应商配置（WebUI 设置「模型与服务」读写；CR-012） */
 export const llmConfigSchema = z.object({

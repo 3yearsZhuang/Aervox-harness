@@ -1,3 +1,4 @@
+import { PluginInstallationConflictError } from "@aervox/repositories";
 import { withRequestSignal } from "../../../shared/request-signal.js";
 /**
  * Aervox｜思隅 @aervox/api — 插件运行时路由（CAP-020）
@@ -192,6 +193,7 @@ export function registerPluginRoutes(app: FastifyInstance, service: PluginServic
         const plugin = await withRequestSignal(req, reply, signal => service.installPackage(body.packageBase64!, Boolean(body.overwrite), signal));
         return reply.code(201).send(plugin);
       } catch (e: any) {
+        if (e instanceof PluginInstallationConflictError) return reply.code(409).send({error: e.message, code: e.code});
         if (e instanceof FileExistsError) return reply.code(409).send({ error: e.message });
         if (e?.code === "PLUGIN_ALREADY_EXISTS") {
           return reply.code(409).send({ error: e.message, code: "PLUGIN_ALREADY_EXISTS" });
@@ -236,7 +238,8 @@ export function registerPluginRoutes(app: FastifyInstance, service: PluginServic
       const plugin = await withRequestSignal(req, reply, signal => service.installFromMarket(pluginId, signal));
       return reply.code(201).send(plugin);
     } catch (e) {
-      if (e instanceof FileExistsError) return reply.code(409).send({ error: e.message });
+      if (e instanceof PluginInstallationConflictError) return reply.code(409).send({error: e.message, code: e.code});
+        if (e instanceof FileExistsError) return reply.code(409).send({ error: e.message });
       return reply.code(404).send({
         error: "Market plugin not found or failed to install",
         message: e instanceof Error ? e.message : String(e),

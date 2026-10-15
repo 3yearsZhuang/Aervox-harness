@@ -1,3 +1,4 @@
+import { setRequestToolApprovalMode } from "../../../shared/tool-approval-policy.js";
 import { hostPromptPolicy } from "./prompt-policy.js";
 import { ControlContext } from "@aervox/core";
 /**
@@ -40,6 +41,7 @@ import {
   type SqliteConversationRepository,
   type LocalContext,
   SqliteExtensionRepository,
+  assertConversationExecutionPolicy,
 } from "@aervox/repositories";
 import { loadApiConfig } from "@aervox/config";
 import type { Observability } from "@aervox/observability";
@@ -49,7 +51,7 @@ import {
   isPluginEnabled,
   defaultServerPluginRegistry,
   type ServerPluginRegistry,
-  type TurnPluginContext,
+  type TurnPluginHostContext,
 } from "../../ecosystem/plugins/index.js";
 import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index.js";
 import { HOST_TOOL_GUIDANCE } from "../../ecosystem/tools/index.js";
@@ -61,7 +63,7 @@ import { loadProactiveProfilePrompt } from "../../proactive/proactive/index.js";
 import type { ProactiveActionPort } from "../../proactive/proactive/index.js";
 import { buildMemoryContext, type MemoryRecallPort } from "./memory-recall.js";
 import { buildLoopProvider, createLLMCallable } from "./llm-adapter.js";
-import { createApprovalGatedToolProvider, createRuntimeToolProvider } from "./tool-providers.js";
+import { createApprovalGatedToolProvider, createRuntimeToolProvider, hasBotExcludedPermissions } from "./tool-providers.js";
 import { createBroadcastingStore } from "./broadcasting-store.js";
 import { turnStreamHub } from "./stream-hub.js";
 import { failTurnWithError, runDshAdapterTurn } from "./dsh-adapter.js";
@@ -97,6 +99,8 @@ export async function runLoopTurnOnce(
     attemptId: string;
     userMessage: string;
     metadata?: Record<string, unknown>;
+    signal?: AbortSignal;
+    deadlineEpochMs?: number;
   },
   deps: {
     signal?: AbortSignal;
@@ -151,6 +155,31 @@ export async function runLoopTurnOnce(
     observability?: Observability;
   } = {},
 ): Promise<void> {
+  const persisted = await repo.getTurn(tenant, input.turnId);
+  const session = await repo.getSession(tenant, input.sessionId);
+  if (!persisted || !session || persisted.sessionId !== input.sessionId || persisted.executionPolicy !== session.executionPolicy) throw new Error("conversation_policy_mismatch");
+  assertConversationExecutionPolicy(persisted.executionPolicy);
+  const attempt = (await repo.listTurnAttempts(tenant, input.turnId)).find(candidate => candidate.id === input.attemptId);
+  if (!attempt) throw new Error("conversation_attempt_mismatch");
+  const acceptedMessage = await repo.getTurnUserMessage(tenant, input.turnId);
+  if (acceptedMessage === null) throw new Error("conversation_input_unavailable");
+  input = { ...input, userMessage: acceptedMessage };
+  const group = persisted.executionPolicy === "bot-group-member-v1";
+  const bot = persisted.executionPolicy !== "local-v1";
+  if (group) {
+    deps = { llmConfigService: deps.llmConfigService, modelRoutingService: deps.modelRoutingService,
+      signal: deps.signal, claimTurnAttempt: deps.claimTurnAttempt, preparationFencingToken: deps.preparationFencingToken,
+      safetyService: deps.safetyService, deletionGate: deps.deletionGate,
+      platformRepo: deps.platformRepo, observability: deps.observability };
+  } else if (bot) {
+    deps = { ...deps, proactiveRepository: undefined, proactiveActionAuthorizer: undefined,
+      subagentFactory: undefined, workflows: undefined, inbox: undefined, userQuestionPort: undefined };
+  }
+  if (bot) {
+    setRequestToolApprovalMode(tenant, "ask");
+    input = { ...input, metadata: undefined };
+  }
+  const signal = input.signal && deps.signal ? AbortSignal.any([input.signal, deps.signal]) : input.signal ?? deps.signal;
   const turnStartTime = Date.now();
   deps.observability?.metrics.emit({
     type: "counter",
@@ -168,23 +197,35 @@ export async function runLoopTurnOnce(
   });
 
   const repoDb = (repo as unknown as { db?: AervoxDatabase })?.db;
-  const extRepo =
+  const baseExtRepo = group ? null :
     deps.extensionRepo ??
     (repoDb ? new SqliteExtensionRepository(repoDb) : null);
-  const pluginRegistry = deps.pluginRegistry ?? defaultServerPluginRegistry;
+  const extRepo = bot && baseExtRepo ? new Proxy(baseExtRepo, {
+    get(target, property) {
+      if (property === "getPlugin") return async (pluginId: string) => {
+        const plugin = await target.getPlugin(pluginId);
+        return plugin && !hasBotExcludedPermissions(plugin.permissions) && !plugin.proactiveSpecJson ? plugin : null;
+      };
+      const value = Reflect.get(target, property);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  }) : baseExtRepo;
+  const pluginRegistry = group ? undefined : deps.pluginRegistry ?? defaultServerPluginRegistry;
 
   // CR-060：向插件暴露**窄端口**而非仓储与总线本体。
   // 序号交由仓储原子分配（appendStreamEvent 缺省 sequence），避免插件自行推算；
   // 写入同时落库并广播，保证 SSE 实时性与重放一致。
-  const turnPluginCtx: TurnPluginContext = {
+  const turnPluginCtx: TurnPluginHostContext = {
     turnId: input.turnId,
     sessionId: input.sessionId,
     attemptId: input.attemptId,
     userMessage: input.userMessage,
     metadata: input.metadata,
+    signal,
+    deadlineEpochMs: input.deadlineEpochMs,
     stream: {
       readEvents: (turnId, fromSequence) => repo.getStreamEvents(tenant, turnId, fromSequence),
-      appendEvent: async (appendInput) => {
+      appendEvent: async (appendInput, control) => {
         // CR-060：插件只能写入内核事件类型或其在登记表中**声明过**的事件类型。
         // 登记表不是装饰——未声明的类型在此拒绝（fail-closed），避免插件静默塞入
         // 前端不认识、投影白名单也无从收敛的事件。
@@ -195,6 +236,9 @@ export async function runLoopTurnOnce(
         // 实现更严），故按既有序号推进；同一 Turn 的写入由执行器串行化。
         const existing = await repo.getStreamEvents(tenant, input.turnId, 0);
         const lastSequence = existing.reduce((max, event) => (event.sequence > max ? event.sequence : max), 0);
+        // Revalidate after async preparation, immediately before the accepted database write.
+        await control?.checkActive();
+        control?.signal.throwIfAborted();
         const stored = await repo.appendStreamEvent(tenant, {
           id: `evt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
           turnId: input.turnId,
@@ -212,7 +256,8 @@ export async function runLoopTurnOnce(
 
   // Runner 的宿主依赖：`tenant` 只用于读取插件配置，不进入插件上下文（CR-060）
   const turnPluginDeps = { tenant, extRepo, configRepo: deps.pluginConfigRepo };
-  const beforeTurnExec = await executeBeforeTurnPlugins(pluginRegistry, turnPluginCtx, turnPluginDeps);
+  const beforeTurnExec = group ? { extraSections: [] as string[], pluginResults: new Map(), snapshots: new Map() }
+    : await executeBeforeTurnPlugins(pluginRegistry!, turnPluginCtx, turnPluginDeps);
 
   // 每次实际模型调用的 ModelRun + ContextManifest 快照落库（委托 platform 域）
   const store = new SqliteExecutionStore(
@@ -230,7 +275,7 @@ export async function runLoopTurnOnce(
               provider: r.provider,
               modelId: r.modelId,
             });
-            await p.completeModelRun(tenant, r.runId, { status: r.status === "completed" ? "completed" : "failed", latencyMs: r.latencyMs });
+            await p.completeModelRun(tenant, r.runId, { status: r.status === "completed" ? "completed" : "failed", latencyMs: r.latencyMs, tokenUsage: r.usage });
           },
           recordContextManifest: async (m) => {
             const p = deps.platformRepo!;
@@ -251,6 +296,21 @@ export async function runLoopTurnOnce(
   );
   if (deps.claimTurnAttempt) store.claimTurnAttempt = deps.claimTurnAttempt;
   const broadcastingStore = createBroadcastingStore(store);
+  // A Hook can be cancelled before the executor claims its Attempt. Finalize here
+  // because a CancelRequested Attempt will correctly refuse that later claim.
+  const finishUnclaimedCancellation = async (): Promise<boolean> => {
+    if (!signal?.aborted && !(input.deadlineEpochMs !== undefined && Date.now() >= input.deadlineEpochMs)) return false;
+    const status = signal?.aborted ? "Cancelled" : "Interrupted";
+    const sequence = await store.nextSequence(input.turnId);
+    const finalized = await broadcastingStore.finalizeAttemptWithEvent({
+      turnId: input.turnId, attemptId: input.attemptId, expectedFencingToken: deps.preparationFencingToken ?? 0,
+      status, sequence, eventType: "done",
+      eventData: { status, isComplete: false, lastSequence: sequence, reason: status === "Cancelled" ? "cancelled" : "deadline_exceeded" },
+    });
+    if (finalized.ok) await repo.updateTurnStatus(tenant, input.turnId, status);
+    return true;
+  };
+  if (await finishUnclaimedCancellation()) return;
 
   // CAP-008：前置安全门禁拦截（Crisis Safety Gate & Emotional Companionship）
   // 规则依据：PRD §4.3、§6.5、SRS FR-SAFE-001。
@@ -385,7 +445,7 @@ export async function runLoopTurnOnce(
 
   // ADR-010 阶段 6f：AERVOX_LOOP_DRIVER=dsh → 整 Turn 走 DSH 进程外 Adapter
   // （自带 Agent 循环与模型回合，Provider/工具/上下文组合全部跳过；未就绪 fail-closed 不回退 native）。
-  if (loadApiConfig().loopDriver === "dsh") {
+  if (!bot && loadApiConfig().loopDriver === "dsh") {
     // 主动智能本地处理期间：进程外 Adapter 不得代执行（既有策略接进本分支，不新增政策）
     if (localProcessingOnly) {
       await failTurnWithError(
@@ -427,7 +487,7 @@ export async function runLoopTurnOnce(
     };
     await runDshAdapterTurn(repo, tenant, broadcastingStore, dshInput, async (status) => {
       await executeAfterTurnPlugins(
-        pluginRegistry,
+        pluginRegistry!,
         { ...turnPluginCtx, status, llm: dshLlm },
         turnPluginDeps,
         beforeTurnExec.pluginResults,
@@ -547,6 +607,7 @@ export async function runLoopTurnOnce(
         observability: deps.observability,
         capabilityTier: isL1Tier && isCapabilityTiering ? "restricted" : undefined,
         async isToolAllowed(tool) {
+          if (bot && hasBotExcludedPermissions(tool.requiredPermissionsJson)) return false;
           // Native tools retain their domain-owned authorization. Plugin grants are re-read per dispatch.
           if (tool.pluginId?.startsWith("mcp:")) return deps.isMcpToolAllowed?.(tool) ?? false;
           if (!tool.pluginId) return tool.builtin === 1 || !tool.requiredPermissionsJson || (Array.isArray(tool.requiredPermissionsJson) && !tool.requiredPermissionsJson.length);
@@ -601,7 +662,7 @@ export async function runLoopTurnOnce(
   let history: ReturnType<SqliteConversationRepository["getSessionHistory"]> | undefined;
   let memoryContext: Promise<string | null> | undefined;
   let contextBuilder = createComposedContextBuilder({
-    inbox: true,
+    inbox: !bot,
     base: {
       async build(context) {
         history ??= repo.getSessionHistory(tenant, {
@@ -640,7 +701,7 @@ export async function runLoopTurnOnce(
       personaPrompt: deps.persona?.prompt,
       activeTools: tools?.tools,
       extraSections: beforeTurnExec.extraSections,
-      ...(HOST_TOOL_GUIDANCE.length + pluginGuidance.length > 0
+      ...(!group && HOST_TOOL_GUIDANCE.length + pluginGuidance.length > 0
         ? { customGuidance: [...HOST_TOOL_GUIDANCE, ...pluginGuidance] }
         : {}),
     },
@@ -664,7 +725,7 @@ export async function runLoopTurnOnce(
       },
     };
   }
-  const control = new ControlContext({ turnId: input.turnId, attemptId: input.attemptId, sessionId: input.sessionId, localProcessingOnly, abortSignal: deps.signal });
+  const control = new ControlContext({ turnId: input.turnId, attemptId: input.attemptId, sessionId: input.sessionId, localProcessingOnly, abortSignal: signal, deadlineEpochMs: input.deadlineEpochMs });
   const result = await executeTurn(
     {
       execution: broadcastingStore,
@@ -684,6 +745,7 @@ export async function runLoopTurnOnce(
     },
     input,
   ).finally(() => control.dispose());
+  if (result.status === "skipped" && await finishUnclaimedCancellation()) return;
   const turnDurationMs = Date.now() - turnStartTime;
   deps.observability?.metrics.emit({
     type: "histogram",
@@ -709,8 +771,8 @@ export async function runLoopTurnOnce(
     });
     await repo.updateTurnStatus(tenant, input.turnId, "Completed");
     const llm = provider ? createLLMCallable(provider) : undefined;
-    await executeAfterTurnPlugins(
-      pluginRegistry,
+    if (!group) await executeAfterTurnPlugins(
+      pluginRegistry!,
       { ...turnPluginCtx, status: "Completed", llm },
       turnPluginDeps,
       beforeTurnExec.pluginResults,
