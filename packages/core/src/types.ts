@@ -84,11 +84,11 @@ export interface ContextProjectionOptions {
   hiddenMessageIds?: Set<string>;
   /** 自定义可见性谓词 */
   filter?: (msg: PromptMessage, index: number) => boolean;
-  /** 单条工具结果最大字符限制（防上下文溢出，默认 16384） */
+  /** 单条工具结果的总字符上限（含截断标记，默认 16384；非负安全整数） */
   maxToolResultChars?: number;
-  /** 工具结果超限截断时保留的前导字符数（默认 2048） */
+  /** 工具结果超限时期望保留的前导字符数（默认 2048；总预算不足时按比例缩减） */
   toolResultHeadChars?: number;
-  /** 工具结果超限截断时保留的尾部字符数（默认 1024） */
+  /** 工具结果超限时期望保留的尾部字符数（默认 1024；0 表示不保留尾部） */
   toolResultTailChars?: number;
   /** 严格工具配对检查：丢弃孤立的 tool 结果或 tool_calls 调用（默认 true） */
   enforceStrictToolPairing?: boolean;
