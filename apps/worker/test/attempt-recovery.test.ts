@@ -28,7 +28,7 @@ describe("Worker recovery admits only configured local models and committed resu
     return { turnId, attemptId };
   }
   async function configure(baseUrl: string) {
-    await new SqliteLLMConfigRepository(f.db).saveConfig(local, { enabled: true, providerType: "openai_compatible", baseUrl, apiKey: "local-key", modelId: "configured-model", temperature: 0.7, maxTokens: 4096, settings: {} });
+    await new SqliteLLMConfigRepository(f.db).saveConfig(local, { enabled: true, providerType: "custom_openai", baseUrl, apiKey: "local-key", modelId: "configured-model", temperature: 0.7, maxTokens: 4096, settings: {} });
   }
   const cycle = (resume = true) => runAttemptRecoveryCycle({ db: f.db, client: f.client, workerId: "recovery", resume: resume ? () => f.worker.conversation.resume() : undefined });
 
