@@ -56,6 +56,9 @@ async function handleBridgeCall(message: {
   const method = message.method
   const args = (message.args ?? {}) as {values?: Record<string, unknown>; secretValues?: Record<string, string | null>}
   try {
+    if (!props.plugin || props.plugin.enabled !== 1) {
+      return {id, ok: false, error: 'plugin is disabled or unavailable'}
+    }
     if (method === 'getConfig') {
       if (!contextCapabilities.value.includes('config.read')) {
         return {id, ok: false, error: 'capability config.read required'}
@@ -77,6 +80,9 @@ async function handleBridgeCall(message: {
       return {id, ok: true, value: snapshot}
     }
     if (method === 'notify') {
+      if (!contextCapabilities.value.includes('host.notify')) {
+        return {id, ok: false, error: 'capability host.notify required'}
+      }
       const input = args as {type?: 'success' | 'info' | 'warning' | 'error'; message?: string}
       const type = input.type ?? 'info'
       const fn = ElMessage[type] ?? ElMessage.info
@@ -84,6 +90,9 @@ async function handleBridgeCall(message: {
       return {id, ok: true, value: null}
     }
     if (method === 'close') {
+      if (!contextCapabilities.value.includes('host.close')) {
+        return {id, ok: false, error: 'capability host.close required'}
+      }
       emit('close')
       return {id, ok: true, value: null}
     }
@@ -94,10 +103,13 @@ async function handleBridgeCall(message: {
 }
 
 function onMessage(event: MessageEvent): void {
+  if (!iframe.value?.contentWindow || event.source !== iframe.value.contentWindow) {
+    return
+  }
   const data = event.data as {type?: string; nonce?: unknown; id?: unknown} | null
   if (!data || typeof data !== 'object') return
   if (data.type === 'aervox:page:call') {
-    if (data.nonce !== nonce.value) return
+    if (typeof data.nonce !== 'string' || data.nonce !== nonce.value) return
     void handleBridgeCall(data).then((result) => {
       iframe.value?.contentWindow?.postMessage({type: 'aervox:page:result', ...result, nonce: nonce.value}, '*')
     })
@@ -107,14 +119,20 @@ function onMessage(event: MessageEvent): void {
 watch(
   () => props.open,
   async (open) => {
-    if (!open) return
-    nonce.value = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
+    if (!open) {
+      window.removeEventListener('message', onMessage)
+      return
+    }
+    nonce.value = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
     revision.value = 0
     window.addEventListener('message', onMessage)
     await nextTick()
     // 若 iframe 已加载则注入 init；未加载等 load 事件
     postInit()
   },
+  { immediate: true },
 )
 
 function onIframeLoad(): void {

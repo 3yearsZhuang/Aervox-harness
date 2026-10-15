@@ -95,12 +95,13 @@
 
 <a id="iter-006"></a>
 
-#### ITER-006 · 建议
+#### ITER-006 · 待评审
 
 Page 与客户端认证：iframe source/nonce/会话/全部 capability、禁用撤权；附件 Bearer、合法预检与受限 Page 资源通道；FND-03、ARC-13；CAP-018/020
 
 - 前置与边界：既有认证漏接可独立修；新页面凭据及 Origin 信任策略先 ADR。
 - 验收：错误窗口/旧响应/无权/禁用访问无副作用；合法 Token 模式的 JSON、SSE、Page、附件可用，凭据不进入 URL
+- 进展与剩余：已完成 Page postMessage 窗口绑定（event.source 校验）、UUID Nonce 防伪造、host.notify/host.close capability 细粒度鉴权、插件禁用撤权拦截；API readPageEntry 与 readPageAsset 启用守卫对齐并阻断 symlink 逃逸（FND-03）；桌面附件上传补全 Bearer 认证（ARC-13）。单测与集成测试全量通过。
 
 <a id="iter-009"></a>
 

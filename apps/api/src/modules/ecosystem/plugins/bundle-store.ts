@@ -77,6 +77,15 @@ export class PluginBundleStore {
       throw new Error(`invalid page asset path: ${relPath}`);
     }
     const target = this.resolveInside(pluginId, pageId, relPath);
+    const stat = await fs.lstat(target).catch(() => null);
+    if (!stat || !stat.isFile() || stat.isSymbolicLink()) {
+      throw new Error(`invalid page asset: not a regular file or is a symlink`);
+    }
+    const base = path.resolve(this.pageRoot(pluginId, pageId));
+    const [realBase, realTarget] = await Promise.all([fs.realpath(base), fs.realpath(target)]);
+    if (realTarget !== realBase && !realTarget.startsWith(realBase + path.sep)) {
+      throw new Error("page asset escapes page root");
+    }
     const content = await fs.readFile(target);
     const ext = path.extname(target).toLowerCase();
     return { content, mime: MIME[ext] ?? "application/octet-stream" };
