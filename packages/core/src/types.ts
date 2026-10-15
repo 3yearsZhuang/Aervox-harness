@@ -44,6 +44,7 @@ export type SafetyDecision = "approved" | "blocked" | "redacted" | "pending";
 
 /** Prompt 上下文中的单条消息（阶段 2 起包含 tool 结果消息） */
 export interface PromptMessage {
+  id?: string;
   role: "system" | "user" | "assistant" | "tool";
   content: string;
   /** tool 消息必填：对应 ToolInvocation 标识 */
@@ -53,6 +54,44 @@ export interface PromptMessage {
   toolCalls?: ToolCallRequest[];
   /** Reasoning belongs to this assistant step, never shared across requests. */
   reasoning?: string;
+}
+
+/** 伴学保真事实单项（ITER-032：学习目标、未解决错因、偏好、承诺） */
+export interface GroundingFactItem {
+  id?: string;
+  text: string;
+  source?: string;
+  createdAt?: string;
+}
+
+/** 伴学必须保真的事实清单（ITER-032：历史裁剪或压缩时绝对保真） */
+export interface GroundingFacts {
+  /** 当前学习目标 */
+  learningGoals?: (string | GroundingFactItem)[];
+  /** 未解决错因与认知误区 */
+  unresolvedMistakes?: (string | GroundingFactItem)[];
+  /** 用户持久偏好 */
+  userPreferences?: (string | GroundingFactItem)[];
+  /** 对用户的承诺与待办 */
+  commitments?: (string | GroundingFactItem)[];
+  /** 自定义扩展事实分类 */
+  customSections?: Array<{ title: string; items: (string | GroundingFactItem)[] }>;
+}
+
+/** 上下文投影策略（ITER-032 / PI-01 context_edit） */
+export interface ContextProjectionOptions {
+  /** 排除的消息 ID 集合（隐藏不等于物理删除，原历史保留） */
+  hiddenMessageIds?: Set<string>;
+  /** 自定义可见性谓词 */
+  filter?: (msg: PromptMessage, index: number) => boolean;
+  /** 单条工具结果的总字符上限（含截断标记，默认 16384；非负安全整数） */
+  maxToolResultChars?: number;
+  /** 工具结果超限时期望保留的前导字符数（默认 2048；总预算不足时按比例缩减） */
+  toolResultHeadChars?: number;
+  /** 工具结果超限时期望保留的尾部字符数（默认 1024；0 表示不保留尾部） */
+  toolResultTailChars?: number;
+  /** 严格工具配对检查：丢弃孤立的 tool 结果或 tool_calls 调用（默认 true） */
+  enforceStrictToolPairing?: boolean;
 }
 
 /** ContextBuilder 产出：Provider 组装输入所需的上下文 */

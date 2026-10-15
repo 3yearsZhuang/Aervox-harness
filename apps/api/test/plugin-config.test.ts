@@ -12,6 +12,7 @@ import { createInMemoryDatabase, initDatabaseSchema, type AervoxDatabase } from 
 import { buildApp } from "./app-fixture.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
+import { PluginBundleStore } from "@aervox/host-runtime/modules/ecosystem/plugins/bundle-store";
 
 const headers = {
   "x-workspace-id": "ws_pcfg",
@@ -237,12 +238,45 @@ describe("CAP-020 插件 Config / Page API", () => {
     });
     expect([400, 404, 500]).toContain(traversal.statusCode);
 
+    // 符号链接逃逸拒绝
+    const secretOutside = path.join(pluginsRoot, "sensitive.txt");
+    await fs.writeFile(secretOutside, "super-secret");
+    const symlinkInPage = path.join(pluginsRoot, "cfg-demo", "pages", "dashboard", "symlink.txt");
+    await fs.symlink(secretOutside, symlinkInPage);
+    const symlinkRes = await app.inject({
+      method: "GET",
+      url: "/v1/plugins/cfg-demo/pages/dashboard/assets/symlink.txt",
+    });
+    expect([400, 404, 500]).toContain(symlinkRes.statusCode);
+
     const list = await app.inject({ method: "GET", url: "/v1/plugins/cfg-demo/pages" });
     expect(list.statusCode).toBe(200);
     expect(list.json().pages).toHaveLength(1);
   });
 
-  it("Bridge SDK 可访问且禁用插件后配置/Page 被拒绝", async () => {
+  it("Page 整目录符号链接不能把包外文件变成页面资源", async () => {
+    const page = await app.inject({ method: "POST", url: "/v1/plugins/cfg-demo/pages", payload: {
+      id: "dashboard", title: "Panel", entry: "pages/dashboard/index.html", capabilities: [],
+    } });
+    expect(page.statusCode).toBe(201);
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-page-outside-"));
+    const pageDirectory = path.join(pluginsRoot, "cfg-demo", "pages", "dashboard");
+    try {
+      await fs.writeFile(path.join(outside, "index.html"), "OUTSIDE_PAGE_CANARY");
+      await fs.mkdir(path.dirname(pageDirectory), { recursive: true });
+      await fs.symlink(outside, pageDirectory, "dir");
+      await expect(new PluginBundleStore(pluginsRoot).readAsset("cfg-demo", "dashboard", "index.html"))
+        .rejects.toThrow("page asset escapes bundle root");
+      const response = await app.inject({ method: "GET", url: "/v1/plugins/cfg-demo/pages/dashboard/assets/index.html" });
+      expect(response.statusCode).not.toBe(200);
+      expect(response.body).not.toContain("OUTSIDE_PAGE_CANARY");
+    } finally {
+      await fs.rm(pageDirectory, { force: true });
+      await fs.rm(outside, { recursive: true, force: true });
+    }
+  });
+
+  it("Bridge SDK 可访问且禁用插件后配置/Page 入口与资源均被拒绝", async () => {
     const bridge = await app.inject({ method: "GET", url: "/v1/plugin-pages/bridge.js" });
     expect(bridge.statusCode).toBe(200);
     expect(bridge.body).toContain("AervoxPluginPageBridge");
@@ -252,10 +286,40 @@ describe("CAP-020 插件 Config / Page API", () => {
       url: "/v1/plugins/cfg-demo/config/schema",
       payload: CONFIG_SCHEMA,
     });
+    await app.inject({
+      method: "POST",
+      url: "/v1/plugins/cfg-demo/pages",
+      payload: {
+        id: "dashboard",
+        title: "面板",
+        entry: "pages/dashboard/index.html",
+        capabilities: ["config.read"],
+      },
+    });
+    await app.inject({
+      method: "POST",
+      url: "/v1/plugins/cfg-demo/pages/dashboard/assets",
+      payload: {
+        files: [
+          { path: "index.html", contentBase64: Buffer.from("<!doctype html><h1>Hi</h1>").toString("base64") },
+          { path: "style.css", contentBase64: Buffer.from("body{}").toString("base64") },
+        ],
+      },
+    });
+
     await app.inject({ method: "PATCH", url: "/v1/plugins/cfg-demo", payload: { enabled: false } });
     const config = await app.inject({ method: "GET", url: "/v1/plugins/cfg-demo/config", headers });
     expect(config.statusCode).toBe(409);
     expect(config.json().error).toBe("PLUGIN_DISABLED");
+
+    // 禁用后 Page entry (index.html) 和普通 asset (style.css) 都被拒绝 (409 PLUGIN_DISABLED)
+    const entryRes = await app.inject({ method: "GET", url: "/v1/plugins/cfg-demo/pages/dashboard/assets/index.html" });
+    expect(entryRes.statusCode).toBe(409);
+    expect(entryRes.json().error).toBe("PLUGIN_DISABLED");
+
+    const assetRes = await app.inject({ method: "GET", url: "/v1/plugins/cfg-demo/pages/dashboard/assets/style.css" });
+    expect(assetRes.statusCode).toBe(409);
+    expect(assetRes.json().error).toBe("PLUGIN_DISABLED");
   });
 
   it("卸载插件后配置/secret/Page 清理，重新安装可重建", async () => {

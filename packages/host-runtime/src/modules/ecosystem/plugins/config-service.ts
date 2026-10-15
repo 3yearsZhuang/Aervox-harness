@@ -366,6 +366,7 @@ export class PluginConfigService {
     pluginId: string,
     pageId: string,
   ): Promise<{ content: Buffer; mime: string }> {
+    await this.requirePlugin(pluginId);
     const page = await this.deps.pageRepo.getPage(pluginId, pageId);
     if (!page) throw new PluginConfigError(404, "PLUGIN_PAGE_NOT_FOUND", `page not found: ${pageId}`);
     const rel = this.deps.bundleStore.entryToPageRelative(pluginId, pageId, page.entry);

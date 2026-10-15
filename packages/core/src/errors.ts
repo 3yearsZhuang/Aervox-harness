@@ -13,3 +13,16 @@ export class LeaseLostError extends Error {
     this.name = "LeaseLostError";
   }
 }
+
+/**
+ * 上下文压缩错误（ITER-032：PI-01 阻塞式压缩失败可见）
+ * 摘要 Provider 失败、超时或违背配对规则时抛出，让阻塞失败可见，避免盲目发出超大请求。
+ */
+export class CompactionError extends Error {
+  readonly code = "COMPACTION_FAILED";
+
+  constructor(message = "context compaction failed", public readonly cause?: unknown) {
+    super(message);
+    this.name = "CompactionError";
+  }
+}

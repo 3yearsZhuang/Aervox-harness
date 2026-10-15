@@ -118,17 +118,16 @@ Page 元数据为 `id/title/description/entry/capabilities/checksum`。`id` 最�
 
 [PluginPageDialog](../../surfaces/panels-ui/src/plugin/PluginPageDialog.vue)使用 `sandbox="allow-scripts allow-forms allow-downloads"`，未授予 `allow-same-origin`；资源响应设置 CSP：默认拒绝、脚本和样式允许本地及内联、图片允许本地及 `data:`、`connect-src 'none'`、`form-action 'none'`，另有 `nosniff/no-store/no-referrer`。这些是浏览器页面约束，不是 OS 进程沙箱。
 
-[BundleStore](../../packages/host-runtime/src/modules/ecosystem/plugins/bundle-store.ts)检查相对资源路径与词法目录包含关系；尚未检查真实路径/符号链接，也不会拒绝所有未知扩展名。作者禁止链接文件、路径逃逸、远程资源和动态下载代码；服务端不能把这条作者规则当作已实现的隔离证明。
+[BundleStore](../../packages/host-runtime/src/modules/ecosystem/plugins/bundle-store.ts)同时检查相对资源路径、Page 与 Bundle 根的真实路径以及文件类型，拒绝符号链接文件与包外 Page 目录；不会拒绝所有未知扩展名。作者禁止链接文件、路径逃逸、远程资源和动态下载代码；路径检查不等于任意第三方执行隔离证明。
 
-截至本次核验仍有以下缺口，发布安全评估必须覆盖：
+当前防护与剩余边界如下，发布安全评估必须分别覆盖：
 
-- 宿主接收消息只检查 nonce，未绑定 `event.source`/origin；SDK init 也未验证发送窗口，nonce 使用时间/随机串。不能称为已完成来源认证的 Bridge。
-- `notify/close` 没有现行 capability 检查；它们的声明并不自动形成强制授权边界。
-- 入口 HTML 走 `readPageEntry`，未执行与普通资源相同的启用检查；禁用后已有 iframe/入口访问不会被统一立即杀停。
+- 宿主按 `event.source`、128 位随机 Nonce、插件/Page 身份与文档会话验证调用和迟到响应，SDK 只接受绑定父窗口及 Origin。逐项 capability 对配置、通知和关闭生效；文档刷新重新挂载并初始化配置 revision。
+- 入口 HTML 与普通资源共用启用检查；当前窗口观察到禁用或缺包后立即销毁 iframe 并拒绝旧响应。其它窗口仍需收到更新后的插件状态，尚无跨窗口撤权实时推送。
 - iframe 正在运行的代码没有统一 CPU/内存配额与撤权终止证明；不能把网络 CSP 解释为任意第三方执行安全已验收。
 - API 启用 Bearer Token 认证时，当前 iframe `src` 和脚本资源没有注入 Authorization 头，资源请求会受到全局认证检查；尚无完整的受保护 Page 资源授权通道。不能将 Token 放入页面 URL 或为访问页面而关闭生产认证。
 
-本次定档记录上述缺口，不通过文字变更批准放宽 ADR-009，也不宣称已修复。
+已实现防护与剩余缺口分别验收，不通过文字变更批准放宽 ADR-009，也不宣称整个 ITER-006 已完成。
 
 ## 4. 服务端会话回合插件体系（Server Turn Plugin Pipeline）
 
