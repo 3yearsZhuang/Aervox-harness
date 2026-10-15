@@ -14,6 +14,9 @@
       "schemaVersion": 1,
       "entry": "config.schema.json"
     },
+    "mcpServers": [
+      "anki"
+    ],
     "tools": [
       {
         "name": "anki_import_deck",

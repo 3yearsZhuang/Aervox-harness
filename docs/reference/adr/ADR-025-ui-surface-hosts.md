@@ -17,7 +17,7 @@ decision_status: accepted
 
 - 原 Web/桌面直接挂载共享工作台，桌宠直接挂载端内组件；改为组合根显式选择界面插件，通用宿主加载根组件。
 - 新增独立 `@aervox/ui-host`：版本与平台匹配、异步加载、失败/超时提示、重试与用户触发的窗口重新加载、实例取消信号与 Vue 卸载。不依赖工作台上下文、业务组件、API 或具体插件。
-- 工作台组合逻辑迁入 `plugins/workbench-ui`；桌宠根组件、快捷对话与姿态逻辑迁入 `plugins/companion-ui`。共享展示组件、工作台服务及主题继续由 `@aervox/ui` 公共出口提供。
+- 工作台组合逻辑迁入 `surfaces/workbench-ui`；桌宠根组件、快捷对话与姿态逻辑迁入 `surfaces/companion-ui`。共享展示组件、工作台服务及主题继续由 `@aervox/ui` 公共出口提供。
 - UI 插件定义区别于可安装的 `PluginManifest`，仅允许受信构建输入，不读取用户提供的代码 URL，不进入插件市场启停记录或声明式分发包。
 - 界面卸载会中止该实例的对话订阅并清理监听和定时器；不会替用户取消已受理的服务端回合、删除数据或撤销权限。
 
@@ -48,6 +48,6 @@ decision_status: accepted
 
 ### 2026-10-13 · v0.2.1 遗留收口（同分支）
 
-- **设置面板按需分包**：`panels-ui` 的 `settingsPanels` 一律改为 `defineAsyncComponent`，Web 构建产物中五块面板各自成 chunk（不进工作台首包），分类首次激活时按需加载；模型面板草稿保留由 KeepAlive 继续覆盖（`plugins/panels-ui/test/lazy-panels.test.ts`）。
+- **设置面板按需分包**：`panels-ui` 的 `settingsPanels` 一律改为 `defineAsyncComponent`，Web 构建产物中五块面板各自成 chunk（不进工作台首包），分类首次激活时按需加载；模型面板草稿保留由 KeepAlive 继续覆盖（`surfaces/panels-ui/test/lazy-panels.test.ts`）。
 
 原生移动真机验收仍待完成；界面插件独立安装、升级回滚与第三方信任模型由 [ADR-026](ADR-026-ui-surface-open-ecosystem.md) 保持提案状态。

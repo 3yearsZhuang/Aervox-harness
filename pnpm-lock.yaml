@@ -156,19 +156,19 @@ importers:
         version: link:../../packages/native-runtime
       '@aervox/plugin-companion-ui':
         specifier: workspace:*
-        version: link:../../plugins/companion-ui
+        version: link:../../surfaces/companion-ui
       '@aervox/plugin-focus-mode':
         specifier: workspace:*
         version: link:../../plugins/focus-mode
       '@aervox/plugin-panels-ui':
         specifier: workspace:*
-        version: link:../../plugins/panels-ui
+        version: link:../../surfaces/panels-ui
       '@aervox/plugin-proactive-ui':
         specifier: workspace:*
-        version: link:../../plugins/proactive-ui
+        version: link:../../surfaces/proactive-ui
       '@aervox/plugin-workbench-ui':
         specifier: workspace:*
-        version: link:../../plugins/workbench-ui
+        version: link:../../surfaces/workbench-ui
       '@aervox/public':
         specifier: workspace:*
         version: link:../../packages/public
@@ -242,13 +242,13 @@ importers:
         version: link:../../plugins/focus-mode
       '@aervox/plugin-panels-ui':
         specifier: workspace:*
-        version: link:../../plugins/panels-ui
+        version: link:../../surfaces/panels-ui
       '@aervox/plugin-proactive-ui':
         specifier: workspace:*
-        version: link:../../plugins/proactive-ui
+        version: link:../../surfaces/proactive-ui
       '@aervox/plugin-workbench-ui':
         specifier: workspace:*
-        version: link:../../plugins/workbench-ui
+        version: link:../../surfaces/workbench-ui
       '@aervox/public':
         specifier: workspace:*
         version: link:../../packages/public
@@ -499,7 +499,35 @@ importers:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.9.3)
 
-  plugins/companion-ui:
+  plugins/focus-mode:
+    dependencies:
+      '@aervox/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+      '@aervox/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@aervox/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@aervox/host-plugin-api':
+        specifier: workspace:*
+        version: link:../../packages/host-plugin-api
+      '@aervox/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      lucide-vue-next:
+        specifier: ^0.468.0
+        version: 0.468.0(vue@3.5.43(typescript@7.0.2))
+      vue:
+        specifier: ^3.5.43
+        version: 3.5.43(typescript@7.0.2)
+
+  surfaces/companion-ui:
     dependencies:
       '@aervox/api-client':
         specifier: workspace:*
@@ -530,35 +558,7 @@ importers:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.9.3)
 
-  plugins/focus-mode:
-    dependencies:
-      '@aervox/api-client':
-        specifier: workspace:*
-        version: link:../../packages/api-client
-      '@aervox/contracts':
-        specifier: workspace:*
-        version: link:../../packages/contracts
-      '@aervox/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@aervox/host-plugin-api':
-        specifier: workspace:*
-        version: link:../../packages/host-plugin-api
-      '@aervox/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
-      zod:
-        specifier: 4.4.3
-        version: 4.4.3
-    devDependencies:
-      lucide-vue-next:
-        specifier: ^0.468.0
-        version: 0.468.0(vue@3.5.43(typescript@7.0.2))
-      vue:
-        specifier: ^3.5.43
-        version: 3.5.43(typescript@7.0.2)
-
-  plugins/panels-ui:
+  surfaces/panels-ui:
     dependencies:
       '@aervox/api-client':
         specifier: workspace:*
@@ -576,6 +576,9 @@ importers:
       lucide-vue-next:
         specifier: ^0.468.0
         version: 0.468.0(vue@3.5.43(typescript@5.9.3))
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
       vue:
         specifier: ^3.5.43
         version: 3.5.43(typescript@5.9.3)
@@ -583,7 +586,7 @@ importers:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.9.3)
 
-  plugins/proactive-ui:
+  surfaces/proactive-ui:
     dependencies:
       '@aervox/api-client':
         specifier: workspace:*
@@ -604,6 +607,9 @@ importers:
       lucide-vue-next:
         specifier: ^0.468.0
         version: 0.468.0(vue@3.5.43(typescript@5.9.3))
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
       vue:
         specifier: ^3.5.43
         version: 3.5.43(typescript@5.9.3)
@@ -611,7 +617,7 @@ importers:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.9.3)
 
-  plugins/workbench-ui:
+  surfaces/workbench-ui:
     dependencies:
       '@aervox/api-client':
         specifier: workspace:*
@@ -4593,6 +4599,10 @@ snapshots:
     dependencies:
       vue: 3.5.43(typescript@5.9.3)
 
+  '@element-plus/icons-vue@2.3.2(vue@3.5.43(typescript@7.0.2))':
+    dependencies:
+      vue: 3.5.43(typescript@7.0.2)
+
   '@emnapi/runtime@1.11.3':
     dependencies:
       tslib: 2.8.1
@@ -5704,6 +5714,14 @@ snapshots:
     optionalDependencies:
       typescript: 5.9.3
 
+  '@volar/typescript@2.4.15(typescript@7.0.2)':
+    dependencies:
+      '@volar/language-core': 2.4.15
+      path-browserify: 1.0.1
+      vscode-uri: 3.1.0
+    optionalDependencies:
+      typescript: 7.0.2
+
   '@vscode/ripgrep-darwin-arm64@1.18.0':
     optional: true
 
@@ -5816,6 +5834,19 @@ snapshots:
     optionalDependencies:
       typescript: 5.9.3
 
+  '@vue/language-core@2.2.12(typescript@7.0.2)':
+    dependencies:
+      '@volar/language-core': 2.4.15
+      '@vue/compiler-dom': 3.5.41
+      '@vue/compiler-vue2': 2.7.16
+      '@vue/shared': 3.5.41
+      alien-signals: 1.0.3
+      minimatch: 9.0.9
+      muggle-string: 0.4.1
+      path-browserify: 1.0.1
+    optionalDependencies:
+      typescript: 7.0.2
+
   '@vue/reactivity@3.5.43':
     dependencies:
       '@vue/shared': 3.5.43
@@ -5858,11 +5889,22 @@ snapshots:
       '@vueuse/shared': 14.4.0(vue@3.5.43(typescript@5.9.3))
       vue: 3.5.43(typescript@5.9.3)
 
+  '@vueuse/core@14.4.0(vue@3.5.43(typescript@7.0.2))':
+    dependencies:
+      '@types/web-bluetooth': 0.0.21
+      '@vueuse/metadata': 14.4.0
+      '@vueuse/shared': 14.4.0(vue@3.5.43(typescript@7.0.2))
+      vue: 3.5.43(typescript@7.0.2)
+
   '@vueuse/metadata@14.4.0': {}
 
   '@vueuse/shared@14.4.0(vue@3.5.43(typescript@5.9.3))':
     dependencies:
       vue: 3.5.43(typescript@5.9.3)
+
+  '@vueuse/shared@14.4.0(vue@3.5.43(typescript@7.0.2))':
+    dependencies:
+      vue: 3.5.43(typescript@7.0.2)
 
   '@xmldom/xmldom@0.8.15': {}
 
@@ -6351,6 +6393,25 @@ snapshots:
       memoize-one: 6.0.0
       normalize-wheel-es: 1.2.0
       vue: 3.5.43(typescript@5.9.3)
+      vue-component-type-helpers: 3.3.11
+
+  element-plus@2.14.5(vue@3.5.43(typescript@7.0.2)):
+    dependencies:
+      '@ctrl/tinycolor': 4.2.0
+      '@element-plus/icons-vue': 2.3.2(vue@3.5.43(typescript@7.0.2))
+      '@floating-ui/dom': 1.8.0
+      '@popperjs/core': '@sxzz/popperjs-es@2.11.8'
+      '@types/lodash': 4.17.25
+      '@types/lodash-es': 4.17.12
+      '@vueuse/core': 14.4.0(vue@3.5.43(typescript@7.0.2))
+      async-validator: 4.2.5
+      dayjs: 1.11.23
+      lodash: 4.18.1
+      lodash-es: 4.18.1
+      lodash-unified: 1.0.3(@types/lodash-es@4.17.12)(lodash-es@4.18.1)(lodash@4.18.1)
+      memoize-one: 6.0.0
+      normalize-wheel-es: 1.2.0
+      vue: 3.5.43(typescript@7.0.2)
       vue-component-type-helpers: 3.3.11
 
   elementtree@0.1.7:
@@ -7802,6 +7863,12 @@ snapshots:
       '@volar/typescript': 2.4.15(typescript@5.9.3)
       '@vue/language-core': 2.2.12(typescript@5.9.3)
       typescript: 5.9.3
+
+  vue-tsc@2.2.12(typescript@7.0.2):
+    dependencies:
+      '@volar/typescript': 2.4.15(typescript@7.0.2)
+      '@vue/language-core': 2.2.12(typescript@7.0.2)
+      typescript: 7.0.2
 
   vue@3.5.43(typescript@5.9.3):
     dependencies:

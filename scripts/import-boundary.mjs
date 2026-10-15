@@ -125,7 +125,7 @@ export const RULES = [
   {
     name: "plugins-domain-no-db-no-host",
     docRef: "CR-060 · AVX-PLUG-001 §0.3",
-    fromDir: /^plugins\/[^/]+\//,
+    fromDir: /^(plugins|surfaces)\/[^/]+\//,
     forbid: [
       { pattern: /^@aervox\/(database|schema|repositories)($|\/)/, label: "数据库/模式/仓储" },
       { pattern: /^@libsql\//, label: "@libsql/client" },

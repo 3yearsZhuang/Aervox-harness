@@ -39,8 +39,10 @@ export const ALLOWED_DUPLICATES = new Map([
     new Set([
       "packages/ui",
       "packages/ui-host",
-      "plugins/workbench-ui",
-      "plugins/companion-ui",
+      "surfaces/workbench-ui",
+      "surfaces/companion-ui",
+      "surfaces/proactive-ui",
+      "surfaces/panels-ui",
       "apps/web",
       "apps/desktop",
     ]),
@@ -54,7 +56,7 @@ export const ALLOWED_DUPLICATES = new Map([
   ],
 ]);
 
-export function getSubpackageJsonPaths(roots = ["apps", "packages", "plugins"]) {
+export function getSubpackageJsonPaths(roots = ["apps", "packages", "plugins", "surfaces"]) {
   const paths = [];
   for (const root of roots) {
     if (!existsSync(root)) continue;

@@ -77,7 +77,7 @@ P1 表示应优先修复的核心行为错误；P2 表示明确缺陷或需要�
 
 ### HYG-01 · 桌面端丢弃当前会话 ID
 
-**位置**：[desktop-transport.ts](../../packages/api-client/src/desktop-transport.ts) 115–123 行；[preload API](../../apps/desktop/src/preload/domains/aervox-api.ts) 29–56 行；[桌面主进程](../../apps/desktop/src/main/index.ts) 650–673 行。调用方[工作台组件](../../plugins/workbench-ui/src/AervoxWorkbench.vue) 337 行传入 `activeSessionId`。
+**位置**：[desktop-transport.ts](../../packages/api-client/src/desktop-transport.ts) 115–123 行；[preload API](../../apps/desktop/src/preload/domains/aervox-api.ts) 29–56 行；[桌面主进程](../../apps/desktop/src/main/index.ts) 650–673 行。调用方[工作台组件](../../surfaces/workbench-ui/src/AervoxWorkbench.vue) 337 行传入 `activeSessionId`。
 
 `desktopTransport.streamTurn` 将第一个参数命名为 `_sessionId` 并丢弃；桥协议没有传递该字段，主进程改用 `resolveDesktopSessionId(env)`，通常得到 `desktop_default`。在会话 A、B 间切换后，发送请求仍落到同一个后端会话，历史与项目上下文无法按所选会话区分。
 
@@ -97,7 +97,7 @@ P1 表示应优先修复的核心行为错误；P2 表示明确缺陷或需要�
 
 ### HYG-03 · 录音启动不感知取消，卸载不收回资源
 
-**位置**：[voice-input-recorder.ts](../../packages/api-client/src/voice-input-recorder.ts) 49–89 行；[useWorkbenchComposer.ts](../../packages/ui/src/composables/useWorkbenchComposer.ts)；[工作台组件](../../plugins/workbench-ui/src/AervoxWorkbench.vue) 516–526 行。
+**位置**：[voice-input-recorder.ts](../../packages/api-client/src/voice-input-recorder.ts) 49–89 行；[useWorkbenchComposer.ts](../../packages/ui/src/composables/useWorkbenchComposer.ts)；[工作台组件](../../surfaces/workbench-ui/src/AervoxWorkbench.vue) 516–526 行。
 
 `start()` 等待 `getUserMedia` 后直接启动资源，直到末尾才置 `isRunning=true`；授权尚未返回时 `stop()` 因 `isRunning=false` 直接退出。另一个缺口是 Composer 没有 scope dispose，工作台卸载只清附件，没有停止录音及其后续转写。
 
@@ -219,7 +219,7 @@ stop 只停止未来调度、清定时器和 IPC，没有等待 `isTaskRunning` 
 | [gpt-sovits.ts](../../apps/api/src/modules/platform/voice/gpt-sovits.ts):288 | `voiceReferenceFingerprint` | 无生产/测试消费；voice barrel 通配再导出，先确认不承诺外部 API；createHash 仅服务此函数 |
 | [proactive/routes.ts](../../apps/api/src/modules/proactive/proactive/routes.ts):82 | `validDistillationStatus` | 模块内部未调用，对应类型导入仅供此函数 |
 | [proactive-source-adapters.ts](../../apps/desktop/src/main/proactive-source-adapters.ts):1376 | `createProactiveCapabilityProbe` | 当前 main 124 行自行装配，额外处理来源；删除前以实际装配为准 |
-| [配置字段组件](../../plugins/panels-ui/src/plugin/PluginConfigFieldInput.vue):54 | `onInputChange` | 模板 137 行已内联 |
+| [配置字段组件](../../surfaces/panels-ui/src/plugin/PluginConfigFieldInput.vue):54 | `onInputChange` | 模板 137 行已内联 |
 | 同文件 57 行 | `onTextChange` | 模板 144 行已内联 |
 | 同文件 60 行 | `onNumberChange` | 模板 150 行已内联 |
 
@@ -262,7 +262,7 @@ git grep -n -E 'resolveI18n|voiceReferenceFingerprint|validDistillationStatus|cr
 | `apps/desktop/src/main/proactive-source-adapters.ts` | 1,383 | 平台实现与来源生命周期 |
 | `packages/repositories/src/repositories/sqlite/learning-repository.ts` | 1,317 | 查询投影、统计与写入责任 |
 | `apps/desktop/src/main/index.ts` | 1,313 | IPC、窗口、采集与退出编排，优先围绕 HYG-01 补跨层测试 |
-| `plugins/panels-ui/src/llm/ModelRuntimePanel.vue` | 1,000 | 异步操作、轮询、错误和资源状态 |
+| `surfaces/panels-ui/src/llm/ModelRuntimePanel.vue` | 1,000 | 异步操作、轮询、错误和资源状态 |
 
 建议随着具体修复抽离责任，不把“大文件”当作必须重写的证据。全仓已有 strict TypeScript、边界和可移除守卫，当前未配置通用死代码/克隆棘轮；可先对内部 unused 符号和新增重复建立增量基线，再决定工具，避免大规模误报阻断工作。
 

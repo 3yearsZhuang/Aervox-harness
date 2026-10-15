@@ -118,7 +118,7 @@ export function inspectFileForDuplicateTypes(filePath, content, exportedNames) {
 }
 
 export function runInspection(
-  targetDirs = [...TARGET_DIRS, ...discoverPluginSourceDirs()],
+  targetDirs = [...TARGET_DIRS, ...discoverPluginSourceDirs("plugins"), ...discoverPluginSourceDirs("surfaces")],
   contractsDir = CONTRACTS_SRC_DIR,
 ) {
   const exportedNames = collectContractExports(contractsDir);

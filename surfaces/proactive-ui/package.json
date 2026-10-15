@@ -1,10 +1,10 @@
 {
-  "name": "@aervox/plugin-panels-ui",
+  "name": "@aervox/plugin-proactive-ui",
   "version": "0.1.0",
   "license": "AGPL-3.0-or-later",
   "private": true,
   "type": "module",
-  "description": "First-party settings panels (model, local models, persona, voice, plugin management) contributed to the workbench via registry slots.",
+  "description": "Proactive companion UI surface (direction D): visual-novel dialogue box, two proactive suggestion cards, de-emphasized whisper input.",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -16,16 +16,17 @@
   "dependencies": {
     "@aervox/api-client": "workspace:*",
     "@aervox/contracts": "workspace:*",
-    "@aervox/ui": "workspace:*"
+    "@aervox/ui": "workspace:*",
+    "@aervox/ui-host": "workspace:*"
   },
   "peerDependencies": {
-    "element-plus": "^2.11.5",
     "lucide-vue-next": "^0.468.0",
     "vue": "^3.5.21"
   },
   "devDependencies": {
-    "element-plus": "^2.11.5",
+    "@aervox/live2d": "workspace:*",
     "lucide-vue-next": "^0.468.0",
+    "typescript": "^5.8.3",
     "vue": "^3.5.43",
     "vue-tsc": "^2.2.12"
   }
