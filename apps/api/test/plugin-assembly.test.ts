@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import Fastify from 'fastify';
 import { isKnownStreamEventType, registerPluginApiContribution, resetPluginApiContributions } from '@aervox/contracts';
 import type { PluginHostServices, ServerPluginRegistration } from '@aervox/host-plugin-api';
-import { assembleFirstPartyPlugins, createHttpEndpointSink, mountPluginHttpEndpoints } from '../src/plugin-assembly.js';
-import { ServerPluginRegistry } from '../src/modules/ecosystem/plugins/turn-plugins/registry.js';
+import { assembleFirstPartyPlugins, createHttpEndpointSink, mountPluginHttpEndpoints } from '@aervox/host-runtime/plugin-assembly';
+import { ServerPluginRegistry } from '@aervox/host-runtime/modules/ecosystem/plugins/turn-plugins/registry';
 
 const services = () => ({}) as PluginHostServices;
 const loader = (registration: ServerPluginRegistration) => ({ pluginId: registration.pluginId, load: async () => ({ default: registration }) });

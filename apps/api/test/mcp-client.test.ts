@@ -6,8 +6,8 @@ import {
   McpHttpClient,
   McpUpstreamError,
   extractRpcResponse,
-} from "../src/modules/ecosystem/mcp/client.js";
-import { classifyToolSafety, maskToken, mcpToolId } from "../src/modules/ecosystem/mcp/service.js";
+} from "@aervox/host-runtime/modules/ecosystem/mcp/client";
+import { classifyToolSafety, maskToken, mcpToolId } from "@aervox/host-runtime/modules/ecosystem/mcp/service";
 
 describe("extractRpcResponse（SSE 响应提取）", () => {
   it("从多条 data 行中提取与请求 id 匹配的 JSON-RPC 响应", () => {

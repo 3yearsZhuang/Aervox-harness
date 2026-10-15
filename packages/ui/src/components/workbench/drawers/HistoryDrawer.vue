@@ -6,7 +6,7 @@ import { renderMarkdown } from '../../../utils/markdown';
 import { AervoxDrawer } from '../../../primitives';
 
 const { layout, conversation } = useWorkbenchContext();
-const { assistantDisplayName, historyOpen } = layout;
+const { companionDisplayName, historyOpen } = layout;
 const { story, historyViewport } = conversation;
 
 function attachmentIconFor(mediaType: string) {
@@ -27,7 +27,7 @@ function attachmentIconFor(mediaType: string) {
   >
     <div ref="historyViewport" class="vn-history-list">
       <p v-for="line in story" :key="line.id" class="vn-history-line" :class="line.speaker">
-        <span class="vn-history-speaker">{{ line.speaker === 'assistant' ? assistantDisplayName : '你' }}</span>
+        <span class="vn-history-speaker">{{ line.speaker === 'assistant' ? companionDisplayName : '你' }}</span>
         <span class="vn-history-text">
           <span v-if="line.speaker === 'assistant'" class="markdown-body" v-html="renderMarkdown(line.text || '…')" />
           <template v-else>{{ line.text }}</template>

@@ -263,7 +263,19 @@ export class McpService {
    * 已启用服务器的存量注册行重新挂代理 handler（不触网，失败静默——下次
    * 手动/接入同步即可修复）。
    */
+  private readonly proxyDisposers = new Map<string, () => void>();
+  private readonly proxySignatures = new Map<string, string>();
+
+  /** MCP connections own their tool authorization independently of declarative plugin grants. */
+  async allowsTool(tool: { id: string; name: string; pluginId?: string | null }): Promise<boolean> {
+    if (!tool.pluginId?.startsWith("mcp:")) return false;
+    const serverId = tool.pluginId.slice(4);
+    return tool.id === tool.name && tool.id.startsWith(`mcp__${serverId}__`)
+      && (await this.deps.repo.getServer(serverId))?.enabled === 1;
+  }
+
   async restoreOnStartup(): Promise<void> {
+    const active = new Set<string>();
     const enabled = await this.deps.repo.listEnabledServers();
     for (const row of enabled) {
       const prefix = `mcp__${row.id}__`;
@@ -271,8 +283,16 @@ export class McpService {
         tool.id.startsWith(prefix),
       );
       for (const tool of tools) {
-        this.registerProxyHandler(row.id, tool.id.slice(prefix.length));
+        active.add(tool.id);
+        const signature = JSON.stringify(tool);
+        if (!this.proxyDisposers.has(tool.id) || this.proxySignatures.get(tool.id) !== signature) {
+          this.registerProxyHandler(row.id, tool.id.slice(prefix.length));
+          this.proxySignatures.set(tool.id, signature);
+        }
       }
+    }
+    for (const [id, dispose] of this.proxyDisposers) {
+      if (!active.has(id)) { dispose(); this.proxyDisposers.delete(id); this.proxySignatures.delete(id); }
     }
   }
 
@@ -323,9 +343,11 @@ export class McpService {
   }
 
   private registerProxyHandler(serverId: string, toolName: string): void {
-    this.deps.toolRuntime.registerHandler(mcpToolId(serverId, toolName), {
+    const id = mcpToolId(serverId, toolName);
+    this.proxyDisposers.get(id)?.();
+    this.proxyDisposers.set(id, this.deps.toolRuntime.registerHandler(id, {
       call: async (_tenant, args, control) => this.callRemote(serverId, toolName, args, control.signal),
-    });
+    }));
   }
 
   /** 把远程工具清单落注册表（幂等），并注销远端已下线的工具 */
@@ -353,6 +375,8 @@ export class McpService {
     const existing = await this.deps.toolRuntime.listTools();
     for (const tool of existing) {
       if (tool.id.startsWith(prefix) && !seen.has(tool.id)) {
+        this.proxyDisposers.get(tool.id)?.();
+        this.proxyDisposers.delete(tool.id);
         await this.deps.toolRuntime.unregisterTool(tool.id);
       }
     }
@@ -363,6 +387,8 @@ export class McpService {
     const tools = await this.deps.toolRuntime.listTools();
     for (const tool of tools) {
       if (tool.id.startsWith(prefix)) {
+        this.proxyDisposers.get(tool.id)?.();
+        this.proxyDisposers.delete(tool.id);
         await this.deps.toolRuntime.unregisterTool(tool.id);
       }
     }

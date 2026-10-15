@@ -85,23 +85,13 @@ export async function failTurnWithError(
   attemptId: string,
   message: string,
   code = "MODEL_UNAVAILABLE",
+  expectedFencingToken = 0,
 ): Promise<void> {
-  await store.appendEvent({
-    turnId,
-    attemptId,
-    sequence: await store.nextSequence(turnId),
-    eventType: "error",
-    data: {
-      code,
-      retryable: false,
-      message,
-      lastSequence: Math.max(0, (await store.nextSequence(turnId)) - 1),
-    },
-    safetyDecision: "approved",
-    // B1：Attempt 未被 claim（fencing=0）；携带期望值使事件写入走 fencing CAS（抢占后自然被拒）
-    expectedFencingToken: 0,
-  }).catch(() => undefined);
-  await store.finalizeAttempt({ turnId, attemptId, status: "Failed" }).catch(() => undefined);
+  await store.finalizeAttemptWithEvent({
+    turnId, attemptId, status: "Failed", expectedFencingToken,
+    sequence: await store.nextSequence(turnId), eventType: "error",
+    eventData: { code, retryable: false, message }, safetyDecision: "approved",
+  });
 }
 
 /**
@@ -120,12 +110,13 @@ export async function runDshAdapterTurn(
     attemptId: string;
     userMessage: string;
     systemPrompt?: string;
+    preparationFencingToken?: number;
   },
   onFinalized?: (status: "Completed" | "Failed" | "Interrupted") => Promise<void>,
 ): Promise<void> {
   const resolved = await resolveDshTurnAdapter();
   if (!resolved.ok) {
-    await failTurnWithError(store, input.turnId, input.attemptId, resolved.reason, "ADAPTER_UNAVAILABLE");
+    await failTurnWithError(store, input.turnId, input.attemptId, resolved.reason, "ADAPTER_UNAVAILABLE", input.preparationFencingToken);
     await repo.updateTurnStatus(tenant, input.turnId, "Failed").catch(() => undefined);
     return;
   }

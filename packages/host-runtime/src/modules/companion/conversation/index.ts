@@ -24,9 +24,17 @@ import {
 import { createSqliteSubagentPort, createSqliteResumeSource, resumeCommittedTurns, SqliteExecutionStore } from "@aervox/host-agent";
 import { buildLoopProvider } from "./llm-adapter.js";
 import { registerConversationRoutes } from "./routes.js";
+import { executeConversationTurn, type ConversationRouteDeps, type ConversationTurnInput } from "./execution.js";
+export type { ConversationTurnInput } from "./execution.js";
+export interface ConversationHost {
+  repo: SqliteConversationRepository;
+  execute(input: ConversationTurnInput): Promise<void>;
+  resume(signal?: AbortSignal): Promise<unknown>;
+  abort(): void;
+}
 import { UserQuestionCoordinator } from "./user-question-coordinator.js";
 
-export function registerConversationModule(ctx: ModuleDependencies<"app" | "client" | "db" | "getPersona" | "getPluginRegistrations" | "llmConfigService" | "memoryRecall" | "modelRoutingService" | "observability" | "pluginHostServices" | "pluginRegistry" | "proactiveActionAuthorizer" | "proactiveRepository" | "safetyService" | "toolRuntime" | "workflows">): void {
+export function registerConversationModule(ctx: ModuleDependencies<"app" | "client" | "db" | "getPersona" | "getPluginRegistrations" | "llmConfigService" | "memoryRecall" | "modelRoutingService" | "observability" | "pluginHostServices" | "pluginRegistry" | "proactiveActionAuthorizer" | "proactiveRepository" | "safetyService" | "toolRuntime" | "workflows">, options: { startupRecovery?: boolean; prepareExecution?: () => Promise<void>; isMcpToolAllowed?: ConversationRouteDeps["isMcpToolAllowed"] } = {}): ConversationHost {
   const {
     app,
     db,
@@ -50,13 +58,15 @@ export function registerConversationModule(ctx: ModuleDependencies<"app" | "clie
     // 缺陷 C：挂起提问持久化到 pending_user_questions，进程重启后仍可作答/查询
     new SqliteUserQuestionRepository(db),
   );
-  // Startup recovery competes via the same fencing CAS as Worker recovery. A finalized attempt is never revived.
-  if (loadApiConfig().loopResume === "local-results") {
-    const controller = new AbortController();
-    const local = { workspaceId: "local", subjectUserId: "local" };
-    let recovery: Promise<unknown> | undefined;
-    app.addHook("onReady", async () => {
-      recovery = resumeCommittedTurns({
+  const executionAbort = new AbortController();
+  const running = new Set<Promise<unknown>>();
+  const track = <T>(task: Promise<T>): Promise<T> => {
+    running.add(task);
+    void task.finally(() => running.delete(task)).catch(() => undefined);
+    return task;
+  };
+  const local = { workspaceId: "local", subjectUserId: "local" };
+  const resume = (signal?: AbortSignal) => track(resumeCommittedTurns({
         baseSystemPrompt: hostPromptPolicy(),
         source: createSqliteResumeSource({ repo: conversationRepo, client: ctx.client }),
         createStore: () => createBroadcastingStore(new SqliteExecutionStore(conversationRepo, local)),
@@ -65,12 +75,24 @@ export function registerConversationModule(ctx: ModuleDependencies<"app" | "clie
           modelRoutingService: ctx.modelRoutingService,
         }),
         deletionGate: { isBlocked: () => privacyRepo.hasPendingDeletionRequest(local) },
-        signal: controller.signal,
-      }).catch(error => app.log.error({ err: error }, "startup resume failed"));
+        signal: signal ? AbortSignal.any([signal, executionAbort.signal]) : executionAbort.signal,
+      }));
+  if (options.startupRecovery !== false && loadApiConfig().loopResume === "local-results") {
+    const controller = new AbortController();
+    let recovery: Promise<unknown> | undefined;
+    app.addHook("onReady", async () => {
+      recovery = resume(controller.signal).catch(error => app.log.error({ err: error }, "startup resume failed"));
     });
     app.addHook("onClose", async () => { controller.abort(); await recovery; });
   }
-  registerConversationRoutes(app, conversationRepo, {
+  app.addHook("onClose", async () => {
+    executionAbort.abort(new Error("host_shutdown"));
+    await Promise.allSettled(running);
+  });
+  const deps: ConversationRouteDeps = {
+    signal: executionAbort.signal,
+    prepareExecution: options.prepareExecution,
+    isMcpToolAllowed: options.isMcpToolAllowed,
     toolRuntime,
     llmConfigService,
     modelRoutingService: ctx.modelRoutingService,
@@ -119,5 +141,11 @@ export function registerConversationModule(ctx: ModuleDependencies<"app" | "clie
     proactiveRepository,
     memoryRecall: ctx.memoryRecall,
     observability: ctx.observability,
-  });
+  };
+  const execute = (input: ConversationTurnInput) => track(executeConversationTurn(conversationRepo, { ...local, ...(input.actorId ? { actorId: input.actorId } : {}) }, input, deps));
+  registerConversationRoutes(app, conversationRepo, deps, execute);
+  return {
+    repo: conversationRepo, resume, execute,
+    abort: () => executionAbort.abort(new Error("host_shutdown")),
+  };
 }

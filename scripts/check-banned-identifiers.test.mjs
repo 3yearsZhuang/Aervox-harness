@@ -17,7 +17,7 @@ test("check-banned-identifiers: detects tenantId outside allowlist", () => {
   const code = `
     export function getUser(tenantId: string) { return tenantId; }
   `;
-  const violations = inspectFile("apps/api/src/modules/foo.ts", code);
+  const violations = inspectFile("packages/host-runtime/src/modules/foo.ts", code);
   assert.equal(violations.length, 2);
   assert.equal(violations[0].identifier, "tenantId");
   assert.equal(violations[0].rule, "ban-tenant-id-code");

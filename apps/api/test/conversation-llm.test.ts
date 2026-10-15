@@ -104,4 +104,40 @@ describe("Agent Loop 阶段 2e：AERVOX_LOOP_PROVIDER=llm 真实模型接线", (
     expect(errorEvent?.data.message).toContain("anthropic_unsupported");
     expect(eventsRes.body).not.toContain('"eventType":"done"');
   });
+
+  it.each([
+    { personaName: undefined, metadata: {}, expectedName: "小隅", expectedAddress: "你" },
+    { personaName: undefined, metadata: { companionName: "团子", userAddress: "掌柜" }, expectedName: "团子", expectedAddress: "掌柜" },
+    { personaName: "雾老师", metadata: { companionName: "团子", userAddress: "掌柜" }, expectedName: "雾老师", expectedAddress: "掌柜" },
+  ])("模型实际请求遵循身份优先级：$expectedName / $expectedAddress", async ({ personaName, metadata, expectedName, expectedAddress }) => {
+    const requests: Array<{ messages: Array<{ role: string; content: string }> }> = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+      requests.push(JSON.parse(String(init.body)));
+      return new Response(llmSse("收到。"), { status: 200 });
+    }));
+    if (personaName) {
+      const createdPersona = await app.inject({
+        method: "POST", url: "/v1/personas", headers,
+        payload: { name: personaName, config: { systemPromptAppend: "请保持简洁。" } },
+      });
+      expect(createdPersona.statusCode).toBe(201);
+      const activated = await app.inject({
+        method: "POST", url: `/v1/personas/${createdPersona.json().persona.id}/activate`, headers, payload: {},
+      });
+      expect(activated.statusCode).toBe(200);
+    }
+    const created = await app.inject({
+      method: "POST", url: "/v1/sessions/ses_identity/turns", headers,
+      payload: { ...turnPayload, metadata },
+    });
+    expect(created.statusCode).toBe(201);
+    const events = await app.inject({ method: "GET", url: `/v1/turns/${created.json().turnId}/events`, headers });
+    expect(parseSse(events.body).at(-1)?.data.status).toBe("Completed");
+    expect(requests.length).toBeGreaterThan(0);
+    const system = requests[0]!.messages.filter(message => message.role === "system").map(message => message.content).join("\n");
+    expect(system).toContain(`你是 ${expectedName}`);
+    expect(system).toContain(`称呼用户为「${expectedAddress}」`);
+    expect(system).toContain("思隅是你所在的空间与介质，不是你的名字");
+    if (personaName) expect(system).toContain("请保持简洁。");
+  });
 });

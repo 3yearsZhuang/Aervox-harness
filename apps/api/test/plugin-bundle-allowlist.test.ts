@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/api — 出厂源打包允许清单一致性（CR-060）
  *
  * 同一份「`.aervox-plugin` 分发包允许清单」存在两个消费者：
- * - 构建期导出脚本 `scripts/export-plugins.mjs`（生成 `dist-plugins/*.aervox-plugin`）；
+ * - 构建期导出脚本 `scripts/export-plugins.mjs`（生成 `dist/plugins/*.aervox-plugin`）；
  * - 运行时出厂集市安装 `installFromMarket`（API 从 `plugins/<id>/` 就地打包）。
  *
  * 两者若漂移，会出现「导出的包能装、集市就地装的包装不上」这类只有用户才能发现的缺陷；
@@ -27,7 +27,7 @@ import {
   PLUGIN_BUNDLE_LOCAL_FILENAMES,
   classifyPluginBundleEntry,
   collectMarketBundleFiles,
-} from "../src/modules/ecosystem/plugins/package-bundle.js";
+} from "@aervox/host-runtime/modules/ecosystem/plugins/package-bundle";
 
 const CLASSIFICATION_SAMPLES: Array<[string, boolean]> = [
   ["plugin.manifest.json", false],

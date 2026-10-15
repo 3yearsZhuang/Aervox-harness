@@ -16,7 +16,7 @@ import {
   GptSovitsLocalProvider,
   GptSovitsRemoteProvider,
   SenseVoiceLocalProvider,
-} from "../src/modules/platform/voice/index.js";
+} from "@aervox/host-runtime/modules/platform/voice/index";
 
 const headers = {
   "x-workspace-id": "ws_voice",
