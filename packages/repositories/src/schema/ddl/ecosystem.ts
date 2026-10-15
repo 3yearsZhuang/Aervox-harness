@@ -24,6 +24,7 @@ export async function createEcosystemTables(client: Client): Promise<void> {
   await client.execute(`
       CREATE TABLE IF NOT EXISTS plugins (
         id TEXT PRIMARY KEY,
+        lifecycle_generation TEXT NOT NULL DEFAULT (lower(hex(randomblob(16)))),
         publisher TEXT NOT NULL,
         version TEXT NOT NULL,
         checksum TEXT NOT NULL,
@@ -84,6 +85,11 @@ export async function createEcosystemTables(client: Client): Promise<void> {
     `);
   // CR-056: implementation availability is independent of user intent; existing rows remain compatible.
   await addColumnIfMissing(client, "plugins", "availability", "availability TEXT NOT NULL DEFAULT 'available'");
+  // SQLite ALTER TABLE requires a constant default. Backfill legacy rows once;
+  // repository inserts explicitly generate a new identity thereafter.
+  await addColumnIfMissing(client, "plugins", "lifecycle_generation", "lifecycle_generation TEXT NOT NULL DEFAULT ''");
+  await client.execute("UPDATE plugins SET lifecycle_generation = lower(hex(randomblob(16))) WHERE lifecycle_generation = ''");
+  await addColumnIfMissing(client, "plugins", "bundle_generation", "bundle_generation TEXT");
   // AST-04 插件元数据列补齐（旧库 addColumnIfMissing 兼容）
     await addColumnIfMissing(client, "plugins", "display_name", "display_name TEXT");
   await addColumnIfMissing(client, "plugins", "repository", "repository TEXT");

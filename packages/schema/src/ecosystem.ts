@@ -34,9 +34,13 @@ export const plugins = sqliteTable(
   {
     id: text("id").primaryKey(), // 插件名（标识）
     availability: text("availability").notNull().default("available"),
+    /** Irreversible execution identity across disable/re-enable, availability changes and replacement. */
+    lifecycleGeneration: text("lifecycle_generation").notNull().default(sql`(lower(hex(randomblob(16))))`),
     publisher: text("publisher").notNull(),
     version: text("version").notNull(),
     checksum: text("checksum").notNull(),
+    /** Immutable bundle directory selected atomically with its registrations. Null is legacy storage. */
+    bundleGeneration: text("bundle_generation"),
     signature: text("signature"),
     permissions: text("permissions", { mode: "json" }), // 插件声明的权限
     installSource: text("install_source").notNull().default("registry"), // "registry" | "local" | "marketplace"

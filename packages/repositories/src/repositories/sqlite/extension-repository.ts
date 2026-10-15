@@ -80,6 +80,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
         .update(plugins)
         .set({
           publisher: pluginData.publisher,
+          lifecycleGeneration: sql`lower(hex(randomblob(16)))`,
           version: pluginData.version,
           checksum: pluginData.checksum,
           signature: pluginData.signature ?? null,
@@ -99,6 +100,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
       .insert(plugins)
       .values({
         id: pluginData.id,
+        lifecycleGeneration: sql`lower(hex(randomblob(16)))`,
         publisher: pluginData.publisher,
         version: pluginData.version,
         checksum: pluginData.checksum,
@@ -117,7 +119,10 @@ export class SqliteExtensionRepository implements IExtensionRepository {
   }
 
   async setPluginAvailability(id: string, availability: "available" | "missing" | "invalid" | "unreadable"): Promise<void> {
-    await this.db.update(plugins).set({ availability }).where(eq(plugins.id, id));
+    await this.db.update(plugins).set({
+      availability,
+      lifecycleGeneration: sql`CASE WHEN ${plugins.availability} <> ${availability} THEN lower(hex(randomblob(16))) ELSE ${plugins.lifecycleGeneration} END`,
+    }).where(eq(plugins.id, id));
   }
 
   async listPlugins(): Promise<PluginModel[]> {
@@ -148,7 +153,11 @@ export class SqliteExtensionRepository implements IExtensionRepository {
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(plugins)
-      .set({ enabled: enabled ? 1 : 0, updatedAt: now })
+      .set({
+        enabled: enabled ? 1 : 0,
+        lifecycleGeneration: sql`CASE WHEN ${plugins.enabled} <> ${enabled ? 1 : 0} THEN lower(hex(randomblob(16))) ELSE ${plugins.lifecycleGeneration} END`,
+        updatedAt: now,
+      })
       .where(eq(plugins.id, id))
       .returning();
     return (updated as PluginModel) ?? null;

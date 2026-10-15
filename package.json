@@ -26,14 +26,17 @@
     "test:e2e:ui": "playwright test --project=ui",
     "check:boundary": "node scripts/import-boundary.mjs && node --test scripts/import-boundary.test.mjs",
     "check:ci-config": "node --test scripts/ci-scope.test.mjs",
-    "check:artifacts": "node --test scripts/export-plugins.test.mjs",
+    "check:artifacts": "pnpm --filter @aervox/contracts build && node --test scripts/export-plugins.test.mjs",
     "check:guards": "node --test scripts/check-*.test.mjs && node scripts/check-banned-identifiers.mjs && node scripts/check-host-domain-purity.mjs && node scripts/check-type-boundary.mjs && node scripts/check-dep-hoisting.mjs && node scripts/check-removable-implementation.mjs",
-    "package:plugins": "node scripts/export-plugins.mjs",
+    "package:plugins": "pnpm --filter @aervox/contracts build && node scripts/export-plugins.mjs",
     "drill:worker-contention": "node scripts/worker-write-contention-drill.mjs",
     "dist:desktop": "turbo run native:build --filter=@aervox/native-runtime && turbo run build --filter=@aervox/desktop && pnpm --filter @aervox/desktop dist:pack",
     "test:cli:integration": "turbo run build --filter=@aervox/cli --filter=@aervox/api && node --test scripts/cli-smoke.test.mjs",
     "check:hls": "turbo run build --filter=@aervox/core... && node --test scripts/hls-agent.test.mjs",
-    "check:dependency-audit": "node scripts/check-dependency-audit.mjs"
+    "check:dependency-audit": "node scripts/check-dependency-audit.mjs",
+    "plugin": "pnpm --filter @aervox/contracts build && node scripts/plugin-cli.mjs",
+    "check:standards": "node --test scripts/plugin-cli.test.mjs scripts/openapi-compat.test.mjs && node scripts/plugin-cli.mjs check --all && node scripts/openapi-compat.mjs",
+    "update:api-baseline": "node scripts/openapi-compat.mjs --update"
   },
   "devDependencies": {
     "@babel/parser": "^8.0.4",

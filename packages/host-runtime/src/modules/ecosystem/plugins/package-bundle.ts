@@ -17,6 +17,8 @@ import { strFromU8, strToU8 } from "fflate";
 import { executeArchive, ARCHIVE_LIMITS, isSafeArchivePath } from "../../../shared/archive-worker.js";
 import {
   pluginManifestSchema,
+  validatePluginBundleFiles,
+  type PluginConfigField,
   type PluginManifest,
   type PluginPackageInspection,
   type PluginMarketItem,
@@ -35,7 +37,7 @@ import { withSkillMutation, parseFrontmatter, isValidSkillName } from "../skills
 import type { PluginBundleStore } from "./bundle-store.js";
 import type { PluginConfigService } from "./config-service.js";
 import type { PluginService } from "./service.js";
-import { parseConfigSchema } from "./config-schema.js";
+import { parseConfigSchema, diffSchema, validateValues } from "./config-schema.js";
 
 export const PLUGIN_ARCHIVE_LIMITS = ARCHIVE_LIMITS;
 
@@ -66,6 +68,63 @@ export interface BundleEngineDeps {
   bundleStore: PluginBundleStore;
   builtinPluginsSourceRoot: string;
   service: PluginService;
+}
+
+/** Resolve the same names, descriptions and source bytes for preview and activation. */
+function resolveBundleSkills(
+  manifest: PluginManifest,
+  files: Readonly<Record<string, Uint8Array>>,
+): { skills: Array<PluginDeclaredSkill & { content: string; description: string }>; issues: string[] } {
+  const skills: Array<PluginDeclaredSkill & { content: string; description: string }> = [];
+  const issues: string[] = [];
+  const names = new Set<string>();
+  const claimedEntries = new Set<string>();
+  const readEntry = (entry: string): string | undefined => {
+    const bytes = files[entry];
+    if (!bytes?.length) {
+      issues.push(`Missing or empty skill entry: ${entry}`);
+      return undefined;
+    }
+    try {
+      return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    } catch {
+      issues.push(`Invalid UTF-8 skill entry: ${entry}`);
+      return undefined;
+    }
+  };
+  const add = (name: string, content: string, description?: string) => {
+    if (names.has(name)) return;
+    names.add(name);
+    skills.push({ name, content, description: description ?? (parseFrontmatter(content).description || name) });
+  };
+
+  // Explicit named declarations take precedence over conventional file discovery.
+  for (const skill of manifest.spec.skills ?? []) {
+    if (skill.entry) claimedEntries.add(skill.entry);
+    const content = skill.entry ? readEntry(skill.entry) : skill.content ?? "";
+    if (content !== undefined) add(skill.name, content, skill.description);
+  }
+
+  const rootEntry = manifest.spec.skill ?? (files["SKILL.md"] ? "SKILL.md" : files["skill.md"] ? "skill.md" : undefined);
+  if (rootEntry) {
+    if (!claimedEntries.has(rootEntry) && !names.has(manifest.metadata.id)) {
+      const content = readEntry(rootEntry);
+      if (content !== undefined) {
+        add(manifest.metadata.id, content, parseFrontmatter(content).description || manifest.metadata.description);
+      }
+    }
+    claimedEntries.add(rootEntry);
+  }
+
+  // Stable ordering also makes SKILL.md win over skill.md if both are present.
+  for (const entry of Object.keys(files).sort()) {
+    if (claimedEntries.has(entry) || !entry.startsWith("skills/") || (!entry.endsWith("/SKILL.md") && !entry.endsWith("/skill.md"))) continue;
+    const name = entry.split("/")[1];
+    if (!name || names.has(name)) continue;
+    const content = readEntry(entry);
+    if (content !== undefined) add(name, content);
+  }
+  return { skills, issues };
 }
 
 /**
@@ -228,6 +287,8 @@ export async function inspectPluginBundle(
       issues.push(error instanceof Error ? error.message : "Invalid config schema");
     }
   }
+  const validation = validatePluginBundleFiles(files);
+  issues.push(...validation.issues.map(issue => `${issue.path}: ${issue.message}`));
   const pageIds = new Set<string>();
   for (const page of manifest.spec.pages ?? []) {
     if (pageIds.has(page.id)) issues.push(`Duplicate page: ${page.id}`);
@@ -243,41 +304,9 @@ export async function inspectPluginBundle(
   );
 
   // 2. 收集技能
-  const skills: Array<{ name: string; description: string }> = [];
-  if (manifest.spec.skills) {
-    for (const s of manifest.spec.skills) {
-      skills.push({
-        name: s.name,
-        description: s.description ?? "",
-      });
-    }
-  }
-
-  const rootSkillBytes = files["SKILL.md"] ?? files["skill.md"];
-  if (rootSkillBytes && !skills.some((s) => s.name === pluginId)) {
-    const text = strFromU8(rootSkillBytes);
-    const fm = parseFrontmatter(text);
-    skills.push({
-      name: fm.name || pluginId,
-      description: fm.description || manifest.metadata.description || "",
-    });
-  }
-
-  for (const [entryName, content] of Object.entries(files)) {
-    if (entryName.startsWith("skills/") && (entryName.endsWith("/SKILL.md") || entryName.endsWith("/skill.md"))) {
-      const parts = entryName.split("/");
-      if (parts.length >= 3 && parts[1]) {
-        const skillName = parts[1];
-        if (!skills.some((s) => s.name === skillName)) {
-          const fm = parseFrontmatter(strFromU8(content));
-          skills.push({
-            name: skillName,
-            description: fm.description || "",
-          });
-        }
-      }
-    }
-  }
+  const resolvedSkills = resolveBundleSkills(manifest, files);
+  issues.push(...resolvedSkills.issues);
+  const skills = resolvedSkills.skills.map(({ name, description }) => ({ name, description }));
 
   // 3. 收集工具
   const tools: Array<{
@@ -322,7 +351,7 @@ export async function inspectPluginBundle(
   }));
 
   // 6. 权限与数据范围推断（严格对齐 PRD CAP-020）
-  const permissions: string[] = [];
+  const permissions: string[] = [...validation.permissions];
   const dataScope: string[] = [];
 
   for (const sensor of sensors) {
@@ -443,41 +472,9 @@ export async function installPluginFromBundle(
   const pluginId = manifest.metadata.id;
 
   // 1. 组装技能定义
-  const declaredSkills: PluginDeclaredSkill[] = [];
-  if (manifest.spec.skills) {
-    for (const s of manifest.spec.skills) {
-      declaredSkills.push({
-        name: s.name,
-        description: s.description,
-        content: s.content ?? "",
-      });
-    }
-  }
-
-  const rootSkillBytes = files["SKILL.md"] ?? files["skill.md"];
-  if (rootSkillBytes && !declaredSkills.some((s) => s.name === pluginId)) {
-    const content = strFromU8(rootSkillBytes);
-    declaredSkills.push({
-      name: pluginId,
-      description: manifest.metadata.description,
-      content,
-    });
-  }
-
-  for (const [entryName, contentBytes] of Object.entries(files)) {
-    if (entryName.startsWith("skills/") && (entryName.endsWith("/SKILL.md") || entryName.endsWith("/skill.md"))) {
-      const parts = entryName.split("/");
-      if (parts.length >= 3 && parts[1]) {
-        const skillName = parts[1];
-        if (!declaredSkills.some((s) => s.name === skillName)) {
-          declaredSkills.push({
-            name: skillName,
-            content: strFromU8(contentBytes),
-          });
-        }
-      }
-    }
-  }
+  const resolvedSkills = resolveBundleSkills(manifest, files);
+  if (resolvedSkills.issues.length) throw new Error(`Invalid plugin skills: ${resolvedSkills.issues.join("; ")}`);
+  const declaredSkills = resolvedSkills.skills;
 
   // 2. 组装工具定义
   const declaredTools: PluginDeclaredTool[] = [];
@@ -497,56 +494,67 @@ export async function installPluginFromBundle(
   }
 
   return withSkillMutation(deps.skillsRoot, async () => {
-    await deps.service.checkSkillOwnership(pluginId, declaredSkills);
+    await deps.service.checkSkillOwnership(pluginId, declaredSkills, false);
     // Recheck after acquiring the lock; another install may have completed during preparation.
     const existing = await deps.extensionRepo.getPlugin(pluginId);
     if (existing && !options.overwrite) throw new PluginAlreadyExistsError(`Plugin "${pluginId}" is already installed.`);
     options.signal?.throwIfAborted();
-    // Commit boundary: no further cancellation checks once removing/replacing installed data.
-    if (existing && options.overwrite) await deps.service.uninstallPlugin(pluginId);
-    // 3. 安装插件主记录、工具、技能与主动规则
-    const created = await deps.service.installPlugin({
-      id: pluginId,
-      publisher: manifest.metadata.publisher,
-      version: manifest.metadata.version,
-      checksum: `sha256:${inspection.checksum}`,
-      signature: inspection.signature,
-      permissions: inspection.permissions,
-      installSource: "package",
-      tools: declaredTools,
-      skills: declaredSkills,
-      proactiveSpec: manifest.spec.proactive,
-    });
-
-    // 4. 注册并持久化配置 Schema（若存在）
     const schemaBytes = files[manifest.spec.config?.entry ?? "config.schema.json"];
-    if (schemaBytes) {
-      const schemaJson = JSON.parse(strFromU8(schemaBytes));
-      await deps.configService.registerConfigSchema(pluginId, schemaJson);
-    }
-
-    // 5. 解包注册 Page 及其静态资源
-    if (manifest.spec.pages && manifest.spec.pages.length > 0) {
-      for (const page of manifest.spec.pages) {
-        await deps.configService.registerPage(pluginId, page);
-
-        // 提取 pages/<pageId>/ 下的所有静态资产并写入 BundleStore
-        const prefix = `pages/${page.id}/`;
-        for (const [filePath, fileData] of Object.entries(files)) {
-          if (filePath.startsWith(prefix) && !filePath.endsWith("/")) {
-            const relInside = filePath.slice(prefix.length);
-            await deps.bundleStore.writeAsset(
-                pluginId,
-                page.id,
-                relInside,
-                Buffer.from(fileData),
-            );
-          }
-        }
+    const fields = schemaBytes ? parseConfigSchema(JSON.parse(strFromU8(schemaBytes))) : undefined;
+    const stored = await deps.configRepo.getConfig({workspaceId: "local", subjectUserId: "local"}, pluginId);
+    const previousFields = (existing?.configSchemaJson ?? []) as PluginConfigField[];
+    // Type changes require an explicit migration; never silently reinterpret saved values or Secrets.
+    const checkTypes = (before: PluginConfigField[], after: PluginConfigField[]) => {
+      for (const previous of before) {
+        const next = after.find(field => field.key === previous.key);
+        if (!next) continue;
+        if (next.type !== previous.type) throw new Error(`Plugin configuration migration required: ${previous.key}`);
+        if (previous.children && next.children) checkTypes(previous.children, next.children);
+        if (previous.items && next.items) checkTypes([previous.items], [next.items]);
       }
+    };
+    if (fields) checkTypes(previousFields, fields);
+    const migration = fields && stored ? diffSchema(fields, stored.valuesJson as Record<string, unknown>) : undefined;
+    if (migration && fields) {
+      const result = validateValues(fields, migration.defaults);
+      if (result.issues.length) throw new Error(`Plugin configuration migration required: ${result.issues.map(issue => issue.key).join(", ")}`);
     }
-
-    return created;
+    const staged = await deps.bundleStore.stageBundle(pluginId, files, bytes, declaredSkills);
+    try {
+      options.signal?.throwIfAborted();
+      const created = await deps.service.activatePreparedBundle({
+        plugin: {
+          id: pluginId, publisher: manifest.metadata.publisher, version: manifest.metadata.version,
+          checksum: `sha256:${inspection.checksum}`, signature: inspection.signature,
+          permissions: inspection.permissions, installSource: "package",
+          configSchemaJson: fields ?? existing?.configSchemaJson ?? null,
+          configSchemaVersion: 1, proactiveSpecJson: manifest.spec.proactive ?? null,
+        },
+        generation: staged.generation, expectedGeneration: existing?.bundleGeneration ?? null,
+        expectedChecksum: existing?.checksum ?? null, expectedConfigRevision: stored?.revision ?? 0, expectedSchema: existing?.configSchemaJson ?? null,
+        tools: declaredTools.map(tool => {
+          const id = tool.id ?? tool.name;
+          return { ...tool, id: id.startsWith(`${pluginId}.`) ? id : `${pluginId}.${id}`,
+            description: tool.description ?? "", category: tool.category ?? "plugin", pluginId, builtin: false };
+        }),
+        skills: declaredSkills.map(skill => ({
+          id: skill.name, name: skill.name, description: skill.description,
+          source: "plugin", readonly: true, pluginId, contentPath: staged.skillPaths.get(skill.name)!,
+        })),
+        pages: (manifest.spec.pages ?? []).map(page => ({
+          pluginId, pageId: page.id, title: page.title, description: page.description,
+          entry: page.entry, capabilities: page.capabilities, checksum: page.checksum,
+        })),
+        ...(migration && stored ? {config: {
+          expectedRevision: stored.revision, values: migration.defaults,
+          orphanedValues: { ...(stored.orphanedValuesJson as Record<string, unknown> ?? {}), ...migration.orphaned },
+        }} : {}),
+      });
+      return created;
+    } catch (error) {
+      await deps.bundleStore.discardGeneration(pluginId, staged.generation).catch(() => undefined);
+      throw error;
+    }
   });
 }
 
@@ -559,6 +567,12 @@ export async function exportPluginBundle(
   signal?: AbortSignal,
 ): Promise<{ filename: string; bytes: Uint8Array; checksum: string }> {
   const plugin = await deps.extensionRepo.getPlugin(pluginId);
+  if (plugin?.bundleGeneration) {
+    signal?.throwIfAborted();
+    const bytes = await deps.bundleStore.readOriginalBundle(pluginId, plugin.bundleGeneration);
+    return { filename: `${pluginId}-${plugin.version}.aervox-plugin`, bytes,
+      checksum: createHash("sha256").update(bytes).digest("hex") };
+  }
   const zipFiles: Record<string, Uint8Array> = {};
 
   // 优先尝试从出厂源目录拷贝完整静态文件

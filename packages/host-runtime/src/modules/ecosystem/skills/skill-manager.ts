@@ -16,12 +16,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { SqliteSkillRegistryRepository, SkillRegistrationModel } from "@aervox/repositories";
 import { buildSkillsPrompt } from "@aervox/core";
+import { isPluginSkillName } from "@aervox/contracts";
 import { unzip } from "./zip.js";
 import { assertSkillDirectoryOwner, FileExistsError, withSkillMutation } from "./ownership.js";
 export { FileExistsError } from "./ownership.js";
 
-/** 技能目录名合法字符集（Anthropic Skills 规范）；`.` 与 `..` 会被 path.join 解析为层级，显式排除防目录穿越 */
-const SKILL_NAME_RE = /^(?!\.{1,2}$)[\w.-]+$/;
 /** 仓库根（apps/api/src/modules/ecosystem/skills 向上 6 级；dist 布局同深） */
 const repoRoot = fileURLToPath(new URL("../../../../../../", import.meta.url));
 export const DEFAULT_SKILLS_ROOT = path.join(repoRoot, "data", "skills");
@@ -47,7 +46,7 @@ function normalizeSkillName(name: string): string {
 }
 
 function isValidSkillName(name: string): boolean {
-  return SKILL_NAME_RE.test(name);
+  return isPluginSkillName(name);
 }
 export { isValidSkillName };
 

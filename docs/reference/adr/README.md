@@ -35,6 +35,8 @@
 - [ADR-026](ADR-026-ui-surface-open-ecosystem.md)：第三方界面开放与安装回滚提案。
 - [ADR-027](ADR-027-companion-identity.md)：空间名、陪伴角色名与用户称呼。
 
+- [ADR-028](ADR-028-plugin-atomic-activation.md)：声明式插件资源准备与原子激活。
+
 ## 原 CR 编号迁移索引
 
 CR 流程已退役；下列编号只作为历史别名，不再创建独立 CR 正文。旧路径内容由 Git 历史保留，当前引用指向 ADR 锚点。

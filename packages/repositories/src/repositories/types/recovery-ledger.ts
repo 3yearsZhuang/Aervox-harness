@@ -38,6 +38,9 @@ export interface ExternalSourceModel {
 }
 
 export interface PluginModel {
+  /** Changes irreversibly on activation changes or replacement; never derive this from wall-clock time. */
+  lifecycleGeneration: string;
+  bundleGeneration?: string | null;
   /** CR-056: missing/invalid/unreadable code blocks execution without changing enabled. */
   availability?: string;
   id: string;

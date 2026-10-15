@@ -281,6 +281,8 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
     expect(isFocusModeMessage(undefined)).toBe(false);
 
     const dummyCtx = {
+      signal: new AbortController().signal,
+      deadlineEpochMs: Date.now() + 15_000,
       turnId: "t_test",
       sessionId: "s_test",
       attemptId: "atp_test",
@@ -319,14 +321,17 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
     };
 
     const callable = createLLMCallable(mockProvider);
+    const signal = new AbortController().signal;
     const result = await callable.generate("user prompt", {
       systemPrompt: "system prompt",
       temperature: 0.2,
+      signal,
     });
 
     expect(result).toBe("mock result");
     expect(capturedRequest).toBeDefined();
     expect(capturedRequest.temperature).toBe(0.2);
+    expect(capturedRequest.signal).toBe(signal);
     expect(capturedRequest.context.messages).toEqual([
       { role: "system", content: "system prompt" },
       { role: "user", content: "user prompt" },

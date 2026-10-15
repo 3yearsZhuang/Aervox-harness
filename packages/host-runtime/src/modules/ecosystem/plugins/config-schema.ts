@@ -5,7 +5,7 @@
  * 参考 AstrBot `_conf_schema.json` 的公开设计（AGPLv3，仅借鉴设计、不复制代码）。
  */
 import type { PluginConfigField } from "@aervox/contracts";
-import { pluginConfigSchema } from "@aervox/contracts";
+import { PLUGIN_CONFIG_MAX_DEPTH, validatePluginConfigDefinition } from "@aervox/contracts";
 
 export interface ConfigIssue {
   key: string;
@@ -13,27 +13,14 @@ export interface ConfigIssue {
   message: string;
 }
 
-export const MAX_DEPTH = 5;
+export const MAX_DEPTH = PLUGIN_CONFIG_MAX_DEPTH;
 
-/** 解析并校验 Config Schema（含递归深度限制） */
+/** All config registration paths share the same author and installation validation. */
 export function parseConfigSchema(input: unknown): PluginConfigField[] {
-  const parsed = pluginConfigSchema.safeParse(input);
-  if (!parsed.success) {
-    const first = parsed.error.issues[0];
-    throw new Error(first ? `${first.path.join(".")}: ${first.message}` : "invalid config schema");
-  }
-  for (const field of parsed.data.fields) {
-    assertDepth(field, 1);
-  }
-  return parsed.data.fields;
-}
-
-function assertDepth(field: PluginConfigField, depth: number): void {
-  if (depth > MAX_DEPTH) {
-    throw new Error(`field "${field.key}" exceeds max nesting depth ${MAX_DEPTH}`);
-  }
-  for (const child of field.children ?? []) assertDepth(child, depth + 1);
-  if (field.items) assertDepth(field.items, depth + 1);
+  const result = validatePluginConfigDefinition(input);
+  const first = result.issues[0];
+  if (first) throw new Error(`${first.path}: ${first.message}`);
+  return result.fields!;
 }
 
 /** 依据 Schema 生成默认值对象（secret 无默认；array 默认 []；object 递归） */

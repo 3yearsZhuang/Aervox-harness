@@ -98,6 +98,8 @@ export interface PluginConfigSaveInput {
   schemaVersion: number;
   /** 期望 revision（-1 表示无条件写） */
   expectedRevision: number;
+  /** Schema used to validate this write; checked in the same transaction as values and Secrets. */
+  expectedSchema?: unknown;
   values: Record<string, unknown>;
   secretKeys: string[];
   /** Same-database Secret mutations, committed only with the matching config revision. */

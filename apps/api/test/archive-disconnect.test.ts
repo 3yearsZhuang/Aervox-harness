@@ -15,6 +15,7 @@ let baseUrl: string;
 let personaId: string;
 let bundleBase64: string;
 let packageBase64: string;
+const legacyExportUrl = "/v1/plugins/archive.legacy/export";
 const manifest = {
   apiVersion: "aervox.dev/v1", kind: "PluginManifest",
   metadata: { id: "archive.plugin", displayName: "Archive", publisher: "test", version: "1.0.0", description: "Archive test", license: "MIT" },
@@ -56,12 +57,22 @@ it.each([
   { name: "skill install", url: "/v1/skills", cancelAt: 1 },
   { name: "plugin inspection", url: "/v1/plugins/inspect-package", cancelAt: 1 },
   { name: "plugin replacement after inspection", url: "/v1/plugins/install-package", cancelAt: 2 },
-  { name: "plugin export", url: "/v1/plugins/archive.plugin/export", cancelAt: 1 },
+  { name: "legacy plugin export", url: legacyExportUrl, cancelAt: 1 },
   { name: "market install", url: "/v1/plugins/market/archive.plugin/install", cancelAt: 2 },
   { name: "Persona nested preview", url: "/v1/personas/import/preview", cancelAt: 2 },
   { name: "Persona nested import", url: "/v1/personas/import", cancelAt: 2 },
   { name: "Persona nested export", url: "persona-export", cancelAt: 2 },
 ])("$name disconnect terminates its archive worker, releases capacity and preserves installed data", async ({ url, cancelAt }) => {
+  if (url === legacyExportUrl) {
+    // Direct registration creates the legacy layout, whose export still packs
+    // repository metadata and local skill files through a real archive worker.
+    const legacy = await app.inject({ method: "POST", url: "/v1/plugins", payload: {
+      id: "archive.legacy", publisher: "test", version: "1.0.0",
+      skills: [{ name: "legacy-owned", content: "# Legacy original" }],
+    } });
+    expect(legacy.statusCode, legacy.body).toBe(201);
+    expect(legacy.json().bundleGeneration).toBeNull();
+  }
   const snapshot = async () => Promise.all(["/v1/skills", "/v1/plugins", "/v1/personas"].map(async route => (await app.inject({ url: route })).json()));
   const before = await snapshot();
   const original = archive.executeArchive;
@@ -83,7 +94,7 @@ it.each([
   });
   const payload = JSON.stringify({ name: "archive-owned", overwrite: true, zipBase64: Buffer.from(zipSync({ "SKILL.md": strToU8("# Replacement") })).toString("base64"), packageBase64, bundleBase64, conflictResolution: "replace" });
   const target = url === "persona-export" ? `/v1/personas/${personaId}/export` : url;
-  client = request(baseUrl + target, { method: target === "/v1/plugins/archive.plugin/export" ? "GET" : "POST", headers: { "content-type": "application/json", "content-length": Buffer.byteLength(payload) } });
+  client = request(baseUrl + target, { method: target === legacyExportUrl ? "GET" : "POST", headers: { "content-type": "application/json", "content-length": Buffer.byteLength(payload) } });
   client.on("error", () => {});
   client.end(payload);
   try {
@@ -95,7 +106,18 @@ it.each([
     expect(results.every(result => result.byteLength > 0)).toBe(true);
     expect(await snapshot()).toEqual(before);
     expect(await fs.readFile(path.join(root, "skills", "archive-owned", "SKILL.md"), "utf8")).toBe("# Original");
+    if (url === legacyExportUrl) {
+      expect(await fs.readFile(path.join(root, "skills", "archive.legacy", "legacy-owned", "SKILL.md"), "utf8")).toBe("# Legacy original");
+    }
   } finally { client.destroy(); }
+});
+
+it("exports a generation's original archive without starting an archive worker", async () => {
+  const executeArchive = vi.spyOn(archive, "executeArchive");
+  const exported = await app.inject({ method: "GET", url: "/v1/plugins/archive.plugin/export" });
+  expect(exported.statusCode, exported.body).toBe(200);
+  expect(exported.json().packageBase64).toBe(packageBase64);
+  expect(executeArchive).not.toHaveBeenCalled();
 });
 
 it("maps asynchronous Persona preview failures to INVALID_BUNDLE", async () => {

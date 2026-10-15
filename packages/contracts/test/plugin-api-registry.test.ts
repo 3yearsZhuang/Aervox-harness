@@ -176,12 +176,12 @@ describe("CR-060 插件 API 贡献登记", () => {
     expect(otherTool).not.toHaveProperty("output");
   });
 
-  it("插件登记的 OpenAPI 片段合并进文档，并补齐本地上下文请求头", () => {
+  it("插件登记的 OpenAPI 片段合并进文档，不公开已退役的身份请求头", () => {
     registerFixturePlugin();
     const paths = buildOpenApiDocument().paths as Record<string, Record<string, { parameters?: unknown[] }>>;
     const operation = paths["/v1/fixture/explore"]?.post;
     expect(operation).toBeTruthy();
-    expect(operation?.parameters).toEqual(
+    expect(operation?.parameters ?? []).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ in: "header", name: "X-Workspace-Id" })]),
     );
   });

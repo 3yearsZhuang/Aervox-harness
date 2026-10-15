@@ -269,3 +269,14 @@ test("CI covers Playwright test directories, configs and executable root launche
   assert.match(source, /pnpm test:e2e:ui/);
   assert.match(source, /pnpm check:dependency-audit/);
 });
+
+
+test("API and plugin standards run after build in full and incremental gates", () => {
+  const config = fs.readFileSync(MISE_CONFIG, "utf8");
+  for (const gate of ["ci-code", "ci-code-full"]) {
+    const command = config.split(/\r?\n/).find((line) => line.startsWith(`${gate} =`));
+    assert.match(command ?? "", /pnpm build && pnpm check:standards/);
+  }
+  const incremental = fs.readFileSync(path.join(ROOT_DIR, "scripts/check-affected.mjs"), "utf8");
+  assert.ok(incremental.indexOf('["check:standards"]') > incremental.indexOf('const buildRes ='));
+});

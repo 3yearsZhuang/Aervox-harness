@@ -3,6 +3,15 @@ import { configureAervoxClient, type AervoxTransport } from '../src/transport';
 import { useAervoxModelRuntime } from '../src/useAervoxModelRuntime';
 
 describe('useAervoxModelRuntime (CR-054 v2)', () => {
+  it('rejects malformed endpoint responses and invalid download requests', async () => {
+    let requests = 0;
+    configureAervoxClient({ transport: makeTransport(async () => { requests++; return { models: 'invalid' }; }) });
+    const api = useAervoxModelRuntime();
+    await expect(api.getState()).rejects.toThrow();
+    expect(requests).toBe(1);
+    await expect(api.download({ url: 'invalid-url' })).rejects.toThrow();
+    expect(requests).toBe(1);
+  });
   function makeTransport(handler: (method: string, path: string, body?: unknown) => Promise<unknown>): AervoxTransport {
     return { request: async <T>(method: string, path: string, body?: unknown): Promise<T> => handler(method, path, body) as Promise<T> };
   }
@@ -11,7 +20,7 @@ describe('useAervoxModelRuntime (CR-054 v2)', () => {
     const calls: Array<[string, string, unknown]> = [];
     configureAervoxClient({ transport: makeTransport(async (m, p, b) => {
       calls.push([m, p, b]);
-      return {};
+      return p.endsWith("/catalog") ? { entries: [] } : { models: [], runtime: { status: "idle" } };
     }) });
 
     const api = useAervoxModelRuntime();
@@ -59,7 +68,7 @@ describe('useAervoxModelRuntime (CR-054 v2)', () => {
         models: [{ id: 'm', fileName: 'm.gguf', path: '/x/m.gguf', status: 'downloaded' }],
         runtime: { status: 'running', port: 8080, logs: ['boot ok'], metrics: [{ at: '2026-01-01T00:00:00Z', tokensPerSec: 42 }] },
         downloads: [{ id: 'm', url: 'https://example.com/m.gguf', fileName: 'm.gguf', modelId: 'm', status: 'running', receivedBytes: 1234, resumableFrom: 1000 }],
-        llamaServer: { source: 'missing', maxConcurrentDownloads: 2 },
+        llamaServer: { configured: false, source: 'missing', maxConcurrentDownloads: 2 },
       })),
     });
 

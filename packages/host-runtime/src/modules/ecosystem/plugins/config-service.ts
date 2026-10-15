@@ -16,7 +16,7 @@ import type {
   PluginModel,
   LocalContext,
 } from "@aervox/repositories";
-import { SqliteExtensionRepository } from "@aervox/repositories";
+import { DomainConflictError, SqliteExtensionRepository, withSessionLock } from "@aervox/repositories";
 import { pluginPageSchema } from "@aervox/contracts";
 import crypto from "node:crypto";
 import { PluginBundleStore } from "./bundle-store.js";
@@ -92,6 +92,10 @@ export class PluginConfigService {
     return null;
   }
 
+  private requireMutableBundle(plugin: PluginModel): void {
+    if (plugin.bundleGeneration) throw new PluginConfigError(409, "PLUGIN_PACKAGE_IMMUTABLE", "Repackage and install a new version to change package declarations or resources");
+  }
+
   private async requirePlugin(pluginId: string): Promise<PluginModel> {
     const found = await this.findPlugin(pluginId);
     if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
@@ -121,9 +125,11 @@ export class PluginConfigService {
   // ── Schema ──────────────────────────────────────────────
 
   async registerConfigSchema(pluginId: string, input: unknown): Promise<unknown> {
+    return withSessionLock(`plugin-config:${pluginId}`, async () => {
     const found = await this.findPlugin(pluginId);
     if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
     const { plugin, resolvedId } = found;
+    this.requireMutableBundle(plugin);
     let fields: ReturnType<typeof parseConfigSchema>;
     try {
       fields = parseConfigSchema(input);
@@ -141,6 +147,7 @@ export class PluginConfigService {
     );
     if (!updated) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
     return { schemaVersion: plugin.configSchemaVersion ?? 1, fields };
+    });
   }
 
   async getConfigSchema(pluginId: string): Promise<{ schemaVersion: number; fields: unknown[] }> {
@@ -223,6 +230,7 @@ export class PluginConfigService {
       pluginId: targetId,
       schemaVersion: schema.schemaVersion,
       expectedRevision: body.revision,
+      expectedSchema: schema.fields,
       values,
       secretKeys: [],
       secretChanges,
@@ -253,7 +261,11 @@ export class PluginConfigService {
     const schema = await this.getConfigSchema(targetId);
     const fields = schema.fields as Parameters<typeof validateValues>[0];
     const defaults = applyDefaults(fields);
-    const saved = await this.deps.configRepo.resetConfig(tenant, targetId, schema.schemaVersion, defaults);
+    const saved = await this.deps.configRepo.resetConfig(tenant, targetId, schema.schemaVersion, defaults, schema.fields)
+      .catch((error: unknown) => {
+        if (error instanceof DomainConflictError) throw new PluginConfigError(409, "PLUGIN_CONFIG_REVISION_CONFLICT", error.message);
+        throw error;
+      });
     await this.audit(tenant, "plugin.config.reset", pluginId, { revision: saved.revision });
     return {
       pluginId,
@@ -269,7 +281,8 @@ export class PluginConfigService {
   // ── Page ──────────────────────────────────────────────
 
   async registerPage(pluginId: string, input: unknown): Promise<unknown> {
-    await this.requirePlugin(pluginId);
+    return withSessionLock(`plugin-config:${pluginId}`, async () => {
+    this.requireMutableBundle(await this.requirePlugin(pluginId));
     const parsed = pluginPageSchema.safeParse(input);
     if (!parsed.success) {
       const first = parsed.error.issues[0];
@@ -296,6 +309,7 @@ export class PluginConfigService {
       capabilities: saved.capabilitiesJson,
       checksum: saved.checksum,
     };
+    });
   }
 
   async listPages(pluginId: string): Promise<unknown[]> {
@@ -330,7 +344,8 @@ export class PluginConfigService {
     pageId: string,
     files: Array<{ path: string; contentBase64: string }>,
   ): Promise<{ checksum: string }> {
-    await this.requirePlugin(pluginId);
+    return withSessionLock(`plugin-config:${pluginId}`, async () => {
+    this.requireMutableBundle(await this.requirePlugin(pluginId));
     const page = await this.deps.pageRepo.getPage(pluginId, pageId);
     if (!page) throw new PluginConfigError(404, "PLUGIN_PAGE_NOT_FOUND", `page not found: ${pageId}`);
 
@@ -359,6 +374,7 @@ export class PluginConfigService {
       checksum,
     });
     return { checksum };
+    });
   }
 
   /** 读取 Page 入口 HTML（Bridge SDK 注入由渲染端完成） */
@@ -380,6 +396,9 @@ export class PluginConfigService {
     relPath: string,
   ): Promise<{ content: Buffer; mime: string }> {
     await this.requirePlugin(pluginId);
+    if (!await this.deps.pageRepo.getPage(pluginId, pageId)) {
+      throw new PluginConfigError(404, "PLUGIN_PAGE_NOT_FOUND", `page not found: ${pageId}`);
+    }
     return this.deps.bundleStore.readAsset(pluginId, pageId, relPath);
   }
 
@@ -392,5 +411,6 @@ export class PluginConfigService {
       await this.deps.bundleStore.deletePage(pluginId, page.pageId).catch(() => undefined);
     }
     await this.deps.pageRepo.deletePagesForPlugin(pluginId);
+    await this.deps.bundleStore.deletePluginResources(pluginId);
   }
 }

@@ -40,12 +40,110 @@ export function isSafeRelativePath(relPath: string): boolean {
 export class PluginBundleStore {
   constructor(private readonly root: string) {}
 
-  private pageRoot(pluginId: string, pageId: string): string {
-    return path.join(this.root, pluginId, "pages", pageId);
+  private generationResolver?: (id: string) => Promise<string | null>;
+
+  setGenerationResolver(resolver: (id: string) => Promise<string | null>): void {
+    this.generationResolver = resolver;
   }
 
-  private resolveInside(pluginId: string, pageId: string, relPath: string): string {
-    const base = path.resolve(this.pageRoot(pluginId, pageId));
+  private generationRoot(pluginId: string, generation: string): string {
+    if (!/^(?!\.{1,2}$)[\w.-]+$/.test(pluginId) || !/^[a-f0-9-]{36}$/.test(generation)) {
+      throw new Error("invalid plugin generation");
+    }
+    return path.join(this.root, pluginId, "releases", generation);
+  }
+
+  /** Stage bounded, validated content without changing anything visible to the active plugin. */
+  async stageBundle(pluginId: string, files: Record<string, Uint8Array>, archive: Uint8Array,
+    skills: Array<{name: string; content?: string}>): Promise<{generation: string; skillPaths: Map<string, string>}> {
+    const generation = crypto.randomUUID();
+    const root = this.generationRoot(pluginId, generation);
+    const write = async (relative: string, data: Uint8Array): Promise<void> => {
+      if (!isSafeRelativePath(relative)) throw new Error("invalid bundle resource");
+      const target = path.join(root, relative);
+      await fs.mkdir(path.dirname(target), {recursive: true, mode: 0o700});
+      const file = await fs.open(target, "wx", 0o600);
+      try { await file.writeFile(data); await file.sync(); } finally { await file.close(); }
+    };
+    try {
+      await fs.mkdir(this.root, {recursive: true, mode: 0o700});
+      for (const directory of [path.join(this.root, pluginId), path.join(this.root, pluginId, "releases")]) {
+        await fs.mkdir(directory, {recursive: true, mode: 0o700});
+        if ((await fs.lstat(directory)).isSymbolicLink()) throw new Error("symlink in plugin storage");
+      }
+      for (const [name, data] of Object.entries(files)) await write(`content/${name}`, data);
+      await write("original.aervox-plugin", archive);
+      await write("owner.json", Buffer.from(JSON.stringify({pluginId, generation, format: 1})));
+      const skillPaths = new Map<string, string>();
+      for (const skill of skills) {
+        if (!/^(?!\.{1,2}$)[\w.-]+$/.test(skill.name)) throw new Error("invalid skill name");
+        const relative = `skills/${skill.name}/SKILL.md`;
+        await write(relative, Buffer.from(skill.content ?? ""));
+        skillPaths.set(skill.name, path.join(root, relative));
+      }
+      // Files are durable before the SQLite pointer can reference them. Interrupted staging is invisible.
+      const syncDirectories = async (dir: string): Promise<void> => {
+        for (const entry of await fs.readdir(dir, {withFileTypes: true})) {
+          if (entry.isDirectory()) await syncDirectories(path.join(dir, entry.name));
+        }
+        const handle = await fs.open(dir, "r");
+        try { await handle.sync(); }
+        catch (error) { if (!['EINVAL', 'ENOTSUP', 'EPERM'].includes((error as NodeJS.ErrnoException).code ?? '')) throw error; }
+        finally { await handle.close(); }
+      };
+      await syncDirectories(root);
+      for (const directory of [path.dirname(root), path.dirname(path.dirname(root)), this.root]) {
+        const handle = await fs.open(directory, "r");
+        try { await handle.sync(); }
+        catch (error) { if (!["EINVAL", "ENOTSUP", "EPERM"].includes((error as NodeJS.ErrnoException).code ?? "")) throw error; }
+        finally { await handle.close(); }
+      }
+      return {generation, skillPaths};
+    } catch (error) {
+      await fs.rm(root, {recursive: true, force: true}).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  async discardGeneration(pluginId: string, generation: string): Promise<void> {
+    // Never erase files if a commit succeeded but its acknowledgement was interrupted.
+    if (await this.generationResolver?.(pluginId) === generation) return;
+    await fs.rm(this.generationRoot(pluginId, generation), {recursive: true, force: true});
+  }
+
+  async readOriginalBundle(pluginId: string, generation: string): Promise<Uint8Array> {
+    return new Uint8Array(await fs.readFile(path.join(this.generationRoot(pluginId, generation), "original.aervox-plugin")));
+  }
+
+  async deletePluginResources(pluginId: string): Promise<void> {
+    if (!/^(?!\.{1,2}$)[\w.-]+$/.test(pluginId)) throw new Error("invalid plugin id");
+    const pluginRoot = path.join(this.root, pluginId);
+    const releases = path.join(pluginRoot, "releases");
+    const rootStat = await fs.lstat(releases).catch(() => null);
+    if (rootStat?.isDirectory() && !rootStat.isSymbolicLink()) {
+      for (const entry of await fs.readdir(releases, {withFileTypes: true})) {
+        if (!entry.isDirectory() || !/^[a-f0-9-]{36}$/.test(entry.name)) continue;
+        const directory = this.generationRoot(pluginId, entry.name);
+        const owner = await fs.readFile(path.join(directory, "owner.json"), "utf8").then(JSON.parse).catch(() => null);
+        if (owner?.format === 1 && owner.pluginId === pluginId && owner.generation === entry.name) {
+          await fs.rm(directory, {recursive: true, force: true});
+        }
+      }
+    }
+    // Unknown notes, backups and legacy directories have no deletion authority.
+    await fs.rmdir(releases).catch(() => undefined);
+    await fs.rmdir(pluginRoot).catch(() => undefined);
+  }
+
+  private async pageRoot(pluginId: string, pageId: string): Promise<string> {
+    if (!/^(?!\.{1,2}$)[\w.-]+$/.test(pluginId) || !/^[\w-]+$/.test(pageId)) throw new Error("invalid page identity");
+    const generation = await this.generationResolver?.(pluginId);
+    return generation ? path.join(this.generationRoot(pluginId, generation), "content", "pages", pageId)
+      : path.join(this.root, pluginId, "pages", pageId);
+  }
+
+  private async resolveInside(pluginId: string, pageId: string, relPath: string): Promise<string> {
+    const base = path.resolve(await this.pageRoot(pluginId, pageId));
     const target = path.resolve(base, relPath);
     if (target !== base && !target.startsWith(base + path.sep)) {
       throw new Error("invalid page asset path");
@@ -59,10 +157,11 @@ export class PluginBundleStore {
     relPath: string,
     content: Buffer,
   ): Promise<string> {
+    if (await this.generationResolver?.(pluginId)) throw new Error("packaged plugin resources are immutable");
     if (!isSafeRelativePath(relPath)) {
       throw new Error(`invalid page asset path: ${relPath}`);
     }
-    const target = this.resolveInside(pluginId, pageId, relPath);
+    const target = await this.resolveInside(pluginId, pageId, relPath);
     await fs.mkdir(path.dirname(target), { recursive: true });
     await fs.writeFile(target, content, "utf8");
     return crypto.createHash("sha256").update(content).digest("hex");
@@ -76,16 +175,16 @@ export class PluginBundleStore {
     if (!isSafeRelativePath(relPath)) {
       throw new Error(`invalid page asset path: ${relPath}`);
     }
-    const target = this.resolveInside(pluginId, pageId, relPath);
+    const target = await this.resolveInside(pluginId, pageId, relPath);
     const stat = await fs.lstat(target).catch(() => null);
     if (!stat || !stat.isFile() || stat.isSymbolicLink()) {
       throw new Error(`invalid page asset: not a regular file or is a symlink`);
     }
-    const base = path.resolve(this.pageRoot(pluginId, pageId));
+    const base = path.resolve(await this.pageRoot(pluginId, pageId));
     const [realRoot, realBase, realTarget] = await Promise.all([
       fs.realpath(this.root), fs.realpath(base), fs.realpath(target),
     ]);
-    if (!realBase.startsWith(realRoot + path.sep)) {
+    if (!realBase.startsWith(realRoot + path.sep) || !realTarget.startsWith(realRoot + path.sep)) {
       throw new Error("page asset escapes bundle root");
     }
     if (realTarget !== realBase && !realTarget.startsWith(realBase + path.sep)) {
@@ -110,7 +209,7 @@ export class PluginBundleStore {
     pluginId: string, pageId: string,
     limits: { entries: number; bytes: number; entryBytes: number },
   ): Promise<Record<string, Uint8Array>> {
-    const base = this.pageRoot(pluginId, pageId);
+    const base = await this.pageRoot(pluginId, pageId);
     const root = await fs.realpath(this.root);
     const resolved = await fs.realpath(base);
     if (!resolved.startsWith(root + path.sep)) throw new Error("page assets escape bundle root");
@@ -137,7 +236,7 @@ export class PluginBundleStore {
   }
 
   async deletePage(pluginId: string, pageId: string): Promise<void> {
-    const target = this.pageRoot(pluginId, pageId);
+    const target = await this.pageRoot(pluginId, pageId);
     await fs.rm(target, { recursive: true, force: true }).catch(() => undefined);
   }
 }
