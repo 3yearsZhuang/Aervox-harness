@@ -13,10 +13,21 @@ const CURRENT = path.join(ROOT, 'packages/contracts/openapi.json');
 const METHODS = ['get', 'put', 'post', 'delete', 'patch', 'head', 'options', 'trace'];
 const ANNOTATIONS = new Set(['description', 'summary', 'title', 'example', 'examples', 'externalDocs', 'deprecated', 'tags']);
 
-export function canonical(value) {
-  if (Array.isArray(value)) return value.map(canonical);
+const SCHEMA_MAPS = new Set(['properties', 'patternProperties', '$defs', 'definitions', 'dependentSchemas']);
+const COMPONENT_MAPS = new Set(['schemas', 'responses', 'parameters', 'examples', 'requestBodies', 'headers', 'securitySchemes', 'links', 'callbacks', 'pathItems']);
+const LITERAL_VALUES = new Set(['default', 'const', 'enum', 'example', 'examples', 'security']);
+
+export function canonical(value, context = 'node') {
+  if (Array.isArray(value)) return value.map(item => canonical(item, context === 'literal' ? 'literal' : 'node'));
   if (!value || typeof value !== 'object') return value;
-  return Object.fromEntries(Object.keys(value).sort().filter((key) => !ANNOTATIONS.has(key)).map((key) => [key, canonical(value[key])]));
+  return Object.fromEntries(Object.keys(value).sort()
+    .filter(key => context !== 'node' || !ANNOTATIONS.has(key))
+    .map(key => {
+      const child = context === 'literal' || (context === 'node' && LITERAL_VALUES.has(key)) ? 'literal'
+        : context === 'node' && (SCHEMA_MAPS.has(key) || COMPONENT_MAPS.has(key) || ['paths', 'content', 'responses', 'callbacks'].includes(key)) ? 'map'
+          : 'node';
+      return [key, canonical(value[key], child)];
+    }));
 }
 const equal = (a, b) => JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
 

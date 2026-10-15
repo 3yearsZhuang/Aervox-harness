@@ -6,7 +6,7 @@ import path from "node:path";
 import { strToU8, zipSync } from "fflate";
 import { createInMemoryDatabase, SqliteSkillRegistryRepository } from "@aervox/repositories";
 import { buildApp } from "./app-fixture.js";
-import * as archive from "../src/shared/archive-worker.js";
+import * as archive from "@aervox/host-runtime/shared/archive-worker";
 
 let database: Awaited<ReturnType<typeof createInMemoryDatabase>>;
 let app: Awaited<ReturnType<typeof buildApp>>["app"];

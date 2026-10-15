@@ -21,7 +21,7 @@ const {
   PRESSURE_LEASE_MAX_MS,
   PRESSURE_LEASE_REFRESH_MS,
   PRESSURE_LEASE_TTL_MS,
-} = await import("../src/shared/worker-pressure-lease.js");
+} = await import("@aervox/host-runtime/shared/worker-pressure-lease");
 
 describe("ITER-027 Worker 写入压力租约", () => {
   beforeEach(() => {

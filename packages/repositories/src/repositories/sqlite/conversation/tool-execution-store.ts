@@ -225,6 +225,13 @@ export class ToolExecutionStore {
           )
           .returning({ id: turnAttempts.id });
         if (!updated) return false;
+        // Keep the durable Turn aligned with its latest terminal Attempt in the same transaction.
+        const [latest] = await tx.select({ id: turnAttempts.id }).from(turnAttempts)
+          .where(eq(turnAttempts.turnId, input.turnId)).orderBy(desc(turnAttempts.attempt)).limit(1);
+        if (latest?.id === input.attemptId) {
+          await tx.update(turns).set({ status: input.status, updatedAt: new Date().toISOString() })
+            .where(and(eq(turns.id, input.turnId), inArray(turns.status, ["Created", "Running"])));
+        }
         await tx.insert(turnStreamEvents).values({
           id: streamEventId(input.turnId, input.sequence),
           turnId: input.turnId,

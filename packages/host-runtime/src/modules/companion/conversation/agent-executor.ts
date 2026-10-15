@@ -101,6 +101,10 @@ export async function runLoopTurnOnce(
     deadlineEpochMs?: number;
   },
   deps: {
+    signal?: AbortSignal;
+    claimTurnAttempt?: SqliteExecutionStore["claimTurnAttempt"];
+    preparationFencingToken?: number;
+    isMcpToolAllowed?: (tool: { id: string; name: string; pluginId?: string | null }) => Promise<boolean>;
     toolRuntime?: ToolRuntime;
     llmConfigService?: LLMConfigPort;
     /** CR-034 模型降级与健康路由决策服务 */
@@ -149,6 +153,7 @@ export async function runLoopTurnOnce(
     observability?: Observability;
   } = {},
 ): Promise<void> {
+  const signal = input.signal && deps.signal ? AbortSignal.any([input.signal, deps.signal]) : input.signal ?? deps.signal;
   const turnStartTime = Date.now();
   deps.observability?.metrics.emit({
     type: "counter",
@@ -180,7 +185,7 @@ export async function runLoopTurnOnce(
     attemptId: input.attemptId,
     userMessage: input.userMessage,
     metadata: input.metadata,
-    signal: input.signal,
+    signal,
     deadlineEpochMs: input.deadlineEpochMs,
     stream: {
       readEvents: (turnId, fromSequence) => repo.getStreamEvents(tenant, turnId, fromSequence),
@@ -252,15 +257,16 @@ export async function runLoopTurnOnce(
         }
       : undefined,
   );
+  if (deps.claimTurnAttempt) store.claimTurnAttempt = deps.claimTurnAttempt;
   const broadcastingStore = createBroadcastingStore(store);
   // A Hook can be cancelled before the executor claims its Attempt. Finalize here
   // because a CancelRequested Attempt will correctly refuse that later claim.
   const finishUnclaimedCancellation = async (): Promise<boolean> => {
-    if (!input.signal?.aborted && !(input.deadlineEpochMs !== undefined && Date.now() >= input.deadlineEpochMs)) return false;
-    const status = input.signal?.aborted ? "Cancelled" : "Interrupted";
+    if (!signal?.aborted && !(input.deadlineEpochMs !== undefined && Date.now() >= input.deadlineEpochMs)) return false;
+    const status = signal?.aborted ? "Cancelled" : "Interrupted";
     const sequence = await store.nextSequence(input.turnId);
     const finalized = await broadcastingStore.finalizeAttemptWithEvent({
-      turnId: input.turnId, attemptId: input.attemptId, expectedFencingToken: 0,
+      turnId: input.turnId, attemptId: input.attemptId, expectedFencingToken: deps.preparationFencingToken ?? 0,
       status, sequence, eventType: "done",
       eventData: { status, isComplete: false, lastSequence: sequence, reason: status === "Cancelled" ? "cancelled" : "deadline_exceeded" },
     });
@@ -337,7 +343,7 @@ export async function runLoopTurnOnce(
           text: crisisText,
         },
         safetyDecision: "redacted",
-        expectedFencingToken: 0,
+        expectedFencingToken: deps.preparationFencingToken ?? 0,
       }).catch(() => undefined);
 
       await broadcastingStore.appendEvent({
@@ -352,7 +358,7 @@ export async function runLoopTurnOnce(
           lastSequence: 2,
         },
         safetyDecision: "approved",
-        expectedFencingToken: 0,
+        expectedFencingToken: deps.preparationFencingToken ?? 0,
       }).catch(() => undefined);
 
       await broadcastingStore.finalizeAttempt({
@@ -393,7 +399,7 @@ export async function runLoopTurnOnce(
       const proactiveStatus = await deps.proactiveRepository.getEffectiveStatus(tenant);
       proactiveActive = proactiveStatus?.effectiveState === "active";
     } catch (err) {
-      await failTurnWithError(broadcastingStore, input.turnId, input.attemptId, err instanceof Error ? err.message : "provider_unavailable");
+      await failTurnWithError(broadcastingStore, input.turnId, input.attemptId, err instanceof Error ? err.message : "provider_unavailable", undefined, deps.preparationFencingToken);
       await repo.updateTurnStatus(tenant, input.turnId, "Failed").catch(() => undefined);
       return;
     }
@@ -410,6 +416,7 @@ export async function runLoopTurnOnce(
         input.turnId,
         input.attemptId,
         "proactive_local_provider_required: 主动智能本地处理期间不允许进程外 Adapter",
+        undefined, deps.preparationFencingToken,
       );
       await repo.updateTurnStatus(tenant, input.turnId, "Failed").catch(() => undefined);
       return;
@@ -421,6 +428,7 @@ export async function runLoopTurnOnce(
         input.turnId,
         input.attemptId,
         "deletion_gate_blocked: 删除/撤权水位未追平，进程外 Adapter 拒绝执行",
+        undefined, deps.preparationFencingToken,
       );
       await repo.updateTurnStatus(tenant, input.turnId, "Failed").catch(() => undefined);
       return;
@@ -434,7 +442,7 @@ export async function runLoopTurnOnce(
         // ignore
       }
     }
-    const dshInput = {
+    const dshInput = { preparationFencingToken: deps.preparationFencingToken,
       ...input,
       ...(beforeTurnExec.extraSections.length > 0
         ? { systemPrompt: beforeTurnExec.extraSections.join("\n\n") }
@@ -468,7 +476,7 @@ export async function runLoopTurnOnce(
       proactiveProfilePrompt = await loadProactiveProfilePrompt(deps.proactiveRepository, tenant);
     }
   } catch (err) {
-    await failTurnWithError(broadcastingStore, input.turnId, input.attemptId, err instanceof Error ? err.message : "provider_unavailable");
+    await failTurnWithError(broadcastingStore, input.turnId, input.attemptId, err instanceof Error ? err.message : "provider_unavailable", undefined, deps.preparationFencingToken);
     await repo.updateTurnStatus(tenant, input.turnId, "Failed").catch(() => undefined);
     return;
   }
@@ -563,6 +571,7 @@ export async function runLoopTurnOnce(
         capabilityTier: isL1Tier && isCapabilityTiering ? "restricted" : undefined,
         async isToolAllowed(tool) {
           // Native tools retain their domain-owned authorization. Plugin grants are re-read per dispatch.
+          if (tool.pluginId?.startsWith("mcp:")) return deps.isMcpToolAllowed?.(tool) ?? false;
           if (!tool.pluginId) return tool.builtin === 1 || !tool.requiredPermissionsJson || (Array.isArray(tool.requiredPermissionsJson) && !tool.requiredPermissionsJson.length);
           if (!extRepo || !(await isPluginEnabled(tool.pluginId, extRepo))) return false;
           const required = tool.requiredPermissionsJson ?? [];
@@ -643,7 +652,14 @@ export async function runLoopTurnOnce(
       },
     },
     baseSystemPrompt: {
-      ...hostPromptPolicy(deps.persona?.name),
+      ...hostPromptPolicy(
+        // ADR-027：角色名取人格名（角色名的服务端形态），否则取客户端随轮注入的
+        // companionName；用户称呼同理。人格设定 prompt 仍可覆盖（既有优先级不变）。
+        deps.persona?.name ||
+          (typeof input.metadata?.companionName === "string" && input.metadata.companionName.trim()) ||
+          undefined,
+        (typeof input.metadata?.userAddress === "string" && input.metadata.userAddress.trim()) || undefined,
+      ),
       personaPrompt: deps.persona?.prompt,
       activeTools: tools?.tools,
       extraSections: beforeTurnExec.extraSections,
@@ -671,7 +687,7 @@ export async function runLoopTurnOnce(
       },
     };
   }
-  const control = new ControlContext({ turnId: input.turnId, attemptId: input.attemptId, sessionId: input.sessionId, localProcessingOnly, abortSignal: input.signal, deadlineEpochMs: input.deadlineEpochMs });
+  const control = new ControlContext({ turnId: input.turnId, attemptId: input.attemptId, sessionId: input.sessionId, localProcessingOnly, abortSignal: signal, deadlineEpochMs: input.deadlineEpochMs });
   const result = await executeTurn(
     {
       execution: broadcastingStore,

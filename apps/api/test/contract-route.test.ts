@@ -1,11 +1,11 @@
 import Fastify from 'fastify';
 import { describe, expect, it, vi } from 'vitest';
 import { apiProblemSchema, modelRuntimeApi } from '@aervox/contracts';
-import { registerContractRoute } from '../src/shared/contract-route.js';
-import { registerProblemDetails } from '../src/shared/problem-details.js';
-import { registerModelRuntimeRoutes } from '../src/modules/ecosystem/model-runtime/routes.js';
-import type { ModelRuntimeService } from '../src/modules/ecosystem/model-runtime/service.js';
-import { registerMemoryRoutes } from '../src/modules/companion/memory/routes.js';
+import { registerContractRoute } from '@aervox/host-runtime/shared/contract-route';
+import { registerProblemDetails } from '@aervox/host-runtime/shared/problem-details';
+import { registerModelRuntimeRoutes } from '@aervox/host-runtime/modules/ecosystem/model-runtime/routes';
+import type { ModelRuntimeService } from '@aervox/host-runtime/modules/ecosystem/model-runtime/service';
+import { registerMemoryRoutes } from '@aervox/host-runtime/modules/companion/memory/routes';
 import type { SqliteMemoryRepository } from '@aervox/repositories';
 
 describe('shared endpoint registration', () => {

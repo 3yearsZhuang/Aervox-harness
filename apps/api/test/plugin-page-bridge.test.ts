@@ -1,6 +1,6 @@
 import vm from 'node:vm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BRIDGE_SDK } from '../src/modules/ecosystem/plugins/bridge-sdk.js';
+import { BRIDGE_SDK } from '@aervox/host-runtime/modules/ecosystem/plugins/bridge-sdk';
 
 function sdk() {
   const parent = { postMessage: vi.fn() };

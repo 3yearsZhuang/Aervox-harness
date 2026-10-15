@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseConfigSchema } from "../src/modules/ecosystem/plugins/config-schema.js";
+import { parseConfigSchema } from "@aervox/host-runtime/modules/ecosystem/plugins/config-schema";
 
 const schema = (fields: unknown[]) => ({ apiVersion: "aervox.dev/v1", kind: "PluginConfigSchema", schemaVersion: 1, fields });
 describe("configuration registration author checks", () => {

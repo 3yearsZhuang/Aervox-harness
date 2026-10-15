@@ -546,6 +546,9 @@ export async function executeTurn(
             if (err instanceof ToolExecutionAborted) return err.result;
             throw err;
           }
+          // Host interactions can append durable events while a tool awaits user input.
+          // Resume after their committed watermark before writing the tool result.
+          sequence = Math.max(sequence, await execution.nextSequence(input.turnId));
           // ITER-041：结果分类 + 账本收口已切至 tool-ledger.ts。
           // 序号以 getter 传入（原先是 `sequence++` 内联）——收口会消耗一个事件序号，
           // 必须与主循环共享同一计数器，不能在此快照。

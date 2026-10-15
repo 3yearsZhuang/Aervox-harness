@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp, type BuildAppOptions } from "./app-fixture.js";
 import { createInMemoryDatabase } from "@aervox/repositories";
-import { assertAuthConfigSafe, assertSafeApiListenHost, loadAuthConfig, safeTimingCompare } from "../src/shared/auth.js";
-import { resolveLocalContext } from "../src/shared/local-context.js";
+import { assertAuthConfigSafe, assertSafeApiListenHost, loadAuthConfig, safeTimingCompare } from "@aervox/host-runtime/shared/auth";
+import { resolveLocalContext } from "@aervox/host-runtime/shared/local-context";
 import type { FastifyRequest } from "fastify";
 
 async function buildWith(auth: BuildAppOptions["auth"]) {

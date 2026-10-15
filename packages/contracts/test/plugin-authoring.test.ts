@@ -48,6 +48,16 @@ describe("author config definitions", () => {
 });
 
 describe("bundle conformance", () => {
+  it.each(["bad/name", "bad name", ".", "..", "技能"])("rejects unsafe explicit Skill names: %s", name => {
+    const result = validatePluginBundleFiles({ "plugin.manifest.json": bytes({ ...manifest, spec: { skills: [{ name, content: "# Example" }] } }) });
+    expect(result.issues.some(issue => issue.code === "SKILL_NAME")).toBe(true);
+  });
+  it("checks discovered Skill directory names with the same host predicate", () => {
+    const result = validatePluginBundleFiles({
+      "plugin.manifest.json": bytes(manifest), "skills/bad name/SKILL.md": new TextEncoder().encode("# Example"),
+    });
+    expect(result.issues.some(issue => issue.code === "SKILL_NAME")).toBe(true);
+  });
   it("checks manifest compatibility and rejects unknown executable entries before installation", () => {
     const result = validatePluginBundleFiles({ "plugin.manifest.json": bytes({ ...manifest, requires: { hostApiVersion: { min: "2.0.0" } } }), "src/server.js": bytes("code") });
     expect(result.issues.map((issue) => issue.code)).toEqual(expect.arrayContaining(["BUNDLE_ENTRY", "HOST_INCOMPATIBLE"]));

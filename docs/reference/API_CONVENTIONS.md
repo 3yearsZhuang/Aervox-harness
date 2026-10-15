@@ -5,14 +5,14 @@ HTTP 数据与操作的事实源是 `@aervox/contracts`；[流式协议](STREAMI
 ## 请求身份与资源
 
 - `/v1` 是当前 HTTP 主版本。本地数据库只有一位用户；不接受客户端提供的工作区、用户或审计身份请求头。`LocalContext` 由宿主创建。
-- Token 模式只使用 `Authorization: Bearer …`。开发用 loopback open 模式不要求 Token；生产和非 loopback 访问遵守[认证实现](../../apps/api/src/shared/auth.ts)。OpenAPI 的 Bearer 声明描述受保护部署。
+- Token 模式只使用 `Authorization: Bearer …`。开发用 loopback open 模式不要求 Token；生产和非 loopback 访问遵守[认证实现](../../packages/host-runtime/src/shared/auth.ts)。OpenAPI 的 Bearer 声明描述受保护部署。
 - 凭据不得放入 URL、查询参数、日志或 Page 资源地址。Page 资源认证通道有独立边界，见插件规范。
 - 路径参数由共享客户端编码为单个路径片段；请求体、路径参数和分页上限由对应 Schema 校验。日期使用明确的 ISO 日期/时间语义，不用本地显示格式作为传输值。
 - 重试只在操作的幂等合同允许时进行。创建 Turn 使用稳定的 `Idempotency-Key`；普通 HTTP 失败不会授权客户端重新执行有副作用的操作。
 
 ## 操作声明与覆盖
 
-新 JSON 端点优先使用 [ApiEndpoint](../../packages/contracts/src/http-api.ts) 定义方法、路径、稳定 `operationId`、输入、成功响应及错误响应；使用宿主 [registerContractRoute](../../apps/api/src/shared/contract-route.ts) 注册，并由 OpenAPI 与共享客户端消费同一声明。当前试点是 [Model Runtime](../../packages/contracts/src/model-runtime-api.ts)；SSE、文件和已有路由可以保留专用适配器，但仍须登记协议。
+新 JSON 端点优先使用 [ApiEndpoint](../../packages/contracts/src/http-api.ts) 定义方法、路径、稳定 `operationId`、输入、成功响应及错误响应；使用宿主 [registerContractRoute](../../packages/host-runtime/src/shared/contract-route.ts) 注册，并由 OpenAPI 与共享客户端消费同一声明。当前试点是 [Model Runtime](../../packages/contracts/src/model-runtime-api.ts)；SSE、文件和已有路由可以保留专用适配器，但仍须登记协议。
 
 认证由宿主统一执行，插件或业务 handler 不能通过自定义声明降低要求。共享契约不得导入具体插件实现或宿主应用。
 
@@ -34,7 +34,11 @@ JSON HTTP 失败使用 RFC 9457 `application/problem+json`，结构由 [ApiProbl
 
 `mise tasks run check-standards` 执行作者工具回归、真实声明包校验与历史 OpenAPI 结构比较；全量代码门禁在构建后运行相同检查。结构比较涵盖端点、必填字段、类型、枚举、约束、媒体和认证要求，但不能替代 SSE/业务语义和旧客户端夹具。
 
-历史基线保存在 `packages/contracts/compatibility/`。本次本地身份头、既有 Bearer 行为和 Problem Details 的纠偏使用精确指针、旧内容摘要与固定新内容记录；不允许通过宽泛忽略错误字符串绕过检查。后续确有版本决定时可运行：
+历史基线保存在 `packages/contracts/compatibility/`。本次本地身份头、既有 Bearer 行为和 Problem Details 的纠偏使用精确指针、旧内容摘要与固定新内容记录；不允许通过宽泛忽略错误字符串绕过检查。
+
+历史基线仍指向原提交 `05200288`。首次规范化曾误删与注解同名的业务字段，现从该提交的原始 OpenAPI 恢复；纠偏值从已评审的 `ae5cca63` 原文恢复并重新计算精确摘要。两文件的 `restoration` 记录修复前文件 SHA-256 与来源 Git blob，供逐项核对；这次数据修复没有推进基线或新增兼容豁免。属性字典与常量内容中的 `title`、`description` 等键保留为契约数据。
+
+后续确有版本决定时可运行：
 
 ```sh
 mise exec -- node scripts/openapi-compat.mjs --update --reason '说明批准的兼容决定与迁移窗口'

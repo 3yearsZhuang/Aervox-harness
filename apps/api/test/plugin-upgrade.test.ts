@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { strToU8, zipSync } from 'fflate';
 import { createInMemoryDatabase, initDatabaseSchema, SqliteExtensionRepository, SqlitePluginPageRepository } from '@aervox/repositories';
 import { buildApp } from './app-fixture.js';
-import { PluginBundleStore } from '../src/modules/ecosystem/plugins/bundle-store.js';
+import { PluginBundleStore } from '@aervox/host-runtime/modules/ecosystem/plugins/bundle-store';
 
 const id = 'upgrade-example';
 const local = {workspaceId: 'local', subjectUserId: 'local'};

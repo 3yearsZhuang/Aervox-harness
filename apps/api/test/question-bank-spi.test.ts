@@ -4,7 +4,7 @@ import {
   JsonQuestionBankProvider,
   CsvQuestionBankProvider,
   type QuestionBankProviderPort,
-} from "../src/modules/learning/learning/question-bank/index.js";
+} from "@aervox/host-runtime/modules/learning/learning/question-bank/index";
 import { buildApp } from "./app-fixture.js";
 import { createInMemoryDatabase } from "@aervox/repositories";
 

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { compareOpenApi } from './openapi-compat.mjs';
+import fs from 'node:fs';
+import { compareOpenApi, canonical, fingerprint } from './openapi-compat.mjs';
 
 const document = () => {
   const input = { type: 'object', required: ['name'], properties: { name: { type: 'string' } } };
@@ -79,4 +80,36 @@ test('removing a documented response representation fails', () => {
   const before = document(); const after = structuredClone(before);
   delete after.paths['/v1/example'].post.responses[200].content;
   assert.match(compareOpenApi(before, after).join('\n'), /representation removed/);
+});
+
+test('annotation names remain structural when they are property or component names', () => {
+  for (const name of ['title', 'description', 'tags', 'summary', 'examples', 'deprecated']) {
+    const before = document(); const after = structuredClone(before);
+    response(before).properties[name] = { type: 'string' };
+    response(after).properties[name] = { type: 'integer' };
+    assert.match(compareOpenApi(before, after).join('\n'), new RegExp(`${name}.*type`));
+    assert.notEqual(fingerprint(response(before)), fingerprint(response(after)));
+    before.components = { schemas: { [name]: response(before) } };
+    assert.ok(canonical(before).components.schemas[name].properties[name]);
+  }
+  assert.deepEqual(canonical({ type: 'object', description: 'annotation', properties: { description: { type: 'string', description: 'annotation' } } }),
+    { properties: { description: { type: 'string' } }, type: 'object' });
+});
+
+test('literal values and security scheme identifiers are not annotations', () => {
+  const value = { const: { title: 'literal', description: 'literal' }, security: [{ description: ['read'] }] };
+  assert.deepEqual(canonical(value), value);
+  assert.notEqual(fingerprint(value), fingerprint({ ...value, const: { title: 'changed' } }));
+});
+
+test('historical baseline restoration keeps its source and recovers structural named fields', () => {
+  const baseline = JSON.parse(fs.readFileSync(new URL('../packages/contracts/compatibility/openapi-v1.json', import.meta.url), 'utf8'));
+  const corrections = JSON.parse(fs.readFileSync(new URL('../packages/contracts/compatibility/openapi-v1-corrections.json', import.meta.url), 'utf8'));
+  assert.equal(baseline.source, '05200288ac9cc98aa08e8fab994338b1435ee3f1');
+  assert.equal(corrections.baselineSource, baseline.source);
+  assert.equal(baseline.document.components.schemas.CreateSessionRequest.properties.title.type, 'string');
+  const problem = corrections.changes.find(change => change.pointer === '/components/schemas/ApiProblem');
+  assert.equal(problem.value.properties.title.type, 'string');
+  assert.match(baseline.restoration.originalBaselineSha256, /^[a-f0-9]{64}$/);
+  assert.match(corrections.restoration.originalCorrectionsSha256, /^[a-f0-9]{64}$/);
 });

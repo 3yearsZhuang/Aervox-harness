@@ -129,6 +129,23 @@ describe('Plugin Page session boundary', () => {
     expect(mocks.info).not.toHaveBeenCalled();
   });
 
+  it('reloads the document on refresh and saves with its freshly read configuration revision', async () => {
+    const old = await connect();
+    send(old.target, old.nonce, 'getConfig', 'read');
+    await flushPromises();
+    const oldFrame = wrapper.find('iframe').element;
+    await wrapper.findAll('button')[0]!.trigger('click');
+    expect(wrapper.find('iframe').element).not.toBe(oldFrame);
+    send(old.target, old.nonce, 'saveConfig', 'old-save');
+    expect(mocks.saveConfig).not.toHaveBeenCalled();
+    const current = await connect();
+    send(current.target, current.nonce, 'getConfig', 'new-read');
+    await flushPromises();
+    send(current.target, current.nonce, 'saveConfig', 'save', { values: { value: 'edited' } });
+    await flushPromises();
+    expect(mocks.saveConfig).toHaveBeenCalledWith('probe', { revision: 3, values: { value: 'edited' }, secretValues: {} });
+  });
+
   it('closes immediately and does not leave a callable frame while the parent handles the close event', async () => {
     const { target, nonce } = await connect();
     send(target, nonce, 'close');

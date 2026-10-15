@@ -142,6 +142,18 @@ describe('plugin skill entry resolution through the API', () => {
     expect((await fs.readdir(path.join(root, 'plugins')).catch(() => []))).not.toContain(pluginId);
   });
 
+  it.each(['named', 'discovered'])('rejects unsafe %s Skill names during shared preflight and installation', async source => {
+    const payload = source === 'named'
+      ? packagePayload({ skills: [{ name: 'bad/name', content: '# Example' }] }, {})
+      : packagePayload({}, { 'skills/bad name/SKILL.md': '# Example' });
+    const inspection = await app.inject({ method: 'POST', url: '/v1/plugins/inspect-package', payload });
+    expect(inspection.json().isValid).toBe(false);
+    expect(inspection.json().issues).toEqual(expect.arrayContaining([expect.stringContaining('Invalid skill name')]));
+    const installed = await app.inject({ method: 'POST', url: '/v1/plugins/install-package', payload });
+    expect(installed.statusCode).toBe(400);
+    expect((await app.inject({ method: 'GET', url: '/v1/skills?source=plugin' })).json().items).toEqual([]);
+  });
+
   it('documents the actual immutable-package errors exposed by the mutation endpoints', async () => {
     const install = await app.inject({ method: 'POST', url: '/v1/plugins/install-package', payload: packagePayload({}, {}) });
     expect(install.statusCode, install.body).toBe(201);

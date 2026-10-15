@@ -5,9 +5,10 @@ import {
   type IExtensionRepository,
 } from "@aervox/repositories";
 import type { TurnPluginContext } from "@aervox/host-plugin-api";
-import { registerConversationRoutes } from "../src/modules/companion/conversation/routes.js";
-import { ServerPluginRegistry } from "../src/modules/ecosystem/plugins/turn-plugins/registry.js";
-import { executeBeforeTurnPlugins, executeAfterTurnPlugins, type TurnPluginHostContext } from "../src/modules/ecosystem/plugins/turn-plugins/runner.js";
+import { registerConversationRoutes } from "@aervox/host-runtime/modules/companion/conversation/routes";
+import { executeConversationTurn } from "@aervox/host-runtime/modules/companion/conversation/execution";
+import { ServerPluginRegistry } from "@aervox/host-runtime/modules/ecosystem/plugins/turn-plugins/registry";
+import { executeBeforeTurnPlugins, executeAfterTurnPlugins, type TurnPluginHostContext } from "@aervox/host-runtime/modules/ecosystem/plugins/turn-plugins/runner";
 
 describe("accepted Turn cancellation reaches first-party Hooks", () => {
   let app: FastifyInstance;
@@ -18,7 +19,7 @@ describe("accepted Turn cancellation reaches first-party Hooks", () => {
 
   beforeEach(async () => {
     vi.stubEnv("AERVOX_LOOP_PROVIDER", "replay");
-    vi.stubEnv("AERVOX_LOOP_DISPATCH", "local");
+    vi.stubEnv("AERVOX_LOOP_DISPATCH", "api");
     vi.stubEnv("AERVOX_TURN_EXECUTION", "background");
     const database = await createInMemoryDatabase();
     cleanup = database.cleanup;
@@ -61,7 +62,7 @@ describe("accepted Turn cancellation reaches first-party Hooks", () => {
       method: "POST", url: "/v1/sessions/hook_cancel/turns",
       payload: { message: { content: "hello", contentType: "text" }, clientVersion: "test", references: [] },
     });
-    expect(create.statusCode).toBe(201);
+    expect(create.statusCode, create.body).toBe(201);
     const { turnId } = create.json();
     const scope = await hookStarted;
     // Completion of the POST request is not cancellation of the accepted work.
@@ -79,6 +80,31 @@ describe("accepted Turn cancellation reaches first-party Hooks", () => {
     const events = await repo.getStreamEvents(local, turnId, 0);
     expect(events.filter(event => event.eventType === "done")).toHaveLength(1);
     expect(events.some(event => JSON.stringify(event.data).includes("malicious"))).toBe(false);
+  });
+
+  it("observes persisted cancellation when a Worker owns the same shared Hook execution", async () => {
+    vi.stubEnv("AERVOX_LOOP_DISPATCH", "worker");
+    let started!: (scope: TurnPluginContext) => void;
+    const hookStarted = new Promise<TurnPluginContext>(resolve => { started = resolve; });
+    const registry = new ServerPluginRegistry();
+    registry.register({ id: "probe", beforeTurn: scope => { started(scope); return new Promise(() => {}); } });
+    const deps = {
+      pluginRegistry: registry,
+      extensionRepo: { getPlugin: async () => ({ id: "probe", enabled: 1, availability: "available", lifecycleGeneration: "worker-generation" }) } as unknown as IExtensionRepository,
+    };
+    registerConversationRoutes(app, repo, deps);
+    const create = await app.inject({ method: "POST", url: "/v1/sessions/worker_hook_cancel/turns",
+      payload: { message: { content: "hello", contentType: "text" }, clientVersion: "test", references: [] } });
+    expect(create.statusCode, create.body).toBe(201);
+    const { turnId } = create.json();
+    const attempt = (await repo.listTurnAttempts(local, turnId))[0]!;
+    const running = executeConversationTurn(repo, local, { turnId, sessionId: "worker_hook_cancel", attemptId: attempt.id, userMessage: "hello" }, deps);
+    const scope = await hookStarted;
+    expect((await app.inject({ method: "POST", url: `/v1/turns/${turnId}/cancel` })).statusCode).toBe(200);
+    await vi.waitFor(() => expect(scope.signal.aborted).toBe(true));
+    await running;
+    expect((await repo.listTurnAttempts(local, turnId))[0]!.status).toBe("Cancelled");
+    expect((await repo.getTurn(local, turnId))!.status).toBe("Cancelled");
   });
 
   it.each([

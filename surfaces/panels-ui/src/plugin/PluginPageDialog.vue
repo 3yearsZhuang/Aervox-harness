@@ -179,6 +179,12 @@ function onIframeLoad(event: Event): void {
   if (event.target === iframe.value) beginSession()
 }
 
+function refreshPage(): void {
+  session = null
+  // Reload the document so its initialization reads the current configuration revision.
+  frameGeneration.value += 1
+}
+
 watch(() => props.theme, postContext)
 
 function close(): void {
@@ -206,7 +212,7 @@ onBeforeUnmount(() => {
     @close="close"
   >
     <div class="plugin-page-toolbar">
-      <AervoxButton size="sm" variant="secondary" @click="beginSession">刷新</AervoxButton>
+      <AervoxButton size="sm" variant="secondary" @click="refreshPage">刷新</AervoxButton>
       <AervoxButton
         v-if="contextCapabilities.includes('config.read') || contextCapabilities.includes('config.write')"
         size="sm"

@@ -163,7 +163,7 @@ mise exec -- pnpm plugin pack "$PLUGIN_EXAMPLE_DIR/bundle" "$PLUGIN_EXAMPLE_DIR/
 
 预期：检查报告没有 issues，打包输出完整路径及 64 位 SHA-256，ZIP 根直接包含 Manifest。修改包后使用新输出文件名或明确移走旧产物；命令不会悄悄覆盖已有包。配置注册、API 分发预检和 CLI 使用同一作者校验器，仍需额外验证资源依赖、功能及权限实际执行。
 
-准备出厂声明包时，可将已评审资源放入 `plugins/<id>/` 后运行 `mise tasks run package-plugins`；批量入口也执行共享校验、排除第一方实现源码并生成字节可重现的 `dist-plugins/` 产物。该目录是 gitignore 生成物，测试不依赖其中的既有文件。运行 `mise tasks run check-standards` 可检查内置声明包、作者工具及历史 OpenAPI 结构兼容；该检查不代表签名或产品发布验收。
+准备出厂声明包时，可将已评审资源放入 `plugins/<id>/` 后运行 `mise tasks run package-plugins`；批量入口也执行共享校验、排除第一方实现源码并生成字节可重现的 `dist/plugins/` 产物。该目录是 gitignore 生成物，测试不依赖其中的既有文件。运行 `mise tasks run check-standards` 可检查内置声明包、作者工具及历史 OpenAPI 结构兼容；该检查不代表签名或产品发布验收。
 
 ### 2.4 在临时数据库验证安装闭环
 
@@ -333,7 +333,7 @@ export const focusCardTurnPlugin: ServerTurnPlugin = {
 };
 ```
 
-在 API 受信组合位置 import 该定义并调用 `registry.register(focusCardTurnPlugin)`；与[现有 focus-mode 装配](../../apps/api/src/plugin-assembly.ts)保持同一种装配方式（实现位于 `plugins/focus-mode/src/server/`，由该装配点以容错方式加载并注入）。也可在测试中通过 `buildApp({pluginRegistry})` 注入独立 `ServerPluginRegistry`。同时安装/登记相同 ID 的主记录，否则生产 Runner 的 enabled 门控不会激活它。
+在 API 受信组合位置 import 该定义并调用 `registry.register(focusCardTurnPlugin)`；与[现有 focus-mode 装配](../../packages/host-runtime/src/plugin-assembly.ts)保持同一种装配方式（实现位于 `plugins/focus-mode/src/server/`，由该装配点以容错方式加载并注入）。也可在测试中通过 `buildApp({pluginRegistry})` 注入独立 `ServerPluginRegistry`。同时安装/登记相同 ID 的主记录，否则生产 Runner 的 enabled 门控不会激活它。
 
 ### 4.2 验证触发与边界
 
@@ -371,7 +371,7 @@ mise tasks run ci-docs
 
 覆盖安装先准备独立 generation，再以短事务激活，保留启停选择、配置、Secret 和既有授权，撤权不会复活。并发配置 revision 变化返回 `409 PLUGIN_INSTALL_CONFLICT`，调用方重新预检；不兼容配置变化须先提供迁移方案。generation 包的 Schema/Page 注册和资源上传返回 `409 PLUGIN_PACKAGE_IMMUTABLE`，修改包内容应重新打包升级，不直接覆盖已激活资源。
 
-安装后导出返回保存的原始归档，不含用户配置/Secret，也不是任意后续文件改动的备份。旧代际保留至显式卸载；清理只删除带宿主所有权标记的代际及已登记 legacy Page 资源，未知 legacy 目录保留。当前没有运行失败后的自动回退、复杂迁移或旧代际垃圾回收。保留原包与必要数据副本，宿主代码回退先按 [ADR-027](../reference/adr/ADR-027-plugin-atomic-activation.md)核对资源布局兼容。源码与规范走功能分支/PR；扩大第三方执行权限或改变核心架构先走 ADR。
+安装后导出返回保存的原始归档，不含用户配置/Secret，也不是任意后续文件改动的备份。旧代际保留至显式卸载；清理只删除带宿主所有权标记的代际及已登记 legacy Page 资源，未知 legacy 目录保留。当前没有运行失败后的自动回退、复杂迁移或旧代际垃圾回收。保留原包与必要数据副本，宿主代码回退先按 [ADR-028](../reference/adr/ADR-028-plugin-atomic-activation.md)核对资源布局兼容。源码与规范走功能分支/PR；扩大第三方执行权限或改变核心架构先走 ADR。
 
 <a id="avx-tut-003"></a>
 <a id="agent-tools"></a>

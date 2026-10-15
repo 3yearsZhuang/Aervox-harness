@@ -120,8 +120,8 @@ export class UserQuestionCoordinator {
       },
     };
 
-    await this.conversationRepo.appendStreamEvent(ctx, uqEvent);
-    turnStreamHub.publishEvent(turnId, uqEvent);
+    const requiredEvent = await this.conversationRepo.appendStreamEvent(ctx, uqEvent);
+    turnStreamHub.publishEvent(turnId, { ...uqEvent, sequence: requiredEvent.sequence });
 
     // 1.5 持久化挂起会话（缺陷 C）：超时唯一真源 = createdAt + timeoutMs
     const createdAt = new Date().toISOString();
@@ -138,6 +138,16 @@ export class UserQuestionCoordinator {
 
     // 2. 挂起等待客户端回答
     return new Promise<AskUserQuestionPortResult>((resolve, reject) => {
+      let pollTimer: NodeJS.Timeout | undefined;
+      let polling = false;
+      let settled = false;
+      const stopPolling = () => {
+        settled = true;
+        if (pollTimer) clearInterval(pollTimer);
+        req.signal?.removeEventListener("abort", onAbort);
+      };
+      const resolveResult = (result: AskUserQuestionPortResult) => { stopPolling(); resolve(result); };
+      const rejectResult = (error: Error) => { stopPolling(); reject(error); };
       // 冲突保护：如果该 Turn 已有挂起问题，先清理
       if (this.pendingByTurn.has(turnId)) {
         const old = this.pendingByTurn.get(turnId)!;
@@ -155,7 +165,7 @@ export class UserQuestionCoordinator {
           this.pendingByTurn.delete(turnId);
         }
         void this.pendingRepo?.deletePending(ctx, turnId).catch(() => undefined);
-        reject(err);
+        rejectResult(err);
       };
       const onAbort = (): void => {
         const reason = req.signal?.reason;
@@ -190,9 +200,9 @@ export class UserQuestionCoordinator {
         // 若全部问题都有选项或推荐则放行，否则超时报错
         const canDefault = questions.every((q) => (q.options?.length ?? 0) > 0);
         if (canDefault && defaultAnswers.length > 0) {
-          resolve({ answers: defaultAnswers });
+          resolveResult({ answers: defaultAnswers });
         } else {
-          reject(new Error(`QUESTION_TIMEOUT: User did not answer within ${timeoutMs}ms`));
+          rejectResult(new Error(`QUESTION_TIMEOUT: User did not answer within ${timeoutMs}ms`));
         }
       }, timeoutMs);
 
@@ -203,11 +213,27 @@ export class UserQuestionCoordinator {
         ctx,
         questions,
         timeoutMs,
-        resolve,
-        reject,
+        resolve: resolveResult,
+        reject: rejectResult,
         timer,
         createdAt: Date.now(),
       });
+      // API and Worker have independent coordinators; a persisted answer wakes the owner.
+      if (this.pendingRepo) pollTimer = setInterval(() => {
+        if (settled || polling || !this.pendingByTurn.has(turnId)) return;
+        polling = true;
+        void this.conversationRepo.getStreamEvents(ctx, turnId, requiredEvent.sequence).then(events => {
+          const answered = events.find(event => event.eventType === "user_question_answered");
+          if (settled || !answered || !this.pendingByTurn.has(turnId)) return;
+          const data = answered.data as { answers?: AskUserQuestionAnswerItem[] } | null;
+          if (!Array.isArray(data?.answers)) return;
+          clearTimeout(timer);
+          this.pendingByTurn.delete(turnId);
+          resolveResult({ answers: data.answers });
+        }).catch(error => { if (!settled) cancelPending(error instanceof Error ? error : new Error(String(error))); })
+          .finally(() => { polling = false; });
+      }, 100);
+
     });
   }
 
@@ -282,7 +308,8 @@ export class UserQuestionCoordinator {
 
   private async hasAnswered(ctx: LocalContext, turnId: string): Promise<boolean> {
     const events = await this.conversationRepo.getStreamEvents(ctx, turnId, 0);
-    return events.some((e) => e.eventType === "user_question_answered");
+    const latestQuestion = events.findLastIndex(e => e.eventType === "user_question_required");
+    return events.some((e, index) => index > latestQuestion && e.eventType === "user_question_answered");
   }
 
   /** 写入 user_question_answered 事件（sequence 在事件流末尾续接） */
@@ -308,7 +335,7 @@ export class UserQuestionCoordinator {
       },
     };
 
-    await this.conversationRepo.appendStreamEvent(ctx, uaEvent);
-    turnStreamHub.publishEvent(turnId, uaEvent);
+    const stored = await this.conversationRepo.appendStreamEvent(ctx, uaEvent);
+    turnStreamHub.publishEvent(turnId, { ...uaEvent, sequence: stored.sequence });
   }
 }

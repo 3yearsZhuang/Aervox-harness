@@ -2,7 +2,7 @@
  * Aervox｜思隅 — 插件打包导出脚本
  *
  * 扫描 plugins/ 目录下的所有内置插件，读取 plugin.manifest.json，
- * 并使用 fflate 压缩生成 dist-plugins/<id>-<version>.aervox-plugin 分发包。
+ * 并使用 fflate 压缩生成 dist/plugins/<id>-<version>.aervox-plugin 分发包。
  *
  * **可重现性（ITER-001）**：分发包是校验和载体（预检会展示 SHA-256），字节必须
  * 只由源码内容决定。fflate 的 ZIP 条目时间戳默认取**当前时间**、且 `fs.readdir`
@@ -21,7 +21,7 @@ const PLUGINS_DIR = path.join(ROOT_DIR, "plugins");
 // 输出目录可用环境变量覆盖，供回归测试在临时目录中验证可重现性（不污染工作区产物）。
 const DIST_DIR = process.env.AERVOX_PLUGIN_DIST_DIR
   ? path.resolve(process.env.AERVOX_PLUGIN_DIST_DIR)
-  : path.join(ROOT_DIR, "dist-plugins");
+  : path.join(ROOT_DIR, "dist", "plugins");
 
 /**
  * 写入固化的 DOS 时间（ZIP 纪元 1980-01-01 本地零点）。

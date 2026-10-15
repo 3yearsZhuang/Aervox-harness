@@ -422,6 +422,9 @@
               ],
               "type": "object"
             },
+            "description": {
+              "type": "string"
+            },
             "name": {
               "minLength": 1,
               "type": "string"
@@ -511,6 +514,10 @@
             "color": {
               "type": "string"
             },
+            "description": {
+              "maxLength": 500,
+              "type": "string"
+            },
             "icon": {
               "type": "string"
             },
@@ -542,6 +549,11 @@
                 "string",
                 "null"
               ]
+            },
+            "title": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
             }
           },
           "type": "object"
@@ -711,6 +723,9 @@
               ],
               "type": "string"
             },
+            "title": {
+              "type": "string"
+            },
             "updatedAt": {
               "type": "string"
             },
@@ -761,6 +776,9 @@
                 "existing"
               ],
               "type": "string"
+            },
+            "title": {
+              "type": "string"
             }
           },
           "required": [
@@ -803,6 +821,9 @@
                       "edited",
                       "archived"
                     ],
+                    "type": "string"
+                  },
+                  "title": {
                     "type": "string"
                   },
                   "updatedAt": {
@@ -870,6 +891,9 @@
                 "created",
                 "rewritten"
               ],
+              "type": "string"
+            },
+            "title": {
               "type": "string"
             }
           },
@@ -1484,6 +1508,11 @@
               "type": "array"
             },
             "projectId": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": {
+              "maxLength": 200,
               "minLength": 1,
               "type": "string"
             }
@@ -2215,6 +2244,10 @@
             "configured": {
               "type": "boolean"
             },
+            "description": {
+              "minLength": 1,
+              "type": "string"
+            },
             "docsUrl": {
               "minLength": 1,
               "type": "string"
@@ -2411,6 +2444,9 @@
         },
         "McpServerToolEntry": {
           "properties": {
+            "description": {
+              "type": "string"
+            },
             "enabled": {
               "type": "boolean"
             },
@@ -2441,6 +2477,9 @@
           "properties": {
             "authorized": {
               "type": "boolean"
+            },
+            "description": {
+              "type": "string"
             },
             "healthy": {
               "type": "boolean"
@@ -3437,6 +3476,9 @@
               "minLength": 1,
               "type": "string"
             },
+            "description": {
+              "type": "string"
+            },
             "id": {
               "minLength": 1,
               "type": "string"
@@ -3693,6 +3735,9 @@
         },
         "PetManifest": {
           "properties": {
+            "description": {
+              "type": "string"
+            },
             "displayName": {
               "minLength": 1,
               "type": "string"
@@ -4045,6 +4090,10 @@
             },
             "metadata": {
               "properties": {
+                "description": {
+                  "maxLength": 2000,
+                  "type": "string"
+                },
                 "displayName": {
                   "maxLength": 128,
                   "minLength": 1,
@@ -4129,6 +4178,19 @@
                       "checksum": {
                         "type": "string"
                       },
+                      "description": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "additionalProperties": {
+                              "type": "string"
+                            },
+                            "type": "object"
+                          }
+                        ]
+                      },
                       "entry": {
                         "maxLength": 512,
                         "minLength": 1,
@@ -4139,6 +4201,20 @@
                         "minLength": 1,
                         "pattern": "^[A-Za-z0-9_-]+$",
                         "type": "string"
+                      },
+                      "title": {
+                        "anyOf": [
+                          {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          {
+                            "additionalProperties": {
+                              "type": "string"
+                            },
+                            "type": "object"
+                          }
+                        ]
                       }
                     },
                     "required": [
@@ -4159,6 +4235,10 @@
                       "items": {
                         "additionalProperties": false,
                         "properties": {
+                          "description": {
+                            "maxLength": 500,
+                            "type": "string"
+                          },
                           "sourceId": {
                             "maxLength": 128,
                             "minLength": 1,
@@ -4314,6 +4394,10 @@
                       "content": {
                         "type": "string"
                       },
+                      "description": {
+                        "maxLength": 2000,
+                        "type": "string"
+                      },
                       "entry": {
                         "type": "string"
                       },
@@ -4336,6 +4420,10 @@
                     "properties": {
                       "category": {
                         "maxLength": 64,
+                        "type": "string"
+                      },
+                      "description": {
+                        "maxLength": 2000,
                         "type": "string"
                       },
                       "gatingConditions": {},
@@ -4410,6 +4498,19 @@
             "checksum": {
               "type": "string"
             },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                }
+              ]
+            },
             "entry": {
               "maxLength": 512,
               "minLength": 1,
@@ -4420,6 +4521,20 @@
               "minLength": 1,
               "pattern": "^[A-Za-z0-9_-]+$",
               "type": "string"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                }
+              ]
             }
           },
           "required": [
@@ -6186,6 +6301,10 @@
             "createdAt": {
               "type": "string"
             },
+            "description": {
+              "maxLength": 500,
+              "type": "string"
+            },
             "icon": {
               "type": "string"
             },
@@ -6256,6 +6375,9 @@
         },
         "RegionalHelpline": {
           "properties": {
+            "description": {
+              "type": "string"
+            },
             "hours": {
               "type": "string"
             },
@@ -6463,6 +6585,11 @@
                 "string",
                 "null"
               ]
+            },
+            "title": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
             }
           },
           "type": "object"
@@ -6763,6 +6890,9 @@
             "helplines": {
               "items": {
                 "properties": {
+                  "description": {
+                    "type": "string"
+                  },
                   "hours": {
                     "type": "string"
                   },
@@ -6817,6 +6947,9 @@
                 "string",
                 "null"
               ]
+            },
+            "title": {
+              "type": "string"
             },
             "updatedAt": {
               "type": "string"
@@ -7366,6 +7499,10 @@
             "contentPath": {
               "type": "string"
             },
+            "description": {
+              "minLength": 1,
+              "type": "string"
+            },
             "gatingConditions": {
               "default": [],
               "items": {
@@ -7543,6 +7680,10 @@
             "compatibility": {
               "type": "string"
             },
+            "description": {
+              "minLength": 1,
+              "type": "string"
+            },
             "enabled": {
               "type": "boolean"
             },
@@ -7682,6 +7823,10 @@
               ],
               "type": "string"
             },
+            "description": {
+              "minLength": 1,
+              "type": "string"
+            },
             "inputSchema": {},
             "name": {
               "minLength": 1,
@@ -7734,6 +7879,10 @@
                 "system",
                 "external"
               ],
+              "type": "string"
+            },
+            "description": {
+              "minLength": 1,
               "type": "string"
             },
             "enabled": {
@@ -7839,6 +7988,10 @@
                       "system",
                       "external"
                     ],
+                    "type": "string"
+                  },
+                  "description": {
+                    "minLength": 1,
                     "type": "string"
                   },
                   "enabled": {
@@ -8098,6 +8251,9 @@
               ],
               "type": "object"
             },
+            "description": {
+              "type": "string"
+            },
             "expectedRevision": {
               "exclusiveMinimum": 0,
               "type": "integer"
@@ -8119,6 +8275,10 @@
               "type": "boolean"
             },
             "color": {
+              "type": "string"
+            },
+            "description": {
+              "maxLength": 500,
               "type": "string"
             },
             "icon": {
@@ -9159,6 +9319,9 @@
                         ],
                         "type": "string"
                       },
+                      "title": {
+                        "type": "string"
+                      },
                       "updatedAt": {
                         "type": "string"
                       },
@@ -9233,6 +9396,9 @@
                             "dailyAvailableMinutes": {
                               "type": "integer"
                             },
+                            "description": {
+                              "type": "string"
+                            },
                             "gains": {
                               "items": {
                                 "type": "string"
@@ -9272,6 +9438,12 @@
                                       "null"
                                     ]
                                   },
+                                  "description": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
                                   "id": {
                                     "type": "string"
                                   },
@@ -9293,6 +9465,12 @@
                                         "createdAt": {
                                           "type": "string"
                                         },
+                                        "description": {
+                                          "type": [
+                                            "string",
+                                            "null"
+                                          ]
+                                        },
                                         "hints": {
                                           "items": {
                                             "type": "string"
@@ -9312,6 +9490,9 @@
                                           "type": "string"
                                         },
                                         "subjectUserId": {
+                                          "type": "string"
+                                        },
+                                        "title": {
                                           "type": "string"
                                         },
                                         "updatedAt": {
@@ -9336,6 +9517,9 @@
                                       "type": "object"
                                     },
                                     "type": "array"
+                                  },
+                                  "title": {
+                                    "type": "string"
                                   },
                                   "updatedAt": {
                                     "type": "string"
@@ -9364,6 +9548,9 @@
                               "type": "string"
                             },
                             "subjectUserId": {
+                              "type": "string"
+                            },
+                            "title": {
                               "type": "string"
                             },
                             "topic": {
@@ -9482,6 +9669,9 @@
                       "dailyAvailableMinutes": {
                         "type": "integer"
                       },
+                      "description": {
+                        "type": "string"
+                      },
                       "gains": {
                         "items": {
                           "type": "string"
@@ -9521,6 +9711,12 @@
                                 "null"
                               ]
                             },
+                            "description": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "id": {
                               "type": "string"
                             },
@@ -9542,6 +9738,12 @@
                                   "createdAt": {
                                     "type": "string"
                                   },
+                                  "description": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
                                   "hints": {
                                     "items": {
                                       "type": "string"
@@ -9561,6 +9763,9 @@
                                     "type": "string"
                                   },
                                   "subjectUserId": {
+                                    "type": "string"
+                                  },
+                                  "title": {
                                     "type": "string"
                                   },
                                   "updatedAt": {
@@ -9585,6 +9790,9 @@
                                 "type": "object"
                               },
                               "type": "array"
+                            },
+                            "title": {
+                              "type": "string"
                             },
                             "updatedAt": {
                               "type": "string"
@@ -9613,6 +9821,9 @@
                         "type": "string"
                       },
                       "subjectUserId": {
+                        "type": "string"
+                      },
+                      "title": {
                         "type": "string"
                       },
                       "topic": {
@@ -9702,6 +9913,9 @@
                       "dailyAvailableMinutes": {
                         "type": "integer"
                       },
+                      "description": {
+                        "type": "string"
+                      },
                       "gains": {
                         "items": {
                           "type": "string"
@@ -9741,6 +9955,12 @@
                                 "null"
                               ]
                             },
+                            "description": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "id": {
                               "type": "string"
                             },
@@ -9762,6 +9982,12 @@
                                   "createdAt": {
                                     "type": "string"
                                   },
+                                  "description": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
                                   "hints": {
                                     "items": {
                                       "type": "string"
@@ -9781,6 +10007,9 @@
                                     "type": "string"
                                   },
                                   "subjectUserId": {
+                                    "type": "string"
+                                  },
+                                  "title": {
                                     "type": "string"
                                   },
                                   "updatedAt": {
@@ -9805,6 +10034,9 @@
                                 "type": "object"
                               },
                               "type": "array"
+                            },
+                            "title": {
+                              "type": "string"
                             },
                             "updatedAt": {
                               "type": "string"
@@ -9833,6 +10065,9 @@
                         "type": "string"
                       },
                       "subjectUserId": {
+                        "type": "string"
+                      },
+                      "title": {
                         "type": "string"
                       },
                       "topic": {
@@ -9922,6 +10157,9 @@
                       "dailyAvailableMinutes": {
                         "type": "integer"
                       },
+                      "description": {
+                        "type": "string"
+                      },
                       "gains": {
                         "items": {
                           "type": "string"
@@ -9961,6 +10199,12 @@
                                 "null"
                               ]
                             },
+                            "description": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "id": {
                               "type": "string"
                             },
@@ -9982,6 +10226,12 @@
                                   "createdAt": {
                                     "type": "string"
                                   },
+                                  "description": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
                                   "hints": {
                                     "items": {
                                       "type": "string"
@@ -10001,6 +10251,9 @@
                                     "type": "string"
                                   },
                                   "subjectUserId": {
+                                    "type": "string"
+                                  },
+                                  "title": {
                                     "type": "string"
                                   },
                                   "updatedAt": {
@@ -10025,6 +10278,9 @@
                                 "type": "object"
                               },
                               "type": "array"
+                            },
+                            "title": {
+                              "type": "string"
                             },
                             "updatedAt": {
                               "type": "string"
@@ -10053,6 +10309,9 @@
                         "type": "string"
                       },
                       "subjectUserId": {
+                        "type": "string"
+                      },
+                      "title": {
                         "type": "string"
                       },
                       "topic": {
@@ -11305,6 +11564,10 @@
                             "configured": {
                               "type": "boolean"
                             },
+                            "description": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
                             "docsUrl": {
                               "minLength": 1,
                               "type": "string"
@@ -11947,6 +12210,9 @@
                       "tools": {
                         "items": {
                           "properties": {
+                            "description": {
+                              "type": "string"
+                            },
                             "enabled": {
                               "type": "boolean"
                             },
@@ -12030,6 +12296,9 @@
                           "properties": {
                             "authorized": {
                               "type": "boolean"
+                            },
+                            "description": {
+                              "type": "string"
                             },
                             "healthy": {
                               "type": "boolean"
@@ -14757,6 +15026,9 @@
                               "minLength": 1,
                               "type": "string"
                             },
+                            "description": {
+                              "type": "string"
+                            },
                             "id": {
                               "minLength": 1,
                               "type": "string"
@@ -14946,6 +15218,9 @@
                       ],
                       "type": "object"
                     },
+                    "description": {
+                      "type": "string"
+                    },
                     "name": {
                       "minLength": 1,
                       "type": "string"
@@ -14974,6 +15249,9 @@
                           },
                           "currentRevisionId": {
                             "minLength": 1,
+                            "type": "string"
+                          },
+                          "description": {
                             "type": "string"
                           },
                           "id": {
@@ -15391,6 +15669,9 @@
                             "minLength": 1,
                             "type": "string"
                           },
+                          "description": {
+                            "type": "string"
+                          },
                           "id": {
                             "minLength": 1,
                             "type": "string"
@@ -15691,6 +15972,9 @@
                       ],
                       "type": "object"
                     },
+                    "description": {
+                      "type": "string"
+                    },
                     "expectedRevision": {
                       "exclusiveMinimum": 0,
                       "type": "integer"
@@ -15723,6 +16007,9 @@
                           },
                           "currentRevisionId": {
                             "minLength": 1,
+                            "type": "string"
+                          },
+                          "description": {
                             "type": "string"
                           },
                           "id": {
@@ -16167,6 +16454,9 @@
                       "dailyAvailableMinutes": {
                         "type": "integer"
                       },
+                      "description": {
+                        "type": "string"
+                      },
                       "gains": {
                         "items": {
                           "type": "string"
@@ -16206,6 +16496,12 @@
                                 "null"
                               ]
                             },
+                            "description": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "id": {
                               "type": "string"
                             },
@@ -16227,6 +16523,12 @@
                                   "createdAt": {
                                     "type": "string"
                                   },
+                                  "description": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
                                   "hints": {
                                     "items": {
                                       "type": "string"
@@ -16246,6 +16548,9 @@
                                     "type": "string"
                                   },
                                   "subjectUserId": {
+                                    "type": "string"
+                                  },
+                                  "title": {
                                     "type": "string"
                                   },
                                   "updatedAt": {
@@ -16270,6 +16575,9 @@
                                 "type": "object"
                               },
                               "type": "array"
+                            },
+                            "title": {
+                              "type": "string"
                             },
                             "updatedAt": {
                               "type": "string"
@@ -16298,6 +16606,9 @@
                         "type": "string"
                       },
                       "subjectUserId": {
+                        "type": "string"
+                      },
+                      "title": {
                         "type": "string"
                       },
                       "topic": {
@@ -16416,6 +16727,10 @@
                         },
                         "type": "array"
                       },
+                      "description": {
+                        "default": "",
+                        "type": "string"
+                      },
                       "displayName": {
                         "maxLength": 128,
                         "minLength": 1,
@@ -16461,6 +16776,19 @@
                             },
                             "id": {
                               "type": "string"
+                            },
+                            "title": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "additionalProperties": {
+                                    "type": "string"
+                                  },
+                                  "type": "object"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -16489,6 +16817,9 @@
                             "default": [],
                             "items": {
                               "properties": {
+                                "description": {
+                                  "type": "string"
+                                },
                                 "sourceId": {
                                   "type": "string"
                                 }
@@ -16542,6 +16873,10 @@
                         "default": [],
                         "items": {
                           "properties": {
+                            "description": {
+                              "default": "",
+                              "type": "string"
+                            },
                             "name": {
                               "type": "string"
                             }
@@ -16559,6 +16894,10 @@
                           "properties": {
                             "category": {
                               "default": "plugin",
+                              "type": "string"
+                            },
+                            "description": {
+                              "default": "",
                               "type": "string"
                             },
                             "name": {
@@ -16794,6 +17133,10 @@
                                 }
                               },
                               "type": "object"
+                            },
+                            "description": {
+                              "default": "",
+                              "type": "string"
                             },
                             "displayName": {
                               "maxLength": 128,
@@ -17743,6 +18086,19 @@
                             "checksum": {
                               "type": "string"
                             },
+                            "description": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "additionalProperties": {
+                                    "type": "string"
+                                  },
+                                  "type": "object"
+                                }
+                              ]
+                            },
                             "entry": {
                               "maxLength": 512,
                               "minLength": 1,
@@ -17753,6 +18109,20 @@
                               "minLength": 1,
                               "pattern": "^[A-Za-z0-9_-]+$",
                               "type": "string"
+                            },
+                            "title": {
+                              "anyOf": [
+                                {
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                {
+                                  "additionalProperties": {
+                                    "type": "string"
+                                  },
+                                  "type": "object"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -17836,6 +18206,19 @@
                     "checksum": {
                       "type": "string"
                     },
+                    "description": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "type": "object"
+                        }
+                      ]
+                    },
                     "entry": {
                       "maxLength": 512,
                       "minLength": 1,
@@ -17846,6 +18229,20 @@
                       "minLength": 1,
                       "pattern": "^[A-Za-z0-9_-]+$",
                       "type": "string"
+                    },
+                    "title": {
+                      "anyOf": [
+                        {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        {
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "type": "object"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -17880,6 +18277,19 @@
                       "checksum": {
                         "type": "string"
                       },
+                      "description": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "additionalProperties": {
+                              "type": "string"
+                            },
+                            "type": "object"
+                          }
+                        ]
+                      },
                       "entry": {
                         "maxLength": 512,
                         "minLength": 1,
@@ -17890,6 +18300,20 @@
                         "minLength": 1,
                         "pattern": "^[A-Za-z0-9_-]+$",
                         "type": "string"
+                      },
+                      "title": {
+                        "anyOf": [
+                          {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          {
+                            "additionalProperties": {
+                              "type": "string"
+                            },
+                            "type": "object"
+                          }
+                        ]
                       }
                     },
                     "required": [
@@ -21627,6 +22051,9 @@
                       "helplines": {
                         "items": {
                           "properties": {
+                            "description": {
+                              "type": "string"
+                            },
                             "hours": {
                               "type": "string"
                             },
@@ -22430,6 +22857,10 @@
                             "compatibility": {
                               "type": "string"
                             },
+                            "description": {
+                              "minLength": 1,
+                              "type": "string"
+                            },
                             "enabled": {
                               "type": "boolean"
                             },
@@ -22757,6 +23188,10 @@
                       "compatibility": {
                         "type": "string"
                       },
+                      "description": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
                       "enabled": {
                         "type": "boolean"
                       },
@@ -22884,6 +23319,10 @@
                         "type": "string"
                       },
                       "compatibility": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "minLength": 1,
                         "type": "string"
                       },
                       "enabled": {
@@ -25481,5 +25920,10 @@
       }
     ],
     "webhooks": {}
+  },
+  "restoration": {
+    "reason": "Restore structural fields omitted by the original annotation-name canonicalizer without advancing the historical source.",
+    "originalBaselineSha256": "381c9948181e0ecb4b53b1f98e41da1c7a221fe5d6762a33f199b687e179569c",
+    "sourceBlob": "e1614f8137db1fedc2159ab962ed2e16e3c4772d"
   }
 }

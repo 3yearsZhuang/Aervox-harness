@@ -6,7 +6,7 @@
  */
 import { buildApp } from "./app.js";
 import { loadApiConfig } from "@aervox/config";
-import { assertSafeApiListenHost, loadAuthConfig } from "./shared/auth.js";
+import { assertSafeApiListenHost, loadAuthConfig } from "@aervox/host-runtime/shared/auth";
 
 const { app } = await buildApp();
 // 缺陷 E：集中类型化配置（PORT 启动期校验）

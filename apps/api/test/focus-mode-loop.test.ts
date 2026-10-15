@@ -17,7 +17,7 @@ import {
 import type { Client } from "@libsql/client";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "./app-fixture.js";
-import { createPluginHostServicesFactory } from "../src/plugin-host-services.js";
+import { createPluginHostServicesFactory } from "@aervox/host-runtime/plugin-host-services";
 
 const headers = {
   "x-workspace-id": "ws_focus",

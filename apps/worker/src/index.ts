@@ -32,12 +32,12 @@ import { createDatabase,
   createProactiveVaultDatabase,
   loadProactiveVaultCipher,
 } from "@aervox/repositories";
-import { loadWorkerConfig } from "@aervox/config";
+import { loadWorkerConfig, loadApiConfig } from "@aervox/config";
 import { registerWorkerShutdown } from "./shutdown.js";
 import { createServer } from "node:http";
 import { createStandardLogger } from "@aervox/observability";
-import { createReplayProvider, HostToolRuntime } from "@aervox/core";
-import { resolveEmbeddingProvider, resolveModelProvider, createHostToolProvider, createSqliteMemoryRecall } from "@aervox/host-agent";
+import { resolveEmbeddingProvider } from "@aervox/host-agent";
+import { buildHostRuntime } from "@aervox/host-runtime";
 import { runOutboxCycle } from "./outbox-worker.js";
 import { createTurnConsumerHandler } from "./turn-consumer.js";
 import { runReviewNotificationCycle } from "./review-notifier.js";
@@ -87,27 +87,15 @@ const defaultTickMs = config.tickMs;
 
 const outboxRepo = new SqliteOutboxRepository(db);
 const platformRepo = new SqlitePlatformRepository(db);
-const conversationRepo = new SqliteConversationRepository(db);
 const llmConfigRepo = new SqliteLLMConfigRepository(db);
-const toolRuntime = new HostToolRuntime();
-const hostToolProvider = createHostToolProvider(toolRuntime, conversationRepo);
-
 const privacyRepo = new SqlitePrivacyRepository(db);
 const embeddingRepo = new SqliteMemoryEmbeddingRepository(db);
 const embeddingProvider = resolveEmbeddingProvider(process.env);
-const memoryRecall = createSqliteMemoryRecall({
-  db,
-  client,
-  embeddingProvider,
-  consentCheck: (purpose, scope) => privacyRepo.hasActiveConsent({ workspaceId: "local", subjectUserId: "local" }, purpose, scope),
+const runtime = await buildHostRuntime({
+  role: "worker", db, client, proactiveDb, proactiveClient, proactiveCipher, embeddingProvider,
 });
-
-const turnConsumer = createTurnConsumerHandler({
-  repo: conversationRepo,
-  provider: () => resolveModelProvider(process.env, { llmConfigRepo }),
-  tools: hostToolProvider,
-  memoryRecall,
-});
+await runtime.app.ready();
+const turnConsumer = createTurnConsumerHandler(runtime.conversation);
 const diaryRepo = new SqliteDiaryRepository(db);
 const learningRepo = new SqliteLearningRepository(db);
 const compactionRepo = new SqliteMemoryCompactionRepository(db);
@@ -142,7 +130,6 @@ host
         platformRepo,
         workerId,
         handlers: {
-          "turn.created": turnConsumer,
           "agent.turn.requested": turnConsumer,
         },
       }),
@@ -169,7 +156,9 @@ host
   })
   .registerJob({
     name: "attempt-recovery",
-    run: () => runAttemptRecoveryCycle({ db, client, workerId, provider: createReplayProvider(), privacyRepo }),
+    run: () => runAttemptRecoveryCycle({ db, client, workerId,
+      resume: loadApiConfig().loopResume === "local-results" ? () => runtime.conversation.resume() : undefined,
+    }),
   })
   .registerJob({
     name: "inbox-expiry",
@@ -237,4 +226,4 @@ if (healthServer) {
   });
 }
 
-registerWorkerShutdown({ host, clients: [client, proactiveClient], healthServer, logger });
+registerWorkerShutdown({ host, abortExecution: () => runtime.conversation.abort(), disposeRuntime: () => runtime.app.close(), clients: [client, proactiveClient], healthServer, logger });

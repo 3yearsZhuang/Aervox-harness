@@ -47,6 +47,18 @@ test('check rejects incompatible hosts and pack never writes invalid bundles', a
   await assert.rejects(fs.access(target));
 }));
 
+test('check and pack reject Skill names that the installer cannot store', async () => temporary(async root => {
+  const directory = path.join(root, 'example'); await initPlugin(directory);
+  const manifestPath = path.join(directory, 'plugin.manifest.json');
+  const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8'));
+  manifest.spec.skills = [{ name: 'bad/name', content: '# Example' }];
+  await fs.writeFile(manifestPath, JSON.stringify(manifest));
+  assert.ok((await checkPlugin(directory)).issues.some(issue => issue.code === 'SKILL_NAME'));
+  const target = path.join(root, 'invalid.aervox-plugin');
+  await assert.rejects(packPlugin(directory, target), /Invalid skill name/);
+  await assert.rejects(fs.access(target));
+}));
+
 test('rejects unknown source files and symlinks while excluding trusted local development files', async () => temporary(async (root) => {
   const directory = path.join(root, 'example'); await initPlugin(directory);
   await fs.mkdir(path.join(directory, 'src'));

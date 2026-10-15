@@ -9,6 +9,11 @@ export const PLUGIN_BUNDLE_ROOT_FILES = ["plugin.manifest.json", "manifest.json"
 export const PLUGIN_BUNDLE_RESOURCE_PREFIXES = ["pages/", "skills/"] as const;
 const RESERVED_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 
+/** Shared by author validation and host filesystem ownership checks. */
+export function isPluginSkillName(name: string): boolean {
+  return /^(?!\.{1,2}$)[\w.-]+$/.test(name);
+}
+
 export function isPluginBundleResourcePath(entry: string): boolean {
   if (!entry || entry.length > 512 || entry.startsWith("/") || entry.includes("\\") || /^[A-Za-z]:/.test(entry)) return false;
   if (entry.split("/").some((part) => !part || part === "." || part === "..")) return false;
@@ -160,6 +165,7 @@ export function validatePluginBundleFiles(
     catch { add(entry, "SKILL_ENCODING", "Invalid UTF-8 skill entry"); }
   };
   for (const skill of manifest.spec.skills ?? []) {
+    if (!isPluginSkillName(skill.name)) add(`skills.${skill.name}`, "SKILL_NAME", "Invalid skill name");
     if (skillNames.has(skill.name)) add(`skills.${skill.name}`, "SKILL_DUPLICATE", "Duplicate skill name");
     skillNames.add(skill.name);
     if (skill.entry) {
@@ -181,6 +187,7 @@ export function validatePluginBundleFiles(
     if (claimedSkillEntries.has(entry) || !entry.startsWith("skills/") || (!entry.endsWith("/SKILL.md") && !entry.endsWith("/skill.md"))) continue;
     const name = entry.split("/")[1];
     if (!name || skillNames.has(name)) continue;
+    if (!isPluginSkillName(name)) add(entry, "SKILL_NAME", "Invalid skill name");
     checkSkillUtf8(entry);
     skillNames.add(name);
   }

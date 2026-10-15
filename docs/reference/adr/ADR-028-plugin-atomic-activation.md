@@ -1,9 +1,9 @@
 ---
-id: ADR-027
+id: ADR-028
 decision_status: accepted
 ---
 
-# ADR-027 声明式插件资源准备与原子激活
+# ADR-028 声明式插件资源准备与原子激活
 
 ## 背景
 

@@ -1,168 +1,68 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import {
-  createInMemoryDatabase,
-  initDatabaseSchema,
-  SqliteConversationRepository,
-  SqlitePrivacyRepository,
-  type AervoxDatabase,
-  type LocalContext,
-} from "@aervox/repositories";
-import type { Client } from "@libsql/client";
-import { createReplayProvider } from "@aervox/core";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SqlitePrivacyRepository, SqliteLLMConfigRepository } from "@aervox/repositories";
 import { runAttemptRecoveryCycle } from "../src/attempt-recovery.js";
+import { createHostFixture, llmSse, local } from "./host-fixture.js";
 
-describe("HLS-DEC-01 / ARC-01: Worker 崩溃断点自动续跑与失效 Attempt 恢复测试", () => {
-  let db: AervoxDatabase;
-  let client: Client;
-  let repo: SqliteConversationRepository;
-  let privacyRepo: SqlitePrivacyRepository;
-
-  const localCtx: LocalContext = {
-    workspaceId: "local",
-    subjectUserId: "local",
-  };
-
+describe("Worker recovery admits only configured local models and committed results", () => {
+  let f: Awaited<ReturnType<typeof createHostFixture>>;
   beforeEach(async () => {
-    const res = await createInMemoryDatabase();
-    db = res.db;
-    client = res.client;
-    await initDatabaseSchema(client);
-    repo = new SqliteConversationRepository(db);
-    privacyRepo = new SqlitePrivacyRepository(db);
+    vi.stubEnv("AERVOX_LOOP_PROVIDER", "llm");
+    vi.stubEnv("AERVOX_LOOP_DISPATCH", "worker");
+    vi.stubEnv("AERVOX_LOOP_RESUME", "off");
+    f = await createHostFixture();
   });
+  afterEach(async () => { await f?.close(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
-  it("具备有效工具结果的过期 Attempt 会被自动抢占续跑并完成，无需用户重新发消息", async () => {
-    const turnId = "turn_resume_1";
-    const sessionId = "ses_resume_1";
-    const attemptId = "atp_resume_1";
+  async function prepare(committed = true) {
+    const turnId = await f.accept();
+    const attemptId = (await f.repo.listTurnAttempts(local, turnId))[0].id;
+    await f.repo.claimTurnAttempt(local, { turnId, attemptId, expectedFencingToken: 0, leaseId: "old", ttlMs: 1 });
+    const invocationId = `${attemptId}:1:1`;
+    await f.repo.reserveToolExecution(local, { turnId, attemptId, invocationId, name: "notes_search", arguments: {} });
+    if (committed) {
+      await f.repo.updateToolExecutionResult(local, { turnId, attemptId, invocationId, status: "executed", output: { topic: "微积分基础" } });
+      await f.repo.appendStreamEvent(local, { id: "req", turnId, attemptId, sequence: 1, eventType: "tool_request", data: { name: "notes_search", executionId: invocationId } });
+      await f.repo.appendStreamEvent(local, { id: "res", turnId, attemptId, sequence: 2, eventType: "tool_result", data: { name: "notes_search", ok: true, output: { topic: "微积分基础" }, executionId: invocationId } });
+    }
+    await f.client.execute({ sql: "UPDATE turn_attempts SET lease_expires_at = ? WHERE id = ?", args: ["2000-01-01T00:00:00.000Z", attemptId] });
+    return { turnId, attemptId };
+  }
+  async function configure(baseUrl: string) {
+    await new SqliteLLMConfigRepository(f.db).saveConfig(local, { enabled: true, providerType: "openai_compatible", baseUrl, apiKey: "local-key", modelId: "configured-model", temperature: 0.7, maxTokens: 4096, settings: {} });
+  }
+  const cycle = (resume = true) => runAttemptRecoveryCycle({ db: f.db, client: f.client, workerId: "recovery", resume: resume ? () => f.worker.conversation.resume() : undefined });
 
-    await repo.createSession(localCtx, "续跑测试会话", { id: sessionId });
-    await repo.createTurnWithOutbox(
-      localCtx,
-      { id: turnId, sessionId, idempotencyKey: "idem_resume_1", status: "Created" },
-      { id: "msg_user_resume", content: "请帮我查复习笔记" },
-      { id: "ob_resume_1", eventType: "turn.created", idempotencyKey: "idem_ob_resume_1", payload: { turnId, sessionId } },
-    );
-    await repo.createTurnAttempt(localCtx, turnId, { id: attemptId, attempt: 1 });
-    await repo.claimTurnAttempt(localCtx, {
-      turnId,
-      attemptId,
-      expectedFencingToken: 0,
-      leaseId: "lease_old",
-      ttlMs: 1,
-    });
-
-    // 模拟租约过期
-    await new Promise((r) => setTimeout(r, 10));
-
-    // 写入权威提交的工具执行结果（模拟执行到一半进程崩溃/重启）
-    await repo.reserveToolExecution(localCtx, {
-      turnId,
-      attemptId,
-      invocationId: `${attemptId}:1:1`,
-      name: "notes_search",
-      arguments: {},
-    });
-    await repo.updateToolExecutionResult(localCtx, {
-      turnId,
-      attemptId,
-      invocationId: `${attemptId}:1:1`,
-      status: "executed",
-      output: { topic: "微积分基础" },
-    });
-    await repo.appendStreamEvent(localCtx, {
-      id: "ev_tool_req",
-      turnId,
-      sequence: 1,
-      eventType: "tool_request",
-      data: { name: "notes_search", executionId: `${attemptId}:1:1` },
-      attemptId,
-    });
-    await repo.appendStreamEvent(localCtx, {
-      id: "ev_tool_res",
-      turnId,
-      sequence: 2,
-      eventType: "tool_result",
-      data: { output: { topic: "微积分基础" }, executionId: `${attemptId}:1:1` },
-      attemptId,
-    });
-
-    const provider = createReplayProvider([
-      { type: "text", delta: "根据笔记查询结果，您的复习重点是微积分基础。" },
-    ]);
-
-    // 执行 Attempt 恢复周期
-    await runAttemptRecoveryCycle({
-      db,
-      client,
-      workerId: "worker-recovery-test",
-      provider,
-      privacyRepo,
-    });
-
-    // 验证 Attempt 已被推进至 Completed（而非粗暴标记为 Interrupted）
-    const attempts = await repo.listTurnAttempts(localCtx, turnId);
-    expect(attempts).toHaveLength(1);
-    expect(attempts[0]?.status).toBe("Completed");
-
-    // 验证 Turn 状态同步完成
-    const turn = await repo.getTurn(localCtx, turnId);
-    expect(turn?.status).toBe("Completed");
-
-    // 验证事件流中已追加 done 事件
-    const events = await repo.getStreamEvents(localCtx, turnId);
-    const eventTypes = events.map((e) => e.eventType);
-    expect(eventTypes).toContain("done");
+  it("without opt-in, interrupts committed results rather than writing fixture model text", async () => {
+    const { turnId } = await prepare(); const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
+    expect(await cycle(false)).toBe(1);
+    expect((await f.repo.getTurn(local, turnId))?.status).toBe("Interrupted");
+    expect(fetch).not.toHaveBeenCalled();
   });
-
-  it("无提交工具结果的超时 Attempt 会安全熔断为 Interrupted，并使未决工具进入 outcome_unknown", async () => {
-    const turnId = "turn_stale_1";
-    const sessionId = "ses_stale_1";
-    const attemptId = "atp_stale_1";
-
-    await repo.createSession(localCtx, "超时会话", { id: sessionId });
-    await repo.createTurnWithOutbox(
-      localCtx,
-      { id: turnId, sessionId, idempotencyKey: "idem_stale_1", status: "Created" },
-      { id: "msg_user_stale", content: "卡死的请求" },
-      { id: "ob_stale_1", eventType: "turn.created", idempotencyKey: "idem_ob_stale_1", payload: { turnId, sessionId } },
-    );
-    await repo.createTurnAttempt(localCtx, turnId, { id: attemptId, attempt: 1 });
-    await repo.claimTurnAttempt(localCtx, {
-      turnId,
-      attemptId,
-      expectedFencingToken: 0,
-      leaseId: "lease_stale",
-      ttlMs: 1,
-    });
-
-    // 租约过期
-    await new Promise((r) => setTimeout(r, 10));
-
-    // 预留工具但未提交结果
-    await repo.reserveToolExecution(localCtx, {
-      turnId,
-      attemptId,
-      invocationId: `${attemptId}:1:1`,
-      name: "slow_tool",
-      arguments: {},
-    });
-
-    // 执行恢复
-    const recovered = await runAttemptRecoveryCycle({
-      db,
-      client,
-      workerId: "worker-recovery-test",
-    });
-
-    expect(recovered).toBe(1);
-
-    // 验证该 Attempt 已被安全熔断为 Interrupted
-    const attempts = await repo.listTurnAttempts(localCtx, turnId);
-    expect(attempts[0]?.status).toBe("Interrupted");
-
-    // 验证挂起的工具状态被标记为 outcome_unknown
-    const toolExecs = await repo.listToolExecutionsByTurn(localCtx, turnId);
-    expect(toolExecs[0]?.status).toBe("outcome_unknown");
+  it("resumes via the shared configured local provider, with committed results and no tools", async () => {
+    const { turnId } = await prepare(); await configure("http://127.0.0.1:11434/v1");
+    const requests: Array<{ model: string; messages: unknown; tools?: unknown[] }> = [];
+    const fetch = vi.fn(async (_url, init) => { requests.push(JSON.parse(init.body)); return llmSse("复习重点是微积分基础。"); });
+    vi.stubGlobal("fetch", fetch);
+    await cycle();
+    expect((await f.repo.getTurn(local, turnId))?.status).toBe("Completed");
+    expect(requests[0].model).toBe("configured-model");
+    expect(JSON.stringify(requests[0].messages)).toContain("微积分基础");
+    expect(requests[0].tools ?? []).toHaveLength(0);
+    expect(fetch.mock.calls[0][0]).toBe("http://127.0.0.1:11434/v1/chat/completions");
+  });
+  it.each(["remote", "deletion"])("rejects %s admission before calling the provider", async reason => {
+    const { turnId } = await prepare();
+    await configure(reason === "remote" ? "https://model.example/v1" : "http://127.0.0.1:11434/v1");
+    if (reason === "deletion") await new SqlitePrivacyRepository(f.db).createDeletionRequest(local, { id: "delete", idempotencyKey: "delete", scope: "memory", ownerModule: "memory", targets: [] });
+    const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
+    await cycle();
+    expect(fetch).not.toHaveBeenCalled();
+    expect((await f.repo.getTurn(local, turnId))?.status).toBe("Interrupted");
+  });
+  it("marks an uncommitted side effect outcome_unknown without replay", async () => {
+    const { turnId } = await prepare(false); const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
+    expect(await cycle()).toBe(1);
+    expect((await f.repo.listToolExecutionsByTurn(local, turnId))[0].status).toBe("outcome_unknown");
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

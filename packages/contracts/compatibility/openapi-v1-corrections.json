@@ -44,6 +44,9 @@
             "minimum": 400,
             "type": "integer"
           },
+          "title": {
+            "type": "string"
+          },
           "type": {
             "type": "string"
           }
@@ -1515,5 +1518,11 @@
         }
       }
     }
-  ]
+  ],
+  "restoration": {
+    "reason": "Recompute exact before fingerprints and restore correction values from the already-reviewed standards document using context-aware canonicalization.",
+    "originalCorrectionsSha256": "84e72d336065c9b3623a74059940957a4e18cf39121c195c94c32f17588202b4",
+    "valuesSource": "ae5cca63855cf3226466e035d2aa579a2268e312",
+    "valuesSourceBlob": "38575c6f95f923593f2471c093528bfeaab4c055"
+  }
 }

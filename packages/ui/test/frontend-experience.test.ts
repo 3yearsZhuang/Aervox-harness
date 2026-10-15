@@ -148,7 +148,7 @@ describe('frontend experience', () => {
         stubs: { ExtensionSlot: true },
         provide: {
           [WORKBENCH_CONTEXT_KEY as symbol]: {
-            layout: { assistantDisplayName: ref('思隅') },
+            layout: { companionDisplayName: ref('思隅') },
             timer: { timerRunning: ref(false), timerMinutes: ref(25) },
             cards: {
               slotCards: ref([null, null]),
@@ -178,7 +178,7 @@ describe('frontend experience', () => {
     vi.spyOn(window, 'matchMedia').mockReturnValue(media as unknown as MediaQueryList);
     const scope = effectScope();
     const layout = scope.run(() => useWorkbenchLayout(
-      { platform: 'web', showCompanion: true, assistantName: '思隅' }, { recordActivity: vi.fn() },
+      { platform: 'web', showCompanion: true, companionName: '小隅' }, { recordActivity: vi.fn() },
     ))!;
     expect(layout.narrowSidebar.value).toBe(true);
     expect(layout.standardSidebarCollapsed.value).toBe(true);

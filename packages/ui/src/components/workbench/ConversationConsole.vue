@@ -8,7 +8,7 @@ import { useWorkbenchContext } from '../../composables/workbench-context';
 import { renderMarkdown } from '../../utils/markdown';
 
 const { layout, conversation } = useWorkbenchContext();
-const { assistantDisplayName, historyOpen } = layout;
+const { companionDisplayName, historyOpen } = layout;
 const {
   consoleCollapsed,
   collapsedSummaryText,
@@ -32,7 +32,7 @@ const isGreeting = computed(() => conversation.story.value.length === 1
 
     <header class="companion-panel-head">
       <MessageSquare class="companion-panel-icon" :size="18" aria-hidden="true" />
-      <span class="companion-panel-title">{{ assistantDisplayName }}</span>
+      <span class="companion-panel-title">{{ companionDisplayName }}</span>
       <span v-if="consoleCollapsed" class="console-collapsed-text">{{ collapsedSummaryText }}</span>
       <AervoxButton variant="ghost" icon-only
         type="button"
