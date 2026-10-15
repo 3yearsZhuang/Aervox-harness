@@ -228,6 +228,7 @@ export function createSummaryCompaction(
           );
 
           const summary = summaryText.trim();
+          if (!summary) throw new Error("Summary generator returned an empty summary");
           const notice: PromptMessage = {
             role: "system",
             content: `## 会话历史摘要 (Authoritative Context Summary)\n以下为被压缩省略的历史对话真实摘要：\n${summary}`,
@@ -238,6 +239,7 @@ export function createSummaryCompaction(
             summary,
           };
         } catch (err) {
+          input.signal?.throwIfAborted();
           if (onFailure === "throw") {
             throw new CompactionError(
               `Context compaction summarization failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -309,13 +311,15 @@ export function createComposedContextBuilder(
 
   let builder: ContextBuilderPort = base;
 
-  // 0) 可见性与工具截断投影（最内层，作用于基础输入消息）
+  // Base may load authoritative history, so project its complete result.
   if (projection) {
     const inner = builder;
     builder = {
-      build(input) {
-        const messages = projectContextToModelVisible(input.messages, projection);
-        return inner.build({ ...input, messages });
+      async build(input) {
+        input.signal?.throwIfAborted();
+        const context = await awaitWithSignal(Promise.resolve(inner.build(input)), input.signal);
+        input.signal?.throwIfAborted();
+        return { ...context, messages: projectContextToModelVisible(context.messages, projection) };
       },
     };
   }

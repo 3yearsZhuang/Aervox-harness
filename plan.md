@@ -137,7 +137,7 @@ Page 与客户端认证：iframe source/nonce/会话/全部 capability、禁用�
 - 前置与边界：既有认证漏接可独立修；复用 [ITER-063](#iter-063) 的 Page 来源、会话与能力检查。资源授权方式、凭据签发/绑定/有效期/轮换/撤销及 Origin 信任策略先 ADR；不向插件脚本暴露宿主长期 Bearer，不以降低认证或 CSP 作为资源加载方案，无需等待第三方执行平台。
 - 待实施范围：打通 Token 模式下 Page 入口 HTML、嵌套 JS/CSS/图片与 Bridge SDK 的受限资源通道；补充跨窗口停用/撤权通知与已有会话失效，避免仅依赖当前窗口观察状态。
 - 验收：在声明支持的 Web/桌面环境中实际加载完整页面并完成 Bridge 配置操作；覆盖重载、凭据过期/轮换、停用/撤权、跨插件与跨来源拒绝，旧会话不能恢复访问；合法 Token 模式的 JSON、SSE、Page、附件可用，凭据不进入 URL、日志或插件脚本。跨窗口撤权和资源加载须有集成证据，不能仅用消息模拟测试代替。
-- 进展与剩余：已完成 Page postMessage 窗口绑定（event.source 校验）、密码学 nonce、会话隔离、全部 Bridge capability 检查及观察到禁用后的页面销毁；API readPageEntry 与 readPageAsset 启用守卫对齐并阻断 symlink 逃逸（FND-03）；桌面附件上传补全 Bearer 认证（ARC-13）。证据见 PR #281/#283；已通过的测试仅覆盖这些切片，Page Token 资源通道与跨窗口撤权实时失效仍未实现。
+- 进展与剩余：已完成 Page postMessage 窗口绑定（event.source 校验）、密码学 nonce、文档会话隔离、全部 Bridge capability 检查及观察到禁用后的页面销毁；API readPageEntry 与 readPageAsset 启用守卫对齐并阻断 symlink 逃逸（FND-03）；桌面附件上传补全 Bearer 认证（ARC-13）。证据见 [PR #281](https://github.com/3yearsZhuang/Aervox-harness/pull/281) 与 [PR #283](https://github.com/3yearsZhuang/Aervox-harness/pull/283)；共享上下文投影同时补齐 Base 历史过滤、有界截断和空摘要失败。已通过的测试仅覆盖这些切片，Token 模式 Page 资源授权通道、合法预检及跨窗口撤权实时失效仍待完成。
 
 <a id="iter-009"></a>
 
@@ -177,7 +177,7 @@ HLS 竞赛可行性验证：规则/环境、真实双入口、公开题集与同
 
 - 前置与边界：压缩不得伪造摘要或声称记得已压缩事实；模型可见投影不等于用户删除，删除仍须覆盖原文、摘要与索引；必须保真事实清单与压缩策略先评审，涉及对话契约差量先 ADR；最终输入窗口验收与 ITER-007 协同、测量口径与 ITER-017 协同，不重复登记。
 - 验收：固定长伴学对话夹具：压缩后学习目标、错因、承诺与来源保真可追溯，无占位文本；超大工具结果压缩不断开调用/结果配对；最终输入加预留输出不超 Provider 窗口，超额有明确有界处理；每次请求的模型可见上下文可从权威投影重建并复核，展示内容与持久历史分离、旧响应不覆盖终态
-- 进展与证据：`feat/context-projection-and-compaction` 已完成保真事实清单（`grounding-facts.ts`）、上下文投影与工具组配对防腐（`context-projection.ts`）、超大工具结果有界截断保护，以及真实摘要压缩与失败可见性（`createSummaryCompaction` 支持 `summarizer`、`onFailure: "throw"` 抛出 `CompactionError` 与 `fallback_notice` 降级说明）。`packages/core/test/context-projection.test.ts` 16 项回归通过，全仓增量门禁通过。
+- 进展与剩余：[PR #281](https://github.com/3yearsZhuang/Aervox-harness/pull/281) 包含 `05200288` 的保真事实输入、模型可见投影与可注入摘要器基础设施，并补齐 Base 后加载历史、总字符预算、零尾部与空白摘要的负向回归。产品宿主的权威事实加载、真实摘要 Provider 及固定长对话的端到端保真验收仍待完成；此切片不提升整项验收或发布状态。
 
 ### 2.2 下一批：恢复、生命周期与部署
 

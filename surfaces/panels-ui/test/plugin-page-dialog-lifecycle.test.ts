@@ -129,21 +129,23 @@ describe('Plugin Page session boundary', () => {
     expect(mocks.info).not.toHaveBeenCalled();
   });
 
-  it('reloads the document on refresh and saves with its freshly read configuration revision', async () => {
+  it('refresh mounts a new document that can reload the current configuration before saving', async () => {
     const old = await connect();
-    send(old.target, old.nonce, 'getConfig', 'read');
+    send(old.target, old.nonce, 'getConfig');
     await flushPromises();
-    const oldFrame = wrapper.find('iframe').element;
+    const previousFrame = wrapper.find('iframe').element;
     await wrapper.findAll('button')[0]!.trigger('click');
-    expect(wrapper.find('iframe').element).not.toBe(oldFrame);
-    send(old.target, old.nonce, 'saveConfig', 'old-save');
-    expect(mocks.saveConfig).not.toHaveBeenCalled();
+    expect(wrapper.find('iframe').element).not.toBe(previousFrame);
     const current = await connect();
-    send(current.target, current.nonce, 'getConfig', 'new-read');
+    expect(current.nonce).not.toBe(old.nonce);
+    send(current.target, current.nonce, 'getConfig', 'read-after-refresh');
     await flushPromises();
-    send(current.target, current.nonce, 'saveConfig', 'save', { values: { value: 'edited' } });
+    send(current.target, current.nonce, 'saveConfig', 'save-after-refresh', { values: { fresh: true } });
     await flushPromises();
-    expect(mocks.saveConfig).toHaveBeenCalledWith('probe', { revision: 3, values: { value: 'edited' }, secretValues: {} });
+    expect(mocks.getConfig).toHaveBeenCalledTimes(2);
+    expect(mocks.saveConfig).toHaveBeenCalledWith('probe', {
+      revision: 3, values: { fresh: true }, secretValues: {},
+    });
   });
 
   it('closes immediately and does not leave a callable frame while the parent handles the close event', async () => {

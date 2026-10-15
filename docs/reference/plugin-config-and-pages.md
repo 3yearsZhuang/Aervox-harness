@@ -120,17 +120,16 @@ Page 元数据为 `id/title/description/entry/capabilities/checksum`。`id` 最�
 
 [PluginPageDialog](../../surfaces/panels-ui/src/plugin/PluginPageDialog.vue)使用 `sandbox="allow-scripts allow-forms allow-downloads"`，未授予 `allow-same-origin`；资源响应设置 CSP：默认拒绝、脚本和样式允许本地及内联、图片允许本地及 `data:`、`connect-src 'none'`、`form-action 'none'`，另有 `nosniff/no-store/no-referrer`。这些是浏览器页面约束，不是 OS 进程沙箱。
 
-[BundleStore](../../packages/host-runtime/src/modules/ecosystem/plugins/bundle-store.ts)检查相对资源路径与词法目录包含关系；尚未检查真实路径/符号链接，也不会拒绝所有未知扩展名。作者禁止链接文件、路径逃逸、远程资源和动态下载代码；服务端不能把这条作者规则当作已实现的隔离证明。
+[BundleStore](../../packages/host-runtime/src/modules/ecosystem/plugins/bundle-store.ts)同时检查相对资源路径、Page 与 Bundle 根的真实路径以及文件类型，拒绝符号链接文件与包外 Page 目录；不会拒绝所有未知扩展名。作者禁止链接文件、路径逃逸、远程资源和动态下载代码；路径检查不等于任意第三方执行隔离证明。
 
-**机器强制**：宿主将消息绑定当前 iframe 的 `event.source` 与 128 位随机 nonce；页面重载、切换插件或 Page 后建立新会话，旧请求结果不得投递给新页。SDK 只接受父窗口消息并绑定首次有效初始化的 origin；会话更换或页面关闭时拒绝未完成调用并清理计时器。四种 Bridge capability 均在宿主逐次检查。宿主收到禁用/不可用状态后销毁 iframe，入口 HTML 与其他资源执行启用检查；主题变化通过当前会话的 context 事件传递。
+当前防护与剩余边界如下，发布安全评估必须分别覆盖：
 
-**未实现**：
+- 宿主按 `event.source`、128 位随机 Nonce、插件/Page 身份与文档会话验证调用和迟到响应，SDK 只接受绑定父窗口及 Origin。逐项 capability 对配置、通知和关闭生效；文档刷新重新挂载并初始化配置 revision。
+- 入口 HTML 与普通资源共用启用检查；当前窗口观察到禁用或缺包后立即销毁 iframe 并拒绝旧响应。其它窗口仍需收到更新后的插件状态，尚无跨窗口撤权实时推送。
+- iframe 正在运行的代码没有统一 CPU/内存配额与撤权终止证明；不能把网络 CSP 解释为任意第三方执行安全已验收。
+- API 启用 Bearer Token 认证时，当前 iframe `src` 和脚本资源没有注入 Authorization 头，资源请求会受到全局认证检查；尚无完整的受保护 Page 资源授权通道。不能将 Token 放入页面 URL 或为访问页面而关闭生产认证。
 
-- 尚无跨窗口或外部 API 状态变化的全局实时推送；当前界面收到状态后销毁 Page，不等于所有窗口同时获知撤权。
-- iframe 代码没有统一 CPU/内存配额与强制终止证明；源窗口、会话检查和网络 CSP 不等于任意第三方代码的执行安全验收。
-- API 启用 Bearer Token 认证时，iframe `src` 和脚本资源没有完整的受保护授权通道；不能将 Token 放入页面 URL，也不能为页面访问关闭生产认证。
-
-上述浏览器消息检查不放宽 ADR-009 的第三方执行边界。回归见 [Page Bridge SDK](../../apps/api/test/plugin-page-bridge.test.ts)与[Page 对话框](../../surfaces/panels-ui/test/plugin-page-dialog.test.ts)。
+已实现防护与剩余缺口分别验收，不通过文字变更批准放宽 ADR-009，也不宣称整个 ITER-006 已完成。
 
 ## 4. 服务端会话回合插件体系（Server Turn Plugin Pipeline）
 

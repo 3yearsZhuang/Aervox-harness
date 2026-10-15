@@ -181,8 +181,12 @@ export class PluginBundleStore {
       throw new Error(`invalid page asset: not a regular file or is a symlink`);
     }
     const base = path.resolve(await this.pageRoot(pluginId, pageId));
-    const [root, realBase, realTarget] = await Promise.all([fs.realpath(this.root), fs.realpath(base), fs.realpath(target)]);
-    if (!realTarget.startsWith(root + path.sep)) throw new Error("page asset escapes bundle root");
+    const [realRoot, realBase, realTarget] = await Promise.all([
+      fs.realpath(this.root), fs.realpath(base), fs.realpath(target),
+    ]);
+    if (!realBase.startsWith(realRoot + path.sep) || !realTarget.startsWith(realRoot + path.sep)) {
+      throw new Error("page asset escapes bundle root");
+    }
     if (realTarget !== realBase && !realTarget.startsWith(realBase + path.sep)) {
       throw new Error("page asset escapes page root");
     }

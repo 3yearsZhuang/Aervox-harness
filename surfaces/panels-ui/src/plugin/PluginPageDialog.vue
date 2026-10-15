@@ -179,10 +179,12 @@ function onIframeLoad(event: Event): void {
   if (event.target === iframe.value) beginSession()
 }
 
-function refreshPage(): void {
+async function reloadPage(): Promise<void> {
+  if (!eligible.value) return
   session = null
-  // Reload the document so its initialization reads the current configuration revision.
-  frameGeneration.value += 1
+  const generation = ++frameGeneration.value
+  await nextTick()
+  if (generation === frameGeneration.value && eligible.value) beginSession()
 }
 
 watch(() => props.theme, postContext)
@@ -212,7 +214,7 @@ onBeforeUnmount(() => {
     @close="close"
   >
     <div class="plugin-page-toolbar">
-      <AervoxButton size="sm" variant="secondary" @click="refreshPage">刷新</AervoxButton>
+      <AervoxButton size="sm" variant="secondary" @click="reloadPage">刷新</AervoxButton>
       <AervoxButton
         v-if="contextCapabilities.includes('config.read') || contextCapabilities.includes('config.write')"
         size="sm"
