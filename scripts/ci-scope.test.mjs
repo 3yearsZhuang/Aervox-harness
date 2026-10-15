@@ -29,6 +29,19 @@ const CI_WORKFLOW = path.join(ROOT_DIR, ".github/workflows/ci.yml");
 const DOCS_WORKFLOW = path.join(ROOT_DIR, ".github/workflows/docs.yml");
 const MISE_CONFIG = path.join(ROOT_DIR, "mise.toml");
 
+test("CI covers every package root declared in pnpm-workspace.yaml", () => {
+  const workspace = fs.readFileSync(path.join(ROOT_DIR, "pnpm-workspace.yaml"), "utf8");
+  const roots = [...workspace.matchAll(/^\s+-\s+["']([^"']+)\/\*["']\s*$/gm)].map(match => match[1]);
+  assert.ok(roots.includes("surfaces"));
+  const paths = readWorkflowPaths(CI_WORKFLOW);
+  for (const trigger of [paths.pullRequest, paths.push]) {
+    for (const root of roots) {
+      const example = `${root}/example/src/index.ts`;
+      assert.ok(trigger.some(glob => matchesGlob(example, glob)), `CI does not cover ${example}`);
+    }
+  }
+});
+
 function syntheticScope() {
   return {
     globalDependencies: ["tsconfig.base.json", "tsconfig.base.node.json"],
