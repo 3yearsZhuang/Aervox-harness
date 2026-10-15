@@ -398,6 +398,8 @@ export interface ModelRunRecord {
   purpose: string;
   status: "completed" | "failed";
   latencyMs?: number;
+  /** Provider-reported cumulative usage; cache counts are subsets, never added to totalTokens. */
+  usage?: ModelUsage;
 }
 
 /** ContextManifest 快照（每次实际模型调用；宿主落库为 context_manifests） */

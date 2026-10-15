@@ -43,6 +43,10 @@ export interface FauxProviderOptions {
   generator?: (request: ModelRequest) => AsyncIterable<ModelChunk> | Iterable<ModelChunk> | FauxStep[];
   /** 注入错误发生的 Step（1-indexed） */
   errorOnStep?: number;
+  /** Failure target, 1-indexed. With failAtChunk, selects the failing request Step. */
+  failAtStep?: number;
+  /** Fail before emitting this chunk (1-indexed); defaults to every Step if failAtStep is absent. */
+  failAtChunk?: number;
   errorMessage?: string;
 }
 
@@ -58,16 +62,25 @@ export function createFauxProvider(options: FauxProviderOptions = {}): ModelProv
     id: options.id ?? "faux-provider",
     capabilities,
     async *stream(request: ModelRequest): AsyncIterable<ModelChunk> {
-      if (options.errorOnStep === request.step) {
+      const checkAbort = () => {
+        if (request.signal?.aborted) throw new Error("model_aborted");
+      };
+      checkAbort();
+      if (options.errorOnStep === request.step || (options.failAtStep === request.step && options.failAtChunk === undefined)) {
         throw new Error(options.errorMessage ?? "faux_injected_error");
       }
+      let chunkIndex = 0;
+      const checkChunk = () => {
+        checkAbort();
+        if (++chunkIndex === options.failAtChunk && (options.failAtStep === undefined || options.failAtStep === request.step)) {
+          throw new Error(options.errorMessage ?? "faux_injected_error");
+        }
+      };
 
       if (options.generator) {
         const generated = options.generator(request);
         for await (const chunk of generated) {
-          if (request.signal?.aborted) {
-            throw new Error("model_aborted");
-          }
+          checkChunk();
           yield chunk as ModelChunk;
         }
         return;
@@ -78,6 +91,7 @@ export function createFauxProvider(options: FauxProviderOptions = {}): ModelProv
 
       if (!stepConfig) {
         // 缺省自然结束
+        checkChunk();
         yield {
           text: "",
           isFinal: true,
@@ -131,6 +145,7 @@ export function createFauxProvider(options: FauxProviderOptions = {}): ModelProv
               : {}),
         };
 
+        checkChunk();
         yield chunk;
       }
     },

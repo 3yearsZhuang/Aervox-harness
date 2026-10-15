@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   BUILTIN_PROVIDER_DESCRIPTORS,
   defaultModelProviderRegistry,
@@ -83,6 +83,7 @@ describe("ModelProviderRegistry (ITER-033 统一模型 Provider 目录与代际�
     expect(provider).toBeDefined();
     expect(provider.id).toBe("openai-compat");
     expect(provider.capabilities?.maxOutputTokens).toBe(2048);
+    expect(provider.capabilities?.reasoning).toBe(false);
   });
 
   it("支持自定义 factory 注入", () => {
@@ -107,6 +108,36 @@ describe("ModelProviderRegistry (ITER-033 统一模型 Provider 目录与代际�
 
     const created = registry.createProvider("mock-p");
     expect(created).toBe(mockProvider);
+  });
+
+  it("unknown and unregistered IDs fail without choosing an implicit HTTP provider", () => {
+    const registry = new ModelProviderRegistry();
+    expect(() => registry.createProvider("typo")).toThrow("unknown_model_provider");
+    registry.unregister("openai");
+    expect(() => registry.createProvider("openai")).toThrow("unknown_model_provider");
+    registry.register({ id: "unimplemented", name: "Custom", protocol: "custom", isLocal: true, capabilities: { toolCalls: false, reasoning: false } });
+    expect(() => registry.createProvider("unimplemented")).toThrow("model_provider_factory_required");
+  });
+
+  it("disabled capabilities omit tools and reasoning history on the actual wire", async () => {
+    const registry = new ModelProviderRegistry(false);
+    registry.register({ id: "plain", name: "Plain", protocol: "openai-compat", isLocal: true,
+      capabilities: { toolCalls: false, reasoning: false } });
+    const captured: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url, init) => {
+      captured.push(JSON.parse(String(init.body)));
+      return new Response('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n');
+    }));
+    try {
+      const provider = registry.createProvider("plain");
+      expect(provider.capabilities).toMatchObject({ toolCalls: false, reasoning: false });
+      for await (const chunk of provider.stream({ turnId: "t", attemptId: "a", step: 1,
+        context: { turnId: "t", sessionId: "s", messages: [{ role: "assistant", content: "answer", reasoning: "private reasoning" }] },
+        tools: [{ name: "read", description: "read data", parameters: { type: "object" } }],
+      })) void chunk;
+      expect(captured[0]?.tools).toBeUndefined();
+      expect(captured[0]?.messages).toEqual([{ role: "assistant", content: "answer" }]);
+    } finally { vi.unstubAllGlobals(); }
   });
 
   it("非法 Provider 标识在注册时抛出错误", () => {

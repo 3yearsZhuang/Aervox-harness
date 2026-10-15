@@ -143,7 +143,7 @@ export class ModelProviderRegistry implements ModelProviderRegistryPort {
   }
 
   register(descriptor: ModelProviderDescriptor, factory?: ModelProviderFactory): void {
-    if (!descriptor.id || typeof descriptor.id !== "string") {
+    if (typeof descriptor.id !== "string" || !/^[a-z][a-z0-9_-]{0,63}$/.test(descriptor.id)) {
       throw new Error("invalid_provider_id");
     }
     this.descriptors.set(descriptor.id, descriptor);
@@ -179,20 +179,7 @@ export class ModelProviderRegistry implements ModelProviderRegistryPort {
     }
 
     if (!descriptor) {
-      // 容纳未在内置列表声明但指定为 openai 兼容的任意自定义 ID
-      const compatConfig: OpenAICompatConfig = {
-        baseUrl: options.baseUrl ?? "http://127.0.0.1:8000/v1",
-        apiKey: options.apiKey,
-        modelId: options.modelId ?? "default",
-        temperature: options.temperature,
-        maxTokens: options.maxTokens,
-        contextWindowTokens: options.contextWindowTokens,
-        timeoutMs: options.timeoutMs,
-        seed: options.seed,
-        redirect: options.redirect,
-        estimateInputTokens: options.estimateInputTokens,
-      };
-      return createOpenAICompatProvider(compatConfig);
+      throw new Error(`unknown_model_provider: ${id}`);
     }
 
     if (descriptor.protocol === "replay") {
@@ -200,10 +187,12 @@ export class ModelProviderRegistry implements ModelProviderRegistryPort {
     }
 
     if (descriptor.protocol === "faux") {
-      return createFauxProvider(options.fauxOptions);
+      return createFauxProvider({ ...options.fauxOptions,
+        capabilities: { ...descriptor.capabilities, ...options.fauxOptions?.capabilities },
+      });
     }
 
-    // Default: openai-compat
+    if (descriptor.protocol !== "openai-compat") throw new Error(`model_provider_factory_required: ${id}`);
     const compatConfig: OpenAICompatConfig = {
       baseUrl: options.baseUrl ?? descriptor.defaultBaseUrl ?? "http://127.0.0.1:8000/v1",
       apiKey: options.apiKey,
@@ -215,6 +204,7 @@ export class ModelProviderRegistry implements ModelProviderRegistryPort {
       seed: options.seed,
       redirect: options.redirect,
       estimateInputTokens: options.estimateInputTokens,
+      capabilities: { toolCalls: descriptor.capabilities.toolCalls, reasoning: descriptor.capabilities.reasoning },
     };
     return createOpenAICompatProvider(compatConfig);
   }

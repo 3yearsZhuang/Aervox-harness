@@ -4802,14 +4802,7 @@
           },
           "providerType": {
             "type": "string",
-            "enum": [
-              "ollama",
-              "deepseek",
-              "openai",
-              "anthropic",
-              "custom_openai",
-              "llamacpp"
-            ]
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
           },
           "baseUrl": {
             "type": "string",
@@ -4865,14 +4858,7 @@
           },
           "providerType": {
             "type": "string",
-            "enum": [
-              "ollama",
-              "deepseek",
-              "openai",
-              "anthropic",
-              "custom_openai",
-              "llamacpp"
-            ]
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
           },
           "baseUrl": {
             "type": "string",
@@ -4926,14 +4912,7 @@
         "properties": {
           "providerType": {
             "type": "string",
-            "enum": [
-              "ollama",
-              "deepseek",
-              "openai",
-              "anthropic",
-              "custom_openai",
-              "llamacpp"
-            ]
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
           },
           "baseUrl": {
             "type": "string",
@@ -5002,14 +4981,7 @@
           },
           "providerType": {
             "type": "string",
-            "enum": [
-              "ollama",
-              "deepseek",
-              "openai",
-              "anthropic",
-              "custom_openai",
-              "llamacpp"
-            ]
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
           },
           "baseUrl": {
             "type": "string",
@@ -5085,14 +5057,7 @@
                 },
                 "providerType": {
                   "type": "string",
-                  "enum": [
-                    "ollama",
-                    "deepseek",
-                    "openai",
-                    "anthropic",
-                    "custom_openai",
-                    "llamacpp"
-                  ]
+                  "pattern": "^[a-z][a-z0-9_-]{0,63}$"
                 },
                 "baseUrl": {
                   "type": "string",
@@ -5184,14 +5149,7 @@
               },
               "providerType": {
                 "type": "string",
-                "enum": [
-                  "ollama",
-                  "deepseek",
-                  "openai",
-                  "anthropic",
-                  "custom_openai",
-                  "llamacpp"
-                ]
+                "pattern": "^[a-z][a-z0-9_-]{0,63}$"
               },
               "baseUrl": {
                 "type": "string",
@@ -9051,14 +9009,7 @@
           },
           "providerType": {
             "type": "string",
-            "enum": [
-              "ollama",
-              "deepseek",
-              "openai",
-              "anthropic",
-              "custom_openai",
-              "llamacpp"
-            ]
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
           },
           "endpointIdentity": {
             "type": "string",
@@ -9190,15 +9141,7 @@
               "string",
               "null"
             ],
-            "enum": [
-              "ollama",
-              "deepseek",
-              "openai",
-              "anthropic",
-              "custom_openai",
-              "llamacpp",
-              null
-            ]
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
           },
           "modelId": {
             "type": [
@@ -18324,14 +18267,7 @@
                     },
                     "providerType": {
                       "type": "string",
-                      "enum": [
-                        "ollama",
-                        "deepseek",
-                        "openai",
-                        "anthropic",
-                        "custom_openai",
-                        "llamacpp"
-                      ]
+                      "pattern": "^[a-z][a-z0-9_-]{0,63}$"
                     },
                     "baseUrl": {
                       "type": "string",
@@ -18430,14 +18366,7 @@
                   },
                   "providerType": {
                     "type": "string",
-                    "enum": [
-                      "ollama",
-                      "deepseek",
-                      "openai",
-                      "anthropic",
-                      "custom_openai",
-                      "llamacpp"
-                    ]
+                    "pattern": "^[a-z][a-z0-9_-]{0,63}$"
                   },
                   "baseUrl": {
                     "type": "string",
@@ -18501,14 +18430,7 @@
                     },
                     "providerType": {
                       "type": "string",
-                      "enum": [
-                        "ollama",
-                        "deepseek",
-                        "openai",
-                        "anthropic",
-                        "custom_openai",
-                        "llamacpp"
-                      ]
+                      "pattern": "^[a-z][a-z0-9_-]{0,63}$"
                     },
                     "baseUrl": {
                       "type": "string",
@@ -18609,14 +18531,7 @@
                 "properties": {
                   "providerType": {
                     "type": "string",
-                    "enum": [
-                      "ollama",
-                      "deepseek",
-                      "openai",
-                      "anthropic",
-                      "custom_openai",
-                      "llamacpp"
-                    ]
+                    "pattern": "^[a-z][a-z0-9_-]{0,63}$"
                   },
                   "baseUrl": {
                     "type": "string",
@@ -18735,14 +18650,7 @@
                           },
                           "providerType": {
                             "type": "string",
-                            "enum": [
-                              "ollama",
-                              "deepseek",
-                              "openai",
-                              "anthropic",
-                              "custom_openai",
-                              "llamacpp"
-                            ]
+                            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
                           },
                           "baseUrl": {
                             "type": "string",
@@ -18876,14 +18784,7 @@
                       },
                       "providerType": {
                         "type": "string",
-                        "enum": [
-                          "ollama",
-                          "deepseek",
-                          "openai",
-                          "anthropic",
-                          "custom_openai",
-                          "llamacpp"
-                        ]
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
                       },
                       "baseUrl": {
                         "type": "string",
@@ -18953,14 +18854,7 @@
                     },
                     "providerType": {
                       "type": "string",
-                      "enum": [
-                        "ollama",
-                        "deepseek",
-                        "openai",
-                        "anthropic",
-                        "custom_openai",
-                        "llamacpp"
-                      ]
+                      "pattern": "^[a-z][a-z0-9_-]{0,63}$"
                     },
                     "baseUrl": {
                       "type": "string",
@@ -19089,14 +18983,7 @@
                     },
                     "providerType": {
                       "type": "string",
-                      "enum": [
-                        "ollama",
-                        "deepseek",
-                        "openai",
-                        "anthropic",
-                        "custom_openai",
-                        "llamacpp"
-                      ]
+                      "pattern": "^[a-z][a-z0-9_-]{0,63}$"
                     },
                     "baseUrl": {
                       "type": "string",

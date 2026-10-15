@@ -240,7 +240,7 @@ HLS 竞赛可行性验证：规则/环境、真实双入口、公开题集与同
 
 - 前置与边界：保持本地单用户与不出网红线：Driver 缺省仍为 unavailable 明确拒绝，受限本地任务缺合规 Provider 时不静默转远程；新增远程 Provider、改变制品信任等级或合并两栈持久化语义先 ADR；不引入第二套 Provider 注册表真源；与 ITER-008 下载/进程正确性协同。
 - 验收：同一 Fake/Replay Provider 轨迹下，对话与本地模型两条路径产出一致的规范化终止语义与 usage 分账（对照 provider-parity 表）；新增一个 OpenAI 兼容端点 Provider 仅需注册与目录声明，无需改动执行器、路由或宿主装配；临时检出移除 llama 具体实现后核心构建与数据权利回归通过（复用可移除性演练口径）；Driver 关闭与迟到启动语义保持 BTD-04 验收
-- 进展与剩余：已交付统一 `ModelProviderRegistry` 目录与代际注册（generation 递增）、标准化测试桩 `createFauxProvider`、跨栈 parity（`length` 终态映射为 `model_length`、`content_filter` 映射为 `model_content_filter` 且保留 usage 分账）；收敛 BTD-04 剩余 `LlamaRuntime*` 泄漏至通用 `ModelRuntime*`（保留向后兼容别名与 driver 元数据），通过 `check:guards` BTD-04 可移除实现守卫。分支 `feat/unified-model-provider-abstraction`。
+- 进展与剩余：[PR #282](https://github.com/3yearsZhuang/Aervox-harness/pull/282) 交付目录注册、宿主配置与执行接线、能力传递、Faux 取消及 Step/Chunk 故障注入；`length` / `content_filter` 的终态和 usage 已覆盖核心夹具及真实 HTTP、SQLite 落库，并对照直接配置端点与测试 Driver 启动端点。通用 `ModelRuntime*` DTO 保留旧别名与 driver 元数据。以上仅为确定性夹具验收，不代表真实 llama 推理或完整两栈统一；跨 Provider 上下文交接、注册 generation 的宿主失效消费、完整可移除性演练及真实 Driver 端到端验收仍待完成，保持待评审。
 
 <a id="iter-040"></a>
 

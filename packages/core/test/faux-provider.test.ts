@@ -146,4 +146,27 @@ describe("createFauxProvider (PI-01 对照与标准化测试夹具)", () => {
       }
     }).rejects.toThrow("model_aborted");
   });
+
+  it("pre-aborted default and generator requests do not produce a success or invoke the generator", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    let called = false;
+    for (const provider of [createFauxProvider(), createFauxProvider({ generator: () => { called = true; return []; } })]) {
+      await expect(async () => {
+        for await (const chunk of provider.stream({ ...baseRequest, signal: controller.signal })) void chunk;
+      }).rejects.toThrow("model_aborted");
+    }
+    expect(called).toBe(false);
+  });
+
+  it("fault injection targets a Step or a chunk within a Step and preserves the emitted prefix", async () => {
+    const failedStep = createFauxProvider({ failAtStep: 2 });
+    await expect(async () => { for await (const chunk of failedStep.stream({ ...baseRequest, step: 2 })) void chunk; }).rejects.toThrow("faux_injected_error");
+    const prefix: string[] = [];
+    const failedChunk = createFauxProvider({ failAtStep: 2, failAtChunk: 2, steps: [[], [{ text: "first" }, { text: "second" }]] });
+    await expect(async () => {
+      for await (const chunk of failedChunk.stream({ ...baseRequest, step: 2 })) prefix.push(chunk.text);
+    }).rejects.toThrow("faux_injected_error");
+    expect(prefix).toEqual(["first"]);
+  });
 });

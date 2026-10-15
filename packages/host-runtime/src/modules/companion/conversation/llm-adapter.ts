@@ -7,7 +7,6 @@
  * 逐字节迁移至本文件。
  */
 import {
-  createOpenAICompatProvider,
   createReplayProvider,
   createScriptedProvider,
   defaultModelProviderRegistry,

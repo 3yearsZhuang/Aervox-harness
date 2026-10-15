@@ -5,7 +5,7 @@
  * - 不同 Loop/Provider 实现必须把终止原因规范化为 Aervox 语义（parity 表）；
  * - 当前以 Native（Replay）为基线断言终止语义；DSH/pi 适配器落地后对照本表（插槽预留）。
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   createFauxProvider,
   createOpenAICompatProvider,
@@ -117,7 +117,7 @@ describe("Provider 终止语义 parity（agent-loop-provider-parity）", () => {
     expect(customEvents.filter((e) => e.eventType === "delta").length).toBeGreaterThan(0);
   });
 
-  it("ITER-033 跨栈 Parity：Faux 与 OpenAICompat 在异常终态（length）下统一输出 model_length 且保留 usage 分账", async () => {
+  it("Faux and OpenAICompat normalize length and retain persisted usage", async () => {
     const ctxBuilder = { build: (c: { turnId: string; sessionId: string; messages: { role: string; content: string }[] }) => ({ turnId: c.turnId, sessionId: c.sessionId, messages: c.messages }) };
 
     // 1. FauxProvider 路径
@@ -193,6 +193,9 @@ describe("Provider 终止语义 parity（agent-loop-provider-parity）", () => {
 
       // 两侧终态语义完全等价
       expect(fauxResult.status).toBe(openAiResult.status);
+      expect(fauxStore.modelRunRecords()[0]?.usage).toEqual(fauxUsage);
+      expect(openAiStore.modelRunRecords()[0]?.usage).toEqual(fauxUsage);
+      expect(openAiStore.modelRunRecords()[0]?.usage?.totalTokens).toBe(100);
       if (fauxResult.status === "interrupted" && openAiResult.status === "interrupted") {
         expect(fauxResult.reason).toBe(openAiResult.reason);
       }
@@ -201,7 +204,7 @@ describe("Provider 终止语义 parity（agent-loop-provider-parity）", () => {
     }
   });
 
-  it("ITER-033 跨栈 Parity：content_filter 敏感拦截下统一输出 model_content_filter", async () => {
+  it("Faux and OpenAICompat normalize content_filter and persist cache usage", async () => {
     const ctxBuilder = { build: (c: { turnId: string; sessionId: string; messages: { role: string; content: string }[] }) => ({ turnId: c.turnId, sessionId: c.sessionId, messages: c.messages }) };
 
     const fauxProvider = createFauxProvider({
@@ -210,6 +213,7 @@ describe("Provider 终止语义 parity（agent-loop-provider-parity）", () => {
           text: "sensitive text should be discarded",
           isFinal: true,
           stopReason: "content_filter",
+          usage: { totalTokens: 15, promptTokens: 10, completionTokens: 5, cacheReadTokens: 4, cacheWriteTokens: 2 },
         },
       ],
     });
@@ -225,5 +229,21 @@ describe("Provider 终止语义 parity（agent-loop-provider-parity）", () => {
     if (result.status === "interrupted") {
       expect(result.reason).toBe("model_content_filter");
     }
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(
+      'data: {"choices":[{"delta":{"content":"sensitive text should be discarded"},"finish_reason":"content_filter"}]}\n\n'
+      + 'data: {"usage":{"total_tokens":15,"prompt_tokens":10,"completion_tokens":5,"prompt_tokens_details":{"cached_tokens":4},"cache_creation_input_tokens":2}}\n\n'
+      + 'data: [DONE]\n\n',
+    )));
+    try {
+      const openaiStore = new InMemoryExecutionStore();
+      openaiStore.seedAttempt({ id: "atp_cf_compat", turnId: "turn_cf_compat" });
+      const compatResult = await executeTurn(
+        { execution: openaiStore, provider: createOpenAICompatProvider({ baseUrl: "http://mock-api/v1", modelId: "test" }), contextBuilder: ctxBuilder },
+        { turnId: "turn_cf_compat", sessionId: "sess_cf", attemptId: "atp_cf_compat", userMessage: "test filter" },
+      );
+      expect(compatResult).toMatchObject({ status: "interrupted", reason: "model_content_filter" });
+      expect(openaiStore.modelRunRecords()[0]?.usage).toEqual(store.modelRunRecords()[0]?.usage);
+      expect(openaiStore.modelRunRecords()[0]?.usage).toEqual({ totalTokens: 15, promptTokens: 10, completionTokens: 5, cacheReadTokens: 4, cacheWriteTokens: 2 });
+    } finally { vi.unstubAllGlobals(); }
   });
 });
