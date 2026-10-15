@@ -6,7 +6,13 @@
  * - 当前以 Native（Replay）为基线断言终止语义；DSH/pi 适配器落地后对照本表（插槽预留）。
  */
 import { describe, expect, it } from "vitest";
-import { createReplayProvider, executeTurn, InMemoryExecutionStore } from "../src/index.js";
+import {
+  createFauxProvider,
+  createOpenAICompatProvider,
+  createReplayProvider,
+  executeTurn,
+  InMemoryExecutionStore,
+} from "../src/index.js";
 import type { ModelChunk, ModelProviderPort } from "../src/index.js";
 
 /**
@@ -109,5 +115,115 @@ describe("Provider 终止语义 parity（agent-loop-provider-parity）", () => {
     // 两侧骨架同构：首 message / 末 done / 中间全为 delta（本例无工具调用）
     expect(replayEvents.filter((e) => e.eventType === "delta").length).toBeGreaterThan(0);
     expect(customEvents.filter((e) => e.eventType === "delta").length).toBeGreaterThan(0);
+  });
+
+  it("ITER-033 跨栈 Parity：Faux 与 OpenAICompat 在异常终态（length）下统一输出 model_length 且保留 usage 分账", async () => {
+    const ctxBuilder = { build: (c: { turnId: string; sessionId: string; messages: { role: string; content: string }[] }) => ({ turnId: c.turnId, sessionId: c.sessionId, messages: c.messages }) };
+
+    // 1. FauxProvider 路径
+    const fauxUsage = {
+      totalTokens: 100,
+      promptTokens: 80,
+      completionTokens: 20,
+      cacheReadTokens: 15,
+      cacheWriteTokens: 5,
+    };
+    const fauxProvider = createFauxProvider({
+      steps: [
+        {
+          text: "Truncated output...",
+          isFinal: true,
+          stopReason: "length",
+          usage: fauxUsage,
+        },
+      ],
+    });
+
+    const fauxStore = new InMemoryExecutionStore();
+    fauxStore.seedAttempt({ id: "atp_faux", turnId: "turn_faux" });
+    const fauxResult = await executeTurn(
+      { execution: fauxStore, provider: fauxProvider, contextBuilder: ctxBuilder },
+      { turnId: "turn_faux", sessionId: "sess_faux", attemptId: "atp_faux", userMessage: "test length" },
+    );
+
+    expect(fauxResult.status).toBe("interrupted");
+    if (fauxResult.status === "interrupted") {
+      expect(fauxResult.reason).toBe("model_length");
+    }
+
+    // 2. OpenAICompatProvider 路径（模拟 finish_reason: "length" 与 usage）
+    const sseLines = [
+      `data: ${JSON.stringify({ id: "1", choices: [{ delta: { content: "Truncated output..." }, finish_reason: "length" }] })}\n\n`,
+      `data: ${JSON.stringify({ usage: { total_tokens: 100, prompt_tokens: 80, completion_tokens: 20, prompt_tokens_details: { cached_tokens: 15 }, cache_creation_input_tokens: 5 } })}\n\n`,
+      `data: [DONE]\n\n`,
+    ];
+
+    const openAiProvider = createOpenAICompatProvider({
+      baseUrl: "http://mock-api/v1",
+      modelId: "test-model",
+    });
+
+    // 拦截全局 fetch 返回 sseLines
+    const origFetch = globalThis.fetch;
+    globalThis.fetch = async () =>
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            for (const line of sseLines) {
+              controller.enqueue(new TextEncoder().encode(line));
+            }
+            controller.close();
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "text/event-stream" } },
+      );
+
+    try {
+      const openAiStore = new InMemoryExecutionStore();
+      openAiStore.seedAttempt({ id: "atp_openai", turnId: "turn_openai" });
+      const openAiResult = await executeTurn(
+        { execution: openAiStore, provider: openAiProvider, contextBuilder: ctxBuilder },
+        { turnId: "turn_openai", sessionId: "sess_openai", attemptId: "atp_openai", userMessage: "test length" },
+      );
+
+      expect(openAiResult.status).toBe("interrupted");
+      if (openAiResult.status === "interrupted") {
+        expect(openAiResult.reason).toBe("model_length");
+      }
+
+      // 两侧终态语义完全等价
+      expect(fauxResult.status).toBe(openAiResult.status);
+      if (fauxResult.status === "interrupted" && openAiResult.status === "interrupted") {
+        expect(fauxResult.reason).toBe(openAiResult.reason);
+      }
+    } finally {
+      globalThis.fetch = origFetch;
+    }
+  });
+
+  it("ITER-033 跨栈 Parity：content_filter 敏感拦截下统一输出 model_content_filter", async () => {
+    const ctxBuilder = { build: (c: { turnId: string; sessionId: string; messages: { role: string; content: string }[] }) => ({ turnId: c.turnId, sessionId: c.sessionId, messages: c.messages }) };
+
+    const fauxProvider = createFauxProvider({
+      steps: [
+        {
+          text: "sensitive text should be discarded",
+          isFinal: true,
+          stopReason: "content_filter",
+        },
+      ],
+    });
+
+    const store = new InMemoryExecutionStore();
+    store.seedAttempt({ id: "atp_cf", turnId: "turn_cf" });
+    const result = await executeTurn(
+      { execution: store, provider: fauxProvider, contextBuilder: ctxBuilder },
+      { turnId: "turn_cf", sessionId: "sess_cf", attemptId: "atp_cf", userMessage: "test filter" },
+    );
+
+    expect(result.status).toBe("interrupted");
+    if (result.status === "interrupted") {
+      expect(result.reason).toBe("model_content_filter");
+    }
   });
 });

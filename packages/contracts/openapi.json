@@ -5493,6 +5493,42 @@
             },
             "default": []
           },
+          "driver": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "default": "llama-server"
+              },
+              "name": {
+                "type": "string",
+                "default": "llama.cpp server"
+              },
+              "configured": {
+                "type": "boolean"
+              },
+              "binPath": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "env",
+                  "default",
+                  "missing"
+                ],
+                "default": "missing"
+              },
+              "maxConcurrentDownloads": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "default": 2
+              }
+            },
+            "required": [
+              "configured"
+            ]
+          },
           "llamaServer": {
             "type": "object",
             "properties": {
@@ -19489,6 +19525,42 @@
                       },
                       "default": []
                     },
+                    "driver": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "default": "llama-server"
+                        },
+                        "name": {
+                          "type": "string",
+                          "default": "llama.cpp server"
+                        },
+                        "configured": {
+                          "type": "boolean"
+                        },
+                        "binPath": {
+                          "type": "string"
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "env",
+                            "default",
+                            "missing"
+                          ],
+                          "default": "missing"
+                        },
+                        "maxConcurrentDownloads": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "default": 2
+                        }
+                      },
+                      "required": [
+                        "configured"
+                      ]
+                    },
                     "llamaServer": {
                       "type": "object",
                       "properties": {
@@ -19857,6 +19929,42 @@
                       },
                       "default": []
                     },
+                    "driver": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "default": "llama-server"
+                        },
+                        "name": {
+                          "type": "string",
+                          "default": "llama.cpp server"
+                        },
+                        "configured": {
+                          "type": "boolean"
+                        },
+                        "binPath": {
+                          "type": "string"
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "env",
+                            "default",
+                            "missing"
+                          ],
+                          "default": "missing"
+                        },
+                        "maxConcurrentDownloads": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "default": 2
+                        }
+                      },
+                      "required": [
+                        "configured"
+                      ]
+                    },
                     "llamaServer": {
                       "type": "object",
                       "properties": {
@@ -20195,6 +20303,42 @@
                         ]
                       },
                       "default": []
+                    },
+                    "driver": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "default": "llama-server"
+                        },
+                        "name": {
+                          "type": "string",
+                          "default": "llama.cpp server"
+                        },
+                        "configured": {
+                          "type": "boolean"
+                        },
+                        "binPath": {
+                          "type": "string"
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "env",
+                            "default",
+                            "missing"
+                          ],
+                          "default": "missing"
+                        },
+                        "maxConcurrentDownloads": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "default": 2
+                        }
+                      },
+                      "required": [
+                        "configured"
+                      ]
                     },
                     "llamaServer": {
                       "type": "object",
@@ -20573,6 +20717,42 @@
                       },
                       "default": []
                     },
+                    "driver": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "default": "llama-server"
+                        },
+                        "name": {
+                          "type": "string",
+                          "default": "llama.cpp server"
+                        },
+                        "configured": {
+                          "type": "boolean"
+                        },
+                        "binPath": {
+                          "type": "string"
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "env",
+                            "default",
+                            "missing"
+                          ],
+                          "default": "missing"
+                        },
+                        "maxConcurrentDownloads": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "default": 2
+                        }
+                      },
+                      "required": [
+                        "configured"
+                      ]
+                    },
                     "llamaServer": {
                       "type": "object",
                       "properties": {
@@ -20911,6 +21091,42 @@
                         ]
                       },
                       "default": []
+                    },
+                    "driver": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "default": "llama-server"
+                        },
+                        "name": {
+                          "type": "string",
+                          "default": "llama.cpp server"
+                        },
+                        "configured": {
+                          "type": "boolean"
+                        },
+                        "binPath": {
+                          "type": "string"
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "env",
+                            "default",
+                            "missing"
+                          ],
+                          "default": "missing"
+                        },
+                        "maxConcurrentDownloads": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "default": 2
+                        }
+                      },
+                      "required": [
+                        "configured"
+                      ]
                     },
                     "llamaServer": {
                       "type": "object",
@@ -21253,6 +21469,42 @@
                         ]
                       },
                       "default": []
+                    },
+                    "driver": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "default": "llama-server"
+                        },
+                        "name": {
+                          "type": "string",
+                          "default": "llama.cpp server"
+                        },
+                        "configured": {
+                          "type": "boolean"
+                        },
+                        "binPath": {
+                          "type": "string"
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "env",
+                            "default",
+                            "missing"
+                          ],
+                          "default": "missing"
+                        },
+                        "maxConcurrentDownloads": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "default": 2
+                        }
+                      },
+                      "required": [
+                        "configured"
+                      ]
                     },
                     "llamaServer": {
                       "type": "object",

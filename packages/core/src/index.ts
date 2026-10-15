@@ -32,4 +32,6 @@ export * from "./approval-policy.js";
 export * from "./cli-approval.js";
 export * from "./host-tool-runtime.js";
 export * from "./approval-decision.js";
+export * from "./faux-provider.js";
+export * from "./provider-registry.js";
 export * from "./core.js";
