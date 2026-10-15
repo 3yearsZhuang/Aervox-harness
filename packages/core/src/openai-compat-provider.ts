@@ -13,9 +13,10 @@
  * 使用全局 fetch（Node 18+ / 浏览器均可用）。
  */
 import type { ModelProviderPort } from "./ports.js";
-import type { ModelChunk, ModelRequest, PromptMessage, ToolCallRequest } from "./types.js";
+import type { ModelCapabilities, ModelChunk, ModelRequest, PromptMessage, ToolCallRequest } from "./types.js";
 
 export interface OpenAICompatConfig {
+  capabilities?: Pick<ModelCapabilities, "toolCalls" | "reasoning">;
   baseUrl: string;
   apiKey?: string;
   modelId: string;
@@ -62,6 +63,7 @@ function encodeToolName(name: string): string {
 function toOpenAIMessages(
   messages: PromptMessage[],
   encodeName: (name: string) => string,
+  reasoning: boolean,
 ): unknown[] {
   const out: unknown[] = [];
   for (const m of messages) {
@@ -76,7 +78,7 @@ function toOpenAIMessages(
         id: call.id, type: "function",
         function: { name: encodeName(call.name), arguments: typeof call.arguments === "string" ? call.arguments : JSON.stringify(call.arguments ?? {}) },
       }));
-      if (m.reasoning) msg.reasoning_content = m.reasoning;
+      if (m.reasoning && reasoning) msg.reasoning_content = m.reasoning;
     }
     out.push(msg);
   }
@@ -101,7 +103,7 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
   const timeoutMs = config.timeoutMs ?? 45_000;
   return {
     id: "openai-compat",
-    capabilities: { toolCalls: true, reasoning: true, contextWindowTokens: config.contextWindowTokens, maxOutputTokens: config.maxTokens },
+    capabilities: { toolCalls: config.capabilities?.toolCalls ?? true, reasoning: config.capabilities?.reasoning ?? true, contextWindowTokens: config.contextWindowTokens, maxOutputTokens: config.maxTokens },
     async *stream(request: ModelRequest): AsyncIterable<ModelChunk> {
       const toolNameByWireName = new Map(
         (request.tools ?? []).map((tool) => [encodeToolName(tool.name), tool.name]),
@@ -132,13 +134,13 @@ export function createOpenAICompatProvider(config: OpenAICompatConfig): ModelPro
       try {
         const body = JSON.stringify({
             model: config.modelId,
-            messages: toOpenAIMessages(request.context.messages, encodeName),
+            messages: toOpenAIMessages(request.context.messages, encodeName, config.capabilities?.reasoning ?? true),
             ...(config.seed !== undefined ? { seed: config.seed } : {}),
             stream: true,
             temperature: request.temperature ?? config.temperature ?? 0.7,
             ...((request.maxOutputTokens ?? config.maxTokens ?? config.contextWindowTokens) !== undefined ? { max_tokens: Math.min(request.maxOutputTokens ?? Infinity, config.maxTokens ?? 4096) } : {}),
             stream_options: { include_usage: true },
-            ...(request.tools?.length
+            ...(request.tools?.length && config.capabilities?.toolCalls !== false
               ? {
                   tools: request.tools.map((t) => ({
                     type: "function",

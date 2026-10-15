@@ -7,9 +7,9 @@
  * 逐字节迁移至本文件。
  */
 import {
-  createOpenAICompatProvider,
   createReplayProvider,
   createScriptedProvider,
+  defaultModelProviderRegistry,
 } from "@aervox/core";
 import type { ModelProviderPort, ReplayStep } from "@aervox/core";
 import type { TurnLlmPort } from "@aervox/host-plugin-api";
@@ -144,7 +144,7 @@ export async function buildLoopProvider(
           : maxTokens;
 
       const requestTimeoutMs = Number(matchedPreset?.settings?.requestTimeoutMs);
-      const provider = createOpenAICompatProvider({
+      const provider = defaultModelProviderRegistry.createProvider(snapshot.providerType ?? "custom_openai", {
         baseUrl: snapshot.baseUrl,
         apiKey: matchedPreset?.apiKey,
         modelId: snapshot.modelId,
@@ -162,7 +162,7 @@ export async function buildLoopProvider(
       throw new Error("llm_provider_unavailable: LLMConfigPort 未接线");
     }
     const cfg = await llmConfigService.getConfig(ctx);
-    if (!cfg.enabled) throw new Error("llm_disabled: 当前租户未启用 LLM 配置");
+    if (!cfg.enabled) throw new Error("llm_disabled: 当前工作区未启用 LLM 配置");
     if (cfg.providerType === "anthropic") {
       throw new Error("anthropic_unsupported: 阶段 2e 仅支持 OpenAI 兼容协议（openai/deepseek/ollama/llamacpp/custom_openai）");
     }
@@ -179,13 +179,13 @@ export async function buildLoopProvider(
       Number.isFinite(discoveredContextWindow) && discoveredContextWindow > 0
         ? Math.max(256, Math.min(cfg.maxTokens ?? 4096, discoveredContextWindow - reserve))
         : (cfg.maxTokens ?? 4096);
-    return createOpenAICompatProvider({
+    return defaultModelProviderRegistry.createProvider(cfg.providerType, {
       baseUrl: cfg.baseUrl,
       apiKey: cfg.apiKey,
       modelId: cfg.modelId,
       temperature: cfg.temperature,
       maxTokens: effectiveMaxTokens,
-        ...(Number.isFinite(discoveredContextWindow) && discoveredContextWindow > 0 ? { contextWindowTokens: discoveredContextWindow } : {}),
+      ...(Number.isFinite(discoveredContextWindow) && discoveredContextWindow > 0 ? { contextWindowTokens: discoveredContextWindow } : {}),
       ...(Number.isFinite(requestTimeoutMs) && requestTimeoutMs > 0 ? { timeoutMs: requestTimeoutMs } : {}),
       redirect: options.requireLocalOnly ? "error" : undefined,
     });
