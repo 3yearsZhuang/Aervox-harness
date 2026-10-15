@@ -78,19 +78,23 @@ describe('PluginPageDialog.vue (ITER-006 / FND-03 安全沙箱)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response('<!doctype html><html></html>', {
-        status: 200,
-        headers: { 'Content-Type': 'text/html' },
-      }),
-    );
+    // Model a stable WindowProxy per iframe without happy-dom loading its URL.
+    const windows = new WeakMap<HTMLIFrameElement, Window>();
+    vi.spyOn(HTMLIFrameElement.prototype, 'contentWindow', 'get').mockImplementation(function (this: HTMLIFrameElement) {
+      let target = windows.get(this);
+      if (!target) {
+        target = { postMessage() {} } as unknown as Window;
+        windows.set(this, target);
+      }
+      return target;
+    });
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('使用密码学随机 UUID 生成 Nonce 并发送 init 消息到 iframe', async () => {
+  it('使用 128 位密码学随机 Nonce 并发送 init 消息到 iframe', async () => {
     const wrapper = mount(PluginPageDialog, {
       props: {
         open: true,
@@ -98,7 +102,6 @@ describe('PluginPageDialog.vue (ITER-006 / FND-03 安全沙箱)', () => {
         page: mockPage,
       },
       global: { stubs },
-      attachTo: document.body,
     });
 
     await flushPromises();
@@ -117,8 +120,8 @@ describe('PluginPageDialog.vue (ITER-006 / FND-03 安全沙箱)', () => {
     const initMsg = postMessageSpy.mock.calls[0]![0] as { type: string; nonce: string; context: unknown };
     expect(initMsg.type).toBe('aervox:page:init');
     expect(typeof initMsg.nonce).toBe('string');
-    // UUID v4 格式校验
-    expect(initMsg.nonce).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+    // 16 个随机字节以十六进制编码；不回退到 Math.random。
+    expect(initMsg.nonce).toMatch(/^[0-9a-f]{32}$/i);
 
     wrapper.unmount();
   });
@@ -131,7 +134,6 @@ describe('PluginPageDialog.vue (ITER-006 / FND-03 安全沙箱)', () => {
         page: mockPage,
       },
       global: { stubs },
-      attachTo: document.body,
     });
 
     await flushPromises();
@@ -175,7 +177,6 @@ describe('PluginPageDialog.vue (ITER-006 / FND-03 安全沙箱)', () => {
         page: mockPage,
       },
       global: { stubs },
-      attachTo: document.body,
     });
 
     await flushPromises();
@@ -209,7 +210,7 @@ describe('PluginPageDialog.vue (ITER-006 / FND-03 安全沙箱)', () => {
     wrapper.unmount();
   });
 
-  it('插件禁用时立即撤权并返回 plugin is disabled or unavailable 错误', async () => {
+  it('插件禁用时销毁 iframe 并拒绝原窗口的迟到 Bridge 调用', async () => {
     const disabledPlugin: PluginSummaryDto = {
       ...mockPlugin,
       enabled: 0,
@@ -218,11 +219,10 @@ describe('PluginPageDialog.vue (ITER-006 / FND-03 安全沙箱)', () => {
     const wrapper = mount(PluginPageDialog, {
       props: {
         open: true,
-        plugin: disabledPlugin,
+        plugin: mockPlugin,
         page: mockPage,
       },
       global: { stubs },
-      attachTo: document.body,
     });
 
     await flushPromises();
@@ -235,6 +235,9 @@ describe('PluginPageDialog.vue (ITER-006 / FND-03 安全沙箱)', () => {
     await flushPromises();
     const nonce = (postMessageSpy.mock.calls[0]![0] as { nonce: string }).nonce;
     postMessageSpy.mockClear();
+
+    await wrapper.setProps({ plugin: disabledPlugin });
+    expect(wrapper.find('iframe').exists()).toBe(false);
 
     window.dispatchEvent(
       new MessageEvent('message', {
@@ -249,14 +252,22 @@ describe('PluginPageDialog.vue (ITER-006 / FND-03 安全沙箱)', () => {
     );
 
     await flushPromises();
-    expect(postMessageSpy).toHaveBeenCalledTimes(1);
-    expect(postMessageSpy.mock.calls[0]![0]).toMatchObject({
-      type: 'aervox:page:result',
-      id: 'call-disabled',
-      ok: false,
-      error: 'plugin is disabled or unavailable',
-    });
+    expect(postMessageSpy).not.toHaveBeenCalled();
+    expect(mockGetConfig).not.toHaveBeenCalled();
+    expect(mockSaveConfig).not.toHaveBeenCalled();
 
+    wrapper.unmount();
+  });
+
+  it('初始已禁用的插件不创建可执行 iframe', async () => {
+    const wrapper = mount(PluginPageDialog, {
+      props: { open: true, plugin: { ...mockPlugin, enabled: 0 }, page: mockPage },
+      global: { stubs },
+    });
+    await flushPromises();
+    expect(wrapper.find('iframe').exists()).toBe(false);
+    expect(mockGetConfig).not.toHaveBeenCalled();
+    expect(mockSaveConfig).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 
@@ -275,7 +286,6 @@ describe('PluginPageDialog.vue (ITER-006 / FND-03 安全沙箱)', () => {
         page: limitedPage,
       },
       global: { stubs },
-      attachTo: document.body,
     });
 
     await flushPromises();
@@ -348,7 +358,6 @@ describe('PluginPageDialog.vue (ITER-006 / FND-03 安全沙箱)', () => {
         page: mockPage, // 包含 host.notify 与 host.close
       },
       global: { stubs },
-      attachTo: document.body,
     });
 
     await flushPromises();

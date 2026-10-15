@@ -15,48 +15,83 @@ export const BRIDGE_SDK = `(function () {
   var contextHandlers = [];
   var readyResolve = null;
   var readyPromise = new Promise(function (resolve) { readyResolve = resolve; });
-  var warned = false;
+  var parentWindow = window.parent;
+  var parentOrigin = null;
+
+  function clearPending(reason) {
+    pending.forEach(function (entry) {
+      clearTimeout(entry.timer);
+      entry.reject(new Error(reason));
+    });
+    pending.clear();
+  }
 
   function send(message) {
-    if (!window.parent) return;
     message.nonce = nonce;
-    window.parent.postMessage(message, "*");
+    parentWindow.postMessage(message, parentOrigin && parentOrigin !== "null" ? parentOrigin : "*");
   }
 
   function call(method, args) {
+    if (!context || !nonce || !parentWindow || parentWindow === window) return Promise.reject(new Error("bridge is not ready"));
+    if (pending.size >= 32) return Promise.reject(new Error("too many pending bridge calls"));
     return new Promise(function (resolve, reject) {
       var id = "req_" + (++seq);
-      pending.set(id, { resolve: resolve, reject: reject });
-      send({ type: "aervox:page:call", id: id, method: method, args: args || {} });
-      setTimeout(function () {
+      var timer = setTimeout(function () {
         if (pending.has(id)) {
           pending.delete(id);
           reject(new Error("bridge call timeout: " + method));
         }
       }, 15000);
+      pending.set(id, { resolve: resolve, reject: reject, timer: timer });
+      send({ type: "aervox:page:call", id: id, method: method, args: args || {} });
     });
   }
 
+  function validContext(value) {
+    return value && typeof value === "object" && typeof value.pluginId === "string"
+      && value.pluginId && typeof value.pageId === "string" && value.pageId;
+  }
+
+  function notifyContext() {
+    contextHandlers.slice().forEach(function (handler) { try { handler(context); } catch (e) {} });
+  }
+
   window.addEventListener("message", function (event) {
+    if (!parentWindow || parentWindow === window || event.source !== parentWindow) return;
+    if (parentOrigin !== null && event.origin !== parentOrigin) return;
     var data = event.data;
     if (!data || typeof data !== "object") return;
-    if (data.type === "aervox:page:init" && typeof data.nonce === "string") {
+    if (data.type === "aervox:page:init" && typeof data.nonce === "string" && data.nonce.length >= 16 && validContext(data.context)) {
+      parentOrigin = event.origin;
+      if (nonce && (data.nonce !== nonce || data.context.pluginId !== context.pluginId || data.context.pageId !== context.pageId)) {
+        clearPending("page session changed");
+      }
       nonce = data.nonce;
-      context = data.context || null;
+      context = data.context;
       readyResolve && readyResolve(context);
+      readyResolve = null;
+      notifyContext();
       return;
     }
-    if (data.nonce !== nonce) return;
+    if (!context || data.nonce !== nonce) return;
     if (data.type === "aervox:page:context") {
-      context = data.context || context;
-      contextHandlers.slice().forEach(function (handler) { try { handler(context); } catch (e) {} });
+      if (!validContext(data.context) || data.context.pluginId !== context.pluginId || data.context.pageId !== context.pageId) return;
+      context = data.context;
+      notifyContext();
       return;
     }
-    if (data.type === "aervox:page:result" && pending.has(data.id)) {
+    if (data.type === "aervox:page:result" && typeof data.id === "string" && pending.has(data.id)) {
       var entry = pending.get(data.id);
       pending.delete(data.id);
-      if (data.ok) entry.resolve(data.value); else entry.reject(new Error(data.error || "bridge error"));
+      clearTimeout(entry.timer);
+      if (data.ok === true) entry.resolve(data.value); else entry.reject(new Error(String(data.error || "bridge error")));
     }
+  });
+
+  window.addEventListener("pagehide", function () {
+    clearPending("page closed");
+    context = null;
+    nonce = "";
   });
 
   var bridge = {
@@ -72,12 +107,18 @@ export const BRIDGE_SDK = `(function () {
     },
     notify: function (input) {
       if (!input || typeof input !== "object") return;
-      call("notify", {
+      var result = call("notify", {
         type: input.type || "info",
         message: String(input.message || "")
       });
+      result.catch(function () {});
+      return result;
     },
-    close: function () { call("close", {}); },
+    close: function () {
+      var result = call("close", {});
+      result.catch(function () {});
+      return result;
+    },
     onContext: function (handler) {
       if (typeof handler === "function") contextHandlers.push(handler);
       return function () {

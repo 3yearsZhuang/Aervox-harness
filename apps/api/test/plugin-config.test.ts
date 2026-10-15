@@ -12,6 +12,7 @@ import { createInMemoryDatabase, initDatabaseSchema, type AervoxDatabase } from 
 import { buildApp } from "./app-fixture.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
+import { PluginBundleStore } from "@aervox/host-runtime/modules/ecosystem/plugins/bundle-store";
 
 const headers = {
   "x-workspace-id": "ws_pcfg",
@@ -251,6 +252,28 @@ describe("CAP-020 插件 Config / Page API", () => {
     const list = await app.inject({ method: "GET", url: "/v1/plugins/cfg-demo/pages" });
     expect(list.statusCode).toBe(200);
     expect(list.json().pages).toHaveLength(1);
+  });
+
+  it("Page 整目录符号链接不能把包外文件变成页面资源", async () => {
+    const page = await app.inject({ method: "POST", url: "/v1/plugins/cfg-demo/pages", payload: {
+      id: "dashboard", title: "Panel", entry: "pages/dashboard/index.html", capabilities: [],
+    } });
+    expect(page.statusCode).toBe(201);
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-page-outside-"));
+    const pageDirectory = path.join(pluginsRoot, "cfg-demo", "pages", "dashboard");
+    try {
+      await fs.writeFile(path.join(outside, "index.html"), "OUTSIDE_PAGE_CANARY");
+      await fs.mkdir(path.dirname(pageDirectory), { recursive: true });
+      await fs.symlink(outside, pageDirectory, "dir");
+      await expect(new PluginBundleStore(pluginsRoot).readAsset("cfg-demo", "dashboard", "index.html"))
+        .rejects.toThrow("page asset escapes bundle root");
+      const response = await app.inject({ method: "GET", url: "/v1/plugins/cfg-demo/pages/dashboard/assets/index.html" });
+      expect(response.statusCode).not.toBe(200);
+      expect(response.body).not.toContain("OUTSIDE_PAGE_CANARY");
+    } finally {
+      await fs.rm(pageDirectory, { force: true });
+      await fs.rm(outside, { recursive: true, force: true });
+    }
   });
 
   it("Bridge SDK 可访问且禁用插件后配置/Page 入口与资源均被拒绝", async () => {

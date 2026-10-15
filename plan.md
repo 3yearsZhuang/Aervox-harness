@@ -113,7 +113,7 @@ Page 与客户端认证：iframe source/nonce/会话/全部 capability、禁用�
 
 - 前置与边界：既有认证漏接可独立修；新页面凭据及 Origin 信任策略先 ADR。
 - 验收：错误窗口/旧响应/无权/禁用访问无副作用；合法 Token 模式的 JSON、SSE、Page、附件可用，凭据不进入 URL
-- 进展与剩余：已完成 Page postMessage 窗口绑定（event.source 校验）、UUID Nonce 防伪造、host.notify/host.close capability 细粒度鉴权、插件禁用撤权拦截；API readPageEntry 与 readPageAsset 启用守卫对齐并阻断 symlink 逃逸（FND-03）；桌面附件上传补全 Bearer 认证（ARC-13）。单测与集成测试全量通过。
+- 进展与剩余：[PR #281](https://github.com/3yearsZhuang/Aervox-harness/pull/281) 交付窗口与文档会话绑定、128 位随机 Nonce、逐项 capability、禁用/缺包时销毁 iframe、旧响应丢弃、Bundle 根真实路径约束及桌面附件 Bearer。共享上下文投影同时补齐 Base 历史过滤、有界截断和空摘要失败。Token 模式 Page 资源授权通道、合法预检及跨窗口撤权推送仍待完成；本项保持待评审，不代表完整安全或发布验收。
 
 <a id="iter-009"></a>
 
@@ -153,7 +153,7 @@ HLS 竞赛可行性验证：规则/环境、真实双入口、公开题集与同
 
 - 前置与边界：压缩不得伪造摘要或声称记得已压缩事实；模型可见投影不等于用户删除，删除仍须覆盖原文、摘要与索引；必须保真事实清单与压缩策略先评审，涉及对话契约差量先 ADR；最终输入窗口验收与 ITER-007 协同、测量口径与 ITER-017 协同，不重复登记。
 - 验收：固定长伴学对话夹具：压缩后学习目标、错因、承诺与来源保真可追溯，无占位文本；超大工具结果压缩不断开调用/结果配对；最终输入加预留输出不超 Provider 窗口，超额有明确有界处理；每次请求的模型可见上下文可从权威投影重建并复核，展示内容与持久历史分离、旧响应不覆盖终态
-- 进展与证据：`feat/context-projection-and-compaction` 已完成保真事实清单（`grounding-facts.ts`）、上下文投影与工具组配对防腐（`context-projection.ts`）、超大工具结果有界截断保护，以及真实摘要压缩与失败可见性（`createSummaryCompaction` 支持 `summarizer`、`onFailure: "throw"` 抛出 `CompactionError` 与 `fallback_notice` 降级说明）。`packages/core/test/context-projection.test.ts` 16 项回归通过，全仓增量门禁通过。
+- 进展与剩余：[PR #281](https://github.com/3yearsZhuang/Aervox-harness/pull/281) 包含 `05200288` 的保真事实输入、模型可见投影与可注入摘要器基础设施，并补齐 Base 后加载历史、总字符预算、零尾部与空白摘要的负向回归。产品宿主的权威事实加载、真实摘要 Provider 及固定长对话的端到端保真验收仍待完成；此切片不提升整项验收或发布状态。
 
 ### 2.2 下一批：恢复、生命周期与部署
 
