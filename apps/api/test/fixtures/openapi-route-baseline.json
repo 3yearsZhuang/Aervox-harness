@@ -1,0 +1,888 @@
+{
+  "baselineCommit": "05200288",
+  "scope": "Default API assembly with first-party plugin implementations; HEAD and OPTIONS are generated transport routes.",
+  "exceptions": [
+    {
+      "method": "DELETE",
+      "path": "/v1/attachments/{param}",
+      "module": "modules/knowledge/content",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/branches/{param}",
+      "module": "modules/companion/branch",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/knowledge-relations/{param}",
+      "module": "modules/knowledge/knowledge",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/messages/{param}",
+      "module": "modules/companion/conversation",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/plugins/{param}",
+      "module": "modules/ecosystem/plugins",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/plugins/{param}/grants/{param}",
+      "module": "modules/ecosystem/plugins",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/study-materials/{param}",
+      "module": "modules/learning/study-materials",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/tools/{param}",
+      "module": "modules/ecosystem/tools",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/attachments/{param}",
+      "module": "modules/knowledge/content",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/attachments/{param}/content",
+      "module": "modules/knowledge/content",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/attachments/{param}/parse/history",
+      "module": "modules/knowledge/content",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/branches/{param}",
+      "module": "modules/companion/branch",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/consent",
+      "module": "modules/platform/privacy",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/diaries/schedules/{param}",
+      "module": "modules/learning/diary",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/diaries/styles",
+      "module": "modules/learning/diary",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/feedback",
+      "module": "modules/platform/feedback",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/knowledge-items/{param}",
+      "module": "modules/learning/learning",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/knowledge-relations",
+      "module": "modules/knowledge/knowledge",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/knowledge-relations/{param}",
+      "module": "modules/knowledge/knowledge",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/messages/{param}/delete-impact",
+      "module": "modules/companion/conversation",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/messages/{param}/versions",
+      "module": "modules/companion/conversation",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/metrics",
+      "module": ".",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/notifications",
+      "module": "modules/proactive/notification",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/personas/switch-history",
+      "module": "modules/companion/persona",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/personas/{param}/memory-scope",
+      "module": "modules/companion/persona",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/personas/{param}/revisions",
+      "module": "modules/companion/persona",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/personas/{param}/switch-history",
+      "module": "modules/companion/persona",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/plugins",
+      "module": "modules/ecosystem/plugins",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/plugins/{param}/grants",
+      "module": "modules/ecosystem/plugins",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/plugins/{param}/pages/{param}/assets/*",
+      "module": "modules/ecosystem/plugins",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/plugins/{param}/permissions/{param}",
+      "module": "modules/ecosystem/plugins",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/practice/questions",
+      "module": "modules/learning/learning",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/preferences",
+      "module": "modules/platform/preferences",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/actions",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/audit",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/captures",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/claims",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/events",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/export",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/integrations/home-assistant/{param}/entities",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/integrations/home-assistant/{param}/entities/{param}/state",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/integrations/xiaomi-health/{param}/samples",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/intelligence/attention",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/intelligence/commitments",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/intelligence/conflicts",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/intelligence/drift",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/intelligence/export",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/intelligence/preparations",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/intelligence/projects",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/intelligence/relationships",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/intelligence/reviews",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/intelligence/scenes",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/intelligence/timeline",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/intelligence/triggers",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/intelligence/verifications",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/intelligence/workflows",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/observations",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/revisions",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/proactive/sources",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/questions/import/providers",
+      "module": "modules/learning/learning",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/questions/{param}",
+      "module": "modules/learning/learning",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/questions/{param}/attempts",
+      "module": "modules/learning/learning",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/sessions/{param}/branch-tree",
+      "module": "modules/companion/branch",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/sessions/{param}/branches",
+      "module": "modules/companion/branch",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/skills/candidates",
+      "module": "modules/ecosystem/skills",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/skills/payloads/{param}",
+      "module": "modules/ecosystem/skills",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/skills/prompt",
+      "module": "modules/ecosystem/skills",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/skills/releases",
+      "module": "modules/ecosystem/skills",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/skills/{param}",
+      "module": "modules/ecosystem/skills",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/skills/{param}/content",
+      "module": "modules/ecosystem/skills",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/study-materials",
+      "module": "modules/learning/study-materials",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/study-materials/{param}",
+      "module": "modules/learning/study-materials",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/study-materials/{param}/versions",
+      "module": "modules/learning/study-materials",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/tools",
+      "module": "modules/ecosystem/tools",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/tools/export",
+      "module": "modules/ecosystem/tools",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/tools/mcp/list",
+      "module": "modules/ecosystem/tools",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/turns/{param}/questions/pending",
+      "module": "modules/companion/conversation",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/turns/{param}/subagents",
+      "module": "modules/companion/conversation",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "GET",
+      "path": "/v1/workflows",
+      "module": "modules/companion/conversation",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/attachments/{param}/parse/crop",
+      "module": "modules/knowledge/content",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/branches/{param}/layout",
+      "module": "modules/companion/branch",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/messages/{param}",
+      "module": "modules/companion/conversation",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/plugins/{param}",
+      "module": "modules/ecosystem/plugins",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/preferences",
+      "module": "modules/platform/preferences",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/proactive/intelligence/commitments/{param}",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/proactive/sources/{param}",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/skills/{param}",
+      "module": "modules/ecosystem/skills",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/study-materials/{param}",
+      "module": "modules/learning/study-materials",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/tools/{param}",
+      "module": "modules/ecosystem/tools",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/analytics/events",
+      "module": "modules/platform/analytics",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/attachments",
+      "module": "modules/knowledge/content",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/attachments/binary",
+      "module": "modules/knowledge/content",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/attachments/{param}/parse",
+      "module": "modules/knowledge/content",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/attachments/{param}/parse/convert-text",
+      "module": "modules/knowledge/content",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/branches/{param}/archive",
+      "module": "modules/companion/branch",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/branches/{param}/merge",
+      "module": "modules/companion/branch",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/consent",
+      "module": "modules/platform/privacy",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/consent/{param}/revoke",
+      "module": "modules/platform/privacy",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/deletions",
+      "module": "modules/platform/privacy",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/diaries/generate-today",
+      "module": "modules/learning/diary",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/diaries/schedules",
+      "module": "modules/learning/diary",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/feedback",
+      "module": "modules/platform/feedback",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/knowledge-relations",
+      "module": "modules/knowledge/knowledge",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/knowledge-relations/{param}/correct",
+      "module": "modules/knowledge/knowledge",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/knowledge-relations/{param}/merge",
+      "module": "modules/knowledge/knowledge",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/knowledge-relations/{param}/split",
+      "module": "modules/knowledge/knowledge",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/messages",
+      "module": "modules/companion/conversation",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/messages/{param}/restore",
+      "module": "modules/companion/conversation",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/personas/{param}/review",
+      "module": "modules/companion/persona",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/personas/{param}/rollback",
+      "module": "modules/companion/persona",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/plugins",
+      "module": "modules/ecosystem/plugins",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/plugins/{param}/grants",
+      "module": "modules/ecosystem/plugins",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/preferences",
+      "module": "modules/platform/preferences",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/preferences/reset",
+      "module": "modules/platform/preferences",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/proactive/actions/{param}/state",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/proactive/activation/{param}/end",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/proactive/activation/{param}/heartbeat",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/proactive/captures/purge",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/proactive/captures/{param}/distill",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/proactive/captures/{param}/distillation-failed",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/proactive/claims/{param}/state",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/proactive/drafts",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/proactive/integrations/home-assistant/{param}/test",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/proactive/integrations/xiaomi-health/{param}/test",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/proactive/intelligence/commitments",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/proactive/intelligence/conflicts/{param}/resolve",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/proactive/intelligence/projects",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/proactive/intelligence/relationships",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/proactive/intelligence/timeline",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/proactive/intelligence/triggers",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/proactive/intelligence/verifications",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/proactive/intelligence/workflows",
+      "module": "modules/proactive/proactive",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/questions",
+      "module": "modules/learning/learning",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/questions/import",
+      "module": "modules/learning/learning",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/sessions/{param}/branches",
+      "module": "modules/companion/branch",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/skills",
+      "module": "modules/ecosystem/skills",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/skills/candidates",
+      "module": "modules/ecosystem/skills",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/skills/candidates/{param}/evaluate",
+      "module": "modules/ecosystem/skills",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/skills/candidates/{param}/promote",
+      "module": "modules/ecosystem/skills",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/skills/payloads",
+      "module": "modules/ecosystem/skills",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/skills/releases/{param}/rollback",
+      "module": "modules/ecosystem/skills",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/skills/releases/{param}/sync",
+      "module": "modules/ecosystem/skills",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/study-materials",
+      "module": "modules/learning/study-materials",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/study-materials/{param}/export",
+      "module": "modules/learning/study-materials",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/tools",
+      "module": "modules/ecosystem/tools",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/tools/{param}/call",
+      "module": "modules/ecosystem/tools",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/personas/{param}/memory-scope",
+      "module": "modules/companion/persona",
+      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
+    }
+  ]
+}

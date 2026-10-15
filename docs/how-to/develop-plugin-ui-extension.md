@@ -32,6 +32,19 @@ mkdir -p "$PLUGIN_EXAMPLE_DIR/bundle/pages/dashboard"
 
 ## 2. 制作最小 Config + Page 分发包
 
+### 2.0 用作者 CLI 快速开始
+
+在独立临时目录生成可运行的 Config + Page 示例；`init` 要求目标目录尚不存在，`pack` 不覆盖已有产物：
+
+```bash
+PLUGIN_STARTER_DIR="$(mktemp -d)"
+mise exec -- pnpm plugin init "$PLUGIN_STARTER_DIR/example" example
+mise exec -- pnpm plugin check "$PLUGIN_STARTER_DIR/example"
+mise exec -- pnpm plugin pack "$PLUGIN_STARTER_DIR/example" "$PLUGIN_STARTER_DIR/example-1.0.0.aervox-plugin"
+```
+
+命令构建并复用共享契约，验证 Manifest、宿主兼容要求、Config 作者规则、Page/Skill 入口、声明权限和允许的资源路径。`pack` 输出包路径及完整 SHA-256，同源码生成的字节稳定。它不会执行插件服务端代码，也不代替签名、真实安装和页面验收。以下 §2.1～2.5 使用前面 `PLUGIN_EXAMPLE_DIR` 下的手写示例，便于逐项理解接口。
+
 ### 2.1 写 Manifest 与配置
 
 ```bash
@@ -39,6 +52,7 @@ cat > "$PLUGIN_EXAMPLE_DIR/bundle/plugin.manifest.json" <<'JSON'
 {
   "apiVersion": "aervox.dev/v1",
   "kind": "PluginManifest",
+  "requires": { "hostApiVersion": { "min": "1.0.0", "maxExclusive": "2.0.0" } },
   "metadata": {
     "id": "acme-focus-card",
     "displayName": "专注提示卡",
@@ -75,7 +89,7 @@ cat > "$PLUGIN_EXAMPLE_DIR/bundle/config.schema.json" <<'JSON'
 JSON
 ```
 
-预期：插件 ID 与目录/页面命名不冲突；配置使用 Aervox DSL。数值约束用 `min/max`，不要用 JSON Schema 的 `minimum/maximum`。
+预期：插件 ID 与目录/页面命名不冲突；配置使用 Aervox DSL。数值约束用 `min/max`，不要用 JSON Schema 的 `minimum/maximum`。`requires.hostApiVersion` 声明 `>= min`、`< maxExclusive` 的宿主 API 半开区间；省略要求的旧包默认兼容宿主 API v1。它与插件发布版本、Config 版本和根界面版本是不同概念，见[版本合同](../reference/plugin-config-and-pages.md#81-单文件分发包规范aervox-plugin)。
 
 ### 2.2 写页面与 Bridge 调用
 
@@ -134,47 +148,22 @@ cat > "$PLUGIN_EXAMPLE_DIR/bundle/pages/dashboard/index.html" <<'HTML'
 HTML
 ```
 
-这里显式加载 SDK、等待 `ready()`，再读取和保存本插件配置；用户文字通过 `textContent/value` 展示。不要直接用 `fetch` 调本地 API，也不要访问父 DOM、宿主存储或网络 CDN。独立双击 HTML 时没有宿主 init，不会进入可编辑状态，这是预期行为。
+这里显式加载 SDK、等待 `ready()`，再读取和保存本插件配置；用户文字通过 `textContent/value` 展示。可用 `bridge.onContext(handler)` 接收主题变化并在页面释放时取消订阅；`notify/close` 也返回 Promise，调用前分别声明 `host.notify/host.close` 并处理拒绝。不要直接用 `fetch` 调本地 API，也不要访问父 DOM、宿主存储或网络 CDN。独立双击 HTML 时没有宿主 init，不会进入可编辑状态，这是预期行为。
 
-若只需提供模型技能，在 Bundle 根增加 `SKILL.md`（front matter 含 `name: acme-focus-card` 与 `description`）；正文写适用条件、使用步骤和退出条件。Skill 不执行脚本，不为模型授予工具或 OS 权限；多技能布局见[分发包规范](../reference/plugin-config-and-pages.md#81-单文件分发包规范aervox-plugin)。
+若只需提供模型技能，在 Bundle 根增加 `SKILL.md`（front matter 含 `name: acme-focus-card` 与 `description`）；正文写适用条件、使用步骤和退出条件。也可用 `spec.skill` 指向自定义入口，优先于根文件回退，仍按 pluginId 登记；`spec.skills[]` 的显式 `entry` 优先于 inline `content`。被显式引用的文件不会再扫描登记一次，传统入口按确定顺序发现，预检和安装使用同一技能集合。Skill 不执行脚本，不为模型授予工具或 OS 权限；多技能布局见[分发包规范](../reference/plugin-config-and-pages.md#81-单文件分发包规范aervox-plugin)。
 
 ### 2.3 校验并打包
 
-以下脚本使用本仓已有 `fflate` 与构建出的契约/解析器，不依赖全局打包工具：
+使用同一作者 CLI 校验手写示例并生成包：
 
 ```bash
-mise exec -- node --input-type=module - "$PLUGIN_EXAMPLE_DIR" <<'JS'
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import { createHash } from 'node:crypto';
-import { zipSync } from 'fflate';
-import { pluginManifestSchema } from './packages/contracts/dist/index.js';
-import { parseConfigSchema, applyDefaults, validateValues } from './apps/api/dist/modules/ecosystem/plugins/config-schema.js';
-const root = process.argv[2];
-const bundle = path.join(root, 'bundle');
-const manifest = pluginManifestSchema.parse(JSON.parse(await fs.readFile(path.join(bundle, 'plugin.manifest.json'), 'utf8')));
-const fields = parseConfigSchema(JSON.parse(await fs.readFile(path.join(bundle, 'config.schema.json'), 'utf8')));
-const result = validateValues(fields, applyDefaults(fields));
-if (result.issues.length) throw new Error(JSON.stringify(result.issues));
-const files = {};
-async function collect(dir, prefix = '') {
-  for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
-    if (entry.isSymbolicLink()) throw new Error('symbolic links are not allowed');
-    const relative = prefix + entry.name;
-    if (entry.isDirectory()) await collect(path.join(dir, entry.name), relative + '/');
-    else files[relative] = new Uint8Array(await fs.readFile(path.join(dir, entry.name)));
-  }
-}
-await collect(bundle);
-const bytes = zipSync(files, { level: 6 });
-const filename = `${manifest.metadata.id}-${manifest.metadata.version}.aervox-plugin`;
-await fs.writeFile(path.join(root, filename), bytes);
-console.log(path.join(root, filename));
-console.log('sha256:' + createHash('sha256').update(bytes).digest('hex'));
-JS
+mise exec -- pnpm plugin check "$PLUGIN_EXAMPLE_DIR/bundle"
+mise exec -- pnpm plugin pack "$PLUGIN_EXAMPLE_DIR/bundle" "$PLUGIN_EXAMPLE_DIR/acme-focus-card-0.1.0.aervox-plugin"
 ```
 
-预期：输出完整包路径及 64 位 SHA-256；ZIP 根直接包含 Manifest。该校验覆盖本例所用字段，不是完整安全审核。准备出厂声明包时，可将已评审资源加入 `plugins/<id>/` 后运行 `mise tasks run package-plugins`（等价 `mise exec -- pnpm package:plugins`），得到 `dist-plugins/` 产物；该批量命令只打包，不完成契约校验或安全认证。产物字节可重现（同源码重复打包的 SHA-256 稳定），且 `dist-plugins/` 已被 gitignore——验证与测试不要依赖该目录的既有文件，需要分发包时经产品导出端点现场生成。
+预期：检查报告没有 issues，打包输出完整路径及 64 位 SHA-256，ZIP 根直接包含 Manifest。修改包后使用新输出文件名或明确移走旧产物；命令不会悄悄覆盖已有包。配置注册、API 分发预检和 CLI 使用同一作者校验器，仍需额外验证资源依赖、功能及权限实际执行。
+
+准备出厂声明包时，可将已评审资源放入 `plugins/<id>/` 后运行 `mise tasks run package-plugins`；批量入口也执行共享校验、排除第一方实现源码并生成字节可重现的 `dist-plugins/` 产物。该目录是 gitignore 生成物，测试不依赖其中的既有文件。运行 `mise tasks run check-standards` 可检查内置声明包、作者工具及历史 OpenAPI 结构兼容；该检查不代表签名或产品发布验收。
 
 ### 2.4 在临时数据库验证安装闭环
 
@@ -238,7 +227,9 @@ JS
 
 使用本机 loopback、open 认证的独立开发实例验证本例（Token 模式页面资源授权缺口见规范 §3.2），打开插件管理的本地包安装，选择上一步 ZIP，核对预检显示 ID、发布者、版本、摘要、配置及页面能力，再安装。打开插件 Page，应先出现“可以编辑”，保存后显示“已保存”，关闭重开后值仍在；通用配置表单应显示相同值。
 
-同时验证刷新、深浅主题可读性、键盘操作、缺能力时的错误、先后保存的旧版本冲突。当前 revision 是前置检查，并发窗口仍可能丢失更新；并发验证必须记录该缺口，不得将其报告为已实现的原子 CAS。禁用插件后配置访问应被拒绝；当前入口 HTML/已有 iframe 撤权存在已登记缺口，见[Page 边界](../reference/plugin-config-and-pages.md#32-已有防护与未完成边界)，不能把缺口当作预期安全承诺。浏览器控制台出现 CSP 错误时核对是否依赖了远程资源。
+同时验证刷新、通过 `onContext` 接收的明暗主题、键盘操作、缺 capability 时拒绝，以及两个窗口持有同一 revision 后保存的冲突。配置保存使用 SQL revision CAS，旧 revision 返回 409 且不修改 Secret；遇到冲突重新读取并由用户核对合并，不要无条件覆盖重试。
+
+验证伪造来源/旧 nonce 消息无效，重新加载或切换 Page 后旧请求结果不进入新页。当前界面获知禁用或不可用状态后销毁 iframe，入口 HTML 与普通资源也拒绝访问；尚无跨窗口或外部 API 变化的全局撤权实时推送。完整 Bearer 页面资源通道和任意第三方代码强制终止仍未实现，见[Page 边界](../reference/plugin-config-and-pages.md#32-已有防护与未完成边界)。控制台出现 CSP 错误时核对是否依赖远程资源；使用嵌套 Page 入口时，验证宿主打开声明的实际路径且相对脚本、样式和图片可加载，`assets/index.html` 只保留为兼容别名。
 
 ## 3. 接入第一方 Vue 插槽
 
@@ -319,14 +310,15 @@ setup(registry, context, lifecycle) {
 
 ### 4.1 定义 Hook 并显式注册
 
-在 `apps/api/src/modules/ecosystem/plugins/turn-plugins/<id>.ts` 定义，导入路径按当前位置调整：
+在 `plugins/acme-focus-card/src/server/turn-plugin.ts` 定义，从公开宿主契约导入类型：
 
 ```ts
-import type { ServerTurnPlugin } from './types.js';
+import type { ServerTurnPlugin } from '@aervox/host-plugin-api';
 
 export const focusCardTurnPlugin: ServerTurnPlugin = {
   id: 'acme-focus-card',
   beforeTurn(ctx, config) {
+    ctx.signal.throwIfAborted();
     if (ctx.metadata?.mode !== 'acme-focus-card') return;
     const message = typeof config?.message === 'string'
       ? config.message
@@ -334,6 +326,7 @@ export const focusCardTurnPlugin: ServerTurnPlugin = {
     return { extraSections: [`专注辅助要求：${message}`] };
   },
   async afterTurn(ctx, _config, beforeResult) {
+    ctx.signal.throwIfAborted();
     if (ctx.status !== 'Completed' || !beforeResult) return;
     // 在此接入经过评审的轻量后处理；不要在数据库事务中调用 LLM。
   },
@@ -344,21 +337,23 @@ export const focusCardTurnPlugin: ServerTurnPlugin = {
 
 ### 4.2 验证触发与边界
 
-先用独立 registry 的测试验证：未安装、禁用、metadata 不匹配均不注入；已启用且 metadata 匹配时才返回片段；无保存配置时使用默认值；Hook 抛错不改变其他 Hook 的结果。通过 `[beforeResult]` 传递前后状态，并考虑后置重复运行时的幂等性。
+先用独立 registry 验证：未安装、禁用、metadata 不匹配均不注入；已启用且匹配时才返回片段；无保存配置时使用默认值。后置只复用配置快照，执行前重新检查当前 enabled/available；通过 `beforeResult` 传递前后状态。补充父回合取消、默认 15 秒期限、迟到结果丢弃和捕获端口失效的用例，业务副作用另行设计幂等。
 
-`metadata` 在底层 Turn API 可用；当前 `useWorkbenchContext().sendMessage` 只接受 `quizMode/resend`。如需 UI 发起上例模式，应先设计并验证宿主发送适配，不能向该方法硬传 `metadata`，也不能拼接 `[模式:...]` 标签。配置提示词内容视为用户输入资料，不承载授权策略；`extraSections` 不是安全控制器。
+`metadata` 在底层 Turn API 可用；本例只展示服务端接入，UI 须按当前工作台公开发送接口和插件状态映射验证透传，不能拼接 `[模式:...]` 文本控制标签。配置提示词内容视为用户输入资料，不承载授权策略；`extraSections` 不是安全控制器。
 
-本例只是 Hook 接口示例，不宣称新模式已在 UI 或生产启用。没有 Hook 硬超时与进程沙箱，后置异步函数也不自动成为可靠后台任务；新耗时业务应复用既有任务架构并单独设计取消/失败恢复。
+本例只是 Hook 接口示例，不宣称新模式已在 UI 或生产启用。Hook 上下文提供 `signal/deadlineEpochMs`，作者向异步调用传播信号；查询、配置读取、Hook 等待及窄端口均受执行范围约束。宿主默认单 Hook 15 秒，可配置到不超过 60 秒，父期限只能收紧。超时停止等待并关闭端口，不能强制终止同进程同步死循环，也不会撤销已接受的数据库写入。后置函数不自动成为可靠后台任务；耗时业务另行设计取消和恢复。
 
 ## 5. 运行验证并交付
 
 按改动范围选取定向检查；含 API/仓储测试不要并发启动多个整套测试命令。命令从根执行：
 
 ```bash
+# 共享作者规则与 OpenAPI 历史结构兼容
+mise tasks run check-standards
 # 分发、配置、主动规则与内置插件
-mise exec -- pnpm --filter @aervox/api exec vitest run test/plugin-config.test.ts test/plugin-distribution.test.ts test/builtin-plugins-market.test.ts test/proactive-plugin-lifecycle.test.ts
+mise exec -- pnpm --filter @aervox/api exec vitest run test/plugin-config.test.ts test/plugin-config-schema.test.ts test/plugin-distribution.test.ts test/plugin-upgrade.test.ts test/builtin-plugins-market.test.ts test/proactive-plugin-lifecycle.test.ts
 # 修改第一方 Hook 时增加领域回归
-mise exec -- pnpm --filter @aervox/api exec vitest run test/study-term-plugins.test.ts
+mise exec -- pnpm --filter @aervox/api exec vitest run test/study-term-plugins.test.ts test/turn-plugin-lifecycle.test.ts test/turn-plugin-cancel-integration.test.ts
 # 修改 UI 插槽/生命周期时（宿主通用接缝）
 mise exec -- pnpm --filter @aervox/ui exec vitest run test/ui-registry.test.ts
 # 修改第一方插件 UI 注册/清理与配置竞态时（实现已内聚到插件包）
@@ -374,7 +369,9 @@ mise tasks run ci-docs
 
 交付包含：源码与原始 `.aervox-plugin`、目标宿主版本/commit、完整 SHA-256、许可证与第三方依赖来源、权限和数据流说明、实际验证结果、升级/卸载影响及恢复步骤。先核对[规范发布清单](../reference/plugin-config-and-pages.md#9-验证与发布清单)，再在[落地追踪 §4.2](../reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)登记 CAP、位置、日期和验证证据。
 
-覆盖安装先卸载旧版本，会清理配置、Secret 和授权；不可把 `overwrite: true` 当作无损升级。原始包及必要数据副本必须保留，动态插件的当前导出不等于完整备份。源码与规范修改走功能分支/PR；扩大第三方执行权限或改变核心架构先走 ADR，不以一份安装包绕过评审。
+覆盖安装先准备独立 generation，再以短事务激活，保留启停选择、配置、Secret 和既有授权，撤权不会复活。并发配置 revision 变化返回 `409 PLUGIN_INSTALL_CONFLICT`，调用方重新预检；不兼容配置变化须先提供迁移方案。generation 包的 Schema/Page 注册和资源上传返回 `409 PLUGIN_PACKAGE_IMMUTABLE`，修改包内容应重新打包升级，不直接覆盖已激活资源。
+
+安装后导出返回保存的原始归档，不含用户配置/Secret，也不是任意后续文件改动的备份。旧代际保留至显式卸载；清理只删除带宿主所有权标记的代际及已登记 legacy Page 资源，未知 legacy 目录保留。当前没有运行失败后的自动回退、复杂迁移或旧代际垃圾回收。保留原包与必要数据副本，宿主代码回退先按 [ADR-027](../reference/adr/ADR-027-plugin-atomic-activation.md)核对资源布局兼容。源码与规范走功能分支/PR；扩大第三方执行权限或改变核心架构先走 ADR。
 
 <a id="avx-tut-003"></a>
 <a id="agent-tools"></a>

@@ -9,7 +9,7 @@
 import Fastify from "fastify";
 import path from "node:path";
 import cors from "@fastify/cors";
-import { buildOpenApiDocument } from "@aervox/contracts";
+import { buildOpenApiDocument, getPluginApiRevision } from "@aervox/contracts";
 import {
   createDatabase,
   createProactiveVaultDatabase,
@@ -64,6 +64,7 @@ import type { MemoryEmbeddingProvider } from "./modules/companion/memory/index.j
 import { assertAuthConfigSafe, createAuthHook, loadAuthConfig, type AuthConfig } from "./shared/auth.js";
 import { createToolApprovalPolicyHook } from "./shared/tool-approval-policy.js";
 import { ApiError, type ApiErrorCode } from "./shared/errors.js";
+import { registerProblemDetails } from "./shared/problem-details.js";
 import { DatabaseError } from "@aervox/repositories";
 import {
   createStandardLogger,
@@ -120,6 +121,8 @@ export interface BuildAppOptions {
 
 export interface BuildAppResult {
   app: ReturnType<typeof Fastify>;
+  /** Actual registered HTTP routes, including descriptor-driven and plugin routes. */
+  readonly routeInventory: readonly { method: string; path: string }[];
   db: AervoxDatabase;
   client: Client;
   /** Agent Loop 只读工具提供者宿主（测试注入 handler 用；阶段 2d） */
@@ -135,6 +138,13 @@ export interface BuildAppResult {
 
 export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppResult> {
   const app = Fastify({ logger: false });
+  const routeInventory: { method: string; path: string }[] = [];
+  app.addHook("onRoute", (route) => {
+    for (const method of Array.isArray(route.method) ? route.method : [route.method]) {
+      routeInventory.push({ method, path: route.url });
+    }
+  });
+  registerProblemDetails(app);
   const apiConfig = loadApiConfig();
   const metricsRegistry =
     options.observability?.metrics && "toPrometheusText" in options.observability.metrics
@@ -188,7 +198,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
     proactiveAccessToken = await loadProactiveAccessToken();
   }
 
-  // 统一错误序列化（缺陷6/B）：ApiError/DatabaseError → { error, code, message }；其余保持 Fastify 默认
+  // Map domain errors to HTTP; the onSend hook supplies the shared Problem Details envelope.
   // DatabaseError 携带领域语义（NOT_FOUND/FORBIDDEN/CONFLICT），在此映射为 HTTP 状态码，
   // 避免数据层裸 Error 被当作 500（资源访问拒绝应 403、资源缺失应 404、领域冲突应 409）。
   const dbCodeToApi: Record<DatabaseError["domainCode"], { code: ApiErrorCode; status: number }> = {
@@ -209,6 +219,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
       event: "http.request.error",
       message: `Error handling ${req.method} ${req.url}: ${errorObj.message}`,
       fields: {
+        requestId: req.id,
         method: req.method,
         url: req.url,
         error: errorObj.name,
@@ -224,7 +235,11 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
       const mapped = dbCodeToApi[err.domainCode] ?? { code: "INTERNAL_ERROR" as const, status: 500 };
       return reply.code(mapped.status).send({ error: err.name, code: mapped.code, message: err.message });
     }
-    // 非业务异常（schema validation / 5xx）：走 Fastify 默认序列化与状态码
+    // Unexpected failures stay detailed in server logs, never in a client response.
+    if (statusCode >= 500) {
+      return reply.code(statusCode).send({ error: "Internal Server Error", code: "INTERNAL_ERROR", message: "Internal Server Error" });
+    }
+    // Fastify request/parser errors retain their established code and message.
     return reply.send(err as any);
   });
 
@@ -242,6 +257,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
       event: "http.request.completed",
       message: `${req.method} ${req.url} ${reply.statusCode} (${durationMs.toFixed(2)}ms)`,
       fields: {
+        requestId: req.id,
         method: req.method,
         url: req.url,
         statusCode: reply.statusCode,
@@ -265,13 +281,18 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   });
 
-  // 契约骨架：暴露由 @aervox/contracts 生成的 OpenAPI 3.1 文档（首次请求时序列化并添加 1 小时客户端缓存头）。
+  // The document follows the current contribution revision, including removal/reload.
   // CR-060：插件端点在宿主装配阶段登记，故文档必须晚于插件加载生成，不能在此处预序列化。
   let openApiSerialized: string | null = null;
+  let openApiRevision = -1;
   app.get("/openapi.json", async (_req, reply) => {
-    openApiSerialized ??= JSON.stringify(buildOpenApiDocument());
+    const revision = getPluginApiRevision();
+    if (openApiSerialized === null || revision !== openApiRevision) {
+      openApiSerialized = JSON.stringify(buildOpenApiDocument());
+      openApiRevision = revision;
+    }
     reply.header("Content-Type", "application/json; charset=utf-8");
-    reply.header("Cache-Control", "public, max-age=3600");
+    reply.header("Cache-Control", "private, no-store");
     return openApiSerialized;
   });
 
@@ -367,6 +388,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
 
   return {
     app,
+    get routeInventory() { return routeInventory.map((route) => ({ ...route })); },
     db,
     client,
     toolRuntime,

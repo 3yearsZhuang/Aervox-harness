@@ -4,7 +4,7 @@ id: AVX-PLUG-001
 
 # Aervox 插件开发规范
 
-关联：[开发指南](../how-to/develop-plugin-ui-extension.md)、[能力组合规范](capability-composition.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-015](adr/ADR-015-vue-full-stack.md)、[数据隐私](DATA_PRIVACY.md)、[落地追踪](REQUIREMENTS_TRACEABILITY.md)。
+关联：[开发指南](../how-to/develop-plugin-ui-extension.md)、[能力组合规范](capability-composition.md)、[ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-015](adr/ADR-015-vue-full-stack.md)、[原子激活决定](adr/ADR-027-plugin-atomic-activation.md)、[API 规范](API_CONVENTIONS.md)、[数据隐私](DATA_PRIVACY.md)、[落地追踪](REQUIREMENTS_TRACEABILITY.md)。
 
 本文维护插件开发接口、作者规则与交付边界，具体字段以代码为准；规范存在不代表插件 API 或产品已发布。Config/Page 分别借鉴 AstrBot [配置指南](https://docs.astrbot.app/dev/star/guides/plugin-config.html)与[页面指南](https://docs.astrbot.app/dev/star/guides/plugin-pages.html)的公开设计（`AST-08` / `AST-09`；仅设计借鉴，不复制其 AGPL 代码）；参考来源登记遵循 [PRD](PRD.md)。
 
@@ -32,7 +32,7 @@ id: AVX-PLUG-001
 
 插件拥有自身提示词、状态机、组件、样式、工具与事件语义；宿主提供通用注册表、`pluginState`、`pluginEvents`、`metadata` 和窄端口。学习事实、仓储与复习排期保持主仓所有权，插件不能另建数据真源；这不把核心学习闭环改为可选能力。
 
-模型工具/guidance、Hook 与插件 HTTP 入口按启用记录和可用性统一准入；缺记录、停用、不可用或缺失仓储均拒绝。缺包不等于卸载，保留配置、Secret、授权历史及数据管理入口。具体执行时机、前置快照及尚无硬取消的限制见 §4，数据责任见末节。
+模型工具/guidance、Hook 与插件 HTTP 入口按启用记录和可用性统一准入；缺记录、停用、不可用或缺失仓储均拒绝。缺包不等于卸载，保留配置、Secret、授权历史及数据管理入口。具体执行时机、前置快照及协作取消的边界见 §4，数据责任见末节。
 
 ### 0.4 根界面插件（CR-065）
 
@@ -47,7 +47,7 @@ id: AVX-PLUG-001
 
 ## 1. Config Schema v1
 
-Config 是 Aervox 自有 DSL，不是任意 JSON Schema，也不兼容 AstrBot 配置文件直接导入。[契约](../../packages/contracts/src/plugin-config-schemas.ts)和[解析器](../../apps/api/src/modules/ecosystem/plugins/config-schema.ts)共同定义行为。
+Config 是 Aervox 自有 DSL，不是任意 JSON Schema，也不兼容 AstrBot 配置文件直接导入。[契约](../../packages/contracts/src/plugin-config-schemas.ts)与[共享作者校验器](../../packages/contracts/src/plugin-validation.ts)定义行为；配置注册、分发预检和作者 CLI 复用同一校验器。
 
 ```json
 {
@@ -66,9 +66,11 @@ Config 是 Aervox 自有 DSL，不是任意 JSON Schema，也不兼容 AstrBot �
 
 属性包括 `key/type/label/description/hint/placeholder/default/required/options/children/items/validation/visibleWhen`。数值校验键是 `min/max`，不是 `minimum/maximum`；字符串支持 `minLength/maxLength/pattern`。文案可用字符串或语言映射，回退至 `zh-CN`/首个文案。`visibleWhen` 只控制 UI，不是权限门禁。
 
-**作者规则**：同层 key 唯一；默认值必须符合约束；`secret` 仅放顶层且无默认值。当前保存与状态回显只遍历顶层 Secret；嵌套 Secret、复杂对象数组应先提交契约用例再使用。不要使用文件上传、模板列表或代码编辑器等未支持类型。
+**机器强制**：拒绝同层重复 key、保留对象键、无效正则、倒置的范围、重复选项和不符合类型/选项/自身约束的默认值；`secret` 禁止默认值。递归深度在进入递归 Schema 解析前检查。
 
-**兼容限制**：`diffSchema` 能补默认值、计算被移除的顶层字段，但当前注册/读取流程没有完整的类型迁移与 orphan 持久化闭环。不要宣称更名、删字段或改类型会自动无损迁移；此类变更必须说明手工映射、备份和恢复步骤。当前未实现通用版本化配置迁移器。
+**作者规则**：`secret` 仅放顶层；当前保存与状态回显只遍历顶层 Secret。嵌套 Secret、复杂对象数组应先提交契约用例再使用；共享校验不构成任意复杂默认值与迁移的完整证明。不要使用文件上传、模板列表或代码编辑器等未支持类型。
+
+**升级兼容**：分发包激活在短事务内为新增字段补默认值，将移除的顶层字段保留到 `orphanedValues`，并保留已有 Secret。类型变化或已有值不再满足约束时拒绝自动激活；配置更名、复杂嵌套转换和业务数据迁移仍需明确方案，当前没有通用版本化迁移器。独立 Schema 注册接口不等于完整包升级流程，见 §8.3。
 
 ## 2. 配置存储与 API
 
@@ -77,26 +79,26 @@ Config 是 Aervox 自有 DSL，不是任意 JSON Schema，也不兼容 AstrBot �
 | HTTP 接口 | 行为 |
 |---|---|
 | `GET /v1/plugins/:id/config/schema` | 读取 DSL；没有 Schema 返回 404 |
-| `PUT /v1/plugins/:id/config/schema` | 注册经过解析的 DSL |
+| `PUT /v1/plugins/:id/config/schema` | 注册经过共享校验的 DSL；`409 PLUGIN_PACKAGE_IMMUTABLE`，generation 包须重新打包升级 |
 | `GET /v1/plugins/:id/config` | 返回 `revision/schemaVersion/values/secretFields/orphanedValues/issues` |
 | `PUT /v1/plugins/:id/config` | 输入 `revision`、`values`、`secretValues`；校验失败 400，版本冲突 409 |
 | `POST /v1/plugins/:id/config/reset` | 恢复默认值并清除该插件 Secret |
 
-**机器强制**：普通值保存按已有顶层对象合并；省略字段保留旧值。Secret 输入位于 `secretValues`，省略保留、字符串写入、`null` 清除；API 只返回 `{configured: boolean}`。禁用插件的配置读写返回 `409 PLUGIN_DISABLED`。普通配置保存使用 SQL revision CAS，首次写入也检查 revision；成功保存递增 revision，保存/重置写审计。
+**机器强制**：普通值保存按已有顶层对象合并；省略字段保留旧值。Secret 输入位于 `secretValues`，省略保留、字符串写入、`null` 清除；API 只返回 `{configured: boolean}`。禁用插件的配置读写返回 `409 PLUGIN_DISABLED`。普通配置保存使用 SQL revision CAS，首次写入也检查 revision；保存与重置在同一写事务中复验用于校验的 Schema，升级期间的过期请求返回 `409 PLUGIN_CONFIG_REVISION_CONFLICT`，不会写入旧值或删除 Secret。成功保存递增 revision，保存/重置写审计。
 
 **边界**：当前 SQLite 组合根把配置与同库 Secret 的保存、重置放入同一短事务；旧 revision 返回 409 前不修改 Secret，事务失败保留完整旧版。[当前 Secret Repository](../../packages/repositories/src/repositories/sqlite/plugin-config-repository.ts)在本地 SQLite 保存原值，不具备默认静态加密或 OS Keychain 保证。此保证不覆盖外部 SecretStore；审计仍在事务后写入，不宣称“配置 + Secret + 审计”整体原子提交。回归见[配置 API 测试](../../apps/api/test/plugin-config.test.ts)。
 
-**作者规则**：不得在日志、Skill、页面 URL、普通配置或导出包放置 Secret；避免发送不必要的原始数据；重置/覆盖安装/卸载前说明数据影响并由用户发起。数据访问与删除责任继承 [DATA_PRIVACY](DATA_PRIVACY.md)，扩展不得自建数据库直写或绕开核心数据删除传播。
+**作者规则**：不得在日志、Skill、页面 URL、普通配置或导出包放置 Secret；避免发送不必要的原始数据；重置、升级与卸载前说明各自的数据影响并由用户发起。数据访问与删除责任继承 [DATA_PRIVACY](DATA_PRIVACY.md)，扩展不得自建数据库直写或绕开核心数据删除传播。
 
 ## 3. Page 与 Bridge
 
-Page 元数据为 `id/title/description/entry/capabilities/checksum`。`id` 最长 64、匹配 `[A-Za-z0-9_-]+`；`entry` 必须以 `pages/<id>/` 开头。推荐 `pages/<id>/index.html`；页面资源必须打入包内。API 入口 `.../pages/:pageId/assets/index.html` 会按元数据解析实际入口。
+Page 元数据为 `id/title/description/entry/capabilities/checksum`。`id` 最长 64、匹配 `[A-Za-z0-9_-]+`；`entry` 必须以 `pages/<id>/` 开头。推荐 `pages/<id>/index.html`；页面资源必须打入包内。宿主使用 Manifest 声明的实际入口路径，嵌套入口中的相对脚本、样式和图片据此解析。`.../pages/:pageId/assets/index.html` 仍保留为解析实际入口的兼容别名，新代码不要依赖该别名改变相对资源基址。
 
 | HTTP 接口 | 行为 |
 |---|---|
 | `GET /v1/plugins/:id/pages` | 列出 Page |
-| `POST /v1/plugins/:id/pages` | 注册 Page，成功 201 |
-| `POST /v1/plugins/:id/pages/:pageId/assets` | `{files:[{path,contentBase64}]}`，单文件服务层上限 5 MiB |
+| `POST /v1/plugins/:id/pages` | 注册 Page，成功 201；generation 包返回 `409 PLUGIN_PACKAGE_IMMUTABLE` |
+| `POST /v1/plugins/:id/pages/:pageId/assets` | `{files:[{path,contentBase64}]}`，单文件上限 5 MiB；generation 包返回 `409 PLUGIN_PACKAGE_IMMUTABLE` |
 | `GET /v1/plugins/:id/pages/:pageId/assets/*` | 返回本地静态资源与 CSP |
 | `GET /v1/plugin-pages/bridge.js` | 提供浏览器 Bridge 对象；页面须显式加载 |
 
@@ -108,9 +110,9 @@ Page 元数据为 `id/title/description/entry/capabilities/checksum`。`id` 最�
 | `getContext()` | 当前上下文或初始化前 `null` | 无 |
 | `getConfig()` | Promise，配置快照 | `config.read`，宿主现有检查 |
 | `saveConfig({values,secretValues})` | Promise，保存结果；revision 由宿主维护 | `config.write`，宿主现有检查 |
-| `notify({type,message})` | 当前 SDK 不返回内部 Promise | `host.notify`，作者必须声明，宿主暂未检查 |
-| `close()` | 当前 SDK 不返回内部 Promise | `host.close`，作者必须声明，宿主暂未检查 |
-| `onContext(handler)` | 返回取消订阅函数 | 当前宿主未发送 `aervox:page:context` 事件，不可依赖实时主题更新 |
+| `notify({type,message})` | Promise，可等待通知结果或失败 | `host.notify`，宿主强制检查 |
+| `close()` | Promise，可等待关闭结果或失败 | `host.close`，宿主强制检查 |
+| `onContext(handler)` | 返回取消订阅函数，接收当前会话的主题等上下文更新 | 无新增能力；不授予数据访问权 |
 
 先 `await ready()`，再读取配置后编辑；不得自行发送猜测的 nonce 或绕过 Bridge。普通调用 15 秒超时；Page 应展示异常并允许用户重试。`saveConfig` 冲突时重新 `getConfig()`，再让用户决定合并，不能无限覆盖重试。
 
@@ -120,21 +122,21 @@ Page 元数据为 `id/title/description/entry/capabilities/checksum`。`id` 最�
 
 [BundleStore](../../apps/api/src/modules/ecosystem/plugins/bundle-store.ts)检查相对资源路径与词法目录包含关系；尚未检查真实路径/符号链接，也不会拒绝所有未知扩展名。作者禁止链接文件、路径逃逸、远程资源和动态下载代码；服务端不能把这条作者规则当作已实现的隔离证明。
 
-截至本次核验仍有以下缺口，发布安全评估必须覆盖：
+**机器强制**：宿主将消息绑定当前 iframe 的 `event.source` 与 128 位随机 nonce；页面重载、切换插件或 Page 后建立新会话，旧请求结果不得投递给新页。SDK 只接受父窗口消息并绑定首次有效初始化的 origin；会话更换或页面关闭时拒绝未完成调用并清理计时器。四种 Bridge capability 均在宿主逐次检查。宿主收到禁用/不可用状态后销毁 iframe，入口 HTML 与其他资源执行启用检查；主题变化通过当前会话的 context 事件传递。
 
-- 宿主接收消息只检查 nonce，未绑定 `event.source`/origin；SDK init 也未验证发送窗口，nonce 使用时间/随机串。不能称为已完成来源认证的 Bridge。
-- `notify/close` 没有现行 capability 检查；它们的声明并不自动形成强制授权边界。
-- 入口 HTML 走 `readPageEntry`，未执行与普通资源相同的启用检查；禁用后已有 iframe/入口访问不会被统一立即杀停。
-- iframe 正在运行的代码没有统一 CPU/内存配额与撤权终止证明；不能把网络 CSP 解释为任意第三方执行安全已验收。
-- API 启用 Bearer Token 认证时，当前 iframe `src` 和脚本资源没有注入 Authorization 头，资源请求会受到全局认证检查；尚无完整的受保护 Page 资源授权通道。不能将 Token 放入页面 URL 或为访问页面而关闭生产认证。
+**未实现**：
 
-本次定档记录上述缺口，不通过文字变更批准放宽 ADR-009，也不宣称已修复。
+- 尚无跨窗口或外部 API 状态变化的全局实时推送；当前界面收到状态后销毁 Page，不等于所有窗口同时获知撤权。
+- iframe 代码没有统一 CPU/内存配额与强制终止证明；源窗口、会话检查和网络 CSP 不等于任意第三方代码的执行安全验收。
+- API 启用 Bearer Token 认证时，iframe `src` 和脚本资源没有完整的受保护授权通道；不能将 Token 放入页面 URL，也不能为页面访问关闭生产认证。
+
+上述浏览器消息检查不放宽 ADR-009 的第三方执行边界。回归见 [Page Bridge SDK](../../apps/api/test/plugin-page-bridge.test.ts)与[Page 对话框](../../surfaces/panels-ui/test/plugin-page-dialog.test.ts)。
 
 ## 4. 服务端会话回合插件体系（Server Turn Plugin Pipeline）
 
 ### 4.1 核心契约与执行生命周期
 
-[ServerTurnPlugin](../../packages/host-plugin-api/src/turn-plugin.ts)定义 `id`、可选 `name`、`beforeTurn(ctx, config)` 和 `afterTurn(ctx, config, beforeResult)`。契约位于 `@aervox/host-plugin-api`（仅类型，零运行时依赖）；[本地出口](../../apps/api/src/modules/ecosystem/plugins/turn-plugins/types.ts)只做聚合，不再定义任何插件领域字段。上下文含 Turn/Session/Attempt ID、用户消息与窄端口（回合流读写 `stream`、可选 `llm`）；`LocalContext` 与仓储属宿主侧依赖，经 Runner 的宿主依赖注入，**不进入插件上下文**。后置状态为 `Completed/Failed/Interrupted`。
+[ServerTurnPlugin](../../packages/host-plugin-api/src/turn-plugin.ts)定义 `id`、可选 `name`、`beforeTurn(ctx, config)` 和 `afterTurn(ctx, config, beforeResult)`。契约位于 `@aervox/host-plugin-api`（仅类型，零运行时依赖）；[本地出口](../../apps/api/src/modules/ecosystem/plugins/turn-plugins/types.ts)只做聚合，不再定义任何插件领域字段。上下文含 Turn/Session/Attempt ID、用户消息、`signal/deadlineEpochMs` 与窄端口（回合流读写 `stream`、可选 `llm`）；`LocalContext` 与仓储属宿主侧依赖，经 Runner 的宿主依赖注入，**不进入插件上下文**。后置状态为 `Completed/Failed/Interrupted`。
 
 Hook 必须由 API 组合根 import 并注册到 [ServerPluginRegistry](../../apps/api/src/modules/ecosystem/plugins/turn-plugins/registry.ts)；仅在 Bundle 放置 `.ts/.js` 或 Manifest 字段不会激活 Hook。当前没有对第三方暴露的 Hook npm SDK、进程隔离或运行时代码热加载。第一方实现位于 `plugins/<id>/src/server`，由唯一装配点 [apps/api/src/plugin-assembly.ts](../../apps/api/src/plugin-assembly.ts) 以容错方式加载并注入其贡献（缺包或加载失败不中断宿主启动）。注册只按插件唯一 ID，不提供历史别名互查；需要旧配置迁移时由插件自己处理，不让宿主解释领域键。
 
@@ -150,7 +152,11 @@ Hook 必须由 API 组合根 import 并注册到 [ServerPluginRegistry](../../ap
 
 [Runner](../../apps/api/src/modules/ecosystem/plugins/turn-plugins/runner.ts)按注册顺序串行执行；仓储缺失、查询失败、无记录、停用或不可用均不运行。测试与自定义调用同样需要明确提供有效记录，不能把缺省依赖当作授权。配置来自已保存 `valuesJson`，未保存时可能为 `undefined`，Hook 必须自行提供默认值；它不是 Config Service 的完整快照，也不包含 Secret。
 
-前置结果记录启用和配置快照，后置阶段可复用该快照。因此回合中途禁用插件不保证取消已开始的后置工作。异常按插件捕获并通过 `onPluginError` 或日志留痕，但没有 Hook 超时、硬取消、幂等执行或资源配额；异常捕获也无法阻止同步死循环。后置函数是异步函数不代表独立后台任务；耗时工作应通过既有受信任务边界设计，不在数据库事务内执行外部 I/O。
+前置阶段保存配置快照供后置复用，后置执行前仍重新检查当前启用、可用性与持久执行代次。停用、可用性变化或替换插件会更换代次，重新启用也不能恢复旧 Hook 的迟到调用。每个 Hook 默认期限 15 秒；受信宿主可设置 `hookTimeoutMs`，范围为大于 0 且不超过 60 秒，父回合截止时间只能收紧该期限。记录查询、配置读取与 Hook 等待均有界，取消或超时后的迟到结果不再合入宿主。
+
+`stream/llm` 窄端口在每次调用前后检查当前执行范围；流式写入完成异步准备后，在提交前再次检查。Hook 完成、异常或超时后，已捕获端口失效。作者须传播 `ctx.signal` 并遵守 `ctx.deadlineEpochMs`，不得保存端口供无主后台任务使用。异常按插件留痕；已接受的数据库写入不会因后续取消回滚。
+
+这些机制提供协作取消与有界等待，不能强制终止同进程同步死循环，也不提供任意第三方代码隔离或业务幂等性。后置函数仍不自动成为可靠后台任务；耗时工作通过既有受信任务边界设计，不在数据库事务内执行外部 I/O。
 
 ### 4.4 结构化请求元数据契约（Structured Request Metadata）
 
@@ -257,7 +263,7 @@ OpenAPI 片段使用独立贡献注册表，惰性生成公共文档；非法路
 
 ```text
 plugin.manifest.json
-config.schema.json                    # 可选；当前固定根路径
+config.schema.json                    # 可选；默认根路径
 SKILL.md                              # 可选；安装后技能名使用 pluginId
 skills/acme-focus-card-review/SKILL.md # 可选；名称为全局唯一 ID
 pages/dashboard/index.html            # 可选；必须在 Manifest 声明 Page
@@ -265,7 +271,21 @@ pages/dashboard/app.js
 pages/dashboard/style.css
 ```
 
-包内安装识别根 `SKILL.md`/`skill.md`、`skills/<name>/SKILL.md`、`spec.skills[].content`。当前不是全目录技能资产复制：不要假定 Skill 的 `scripts/` 或任意资源自动安装、自动执行。根技能预检可能显示 front matter name，而实际安装使用 pluginId；保持二者一致。Skill name 必须匹配 `/^(?!\.{1,2}$)[\w.-]+$/`：使用 ASCII 字母、数字、下划线、点和短横线，排除单独 `.`/`..`，并使用插件前缀保证全局唯一。Manifest 只检查非空字符串等基础长度；Service 在写入前拒绝不合格或重复名称，返回 409；不会以 201 掩盖未登记的技能。`spec.skills` 使用同名条目时会优先于扫描文件，避免重复声明覆盖正文。
+Manifest 根可声明宿主兼容区间：
+
+```json
+{
+  "requires": {
+    "hostApiVersion": { "min": "1.0.0", "maxExclusive": "2.0.0" }
+  }
+}
+```
+
+这是 `>= min` 且 `< maxExclusive` 的半开区间，边界使用完整稳定 SemVer；省略上界表示没有声明上界。旧包省略 `requires` 时默认宿主 API v1 区间，不改变已有 `metadata.version` 发布标签。发布标签的 SemVer 比较支持预发布版本；历史非 SemVer 标签无法排序，不能据此判定升降级。Bundle 宿主版本与 HTTP API、Config `schemaVersion`、根界面 `apiVersion` 分别管理，见[版本函数](../../packages/contracts/src/plugin-compatibility.ts)。
+
+预检与安装共用同一技能集合。`spec.skills[]` 支持自定义 `entry` 文件入口与 inline `content`，同时声明时以 `entry` 为准；`spec.skill` 优先于根 `SKILL.md`/`skill.md` 回退，并以 pluginId 登记。显式引用的文件不会再被扫描登记为第二个技能，传统 `skills/<name>/SKILL.md` 路径按确定顺序发现。引用文件必须位于允许的声明资源路径且实际存在，不能把预检展示与安装登记分别解释。
+
+当前不是全目录技能资产复制：不要假定 Skill 的 `scripts/` 或任意资源自动安装、自动执行。根技能名使用 pluginId；Skill name 必须匹配 `/^(?!\.{1,2}$)[\w.-]+$/`，使用 ASCII 字母、数字、下划线、点和短横线，排除单独 `.`/`..`，并使用插件前缀保证全局唯一。Service 在写入前拒绝不合格或重复名称，返回 409，不以 201 掩盖未登记的技能。
 
 工具 ID 自动加 `<pluginId>.` 前缀，但工具 `name` 与技能名没有同等自动命名空间保证；作者使用唯一名称。`spec.tools` 只登记描述和 schema，受信组合根还需 `ToolRuntime.registerHandler`；无 handler 的工具调用会失败。`read_only/guarded/full_access` 是 Manifest 当前接受的枚举；它们没有完整映射到 Loop 使用的 `read_only/write_with_approval/privileged`。通用 [ToolRuntime](../../apps/api/src/modules/ecosystem/tools/runtime.ts) 的直接调用对非只读工具要求 approval，但[会话工具提供器](../../apps/api/src/modules/companion/conversation/tool-providers.ts)对 `guarded/full_access` 返回不支持级别的 `requires_approval`，不会仅凭包声明获得完整执行链。包内写工具还须由受信宿主显式映射/登记安全等级并验证审批链，单独注册 handler 不足以完成接入。API 会话组合根在工具发现及派发时重新读取插件生效状态，并逐项检查 `requiredPermissions` 的 permission/scope；参数不是有效数组、缺 Grant 或失效插件均拒绝。通用 Core Runtime 通过宿主传入的 `authorize` 回调复验，单独注册 handler 或绕过该组合根不自动获得等价权限检查。
 
@@ -273,27 +293,31 @@ pages/dashboard/style.css
 
 `POST /v1/plugins/inspect-package` 输入 `{packageBase64}`，返回摘要、包 SHA-256、权限/数据范围提示、贡献列表、已安装版本与 `isValid/issues`。安装端再次预检；HTTP JSON body 上限为 20 MiB，包含 Base64 开销，不等于展开后的包大小限制。
 
-**机器强制**：可解析 ZIP、归档根 Manifest、Manifest 的已知字段类型、条目路径的绝对路径/`.`/`..` 等检查。Config 内容与 Page 入口执行预校验，归档采用展开大小和条目数量上限（见 §8.3）。**未实现**：全部资源依赖的可运行性校验、签名认证、发布者认证、依赖兼容校验、完整数据范围分析。预检 `permissions` 是推断展示，未包含工具 `requiredPermissions` 的完整授权评估；`signature` 当前为 `null`。`isValid: true` 只表示当前静态检查通过。
+**机器强制**：归档结构和路径、声明资源允许清单、Manifest 已知字段、宿主兼容区间、Config 作者规则、声明的 Page/Skill 入口及重复名称均执行预检。工具 `requiredPermissions` 与 Page capability 纳入报告；报告不等于已授予权限，执行仍按实际 grant 门控。归档采用展开大小和条目数量上限（见 §8.3）。
+
+**未实现**：全部静态资源依赖的可运行性校验、发布者签名认证、外部依赖版本解析和完整数据范围分析；`signature` 当前为 `null`。`isValid: true` 只表示已执行的静态检查通过，不代表功能可用或安全发布。
 
 ### 8.3 安装、覆盖与导出边界
 
-[分发引擎](../../apps/api/src/modules/ecosystem/plugins/package-bundle.ts)的实际流程是预检 → 有界解压与 Manifest 解析 →（覆盖时先卸载旧插件）→登记插件/工具/技能→尝试配置和 Page 资源。解压 Worker 忙、超时或退出时返回错误，保留旧插件及其配置、Secret 和能力。新安装成功返回 201；同 ID 且 `overwrite: false` 返回 `409 PLUGIN_ALREADY_EXISTS`。
+[分发引擎](../../apps/api/src/modules/ecosystem/plugins/package-bundle.ts)先预检和有界解压，再将原始归档、Page 与 Skill 内容准备到独立 generation 目录，最后用 SQLite 短事务激活元数据及 `bundle_generation` 指针。事务内不解压或覆盖资源文件，完整责任与回退要求见 [ADR-027](adr/ADR-027-plugin-atomic-activation.md)。新安装成功返回 201；同 ID 且 `overwrite: false` 返回 `409 PLUGIN_ALREADY_EXISTS`。
 
-配置、Page 或资源注册/写入失败会返回错误；没有跨文件和数据库的事务回滚。`overwrite: true` 是破坏性的卸载重装，会删除旧配置、Secret、授权和插件资源，并非保留状态的升级。卸载开始后的新版本安装失败不会自动恢复旧版本。
+`overwrite: true` 现在执行保留状态的升级：保留用户启停选择、已有配置、Secret 与授权记录，不恢复已撤销权限。新增字段补默认值，移除的顶层字段进入 `orphanedValues`；不兼容类型/约束变化拒绝自动迁移。激活前复验准备时的插件版本/代际、配置 Schema 和 revision，并发冲突返回 `409 PLUGIN_INSTALL_CONFLICT`，保留并发用户修改。新版 Skill 使用代际路径，不覆写 legacy skills 目录。低层 `POST /v1/plugins` 也不能覆盖 generation 包，返回 `409 PLUGIN_PACKAGE_IMMUTABLE`，避免元数据与原始归档失配。
 
-**作者规则**：发布保留完整源码包、版本、完整 SHA-256 和变更说明；升级前记录配置、确认 Secret 可重新配置并备份本地数据，按[换库与回滚指南](../how-to/run-database-migration-drill.md)处理涉及核心库的恢复。验证新包全部贡献后再宣布安装成功。禁止在无数据副本时测试覆盖真实插件。
+资源准备失败或数据库事务失败时旧指针继续生效；提交后的进程退出留下已准备的新资源和完整登记。失败清理只作用于确认未被激活的代际；提交结果不确定时保留文件。旧代际保留至显式卸载，当前没有自动垃圾回收、运行失败后的自动降级或复杂配置迁移。进程退出验证不能代替硬件断电与实机文件系统验收。
 
-`GET /v1/plugins/:id/export` 返回 ZIP Base64：出厂插件优先从源码目录打包；动态插件从仓储重建并包含 Page 静态资产，但未完整重建工具声明和原始元信息。因此导出不是无损备份，也不是用户配置/Secret 备份；发布与回滚使用原始分发包，不能仅依赖 UI“导出”。
+**包资源不可变**：已激活 generation 包的 Config Schema、Page 注册及资源上传接口返回 `409 PLUGIN_PACKAGE_IMMUTABLE`；作者修改源码后重新打包升级。用户配置读写仍按 §2 执行。`GET /v1/plugins/:id/export` 对该类安装返回保存的原始归档字节，完整保留 Manifest、兼容要求和声明；它不是当前目录任意后续改动的快照，也不包含用户配置或 Secret。无原始归档的旧布局仍走兼容导出，不能宣称所有历史安装都能恢复原始包。
 
-停用通过 `PATCH /v1/plugins/:id` 联动工具/技能及已装配的主动规则；卸载通过 DELETE 清理这些登记及 Config/Secret/Page。部分文件或主动状态清理采用容错处理，且内存 Hook/handler 已随宿主编译，不等于卸载任意代码。作者须验证无残留监听器、待执行动作或访问路径。
+停用通过 `PATCH /v1/plugins/:id` 联动工具/技能及已装配主动规则。显式卸载清理登记、Config/Secret/Page，并只删除带宿主所有权标记的 generation 与已登记 legacy Page 资源；未知 legacy 文件和目录保留，不推断其归属。内存 Hook/handler 随宿主编译，卸载包不等于动态卸载任意代码。作者仍须验证监听器、待执行动作与访问路径的收敛。
 
-**当前预检边界**：在解压分配前检查压缩包 20 MiB、展开总量 50 MiB、单条目 5 MiB、最多 2048 条目；拒绝不安全/重复路径。配置 Schema 与全部 Page 入口先验证，失败时不卸载旧版本；注册或资源写入异常不再返回安装成功。有效包的覆盖仍沿用卸载再安装，尚无 staging 激活、配置保留或跨数据库/文件系统原子回滚保证；这些由 ITER-005 继续承接。回归见[插件分发测试](../../apps/api/test/plugin-distribution.test.ts)。
+**作者规则**：保留原始包、完整源码、SHA-256、权限与变更说明，在临时数据环境验证升级、冲突和失败恢复。安装失败恢复不等于旧程序兼容新版资源路径，回退宿主先遵循 ADR-027；涉及核心库的恢复另按[迁移与回滚指南](../how-to/run-database-migration-drill.md)执行。
+
+**归档边界**：解压分配前检查压缩包 20 MiB、展开总量 50 MiB、单条目 5 MiB、最多 2048 条目，拒绝不安全或重复路径。所有声明入口在激活前验证；回归见[分发测试](../../apps/api/test/plugin-distribution.test.ts)、[升级测试](../../apps/api/test/plugin-upgrade.test.ts)与[提交进程退出测试](../../packages/repositories/test/plugin-installation.test.ts)。
 
 ### 8.4 官方出厂与内置插件集市（Built-in Market）
 
 [出厂同步](../../apps/api/src/modules/ecosystem/plugins/index.ts)扫描 `plugins/*`，同步主记录、根 Skill、Config 与主动声明；没有执行任意包内代码，也不等同完整包导入（工具/Page 贡献需走分发安装验证）。API 启动发现缺失、无效或不可读的 `installSource=builtin` 插件时，仅更新可用性状态，保留用户开关、配置、Secret 与授权记录；恢复包不会恢复已撤销授权（见[缺包回归](../../apps/api/test/builtin-plugin-absence.test.ts)）。
 
-集市 `GET /v1/plugins/market` 当前来自本地出厂目录，不是远程公共插件商店；`POST /v1/plugins/market/:id/install` 走该目录打包安装，内部固定 `overwrite: true`；对已安装插件执行集市安装/更新也会先卸载重装，没有默认拒绝覆盖保护，数据影响同 §8.3。就地打包与构建期导出共用同一份**允许清单**（只收 Manifest、Config、Skill 与 `skills/`、`pages/` 资源；排除 `src/`、`dist/`、`node_modules/`、`test/`、构建配置），两份清单的一致性由 `apps/api/test/plugin-bundle-allowlist.test.ts` 机器断言。更新提示采用版本字符串是否不同，不是 SemVer 新旧判断。根 `mise tasks run package-plugins` 批量生成 `dist-plugins/<id>-<version>.aervox-plugin`（等价 `pnpm package:plugins`）；脚本只打包，不完成契约校验或安全认证。产物字节可重现（ZIP 条目时间戳固化、目录与条目排序），同源码重复打包的 SHA-256 稳定；`dist-plugins/` 是 gitignore 产物，测试不得依赖它，需分发包时经导出端点现场生成。
+集市 `GET /v1/plugins/market` 当前来自本地出厂目录，不是远程公共插件商店；`POST /v1/plugins/market/:id/install` 走该目录打包安装，内部固定 `overwrite: true`；对已安装插件执行集市安装/更新时使用 §8.3 的代际准备与原子激活，保留状态并检查并发冲突。就地打包与构建期导出共用同一份**允许清单**（只收 Manifest、Config、Skill 与 `skills/`、`pages/` 资源；排除 `src/`、`dist/`、`node_modules/`、`test/`、构建配置），两份清单的一致性由 `apps/api/test/plugin-bundle-allowlist.test.ts` 机器断言。更新提示采用版本字符串是否不同，不是 SemVer 新旧判断。根 `mise tasks run package-plugins` 批量生成 `dist-plugins/<id>-<version>.aervox-plugin`（等价 `pnpm package:plugins`）；脚本先运行共享作者校验，再打包；不执行功能或签名安全认证。产物字节可重现（ZIP 条目时间戳固化、目录与条目排序），同源码重复打包的 SHA-256 稳定；`dist-plugins/` 是 gitignore 产物，测试不得依赖它，需分发包时经导出端点现场生成。
 
 ### 8.5 主动规则、MCP 与授权
 
@@ -307,16 +331,18 @@ MCP 使用独立[服务适配器](../../apps/api/src/modules/ecosystem/mcp/servi
 
 | 验证范围 | 当前回归证据 | 不应据此推断 |
 |---|---|---|
-| Bundle 预检、安装、冲突、基本导出、集市 | [plugin-distribution.test.ts](../../apps/api/test/plugin-distribution.test.ts) | 原子安装、签名、完整导出回滚 |
-| Config 校验、并发 CAS、同库 Config/Secret 原子保存与重置 | [plugin-config.test.ts](../../apps/api/test/plugin-config.test.ts)、[atomic-edits.test.ts](../../packages/repositories/test/atomic-edits.test.ts) | Secret 静态加密、外部 SecretStore 补偿、全 Page 撤权 |
+| Bundle 预检、原子激活、冲突、状态保留与原包导出 | [plugin-distribution.test.ts](../../apps/api/test/plugin-distribution.test.ts)、[plugin-upgrade.test.ts](../../apps/api/test/plugin-upgrade.test.ts)、[plugin-installation.test.ts](../../packages/repositories/test/plugin-installation.test.ts) | 签名、自动降级、复杂迁移或硬件断电验收 |
+| Config 校验、并发 CAS、同库 Config/Secret 原子保存与重置 | [plugin-config.test.ts](../../apps/api/test/plugin-config.test.ts)、[配置激活竞态测试](../../apps/api/test/plugin-config-activation-race.test.ts)、[atomic-edits.test.ts](../../packages/repositories/test/atomic-edits.test.ts) | Secret 静态加密、外部 SecretStore 补偿、全 Page 撤权 |
 | 工具与权限登记 | [tools-plugins.test.ts](../../apps/api/test/tools-plugins.test.ts) | 任意工具声明自动提供 handler 或 grant 强制检查 |
-| Hook 与领域切面 | [study-term-plugins.test.ts](../../apps/api/test/study-term-plugins.test.ts) | 第三方 Hook 隔离、硬超时或即时取消 |
+| Hook 有界等待、取消与后置门控 | [turn-plugin-lifecycle.test.ts](../../apps/api/test/turn-plugin-lifecycle.test.ts)、[turn-plugin-cancel-integration.test.ts](../../apps/api/test/turn-plugin-cancel-integration.test.ts) | 第三方隔离、同步死循环强制终止或业务幂等 |
+| Page 来源/会话/capability 与销毁 | [plugin-page-bridge.test.ts](../../apps/api/test/plugin-page-bridge.test.ts)、[plugin-page-dialog.test.ts](../../surfaces/panels-ui/test/plugin-page-dialog.test.ts) | 完整 Token 资源通道或全局撤权实时推送 |
+| 作者 CLI 与 API 结构兼容 | [plugin-cli.test.mjs](../../scripts/plugin-cli.test.mjs)、[OpenAPI compatibility tests](../../scripts/openapi-compat.test.mjs) | 任意协议语义兼容或真实平台验收 |
 | UI 注册/清理/配置竞态 | [ui-registry.test.ts](../../packages/ui/test/ui-registry.test.ts)、[plugin-registration.test.ts](../../plugins/focus-mode/test/plugin-registration.test.ts) | 任意第三方 Vue 热加载或安全沙箱 |
 
 发布审查逐项确认：
 
 - 标明目标宿主 Git commit/版本、适用 Web/桌面范围、作者与许可证；明确第一方或 Page 路径。
-- Manifest/Config/文件布局符合本规范；安装器未覆盖的 ID、命名空间、资源、默认值由作者校验。
+- Manifest/Config/文件布局通过共享校验；作者补充资源依赖、命名空间、功能与迁移验证。
 - 声明每项权限、真实数据去向、外部服务、Secret 保管和卸载影响；高权限能力不借声明绕过授权。
 - 在临时数据环境完成安装→逐项功能→禁用→启用→卸载→重装；覆盖升级另做备份/恢复验证。
 - UI 贡献验证无重复挂载/发送、无残留副作用；Page 验证缺权限、Bridge 超时、旧版本冲突/并发保存和浏览器 CSP。
@@ -333,6 +359,6 @@ MCP 使用独立[服务适配器](../../apps/api/src/modules/ecosystem/mcp/servi
 
 ## 归档资源与 Skill 所有权
 
-插件、Skill 和 Persona 的 API 压缩/解压统一使用共享 Worker 池：最多 2 个操作并行，单次期限 10 秒；压缩输入最多 20 MiB、累计展开最多 50 MiB、单条目最多 5 MiB、最多 2048 个条目。超时或取消终止 Worker 并释放容量，池满立即失败。解包同时校验目录声明、实际输出大小和 CRC；ZIP64、重复规范化路径、绝对路径和路径穿越均拒绝。Persona 内嵌的 Skill ZIP 消耗外层剩余展开/条目预算。HTTP 请求中断或响应连接提前关闭会取消准备中的归档操作，嵌套归档沿用同一信号；正常接收完请求体不构成取消。安装在首次写入或卸载旧版本前检查取消；越过该提交边界后完成已接受的修改，不因断连中途停止写入。这不承诺跨文件系统和数据库的事务回滚。
+插件、Skill 和 Persona 的 API 压缩/解压统一使用共享 Worker 池：最多 2 个操作并行，单次期限 10 秒；压缩输入最多 20 MiB、累计展开最多 50 MiB、单条目最多 5 MiB、最多 2048 个条目。超时或取消终止 Worker 并释放容量，池满立即失败。解包同时校验目录声明、实际输出大小和 CRC；ZIP64、重复规范化路径、绝对路径和路径穿越均拒绝。Persona 内嵌的 Skill ZIP 消耗外层剩余展开/条目预算。HTTP 请求中断或响应连接提前关闭会取消准备中的归档操作，嵌套归档沿用同一信号；正常接收完请求体不构成取消。插件安装在准备阶段及激活前检查取消；越过数据库提交边界后完成已接受的修改，不因断连中途停止提交。代际准备与激活保证见 §8.3；Skill/Persona 的其他归档写入不自动获得该插件升级保证。
 
 Skill 安装保留 `./` 前缀与反斜杠路径的规范化兼容，忽略 `__MACOSX`；绝对路径在规范化之前拒绝。`overwrite` 只允许覆盖本地可写 Skill，不能覆盖注册表中插件所有或只读的同名项。目录所有权检查覆盖整个目标目录及其祖先、后代注册：本地名称与插件 ID 相撞、旧注册相互重叠、未登记的非空目录或符号链接均拒绝写入和递归删除。插件安装及本地多技能安装在变更前检查全部声明，API 内同一技能根目录的安装、同步与删除串行执行；插件卸载只清理由该插件登记的技能目录，不因同名插件不存在而删除本地技能。仓储更新必须维持原 `pluginId` 所有权；同一所有者可以更新元数据，不能借注册转移所有权。冲突返回 409，原目录与注册保留；不自动迁移或合并既有冲突数据。

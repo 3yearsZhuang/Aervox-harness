@@ -48,11 +48,15 @@ export interface TurnStreamPort {
 
 /** 插件可用的模型调用窄端口（宿主按当前配置注入，可能缺省） */
 export interface TurnLlmPort {
-  generate(prompt: string, options?: { systemPrompt?: string; temperature?: number }): Promise<string>;
+  generate(prompt: string, options?: { systemPrompt?: string; temperature?: number; signal?: AbortSignal }): Promise<string>;
 }
 
 /** 回合插件上下文 */
 export interface TurnPluginContext {
+  /** 每次 Hook 的协作取消信号；结束、超时或回合取消后不可再调用宿主端口。 */
+  readonly signal: AbortSignal;
+  /** 本次 Hook 的绝对截止时间（Unix 毫秒）；不能中断进程内同步死循环。 */
+  readonly deadlineEpochMs: number;
   turnId: string;
   sessionId: string;
   attemptId: string;

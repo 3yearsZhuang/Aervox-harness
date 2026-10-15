@@ -5,6 +5,7 @@
  * 两端只依赖本接口与领域 composables，不再各自维护实现副本（见 ARCHITECTURE §3.2）。
  */
 import type {
+  ApiProblem,
   AskUserQuestionAnswerItem,
   AttachmentPurpose,
   PetCommand,
@@ -186,9 +187,51 @@ export interface FetchTransportOptions {
 }
 
 export class AervoxHttpError extends Error {
-  constructor(public readonly status: number, path: string) {
-    super(`API ${path} → HTTP ${status}`);
+  readonly code?: string;
+  readonly requestId?: string;
+  readonly details?: unknown;
+  constructor(public readonly status: number, path: string, public readonly problem?: Partial<ApiProblem>) {
+    super(problem?.message ?? problem?.detail ?? `API ${path} → HTTP ${status}`);
     this.name = 'AervoxHttpError';
+    this.code = problem?.code;
+    this.requestId = problem?.requestId;
+    this.details = problem?.details;
+  }
+}
+
+/** Only structured JSON errors are exposed; arbitrary proxy/HTML bodies stay private. */
+async function httpError(response: Response, path: string): Promise<AervoxHttpError> {
+  if (!/^application\/(?:json|problem\+json)(?:;|$)/i.test(response.headers.get('content-type') ?? '')) {
+    await response.body?.cancel().catch(() => undefined);
+    return new AervoxHttpError(response.status, path);
+  }
+  const reader = response.body?.getReader();
+  if (!reader) return new AervoxHttpError(response.status, path);
+  let source = ''; let bytes = 0;
+  const decoder = new TextDecoder();
+  try {
+    for (;;) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      bytes += chunk.value.byteLength;
+      if (bytes > 65_536) return new AervoxHttpError(response.status, path);
+      source += decoder.decode(chunk.value, { stream: true });
+    }
+    source += decoder.decode();
+    const value: unknown = JSON.parse(source);
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return new AervoxHttpError(response.status, path);
+    const record = value as Record<string, unknown>;
+    const problem: Partial<ApiProblem> = { status: response.status };
+    for (const key of ['type', 'title', 'detail', 'message', 'code', 'requestId', 'error'] as const) {
+      if (typeof record[key] === 'string') problem[key] = record[key];
+    }
+    if (Object.hasOwn(record, 'details')) problem.details = record.details;
+    return new AervoxHttpError(response.status, path, problem);
+  } catch {
+    return new AervoxHttpError(response.status, path);
+  } finally {
+    await reader.cancel().catch(() => undefined);
+    reader.releaseLock();
   }
 }
 
@@ -215,7 +258,7 @@ export function createFetchTransport(apiBase: string, config: FetchTransportOpti
         : options?.signal,
       redirect: config.redirect,
     });
-    if (!res.ok) throw new AervoxHttpError(res.status, `${method} ${path}`);
+    if (!res.ok) throw await httpError(res, `${method} ${path}`);
     if (res.status === 204) return undefined as T;
     return (await res.json()) as T;
   };
@@ -238,7 +281,8 @@ export function createFetchTransport(apiBase: string, config: FetchTransportOpti
       const response = await fetch(`${base}${path}`, {
         headers: { ...config.headers, Accept: 'text/event-stream' }, signal: combined, redirect: config.redirect,
       });
-      if (!response.ok || !response.body) throw new AervoxHttpError(response.status, 'SSE');
+      if (!response.ok) throw await httpError(response, 'SSE');
+      if (!response.body) throw new AervoxHttpError(response.status, 'SSE');
       reader = response.body.getReader();
       combined.throwIfAborted();
       const decoder = new TextDecoder();
@@ -333,7 +377,7 @@ export function createFetchTransport(apiBase: string, config: FetchTransportOpti
       redirect: config.redirect,
       signal: config.requestTimeoutMs ? AbortSignal.timeout(config.requestTimeoutMs) : undefined,
     });
-    if (!res.ok) throw new Error(`API POST /v1/attachments/binary → HTTP ${res.status}`);
+    if (!res.ok) throw await httpError(res, 'POST /v1/attachments/binary');
     return (await res.json()) as UploadedAttachment;
   };
 
@@ -355,7 +399,8 @@ export function createFetchTransport(apiBase: string, config: FetchTransportOpti
           redirect: config.redirect,
         });
       } catch (error) { failure = error; continue; }
-      if (!res.ok || !res.body) throw new AervoxHttpError(res.status, 'SSE');
+      if (!res.ok) throw await httpError(res, 'SSE');
+      if (!res.body) throw new AervoxHttpError(res.status, 'SSE');
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';

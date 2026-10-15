@@ -25,7 +25,8 @@ import { API_TOOL_SCRIPT, API_WRITE_SCRIPT, API_PRIVILEGED_SCRIPT } from "./repl
 /** 将 ModelProviderPort 适配为插件契约的 TurnLlmPort 窄端口 */
 export function createLLMCallable(provider: ModelProviderPort): TurnLlmPort {
   return {
-    async generate(prompt: string, options?: { systemPrompt?: string; temperature?: number }): Promise<string> {
+    async generate(prompt, options): Promise<string> {
+      options?.signal?.throwIfAborted();
       const messages: Array<{ role: "system" | "user" | "assistant" | "tool"; content: string }> = [];
       if (options?.systemPrompt) {
         messages.push({ role: "system", content: options.systemPrompt });
@@ -38,16 +39,19 @@ export function createLLMCallable(provider: ModelProviderPort): TurnLlmPort {
         attemptId: `atp_${callId}`,
         step: 1,
         temperature: options?.temperature,
+        signal: options?.signal,
         context: {
           turnId: callId,
           sessionId: `ses_${callId}`,
           messages,
         },
       })) {
+        options?.signal?.throwIfAborted();
         if (chunk.text) {
           text += chunk.text;
         }
       }
+      options?.signal?.throwIfAborted();
       return text;
     },
   };

@@ -141,6 +141,7 @@ export type LlamaMetricSample = z.infer<typeof llamaMetricSampleSchema>;
 export type DownloadTask = z.infer<typeof downloadTaskSchema>;
 export type ModelCatalogEntry = z.infer<typeof modelCatalogEntrySchema>;
 export type ModelRuntimeState = z.infer<typeof modelRuntimeStateSchema>;
+export type ModelDownloadRequestInput = z.input<typeof modelDownloadRequestSchema>;
 export type ModelDownloadRequest = z.infer<typeof modelDownloadRequestSchema>;
 export type ModelRuntimeStartRequest = z.infer<typeof modelRuntimeStartRequestSchema>;
 export type ModelRuntimeEvent = z.infer<typeof modelRuntimeEventSchema>;

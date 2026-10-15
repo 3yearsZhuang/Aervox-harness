@@ -5,124 +5,42 @@
  * 供 Web 与 Desktop 共用。
  */
 import { getTransport } from './transport';
+import { modelRuntimeApi } from '@aervox/contracts';
+import { requestEndpoint } from './endpoint.js';
 
-export interface LocalModelDto {
-  id: string;
-  fileName: string;
-  sizeBytes?: number;
-  url?: string;
-  sha256?: string;
-  status: 'downloaded' | 'downloading' | 'error';
-  downloadedAt?: string;
-  path: string;
-  error?: string;
-}
-
-/** 下载任务（多任务队列；状态机 queued→running→done|error|cancelled|paused） */
-export interface DownloadTaskDto {
-  id: string;
-  url: string;
-  fileName: string;
-  modelId: string;
-  status: 'queued' | 'running' | 'paused' | 'done' | 'error' | 'cancelled';
-  receivedBytes?: number;
-  totalBytes?: number | null;
-  /** 断点续传基准（.part 既有字节 / 暂停点） */
-  resumableFrom?: number;
-  /** 限速（bytes/sec，0 或缺省不限） */
-  rateLimitBps?: number;
-  error?: string;
-}
-
-/** 内置精选 GGUF 目录条目 */
-export interface ModelCatalogEntryDto {
-  id: string;
-  name: string;
-  family: string;
-  quant: string;
-  sizeLabel: string;
-  sizeBytes?: number;
-  url: string;
-  sha256?: string;
-  recommendedParams?: {
-    port?: number;
-    ctxSize?: number;
-    gpuLayers?: number;
-    threads?: number;
-  };
-}
-
-/** llama-server 运行指标采样（非持久化） */
-export interface LlamaMetricSampleDto {
-  at: string;
-  tokensPerSec?: number;
-  promptTokensPerSec?: number;
-}
-
-export interface ModelRuntimeStateDto {
-  models: LocalModelDto[];
-  runtime: {
-    status: 'idle' | 'starting' | 'running' | 'stopping' | 'error';
-    pid?: number | null;
-    port?: number;
-    modelId?: string;
-    binPath?: string;
-    startedAt?: string;
-    error?: string;
-    logs?: string[];
-    metrics?: LlamaMetricSampleDto[];
-  };
-  params?: {
-    port: number;
-    ctxSize: number;
-    gpuLayers: number;
-    threads: number;
-  };
-  /** 多任务下载队列（含排队与执行中任务） */
-  downloads: DownloadTaskDto[];
-  llamaServer: {
-    configured: boolean;
-    binPath?: string;
-    source: 'env' | 'default' | 'missing';
-    /** 下载并发上限（服务端配置） */
-    maxConcurrentDownloads?: number;
-  };
-}
-
-export interface ModelDownloadInput {
-  url: string;
-  sha256?: string;
-  fileName?: string;
-  /** 下载完成后自动启动 llama-server 并联动 LLM 预设 */
-  autoStart?: boolean;
-  /** 限速（bytes/sec，留空不限） */
-  rateLimitBps?: number;
-}
-
-export interface ModelRuntimeStartInput {
-  modelId: string;
-  params?: Partial<NonNullable<ModelRuntimeStateDto['params']>>;
-}
+// Preserve public client names while deriving every DTO from the shared schemas.
+export type {
+  LocalModel as LocalModelDto,
+  DownloadTask as DownloadTaskDto,
+  ModelCatalogEntry as ModelCatalogEntryDto,
+  LlamaMetricSample as LlamaMetricSampleDto,
+  ModelRuntimeState as ModelRuntimeStateDto,
+  ModelDownloadRequestInput as ModelDownloadInput,
+  ModelRuntimeStartRequest as ModelRuntimeStartInput,
+} from '@aervox/contracts';
+import type {
+  ModelCatalogEntry as ModelCatalogEntryDto,
+  ModelRuntimeState as ModelRuntimeStateDto,
+  ModelDownloadRequestInput as ModelDownloadInput,
+  ModelRuntimeStartRequest as ModelRuntimeStartInput,
+} from '@aervox/contracts';
 
 export function useAervoxModelRuntime() {
   const transport = getTransport();
 
   /** 全量状态（模型注册表 / 运行时 / 下载队列 / llama-server 配置） */
   const getState = async (): Promise<ModelRuntimeStateDto> =>
-    transport.request<ModelRuntimeStateDto>('GET', '/v1/model-runtime/state');
+    requestEndpoint(transport, modelRuntimeApi.state);
 
   /** 内置精选 GGUF 目录 */
   const getCatalog = async (): Promise<ModelCatalogEntryDto[]> => {
-    const res = await transport.request<{ entries: ModelCatalogEntryDto[] }>(
-      'GET',
-      '/v1/model-runtime/catalog',
-    );
-    return res.entries ?? [];
+    const res = await requestEndpoint(transport, modelRuntimeApi.catalog);
+    return res.entries;
   };
 
   /** 发起模型下载（进入多任务队列；重名/busy 时服务端 409） */
   const download = async (input: ModelDownloadInput): Promise<ModelRuntimeStateDto> =>
-    transport.request<ModelRuntimeStateDto>('POST', '/v1/model-runtime/downloads', input);
+    requestEndpoint(transport, modelRuntimeApi.download, input);
 
   /** 暂停下载（保留 .part，支持断点续传） */
   const pauseDownload = async (taskId: string): Promise<ModelRuntimeStateDto> =>

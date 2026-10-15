@@ -73,8 +73,8 @@ describe("Learning OpenAPI 契约", () => {
     expect(paths["/v1/practice-sessions/{sessionId}/reports"]?.get?.responses).toHaveProperty("200");
     expect(paths["/v1/practice-sessions/{sessionId}/reset-inference"]?.post?.responses).toHaveProperty("201");
     expect(paths["/v1/terms/explore"]?.post?.responses).toHaveProperty("200");
-    // 插件端点与内核端点一样补齐本地上下文请求头
-    expect(paths["/v1/terms/explore"]?.post?.parameters).toEqual(
+    // 插件端点不再公开可伪造的身份上下文请求头
+    expect(paths["/v1/terms/explore"]?.post?.parameters ?? []).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ in: "header", name: "X-Workspace-Id" })]),
     );
   });

@@ -94,6 +94,12 @@ export function registerConversationRoutes(
   conversationRepo: SqliteConversationRepository,
   deps: ConversationRouteDeps = {},
 ): void {
+  // Accepted local turns own cancellation independently of HTTP/SSE connections.
+  const activeTurns = new Map<string, AbortController>();
+  app.addHook("onClose", async () => {
+    for (const controller of activeTurns.values()) controller.abort(new Error("host_closed"));
+    activeTurns.clear();
+  });
   // GET /v1/sessions — 枚举会话列表（按最近更新时间排序）
   app.get("/v1/sessions", async (req, reply) => {
     const tenant = resolveLocalContext(req);
@@ -221,6 +227,8 @@ export function registerConversationRoutes(
     // CR-027: acceptance remains independent of background execution and SSE observation.
     const uqPort = deps.userQuestionCoordinator ? deps.userQuestionCoordinator.createPort(tenant) : undefined;
     const runLoop = async () => {
+      const controller = new AbortController();
+      activeTurns.set(turnId, controller);
       // ITER-027: 会话流式/多轮密集执行期间下发写入压力信号，协调后台 Worker 降频退避。
       // 以租约（而非裸 true/false）下发：并发会话互不提前解除，长回合按 TTL 续期。
       const pressureLease = acquireWorkerPressureLease();
@@ -234,6 +242,7 @@ export function registerConversationRoutes(
             attemptId,
             userMessage,
             metadata: parsed.data.metadata,
+            signal: controller.signal,
           },
           {
             toolRuntime: deps.toolRuntime,
@@ -288,6 +297,8 @@ export function registerConversationRoutes(
         // 同步推进 Turn 终态
         await conversationRepo.updateTurnStatus(tenant, turnId, "Failed").catch(() => undefined);
       } finally {
+        if (activeTurns.get(turnId) === controller) activeTurns.delete(turnId);
+        controller.abort(new Error("turn_execution_finished"));
         releaseWorkerPressureLease(pressureLease);
       }
     };
@@ -537,6 +548,7 @@ export function registerConversationRoutes(
       const latest = attempts[0];
       return reply.code(409).send({ error: res.reason ?? "request_cancel_failed", turnId, status: latest?.status });
     }
+    activeTurns.get(turnId)?.abort(new Error("turn_cancel_requested"));
     turnStreamHub.publishSettled(turnId, "Cancelled");
     return reply.send({ turnId, status: "Cancelled", cancelled: true });
   });

@@ -56,6 +56,10 @@ if (buildRes.status !== 0) {
   process.exit(buildRes.status ?? 1);
 }
 
+// Shared contracts must exist before authoring fixtures and historical OpenAPI comparison.
+const standardsRes = spawnSync("pnpm", ["check:standards"], { stdio: "inherit" });
+if (standardsRes.status !== 0) process.exit(standardsRes.status ?? 1);
+
 // 3. 增量测试（受控 2 并发，单 worker）
 console.log(`\n[check-affected] 3/3 增量受控测试 (${scopeLabel})...`);
 const testArgs = ["exec", "turbo", "run", "test", "--concurrency=2", ...filterArgs];
