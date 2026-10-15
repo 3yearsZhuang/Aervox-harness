@@ -13,6 +13,14 @@ const DEFAULT_MAX_TOOL_RESULT_CHARS = 16_384;
 const DEFAULT_TOOL_RESULT_HEAD_CHARS = 2_048;
 const DEFAULT_TOOL_RESULT_TAIL_CHARS = 1_024;
 
+function characterLimit(value: number | undefined, fallback: number): number {
+  const limit = value ?? fallback;
+  if (!Number.isSafeInteger(limit) || limit < 0) {
+    throw new RangeError("Tool result character limits must be non-negative safe integers");
+  }
+  return limit;
+}
+
 /**
  * 将消息按工具调用边界分组（system 消息单独处理，非 system 消息成组）。
  * 一个带有 toolCalls 的 assistant 消息与紧随其后且 toolCallId 匹配的全部 tool 消息构成一个不可分割的原子组。
@@ -67,19 +75,25 @@ export function truncateToolMessage(
 ): PromptMessage {
   if (msg.role !== "tool") return msg;
 
-  const maxChars = options.maxToolResultChars ?? DEFAULT_MAX_TOOL_RESULT_CHARS;
-  const headChars = options.toolResultHeadChars ?? DEFAULT_TOOL_RESULT_HEAD_CHARS;
-  const tailChars = options.toolResultTailChars ?? DEFAULT_TOOL_RESULT_TAIL_CHARS;
+  const maxChars = characterLimit(options.maxToolResultChars, DEFAULT_MAX_TOOL_RESULT_CHARS);
+  let headChars = characterLimit(options.toolResultHeadChars, DEFAULT_TOOL_RESULT_HEAD_CHARS);
+  let tailChars = characterLimit(options.toolResultTailChars, DEFAULT_TOOL_RESULT_TAIL_CHARS);
 
   if (msg.content.length <= maxChars) {
     return msg;
   }
 
   const total = msg.content.length;
+  const fullNotice = `\n\n... [Tool result truncated: ${total} total characters. Authoritative complete output preserved in execution store.] ...\n\n`;
+  const notice = fullNotice.length <= maxChars ? fullNotice : "[Tool result truncated]".slice(0, maxChars);
+  const available = maxChars - notice.length;
+  const requested = headChars + tailChars;
+  if (requested > available) {
+    headChars = Math.floor(available * (headChars / requested));
+    tailChars = Math.min(tailChars, available - headChars);
+  }
   const head = msg.content.slice(0, headChars);
-  const tail = msg.content.slice(-tailChars);
-
-  const notice = `\n\n... [Tool result truncated: retained first ${headChars} and last ${tailChars} of ${total} total characters. Authoritative complete output preserved in execution store.] ...\n\n`;
+  const tail = tailChars > 0 ? msg.content.slice(-tailChars) : "";
 
   return {
     ...msg,
@@ -115,22 +129,26 @@ export function projectContextToModelVisible(
 
   const groups = groupMessagesByToolBoundary(messages);
   const projected: PromptMessage[] = [];
+  let offset = 0;
 
   for (const group of groups) {
+    const groupStart = offset;
+    offset += group.length;
     // 检查组内第一条消息是否可见
     const lead = group[0]!;
-    if (!isVisible(lead, messages.indexOf(lead))) {
+    if (!isVisible(lead, groupStart)) {
       // 头部隐藏（例如 assistant 被隐藏），整组放弃（包括下游 tool 消息）
       continue;
     }
 
     if (lead.role === "assistant" && lead.toolCalls && lead.toolCalls.length > 0) {
+      const visibleTools = group.slice(1)
+        .filter((message, index) => isVisible(message, groupStart + index + 1));
       if (enforceStrictToolPairing) {
         const callIds = new Set(lead.toolCalls.map((c) => c.id));
-        const toolMessages = group.slice(1);
         const presentToolCallIds = new Set(
-          toolMessages
-            .filter((m) => m.role === "tool" && m.toolCallId && isVisible(m, messages.indexOf(m)))
+          visibleTools
+            .filter((m) => m.role === "tool" && m.toolCallId)
             .map((m) => m.toolCallId!),
         );
 
@@ -141,14 +159,12 @@ export function projectContextToModelVisible(
         }
 
         // 仅保留可见并截断的 tool 消息
-        const sanitizedTools = toolMessages
-          .filter((m) => isVisible(m, messages.indexOf(m)))
+        const sanitizedTools = visibleTools
           .map((m) => truncateToolMessage(m, options));
 
         projected.push(lead, ...sanitizedTools);
       } else {
-        const sanitizedTools = group.slice(1)
-          .filter((m) => isVisible(m, messages.indexOf(m)))
+        const sanitizedTools = visibleTools
           .map((m) => truncateToolMessage(m, options));
         projected.push(lead, ...sanitizedTools);
       }

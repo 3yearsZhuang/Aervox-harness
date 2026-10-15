@@ -190,6 +190,39 @@ describe("模型可见上下文投影 (Context Projection - PI-01 context_edit)"
     expect(truncated.content).toContain("Tool result truncated");
     expect(truncated.content).toContain("30010 total characters");
   });
+
+  it.each([0, 1, 20, 100, 1000])("截断标记和默认首尾共同受 %i 字符预算约束", (maxChars) => {
+    const message: PromptMessage = { role: "tool", content: "x".repeat(30_000), toolCallId: "large" };
+    const result = truncateToolMessage(message, { maxToolResultChars: maxChars });
+    expect(result.content.length).toBeLessThanOrEqual(maxChars);
+    expect(message.content).toHaveLength(30_000);
+  });
+
+  it("零尾部不会把整个工具结果重新追加", () => {
+    const message: PromptMessage = { role: "tool", content: "HEAD" + "x".repeat(30_000) + "TAIL" };
+    const result = truncateToolMessage(message, {
+      maxToolResultChars: 1000, toolResultHeadChars: 100, toolResultTailChars: 0,
+    });
+    expect(result.content.length).toBeLessThanOrEqual(1000);
+    expect(result.content.startsWith("HEAD")).toBe(true);
+    expect(result.content).not.toContain("TAIL");
+    expect(result.content).toContain("Tool result truncated");
+  });
+
+  it.each([-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY])("拒绝无效截断预算 %s", (value) => {
+    const message: PromptMessage = { role: "tool", content: "output" };
+    for (const option of ["maxToolResultChars", "toolResultHeadChars", "toolResultTailChars"] as const) {
+      expect(() => truncateToolMessage(message, { [option]: value })).toThrow(RangeError);
+    }
+  });
+
+  it("可见性谓词使用每个出现位置的索引且只执行一次", () => {
+    const repeated: PromptMessage = { role: "user", content: "repeated" };
+    const filter = vi.fn((_message, index: number) => index !== 1);
+    const result = projectContextToModelVisible([repeated, repeated, ...sampleMessages], { filter });
+    expect(result.filter(message => message === repeated)).toHaveLength(1);
+    expect(filter.mock.calls.map(([, index]) => index)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+  });
 });
 
 describe("真实摘要压缩与失败可见性 (Compaction & Summarization - ITER-032)", () => {
@@ -276,6 +309,23 @@ describe("真实摘要压缩与失败可见性 (Compaction & Summarization - ITE
     expect(result.messages[0]!.content).toContain("do not infer missing facts");
   });
 
+  it("空白摘要进入阻塞失败策略且保留原始历史", async () => {
+    const messages = makeHistory(10);
+    const original = structuredClone(messages);
+    const compaction = createSummaryCompaction({ maxMessages: 4, summarizer: async () => " \n\t", onFailure: "throw" });
+    await expect(compaction.compact({ turnId: "t1", sessionId: "s1", messages }))
+      .rejects.toThrow("Summary generator returned an empty summary");
+    expect(messages).toEqual(original);
+  });
+
+  it("空白摘要降级时明确告知省略而不声称生成权威摘要", async () => {
+    const compaction = createSummaryCompaction({ maxMessages: 4, summarizer: async () => " " });
+    const result = await compaction.compact({ turnId: "t1", sessionId: "s1", messages: makeHistory(10) });
+    expect(result.summary).toBeUndefined();
+    expect(result.messages[0]!.content).toContain("Summary generation failed (Summary generator returned an empty summary)");
+    expect(result.messages.some(message => message.content.includes("Authoritative Context Summary"))).toBe(false);
+  });
+
   it("工具调用与工具结果成组保全：压缩裁剪绝不在 assistant 和 tool 之间切断", async () => {
     const messages: PromptMessage[] = [
       { id: "m1", role: "user", content: "前置问题" },
@@ -309,6 +359,24 @@ describe("真实摘要压缩与失败可见性 (Compaction & Summarization - ITE
 });
 
 describe("统合 ContextBuilder 组合器 (Composer with GroundingFacts & Projection - ITER-032)", () => {
+  it("异步 Base 补入的历史同样经过隐藏、配对和有界截断", async () => {
+    const history: PromptMessage[] = [
+      { id: "hidden", role: "user", content: "private history" },
+      { role: "tool", toolCallId: "orphan", content: "orphan history" },
+      { role: "assistant", content: "", toolCalls: [{ id: "call", name: "read", arguments: {} }] },
+      { role: "tool", toolCallId: "call", content: "x".repeat(30_000) },
+    ];
+    const builder = createComposedContextBuilder({
+      base: { async build(input) { return { ...input, messages: [...history, ...input.messages] }; } },
+      projection: { hiddenMessageIds: new Set(["hidden"]), maxToolResultChars: 100 },
+    });
+    const result = await builder.build({ turnId: "turn", sessionId: "session", messages: [{ role: "user", content: "current" }] });
+    expect(result.messages.map(message => message.role)).toEqual(["assistant", "tool", "user"]);
+    expect(result.messages.some(message => message.id === "hidden")).toBe(false);
+    expect(result.messages[1]!.content.length).toBeLessThanOrEqual(100);
+    expect(history[3]!.content).toHaveLength(30_000);
+  });
+
   it("统一 composer：同时生效 baseSystemPrompt, groundingFacts, skills, inbox, projection 与 compaction", async () => {
     const groundingFacts: GroundingFacts = {
       learningGoals: ["期末高数冲刺"],
