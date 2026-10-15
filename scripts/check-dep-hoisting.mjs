@@ -39,6 +39,7 @@ export const ALLOWED_DUPLICATES = new Map([
     new Set([
       "packages/ui",
       "packages/ui-host",
+      // Vue SFC imported-type resolution requires the TS 5 compiler API; root TS 7 has no sys.
       "surfaces/workbench-ui",
       "surfaces/companion-ui",
       "surfaces/proactive-ui",

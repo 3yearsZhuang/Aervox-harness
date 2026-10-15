@@ -12,6 +12,7 @@ import type {
   UserQuestionRequiredEventData,
 } from '@aervox/contracts';
 import { MizukiExpression } from '../live2d/model';
+import { readCompanionIdentity } from '../utils/companion-identity';
 import { petReact, petReactKind } from '../live2d/petReactions';
 
 export type Speaker = 'assistant' | 'user';
@@ -149,12 +150,17 @@ export function useWorkbenchConversation(options: {
   recordActivity: (source: 'aervox.activity' | 'aervox.operation', eventType: string, payloadText?: string, metadata?: Record<string, unknown>) => void;
   onRefreshProactiveStatus?: () => Promise<void>;
 }) {
+  // CR-065：问候语用陪伴角色名（思隅是空间名，不是角色名）
+  const companionGreeting = () => {
+    const { companionName, userAddress } = readCompanionIdentity();
+    return `你好${userAddress === '你' ? '' : '，' + userAddress}，我是${companionName}。告诉我你正在学什么，或者把卡住的地方直接发来，我们一起拆成下一步。`;
+  };
   let nextStoryId = 2;
   const story = ref<StoryLine[]>([
     {
       id: 1,
       speaker: 'assistant',
-      text: '你好，我是思隅。告诉我你正在学什么，或者把卡住的地方直接发来，我们一起拆成下一步。',
+      text: companionGreeting(),
       state: 'complete',
     },
   ]);
@@ -198,7 +204,7 @@ export function useWorkbenchConversation(options: {
       {
         id: 1,
         speaker: 'assistant',
-        text: greeting || '你好，我是思隅。告诉我你正在学什么，或者把卡住的地方直接发来，我们一起拆成下一步。',
+        text: greeting || companionGreeting(),
         state: 'complete',
       },
     ];

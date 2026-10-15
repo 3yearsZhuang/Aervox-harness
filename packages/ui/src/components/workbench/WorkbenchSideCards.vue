@@ -6,7 +6,7 @@ import ExtensionSlot from '../extension/ExtensionSlot.vue';
 import { useWorkbenchContext } from '../../composables/workbench-context';
 
 const { layout, timer, cards } = useWorkbenchContext();
-const { assistantDisplayName } = layout;
+const { companionDisplayName } = layout;
 const {
   timerRunning,
   timerMinutes,
@@ -52,12 +52,12 @@ function addCard(id: string, event: MouseEvent) {
             class="side-card side-question-card companion-panel"
             role="region"
             tabindex="0"
-            :aria-label="`${assistantDisplayName}想问你`"
+            :aria-label="`${companionDisplayName}想问你`"
           >
             <header class="side-card-head companion-panel-head">
               <CircleHelp class="companion-panel-icon" :size="18" aria-hidden="true" />
               <span class="side-card-title">
-                <strong class="companion-panel-title">{{ assistantDisplayName }}想问你</strong>
+                <strong class="companion-panel-title">{{ companionDisplayName }}想问你</strong>
                 <small>点选选项作答，答完卡片自动恢复</small>
               </span>
             </header>

@@ -61,8 +61,8 @@ async function copyMessage(id: number, text: string) {
     <div ref="viewport" class="standard-message-scroll" @scroll="trackScroll">
       <div class="standard-message-list">
         <ExtensionSlot name="conversation:top" />
-        <article v-for="line in story" :key="line.id" class="standard-message" :class="[line.speaker, line.state]" :aria-label="line.speaker === 'assistant' ? layout.assistantDisplayName.value : '你'">
-          <span v-if="line.speaker === 'assistant'" class="standard-message-speaker">{{ layout.assistantDisplayName.value }}</span>
+        <article v-for="line in story" :key="line.id" class="standard-message" :class="[line.speaker, line.state]" :aria-label="line.speaker === 'assistant' ? layout.companionDisplayName.value : '你'">
+          <span v-if="line.speaker === 'assistant'" class="standard-message-speaker">{{ layout.companionDisplayName.value }}</span>
           <div class="standard-message-content">
             <div v-if="line.speaker === 'assistant'" class="markdown-body" v-html="renderMarkdown(line.text || (line.state === 'streaming' ? '正在思考…' : '这次没有收到回答'))" />
             <div v-else class="standard-user-text">{{ line.text }}</div>
