@@ -20,136 +20,184 @@ const emit = defineEmits<{
 
 const api = useAervoxPlugins()
 const iframe = ref<HTMLIFrameElement | null>(null)
-const nonce = ref('')
-const revision = ref(0)
+const frameEnabled = ref(false)
+const frameGeneration = ref(0)
+const bridgeError = ref('')
 const contextCapabilities = computed(() => props.page?.capabilities ?? [])
+const eligible = computed(() => props.open && props.plugin?.enabled === 1
+  && (props.plugin.availability ?? 'available') === 'available' && Boolean(props.page))
+
+interface PageSession {
+  nonce: string
+  pluginId: string
+  pageId: string
+  target: Window
+  revision: number
+  capabilities: Set<string>
+  pending: Set<string>
+}
+let session: PageSession | null = null
 
 const iframeSrc = computed(() => {
   if (!props.plugin || !props.page) return ''
-  return `${getApiBase()}/v1/plugins/${encodeURIComponent(props.plugin.id)}/pages/${encodeURIComponent(props.page.id)}/assets/index.html`
+  const prefix = `pages/${props.page.id}/`
+  const entry = props.page.entry ?? `${prefix}index.html`
+  if (!entry.startsWith(prefix)) return ''
+  const relative = entry.slice(prefix.length)
+  const segments = relative.split('/')
+  if (/[\\\u0000-\u001f\u007f]/.test(relative)
+    || segments.some(segment => !segment || segment === '.' || segment === '..')) return ''
+  const assetPath = segments.map(segment => encodeURIComponent(segment)).join('/')
+  return `${getApiBase()}/v1/plugins/${encodeURIComponent(props.plugin.id)}/pages/${encodeURIComponent(props.page.id)}/assets/${assetPath}`
 })
 
-const currentContext = () => ({
-  pluginId: props.plugin?.id ?? '',
-  displayName: props.plugin?.id ?? '',
-  pageId: props.page?.id ?? '',
-  locale: 'zh-CN',
-  theme: props.theme === 'dark' ? 'dark' : 'light',
-  capabilities: contextCapabilities.value,
-  revision: revision.value,
-})
-
-function postInit(): void {
-  if (!iframe.value?.contentWindow) return
-  iframe.value.contentWindow.postMessage(
-    {type: 'aervox:page:init', nonce: nonce.value, context: currentContext()},
-    '*',
-  )
+function isCurrent(current: PageSession): boolean {
+  return session === current && frameEnabled.value && eligible.value
+    && iframe.value?.contentWindow === current.target
+    && props.plugin?.id === current.pluginId && props.page?.id === current.pageId
 }
 
-async function handleBridgeCall(message: {
-  id?: unknown
+function currentContext(current: PageSession) {
+  return {
+    pluginId: current.pluginId,
+    displayName: current.pluginId,
+    pageId: current.pageId,
+    locale: 'zh-CN',
+    theme: props.theme === 'dark' ? 'dark' : 'light',
+    capabilities: [...current.capabilities],
+    revision: current.revision,
+  }
+}
+
+function postContext(): void {
+  if (!session || !isCurrent(session)) return
+  session.target.postMessage({type: 'aervox:page:context', nonce: session.nonce, context: currentContext(session)}, '*')
+}
+
+function beginSession(): void {
+  session = null
+  const target = iframe.value?.contentWindow
+  if (!frameEnabled.value || !eligible.value || !target || !props.plugin || !props.page) return
+  if (!globalThis.crypto?.getRandomValues) {
+    bridgeError.value = '当前环境无法建立安全的插件页面连接。'
+    frameEnabled.value = false
+    return
+  }
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  session = {
+    nonce: [...bytes].map(value => value.toString(16).padStart(2, '0')).join(''),
+    pluginId: props.plugin.id,
+    pageId: props.page.id,
+    target,
+    revision: 0,
+    capabilities: new Set(contextCapabilities.value),
+    pending: new Set(),
+  }
+  // A sandboxed iframe has an opaque origin. Bind the WindowProxy and a fresh
+  // document session instead of treating the shared "null" origin as identity.
+  target.postMessage({type: 'aervox:page:init', nonce: session.nonce, context: currentContext(session)}, '*')
+}
+
+async function handleBridgeCall(current: PageSession, message: {
+  id: string
   method?: unknown
   args?: unknown
-}): Promise<{id: unknown; ok: boolean; value?: unknown; error?: string}> {
-  const id = message.id
-  const method = message.method
-  const args = (message.args ?? {}) as {values?: Record<string, unknown>; secretValues?: Record<string, string | null>}
+}): Promise<{id: string; ok: boolean; value?: unknown; error?: string}> {
+  const {id, method} = message
+  const args = (message.args && typeof message.args === 'object' && !Array.isArray(message.args)
+    ? message.args : {}) as {values?: Record<string, unknown>; secretValues?: Record<string, string | null>}
   try {
-    if (!props.plugin || props.plugin.enabled !== 1) {
-      return {id, ok: false, error: 'plugin is disabled or unavailable'}
+    if (!isCurrent(current)) return {id, ok: false, error: 'page session is unavailable'}
+    const capabilities: Record<string, string> = {
+      getConfig: 'config.read', saveConfig: 'config.write', notify: 'host.notify', close: 'host.close',
+    }
+    if (typeof method !== 'string' || !Object.hasOwn(capabilities, method)) {
+      return {id, ok: false, error: 'unknown bridge method'}
+    }
+    if (!current.capabilities.has(capabilities[method]!)) {
+      return {id, ok: false, error: `capability ${capabilities[method]} required`}
     }
     if (method === 'getConfig') {
-      if (!contextCapabilities.value.includes('config.read')) {
-        return {id, ok: false, error: 'capability config.read required'}
-      }
-      const snapshot = await api.getConfig(props.plugin?.id ?? '')
-      revision.value = snapshot.revision
+      const snapshot = await api.getConfig(current.pluginId)
+      if (isCurrent(current)) current.revision = snapshot.revision
       return {id, ok: true, value: snapshot}
     }
     if (method === 'saveConfig') {
-      if (!contextCapabilities.value.includes('config.write')) {
-        return {id, ok: false, error: 'capability config.write required'}
-      }
-      const snapshot: PluginConfigSnapshot = await api.saveConfig(props.plugin?.id ?? '', {
-        revision: revision.value,
+      const snapshot: PluginConfigSnapshot = await api.saveConfig(current.pluginId, {
+        revision: current.revision,
         values: args.values ?? {},
         secretValues: args.secretValues ?? {},
       })
-      revision.value = snapshot.revision
+      if (isCurrent(current)) current.revision = snapshot.revision
       return {id, ok: true, value: snapshot}
     }
     if (method === 'notify') {
-      if (!contextCapabilities.value.includes('host.notify')) {
-        return {id, ok: false, error: 'capability host.notify required'}
-      }
-      const input = args as {type?: 'success' | 'info' | 'warning' | 'error'; message?: string}
-      const type = input.type ?? 'info'
-      const fn = ElMessage[type] ?? ElMessage.info
-      fn(input.message ?? '')
+      const input = args as {type?: string; message?: unknown}
+      const type = input.type === 'success' || input.type === 'warning' || input.type === 'error' ? input.type : 'info'
+      ElMessage[type](String(input.message ?? '').slice(0, 2000))
       return {id, ok: true, value: null}
     }
-    if (method === 'close') {
-      if (!contextCapabilities.value.includes('host.close')) {
-        return {id, ok: false, error: 'capability host.close required'}
-      }
-      emit('close')
-      return {id, ok: true, value: null}
-    }
-    return {id, ok: false, error: `unknown bridge method: ${String(method)}`}
+    current.target.postMessage({type: 'aervox:page:result', id, ok: true, value: null, nonce: current.nonce}, '*')
+    close()
+    return {id, ok: true, value: null}
   } catch (e) {
     return {id, ok: false, error: e instanceof Error ? e.message : 'bridge error'}
   }
 }
 
 function onMessage(event: MessageEvent): void {
-  if (!iframe.value?.contentWindow || event.source !== iframe.value.contentWindow) {
-    return
-  }
-  const data = event.data as {type?: string; nonce?: unknown; id?: unknown} | null
-  if (!data || typeof data !== 'object') return
-  if (data.type === 'aervox:page:call') {
-    if (typeof data.nonce !== 'string' || data.nonce !== nonce.value) return
-    void handleBridgeCall(data).then((result) => {
-      iframe.value?.contentWindow?.postMessage({type: 'aervox:page:result', ...result, nonce: nonce.value}, '*')
-    })
-  }
+  const current = session
+  if (!current || !isCurrent(current) || event.source !== current.target) return
+  const data = event.data as {type?: unknown; nonce?: unknown; id?: unknown} | null
+  if (!data || typeof data !== 'object' || data.type !== 'aervox:page:call'
+    || data.nonce !== current.nonce || typeof data.id !== 'string' || !data.id || data.id.length > 128) return
+  if (current.pending.has(data.id) || current.pending.size >= 32) return
+  current.pending.add(data.id)
+  void handleBridgeCall(current, {...data, id: data.id}).then(result => {
+    current.pending.delete(result.id)
+    if (isCurrent(current)) current.target.postMessage({type: 'aervox:page:result', ...result, nonce: current.nonce}, '*')
+  })
 }
 
 watch(
-  () => props.open,
-  async (open) => {
-    if (!open) {
-      window.removeEventListener('message', onMessage)
-      return
-    }
-    nonce.value = typeof crypto !== 'undefined' && crypto.randomUUID
-      ? crypto.randomUUID()
-      : `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
-    revision.value = 0
+  () => [eligible.value, props.plugin?.id, props.page?.id, props.page?.entry, contextCapabilities.value.join(',')],
+  async () => {
+    session = null
+    window.removeEventListener('message', onMessage)
+    const generation = ++frameGeneration.value
+    frameEnabled.value = eligible.value
+    bridgeError.value = ''
+    if (!eligible.value) return
     window.addEventListener('message', onMessage)
     await nextTick()
-    // 若 iframe 已加载则注入 init；未加载等 load 事件
-    postInit()
+    if (generation === frameGeneration.value && !session) beginSession()
   },
-  { immediate: true },
+  {immediate: true, flush: 'sync'},
 )
 
-function onIframeLoad(): void {
-  postInit()
+function onIframeLoad(event: Event): void {
+  if (event.target === iframe.value) beginSession()
 }
 
-watch(
-  () => [props.plugin?.id, props.page?.id, props.theme],
-  () => postInit(),
-)
+async function reloadPage(): Promise<void> {
+  if (!eligible.value) return
+  session = null
+  const generation = ++frameGeneration.value
+  await nextTick()
+  if (generation === frameGeneration.value && eligible.value) beginSession()
+}
+
+watch(() => props.theme, postContext)
 
 function close(): void {
+  session = null
+  frameEnabled.value = false
   window.removeEventListener('message', onMessage)
   emit('close')
 }
 
 onBeforeUnmount(() => {
+  session = null
   window.removeEventListener('message', onMessage)
 })
 </script>
@@ -166,7 +214,7 @@ onBeforeUnmount(() => {
     @close="close"
   >
     <div class="plugin-page-toolbar">
-      <AervoxButton size="sm" variant="secondary" @click="postInit">刷新</AervoxButton>
+      <AervoxButton size="sm" variant="secondary" @click="reloadPage">刷新</AervoxButton>
       <AervoxButton
         v-if="contextCapabilities.includes('config.read') || contextCapabilities.includes('config.write')"
         size="sm"
@@ -177,8 +225,10 @@ onBeforeUnmount(() => {
       </AervoxButton>
       <AervoxButton size="sm" variant="secondary" @click="close">关闭</AervoxButton>
     </div>
+    <p v-if="bridgeError" role="alert">{{ bridgeError }}</p>
     <iframe
-      v-if="open && iframeSrc"
+      v-if="frameEnabled && iframeSrc"
+      :key="frameGeneration"
       ref="iframe"
       class="plugin-page-frame"
       :src="iframeSrc"
