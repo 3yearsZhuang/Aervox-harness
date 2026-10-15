@@ -27,12 +27,12 @@ export async function runAttemptRecoveryCycle(opts: AttemptRecoveryOptions): Pro
     try { await opts.resume(); }
     catch (error) { console.error(`[worker:${opts.workerId}] resume_error:`, error); }
   }
-  const recovered = await repo.recoverExpiredAttempts(opts.client);
+  const recovered = await repo.recoverExpiredAttempts(opts.client, { dispatchTarget: "default" });
   if (recovered > 0) {
     const unknown = await repo.markPendingOutcomeUnknown(opts.client);
     console.log(`[worker:${opts.workerId}] turn_attempt_recovery=${recovered} tool_outcome_unknown=${unknown}`);
   }
-  const orphans = await repo.recoverOrphanTurns();
+  const orphans = await repo.recoverOrphanTurns({ dispatchTarget: "default" });
   if (orphans > 0) console.log(`[worker:${opts.workerId}] orphan_turn_recovery=${orphans}`);
   return recovered;
 }

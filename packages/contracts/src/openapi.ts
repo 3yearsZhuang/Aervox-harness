@@ -5,6 +5,7 @@
  * 规则依据：docs/reference/STREAMING_PROTOCOL.md（AVX-SPC-001）。
  */
 import { z } from "zod";
+import { registerBotOpenApi } from './bot-openapi.js';
 import { apiProblemSchema, type ApiEndpoint } from "./http-api.js";
 import { modelRuntimeApi } from "./model-runtime-api.js";
 import { createMemoryNodeRequestSchema, memoryNodeSchema, listMemoryNodesResponseSchema } from "./memory-api.js";
@@ -231,6 +232,7 @@ import {
 } from "./model-routing-schemas.js";
 
 const registry = new OpenAPIRegistry();
+registerBotOpenApi(registry);
 registry.register("ApiProblem", apiProblemSchema);
 registry.registerComponent("securitySchemes", "bearerAuth", {
   type: "http", scheme: "bearer",

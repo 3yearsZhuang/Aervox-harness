@@ -3,6 +3,7 @@ import { createBroadcastingStore } from "./broadcasting-store.js";
 import { setRequestToolApprovalMode } from "../../../shared/tool-approval-policy.js";
 import type { SkillDescriptor } from "@aervox/core";
 import type { SqliteConversationRepository, SqlitePrivacyRepository, SqliteAgentInboxRepository, SqliteSubagentRunRepository, SqlitePlatformRepository, LocalContext } from "@aervox/repositories";
+import { assertConversationExecutionPolicy } from "@aervox/repositories";
 import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index.js";
 import type { LLMConfigPort } from "../../ecosystem/llm/index.js";
 import type { ProactiveActionPort } from "../../proactive/proactive/index.js";
@@ -83,7 +84,33 @@ export async function executeConversationTurn(
   input: ConversationTurnInput,
   deps: ConversationRouteDeps,
 ): Promise<void> {
-  const { turnId, sessionId, attemptId, userMessage } = input;
+  const { turnId, sessionId, attemptId } = input;
+  const turn = await conversationRepo.getTurn(tenant, turnId);
+  const session = await conversationRepo.getSession(tenant, sessionId);
+  if (!turn || !session || turn.sessionId !== sessionId || turn.executionPolicy !== session.executionPolicy) {
+    throw new Error("conversation_policy_mismatch");
+  }
+  assertConversationExecutionPolicy(turn.executionPolicy);
+  const attempt = (await conversationRepo.listTurnAttempts(tenant, turnId)).find(candidate => candidate.id === attemptId);
+  if (!attempt) throw new Error("conversation_attempt_mismatch");
+  if (!["Created", "Running"].includes(turn.status) || attempt.status !== "Running") return;
+  const userMessage = await conversationRepo.getTurnUserMessage(tenant, turnId);
+  if (userMessage === null) throw new Error("conversation_input_unavailable");
+  const bot = turn.executionPolicy !== "local-v1";
+  const group = turn.executionPolicy === "bot-group-member-v1";
+  if (bot) {
+    input = { ...input, metadata: undefined, toolApprovalMode: "ask" };
+    deps = {
+      ...deps, inboxRepo: undefined, subagentFactory: undefined, workflows: undefined,
+      userQuestionCoordinator: undefined, proactiveActionAuthorizer: undefined, proactiveRepository: undefined,
+      ...(group ? {
+        prepareExecution: undefined, isMcpToolAllowed: undefined, toolRuntime: undefined,
+        personaLoader: undefined, skillLoader: undefined, memoryRecall: undefined,
+        pluginRegistrations: undefined, pluginHostServices: undefined, extensionRepo: undefined,
+        pluginConfigRepo: undefined, pluginRegistry: undefined,
+      } : {}),
+    };
+  }
   if (input.toolApprovalMode) setRequestToolApprovalMode(tenant, input.toolApprovalMode);
   // Acquire ownership before product hooks or other preparatory side effects.
   const admissionStore = createBroadcastingStore(new SqliteExecutionStore(conversationRepo, tenant));
@@ -127,10 +154,14 @@ export async function executeConversationTurn(
       sequence: await store.nextSequence(turnId), eventType: "message", safetyDecision: "approved",
       data: { messageId, role: "assistant" },
     });
+    const sequence = await store.nextSequence(turnId);
     await store.finalizeAttemptWithEvent({
       turnId, attemptId, status, expectedFencingToken: claim.fencingToken,
-      sequence: await store.nextSequence(turnId), eventType: status === "Failed" ? "error" : "done",
-      eventData: { status, messageId, isComplete: false, reason }, safetyDecision: "approved",
+      sequence, eventType: status === "Failed" ? "error" : "done",
+      eventData: status === "Failed" ? {
+        code: "MODEL_UNAVAILABLE", retryable: false,
+        message: bot ? "会话执行失败，请在工作台重试。" : reason, lastSequence: sequence,
+      } : { status, messageId, isComplete: false, reason, lastSequence: sequence }, safetyDecision: "approved",
     });
   };
   const uqPort = deps.userQuestionCoordinator ? deps.userQuestionCoordinator.createPort(tenant) : undefined;
@@ -201,12 +232,13 @@ export async function executeConversationTurn(
       fields: { turnId, sessionId, attemptId, error: errMsg },
     });
 
-    await settleAdmission("Failed", errMsg);
+    await settleAdmission("Failed", bot ? "conversation_execution_failed" : errMsg);
   } finally {
     preparing = false;
     clearInterval(heartbeat);
     preparationAbort.abort();
     clearInterval(cancellation);
     releaseWorkerPressureLease(pressureLease);
+    if (bot) await conversationRepo.synchronizeTurnWithLatestAttempt(turnId);
   }
 }

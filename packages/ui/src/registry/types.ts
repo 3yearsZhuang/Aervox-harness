@@ -17,6 +17,7 @@ export type ExtensionSlotName =
   | 'settings:panel:local-models'
   | 'settings:panel:persona'
   | 'settings:panel:voice'
+  | 'settings:panel:bots'
   | 'settings:panel:plugins'
   | 'workbench:drawers'
   | 'taskcenter:cards';

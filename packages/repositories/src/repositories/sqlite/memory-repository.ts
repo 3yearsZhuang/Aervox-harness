@@ -15,6 +15,7 @@ import {
   memoryProjectionOverrides,
 } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
+import { assertPersonalDerivedDataSource } from "../../conversation-execution-policy.js";
 import type {
   IMemoryRepository,
   MemoryRecordModel,
@@ -48,31 +49,34 @@ export class SqliteMemoryRepository implements IMemoryRepository {
       verificationStatus?: string;
     },
   ): Promise<MemoryRecordModel> {
-    const now = new Date().toISOString();
-    const [created] = await this.db
-      .insert(memoryRecords)
-      .values({
-        id: recordData.id,
-        layer: recordData.layer,
-        type: recordData.type,
-        content: recordData.content,
-        canonicalParentId: recordData.canonicalParentId ?? null,
-        sourceTurnId: recordData.sourceTurnId ?? null,
-        version: 1,
-        isDeleted: 0,
-        source: recordData.source ?? "user_said",
-        category: recordData.category ?? "other",
-        keywordsJson:
-          recordData.keywords && recordData.keywords.length > 0
-            ? JSON.stringify(recordData.keywords)
-            : null,
-        lastUsedAt: recordData.lastUsedAt ?? null,
-        verificationStatus: recordData.verificationStatus,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
-    return created as MemoryRecordModel;
+    return this.db.transaction(async (tx) => {
+      await assertPersonalDerivedDataSource(tx, recordData.sourceTurnId);
+      const now = new Date().toISOString();
+      const [created] = await tx
+        .insert(memoryRecords)
+        .values({
+          id: recordData.id,
+          layer: recordData.layer,
+          type: recordData.type,
+          content: recordData.content,
+          canonicalParentId: recordData.canonicalParentId ?? null,
+          sourceTurnId: recordData.sourceTurnId ?? null,
+          version: 1,
+          isDeleted: 0,
+          source: recordData.source ?? "user_said",
+          category: recordData.category ?? "other",
+          keywordsJson:
+            recordData.keywords && recordData.keywords.length > 0
+              ? JSON.stringify(recordData.keywords)
+              : null,
+          lastUsedAt: recordData.lastUsedAt ?? null,
+          verificationStatus: recordData.verificationStatus,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
+      return created as MemoryRecordModel;
+    });
   }
 
   async getRecord(ctx: LocalContext, id: string): Promise<MemoryRecordModel | null> {

@@ -7,3 +7,4 @@
 export * from "./turn-plugin.js";
 export * from "./host-services.js";
 export * from "./contribution.js";
+export * from "./bot-adapter.js";

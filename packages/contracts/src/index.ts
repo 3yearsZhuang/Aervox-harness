@@ -109,6 +109,7 @@ export * from "./safety-classifier.js";
 export * from "./session-schemas.js";
 export * from "./project-schemas.js";
 export * from "./model-runtime-schemas.js";
+export * from "./bot-schemas.js";
 export * from "./http-api.js";
 export * from "./model-runtime-api.js";
 export * from "./memory-api.js";

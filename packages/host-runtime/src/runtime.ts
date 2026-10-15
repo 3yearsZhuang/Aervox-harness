@@ -74,8 +74,10 @@ import {
   type InMemoryMetricsRegistry,
 } from "@aervox/observability";
 import { loadApiConfig } from "@aervox/config";
+import { registerBotsModule, type BotModuleOptions, type BotManager } from "./modules/ecosystem/bots/index.js";
 
 export interface BuildAppOptions {
+  botOptions?: BotModuleOptions;
   /** Worker owns scheduling; its shared HTTP adapter remains unbound. */
   role?: "api" | "worker";
   /** 注入既有数据库（如内存库）；缺省时使用 createDatabase() */
@@ -122,6 +124,7 @@ export interface BuildAppOptions {
 }
 
 export interface BuildAppResult {
+  botManager: BotManager;
   conversation: ConversationHost;
   app: ReturnType<typeof Fastify>;
   /** Actual registered HTTP routes, including descriptor-driven and plugin routes. */
@@ -370,6 +373,7 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
     prepareExecution: () => mcp.restoreOnStartup(),
     isMcpToolAllowed: tool => mcp.allowsTool(tool),
   });
+  let botManager: BotManager | undefined;
   registerLearningModule(services);
   registerFeedbackModule(services);
   await registerDiaryModule(services);
@@ -380,13 +384,17 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
   registerKnowledgeModule(services);
   registerBranchModule(services);
   registerProjectModule(services);
-  pluginRegistrations = await registerPluginsModule(services);
+  pluginRegistrations = await registerPluginsModule(services, (id, uninstall) => botManager?.stopPlugin(id, uninstall) ?? Promise.resolve());
   const voiceService = registerVoiceModule(services, options.voiceOptions);
   const skillManager = await registerSkillsModule(services);
   registerPreferencesModule(services);
   registerStudyMaterialModule(services);
   personaService = registerPersonaModule({ ...services, voiceService, skillManager });
   registerInboxModule(services);
+  botManager = registerBotsModule({
+    app, db, conversationRepo: conversation.repo, conversationDeps: conversation.deps,
+    registrations: () => pluginRegistrations ?? [],
+  }, { ...options.botOptions, start: options.role !== "worker" });
 
   if (ownsProactiveClient) {
     app.addHook("onClose", async () => {
@@ -395,6 +403,7 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
   }
 
   return {
+    botManager,
     conversation,
     app,
     get routeInventory() { return routeInventory.map((route) => ({ ...route })); },

@@ -21,6 +21,7 @@ import {
   type SqlitePlatformRepository,
 } from "@aervox/repositories";
 import { resolveLocalContext } from "../../../shared/local-context.js";
+import { acceptConversationTurn } from "./application.js";
 import { turnStreamHub, type StreamEventFrame } from "./stream-hub.js";
 import { loadApiConfig } from "@aervox/config";
 
@@ -131,6 +132,7 @@ export function registerConversationRoutes(
     // 检查幂等性
     const existingTurn = await conversationRepo.getTurnByIdempotencyKey(tenant, idempotencyKey);
     if (existingTurn) {
+      if (existingTurn.sessionId !== sessionId) return reply.code(409).send({ code: "IDEMPOTENCY_KEY_REUSED" });
       return reply.code(200).send({
         turnId: existingTurn.id,
         status: existingTurn.status,
@@ -156,7 +158,7 @@ export function registerConversationRoutes(
     const attemptId = `atp_${turnId}`;
     const executionConfig = loadApiConfig();
     const execution = executionConfig.turnExecution === "inline" ? "api" : executionConfig.loopDispatch;
-    const accepted = await conversationRepo.acceptTurn(tenant, {
+    const accepted = await acceptConversationTurn(conversationRepo, tenant, {
       execution, metadata: parsed.data.metadata, toolApprovalMode: parsed.data.toolApprovalMode, actorId: tenant.actorId,
       turnId, sessionId, idempotencyKey, attemptId,
       message: { id: messageId, content: userMessage }, consumeInbox: Boolean(deps.inboxRepo),
@@ -185,7 +187,7 @@ export function registerConversationRoutes(
     };
     if (executionConfig.turnExecution === "inline") {
       await runLoop();
-    } else if (execution === "worker") {
+    } else if (execution === "worker" && accepted.turn.dispatchTarget !== "api") {
       deps.observability?.log.info({
         event: "turn.dispatched_to_worker",
         message: `Turn ${turnId} dispatched to background worker via outbox`,

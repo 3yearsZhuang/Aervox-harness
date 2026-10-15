@@ -1,0 +1,13 @@
+{
+  "apiVersion": "aervox.dev/v1",
+  "kind": "PluginManifest",
+  "metadata": {
+    "id": "bot-onebot",
+    "displayName": "QQ 群机器人连接",
+    "publisher": "aervox-official",
+    "version": "1.0.0",
+    "description": "主动连接 NapCat OneBot v11，只处理白名单群中直接 @ 机器人的文字消息。",
+    "license": "AGPL-3.0-or-later"
+  },
+  "spec": {}
+}

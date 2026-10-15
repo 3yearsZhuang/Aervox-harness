@@ -19,6 +19,7 @@ id: AVX-PLUG-001
 | 第一方根界面 | 完整工作台或独立桌宠根组件 | 组合根选择、随宿主构建；通过 `@aervox/ui-host` 加载，详见 §0.4 |
 | 第一方 UI 扩展 | Vue 插槽、卡片、消息转换与组件替换 | 随宿主编译的受信代码；具有宿主渲染进程权限，不是第三方沙箱 |
 | 第一方 Server Turn 扩展 | `beforeTurn` / `afterTurn` | 随 API 编译并显式注册；运行于 API 进程，拥有受信代码能力 |
+| 第一方 Bot 传输扩展 | 登录、文字收发、连接状态与取消 | API 组合根显式注册；宿主控制凭据、持久受理、执行策略与实例代际，见 §0.5 |
 | MCP | 外部工具服务的发现、同步与调用 | 独立 MCP 接入流程；插件 Manifest 的 `mcpServers` 不自动连接服务 |
 | Skill | 面向模型的说明与渐进披露内容 | 提示词资料，不等于可执行工具、OS 权限或脚本自动执行入口 |
 
@@ -44,6 +45,17 @@ id: AVX-PLUG-001
 - `viewProps` 与事件用于受信界面装配，平台由宿主固定；这些参数不是第三方权限代理。根界面不能通过该接口取得任意 Electron 或数据库访问权。
 - 工作台根组件位于 `surfaces/workbench-ui/src/AervoxWorkbench.vue`，经 `@aervox/ui/workbench` 使用共享构件；旧 `@aervox/ui` 的 `AervoxWorkbench` 根导出已移除。`@aervox/ui/env` 提供共享资源与 Live2D 浏览器类型。
 - 受信内置界面可由组合根与设置切换；独立安装、第三方隔离和跨版本升级回滚未在本切片交付。Vue 错误边界不能中断同步死循环或隔离全局样式；可信权限和数据管理责任仍由平台宿主与 API 持有。
+
+### 0.5 Bot 传输贡献（ADR-029）
+
+`ServerPluginRegistration.botAdapters` 贡献受信传输实现，完整类型见 [`bot-adapter.ts`](../../packages/host-plugin-api/src/bot-adapter.ts)。每个贡献声明平台、支持的直接/群消息、登录能力和文本分段上限，通过连接工厂产生实例；实例实现 `start`、`send`、异步 `stop`，可选 `beginLogin` / `pollLogin`。模块导入不得自动连接平台。
+
+- **宿主责任**：按连接注入不可变配置、取消信号、加密 Secret、非秘密 checkpoint、状态回调和持久受理回调；启停、重配、撤权、卸载及关闭后拒绝旧实例写入。会话创建、执行策略、去重、顺序队列、取消与回执仍由宿主拥有。
+- **适配器责任**：只翻译平台协议及控制网络资源；等待持久受理成功后推进协议游标。不得访问仓储、调用模型、根据消息 metadata 修改权限，或把群消息送入本人人格/记忆上下文。
+- **凭据责任**：Bot Secret 使用独立加密存储，不能沿用 §2 的普通插件配置 Secret 持久化假设；微信上下文令牌与账号恢复信息属于适配器私有状态。对外只显示凭据是否已配置，扫码内容由 UI 本地生成二维码，不交给外部二维码服务。
+- **回执责任**：区分平台接受、明确失败及结果未知；未知结果不得自动重试。`stop()` 结束在途网络和重连任务；晚到帧、登录或发送响应不能恢复停用连接。
+
+首批实现为 `plugins/bot-weixin` 与 `plugins/bot-onebot`；它们仍随宿主构建，`.aervox-plugin` 不分发可执行实现。微信与 QQ 的权限差异、持久策略和恢复不变量以 [ADR-029](adr/ADR-029-bot-platform-adapters.md) 与 [SRS](SRS.md#fr-plg-005-bot-平台文字接入) 为准，接入步骤见[连接机器人](../how-to/connect-bots.md)。新的第三方平台代码不能借此获得动态安装执行权限。
 
 ## 1. Config Schema v1
 

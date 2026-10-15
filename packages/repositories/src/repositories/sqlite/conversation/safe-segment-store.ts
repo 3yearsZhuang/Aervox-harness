@@ -246,6 +246,9 @@ export class SafeSegmentStore {
           AND ta.lease_expires_at IS NOT NULL
           AND ta.lease_expires_at < ?
           AND t.status IN ('Created', 'Running')
+          AND t.execution_policy = 'local-v1'
+          AND t.dispatch_target = 'default'
+          AND EXISTS (SELECT 1 FROM sessions s WHERE s.id = t.session_id AND s.execution_policy = 'local-v1')
           AND NOT EXISTS (SELECT 1 FROM message_versions mv
                           LEFT JOIN messages m ON m.id = mv.message_id
                           WHERE mv.turn_id = ta.turn_id

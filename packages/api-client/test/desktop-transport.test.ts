@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DESKTOP_TURN_TIMEOUT_MS, desktopTransport } from '../src/desktop-transport'
+import { AervoxHttpError } from '../src/transport'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -7,6 +8,21 @@ afterEach(() => {
 })
 
 describe('desktopTransport', () => {
+  it('preserves HTTP status and the desktop error body for conflict recovery', async () => {
+    const body = '{"code":"bot_connection_revision_conflict"}'
+    ;(globalThis as { window: unknown }).window = {
+      fairyDesktop: {
+        apiRequest: vi.fn().mockResolvedValue({ status: 409, ok: false, json: { code: 'bot_connection_revision_conflict' }, text: body }),
+      },
+    }
+    const result = desktopTransport.request('PATCH', '/v1/bot-connections/bot-1', { revision: 1 })
+    await expect(result).rejects.toBeInstanceOf(AervoxHttpError)
+    await expect(result).rejects.toMatchObject({
+      status: 409,
+      message: `API PATCH /v1/bot-connections/bot-1 → HTTP 409: ${body}`,
+    })
+  })
+
   it('主进程持续静默时按空闲超时退出，而非永久等待', async () => {
     vi.useFakeTimers()
     const stop = vi.fn()

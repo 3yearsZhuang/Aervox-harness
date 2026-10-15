@@ -34,8 +34,8 @@
 - [ADR-025](ADR-025-ui-surface-hosts.md)：根界面插件与薄平台宿主。
 - [ADR-026](ADR-026-ui-surface-open-ecosystem.md)：第三方界面开放与安装回滚提案。
 - [ADR-027](ADR-027-companion-identity.md)：空间名、陪伴角色名与用户称呼。
-
 - [ADR-028](ADR-028-plugin-atomic-activation.md)：声明式插件资源准备与原子激活。
+- [ADR-029](ADR-029-bot-platform-adapters.md)：Bot 平台适配器与外部会话边界。
 
 ## 原 CR 编号迁移索引
 

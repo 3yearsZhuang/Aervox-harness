@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { settingsPanels } from '../src';
 
 describe('settingsPanels 懒加载契约', () => {
-  it('registers exactly the five built-in categories', () => {
+  it('registers all built-in categories including platform connections', () => {
     expect(settingsPanels.map((p) => p.category)).toEqual([
-      'model', 'local-models', 'persona', 'voice', 'plugins',
+      'model', 'local-models', 'persona', 'voice', 'bots', 'plugins',
     ]);
   });
 

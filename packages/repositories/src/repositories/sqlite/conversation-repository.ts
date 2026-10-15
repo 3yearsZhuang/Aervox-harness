@@ -7,6 +7,7 @@
  */
 import type { AervoxDatabase } from "../../client.js";
 import type { LocalContext } from "../../local-context.js";
+import type { ConversationExecutionPolicy } from "@aervox/schema";
 import type {
   IConversationRepository,
   TurnAcceptanceInput,
@@ -29,6 +30,7 @@ import { SessionStore } from "./conversation/session-store.js";
 import { StreamEventStore } from "./conversation/stream-event-store.js";
 import { ToolExecutionStore } from "./conversation/tool-execution-store.js";
 import { TurnStore } from "./conversation/turn-store.js";
+import { ApiRecoveryStore } from "./conversation/api-recovery-store.js";
 
 export { MAX_RESUME_CANDIDATE_LIMIT } from "./conversation/safe-segment-store.js";
 
@@ -41,6 +43,7 @@ export class SqliteConversationRepository implements IConversationRepository {
   private readonly toolExecutionStore: ToolExecutionStore;
   private readonly safeSegmentStore: SafeSegmentStore;
   private readonly approvalStore: ApprovalStore;
+  private readonly apiRecoveryStore: ApiRecoveryStore;
 
   constructor(private readonly db: AervoxDatabase) {
     this.sessionStore = new SessionStore(db);
@@ -51,6 +54,13 @@ export class SqliteConversationRepository implements IConversationRepository {
     this.toolExecutionStore = new ToolExecutionStore(db);
     this.safeSegmentStore = new SafeSegmentStore(db);
     this.approvalStore = new ApprovalStore(db);
+    this.apiRecoveryStore = new ApiRecoveryStore(db);
+  }
+
+  listApiOwnedRecoveryTurns(before: string, limit?: number) { return this.apiRecoveryStore.list(before, limit); }
+  synchronizeTurnWithLatestAttempt(turnId: string) { return this.apiRecoveryStore.synchronize(turnId); }
+  retireExpiredApiOwnedAttempt(turnId: string, attemptId: string, expectedFencingToken: number) {
+    return this.apiRecoveryStore.retireExpired(turnId, attemptId, expectedFencingToken);
   }
 
   getSessionHistory(ctx: LocalContext, input: { sessionId: string; beforeTurnId: string }) {
@@ -60,7 +70,7 @@ export class SqliteConversationRepository implements IConversationRepository {
   async createSession(
     _tenant: LocalContext,
     title: string,
-    options?: { id?: string; projectId?: string | null },
+    options?: { id?: string; projectId?: string | null; executionPolicy?: ConversationExecutionPolicy },
   ): Promise<SessionModel> {
     return this.sessionStore.createSession(_tenant, title, options);
   }
@@ -74,8 +84,9 @@ export class SqliteConversationRepository implements IConversationRepository {
     sessionId: string,
     title = "默认会话",
     projectId?: string | null,
+    executionPolicy?: ConversationExecutionPolicy,
   ): Promise<SessionModel> {
-    return this.sessionStore.getOrCreateSession(ctx, sessionId, title, projectId);
+    return this.sessionStore.getOrCreateSession(ctx, sessionId, title, projectId, executionPolicy);
   }
 
   async listSessions(
@@ -317,13 +328,13 @@ export class SqliteConversationRepository implements IConversationRepository {
 
   async recoverExpiredAttempts(
     client: import("@libsql/client").Client,
-    options?: { unclaimedTimeoutMs?: number },
+    options?: { unclaimedTimeoutMs?: number; dispatchTarget?: "default" | "api" },
   ): Promise<number> {
     return this.attemptStore.recoverExpiredAttempts(client, options);
   }
 
   /** ARC-01 补：回收「Turn 已提交但首个 Attempt 从未创建」的孤儿 Turn（无 Attempt → Interrupted + done） */
-  async recoverOrphanTurns(options?: { orphanTimeoutMs?: number }): Promise<number> {
+  async recoverOrphanTurns(options?: { orphanTimeoutMs?: number; dispatchTarget?: "default" | "api" }): Promise<number> {
     return this.attemptStore.recoverOrphanTurns(options);
   }
 

@@ -1,0 +1,13 @@
+{
+  "apiVersion": "aervox.dev/v1",
+  "kind": "PluginManifest",
+  "metadata": {
+    "id": "bot-weixin",
+    "displayName": "微信机器人连接",
+    "publisher": "aervox-official",
+    "version": "1.0.0",
+    "description": "微信本人私聊文字接入；扫码登录、连接和本人配对在机器人连接设置中管理。",
+    "license": "AGPL-3.0-or-later"
+  },
+  "spec": {}
+}

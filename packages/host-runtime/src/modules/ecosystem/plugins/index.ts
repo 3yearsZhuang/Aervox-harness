@@ -151,7 +151,7 @@ async function syncBuiltinPlugins(
   }
 }
 
-export async function registerPluginsModule(ctx: ModuleDependencies<"app" | "builtinPluginsSourceRoot" | "db" | "pluginHostServices" | "pluginRegistry" | "pluginsRoot" | "proactiveIntelligenceRepository" | "skillsRoot">): Promise<import("@aervox/host-plugin-api").ServerPluginRegistration[]> {
+export async function registerPluginsModule(ctx: ModuleDependencies<"app" | "builtinPluginsSourceRoot" | "db" | "pluginHostServices" | "pluginRegistry" | "pluginsRoot" | "proactiveIntelligenceRepository" | "skillsRoot">, beforeDeactivate?: (pluginId: string, uninstall: boolean) => Promise<void>): Promise<import("@aervox/host-plugin-api").ServerPluginRegistration[]> {
   const pluginRegistry = ctx.pluginRegistry ?? createServerPluginRegistry();
   const { app, db, skillsRoot, pluginsRoot } = ctx;
   const extensionRepo = new SqliteExtensionRepository(db);
@@ -194,6 +194,7 @@ export async function registerPluginsModule(ctx: ModuleDependencies<"app" | "bui
   const builtinRoot = ctx.builtinPluginsSourceRoot ?? defaultBuiltinPluginsSourceRoot();
 
   const service = new PluginService({
+    beforeDeactivate,
     installationRepo: new SqlitePluginInstallationRepository(db),
     extensionRepo,
     registry,
