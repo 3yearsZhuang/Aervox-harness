@@ -42,7 +42,6 @@ export const ALLOWED_DUPLICATES = new Map([
       "plugins/workbench-ui",
       "plugins/companion-ui",
       // Vue SFC imported-type resolution requires the TS 5 compiler API; root TS 7 has no sys.
-      "plugins/document-ui",
       "apps/web",
       "apps/desktop",
     ]),

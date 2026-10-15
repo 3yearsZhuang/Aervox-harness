@@ -17,7 +17,6 @@
     "@aervox/plugin-focus-mode": "workspace:*",
     "@aervox/plugin-panels-ui": "workspace:*",
     "@aervox/plugin-proactive-ui": "workspace:*",
-    "@aervox/plugin-document-ui": "workspace:*",
     "@aervox/plugin-workbench-ui": "workspace:*",
     "@aervox/public": "workspace:*",
     "@aervox/ui": "workspace:*",

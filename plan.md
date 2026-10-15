@@ -81,14 +81,15 @@
 
 <a id="iter-061"></a>
 
-### ITER-061 · 待评审：素简文档与陪伴命名整合
+### ITER-061 · 陪伴命名整合（素简文档界面已移除）
 
-延续已授权的方向 G 界面与命名分层工作：新增 document-ui 受信根界面，统一 companionName/userAddress、旧 assistantName 迁移、设置双字段、各界面问候和随轮元数据；CAP-001/018。依赖已移交的 ITER-055/059/060，合同见 [ADR-025](docs/reference/adr/ADR-025-ui-surface-hosts.md)、[ADR-027](docs/reference/adr/ADR-027-companion-identity.md)。
+命名分层工作已落地：统一 companionName/userAddress、旧 assistantName 迁移、设置双字段、各界面问候和随轮元数据；CAP-001/018。依赖已移交的 ITER-055/059/060，合同见 [ADR-025](docs/reference/adr/ADR-025-ui-surface-hosts.md)、[ADR-027](docs/reference/adr/ADR-027-companion-identity.md)。
 
 - 工作分支：`feat/companion-identity`；保留原提交 `de0357ac` / `1c43ddec`。旧 UI 分支的 ITER-057 / ITER-060 与现行 Core/卫生编号冲突，本条目承接新增差量，已有主线编号不变。
-- 验收：设置身份保存与重载、三个界面发送元数据、人格优先级、真实会话创建、失败重试与草稿保留；界面选择/退出、窄屏与键盘浏览器回归；完整终审后提交独立 PR。
+- 2026-10-15 变更：按维护者决定移除本迭代新增的素简文档根界面（`@aervox/plugin-document-ui`）。根界面清单回到完整工作台／紧凑工作台／思隅陪伴（桌面另有桌宠）；组合根装配、外观设置选项、依赖与锁文件、用例同步收敛，记录见 [ADR-025](docs/reference/adr/ADR-025-ui-surface-hosts.md) 同日条目。命名分层与身份模型不受影响。
+- 验收：设置身份保存与重载、各界面发送元数据、人格优先级、真实会话创建、失败重试与草稿保留；界面选择/退出、窄屏与键盘浏览器回归；完整终审后提交独立 PR。
 - 边界：最近会话与固定建议沿用既有来源。服务端人格与客户端身份统一入册、真实模型与移动实机验收留后续；第三方界面开放仍为 Proposed，不因本次整合提升发布状态。
-- 证据：最新代码提交 `2db0f8d6` 的 `./aervox ci all` 退出 0，完整代码、原生专项与文档门禁通过；身份与布局/界面/API 定向 46 项、Chromium UI 7 项及补充 320px 回归通过。[PR #279](https://github.com/3yearsZhuang/Aervox-harness/pull/279) 待评审；测试中的模型响应为模拟输入，不计为真实模型或移动实机验收。
+- 证据：最新代码提交 `2db0f8d6` 的 `./aervox ci all` 退出 0，完整代码、原生专项与文档门禁通过；身份与布局/界面/API 定向 46 项、Chromium UI 7 项及补充 320px 回归通过。[PR #279](https://github.com/3yearsZhuang/Aervox-harness/pull/279) 待评审；测试中的模型响应为模拟输入，不计为真实模型或移动实机验收。移除素简文档界面后重测：Chromium UI project 5 项通过（文档界面 3 条随界面移除，身份用例移入 `e2e/ui/workbench-identity.spec.ts`）、`@aervox/ui` 119 项、`builtin-plugins-market` 5 项、Web 与桌面组合根构建 16/16、`check:guards` 与 `check:boundary` 通过。
 
 ## 2. 当前建议工作
 

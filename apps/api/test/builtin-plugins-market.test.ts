@@ -30,7 +30,7 @@ describe("出厂官方插件集市与全量插件打包验证 (Market & Builtin 
       // CR-065: these mandatory UI implementations are bundled by the app,
       // not installed/enabled via the declaration marketplace. Unknown directories
       // still require a valid manifest; a missing existing manifest must fail.
-      if (["workbench-ui", "companion-ui", "panels-ui", "proactive-ui", "document-ui"].includes(dirName)) {
+      if (["workbench-ui", "companion-ui", "panels-ui", "proactive-ui"].includes(dirName)) {
         await expect(fs.access(manifestPath)).rejects.toMatchObject({ code: "ENOENT" });
         continue;
       }
