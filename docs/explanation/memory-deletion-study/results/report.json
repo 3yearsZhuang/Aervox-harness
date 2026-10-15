@@ -1,0 +1,6323 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-15T12:02:17.464Z",
+  "baselineCommit": "99c82924",
+  "commit": "99c82924ddc088ea066a1e6298f3992d8c8f2b48",
+  "workingTree": "M docs/explanation/README.md\n M mise.toml\n M package.json\n M packages/repositories/src/repositories/sqlite/memory-deletion-store.ts\n M packages/repositories/src/repositories/sqlite/outbox-repository.ts\n M plan.md\n M scripts/check-affected.mjs\n M scripts/ci-scope.test.mjs\n?? docs/explanation/memory-deletion-study/\n?? packages/repositories/test/memory-deletion-verification.test.ts\n?? packages/repositories/test/outbox-deletion-guard.test.ts\n?? scripts/memory-deletion-research/",
+  "hashes": {
+    "packages/repositories/src/client.ts": "575bb1970738c3bdab50a47171578d4612b6ad0bbbc6526b6426ef9cddd8bc13",
+    "packages/repositories/dist/client.js": "185c1b45d24fb2975cfbb026cc6efc25d9531947c8a15e6950749f6430085396",
+    "packages/repositories/src/write-retry.ts": "b810810685fcaa19d749b1b9d58341be710321cc0d208bd88264b312060315f9",
+    "packages/repositories/dist/write-retry.js": "ec8655d2de69e15779adfed32f856add424a5bb4e2a82fb4e16e6570496e11fe",
+    "packages/repositories/src/repositories/sqlite/memory-repository.ts": "4bf302f24fdca14a4c7f551b27c403b635d85c1d17d1d1452ec5a8e2a40fceed",
+    "packages/repositories/dist/repositories/sqlite/memory-repository.js": "97db5e6df60ba43dbc4351fb9fddfecc89b5ac7a7404c6ef5c2e83a63763bf7f",
+    "packages/repositories/src/repositories/sqlite/memory-deletion-store.ts": "21c2cf08a4800a0bdd3dac59e07ad25ec1c6a33b0b9dc302621c6451f609a15b",
+    "packages/repositories/dist/repositories/sqlite/memory-deletion-store.js": "8e7a6e100ae75c6f3cff45d758554700eef8123431771b00b9b9383352d04f3e",
+    "packages/repositories/src/repositories/sqlite/outbox-repository.ts": "e5b1c4c025ce77829e37d00d2a9bd04c5739cb70a93e78edeeabb3588b268a22",
+    "packages/repositories/dist/repositories/sqlite/outbox-repository.js": "1e286902580f6665dd252c9dde9de125d737a4af82eff34bb5355cac68ade901",
+    "packages/repositories/src/repositories/sqlite/memory-compaction-guard.ts": "252d25edeb12e70804e30bddc79b22b91555ec9556224aec90ba47b6a198cf20",
+    "packages/repositories/dist/repositories/sqlite/memory-compaction-guard.js": "3f27c609bfde2f16b138182903849210263ca1a14213d7130db21dd3a95f3c2d",
+    "packages/repositories/src/repositories/sqlite/memory-compaction-repository.ts": "f8c4897a6116b112361c5f107cc54e100fbf1917a8f4b42d1fb94c72cc90d680",
+    "packages/repositories/dist/repositories/sqlite/memory-compaction-repository.js": "929a6ec1a56399b24269d1ad172b01b2fb4135cbc5c61d4c6d5dff1579edfe73",
+    "packages/repositories/src/repositories/sqlite/memory-embedding-repository.ts": "9727697310f83c9932f149fbaa3475339505baba0310eb0d47eda7a2410e7376",
+    "packages/repositories/dist/repositories/sqlite/memory-embedding-repository.js": "92479e78150bd63530f7e51f907a777be3bfe3bc73ab51cd897125f6e745cd96",
+    "packages/repositories/src/search/fts.ts": "c22aa0cb8865e5006bf97ef0a94abe03e5a26462c76bae8b61f94069aa7dc8a1",
+    "packages/repositories/dist/search/fts.js": "7f09f07bbd0247a421d46667de5c5a0384ad98225708a2534c9876086b43c3ba",
+    "packages/repositories/src/schema/ddl/index.ts": "d6980c69c25e3d87eeb35908d98d70b6d5db23dbb925b370a3196ef67e38c3f6",
+    "packages/repositories/dist/schema/ddl/index.js": "bf6b38dd9bb4734ff89819b5dde883fdc1de7f480241be0fd7ca3bc87322d348",
+    "packages/repositories/src/schema/ddl/common.ts": "dc858363c214d9446cdca0599d060d245629e49a01a3325d50ec488ab877a78d",
+    "packages/repositories/dist/schema/ddl/common.js": "ab0df04d96cd279110c92ff64e79bb99b1314fcfb42fb81f16961db7f9135a4c",
+    "packages/repositories/src/schema/ddl/memories.ts": "5f5b20eb2b18a114103697318982fc4f4864f1c654fd11a053be62d9d11e7fe7",
+    "packages/repositories/dist/schema/ddl/memories.js": "cf8bee152e7d70ffb60ac66052ab605e246234b5976babba148ffde48a69b11b",
+    "packages/repositories/src/schema/ddl/provenance.ts": "e330a66baef796aa70d3749bb2207813520a2d4f328113ea4395daa5095c5e4a",
+    "packages/repositories/dist/schema/ddl/provenance.js": "9012a43c20e602dbe44b17910d64aed89e9cbd79414336319517c7e46c9e620b",
+    "packages/repositories/src/schema/ddl/memory-compaction.ts": "ba5d2276f5a72a3329366601baa933bb2d3dbcb6819e3cda59dbb609c21e990f",
+    "packages/repositories/dist/schema/ddl/memory-compaction.js": "24b32e534fc35940f793f758f7d7bf27211474cf4dd374f62f672ac916abce2e",
+    "packages/repositories/src/schema/ddl/embeddings.ts": "5240e677bd48c3c954952928c92ab1d9f7ae9ff99f5f0c1516a06491ff6dcebe",
+    "packages/repositories/dist/schema/ddl/embeddings.js": "c45781cdc0435ec3f1fa6f96b408668c3368dae8fcef43ada15f9675dfd51144",
+    "packages/repositories/src/schema/ddl/outbox.ts": "1b6c2439a8ccba917d6eadf8ec4196c3ed67ed3500ed18f57e02d42d6ac603d9",
+    "packages/repositories/dist/schema/ddl/outbox.js": "2b490a22cade86f199db3e115a07605372cb9acbf1ac619ff8a1e7ffdd3cd098",
+    "packages/repositories/src/schema/ddl/fts.ts": "678bec855b875b98b34fdb6d4d8f048e972d51f30600abcf9bfb394e3d48a1c8",
+    "packages/repositories/dist/schema/ddl/fts.js": "d5ec2d165a6b8d610c5583ea8d520d71788f333ce0a7871b42e8be815a782dac",
+    "packages/schema/src/index.ts": "75ffc2d0504461d5e555ab9511e7bbd39fb2aa0a6d9c3e20c2db00fe27ff5ffc",
+    "packages/schema/dist/index.js": "75ffc2d0504461d5e555ab9511e7bbd39fb2aa0a6d9c3e20c2db00fe27ff5ffc",
+    "packages/schema/src/common.ts": "8be232d256eda2af8e0307e36d21d824bbefd483260ede9737e4163d39c5a352",
+    "packages/schema/dist/common.js": "ea8465397613bab6ee86a03e59881e70d6da0fd636e3ceb3233fb7503cc5a553",
+    "packages/schema/src/memories.ts": "ee4710ad1026132cafa53de07a76db2f4ea6bf8f018f4cc0840ef7d3559a0d6f",
+    "packages/schema/dist/memories.js": "f8a33cbbfe077d792f969b3483fd9423fd28beba7d72a188401fff78510b59d6",
+    "packages/schema/src/provenance.ts": "ba897fa4580ac6527f4359fa4c2f9cc93c428e2954e3b801015e75b63c2e5c5c",
+    "packages/schema/dist/provenance.js": "f966d8c332278dfee261e76c3f989ef7f85bbd41278ffdc28be589c0ac82c97e",
+    "packages/schema/src/memory-compaction.ts": "ed158c1254ba704b1dd5b1f792f154eccd7f3133dbabde7c9d4383ba622346b2",
+    "packages/schema/dist/memory-compaction.js": "13c0340f89105468550b1da04945a4dba5ca5dfc0b82ce95d07a8f63ec7862c7",
+    "packages/schema/src/embeddings.ts": "3ede65d27a93fc11d51ab772c5c9f9e7b6690be4f4aaad2dbb545e6a5fb18c9e",
+    "packages/schema/dist/embeddings.js": "b3d531db295040ecca493cb192c8356d425d62653b9ea97e3b011196d9f89c00",
+    "packages/schema/src/outbox.ts": "f8d40a895c7701bdc37f38aeb0bf6d0687d7085f143b0312edd98178631e7840",
+    "packages/schema/dist/outbox.js": "bca78b20e3981a864050c487f64c014727ac095a36e2fec3e7b9dee8e9ce94cf",
+    "packages/repositories/package.json": "f8f388d6c04d98eabd2b0b35adc751cf6951516c0329130da7a4777408e9e88c",
+    "packages/schema/package.json": "805a07b40eb4392c3c7db7e7f4181c3a331d5c25f2019e173e1d6323ad640bca",
+    "scripts/memory-deletion-research/fixture.mjs": "3c2b791a66b048cfd1dbed25070f45e75e55734a27de915bca62c55082a78252",
+    "scripts/memory-deletion-research/runner.mjs": "97f080e7392ff39bf645cbbe668a0b8950e89700e828c0c65f656fac2b6bee4d",
+    "scripts/memory-deletion-research/crash-child.mjs": "6f362771edfc4f89379ca62bee009bb6128fe612c07c477403fc456718369bde",
+    "scripts/memory-deletion-research/validate-report.mjs": "07bcaf98488a3db704ad8636f7ad8126d983b6347bb946cc28d9229671ec2475",
+    "pnpm-lock.yaml": "27dc48057272b68c9f338f698128ae6287e95ef63ae0cc77ff7422525b55a6eb",
+    "mise.toml": "29eb3558b1d519c662ce7b344760df7b16122d7fb63956f098af2c8dfc1203d8"
+  },
+  "sourceConsistency": {
+    "afterHashes": {
+      "packages/repositories/src/client.ts": "575bb1970738c3bdab50a47171578d4612b6ad0bbbc6526b6426ef9cddd8bc13",
+      "packages/repositories/dist/client.js": "185c1b45d24fb2975cfbb026cc6efc25d9531947c8a15e6950749f6430085396",
+      "packages/repositories/src/write-retry.ts": "b810810685fcaa19d749b1b9d58341be710321cc0d208bd88264b312060315f9",
+      "packages/repositories/dist/write-retry.js": "ec8655d2de69e15779adfed32f856add424a5bb4e2a82fb4e16e6570496e11fe",
+      "packages/repositories/src/repositories/sqlite/memory-repository.ts": "4bf302f24fdca14a4c7f551b27c403b635d85c1d17d1d1452ec5a8e2a40fceed",
+      "packages/repositories/dist/repositories/sqlite/memory-repository.js": "97db5e6df60ba43dbc4351fb9fddfecc89b5ac7a7404c6ef5c2e83a63763bf7f",
+      "packages/repositories/src/repositories/sqlite/memory-deletion-store.ts": "21c2cf08a4800a0bdd3dac59e07ad25ec1c6a33b0b9dc302621c6451f609a15b",
+      "packages/repositories/dist/repositories/sqlite/memory-deletion-store.js": "8e7a6e100ae75c6f3cff45d758554700eef8123431771b00b9b9383352d04f3e",
+      "packages/repositories/src/repositories/sqlite/outbox-repository.ts": "e5b1c4c025ce77829e37d00d2a9bd04c5739cb70a93e78edeeabb3588b268a22",
+      "packages/repositories/dist/repositories/sqlite/outbox-repository.js": "1e286902580f6665dd252c9dde9de125d737a4af82eff34bb5355cac68ade901",
+      "packages/repositories/src/repositories/sqlite/memory-compaction-guard.ts": "252d25edeb12e70804e30bddc79b22b91555ec9556224aec90ba47b6a198cf20",
+      "packages/repositories/dist/repositories/sqlite/memory-compaction-guard.js": "3f27c609bfde2f16b138182903849210263ca1a14213d7130db21dd3a95f3c2d",
+      "packages/repositories/src/repositories/sqlite/memory-compaction-repository.ts": "f8c4897a6116b112361c5f107cc54e100fbf1917a8f4b42d1fb94c72cc90d680",
+      "packages/repositories/dist/repositories/sqlite/memory-compaction-repository.js": "929a6ec1a56399b24269d1ad172b01b2fb4135cbc5c61d4c6d5dff1579edfe73",
+      "packages/repositories/src/repositories/sqlite/memory-embedding-repository.ts": "9727697310f83c9932f149fbaa3475339505baba0310eb0d47eda7a2410e7376",
+      "packages/repositories/dist/repositories/sqlite/memory-embedding-repository.js": "92479e78150bd63530f7e51f907a777be3bfe3bc73ab51cd897125f6e745cd96",
+      "packages/repositories/src/search/fts.ts": "c22aa0cb8865e5006bf97ef0a94abe03e5a26462c76bae8b61f94069aa7dc8a1",
+      "packages/repositories/dist/search/fts.js": "7f09f07bbd0247a421d46667de5c5a0384ad98225708a2534c9876086b43c3ba",
+      "packages/repositories/src/schema/ddl/index.ts": "d6980c69c25e3d87eeb35908d98d70b6d5db23dbb925b370a3196ef67e38c3f6",
+      "packages/repositories/dist/schema/ddl/index.js": "bf6b38dd9bb4734ff89819b5dde883fdc1de7f480241be0fd7ca3bc87322d348",
+      "packages/repositories/src/schema/ddl/common.ts": "dc858363c214d9446cdca0599d060d245629e49a01a3325d50ec488ab877a78d",
+      "packages/repositories/dist/schema/ddl/common.js": "ab0df04d96cd279110c92ff64e79bb99b1314fcfb42fb81f16961db7f9135a4c",
+      "packages/repositories/src/schema/ddl/memories.ts": "5f5b20eb2b18a114103697318982fc4f4864f1c654fd11a053be62d9d11e7fe7",
+      "packages/repositories/dist/schema/ddl/memories.js": "cf8bee152e7d70ffb60ac66052ab605e246234b5976babba148ffde48a69b11b",
+      "packages/repositories/src/schema/ddl/provenance.ts": "e330a66baef796aa70d3749bb2207813520a2d4f328113ea4395daa5095c5e4a",
+      "packages/repositories/dist/schema/ddl/provenance.js": "9012a43c20e602dbe44b17910d64aed89e9cbd79414336319517c7e46c9e620b",
+      "packages/repositories/src/schema/ddl/memory-compaction.ts": "ba5d2276f5a72a3329366601baa933bb2d3dbcb6819e3cda59dbb609c21e990f",
+      "packages/repositories/dist/schema/ddl/memory-compaction.js": "24b32e534fc35940f793f758f7d7bf27211474cf4dd374f62f672ac916abce2e",
+      "packages/repositories/src/schema/ddl/embeddings.ts": "5240e677bd48c3c954952928c92ab1d9f7ae9ff99f5f0c1516a06491ff6dcebe",
+      "packages/repositories/dist/schema/ddl/embeddings.js": "c45781cdc0435ec3f1fa6f96b408668c3368dae8fcef43ada15f9675dfd51144",
+      "packages/repositories/src/schema/ddl/outbox.ts": "1b6c2439a8ccba917d6eadf8ec4196c3ed67ed3500ed18f57e02d42d6ac603d9",
+      "packages/repositories/dist/schema/ddl/outbox.js": "2b490a22cade86f199db3e115a07605372cb9acbf1ac619ff8a1e7ffdd3cd098",
+      "packages/repositories/src/schema/ddl/fts.ts": "678bec855b875b98b34fdb6d4d8f048e972d51f30600abcf9bfb394e3d48a1c8",
+      "packages/repositories/dist/schema/ddl/fts.js": "d5ec2d165a6b8d610c5583ea8d520d71788f333ce0a7871b42e8be815a782dac",
+      "packages/schema/src/index.ts": "75ffc2d0504461d5e555ab9511e7bbd39fb2aa0a6d9c3e20c2db00fe27ff5ffc",
+      "packages/schema/dist/index.js": "75ffc2d0504461d5e555ab9511e7bbd39fb2aa0a6d9c3e20c2db00fe27ff5ffc",
+      "packages/schema/src/common.ts": "8be232d256eda2af8e0307e36d21d824bbefd483260ede9737e4163d39c5a352",
+      "packages/schema/dist/common.js": "ea8465397613bab6ee86a03e59881e70d6da0fd636e3ceb3233fb7503cc5a553",
+      "packages/schema/src/memories.ts": "ee4710ad1026132cafa53de07a76db2f4ea6bf8f018f4cc0840ef7d3559a0d6f",
+      "packages/schema/dist/memories.js": "f8a33cbbfe077d792f969b3483fd9423fd28beba7d72a188401fff78510b59d6",
+      "packages/schema/src/provenance.ts": "ba897fa4580ac6527f4359fa4c2f9cc93c428e2954e3b801015e75b63c2e5c5c",
+      "packages/schema/dist/provenance.js": "f966d8c332278dfee261e76c3f989ef7f85bbd41278ffdc28be589c0ac82c97e",
+      "packages/schema/src/memory-compaction.ts": "ed158c1254ba704b1dd5b1f792f154eccd7f3133dbabde7c9d4383ba622346b2",
+      "packages/schema/dist/memory-compaction.js": "13c0340f89105468550b1da04945a4dba5ca5dfc0b82ce95d07a8f63ec7862c7",
+      "packages/schema/src/embeddings.ts": "3ede65d27a93fc11d51ab772c5c9f9e7b6690be4f4aaad2dbb545e6a5fb18c9e",
+      "packages/schema/dist/embeddings.js": "b3d531db295040ecca493cb192c8356d425d62653b9ea97e3b011196d9f89c00",
+      "packages/schema/src/outbox.ts": "f8d40a895c7701bdc37f38aeb0bf6d0687d7085f143b0312edd98178631e7840",
+      "packages/schema/dist/outbox.js": "bca78b20e3981a864050c487f64c014727ac095a36e2fec3e7b9dee8e9ce94cf",
+      "packages/repositories/package.json": "f8f388d6c04d98eabd2b0b35adc751cf6951516c0329130da7a4777408e9e88c",
+      "packages/schema/package.json": "805a07b40eb4392c3c7db7e7f4181c3a331d5c25f2019e173e1d6323ad640bca",
+      "scripts/memory-deletion-research/fixture.mjs": "3c2b791a66b048cfd1dbed25070f45e75e55734a27de915bca62c55082a78252",
+      "scripts/memory-deletion-research/runner.mjs": "97f080e7392ff39bf645cbbe668a0b8950e89700e828c0c65f656fac2b6bee4d",
+      "scripts/memory-deletion-research/crash-child.mjs": "6f362771edfc4f89379ca62bee009bb6128fe612c07c477403fc456718369bde",
+      "scripts/memory-deletion-research/validate-report.mjs": "07bcaf98488a3db704ad8636f7ad8126d983b6347bb946cc28d9229671ec2475",
+      "pnpm-lock.yaml": "27dc48057272b68c9f338f698128ae6287e95ef63ae0cc77ff7422525b55a6eb",
+      "mise.toml": "29eb3558b1d519c662ce7b344760df7b16122d7fb63956f098af2c8dfc1203d8"
+    },
+    "readErrors": {},
+    "changedFiles": []
+  },
+  "environment": {
+    "node": "v24.21.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M5"
+  },
+  "protocol": {
+    "casesPerArm": 20,
+    "channels": [
+      "fts",
+      "vector",
+      "summary",
+      "audit",
+      "outbox"
+    ],
+    "arms": [
+      "soft-delete",
+      "cleanup-only",
+      "guarded-cleanup",
+      "verified-guarded"
+    ],
+    "repetitions": 24,
+    "manifest": [
+      {
+        "id": "fts:before-clean",
+        "channel": "fts",
+        "position": "before-clean",
+        "omission": null
+      },
+      {
+        "id": "fts:before-complete",
+        "channel": "fts",
+        "position": "before-complete",
+        "omission": null
+      },
+      {
+        "id": "fts:after-complete",
+        "channel": "fts",
+        "position": "after-complete",
+        "omission": null
+      },
+      {
+        "id": "vector:before-clean",
+        "channel": "vector",
+        "position": "before-clean",
+        "omission": null
+      },
+      {
+        "id": "vector:before-complete",
+        "channel": "vector",
+        "position": "before-complete",
+        "omission": null
+      },
+      {
+        "id": "vector:after-complete",
+        "channel": "vector",
+        "position": "after-complete",
+        "omission": null
+      },
+      {
+        "id": "summary:before-clean",
+        "channel": "summary",
+        "position": "before-clean",
+        "omission": null
+      },
+      {
+        "id": "summary:before-complete",
+        "channel": "summary",
+        "position": "before-complete",
+        "omission": null
+      },
+      {
+        "id": "summary:after-complete",
+        "channel": "summary",
+        "position": "after-complete",
+        "omission": null
+      },
+      {
+        "id": "audit:before-clean",
+        "channel": "audit",
+        "position": "before-clean",
+        "omission": null
+      },
+      {
+        "id": "audit:before-complete",
+        "channel": "audit",
+        "position": "before-complete",
+        "omission": null
+      },
+      {
+        "id": "audit:after-complete",
+        "channel": "audit",
+        "position": "after-complete",
+        "omission": null
+      },
+      {
+        "id": "outbox:before-clean",
+        "channel": "outbox",
+        "position": "before-clean",
+        "omission": null
+      },
+      {
+        "id": "outbox:before-complete",
+        "channel": "outbox",
+        "position": "before-complete",
+        "omission": null
+      },
+      {
+        "id": "outbox:after-complete",
+        "channel": "outbox",
+        "position": "after-complete",
+        "omission": null
+      },
+      {
+        "id": "omit:fts",
+        "channel": "fts",
+        "position": "omission",
+        "omission": "fts"
+      },
+      {
+        "id": "omit:vector",
+        "channel": "vector",
+        "position": "omission",
+        "omission": "vector"
+      },
+      {
+        "id": "omit:summary",
+        "channel": "summary",
+        "position": "omission",
+        "omission": "summary"
+      },
+      {
+        "id": "omit:audit",
+        "channel": "audit",
+        "position": "omission",
+        "omission": "audit"
+      },
+      {
+        "id": "omit:outbox",
+        "channel": "outbox",
+        "position": "omission",
+        "omission": "outbox"
+      }
+    ],
+    "latency": "Fresh file/connection cloned from initialized schema; same loaded process. Excludes schema, fixture, late write and oracle. Includes cleanup plus optional verification. Rotating arm order, no process or disk-cache cold-start claim.",
+    "oracle": "Independent SQL observations of 8 logical stores, including exactly one scrubbed target tombstone, evidence across all target revisions, an allowlisted Outbox tombstone payload, and exact keep-row snapshots; not physical-page erasure or model behavior.",
+    "statistics": "Linear interpolation at index (n-1)*p (Hyndman-Fan type 7). Descriptive local timing quantiles; no confidence intervals or iid correctness interpretation.",
+    "crashProbes": "SIGKILL after two manual uncommitted SQL writes, or after production clean() commits; first probe tests a representative SQLite transaction, not interruption inside production clean()."
+  },
+  "summary": [
+    {
+      "arm": "soft-delete",
+      "cases": 20,
+      "completed": 20,
+      "falseCompletions": 20,
+      "resurrections": 0,
+      "safeCompletions": 0,
+      "finalResidues": 20,
+      "keepViolations": 0,
+      "errors": 0,
+      "latencySamples": 24,
+      "p25Ms": 0.1098229999997784,
+      "medianMs": 0.21825000000035288,
+      "p75Ms": 0.4247290000000703,
+      "p95Ms": 0.5798767499993117
+    },
+    {
+      "arm": "cleanup-only",
+      "cases": 20,
+      "completed": 20,
+      "falseCompletions": 10,
+      "resurrections": 5,
+      "safeCompletions": 5,
+      "finalResidues": 15,
+      "keepViolations": 0,
+      "errors": 0,
+      "latencySamples": 24,
+      "p25Ms": 0.8538017500002297,
+      "medianMs": 1.1574164999992718,
+      "p75Ms": 1.5024167500000658,
+      "p95Ms": 2.1379232000005683
+    },
+    {
+      "arm": "guarded-cleanup",
+      "cases": 20,
+      "completed": 20,
+      "falseCompletions": 5,
+      "resurrections": 0,
+      "safeCompletions": 15,
+      "finalResidues": 5,
+      "keepViolations": 0,
+      "errors": 0,
+      "latencySamples": 24,
+      "p25Ms": 0.835604000000103,
+      "medianMs": 1.2020834999998442,
+      "p75Ms": 1.7383434999997007,
+      "p95Ms": 2.6174035000000453
+    },
+    {
+      "arm": "verified-guarded",
+      "cases": 20,
+      "completed": 15,
+      "falseCompletions": 0,
+      "resurrections": 0,
+      "safeCompletions": 15,
+      "finalResidues": 5,
+      "keepViolations": 0,
+      "errors": 0,
+      "latencySamples": 24,
+      "p25Ms": 2.612760000000435,
+      "medianMs": 3.424561999999696,
+      "p75Ms": 4.2883439999998245,
+      "p95Ms": 6.262740150001127
+    }
+  ],
+  "cases": [
+    {
+      "caseId": "fts:before-clean",
+      "arm": "soft-delete",
+      "channel": "fts",
+      "position": "before-clean",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.5242500000001655,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "fts:before-clean",
+      "arm": "cleanup-only",
+      "channel": "fts",
+      "position": "before-clean",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 3.37175000000002,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "fts:before-clean",
+      "arm": "guarded-cleanup",
+      "channel": "fts",
+      "position": "before-clean",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 1.4176249999998163,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "fts:before-clean",
+      "arm": "verified-guarded",
+      "channel": "fts",
+      "position": "before-clean",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 1.4293339999999262,
+      "verificationMs": 1.987333000000035,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "fts:before-complete",
+      "arm": "soft-delete",
+      "channel": "fts",
+      "position": "before-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.10500000000001819,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "fts:before-complete",
+      "arm": "cleanup-only",
+      "channel": "fts",
+      "position": "before-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 6.348334000000023,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 1,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 1,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "fts:before-complete",
+      "arm": "guarded-cleanup",
+      "channel": "fts",
+      "position": "before-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 1.3275409999998828,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "fts:before-complete",
+      "arm": "verified-guarded",
+      "channel": "fts",
+      "position": "before-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 1.6113329999998314,
+      "verificationMs": 0.40887500000008004,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "fts:after-complete",
+      "arm": "soft-delete",
+      "channel": "fts",
+      "position": "after-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.1089999999999236,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "fts:after-complete",
+      "arm": "cleanup-only",
+      "channel": "fts",
+      "position": "after-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 1.9845000000000255,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 1,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": true,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "fts:after-complete",
+      "arm": "guarded-cleanup",
+      "channel": "fts",
+      "position": "after-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.7835839999997916,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "fts:after-complete",
+      "arm": "verified-guarded",
+      "channel": "fts",
+      "position": "after-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 1.5893750000000182,
+      "verificationMs": 2.1543340000000626,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "vector:before-clean",
+      "arm": "soft-delete",
+      "channel": "vector",
+      "position": "before-clean",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.29349999999999454,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 2,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 2,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "vector:before-clean",
+      "arm": "cleanup-only",
+      "channel": "vector",
+      "position": "before-clean",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 1.28125,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "vector:before-clean",
+      "arm": "guarded-cleanup",
+      "channel": "vector",
+      "position": "before-clean",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 3.5833339999999225,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "vector:before-clean",
+      "arm": "verified-guarded",
+      "channel": "vector",
+      "position": "before-clean",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 3.319458000000168,
+      "verificationMs": 5.521584000000075,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "vector:before-complete",
+      "arm": "soft-delete",
+      "channel": "vector",
+      "position": "before-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.44120799999973315,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 2,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 2,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "vector:before-complete",
+      "arm": "cleanup-only",
+      "channel": "vector",
+      "position": "before-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 2.8204579999996895,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 1,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 1,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "vector:before-complete",
+      "arm": "guarded-cleanup",
+      "channel": "vector",
+      "position": "before-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.9738330000000133,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "vector:before-complete",
+      "arm": "verified-guarded",
+      "channel": "vector",
+      "position": "before-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.9434580000001915,
+      "verificationMs": 2.0329999999999018,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "vector:after-complete",
+      "arm": "soft-delete",
+      "channel": "vector",
+      "position": "after-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 1.2151659999999538,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 2,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "vector:after-complete",
+      "arm": "cleanup-only",
+      "channel": "vector",
+      "position": "after-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 1.31637499999988,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 1,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": true,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "vector:after-complete",
+      "arm": "guarded-cleanup",
+      "channel": "vector",
+      "position": "after-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.8597909999998592,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "vector:after-complete",
+      "arm": "verified-guarded",
+      "channel": "vector",
+      "position": "after-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 2.9552920000000995,
+      "verificationMs": 2.2428750000003674,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "summary:before-clean",
+      "arm": "soft-delete",
+      "channel": "summary",
+      "position": "before-clean",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.0945409999999356,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 2,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 2,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "summary:before-clean",
+      "arm": "cleanup-only",
+      "channel": "summary",
+      "position": "before-clean",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 1.789459000000079,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "summary:before-clean",
+      "arm": "guarded-cleanup",
+      "channel": "summary",
+      "position": "before-clean",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 3.423000000000229,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "summary:before-clean",
+      "arm": "verified-guarded",
+      "channel": "summary",
+      "position": "before-clean",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 2.8705409999997755,
+      "verificationMs": 2.0445000000004256,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "summary:before-complete",
+      "arm": "soft-delete",
+      "channel": "summary",
+      "position": "before-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.1400829999997768,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 2,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 2,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "summary:before-complete",
+      "arm": "cleanup-only",
+      "channel": "summary",
+      "position": "before-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 1.2928329999999733,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 1,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 1,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "summary:before-complete",
+      "arm": "guarded-cleanup",
+      "channel": "summary",
+      "position": "before-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": true,
+      "error": null,
+      "cleanupMs": 0.8693329999996422,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "summary:before-complete",
+      "arm": "verified-guarded",
+      "channel": "summary",
+      "position": "before-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": true,
+      "error": null,
+      "cleanupMs": 1.2200419999999212,
+      "verificationMs": 2.196874999999636,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "summary:after-complete",
+      "arm": "soft-delete",
+      "channel": "summary",
+      "position": "after-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.1167499999996835,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 2,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "summary:after-complete",
+      "arm": "cleanup-only",
+      "channel": "summary",
+      "position": "after-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 1.1820410000000265,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 1,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": true,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "summary:after-complete",
+      "arm": "guarded-cleanup",
+      "channel": "summary",
+      "position": "after-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": true,
+      "error": null,
+      "cleanupMs": 0.930000000000291,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "summary:after-complete",
+      "arm": "verified-guarded",
+      "channel": "summary",
+      "position": "after-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": true,
+      "error": null,
+      "cleanupMs": 2.8929589999997916,
+      "verificationMs": 2.22983400000021,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "audit:before-clean",
+      "arm": "soft-delete",
+      "channel": "audit",
+      "position": "before-clean",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.11370799999986048,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 2,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 2,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "audit:before-clean",
+      "arm": "cleanup-only",
+      "channel": "audit",
+      "position": "before-clean",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 5.922833999999966,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "audit:before-clean",
+      "arm": "guarded-cleanup",
+      "channel": "audit",
+      "position": "before-clean",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 3.1056249999996908,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "audit:before-clean",
+      "arm": "verified-guarded",
+      "channel": "audit",
+      "position": "before-clean",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 4.7202079999997295,
+      "verificationMs": 2.5734160000001793,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "audit:before-complete",
+      "arm": "soft-delete",
+      "channel": "audit",
+      "position": "before-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.2258750000000873,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 2,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 2,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "audit:before-complete",
+      "arm": "cleanup-only",
+      "channel": "audit",
+      "position": "before-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.8196670000002086,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 1,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 1,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "audit:before-complete",
+      "arm": "guarded-cleanup",
+      "channel": "audit",
+      "position": "before-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": true,
+      "error": null,
+      "cleanupMs": 1.846625000000131,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "audit:before-complete",
+      "arm": "verified-guarded",
+      "channel": "audit",
+      "position": "before-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": true,
+      "error": null,
+      "cleanupMs": 1.6246249999999236,
+      "verificationMs": 2.3102080000003298,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "audit:after-complete",
+      "arm": "soft-delete",
+      "channel": "audit",
+      "position": "after-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.12320899999986068,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 2,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "audit:after-complete",
+      "arm": "cleanup-only",
+      "channel": "audit",
+      "position": "after-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 2.083541999999852,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 1,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": true,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "audit:after-complete",
+      "arm": "guarded-cleanup",
+      "channel": "audit",
+      "position": "after-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": true,
+      "error": null,
+      "cleanupMs": 1.1868329999997513,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "audit:after-complete",
+      "arm": "verified-guarded",
+      "channel": "audit",
+      "position": "after-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": true,
+      "error": null,
+      "cleanupMs": 1.4400410000002921,
+      "verificationMs": 1.7854159999997137,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "outbox:before-clean",
+      "arm": "soft-delete",
+      "channel": "outbox",
+      "position": "before-clean",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.1289999999999054,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 2
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 2
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "outbox:before-clean",
+      "arm": "cleanup-only",
+      "channel": "outbox",
+      "position": "before-clean",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 1.90362499999992,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "outbox:before-clean",
+      "arm": "guarded-cleanup",
+      "channel": "outbox",
+      "position": "before-clean",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 2.042084000000159,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "outbox:before-clean",
+      "arm": "verified-guarded",
+      "channel": "outbox",
+      "position": "before-clean",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 3.696374999999989,
+      "verificationMs": 1.8356659999999465,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "outbox:before-complete",
+      "arm": "soft-delete",
+      "channel": "outbox",
+      "position": "before-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.23416599999973187,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 2
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 2
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "outbox:before-complete",
+      "arm": "cleanup-only",
+      "channel": "outbox",
+      "position": "before-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 1.0287920000000668,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "outbox:before-complete",
+      "arm": "guarded-cleanup",
+      "channel": "outbox",
+      "position": "before-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": true,
+      "error": null,
+      "cleanupMs": 0.9380000000001019,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "outbox:before-complete",
+      "arm": "verified-guarded",
+      "channel": "outbox",
+      "position": "before-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": true,
+      "error": null,
+      "cleanupMs": 1.9063340000002427,
+      "verificationMs": 2.0195420000000013,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "outbox:after-complete",
+      "arm": "soft-delete",
+      "channel": "outbox",
+      "position": "after-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.879041000000143,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 2
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "outbox:after-complete",
+      "arm": "cleanup-only",
+      "channel": "outbox",
+      "position": "after-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 2.126499999999851,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": true,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "outbox:after-complete",
+      "arm": "guarded-cleanup",
+      "channel": "outbox",
+      "position": "after-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": true,
+      "error": null,
+      "cleanupMs": 2.7763749999999163,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "outbox:after-complete",
+      "arm": "verified-guarded",
+      "channel": "outbox",
+      "position": "after-complete",
+      "omission": null,
+      "completed": true,
+      "writerRejected": true,
+      "error": null,
+      "cleanupMs": 2.1658330000000205,
+      "verificationMs": 2.043583000000126,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": true
+    },
+    {
+      "caseId": "omit:fts",
+      "arm": "soft-delete",
+      "channel": "fts",
+      "position": "omission",
+      "omission": "fts",
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.27424999999993815,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "omit:fts",
+      "arm": "cleanup-only",
+      "channel": "fts",
+      "position": "omission",
+      "omission": "fts",
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.5258340000000317,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 1,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 1,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "omit:fts",
+      "arm": "guarded-cleanup",
+      "channel": "fts",
+      "position": "omission",
+      "omission": "fts",
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 1.3825830000000678,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 1,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 1,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "omit:fts",
+      "arm": "verified-guarded",
+      "channel": "fts",
+      "position": "omission",
+      "omission": "fts",
+      "completed": false,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 1.1715000000003783,
+      "verificationMs": 0.5373340000001008,
+      "verificationBlocked": true,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 1,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 1,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "omit:vector",
+      "arm": "soft-delete",
+      "channel": "vector",
+      "position": "omission",
+      "omission": "vector",
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.41975000000002183,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "omit:vector",
+      "arm": "cleanup-only",
+      "channel": "vector",
+      "position": "omission",
+      "omission": "vector",
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.5101250000002437,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 1,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 1,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "omit:vector",
+      "arm": "guarded-cleanup",
+      "channel": "vector",
+      "position": "omission",
+      "omission": "vector",
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 1.0139170000002196,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 1,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 1,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "omit:vector",
+      "arm": "verified-guarded",
+      "channel": "vector",
+      "position": "omission",
+      "omission": "vector",
+      "completed": false,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.7741249999999127,
+      "verificationMs": 1.047458999999435,
+      "verificationBlocked": true,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 1,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 1,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "omit:summary",
+      "arm": "soft-delete",
+      "channel": "summary",
+      "position": "omission",
+      "omission": "summary",
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.19741700000031415,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "omit:summary",
+      "arm": "cleanup-only",
+      "channel": "summary",
+      "position": "omission",
+      "omission": "summary",
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.5587500000001455,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 1,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 1,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "omit:summary",
+      "arm": "guarded-cleanup",
+      "channel": "summary",
+      "position": "omission",
+      "omission": "summary",
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.9775410000002012,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 1,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 1,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "omit:summary",
+      "arm": "verified-guarded",
+      "channel": "summary",
+      "position": "omission",
+      "omission": "summary",
+      "completed": false,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 2.826332999999977,
+      "verificationMs": 0.36616700000013225,
+      "verificationBlocked": true,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 1,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 1,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "omit:audit",
+      "arm": "soft-delete",
+      "channel": "audit",
+      "position": "omission",
+      "omission": "audit",
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 1.9055829999997513,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "omit:audit",
+      "arm": "cleanup-only",
+      "channel": "audit",
+      "position": "omission",
+      "omission": "audit",
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.7597500000001673,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 1,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 1,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "omit:audit",
+      "arm": "guarded-cleanup",
+      "channel": "audit",
+      "position": "omission",
+      "omission": "audit",
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.903374999999869,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 1,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 1,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "omit:audit",
+      "arm": "verified-guarded",
+      "channel": "audit",
+      "position": "omission",
+      "omission": "audit",
+      "completed": false,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.6278339999998934,
+      "verificationMs": 0.4452499999997599,
+      "verificationBlocked": true,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 1,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 1,
+          "outbox": 0
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "omit:outbox",
+      "arm": "soft-delete",
+      "channel": "outbox",
+      "position": "omission",
+      "omission": "outbox",
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.42374999999992724,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "omit:outbox",
+      "arm": "cleanup-only",
+      "channel": "outbox",
+      "position": "omission",
+      "omission": "outbox",
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.7627919999995356,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "omit:outbox",
+      "arm": "guarded-cleanup",
+      "channel": "outbox",
+      "position": "omission",
+      "omission": "outbox",
+      "completed": true,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.5068750000000364,
+      "verificationMs": 0,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": true,
+      "resurrection": false,
+      "safeCompletion": false
+    },
+    {
+      "caseId": "omit:outbox",
+      "arm": "verified-guarded",
+      "channel": "outbox",
+      "position": "omission",
+      "omission": "outbox",
+      "completed": false,
+      "writerRejected": false,
+      "error": null,
+      "cleanupMs": 0.7185419999996157,
+      "verificationMs": 0.4021249999996144,
+      "verificationBlocked": true,
+      "atCompletion": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "falseCompletion": false,
+      "resurrection": false,
+      "safeCompletion": false
+    }
+  ],
+  "latency": [
+    {
+      "repetition": 0,
+      "arm": "soft-delete",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.10408400000051188,
+      "verificationMs": 0,
+      "totalMs": 0.10408400000051188,
+      "error": null
+    },
+    {
+      "repetition": 0,
+      "arm": "cleanup-only",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.5302920000003724,
+      "verificationMs": 0,
+      "totalMs": 1.5302920000003724,
+      "error": null
+    },
+    {
+      "repetition": 0,
+      "arm": "guarded-cleanup",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.4135419999993246,
+      "verificationMs": 0,
+      "totalMs": 1.4135419999993246,
+      "error": null
+    },
+    {
+      "repetition": 0,
+      "arm": "verified-guarded",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.776042000000416,
+      "verificationMs": 2.4768749999993815,
+      "totalMs": 4.2529169999997976,
+      "error": null
+    },
+    {
+      "repetition": 1,
+      "arm": "cleanup-only",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.8593330000003334,
+      "verificationMs": 0,
+      "totalMs": 0.8593330000003334,
+      "error": null
+    },
+    {
+      "repetition": 1,
+      "arm": "guarded-cleanup",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.806416999999783,
+      "verificationMs": 0,
+      "totalMs": 0.806416999999783,
+      "error": null
+    },
+    {
+      "repetition": 1,
+      "arm": "verified-guarded",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.8616249999995489,
+      "verificationMs": 1.63866599999983,
+      "totalMs": 2.500290999999379,
+      "error": null
+    },
+    {
+      "repetition": 1,
+      "arm": "soft-delete",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.5192079999997077,
+      "verificationMs": 0,
+      "totalMs": 0.5192079999997077,
+      "error": null
+    },
+    {
+      "repetition": 2,
+      "arm": "guarded-cleanup",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.7540000000008149,
+      "verificationMs": 0,
+      "totalMs": 0.7540000000008149,
+      "error": null
+    },
+    {
+      "repetition": 2,
+      "arm": "verified-guarded",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.1714160000001357,
+      "verificationMs": 1.5857500000001892,
+      "totalMs": 2.757166000000325,
+      "error": null
+    },
+    {
+      "repetition": 2,
+      "arm": "soft-delete",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.10779199999979028,
+      "verificationMs": 0,
+      "totalMs": 0.10779199999979028,
+      "error": null
+    },
+    {
+      "repetition": 2,
+      "arm": "cleanup-only",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.5909999999994398,
+      "verificationMs": 0,
+      "totalMs": 1.5909999999994398,
+      "error": null
+    },
+    {
+      "repetition": 3,
+      "arm": "verified-guarded",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.8510420000002341,
+      "verificationMs": 2.2107080000005226,
+      "totalMs": 3.0617500000007567,
+      "error": null
+    },
+    {
+      "repetition": 3,
+      "arm": "soft-delete",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.15524999999979627,
+      "verificationMs": 0,
+      "totalMs": 0.15524999999979627,
+      "error": null
+    },
+    {
+      "repetition": 3,
+      "arm": "cleanup-only",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.247041999999965,
+      "verificationMs": 0,
+      "totalMs": 1.247041999999965,
+      "error": null
+    },
+    {
+      "repetition": 3,
+      "arm": "guarded-cleanup",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.8480410000001939,
+      "verificationMs": 0,
+      "totalMs": 0.8480410000001939,
+      "error": null
+    },
+    {
+      "repetition": 4,
+      "arm": "soft-delete",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.08358299999963492,
+      "verificationMs": 0,
+      "totalMs": 0.08358299999963492,
+      "error": null
+    },
+    {
+      "repetition": 4,
+      "arm": "cleanup-only",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.827582999999322,
+      "verificationMs": 0,
+      "totalMs": 0.827582999999322,
+      "error": null
+    },
+    {
+      "repetition": 4,
+      "arm": "guarded-cleanup",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.7403329999997368,
+      "verificationMs": 0,
+      "totalMs": 0.7403329999997368,
+      "error": null
+    },
+    {
+      "repetition": 4,
+      "arm": "verified-guarded",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.7587499999999636,
+      "verificationMs": 1.4096660000004704,
+      "totalMs": 2.168416000000434,
+      "error": null
+    },
+    {
+      "repetition": 5,
+      "arm": "cleanup-only",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.8631669999995211,
+      "verificationMs": 0,
+      "totalMs": 0.8631669999995211,
+      "error": null
+    },
+    {
+      "repetition": 5,
+      "arm": "guarded-cleanup",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.7545000000000073,
+      "verificationMs": 0,
+      "totalMs": 0.7545000000000073,
+      "error": null
+    },
+    {
+      "repetition": 5,
+      "arm": "verified-guarded",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.8498340000005555,
+      "verificationMs": 1.5987910000003467,
+      "totalMs": 2.448625000000902,
+      "error": null
+    },
+    {
+      "repetition": 5,
+      "arm": "soft-delete",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.11895800000002055,
+      "verificationMs": 0,
+      "totalMs": 0.11895800000002055,
+      "error": null
+    },
+    {
+      "repetition": 6,
+      "arm": "guarded-cleanup",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.2877090000001772,
+      "verificationMs": 0,
+      "totalMs": 1.2877090000001772,
+      "error": null
+    },
+    {
+      "repetition": 6,
+      "arm": "verified-guarded",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.8930410000002666,
+      "verificationMs": 1.7281670000002123,
+      "totalMs": 2.621208000000479,
+      "error": null
+    },
+    {
+      "repetition": 6,
+      "arm": "soft-delete",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.09058300000015151,
+      "verificationMs": 0,
+      "totalMs": 0.09058300000015151,
+      "error": null
+    },
+    {
+      "repetition": 6,
+      "arm": "cleanup-only",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.9139999999997599,
+      "verificationMs": 0,
+      "totalMs": 0.9139999999997599,
+      "error": null
+    },
+    {
+      "repetition": 7,
+      "arm": "verified-guarded",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 3.4144590000005337,
+      "verificationMs": 2.891250000000582,
+      "totalMs": 6.305709000001116,
+      "error": null
+    },
+    {
+      "repetition": 7,
+      "arm": "soft-delete",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.08812500000021828,
+      "verificationMs": 0,
+      "totalMs": 0.08812500000021828,
+      "error": null
+    },
+    {
+      "repetition": 7,
+      "arm": "cleanup-only",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.4931249999999636,
+      "verificationMs": 0,
+      "totalMs": 1.4931249999999636,
+      "error": null
+    },
+    {
+      "repetition": 7,
+      "arm": "guarded-cleanup",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.8453330000002097,
+      "verificationMs": 0,
+      "totalMs": 0.8453330000002097,
+      "error": null
+    },
+    {
+      "repetition": 8,
+      "arm": "soft-delete",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.25929199999973207,
+      "verificationMs": 0,
+      "totalMs": 0.25929199999973207,
+      "error": null
+    },
+    {
+      "repetition": 8,
+      "arm": "cleanup-only",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.1425419999995938,
+      "verificationMs": 0,
+      "totalMs": 1.1425419999995938,
+      "error": null
+    },
+    {
+      "repetition": 8,
+      "arm": "guarded-cleanup",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 2.204250000000684,
+      "verificationMs": 0,
+      "totalMs": 2.204250000000684,
+      "error": null
+    },
+    {
+      "repetition": 8,
+      "arm": "verified-guarded",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.8591249999999491,
+      "verificationMs": 5.5199579999998605,
+      "totalMs": 6.3790829999998095,
+      "error": null
+    },
+    {
+      "repetition": 9,
+      "arm": "cleanup-only",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 2.035666000000674,
+      "verificationMs": 0,
+      "totalMs": 2.035666000000674,
+      "error": null
+    },
+    {
+      "repetition": 9,
+      "arm": "guarded-cleanup",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.9424999999991996,
+      "verificationMs": 0,
+      "totalMs": 0.9424999999991996,
+      "error": null
+    },
+    {
+      "repetition": 9,
+      "arm": "verified-guarded",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.7869579999996859,
+      "verificationMs": 1.5403749999995853,
+      "totalMs": 2.327332999999271,
+      "error": null
+    },
+    {
+      "repetition": 9,
+      "arm": "soft-delete",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.22850000000016735,
+      "verificationMs": 0,
+      "totalMs": 0.22850000000016735,
+      "error": null
+    },
+    {
+      "repetition": 10,
+      "arm": "guarded-cleanup",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 2.2969580000008136,
+      "verificationMs": 0,
+      "totalMs": 2.2969580000008136,
+      "error": null
+    },
+    {
+      "repetition": 10,
+      "arm": "verified-guarded",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.3307080000004134,
+      "verificationMs": 2.2527909999998883,
+      "totalMs": 3.5834990000003017,
+      "error": null
+    },
+    {
+      "repetition": 10,
+      "arm": "soft-delete",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.5155420000000959,
+      "verificationMs": 0,
+      "totalMs": 0.5155420000000959,
+      "error": null
+    },
+    {
+      "repetition": 10,
+      "arm": "cleanup-only",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.8649169999998776,
+      "verificationMs": 0,
+      "totalMs": 0.8649169999998776,
+      "error": null
+    },
+    {
+      "repetition": 11,
+      "arm": "verified-guarded",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.0859169999994265,
+      "verificationMs": 1.8242079999999987,
+      "totalMs": 2.910124999999425,
+      "error": null
+    },
+    {
+      "repetition": 11,
+      "arm": "soft-delete",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.590582999999242,
+      "verificationMs": 0,
+      "totalMs": 0.590582999999242,
+      "error": null
+    },
+    {
+      "repetition": 11,
+      "arm": "cleanup-only",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 2.067124999999578,
+      "verificationMs": 0,
+      "totalMs": 2.067124999999578,
+      "error": null
+    },
+    {
+      "repetition": 11,
+      "arm": "guarded-cleanup",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 2.3864159999993717,
+      "verificationMs": 0,
+      "totalMs": 2.3864159999993717,
+      "error": null
+    },
+    {
+      "repetition": 12,
+      "arm": "soft-delete",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.4961670000002414,
+      "verificationMs": 0,
+      "totalMs": 0.4961670000002414,
+      "error": null
+    },
+    {
+      "repetition": 12,
+      "arm": "cleanup-only",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.3091670000003433,
+      "verificationMs": 0,
+      "totalMs": 1.3091670000003433,
+      "error": null
+    },
+    {
+      "repetition": 12,
+      "arm": "guarded-cleanup",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 3.2012079999994967,
+      "verificationMs": 0,
+      "totalMs": 3.2012079999994967,
+      "error": null
+    },
+    {
+      "repetition": 12,
+      "arm": "verified-guarded",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 2.2114169999995283,
+      "verificationMs": 3.053458000000319,
+      "totalMs": 5.264874999999847,
+      "error": null
+    },
+    {
+      "repetition": 13,
+      "arm": "cleanup-only",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.2040420000002996,
+      "verificationMs": 0,
+      "totalMs": 1.2040420000002996,
+      "error": null
+    },
+    {
+      "repetition": 13,
+      "arm": "guarded-cleanup",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.7957910000004631,
+      "verificationMs": 0,
+      "totalMs": 0.7957910000004631,
+      "error": null
+    },
+    {
+      "repetition": 13,
+      "arm": "verified-guarded",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.6286660000005213,
+      "verificationMs": 2.223750000000109,
+      "totalMs": 3.8524160000006304,
+      "error": null
+    },
+    {
+      "repetition": 13,
+      "arm": "soft-delete",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.11049999999977445,
+      "verificationMs": 0,
+      "totalMs": 0.11049999999977445,
+      "error": null
+    },
+    {
+      "repetition": 14,
+      "arm": "guarded-cleanup",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.9825000000000728,
+      "verificationMs": 0,
+      "totalMs": 1.9825000000000728,
+      "error": null
+    },
+    {
+      "repetition": 14,
+      "arm": "verified-guarded",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.7524159999993572,
+      "verificationMs": 2.7640419999997903,
+      "totalMs": 3.5164579999991474,
+      "error": null
+    },
+    {
+      "repetition": 14,
+      "arm": "soft-delete",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.33995800000047893,
+      "verificationMs": 0,
+      "totalMs": 0.33995800000047893,
+      "error": null
+    },
+    {
+      "repetition": 14,
+      "arm": "cleanup-only",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 2.1504170000007434,
+      "verificationMs": 0,
+      "totalMs": 2.1504170000007434,
+      "error": null
+    },
+    {
+      "repetition": 15,
+      "arm": "verified-guarded",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.0381250000000364,
+      "verificationMs": 1.616374999999607,
+      "totalMs": 2.6544999999996435,
+      "error": null
+    },
+    {
+      "repetition": 15,
+      "arm": "soft-delete",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.4184580000001006,
+      "verificationMs": 0,
+      "totalMs": 0.4184580000001006,
+      "error": null
+    },
+    {
+      "repetition": 15,
+      "arm": "cleanup-only",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.8372079999999187,
+      "verificationMs": 0,
+      "totalMs": 0.8372079999999187,
+      "error": null
+    },
+    {
+      "repetition": 15,
+      "arm": "guarded-cleanup",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.8052920000000086,
+      "verificationMs": 0,
+      "totalMs": 0.8052920000000086,
+      "error": null
+    },
+    {
+      "repetition": 16,
+      "arm": "soft-delete",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.44354199999997945,
+      "verificationMs": 0,
+      "totalMs": 0.44354199999997945,
+      "error": null
+    },
+    {
+      "repetition": 16,
+      "arm": "cleanup-only",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.8281660000002375,
+      "verificationMs": 0,
+      "totalMs": 0.8281660000002375,
+      "error": null
+    },
+    {
+      "repetition": 16,
+      "arm": "guarded-cleanup",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.2252079999998386,
+      "verificationMs": 0,
+      "totalMs": 1.2252079999998386,
+      "error": null
+    },
+    {
+      "repetition": 16,
+      "arm": "verified-guarded",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.7730830000000424,
+      "verificationMs": 1.5077919999994265,
+      "totalMs": 2.280874999999469,
+      "error": null
+    },
+    {
+      "repetition": 17,
+      "arm": "cleanup-only",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.7167909999998301,
+      "verificationMs": 0,
+      "totalMs": 0.7167909999998301,
+      "error": null
+    },
+    {
+      "repetition": 17,
+      "arm": "guarded-cleanup",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.8785840000000462,
+      "verificationMs": 0,
+      "totalMs": 0.8785840000000462,
+      "error": null
+    },
+    {
+      "repetition": 17,
+      "arm": "verified-guarded",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.6914999999999054,
+      "verificationMs": 2.1152920000004087,
+      "totalMs": 3.806792000000314,
+      "error": null
+    },
+    {
+      "repetition": 17,
+      "arm": "soft-delete",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.3165829999998095,
+      "verificationMs": 0,
+      "totalMs": 1.3165829999998095,
+      "error": null
+    },
+    {
+      "repetition": 18,
+      "arm": "guarded-cleanup",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.1789589999998498,
+      "verificationMs": 0,
+      "totalMs": 1.1789589999998498,
+      "error": null
+    },
+    {
+      "repetition": 18,
+      "arm": "verified-guarded",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.341707999999926,
+      "verificationMs": 2.3564589999996315,
+      "totalMs": 3.6981669999995574,
+      "error": null
+    },
+    {
+      "repetition": 18,
+      "arm": "soft-delete",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.25141699999949196,
+      "verificationMs": 0,
+      "totalMs": 0.25141699999949196,
+      "error": null
+    },
+    {
+      "repetition": 18,
+      "arm": "cleanup-only",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.8170839999993404,
+      "verificationMs": 0,
+      "totalMs": 0.8170839999993404,
+      "error": null
+    },
+    {
+      "repetition": 19,
+      "arm": "verified-guarded",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.8799159999998665,
+      "verificationMs": 1.7075000000004366,
+      "totalMs": 2.587416000000303,
+      "error": null
+    },
+    {
+      "repetition": 19,
+      "arm": "soft-delete",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.09970799999973678,
+      "verificationMs": 0,
+      "totalMs": 0.09970799999973678,
+      "error": null
+    },
+    {
+      "repetition": 19,
+      "arm": "cleanup-only",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.3168750000004366,
+      "verificationMs": 0,
+      "totalMs": 1.3168750000004366,
+      "error": null
+    },
+    {
+      "repetition": 19,
+      "arm": "guarded-cleanup",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.6569579999995767,
+      "verificationMs": 0,
+      "totalMs": 1.6569579999995767,
+      "error": null
+    },
+    {
+      "repetition": 20,
+      "arm": "soft-delete",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.20800000000053842,
+      "verificationMs": 0,
+      "totalMs": 0.20800000000053842,
+      "error": null
+    },
+    {
+      "repetition": 20,
+      "arm": "cleanup-only",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.8606250000002547,
+      "verificationMs": 0,
+      "totalMs": 0.8606250000002547,
+      "error": null
+    },
+    {
+      "repetition": 20,
+      "arm": "guarded-cleanup",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.2933750000001965,
+      "verificationMs": 0,
+      "totalMs": 1.2933750000001965,
+      "error": null
+    },
+    {
+      "repetition": 20,
+      "arm": "verified-guarded",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.5922499999996944,
+      "verificationMs": 2.802375000000211,
+      "totalMs": 4.394624999999905,
+      "error": null
+    },
+    {
+      "repetition": 21,
+      "arm": "cleanup-only",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 2.8884160000006887,
+      "verificationMs": 0,
+      "totalMs": 2.8884160000006887,
+      "error": null
+    },
+    {
+      "repetition": 21,
+      "arm": "guarded-cleanup",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 2.658166000000165,
+      "verificationMs": 0,
+      "totalMs": 2.658166000000165,
+      "error": null
+    },
+    {
+      "repetition": 21,
+      "arm": "verified-guarded",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.9918330000000424,
+      "verificationMs": 2.3408330000002024,
+      "totalMs": 3.332666000000245,
+      "error": null
+    },
+    {
+      "repetition": 21,
+      "arm": "soft-delete",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.2046250000003056,
+      "verificationMs": 0,
+      "totalMs": 0.2046250000003056,
+      "error": null
+    },
+    {
+      "repetition": 22,
+      "arm": "guarded-cleanup",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.5495410000003176,
+      "verificationMs": 0,
+      "totalMs": 1.5495410000003176,
+      "error": null
+    },
+    {
+      "repetition": 22,
+      "arm": "verified-guarded",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.0582500000000437,
+      "verificationMs": 4.96100000000115,
+      "totalMs": 6.019250000001193,
+      "error": null
+    },
+    {
+      "repetition": 22,
+      "arm": "soft-delete",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.2929579999999987,
+      "verificationMs": 0,
+      "totalMs": 0.2929579999999987,
+      "error": null
+    },
+    {
+      "repetition": 22,
+      "arm": "cleanup-only",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.7276250000013533,
+      "verificationMs": 0,
+      "totalMs": 0.7276250000013533,
+      "error": null
+    },
+    {
+      "repetition": 23,
+      "arm": "verified-guarded",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.2145419999997102,
+      "verificationMs": 4.507041999999274,
+      "totalMs": 5.721583999998984,
+      "error": null
+    },
+    {
+      "repetition": 23,
+      "arm": "soft-delete",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "cleanupMs": 0.12741700000151468,
+      "verificationMs": 0,
+      "totalMs": 0.12741700000151468,
+      "error": null
+    },
+    {
+      "repetition": 23,
+      "arm": "cleanup-only",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.1722909999989497,
+      "verificationMs": 0,
+      "totalMs": 1.1722909999989497,
+      "error": null
+    },
+    {
+      "repetition": 23,
+      "arm": "guarded-cleanup",
+      "caseId": "fts:before-clean",
+      "completed": true,
+      "final": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "cleanupMs": 1.0060409999987314,
+      "verificationMs": 0,
+      "totalMs": 1.0060409999987314,
+      "error": null
+    }
+  ],
+  "errorSinks": [
+    {
+      "method": "markFailed",
+      "implementation": "legacy-sql",
+      "error": null,
+      "before": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "after": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "status": "failed",
+      "retryCount": 1,
+      "resurrection": true
+    },
+    {
+      "method": "markFailed",
+      "implementation": "patched-production",
+      "error": null,
+      "before": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "after": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "status": "published",
+      "retryCount": 0,
+      "resurrection": false
+    },
+    {
+      "method": "markDeadLetter",
+      "implementation": "legacy-sql",
+      "error": null,
+      "before": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "after": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "status": "dead_letter",
+      "retryCount": 0,
+      "resurrection": true
+    },
+    {
+      "method": "markDeadLetter",
+      "implementation": "patched-production",
+      "error": null,
+      "before": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "after": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "status": "published",
+      "retryCount": 0,
+      "resurrection": false
+    }
+  ],
+  "crashes": [
+    {
+      "stage": "inside-transaction",
+      "error": null,
+      "signal": "SIGKILL",
+      "reopened": {
+        "residue": {
+          "record": 1,
+          "revisions": 1,
+          "evidence": 1,
+          "fts": 1,
+          "vector": 1,
+          "summary": 1,
+          "audit": 1,
+          "outbox": 1
+        },
+        "clean": false,
+        "keepIntact": true
+      },
+      "rollbackObserved": true,
+      "rollbackIntact": true,
+      "afterRetry": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "passed": true
+    },
+    {
+      "stage": "after-clean-commit",
+      "error": null,
+      "signal": "SIGKILL",
+      "reopened": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "rollbackObserved": false,
+      "rollbackIntact": false,
+      "afterRetry": {
+        "residue": {
+          "record": 0,
+          "revisions": 0,
+          "evidence": 0,
+          "fts": 0,
+          "vector": 0,
+          "summary": 0,
+          "audit": 0,
+          "outbox": 0
+        },
+        "clean": true,
+        "keepIntact": true
+      },
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "Finite deterministic schedules, not exhaustive concurrency or model checking.",
+    "Arms are component ablations, not measured competing frameworks.",
+    "Synthetic two-record fixture; no real model, semantic unlearning, cache, backup, or secure page erasure.",
+    "Omission mutations are deliberate research SQL, not normal product operations.",
+    "Two SIGKILL barriers probe selected committed/uncommitted boundaries, not general crash consistency.",
+    "Timing samples are local descriptive measurements; correctness schedules are not iid statistical samples."
+  ]
+}

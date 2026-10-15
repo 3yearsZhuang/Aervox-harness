@@ -36,7 +36,9 @@ export class SqliteMemoryDeletionStore {
       await tx.run(sql`UPDATE memory_compaction_markers SET summary_text = NULL, status = 'tombstoned' WHERE memory_id = ${memoryId}`);
       await tx.run(sql`UPDATE memory_events SET reason = NULL WHERE memory_id = ${memoryId}`);
       await tx.run(sql`UPDATE outbox_events SET
-        payload = json_object('memoryId', ${memoryId}, 'snapshotId', json_extract(payload, '$.snapshotId'), 'deleted', json('true')),
+        payload = json_object('memoryId', ${memoryId}, 'snapshotId',
+          CASE WHEN json_type(payload, '$.snapshotId') = 'text' THEN json_extract(payload, '$.snapshotId') ELSE NULL END,
+          'deleted', json('true')),
         status = 'published', last_error = NULL, published_at = ${new Date().toISOString()}
         WHERE event_type = 'memory.compaction.requested' AND json_extract(payload, '$.memoryId') = ${memoryId}`);
       await tx.run(sql`DELETE FROM memory_embeddings WHERE memory_id = ${memoryId}`);
@@ -49,14 +51,19 @@ export class SqliteMemoryDeletionStore {
     return this.db.transaction(async (tx) => {
       await this.assertSupported(tx, memoryId);
       const [residue] = await tx.all(sql`
-        SELECT 1 FROM memory_records WHERE id = ${memoryId} AND (is_deleted != 1 OR content != '' OR keywords_json IS NOT NULL OR verification_status != 'invalidated')
+        SELECT 1 FROM memory_records WHERE id = ${memoryId} AND (
+          is_deleted != 1 OR content != '' OR keywords_json IS NOT NULL OR verification_status != 'invalidated'
+          OR canonical_parent_id IS NOT NULL OR source_turn_id IS NOT NULL OR current_revision_id IS NOT NULL)
         UNION ALL SELECT 1 FROM memory_revisions WHERE memory_id = ${memoryId} AND content != ''
         UNION ALL SELECT 1 FROM memory_evidence WHERE memory_revision_id IN (SELECT id FROM memory_revisions WHERE memory_id = ${memoryId}) AND (status != 'tombstoned' OR source_range IS NOT NULL)
-        UNION ALL SELECT 1 FROM memory_compaction_markers WHERE memory_id = ${memoryId} AND summary_text IS NOT NULL
+        UNION ALL SELECT 1 FROM memory_compaction_markers WHERE memory_id = ${memoryId} AND (summary_text IS NOT NULL OR status != 'tombstoned')
         UNION ALL SELECT 1 FROM memory_events WHERE memory_id = ${memoryId} AND reason IS NOT NULL
         UNION ALL SELECT 1 FROM outbox_events WHERE event_type = 'memory.compaction.requested'
           AND json_extract(payload, '$.memoryId') = ${memoryId}
-          AND (json_extract(payload, '$.deleted') IS NOT 1 OR json_extract(payload, '$.summaryText') IS NOT NULL OR last_error IS NOT NULL)
+          AND (json_type(payload, '$.deleted') IS NOT 'true' OR status != 'published' OR last_error IS NOT NULL
+            OR EXISTS (SELECT 1 FROM json_each(payload) AS field
+              WHERE field.key NOT IN ('memoryId', 'snapshotId', 'deleted')
+                OR (field.key = 'snapshotId' AND field.type NOT IN ('text', 'null'))))
         UNION ALL SELECT 1 FROM memory_embeddings WHERE memory_id = ${memoryId}
         UNION ALL SELECT 1 FROM memories_fts WHERE id = ${memoryId}
         LIMIT 1`);
