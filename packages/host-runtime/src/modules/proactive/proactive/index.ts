@@ -24,6 +24,7 @@ import { ProactiveIntegrationManager } from "./integration-manager.js";
 import { registerProactiveIntegrationTools } from "./integration-tools.js";
 
 export interface ProactiveModuleOptions {
+  startBackground?: boolean;
   db?: AervoxDatabase;
   cipher?: ProactiveVaultCipher;
   accessToken?: string | null;
@@ -92,7 +93,7 @@ export async function registerProactiveModule(ctx: ModuleDependencies<"app" | "d
       authorizer: actionAuthorizer,
     });
   }
-  ctx.app.addHook("onReady", async () => integrationManager.start());
+  if (options.startBackground !== false) ctx.app.addHook("onReady", async () => integrationManager.start());
   ctx.app.addHook("onClose", async () => integrationManager.stop());
   return { repository, intelligenceRepository, actionAuthorizer, integrationManager };
 }

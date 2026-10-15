@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import { setTimeout as pause } from "node:timers/promises";
 import { createFixture } from "./native-search-fixture.mjs";
-import { RipgrepCodeSearch } from "../apps/api/dist/modules/ecosystem/mcp/code-search.js";
+import { RipgrepCodeSearch } from "../packages/host-runtime/dist/modules/ecosystem/mcp/code-search.js";
 import { rgPath } from "@vscode/ripgrep";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -89,7 +89,7 @@ function legacySearch(directory, query, maxResults) {
 
 try {
   const digest = createHash("sha256");
-  for (const path of ["native/Cargo.toml", "native/tools/vector-pilot/src/main.rs", "native/tools/vector-pilot/Cargo.toml", "native/Cargo.lock", "pnpm-lock.yaml", "scripts/benchmark-native-search.mjs", "scripts/native-search-fixture.mjs", "scripts/vector-benchmark-worker.mjs", "packages/repositories/dist/search/top-k.js", "apps/api/dist/modules/ecosystem/mcp/code-search.js"]) {
+  for (const path of ["native/Cargo.toml", "native/tools/vector-pilot/src/main.rs", "native/tools/vector-pilot/Cargo.toml", "native/Cargo.lock", "pnpm-lock.yaml", "scripts/benchmark-native-search.mjs", "scripts/native-search-fixture.mjs", "scripts/vector-benchmark-worker.mjs", "packages/repositories/dist/search/top-k.js", "packages/host-runtime/dist/modules/ecosystem/mcp/code-search.js"]) {
     digest.update(path).update(await readFile(join(root, path)));
   }
   const report = {

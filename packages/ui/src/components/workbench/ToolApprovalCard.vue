@@ -4,7 +4,7 @@ import { Check, X } from 'lucide-vue-next';
 import { useWorkbenchContext } from '../../composables/workbench-context';
 
 const { layout, conversation, sendMessage } = useWorkbenchContext();
-const { assistantDisplayName } = layout;
+const { companionDisplayName } = layout;
 const {
   pendingApproval,
   approvalBusy,
@@ -20,7 +20,7 @@ function onDecision(decision: 'granted' | 'denied') {
 <template>
   <AervoxCard as="div" v-if="pendingApproval" class="tool-approval-card">
     <div class="tool-approval-text">
-      <strong>{{ assistantDisplayName }}请求执行写操作</strong>
+      <strong>{{ companionDisplayName }}请求执行写操作</strong>
       <span>{{ approvalToolLabel }} — 需要你的确认后才会执行。</span>
     </div>
     <div class="tool-approval-actions">

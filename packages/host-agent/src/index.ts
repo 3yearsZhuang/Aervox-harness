@@ -13,6 +13,5 @@ export * from "./profile.js";
 export * from "./sqlite-observability.js";
 export * from "./resume-dispatcher.js";
 export * from "./embedding-provider.js";
-export * from "./model-provider.js";
 export * from "./tool-adapter.js";
 export * from "./memory-recall.js";

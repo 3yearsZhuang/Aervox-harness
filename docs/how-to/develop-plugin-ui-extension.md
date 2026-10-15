@@ -149,7 +149,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { zipSync } from 'fflate';
 import { pluginManifestSchema } from './packages/contracts/dist/index.js';
-import { parseConfigSchema, applyDefaults, validateValues } from './apps/api/dist/modules/ecosystem/plugins/config-schema.js';
+import { parseConfigSchema, applyDefaults, validateValues } from './packages/host-runtime/dist/modules/ecosystem/plugins/config-schema.js';
 const root = process.argv[2];
 const bundle = path.join(root, 'bundle');
 const manifest = pluginManifestSchema.parse(JSON.parse(await fs.readFile(path.join(bundle, 'plugin.manifest.json'), 'utf8')));
@@ -174,7 +174,7 @@ console.log('sha256:' + createHash('sha256').update(bytes).digest('hex'));
 JS
 ```
 
-预期：输出完整包路径及 64 位 SHA-256；ZIP 根直接包含 Manifest。该校验覆盖本例所用字段，不是完整安全审核。准备出厂声明包时，可将已评审资源加入 `plugins/<id>/` 后运行 `mise tasks run package-plugins`（等价 `mise exec -- pnpm package:plugins`），得到 `dist-plugins/` 产物；该批量命令只打包，不完成契约校验或安全认证。产物字节可重现（同源码重复打包的 SHA-256 稳定），且 `dist-plugins/` 已被 gitignore——验证与测试不要依赖该目录的既有文件，需要分发包时经产品导出端点现场生成。
+预期：输出完整包路径及 64 位 SHA-256；ZIP 根直接包含 Manifest。该校验覆盖本例所用字段，不是完整安全审核。准备出厂声明包时，可将已评审资源加入 `plugins/<id>/` 后运行 `mise tasks run package-plugins`（等价 `mise exec -- pnpm package:plugins`），得到 `dist/plugins/` 产物；该批量命令只打包，不完成契约校验或安全认证。产物字节可重现（同源码重复打包的 SHA-256 稳定），且 `dist/plugins/` 已被 gitignore——验证与测试不要依赖该目录的既有文件，需要分发包时经产品导出端点现场生成。
 
 ### 2.4 在临时数据库验证安装闭环
 
@@ -319,7 +319,7 @@ setup(registry, context, lifecycle) {
 
 ### 4.1 定义 Hook 并显式注册
 
-在 `apps/api/src/modules/ecosystem/plugins/turn-plugins/<id>.ts` 定义，导入路径按当前位置调整：
+在 `packages/host-runtime/src/modules/ecosystem/plugins/turn-plugins/<id>.ts` 定义，导入路径按当前位置调整：
 
 ```ts
 import type { ServerTurnPlugin } from './types.js';
@@ -340,7 +340,7 @@ export const focusCardTurnPlugin: ServerTurnPlugin = {
 };
 ```
 
-在 API 受信组合位置 import 该定义并调用 `registry.register(focusCardTurnPlugin)`；与[现有 focus-mode 装配](../../apps/api/src/plugin-assembly.ts)保持同一种装配方式（实现位于 `plugins/focus-mode/src/server/`，由该装配点以容错方式加载并注入）。也可在测试中通过 `buildApp({pluginRegistry})` 注入独立 `ServerPluginRegistry`。同时安装/登记相同 ID 的主记录，否则生产 Runner 的 enabled 门控不会激活它。
+在 API 受信组合位置 import 该定义并调用 `registry.register(focusCardTurnPlugin)`；与[现有 focus-mode 装配](../../packages/host-runtime/src/plugin-assembly.ts)保持同一种装配方式（实现位于 `plugins/focus-mode/src/server/`，由该装配点以容错方式加载并注入）。也可在测试中通过 `buildApp({pluginRegistry})` 注入独立 `ServerPluginRegistry`。同时安装/登记相同 ID 的主记录，否则生产 Runner 的 enabled 门控不会激活它。
 
 ### 4.2 验证触发与边界
 

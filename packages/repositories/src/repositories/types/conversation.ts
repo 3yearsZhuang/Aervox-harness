@@ -66,6 +66,11 @@ export interface SessionHistoryMessage {
 }
 
 export interface TurnAcceptanceInput {
+  /** Durable owner selected at acceptance; legacy callers stay in the API. */
+  execution?: "api" | "worker";
+  toolApprovalMode?: "ask" | "full_access";
+  actorId?: string;
+  metadata?: Record<string, unknown>;
   turnId: string;
   sessionId: string;
   idempotencyKey: string;

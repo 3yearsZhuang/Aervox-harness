@@ -10,7 +10,7 @@ import { createInMemoryDatabase, initDatabaseSchema, type AervoxDatabase } from 
 import { buildApp } from "./app-fixture.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
-import { RipgrepCodeSearch } from "../src/modules/ecosystem/mcp/code-search.js";
+import { RipgrepCodeSearch } from "@aervox/host-runtime/modules/ecosystem/mcp/code-search";
 
 const headers = {
   "x-workspace-id": "ws_it",

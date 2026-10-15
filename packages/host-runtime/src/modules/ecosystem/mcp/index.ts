@@ -30,8 +30,8 @@ export function registerMcpModule(ctx: ModuleDependencies<"app" | "db" | "toolRu
 
   registerMcpRoutes(ctx.app, service, dshBridge);
 
-  // 重启恢复：为已启用服务器的存量注册行重挂代理 handler（不触网，静默容错）
-  void service.restoreOnStartup().catch(() => undefined);
+  // Ready means persisted tool handlers are available before accepting execution.
+  ctx.app.addHook("onReady", async () => service.restoreOnStartup());
 
   return service;
 }

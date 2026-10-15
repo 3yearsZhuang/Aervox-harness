@@ -79,6 +79,18 @@
 - 验收：定向回归、全量代码/文档门禁、API/UI/CLI E2E；通过 PR 审查。依赖剩余项按具体版本/路径和到期日审阅，不能计为漏洞已消除。
 - 当前证据：2026-10-14 已修复自查发现的录音等待取消、Skill 目录所有权和 Adapter 坏协议清理残留，接通归档业务断连取消，并补齐双会话落库、第 51 项配置写入和真实进程退出验收。本地全量终审退出 0，API 598 项、仓储 402 项通过；API/UI/CLI 集成 45/4/2 项通过。依赖保留 3 项中危例外（4 条路径），2026-11-13 到期；不计为告警消除。逐项证据见审计报告 §8.4；[PR #277](https://github.com/3yearsZhuang/Aervox-harness/pull/277) 于 2026-10-15 经审查合入 `main`，包含插件生命周期前置提交；最新提交 `c18c9d7d` 的八项远端检查均成功。
 
+<a id="iter-061"></a>
+
+### ITER-061 · 陪伴命名整合（素简文档界面已移除）
+
+命名分层工作已落地：统一 companionName/userAddress、旧 assistantName 迁移、设置双字段、各界面问候和随轮元数据；CAP-001/018。依赖已移交的 ITER-055/059/060，合同见 [ADR-025](docs/reference/adr/ADR-025-ui-surface-hosts.md)、[ADR-027](docs/reference/adr/ADR-027-companion-identity.md)。
+
+- 工作分支：`feat/companion-identity`；保留原提交 `de0357ac` / `1c43ddec`。旧 UI 分支的 ITER-057 / ITER-060 与现行 Core/卫生编号冲突，本条目承接新增差量，已有主线编号不变。
+- 2026-10-15 变更：按维护者决定移除本迭代新增的素简文档根界面（`@aervox/plugin-document-ui`）。根界面清单回到完整工作台／紧凑工作台／思隅陪伴（桌面另有桌宠）；组合根装配、外观设置选项、依赖与锁文件、用例同步收敛，记录见 [ADR-025](docs/reference/adr/ADR-025-ui-surface-hosts.md) 同日条目。命名分层与身份模型不受影响。
+- 验收：设置身份保存与重载、各界面发送元数据、人格优先级、真实会话创建、失败重试与草稿保留；界面选择/退出、窄屏与键盘浏览器回归；完整终审后提交独立 PR。
+- 边界：最近会话与固定建议沿用既有来源。服务端人格与客户端身份统一入册、真实模型与移动实机验收留后续；第三方界面开放仍为 Proposed，不因本次整合提升发布状态。
+- 证据：最新代码提交 `2db0f8d6` 的 `./aervox ci all` 退出 0，完整代码、原生专项与文档门禁通过；身份与布局/界面/API 定向 46 项、Chromium UI 7 项及补充 320px 回归通过。[PR #279](https://github.com/3yearsZhuang/Aervox-harness/pull/279) 待评审；测试中的模型响应为模拟输入，不计为真实模型或移动实机验收。移除素简文档界面后重测：Chromium UI project 5 项通过（文档界面 3 条随界面移除，身份用例移入 `e2e/ui/workbench-identity.spec.ts`）、`@aervox/ui` 119 项、`builtin-plugins-market` 5 项、Web 与桌面组合根构建 16/16、`check:guards` 与 `check:boundary` 通过。
+
 ## 2. 当前建议工作
 
 ### 2.1 第一批：正确性、验证入口与方向决策

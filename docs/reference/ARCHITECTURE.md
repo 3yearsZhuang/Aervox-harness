@@ -57,6 +57,7 @@ MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应
 |---|---|
 | `apps/` | API、Worker、桌面、Web、CLI 与移动壳；宿主组合根负责装配，平台桥留在各端 |
 | `packages/contracts` / `schema` / `repositories` | 公共协议、数据库 Schema 与事务仓储；业务写入不能绕过仓储 |
+| `packages/host-runtime` | API 与 Worker 共用产品装配、执行与权限；API 监听，Worker 调度，见 [ADR-021](adr/ADR-021-aervox-core-standalone-package.md) |
 | `packages/core` | 零运行时依赖的内核；宿主注入持久化、Provider 与业务工具 |
 | `packages/host-plugin-api` / `plugins/` | 窄接口与插件自有实现；领域逻辑不回流到宿主或内核 |
 | `packages/ui` / `ui-host` / `api-client` | 跨端组件、主题和传输；不依赖平台壳或数据库 |
@@ -87,12 +88,12 @@ native/
 
 连接版终端入口 `apps/cli` 只消费 `@aervox/api-client/transport` 的纯传输构建出口，该子路径不加载 Vue composables；CLI 使用根目录统一管理的 esbuild 生成独立 ESM 制品，业务数据与执行权威仍在已有 API/Worker。配置与请求标识回执是宿主私有文件，CLI 不导入 API 私有模块、不直接访问业务库，也不因此新增服务端路由或授权口径；独立 Core 组合另立条目认领。命令边界、受限本机地址、审批与取消语义及兼容范围见 CR-058（已归档至 Aervox-docs-archive），实施状态与剩余差量见 [§4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
-### 3.1 apps/api 内部结构（演进式模块化单体）
+### 3.1 共享产品宿主结构（演进式模块化单体）
 
-`apps/api/src/` 采用**按领域模块组织**的结构（ADR-014 0.3.0 两层分组：25 模块 → 6 域，归属表见 `CR-052 §3.1`（已归档）），每个模块自管路由与仓储实例化，跨模块解耦走持久化的 SQLite Outbox 表由 Worker 轮询投递：
+`packages/host-runtime/src/` 采用**按领域模块组织**的结构（ADR-014 0.3.0 两层分组：25 模块 → 6 域，归属表见 `CR-052 §3.1`（已归档）），每个模块自管路由与仓储实例化，跨模块解耦走持久化的 SQLite Outbox 表由 Worker 轮询投递：
 
 ```text
-apps/api/src/
+packages/host-runtime/src/
 ├── modules/                        # 业务模块（按领域分组，每个自管 routes + 依赖注入）
 │   ├── companion/                  #   陪伴与对话域
 │   │   ├── conversation/           #     Session、Turn、Message、SSE 流式（Agent Loop 编排）
@@ -129,8 +130,8 @@ apps/api/src/
 ├── shared/                          # 跨模块共享（严格限制：只放通用工具）
 │   ├── auth.ts                      #   本机认证与 actor 解析；CR-030 后不再创建 TenantContext
 │   └── errors.ts                    #   共享错误类型（NotFoundError、ValidationError 等）
-├── app.ts                           #   Fastify 应用工厂：组装模块、注册路由（按域分组注释）
-└── index.ts                         #   进程入口：创建 app、listen
+├── runtime.ts                       #   Fastify 应用工厂：组装模块、注册路由（按域分组注释）
+└── index.ts                         #   公开导出；监听入口在 apps/api/src/index.ts
 
 apps/api/test/                       # 集成测试
   └── api-integration.test.ts
@@ -169,7 +170,7 @@ apps/api/test/                       # 集成测试
 
 Web 与桌面端使用 `@aervox/ui` 的 `AervoxWorkbench`、主题与设置组件，通过 `@aervox/api-client` 消费同一 API/SSE 合同。Web 使用 Fetch 传输，Electron 注入受限 IPC 传输；重连、去重与 `Last-Event-ID` 语义相同。平台组合根注入能力，不让共享组件依赖 Electron 或 Capacitor。
 
-两端主工作台均可显示共享 `Live2DPet`；Electron 另保留 `pet.html` 独立桌宠窗口、标题栏和窗口控制。Web 不提供 Electron 窗口能力。设置共用左侧分类/右侧详情结构，窄屏采用横向分类；主题、称呼、发送偏好、密度和提醒保存在当前设备，桌面主题通过受限 IPC 同步壳窗口。
+两端主工作台均可显示共享 `Live2DPet`；Electron 另保留 `pet.html` 独立桌宠窗口、标题栏和窗口控制。Web 不提供 Electron 窗口能力。空间名「思隅」固定；角色名默认「小隅」，用户称呼默认「你」，可在对话设置修改。提示词优先采用当前人格名，再采用客户端角色名；界面设置不直接改写服务端人格，见 [ADR-027](adr/ADR-027-companion-identity.md)。设置共用左侧分类/右侧详情结构，窄屏采用横向分类；主题、角色名、用户称呼、发送偏好、密度和提醒保存在当前设备，桌面主题通过受限 IPC 同步壳窗口。
 
 公共组件在实际跨端复用且开始分叉时才上收，页面壳、窗口管理与平台通道继续留在各端。移动 Capacitor 壳的存在不等于原生平台交付，其认证、跨设备授权、打包与实机要求见 [ADR-022](adr/ADR-022-mobile-runtime-access.md)。API 默认只监听 loopback，远程监听须通过 Token 和来源安全校验。
 
@@ -479,7 +480,7 @@ UTC/IANA 时区、首次窗口、迟到素材、补写、CAS/fencing 与跨时�
 |---|---|---|
 | ContextManifest 只保存首个 Step | [recording-provider](../../packages/core/src/recording-provider.ts) 已对每次实际请求复制消息、工具和生成参数；[多 Step/重试测试](../../packages/core/test/context-manifest.test.ts)已覆盖 | 诊断写入仍为 best effort，不能当作恢复或授权账本；新建议应聚焦实际使用的策略版本及消费链路 |
 | 规则压缩只留首尾并伪称生成摘要 | [context-builder](../../packages/core/src/context-builder.ts) 已保留 system 和完整工具组，并明确提示被省略的消息没有生成摘要；[测试](../../packages/core/test/audit-provider.test.ts)验证配对 | 仍未实现保真摘要；应验证学习目标、错因、承诺和来源的保留，以及摘要失败后的明确降级 |
-| 需要新增缓存 Token 分账字段 | [Provider](../../packages/core/src/openai-compat-provider.ts) 已解析缓存读写用量，[存储工具](../../packages/repositories/src/token-usage.ts)也已有分账 | [ModelRunRecord](../../packages/core/src/types.ts)没有 usage，recording-provider 未向记录传递用量，[API 装配](../../apps/api/src/modules/companion/conversation/agent-executor.ts)结束记录只传状态和耗时；需接通实际调用到数据库的链路 |
+| 需要新增缓存 Token 分账字段 | [Provider](../../packages/core/src/openai-compat-provider.ts) 已解析缓存读写用量，[存储工具](../../packages/repositories/src/token-usage.ts)也已有分账 | [ModelRunRecord](../../packages/core/src/types.ts)没有 usage，recording-provider 未向记录传递用量，[API 装配](../../packages/host-runtime/src/modules/companion/conversation/agent-executor.ts)结束记录只传状态和耗时；需接通实际调用到数据库的链路 |
 | 插件注册失败没有 owned lifecycle | `511f9d1e` 已增加 owned activation、暂存注册、失败回滚和 scope 失效 | 注册生命周期和分发包升级是不同问题；仍应独立审查安装目录、持久状态、恢复日志和进程崩溃，不能重复建设已有注册层 |
 
 ### 13.4 八个项目的实际增量与迁移取舍
@@ -504,7 +505,7 @@ UTC/IANA 时区、首次窗口、迟到素材、补写、CAS/fencing 与跨时�
 
 证据：[阻塞失败处理](https://github.com/earendil-works/pi/blob/6374c2baf432419ccb4541a99ce4958ecd03dae0/packages/durable/src/harness/generation.ts#L129)、[失败与恢复状态测试](https://github.com/earendil-works/pi/blob/6374c2baf432419ccb4541a99ce4958ecd03dae0/packages/durable/test/harness-compaction.test.ts#L1064)。
 
-`8c911797c` 则把 MCP 的“连接中”也纳入关闭：中止初始化、取消重试等待、等待连接尝试结算后再返回。思隅 [MCP service](../../apps/api/src/modules/ecosystem/mcp/service.ts)的同步包含异步 initialize/listTools，而断开会禁用并注销工具；应验证两者竞争时迟到同步不会重新挂回工具。借鉴这一故障夹具即可，不把 pi 的 transport 管理直接替换进现有服务。
+`8c911797c` 则把 MCP 的“连接中”也纳入关闭：中止初始化、取消重试等待、等待连接尝试结算后再返回。思隅 [MCP service](../../packages/host-runtime/src/modules/ecosystem/mcp/service.ts)的同步包含异步 initialize/listTools，而断开会禁用并注销工具；应验证两者竞争时迟到同步不会重新挂回工具。借鉴这一故障夹具即可，不把 pi 的 transport 管理直接替换进现有服务。
 
 证据：[连接中的取消与关闭](https://github.com/earendil-works/pi/blob/6374c2baf432419ccb4541a99ce4958ecd03dae0/packages/coding-agent/src/extensions/mcp/runtime.ts#L359)、[初始化及重试中关闭测试](https://github.com/earendil-works/pi/blob/6374c2baf432419ccb4541a99ce4958ecd03dae0/packages/coding-agent/test/mcp-extension.test.ts#L628)。
 
@@ -528,7 +529,7 @@ UTC/IANA 时区、首次窗口、迟到素材、补写、CAS/fencing 与跨时�
 
 #### 13.4.5 OpenMAIC：区分响应失败、提交失败与资源释放
 
-`9d2eface` 修复导入已持久化但响应丢失时误删数据：聚合文档写入是提交点，失败后尝试读回，不能仅因 Promise 拒绝就按 ID 删除；消费方成功回调也放到回滚范围之外。思隅[附件入口](../../apps/api/src/modules/knowledge/content/routes.ts)已有幂等键与读回能力，值得补“提交成功后连接断开、同 key 重试、读回也失败”的故障夹具，保证不重复创建、不删除已提交内容，不确定状态明确可见。
+`9d2eface` 修复导入已持久化但响应丢失时误删数据：聚合文档写入是提交点，失败后尝试读回，不能仅因 Promise 拒绝就按 ID 删除；消费方成功回调也放到回滚范围之外。思隅[附件入口](../../packages/host-runtime/src/modules/knowledge/content/routes.ts)已有幂等键与读回能力，值得补“提交成功后连接断开、同 key 重试、读回也失败”的故障夹具，保证不重复创建、不删除已提交内容，不确定状态明确可见。
 
 证据：[提交与失败处理](https://github.com/THU-MAIC/OpenMAIC/blob/ecb940c136cc5b4ea56dc81b2505e64eff1dea29/lib/import/use-import-classroom.ts#L539)、[三种读回结果测试](https://github.com/THU-MAIC/OpenMAIC/blob/ecb940c136cc5b4ea56dc81b2505e64eff1dea29/tests/import/server-backed-import-flow.test.ts#L158)。
 
@@ -538,7 +539,7 @@ UTC/IANA 时区、首次窗口、迟到素材、补写、CAS/fencing 与跨时�
 
 #### 13.4.6 Petra：学习语音顺序的验收场景，保留对实现的质疑
 
-`aac255b` 把并发预取和 FIFO 播放分开：后一句先合成完成，也要等待队首；静音通过音量处理，使结束回调和气泡收尾继续运行。对伴学解释很重要，否则“因此……”可能先于推导被读出。思隅已有[合成入口](../../apps/api/src/modules/platform/voice/service.ts)和[语音试听](../../surfaces/panels-ui/src/persona/VoiceAbilityCard.vue)，应基于这些入口测试分段顺序、打断、静音和迟到结果。
+`aac255b` 把并发预取和 FIFO 播放分开：后一句先合成完成，也要等待队首；静音通过音量处理，使结束回调和气泡收尾继续运行。对伴学解释很重要，否则“因此……”可能先于推导被读出。思隅已有[合成入口](../../packages/host-runtime/src/modules/platform/voice/service.ts)和[语音试听](../../surfaces/panels-ui/src/persona/VoiceAbilityCard.vue)，应基于这些入口测试分段顺序、打断、静音和迟到结果。
 
 但该实现仍有缺口：`preload()` 的失败分支只标记 ready，没有唤醒播放队列；本次以原源码和隔离的合成替身复现了唯一队首失败后不推进、idle 回调不触发。创建的 blob URL 也未见对应释放，`stop()` 未取消在途合成。现有“中间段失败”测试不能覆盖全部时序。适合借鉴测试设计并补反例，不宜直接复制播放器。
 
@@ -635,7 +636,7 @@ T、AST、PET、Skill、DSH、PI、GPH 编号用于追溯设计来源，不是�
 | PET-03 | 自主行为引擎参数化（活动频率三档/躲避/待机） | B | 桌面端角色行为 | T-07、桌宠 IP |
 | PET-04 | 表现驱动数据对象 + 视图接口分离 | B | 桌宠表现层抽象 | 桌宠 IP、CAP-019 |
 | PET-05 | AI 工具只读白名单与提示词使用原则 | B | 工具链安全规范 | AI 质量与安全规范 |
-| Skill | Skill 能力（Anthropic Skills 渐进式披露 + Neo 生命周期） | B；后有实现登记 | `apps/api/src/modules/ecosystem/skills/`、`packages/repositories` 技能表 | CAP-020 |
+| Skill | Skill 能力（Anthropic Skills 渐进式披露 + Neo 生命周期） | B；后有实现登记 | `packages/host-runtime/src/modules/ecosystem/skills/`、`packages/repositories` 技能表 | CAP-020 |
 
 <a id="33-t-03-上下文压缩标记"></a>
 
@@ -744,13 +745,13 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 **历史实现与证据。** [原生执行器](../../packages/core/src/executor.ts)已有工具 AbortSignal、租约心跳、默认 8 Step 和通常 5 秒工具超时；API 没有注入总 Turn 时长，相关默认值为 0。[OpenAI 兼容 Provider](../../packages/core/src/openai-compat-provider.ts)的默认 45 秒是随上游数据重置的空闲超时。持续输出不受它约束为固定总时长。
 
-[Subagent/Workflow Contribution](../../packages/core/src/subagent-contribution.ts)没有把工具信号传入 delegate/WorkflowContext。[子任务执行器](../../packages/host-agent/src/subagent-executor.ts)另起 lease、仅限制 4 Step；[API 组合根](../../apps/api/src/modules/companion/conversation/index.ts)为子任务构造 Provider 时，没有传入父执行器使用的 `requireLocalOnly`、路由和会话上下文。父本地处理约束不能据此推断子任务已继承。Workflow 需注入定义才出现；Subagent 已在生产组合根注册，默认子任务无工具且禁止递归委托，这些保护应保留。
+[Subagent/Workflow Contribution](../../packages/core/src/subagent-contribution.ts)没有把工具信号传入 delegate/WorkflowContext。[子任务执行器](../../packages/host-agent/src/subagent-executor.ts)另起 lease、仅限制 4 Step；[API 组合根](../../packages/host-runtime/src/modules/companion/conversation/index.ts)为子任务构造 Provider 时，没有传入父执行器使用的 `requireLocalOnly`、路由和会话上下文。父本地处理约束不能据此推断子任务已继承。Workflow 需注入定义才出现；Subagent 已在生产组合根注册，默认子任务无工具且禁止递归委托，这些保护应保留。
 
 **已复现与限制。** 两步 Fake Workflow 在第一步取消信号后仍执行第二步并返回成功；Fake Subagent 收到的 delegate 输入不含 signal。实验没有运行真实模型或外部副作用。父工具超时后子模型是否继续写入属于这条接线导致的风险，不是本轮已观察到的用户数据事件。
 
 **建议。** 用窄的执行控制对象传递根/父任务身份、取消、绝对截止时间、删除/授权修订和本地处理约束；子任务只能收紧父策略。预算先覆盖墙钟、调用数与并发，再按真实 usage 增加 token/成本；恢复不能重置已消耗预算。没有取消能力的 Provider 应停止新派发、丢弃已取消结果，必要时依赖受限进程终止。已发出的外部动作仍可能结果未知，取消不等于副作用撤回。
 
-**Driver 边界。** [API 执行器](../../apps/api/src/modules/companion/conversation/agent-executor.ts)的 DSH 分支在原生本地策略检查之前返回；[Adapter](../../packages/host-agent/src/adapter-turn.ts)与[当前 runner](../../packages/host-agent/test/fixtures/dsh-turn-runner.mjs)没有自动继承原生全部控制合同。当前 runner 是 `stream:false` 的单次兼容请求，库模式仅探测 DSH 导出；推广完整外部 Agent 前，应逐项验证本地策略、取消、删除、租约、工具账本与终态原子性，不能凭名称认为实现等价。
+**Driver 边界。** [API 执行器](../../packages/host-runtime/src/modules/companion/conversation/agent-executor.ts)的 DSH 分支在原生本地策略检查之前返回；[Adapter](../../packages/host-agent/src/adapter-turn.ts)与[当前 runner](../../packages/host-agent/test/fixtures/dsh-turn-runner.mjs)没有自动继承原生全部控制合同。当前 runner 是 `stream:false` 的单次兼容请求，库模式仅探测 DSH 导出；推广完整外部 Agent 前，应逐项验证本地策略、取消、删除、租约、工具账本与终态原子性，不能凭名称认为实现等价。
 
 **验收。** 父取消后子任务不再进入下一步；总截止时间覆盖持续输出；本地处理任务委托时拒绝 Fake 远程 Provider；重启后累计预算连续。Driver 使用同一合同夹具，但可以明确声明不同能力等级；当前没有证据支持宣布 DSH/Pi 与原生执行完全等价。
 
@@ -758,7 +759,7 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 #### 15.3.3 ARC-03：动态工具的可执行性与可发现性（历史评估）
 
-**历史实现与证据。** [createRuntimeToolProvider](../../apps/api/src/modules/companion/conversation/tool-providers.ts)返回 `tools: []`，执行时才读取注册表。[组合器](../../packages/core/src/subagent-contribution.ts)只合并已有清单，模型 Provider 又只将 `request.tools` 转成 function Schema。因此静态 Subagent/Question/Practice/已配置 Workflow 可见，Memory、MCP 和插件注册工具不会自动进入真实模型请求。
+**历史实现与证据。** [createRuntimeToolProvider](../../packages/host-runtime/src/modules/companion/conversation/tool-providers.ts)返回 `tools: []`，执行时才读取注册表。[组合器](../../packages/core/src/subagent-contribution.ts)只合并已有清单，模型 Provider 又只将 `request.tools` 转成 function Schema。因此静态 Subagent/Question/Practice/已配置 Workflow 可见，Memory、MCP 和插件注册工具不会自动进入真实模型请求。
 
 **已复现。** Fake 注册表包含一个只读 `fake_memory`，静态 Provider 包含 `fake_static`。捕获真实 OpenAI 兼容序列化生成的请求体，只看到 `avx_fake_static`；直接调用动态 `fake_memory` 却成功。这个实验解释了为什么手写 ToolCall 的执行测试可以通过，同时真实模型无法自然选择该工具。
 
@@ -772,7 +773,7 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 **库级已复现。** [decideResume](../../packages/core/src/resume.ts)在同一 Step 的事件为 `request1(seq=1) → result1(seq=2) → request2(seq=3)`、账本只有第一个执行完成时，返回 `resume=true,lastSequence=2`。它没有证明所有请求都具备账本，而且游标低于持久最大序号 3。[ResumeSource](../../packages/host-agent/src/sqlite-resume-source.ts)还需要按 executionId 正确关联多工具结果与互动事件。当前未接线，不能把这个实验描述为默认 API 已重复执行副作用。
 
-**互动语义。** 当前审批结束主要依赖新 Turn 命中已有授权，不是原 Attempt 自动续跑；授权查询按工具名、参数和 granted 匹配，虽记录 `toolVersion`，查询未校验该版本，一次性消费与有效期语义也未闭环。这是需要明确的持续授权语义，不能直接用“一次批准”概括。[问题协调器](../../apps/api/src/modules/companion/conversation/user-question-coordinator.ts)能持久接收恢复后的答案，但原进程 Promise 消失后仍需后续执行消费者。
+**互动语义。** 当前审批结束主要依赖新 Turn 命中已有授权，不是原 Attempt 自动续跑；授权查询按工具名、参数和 granted 匹配，虽记录 `toolVersion`，查询未校验该版本，一次性消费与有效期语义也未闭环。这是需要明确的持续授权语义，不能直接用“一次批准”概括。[问题协调器](../../packages/host-runtime/src/modules/companion/conversation/user-question-coordinator.ts)能持久接收恢复后的答案，但原进程 Promise 消失后仍需后续执行消费者。
 
 **建议与验收。** 自动恢复启用前，先固定完整请求/账本覆盖、全体持久事件高水位、当前 Attempt 归属和原子接管规则；未知外部结果保持人工处理或明确补偿。将等待审批/答案与续跑意图关联，区分一次动作批准和持续规则授权。覆盖每个工具崩溃边界、多工具、缺账本、审批中重启、答案由另一进程提交和 Worker/Host 同时接管；不复用事件序号、不重复副作用、不吞答案。持久续跑语义及授权范围应先由 CR 冻结。
 
@@ -792,7 +793,7 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 #### 15.3.6 ARC-06：删除完成证明和恢复后的撤权保留（历史评估）
 
-**活动路径的缺口。** [隐私路由](../../apps/api/src/modules/platform/privacy/routes.ts)创建 DeletionRequest，但没有物化目标；[删除 Worker](../../apps/worker/src/deletion-worker.ts)的 owner 清理仍是骨架，直接将目标标 completed 并生成 evidenceRef。空目标数组也可通过 `every(completed)`。已有消息/记忆软删与读取过滤有效，本项限定为统一删除编排，不能概括为所有删除入口无效。
+**活动路径的缺口。** [隐私路由](../../packages/host-runtime/src/modules/platform/privacy/routes.ts)创建 DeletionRequest，但没有物化目标；[删除 Worker](../../apps/worker/src/deletion-worker.ts)的 owner 清理仍是骨架，直接将目标标 completed 并生成 evidenceRef。空目标数组也可通过 `every(completed)`。已有消息/记忆软删与读取过滤有效，本项限定为统一删除编排，不能概括为所有删除入口无效。
 
 **已复现。** 临时库创建一条记忆和对应删除请求/目标，执行真实 `runDeletionCycle` 后，请求与目标 completed、`verified_at` 已写、删除闸门由 true 变为 false，但记忆原文仍可通过仓储读取。[隐私仓储](../../packages/repositories/src/repositories/sqlite/privacy-repository.ts)的闸门只看 pending/in_progress，failed 也不继续阻断。完成状态不是零召回证明。
 
@@ -818,9 +819,9 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 #### 15.3.8 ARC-08：检索资格与派生索引生命周期（历史评估）
 
-**历史读路径。** [createSqliteMemoryRecall](../../apps/api/src/modules/companion/conversation/memory-recall.ts)进行混合检索，再核对软删、verified 和 long_term；尚未统一执行 `aiRecallUntil`、用途与分类资格检查。临时夹具把记忆设为已过期且 Restricted，该条仍进入 recall。生产创建路径尚未见这些字段赋值，所以这是资格边界验证，不是已发现真实敏感数据泄露。按[隐私授权](DATA_PRIVACY.md)，Restricted 默认不进入普通记忆；`restricted.profile` 仅授权 CAP-033 指定范围的本地处理，不自动授权普通长期记忆召回，不能增加一个通用授权开关就放行。
+**历史读路径。** [createSqliteMemoryRecall](../../packages/host-runtime/src/modules/companion/conversation/memory-recall.ts)进行混合检索，再核对软删、verified 和 long_term；尚未统一执行 `aiRecallUntil`、用途与分类资格检查。临时夹具把记忆设为已过期且 Restricted，该条仍进入 recall。生产创建路径尚未见这些字段赋值，所以这是资格边界验证，不是已发现真实敏感数据泄露。按[隐私授权](DATA_PRIVACY.md)，Restricted 默认不进入普通记忆；`restricted.profile` 仅授权 CAP-033 指定范围的本地处理，不自动授权普通长期记忆召回，不能增加一个通用授权开关就放行。
 
-**历史索引。** [记忆写工具](../../apps/api/src/modules/companion/memory/memory-store-tool.ts)先写业务记录，再更新 FTS，再调用 embedding；任一步失败不代表前一步已撤销。[FTS](../../packages/repositories/src/search/fts.ts)默认 `unicode61`，临时中文样本“今天学习数学”全文命中 1 条、子词“学习”命中 0 条；这说明需中文检索质量基线，不代表所有中文查询都失败。
+**历史索引。** [记忆写工具](../../packages/host-runtime/src/modules/companion/memory/memory-store-tool.ts)先写业务记录，再更新 FTS，再调用 embedding；任一步失败不代表前一步已撤销。[FTS](../../packages/repositories/src/search/fts.ts)默认 `unicode61`，临时中文样本“今天学习数学”全文命中 1 条、子词“学习”命中 0 条；这说明需中文检索质量基线，不代表所有中文查询都失败。
 
 **可选回填的缺口。** [Embedding Worker](../../apps/worker/src/embedding-migration.ts)默认没有注入 Provider，直接返回 0。注入最小 Provider 后，真实临时库报 `no such column: r.workspace_id`，说明扫描仍引用已移除的历史列；修复应采用当前 LocalContext，不能重新加入旧隔离列。扫描也未按模型区分缺失；[向量适配器](../../packages/repositories/src/repositories/sqlite/memory-embedding-repository.ts)的通用 upsert 使用 `vec_<memoryId>`，不符合多个模型版本共存方向。后者是库级静态风险，当前主要生产调用是 search，不能声称已经覆盖了用户旧向量。
 
@@ -844,13 +845,13 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 #### 15.3.10 ARC-10：领域目录需要可执行的所有权边界（历史评估）
 
-**实测结构。** 对 `apps/api/src/modules/<domain>/<module>/` 下 130 个 TypeScript 文件做只读 AST 统计，得到 6 域、26 模块、14 条不同的模块间有向边，其中 10 条跨域；语法层面 10 处 value import、19 处显式 type-only 引用，解析失败和未解析相对路径均为 0。统计仅含顶层静态相对 import/export，不包含动态导入、ModuleContext 服务调用或真实调用图；value import 不保证最终保留在编译产物中。
+**实测结构。** 对 `packages/host-runtime/src/modules/<domain>/<module>/` 下 130 个 TypeScript 文件做只读 AST 统计，得到 6 域、26 模块、14 条不同的模块间有向边，其中 10 条跨域；语法层面 10 处 value import、19 处显式 type-only 引用，解析失败和未解析相对路径均为 0。统计仅含顶层静态相对 import/export，不包含动态导入、ModuleContext 服务调用或真实调用图；value import 不保证最终保留在编译产物中。
 
 代表依赖为 conversation→proactive 的画像/授权实现、conversation→plugins 的 Turn 插件、plugins→conversation 的 `stream-hub`、persona→skills。模块图中 conversation 与 plugins 双向相依，不等于已证明文件级 ESM 初始化环。真正的问题是内部实现路径成为其它模块的依赖，而重构时没有稳定公开边界。
 
 **门禁覆盖。** [边界脚本](../../scripts/import-boundary.mjs)有 5 条包层规则；本轮现有检查与 14 项脚本测试全部通过。用纯内存 fixture 让 conversation 导入另一个领域的 `routes.ts`，检查结果仍为 `[]`。另一个语法错误 fixture 也因 parser catch 返回空结果；Typecheck 可另行发现语法错误，这只说明边界工具没有报告漏检，不代表整个 CI 会接受非法代码。
 
-**与 ADR 的差异。** [ADR-014](adr/ADR-014-modular-monolith-structure.md)要求模块仅 `index.ts` 对外、跨模块经 shared 总线，而 `event-bus.ts` 没有领域调用者（已在卫生清理中移除）；[ModuleContext](../../apps/api/src/modules/context.ts)仍提供 raw db/client 和按顺序填入的可选服务。对话模块也直接创建多个领域仓储。目录分组已经完成，数据所有权与接口强制还没有同等程度的保证。
+**与 ADR 的差异。** [ADR-014](adr/ADR-014-modular-monolith-structure.md)要求模块仅 `index.ts` 对外、跨模块经 shared 总线，而 `event-bus.ts` 没有领域调用者（已在卫生清理中移除）；[ModuleContext](../../packages/host-runtime/src/modules/context.ts)仍提供 raw db/client 和按顺序填入的可选服务。对话模块也直接创建多个领域仓储。目录分组已经完成，数据所有权与接口强制还没有同等程度的保证。
 
 **候选演进，需 ADR。** 同步查询/命令使用明确类型的公开 Port，异步业务副作用走有归属的持久 Outbox，短暂 UI 通知走进程内广播；三者各自声明失败和重放语义。先冻结实际需要的公开接口，再增加 API 内部深层引用限制、数据写入所有权和解析失败报告。已有违规用带 owner/退出条件的迁移清单逐步收敛，不一次性把所有业务塞进 shared，也不机械改成异步事件调用。
 
@@ -860,9 +861,9 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 #### 15.3.11 ARC-11：模型制品接收需要受限且可验证（历史评估）
 
-**生产范围。** [Model Runtime](../../apps/api/src/modules/ecosystem/model-runtime/index.ts)默认注册；下载端点受全局认证，生产/strict 要求 Token，开发 open 模式仅允许 loopback 监听。它不是未认证的公网接口，但仍需对已接收请求做路径和内容验证。
+**生产范围。** [Model Runtime](../../packages/host-runtime/src/modules/ecosystem/model-runtime/index.ts)默认注册；下载端点受全局认证，生产/strict 要求 Token，开发 open 模式仅允许 loopback 监听。它不是未认证的公网接口，但仍需对已接收请求做路径和内容验证。
 
-[请求 Schema](../../packages/contracts/src/model-runtime-schemas.ts)的 `fileName` 仅为可选字符串；[服务](../../apps/api/src/modules/ecosystem/model-runtime/service.ts)直接 `path.join(modelsDir, fileName)`。[下载器](../../apps/api/src/modules/ecosystem/model-runtime/downloader.ts)在 416/405 后重新全量请求，没有再次检查响应成功；206 续传没有核对 Content-Range 与实体版本。已有并发 2、`.part`、流式写入、rename、可选 SHA-256 和活动任务去重，应保留。
+[请求 Schema](../../packages/contracts/src/model-runtime-schemas.ts)的 `fileName` 仅为可选字符串；[服务](../../packages/host-runtime/src/modules/ecosystem/model-runtime/service.ts)直接 `path.join(modelsDir, fileName)`。[下载器](../../packages/host-runtime/src/modules/ecosystem/model-runtime/downloader.ts)在 416/405 后重新全量请求，没有再次检查响应成功；206 续传没有核对 Content-Range 与实体版本。已有并发 2、`.part`、流式写入、rename、可选 SHA-256 和活动任务去重，应保留。
 
 **三个安全复现。** 实验仅使用自建临时目录和 Fake fetch：`../escaped.gguf` 覆盖了模型目录外的临时哨兵文件且未被扫描注册；416 后返回的 500 错误正文仍保存为正式模型；旧前缀 `OLD` 遇到错误起点的 206 响应仍追加为 `OLDNEW`。没有访问下载源，也未读写真实用户数据或仓库文件。
 
@@ -874,17 +875,17 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 #### 15.3.12 ARC-12：进程代际、资源准入与真实就绪（历史评估）
 
-**模型进程问题。** [LlamaServerManager](../../apps/api/src/modules/ecosystem/model-runtime/llama-server.ts)的启动 deadline 只在循环外计算，等待 `/health` 的 fetch 没有单次超时；旧 child 的 exit/error 回调可修改当前全局状态。Fake 实验中，设置 20 ms 超时后观察到 136 ms 仍在 starting，说明等待未受总截止控制，136 ms 不是性能基准。另一实验在新 child 已 running 后触发旧 child exit，状态变成 error、PID 为空。
+**模型进程问题。** [LlamaServerManager](../../packages/host-runtime/src/modules/ecosystem/model-runtime/llama-server.ts)的启动 deadline 只在循环外计算，等待 `/health` 的 fetch 没有单次超时；旧 child 的 exit/error 回调可修改当前全局状态。Fake 实验中，设置 20 ms 超时后观察到 136 ms 仍在 starting，说明等待未受总截止控制，136 ms 不是性能基准。另一实验在新 child 已 running 后触发旧 child exit，状态变成 error、PID 为空。
 
 可见日志虽有上限，内部 stderr chunks/无换行 partial 仍可增长；指标 fetch 无时限，2 秒采样无在途锁。这些是静态资源风险。已有 busy 拒绝、SIGTERM→SIGKILL、健康探测和 Fastify onClose dispose，不应重新实现一套接口。
 
 **建议。** 每次启动分配 epoch，child、探针、取消与日志归属于同一运行对象；只有当前 epoch 可修改当前状态。start/stop/delete 控制串行化；stop 返回应区分确认退出和仍在清理，不能在旧进程状态未知时启动第二个模型。健康与指标 I/O 都继承总截止时间，探针最多一个在途，内部日志按字节限额。
 
-**多模态资源事实。** [SenseVoice](../../apps/api/src/modules/platform/voice/asr-providers.ts)已缓存识别器、使用异步初始化/解码并串行 decode；不是每次都同步重载模型。但队列无长度/等待预算，语音请求 Port 没有统一取消和 dispose。模型状态/重配置路径存在约 227 MB 权重同步读取校验；远程 ASR/TTS 的 fetch 和整段音频读取也需时限/大小边界。内置 llama-server 默认 4 线程、SenseVoice 配置 2 线程、下载 2 并发只是局部配置，不能证明全机资源预算合适。
+**多模态资源事实。** [SenseVoice](../../packages/host-runtime/src/modules/platform/voice/asr-providers.ts)已缓存识别器、使用异步初始化/解码并串行 decode；不是每次都同步重载模型。但队列无长度/等待预算，语音请求 Port 没有统一取消和 dispose。模型状态/重配置路径存在约 227 MB 权重同步读取校验；远程 ASR/TTS 的 fetch 和整段音频读取也需时限/大小边界。内置 llama-server 默认 4 线程、SenseVoice 配置 2 线程、下载 2 并发只是局部配置，不能证明全机资源预算合适。
 
 **资源演进。** 先给每个 Provider 有界队列、优先级、取消和等待上限，再以轻量协调器管理交互推理与后台下载/校验的竞争；模型切换执行停接单、drain/取消、释放、加载的生命周期。原生库难以取消或初始化显著阻塞时，再选择 Worker Thread/受限子进程隔离。不要因需要隔离计算而拆分全部业务服务。
 
-**就绪等级。** [通用 LLM 探活](../../apps/api/src/modules/ecosystem/llm/health-prober.ts)已有 5 秒超时，但 `/models=200` 不证明目标模型存在或可推理；404/405 也不会触发其仅在异常分支实现的 fallback。建议区分配置有效、制品验证、进程存活、模型加载、推理可用。`GptSovitsLocalProvider` 与默认 `ocr.mock` 的占位问题仍需对照基础边界评估与硬件文档逐 Provider 复核；HTTP TTS 可指向同机真实服务，应单独验收，不能由一个占位 Provider 推断全部本地语音不可用。
+**就绪等级。** [通用 LLM 探活](../../packages/host-runtime/src/modules/ecosystem/llm/health-prober.ts)已有 5 秒超时，但 `/models=200` 不证明目标模型存在或可推理；404/405 也不会触发其仅在异常分支实现的 fallback。建议区分配置有效、制品验证、进程存活、模型加载、推理可用。`GptSovitsLocalProvider` 与默认 `ocr.mock` 的占位问题仍需对照基础边界评估与硬件文档逐 Provider 复核；HTTP TTS 可指向同机真实服务，应单独验收，不能由一个占位 Provider 推断全部本地语音不可用。
 
 **验收。** 永不返回的探针、旧 exit、取消队列项、旧初始化迟到、日志洪泛和模型切换都保持有界；`/models` 不含目标模型时不标 ready。先用 Fake 资源预算验证控制，再用固定设备测 CPU、RSS、排队和 event-loop delay；本轮没有给出任何实际性能提升比例。
 
@@ -892,7 +893,7 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 #### 15.3.13 ARC-13：部署主管与客户端访问边界（历史评估）
 
-**认证组合已验证。** 按 [app.ts](../../apps/api/src/app.ts)的顺序装配真实 [auth hook](../../apps/api/src/shared/auth.ts) 与 CORS，用内存 `/probe` 路由注入请求：open 模式对未知 Origin 返回 200 并反射允许源；Token 模式对标准浏览器 OPTIONS 预检返回 401，而直接带正确 Bearer 的 POST 返回 200。实验只证明服务端配置，不代表已经绕过具体浏览器的本地网络权限策略。
+**认证组合已验证。** 按 [app.ts](../../apps/api/src/app.ts)的顺序装配真实 [auth hook](../../packages/host-runtime/src/shared/auth.ts) 与 CORS，用内存 `/probe` 路由注入请求：open 模式对未知 Origin 返回 200 并反射允许源；Token 模式对标准浏览器 OPTIONS 预检返回 401，而直接带正确 Bearer 的 POST 返回 200。实验只证明服务端配置，不代表已经绕过具体浏览器的本地网络权限策略。
 
 [Desktop 主进程](../../apps/desktop/src/main/index.ts)的 JSON 代理与 SSE 带 Bearer，但活动 `uploadAttachment` 路径只设置 Content-Type。该项为静态接线核查，未启动 Electron。FND-03 的 iframe 资源认证属于同一客户端类型矩阵，不能通过关闭 Token 来修复。
 
@@ -922,13 +923,13 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 #### 15.4.2 FND-02：插件升级与失败恢复（历史评估）
 
-**证据。** [分发引擎](../../apps/api/src/modules/ecosystem/plugins/package-bundle.ts) `installPluginFromBundle` 第 410～412 行在覆盖时先卸载旧插件；第 477～531 行先建立主记录，随后注册配置、Page 和资源，后几步异常只记 warning 并继续返回成功。[配置服务](../../apps/api/src/modules/ecosystem/plugins/config-service.ts) `cleanupPlugin` 第 391～399 行会清除配置、Secret 和 Page 数据。
+**证据。** [分发引擎](../../packages/host-runtime/src/modules/ecosystem/plugins/package-bundle.ts) `installPluginFromBundle` 第 410～412 行在覆盖时先卸载旧插件；第 477～531 行先建立主记录，随后注册配置、Page 和资源，后几步异常只记 warning 并继续返回成功。[配置服务](../../packages/host-runtime/src/modules/ecosystem/plugins/config-service.ts) `cleanupPlugin` 第 391～399 行会清除配置、Secret 和 Page 数据。
 
 **触发与影响。** 升级过程中磁盘写满、Schema 无效或 Page 注册失败，可能同时失去旧版本配置并留下部分新版本；返回成功也不证明插件完整可用。对未来硬件插件，这会表现为设备集成升级后凭据或控制页面失效。
 
 **已有保护。** 安装前已经进行结构预检、重复安装拦截、校验和计算与路径约束，卸载有资源清理。它们尚未构成跨数据库和文件系统的原子升级。
 
-配置写入也有并发边界：[配置仓储](../../packages/repositories/src/repositories/sqlite/plugin-config-repository.ts) `saveConfig` 先读取 revision，再仅按 ID 更新，未用 revision 条件保护 UPDATE；并发旧版本请求可能都通过检查而互相覆盖。[配置服务](../../apps/api/src/modules/ecosystem/plugins/config-service.ts)还先写 Secret、后检查普通配置版本，发生 409 不保证 Secret 未变。现有串行过期版本测试不能证明原子 CAS。该判断来自源代码审阅，本轮未执行并发配置复现。
+配置写入也有并发边界：[配置仓储](../../packages/repositories/src/repositories/sqlite/plugin-config-repository.ts) `saveConfig` 先读取 revision，再仅按 ID 更新，未用 revision 条件保护 UPDATE；并发旧版本请求可能都通过检查而互相覆盖。[配置服务](../../packages/host-runtime/src/modules/ecosystem/plugins/config-service.ts)还先写 Secret、后检查普通配置版本，发生 409 不保证 Secret 未变。现有串行过期版本测试不能证明原子 CAS。该判断来自源代码审阅，本轮未执行并发配置复现。
 
 **建议与权衡。** 在独立 staging 目录验证全部声明、配置和资源，生成安装计划后再激活新版本；用持久安装状态记录、短数据库事务及目录切换构成可恢复流程。旧版本、配置修订与 Secret 引用保留到激活成功，配置迁移需明确而不能复用卸载清理。数据库事务内禁止进行解压和文件复制。代价是额外磁盘空间及崩溃恢复逻辑；升级/卸载语义改变需在相应 ADR 中明确。
 
@@ -938,13 +939,13 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 #### 15.4.3 FND-03：Page Bridge 的身份、权限与撤权（历史评估）
 
-**证据。** [Page 宿主](../../surfaces/panels-ui/src/plugin/PluginPageDialog.vue) `onMessage` 第 97～104 行校验 nonce，但未校验 `event.source` 与当前 iframe 的绑定；`handleBridgeCall` 第 60～89 行对配置读写检查 capability，`notify` 与 `close` 未做同等检查。nonce 由时间与 `Math.random()` 生成。[配置服务](../../apps/api/src/modules/ecosystem/plugins/config-service.ts) `readPageEntry` 第 370～378 行直接读取 Page，未检查插件启用状态；一般资源读取已调用 `requirePlugin` 检查存在性与启用状态，因此缺口集中在入口路径。
+**证据。** [Page 宿主](../../surfaces/panels-ui/src/plugin/PluginPageDialog.vue) `onMessage` 第 97～104 行校验 nonce，但未校验 `event.source` 与当前 iframe 的绑定；`handleBridgeCall` 第 60～89 行对配置读写检查 capability，`notify` 与 `close` 未做同等检查。nonce 由时间与 `Math.random()` 生成。[配置服务](../../packages/host-runtime/src/modules/ecosystem/plugins/config-service.ts) `readPageEntry` 第 370～378 行直接读取 Page，未检查插件启用状态；一般资源读取已调用 `requirePlugin` 检查存在性与启用状态，因此缺口集中在入口路径。
 
 **触发与影响。** 同窗口存在其它 frame、Page 发生导航或插件被禁用时，Bridge 身份和生命周期可能脱节；已知 nonce 的其它消息源缺少第二道窗口身份校验。禁用后入口仍可读取，不能把“界面已隐藏”等同于执行已撤权。本次未进行利用链或端到端攻击验证。
 
 **已有保护。** iframe sandbox、禁止直连网络的 CSP、nonce、配置读写 capability 及服务端配置校验已存在。受 sandbox 影响，消息 origin 可能为 `null`，因此不能机械要求 origin 等于普通站点 URL。
 
-正常授权访问也需要补齐：[API 认证](../../apps/api/src/shared/auth.ts)在 Token 模式检查 Bearer 请求头，而当前 iframe URL 与页面脚本资源请求不注入该头，Page 资源会被拒绝。应设计受限的页面资源授权通道并验证 Token 模式，不能把关闭生产认证或将长期 Token 放入 URL 作为修复。
+正常授权访问也需要补齐：[API 认证](../../packages/host-runtime/src/shared/auth.ts)在 Token 模式检查 Bearer 请求头，而当前 iframe URL 与页面脚本资源请求不注入该头，Page 资源会被拒绝。应设计受限的页面资源授权通道并验证 Token 模式，不能把关闭生产认证或将长期 Token 放入 URL 作为修复。
 
 **建议与权衡。** 首先绑定 `event.source === iframe.contentWindow`，为普通源与 opaque origin 分别定义可验证策略；每次加载/切换生成加密随机 nonce，异步响应绑定发起时的 Page 会话。以显式方法表统一全部 Bridge 权限，禁用/撤权时销毁会话并让入口、资产和命令走一致门控。能力名称、兼容策略及新信任边界由插件契约/CR 冻结，不在 UI 层临时发明权限。
 
@@ -952,7 +953,7 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 #### 15.4.4 FND-04：归档预检的资源配额（历史评估）
 
-**证据。** [分发引擎](../../apps/api/src/modules/ecosystem/plugins/package-bundle.ts) `inspectPluginBundle` 第 76～108 行先 `unzipSync` 完整展开，再检查路径；`installPluginFromBundle` 第 415 行再次展开。[插件路由](../../apps/api/src/modules/ecosystem/plugins/routes.ts) 已设置 20 MiB HTTP body 上限，但这不是展开体积或文件数量上限。
+**证据。** [分发引擎](../../packages/host-runtime/src/modules/ecosystem/plugins/package-bundle.ts) `inspectPluginBundle` 第 76～108 行先 `unzipSync` 完整展开，再检查路径；`installPluginFromBundle` 第 415 行再次展开。[插件路由](../../packages/host-runtime/src/modules/ecosystem/plugins/routes.ts) 已设置 20 MiB HTTP body 上限，但这不是展开体积或文件数量上限。
 
 **触发与影响。** 高压缩比或大量小文件归档即使满足上传限制，仍可能占用大量内存并同步阻塞 API 事件循环；同进程对话、心跳和设备请求会一起受影响。此项未通过压测量化。
 
@@ -976,7 +977,7 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 #### 15.4.6 FND-06：SSE 的有界缓冲与持久恢复（历史评估）
 
-**证据。** [SSE 路由](../../apps/api/src/modules/companion/conversation/routes.ts) 第 343～362 行忽略 `raw.write()` 的布尔返回值；第 371～438 行重放期间使用无容量上限的数组；[流事件仓储](../../packages/repositories/src/repositories/sqlite/conversation/stream-event-store.ts) `getStreamEvents` 第 92～107 行一次读取游标后的全部事件。路由第 470～481 行心跳不读取数据库；[恢复 Worker](../../apps/worker/src/attempt-recovery.ts) 在另一进程更新 Attempt，不会经过 API 的 [广播桥](../../apps/api/src/modules/companion/conversation/broadcasting-store.ts)。
+**证据。** [SSE 路由](../../packages/host-runtime/src/modules/companion/conversation/routes.ts) 第 343～362 行忽略 `raw.write()` 的布尔返回值；第 371～438 行重放期间使用无容量上限的数组；[流事件仓储](../../packages/repositories/src/repositories/sqlite/conversation/stream-event-store.ts) `getStreamEvents` 第 92～107 行一次读取游标后的全部事件。路由第 470～481 行心跳不读取数据库；[恢复 Worker](../../apps/worker/src/attempt-recovery.ts) 在另一进程更新 Attempt，不会经过 API 的 [广播桥](../../packages/host-runtime/src/modules/companion/conversation/broadcasting-store.ts)。
 
 **触发与影响。** 慢客户端或很长的事件重放会扩大应用/Socket 缓冲；后续独立执行宿主写入、或 Worker 恢复终态时，当前连接不能仅靠进程内广播获知状态变化。持久化数据仍可用于重连，不应把这一风险描述为所有 SSE 数据丢失。
 
@@ -1002,7 +1003,7 @@ SQLite 写竞争的独立证据在 [客户端](../../packages/repositories/src/c
 
 #### 15.4.8 FND-08：完整上下文预算与保真压缩（历史评估）
 
-**证据。** [历史读取](../../packages/repositories/src/repositories/sqlite/session-history.ts) 已限制 20 轮、32,000 字符，保留完整对话轮并排除删除/脱敏内容；[上下文组合根](../../apps/api/src/modules/companion/conversation/agent-executor.ts) 第 449～500 行还会加入技能、工具说明、召回和画像。[规则压缩](../../packages/core/src/context-builder.ts) `createSummaryCompaction` 第 154～168 行在超过消息数阈值后只保留首尾各两条，中间用数量说明占位，并不含中间内容摘要；该模式默认关闭，通过 `AERVOX_LOOP_COMPACTION=rule` 启用。
+**证据。** [历史读取](../../packages/repositories/src/repositories/sqlite/session-history.ts) 已限制 20 轮、32,000 字符，保留完整对话轮并排除删除/脱敏内容；[上下文组合根](../../packages/host-runtime/src/modules/companion/conversation/agent-executor.ts) 第 449～500 行还会加入技能、工具说明、召回和画像。[规则压缩](../../packages/core/src/context-builder.ts) `createSummaryCompaction` 第 154～168 行在超过消息数阈值后只保留首尾各两条，中间用数量说明占位，并不含中间内容摘要；该模式默认关闭，通过 `AERVOX_LOOP_COMPACTION=rule` 启用。
 
 **触发与影响。** 较小上下文模型、大型工具 Schema 或长工具结果可能使完整 Prompt 超出模型窗口，即使历史本身已限长；启用规则压缩后，未完成目标、约束和工具对应关系可能被丢弃。消息数量和字符数都不是模型 token 预算的精确替代。
 
@@ -1046,7 +1047,7 @@ SQLite 写竞争的独立证据在 [客户端](../../packages/repositories/src/c
 
 1. **P1：删除完成没有清理证明（ITER-003，有限切片）。** [删除 Worker](../../apps/worker/src/deletion-worker.ts) 已按明确 owner/target 派发 [Memory 清理与独立验证](../../packages/repositories/src/repositories/sqlite/memory-deletion-store.ts)，清除正文、版本正文、摘要、FTS 和向量，保留无正文的 tombstone；索引写入端拒绝已删除记录的迟到结果。失败可重复轮询，空目标、未知范围/目标、旧占位证明不能解闸；已有共享树、时态事实或技能派生关系的目标明确拒绝完成，留待其 owner 实施清理。实效与保留无关数据由[删除回归](../../apps/worker/test/deletion-worker.test.ts)证明，完整来源传播和独立 deny 账本仍未闭环。
 2. **P1：接单存在分离提交窗口（ITER-002）。** [Turn Store](../../packages/repositories/src/repositories/sqlite/conversation/turn-store.ts) 以一个写者事务关联 next-turn Inbox、Turn、消息、Outbox 和首个 Attempt；重复幂等键不再次消费或派发，执行器读取实际持久化输入。[接单回归](../../packages/repositories/test/turn-acceptance.test.ts)覆盖五个写点失败及并发，[API 回归](../../apps/api/test/conversation-dispatch-resilience.test.ts)覆盖 HTTP 重试、预加载失败和恢复。
-3. **P1：动态工具没有收到调用级取消（ITER-007，接线切片）。** [Tool Provider](../../apps/api/src/modules/companion/conversation/tool-providers.ts) 的全部调用路径已传递 signal/controlContext；[Runtime](../../apps/api/src/modules/ecosystem/tools/runtime.ts) 合并调用、控制上下文和注册信号，结束/取消时解绑，MCP 代理继续传至 HTTP 请求。[生命周期回归](../../apps/api/test/tool-runtime-lifecycle.test.ts)与 [MCP 回归](../../apps/api/test/mcp-client.test.ts)覆盖预取消、在途取消、下一副作用拒绝和注册替换。取消需要 handler 在 I/O/副作用边界协作，尚不等于所有 Driver、子任务和授权修订合同完成。
+3. **P1：动态工具没有收到调用级取消（ITER-007，接线切片）。** [Tool Provider](../../packages/host-runtime/src/modules/companion/conversation/tool-providers.ts) 的全部调用路径已传递 signal/controlContext；[Runtime](../../packages/host-runtime/src/modules/ecosystem/tools/runtime.ts) 合并调用、控制上下文和注册信号，结束/取消时解绑，MCP 代理继续传至 HTTP 请求。[生命周期回归](../../apps/api/test/tool-runtime-lifecycle.test.ts)与 [MCP 回归](../../apps/api/test/mcp-client.test.ts)覆盖预取消、在途取消、下一副作用拒绝和注册替换。取消需要 handler 在 I/O/副作用边界协作，尚不等于所有 Driver、子任务和授权修订合同完成。
 4. **P1：消息版本更新缺乏原子 CAS（ITER-004）。** [Message Store](../../packages/repositories/src/repositories/sqlite/conversation/message-store.ts) 将旧版废弃、新版插入与指针切换纳入短事务和条件更新，同一消息在进程内按键串行；[组合写回归](../../packages/repositories/test/atomic-edits.test.ts)验证三处失败回滚与同版本竞争仅一项成功。
 5. **P1：返回配置冲突前已改 Secret（ITER-004）。** [配置仓储](../../packages/repositories/src/repositories/sqlite/plugin-config-repository.ts) 同事务校验 revision、写 Config/Secret，重置也一致提交；不存在的配置仅接受初始 revision 或显式无条件写。[组合写回归](../../packages/repositories/test/atomic-edits.test.ts)与 [API 回归](../../apps/api/test/plugin-config.test.ts)证明 409 不改凭据、中途失败回滚、同 revision 仅一次成功；外部 SecretStore 补偿不在此范围。
 6. **P2：取消后崩溃无法收敛（ITER-010，恢复切片）。** [Attempt 恢复](../../packages/repositories/src/repositories/sqlite/conversation/attempt-store.ts) 将过期 CancelRequested 收敛为 Cancelled，并在同事务推进 fencing、Turn 与终态事件；pending 工具结果记为 outcome_unknown，不自动重放。[重连回归](../../apps/api/test/conversation-dispatch-resilience.test.ts)验证旧 fencing 拒绝落库、重复恢复幂等及 SSE 观察终态；自动 Resume 仍不启用。

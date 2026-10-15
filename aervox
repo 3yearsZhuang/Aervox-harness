@@ -108,6 +108,12 @@ cmd_setup() {
 
 cmd_dev() {
   ensure_deps
+  # CAP-033：dev 下 API 与桌面端必须解析同一个主动画像 Token 文件。
+  # API 默认写 <仓库>/data/proactive-access.token，桌面端默认读用户应用数据目录下的同名文件；
+  # 两份 Token 不一致会让桌面端所有 /v1/proactive/* 请求 401（界面显示“本地主动画像 Vault 尚未就绪”）。
+  # 显式设置 AERVOX_PROACTIVE_ACCESS_TOKEN 时仍然以该 Token 为准，本默认值不覆盖它。
+  export AERVOX_PROACTIVE_ACCESS_TOKEN_PATH="${AERVOX_PROACTIVE_ACCESS_TOKEN_PATH:-$PWD/data/proactive-access.token}"
+  mkdir -p "$(dirname "$AERVOX_PROACTIVE_ACCESS_TOKEN_PATH")"
   local target="${1:-full}"
   case "$target" in
     full|desktop)

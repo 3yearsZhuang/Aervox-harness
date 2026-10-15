@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   createInMemoryDatabase,
   initDatabaseSchema,
@@ -16,6 +16,7 @@ describe("Worker 记忆向量平滑迁移 (Embedding Migration)", () => {
   let client: Client;
   let embeddingRepo: SqliteMemoryEmbeddingRepository;
   let memoryRepo: SqliteMemoryRepository;
+  let cleanup: () => Promise<void>;
 
   const localCtx: LocalContext = {
     workspaceId: "ws_migration",
@@ -26,9 +27,29 @@ describe("Worker 记忆向量平滑迁移 (Embedding Migration)", () => {
     const res = await createInMemoryDatabase();
     db = res.db;
     client = res.client;
+    cleanup = res.cleanup;
     await initDatabaseSchema(client);
     embeddingRepo = new SqliteMemoryEmbeddingRepository(db);
     memoryRepo = new SqliteMemoryRepository(db, client);
+  });
+  afterEach(async () => cleanup());
+
+  it("reindexes existing memories for a new model and retains the old model", async () => {
+    await memoryRepo.createRecord(localCtx, { id: "switch", layer: "long_term", type: "fact", content: "乌龙茶" });
+    const opts = { db, client, embeddingRepo, workerId: "test" };
+    expect(await runEmbeddingMigrationCycle({ ...opts, provider: new LocalFeatureHashEmbeddingProvider() })).toBe(1);
+    const provider = { modelId: "semantic-v2", async embed() { return [1, 0]; } };
+    expect(await runEmbeddingMigrationCycle({ ...opts, provider })).toBe(1);
+    expect(await embeddingRepo.retrieve(localCtx, [1, 0], 5, 0.9, provider.modelId)).toEqual([{ memoryId: "switch", score: 1 }]);
+    expect((await client.execute("SELECT DISTINCT model_id FROM memory_embeddings")).rows).toHaveLength(2);
+    expect(await runEmbeddingMigrationCycle({ ...opts, provider })).toBe(0);
+  });
+
+  it("rejects incomplete batches without persisting empty vectors", async () => {
+    for (const id of ["one", "two"]) await memoryRepo.createRecord(localCtx, { id, layer: "long_term", type: "fact", content: id });
+    const provider = { modelId: "bad", async embed() { return [1]; }, async embedBatch() { return [[1]]; } };
+    await expect(runEmbeddingMigrationCycle({ db, client, embeddingRepo, workerId: "test", provider })).rejects.toThrow("Invalid embedding batch");
+    expect((await client.execute("SELECT * FROM memory_embeddings")).rows).toHaveLength(0);
   });
 
   it("当未注入 provider 时诚实返回 0，不执行迁移", async () => {

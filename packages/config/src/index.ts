@@ -176,6 +176,7 @@ export interface ApiConfig {
   loopDriver: ApiLoopDriver;
   /** Turn 执行模式（AERVOX_TURN_EXECUTION，默认 background） */
   turnExecution: TurnExecution;
+  loopDispatch: "api" | "worker";
   /** Context 压缩方式：rule | off（AERVOX_LOOP_COMPACTION，默认 off） */
   loopCompaction: "rule" | "off";
   /** Startup recovery is local-only and cannot dispatch new tools. */
@@ -263,6 +264,7 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
       ["background", "inline"] as const,
       "background",
     ),
+    loopDispatch: requireEnum("AERVOX_LOOP_DISPATCH", env.AERVOX_LOOP_DISPATCH, ["api", "worker"] as const, "api"),
     loopResume: requireEnum("AERVOX_LOOP_RESUME", env.AERVOX_LOOP_RESUME, ["off", "local-results"] as const, "off"),
     loopCompaction: requireEnum(
       "AERVOX_LOOP_COMPACTION",

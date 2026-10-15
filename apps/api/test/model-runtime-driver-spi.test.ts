@@ -6,7 +6,7 @@ import {
   ModelRuntimeService,
   type ModelRuntimeDriver,
   type ModelRuntimeDriverHandle,
-} from "../src/modules/ecosystem/model-runtime/index.js";
+} from "@aervox/host-runtime/modules/ecosystem/model-runtime/index";
 import type { LocalModel, LlamaRuntimeParams } from "@aervox/contracts";
 
 describe("ModelRuntimeDriver SPI (本地模型运行时驱动扩展点)", () => {
