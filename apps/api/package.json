@@ -29,7 +29,9 @@
     "@vscode/ripgrep": "1.18.0",
     "fastify": "5.12.5",
     "fflate": "0.8.3",
-    "sherpa-onnx-node": "^1.13.5"
+    "sherpa-onnx-node": "^1.13.5",
+    "@aervox/plugin-bot-weixin": "workspace:*",
+    "@aervox/plugin-bot-onebot": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

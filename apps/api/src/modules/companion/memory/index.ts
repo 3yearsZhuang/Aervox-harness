@@ -19,6 +19,7 @@ export type { MemoryRecallPort, RecalledMemory } from "./recall.js";
 export type { MemoryEmbeddingProvider, OpenAiCompatibleEmbeddingOptions } from "./embedding-provider.js";
 export { LocalFeatureHashEmbeddingProvider, OpenAiCompatibleEmbeddingProvider, resolveEmbeddingProvider } from "./embedding-provider.js";
 export type { MemoryWritePort } from "./tool-contribution.js";
+export { contributeMemoryTool } from "./tool-contribution.js";
 
 const local = { workspaceId: "local", subjectUserId: "local" } as const;
 

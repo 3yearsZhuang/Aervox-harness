@@ -65,7 +65,7 @@ export async function runAttemptRecoveryCycle(opts: AttemptRecoveryOptions): Pro
   }
 
   // 2. 无法断点续跑或非候选的超时 Attempt，走安全熔断与状态收敛
-  const recovered = await repo.recoverExpiredAttempts(opts.client);
+  const recovered = await repo.recoverExpiredAttempts(opts.client, { dispatchTarget: "default" });
   if (recovered > 0) {
     // 释放后遗留 pending 预留结果不可知（§11.3 unknown outcome，不自动重放）
     const unknown = await repo.markPendingOutcomeUnknown(opts.client);
@@ -73,7 +73,7 @@ export async function runAttemptRecoveryCycle(opts: AttemptRecoveryOptions): Pro
   }
 
   // 3. 回收孤儿 Turn（无 Attempt → Interrupted + done 终态）
-  const orphans = await repo.recoverOrphanTurns();
+  const orphans = await repo.recoverOrphanTurns({ dispatchTarget: "default" });
   if (orphans > 0) {
     console.log(`[worker:${opts.workerId}] orphan_turn_recovery=${orphans}`);
   }

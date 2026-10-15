@@ -40,6 +40,8 @@ export function createTurnConsumerHandler(deps: TurnConsumerDeps): OutboxEventHa
     const localCtx: LocalContext = { workspaceId: "local", subjectUserId: "local" };
     const turn = await deps.repo.getTurn(localCtx, turnId);
     if (!turn) return;
+    // Bot turns belong to the API's complete, policy-aware execution path, including after restart.
+    if (turn.dispatchTarget !== "default" || turn.executionPolicy !== "local-v1") return;
 
     const attempts = await deps.repo.listTurnAttempts(localCtx, turnId);
     const runnableAttempt = attempts.find((a) => a.status === "Running" || a.status === "Pending");

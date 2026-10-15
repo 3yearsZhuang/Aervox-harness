@@ -107,6 +107,7 @@ export * from "./safety-classifier.js";
 export * from "./session-schemas.js";
 export * from "./project-schemas.js";
 export * from "./model-runtime-schemas.js";
+export * from "./bot-schemas.js";
 export { buildOpenApiDocument, resetOpenApiDocumentCache } from "./openapi.js";
 
 export type TurnStatus = z.infer<typeof turnStatusSchema>;

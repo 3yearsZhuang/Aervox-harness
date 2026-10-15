@@ -17,6 +17,7 @@ id: AVX-DOC-001
 | 数据、事务、迁移和删除 | [数据库契约](reference/DATABASE.md)、[迁移演练](how-to/run-database-migration-drill.md) |
 | 执行、取消、恢复与事件流 | [Agent Harness Loop](reference/agent-harness-loop.md)、[流式协议](reference/STREAMING_PROTOCOL.md) |
 | 开发插件、Page、Tool 或 UI 扩展 | [扩展指南](how-to/develop-plugin-ui-extension.md)、[插件契约](reference/plugin-config-and-pages.md) |
+| 接入微信私聊、QQ 群及运行常驻 Bot | [连接机器人](how-to/connect-bots.md)、[Bot 架构决定](reference/adr/ADR-027-bot-platform-adapters.md) |
 | AI 质量、安全威胁、隐私责任 | [AI 质量与安全](reference/AI_QUALITY_SAFETY.md)、[威胁模型](reference/THREAT_MODEL.md)、[数据隐私](reference/DATA_PRIVACY.md) |
 | 设计、测试与运行维护 | [交互设计](reference/DESIGN.md)、[测试策略](reference/TEST_STRATEGY.md)、[运行手册](reference/operations.md) |
 | 执行具体工程操作 | [操作指南](how-to/README.md) |

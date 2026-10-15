@@ -23,10 +23,11 @@ import {
 } from "@aervox/repositories";
 import { createSqliteSubagentPort, createSqliteResumeSource, resumeCommittedTurns, SqliteExecutionStore } from "@aervox/host-agent";
 import { buildLoopProvider } from "./llm-adapter.js";
-import { registerConversationRoutes } from "./routes.js";
+import { registerConversationRoutes, type ConversationRouteDeps } from "./routes.js";
 import { UserQuestionCoordinator } from "./user-question-coordinator.js";
+import { ApiOwnedTurnRecovery } from "./api-owned-recovery.js";
 
-export function registerConversationModule(ctx: ModuleDependencies<"app" | "client" | "db" | "getPersona" | "getPluginRegistrations" | "llmConfigService" | "memoryRecall" | "modelRoutingService" | "observability" | "pluginHostServices" | "pluginRegistry" | "proactiveActionAuthorizer" | "proactiveRepository" | "safetyService" | "toolRuntime" | "workflows">): void {
+export function registerConversationModule(ctx: ModuleDependencies<"app" | "client" | "db" | "getPersona" | "getPluginRegistrations" | "llmConfigService" | "memoryRecall" | "modelRoutingService" | "observability" | "pluginHostServices" | "pluginRegistry" | "proactiveActionAuthorizer" | "proactiveRepository" | "safetyService" | "toolRuntime" | "workflows">) {
   const {
     app,
     db,
@@ -70,7 +71,7 @@ export function registerConversationModule(ctx: ModuleDependencies<"app" | "clie
     });
     app.addHook("onClose", async () => { controller.abort(); await recovery; });
   }
-  registerConversationRoutes(app, conversationRepo, {
+  const conversationDeps: ConversationRouteDeps = {
     toolRuntime,
     llmConfigService,
     modelRoutingService: ctx.modelRoutingService,
@@ -119,5 +120,12 @@ export function registerConversationModule(ctx: ModuleDependencies<"app" | "clie
     proactiveRepository,
     memoryRecall: ctx.memoryRecall,
     observability: ctx.observability,
-  });
+  };
+  const apiOwnedRecovery = new ApiOwnedTurnRecovery(conversationRepo, conversationDeps);
+  app.addHook("onReady", async () => apiOwnedRecovery.start());
+  app.addHook("onClose", () => apiOwnedRecovery.close());
+  registerConversationRoutes(app, conversationRepo, conversationDeps);
+  return { conversationRepo, conversationDeps };
 }
+export { acceptConversationTurn, executeAcceptedConversationTurn } from "./application.js";
+export type { ConversationRouteDeps } from "./routes.js";

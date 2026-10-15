@@ -3,11 +3,12 @@
  */
 import { eq, and, or, isNull, gt, inArray } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
-import { turns, messageVersions, outboxEvents, turnAttempts, agentInboxItems } from "@aervox/schema";
+import { sessions, turns, messageVersions, outboxEvents, turnAttempts, agentInboxItems, type ConversationExecutionPolicy } from "@aervox/schema";
 import type { LocalContext } from "../../../local-context.js";
 import type { TurnModel, MessageVersionModel, TurnAcceptanceInput, TurnAcceptanceResult, TurnAttemptModel } from "../../types/index.js";
 import { withSessionLock } from "../../../session-lock.js";
 import { notifyWorkerWakeup } from "../../../worker-ipc.js";
+import { assertConversationExecutionPolicy, conversationDispatchTarget } from "../../../conversation-execution-policy.js";
 
 export class TurnStore {
   constructor(private readonly db: AervoxDatabase) {}
@@ -27,9 +28,13 @@ export class TurnStore {
   async acceptTurn(ctx: LocalContext, input: TurnAcceptanceInput): Promise<TurnAcceptanceResult> {
     const result = await withSessionLock(`turn-accept:${input.sessionId}`, () => this.db.transaction(async (tx): Promise<TurnAcceptanceResult> => {
       const [existing] = await tx.select().from(turns).where(eq(turns.idempotencyKey, input.idempotencyKey));
-      if (existing) return { created: false, turn: existing as TurnModel };
+      const policy = await this.readSessionPolicy(tx, input.sessionId, input.executionPolicy);
+      if (existing) {
+        this.assertTurnPolicy(existing, input.sessionId, policy);
+        return { created: false, turn: existing as TurnModel };
+      }
       const now = new Date().toISOString();
-      const inbox = input.consumeInbox ? await tx.select().from(agentInboxItems).where(and(
+      const inbox = input.consumeInbox && policy !== "bot-group-member-v1" ? await tx.select().from(agentInboxItems).where(and(
         eq(agentInboxItems.sessionId, input.sessionId), eq(agentInboxItems.consumeBoundary, "next-turn"),
         eq(agentInboxItems.status, "pending"),
         or(isNull(agentInboxItems.expiresAt), gt(agentInboxItems.expiresAt, now)),
@@ -74,7 +79,10 @@ export class TurnStore {
   ): Promise<TurnAcceptanceResult> {
     return withSessionLock(`turn-accept:${input.sessionId}`, () => this.db.transaction(async (tx): Promise<TurnAcceptanceResult> => {
       const [existing] = await tx.select().from(turns).where(eq(turns.idempotencyKey, input.idempotencyKey));
-      if (existing) return { created: false, turn: existing as TurnModel };
+      if (existing) {
+        this.assertTurnPolicy(existing, input.sessionId, await this.readSessionPolicy(tx, input.sessionId));
+        return { created: false, turn: existing as TurnModel };
+      }
       const now = new Date().toISOString();
       const created = await this.insertTurn(tx, {
         id: input.turnId, sessionId: input.sessionId, idempotencyKey: input.idempotencyKey,
@@ -93,8 +101,10 @@ export class TurnStore {
     outboxEventData?: { id: string; eventType: string; idempotencyKey: string; payload: unknown },
   ): Promise<{ turn: TurnModel; message: MessageVersionModel }> {
     const now = new Date().toISOString();
+    const executionPolicy = await this.readSessionPolicy(tx, turnData.sessionId);
     const [turn] = await tx.insert(turns).values({
       ...turnData, status: turnData.status ?? "Created", lastSequence: 0, acceptedAt: now, createdAt: now, updatedAt: now,
+      executionPolicy, dispatchTarget: conversationDispatchTarget(executionPolicy),
     }).returning();
     const [message] = await tx.insert(messageVersions).values({
       id: userMessage.id, turnId: turnData.id, role: "user", version: 1,
@@ -113,6 +123,7 @@ export class TurnStore {
           eq(turns.id, turnId),
         ),
       );
+    if (found) this.assertTurnPolicy(found, found.sessionId, await this.readSessionPolicy(this.db, found.sessionId));
     return (found as TurnModel) ?? null;
   }
 
@@ -138,7 +149,28 @@ export class TurnStore {
           eq(turns.idempotencyKey, idempotencyKey),
         ),
       );
+    if (found) this.assertTurnPolicy(found, found.sessionId, await this.readSessionPolicy(this.db, found.sessionId));
     return (found as TurnModel) ?? null;
+  }
+
+  private async readSessionPolicy(
+    db: Pick<AervoxDatabase, "select">,
+    sessionId: string,
+    expected?: ConversationExecutionPolicy,
+  ): Promise<ConversationExecutionPolicy> {
+    if (expected !== undefined) assertConversationExecutionPolicy(expected);
+    const [session] = await db.select({ policy: sessions.executionPolicy }).from(sessions).where(eq(sessions.id, sessionId));
+    if (!session) throw new Error("conversation_session_unavailable");
+    assertConversationExecutionPolicy(session.policy);
+    if (expected !== undefined && expected !== session.policy) throw new Error("conversation_execution_policy_mismatch");
+    return session.policy;
+  }
+
+  private assertTurnPolicy(turn: TurnModel, sessionId: string, policy: ConversationExecutionPolicy): void {
+    assertConversationExecutionPolicy(turn.executionPolicy);
+    if (turn.sessionId !== sessionId || turn.executionPolicy !== policy || turn.dispatchTarget !== conversationDispatchTarget(policy)) {
+      throw new Error("conversation_execution_policy_mismatch");
+    }
   }
 
   async updateTurnStatus(

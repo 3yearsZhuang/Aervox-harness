@@ -37,6 +37,8 @@
   "devDependencies": {
     "@babel/parser": "^8.0.4",
     "@playwright/test": "1.62.1",
+    "@types/qrcode": "1.5.6",
+    "@types/ws": "8.18.1",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vue/test-utils": "^2.5.0",
     "electron-builder": "^26.15.3",
@@ -52,6 +54,8 @@
   },
   "dependencies": {
     "@aervox/native-runtime": "workspace:*",
-    "@vscode/ripgrep": "1.18.0"
+    "@vscode/ripgrep": "1.18.0",
+    "qrcode": "1.5.4",
+    "ws": "8.21.3"
   }
 }

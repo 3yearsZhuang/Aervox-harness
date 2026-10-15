@@ -3,15 +3,17 @@
  *
  * 机器事实源：CR-060 与 AVX-PLUG-001 §0.3。
  *
- * 插件通过本契约向宿主声明三类贡献；宿主在**插件启用时**才装配它们，
+ * 插件通过本契约向宿主声明贡献；宿主在**插件启用时**才装配它们，
  * 停用或缺包时不得残留：
  * 1. 回合切面（`turnPlugins`）—— 提示词注入与回合后处理；
  * 2. 工具贡献（`toolContributions`）—— 模型可见工具及其使用指南；
- * 3. HTTP 端点（`httpEndpoints`）—— 插件自有 API，经宿主适配为框架路由。
+ * 3. HTTP 端点（`httpEndpoints`）—— 插件自有 API，经宿主适配为框架路由；
+ * 4. Bot 适配器（`botAdapters`）—— 平台文字传输，受宿主连接与会话策略管理。
  */
 import type { ReplayStep, ToolGuidance, ToolProviderPort } from "@aervox/core";
 import type { PluginHostServices } from "./host-services.js";
 import type { ServerTurnPlugin } from "./turn-plugin.js";
+import type { BotAdapterContribution } from "./bot-adapter.js";
 
 /** HTTP 方法子集：插件端点仅暴露这些语义 */
 export type PluginHttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -85,6 +87,8 @@ export interface PluginToolContribution {
 export interface ServerPluginRegistration {
   /** 提供该注册单元的插件 id（与 Manifest `metadata.id` 一致） */
   pluginId: string;
+  /** Trusted, compile-time Bot transports; the host owns connection lifecycle and admission policy. */
+  botAdapters?: BotAdapterContribution[];
   /** 对外 API 契约登记；宿主持有注销函数，在装配失败或宿主关闭时释放。不得在 import 时登记。 */
   registerApiContract?: () => (() => void);
   /** 回合切面：与本地上下文无关，装配期一次性注册，启用门控由 Runner 负责 */

@@ -33,6 +33,7 @@
 - [ADR-024](ADR-024-native-runtime-boundaries.md)：原生计算、活动采集与进程边界。
 - [ADR-025](ADR-025-ui-surface-hosts.md)：根界面插件与薄平台宿主。
 - [ADR-026](ADR-026-ui-surface-open-ecosystem.md)：第三方界面开放与安装回滚提案。
+- [ADR-027](ADR-027-bot-platform-adapters.md)：Bot 平台适配器与外部会话边界。
 
 ## 原 CR 编号迁移索引
 

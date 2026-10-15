@@ -1,0 +1,12 @@
+{
+  "name": "@aervox/plugin-bot-weixin",
+  "version": "1.0.0",
+  "license": "AGPL-3.0-or-later",
+  "private": true,
+  "type": "module",
+  "description": "微信个人号文字传输适配器，受 API 宿主管理",
+  "exports": { "./server": { "types": "./dist/server/index.d.ts", "default": "./dist/server/index.js" } },
+  "scripts": { "build": "rm -rf dist && tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit", "test": "vitest run" },
+  "dependencies": { "@aervox/host-plugin-api": "workspace:*" },
+  "devDependencies": { "@types/node": "^22.10.0" }
+}

@@ -2,25 +2,29 @@
  * Aervox｜思隅 @aervox/repositories — 消息身份与版本（编辑/软删/脱敏）Store
  */
 import { withSessionLock } from "../../../session-lock.js";
-import { eq, and, desc, isNull } from "drizzle-orm";
+import { eq, and, desc, isNull, or } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
 import { messages, messageVersions, sessions } from "@aervox/schema";
 import type { LocalContext } from "../../../local-context.js";
 import type { MessageModel, MessageVersionModel } from "../../types/index.js";
+import { deleteBotConversationData } from "./bot-data-deletion.js";
 
 export class MessageStore {
   constructor(private readonly db: AervoxDatabase) {}
 
   async deleteMessage(ctx: LocalContext, messageId: string): Promise<boolean> {
-    const res = await this.db
-      .delete(messageVersions)
-      .where(
-        and(
-          eq(messageVersions.id, messageId),
-        ),
-      )
-      .returning();
-    return res.length > 0;
+    return this.db.transaction(async (tx) => {
+      const res = await tx
+        .delete(messageVersions)
+        .where(
+          and(
+            eq(messageVersions.id, messageId),
+          ),
+        )
+        .returning();
+      await deleteBotConversationData(tx, { turnIds: res.map((message) => message.turnId) });
+      return res.length > 0;
+    });
   }
 
   // ============ CAP-013：消息编辑、软删除、版本历史、恢复 ============
@@ -73,17 +77,24 @@ export class MessageStore {
    * FR-CONV-005：软删除消息 — 设置 deletedAt，不物理删除
    */
   async softDeleteMessage(ctx: LocalContext, messageId: string): Promise<MessageModel | null> {
-    const now = new Date().toISOString();
-    const message = await this.getMessage(ctx, messageId);
-    if (!message || message.deletedAt) return null;
+    return this.db.transaction(async (tx) => {
+      const now = new Date().toISOString();
+      const [message] = await tx.select().from(messages).where(eq(messages.id, messageId));
+      if (!message || message.deletedAt) return null;
 
-    const [updated] = await this.db
-      .update(messages)
-      .set({ deletedAt: now })
-      .where(eq(messages.id, messageId))
-      .returning();
+      const [updated] = await tx
+        .update(messages)
+        .set({ deletedAt: now })
+        .where(eq(messages.id, messageId))
+        .returning();
+      const versions = await tx.select({ turnId: messageVersions.turnId }).from(messageVersions).where(or(
+        eq(messageVersions.messageId, messageId), eq(messageVersions.id, messageId),
+        message.currentVersionId ? eq(messageVersions.id, message.currentVersionId) : undefined,
+      ));
+      await deleteBotConversationData(tx, { turnIds: versions.map((version) => version.turnId) });
 
-    return (updated as MessageModel) ?? null;
+      return (updated as MessageModel) ?? null;
+    });
   }
 
   /**

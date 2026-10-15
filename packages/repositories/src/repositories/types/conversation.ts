@@ -3,11 +3,13 @@
  */
 import type { MessageModel, TurnAttemptModel } from "./outbox.js";
 import type { LocalContext } from "../../local-context.js";
+import type { ConversationExecutionPolicy, TurnDispatchTarget } from "@aervox/schema";
 
 export interface SessionModel {
   id: string;
   title: string;
   projectId?: string | null;
+  executionPolicy: ConversationExecutionPolicy;
   createdAt: string;
   updatedAt: string;
 }
@@ -16,6 +18,8 @@ export interface TurnModel {
   id: string;
   sessionId: string;
   idempotencyKey: string;
+  executionPolicy: ConversationExecutionPolicy;
+  dispatchTarget: TurnDispatchTarget;
   status: string;
   lastSequence: number;
   error?: unknown;
@@ -72,6 +76,8 @@ export interface TurnAcceptanceInput {
   message: { id: string; content: string };
   attemptId: string;
   consumeInbox: boolean;
+  /** Optional assertion; the authoritative policy is always inherited from the session. */
+  executionPolicy?: ConversationExecutionPolicy;
 }
 export type TurnAcceptanceResult =
   | { created: false; turn: TurnModel }
@@ -84,9 +90,9 @@ export interface IConversationRepository {
     ctx: LocalContext,
     input: { sessionId: string; beforeTurnId: string },
   ): Promise<SessionHistoryMessage[]>;
-  createSession(ctx: LocalContext, title: string, options?: { id?: string; projectId?: string | null }): Promise<SessionModel>;
+  createSession(ctx: LocalContext, title: string, options?: { id?: string; projectId?: string | null; executionPolicy?: ConversationExecutionPolicy }): Promise<SessionModel>;
   getSession(ctx: LocalContext, sessionId: string): Promise<SessionModel | null>;
-  getOrCreateSession(ctx: LocalContext, sessionId: string, title?: string, projectId?: string | null): Promise<SessionModel>;
+  getOrCreateSession(ctx: LocalContext, sessionId: string, title?: string, projectId?: string | null, executionPolicy?: ConversationExecutionPolicy): Promise<SessionModel>;
   listSessions(
     ctx: LocalContext,
     options?: { limit?: number; offset?: number; projectId?: string },

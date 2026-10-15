@@ -74,7 +74,10 @@ import {
 } from "@aervox/observability";
 import { loadApiConfig } from "@aervox/config";
 
+import { registerBotsModule, type BotModuleOptions, type BotManager } from "./modules/ecosystem/bots/index.js";
+
 export interface BuildAppOptions {
+  botOptions?: BotModuleOptions;
   /** 注入既有数据库（如内存库）；缺省时使用 createDatabase() */
   db?: AervoxDatabase;
   client?: Client;
@@ -119,6 +122,7 @@ export interface BuildAppOptions {
 }
 
 export interface BuildAppResult {
+  botManager: BotManager;
   app: ReturnType<typeof Fastify>;
   db: AervoxDatabase;
   client: Client;
@@ -340,7 +344,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
     getPluginRegistrations: () => pluginRegistrations,
   };
   // 保留路由与 Hook 的注册顺序；晚装配服务通过显式查询端口提供。
-  registerConversationModule(services);
+  const conversation = registerConversationModule(services);
+  let botManager: BotManager | undefined;
   registerLearningModule(services);
   registerFeedbackModule(services);
   await registerDiaryModule(services);
@@ -351,13 +356,14 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   registerKnowledgeModule(services);
   registerBranchModule(services);
   registerProjectModule(services);
-  pluginRegistrations = await registerPluginsModule(services);
+  pluginRegistrations = await registerPluginsModule(services, (id, uninstall) => botManager?.stopPlugin(id, uninstall) ?? Promise.resolve());
   const voiceService = registerVoiceModule(services, options.voiceOptions);
   const skillManager = await registerSkillsModule(services);
   registerPreferencesModule(services);
   registerStudyMaterialModule(services);
   personaService = registerPersonaModule({ ...services, voiceService, skillManager });
   registerInboxModule(services);
+  botManager = registerBotsModule({ app, db, ...conversation, registrations: () => pluginRegistrations ?? [] }, options.botOptions);
 
   if (ownsProactiveClient) {
     app.addHook("onClose", async () => {
@@ -366,6 +372,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<BuildAppR
   }
 
   return {
+    botManager,
     app,
     db,
     client,

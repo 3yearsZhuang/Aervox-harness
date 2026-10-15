@@ -5,6 +5,7 @@
  * 规则依据：docs/reference/STREAMING_PROTOCOL.md（AVX-SPC-001）。
  */
 import { z } from "zod";
+import { registerBotOpenApi } from './bot-openapi.js';
 import type { OpenAPIObject } from "openapi3-ts/oas31";
 import { getPluginOpenApiRoutes, getPluginApiRevision, type PluginOpenApiRoute } from "./plugin-api-registry.js";
 import {
@@ -228,6 +229,7 @@ import {
 } from "./model-routing-schemas.js";
 
 const registry = new OpenAPIRegistry();
+registerBotOpenApi(registry);
 
 registry.register("SessionItem", sessionItemSchema);
 registry.register("ListSessionsResponse", listSessionsResponseSchema);

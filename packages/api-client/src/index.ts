@@ -1,4 +1,5 @@
 /** Aervox｜思隅 @aervox/api-client 入口 */
+export { useAervoxBots } from './useAervoxBots';
 export {
   configureAervoxClient,
   getTransport,

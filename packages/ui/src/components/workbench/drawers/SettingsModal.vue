@@ -516,6 +516,7 @@ async function onPluginChange(): Promise<void> {
           <ExtensionSlot name="settings:panel:voice" />
         </div>
         <ExtensionSlot v-else-if="settingsCategory === 'plugins'" name="settings:panel:plugins" wrapper-class="settings-section" :context="{ onChange: onPluginChange }" />
+        <ExtensionSlot v-else-if="settingsCategory === 'bots'" name="settings:panel:bots" wrapper-class="settings-section" />
         <p v-if="settingsCategory === 'appearance' || settingsCategory === 'conversation' || settingsCategory === 'tools'" class="settings-autosave-note">
           <Check :size="14" />更改会自动保存在当前设备
         </p>

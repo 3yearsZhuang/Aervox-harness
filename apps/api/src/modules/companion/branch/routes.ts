@@ -28,15 +28,29 @@ export function registerBranchRoutes(
       return reply.status(400).send({ error: "Validation failed", details: parsed.error.issues });
     }
 
-    const branch = await conversationRepo.createConversationBranch(tenant, {
-      id: nextId(),
-      parentSessionId: sessionId,
-      childSessionId: parsed.data.childSessionId,
-      forkAtMessageId: parsed.data.forkAtMessageId,
-      title: parsed.data.title,
-      branchReason: parsed.data.branchReason,
-    });
-    return reply.status(201).send(branch);
+    if (parsed.data.childSessionId === sessionId) return reply.status(400).send({ error: "branch_requires_distinct_sessions" });
+    try {
+      const parent = await conversationRepo.getSession(tenant, sessionId);
+      if (!parent) return reply.status(404).send({ error: "Parent session not found" });
+      // An existing child keeps its creation boundary; a new child inherits it from the parent.
+      await conversationRepo.getOrCreateSession(
+        tenant, parsed.data.childSessionId, parsed.data.title ?? parent.title, parent.projectId, parent.executionPolicy,
+      );
+      const branch = await conversationRepo.createConversationBranch(tenant, {
+        id: nextId(),
+        parentSessionId: sessionId,
+        childSessionId: parsed.data.childSessionId,
+        forkAtMessageId: parsed.data.forkAtMessageId,
+        title: parsed.data.title,
+        branchReason: parsed.data.branchReason,
+      });
+      return reply.status(201).send(branch);
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith("conversation_execution_policy_")) {
+        return reply.status(400).send({ error: error.message });
+      }
+      throw error;
+    }
   });
 
   // GET /v1/sessions/:sessionId/branches — 列出直接子分支

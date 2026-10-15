@@ -30,6 +30,14 @@ MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应
 
 插件配置使用 Aervox Config Schema v1：Schema 随 Bundle 注册并存储在 `plugins` 表，配置值按 `pluginId` 存入本地 `plugin_configs`，secret 走 `plugin_config_secrets`（生产注入加密 SecretStore Port）。插件 Page 只加载本地 Bundle 静态资源，运行在受限 iframe 中并通过 Host Bridge 读写本插件配置；不开放插件自有后端路由、文件上传、SSE 或直接数据库访问，符合 `ADR-009` 与 `AVX-CAP-001` 的沙箱与最小权限要求。
 
+## 1.2 Bot 平台入口与群会话边界（ADR-027）
+
+API 组合根显式装配第一方 Bot 传输贡献，共用会话受理与完整执行服务。平台插件仅做登录、协议规范化、收发和连接取消；宿主管理启停、实例代际、持久队列、去重、会话来源策略和发送回执。Bot Turn 的执行归属持久化为 API，Worker 不通过简化路径接管；每个连接只由一个宿主持有。接口见[插件规范](plugin-config-and-pages.md#05-bot-传输贡献adr-027)，决定见 [ADR-027](adr/ADR-027-bot-platform-adapters.md)。
+
+微信只接受管理页配对并确认的本人私聊，使用普通人格、记忆与 `ask` 工具审批，不进入 CAP-033。QQ 仅接收白名单群直接 `@bot` 的文字，按连接、平台账号、群与成员接续，模型只获得公开基础身份与本成员历史，不加载个人记忆、学习事实、工具、Skill、Hook、Inbox 或 DSH。来源策略随 HTTP、重试、恢复和分支继承，群来源也不得进入个人日记和记忆派生链。
+
+这属于单用户所有的外部聊天入口：群成员不成为本地账户，也不获得 API 权限。SQLite 持有连接、入站/出站记录与平台会话映射，Bot 凭据使用独立密钥加密。API 可在本机或独立机器常驻，两处不自动复制数据库或登录态；部署、备份与真实平台验收见[连接机器人](../how-to/connect-bots.md)。
+
 ## 2. 技术栈基线
 
 架构遵守 TypeScript-first、Web-first、模型可替换、业务数据可迁移、异步任务可重试、核心流程不依赖外部 Agent 运行时六项约束。API 保持当前与上一版本客户端兼容；Prompt、模型路由、记忆和复习算法分别版本化。扩大运行时或改变兼容边界先通过 ADR 说明数据所有权、迁移和回滚。外部运行时只通过适配接口消费，不能拥有核心业务数据。
@@ -626,7 +634,7 @@ T、AST、PET、Skill、DSH、PI、GPH 编号用于追溯设计来源，不是�
 | AST-03 | 人设字段化 + 逐级解析 + 默认兜底 | B | 随 CAP-019 立项 | 桌宠 IP、CAP-019、T-08 |
 | AST-04 | 插件元数据模型 + 工具配置条件门控 | B | CAP-020 插件权限模型 | T-04 |
 | AST-05 | Pipeline Stage 显式顺序 + 迁移完成标记 | B | Worker/中间件管线演进 | T-06 |
-| AST-06 | IM 平台适配/群聊白名单/内容安全链路 | C | — | 与伴学 1v1 场景冲突 |
+| AST-06 | IM 平台适配/群聊白名单/内容安全链路 | 历史 C；ADR-027 批准受限文字入口 | API Bot 宿主与第一方传输插件 | [Bot 范围](PRD.md#bot-platform-scope)；群不读取个人数据，不开放群治理 |
 | AST-07 | Dashboard 面板形态与 zip 更新器 | C | — | 与 T-13 同理由 |
 | AST-08 | 声明式插件配置（`_conf_schema.json` 模式） | B | CAP-020 插件配置解析与可视化 | 自研 Aervox Config Schema v1 |
 | AST-09 | 插件页面 + 受限 iframe Bridge | B | CAP-020 插件 Page | 自研 Aervox Page Bridge，仅本地 Bundle 资源 |
@@ -649,7 +657,7 @@ T-07、PET-01/03/04 学习平台桥、表现命令与可释放视图的分层；
 
 AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-config-and-pages.md)开放。Skill 学习渐进式披露和候选晋升，但指令包不自动获得可执行权限；注册、内容目录与 Persona 的所有权按现行实现核对，不恢复旧租户级接口。
 
-不采用多工作区 vault/共享租户、React/Expo 或 Tauri 全栈迁移、IM 群聊治理、另一套 JSONL Session 真源或外置图数据库。Git 快照只能是受控导出/历史载体，不能绕过一致性备份、删除和恢复规则；品牌、美术与第三方资产许可须单独检查。
+不采用多工作区 vault/共享租户、React/Expo 或 Tauri 全栈迁移、IM 群聊治理、另一套 JSONL Session 真源或外置图数据库。ADR-027 仅批准本人微信及白名单 QQ 群文字接入；历史 AST-06 判定不再排除这一受限入口，也不授权群管理或共享个人数据。Git 快照只能是受控导出/历史载体，不能绕过一致性备份、删除和恢复规则；品牌、美术与第三方资产许可须单独检查。
 
 <a id="upstream-20260929"></a>
 

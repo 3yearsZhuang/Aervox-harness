@@ -1,0 +1,22 @@
+# Deployment example: replace user, repository, mise and environment-file paths.
+# The environment file must be private and provide the API token and model configuration.
+[Unit]
+Description=Aervox Bot API
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=aervox
+Group=aervox
+WorkingDirectory=/srv/aervox
+EnvironmentFile=/etc/aervox/bot-host.env
+ExecStart=/home/aervox/.local/bin/mise exec -- node apps/api/dist/index.js
+Restart=on-failure
+RestartSec=5s
+KillSignal=SIGTERM
+TimeoutStopSec=45s
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

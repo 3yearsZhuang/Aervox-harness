@@ -14,3 +14,12 @@ const config = loadApiConfig();
 const auth = loadAuthConfig();
 assertSafeApiListenHost(config.host, auth.mode);
 await app.listen({ port: config.port, host: config.host });
+
+let closing = false;
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    if (closing) return;
+    closing = true;
+    void app.close().catch(() => { process.exitCode = 1; });
+  });
+}

@@ -63,6 +63,7 @@ export interface ProactiveRuleSyncPort {
 }
 
 export interface PluginServiceDeps {
+  beforeDeactivate?: (pluginId: string, uninstall: boolean) => Promise<void>;
   extensionRepo: SqliteExtensionRepository;
   registry: SqliteToolRegistryRepository;
   skillRegistry: SqliteSkillRegistryRepository;
@@ -246,6 +247,7 @@ export class PluginService {
 
   /** 启停插件 + 联动其工具 enabled 与技能 active */
   async setEnabled(id: string, enabled: boolean): Promise<PluginModel | null> {
+    if (!enabled) await this.deps.beforeDeactivate?.(id, false);
     let targetId = id;
     let updated = await this.deps.extensionRepo.setPluginEnabled(targetId, enabled);
     const registry = this.deps.pluginRegistry ?? defaultServerPluginRegistry;
@@ -277,6 +279,7 @@ export class PluginService {
     if (!isValidSkillName(id)) return false;
     return withSkillMutation(this.deps.skillsRoot, async () => {
       if (!await this.deps.extensionRepo.getPlugin(id)) return false;
+      await this.deps.beforeDeactivate?.(id, true);
       const owned = (await this.deps.skillRegistry.listSkills()).some(skill => skill.pluginId === id);
       if (owned) {
         await assertSkillDirectoryOwner(this.deps.skillRegistry, this.deps.skillsRoot, { kind: "plugin", id });
@@ -299,8 +302,10 @@ export class PluginService {
   }
 
   /** 撤销插件权限 */
-  revoke(tenant: LocalContext, id: string) {
-    return this.deps.extensionRepo.revokePluginGrant(tenant, id);
+  async revoke(tenant: LocalContext, id: string) {
+    const grant = await this.deps.extensionRepo.revokePluginGrant(tenant, id);
+    if (grant) await this.deps.beforeDeactivate?.(grant.pluginId, false);
+    return grant;
   }
 
   /** 查询插件是否具备指定权限 */

@@ -1,5 +1,5 @@
-import { and, eq, gte, inArray, isNull, lte } from "drizzle-orm";
-import { learningGoals, memoryRecords, messageVersions, questionAttempts } from "@aervox/schema";
+import { and, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
+import { learningGoals, memoryRecords, messageVersions, questionAttempts, sessions, turns } from "@aervox/schema";
 import type { DiaryMaterial, DiaryMaterialPort, LocalContext } from "@aervox/contracts";
 import type { AervoxDatabase } from "../../client.js";
 
@@ -21,8 +21,12 @@ export async function collectDiaryMaterial(
       createdAt: messageVersions.createdAt,
     })
     .from(messageVersions)
+    .innerJoin(turns, eq(turns.id, messageVersions.turnId))
+    .innerJoin(sessions, eq(sessions.id, turns.sessionId))
     .where(
       and(
+        inArray(turns.executionPolicy, ["local-v1", "bot-owner-v1"]),
+        eq(turns.executionPolicy, sessions.executionPolicy),
         inArray(messageVersions.role, ["user", "assistant"]),
         isNull(messageVersions.supersededAt),
         eq(messageVersions.isRedacted, 0),
@@ -45,6 +49,12 @@ export async function collectDiaryMaterial(
     .where(
       and(
         eq(memoryRecords.isDeleted, 0),
+        sql`(${memoryRecords.sourceTurnId} IS NULL OR EXISTS (
+          SELECT 1 FROM turns source_turn JOIN sessions source_session ON source_session.id = source_turn.session_id
+          WHERE source_turn.id = ${memoryRecords.sourceTurnId}
+            AND source_turn.execution_policy IN ('local-v1', 'bot-owner-v1')
+            AND source_session.execution_policy = source_turn.execution_policy
+        ))`,
         gte(memoryRecords.createdAt, window.startIso),
         lte(memoryRecords.createdAt, window.endIso),
       ),
