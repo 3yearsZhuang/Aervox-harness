@@ -38,6 +38,8 @@ JSON HTTP 失败使用 RFC 9457 `application/problem+json`，结构由 [ApiProbl
 
 历史基线仍指向原提交 `05200288`。首次规范化曾误删与注解同名的业务字段，现从该提交的原始 OpenAPI 恢复；纠偏值从已评审的 `ae5cca63` 原文恢复并重新计算精确摘要。两文件的 `restoration` 记录修复前文件 SHA-256 与来源 Git blob，供逐项核对；这次数据修复没有推进基线或新增兼容豁免。属性字典与常量内容中的 `title`、`description` 等键保留为契约数据。
 
+[Provider 扩展](https://github.com/3yearsZhuang/Aervox-harness/pull/282)保留六个既有 ID，并允许宿主注册的有界 ID。此次批准的响应枚举扩展以 16 个精确 Schema 指针、旧内容摘要和固定新内容登记，未重置历史基线。现有客户端继续使用旧 ID；消费新注册 Provider 的客户端须将 `providerType` 作为标识符处理，不能穷举六种取值或把未知 ID 静默切换为另一 Provider。后续字段、正则或其它兼容变化继续受检。
+
 后续确有版本决定时可运行：
 
 ```sh

@@ -238,7 +238,7 @@ export async function runLoopTurnOnce(
               provider: r.provider,
               modelId: r.modelId,
             });
-            await p.completeModelRun(tenant, r.runId, { status: r.status === "completed" ? "completed" : "failed", latencyMs: r.latencyMs });
+            await p.completeModelRun(tenant, r.runId, { status: r.status === "completed" ? "completed" : "failed", latencyMs: r.latencyMs, tokenUsage: r.usage });
           },
           recordContextManifest: async (m) => {
             const p = deps.platformRepo!;

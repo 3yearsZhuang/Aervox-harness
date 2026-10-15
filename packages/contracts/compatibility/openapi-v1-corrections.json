@@ -1517,6 +1517,185 @@
           }
         }
       }
+    },
+    {
+      "id": "provider-registry-id-1",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/components/schemas/HealthSnapshot/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-2",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/components/schemas/LLMConfig/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-3",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/components/schemas/LLMConfigResponse/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-4",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/components/schemas/LLMCreatePresetRequest/properties/config/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-5",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/components/schemas/LLMPreset/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-6",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/components/schemas/LLMPresetListResponse/properties/presets/items/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-7",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/components/schemas/LLMTestConnectionRequest/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-8",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/components/schemas/ModelRoutingSnapshot/properties/providerType",
+      "beforeHash": "ede61ad0bf2ca87856d82d4b8f1ba9c58a324537785404b866ada49bdd31325a",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    {
+      "id": "provider-registry-id-9",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/paths/~1v1~1llm~1config/get/responses/200/content/application~1json/schema/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-10",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/paths/~1v1~1llm~1config/put/requestBody/content/application~1json/schema/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-11",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/paths/~1v1~1llm~1config/put/responses/200/content/application~1json/schema/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-12",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/paths/~1v1~1llm~1presets/get/responses/200/content/application~1json/schema/properties/presets/items/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-13",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/paths/~1v1~1llm~1presets/post/requestBody/content/application~1json/schema/properties/config/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-14",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/paths/~1v1~1llm~1presets/post/responses/201/content/application~1json/schema/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-15",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/paths/~1v1~1llm~1presets~1{presetId}~1activate/post/responses/200/content/application~1json/schema/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-16",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/paths/~1v1~1llm~1test-connection/post/requestBody/content/application~1json/schema/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
     }
   ],
   "restoration": {
