@@ -8,7 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-import { createClient, type Client } from "@libsql/client";
+import { createClient, LibsqlError, type Client, type Transaction } from "@libsql/client";
 import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
 import * as schema from "@aervox/schema";
 import {
@@ -58,14 +58,42 @@ export function createReconnectableClient(options: {
   let current = options.initial;
   let reconnects = 0;
   let reconnectInFlight: Promise<void> | null = null;
+  let reconnectRequested: Promise<void> | null = null;
+  let closed = false;
+  let operationTail = Promise.resolve();
+  let closeActiveTransaction: (() => void) | null = null;
   /** 当前连接是否已被污染（同步标记，用于阻止在污染连接上开启事务） */
   let poisoned = false;
 
+  const assertOpen = (): void => {
+    if (closed) throw new LibsqlError("The client is closed", "CLIENT_CLOSED");
+  };
+
+  // libsql 的本地 SQLite 写锁等待会阻塞 JS：另一事务将无法恢复执行并提交。
+  // 因此在同一 client 上异步排队；事务持有槽位至结束，事务内语句直接执行。
+  // 此锁只覆盖显式数据库操作/事务，模型执行不得放入数据库事务内。
+  const acquireOperation = async (): Promise<() => void> => {
+    const previous = operationTail;
+    let release!: () => void;
+    operationTail = new Promise<void>((resolve) => { release = resolve; });
+    await previous;
+    if (closed) {
+      release();
+      assertOpen();
+    }
+    return release;
+  };
+
   const runReconnect = (): Promise<void> => {
     const attempt = (async () => {
+      assertOpen();
       const stale = current;
       // 先建新连接并完成 PRAGMA，成功后再切换；失败时保持旧引用与 poisoned 标记。
       const next = await options.createAndPrepare();
+      if (closed) {
+        next.close();
+        assertOpen();
+      }
       current = next;
       poisoned = false;
       try {
@@ -87,17 +115,36 @@ export function createReconnectableClient(options: {
     return attempt;
   };
 
-  const reconnect = async (): Promise<void> => {
+  // 内部恢复已经持有操作槽位，不可再次排队，否则会等待自己释放。
+  const reconnectNow = async (): Promise<void> => {
     if (!reconnectInFlight) return runReconnect();
     await reconnectInFlight.catch(() => undefined);
     if (!poisoned) return;
     return runReconnect();
   };
 
+  const reconnect = (): Promise<void> => {
+    if (reconnectRequested) return reconnectRequested;
+    const request = (async () => {
+      const release = await acquireOperation();
+      try {
+        await reconnectNow();
+      } finally {
+        release();
+      }
+    })();
+    reconnectRequested = request;
+    void request.then(
+      () => { if (reconnectRequested === request) reconnectRequested = null; },
+      () => { if (reconnectRequested === request) reconnectRequested = null; },
+    );
+    return request;
+  };
+
   /** 执行任何操作前确保连接健康；被污染的连接绝不允许再开事务 */
   const ensureHealthy = async (): Promise<void> => {
     if (!poisoned) return;
-    await reconnect();
+    await reconnectNow();
   };
 
   /**
@@ -115,10 +162,27 @@ export function createReconnectableClient(options: {
    * 包装事务对象：事务一旦因连接污染而失败，立即标记并换连接。
    * 事务本身无法重放（回调已经执行过），因此这里只做连接清理，然后如实上抛。
    */
-  const wrapTransaction = (tx: unknown): unknown => {
-    if (!tx || typeof tx !== "object") return tx;
-    return new Proxy(tx as Record<string, unknown>, {
+  const wrapTransaction = (tx: Transaction, release: () => void): Transaction => {
+    let finished = false;
+    const finish = (): void => {
+      if (finished) return;
+      finished = true;
+      try {
+        // commit/rollback 失败时同样尽力关闭事务，之后才允许下一操作进入。
+        tx.close();
+      } catch (error) {
+        poisoned = true;
+        throw error;
+      } finally {
+        if (closeActiveTransaction === finish) closeActiveTransaction = null;
+        release();
+      }
+    };
+    closeActiveTransaction = finish;
+    return new Proxy(tx, {
       get(target, prop) {
+        if (prop === "close") return finish;
+        if (prop === "closed") return finished || target.closed;
         const value = Reflect.get(target, prop, target);
         if (typeof value !== "function") return value;
         if (
@@ -129,14 +193,25 @@ export function createReconnectableClient(options: {
           prop === "batch"
         ) {
           return async (...args: unknown[]): Promise<unknown> => {
+            if (finished) {
+              if (prop === "rollback") return;
+              throw new LibsqlError("The transaction is closed", "TRANSACTION_CLOSED");
+            }
+            const terminal = prop === "commit" || prop === "rollback";
             try {
               return await (value as (...a: unknown[]) => Promise<unknown>).apply(target, args);
             } catch (error) {
               if (isRecoverable(error, String(prop))) {
                 poisoned = true;
-                await reconnect().catch(() => undefined);
+                // 先结束旧事务，避免新连接配置 PRAGMA 时等待仍由自己持有的锁。
+                // 恢复完成前不释放槽位；否则后续操作可能越过恢复屏障。
+                try { target.close(); } catch { /* 保留原始失败 */ }
+                await reconnectNow().catch(() => undefined);
+                try { finish(); } catch { /* 保留原始失败 */ }
               }
               throw error;
+            } finally {
+              if (terminal || target.closed) finish();
             }
           };
         }
@@ -145,39 +220,53 @@ export function createReconnectableClient(options: {
     });
   };
 
-  const recoverable = (method: string) =>
+  const recoverable = (method: string, mayRecover = true) =>
     async (...args: unknown[]): Promise<unknown> => {
-      await ensureHealthy();
-
-      const invoke = (): Promise<unknown> => {
-        const fn = (current as unknown as Record<string, unknown>)[method];
-        if (typeof fn !== "function") {
-          throw new Error(`libsql client has no method ${method}`);
-        }
-        return (fn as (...a: unknown[]) => Promise<unknown>).apply(current, args);
-      };
-      const finish = (result: unknown): unknown =>
-        method === "transaction" ? wrapTransaction(result) : result;
-
+      const release = await acquireOperation();
+      let transactionOwnsOperation = false;
       try {
-        return finish(await invoke());
-      } catch (error) {
-        if (!isRecoverable(error, method)) throw error;
-        // 同步标记：并发调用会在 ensureHealthy() 处等待重连完成，
-        // 不会在这个已被污染的连接上开启事务（那会导致不可恢复的丢锁）。
-        poisoned = true;
-        await reconnect();
+        await ensureHealthy();
+        assertOpen();
+
+        const invoke = (): Promise<unknown> => {
+          const fn = (current as unknown as Record<string, unknown>)[method];
+          if (typeof fn !== "function") {
+            throw new Error(`libsql client has no method ${method}`);
+          }
+          return (fn as (...a: unknown[]) => Promise<unknown>).apply(current, args);
+        };
+        const finish = (result: unknown): unknown => {
+          if (method !== "transaction") return result;
+          const tx = result as Transaction;
+          if (closed) {
+            tx.close();
+            assertOpen();
+          }
+          const wrapped = wrapTransaction(tx, release);
+          transactionOwnsOperation = true;
+          return wrapped;
+        };
+
         try {
           return finish(await invoke());
-        } catch (retryError) {
-          // 重试本身若再次失败（例如锁仍被占用），新连接同样会被污染：
-          // 再换一次，确保 current 永远是一条干净连接，而不是把污染留给下一个调用。
-          if (isRecoverable(retryError, method)) {
-            poisoned = true;
-            await reconnect().catch(() => undefined);
+        } catch (error) {
+          if (!mayRecover || !isRecoverable(error, method)) throw error;
+          // 槽位在恢复过程中保持占用，后续操作不能越过这条污染连接。
+          poisoned = true;
+          await reconnectNow();
+          try {
+            return finish(await invoke());
+          } catch (retryError) {
+            // 重试仍失败时也换掉污染连接，不能把污染留给下一个调用。
+            if (isRecoverable(retryError, method)) {
+              poisoned = true;
+              await reconnectNow().catch(() => undefined);
+            }
+            throw retryError;
           }
-          throw retryError;
         }
+      } finally {
+        if (!transactionOwnsOperation) release();
       }
     };
 
@@ -185,6 +274,16 @@ export function createReconnectableClient(options: {
     get(_target, prop) {
       if (prop === "reconnect") return reconnect;
       if (prop === "reconnectCount") return () => reconnects;
+      if (prop === "closed") return closed || current.closed;
+      if (prop === "close") return () => {
+        if (closed) return;
+        closed = true;
+        try {
+          closeActiveTransaction?.();
+        } finally {
+          current.close();
+        }
+      };
       if (
         prop === "execute" ||
         prop === "executeMultiple" ||
@@ -193,6 +292,7 @@ export function createReconnectableClient(options: {
       ) {
         return recoverable(String(prop));
       }
+      if (prop === "migrate" || prop === "sync") return recoverable(String(prop), false);
       const value = Reflect.get(current as unknown as Record<string, unknown>, prop, current);
       return typeof value === "function"
         ? (value as (...a: unknown[]) => unknown).bind(current)
