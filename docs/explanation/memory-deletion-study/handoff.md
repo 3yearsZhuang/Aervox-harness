@@ -4,9 +4,9 @@
 
 ## 本轮落盘检查点
 
-完整中文论文、英文摘要、参考文献和复现附录已保存于 [paper.md](paper.md)，PDF 位于 [成稿](../../../output/pdf/memory-deletion-study.pdf)。本轮不再依赖恢复长聊天才能继续。2026-10-15 20:02:17（Asia/Shanghai）的 schema 2 报告及图表已经替换早期证据；旧报告仅保留在本地 `artifacts/memory-deletion-inherited-results`，不再作为论文数据。当前 56 项来源哈希一致，主实验为 80 个正确性案例、96 条计时、4 个错误回写和 2 个终止探针。
+完整中文论文、英文摘要、参考文献和复现附录已保存于 [paper.md](paper.md)，PDF 位于 [成稿](../../../output/pdf/memory-deletion-study.pdf)。本轮不再依赖恢复长聊天才能继续。2026-10-15 20:47:29（Asia/Shanghai）的 schema 2 报告及图表已经替换早期证据；最早旧报告保留在本地 `artifacts/memory-deletion-inherited-results`，主线整合前的报告保留在 `artifacts/memory-deletion-before-main-sync`，不再作为论文数据。当前 62 项来源哈希一致，主实验为 80 个正确性案例、96 条计时、4 个错误回写和 2 个终止探针。
 
-本轮进一步修复了独立 oracle 对额外修订、扩展载荷及已知事件来源字段丢失的漏检，并将相应墓碑条件纳入生产验证器。计时样本保存完成观察，源码漂移先落盘再失败；研究回归已进入代码门禁。5 个生产测试文件共 38 项、研究 runner 共 11 项定向检查通过。全量门禁以本轮保存的 `artifacts/memory-deletion-validation/full-ci.exit` 为准，不能用旧日志尾部推断成功。最终移交状态见研究入口。
+本轮进一步修复了独立 oracle 对额外修订、扩展载荷及已知事件来源字段丢失的漏检，并将相应墓碑条件纳入生产验证器。计时样本保存完成观察，源码漂移先落盘再失败；研究回归已进入代码门禁。5 个生产测试文件共 38 项、研究 runner 共 11 项定向检查通过。首次交付的全量门禁见 `artifacts/memory-deletion-validation/full-ci.exit`；主线整合后以 `artifacts/memory-deletion-integrated-validation/full-ci.exit` 为准，不能用旧日志尾部推断成功。最终移交状态见研究入口。
 
 ## 最初交接的故障统计
 

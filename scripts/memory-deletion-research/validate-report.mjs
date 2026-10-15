@@ -12,13 +12,13 @@ export const CSV_COLUMNS = ['caseId', 'arm', 'channel', 'position', 'omission', 
 // Required measurement inputs, rather than an arbitrary number of reported
 // hashes. Include fixture/schema construction and the executed JS artifacts.
 export const REQUIRED_SOURCE_FILES = [
-  ...['client', 'write-retry', 'repositories/sqlite/memory-repository',
+  ...['client', 'write-retry', 'conversation-execution-policy', 'repositories/sqlite/memory-repository',
     'repositories/sqlite/memory-deletion-store', 'repositories/sqlite/outbox-repository',
     'repositories/sqlite/memory-compaction-guard', 'repositories/sqlite/memory-compaction-repository',
     'repositories/sqlite/memory-embedding-repository', 'search/fts',
-    ...['index', 'common', 'memories', 'provenance', 'memory-compaction', 'embeddings', 'outbox', 'fts'].map(name => `schema/ddl/${name}`),
+    ...['index', 'common', 'memories', 'provenance', 'memory-compaction', 'embeddings', 'outbox', 'fts', 'conversations'].map(name => `schema/ddl/${name}`),
   ].flatMap(file => [`packages/repositories/src/${file}.ts`, `packages/repositories/dist/${file}.js`]),
-  ...['index', 'common', 'memories', 'provenance', 'memory-compaction', 'embeddings', 'outbox']
+  ...['index', 'common', 'memories', 'provenance', 'memory-compaction', 'embeddings', 'outbox', 'conversations']
     .flatMap(file => [`packages/schema/src/${file}.ts`, `packages/schema/dist/${file}.js`]),
   'packages/repositories/package.json', 'packages/schema/package.json',
   'scripts/memory-deletion-research/fixture.mjs', 'scripts/memory-deletion-research/runner.mjs',

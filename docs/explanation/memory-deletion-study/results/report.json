@@ -1,30 +1,32 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-15T12:02:17.464Z",
+  "generatedAt": "2026-10-15T12:47:29.997Z",
   "baselineCommit": "99c82924",
-  "commit": "99c82924ddc088ea066a1e6298f3992d8c8f2b48",
-  "workingTree": "M docs/explanation/README.md\n M mise.toml\n M package.json\n M packages/repositories/src/repositories/sqlite/memory-deletion-store.ts\n M packages/repositories/src/repositories/sqlite/outbox-repository.ts\n M plan.md\n M scripts/check-affected.mjs\n M scripts/ci-scope.test.mjs\n?? docs/explanation/memory-deletion-study/\n?? packages/repositories/test/memory-deletion-verification.test.ts\n?? packages/repositories/test/outbox-deletion-guard.test.ts\n?? scripts/memory-deletion-research/",
+  "commit": "6a653fd5397648ca392b121274f90fd83758a19f",
+  "workingTree": "M scripts/docs-governance.test.mjs\n M scripts/docs-lint-affected.mjs\n M scripts/memory-deletion-research/validate-report.mjs\n?? scripts/docs-memory-deletion.test.mjs",
   "hashes": {
-    "packages/repositories/src/client.ts": "575bb1970738c3bdab50a47171578d4612b6ad0bbbc6526b6426ef9cddd8bc13",
-    "packages/repositories/dist/client.js": "185c1b45d24fb2975cfbb026cc6efc25d9531947c8a15e6950749f6430085396",
+    "packages/repositories/src/client.ts": "eaabe119567dcd94ac1d81ea18b9f6c24d336c0c0c1c8484ce3ac6052ad07641",
+    "packages/repositories/dist/client.js": "86d8c93bbe50e537b6a63dce373d597db5403a81075e48d1db03f5f849f485f9",
     "packages/repositories/src/write-retry.ts": "b810810685fcaa19d749b1b9d58341be710321cc0d208bd88264b312060315f9",
     "packages/repositories/dist/write-retry.js": "ec8655d2de69e15779adfed32f856add424a5bb4e2a82fb4e16e6570496e11fe",
-    "packages/repositories/src/repositories/sqlite/memory-repository.ts": "4bf302f24fdca14a4c7f551b27c403b635d85c1d17d1d1452ec5a8e2a40fceed",
-    "packages/repositories/dist/repositories/sqlite/memory-repository.js": "97db5e6df60ba43dbc4351fb9fddfecc89b5ac7a7404c6ef5c2e83a63763bf7f",
+    "packages/repositories/src/conversation-execution-policy.ts": "9cbe7e9b281f005d1d34f1f0b188f67f577886b460fcb27d436fcf754a939312",
+    "packages/repositories/dist/conversation-execution-policy.js": "195e59421214339da1a81080c2a11699eb68b8b3fada090472d28405dbcfe5aa",
+    "packages/repositories/src/repositories/sqlite/memory-repository.ts": "133e384c9a686cfcbcd34ddef687b07e0ffacc58654ac1cebe17b7541d3b4372",
+    "packages/repositories/dist/repositories/sqlite/memory-repository.js": "9de35d4cc93b5a54817f2c641c7350301674ac83e90183df78f610ccdd0914bc",
     "packages/repositories/src/repositories/sqlite/memory-deletion-store.ts": "21c2cf08a4800a0bdd3dac59e07ad25ec1c6a33b0b9dc302621c6451f609a15b",
     "packages/repositories/dist/repositories/sqlite/memory-deletion-store.js": "8e7a6e100ae75c6f3cff45d758554700eef8123431771b00b9b9383352d04f3e",
     "packages/repositories/src/repositories/sqlite/outbox-repository.ts": "e5b1c4c025ce77829e37d00d2a9bd04c5739cb70a93e78edeeabb3588b268a22",
     "packages/repositories/dist/repositories/sqlite/outbox-repository.js": "1e286902580f6665dd252c9dde9de125d737a4af82eff34bb5355cac68ade901",
-    "packages/repositories/src/repositories/sqlite/memory-compaction-guard.ts": "252d25edeb12e70804e30bddc79b22b91555ec9556224aec90ba47b6a198cf20",
-    "packages/repositories/dist/repositories/sqlite/memory-compaction-guard.js": "3f27c609bfde2f16b138182903849210263ca1a14213d7130db21dd3a95f3c2d",
+    "packages/repositories/src/repositories/sqlite/memory-compaction-guard.ts": "2f1728732125d455932dcb018e9c96848602c92ef0da9de9bd69d69c12feda1d",
+    "packages/repositories/dist/repositories/sqlite/memory-compaction-guard.js": "451dd4aa86df8b9142176401a55dfafb4fc5105d594d48d4ed6a05ef04c1e823",
     "packages/repositories/src/repositories/sqlite/memory-compaction-repository.ts": "f8c4897a6116b112361c5f107cc54e100fbf1917a8f4b42d1fb94c72cc90d680",
     "packages/repositories/dist/repositories/sqlite/memory-compaction-repository.js": "929a6ec1a56399b24269d1ad172b01b2fb4135cbc5c61d4c6d5dff1579edfe73",
     "packages/repositories/src/repositories/sqlite/memory-embedding-repository.ts": "9727697310f83c9932f149fbaa3475339505baba0310eb0d47eda7a2410e7376",
     "packages/repositories/dist/repositories/sqlite/memory-embedding-repository.js": "92479e78150bd63530f7e51f907a777be3bfe3bc73ab51cd897125f6e745cd96",
     "packages/repositories/src/search/fts.ts": "c22aa0cb8865e5006bf97ef0a94abe03e5a26462c76bae8b61f94069aa7dc8a1",
     "packages/repositories/dist/search/fts.js": "7f09f07bbd0247a421d46667de5c5a0384ad98225708a2534c9876086b43c3ba",
-    "packages/repositories/src/schema/ddl/index.ts": "d6980c69c25e3d87eeb35908d98d70b6d5db23dbb925b370a3196ef67e38c3f6",
-    "packages/repositories/dist/schema/ddl/index.js": "bf6b38dd9bb4734ff89819b5dde883fdc1de7f480241be0fd7ca3bc87322d348",
+    "packages/repositories/src/schema/ddl/index.ts": "fe81e6a202ac1f490e546946a3cf4574a3628bfb43204f653d3fec597ad55636",
+    "packages/repositories/dist/schema/ddl/index.js": "dd424e507a1de4b86c52d3825907bc067a4cc9d64c55fb01d9ba19ff9e76926e",
     "packages/repositories/src/schema/ddl/common.ts": "dc858363c214d9446cdca0599d060d245629e49a01a3325d50ec488ab877a78d",
     "packages/repositories/dist/schema/ddl/common.js": "ab0df04d96cd279110c92ff64e79bb99b1314fcfb42fb81f16961db7f9135a4c",
     "packages/repositories/src/schema/ddl/memories.ts": "5f5b20eb2b18a114103697318982fc4f4864f1c654fd11a053be62d9d11e7fe7",
@@ -39,8 +41,10 @@
     "packages/repositories/dist/schema/ddl/outbox.js": "2b490a22cade86f199db3e115a07605372cb9acbf1ac619ff8a1e7ffdd3cd098",
     "packages/repositories/src/schema/ddl/fts.ts": "678bec855b875b98b34fdb6d4d8f048e972d51f30600abcf9bfb394e3d48a1c8",
     "packages/repositories/dist/schema/ddl/fts.js": "d5ec2d165a6b8d610c5583ea8d520d71788f333ce0a7871b42e8be815a782dac",
-    "packages/schema/src/index.ts": "75ffc2d0504461d5e555ab9511e7bbd39fb2aa0a6d9c3e20c2db00fe27ff5ffc",
-    "packages/schema/dist/index.js": "75ffc2d0504461d5e555ab9511e7bbd39fb2aa0a6d9c3e20c2db00fe27ff5ffc",
+    "packages/repositories/src/schema/ddl/conversations.ts": "0b1632dfe3d7b39e120ba5094218f84e49a6cb552ba824f8ec7dae554eb5843d",
+    "packages/repositories/dist/schema/ddl/conversations.js": "48987ce1a8cad2ec17caab7243b5d46de771463177af7f738e93df56740f2919",
+    "packages/schema/src/index.ts": "3c2e98be384dbd6fe4ecf6a7aa82e70533e5f14cfcf81b90874bd16978b88076",
+    "packages/schema/dist/index.js": "3c2e98be384dbd6fe4ecf6a7aa82e70533e5f14cfcf81b90874bd16978b88076",
     "packages/schema/src/common.ts": "8be232d256eda2af8e0307e36d21d824bbefd483260ede9737e4163d39c5a352",
     "packages/schema/dist/common.js": "ea8465397613bab6ee86a03e59881e70d6da0fd636e3ceb3233fb7503cc5a553",
     "packages/schema/src/memories.ts": "ee4710ad1026132cafa53de07a76db2f4ea6bf8f018f4cc0840ef7d3559a0d6f",
@@ -53,37 +57,41 @@
     "packages/schema/dist/embeddings.js": "b3d531db295040ecca493cb192c8356d425d62653b9ea97e3b011196d9f89c00",
     "packages/schema/src/outbox.ts": "f8d40a895c7701bdc37f38aeb0bf6d0687d7085f143b0312edd98178631e7840",
     "packages/schema/dist/outbox.js": "bca78b20e3981a864050c487f64c014727ac095a36e2fec3e7b9dee8e9ce94cf",
+    "packages/schema/src/conversations.ts": "6b10c06a6b58fa41c8d0b580b29ac924698210c9575ea48f10a1ff69bc407ad1",
+    "packages/schema/dist/conversations.js": "95f4bf7910dcaf2d10c2280c16916e21502881b9cffa8854434310338c3d72b9",
     "packages/repositories/package.json": "f8f388d6c04d98eabd2b0b35adc751cf6951516c0329130da7a4777408e9e88c",
     "packages/schema/package.json": "805a07b40eb4392c3c7db7e7f4181c3a331d5c25f2019e173e1d6323ad640bca",
     "scripts/memory-deletion-research/fixture.mjs": "3c2b791a66b048cfd1dbed25070f45e75e55734a27de915bca62c55082a78252",
     "scripts/memory-deletion-research/runner.mjs": "97f080e7392ff39bf645cbbe668a0b8950e89700e828c0c65f656fac2b6bee4d",
     "scripts/memory-deletion-research/crash-child.mjs": "6f362771edfc4f89379ca62bee009bb6128fe612c07c477403fc456718369bde",
-    "scripts/memory-deletion-research/validate-report.mjs": "07bcaf98488a3db704ad8636f7ad8126d983b6347bb946cc28d9229671ec2475",
-    "pnpm-lock.yaml": "27dc48057272b68c9f338f698128ae6287e95ef63ae0cc77ff7422525b55a6eb",
-    "mise.toml": "29eb3558b1d519c662ce7b344760df7b16122d7fb63956f098af2c8dfc1203d8"
+    "scripts/memory-deletion-research/validate-report.mjs": "c492514e174a5ac2a09c02f48f78dff0bf08dea455da479fe2357be808b4f20c",
+    "pnpm-lock.yaml": "08df969bbaa00ac20b6bd80f8afaacf692dad3ff4ffef2310939615d8e7574a9",
+    "mise.toml": "fcd2fbd1c4522eae9b25f5b375200d36d7942e8233f53018d6fbd5de69eeddaa"
   },
   "sourceConsistency": {
     "afterHashes": {
-      "packages/repositories/src/client.ts": "575bb1970738c3bdab50a47171578d4612b6ad0bbbc6526b6426ef9cddd8bc13",
-      "packages/repositories/dist/client.js": "185c1b45d24fb2975cfbb026cc6efc25d9531947c8a15e6950749f6430085396",
+      "packages/repositories/src/client.ts": "eaabe119567dcd94ac1d81ea18b9f6c24d336c0c0c1c8484ce3ac6052ad07641",
+      "packages/repositories/dist/client.js": "86d8c93bbe50e537b6a63dce373d597db5403a81075e48d1db03f5f849f485f9",
       "packages/repositories/src/write-retry.ts": "b810810685fcaa19d749b1b9d58341be710321cc0d208bd88264b312060315f9",
       "packages/repositories/dist/write-retry.js": "ec8655d2de69e15779adfed32f856add424a5bb4e2a82fb4e16e6570496e11fe",
-      "packages/repositories/src/repositories/sqlite/memory-repository.ts": "4bf302f24fdca14a4c7f551b27c403b635d85c1d17d1d1452ec5a8e2a40fceed",
-      "packages/repositories/dist/repositories/sqlite/memory-repository.js": "97db5e6df60ba43dbc4351fb9fddfecc89b5ac7a7404c6ef5c2e83a63763bf7f",
+      "packages/repositories/src/conversation-execution-policy.ts": "9cbe7e9b281f005d1d34f1f0b188f67f577886b460fcb27d436fcf754a939312",
+      "packages/repositories/dist/conversation-execution-policy.js": "195e59421214339da1a81080c2a11699eb68b8b3fada090472d28405dbcfe5aa",
+      "packages/repositories/src/repositories/sqlite/memory-repository.ts": "133e384c9a686cfcbcd34ddef687b07e0ffacc58654ac1cebe17b7541d3b4372",
+      "packages/repositories/dist/repositories/sqlite/memory-repository.js": "9de35d4cc93b5a54817f2c641c7350301674ac83e90183df78f610ccdd0914bc",
       "packages/repositories/src/repositories/sqlite/memory-deletion-store.ts": "21c2cf08a4800a0bdd3dac59e07ad25ec1c6a33b0b9dc302621c6451f609a15b",
       "packages/repositories/dist/repositories/sqlite/memory-deletion-store.js": "8e7a6e100ae75c6f3cff45d758554700eef8123431771b00b9b9383352d04f3e",
       "packages/repositories/src/repositories/sqlite/outbox-repository.ts": "e5b1c4c025ce77829e37d00d2a9bd04c5739cb70a93e78edeeabb3588b268a22",
       "packages/repositories/dist/repositories/sqlite/outbox-repository.js": "1e286902580f6665dd252c9dde9de125d737a4af82eff34bb5355cac68ade901",
-      "packages/repositories/src/repositories/sqlite/memory-compaction-guard.ts": "252d25edeb12e70804e30bddc79b22b91555ec9556224aec90ba47b6a198cf20",
-      "packages/repositories/dist/repositories/sqlite/memory-compaction-guard.js": "3f27c609bfde2f16b138182903849210263ca1a14213d7130db21dd3a95f3c2d",
+      "packages/repositories/src/repositories/sqlite/memory-compaction-guard.ts": "2f1728732125d455932dcb018e9c96848602c92ef0da9de9bd69d69c12feda1d",
+      "packages/repositories/dist/repositories/sqlite/memory-compaction-guard.js": "451dd4aa86df8b9142176401a55dfafb4fc5105d594d48d4ed6a05ef04c1e823",
       "packages/repositories/src/repositories/sqlite/memory-compaction-repository.ts": "f8c4897a6116b112361c5f107cc54e100fbf1917a8f4b42d1fb94c72cc90d680",
       "packages/repositories/dist/repositories/sqlite/memory-compaction-repository.js": "929a6ec1a56399b24269d1ad172b01b2fb4135cbc5c61d4c6d5dff1579edfe73",
       "packages/repositories/src/repositories/sqlite/memory-embedding-repository.ts": "9727697310f83c9932f149fbaa3475339505baba0310eb0d47eda7a2410e7376",
       "packages/repositories/dist/repositories/sqlite/memory-embedding-repository.js": "92479e78150bd63530f7e51f907a777be3bfe3bc73ab51cd897125f6e745cd96",
       "packages/repositories/src/search/fts.ts": "c22aa0cb8865e5006bf97ef0a94abe03e5a26462c76bae8b61f94069aa7dc8a1",
       "packages/repositories/dist/search/fts.js": "7f09f07bbd0247a421d46667de5c5a0384ad98225708a2534c9876086b43c3ba",
-      "packages/repositories/src/schema/ddl/index.ts": "d6980c69c25e3d87eeb35908d98d70b6d5db23dbb925b370a3196ef67e38c3f6",
-      "packages/repositories/dist/schema/ddl/index.js": "bf6b38dd9bb4734ff89819b5dde883fdc1de7f480241be0fd7ca3bc87322d348",
+      "packages/repositories/src/schema/ddl/index.ts": "fe81e6a202ac1f490e546946a3cf4574a3628bfb43204f653d3fec597ad55636",
+      "packages/repositories/dist/schema/ddl/index.js": "dd424e507a1de4b86c52d3825907bc067a4cc9d64c55fb01d9ba19ff9e76926e",
       "packages/repositories/src/schema/ddl/common.ts": "dc858363c214d9446cdca0599d060d245629e49a01a3325d50ec488ab877a78d",
       "packages/repositories/dist/schema/ddl/common.js": "ab0df04d96cd279110c92ff64e79bb99b1314fcfb42fb81f16961db7f9135a4c",
       "packages/repositories/src/schema/ddl/memories.ts": "5f5b20eb2b18a114103697318982fc4f4864f1c654fd11a053be62d9d11e7fe7",
@@ -98,8 +106,10 @@
       "packages/repositories/dist/schema/ddl/outbox.js": "2b490a22cade86f199db3e115a07605372cb9acbf1ac619ff8a1e7ffdd3cd098",
       "packages/repositories/src/schema/ddl/fts.ts": "678bec855b875b98b34fdb6d4d8f048e972d51f30600abcf9bfb394e3d48a1c8",
       "packages/repositories/dist/schema/ddl/fts.js": "d5ec2d165a6b8d610c5583ea8d520d71788f333ce0a7871b42e8be815a782dac",
-      "packages/schema/src/index.ts": "75ffc2d0504461d5e555ab9511e7bbd39fb2aa0a6d9c3e20c2db00fe27ff5ffc",
-      "packages/schema/dist/index.js": "75ffc2d0504461d5e555ab9511e7bbd39fb2aa0a6d9c3e20c2db00fe27ff5ffc",
+      "packages/repositories/src/schema/ddl/conversations.ts": "0b1632dfe3d7b39e120ba5094218f84e49a6cb552ba824f8ec7dae554eb5843d",
+      "packages/repositories/dist/schema/ddl/conversations.js": "48987ce1a8cad2ec17caab7243b5d46de771463177af7f738e93df56740f2919",
+      "packages/schema/src/index.ts": "3c2e98be384dbd6fe4ecf6a7aa82e70533e5f14cfcf81b90874bd16978b88076",
+      "packages/schema/dist/index.js": "3c2e98be384dbd6fe4ecf6a7aa82e70533e5f14cfcf81b90874bd16978b88076",
       "packages/schema/src/common.ts": "8be232d256eda2af8e0307e36d21d824bbefd483260ede9737e4163d39c5a352",
       "packages/schema/dist/common.js": "ea8465397613bab6ee86a03e59881e70d6da0fd636e3ceb3233fb7503cc5a553",
       "packages/schema/src/memories.ts": "ee4710ad1026132cafa53de07a76db2f4ea6bf8f018f4cc0840ef7d3559a0d6f",
@@ -112,14 +122,16 @@
       "packages/schema/dist/embeddings.js": "b3d531db295040ecca493cb192c8356d425d62653b9ea97e3b011196d9f89c00",
       "packages/schema/src/outbox.ts": "f8d40a895c7701bdc37f38aeb0bf6d0687d7085f143b0312edd98178631e7840",
       "packages/schema/dist/outbox.js": "bca78b20e3981a864050c487f64c014727ac095a36e2fec3e7b9dee8e9ce94cf",
+      "packages/schema/src/conversations.ts": "6b10c06a6b58fa41c8d0b580b29ac924698210c9575ea48f10a1ff69bc407ad1",
+      "packages/schema/dist/conversations.js": "95f4bf7910dcaf2d10c2280c16916e21502881b9cffa8854434310338c3d72b9",
       "packages/repositories/package.json": "f8f388d6c04d98eabd2b0b35adc751cf6951516c0329130da7a4777408e9e88c",
       "packages/schema/package.json": "805a07b40eb4392c3c7db7e7f4181c3a331d5c25f2019e173e1d6323ad640bca",
       "scripts/memory-deletion-research/fixture.mjs": "3c2b791a66b048cfd1dbed25070f45e75e55734a27de915bca62c55082a78252",
       "scripts/memory-deletion-research/runner.mjs": "97f080e7392ff39bf645cbbe668a0b8950e89700e828c0c65f656fac2b6bee4d",
       "scripts/memory-deletion-research/crash-child.mjs": "6f362771edfc4f89379ca62bee009bb6128fe612c07c477403fc456718369bde",
-      "scripts/memory-deletion-research/validate-report.mjs": "07bcaf98488a3db704ad8636f7ad8126d983b6347bb946cc28d9229671ec2475",
-      "pnpm-lock.yaml": "27dc48057272b68c9f338f698128ae6287e95ef63ae0cc77ff7422525b55a6eb",
-      "mise.toml": "29eb3558b1d519c662ce7b344760df7b16122d7fb63956f098af2c8dfc1203d8"
+      "scripts/memory-deletion-research/validate-report.mjs": "c492514e174a5ac2a09c02f48f78dff0bf08dea455da479fe2357be808b4f20c",
+      "pnpm-lock.yaml": "08df969bbaa00ac20b6bd80f8afaacf692dad3ff4ffef2310939615d8e7574a9",
+      "mise.toml": "fcd2fbd1c4522eae9b25f5b375200d36d7942e8233f53018d6fbd5de69eeddaa"
     },
     "readErrors": {},
     "changedFiles": []
@@ -285,10 +297,10 @@
       "keepViolations": 0,
       "errors": 0,
       "latencySamples": 24,
-      "p25Ms": 0.1098229999997784,
-      "medianMs": 0.21825000000035288,
-      "p75Ms": 0.4247290000000703,
-      "p95Ms": 0.5798767499993117
+      "p25Ms": 0.11635400000045593,
+      "medianMs": 0.14708299999983865,
+      "p75Ms": 0.33321875000001455,
+      "p95Ms": 1.0661089500000795
     },
     {
       "arm": "cleanup-only",
@@ -301,10 +313,10 @@
       "keepViolations": 0,
       "errors": 0,
       "latencySamples": 24,
-      "p25Ms": 0.8538017500002297,
-      "medianMs": 1.1574164999992718,
-      "p75Ms": 1.5024167500000658,
-      "p95Ms": 2.1379232000005683
+      "p25Ms": 0.8412707499996941,
+      "medianMs": 1.1064580000006572,
+      "p75Ms": 1.5579272500003754,
+      "p95Ms": 4.043151800000119
     },
     {
       "arm": "guarded-cleanup",
@@ -317,10 +329,10 @@
       "keepViolations": 0,
       "errors": 0,
       "latencySamples": 24,
-      "p25Ms": 0.835604000000103,
-      "medianMs": 1.2020834999998442,
-      "p75Ms": 1.7383434999997007,
-      "p95Ms": 2.6174035000000453
+      "p25Ms": 0.8738432499990267,
+      "medianMs": 1.1067915000003268,
+      "p75Ms": 1.4824377500001447,
+      "p95Ms": 2.1834124999999402
     },
     {
       "arm": "verified-guarded",
@@ -333,10 +345,10 @@
       "keepViolations": 0,
       "errors": 0,
       "latencySamples": 24,
-      "p25Ms": 2.612760000000435,
-      "medianMs": 3.424561999999696,
-      "p75Ms": 4.2883439999998245,
-      "p95Ms": 6.262740150001127
+      "p25Ms": 2.9311142499984726,
+      "medianMs": 3.411812000000282,
+      "p75Ms": 4.139333250000163,
+      "p95Ms": 5.086248149999756
     }
   ],
   "cases": [
@@ -349,7 +361,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.5242500000001655,
+      "cleanupMs": 0.1580420000000231,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -392,7 +404,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 3.37175000000002,
+      "cleanupMs": 2.585125000000062,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -435,7 +447,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 1.4176249999998163,
+      "cleanupMs": 2.7467920000001413,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -478,8 +490,8 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 1.4293339999999262,
-      "verificationMs": 1.987333000000035,
+      "cleanupMs": 1.4028749999999945,
+      "verificationMs": 2.2234580000001642,
       "atCompletion": {
         "residue": {
           "record": 0,
@@ -521,7 +533,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.10500000000001819,
+      "cleanupMs": 1.553333000000066,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -564,7 +576,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 6.348334000000023,
+      "cleanupMs": 1.331083000000035,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -607,7 +619,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 1.3275409999998828,
+      "cleanupMs": 1.9492079999999987,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -650,8 +662,8 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 1.6113329999998314,
-      "verificationMs": 0.40887500000008004,
+      "cleanupMs": 1.3699169999999867,
+      "verificationMs": 0.39829199999985576,
       "atCompletion": {
         "residue": {
           "record": 0,
@@ -693,7 +705,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.1089999999999236,
+      "cleanupMs": 0.18358299999999872,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -736,7 +748,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 1.9845000000000255,
+      "cleanupMs": 0.9569159999996373,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -779,7 +791,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.7835839999997916,
+      "cleanupMs": 3.0345420000003287,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -822,8 +834,8 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 1.5893750000000182,
-      "verificationMs": 2.1543340000000626,
+      "cleanupMs": 1.5303749999998217,
+      "verificationMs": 2.592250000000149,
       "atCompletion": {
         "residue": {
           "record": 0,
@@ -865,7 +877,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.29349999999999454,
+      "cleanupMs": 0.6265840000000935,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -908,7 +920,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 1.28125,
+      "cleanupMs": 1.5862910000000738,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -951,7 +963,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 3.5833339999999225,
+      "cleanupMs": 3.327624999999898,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -994,8 +1006,8 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 3.319458000000168,
-      "verificationMs": 5.521584000000075,
+      "cleanupMs": 2.5888749999999163,
+      "verificationMs": 2.438959000000068,
       "atCompletion": {
         "residue": {
           "record": 0,
@@ -1037,7 +1049,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.44120799999973315,
+      "cleanupMs": 4.205791999999747,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -1080,7 +1092,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 2.8204579999996895,
+      "cleanupMs": 1.9795829999998205,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -1123,7 +1135,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.9738330000000133,
+      "cleanupMs": 1.3820419999997284,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -1166,8 +1178,8 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.9434580000001915,
-      "verificationMs": 2.0329999999999018,
+      "cleanupMs": 1.4170830000002752,
+      "verificationMs": 1.6842920000003687,
       "atCompletion": {
         "residue": {
           "record": 0,
@@ -1209,7 +1221,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 1.2151659999999538,
+      "cleanupMs": 0.5702500000002146,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -1252,7 +1264,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 1.31637499999988,
+      "cleanupMs": 0.9207919999998921,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -1295,7 +1307,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.8597909999998592,
+      "cleanupMs": 4.309125000000222,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -1338,8 +1350,8 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 2.9552920000000995,
-      "verificationMs": 2.2428750000003674,
+      "cleanupMs": 1.545209000000341,
+      "verificationMs": 2.6380420000000413,
       "atCompletion": {
         "residue": {
           "record": 0,
@@ -1381,7 +1393,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.0945409999999356,
+      "cleanupMs": 0.508375000000342,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -1424,7 +1436,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 1.789459000000079,
+      "cleanupMs": 1.7731250000001637,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -1467,7 +1479,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 3.423000000000229,
+      "cleanupMs": 3.416167000000314,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -1510,8 +1522,8 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 2.8705409999997755,
-      "verificationMs": 2.0445000000004256,
+      "cleanupMs": 2.3057919999996557,
+      "verificationMs": 2.4756250000000364,
       "atCompletion": {
         "residue": {
           "record": 0,
@@ -1553,7 +1565,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.1400829999997768,
+      "cleanupMs": 0.17354199999999764,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -1596,7 +1608,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 1.2928329999999733,
+      "cleanupMs": 1.2872919999999795,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -1639,7 +1651,7 @@
       "completed": true,
       "writerRejected": true,
       "error": null,
-      "cleanupMs": 0.8693329999996422,
+      "cleanupMs": 1.027958000000126,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -1682,8 +1694,8 @@
       "completed": true,
       "writerRejected": true,
       "error": null,
-      "cleanupMs": 1.2200419999999212,
-      "verificationMs": 2.196874999999636,
+      "cleanupMs": 1.554957999999715,
+      "verificationMs": 2.6010409999998956,
       "atCompletion": {
         "residue": {
           "record": 0,
@@ -1725,7 +1737,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.1167499999996835,
+      "cleanupMs": 0.32229199999983393,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -1768,7 +1780,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 1.1820410000000265,
+      "cleanupMs": 1.0207919999998012,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -1811,7 +1823,7 @@
       "completed": true,
       "writerRejected": true,
       "error": null,
-      "cleanupMs": 0.930000000000291,
+      "cleanupMs": 6.317833000000064,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -1854,8 +1866,8 @@
       "completed": true,
       "writerRejected": true,
       "error": null,
-      "cleanupMs": 2.8929589999997916,
-      "verificationMs": 2.22983400000021,
+      "cleanupMs": 0.8574170000001686,
+      "verificationMs": 1.6521669999997357,
       "atCompletion": {
         "residue": {
           "record": 0,
@@ -1897,7 +1909,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.11370799999986048,
+      "cleanupMs": 0.2019159999999829,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -1940,7 +1952,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 5.922833999999966,
+      "cleanupMs": 1.0045420000001286,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -1983,7 +1995,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 3.1056249999996908,
+      "cleanupMs": 4.636583000000428,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -2026,8 +2038,8 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 4.7202079999997295,
-      "verificationMs": 2.5734160000001793,
+      "cleanupMs": 2.2733330000000933,
+      "verificationMs": 1.6422919999999976,
       "atCompletion": {
         "residue": {
           "record": 0,
@@ -2069,7 +2081,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.2258750000000873,
+      "cleanupMs": 0.23191700000006676,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -2112,7 +2124,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.8196670000002086,
+      "cleanupMs": 2.1482919999998558,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -2155,7 +2167,7 @@
       "completed": true,
       "writerRejected": true,
       "error": null,
-      "cleanupMs": 1.846625000000131,
+      "cleanupMs": 1.7149999999996908,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -2198,8 +2210,8 @@
       "completed": true,
       "writerRejected": true,
       "error": null,
-      "cleanupMs": 1.6246249999999236,
-      "verificationMs": 2.3102080000003298,
+      "cleanupMs": 2.139458000000104,
+      "verificationMs": 2.4705839999996897,
       "atCompletion": {
         "residue": {
           "record": 0,
@@ -2241,7 +2253,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.12320899999986068,
+      "cleanupMs": 0.8537919999998849,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -2284,7 +2296,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 2.083541999999852,
+      "cleanupMs": 1.3175830000000133,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -2327,7 +2339,7 @@
       "completed": true,
       "writerRejected": true,
       "error": null,
-      "cleanupMs": 1.1868329999997513,
+      "cleanupMs": 2.089541000000281,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -2370,8 +2382,8 @@
       "completed": true,
       "writerRejected": true,
       "error": null,
-      "cleanupMs": 1.4400410000002921,
-      "verificationMs": 1.7854159999997137,
+      "cleanupMs": 1.8872499999997672,
+      "verificationMs": 2.853208999999879,
       "atCompletion": {
         "residue": {
           "record": 0,
@@ -2413,7 +2425,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.1289999999999054,
+      "cleanupMs": 1.1145839999999225,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -2456,7 +2468,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 1.90362499999992,
+      "cleanupMs": 0.8787920000004306,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -2499,7 +2511,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 2.042084000000159,
+      "cleanupMs": 2.91595899999993,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -2542,8 +2554,8 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 3.696374999999989,
-      "verificationMs": 1.8356659999999465,
+      "cleanupMs": 2.4936250000000655,
+      "verificationMs": 1.7590829999999187,
       "atCompletion": {
         "residue": {
           "record": 0,
@@ -2585,7 +2597,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.23416599999973187,
+      "cleanupMs": 0.1287080000001879,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -2628,7 +2640,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 1.0287920000000668,
+      "cleanupMs": 0.8495419999999285,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -2671,7 +2683,7 @@
       "completed": true,
       "writerRejected": true,
       "error": null,
-      "cleanupMs": 0.9380000000001019,
+      "cleanupMs": 1.713292000000365,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -2714,8 +2726,8 @@
       "completed": true,
       "writerRejected": true,
       "error": null,
-      "cleanupMs": 1.9063340000002427,
-      "verificationMs": 2.0195420000000013,
+      "cleanupMs": 0.8818750000000364,
+      "verificationMs": 2.852665999999772,
       "atCompletion": {
         "residue": {
           "record": 0,
@@ -2757,7 +2769,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.879041000000143,
+      "cleanupMs": 0.22133299999950395,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -2800,7 +2812,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 2.126499999999851,
+      "cleanupMs": 1.328750000000582,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -2843,7 +2855,7 @@
       "completed": true,
       "writerRejected": true,
       "error": null,
-      "cleanupMs": 2.7763749999999163,
+      "cleanupMs": 1.3546670000005179,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -2886,8 +2898,8 @@
       "completed": true,
       "writerRejected": true,
       "error": null,
-      "cleanupMs": 2.1658330000000205,
-      "verificationMs": 2.043583000000126,
+      "cleanupMs": 1.5969999999997526,
+      "verificationMs": 2.4493750000001455,
       "atCompletion": {
         "residue": {
           "record": 0,
@@ -2929,7 +2941,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.27424999999993815,
+      "cleanupMs": 3.5513340000006792,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -2972,7 +2984,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.5258340000000317,
+      "cleanupMs": 0.6193749999993088,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -3015,7 +3027,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 1.3825830000000678,
+      "cleanupMs": 0.5352920000004815,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -3058,8 +3070,8 @@
       "completed": false,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 1.1715000000003783,
-      "verificationMs": 0.5373340000001008,
+      "cleanupMs": 0.6554580000001806,
+      "verificationMs": 0.4553749999995489,
       "verificationBlocked": true,
       "atCompletion": {
         "residue": {
@@ -3102,7 +3114,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.41975000000002183,
+      "cleanupMs": 0.3192909999997937,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -3145,7 +3157,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.5101250000002437,
+      "cleanupMs": 0.7239589999999225,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -3188,7 +3200,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 1.0139170000002196,
+      "cleanupMs": 0.48654199999964476,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -3231,8 +3243,8 @@
       "completed": false,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.7741249999999127,
-      "verificationMs": 1.047458999999435,
+      "cleanupMs": 0.8569579999993948,
+      "verificationMs": 0.584791999999652,
       "verificationBlocked": true,
       "atCompletion": {
         "residue": {
@@ -3275,7 +3287,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.19741700000031415,
+      "cleanupMs": 0.2745410000006814,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -3318,7 +3330,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.5587500000001455,
+      "cleanupMs": 0.5909580000006827,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -3361,7 +3373,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.9775410000002012,
+      "cleanupMs": 0.7889999999997599,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -3404,8 +3416,8 @@
       "completed": false,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 2.826332999999977,
-      "verificationMs": 0.36616700000013225,
+      "cleanupMs": 0.7162500000004002,
+      "verificationMs": 0.7517079999997804,
       "verificationBlocked": true,
       "atCompletion": {
         "residue": {
@@ -3448,7 +3460,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 1.9055829999997513,
+      "cleanupMs": 0.39904200000000856,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -3491,7 +3503,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.7597500000001673,
+      "cleanupMs": 0.8752079999994749,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -3534,7 +3546,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.903374999999869,
+      "cleanupMs": 0.631333999999697,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -3577,8 +3589,8 @@
       "completed": false,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.6278339999998934,
-      "verificationMs": 0.4452499999997599,
+      "cleanupMs": 0.5195829999993293,
+      "verificationMs": 0.3656250000003638,
       "verificationBlocked": true,
       "atCompletion": {
         "residue": {
@@ -3621,7 +3633,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.42374999999992724,
+      "cleanupMs": 0.23787499999980355,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -3664,7 +3676,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.7627919999995356,
+      "cleanupMs": 1.0207090000003518,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -3707,7 +3719,7 @@
       "completed": true,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.5068750000000364,
+      "cleanupMs": 0.6822919999995065,
       "verificationMs": 0,
       "atCompletion": {
         "residue": {
@@ -3750,8 +3762,8 @@
       "completed": false,
       "writerRejected": false,
       "error": null,
-      "cleanupMs": 0.7185419999996157,
-      "verificationMs": 0.4021249999996144,
+      "cleanupMs": 3.045082999999977,
+      "verificationMs": 0.3867500000005748,
       "verificationBlocked": true,
       "atCompletion": {
         "residue": {
@@ -3806,9 +3818,9 @@
         "clean": false,
         "keepIntact": true
       },
-      "cleanupMs": 0.10408400000051188,
+      "cleanupMs": 0.10620800000015151,
       "verificationMs": 0,
-      "totalMs": 0.10408400000051188,
+      "totalMs": 0.10620800000015151,
       "error": null
     },
     {
@@ -3830,9 +3842,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.5302920000003724,
+      "cleanupMs": 0.7954579999995985,
       "verificationMs": 0,
-      "totalMs": 1.5302920000003724,
+      "totalMs": 0.7954579999995985,
       "error": null
     },
     {
@@ -3854,9 +3866,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.4135419999993246,
+      "cleanupMs": 1.363749999999527,
       "verificationMs": 0,
-      "totalMs": 1.4135419999993246,
+      "totalMs": 1.363749999999527,
       "error": null
     },
     {
@@ -3878,9 +3890,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.776042000000416,
-      "verificationMs": 2.4768749999993815,
-      "totalMs": 4.2529169999997976,
+      "cleanupMs": 0.9333749999996144,
+      "verificationMs": 1.6775840000000244,
+      "totalMs": 2.6109589999996388,
       "error": null
     },
     {
@@ -3902,9 +3914,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.8593330000003334,
+      "cleanupMs": 0.790208999999777,
       "verificationMs": 0,
-      "totalMs": 0.8593330000003334,
+      "totalMs": 0.790208999999777,
       "error": null
     },
     {
@@ -3926,9 +3938,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.806416999999783,
+      "cleanupMs": 1.4686670000000959,
       "verificationMs": 0,
-      "totalMs": 0.806416999999783,
+      "totalMs": 1.4686670000000959,
       "error": null
     },
     {
@@ -3950,9 +3962,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.8616249999995489,
-      "verificationMs": 1.63866599999983,
-      "totalMs": 2.500290999999379,
+      "cleanupMs": 1.6623749999998836,
+      "verificationMs": 2.9880000000002838,
+      "totalMs": 4.650375000000167,
       "error": null
     },
     {
@@ -3974,9 +3986,9 @@
         "clean": false,
         "keepIntact": true
       },
-      "cleanupMs": 0.5192079999997077,
+      "cleanupMs": 0.9656670000003942,
       "verificationMs": 0,
-      "totalMs": 0.5192079999997077,
+      "totalMs": 0.9656670000003942,
       "error": null
     },
     {
@@ -3998,9 +4010,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.7540000000008149,
+      "cleanupMs": 0.8952079999999114,
       "verificationMs": 0,
-      "totalMs": 0.7540000000008149,
+      "totalMs": 0.8952079999999114,
       "error": null
     },
     {
@@ -4022,9 +4034,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.1714160000001357,
-      "verificationMs": 1.5857500000001892,
-      "totalMs": 2.757166000000325,
+      "cleanupMs": 1.1875,
+      "verificationMs": 1.6552079999992202,
+      "totalMs": 2.84270799999922,
       "error": null
     },
     {
@@ -4046,9 +4058,9 @@
         "clean": false,
         "keepIntact": true
       },
-      "cleanupMs": 0.10779199999979028,
+      "cleanupMs": 0.20049999999991996,
       "verificationMs": 0,
-      "totalMs": 0.10779199999979028,
+      "totalMs": 0.20049999999991996,
       "error": null
     },
     {
@@ -4070,9 +4082,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.5909999999994398,
+      "cleanupMs": 1.5984589999998207,
       "verificationMs": 0,
-      "totalMs": 1.5909999999994398,
+      "totalMs": 1.5984589999998207,
       "error": null
     },
     {
@@ -4094,9 +4106,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.8510420000002341,
-      "verificationMs": 2.2107080000005226,
-      "totalMs": 3.0617500000007567,
+      "cleanupMs": 0.8115420000003724,
+      "verificationMs": 1.6184999999995853,
+      "totalMs": 2.4300419999999576,
       "error": null
     },
     {
@@ -4118,9 +4130,9 @@
         "clean": false,
         "keepIntact": true
       },
-      "cleanupMs": 0.15524999999979627,
+      "cleanupMs": 0.09929199999987759,
       "verificationMs": 0,
-      "totalMs": 0.15524999999979627,
+      "totalMs": 0.09929199999987759,
       "error": null
     },
     {
@@ -4142,9 +4154,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.247041999999965,
+      "cleanupMs": 0.8492079999996349,
       "verificationMs": 0,
-      "totalMs": 1.247041999999965,
+      "totalMs": 0.8492079999996349,
       "error": null
     },
     {
@@ -4166,9 +4178,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.8480410000001939,
+      "cleanupMs": 0.8810000000003129,
       "verificationMs": 0,
-      "totalMs": 0.8480410000001939,
+      "totalMs": 0.8810000000003129,
       "error": null
     },
     {
@@ -4190,9 +4202,9 @@
         "clean": false,
         "keepIntact": true
       },
-      "cleanupMs": 0.08358299999963492,
+      "cleanupMs": 0.12024999999994179,
       "verificationMs": 0,
-      "totalMs": 0.08358299999963492,
+      "totalMs": 0.12024999999994179,
       "error": null
     },
     {
@@ -4214,9 +4226,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.827582999999322,
+      "cleanupMs": 1.1602499999999054,
       "verificationMs": 0,
-      "totalMs": 0.827582999999322,
+      "totalMs": 1.1602499999999054,
       "error": null
     },
     {
@@ -4238,9 +4250,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.7403329999997368,
+      "cleanupMs": 0.768500000000131,
       "verificationMs": 0,
-      "totalMs": 0.7403329999997368,
+      "totalMs": 0.768500000000131,
       "error": null
     },
     {
@@ -4262,9 +4274,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.7587499999999636,
-      "verificationMs": 1.4096660000004704,
-      "totalMs": 2.168416000000434,
+      "cleanupMs": 0.8207080000001952,
+      "verificationMs": 4.246874999999818,
+      "totalMs": 5.067583000000013,
       "error": null
     },
     {
@@ -4286,9 +4298,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.8631669999995211,
+      "cleanupMs": 21.607582999999977,
       "verificationMs": 0,
-      "totalMs": 0.8631669999995211,
+      "totalMs": 21.607582999999977,
       "error": null
     },
     {
@@ -4310,9 +4322,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.7545000000000073,
+      "cleanupMs": 0.8444169999993392,
       "verificationMs": 0,
-      "totalMs": 0.7545000000000073,
+      "totalMs": 0.8444169999993392,
       "error": null
     },
     {
@@ -4334,9 +4346,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.8498340000005555,
-      "verificationMs": 1.5987910000003467,
-      "totalMs": 2.448625000000902,
+      "cleanupMs": 1.6654170000001614,
+      "verificationMs": 2.3378330000005008,
+      "totalMs": 4.003250000000662,
       "error": null
     },
     {
@@ -4358,9 +4370,9 @@
         "clean": false,
         "keepIntact": true
       },
-      "cleanupMs": 0.11895800000002055,
+      "cleanupMs": 0.1172919999999067,
       "verificationMs": 0,
-      "totalMs": 0.11895800000002055,
+      "totalMs": 0.1172919999999067,
       "error": null
     },
     {
@@ -4382,9 +4394,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.2877090000001772,
+      "cleanupMs": 0.8052499999994325,
       "verificationMs": 0,
-      "totalMs": 1.2877090000001772,
+      "totalMs": 0.8052499999994325,
       "error": null
     },
     {
@@ -4406,9 +4418,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.8930410000002666,
-      "verificationMs": 1.7281670000002123,
-      "totalMs": 2.621208000000479,
+      "cleanupMs": 1.0680830000001151,
+      "verificationMs": 2.4453330000005735,
+      "totalMs": 3.5134160000006887,
       "error": null
     },
     {
@@ -4430,9 +4442,9 @@
         "clean": false,
         "keepIntact": true
       },
-      "cleanupMs": 0.09058300000015151,
+      "cleanupMs": 0.11379200000010314,
       "verificationMs": 0,
-      "totalMs": 0.09058300000015151,
+      "totalMs": 0.11379200000010314,
       "error": null
     },
     {
@@ -4454,9 +4466,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.9139999999997599,
+      "cleanupMs": 0.8156249999992724,
       "verificationMs": 0,
-      "totalMs": 0.9139999999997599,
+      "totalMs": 0.8156249999992724,
       "error": null
     },
     {
@@ -4478,9 +4490,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 3.4144590000005337,
-      "verificationMs": 2.891250000000582,
-      "totalMs": 6.305709000001116,
+      "cleanupMs": 1.7065000000002328,
+      "verificationMs": 3.4651249999997162,
+      "totalMs": 5.171624999999949,
       "error": null
     },
     {
@@ -4502,9 +4514,9 @@
         "clean": false,
         "keepIntact": true
       },
-      "cleanupMs": 0.08812500000021828,
+      "cleanupMs": 0.11775000000034197,
       "verificationMs": 0,
-      "totalMs": 0.08812500000021828,
+      "totalMs": 0.11775000000034197,
       "error": null
     },
     {
@@ -4526,9 +4538,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.4931249999999636,
+      "cleanupMs": 1.2953330000000278,
       "verificationMs": 0,
-      "totalMs": 1.4931249999999636,
+      "totalMs": 1.2953330000000278,
       "error": null
     },
     {
@@ -4550,9 +4562,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.8453330000002097,
+      "cleanupMs": 0.8892919999998412,
       "verificationMs": 0,
-      "totalMs": 0.8453330000002097,
+      "totalMs": 0.8892919999998412,
       "error": null
     },
     {
@@ -4574,9 +4586,9 @@
         "clean": false,
         "keepIntact": true
       },
-      "cleanupMs": 0.25929199999973207,
+      "cleanupMs": 0.14929099999972095,
       "verificationMs": 0,
-      "totalMs": 0.25929199999973207,
+      "totalMs": 0.14929099999972095,
       "error": null
     },
     {
@@ -4598,9 +4610,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.1425419999995938,
+      "cleanupMs": 0.8440829999999551,
       "verificationMs": 0,
-      "totalMs": 1.1425419999995938,
+      "totalMs": 0.8440829999999551,
       "error": null
     },
     {
@@ -4622,9 +4634,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 2.204250000000684,
+      "cleanupMs": 3.0734169999996084,
       "verificationMs": 0,
-      "totalMs": 2.204250000000684,
+      "totalMs": 3.0734169999996084,
       "error": null
     },
     {
@@ -4646,9 +4658,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.8591249999999491,
-      "verificationMs": 5.5199579999998605,
-      "totalMs": 6.3790829999998095,
+      "cleanupMs": 0.8724579999998241,
+      "verificationMs": 1.7989589999997406,
+      "totalMs": 2.6714169999995647,
       "error": null
     },
     {
@@ -4670,9 +4682,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 2.035666000000674,
+      "cleanupMs": 4.352708000000348,
       "verificationMs": 0,
-      "totalMs": 2.035666000000674,
+      "totalMs": 4.352708000000348,
       "error": null
     },
     {
@@ -4694,9 +4706,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.9424999999991996,
+      "cleanupMs": 0.7827919999999722,
       "verificationMs": 0,
-      "totalMs": 0.9424999999991996,
+      "totalMs": 0.7827919999999722,
       "error": null
     },
     {
@@ -4718,9 +4730,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.7869579999996859,
-      "verificationMs": 1.5403749999995853,
-      "totalMs": 2.327332999999271,
+      "cleanupMs": 0.7957079999996495,
+      "verificationMs": 2.5145000000002256,
+      "totalMs": 3.310207999999875,
       "error": null
     },
     {
@@ -4742,9 +4754,9 @@
         "clean": false,
         "keepIntact": true
       },
-      "cleanupMs": 0.22850000000016735,
+      "cleanupMs": 0.11720800000057352,
       "verificationMs": 0,
-      "totalMs": 0.22850000000016735,
+      "totalMs": 0.11720800000057352,
       "error": null
     },
     {
@@ -4766,9 +4778,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 2.2969580000008136,
+      "cleanupMs": 1.3184590000000753,
       "verificationMs": 0,
-      "totalMs": 2.2969580000008136,
+      "totalMs": 1.3184590000000753,
       "error": null
     },
     {
@@ -4790,9 +4802,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.3307080000004134,
-      "verificationMs": 2.2527909999998883,
-      "totalMs": 3.5834990000003017,
+      "cleanupMs": 2.697417000000314,
+      "verificationMs": 2.392124999999396,
+      "totalMs": 5.08954199999971,
       "error": null
     },
     {
@@ -4814,9 +4826,9 @@
         "clean": false,
         "keepIntact": true
       },
-      "cleanupMs": 0.5155420000000959,
+      "cleanupMs": 0.10741700000016863,
       "verificationMs": 0,
-      "totalMs": 0.5155420000000959,
+      "totalMs": 0.10741700000016863,
       "error": null
     },
     {
@@ -4838,9 +4850,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.8649169999998776,
+      "cleanupMs": 0.8298329999997804,
       "verificationMs": 0,
-      "totalMs": 0.8649169999998776,
+      "totalMs": 0.8298329999997804,
       "error": null
     },
     {
@@ -4862,9 +4874,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.0859169999994265,
-      "verificationMs": 1.8242079999999987,
-      "totalMs": 2.910124999999425,
+      "cleanupMs": 1.3378750000001673,
+      "verificationMs": 1.653291999999965,
+      "totalMs": 2.9911670000001322,
       "error": null
     },
     {
@@ -4886,9 +4898,9 @@
         "clean": false,
         "keepIntact": true
       },
-      "cleanupMs": 0.590582999999242,
+      "cleanupMs": 0.17166599999927712,
       "verificationMs": 0,
-      "totalMs": 0.590582999999242,
+      "totalMs": 0.17166599999927712,
       "error": null
     },
     {
@@ -4910,9 +4922,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 2.067124999999578,
+      "cleanupMs": 1.3597920000001977,
       "verificationMs": 0,
-      "totalMs": 2.067124999999578,
+      "totalMs": 1.3597920000001977,
       "error": null
     },
     {
@@ -4934,9 +4946,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 2.3864159999993717,
+      "cleanupMs": 1.5426250000000437,
       "verificationMs": 0,
-      "totalMs": 2.3864159999993717,
+      "totalMs": 1.5426250000000437,
       "error": null
     },
     {
@@ -4958,9 +4970,9 @@
         "clean": false,
         "keepIntact": true
       },
-      "cleanupMs": 0.4961670000002414,
+      "cleanupMs": 1.0838340000000244,
       "verificationMs": 0,
-      "totalMs": 0.4961670000002414,
+      "totalMs": 1.0838340000000244,
       "error": null
     },
     {
@@ -4982,9 +4994,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.3091670000003433,
+      "cleanupMs": 1.283625000000029,
       "verificationMs": 0,
-      "totalMs": 1.3091670000003433,
+      "totalMs": 1.283625000000029,
       "error": null
     },
     {
@@ -5006,9 +5018,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 3.2012079999994967,
+      "cleanupMs": 1.7351250000001528,
       "verificationMs": 0,
-      "totalMs": 3.2012079999994967,
+      "totalMs": 1.7351250000001528,
       "error": null
     },
     {
@@ -5030,9 +5042,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 2.2114169999995283,
-      "verificationMs": 3.053458000000319,
-      "totalMs": 5.264874999999847,
+      "cleanupMs": 1.4246249999996508,
+      "verificationMs": 2.7323340000002645,
+      "totalMs": 4.156958999999915,
       "error": null
     },
     {
@@ -5054,9 +5066,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.2040420000002996,
+      "cleanupMs": 0.7914590000000317,
       "verificationMs": 0,
-      "totalMs": 1.2040420000002996,
+      "totalMs": 0.7914590000000317,
       "error": null
     },
     {
@@ -5078,9 +5090,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.7957910000004631,
+      "cleanupMs": 0.8257499999999709,
       "verificationMs": 0,
-      "totalMs": 0.7957910000004631,
+      "totalMs": 0.8257499999999709,
       "error": null
     },
     {
@@ -5102,9 +5114,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.6286660000005213,
-      "verificationMs": 2.223750000000109,
-      "totalMs": 3.8524160000006304,
+      "cleanupMs": 1.3591249999990396,
+      "verificationMs": 1.6014579999991838,
+      "totalMs": 2.9605829999982234,
       "error": null
     },
     {
@@ -5126,9 +5138,9 @@
         "clean": false,
         "keepIntact": true
       },
-      "cleanupMs": 0.11049999999977445,
+      "cleanupMs": 0.17070799999964947,
       "verificationMs": 0,
-      "totalMs": 0.11049999999977445,
+      "totalMs": 0.17070799999964947,
       "error": null
     },
     {
@@ -5150,9 +5162,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.9825000000000728,
+      "cleanupMs": 2.1496250000000146,
       "verificationMs": 0,
-      "totalMs": 1.9825000000000728,
+      "totalMs": 2.1496250000000146,
       "error": null
     },
     {
@@ -5174,9 +5186,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.7524159999993572,
-      "verificationMs": 2.7640419999997903,
-      "totalMs": 3.5164579999991474,
+      "cleanupMs": 0.9681249999994179,
+      "verificationMs": 2.9650000000001455,
+      "totalMs": 3.9331249999995634,
       "error": null
     },
     {
@@ -5198,9 +5210,9 @@
         "clean": false,
         "keepIntact": true
       },
-      "cleanupMs": 0.33995800000047893,
+      "cleanupMs": 0.15675000000010186,
       "verificationMs": 0,
-      "totalMs": 0.33995800000047893,
+      "totalMs": 0.15675000000010186,
       "error": null
     },
     {
@@ -5222,9 +5234,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 2.1504170000007434,
+      "cleanupMs": 2.2889999999988504,
       "verificationMs": 0,
-      "totalMs": 2.1504170000007434,
+      "totalMs": 2.2889999999988504,
       "error": null
     },
     {
@@ -5246,9 +5258,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.0381250000000364,
-      "verificationMs": 1.616374999999607,
-      "totalMs": 2.6544999999996435,
+      "cleanupMs": 1.5606250000000728,
+      "verificationMs": 1.6716660000001866,
+      "totalMs": 3.2322910000002594,
       "error": null
     },
     {
@@ -5270,9 +5282,9 @@
         "clean": false,
         "keepIntact": true
       },
-      "cleanupMs": 0.4184580000001006,
+      "cleanupMs": 0.1358330000002752,
       "verificationMs": 0,
-      "totalMs": 0.4184580000001006,
+      "totalMs": 0.1358330000002752,
       "error": null
     },
     {
@@ -5294,9 +5306,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.8372079999999187,
+      "cleanupMs": 1.7883330000004207,
       "verificationMs": 0,
-      "totalMs": 0.8372079999999187,
+      "totalMs": 1.7883330000004207,
       "error": null
     },
     {
@@ -5318,9 +5330,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.8052920000000086,
+      "cleanupMs": 0.860499999998865,
       "verificationMs": 0,
-      "totalMs": 0.8052920000000086,
+      "totalMs": 0.860499999998865,
       "error": null
     },
     {
@@ -5342,9 +5354,9 @@
         "clean": false,
         "keepIntact": true
       },
-      "cleanupMs": 0.44354199999997945,
+      "cleanupMs": 0.5260419999995065,
       "verificationMs": 0,
-      "totalMs": 0.44354199999997945,
+      "totalMs": 0.5260419999995065,
       "error": null
     },
     {
@@ -5366,9 +5378,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.8281660000002375,
+      "cleanupMs": 1.357292000000598,
       "verificationMs": 0,
-      "totalMs": 0.8281660000002375,
+      "totalMs": 1.357292000000598,
       "error": null
     },
     {
@@ -5390,9 +5402,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.2252079999998386,
+      "cleanupMs": 1.2985830000015994,
       "verificationMs": 0,
-      "totalMs": 1.2252079999998386,
+      "totalMs": 1.2985830000015994,
       "error": null
     },
     {
@@ -5414,9 +5426,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.7730830000000424,
-      "verificationMs": 1.5077919999994265,
-      "totalMs": 2.280874999999469,
+      "cleanupMs": 1.3322919999991427,
+      "verificationMs": 2.717000000000553,
+      "totalMs": 4.049291999999696,
       "error": null
     },
     {
@@ -5438,9 +5450,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.7167909999998301,
+      "cleanupMs": 1.5708340000001044,
       "verificationMs": 0,
-      "totalMs": 0.7167909999998301,
+      "totalMs": 1.5708340000001044,
       "error": null
     },
     {
@@ -5462,9 +5474,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.8785840000000462,
+      "cleanupMs": 1.3682079999998678,
       "verificationMs": 0,
-      "totalMs": 0.8785840000000462,
+      "totalMs": 1.3682079999998678,
       "error": null
     },
     {
@@ -5486,9 +5498,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.6914999999999054,
-      "verificationMs": 2.1152920000004087,
-      "totalMs": 3.806792000000314,
+      "cleanupMs": 1.4532500000004802,
+      "verificationMs": 2.680207999999766,
+      "totalMs": 4.133458000000246,
       "error": null
     },
     {
@@ -5510,9 +5522,9 @@
         "clean": false,
         "keepIntact": true
       },
-      "cleanupMs": 1.3165829999998095,
+      "cleanupMs": 0.11162500000136788,
       "verificationMs": 0,
-      "totalMs": 1.3165829999998095,
+      "totalMs": 0.11162500000136788,
       "error": null
     },
     {
@@ -5534,9 +5546,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.1789589999998498,
+      "cleanupMs": 1.523750000000291,
       "verificationMs": 0,
-      "totalMs": 1.1789589999998498,
+      "totalMs": 1.523750000000291,
       "error": null
     },
     {
@@ -5558,9 +5570,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.341707999999926,
-      "verificationMs": 2.3564589999996315,
-      "totalMs": 3.6981669999995574,
+      "cleanupMs": 2.8225410000013653,
+      "verificationMs": 2.240625000000364,
+      "totalMs": 5.063166000001729,
       "error": null
     },
     {
@@ -5582,9 +5594,9 @@
         "clean": false,
         "keepIntact": true
       },
-      "cleanupMs": 0.25141699999949196,
+      "cleanupMs": 0.10500000000138243,
       "verificationMs": 0,
-      "totalMs": 0.25141699999949196,
+      "totalMs": 0.10500000000138243,
       "error": null
     },
     {
@@ -5606,9 +5618,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.8170839999993404,
+      "cleanupMs": 1.5536250000004657,
       "verificationMs": 0,
-      "totalMs": 0.8170839999993404,
+      "totalMs": 1.5536250000004657,
       "error": null
     },
     {
@@ -5630,9 +5642,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.8799159999998665,
-      "verificationMs": 1.7075000000004366,
-      "totalMs": 2.587416000000303,
+      "cleanupMs": 0.8093750000007276,
+      "verificationMs": 1.6567919999997684,
+      "totalMs": 2.466167000000496,
       "error": null
     },
     {
@@ -5654,9 +5666,9 @@
         "clean": false,
         "keepIntact": true
       },
-      "cleanupMs": 0.09970799999973678,
+      "cleanupMs": 0.3150000000005093,
       "verificationMs": 0,
-      "totalMs": 0.09970799999973678,
+      "totalMs": 0.3150000000005093,
       "error": null
     },
     {
@@ -5678,9 +5690,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.3168750000004366,
+      "cleanupMs": 0.8328339999989112,
       "verificationMs": 0,
-      "totalMs": 1.3168750000004366,
+      "totalMs": 0.8328339999989112,
       "error": null
     },
     {
@@ -5702,9 +5714,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.6569579999995767,
+      "cleanupMs": 0.9932499999995343,
       "verificationMs": 0,
-      "totalMs": 1.6569579999995767,
+      "totalMs": 0.9932499999995343,
       "error": null
     },
     {
@@ -5726,9 +5738,9 @@
         "clean": false,
         "keepIntact": true
       },
-      "cleanupMs": 0.20800000000053842,
+      "cleanupMs": 0.4284170000009908,
       "verificationMs": 0,
-      "totalMs": 0.20800000000053842,
+      "totalMs": 0.4284170000009908,
       "error": null
     },
     {
@@ -5750,9 +5762,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.8606250000002547,
+      "cleanupMs": 0.8742089999996097,
       "verificationMs": 0,
-      "totalMs": 0.8606250000002547,
+      "totalMs": 0.8742089999996097,
       "error": null
     },
     {
@@ -5774,9 +5786,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.2933750000001965,
+      "cleanupMs": 0.908584000000701,
       "verificationMs": 0,
-      "totalMs": 1.2933750000001965,
+      "totalMs": 0.908584000000701,
       "error": null
     },
     {
@@ -5798,9 +5810,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.5922499999996944,
-      "verificationMs": 2.802375000000211,
-      "totalMs": 4.394624999999905,
+      "cleanupMs": 1.2811250000013388,
+      "verificationMs": 2.446541999999681,
+      "totalMs": 3.72766700000102,
       "error": null
     },
     {
@@ -5822,9 +5834,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 2.8884160000006887,
+      "cleanupMs": 1.052666000001409,
       "verificationMs": 0,
-      "totalMs": 2.8884160000006887,
+      "totalMs": 1.052666000001409,
       "error": null
     },
     {
@@ -5846,9 +5858,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 2.658166000000165,
+      "cleanupMs": 2.1893749999999272,
       "verificationMs": 0,
-      "totalMs": 2.658166000000165,
+      "totalMs": 2.1893749999999272,
       "error": null
     },
     {
@@ -5870,9 +5882,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.9918330000000424,
-      "verificationMs": 2.3408330000002024,
-      "totalMs": 3.332666000000245,
+      "cleanupMs": 1.2016249999996944,
+      "verificationMs": 2.062167000000045,
+      "totalMs": 3.2637919999997393,
       "error": null
     },
     {
@@ -5894,9 +5906,9 @@
         "clean": false,
         "keepIntact": true
       },
-      "cleanupMs": 0.2046250000003056,
+      "cleanupMs": 0.14487499999995634,
       "verificationMs": 0,
-      "totalMs": 0.2046250000003056,
+      "totalMs": 0.14487499999995634,
       "error": null
     },
     {
@@ -5918,9 +5930,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.5495410000003176,
+      "cleanupMs": 1.2203330000011192,
       "verificationMs": 0,
-      "totalMs": 1.5495410000003176,
+      "totalMs": 1.2203330000011192,
       "error": null
     },
     {
@@ -5942,9 +5954,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.0582500000000437,
-      "verificationMs": 4.96100000000115,
-      "totalMs": 6.019250000001193,
+      "cleanupMs": 1.3478749999994761,
+      "verificationMs": 1.6644169999999576,
+      "totalMs": 3.0122919999994338,
       "error": null
     },
     {
@@ -5966,9 +5978,9 @@
         "clean": false,
         "keepIntact": true
       },
-      "cleanupMs": 0.2929579999999987,
+      "cleanupMs": 0.38787499999853026,
       "verificationMs": 0,
-      "totalMs": 0.2929579999999987,
+      "totalMs": 0.38787499999853026,
       "error": null
     },
     {
@@ -5990,9 +6002,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 0.7276250000013533,
+      "cleanupMs": 0.9069999999992433,
       "verificationMs": 0,
-      "totalMs": 0.7276250000013533,
+      "totalMs": 0.9069999999992433,
       "error": null
     },
     {
@@ -6014,9 +6026,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.2145419999997102,
-      "verificationMs": 4.507041999999274,
-      "totalMs": 5.721583999998984,
+      "cleanupMs": 0.9561250000006112,
+      "verificationMs": 1.70983299999898,
+      "totalMs": 2.6659579999995913,
       "error": null
     },
     {
@@ -6038,9 +6050,9 @@
         "clean": false,
         "keepIntact": true
       },
-      "cleanupMs": 0.12741700000151468,
+      "cleanupMs": 1.1219160000000556,
       "verificationMs": 0,
-      "totalMs": 0.12741700000151468,
+      "totalMs": 1.1219160000000556,
       "error": null
     },
     {
@@ -6062,9 +6074,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.1722909999989497,
+      "cleanupMs": 1.018499999998312,
       "verificationMs": 0,
-      "totalMs": 1.1722909999989497,
+      "totalMs": 1.018499999998312,
       "error": null
     },
     {
@@ -6086,9 +6098,9 @@
         "clean": true,
         "keepIntact": true
       },
-      "cleanupMs": 1.0060409999987314,
+      "cleanupMs": 0.8782909999990807,
       "verificationMs": 0,
-      "totalMs": 1.0060409999987314,
+      "totalMs": 0.8782909999990807,
       "error": null
     }
   ],
