@@ -2,8 +2,8 @@
  * Aervox｜思隅 @aervox/api — 统一错误类型与错误码（缺陷6）
  *
  * 业务错误抛 ApiError（或子类），由 app.ts 的 setErrorHandler 统一序列化为
- * `{ error, code, message }` 响应；非业务异常（schema validation / 5xx）保持
- * Fastify 默认序列化不变。
+ * `{ error, code, message }` 字段；JSON 错误由 problem-details 补为 RFC 9457 响应。
+ * 未预期的 500 只公开通用消息，诊断保留在服务端日志。
  * 说明：各路由既有的「快照回复」（200/201 + 内嵌 error 字段）属于业务成功面契约，
  * 与异常路径（本层）并存，不在此混用。
  */
@@ -11,6 +11,7 @@ export type ApiErrorCode =
   | "NOT_FOUND"
   | "VALIDATION_FAILED"
   | "CONFLICT"
+  | "PLUGIN_PACKAGE_IMMUTABLE"
   | "UNAUTHORIZED"
   | "FORBIDDEN"
   | "INTERNAL_ERROR";

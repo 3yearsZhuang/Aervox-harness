@@ -17,7 +17,7 @@ import { PluginConfigError, type PluginConfigService } from "./config-service.js
 
 function sendError(reply: { code: (status: number) => { send: (body: unknown) => void } }, error: unknown): void {
   if (error instanceof PluginConfigError) {
-    return reply.code(error.status).send({ error: error.code, message: error.message, issues: error.issues });
+    return reply.code(error.status).send({ error: error.code, code: error.code, message: error.message, issues: error.issues });
   }
   return reply.code(500).send({ error: "INTERNAL", message: error instanceof Error ? error.message : "internal error" });
 }

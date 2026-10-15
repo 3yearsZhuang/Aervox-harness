@@ -37,6 +37,12 @@ export function registerConversationRoutes(
   deps: ConversationRouteDeps = {},
   execute?: (input: ConversationTurnInput) => Promise<void>,
 ): void {
+  // Accepted local turns own cancellation independently of HTTP/SSE connections.
+  const activeTurns = new Map<string, AbortController>();
+  app.addHook("onClose", async () => {
+    for (const controller of activeTurns.values()) controller.abort(new Error("host_closed"));
+    activeTurns.clear();
+  });
   // GET /v1/sessions — 枚举会话列表（按最近更新时间排序）
   app.get("/v1/sessions", async (req, reply) => {
     const tenant = resolveLocalContext(req);
@@ -166,9 +172,19 @@ export function registerConversationRoutes(
     // Execute precisely the persisted input; only the committing request dispatches the Loop.
     userMessage = accepted.message.content;
     // CR-027: acceptance remains independent of background execution and SSE observation.
-    const runLoop = () => (execute ?? (input => executeConversationTurn(conversationRepo, tenant, input, deps)))({
-      turnId, sessionId, attemptId, userMessage, metadata: parsed.data.metadata, toolApprovalMode: parsed.data.toolApprovalMode, actorId: tenant.actorId,
-    });
+    const runLoop = async () => {
+      const controller = new AbortController();
+      activeTurns.set(turnId, controller);
+      try {
+        await (execute ?? (input => executeConversationTurn(conversationRepo, tenant, input, deps)))({
+          turnId, sessionId, attemptId, userMessage, metadata: parsed.data.metadata,
+          toolApprovalMode: parsed.data.toolApprovalMode, actorId: tenant.actorId, signal: controller.signal,
+        });
+      } finally {
+        if (activeTurns.get(turnId) === controller) activeTurns.delete(turnId);
+        controller.abort(new Error("turn_execution_finished"));
+      }
+    };
     if (executionConfig.turnExecution === "inline") {
       await runLoop();
     } else if (execution === "worker" && accepted.turn.dispatchTarget !== "api") {
@@ -414,6 +430,7 @@ export function registerConversationRoutes(
       const latest = attempts[0];
       return reply.code(409).send({ error: res.reason ?? "request_cancel_failed", turnId, status: latest?.status });
     }
+    activeTurns.get(turnId)?.abort(new Error("turn_cancel_requested"));
     turnStreamHub.publishSettled(turnId, "Cancelled");
     return reply.send({ turnId, status: "Cancelled", cancelled: true });
   });

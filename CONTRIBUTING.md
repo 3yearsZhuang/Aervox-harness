@@ -34,6 +34,7 @@
 - 工具版本只取 [mise.toml](mise.toml)，命令通过 `./aervox` 或 `mise exec --` 执行。新增依赖在根运行 `mise exec -- pnpm add -w <pkg>`，开发依赖用 `-Dw`；不在子包单独安装。
 - 本地单用户使用 `LocalContext`，不引入 `tenantId` / `TenantContext`。SQLite 写入走写者连接，事务结果测试通过写者连接断言；禁止嵌套事务及事务内耗时 I/O。libsql 事务 BEGIN 不自动重试，细节见[数据库契约](docs/reference/DATABASE.md)。
 - 破坏性数据库变更按[迁移演练](docs/how-to/run-database-migration-drill.md)完成停写、备份、明确数据范围、staging 构建、校验、原子换库和回滚保留。
+- API 变更遵循 [API 约定](docs/reference/API_CONVENTIONS.md)，新增端点同步共享 Schema、OpenAPI 和实际路由覆盖；插件作者运行 `mise exec -- pnpm plugin check --all`。
 - Fastify 路由与中间件使用 `async/await`；中间件重构只修改所需路由范围。OpenAPI 使用锁定的 `zod-to-openapi` v9 与 `OpenApiGeneratorV31`；定义 Zod Schema 前先调用 `extendZodWithOpenApi(z)`。
 - 模块导入、宿主纯净性、类型、依赖和实现可移除性由代码守卫检查。变更边界需同步其权威合同，不另写目录副本。
 

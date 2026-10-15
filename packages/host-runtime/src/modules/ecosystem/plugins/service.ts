@@ -15,11 +15,14 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
+import { ApiError } from "../../../shared/errors.js";
 import {
   SqliteExtensionRepository,
   SqliteSkillRegistryRepository,
   SqliteToolRegistryRepository,
   type PluginModel,
+  type SqlitePluginInstallationRepository,
+  type PluginInstallation,
   type LocalContext,
 } from "@aervox/repositories";
 import { assertSkillDirectoryOwner, FileExistsError, withSkillMutation, isValidSkillName, parseFrontmatter } from "../skills/index.js";
@@ -64,6 +67,7 @@ export interface ProactiveRuleSyncPort {
 
 export interface PluginServiceDeps {
   beforeDeactivate?: (pluginId: string, uninstall: boolean) => Promise<void>;
+  installationRepo?: SqlitePluginInstallationRepository;
   extensionRepo: SqliteExtensionRepository;
   registry: SqliteToolRegistryRepository;
   skillRegistry: SqliteSkillRegistryRepository;
@@ -84,7 +88,14 @@ export interface PluginServiceDeps {
 }
 
 export class PluginService {
-  constructor(private readonly deps: PluginServiceDeps) {}
+  constructor(private readonly deps: PluginServiceDeps) {
+    deps.bundleStore?.setGenerationResolver(async id => (await deps.extensionRepo.getPlugin(id))?.bundleGeneration ?? null);
+  }
+
+  activatePreparedBundle(input: PluginInstallation): Promise<PluginModel> {
+    if (!this.deps.installationRepo) throw new Error("Atomic plugin installer is not configured");
+    return this.deps.installationRepo.activate(input);
+  }
 
   /** 注入分发引擎协作依赖 */
   setBundleDependencies(extra: {
@@ -95,6 +106,7 @@ export class PluginService {
     builtinPluginsSourceRoot?: string;
   }): void {
     Object.assign(this.deps, extra);
+    extra.bundleStore.setGenerationResolver(async id => (await this.deps.extensionRepo.getPlugin(id))?.bundleGeneration ?? null);
   }
 
   private getBundleEngineDeps(): BundleEngineDeps {
@@ -175,6 +187,9 @@ export class PluginService {
     proactiveSpec?: unknown;
   }): Promise<PluginModel> {
     return withSkillMutation(this.deps.skillsRoot, async () => {
+      if ((await this.deps.extensionRepo.getPlugin(plugin.id))?.bundleGeneration) {
+        throw new ApiError("PLUGIN_PACKAGE_IMMUTABLE", 409, "Repackage and install a new version to replace a packaged plugin");
+      }
       await this.checkSkillOwnership(plugin.id, plugin.skills ?? []);
       const created = await this.deps.extensionRepo.createPlugin({
         id: plugin.id,
@@ -233,9 +248,9 @@ export class PluginService {
   }
 
   /** Preflight the full declaration before creating plugin/tool rows or removing an old version. */
-  async checkSkillOwnership(id: string, skills: PluginDeclaredSkill[]): Promise<void> {
+  async checkSkillOwnership(id: string, skills: PluginDeclaredSkill[], writesLegacyDirectory = true): Promise<void> {
     if (!isValidSkillName(id)) throw new FileExistsError("Invalid plugin directory name.");
-    if (skills.length) await assertSkillDirectoryOwner(this.deps.skillRegistry, this.deps.skillsRoot, { kind: "plugin", id });
+    if (writesLegacyDirectory && skills.length) await assertSkillDirectoryOwner(this.deps.skillRegistry, this.deps.skillsRoot, { kind: "plugin", id });
     const names = new Set<string>();
     for (const skill of skills) {
       if (!isValidSkillName(skill.name) || names.has(skill.name)) throw new FileExistsError("Invalid or duplicate plugin skill name.");
@@ -280,7 +295,9 @@ export class PluginService {
     return withSkillMutation(this.deps.skillsRoot, async () => {
       if (!await this.deps.extensionRepo.getPlugin(id)) return false;
       await this.deps.beforeDeactivate?.(id, true);
-      const owned = (await this.deps.skillRegistry.listSkills()).some(skill => skill.pluginId === id);
+      const legacyRoot = path.resolve(this.deps.skillsRoot, id);
+      const owned = (await this.deps.skillRegistry.listSkills()).some(skill => skill.pluginId === id
+        && (!skill.contentPath || path.resolve(skill.contentPath).startsWith(legacyRoot + path.sep)));
       if (owned) {
         await assertSkillDirectoryOwner(this.deps.skillRegistry, this.deps.skillsRoot, { kind: "plugin", id });
         await fs.rm(path.join(this.deps.skillsRoot, id), { recursive: true, force: true });

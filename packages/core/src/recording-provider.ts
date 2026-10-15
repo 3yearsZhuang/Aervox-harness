@@ -1,6 +1,6 @@
 import { abortableStream } from "./abortable.js";
 import type { ExecutionStorePort, ModelProviderPort } from "./ports.js";
-import type { ContextManifestRecord } from "./types.js";
+import type { ContextManifestRecord, ModelUsage } from "./types.js";
 
 /** One immutable input snapshot per actual call, including retries and failed streams.
  * Diagnostic writes remain best effort; they are not a recovery or authorization ledger.
@@ -13,11 +13,13 @@ export function createRecordingProvider(
   let callNumber = 0;
   return {
     id: provider.id,
+    capabilities: provider.capabilities,
     async *stream(request) {
       const runId = `mr_${request.attemptId}_${request.step}_${++callNumber}`;
       const startedAt = Date.now();
       let completed = false;
       let abnormal = false;
+      let usage: ModelUsage | undefined;
       // Copy at the dispatch boundary, before the provider or next Step can mutate input.
       const manifest: ContextManifestRecord = {
         manifestId: `mcm_${runId}`, modelRunId: runId,
@@ -34,6 +36,7 @@ export function createRecordingProvider(
       try {
         for await (const chunk of abortableStream(provider.stream(request), request.signal)) {
           if (chunk.stopReason && chunk.stopReason !== "stop" && chunk.stopReason !== "tool_calls") abnormal = true;
+          if (chunk.usage) usage = { ...usage, ...chunk.usage };
           yield chunk;
         }
         completed = !abnormal && !request.signal?.aborted;
@@ -45,6 +48,7 @@ export function createRecordingProvider(
             provider: meta?.provider ?? provider.id, modelId: meta?.modelId ?? "n/a",
             purpose: manifest.purpose, status: completed ? "completed" : "failed",
             latencyMs: Date.now() - startedAt,
+            ...(usage ? { usage } : {}),
           });
           await store.recordContextManifest(manifest);
         } catch {

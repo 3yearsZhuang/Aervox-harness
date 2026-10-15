@@ -74,6 +74,7 @@ export interface ConversationTurnInput {
   metadata?: Record<string, unknown>;
   toolApprovalMode?: "ask" | "full_access";
   actorId?: string;
+  signal?: AbortSignal;
 }
 
 /** Shared admission, product dependencies and failure handling for both execution hosts. */
@@ -116,7 +117,17 @@ export async function executeConversationTurn(
   const claim = await admissionStore.claimTurnAttempt({ turnId, attemptId, expectedFencingToken: 0 });
   if (!claim.ok) return;
   const preparationAbort = new AbortController();
-  const signal = deps.signal ? AbortSignal.any([deps.signal, preparationAbort.signal]) : preparationAbort.signal;
+  const signal = AbortSignal.any([preparationAbort.signal, ...(deps.signal ? [deps.signal] : []), ...(input.signal ? [input.signal] : [])]);
+  // Cancellation is persisted by another host when this Turn runs in a Worker.
+  let pollingCancellation = false;
+  const cancellation = setInterval(() => {
+    if (pollingCancellation || signal.aborted) return;
+    pollingCancellation = true;
+    void admissionStore.isCancelRequested({ turnId, attemptId }).then(cancelled => {
+      if (cancelled) preparationAbort.abort(new Error("turn_cancel_requested"));
+    }).catch(error => preparationAbort.abort(error)).finally(() => { pollingCancellation = false; });
+  }, 100);
+  cancellation.unref();
   let preparing = true;
   const renew = () => claim.leaseId ? admissionStore.renewAttemptLease({
     attemptId, leaseId: claim.leaseId, expectedFencingToken: claim.fencingToken,
@@ -226,6 +237,7 @@ export async function executeConversationTurn(
     preparing = false;
     clearInterval(heartbeat);
     preparationAbort.abort();
+    clearInterval(cancellation);
     releaseWorkerPressureLease(pressureLease);
     if (bot) await conversationRepo.synchronizeTurnWithLatestAttempt(turnId);
   }

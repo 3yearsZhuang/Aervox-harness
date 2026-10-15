@@ -13,6 +13,7 @@ import { createPluginHostServicesFactory } from "../../../plugin-host-services.j
 import type { ModuleDependencies } from "../../context.js";
 import {
   SqliteExtensionRepository,
+  SqlitePluginInstallationRepository,
   SqlitePluginConfigRepository,
   SqlitePluginPageRepository,
   SqlitePluginSecretRepository,
@@ -95,6 +96,12 @@ async function syncBuiltinPlugins(
       }
       const manifest = parsedManifest.data;
       const pluginId = manifest.metadata.id;
+      // An explicitly installed release is authoritative until the user installs another version.
+      // Startup discovery must not pair builtin metadata with a different generation's files.
+      if ((await extensionRepo.getPlugin(pluginId))?.bundleGeneration) {
+        diskPluginIds.add(pluginId);
+        continue;
+      }
 
 
       let skillContent = "";
@@ -188,6 +195,7 @@ export async function registerPluginsModule(ctx: ModuleDependencies<"app" | "bui
 
   const service = new PluginService({
     beforeDeactivate,
+    installationRepo: new SqlitePluginInstallationRepository(db),
     extensionRepo,
     registry,
     skillRegistry,

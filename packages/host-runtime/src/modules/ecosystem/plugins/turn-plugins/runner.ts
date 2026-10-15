@@ -7,13 +7,30 @@
  * 3. 编排并收集各插件的 beforeTurn 提示词与状态标记；
  * 4. 在回合结束后分发 afterTurn 执行增强后处理。
  */
-import type { IExtensionRepository, IPluginConfigRepository } from "@aervox/repositories";
+import type { IExtensionRepository, IPluginConfigRepository, PluginModel } from "@aervox/repositories";
 import type { ServerTurnPluginRegistry } from "./registry.js";
 import type { LocalContext } from "@aervox/repositories";
 import type { AfterTurnContext, BeforeTurnResult, TurnPluginContext } from "./types.js";
 
+/** 仅宿主使用：异步准备完成后、真正写入前再次验证准入。 */
+export interface PluginStreamCommitControl {
+  signal: AbortSignal;
+  checkActive(): Promise<void>;
+}
+
+export type TurnPluginHostContext = Omit<TurnPluginContext, "signal" | "deadlineEpochMs" | "stream"> & {
+  signal?: AbortSignal;
+  deadlineEpochMs?: number;
+  stream: Omit<TurnPluginContext["stream"], "appendEvent"> & {
+    appendEvent(input: Parameters<TurnPluginContext["stream"]["appendEvent"]>[0], control?: PluginStreamCommitControl): ReturnType<TurnPluginContext["stream"]["appendEvent"]>;
+  };
+};
+
+export const DEFAULT_PLUGIN_HOOK_TIMEOUT_MS = 15_000;
+
 export interface PluginExecutionSnapshot {
   isEnabled: boolean;
+  lifecycleGeneration?: string;
   configValues?: Record<string, unknown>;
 }
 
@@ -29,12 +46,16 @@ export interface BeforeTurnExecutionResult {
  * fail-closed：仓储缺失、无记录、未启用或不可用一律视为不生效。
  * CR-060：无别名体系，故只按插件唯一 id 探测（避免同一插件按多 id 生效导致判据分叉）。
  */
-async function resolvePluginEnabled(
+async function resolvePluginRecord(
   pluginId: string,
   extRepo?: IExtensionRepository | null,
-): Promise<boolean> {
-  if (!extRepo) return false;
-  const record = await extRepo.getPlugin(pluginId).catch(() => null);
+): Promise<PluginModel | null> {
+  if (!extRepo) return null;
+  return extRepo.getPlugin(pluginId).catch(() => null);
+}
+
+async function resolvePluginEnabled(pluginId: string, extRepo?: IExtensionRepository | null): Promise<boolean> {
+  const record = await resolvePluginRecord(pluginId, extRepo);
   if (!record) return false;
   return record.enabled === 1 && (record.availability ?? "available") === "available";
 }
@@ -76,11 +97,93 @@ export interface TurnPluginRunnerDeps {
   tenant: LocalContext;
   extRepo?: IExtensionRepository | null;
   configRepo?: IPluginConfigRepository | null;
+  /** 每次 Hook 的等待上限，默认 15 秒，上限 60 秒；不是进程内硬终止。 */
+  hookTimeoutMs?: number;
   /**
    * 单个插件切面异常的上报出口。缺省落到 `console.warn`——切面异常必须留痕，
    * 不得静默吞掉（否则插件失效在生产中不可观测）。
    */
   onPluginError?: (pluginId: string, phase: "beforeTurn" | "afterTurn", error: unknown) => void;
+}
+
+function waitForSignal<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(signal.reason ?? new Error("plugin_hook_cancelled"));
+    signal.addEventListener("abort", abort, { once: true });
+    if (signal.aborted) abort();
+    operation.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
+  });
+}
+
+/** Each invocation owns its ports. Late results and calls cannot outlive that invocation. */
+async function runHook<C extends TurnPluginHostContext, T>(
+  pluginId: string, ctx: C, deps: TurnPluginRunnerDeps,
+  execute: (context: C & TurnPluginContext, checkActive: () => Promise<void>, lifecycleGeneration: string) => Promise<T>,
+  expectedGeneration?: string,
+): Promise<T> {
+  const timeout = deps.hookTimeoutMs ?? DEFAULT_PLUGIN_HOOK_TIMEOUT_MS;
+  if (!Number.isFinite(timeout) || timeout <= 0 || timeout > 60_000) throw new Error("invalid_plugin_hook_timeout");
+  if (ctx.deadlineEpochMs !== undefined && !Number.isFinite(ctx.deadlineEpochMs)) throw new Error("invalid_plugin_hook_deadline");
+  const deadlineEpochMs = Math.min(Date.now() + timeout, ctx.deadlineEpochMs ?? Infinity);
+  const controller = new AbortController();
+  const signal = controller.signal;
+  let lifecycleGeneration = expectedGeneration;
+  const onAbort = () => controller.abort(ctx.signal?.reason ?? new Error("plugin_hook_cancelled"));
+  ctx.signal?.addEventListener("abort", onAbort, { once: true });
+  if (ctx.signal?.aborted) onAbort();
+  const timer = setTimeout(() => controller.abort(new Error("plugin_hook_timeout")), Math.max(0, deadlineEpochMs - Date.now()));
+  const assertActive = () => {
+    if (Date.now() >= deadlineEpochMs && !signal.aborted) controller.abort(new Error("plugin_hook_timeout"));
+    signal.throwIfAborted();
+  };
+  const checkActive = async () => {
+    assertActive();
+    const record = await waitForSignal(resolvePluginRecord(pluginId, deps.extRepo), signal);
+    assertActive();
+    if (!record || record.enabled !== 1 || (record.availability ?? "available") !== "available"
+      || typeof record.lifecycleGeneration !== "string" || !record.lifecycleGeneration) {
+      controller.abort(new Error("plugin_hook_unavailable"));
+      signal.throwIfAborted();
+    }
+    if (lifecycleGeneration !== undefined && lifecycleGeneration !== record!.lifecycleGeneration) {
+      controller.abort(new Error("plugin_hook_generation_changed"));
+      signal.throwIfAborted();
+    }
+    lifecycleGeneration = record!.lifecycleGeneration;
+  };
+  const call = async <V>(operation: () => Promise<V>): Promise<V> => {
+    await checkActive();
+    const value = await waitForSignal(operation(), signal);
+    await checkActive();
+    return value;
+  };
+  const scopedContext = {
+    ...ctx, signal, deadlineEpochMs,
+    stream: {
+      readEvents: (turnId: string, fromSequence: number) => call(() => ctx.stream.readEvents(turnId, fromSequence)),
+      appendEvent: (input: Parameters<TurnPluginContext["stream"]["appendEvent"]>[0]) => call(() => ctx.stream.appendEvent(input, { signal, checkActive })),
+    },
+    llm: ctx.llm ? {
+      generate: (prompt: string, options?: Parameters<NonNullable<TurnPluginContext["llm"]>["generate"]>[1]) => call(() => {
+        const operationSignal = options?.signal ? AbortSignal.any([signal, options.signal]) : signal;
+        operationSignal.throwIfAborted();
+        return waitForSignal(ctx.llm!.generate(prompt, { ...options, signal: operationSignal }), operationSignal);
+      }),
+    } : ctx.llm,
+  } as C & TurnPluginContext;
+  try {
+    assertActive();
+    return await waitForSignal((async () => {
+      await checkActive();
+      const result = await execute(scopedContext, checkActive, lifecycleGeneration!);
+      await checkActive();
+      return result;
+    })(), signal);
+  } finally {
+    clearTimeout(timer);
+    ctx.signal?.removeEventListener("abort", onAbort);
+    controller.abort(new Error("plugin_hook_finished"));
+  }
 }
 
 function reportPluginError(
@@ -98,28 +201,24 @@ function reportPluginError(
 
 export async function executeBeforeTurnPlugins(
   registry: ServerTurnPluginRegistry,
-  ctx: TurnPluginContext,
+  ctx: TurnPluginHostContext,
   deps: TurnPluginRunnerDeps,
 ): Promise<BeforeTurnExecutionResult> {
-  const { tenant, extRepo, configRepo } = deps;
+  const { tenant, configRepo } = deps;
   const extraSections: string[] = [];
   const pluginResults = new Map<string, BeforeTurnResult>();
   const snapshots = new Map<string, PluginExecutionSnapshot>();
 
   for (const plugin of registry.getAll()) {
-    // 门控与工具贡献、插件端点同一判据：仓储缺失/缺记录/未启用/不可用一律不执行（fail-closed）
-    const isEnabled = await resolvePluginEnabled(plugin.id, extRepo);
-
-    let configValues: Record<string, unknown> | undefined;
-    if (isEnabled && configRepo) {
-      configValues = await resolvePluginConfigValues(plugin.id, configRepo, tenant).catch(() => undefined);
-    }
-
-    snapshots.set(plugin.id, { isEnabled, configValues });
-    if (!isEnabled) continue;
-
+    if (ctx.signal?.aborted) break;
+    snapshots.set(plugin.id, { isEnabled: false });
     try {
-      const res = await plugin.beforeTurn?.(ctx, configValues);
+      const res = await runHook(plugin.id, ctx, deps, async (scoped, checkActive, lifecycleGeneration) => {
+        const configValues = configRepo ? await resolvePluginConfigValues(plugin.id, configRepo, tenant).catch(() => undefined) : undefined;
+        await checkActive();
+        snapshots.set(plugin.id, { isEnabled: true, configValues, lifecycleGeneration });
+        return plugin.beforeTurn?.(scoped, configValues);
+      });
       if (res) {
         pluginResults.set(plugin.id, res);
         if (res.extraSections && res.extraSections.length > 0) {
@@ -131,6 +230,7 @@ export async function executeBeforeTurnPlugins(
         }
       }
     } catch (error) {
+      snapshots.set(plugin.id, { isEnabled: false });
       // 单个插件前置切面异常隔离，不影响整个回合创建（但必须留痕）
       reportPluginError(deps, plugin.id, "beforeTurn", error);
     }
@@ -145,33 +245,25 @@ export async function executeBeforeTurnPlugins(
 
 export async function executeAfterTurnPlugins(
   registry: ServerTurnPluginRegistry,
-  ctx: AfterTurnContext,
+  ctx: TurnPluginHostContext & Pick<AfterTurnContext, "status">,
   deps: TurnPluginRunnerDeps,
   pluginResults?: Map<string, BeforeTurnResult>,
   snapshots?: Map<string, PluginExecutionSnapshot>,
 ): Promise<void> {
-  const { tenant, extRepo, configRepo } = deps;
+  const { tenant, configRepo } = deps;
 
   for (const plugin of registry.getAll()) {
-    let isEnabled: boolean;
-    let configValues: Record<string, unknown> | undefined;
-
-    if (snapshots?.has(plugin.id)) {
-      // 复用前置切面快照：同一回合内启停与配置判定保持一致，避免重复读库
-      const snap = snapshots.get(plugin.id)!;
-      isEnabled = snap.isEnabled;
-      configValues = snap.configValues;
-    } else {
-      isEnabled = await resolvePluginEnabled(plugin.id, extRepo);
-      if (isEnabled && configRepo) {
-        configValues = await resolvePluginConfigValues(plugin.id, configRepo, tenant).catch(() => undefined);
-      }
-    }
-
-    if (!isEnabled) continue;
-
+    if (ctx.signal?.aborted) break;
+    const snapshot = snapshots?.get(plugin.id);
+    // 配置保留本回合快照；启用状态必须重验，前置未准入的插件不在后置阶段新激活。
+    if (snapshot && (!snapshot.isEnabled || !snapshot.lifecycleGeneration)) continue;
     try {
-      await plugin.afterTurn?.(ctx, configValues, pluginResults?.get(plugin.id));
+      await runHook(plugin.id, ctx, deps, async (scoped, checkActive) => {
+        const configValues = snapshot ? snapshot.configValues
+          : configRepo ? await resolvePluginConfigValues(plugin.id, configRepo, tenant).catch(() => undefined) : undefined;
+        await checkActive();
+        await plugin.afterTurn?.(scoped, configValues, pluginResults?.get(plugin.id));
+      }, snapshot?.lifecycleGeneration);
     } catch (error) {
       // 单个插件后置切面异常隔离，不影响回合最终完成态（但必须留痕）
       reportPluginError(deps, plugin.id, "afterTurn", error);

@@ -7,9 +7,9 @@
  * 逐字节迁移至本文件。
  */
 import {
-  createOpenAICompatProvider,
   createReplayProvider,
   createScriptedProvider,
+  defaultModelProviderRegistry,
 } from "@aervox/core";
 import type { ModelProviderPort, ReplayStep } from "@aervox/core";
 import type { TurnLlmPort } from "@aervox/host-plugin-api";
@@ -25,7 +25,8 @@ import { API_TOOL_SCRIPT, API_WRITE_SCRIPT, API_PRIVILEGED_SCRIPT } from "./repl
 /** 将 ModelProviderPort 适配为插件契约的 TurnLlmPort 窄端口 */
 export function createLLMCallable(provider: ModelProviderPort): TurnLlmPort {
   return {
-    async generate(prompt: string, options?: { systemPrompt?: string; temperature?: number }): Promise<string> {
+    async generate(prompt, options): Promise<string> {
+      options?.signal?.throwIfAborted();
       const messages: Array<{ role: "system" | "user" | "assistant" | "tool"; content: string }> = [];
       if (options?.systemPrompt) {
         messages.push({ role: "system", content: options.systemPrompt });
@@ -38,16 +39,19 @@ export function createLLMCallable(provider: ModelProviderPort): TurnLlmPort {
         attemptId: `atp_${callId}`,
         step: 1,
         temperature: options?.temperature,
+        signal: options?.signal,
         context: {
           turnId: callId,
           sessionId: `ses_${callId}`,
           messages,
         },
       })) {
+        options?.signal?.throwIfAborted();
         if (chunk.text) {
           text += chunk.text;
         }
       }
+      options?.signal?.throwIfAborted();
       return text;
     },
   };
@@ -144,7 +148,7 @@ export async function buildLoopProvider(
           : maxTokens;
 
       const requestTimeoutMs = Number(matchedPreset?.settings?.requestTimeoutMs);
-      const provider = createOpenAICompatProvider({
+      const provider = defaultModelProviderRegistry.createProvider(snapshot.providerType ?? "custom_openai", {
         baseUrl: snapshot.baseUrl,
         apiKey: matchedPreset?.apiKey,
         modelId: snapshot.modelId,
@@ -162,7 +166,7 @@ export async function buildLoopProvider(
       throw new Error("llm_provider_unavailable: LLMConfigPort 未接线");
     }
     const cfg = await llmConfigService.getConfig(ctx);
-    if (!cfg.enabled) throw new Error("llm_disabled: 当前租户未启用 LLM 配置");
+    if (!cfg.enabled) throw new Error("llm_disabled: 当前工作区未启用 LLM 配置");
     if (cfg.providerType === "anthropic") {
       throw new Error("anthropic_unsupported: 阶段 2e 仅支持 OpenAI 兼容协议（openai/deepseek/ollama/llamacpp/custom_openai）");
     }
@@ -179,13 +183,13 @@ export async function buildLoopProvider(
       Number.isFinite(discoveredContextWindow) && discoveredContextWindow > 0
         ? Math.max(256, Math.min(cfg.maxTokens ?? 4096, discoveredContextWindow - reserve))
         : (cfg.maxTokens ?? 4096);
-    return createOpenAICompatProvider({
+    return defaultModelProviderRegistry.createProvider(cfg.providerType, {
       baseUrl: cfg.baseUrl,
       apiKey: cfg.apiKey,
       modelId: cfg.modelId,
       temperature: cfg.temperature,
       maxTokens: effectiveMaxTokens,
-        ...(Number.isFinite(discoveredContextWindow) && discoveredContextWindow > 0 ? { contextWindowTokens: discoveredContextWindow } : {}),
+      ...(Number.isFinite(discoveredContextWindow) && discoveredContextWindow > 0 ? { contextWindowTokens: discoveredContextWindow } : {}),
       ...(Number.isFinite(requestTimeoutMs) && requestTimeoutMs > 0 ? { timeoutMs: requestTimeoutMs } : {}),
       redirect: options.requireLocalOnly ? "error" : undefined,
     });

@@ -14,6 +14,7 @@ import {
   type DslQuotas,
 } from "./proactive-dsl-schemas.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import { comparePluginVersions, STABLE_PLUGIN_VERSION_PATTERN } from "./plugin-compatibility.js";
 
 // 必须在任何 schema 创建前调用（与 schemas.ts 保持相同约定）
 extendZodWithOpenApi(z);
@@ -272,9 +273,20 @@ export const pluginDeclaredSkillSchema = z.object({
 });
 
 /** 插件 Bundle Manifest v1 */
+export const pluginHostRequirementSchema = z.object({
+  hostApiVersion: z.object({
+    min: z.string().max(64).regex(STABLE_PLUGIN_VERSION_PATTERN),
+    maxExclusive: z.string().max(64).regex(STABLE_PLUGIN_VERSION_PATTERN).optional(),
+  }).strict().refine((range) => range.maxExclusive === undefined
+    || comparePluginVersions(range.min, range.maxExclusive) === -1,
+  { message: "maxExclusive must be greater than min" }),
+}).strict();
+
 export const pluginManifestSchema = z.object({
   apiVersion: z.literal("aervox.dev/v1"),
   kind: z.literal("PluginManifest"),
+  /** Omitted legacy bundles target host API v1; release version remains independent. */
+  requires: pluginHostRequirementSchema.optional(),
   metadata: z.object({
     id: z.string().min(1).max(128),
     displayName: z.string().min(1).max(128),

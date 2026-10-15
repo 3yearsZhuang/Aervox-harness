@@ -85,6 +85,9 @@ async function collectDistFiles(dir, base = "") {
   const unexpected = [];
   const skipped = [];
   for (const entry of [...entries].sort(byName)) {
+    if (entry.isSymbolicLink() || (!entry.isDirectory() && !entry.isFile())) {
+      throw new Error(`Unsupported plugin resource: ${path.join(base, entry.name)}`);
+    }
     const full = path.join(dir, entry.name);
     const rel = path.join(base, entry.name).replace(/\\/g, "/");
     const role = classifyDistEntry(rel, entry.isDirectory());
@@ -109,6 +112,7 @@ async function collectDistFiles(dir, base = "") {
 }
 
 async function main() {
+  const { validatePluginBundleFiles } = await import("../packages/contracts/dist/plugin-validation.js");
   await fs.mkdir(DIST_DIR, { recursive: true });
   const entries = [...(await fs.readdir(PLUGINS_DIR, { withFileTypes: true }))].sort(byName);
   const exported = [];
@@ -143,6 +147,10 @@ async function main() {
       console.log(`[export-plugins] ${id}: 已排除本地开发载体 ${skipped.join(", ")}`);
     }
 
+    const validation = validatePluginBundleFiles(Object.fromEntries(Object.entries(files).map(([name, [bytes]]) => [name, bytes])));
+    if (validation.issues.length) {
+      throw new Error(`${id}: ${validation.issues.map((issue) => `${issue.path}: ${issue.message}`).join("; ")}`);
+    }
     const zipped = zipSync(files, { level: 9 });
     const checksum = createHash("sha256").update(zipped).digest("hex");
     const filename = `${id}-${version}.aervox-plugin`;

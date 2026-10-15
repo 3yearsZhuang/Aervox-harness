@@ -10,7 +10,7 @@
  * - 全链路注入式 `spawn`（测试可注入假实现），避免状态查询与真实端口耦合。
  */
 import { spawn as nodeSpawn, spawnSync, type ChildProcess } from "node:child_process";
-import type { LlamaRuntimeParams, LlamaRuntimeStatus, LocalModel } from "@aervox/contracts";
+import type { ModelRuntimeParams, ModelRuntimeStatus, LocalModel } from "@aervox/contracts";
 import type { ModelRuntimeDriver, ModelRuntimeDriverHandle } from "./driver.js";
 
 export type LlamaServerHandle = ModelRuntimeDriverHandle;
@@ -40,7 +40,7 @@ export class LlamaServerManager implements ModelRuntimeDriver {
   readonly name = "llama.cpp server";
 
   private child: ChildProcess | null = null;
-  private status: LlamaRuntimeStatus = "idle";
+  private status: ModelRuntimeStatus = "idle";
   private port: number | null = null;
   private modelId: string | null = null;
   private startedAt: string | null = null;
@@ -165,7 +165,7 @@ export class LlamaServerManager implements ModelRuntimeDriver {
    * 启动单个本地模型：spawn llama-server 并等待 /health 就绪。
    * @throws 启动超时 / 可执行文件缺失 / 模型文件不存在
    */
-  async start(model: LocalModel, params: LlamaRuntimeParams): Promise<LlamaServerHandle> {
+  async start(model: LocalModel, params: ModelRuntimeParams): Promise<LlamaServerHandle> {
     const bin = this.resolveBinary();
     if (!bin) {
       throw new Error(

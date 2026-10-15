@@ -15,6 +15,7 @@ id: AVX-DOC-001
 | 能力做到哪一步、还有哪些阻断 | [需求追踪与发布门槛](reference/REQUIREMENTS_TRACEABILITY.md) |
 | 模块职责、参考项目学习和演进取舍 | [架构](reference/ARCHITECTURE.md)、[ADR](reference/adr/README.md)、[能力组合](reference/capability-composition.md) |
 | 数据、事务、迁移和删除 | [数据库契约](reference/DATABASE.md)、[迁移演练](how-to/run-database-migration-drill.md) |
+| 开发或演进 HTTP API | [API 约定](reference/API_CONVENTIONS.md) |
 | 执行、取消、恢复与事件流 | [Agent Harness Loop](reference/agent-harness-loop.md)、[流式协议](reference/STREAMING_PROTOCOL.md) |
 | 开发插件、Page、Tool 或 UI 扩展 | [扩展指南](how-to/develop-plugin-ui-extension.md)、[插件契约](reference/plugin-config-and-pages.md) |
 | 接入微信私聊、QQ 群及运行常驻 Bot | [连接机器人](how-to/connect-bots.md)、[Bot 架构决定](reference/adr/ADR-029-bot-platform-adapters.md) |

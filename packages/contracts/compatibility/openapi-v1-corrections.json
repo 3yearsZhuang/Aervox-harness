@@ -1,0 +1,1707 @@
+{
+  "baselineSource": "05200288ac9cc98aa08e8fab994338b1435ee3f1",
+  "changes": [
+    {
+      "id": "bearer-auth-documentation",
+      "reason": "Bearer authentication already existed in token mode; the former document omitted its security requirement.",
+      "pointer": "/security",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": [
+        {
+          "bearerAuth": []
+        }
+      ]
+    },
+    {
+      "id": "problem-details-schema",
+      "reason": "Authorized API standardization: RFC 9457 problem fields retain legacy error/code/message fields; error Content-Type changes from application/json to application/problem+json.",
+      "pointer": "/components/schemas/ApiProblem",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "additionalProperties": {},
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "details": {},
+          "error": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "status": {
+            "maximum": 599,
+            "minimum": 400,
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "detail",
+          "code",
+          "message"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1diaries/get/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1diaries/get/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1learning-plans~1generate/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1learning-plans~1{planId}/get/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1learning-plans~1{planId}~1archive/post/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1learning~1goals/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1learning~1goals~1{goalId}/delete/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1learning~1goals~1{goalId}/get/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1learning~1goals~1{goalId}/patch/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1learning~1goals~1{goalId}/patch/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1llm~1config/put/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1llm~1presets/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1llm~1presets~1{presetId}/delete/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1llm~1presets~1{presetId}~1activate/post/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1llm~1test-connection/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1mcp~1servers~1{serverId}~1connect/post/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1mcp~1servers~1{serverId}~1connect/post/responses/502/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1mcp~1servers~1{serverId}~1disconnect/post/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1mcp~1servers~1{serverId}~1sync/post/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1mcp~1servers~1{serverId}~1sync/post/responses/502/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1mcp~1servers~1{serverId}~1tools/get/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1mistakes/get/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1mistakes~1repractice/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1mistakes~1repractice/post/responses/409/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1mistakes~1{questionId}/patch/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1mistakes~1{questionId}/patch/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1mistakes~1{questionId}/patch/responses/409/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1model-runtime~1downloads/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1model-runtime~1downloads/post/responses/409/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1model-runtime~1models~1{modelId}/delete/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1model-runtime~1models~1{modelId}/delete/responses/409/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1model-runtime~1start/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1model-runtime~1start/post/responses/409/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1personas~1import~1preview/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1personas~1{personaId}/delete/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1personas~1{personaId}/get/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1personas~1{personaId}/patch/responses/409/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1plan-tasks~1{taskId}/patch/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1plan-tasks~1{taskId}/patch/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1plugins~1inspect-package/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1plugins~1install-package/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1plugins~1install-package/post/responses/409/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1plugins~1market~1{pluginId}~1install/post/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1plugins~1{pluginId}~1config/get/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1plugins~1{pluginId}~1config/put/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1plugins~1{pluginId}~1config/put/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1plugins~1{pluginId}~1config/put/responses/409/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1plugins~1{pluginId}~1config~1reset/post/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1plugins~1{pluginId}~1config~1schema/get/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1plugins~1{pluginId}~1config~1schema/put/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1plugins~1{pluginId}~1export/get/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1plugins~1{pluginId}~1pages/get/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1plugins~1{pluginId}~1pages/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1plugins~1{pluginId}~1pages~1{pageId}~1assets/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1practice~1sessions/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1practice~1sessions/post/responses/409/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1practice~1sessions~1active/get/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1practice~1sessions~1{sessionId}~1complete/post/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1practice~1sessions~1{sessionId}~1report/get/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1proactive~1authorize/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1proactive~1authorize/post/responses/409/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1proactive~1desired-state/post/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1proactive~1integrations~1home-assistant/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1proactive~1integrations~1home-assistant/post/responses/403/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1proactive~1integrations~1home-assistant~1{id}/delete/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1proactive~1integrations~1home-assistant~1{id}~1call-service/post/responses/403/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1proactive~1integrations~1home-assistant~1{id}~1entities~1{entityId}/patch/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1proactive~1integrations~1xiaomi-health/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1proactive~1integrations~1xiaomi-health/post/responses/403/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1proactive~1integrations~1xiaomi-health~1{id}/delete/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1proactive~1sources~1{sourceGrantId}~1data/delete/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1projects/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1projects~1{projectId}/delete/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1projects~1{projectId}/patch/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1projects~1{projectId}/patch/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1questions~1{questionId}~1attempts/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1questions~1{questionId}~1attempts/post/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1questions~1{questionId}~1attempts/post/responses/409/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1review-items~1history/get/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1review-items~1{reviewId}~1complete/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1review-items~1{reviewId}~1complete/post/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1review-items~1{reviewId}~1complete/post/responses/409/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1sessions/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1sessions~1import/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1sessions~1{sessionId}/delete/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1sessions~1{sessionId}/patch/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1sessions~1{sessionId}/patch/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1sessions~1{sessionId}~1inbox/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1sessions~1{sessionId}~1inbox/post/responses/403/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1sessions~1{sessionId}~1turns/post/responses/400/content",
+      "beforeHash": "9c9fc056ae00b700ed30ba6c60be018d40027033f16a28a0232052762439736d",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1sessions~1{sessionId}~1turns/post/responses/409/content",
+      "beforeHash": "9c9fc056ae00b700ed30ba6c60be018d40027033f16a28a0232052762439736d",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1turns~1{turnId}~1cancel/post/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1turns~1{turnId}~1events/get/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1turns~1{turnId}~1events/get/responses/410/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1turns~1{turnId}~1questions~1answers/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1turns~1{turnId}~1questions~1answers/post/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1turns~1{turnId}~1questions~1answers/post/responses/409/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1turns~1{turnId}~1tool-approvals/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1turns~1{turnId}~1tool-approvals/post/responses/403/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1turns~1{turnId}~1tool-approvals/post/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1voice~1config/put/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1voice~1config/put/responses/503/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1voice~1input~1config/put/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1voice~1input~1model~1download/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1voice~1presets/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1voice~1presets~1{presetId}/delete/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1voice~1presets~1{presetId}~1activate/post/responses/404/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1voice~1remote~1config/put/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1voice~1remote~1test-connection/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1voice~1synthesize/post/responses/503/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1voice~1transcribe/post/responses/400/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "problem-details-error-content",
+      "reason": "Authorized RFC 9457 error media correction; legacy fields are retained. Clients matching Content-Type exactly must accept application/problem+json.",
+      "pointer": "/paths/~1v1~1voice~1transcribe/post/responses/503/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/problem+json": {
+          "schema": {
+            "$ref": "#/components/schemas/ApiProblem"
+          }
+        }
+      }
+    },
+    {
+      "id": "provider-registry-id-1",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/components/schemas/HealthSnapshot/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-2",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/components/schemas/LLMConfig/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-3",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/components/schemas/LLMConfigResponse/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-4",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/components/schemas/LLMCreatePresetRequest/properties/config/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-5",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/components/schemas/LLMPreset/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-6",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/components/schemas/LLMPresetListResponse/properties/presets/items/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-7",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/components/schemas/LLMTestConnectionRequest/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-8",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/components/schemas/ModelRoutingSnapshot/properties/providerType",
+      "beforeHash": "ede61ad0bf2ca87856d82d4b8f1ba9c58a324537785404b866ada49bdd31325a",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    {
+      "id": "provider-registry-id-9",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/paths/~1v1~1llm~1config/get/responses/200/content/application~1json/schema/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-10",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/paths/~1v1~1llm~1config/put/requestBody/content/application~1json/schema/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-11",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/paths/~1v1~1llm~1config/put/responses/200/content/application~1json/schema/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-12",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/paths/~1v1~1llm~1presets/get/responses/200/content/application~1json/schema/properties/presets/items/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-13",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/paths/~1v1~1llm~1presets/post/requestBody/content/application~1json/schema/properties/config/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-14",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/paths/~1v1~1llm~1presets/post/responses/201/content/application~1json/schema/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-15",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/paths/~1v1~1llm~1presets~1{presetId}~1activate/post/responses/200/content/application~1json/schema/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    },
+    {
+      "id": "provider-registry-id-16",
+      "reason": "Approved Provider registry extension in PR #282: keep all six built-in identifiers, accept bounded registered IDs, and require clients to handle providerType as an opaque registered identifier instead of an exhaustive enum.",
+      "approvedSource": "8a63df47",
+      "pointer": "/paths/~1v1~1llm~1test-connection/post/requestBody/content/application~1json/schema/properties/providerType",
+      "beforeHash": "4069d010f03a6c70c4c8d8f7db52153e50ca7ca65c66a1eb22f9ff35c0e6437b",
+      "value": {
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+        "type": "string"
+      }
+    }
+  ],
+  "restoration": {
+    "reason": "Recompute exact before fingerprints and restore correction values from the already-reviewed standards document using context-aware canonicalization.",
+    "originalCorrectionsSha256": "84e72d336065c9b3623a74059940957a4e18cf39121c195c94c32f17588202b4",
+    "valuesSource": "ae5cca63855cf3226466e035d2aa579a2268e312",
+    "valuesSourceBlob": "38575c6f95f923593f2471c093528bfeaab4c055"
+  }
+}

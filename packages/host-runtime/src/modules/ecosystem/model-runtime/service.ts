@@ -20,8 +20,8 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type {
   DownloadTask,
-  LlamaMetricSample,
-  LlamaRuntimeParams,
+  ModelRuntimeMetricSample,
+  ModelRuntimeParams,
   LocalModel,
   ModelCatalogEntry,
   ModelDownloadRequest,
@@ -61,7 +61,7 @@ interface PersistedRuntimeState {
   version: 1;
   savedAt: string;
   /** 最近一次启动参数（重启后沿用） */
-  params?: LlamaRuntimeParams;
+  params?: ModelRuntimeParams;
   /** 未完结下载任务（queued/running/paused） */
   downloads?: Array<{
     id: string;
@@ -75,12 +75,12 @@ interface PersistedRuntimeState {
     autoStart?: boolean;
   }>;
   /** 最近一次 llama-server 运行（dispose 时仍在运行则 autoStart=true，重启自动拉起） */
-  runtime?: { autoStart: boolean; modelId: string; params: LlamaRuntimeParams };
+  runtime?: { autoStart: boolean; modelId: string; params: ModelRuntimeParams };
 }
 
 const RUNTIME_STATE_FILE = "runtime-state.json";
 
-const DEFAULT_PARAMS: LlamaRuntimeParams = {
+const DEFAULT_PARAMS: ModelRuntimeParams = {
   port: 8080,
   ctxSize: 8192,
   gpuLayers: 99,
@@ -132,12 +132,12 @@ export class ModelRuntimeService {
   private readonly llama: ModelRuntimeDriver;
   private readonly maxConcurrentDownloads: number;
   private readonly catalog: ModelCatalogEntry[];
-  private lastParams: LlamaRuntimeParams = { ...DEFAULT_PARAMS };
+  private lastParams: ModelRuntimeParams = { ...DEFAULT_PARAMS };
   private readonly tasks = new Map<string, TaskState>();
   private readonly queue: string[] = [];
   private runningCount = 0;
   private readonly subscribers = new Set<(state: ModelRuntimeState) => void>();
-  private readonly metricSamples: LlamaMetricSample[] = [];
+  private readonly metricSamples: ModelRuntimeMetricSample[] = [];
   private metricsTimer: ReturnType<typeof setInterval> | null = null;
   private lastEmitAt = 0;
   private disposed = false;
@@ -427,6 +427,14 @@ export class ModelRuntimeService {
       },
       params: { ...this.lastParams },
       downloads,
+      driver: {
+        id: this.llama.id,
+        name: this.llama.name,
+        configured: this.llama.configured,
+        binPath: binPath ?? undefined,
+        source,
+        maxConcurrentDownloads: this.maxConcurrentDownloads,
+      },
       llamaServer: {
         configured: this.llama.configured,
         binPath: binPath ?? undefined,
@@ -682,7 +690,7 @@ export class ModelRuntimeService {
     if (!model) {
       throw new Error(`model_not_found: 未找到模型「${request.modelId}」（已下载：${models.map((m) => m.fileName).join(", ") || "无"}）`);
     }
-    const merged: LlamaRuntimeParams = { ...this.lastParams, ...(request.params ?? {}) };
+    const merged: ModelRuntimeParams = { ...this.lastParams, ...(request.params ?? {}) };
     this.lastParams = merged;
     try {
       await this.llama.start(model, merged);

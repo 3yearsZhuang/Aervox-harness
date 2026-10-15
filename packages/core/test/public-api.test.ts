@@ -4,7 +4,18 @@ import * as lightweight from "../src/core.js";
 
 describe("public entrypoints", () => {
   it("retains the consumer facade while hiding execution internals", () => {
-    for (const name of ["executeTurn", "ControlContext", "HostToolRuntime", "InMemoryExecutionStore", "createOpenAICompatProvider", "createComposedContextBuilder", "decideResume"]) expect(core).toHaveProperty(name);
+    for (const name of [
+      "executeTurn",
+      "ControlContext",
+      "HostToolRuntime",
+      "InMemoryExecutionStore",
+      "createOpenAICompatProvider",
+      "createComposedContextBuilder",
+      "decideResume",
+      "createFauxProvider",
+      "ModelProviderRegistry",
+      "defaultModelProviderRegistry",
+    ]) expect(core).toHaveProperty(name);
     for (const name of ["StepCollector", "runToolExecution", "settleToolLedger", "createTurnTerminator", "safeStringify", "dedupeKey"]) expect(core).not.toHaveProperty(name);
     expect(lightweight.executeTurn).toBe(core.executeTurn);
   });

@@ -51,7 +51,7 @@ import {
   isPluginEnabled,
   defaultServerPluginRegistry,
   type ServerPluginRegistry,
-  type TurnPluginContext,
+  type TurnPluginHostContext,
 } from "../../ecosystem/plugins/index.js";
 import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index.js";
 import { HOST_TOOL_GUIDANCE } from "../../ecosystem/tools/index.js";
@@ -99,6 +99,8 @@ export async function runLoopTurnOnce(
     attemptId: string;
     userMessage: string;
     metadata?: Record<string, unknown>;
+    signal?: AbortSignal;
+    deadlineEpochMs?: number;
   },
   deps: {
     signal?: AbortSignal;
@@ -177,6 +179,7 @@ export async function runLoopTurnOnce(
     setRequestToolApprovalMode(tenant, "ask");
     input = { ...input, metadata: undefined };
   }
+  const signal = input.signal && deps.signal ? AbortSignal.any([input.signal, deps.signal]) : input.signal ?? deps.signal;
   const turnStartTime = Date.now();
   deps.observability?.metrics.emit({
     type: "counter",
@@ -212,15 +215,17 @@ export async function runLoopTurnOnce(
   // CR-060：向插件暴露**窄端口**而非仓储与总线本体。
   // 序号交由仓储原子分配（appendStreamEvent 缺省 sequence），避免插件自行推算；
   // 写入同时落库并广播，保证 SSE 实时性与重放一致。
-  const turnPluginCtx: TurnPluginContext = {
+  const turnPluginCtx: TurnPluginHostContext = {
     turnId: input.turnId,
     sessionId: input.sessionId,
     attemptId: input.attemptId,
     userMessage: input.userMessage,
     metadata: input.metadata,
+    signal,
+    deadlineEpochMs: input.deadlineEpochMs,
     stream: {
       readEvents: (turnId, fromSequence) => repo.getStreamEvents(tenant, turnId, fromSequence),
-      appendEvent: async (appendInput) => {
+      appendEvent: async (appendInput, control) => {
         // CR-060：插件只能写入内核事件类型或其在登记表中**声明过**的事件类型。
         // 登记表不是装饰——未声明的类型在此拒绝（fail-closed），避免插件静默塞入
         // 前端不认识、投影白名单也无从收敛的事件。
@@ -231,6 +236,9 @@ export async function runLoopTurnOnce(
         // 实现更严），故按既有序号推进；同一 Turn 的写入由执行器串行化。
         const existing = await repo.getStreamEvents(tenant, input.turnId, 0);
         const lastSequence = existing.reduce((max, event) => (event.sequence > max ? event.sequence : max), 0);
+        // Revalidate after async preparation, immediately before the accepted database write.
+        await control?.checkActive();
+        control?.signal.throwIfAborted();
         const stored = await repo.appendStreamEvent(tenant, {
           id: `evt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
           turnId: input.turnId,
@@ -267,7 +275,7 @@ export async function runLoopTurnOnce(
               provider: r.provider,
               modelId: r.modelId,
             });
-            await p.completeModelRun(tenant, r.runId, { status: r.status === "completed" ? "completed" : "failed", latencyMs: r.latencyMs });
+            await p.completeModelRun(tenant, r.runId, { status: r.status === "completed" ? "completed" : "failed", latencyMs: r.latencyMs, tokenUsage: r.usage });
           },
           recordContextManifest: async (m) => {
             const p = deps.platformRepo!;
@@ -288,6 +296,21 @@ export async function runLoopTurnOnce(
   );
   if (deps.claimTurnAttempt) store.claimTurnAttempt = deps.claimTurnAttempt;
   const broadcastingStore = createBroadcastingStore(store);
+  // A Hook can be cancelled before the executor claims its Attempt. Finalize here
+  // because a CancelRequested Attempt will correctly refuse that later claim.
+  const finishUnclaimedCancellation = async (): Promise<boolean> => {
+    if (!signal?.aborted && !(input.deadlineEpochMs !== undefined && Date.now() >= input.deadlineEpochMs)) return false;
+    const status = signal?.aborted ? "Cancelled" : "Interrupted";
+    const sequence = await store.nextSequence(input.turnId);
+    const finalized = await broadcastingStore.finalizeAttemptWithEvent({
+      turnId: input.turnId, attemptId: input.attemptId, expectedFencingToken: deps.preparationFencingToken ?? 0,
+      status, sequence, eventType: "done",
+      eventData: { status, isComplete: false, lastSequence: sequence, reason: status === "Cancelled" ? "cancelled" : "deadline_exceeded" },
+    });
+    if (finalized.ok) await repo.updateTurnStatus(tenant, input.turnId, status);
+    return true;
+  };
+  if (await finishUnclaimedCancellation()) return;
 
   // CAP-008：前置安全门禁拦截（Crisis Safety Gate & Emotional Companionship）
   // 规则依据：PRD §4.3、§6.5、SRS FR-SAFE-001。
@@ -702,7 +725,7 @@ export async function runLoopTurnOnce(
       },
     };
   }
-  const control = new ControlContext({ turnId: input.turnId, attemptId: input.attemptId, sessionId: input.sessionId, localProcessingOnly, abortSignal: deps.signal });
+  const control = new ControlContext({ turnId: input.turnId, attemptId: input.attemptId, sessionId: input.sessionId, localProcessingOnly, abortSignal: signal, deadlineEpochMs: input.deadlineEpochMs });
   const result = await executeTurn(
     {
       execution: broadcastingStore,
@@ -722,6 +745,7 @@ export async function runLoopTurnOnce(
     },
     input,
   ).finally(() => control.dispose());
+  if (result.status === "skipped" && await finishUnclaimedCancellation()) return;
   const turnDurationMs = Date.now() - turnStartTime;
   deps.observability?.metrics.emit({
     type: "histogram",
