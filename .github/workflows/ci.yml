@@ -25,10 +25,7 @@ on:
       - "scripts/**"
       - "patches/**"
       - "e2e/**"
-      - "e2e-ui/**"
-      - "playwright.ui.config.ts"
       - "aervox"
-      - "run-cli"
       - "siyu-chat.command"
       - "playwright.config.ts"
       - ".github/workflows/ci.yml"
@@ -53,10 +50,7 @@ on:
       - "scripts/**"
       - "patches/**"
       - "e2e/**"
-      - "e2e-ui/**"
-      - "playwright.ui.config.ts"
       - "aervox"
-      - "run-cli"
       - "siyu-chat.command"
       - "playwright.config.ts"
       - ".github/workflows/ci.yml"
@@ -124,12 +118,12 @@ jobs:
         run: |
           git submodule status --recursive
 
-      # 生成物恢复入口：`dist-plugins/` 为 gitignore 产物，由声明任务现场重建。
+      # 生成物恢复入口：`dist/plugins/` 为 gitignore 产物，由声明任务现场重建。
       # 冷检出下必须能恢复；同时任何测试都不得把它当隐式依赖（否则全新检出必然 ENOENT）。
       - name: Generate plugin bundles (declared task)
         run: |
           mise tasks run package-plugins
-          count=$(find dist-plugins -maxdepth 1 -name '*.aervox-plugin' | wc -l | tr -d ' ')
+          count=$(find dist/plugins -maxdepth 1 -name '*.aervox-plugin' | wc -l | tr -d ' ')
           echo "已生成分发包: $count"
           if [ "$count" -lt 1 ]; then
             echo "::error::声明任务 package-plugins 未生成任何 .aervox-plugin 分发包"
@@ -228,14 +222,14 @@ jobs:
           git submodule status --recursive
 
       # E2E 为纯 API 级测试（Playwright request fixture，无浏览器用例），
-      # 无需 playwright install 安装浏览器二进制。
+      # 无需 playwright install 安装浏览器二进制；UI project 由下方 ui-e2e job 承担。
       - name: Build API (with dependencies)
         env:
           TURBO_CACHE_DIR: ${{ runner.temp }}/turbo-cache
         run: mise exec -- pnpm exec turbo run build --filter=@aervox/api
 
       - name: Run E2E tests
-        run: mise exec -- pnpm run test:e2e
+        run: mise exec -- pnpm run test:e2e:api
 
   ui-e2e:
     name: E2E (Chromium UI)

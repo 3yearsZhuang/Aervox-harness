@@ -621,7 +621,14 @@ export async function runLoopTurnOnce(
       },
     },
     baseSystemPrompt: {
-      ...hostPromptPolicy(deps.persona?.name),
+      ...hostPromptPolicy(
+        // ADR-027：角色名取人格名（角色名的服务端形态），否则取客户端随轮注入的
+        // companionName；用户称呼同理。人格设定 prompt 仍可覆盖（既有优先级不变）。
+        deps.persona?.name ||
+          (typeof input.metadata?.companionName === "string" && input.metadata.companionName.trim()) ||
+          undefined,
+        (typeof input.metadata?.userAddress === "string" && input.metadata.userAddress.trim()) || undefined,
+      ),
       personaPrompt: deps.persona?.prompt,
       activeTools: tools?.tools,
       extraSections: beforeTurnExec.extraSections,

@@ -21,7 +21,7 @@ describe('Standard Workbench Mode (CR-035 / W1 & W2)', () => {
     try {
       const recordActivity = vi.fn();
       const layout = useWorkbenchLayout(
-        { platform: 'web', showCompanion: false, assistantName: '思隅' },
+        { platform: 'web', showCompanion: false, companionName: '小隅' },
         { recordActivity },
       );
 

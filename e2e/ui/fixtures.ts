@@ -2,7 +2,7 @@
  * Aervox｜思隅 UI E2E — 测试辅助：按 worker 起停独立 API 进程 + Vite dev server
  *
  * - 每个 worker 使用独立端口（API / Web）与独立 SQLite 数据库文件，互不干扰；
- * - API 进程复用 e2e/helpers.ts 的 startServer/stopServer（spawn apps/api dist）；
+ * - API 进程复用 e2e/api/helpers.ts 的 startServer/stopServer（spawn apps/api dist）；
  * - Web 端 spawn "pnpm -F @aervox/web dev"，注入 VITE_API_URL 指向该 worker 的
  *   API 端口，并以 VITE_AERVOX_PLATFORM=mobile 运行（移动端平台启用跨会话草稿）。
  */
@@ -14,7 +14,7 @@ import {
   stopServer,
   cleanupDb,
   getDbPath,
-} from "../e2e/helpers.js";
+} from "../api/helpers.js";
 
 const repoRoot = path.resolve(process.cwd());
 

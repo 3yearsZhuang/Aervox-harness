@@ -51,3 +51,21 @@ decision_status: accepted
 - **设置面板按需分包**：`panels-ui` 的 `settingsPanels` 一律改为 `defineAsyncComponent`，Web 构建产物中五块面板各自成 chunk（不进工作台首包），分类首次激活时按需加载；模型面板草稿保留由 KeepAlive 继续覆盖（`plugins/panels-ui/test/lazy-panels.test.ts`）。
 
 原生移动真机验收仍待完成；界面插件独立安装、升级回滚与第三方信任模型由 [ADR-026](ADR-026-ui-surface-open-ecosystem.md) 保持提案状态。
+
+### 2026-10-15 · 素简文档界面扩展（ITER-061）
+
+新增受信构建输入 `@aervox/plugin-document-ui`：暖纸文档式条目建议、桌宠侧栏与文字输入。Web/移动入口及桌面组合根按既有清单装配，设置可在默认、紧凑、主动陪伴与素简文档四种界面间选择。沿用最近会话与固定动作的数据来源，首次发送创建真实会话，失败允许重试；返回工作台清除界面查询参数。此扩展不增加第三方代码权限，角色命名另见 [ADR-027](ADR-027-companion-identity.md)。
+
+### 2026-10-15 · E2E 目录与配置收拢
+
+API 级用例移入 `e2e/api/`，浏览器级用例移入 `e2e/ui/`，删除 `playwright.ui.config.ts`；两套用例改由根 [playwright.config.ts](../../../playwright.config.ts) 的 `api` 与 `ui` 两个 project 承载，超时与设备差异落在 project 级。`test:e2e:api` 与 `test:e2e:ui` 分别锁定单个 project，`test:e2e` 同时执行两者。
+
+此前的形态是"新增 `e2e-ui/` 与 `playwright.ui.config.ts`（独立于 API 级配置）"（见上方 2026-10-13 v0.2.0 条目）；本次改为单目录单配置，**覆盖的回归用例、执行环境与隔离语义不变**，API job 仍只跑 request fixture 用例，因此不会在未安装浏览器二进制的环境里执行浏览器用例。CI 路径过滤中的 `e2e-ui/**` 与 `playwright.ui.config.ts` 一并删除，`e2e/**` 继续覆盖两个 project；回归守卫见 `scripts/ci-scope.test.mjs`。
+
+### 2026-10-15 · 移除素简文档界面
+
+按维护者决定移除受信根界面 `@aervox/plugin-document-ui`：插件包、Web 与桌面组合根的清单装配、外观设置中的「素简文档」选项、依赖声明与锁文件条目一并删除。`e2e/ui/document-surface.spec.ts` 中与文档界面无关的身份回归用例移入 `e2e/ui/workbench-identity.spec.ts` 保留，其余三条按视口验证文档界面的用例随界面一并移除。
+
+受信根界面清单回到：`workbench-ui`（含 `workbench-compact-ui` 紧凑变体）、`proactive-ui`，桌面另有 `companion-ui`（桌宠）。上方 2026-10-15「素简文档界面扩展（ITER-061）」条目记录的该界面交付随之撤销；命名分层与身份模型不受影响（见 [ADR-027](ADR-027-companion-identity.md)）。
+
+已选择过该界面的设备其本地存储值不再是受信清单成员：`resolveSurfaceChoice` 与外观设置都按未知 id 回退默认工作台（`workbench-ui`），无需数据迁移。第三方界面开放仍为 [ADR-026](ADR-026-ui-surface-open-ecosystem.md) 提案，本次不改变其状态。

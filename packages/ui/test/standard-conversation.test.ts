@@ -15,7 +15,7 @@ function fixture(lines: StoryLine[]) {
     global: {
       provide: {
         [WORKBENCH_CONTEXT_KEY as symbol]: {
-          layout: { assistantDisplayName: ref('思隅') },
+          layout: { companionDisplayName: ref('思隅') },
           conversation: {
             story, streaming: ref(false), pendingApproval,
             approvalBusy: ref(false), approvalToolLabel: ref('测试工具'),

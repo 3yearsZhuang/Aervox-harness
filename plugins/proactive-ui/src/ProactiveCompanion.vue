@@ -10,7 +10,7 @@
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useUISurfaceContext } from '@aervox/ui-host';
-import { PetWithFallback } from '@aervox/ui';
+import { PetWithFallback, readCompanionIdentity } from '@aervox/ui';
 import { streamAervoxTurn, useAervoxSessions } from '@aervox/api-client';
 import { useDialogueTyper } from './dialogue-typer';
 
@@ -18,7 +18,9 @@ const surface = useUISurfaceContext();
 const sessions = useAervoxSessions();
 
 /* ---------- 对话盒 ---------- */
-const greeting = '你好，我是思隅。今天想继续昨天的进度，还是先安静专注一会儿？';
+const identity = readCompanionIdentity();
+const companionName = ref(identity.companionName);
+const greeting = '你好' + (identity.userAddress === '你' ? '' : '，' + identity.userAddress) + '，我是' + identity.companionName + '。今天想继续昨天的进度，还是先安静专注一会儿？';
 const dialogueCtx = ref('主动陪伴 · 每日开场');
 const { shown: dialogueText, streaming: dialogueTyping, say, appendDelta, finish } = useDialogueTyper(greeting);
 
@@ -30,7 +32,7 @@ interface Suggestion {
   primary: boolean;
   reply: string;
   ctx: string;
-  action: () => Promise<void> | void;
+  action: () => Promise<boolean> | void;
 }
 
 function relativeDay(iso: string): string {
@@ -52,25 +54,28 @@ function reportConnectionError(err: unknown) {
 }
 
 async function sendTurn(content: string) {
-  if (sending.value) return;
+  if (sending.value || surface.signal.aborted) return false;
   sending.value = true;
   try {
     if (!sessions.sessions.value.some(session => session.id === sessions.activeSessionId.value)) {
       await sessions.createNewSession();
     }
     surface.signal.throwIfAborted();
+    const sessionId = sessions.activeSessionId.value;
     say('', '你刚刚说');
     await streamAervoxTurn(content, {
       onDelta: text => { if (!surface.signal.aborted) appendDelta(text); },
       onDone: () => {
         if (surface.signal.aborted) return;
         finish();
-        dialogueCtx.value = '思隅 · 刚刚回复';
+        dialogueCtx.value = companionName.value + ' · 刚刚回复';
       },
-      onError: reportConnectionError,
-    }, { signal: surface.signal });
+      onError: err => { throw err; },
+    }, { signal: surface.signal, sessionId, metadata: { ...identity } });
+    return !surface.signal.aborted;
   } catch (err) {
     reportConnectionError(err);
+    return false;
   } finally {
     sending.value = false;
   }
@@ -97,7 +102,7 @@ const suggestions = computed<Suggestion[]>(() => {
   list.push({
     key: 'focus',
     label: '先专注 25 分钟',
-    reason: '番茄钟 · 到点思隅提醒你',
+    reason: '番茄钟 · 到点' + companionName.value + '提醒你',
     primary: list.length === 0,
     reply: '',
     ctx: '番茄钟',
@@ -128,10 +133,11 @@ function closeWhisper() {
 }
 async function sendWhisper() {
   const text = whisperText.value.trim();
-  if (!text) return;
-  whisperText.value = '';
-  closeWhisper();
-  await sendTurn(text);
+  if (!text || sending.value) return;
+  if (await sendTurn(text) && whisperText.value.trim() === text) {
+    whisperText.value = '';
+    closeWhisper();
+  }
 }
 
 /* ---------- 回到默认工作台（逃生口） ---------- */
@@ -169,7 +175,7 @@ onBeforeUnmount(() => {
     </main>
 
     <section class="pc-dialogue" aria-live="polite">
-      <div class="pc-dialogue-name">思隅</div>
+      <div class="pc-dialogue-name">{{ companionName }}</div>
       <div class="pc-dialogue-box">
         <p class="pc-dialogue-text">{{ dialogueText }}<span v-if="dialogueTyping" class="pc-caret" /></p>
         <div class="pc-dialogue-foot">
@@ -194,11 +200,11 @@ onBeforeUnmount(() => {
     </section>
 
     <aside class="pc-whisper" :class="{ 'pc-whisper--open': whisperOpen }">
-      <button v-if="!whisperOpen" type="button" class="pc-whisper-pill" @click="openWhisper">✎&nbsp;&nbsp;悄悄对思隅说…</button>
+      <button v-if="!whisperOpen" type="button" class="pc-whisper-pill" @click="openWhisper">✎&nbsp;&nbsp;悄悄对{{ companionName }}说…</button>
       <div v-else class="pc-whisper-input">
         <input
           v-model="whisperText"
-          placeholder="想到什么，直接告诉思隅"
+          :placeholder="'想到什么，直接告诉' + companionName"
           @keydown.enter="sendWhisper"
         />
         <button type="button" :disabled="sending" @click="sendWhisper">发送</button>

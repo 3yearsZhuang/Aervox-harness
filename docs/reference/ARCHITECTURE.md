@@ -169,7 +169,7 @@ apps/api/test/                       # 集成测试
 
 Web 与桌面端使用 `@aervox/ui` 的 `AervoxWorkbench`、主题与设置组件，通过 `@aervox/api-client` 消费同一 API/SSE 合同。Web 使用 Fetch 传输，Electron 注入受限 IPC 传输；重连、去重与 `Last-Event-ID` 语义相同。平台组合根注入能力，不让共享组件依赖 Electron 或 Capacitor。
 
-两端主工作台均可显示共享 `Live2DPet`；Electron 另保留 `pet.html` 独立桌宠窗口、标题栏和窗口控制。Web 不提供 Electron 窗口能力。设置共用左侧分类/右侧详情结构，窄屏采用横向分类；主题、称呼、发送偏好、密度和提醒保存在当前设备，桌面主题通过受限 IPC 同步壳窗口。
+两端主工作台均可显示共享 `Live2DPet`；Electron 另保留 `pet.html` 独立桌宠窗口、标题栏和窗口控制。Web 不提供 Electron 窗口能力。空间名「思隅」固定；角色名默认「小隅」，用户称呼默认「你」，可在对话设置修改。提示词优先采用当前人格名，再采用客户端角色名；界面设置不直接改写服务端人格，见 [ADR-027](adr/ADR-027-companion-identity.md)。设置共用左侧分类/右侧详情结构，窄屏采用横向分类；主题、角色名、用户称呼、发送偏好、密度和提醒保存在当前设备，桌面主题通过受限 IPC 同步壳窗口。
 
 公共组件在实际跨端复用且开始分叉时才上收，页面壳、窗口管理与平台通道继续留在各端。移动 Capacitor 壳的存在不等于原生平台交付，其认证、跨设备授权、打包与实机要求见 [ADR-022](adr/ADR-022-mobile-runtime-access.md)。API 默认只监听 loopback，远程监听须通过 Token 和来源安全校验。
 
