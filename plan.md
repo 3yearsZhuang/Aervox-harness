@@ -140,6 +140,7 @@ HLS 竞赛可行性验证：规则/环境、真实双入口、公开题集与同
 
 - 前置与边界：压缩不得伪造摘要或声称记得已压缩事实；模型可见投影不等于用户删除，删除仍须覆盖原文、摘要与索引；必须保真事实清单与压缩策略先评审，涉及对话契约差量先 ADR；最终输入窗口验收与 ITER-007 协同、测量口径与 ITER-017 协同，不重复登记。
 - 验收：固定长伴学对话夹具：压缩后学习目标、错因、承诺与来源保真可追溯，无占位文本；超大工具结果压缩不断开调用/结果配对；最终输入加预留输出不超 Provider 窗口，超额有明确有界处理；每次请求的模型可见上下文可从权威投影重建并复核，展示内容与持久历史分离、旧响应不覆盖终态
+- 进展与证据：`feat/context-projection-and-compaction` 已完成保真事实清单（`grounding-facts.ts`）、上下文投影与工具组配对防腐（`context-projection.ts`）、超大工具结果有界截断保护，以及真实摘要压缩与失败可见性（`createSummaryCompaction` 支持 `summarizer`、`onFailure: "throw"` 抛出 `CompactionError` 与 `fallback_notice` 降级说明）。`packages/core/test/context-projection.test.ts` 16 项回归通过，全仓增量门禁通过。
 
 ### 2.2 下一批：恢复、生命周期与部署
 
