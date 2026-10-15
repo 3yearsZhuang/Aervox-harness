@@ -204,14 +204,14 @@ test("porcelain 保留空格路径、重命名和复制两端，并去重", () =
 
 test("增量检查保留删除和文档工具输入，普通源码变动快退", () => {
   const exists = () => false;
-  assert.deepEqual(selectDocumentationChecks(["docs/deleted.md"], exists), { markdownFiles: [], runGovernance: true, lintAll: false });
-  assert.deepEqual(selectDocumentationChecks(["docs/deleted.png"], exists), { markdownFiles: [], runGovernance: true, lintAll: false });
+  assert.deepEqual(selectDocumentationChecks(["docs/deleted.md"], exists), { markdownFiles: [], runGovernance: true, runMemoryDeletionStudy: false, lintAll: false });
+  assert.deepEqual(selectDocumentationChecks(["docs/deleted.png"], exists), { markdownFiles: [], runGovernance: true, runMemoryDeletionStudy: false, lintAll: false });
   for (const file of ["scripts/docs-governance.test.mjs", "scripts/docs-lint-affected.mjs", "mise.toml", ".github/workflows/docs.yml"]) {
     assert.equal(selectDocumentationChecks([file], exists).runGovernance, true, file);
   }
-  assert.deepEqual(selectDocumentationChecks(["apps/api/src/app.ts"], exists), { markdownFiles: [], runGovernance: false, lintAll: false });
+  assert.deepEqual(selectDocumentationChecks(["apps/api/src/app.ts"], exists), { markdownFiles: [], runGovernance: false, runMemoryDeletionStudy: false, lintAll: false });
   assert.deepEqual(selectDocumentationChecks(["docs/README.md", "plan.md", "CHANGELOG.md", ".agents/example.md", "plugins/example/SKILL.md"], () => true), {
-    markdownFiles: ["docs/README.md", "plan.md", "CHANGELOG.md"], runGovernance: true, lintAll: false,
+    markdownFiles: ["docs/README.md", "plan.md", "CHANGELOG.md"], runGovernance: true, runMemoryDeletionStudy: false, lintAll: false,
   });
 });
 

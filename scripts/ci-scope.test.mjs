@@ -245,6 +245,40 @@ test("Rust pilot and executable contracts remain in local and CI gates", () => {
   assert.match(config, /node --test scripts\/native-search.test.mjs/);
 });
 
+test("Memory deletion research and archived evidence remain in code gates", () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, "package.json"), "utf8"));
+  const command = pkg.scripts["check:memory-deletion"];
+  assert.equal(typeof command, "string");
+  const steps = command.split(/\s+&&\s+/);
+  assert.deepEqual(steps, [
+    "turbo run build --filter=@aervox/repositories",
+    "node --test scripts/memory-deletion-research/runner.test.mjs",
+    "node scripts/memory-deletion-research/validate-report.mjs docs/explanation/memory-deletion-study/results",
+  ], "build dependencies before exercising the runner and validating archived JSON/CSV");
+  assert.equal(command.includes("--check-source"), false, "archived measurements retain their original source snapshot");
+
+  const config = fs.readFileSync(MISE_CONFIG, "utf8");
+  for (const gate of ["ci-code", "ci-code-full"]) {
+    const line = config.split(/\r?\n/).find((entry) => entry.startsWith(`${gate} =`));
+    assert.ok(line?.includes("pnpm check:memory-deletion"), `${gate} must validate the research contract`);
+  }
+  const incremental = fs.readFileSync(path.join(ROOT_DIR, "scripts/check-affected.mjs"), "utf8");
+  assert.match(incremental, /spawnSync\("pnpm", \["check:memory-deletion"\]/);
+  assert.match(incremental, /if \(memoryDeletionRes\.status !== 0\) process\.exit\(memoryDeletionRes\.status \?\? 1\)/);
+  const workflow = readWorkflowPaths(CI_WORKFLOW);
+  for (const file of [
+    "scripts/memory-deletion-research/runner.mjs",
+    "scripts/memory-deletion-research/runner.test.mjs",
+    "scripts/memory-deletion-research/validate-report.mjs",
+    "packages/repositories/src/repositories/sqlite/memory-deletion-store.ts",
+  ]) {
+    assert.equal(isDocumentationOnlyChange([file], loadTurboScope()), false, file);
+    for (const trigger of [workflow.pullRequest, workflow.push]) {
+      assert.ok(trigger.some((glob) => matchesGlob(file, glob)), `CI must cover ${file}`);
+    }
+  }
+});
+
 
 test("CI covers Playwright test directories, configs and executable root launchers", () => {
   const workflow = readWorkflowPaths(CI_WORKFLOW);

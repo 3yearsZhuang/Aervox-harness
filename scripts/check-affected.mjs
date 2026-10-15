@@ -67,6 +67,10 @@ const testArgs = ["exec", "turbo", "run", "test", "--concurrency=2", ...filterAr
 const testRes = spawnSync("pnpm", testArgs, { stdio: "inherit" });
 if (testRes.status !== 0) process.exit(testRes.status ?? 1);
 
+// 研究 runner 位于包外，不能只依赖 Turbo 包差异测试；同时核对归档 JSON/CSV。
+const memoryDeletionRes = spawnSync("pnpm", ["check:memory-deletion"], { stdio: "inherit" });
+if (memoryDeletionRes.status !== 0) process.exit(memoryDeletionRes.status ?? 1);
+
 // 保留原增量门禁中的 Rust pilot 校验；工具配置、锁文件和原生源码都不能走文档快退。
 const nativeRes = spawnSync("mise", ["tasks", "run", "native-search-check"], { stdio: "inherit" });
 process.exit(nativeRes.status ?? 1);
