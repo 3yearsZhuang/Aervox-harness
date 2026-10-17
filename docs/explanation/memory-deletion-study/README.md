@@ -1,94 +1,104 @@
-# 记忆删除研究包
+# 记忆删除质量研究包
 
-本研究检查本地单用户 SQLite 记忆删除的可观察完成条件：正文与派生存储是否已清理，迟到写入是否会恢复已删除内容，以及选定进程终止边界后能否恢复。实验使用两个合成记录、固定交错位置和生产仓储组件，结论范围是实现机制与所列场景。
+本研究将本地单用户 SQLite 记忆的逻辑删除作为软件质量案例，检查完成时残留、完成后回写、验证合同升级及生产工作者恢复。全部实验使用合成内容和新临时数据库，结论限于具名写入口、所列调度和终止边界。
 
-- [论文正文](paper.md)与[成稿 PDF](../../../output/pdf/memory-deletion-study.pdf)。PDF 由正文及本目录的图表生成。
-- [原始报告](results/report.json)与[逐案例 CSV](results/cases.csv)。图表数据源是报告中的逐案例观察和独立耗时样本。
-- [完成情况图](figures/outcomes.png)、[耗时图](figures/latency.png)；同目录保留对应矢量 PDF。
-- [参考文献](references.bib)与[一手来源审计及贡献边界](literature-audit.md)。
-- [交接、中断原因与恢复记录](handoff.md)；迭代协调状态见根目录 [plan.md](../../../plan.md) 的 ITER-062。
+- [中文论文](paper.md)、[完整英文稿](paper.en.md)、[中文 PDF](../../../output/pdf/memory-deletion-study.pdf)与[英文 PDF](../../../output/pdf/memory-deletion-study.en.pdf)。英文稿是投稿准备材料，尚未套用目标期刊版式。
+- [主报告](results/report.json)、[逐案例 CSV](results/cases.csv)与[生产补充报告](results/supplement.json)。报告是数值真源，图表由报告生成。
+- [完成结果图](figures/outcomes.png)、[操作耗时图](figures/latency.png)，同目录保留矢量 PDF。
+- [参考文献](references.bib)、[一手来源与投稿定位](literature-audit.md)。建议优先准备 Software Quality Journal 的工程质量案例路线，强化测试方法后可考虑 Software Testing, Verification and Reliability；这不是录用预测或已投稿声明。
+- [交接检查点](handoff.md)，协调状态见根目录 [plan.md](../../../plan.md) 的 ITER-062。
 
-## 本次修正与实测结果
+## 2026-10-18 大修范围
 
-| 问题 | 修正及验证方式 |
+本轮按 PR #285 审查扩展了生产修复和研究覆盖。修订后的主报告与补充报告已经测量、校验并归档；此前四臂 80 案例报告不作为当前结果。测量代码提交为 `bd19a16c`，主报告时间字段为 2026-10-18 02:05:15（Asia/Shanghai），两份报告的 97 项输入哈希一致。
+
+| 审查问题 | 本轮处理 |
 | --- | --- |
-| 旧正文尚未落盘，数据仍是早期 schema | 完整中文论文、英文摘要和复现附录已保存；用最终源码重新生成 schema 2 报告与全部图表 |
-| Oracle 固定匹配初始修订，漏查其他证据 | 沿目标全部修订查询，并测试额外修订及保留对象的证据变化 |
-| 扩展 Outbox 内容或丢失 memoryId 后漏检 | 限制墓碑字段与类型；测量夹具保存已知事件 ID 归属，检查畸形载荷 |
-| 生产验证器未核对完整墓碑 | 核对来源引用、摘要/Outbox 状态和载荷字段；嵌套 snapshotId 清空后再验 |
-| 删除后的迟到错误回写恢复正文 | 原子 UPDATE 联合检查本事件对应的存活来源与删除标记，正常重试及其他事件回归通过 |
-| 计时样本只记录异常，阻塞可能计入成功 | 保存并校验计时案例的完成状态和最终观察；基准臂的失败语义明确保留 |
-| 来源哈希覆盖松散，失败时可能丢失证据 | 固定 62 项关键输入，测量前后比较；先保存原始 JSON/CSV，再拒绝漂移或意外结果 |
-| 研究测试及纯文档证据曾存在门禁缺口 | `pnpm check:memory-deletion` 接入代码检查；文档门禁独立校验 JSON/CSV，纯结果或说明修改也不能绕过 |
+| 来源仓储的修订、证据及审计入口可恢复正文 | 来源检查与插入放入同一写事务；按具名入口扩展矩阵 |
+| 当前修订引用或删除标记可恢复旧状态 | 条件更新要求来源存活及修订归属；删除标记单调；保留墓碑约束同身份创建 |
+| 增强验证仍信任 v2 完成证明 | 集中定义 `memory-local-v3`，闸门、工作选择和消费逻辑重选旧或无效证明 |
+| 缺少只验证、无守卫的消融 | 新增 `verified-cleanup`，区分当前状态检查与完成后写入限制 |
+| 原终止探针未进入生产清理内部 | 保留原探针并补八处真实清理变更及四处提交/证明/请求边界 |
+| 定序实验不足以覆盖工作者执行 | 补五种跨进程生产循环调度，包含两个缓存工作者、错误和持锁竞争 |
+| 两记录计时不足以说明规模或守卫成本 | 三个联合规模 profile 各三次新进程；单列旧/新修订写入各 12 次，并声明计时边界 |
+| 论文新颖性和相关工作定位过强 | 补 DELF 等直接先例；贡献收敛为写入覆盖和验证合同演化案例，提供完整英文稿 |
 
-合入主线 `d78b069b` 后已重新测量，补充来源策略和会话 schema 指纹；最终测量于 2026-10-15 20:47:29（Asia/Shanghai）生成，运行环境 Apple M5 / macOS arm64 / Node v24.21.0。80 个固定正确性案例、96 个计时样本、4 个错误回写案例和 2 个 SIGKILL 探针均完成并通过报告校验，62 项来源哈希一致。完整机制的结果为 **15 次安全完成、5 次正确阻塞、0 次错误完成、0 次完成后复活**；五次阻塞是有意遗漏清理的负对照，不是五次删除成功。详细消融与分位数见论文第 6 节。
+完整机制在 35 个案例中有 **30 次安全完成、5 次正确阻塞、0 次错误完成、0 次复活**；只验证、无守卫的臂仍有 10 次完成后复活。12 个生产终止、五种跨进程调度、九个规模样本及 24 个实际写入样本均通过报告校验。主矩阵的 175 个案例、120 条计时及原有四个错误回写/两个恢复探针也通过校验。这些分母分别解释，不能相加计算可靠率。
 
-本轮生产与实验修复不会自动重验历史 `memory-local-v2` 完成记录。模型语义遗忘、备份、物理页擦除和任意并发正确性仍未建立；这些限制也是论文结论的边界。
+## 实验单元与分母
 
-## 实验范围与分母
-
-| 项目 | 固定设计 |
+| 实验 | 固定设计 |
 | --- | --- |
-| 消融臂 | `soft-delete`、`cleanup-only`、`guarded-cleanup`、`verified-guarded` |
-| 正确性案例 | 每臂 20 个，共 80 个；每个预先声明的组合执行一次 |
-| 交错位置 | FTS、向量、摘要、审计、Outbox 五个通道，各在清理前、完成前、完成后写入，共 15 个案例/臂 |
-| 遗漏注入 | 每次故意漏清一个通道，共 5 个案例/臂；这是研究用 SQL 变异 |
-| 耗时样本 | 每臂 24 条，共 96 条；重复 `fts:before-clean`，按轮次轮换消融臂顺序 |
-| 错误回写 | `markFailed`、`markDeadLetter` 各比较旧 SQL 与补丁后的生产方法，共 4 个案例 |
-| 终止恢复 | 未提交事务边界、生产清理提交后边界，各 1 个 `SIGKILL` 探针 |
+| 主消融 | `soft-delete`、`cleanup-only`、`verified-cleanup`、`guarded-cleanup`、`verified-guarded` |
+| 主正确性 | 十个写入口 × 三个位置 + 五个清理遗漏 = 每臂 35 个，共 175 个 |
+| 主计时 | 每臂 24 条，共 120 条；`fts:before-clean`；进程已加载 |
+| Outbox 错误回写 | 两种方法各比较旧 SQL 与补丁后的生产 API，共四个 |
+| 原有恢复 | 手工未提交事务与生产清理提交后各一个；仍留在主报告 |
+| 生产 SIGKILL | 八个 `clean()` 未提交变更 + 提交后/目标证明前后/请求完成后，共 12 个 |
+| 生产调度 | 五种跨进程调度；其中一种使用两个缓存同一事件的工作者 |
+| 规模 | 三个 profile 各三个新子进程，共九条；分别计清理、验证 |
+| 修订写入 | 旧 SELECT+INSERT 和生产事务 API 各 12 条，共 24 条 |
 
-`soft-delete` 只设置记录删除标记；`cleanup-only` 执行清理；`guarded-cleanup` 增加写入守卫；`verified-guarded` 再增加完成前验证。它们是组件消融，不代表四个外部产品或框架。
+主矩阵的十个入口详见论文 §4.2 和 [协议清单](../../../scripts/memory-deletion-research/protocol.mjs)。它包括五个原派生入口、修订、证据、来源审计、当前修订引用及向量适配器；其他入口有单独回归或明确排除。具名仓储与适配器之外的原始 SQL、插件、外部存储和另一生命周期拥有的共享投影不在本切片保证内。
 
-独立 SQL oracle 检查记录、修订、证据及上述五个派生通道，共八个逻辑存储，并精确比较未删除记录的快照。合格的目标记录必须保留一条已清空的墓碑；缺失目标记录不能靠空结果通过验证。`falseCompletion` 表示宣告完成时仍有残留，`resurrection` 表示完成时干净、迟到写入后恢复残留，`safeCompletion` 还要求最终干净且保留记录不变。验证拒绝完成的遗漏案例属于阻塞，不能记作删除成功。
+独立 SQL oracle 检查八类逻辑存储，并精确比较未删除对象快照。目标必须保留一条已清空墓碑，不能以目标行丢失令查询空结果通过。`falseCompletion` 是完成时有残留；`resurrection` 是完成时干净、迟到写入后出现残留；`safeCompletion` 还要求保留对象不变。验证拒绝的遗漏案例仍含残留，属于阻塞。
 
-耗时仅包括清理与可选验证，不包括建库、夹具准备、迟到写入和 oracle；同一 Node 进程已加载，不能解释为进程或磁盘缓存冷启动。报告采用索引 `(n-1)*p` 的线性插值分位数。正确性案例是固定调度而非独立同分布样本，耗时也仅是本机描述性测量。
+主计时只包括清理和可选验证，排除夹具、迟到写入和 oracle。`cleanup-only` 与 `guarded-cleanup` 在此区间调用相同函数，差异不能解释为守卫成本。单列写入比较包含整个旧/新 API 路径，不能分离出谓词本身成本。规模 profile 同时改变背景记录、目标修订和内容长度，未逐项隔离，也未按比例增加所有派生扇出。新进程不保证文件系统缓存冷启动。
 
-未提交事务探针在两条手工 SQL 写入之后终止子进程，检查回滚及重试；它不在生产 `clean()` 内部注入中断。另一探针在生产清理已经提交后终止并重开数据库。二者不覆盖所有崩溃位置，也不等价于断电测试。本研究不测量真实模型、KV cache、语义遗忘、备份或存储页安全擦除。
+生产终止屏障在实际 awaited 数据库操作后暂停子进程；不改生产事务边界。SIGKILL 不模拟断电或磁盘损坏。五种生产调度和主矩阵都是有限枚举，不能推导任意并发正确性、真实模型遗忘、备份删除或物理页擦除。
 
-## 校验已保存的证据
+## 校验归档证据
 
-以下命令均从仓库根目录执行，Node 与 pnpm 使用 [mise.toml](../../../mise.toml) 的工具链。先检查分支与工作区，保留其他人的改动；若缺依赖，在根目录运行 `mise exec -- pnpm install --frozen-lockfile`。
-
-无需启动模型或重新实验，即可复核已保存 JSON 与 CSV：
+以下命令从仓库根运行，Node 与 pnpm 使用 [mise.toml](../../../mise.toml) 固定工具链。无需启动模型或重新实验即可检查归档结果：
 
 ```bash
 mise exec -- node scripts/memory-deletion-research/validate-report.mjs \
   docs/explanation/memory-deletion-study/results
+mise exec -- node scripts/memory-deletion-research/validate-supplement.mjs \
+  docs/explanation/memory-deletion-study/results/supplement.json
 ```
 
-[校验器](../../../scripts/memory-deletion-research/validate-report.mjs)从原始案例重新计算完成、残留、回写和终止探针结果，从耗时样本重新计算分位数，并逐行核对 CSV。报告使用 schema 2，保存测量时的 HEAD、工作区状态、环境以及源码、构建产物、实验脚本和工具链文件的 SHA-256；HEAD 本身不代表工作区没有未提交改动。
+主 schema 3 报告保存写入口、排除边界、验证器版本、原始观察及环境；补充 schema 1 报告独立保存生产路径探针。主校验器仍能检查历史 schema 1/2 报告，但当前论文依据修订后的 schema 3。
 
-严格核对报告与当前源码、构建产物是否一致，先完成下面的依赖构建，再增加 `--check-source`。62 项输入包括相关 schema 和初始化代码，报告的 `sourceConsistency` 保存结束时哈希、变化列表与读取错误：
+schema 3 的主校验入口同时读取同目录 `supplement.json`，核对补充证据和两份报告的来源哈希。重新测量时应先运行两个实验，再校验主报告，不能在补充报告尚未生成时宣称整包通过。
+
+严格校验当前源码和执行产物，先构建依赖，再为两个命令增加 `--check-source`：
 
 ```bash
-mise exec -- pnpm exec turbo run build --filter=@aervox/repositories... --concurrency=2
+mise exec -- pnpm exec turbo run build --filter=@aervox/worker... --concurrency=2
 mise exec -- node scripts/memory-deletion-research/validate-report.mjs \
   docs/explanation/memory-deletion-study/results --check-source
+mise exec -- node scripts/memory-deletion-research/validate-supplement.mjs \
+  docs/explanation/memory-deletion-study/results/supplement.json --check-source
 ```
 
-源码或构建产物改变时，严格哈希校验应当失败。保留旧报告作为原始证据，用新输出目录重新实验，再审阅是否需要更新论文、图表与版本化结果。不要手工改旧报告的哈希或汇总数值。
+报告保存测量前后关键源码、执行 JavaScript、schema、脚本与工具链的 SHA-256。HEAD 不能代表无未提交补丁；报告同时记录工作区。改变输入后严格检查应失败，不应改写旧哈希令其通过。
 
-## 重新运行实验
+## 重新测量
 
-实验入口导入 `packages/repositories/dist`，必须先从根目录通过 Turbo 构建仓储及其依赖。构建结束后再运行实验，测量期间不要同时修改相关源码或重建依赖。
+先检查分支和工作区，保留其他人的改动。缺依赖时仅在根安装。测量期间不要修改相关源码或并行重建：
 
 ```bash
-mise exec -- pnpm exec turbo run build --filter=@aervox/repositories... --concurrency=2
-mise exec -- node --test scripts/memory-deletion-research/runner.test.mjs
+mise exec -- pnpm install --frozen-lockfile
+mise exec -- pnpm exec turbo run build --filter=@aervox/worker... --concurrency=2
+mise exec -- node --test scripts/memory-deletion-research/runner.test.mjs \
+  scripts/memory-deletion-research/supplement.test.mjs
 study_run="$(mktemp -d /tmp/aervox-memory-deletion.XXXXXX)"
 mise exec -- node scripts/memory-deletion-research/runner.mjs \
   --out="$study_run" --repetitions=24
+mise exec -- node scripts/memory-deletion-research/supplement.mjs \
+  --out="$study_run/supplement.json" --repetitions=3
 mise exec -- node scripts/memory-deletion-research/validate-report.mjs \
   "$study_run" --check-source
+mise exec -- node scripts/memory-deletion-research/validate-supplement.mjs \
+  "$study_run/supplement.json" --check-source
 ```
 
-[Runner 回归](../../../scripts/memory-deletion-research/runner.test.mjs)覆盖协议参数、独立 oracle、迟到写入守卫、遗漏阻塞、CSV 解析以及报告篡改和覆盖保护。它的完整运行测试采用每臂 1 条耗时样本，不能替代上面每臂 24 条的论文测量；实际测试数量与退出状态以当次测试输出为准。
-
-`--out=...` 和 `--repetitions=24` 必须按示例传入；默认重复次数是 12。入口会拒绝覆盖目录内已有的 `report.json` 或 `cases.csv`；不要给复现命令增加 `--overwrite`。每次复现使用新的 `study_run`，不会覆盖版本化证据。耗时、生成时间和环境信息可随机器或运行变化，不要求整份报告字节相同。
+每次选择新输出目录，入口拒绝覆盖旧证据；不要为复现添加覆盖参数。源码漂移或意外案例发生时，原始证据先保存，再非零退出。完整运行回归使用较少计时样本，只证明程序行为，不能替代论文测量。耗时、时间戳和环境可随运行变化，无需整份 JSON 字节相同。
 
 ## 绘图与生成 PDF
 
-Python 依赖固定在 [requirements.txt](../../../scripts/memory-deletion-research/requirements.txt)。以下命令显式选择 Python 3.13.15，建立独立虚拟环境，再调用该环境的解释器；终端默认 Python 可能过旧或缺少依赖。
+Python 依赖固定于 [requirements.txt](../../../scripts/memory-deletion-research/requirements.txt)。使用固定版本和独立虚拟环境：
 
 ```bash
 study_venv="$(mktemp -d /tmp/aervox-memory-paper-python.XXXXXX)"
@@ -102,33 +112,10 @@ mise exec python@3.13.15 -- python -m venv "$study_venv"
   --out output/pdf/memory-deletion-study.pdf
 ```
 
-绘图脚本输出 `outcomes.png`、`outcomes.pdf`、`latency.png` 和 `latency.pdf`。上例将新实验图写入新目录；论文正文引用本研究包 `figures/` 内已审阅的图表，因此 PDF 仍使用归档证据对应的图。若要用新测量替换论文结果，需同时校验并更新报告、CSV、图表及正文数值，再渲染。
+图表输出 PNG 与矢量 PDF。正文使用研究包 `figures/` 中经审阅的图，因此新测量获采纳时必须同时更新 JSON、CSV、补充报告、图表与双语正文。PDF 是可重建产物，不代替原始证据。渲染后逐页检查分页、字体、表格和图；成功退出不等于版面验收。非 macOS 平台可用 `--font` 指定中文 TrueType 字体，发布前仍须检查嵌入和字形。
 
-最终成稿路径为 `output/pdf/memory-deletion-study.pdf`。渲染成功后仍需逐页检查分页、表格、图和参考文献；脚本成功退出不等价于版面验收。生成物可以重建，不以 PDF 文件替代正文或原始结果。
+## 验证与交付
 
-渲染器在 macOS 自动嵌入系统中文 TrueType 字体；其他平台可使用 `--font /path/to/cjk.ttf` 指定已安装的中文字体。没有可用 TrueType 字体时回退为非嵌入 STSong-Light，发布前仍需检查目标阅读器的字形显示。本次 PDF 嵌入中文字体，逐页预览另存本地检查目录。
+定向生产回归、研究脚本检查、归档校验、文档门禁和全量终审分别记录完整退出状态。推送前按贡献指南运行 `./aervox ci all`。论文准备、合成升级回归、真实用户数据库重验、PR 合入及正式发表分别陈述；代码支持 v3 重选不代表已有用户数据库已完成重验。
 
-## 验证与交付边界
-
-研究脚本检查、生产仓储回归、文档门禁与全量终审分别保留命令和完整退出状态。相关生产回归可运行：
-
-```bash
-mise exec -- pnpm --filter @aervox/repositories exec vitest run \
-  test/outbox-deletion-guard.test.ts test/outbox-transaction.test.ts \
-  test/memory-compaction.test.ts test/memory-deletion-verification.test.ts \
-  test/deletion-zero-recall.test.ts
-```
-
-2026-10-15 整合主线后的验证结果如下。完整本地日志保存在 `artifacts/memory-deletion-integrated-validation/`；首次交付日志仍保留于 `artifacts/memory-deletion-validation/`，不以旧日志替代本轮退出状态。这些日志不作为新的权威计划。
-
-| 检查 | 结果 |
-| --- | --- |
-| 生产删除、Outbox、压缩及零召回定向回归 | 5 个文件，38 项通过 |
-| 研究 runner 与观察器/数据损坏回归 | 11 项通过 |
-| CI 配置与增量接线回归 | 23 项通过 |
-| 文档归档一致性及增量失败传播回归 | 27 项通过 |
-| 最终实验报告及 CSV、62 项来源哈希 | 80 / 96 / 4 / 2 的各组证据校验通过 |
-| `./aervox ci all` | 退出 0，全量代码、研究、原生组件和文档门禁通过；API 724 项、仓储 465 项、Worker 123 项通过 |
-| PDF | 8 页，逐页视觉检查通过；中文字体嵌入，代码块引号和全部正文可提取 |
-
-论文、实验与本地全量验证已完成；PR 审查、合入和正式发布仍为独立状态，见根目录计划与对应 PR。历史删除证明和真实用户数据库没有执行迁移或重新验收。
+本轮主/补充报告已通过严格来源校验；完整仓库终审以最终命令退出状态为准，不能从正在运行的进度推断通过。历史 2026-10-15 日志仅用于追溯，不能替代本轮退出状态。作者、单位、披露及稳定归档 DOI 由实际信息补充后再按目标期刊要求准备投稿。

@@ -150,9 +150,13 @@ def render(source, output, font=None):
         canvas.saveState()
         canvas.setFont(regular, 8)
         canvas.setFillColor(colors.HexColor("#555555"))
-        header = title
-        while pdfmetrics.stringWidth(header, regular, 8) > width:
-            header = header[:-1]
+        # Use the title's subject as a running head instead of cutting a long
+        # subtitle in the middle of a word on every page.
+        header = re.split(r'[：:]\s*', title, maxsplit=1)[0]
+        if pdfmetrics.stringWidth(header, regular, 8) > width:
+            while pdfmetrics.stringWidth(header + '...', regular, 8) > width:
+                header = header[:-1]
+            header += '...'
         canvas.drawString(21 * mm, A4[1] - 14 * mm, header)
         canvas.drawCentredString(A4[0] / 2, 12 * mm, str(document.page))
         canvas.restoreState()
