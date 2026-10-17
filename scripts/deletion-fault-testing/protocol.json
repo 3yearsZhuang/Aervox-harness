@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "phase": "feasibility-pilot",
+  "strategies": ["generic", "random", "trace-only", "guided"],
+  "budgets": [1, 2, 4, 8],
+  "seeds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  "replayRepetitions": 20,
+  "minimumSuccessfulReplays": 19,
+  "timeoutMs": 10000,
+  "developmentSubjects": ["aervox-guarded", "aervox-historical-provenance"],
+  "integrationSubject": "langchain-libsql",
+  "plannerHeldOutSubject": "llamaindex-simple",
+  "supportedFaults": ["one deletion at a cooperative producer checkpoint"],
+  "unsupportedFaults": ["process termination", "arbitrary concurrent schedules", "generated exception paths"],
+  "comparison": "Each strategy receives the same maximum number of eligible checkpoint executions, with fewer returned plans reported explicitly. Random samples without replacement. Deterministic strategies do not gain independent observations from repeated seeds or nested budgets.",
+  "counterexamplePolicy": "Report application-contract counterexamples, historical reconstructions and confirmed upstream defects separately. No upstream defect is confirmed by this pilot. Deduplicate counterexamples by subject and declared root-cause family, not failed schedules.",
+  "goConditions": [
+    "Both external integrations execute real public ingestion/deletion APIs and independently observe declared persistent stores.",
+    "The guarded calibration and default sequential reference runs have no unexplained contract violation.",
+    "Every selected counterexample replays successfully at least 19 out of 20 times with frozen inputs.",
+    "At an equal declared budget, guided detects more root-cause families on the planner-held-out subject than generic and random; equality is not evidence of effectiveness gain."
+  ],
+  "stopConditions": [
+    "If guided is no better than the simple baselines, do not promote a method-effectiveness or novelty claim; retain the artifact as a feasibility or tool report.",
+    "Two historical integrations do not establish representativeness of maintained systems or independent external replication.",
+    "Manual workload, ownership, observer and checkpoint adapters must be disclosed. No complete write-entrypoint recall, human adaptation time, or original upstream test-suite coverage is inferred."
+  ]
+}
