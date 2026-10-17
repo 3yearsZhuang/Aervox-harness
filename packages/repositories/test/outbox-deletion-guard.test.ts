@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import {
   createInMemoryDatabase,
   initDatabaseSchema,
+  MEMORY_DELETION_VERIFIER,
   SqliteMemoryDeletionStore,
   SqliteMemoryRepository,
   SqliteOutboxRepository,
@@ -49,7 +50,7 @@ describe("Outbox failure writes respect Memory deletion", () => {
     const [fetched] = await outbox.fetchPendingEvents({ eventType: compactionType });
     const error = `provider rejected ${(fetched!.payload as { summaryText: string }).summaryText}`;
     await deletion.clean("memory");
-    await expect(deletion.verify("memory")).resolves.toContain("memory-local-v2");
+    await expect(deletion.verify("memory")).resolves.toContain(MEMORY_DELETION_VERIFIER);
     const cleared = await outbox.getEventById("event");
 
     const result = await reportFailure(kind, error);
@@ -57,7 +58,7 @@ describe("Outbox failure writes respect Memory deletion", () => {
     if (kind === "retry") expect(result).toBeNull();
     expect(await outbox.getEventById("event")).toEqual(cleared);
     expect(await outbox.fetchPendingEvents({ eventType: compactionType, includeRetriable: true })).toEqual([]);
-    await expect(deletion.verify("memory")).resolves.toContain("memory-local-v2");
+    await expect(deletion.verify("memory")).resolves.toContain(MEMORY_DELETION_VERIFIER);
   });
 
   it.each(["retry", "dead_letter"] as const)("cleanup removes %s errors committed before deletion", async (kind) => {
@@ -68,7 +69,7 @@ describe("Outbox failure writes respect Memory deletion", () => {
     await deletion.clean("memory");
 
     expect(await outbox.getEventById("event")).toMatchObject({ status: "published", lastError: null });
-    await expect(deletion.verify("memory")).resolves.toContain("memory-local-v2");
+    await expect(deletion.verify("memory")).resolves.toContain(MEMORY_DELETION_VERIFIER);
   });
 
   it.each([

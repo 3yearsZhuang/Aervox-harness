@@ -15,6 +15,7 @@
  */
 import { and, eq } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
+import { assertMemoryReferenceNotDeleted } from "./memory-write-guard.js";
 import {
   skillCandidates,
   skillPayloads,
@@ -93,30 +94,30 @@ export class SqliteSkillLifecycleRepository implements ISkillLifecycleRepository
       scenarioKey?: string | null;
     },
   ): Promise<SkillCandidateModel> {
-    const now = new Date().toISOString();
-
-    // 幂等：同一 candidateId 返回既有记录
-    const [existing] = await this.db
-      .select()
-      .from(skillCandidates)
-      .where(eq(skillCandidates.candidateId, candidate.candidateId))
-      .limit(1);
-    if (existing) return this.toCandidateModel(existing);
-
-    const [created] = await this.db
-      .insert(skillCandidates)
-      .values({
-        candidateId: candidate.candidateId,
-        skillKey: candidate.skillKey,
-        sourceEvidenceJson: candidate.sourceEvidence,
-        payloadRef: candidate.payloadRef ?? null,
-        scenarioKey: candidate.scenarioKey ?? null,
-        status: "pending",
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
-    return this.toCandidateModel(created!);
+    return this.db.transaction(async (tx) => {
+      const now = new Date().toISOString();
+      // 幂等：同一 candidateId 返回既有记录，不增加来源关联。
+      const [existing] = await tx.select().from(skillCandidates)
+        .where(eq(skillCandidates.candidateId, candidate.candidateId)).limit(1);
+      if (existing) return this.toCandidateModel(existing);
+      for (const memoryId of new Set(candidate.sourceEvidence.memoryIds)) {
+        await assertMemoryReferenceNotDeleted(tx, memoryId);
+      }
+      const [created] = await tx
+        .insert(skillCandidates)
+        .values({
+          candidateId: candidate.candidateId,
+          skillKey: candidate.skillKey,
+          sourceEvidenceJson: candidate.sourceEvidence,
+          payloadRef: candidate.payloadRef ?? null,
+          scenarioKey: candidate.scenarioKey ?? null,
+          status: "pending",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
+      return this.toCandidateModel(created!);
+    });
   }
 
   async getCandidate(candidateId: string): Promise<SkillCandidateModel | null> {

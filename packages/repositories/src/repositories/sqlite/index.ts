@@ -4,6 +4,7 @@
 export * from "./conversation-repository.js";
 export * from "./memory-repository.js";
 export * from "./memory-deletion-store.js";
+export { MemoryWriteUnavailableError } from "./memory-write-guard.js";
 export * from "./memory-compaction-repository.js";
 export * from "./memory-embedding-repository.js";
 export * from "./diary-repository.js";

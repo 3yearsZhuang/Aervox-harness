@@ -12,6 +12,7 @@ export * from "./errors.js";
 export * from "./local-context.js";
 export * from "./conversation-execution-policy.js";
 export * from "./memory-eligibility.js";
+export * from "./memory-deletion-protocol.js";
 export * from "./search/index.js";
 export * from "./write-retry.js";
 export * from "./session-lock.js";

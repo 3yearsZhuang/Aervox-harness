@@ -16,6 +16,7 @@ import {
 } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
 import { assertPersonalDerivedDataSource } from "../../conversation-execution-policy.js";
+import { assertMemoryReferenceNotDeleted, assertMemoryRevisionWriteAvailable } from "./memory-write-guard.js";
 import type {
   IMemoryRepository,
   MemoryRecordModel,
@@ -51,6 +52,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
   ): Promise<MemoryRecordModel> {
     return this.db.transaction(async (tx) => {
       await assertPersonalDerivedDataSource(tx, recordData.sourceTurnId);
+      if (recordData.canonicalParentId) await assertMemoryReferenceNotDeleted(tx, recordData.canonicalParentId);
       const now = new Date().toISOString();
       const [created] = await tx
         .insert(memoryRecords)
@@ -308,17 +310,20 @@ export class SqliteMemoryRepository implements IMemoryRepository {
   async createEdgeEvidence(
     evidenceData: { id: string; edgeId: string; memoryRevisionId: string },
   ): Promise<MemoryEdgeEvidenceModel> {
-    const [created] = await this.db
-      .insert(memoryEdgeEvidence)
-      .values({
-        id: evidenceData.id,
-        edgeId: evidenceData.edgeId,
-        memoryRevisionId: evidenceData.memoryRevisionId,
-        status: "active",
-        createdAt: new Date().toISOString(),
-      })
-      .returning();
-    return created as MemoryEdgeEvidenceModel;
+    return this.db.transaction(async (tx) => {
+      await assertMemoryRevisionWriteAvailable(tx, evidenceData.memoryRevisionId);
+      const [created] = await tx
+        .insert(memoryEdgeEvidence)
+        .values({
+          id: evidenceData.id,
+          edgeId: evidenceData.edgeId,
+          memoryRevisionId: evidenceData.memoryRevisionId,
+          status: "active",
+          createdAt: new Date().toISOString(),
+        })
+        .returning();
+      return created as MemoryEdgeEvidenceModel;
+    });
   }
 
   async createMemoryAlgorithm(

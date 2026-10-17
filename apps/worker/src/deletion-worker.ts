@@ -1,7 +1,7 @@
 /** Delete only explicitly supported targets; completion requires independent verification. */
 import { eq, sql } from "drizzle-orm";
 import { deletionRequests, deletionTargets } from "@aervox/schema";
-import { SqliteMemoryDeletionStore, unverifiedDeletionRequest, type AervoxDatabase, type SqlitePrivacyRepository, type SqlitePlatformRepository } from "@aervox/repositories";
+import { SqliteMemoryDeletionStore, MEMORY_DELETION_VERIFIER, unverifiedDeletionRequest, type AervoxDatabase, type SqlitePrivacyRepository, type SqlitePlatformRepository } from "@aervox/repositories";
 
 export interface DeletionWorkerContext {
   db: AervoxDatabase;
@@ -55,7 +55,7 @@ export async function runDeletionCycle(ctx: DeletionWorkerContext): Promise<numb
       await ctx.platformRepo.createAuditRecord(local, {
         id: `aud_${crypto.randomUUID()}`, actorType: "system", actorId: `deletion:${ctx.workerId}`,
         action: "deletion.completed", subjectType: "deletion_request", subjectId: request.id,
-        metadata: { scope: request.scope, verifier: "memory-local-v2", targetCount: targets.length },
+        metadata: { scope: request.scope, verifier: MEMORY_DELETION_VERIFIER, targetCount: targets.length },
       });
       await ctx.privacyRepo.updateDeletionRequestStatus(local, request.id, "completed", {
         lastVerifiedAt: new Date().toISOString(), lastError: null,

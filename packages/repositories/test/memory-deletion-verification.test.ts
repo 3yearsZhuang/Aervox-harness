@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import {
   createInMemoryDatabase,
   initDatabaseSchema,
+  MEMORY_DELETION_VERIFIER,
   SqliteMemoryCompactionRepository,
   SqliteMemoryDeletionStore,
   SqliteMemoryRepository,
@@ -51,7 +52,7 @@ describe("Memory deletion independently verifies the complete tombstone", () => 
     await database.db.run(sql`UPDATE memory_records SET canonical_parent_id = 'keep', source_turn_id = 'turn', current_revision_id = 'revision' WHERE id = 'target'`);
     for (let attempt = 0; attempt < 2; attempt++) {
       await deletion.clean("target");
-      await expect(deletion.verify("target")).resolves.toContain("memory-local-v2");
+      await expect(deletion.verify("target")).resolves.toContain(MEMORY_DELETION_VERIFIER);
     }
     expect(await database.db.all(sql`SELECT * FROM memory_records WHERE id = 'keep'`)).toEqual(keepRecord);
     expect(await database.db.all(sql`SELECT * FROM memory_compaction_markers WHERE memory_id = 'keep'`)).toEqual(keepMarker);
@@ -72,7 +73,7 @@ describe("Memory deletion independently verifies the complete tombstone", () => 
     await database.db.run(mutation);
     await expect(deletion.verify("target")).rejects.toThrow("deletion_memory_verification_failed");
     await deletion.clean("target");
-    await expect(deletion.verify("target")).resolves.toContain("memory-local-v2");
+    await expect(deletion.verify("target")).resolves.toContain(MEMORY_DELETION_VERIFIER);
   });
 
   it.each([
@@ -88,7 +89,7 @@ describe("Memory deletion independently verifies the complete tombstone", () => 
     await setPayload(payload);
     await expect(deletion.verify("target")).rejects.toThrow("deletion_memory_verification_failed");
     await deletion.clean("target");
-    await expect(deletion.verify("target")).resolves.toContain("memory-local-v2");
+    await expect(deletion.verify("target")).resolves.toContain(MEMORY_DELETION_VERIFIER);
     const cleaned = (await outbox.getEventById("outbox-target"))?.payload;
     expect(cleaned).toEqual({ ...tombstone, snapshotId: typeof payload.snapshotId === "string" ? payload.snapshotId : null });
   });
@@ -100,7 +101,7 @@ describe("Memory deletion independently verifies the complete tombstone", () => 
   ])("accepts an identity-only Outbox tombstone: %j", async (payload) => {
     await deletion.clean("target");
     await setPayload(payload);
-    await expect(deletion.verify("target")).resolves.toContain("memory-local-v2");
+    await expect(deletion.verify("target")).resolves.toContain(MEMORY_DELETION_VERIFIER);
   });
 
   it("does not verify a missing target or a shared projection as complete", async () => {

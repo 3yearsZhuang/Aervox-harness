@@ -2,6 +2,7 @@
 import { eq, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { memoryRecords } from "@aervox/schema";
+import { MEMORY_DELETION_VERIFIER } from "../../memory-deletion-protocol.js";
 
 type Writer = Parameters<Parameters<AervoxDatabase["transaction"]>[0]>[0];
 export class SqliteMemoryDeletionStore {
@@ -68,7 +69,7 @@ export class SqliteMemoryDeletionStore {
         UNION ALL SELECT 1 FROM memories_fts WHERE id = ${memoryId}
         LIMIT 1`);
       if (residue) throw new Error("deletion_memory_verification_failed");
-      return JSON.stringify({ verifier: "memory-local-v2", verifiedAt: new Date().toISOString(), contentRows: 0, ftsRows: 0, vectorRows: 0 });
+      return JSON.stringify({ verifier: MEMORY_DELETION_VERIFIER, verifiedAt: new Date().toISOString(), contentRows: 0, ftsRows: 0, vectorRows: 0 });
     });
   }
 }
