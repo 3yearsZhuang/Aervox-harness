@@ -5,17 +5,34 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { manifest, parseArgs, runCase, quantile, run, persistReport } from './runner.mjs';
-import { fixture, close, oracle, query, snapshot } from './fixture.mjs';
+import { fixture, close, oracle, query, snapshot, LOCAL } from './fixture.mjs';
+import { ARMS, CHANNELS, WRITERS } from './protocol.mjs';
 import { REQUIRED_SOURCE_FILES, validateReport, validateCsv, validateSourceHashes, parseCsv } from './validate-report.mjs';
 
-test('protocol freezes twenty unique schedules and rejects invalid sample counts', () => {
-  assert.equal(manifest().length, 20);
-  assert.equal(new Set(manifest().map(c => c.id)).size, 20);
+test('protocol declares every selected public writer and independent cleanup omissions', () => {
+  assert.equal(WRITERS.length, 10);
+  assert.equal(manifest().length, WRITERS.length * 3 + CHANNELS.length);
+  assert.equal(new Set(manifest().map(c => c.id)).size, 35);
+  for (const writer of WRITERS) {
+    assert.equal(manifest().filter(row => row.writer === writer.id).length, 3, writer.api);
+  }
   for (const n of ['0', '-1', '2.5', 'NaN', '101']) assert.throws(() => parseArgs([`--repetitions=${n}`]));
   assert.throws(() => parseArgs(['--unknown']));
   assert.equal(parseArgs(['--repetitions=3']).repetitions, 3);
   assert.equal(parseArgs(['--overwrite']).overwrite, true);
   assert.equal(quantile([1, 2, 3, 4], .5), 2.5);
+});
+
+test('retained identity tombstones reject same-ID record recreation and monotone delete preserves cleanup', async () => {
+  const f = await fixture();
+  try {
+    await f.store.clean('target'); await f.store.verify('target');
+    await assert.rejects(f.memory.createRecord(LOCAL, { id: 'target', layer: 'long_term', type: 'user_fact', content: 'late privateword' }));
+    await f.memory.softDeleteRecord(LOCAL, 'target');
+    const observed = await oracle(f);
+    assert.equal(observed.clean, true);
+    assert.equal(observed.keepIntact, true);
+  } finally { await close(f); }
 });
 
 test('oracle refuses a missing target tombstone instead of passing an empty filter', async () => {
@@ -115,13 +132,30 @@ test('the same late payload distinguishes cleanup from guarded cleanup', async (
 });
 
 test('verification refuses completion on each omitted cleanup channel', async () => {
-  for (const spec of manifest().filter(c => c.omission)) {
-    const row = await runCase(spec, 'verified-guarded');
+  for (const arm of ['verified-cleanup', 'verified-guarded']) for (const spec of manifest().filter(c => c.omission)) {
+    const row = await runCase(spec, arm);
     assert.equal(row.error, null, spec.id);
     assert.equal(row.completed, false, spec.id);
     assert.equal(row.verificationBlocked, true, spec.id);
     assert.equal(row.final.clean, false, spec.id);
+    assert.ok(row.final.residue[spec.omission] > 0, spec.id);
     assert.equal(row.final.keepIntact, true, spec.id);
+  }
+});
+
+test('verification without guards blocks current residue but permits future provenance resurrection', async () => {
+  for (const writer of ['revision', 'evidence', 'provenance-audit', 'current-revision', 'vector-adapter']) {
+    const before = await runCase(manifest().find(row => row.id === `${writer}:before-complete`), 'verified-cleanup');
+    assert.equal(before.error, null, writer);
+    assert.equal(before.completed, false, writer);
+    assert.equal(before.verificationBlocked, true, writer);
+    const after = await runCase(manifest().find(row => row.id === `${writer}:after-complete`), 'verified-cleanup');
+    assert.equal(after.error, null, writer);
+    assert.equal(after.resurrection, true, writer);
+    const guarded = await runCase(manifest().find(row => row.id === `${writer}:after-complete`), 'verified-guarded');
+    assert.equal(guarded.error, null, writer);
+    assert.equal(guarded.safeCompletion, true, writer);
+    assert.equal(guarded.proof.verifier, 'memory-local-v3', writer);
   }
 });
 
@@ -140,7 +174,7 @@ test('an unexpected observation fails validation but preserves raw JSON and CSV 
     const json = await readFile(path.join(out, 'report.json'), 'utf8');
     const csv = await readFile(path.join(out, 'cases.csv'), 'utf8');
     assert.equal(JSON.parse(json).cases[0].error, failure);
-    assert.equal(validateCsv(JSON.parse(json), csv), 80);
+    assert.equal(validateCsv(JSON.parse(json), csv), report.cases.length);
     await assert.rejects(persistReport(report, { out }), { code: 'EEXIST' });
     assert.equal(await readFile(path.join(out, 'report.json'), 'utf8'), json);
     assert.equal(await readFile(path.join(out, 'cases.csv'), 'utf8'), csv);
@@ -151,10 +185,11 @@ test('complete run validates every schedule, sink and crash; stale aggregates an
   const out = await mkdtemp(path.join(tmpdir(), 'aervox-deletion-report-test-'));
   try {
     const report = await run({ out, repetitions: 1 });
-    assert.equal(validateReport(report).correctnessCases, 80);
-    assert.equal(validateReport(report).timingSamples, 4);
+    assert.equal(report.schemaVersion, 3);
+    assert.equal(validateReport(report).correctnessCases, 175);
+    assert.equal(validateReport(report).timingSamples, ARMS.length);
     const csv = await readFile(path.join(out, 'cases.csv'), 'utf8');
-    assert.equal(validateCsv(report, csv), 80);
+    assert.equal(validateCsv(report, csv), 175);
     await validateSourceHashes(report, fileURLToPath(new URL('../../', import.meta.url)));
     const mutate = fn => { const copy = structuredClone(report); fn(copy); assert.throws(() => validateReport(copy)); };
     mutate(r => { r.cases[1] = r.cases[0]; });
@@ -166,6 +201,15 @@ test('complete run validates every schedule, sink and crash; stale aggregates an
     mutate(r => { r.errorSinks[1].after.keepIntact = false; });
     mutate(r => { r.crashes[0].reopened.keepIntact = false; });
     mutate(r => { r.cases.find(c => c.arm === 'verified-guarded' && c.omission).completed = true; });
+    mutate(r => { r.protocol.writers.pop(); });
+    mutate(r => { r.protocol.otherWriters.pop(); });
+    mutate(r => { r.protocol.writeBoundary = 'arbitrary SQL is protected'; });
+    mutate(r => { r.protocol.verifier = 'memory-local-v2'; });
+    mutate(r => { r.cases.find(c => c.proof).proof.verifier = 'memory-local-v2'; });
+    mutate(r => { r.cases.find(c => c.writer === 'provenance-audit').writer = 'audit'; });
+    mutate(r => { r.environment.sqlite.version = 'unknown'; });
+    mutate(r => { delete r.hashes['apps/worker/dist/deletion-worker.js']; });
+    mutate(r => { delete r.hashes['scripts/memory-deletion-research/supplement-child.mjs']; });
     mutate(r => { delete r.hashes[REQUIRED_SOURCE_FILES[0]]; });
     mutate(r => { r.hashes['../outside'] = '0'.repeat(64); });
     assert.throws(() => validateCsv(report, csv.replace('"fts:before-clean"', '"changed-case"')));
@@ -176,6 +220,6 @@ test('complete run validates every schedule, sink and crash; stale aggregates an
     const driftOut = path.join(out, 'source-drift');
     await assert.rejects(persistReport(drift, { out: driftOut }), /source changed during experiment.*raw evidence preserved/s);
     assert.deepEqual(JSON.parse(await readFile(path.join(driftOut, 'report.json'), 'utf8')).sourceConsistency, drift.sourceConsistency);
-    assert.equal(validateCsv(drift, await readFile(path.join(driftOut, 'cases.csv'), 'utf8')), 80);
+    assert.equal(validateCsv(drift, await readFile(path.join(driftOut, 'cases.csv'), 'utf8')), 175);
   } finally { await rm(out, { recursive: true, force: true }); }
 });

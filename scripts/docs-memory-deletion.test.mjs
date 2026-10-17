@@ -13,13 +13,15 @@ const studyDirectory = "docs/explanation/memory-deletion-study";
 const resultsDirectory = `${studyDirectory}/results`;
 const archivedJson = fs.readFileSync(path.join(rootDirectory, resultsDirectory, "report.json"), "utf8");
 const archivedCsv = fs.readFileSync(path.join(rootDirectory, resultsDirectory, "cases.csv"), "utf8");
+const supplementPath = path.join(rootDirectory, resultsDirectory, "supplement.json");
+const archivedSupplement = fs.existsSync(supplementPath) ? fs.readFileSync(supplementPath, "utf8") : null;
 
 // The existing ci-docs test glob runs this against checked-in evidence without
 // importing repositories, checking current build hashes, or rerunning the study.
 test("文档全量门禁校验已归档的记忆删除 JSON 与 CSV", () => {
   const report = JSON.parse(archivedJson);
-  assert.equal(validateReport(report).correctnessCases, 80);
-  assert.equal(validateCsv(report, archivedCsv), 80);
+  assert.equal(validateReport(report).correctnessCases, report.protocol.arms.length * report.protocol.casesPerArm);
+  assert.equal(validateCsv(report, archivedCsv), report.cases.length);
 });
 
 test("仅研究说明、JSON、CSV 或删除研究资产也选择归档校验", () => {
@@ -33,7 +35,7 @@ test("仅研究说明、JSON、CSV 或删除研究资产也选择归档校验", 
   assert.equal(selectDocumentationChecks(["docs/guide.md"], () => true).runMemoryDeletionStudy, false);
 });
 
-function fixture(t, changedFile, { json = archivedJson, csv = archivedCsv } = {}) {
+function fixture(t, changedFile, { json = archivedJson, csv = archivedCsv, supplement = archivedSupplement } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "aervox-docs-deletion-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const write = (file, text, mode) => {
@@ -44,12 +46,15 @@ function fixture(t, changedFile, { json = archivedJson, csv = archivedCsv } = {}
   for (const file of [
     "scripts/docs-lint-affected.mjs", "scripts/docs-governance.mjs",
     "scripts/memory-deletion-research/validate-report.mjs",
+    "scripts/memory-deletion-research/protocol.mjs",
+    "scripts/memory-deletion-research/validate-supplement.mjs",
   ]) write(file, fs.readFileSync(path.join(rootDirectory, file)));
   write("README.md", "# Project\n");
   write("docs/guide.md", "# Guide\n");
   write(`${studyDirectory}/README.md`, "# Study\n");
   write(`${resultsDirectory}/report.json`, json);
   write(`${resultsDirectory}/cases.csv`, csv);
+  if (supplement) write(`${resultsDirectory}/supplement.json`, supplement);
   write("fixture-bin/git", `#!${process.execPath}
 const args = process.argv.slice(2);
 if (args[0] === "status") process.stdout.write(${JSON.stringify(` M ${changedFile}\0`)});
@@ -93,4 +98,13 @@ test("仅改研究说明仍拒绝损坏证据，普通文档不触发实验或�
   const ordinaryResult = fixture(t, "docs/guide.md", { json: "{broken" });
   assert.equal(ordinaryResult.status, 0, ordinaryResult.stdout + ordinaryResult.stderr);
   assert.doesNotMatch(ordinaryResult.stdout, /校验记忆删除研究的归档 JSON 与 CSV/);
+});
+
+test("增量门禁拒绝损坏的生产补充证据", { skip: process.platform === "win32" }, (t) => {
+  if (JSON.parse(archivedJson).schemaVersion < 3) return;
+  const report = JSON.parse(archivedSupplement);
+  report.crashes[0].rollbackIntact = false;
+  const result = fixture(t, `${resultsDirectory}/supplement.json`, { supplement: JSON.stringify(report) });
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stderr, /rollback/);
 });

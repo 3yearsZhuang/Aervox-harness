@@ -4,14 +4,15 @@ import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { SCHEMA_VERSION, ARMS, CHANNELS, STORES, WRITERS, OTHER_WRITERS, WRITE_BOUNDARY, VERIFIED_ARMS, GUARDED_ARMS, manifest } from './protocol.mjs';
 
-const ARMS = ['soft-delete', 'cleanup-only', 'guarded-cleanup', 'verified-guarded'];
-const CHANNELS = ['fts', 'vector', 'summary', 'audit', 'outbox'];
-const STORES = ['record', 'revisions', 'evidence', ...CHANNELS];
-export const CSV_COLUMNS = ['caseId', 'arm', 'channel', 'position', 'omission', 'completed', 'falseCompletion', 'resurrection', 'safeCompletion', 'cleanupMs', 'verificationMs', 'error'];
+const LEGACY_ARMS = ['soft-delete', 'cleanup-only', 'guarded-cleanup', 'verified-guarded'];
+const LEGACY_CSV_COLUMNS = ['caseId', 'arm', 'channel', 'position', 'omission', 'completed', 'falseCompletion', 'resurrection', 'safeCompletion', 'cleanupMs', 'verificationMs', 'error'];
+export const CSV_COLUMNS = ['caseId', 'arm', 'writer', ...LEGACY_CSV_COLUMNS.slice(2)];
+export const csvColumns = report => report.schemaVersion >= 3 ? CSV_COLUMNS : LEGACY_CSV_COLUMNS;
 // Required measurement inputs, rather than an arbitrary number of reported
 // hashes. Include fixture/schema construction and the executed JS artifacts.
-export const REQUIRED_SOURCE_FILES = [
+const LEGACY_REQUIRED_SOURCE_FILES = [
   ...['client', 'write-retry', 'conversation-execution-policy', 'repositories/sqlite/memory-repository',
     'repositories/sqlite/memory-deletion-store', 'repositories/sqlite/outbox-repository',
     'repositories/sqlite/memory-compaction-guard', 'repositories/sqlite/memory-compaction-repository',
@@ -25,11 +26,29 @@ export const REQUIRED_SOURCE_FILES = [
   'scripts/memory-deletion-research/crash-child.mjs', 'scripts/memory-deletion-research/validate-report.mjs',
   'pnpm-lock.yaml', 'mise.toml',
 ];
+export const REQUIRED_SOURCE_FILES = [
+  ...LEGACY_REQUIRED_SOURCE_FILES,
+  ...['memory-deletion-protocol', 'repositories/sqlite/provenance-repository',
+    'repositories/sqlite/memory-write-guard', 'repositories/sqlite/privacy-repository',
+    'repositories/sqlite/skill-lifecycle-repository', 'repositories/sqlite/platform-repository',
+    'schema/ddl/privacy', 'schema/ddl/platform', 'index', 'repositories/sqlite/index']
+    .flatMap(file => [`packages/repositories/src/${file}.ts`, `packages/repositories/dist/${file}.js`]),
+  ...['privacy', 'platform'].flatMap(file => [`packages/schema/src/${file}.ts`, `packages/schema/dist/${file}.js`]),
+  'scripts/memory-deletion-research/protocol.mjs',
+  'scripts/memory-deletion-research/supplement.mjs',
+  'scripts/memory-deletion-research/supplement-child.mjs',
+  'scripts/memory-deletion-research/supplement.test.mjs',
+  'scripts/memory-deletion-research/validate-supplement.mjs',
+  'package.json',
+  ...['deletion-worker', 'compaction-marker'].flatMap(file => [`apps/worker/src/${file}.ts`, `apps/worker/dist/${file}.js`]),
+];
 
 const provenance = report => {
   assert.ok(report.hashes && typeof report.hashes === 'object', 'missing provenance hashes');
   if (report.schemaVersion >= 2) {
-    for (const file of REQUIRED_SOURCE_FILES) assert.ok(Object.hasOwn(report.hashes, file), `missing required provenance hash: ${file}`);
+    for (const file of report.schemaVersion >= 3 ? REQUIRED_SOURCE_FILES : LEGACY_REQUIRED_SOURCE_FILES) {
+      assert.ok(Object.hasOwn(report.hashes, file), `missing required provenance hash: ${file}`);
+    }
   } else assert.ok(Object.keys(report.hashes).length >= 10, 'missing legacy provenance hashes');
   for (const [file, hash] of Object.entries(report.hashes)) {
     assert.ok(!path.isAbsolute(file) && !file.split(/[\\/]/).includes('..'), `hash path outside repository: ${file}`);
@@ -61,25 +80,47 @@ const observation = (value, label) => {
 };
 
 export function validateReport(report) {
-  assert.ok([1, 2].includes(report.schemaVersion), 'unsupported report schema');
+  assert.ok([1, 2, SCHEMA_VERSION].includes(report.schemaVersion), 'unsupported report schema');
   provenance(report);
   assert.ok(Number.isFinite(Date.parse(report.generatedAt)), 'invalid generation timestamp');
-  assert.deepEqual(report.protocol.arms, ARMS, 'protocol arms');
+  const arms = report.schemaVersion >= 3 ? ARMS : LEGACY_ARMS;
+  const verifiedArms = report.schemaVersion >= 3 ? VERIFIED_ARMS : ['verified-guarded'];
+  assert.deepEqual(report.protocol.arms, arms, 'protocol arms');
   assert.deepEqual(report.protocol.channels, CHANNELS, 'protocol channels');
-  const schedules = CHANNELS.flatMap(channel => ['before-clean', 'before-complete', 'after-complete'].map(position => ({ id: `${channel}:${position}`, channel, position, omission: null })))
+  const schedules = report.schemaVersion >= 3 ? manifest() : CHANNELS.flatMap(channel => ['before-clean', 'before-complete', 'after-complete'].map(position => ({ id: `${channel}:${position}`, channel, position, omission: null })))
     .concat(CHANNELS.map(channel => ({ id: `omit:${channel}`, channel, position: 'omission', omission: channel })));
+  if (report.schemaVersion >= 3) {
+    assert.deepEqual(report.protocol.writers, WRITERS, 'public writer inventory');
+    assert.deepEqual(report.protocol.otherWriters, OTHER_WRITERS, 'other writer coverage inventory');
+    assert.equal(report.protocol.writeBoundary, WRITE_BOUNDARY, 'write boundary');
+    assert.equal(report.protocol.verifier, 'memory-local-v3', 'current verifier contract');
+    assert.match(report.environment.sqlite.version, /^\d+\.\d+\.\d+/, 'SQLite version');
+    assert.equal(typeof report.environment.sqlite.journal_mode, 'string', 'journal mode');
+    for (const name of ['synchronous', 'foreign_keys', 'busy_timeout']) {
+      assert.ok(Number.isSafeInteger(report.environment.sqlite[name]) && report.environment.sqlite[name] >= 0, `SQLite ${name}`);
+    }
+  }
   assert.deepEqual(report.protocol.manifest, schedules, 'predeclared schedule manifest');
   assert.equal(report.protocol.casesPerArm, schedules.length, 'cases per arm');
   assert.ok(Number.isSafeInteger(report.protocol.repetitions) && report.protocol.repetitions > 0 && report.protocol.repetitions <= 100, 'timing repetitions');
-  assert.equal(report.cases.length, ARMS.length * schedules.length, 'correctness matrix cardinality');
+  assert.equal(report.cases.length, arms.length * schedules.length, 'correctness matrix cardinality');
   const keys = new Set();
   for (const row of report.cases) {
     const key = `${row.arm}/${row.caseId}`;
     assert.ok(!keys.has(key), `duplicate correctness case ${key}`); keys.add(key);
-    assert.ok(ARMS.includes(row.arm), `${key}: unknown arm`);
+    assert.ok(arms.includes(row.arm), `${key}: unknown arm`);
     const spec = schedules.find(s => s.id === row.caseId);
     assert.ok(spec, `${key}: unknown schedule`);
     for (const field of ['channel', 'position', 'omission']) assert.equal(row[field], spec[field], `${key}: ${field}`);
+    if (report.schemaVersion >= 3) {
+      assert.equal(row.writer, spec.writer, `${key}: writer`);
+      assert.equal(typeof row.writerRejected, 'boolean', `${key}: writer rejection flag`);
+      if (verifiedArms.includes(row.arm) && row.completed) {
+        assert.equal(row.proof?.verifier, report.protocol.verifier, `${key}: proof verifier`);
+        assert.ok(Number.isFinite(Date.parse(row.proof.verifiedAt)), `${key}: proof time`);
+        for (const field of ['contentRows', 'ftsRows', 'vectorRows']) assert.equal(row.proof[field], 0, `${key}: proof ${field}`);
+      } else assert.equal(row.proof, undefined, `${key}: unexpected completion proof`);
+    }
     assert.equal(row.error, null, `${key}: experiment error`);
     assert.equal(typeof row.completed, 'boolean', `${key}: missing completion flag`);
     observation(row.atCompletion, `${key}.atCompletion`); observation(row.final, `${key}.final`);
@@ -89,23 +130,30 @@ export function validateReport(report) {
     assert.equal(row.atCompletion.keepIntact, true, `${key}: keep changed at completion`);
     assert.equal(row.final.keepIntact, true, `${key}: keep changed finally`);
     finiteMs(row.cleanupMs, `${key}.cleanupMs`); finiteMs(row.verificationMs, `${key}.verificationMs`);
-    if (row.arm !== 'verified-guarded') assert.equal(row.verificationMs, 0, `${key}: ablation unexpectedly verified`);
+    if (!verifiedArms.includes(row.arm)) assert.equal(row.verificationMs, 0, `${key}: ablation unexpectedly verified`);
     const expected = row.arm === 'soft-delete' ? 'falseCompletion'
-      : row.omission ? (row.arm === 'verified-guarded' ? 'blocked' : 'falseCompletion')
+      : row.omission ? (verifiedArms.includes(row.arm) ? 'blocked' : 'falseCompletion')
+      : row.arm === 'verified-cleanup' && row.position === 'before-complete' ? 'blocked'
       : row.arm === 'cleanup-only' && row.position === 'before-complete' ? 'falseCompletion'
-      : row.arm === 'cleanup-only' && row.position === 'after-complete' ? 'resurrection' : 'safeCompletion';
+      : ['cleanup-only', 'verified-cleanup'].includes(row.arm) && row.position === 'after-complete' ? 'resurrection' : 'safeCompletion';
     if (expected === 'blocked') {
-      assert.equal(row.completed, false, `${key}: omission must block completion`);
+      assert.equal(row.completed, false, `${key}: residue must block completion`);
       assert.equal(row.verificationBlocked, true, `${key}: missing verification refusal`);
-      assert.equal(row.final.clean, false, `${key}: omitted store must remain visible to oracle`);
+      assert.equal(row.final.clean, false, `${key}: residual store must remain visible to oracle`);
     } else assert.equal(row[expected], true, `${key}: expected ${expected}`);
+    if (report.schemaVersion >= 3 && row.arm !== 'soft-delete' && !row.final.clean) {
+      assert.ok(row.final.residue[spec.channel] > 0, `${key}: selected writer or omission did not leave its declared residue`);
+      for (const [store, count] of Object.entries(row.final.residue)) {
+        if (store !== spec.channel) assert.equal(count, 0, `${key}: unrelated residue in ${store}`);
+      }
+    }
   }
-  assert.equal(report.latency.length, report.protocol.repetitions * ARMS.length, 'timing matrix cardinality');
+  assert.equal(report.latency.length, report.protocol.repetitions * arms.length, 'timing matrix cardinality');
   const timingKeys = new Set();
   for (const row of report.latency) {
     const key = `${row.arm}/${row.repetition}`;
     assert.ok(!timingKeys.has(key), `duplicate timing sample ${key}`); timingKeys.add(key);
-    assert.ok(ARMS.includes(row.arm) && Number.isSafeInteger(row.repetition) && row.repetition >= 0 && row.repetition < report.protocol.repetitions, `${key}: invalid timing schedule`);
+    assert.ok(arms.includes(row.arm) && Number.isSafeInteger(row.repetition) && row.repetition >= 0 && row.repetition < report.protocol.repetitions, `${key}: invalid timing schedule`);
     assert.equal(row.error, null, `${key}: timing experiment error`);
     if (report.schemaVersion >= 2) {
       assert.equal(row.caseId, 'fts:before-clean', `${key}: timing workload`);
@@ -116,9 +164,9 @@ export function validateReport(report) {
     }
     for (const field of ['cleanupMs', 'verificationMs', 'totalMs']) finiteMs(row[field], `${key}.${field}`);
     assert.equal(row.totalMs, row.cleanupMs + row.verificationMs, `${key}: total timing`);
-    if (row.arm !== 'verified-guarded') assert.equal(row.verificationMs, 0, `${key}: ablation timing includes verification`);
+    if (!verifiedArms.includes(row.arm)) assert.equal(row.verificationMs, 0, `${key}: ablation timing includes verification`);
   }
-  const summary = ARMS.map(arm => {
+  const summary = arms.map(arm => {
     const rows = report.cases.filter(row => row.arm === arm), times = report.latency.filter(row => row.arm === arm).map(row => row.totalMs);
     return { arm, cases: rows.length, completed: rows.filter(r => r.completed).length,
       falseCompletions: rows.filter(r => r.falseCompletion).length, resurrections: rows.filter(r => r.resurrection).length,
@@ -180,8 +228,9 @@ export function parseCsv(text) {
 }
 
 export function validateCsv(report, csv) {
-  const rows = parseCsv(csv); assert.deepEqual(rows.shift(), CSV_COLUMNS, 'CSV header');
-  assert.deepEqual(rows, report.cases.map(row => CSV_COLUMNS.map(field => String(row[field] ?? ''))), 'CSV differs from JSON case rows');
+  const columns = csvColumns(report);
+  const rows = parseCsv(csv); assert.deepEqual(rows.shift(), columns, 'CSV header');
+  assert.deepEqual(rows, report.cases.map(row => columns.map(field => String(row[field] ?? ''))), 'CSV differs from JSON case rows');
   return rows.length;
 }
 
@@ -203,6 +252,13 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const directory = args.find(arg => !arg.startsWith('--')); assert.ok(directory, 'results directory required');
   const report = JSON.parse(await readFile(path.join(directory, 'report.json'), 'utf8'));
   const checked = validateReport(report); checked.csvRows = validateCsv(report, await readFile(path.join(directory, 'cases.csv'), 'utf8'));
+  if (report.schemaVersion >= 3) {
+    const { validateSupplement } = await import('./validate-supplement.mjs');
+    const supplement = JSON.parse(await readFile(path.join(directory, 'supplement.json'), 'utf8'));
+    checked.supplement = validateSupplement(supplement);
+    assert.deepEqual(supplement.hashes, report.hashes, 'main and supplement measured different source snapshots');
+    if (flags.includes('--check-source')) await validateSourceHashes({ ...supplement, schemaVersion: 3 }, fileURLToPath(new URL('../../', import.meta.url)));
+  }
   if (flags.includes('--check-source')) checked.sourceHashes = await validateSourceHashes(report, fileURLToPath(new URL('../../', import.meta.url)));
   console.log(JSON.stringify({ valid: true, ...checked }, null, 2));
 }

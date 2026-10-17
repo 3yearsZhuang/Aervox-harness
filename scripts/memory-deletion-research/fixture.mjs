@@ -2,11 +2,12 @@ import {
   createInMemoryDatabase, createDatabase, initDatabaseSchema,
   SqliteMemoryRepository, SqliteMemoryDeletionStore, SqliteMemoryEmbeddingRepository,
   SqliteMemoryCompactionRepository, SqliteOutboxRepository, indexMemoryFts,
+  SqliteProvenanceRepository, SqliteMemoryVectorSearchAdapter,
 } from '../../packages/repositories/dist/index.js';
+import { CHANNELS, WRITERS } from './protocol.mjs';
+export { ARMS, CHANNELS, WRITERS } from './protocol.mjs';
 
 export const LOCAL = { workspaceId: 'local', subjectUserId: 'local' };
-export const CHANNELS = ['fts', 'vector', 'summary', 'audit', 'outbox'];
-export const ARMS = ['soft-delete', 'cleanup-only', 'guarded-cleanup', 'verified-guarded'];
 const NOW = '2026-10-15T00:00:00.000Z';
 export const query = async (client, sql, args = []) => (await client.execute({ sql, args })).rows;
 
@@ -18,6 +19,7 @@ export async function fixture(url) {
   f.embedding = new SqliteMemoryEmbeddingRepository(f.db);
   f.compaction = new SqliteMemoryCompactionRepository(f.db);
   f.outbox = new SqliteOutboxRepository(f.db);
+  f.provenance = new SqliteProvenanceRepository(f.db);
   for (const id of ['target', 'keep']) {
     await f.memory.createRecord(LOCAL, { id, layer: 'long_term', type: 'user_fact', content: `privateword ${id}` });
     await query(f.client, 'INSERT INTO memory_revisions(id,memory_id,content,created_at) VALUES(?,?,?,?)', [`rev_${id}`, id, `revision ${id}`, NOW]);
@@ -30,8 +32,11 @@ export async function fixture(url) {
   return f;
 }
 
-export async function write(f, channel, id, suffix, guarded) {
-  const key = `${channel}_${id}_${suffix}`;
+export async function write(f, writer, id, suffix, guarded) {
+  const spec = WRITERS.find(entry => entry.id === writer);
+  if (!spec) throw new Error(`unknown writer: ${writer}`);
+  const { channel } = spec;
+  const key = `${writer}_${id}_${suffix}`;
   // Keep observer ownership outside SQLite so malformed cleanup cannot hide an
   // already known event merely by removing memoryId from its payload.
   if (channel === 'outbox') {
@@ -43,12 +48,17 @@ export async function write(f, channel, id, suffix, guarded) {
     ? `${f.fetched.summaryText} derived:${suffix}`
     : `privateword ${id} ${suffix}`;
   if (guarded) {
-    if (channel === 'fts') return indexMemoryFts(f.client, LOCAL, { id, content: text });
-    if (channel === 'vector') return f.embedding.insertBatch(LOCAL, [{ id: key, memoryId: id, vector: [1, 0], modelId: key }]);
-    if (channel === 'summary') return f.compaction.upsertMarker(LOCAL, { id: key, memoryId: id, snapshotId: key, summaryText: text });
-    if (channel === 'audit') return f.compaction.recordEvent(LOCAL, { id: key, memoryId: id, action: 'compressed', reason: text });
-    if (channel === 'outbox') return f.outbox.insertEvent(LOCAL, { id: key, idempotencyKey: key, eventType: 'memory.compaction.requested', payload: { memoryId: id, snapshotId: key, summaryText: text } });
-    throw new Error(`unknown channel: ${channel}`);
+    if (writer === 'fts') return indexMemoryFts(f.client, LOCAL, { id, content: text });
+    if (writer === 'vector') return f.embedding.insertBatch(LOCAL, [{ id: key, memoryId: id, vector: [1, 0], modelId: key }]);
+    if (writer === 'summary') return f.compaction.upsertMarker(LOCAL, { id: key, memoryId: id, snapshotId: key, summaryText: text });
+    if (writer === 'audit') return f.compaction.recordEvent(LOCAL, { id: key, memoryId: id, action: 'compressed', reason: text });
+    if (writer === 'outbox') return f.outbox.insertEvent(LOCAL, { id: key, idempotencyKey: key, eventType: 'memory.compaction.requested', payload: { memoryId: id, snapshotId: key, summaryText: text } });
+    if (writer === 'revision') return f.provenance.appendMemoryRevision(LOCAL, { id: key, memoryId: id, content: text });
+    if (writer === 'evidence') return f.provenance.createMemoryEvidence(LOCAL, { id: key, memoryRevisionId: `rev_${id}`, sourceArtifactId: `src_${id}`, sourceRevisionId: `sr_${id}`, sourceRange: text });
+    if (writer === 'provenance-audit') return f.provenance.recordMemoryEvent(LOCAL, { id: key, memoryId: id, action: 'compressed', reason: text });
+    if (writer === 'current-revision') return f.provenance.setMemoryCurrentRevision(LOCAL, id, `rev_${id}`);
+    if (writer === 'vector-adapter') return new SqliteMemoryVectorSearchAdapter(f.embedding, key).upsert(LOCAL, [{ id, vector: [1, 0] }]);
+    throw new Error(`unknown writer: ${writer}`);
   }
   if (channel === 'fts') {
     await query(f.client, 'DELETE FROM memories_fts WHERE id=?', [id]);
@@ -58,6 +68,9 @@ export async function write(f, channel, id, suffix, guarded) {
   if (channel === 'summary') return query(f.client, 'INSERT INTO memory_compaction_markers(id,memory_id,snapshot_id,summary_text,created_at,updated_at) VALUES(?,?,?,?,?,?)', [key, id, key, text, NOW, NOW]);
   if (channel === 'audit') return query(f.client, 'INSERT INTO memory_events(id,memory_id,action,reason,created_at) VALUES(?,?,?,?,?)', [key, id, 'compressed', text, NOW]);
   if (channel === 'outbox') return query(f.client, 'INSERT INTO outbox_events(id,idempotency_key,event_type,payload,status,created_at) VALUES(?,?,?,?,?,?)', [key, key, 'memory.compaction.requested', JSON.stringify({ memoryId: id, snapshotId: key, summaryText: text }), 'pending', NOW]);
+  if (writer === 'revision') return query(f.client, 'INSERT INTO memory_revisions(id,memory_id,content,created_at) VALUES(?,?,?,?)', [key, id, text, NOW]);
+  if (writer === 'evidence') return query(f.client, 'INSERT INTO memory_evidence(id,memory_revision_id,source_artifact_id,source_revision_id,source_range,created_at) VALUES(?,?,?,?,?,?)', [key, `rev_${id}`, `src_${id}`, `sr_${id}`, text, NOW]);
+  if (writer === 'current-revision') return query(f.client, 'UPDATE memory_records SET current_revision_id=? WHERE id=?', [`rev_${id}`, id]);
   throw new Error(`unknown channel: ${channel}`);
 }
 

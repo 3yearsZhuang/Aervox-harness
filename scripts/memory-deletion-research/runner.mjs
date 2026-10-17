@@ -6,9 +6,11 @@ import { tmpdir, cpus } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { performance } from 'node:perf_hooks';
-import { createDatabase, SqliteMemoryDeletionStore } from '../../packages/repositories/dist/index.js';
-import { ARMS, CHANNELS, fixture, write, clean, oracle, close, query, snapshot } from './fixture.mjs';
-import { CSV_COLUMNS, REQUIRED_SOURCE_FILES, validateReport, validateCsv } from './validate-report.mjs';
+import { createDatabase, SqliteMemoryDeletionStore, MEMORY_DELETION_VERIFIER } from '../../packages/repositories/dist/index.js';
+import { fixture, write, clean, oracle, close, query, snapshot } from './fixture.mjs';
+import { SCHEMA_VERSION, ARMS, CHANNELS, WRITERS, OTHER_WRITERS, WRITE_BOUNDARY, VERIFIED_ARMS, GUARDED_ARMS, manifest } from './protocol.mjs';
+export { manifest } from './protocol.mjs';
+import { csvColumns, REQUIRED_SOURCE_FILES, validateReport, validateCsv } from './validate-report.mjs';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 export function parseArgs(args) {
@@ -23,22 +25,20 @@ export function parseArgs(args) {
   return options;
 }
 
-export function manifest() {
-  return [
-    ...CHANNELS.flatMap(channel => ['before-clean', 'before-complete', 'after-complete'].map(position => ({ id: `${channel}:${position}`, channel, position, omission: null }))),
-    ...CHANNELS.map(channel => ({ id: `omit:${channel}`, channel, position: 'omission', omission: channel })),
-  ];
-}
-
 export async function runCase(spec, arm) {
   let f;
-  const row = { caseId: spec.id, arm, channel: spec.channel, position: spec.position, omission: spec.omission, completed: false, writerRejected: false, error: null };
+  const row = { caseId: spec.id, arm, writer: spec.writer, channel: spec.channel, position: spec.position, omission: spec.omission, completed: false, writerRejected: false, error: null };
   try {
     f = await fixture();
-    const guarded = arm === 'guarded-cleanup' || arm === 'verified-guarded';
+    const guarded = GUARDED_ARMS.includes(arm);
     const lateWrite = async () => {
-      try { await write(f, spec.channel, 'target', 'late', guarded); }
-      catch (e) { if (e.message === 'memory_compaction_target_unavailable') row.writerRejected = true; else throw e; }
+      try {
+        const result = await write(f, spec.writer, 'target', 'late', guarded);
+        if (result === false) row.writerRejected = true;
+      } catch (e) {
+        if (['memory_compaction_target_unavailable', 'memory_write_target_unavailable'].includes(e.message)) row.writerRejected = true;
+        else throw e;
+      }
     };
     if (spec.position === 'before-clean') await lateWrite();
     let start = performance.now();
@@ -46,9 +46,9 @@ export async function runCase(spec, arm) {
     row.cleanupMs = performance.now() - start;
     if (spec.position === 'before-complete') await lateWrite();
     row.verificationMs = 0;
-    if (arm === 'verified-guarded') {
+    if (VERIFIED_ARMS.includes(arm)) {
       start = performance.now();
-      try { await f.store.verify('target'); row.completed = true; }
+      try { row.proof = JSON.parse(await f.store.verify('target')); row.completed = true; }
       catch (e) { if (e.message !== 'deletion_memory_verification_failed') throw e; row.verificationBlocked = true; }
       row.verificationMs = performance.now() - start;
     } else row.completed = true;
@@ -145,7 +145,8 @@ export const quantile = (values, p) => {
 /** Preserve observations before refusing an unexpected or incomplete result. */
 export async function persistReport(report, options) {
   const cell = value => `"${String(value ?? '').replaceAll('"', '""')}"`;
-  const csv = [CSV_COLUMNS.join(','), ...report.cases.map(r => CSV_COLUMNS.map(k => cell(r[k])).join(','))].join('\n') + '\n';
+  const columns = csvColumns(report);
+  const csv = [columns.join(','), ...report.cases.map(r => columns.map(k => cell(r[k])).join(','))].join('\n') + '\n';
   await mkdir(options.out, { recursive: true });
   const flag = options.overwrite ? 'w' : 'wx';
   await writeFile(path.join(options.out, 'report.json'), JSON.stringify(report, null, 2) + '\n', { flag });
@@ -174,6 +175,16 @@ export async function run(options) {
     }
   })));
   const hashes = await hashSources();
+  const environmentFixture = await fixture();
+  let sqlite;
+  try {
+    const [version] = await query(environmentFixture.client, 'SELECT sqlite_version() AS version');
+    sqlite = { version: version.version };
+    for (const name of ['journal_mode', 'synchronous', 'foreign_keys', 'busy_timeout']) {
+      const [value] = await query(environmentFixture.client, `PRAGMA ${name}`);
+      sqlite[name] = Object.values(value)[0];
+    }
+  } finally { await close(environmentFixture); }
   const cases = [], latency = [];
   // One deterministic correctness run per predeclared combination; repeats are timing only.
   for (const spec of manifest()) for (const arm of ARMS) cases.push(await runCase(spec, arm));
@@ -200,17 +211,18 @@ export async function run(options) {
       latencySamples: times.length, p25Ms: quantile(times, .25), medianMs: quantile(times, .5), p75Ms: quantile(times, .75), p95Ms: quantile(times, .95) };
   });
   const report = {
-    schemaVersion: 2, generatedAt: new Date().toISOString(),
+    schemaVersion: SCHEMA_VERSION, generatedAt: new Date().toISOString(),
     baselineCommit: '99c82924', commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim(),
     workingTree: execFileSync('git', ['status', '--short'], { cwd: ROOT, encoding: 'utf8' }).trim(), hashes, sourceConsistency,
-    environment: { node: process.version, platform: process.platform, arch: process.arch, cpu: cpus()[0]?.model },
-    protocol: { casesPerArm: 20, channels: CHANNELS, arms: ARMS, repetitions: options.repetitions, manifest: manifest(),
-      latency: 'Fresh file/connection cloned from initialized schema; same loaded process. Excludes schema, fixture, late write and oracle. Includes cleanup plus optional verification. Rotating arm order, no process or disk-cache cold-start claim.',
+    environment: { node: process.version, platform: process.platform, arch: process.arch, cpu: cpus()[0]?.model, sqlite },
+    protocol: { casesPerArm: manifest().length, channels: CHANNELS, writers: WRITERS, otherWriters: OTHER_WRITERS, writeBoundary: WRITE_BOUNDARY,
+      verifier: MEMORY_DELETION_VERIFIER, arms: ARMS, repetitions: options.repetitions, manifest: manifest(),
+      latency: 'Fresh file/connection cloned from initialized schema; same loaded process. Excludes schema, fixture, late write and oracle, including all writer guards. Includes cleanup plus optional verification. Cleanup-only and guarded-cleanup execute the identical timed cleanup path. Rotating arm order, no process or disk-cache cold-start claim.',
       oracle: 'Independent SQL observations of 8 logical stores, including exactly one scrubbed target tombstone, evidence across all target revisions, an allowlisted Outbox tombstone payload, and exact keep-row snapshots; not physical-page erasure or model behavior.',
       statistics: 'Linear interpolation at index (n-1)*p (Hyndman-Fan type 7). Descriptive local timing quantiles; no confidence intervals or iid correctness interpretation.',
       crashProbes: 'SIGKILL after two manual uncommitted SQL writes, or after production clean() commits; first probe tests a representative SQLite transaction, not interruption inside production clean().' },
     summary, cases, latency, errorSinks: sinks, crashes,
-    limitations: ['Finite deterministic schedules, not exhaustive concurrency or model checking.', 'Arms are component ablations, not measured competing frameworks.', 'Synthetic two-record fixture; no real model, semantic unlearning, cache, backup, or secure page erasure.', 'Omission mutations are deliberate research SQL, not normal product operations.', 'Two SIGKILL barriers probe selected committed/uncommitted boundaries, not general crash consistency.', 'Timing samples are local descriptive measurements; correctness schedules are not iid statistical samples.'],
+    limitations: ['Finite deterministic schedules, not exhaustive concurrency or model checking.', WRITE_BOUNDARY, 'Arms are component ablations, not measured competing frameworks.', 'Synthetic two-record fixture; no real model, semantic unlearning, cache, backup, or secure page erasure.', 'Omission mutations are deliberate research SQL, not normal product operations.', 'Two SIGKILL barriers probe selected committed/uncommitted boundaries, not general crash consistency.', 'Timing excludes writer guards; cleanup-only and guarded-cleanup have the identical timed path.', 'Timing samples are local descriptive measurements; correctness schedules are not iid statistical samples.'],
   };
   return persistReport(report, options);
 }

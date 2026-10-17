@@ -251,8 +251,8 @@ test("Memory deletion research and archived evidence remain in code gates", () =
   assert.equal(typeof command, "string");
   const steps = command.split(/\s+&&\s+/);
   assert.deepEqual(steps, [
-    "turbo run build --filter=@aervox/repositories",
-    "node --test scripts/memory-deletion-research/runner.test.mjs",
+    "turbo run build --filter=@aervox/worker...",
+    "node --test scripts/memory-deletion-research/runner.test.mjs scripts/memory-deletion-research/supplement.test.mjs",
     "node scripts/memory-deletion-research/validate-report.mjs docs/explanation/memory-deletion-study/results",
   ], "build dependencies before exercising the runner and validating archived JSON/CSV");
   assert.equal(command.includes("--check-source"), false, "archived measurements retain their original source snapshot");
