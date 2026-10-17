@@ -268,6 +268,12 @@ Separate live-source revision writes produce the following timings in millisecon
 
 All 24 writes actually persist. The production API median is 0.624 ms, versus 0.335 ms for the reconstructed legacy path. Different JavaScript and transaction paths are included; these are local API measurements, not isolated SQL-predicate overhead or end-to-end throughput. Cost evidence remains separate from correctness evidence and supports neither a significance claim nor a near-zero-cost claim.
 
+### 6.5 Revalidation on the merged version
+
+[PR #285](https://github.com/3yearsZhuang/Aervox-harness/pull/285) was merged into `main` on 18 October 2026 at 02:36:36 Asia/Shanghai. At merge commit `67c3c2e19c2118bbc15f127dcd61b57bc1c1a052`, we rebuilt dependencies and reran the complete protocol with no changes to tracked files. The [revalidation main report](results/merged-67c3c2e1/report.json), [production supplement](results/merged-67c3c2e1/supplement.json), and [validation record](results/merged-67c3c2e1/verification.json) are archived separately. All 97 required input hashes match the primary measurement, with no drift during either revalidation run.
+
+Strict validation passes for 175 correctness cases, 120 main timing observations, four error-write cases, two representative recovery probes, 12 production SIGKILL boundaries, five cross-process schedules, nine scale observations, and 24 revision-write timings. Correctness aggregates match across all five arms; the combined mechanism again yields 30 safe completions, five correctly blocked omissions, no incorrect completion, and no resurrection. Tables and figures retain the primary measurement. Revalidation timings remain separate; samples and denominators are not pooled. These results revalidate the declared experimental protocol on the merged version. They remain same-machine, single-system synthetic experiments, rather than independent external replication, real-user database acceptance, or a product release.
+
 ## 7. Discussion and validity
 
 ### 7.1 Transferable review questions
