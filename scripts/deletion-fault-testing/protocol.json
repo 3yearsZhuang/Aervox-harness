@@ -7,6 +7,14 @@
   "replayRepetitions": 20,
   "minimumSuccessfulReplays": 19,
   "timeoutMs": 10000,
+  "cleanupTimeoutMs": 10000,
+  "engineeringRevision": {
+    "kind": "post-pilot-engineering-revision",
+    "previousInputCommit": "84424da3",
+    "timing": "Introduced after inspecting two complete attempts at the previous input version, each with one cleanup timeout; the underlying cleanup delay remains unexplained.",
+    "change": "Replace the implicit min(timeoutMs, 1000) cleanup deadline with an explicit independent 10000 ms cleanup deadline. Planner rules, workloads, ownership, checked stores, budgets, seeds and ordering remain unchanged.",
+    "evaluationPolicy": "Allow one complete engineering validation at the newly frozen version. This does not reset the observed method NO-GO, create a new blind held-out evaluation or justify further retries of the same frozen version."
+  },
   "developmentSubjects": ["aervox-guarded", "aervox-historical-provenance"],
   "integrationSubject": "langchain-libsql",
   "plannerHeldOutSubject": "llamaindex-simple",

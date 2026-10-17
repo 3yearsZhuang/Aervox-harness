@@ -45,6 +45,7 @@ test('validator rejects missing evidence, changed plans, invented labels and for
       r => { r.config.strategies.pop(); },
       r => { r.protocol.minimumSuccessfulReplays = 0; },
       r => { r.config.timeoutMs = 1; },
+      r => { r.config.cleanupTimeoutMs = 1; },
       r => { r.sourceManifest.after['input.js'] = 'a'.repeat(64); },
       r => { r.summary.groups[0].safeCompleted++; },
       r => { r.go.decision = 'GO'; },
@@ -64,6 +65,10 @@ test('validator rejects missing evidence, changed plans, invented labels and for
       r => { r.find(row => row.type === 'audit').run.seed = 9; },
       r => { r.find(row => row.type === 'replay').run.seed = 9; },
       r => { r.find(row => row.type === 'schedule').run.seed = 9; },
+      r => { r.find(row => row.type === 'schedule').run.cleanupTimeoutMs = 1; },
+      r => { r.find(row => row.type === 'reference').run.cleanupTimeoutMs = 1; },
+      r => { r.find(row => row.type === 'audit').run.cleanupTimeoutMs = 1; },
+      r => { r.find(row => row.type === 'replay').run.cleanupTimeoutMs = 1; },
     ]) {
       const copy = structuredClone(rows); mutate(copy); assert.throws(() => validate(report, copy));
     }

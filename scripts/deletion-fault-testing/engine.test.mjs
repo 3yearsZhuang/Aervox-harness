@@ -193,6 +193,38 @@ test('noncooperating workload and close waits are bounded', async () => {
   assert.ok(performance.now() - started < 1_000);
 });
 
+test('cleanup can exceed the workload deadline within its independent budget', async () => {
+  let closed = false;
+  const adapter = fixture({ async close() {
+    await new Promise(resolve => setTimeout(resolve, 40));
+    closed = true;
+  } });
+  const evidence = await runSchedule(adapter, { timeoutMs: 20, cleanupTimeoutMs: 200 });
+  assert.equal(evidence.status, 'completed');
+  assert.equal(evidence.error, null);
+  assert.equal(closed, true);
+  assert.ok(evidence.durationMs >= 40);
+  assert.equal(evidence.timeoutMs, 20);
+  assert.equal(evidence.cleanupTimeoutMs, 200);
+});
+
+test('an unfinished close respects the explicit independent cleanup deadline', async () => {
+  const adapter = fixture({ async close() { await new Promise(() => {}); } });
+  const started = performance.now();
+  const evidence = await runSchedule(adapter, { timeoutMs: 100, cleanupTimeoutMs: 20 });
+  assert.equal(evidence.status, 'infrastructure-error');
+  assert.match(evidence.error, /adapter close timeout/);
+  assert.ok(evidence.durationMs >= 20);
+  assert.ok(performance.now() - started < 1_000);
+  assert.equal(evidence.cleanupTimeoutMs, 20);
+});
+
+test('cleanup defaults to the workload budget without an implicit short cap', async () => {
+  const evidence = await runSchedule(fixture(), { timeoutMs: 2_000 });
+  assert.equal(evidence.status, 'completed');
+  assert.equal(evidence.cleanupTimeoutMs, 2_000);
+});
+
 test('late open completion receives cleanup and cannot mutate returned evidence', async () => {
   let resolveOpen;
   const adapter = fixture({ async open() { return new Promise(resolve => { resolveOpen = resolve; }); } });
@@ -214,7 +246,8 @@ test('close errors invalidate a successful run, preserving raw observations', as
 
 test('invalid configuration is classified without opening an adapter', async () => {
   const adapter = fixture();
-  for (const options of [{ timeoutMs: 0 }, { seed: .5 }, { plan: { ...plan(), action: 'crash' } }]) {
+  for (const options of [{ timeoutMs: 0 }, { cleanupTimeoutMs: 0 }, { cleanupTimeoutMs: -1 }, { cleanupTimeoutMs: .5 },
+    { cleanupTimeoutMs: NaN }, { cleanupTimeoutMs: Infinity }, { cleanupTimeoutMs: '100' }, { seed: .5 }, { plan: { ...plan(), action: 'crash' } }]) {
     const evidence = await runSchedule(adapter, options);
     assert.equal(evidence.status, 'infrastructure-error');
   }

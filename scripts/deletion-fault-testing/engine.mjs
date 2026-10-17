@@ -85,21 +85,22 @@ const message = error => `${error?.name ?? 'Error'}: ${error?.message ?? String(
  * signal, and checkpoints reject after abort. Arbitrary in-process IO cannot be
  * force-killed here. Both the workload and close() waits are nevertheless bounded;
  * adapters must honor cancellation or use externally supervised child processes.
+ * Cleanup has an independent deadline, defaulting to the workload deadline.
  */
-export async function runSchedule(adapter, { plan = null, seed = 1, timeoutMs = 10_000 } = {}) {
+export async function runSchedule(adapter, { plan = null, seed = 1, timeoutMs = 10_000, cleanupTimeoutMs = timeoutMs } = {}) {
   const started = performance.now();
   const controller = new AbortController();
   const { signal } = controller;
   const evidence = {
     adapterId: typeof adapter?.id === 'string' ? adapter.id : null,
-    plan: null, seed, status: 'infrastructure-error', violations: [], trace: [],
+    plan: null, seed, timeoutMs, cleanupTimeoutMs, status: 'infrastructure-error', violations: [], trace: [],
     atCompletion: null, final: null, keepBefore: null, triggerReached: false,
     durationMs: 0, error: null,
   };
   let state, opened = false, closed = false, deletion, timer;
-  // close() gets a separate, short deadline even when the workload used its full
-  // budget. Its rejection is observed; a stalled close cannot stall this runner.
-  const closeBudget = Number.isFinite(timeoutMs) && timeoutMs > 0 ? Math.min(timeoutMs, 1_000) : 1_000;
+  // close() has its own explicit budget even when the workload used its entire
+  // deadline. No implicit one-second cap is applied. Its rejection is observed;
+  // a stalled close cannot stall this runner indefinitely.
   const closeState = async () => {
     if (!opened || closed) return;
     closed = true;
@@ -107,7 +108,7 @@ export async function runSchedule(adapter, { plan = null, seed = 1, timeoutMs = 
     try {
       await Promise.race([
         Promise.resolve().then(() => adapter.close(state)),
-        new Promise((_, reject) => { closeTimer = setTimeout(() => reject(new Error('adapter close timeout')), closeBudget); }),
+        new Promise((_, reject) => { closeTimer = setTimeout(() => reject(new Error('adapter close timeout')), cleanupTimeoutMs); }),
       ]);
     } finally { clearTimeout(closeTimer); }
   };
@@ -145,6 +146,7 @@ export async function runSchedule(adapter, { plan = null, seed = 1, timeoutMs = 
   };
   try {
     if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1) throw new TypeError('timeoutMs must be a positive integer');
+    if (!Number.isSafeInteger(cleanupTimeoutMs) || cleanupTimeoutMs < 1) throw new TypeError('cleanupTimeoutMs must be a positive integer');
     if (!Number.isSafeInteger(seed)) throw new TypeError('seed must be an integer');
     if (!adapter || typeof adapter.id !== 'string' || !adapter.id.trim() ||
         ['open', 'produce', 'remove', 'observe', 'close'].some(key => typeof adapter[key] !== 'function')) {

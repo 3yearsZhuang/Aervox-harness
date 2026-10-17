@@ -147,6 +147,7 @@ export function validatePilot(report, rows, { allowTestFixture = false } = {}) {
   assert.equal(report.rawRows, rows.length, 'raw row count mismatch');
   assert.deepEqual(report.config.strategies, STRATEGIES);
   assert.equal(report.config.timeoutMs, FROZEN_PROTOCOL.timeoutMs);
+  assert.equal(report.config.cleanupTimeoutMs, FROZEN_PROTOCOL.cleanupTimeoutMs);
   assert.ok(report.config.budgets.length && report.config.seeds.length, 'empty experiment configuration');
   assert.equal(new Set(report.config.budgets).size, report.config.budgets.length);
   assert.equal(new Set(report.config.seeds).size, report.config.seeds.length);
@@ -198,6 +199,10 @@ export function validatePilot(report, rows, { allowTestFixture = false } = {}) {
   for (const row of rows) {
     assert.ok(allowed.has(row.type), `unknown raw row type: ${row.type}`);
     assert.ok(row.type === 'audit' ? row.subject === 'llamaindex-simple-index-api-only' : SUBJECT_IDS.includes(row.subject), 'unknown raw subject');
+    if (row.run) {
+      assert.equal(row.run.timeoutMs, report.config.timeoutMs, 'run workload deadline differs from frozen configuration');
+      assert.equal(row.run.cleanupTimeoutMs, report.config.cleanupTimeoutMs, 'run cleanup deadline differs from frozen configuration');
+    }
     if (['allocation', 'schedule'].includes(row.type)) {
       assert.ok(STRATEGIES.includes(row.strategy) && report.config.budgets.includes(row.budget) && report.config.seeds.includes(row.seed), 'raw row lies outside allocated configuration');
     }

@@ -43,6 +43,7 @@ function configuration(options) {
   const config = {
     strategies: [...STRATEGIES], budgets: options.budgets ?? [...PROTOCOL.budgets], seeds: options.seeds ?? [...PROTOCOL.seeds],
     replayRepetitions: options.replayRepetitions ?? PROTOCOL.replayRepetitions, timeoutMs: PROTOCOL.timeoutMs,
+    cleanupTimeoutMs: PROTOCOL.cleanupTimeoutMs,
   };
   if (!Array.isArray(config.budgets) || !config.budgets.length || config.budgets.some(value => !Number.isSafeInteger(value) || value < 1) ||
       new Set(config.budgets).size !== config.budgets.length || !Array.isArray(config.seeds) || !config.seeds.length ||
@@ -102,24 +103,24 @@ export async function runPilot(options = {}, injected = null) {
     await save();
     for (const subject of loaded.subjects) {
       const descriptor = report.subjects.find(entry => entry.id === subject.adapter.id);
-      const reference = await runSchedule(subject.adapter, { seed: report.config.seeds[0], timeoutMs: report.config.timeoutMs });
+      const reference = await runSchedule(subject.adapter, { seed: report.config.seeds[0], timeoutMs: report.config.timeoutMs, cleanupTimeoutMs: report.config.cleanupTimeoutMs });
       await persist({ type: 'reference', subject: subject.adapter.id, run: reference });
       for (const budget of report.config.budgets) for (const seed of report.config.seeds) for (const strategy of STRATEGIES) {
         const plans = generatePlans(reference.trace, { strategy, budget, seed, candidates: descriptor.discovery.candidates });
         await persist({ type: 'allocation', subject: subject.adapter.id, strategy, budget, seed, planIds: plans.map(plan => plan.id) });
         for (let i = 0; i < plans.length; i++) {
           const plan = plans[i];
-          const run = await runSchedule(subject.adapter, { plan, seed, timeoutMs: report.config.timeoutMs });
+          const run = await runSchedule(subject.adapter, { plan, seed, timeoutMs: report.config.timeoutMs, cleanupTimeoutMs: report.config.cleanupTimeoutMs });
           await persist({ type: 'schedule', subject: subject.adapter.id, strategy, budget, seed, ordinal: i + 1, plan, run });
         }
       }
       const witness = rows.find(row => row.type === 'schedule' && row.subject === subject.adapter.id && row.run.status === 'completed' && row.run.violations.length > 0);
       if (witness) for (let repetition = 1; repetition <= report.config.replayRepetitions; repetition++) {
-        const run = await runSchedule(subject.adapter, { plan: witness.plan, seed: witness.seed, timeoutMs: report.config.timeoutMs });
+        const run = await runSchedule(subject.adapter, { plan: witness.plan, seed: witness.seed, timeoutMs: report.config.timeoutMs, cleanupTimeoutMs: report.config.cleanupTimeoutMs });
         await persist({ type: 'replay', subject: subject.adapter.id, repetition, seed: witness.seed, plan: witness.plan, run });
       }
     }
-    const audit = await runSchedule(loaded.audit, { seed: report.config.seeds[0], timeoutMs: report.config.timeoutMs });
+    const audit = await runSchedule(loaded.audit, { seed: report.config.seeds[0], timeoutMs: report.config.timeoutMs, cleanupTimeoutMs: report.config.cleanupTimeoutMs });
     await persist({ type: 'audit', subject: loaded.audit.id, classification: 'standalone-api-composition-audit', run: audit });
     report.sourceManifest.after = await hashFiles(root, report.sourceManifest.files);
     report.sourceManifest.changedFiles = report.sourceManifest.files.filter(file => report.sourceManifest.before[file] !== report.sourceManifest.after[file]);
