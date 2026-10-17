@@ -39,6 +39,7 @@ const LIMITATIONS = [
   'Write candidates include add/insert/upsert/put/append/update/set alone or followed by an uppercase letter; delete candidates similarly include delete/remove. Map.set, Set.add and unrelated helpers such as setTimeout remain possible false positives.',
   'execute, executeBatch and run are conservative write-candidates even when their SQL is read-only; read and complete classifications also require manual confirmation.',
   'Locations identify the called identifier, with one-based lines and one-based UTF-16 code-unit columns, not UTF-8 byte offsets.',
+  'enclosingMethod is lexical ownership: anonymous nested callbacks retain the nearest named function or method; named local functions replace it. This is not a call graph or proof that the enclosing operation executes the candidate.',
   'Candidate identifiers bind the relative file, complete source SHA-256, call offsets and lexical method; source edits intentionally invalidate identifiers.',
 ];
 
@@ -123,7 +124,7 @@ function collect(program, file, sourceSha256) {
       className = inferredName(node, parent);
       enclosingMethod = null;
     }
-    if (FUNCTION_TYPES.has(node.type)) enclosingMethod = inferredName(node, parent) ?? '<anonymous>';
+    if (FUNCTION_TYPES.has(node.type)) enclosingMethod = inferredName(node, parent) ?? enclosingMethod ?? '<anonymous>';
     if (node.type === 'CallExpression' || node.type === 'OptionalCallExpression') {
       const called = callIdentifier(node.callee);
       const kind = called && classifyMethod(called.name);

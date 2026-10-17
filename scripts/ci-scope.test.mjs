@@ -279,6 +279,24 @@ test("Memory deletion regression gates generate their evidence without the paper
 });
 
 
+test("Deletion fault testing runs live evidence and never reads the private paper archive", () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, "package.json"), "utf8"));
+  const command = pkg.scripts["check:deletion-fault-testing"];
+  assert.equal(command, "turbo run build --filter=@aervox/worker... && node --test scripts/deletion-fault-testing/*.test.mjs");
+  for (const gate of ["ci-code", "ci-code-full"]) {
+    const entry = fs.readFileSync(MISE_CONFIG, "utf8").split(/\r?\n/).find(line => line.startsWith(`${gate} =`));
+    assert.ok(entry?.includes("pnpm check:deletion-fault-testing"));
+  }
+  const incremental = fs.readFileSync(path.join(ROOT_DIR, "scripts/check-affected.mjs"), "utf8");
+  assert.match(incremental, /spawnSync\("pnpm", \["check:deletion-fault-testing"\]/);
+  assert.match(incremental, /if \(deletionFaultRes\.status !== 0\) process\.exit\(deletionFaultRes\.status \?\? 1\)/);
+  for (const file of ["scripts/deletion-fault-testing/engine.mjs", "scripts/deletion-fault-testing/protocol.json"]) {
+    assert.equal(isDocumentationOnlyChange([file], loadTurboScope()), false);
+    const paths = readWorkflowPaths(CI_WORKFLOW);
+    for (const trigger of [paths.pullRequest, paths.push]) assert.ok(trigger.some(glob => matchesGlob(file, glob)));
+  }
+});
+
 test("CI covers Playwright test directories, configs and executable root launchers", () => {
   const workflow = readWorkflowPaths(CI_WORKFLOW);
   const required = ["aervox", "siyu-chat.command"];

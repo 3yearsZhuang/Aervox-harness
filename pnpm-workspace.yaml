@@ -14,6 +14,9 @@ allowBuilds:
   electron: true
   better-sqlite3: false
   electron-winstaller: false
+  # Historical LlamaIndex research fixture uses TextNode/VectorStoreIndex only;
+  # its transitive code parser is not exercised and must not build native code.
+  tree-sitter: false
 
 # HYG-11: only the affected installed versions are redirected to compatible fixes.
 # Keep selectors narrow; remove an override once upstream no longer resolves that version.

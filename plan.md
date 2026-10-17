@@ -4,11 +4,22 @@
 
 ## 1. 当前协调工作
 
+<a id="iter-066"></a>
+
+### ITER-066 · 实施中：异步删除故障测试生成研究
+
+用户于 2026-10-18 授权继续落地下一篇论文。基于主线 `b08636ac` 在 `feat/deletion-fault-testing` 实现词法候选扫描、执行轨迹、删除交错计划及反例重放；论文与实验材料在归档仓根目录独立的 `deletion-fault-testing/` 维护，实施协调仅取本条目。
+
+- 范围：只在新临时存储中使用合成内容及本地确定性 embedding；真实调用固定历史版本的 LangChain LibSQL 和 LlamaIndex.TS 存储 API。Aervox 为校准对象，旧 SQL 仅为显式历史重构，不算新生产缺陷。所有权、工作负载、观察范围和 checkpoint 仍由人工适配，首版不声称进程崩溃或任意并发生成能力。
+- 协议：生成器与预算在外部正式比较前冻结；比较通用边界、随机边界、仅轨迹和静态候选加轨迹四组，固定预算、种子及 20 次重放。未触发、异常、超时与观察缺失单列，不能计安全通过；相同计划与嵌套预算不是独立样本。
+- 去留：两个外部对象仅建立固定历史集成的可行性；若留出项目上完整方法不优于简单基线，不声称方法效果或新颖性，按工具/可行性报告交付并保留负结果。还未建立独立人工入口真值、接入工时、现行系统代表性或外部独立复现。
+- 当前证据：核心已初次冻结为 `e2b5379b`，正式比较前正在补校准发现的匿名回调词法上下文与真实适配判据测试；实际运行结果、最终冻结提交和门禁状态完成后回填，不沿用前篇数据。
+
 <a id="iter-065"></a>
 
 ### ITER-065 · 已归档：记忆删除质量研究
 
-生产修复与合并后复验见 [PR #285](https://github.com/3yearsZhuang/Aervox-harness/pull/285)、[PR #286](https://github.com/3yearsZhuang/Aervox-harness/pull/286)。论文、双语 PDF、两轮实验原始证据、文献与下一研究建议已迁至[归档仓根目录 `memory-deletion-study/`](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/main/memory-deletion-study)；历史协调记录随包归档。主仓保留生产实现与现场生成证据的实验回归，CI 不依赖私有归档。下一论文仅为建议，未启动实现；归档不改变真实数据库验收、CAP 发布或论文发表状态。
+生产修复与合并后复验见 [PR #285](https://github.com/3yearsZhuang/Aervox-harness/pull/285)、[PR #286](https://github.com/3yearsZhuang/Aervox-harness/pull/286)。论文、双语 PDF、两轮实验原始证据、文献与下一研究建议已迁至[归档仓根目录 `memory-deletion-study/`](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/main/memory-deletion-study)；历史协调记录随包归档。主仓保留生产实现与现场生成证据的实验回归，CI 不依赖私有归档。下一方向的后续授权和实施见 [ITER-066](#iter-066)；归档不改变真实数据库验收、CAP 发布或论文发表状态。
 
 <a id="iter-058"></a>
 

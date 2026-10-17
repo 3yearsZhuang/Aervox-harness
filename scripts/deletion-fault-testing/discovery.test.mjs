@@ -56,7 +56,7 @@ test('finds lexical storage calls in TS classes, typed functions and TSX without
   assert.equal(report.candidates[8].enclosingMethod, 'query');
   assert.equal(report.candidates[8].className, null);
   assert.equal(report.candidates[9].enclosingMethod, 'embed');
-  assert.equal(report.candidates[10].enclosingMethod, '<anonymous>');
+  assert.equal(report.candidates[10].enclosingMethod, 'View');
   assert.equal(report.candidates.find((entry) => entry.method === 'execute').classification, 'write-candidate');
   assert.ok(!JSON.stringify(report).includes('SQL_BODY_SENTINEL'));
   assert.ok(report.limitations.some((line) => line.includes('not confirmed')));
@@ -115,7 +115,7 @@ test('general storage verb rules cover noun suffixes while retaining explicit le
   assert.ok(report.limitations.some((line) => line.includes('Map.set') && line.includes('false positives')));
 });
 
-test('reports nested function scopes and named anonymous classes without leaking outer method names', async (t) => {
+test('reports named nested function scopes and lexical ownership through anonymous callbacks', async (t) => {
   const root = await fixture(t, {
     'scopes.js': [
       'const Store = class {',
@@ -128,8 +128,30 @@ test('reports nested function scopes and named anonymous classes without leaking
   });
   const { candidates } = await discoverCandidates({ root, files: ['scopes.js'] });
   assert.deepEqual(candidates.map(({ method, enclosingMethod, className }) => [method, enclosingMethod, className]), [
-    ['insert', 'retry', 'Store'], ['get', '<anonymous>', 'Store'], ['delete', 'clean', null], ['select', null, null],
+    ['insert', 'retry', 'Store'], ['get', 'read', 'Store'], ['delete', 'clean', null], ['select', null, null],
   ]);
+});
+
+test('transaction callbacks and anonymous IIFEs preserve named lexical methods without inventing a call graph', async (t) => {
+  const root = await fixture(t, {
+    'transactions.ts': [
+      'class Repository {',
+      '  async persist() {',
+      '    await db.transaction(async (tx) => {',
+      '      await (async () => { await tx.insert({}); })();',
+      '      const retry = async () => { await (() => tx.update({}))(); };',
+      '      await retry();',
+      '    });',
+      '  }',
+      '}',
+      '(async () => { await (() => db.delete(1))(); })();',
+    ].join('\n'),
+  });
+  const report = await discoverCandidates({ root, files: ['transactions.ts'] });
+  assert.deepEqual(report.candidates.map(({ method, enclosingMethod, className }) => [method, enclosingMethod, className]), [
+    ['insert', 'persist', 'Repository'], ['update', 'retry', 'Repository'], ['delete', '<anonymous>', null],
+  ]);
+  assert.ok(report.limitations.some(line => line.includes('lexical ownership') && line.includes('not a call graph')));
 });
 
 test('locations are one-based UTF-16 columns and hashes bind exact UTF-8 source bytes', async (t) => {
