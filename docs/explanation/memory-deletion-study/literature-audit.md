@@ -66,6 +66,7 @@ manuscript or obtained an archive DOI.
 | Candidate | Primary scope or author information | Required positioning |
 | --- | --- | --- |
 | Software Quality Journal | [Aims and scope](https://link.springer.com/journal/11219/aims-and-scope) | Current preparation route: a case study of deletion quality, measurement, testing, and verification-contract evolution. Emphasize reusable evidence and retain the single-project limitation. |
+| SN Computer Science | [Aims and scope](https://link.springer.com/journal/42979/aims-and-scope) | A pragmatic alternative covering software engineering, databases, verification and privacy, with a sound-science review perspective. Retain the bounded case-study claims and explain the original contribution; this is not an acceptance prediction. |
 | Software Testing, Verification and Reliability | [Scope](https://onlinelibrary.wiley.com/page/journal/10991689/homepage/aims.htm) and [author guidance](https://onlinelibrary.wiley.com/page/journal/10991689/homepage/forauthors.html) | Emphasize testing method, oracle sensitivity, write-path coverage and fault injection; an experience report still needs transferable lessons. |
 | Software: Practice and Experience | [Overview](https://onlinelibrary.wiley.com/page/journal/1097024x/homepage/productinformation.html) | Reframe around protocol design and implementation. Its scope excludes a primary focus on validation/verification outside design and implementation. |
 | SoftwareX | [Publisher research-elements overview](https://www.elsevier.com/en-gb/researcher/author/tools-and-resources/research-elements-journals) | Conditional tool route: first establish a reusable research-software artifact with adapters, documentation and evidence of scientific usefulness. The present repository-specific harness does not by itself establish that contribution. |
@@ -76,3 +77,50 @@ affiliations, contribution and disclosure statements, check the target's current
 requirements, and create a stable artifact archive if appropriate. The English
 manuscript is preparation material; it is not described as an accepted paper or
 a completed external submission.
+
+## 下一篇论文候选（仅研究建议）
+
+以下建议基于 2026 年 10 月 18 日核对的一手来源，不构成新迭代、实现或
+大规模实验的启动记录，也不表示已经确认新颖性。下一篇应取得新的跨系统
+方法证据，不能仅把当前工程案例的调度、性能或证明版本拆成独立论文。
+
+**主选：从代码与执行轨迹生成异步删除故障测试。** 开发者声明删除对象、
+可观察存储和少量适配器，工具识别候选写入口及“读取—派生/异常写入—
+完成证明”事件，生成暂停、重试与进程终止计划，输出可重放反例。先限定
+主要语言或技术栈；完整写入口发现和语义正确性均作为待验证能力，不承诺
+支持任意仓储或无需人工说明。
+
+| 一手工作 | 已有能力与候选方向的边界 |
+| --- | --- |
+| [DELF，USENIX Security 2020](https://www.usenix.org/conference/usenixsecurity20/presentation/cohn-gordon) | 已有注释驱动异步删除和静态/动态验证；不能把“注释加检查”再次作为新贡献。候选关注既有应用的测试生成、复活反例和接入成本。 |
+| [Paralegal，OSDI 2025](https://www.usenix.org/conference/osdi25/presentation/adam) | 已用标记和程序依赖图检查 Rust 隐私策略；仅扫描删除 API 不足以形成差异。候选需验证静态候选与运行轨迹结合后对时序缺陷的实际收益。 |
+| [Sieve，OSDI 2022](https://www.usenix.org/conference/osdi22/presentation/sun) | 已有状态扰动、自动计划与差分判据；候选不能声称首次轨迹驱动故障测试，应研究删除生命周期特有的计划选择与判据。 |
+| [P2E2，PVLDB 2025](https://www.vldb.org/pvldb/vol18/p3435-chakraborty.pdf) | 已研究依赖导致的推断及最小额外删除；候选检测可观察的残留、复活与误删，不把行级检查解释为推断安全。 |
+
+可证伪的研究问题：RQ1，相比独立人工审计和简单数据库调用扫描，候选
+入口发现能否降低漏检且保持可接受误报？RQ2，相同执行预算下，生成计划
+能否比现有测试、随机延迟和通用故障注入发现更多独立缺陷根因？RQ3，
+接入时间、标记和适配代码是否足够少？RQ4，结果能否在未参与调参的项目
+和版本上复现？
+
+最低证据应包含 Aervox 和至少两个独立外部系统，其中一个完整留出，待
+方法与参数固定后才用于验证。写入口真值由独立人员复核；真实历史缺陷、
+新发现缺陷和人工变异分开报告。基线至少包括原有测试、简单写入口扫描、
+随机调度和通用故障注入，并消融入口发现、轨迹引导、错误路径及完成判据。
+比较运行与人工预算、误报/漏报、独立根因、反例重放、非目标误删及恢复
+时间，不能把变异击杀率当作真实故障发生率。
+
+先在两个外部系统做小规模可行性研究。如果仍需人工枚举全部写入口和
+调度，或完整方法在相同预算下不优于简单基线，应停止通用自动化定位，
+转为经验研究或工具短文；若缺少独立可观察的外部系统，不能用继续扩大
+Aervox 场景替代外部验证。停止条件与正式比较预算应在主实验前固定。
+
+**备选：共享来源派生记忆的选择性删除与效用保持。** 比较整份摘要清除、
+血缘清理及基于剩余来源重建，检验独有事实泄漏、共享事实保留和血缘缺失
+时的退化；至少需要多系统、多模型和可核验来源关系。已有 2026 年预印本
+[Control-Plane Placement Shapes Forgetting](https://arxiv.org/abs/2606.15903)
+与 [Deployment-Time Memorization in Foundation-Model Agents](https://arxiv.org/abs/2606.10062)
+分别研究控制面遗忘评测及派生记忆删除保真度，不能将该主题视为空白，也
+不能将预印本称为已评审论文。若优势仅来自删除更多内容并显著损害保留
+事实，选择性删除贡献即未成立；该方向宜在独立语义判据和计算预算具备后
+再考虑。

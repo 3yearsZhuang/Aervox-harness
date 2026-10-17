@@ -6,7 +6,22 @@
 - [主报告](results/report.json)、[逐案例 CSV](results/cases.csv)与[生产补充报告](results/supplement.json)。报告是数值真源，图表由报告生成。
 - [完成结果图](figures/outcomes.png)、[操作耗时图](figures/latency.png)，同目录保留矢量 PDF。
 - [参考文献](references.bib)、[一手来源与投稿定位](literature-audit.md)。建议优先准备 Software Quality Journal 的工程质量案例路线，强化测试方法后可考虑 Software Testing, Verification and Reliability；这不是录用预测或已投稿声明。
-- [交接检查点](handoff.md)，协调状态见根目录 [plan.md](../../../plan.md) 的 ITER-062。
+- [交接检查点](handoff.md)，协调状态见根目录 [plan.md](../../../plan.md#iter-065) 的 ITER-065。
+
+## 合并后复验
+
+[PR #285](https://github.com/3yearsZhuang/Aervox-harness/pull/285) 已于 2026-10-18 02:36:36（Asia/Shanghai）合入 `main`，合并提交为 `67c3c2e19c2118bbc15f127dcd61b57bc1c1a052`。在该提交、已跟踪文件无改动的工作区重新构建后完整复跑：175 个正确性案例、120 条计时、四个错误回写案例和两个代表性恢复探针，以及 12 个生产终止边界、五种跨进程调度、九个规模样本和 24 条写入计时均通过严格校验。五臂正确性汇总与原测量一致，完整机制仍为 30 次安全完成、五次正确阻塞、零错误完成和零复活。
+
+原始结果和正文图表保持原测量；[合并后主报告](results/merged-67c3c2e1/report.json)、[CSV](results/merged-67c3c2e1/cases.csv)、[补充报告](results/merged-67c3c2e1/supplement.json)及[版本与校验记录](results/merged-67c3c2e1/verification.json)另存。97 项关键输入与原测量相同，两轮样本不合并。这是已合并代码上的同机复验，不是跨项目复现、真实用户库验收或正式发布；中英文正文 §6.5 已声明该边界。
+
+```bash
+mise exec -- node scripts/memory-deletion-research/validate-report.mjs \
+  docs/explanation/memory-deletion-study/results/merged-67c3c2e1 --check-source
+mise exec -- node scripts/memory-deletion-research/validate-supplement.mjs \
+  docs/explanation/memory-deletion-study/results/merged-67c3c2e1/supplement.json --check-source
+```
+
+下一篇论文候选、与已有工作的差异、最低实验集及停止条件见[研究方向建议](literature-audit.md#下一篇论文候选仅研究建议)；目前仅提出研究设计，未启动工具实现或外部项目实验。
 
 ## 2026-10-18 大修范围
 

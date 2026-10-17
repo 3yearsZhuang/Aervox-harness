@@ -1,0 +1,220 @@
+{
+  "schemaVersion": 1,
+  "kind": "post-merge-revalidation",
+  "validatedAt": "2026-10-17T18:39:48.629608+00:00",
+  "pullRequest": {
+    "baseRefName": "main",
+    "headRefOid": "1c656771bc1bda19ea5f74ee561f0c23bc3c1acc",
+    "mergeCommit": {
+      "oid": "67c3c2e19c2118bbc15f127dcd61b57bc1c1a052"
+    },
+    "mergedAt": "2026-10-17T18:36:36Z",
+    "state": "MERGED",
+    "url": "https://github.com/3yearsZhuang/Aervox-harness/pull/285"
+  },
+  "measuredCommit": "67c3c2e19c2118bbc15f127dcd61b57bc1c1a052",
+  "primaryMeasurementCommit": "bd19a16c17759ab9582d6b30fb4bb381b7bfcb5a",
+  "measuredWorkingTree": "",
+  "sourceInputCount": 97,
+  "primaryAndRevalidationInputsIdentical": true,
+  "mainOutcomeSummaryIdentical": true,
+  "mainOutcomeSummary": [
+    {
+      "arm": "soft-delete",
+      "cases": 35,
+      "completed": 35,
+      "falseCompletions": 35,
+      "resurrections": 0,
+      "safeCompletions": 0,
+      "finalResidues": 35,
+      "keepViolations": 0,
+      "errors": 0,
+      "latencySamples": 24
+    },
+    {
+      "arm": "cleanup-only",
+      "cases": 35,
+      "completed": 35,
+      "falseCompletions": 15,
+      "resurrections": 10,
+      "safeCompletions": 10,
+      "finalResidues": 25,
+      "keepViolations": 0,
+      "errors": 0,
+      "latencySamples": 24
+    },
+    {
+      "arm": "verified-cleanup",
+      "cases": 35,
+      "completed": 20,
+      "falseCompletions": 0,
+      "resurrections": 10,
+      "safeCompletions": 10,
+      "finalResidues": 25,
+      "keepViolations": 0,
+      "errors": 0,
+      "latencySamples": 24
+    },
+    {
+      "arm": "guarded-cleanup",
+      "cases": 35,
+      "completed": 35,
+      "falseCompletions": 5,
+      "resurrections": 0,
+      "safeCompletions": 30,
+      "finalResidues": 5,
+      "keepViolations": 0,
+      "errors": 0,
+      "latencySamples": 24
+    },
+    {
+      "arm": "verified-guarded",
+      "cases": 35,
+      "completed": 30,
+      "falseCompletions": 0,
+      "resurrections": 0,
+      "safeCompletions": 30,
+      "finalResidues": 5,
+      "keepViolations": 0,
+      "errors": 0,
+      "latencySamples": 24
+    }
+  ],
+  "files": {
+    "report.json": "dfd8d48bc363f3e1b09168c27e92b4a31a9d1070a4a561ab8163fd08272f527d",
+    "cases.csv": "f9bc7ac5f9d3e8382bbcc67024e5be53221d3649894887b6d797488a42feaceb",
+    "supplement.json": "35d119c2c7b56759cc6c96785fc286ef03c41c1e61d76ede9c7156b428107231"
+  },
+  "checks": [
+    {
+      "command": [
+        "mise",
+        "exec",
+        "--",
+        "node",
+        "scripts/memory-deletion-research/validate-report.mjs",
+        "docs/explanation/memory-deletion-study/results/merged-67c3c2e1",
+        "--check-source"
+      ],
+      "exitCode": 0,
+      "result": {
+        "valid": true,
+        "correctnessCases": 175,
+        "timingSamples": 120,
+        "errorSinkCases": 4,
+        "crashProbes": 2,
+        "summary": [
+          {
+            "arm": "soft-delete",
+            "cases": 35,
+            "completed": 35,
+            "falseCompletions": 35,
+            "resurrections": 0,
+            "safeCompletions": 0,
+            "finalResidues": 35,
+            "keepViolations": 0,
+            "errors": 0,
+            "latencySamples": 24,
+            "p25Ms": 0.12863549999929091,
+            "medianMs": 0.16156250000040018,
+            "p75Ms": 0.2864997500005302,
+            "p95Ms": 0.40082939999892914
+          },
+          {
+            "arm": "cleanup-only",
+            "cases": 35,
+            "completed": 35,
+            "falseCompletions": 15,
+            "resurrections": 10,
+            "safeCompletions": 10,
+            "finalResidues": 25,
+            "keepViolations": 0,
+            "errors": 0,
+            "latencySamples": 24,
+            "p25Ms": 0.8594267499997841,
+            "medianMs": 1.0214585000003353,
+            "p75Ms": 1.5265519999993558,
+            "p95Ms": 2.1137830999999996
+          },
+          {
+            "arm": "verified-cleanup",
+            "cases": 35,
+            "completed": 20,
+            "falseCompletions": 0,
+            "resurrections": 10,
+            "safeCompletions": 10,
+            "finalResidues": 25,
+            "keepViolations": 0,
+            "errors": 0,
+            "latencySamples": 24,
+            "p25Ms": 2.5328855000002477,
+            "medianMs": 3.332729000000654,
+            "p75Ms": 3.805812000001424,
+            "p95Ms": 4.526605449998987
+          },
+          {
+            "arm": "guarded-cleanup",
+            "cases": 35,
+            "completed": 35,
+            "falseCompletions": 5,
+            "resurrections": 0,
+            "safeCompletions": 30,
+            "finalResidues": 5,
+            "keepViolations": 0,
+            "errors": 0,
+            "latencySamples": 24,
+            "p25Ms": 0.8146562500000982,
+            "medianMs": 0.9421874999998181,
+            "p75Ms": 1.211562499998763,
+            "p95Ms": 1.396943799999917
+          },
+          {
+            "arm": "verified-guarded",
+            "cases": 35,
+            "completed": 30,
+            "falseCompletions": 0,
+            "resurrections": 0,
+            "safeCompletions": 30,
+            "finalResidues": 5,
+            "keepViolations": 0,
+            "errors": 0,
+            "latencySamples": 24,
+            "p25Ms": 2.5936462500017115,
+            "medianMs": 3.1312920000000304,
+            "p75Ms": 3.7783440000016526,
+            "p95Ms": 4.359606249999069
+          }
+        ],
+        "csvRows": 175,
+        "supplement": {
+          "crashProbes": 12,
+          "concurrencySchedules": 5,
+          "scaleSamples": 9,
+          "writerSamples": 24
+        },
+        "sourceHashes": 97
+      }
+    },
+    {
+      "command": [
+        "mise",
+        "exec",
+        "--",
+        "node",
+        "scripts/memory-deletion-research/validate-supplement.mjs",
+        "docs/explanation/memory-deletion-study/results/merged-67c3c2e1/supplement.json",
+        "--check-source"
+      ],
+      "exitCode": 0,
+      "result": {
+        "valid": true,
+        "crashProbes": 12,
+        "concurrencySchedules": 5,
+        "scaleSamples": 9,
+        "writerSamples": 24,
+        "sourceHashes": 97
+      }
+    }
+  ],
+  "scope": "Same machine, synthetic data and predefined protocol; not independent external replication. Original primary timings and figures retained; revalidation timings archived separately and not pooled."
+}
