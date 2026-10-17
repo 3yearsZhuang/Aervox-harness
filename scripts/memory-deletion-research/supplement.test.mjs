@@ -18,9 +18,13 @@ test('production crash, worker races and fresh-process size probes preserve raw 
       r => { r.crashes[0].rollbackIntact = false; },
       r => { r.crashes.pop(); },
       r => { r.concurrency[0].final.clean = false; },
+      r => { delete r.concurrency[0].final.residue.vector; },
+      r => { r.concurrency[0].workers = []; },
+      r => { r.crashes[0].pendingBeforeRetry = false; },
       r => { r.scale[0].backgroundIntact = 0; },
       r => { r.writerTiming[0].persisted = false; },
       r => { r.sourceConsistency.afterHashes = {}; },
+      r => { const key = Object.keys(r.hashes)[0]; r.hashes[key] = r.sourceConsistency.afterHashes[key] = 'not-a-sha256'; },
     ]) {
       const changed = structuredClone(report); mutate(changed);
       assert.throws(() => validateSupplement(changed));

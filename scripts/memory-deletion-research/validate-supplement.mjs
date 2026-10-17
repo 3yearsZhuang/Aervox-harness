@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { STORES } from './protocol.mjs';
+import { REQUIRED_SOURCE_FILES } from './source-manifest.mjs';
 
 export const CRASH_STAGES = [
   ...Array.from({ length: 8 }, (_, i) => `clean-mutation-${i + 1}`),
@@ -15,9 +17,14 @@ export const SCALE_PROFILES = [
   { id: 'large', backgroundRecords: 10000, targetRevisions: 1000, contentBytes: 4096 },
 ];
 const finite = (value, name) => assert.ok(Number.isFinite(value) && value >= 0, name);
-const clean = (value, label) => {
+const observation = (value, label) => {
   assert.ok(value && value.keepIntact === true, `${label}: keep changed`);
+  assert.deepEqual(Object.keys(value.residue).sort(), [...STORES].sort(), `${label}: logical stores missing`);
+  for (const count of Object.values(value.residue)) assert.ok(Number.isSafeInteger(count) && count >= 0, `${label}: invalid residue count`);
   assert.equal(value.clean, Object.values(value.residue).every(n => n === 0), `${label}: residue disagrees`);
+};
+const clean = (value, label) => {
+  observation(value, label);
   assert.equal(value.clean, true, `${label}: residue remains`);
 };
 
@@ -34,7 +41,8 @@ export function validateSupplement(report) {
     assert.equal(row.error, null, stage);
     assert.equal(row.signal, 'SIGKILL', stage);
     assert.equal(row.barrier, stage, `${stage}: wrong barrier`);
-    assert.equal(row.reopened.keepIntact, true, stage);
+    observation(row.reopened, stage);
+    assert.equal(row.pendingBeforeRetry, stage !== 'after-request-complete', `${stage}: pre-retry gate`);
     assert.equal(row.reopened.clean, !stage.startsWith('clean-mutation-'), `${stage}: commit boundary`);
     if (stage.startsWith('clean-mutation-')) assert.equal(row.rollbackIntact, true, `${stage}: rollback`);
     clean(row.afterRetry, stage);
@@ -51,6 +59,8 @@ export function validateSupplement(report) {
     assert.equal(row.workerProcesses, schedule === 'two-cached-workers' ? 2 : 1, schedule);
     assert.ok(row.firstDeletion === 0 || row.firstDeletion === 1, schedule);
     if (schedule === 'guard-holds-writer') assert.equal(row.writerLockObserved, true, 'writer lock not observed');
+    assert.equal(row.workers.length, row.workerProcesses, 'missing worker observations');
+    for (const worker of row.workers) assert.equal(worker.markers, schedule === 'guard-holds-writer' ? 1 : 0, 'unexpected worker completion');
     assert.equal(row.deletionsCompleted, 1, schedule);
     clean(row.final, schedule);
     assert.equal(row.pending, false, schedule);
@@ -80,10 +90,14 @@ export function validateSupplement(report) {
     finite(rows[0].ms, 'writer timing');
     assert.equal(rows[0].persisted, true, 'writer must actually insert');
   }
-  assert.equal(report.sourceConsistency.changedFiles.length, 0, 'source drift');
+  assert.match(report.commit, /^[0-9a-f]{40}$/, 'measured commit');
+  assert.ok(Number.isFinite(Date.parse(report.generatedAt)), 'measurement time');
+  assert.equal(typeof report.workingTree, 'string', 'working tree provenance');
+  assert.deepEqual(Object.keys(report.hashes).sort(), [...REQUIRED_SOURCE_FILES].sort(), 'required measurement inputs missing');
+  for (const hash of Object.values(report.hashes)) assert.match(hash, /^[0-9a-f]{64}$/, 'invalid source SHA256');
+  assert.deepEqual(report.sourceConsistency.changedFiles, [], 'source drift');
   assert.deepEqual(report.sourceConsistency.readErrors, {});
   assert.deepEqual(report.hashes, report.sourceConsistency.afterHashes, 'source changed');
-  assert.ok(Object.keys(report.hashes).length >= 62, 'source coverage');
   return { crashProbes: report.crashes.length, concurrencySchedules: report.concurrency.length, scaleSamples: report.scale.length, writerSamples: report.writerTiming.length };
 }
 

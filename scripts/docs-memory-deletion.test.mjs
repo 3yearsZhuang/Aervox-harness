@@ -47,6 +47,7 @@ function fixture(t, changedFile, { json = archivedJson, csv = archivedCsv, suppl
     "scripts/docs-lint-affected.mjs", "scripts/docs-governance.mjs",
     "scripts/memory-deletion-research/validate-report.mjs",
     "scripts/memory-deletion-research/protocol.mjs",
+    "scripts/memory-deletion-research/source-manifest.mjs",
     "scripts/memory-deletion-research/validate-supplement.mjs",
   ]) write(file, fs.readFileSync(path.join(rootDirectory, file)));
   write("README.md", "# Project\n");
