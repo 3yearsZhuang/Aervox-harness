@@ -110,6 +110,9 @@ mise exec python@3.13.15 -- python -m venv "$study_venv"
 "$study_venv/bin/python" scripts/memory-deletion-research/render-paper.py \
   --source docs/explanation/memory-deletion-study/paper.md \
   --out output/pdf/memory-deletion-study.pdf
+"$study_venv/bin/python" scripts/memory-deletion-research/render-paper.py \
+  --source docs/explanation/memory-deletion-study/paper.en.md \
+  --out output/pdf/memory-deletion-study.en.pdf
 ```
 
 图表输出 PNG 与矢量 PDF。正文使用研究包 `figures/` 中经审阅的图，因此新测量获采纳时必须同时更新 JSON、CSV、补充报告、图表与双语正文。PDF 是可重建产物，不代替原始证据。渲染后逐页检查分页、字体、表格和图；成功退出不等于版面验收。非 macOS 平台可用 `--font` 指定中文 TrueType 字体，发布前仍须检查嵌入和字形。
@@ -118,4 +121,6 @@ mise exec python@3.13.15 -- python -m venv "$study_venv"
 
 定向生产回归、研究脚本检查、归档校验、文档门禁和全量终审分别记录完整退出状态。推送前按贡献指南运行 `./aervox ci all`。论文准备、合成升级回归、真实用户数据库重验、PR 合入及正式发表分别陈述；代码支持 v3 重选不代表已有用户数据库已完成重验。
 
-本轮主/补充报告已通过严格来源校验；完整仓库终审以最终命令退出状态为准，不能从正在运行的进度推断通过。历史 2026-10-15 日志仅用于追溯，不能替代本轮退出状态。作者、单位、披露及稳定归档 DOI 由实际信息补充后再按目标期刊要求准备投稿。
+2026-10-18 本轮 `./aervox ci all` 退出 0，构建、类型、全量测试、研究回归、原生专项与文档门禁通过；API 724 项、仓储 476 项、Worker 126 项，研究回归 14 项通过。主/补充报告的 97 项来源哈希在最终构建后再次校验一致。中文 10 页、英文 13 页 PDF 已逐页检查，文本可提取。完整日志位于本地 `artifacts/memory-deletion-review/ci-all.log`，远端检查以 PR 当前提交为准。
+
+历史 2026-10-15 日志仅用于追溯，不能替代本轮退出状态。作者、单位、披露及稳定归档 DOI 由实际信息补充后再按目标期刊要求准备投稿。
