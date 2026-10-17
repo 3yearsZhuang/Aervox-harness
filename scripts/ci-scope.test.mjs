@@ -245,7 +245,7 @@ test("Rust pilot and executable contracts remain in local and CI gates", () => {
   assert.match(config, /node --test scripts\/native-search.test.mjs/);
 });
 
-test("Memory deletion research and archived evidence remain in code gates", () => {
+test("Memory deletion regression gates generate their evidence without the paper archive", () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, "package.json"), "utf8"));
   const command = pkg.scripts["check:memory-deletion"];
   assert.equal(typeof command, "string");
@@ -253,9 +253,8 @@ test("Memory deletion research and archived evidence remain in code gates", () =
   assert.deepEqual(steps, [
     "turbo run build --filter=@aervox/worker...",
     "node --test scripts/memory-deletion-research/runner.test.mjs scripts/memory-deletion-research/supplement.test.mjs",
-    "node scripts/memory-deletion-research/validate-report.mjs docs/explanation/memory-deletion-study/results",
-  ], "build dependencies before exercising the runner and validating archived JSON/CSV");
-  assert.equal(command.includes("--check-source"), false, "archived measurements retain their original source snapshot");
+  ], "build dependencies before exercising the runner and production supplement");
+  assert.equal(command.includes("docs/"), false, "code gates must not depend on archived paper assets");
 
   const config = fs.readFileSync(MISE_CONFIG, "utf8");
   for (const gate of ["ci-code", "ci-code-full"]) {

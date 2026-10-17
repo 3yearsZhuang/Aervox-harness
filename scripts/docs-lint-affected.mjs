@@ -74,7 +74,6 @@ export function selectDocumentationChecks(changedFiles, exists = fs.existsSync) 
   return {
     markdownFiles: uniquePaths.filter((file) => isGovernedMarkdown(file) && exists(file)),
     runGovernance: uniquePaths.some(isGovernanceInput),
-    runMemoryDeletionStudy: uniquePaths.some((file) => file.startsWith("docs/explanation/memory-deletion-study/")),
     lintAll: uniquePaths.some((file) =>
       file === ".markdownlint-cli2.jsonc" || file === ".vale.ini" ||
       file.startsWith(".vale/") || file === "mise.toml",
@@ -122,18 +121,6 @@ function main() {
     }
   } else {
     console.log("[docs-affected] 无现存 Markdown 待 lint；继续检查删除与治理输入变更。");
-  }
-
-  if (checks.runMemoryDeletionStudy) {
-    console.log("[docs-affected] 校验记忆删除研究的归档 JSON 与 CSV...");
-    const studyStatus = run(process.execPath, [
-      "scripts/memory-deletion-research/validate-report.mjs",
-      "docs/explanation/memory-deletion-study/results",
-    ]);
-    if (studyStatus !== 0) {
-      process.exitCode = studyStatus;
-      return;
-    }
   }
 
   console.log("[docs-affected] 检查文档 ID、ADR 状态与本地链接...");

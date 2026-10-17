@@ -67,7 +67,7 @@ const testArgs = ["exec", "turbo", "run", "test", "--concurrency=2", ...filterAr
 const testRes = spawnSync("pnpm", testArgs, { stdio: "inherit" });
 if (testRes.status !== 0) process.exit(testRes.status ?? 1);
 
-// 研究 runner 位于包外，不能只依赖 Turbo 包差异测试；同时核对归档 JSON/CSV。
+// 删除回归 runner 位于包外，不能只依赖 Turbo 包差异测试；证据由测试现场生成。
 const memoryDeletionRes = spawnSync("pnpm", ["check:memory-deletion"], { stdio: "inherit" });
 if (memoryDeletionRes.status !== 0) process.exit(memoryDeletionRes.status ?? 1);
 

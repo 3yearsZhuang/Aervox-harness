@@ -164,10 +164,10 @@ test('CSV parser preserves quotes and embedded newlines and rejects malformed ce
   for (const invalid of ['"unterminated', '"closed"trailing', 'unquoted"quote']) assert.throws(() => parseCsv(invalid));
 });
 
-test('an unexpected observation fails validation but preserves raw JSON and CSV without overwriting evidence', async () => {
+async function assertFailedReportPersists(validReport) {
   const out = await mkdtemp(path.join(tmpdir(), 'aervox-deletion-failed-report-'));
   try {
-    const report = JSON.parse(await readFile(new URL('../../docs/explanation/memory-deletion-study/results/report.json', import.meta.url), 'utf8'));
+    const report = structuredClone(validReport);
     const failure = 'Error: observer failed with "unexpected" response\nretain this evidence';
     report.cases[0].error = failure;
     await assert.rejects(persistReport(report, { out }), /experiment error.*raw evidence preserved/s);
@@ -179,9 +179,9 @@ test('an unexpected observation fails validation but preserves raw JSON and CSV 
     assert.equal(await readFile(path.join(out, 'report.json'), 'utf8'), json);
     assert.equal(await readFile(path.join(out, 'cases.csv'), 'utf8'), csv);
   } finally { await rm(out, { recursive: true, force: true }); }
-});
+}
 
-test('complete run validates every schedule, sink and crash; stale aggregates and overwritten evidence fail', async () => {
+test('complete run validates every schedule, sink and crash; stale aggregates and overwritten evidence fail', async (t) => {
   const out = await mkdtemp(path.join(tmpdir(), 'aervox-deletion-report-test-'));
   try {
     const report = await run({ out, repetitions: 1 });
@@ -191,6 +191,9 @@ test('complete run validates every schedule, sink and crash; stale aggregates an
     const csv = await readFile(path.join(out, 'cases.csv'), 'utf8');
     assert.equal(validateCsv(report, csv), 175);
     await validateSourceHashes(report, fileURLToPath(new URL('../../', import.meta.url)));
+    await t.test('an unexpected observation fails validation but preserves raw JSON and CSV without overwriting evidence', async () => {
+      await assertFailedReportPersists(report);
+    });
     const mutate = fn => { const copy = structuredClone(report); fn(copy); assert.throws(() => validateReport(copy)); };
     mutate(r => { r.cases[1] = r.cases[0]; });
     mutate(r => { r.summary[0].falseCompletions--; });
