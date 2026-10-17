@@ -194,7 +194,7 @@ Memory 本地删除切片的完成验证必须重新核对正文、关键词及�
 
 Memory 压缩事件的失败/死信回写必须在同一原子 UPDATE 中确认事件未标记删除且对应来源存在、未删除，防止已读取的正文通过错误文本重新持久化。该检查不改变其他类型事件的失败处理。记忆修订、证据和事件的新增在同一写者事务内检查所属 Memory 尚未删除；当前修订引用通过单条带存活及归属条件的 UPDATE 写入。子记忆、树边证据及 Skill 候选也不得向已存在的删除墓碑新增关联；已有共享投影继续要求其所属生命周期清理，不由此切片级联删除。
 
-完成证明版本由[共享常量](../../packages/repositories/src/memory-deletion-protocol.ts)定义为 `memory-local-v3`，清理验证器、未验证请求判据及 Worker 审计共用该值。旧版（包括 `memory-local-v2`）completed 证明继续阻断使用，并由 Worker 重新选择全部显式 targets，逐一重新清理、独立验证后更新证明；失败保留关闭状态并可重试。请求和目标身份保留，目标旧证明在重新执行时被替换，既有审计记录不删除。此机制不代表已经对真实用户库运行重验；备份及物理页擦除仍需独立验收。有限实验与复现方法见[记忆删除研究包](../explanation/memory-deletion-study/README.md)。
+完成证明版本由[共享常量](../../packages/repositories/src/memory-deletion-protocol.ts)定义为 `memory-local-v3`，清理验证器、未验证请求判据及 Worker 审计共用该值。旧版（包括 `memory-local-v2`）completed 证明继续阻断使用，并由 Worker 重新选择全部显式 targets，逐一重新清理、独立验证后更新证明；失败保留关闭状态并可重试。请求和目标身份保留，目标旧证明在重新执行时被替换，既有审计记录不删除。此机制不代表已经对真实用户库运行重验；备份及物理页擦除仍需独立验收。有限实验与复现方法见[归档的记忆删除研究包](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/main/memory-deletion-study)。
 
 ### 8.1 P2P 同步行状态与删除墓碑
 
