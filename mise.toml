@@ -30,10 +30,10 @@ ci-fast = "node --test scripts/ci-scope.test.mjs && node scripts/check-affected.
 ci-affected = "mise tasks run ci-fast"
 
 # 本地代码门禁（免重复 install，受控 2 并发）
-ci-code = "pnpm check:guards && pnpm check:boundary && pnpm check:ci-config && pnpm check:artifacts && pnpm build && pnpm check:standards && pnpm typecheck && pnpm test && pnpm check:hls && mise tasks run native-search-check && mise tasks run native-runtime-check"
+ci-code = "pnpm check:guards && pnpm check:boundary && pnpm check:ci-config && pnpm check:artifacts && pnpm build && pnpm check:standards && pnpm typecheck && pnpm test && pnpm check:hls && pnpm check:memory-deletion && mise tasks run native-search-check && mise tasks run native-runtime-check"
 
 # 全量冷启动代码门禁（对齐 GitHub Actions CI，含 frozen-lockfile install）
-ci-code-full = "pnpm install --frozen-lockfile && pnpm check:guards && pnpm check:boundary && pnpm check:ci-config && pnpm check:artifacts && pnpm build && pnpm check:standards && pnpm typecheck && pnpm test && pnpm check:hls && mise tasks run native-search-check && mise tasks run native-runtime-check"
+ci-code-full = "pnpm install --frozen-lockfile && pnpm check:guards && pnpm check:boundary && pnpm check:ci-config && pnpm check:artifacts && pnpm build && pnpm check:standards && pnpm typecheck && pnpm test && pnpm check:hls && pnpm check:memory-deletion && mise tasks run native-search-check && mise tasks run native-runtime-check"
 
 # 代码守卫（禁用标识符 + 宿主领域纯度 + 类型边界 + 依赖提升 + 可移除实现）
 check-guards = "pnpm check:guards"

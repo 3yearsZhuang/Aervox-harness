@@ -6,6 +6,7 @@
 import { eq, and, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { consentGrants, deletionRequests, deletionTargets } from "@aervox/schema";
+import { MEMORY_DELETION_VERIFIER } from "../../memory-deletion-protocol.js";
 import type { LocalContext } from "../../local-context.js";
 import type {
   IPrivacyRepository,
@@ -19,7 +20,7 @@ export const unverifiedDeletionRequest = sql`${deletionRequests.status} != 'comp
             OR NOT EXISTS (SELECT 1 FROM deletion_targets t WHERE t.request_id = ${deletionRequests.id})
             OR EXISTS (SELECT 1 FROM deletion_targets t WHERE t.request_id = ${deletionRequests.id}
               AND (t.status != 'completed' OR t.verified_at IS NULL OR
-                CASE WHEN json_valid(t.evidence_ref) THEN json_extract(t.evidence_ref, '$.verifier') ELSE NULL END IS NOT 'memory-local-v2'))`;
+                CASE WHEN json_valid(t.evidence_ref) THEN json_extract(t.evidence_ref, '$.verifier') ELSE NULL END IS NOT ${MEMORY_DELETION_VERIFIER}))`;
 
 export class SqlitePrivacyRepository implements IPrivacyRepository {
   constructor(private readonly db: AervoxDatabase) {}

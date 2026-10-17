@@ -4,7 +4,7 @@
  * 规则依据：docs/reference/PRD.md §8（SourceArtifact/SourceRevision/MemoryRevision/MemoryEvidence/MemoryEvent）
  * 不变量：来源删除后保留 tombstone，MemoryEvidence 不随来源级联删除。
  */
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import {
   sourceArtifacts,
@@ -16,6 +16,7 @@ import {
 } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
 import { RepositoryNotFoundError } from "../../errors.js";
+import { assertMemoryWriteAvailable, assertMemoryRevisionWriteAvailable } from "./memory-write-guard.js";
 import type {
   IProvenanceRepository,
   SourceArtifactModel,
@@ -111,29 +112,22 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
       algorithmVersion?: string | null;
     },
   ): Promise<MemoryRevisionModel> {
-    // 目标记忆必须存在
-    const [memory] = await this.db
-      .select()
-      .from(memoryRecords)
-      .where(
-        and(
-          eq(memoryRecords.id, revisionData.memoryId),
-        ),
-      );
-    if (!memory) throw new RepositoryNotFoundError(`Memory ${revisionData.memoryId} not found`);
-    const [created] = await this.db
-      .insert(memoryRevisions)
-      .values({
-        id: revisionData.id,
-        memoryId: revisionData.memoryId,
-        content: revisionData.content,
-        confidence: revisionData.confidence ?? 0,
-        importance: revisionData.importance ?? 0,
-        algorithmVersion: revisionData.algorithmVersion ?? null,
-        createdAt: new Date().toISOString(),
-      })
-      .returning();
-    return created as MemoryRevisionModel;
+    return this.db.transaction(async (tx) => {
+      await assertMemoryWriteAvailable(tx, revisionData.memoryId);
+      const [created] = await tx
+        .insert(memoryRevisions)
+        .values({
+          id: revisionData.id,
+          memoryId: revisionData.memoryId,
+          content: revisionData.content,
+          confidence: revisionData.confidence ?? 0,
+          importance: revisionData.importance ?? 0,
+          algorithmVersion: revisionData.algorithmVersion ?? null,
+          createdAt: new Date().toISOString(),
+        })
+        .returning();
+      return created as MemoryRevisionModel;
+    });
   }
 
   async setMemoryCurrentRevision(
@@ -148,6 +142,9 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
       .where(
         and(
           eq(memoryRecords.id, memoryId),
+          eq(memoryRecords.isDeleted, 0),
+          sql`EXISTS (SELECT 1 FROM ${memoryRevisions}
+            WHERE ${memoryRevisions.id} = ${revisionId} AND ${memoryRevisions.memoryId} = ${memoryId})`,
         ),
       )
       .returning();
@@ -178,19 +175,22 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
       sourceRange?: string | null;
     },
   ): Promise<MemoryEvidenceModel> {
-    const [created] = await this.db
-      .insert(memoryEvidence)
-      .values({
-        id: evidenceData.id,
-        memoryRevisionId: evidenceData.memoryRevisionId,
-        sourceArtifactId: evidenceData.sourceArtifactId,
-        sourceRevisionId: evidenceData.sourceRevisionId,
-        sourceRange: evidenceData.sourceRange ?? null,
-        status: "active",
-        createdAt: new Date().toISOString(),
-      })
-      .returning();
-    return created as MemoryEvidenceModel;
+    return this.db.transaction(async (tx) => {
+      await assertMemoryRevisionWriteAvailable(tx, evidenceData.memoryRevisionId);
+      const [created] = await tx
+        .insert(memoryEvidence)
+        .values({
+          id: evidenceData.id,
+          memoryRevisionId: evidenceData.memoryRevisionId,
+          sourceArtifactId: evidenceData.sourceArtifactId,
+          sourceRevisionId: evidenceData.sourceRevisionId,
+          sourceRange: evidenceData.sourceRange ?? null,
+          status: "active",
+          createdAt: new Date().toISOString(),
+        })
+        .returning();
+      return created as MemoryEvidenceModel;
+    });
   }
 
   async recordMemoryEvent(
@@ -205,29 +205,23 @@ export class SqliteProvenanceRepository implements IProvenanceRepository {
       actorType?: string;
     },
   ): Promise<MemoryEventModel> {
-    const [memory] = await this.db
-      .select()
-      .from(memoryRecords)
-      .where(
-        and(
-          eq(memoryRecords.id, eventData.memoryId),
-        ),
-      );
-    if (!memory) throw new RepositoryNotFoundError(`Memory ${eventData.memoryId} not found`);
-    const [created] = await this.db
-      .insert(memoryEvents)
-      .values({
-        id: eventData.id,
-        memoryId: eventData.memoryId,
-        action: eventData.action,
-        fromTier: eventData.fromTier ?? null,
-        toTier: eventData.toTier ?? null,
-        reason: eventData.reason ?? null,
-        actorType: eventData.actorType ?? "system",
-        createdAt: new Date().toISOString(),
-      })
-      .returning();
-    return created as MemoryEventModel;
+    return this.db.transaction(async (tx) => {
+      await assertMemoryWriteAvailable(tx, eventData.memoryId);
+      const [created] = await tx
+        .insert(memoryEvents)
+        .values({
+          id: eventData.id,
+          memoryId: eventData.memoryId,
+          action: eventData.action,
+          fromTier: eventData.fromTier ?? null,
+          toTier: eventData.toTier ?? null,
+          reason: eventData.reason ?? null,
+          actorType: eventData.actorType ?? "system",
+          createdAt: new Date().toISOString(),
+        })
+        .returning();
+      return created as MemoryEventModel;
+    });
   }
 
   async listMemoryEvents(ctx: LocalContext, memoryId: string): Promise<MemoryEventModel[]> {

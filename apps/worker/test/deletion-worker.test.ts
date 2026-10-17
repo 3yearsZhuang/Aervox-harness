@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createInMemoryDatabase, initDatabaseSchema, SqlitePrivacyRepository, SqlitePlatformRepository, SqliteMemoryRepository, SqliteMemoryEmbeddingRepository, SqliteMemoryDeletionStore, indexMemoryFts, searchMemoriesFts } from "@aervox/repositories";
+import { createInMemoryDatabase, initDatabaseSchema, MEMORY_DELETION_VERIFIER, SqlitePrivacyRepository, SqlitePlatformRepository, SqliteMemoryRepository, SqliteMemoryEmbeddingRepository, SqliteMemoryDeletionStore, indexMemoryFts, searchMemoriesFts } from "@aervox/repositories";
 import { runDeletionCycle, type DeletionWorkerContext } from "../src/deletion-worker.js";
 import { SqliteMemoryCompactionRepository, SqliteOutboxRepository, MemoryCompactionUnavailableError } from "@aervox/repositories";
 import { runCompactionMarkerCycle, COMPACTION_EVENT_TYPE } from "../src/compaction-marker.js";
@@ -31,12 +31,12 @@ describe("verified Memory deletion", () => {
     expect((await database.client.execute("SELECT content FROM memory_revisions WHERE memory_id = 'remove'")).rows[0]!.content).toBe("");
     const target = (await database.client.execute("SELECT * FROM deletion_targets")).rows[0]!;
     expect(target.status).toBe("completed");
-    expect(JSON.parse(String(target.evidence_ref))).toMatchObject({ verifier: "memory-local-v2", ftsRows: 0, vectorRows: 0 });
+    expect(JSON.parse(String(target.evidence_ref))).toMatchObject({ verifier: MEMORY_DELETION_VERIFIER, ftsRows: 0, vectorRows: 0 });
     expect(await ctx.privacyRepo.hasPendingDeletionRequest(local)).toBe(false);
     // An indexer that started before deletion cannot reinsert its late result.
     await indexMemoryFts(database.client, local, { id: "remove", content: "late privateword" });
     await new SqliteMemoryEmbeddingRepository(database.db).insertBatch(local, [{ id: "late", memoryId: "remove", vector: [1, 0], modelId: "test" }]);
-    await expect(new SqliteMemoryDeletionStore(database.db).verify("remove")).resolves.toContain("memory-local-v2");
+    await expect(new SqliteMemoryDeletionStore(database.db).verify("remove")).resolves.toContain(MEMORY_DELETION_VERIFIER);
   });
   it.each([false, true])("deletion clears queued copies and rejects an already fetched compaction payload: %s", async (alreadyFetched) => {
     const outboxRepo = new SqliteOutboxRepository(database.db);
@@ -53,7 +53,7 @@ describe("verified Memory deletion", () => {
     expect(await compactionRepo.getMarkerBySnapshotId(local, "snapshot")).toBeNull();
     await expect(outboxRepo.insertEvent(local, { ...event, id: "late", idempotencyKey: "late" })).rejects.toBeInstanceOf(MemoryCompactionUnavailableError);
     await expect(compactionRepo.recordEvent(local, { id: "late-audit", memoryId: "remove", action: "compressed", reason: "private reason" })).rejects.toBeInstanceOf(MemoryCompactionUnavailableError);
-    await expect(new SqliteMemoryDeletionStore(database.db).verify("remove")).resolves.toContain("memory-local-v2");
+    await expect(new SqliteMemoryDeletionStore(database.db).verify("remove")).resolves.toContain(MEMORY_DELETION_VERIFIER);
     expect(await ctx.privacyRepo.hasPendingDeletionRequest(local)).toBe(false);
     expect(await runDeletionCycle(ctx)).toBe(0);
   });
@@ -71,7 +71,7 @@ describe("verified Memory deletion", () => {
     });
     expect(await runCompactionMarkerCycle({ outboxRepo, compactionRepo, workerId: "test" })).toBe(0);
     expect((await compactionRepo.getMarkerBySnapshotId(local, "snapshot"))?.summaryText).toBeNull();
-    await expect(new SqliteMemoryDeletionStore(database.db).verify("remove")).resolves.toContain("memory-local-v2");
+    await expect(new SqliteMemoryDeletionStore(database.db).verify("remove")).resolves.toContain(MEMORY_DELETION_VERIFIER);
   });
 
   it.each(["empty", "unknown-scope", "unknown-target", "unknown-owner"])("%s cannot claim completion or release the gate", async (scenario) => {
@@ -102,7 +102,7 @@ describe("verified Memory deletion", () => {
     expect((await ctx.privacyRepo.getDeletionRequest(local, "request"))?.lastError).toContain("requires_owner_cleanup");
     expect((await database.client.execute("SELECT content FROM memory_records WHERE id = 'keep'")).rows[0]!.content).toContain("privateword");
   });
-  it.each(["ev:old-worker:placeholder", JSON.stringify({ verifier: "memory-local-v1" })])("legacy completion %s is denied and retried with real cleanup", async (oldEvidence) => {
+  it.each(["ev:old-worker:placeholder", JSON.stringify({ verifier: "memory-local-v1" }), JSON.stringify({ verifier: "memory-local-v2" })])("legacy completion %s is denied and retried with real cleanup", async (oldEvidence) => {
     await request();
     await ctx.privacyRepo.updateDeletionTargetStatus({ requestId: "request", targetType: "memory", targetId: "remove" }, "completed", oldEvidence);
     await ctx.privacyRepo.updateDeletionRequestStatus(local, "request", "completed", { lastVerifiedAt: new Date().toISOString() });
@@ -110,6 +110,59 @@ describe("verified Memory deletion", () => {
     expect(await runDeletionCycle(ctx)).toBe(1);
     expect(await ctx.privacyRepo.hasPendingDeletionRequest(local)).toBe(false);
     expect((await searchMemoriesFts(database.client, local, "privateword")).map((row) => row.id)).toEqual(["keep"]);
+  });
+
+  async function legacyNestedCompletion() {
+    const outbox = new SqliteOutboxRepository(database.db);
+    await outbox.insertEvent(local, {
+      id: "legacy-event", idempotencyKey: "legacy-event", eventType: COMPACTION_EVENT_TYPE,
+      payload: { memoryId: "remove", snapshotId: { summary: "private legacy snapshot" }, summaryText: "private summary" },
+    });
+    await request();
+    await new SqliteMemoryDeletionStore(database.db).clean("remove");
+    // Persist the exact state produced by the v2 cleaner for an object snapshotId.
+    // Its old verifier inspected only deleted, summaryText and last_error.
+    await database.client.execute({
+      sql: "UPDATE outbox_events SET payload=? WHERE id='legacy-event'",
+      args: [JSON.stringify({ memoryId: "remove", snapshotId: { summary: "private legacy snapshot" }, deleted: true })],
+    });
+    const oldProof = JSON.stringify({ verifier: "memory-local-v2", verifiedAt: "2026-10-15T00:00:00.000Z", contentRows: 0, ftsRows: 0, vectorRows: 0 });
+    await ctx.privacyRepo.updateDeletionTargetStatus({ requestId: "request", targetType: "memory", targetId: "remove" }, "completed", oldProof);
+    await ctx.privacyRepo.updateDeletionRequestStatus(local, "request", "completed", { lastVerifiedAt: "2026-10-15T00:00:00.000Z" });
+    await expect(new SqliteMemoryDeletionStore(database.db).verify("remove")).rejects.toThrow("deletion_memory_verification_failed");
+    return outbox;
+  }
+
+  it("reselects completed v2 proof and scrubs its retained nested snapshot before issuing v3", async () => {
+    const outbox = await legacyNestedCompletion();
+    expect(await ctx.privacyRepo.hasPendingDeletionRequest(local)).toBe(true);
+    expect(await runDeletionCycle(ctx)).toBe(1);
+    expect((await outbox.getEventById("legacy-event"))?.payload).toEqual({ memoryId: "remove", snapshotId: null, deleted: true });
+    const target = (await database.client.execute("SELECT * FROM deletion_targets")).rows[0]!;
+    expect(JSON.parse(String(target.evidence_ref))).toMatchObject({ verifier: "memory-local-v3" });
+    expect(target.attempt_count).toBe(1);
+    expect((await ctx.platformRepo.listAuditRecords(local)).at(-1)?.metadata).toMatchObject({ verifier: MEMORY_DELETION_VERIFIER });
+    expect(await ctx.privacyRepo.hasPendingDeletionRequest(local)).toBe(false);
+    expect(await runDeletionCycle(ctx)).toBe(0);
+    expect((await new SqliteMemoryRepository(database.db, database.client).getRecord(local, "keep"))?.content).toContain("privateword keep");
+  });
+
+  it("keeps the gate closed when v2 cleanup fails and retries to a fresh v3 proof", async () => {
+    const outbox = await legacyNestedCompletion();
+    await database.client.execute("CREATE TRIGGER reject_legacy_scrub BEFORE UPDATE ON outbox_events WHEN OLD.id = 'legacy-event' BEGIN SELECT RAISE(ABORT, 'legacy cleanup failed'); END");
+    expect(await runDeletionCycle(ctx)).toBe(0);
+    expect((await ctx.privacyRepo.getDeletionRequest(local, "request"))?.status).toBe("failed");
+    const failedTarget = (await database.client.execute("SELECT * FROM deletion_targets")).rows[0]!;
+    expect(failedTarget.status).toBe("failed");
+    expect(failedTarget.evidence_ref).toBeNull();
+    expect(failedTarget.verified_at).toBeNull();
+    expect(await ctx.privacyRepo.hasPendingDeletionRequest(local)).toBe(true);
+    expect((await outbox.getEventById("legacy-event"))?.payload).toMatchObject({ snapshotId: { summary: "private legacy snapshot" } });
+    await database.client.execute("DROP TRIGGER reject_legacy_scrub");
+    expect(await runDeletionCycle(ctx)).toBe(1);
+    expect((await ctx.privacyRepo.getDeletionRequest(local, "request"))?.attemptCount).toBe(2);
+    expect(await ctx.privacyRepo.hasPendingDeletionRequest(local)).toBe(false);
+    await expect(new SqliteMemoryDeletionStore(database.db).verify("remove")).resolves.toContain(MEMORY_DELETION_VERIFIER);
   });
 
 });
