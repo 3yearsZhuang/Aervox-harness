@@ -3,12 +3,12 @@ import { realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { discoverCandidates } from './discovery.mjs';
-import { runSchedule } from './engine.mjs';
-import { generatePlans } from './planner.mjs';
-import { createAdapter as createAervox, metadata as aervoxMetadata } from './adapters/aervox.mjs';
-import { createAdapter as createLangChain, metadata as langchainMetadata } from './adapters/langchain.mjs';
-import { createAdapter as createLlamaIndex, metadata as llamaindexMetadata } from './adapters/llamaindex.mjs';
+import { discoverCandidates } from '../../scripts/deletion-fault-testing/discovery.mjs';
+import { runSchedule } from '../../scripts/deletion-fault-testing/engine.mjs';
+import { generatePlans } from '../../scripts/deletion-fault-testing/planner.mjs';
+import { createAdapter as createAervox, metadata as aervoxMetadata } from '../../scripts/deletion-fault-testing/adapters/aervox.mjs';
+import { createAdapter as createLangChain, metadata as langchainMetadata } from './langchain.mjs';
+import { createAdapter as createLlamaIndex, metadata as llamaindexMetadata } from './llamaindex.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 // These are integration/oracle validation runs, not protocol seeds, strategy

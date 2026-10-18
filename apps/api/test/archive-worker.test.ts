@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { zipSync, unzipSync, strToU8 } from "fflate";
-import { previewPersonaBundle } from "@aervox/host-runtime/modules/companion/persona/bundle";
-import { computeRevisionChecksum, validatePersonaConfig } from "@aervox/host-runtime/modules/companion/persona/types";
-import { unzip } from "@aervox/host-runtime/modules/ecosystem/skills/zip";
+import { previewPersonaBundle } from "@aervox/host-runtime-test/modules/companion/persona/bundle";
+import { computeRevisionChecksum, validatePersonaConfig } from "@aervox/host-runtime-test/modules/companion/persona/types";
+import { unzip } from "@aervox/host-runtime-test/modules/ecosystem/skills/zip";
 import { executeArchive } from "@aervox/host-runtime/shared/archive-worker";
-import { isSafeZipEntryPath, PLUGIN_ARCHIVE_LIMITS } from "@aervox/host-runtime/modules/ecosystem/plugins/package-bundle";
+import { isSafeZipEntryPath, PLUGIN_ARCHIVE_LIMITS } from "@aervox/host-runtime-test/modules/ecosystem/plugins/package-bundle";
 
 describe("bounded plugin archive CPU isolation", () => {
   it("preserves bytes and path/expansion checks through the Worker", async () => {

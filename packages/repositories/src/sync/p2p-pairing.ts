@@ -35,7 +35,8 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { fileURLToPath } from "node:url";
+import { statSync } from 'node:fs';
+import { defaultDataDirectory, repositoryRoot } from '../data-directory.js';
 
 /** 设备描述符/广播协议版本（保持向后兼容） */
 export const P2P_PROTOCOL_VERSION = "v1";
@@ -177,7 +178,6 @@ function timingSafeEqualBase64(expected: string, provided: string): boolean {
   );
 }
 
-const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
 
 /** 会话加密运行时状态（计数器等），不暴露在公开结构上 */
 interface SessionCryptoState {
@@ -332,15 +332,22 @@ export function generateDeviceIdentity(deviceName: string, deviceIdPrefix = "dev
 
 /** 设备身份默认落盘路径（与主库同目录，0600） */
 export function defaultP2PIdentityPath(): string {
-  return path.join(repoRoot, "data", "p2p-device-identity.json");
+  return path.join(defaultDataDirectory(), "p2p-device-identity.json");
 }
 
-function resolveIdentityPath(customPath?: string): string {
-  return (
-    customPath?.trim() ||
-    process.env.AERVOX_P2P_IDENTITY_PATH?.trim() ||
-    defaultP2PIdentityPath()
-  );
+export function resolveIdentityPath(customPath?: string, {
+  root = repositoryRoot,
+  env = process.env,
+}: { root?: string; env?: NodeJS.ProcessEnv } = {}): string {
+  const explicit = customPath?.trim() || env.AERVOX_P2P_IDENTITY_PATH?.trim();
+  if (explicit) return explicit;
+  const canonical = path.join(defaultDataDirectory(root), 'p2p-device-identity.json');
+  const legacy = path.join(root, 'packages/data/p2p-device-identity.json');
+  // Preserve stable identities from the old nested-module path. No automatic move or overwrite.
+  const canonicalExists = !!statSync(canonical, { throwIfNoEntry: false });
+  const legacyExists = !!statSync(legacy, { throwIfNoEntry: false });
+  if (canonicalExists && legacyExists) throw new Error('Multiple P2P identity files; select AERVOX_P2P_IDENTITY_PATH explicitly');
+  return legacyExists ? legacy : canonical;
 }
 
 /** 读取已持久化的设备身份；不存在时返回 null */

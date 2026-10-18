@@ -281,6 +281,7 @@ export function findUncoveredPaths(workflowPaths, requiredPaths) {
 export function collectRequiredCodePaths(scope) {
   return [
     ...new Set([
+      '.npmrc', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml',
       ...scope.globalDependencies,
       ...scope.packageInputs.map((decl) => decl.glob),
       ...scope.sharedInputs.map((decl) => decl.glob),

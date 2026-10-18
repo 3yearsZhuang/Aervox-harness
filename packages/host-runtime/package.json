@@ -40,9 +40,149 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./*": {
-      "types": "./dist/*.d.ts",
-      "default": "./dist/*.js"
+    "./shared/archive-codec": {
+      "types": "./dist/shared/archive-codec.d.ts",
+      "default": "./dist/shared/archive-codec.js"
+    },
+    "./shared/archive-worker": {
+      "types": "./dist/shared/archive-worker.d.ts",
+      "default": "./dist/shared/archive-worker.js"
+    },
+    "./shared/auth": {
+      "types": "./dist/shared/auth.d.ts",
+      "default": "./dist/shared/auth.js"
+    },
+    "./shared/contract-route": {
+      "types": "./dist/shared/contract-route.d.ts",
+      "default": "./dist/shared/contract-route.js"
+    },
+    "./shared/errors": {
+      "types": "./dist/shared/errors.d.ts",
+      "default": "./dist/shared/errors.js"
+    },
+    "./shared/local-context": {
+      "types": "./dist/shared/local-context.d.ts",
+      "default": "./dist/shared/local-context.js"
+    },
+    "./shared/problem-details": {
+      "types": "./dist/shared/problem-details.d.ts",
+      "default": "./dist/shared/problem-details.js"
+    },
+    "./shared/request-signal": {
+      "types": "./dist/shared/request-signal.d.ts",
+      "default": "./dist/shared/request-signal.js"
+    },
+    "./shared/tool-approval-policy": {
+      "types": "./dist/shared/tool-approval-policy.d.ts",
+      "default": "./dist/shared/tool-approval-policy.js"
+    },
+    "./shared/worker-pressure-lease": {
+      "types": "./dist/shared/worker-pressure-lease.d.ts",
+      "default": "./dist/shared/worker-pressure-lease.js"
+    },
+    "./modules/companion/branch/index": {
+      "types": "./dist/modules/companion/branch/index.d.ts",
+      "default": "./dist/modules/companion/branch/index.js"
+    },
+    "./modules/companion/conversation/index": {
+      "types": "./dist/modules/companion/conversation/index.d.ts",
+      "default": "./dist/modules/companion/conversation/index.js"
+    },
+    "./modules/companion/inbox/index": {
+      "types": "./dist/modules/companion/inbox/index.d.ts",
+      "default": "./dist/modules/companion/inbox/index.js"
+    },
+    "./modules/companion/memory/index": {
+      "types": "./dist/modules/companion/memory/index.d.ts",
+      "default": "./dist/modules/companion/memory/index.js"
+    },
+    "./modules/companion/persona/index": {
+      "types": "./dist/modules/companion/persona/index.d.ts",
+      "default": "./dist/modules/companion/persona/index.js"
+    },
+    "./modules/ecosystem/bots/index": {
+      "types": "./dist/modules/ecosystem/bots/index.d.ts",
+      "default": "./dist/modules/ecosystem/bots/index.js"
+    },
+    "./modules/ecosystem/llm/index": {
+      "types": "./dist/modules/ecosystem/llm/index.d.ts",
+      "default": "./dist/modules/ecosystem/llm/index.js"
+    },
+    "./modules/ecosystem/mcp/index": {
+      "types": "./dist/modules/ecosystem/mcp/index.d.ts",
+      "default": "./dist/modules/ecosystem/mcp/index.js"
+    },
+    "./modules/ecosystem/model-runtime/index": {
+      "types": "./dist/modules/ecosystem/model-runtime/index.d.ts",
+      "default": "./dist/modules/ecosystem/model-runtime/index.js"
+    },
+    "./modules/ecosystem/plugins/index": {
+      "types": "./dist/modules/ecosystem/plugins/index.d.ts",
+      "default": "./dist/modules/ecosystem/plugins/index.js"
+    },
+    "./modules/ecosystem/skills/index": {
+      "types": "./dist/modules/ecosystem/skills/index.d.ts",
+      "default": "./dist/modules/ecosystem/skills/index.js"
+    },
+    "./modules/ecosystem/tools/index": {
+      "types": "./dist/modules/ecosystem/tools/index.d.ts",
+      "default": "./dist/modules/ecosystem/tools/index.js"
+    },
+    "./modules/knowledge/content/index": {
+      "types": "./dist/modules/knowledge/content/index.d.ts",
+      "default": "./dist/modules/knowledge/content/index.js"
+    },
+    "./modules/knowledge/knowledge/index": {
+      "types": "./dist/modules/knowledge/knowledge/index.d.ts",
+      "default": "./dist/modules/knowledge/knowledge/index.js"
+    },
+    "./modules/knowledge/project/index": {
+      "types": "./dist/modules/knowledge/project/index.d.ts",
+      "default": "./dist/modules/knowledge/project/index.js"
+    },
+    "./modules/learning/diary/index": {
+      "types": "./dist/modules/learning/diary/index.d.ts",
+      "default": "./dist/modules/learning/diary/index.js"
+    },
+    "./modules/learning/learning/index": {
+      "types": "./dist/modules/learning/learning/index.d.ts",
+      "default": "./dist/modules/learning/learning/index.js"
+    },
+    "./modules/learning/study-materials/index": {
+      "types": "./dist/modules/learning/study-materials/index.d.ts",
+      "default": "./dist/modules/learning/study-materials/index.js"
+    },
+    "./modules/platform/analytics/index": {
+      "types": "./dist/modules/platform/analytics/index.d.ts",
+      "default": "./dist/modules/platform/analytics/index.js"
+    },
+    "./modules/platform/feedback/index": {
+      "types": "./dist/modules/platform/feedback/index.d.ts",
+      "default": "./dist/modules/platform/feedback/index.js"
+    },
+    "./modules/platform/preferences/index": {
+      "types": "./dist/modules/platform/preferences/index.d.ts",
+      "default": "./dist/modules/platform/preferences/index.js"
+    },
+    "./modules/platform/privacy/index": {
+      "types": "./dist/modules/platform/privacy/index.d.ts",
+      "default": "./dist/modules/platform/privacy/index.js"
+    },
+    "./modules/platform/safety/index": {
+      "types": "./dist/modules/platform/safety/index.d.ts",
+      "default": "./dist/modules/platform/safety/index.js"
+    },
+    "./modules/platform/voice/index": {
+      "types": "./dist/modules/platform/voice/index.d.ts",
+      "default": "./dist/modules/platform/voice/index.js"
+    },
+    "./modules/proactive/notification/index": {
+      "types": "./dist/modules/proactive/notification/index.d.ts",
+      "default": "./dist/modules/proactive/notification/index.js"
+    },
+    "./modules/proactive/proactive/index": {
+      "types": "./dist/modules/proactive/proactive/index.d.ts",
+      "default": "./dist/modules/proactive/proactive/index.js"
     }
   }
 }

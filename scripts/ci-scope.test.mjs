@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
+import { workspacePatterns } from './workspaces.mjs';
 import {
   ROOT_DIR,
   buildTurboFilterArgs,
@@ -30,8 +31,7 @@ const DOCS_WORKFLOW = path.join(ROOT_DIR, ".github/workflows/docs.yml");
 const MISE_CONFIG = path.join(ROOT_DIR, "mise.toml");
 
 test("CI covers every package root declared in pnpm-workspace.yaml", () => {
-  const workspace = fs.readFileSync(path.join(ROOT_DIR, "pnpm-workspace.yaml"), "utf8");
-  const roots = [...workspace.matchAll(/^\s+-\s+["']([^"']+)\/\*["']\s*$/gm)].map(match => match[1]);
+  const roots = workspacePatterns(ROOT_DIR).map(pattern => pattern.replace(/\/\*$/, ''));
   assert.ok(roots.includes("surfaces"));
   const paths = readWorkflowPaths(CI_WORKFLOW);
   for (const trigger of [paths.pullRequest, paths.push]) {
@@ -286,15 +286,40 @@ test("Deletion fault testing runs live evidence and never reads the private pape
   for (const gate of ["ci-code", "ci-code-full"]) {
     const entry = fs.readFileSync(MISE_CONFIG, "utf8").split(/\r?\n/).find(line => line.startsWith(`${gate} =`));
     assert.ok(entry?.includes("pnpm check:deletion-fault-testing"));
+    assert.ok(entry?.includes("pnpm check:deletion-fault-integration"));
   }
   const incremental = fs.readFileSync(path.join(ROOT_DIR, "scripts/check-affected.mjs"), "utf8");
   assert.match(incremental, /spawnSync\("pnpm", \["check:deletion-fault-testing"\]/);
+  assert.match(incremental, /spawnSync\("pnpm", \["check:deletion-fault-integration"\]/);
+  assert.match(incremental, /if \(deletionIntegrationRes\.status !== 0\) process\.exit\(deletionIntegrationRes\.status \?\? 1\)/);
   assert.match(incremental, /if \(deletionFaultRes\.status !== 0\) process\.exit\(deletionFaultRes\.status \?\? 1\)/);
   for (const file of ["scripts/deletion-fault-testing/engine.mjs", "scripts/deletion-fault-testing/protocol.json"]) {
     assert.equal(isDocumentationOnlyChange([file], loadTurboScope()), false);
     const paths = readWorkflowPaths(CI_WORKFLOW);
     for (const trigger of [paths.pullRequest, paths.push]) assert.ok(trigger.some(glob => matchesGlob(file, glob)));
   }
+});
+
+test('installer settings trigger CI and invalidate shared build caches', () => {
+  const scope = loadTurboScope();
+  for (const file of ['.npmrc', 'pnpm-workspace.yaml']) {
+    assert.equal(resolveChangeScope([file], scope).mode, 'full');
+    for (const paths of Object.values(readWorkflowPaths(CI_WORKFLOW))) {
+      assert.ok(paths.includes(file));
+      assert.ok(findUncoveredPaths(paths.filter(path => path !== file), collectRequiredCodePaths(scope)).includes(file));
+    }
+  }
+});
+
+test('desktop checks both referenced projects before bundling', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'apps/desktop/package.json'), 'utf8'));
+  assert.match(pkg.scripts.typecheck, /tsc --noEmit -p tsconfig\.node\.json/);
+  assert.match(pkg.scripts.typecheck, /vue-tsc --noEmit -p tsconfig\.web\.json/);
+  assert.ok(pkg.scripts.build.startsWith('pnpm typecheck &&'));
+  const config = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'apps/desktop/tsconfig.node.json'), 'utf8'));
+  assert.ok(config.include.includes('src/main/**/*.ts'));
+  assert.ok(config.include.includes('src/preload/**/*.ts'));
+  assert.ok(config.include.includes('../../scripts/vendor-chunks.ts'));
 });
 
 test("CI covers Playwright test directories, configs and executable root launchers", () => {

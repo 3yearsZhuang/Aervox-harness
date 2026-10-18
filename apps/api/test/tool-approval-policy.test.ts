@@ -9,7 +9,7 @@ import { composeToolProviders, type ToolProviderPort } from "@aervox/core";
 import {
   createApprovalGatedToolProvider,
   FULL_ACCESS_DECIDER_PREFIX,
-} from "@aervox/host-runtime/modules/companion/conversation/tool-providers";
+} from "@aervox/host-runtime-test/modules/companion/conversation/tool-providers";
 import { setRequestToolApprovalMode } from "@aervox/host-runtime/shared/tool-approval-policy";
 
 const tenant = { workspaceId: "ws_policy", subjectUserId: "usr_policy" } as const;

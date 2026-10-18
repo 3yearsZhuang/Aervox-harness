@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { IExtensionRepository, IPluginConfigRepository } from "@aervox/repositories";
 import type { ServerTurnPlugin, TurnPluginContext } from "@aervox/host-plugin-api";
-import { ServerPluginRegistry } from "@aervox/host-runtime/modules/ecosystem/plugins/turn-plugins/registry";
+import { ServerPluginRegistry } from "@aervox/host-runtime-test/modules/ecosystem/plugins/turn-plugins/registry";
 import {
   executeAfterTurnPlugins, executeBeforeTurnPlugins,
   type TurnPluginHostContext, type TurnPluginRunnerDeps,
-} from "@aervox/host-runtime/modules/ecosystem/plugins/turn-plugins/runner";
+} from "@aervox/host-runtime-test/modules/ecosystem/plugins/turn-plugins/runner";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;

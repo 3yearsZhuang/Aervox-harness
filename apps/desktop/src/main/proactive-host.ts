@@ -151,7 +151,7 @@ function parseState(raw: string, fallbackHostId: string): PersistedProactiveStat
         if (isSourceId(id) && typeof revokedAt === 'string' && safeDate(revokedAt)) revokedCapabilities[id] = new Date(revokedAt).toISOString()
       }
     }
-    const persistence = parsed.persistence && typeof parsed.persistence === 'object' ? parsed.persistence : {}
+    const persistence: Partial<PersistedProactiveState['persistence']> = parsed.persistence && typeof parsed.persistence === 'object' ? parsed.persistence : {}
     return {
       version: STATE_VERSION,
       hostId: typeof parsed.hostId === 'string' && parsed.hostId.length > 0 ? parsed.hostId : fallbackHostId,

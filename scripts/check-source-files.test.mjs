@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { collectFiles } from "./source-files.mjs";
@@ -13,6 +13,8 @@ test("shared traversal preserves root, extension and ignored-directory policies"
       writeFileSync(join(root, file), "");
     }
     const options = { cwd: root, extensions: /\.(ts|css)$/, ignoreDirectories: /(^|\/)out(\/|$)/, sorted: true };
+    symlinkSync(join(root, 'src'), join(root, 'src/loop'), 'dir');
+    symlinkSync(join(root, 'src/z.ts'), join(root, 'src/linked.ts'), 'file');
     assert.deepEqual(collectFiles(["src", "missing"], options), ["src/a.css", "src/z.ts"]);
     assert.deepEqual(collectFiles([join(root, "src")], { ...options, extensions: /\.ts$/ }), ["src/z.ts"]);
   } finally { rmSync(root, { recursive: true, force: true }); }

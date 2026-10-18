@@ -1,4 +1,5 @@
 import {ipcRenderer, type IpcRendererEvent} from 'electron'
+import type {UploadedAttachment} from '@aervox/api-client/transport'
 
 export interface ApiRequestResult<T = unknown> {
     status: number
@@ -64,5 +65,5 @@ export const aervoxApi = {
     apiRequest: <T = unknown>(method: string, path: string, body?: unknown, headers?: Record<string, string>) =>
         ipcRenderer.invoke('aervox:api:request', {method, path, body, headers}) as Promise<ApiRequestResult<T>>,
     uploadAttachment: (payload: {fileName: string; mediaType: string; purpose: string; dataBase64: string; idempotencyKey?: string}) =>
-        ipcRenderer.invoke('aervox:attachment:upload', payload) as Promise<unknown>,
+        ipcRenderer.invoke('aervox:attachment:upload', payload) as Promise<UploadedAttachment>,
 }

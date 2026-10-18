@@ -10,7 +10,7 @@ import os from "node:os";
 import path from "node:path";
 import { createInMemoryDatabase, initDatabaseSchema, SqliteSkillRegistryRepository, type AervoxDatabase } from "@aervox/repositories";
 import { buildApp } from "./app-fixture.js";
-import { DEFAULT_SKILLS_ROOT } from "@aervox/host-runtime/modules/ecosystem/skills/skill-manager";
+import { DEFAULT_SKILLS_ROOT } from "@aervox/host-runtime-test/modules/ecosystem/skills/skill-manager";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
 

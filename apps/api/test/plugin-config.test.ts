@@ -12,7 +12,7 @@ import { createInMemoryDatabase, initDatabaseSchema, type AervoxDatabase } from 
 import { buildApp } from "./app-fixture.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
-import { PluginBundleStore } from "@aervox/host-runtime/modules/ecosystem/plugins/bundle-store";
+import { PluginBundleStore } from "@aervox/host-runtime-test/modules/ecosystem/plugins/bundle-store";
 
 const headers = {
   "x-workspace-id": "ws_pcfg",

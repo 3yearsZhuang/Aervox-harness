@@ -7,12 +7,12 @@ import {
   type AervoxDatabase, type ConversationExecutionPolicy,
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
-import { registerConversationRoutes, type ConversationRouteDeps } from "@aervox/host-runtime/modules/companion/conversation/routes";
-import { acceptConversationTurn, executeAcceptedConversationTurn } from "@aervox/host-runtime/modules/companion/conversation/application";
-import { ApiOwnedTurnRecovery } from "@aervox/host-runtime/modules/companion/conversation/api-owned-recovery";
-import { runLoopTurnOnce } from "@aervox/host-runtime/modules/companion/conversation/agent-executor";
-import { ToolRuntime } from "@aervox/host-runtime/modules/ecosystem/tools/runtime";
-import { ServerPluginRegistry } from "@aervox/host-runtime/modules/ecosystem/plugins/turn-plugins/registry";
+import { registerConversationRoutes, type ConversationRouteDeps } from "@aervox/host-runtime-test/modules/companion/conversation/routes";
+import { acceptConversationTurn, executeAcceptedConversationTurn } from "@aervox/host-runtime-test/modules/companion/conversation/application";
+import { ApiOwnedTurnRecovery } from "@aervox/host-runtime-test/modules/companion/conversation/api-owned-recovery";
+import { runLoopTurnOnce } from "@aervox/host-runtime-test/modules/companion/conversation/agent-executor";
+import { ToolRuntime } from "@aervox/host-runtime-test/modules/ecosystem/tools/runtime";
+import { ServerPluginRegistry } from "@aervox/host-runtime-test/modules/ecosystem/plugins/turn-plugins/registry";
 import { contributeMemoryTool, type MemoryWritePort } from "@aervox/host-runtime/modules/companion/memory/index";
 import { createToolApprovalPolicyHook, setRequestToolApprovalMode } from "@aervox/host-runtime/shared/tool-approval-policy";
 

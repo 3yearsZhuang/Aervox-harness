@@ -9,8 +9,8 @@ import {
   SqliteToolRegistryRepository,
   type AervoxDatabase,
 } from "@aervox/repositories";
-import { ToolRuntime } from "@aervox/host-runtime/modules/ecosystem/tools/runtime";
-import { createRuntimeToolProvider } from "@aervox/host-runtime/modules/companion/conversation/tool-providers";
+import { ToolRuntime } from "@aervox/host-runtime-test/modules/ecosystem/tools/runtime";
+import { createRuntimeToolProvider } from "@aervox/host-runtime-test/modules/companion/conversation/tool-providers";
 import { buildApp } from "./app-fixture.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";

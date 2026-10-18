@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "artifacts": [
+    {
+      "package": "motion",
+      "version": "11.11.17",
+      "upstreamTarball": "https://registry.npmjs.org/motion/-/motion-11.11.17.tgz",
+      "upstreamIntegrity": "sha512-y6mXYElvJ5HHwPBUpYG/5wclKVGW4hJhqPkTjWccib5/WrcRM185adg3+4aSmG5iD10XKFt5uBOAiKwuzMHPPQ==",
+      "upstreamArtifactURL": "https://cdn.jsdelivr.net/npm/motion@11.11.17/dist/es/motion/lib/index.mjs/+esm",
+      "artifact": "assets/motion.min.js",
+      "sha256": "45615c1e7639fb9828942d0689c897e745690b0f6df13022223c9409fc01557c",
+      "license": "licenses/motion.LICENSE",
+      "licenseSha256": "835262a9cbe18af107043fab492b1922dd5ecc8db76f22f95149bc0143ac9847",
+      "sourceCommit": "5f2510bde716b25ff2e26525e5454b4bd331ab5b",
+      "sourcePath": "packages/public/aervox-intro/assets/motion.min.js",
+      "reproduction": "Frozen Git artifact; historical jsDelivr Rollup 2.79.2 + Terser 5.39.0 build. The CDN now regenerates different bytes; no byte-identical source rebuild is claimed."
+    },
+    {
+      "package": "lucide",
+      "version": "1.8.0",
+      "upstreamTarball": "https://registry.npmjs.org/lucide/-/lucide-1.8.0.tgz",
+      "upstreamIntegrity": "sha512-JjV/QnadgFLj1Pyu9IKl0lknrolFEzo04B64QcYLLeRzZl/iEHpdbSrRRKbyXcv45SZNv+WGjIUCT33e7xHO6Q==",
+      "upstreamArtifactURL": "https://cdn.jsdelivr.net/npm/lucide@1.8.0/dist/umd/lucide.min.js",
+      "artifact": "assets/lucide.min.js",
+      "sha256": "ab85225ecc1daa2033607856f03dd2dabcbc08e2d260a5b97e17c690aa929766",
+      "license": "licenses/lucide.LICENSE",
+      "licenseSha256": "b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57",
+      "sourceCommit": "5f2510bde716b25ff2e26525e5454b4bd331ab5b",
+      "sourcePath": "packages/public/aervox-intro/assets/lucide.min.js",
+      "reproduction": "Frozen Git artifact, also byte-identical to the pinned npm/CDN UMD distribution."
+    }
+  ]
+}

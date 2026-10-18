@@ -11,37 +11,15 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
-interface ApiRequestResult<T = unknown> {
-  status: number
-  ok: boolean
-  json: T | null
-  text: string
-}
-interface Window {
-  fairyDesktop?: {
-    minimize: () => Promise<void>
-    toggleMaximize: () => Promise<boolean>
-    close: () => Promise<void>
-    openExternal?: (url: string) => Promise<void>
-    onPetCommand: (callback: (command: unknown) => void) => () => void
-    getTheme: () => Promise<'light' | 'dark'>
-    setTheme: (theme: 'light' | 'dark') => Promise<'light' | 'dark'>
-    onThemeChange: (callback: (theme: 'light' | 'dark') => void) => () => void
-    streamEvents?: (path: string, callback: (message: unknown) => void) => () => void
-    streamTurn: (
-      content: string,
-      options: {
-        toolApprovalMode: 'ask' | 'full_access'
-        attachments?: Array<{attachmentId: string; name?: string; mediaType?: string}>
-        requestId?: string
-        metadata?: Record<string, unknown>
-      },
-      callback: (message: unknown) => void,
-    ) => () => void
-    cancelTurn?: (requestId: string) => void
-    apiRequest: <T = unknown>(method: string, path: string, body?: unknown, headers?: Record<string, string>) => Promise<ApiRequestResult<T>>
-    pickDirectory?: () => Promise<string | null>
-    proactive: import('@aervox/contracts/proactive').ProactiveDesktopBridge
-    uploadAttachment?: (payload: {fileName: string; mediaType: string; purpose: string; dataBase64: string; idempotencyKey?: string}) => Promise<unknown>
-  }
+// Transport methods are declared once by @aervox/api-client; merge shell-only methods.
+interface FairyDesktopBridge {
+  minimize: () => Promise<void>
+  toggleMaximize: () => Promise<boolean>
+  close: () => Promise<void>
+  openExternal?: (url: string) => Promise<void>
+  onPetCommand: (callback: (command: unknown) => void) => () => void
+  getTheme: () => Promise<'light' | 'dark'>
+  setTheme: (theme: 'light' | 'dark') => Promise<'light' | 'dark'>
+  onThemeChange: (callback: (theme: 'light' | 'dark') => void) => () => void
+  proactive: import('@aervox/contracts/proactive').ProactiveDesktopBridge
 }

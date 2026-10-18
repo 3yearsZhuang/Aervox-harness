@@ -38,6 +38,8 @@
 - Fastify 路由与中间件使用 `async/await`；中间件重构只修改所需路由范围。OpenAPI 使用锁定的 `zod-to-openapi` v9 与 `OpenApiGeneratorV31`；定义 Zod Schema 前先调用 `extendZodWithOpenApi(z)`。
 - 模块导入、宿主纯净性、类型、依赖和实现可移除性由代码守卫检查。变更边界需同步其权威合同，不另写目录副本。
 
+Workspace 扫描以 `pnpm-workspace.yaml` 的包列表及各包真实名称为准。研究依赖在独立私有 `research/` workspace 声明，产品包不得引用；安装仍在根执行，完整锁文件统一审计。受跟踪文件卫生门禁拒绝生成目录、本地数据库/日志/备份、凭据文件、私钥块及超预算文件；大资源例外必须在 `scripts/check-tracked-files.mjs` 逐文件注明理由和上限。门禁不读取忽略的业务数据或子模块内容，也不替代完整的秘密扫描。
+
 <a id="documentation"></a>
 
 ## 写作与事实源

@@ -3,9 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { apiProblemSchema, modelRuntimeApi } from '@aervox/contracts';
 import { registerContractRoute } from '@aervox/host-runtime/shared/contract-route';
 import { registerProblemDetails } from '@aervox/host-runtime/shared/problem-details';
-import { registerModelRuntimeRoutes } from '@aervox/host-runtime/modules/ecosystem/model-runtime/routes';
-import type { ModelRuntimeService } from '@aervox/host-runtime/modules/ecosystem/model-runtime/service';
-import { registerMemoryRoutes } from '@aervox/host-runtime/modules/companion/memory/routes';
+import { registerModelRuntimeRoutes } from '@aervox/host-runtime-test/modules/ecosystem/model-runtime/routes';
+import type { ModelRuntimeService } from '@aervox/host-runtime-test/modules/ecosystem/model-runtime/service';
+import { registerMemoryRoutes } from '@aervox/host-runtime-test/modules/companion/memory/routes';
 import type { SqliteMemoryRepository } from '@aervox/repositories';
 
 describe('shared endpoint registration', () => {

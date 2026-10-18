@@ -1,0 +1,23 @@
+{
+  "name": "@aervox/research-deletion-fault-testing",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Pinned historical integrations for deletion research; no product runtime dependency",
+  "exports": {
+    "./langchain": "./langchain.mjs",
+    "./llamaindex": "./llamaindex.mjs",
+    "./resolve": "./resolve.mjs"
+  },
+  "scripts": {
+    "test:integration": "node --test *.test.mjs"
+  },
+  "dependencies": {
+    "@langchain/community": "1.1.29",
+    "@langchain/core": "1.2.18",
+    "@libsql/client": "0.17.0",
+    "@llamaindex/core": "0.6.22",
+    "llamaindex": "0.12.1"
+  },
+  "license": "AGPL-3.0-or-later"
+}

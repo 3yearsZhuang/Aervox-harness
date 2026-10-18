@@ -45,6 +45,9 @@ apps/
 packages/
   core/             独立 Agent 内核（Apache-2.0 分层许可）
   host-agent/       异步 Agent Host（任务领取与心跳续租）
+  host-runtime/     API / Worker 共用的产品宿主与模块公开 Port
+  native-runtime/   原生能力进程与跨平台协议桥
+  ui-host/          根界面与设置面板的装配契约
   contracts/        Zod 契约事实源与 OpenAPI 3.1 元数据
   schema/           Drizzle 表结构定义（SQLite 业务表单一真源）
   repositories/     SQLite 仓储层（DDL、迁移与混合检索）
@@ -58,6 +61,10 @@ packages/
   public/           共享公共资产与宣讲页
   host-plugin-api/  第一方插件宿主扩展契约
 plugins/            第一方与扩展插件（focus-mode、home-assistant 等）
+surfaces/           编译期第一方根界面与设置面板实现
+native/             Rust 原生进程、共享协议与性能实验
+research/           私有研究 workspace；历史集成依赖不进入产品依赖
+scripts/            门禁、构建工具与研究命令入口
 ```
 
 ## 开发与贡献
@@ -70,9 +77,11 @@ plugins/            第一方与扩展插件（focus-mode、home-assistant 等�
 
 ```sh
 ./aervox ci          # 本地极速门禁自检（防漂移守卫 + 增量代码 + 增量文档）
-./aervox ci all      # 全量终审门禁（全量 19 包构建/类型/测试 + 全量文档）
+./aervox ci all      # 全量终审门禁（全量构建/类型/测试 + 全量文档）
 ./aervox test        # 智能增量测试
 ```
+
+`./aervox clean --dry-run` 预览生成物清理范围，`./aervox clean` 与 `mise tasks run clean` 共用清理器并保留依赖和本地数据。启动只运行锁定安装，失败会保留原错误；需要重新解析依赖时显式运行 `./aervox setup`。
 
 AI 编码助手协作规则见 [AGENTS.md](AGENTS.md)。代码贡献指南见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 

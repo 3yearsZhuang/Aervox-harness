@@ -1,4 +1,6 @@
 import { collectFiles } from "./source-files.mjs";
+import { discoverWorkspaces, workspaceOwner } from './workspaces.mjs';
+const WORKSPACES = discoverWorkspaces();
 /**
  * Aervox｜思隅 依赖边界校验（AST 解析，依赖 @babel/parser，不承担编译）
  *
@@ -239,19 +241,16 @@ function resolveRepoRelative(fromRelFile, specifier) {
 
 /** 仓库相对路径 → 所属 workspace 包键（packages/x 或 apps/x）；非包内返回 null */
 function ownPackage(repoRel) {
-  const m = repoRel.match(/^(packages|apps|plugins)\/([^/]+)\//);
-  return m ? `${m[1]}/${m[2]}` : null;
+  return workspaceOwner(repoRel, WORKSPACES)?.relDir ?? null;
 }
 
 /** 仓库相对路径 → 伪包名（packages/x → @aervox/x；apps/x → @aervox/x）用于规则匹配 */
 function toPseudoSpecifier(repoRel) {
-  const m = repoRel.match(/^(packages|apps|plugins)\/([^/]+)\//);
-  if (!m) return null;
-  return `@aervox/${m[1] === 'plugins' ? 'plugin-' : ''}${m[2]}`;
+  return workspaceOwner(repoRel, WORKSPACES)?.name ?? null;
 }
 
 /** 全量遍历目录（repo 根相对），返回源码文件相对路径列表 */
-export function collectSourceFiles(rootDirs = ["apps", "packages", "plugins", "capabilities", "providers", "adapters", "modules"]) {
+export function collectSourceFiles(rootDirs = [...WORKSPACES.map(pkg => pkg.relDir), "capabilities", "providers", "adapters", "modules"]) {
   return collectFiles(rootDirs, { extensions: SOURCE_EXT_RE, ignoreDirectories: IGNORE_DIR_RE });
 }
 
@@ -285,6 +284,17 @@ export function inspectSource(relFile, source, { exceptions = MODULE_EXCEPTIONS 
     add("module-public-entry", target, "跨模块只能访问 index.ts 公开 Port");
   }
   const owner = ownPackage(relFile);
+  if (!relFile.startsWith('research/')) {
+    for (const specifier of rawSpecifiers) {
+      const target = resolveRepoRelative(relFile, specifier);
+      if (specifier.startsWith('@aervox/research-') || target?.startsWith('research/')) {
+        add('product-no-research', specifier, '产品不得依赖研究实现');
+      }
+      if (specifier.startsWith('@aervox/host-runtime-test/') && !(owner && relFile.startsWith(`${owner}/test/`))) {
+        add('production-no-test-alias', specifier, '测试内部别名只能用于测试');
+      }
+    }
+  }
   const normalized = rawSpecifiers.map((s) => {
     const resolved = resolveRepoRelative(relFile, s);
     if (resolved === null) return s; // 相对引用解析失败 → 保持原样（忽略判定）

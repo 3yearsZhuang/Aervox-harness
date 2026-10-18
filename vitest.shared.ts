@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config'
+import { fileURLToPath } from 'node:url'
 
 // 共享 vitest 配置：所有包的 test 入口统一走 test 目录下的 .test.ts 文件
 //
@@ -18,6 +19,11 @@ const configuredWorkers = process.env.VITEST_MAX_WORKERS
   : 1;
 
 export default defineConfig({
+  // Tests may exercise private implementations without publishing them to consumers.
+  resolve: { alias: [{
+    find: /^@aervox\/host-runtime-test\//,
+    replacement: fileURLToPath(new URL('./packages/host-runtime/dist/', import.meta.url)),
+  }] },
   test: {
     include: ['test/**/*.test.ts'],
     exclude: ['dist/**', 'node_modules/**'],

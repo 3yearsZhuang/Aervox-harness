@@ -5,7 +5,7 @@ import {
   SqliteMemoryVectorSearchAdapter, NativeMemoryVectorSearchAdapter, CachedMemoryVectorSearchAdapter,
 } from "@aervox/repositories";
 import { loadNativeArtifact } from "@aervox/native-runtime";
-import { createSqliteMemoryRecall } from "@aervox/host-runtime/modules/companion/memory/recall";
+import { createSqliteMemoryRecall } from "@aervox/host-runtime-test/modules/companion/memory/recall";
 
 const local = { workspaceId: "local", subjectUserId: "local" };
 

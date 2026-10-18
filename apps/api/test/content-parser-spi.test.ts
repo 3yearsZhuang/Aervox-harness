@@ -5,7 +5,7 @@ import {
   type ContentParserPort,
   type ParseContentRequest,
   type ParseContentResult,
-} from "@aervox/host-runtime/modules/knowledge/content/parser-port";
+} from "@aervox/host-runtime-test/modules/knowledge/content/parser-port";
 
 describe("Content Parser SPI (CAP-012/025)", () => {
   it("routes parsing to custom registered parser based on supported media types", async () => {

@@ -23,7 +23,7 @@ import { createInMemoryDatabase, initDatabaseSchema, type AervoxDatabase } from 
 import { buildApp } from "./app-fixture.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
-import { inspectPluginBundle, PLUGIN_ARCHIVE_LIMITS } from "@aervox/host-runtime/modules/ecosystem/plugins/package-bundle";
+import { inspectPluginBundle, PLUGIN_ARCHIVE_LIMITS } from "@aervox/host-runtime-test/modules/ecosystem/plugins/package-bundle";
 import * as archiveWorker from "@aervox/host-runtime/shared/archive-worker";
 
 function buildTestPluginBundle(overrides: {

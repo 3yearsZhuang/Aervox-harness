@@ -37,7 +37,7 @@ HELP="$(
   cli [参数...]                启动思隅终端客户端(siyu); 默认启动连续对话(chat)
   mobile                       构建 Web 产物并同步 Capacitor 壳(cap sync web)
   package                      打包桌面端安装包(electron-builder, 产物 apps/desktop/release/)
-  clean                        清理构建产物 dist/out/.turbo(保留 node_modules)
+  clean [--dry-run]            清理声明的构建产物和缓存；可预览路径
   test [affected|fast|all|api|repos|<pkg>]
                                运行测试套件:
                                  affected  = 智能增量测试(默认, 仅变更包及其下游)
@@ -51,8 +51,8 @@ HELP="$(
                                  all       = 全量终审门禁(全量代码 + 全量文档)
   help, -h, --help             显示本帮助
 
-依赖策略: 每次 dev/mobile 前自动检查——lockfile 与 package.json 一致时跳过,
-          不一致或首次则自动重新解析; 无需手动 install。
+依赖策略: 启动前按 frozen-lockfile 安装；失败保留原错误并退出。
+          需要重新解析依赖时显式运行 aervox setup。
 
 环境变量(各端):
   API        PORT                监听端口 (默认 3000)
@@ -79,24 +79,14 @@ run() { # 通过 mise exec 激活项目工具链(Node 24 / pnpm 11)后执行
   mise exec -- "$@"
 }
 
-# 自动补齐依赖: frozen install 成功则跳过; 首次/锁文件陈旧则重解析
+# 启动只接受锁定安装；重新解析依赖必须显式运行 setup。
 ensure_deps() {
   ensure_mise
-  info "检查依赖…"
-  if [ ! -d node_modules ] || [ ! -f pnpm-lock.yaml ]; then
-    info "首次安装依赖…"
-    run pnpm install
-    return 0
-  fi
-  if run pnpm install --frozen-lockfile --prefer-offline >/dev/null 2>&1; then
-    ok "依赖已就绪"
-  else
-    warn "lockfile 与 package.json 不一致，自动重新解析依赖…"
-    run pnpm install
-  fi
+  info "按锁文件检查依赖…"
+  run pnpm install --frozen-lockfile --prefer-offline
+  ok "依赖已就绪"
 }
 
-# ── 子命令 ──────────────────────────────────────────────
 cmd_setup() {
   ensure_mise
   info "mise install(幂等)…"
@@ -222,8 +212,12 @@ cmd_package() {
 
 cmd_clean() {
   info "清理构建产物(保留 node_modules)…"
-  rm -rf apps/*/dist apps/*/out packages/*/dist node_modules/.turbo
-  ok "已清理 dist / out / .turbo"
+  run node scripts/clean-generated.mjs "$@"
+  if [ "${1:-}" = "--dry-run" ]; then
+    ok "已预览清理范围，未删除文件"
+  else
+    ok "已清理 dist / out / .turbo"
+  fi
 }
 
 cmd_test() {
@@ -286,7 +280,7 @@ case "$CMD" in
   cli)                     cmd_cli "$@" ;;
   mobile)                  cmd_mobile ;;
   package)                 cmd_package ;;
-  clean)                   cmd_clean ;;
+  clean)                   cmd_clean "$@" ;;
   test)                    cmd_test "${1:-affected}" ;;
   ci)                      cmd_ci "${1:-affected}" ;;
   *)                       fail "未知命令: ${CMD}（运行 aervox help 查看用法）" ;;

@@ -7,9 +7,9 @@
  *
  * 由 @aervox/live2d 的 build 脚本触发（turbo dependsOn ^build 保证顺序）。
  */
-import { cpSync, mkdirSync, existsSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { cpSync, mkdirSync, existsSync, mkdtempSync, rmSync, renameSync, lstatSync, realpathSync } from 'node:fs'
+import { dirname, join, resolve, relative, sep, isAbsolute } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const pkgDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const source = join(pkgDir, 'mizuki')
@@ -20,12 +20,39 @@ const targets = [
   resolve(pkgDir, '../../apps/web/public/live2d'),
 ]
 
-if (!existsSync(source)) {
-  throw new Error(`live2d 资源目录不存在: ${source}（请先初始化 submodule 或拉取 packages/live2d/mizuki）`)
+export function copyModelAssets(source, targets) {
+  if (!existsSync(source)) throw new Error(`live2d 资源目录不存在: ${source}`)
+  // Anchor to the shared checkout/fixture root. OS aliases such as /var -> /private/var
+  // are allowed above it; linked consumer directories below it are rejected.
+  let root = dirname(resolve(source))
+  const within = (parent, child) => {
+    const rel = relative(parent, resolve(child))
+    return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel))
+  }
+  while (targets.some(target => !within(root, target))) {
+    if (root === dirname(root)) throw new Error('资源目标必须位于同一文件系统根目录')
+    root = dirname(root)
+  }
+  const canonicalRoot = realpathSync(root)
+  const destinations = targets.map(target => join(canonicalRoot, relative(root, resolve(target))))
+  for (const targetDir of destinations) {
+    let parent = canonicalRoot
+    for (const part of relative(canonicalRoot, targetDir).split(sep).filter(Boolean)) {
+      parent = join(parent, part)
+      if (lstatSync(parent, { throwIfNoEntry: false })?.isSymbolicLink()) throw new Error(`拒绝链接资源目录: ${parent}`)
+    }
+  }
+  for (const targetDir of destinations) {
+    mkdirSync(targetDir, { recursive: true })
+    const stage = mkdtempSync(join(targetDir, '.mizuki-stage-'))
+    try {
+      cpSync(source, stage, { recursive: true })
+      // Only this generated subtree is owned by this package; adjacent models are user-owned.
+      rmSync(join(targetDir, 'mizuki'), { recursive: true, force: true })
+      renameSync(stage, join(targetDir, 'mizuki'))
+    } finally { rmSync(stage, { recursive: true, force: true }) }
+    console.log(`✓ 已同步 mizuki → ${join(targetDir, 'mizuki')}`)
+  }
 }
 
-for (const targetDir of targets) {
-  mkdirSync(targetDir, { recursive: true })
-  cpSync(source, join(targetDir, 'mizuki'), { recursive: true })
-  console.log(`✓ 已拷贝 mizuki → ${join(targetDir, 'mizuki')}`)
-}
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) copyModelAssets(source, targets)

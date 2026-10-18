@@ -11,7 +11,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
-import { downloadToFile, ModelDownloadError } from "@aervox/host-runtime/modules/ecosystem/model-runtime/downloader";
+import { downloadToFile, ModelDownloadError } from "@aervox/host-runtime-test/modules/ecosystem/model-runtime/downloader";
 
 const PAYLOAD = Buffer.from("Aervox local model runtime download probe\n".repeat(1024));
 const BIG_PAYLOAD = Buffer.alloc(3 * 1024 * 1024, 7);

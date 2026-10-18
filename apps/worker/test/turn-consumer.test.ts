@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SqlitePrivacyRepository, SqliteSkillRegistryRepository, SqliteMemoryRepository, indexMemoryFts } from "@aervox/repositories";
-import { ProactiveIntegrationManager } from "@aervox/host-runtime/modules/proactive/proactive/integration-manager";
+import { ProactiveIntegrationManager } from "@aervox/host-runtime-test/modules/proactive/proactive/integration-manager";
 import { createHostFixture, llmSse, toolSse, local } from "./host-fixture.js";
 
 interface ModelRequest { messages: Array<{ role: string; content: string }>; tools?: Array<{ function: { name: string } }> }

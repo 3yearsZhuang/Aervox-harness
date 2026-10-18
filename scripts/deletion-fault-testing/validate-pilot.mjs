@@ -14,9 +14,11 @@ const FROZEN_PROTOCOL = JSON.parse(await readFile(new URL('./protocol.json', imp
 export const SUBJECT_IDS = ['aervox-guarded', 'aervox-historical-provenance', 'langchain-libsql', 'llamaindex-simple'];
 export const STRATEGIES = ['generic', 'random', 'trace-only', 'guided'];
 export const PILOT_INPUTS = [
+  'research/deletion-fault-testing/package.json', 'research/deletion-fault-testing/langchain.mjs',
+  'research/deletion-fault-testing/llamaindex.mjs', 'research/deletion-fault-testing/resolve.mjs',
   ...REQUIRED_SOURCE_FILES, 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', '.npmrc', 'mise.toml',
   ...['engine.mjs', 'planner.mjs', 'discovery.mjs', 'pilot.mjs', 'validate-pilot.mjs', 'subjects.mjs', 'protocol.json',
-    'adapters/aervox.mjs', 'adapters/langchain.mjs', 'adapters/llamaindex.mjs'].map(file => `scripts/deletion-fault-testing/${file}`),
+    'adapters/aervox.mjs'].map(file => `scripts/deletion-fault-testing/${file}`),
 ];
 const sorted = values => [...values].sort();
 const canonical = value => JSON.stringify(value, function (_key, child) {

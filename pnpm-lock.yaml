@@ -33,21 +33,12 @@ importers:
         specifier: 8.21.3
         version: 8.21.3
     devDependencies:
+      '@aervox/research-deletion-fault-testing':
+        specifier: workspace:*
+        version: link:research/deletion-fault-testing
       '@babel/parser':
         specifier: ^8.0.4
         version: 8.0.4
-      '@langchain/community':
-        specifier: 1.1.29
-        version: 1.1.29(@aws-crypto/sha256-js@5.2.0)(@browserbasehq/sdk@2.22.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.62.1)(deepmerge@4.3.1)(dotenv@16.6.1)(openai@7.35.0(undici@6.28.1)(ws@8.21.3)(zod@4.4.3))(zod@4.4.3))(@ibm-cloud/watsonx-ai@1.7.16(supports-color@7.2.0))(@langchain/core@1.2.18(openai@7.35.0(undici@6.28.1)(ws@8.21.3)(zod@4.4.3))(ws@8.21.3))(@libsql/client@0.17.0)(html-to-text@9.0.5)(ibm-cloud-sdk-core@5.9.1(supports-color@7.2.0))(jsonwebtoken@9.0.3)(lodash@4.18.1)(openai@7.35.0(undici@6.28.1)(ws@8.21.3)(zod@4.4.3))(playwright@1.62.1)(undici@6.28.1)(ws@8.21.3)
-      '@langchain/core':
-        specifier: 1.2.18
-        version: 1.2.18(openai@7.35.0(undici@6.28.1)(ws@8.21.3)(zod@4.4.3))(ws@8.21.3)
-      '@libsql/client':
-        specifier: 0.17.0
-        version: 0.17.0
-      '@llamaindex/core':
-        specifier: 0.6.22
-        version: 0.6.22
       '@playwright/test':
         specifier: 1.62.1
         version: 1.62.1
@@ -75,9 +66,6 @@ importers:
       happy-dom:
         specifier: ^20.14.0
         version: 20.14.0
-      llamaindex:
-        specifier: 0.12.1
-        version: 0.12.1(tree-sitter@0.22.4)(web-tree-sitter@0.24.7)(zod@4.4.3)
       playwright:
         specifier: ^1.62.1
         version: 1.62.1
@@ -221,6 +209,9 @@ importers:
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
+      vite:
+        specifier: 6.4.4
+        version: 6.4.4(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1)
       vue-tsc:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.9.3)
@@ -625,6 +616,24 @@ importers:
       vue:
         specifier: ^3.5.43
         version: 3.5.43(typescript@7.0.2)
+
+  research/deletion-fault-testing:
+    dependencies:
+      '@langchain/community':
+        specifier: 1.1.29
+        version: 1.1.29(@aws-crypto/sha256-js@5.2.0)(@browserbasehq/sdk@2.22.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.62.1)(deepmerge@4.3.1)(dotenv@16.6.1)(openai@7.35.0(undici@6.28.1)(ws@8.21.3)(zod@4.4.3))(zod@4.4.3))(@ibm-cloud/watsonx-ai@1.7.16(supports-color@7.2.0))(@langchain/core@1.2.18(openai@7.35.0(undici@6.28.1)(ws@8.21.3)(zod@4.4.3))(ws@8.21.3))(@libsql/client@0.17.0)(html-to-text@9.0.5)(ibm-cloud-sdk-core@5.9.1(supports-color@7.2.0))(jsonwebtoken@9.0.3)(lodash@4.18.1)(openai@7.35.0(undici@6.28.1)(ws@8.21.3)(zod@4.4.3))(playwright@1.62.1)(undici@6.28.1)(ws@8.21.3)
+      '@langchain/core':
+        specifier: 1.2.18
+        version: 1.2.18(openai@7.35.0(undici@6.28.1)(ws@8.21.3)(zod@4.4.3))(ws@8.21.3)
+      '@libsql/client':
+        specifier: 0.17.0
+        version: 0.17.0
+      '@llamaindex/core':
+        specifier: 0.6.22
+        version: 0.6.22
+      llamaindex:
+        specifier: 0.12.1
+        version: 0.12.1(tree-sitter@0.22.4)(web-tree-sitter@0.24.7)(zod@4.4.3)
 
   surfaces/companion-ui:
     dependencies:

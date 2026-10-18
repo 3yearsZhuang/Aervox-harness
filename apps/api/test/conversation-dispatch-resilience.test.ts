@@ -10,7 +10,7 @@ import {
   type LocalContext,
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
-import { registerConversationRoutes } from "@aervox/host-runtime/modules/companion/conversation/routes";
+import { registerConversationRoutes } from "@aervox/host-runtime-test/modules/companion/conversation/routes";
 
 describe("ARC-01: 对话接单弹性、Claim 前故障追踪与孤儿 Attempt 恢复测试", () => {
   let app: FastifyInstance;

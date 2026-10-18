@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createInMemoryDatabase, initDatabaseSchema, type AervoxDatabase } from "@aervox/repositories";
 import { buildApp } from "./app-fixture.js";
-import { derivePetSheetState } from "@aervox/host-runtime/modules/ecosystem/tools/mcp";
+import { derivePetSheetState } from "@aervox/host-runtime-test/modules/ecosystem/tools/mcp";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
 

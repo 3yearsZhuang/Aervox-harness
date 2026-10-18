@@ -2,11 +2,11 @@ import { expect, it, vi } from "vitest";
 import { createInMemoryDatabase, createProactiveVaultCipher, SqliteConversationRepository, botDeliveries } from "@aervox/repositories";
 import type { BotAdapterContribution } from "@aervox/host-plugin-api";
 import { SqliteBotRepository } from "@aervox/repositories";
-import { BotManager } from "@aervox/host-runtime/modules/ecosystem/bots/manager";
+import { BotManager } from "@aervox/host-runtime-test/modules/ecosystem/bots/manager";
 
 vi.mock("@aervox/host-runtime/modules/companion/conversation/index", () => ({
   recoverApiOwnedTurn: async (repo: SqliteConversationRepository, turnId: string) =>
-    (await import("@aervox/host-runtime/modules/companion/conversation/api-owned-recovery")).recoverApiOwnedTurn(repo, turnId),
+    (await import("@aervox/host-runtime-test/modules/companion/conversation/api-owned-recovery")).recoverApiOwnedTurn(repo, turnId),
   acceptConversationTurn: vi.fn(), executeAcceptedConversationTurn: vi.fn(),
 }));
 

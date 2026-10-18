@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildOpenApiDocument, resetOpenApiDocumentCache } from "@aervox/contracts";
-import { assembleFirstPartyPlugins } from "@aervox/host-runtime/plugin-assembly";
+import { assembleFirstPartyPlugins } from "@aervox/host-runtime-test/plugin-assembly";
 
 /**
  * CR-060：内核文档只声明内核端点；插件端点在宿主装配阶段经
