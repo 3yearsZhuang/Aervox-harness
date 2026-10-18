@@ -35,6 +35,12 @@ export const FORBIDDEN_IN_SUBPACKAGES = new Set([
  */
 export const ALLOWED_DUPLICATES = new Map([
   [
+    // Research-only LangChain integration requires client 0.17 at root. Keep
+    // the API's existing 0.14 test client aligned with production repositories.
+    "@libsql/client",
+    new Set(["apps/api"]),
+  ],
+  [
     "typescript",
     new Set([
       "packages/ui",

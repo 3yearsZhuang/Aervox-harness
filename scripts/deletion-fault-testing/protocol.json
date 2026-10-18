@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "phase": "feasibility-pilot",
+  "strategies": ["generic", "random", "trace-only", "guided"],
+  "budgets": [1, 2, 4, 8],
+  "seeds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  "replayRepetitions": 20,
+  "minimumSuccessfulReplays": 19,
+  "timeoutMs": 10000,
+  "cleanupTimeoutMs": 10000,
+  "engineeringRevision": {
+    "kind": "post-pilot-engineering-revision",
+    "previousInputCommit": "84424da3",
+    "timing": "Introduced after inspecting two complete attempts at the previous input version, each with one cleanup timeout; the underlying cleanup delay remains unexplained.",
+    "change": "Replace the implicit min(timeoutMs, 1000) cleanup deadline with an explicit independent 10000 ms cleanup deadline. Planner rules, workloads, ownership, checked stores, budgets, seeds and ordering remain unchanged.",
+    "evaluationPolicy": "Allow one complete engineering validation at the newly frozen version. This does not reset the observed method NO-GO, create a new blind held-out evaluation or justify further retries of the same frozen version."
+  },
+  "developmentSubjects": ["aervox-guarded", "aervox-historical-provenance"],
+  "integrationSubject": "langchain-libsql",
+  "plannerHeldOutSubject": "llamaindex-simple",
+  "supportedFaults": ["one deletion at a cooperative producer checkpoint"],
+  "unsupportedFaults": ["process termination", "arbitrary concurrent schedules", "generated exception paths"],
+  "comparison": "Each strategy receives the same maximum number of eligible checkpoint executions, with fewer returned plans reported explicitly. Random samples without replacement. Deterministic strategies do not gain independent observations from repeated seeds or nested budgets.",
+  "counterexamplePolicy": "Report application-contract counterexamples, historical reconstructions and confirmed upstream defects separately. No upstream defect is confirmed by this pilot. Deduplicate counterexamples by subject and declared root-cause family, not failed schedules.",
+  "goConditions": [
+    "Both external integrations execute real public ingestion/deletion APIs and independently observe declared persistent stores.",
+    "The guarded calibration and default sequential reference runs have no unexplained contract violation.",
+    "Every selected counterexample replays successfully at least 19 out of 20 times with frozen inputs.",
+    "At an equal declared budget, guided detects more root-cause families on the planner-held-out subject than generic and random; equality is not evidence of effectiveness gain."
+  ],
+  "stopConditions": [
+    "If guided is no better than the simple baselines, do not promote a method-effectiveness or novelty claim; retain the artifact as a feasibility or tool report.",
+    "Two historical integrations do not establish representativeness of maintained systems or independent external replication.",
+    "Manual workload, ownership, observer and checkpoint adapters must be disclosed. No complete write-entrypoint recall, human adaptation time, or original upstream test-suite coverage is inferred."
+  ]
+}

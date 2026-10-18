@@ -71,6 +71,10 @@ if (testRes.status !== 0) process.exit(testRes.status ?? 1);
 const memoryDeletionRes = spawnSync("pnpm", ["check:memory-deletion"], { stdio: "inherit" });
 if (memoryDeletionRes.status !== 0) process.exit(memoryDeletionRes.status ?? 1);
 
+// The cross-system research harness also lives outside Turbo package roots.
+const deletionFaultRes = spawnSync("pnpm", ["check:deletion-fault-testing"], { stdio: "inherit" });
+if (deletionFaultRes.status !== 0) process.exit(deletionFaultRes.status ?? 1);
+
 // 保留原增量门禁中的 Rust pilot 校验；工具配置、锁文件和原生源码都不能走文档快退。
 const nativeRes = spawnSync("mise", ["tasks", "run", "native-search-check"], { stdio: "inherit" });
 process.exit(nativeRes.status ?? 1);
