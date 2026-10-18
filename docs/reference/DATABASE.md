@@ -198,6 +198,8 @@ Memory 压缩事件的失败/死信回写必须在同一原子 UPDATE 中确认�
 
 ### 8.1 P2P 同步行状态与删除墓碑
 
+主库、Vault 和 P2P 身份共享仓库根 `data/` 的默认路径解析器。P2P 首次身份写入 `data/p2p-device-identity.json`；若只有历史 `packages/data/p2p-device-identity.json`，继续原地读取该身份，不自动复制或更换设备。两处同时存在时拒绝默认选择，需用 `AERVOX_P2P_IDENTITY_PATH` 显式指定。自定义路径优先于环境变量；文件保持既有 0600 创建与独占写入规则。
+
 `sync_row_state` 是 ITER-028 纯本地 P2P 加密同步（CAP-018 / CAP-027）的元数据表，不是业务事实：
 
 | 字段 | 类型 | 约束 | 语义 |

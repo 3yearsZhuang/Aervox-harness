@@ -7,7 +7,7 @@ import {
   type AervoxDatabase,
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
-import { registerLearningRoutes } from "@aervox/host-runtime/modules/learning/learning/routes";
+import { registerLearningRoutes } from "@aervox/host-runtime-test/modules/learning/learning/routes";
 
 const headers = { "x-workspace-id": "ws_mistakes", "x-user-id": "usr_mistakes" } as const;
 const tenant = { workspaceId: "ws_mistakes", subjectUserId: "usr_mistakes" } as const;

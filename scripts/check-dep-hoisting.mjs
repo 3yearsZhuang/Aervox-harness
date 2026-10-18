@@ -16,6 +16,7 @@
 
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { discoverWorkspaces } from './workspaces.mjs';
 
 /** 绝对禁止在任何子包中声明的根级工具包 */
 export const FORBIDDEN_IN_SUBPACKAGES = new Set([
@@ -34,12 +35,6 @@ export const FORBIDDEN_IN_SUBPACKAGES = new Set([
  * 格式：`包名 -> Set(子包目录)`
  */
 export const ALLOWED_DUPLICATES = new Map([
-  [
-    // Research-only LangChain integration requires client 0.17 at root. Keep
-    // the API's existing 0.14 test client aligned with production repositories.
-    "@libsql/client",
-    new Set(["apps/api"]),
-  ],
   [
     "typescript",
     new Set([
@@ -63,7 +58,8 @@ export const ALLOWED_DUPLICATES = new Map([
   ],
 ]);
 
-export function getSubpackageJsonPaths(roots = ["apps", "packages", "plugins", "surfaces"]) {
+export function getSubpackageJsonPaths(roots) {
+  if (!roots) return discoverWorkspaces();
   const paths = [];
   for (const root of roots) {
     if (!existsSync(root)) continue;
@@ -81,6 +77,11 @@ export function inspectSubpackage(relDir, pkgJson, rootDevDeps) {
   const violations = [];
   const devDeps = Object.keys(pkgJson.devDependencies || {});
   const deps = Object.keys(pkgJson.dependencies || {});
+  if (!relDir.startsWith('research/')) {
+    for (const dep of [...devDeps, ...deps]) {
+      if (dep.startsWith('@aervox/research-')) violations.push({ pkg: pkgJson.name || relDir, dep, reason: '产品 workspace 不得依赖研究实现' });
+    }
+  }
 
   // 1. 绝对禁止的工具
   for (const d of [...devDeps, ...deps]) {
@@ -110,7 +111,7 @@ export function inspectSubpackage(relDir, pkgJson, rootDevDeps) {
   return violations;
 }
 
-export function runInspection(rootPkgPath = "package.json", roots = ["apps", "packages", "plugins"]) {
+export function runInspection(rootPkgPath = "package.json", roots) {
   const rootPkg = JSON.parse(readFileSync(rootPkgPath, "utf8"));
   const rootDevDeps = new Set(Object.keys(rootPkg.devDependencies || {}));
   const subpackages = getSubpackageJsonPaths(roots);

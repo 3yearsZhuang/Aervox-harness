@@ -18,7 +18,7 @@ import {
   type LocalContext,
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
-import { UserQuestionCoordinator } from "@aervox/host-runtime/modules/companion/conversation/user-question-coordinator";
+import { UserQuestionCoordinator } from "@aervox/host-runtime-test/modules/companion/conversation/user-question-coordinator";
 import type { AskUserQuestionPortRequest } from "@aervox/core";
 
 const tenant: LocalContext = { workspaceId: "ws_uq", subjectUserId: "usr_uq" };

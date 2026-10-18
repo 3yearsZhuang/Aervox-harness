@@ -1,4 +1,5 @@
 import {app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, Menu, nativeImage, nativeTheme, Notification, powerMonitor, screen, shell, systemPreferences, Tray} from 'electron'
+import type {OpenDialogOptions, SaveDialogOptions} from 'electron'
 import {createFetchTransport} from '@aervox/api-client/transport'
 import {createApiEventStreams} from './api-event-streams'
 import {createHash} from 'node:crypto'
@@ -134,10 +135,11 @@ const proactiveHost = createProactiveHost({
     },
     requestCapability: async (id) => {
         if (id === 'filesystem.full_disk_watch') {
-            const result = await dialog.showOpenDialog(mainWindow ?? undefined, {
+            const options: OpenDialogOptions = {
                 title: '选择主动智能可观察的文件根目录',
                 properties: ['openDirectory', 'multiSelections'],
-            })
+            }
+            const result = await (mainWindow ? dialog.showOpenDialog(mainWindow, options) : dialog.showOpenDialog(options))
             if (!result.canceled && result.filePaths.length > 0) {
                 proactiveFileRoots = [...new Set([...proactiveFileRoots, ...result.filePaths])]
                 rebuildProactiveSourceAdapters()
@@ -978,11 +980,12 @@ app.whenReady().then(async () => {
             `/v1/proactive/export?includeRaw=${includeRaw ? 'true' : 'false'}`,
         )
         const owner = BrowserWindow.fromWebContents(event.sender)
-        const result = await dialog.showSaveDialog(owner ?? undefined, {
+        const options: SaveDialogOptions = {
             title: '导出主动智能画像数据',
             defaultPath: `aervox-proactive-export-${new Date().toISOString().slice(0, 10)}.json`,
             filters: [{name: 'JSON', extensions: ['json']}],
-        })
+        }
+        const result = await (owner ? dialog.showSaveDialog(owner, options) : dialog.showSaveDialog(options))
         if (result.canceled || !result.filePath) return null
         await writeFile(result.filePath, `${JSON.stringify(exported, null, 2)}\n`, {encoding: 'utf8', mode: 0o600})
         await chmod(result.filePath, 0o600).catch(() => undefined)

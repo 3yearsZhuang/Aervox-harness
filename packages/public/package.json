@@ -10,7 +10,7 @@
     "aervox-mark.svg"
   ],
   "scripts": {
-    "build": "node scripts/copy-assets.mjs",
-    "test": "node --test scripts/copy-assets.test.mjs"
+    "build": "node scripts/vendor-assets.mjs --verify && node scripts/copy-assets.mjs",
+    "test": "node --test scripts/*.test.mjs"
   }
 }

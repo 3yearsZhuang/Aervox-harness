@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
 import { createInMemoryDatabase, SqliteConversationRepository } from "@aervox/repositories";
-import { registerBranchRoutes } from "@aervox/host-runtime/modules/companion/branch/routes";
+import { registerBranchRoutes } from "@aervox/host-runtime-test/modules/companion/branch/routes";
 
 const ctx = { workspaceId: "local", subjectUserId: "local" };
 

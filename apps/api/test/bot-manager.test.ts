@@ -6,12 +6,12 @@ import {
 } from "@aervox/repositories";
 import type { BotAdapterContext, BotAdapterContribution, BotMessage, BotSendReceipt } from "@aervox/host-plugin-api";
 import { SqliteBotRepository } from "@aervox/repositories";
-import { BotManager } from "@aervox/host-runtime/modules/ecosystem/bots/manager";
+import { BotManager } from "@aervox/host-runtime-test/modules/ecosystem/bots/manager";
 
 const { execute } = vi.hoisted(() => ({ execute: vi.fn() }));
 vi.mock("@aervox/host-runtime/modules/companion/conversation/index", () => ({
   recoverApiOwnedTurn: async (repo: SqliteConversationRepository, turnId: string) =>
-    (await import("@aervox/host-runtime/modules/companion/conversation/api-owned-recovery")).recoverApiOwnedTurn(repo, turnId),
+    (await import("@aervox/host-runtime-test/modules/companion/conversation/api-owned-recovery")).recoverApiOwnedTurn(repo, turnId),
   acceptConversationTurn: (repo: SqliteConversationRepository, ctx: object, input: never) => repo.acceptTurn(ctx as never, input),
   executeAcceptedConversationTurn: execute,
 }));

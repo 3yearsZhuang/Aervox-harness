@@ -17,8 +17,8 @@ import {
 } from "@aervox/repositories";
 import {
   createRuntimeToolProvider,
-} from "@aervox/host-runtime/modules/companion/conversation/tool-providers";
-import { stableStringify } from "@aervox/host-runtime/modules/companion/conversation/llm-adapter";
+} from "@aervox/host-runtime-test/modules/companion/conversation/tool-providers";
+import { stableStringify } from "@aervox/host-runtime-test/modules/companion/conversation/llm-adapter";
 import { setRequestToolApprovalMode } from "@aervox/host-runtime/shared/tool-approval-policy";
 import { buildApp } from "./app-fixture.js";
 import type { FastifyInstance } from "fastify";

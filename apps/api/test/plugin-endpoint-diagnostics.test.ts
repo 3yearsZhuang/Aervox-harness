@@ -13,7 +13,7 @@
 import { describe, expect, it, vi } from "vitest";
 import Fastify from "fastify";
 import type { PluginHostServices } from "@aervox/host-plugin-api";
-import { mountPluginHttpEndpoints } from "@aervox/host-runtime/plugin-assembly";
+import { mountPluginHttpEndpoints } from "@aervox/host-runtime-test/plugin-assembly";
 
 /** 处理函数不使用宿主服务，故只需满足类型的最小替身 */
 const services = () => ({}) as unknown as PluginHostServices;

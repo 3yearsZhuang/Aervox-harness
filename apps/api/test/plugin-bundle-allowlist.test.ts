@@ -27,7 +27,7 @@ import {
   PLUGIN_BUNDLE_LOCAL_FILENAMES,
   classifyPluginBundleEntry,
   collectMarketBundleFiles,
-} from "@aervox/host-runtime/modules/ecosystem/plugins/package-bundle";
+} from "@aervox/host-runtime-test/modules/ecosystem/plugins/package-bundle";
 
 const CLASSIFICATION_SAMPLES: Array<[string, boolean]> = [
   ["plugin.manifest.json", false],

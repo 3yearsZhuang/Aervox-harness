@@ -16,6 +16,7 @@
 *.otf binary
 *.eot binary
 *.pdf binary
+*.moc3 binary
 *.mp4 binary
 *.zip binary
 *.gz binary

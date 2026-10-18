@@ -54,9 +54,6 @@ test("check-dep-hoisting: passes for clean subpackage", () => {
   assert.equal(violations.length, 0);
 });
 
-test("research libSQL client split permits only the existing API test consumer", () => {
-  const pkg = { devDependencies: { "@libsql/client": "^0.14.0" } };
-  const root = new Set(["@libsql/client"]);
-  assert.equal(inspectSubpackage("apps/api", pkg, root).length, 0);
-  assert.equal(inspectSubpackage("packages/unrelated", pkg, root).length, 1);
+test("research dependencies belong to their private workspace, not root tools", () => {
+  assert.deepEqual(inspectSubpackage("research/deletion-fault-testing", { dependencies: { "@libsql/client": "0.17.0" } }, new Set()), []);
 });

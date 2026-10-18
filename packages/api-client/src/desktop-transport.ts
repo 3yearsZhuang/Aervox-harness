@@ -27,40 +27,41 @@ import { TurnStreamProjector } from './projector';
 import { AervoxHttpError } from './transport';
 
 declare global {
+  interface FairyDesktopBridge {
+    streamEvents?: (path: string, callback: (message: unknown) => void) => () => void;
+    apiRequest: <T = unknown>(
+      method: string,
+      path: string,
+      body?: unknown,
+      headers?: Record<string, string>,
+    ) => Promise<{ status: number; ok: boolean; json: T | null; text: string }>;
+    streamTurn: (
+      content: string,
+      options: {
+        sessionId?: string;
+        toolApprovalMode: ToolApprovalMode;
+        attachments?: TurnAttachmentRef[];
+        /** CR-027：渲染层生成的请求 ID，供 cancelTurn 定位主进程在途请求 */
+        requestId?: string;
+        metadata?: Record<string, unknown>;
+      },
+      callback: (message: unknown) => void,
+    ) => () => void;
+    /** CR-027：中止主进程仍在等待/消费的上游 Turn 请求（超时或 UI 主动放弃时调用） */
+    cancelTurn?: (requestId: string) => void;
+    /** 打开系统「选择文件夹」对话框，返回选中目录绝对路径；取消返回 null（CR-011 阶段 3） */
+    pickDirectory?: () => Promise<string | null>;
+    /** 多模态输入：附件二进制上传（renderer File → base64 → 主进程转发 API） */
+    uploadAttachment?: (payload: {
+      fileName: string;
+      mediaType: string;
+      purpose: string;
+      dataBase64: string;
+      idempotencyKey?: string;
+    }) => Promise<UploadedAttachment>;
+  }
   interface Window {
-    fairyDesktop?: {
-      streamEvents?: (path: string, callback: (message: unknown) => void) => () => void;
-      apiRequest: <T = unknown>(
-        method: string,
-        path: string,
-        body?: unknown,
-        headers?: Record<string, string>,
-      ) => Promise<{ status: number; ok: boolean; json: T | null; text: string }>;
-      streamTurn: (
-        content: string,
-        options: {
-          sessionId?: string;
-          toolApprovalMode: ToolApprovalMode;
-          attachments?: TurnAttachmentRef[];
-          /** CR-027：渲染层生成的请求 ID，供 cancelTurn 定位主进程在途请求 */
-          requestId?: string;
-          metadata?: Record<string, unknown>;
-        },
-        callback: (message: unknown) => void,
-      ) => () => void;
-      /** CR-027：中止主进程仍在等待/消费的上游 Turn 请求（超时或 UI 主动放弃时调用） */
-      cancelTurn?: (requestId: string) => void;
-      /** 打开系统「选择文件夹」对话框，返回选中目录绝对路径；取消返回 null（CR-011 阶段 3） */
-      pickDirectory?: () => Promise<string | null>;
-      /** 多模态输入：附件二进制上传（renderer File → base64 → 主进程转发 API） */
-      uploadAttachment?: (payload: {
-        fileName: string;
-        mediaType: string;
-        purpose: string;
-        dataBase64: string;
-        idempotencyKey?: string;
-      }) => Promise<UploadedAttachment>;
-    };
+    fairyDesktop?: FairyDesktopBridge;
   }
 }
 

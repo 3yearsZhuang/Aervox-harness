@@ -7,7 +7,7 @@
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
-import { fileURLToPath } from "node:url";
+import { defaultDataDirectory } from './data-directory.js';
 import { createClient, LibsqlError, type Client, type Transaction } from "@libsql/client";
 import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
 import * as schema from "@aervox/schema";
@@ -302,13 +302,8 @@ export function createReconnectableClient(options: {
 }
 
 
-/**
- * 仓库根目录（src/client.ts 或 dist/client.js 均向上三级到达仓库根）。
- * 用于统一 API / Worker / 多进程默认数据库真源路径。
- */
-const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
 /** 默认共享数据库文件：<repo>/data/aervox.db */
-const defaultDbUrl = `file:${path.join(repoRoot, "data", "aervox.db")}`;
+const defaultDbUrl = `file:${path.join(defaultDataDirectory(), "aervox.db")}`;
 
 /**
  * CAP-033 本地私密 Vault 默认目录：<repo>/data（与主库同目录）。
@@ -317,7 +312,7 @@ const defaultDbUrl = `file:${path.join(repoRoot, "data", "aervox.db")}`;
  * AERVOX_PROACTIVE_VAULT_URL / AERVOX_PROACTIVE_VAULT_KEY_PATH 注入 OS 隔离位置。
  */
 function proactiveApplicationDataDir(): string {
-  return path.join(repoRoot, "data");
+  return defaultDataDirectory();
 }
 
 /** CAP-033 本地私密 Vault：不继承可能指向远端的 DATABASE_URL。 */

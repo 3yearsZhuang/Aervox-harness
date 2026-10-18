@@ -15,7 +15,7 @@ export const LEGACY_REQUIRED_SOURCE_FILES = [
 ];
 export const REQUIRED_SOURCE_FILES = [
   ...LEGACY_REQUIRED_SOURCE_FILES,
-  ...['memory-deletion-protocol', 'repositories/sqlite/provenance-repository',
+  ...['data-directory', 'memory-deletion-protocol', 'repositories/sqlite/provenance-repository',
     'repositories/sqlite/memory-write-guard', 'repositories/sqlite/privacy-repository',
     'repositories/sqlite/skill-lifecycle-repository', 'repositories/sqlite/platform-repository',
     'schema/ddl/privacy', 'schema/ddl/platform', 'index', 'repositories/sqlite/index']

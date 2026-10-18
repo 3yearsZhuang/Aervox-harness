@@ -5,7 +5,7 @@ import path from "node:path";
 import Fastify from "fastify";
 import { createInMemoryDatabase, initDatabaseSchema, SqliteExtensionRepository, SqliteToolRegistryRepository, SqliteSkillRegistryRepository } from "@aervox/repositories";
 import { registerPluginsModule, createServerPluginRegistry } from "@aervox/host-runtime/modules/ecosystem/plugins/index";
-import type { ModuleContext } from "@aervox/host-runtime/modules/context";
+import type { ModuleContext } from "@aervox/host-runtime-test/modules/context";
 
 const cleanups: Array<() => Promise<unknown>> = [];
 afterEach(async () => { for (const cleanup of cleanups.reverse()) await cleanup(); cleanups.length = 0; });

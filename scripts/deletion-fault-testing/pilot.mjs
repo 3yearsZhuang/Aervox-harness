@@ -30,12 +30,14 @@ async function toolInputs() {
   const files = [];
   async function visit(directory) {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
+      if (['node_modules', '.turbo', 'dist', 'out'].includes(entry.name)) continue;
       const absolute = path.join(directory, entry.name);
       if (entry.isDirectory()) await visit(absolute);
       else if (entry.name.endsWith('.mjs')) files.push(relative(ROOT, absolute));
     }
   }
   await visit(HERE);
+  await visit(path.join(ROOT, 'research/deletion-fault-testing'));
   return files;
 }
 

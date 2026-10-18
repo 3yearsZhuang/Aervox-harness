@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { ToolRuntime, type ToolRegistryPort } from "@aervox/host-runtime/modules/ecosystem/tools/runtime";
-import { contributeMemoryTool, type MemoryWritePort } from "@aervox/host-runtime/modules/companion/memory/tool-contribution";
+import { ToolRuntime, type ToolRegistryPort } from "@aervox/host-runtime-test/modules/ecosystem/tools/runtime";
+import { contributeMemoryTool, type MemoryWritePort } from "@aervox/host-runtime-test/modules/companion/memory/tool-contribution";
 import type { ToolRegistrationModel } from "@aervox/repositories";
 import type { LocalContext } from "@aervox/repositories";
 

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { resolveResearchSource } from '@aervox/research-deletion-fault-testing/resolve';
 import { realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -39,7 +40,7 @@ export function assertProductionDescriptor(subject) {
 /** Load actual adapters and metadata without opening any fixture or workload. */
 export async function loadProductionSubjects() {
   const [aervox, langchain, llamaindex] = await Promise.all([
-    import('./adapters/aervox.mjs'), import('./adapters/langchain.mjs'), import('./adapters/llamaindex.mjs'),
+    import('./adapters/aervox.mjs'), import('@aervox/research-deletion-fault-testing/langchain'), import('@aervox/research-deletion-fault-testing/llamaindex'),
   ]);
   const subjects = [
     { adapter: await aervox.createAdapter(), metadata: { ...aervox.metadata, evidenceClass: 'guarded-calibration', rootCause: 'historical-unguarded-provenance' } },
@@ -56,7 +57,7 @@ export async function resolveDiscoveryFiles(root, metadata) {
   const files = [];
   for (const input of metadata.discoveryFiles) {
     const absolute = /\.[cm]?[jt]sx?$/.test(input) && !input.startsWith('@')
-      ? path.resolve(root, input) : fileURLToPath(import.meta.resolve(input));
+      ? path.resolve(root, input) : fileURLToPath(resolveResearchSource(input));
     const canonicalFile = await realpath(absolute);
     const file = path.relative(root, canonicalFile).split(path.sep).join('/');
     if (file.startsWith('../') || path.isAbsolute(file)) throw new Error(`discovery source outside repository: ${input}`);

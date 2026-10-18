@@ -21,7 +21,7 @@ import {
   hydratePlan,
   renderTemplatePlan,
   type PlanModelPort,
-} from "@aervox/host-runtime/modules/learning/learning/plan-generation";
+} from "@aervox/host-runtime-test/modules/learning/learning/plan-generation";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
 
