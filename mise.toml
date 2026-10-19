@@ -121,3 +121,7 @@ run = "pnpm exec turbo run native:build --filter=@aervox/native-runtime && pnpm 
 [tasks.native-runtime]
 description = "Native info, OS probe, signing and explicit supervisor lifecycle"
 run = "node scripts/native-runtime.mjs"
+
+[tasks.core-benchmark]
+description = "Compare core harness turn latency, visible TTFT and cancellation"
+run = "pnpm benchmark:core"

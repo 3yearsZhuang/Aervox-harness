@@ -1,8 +1,8 @@
 import { collectFiles } from "./source-files.mjs";
 /**
- * Aervox｜思隅 禁用标识符守卫（CR-030 去租户化不变量）
+ * Aervox｜思隅 禁用标识符守卫（本地单用户架构不变量）
  *
- * 机器事实源：CR-030 全面去租户化决议与 AGENTS.md §3 硬性约束。
+ * 机器事实源：本地单用户架构决议与 AGENTS.md §3 硬性约束。
  * 严禁在代码或契约中引入 `TenantContext`、`tenantId` 等多租户隔离概念。
  *
  * 用法：
@@ -124,7 +124,7 @@ export function runInspection(rootDirs = ["apps", "packages"]) {
 
 if (process.argv[1]?.endsWith("check-banned-identifiers.mjs")) {
   if (process.argv.includes("--list")) {
-    console.log("CR-030 禁用标识符规则清单：");
+    console.log("禁用标识符规则清单：");
     for (const rule of RULES) {
       console.log(`  [${rule.name}] ${rule.description}`);
     }
@@ -132,11 +132,11 @@ if (process.argv[1]?.endsWith("check-banned-identifiers.mjs")) {
   }
   const violations = runInspection();
   if (violations.length > 0) {
-    console.error(`❌ 发现 ${violations.length} 处 CR-030 禁用标识符违规：`);
+    console.error(`❌ 发现 ${violations.length} 处禁用标识符违规：`);
     for (const v of violations) {
       console.error(`   ${v.file}:${v.line}:${v.column} [${v.rule}] 禁用标识符 "${v.identifier}"（${v.description}）`);
     }
     process.exit(1);
   }
-  console.log(`✔ CR-030 禁用标识符检查通过：无违规（规则 ${RULES.length} 条）`);
+  console.log(`✔ 禁用标识符检查通过：本地单用户架构无违规（规则 ${RULES.length} 条）`);
 }

@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 可移除实现与退出演练守卫（Build to Delete）
  *
- * 机器事实源：CR-056 §5.8（BTD-07）与 ADR-016。
+ * 机器事实源：可移除插件架构设计与 ADR-016。
  * 规则：
  * 1. 试点可替换/可移除实现（如 MemoryStore 工具贡献、单个模型驱动 LlamaServerManager）
  *    仅允许在声明的装配入口（模块 index.ts / 组合根）和专用回归测试中被直接引用。
@@ -77,7 +77,7 @@ export const REMOVABLE_TARGETS = [
       "plugins/focus-mode/src/ui/TermExploreDialog.vue",
       "plugins/focus-mode/src/ui/styles.css",
     ],
-    // CR-060：宿主中唯一允许接入插件实现的位置（AVX-PLUG-001 §4.1 组合根）；
+    // 宿主中唯一允许接入插件实现的位置（AVX-PLUG-001 §4.1 组合根）；
     // 插件自带测试直接引用其私有文件属合法（测试随实现内聚）。
     allowedAssemblyFiles: [
       "packages/host-runtime/src/plugin-assembly.ts",
@@ -108,7 +108,7 @@ export const REMOVABLE_TARGETS = [
       ],
     },
     dataRetentionRule:
-      "移除插件实现不删除任何数据：安装记录、配置、授权与数据管理入口保留（CR-056 代码缺席语义）；" +
+      "移除插件实现不删除任何数据：安装记录、配置、授权与数据管理入口保留（代码缺席容错语义）；" +
       "学习事实（questions/question_attempts/practice_reports）真源由宿主持有，不随插件删除",
   },
 ];
@@ -245,5 +245,5 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     }
     process.exit(1);
   }
-  console.log(`✔ 可移除实现守卫通过：${result.targetsAudited} 个试点实现隔离完好，无越权直接引用（CR-056 BTD-07）`);
+  console.log(`✔ 可移除实现守卫通过：${result.targetsAudited} 个试点实现隔离完好，无越权直接引用`);
 }

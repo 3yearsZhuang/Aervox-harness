@@ -50,7 +50,7 @@ interface SpritePetProps {
   assert.equal(duplicates[0].name, "SpritePetProps");
 });
 
-test("check-type-boundary: 插件实现目录纳入扫描根（CR-060 覆盖缺陷回归）", () => {
+test("check-type-boundary: 插件实现目录纳入扫描根", () => {
   // 插件目录必须被发现，否则插件内重复声明 @aervox/contracts 导出类型会整体漏检
   const dirs = discoverPluginSourceDirs();
   assert.ok(dirs.length > 0, "应至少发现一个 plugins/<id>/src 目录");
