@@ -66,7 +66,7 @@ typecheck = "pnpm typecheck"
 # 运行全部测试（受控 2 并发，避免超线程争抢）
 test = "pnpm test"
 
-# 快速单元层：运行纯逻辑、领域契约与前端组件等轻量包（10 秒级完成）
+# 选定包测试：核心逻辑、领域契约、前端组件与插件；范围以 package.json 为准
 test-unit = "pnpm test:unit"
 test-fast = "pnpm test:unit"
 
@@ -125,3 +125,7 @@ run = "node scripts/native-runtime.mjs"
 [tasks.core-benchmark]
 description = "Compare core harness turn latency, visible TTFT and cancellation"
 run = "pnpm benchmark:core"
+
+[tasks.drill-removability]
+description = "Temporarily remove plugin implementations, verify isolation, then restore"
+run = "pnpm drill:removability"

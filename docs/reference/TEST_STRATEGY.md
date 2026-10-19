@@ -20,7 +20,7 @@ Aervox 测试体系收敛为清晰的四层模型，各层权责明确、指令�
 | 层级 | 工具与环境 | 核心覆盖范围 | 标准执行指令 |
 |---|---|---|---|
 | 1. 架构与守卫层 | Node 原生测试、AST 边界扫描 | 依赖纯度、禁用标识符、文档与治理规则、CI 作用域覆盖、插件打包规范 | `pnpm test:guards`<br>`pnpm check:guards` |
-| 2. 单元与业务包集成层 | Monorepo Vitest、`@vue/test-utils`、内存/隔离 SQLite | 纯逻辑、领域契约、前端组件、状态机、数据访问层与业务聚合 | `pnpm test:unit`（快速单元层，10秒级）<br>`pnpm test:affected`（变更增量）<br>`pnpm test`（Monorepo 全量 2 并发）<br>`pnpm --filter <pkg> test` |
+| 2. 单元与业务包集成层 | Monorepo Vitest、`@vue/test-utils`、内存/隔离 SQLite | 纯逻辑、领域契约、前端组件、状态机、数据访问层与业务聚合 | `pnpm test:unit`（选定包集）<br>`pnpm test:affected`（变更增量）<br>`pnpm test` / `pnpm test:all`（Monorepo 全量 2 并发）<br>`./aervox test <pkg>` |
 | 3. 领域专项与原生契约层 | 独立专项 Runner、Cargo / Rust 工具链 | 记忆删除可验证性、故障注入断言、Native 运行时与向量搜索基准、HLS 契约 | `pnpm check:memory-deletion`<br>`pnpm check:deletion-fault-testing`<br>`mise tasks run native-runtime-check`<br>`pnpm check:hls` |
 | 4. 系统集成与端到端层 | Playwright、CLI 冒烟脚本 | 端到端学习与对话闭环、API SSE 流式契约、Desktop/Web 交互、CLI 客户端集成冒烟 | `pnpm test:e2e:api`<br>`pnpm test:e2e:ui`<br>`pnpm test:cli:integration`<br>`node scripts/cli-smoke.test.mjs` |
 
@@ -29,10 +29,12 @@ Aervox 测试体系收敛为清晰的四层模型，各层权责明确、指令�
 根目录 `./aervox` 提供本地开发的统一分发入口：
 
 - `./aervox test affected`（默认）：智能分析 git 变更范围，仅运行改动包及其全部下游依赖测试。
-- `./aervox test unit`：仅运行无副作用轻量包（core、contracts、harness、ui、ui-host、各插件 UI 等），10 秒级反馈。
+- `./aervox test unit`：运行核心逻辑、领域契约、前端组件与插件的选定包集；具体范围以根 `package.json` 的 `test:unit` 为准，可能包含集成测试与依赖构建。
 - `./aervox test guards`：运行架构、契约与文档治理等全部脚本级守护测试。
-- `./aervox test all`：受控 2 并发执行 Monorepo 全部测试套件。
-- `./aervox test <pkg>`：便捷单包测试，支持直接输入 `api`、`repositories` 等包名短称。
+- `./aervox test all`：等价于 `pnpm test` / `pnpm test:all`，受控 2 并发执行 Monorepo 全部测试套件。
+- `./aervox test <pkg>`：支持真实包名、目录短名（如 `api`、`repositories`、`companion-ui`）与 pnpm 过滤器；无匹配包或选中包均未声明测试时失败。
+
+`pnpm test` 保持全量语义；智能增量使用 `pnpm test:affected` 或默认的 `./aervox test`。命令耗时取决于选择范围、构建缓存与运行环境。
 
 ### 2.2 专项质量与可靠性要求
 

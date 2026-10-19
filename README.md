@@ -8,16 +8,18 @@ Aervox 是一个以桌宠为入口的“主动智能” Agent 系统。基于 Ty
 
 ## 核心系统特性
 
+以下概览已有实现的代码切片；整项能力的验收与发布状态以[需求追踪基线](docs/reference/REQUIREMENTS_TRACEABILITY.md)为准。
+
 * **多端与多根界面 (Multi-Surface Architecture)**
   * **桌面宠 (Desktop Live2D)**：基于 Electron 的透明窗口交互、情绪反应、语音联动与轻量伴学。
   * **标准与紧凑工作台 (Workbench UI)**：多根界面试验田，集成会话树、工具审批卡片与任务中心。
-  * **思隅·主动陪伴 (Companion UI)**：视觉小说（Galgame）式打字机对话盒与专注伴读体验。
+  * **思隅·主动陪伴（`proactive-ui`）**：视觉小说（Galgame）式打字机对话盒、Live2D 舞台与主动建议卡。
   * **终端连接版 (Siyu CLI)**：命令行直连本地服务，支持流式消息消费与写工具非 TTY 审批拦截。
-  * **常驻 Bot 适配器**：微信本人扫码私聊接入与 QQ 群 `@bot` 白名单接续，兼顾独立会话与个人记忆边界隔离。
+  * **常驻 Bot 适配器**：已实现微信本人扫码私聊与 QQ 群 `@bot` 白名单接续的适配代码，兼顾独立会话与个人记忆边界隔离。
 * **独立解耦内核与执行管线 (Agent Core & Harness)**
   * **独立内核 `@aervox/core`**：分层 Apache-2.0 许可，运行时零外部依赖，统一 Provider 抽象与规范化中断原因。
   * **执行管线防御**：终态争抢防御、密集流限时刷新、准备阶段取消传播与基于事实源（Grounding Facts）的上下文压缩。
-  * **断点与工具审批**：支持可中断的 Turn 状态机、多步只读工具免审批及高危写操作 SPI 拦截。
+  * **Turn 中断与工具审批**：支持可中断的 Turn 状态机、多步只读工具免审批及高危写操作 SPI 拦截。
 * **纯本地单用户数据主权 (Local-First Data Sovereignty)**
   * **本地 SQLite（WAL 模式）**：作为永久单用户业务唯一真源，彻底摒弃共享数据库多租户。
   * **统一数据拓扑**：`@aervox/schema`（Drizzle ORM 表定义）与 `@aervox/repositories`（仓储访问与 FTS5 全文检索）。
@@ -25,7 +27,7 @@ Aervox 是一个以桌宠为入口的“主动智能” Agent 系统。基于 Ty
   * **可靠异步调度**：本地 SQLite Outbox 持久化队列 + 独立 Worker 进程异步重试与投递。
 * **科学认知与自进化记忆 (Cognitive Loop & Memory System)**
   * **四段式分层记忆**：工作记忆、短期情境、长期情境与系统记忆，配备严格的记忆来源链与可审计异步删除机制。
-  * **间隔复习排期**：基于优化 SM-2 算法的复习调度引擎（`@aervox/practice-review`）。
+  * **间隔复习排期**：按连续答对次数安排 1/2/4/8/15 天的固定间隔，支持 IANA 时区与夏令时边界（`@aervox/practice-review`）。
   * **真实记忆日记**：基于执行事实的 AI 记忆日记生成（`@aervox/diary`）。
 * **第一方插件与扩展沙箱 (Ecosystem & Page Sandbox)**
   * **清单驱动插件**：基于声明式 `plugin.manifest.json` 与 Aervox Config Schema v1 规范注册。
@@ -36,16 +38,16 @@ Aervox 是一个以桌宠为入口的“主动智能” Agent 系统。基于 Ty
 
 ## 项目阶段与当前进展
 
-Aervox 目前处于 **开发者预览阶段（Developer Preview / MVP+ 迭代期）**。系统核心架构已趋于稳定，API 契约正按规范标准化收敛。
+Aervox 目前处于 **开发者预览阶段（Developer Preview / MVP+ 迭代期）**。API 契约与本地存储格式仍可能发生不兼容变更，运行前请备份本地数据。
 
-### 已完成的关键里程碑
+### 已交付的实现切片
 
-* **内核独立解耦**：建立独立的 `@aervox/core` 核心包，解除对外部重型框架的依赖，降级原有 agent-loop 为轻量 re-export 壳。
+* **内核独立解耦**：独立的 `@aervox/core` 核心包运行时零外部依赖，宿主通过公开出口接入执行与 Provider 能力。
 * **多根界面插件化**：落地 `UISurfaceManifest` 契约，支持薄 UI 宿主装配完整工作台、紧凑工作台、桌宠及思隅陪伴根界面。
-* **Bot 平台接入**：完成微信私聊与 QQ 群适配器，共用会话执行链路，严格隔离个人派生数据与记忆。
+* **Bot 平台接入**：微信私聊与 QQ 群适配器代码及自动化测试已交付，共用会话执行链路，按来源隔离个人派生数据与记忆。真实微信配对与连续对话、NapCat 多成员与重连，以及本机/独立部署恢复仍待环境具备后验收，见 [ITER-062](plan.md#iter-062)。
 * **思隅终端连接版**：交付 `apps/cli`，打通纯传输连接与工具往返集成。
-* **工程架构治理与审计整改**：文档体系精简并统一为 Diátaxis，全仓完成全面卫生整改，配置受跟踪文件防护与 AST 级导入边界守卫。
-* **异步删除故障测试研究**：两轮记忆删除研究归档至独立仓；异步删除故障测试生成器及形式化验证全流程通过。
+* **工程架构治理与审计整改**：文档体系按 Diátaxis 精简，完成本轮仓库卫生整改，配置受跟踪文件防护与 AST 级导入边界守卫。
+* **记忆删除研究与故障测试工具**：两轮记忆删除研究已归档；异步删除故障测试生成、反例重放与证据一致性校验已实现，并完成一次修订后的工程验证。方法发现收益尚未建立，研究边界与负结果见 [ITER-066](plan.md#iter-066)。
 
 ### 当前协调与后续演进
 
@@ -60,12 +62,12 @@ Aervox 目前处于 **开发者预览阶段（Developer Preview / MVP+ 迭代期
 
 ## 仓库结构
 
-代码库采用全栈 Monorepo 组织，所有内部包与插件统一由 pnpm workspace 管理：
+代码库采用全栈 Monorepo 组织，具备 `package.json` 的内部包由 pnpm workspace 管理；`plugins/` 同时包含声明式插件和第一方源码插件：
 
 ```text
 Aervox-harness/
 ├── apps/                         # 应用程序宿主
-│   ├── api/                      # Fastify 5 API 服务（按领域模块组织）
+│   ├── api/                      # Fastify 5 API 组合根
 │   ├── cli/                      # 思隅终端连接版（siyu）
 │   ├── desktop/                  # Electron 桌面端（Live2D 桌宠、透明窗口与安全 IPC）
 │   ├── mobile/                   # Capacitor 移动端封装壳
@@ -80,36 +82,36 @@ Aervox-harness/
 │   ├── contracts/                # Zod 契约事实源与 OpenAPI 3.1 元数据
 │   ├── schema/                   # Drizzle ORM 表结构单一真源（SQLite 业务表）
 │   ├── repositories/             # SQLite 仓储访问层（DDL、短事务、迁移与 FTS5）
-│   ├── practice-review/          # SM-2 间隔复习排期引擎
+│   ├── practice-review/          # 固定间隔复习排期与练习反馈
 │   ├── diary/                    # AI 记忆日记生成共享包
 │   ├── ui/                       # Web 与 Desktop 共享的 Vue 3 组件库与设计令牌
 │   ├── api-client/               # Web、Desktop 与 CLI 共享的 API 客户端
 │   ├── native-runtime/           # 原生能力进程绑定与跨平台协议桥
 │   ├── config/                   # 运行时环境配置加载与严格校验
 │   ├── observability/            # Pino 结构化日志与审计导出
-│   ├── live2d/                   # Live2D Mizuki 模型静态资产与控制器
+│   ├── live2d/                   # Live2D Mizuki 模型静态资产与构建期复制
 │   └── public/                   # 共享公共资产与宣讲页
 ├── plugins/                      # 第一方业务与扩展插件
-│   ├── anki-sync/                # Anki 卡片双向同步
+│   ├── anki-sync/                # Anki 文本导入与可选 MCP 接入声明
 │   ├── bot-onebot/               # QQ 平台适配器（OneBot v11 / NapCat）
 │   ├── bot-weixin/               # 微信个人私聊适配器（扫码授权与配对确认）
 │   ├── diary-distillers/         # 记忆与对话日记蒸馏流水线
-│   ├── focus-mode/               # 专注学习与番茄钟
-│   ├── health-guard/             # 坐姿与用眼健康守护
+│   ├── focus-mode/               # 启发式教学、概念探索与现场刷题
+│   ├── health-guard/             # 基于键鼠空闲元数据的久坐与休息提醒
 │   ├── home-assistant/           # Home Assistant 智能家居网关桥接
 │   ├── multimodal-ocr/           # 多模态图文与题目识别
 │   └── xiaomi-health/            # 小米运动健康数据同步
 ├── surfaces/                     # 编译期第一方根界面与面板实现
-│   ├── companion-ui/             # 思隅·主动陪伴根界面（打字机盒与 Live2D 舞台）
+│   ├── companion-ui/             # 桌面常驻桌宠窗口（Live2D、快捷对话与功能坞）
 │   ├── workbench-ui/             # 标准与紧凑工作台根界面
 │   ├── panels-ui/                # 外观、语音、模型、身份等设置面板
-│   └── proactive-ui/             # 主动感知与洞察面板
+│   └── proactive-ui/             # 思隅·主动陪伴根界面（打字机对话盒与主动建议卡）
 ├── native/                       # Rust 原生运行时、高性能进程与跨平台协议
 │   ├── crates/runtime/           # 原生宿主运行时
 │   ├── protocol/                 # 二进制与 IPC 协议定义
 │   └── tools/                    # 原生工具链支撑
-├── research/                     # 独立私有研究隔离目录（依赖隔离，不进入生产发布）
-│   └── deletion-fault-testing/   # 异步删除故障测试生成器
+├── research/                     # 私有研究 workspace（根安装，产品包禁止依赖）
+│   └── deletion-fault-testing/   # 固定历史版本的集成适配器与研究依赖
 ├── docs/                         # Diátaxis 架构全量技术文档
 └── scripts/                      # 架构守卫、导入边界检查与持续集成辅助脚本
 ```
@@ -128,7 +130,7 @@ cd Aervox-harness
 ./aervox setup
 ```
 
-`./aervox setup` 将校验环境并在仓库根目录完成全部依赖的锁定安装。
+`./aervox setup` 安装锁定的工具链，并在仓库根以 `--no-frozen-lockfile` 重新解析和安装依赖，可能更新 `pnpm-lock.yaml`。日常启动以 `--frozen-lockfile` 检查并安装依赖，失败时保留原错误并退出；仅需按现有锁文件安装时可运行 `mise tasks run install`。
 
 ### 运行全栈开发环境
 

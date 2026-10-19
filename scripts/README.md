@@ -2,7 +2,7 @@
 
 本目录包含 Aervox 项目的架构守卫、门禁分析、契约验证、领域专项研究套件及基准测试工具。
 
-所有脚本均遵循统一工具链锁定规范，请使用 `./aervox`、`mise exec --` 或 `pnpm <script>` 执行。
+所有脚本均遵循统一工具链锁定规范。优先使用 `./aervox` 或 `mise tasks run <task>`；下表中的 `pnpm`、`node` 指令需加 `mise exec --` 前缀，或在已激活 mise 的终端中执行。
 
 ---
 
@@ -65,11 +65,11 @@
 
 | 脚本文件 | 职责说明 | 执行指令 |
 |---|---|---|
-| `benchmark-core.mjs` | Core 内核多 Step 工具回路首段可见、取消与内存基准 | `pnpm benchmark:core` |
+| `benchmark-core.mjs` | 假 Provider 与内存存储下的流首段可见、取消和采样堆内存基准 | `pnpm benchmark:core` / `mise tasks run core-benchmark` |
 | `benchmark-native-runtime.mjs` | 原生 SQLite 引擎、音频处理与 CPU 密集任务压测基准 | `mise tasks run native-runtime-benchmark` |
 | `benchmark-native-search.mjs` | 原生 Rust 向量索引算法与相似度搜索基准 | `mise tasks run native-search-benchmark` |
 | `worker-write-contention-drill.mjs` | 多进程 SQLite 跨进程写锁冲突与退避演练 | `pnpm drill:worker-contention` |
-| `run-removability-drill.mjs` | 插件模块物理移除、独立编译、数据保留与恢复全流程演练 | `pnpm drill:removability` |
+| `run-removability-drill.mjs` | 插件模块物理移除、独立编译、数据保留与恢复全流程演练 | `pnpm drill:removability` / `mise tasks run drill-removability` |
 
 ---
 
@@ -77,5 +77,6 @@
 
 - `source-files.mjs`: 通用源码文件遍历与过滤辅助函数。
 - `workspaces.mjs`: `pnpm-workspace.yaml` 解析与包归属判定辅助函数。
-- `clean-generated.mjs`: 清理构建产物与 `.turbo` 缓存（`./aervox clean` / `pnpm clean`）。
+- `test-package.mjs`: 按真实 workspace 名称解析测试目标，拒绝无匹配或未声明测试的选择（`./aervox test <pkg>`）。
+- `clean-generated.mjs`: 清理构建产物与 `.turbo` 缓存（`./aervox clean` / `pnpm run clean`）；可用 `--dry-run` 预览，pnpm 传参时使用 `pnpm run clean --dry-run`。
 - `vendor-chunks.ts`: Vite 构建 chunk 分块共享策略配置。

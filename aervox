@@ -41,10 +41,10 @@ HELP="$(
   test [affected|unit|guards|all|<pkg>]
                                运行测试套件:
                                  affected  = 智能增量测试(默认, 仅变更包及其下游)
-                                 unit      = 快速单元层(纯逻辑、领域契约与前端组件包)
+                                 unit      = 选定包测试(核心逻辑、领域契约、前端组件与插件)
                                  guards    = 架构与门禁脚本守护测试
                                  all       = 全量受控 2 并发测试
-                                 <pkg>     = 指定过滤包测试(--filter)
+                                 <pkg>     = 按真实包名、目录短名或 pnpm 过滤器测试
   ci [affected|all]            运行本地门禁:
                                  affected  = 极速增量门禁(默认, 仅检验代码变更及下游 + 变更文档, 20秒级)
                                  all       = 全量终审门禁(全量代码 + 全量文档)
@@ -228,7 +228,7 @@ cmd_test() {
       run pnpm test:affected
       ;;
     unit|fast)
-      info "运行快速单元层测试 (纯逻辑、领域契约与前端组件包)…"
+      info "运行选定包测试 (核心逻辑、领域契约、前端组件与插件)…"
       run pnpm test:unit
       ;;
     guards)
@@ -240,14 +240,7 @@ cmd_test() {
       run pnpm test
       ;;
     *)
-      local filter_target="$target"
-      if [[ "$filter_target" != @* && "$filter_target" != ./* ]]; then
-        if [ -d "apps/$filter_target" ] || [ -d "packages/$filter_target" ] || [ -d "surfaces/$filter_target" ] || [ -d "plugins/$filter_target" ]; then
-          filter_target="@aervox/$filter_target"
-        fi
-      fi
-      info "运行指定目标测试: ${filter_target}…"
-      run pnpm --filter "$filter_target" test
+      run node scripts/test-package.mjs "$target"
       ;;
   esac
   ok "测试完成"
