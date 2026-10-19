@@ -73,5 +73,3 @@ decision_status: proposed
 ```
 
 状态使用 `proposed`、`accepted`、`rejected` 或 `superseded`；被替代时添加 `superseded_by: ADR-###`。作者和日期由 Git 追踪。
-| `ADR-025` | [根界面插件与薄平台宿主](ADR-025-ui-surface-hosts.md) | Accepted |
-| `ADR-026` | [界面插件开放生态与安装回滚](ADR-026-ui-surface-open-ecosystem.md) | Proposed |

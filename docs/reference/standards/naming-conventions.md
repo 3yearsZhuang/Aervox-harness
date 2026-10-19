@@ -37,7 +37,7 @@ CR-030 已去租户化，上层统一使用本地上下文 `LocalContext`，**�
 | 资源名 | **复数 kebab-case** | `/v1/sessions`、`/v1/diaries`、`/v1/study-materials` |
 | 集合读取 | `GET /v1/资源`，分页走 query | `GET /v1/sessions?limit=&cursor=` |
 | 单资源读取 | `GET /v1/资源/:id` | `GET /v1/sessions/:id` |
-| 创建 | `POST /v1/资源` → `201` + `Location`；幂等键 `X-Idempotency-Key` | `POST /v1/memories` |
+| 创建 | `POST /v1/资源` → `201` + `Location`；幂等键 `Idempotency-Key` | `POST /v1/memories` |
 | 局部更新 | `PATCH /v1/资源/:id` | `PATCH /v1/diaries/:id` |
 | 删除 | `DELETE /v1/资源/:id` → `204` | `DELETE /v1/memories/:id` |
 | 动作端点 | `POST /v1/资源/:id/动词`（不落到 `:/动作名` 查询参数） | `/v1/sessions/:id/attempts`、`/v1/reviews/:id/completions` |

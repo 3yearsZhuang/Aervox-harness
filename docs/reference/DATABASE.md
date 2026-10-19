@@ -73,7 +73,7 @@ POSIX 权限目标为目录 `0700`、数据库/状态清单/token `0600`；Windo
 | Platform | consent_grants、audit_records、deletion_requests、outbox_events | model_runs、context_manifests、notifications、llm_configs、audit_logs、llm_health_snapshots、llm_routing_events |
 | Proactive | profile revisions、device/source grants、activation leases、perception events | captures、observations、claims、actions、SituationModel snapshots、consumer cursors、attention budgets/feedback/receipts |
 | Project | projects（项目上下文实体） | sessions.projectId 关联 |
-| Sync（ITER-028） | 无（不承载业务事实） | sync_row_state（P2P 同步来源戳与删除墓碑，由同步触发器维护） |
+| Sync | 无（不承载业务事实） | sync_row_state（P2P 同步来源戳与删除墓碑，由同步触发器维护） |
 | Voice | voice_configs、voice_input_configs、voice_remote_configs | 本地/远程语音转写与合成配置 |
 
 `User` 仅表示本地用户档案，不是共享数据库认证主体。`actorId` 表示用户动作、插件、连接器或系统任务，
@@ -200,7 +200,7 @@ Memory 压缩事件的失败/死信回写必须在同一原子 UPDATE 中确认�
 
 主库、Vault 和 P2P 身份共享仓库根 `data/` 的默认路径解析器。P2P 首次身份写入 `data/p2p-device-identity.json`；若只有历史 `packages/data/p2p-device-identity.json`，继续原地读取该身份，不自动复制或更换设备。两处同时存在时拒绝默认选择，需用 `AERVOX_P2P_IDENTITY_PATH` 显式指定。自定义路径优先于环境变量；文件保持既有 0600 创建与独占写入规则。
 
-`sync_row_state` 是 ITER-028 纯本地 P2P 加密同步（CAP-018 / CAP-027）的元数据表，不是业务事实：
+`sync_row_state` 是纯本地 P2P 加密同步（CAP-018 / CAP-027）的元数据表，不是业务事实：
 
 | 字段 | 类型 | 约束 | 语义 |
 |---|---|---|---|
