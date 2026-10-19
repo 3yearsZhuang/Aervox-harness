@@ -43,7 +43,7 @@ export const REMOVABLE_TARGETS = [
     ],
     allowedAssemblyFiles: [
       "packages/host-runtime/src/modules/ecosystem/model-runtime/index.ts",
-      "apps/api/test/model-runtime-llama-server.test.ts",
+      "packages/host-runtime/test/ecosystem/model-runtime/llama-server.test.ts",
       "apps/api/test/model-runtime-api.test.ts",
     ],
     dataRetentionRule: "移除驱动后模型文件与侧车完整保留，不静默走远程，通过 Fake/Unavailable 驱动维持服务契约",

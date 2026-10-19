@@ -1,13 +1,13 @@
 /**
- * Aervox｜思隅 @aervox/api — MCP 客户端单测（JSON-RPC 解析 / SSE 提取 / 安全分级 / 脱敏）
+ * Aervox｜思隅 @aervox/host-runtime — MCP 客户端单测（JSON-RPC 解析 / SSE 提取 / 安全分级 / 脱敏）
  */
 import { describe, expect, it } from "vitest";
 import {
   McpHttpClient,
   McpUpstreamError,
   extractRpcResponse,
-} from "@aervox/host-runtime-test/modules/ecosystem/mcp/client";
-import { classifyToolSafety, maskToken, mcpToolId } from "@aervox/host-runtime-test/modules/ecosystem/mcp/service";
+} from "../../../src/modules/ecosystem/mcp/client.js";
+import { classifyToolSafety, maskToken, mcpToolId } from "../../../src/modules/ecosystem/mcp/service.js";
 
 describe("extractRpcResponse（SSE 响应提取）", () => {
   it("从多条 data 行中提取与请求 id 匹配的 JSON-RPC 响应", () => {
