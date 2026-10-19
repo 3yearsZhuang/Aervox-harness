@@ -66,16 +66,15 @@ typecheck = "pnpm typecheck"
 # 运行全部测试（受控 2 并发，避免超线程争抢）
 test = "pnpm test"
 
-# 快速单元层：仅运行不建库、不起服务的轻量包（纯逻辑 + DOM 组件测试，共 9 包 71 文件，10 秒级完成）
-test-fast = "pnpm test:fast"
+# 快速单元层：运行纯逻辑、领域契约与前端组件等轻量包（10 秒级完成）
 test-unit = "pnpm test:unit"
+test-fast = "pnpm test:unit"
+
+# 架构与门禁脚本守护测试
+test-guards = "pnpm test:guards"
 
 # 智能增量测试：自动识别基准分支并仅运行变更包及其全部下游依赖的测试
 test-affected = "pnpm test:affected"
-
-# 专项子包快速测试
-test-api = "pnpm test:api"
-test-repos = "pnpm test:repos"
 
 # 全量构建
 build = "pnpm build"

@@ -38,13 +38,12 @@ HELP="$(
   mobile                       构建 Web 产物并同步 Capacitor 壳(cap sync web)
   package                      打包桌面端安装包(electron-builder, 产物 apps/desktop/release/)
   clean [--dry-run]            清理声明的构建产物和缓存；可预览路径
-  test [affected|fast|all|api|repos|<pkg>]
+  test [affected|unit|guards|all|<pkg>]
                                运行测试套件:
                                  affected  = 智能增量测试(默认, 仅变更包及其下游)
-                                 fast      = 快速单元层(9 个轻量逻辑/UI包, 10秒级)
+                                 unit      = 快速单元层(纯逻辑、领域契约与前端组件包)
+                                 guards    = 架构与门禁脚本守护测试
                                  all       = 全量受控 2 并发测试
-                                 api       = 仅 API 单包测试
-                                 repos     = 仅 Repositories 单包测试
                                  <pkg>     = 指定过滤包测试(--filter)
   ci [affected|all]            运行本地门禁:
                                  affected  = 极速增量门禁(默认, 仅检验代码变更及下游 + 变更文档, 20秒级)
@@ -228,25 +227,27 @@ cmd_test() {
       info "运行智能增量测试 (基于 git 变更包及其下游)…"
       run pnpm test:affected
       ;;
-    fast|unit)
-      info "运行快速单元层测试 (9 个纯逻辑/UI轻量包)…"
-      run pnpm test:fast
+    unit|fast)
+      info "运行快速单元层测试 (纯逻辑、领域契约与前端组件包)…"
+      run pnpm test:unit
+      ;;
+    guards)
+      info "运行架构与门禁脚本守护测试 (scripts/*.test.mjs)…"
+      run pnpm test:guards
       ;;
     all|full)
       info "运行全量测试 (受控 2 并发)…"
       run pnpm test
       ;;
-    api)
-      info "运行 API 单包测试…"
-      run pnpm test:api
-      ;;
-    repos|repositories)
-      info "运行 Repositories 单包测试…"
-      run pnpm test:repos
-      ;;
     *)
-      info "运行指定目标测试: ${target}…"
-      run pnpm --filter "$target" test
+      local filter_target="$target"
+      if [[ "$filter_target" != @* && "$filter_target" != ./* ]]; then
+        if [ -d "apps/$filter_target" ] || [ -d "packages/$filter_target" ] || [ -d "surfaces/$filter_target" ] || [ -d "plugins/$filter_target" ]; then
+          filter_target="@aervox/$filter_target"
+        fi
+      fi
+      info "运行指定目标测试: ${filter_target}…"
+      run pnpm --filter "$filter_target" test
       ;;
   esac
   ok "测试完成"
