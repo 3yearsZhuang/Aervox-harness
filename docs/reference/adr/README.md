@@ -9,13 +9,13 @@
 ## 按主题查找
 
 - [ADR-001](ADR-001-modular-monolith.md)：模块化单体 + 独立 Worker。
-- [ADR-002](ADR-002-web-api-contract.md)：Web 端与 API 契约设计（已归档）。
+- ADR-002：Web 端与 API 契约设计（已由 [ADR-015](ADR-015-vue-full-stack.md) 替代并归档）。
 - [ADR-003](ADR-003-postgres-retrieval.md)：仓储抽象架构：SQLite 业务真源与 FTS5/Vector Port。
 - [ADR-004](ADR-004-outbox-idempotent-jobs.md)：业务状态 + Outbox + 幂等队列。
 - [ADR-005](ADR-005-provider-port.md)：内部 Provider Port 包裹 AI SDK。
 - [ADR-006](ADR-006-recall-retention.md)：AI 召回期限与历史保留期限分离。
 - [ADR-007](ADR-007-memory-tree-projection.md)：系统记忆树作为可重建投影。
-- [ADR-008](ADR-008-cloud-first-local-port.md)：Cloud-first 与本地/自托管 Port（已归档）。
+- ADR-008：Cloud-first 与本地/自托管 Port（已由 CR-030 替代并归档）。
 - [ADR-009](ADR-009-electron-plugin-sandbox.md)：Electron 最小权限壳与进程外插件。
 - [ADR-010](ADR-010-dsh-pi-adapters.md)：DSH/pi 仅为可选适配器。
 - [ADR-011](ADR-011-diary-cycle-schedule-revision.md)：日记周期、计划修订与连续窗口。

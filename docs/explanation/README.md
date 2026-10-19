@@ -18,8 +18,7 @@ id: AVX-EXPL-000
 - [记忆删除质量论文与原始证据（已归档）](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/main/memory-deletion-study)
 - [仓库卫生与代码质量审计（2026-10-13）](repository-hygiene-audit-2026-10-13.md)
 - [配套硬件方向](companion-hardware-directions.md)
-- [ESP32-S3 器件方案](esp32-s3-hardware-extension.md)
-- [HLS 研究规划](hls-agent-competition-plan.md)与[执行指南](../how-to/run-hls-agent.md)
+- [HLS 研究执行指南](../how-to/run-hls-agent.md)
 - [点对点加密同步探索](p2p-local-sync-exploration.md)
 
 研究或原型不能直接作为产品承诺。被替代的历史决定通过 [ADR](../reference/adr/README.md)或[外部归档](https://github.com/3yearsZhuang/Aervox-docs-archive)追溯。

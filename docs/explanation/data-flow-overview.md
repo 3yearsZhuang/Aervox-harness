@@ -37,7 +37,7 @@ Aervox 是一条"先写后投递"的单向管道：客户端把输入按幂等 T
 
 ## 演进方向
 
-- Worker 唤醒与写入压力退避：本地 Domain Socket IPC（`wake`/`pressure`）替代持续空写轮询，API 密集写入期间后台任务自适应降频（ITER-027，待评审）；
-- 纯本地多端点对点加密同步：局域网发现 + Changeset 双向对齐（ITER-028，首切片待评审）；
+- Worker 唤醒与写入压力退避：探索本地 IPC（`wake`/`pressure`）替代持续空写轮询，API 密集写入期间后台任务自适应降频；
+- 纯本地多端点对点加密同步：局域网设备发现与 Changeset 双向对齐；
 - Web 工作台与移动壳复用同一数据层（[ADR-015](../reference/adr/ADR-015-vue-full-stack.md)）；
 - 插件与本地优先能力进入后，本管道增加新的投递目标（[ADR-009](../reference/adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](../reference/adr/ADR-010-dsh-pi-adapters.md)）。
