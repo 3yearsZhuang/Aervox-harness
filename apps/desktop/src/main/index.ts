@@ -2,6 +2,7 @@ import {app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, Menu, n
 import type {OpenDialogOptions, SaveDialogOptions} from 'electron'
 import {createFetchTransport} from '@aervox/api-client/transport'
 import {createApiEventStreams} from './api-event-streams'
+import {registerWindowIpc} from './window-ipc'
 import {createHash} from 'node:crypto'
 import {chmod, mkdir, readFile, rename, writeFile} from 'node:fs/promises'
 import os from 'node:os'
@@ -761,38 +762,15 @@ app.whenReady().then(async () => {
         broadcastTheme()
         return appTheme
     })
-    ipcMain.handle('window:minimize', () => {
-        mainWindow?.minimize()
-        return true
+    const disposeWindowIpc = registerWindowIpc({
+        ipcMain,
+        getMainWindow: () => mainWindow,
+        getWindowForSender: (sender) => BrowserWindow.fromWebContents(sender),
+        openExternal: (url) => shell.openExternal(url),
+        showOpenDialog: (window, options) => dialog.showOpenDialog(window, options),
     })
-    ipcMain.handle('window:toggle-maximize', (event) => {
-        const window = BrowserWindow.fromWebContents(event.sender)
-        if (!window) return false
-        if (window.isMaximized()) window.unmaximize()
-        else window.maximize()
-        return window.isMaximized()
-    })
-    ipcMain.handle('window:close', () => {
-        mainWindow?.destroy()
-        return true
-    })
-    // 外链经系统浏览器打开（如牛客每日一题）：仅放行 https 协议
-    ipcMain.handle('window:open-external', (_event, url: unknown) => {
-        if (typeof url !== 'string' || !/^https:\/\//i.test(url)) {
-            throw new Error('仅允许打开 https:// 外部链接')
-        }
-        return shell.openExternal(url)
-    })
-    // 「选择文件夹」：本地语音模型路径 / 音色目录（CR-011 阶段 3）
-    ipcMain.handle('dialog:pick-directory', async (event) => {
-        const window = BrowserWindow.fromWebContents(event.sender)
-        if (!window) return null
-        const result = await dialog.showOpenDialog(window, {
-            title: '选择文件夹',
-            properties: ['openDirectory', 'createDirectory'],
-        })
-        return result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0]
-    })
+    // before-quit 可能被原生 Helper 的异步关闭阻止，最终退出时再释放 IPC。
+    app.once('will-quit', disposeWindowIpc)
     // CAP-033: the renderer can only observe a broker snapshot. It cannot
     // manufacture an OS grant or write the control state directly.
     ipcMain.handle('proactive:status', async (event, payload: unknown) => {
