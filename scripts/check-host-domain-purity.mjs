@@ -2,8 +2,7 @@ import { collectFiles } from "./source-files.mjs";
 /**
  * Aervox｜思隅 宿主领域纯净性守卫（Host Domain Purity Ratchet）
  *
- * 机器事实源：CR-060「专注模式宿主去领域化与插件实现内聚」与
- * AVX-PLUG-001 §0.3 契约冻结。
+ * 机器事实源：宿主去领域化与插件实现内聚设计，以及 AVX-PLUG-001 §0.3 契约冻结。
  *
  * 规则：
  * 1. 宿主根目录（HOST_ROOTS）内不得出现插件领域标识：插件 id、领域驼峰标识、
@@ -13,8 +12,8 @@ import { collectFiles } from "./source-files.mjs";
  *    owner 与 removeWhen；**豁免项一旦不再命中即判定过期并失败**，
  *    以此形成只减不增的棘轮，避免"清单长存"。
  *
- * 范围外（不在本守卫职责内，理由见 CR-060 §3）：
- *   packages/schema、packages/repositories —— CAP-003/004/006 学习事实真源。
+ * 范围外（不在本守卫职责内）：
+ *   packages/schema、packages/repositories —— 学习事实数据真源。
  *
  * 用法：
  *   node scripts/check-host-domain-purity.mjs            # 全量检查，违规退出码 1
@@ -26,7 +25,7 @@ import { fileURLToPath } from "node:url";
 
 /**
  * 必须保持领域纯净的宿主根目录。
- * `packages/host-plugin-api` 为 CR-060 新增的宿主扩展契约包（缺失时静默跳过）。
+ * `packages/host-plugin-api` 为宿主扩展契约包（缺失时静默跳过）。
  */
 export const HOST_ROOTS = [
   "apps/api/src",
@@ -46,7 +45,7 @@ export const HOST_ROOTS = [
 ];
 
 /**
- * 领域标识规则。每条规则是 CR-060 的一条可机器验证的不变量。
+ * 领域标识规则。每条规则是一条可机器验证的不变量。
  * 注意：`study` 单独出现属通用英文词（如学习资料模块 study-materials），
  * 故只覆盖带 mode/插件语义的组合形态，避免误伤 CAP-003/004/006 学习资料。
  */
@@ -96,7 +95,7 @@ export const DOMAIN_PATTERNS = [
   {
     id: "domain-css",
     label: "插件专属样式类",
-    // 第二组（CR-060 §B9a）：学习抽屉 / 错题本 / 目标状态等**仅由插件组件产出**的类名，
+    // 第二组：学习抽屉 / 错题本 / 目标状态等**仅由插件组件产出**的类名，
     // 已随样式物理迁入 `plugins/focus-mode/src/ui/styles.css`，宿主不得再定义或引用。
     // 这里用精确类名而非 `goal-`/`mistake-` 前缀——宿主自身 CAP-017 学习规划仍有
     // `.goal-actions`、`.mistake-filters` 等合法类，前缀匹配会误伤。
@@ -239,7 +238,7 @@ export function runHostPurityCheck({ roots = HOST_ROOTS, exceptions = loadExcept
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (process.argv.includes("--list")) {
-    console.log("CR-060 宿主领域纯净性规则清单：");
+    console.log("宿主领域纯净性规则清单：");
     for (const rule of DOMAIN_PATTERNS) {
       console.log(`  [${rule.id}] ${rule.label} — ${rule.pattern}`);
     }
@@ -270,7 +269,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
             pattern: hit.rule,
             count: 1,
             owner: "platform/ecosystem",
-            removeWhen: `CR-060 实施切片完成后随实现迁入 plugins/focus-mode 一并移除（${hit.label}）`,
+            removeWhen: `随插件实现内聚迁入 plugins/focus-mode 一并移除（${hit.label}）`,
           });
         }
       }
@@ -286,7 +285,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const result = runHostPurityCheck();
   if (!result.valid) {
     if (result.violations.length > 0) {
-      console.error(`❌ 宿主领域纯净性违规 ${result.violations.length} 处（CR-060 / AVX-PLUG-001 §0.3）：`);
+      console.error(`❌ 宿主领域纯净性违规 ${result.violations.length} 处（AVX-PLUG-001 §0.3）：`);
       for (const v of result.violations) {
         console.error(`   ${v.file}:${v.line}: [${v.rule}] ${v.label} — ${v.text}`);
       }

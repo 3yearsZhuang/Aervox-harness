@@ -4,7 +4,7 @@ id: AVX-QA-001
 
 # Aervox｜思隅 测试策略
 
-关联：[SRS](SRS.md) · [需求追踪](REQUIREMENTS_TRACEABILITY.md) · [AI 质量](AI_QUALITY_SAFETY.md) · `CR-023`（已归档） · `CR-030`（已归档）
+关联：[SRS](SRS.md) · [需求追踪](REQUIREMENTS_TRACEABILITY.md) · [AI 质量](AI_QUALITY_SAFETY.md)
 
 ## 1. 测试原则
 
@@ -13,17 +13,34 @@ id: AVX-QA-001
 - 正常 CI 使用模型 stub/固定回放；真实供应商只在受控评估/灰度运行，避免非确定性和数据泄露。
 - 每个 Bug 回归用例反向关联需求；无需求来源的行为先澄清，不让测试成为隐式产品定义。
 
-## 2. 测试金字塔
+## 2. 测试金字塔与执行指令
 
-| 层 | 工具/环境 | 覆盖 |
-|---|---|---|
-| Unit/property | Vitest、fast-check | 状态机、调度、时区/DST、连续窗口、压缩 schema、投影覆盖、幂等、fencing/CAS、删除依赖图 |
-| Integration | In-Memory/Isolated SQLite、本地文件夹具 | Outbox、队列重放、Schema 迁移、索引、DiaryCycle/cursor、恢复账本、删除传播 |
-| Contract | OpenAPI/事件 schema diff、Provider/plugin fixtures | API 兼容、SSE framing/重放、模型适配、插件权限、外部同步 |
-| E2E | Playwright | 学习闭环、复习、日记、多日恢复、消息编辑/删除、流式重连/取消、导出、弱网恢复、无障碍 |
-| AI Eval | 版本化 EvalSet + 人工双标 | 教学事实、提示泄露、安全、记忆压缩、日记来源、Prompt injection |
-| Performance/resilience | k6/自选负载工具、故障注入、drill 脚本 | 本地单机负载（SQLite 写竞争、连续流式会话、长周期压测）、供应商/DB/本地文件故障；云端并发基线（100 并发/2 倍峰值）随 CR-030 暂缓 |
-| Security/privacy | ASVS 检查、SAST/DAST/SBOM/Secret scan | loopback/认证、文件 ACL、CSRF/CSP、插件、附件、删除后零召回 |
+Aervox 测试体系收敛为清晰的四层模型，各层权责明确、指令统一：
+
+| 层级 | 工具与环境 | 核心覆盖范围 | 标准执行指令 |
+|---|---|---|---|
+| 1. 架构与守卫层 | Node 原生测试、AST 边界扫描 | 依赖纯度、禁用标识符、文档与治理规则、CI 作用域覆盖、插件打包规范 | `pnpm test:guards`<br>`pnpm check:guards` |
+| 2. 单元与业务包集成层 | Monorepo Vitest、`@vue/test-utils`、内存/隔离 SQLite | 纯逻辑、领域契约、前端组件、状态机、数据访问层与业务聚合 | `pnpm test:unit`（选定包集）<br>`pnpm test:affected`（变更增量）<br>`pnpm test` / `pnpm test:all`（Monorepo 全量 2 并发）<br>`./aervox test <pkg>` |
+| 3. 领域专项与原生契约层 | 独立专项 Runner、Cargo / Rust 工具链 | 记忆删除可验证性、故障注入断言、Native 运行时与向量搜索基准、HLS 契约 | `pnpm check:memory-deletion`<br>`pnpm check:deletion-fault-testing`<br>`mise tasks run native-runtime-check`<br>`pnpm check:hls` |
+| 4. 系统集成与端到端层 | Playwright、CLI 冒烟脚本 | 端到端学习与对话闭环、API SSE 流式契约、Desktop/Web 交互、CLI 客户端集成冒烟 | `pnpm test:e2e:api`<br>`pnpm test:e2e:ui`<br>`pnpm test:cli:integration`<br>`node scripts/cli-smoke.test.mjs` |
+
+### 2.1 统一命令速查
+
+根目录 `./aervox` 提供本地开发的统一分发入口：
+
+- `./aervox test affected`（默认）：智能分析 git 变更范围，仅运行改动包及其全部下游依赖测试。
+- `./aervox test unit`：运行核心逻辑、领域契约、前端组件与插件的选定包集；具体范围以根 `package.json` 的 `test:unit` 为准，可能包含集成测试与依赖构建。
+- `./aervox test guards`：运行架构、契约与文档治理等全部脚本级守护测试。
+- `./aervox test all`：等价于 `pnpm test` / `pnpm test:all`，受控 2 并发执行 Monorepo 全部测试套件。
+- `./aervox test <pkg>`：支持真实包名、目录短名（如 `api`、`repositories`、`companion-ui`）与 pnpm 过滤器；无匹配包或选中包均未声明测试时失败。
+
+`pnpm test` 保持全量语义；智能增量使用 `pnpm test:affected` 或默认的 `./aervox test`。命令耗时取决于选择范围、构建缓存与运行环境。
+
+### 2.2 专项质量与可靠性要求
+
+- **AI 质量与评估**：版本化 EvalSet 与人工双标，覆盖教学事实、提示保护、安全合规、记忆压缩、日记来源；
+- **本地性能与单机韧性**：针对 SQLite 写入竞争、连续流式长会话与跨周期运行，执行本地压测与故障注入；
+- **安全与隐私**：Loopback 监听绑定校验、文件 ACL、CSRF/CSP、插件沙箱隔离与删除后零召回。
 
 ## 3. P0 必测路径
 
@@ -46,7 +63,7 @@ id: AVX-QA-001
 ### 3.2 本地边界、迁移、来源与恢复断言
 
 - 默认配置验证 API 只监听 loopback；`open` 认证与非 loopback 地址必须启动失败。验证本地数据目录对其他操作系统用户默认不可读，插件 `actorId` 和 Grant 不能扩大文件、工具或网络权限。
-- CR-030 迁移覆盖零/单/多数据范围、显式范围选择、备份哈希、staging 新库、逐表行数/外键/FTS 校验、原子换库和 rollback。对每个状态转换点执行崩溃注入；重复业务键、孤儿外键和损坏 JSON 必须 fail closed，不得静默删除或改写业务键。
+- 本地数据迁移覆盖零/单/多数据范围、显式范围选择、备份哈希、staging 新库、逐表行数/外键/FTS 校验、原子换库和 rollback。对每个状态转换点执行崩溃注入；重复业务键、孤儿外键和损坏 JSON 必须 fail closed，不得静默删除或改写业务键。
 - `SourceArtifact/SourceRevision` 的编辑、撤权、删除和版本切换必须传播到 ContextManifest、EmbeddingIndex、记忆证据、日记段落与缓存；禁止残余 `sourceType + sourceId` 弱关联路径。
 - 恢复账本测试覆盖“账本成功/业务失败”“账本失败”“重复 eventId”“sequence 缺口”“业务 PITR 回退到旧水位”和账本防篡改校验；任何未追平状态均不得确认删除完成或恢复业务流量。
 
@@ -77,7 +94,7 @@ id: AVX-QA-001
 
 - 目标版本内需求 100% 有 AC 和 TC；所有 P0 AC 有自动化或批准的人工证据。
 - 单元/集成/契约/E2E 全部通过；不以总代码覆盖率替代关键分支覆盖。
-- 数据删除、恢复账本、权限、本地 API/文件边界、CR-030 破坏性迁移、备份恢复、弱网/SSE 重连、DST、无障碍和安全对抗用例通过。
+- 数据删除、恢复账本、权限、本地 API/文件边界、破坏性迁移、备份恢复、弱网/SSE 重连、DST、无障碍和安全对抗用例通过。
 - 失败/隔离测试证明分析、通知、模型、插件和派生索引故障不破坏业务事实；CAP-033 的本地 Vault/Provider/Host 故障不得远程降级或产生未授权动作。
 - 残余风险有期限和批准；测试证据记录构建、commit、环境、时间和执行者。
 

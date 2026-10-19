@@ -1,5 +1,5 @@
 /** BTD-T09/T10/T11. Run in an idle review checkout with mise exec -- node scripts/run-removability-drill.mjs.
- * Backs up exact source bytes, physically removes pilots (including the CR-060 first-party plugin:
+ * Backs up exact source bytes, physically removes pilots (including the first-party plugin:
  * whole package directory + composition-root references), rebuilds API/Worker without Turbo cache,
  * exercises existing owner ports against a temp file database, restores sources and rebuilds.
  * Source backups, model fixtures and data exports remain in the printed temp directory.
@@ -19,7 +19,7 @@ const run = (cmd, args) => new Promise((resolve, reject) => {
 const memory = "packages/host-runtime/src/modules/companion/memory/index.ts";
 const model = "packages/host-runtime/src/modules/ecosystem/model-runtime/index.ts";
 
-/** CR-060 移除计划：删除的目录与需剥离引用的宿主文件（组合根 + 其包清单）。 */
+/** 插件移除计划：删除的目录与需剥离引用的宿主文件（组合根 + 其包清单）。 */
 const plans = REMOVABLE_TARGETS.map((t) => t.removalPlan).filter(Boolean);
 const removedDirs = [...new Set(plans.flatMap((p) => p.removeDirectories ?? []))];
 const stripFiles = [...new Set(plans.flatMap((p) => (p.strips ?? []).map((s) => s.file)))];
@@ -65,7 +65,7 @@ const build = async () => {
     }
   }
   await run("pnpm", ["exec", "turbo", "run", "build", "--filter=@aervox/api...", "--filter=@aervox/worker...", "--force", "--concurrency=2"]);
-  // CR-060：被剥离引用的 **UI 组合根** 必须真正参与编译。演练会从
+  // 被剥离引用的 **UI 组合根** 必须真正参与编译。演练会从
   // `apps/web/src/App.vue` 与 `apps/desktop/src/renderer/src/App.vue` 剥离插件装配行，
   // 若只构建 API/Worker，这些文件从不编译——悬空引用（例如跨行的 `:plugins=` 属性）
   // 会让"删除插件后宿主仍可编译"的结论落空。UI 侧以 `typecheck`（vue-tsc）收口：
@@ -79,6 +79,7 @@ try {
   await fs.writeFile(memory, originals.get(memory).toString()
     .replace(/^import .*MemoryStoreTool.*\n/m, "").replace(/^import .*contributeMemoryTool.*\n/m, "")
     .replace(/^export type \{ MemoryWritePort.*\n/m, "")
+    .replace(/^export \{ contributeMemoryTool \}.*\n/m, "")
     .replace(/^  if \(ctx.toolRuntime[\s\S]*?^  }\n/m, ""));
   await fs.writeFile(model, originals.get(model).toString()
     .replace(/^import .*LlamaServerManager.*\n/m, "")
@@ -92,7 +93,7 @@ try {
     }
   }
 
-  // CR-060：剥离组合根与包清单中的插件引用（等价于发布一个不含该插件的宿主版本）
+  // 剥离组合根与包清单中的插件引用（等价于发布一个不含该插件的宿主版本）
   for (const plan of plans) {
     for (const strip of plan.strips ?? []) {
       const before = (originals.get(strip.file) ?? await fs.readFile(strip.file)).toString();
@@ -119,6 +120,9 @@ finally {
   for (const [f, data] of originals) {
     await fs.mkdir(path.dirname(f), { recursive: true });
     await fs.writeFile(f, data);
+  }
+  if (removedDirs.length > 0) {
+    await run("pnpm", ["install", "--frozen-lockfile"]);
   }
 }
 await build();

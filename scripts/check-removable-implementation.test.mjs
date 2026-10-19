@@ -65,7 +65,7 @@ test("check-removable-implementation: Worker 静态、动态、类型及显式�
 
 test("check-removable-implementation: 第一方插件可移除目标（BTD-11）声明完整", () => {
   const target = REMOVABLE_TARGETS.find((t) => t.id === PLUGIN_TARGET_ID);
-  assert.ok(target, `必须声明 ${PLUGIN_TARGET_ID} 移除目标（CR-060 / BTD-11）`);
+  assert.ok(target, `必须声明 ${PLUGIN_TARGET_ID} 移除目标`);
   assert.equal(target.pilot, "BTD-11");
   assert.ok(
     target.implementationFiles.some((f) => f.endsWith("src/server/index.ts")),

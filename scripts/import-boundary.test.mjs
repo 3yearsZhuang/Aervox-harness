@@ -24,7 +24,7 @@ test("规则矩阵：8 条底座健身函数齐备", () => {
   );
 });
 
-test("宿主不得接入插件实现包：仅组合根白名单放行（CR-060）", () => {
+test("宿主不得接入插件实现包：仅组合根白名单放行", () => {
   const src = `import * as plugin from "@aervox/plugin-focus-mode/ui";`;
   assert.deepEqual(v("packages/host-runtime/src/modules/foo.ts", src), ["host-no-plugin-implementation"]);
   // 三个组合根是 AVX-PLUG-001 §4.1 允许的显式装配位
@@ -73,7 +73,7 @@ test("能力/适配/模块化候选层禁触库、禁依赖宿主（未来目录
   assert.deepEqual(v("providers/llm/openai-openai/src/adapter.ts", `import { port } from "@aervox/contracts";`), []);
 });
 
-test("插件实现层禁触库、禁反向依赖宿主 Shell（CR-060）", () => {
+test("插件实现层禁触库、禁反向依赖宿主 Shell", () => {
   const db = `import type { SqliteConversationRepository } from "@aervox/repositories";`;
   const libsql = `import { createClient } from "@libsql/client";`;
   const host = `import { registerPluginsModule } from "@aervox/api";`;
@@ -206,7 +206,7 @@ test('所有扫描范围的解析失败均阻断，而非静默放行', () => {
 });
 
 
-test("根界面宿主与桌宠组合根保持单向依赖（CR-063）", () => {
+test("根界面宿主与桌宠组合根保持单向依赖", () => {
   for (const dep of ["@aervox/ui", "@aervox/api-client", "electron", "node:fs"]) {
     assert.ok(v("packages/ui-host/src/root.ts", `import x from "${dep}";`).includes("ui-host-no-business-dependencies"));
   }

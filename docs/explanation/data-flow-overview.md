@@ -25,7 +25,7 @@ Aervox 是一条"先写后投递"的单向管道：客户端把输入按幂等 T
 
 1. 客户端提交输入 → `POST /v1/sessions/{sessionId}/turns` 幂等创建 Turn（同一请求键重放返回同一 Turn），并在同一事务内原子写入 Outbox 记录（[ADR-004](../reference/adr/ADR-004-outbox-idempotent-jobs.md)）。
 2. 客户端用 `GET /v1/turns/{turnId}/events` 以 SSE 消费事件流；断线时用 `Last-Event-ID` 重连，服务端去重（[流式协议](../reference/STREAMING_PROTOCOL.md)）。
-3. Worker 按任务独立节拍处理 Outbox、复习、日记和删除，错峰启动并跳过重叠轮次。频率与退避由[调度配置](../../apps/worker/src/task-scheduling.ts)决定，单轮扫描有界；失败按对应合同重试或进入死信。
+3. Worker 按任务独立节拍处理 Outbox、复习、日记和删除，错峰启动并跳过重叠轮次。Outbox 入队后通过本地 Domain Socket IPC（`wake`）尽力唤醒 Worker；密集会话执行期间通过 `pressure` 协调后台降频，IPC 失联时由轮询兜底。频率与退避由[调度配置](../../apps/worker/src/task-scheduling.ts)决定，单轮扫描有界；失败按对应合同重试或进入死信。
 4. SSE 事件先写入 `turn_stream_events`，同时经进程内 `TurnStreamHub` 直推；客户端重连时按 `Last-Event-ID` 重放存量事件并合并实时事件，终态排空后关闭连接，不再以高频数据库空轮询维持活流。
 5. 会话中的记忆节点与知识关系由 memory / knowledge 模块维护（如 `POST /v1/memory/nodes`），供召回与分支查询（[ADR-007](../reference/adr/ADR-007-memory-tree-projection.md)）。
 
@@ -37,7 +37,6 @@ Aervox 是一条"先写后投递"的单向管道：客户端把输入按幂等 T
 
 ## 演进方向
 
-- Worker 唤醒与写入压力退避：本地 Domain Socket IPC（`wake`/`pressure`）替代持续空写轮询，API 密集写入期间后台任务自适应降频（ITER-027，待评审）；
-- 纯本地多端点对点加密同步：局域网发现 + Changeset 双向对齐（ITER-028，首切片待评审）；
+- 纯本地多端点对点加密同步：局域网设备发现与 Changeset 双向对齐；
 - Web 工作台与移动壳复用同一数据层（[ADR-015](../reference/adr/ADR-015-vue-full-stack.md)）；
 - 插件与本地优先能力进入后，本管道增加新的投递目标（[ADR-009](../reference/adr/ADR-009-electron-plugin-sandbox.md)、[ADR-010](../reference/adr/ADR-010-dsh-pi-adapters.md)）。

@@ -46,7 +46,7 @@ test('configuration refuses remote endpoints, credentials, private task fields a
   assert.throws(() => validateConfig({ ...example, budget: { ...example.budget, maxInputBytes: 999999 } }));
 });
 
-// 回归：CR-057 审核修复——缺省 image 与 seed 上界
+// 缺省 image 与 seed 上界规范回归
 test('omitted eda.image is accepted and normalised to null so doctor guidance is reachable', () => {
   const omitted = structuredClone(example); delete omitted.eda.image;
   const a = validateConfig(omitted);

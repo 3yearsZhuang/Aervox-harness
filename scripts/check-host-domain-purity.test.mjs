@@ -17,7 +17,7 @@ import {
 
 const rules = (file, source) => inspectHostFile(file, source).map((h) => h.rule);
 
-test("规则矩阵：10 条 CR-060 不变量齐备", () => {
+test("规则矩阵：10 条宿主领域纯度不变量齐备", () => {
   assert.deepEqual(
     DOMAIN_PATTERNS.map((r) => r.id).sort(),
     [
@@ -62,7 +62,7 @@ test("学习工具 / 卡片 id 字面量命中", () => {
   assert.deepEqual(rules("packages/ui/src/a.ts", "cardSlots.value = ['study', 'timer'];"), ["study-tool-id"]);
 });
 
-test("CR-060 §B9a：已迁入插件的样式类不得回流宿主主题", () => {
+test("已迁入插件的样式类不得回流宿主主题", () => {
   // 这些类名随样式物理迁入 plugins/focus-mode/src/ui/styles.css，宿主侧引用数须保持 0
   for (const cls of [
     ".practice-panel",
@@ -152,7 +152,7 @@ test(".css 纳入扫描；插件实现目录不在宿主扫描根内", () => {
     !files.some((f) => f.startsWith("packages/ui/src/plugins/focus-mode/")),
     "迁移期插件自有目录不应被宿主纯净性守卫扫描",
   );
-  // CR-060 S6：插件 UI 已物理迁出宿主包，迁移期前缀豁免退役；
+  // 插件 UI 已物理迁出宿主包，迁移期前缀豁免退役；
   // 宿主包内不再存在任何插件自有目录，扫描覆盖全部宿主源码。
   assert.ok(
     !existsSync("packages/ui/src/plugins/focus-mode"),
@@ -172,7 +172,7 @@ test("扫描根覆盖宿主包，且不含学习事实真源包", () => {
   assert.ok(!HOST_ROOTS.includes("packages/repositories/src"), "repositories 属学习事实真源，范围外");
 });
 
-test("当前仓库状态：宿主零领域命中且豁免清单为空（CR-060 收敛终点）", () => {
+test("当前仓库状态：宿主零领域命中且豁免清单为空", () => {
   const result = runHostPurityCheck();
   assert.deepEqual(result.violations, []);
   assert.deepEqual(result.grown, []);
@@ -181,7 +181,7 @@ test("当前仓库状态：宿主零领域命中且豁免清单为空（CR-060 �
     [],
     "豁免清单存在可收紧条目；请运行 node scripts/check-host-domain-purity.mjs --init 同步，或删除已完成迁移的条目",
   );
-  assert.equal(result.hitCount, 0, "宿主仍存在领域命中，CR-060 未收敛");
+  assert.equal(result.hitCount, 0, "宿主仍存在领域命中");
   assert.deepEqual(
     loadExceptions(),
     [],

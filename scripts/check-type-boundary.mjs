@@ -26,7 +26,7 @@ const TARGET_DIRS = [
 ];
 
 /**
- * 插件实现目录（CR-060：实现内聚于 `plugins/<id>/src`，与宿主同受本规则约束）。
+ * 插件实现目录（实现内聚于 `plugins/<id>/src`，与宿主同受本规则约束）。
  * 动态发现而非硬编码，避免新增插件时漏检。
  */
 export function discoverPluginSourceDirs(pluginsRoot = "plugins") {

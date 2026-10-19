@@ -75,5 +75,5 @@ id: AVX-TERM-001
 
 ## 维护规则
 
-- 新增或更改术语含义时，本表与 [文档写作规范 §5](../../../CONTRIBUTING.md#documentation) 一并更新，必要时登记 `CR-*`；
+- 新增或更改术语含义时，本表与 [文档写作规范 §5](../../../CONTRIBUTING.md#documentation) 一并更新，重大变更通过 PR 或 ADR 评审；
 - 正文使用被禁止的拼写且未在本表登记豁免时，Vale 会在文档 CI 中报错。

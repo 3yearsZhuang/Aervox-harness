@@ -17,6 +17,30 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**", "out/**"]
     },
+    "@aervox/ui#build": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "@aervox/ui-host#build": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "@aervox/plugin-companion-ui#build": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "@aervox/plugin-panels-ui#build": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "@aervox/plugin-proactive-ui#build": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "@aervox/plugin-workbench-ui#build": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
     "@aervox/live2d#build": {
       "dependsOn": ["^build"],
       "cache": false

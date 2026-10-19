@@ -196,7 +196,7 @@ test('noncooperating workload and close waits are bounded', async () => {
 test('cleanup can exceed the workload deadline within its independent budget', async () => {
   let closed = false;
   const adapter = fixture({ async close() {
-    await new Promise(resolve => setTimeout(resolve, 40));
+    await new Promise(resolve => setTimeout(resolve, 50));
     closed = true;
   } });
   const evidence = await runSchedule(adapter, { timeoutMs: 20, cleanupTimeoutMs: 200 });

@@ -18,7 +18,7 @@ const WORKSPACES = discoverWorkspaces();
  *   L2  packages/api-client / packages/ui —— 传输与表现底座（禁触数据库）
  *   L3  apps/*                —— 宿主 Shell（单向消费上述底座）
  *   预留 capabilities/ providers/ adapters/ modules/ —— 能力层（禁触库、禁依赖宿主）
- *   同层 plugins/<id>/        —— 插件实现（CR-060：禁触库、禁反向依赖宿主 Shell）
+ *   同层 plugins/<id>/        —— 插件实现（禁触库、禁反向依赖宿主 Shell）
  * 参考规则：AVX-HAR-001 §16.2（内核不导入 SQLite/Drizzle，原 agent-loop 规则随壳移除改指向 packages/core）；
  *           AVX-CAP-001 交付载体与自选机制（Kernel Substrate 边界、能力层接口边界）。
  *
@@ -41,7 +41,7 @@ import { parse } from "@babel/parser";
 /**
  * 组合根白名单：宿主中唯一允许接入插件实现包的位置。
  *
- * 依据 AVX-PLUG-001 §4.1「Hook 必须由组合根 import 并注册」与 CR-060：
+ * 依据 AVX-PLUG-001 §4.1「Hook 必须由组合根 import 并注册」：
  * - API/Worker 组合根以**容错动态 import** 装配插件服务端注册单元（缺包不中断启动）；
  * - Web / 桌面壳以静态 import 取插件 UI 定义的默认导出（删除该行即可下线）。
  *
@@ -59,7 +59,7 @@ export const PLUGIN_COMPOSITION_ROOTS = new Set([
 export const RULES = [
   {
     name: "ui-host-no-business-dependencies",
-    docRef: "CR-063 · AVX-PLUG-001",
+    docRef: "AVX-PLUG-001",
     fromDir: /^packages\/ui-host\/src\//,
     forbid: [
       { pattern: /^@aervox\//, label: "业务包、插件或 API 客户端（界面宿主仅依赖 Vue）" },
@@ -112,10 +112,10 @@ export const RULES = [
     ],
   },
   {
-    // CR-060：插件实现内聚于 plugins/<id>/ 后，仍不得绕过宿主窄端口直连数据库或反向依赖宿主 Shell。
+    // 插件实现内聚于 plugins/<id>/ 后，仍不得绕过宿主窄端口直连数据库或反向依赖宿主 Shell。
     // 允许依赖 @aervox/ui 等共享包（宿主扩展 API 与展示基座），故不阻断全部 @aervox/*。
     name: "host-no-plugin-implementation",
-    docRef: "CR-060 · AVX-PLUG-001 §0.3",
+    docRef: "AVX-PLUG-001 §0.3",
     fromDir: /^(apps|packages)\/[^/]+\/src\//,
     forbid: [
       {
@@ -126,7 +126,7 @@ export const RULES = [
   },
   {
     name: "plugins-domain-no-db-no-host",
-    docRef: "CR-060 · AVX-PLUG-001 §0.3",
+    docRef: "AVX-PLUG-001 §0.3",
     fromDir: /^(plugins|surfaces)\/[^/]+\//,
     forbid: [
       { pattern: /^@aervox\/(database|schema|repositories)($|\/)/, label: "数据库/模式/仓储" },
@@ -265,7 +265,7 @@ export function moduleOwner(file) {
 export function inspectSource(relFile, source, { exceptions = MODULE_EXCEPTIONS } = {}) {
   const violations = [];
   const governed = /^(apps\/(api|worker)|packages\/host-runtime)\/src\//.test(relFile);
-  const add = (rule, module, label) => violations.push({ file: relFile, rule, module, label, docRef: "CR-056 / ADR-016" });
+  const add = (rule, module, label) => violations.push({ file: relFile, rule, module, label, docRef: "ADR-016" });
   let rawSpecifiers;
   try {
     rawSpecifiers = extractSpecifiers(source, relFile, governed);

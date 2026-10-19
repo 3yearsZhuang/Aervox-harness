@@ -141,7 +141,7 @@ Page 元数据为 `id/title/description/entry/capabilities/checksum`。`id` 最�
 - iframe 正在运行的代码没有统一 CPU/内存配额与撤权终止证明；不能把网络 CSP 解释为任意第三方执行安全已验收。
 - API 启用 Bearer Token 认证时，当前 iframe `src` 和脚本资源没有注入 Authorization 头，资源请求会受到全局认证检查；尚无完整的受保护 Page 资源授权通道。不能将 Token 放入页面 URL 或为访问页面而关闭生产认证。
 
-已实现防护与剩余缺口分别验收，不通过文字变更批准放宽 ADR-009，也不宣称整个 ITER-006 已完成。
+已实现防护与剩余缺口分别验收，不通过文字变更批准放宽 ADR-009，也不能宣称沙箱与资源配额已完全闭合。
 
 ## 4. 服务端会话回合插件体系（Server Turn Plugin Pipeline）
 
