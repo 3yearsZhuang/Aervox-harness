@@ -208,14 +208,27 @@ test('cleanup can exceed the workload deadline within its independent budget', a
   assert.equal(evidence.cleanupTimeoutMs, 200);
 });
 
-test('an unfinished close respects the explicit independent cleanup deadline', async () => {
-  const adapter = fixture({ async close() { await new Promise(() => {}); } });
-  const started = performance.now();
-  const evidence = await runSchedule(adapter, { timeoutMs: 100, cleanupTimeoutMs: 20 });
+test('an unfinished close respects the explicit independent cleanup deadline', { timeout: 1_000 }, async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const closeStarted = Promise.withResolvers();
+  const adapter = fixture({ async close() {
+    closeStarted.resolve();
+    await new Promise(() => {});
+  } });
+  let settled = false;
+  const schedule = runSchedule(adapter, { timeoutMs: 100, cleanupTimeoutMs: 20 }).then(evidence => {
+    settled = true;
+    return evidence;
+  });
+  await closeStarted.promise;
+  t.mock.timers.tick(19);
+  // Drain promise continuations so an early return cannot hide behind a pending microtask.
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(settled, false, 'cleanup must still be pending before its deadline');
+  t.mock.timers.tick(1);
+  const evidence = await schedule;
   assert.equal(evidence.status, 'infrastructure-error');
-  assert.match(evidence.error, /adapter close timeout/);
-  assert.ok(evidence.durationMs >= 20);
-  assert.ok(performance.now() - started < 1_000);
+  assert.equal(evidence.error, 'Error: adapter close timeout');
   assert.equal(evidence.cleanupTimeoutMs, 20);
 });
 
