@@ -9,6 +9,8 @@
 
 import type { ControlContext } from "./control-context.js";
 import { inspectToolInput } from "./tool-input-safe.js";
+import type { ToolValidatorPort } from "./types.js";
+import { validateJsonSchema } from "./json-schema-validator.js";
 
 /**
  * 本地单用户上下文（ADR-021：core 零运行时依赖，故本地声明）。
@@ -44,6 +46,16 @@ export class HostToolNotFoundError extends HostToolError {
   constructor(message = "resource not found") {
     super(message, 404, "NOT_FOUND");
     this.name = "HostToolNotFoundError";
+  }
+}
+
+export class HostToolValidationError extends HostToolError {
+  readonly errors?: import("./types.js").ToolValidationErrorDetail[];
+  constructor(toolName: string, errors?: import("./types.js").ToolValidationErrorDetail[]) {
+    const detail = errors && errors.length > 0 ? `: ${errors.map((e) => `${e.path || "(root)"}: ${e.message}`).join("; ")}` : "";
+    super(`tool argument schema validation failed for ${toolName}${detail}`, 400, "SCHEMA_VALIDATION_FAILED");
+    this.name = "HostToolValidationError";
+    this.errors = errors;
   }
 }
 
@@ -236,6 +248,7 @@ export class InMemoryToolRegistry implements HostToolRegistryPort {
 
 export interface HostToolRuntimeDeps {
   registry?: HostToolRegistryPort;
+  validator?: ToolValidatorPort;
 }
 
 interface Registration {
@@ -266,11 +279,13 @@ export class HostToolRuntime {
   private readonly handlers = new Map<string, Registration>();
   private readonly writes = new Map<string, Promise<unknown>>();
   private readonly registry: HostToolRegistryPort;
+  private readonly validator: ToolValidatorPort;
   private disposed = false;
   private generation = 0;
 
   constructor(deps: HostToolRuntimeDeps = {}) {
     this.registry = deps.registry ?? new InMemoryToolRegistry();
+    this.validator = deps.validator ?? validateJsonSchema;
   }
 
   get rawRegistry(): HostToolRegistryPort {
@@ -442,6 +457,14 @@ export class HostToolRuntime {
     const inspection = inspectToolInput({ name: tool.name, arguments: args });
     if (!inspection.safe) {
       throw new HostToolForbiddenError(`unsafe tool arguments: ${inspection.reason ?? "validation_failed"}`);
+    }
+
+    // Schema 校验：若工具定义了 inputSchemaJson，在派发 handler 前强校验
+    if (tool.inputSchemaJson) {
+      const validation = this.validator(tool.inputSchemaJson, args);
+      if (!validation.valid) {
+        throw new HostToolValidationError(tool.name, validation.errors);
+      }
     }
 
     if (opts.authorize && !(await opts.authorize())) throw new HostToolForbiddenError(`tool permission denied: ${toolId}`);

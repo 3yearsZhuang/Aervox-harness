@@ -121,6 +121,31 @@ export interface ContextCompactionResult {
   summary?: string;
 }
 
+/** 工具安全等级定义 */
+export type ToolSafetyLevel = "read_only" | "write_with_approval" | "privileged" | "destructive" | (string & {});
+
+/** 工具预算配置（超时与重试） */
+export interface ToolBudget {
+  timeoutMs?: number;
+  maxRetries?: number;
+}
+
+/** 参数 Schema 校验错误详情 */
+export interface ToolValidationErrorDetail {
+  path: string;
+  message: string;
+  keyword?: string;
+}
+
+/** 参数 Schema 校验结果 */
+export interface ToolValidationResult {
+  valid: boolean;
+  errors?: ToolValidationErrorDetail[];
+}
+
+/** 零依赖工具参数校验端口 */
+export type ToolValidatorPort = (schema: unknown, data: unknown) => ToolValidationResult;
+
 /** 工具描述（只读白名单工具的主仓快照；阶段 2d 与工具注册表共用） */
 export interface ToolSpec {
   name: string;
@@ -133,6 +158,10 @@ export interface ToolSpec {
    * 容易把数组参数序列化为字符串（真实 LLM 下 ask_user_questions 曾触发）。声明 schema 的工具应尽量提供。
    */
   parameters?: Record<string, unknown>;
+  /** 阶段 2 / 白盒演进：工具执行预算（如自定义超时等） */
+  budget?: ToolBudget;
+  /** 安全等级声明（与 readOnly 一致性或细粒度 privileged/destructive） */
+  safetyLevel?: ToolSafetyLevel;
 }
 
 /** 审批信息（宿主在需要授权时返回：approvalId + 授权匹配键） */

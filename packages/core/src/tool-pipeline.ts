@@ -116,10 +116,14 @@ export async function runToolExecution(ctx: ToolExecutionContext): Promise<ToolC
     };
   }
 
-  // 长耗时工具放宽超时：等待用户交互 / 内含一次完整 LLM 生成
-  const effectiveTimeout = LONG_RUNNING_TOOLS.has(call.name)
-    ? Math.max(toolTimeoutMs, LONG_RUNNING_TOOL_TIMEOUT_MS)
-    : toolTimeoutMs;
+  const spec = (tools.tools || []).find((t) => t.name === call.name);
+  const specTimeout = spec?.budget?.timeoutMs;
+  // 工具契约统一：优先采纳工具声明的 budget.timeoutMs，保留 LONG_RUNNING_TOOLS 回溯兼容
+  const effectiveTimeout = specTimeout !== undefined
+    ? specTimeout
+    : LONG_RUNNING_TOOLS.has(call.name)
+      ? Math.max(toolTimeoutMs, LONG_RUNNING_TOOL_TIMEOUT_MS)
+      : toolTimeoutMs;
 
   let subtaskControl: ControlContext | undefined;
   let removeLostListener: (() => void) | undefined;
@@ -133,8 +137,7 @@ export async function runToolExecution(ctx: ToolExecutionContext): Promise<ToolC
     // Phase 2: ApprovalPolicyPort 统一审批前置拦截（有界等待：策略不合作时由 abort 信号打破）
     let result: ToolCallResult | undefined;
     if (ctx.approvalPolicy) {
-      const spec = (tools.tools || []).find((t) => t.name === call.name);
-      const safetyLevel: ToolSafetyLevel = spec?.readOnly ? "read_only" : "write_with_approval";
+      const safetyLevel: ToolSafetyLevel = spec?.safetyLevel ?? (spec?.readOnly ? "read_only" : "write_with_approval");
       const decision = await awaitWithSignal(
         ctx.approvalPolicy.evaluate(
           {
