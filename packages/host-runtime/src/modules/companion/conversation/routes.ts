@@ -20,6 +20,7 @@ import {
   type SqliteSubagentRunRepository,
   type SqlitePlatformRepository,
 } from "@aervox/repositories";
+import { buildResumeHistory } from "@aervox/core";
 import { resolveLocalContext } from "../../../shared/local-context.js";
 import { acceptConversationTurn } from "./application.js";
 import { turnStreamHub, type StreamEventFrame } from "./stream-hub.js";
@@ -523,6 +524,72 @@ export function registerConversationRoutes(
     };
     await conversationRepo.appendStreamEvent(tenant, approvalEvent);
     turnStreamHub.publishEvent(turnId, approvalEvent);
+
+    // 阶段 2 审批续跑：若存在因该审批挂起的待决工具执行，启动新 Attempt 自动续跑原 Turn
+    try {
+      const executions = await conversationRepo.listToolExecutionsByTurn(tenant, turnId);
+      const pendingExecution = executions.find(
+        (e) => e.name === updated.toolName && e.status === "pending_approval",
+      );
+      if (pendingExecution) {
+        const turn = await conversationRepo.getTurn(tenant, turnId);
+        if (turn) {
+          const userMessage = (await conversationRepo.getTurnUserMessage(tenant, turnId)) ?? "";
+          const allEvents = await conversationRepo.getStreamEvents(tenant, turnId, 0);
+          const resumeHistory = buildResumeHistory({
+            userMessage,
+            events: allEvents as unknown as import("@aervox/core").ResumeEventLike[],
+          });
+          const attempts = await conversationRepo.listTurnAttempts(tenant, turnId);
+          const nextAttemptSeq = attempts.length + 1;
+          const nextAttemptId = `att_${turnId}_${nextAttemptSeq}`;
+          await conversationRepo.createTurnAttempt(tenant, turnId, {
+            id: nextAttemptId,
+            attempt: nextAttemptSeq,
+            fencingToken: 0,
+          });
+          await conversationRepo.updateTurnStatus(tenant, turnId, "Running");
+
+          const args = pendingExecution.argumentsJson
+            ? (typeof pendingExecution.argumentsJson === "string"
+                ? JSON.parse(pendingExecution.argumentsJson)
+                : pendingExecution.argumentsJson)
+            : {};
+
+          const resumeInput: import("@aervox/core").ExecuteTurnResumeInput = {
+            expectedFencingToken: 0,
+            lastSequence: approvalEvent.sequence,
+            lastStep: 1,
+            history: resumeHistory.history,
+            messageId: resumeHistory.messageId,
+            pendingApprovalResolution: {
+              approvalId: updated.id,
+              decision: updated.state as "granted" | "denied",
+              toolCall: {
+                id: pendingExecution.invocationId,
+                name: pendingExecution.name,
+                arguments: args,
+              },
+              invocationId: pendingExecution.invocationId,
+            },
+          };
+
+          const runTurn = execute ?? ((turnInput: ConversationTurnInput) => executeConversationTurn(conversationRepo, tenant, turnInput, deps));
+          void runTurn({
+            turnId,
+            sessionId: turn.sessionId,
+            attemptId: nextAttemptId,
+            userMessage,
+            resume: resumeInput,
+          }).catch((err) => {
+            req.log?.warn?.({ err, turnId, approvalId: updated.id }, "Turn resume failed after approval decision");
+          });
+        }
+      }
+    } catch (err) {
+      req.log?.warn?.({ err, turnId, approvalId: updated.id }, "Failed to schedule turn resumption after approval");
+    }
+
     return reply.send({ approvalId: updated.id, state: updated.state });
   });
 

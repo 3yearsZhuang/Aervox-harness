@@ -101,6 +101,7 @@ export async function runLoopTurnOnce(
     metadata?: Record<string, unknown>;
     signal?: AbortSignal;
     deadlineEpochMs?: number;
+    resume?: import("@aervox/core").ExecuteTurnResumeInput;
   },
   deps: {
     signal?: AbortSignal;
@@ -735,6 +736,9 @@ export async function runLoopTurnOnce(
       tools,
       deletionGate: deps.deletionGate,
       inbox: deps.inbox,
+      options: {
+        resume: input.resume,
+      },
       modelRunMeta: routingSnapshot
         ? {
             provider: routingSnapshot.providerType ?? "rule",

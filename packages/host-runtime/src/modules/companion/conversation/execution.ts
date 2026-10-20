@@ -75,6 +75,7 @@ export interface ConversationTurnInput {
   toolApprovalMode?: "ask" | "full_access";
   actorId?: string;
   signal?: AbortSignal;
+  resume?: import("@aervox/core").ExecuteTurnResumeInput;
 }
 
 /** Shared admission, product dependencies and failure handling for both execution hosts. */
@@ -184,6 +185,7 @@ export async function executeConversationTurn(
         attemptId,
         userMessage,
         metadata: input.metadata,
+        resume: input.resume,
       },
       {
         signal,

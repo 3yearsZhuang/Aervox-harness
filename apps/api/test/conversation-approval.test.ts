@@ -173,4 +173,47 @@ describe("Agent Loop 阶段 3a：写工具审批通道", () => {
     expect(retriedEvents.map((e) => e.eventType)).toContain("tool_approval_required");
     expect(retriedEvents[retriedEvents.length - 1].data.status).toBe("Interrupted");
   });
+
+  it("白盒审批续跑：grant → 原 Turn 自动以 Attempt 2 续跑完成，无需新建 Turn 重发", async () => {
+    const first = await createTurn();
+    const firstTurnId = first.json().turnId as string;
+
+    const repo = new SqliteConversationRepository(db);
+    const approvals = await repo.listToolApprovalsByTurn(tenant, firstTurnId);
+    const approvalId = approvals[0]!.id;
+
+    // 审批前：Attempt 1 为 Interrupted 终态
+    const attemptsBefore = await repo.listTurnAttempts(tenant, firstTurnId);
+    expect(attemptsBefore).toHaveLength(1);
+    expect(attemptsBefore[0]!.status).toBe("Interrupted");
+
+    // 批准操作
+    const decide = await app.inject({
+      method: "POST",
+      url: `/v1/turns/${firstTurnId}/tool-approvals`,
+      headers,
+      payload: { approvalId, decision: "granted", decidedBy: "admin_unit_test" },
+    });
+    expect(decide.statusCode).toBe(200);
+
+    // 等待 Attempt 2 续跑完成
+    await new Promise((r) => setTimeout(r, 50));
+
+    // 原 Turn 内部 Attempt 2 成功执行，Attempt 1 保持不变（不可变性）
+    const attemptsAfter = await repo.listTurnAttempts(tenant, firstTurnId);
+    expect(attemptsAfter).toHaveLength(2);
+    expect(attemptsAfter[0]!.attempt).toBe(2);
+    expect(attemptsAfter[0]!.status).toBe("Completed");
+    expect(attemptsAfter[1]!.attempt).toBe(1);
+    expect(attemptsAfter[1]!.status).toBe("Interrupted");
+
+    // 同一 Turn 的 SSE 事件流直接包含 tool_result 与 Completed 终态！无需新建 Turn 重发
+    const events = parseSse((await app.inject({ method: "GET", url: `/v1/turns/${firstTurnId}/events`, headers })).body);
+    expect(events.map((e) => e.eventType)).toContain("tool_result");
+    expect(events.at(-1)?.data.status).toBe("Completed");
+
+    // 工具账本已成功收口为 executed
+    const executions = await repo.listToolExecutionsByTurn(tenant, firstTurnId);
+    expect(executions[0]).toMatchObject({ name: "aervox_save_note", status: "executed" });
+  });
 });

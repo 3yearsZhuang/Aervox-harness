@@ -17,6 +17,7 @@ import type {
   ExecuteResult,
   ModelChunk,
   PromptMessage,
+  ToolCallRequest,
   ToolCallResult,
 } from "./types.js";
 import { LeaseLostError } from "./errors.js";
@@ -45,6 +46,13 @@ export interface ExecuteTurnInput {
  * 由恢复器从事件流 + 工具账本重建上下文后，以「抢占续跑」方式在原 Attempt 上继续，
  * 禁止重复已提交副作用与事件。executor 跳过 message 身份事件、沿用既有 sequence 之后追加。
  */
+export interface PendingApprovalResolution {
+  approvalId: string;
+  decision: "granted" | "denied";
+  toolCall: ToolCallRequest;
+  invocationId: string;
+}
+
 export interface ExecuteTurnResumeInput {
   /** 原执行已 claim 的 fencing（续跑以抢占语义重新 claim，预期=当前值） */
   expectedFencingToken: number;
@@ -56,6 +64,8 @@ export interface ExecuteTurnResumeInput {
   history: PromptMessage[];
   /** 已提交的助手消息身份（message 事件 data.messageId），续跑 delta/done 复用 */
   messageId: string;
+  /** 阶段 2 审批续跑模式：携带待决工具上下文，启动时优先执行已决议工具 */
+  pendingApprovalResolution?: PendingApprovalResolution;
 }
 
 export interface ExecuteTurnOptions {
@@ -233,6 +243,87 @@ export async function executeTurn(
     // 4b 续跑：Step 从 resume.lastStep 之后继续（executionId=attempt:step:seq 不与已提交冲突）；
     // 全新执行从 1 开始。
     const stepBase = resume?.lastStep ?? 0;
+
+    // 阶段 2 审批续跑：若携带待决工具决议（granted / denied），在进入后续 Step 前优先解决该工具副作用
+    if (resume?.pendingApprovalResolution) {
+      const { decision, toolCall, invocationId } = resume.pendingApprovalResolution;
+      let toolOutcome: ToolCallResult;
+
+      if (decision === "granted") {
+        if (!tools) {
+          toolOutcome = {
+            id: toolCall.id,
+            name: toolCall.name,
+            ok: false,
+            error: "tools_disabled",
+          };
+        } else {
+          try {
+            const execResult = await tools.execute({
+              turnId: input.turnId,
+              attemptId: input.attemptId,
+              invocationId,
+              name: toolCall.name,
+              arguments: toolCall.arguments,
+              signal: control.abortSignal,
+              controlContext: control,
+            });
+            toolOutcome = {
+              id: toolCall.id,
+              name: toolCall.name,
+              ok: execResult.ok,
+              output: execResult.output,
+              error: execResult.error,
+            };
+          } catch (err) {
+            toolOutcome = {
+              id: toolCall.id,
+              name: toolCall.name,
+              ok: false,
+              error: err instanceof Error ? err.message : "tool_execution_error",
+            };
+          }
+        }
+      } else {
+        toolOutcome = {
+          id: toolCall.id,
+          name: toolCall.name,
+          ok: false,
+          error: "tool_approval_denied",
+        };
+      }
+
+      // 权威收口工具账本并提交 tool_result 事件
+      await settleToolLedger({
+        execution,
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        invocationId,
+        expectedFencingToken: claimFencingToken,
+        nextSequence: () => sequence++,
+        call: toolCall,
+        result: toolOutcome,
+        startedAt: new Date().toISOString(),
+      });
+
+      // 将工具结果安全过滤并注入历史，供后续 Step 模型使用
+      const rawJson = JSON.stringify({ ok: toolOutcome.ok, output: toolOutcome.output, error: toolOutcome.error });
+      const inspected = inspectToolResult(rawJson);
+      const content = inspected.injection
+        ? JSON.stringify({
+            ok: false,
+            output: undefined,
+            error: "blocked_tool_injection: 工具输出疑似含提示注入样本，已拦截且不注入完整内容",
+          })
+        : inspected.text;
+
+      history.push({
+        role: "tool",
+        content,
+        toolCallId: toolOutcome.id,
+        name: toolOutcome.name,
+      });
+    }
     for (let step = stepBase + 1; step <= maxSteps; step += 1) {
       stepsTaken = step;
 
