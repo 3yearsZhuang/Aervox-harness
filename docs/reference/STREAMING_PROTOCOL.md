@@ -185,7 +185,7 @@ TTFT 定义为：Turn POST 被服务端接受，到第一个**通过安全门且
 
 ## 8. 兼容与变更
 
-新增字段必须向后兼容；删除或改变事件语义必须提升 `payloadVersion`、更新 OpenAPI/JSON Schema 和变更请求，并保留上一版本客户端的兼容窗口。替换 AI SDK、Provider 或传输实现不得改变 Turn/TurnStreamEvent 状态和幂等语义。
+新增字段必须向后兼容；删除或改变事件语义必须提升 `payloadVersion`、更新 OpenAPI/JSON Schema，在 PR 中说明迁移与验证，并保留上一版本客户端的兼容窗口。需要持续协调时按[统一变更编号规则](../../CONTRIBUTING.md#change-numbering)关联 ITER。替换 AI SDK、Provider 或传输实现不得改变 Turn/TurnStreamEvent 状态和幂等语义。
 
 ## 客户端会话与录音生命周期
 
