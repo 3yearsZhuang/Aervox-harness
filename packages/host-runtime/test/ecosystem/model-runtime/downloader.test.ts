@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/api — 本地模型流式下载器测试（CR-054）
+ * Aervox｜思隅 @aervox/host-runtime — 本地模型流式下载器测试（CR-054）
  *
  * 起一个真实 Node http 服务器 serve 小体积 payload，验证：
  * 流式进度、SHA-256 校验、.part 原子改名、校验失败清理、HTTP 错误分类。
@@ -11,7 +11,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
-import { downloadToFile, ModelDownloadError } from "@aervox/host-runtime-test/modules/ecosystem/model-runtime/downloader";
+import { downloadToFile, ModelDownloadError } from "../../../src/modules/ecosystem/model-runtime/downloader.js";
 
 const PAYLOAD = Buffer.from("Aervox local model runtime download probe\n".repeat(1024));
 const BIG_PAYLOAD = Buffer.alloc(3 * 1024 * 1024, 7);

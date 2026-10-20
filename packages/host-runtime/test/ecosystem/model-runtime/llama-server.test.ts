@@ -1,5 +1,5 @@
 /**
- * Aervox｜思隅 @aervox/api — llama-server 子进程生命周期测试（CR-054）
+ * Aervox｜思隅 @aervox/host-runtime — llama-server 子进程生命周期测试（CR-054）
  *
  * 注入 fake spawn / fake fetch，验证启动健康探测、running 状态、SIGTERM/SIGKILL 停止、
  * 崩溃（意外退出）置 error、二进制缺失报错。
@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 import type { ChildProcess } from "node:child_process";
-import { LlamaServerManager } from "@aervox/host-runtime-test/modules/ecosystem/model-runtime/llama-server";
+import { LlamaServerManager } from "../../../src/modules/ecosystem/model-runtime/llama-server.js";
 
 interface FakeChild extends EventEmitter {
   pid: number;
