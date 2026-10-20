@@ -3,6 +3,8 @@
 const assert = require('node:assert/strict')
 const {mkdirSync, realpathSync, writeSync} = require('node:fs')
 const {join} = require('node:path')
+const {execFile, execFileSync} = require('node:child_process')
+const {promisify} = require('node:util')
 const {app, BrowserWindow, dialog, ipcMain, shell, WebContentsView} = require('electron')
 const {registerWindowIpc} = require(process.env.AERVOX_IPC_SMOKE_MODULE)
 
@@ -13,6 +15,13 @@ const nativeResults = {directorySelection: 'not-run', directoryCancellation: 'no
 let mainWindow = null
 let senderWindow = null
 let dispose
+const runFile = promisify(execFile)
+let stageManager = false
+if (process.platform === 'darwin') {
+    try {
+        stageManager = execFileSync('/usr/bin/defaults', ['read', 'com.apple.WindowManager', 'GloballyEnabled'], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}).trim() === '1'
+    } catch { /* The preference is absent when Stage Manager has never been enabled. */ }
+}
 
 function record(value) {
     writeSync(1, `${JSON.stringify({pid: process.pid, ...value})}\n`)
@@ -31,7 +40,7 @@ function fail(error) {
 async function until(predicate, message) {
     const deadline = Date.now() + 10000
     while (Date.now() < deadline) {
-        if (predicate()) return
+        if (await predicate()) return
         await new Promise(resolve => setTimeout(resolve, 25))
     }
     throw new Error(`Timed out: ${message}`)
@@ -39,7 +48,7 @@ async function until(predicate, message) {
 
 const preferences = {preload: process.env.AERVOX_IPC_SMOKE_PRELOAD, contextIsolation: true, sandbox: true, nodeIntegration: false}
 async function createWindow(role) {
-    const window = new BrowserWindow({width: 480, height: 320, show: true, title: `Aervox IPC smoke ${role} ${process.pid}`, webPreferences: preferences})
+    const window = new BrowserWindow({width: 480, height: 320, show: true, ...(role === 'main' ? {frame: false, autoHideMenuBar: true} : {}), title: `Aervox IPC smoke ${role} ${process.pid}`, webPreferences: preferences})
     await window.loadURL(`data:text/html,${encodeURIComponent(`<title>Aervox IPC smoke ${role} ${process.pid}</title><h1>Window IPC smoke: ${role}</h1><p>PID ${process.pid}</p>`)}`)
     return window
 }
@@ -63,6 +72,44 @@ function register() {
         openExternal: url => shell.openExternal(url),
         showOpenDialog: (window, options) => dialog.showOpenDialog(window, options),
     })
+}
+
+async function nativeFrame(window) {
+    const number = Number(window.getMediaSourceId().split(':')[1])
+    assert.ok(Number.isSafeInteger(number) && number > 0)
+    const script = `ObjC.import('CoreGraphics');
+        var rows = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo(0, 0)));
+        JSON.stringify(rows.filter(w => Number(w.kCGWindowOwnerPID) === ${process.pid} && Number(w.kCGWindowNumber) === ${number})
+          .map(w => ({pid:w.kCGWindowOwnerPID, number:w.kCGWindowNumber, bounds:w.kCGWindowBounds, onscreen:w.kCGWindowIsOnscreen === true})));`
+    const {stdout} = await runFile('/usr/bin/osascript', ['-l', 'JavaScript', '-e', script], {timeout: 5000})
+    const rows = JSON.parse(stdout)
+    assert.equal(rows.length, 1, 'CoreGraphics must identify exactly this fixture window')
+    return rows[0]
+}
+
+async function minimizeMain(sender, window) {
+    const before = stageManager ? await nativeFrame(window) : null
+    if (before) assert.ok(before.bounds.Width >= 400 && before.bounds.Height >= 250, 'start from a full-size native window')
+    assert.equal(await invoke(sender, 'window:minimize'), true)
+    let after
+    await until(async () => {
+        if (window.isMinimized()) return true
+        if (!stageManager) return false
+        after = await nativeFrame(window)
+        // Stage Manager renders a scaled sidebar thumbnail without setting
+        // NSWindow.isMiniaturized or sending Electron's minimize event (#44586).
+        return !window.isFocused() && after.bounds.Width <= before.bounds.Width / 2 && after.bounds.Height <= before.bounds.Height / 2
+    }, 'main window minimized or rendered as a Stage Manager thumbnail')
+    record({type: 'native-minimize-result', windowId: window.id, stageManager, electronMinimized: window.isMinimized(), before, after})
+    window.restore()
+    window.show()
+    window.focus()
+    await until(async () => {
+        if (window.isMinimized() || !window.isFocused()) return false
+        if (!stageManager) return true
+        const restored = await nativeFrame(window)
+        return restored.bounds.Width >= before.bounds.Width * 0.9 && restored.bounds.Height >= before.bounds.Height * 0.9
+    }, 'fixture window restored to its full native size')
 }
 
 // Keep this isolated fixture alive while the main window is destroyed/recreated.
@@ -89,11 +136,8 @@ async function verifyWindowRouting() {
     // loadURL waits for the renderer; let the native window finish presentation.
     await new Promise(resolve => setTimeout(resolve, 500))
     record({type: 'window-state', role: 'main', id: main.id, webContentsId: main.webContents.id, appHidden: app.isHidden(), visible: main.isVisible(), focused: main.isFocused(), fullScreen: main.isFullScreen(), minimizable: main.isMinimizable(), minimized: main.isMinimized()})
-    assert.equal(await invoke(sender, 'window:minimize'), true)
-    await until(() => main.isMinimized(), 'main window minimized')
+    await minimizeMain(sender, main)
     assert.equal(senderWindow.isMinimized(), false)
-    main.restore()
-    await until(() => !main.isMinimized(), 'main window restored')
     passed('renderer IPC minimizes the current main window')
 
     const mainWasMaximized = main.isMaximized()
@@ -116,9 +160,7 @@ async function verifyWindowRouting() {
     replacement.focus()
     await until(() => replacement.isVisible() && replacement.isFocused(), 'replacement native window visible and focused')
     await new Promise(resolve => setTimeout(resolve, 500))
-    assert.equal(await invoke(sender, 'window:minimize'), true)
-    await until(() => replacement.isMinimized(), 'replacement main window minimized')
-    replacement.restore()
+    await minimizeMain(sender, replacement)
     passed('renderer IPC closes main, tolerates absence, and reads a replacement main')
 
     const orphanView = new WebContentsView({webPreferences: preferences})
@@ -160,8 +202,7 @@ async function verifyRegistration() {
     }
     dispose = register()
     oldDispose()
-    assert.equal(await invoke(sender, 'window:minimize'), true)
-    mainWindow.restore()
+    await minimizeMain(sender, mainWindow)
     passed('partial registration rolls back only acquired channels; disposed cleanup is inert')
 }
 
@@ -241,7 +282,7 @@ function verifyQuitLifecycle() {
 }
 
 app.whenReady().then(async () => {
-    record({type: 'ready', electron: process.versions.electron, native})
+    record({type: 'ready', electron: process.versions.electron, native, stageManager})
     await verifyWindowRouting()
     await verifyRegistration()
     await verifyNativeServices()
