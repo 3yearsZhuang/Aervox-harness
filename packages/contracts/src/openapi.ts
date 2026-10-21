@@ -1034,7 +1034,10 @@ for (const endpoint of [...Object.values(modelRuntimeApi), ...Object.values(pref
     request: {
       ...(endpoint.params ? { params: endpoint.params } : {}),
       ...(endpoint.query ? { query: endpoint.query } : {}),
-      ...(endpoint.body ? { body: { content: { "application/json": { schema: endpoint.body } } } } : {}),
+      ...(endpoint.body ? { body: {
+        ...(endpoint.bodyRequired === undefined ? {} : { required: endpoint.bodyRequired }),
+        content: { "application/json": { schema: endpoint.body } },
+      } } : {}),
     },
     responses: {
       [endpoint.status ?? 200]: { description: "Success", content: { "application/json": { schema: endpoint.response } } },

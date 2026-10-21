@@ -14,6 +14,8 @@ HTTP 数据与操作的事实源是 `@aervox/contracts`；[流式协议](STREAMI
 
 新 JSON 端点优先使用 [ApiEndpoint](../../packages/contracts/src/http-api.ts) 定义方法、路径、稳定 `operationId`、输入、成功响应及错误响应；使用宿主 [registerContractRoute](../../packages/host-runtime/src/shared/contract-route.ts) 注册，并由 OpenAPI 与共享客户端消费同一声明。已有切片包括 [Model Runtime](../../packages/contracts/src/model-runtime-api.ts)、[隐私授权与删除请求](../../packages/contracts/src/privacy-api.ts)和[用户偏好](../../packages/contracts/src/preferences-api.ts)。共享声明校验路径、查询参数、请求体和成功响应；SSE、文件和已有路由可以保留专用适配器，但仍须登记协议。
 
+新声明中需要请求体的操作显式设置 `bodyRequired: true`，使 OpenAPI 的请求体存在性与运行时 Schema 校验一致；这与对象内部的必填字段不同。隐私授权、删除请求和偏好保存、更新缺少请求体时返回 400；撤销授权与重置偏好保留无请求体调用。
+
 认证由宿主统一执行，插件或业务 handler 不能通过自定义声明降低要求。共享契约不得导入具体插件实现或宿主应用。
 
 `POST /v1/consent` 的审计操作者只取宿主认证上下文；兼容请求中的 `actorId` 被忽略，不能覆盖服务端身份。`GET /v1/consent` 缺少或留空 purpose/scope 时继续返回 `{ active: false }`，重复查询键等非字符串输入返回 400。未配置偏好时保留 `id: null`、`version: 0` 的中性默认响应，不创建持久化记录；保存、更新和重置返回持久化版本。`POST /v1/deletions` 返回 202 仅证明受理，保留显式目标去重与幂等重放，不表示清理或独立验证已经完成。

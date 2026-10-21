@@ -66,6 +66,16 @@ describe('HTTP contracts', () => {
     expect(preferencesApi.save.response.safeParse({ id: null, version: 0 }).success).toBe(false);
   });
 
+  it('requires bodies on the four new write endpoints while retaining bodyless actions', () => {
+    const paths = buildOpenApiDocument().paths!;
+    for (const endpoint of [privacyApi.grantConsent, privacyApi.createDeletion, preferencesApi.save, preferencesApi.update]) {
+      expect(paths[endpoint.path]?.[endpoint.method]?.requestBody).toMatchObject({ required: true });
+    }
+    for (const endpoint of [privacyApi.revokeConsent, preferencesApi.reset]) {
+      expect(paths[endpoint.path]?.[endpoint.method]?.requestBody).toBeUndefined();
+    }
+  });
+
   it('encodes each path argument and rejects absent arguments before transport', () => {
     const endpoint = { path: '/v1/items/{id}' };
     expect(apiEndpointPath(endpoint, { id: 'a/b?c#d' })).toBe('/v1/items/a%2Fb%3Fc%23d');

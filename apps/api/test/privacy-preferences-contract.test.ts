@@ -38,6 +38,18 @@ describe('ITER-064 privacy and preferences contracts', () => {
     expect(Number(rows.rows[0]!.n)).toBe(0);
   });
 
+  it('rejects missing bodies on all four write endpoints before any durable mutation', async () => {
+    for (const endpoint of [privacyApi.grantConsent, privacyApi.createDeletion, preferencesApi.save, preferencesApi.update]) {
+      const response = await built.app.inject({
+        method: endpoint.method.toUpperCase() as 'POST' | 'PATCH', url: endpoint.path, headers,
+      });
+      expect(response.statusCode).toBe(400);
+      expect(apiProblemSchema.parse(response.json())).toMatchObject({ code: 'VALIDATION_FAILED', status: 400 });
+    }
+    const counts = await database.client.execute('SELECT (SELECT COUNT(*) FROM consent_grants) + (SELECT COUNT(*) FROM persona_preferences) + (SELECT COUNT(*) FROM deletion_requests) AS n');
+    expect(Number(counts.rows[0]!.n)).toBe(0);
+  });
+
   it('rejects invalid consent/query/preferences before any durable mutation', async () => {
     for (const payload of [{ purpose: 42, scope: 'local', policyVersion: '1' }, { purpose: 'memory_long', scope: '', policyVersion: '1' }]) {
       const response = await built.app.inject({ method: 'POST', url: '/v1/consent', headers, payload });

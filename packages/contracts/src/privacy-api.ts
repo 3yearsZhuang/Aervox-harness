@@ -48,7 +48,7 @@ export const deletionRequestResponseSchema = z.object({
 export const privacyApi = {
   grantConsent: {
     method: "post", path: "/v1/consent", operationId: "grantConsent",
-    summary: "创建本地用途授权", tags: ["Privacy"], body: grantConsentRequestSchema,
+    summary: "创建本地用途授权", tags: ["Privacy"], body: grantConsentRequestSchema, bodyRequired: true,
     response: consentGrantSchema, status: 201,
     validationErrorMessage: "purpose, scope and policyVersion are required",
     errors: { 400: "Invalid consent grant" },
@@ -68,7 +68,7 @@ export const privacyApi = {
   createDeletion: {
     method: "post", path: "/v1/deletions", operationId: "createDeletionRequest",
     summary: "受理幂等删除请求及显式目标，不代表删除完成", tags: ["Privacy"],
-    body: createDeletionRequestSchema, response: deletionRequestResponseSchema, status: 202,
+    body: createDeletionRequestSchema, bodyRequired: true, response: deletionRequestResponseSchema, status: 202,
     validationErrorMessage: "invalid deletion request",
     errors: { 400: "Invalid deletion request or conflicting ownerModule" },
   },

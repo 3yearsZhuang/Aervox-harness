@@ -40,13 +40,13 @@ export const preferencesApi = {
   save: {
     method: "post", path: "/v1/preferences", operationId: "savePreferences",
     summary: "填写或跳过偏好问卷", tags: ["Preferences"],
-    body: savePersonaPreferencesSchema, response: storedPreferencesSchema, status: 201,
+    body: savePersonaPreferencesSchema, bodyRequired: true, response: storedPreferencesSchema, status: 201,
     validationErrorMessage: "Validation failed", errors: { 400: "Validation failed" },
   },
   update: {
     method: "patch", path: "/v1/preferences", operationId: "updatePreferences",
     summary: "更新本地偏好", tags: ["Preferences"],
-    body: updatePersonaPreferencesSchema, response: storedPreferencesSchema,
+    body: updatePersonaPreferencesSchema, bodyRequired: true, response: storedPreferencesSchema,
     validationErrorMessage: "Validation failed", errors: { 400: "Validation failed" },
   },
   reset: {

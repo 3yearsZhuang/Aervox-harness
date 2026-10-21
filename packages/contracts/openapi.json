@@ -23775,6 +23775,7 @@
           "Preferences"
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -23932,6 +23933,7 @@
           "Preferences"
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -24191,6 +24193,7 @@
           "Privacy"
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -24530,6 +24533,7 @@
           "Privacy"
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
