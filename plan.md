@@ -28,7 +28,7 @@
 
 <a id="iter-069"></a>
 
-### ITER-069 · 进行中：本地 API、DSH 与桌面安全边界修复
+### ITER-069 · 待审查：本地 API、DSH 与桌面安全边界修复
 
 维护者授权按计划推进并排查高危漏洞。基于主线 `92ecbfe7`，以临时 SQLite、临时文件根及合成内容验证；不访问或迁移业务数据库。
 
@@ -37,9 +37,9 @@
 - DSH 切片：合成夹具复现文件工具沿 symlink 越出仓库及取消后命令迟到写入；以 canonical containment、文件描述符与 inode 校验修复路径读写，取消、超时、输出上限会尝试终止命令进程组，并有界等待清理；取消不回滚已经发生的副作用。已授权 shell 沿用宿主用户权限，不承诺 OS 文件或网络沙箱。
 - 验收与边界：负向读写必须无副作用，正常本地客户端、合法 Token 预检及 sandbox Page 资源须有回归；命令先取消、运行后取消和后代退出均独立验证。各切片全量终审和 PR 审查分别记录；本次范围不构成完整渗透测试、全部平台实机验证或正式发布。
 - 本地证据：浏览器边界切片 `./aervox ci all` 完整退出 0，API 712 项通过；真实 Chromium 2 项通过，恶意 Origin 到达服务端后返回 403 且合成会话不变，跨站 sandbox Page 的普通/模块脚本、样式、图片和 Bridge 可用。DSH 独立定向 25 项及既有 API 20 项通过；首次全量因 API 原生产物构建竞态失败，补显式任务依赖和 25 项脚本回归后重跑完整退出 0（API 706 项、宿主 64 项及研究、原生、文档门禁通过）。首次失败与修复后成功证据均保留。
-- 交付：[PR #309](https://github.com/3yearsZhuang/Aervox-harness/pull/309) 的八项远端检查已成功；[PR #310](https://github.com/3yearsZhuang/Aervox-harness/pull/310) 交付 DSH 文件及取消修复与原生测试依赖修正。本地实现与终审完成，PR 审查、后续远端 CI 和发布状态分别核对，不自动合入。
-- 桌面切片：独立隐藏 Electron 合成探针复现大写 HTTP Markdown 链接导航外部页面、真实 preload 继续暴露 API 代理、外部 senderFrame 经同等代理 handler 附带合成 Bearer 取得 200 响应。探针不使用真实凭据或 API，未运行完整产品主进程；主窗口/宠物窗口导航、固定入口与全部特权 IPC 来源校验正在独立修复。
-- 受限剩余：可写本地插件的 Page 资源写入仍可沿预先存在的 symlink 越界，前提是已有本机文件系统控制或旧资源；声明归档不能创建 symlink，generation 资源不可写，不计为外部安装直接可利用高危。桌面风险链已有独立 Electron 合成证据，完整产品修复与回归仍待交付；不将探针称为完整产品实机验证。依赖公告审计无未审阅路径，4 条已审阅例外仍保留，不称为告警已消除。
+- 交付：[PR #309](https://github.com/3yearsZhuang/Aervox-harness/pull/309) 的八项远端检查已成功；[PR #310](https://github.com/3yearsZhuang/Aervox-harness/pull/310) 交付 DSH 文件及取消修复与原生测试依赖修正，八项远端检查成功。本地实现与终审完成，PR 审查、后续远端 CI 和发布状态分别核对，不自动合入。
+- 桌面切片：独立隐藏 Electron 合成探针复现大写 HTTP Markdown 链接导航外部页面、真实 preload 继续暴露 API 代理、外部 senderFrame 经同等代理 handler 附带合成 Bearer 取得 200 响应。探针不使用真实凭据或 API，未运行完整产品主进程；主窗口/宠物窗口固定入口、全部 32 个特权 IPC 来源校验、preload 暴露边界、外部导航/重定向/新窗口与流取消已由 [PR #312](https://github.com/3yearsZhuang/Aervox-harness/pull/312) 修复；大小写 HTTP(S) 与协议相对 Markdown 外链统一外部打开。实际 helper 与新 preload 的独立 Electron 对照 27 项全部通过，覆盖独立 main/pet、query/hash、正常合成 API、真实 302、sandbox iframe 和未知/子 frame 拒绝；全量 `./aervox ci all` 完整退出 0（API 706 项、桌面 137 项、UI 141 项及研究、原生、文档门禁通过）。
+- 受限剩余：可写本地插件的 Page 资源写入仍可沿预先存在的 symlink 越界，前提是已有本机文件系统控制或旧资源；声明归档不能创建 symlink，generation 资源不可写，不计为外部安装直接可利用高危。桌面风险链与修复已有独立 Electron 合成证据，不将探针称为完整已安装产品或全平台实机验证。已受理的异步主动操作保留原有完成语义，不承诺导航回滚既有副作用。依赖公告审计无未审阅路径，4 条已审阅例外仍保留，不称为告警已消除。
 
 <a id="iter-067"></a>
 
