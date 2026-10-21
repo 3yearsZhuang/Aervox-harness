@@ -133,3 +133,16 @@ Worker 收到退出信号后先停止新调度与 IPC 唤醒，等待正在执�
 - 偏差项关联的 PR、`ADR-*` / `RISK-*` 编号：
 - 下季度前需关闭的改进项：
 - 演练整体结论：
+
+## 13. 生成物与缓存清理
+
+在仓库根先预览声明的清理路径，再按需清理：
+
+```bash
+./aervox clean --dry-run
+./aervox clean
+```
+
+清理范围以 [clean-generated.mjs](../../scripts/clean-generated.mjs) 为准：根目录的 `dist/`、`.turbo/`、`node_modules/.turbo/`，以及按 `pnpm-workspace.yaml` 发现的真实 workspace 包内的 `dist/`、`out/`、`.turbo/`。预览会列出整份声明清单，包括尚不存在的目录；执行清理时递归删除这些生成目录及其内容。
+
+脚本在删除前校验整份清单：目标中有 Git 受跟踪文件，或目标及其父路径包含符号链接时，整体拒绝清理。`--dry-run` 使用相同校验，不执行删除。常用数据目录、数据库、本地模型与 `.env` 不在清理清单内；`node_modules/` 只清理其中的 `.turbo/` 缓存，保留已安装依赖。
