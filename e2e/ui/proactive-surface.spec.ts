@@ -1,5 +1,44 @@
 import { test, expect, openWorkbench } from "./fixtures";
 
+test("mobile keeps a failed draft, reuses its request key, and shows waiting feedback", async ({ page, servers }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  let releaseFailure!: () => void;
+  const waiting = new Promise<void>(resolve => { releaseFailure = resolve; });
+  const keys: string[] = [];
+  await page.route("**/v1/sessions/*/turns", async route => {
+    keys.push(route.request().headers()["idempotency-key"]!);
+    if (keys.length === 1) {
+      await waiting;
+      await route.fulfill({ status: 503, contentType: "application/json", headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ message: "provider unavailable" }) });
+    } else {
+      await route.fulfill({ contentType: "application/json", headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ turnId: "turn_mobile_retry" }) });
+    }
+  });
+  await page.route("**/v1/turns/turn_mobile_retry/events", route => route.fulfill({
+    contentType: "text/event-stream", headers: { "Access-Control-Allow-Origin": "*" },
+    body: [
+      { turnId: "turn_mobile_retry", sequence: 1, eventType: "delta", data: { text: "先用一个例子理解变量类型。" } },
+      { turnId: "turn_mobile_retry", sequence: 2, eventType: "done", data: {} },
+    ].map(event => `data: ${JSON.stringify(event)}\n\n`).join(""),
+  }));
+  await page.goto(`${servers.webUrl}/?surface=proactive-ui`, { timeout: 90_000 });
+  await page.locator(".pc-whisper-pill").click();
+  const input = page.locator(".pc-whisper-input input");
+  await input.fill("解释变量类型");
+  await page.getByRole("button", { name: "发送", exact: true }).click();
+  await expect(page.locator(".pc-dialogue-waiting")).toContainText("正在等待回复");
+  releaseFailure();
+  await expect(page.locator(".pc-feedback")).toContainText("未能收到回复");
+  await expect(input).toHaveValue("解释变量类型");
+  await page.getByRole("button", { name: "重试发送", exact: true }).click();
+  await expect(page.locator(".pc-dialogue-text")).toContainText("先用一个例子理解变量类型");
+  await expect(page.locator(".pc-whisper-input")).toHaveCount(0);
+  await expect(page.locator(".pc-feedback")).toHaveCount(0);
+  expect(keys).toHaveLength(2);
+  expect(keys[0]).toMatch(/^[a-f0-9]{32}$/);
+  expect(keys[1]).toBe(keys[0]);
+});
+
 test("mobile model settings preserve an edited draft across pages and input stays reachable on a short screen", async ({ page, servers }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${servers.webUrl}/?surface=proactive-ui`, { timeout: 90_000 });
