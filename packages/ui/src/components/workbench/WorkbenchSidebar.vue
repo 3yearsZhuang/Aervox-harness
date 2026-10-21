@@ -341,11 +341,11 @@ function toggleTheme() {
 
     <!-- 会话列表 -->
     <div class="sidebar-sessions-scroll" role="navigation" aria-label="会话历史" :aria-busy="sessions.loading.value ? 'true' : undefined">
-      <p v-if="sessionError || sessions.error.value" class="sidebar-error" role="alert">{{ sessionError || sessions.error.value }}</p>
-      <div v-if="sessions.loading.value" class="sidebar-sessions-skeleton" aria-hidden="true">
+      <p v-if="sessionError || sessions.error.value" class="sidebar-error" role="alert">{{ sessionError || '会话列表加载失败，请稍后重试。' }}</p>
+      <div v-if="sessions.loading.value && sessions.sessions.value.length === 0" class="sidebar-sessions-skeleton" aria-hidden="true">
         <span v-for="row in 3" :key="row" class="sidebar-sessions-skeleton-row" />
       </div>
-      <div v-else-if="groupedSessions.length === 0" class="empty-sessions">
+      <div v-else-if="!sessions.loading.value && !sessions.error.value && groupedSessions.length === 0" class="empty-sessions">
         <span class="empty-sessions-icon" aria-hidden="true"><MessageSquare :size="16" /></span>
         <strong>{{ searchQuery ? '没有匹配的对话' : '还没有对话' }}</strong>
         <small>{{ searchQuery ? '换个关键词再试，或清空搜索。' : '新建对话，从卡点开始。' }}</small>
