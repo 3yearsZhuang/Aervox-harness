@@ -9,6 +9,8 @@ import { registerBotOpenApi } from './bot-openapi.js';
 import { registerMcpOpenApiPaths, registerMcpOpenApiSchemas } from './mcp-openapi.js';
 import { apiProblemSchema, type ApiEndpoint } from "./http-api.js";
 import { modelRuntimeApi } from "./model-runtime-api.js";
+import { preferencesApi } from "./preferences-api.js";
+import { privacyApi } from "./privacy-api.js";
 import { createMemoryNodeRequestSchema, memoryNodeSchema, listMemoryNodesResponseSchema } from "./memory-api.js";
 import type { OpenAPIObject } from "openapi3-ts/oas31";
 import { getPluginOpenApiRoutes, getPluginApiRevision, type PluginOpenApiRoute } from "./plugin-api-registry.js";
@@ -1026,13 +1028,17 @@ registry.registerPath({ method: "post", path: "/v1/model-runtime/stop", summary:
 registry.registerPath({ method: "delete", path: "/v1/model-runtime/models/{modelId}", summary: "删除已下载模型（运行中禁止）", tags: ["Model Runtime"], request: { headers: commonHeaders, params: z.object({ modelId: z.string().min(1) }) }, responses: { 200: { description: "State snapshot", content: { "application/json": { schema: modelRuntimeStateSchema } } }, 404: { description: "MODEL_NOT_FOUND" }, 409: { description: "RUNTIME_BUSY" } } });
 
 /** Shared JSON endpoint descriptors are also used by routing and clients. */
-for (const endpoint of Object.values(modelRuntimeApi) as ApiEndpoint[]) {
+for (const endpoint of [...Object.values(modelRuntimeApi), ...Object.values(preferencesApi), ...Object.values(privacyApi)] as ApiEndpoint[]) {
   registry.registerPath({
     method: endpoint.method, path: endpoint.path, operationId: endpoint.operationId,
     summary: endpoint.summary, tags: endpoint.tags,
     request: {
       ...(endpoint.params ? { params: endpoint.params } : {}),
-      ...(endpoint.body ? { body: { content: { "application/json": { schema: endpoint.body } } } } : {}),
+      ...(endpoint.query ? { query: endpoint.query } : {}),
+      ...(endpoint.body ? { body: {
+        ...(endpoint.bodyRequired === undefined ? {} : { required: endpoint.bodyRequired }),
+        content: { "application/json": { schema: endpoint.body } },
+      } } : {}),
     },
     responses: {
       [endpoint.status ?? 200]: { description: "Success", content: { "application/json": { schema: endpoint.response } } },

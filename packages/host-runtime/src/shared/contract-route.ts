@@ -13,13 +13,16 @@ export function registerContractRoute(
     url: endpoint.path.replace(/\{([^}]+)\}/g, ":$1"),
     config: { operationId: endpoint.operationId },
     async handler(request, reply) {
-      for (const field of ["params", "body"] as const) {
+      for (const field of ["params", "query", "body"] as const) {
         const schema = endpoint[field];
         if (!schema) continue;
         const parsed = schema.safeParse(request[field]);
         if (!parsed.success) {
           return reply.code(400).send({
-            code: endpoint.validationErrorCode ?? "VALIDATION_FAILED", message: `Invalid ${field}`, details: parsed.error.issues,
+            code: endpoint.validationErrorCode ?? "VALIDATION_FAILED",
+            message: endpoint.validationErrorMessage ?? `Invalid ${field}`,
+            ...(endpoint.validationErrorMessage ? { error: endpoint.validationErrorMessage } : {}),
+            details: parsed.error.issues,
           });
         }
         request[field] = parsed.data;

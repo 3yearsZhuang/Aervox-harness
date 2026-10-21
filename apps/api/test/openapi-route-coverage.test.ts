@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { buildOpenApiDocument, modelRuntimeApi } from '@aervox/contracts';
+import { buildOpenApiDocument, modelRuntimeApi, preferencesApi, privacyApi } from '@aervox/contracts';
 import { createInMemoryDatabase } from '@aervox/repositories';
 import { buildApp } from './app-fixture.js';
 import { compareRouteCoverage, routeCoverageKey, type RouteCoverageException } from './helpers/openapi-coverage.js';
@@ -13,7 +13,7 @@ describe('OpenAPI route coverage ratchet', () => {
       await built.app.ready();
       const baseline = JSON.parse(readFileSync(new URL('./fixtures/openapi-route-baseline.json', import.meta.url), 'utf8')) as { exceptions: RouteCoverageException[] };
       const routes = built.routeInventory;
-      for (const endpoint of Object.values(modelRuntimeApi)) {
+      for (const endpoint of [...Object.values(modelRuntimeApi), ...Object.values(preferencesApi), ...Object.values(privacyApi)]) {
         expect(routes.map(route => routeCoverageKey(route.method, route.path))).toContain(routeCoverageKey(endpoint.method, endpoint.path));
       }
       const result = compareRouteCoverage(routes, buildOpenApiDocument(), baseline.exceptions);

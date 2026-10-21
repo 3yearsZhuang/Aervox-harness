@@ -213,6 +213,8 @@ export {
 } from "./plugin-api-registry.js";
 export type { PluginApiContribution, PluginOpenApiRoute, ToolResultProjectionSchema } from "./plugin-api-registry.js";
 export { createDeletionRequestSchema } from "./privacy-schemas.js";
+export * from "./privacy-api.js";
+export * from "./preferences-api.js";
 
 export type { LocalContext } from "./local-context.js";
 export type { DiaryMaterial, DiaryMaterialMessage, DiaryMaterialMemory, DiaryMaterialPort } from "./diary-material.js";

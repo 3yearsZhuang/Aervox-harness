@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apiEndpointPath, apiProblemSchema, buildOpenApiDocument, modelRuntimeApi } from '../src/index.js';
+import { apiEndpointPath, apiProblemSchema, buildOpenApiDocument, modelRuntimeApi, preferencesApi, privacyApi } from '../src/index.js';
 
 describe('HTTP contracts', () => {
   it('every operation has a unique stable id, structured errors and the actual authentication scheme', () => {
@@ -43,6 +43,37 @@ describe('HTTP contracts', () => {
     const problem = { type: 'about:blank', title: 'Conflict', status: 409, detail: 'busy', code: 'DOWNLOAD_BUSY', message: 'busy', requestId: 'req-1', details: { modelId: 'm' } };
     expect(apiProblemSchema.parse(problem)).toEqual(problem);
     expect(apiProblemSchema.safeParse({ ...problem, status: 200 }).success).toBe(false);
+  });
+
+  it('describes the privacy and preferences boundaries including optional consent queries', () => {
+    const paths = buildOpenApiDocument().paths!;
+    for (const endpoint of [...Object.values(privacyApi), ...Object.values(preferencesApi)]) {
+      const operation = paths[endpoint.path]?.[endpoint.method];
+      expect(operation?.operationId).toBe(endpoint.operationId);
+      expect(operation?.responses?.[endpoint.status ?? 200]).toBeDefined();
+    }
+    const query = paths['/v1/consent']?.get?.parameters;
+    expect(query).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'purpose', in: 'query', required: false }),
+      expect.objectContaining({ name: 'scope', in: 'query', required: false }),
+    ]));
+    expect(privacyApi.activeConsent.response.safeParse({ active: false }).success).toBe(true);
+    expect(privacyApi.activeConsent.response.safeParse({ active: false, purpose: 42 }).success).toBe(false);
+    expect(preferencesApi.get.response.safeParse({
+      id: null, tone: 'neutral', proactiveness: 'medium', addressForm: 'none',
+      reminderCadence: 'moderate', version: 0, skipped: false,
+    }).success).toBe(true);
+    expect(preferencesApi.save.response.safeParse({ id: null, version: 0 }).success).toBe(false);
+  });
+
+  it('requires bodies on the four new write endpoints while retaining bodyless actions', () => {
+    const paths = buildOpenApiDocument().paths!;
+    for (const endpoint of [privacyApi.grantConsent, privacyApi.createDeletion, preferencesApi.save, preferencesApi.update]) {
+      expect(paths[endpoint.path]?.[endpoint.method]?.requestBody).toMatchObject({ required: true });
+    }
+    for (const endpoint of [privacyApi.revokeConsent, preferencesApi.reset]) {
+      expect(paths[endpoint.path]?.[endpoint.method]?.requestBody).toBeUndefined();
+    }
   });
 
   it('encodes each path argument and rejects absent arguments before transport', () => {
