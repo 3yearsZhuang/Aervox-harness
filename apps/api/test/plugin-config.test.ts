@@ -266,7 +266,7 @@ describe("CAP-020 插件 Config / Page API", () => {
       await fs.mkdir(path.dirname(pageDirectory), { recursive: true });
       await fs.symlink(outside, pageDirectory, "dir");
       await expect(new PluginBundleStore(pluginsRoot).readAsset("cfg-demo", "dashboard", "index.html"))
-        .rejects.toThrow("page asset escapes bundle root");
+        .rejects.toThrow("symlink");
       const response = await app.inject({ method: "GET", url: "/v1/plugins/cfg-demo/pages/dashboard/assets/index.html" });
       expect(response.statusCode).not.toBe(200);
       expect(response.body).not.toContain("OUTSIDE_PAGE_CANARY");
@@ -274,6 +274,51 @@ describe("CAP-020 插件 Config / Page API", () => {
       await fs.rm(pageDirectory, { force: true });
       await fs.rm(outside, { recursive: true, force: true });
     }
+  });
+
+  it("Page 上传拒绝已有文件/目录链接及硬链接，保留外部内容与 checksum", async () => {
+    const registered = await app.inject({ method: "POST", url: "/v1/plugins/cfg-demo/pages", payload: {
+      id: "dashboard", title: "Panel", entry: "pages/dashboard/index.html", capabilities: [],
+    } });
+    expect(registered.statusCode).toBe(201);
+    const upload = (resourcePath: string, content: string) => app.inject({
+      method: "POST", url: "/v1/plugins/cfg-demo/pages/dashboard/assets", payload: {
+        files: [{ path: resourcePath, contentBase64: Buffer.from(content).toString("base64") }],
+      },
+    });
+    const initial = await upload("nested/index.html", "LOCAL_PAGE");
+    expect(initial.statusCode).toBe(201);
+    const checksum = initial.json().checksum;
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-page-upload-outside-"));
+    const pageDirectory = path.join(pluginsRoot, "cfg-demo", "pages", "dashboard");
+    try {
+      const victim = path.join(outside, "canary.txt");
+      await fs.writeFile(victim, "KEEP_OUTSIDE");
+      const linkedFile = path.join(pageDirectory, "linked.txt");
+      const linkedDirectory = path.join(pageDirectory, "linked-dir");
+      const hardlink = path.join(pageDirectory, "hardlinked.txt");
+      await fs.symlink(victim, linkedFile);
+      await fs.symlink(outside, linkedDirectory, "dir");
+      await fs.link(victim, hardlink);
+      for (const resource of ["linked.txt", "linked-dir/new/deep.txt", "hardlinked.txt", "../escape.txt"]) {
+        const rejected = await upload(resource, "ATTACK");
+        expect(rejected.statusCode).toBe(400);
+        expect(rejected.json().code).toBe("INVALID_ASSET_PATH");
+      }
+      expect(await fs.readFile(victim, "utf8")).toBe("KEEP_OUTSIDE");
+      expect(await fs.readdir(outside)).toEqual(["canary.txt"]);
+      expect((await fs.lstat(linkedFile)).isSymbolicLink()).toBe(true);
+      expect((await fs.lstat(linkedDirectory)).isSymbolicLink()).toBe(true);
+      expect((await fs.stat(hardlink)).nlink).toBe(2);
+      const listed = await app.inject({ method: "GET", url: "/v1/plugins/cfg-demo/pages" });
+      expect(listed.json().pages[0].checksum).toBe(checksum);
+      const overwritten = await upload("nested/index.html", "NEW_PAGE");
+      expect(overwritten.statusCode).toBe(201);
+      expect(overwritten.json().checksum).not.toBe(checksum);
+      const read = await app.inject({ method: "GET", url: "/v1/plugins/cfg-demo/pages/dashboard/assets/nested/index.html" });
+      expect(read.statusCode).toBe(200);
+      expect(read.body).toBe("NEW_PAGE");
+    } finally { await fs.rm(outside, { recursive: true, force: true }); }
   });
 
   it("Bridge SDK 可访问且禁用插件后配置/Page 入口与资源均被拒绝", async () => {
