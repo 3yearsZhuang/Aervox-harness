@@ -3,45 +3,62 @@ import { terminalText, write } from './output.js';
 
 type TerminalStream = Writable & { columns?: number };
 
-/** Accurate visual terminal width taking CJK and wide characters into account */
-export function terminalWidth(text: string): number {
-  const safe = terminalText(text).replace(/[\r\n\t]/g, ' ');
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+
+function singleLine(text: string): string {
+  return terminalText(text).replace(/[\r\n\t]/g, ' ');
+}
+
+export function createTerminalStyle(env: NodeJS.ProcessEnv): (text: string, code: number | string) => string {
+  const color = env.TERM !== 'dumb' && !('NO_COLOR' in env);
+  return (text, code) => {
+    const safe = singleLine(text);
+    return color ? `\x1b[${code}m${safe}\x1b[0m` : safe;
+  };
+}
+
+function graphemeWidth(text: string): number {
+  if (/\p{Emoji_Presentation}|\uFE0F|\u20E3/u.test(text)) return 2;
   let width = 0;
-  for (const char of safe) {
-    if (/\p{Mark}/u.test(char)) continue;
-    const cp = char.codePointAt(0) ?? 0;
-    if (
-      (cp >= 0x1100 && cp <= 0x115f) ||
-      (cp >= 0x2e80 && cp <= 0xa4cf && cp !== 0x303f) ||
-      (cp >= 0xac00 && cp <= 0xd7a3) ||
-      (cp >= 0xf900 && cp <= 0xfaff) ||
-      (cp >= 0xfe10 && cp <= 0xfe19) ||
-      (cp >= 0xfe30 && cp <= 0xfe6f) ||
-      (cp >= 0xff00 && cp <= 0xff60) ||
-      (cp >= 0xffe0 && cp <= 0xffe6) ||
-      (cp >= 0x20000 && cp <= 0x2fffd) ||
-      (cp >= 0x30000 && cp <= 0x3fffd)
-    ) {
-      width += 2;
-    } else {
-      width += 1;
-    }
+  for (const char of text) {
+    if (/\p{Mark}|\p{Format}/u.test(char)) continue;
+    const cp = char.codePointAt(0)!;
+    const wide = (cp >= 0x1100 && cp <= 0x115f)
+      || (cp >= 0x2e80 && cp <= 0xa4cf && cp !== 0x303f)
+      || (cp >= 0xac00 && cp <= 0xd7a3)
+      || (cp >= 0xf900 && cp <= 0xfaff)
+      || (cp >= 0xfe10 && cp <= 0xfe19)
+      || (cp >= 0xfe30 && cp <= 0xfe6f)
+      || (cp >= 0xff01 && cp <= 0xff60)
+      || (cp >= 0xffe0 && cp <= 0xffe6)
+      || (cp >= 0x20000 && cp <= 0x3fffd);
+    width += wide ? 2 : 1;
   }
   return width;
 }
 
-/** Fit single line within maximum cell width, truncating with ellipsis if necessary */
+/** Terminal cell width, with combining marks and emoji sequences kept together. */
+export function terminalWidth(text: string): number {
+  let width = 0;
+  for (const { segment } of graphemes.segment(singleLine(text))) width += graphemeWidth(segment);
+  return width;
+}
+
+/** Fit one line without splitting a grapheme or truncating an exact fit. */
 export function fitToWidth(text: string, maxWidth: number): string {
-  const safe = terminalText(text).replace(/[\r\n\t]/g, ' ');
+  const safe = singleLine(text);
+  const limit = Math.max(0, Math.floor(maxWidth));
+  if (!limit) return '';
+  if (terminalWidth(safe) <= limit) return safe;
   let width = 0;
   let result = '';
-  for (const char of safe) {
-    const cells = /\p{Mark}/u.test(char) ? 0 : char.codePointAt(0)! >= 0x2e80 ? 2 : 1;
-    if (width + cells > maxWidth - 1) return result + '…';
-    result += char;
+  for (const { segment } of graphemes.segment(safe)) {
+    const cells = graphemeWidth(segment);
+    if (width + cells > limit - 1) break;
+    result += segment;
     width += cells;
   }
-  return result;
+  return result + '…';
 }
 
 /** Scrollback-friendly presentation; only locally generated text may contain ANSI. */
@@ -74,53 +91,34 @@ export class ChatTerminal {
   }
 
   async welcome(sessionId: string, apiBase: string): Promise<void> {
-    if (!this.motion) {
-      await write(
-        this.err,
-        '\n'
-          + '  ✳  思隅  ·  SIYU CLI 0.1.0\n'
-          + '     属于你的贾维斯，或者属于你的爱弥斯\n\n'
-          + `  会话  ${sessionId}\n`
-          + `  服务  ${apiBase} · 本机连接版\n\n`
-          + '  从一个问题开始，也可以接着上次的思路聊。\n'
-          + '  /help 帮助  /session 会话  /new 新对话  /exit 退出\n'
-          + '  Enter 发送 · 行末 \\ 换行 · Tab 补全 · ↑ 历史\n\n',
-      );
+    const cols = Math.max(1, this.err.columns ?? 80);
+    const lines: [string, number | string][] = [
+      ['✳  思隅  ·  SIYU CLI 0.1.0', '1;36'],
+      ['   属于你的贾维斯，或者属于你的爱弥斯', 2],
+      ['', 2],
+      [`会话  ${singleLine(sessionId)}`, 36],
+      [`服务  ${singleLine(apiBase)} · 本机连接版`, 2],
+      ['', 2],
+      ['从一个问题开始，也可以接着上次的思路聊。', 2],
+      ['/help 帮助  /session 会话  /new 新对话  /exit 退出', 2],
+      ['Enter 发送 · 行末 \\ 换行 · Tab 补全 · ↑ 历史', 2],
+    ];
+    if (!this.motion || cols < 5) {
+      await write(this.err, '\n' + lines.map(([text]) => fitToWidth(text, cols)).join('\n') + '\n\n');
       return;
     }
 
-    const cols = this.err.columns ?? 80;
-    const innerWidth = Math.max(56, Math.min(66, cols - 4));
-    const border = (c: string) => this.style(c, 36);
-
-    const row = (styledContent: string, rawText: string) => {
-      const clipped = fitToWidth(rawText, innerWidth - 2);
-      const pad = Math.max(0, innerWidth - terminalWidth(clipped));
-      return `${border('│')}  ${styledContent}${' '.repeat(pad)}${border('│')}\n`;
+    const contentWidth = Math.min(66, cols - 4);
+    const border = (text: string) => this.style(text, 36);
+    const row = ([text, code]: [string, number | string]) => {
+      const clipped = fitToWidth(text, contentWidth);
+      const padding = ' '.repeat(contentWidth - terminalWidth(clipped));
+      return `${border('│')}  ${this.style(clipped, code)}${padding}${border('│')}\n`;
     };
-
-    const emptyRow = `${border('│')}${' '.repeat(innerWidth + 2)}${border('│')}\n`;
-
-    const topBorder = border('╭' + '─'.repeat(innerWidth + 2) + '╮') + '\n';
-    const bottomBorder = border('╰' + '─'.repeat(innerWidth + 2) + '╯') + '\n';
-
-    const safeSession = fitToWidth(sessionId, innerWidth - 8);
-    const safeBase = fitToWidth(apiBase, innerWidth - 20);
-
     const banner = '\n'
-      + topBorder
-      + row(`${this.style('✳  思隅  ·  SIYU CLI 0.1.0', '1;36')}`, '✳  思隅  ·  SIYU CLI 0.1.0')
-      + row(`   ${this.style('属于你的贾维斯，或者属于你的爱弥斯', 2)}`, '   属于你的贾维斯，或者属于你的爱弥斯')
-      + emptyRow
-      + row(`${this.style('会话', 36)}  ${safeSession}`, `会话  ${safeSession}`)
-      + row(`${this.style('服务', 36)}  ${safeBase} ${this.style('· 本机连接版', 2)}`, `服务  ${safeBase} · 本机连接版`)
-      + emptyRow
-      + row(`${this.style('从一个问题开始，也可以接着上次的思路聊。', 2)}`, '从一个问题开始，也可以接着上次的思路聊。')
-      + row(`${this.style('/help 帮助  /session 会话  /new 新对话  /exit 退出', 2)}`, '/help 帮助  /session 会话  /new 新对话  /exit 退出')
-      + row(`${this.style('Enter 发送 · 行末 \\ 换行 · Tab 补全 · ↑ 历史', 2)}`, 'Enter 发送 · 行末 \\ 换行 · Tab 补全 · ↑ 历史')
-      + bottomBorder
-      + '\n';
-
+      + border('╭' + '─'.repeat(contentWidth + 2) + '╮') + '\n'
+      + lines.map(row).join('')
+      + border('╰' + '─'.repeat(contentWidth + 2) + '╯') + '\n\n';
     await write(this.err, banner);
   }
 
@@ -157,10 +155,7 @@ export class ChatTerminal {
     if (!this.waiting || this.pending) return;
     const frameChar = this.frames[this.frame++ % this.frames.length]!;
     const elapsed = ((Date.now() - this.started) / 1000).toFixed(1);
-    const safeLabel = terminalText(this.label);
-    const line = this.color
-      ? `  \x1b[1;36m${frameChar}\x1b[0m ${safeLabel} \x1b[2m· ${elapsed}s · Ctrl-C 停止\x1b[0m`
-      : `  ${frameChar} ${safeLabel} · ${elapsed}s · Ctrl-C 停止`;
+    const line = this.style(this.fit(`  ${frameChar} ${this.label} · ${elapsed}s · Ctrl-C 停止`), '1;36');
     const pending = write(this.err, '\r\x1b[2K' + line);
     this.pending = pending;
     try {
@@ -266,14 +261,14 @@ export class ChatTerminal {
   async sessionCard(info: { sessionId: string; apiBase: string; turnId?: string; requestId?: string }): Promise<void> {
     const title = this.style('会话状态', '1;36');
     const lines = [
-      `  ${this.style('会话', 36)}  ${info.sessionId}`,
-      `  ${this.style('服务', 36)}  ${info.apiBase} · 本机连接版`,
+      `  ${this.style('会话', 36)}  ${singleLine(info.sessionId)}`,
+      `  ${this.style('服务', 36)}  ${singleLine(info.apiBase)} · 本机连接版`,
       `  ${this.style('模型', 36)}  由本机服务配置`,
     ];
     if (info.turnId || info.requestId) {
       lines.push(
-        `  ${this.style('回合', 36)}  ${info.turnId ?? '受理状态未知'}`,
-        `  ${this.style('请求', 36)}  ${info.requestId ?? '无'}`,
+        `  ${this.style('回合', 36)}  ${info.turnId ? singleLine(info.turnId) : '受理状态未知'}`,
+        `  ${this.style('请求', 36)}  ${info.requestId ? singleLine(info.requestId) : '无'}`,
       );
     } else {
       lines.push(`  ${this.style('状态', 2)}  尚未在本次客户端提交问题`);
@@ -282,7 +277,7 @@ export class ChatTerminal {
   }
 
   async newSession(sessionId: string): Promise<void> {
-    await write(this.err, '\n' + this.style('✓ 已切换到新会话', '1;32') + ` ${sessionId}；${this.style('原会话已保留。', 2)}\n\n`);
+    await write(this.err, '\n' + this.style('✓ 已切换到新会话', '1;32') + ` ${singleLine(sessionId)}；${this.style('原会话已保留。', 2)}\n\n`);
   }
 
   dispose(): void {

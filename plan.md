@@ -6,14 +6,23 @@
 
 <a id="iter-068"></a>
 
-### ITER-068 · 进行中：本地剩余分支分批收敛
+### ITER-068 · 进行中：本地分支收敛与遗漏补完
 
-维护者授权按 UI、工具契约补强、白盒 Agent 与诊断的顺序推进。基于主线 `3c30eef5` 分批交付 PR；原目录的 9 项暂存改动及旧整合分支作为来源保留，不整体覆盖当前主线。
+维护者于 2026-10-22 授权继续完成未发起 PR 的本地分支。主线基线更新为 `92ecbfe7`；两组实现草稿在各自工作树审查、验证并独立提交 PR。
 
-- 已落地前置：工具契约、审批续跑、隐私与偏好接口分别经 [PR #295](https://github.com/3yearsZhuang/Aervox-harness/pull/295)、[PR #296](https://github.com/3yearsZhuang/Aervox-harness/pull/296)、[PR #298](https://github.com/3yearsZhuang/Aervox-harness/pull/298) 合入，后续保留其回归与副作用控制边界。
-- 当前批次：工作台 UI 独立迁移，核对加载、缓存刷新、空态、错误态、窄屏、明暗主题及审批卡片；工具批次再提取预算校验与传递、直接调用超时和动态审批包装；白盒批次先贯通裁剪报告，再落实 Attempt 范围的结果与真实执行诊断。
-- 验收与整理：每批运行对应回归和全量终审，记录 PR 与实际剩余限制；全部差量交付后再归档旧 Agent/整合分支及工作区，不删除尚未迁移的独有内容。
-- 边界：不承诺跨重启自动续跑、完整宿主诊断时间线或真实模型与正式发布验收；工具不自动重试未知副作用。
+- 已交付证据：工具契约、审批续跑和隐私/偏好接口见 [PR #295](https://github.com/3yearsZhuang/Aervox-harness/pull/295)、[PR #296](https://github.com/3yearsZhuang/Aervox-harness/pull/296)、[PR #298](https://github.com/3yearsZhuang/Aervox-harness/pull/298)；工作台、工具预算、Agent 和 HTTP/工作台诊断见 [PR #299](https://github.com/3yearsZhuang/Aervox-harness/pull/299)、[PR #300](https://github.com/3yearsZhuang/Aervox-harness/pull/300)、[PR #301](https://github.com/3yearsZhuang/Aervox-harness/pull/301)、[PR #302](https://github.com/3yearsZhuang/Aervox-harness/pull/302)。README 与桌面/移动陪伴见 [PR #303](https://github.com/3yearsZhuang/Aervox-harness/pull/303)、[PR #304](https://github.com/3yearsZhuang/Aervox-harness/pull/304)、[PR #305](https://github.com/3yearsZhuang/Aervox-harness/pull/305)。
+- 已执行整理：原 7 个本地分支中，5 个已交付任务分支已清理，3 个对应远端分支已清理，本地 `main` 只快进到远端主线。首轮收敛为 `main` 和下表两条修复分支；并行新增的 `feat/personal-assistant-readme` 已经 [PR #306](https://github.com/3yearsZhuang/Aervox-harness/pull/306) 合入，原分支及工作树保留；squash 来源保留 `archive/2026-10-22-*` 标签，旧整合/Agent 标签、9 文件暂存包、所有工作树目录、忽略的运行资源及业务数据保留。协作者 fork 远端保持只读。
+
+| 批次 | 目标分支 | 尚需完成 | 交付条件 |
+|---|---|---|---|
+| 1 · 工具参数合同 | `fix/tool-schema-validation-completion` | 已补齐有界 JSON Schema、组合断言、未知/非法 Schema 拒绝、Unicode/date/精确十进制倍数及资源上限；静态与 SQLite 宿主均在审批与副作用前拒绝非法参数；[PR #307](https://github.com/3yearsZhuang/Aervox-harness/pull/307) 待审查 | Core 与宿主定向回归、全量 `./aervox ci all` 完整退出成功；独立修复 PR 等待审核 |
+| 2 · 开发与终端体验 | `fix/dev-output-and-db-resolution` | 已补齐 URI 语义、调用方环境优先级、端口校验与按目标终止、令牌探测前本机 URL 校验、API 就绪失败及进程组回收；窄终端和 TTY/JSON/JSONL 回归通过，准备独立 PR | 启动器隔离回归、仓储与 CLI 测试/类型检查、真实临时 API/SQLite 的 CLI 打包安装闭环、全量 `./aervox ci all` 完整退出成功；独立修复 PR 等待审核 |
+| 3 · 并行 README | `feat/personal-assistant-readme` | 已经 PR #306 合入，本轮同步最新主线 | 已交付；保留原分支及工作树 |
+| 4 · 交付核对 | 上述任务分支 | 检查提交只包含对应任务、同步实际 PR 与验证证据、复查分支和工作树；两个 PR 的计划状态保持一致 | 不向 `main` 直接提交或推送，不自动合并 PR；保留仍需追溯的归档与暂存包 |
+
+- 顺序与依赖：两组代码功能独立，可分别审查；优先补齐工具校验遗漏，再交付开发体验。全量构建逐组执行，避免并行构建争抢资源；两组均不以回灌旧分支替代当前主线审查。
+- 当前验证边界：工具分支本轮 Core 490 项、宿主 53 项及重建后提供器 16 项回归通过，全量 `./aervox ci all` 已完整退出成功，见 PR #307。开发分支启动器/CI 作用域 45 项、CLI 58 项、仓储 489 项（URI 11 项）及打包安装闭环 2 项通过；真实子进程退出回收、调用方环境经真实 mise 入口保留已验证，全量 `./aervox ci all` 完整退出成功，包含 API 706 项及代码、研究、原生、文档门禁。
+- 范围边界：不扩张到计划中的全部未来建议，不承诺跨重启自动续跑、真实模型、移动实机或正式发布验收；不自动重试未知工具副作用，不迁移或合并业务数据库。恢复实施时按本表继续核对草稿与验收。
 
 <a id="iter-067"></a>
 

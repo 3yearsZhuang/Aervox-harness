@@ -1,7 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalEnv": ["AERVOX_WEB_PORT", "AERVOX_DESKTOP_PORT", "AERVOX_NATIVE_RELEASE_PUBLIC_KEY"],
-  "globalDependencies": ["tsconfig.base.json", "tsconfig.base.node.json", "scripts/vendor-chunks.ts", "patches/**", ".npmrc", "pnpm-workspace.yaml"],
+  "globalDependencies": ["tsconfig.base.json", "tsconfig.base.node.json", "scripts/vendor-chunks.ts", "scripts/project-env.sh", "patches/**", ".npmrc", "pnpm-workspace.yaml"],
   "globalPassThroughEnv": [
     "XDG_CONFIG_HOME",
     "XDG_DATA_HOME",

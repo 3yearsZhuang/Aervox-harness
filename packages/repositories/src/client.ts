@@ -7,6 +7,7 @@
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { defaultDataDirectory, repositoryRoot } from './data-directory.js';
 import { createClient, LibsqlError, type Client, type Transaction } from "@libsql/client";
 import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
@@ -394,21 +395,27 @@ export async function createProactiveVaultDatabase(
  * 默认主库 aervox.db / file:aervox.db 统一解析至 <repo>/data/aervox.db。
  */
 export function resolveDatabaseUrl(rawUrl: string, baseDir = defaultDataDirectory()): string {
-  if (!rawUrl.startsWith("file:") && rawUrl.includes("://")) {
-    return rawUrl;
+  // Preserve libsql's in-memory identity and URI parameters; resolving these as
+  // paths would silently create persistent files called ":memory:".
+  if (rawUrl === ":memory:" || /^file::memory:(?:[?#]|$)/i.test(rawUrl)) return rawUrl;
+  const isFileUrl = /^file:/i.test(rawUrl);
+  if (!isFileUrl && !path.isAbsolute(rawUrl) && /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(rawUrl)) return rawUrl;
+  // libsql validates authorities (including localhost) and URL parameters.
+  // Do not turn an invalid remote file authority into an unrelated local path.
+  if (/^file:\/\//i.test(rawUrl)) return rawUrl;
+  const value = isFileUrl ? rawUrl.slice("file:".length) : rawUrl;
+  const suffixIndex = isFileUrl ? value.search(/[?#]/) : -1;
+  const suffix = suffixIndex < 0 ? "" : value.slice(suffixIndex);
+  const rawPath = suffixIndex < 0 ? value : value.slice(0, suffixIndex);
+  if (isFileUrl && (/%2f/i.test(rawPath) || (process.platform === "win32" && /%5c/i.test(rawPath)))) {
+    throw new TypeError("SQLite file URL must not include encoded path separators");
   }
-  const rawPath = rawUrl.startsWith("file:") ? rawUrl.slice("file:".length) : rawUrl;
-  if (path.isAbsolute(rawPath)) {
-    return `file:${path.normalize(rawPath)}`;
-  }
-  const clean = rawPath.replace(/^\.\//, "");
-  if (clean === "aervox.db") {
-    return `file:${path.join(baseDir, "aervox.db")}`;
-  }
-  if (clean.startsWith("data/")) {
-    return `file:${path.join(repositoryRoot, clean)}`;
-  }
-  return `file:${path.resolve(repositoryRoot, clean)}`;
+  const localPath = isFileUrl ? decodeURIComponent(rawPath) : rawPath;
+  const clean = localPath.replace(/^\.\//, "");
+  const absolutePath = clean === "aervox.db"
+    ? path.join(baseDir, "aervox.db")
+    : path.resolve(repositoryRoot, clean);
+  return `file:${pathToFileURL(absolutePath).pathname}${suffix}`;
 }
 
 /**
@@ -427,11 +434,12 @@ export async function createDatabase(
 }> {
   const rawUrl = config.url ?? process.env.DATABASE_URL ?? defaultDbUrl;
   const url = resolveDatabaseUrl(rawUrl);
-  const isLocalSqlite = url.startsWith("file:") || !url.includes("://");
+  const isMemory = url === ":memory:" || /^file::memory:(?:[?#]|$)/i.test(url);
+  const isLocalSqlite = /^file:/i.test(url) || isMemory;
 
   // 先确保文件父目录存在（libsql createClient 构造时即打开文件，必须在其之前创建 <repo>/data）
-  if (isLocalSqlite) {
-    const filePath = url.startsWith("file:") ? url.slice("file:".length) : url;
+  if (isLocalSqlite && !isMemory) {
+    const filePath = fileURLToPath(url);
     try {
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
     } catch {

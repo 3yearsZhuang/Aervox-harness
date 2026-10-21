@@ -7,12 +7,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")" # 始终以仓库根为工作目录
 
-# 若存在 .env，自动加载
-if [ -f .env ]; then
-  set -a
-  source .env
-  set +a
-fi
+source scripts/project-env.sh
 
 GREEN='\033[0;32m'; YELLOW='\033[0;33m'; CYAN='\033[0;36m'; RED='\033[0;31m'; BOLD='\033[1m'; NC='\033[0m'
 info() { printf "${CYAN}[aervox]${NC} %s\n" "$*"; }
@@ -34,7 +29,7 @@ HELP="$(
                                  worker    = 仅 Worker(后台任务)
                                  api       = 仅 API(3000)
                                选项:
-                                 --clean-ports, -k  启动前自动释放 3000/5173/5174 残留端口
+                                 --clean-ports, -k  启动前停止所选目标端口的监听进程
                                  --tui              启用 Turborepo 交互式分屏面板
   cli [参数...]                启动思隅终端客户端(siyu); 默认启动连续对话(chat)
   mobile                       构建 Web 产物并同步 Capacitor 壳(cap sync web)
@@ -81,23 +76,51 @@ run() { # 通过 mise exec 激活项目工具链(Node 24 / pnpm 11)后执行
 }
 
 # ── 端口管理与预检 ─────────────────────────────────────────
-port_pids() {
+validate_dev_port() {
   local port="$1"
-  if command -v lsof >/dev/null 2>&1; then
-    lsof -ti ":$port" 2>/dev/null || true
+  if ! [[ "$port" =~ ^[0-9]{1,5}$ ]] || (( 10#$port < 1 || 10#$port > 65535 )); then
+    fail "开发端口必须是 1～65535 的十进制整数: $port"
   fi
 }
 
+port_pids() {
+  local port="$1"
+  validate_dev_port "$port"
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -nP -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true
+  fi
+}
+
+dev_ports() {
+  case "$1" in
+    full) printf '%s\n' "${PORT:-3000}" "${AERVOX_WEB_PORT:-5173}" "${AERVOX_DESKTOP_PORT:-5174}" ;;
+    web) printf '%s\n' "${PORT:-3000}" "${AERVOX_WEB_PORT:-5173}" ;;
+    desktop) printf '%s\n' "${PORT:-3000}" "${AERVOX_DESKTOP_PORT:-5174}" ;;
+    api|cli) printf '%s\n' "${PORT:-3000}" ;;
+  esac
+}
+
 cleanup_dev_ports() {
-  local pids
-  pids="$(port_pids "${PORT:-3000}"; port_pids "${AERVOX_WEB_PORT:-5173}"; port_pids "${AERVOX_DESKTOP_PORT:-5174}")"
+  local port pid pids=""
+  while IFS= read -r port; do
+    [ -n "$port" ] || continue
+    pids="$(printf '%s\n%s' "$pids" "$(port_pids "$port")")"
+  done < <(dev_ports "$1")
   local clean_list
-  clean_list="$(printf '%s\n' "$pids" | tr ' ' '\n' | grep -v '^[[:space:]]*$' | sort -u || true)"
+  clean_list="$(printf '%s\n' "$pids" | sort -u | sed '/^[[:space:]]*$/d')"
   if [ -n "$clean_list" ]; then
-    info "正在释放占用开发端口的残留旧进程 (PID: $(printf '%s ' $clean_list))…"
-    printf '%s\n' "$clean_list" | xargs kill -9 2>/dev/null || true
+    info "正在停止所选开发端口的监听进程 (PID: $(printf '%s ' $clean_list))…"
+    while IFS= read -r pid; do
+      kill -TERM "$pid" 2>/dev/null || true
+    done <<< "$clean_list"
     sleep 0.5
-    ok "旧进程已成功清理"
+    while IFS= read -r port; do
+      [ -n "$port" ] || continue
+      if [ -n "$(port_pids "$port")" ]; then
+        fail "端口 $port 的监听进程尚未退出，请检查后重试"
+      fi
+    done < <(dev_ports "$1")
+    ok "所选开发端口已释放"
   else
     ok "端口检查正常，未发现残留占用"
   fi
@@ -121,7 +144,7 @@ check_dev_ports() {
         printf "         可使用以下命令一键释放端口并重新启动:\n" >&2
         printf "           ${CYAN}./aervox dev --clean-ports${NC}  (或 ${CYAN}-k${NC})\n" >&2
         printf "         或手动清理该进程:\n" >&2
-        printf "           ${CYAN}kill -9 %s${NC}\n" "$pids_str" >&2
+        printf "           ${CYAN}kill -TERM %s${NC}\n" "$pids_str" >&2
         printf "${RED}─────────────────────────────────────────────────────────────${NC}\n\n" >&2
         exit 1
       fi
@@ -144,8 +167,9 @@ show_dev_banner() {
   local api_port="${PORT:-3000}"
   local web_port="${AERVOX_WEB_PORT:-5173}"
   local db_display="${DATABASE_URL#file:}"
+  db_display="${db_display%%\?*}"
   local short_db
-  short_db="$(echo "$db_display" | sed "s|^$PWD/||")"
+  short_db="${db_display#"$PWD"/}"
 
   printf "\n${CYAN}╭───────────────────────────────────────────────────────────────╮${NC}\n"
   printf "${CYAN}│${NC}  ${GREEN}${BOLD}Aervox｜思隅  开发环境启动${NC} (Dev Environment)                ${CYAN}│${NC}\n"
@@ -240,15 +264,18 @@ cmd_dev() {
     esac
   done
 
-  # 规范化本地 SQLite 数据库路径，防止子包工作目录不同导致数据分片
+  # Repository connections resolve relative paths against their repository root.
+  # Keep URI authorities, percent escapes and :memory: identities intact.
   export DATABASE_URL="${DATABASE_URL:-file:$PWD/data/aervox.db}"
-  if [[ "$DATABASE_URL" == file:* && "$DATABASE_URL" != file:/* ]]; then
-    local rel_path="${DATABASE_URL#file:}"
-    export DATABASE_URL="file:$PWD/${rel_path#./}"
-  fi
+
+  local selected_port
+  while IFS= read -r selected_port; do
+    [ -n "$selected_port" ] || continue
+    validate_dev_port "$selected_port"
+  done < <(dev_ports "$target")
 
   if [ $clean_ports -eq 1 ]; then
-    cleanup_dev_ports
+    cleanup_dev_ports "$target"
   fi
 
   if [ "$target" != "cli" ]; then
@@ -305,48 +332,77 @@ cmd_cli() {
   run node apps/cli/dist/index.js "${@:-chat}"
 }
 
-cmd_dev_cli() {
+cmd_dev_cli() (
+  # Keep traps and their local process ownership inside this CLI session.
   ensure_deps
   info "检查并构建 CLI 产物…"
   run pnpm --filter @aervox/cli build
-  local api_url="${SIYU_API_URL:-http://127.0.0.1:3000}"
+  local api_url="${SIYU_API_URL:-http://127.0.0.1:${PORT:-3000}}"
+  api_url="$(run node apps/cli/dist/validate-api-url.js "$api_url")"
+  export SIYU_API_URL="$api_url"
   local api_pid=""
 
-  if curl -s -o /dev/null -w "%{http_code}" "$api_url/v1/sessions?limit=1" >/dev/null 2>&1; then
+  cleanup_dev_cli_api() {
+    if [ -n "$api_pid" ]; then
+      info "正在停止由本会话启动的后台思隅 API 服务…"
+      kill -TERM -- "-$api_pid" 2>/dev/null || true
+      wait "$api_pid" 2>/dev/null || true
+    fi
+  }
+  trap cleanup_dev_cli_api EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+
+  probe_dev_cli_api() {
+    local probe_args=(--fail --silent --connect-timeout 1 --max-time 2 --output /dev/null)
+    if [ -n "${SIYU_API_TOKEN:-}" ]; then
+      if [[ "$SIYU_API_TOKEN" == *$'\r'* || "$SIYU_API_TOKEN" == *$'\n'* ]]; then
+        fail "SIYU_API_TOKEN 不能包含换行符"
+      fi
+      printf 'Authorization: Bearer %s\n' "$SIYU_API_TOKEN" | curl "${probe_args[@]}" --header @- "$api_url/v1/sessions?limit=1"
+    else
+      curl "${probe_args[@]}" "$api_url/v1/sessions?limit=1"
+    fi
+  }
+
+  if probe_dev_cli_api; then
     ok "思隅 API 服务已在运行: $api_url"
   else
-    info "正在后台启动思隅 API 服务(+3000)…"
+    case "$api_url" in
+      "http://127.0.0.1:${PORT:-3000}"|"http://localhost:${PORT:-3000}"|"http://[::1]:${PORT:-3000}") ;;
+      *) fail "指定 API 地址尚未就绪: $api_url；请先启动该服务" ;;
+    esac
+    check_dev_ports api
+    info "正在后台启动思隅 API 服务(${PORT:-3000})…"
     mkdir -p .logs
+    # Give only this newly started service its own process group so cleanup
+    # reaches Turbo and its descendants without touching a reused API.
+    set -m
     run pnpm exec turbo run dev --filter=@aervox/api > .logs/api-dev.log 2>&1 &
     api_pid=$!
-    local attempts=0
+    set +m
+    local deadline=$((SECONDS + 20))
     local ready=0
-    while [ $attempts -lt 40 ]; do
-      if curl -s "$api_url/v1/sessions?limit=1" >/dev/null 2>&1; then
+    while (( SECONDS < deadline )); do
+      if ! kill -0 "$api_pid" 2>/dev/null; then
+        fail "API 启动失败，请查看 .logs/api-dev.log"
+      fi
+      if probe_dev_cli_api; then
         ready=1
         break
       fi
       sleep 0.5
-      attempts=$((attempts + 1))
     done
     if [ $ready -eq 1 ]; then
       ok "思隅 API 服务已就绪: $api_url"
     else
-      warn "API 启动耗时较长或请查看 .logs/api-dev.log"
+      fail "等待 API 就绪超时，请查看 .logs/api-dev.log"
     fi
   fi
 
-  cleanup() {
-    if [ -n "$api_pid" ] && kill -0 "$api_pid" 2>/dev/null; then
-      info "正在停止由本会话启动的后台思隅 API 服务…"
-      kill "$api_pid" 2>/dev/null || true
-    fi
-  }
-  trap cleanup EXIT INT TERM
-
   info "启动思隅终端客户端 (siyu chat)…"
   run node apps/cli/dist/index.js chat
-}
+)
 
 cmd_mobile() {
   ensure_deps

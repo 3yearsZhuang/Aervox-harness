@@ -31,6 +31,8 @@ test("aervox help works from an unrelated working directory", () => {
   const dir = mkdtempSync(join(tmpdir(), "aervox-help-"));
   try {
     copyFileSync(new URL("aervox", root), join(dir, "aervox"));
+    mkdirSync(join(dir, "scripts"));
+    copyFileSync(new URL("scripts/project-env.sh", root), join(dir, "scripts/project-env.sh"));
     const run = spawnSync("bash", [join(dir, "aervox"), "--help"], { cwd: tmpdir(), encoding: "utf8" });
     assert.equal(run.status, 0, run.stderr);
     assert.match(run.stdout, /aervox <命令>/);
@@ -42,7 +44,7 @@ function withTestWorkspaces(check) {
   try {
     copyFileSync(new URL("aervox", root), join(dir, "aervox"));
     mkdirSync(join(dir, "scripts"));
-    for (const file of ["test-package.mjs", "workspaces.mjs"]) {
+    for (const file of ["test-package.mjs", "workspaces.mjs", "project-env.sh"]) {
       copyFileSync(new URL(`scripts/${file}`, root), join(dir, "scripts", file));
     }
     writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "test-root", private: true, scripts: { test: "node test.mjs" } }));

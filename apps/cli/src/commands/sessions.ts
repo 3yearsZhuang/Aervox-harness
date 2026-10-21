@@ -1,5 +1,6 @@
 import { CliError } from '../config.js';
 import { write } from '../output.js';
+import { createTerminalStyle } from '../terminal.js';
 import type { CommandContext } from './types.js';
 
 export async function executeSessions(ctx: CommandContext): Promise<number> {
@@ -11,15 +12,21 @@ export async function executeSessions(ctx: CommandContext): Promise<number> {
   const signal = timedSignal();
   track.currentSignal = signal;
   const result = await transport.request<{ items: { id: string; title?: string; updatedAt?: string }[] }>('GET', '/v1/sessions?limit=100', undefined, { signal });
-  if (!Array.isArray(result.items)) {
+  if (!result || !Array.isArray(result.items)) {
+    throw new CliError('protocol', '服务返回的会话格式不兼容。');
+  }
+
+  if (result.items.some(item => !item || typeof item !== 'object' || typeof item.id !== 'string'
+    || (item.title !== undefined && typeof item.title !== 'string')
+    || (item.updatedAt !== undefined && typeof item.updatedAt !== 'string'))) {
     throw new CliError('protocol', '服务返回的会话格式不兼容。');
   }
 
   if (output.mode === 'text' && io.output.isTTY) {
-    const isDark = io.env.TERM !== 'dumb' && !('NO_COLOR' in io.env);
-    const cyan = (s: string) => (isDark ? `\x1b[36m${s}\x1b[0m` : s);
-    const dim = (s: string) => (isDark ? `\x1b[2m${s}\x1b[0m` : s);
-    const bold = (s: string) => (isDark ? `\x1b[1m${s}\x1b[0m` : s);
+    const style = createTerminalStyle(io.env);
+    const cyan = (s: string) => style(s, '36');
+    const dim = (s: string) => style(s, '2');
+    const bold = (s: string) => style(s, '1');
 
     if (result.items.length === 0) {
       await write(io.output, `\n${dim('暂无会话记录。运行 siyu chat 开始新对话。')}\n\n`);
@@ -56,7 +63,7 @@ export async function executeDoctor(ctx: CommandContext): Promise<number> {
   const signal = timedSignal();
   track.currentSignal = signal;
   const result = await transport.request<{ items: unknown[] }>('GET', '/v1/sessions?limit=100', undefined, { signal });
-  if (!Array.isArray(result.items)) {
+  if (!result || !Array.isArray(result.items)) {
     throw new CliError('protocol', '服务返回的会话格式不兼容。');
   }
   const payload = {
@@ -68,9 +75,9 @@ export async function executeDoctor(ctx: CommandContext): Promise<number> {
   };
 
   if (output.mode === 'text' && io.output.isTTY) {
-    const isDark = io.env.TERM !== 'dumb' && !('NO_COLOR' in io.env);
-    const green = (s: string) => (isDark ? `\x1b[1;32m${s}\x1b[0m` : s);
-    const cyan = (s: string) => (isDark ? `\x1b[36m${s}\x1b[0m` : s);
+    const style = createTerminalStyle(io.env);
+    const green = (s: string) => style(s, '1;32');
+    const cyan = (s: string) => style(s, '36');
     const report = [
       '',
       `${green('✓')} ${cyan('思隅 本机服务连接正常')}`,

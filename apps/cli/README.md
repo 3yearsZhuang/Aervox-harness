@@ -1,6 +1,8 @@
 # 思隅 CLI
 
-连接本机思隅 API 的终端入口，需要 Node.js 24+ 和已启动的兼容服务。完整合同与当前边界见 [CR-058](../../docs/reference/changes/CR-058-siyu-cli-attached-client.md)。
+连接本机思隅 API 的终端入口，需要 Node.js 24+ 和已启动的兼容服务。当前交付范围见 [ITER-029](../../plan.md#iter-029)，验收边界见[追踪基线](../../docs/reference/REQUIREMENTS_TRACEABILITY.md#cli-attached-20260930)。
+
+`./aervox dev cli` 会优先复用本机 API；`PORT` 决定默认地址，`SIYU_API_URL` 可指定其它本机 HTTP(S) 根地址。地址先校验再携带 Token 探测，服务未就绪时不会进入聊天；仅自动启动默认本机端口的 API，并在客户端退出时回收该服务及其子进程。
 
 从仓库根目录构建：
 
@@ -36,6 +38,8 @@ siyu sessions list
 | 发送以 `/` 开头的正文 | 使用 `//` 开头，发送时去掉一个 `/` |
 
 Ctrl-C 退出客户端并尝试取消当前回合；停止客户端不会关闭外部 API。`NO_COLOR=1` 关闭颜色，`TERM=dumb` 使用无动画呈现。JSON/JSONL 与重定向输出不混入欢迎区、角色或进度动画。当前输入是逐轮对话，回答结束后再输入下一问。
+
+直接在终端运行 `doctor`、`sessions list` 和 `config show` 时显示可读摘要；使用 `--json` / `--jsonl` 或重定向输出时保留机器格式。欢迎区和等待提示按终端列宽裁剪，支持中文与 emoji；会话标题等外部字段在终端显示前会清除控制序列。
 
 Token 由 `SIYU_API_TOKEN` 环境变量注入，不作为命令参数、不写入配置；地址用 `SIYU_API_URL` 或 `--api-base`。`config show` 查看实际配置，`config set apiBase http://127.0.0.1:3000` 保存地址。默认配置在用户目录 `.config/aervox/cli.json`；设置 `XDG_CONFIG_HOME` 或 `SIYU_CONFIG_FILE` 可覆盖位置。
 

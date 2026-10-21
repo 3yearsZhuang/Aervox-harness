@@ -1,5 +1,6 @@
 import { CliError, identifier, localApiBase, saveJson } from '../config.js';
-import { write } from '../output.js';
+import { terminalText, write } from '../output.js';
+import { createTerminalStyle } from '../terminal.js';
 import type { CommandContext } from './types.js';
 
 export async function executeConfig(ctx: CommandContext): Promise<number> {
@@ -9,10 +10,10 @@ export async function executeConfig(ctx: CommandContext): Promise<number> {
 
   if (rest[0] === 'show' && rest.length === 1) {
     if (output.mode === 'text' && io.output.isTTY) {
-      const isDark = io.env.TERM !== 'dumb' && !('NO_COLOR' in io.env);
-      const cyan = (s: string) => (isDark ? `\x1b[36m${s}\x1b[0m` : s);
-      const dim = (s: string) => (isDark ? `\x1b[2m${s}\x1b[0m` : s);
-      const bold = (s: string) => (isDark ? `\x1b[1m${s}\x1b[0m` : s);
+      const style = createTerminalStyle(io.env);
+      const cyan = (s: string) => style(s, '36');
+      const dim = (s: string) => style(s, '2');
+      const bold = (s: string) => style(s, '1');
       const text = [
         '',
         bold('思隅 CLI 配置:'),
@@ -39,10 +40,10 @@ export async function executeConfig(ctx: CommandContext): Promise<number> {
     }
     await saveJson(path, settings);
     if (output.mode === 'text' && io.output.isTTY) {
-      const isDark = io.env.TERM !== 'dumb' && !('NO_COLOR' in io.env);
-      const green = (s: string) => (isDark ? `\x1b[1;32m${s}\x1b[0m` : s);
-      const dim = (s: string) => (isDark ? `\x1b[2m${s}\x1b[0m` : s);
-      await write(io.output, `\n${green('✓')} 已保存配置 ${rest[1]} = ${rest[2]} ${dim(`(${path})`)}\n\n`);
+      const style = createTerminalStyle(io.env);
+      const green = (s: string) => style(s, '1;32');
+      const dim = (s: string) => style(s, '2');
+      await write(io.output, `\n${green('✓')} 已保存配置 ${rest[1]} = ${terminalText(rest[1] === 'apiBase' ? settings.apiBase! : settings.sessionId!)} ${dim(`(${path})`)}\n\n`);
       return 0;
     }
     await output.value({ saved: true, path });
