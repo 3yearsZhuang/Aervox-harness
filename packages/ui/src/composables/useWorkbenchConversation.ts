@@ -28,6 +28,7 @@ export interface StoryLine {
   speaker: Speaker;
   text: string;
   state?: 'streaming' | 'complete' | 'error';
+  turnId?: string;
   attachments?: StoryLineAttachment[];
 }
 

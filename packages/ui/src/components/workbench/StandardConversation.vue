@@ -4,6 +4,7 @@ import { nextTick, onMounted, ref, watch } from 'vue';
 import { ArrowDown, Check, Copy, FileText } from 'lucide-vue-next';
 import ExtensionSlot from '../extension/ExtensionSlot.vue';
 import ToolApprovalCard from './ToolApprovalCard.vue';
+import TurnDiagnostics from './TurnDiagnostics.vue';
 import { useWorkbenchContext } from '../../composables/workbench-context';
 import { renderMarkdown } from '../../utils/markdown';
 
@@ -71,10 +72,11 @@ async function copyMessage(id: number, text: string) {
               <span v-for="(attachment, index) in line.attachments" :key="index"><FileText :size="14" />{{ attachment.name }}</span>
             </div>
           </div>
-          <div v-if="line.speaker === 'assistant' && line.text && line.state !== 'streaming'" class="standard-message-actions">
+          <div v-if="line.speaker === 'assistant' && (line.text || line.turnId) && line.state !== 'streaming'" class="standard-message-actions">
             <AervoxButton variant="ghost" icon-only type="button" :aria-label="copiedId === line.id ? '已复制回复' : '复制回复'" :title="copiedId === line.id ? '已复制' : '复制回复'" @click="copyMessage(line.id, line.text)">
               <Check v-if="copiedId === line.id" :size="15" /><Copy v-else :size="15" />
             </AervoxButton>
+            <TurnDiagnostics v-if="line.turnId" :turn-id="line.turnId" />
             <ExtensionSlot name="message:bubble-actions" :context="{ message: line, text: line.text, speaker: line.speaker }" />
           </div>
         </article>

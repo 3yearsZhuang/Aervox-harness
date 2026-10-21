@@ -7,6 +7,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import {
+  turnDiagnosticsApi,
   createTurnRequestSchema,
   editMessageSchema,
   submitQuestionAnswersRequestSchema,
@@ -21,6 +22,7 @@ import {
   type SqlitePlatformRepository,
 } from "@aervox/repositories";
 import { buildResumeHistory } from "@aervox/core";
+import { registerContractRoute } from "../../../shared/contract-route.js";
 import { resolveLocalContext } from "../../../shared/local-context.js";
 import { acceptConversationTurn } from "./application.js";
 import { turnStreamHub, type StreamEventFrame } from "./stream-hub.js";
@@ -43,6 +45,14 @@ export function registerConversationRoutes(
   app.addHook("onClose", async () => {
     for (const controller of activeTurns.values()) controller.abort(new Error("host_closed"));
     activeTurns.clear();
+  });
+  registerContractRoute(app, turnDiagnosticsApi.get, async (req, reply) => {
+    reply.header("Cache-Control", "no-store");
+    const { turnId } = req.params as { turnId: string };
+    const { attemptId } = req.query as { attemptId?: string };
+    const diagnostics = await conversationRepo.getTurnDiagnostics(resolveLocalContext(req), turnId, attemptId);
+    if (!diagnostics) return reply.code(404).send({ code: "TURN_OR_ATTEMPT_NOT_FOUND", message: "Turn or Attempt not found" });
+    return diagnostics;
   });
   // GET /v1/sessions — 枚举会话列表（按最近更新时间排序）
   app.get("/v1/sessions", async (req, reply) => {

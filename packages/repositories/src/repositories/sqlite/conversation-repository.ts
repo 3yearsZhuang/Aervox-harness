@@ -22,6 +22,7 @@ import type {
   ToolExecutionModel,
   ToolApprovalModel,
 } from "../types/index.js";
+import { readTurnDiagnostics } from "./conversation/diagnostics-store.js";
 import { ApprovalStore } from "./conversation/approval-store.js";
 import { AttemptStore } from "./conversation/attempt-store.js";
 import { MessageStore } from "./conversation/message-store.js";
@@ -55,6 +56,10 @@ export class SqliteConversationRepository implements IConversationRepository {
     this.safeSegmentStore = new SafeSegmentStore(db);
     this.approvalStore = new ApprovalStore(db);
     this.apiRecoveryStore = new ApiRecoveryStore(db);
+  }
+
+  getTurnDiagnostics(_ctx: LocalContext, turnId: string, attemptId?: string) {
+    return readTurnDiagnostics(this.db, turnId, attemptId);
   }
 
   listApiOwnedRecoveryTurns(before: string, limit?: number) { return this.apiRecoveryStore.list(before, limit); }

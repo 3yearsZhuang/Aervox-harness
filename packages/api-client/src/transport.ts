@@ -19,6 +19,8 @@ import type { ProactiveDesktopBridge } from '@aervox/contracts/proactive';
 import { TurnStreamProjector } from './projector.js';
 
 export interface TurnCallbacks {
+  /** Identity from an accepted, ordered stream event; shared by HTTP and IPC. */
+  onTurnIdentified?: (turnId: string) => void;
   onDelta: (text: string) => void;
   onDone: () => void;
   onError?: (err: unknown) => void;

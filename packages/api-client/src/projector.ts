@@ -45,6 +45,7 @@ export interface TurnProjectorOptions {
 export class TurnStreamProjector {
   private lastSequence: number;
   private isFinalized = false;
+  private identityDelivered = false;
   private expectedTurnId?: string;
   private onDropped?: (reason: DropReason, event: unknown) => void;
 
@@ -106,6 +107,11 @@ export class TurnStreamProjector {
         return false;
       }
       this.lastSequence = event.sequence;
+    }
+
+    if (!this.identityDelivered && this.expectedTurnId) {
+      this.identityDelivered = true;
+      callbacks.onTurnIdentified?.(this.expectedTurnId);
     }
 
     // 4. 安全分发

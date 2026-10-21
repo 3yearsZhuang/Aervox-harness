@@ -17,6 +17,8 @@ import type {
 } from '@aervox/contracts';
 
 export interface StreamAervoxTurnCallbacks {
+  /** Identity from an accepted, ordered stream event; shared by HTTP and IPC. */
+  onTurnIdentified?: (turnId: string) => void;
   onDelta: (text: string) => void;
   onDone: () => void;
   onError?: (err: unknown) => void;

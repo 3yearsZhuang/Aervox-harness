@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { FileText, History, Image as ImageIcon, Music } from 'lucide-vue-next';
+import TurnDiagnostics from '../TurnDiagnostics.vue';
 import ExtensionSlot from '../../extension/ExtensionSlot.vue';
 import { useWorkbenchContext } from '../../../composables/workbench-context';
 import { renderMarkdown } from '../../../utils/markdown';
@@ -37,6 +38,7 @@ function attachmentIconFor(mediaType: string) {
               <span>{{ att.name }}</span>
             </span>
           </span>
+          <TurnDiagnostics v-if="line.speaker === 'assistant' && line.turnId" :turn-id="line.turnId" />
           <ExtensionSlot
             name="message:bubble-actions"
             :context="{ message: line, text: line.text, speaker: line.speaker }"

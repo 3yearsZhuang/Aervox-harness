@@ -8,6 +8,7 @@ import { z } from "zod";
 import { registerBotOpenApi } from './bot-openapi.js';
 import { registerMcpOpenApiPaths, registerMcpOpenApiSchemas } from './mcp-openapi.js';
 import { apiProblemSchema, type ApiEndpoint } from "./http-api.js";
+import { turnDiagnosticsApi } from "./turn-diagnostics-api.js";
 import { modelRuntimeApi } from "./model-runtime-api.js";
 import { preferencesApi } from "./preferences-api.js";
 import { privacyApi } from "./privacy-api.js";
@@ -1028,7 +1029,7 @@ registry.registerPath({ method: "post", path: "/v1/model-runtime/stop", summary:
 registry.registerPath({ method: "delete", path: "/v1/model-runtime/models/{modelId}", summary: "删除已下载模型（运行中禁止）", tags: ["Model Runtime"], request: { headers: commonHeaders, params: z.object({ modelId: z.string().min(1) }) }, responses: { 200: { description: "State snapshot", content: { "application/json": { schema: modelRuntimeStateSchema } } }, 404: { description: "MODEL_NOT_FOUND" }, 409: { description: "RUNTIME_BUSY" } } });
 
 /** Shared JSON endpoint descriptors are also used by routing and clients. */
-for (const endpoint of [...Object.values(modelRuntimeApi), ...Object.values(preferencesApi), ...Object.values(privacyApi)] as ApiEndpoint[]) {
+for (const endpoint of [...Object.values(turnDiagnosticsApi), ...Object.values(modelRuntimeApi), ...Object.values(preferencesApi), ...Object.values(privacyApi)] as ApiEndpoint[]) {
   registry.registerPath({
     method: endpoint.method, path: endpoint.path, operationId: endpoint.operationId,
     summary: endpoint.summary, tags: endpoint.tags,

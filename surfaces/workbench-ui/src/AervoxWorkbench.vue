@@ -282,6 +282,10 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
     await streamAervoxTurn(
       outgoing,
       {
+        onTurnIdentified: (turnId) => {
+          liveAssistantLine.turnId = turnId;
+          conversation.currentTurnId.value = turnId;
+        },
         onError: (error) => {
           throw error instanceof Error ? error : new Error(String(error));
         },
