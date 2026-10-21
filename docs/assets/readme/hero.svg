@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="320" viewBox="0 0 1200 320" fill="none">
+  <title>思隅 · 主动智能个人助手</title>
+  <desc>记得你在意的事，在合适的时候出现，把想法变成行动。</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1200" y2="320" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EEF2FF"/>
+      <stop offset=".55" stop-color="#F8F9FC"/>
+      <stop offset="1" stop-color="#FBEFF3"/>
+    </linearGradient>
+    <linearGradient id="orbit" x1="790" y1="65" x2="1070" y2="255" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8496D9"/>
+      <stop offset="1" stop-color="#D9A7BB"/>
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="1198" height="318" rx="24" fill="url(#background)" stroke="#E1E6F0"/>
+  <g stroke="#CAD3E5" stroke-opacity=".42">
+    <path d="M35 65H85V100H140M1080 35V70H1150M1100 265H1155V220M45 255H95V285"/>
+    <circle cx="140" cy="100" r="3"/><circle cx="1080" cy="35" r="3"/>
+    <circle cx="1100" cy="265" r="3"/><circle cx="95" cy="285" r="3"/>
+  </g>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans CJK SC', 'Microsoft YaHei', sans-serif">
+    <text x="72" y="87" fill="#62719D" font-size="14" font-weight="600" letter-spacing="4">PERSONAL INTELLIGENCE</text>
+    <text x="68" y="155" fill="#25324D" font-size="52" font-weight="700" letter-spacing="1">Aervox</text>
+    <text x="303" y="153" fill="#536484" font-size="34" font-weight="500">思隅</text>
+    <text x="72" y="202" fill="#52617D" font-size="21">记得你在意的事，在合适的时候出现。</text>
+    <g font-size="14" font-weight="500" text-anchor="middle">
+      <rect x="72" y="237" width="114" height="34" rx="17" fill="#FFF" fill-opacity=".85" stroke="#DCE2EF"/>
+      <text x="129" y="259" fill="#536484">个人记忆</text>
+      <rect x="198" y="237" width="114" height="34" rx="17" fill="#FFF" fill-opacity=".85" stroke="#DCE2EF"/>
+      <text x="255" y="259" fill="#536484">主动帮助</text>
+      <rect x="324" y="237" width="114" height="34" rx="17" fill="#FFF" fill-opacity=".85" stroke="#DCE2EF"/>
+      <text x="381" y="259" fill="#536484">工具与行动</text>
+    </g>
+  </g>
+  <g stroke="url(#orbit)">
+    <ellipse cx="938" cy="160" rx="131" ry="93" stroke-width="1.5"/>
+    <ellipse cx="938" cy="160" rx="131" ry="93" transform="rotate(-38 938 160)" stroke-opacity=".5"/>
+    <ellipse cx="938" cy="160" rx="131" ry="93" transform="rotate(38 938 160)" stroke-opacity=".5"/>
+    <circle cx="938" cy="160" r="51" fill="#FFF" fill-opacity=".8" stroke-width="1.5"/>
+  </g>
+  <path d="M917 168L938 126L959 168M926 153H950" stroke="#697FB8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M921 184H955" stroke="#A5AFCC" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="812" cy="135" r="7" fill="#95A6DA" stroke="#F8F9FC" stroke-width="4"/>
+  <circle cx="1045" cy="214" r="7" fill="#CE9CB5" stroke="#F8F9FC" stroke-width="4"/>
+  <circle cx="977" cy="61" r="5" fill="#AFB5D9"/>
+</svg>

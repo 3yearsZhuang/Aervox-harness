@@ -1,20 +1,32 @@
-# <img src="packages/ui/src/assets/brand/aervox-app-icon.svg" width="42" height="42" alt="思隅标识"> Aervox｜思隅
+<h1 align="center"><img src="packages/ui/src/assets/brand/aervox-app-icon.svg" width="80" height="80" alt="思隅标识"><br>Aervox｜思隅</h1>
 
-思隅是面向编程学习者的学习与陪伴 Agent：提问、练习、复习，也让角色陪在身边。个人记录保存在本地，模型服务可按需选择。
+<div align="center">
 
-**开发者预览** · 能力验收与发布状态见[需求追踪](docs/reference/REQUIREMENTS_TRACEABILITY.md)。升级前请备份本地数据。
+**属于你的贾维斯，或者属于你的爱弥斯。**
+
+一个记得你、关心当下，并在你的授权下主动提供帮助的个人助手。
+
+![思隅：记得你在意的事，在合适的时候出现，把想法变成行动](docs/assets/readme/hero.svg)
+
+[![技术栈：TypeScript、Vue、Electron、Node.js、Rust、SQLite](https://skillicons.dev/icons?i=ts,vue,electron,nodejs,rust,sqlite)](docs/reference/ARCHITECTURE.md)
 
 [开始体验](docs/getting-started.md) · [文档导航](docs/README.md) · [参与贡献](CONTRIBUTING.md)
+
+</div>
+
+思隅是面向生活、工作与学习的主动智能个人助手：接续对话、整理记忆与每日记录，通过工具和插件帮你处理任务，也以喜欢的角色陪在身边。学习与复习是其中一项能力。
+
+**开发者预览** · 连续对话、记忆、日记与工具扩展已有实现；全域感知、家居与健康连接仍在完善和验收。能力与发布状态见[需求追踪](docs/reference/REQUIREMENTS_TRACEABILITY.md)，升级前请备份本地数据。
 
 ## 看看思隅
 
 <a id="工作台把对话和学习放在一起"></a>
 
-### 桌面端：角色陪在身边，工具随手可用
+### 桌面端：留一隅给陪伴，随时处理手边的事
 
-![思隅桌宠陪伴工作台：左侧 Live2D 角色，右侧工具卡片、对话和输入区](docs/assets/readme/workbench.webp)
+![思隅桌面工作台：左侧 Live2D 角色，右上轻量工具卡片，底部台词框与独立输入栏](docs/assets/readme/workbench.webp)
 
-左侧是陪伴角色，右侧是工具卡片、对话与输入区。管理待办、回看对话，或直接继续提问；回复逐步显示，可随时停止并查看运行详情。
+大角色、轻量工具卡片、台词框与独立输入栏，让交流保持轻松。继续上次的事、回看对话或调用工具；回复逐步显示，可随时停止并查看运行详情。
 
 桌面默认使用这套“桌宠陪伴”布局；需要侧栏多会话时，可切换到“标准工作台”。[界面切换说明](docs/getting-started.md#21-先用-web-工作台体验)
 
@@ -30,10 +42,13 @@
 
 ## 可以做什么
 
-- **连续对话与陪伴**：在工作台、桌宠或终端连接版中交流，沿用本机服务的会话与配置。
-- **学习与复习**：通过学习插件进行引导、练习和反馈，将复习安排交给后台任务。
-- **个人记忆与日记**：整理会话记忆与每日复盘，保留来源和数据管理入口。
-- **工具与插件**：按需启用第一方插件、Skill 和 MCP 工具，通过审批管理需授权的操作。
+| 你想做的事 | 思隅的帮助 |
+|---|---|
+| 接着聊，接着做 | 在工作台、桌宠或终端连接版接续本机服务中的会话，沿用人格与配置 |
+| 记住在意的事 | 整理会话记忆与每日复盘，保留来源、纠错和数据管理入口 |
+| 把想法变成行动 | 按需启用插件、Skill 与 MCP 工具，通过审批管理需要授权的操作 |
+| 在合适的时候得到提醒 | 按已配置的排期，由后台 Worker 处理到期复习与日记；更广泛的主动建议与生活连接持续演进 |
+| 学会新东西 | 通过学习插件获得引导、练习、反馈与后续复习 |
 
 以上为已有实现的概览，完整验收状态与剩余限制见[需求追踪](docs/reference/REQUIREMENTS_TRACEABILITY.md)。
 

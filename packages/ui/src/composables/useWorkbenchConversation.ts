@@ -155,7 +155,7 @@ export function useWorkbenchConversation(options: {
   // CR-065：问候语用陪伴角色名（思隅是空间名，不是角色名）
   const companionGreeting = () => {
     const { companionName, userAddress } = readCompanionIdentity();
-    return `你好${userAddress === '你' ? '' : '，' + userAddress}，我是${companionName}。告诉我你正在学什么，或者把卡住的地方直接发来，我们一起拆成下一步。`;
+    return `你好${userAddress === '你' ? '' : '，' + userAddress}，我是${companionName}。告诉我你想做的事，或者聊聊今天的安排，我们一起拆成下一步。`;
   };
   let nextStoryId = 2;
   const story = ref<StoryLine[]>([

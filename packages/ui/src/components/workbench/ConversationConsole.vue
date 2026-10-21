@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { AervoxButton, AervoxCard } from '../../primitives';
 import { computed } from 'vue';
-import { ChevronDown, ChevronRight, ChevronUp, History, MessageSquare } from 'lucide-vue-next';
+import { ChevronDown, ChevronRight, ChevronUp, History } from 'lucide-vue-next';
 import ExtensionSlot from '../extension/ExtensionSlot.vue';
 import ToolApprovalCard from './ToolApprovalCard.vue';
 import TurnDiagnostics from './TurnDiagnostics.vue';
@@ -28,12 +28,11 @@ const isGreeting = computed(() => conversation.story.value.length === 1
 </script>
 
 <template>
-  <AervoxCard as="section" class="message-panel companion-panel" :class="{ collapsed: consoleCollapsed }" aria-label="伴学对话">
+  <AervoxCard as="section" class="message-panel companion-panel" :class="{ collapsed: consoleCollapsed }" aria-label="助手对话">
     <ExtensionSlot name="conversation:top" />
 
-    <header class="companion-panel-head">
-      <MessageSquare class="companion-panel-icon" :size="18" aria-hidden="true" />
-      <span class="companion-panel-title">{{ companionDisplayName }}</span>
+    <header class="companion-panel-head dialogue-heading">
+      <span class="message-speaker">{{ companionDisplayName }}</span>
       <span v-if="consoleCollapsed" class="console-collapsed-text">{{ collapsedSummaryText }}</span>
       <AervoxButton variant="ghost" icon-only
         type="button"
