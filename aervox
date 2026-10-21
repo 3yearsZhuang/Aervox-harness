@@ -14,7 +14,7 @@ if [ -f .env ]; then
   set +a
 fi
 
-GREEN='\033[0;32m'; YELLOW='\033[0;33m'; CYAN='\033[0;36m'; RED='\033[0;31m'; NC='\033[0m'
+GREEN='\033[0;32m'; YELLOW='\033[0;33m'; CYAN='\033[0;36m'; RED='\033[0;31m'; BOLD='\033[1m'; NC='\033[0m'
 info() { printf "${CYAN}[aervox]${NC} %s\n" "$*"; }
 ok()   { printf "${GREEN}[aervox]${NC} %s\n" "$*"; }
 warn() { printf "${YELLOW}[aervox]${NC} %s\n" "$*"; }
@@ -22,18 +22,20 @@ fail() { printf "${RED}[aervox]${NC} %s\n" "$*" >&2; exit 1; }
 
 HELP="$(
   cat <<'EOF'
-用法:  aervox <命令> [目标]
+用法:  aervox <命令> [目标/参数...]
 
 命令:
   setup                        前置安装: mise install(幂等) + 重新解析依赖
-  dev [full|web|desktop|cli|worker|api]
-                               启动开发服务:
+  dev [目标] [选项]            启动开发服务:
                                  full      = API + Web + Desktop + Worker (默认)
                                  web       = API + Web(5173)
                                  desktop   = API + Desktop(Electron)
                                  cli       = API + 终端交互客户端(siyu chat)
                                  worker    = 仅 Worker(后台任务)
                                  api       = 仅 API(3000)
+                               选项:
+                                 --clean-ports, -k  启动前自动释放 3000/5173/5174 残留端口
+                                 --tui              启用 Turborepo 交互式分屏面板
   cli [参数...]                启动思隅终端客户端(siyu); 默认启动连续对话(chat)
   mobile                       构建 Web 产物并同步 Capacitor 壳(cap sync web)
   package                      打包桌面端安装包(electron-builder, 产物 apps/desktop/release/)
@@ -78,6 +80,116 @@ run() { # 通过 mise exec 激活项目工具链(Node 24 / pnpm 11)后执行
   mise exec -- "$@"
 }
 
+# ── 端口管理与预检 ─────────────────────────────────────────
+port_pids() {
+  local port="$1"
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -ti ":$port" 2>/dev/null || true
+  fi
+}
+
+cleanup_dev_ports() {
+  local pids
+  pids="$(port_pids "${PORT:-3000}"; port_pids "${AERVOX_WEB_PORT:-5173}"; port_pids "${AERVOX_DESKTOP_PORT:-5174}")"
+  local clean_list
+  clean_list="$(printf '%s\n' "$pids" | tr ' ' '\n' | grep -v '^[[:space:]]*$' | sort -u || true)"
+  if [ -n "$clean_list" ]; then
+    info "正在释放占用开发端口的残留旧进程 (PID: $(printf '%s ' $clean_list))…"
+    printf '%s\n' "$clean_list" | xargs kill -9 2>/dev/null || true
+    sleep 0.5
+    ok "旧进程已成功清理"
+  else
+    ok "端口检查正常，未发现残留占用"
+  fi
+}
+
+check_dev_ports() {
+  local target="$1"
+  local api_port="${PORT:-3000}"
+  local web_port="${AERVOX_WEB_PORT:-5173}"
+
+  case "$target" in
+    full|web|desktop|api)
+      local api_occupants
+      api_occupants="$(port_pids "$api_port")"
+      if [ -n "$api_occupants" ]; then
+        local pids_str
+        pids_str="$(printf '%s ' $api_occupants)"
+        printf "\n${RED}─────────────────────────────────────────────────────────────${NC}\n" >&2
+        printf "${RED}[aervox] ❌ 端口冲突: API 端口 ${api_port} 已被占用 (PID: %s)${NC}\n" "$pids_str" >&2
+        printf "${YELLOW}[aervox] 提示: 存在尚未退出的旧服务，直接启动会导致 API 启动崩溃。${NC}\n" >&2
+        printf "         可使用以下命令一键释放端口并重新启动:\n" >&2
+        printf "           ${CYAN}./aervox dev --clean-ports${NC}  (或 ${CYAN}-k${NC})\n" >&2
+        printf "         或手动清理该进程:\n" >&2
+        printf "           ${CYAN}kill -9 %s${NC}\n" "$pids_str" >&2
+        printf "${RED}─────────────────────────────────────────────────────────────${NC}\n\n" >&2
+        exit 1
+      fi
+      ;;
+  esac
+
+  case "$target" in
+    full|web)
+      local web_occupants
+      web_occupants="$(port_pids "$web_port")"
+      if [ -n "$web_occupants" ]; then
+        warn "端口 ${web_port} 当前已被占用 (PID: $(printf '%s ' $web_occupants))，Web 前端将自动尝试后移端口。"
+      fi
+      ;;
+  esac
+}
+
+show_dev_banner() {
+  local target="$1"
+  local api_port="${PORT:-3000}"
+  local web_port="${AERVOX_WEB_PORT:-5173}"
+  local db_display="${DATABASE_URL#file:}"
+  local short_db
+  short_db="$(echo "$db_display" | sed "s|^$PWD/||")"
+
+  printf "\n${CYAN}╭───────────────────────────────────────────────────────────────╮${NC}\n"
+  printf "${CYAN}│${NC}  ${GREEN}${BOLD}Aervox｜思隅  开发环境启动${NC} (Dev Environment)                ${CYAN}│${NC}\n"
+  printf "${CYAN}│${NC}  模式: ${YELLOW}%-10s${NC}                                            ${CYAN}│${NC}\n" "$target"
+  printf "${CYAN}│${NC}                                                               ${CYAN}│${NC}\n"
+  case "$target" in
+    full)
+      printf "${CYAN}│${NC}  服务组件:                                                    ${CYAN}│${NC}\n"
+      printf "${CYAN}│${NC}    • API 服务:      ${CYAN}http://127.0.0.1:%-5s${NC}                      ${CYAN}│${NC}\n" "$api_port"
+      printf "${CYAN}│${NC}    • Web 前端:      ${CYAN}http://localhost:%-5s${NC}                      ${CYAN}│${NC}\n" "$web_port"
+      printf "${CYAN}│${NC}    • 桌面客户端:    ${CYAN}Electron 调试窗口${NC}                          ${CYAN}│${NC}\n"
+      printf "${CYAN}│${NC}    • 后台 Worker:   ${CYAN}10 项定时后台调度${NC}                          ${CYAN}│${NC}\n"
+      ;;
+    web)
+      printf "${CYAN}│${NC}  服务组件:                                                    ${CYAN}│${NC}\n"
+      printf "${CYAN}│${NC}    • API 服务:      ${CYAN}http://127.0.0.1:%-5s${NC}                      ${CYAN}│${NC}\n" "$api_port"
+      printf "${CYAN}│${NC}    • Web 前端:      ${CYAN}http://localhost:%-5s${NC}                      ${CYAN}│${NC}\n" "$web_port"
+      ;;
+    desktop)
+      printf "${CYAN}│${NC}  服务组件:                                                    ${CYAN}│${NC}\n"
+      printf "${CYAN}│${NC}    • API 服务:      ${CYAN}http://127.0.0.1:%-5s${NC}                      ${CYAN}│${NC}\n" "$api_port"
+      printf "${CYAN}│${NC}    • 桌面客户端:    ${CYAN}Electron 调试窗口${NC}                          ${CYAN}│${NC}\n"
+      ;;
+    api)
+      printf "${CYAN}│${NC}  服务组件:                                                    ${CYAN}│${NC}\n"
+      printf "${CYAN}│${NC}    • API 服务:      ${CYAN}http://127.0.0.1:%-5s${NC}                      ${CYAN}│${NC}\n" "$api_port"
+      ;;
+    worker)
+      printf "${CYAN}│${NC}  服务组件:                                                    ${CYAN}│${NC}\n"
+      printf "${CYAN}│${NC}    • 后台 Worker:   ${CYAN}10 项定时后台调度${NC}                          ${CYAN}│${NC}\n"
+      ;;
+    cli)
+      printf "${CYAN}│${NC}  服务组件:                                                    ${CYAN}│${NC}\n"
+      printf "${CYAN}│${NC}    • 终端客户端:    ${CYAN}siyu chat 终端交互界面${NC}                     ${CYAN}│${NC}\n"
+      ;;
+  esac
+  printf "${CYAN}│${NC}                                                               ${CYAN}│${NC}\n"
+  printf "${CYAN}│${NC}  主数据库:                                                    ${CYAN}│${NC}\n"
+  printf "${CYAN}│${NC}    • ${YELLOW}%-56s${NC} ${CYAN}│${NC}\n" "$short_db"
+  printf "${CYAN}│${NC}                                                               ${CYAN}│${NC}\n"
+  printf "${CYAN}│${NC}  提示: 按 ${YELLOW}Ctrl+C${NC} 退出；遇到端口冲突加 ${CYAN}--clean-ports${NC} 自动清理   ${CYAN}│${NC}\n"
+  printf "${CYAN}╰───────────────────────────────────────────────────────────────╯${NC}\n\n"
+}
+
 # 启动只接受锁定安装；重新解析依赖必须显式运行 setup。
 ensure_deps() {
   ensure_mise
@@ -96,14 +208,58 @@ cmd_setup() {
 }
 
 cmd_dev() {
+  local clean_ports=0
+  local target="full"
+  local extra_flags=( "--output-logs=new-only" )
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --clean-ports|-k)
+        clean_ports=1
+        shift
+        ;;
+      --tui)
+        extra_flags+=( "--ui" "tui" )
+        shift
+        ;;
+      full|web|desktop|cli|worker|api)
+        target="$1"
+        shift
+        ;;
+      *)
+        if [[ "$1" == -* ]]; then
+          fail "未知 dev 选项: $1（支持: --clean-ports / -k, --tui）"
+        else
+          fail "未知 dev 目标: $1（可用: full | web | desktop | cli | worker | api）"
+        fi
+        ;;
+    esac
+  done
+
+  # 规范化本地 SQLite 数据库路径，防止子包工作目录不同导致数据分片
+  export DATABASE_URL="${DATABASE_URL:-file:$PWD/data/aervox.db}"
+  if [[ "$DATABASE_URL" == file:* && "$DATABASE_URL" != file:/* ]]; then
+    local rel_path="${DATABASE_URL#file:}"
+    export DATABASE_URL="file:$PWD/${rel_path#./}"
+  fi
+
+  if [ $clean_ports -eq 1 ]; then
+    cleanup_dev_ports
+  fi
+
+  if [ "$target" != "cli" ]; then
+    check_dev_ports "$target"
+  fi
+
   ensure_deps
+
   # CAP-033：dev 下 API 与桌面端必须解析同一个主动画像 Token 文件。
   # API 默认写 <仓库>/data/proactive-access.token，桌面端默认读用户应用数据目录下的同名文件；
   # 两份 Token 不一致会让桌面端所有 /v1/proactive/* 请求 401（界面显示“本地主动画像 Vault 尚未就绪”）。
   # 显式设置 AERVOX_PROACTIVE_ACCESS_TOKEN 时仍然以该 Token 为准，本默认值不覆盖它。
   export AERVOX_PROACTIVE_ACCESS_TOKEN_PATH="${AERVOX_PROACTIVE_ACCESS_TOKEN_PATH:-$PWD/data/proactive-access.token}"
   mkdir -p "$(dirname "$AERVOX_PROACTIVE_ACCESS_TOKEN_PATH")"
-  local target="${1:-full}"
+
   case "$target" in
     full|desktop)
       # 未签名 dev Electron 默认被 Host 判为不受信 → 主动智能整体挂起。
@@ -111,32 +267,27 @@ cmd_dev() {
       export AERVOX_TRUST_LOCAL_DEV_HOST="${AERVOX_TRUST_LOCAL_DEV_HOST:-1}"
       ;;
   esac
+
+  show_dev_banner "$target"
+
   case "$target" in
     full)
-      info "启动全栈: API + Web + Desktop + Worker…"
-      run pnpm exec turbo run dev --filter=@aervox/api --filter=@aervox/web --filter=@aervox/desktop --filter=@aervox/worker
+      run pnpm exec turbo run dev "${extra_flags[@]}" --filter=@aervox/api --filter=@aervox/web --filter=@aervox/desktop --filter=@aervox/worker
       ;;
     web)
-      info "启动 Web(+5173) + API(+3000)…"
-      run pnpm exec turbo run dev --filter=@aervox/api --filter=@aervox/web
+      run pnpm exec turbo run dev "${extra_flags[@]}" --filter=@aervox/api --filter=@aervox/web
       ;;
     desktop)
-      info "启动 Desktop(Electron) + API(+3000)…"
-      run pnpm exec turbo run dev --filter=@aervox/api --filter=@aervox/desktop
+      run pnpm exec turbo run dev "${extra_flags[@]}" --filter=@aervox/api --filter=@aervox/desktop
       ;;
     cli)
       cmd_dev_cli
       ;;
     worker)
-      info "启动 Worker(后台任务)…"
-      run pnpm exec turbo run dev --filter=@aervox/worker
+      run pnpm exec turbo run dev "${extra_flags[@]}" --filter=@aervox/worker
       ;;
     api)
-      info "启动 API(+3000)…"
-      run pnpm exec turbo run dev --filter=@aervox/api
-      ;;
-    *)
-      fail "未知 dev 目标: ${target}（可用: full | web | desktop | cli | worker | api）"
+      run pnpm exec turbo run dev "${extra_flags[@]}" --filter=@aervox/api
       ;;
   esac
 }
@@ -270,7 +421,7 @@ CMD="${1:-help}"; shift || true
 case "$CMD" in
   help|-h|--help)          help ;;
   setup)                   cmd_setup ;;
-  dev)                     cmd_dev "${1:-full}" ;;
+  dev)                     cmd_dev "$@" ;;
   cli)                     cmd_cli "$@" ;;
   mobile)                  cmd_mobile ;;
   package)                 cmd_package ;;

@@ -15,7 +15,8 @@
     "@aervox/native-runtime#test": {"dependsOn": ["build", "native:build"], "cache": false, "inputs": ["$TURBO_DEFAULT$", "../../native/protocol/**"]},
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", "out/**"]
+      "outputs": ["dist/**", "out/**"],
+      "outputLogs": "new-only"
     },
     "@aervox/ui#build": {
       "dependsOn": ["^build"],
