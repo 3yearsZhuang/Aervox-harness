@@ -5,11 +5,12 @@
  * 静态 Contribution 工具的通用写授权门（PET-05 / 阶段 3a / CR-022 full_access
  * 预授权）与动态 tool_registrations 运行时适配（CAP-033 主动动作授权）逐字节迁移。
  */
-import { inspectToolInput, validateJsonSchema } from "@aervox/core";
+import { inspectToolInput, resolveToolSafetyLevel, validateJsonSchema } from "@aervox/core";
 import type {
   ToolExecutionInput,
   ToolExecutionResult,
   ToolProviderPort,
+  ToolSpec,
 } from "@aervox/core";
 import type {
   LocalContext,
@@ -50,6 +51,13 @@ function approvalArguments(input: ToolExecutionInput): unknown {
   if (input.name !== "aervox_memory_store" || !input.arguments || typeof input.arguments !== "object" || Array.isArray(input.arguments)) return input.arguments;
   const { sourceTurnId: _hostProvenance, ...argumentsToApprove } = input.arguments as Record<string, unknown>;
   return argumentsToApprove;
+}
+
+function validateToolArguments(schema: unknown, args: unknown, code = "invalid_tool_input"): ToolExecutionResult | undefined {
+  const result = validateJsonSchema(schema, args);
+  if (result.valid) return undefined;
+  const detail = result.errors?.map(error => `${error.path || "(root)"}: ${error.message}`).join("; ");
+  return { ok: false, error: `${code}${detail ? `: ${detail}` : ""}` };
 }
 
 /** 自动授权决策人前缀；显式授权查询排除该类记录，避免关闭完全访问后泄漏。 */
@@ -119,7 +127,7 @@ async function executeAuthorizedProactiveAction(
 
 /**
  * 给静态 Contribution 工具补齐通用写工具授权门：
- * readOnly 直接执行；写工具命中显式授权或本 Turn 完全访问后执行。
+ * 参数先校验；安全等级为 read_only 时直接执行，其余已知等级按显式/主动授权策略执行。
  */
 export function createApprovalGatedToolProvider(
   provider: ToolProviderPort,
@@ -128,14 +136,14 @@ export function createApprovalGatedToolProvider(
   proactiveActionAuthorizer?: ProactiveActionPort,
   observability?: Observability,
 ): ToolProviderPort {
-  let specs = new Map(provider.tools.map((tool) => [tool.name, { ...tool }]));
+  let specs = new Map(provider.tools.map((tool) => [tool.name, structuredClone(tool)]));
   return {
     tools: provider.tools,
-    listTools: provider.listTools ? async () => {
+    listTools: provider.listTools ? async options => {
       // A failed refresh must not leave previously advertised tools authorized.
       specs.clear();
-      const tools = await provider.listTools!();
-      specs = new Map(tools.map((tool) => [tool.name, { ...tool }]));
+      const tools = await provider.listTools!(options);
+      specs = new Map(tools.map((tool) => [tool.name, structuredClone(tool)]));
       return tools;
     } : undefined,
     async execute(input: ToolExecutionInput): Promise<ToolExecutionResult> {
@@ -156,7 +164,15 @@ export function createApprovalGatedToolProvider(
 
       const spec = specs.get(input.name);
       if (!spec) return emitResult({ ok: false, error: `unregistered_tool: ${input.name}` });
-      if (spec.readOnly) return emitResult(await provider.execute(input));
+      if (spec.parameters !== undefined) {
+        const invalid = validateToolArguments(spec.parameters, input.arguments);
+        if (invalid) return emitResult(invalid);
+      }
+      const safetyLevel = resolveToolSafetyLevel(spec);
+      if (safetyLevel === "read_only") return emitResult(await provider.execute(input));
+      if (safetyLevel !== "write_with_approval" && safetyLevel !== "privileged" && safetyLevel !== "destructive") {
+        return emitResult({ ok: false, error: `requires_approval: ${input.name}（未支持的安全级别）` });
+      }
 
       const argumentsHash = stableStringify(approvalArguments(input));
       const granted = await findExplicitToolApproval(repo, tenant, {
@@ -168,12 +184,13 @@ export function createApprovalGatedToolProvider(
       const autoApprovable = isToolAutoApprovable(
         {
           name: input.name,
-          safetyLevel: spec?.readOnly ? "read_only" : "write_with_approval",
+          safetyLevel,
+          category: safetyLevel === "destructive" ? "destructive" : undefined,
         },
         input.arguments,
       );
 
-      if (getRequestToolApprovalMode(tenant) === "full_access" && autoApprovable) {
+      if (getRequestToolApprovalMode(tenant) === "full_access") {
         if (proactiveActionAuthorizer) {
           const authorization = await proactiveActionAuthorizer.authorize(tenant, {
             turnId: input.turnId,
@@ -182,7 +199,8 @@ export function createApprovalGatedToolProvider(
             toolId: input.name,
             toolName: input.name,
             category: "system",
-            safetyLevel: "write_with_approval",
+            safetyLevel,
+            irreversible: safetyLevel === "destructive",
             arguments: input.arguments,
           });
           if (authorization.authorized) {
@@ -208,15 +226,17 @@ export function createApprovalGatedToolProvider(
             ));
           }
         }
-        const actor = tenant.actorId ?? tenant.subjectUserId;
-        const recorded = await recordAutomaticApproval(repo, tenant, {
-          turnId: input.turnId,
-          attemptId: input.attemptId,
-          toolName: input.name,
-          argumentsHash,
-        }, `${FULL_ACCESS_DECIDER_PREFIX}${actor}`);
-        if (!recorded) return emitResult({ ok: false, error: "full_access_approval_not_recorded" });
-        return emitResult(await provider.execute(input));
+        if (safetyLevel === "write_with_approval" && autoApprovable) {
+          const actor = tenant.actorId ?? tenant.subjectUserId;
+          const recorded = await recordAutomaticApproval(repo, tenant, {
+            turnId: input.turnId,
+            attemptId: input.attemptId,
+            toolName: input.name,
+            argumentsHash,
+          }, `${FULL_ACCESS_DECIDER_PREFIX}${actor}`);
+          if (!recorded) return emitResult({ ok: false, error: "full_access_approval_not_recorded" });
+          return emitResult(await provider.execute(input));
+        }
       }
 
       const approval = await repo.recordToolApproval(tenant, {
@@ -239,7 +259,7 @@ export function createApprovalGatedToolProvider(
  * 把主仓 ToolRuntime（tool_registrations + handler）适配为 agent-loop 的 ToolProviderPort：
  * - read_only：AI 可自主调用（PET-05）；
  * - write_with_approval：需已授权（toolName+参数哈希匹配 granted）才执行，否则生成 pending 授权并返回 needsApproval（阶段 3a）；
- * - 未注册 / privileged 一律拒绝（fail-closed）；工具停用由 registry enabled 拦截。
+ * - 特权操作须显式或主动授权；未知安全等级拒绝；工具停用由 registry enabled 拦截。
  */
 export function createRuntimeToolProvider(
   runtime: ToolRuntime,
@@ -258,21 +278,21 @@ export function createRuntimeToolProvider(
     tools: [],
     async listTools() {
       const rows = await runtime.exportRegistry();
-      const visible = [];
+      const visible: ToolSpec[] = [];
       declared = new Map();
       for (const tool of rows) {
         if (deps.capabilityTier === "restricted" && tool.safetyLevel !== "read_only") continue;
         if (deps.isToolAllowed && !(await deps.isToolAllowed(tool))) continue;
-        declared.set(tool.name, { id: tool.id, revision: (tool as typeof tool & { runtimeRevision?: string }).runtimeRevision });
-        const toolBudget = (tool as { budget?: import("@aervox/core").ToolBudget }).budget ??
-          ((tool as { timeoutMs?: number }).timeoutMs ? { timeoutMs: (tool as { timeoutMs?: number }).timeoutMs } : undefined);
+        declared.set(tool.name, { id: tool.id, revision: tool.runtimeRevision });
         visible.push({
           name: tool.name,
           description: tool.description,
           readOnly: tool.safetyLevel === "read_only",
-          safetyLevel: (tool.safetyLevel ?? "write_with_approval") as import("@aervox/core").ToolSafetyLevel,
-          budget: toolBudget,
-          parameters: tool.inputSchemaJson && typeof tool.inputSchemaJson === "object" ? tool.inputSchemaJson as Record<string, unknown> : undefined,
+          safetyLevel: tool.safetyLevel ?? "write_with_approval",
+          budget: tool.budget,
+          parameters: typeof tool.inputSchemaJson === "boolean" ? tool.inputSchemaJson
+            : tool.inputSchemaJson && typeof tool.inputSchemaJson === "object" && !Array.isArray(tool.inputSchemaJson)
+              ? tool.inputSchemaJson as Record<string, unknown> : undefined,
         });
       }
       return visible;
@@ -301,12 +321,9 @@ export function createRuntimeToolProvider(
       }
 
       // Schema 校验：入参进入执行或审批前严格校验格式
-      if (tool.inputSchemaJson) {
-        const val = validateJsonSchema(tool.inputSchemaJson, input.arguments);
-        if (!val.valid) {
-          const detail = val.errors && val.errors.length > 0 ? `: ${val.errors.map(e => `${e.path || "(root)"}: ${e.message}`).join("; ")}` : "";
-          return emitResult({ ok: false, error: `schema_validation_failed${detail}` });
-        }
+      if (tool.inputSchemaJson !== null && tool.inputSchemaJson !== undefined) {
+        const invalid = validateToolArguments(tool.inputSchemaJson, input.arguments, "schema_validation_failed");
+        if (invalid) return emitResult(invalid);
       }
 
       if (declared && declared.get(input.name)?.id !== tool.id) return emitResult({ ok: false, error: "tool_not_declared" });

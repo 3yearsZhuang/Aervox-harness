@@ -20,9 +20,12 @@ import { awaitWithSignal } from "./abortable.js";
 import { LeaseLostError } from "./errors.js";
 import { decideToolCall } from "./approval-decision.js";
 import { inspectToolInput } from "./tool-input-safe.js";
-import type { ApprovalPolicyPort, ToolProviderPort, ToolSafetyLevel } from "./ports.js";
+import { validateJsonSchema } from "./json-schema-validator.js";
+import { validateToolBudget } from "./host-tool-runtime.js";
+import { resolveToolSafetyLevel } from "./tool-contract.js";
+import type { ApprovalPolicyPort, ToolProviderPort } from "./ports.js";
 import type { ControlContext } from "./control-context.js";
-import type { ExecuteResult, ToolCallRequest, ToolCallResult } from "./types.js";
+import type { ExecuteResult, ToolCallRequest, ToolCallResult, ToolSpec, ToolValidatorPort } from "./types.js";
 import type { LeaseHeartbeat } from "./lease-heartbeat.js";
 
 /** 长耗时工具的放宽超时（ms）：ask_user_question 等用户交互、aervox_diary_write 内含 LLM 生成 */
@@ -65,6 +68,9 @@ export interface ToolExecutionContext {
   call: ToolCallRequest;
   /** 工具提供者（含只读工具清单，用于安全级别判定） */
   tools: ToolProviderPort;
+  /** The same discovery snapshot used for this Step's model request. */
+  toolSpecs?: readonly ToolSpec[];
+  toolValidator?: ToolValidatorPort;
   /** 审批 SPI；缺省则不做审批前置拦截 */
   approvalPolicy?: ApprovalPolicyPort;
   /** 统一执行控制上下文（预算/ 截止 / 取消） */
@@ -116,7 +122,27 @@ export async function runToolExecution(ctx: ToolExecutionContext): Promise<ToolC
     };
   }
 
-  const spec = (tools.tools || []).find((t) => t.name === call.name);
+  const spec = (ctx.toolSpecs ?? tools.tools).find((t) => t.name === call.name);
+  if (!spec) {
+    return { id: call.id, name: call.name, ok: false, error: `unregistered_tool: ${call.name}`, failureKind: "rejected" };
+  }
+  try {
+    validateToolBudget(spec.budget);
+    if (spec.parameters != null) {
+      const validation = (ctx.toolValidator ?? validateJsonSchema)(spec.parameters, call.arguments);
+      if (!validation.valid) {
+        return {
+          id: call.id, name: call.name, ok: false, failureKind: "rejected",
+          error: `invalid_tool_input: ${validation.errors?.map(e => `${e.path}: ${e.message}`).join("; ") ?? "schema validation failed"}`,
+        };
+      }
+    }
+  } catch (error) {
+    return {
+      id: call.id, name: call.name, ok: false, failureKind: "rejected",
+      error: error instanceof Error ? error.message : "invalid_tool_contract",
+    };
+  }
   const specTimeout = spec?.budget?.timeoutMs;
   // 工具契约统一：优先采纳工具声明的 budget.timeoutMs，保留 LONG_RUNNING_TOOLS 回溯兼容
   const effectiveTimeout = specTimeout !== undefined
@@ -137,7 +163,7 @@ export async function runToolExecution(ctx: ToolExecutionContext): Promise<ToolC
     // Phase 2: ApprovalPolicyPort 统一审批前置拦截（有界等待：策略不合作时由 abort 信号打破）
     let result: ToolCallResult | undefined;
     if (ctx.approvalPolicy) {
-      const safetyLevel: ToolSafetyLevel = spec?.safetyLevel ?? (spec?.readOnly ? "read_only" : "write_with_approval");
+      const safetyLevel = resolveToolSafetyLevel(spec);
       const decision = await awaitWithSignal(
         ctx.approvalPolicy.evaluate(
           {

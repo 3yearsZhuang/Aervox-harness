@@ -8,6 +8,10 @@ id: AVX-HAR-001
 
 本文规定 Agent Turn 的执行、持久化、工具授权、取消恢复与验收契约。内核实现位于 [`packages/core`](../../packages/core/src/index.ts)，SQLite 适配与宿主构件位于 [`packages/host-agent`](../../packages/host-agent/src/index.ts)；原 `packages/agent-loop` 及兼容壳已按 [ADR-021](adr/ADR-021-aervox-core-standalone-package.md) 移除。接口与字段以代码和 Schema 为机器真源，本文保留跨模块不变量及尚未兑现的目标，不复制实现历史。
 
+工具声明按实际 Step 复制为隔离快照，模型侧修改不能降低执行时的 Schema、安全等级或预算。参数与预算在审批前校验，未出现在当前声明中的工具不能派发；显式安全等级可以收紧权限，但不能将写工具降为只读。JSON Schema 保持内置基础子集，宿主可通过执行器的 `toolValidator` 端口提供对应方言。
+
+`budget.timeoutMs` 必须是 1～2147483647 的整数毫秒，注册时复制，并从 handler 派发起计时。直接 Host 调用和 Agent 调用均遵守预算及父控制期限；超时取消信号并结束等待，不保证不合作的 handler 已停止，不回滚已产生的副作用，也不自动重试。`maxRetries` 仍为不生效的预留字段。预算随当前进程的工具注册保存，不写入 SQLite；进程重启后须重新登记。
+
 当前工作排序与认领只在根 [plan.md](../../plan.md) 维护；实现、剩余差量与交付证据以[追踪基线 §4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)为准。下列代码入口用于定位现状，不表示完整生产验收或发布批准；已接受的安全要求不因现状有缺口而降低。
 
 <a id="execution-contract"></a>

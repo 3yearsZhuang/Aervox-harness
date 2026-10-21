@@ -16,7 +16,7 @@ describe("approval continuation execution guards",()=>{
     const {execution,resume}=setup();let writes=0;
     if(kind==="cancel") { const claim=execution.claimTurnAttempt.bind(execution);execution.claimTurnAttempt=async i=>{const result=await claim(i);await execution.requestCancelAttempt(i);return result;}; }
     const result=await executeTurn({execution,provider,contextBuilder:defaultContextBuilder,
-      tools:{tools:[],async execute(){writes++;return {ok:true};}},
+      tools:{tools:[{name:"save",description:"save",readOnly:false}],async execute(){writes++;return {ok:true};}},
       deletionGate:kind==="deletion"?{async isBlocked(){return true;}}:undefined,options:{resume}},input);
     expect(writes).toBe(0);expect(result.status).toBe(kind==="deletion"?"interrupted":"cancelled");
   });
@@ -35,13 +35,13 @@ describe("approval continuation execution guards",()=>{
   it("aborts an uncooperative resumed tool on the normal tool timeout",async()=>{
     const {execution,resume}=setup();let signal:AbortSignal|undefined;
     const result=await executeTurn({execution,provider,contextBuilder:defaultContextBuilder,
-      tools:{tools:[],async execute(i){signal=i.signal;return new Promise(()=>{});}},options:{resume,toolTimeoutMs:5}},input);
+      tools:{tools:[{name:"save",description:"save",readOnly:false}],async execute(i){signal=i.signal;return new Promise(()=>{});}},options:{resume,toolTimeoutMs:5}},input);
     expect(signal?.aborted).toBe(true);expect(result.status).toBe("completed");
     expect((await execution.listEvents("turn")).find(e=>e.eventType==="tool_result")?.data).toMatchObject({ok:false,error:"tool_timeout"});
   });
   it("retains pending approval when tool authorization changes before dispatch",async()=>{
     const {execution,resume}=setup();
-    const tools:ToolProviderPort={tools:[],async execute(){return {ok:false,needsApproval:{approvalId:"new-approval",toolName:"save",argumentsHash:"new-hash"}};}};
+    const tools:ToolProviderPort={tools:[{name:"save",description:"save",readOnly:false}],async execute(){return {ok:false,needsApproval:{approvalId:"new-approval",toolName:"save",argumentsHash:"new-hash"}};}};
     const result=await executeTurn({execution,provider,tools,contextBuilder:defaultContextBuilder,options:{resume}},input);
     expect(result).toMatchObject({status:"interrupted",reason:"pending_approval"});
     expect((await execution.listEvents("turn")).some(e=>e.eventType==="tool_result")).toBe(false);
