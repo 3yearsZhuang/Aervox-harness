@@ -1,11 +1,10 @@
-/* Shared experience refinements for the companion and reading layouts. */
+/* Classic companion composition; shared controls retain their current behavior. */
 .aervox-workbench.mode-companion {
-  --console-max-width: 640px;
+  --console-max-width: 1440px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 46%);
-  grid-template-rows: minmax(120px, 1fr) auto;
-  gap: var(--avx-space-8);
-  padding: 72px 28px 20px;
+  grid-template-columns: 53% minmax(0, 28%) 1fr;
+  grid-template-rows: minmax(112px, 1fr) minmax(0, auto);
+  padding: 0;
 }
 
 .companion-stage {
@@ -13,8 +12,8 @@
 }
 
 .mode-companion .immersive-pet {
-  inset: var(--avx-space-11) auto 0 1%;
-  width: 54%;
+  inset: 0 auto 0 clamp(16px, 14vw, 280px);
+  width: clamp(300px, 44vw, 52vw);
 }
 
 .mode-companion .side-cards {
@@ -22,11 +21,13 @@
   inset: auto;
   grid-column: 2;
   grid-row: 1;
+  margin-top: clamp(60px, 8.5vh, 84px);
   display: flex;
   flex-direction: column;
   min-height: 0;
-  width: 100%;
-  gap: var(--avx-space-6);
+  width: clamp(300px, 28vw, 560px);
+  max-width: calc(100% + 14px);
+  gap: var(--avx-space-8);
   padding: 0 0 var(--avx-space-6);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -48,7 +49,7 @@
 .mode-companion .side-card-summary { flex: none; margin: 0; color: var(--text-primary); font-size: var(--avx-font-size-lg); font-weight: 500; }
 .mode-companion .side-card-title small { white-space: normal; text-wrap: pretty; }
 .mode-companion .side-card-foot { font-weight: 500; opacity: 1; }
-.mode-companion .side-card-foot svg { margin-left: auto; }
+.mode-companion .side-card-foot svg { margin-left: 0; }
 .mode-companion .side-card .companion-panel-head { align-items: flex-start; }
 .mode-companion .side-card .companion-panel-icon { margin-top: var(--avx-space-2); }
 .side-card-picker { flex-shrink: 0; }
@@ -73,24 +74,33 @@
 .timer-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .mode-companion .timer-chip { min-height: 30px; color: var(--text-secondary); font-size: var(--avx-font-size-sm); font-variant-numeric: tabular-nums; }
 .mode-companion .timer-chip.active { color: var(--accent); }
+.mode-companion .timer-card-ops { min-width: 0; max-width: 100%; }
+.mode-companion .timer-card-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 44px), 1fr));
+}
+.mode-companion .timer-chip { min-width: 0; width: 100%; }
+.mode-companion .timer-card-actions { grid-template-columns: repeat(auto-fit, minmax(min(100%, 108px), 1fr)); }
+.mode-companion .timer-card-actions .side-card-grid-item span { white-space: normal; overflow-wrap: anywhere; }
 .mode-companion .side-question-text { display: block; overflow: visible; }
 .mode-companion .side-question-options .side-card-grid-item span { white-space: normal; overflow-wrap: anywhere; }
 
 .mode-companion .immersive-console {
-  grid-column: 2;
-  grid-row: 2;
   position: relative;
   inset: auto;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  min-height: 0;
   gap: var(--avx-space-6);
-  padding: 0;
-  max-height: min(64dvh, calc(100dvh - 228px));
+  padding: 0 clamp(12px, 3vw, 34px) clamp(10px, 1.8vh, 18px);
+  max-height: min(64dvh, calc(100dvh - 100px));
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
 .mode-companion .message-panel {
   flex-shrink: 0;
-  max-height: 30dvh;
+  max-height: clamp(140px, 24dvh, 260px);
   gap: var(--avx-space-4);
 }
 
@@ -205,6 +215,53 @@
 .composer-status-dot { width: 6px; height: 6px; flex-shrink: 0; border-radius: 50%; background: var(--accent); }
 .composer-status.recording .composer-status-dot { background: var(--danger); }
 
+/* The classic desktop uses glass tool cards, a small speaker label and a
+   separate input bar, rather than three matching titled panels. */
+.aervox-workbench.mode-companion .side-card.aervox-card,
+.aervox-workbench.mode-companion .message-panel.aervox-card {
+  --control-card-radius: var(--avx-radius-xl);
+  border-color: var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--avx-shadow-glass);
+}
+.mode-companion .side-card { --control-card-padding: var(--avx-space-8) var(--avx-space-9); }
+.mode-companion .side-card .side-card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--avx-radius-pill);
+}
+.mode-companion .side-card .companion-panel-head { gap: var(--avx-space-6); }
+.mode-companion .side-card .companion-panel-title { font-weight: 650; }
+.mode-companion .side-card .side-card-remove {
+  flex-basis: 28px;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+}
+.mode-companion .side-card .companion-panel-footer {
+  padding-top: 0;
+  border: 0;
+}
+.mode-companion .message-panel { --control-card-padding: var(--avx-space-6) var(--avx-space-9); }
+.mode-companion .message-panel .dialogue-heading { min-height: 24px; }
+.mode-companion .dialogue-heading .message-speaker { flex-shrink: 0; font-size: var(--avx-font-size-sm); }
+.mode-companion .dialogue-heading .console-collapse-toggle { width: 28px; height: 28px; min-width: 28px; min-height: 28px; flex-basis: 28px; }
+.mode-companion .message-panel-footer { padding-top: var(--avx-space-2); border-top: 0; }
+.mode-companion .message-panel-footer .message-history-entry { padding-inline: 0; }
+.aervox-workbench.mode-companion .composer-dock.aervox-card {
+  --control-card-padding: var(--avx-space-6) var(--avx-space-8);
+  --control-card-radius: var(--avx-radius-xl);
+  border-color: var(--glass-border);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--avx-shadow-glass);
+}
+.mode-companion .composer-footer.companion-panel-footer { padding-top: 0; border-top: 0; }
+.mode-companion .composer-collapse { min-width: 32px; }
+.mode-companion .composer-collapsed { height: 24px; }
+
 .mode-standard .standard-topbar { background: var(--bg-main); }
 .mode-standard .standard-message-actions > button { width: 36px; height: 36px; }
 .workbench-standard-sidebar .session-group-title,
@@ -254,8 +311,9 @@
 .el-dropdown-menu__item { gap: var(--avx-space-4); }
 
 @media (max-width: 760px) {
-  .aervox-workbench.mode-companion { padding-inline: var(--avx-space-8); gap: var(--avx-space-6); }
-  .mode-companion .immersive-pet { inset-inline-start: -5%; width: 58%; }
+  .aervox-workbench.mode-companion { grid-template-columns: 52% minmax(0, 48%); }
+  .mode-companion .immersive-pet { inset-inline-start: 0; width: 58%; }
+  .mode-companion .side-cards { width: calc(100% - var(--avx-space-8)); max-width: none; }
   .mode-companion .side-card { gap: var(--avx-space-4); }
 
   .aervox-workbench .composer-footer { flex-wrap: wrap; }
@@ -272,18 +330,29 @@
 }
 
 @media (max-width: 560px) {
-  .aervox-workbench.mode-companion { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; padding: 64px 12px 12px; }
   .mode-companion .immersive-pet { inset: 40px auto 0 -24%; width: 100%; }
-  .mode-companion .side-cards { grid-column: 1; width: 48%; justify-self: end; }
-  .mode-companion .immersive-console { grid-column: 1; max-height: 56dvh; }
+  .mode-companion .side-cards { width: calc(100% - var(--avx-space-6)); margin-top: 64px; }
+  .mode-companion .immersive-console { max-height: 56dvh; }
   .mode-companion .side-card .companion-panel-head { flex-wrap: wrap; gap: var(--avx-space-3); }
-  .mode-companion .side-card .companion-panel-icon { display: none; }
+  .mode-companion .side-card .side-card-icon { display: none; }
+}
+
+@media (max-height: 560px) {
+  .mode-companion .side-cards { margin-top: 56px; }
+  .mode-companion .side-card { --control-card-padding: var(--avx-space-5) var(--avx-space-6); }
+  .mode-companion .side-card-title small,
+  .mode-companion .side-card-foot { display: none; }
+  .mode-companion .immersive-console { max-height: calc(100dvh - 84px); }
+  .mode-companion .message-panel { max-height: 28dvh; }
 }
 
 @media (pointer: coarse) {
   .aervox-workbench .composer-op-btn,
   .aervox-workbench .composer-send,
   .aervox-workbench .companion-panel-action,
+  .aervox-workbench.mode-companion .side-card-remove,
+  .aervox-workbench.mode-companion .console-collapse-toggle,
+  .mode-companion .composer-collapse,
   .side-card-add,
   .session-more-btn,
   .mode-standard .standard-message-actions > button { min-width: 44px; min-height: 44px; }

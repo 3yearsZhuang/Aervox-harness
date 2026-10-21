@@ -45,7 +45,7 @@ async function waitForHttp(url: string, timeoutMs: number): Promise<void> {
   );
 }
 
-function startWebServer(apiUrl: string, port: number): Promise<ChildProcess> {
+function startWebServer(apiUrl: string, port: number, platform: "mobile" | "web"): Promise<ChildProcess> {
   return new Promise((resolve, reject) => {
     // detached：pnpm 只是壳进程，真正的 vite 是孙进程，停止时按进程组终止
     const web = spawn(
@@ -67,8 +67,8 @@ function startWebServer(apiUrl: string, port: number): Promise<ChildProcess> {
         env: {
           ...process.env,
           VITE_API_URL: apiUrl,
-          // 移动端平台（跨会话草稿契约的目标环境）；可用 E2E_PLATFORM=web 覆盖
-          VITE_AERVOX_PLATFORM: process.env.E2E_PLATFORM ?? "mobile",
+          // 平台由 worker option 隔离，默认仍验证移动端跨会话草稿。
+          VITE_AERVOX_PLATFORM: platform,
         },
       },
     );
@@ -142,10 +142,11 @@ function stopWebServer(web: ChildProcess | undefined): void {
   }, 2000);
 }
 
-export const test = base.extend<{}, { servers: UiServers; loopProvider: "replay" | undefined }>({
+export const test = base.extend<{}, { servers: UiServers; loopProvider: "replay" | undefined; platform: "mobile" | "web" }>({
   loopProvider: [undefined, { scope: "worker", option: true }],
+  platform: [process.env.E2E_PLATFORM === "web" ? "web" : "mobile", { scope: "worker", option: true }],
   servers: [
-    async ({ loopProvider }, use, workerInfo) => {
+    async ({ loopProvider, platform }, use, workerInfo) => {
       const workerIndex = workerInfo.workerIndex;
       const apiPort = API_BASE_PORT + workerIndex * 10;
       const webPort = WEB_BASE_PORT + workerIndex * 10;
@@ -159,7 +160,7 @@ export const test = base.extend<{}, { servers: UiServers; loopProvider: "replay"
       );
       let webServer: ChildProcess | undefined;
       try {
-        webServer = await startWebServer(apiUrl, webPort);
+        webServer = await startWebServer(apiUrl, webPort, platform);
         await use({
           apiUrl,
           webUrl: "http://127.0.0.1:" + webPort,

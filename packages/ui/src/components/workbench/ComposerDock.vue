@@ -139,22 +139,7 @@ function handleVoiceTrigger() {
     </button>
 
     <form v-else class="composer-expanded" @submit.prevent="onFormSubmit">
-      <header v-if="!standardMode" class="companion-panel-head">
-        <MessageCircle class="companion-panel-icon" :size="18" aria-hidden="true" />
-        <label class="companion-panel-title" for="aervox-composer">发消息</label>
-        <AervoxButton variant="ghost" icon-only
-          class="companion-panel-action"
-          type="button"
-          aria-label="收起输入框"
-          aria-expanded="true"
-          aria-controls="aervox-composer"
-          title="收起输入框"
-          @click="collapseComposer"
-        >
-          <ChevronDown :size="16" />
-        </AervoxButton>
-      </header>
-      <label v-else class="sr-only" for="aervox-composer">输入要发送给思隅的内容</label>
+      <label class="sr-only" for="aervox-composer">输入要发送给思隅的内容</label>
       <input
         ref="attachmentFileInput"
         type="file"
@@ -245,6 +230,17 @@ function handleVoiceTrigger() {
           <ExtensionSlot name="composer:toolbar-actions" />
         </div>
         <div class="composer-actions">
+          <AervoxButton v-if="!standardMode" variant="ghost" icon-only
+            class="composer-collapse"
+            type="button"
+            aria-label="收起输入框"
+            aria-expanded="true"
+            aria-controls="aervox-composer"
+            title="收起输入框"
+            @click="collapseComposer"
+          >
+            <ChevronDown :size="16" />
+          </AervoxButton>
           <span class="composer-shortcut-hint">{{ enterToSend ? 'Enter 发送 · Shift+Enter 换行' : '点击发送或使用快捷键' }}</span>
           <AervoxButton :variant="canSend ? 'primary' : 'ghost'"
             class="composer-send"

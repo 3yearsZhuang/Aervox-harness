@@ -72,7 +72,7 @@ export function useWorkbenchComposer(options: {
   const isComposing = ref(false);
   const enterToSend = options.enterToSend ?? ref(true);
   const composerOpen = ref(true);
-  const composerPlaceholder = '和思隅聊聊学习或任何事…';
+  const composerPlaceholder = '把想做的事告诉我…';
   const composerTextarea = ref<HTMLTextAreaElement | null>(null);
   const attachmentFileInput = ref<HTMLInputElement | null>(null);
 
