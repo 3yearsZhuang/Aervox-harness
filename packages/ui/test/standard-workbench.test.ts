@@ -155,6 +155,80 @@ describe('Standard Workbench Mode (CR-035 / W1 & W2)', () => {
     expect(switchWorkbenchMode).toHaveBeenCalledWith('companion');
   });
 
+  it('sidebar shows a loading skeleton instead of the empty state, then the composed empty state', async () => {
+    const sessions = ref<SessionItem[]>([]);
+    const loading = ref(true);
+    const activeSessionId = ref('');
+    const mockContext: WorkbenchContext = {
+      layout: {
+        workbenchMode: ref('standard'),
+        standardSidebarCollapsed: ref(false),
+        taskCenterOpen: ref(false),
+        isDark: ref(false),
+        toggleStandardSidebar: vi.fn(),
+        switchWorkbenchMode: vi.fn(),
+        openSettings: vi.fn(),
+        toggleTaskCenter: vi.fn(),
+        setTheme: vi.fn(),
+      } as any,
+      sessions: {
+        sessions,
+        activeSessionId,
+        activeSession: computed(() => null),
+        loading,
+        error: ref(null),
+        fetchSessions: vi.fn(),
+        createNewSession: vi.fn(),
+        switchSession: vi.fn(),
+        renameSession: vi.fn(),
+        deleteSession: vi.fn(),
+      },
+      timer: {} as any,
+      composer: {} as any,
+      conversation: {} as any,
+      cards: {} as any,
+      proactive: {} as any,
+      registry: {} as any,
+      sendMessage: vi.fn(),
+    };
+
+    const wrapper = mount(WorkbenchSidebar, {
+      global: {
+        provide: {
+          [WORKBENCH_CONTEXT_KEY as symbol]: mockContext,
+        },
+      },
+    });
+
+    // 加载中：骨架可见，且不得闪现空态
+    expect(wrapper.find('.sidebar-sessions-skeleton').exists()).toBe(true);
+    expect(wrapper.find('.empty-sessions').exists()).toBe(false);
+    expect(wrapper.get('.sidebar-sessions-scroll').attributes('aria-busy')).toBe('true');
+
+    // 加载完成且确实没有会话：切换为组合空态（图标 + 说明 + 新建入口）
+    loading.value = false;
+    await flushPromises();
+    expect(wrapper.find('.sidebar-sessions-skeleton').exists()).toBe(false);
+    expect(wrapper.get('.sidebar-sessions-scroll').attributes('aria-busy')).toBeUndefined();
+    const empty = wrapper.get('.empty-sessions');
+    expect(empty.text()).toContain('还没有对话');
+    expect(empty.find('.empty-sessions-icon').exists()).toBe(true);
+    expect(empty.find('.empty-sessions-action').exists()).toBe(true);
+    // A failed request is not evidence that the user has no sessions.
+    mockContext.sessions.error.value = '列表加载失败';
+    await flushPromises();
+    expect(wrapper.get('[role="alert"]').text()).toBe('会话列表加载失败，请稍后重试。');
+    expect(wrapper.find('.empty-sessions').exists()).toBe(false);
+
+    // Refreshing existing data keeps navigation available without a second skeleton.
+    sessions.value = [{ id: 'cached', title: '已有对话', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }];
+    loading.value = true;
+    await flushPromises();
+    expect(wrapper.find('.sidebar-sessions-skeleton').exists()).toBe(false);
+    expect(wrapper.find('.session-select').text()).toContain('已有对话');
+    wrapper.unmount();
+  });
+
   it('TaskCenterDrawer.vue renders unified cards and deep links', async () => {
     const openTool = vi.fn();
     const openSettingsCategory = vi.fn();
