@@ -43,6 +43,7 @@ const {
   attachmentAccept,
   voiceInput,
   voiceInputError,
+  voiceInputStarting,
   expandComposer,
   collapseComposer,
   triggerAttachmentPicker,
@@ -55,6 +56,16 @@ const {
 } = composer;
 const { streaming, toolApprovalMode, toggleToolApprovalMode } = conversation;
 const { proactiveActive } = proactive;
+const canSend = computed(() => Boolean(input.value.trim() || pendingAttachments.value.length)
+  && !streaming.value && !attachmentUploading.value);
+const composerStatus = computed(() => {
+  if (attachmentUploading.value) return '正在上传附件…';
+  if (streaming.value) return '正在回复，你可以先写下一条消息';
+  if (voiceInputStarting.value) return '正在准备语音输入…';
+  if (voiceInput.isTranscribing.value) return '正在将语音转成文字…';
+  if (voiceInput.isListening.value) return '正在录音，点击麦克风结束';
+  return '';
+});
 watch([input, standardMode], async () => {
   await nextTick();
   const textarea = composerTextarea.value;
@@ -81,6 +92,7 @@ const accessChipIcon = computed(() =>
 );
 
 function onFormSubmit() {
+  if (!canSend.value) return;
   if (props.onSend) {
     void props.onSend(input.value);
   } else {
@@ -110,7 +122,7 @@ function handleVoiceTrigger() {
 
 <template>
   <AervoxCard as="section" class="composer-dock companion-panel" :class="{ open: composerOpen || standardMode, 'has-draft': input.trim() || pendingAttachments.length }" aria-label="消息输入">
-    <button v-if="!composerOpen && !standardMode" class="composer-collapsed" type="button" @click="expandComposer">
+    <button v-if="!composerOpen && !standardMode" class="composer-collapsed" type="button" aria-label="展开发消息输入框" aria-expanded="false" aria-controls="aervox-composer" @click="expandComposer">
       <MessageCircle :size="16" />
       <span class="composer-collapsed-hint">
         {{
@@ -134,6 +146,8 @@ function handleVoiceTrigger() {
           class="companion-panel-action"
           type="button"
           aria-label="收起输入框"
+          aria-expanded="true"
+          aria-controls="aervox-composer"
           title="收起输入框"
           @click="collapseComposer"
         >
@@ -159,6 +173,7 @@ function handleVoiceTrigger() {
         rows="1"
         :placeholder="standardMode ? '发送消息' : composerPlaceholder"
         :disabled="attachmentUploading"
+        :aria-describedby="composerStatus ? 'aervox-composer-status' : undefined"
         @keydown.enter="handleComposerEnter"
         @input="handleComposerInputOrKey"
         @compositionstart="handleCompositionStart"
@@ -172,9 +187,9 @@ function handleVoiceTrigger() {
         <AlertTriangle :size="13" />
         <span>{{ voiceInputError }}</span>
       </div>
-      <p v-if="streaming || attachmentUploading" class="composer-status" role="status">
+      <p v-if="composerStatus" id="aervox-composer-status" class="composer-status" :class="{ recording: voiceInput.isListening.value }" role="status">
         <span class="composer-status-dot" aria-hidden="true" />
-        {{ attachmentUploading ? '正在上传附件…' : '正在回复，你可以先写下一条消息' }}
+        {{ composerStatus }}
       </p>
       <div class="composer-footer companion-panel-footer">
         <div class="composer-ops">
@@ -231,12 +246,13 @@ function handleVoiceTrigger() {
         </div>
         <div class="composer-actions">
           <span class="composer-shortcut-hint">{{ enterToSend ? 'Enter 发送 · Shift+Enter 换行' : '点击发送或使用快捷键' }}</span>
-          <AervoxButton variant="ghost"
+          <AervoxButton :variant="canSend ? 'primary' : 'ghost'"
             class="composer-send"
             :icon="Send"
             icon-only
             type="submit"
-            :disabled="(!input.trim() && pendingAttachments.length === 0) || streaming || attachmentUploading"
+            :disabled="!canSend"
+            :title="streaming ? '回复结束后即可发送' : (attachmentUploading ? '附件上传完成后即可发送' : '发送消息')"
             :aria-label="streaming ? '思隅正在回应' : (attachmentUploading ? '正在上传附件' : '发送消息')"
           />
         </div>

@@ -48,7 +48,7 @@ const isGreeting = computed(() => conversation.story.value.length === 1
       </AervoxButton>
     </header>
 
-    <div v-show="!consoleCollapsed" ref="storyViewport" class="message-viewport" aria-live="polite">
+    <div v-show="!consoleCollapsed" ref="storyViewport" class="message-viewport" aria-live="polite" :aria-busy="latestAssistantLine?.state === 'streaming'">
       <p
         v-if="latestAssistantLine"
         class="message-line"
@@ -93,16 +93,17 @@ const isGreeting = computed(() => conversation.story.value.length === 1
           </span>
         </span>
       </p>
+      <p v-else class="message-empty">今天想从哪里开始？在下方发一条消息吧。</p>
 
       <ToolApprovalCard />
     </div>
 
-    <TurnDiagnostics v-if="latestAssistantLine?.turnId" :turn-id="latestAssistantLine.turnId" />
-    <footer v-if="!isGreeting && !consoleCollapsed" class="companion-panel-footer">
-      <AervoxButton variant="ghost" class="message-history-entry" type="button" @click="historyOpen = true">
+    <footer v-if="latestAssistantLine?.turnId || (!isGreeting && !consoleCollapsed)" class="companion-panel-footer message-panel-footer">
+      <AervoxButton v-if="!isGreeting && !consoleCollapsed" variant="ghost" size="sm" class="message-history-entry" type="button" @click="historyOpen = true">
         <History :size="14" />
         <span>回看完整对话</span>
       </AervoxButton>
+      <TurnDiagnostics v-if="latestAssistantLine?.turnId" :turn-id="latestAssistantLine.turnId" />
     </footer>
 
     <ExtensionSlot name="conversation:bottom" />

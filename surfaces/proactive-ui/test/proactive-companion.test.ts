@@ -45,14 +45,38 @@ beforeEach(() => {
   });
 });
 
-async function mountSurface() {
+async function mountSurface(platform: 'web' | 'desktop' = 'web') {
   const wrapper = mount(UISurfaceHost, {
-    props: { plugin: definition, surface: 'main', platform: 'web' },
+    props: { plugin: definition, surface: 'main', platform },
   });
   await vi.waitFor(() => expect(wrapper.find('.proactive-companion').exists()).toBe(true), { timeout: 5000 });
   await flushPromises();
   return wrapper;
 }
+
+it('restores the saved dark theme without mounting the desktop workbench', async () => {
+  localStorage.setItem('aervox-theme', 'dark');
+  const wrapper = await mountSurface();
+  expect(document.documentElement.dataset.theme).toBe('dark');
+  expect(wrapper.find('.aervox-workbench').exists()).toBe(false);
+});
+
+it('preserves the desktop host theme when the mobile surface is explicitly selected', async () => {
+  document.documentElement.dataset.theme = 'dark';
+  localStorage.setItem('aervox-theme', 'light');
+  await mountSurface('desktop');
+  expect(document.documentElement.dataset.theme).toBe('dark');
+});
+
+it('does not offer an uncertain resend through the desktop bridge', async () => {
+  streamTurn.mockRejectedValueOnce(new Error('acceptance response lost'));
+  const wrapper = await mountSurface('desktop');
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');
+  await flushPromises();
+  expect(wrapper.find('.pc-retry').exists()).toBe(false);
+  expect(wrapper.find('.pc-workbench-link').exists()).toBe(true);
+  expect(streamTurn).toHaveBeenCalledOnce();
+});
 
 it('loads through the host and renders the minimal first-level page', async () => {
   const wrapper = await mountSurface();
@@ -61,6 +85,9 @@ it('loads through the host and renders the minimal first-level page', async () =
   expect(wrapper.find('.pc-whisper-pill').exists()).toBe(true);
   // 输入框默认不可见——淡化输入存在感
   expect(wrapper.find('.pc-whisper-input').exists()).toBe(false);
+  expect(wrapper.find('.pc-brand .aervox-brand-mark').exists()).toBe(true);
+  expect(wrapper.findAll('.pc-quiet-btn svg')).toHaveLength(2);
+  expect(wrapper.find('.pc-whisper-pill svg').exists()).toBe(true);
 });
 
 it('resume card reflects the most recent session and switches to it', async () => {
@@ -97,17 +124,25 @@ it('whisper input replaces the choices while open and sends on Enter', async () 
 });
 
 
-it('allows retry after the transport rejects', async () => {
+it('reuses the idempotency key on an explicit retry when turn acceptance is unknown', async () => {
   streamTurn.mockRejectedValueOnce(new Error('connection lost'));
   const wrapper = await mountSurface();
   const focus = wrapper.findAll('.pc-choice').find(c => c.text().includes('专注'))!;
   await focus.trigger('click');
   await flushPromises();
   expect(focus.attributes('disabled')).toBeUndefined();
-  await focus.trigger('click');
+  expect(wrapper.find('.pc-feedback').text()).toContain('未能收到回复');
+  expect(wrapper.find('.pc-dialogue-text').text()).not.toContain('connection lost');
+  await wrapper.find('.pc-retry').trigger('click');
   await flushPromises();
   expect(streamTurn).toHaveBeenCalledTimes(2);
+  const firstOptions = streamTurn.mock.calls[0]![3] as StreamTurnOptions;
+  const retryOptions = streamTurn.mock.calls[1]![3] as StreamTurnOptions;
+  expect(firstOptions.idempotencyKey).toEqual(expect.any(String));
+  expect(retryOptions.idempotencyKey).toBe(firstOptions.idempotencyKey);
+  expect(streamTurn.mock.calls[1]!.slice(0, 2)).toEqual(streamTurn.mock.calls[0]!.slice(0, 2));
   expect(wrapper.find('.pc-dialogue-text').text()).toContain('我们接着昨天的进度');
+  expect(wrapper.find('.pc-feedback').exists()).toBe(false);
 });
 
 it('creates a real session before the first turn when the session list is empty', async () => {
@@ -147,6 +182,133 @@ function pendingStream() {
   return { get callbacks() { return callbacks; }, get options() { return options; }, complete: () => complete() };
 }
 
+it('shows waiting feedback before the first delta and then displays the streamed reply', async () => {
+  const pending = pendingStream();
+  const wrapper = await mountSurface();
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');
+  await flushPromises();
+  expect(wrapper.find('.pc-dialogue-waiting').text()).toContain('正在等待回复');
+  expect(wrapper.find('.pc-dialogue-waiting').attributes('role')).toBe('status');
+  expect(wrapper.find('.pc-dialogue-text').exists()).toBe(false);
+  pending.callbacks.onDelta('先从一个小目标开始。');
+  await flushPromises();
+  expect(wrapper.find('.pc-dialogue-waiting').exists()).toBe(false);
+  expect(wrapper.find('.pc-dialogue-text').text()).toBe('先从一个小目标开始。');
+  pending.complete();
+  await flushPromises();
+});
+
+it('preserves the previous dialogue when a request fails before the first delta', async () => {
+  const wrapper = await mountSurface();
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');
+  await flushPromises();
+  const previousReply = wrapper.find('.pc-dialogue-text').text();
+  streamTurn.mockRejectedValueOnce(new Error('provider diagnostic'));
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');
+  await flushPromises();
+  expect(wrapper.find('.pc-dialogue-text').text()).toBe(previousReply);
+  expect(wrapper.find('.pc-feedback').attributes('data-kind')).toBe('connection-error');
+  expect(wrapper.text()).not.toContain('provider diagnostic');
+});
+
+it('keeps a partial reply visible and reports a lost connection outside the dialogue', async () => {
+  streamTurn.mockImplementationOnce(async (_id: string, _text: string, callbacks: TurnCallbacks) => {
+    callbacks.onDelta('我收到你的问题了。');
+    throw new Error('connection lost');
+  });
+  const wrapper = await mountSurface();
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');
+  await flushPromises();
+  expect(wrapper.find('.pc-dialogue-text').text()).toBe('我收到你的问题了。');
+  expect(wrapper.find('.pc-feedback').text()).toContain('已保留收到的回复');
+  expect(wrapper.find('.pc-caret').exists()).toBe(false);
+});
+
+it('preserves an accepted partial reply and opens the workbench without sending another turn', async () => {
+  streamTurn.mockImplementationOnce(async (_id: string, _text: string, callbacks: TurnCallbacks, options: StreamTurnOptions) => {
+    await options.onAccepted!('turn_accepted');
+    callbacks.onDelta('我收到你的问题了。');
+    throw new Error('observer connection lost');
+  });
+  const wrapper = await mountSurface();
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');
+  await flushPromises();
+  expect(wrapper.find('.pc-dialogue-text').text()).toBe('我收到你的问题了。');
+  expect(wrapper.find('.pc-feedback').text()).toContain('连接中断，原请求可能仍在处理。可在完整工作台查看。');
+  expect(wrapper.find('.pc-feedback').attributes('data-kind')).toBe('observer-error');
+  expect(wrapper.find('.pc-caret').exists()).toBe(false);
+  expect(wrapper.find('.pc-retry').exists()).toBe(false);
+  const replace = vi.spyOn(window.location, 'replace').mockImplementation(() => undefined);
+  try {
+    await wrapper.find('.pc-workbench-link').trigger('click');
+    expect(localStorage.getItem('aervox.surface.main')).toBe('workbench-ui');
+    expect(new URL(replace.mock.calls[0]![0]).searchParams.get('surface')).toBe('workbench-ui');
+    expect(streamTurn).toHaveBeenCalledOnce();
+  } finally {
+    replace.mockRestore();
+  }
+});
+
+it('does not offer resend after a stream identifies a turn and disconnects before any reply', async () => {
+  const wrapper = await mountSurface();
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');
+  await flushPromises();
+  const previousReply = wrapper.find('.pc-dialogue-text').text();
+  streamTurn.mockImplementationOnce(async (_id: string, _text: string, callbacks: TurnCallbacks) => {
+    callbacks.onTurnIdentified!('turn_identified');
+    throw new Error('observer connection lost');
+  });
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');
+  await flushPromises();
+  expect(wrapper.find('.pc-dialogue-text').text()).toBe(previousReply);
+  expect(wrapper.find('.pc-retry').exists()).toBe(false);
+  expect(wrapper.find('.pc-workbench-link').text()).toBe('查看完整工作台');
+  expect(streamTurn).toHaveBeenCalledTimes(2);
+});
+
+it('uses a new key to resend after a terminal turn error', async () => {
+  streamTurn.mockImplementationOnce(async (_id: string, _text: string, callbacks: TurnCallbacks, options: StreamTurnOptions) => {
+    await options.onAccepted!('turn_failed');
+    callbacks.onError!(new Error('terminal turn error'));
+  });
+  const wrapper = await mountSurface();
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');
+  await flushPromises();
+  expect(wrapper.find('.pc-workbench-link').exists()).toBe(false);
+  await wrapper.find('.pc-retry').trigger('click');
+  await flushPromises();
+  expect(streamTurn).toHaveBeenCalledTimes(2);
+  expect(streamTurn.mock.calls[1]![3].idempotencyKey).not.toBe(streamTurn.mock.calls[0]![3].idempotencyKey);
+});
+
+it('uses a new idempotency key for a new action instead of the retry control', async () => {
+  streamTurn.mockRejectedValueOnce(new Error('connection lost'));
+  const wrapper = await mountSurface();
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');
+  await flushPromises();
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');
+  await flushPromises();
+  expect(streamTurn).toHaveBeenCalledTimes(2);
+  expect(streamTurn.mock.calls[1]![3].idempotencyKey).not.toBe(streamTurn.mock.calls[0]![3].idempotencyKey);
+});
+
+it('uses a new idempotency key when an explicit retry targets another session', async () => {
+  const otherSession = { ...recentSession, id: 'ses_other', title: '另一个话题' };
+  localStorage.setItem('aervox_active_session_id', otherSession.id);
+  request.mockImplementation(async (method, path) => path === '/v1/sessions' && method === 'GET'
+    ? { items: [recentSession, otherSession] } : requestImplementation(method, path));
+  streamTurn.mockRejectedValueOnce(new Error('connection lost'));
+  const wrapper = await mountSurface();
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');
+  await flushPromises();
+  expect(streamTurn.mock.calls[0]![0]).toBe('ses_other');
+  await wrapper.findAll('.pc-choice')[0]!.trigger('click');
+  await wrapper.find('.pc-retry').trigger('click');
+  await flushPromises();
+  expect(streamTurn.mock.calls[1]![0]).toBe('ses_recent');
+  expect(streamTurn.mock.calls[1]![3].idempotencyKey).not.toBe(streamTurn.mock.calls[0]![3].idempotencyKey);
+});
+
 it('keeps IME Enter local, focuses input, and removes suggestions while composing', async () => {
   const wrapper = await mountSurface();
   await wrapper.find('.pc-whisper-pill').trigger('click');
@@ -169,7 +331,7 @@ it('sends a server cancellation before aborting the current reply', async () => 
   await flushPromises();
   expect(request).toHaveBeenCalledWith('POST', '/v1/turns/turn_1/cancel', {}, expect.any(Object));
   expect(pending.options.signal!.aborted).toBe(true);
-  expect(wrapper.find('.pc-dialogue-ctx').text()).toBe('已停止回复');
+  expect(wrapper.find('.pc-feedback').text()).toBe('已停止回复。');
   expect(wrapper.find('.pc-stop').exists()).toBe(false);
 });
 
@@ -201,11 +363,32 @@ it('keeps the stream active after cancel failure and lets the user retry', async
   await flushPromises();
   expect(pending.options.signal!.aborted).toBe(false);
   expect(wrapper.find('.pc-stop').attributes('disabled')).toBeUndefined();
-  expect(wrapper.find('.pc-dialogue-ctx').text()).toContain('停止失败');
-  await wrapper.find('.pc-stop').trigger('click');
+  expect(wrapper.find('.pc-feedback').text()).toContain('停止失败');
+  expect(wrapper.find('.pc-dialogue-ctx').text()).toBe('正在回复');
+  await wrapper.find('.pc-retry').trigger('click');
   await flushPromises();
   expect(cancelAttempts).toBe(2);
   expect(pending.options.signal!.aborted).toBe(true);
+});
+
+it('clears cancel failure feedback if the reply finishes before the user retries', async () => {
+  const pending = pendingStream();
+  request.mockImplementation(async (method, path) => {
+    if (path.endsWith('/cancel')) throw new Error('offline');
+    return requestImplementation(method, path);
+  });
+  const wrapper = await mountSurface();
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');
+  await flushPromises();
+  await pending.options.onAccepted!('turn_finish');
+  await wrapper.find('.pc-stop').trigger('click');
+  await flushPromises();
+  expect(wrapper.find('.pc-feedback').text()).toContain('停止失败');
+  pending.callbacks.onDelta('回复已经完成。');
+  pending.complete();
+  await flushPromises();
+  expect(wrapper.find('.pc-feedback').exists()).toBe(false);
+  expect(wrapper.find('.pc-dialogue-text').text()).toBe('回复已经完成。');
 });
 
 it('does not let a late cancel response overwrite the next turn', async () => {
@@ -242,8 +425,12 @@ it('keeps a failed whisper editable until retry succeeds', async () => {
   await input.trigger('keydown', { key: 'Enter' });
   await flushPromises();
   expect((input.element as HTMLInputElement).value).toBe('讲讲环路等待');
-  await input.trigger('keydown', { key: 'Enter' });
+  expect(wrapper.find('.pc-feedback').text()).toContain('重试发送');
+  await input.setValue('用例子讲讲环路等待');
+  await wrapper.find('.pc-retry').trigger('click');
   await flushPromises();
   expect(streamTurn).toHaveBeenCalledTimes(2);
+  expect(streamTurn.mock.calls[1]![1]).toBe('用例子讲讲环路等待');
+  expect(streamTurn.mock.calls[1]![3].idempotencyKey).not.toBe(streamTurn.mock.calls[0]![3].idempotencyKey);
   expect(wrapper.find('.pc-whisper-input').exists()).toBe(false);
 });

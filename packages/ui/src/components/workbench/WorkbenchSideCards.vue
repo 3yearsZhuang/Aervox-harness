@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { AervoxButton, AervoxCard } from '../../primitives';
-import { computed, ref } from 'vue';
-import { ChevronRight, CircleHelp, Pause, Play, Plus, TimerReset, X } from 'lucide-vue-next';
+import { computed, nextTick, ref } from 'vue';
+import { Check, ChevronRight, CircleHelp, Pause, Play, Plus, TimerReset, X } from 'lucide-vue-next';
 import ExtensionSlot from '../extension/ExtensionSlot.vue';
 import { useWorkbenchContext } from '../../composables/workbench-context';
 
@@ -27,6 +27,7 @@ const {
 } = cards;
 
 const pickerOpen = ref(false);
+const pickerRoot = ref<HTMLElement | null>(null);
 const visibleSlots = computed(() => slotCards.value
   .map((card, slotIndex) => ({ card, slotIndex }))
   .filter(({ card, slotIndex }) => card || (slotIndex === 0 && questionCardData.value)));
@@ -37,7 +38,13 @@ const availableSlot = computed(() => slotCards.value.findIndex(
 function addCard(id: string, event: MouseEvent) {
   if (availableSlot.value < 0) return;
   selectCard(availableSlot.value, id, event);
+  closePicker();
+}
+
+function closePicker() {
+  if (!pickerOpen.value) return;
   pickerOpen.value = false;
+  void nextTick(() => pickerRoot.value?.querySelector<HTMLButtonElement>('.side-card-add')?.focus());
 }
 </script>
 
@@ -69,6 +76,7 @@ function addCard(id: string, event: MouseEvent) {
                 type="button"
                 class="side-card-grid-item"
                 :class="{ picked: questionCardSelected.includes(option.label) }"
+                :aria-pressed="questionCardSelected.includes(option.label)"
                 @click.stop="handleQuestionCardOption(option.label)"
               >
                 <span>{{ option.label }}</span>
@@ -104,14 +112,14 @@ function addCard(id: string, event: MouseEvent) {
                 <strong class="companion-panel-title">{{ card.label }}</strong>
                 <small>{{ card.description }}</small>
               </span>
-              <AervoxButton variant="ghost" icon-only class="side-card-remove companion-panel-action" type="button" aria-label="移除此卡片" @click.stop="selectCard(slotIndex, null, $event)">
+              <AervoxButton variant="ghost" icon-only class="side-card-remove companion-panel-action" type="button" :aria-label="`移除${card.label}卡片`" title="移除此卡片" @click.stop="selectCard(slotIndex, null, $event)">
                 <X :size="15" />
               </AervoxButton>
             </header>
             <p class="side-card-summary">{{ card.summary() }}</p>
             <!-- 番茄钟基础操作 -->
             <div v-if="card.id === 'timer'" class="timer-card-ops">
-              <div v-if="!timerRunning" class="timer-card-presets" role="radiogroup" aria-label="快捷预设时长">
+              <div v-if="!timerRunning" class="timer-card-presets" role="group" aria-label="快捷预设时长">
                 <button
                   v-for="preset in [15, 25, 45, 60]"
                   :key="preset"
@@ -147,7 +155,8 @@ function addCard(id: string, event: MouseEvent) {
         </div>
       </Transition>
     </div>
-    <div v-if="availableSlot >= 0" class="side-card-picker">
+    <div v-if="availableSlot >= 0" ref="pickerRoot" class="side-card-picker" @keydown.esc.stop.prevent="closePicker">
+      <p v-if="visibleSlots.length === 0 && !pickerOpen" class="side-card-empty">添加常用工具，随时查看进度</p>
       <AervoxButton variant="ghost"
         class="side-card-add"
         type="button"
@@ -163,10 +172,12 @@ function addCard(id: string, event: MouseEvent) {
           :key="option.id"
           type="button"
           class="side-card-grid-item"
+          :class="{ 'is-added': isCardPicked(option.id) }"
           :disabled="isCardPicked(option.id)"
           @click="addCard(option.id, $event)"
         >
           <component :is="option.icon" :size="15" /><span>{{ option.label }}</span>
+          <Check v-if="isCardPicked(option.id)" class="side-card-picked-icon" :size="14" aria-label="已添加" />
         </button>
       </div>
     </div>
