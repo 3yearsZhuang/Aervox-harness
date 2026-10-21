@@ -28,16 +28,18 @@
 
 <a id="iter-069"></a>
 
-### ITER-069 · 进行中：本地 API 与 DSH 安全边界修复
+### ITER-069 · 进行中：本地 API、DSH 与桌面安全边界修复
 
 维护者授权按计划推进并排查高危漏洞。基于主线 `92ecbfe7`，以临时 SQLite、临时文件根及合成内容验证；不访问或迁移业务数据库。
 
 - 已确认入口：open API 反射任意 Origin，外部来源可创建、读取、删除合成会话并经 DSH 读写文件及执行命令；恶意域名 Host 同样被受理，服务端未阻断 DNS rebinding。浏览器 PNA/LNA 版本与用户许可影响实际网络访问条件，不作为服务端授权边界。
 - 修复切片：在认证、CORS 和业务处理前检查 open Host 与浏览器 Origin；保留本地 Web 和无 Origin 的桌面 IPC/CLI。额外浏览器来源仅在 Token 模式精确配置；合法预检不放行业务请求。opaque Page 例外仅限只读静态资源和匹配的 Fetch Metadata，JSON、SSE、写请求和普通 fetch 不适用；Token Page 凭据仍由 [ITER-006](#iter-006) 协调。
-- DSH 切片：合成夹具复现文件工具沿 symlink 越出仓库及取消后命令迟到写入；以 canonical containment、文件描述符与 inode 校验修复路径读写，并让取消、超时、输出上限终止命令进程组。已授权 shell 沿用宿主用户权限，不承诺 OS 文件或网络沙箱。
+- DSH 切片：合成夹具复现文件工具沿 symlink 越出仓库及取消后命令迟到写入；以 canonical containment、文件描述符与 inode 校验修复路径读写，取消、超时、输出上限会尝试终止命令进程组，并有界等待清理；取消不回滚已经发生的副作用。已授权 shell 沿用宿主用户权限，不承诺 OS 文件或网络沙箱。
 - 验收与边界：负向读写必须无副作用，正常本地客户端、合法 Token 预检及 sandbox Page 资源须有回归；命令先取消、运行后取消和后代退出均独立验证。各切片全量终审和 PR 审查分别记录；本次范围不构成完整渗透测试、全部平台实机验证或正式发布。
-- 本地证据：浏览器边界切片 `./aervox ci all` 完整退出 0，API 712 项通过；真实 Chromium 2 项通过，恶意 Origin 到达服务端后返回 403且合成会话不变，跨站 sandbox Page 的普通/模块脚本、样式、图片和 Bridge 可用。DSH 独立定向 25 项及既有 API 20 项通过，全量终审另随 DSH PR 记录。
-- 受限剩余：可写本地插件的 Page 资源写入仍可沿预先存在的 symlink 越界，前提是已有本机文件系统控制或旧资源；声明归档不能创建 symlink，generation 资源不可写，不计为外部安装直接可利用高危。桌面导航/IPC 来源校验尚无实际 Electron 逃逸证据，保留为未验证候选。依赖公告审计无未审阅路径，4 条已审阅例外仍保留，不称为告警已消除。
+- 本地证据：浏览器边界切片 `./aervox ci all` 完整退出 0，API 712 项通过；真实 Chromium 2 项通过，恶意 Origin 到达服务端后返回 403 且合成会话不变，跨站 sandbox Page 的普通/模块脚本、样式、图片和 Bridge 可用。DSH 独立定向 25 项及既有 API 20 项通过；首次全量因 API 原生产物构建竞态失败，补显式任务依赖和 25 项脚本回归后重跑完整退出 0（API 706 项、宿主 64 项及研究、原生、文档门禁通过）。首次失败与修复后成功证据均保留。
+- 交付：[PR #309](https://github.com/3yearsZhuang/Aervox-harness/pull/309) 的八项远端检查已成功；[PR #310](https://github.com/3yearsZhuang/Aervox-harness/pull/310) 交付 DSH 文件及取消修复与原生测试依赖修正。本地实现与终审完成，PR 审查、后续远端 CI 和发布状态分别核对，不自动合入。
+- 桌面切片：独立隐藏 Electron 合成探针复现大写 HTTP Markdown 链接导航外部页面、真实 preload 继续暴露 API 代理、外部 senderFrame 经同等代理 handler 附带合成 Bearer 取得 200 响应。探针不使用真实凭据或 API，未运行完整产品主进程；主窗口/宠物窗口导航、固定入口与全部特权 IPC 来源校验正在独立修复。
+- 受限剩余：可写本地插件的 Page 资源写入仍可沿预先存在的 symlink 越界，前提是已有本机文件系统控制或旧资源；声明归档不能创建 symlink，generation 资源不可写，不计为外部安装直接可利用高危。桌面风险链已有独立 Electron 合成证据，完整产品修复与回归仍待交付；不将探针称为完整产品实机验证。依赖公告审计无未审阅路径，4 条已审阅例外仍保留，不称为告警已消除。
 
 <a id="iter-067"></a>
 
@@ -220,7 +222,7 @@ Page 与客户端认证：iframe source/nonce/会话/全部 capability、禁用�
 - 前置与边界：既有认证漏接可独立修；复用 [ITER-063](#iter-063) 的 Page 来源、会话与能力检查。资源授权方式、凭据签发/绑定/有效期/轮换/撤销及 Origin 信任策略先 ADR；不向插件脚本暴露宿主长期 Bearer，不以降低认证或 CSP 作为资源加载方案，无需等待第三方执行平台。
 - 待实施范围：打通 Token 模式下 Page 入口 HTML、嵌套 JS/CSS/图片与 Bridge SDK 的受限资源通道；补充跨窗口停用/撤权通知与已有会话失效，避免仅依赖当前窗口观察状态。
 - 验收：在声明支持的 Web/桌面环境中实际加载完整页面并完成 Bridge 配置操作；覆盖重载、凭据过期/轮换、停用/撤权、跨插件与跨来源拒绝，旧会话不能恢复访问；合法 Token 模式的 JSON、SSE、Page、附件可用，凭据不进入 URL、日志或插件脚本。跨窗口撤权和资源加载须有集成证据，不能仅用消息模拟测试代替。
-- 进展与剩余：已完成 Page postMessage 窗口绑定（event.source 校验）、密码学 nonce、文档会话隔离、全部 Bridge capability 检查及观察到禁用后的页面销毁；API readPageEntry 与 readPageAsset 启用守卫对齐并阻断 symlink 逃逸（FND-03）；桌面附件上传补全 Bearer 认证（ARC-13）。证据见 [PR #281](https://github.com/3yearsZhuang/Aervox-harness/pull/281) 与 [PR #283](https://github.com/3yearsZhuang/Aervox-harness/pull/283)；共享上下文投影同时补齐 Base 历史过滤、有界截断和空摘要失败。已通过的测试仅覆盖这些切片，Token 模式 Page 资源授权通道、合法预检及跨窗口撤权实时失效仍待完成。
+- 进展与剩余：已完成 Page postMessage 窗口绑定（event.source 校验）、密码学 nonce、文档会话隔离、全部 Bridge capability 检查及观察到禁用后的页面销毁；API readPageEntry 与 readPageAsset 启用守卫对齐并阻断 symlink 逃逸（FND-03）；桌面附件上传补全 Bearer 认证（ARC-13）。证据见 [PR #281](https://github.com/3yearsZhuang/Aervox-harness/pull/281) 与 [PR #283](https://github.com/3yearsZhuang/Aervox-harness/pull/283)；共享上下文投影同时补齐 Base 历史过滤、有界截断和空摘要失败。已通过的测试仅覆盖这些切片，合法预检由 [ITER-069](#iter-069) 完成；Token 模式 Page 资源授权通道及跨窗口撤权实时失效仍待完成。
 
 <a id="iter-009"></a>
 
