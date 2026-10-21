@@ -79,7 +79,7 @@ export class ChatTerminal {
         this.err,
         '\n'
           + '  ✳  思隅  ·  SIYU CLI 0.1.0\n'
-          + '     你的终端学习伙伴\n\n'
+          + '     属于你的贾维斯，或者属于你的爱弥斯\n\n'
           + `  会话  ${sessionId}\n`
           + `  服务  ${apiBase} · 本机连接版\n\n`
           + '  从一个问题开始，也可以接着上次的思路聊。\n'
@@ -110,7 +110,7 @@ export class ChatTerminal {
     const banner = '\n'
       + topBorder
       + row(`${this.style('✳  思隅  ·  SIYU CLI 0.1.0', '1;36')}`, '✳  思隅  ·  SIYU CLI 0.1.0')
-      + row(`${this.style('你的终端学习伙伴', 2)}`, '你的终端学习伙伴')
+      + row(`   ${this.style('属于你的贾维斯，或者属于你的爱弥斯', 2)}`, '   属于你的贾维斯，或者属于你的爱弥斯')
       + emptyRow
       + row(`${this.style('会话', 36)}  ${safeSession}`, `会话  ${safeSession}`)
       + row(`${this.style('服务', 36)}  ${safeBase} ${this.style('· 本机连接版', 2)}`, `服务  ${safeBase} · 本机连接版`)
