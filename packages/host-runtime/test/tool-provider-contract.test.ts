@@ -175,6 +175,28 @@ describe("host tool contracts before execution and approval", () => {
     expect(await repo.listToolApprovalsByTurn(local, input.turnId)).toEqual([]);
   });
 
+  it.each([
+    { type: "object", properties: { count: { const: 1 } } },
+    { type: "object", properties: { count: { anyOf: [{ type: "string" }, { const: null }] } } },
+    { type: "object", properties: { unused: { pattern: "^safe$" } } },
+  ])("strict schema %j rejects both static and SQLite calls before approval", async inputSchema => {
+    const { execute, gated } = staticProvider({ readOnly: false, parameters: inputSchema });
+    expect((await gated.execute(input)).error).toMatch(/^invalid_tool_input:/);
+    expect(execute).not.toHaveBeenCalled();
+    const handler = vi.fn(async () => "executed");
+    await runtime.registerContribution({
+      id: "registered", name: input.name, description: "strict contract", category: "system",
+      safetyLevel: "write_with_approval", inputSchema,
+    }, { call: handler });
+    const provider = createRuntimeToolProvider(runtime, local, { conversationRepo: repo });
+    await provider.listTools!();
+    const rejected = await provider.execute(input);
+    expect(rejected.error).toMatch(/^schema_validation_failed:/);
+    expect(rejected.needsApproval).toBeUndefined();
+    expect(handler).not.toHaveBeenCalled();
+    expect(await repo.listToolApprovalsByTurn(local, input.turnId)).toEqual([]);
+  });
+
   it("SQLite runtime budget survives typed adapter listing without becoming persisted metadata", async () => {
     await runtime.registerContribution({
       id: "registered",
