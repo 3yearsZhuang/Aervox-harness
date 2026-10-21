@@ -49,7 +49,7 @@ import {
 import { useUISurfaceContext } from '@aervox/ui-host';
 import { PanelLeft } from 'lucide-vue-next';
 
-import { streamAervoxTurn, useAervoxPlugins, useAervoxProjects, useAervoxSessions } from '@aervox/api-client';
+import { watchAervoxTurnContinuation, streamAervoxTurn, useAervoxPlugins, useAervoxProjects, useAervoxSessions } from '@aervox/api-client';
 import type { TurnAttachmentRef } from '@aervox/contracts';
 
 const surfaceContext = useUISurfaceContext();
@@ -140,6 +140,7 @@ const timer = useWorkbenchTimer({
 const conversation = useWorkbenchConversation({
   recordActivity: proactive.recordProactiveActivity,
   onRefreshProactiveStatus: proactive.refreshProactiveStatus,
+  onApprovalContinuation: resumeApprovedTurn,
 });
 
 // 5. Session identity is created before the composer so mobile drafts stay
@@ -309,7 +310,7 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
             thinkingVisible = false;
             liveAssistantLine.text = '';
           }
-          if (!liveAssistantLine.text) liveAssistantLine.text = '这次没有收到可展示的回答，请再试一次。';
+          if (!liveAssistantLine.text && !conversation.pendingApproval.value) liveAssistantLine.text = '这次没有收到可展示的回答，请再试一次。';
           void conversation.scrollStoryToBottom();
           petReactKind('glad', { expression: MizukiExpression.face_smile_01, speak: liveAssistantLine.text });
         },
@@ -356,6 +357,39 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
   }
   } finally {
     isSendingMessage = false;
+  }
+}
+
+// Approval continues the existing assistant reply and never creates another user Turn.
+async function resumeApprovedTurn(turnId: string, afterEventId: string) {
+  const line = conversation.latestAssistantLine.value;
+  if (!line) return;
+  conversation.streaming.value = true;
+  line.state = 'streaming';
+  conversation.currentTurnId.value = turnId;
+  const batch = createStreamingDeltaBatcher(text => {
+    line.text += text;
+    void conversation.scrollStoryToBottom({ instant: true });
+  });
+  try {
+    await watchAervoxTurnContinuation(turnId, afterEventId, {
+      onDelta: text => batch.append(text),
+      onDone: () => { batch.flush(); line.state = 'complete'; conversation.activeQuestion.value = null; },
+      onError: error => { throw error; },
+      onUserQuestion: data => { batch.flush(); conversation.activeQuestion.value = data; },
+      onToolApproval: data => { batch.flush(); conversation.pendingApproval.value = { ...data, outgoing: '' }; },
+      onPluginEvent: (type, data) => { batch.flush(); pluginEvents.emit(type, data); },
+    }, surfaceContext.signal);
+  } catch (error) {
+    if (!surfaceContext.signal.aborted) {
+      batch.flush();
+      line.state = 'error';
+      line.text += `\n续跑连接失败：${error instanceof Error ? error.message : String(error)}`;
+    }
+  } finally {
+    batch.flush();
+    conversation.streaming.value = false;
+    await conversation.scrollStoryToBottom();
   }
 }
 

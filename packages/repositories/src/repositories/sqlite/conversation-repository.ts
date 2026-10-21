@@ -499,6 +499,12 @@ export class SqliteConversationRepository implements IConversationRepository {
     return this.approvalStore.recordToolApproval(ctx, input);
   }
 
+  decideToolApprovalAndResume(ctx: LocalContext, input: {
+    turnId: string; approvalId: string; decision: "granted" | "denied"; decidedBy: string;
+  }) {
+    return this.approvalStore.decideAndResume(ctx, input);
+  }
+
   async decideToolApproval(
     ctx: LocalContext,
     approvalId: string,

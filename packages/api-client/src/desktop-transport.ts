@@ -22,6 +22,7 @@ import type {
   StreamTurnOptions,
   TurnCallbacks,
   UploadedAttachment,
+  ToolApprovalDecisionResponse,
 } from './transport';
 import { TurnStreamProjector } from './projector';
 import { AervoxHttpError } from './transport';
@@ -162,8 +163,8 @@ export const desktopTransport: AervoxTransport = {
     });
   },
 
-  async decideToolApproval(turnId: string, approvalId: string, decision: 'granted' | 'denied'): Promise<void> {
-    await this.request(
+  async decideToolApproval(turnId: string, approvalId: string, decision: 'granted' | 'denied'): Promise<ToolApprovalDecisionResponse> {
+    return this.request<ToolApprovalDecisionResponse>(
       'POST',
       `/v1/turns/${encodeURIComponent(turnId)}/tool-approvals`,
       { approvalId, decision, decidedBy: 'user' },

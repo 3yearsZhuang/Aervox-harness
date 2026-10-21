@@ -276,7 +276,6 @@ export function registerConversationRoutes(
     let unsubscribe: (() => void) | undefined;
     let replaying = true;
     let finishing = false;
-    let settledDuringReplay = false;
     const bufferedEvents: StreamEventFrame[] = [];
 
     const finish = (): void => {
@@ -351,11 +350,10 @@ export function registerConversationRoutes(
       },
       onSettled() {
         if (closed) return;
-        if (replaying) {
-          settledDuringReplay = true;
-          return;
-        }
-        void drainAndFinish();
+        if (replaying) return;
+        // A previous Interrupted Attempt can finish its hooks after continuation starts.
+        void attemptSettled().then(settled => { if (settled) return drainAndFinish(); })
+          .catch(() => undefined);
       },
     });
 
@@ -366,7 +364,7 @@ export function registerConversationRoutes(
       replaying = false;
 
       // 终态通知可能在快照读取期间到达；统一走排空路径，避免漏掉尾事件。
-      if (closed || settledDuringReplay || (await attemptSettled())) {
+      if (closed || (await attemptSettled())) {
         await drainAndFinish();
         return;
       }
@@ -488,6 +486,11 @@ export function registerConversationRoutes(
     if (!body.approvalId || (body.decision !== "granted" && body.decision !== "denied")) {
       return reply.code(400).send({ error: "approvalId and decision (granted|denied) are required" });
     }
+    const approval = await conversationRepo.getToolApproval(tenant, body.approvalId);
+    if (!approval || approval.turnId !== turnId) return reply.code(404).send({ error: "approval not found" });
+    if (approval.state !== "pending" && approval.state !== body.decision) {
+      return reply.code(409).send({ error: "approval_already_decided" });
+    }
     // 3b：privileged 工具的管理员身份校验（AERVOX_ADMIN_IDS 白名单 + x-admin-user-id）
     if (deps.toolRuntime) {
       const approval = await conversationRepo.getToolApproval(tenant, body.approvalId);
@@ -505,92 +508,38 @@ export function registerConversationRoutes(
         }
       }
     }
-    const updated = await conversationRepo.decideToolApproval(tenant, body.approvalId, body.decision, body.decidedBy ?? "admin");
-    if (!updated) {
-      return reply.code(404).send({ error: "approval not found" });
+    const decided = await conversationRepo.decideToolApprovalAndResume(tenant, {
+      turnId, approvalId: body.approvalId, decision: body.decision,
+      decidedBy: tenant.actorId ?? tenant.subjectUserId,
+    });
+    if (!decided) return reply.code(404).send({ error: "approval not found" });
+    if (!decided.ready) return reply.code(409).send({ error: "approval_not_resumable" });
+    if (decided.approval.state !== body.decision) return reply.code(409).send({ error: "approval_already_decided" });
+    if (decided.event) turnStreamHub.publishEvent(turnId, decided.event);
+    if (decided.continuation) {
+      const { attempt, pending, turn, toolCallId, step } = decided.continuation;
+      const userMessage = (await conversationRepo.getTurnUserMessage(tenant, turnId)) ?? "";
+      const events = await conversationRepo.getStreamEvents(tenant, turnId, 0);
+      const resumed = buildResumeHistory({ userMessage,
+        events: events as unknown as import("@aervox/core").ResumeEventLike[] });
+      const controller = new AbortController();
+      activeTurns.set(turnId, controller);
+      const runTurn = execute ?? ((turnInput: ConversationTurnInput) => executeConversationTurn(conversationRepo, tenant, turnInput, deps));
+      void runTurn({ turnId, sessionId: turn.sessionId, attemptId: attempt.id, userMessage,
+        signal: controller.signal,
+        resume: { expectedFencingToken: 0, lastSequence: decided.event!.sequence,
+          lastStep: step, history: resumed.history, messageId: resumed.messageId,
+          pendingApprovalResolution: { approvalId: decided.approval.id, decision: body.decision,
+            invocationId: pending.invocationId,
+            toolCall: { id: toolCallId, name: pending.name, arguments: pending.argumentsJson ?? {} } },
+        },
+      }).catch(err => req.log?.warn?.({ err, turnId, approvalId: decided.approval.id }, "Turn resume failed after approval decision"))
+        .finally(() => { if (activeTurns.get(turnId) === controller) activeTurns.delete(turnId); });
     }
-    // 决定留痕为流事件（SSE 重放可见；授权后的执行由客户端重发相同请求命中 granted）
-    // 序号 = 当前最大序号 + 1（与执行器/协调器并发追加安全）
-    const events = await conversationRepo.getStreamEvents(tenant, turnId, 0);
-    const lastSequence = events.reduce((max, event) => Math.max(max, event.sequence), 0);
-    const approvalEvent = {
-      id: `tev_${Date.now().toString(36)}`,
-      turnId,
-      sequence: lastSequence + 1,
-      eventType: body.decision === "granted" ? "tool_approval_granted" : "tool_approval_denied",
-      payloadVersion: 1,
-      occurredAt: new Date().toISOString(),
-      data: { approvalId: updated.id, decision: updated.state, toolName: updated.toolName },
-    };
-    await conversationRepo.appendStreamEvent(tenant, approvalEvent);
-    turnStreamHub.publishEvent(turnId, approvalEvent);
-
-    // 阶段 2 审批续跑：若存在因该审批挂起的待决工具执行，启动新 Attempt 自动续跑原 Turn
-    try {
-      const executions = await conversationRepo.listToolExecutionsByTurn(tenant, turnId);
-      const pendingExecution = executions.find(
-        (e) => e.name === updated.toolName && e.status === "pending_approval",
-      );
-      if (pendingExecution) {
-        const turn = await conversationRepo.getTurn(tenant, turnId);
-        if (turn) {
-          const userMessage = (await conversationRepo.getTurnUserMessage(tenant, turnId)) ?? "";
-          const allEvents = await conversationRepo.getStreamEvents(tenant, turnId, 0);
-          const resumeHistory = buildResumeHistory({
-            userMessage,
-            events: allEvents as unknown as import("@aervox/core").ResumeEventLike[],
-          });
-          const attempts = await conversationRepo.listTurnAttempts(tenant, turnId);
-          const nextAttemptSeq = attempts.length + 1;
-          const nextAttemptId = `att_${turnId}_${nextAttemptSeq}`;
-          await conversationRepo.createTurnAttempt(tenant, turnId, {
-            id: nextAttemptId,
-            attempt: nextAttemptSeq,
-            fencingToken: 0,
-          });
-          await conversationRepo.updateTurnStatus(tenant, turnId, "Running");
-
-          const args = pendingExecution.argumentsJson
-            ? (typeof pendingExecution.argumentsJson === "string"
-                ? JSON.parse(pendingExecution.argumentsJson)
-                : pendingExecution.argumentsJson)
-            : {};
-
-          const resumeInput: import("@aervox/core").ExecuteTurnResumeInput = {
-            expectedFencingToken: 0,
-            lastSequence: approvalEvent.sequence,
-            lastStep: 1,
-            history: resumeHistory.history,
-            messageId: resumeHistory.messageId,
-            pendingApprovalResolution: {
-              approvalId: updated.id,
-              decision: updated.state as "granted" | "denied",
-              toolCall: {
-                id: pendingExecution.invocationId,
-                name: pendingExecution.name,
-                arguments: args,
-              },
-              invocationId: pendingExecution.invocationId,
-            },
-          };
-
-          const runTurn = execute ?? ((turnInput: ConversationTurnInput) => executeConversationTurn(conversationRepo, tenant, turnInput, deps));
-          void runTurn({
-            turnId,
-            sessionId: turn.sessionId,
-            attemptId: nextAttemptId,
-            userMessage,
-            resume: resumeInput,
-          }).catch((err) => {
-            req.log?.warn?.({ err, turnId, approvalId: updated.id }, "Turn resume failed after approval decision");
-          });
-        }
-      }
-    } catch (err) {
-      req.log?.warn?.({ err, turnId, approvalId: updated.id }, "Failed to schedule turn resumption after approval");
-    }
-
-    return reply.send({ approvalId: updated.id, state: updated.state });
+    const attemptId = (decided.event?.data as { continuationAttemptId?: string } | undefined)?.continuationAttemptId;
+    return reply.send({ approvalId: decided.approval.id, state: decided.approval.state,
+      ...(attemptId && decided.event ? { continuation: { attemptId, afterEventId: decided.event.id } } : {}),
+    });
   });
 
   // 阶段 5c：子任务审计（subagent_runs；租户隔离；返回父 Turn 委托的全部子任务运行记录）

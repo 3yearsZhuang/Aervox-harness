@@ -838,7 +838,7 @@ registry.registerPath({
 registry.registerPath({
   method: "post",
   path: "/v1/turns/{turnId}/tool-approvals",
-  summary: "写工具授权决定（PET-05；granted 后由客户端重发相同请求命中授权）",
+  summary: "写工具授权决定并在原 Turn 创建唯一续跑 Attempt",
   tags: ["Turn"],
   request: {
     params: turnIdParam,
@@ -855,10 +855,11 @@ registry.registerPath({
     },
   },
   responses: {
-    200: { description: "Decision recorded" },
+    200: { description: "Decision recorded; optional continuation contains attemptId and afterEventId for subscribing to the original Turn without resending" },
     400: { description: "approvalId and decision (granted|denied) are required" },
     403: { description: "admin_required (privileged tool)" },
-    404: { description: "Approval not found" },
+    404: { description: "Approval not found in this Turn" },
+    409: { description: "Approval decision conflicts or its Attempt is not resumable" },
   },
 });
 

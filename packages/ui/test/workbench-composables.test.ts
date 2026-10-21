@@ -588,3 +588,22 @@ describe('Workbench Composables Logic', () => {
     expect(layout.historyOpen.value).toBe(false);
   });
 });
+
+it('waits for the interrupted stream to close before observing its continuation', async () => {
+  const { configureAervoxClient } = await import('@aervox/api-client');
+  const { useWorkbenchConversation } = await import('../src/composables/useWorkbenchConversation');
+  const decideToolApproval = vi.fn(async () => ({approvalId:'approval',state:'granted' as const,continuation:{attemptId:'new',afterEventId:'decision'}}));
+  const streamTurn = vi.fn();
+  configureAervoxClient({transport:{request:vi.fn(),streamTurn,submitQuestionAnswers:vi.fn(),decideToolApproval}});
+  const onApprovalContinuation = vi.fn();
+  const conversation = useWorkbenchConversation({recordActivity:vi.fn(),onApprovalContinuation});
+  conversation.pendingApproval.value = {approvalId:'approval',toolName:'save',argumentsHash:'hash',turnId:'turn',outgoing:'save'};
+  conversation.streaming.value = true;
+  await conversation.handleApprovalDecision('granted');
+  expect(decideToolApproval).not.toHaveBeenCalled();
+  conversation.streaming.value = false;
+  await conversation.handleApprovalDecision('granted');
+  expect(decideToolApproval).toHaveBeenCalledOnce();
+  expect(onApprovalContinuation).toHaveBeenCalledWith('turn','decision');
+  expect(streamTurn).not.toHaveBeenCalled();
+});

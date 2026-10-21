@@ -54,7 +54,7 @@ describe("executeTurn 阶段 3a：写工具审批待决", () => {
     const approval = events.find((e) => e.eventType === "tool_approval_required")?.data as
       | { approvalId: string; toolName: string; argumentsHash: string }
       | undefined;
-    expect(approval).toEqual({ approvalId: "ap_3a", toolName: "save_memory_note", argumentsHash: "hash:content" });
+    expect(approval).toMatchObject({ approvalId: "ap_3a", toolName: "save_memory_note", argumentsHash: "hash:content" });
 
     const done = events[events.length - 1]?.data as { status: string; isComplete: boolean };
     expect(done.status).toBe("Interrupted");

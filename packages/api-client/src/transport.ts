@@ -78,6 +78,12 @@ export interface EventStreamCallbacks {
   onHeartbeat?: () => void;
 }
 
+export interface ToolApprovalDecisionResponse {
+  approvalId: string;
+  state: 'granted' | 'denied';
+  continuation?: { attemptId: string; afterEventId: string };
+}
+
 /** 两端能力的最小契约：普通请求 + Turn 流式 + 问答提交 + 附件上传（可选） */
 export interface AervoxTransport {
   /** 普通 JSON 事件流；地址、认证和平台通道由传输实现负责。 */
@@ -88,7 +94,7 @@ export interface AervoxTransport {
   /** 多模态输入：原始二进制上传（Web 直连；桌面经 IPC 桥） */
   uploadAttachment?(input: AttachmentUploadInput): Promise<UploadedAttachment>;
   /** PET-05: 写工具授权审批提交 */
-  decideToolApproval(turnId: string, approvalId: string, decision: 'granted' | 'denied', signal?: AbortSignal): Promise<void>;
+  decideToolApproval(turnId: string, approvalId: string, decision: 'granted' | 'denied', signal?: AbortSignal): Promise<ToolApprovalDecisionResponse | void>;
 }
 
 // ── 运行时配置（由宿主端在入口注入 import.meta.env 等信息） ──────────────
@@ -445,8 +451,8 @@ export function createFetchTransport(apiBase: string, config: FetchTransportOpti
     );
   };
 
-  const decideToolApproval = async (turnId: string, approvalId: string, decision: 'granted' | 'denied', signal?: AbortSignal): Promise<void> => {
-    await request(
+  const decideToolApproval = async (turnId: string, approvalId: string, decision: 'granted' | 'denied', signal?: AbortSignal): Promise<ToolApprovalDecisionResponse> => {
+    return request<ToolApprovalDecisionResponse>(
       'POST',
       `/v1/turns/${encodeURIComponent(turnId)}/tool-approvals`,
       { approvalId, decision, decidedBy: 'user' },

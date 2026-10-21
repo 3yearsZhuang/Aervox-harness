@@ -235,6 +235,9 @@ export async function executeTurn(
     // 多 Step 共享上下文：随工具结果逐步增长；续跑时以恢复器重建上下文为初始历史
     const history: PromptMessage[] = resume?.history ?? [{ role: "user", content: input.userMessage }];
     const seenToolCalls = new Set<string>();
+    for (const message of resume?.history ?? []) {
+      for (const call of message.toolCalls ?? []) seenToolCalls.add(dedupeKey(call.name, call.arguments));
+    }
     let toolCallSeq = 0;
     let streakName: string | undefined;
     let sameToolStreak = 0;
@@ -249,49 +252,32 @@ export async function executeTurn(
       const { decision, toolCall, invocationId } = resume.pendingApprovalResolution;
       let toolOutcome: ToolCallResult;
 
-      if (decision === "granted") {
-        if (!tools) {
-          toolOutcome = {
-            id: toolCall.id,
-            name: toolCall.name,
-            ok: false,
-            error: "tools_disabled",
-          };
-        } else {
-          try {
-            const execResult = await tools.execute({
-              turnId: input.turnId,
-              attemptId: input.attemptId,
-              invocationId,
-              name: toolCall.name,
-              arguments: toolCall.arguments,
-              signal: control.abortSignal,
-              controlContext: control,
-            });
-            toolOutcome = {
-              id: toolCall.id,
-              name: toolCall.name,
-              ok: execResult.ok,
-              output: execResult.output,
-              error: execResult.error,
-            };
-          } catch (err) {
-            toolOutcome = {
-              id: toolCall.id,
-              name: toolCall.name,
-              ok: false,
-              error: err instanceof Error ? err.message : "tool_execution_error",
-            };
-          }
+      const stopped = await prematureTermination(sequence);
+      if (stopped) return stopped;
+      seenToolCalls.add(dedupeKey(toolCall.name, toolCall.arguments));
+      if (decision === "granted" && tools) {
+        try {
+          // Refresh declaration/revision checks, then reuse every normal execution guard.
+          const toolSpecs = tools.listTools
+            ? await awaitWithSignal(tools.listTools({ signal: control.abortSignal }), control.abortSignal)
+            : tools.tools;
+          toolOutcome = await runToolExecution({
+            turnId: input.turnId, attemptId: input.attemptId, sessionId: input.sessionId,
+            executionId: invocationId, call: toolCall,
+            tools: { tools: toolSpecs, execute: request => tools.execute(request) },
+            approvalPolicy: deps.approvalPolicy, control, heartbeat, toolTimeoutMs,
+            prematureTermination: () => prematureTermination(sequence),
+            finalizeInterrupted: reason => finalizeInterrupted(sequence, reason),
+          });
+        } catch (error) {
+          if (error instanceof ToolExecutionAborted) return error.result;
+          throw error;
         }
       } else {
-        toolOutcome = {
-          id: toolCall.id,
-          name: toolCall.name,
-          ok: false,
-          error: "tool_approval_denied",
-        };
+        toolOutcome = { id: toolCall.id, name: toolCall.name, ok: false,
+          error: decision === "denied" ? "tool_approval_denied" : "tools_disabled" };
       }
+      sequence = Math.max(sequence, await execution.nextSequence(input.turnId));
 
       // 权威收口工具账本并提交 tool_result 事件
       await settleToolLedger({
@@ -305,6 +291,17 @@ export async function executeTurn(
         result: toolOutcome,
         startedAt: new Date().toISOString(),
       });
+
+      if (toolOutcome.needsApproval) {
+        const info = toolOutcome.needsApproval;
+        await execution.appendEvent({ turnId: input.turnId, attemptId: input.attemptId,
+          expectedFencingToken: claimFencingToken, sequence: sequence++, eventType: "tool_approval_required",
+          data: { ...info, invocationId, toolCallId: toolCall.id, step: stepBase }, safetyDecision: "approved" });
+        return await finalize(sequence, { status: "interrupted", reason: "pending_approval" }, {
+          eventType: "done", eventData: { status: "Interrupted", messageId, isComplete: false, lastSequence: sequence },
+          safetyDecision: "approved",
+        });
+      }
 
       // 将工具结果安全过滤并注入历史，供后续 Step 模型使用
       const rawJson = JSON.stringify({ ok: toolOutcome.ok, output: toolOutcome.output, error: toolOutcome.error });
@@ -670,7 +667,7 @@ export async function executeTurn(
             expectedFencingToken: claimFencingToken,
             sequence: sequence++,
             eventType: "tool_approval_required",
-            data: { approvalId: info.approvalId, toolName: info.toolName, argumentsHash: info.argumentsHash },
+            data: { approvalId: info.approvalId, toolName: info.toolName, argumentsHash: info.argumentsHash, invocationId: executionId, toolCallId: call.id, step },
             safetyDecision: "approved",
           });
           // B4-D：审批路径终态 + done 原子提交（§12.2）

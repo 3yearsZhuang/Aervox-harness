@@ -14235,7 +14235,7 @@
     },
     "/v1/turns/{turnId}/tool-approvals": {
       "post": {
-        "summary": "写工具授权决定（PET-05；granted 后由客户端重发相同请求命中授权）",
+        "summary": "写工具授权决定并在原 Turn 创建唯一续跑 Attempt",
         "tags": [
           "Turn"
         ],
@@ -14281,7 +14281,7 @@
         },
         "responses": {
           "200": {
-            "description": "Decision recorded"
+            "description": "Decision recorded; optional continuation contains attemptId and afterEventId for subscribing to the original Turn without resending"
           },
           "400": {
             "description": "approvalId and decision (granted|denied) are required",
@@ -14314,7 +14314,17 @@
             }
           },
           "404": {
-            "description": "Approval not found",
+            "description": "Approval not found in this Turn",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Approval decision conflicts or its Attempt is not resumable",
             "content": {
               "application/problem+json": {
                 "schema": {
