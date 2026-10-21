@@ -35,3 +35,4 @@ export * from "./approval-decision.js";
 export * from "./faux-provider.js";
 export * from "./provider-registry.js";
 export * from "./core.js";
+export * from "./json-schema-validator.js";

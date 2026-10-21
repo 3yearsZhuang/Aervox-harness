@@ -127,6 +127,7 @@ export type ToolSafetyLevel = "read_only" | "write_with_approval" | "privileged"
 /** 工具预算配置（超时与重试） */
 export interface ToolBudget {
   timeoutMs?: number;
+  /** Reserved metadata; the executor never automatically retries tool side effects. */
   maxRetries?: number;
 }
 

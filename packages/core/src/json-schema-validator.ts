@@ -23,7 +23,25 @@ interface JsonSchemaObject {
   description?: string;
 }
 
+/** JSON Schema enum compares JSON values structurally, independent of object key order. */
+function equalJson(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  if (Array.isArray(left)) {
+    return Array.isArray(right) && left.length === right.length
+      && left.every((value, index) => equalJson(value, right[index]));
+  }
+  if (left && right && typeof left === "object" && typeof right === "object" && !Array.isArray(right)) {
+    const a = left as Record<string, unknown>;
+    const b = right as Record<string, unknown>;
+    const keys = Object.keys(a);
+    return keys.length === Object.keys(b).length
+      && keys.every(key => Object.hasOwn(b, key) && equalJson(a[key], b[key]));
+  }
+  return false;
+}
+
 export function validateJsonSchema(schema: unknown, data: unknown, currentPath = ""): ToolValidationResult {
+  if (schema === false) return { valid: false, errors: [{ path: currentPath || "(root)", message: "value is forbidden by schema", keyword: "falseSchema" }] };
   // 无 schema 或非对象 schema：视为开放 schema，通过校验
   if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
     return { valid: true };
@@ -35,7 +53,7 @@ export function validateJsonSchema(schema: unknown, data: unknown, currentPath =
 
   // 1. enum 校验（最高优先级）
   if (Array.isArray(s.enum)) {
-    if (!s.enum.some((val) => val === data)) {
+    if (!s.enum.some((val) => equalJson(val, data))) {
       errors.push({
         path: currentPath || "(root)",
         message: `value must be one of [${s.enum.map((v) => JSON.stringify(v)).join(", ")}]`,
@@ -53,7 +71,7 @@ export function validateJsonSchema(schema: unknown, data: unknown, currentPath =
         case "string":
           return typeof val === "string";
         case "number":
-          return typeof val === "number" && !Number.isNaN(val);
+          return typeof val === "number" && Number.isFinite(val);
         case "integer":
           return typeof val === "number" && Number.isInteger(val);
         case "boolean":
@@ -126,7 +144,7 @@ export function validateJsonSchema(schema: unknown, data: unknown, currentPath =
         keyword: "maxItems",
       });
     }
-    if (s.items) {
+    if (s.items !== undefined) {
       for (let i = 0; i < data.length; i++) {
         const itemRes = validateJsonSchema(s.items, data[i], `${currentPath}[${i}]`);
         if (!itemRes.valid && itemRes.errors) {
@@ -140,7 +158,7 @@ export function validateJsonSchema(schema: unknown, data: unknown, currentPath =
     // required 检查
     if (Array.isArray(s.required)) {
       for (const reqKey of s.required) {
-        if (obj[reqKey] === undefined) {
+        if (!Object.hasOwn(obj, reqKey) || obj[reqKey] === undefined) {
           errors.push({
             path: formatPath(reqKey),
             message: `missing required property '${reqKey}'`,
@@ -150,29 +168,19 @@ export function validateJsonSchema(schema: unknown, data: unknown, currentPath =
       }
     }
 
-    // properties 检查
-    if (s.properties && typeof s.properties === "object") {
-      for (const [propKey, propVal] of Object.entries(obj)) {
-        const propSchema = (s.properties as Record<string, unknown>)[propKey];
-        if (propSchema) {
-          const propRes = validateJsonSchema(propSchema, propVal, formatPath(propKey));
-          if (!propRes.valid && propRes.errors) {
-            errors.push(...propRes.errors);
-          }
-        } else if (s.additionalProperties === false) {
-          errors.push({
-            path: formatPath(propKey),
-            message: `unexpected additional property '${propKey}'`,
-            keyword: "additionalProperties",
-          });
-        }
+    // Only explicitly declared own properties count; Object.prototype is never a schema.
+    const properties = s.properties && typeof s.properties === "object" ? s.properties : undefined;
+    for (const [key, value] of Object.entries(obj)) {
+      const propertySchema = properties && Object.hasOwn(properties, key) ? properties[key] : undefined;
+      if (properties && Object.hasOwn(properties, key)) {
+        const result = validateJsonSchema(propertySchema, value, formatPath(key));
+        if (result.errors) errors.push(...result.errors);
+      } else if (s.additionalProperties === false) {
+        errors.push({ path: formatPath(key), message: `unexpected additional property '${key}'`, keyword: "additionalProperties" });
+      } else if (s.additionalProperties && typeof s.additionalProperties === "object") {
+        const result = validateJsonSchema(s.additionalProperties, value, formatPath(key));
+        if (result.errors) errors.push(...result.errors);
       }
-    } else if (s.additionalProperties === false && Object.keys(obj).length > 0) {
-      errors.push({
-        path: currentPath || "(root)",
-        message: "no additional properties allowed",
-        keyword: "additionalProperties",
-      });
     }
   }
 

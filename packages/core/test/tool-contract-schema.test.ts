@@ -137,7 +137,7 @@ describe("Tool Contract & Schema Validation (HostToolRuntime)", () => {
 });
 
 describe("Tool Budget Timeout (tool-pipeline & ToolSpec.budget)", () => {
-  it("优先使用 ToolSpec.budget.timeoutMs 动态超时", async () => {
+  it.each(["static", "dynamic"] as const)("%s 工具清单使用声明预算而非较短的全局超时", async source => {
     const store = new InMemoryExecutionStore();
     store.seedAttempt({ id: "att_budget_spec", turnId: "turn_budget_spec" });
 
@@ -158,15 +158,17 @@ describe("Tool Budget Timeout (tool-pipeline & ToolSpec.budget)", () => {
     };
 
     let executed = false;
-    const tools = {
-      tools: [
+    const specs = [
         {
           name: "custom_slow_tool",
           description: "声明了预算超时的工具",
           readOnly: true,
           budget: { timeoutMs: 300 },
         },
-      ],
+    ];
+    const tools = {
+      tools: source === "dynamic" ? [] : specs,
+      listTools: source === "dynamic" ? async () => specs : undefined,
       async execute() {
         // 等待 150ms，超过全局 options.toolTimeoutMs 80ms，但在 300ms budget 内
         await new Promise((r) => setTimeout(r, 150));
@@ -195,5 +197,22 @@ describe("Tool Budget Timeout (tool-pipeline & ToolSpec.budget)", () => {
 
     expect(result.status).toBe("completed");
     expect(executed).toBe(true);
+    expect((await store.listEvents("turn_budget_spec")).find(event=>event.eventType==="tool_result")?.data)
+      .toMatchObject({ok:true,output:"slow success"});
   });
+  it("审批策略收到当前动态清单的 privileged 等级", async () => {
+    const store = new InMemoryExecutionStore();
+    store.seedAttempt({id:"attempt",turnId:"turn"});
+    let observed: string | undefined;
+    let called = false;
+    const result = await executeTurn({execution:store,contextBuilder:defaultContextBuilder,
+      provider:{id:"one",async *stream(){yield {text:"",isFinal:true,toolCalls:[{id:"call",name:"privileged_tool",arguments:{}}]};}},
+      tools:{tools:[],async listTools(){return [{name:"privileged_tool",description:"privileged",readOnly:false,safetyLevel:"privileged"}];},
+        async execute(){called=true;return {ok:true};}},
+      approvalPolicy:{async evaluate(request){observed=request.safetyLevel;return {action:"ask_user",approvalId:"approval",argumentsHash:"hash"};}},
+    },{turnId:"turn",attemptId:"attempt",sessionId:"session",userMessage:"test"});
+    expect(observed).toBe("privileged");expect(called).toBe(false);
+    expect(result).toMatchObject({status:"interrupted",reason:"pending_approval"});
+  });
+
 });
