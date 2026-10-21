@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/repositories — E：授权快照幂等 + 安全片段原子化（§12.2）
  *
  * - recordToolApproval 幂等：同 (toolName, argumentsHash) 已存在 pending 则复用既有行，
- *   不重复插入（授权匹配键跨 turn 复用）；granted/denied 后新请求才新建。
+ *   不重复插入（待决只在本 Turn 复用，已批准授权仍跨 Turn 匹配）；granted/denied 后新请求才新建。
  * - recordSafeSegmentAtomically：安全片段 + delta 事件同事务，fencing 失配抛
  *   FencingMismatchError 且无部分写入；listCommittedSegments 返回可见前缀。
  */

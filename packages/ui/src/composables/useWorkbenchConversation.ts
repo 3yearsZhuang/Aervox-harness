@@ -149,6 +149,7 @@ export function createStreamingDeltaBatcher(
 export function useWorkbenchConversation(options: {
   recordActivity: (source: 'aervox.activity' | 'aervox.operation', eventType: string, payloadText?: string, metadata?: Record<string, unknown>) => void;
   onRefreshProactiveStatus?: () => Promise<void>;
+  onApprovalContinuation?: (turnId: string, afterEventId: string) => Promise<void>;
 }) {
   // CR-065：问候语用陪伴角色名（思隅是空间名，不是角色名）
   const companionGreeting = () => {
@@ -288,20 +289,17 @@ export function useWorkbenchConversation(options: {
     });
   }
 
-  async function handleApprovalDecision(decision: 'granted' | 'denied', onResend?: (outgoing: string) => Promise<void>) {
+  async function handleApprovalDecision(decision: 'granted' | 'denied') {
     const pending = pendingApproval.value;
-    if (!pending || approvalBusy.value) return;
+    if (!pending || approvalBusy.value || streaming.value) return;
     approvalBusy.value = true;
     try {
-      await decideToolApproval(pending.turnId, pending.approvalId, decision);
+      const response = await decideToolApproval(pending.turnId, pending.approvalId, decision);
       pendingApproval.value = null;
-      if (decision === 'granted') {
-        if (onResend) {
-          await onResend(pending.outgoing);
-        }
-      } else if (streaming.value) {
-        streaming.value = false;
+      if (response?.continuation) {
+        await options.onApprovalContinuation?.(pending.turnId, response.continuation.afterEventId);
       }
+
     } catch (err) {
       console.error('提交授权决定失败', err);
     } finally {

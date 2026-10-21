@@ -17,6 +17,7 @@ import type {
   ExecuteResult,
   ModelChunk,
   PromptMessage,
+  ToolCallRequest,
   ToolCallResult,
 } from "./types.js";
 import { LeaseLostError } from "./errors.js";
@@ -45,6 +46,13 @@ export interface ExecuteTurnInput {
  * 由恢复器从事件流 + 工具账本重建上下文后，以「抢占续跑」方式在原 Attempt 上继续，
  * 禁止重复已提交副作用与事件。executor 跳过 message 身份事件、沿用既有 sequence 之后追加。
  */
+export interface PendingApprovalResolution {
+  approvalId: string;
+  decision: "granted" | "denied";
+  toolCall: ToolCallRequest;
+  invocationId: string;
+}
+
 export interface ExecuteTurnResumeInput {
   /** 原执行已 claim 的 fencing（续跑以抢占语义重新 claim，预期=当前值） */
   expectedFencingToken: number;
@@ -56,6 +64,8 @@ export interface ExecuteTurnResumeInput {
   history: PromptMessage[];
   /** 已提交的助手消息身份（message 事件 data.messageId），续跑 delta/done 复用 */
   messageId: string;
+  /** 阶段 2 审批续跑模式：携带待决工具上下文，启动时优先执行已决议工具 */
+  pendingApprovalResolution?: PendingApprovalResolution;
 }
 
 export interface ExecuteTurnOptions {
@@ -225,6 +235,9 @@ export async function executeTurn(
     // 多 Step 共享上下文：随工具结果逐步增长；续跑时以恢复器重建上下文为初始历史
     const history: PromptMessage[] = resume?.history ?? [{ role: "user", content: input.userMessage }];
     const seenToolCalls = new Set<string>();
+    for (const message of resume?.history ?? []) {
+      for (const call of message.toolCalls ?? []) seenToolCalls.add(dedupeKey(call.name, call.arguments));
+    }
     let toolCallSeq = 0;
     let streakName: string | undefined;
     let sameToolStreak = 0;
@@ -233,6 +246,81 @@ export async function executeTurn(
     // 4b 续跑：Step 从 resume.lastStep 之后继续（executionId=attempt:step:seq 不与已提交冲突）；
     // 全新执行从 1 开始。
     const stepBase = resume?.lastStep ?? 0;
+
+    // 阶段 2 审批续跑：若携带待决工具决议（granted / denied），在进入后续 Step 前优先解决该工具副作用
+    if (resume?.pendingApprovalResolution) {
+      const { decision, toolCall, invocationId } = resume.pendingApprovalResolution;
+      let toolOutcome: ToolCallResult;
+
+      const stopped = await prematureTermination(sequence);
+      if (stopped) return stopped;
+      seenToolCalls.add(dedupeKey(toolCall.name, toolCall.arguments));
+      if (decision === "granted" && tools) {
+        try {
+          // Refresh declaration/revision checks, then reuse every normal execution guard.
+          const toolSpecs = tools.listTools
+            ? await awaitWithSignal(tools.listTools({ signal: control.abortSignal }), control.abortSignal)
+            : tools.tools;
+          toolOutcome = await runToolExecution({
+            turnId: input.turnId, attemptId: input.attemptId, sessionId: input.sessionId,
+            executionId: invocationId, call: toolCall,
+            tools: { tools: toolSpecs, execute: request => tools.execute(request) },
+            approvalPolicy: deps.approvalPolicy, control, heartbeat, toolTimeoutMs,
+            prematureTermination: () => prematureTermination(sequence),
+            finalizeInterrupted: reason => finalizeInterrupted(sequence, reason),
+          });
+        } catch (error) {
+          if (error instanceof ToolExecutionAborted) return error.result;
+          throw error;
+        }
+      } else {
+        toolOutcome = { id: toolCall.id, name: toolCall.name, ok: false,
+          error: decision === "denied" ? "tool_approval_denied" : "tools_disabled" };
+      }
+      sequence = Math.max(sequence, await execution.nextSequence(input.turnId));
+
+      // 权威收口工具账本并提交 tool_result 事件
+      await settleToolLedger({
+        execution,
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        invocationId,
+        expectedFencingToken: claimFencingToken,
+        nextSequence: () => sequence++,
+        call: toolCall,
+        result: toolOutcome,
+        startedAt: new Date().toISOString(),
+      });
+
+      if (toolOutcome.needsApproval) {
+        const info = toolOutcome.needsApproval;
+        await execution.appendEvent({ turnId: input.turnId, attemptId: input.attemptId,
+          expectedFencingToken: claimFencingToken, sequence: sequence++, eventType: "tool_approval_required",
+          data: { ...info, invocationId, toolCallId: toolCall.id, step: stepBase }, safetyDecision: "approved" });
+        return await finalize(sequence, { status: "interrupted", reason: "pending_approval" }, {
+          eventType: "done", eventData: { status: "Interrupted", messageId, isComplete: false, lastSequence: sequence },
+          safetyDecision: "approved",
+        });
+      }
+
+      // 将工具结果安全过滤并注入历史，供后续 Step 模型使用
+      const rawJson = JSON.stringify({ ok: toolOutcome.ok, output: toolOutcome.output, error: toolOutcome.error });
+      const inspected = inspectToolResult(rawJson);
+      const content = inspected.injection
+        ? JSON.stringify({
+            ok: false,
+            output: undefined,
+            error: "blocked_tool_injection: 工具输出疑似含提示注入样本，已拦截且不注入完整内容",
+          })
+        : inspected.text;
+
+      history.push({
+        role: "tool",
+        content,
+        toolCallId: toolOutcome.id,
+        name: toolOutcome.name,
+      });
+    }
     for (let step = stepBase + 1; step <= maxSteps; step += 1) {
       stepsTaken = step;
 
@@ -579,7 +667,7 @@ export async function executeTurn(
             expectedFencingToken: claimFencingToken,
             sequence: sequence++,
             eventType: "tool_approval_required",
-            data: { approvalId: info.approvalId, toolName: info.toolName, argumentsHash: info.argumentsHash },
+            data: { approvalId: info.approvalId, toolName: info.toolName, argumentsHash: info.argumentsHash, invocationId: executionId, toolCallId: call.id, step },
             safetyDecision: "approved",
           });
           // B4-D：审批路径终态 + done 原子提交（§12.2）

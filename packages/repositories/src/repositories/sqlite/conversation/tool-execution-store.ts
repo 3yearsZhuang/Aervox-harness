@@ -180,6 +180,7 @@ export class ToolExecutionStore {
           .where(
             and(
               eq(toolExecutions.turnId, turns.id),
+              eq(toolExecutions.turnId, input.turnId),
               eq(toolExecutions.attemptId, input.attemptId),
               eq(toolExecutions.invocationId, input.invocationId),
             ),

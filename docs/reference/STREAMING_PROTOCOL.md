@@ -92,7 +92,7 @@ Created -> InputChecking -> Running -> Finalizing -> Completed
 | `Interrupted` | 已发送安全前缀但基础设施中断 | 否；历史可显示“不完整” |
 | `Failed` | 无可发布结果或最终校验失败 | 否 |
 
-自动重试只允许由新的 `TurnAttempt` 在尚未提交任何用户可见片段且没有外部工具副作用之前发生。首片段之后的恢复必须把原 Turn 标记为 `Interrupted`，由用户显式发起新 Turn；不得在原 Turn 内从头拼接非确定性的第二份回答。
+自动重试只允许由新的 `TurnAttempt` 在尚未提交任何用户可见片段且没有外部工具副作用之前发生。首片段之后因基础设施中断的恢复必须把原 Turn 标记为 `Interrupted`，由用户显式发起新 Turn；不得在原 Turn 内从头拼接非确定性的第二份回答。
 
 ## 4. 事件 envelope 与事件类型
 
@@ -146,7 +146,7 @@ Created -> InputChecking -> Running -> Finalizing -> Completed
 
 ### 4.7 `tool_approval_required` (PET-05 / CAP-009)
 
-表示模型请求的写工具（如 `aervox_diary_write`、`aervox_memory_store`）尚未获得用户授权，本次 Attempt 以 `Interrupted` 结束等待授权。`data` 包含 `approvalId`、`toolName`、`argumentsHash`。用户经 `POST /v1/turns/:turnId/tool-approvals` 提交决定（`granted`/`denied`）；授权后由客户端重发相同请求命中 `granted` 记录（工具名 + 参数哈希匹配），模型重新请求该工具时才真正执行。客户端对未知事件类型应忽略不影响既有展示。
+表示模型请求的写工具（如 `aervox_diary_write`、`aervox_memory_store`）尚未获得用户授权，本次 Attempt 以 `Interrupted` 结束等待授权。`data` 包含 `approvalId`、`toolName`、`argumentsHash`。用户经 `POST /v1/turns/:turnId/tool-approvals` 提交决定（`granted`/`denied`）；宿主在同一事务中保存决定、预留唯一新 Attempt 并移交确认尚未执行的工具意图。响应中的 `continuation.attemptId` 与 `continuation.afterEventId` 指向新尝试及审批事件游标。客户端使用新的投影器订阅原 Turn 的 `events?after=<afterEventId>`，不得重发消息；旧 Attempt 的终态与投影器保持终结。相同决定重复提交返回同一游标，不创建新尝试，冲突决定或尚未中断/已取消的尝试返回 409。客户端对未知事件类型应忽略不影响既有展示。
 
 标准错误码：
 

@@ -38,9 +38,9 @@ describe('standard conversation', () => {
     expect(wrapper.text()).toContain('测试工具');
     const buttons = wrapper.findAll('.tool-approval-actions button');
     await buttons[0].trigger('click');
-    expect(handleApprovalDecision).toHaveBeenCalledWith('granted', expect.any(Function));
+    expect(handleApprovalDecision).toHaveBeenCalledWith('granted');
     await buttons[1].trigger('click');
-    expect(handleApprovalDecision).toHaveBeenCalledWith('denied', expect.any(Function));
+    expect(handleApprovalDecision).toHaveBeenCalledWith('denied');
     wrapper.unmount();
   });
   it('renders all turns and streaming text beyond the first sentence, with attachments and extension slots', async () => {

@@ -4,13 +4,15 @@
  * 与具体传输解耦：桌面走 IPC transport，Web 走 fetch/SSE transport。
  */
 import { getTransport, getSessionId } from './transport';
-import type { AttachmentUploadInput, UploadedAttachment } from './transport';
+import { TurnStreamProjector } from './projector';
+import type { ToolApprovalDecisionResponse, AttachmentUploadInput, UploadedAttachment } from './transport';
 import type {
   AskUserQuestionAnswerItem,
   PetCommand,
   ToolApprovalMode,
   ToolApprovalRequiredEventData,
   TurnAttachmentRef,
+  TurnStreamEvent,
   UserQuestionRequiredEventData,
 } from '@aervox/contracts';
 
@@ -65,6 +67,30 @@ export async function requestAervoxApi<T = unknown>(
   return await getTransport().request<T>(method, path, body);
 }
 
-export async function decideToolApproval(turnId: string, approvalId: string, decision: 'granted' | 'denied'): Promise<void> {
-  await getTransport().decideToolApproval(turnId, approvalId, decision);
+export async function decideToolApproval(turnId: string, approvalId: string, decision: 'granted' | 'denied'): Promise<ToolApprovalDecisionResponse | void> {
+  return getTransport().decideToolApproval(turnId, approvalId, decision);
+}
+
+/** Observe only the new Attempt's events; the previous terminal projector stays closed. */
+export async function watchAervoxTurnContinuation(
+  turnId: string, afterEventId: string, callbacks: StreamAervoxTurnCallbacks, signal?: AbortSignal,
+): Promise<void> {
+  const transport = getTransport();
+  if (!transport.streamEvents) throw new Error('event_stream_unavailable');
+  const controller = new AbortController();
+  const combined = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
+  const projector = new TurnStreamProjector({ expectedTurnId: turnId });
+  try {
+    await transport.streamEvents(`/v1/turns/${encodeURIComponent(turnId)}/events?after=${encodeURIComponent(afterEventId)}`, {
+      onEvent: value => {
+        if (!value || typeof value !== 'object' || !('eventType' in value)) return;
+        projector.project(value as TurnStreamEvent, callbacks);
+        if (projector.finalized) controller.abort();
+      },
+    }, combined);
+  } catch (error) {
+    if (!controller.signal.aborted || !projector.finalized || signal?.aborted) throw error;
+  }
+  signal?.throwIfAborted();
+  if (!projector.finalized) throw new Error('turn_stream_incomplete');
 }
