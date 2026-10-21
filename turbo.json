@@ -154,7 +154,7 @@
       "inputs": ["src/**", "test/**", "package.json", "tsconfig.json", "vitest.config.*", "../../vitest.shared.ts", "../../plugins/**"]
     },
     "@aervox/api#test": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "@aervox/native-runtime#native:build"],
       "inputs": [
         "src/**",
         "test/**",

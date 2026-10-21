@@ -461,6 +461,12 @@ agent.attempt.lease-expired
 
 `adapter-dsh` 必须把 DSH 事件、工具调用和终止原因规范化为本文件的 Port/事件，并使用 Aervox Attempt/fencing 持久化。它可以实现完整 `LoopDriverPort`，也可以只提供 `ModelProviderPort`/受限 Contribution；Manifest 必须声明实际等级，并在收集整批确定结果后通过 [`concludeAdapterBatch`](../../packages/core/src/adapter-contract.ts) 重新判定；无法保证该翻译时必须拒绝激活完整 Driver，不得静默提前结束。
 
+#### 本地文件与命令边界
+
+DSH [本地 MCP 桥接器](../../packages/host-runtime/src/modules/ecosystem/mcp/dsh-bridge.ts)的文件读取、替换、目录起点和命令工作目录同时核验词法路径与真实路径，拒绝根目录外的符号链接目标。读取和替换允许解析指向根内的符号链接，打开文件后复验 inode，并使用同一文件描述符完成操作，路径在打开期间被替换时拒绝；目录遍历跳过符号链接条目。这些检查不构成操作系统级沙箱，也不覆盖硬链接或已获宿主权限的进程主动移动文件。
+
+`dsh_run_command` 保留已授权 shell 的宿主用户权限；工作目录位于根内不能限制命令访问其他文件或网络。预先取消的调用不启动命令；运行后取消、超时或输出超限时，POSIX 尝试终止命令进程组，Windows 尝试终止进程树。清理最多额外等待两秒，终止或清理失败明确返回错误；命令正常退出时，POSIX 同时终止仍在原进程组中的后台后代。默认命令期限为 15 秒，可配置 1～60 秒，标准输出和错误输出各最多保留 1 MiB。取消不回滚已发生的副作用，也不保证主动脱离进程组或进程树的后代已停止；定向[边界回归](../../packages/host-runtime/test/ecosystem/mcp/dsh-bridge.test.ts)不替代 Windows 实机验收。
+
 <a id="bounded-code-search"></a>
 
 #### 有界本地代码搜索

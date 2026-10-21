@@ -5,18 +5,19 @@
  * 核心研发工具与运行时探测能力暴露为 MCP 标准服务端：
  * - initialize / notifications/initialized / tools/list / tools/call
  * - 纯本地运行，免密鉴权（authType: "none"），与 CR-030 本地单用户架构天然对齐；
- * - 严格路径沙箱：所有文件读写与命令执行限制在 repoRoot 内，杜绝目录穿越；
+ * - 文件工具拒绝路径和符号链接逃逸；命令工作目录限制在 repoRoot 内，
+ *   已授权 shell 仍以宿主用户权限执行，不提供 OS 文件/网络沙箱；
  * - 工具清单对齐 PET-05 安全分级：只读类（probe/read/list/search）与授权类（replace/command）。
  */
-import { exec } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import {
+  closeSync, constants, existsSync, fstatSync, ftruncateSync, lstatSync, openSync,
+  readdirSync, readFileSync, realpathSync, statSync, writeSync,
+} from "node:fs";
 import { isAbsolute, join, relative, resolve, dirname } from "node:path";
-import { promisify } from "node:util";
 import { probeDSHReference, type DSHReferenceProbeResult } from "@aervox/host-agent";
 import type { McpRemoteTool } from "./client.js";
 import { RipgrepCodeSearch } from "./code-search.js";
-
-const execAsync = promisify(exec);
 
 export interface DshMcpBridgeOptions {
   /** 仓库根目录（默认从 process.cwd() 向上查找，或使用 cwd） */
@@ -41,11 +42,139 @@ export function findRepoRoot(startDir = process.cwd()): string {
 export function resolveSafePath(repoRoot: string, userPath?: string): string {
   const cleanPath = (userPath ?? "").trim();
   const resolved = resolve(repoRoot, cleanPath);
-  const rel = relative(repoRoot, resolved);
-  if (rel.startsWith("..") || isAbsolute(rel)) {
+  assertWithinRoot(resolve(repoRoot), resolved, userPath);
+  return resolved;
+}
+
+function assertWithinRoot(root: string, path: string, userPath?: string): void {
+  const rel = relative(root, path);
+  if (rel === ".." || rel.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`) || isAbsolute(rel)) {
     throw new Error(`路径越界受阻：'${userPath}' 超出仓库沙箱范围`);
   }
-  return resolved;
+}
+
+/** Check both the requested path and every resolved symlink against the canonical root. */
+function resolveExistingPath(repoRoot: string, userPath: string): string {
+  const root = realpathSync(repoRoot);
+  const path = realpathSync(resolveSafePath(repoRoot, userPath));
+  assertWithinRoot(root, path, userPath);
+  return path;
+}
+
+/** Open without truncation and use the same checked inode for reading and replacement. */
+function withSafeFile<T>(repoRoot: string, userPath: string, writable: boolean, use: (fd: number) => T): T {
+  const path = resolveExistingPath(repoRoot, userPath);
+  const expected = statSync(path);
+  if (!expected.isFile()) throw new Error(`File not found: ${userPath}`);
+  const fd = openSync(path, (writable ? constants.O_RDWR : constants.O_RDONLY)
+    | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0));
+  try {
+    const opened = fstatSync(fd);
+    const currentPath = resolveExistingPath(repoRoot, userPath);
+    const current = statSync(currentPath);
+    // An ancestor may have been replaced after realpath. Never read or truncate that new target.
+    if (!opened.isFile() || opened.dev !== expected.dev || opened.ino !== expected.ino
+      || opened.dev !== current.dev || opened.ino !== current.ino) {
+      throw new Error(`File changed while opening: ${userPath}`);
+    }
+    return use(fd);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/** Attempt process-tree termination and bound cleanup waiting before reporting completion. */
+function runCommand(command: string, cwd: string, timeoutMs: number, signal?: AbortSignal): Promise<{
+  stdout: string; stderr: string; exitCode: number; isError: boolean;
+}> {
+  signal?.throwIfAborted();
+  return new Promise((resolveResult) => {
+    const child = spawn(command, {
+      cwd, shell: true, windowsHide: true, detached: process.platform !== "win32",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const outputLimit = 1024 * 1024;
+    const stdout: Buffer[] = [];
+    const stderr: Buffer[] = [];
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
+    let failure: string | undefined;
+    let terminating: Promise<void> | undefined;
+    let closeDeadline: ReturnType<typeof setTimeout> | undefined;
+    let finished = false;
+    const finish = (code: number | null) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(deadline);
+      clearTimeout(closeDeadline);
+      signal?.removeEventListener("abort", abort);
+      resolveResult({
+        stdout: Buffer.concat(stdout).toString("utf8").trim(),
+        stderr: [Buffer.concat(stderr).toString("utf8").trim(), failure].filter(Boolean).join("\n"),
+        exitCode: code ?? 1,
+        isError: failure !== undefined || code !== 0,
+      });
+    };
+    const killTree = (): Promise<void> => {
+      if (!child.pid) return Promise.resolve();
+      if (process.platform !== "win32") {
+        try { process.kill(-child.pid, "SIGKILL"); }
+        catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ESRCH") failure ??= "Command process-tree termination failed";
+        }
+        return Promise.resolve();
+      }
+      return new Promise((done) => {
+        // Killing only cmd.exe would leave its command running after cancellation.
+        const killer = spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], { windowsHide: true, stdio: "ignore", timeout: 1000 });
+        killer.once("error", () => { failure ??= "Command process-tree termination failed"; child.kill("SIGKILL"); done(); });
+        killer.once("close", (code) => {
+          if (code !== 0) { failure ??= "Command process-tree termination failed"; child.kill("SIGKILL"); }
+          done();
+        });
+      });
+    };
+    const boundClose = () => {
+      closeDeadline ??= setTimeout(() => {
+        failure ??= "Command process cleanup did not finish";
+        child.kill("SIGKILL");
+        child.stdout.destroy();
+        child.stderr.destroy();
+        finish(null);
+      }, 2000);
+    };
+    const stop = (reason: string) => {
+      failure ??= reason;
+      terminating ??= killTree();
+      boundClose();
+    };
+    const capture = (chunks: Buffer[], bytes: number, data: Buffer): number => {
+      if (failure) return bytes;
+      const remaining = Math.max(0, outputLimit - bytes);
+      chunks.push(data.subarray(0, remaining));
+      bytes += data.length;
+      if (bytes > outputLimit) stop("Command output limit exceeded");
+      return bytes;
+    };
+    child.stdout.on("data", (data: Buffer) => { stdoutBytes = capture(stdout, stdoutBytes, data); });
+    child.stderr.on("data", (data: Buffer) => { stderrBytes = capture(stderr, stderrBytes, data); });
+    child.stdout.on("error", (error) => stop(error.message));
+    child.stderr.on("error", (error) => stop(error.message));
+    child.once("error", (error) => stop(error.message));
+    const abort = () => stop("Command cancelled");
+    const deadline = setTimeout(() => stop(`Command timed out after ${timeoutMs}ms`), timeoutMs);
+    signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted) abort();
+    // Background descendants can inherit pipes or keep writing after the shell exits.
+    child.once("exit", () => {
+      if (process.platform !== "win32") terminating ??= killTree();
+      boundClose();
+    });
+    child.once("close", async (code) => {
+      await terminating;
+      finish(code);
+    });
+  });
 }
 
 /** DSH 官方 MCP 导出的工具元数据定义 */
@@ -116,7 +245,7 @@ export const DSH_MCP_TOOLS: McpRemoteTool[] = [
   },
   {
     name: "dsh_run_command",
-    description: "在受限沙箱环境中执行本地命令（需授权审批 write_with_approval）",
+    description: "以宿主用户权限执行本地 shell 命令，工作目录限制在项目根内，支持取消、超时和输出上限（需授权审批 write_with_approval；无 OS 文件/网络沙箱）",
     inputSchema: {
       type: "object",
       properties: {
@@ -264,6 +393,7 @@ export class DshMcpBridge {
     }
 
     try {
+      signal?.throwIfAborted();
       switch (name) {
         case "dsh_probe_runtime": {
           const probe: DSHReferenceProbeResult = probeDSHReference(this.repoRoot);
@@ -282,11 +412,7 @@ export class DshMcpBridge {
         case "dsh_read_file": {
           const filePath = String(args.path ?? "");
           if (!filePath) throw new Error("path parameter is required");
-          const safePath = resolveSafePath(this.repoRoot, filePath);
-          if (!existsSync(safePath) || !statSync(safePath).isFile()) {
-            throw new Error(`File not found: ${filePath}`);
-          }
-          const content = readFileSync(safePath, "utf-8");
+          const content = withSafeFile(this.repoRoot, filePath, false, (fd) => readFileSync(fd, "utf-8"));
           const lines = content.split(/\r?\n/);
           const start = args.startLine ? Math.max(1, Number(args.startLine)) : 1;
           const end = args.endLine ? Math.min(lines.length, Number(args.endLine)) : lines.length;
@@ -302,12 +428,12 @@ export class DshMcpBridge {
         case "dsh_list_dir": {
           const dirPath = String(args.path ?? ".");
           const maxDepth = Math.min(5, Math.max(1, Number(args.maxDepth ?? 2)));
-          const safeDir = resolveSafePath(this.repoRoot, dirPath);
+          const safeDir = resolveExistingPath(this.repoRoot, dirPath);
           if (!existsSync(safeDir) || !statSync(safeDir).isDirectory()) {
             throw new Error(`Directory not found: ${dirPath}`);
           }
 
-          const entries = this.walkDir(safeDir, this.repoRoot, 1, maxDepth);
+          const entries = this.walkDir(safeDir, realpathSync(this.repoRoot), 1, maxDepth);
           return {
             content: [{ type: "text", text: JSON.stringify(entries, null, 2) }],
             isError: false,
@@ -337,20 +463,21 @@ export class DshMcpBridge {
           if (!filePath || oldStr === undefined || newStr === undefined) {
             throw new Error("path, oldStr, and newStr parameters are required");
           }
-          const safePath = resolveSafePath(this.repoRoot, filePath);
-          if (!existsSync(safePath) || !statSync(safePath).isFile()) {
-            throw new Error(`File not found: ${filePath}`);
-          }
-          const original = readFileSync(safePath, "utf-8");
-          const count = original.split(oldStr).length - 1;
-          if (count === 0) {
-            throw new Error(`oldStr was not found in file: '${filePath}'`);
-          }
-          if (count > 1) {
-            throw new Error(`oldStr matched ${count} times in '${filePath}'; replacement must be unique`);
-          }
-          const replaced = original.replace(oldStr, newStr);
-          writeFileSync(safePath, replaced, "utf-8");
+          withSafeFile(this.repoRoot, filePath, true, (fd) => {
+            const original = readFileSync(fd, "utf-8");
+            const count = original.split(oldStr).length - 1;
+            if (count === 0) {
+              throw new Error(`oldStr was not found in file: '${filePath}'`);
+            }
+            if (count > 1) {
+              throw new Error(`oldStr matched ${count} times in '${filePath}'; replacement must be unique`);
+            }
+            signal?.throwIfAborted();
+            const replaced = Buffer.from(original.replace(oldStr, newStr), "utf-8");
+            let written = 0;
+            while (written < replaced.length) written += writeSync(fd, replaced, written, replaced.length - written, written);
+            ftruncateSync(fd, replaced.length);
+          });
           return {
             content: [{ type: "text", text: `Successfully replaced string in ${filePath}` }],
             isError: false,
@@ -361,40 +488,11 @@ export class DshMcpBridge {
           const command = String(args.command ?? "");
           if (!command) throw new Error("command parameter is required");
           const cwdPath = String(args.cwd ?? ".");
-          const safeCwd = resolveSafePath(this.repoRoot, cwdPath);
-          const timeoutMs = Math.min(60_000, Math.max(1000, Number(args.timeoutMs ?? 15_000)));
-
-          try {
-            const { stdout, stderr } = await execAsync(command, {
-              cwd: safeCwd,
-              timeout: timeoutMs,
-              maxBuffer: 1024 * 1024,
-            });
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: JSON.stringify({ stdout: stdout.trim(), stderr: stderr.trim(), exitCode: 0 }),
-                },
-              ],
-              isError: false,
-            };
-          } catch (execErr: unknown) {
-            const errObj = execErr as { stdout?: string; stderr?: string; code?: number; message?: string };
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: JSON.stringify({
-                    stdout: (errObj.stdout ?? "").trim(),
-                    stderr: (errObj.stderr ?? errObj.message ?? "").trim(),
-                    exitCode: errObj.code ?? 1,
-                  }),
-                },
-              ],
-              isError: true,
-            };
-          }
+          const safeCwd = resolveExistingPath(this.repoRoot, cwdPath);
+          const requestedTimeout = Number(args.timeoutMs ?? 15_000);
+          const timeoutMs = Number.isFinite(requestedTimeout) ? Math.min(60_000, Math.max(1000, requestedTimeout)) : 15_000;
+          const { isError, ...result } = await runCommand(command, safeCwd, timeoutMs, signal);
+          return { content: [{ type: "text", text: JSON.stringify(result) }], isError };
         }
 
         default:
@@ -420,6 +518,7 @@ export class DshMcpBridge {
   ): Array<{ path: string; type: "file" | "directory"; size?: number }> {
     const results: Array<{ path: string; type: "file" | "directory"; size?: number }> = [];
     if (currentDepth > maxDepth) return results;
+    currentDir = resolveExistingPath(root, relative(root, currentDir));
 
     const items = readdirSync(currentDir, { withFileTypes: true });
     for (const item of items) {
@@ -428,8 +527,10 @@ export class DshMcpBridge {
       }
       const fullPath = join(currentDir, item.name);
       const relPath = relative(root, fullPath);
+      if (lstatSync(fullPath).isSymbolicLink()) continue;
 
       if (item.isDirectory()) {
+        resolveExistingPath(root, relPath);
         results.push({ path: relPath, type: "directory" });
         results.push(...this.walkDir(fullPath, root, currentDepth + 1, maxDepth));
       } else if (item.isFile()) {

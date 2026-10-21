@@ -15,8 +15,13 @@ test("ordinary repository build stays TypeScript-only; integration tests explici
   const build = taskGraph("build", "@aervox/repositories");
   assert.ok(build.some(task => task.taskId === "@aervox/native-runtime#build"));
   assert.ok(build.every(task => !task.taskId.endsWith("#native:build")));
-  for (const pkg of ["@aervox/native-runtime", "@aervox/repositories"]) {
-    assert.ok(taskGraph("test", pkg).some(task => task.taskId === "@aervox/native-runtime#native:build"));
+  for (const pkg of ["@aervox/native-runtime", "@aervox/repositories", "@aervox/api"]) {
+    const graph = taskGraph("test", pkg);
+    const nativeBuild = graph.find(task => task.taskId === "@aervox/native-runtime#native:build");
+    assert.ok(nativeBuild, `${pkg} tests must build the production native runtime`);
+    assert.deepEqual(nativeBuild.outputs, ["dist/bin/**"]);
+    assert.ok(graph.find(task => task.taskId === `${pkg}#test`)?.dependencies.includes(nativeBuild.taskId),
+      `${pkg} tests must wait for native artifacts, not merely run alongside native:build`);
   }
 });
 
