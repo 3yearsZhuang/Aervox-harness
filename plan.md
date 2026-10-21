@@ -1,6 +1,6 @@
 # Aervox 当前迭代计划
 
-直接维护本文件；规则见[贡献指南](CONTRIBUTING.md#plan-maintenance)。只登记需要排序、依赖协调或持续跟踪的工作，普通修复无需入队。保留既有 ITER 编号与原有状态；“已移交”只表示相应切片，CAP 状态和发布门槛仍见[追踪基线](docs/reference/REQUIREMENTS_TRACEABILITY.md)。建议和依赖不构成对所有工作的执行授权。
+直接维护本文件；规则见[贡献指南](CONTRIBUTING.md#plan-maintenance)。需要协调的工作统一使用 `ITER-###` 变更编号，分配与关联规则见[唯一变更编号](CONTRIBUTING.md#change-numbering)，普通修复无需入队。保留既有编号、依赖与历史证据，按实际进展更新状态；“已移交”只表示相应切片，CAP 状态和发布门槛仍见[追踪基线](docs/reference/REQUIREMENTS_TRACEABILITY.md)。建议和依赖不构成对所有工作的执行授权。
 
 ## 1. 当前协调工作
 
@@ -47,7 +47,7 @@
 
 前端体验优化：大比例 Live2D、轻量聊天输入、跨页面统一开关/卡片/按钮/表单/标签导航、草稿保存和窄窗口导航；CAP-001/002/018/020。
 
-2026-10-13 由 PR #275 统一移交前端体验、根界面与二阶段切片；全量代码/文档门禁及三项浏览器 E2E 通过。UI 决定协调为 CR-065；真实模型、移动实机与发布验收未提升。
+2026-10-13 由 PR #275 统一移交前端体验、根界面与二阶段切片；全量代码/文档门禁及三项浏览器 E2E 通过。UI 决定见 [ADR-025](docs/reference/adr/ADR-025-ui-surface-hosts.md)；真实模型、移动实机与发布验收未提升。
 
 证据与边界：[260](https://github.com/3yearsZhuang/Aervox-harness/pull/260)；[275](https://github.com/3yearsZhuang/Aervox-harness/pull/275)
 
@@ -55,9 +55,9 @@
 
 ### ITER-054 · 已移交
 
-根界面插件首个切片：薄 UI 宿主、默认工作台与桌宠插件、跨端组合根；CAP-001/002/018/020；CR-065。
+根界面插件首个切片：薄 UI 宿主、默认工作台与桌宠插件、跨端组合根；CAP-001/002/018/020；决定见 [ADR-025](docs/reference/adr/ADR-025-ui-surface-hosts.md)。
 
-2026-10-13 由 PR #275 统一移交前端体验、根界面与二阶段切片；全量代码/文档门禁及三项浏览器 E2E 通过。UI 决定协调为 CR-065；真实模型、移动实机与发布验收未提升。
+2026-10-13 由 PR #275 统一移交前端体验、根界面与二阶段切片；全量代码/文档门禁及三项浏览器 E2E 通过。UI 决定见 [ADR-025](docs/reference/adr/ADR-025-ui-surface-hosts.md)；真实模型、移动实机与发布验收未提升。
 
 证据与边界：[275](https://github.com/3yearsZhuang/Aervox-harness/pull/275)
 
@@ -65,9 +65,9 @@
 
 ### ITER-055 · 已移交
 
-界面插件化二阶段：UISurfaceManifest 清单契约与宿主校验、加载骨架与退避重试、宠物降级链（PetWithFallback）、浏览器级 E2E、五块设置面板迁入 panels-ui、设计令牌单源、紧凑工作台多根界面试验田；修复 workbench 出口主题链缺失；CAP-001/002/018/020；CR-065。
+界面插件化二阶段：UISurfaceManifest 清单契约与宿主校验、加载骨架与退避重试、宠物降级链（PetWithFallback）、浏览器级 E2E、五块设置面板迁入 panels-ui、设计令牌单源、紧凑工作台多根界面试验田；修复 workbench 出口主题链缺失；CAP-001/002/018/020；决定见 [ADR-025](docs/reference/adr/ADR-025-ui-surface-hosts.md)。
 
-2026-10-13 由 PR #275 统一移交前端体验、根界面与二阶段切片；全量代码/文档门禁及三项浏览器 E2E 通过。UI 决定协调为 CR-065；真实模型、移动实机与发布验收未提升。
+2026-10-13 由 PR #275 统一移交前端体验、根界面与二阶段切片；全量代码/文档门禁及三项浏览器 E2E 通过。UI 决定见 [ADR-025](docs/reference/adr/ADR-025-ui-surface-hosts.md)；真实模型、移动实机与发布验收未提升。
 
 证据与边界：[275](https://github.com/3yearsZhuang/Aervox-harness/pull/275)
 
@@ -75,9 +75,9 @@
 
 ### ITER-056 · 建议
 
-界面插件开放评审与实施：第三方 UI 插件信任模型（信任分级/能力白名单/隔离降级）、界面插件独立安装升级回滚合同；CR-064。
+界面插件开放评审与实施：第三方 UI 插件信任模型（信任分级/能力白名单/隔离降级）、界面插件独立安装升级回滚合同；提案见 [ADR-026](docs/reference/adr/ADR-026-ui-surface-open-ecosystem.md)。
 
-2026-10-13 立项提案（CR-064，Proposed）；原生移动真机验收继续由 CR-055 / ITER-009 承载，不在本条目扩张。
+2026-10-13 立项提案，ADR-026 保持 Proposed；原生移动真机验收继续由 [ITER-009](#iter-009) 协调，边界见 [ADR-022](docs/reference/adr/ADR-022-mobile-runtime-access.md)，不在本条目扩张。
 
 证据与边界：[界面开放提案](docs/reference/adr/ADR-026-ui-surface-open-ecosystem.md)；保持 Proposed，未批准实施。
 
@@ -85,7 +85,7 @@
 
 ### ITER-057 · 已移交
 
-内核执行边界修复：终态提交与返回值一致、连续小块正文限时刷新、准备阶段取消传播；CAP-002/007；延续 CR-061 的既有执行合同。
+内核执行边界修复：终态提交与返回值一致、连续小块正文限时刷新、准备阶段取消传播；CAP-002/007；延续 [ADR-021 的执行合同](docs/reference/adr/ADR-021-aervox-core-standalone-package.md#cr-061)。
 
 2026-10-13 完成全量终审并由 PR #274 移交；终态争抢、密集流刷新与准备取消回归通过，基准仅为假 Provider 与内存存储。
 
@@ -200,7 +200,7 @@ Page 与客户端认证：iframe source/nonce/会话/全部 capability、禁用�
 
 HLS 竞赛可行性验证：规则/环境、真实双入口、公开题集与同模型配对报告；研究执行器已实施，详细剩余步骤见 [HLS 阶段条件](docs/how-to/run-hls-agent.md#hls-plugin-delivery) H1～H4；关联 CAP-007/020/027（探索）
 
-- 前置与边界：[ITER-020](#iter-020)；研究范围已由 CR-057 接受；模型服务与 Vitis 镜像待配置；真实验收按 H1→H2→H4，H3 题集/协议可并行准备；只修实际复用路径。
+- 前置与边界：[ITER-020](#iter-020)；研究范围已由 [ADR-023](docs/reference/adr/ADR-023-hls-research-execution.md) 接受；模型服务与 Vitis 镜像待配置；真实验收按 H1→H2→H4，H3 题集/协议可并行准备；只修实际复用路径。
 - 验收：固定模型/镜像/目标环境后，真实裸跑和 Agent 可复现，正反 HLS 样例及隔离/杀停通过；开发/留出题按家族隔离，四组同配置、固定分母、独立样本、增益区间和成本齐全；官方未公开判定明确留缺；按专项 §6.3 形成继续、限定补证或暂缓结论，§4.2 登记后才整项移交
 - 进展与剩余：研究执行器已合流到 core；H1～H4 真实环境验收未启动，模型/Vitis 未配置。
 
@@ -208,7 +208,7 @@ HLS 竞赛可行性验证：规则/环境、真实双入口、公开题集与同
 
 #### ITER-029 · 执行中
 
-思隅 CLI 连接版首个切片：新增终端宿主 `@aervox/cli`（`siyu`）与 `@aervox/api-client/transport` 纯传输构建出口；提供单次问答、仅 TTY 连续会话、事件补读与终态等待、连接诊断、配置读写、JSON/JSONL 机器输出、Token 与幂等键、审批与用户问题、有界取消；CAP-002/007/020；CR-058
+思隅 CLI 连接版首个切片：新增终端宿主 `@aervox/cli`（`siyu`）与 `@aervox/api-client/transport` 纯传输构建出口；提供单次问答、仅 TTY 连续会话、事件补读与终态等待、连接诊断、配置读写、JSON/JSONL 机器输出、Token 与幂等键、审批与用户问题、有界取消；CAP-002/007/020；历史来源 CR-058（已归档）
 
 - 前置与边界：只消费本机 API 与共享传输层；不修改服务端路由、授权与恢复合同，不新增数据库 Schema，不引入中心化服务或独立宿主。
 - 验收：打包产物在真实 API + 文件 SQLite 下完成受理/流式/终态、跨客户端与 API 重启的补读与续会话；非交互路径不自动批准工具；有界取消只在中断时触发，超时或失败不替用户取消已受理回合；依赖边界与文档门禁通过，CLI 不反向依赖共享包，共享包也不反向引用 CLI 宿主
@@ -285,9 +285,9 @@ HLS 竞赛可行性验证：规则/环境、真实双入口、公开题集与同
 
 #### ITER-026 · 待评审
 
-伴学业务与会话执行器深度解耦插件化：宿主去领域化——CAP-002/007/016 的实现全部内聚于 `plugins/focus-mode`，宿主只保留通用扩展接缝（插件自有状态、出站 metadata 透传、插件流事件订阅、卡片槽位预设、设置与 Composer 贡献、工具与路由贡献）；清除 Turn 协议失效刷题字段与 `study-mode`/`quiz-mode` 历史别名；内核 `@aervox/core` 出口去除产品域提示词与刷题工具（对齐 Apache-2.0 分层）；建立宿主纯净性棘轮守卫与插件可移除目标（BTD-11，移除演练通过）；CR-060（Accepted / Implemented）；CAP-002/007/016
+伴学业务与会话执行器深度解耦插件化：宿主去领域化——CAP-002/007/016 的实现全部内聚于 `plugins/focus-mode`，宿主只保留通用扩展接缝（插件自有状态、出站 metadata 透传、插件流事件订阅、卡片槽位预设、设置与 Composer 贡献、工具与路由贡献）；清除 Turn 协议失效刷题字段与 `study-mode`/`quiz-mode` 历史别名；内核 `@aervox/core` 出口去除产品域提示词与刷题工具（对齐 Apache-2.0 分层）；建立宿主纯净性棘轮守卫与插件可移除目标（BTD-11，移除演练通过）；决定见 [ADR-016](docs/reference/adr/ADR-016-base-boundaries.md#cr-060)，对应实现已交付；CAP-002/007/016
 
-- 前置与边界：学习闭环为 P0 且属学习事实真源，按 AVX-CAP-001 反向检查保留主仓，沿用 ADR-016 的插件边界、不转自选模块、不新建 `modules/*` submodule；不修改 learning 表结构与 CAP-003/004/006 端点；破坏性契约变更（`streamEventTypeSchema`、`@aervox/ui` 发送选项、`@aervox/core` 出口）按 ADR-016 的 CR-060 修订维护 OpenAPI 契约；插件实现目录不得进入分发包；代码缺席须保留安装记录、配置与数据管理入口。
+- 前置与边界：学习闭环为 P0 且属学习事实真源，按 AVX-CAP-001 反向检查保留主仓，沿用 ADR-016 的插件边界、不转自选模块、不新建 `modules/*` submodule；不修改 learning 表结构与 CAP-003/004/006 端点；破坏性契约变更（`streamEventTypeSchema`、`@aervox/ui` 发送选项、`@aervox/core` 出口）按 [ADR-016 的伴学插件边界](docs/reference/adr/ADR-016-base-boundaries.md#cr-060)维护 OpenAPI 契约；插件实现目录不得进入分发包；代码缺席须保留安装记录、配置与数据管理入口。
 - 验收：宿主（apps/api、apps/worker、apps/web、apps/desktop、packages/ui、packages/api-client、packages/core）零 domain 命中：check-host-domain-purity 零违规且豁免清单已清空，规则已覆盖 B9 迁出的全部样式类名；物理删除 plugins/focus-mode 的实现目录后宿主仍可编译运行，且保留安装记录、配置与数据管理入口：run-removability-drill 三相位通过（API/Worker 冷构建 + 被剥离的 Web/桌面组合根 typecheck）；分发包只含 plugin.manifest.json / config.schema.json / SKILL.md，SHA-256 仍字节可重现；别名体系整体删除（ServerTurnPlugin.aliases、注册表别名映射与候选 id 探测循环），插件 id 唯一；刷新前旧配置由插件自行一次性迁移至 pluginState 命名空间，不静默丢失；插件禁用时模型工具面不含 record_practice_attempt，/v1/terms/explore 不再注册；@aervox/core 公共出口不含产品域提示词与刷题工具；Web 与桌面组合根的插件注入经编译校验（移除演练的 Web/桌面 typecheck 相位）；宿主通用接缝有渲染回归（standard-workbench 用通用插件桩），组合根注入当前无独立渲染用例
 - 进展与剩余：S1–S7 及评审修正已实施，见 PR #250；保持原待评审状态。
 
@@ -315,7 +315,7 @@ HLS 竞赛可行性验证：规则/环境、真实双入口、公开题集与同
 
 #### ITER-040 · 建议
 
-标准化测试 Provider 与重试面（PI-01 对比结论）：①收敛 replay/scripted/adapter-sim/mock 四套测试桩为带能力声明的标准 faux 型 Provider（声明 reasoning/toolCalls/多模态支持），作为 provider-parity 标准夹具；②可选注入的 Provider 重试面（有界次数+指数退避+jitter+可重试错误分类：429/5xx/overloaded 与配额/计费错误区分），与宿主 CR-034 降级阶梯协同而非替代
+标准化测试 Provider 与重试面（PI-01 对比结论）：①收敛 replay/scripted/adapter-sim/mock 四套测试桩为带能力声明的标准 faux 型 Provider（声明 reasoning/toolCalls/多模态支持），作为 provider-parity 标准夹具；②可选注入的 Provider 重试面（有界次数+指数退避+jitter+可重试错误分类：429/5xx/overloaded 与配额/计费错误区分），与宿主既有降级阶梯协同而非替代（历史来源 CR-034，已归档）
 
 - 前置与边界：[ITER-039](#iter-039)；core 运行时零依赖不破坏；重试面为可选注入（默认关闭），不与宿主降级阶梯形成双真源（core 重试单请求内、宿主降级跨 Provider）；不新增 Provider。
 - 验收：标准测试 Provider 有能力声明且 parity 测试经其驱动；四套测试桩收敛或明确各自存续理由；重试面有错误分类与退避测试；默认关闭时现有行为零变化
@@ -329,7 +329,7 @@ HLS 竞赛可行性验证：规则/环境、真实双入口、公开题集与同
 
 测量后分别决定 Prompt 预算/保真压缩、SQLite 写竞争、向量 topK、计算隔离和资产归属；FND-07/08/10、ARC-05/08/12；相关基础设施
 
-- 前置与边界：[ITER-013](#iter-013)；依赖正确性修复与 ITER-013 指标；CR-062/063 承接代码搜索、向量端到端对照、三平台原生活动 Helper 与计算隔离；生产索引迁移与发行签名单独取证。
+- 前置与边界：[ITER-013](#iter-013)；依赖正确性修复与 ITER-013 指标；[ADR-024](docs/reference/adr/ADR-024-native-runtime-boundaries.md) 定义代码搜索、向量端到端对照、三平台原生活动 Helper 与计算隔离边界；生产索引迁移与发行签名单独取证。
 - 验收：同设备同数据报告延迟分位数、失败率、内存和质量；未达收益门槛即可停止；不承诺未测倍数
 - 进展与剩余：有界搜索、向量对照、活动 Helper、音频/插件 Worker 与 Cargo/IPC 收敛已实现，见 PR #272；生产测量、签名与实机权限验收仍须取证。
 
@@ -366,7 +366,7 @@ HLS 参赛方案扩大验证与冻结提交：正式评分 ABI、最终 32 GB �
 
 #### ITER-028 · 待评审
 
-纯本地多端点对点加密同步探索：局域网发现（mDNS）、SQLite Changeset 增量对齐与去中心化数据同步；CAP-018/027；CR-030/CR-055
+纯本地多端点对点加密同步探索：局域网发现（mDNS）、SQLite Changeset 增量对齐与去中心化数据同步；CAP-018/027；边界见[数据库契约](docs/reference/DATABASE.md)与 [ADR-022](docs/reference/adr/ADR-022-mobile-runtime-access.md)
 
 - 前置与边界：坚决不引入中心化多租户云端数据库；同步前必须通过端到端加密与用户显式配对授权。
 - 验收：完成多设备同网发现 PoC（UDP 多播信标 + 静态对端兜底）与承诺-揭示零信任配对（Ed25519 身份签名、SAS 绑定完整 transcript、分向密钥与重放/乱序/篡改拒绝），替代原 TLS 证书配对设计；以行时间戳水位线 + 显式墓碑提取增量 Changeset（替代原 SQLite Session Extension 设计），验证无冲突双向合并与对抗性缺陷回归（接收端白名单、漂移行隔离、墓碑四向裁决）；移动端（Capacitor）与桌面端（Electron）局域网直连同步学习进度与错题本成功
@@ -395,7 +395,7 @@ ITER-009 需要给出下面的可审阅结论，目前不替用户选定产品�
 | 跨设备数据范围 | 普通资料与 local_only/混合来源严格分开 | 导出/同步授权、删除传播、离线期限与来源验证 |
 | 第一版交互范围 | 从通知、图片、分享、只读复习中选择最小闭环 | 实际任务完成率与成本，不按接口数量决定范围 |
 
-[CR-055](docs/reference/adr/ADR-022-mobile-runtime-access.md#cr-055) 已纳入主仓，仍是 Proposed/Planned；平台顺序与工期仅为提案输入，具体取舍在本节维护。
+[ADR-022 移动端提案](docs/reference/adr/ADR-022-mobile-runtime-access.md#cr-055) 已纳入主仓，仍是 Proposed/Planned；平台顺序与工期仅为提案输入，具体取舍在本节维护。
 
 ## 4. 已移交切片
 
