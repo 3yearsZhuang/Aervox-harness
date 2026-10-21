@@ -311,7 +311,7 @@ async function resetConfig(): Promise<void> {
 
 // 技能操作
 function isSkillActive(skill: SkillDto): boolean {
-  return skill.active === 1 || skill.active === true
+  return skill.active === 1
 }
 
 async function toggleSkillActive(skill: SkillDto): Promise<void> {
