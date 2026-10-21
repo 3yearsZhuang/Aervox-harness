@@ -23,6 +23,7 @@ import type {
   SafetyDecision,
   SubagentDelegateInput,
   SubagentRunResult,
+  ToolSafetyLevel,
   ToolApprovalInfo,
   ToolExecutionRecord,
   ToolExecutionStatus,
@@ -347,8 +348,6 @@ export interface UserQuestionPort {
 
 // ============ 工具执行权限审批策略端口 (HITL & Approval SPI) ============
 
-export type ToolSafetyLevel = "read_only" | "write_with_approval" | "privileged" | "destructive" | (string & {});
-
 export interface ToolApprovalRequest {
   turnId: string;
   attemptId: string;
@@ -392,6 +391,7 @@ export type {
   SkillDescriptor,
   SubagentDelegateInput,
   SubagentRunResult,
+  ToolSafetyLevel,
   WorkflowContext,
   WorkflowDefinition,
   WorkflowStep,

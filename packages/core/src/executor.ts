@@ -532,7 +532,7 @@ export async function executeTurn(
               sessionId: input.sessionId,
               executionId,
               call,
-              tools,
+              tools: { tools: stepTools ?? [], execute: request => tools.execute(request) },
               approvalPolicy: deps.approvalPolicy,
               control,
               heartbeat,

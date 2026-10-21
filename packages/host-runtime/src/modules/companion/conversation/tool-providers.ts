@@ -5,7 +5,7 @@
  * 静态 Contribution 工具的通用写授权门（PET-05 / 阶段 3a / CR-022 full_access
  * 预授权）与动态 tool_registrations 运行时适配（CAP-033 主动动作授权）逐字节迁移。
  */
-import { inspectToolInput } from "@aervox/core";
+import { inspectToolInput, validateJsonSchema } from "@aervox/core";
 import type {
   ToolExecutionInput,
   ToolExecutionResult,
@@ -264,8 +264,16 @@ export function createRuntimeToolProvider(
         if (deps.capabilityTier === "restricted" && tool.safetyLevel !== "read_only") continue;
         if (deps.isToolAllowed && !(await deps.isToolAllowed(tool))) continue;
         declared.set(tool.name, { id: tool.id, revision: (tool as typeof tool & { runtimeRevision?: string }).runtimeRevision });
-        visible.push({ name: tool.name, description: tool.description, readOnly: tool.safetyLevel === "read_only",
-          parameters: tool.inputSchemaJson && typeof tool.inputSchemaJson === "object" ? tool.inputSchemaJson as Record<string, unknown> : undefined });
+        const toolBudget = (tool as { budget?: import("@aervox/core").ToolBudget }).budget ??
+          ((tool as { timeoutMs?: number }).timeoutMs ? { timeoutMs: (tool as { timeoutMs?: number }).timeoutMs } : undefined);
+        visible.push({
+          name: tool.name,
+          description: tool.description,
+          readOnly: tool.safetyLevel === "read_only",
+          safetyLevel: (tool.safetyLevel ?? "write_with_approval") as import("@aervox/core").ToolSafetyLevel,
+          budget: toolBudget,
+          parameters: tool.inputSchemaJson && typeof tool.inputSchemaJson === "object" ? tool.inputSchemaJson as Record<string, unknown> : undefined,
+        });
       }
       return visible;
     },
@@ -290,6 +298,15 @@ export function createRuntimeToolProvider(
       const tool = registrations.find((t) => t.name === input.name && t.enabled === 1);
       if (!tool) {
         return emitResult({ ok: false, error: `unregistered_tool: ${input.name}` });
+      }
+
+      // Schema 校验：入参进入执行或审批前严格校验格式
+      if (tool.inputSchemaJson) {
+        const val = validateJsonSchema(tool.inputSchemaJson, input.arguments);
+        if (!val.valid) {
+          const detail = val.errors && val.errors.length > 0 ? `: ${val.errors.map(e => `${e.path || "(root)"}: ${e.message}`).join("; ")}` : "";
+          return emitResult({ ok: false, error: `schema_validation_failed${detail}` });
+        }
       }
 
       if (declared && declared.get(input.name)?.id !== tool.id) return emitResult({ ok: false, error: "tool_not_declared" });
