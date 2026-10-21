@@ -60,7 +60,7 @@ describe("audit: execution boundaries", () => {
     const control = new ControlContext();
     try {
       const result = await runToolExecution({ ...input, executionId: "a:1:1", call: { id: "c", name: "slow", arguments: {} }, control, toolTimeoutMs: 5,
-        tools: { tools: [], execute: () => new Promise(() => {}) }, prematureTermination: async () => null,
+        tools: { tools: [{ name: "slow", description: "slow", readOnly: true }], execute: () => new Promise(() => {}) }, prematureTermination: async () => null,
         finalizeInterrupted: async reason => ({ status: "interrupted", attemptId: "a", reason }),
       });
       expect(classifyToolOutcome(result)).toBe("timeout_error");

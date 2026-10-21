@@ -1,7 +1,7 @@
 /** API adapter: one core runtime owns lifecycle, gating and cancellation. */
 import {
   HostToolRuntime, HostToolError,
-  type HostToolHandler, type HostToolDefinition,
+  type HostToolHandler, type HostToolDefinition, type HostToolRegistrationModel,
 } from "@aervox/core";
 import type { IToolRegistryRepository, ToolRegistrationModel, LocalContext } from "@aervox/repositories";
 import { ForbiddenError, NotFoundError } from "../../../shared/errors.js";
@@ -11,7 +11,8 @@ export type ToolHandler = HostToolHandler;
 export type ToolDisposer = () => void;
 export type ToolRegistryPort = Pick<IToolRegistryRepository,
   "getTool" | "listTools" | "registerTool" | "setEnabled" | "unregisterTool" | "exportRegistry">;
-export type ToolDefinition = Parameters<ToolRegistryPort["registerTool"]>[0];
+export type ToolDefinition = Parameters<ToolRegistryPort["registerTool"]>[0] & Pick<HostToolDefinition, "budget">;
+type RuntimeToolRegistration = ToolRegistrationModel & HostToolRegistrationModel;
 export interface ToolRuntimeDeps { registry: ToolRegistryPort }
 
 export class ToolRuntime extends HostToolRuntime {
@@ -28,17 +29,17 @@ export class ToolRuntime extends HostToolRuntime {
   }
 
   // The adapter's registry always returns the full SQLite record. Core preserves it.
-  override async listTools(): Promise<ToolRegistrationModel[]> {
-    return await super.listTools() as ToolRegistrationModel[];
+  override async listTools(): Promise<RuntimeToolRegistration[]> {
+    return await super.listTools() as RuntimeToolRegistration[];
   }
-  override async registerTool(tool: HostToolDefinition): Promise<ToolRegistrationModel> {
-    return await super.registerTool(tool) as ToolRegistrationModel;
+  override async registerTool(tool: HostToolDefinition): Promise<RuntimeToolRegistration> {
+    return await super.registerTool(tool) as RuntimeToolRegistration;
   }
-  override async setEnabled(id: string, enabled: boolean): Promise<ToolRegistrationModel | null> {
-    return await super.setEnabled(id, enabled) as ToolRegistrationModel | null;
+  override async setEnabled(id: string, enabled: boolean): Promise<RuntimeToolRegistration | null> {
+    return await super.setEnabled(id, enabled) as RuntimeToolRegistration | null;
   }
-  override async exportRegistry(options?: Parameters<HostToolRuntime["exportRegistry"]>[0]): Promise<ToolRegistrationModel[]> {
-    return await super.exportRegistry(options) as ToolRegistrationModel[];
+  override async exportRegistry(options?: Parameters<HostToolRuntime["exportRegistry"]>[0]): Promise<RuntimeToolRegistration[]> {
+    return await super.exportRegistry(options) as RuntimeToolRegistration[];
   }
   override async callTool(ctx: LocalContext, id: string, args: unknown, options?: Parameters<HostToolRuntime["callTool"]>[3]): Promise<unknown> {
     try { return await super.callTool(ctx, id, args, options); }

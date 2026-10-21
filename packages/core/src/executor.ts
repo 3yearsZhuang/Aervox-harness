@@ -104,6 +104,8 @@ export interface ExecuteTurnDeps {
   tools?: ToolProviderPort;
   /** Phase 2: 工具执行权限审批策略端口 (HITL & Approval SPI) */
   approvalPolicy?: import("./ports.js").ApprovalPolicyPort;
+  /** Validator for a host-specific schema dialect; defaults to the Core subset. */
+  toolValidator?: import("./types.js").ToolValidatorPort;
   /** 2d：删除/撤权未追平闸门；缺省不启用 */
   deletionGate?: DeletionGatePort;
   /** 阶段 5a：受控收件箱（ADR-017）；缺省不启用 Inbox 消费 */
@@ -264,7 +266,7 @@ export async function executeTurn(
           toolOutcome = await runToolExecution({
             turnId: input.turnId, attemptId: input.attemptId, sessionId: input.sessionId,
             executionId: invocationId, call: toolCall,
-            tools: { tools: toolSpecs, execute: request => tools.execute(request) },
+            tools, toolSpecs: structuredClone(toolSpecs), toolValidator: deps.toolValidator,
             approvalPolicy: deps.approvalPolicy, control, heartbeat, toolTimeoutMs,
             prematureTermination: () => prematureTermination(sequence),
             finalizeInterrupted: reason => finalizeInterrupted(sequence, reason),
@@ -350,9 +352,10 @@ export async function executeTurn(
           })
         : [];
       control.abortSignal.throwIfAborted();
-      const stepTools = tools?.listTools
+      const discoveredTools = tools?.listTools
         ? await awaitWithSignal(tools.listTools({ signal: control.abortSignal }), control.abortSignal)
         : tools?.tools;
+      const stepTools = discoveredTools === undefined ? undefined : structuredClone(discoveredTools);
       control.abortSignal.throwIfAborted();
       const context = await awaitWithSignal(Promise.resolve(contextBuilder.build({
         turnId: input.turnId,
@@ -393,7 +396,7 @@ export async function executeTurn(
         new StepCollector({
           provider: recordingProvider,
           context,
-          tools: stepTools,
+          tools: stepTools === undefined ? undefined : structuredClone(stepTools),
           turnId: input.turnId,
           attemptId: input.attemptId,
           step,
@@ -620,7 +623,7 @@ export async function executeTurn(
               sessionId: input.sessionId,
               executionId,
               call,
-              tools: { tools: stepTools ?? [], execute: request => tools.execute(request) },
+              tools, toolSpecs: stepTools, toolValidator: deps.toolValidator,
               approvalPolicy: deps.approvalPolicy,
               control,
               heartbeat,

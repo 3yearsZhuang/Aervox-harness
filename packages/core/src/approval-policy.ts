@@ -12,9 +12,10 @@ import type {
   ToolExecutionInput,
   ToolExecutionResult,
   ToolProviderPort,
-  ToolSafetyLevel,
 } from "./ports.js";
 import { decideToolCall } from "./approval-decision.js";
+import { resolveToolSafetyLevel } from "./tool-contract.js";
+import { validateJsonSchema } from "./json-schema-validator.js";
 
 export interface AutoApprovalPolicyOptions {
   /**
@@ -72,15 +73,25 @@ export function withApprovalPolicy(
   provider: ToolProviderPort,
   policy: ApprovalPolicyPort,
 ): ToolProviderPort {
-  const specs = new Map((provider.tools || []).map((t) => [t.name, t]));
+  let specs = new Map(provider.tools.map(t => [t.name, structuredClone(t)]));
 
   return {
     get tools() {
       return provider.tools;
     },
+    listTools: provider.listTools ? async options => {
+      specs.clear();
+      const tools = await provider.listTools!(options);
+      specs = new Map(tools.map(t => [t.name, structuredClone(t)]));
+      return tools;
+    } : undefined,
     async execute(input: ToolExecutionInput): Promise<ToolExecutionResult> {
       const spec = specs.get(input.name);
-      const safetyLevel: ToolSafetyLevel = spec?.readOnly ? "read_only" : "write_with_approval";
+      if (!spec) return { ok: false, error: "tool_not_declared" };
+      if (spec.parameters != null && !validateJsonSchema(spec.parameters, input.arguments).valid) {
+        return { ok: false, error: "invalid_tool_input" };
+      }
+      const safetyLevel = resolveToolSafetyLevel(spec);
 
       const decision = await policy.evaluate({
         turnId: input.turnId,

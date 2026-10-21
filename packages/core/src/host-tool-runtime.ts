@@ -9,7 +9,7 @@
 
 import type { ControlContext } from "./control-context.js";
 import { inspectToolInput } from "./tool-input-safe.js";
-import type { ToolValidatorPort } from "./types.js";
+import type { ToolBudget, ToolValidatorPort } from "./types.js";
 import { validateJsonSchema } from "./json-schema-validator.js";
 
 /**
@@ -59,6 +59,27 @@ export class HostToolValidationError extends HostToolError {
   }
 }
 
+/** 拒绝会被 Node 定时器截断或溢出为 1ms 的期限。 */
+export function validateToolBudget(budget: ToolBudget | undefined): void {
+  if (budget === undefined) return;
+  if (budget === null || typeof budget !== "object" || Array.isArray(budget)) {
+    throw new HostToolError("invalid_tool_budget: expected an object", 400, "INVALID_TOOL_BUDGET");
+  }
+  const timeout = budget.timeoutMs;
+  if (timeout !== undefined && (!Number.isInteger(timeout) || timeout < 1 || timeout > 2_147_483_647)) {
+    throw new HostToolError(
+      "invalid_tool_budget: timeoutMs must be an integer between 1 and 2147483647",
+      400,
+      "INVALID_TOOL_BUDGET",
+    );
+  }
+}
+
+function copyBudget(budget: ToolBudget | undefined): ToolBudget | undefined {
+  validateToolBudget(budget);
+  return budget === undefined ? undefined : { timeoutMs: budget.timeoutMs };
+}
+
 export interface HostToolRegistrationModel {
   id: string;
   name: string;
@@ -74,6 +95,8 @@ export interface HostToolRegistrationModel {
   pluginId?: string | null;
   updatedAt?: string | null;
   runtimeRevision?: string;
+  /** 执行期预算；持久化注册表可省略，由 HostToolRuntime 补入当前进程登记值。 */
+  budget?: ToolBudget;
 }
 
 export interface HostToolDefinition {
@@ -90,6 +113,7 @@ export interface HostToolDefinition {
   replay?: string | null;
   pluginId?: string | null;
   priority?: number;
+  budget?: ToolBudget;
 }
 
 export interface HostToolHandlerContext {
@@ -174,6 +198,7 @@ export class InMemoryToolRegistry implements HostToolRegistryPort {
   private readonly rows = new Map<string, HostToolRegistrationModel>();
 
   async registerTool(d: HostToolDefinition): Promise<HostToolRegistrationModel> {
+    const budget = copyBudget(d.budget);
     const existing = this.rows.get(d.id);
     const row: HostToolRegistrationModel = {
       id: d.id,
@@ -189,6 +214,7 @@ export class InMemoryToolRegistry implements HostToolRegistryPort {
       replay: d.replay ?? null,
       pluginId: d.pluginId ?? null,
       updatedAt: new Date().toISOString(),
+      budget,
     };
     this.rows.set(d.id, row);
     return row;
@@ -269,6 +295,7 @@ function definitionKey(tool: HostToolRegistrationModel): string {
     tool.pluginId,
     tool.gatingConditionsJson,
     tool.replay,
+    tool.budget,
   ]);
 }
 
@@ -278,6 +305,8 @@ function definitionKey(tool: HostToolRegistrationModel): string {
 export class HostToolRuntime {
   private readonly handlers = new Map<string, Registration>();
   private readonly writes = new Map<string, Promise<unknown>>();
+  // SQLite 持久化权限/门控元数据仍为真源；预算随进程登记，不要求仓储新增列。
+  private readonly budgets = new Map<string, ToolBudget | undefined>();
   private readonly registry: HostToolRegistryPort;
   private readonly validator: ToolValidatorPort;
   private disposed = false;
@@ -290,6 +319,21 @@ export class HostToolRuntime {
 
   get rawRegistry(): HostToolRegistryPort {
     return this.registry;
+  }
+
+  private projectDefinition(tool: HostToolRegistrationModel): HostToolRegistrationModel {
+    const budget = this.budgets.has(tool.id) ? this.budgets.get(tool.id) : tool.budget;
+    return { ...tool, budget: copyBudget(budget) };
+  }
+
+  private writeDefinition(tool: HostToolDefinition): Promise<HostToolRegistrationModel> {
+    // 在排队前验证和复制，调用方后续修改对象不能改变已登记的执行预算。
+    const budget = copyBudget(tool.budget);
+    return this.serial(tool.id, async () => {
+      const registered = await this.registry.registerTool({ ...tool, budget: copyBudget(budget) });
+      this.budgets.set(tool.id, budget);
+      return this.projectDefinition(registered);
+    });
   }
 
   private serial<T>(id: string, action: () => Promise<T>): Promise<T> {
@@ -328,13 +372,16 @@ export class HostToolRuntime {
   /** 兼容绑定：将 handler 挂载到现有工具 ID */
   registerHandler(id: string, handler: HostToolHandler): HostToolDisposer {
     const pending = this.writes.get(id) ?? Promise.resolve();
-    return this.attach(id, handler, pending.then(() => this.registry.getTool(id)));
+    return this.attach(id, handler, pending.then(async () => {
+      const tool = await this.registry.getTool(id);
+      return tool ? this.projectDefinition(tool) : null;
+    }));
   }
 
   /** 原子注册工具元数据与 Handler，返回生命周期销毁函数 */
   async registerContribution(tool: HostToolDefinition, handler: HostToolHandler): Promise<HostToolDisposer> {
     if (this.disposed) throw new HostToolForbiddenError("tool runtime disposed");
-    const definition = this.serial(tool.id, () => this.registry.registerTool(tool));
+    const definition = this.writeDefinition(tool);
     const release = this.attach(tool.id, handler, definition);
     try {
       await definition;
@@ -349,23 +396,27 @@ export class HostToolRuntime {
     this.disposed = true;
     for (const entry of this.handlers.values()) entry.controller.abort();
     this.handlers.clear();
+    this.budgets.clear();
   }
 
   /** 列出全部已注册工具 */
   async listTools(): Promise<HostToolRegistrationModel[]> {
-    return this.registry.listTools();
+    return (await this.registry.listTools()).map(tool => this.projectDefinition(tool));
   }
 
   /** 注册工具（幂等） */
   async registerTool(tool: HostToolDefinition): Promise<HostToolRegistrationModel> {
     if (this.disposed) throw new HostToolForbiddenError("tool runtime disposed");
-    return this.serial(tool.id, () => this.registry.registerTool(tool));
+    return this.writeDefinition(tool);
   }
 
   /** 启停工具 */
   async setEnabled(id: string, enabled: boolean): Promise<HostToolRegistrationModel | null> {
     const entry = this.handlers.get(id);
-    const pending = this.serial(id, () => this.registry.setEnabled(id, enabled));
+    const pending = this.serial(id, async () => {
+      const tool = await this.registry.setEnabled(id, enabled);
+      return tool ? this.projectDefinition(tool) : null;
+    });
     if (entry) this.attach(id, entry.handler, pending, entry.owner);
     return pending;
   }
@@ -377,6 +428,7 @@ export class HostToolRuntime {
     this.handlers.delete(id);
     const result = await this.serial(id, async () => {
       const res = await this.registry.unregisterTool(id);
+      this.budgets.delete(id);
       return res !== false;
     });
     return result;
@@ -396,7 +448,8 @@ export class HostToolRuntime {
       gatingEvaluator: (condition) => defaultGatingEvaluator(condition, options?.gatingContext),
     });
     const available = await Promise.all(
-      tools.map(async (tool) => {
+      tools.map(async (row) => {
+        const tool = this.projectDefinition(row);
         const entry = entries.get(tool.id);
         const definition = await entry?.definition.catch(() => null);
         return entry &&
@@ -431,7 +484,8 @@ export class HostToolRuntime {
     const entry = this.handlers.get(toolId);
     if (!entry) throw new HostToolForbiddenError(`tool handler not registered: ${toolId}`);
     const definition = await entry.definition;
-    const tool = await this.registry.getTool(toolId);
+    const row = await this.registry.getTool(toolId);
+    const tool = row ? this.projectDefinition(row) : null;
     if (entry.controller.signal.aborted || this.handlers.get(toolId) !== entry) {
       throw new HostToolForbiddenError(`tool registration expired: ${toolId}`);
     }
@@ -460,7 +514,7 @@ export class HostToolRuntime {
     }
 
     // Schema 校验：若工具定义了 inputSchemaJson，在派发 handler 前强校验
-    if (tool.inputSchemaJson) {
+    if (tool.inputSchemaJson != null) {
       const validation = this.validator(tool.inputSchemaJson, args);
       if (!validation.valid) {
         throw new HostToolValidationError(tool.name, validation.errors);
@@ -468,13 +522,20 @@ export class HostToolRuntime {
     }
 
     if (opts.authorize && !(await opts.authorize())) throw new HostToolForbiddenError(`tool permission denied: ${toolId}`);
-    const signals = [entry.controller.signal, opts.signal, opts.controlContext?.abortSignal].filter(
+    const timeoutController = new AbortController();
+    const signals = [entry.controller.signal, opts.signal, opts.controlContext?.abortSignal, timeoutController.signal].filter(
       (signal): signal is AbortSignal => Boolean(signal),
     );
     const signal = AbortSignal.any(signals);
 
     return new Promise((resolve, reject) => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const cleanup = () => {
+        if (timer !== undefined) clearTimeout(timer);
+        signal.removeEventListener("abort", abort);
+      };
       const abort = () => {
+        cleanup();
         // 注册生命周期取消保持「注册过期」语义；调用方 / controlContext 取消保留原始原因。
         if (entry.controller.signal.aborted && entry.controller.signal.reason === signal.reason) {
           reject(new HostToolForbiddenError(`tool registration expired: ${toolId}`));
@@ -488,13 +549,19 @@ export class HostToolRuntime {
       };
       signal.addEventListener("abort", abort, { once: true });
       if (signal.aborted) {
-        signal.removeEventListener("abort", abort);
         abort();
         return;
       }
       Promise.resolve()
         .then(() => {
           signal.throwIfAborted();
+          if (tool.budget?.timeoutMs !== undefined) {
+            timer = setTimeout(() => timeoutController.abort(new HostToolError(
+              `tool execution timed out after ${tool.budget!.timeoutMs}ms: ${toolId}`,
+              408,
+              "TOOL_TIMEOUT",
+            )), tool.budget.timeoutMs);
+          }
           return entry.handler.call(ctx, args, {
             approval: opts.approval === true,
             proactiveAuthorization: opts.proactiveAuthorization === true,
@@ -503,7 +570,7 @@ export class HostToolRuntime {
           });
         })
         .then(resolve, reject)
-        .finally(() => signal.removeEventListener("abort", abort));
+        .finally(cleanup);
     });
   }
 }
