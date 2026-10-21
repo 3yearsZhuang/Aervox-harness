@@ -1,4 +1,4 @@
-# Aervox｜思隅
+# <img src="packages/ui/src/assets/brand/aervox-app-icon.svg" width="42" height="42" alt="思隅标识"> Aervox｜思隅
 
 以桌宠和工作台为入口的学习与陪伴 Agent，帮助编程学习者提问、练习和复习。个人记录保存在本地，模型服务可按需选择。
 
@@ -8,19 +8,25 @@
 
 ## 看看思隅
 
-### 工作台：把对话和学习放在一起
+<a id="工作台把对话和学习放在一起"></a>
 
-![思隅标准工作台：会话列表、对话和输入区](docs/assets/readme/workbench.webp)
+### 桌面端：角色陪在身边，工具随手可用
 
-在工作台管理会话、发送消息，按需打开工具、任务和设置。回复支持流式显示与停止生成，也可查看运行详情。
+![思隅桌宠陪伴工作台：左侧 Live2D 角色，右侧工具卡片、对话和输入区](docs/assets/readme/workbench.webp)
 
-### 主动陪伴：从一句问候开始
+角色在左，工具与对话在右。用卡片管理待办、回看对话，在输入区继续提问；回复支持流式显示与停止生成，也可查看运行详情。
 
-![思隅主动陪伴界面：角色、打字机对话盒和建议卡](docs/assets/readme/proactive-companion.webp)
+桌面默认使用这套“桌宠陪伴”工作台；在“设置 → 通用 → 外观 → 交互模式”中，也可切换到侧栏多会话的“标准工作台”。
 
-用打字机对话盒承载交流，从最近会话接续，或进入专注。当前建议来自最近会话与固定动作；在工作台设置中切换，也可通过 `?surface=proactive-ui` 打开。
+<a id="主动陪伴从一句问候开始"></a>
 
-两张图均采自主分支界面，使用独立演示数据；工作台回复为确定性回放，不代表真实模型效果。Live2D 模型来源与许可见[模型说明](packages/live2d/mizuki/README.md)。
+### 移动端：从一句问候开始
+
+<img src="docs/assets/readme/proactive-companion.webp" width="390" alt="思隅移动端：角色、打字机对话盒、建议卡与悄悄话输入">
+
+手机和平板默认使用主动陪伴界面：接续最近会话、进入专注，或展开“悄悄话”提问。设置和停止回复随手可达；建议当前来自最近会话与固定动作。
+
+截图使用独立演示数据；回复为确定性回放，不代表真实模型效果。Live2D 模型来源与许可见[模型说明](packages/live2d/mizuki/README.md)。移动界面的浏览器适配不代表原生移动应用已发布，验收状态见[需求追踪](docs/reference/REQUIREMENTS_TRACEABILITY.md#mobile-decisions)。
 
 ## 可以做什么
 

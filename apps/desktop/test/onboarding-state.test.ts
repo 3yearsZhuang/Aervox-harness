@@ -16,6 +16,13 @@ function createStorage(initial?: string): OnboardingStorage {
 }
 
 describe('desktop onboarding completion state', () => {
+  it('存储不可用时仍可完成当前窗口引导', () => {
+    const storage = { getItem() { throw new Error('blocked') }, setItem() { throw new Error('blocked') } }
+    expect(hasCompletedOnboarding()).toBe(false)
+    expect(hasCompletedOnboarding(storage)).toBe(false)
+    expect(() => markOnboardingCompleted(storage)).not.toThrow()
+    expect(() => markOnboardingCompleted()).not.toThrow()
+  })
   it('首次启动时保持未完成', () => {
     expect(hasCompletedOnboarding(createStorage())).toBe(false)
   })

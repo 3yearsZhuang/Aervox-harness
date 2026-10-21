@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {resolveSurfaceChoice, UISurfaceHost} from '@aervox/ui-host'
+import {resolveSurfaceChoice, resolveWebPlatform, UISurfaceHost} from '@aervox/ui-host'
 import defaultSurface, {compactSurface} from '@aervox/plugin-workbench-ui'
 import proactiveSurface from '@aervox/plugin-proactive-ui'
 // CR-060：第一方插件按**包路径**装配，宿主不绑定插件私有符号（见 check-host-domain-purity）
@@ -10,10 +10,17 @@ import { settingsPanels } from '@aervox/plugin-panels-ui'
 const reloadSurface = () => window.location.reload()
 const firstPartyPlugins = [firstPartyPlugin.default]
 
-const platform = import.meta.env.VITE_AERVOX_PLATFORM === 'mobile' ? 'mobile' : 'web'
+const platform = resolveWebPlatform({
+  configuredPlatform: import.meta.env.VITE_AERVOX_PLATFORM,
+  userAgent: window.navigator.userAgent,
+  maxTouchPoints: window.navigator.maxTouchPoints,
+})
+let surfaceStorage: Storage | undefined
+try { surfaceStorage = window.localStorage } catch { /* 浏览器禁止存储时仍按平台或 URL 打开 */ }
 // CR-065 切片六：组合根显式持有受信界面清单，按用户选择（?surface= 或本地存储）装配根界面
-const mainSurface = resolveSurfaceChoice([defaultSurface, compactSurface, proactiveSurface], window.localStorage, {
+const mainSurface = resolveSurfaceChoice([defaultSurface, compactSurface, proactiveSurface], surfaceStorage, {
   storageKey: 'aervox.surface.main',
+  defaultSurfaceId: platform === 'mobile' ? proactiveSurface.id : defaultSurface.id,
   queryValue: new URLSearchParams(window.location.search).get('surface'),
 })
 </script>
