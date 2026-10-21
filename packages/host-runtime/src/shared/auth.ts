@@ -12,7 +12,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { resolveLocalContext, setRequestLocalContext } from "./local-context.js";
-import { isIP } from "node:net";
+import { isCorsPreflight, isLoopbackHostname, parseBrowserOrigin } from "./browser-boundary.js";
 
 /**
  * 恒定时间安全比对两个敏感字符串（防御时序攻击与长度泄露）。
@@ -48,6 +48,8 @@ export interface AuthConfig {
   token?: string;
   /** token 模式绑定的操作者标识（可选，仅用于审计） */
   actorId?: string;
+  /** Exact additional browser origins, permitted only with Bearer authentication. */
+  allowedOrigins?: readonly string[];
 }
 
 /** 从环境加载认证配置（可注入 env 便于测试） */
@@ -58,14 +60,13 @@ export function loadAuthConfig(env: NodeJS.ProcessEnv = process.env): AuthConfig
     mode,
     token: env.AERVOX_AUTH_TOKEN?.trim() || undefined,
     actorId: env.AERVOX_AUTH_ACTOR?.trim() || undefined,
+    allowedOrigins: env.AERVOX_API_ALLOWED_ORIGINS?.split(",").map((value) => value.trim()).filter(Boolean),
   };
 }
 
 export function assertSafeApiListenHost(host: string, mode: AuthMode): void {
   const normalized = host.trim().toLowerCase().replace(/^\[|\]$/g, "");
-  const loopback = normalized === "localhost" || normalized === "ip6-localhost" ||
-    (isIP(normalized) === 4 && normalized.startsWith("127.")) || normalized === "::1";
-  if (!loopback && mode === "open") {
+  if (!isLoopbackHostname(normalized) && mode === "open") {
     throw new Error("open authentication cannot listen on a non-loopback API host");
   }
 }
@@ -80,6 +81,10 @@ export function assertAuthConfigSafe(
   config: AuthConfig = loadAuthConfig(),
   env: NodeJS.ProcessEnv = process.env,
 ): void {
+  for (const origin of config.allowedOrigins ?? []) {
+    if (!parseBrowserOrigin(origin)) throw new Error("[auth] invalid API allowed origin");
+    if (config.mode !== "token") throw new Error("[auth] additional API origins require token authentication");
+  }
   const isProduction = env.NODE_ENV === "production";
   const isStrict = env.AERVOX_STRICT_AUTH === "true";
   if (isProduction || isStrict) {
@@ -99,6 +104,7 @@ export function assertAuthConfigSafe(
  */
 export function createAuthHook(config: AuthConfig = loadAuthConfig()) {
   return async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    if (isCorsPreflight(req, config)) return;
     if (config.mode === "open") {
       resolveLocalContext(req);
       return;

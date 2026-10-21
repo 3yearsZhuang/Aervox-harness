@@ -72,6 +72,7 @@
         "AERVOX_API_URL",
         "AERVOX_AUTH_MODE",
         "AERVOX_AUTH_TOKEN",
+        "AERVOX_API_ALLOWED_ORIGINS",
         "AERVOX_ADMIN_IDS",
         "AERVOX_LOG_LEVEL",
         "AERVOX_LOG_FORMAT",
