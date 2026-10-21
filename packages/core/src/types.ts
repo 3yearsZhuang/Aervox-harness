@@ -96,6 +96,7 @@ export interface ContextProjectionOptions {
 
 /** ContextBuilder 产出：Provider 组装输入所需的上下文 */
 export interface PromptContext {
+  pruningReport?: ContextPruningReport;
   turnId: string;
   sessionId: string;
   messages: PromptMessage[];
@@ -115,8 +116,24 @@ export interface ContextCompactionInput {
   signal?: AbortSignal;
 }
 
+export interface ContextPruningReport {
+  initialMessageCount: number;
+  finalMessageCount: number;
+  omittedMessageCount: number;
+  omittedGroupsCount: number;
+  pruningTrigger: "message_count_limit" | "token_budget_limit" | "none";
+  attribution?: {
+    systemPromptChars?: number;
+    omittedChars?: number;
+    keptChars?: number;
+  };
+  summaryStatus: "generated" | "rule_notice" | "skipped" | "failed";
+  summaryError?: string;
+}
+
 /** Context 压缩结果：压缩后的消息列表 + 可选摘要文本（审计/可观测） */
 export interface ContextCompactionResult {
+  pruningReport?: ContextPruningReport;
   messages: PromptMessage[];
   summary?: string;
 }
