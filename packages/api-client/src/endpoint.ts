@@ -7,10 +7,17 @@ export async function requestEndpoint<Endpoint extends ApiEndpoint>(
   endpoint: Endpoint,
   body?: unknown,
   params?: Record<string, string>,
+  query?: Record<string, string | undefined>,
 ): Promise<ApiEndpointResponse<Endpoint>> {
   // Validate without injecting defaults into the wire payload; the server owns defaults.
   endpoint.body?.parse(body);
   endpoint.params?.parse(params);
-  const response = await transport.request(endpoint.method.toUpperCase(), apiEndpointPath(endpoint, params), body);
+  endpoint.query?.parse(query ?? {});
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(query ?? {})) {
+    if (value !== undefined) search.set(key, value);
+  }
+  const path = apiEndpointPath(endpoint, params) + (search.size ? `?${search}` : '');
+  const response = await transport.request(endpoint.method.toUpperCase(), path, body);
   return endpoint.response.parse(response) as ApiEndpointResponse<Endpoint>;
 }

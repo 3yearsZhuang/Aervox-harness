@@ -28,10 +28,12 @@ export interface ApiEndpoint<ResponseSchema extends z.ZodType = z.ZodType> {
   readonly tags: string[];
   readonly body?: z.ZodType;
   readonly params?: z.ZodObject;
+  readonly query?: z.ZodObject;
   readonly response: ResponseSchema;
   readonly status?: number;
   readonly errors?: Readonly<Record<number, string>>;
   readonly validationErrorCode?: string;
+  readonly validationErrorMessage?: string;
 }
 
 export type ApiEndpointResponse<Endpoint extends ApiEndpoint> = z.output<Endpoint["response"]>;
