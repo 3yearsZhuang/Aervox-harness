@@ -142,9 +142,10 @@ function stopWebServer(web: ChildProcess | undefined): void {
   }, 2000);
 }
 
-export const test = base.extend<{}, { servers: UiServers }>({
+export const test = base.extend<{}, { servers: UiServers; loopProvider: "replay" | undefined }>({
+  loopProvider: [undefined, { scope: "worker", option: true }],
   servers: [
-    async ({}, use, workerInfo) => {
+    async ({ loopProvider }, use, workerInfo) => {
       const workerIndex = workerInfo.workerIndex;
       const apiPort = API_BASE_PORT + workerIndex * 10;
       const webPort = WEB_BASE_PORT + workerIndex * 10;
@@ -154,6 +155,7 @@ export const test = base.extend<{}, { servers: UiServers }>({
       const { server: apiServer, url: apiUrl } = await startServer(
         apiPort,
         dbPath,
+        loopProvider ? { AERVOX_LOOP_PROVIDER: loopProvider } : {},
       );
       let webServer: ChildProcess | undefined;
       try {

@@ -213,7 +213,7 @@ PR、自动化测试和目标环境验证是交付证据，不抄写终端日志
 | `NFR-I18N-001` | 国际化/时区 | CAP-006/009/030 | `Specified` | [SRS NFR](SRS.md#srs-nfr) | `AC-NFR-I18N-001` | `TC-INTEG-TZ-001` |
 | `NFR-SEC-001` | 安全 | CAP-001～035 | `Specified` | [SRS](SRS.md#srs-nfr)、[数据隐私](DATA_PRIVACY.md#privacy-security) | `AC-NFR-SEC-001` | `TC-SEC-BASELINE-001` |
 | `NFR-PRIV-001` | 隐私 | CAP-005/009/013/027 | `Specified` | [数据隐私](DATA_PRIVACY.md#privacy-gates) | `AC-NFR-PRIV-001` | `TC-PRIV-DEL-001` |
-| `NFR-OBS-001` | 可观测性 | CAP-001～035 | `Mapped` | [架构告警](ARCHITECTURE.md#arch-nfr) | `AC-NFR-OBS-001` | `TC-OPS-OBS-001` |
+| `NFR-OBS-001` | 可观测性 | CAP-001～035 | `Mapped` | [架构告警](ARCHITECTURE.md#arch-nfr)、[只读运行详情](agent-harness-loop.md)；`apps/api/test/turn-diagnostics.test.ts`、`e2e/ui/turn-diagnostics.spec.ts` 覆盖持久摘要与界面；完整告警和真实模型验收未闭合 | `AC-NFR-OBS-001` | `TC-OPS-OBS-001` |
 | `AIQ-TEACH-001` | 教学正确性与提示层级 | CAP-002/003/007 | `Specified` | [AI 质量](AI_QUALITY_SAFETY.md#ai-teach) | `AC-AIQ-TEACH-001` | `TC-AIEVAL-LRN-001` |
 | `AIQ-MEM-001` | 记忆压缩/晋升/来源 | CAP-005/015 | `Specified` | [AI 记忆](AI_QUALITY_SAFETY.md#ai-memory) | `AC-AIQ-MEM-001` | `TC-AIEVAL-MEM-001` |
 | `AIQ-DIA-001` | 日记事实与时间窗口 | CAP-009 | `Specified` | [AI 日记](AI_QUALITY_SAFETY.md#ai-diary) | `AC-AIQ-DIA-001` | `TC-AIEVAL-DIA-001` |

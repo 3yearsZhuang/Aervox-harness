@@ -4,6 +4,7 @@ import { computed } from 'vue';
 import { ChevronDown, ChevronRight, ChevronUp, History, MessageSquare } from 'lucide-vue-next';
 import ExtensionSlot from '../extension/ExtensionSlot.vue';
 import ToolApprovalCard from './ToolApprovalCard.vue';
+import TurnDiagnostics from './TurnDiagnostics.vue';
 import { useWorkbenchContext } from '../../composables/workbench-context';
 import { renderMarkdown } from '../../utils/markdown';
 
@@ -96,6 +97,7 @@ const isGreeting = computed(() => conversation.story.value.length === 1
       <ToolApprovalCard />
     </div>
 
+    <TurnDiagnostics v-if="latestAssistantLine?.turnId" :turn-id="latestAssistantLine.turnId" />
     <footer v-if="!isGreeting && !consoleCollapsed" class="companion-panel-footer">
       <AervoxButton variant="ghost" class="message-history-entry" type="button" @click="historyOpen = true">
         <History :size="14" />

@@ -24,6 +24,8 @@ HTTP 数据与操作的事实源是 `@aervox/contracts`；[流式协议](STREAMI
 
 静态 `packages/contracts/openapi.json` 是内核基础合同；运行时文档还包含当前装配的插件贡献，随贡献 revision 失效重建。发行者验证插件 API 时必须先装配对应发行配置。
 
+运行详情由 [Turn Diagnostics](../../packages/contracts/src/turn-diagnostics-api.ts) 共享声明定义，为只读 GET。省略 attemptId 读取最新尝试，明确指定时必须属于该 Turn；Turn 或 Attempt 不存在均返回 404。响应设置 `Cache-Control: no-store`，不支持 includeRaw 等扩展参数。返回的是有界的持久记录摘要，截断与未采集信息显式提供；不执行模型、工具、审批决定或新 Turn，也不返回对话正文和工具载荷。界面 JSON 导出复用相同响应校验和数据范围。
+
 ## 失败与客户端处理
 
 JSON HTTP 失败使用 RFC 9457 `application/problem+json`，结构由 [ApiProblem](../../packages/contracts/src/http-api.ts) 定义。`type/title/status/detail` 描述失败，`code` 用于程序分支，`requestId` 用于定位；`details` 可携带字段错误。`error/message` 在 `/v1` 迁移期保留供旧客户端使用。

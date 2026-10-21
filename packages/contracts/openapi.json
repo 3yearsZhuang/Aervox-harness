@@ -9392,6 +9392,248 @@
           }
         }
       },
+      "TurnDiagnostics": {
+        "type": "object",
+        "properties": {
+          "turnId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "sessionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "status": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "observedAt": {
+            "type": "string"
+          },
+          "selectedAttemptId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "attempts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "attempt": {
+                  "type": "integer"
+                },
+                "status": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "startedAt": {
+                  "type": "string"
+                },
+                "finishedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "attempt",
+                "status",
+                "startedAt",
+                "finishedAt"
+              ]
+            }
+          },
+          "terminationReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "modelRuns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "step": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "provider": {
+                  "type": "string"
+                },
+                "modelId": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "latencyMs": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "contextManifestId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "minLength": 1,
+                  "maxLength": 256
+                }
+              },
+              "required": [
+                "id",
+                "step",
+                "provider",
+                "modelId",
+                "status",
+                "latencyMs",
+                "contextManifestId"
+              ]
+            }
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "invocationId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "name": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "startedAt": {
+                  "type": "string"
+                },
+                "finishedAt": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "invocationId",
+                "name",
+                "status",
+                "startedAt",
+                "finishedAt"
+              ]
+            }
+          },
+          "approvals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "toolName": {
+                  "type": "string"
+                },
+                "state": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "decidedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "toolName",
+                "state",
+                "decidedAt"
+              ]
+            }
+          },
+          "truncated": {
+            "type": "object",
+            "properties": {
+              "attempts": {
+                "type": "boolean"
+              },
+              "modelRuns": {
+                "type": "boolean"
+              },
+              "tools": {
+                "type": "boolean"
+              },
+              "approvals": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "attempts",
+              "modelRuns",
+              "tools",
+              "approvals"
+            ]
+          },
+          "unavailable": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "context_pruning",
+                "plugin_timeline",
+                "tool_step_mapping"
+              ]
+            }
+          }
+        },
+        "required": [
+          "turnId",
+          "sessionId",
+          "status",
+          "observedAt",
+          "selectedAttemptId",
+          "attempts",
+          "terminationReason",
+          "modelRuns",
+          "tools",
+          "approvals",
+          "truncated",
+          "unavailable"
+        ]
+      },
       "ListMemoryNodesResponse": {
         "type": "object",
         "properties": {
@@ -22721,6 +22963,89 @@
           }
         },
         "operationId": "delete_v1_model_runtime_models_modelId"
+      }
+    },
+    "/v1/turns/{turnId}/diagnostics": {
+      "get": {
+        "operationId": "getTurnDiagnostics",
+        "summary": "读取按 Attempt 隔离的持久运行诊断摘要（不包含正文、参数和输出）",
+        "tags": [
+          "Conversation"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "required": true,
+            "name": "turnId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "required": false,
+            "name": "attemptId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TurnDiagnostics"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "TURN_OR_ATTEMPT_NOT_FOUND",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1/model-runtime/state": {

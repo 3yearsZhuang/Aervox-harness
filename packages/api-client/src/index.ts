@@ -131,3 +131,5 @@ export {
   VoiceInputRecorder,
   type VoiceInputRecorderOptions,
 } from './voice-input-recorder';
+
+export * from './useAervoxTurnDiagnostics.js';
