@@ -5,10 +5,10 @@ export interface OnboardingStorage {
   setItem(key: string, value: string): void
 }
 
-export function hasCompletedOnboarding(storage: OnboardingStorage): boolean {
-  return storage.getItem(ONBOARDING_COMPLETION_KEY) === 'true'
+export function hasCompletedOnboarding(storage?: OnboardingStorage): boolean {
+  try { return storage?.getItem(ONBOARDING_COMPLETION_KEY) === 'true' } catch { return false }
 }
 
-export function markOnboardingCompleted(storage: OnboardingStorage): void {
-  storage.setItem(ONBOARDING_COMPLETION_KEY, 'true')
+export function markOnboardingCompleted(storage?: OnboardingStorage): void {
+  try { storage?.setItem(ONBOARDING_COMPLETION_KEY, 'true') } catch { /* 当前窗口仍可完成引导 */ }
 }

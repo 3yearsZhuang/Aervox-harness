@@ -178,7 +178,9 @@ export { expect };
 
 /** 打开工作台并等待根组件渲染完成（首次访问需等待 Vite 按需编译，放宽超时） */
 export async function openWorkbench(page: Page, webUrl: string): Promise<void> {
-  await page.goto(webUrl, { timeout: 90_000 });
+  const target = new URL(webUrl);
+  target.searchParams.set('surface', 'workbench-ui');
+  await page.goto(target.toString(), { timeout: 90_000 });
   await expect(page.locator(".aervox-workbench")).toBeVisible({
     timeout: 90_000,
   });
