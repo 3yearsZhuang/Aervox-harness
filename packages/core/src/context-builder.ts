@@ -189,7 +189,17 @@ export function createSummaryCompaction(
 
       const totalCount = systems.length + nonSystems.length;
       if (totalCount <= maxMessages) {
-        return { messages: projected };
+        return {
+          messages: projected,
+          pruningReport: {
+            initialMessageCount: totalCount,
+            finalMessageCount: totalCount,
+            omittedMessageCount: 0,
+            omittedGroupsCount: 0,
+            pruningTrigger: "none",
+            summaryStatus: "skipped",
+          },
+        };
       }
 
       // 从后往前保留消息组，确保总消息数（含 systems + 1 条总结说明）不超过 maxMessages
@@ -211,8 +221,34 @@ export function createSummaryCompaction(
       const omittedMessages = omittedGroups.flat();
 
       if (omittedMessages.length === 0) {
-        return { messages: projected };
+        return {
+          messages: projected,
+          pruningReport: {
+            initialMessageCount: totalCount,
+            finalMessageCount: totalCount,
+            omittedMessageCount: 0,
+            omittedGroupsCount: 0,
+            pruningTrigger: "none",
+            summaryStatus: "skipped",
+          },
+        };
       }
+
+      const estimateChars = (msgs: PromptMessage[]) =>
+        msgs.reduce((acc, m) => acc + (typeof m.content === "string" ? m.content.length : 0), 0);
+
+      const basePruningReport = {
+        initialMessageCount: totalCount,
+        finalMessageCount: systems.length + 1 + keptFlat.length,
+        omittedMessageCount: omittedMessages.length,
+        omittedGroupsCount: omittedGroups.length,
+        pruningTrigger: "message_count_limit" as const,
+        attribution: {
+          systemPromptChars: estimateChars(systems),
+          omittedChars: estimateChars(omittedMessages),
+          keptChars: estimateChars(keptFlat),
+        },
+      };
 
       // 2. 真实摘要 vs 规则省略说明
       if (options.summarizer) {
@@ -237,6 +273,10 @@ export function createSummaryCompaction(
           return {
             messages: [...systems, notice, ...keptFlat],
             summary,
+            pruningReport: {
+              ...basePruningReport,
+              summaryStatus: "generated",
+            },
           };
         } catch (err) {
           input.signal?.throwIfAborted();
@@ -253,6 +293,11 @@ export function createSummaryCompaction(
           };
           return {
             messages: [...systems, notice, ...keptFlat],
+            pruningReport: {
+              ...basePruningReport,
+              summaryStatus: "failed",
+              summaryError: failMsg,
+            },
           };
         }
       }
@@ -265,6 +310,10 @@ export function createSummaryCompaction(
 
       return {
         messages: [...systems, notice, ...keptFlat],
+        pruningReport: {
+          ...basePruningReport,
+          summaryStatus: "rule_notice",
+        },
       };
     },
   };
@@ -360,13 +409,13 @@ export function createComposedContextBuilder(
         input.signal?.throwIfAborted();
         const ctx = await awaitWithSignal(Promise.resolve(inner.build(input)), input.signal);
         input.signal?.throwIfAborted();
-        const { messages } = await awaitWithSignal(compaction.compact({
+        const { messages, pruningReport } = await awaitWithSignal(compaction.compact({
           turnId: ctx.turnId,
           sessionId: ctx.sessionId,
           messages: ctx.messages,
           signal: input.signal,
         }), input.signal);
-        return { ...ctx, messages };
+        return { ...ctx, messages, pruningReport };
       },
     };
   }

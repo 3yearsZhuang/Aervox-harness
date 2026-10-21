@@ -34,3 +34,8 @@ export type {
 } from "./host-tool-runtime.js";
 export { createMockToolProvider } from "./tool-provider.js";
 export { awaitWithSignal, abortableStream } from "./abortable.js";
+
+export { runAgentTurn } from "./agent-contract.js";
+export type { AgentDefinition, AgentRunResult, RunAgentTurnInput, RunAgentTurnDeps } from "./agent-contract.js";
+export { exportSanitizedEvalFixture } from "./diagnostics-manifest.js";
+export type { RunDiagnosticsManifest, SanitizedEvalFixture } from "./diagnostics-manifest.js";
