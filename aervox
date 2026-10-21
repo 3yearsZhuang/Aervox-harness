@@ -192,9 +192,13 @@ show_dev_banner() {
 
 # 启动只接受锁定安装；重新解析依赖必须显式运行 setup。
 ensure_deps() {
+  if [ "${_AERVOX_DEPS_ENSURED:-0}" -eq 1 ]; then
+    return 0
+  fi
   ensure_mise
   info "按锁文件检查依赖…"
   run pnpm install --frozen-lockfile --prefer-offline
+  _AERVOX_DEPS_ENSURED=1
   ok "依赖已就绪"
 }
 
@@ -294,7 +298,7 @@ cmd_dev() {
 
 cmd_cli() {
   ensure_deps
-  if [ ! -f apps/cli/dist/index.js ]; then
+  if [ ! -f apps/cli/dist/index.js ] || [ -n "$(find apps/cli/src -newer apps/cli/dist/index.js 2>/dev/null)" ]; then
     info "构建 CLI 产物…"
     run pnpm --filter @aervox/cli build
   fi
