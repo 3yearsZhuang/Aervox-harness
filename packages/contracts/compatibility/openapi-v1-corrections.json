@@ -1696,6 +1696,76 @@
         "pattern": "^[a-z][a-z0-9_-]{0,63}$",
         "type": "string"
       }
+    },
+    {
+      "id": "plugin-config-schema-get-response",
+      "reason": "Plugin configuration contract migration corrects the existing HTTP response: getConfigSchema and registerConfigSchema return schemaVersion and fields, without the bundle DSL apiVersion or kind envelope. Real HTTP regressions preserve this behavior; the historical baseline source is unchanged.",
+      "pointer": "/paths/~1v1~1plugins~1{pluginId}~1config~1schema/get/responses/200/content/application~1json/schema",
+      "beforeHash": "04f919677104a120a26ad0d5aeac225fcf41ce1566fb8e9194a87c53408a08ee",
+      "value": {
+        "type": "object",
+        "properties": {
+          "schemaVersion": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            "maxItems": 200
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "fields"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "plugin-config-schema-put-response",
+      "reason": "Plugin configuration contract migration corrects the existing HTTP response: getConfigSchema and registerConfigSchema return schemaVersion and fields, without the bundle DSL apiVersion or kind envelope. Real HTTP regressions preserve this behavior; the historical baseline source is unchanged.",
+      "pointer": "/paths/~1v1~1plugins~1{pluginId}~1config~1schema/put/responses/200/content/application~1json/schema",
+      "beforeHash": "04f919677104a120a26ad0d5aeac225fcf41ce1566fb8e9194a87c53408a08ee",
+      "value": {
+        "type": "object",
+        "properties": {
+          "schemaVersion": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            "maxItems": 200
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "fields"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "plugin-config-schema-registration-body-presence",
+      "reason": "Plugin configuration schema registration and revision-CAS saving already reject missing bodies. Their shared endpoint descriptors now publish required body presence, preserving the existing 400 behavior; real HTTP regressions verify absence cannot mutate configuration or Secrets.",
+      "pointer": "/paths/~1v1~1plugins~1{pluginId}~1config~1schema/put/requestBody/required",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": true
+    },
+    {
+      "id": "plugin-config-save-body-presence",
+      "reason": "Plugin configuration schema registration and revision-CAS saving already reject missing bodies. Their shared endpoint descriptors now publish required body presence, preserving the existing 400 behavior; real HTTP regressions verify absence cannot mutate configuration or Secrets.",
+      "pointer": "/paths/~1v1~1plugins~1{pluginId}~1config/put/requestBody/required",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": true
     }
   ],
   "restoration": {

@@ -12,9 +12,11 @@ HTTP 数据与操作的事实源是 `@aervox/contracts`；[流式协议](STREAMI
 
 ## 操作声明与覆盖
 
-新 JSON 端点优先使用 [ApiEndpoint](../../packages/contracts/src/http-api.ts) 定义方法、路径、稳定 `operationId`、输入、成功响应及错误响应；使用宿主 [registerContractRoute](../../packages/host-runtime/src/shared/contract-route.ts) 注册，并由 OpenAPI 与共享客户端消费同一声明。已有切片包括 [Model Runtime](../../packages/contracts/src/model-runtime-api.ts)、[隐私授权与删除请求](../../packages/contracts/src/privacy-api.ts)和[用户偏好](../../packages/contracts/src/preferences-api.ts)。共享声明校验路径、查询参数、请求体和成功响应；SSE、文件和已有路由可以保留专用适配器，但仍须登记协议。
+新 JSON 端点优先使用 [ApiEndpoint](../../packages/contracts/src/http-api.ts) 定义方法、路径、稳定 `operationId`、输入、成功响应及错误响应；使用宿主 [registerContractRoute](../../packages/host-runtime/src/shared/contract-route.ts) 注册，并由 OpenAPI 与共享客户端消费同一声明。已有切片包括 [Model Runtime](../../packages/contracts/src/model-runtime-api.ts)、[隐私授权与删除请求](../../packages/contracts/src/privacy-api.ts)、[用户偏好](../../packages/contracts/src/preferences-api.ts)和[插件配置](../../packages/contracts/src/plugin-config-api.ts)。共享声明校验路径、查询参数、请求体和成功响应；SSE、文件和已有路由可以保留专用适配器，但仍须登记协议。
 
 新声明中需要请求体的操作显式设置 `bodyRequired: true`，使 OpenAPI 的请求体存在性与运行时 Schema 校验一致；这与对象内部的必填字段不同。隐私授权、删除请求和偏好保存、更新缺少请求体时返回 400；撤销授权与重置偏好保留无请求体调用。
+
+插件 Schema 注册和配置保存也要求请求体，分别以 `INVALID_CONFIG_SCHEMA`、`INVALID_CONFIG` 返回 400；配置保存的 revision 必须为非负整数。Schema 注册使用完整 DSL，读取和注册成功返回 `{schemaVersion, fields}`；共享校验先检查深度，再解析递归字段。声明中的 `openapi` 表示仅供生成器使用的简化递归表示，宿主和客户端仍使用完整运行时校验。重置保留无请求体调用；配置修订 CAS、Secret 脱敏、停用插件冲突和包声明不可变性见[插件规范](plugin-config-and-pages.md#2-配置存储与-api)。
 
 认证由宿主统一执行，插件或业务 handler 不能通过自定义声明降低要求。共享契约不得导入具体插件实现或宿主应用。
 
@@ -43,6 +45,8 @@ JSON HTTP 失败使用 RFC 9457 `application/problem+json`，结构由 [ApiProbl
 历史基线保存在 `packages/contracts/compatibility/`。本次本地身份头、既有 Bearer 行为和 Problem Details 的纠偏使用精确指针、旧内容摘要与固定新内容记录；不允许通过宽泛忽略错误字符串绕过检查。
 
 历史基线仍指向原提交 `05200288`。首次规范化曾误删与注解同名的业务字段，现从该提交的原始 OpenAPI 恢复；纠偏值从已评审的 `ae5cca63` 原文恢复并重新计算精确摘要。两文件的 `restoration` 记录修复前文件 SHA-256 与来源 Git blob，供逐项核对；这次数据修复没有推进基线或新增兼容豁免。属性字典与常量内容中的 `title`、`description` 等键保留为契约数据。
+
+插件配置迁移以四个精确指针纠正既有文档偏差：Schema 读取与注册的成功响应，以及注册、保存请求体的必填标记。真实 HTTP 回归验证既有 `{schemaVersion, fields}` 响应和缺少请求体的 400 行为；历史基线源保持不变。
 
 [Provider 扩展](https://github.com/3yearsZhuang/Aervox-harness/pull/282)保留六个既有 ID，并允许宿主注册的有界 ID。此次批准的响应枚举扩展以 16 个精确 Schema 指针、旧内容摘要和固定新内容登记，未重置历史基线。现有客户端继续使用旧 ID；消费新注册 Provider 的客户端须将 `providerType` 作为标识符处理，不能穷举六种取值或把未知 ID 静默切换为另一 Provider。后续字段、正则或其它兼容变化继续受检。
 
