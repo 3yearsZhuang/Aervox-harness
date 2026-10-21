@@ -62,7 +62,7 @@ function closePicker() {
             :aria-label="`${companionDisplayName}想问你`"
           >
             <header class="side-card-head companion-panel-head">
-              <CircleHelp class="companion-panel-icon" :size="18" aria-hidden="true" />
+              <span class="side-card-icon" aria-hidden="true"><CircleHelp :size="22" /></span>
               <span class="side-card-title">
                 <strong class="companion-panel-title">{{ companionDisplayName }}想问你</strong>
                 <small>点选选项作答，答完卡片自动恢复</small>
@@ -107,7 +107,7 @@ function closePicker() {
             @keydown.space.self.prevent="activateCard(card, $event)"
           >
             <header class="side-card-head companion-panel-head">
-              <component :is="card.icon" class="companion-panel-icon" :size="18" aria-hidden="true" />
+              <span class="side-card-icon" aria-hidden="true"><component :is="card.icon" :size="22" /></span>
               <span class="side-card-title">
                 <strong class="companion-panel-title">{{ card.label }}</strong>
                 <small>{{ card.description }}</small>
