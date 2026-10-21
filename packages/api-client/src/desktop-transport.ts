@@ -119,6 +119,7 @@ export const desktopTransport: AervoxTransport = {
       error.message += `: ${res.text}`;
       throw error;
     }
+    if (res.status === 204) return undefined as T;
     return res.json as T;
   },
 

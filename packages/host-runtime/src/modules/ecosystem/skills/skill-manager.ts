@@ -21,6 +21,11 @@ import { unzip } from "./zip.js";
 import { assertSkillDirectoryOwner, FileExistsError, withSkillMutation } from "./ownership.js";
 export { FileExistsError } from "./ownership.js";
 
+/** Public installation input errors, separated from private filesystem/database diagnostics. */
+export class SkillInstallInputError extends Error {
+  readonly statusCode = 400;
+}
+
 /** 仓库根（apps/api/src/modules/ecosystem/skills 向上 6 级；dist 布局同深） */
 const repoRoot = fileURLToPath(new URL("../../../../../../", import.meta.url));
 export const DEFAULT_SKILLS_ROOT = path.join(repoRoot, "data", "skills");
@@ -87,9 +92,18 @@ export class SkillManager {
 
   /** 安装 zip（可含一个或多个技能目录；根含 SKILL.md 为单技能形态，需显式 name） */
   async installFromZip(zipData: Buffer, opts: SkillInstallOptions = {}): Promise<SkillRegistrationModel[]> {
-    const entries = await unzip(zipData, opts.signal);
+    const entries = await unzip(zipData, opts.signal).catch((error: unknown) => {
+      if (opts.signal?.aborted || (error instanceof Error && error.name === "AbortError")) throw error;
+      const message = error instanceof Error ? error.message : "";
+      // Only codec/path/budget failures are public input errors. Worker/runtime diagnostics stay private.
+      if (/^(?:Invalid zip archive|Invalid zip: size or checksum mismatch|Unsupported zip: zip64|Unsupported zip encoding|Archive entry name exceeds limit|Archive exceeds (?:compressed size|entry|expansion) limit)/.test(message)
+        || message.startsWith("Unsafe entry path in archive: ") || message.startsWith("Duplicate archive entry: ")) {
+        throw new SkillInstallInputError("Invalid skill archive");
+      }
+      throw error;
+    });
     const files = entries.filter((e) => !e.isDirectory);
-    if (files.length === 0) throw new Error("Zip archive is empty.");
+    if (files.length === 0) throw new SkillInstallInputError("Zip archive is empty.");
 
     const hasRootSkillMd = files.some((f) => f.name === "SKILL.md" || f.name === "skill.md");
     const topDirs = [...new Set(files.map((f) => f.name.split("/")[0]))];
@@ -97,7 +111,7 @@ export class SkillManager {
     const folders: Array<{ name: string; files: typeof files; strip: boolean }> = [];
     if (hasRootSkillMd) {
       const name = normalizeSkillName(opts.name ?? "");
-      if (!isValidSkillName(name)) throw new Error("Invalid skill name: name is required for a single-skill zip");
+      if (!isValidSkillName(name)) throw new SkillInstallInputError("Invalid skill name: name is required for a single-skill zip");
       folders.push({ name, files, strip: false });
     } else {
       for (const rawTopDir of topDirs) {
@@ -110,7 +124,7 @@ export class SkillManager {
         }
       }
     }
-    if (!folders.length) throw new Error("No valid SKILL.md found in the zip archive.");
+    if (!folders.length) throw new SkillInstallInputError("No valid SKILL.md found in the zip archive.");
     if (new Set(folders.map(folder => folder.name)).size !== folders.length) throw new FileExistsError("Duplicate normalized skill names.");
     return withSkillMutation(this.skillsRoot, async () => {
       for (const folder of folders) {

@@ -388,25 +388,7 @@
     },
     {
       "method": "GET",
-      "path": "/v1/skills/prompt",
-      "module": "modules/ecosystem/skills",
-      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
-    },
-    {
-      "method": "GET",
       "path": "/v1/skills/releases",
-      "module": "modules/ecosystem/skills",
-      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
-    },
-    {
-      "method": "GET",
-      "path": "/v1/skills/{param}",
-      "module": "modules/ecosystem/skills",
-      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
-    },
-    {
-      "method": "GET",
-      "path": "/v1/skills/{param}/content",
       "module": "modules/ecosystem/skills",
       "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
     },
@@ -498,12 +480,6 @@
       "method": "PATCH",
       "path": "/v1/proactive/sources/{param}",
       "module": "modules/proactive/proactive",
-      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
-    },
-    {
-      "method": "PATCH",
-      "path": "/v1/skills/{param}",
-      "module": "modules/ecosystem/skills",
       "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
     },
     {
@@ -762,12 +738,6 @@
       "method": "POST",
       "path": "/v1/sessions/{param}/branches",
       "module": "modules/companion/branch",
-      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
-    },
-    {
-      "method": "POST",
-      "path": "/v1/skills",
-      "module": "modules/ecosystem/skills",
       "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
     },
     {

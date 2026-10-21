@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DESKTOP_TURN_TIMEOUT_MS, desktopTransport } from '../src/desktop-transport'
 import { AervoxHttpError } from '../src/transport'
+import { useAervoxSkills } from '../src/useAervoxSkills'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -8,6 +9,22 @@ afterEach(() => {
 })
 
 describe('desktopTransport', () => {
+  it('normalizes the main-process null JSON for an empty 204 and refreshes skills after deletion', async () => {
+    const apiRequest = vi.fn()
+      .mockResolvedValueOnce({ status: 204, ok: true, json: null, text: '' })
+      .mockResolvedValueOnce({ status: 204, ok: true, json: null, text: '' })
+      .mockResolvedValueOnce({ status: 200, ok: true, json: { items: [] }, text: '{"items":[]}' })
+    ;(globalThis as { window: unknown }).window = { fairyDesktop: { apiRequest } }
+    expect(await desktopTransport.request('DELETE', '/v1/skills/notes')).toBeUndefined()
+    const skills = useAervoxSkills(desktopTransport)
+    await expect(skills.deleteSkill('notes')).resolves.toBeUndefined()
+    expect(apiRequest.mock.calls.map(call => call.slice(0, 2))).toEqual([
+      ['DELETE', '/v1/skills/notes'], ['DELETE', '/v1/skills/notes'], ['GET', '/v1/skills'],
+    ])
+    expect(skills.skills.value).toEqual([])
+    expect(skills.error.value).toBeNull()
+  })
+
   it('preserves HTTP status and the desktop error body for conflict recovery', async () => {
     const body = '{"code":"bot_connection_revision_conflict"}'
     ;(globalThis as { window: unknown }).window = {

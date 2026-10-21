@@ -11,6 +11,7 @@ import { apiProblemSchema, type ApiEndpoint } from "./http-api.js";
 import { turnDiagnosticsApi } from "./turn-diagnostics-api.js";
 import { modelRuntimeApi } from "./model-runtime-api.js";
 import { preferencesApi } from "./preferences-api.js";
+import { skillsApi } from "./skills-api.js";
 import { privacyApi } from "./privacy-api.js";
 import { pluginConfigApi } from "./plugin-config-api.js";
 import { createMemoryNodeRequestSchema, memoryNodeSchema, listMemoryNodesResponseSchema } from "./memory-api.js";
@@ -979,10 +980,6 @@ registry.registerPath({
   request: { headers: commonHeaders, body: { content: { "application/json": { schema: importPersonaRequestSchema } } } }, responses: { 201: { description: "Imported" } },
 });
 registry.registerPath({
-  method: "get", path: "/v1/skills", summary: "列出有效 Skills", tags: ["Skills"], request: { headers: commonHeaders },
-  responses: { 200: { description: "Skills", content: { "application/json": { schema: z.object({ skills: z.array(skillSummarySchema) }) } } } },
-});
-registry.registerPath({
   method: "post", path: "/v1/skills/import", summary: "导入 Anthropic Skills ZIP", tags: ["Skills"],
   request: { headers: commonHeaders, body: { content: { "application/json": { schema: importSkillsRequestSchema } } } }, responses: { 201: { description: "Imported" } },
 });
@@ -994,7 +991,6 @@ for (const action of ["enable", "disable"] as const) registry.registerPath({
   method: "post", path: `/v1/skills/{skillName}/${action}`, summary: `${action} Skill`, tags: ["Skills"],
   request: { params: skillNameParam, headers: commonHeaders }, responses: { 200: { description: "Skill", content: { "application/json": { schema: skillSummarySchema } } } },
 });
-registry.registerPath({ method: "delete", path: "/v1/skills/{skillName}", summary: "删除工作区 Skill", tags: ["Skills"], request: { params: skillNameParam, headers: commonHeaders }, responses: { 200: { description: "Deleted" } } });
 registerMcpOpenApiPaths(registry, commonHeaders);
 registry.registerPath({ method: "get", path: "/v1/voice/models", summary: "列出 GPT-SoVITS 模型", tags: ["Voice"], responses: { 200: { description: "Voice models", content: { "application/json": { schema: z.object({ models: z.array(voiceModelSchema) }) } } } } });
 registry.registerPath({ method: "post", path: "/v1/voice/synthesize", summary: "GPT-SoVITS 语音合成", tags: ["Voice"], request: { body: { content: { "application/json": { schema: voiceSynthesisRequestSchema } } } }, responses: { 200: { description: "Audio artifact", content: { "application/json": { schema: voiceSynthesisResponseSchema } } }, 503: { description: "VOICE_PROVIDER_UNAVAILABLE" } } });
@@ -1043,12 +1039,15 @@ function registerJsonEndpoint(endpoint: ApiEndpoint): void {
       } } : {}),
     },
     responses: {
-      [endpoint.status ?? 200]: { description: "Success", content: { "application/json": { schema: endpoint.openapi?.response ?? endpoint.response } } },
+      [endpoint.status ?? 200]: {
+        description: "Success",
+        ...(endpoint.status === 204 ? {} : { content: { "application/json": { schema: endpoint.openapi?.response ?? endpoint.response } } }),
+      },
       ...Object.fromEntries(Object.entries(endpoint.errors ?? {}).map(([status, description]) => [status, { description }])),
     },
   });
 }
-for (const endpoint of [...Object.values(turnDiagnosticsApi), ...Object.values(modelRuntimeApi), ...Object.values(preferencesApi), ...Object.values(privacyApi)] as ApiEndpoint[]) {
+for (const endpoint of [...Object.values(turnDiagnosticsApi), ...Object.values(modelRuntimeApi), ...Object.values(preferencesApi), ...Object.values(privacyApi), ...Object.values(skillsApi)] as ApiEndpoint[]) {
   registerJsonEndpoint(endpoint);
 }
 registry.registerPath({

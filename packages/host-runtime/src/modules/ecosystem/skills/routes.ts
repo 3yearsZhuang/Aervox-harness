@@ -23,7 +23,9 @@ import { withRequestSignal } from "../../../shared/request-signal.js";
  * - POST   /v1/skills/releases/:id/sync       同步 stable 发布到本地。
  */
 import type { FastifyInstance } from "fastify";
-import { FileExistsError, type SkillManager } from "./skill-manager.js";
+import { skillsApi, type InstallSkillZipRequest } from "@aervox/contracts";
+import { registerContractRoute } from "../../../shared/contract-route.js";
+import { FileExistsError, SkillInstallInputError, type SkillManager } from "./skill-manager.js";
 import { SkillNotFoundError, SkillStateError, type SkillLifecycleService } from "./lifecycle.js";
 
 export function registerSkillRoutes(
@@ -32,7 +34,7 @@ export function registerSkillRoutes(
   lifecycle?: SkillLifecycleService,
 ): void {
   // 列出
-  app.get("/v1/skills", async (req) => {
+  registerContractRoute(app, skillsApi.list, async (req) => {
     const { activeOnly, source } = (req.query ?? {}) as { activeOnly?: string; source?: string };
     let items = await manager.listSkills(activeOnly === "true");
     if (source) {
@@ -42,73 +44,59 @@ export function registerSkillRoutes(
   });
 
   // 安装（zip base64）
-  app.post("/v1/skills", async (req, reply) => {
-    const body = (req.body ?? {}) as {
-      name?: string;
-      overwrite?: boolean;
-      zipBase64?: string;
-    };
-    if (!body.zipBase64 || typeof body.zipBase64 !== "string") {
-      return reply.code(400).send({ error: "zipBase64 is required" });
-    }
-    let zipData: Buffer;
-    try {
-      zipData = Buffer.from(body.zipBase64, "base64");
-    } catch {
-      return reply.code(400).send({ error: "zipBase64 is not valid base64" });
-    }
+  registerContractRoute(app, skillsApi.install, async (req, reply) => {
+    const body = req.body as InstallSkillZipRequest;
+    const zipData = Buffer.from(body.zipBase64, "base64");
     try {
       const installed = await withRequestSignal(req, reply, signal => manager.installFromZip(zipData, {
         signal,
         name: body.name,
         overwrite: body.overwrite,
       }));
-      return reply.code(201).send({ installed });
+      return { installed };
     } catch (err) {
       if (err instanceof FileExistsError) {
         return reply.code(409).send({ error: err.message });
       }
-      return reply.code(400).send({ error: err instanceof Error ? err.message : String(err) });
+      if (err instanceof SkillInstallInputError) return reply.code(400).send({ error: err.message });
+      throw err;
     }
   });
 
   // 渐进式披露提示词段
-  app.get("/v1/skills/prompt", async () => ({ prompt: await manager.buildPrompt() }));
+  registerContractRoute(app, skillsApi.prompt, async () => ({ prompt: await manager.buildPrompt() }));
 
   // 技能元数据
-  app.get("/v1/skills/:name", async (req, reply) => {
-    const { name } = req.params as { name: string };
-    const skill = await manager.getSkill(name);
+  registerContractRoute(app, skillsApi.get, async (req, reply) => {
+    const { skillName } = req.params as { skillName: string };
+    const skill = await manager.getSkill(skillName);
     if (!skill) return reply.code(404).send({ error: "skill not found" });
     return skill;
   });
 
   // SKILL.md 全文
-  app.get("/v1/skills/:name/content", async (req, reply) => {
-    const { name } = req.params as { name: string };
-    const content = await manager.readSkillMarkdown(name);
+  registerContractRoute(app, skillsApi.content, async (req, reply) => {
+    const { skillName } = req.params as { skillName: string };
+    const content = await manager.readSkillMarkdown(skillName);
     if (!content) return reply.code(404).send({ error: "skill not found" });
     return content;
   });
 
   // 启停
-  app.patch("/v1/skills/:name", async (req, reply) => {
-    const { name } = req.params as { name: string };
-    const body = (req.body ?? {}) as { active?: boolean };
-    if (typeof body.active !== "boolean") {
-      return reply.code(400).send({ error: "active is required" });
-    }
-    const skill = await manager.setActive(name, body.active);
+  registerContractRoute(app, skillsApi.setActive, async (req, reply) => {
+    const { skillName } = req.params as { skillName: string };
+    const body = req.body as { active: boolean };
+    const skill = await manager.setActive(skillName, body.active);
     if (!skill) return reply.code(404).send({ error: "skill not found" });
     return skill;
   });
 
   // 删除（readonly 拒绝 → 409）
-  app.delete("/v1/skills/:name", async (req, reply) => {
-    const { name } = req.params as { name: string };
-    const ok = await manager.deleteSkill(name);
+  registerContractRoute(app, skillsApi.delete, async (req, reply) => {
+    const { skillName } = req.params as { skillName: string };
+    const ok = await manager.deleteSkill(skillName);
     if (!ok) return reply.code(409).send({ error: "delete failed（技能不存在或为只读）" });
-    return reply.code(204).send();
+    return undefined;
   });
 
   if (!lifecycle) return;
