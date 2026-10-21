@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { buildSync } from 'esbuild';
 import { fileURLToPath } from 'node:url';
+import { setTimeout as delay } from 'node:timers/promises';
 
 function fixture(t) {
   const dir = mkdtempSync(join(tmpdir(), 'aervox-dev-'));
@@ -231,7 +232,7 @@ import { spawn } from 'node:child_process';
 const args = process.argv.slice(2);
 fs.appendFileSync('calls', JSON.stringify({ args }) + '\\n');
 if (args.includes('--filter=@aervox/api')) {
-  const child = spawn(process.execPath, ['-e', "require('fs').writeFileSync('descendant-pid', String(process.pid)); process.on('SIGTERM', () => { require('fs').writeFileSync('descendant-stopped', 'yes'); process.exit(0); }); setInterval(() => {}, 1000);"], { stdio: 'inherit' });
+  const child = spawn(process.execPath, ['-e', "process.on('SIGTERM', () => { require('fs').writeFileSync('descendant-stopped', 'yes'); process.exit(0); }); setInterval(() => {}, 1000); require('fs').writeFileSync('descendant-pid', String(process.pid));"], { stdio: 'inherit' });
   fs.writeFileSync('service-pid', String(process.pid));
   process.on('SIGTERM', () => { fs.writeFileSync('service-stopped', 'yes'); });
   child.on('exit', () => process.exit(0));
@@ -248,8 +249,22 @@ if (args.includes('--filter=@aervox/api')) {
   assert.equal(result.status, 0, result.stderr);
   assert.equal(existsSync(join(dir, 'service-stopped')), true);
   assert.equal(existsSync(join(dir, 'descendant-stopped')), true);
+  const isRunning = pid => {
+    try { process.kill(pid, 0); }
+    catch (error) { if (error.code === 'ESRCH') return false; throw error; }
+    if (process.platform === 'linux') {
+      try {
+        // kill(0) also succeeds for exited zombies until PID 1 reaps them.
+        // Such a process cannot execute or retain service resources.
+        return !/^State:\s+[ZX]\b/m.test(readFileSync(`/proc/${pid}/status`, 'utf8'));
+      } catch (error) { if (error.code === 'ENOENT') return false; throw error; }
+    }
+    return true;
+  };
+  const deadline = Date.now() + 3_000;
+  while (pids().some(isRunning) && Date.now() < deadline) await delay(25);
   for (const pid of pids()) {
-    assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
+    assert.equal(isRunning(pid), false, `service process ${pid} must stop after CLI exit`);
   }
 });
 
