@@ -7,6 +7,9 @@ import {createHash} from 'node:crypto'
 import {chmod, mkdir, readFile, rename, writeFile} from 'node:fs/promises'
 import os from 'node:os'
 import {delimiter, dirname, join} from 'node:path'
+import {pathToFileURL} from 'node:url'
+import {createRendererBoundary} from './renderer-boundary'
+import {rendererEntryArgument} from '../shared/renderer-trust'
 import {createProactiveHost} from './proactive-host'
 import {
     createProactiveSourceAdapters,
@@ -29,6 +32,8 @@ import {uploadAttachment} from './attachment-upload.js'
 
 let mainWindow: BrowserWindow | null = null
 let petWindow: BrowserWindow | null = null
+const rendererBoundary = createRendererBoundary({openExternal: url => shell.openExternal(url)})
+const desktopIpc = rendererBoundary.ipc(ipcMain)
 let appTheme: 'light' | 'dark' = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
 const apiBaseUrl = (process.env.AERVOX_API_URL ?? 'http://127.0.0.1:3000').replace(/\/$/, '')
 // 诊断开关：AERVOX_RENDERER_DEBUG_PORT=9222 时暴露渲染层 CDP（仅 dev 排查用）
@@ -604,23 +609,17 @@ function parseProactiveActivity(value: unknown): {
 
 function broadcastProactiveStatus(status: unknown) {
     for (const window of [mainWindow, petWindow]) {
-        // 窗口可能尚未创建或已关闭（null/destroyed）；可选链守卫在这里会把
-        // null 也放进分支（!undefined === true），必须显式排除 null。
-        if (window && !window.isDestroyed()) window.webContents.send('proactive:status:changed', status)
+        rendererBoundary.send(window?.webContents ?? null, 'proactive:status:changed', status)
     }
 }
 
-function isTrustedRenderer(event: Electron.IpcMainInvokeEvent): boolean {
-    const owner = BrowserWindow.fromWebContents(event.sender)
-    return owner === mainWindow || owner === petWindow
-}
-
-const {streamAervoxTurn, activeTurnRequests} = createDesktopTurnBridge({
+const {streamAervoxTurn, cancelTurn} = createDesktopTurnBridge({
     apiBaseUrl,
     sessionId: () => process.env.AERVOX_SESSION_ID,
     authToken: () => process.env.AERVOX_AUTH_TOKEN,
+    isTrustedSender: sender => rendererBoundary.isTrustedContents(sender as Electron.WebContents),
     onEmote: (data) => {
-        if (petWindow && !petWindow.isDestroyed()) petWindow.webContents.send('pet:command', data)
+        rendererBoundary.send(petWindow?.webContents ?? null, 'pet:command', data)
     },
 })
 
@@ -668,15 +667,20 @@ async function proxyApiRequest(_event: Electron.IpcMainInvokeEvent, payload: unk
 
 function broadcastTheme() {
     for (const window of [mainWindow, petWindow]) {
-        if (window && !window.isDestroyed()) {
-            window.webContents.send('theme:changed', appTheme)
-        }
+        rendererBoundary.send(window?.webContents ?? null, 'theme:changed', appTheme)
     }
 }
 
-function rendererUrl(page: string) {
-    const baseUrl = process.env.ELECTRON_RENDERER_URL
-    return baseUrl ? `${baseUrl}/${page}` : undefined
+function rendererEntry(page: 'index.html' | 'pet.html'): string {
+    const baseUrl = !app.isPackaged && process.env.ELECTRON_RENDERER_URL
+    if (baseUrl) {
+        const url = new URL(`${baseUrl.replace(/\/$/, '')}/${page}`)
+        if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
+            throw new Error('invalid desktop development renderer URL')
+        }
+        return url.href
+    }
+    return pathToFileURL(join(__dirname, '../renderer', page)).href
 }
 
 const iconPath = app.isPackaged
@@ -684,6 +688,7 @@ const iconPath = app.isPackaged
     : join(__dirname, '../../build/icon.ico')
 
 function createMainWindow() {
+    const entry = rendererEntry('index.html')
     mainWindow = new BrowserWindow({
         width: 1440,
         height: 880,
@@ -696,14 +701,14 @@ function createMainWindow() {
         icon: iconPath,
         webPreferences: {
             preload: join(__dirname, '../preload/index.js'),
+            additionalArguments: [rendererEntryArgument(entry)],
             contextIsolation: true,
             nodeIntegration: false,
             sandbox: true
         },
     })
-    const url = rendererUrl('index.html')
-    if (url) mainWindow.loadURL(url)
-    else mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    rendererBoundary.attach(mainWindow.webContents, entry)
+    void mainWindow.loadURL(entry)
     mainWindow.on('closed', () => {
         petWindow?.close();
         mainWindow = null
@@ -711,6 +716,7 @@ function createMainWindow() {
 }
 
 function createPetWindow() {
+    const entry = rendererEntry('pet.html')
     petWindow = new BrowserWindow({
         width: 300,
         height: 380,
@@ -727,6 +733,7 @@ function createPetWindow() {
         alwaysOnTop: true,
         webPreferences: {
             preload: join(__dirname, '../preload/index.js'),
+            additionalArguments: [rendererEntryArgument(entry)],
             contextIsolation: true,
             nodeIntegration: false,
             sandbox: true
@@ -735,9 +742,8 @@ function createPetWindow() {
     petWindow.setAlwaysOnTop(true, 'floating')
     const {workArea} = screen.getPrimaryDisplay()
     petWindow.setPosition(workArea.x + workArea.width - 320, workArea.y + workArea.height - 400)
-    const url = rendererUrl('pet.html')
-    if (url) petWindow.loadURL(url)
-    else petWindow.loadFile(join(__dirname, '../renderer/pet.html'))
+    rendererBoundary.attach(petWindow.webContents, entry)
+    void petWindow.loadURL(entry)
     petWindow.on('closed', () => {
         petWindow = null
     })
@@ -754,8 +760,8 @@ app.whenReady().then(async () => {
     await loadProactiveSourceConfig()
     await proactiveHost.initialize()
     await refreshProactiveLocalReady()
-    ipcMain.handle('theme:get', () => appTheme)
-    ipcMain.handle('theme:set', (_event, theme: unknown) => {
+    desktopIpc.handle('theme:get', () => appTheme)
+    desktopIpc.handle('theme:set', (_event, theme: unknown) => {
         if (!isTheme(theme)) return appTheme
         appTheme = theme
         nativeTheme.themeSource = appTheme
@@ -763,7 +769,7 @@ app.whenReady().then(async () => {
         return appTheme
     })
     const disposeWindowIpc = registerWindowIpc({
-        ipcMain,
+        ipcMain: desktopIpc,
         getMainWindow: () => mainWindow,
         getWindowForSender: (sender) => BrowserWindow.fromWebContents(sender),
         openExternal: (url) => shell.openExternal(url),
@@ -773,12 +779,10 @@ app.whenReady().then(async () => {
     app.once('will-quit', disposeWindowIpc)
     // CAP-033: the renderer can only observe a broker snapshot. It cannot
     // manufacture an OS grant or write the control state directly.
-    ipcMain.handle('proactive:status', async (event, payload: unknown) => {
-        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+    desktopIpc.handle('proactive:status', async (event, payload: unknown) => {
         return compositeProactiveStatus(readToolApprovalMode(payload))
     })
-    ipcMain.handle('proactive:authorize', async (event, payload: unknown) => {
-        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+    desktopIpc.handle('proactive:authorize', async (event, payload: unknown) => {
         if (!isProfileAuthorizationRequest(payload)) throw new Error('invalid proactive authorization request')
         const toolApprovalMode = readToolApprovalMode(payload)
         if (!await refreshProactiveLocalReady()) throw new Error('本地主动画像 Vault 尚未就绪')
@@ -809,8 +813,7 @@ app.whenReady().then(async () => {
         broadcastProactiveStatus(composite)
         return composite
     }
-    ipcMain.handle('proactive:desired-state', async (event, payload: unknown) => {
-        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+    desktopIpc.handle('proactive:desired-state', async (event, payload: unknown) => {
         if (!payload || typeof payload !== 'object') throw new Error('invalid proactive desired state request')
         const desiredState = (payload as {desiredState?: unknown}).desiredState
         if (desiredState !== 'enabled' && desiredState !== 'paused' && desiredState !== 'revoked') {
@@ -818,8 +821,7 @@ app.whenReady().then(async () => {
         }
         return applyProactiveDesiredState(desiredState, readToolApprovalMode(payload))
     })
-    ipcMain.handle('proactive:persistence', async (event, payload: unknown) => {
-        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+    desktopIpc.handle('proactive:persistence', async (event, payload: unknown) => {
         if (!payload || typeof payload !== 'object') throw new Error('invalid proactive persistence request')
         const update = (payload as {update?: unknown}).update
         if (!isProfilePersistenceUpdate(update)) throw new Error('invalid proactive persistence update')
@@ -832,8 +834,7 @@ app.whenReady().then(async () => {
         broadcastProactiveStatus(composite)
         return composite
     })
-    ipcMain.handle('proactive:capability:request', async (event, payload: unknown) => {
-        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+    desktopIpc.handle('proactive:capability:request', async (event, payload: unknown) => {
         if (!payload || typeof payload !== 'object') throw new Error('invalid proactive capability request')
         const id = (payload as {id?: unknown}).id
         if (!isProfileSourceId(id)) throw new Error('invalid proactive capability id')
@@ -844,8 +845,7 @@ app.whenReady().then(async () => {
         broadcastProactiveStatus(composite)
         return composite
     })
-    ipcMain.handle('proactive:source:delete', async (event, payload: unknown) => {
-        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+    desktopIpc.handle('proactive:source:delete', async (event, payload: unknown) => {
         if (!payload || typeof payload !== 'object') throw new Error('invalid proactive source deletion request')
         const id = (payload as {id?: unknown}).id
         if (!isProfileSourceId(id)) throw new Error('invalid proactive capability id')
@@ -860,8 +860,7 @@ app.whenReady().then(async () => {
         broadcastProactiveStatus(composite)
         return composite
     })
-    ipcMain.handle('proactive:activity', async (event, payload: unknown) => {
-        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+    desktopIpc.handle('proactive:activity', async (event, payload: unknown) => {
         const activity = parseProactiveActivity(payload)
         if (!activity) throw new Error('invalid proactive activity capture')
         return ingestProactiveCapture(activity.source, {
@@ -870,14 +869,12 @@ app.whenReady().then(async () => {
             contentType: activity.payloadText === undefined ? 'application/json' : 'text/plain',
         })
     })
-    ipcMain.handle('proactive:claims:list', async (event) => {
-        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+    desktopIpc.handle('proactive:claims:list', async (event) => {
         if (!await refreshProactiveLocalReady()) throw new Error('本地主动画像 Vault 尚未就绪')
         const result = await requestProactiveApi<{items: unknown[]}>('GET', '/v1/proactive/claims?limit=50')
         return result.items
     })
-    ipcMain.handle('proactive:claims:state', async (event, payload: unknown) => {
-        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+    desktopIpc.handle('proactive:claims:state', async (event, payload: unknown) => {
         if (!payload || typeof payload !== 'object') throw new Error('invalid proactive claim state request')
         const {claimId, state} = payload as {claimId?: unknown; state?: unknown}
         if (typeof claimId !== 'string' || claimId.length === 0 || (state !== 'confirmed' && state !== 'rejected')) {
@@ -889,22 +886,18 @@ app.whenReady().then(async () => {
             {state},
         )
     })
-    ipcMain.handle('proactive:intelligence:dashboard', async (event) => {
-        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+    desktopIpc.handle('proactive:intelligence:dashboard', async (event) => {
         if (!await refreshProactiveLocalReady()) throw new Error('本地主动画像 Vault 尚未就绪')
         return requestProactiveApi('GET', '/v1/proactive/intelligence/dashboard')
     })
-    ipcMain.handle('proactive:ha:connect', async (event, payload: unknown) => {
-        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+    desktopIpc.handle('proactive:ha:connect', async (event, payload: unknown) => {
         return requestProactiveApi('POST', '/v1/proactive/integrations/home-assistant', validatedHomeAssistantInput(payload))
     })
-    ipcMain.handle('proactive:ha:sync', async (event, payload: unknown) => {
-        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+    desktopIpc.handle('proactive:ha:sync', async (event, payload: unknown) => {
         const connectionId = requiredConnectionId(payload)
         return requestProactiveApi('POST', `/v1/proactive/integrations/home-assistant/${encodeURIComponent(connectionId)}/sync`)
     })
-    ipcMain.handle('proactive:ha:entity', async (event, payload: unknown) => {
-        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+    desktopIpc.handle('proactive:ha:entity', async (event, payload: unknown) => {
         const input = objectInput(payload)
         const connectionId = requiredConnectionId(payload)
         const entityId = input?.entityId
@@ -919,18 +912,15 @@ app.whenReady().then(async () => {
             patch,
         )
     })
-    ipcMain.handle('proactive:ha:delete', async (event, payload: unknown) => {
-        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+    desktopIpc.handle('proactive:ha:delete', async (event, payload: unknown) => {
         const connectionId = requiredConnectionId(payload)
         await requestProactiveApi('DELETE', `/v1/proactive/integrations/home-assistant/${encodeURIComponent(connectionId)}`)
         return true
     })
-    ipcMain.handle('proactive:xiaomi:connect', async (event, payload: unknown) => {
-        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+    desktopIpc.handle('proactive:xiaomi:connect', async (event, payload: unknown) => {
         return requestProactiveApi('POST', '/v1/proactive/integrations/xiaomi-health', validatedXiaomiInput(payload))
     })
-    ipcMain.handle('proactive:xiaomi:sync', async (event, payload: unknown) => {
-        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+    desktopIpc.handle('proactive:xiaomi:sync', async (event, payload: unknown) => {
         const input = objectInput(payload)
         const connectionId = requiredConnectionId(payload)
         const localDate = input?.localDate
@@ -943,14 +933,12 @@ app.whenReady().then(async () => {
             localDate ? {localDate} : {},
         )
     })
-    ipcMain.handle('proactive:xiaomi:delete', async (event, payload: unknown) => {
-        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+    desktopIpc.handle('proactive:xiaomi:delete', async (event, payload: unknown) => {
         const connectionId = requiredConnectionId(payload)
         await requestProactiveApi('DELETE', `/v1/proactive/integrations/xiaomi-health/${encodeURIComponent(connectionId)}`)
         return true
     })
-    ipcMain.handle('proactive:export', async (event, payload: unknown) => {
-        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+    desktopIpc.handle('proactive:export', async (event, payload: unknown) => {
         if (!await refreshProactiveLocalReady()) throw new Error('本地主动画像 Vault 尚未就绪')
         const includeRaw = Boolean(payload && typeof payload === 'object' && (payload as {includeRaw?: unknown}).includeRaw === true)
         const exported = await requestProactiveApi<{manifest: Record<string, unknown>; data: unknown}>(
@@ -969,27 +957,20 @@ app.whenReady().then(async () => {
         await chmod(result.filePath, 0o600).catch(() => undefined)
         return {path: result.filePath, manifest: exported.manifest}
     })
-    ipcMain.handle('proactive:keep-alive', (event) => {
-        if (!isTrustedRenderer(event)) throw new Error('untrusted proactive renderer')
+    desktopIpc.handle('proactive:keep-alive', (event) => {
         return proactiveHost.shouldKeepAlive()
     })
     const apiEvents = createApiEventStreams(createFetchTransport(apiBaseUrl, {
         headers: process.env.AERVOX_AUTH_TOKEN?.trim() ? { Authorization: `Bearer ${process.env.AERVOX_AUTH_TOKEN.trim()}` } : {},
         redirect: 'error',
-    }))
-    ipcMain.on('aervox:events:start', (event, payload: unknown) => { void apiEvents.start(event.sender, payload) })
-    ipcMain.on('aervox:events:cancel', (event, requestId: unknown) => apiEvents.cancel(event.sender, requestId))
-    ipcMain.on('aervox:turn:start', streamAervoxTurn)
+    }), {isTrustedSender: sender => rendererBoundary.isTrustedContents(sender as Electron.WebContents)})
+    desktopIpc.on('aervox:events:start', (event, payload: unknown) => { void apiEvents.start(event.sender, payload) })
+    desktopIpc.on('aervox:events:cancel', (event, requestId: unknown) => apiEvents.cancel(event.sender, requestId))
+    desktopIpc.on('aervox:turn:start', streamAervoxTurn)
     // CR-027：中止在途 Turn 请求（渲染层空闲超时收敛后调用，避免幽灵回合继续消耗上游 tokens）
-    ipcMain.on('aervox:turn:cancel', (_event, requestId: unknown) => {
-        if (typeof requestId !== 'string') return
-        const controller = activeTurnRequests.get(requestId)
-        if (!controller) return
-        activeTurnRequests.delete(requestId)
-        controller.abort()
-    })
-    ipcMain.handle('aervox:api:request', proxyApiRequest)
-    ipcMain.handle('aervox:attachment:upload', uploadAttachment)
+    desktopIpc.on('aervox:turn:cancel', (event, requestId: unknown) => cancelTurn(event.sender, requestId))
+    desktopIpc.handle('aervox:api:request', proxyApiRequest)
+    desktopIpc.handle('aervox:attachment:upload', uploadAttachment)
     createMainWindow()
     createPetWindow()
     const proactiveHeartbeat = async (notifyUser = false) => {
@@ -1041,9 +1022,7 @@ app.whenReady().then(async () => {
         buildHeaders: localApiHeaders,
         onPresentation: (event) => {
             for (const command of toPetCommands(event)) {
-                if (petWindow && !petWindow.isDestroyed()) {
-                    petWindow.webContents.send('pet:command', command)
-                }
+                rendererBoundary.send(petWindow?.webContents ?? null, 'pet:command', command)
             }
         },
         log: (message) => console.warn(`[proactive-events] ${message}`),

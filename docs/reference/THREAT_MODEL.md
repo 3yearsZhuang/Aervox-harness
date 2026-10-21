@@ -40,7 +40,7 @@ id: AVX-SEC-001
 | TM-006 | Elevation | Prompt injection 或插件提升工具/文件/网络权限 | 信任层隔离、ToolPolicy、进程外沙箱、allowlist、kill switch | `TC-SEC-PROMPT-001`、`TC-SEC-PLUG-001` |
 | TM-007 | Disclosure | 模型/监控供应商保留或训练私人内容 | Provider 审查、用途同意、最小 ContextManifest、关闭训练、合同删除 | `TC-PRIV-PROVIDER-001`；无合格供应商则不启用该用途 |
 | TM-008 | Tampering/Disclosure | 删除后索引、缓存、备份或供应商副本复活，或恢复时漏掉撤权事件 | `RecoveryControlLedger` 先 durable append 作为 deny 控制事实源；业务状态按 sequence 幂等重放；序列缺口/账本不可用/水位未追平时 fail closed；零召回验证 | `TC-PRIV-DEL-001`、`TC-RES-LEDGER-001`；供应商 SLA 超时需告警和用户状态 |
-| TM-009 | Elevation | Electron renderer 取得 Node/OS 权限 | contextIsolation、禁用 nodeIntegration、schema IPC、签名更新 | `TC-SEC-DESKTOP-001`；R3 前阻断 |
+| TM-009 | Elevation | 外部文档占用 Electron renderer 或借 IPC 取得宿主能力 | contextIsolation、禁用 nodeIntegration、受信文档导航、逐请求 IPC 来源校验、schema IPC、签名更新 | `TC-SEC-DESKTOP-001`；R3 前阻断 |
 | TM-010 | Abuse | 情绪脆弱/危机内容被用于留存、推荐或日记 | purpose 隔离、安全事件受限、禁止商业定向/关系分数 | `TC-AIEVAL-SAFE-001`；政策误分类持续监控 |
 | TM-011 | Supply chain | 依赖、参考代码或插件引入恶意代码/许可证风险 | lockfile、SBOM、签名、漏洞/许可证扫描、AGPL 隔离 | `TC-SEC-SUPPLY-001`；高危/许可未决阻断发布 |
 | TM-012 | Data poisoning | 外部题库/附件污染掌握度、记忆或知识树 | 来源/许可/置信状态、人工纠正、候选机制、回滚 | `TC-AIEVAL-POISON-001`；低置信内容不入正式事实 |
@@ -57,6 +57,8 @@ id: AVX-SEC-001
 ## 4. 数据流安全规则
 
 来源、控制水位与删除/恢复顺序见[数据隐私](DATA_PRIVACY.md#8-删除传播)和 [BR-CTRL-001](SRS.md#srs-br-ctrl)；输入/输出检查与失败响应见[AI 质量](AI_QUALITY_SAFETY.md#3-编排流水线)。客户端不能直接持有模型/持久对象服务凭据，附件经受限本机 API 访问且凭据不进入 URL。威胁控制必须覆盖普通历史、SSE、工具结果和派生内容，不能只检查直接捕获接口。
+
+[Markdown 链接](../../packages/ui/src/utils/markdown.ts)对大小写 HTTP(S) 与 `//` 外部地址统一设置新窗口及 `noopener noreferrer`；本地路径、锚点和邮件链接保留各自语义。[桌面主进程](../../apps/desktop/src/main/index.ts)负责限制文档导航、处理外部窗口并逐请求校验 IPC 的受信主 frame 来源，不能仅依赖链接属性或 preload 的类型检查。来源校验通过后仍须执行既有 API、工具和 OS 授权；这些控制不构成操作系统文件或网络沙箱。
 
 ## 5. 发布门禁
 
