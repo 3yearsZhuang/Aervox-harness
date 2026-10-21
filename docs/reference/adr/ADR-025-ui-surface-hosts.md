@@ -69,3 +69,11 @@ API 级用例移入 `e2e/api/`，浏览器级用例移入 `e2e/ui/`，删除 `pl
 受信根界面清单回到：`workbench-ui`（含 `workbench-compact-ui` 紧凑变体）、`proactive-ui`，桌面另有 `companion-ui`（桌宠）。上方 2026-10-15「素简文档界面扩展（ITER-061）」条目记录的该界面交付随之撤销；命名分层与身份模型不受影响（见 [ADR-027](ADR-027-companion-identity.md)）。
 
 已选择过该界面的设备其本地存储值不再是受信清单成员：`resolveSurfaceChoice` 与外观设置都按未知 id 回退默认工作台（`workbench-ui`），无需数据迁移。第三方界面开放仍为 [ADR-026](ADR-026-ui-surface-open-ecosystem.md) 提案，本次不改变其状态。
+
+### 桌面与移动浏览器的默认入口
+
+按维护者指定的界面分工，手机和平板 Web 以及移动构建默认装配 `proactive-ui`；桌面 Web 与 Electron 默认装配 `workbench-ui`，其默认交互模式为 `companion`。平台在启动时根据移动构建标识或设备信息确定，桌面窄窗口仍按桌面入口装配，调整尺寸不重新挂载根界面。
+
+明确的 `?surface=` 优先，其次为已保存的 `aervox.surface.main` 选择，最后才采用平台默认值；默认值不写成用户偏好。未知界面回退平台默认值，切换器更新查询参数，存储不可用时仍能通过 URL 选择。移动界面复用宿主注入的模型、角色与语音设置面板，输入跟随可视视口与安全区，停止通过现有 Turn 取消端点执行。
+
+本次调整受信界面的默认装配与浏览器交互，不改变本机 API、数据所有权、网络授权或原生移动发布要求；[ADR-022](ADR-022-mobile-runtime-access.md) 的提案与实机验收边界继续适用。

@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils';
 import { UISurfaceHost } from '@aervox/ui-host';
-import { configureAervoxClient } from '@aervox/api-client';
+import { configureAervoxClient, type StreamTurnOptions, type TurnCallbacks } from '@aervox/api-client';
 import definition from '../src';
 
 enableAutoUnmount(afterEach);
@@ -128,8 +128,109 @@ it('sends configured companion identity with the active session', async () => {
   await flushPromises();
   expect(streamTurn.mock.calls[0]![0]).toBe('ses_recent');
   expect(streamTurn.mock.calls[0]![3]).toMatchObject({
-    sessionId: 'ses_recent', metadata: { companionName: '团子', userAddress: '掌柜' },
+    metadata: { companionName: '团子', userAddress: '掌柜' },
   });
+});
+
+function pendingStream() {
+  let callbacks!: TurnCallbacks;
+  let options!: StreamTurnOptions;
+  let complete!: () => void;
+  streamTurn.mockImplementation((_id: string, _text: string, nextCallbacks: TurnCallbacks, nextOptions: StreamTurnOptions) => {
+    callbacks = nextCallbacks;
+    options = nextOptions;
+    return new Promise<void>(resolve => {
+      complete = () => { callbacks.onDone(); resolve(); };
+      options.signal!.addEventListener('abort', () => resolve(), { once: true });
+    });
+  });
+  return { get callbacks() { return callbacks; }, get options() { return options; }, complete: () => complete() };
+}
+
+it('keeps IME Enter local, focuses input, and removes suggestions while composing', async () => {
+  const wrapper = await mountSurface();
+  await wrapper.find('.pc-whisper-pill').trigger('click');
+  expect(wrapper.findAll('.pc-choice')).toHaveLength(0);
+  const input = wrapper.find('.pc-whisper-input input');
+  await input.setValue('学习');
+  await input.trigger('keydown', { key: 'Enter', isComposing: true });
+  expect(streamTurn).not.toHaveBeenCalled();
+  await input.trigger('keydown', { key: 'Escape' });
+  expect(wrapper.find('.pc-whisper-pill').exists()).toBe(true);
+});
+
+it('sends a server cancellation before aborting the current reply', async () => {
+  const pending = pendingStream();
+  const wrapper = await mountSurface();
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');
+  await flushPromises();
+  await pending.options.onAccepted!('turn_1');
+  await wrapper.find('.pc-stop').trigger('click');
+  await flushPromises();
+  expect(request).toHaveBeenCalledWith('POST', '/v1/turns/turn_1/cancel', {}, expect.any(Object));
+  expect(pending.options.signal!.aborted).toBe(true);
+  expect(wrapper.find('.pc-dialogue-ctx').text()).toBe('已停止回复');
+  expect(wrapper.find('.pc-stop').exists()).toBe(false);
+});
+
+it('remembers a stop requested before acceptance and cancels the accepted turn', async () => {
+  const pending = pendingStream();
+  const wrapper = await mountSurface();
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');
+  await flushPromises();
+  await wrapper.find('.pc-stop').trigger('click');
+  expect(request.mock.calls.some(([, path]) => path.endsWith('/cancel'))).toBe(false);
+  await pending.options.onAccepted!('turn_late');
+  await flushPromises();
+  expect(request.mock.calls.filter(([, path]) => path === '/v1/turns/turn_late/cancel')).toHaveLength(1);
+  expect(pending.options.signal!.aborted).toBe(true);
+});
+
+it('keeps the stream active after cancel failure and lets the user retry', async () => {
+  const pending = pendingStream();
+  let cancelAttempts = 0;
+  request.mockImplementation(async (method, path) => {
+    if (path.endsWith('/cancel') && ++cancelAttempts === 1) throw new Error('offline');
+    return requestImplementation(method, path);
+  });
+  const wrapper = await mountSurface();
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');
+  await flushPromises();
+  await pending.options.onAccepted!('turn_retry');
+  await wrapper.find('.pc-stop').trigger('click');
+  await flushPromises();
+  expect(pending.options.signal!.aborted).toBe(false);
+  expect(wrapper.find('.pc-stop').attributes('disabled')).toBeUndefined();
+  expect(wrapper.find('.pc-dialogue-ctx').text()).toContain('停止失败');
+  await wrapper.find('.pc-stop').trigger('click');
+  await flushPromises();
+  expect(cancelAttempts).toBe(2);
+  expect(pending.options.signal!.aborted).toBe(true);
+});
+
+it('does not let a late cancel response overwrite the next turn', async () => {
+  let finishCancel!: () => void;
+  request.mockImplementation((method, path) => path.endsWith('/cancel')
+    ? new Promise(resolve => { finishCancel = () => resolve({}); })
+    : requestImplementation(method, path));
+  const pending = pendingStream();
+  const wrapper = await mountSurface();
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');
+  await flushPromises();
+  const oldOptions = pending.options;
+  await oldOptions.onAccepted!('turn_old');
+  await wrapper.find('.pc-stop').trigger('click');
+  pending.complete();
+  await flushPromises();
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');
+  await flushPromises();
+  const nextSignal = pending.options.signal!;
+  finishCancel();
+  await flushPromises();
+  expect(nextSignal.aborted).toBe(false);
+  expect(wrapper.find('.pc-dialogue-ctx').text()).toBe('正在回复');
+  pending.complete();
+  await flushPromises();
 });
 
 it('keeps a failed whisper editable until retry succeeds', async () => {

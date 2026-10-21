@@ -11,17 +11,21 @@ import * as firstPartyPlugin from '@aervox/plugin-focus-mode/ui'
 import { settingsPanels } from '@aervox/plugin-panels-ui'
 
 const OnboardingFlow = defineAsyncComponent(() => import('@/components/OnboardingFlow.vue'))
-const showOnboarding = ref(!hasCompletedOnboarding(window.localStorage))
+let surfaceStorage: Storage | undefined
+try { surfaceStorage = window.localStorage } catch { /* 无存储时使用本次窗口的默认值 */ }
+const showOnboarding = ref(!hasCompletedOnboarding(surfaceStorage))
 const reloadSurface = () => window.location.reload()
 const firstPartyPlugins = [firstPartyPlugin.default]
 const showIntroDeck = ref(false)
 // CR-065 切片六：组合根按用户选择装配主界面（本地存储 aervox.surface.main）
-const mainSurface = resolveSurfaceChoice([defaultSurface, compactSurface, proactiveSurface], window.localStorage, {
+const mainSurface = resolveSurfaceChoice([defaultSurface, compactSurface, proactiveSurface], surfaceStorage, {
   storageKey: 'aervox.surface.main',
+  defaultSurfaceId: defaultSurface.id,
+  queryValue: new URLSearchParams(window.location.search).get('surface'),
 })
 
 function completeOnboarding() {
-  markOnboardingCompleted(window.localStorage)
+  markOnboardingCompleted(surfaceStorage)
   showOnboarding.value = false
 }
 
