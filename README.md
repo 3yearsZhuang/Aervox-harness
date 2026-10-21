@@ -1,6 +1,6 @@
 # <img src="packages/ui/src/assets/brand/aervox-app-icon.svg" width="42" height="42" alt="思隅标识"> Aervox｜思隅
 
-以桌宠和工作台为入口的学习与陪伴 Agent，帮助编程学习者提问、练习和复习。个人记录保存在本地，模型服务可按需选择。
+思隅是面向编程学习者的学习与陪伴 Agent：提问、练习、复习，也让角色陪在身边。个人记录保存在本地，模型服务可按需选择。
 
 **开发者预览** · 能力验收与发布状态见[需求追踪](docs/reference/REQUIREMENTS_TRACEABILITY.md)。升级前请备份本地数据。
 
@@ -14,9 +14,9 @@
 
 ![思隅桌宠陪伴工作台：左侧 Live2D 角色，右侧工具卡片、对话和输入区](docs/assets/readme/workbench.webp)
 
-角色在左，工具与对话在右。用卡片管理待办、回看对话，在输入区继续提问；回复支持流式显示与停止生成，也可查看运行详情。
+左侧是陪伴角色，右侧是工具卡片、对话与输入区。管理待办、回看对话，或直接继续提问；回复逐步显示，可随时停止并查看运行详情。
 
-桌面默认使用这套“桌宠陪伴”工作台；在“设置 → 通用 → 外观 → 交互模式”中，也可切换到侧栏多会话的“标准工作台”。
+桌面默认使用这套“桌宠陪伴”布局；需要侧栏多会话时，可切换到“标准工作台”。[界面切换说明](docs/getting-started.md#21-先用-web-工作台体验)
 
 <a id="主动陪伴从一句问候开始"></a>
 
@@ -24,9 +24,9 @@
 
 <img src="docs/assets/readme/proactive-companion.webp" width="390" alt="思隅移动端：角色、打字机对话盒、建议卡与悄悄话输入">
 
-手机和平板默认使用主动陪伴界面：接续最近会话、进入专注，或展开“悄悄话”提问。设置和停止回复随手可达；建议当前来自最近会话与固定动作。
+手机和平板默认使用更简洁的主动陪伴界面：接续最近会话、发起专注请求，或展开“悄悄话”提问。顶部可打开设置或返回完整工作台，回复过程中可停止生成。
 
-截图使用独立演示数据；回复为确定性回放，不代表真实模型效果。Live2D 模型来源与许可见[模型说明](packages/live2d/mizuki/README.md)。移动界面的浏览器适配不代表原生移动应用已发布，验收状态见[需求追踪](docs/reference/REQUIREMENTS_TRACEABILITY.md#mobile-decisions)。
+建议目前来自最近会话与固定动作。截图使用独立演示数据与确定性回复回放，不代表真实模型效果；Live2D 来源与许可见[模型说明](packages/live2d/mizuki/README.md)。原生移动应用仍待发布验收，详见[需求追踪](docs/reference/REQUIREMENTS_TRACEABILITY.md#mobile-decisions)。
 
 ## 可以做什么
 
@@ -48,11 +48,11 @@ cd Aervox-harness
 ./aervox dev web
 ```
 
-打开 [Web 工作台](http://127.0.0.1:5173)，进入“设置 → 模型服务”，填写供应商、Base URL、Model ID 和必要的 API Key，点击“测试连接”并“保存配置”，再开始对话。
+打开 [Web 工作台](http://127.0.0.1:5173)，进入“设置 → 模型服务”，启用服务并填写供应商、Base URL、Model ID 和必要的 API Key。点击“测试连接”并“保存配置”，即可发起第一条对话。
 
-需要已有可用的模型服务；安装项目不会自动安装模型。`setup` 可能更新锁文件，详情见[完整入门指南](docs/getting-started.md)。
+先准备可用的本地或远程模型服务；安装项目不会自动安装模型。配置步骤与安装细节见[完整入门指南](docs/getting-started.md)。
 
-浏览器体验启动 API 与 Web；复习、日记等异步处理还需 Worker。要同时运行桌宠和后台服务，停止当前开发服务后运行：
+浏览器体验启动 API 与 Web。要同时运行桌宠和处理复习、日记的后台 Worker，停止当前开发服务后运行：
 
 ```bash
 ./aervox dev

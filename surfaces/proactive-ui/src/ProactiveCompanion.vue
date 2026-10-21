@@ -10,8 +10,9 @@
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, type Component } from 'vue';
 import { useUISurfaceContext } from '@aervox/ui-host';
-import { PetWithFallback, readCompanionIdentity } from '@aervox/ui';
+import { AervoxBrandMark, PetWithFallback, readCompanionIdentity } from '@aervox/ui';
 import { getTransport, useAervoxSessions } from '@aervox/api-client';
+import { ArrowUpRight, MessageSquare, RotateCcw, Settings, Square, X } from 'lucide-vue-next';
 import { useDialogueTyper } from './dialogue-typer';
 import MobileSettingsDialog from './MobileSettingsDialog.vue';
 
@@ -52,7 +53,22 @@ function relativeDay(iso: string): string {
 
 const sending = ref(false);
 const stopping = ref(false);
+const waitingForReply = ref(false);
+const turnFeedback = ref<{ kind: 'connection-error' | 'observer-error' | 'cancel-error' | 'stopped' | 'completed'; message: string }>();
+interface FailedTurn {
+  content: string;
+  source: 'suggestion' | 'whisper';
+  sessionId?: string;
+  idempotencyKey?: string;
+}
+const failedTurn = ref<FailedTurn>();
 let activeTurn: { controller: AbortController; turnId?: string; stopRequested: boolean; cancelSent: boolean } | undefined;
+
+function createSubmissionKey() {
+  // getRandomValues also works on a local-network HTTP origin where randomUUID is unavailable.
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+}
 
 async function cancelActiveTurn(turn: NonNullable<typeof activeTurn>) {
   if (!turn.turnId || turn.cancelSent) return;
@@ -62,13 +78,14 @@ async function cancelActiveTurn(turn: NonNullable<typeof activeTurn>) {
     turn.controller.abort();
     if (activeTurn === turn && !surface.signal.aborted) {
       finish();
-      dialogueCtx.value = '已停止回复';
+      waitingForReply.value = false;
+      turnFeedback.value = { kind: 'stopped', message: '已停止回复。' };
     }
-  } catch (err) {
+  } catch {
     turn.cancelSent = false;
     turn.stopRequested = false;
     if (activeTurn === turn && !surface.signal.aborted) {
-      dialogueCtx.value = `停止失败：${err instanceof Error ? err.message : '请重试'}`;
+      turnFeedback.value = { kind: 'cancel-error', message: '停止失败，回复仍在继续。可以再试一次。' };
     }
   } finally {
     if (activeTurn === turn) stopping.value = false;
@@ -80,20 +97,33 @@ async function stopTurn() {
   if (!turn || stopping.value) return;
   stopping.value = true;
   turn.stopRequested = true;
+  turnFeedback.value = undefined;
   // Stop before acceptance still cancels the accepted server turn once its id arrives.
   if (turn.turnId) await cancelActiveTurn(turn);
 }
 
-function reportConnectionError(err: unknown) {
+function reportConnectionError(failed: FailedTurn, receivedReply: boolean) {
   if (surface.signal.aborted) return;
   finish();
-  dialogueCtx.value = '连接异常';
-  say(`出了点小问题：${err instanceof Error ? err.message : '回复失败，请稍后再试'}`, '连接异常');
+  waitingForReply.value = false;
+  failedTurn.value = failed;
+  turnFeedback.value = {
+    kind: 'connection-error',
+    message: receivedReply ? '连接中断，已保留收到的回复。' : '未能收到回复，请重试。',
+  };
 }
 
-async function sendTurn(content: string) {
+async function sendTurn(content: string, source: 'suggestion' | 'whisper' = 'suggestion', retry?: FailedTurn) {
   if (sending.value || surface.signal.aborted) return false;
   sending.value = true;
+  waitingForReply.value = true;
+  turnFeedback.value = undefined;
+  failedTurn.value = undefined;
+  finish();
+  const previousContext = dialogueCtx.value;
+  let receivedReply = false;
+  let terminalError = false;
+  let submission: FailedTurn = { content, source };
   const turn = { controller: new AbortController(), stopRequested: false, cancelSent: false, turnId: undefined as string | undefined };
   activeTurn = turn;
   const signal = AbortSignal.any([surface.signal, turn.controller.signal]);
@@ -107,31 +137,58 @@ async function sendTurn(content: string) {
     }
     signal.throwIfAborted();
     if (turn.stopRequested) {
-      dialogueCtx.value = '已停止回复';
+      turnFeedback.value = { kind: 'stopped', message: '已停止回复。' };
       return false;
     }
     const sessionId = sessions.activeSessionId.value;
-    say('', '你刚刚说');
+    // Only an explicit retry of the same uncertain submission reuses its reservation.
+    const idempotencyKey = retry?.content === content && retry.source === source && retry.sessionId === sessionId
+      ? retry.idempotencyKey ?? createSubmissionKey()
+      : createSubmissionKey();
+    submission = { content, source, sessionId, idempotencyKey };
     dialogueCtx.value = '正在回复';
     await getTransport().streamTurn(sessionId, content, {
       onTurnIdentified: identifyTurn,
-      onDelta: text => { if (activeTurn === turn && !signal.aborted) appendDelta(text); },
+      onDelta: text => {
+        if (activeTurn !== turn || signal.aborted || !text) return;
+        if (!receivedReply) {
+          say('');
+          receivedReply = true;
+          waitingForReply.value = false;
+        }
+        appendDelta(text);
+      },
       onDone: () => {
         if (activeTurn !== turn || signal.aborted) return;
         finish();
-        dialogueCtx.value = companionName.value + ' · 刚刚回复';
+        waitingForReply.value = false;
+        dialogueCtx.value = receivedReply ? companionName.value + ' · 刚刚回复' : previousContext;
+        turnFeedback.value = receivedReply ? undefined : { kind: 'completed', message: '本次回复已完成。' };
       },
-      onError: err => { throw err; },
-    }, { signal, onAccepted: identifyTurn, metadata: { ...identity } });
+      onError: err => { terminalError = true; throw err; },
+    }, { signal, onAccepted: identifyTurn, idempotencyKey, metadata: { ...identity } });
     return !signal.aborted;
   } catch (err) {
-    if (activeTurn === turn && !signal.aborted) reportConnectionError(err);
+    if (activeTurn === turn && !signal.aborted) {
+      if (!terminalError && (turn.turnId || surface.platform === 'desktop')) {
+        finish();
+        waitingForReply.value = false;
+        turnFeedback.value = {
+          kind: 'observer-error',
+          message: '连接中断，原请求可能仍在处理。可在完整工作台查看。',
+        };
+      } else {
+        reportConnectionError({ ...submission, idempotencyKey: terminalError ? undefined : submission.idempotencyKey }, receivedReply);
+      }
+    }
     return false;
   } finally {
     if (activeTurn === turn) {
       activeTurn = undefined;
       sending.value = false;
       stopping.value = false;
+      waitingForReply.value = false;
+      if (!receivedReply) dialogueCtx.value = previousContext;
     }
   }
 }
@@ -199,13 +256,22 @@ function onWhisperKeydown(event: KeyboardEvent) {
     void sendWhisper();
   } else if (event.key === 'Escape') void closeWhisper();
 }
-async function sendWhisper() {
+async function sendWhisper(retry?: FailedTurn) {
   const text = whisperText.value.trim();
   if (!text || sending.value) return;
-  if (await sendTurn(text) && whisperText.value.trim() === text) {
+  if (await sendTurn(text, 'whisper', retry) && whisperText.value.trim() === text) {
     whisperText.value = '';
     closeWhisper();
   }
+}
+
+async function retryTurn() {
+  const failed = failedTurn.value;
+  if (!failed || sending.value) return;
+  if (failed.source === 'whisper') {
+    await openWhisper();
+    await sendWhisper(failed);
+  } else await sendTurn(failed.content, failed.source, failed);
 }
 
 /* ---------- 回到默认工作台（逃生口） ---------- */
@@ -230,6 +296,12 @@ function syncViewport() {
 }
 
 onMounted(() => {
+  if (surface.platform !== 'desktop') {
+    let savedTheme: string | null = null;
+    try { savedTheme = localStorage.getItem('aervox-theme'); } catch { /* Follow the system when storage is unavailable. */ }
+    document.documentElement.dataset.theme = savedTheme === 'dark' || savedTheme === 'light'
+      ? savedTheme : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
   void sessions.fetchSessions();
   syncViewport();
   window.addEventListener('resize', syncViewport);
@@ -252,10 +324,10 @@ onBeforeUnmount(() => {
     :style="{ '--pc-viewport-height': viewportHeight === undefined ? undefined : `${viewportHeight}px`, '--pc-viewport-top': `${viewportTop}px` }"
   >
     <header class="pc-header">
-      <div class="pc-brand"><span class="pc-brand-mark">思</span>思隅</div>
+      <div class="pc-brand"><AervoxBrandMark class="pc-brand-mark" :size="28" aria-hidden="true" /><span>思隅</span></div>
       <div class="pc-top-right">
-        <button class="pc-quiet-btn" type="button" title="设置" aria-label="打开设置" @click="settingsOpen = true">⚙</button>
-        <button class="pc-quiet-btn" type="button" title="回到完整工作台" aria-label="回到完整工作台" @click="backToDefaultSurface">⇱</button>
+        <button class="pc-quiet-btn" type="button" title="设置" aria-label="打开设置" @click="settingsOpen = true"><Settings :size="18" aria-hidden="true" /></button>
+        <button class="pc-quiet-btn" type="button" title="回到完整工作台" aria-label="回到完整工作台" @click="backToDefaultSurface"><ArrowUpRight :size="19" aria-hidden="true" /></button>
       </div>
     </header>
 
@@ -267,13 +339,29 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <section class="pc-dialogue" aria-live="polite">
+    <section class="pc-dialogue" aria-label="陪伴对话">
       <div class="pc-dialogue-name">{{ companionName }}</div>
       <div class="pc-dialogue-box">
-        <p class="pc-dialogue-text">{{ dialogueText }}<span v-if="dialogueTyping" class="pc-caret" /></p>
+        <p v-if="waitingForReply" class="pc-dialogue-waiting" role="status">
+          <span class="pc-waiting-dots" aria-hidden="true"><i /><i /><i /></span>
+          <span>正在等待回复…</span>
+        </p>
+        <p v-else class="pc-dialogue-text" aria-live="polite">{{ dialogueText }}<span v-if="dialogueTyping" class="pc-caret" aria-hidden="true" /></p>
         <div class="pc-dialogue-foot">
           <span class="pc-dialogue-ctx">{{ dialogueCtx }}</span>
         </div>
+      </div>
+      <div v-if="turnFeedback" class="pc-feedback" :data-kind="turnFeedback.kind" role="status">
+        <span>{{ turnFeedback.message }}</span>
+        <button
+          v-if="failedTurn"
+          type="button"
+          class="pc-retry pc-feedback-action"
+          :disabled="sending || (failedTurn.source === 'whisper' && !whisperText.trim())"
+          @click="retryTurn"
+        ><RotateCcw :size="14" aria-hidden="true" />重试发送</button>
+        <button v-else-if="turnFeedback.kind === 'observer-error'" type="button" class="pc-workbench-link pc-feedback-action" @click="backToDefaultSurface"><ArrowUpRight :size="14" aria-hidden="true" />查看完整工作台</button>
+        <button v-else-if="turnFeedback.kind === 'cancel-error' && sending" type="button" class="pc-retry pc-feedback-action" :disabled="stopping" @click="stopTurn">重试停止</button>
       </div>
     </section>
 
@@ -295,8 +383,8 @@ onBeforeUnmount(() => {
 
     <aside class="pc-whisper" :class="{ 'pc-whisper--open': whisperOpen }" aria-label="对话输入">
       <template v-if="!whisperOpen">
-        <button ref="whisperPill" type="button" class="pc-whisper-pill" @click="openWhisper">✎&nbsp;&nbsp;悄悄对{{ companionName }}说…</button>
-        <button v-if="sending" type="button" class="pc-stop" :disabled="stopping" @click="stopTurn">{{ stopping ? '停止中' : '停止' }}</button>
+        <button ref="whisperPill" type="button" class="pc-whisper-pill" @click="openWhisper"><MessageSquare :size="15" aria-hidden="true" /><span>悄悄对{{ companionName }}说…</span></button>
+        <button v-if="sending" type="button" class="pc-stop" :disabled="stopping" @click="stopTurn"><Square :size="12" aria-hidden="true" />{{ stopping ? '停止中' : '停止' }}</button>
       </template>
       <div v-else class="pc-whisper-input">
         <input
@@ -307,9 +395,9 @@ onBeforeUnmount(() => {
           enterkeyhint="send"
           @keydown="onWhisperKeydown"
         />
-        <button v-if="sending" type="button" class="pc-stop" :disabled="stopping" @click="stopTurn">{{ stopping ? '停止中' : '停止' }}</button>
-        <button v-else type="button" :disabled="!whisperText.trim()" @click="sendWhisper">发送</button>
-        <button type="button" class="pc-whisper-close" title="收起" aria-label="收起输入" @click="closeWhisper">✕</button>
+        <button v-if="sending" type="button" class="pc-stop" :disabled="stopping" @click="stopTurn"><Square :size="12" aria-hidden="true" />{{ stopping ? '停止中' : '停止' }}</button>
+        <button v-else type="button" :disabled="!whisperText.trim()" @click="sendWhisper()">发送</button>
+        <button type="button" class="pc-whisper-close" title="收起" aria-label="收起输入" @click="closeWhisper"><X :size="18" aria-hidden="true" /></button>
       </div>
     </aside>
     <MobileSettingsDialog v-model="settingsOpen" :panels="props.settingsPanels" />
@@ -322,7 +410,8 @@ onBeforeUnmount(() => {
   --pc-bg: #fbfbfa;
   --pc-ink: #17181a;
   --pc-ink-2: #565b63;
-  --pc-ink-3: #9aa0a8;
+  --pc-ink-3: #656d79;
+  --pc-feedback: #994424;
   --pc-line: rgba(23, 24, 26, .09);
   --pc-line-soft: rgba(23, 24, 26, .055);
   --pc-accent: #2f5bd0;
@@ -351,7 +440,8 @@ onBeforeUnmount(() => {
   --pc-bg: #101318;
   --pc-ink: #e7ebf2;
   --pc-ink-2: #a4adbd;
-  --pc-ink-3: #6b7484;
+  --pc-ink-3: #a0aabc;
+  --pc-feedback: #f1b08d;
   --pc-line: rgba(231, 235, 242, .1);
   --pc-line-soft: rgba(231, 235, 242, .06);
   --pc-accent: #7ea2f8;
@@ -373,10 +463,11 @@ onBeforeUnmount(() => {
   font-size: 13.5px; font-weight: 600; letter-spacing: .02em; overflow-wrap: anywhere;
 }
 .pc-brand-mark {
-  width: 22px; height: 22px; flex: 0 0 22px; border-radius: 7px; background: var(--pc-ink);
-  color: var(--pc-bg); display: grid; place-items: center; font-size: 11px; font-weight: 700;
+  flex: 0 0 28px; color: var(--pc-ink);
 }
+.pc-top-right { display: flex; align-items: center; gap: 2px; }
 .pc-quiet-btn {
+  display: grid; place-items: center;
   width: 44px; height: 44px; flex: 0 0 44px; border: 0; background: transparent; border-radius: 8px;
   color: var(--pc-ink-3); cursor: pointer; font-size: 15px;
 }
@@ -442,6 +533,16 @@ onBeforeUnmount(() => {
   font-size: 15px; line-height: 1.85; min-height: 56px;
   white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal;
 }
+.pc-dialogue-waiting {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 56px; margin-block: 1em;
+  font-size: 13px; line-height: 1.6; color: var(--pc-ink-2);
+}
+.pc-waiting-dots { display: flex; flex: 0 0 auto; gap: 4px; }
+.pc-waiting-dots i { width: 4px; height: 4px; border-radius: 50%; background: var(--pc-accent); animation: pc-waiting-pulse 1.2s var(--pc-ease) infinite; }
+.pc-waiting-dots i:nth-child(2) { animation-delay: .15s; }
+.pc-waiting-dots i:nth-child(3) { animation-delay: .3s; }
+@keyframes pc-waiting-pulse { 0%, 100% { opacity: .35; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-2px); } }
 .pc-caret {
   display: inline-block; width: 2px; height: 1em; background: var(--pc-ink-3);
   vertical-align: -2px; margin-left: 2px; animation: pc-caret-blink 1s steps(1) infinite;
@@ -454,6 +555,19 @@ onBeforeUnmount(() => {
 }
 .pc-dialogue-ctx { min-width: 0; font-size: 11px; color: var(--pc-ink-3); letter-spacing: .04em; overflow-wrap: anywhere; }
 .pc-dialogue-foot button { min-width: 44px; min-height: 44px; }
+.pc-feedback {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px;
+  padding: 8px 4px 0; font-size: 12px; line-height: 1.6; color: var(--pc-ink-2);
+}
+.pc-feedback[data-kind$="error"] { color: var(--pc-feedback); }
+.pc-feedback > span { min-width: 0; overflow-wrap: anywhere; }
+.pc-feedback-action {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  min-height: 44px; padding: 4px 8px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--pc-accent); font: inherit; font-weight: 600; cursor: pointer;
+}
+.pc-feedback-action:hover { background: var(--pc-accent-soft); }
+.pc-feedback-action:disabled { color: var(--pc-ink-3); cursor: default; }
 
 /* 建议卡留在滚动内容中，输入固定在独立底栏。 */
 .pc-choices {
@@ -478,7 +592,7 @@ onBeforeUnmount(() => {
 .pc-choice-reason { font-size: 11.5px; color: var(--pc-ink-3); margin-top: 5px; line-height: 1.5; }
 .pc-choice--primary { border-color: color-mix(in srgb, var(--pc-accent) 40%, transparent); background: linear-gradient(180deg, var(--pc-accent-soft), transparent 60%), var(--pc-card); }
 .pc-choice--primary .pc-choice-label { color: var(--pc-accent); }
-.pc-choice--primary .pc-choice-label::before { content: "◆"; font-size: 8px; margin-right: 8px; }
+.pc-choice--primary .pc-choice-label::before { content: ""; display: inline-block; width: 5px; height: 5px; margin-right: 8px; border-radius: 50%; background: currentColor; vertical-align: 2px; }
 
 /* 悄悄话底栏随 visual viewport 缩放，始终留出安全区。 */
 .pc-whisper {
@@ -490,7 +604,7 @@ onBeforeUnmount(() => {
     max(16px, env(safe-area-inset-left, 0px));
   background: var(--pc-bg);
 }
-.pc-stop { min-width: 44px; min-height: 44px; margin-left: 8px; border: 1px solid var(--pc-line); border-radius: 10px; background: var(--pc-card); color: var(--pc-ink); font: inherit; cursor: pointer; }
+.pc-stop { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 44px; min-height: 44px; margin-left: 8px; padding: 8px 12px; border: 1px solid var(--pc-line); border-radius: 10px; background: var(--pc-card); color: var(--pc-ink); font: inherit; font-size: 12px; cursor: pointer; }
 .pc-stop:disabled { opacity: .5; cursor: default; }
 .pc-stop:focus-visible { outline: 2px solid var(--pc-accent); outline-offset: 3px; }
 .pc-whisper-pill {
@@ -514,7 +628,9 @@ onBeforeUnmount(() => {
   border: 0; outline: 0; font: inherit; font-size: 16px;
   color: var(--pc-ink); background: transparent;
 }
+.pc-whisper-input input::placeholder { color: var(--pc-ink-3); opacity: 1; }
 .pc-whisper-input button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
   flex: 0 0 auto; min-width: 44px; min-height: 44px;
   border: 0; background: var(--pc-ink); color: var(--pc-bg); border-radius: 8px;
   padding: 8px 12px; font-size: 12px; cursor: pointer; font-family: inherit;
@@ -524,8 +640,11 @@ onBeforeUnmount(() => {
 .pc-quiet-btn:focus-visible,
 .pc-choice:focus-visible,
 .pc-whisper-pill:focus-visible,
+.pc-feedback-action:focus-visible,
 .pc-whisper-input button:focus-visible { outline: 2px solid var(--pc-accent); outline-offset: 3px; }
 .pc-whisper-input:focus-within { border-color: var(--pc-accent); }
+.pc-quiet-btn, .pc-whisper-pill, .pc-stop, .pc-feedback-action, .pc-whisper-input button { transition: color .18s, background .18s, transform .18s var(--pc-ease); }
+.pc-quiet-btn:active, .pc-choice:active:not(:disabled), .pc-whisper-pill:active, .pc-stop:active:not(:disabled), .pc-feedback-action:active:not(:disabled), .pc-whisper-input button:active:not(:disabled) { transform: scale(.98) translateY(1px); }
 
 @media (min-width: 520px) {
   .pc-choices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -570,7 +689,7 @@ onBeforeUnmount(() => {
   .pc-dialogue, .pc-choices { grid-column: auto; grid-row: auto; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .pc-caret { animation: none; }
-  .pc-choice { transition: none; }
+  .pc-caret, .pc-waiting-dots i { animation: none; }
+  .pc-choice, .pc-quiet-btn, .pc-whisper-pill, .pc-stop, .pc-feedback-action, .pc-whisper-input button { transition: none; }
 }
 </style>
