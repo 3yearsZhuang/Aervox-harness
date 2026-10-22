@@ -1,6 +1,7 @@
 /** Aervox｜思隅 @aervox/api-client 入口 */
 export { useAervoxPreferences } from './useAervoxPreferences';
 export { useAervoxPrivacy } from './useAervoxPrivacy';
+export { useAervoxFeedback } from './useAervoxFeedback';
 export { useAervoxBranches, type ConversationBranchDto } from './useAervoxBranches';
 export { useAervoxBots } from './useAervoxBots';
 export {

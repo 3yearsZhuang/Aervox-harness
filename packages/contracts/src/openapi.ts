@@ -13,6 +13,7 @@ import { modelRuntimeApi } from "./model-runtime-api.js";
 import { preferencesApi } from "./preferences-api.js";
 import { skillsApi } from "./skills-api.js";
 import { branchesApi } from "./branches-api.js";
+import { feedbackApi } from "./feedback-api.js";
 import { privacyApi } from "./privacy-api.js";
 import { pluginConfigApi } from "./plugin-config-api.js";
 import { createMemoryNodeRequestSchema, memoryNodeSchema, listMemoryNodesResponseSchema } from "./memory-api.js";
@@ -1048,7 +1049,7 @@ function registerJsonEndpoint(endpoint: ApiEndpoint): void {
     },
   });
 }
-for (const endpoint of [...Object.values(turnDiagnosticsApi), ...Object.values(modelRuntimeApi), ...Object.values(preferencesApi), ...Object.values(privacyApi), ...Object.values(skillsApi), ...Object.values(branchesApi)] as ApiEndpoint[]) {
+for (const endpoint of [...Object.values(turnDiagnosticsApi), ...Object.values(modelRuntimeApi), ...Object.values(preferencesApi), ...Object.values(privacyApi), ...Object.values(skillsApi), ...Object.values(branchesApi), ...Object.values(feedbackApi)] as ApiEndpoint[]) {
   registerJsonEndpoint(endpoint);
 }
 registry.registerPath({
