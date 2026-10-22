@@ -52,6 +52,27 @@ export interface TurnStreamEventModel {
   committedAt?: string | null;
 }
 
+export interface TurnStreamEventPageOptions {
+  afterSequence?: number;
+  /** Snapshot upper bound; events committed later belong to the next catch-up. */
+  throughSequence: number;
+  /** Clamped to the repository's fixed row budget. */
+  limit?: number;
+}
+
+export interface TurnStreamEventPage {
+  events: TurnStreamEventModel[];
+  persistedDataBytes: number;
+  /** A single oversized durable event is preserved, never truncated or skipped. */
+  oversizedEvent: boolean;
+}
+
+export interface TurnStreamReplayState {
+  highWaterSequence: number;
+  /** All existing Attempts are terminal in the same snapshot as the high-water. */
+  settled: boolean;
+}
+
 export interface OutboxEventModel {
   id: string;
   controlEventId?: string | null;
@@ -155,6 +176,14 @@ export interface IConversationRepository {
     turnId: string,
     afterSequence?: number,
   ): Promise<TurnStreamEventModel[]>;
+  getStreamEventHighWater(ctx: LocalContext, turnId: string): Promise<number>;
+  getStreamReplayState(ctx: LocalContext, turnId: string): Promise<TurnStreamReplayState>;
+  /** Bounded transport page; full-history/resume readers keep getStreamEvents. */
+  getStreamEventsPage(
+    ctx: LocalContext,
+    turnId: string,
+    options: TurnStreamEventPageOptions,
+  ): Promise<TurnStreamEventPage>;
   /** 按 Turn 与稳定事件 ID 查询单条流事件，供 SSE 重连游标校验。 */
   getStreamEventById(
     ctx: LocalContext,

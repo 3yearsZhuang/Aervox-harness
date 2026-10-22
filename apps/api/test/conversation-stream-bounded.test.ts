@@ -1,0 +1,101 @@
+import { connect, type Socket } from "node:net";
+import { get, type ClientRequest } from "node:http";
+import type { ServerResponse } from "node:http";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createInMemoryDatabase, SqliteConversationRepository, type LocalContext } from "@aervox/repositories";
+import type { FastifyInstance } from "fastify";
+import { buildApp } from "./app-fixture.js";
+import { turnStreamHub } from "@aervox/host-runtime-test/modules/companion/conversation/stream-hub";
+
+const ctx: LocalContext = { workspaceId: "local", subjectUserId: "local" };
+const tick = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+const parse = (body: string) => body.split("\n\n").map(block => block.split("\n").find(line => line.startsWith("data: ")))
+  .filter((line): line is string => Boolean(line)).map(line => JSON.parse(line.slice(6)));
+
+describe("bounded durable SSE over HTTP and paused TCP", () => {
+  let database: Awaited<ReturnType<typeof createInMemoryDatabase>>;
+  let app: FastifyInstance; let repo: SqliteConversationRepository;
+  const clients: (Socket | ClientRequest)[] = [];
+  beforeEach(async () => {
+    process.env.AERVOX_LOOP_PROVIDER = "replay";
+    database = await createInMemoryDatabase(); repo = new SqliteConversationRepository(database.db);
+    app = (await buildApp({ db: database.db, client: database.client })).app;
+    await repo.getOrCreateSession(ctx, "session");
+    await repo.createTurnWithOutbox(ctx, { id: "turn", sessionId: "session", idempotencyKey: "turn" },
+      { id: "message", content: "synthetic stream test" });
+    await repo.createTurnAttempt(ctx, "turn", { id: "attempt", attempt: 1 });
+  });
+  afterEach(async () => {
+    for (const client of clients.splice(0)) client.destroy();
+    await app.close(); await database.cleanup(); vi.restoreAllMocks();
+    delete process.env.AERVOX_LOOP_PROVIDER;
+  });
+  const append = (sequence: number, text: string, eventType = "delta") => repo.appendStreamEvent(ctx,
+    { id: `event_${sequence}`, turnId: "turn", sequence, eventType, data: { text } });
+  const read = (url: string, cursor?: string) => new Promise<string>((resolve, reject) => {
+    const request = get(url, { headers: cursor ? { "Last-Event-ID": cursor } : undefined }, response => {
+      let body = ""; response.setEncoding("utf8");
+      response.on("data", chunk => { body += chunk; });
+      response.on("end", () => resolve(body)); response.on("error", reject);
+    });
+    clients.push(request); request.on("error", reject);
+  });
+
+  it("natural socket backpressure pauses SQLite pages and detachment preserves replayable events", async () => {
+    // Fixed synthetic input: 32 x 192 KiB data (6 MiB), temporary SQLite only.
+    for (let i = 1; i <= 32; i += 1) await append(i, "x".repeat(192 * 1024));
+    const page = vi.spyOn(SqliteConversationRepository.prototype, "getStreamEventsPage");
+    let raw!: ServerResponse; let falseWrites = 0; let peakQueuedBytes = 0;
+    app.addHook("onRequest", async (req, reply) => {
+      if (!req.url.endsWith("/events")) return;
+      raw = reply.raw; const original = raw.write.bind(raw);
+      raw.write = ((frame: string) => {
+        const accepted = original(frame);
+        if (!accepted) falseWrites += 1;
+        peakQueuedBytes = Math.max(peakQueuedBytes, raw.writableLength);
+        return accepted; // Observe the actual Node return; never force false.
+      }) as typeof raw.write;
+    });
+    const base = await app.listen({ host: "127.0.0.1", port: 0 }); const url = new URL(base);
+    const paused = connect({ host: "127.0.0.1", port: Number(url.port) }); clients.push(paused);
+    paused.on("error", () => undefined); paused.pause();
+    await new Promise<void>(resolve => paused.once("connect", resolve));
+    paused.write("GET /v1/turns/turn/events HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
+    await vi.waitFor(() => {
+      expect(falseWrites).toBeGreaterThan(0); expect(raw.writableNeedDrain).toBe(true);
+    });
+    await tick(250); const blockedPages = page.mock.calls.length;
+    await tick(200);
+    expect(raw.writableNeedDrain).toBe(true);
+    expect(page).toHaveBeenCalledTimes(blockedPages);
+    expect(blockedPages).toBeGreaterThan(0); expect(blockedPages).toBeLessThan(32);
+    // One frame can exceed HWM, while the owner never appends a second blocked frame.
+    expect(peakQueuedBytes).toBeLessThan(256 * 1024);
+    paused.destroy(); await vi.waitFor(() => expect(raw.destroyed).toBe(true));
+    expect((await repo.listTurnAttempts(ctx, "turn"))[0]!.status).toBe("Running");
+    expect((await repo.getStreamEvents(ctx, "turn")).some(e => e.eventType === "done")).toBe(false);
+    await append(33, "persisted terminal", "done");
+    await repo.finalizeTurnAttempt(ctx, { turnId: "turn", attemptId: "attempt", status: "Completed" });
+    const body = await read(`${base}/v1/turns/turn/events`, "event_1");
+    expect(parse(body).map(e => e.sequence)).toEqual(Array.from({ length: 32 }, (_, i) => i + 2));
+    expect(parse(body).at(-1)!.eventType).toBe("done");
+  });
+
+  it("replays 600 persisted rows in capped pages and includes a commit in the snapshot window", async () => {
+    for (let i = 1; i <= 600; i += 1) await append(i, `event ${i}`);
+    await repo.finalizeTurnAttempt(ctx, { turnId: "turn", attemptId: "attempt", status: "Completed" });
+    const highWater = SqliteConversationRepository.prototype.getStreamEventHighWater;
+    vi.spyOn(SqliteConversationRepository.prototype, "getStreamEventHighWater").mockImplementationOnce(async function (tenant, turnId) {
+      const snapshot = await highWater.call(this, tenant, turnId);
+      const terminal = await append(601, "snapshot-window terminal", "done");
+      turnStreamHub.publishEvent("turn", terminal); return snapshot;
+    });
+    const page = vi.spyOn(SqliteConversationRepository.prototype, "getStreamEventsPage");
+    const base = await app.listen({ host: "127.0.0.1", port: 0 });
+    const body = await read(`${base}/v1/turns/turn/events`);
+    expect(parse(body).map(e => e.sequence)).toEqual(Array.from({ length: 601 }, (_, i) => i + 1));
+    const sizes = await Promise.all(page.mock.results.map(async result => (await result.value).events.length));
+    expect(sizes).toEqual([256, 256, 88, 1]);
+    expect(page.mock.calls[0]![2].throughSequence).toBe(600);
+  });
+});

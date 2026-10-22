@@ -20,6 +20,9 @@ import type {
   TurnAttemptModel,
   ConversationBranchModel,
   TurnStreamEventModel,
+  TurnStreamEventPageOptions,
+  TurnStreamEventPage,
+  TurnStreamReplayState,
   ToolExecutionModel,
   ToolApprovalModel,
 } from "../types/index.js";
@@ -35,6 +38,7 @@ import { TurnStore } from "./conversation/turn-store.js";
 import { ApiRecoveryStore } from "./conversation/api-recovery-store.js";
 
 export { MAX_RESUME_CANDIDATE_LIMIT } from "./conversation/safe-segment-store.js";
+export { MAX_STREAM_EVENT_PAGE_ROWS, MAX_STREAM_EVENT_PAGE_DATA_BYTES } from "./conversation/stream-event-store.js";
 
 export class SqliteConversationRepository implements IConversationRepository {
   private readonly sessionStore: SessionStore;
@@ -209,6 +213,18 @@ export class SqliteConversationRepository implements IConversationRepository {
     eventId: string,
   ): Promise<TurnStreamEventModel | null> {
     return this.streamEventStore.getStreamEventById(ctx, turnId, eventId);
+  }
+
+  getStreamEventHighWater(ctx: LocalContext, turnId: string): Promise<number> {
+    return this.streamEventStore.getStreamEventHighWater(ctx, turnId);
+  }
+
+  getStreamReplayState(ctx: LocalContext, turnId: string): Promise<TurnStreamReplayState> {
+    return this.streamEventStore.getStreamReplayState(ctx, turnId);
+  }
+
+  getStreamEventsPage(ctx: LocalContext, turnId: string, options: TurnStreamEventPageOptions): Promise<TurnStreamEventPage> {
+    return this.streamEventStore.getStreamEventsPage(ctx, turnId, options);
   }
 
   async recordTurnStreamEvent(

@@ -1,12 +1,15 @@
 /**
  * Aervox｜思隅 @aervox/repositories — Turn 流事件（fencing CAS）Store
  */
-import { eq, and, gt } from "drizzle-orm";
+import { eq, and, gt, lte, desc, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
 import { turnStreamEvents, turnAttempts } from "@aervox/schema";
 import type { LocalContext } from "../../../local-context.js";
 import { FencingMismatchError } from "../../../errors.js";
-import type { TurnStreamEventModel } from "../../types/index.js";
+import type { TurnStreamEventModel, TurnStreamEventPageOptions, TurnStreamEventPage, TurnStreamReplayState } from "../../types/index.js";
+
+export const MAX_STREAM_EVENT_PAGE_ROWS = 256;
+export const MAX_STREAM_EVENT_PAGE_DATA_BYTES = 256 * 1024;
 
 /** Turn 内 sequence 唯一，因此可构造跨进程稳定、可重连复用的事件标识。 */
 export const streamEventId = (turnId: string, sequence: number): string => `tev_${turnId}_${sequence}`;
@@ -121,6 +124,70 @@ export class StreamEventStore {
       ))
       .limit(1);
     return (row as TurnStreamEventModel | undefined) ?? null;
+  }
+
+  async getStreamEventHighWater(ctx: LocalContext, turnId: string): Promise<number> {
+    const [row] = await this.db.select({ sequence: turnStreamEvents.sequence })
+      .from(turnStreamEvents).where(eq(turnStreamEvents.turnId, turnId))
+      .orderBy(desc(turnStreamEvents.sequence)).limit(1);
+    return row?.sequence ?? 0;
+  }
+
+  async getStreamReplayState(ctx: LocalContext, turnId: string): Promise<TurnStreamReplayState> {
+    // Separate status/watermark reads can combine an old terminal Attempt with
+    // a new continuation's empty stream, or miss a newly committed terminal event.
+    // One SQLite statement gives both facts the same read snapshot. The scalar
+    // high-water lookup uses the (turn_id, sequence) index without loading data.
+    const [row] = await this.db.select({
+      highWaterSequence: sql<number>`coalesce((select ${turnStreamEvents.sequence} from ${turnStreamEvents}
+        where ${turnStreamEvents.turnId} = ${turnId} order by ${turnStreamEvents.sequence} desc limit 1), 0)`,
+      settled: sql<number>`count(*) > 0 and count(case when ${turnAttempts.status}
+        not in ('Completed', 'Failed', 'Interrupted', 'Cancelled') then 1 end) = 0`,
+    }).from(turnAttempts).where(eq(turnAttempts.turnId, turnId));
+    return { highWaterSequence: Number(row?.highWaterSequence ?? 0), settled: Number(row?.settled) === 1 };
+  }
+
+  async getStreamEventsPage(
+    ctx: LocalContext,
+    turnId: string,
+    options: TurnStreamEventPageOptions,
+  ): Promise<TurnStreamEventPage> {
+    const after = options.afterSequence ?? 0;
+    if (!Number.isSafeInteger(after) || after < 0 ||
+        !Number.isSafeInteger(options.throughSequence) || options.throughSequence < 0) {
+      throw new RangeError("invalid_stream_event_page_sequence");
+    }
+    const limit = options.limit === undefined ? MAX_STREAM_EVENT_PAGE_ROWS
+      : Math.min(MAX_STREAM_EVENT_PAGE_ROWS, Math.max(1, Math.floor(options.limit)));
+    if (!Number.isFinite(limit)) throw new RangeError("invalid_stream_event_page_limit");
+    // Read only bounded metadata first: applying a byte budget after loading all
+    // JSON rows would still materialize an arbitrarily large 256-event page.
+    const candidates = await this.db.select({
+      sequence: turnStreamEvents.sequence,
+      dataBytes: sql<number>`length(cast(${turnStreamEvents.data} as blob))`,
+    }).from(turnStreamEvents).where(and(
+      eq(turnStreamEvents.turnId, turnId),
+      gt(turnStreamEvents.sequence, after),
+      lte(turnStreamEvents.sequence, options.throughSequence),
+    )).orderBy(turnStreamEvents.sequence).limit(limit);
+    let persistedDataBytes = 0;
+    let lastSequence = after;
+    for (const row of candidates) {
+      const bytes = Number(row.dataBytes);
+      if (lastSequence !== after && persistedDataBytes + bytes > MAX_STREAM_EVENT_PAGE_DATA_BYTES) break;
+      persistedDataBytes += bytes;
+      lastSequence = row.sequence;
+      if (persistedDataBytes >= MAX_STREAM_EVENT_PAGE_DATA_BYTES) break;
+    }
+    if (lastSequence === after) return { events: [], persistedDataBytes: 0, oversizedEvent: false };
+    const events = await this.db.select().from(turnStreamEvents).where(and(
+      eq(turnStreamEvents.turnId, turnId), gt(turnStreamEvents.sequence, after),
+      lte(turnStreamEvents.sequence, lastSequence),
+    )).orderBy(turnStreamEvents.sequence).limit(limit);
+    return {
+      events: events as TurnStreamEventModel[], persistedDataBytes,
+      oversizedEvent: persistedDataBytes > MAX_STREAM_EVENT_PAGE_DATA_BYTES,
+    };
   }
 
   async recordTurnStreamEvent(
