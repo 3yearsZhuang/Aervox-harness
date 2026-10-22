@@ -8,16 +8,11 @@ vale = "3.18.0"
 # 固定版本后 `mise x` 会把它放进 PATH，脚本可直接 spawnSync 调用，不再依赖 npx 缓存。
 "npm:markdownlint-cli2" = "0.23.3"
 
-[settings]
-env_file = ".env"
-
 [env]
 # ── 配置优先级声明（缺陷6）──────────────────────────────
-# 进程环境变量 > .env（aervox 脚本/ mise env_file 加载）> 本 [env] 注入值 > 代码内置默认。
-# mise 注入不会覆盖调用方已导出的同名变量；此处仅设项目级默认。
-AERVOX_PROJECT = "aervox-harness"
-AERVOX_NODE_MIN = "22.19"
-AERVOX_LOOP_PROVIDER = "llm"
+# 进程环境变量 > .env > 项目默认 > 代码内置默认。
+# settings.env_file 会覆盖调用方；共享脚本显式保留调用方已导出的值。
+_.source = "scripts/project-env.sh"
 
 # ── 常用项目操作 ────────────────────────────────────────────
 

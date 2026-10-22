@@ -61,10 +61,12 @@ test('launcher preserves frozen-install error and never falls back to lockfile r
   if (process.platform === 'win32') return t.skip('bash launcher is a Unix entrypoint');
   const { cwd, put } = fixture(t);
   copyFileSync(new URL('../aervox', import.meta.url), path.join(cwd, 'aervox'));
+  put('scripts/project-env.sh', readFileSync(new URL('./project-env.sh', import.meta.url)));
   put('pnpm-lock.yaml', 'locked');
   put('bin/mise', '#!/bin/sh\nshift\nshift\nexec "$@"\n');
+  put('bin/lsof', '#!/bin/sh\nexit 1\n');
   put('bin/pnpm', '#!/bin/sh\nprintf "%s\\n" "$*" >> calls\necho ORIGINAL_INSTALL_ERROR >&2\nexit 42\n');
-  for (const name of ['mise', 'pnpm']) chmodSync(path.join(cwd, 'bin', name), 0o755);
+  for (const name of ['mise', 'pnpm', 'lsof']) chmodSync(path.join(cwd, 'bin', name), 0o755);
   const result = spawnSync('bash', ['aervox', 'dev', 'api'], { cwd, env: { ...process.env, PATH: `${cwd}/bin:${process.env.PATH}` }, encoding: 'utf8' });
   assert.equal(result.status, 42);
   assert.match(result.stderr, /ORIGINAL_INSTALL_ERROR/);
