@@ -115,6 +115,7 @@ export * from "./model-runtime-api.js";
 export * from "./memory-api.js";
 export * from "./skills-api.js";
 export * from "./branches-api.js";
+export * from "./feedback-api.js";
 export { buildOpenApiDocument, resetOpenApiDocumentCache } from "./openapi.js";
 
 export type TurnStatus = z.infer<typeof turnStatusSchema>;

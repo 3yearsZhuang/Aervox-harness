@@ -76,12 +76,6 @@
     },
     {
       "method": "GET",
-      "path": "/v1/feedback",
-      "module": "modules/platform/feedback",
-      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
-    },
-    {
-      "method": "GET",
       "path": "/v1/knowledge-items/{param}",
       "module": "modules/learning/learning",
       "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
@@ -504,12 +498,6 @@
       "method": "POST",
       "path": "/v1/diaries/schedules",
       "module": "modules/learning/diary",
-      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
-    },
-    {
-      "method": "POST",
-      "path": "/v1/feedback",
-      "module": "modules/platform/feedback",
       "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
     },
     {

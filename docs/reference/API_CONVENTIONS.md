@@ -12,7 +12,7 @@ HTTP 数据与操作的事实源是 `@aervox/contracts`；[流式协议](STREAMI
 
 ## 操作声明与覆盖
 
-新 JSON 端点优先使用 [ApiEndpoint](../../packages/contracts/src/http-api.ts) 定义方法、路径、稳定 `operationId`、输入、成功响应及错误响应；使用宿主 [registerContractRoute](../../packages/host-runtime/src/shared/contract-route.ts) 注册，并由 OpenAPI 与共享客户端消费同一声明。已有切片包括 [Model Runtime](../../packages/contracts/src/model-runtime-api.ts)、[隐私授权与删除请求](../../packages/contracts/src/privacy-api.ts)、[用户偏好](../../packages/contracts/src/preferences-api.ts)、[插件配置](../../packages/contracts/src/plugin-config-api.ts)、[基础技能管理](../../packages/contracts/src/skills-api.ts)和[会话分支](../../packages/contracts/src/branches-api.ts)。共享声明校验路径、查询参数、请求体和成功响应；SSE、文件和已有路由可以保留专用适配器，但仍须登记协议。
+新 JSON 端点优先使用 [ApiEndpoint](../../packages/contracts/src/http-api.ts) 定义方法、路径、稳定 `operationId`、输入、成功响应及错误响应；使用宿主 [registerContractRoute](../../packages/host-runtime/src/shared/contract-route.ts) 注册，并由 OpenAPI 与共享客户端消费同一声明。已有切片包括 [Model Runtime](../../packages/contracts/src/model-runtime-api.ts)、[隐私授权与删除请求](../../packages/contracts/src/privacy-api.ts)、[用户偏好](../../packages/contracts/src/preferences-api.ts)、[插件配置](../../packages/contracts/src/plugin-config-api.ts)、[基础技能管理](../../packages/contracts/src/skills-api.ts)、[会话分支](../../packages/contracts/src/branches-api.ts)和[质量反馈](../../packages/contracts/src/feedback-api.ts)。共享声明校验路径、查询参数、请求体和成功响应；SSE、文件和已有路由可以保留专用适配器，但仍须登记协议。
 
 新声明中需要请求体的操作显式设置 `bodyRequired: true`，使 OpenAPI 的请求体存在性与运行时 Schema 校验一致；这与对象内部的必填字段不同。隐私授权、删除请求和偏好保存、更新缺少请求体时返回 400；撤销授权与重置偏好保留无请求体调用。
 
@@ -25,6 +25,8 @@ HTTP 数据与操作的事实源是 `@aervox/contracts`；[流式协议](STREAMI
 基础技能管理保留本地注册表的实际返回：列表为 `{ items }`，元数据的 `active/readonly` 为 0 或 1，内容读取包含 `name/description/content`；不转换为旧工作区 Skill 模型。安装以 JSON `zipBase64` 承载 ZIP，单技能包须提供目标名，名称空白仍由管理器归一化；`overwrite` 省略等同 false，只接受布尔值。安装与启停缺少请求体、错误字段类型或重复筛选键返回 400；列表仅在 `activeOnly=true` 时过滤启用项。删除成功返回无内容的 204，技能不存在、只读或目录所有权冲突返回 409。归档输入错误与内部文件系统、数据库、Worker 故障分别处理，内部故障交由统一错误处理隐藏诊断；取消和写入边界继续遵守[归档与所有权契约](plugin-config-and-pages.md#归档资源与-skill-所有权)。Neo 候选及发布生命周期仍为后续迁移范围。
 
 会话分支的 8 个操作保留实际记录语义：列表和地图为 `{ items }`，根会话不存在时返回空列表；创建返回 201，合并和归档只更新分支状态，删除返回 200 的软删除记录，不删除会话或消息。布局更新要求 `layoutData` 字段，接受任意 JSON（包括 null），布局元数据不改变内容。地图读取保留多个父节点、循环及独立的重复边，每个可达会话只查询一次、每个分支 ID 只返回一次；顺序为直接兄弟先列，再按兄弟顺序读取后代。单次最多查询 1,000 个会话（包括根与无子分支的叶节点）、返回 10,000 条唯一分支；SQL 每次只物化剩余分支预算加一条哨兵，超过任一预算返回 422、固定 `branch_tree_limit_exceeded`，不返回部分成功。预算限制单次读取，不拒绝合法图写入或删除数据；客户端不得通过参数扩大预算。请求断开在每次查询前后终止后续遍历，已开始的单次 SQL 查询可以完成；行预算限制结果物化，不承诺数据库扫描、排序耗时或单条布局字节数有硬上限。来源归属与完整 CAP-014 验收继续按[需求边界](SRS.md#prd-cap-014-019)推进。
+
+质量反馈的 POST 要求请求体和三个非空字符串 `subjectType/subjectId/type`，保留扩展类型和原有空白字符串行为；`note` 可以省略或为 null。操作者只取宿主认证上下文，旧请求体中的 `actorId` 被忽略。创建返回 201 的持久记录，列表返回 200 的 `{ items }`；响应保留历史字符串与 nullable note。GET 仅在两个筛选值都非空时筛选，缺参、单参或空值继续返回全量列表，重复查询键等非字符串输入返回 400。共享客户端校验输入和成功响应，旧 `submitFeedback` 继续返回 void。该切片保留全量读取，未增加分页或总量预算；回答版本关联及质量复核队列仍按 [BR-CONV-002](SRS.md#br-conv-002-讲解反馈与质量队列) 推进。
 
 实际注册路由的覆盖测试以 Fastify `onRoute` 为依据，包括共享声明生成的路由。已有未描述路径以精确例外记录，新增缺口和已补齐却残留的例外都会失败。该棘轮约束增量，不表示全部历史端点已经完成迁移。
 
