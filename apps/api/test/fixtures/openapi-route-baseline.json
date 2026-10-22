@@ -10,12 +10,6 @@
     },
     {
       "method": "DELETE",
-      "path": "/v1/branches/{param}",
-      "module": "modules/companion/branch",
-      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
-    },
-    {
-      "method": "DELETE",
       "path": "/v1/knowledge-relations/{param}",
       "module": "modules/knowledge/knowledge",
       "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
@@ -66,12 +60,6 @@
       "method": "GET",
       "path": "/v1/attachments/{param}/parse/history",
       "module": "modules/knowledge/content",
-      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
-    },
-    {
-      "method": "GET",
-      "path": "/v1/branches/{param}",
-      "module": "modules/companion/branch",
       "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
     },
     {
@@ -364,18 +352,6 @@
     },
     {
       "method": "GET",
-      "path": "/v1/sessions/{param}/branch-tree",
-      "module": "modules/companion/branch",
-      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
-    },
-    {
-      "method": "GET",
-      "path": "/v1/sessions/{param}/branches",
-      "module": "modules/companion/branch",
-      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
-    },
-    {
-      "method": "GET",
       "path": "/v1/skills/candidates",
       "module": "modules/ecosystem/skills",
       "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
@@ -454,12 +430,6 @@
     },
     {
       "method": "PATCH",
-      "path": "/v1/branches/{param}/layout",
-      "module": "modules/companion/branch",
-      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
-    },
-    {
-      "method": "PATCH",
       "path": "/v1/messages/{param}",
       "module": "modules/companion/conversation",
       "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
@@ -522,18 +492,6 @@
       "method": "POST",
       "path": "/v1/attachments/{param}/parse/convert-text",
       "module": "modules/knowledge/content",
-      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
-    },
-    {
-      "method": "POST",
-      "path": "/v1/branches/{param}/archive",
-      "module": "modules/companion/branch",
-      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
-    },
-    {
-      "method": "POST",
-      "path": "/v1/branches/{param}/merge",
-      "module": "modules/companion/branch",
       "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
     },
     {
@@ -732,12 +690,6 @@
       "method": "POST",
       "path": "/v1/questions/import",
       "module": "modules/learning/learning",
-      "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
-    },
-    {
-      "method": "POST",
-      "path": "/v1/sessions/{param}/branches",
-      "module": "modules/companion/branch",
       "reason": "Existing endpoint: migrate request/response schemas and register its OpenAPI operation; remove this exception in the same change."
     },
     {

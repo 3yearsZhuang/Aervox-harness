@@ -5,12 +5,14 @@
  * - 分支创建（术语下钻、文本追问、替代解法）
  * - 分支生命周期（合并回主线、归档、删除）
  * - 会话地图布局（布局数据丢失不影响会话内容）
- * - 分支树查询（递归获取所有子分支）
+ * - 分支树查询（有界获取所有可达子分支）
  */
 import type { FastifyInstance } from "fastify";
-import type { SqliteConversationRepository } from "@aervox/repositories";
-import { createBranchSchema, updateBranchLayoutSchema } from "@aervox/contracts";
+import { BranchTreeLimitError, type SqliteConversationRepository } from "@aervox/repositories";
+import { branchesApi, type CreateBranchRequest } from "@aervox/contracts";
 import { resolveLocalContext } from "../../../shared/local-context.js";
+import { registerContractRoute } from "../../../shared/contract-route.js";
+import { withRequestSignal } from "../../../shared/request-signal.js";
 
 let seq = 0;
 const nextId = (): string => `br_${Date.now().toString(36)}_${(++seq).toString(36)}`;
@@ -20,31 +22,27 @@ export function registerBranchRoutes(
   conversationRepo: SqliteConversationRepository,
 ): void {
   // POST /v1/sessions/:sessionId/branches — 创建分支
-  app.post("/v1/sessions/:sessionId/branches", async (req, reply) => {
-    const tenant = resolveLocalContext(req);
+  registerContractRoute(app, branchesApi.create, async (req, reply) => {
+    const ctx = resolveLocalContext(req);
     const { sessionId } = req.params as { sessionId: string };
-    const parsed = createBranchSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: "Validation failed", details: parsed.error.issues });
-    }
+    const input = req.body as CreateBranchRequest;
 
-    if (parsed.data.childSessionId === sessionId) return reply.status(400).send({ error: "branch_requires_distinct_sessions" });
+    if (input.childSessionId === sessionId) return reply.status(400).send({ error: "branch_requires_distinct_sessions" });
     try {
-      const parent = await conversationRepo.getSession(tenant, sessionId);
+      const parent = await conversationRepo.getSession(ctx, sessionId);
       if (!parent) return reply.status(404).send({ error: "Parent session not found" });
       // An existing child keeps its creation boundary; a new child inherits it from the parent.
       await conversationRepo.getOrCreateSession(
-        tenant, parsed.data.childSessionId, parsed.data.title ?? parent.title, parent.projectId, parent.executionPolicy,
+        ctx, input.childSessionId, input.title ?? parent.title, parent.projectId, parent.executionPolicy,
       );
-      const branch = await conversationRepo.createConversationBranch(tenant, {
+      return await conversationRepo.createConversationBranch(ctx, {
         id: nextId(),
         parentSessionId: sessionId,
-        childSessionId: parsed.data.childSessionId,
-        forkAtMessageId: parsed.data.forkAtMessageId,
-        title: parsed.data.title,
-        branchReason: parsed.data.branchReason,
+        childSessionId: input.childSessionId,
+        forkAtMessageId: input.forkAtMessageId,
+        title: input.title,
+        branchReason: input.branchReason,
       });
-      return reply.status(201).send(branch);
     } catch (error) {
       if (error instanceof Error && error.message.startsWith("conversation_execution_policy_")) {
         return reply.status(400).send({ error: error.message });
@@ -54,78 +52,81 @@ export function registerBranchRoutes(
   });
 
   // GET /v1/sessions/:sessionId/branches — 列出直接子分支
-  app.get("/v1/sessions/:sessionId/branches", async (req, reply) => {
-    const tenant = resolveLocalContext(req);
+  registerContractRoute(app, branchesApi.list, async (req) => {
+    const ctx = resolveLocalContext(req);
     const { sessionId } = req.params as { sessionId: string };
-    const items = await conversationRepo.listBranchesByParent(tenant, sessionId);
-    return reply.send({ items });
+    const items = await conversationRepo.listBranchesByParent(ctx, sessionId);
+    return { items };
   });
 
-  // GET /v1/sessions/:sessionId/branch-tree — 递归获取会话地图
-  app.get("/v1/sessions/:sessionId/branch-tree", async (req, reply) => {
-    const tenant = resolveLocalContext(req);
+  // GET /v1/sessions/:sessionId/branch-tree — 有界读取会话地图
+  registerContractRoute(app, branchesApi.tree, async (req, reply) => {
+    const ctx = resolveLocalContext(req);
     const { sessionId } = req.params as { sessionId: string };
-    const items = await conversationRepo.getBranchTree(tenant, sessionId);
-    return reply.send({ items });
+    try {
+      const items = await withRequestSignal(req, reply, signal => conversationRepo.getBranchTree(ctx, sessionId, { signal }));
+      return { items };
+    } catch (error) {
+      if (error instanceof BranchTreeLimitError) {
+        return reply.status(422).send({ code: "branch_tree_limit_exceeded", error: "branch_tree_limit_exceeded" });
+      }
+      throw error;
+    }
   });
 
   // GET /v1/branches/:branchId — 获取分支详情
-  app.get("/v1/branches/:branchId", async (req, reply) => {
-    const tenant = resolveLocalContext(req);
+  registerContractRoute(app, branchesApi.get, async (req, reply) => {
+    const ctx = resolveLocalContext(req);
     const { branchId } = req.params as { branchId: string };
-    const branch = await conversationRepo.getBranch(tenant, branchId);
+    const branch = await conversationRepo.getBranch(ctx, branchId);
     if (!branch) {
       return reply.status(404).send({ error: "Branch not found" });
     }
-    return reply.send(branch);
+    return branch;
   });
 
   // POST /v1/branches/:branchId/merge — 合并分支回主线
-  app.post("/v1/branches/:branchId/merge", async (req, reply) => {
-    const tenant = resolveLocalContext(req);
+  registerContractRoute(app, branchesApi.merge, async (req, reply) => {
+    const ctx = resolveLocalContext(req);
     const { branchId } = req.params as { branchId: string };
-    const merged = await conversationRepo.mergeBranch(tenant, branchId);
+    const merged = await conversationRepo.mergeBranch(ctx, branchId);
     if (!merged) {
       return reply.status(404).send({ error: "Branch not found or not active" });
     }
-    return reply.send(merged);
+    return merged;
   });
 
   // POST /v1/branches/:branchId/archive — 归档分支
-  app.post("/v1/branches/:branchId/archive", async (req, reply) => {
-    const tenant = resolveLocalContext(req);
+  registerContractRoute(app, branchesApi.archive, async (req, reply) => {
+    const ctx = resolveLocalContext(req);
     const { branchId } = req.params as { branchId: string };
-    const archived = await conversationRepo.archiveBranch(tenant, branchId);
+    const archived = await conversationRepo.archiveBranch(ctx, branchId);
     if (!archived) {
       return reply.status(404).send({ error: "Branch not found or not active" });
     }
-    return reply.send(archived);
+    return archived;
   });
 
   // PATCH /v1/branches/:branchId/layout — 更新布局数据
-  app.patch("/v1/branches/:branchId/layout", async (req, reply) => {
-    const tenant = resolveLocalContext(req);
+  registerContractRoute(app, branchesApi.updateLayout, async (req, reply) => {
+    const ctx = resolveLocalContext(req);
     const { branchId } = req.params as { branchId: string };
-    const parsed = updateBranchLayoutSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: "Validation failed", details: parsed.error.issues });
-    }
-
-    const updated = await conversationRepo.updateBranchLayout(tenant, branchId, parsed.data.layoutData);
+    const input = req.body as { layoutData: unknown };
+    const updated = await conversationRepo.updateBranchLayout(ctx, branchId, input.layoutData);
     if (!updated) {
       return reply.status(404).send({ error: "Branch not found" });
     }
-    return reply.send(updated);
+    return updated;
   });
 
   // DELETE /v1/branches/:branchId — 软删除分支
-  app.delete("/v1/branches/:branchId", async (req, reply) => {
-    const tenant = resolveLocalContext(req);
+  registerContractRoute(app, branchesApi.delete, async (req, reply) => {
+    const ctx = resolveLocalContext(req);
     const { branchId } = req.params as { branchId: string };
-    const deleted = await conversationRepo.deleteBranch(tenant, branchId);
+    const deleted = await conversationRepo.deleteBranch(ctx, branchId);
     if (!deleted) {
       return reply.status(404).send({ error: "Branch not found" });
     }
-    return reply.send(deleted);
+    return deleted;
   });
 }
