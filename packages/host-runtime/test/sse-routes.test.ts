@@ -31,12 +31,16 @@ function fixture() {
   const attempts = [{ id: "attempt", status: "Running" }];
   const getTurn = vi.fn(async () => ({ id: "turn" }));
   const highWater = vi.fn(async () => events.at(-1)?.sequence ?? 0);
+  const replayState = vi.fn(async () => ({
+    highWaterSequence: events.at(-1)?.sequence ?? 0,
+    settled: attempts.length > 0 && attempts.every(a => ["Completed", "Failed", "Interrupted", "Cancelled"].includes(a.status)),
+  }));
   const page = vi.fn(async (_ctx, _turnId, options) => ({
     events: events.filter(e => e.sequence > options.afterSequence && e.sequence <= options.throughSequence).slice(0, 1),
     persistedDataBytes: 32, oversizedEvent: false,
   }));
   const repo = {
-    getTurn, getStreamEventHighWater: highWater, getStreamEventsPage: page,
+    getTurn, getStreamEventHighWater: highWater, getStreamReplayState: replayState, getStreamEventsPage: page,
     getStreamEventById: vi.fn(async (_ctx, _turnId, id) => events.find(e => e.id === id) ?? null),
     listTurnAttempts: vi.fn(async () => attempts.map(a => ({ ...a }))),
     requestCancelTurnAttempt: vi.fn(),
@@ -45,7 +49,7 @@ function fixture() {
   const logInfo = vi.fn();
   const noopObservability = createNoopObservability();
   const observability = { ...noopObservability, log: { ...noopObservability.log, info: logInfo } };
-  return { app, repo, events, attempts, getTurn, highWater, page, observability, logInfo };
+  return { app, repo, events, attempts, getTurn, highWater, replayState, page, observability, logInfo };
 }
 
 async function open(url: string, requests: ClientRequest[], cursor?: string) {
@@ -148,6 +152,33 @@ describe("SSE bounded replay over real HTTP", () => {
     await tick(120); expect(response.response.complete).toBe(false);
     f.attempts[1]!.status = "Completed"; f.events.push(event(4, "done"));
     turnStreamHub.publishSettled("turn", "Completed"); await bounded(response.ended);
+    expect(parse(response.body()).map(e => e.sequence)).toEqual([1, 2, 3, 4]);
+  });
+
+  it("does not close a continuation started during the last terminal snapshot read", async () => {
+    const f = fixture(); f.attempts[0]!.status = "Interrupted";
+    const readState = f.replayState.getMockImplementation()!;
+    f.replayState.mockImplementation(async () => {
+      if (f.replayState.mock.calls.length === 2) f.attempts.push({ id: "continuation", status: "Running" });
+      return readState();
+    });
+    const response = await open(await start(f), requests);
+    await vi.waitFor(() => expect(f.attempts).toHaveLength(2));
+    await tick(120);
+    expect(response.response.complete).toBe(false);
+    f.attempts[1]!.status = "Completed"; f.events.push(event(4, "done"));
+    turnStreamHub.publishSettled("turn", "Completed"); await bounded(response.ended);
+    expect(parse(response.body()).map(e => e.sequence)).toEqual([1, 2, 3, 4]);
+  });
+
+  it("replays a terminal commit observed by the final consistent snapshot before closing", async () => {
+    const f = fixture(); f.attempts[0]!.status = "Interrupted";
+    const readState = f.replayState.getMockImplementation()!;
+    f.replayState.mockImplementation(async () => {
+      if (f.replayState.mock.calls.length === 2) f.events.push(event(4, "done"));
+      return readState();
+    });
+    const response = await open(await start(f), requests); await bounded(response.ended);
     expect(parse(response.body()).map(e => e.sequence)).toEqual([1, 2, 3, 4]);
   });
 

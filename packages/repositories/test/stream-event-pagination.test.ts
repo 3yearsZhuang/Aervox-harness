@@ -16,6 +16,23 @@ describe("durable stream transport pages", () => {
   const append = (sequence: number, data: unknown = {}, turnId = "turn") => repo.appendStreamEvent(ctx,
     { id: `${turnId}_${sequence}`, turnId, sequence, eventType: "delta", data });
 
+  it("reads terminal status and watermark together, including a Running continuation without events", async () => {
+    expect(await repo.getStreamReplayState(ctx, "turn")).toEqual({ highWaterSequence: 0, settled: false });
+    await repo.createTurnAttempt(ctx, "turn", { id: "old", attempt: 1 });
+    await repo.finalizeTurnAttempt(ctx, { turnId: "turn", attemptId: "old", status: "Interrupted" });
+    await append(1);
+    await repo.createTurnAttempt(ctx, "other", { id: "unrelated", attempt: 1 });
+    await append(900, {}, "other");
+    const select = vi.spyOn(database.db, "select");
+    expect(await repo.getStreamReplayState(ctx, "turn")).toEqual({ highWaterSequence: 1, settled: true });
+    expect(select).toHaveBeenCalledOnce();
+    await repo.createTurnAttempt(ctx, "turn", { id: "continuation", attempt: 2 });
+    expect(await repo.getStreamReplayState(ctx, "turn")).toEqual({ highWaterSequence: 1, settled: false });
+    await repo.finalizeTurnAttempt(ctx, { turnId: "turn", attemptId: "continuation", status: "Completed" });
+    await append(2);
+    expect(await repo.getStreamReplayState(ctx, "turn")).toEqual({ highWaterSequence: 2, settled: true });
+  });
+
   it("caps rows and replays a captured high-water snapshot without gaps or duplicates", async () => {
     for (let i = 1; i <= 600; i += 1) await append(i);
     await append(900, {}, "other");
