@@ -22,6 +22,7 @@ import type {
   TurnStreamEventModel,
   TurnStreamEventPageOptions,
   TurnStreamEventPage,
+  TurnStreamReplayState,
   ToolExecutionModel,
   ToolApprovalModel,
 } from "../types/index.js";
@@ -216,6 +217,10 @@ export class SqliteConversationRepository implements IConversationRepository {
 
   getStreamEventHighWater(ctx: LocalContext, turnId: string): Promise<number> {
     return this.streamEventStore.getStreamEventHighWater(ctx, turnId);
+  }
+
+  getStreamReplayState(ctx: LocalContext, turnId: string): Promise<TurnStreamReplayState> {
+    return this.streamEventStore.getStreamReplayState(ctx, turnId);
   }
 
   getStreamEventsPage(ctx: LocalContext, turnId: string, options: TurnStreamEventPageOptions): Promise<TurnStreamEventPage> {

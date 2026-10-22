@@ -350,11 +350,6 @@ export function registerConversationRoutes(
         // No next page is queried while any frame is waiting for socket drain.
       }
     };
-    const attemptSettled = async (): Promise<boolean> => {
-      const attempts = await conversationRepo.listTurnAttempts(tenant, turnId);
-      const terminal = ["Completed", "Failed", "Interrupted", "Cancelled"];
-      return attempts.length > 0 && attempts.every((a) => terminal.includes(a.status));
-    };
     const failConnection = (error: unknown): void => {
       finish(true, error instanceof SseWriteError ? error.code : "sse_read_failed");
     };
@@ -367,21 +362,19 @@ export function registerConversationRoutes(
       try {
         do {
           wakeRequested = false;
-          await replayThrough(await conversationRepo.getStreamEventHighWater(tenant, turnId));
+          const state = await conversationRepo.getStreamReplayState(tenant, turnId);
+          await replayThrough(state.highWaterSequence);
           if (closed) return;
-          if (await attemptSettled()) {
-            // Re-read after settlement, including terminal events committed while
-            // replaying. A late old Attempt notification cannot close continuation.
-            await replayThrough(await conversationRepo.getStreamEventHighWater(tenant, turnId));
+          if (state.settled) {
+            // Refresh both facts together after replay. A continuation or terminal
+            // commit during replay must not be paired with an older status/watermark.
+            const latest = await conversationRepo.getStreamReplayState(tenant, turnId);
             if (closed) return;
-            if (await attemptSettled()) {
-              const highWater = await conversationRepo.getStreamEventHighWater(tenant, turnId);
-              if (highWater > lastSequence) {
-                wakeRequested = true;
-              } else if (!wakeRequested) {
-                finish();
-                return;
-              }
+            if (latest.highWaterSequence > lastSequence) {
+              wakeRequested = true;
+            } else if (latest.settled && !wakeRequested) {
+              finish();
+              return;
             }
           }
           if (!closed && Date.now() - lastWriteAt >= TAIL_HEARTBEAT_MS) await write(": ping\n\n");

@@ -6,7 +6,7 @@ import type { AervoxDatabase } from "../../../client.js";
 import { turnStreamEvents, turnAttempts } from "@aervox/schema";
 import type { LocalContext } from "../../../local-context.js";
 import { FencingMismatchError } from "../../../errors.js";
-import type { TurnStreamEventModel, TurnStreamEventPageOptions, TurnStreamEventPage } from "../../types/index.js";
+import type { TurnStreamEventModel, TurnStreamEventPageOptions, TurnStreamEventPage, TurnStreamReplayState } from "../../types/index.js";
 
 export const MAX_STREAM_EVENT_PAGE_ROWS = 256;
 export const MAX_STREAM_EVENT_PAGE_DATA_BYTES = 256 * 1024;
@@ -131,6 +131,20 @@ export class StreamEventStore {
       .from(turnStreamEvents).where(eq(turnStreamEvents.turnId, turnId))
       .orderBy(desc(turnStreamEvents.sequence)).limit(1);
     return row?.sequence ?? 0;
+  }
+
+  async getStreamReplayState(ctx: LocalContext, turnId: string): Promise<TurnStreamReplayState> {
+    // Separate status/watermark reads can combine an old terminal Attempt with
+    // a new continuation's empty stream, or miss a newly committed terminal event.
+    // One SQLite statement gives both facts the same read snapshot. The scalar
+    // high-water lookup uses the (turn_id, sequence) index without loading data.
+    const [row] = await this.db.select({
+      highWaterSequence: sql<number>`coalesce((select ${turnStreamEvents.sequence} from ${turnStreamEvents}
+        where ${turnStreamEvents.turnId} = ${turnId} order by ${turnStreamEvents.sequence} desc limit 1), 0)`,
+      settled: sql<number>`count(*) > 0 and count(case when ${turnAttempts.status}
+        not in ('Completed', 'Failed', 'Interrupted', 'Cancelled') then 1 end) = 0`,
+    }).from(turnAttempts).where(eq(turnAttempts.turnId, turnId));
+    return { highWaterSequence: Number(row?.highWaterSequence ?? 0), settled: Number(row?.settled) === 1 };
   }
 
   async getStreamEventsPage(

@@ -67,6 +67,12 @@ export interface TurnStreamEventPage {
   oversizedEvent: boolean;
 }
 
+export interface TurnStreamReplayState {
+  highWaterSequence: number;
+  /** All existing Attempts are terminal in the same snapshot as the high-water. */
+  settled: boolean;
+}
+
 export interface OutboxEventModel {
   id: string;
   controlEventId?: string | null;
@@ -171,6 +177,7 @@ export interface IConversationRepository {
     afterSequence?: number,
   ): Promise<TurnStreamEventModel[]>;
   getStreamEventHighWater(ctx: LocalContext, turnId: string): Promise<number>;
+  getStreamReplayState(ctx: LocalContext, turnId: string): Promise<TurnStreamReplayState>;
   /** Bounded transport page; full-history/resume readers keep getStreamEvents. */
   getStreamEventsPage(
     ctx: LocalContext,
