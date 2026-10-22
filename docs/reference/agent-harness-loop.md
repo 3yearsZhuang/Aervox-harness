@@ -420,6 +420,10 @@ agent.attempt.lease-expired
 
 接单事务保存执行归属、metadata、独立的工具审批模式和认证审计身份。metadata 不能覆盖审批模式；每个 Turn 创建独立授权上下文，避免并发串用。默认 API 后台执行与 inline 执行写入 `turn.created`，Worker 只作普通事件审计；显式 `AERVOX_LOOP_DISPATCH=worker` 的后台接单写入 `agent.turn.requested`。Worker 只消费后者且复验 `execution=worker`，从数据库读取已接受的用户输入，进入 `@aervox/host-runtime` 的完整会话装配。两类事件不能兼容映射为同一执行任务，否则会抢跑 API Turn。发布时先更新 Worker，再开启委托开关；开关回退不改变已有事件归属。
 
+独立 Worker 收到首个 `SIGINT` 或 `SIGTERM` 时，关闭协调器从取消执行开始使用同一个 20 秒默认总等待预算，依次等待任务排空、共享宿主释放和健康服务关闭，最后显式关闭主库与 Vault。重复信号不重新释放或重置预算。WorkerHost 默认 5 秒仅限制自身排空，模型释放默认 10 秒仅限制该模块；它们不能替代整个关闭链的截止。任一阶段失败或总预算耗尽时记录 `worker.shutdown.failed` 并退出 1；总截止的原因固定为 `worker_shutdown_deadline_exceeded`，记录当前阶段和预算。任务、宿主或健康服务关闭失败时不提前显式关闭数据库，也不推定未完成的副作用成功或允许自动重放。数据库关闭自身抛错或同步超时时可能已部分关闭，仍以失败退出。
+
+该截止覆盖事件循环仍可运行时的异步等待，不能打断阻塞的同步关闭函数，也不证明每个后台写者都已排空。原生主管的进程回收时限另由 [Unix/Windows 实现](../../native/crates/runtime/src/supervisor/mod.rs)决定；较短的外层强制终止可能先于 Worker 截止，因此此默认值不作为原生部署优雅退出保证。
+
 ### 12.2 事务边界
 
 以下是必须维持或补齐的原子提交边界：
