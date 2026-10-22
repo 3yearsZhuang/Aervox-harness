@@ -3,16 +3,29 @@ import { write } from '../output.js';
 import { createTerminalStyle } from '../terminal.js';
 import type { CommandContext } from './types.js';
 
+function pageInteger(value: string | undefined, fallback: number, name: string, min: number, max: number): number {
+  if (value === undefined) return fallback;
+  const parsed = Number(value);
+  if (!/^\d+$/.test(value) || !Number.isSafeInteger(parsed) || parsed < min || parsed > max) {
+    throw new CliError('usage', `${name} 必须为 ${min}～${max} 的十进制整数。`, 2);
+  }
+  return parsed;
+}
+
 export async function executeSessions(ctx: CommandContext): Promise<number> {
-  const { positionals, transport, timedSignal, output, track, io } = ctx;
+  const { positionals, options, transport, timedSignal, output, track, io } = ctx;
   const rest = positionals.slice(1);
   if (rest.length !== 1 || rest[0] !== 'list') {
-    throw new CliError('usage', '使用 sessions list。', 2);
+    throw new CliError('usage', '使用 sessions list [--limit 1～100] [--offset 非负整数]。', 2);
   }
+  const limit = pageInteger(options.limit, 100, '--limit', 1, 100);
+  const offset = pageInteger(options.offset, 0, '--offset', 0, Number.MAX_SAFE_INTEGER);
+  const query = new URLSearchParams({ limit: String(limit) });
+  if (options.offset !== undefined) query.set('offset', String(offset));
   const signal = timedSignal();
   track.currentSignal = signal;
-  const result = await transport.request<{ items: { id: string; title?: string; updatedAt?: string }[] }>('GET', '/v1/sessions?limit=100', undefined, { signal });
-  if (!result || !Array.isArray(result.items)) {
+  const result = await transport.request<{ items: { id: string; title?: string; updatedAt?: string }[] }>('GET', `/v1/sessions?${query}`, undefined, { signal });
+  if (!result || !Array.isArray(result.items) || result.items.length > limit) {
     throw new CliError('protocol', '服务返回的会话格式不兼容。');
   }
 
@@ -29,21 +42,24 @@ export async function executeSessions(ctx: CommandContext): Promise<number> {
     const bold = (s: string) => style(s, '1');
 
     if (result.items.length === 0) {
-      await write(io.output, `\n${dim('暂无会话记录。运行 siyu chat 开始新对话。')}\n\n`);
+      const message = offset === 0
+        ? '暂无会话记录。运行 siyu chat 开始新对话。'
+        : `此页无会话（offset=${offset}）。可减小 --offset 查看前页。`;
+      await write(io.output, `\n${dim(message)}\n\n`);
       return 0;
     }
 
     const lines = [
       '',
-      bold(`最近会话 (共 ${result.items.length} 个):`),
-      ...result.items.slice(0, 30).map((item) => {
+      bold(`本页会话 (${result.items.length} 个，limit=${limit}，offset=${offset}):`),
+      ...result.items.map((item) => {
         const title = item.title ? ` ${dim(`"${item.title}"`)}` : '';
         const time = item.updatedAt ? ` ${dim(`(${new Date(item.updatedAt).toLocaleString()})`)}` : '';
         return `  • ${cyan(item.id)}${title}${time}`;
       }),
     ];
-    if (result.items.length > 30) {
-      lines.push(dim(`  … 还有 ${result.items.length - 30} 个会话（可用 siyu sessions list --json 查看完整列表）`));
+    if (result.items.length === limit && Number.isSafeInteger(offset + limit)) {
+      lines.push('', dim(`继续查看可使用 --limit ${limit} --offset ${offset + limit}；下一页可能为空。`));
     }
     lines.push('');
     await write(io.output, lines.join('\n'));

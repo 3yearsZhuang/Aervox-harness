@@ -166,7 +166,7 @@ PR、自动化测试和目标环境验证是交付证据，不抄写终端日志
 | ITER-007 · [#257](https://github.com/3yearsZhuang/Aervox-harness/pull/257)、[#258](https://github.com/3yearsZhuang/Aervox-harness/pull/258)、[#259](https://github.com/3yearsZhuang/Aervox-harness/pull/259) | 调用级取消/上下文、Workflow 与子任务截止继承、DSH 本地/删除拒绝、写工具授权修订核对 | 非 0 根预算及跨重启计量、Driver 合同、一次性授权与有效期仍待 ADR |
 | ITER-008 · [#266](https://github.com/3yearsZhuang/Aervox-harness/pull/266) | 下载偏移/实体/哈希/截断校验、路径与 symlink 防护、代际进程、有界探针 | 未持久化 ETag/If-Range；磁盘余量与默认时长策略、health-prober 就绪分级未覆盖；信任摘要与计算摘要区分须先 ADR |
 | ITER-052 · [#262](https://github.com/3yearsZhuang/Aervox-harness/pull/262) | Transport 事件流、实例级插件状态、公开 Port、日记原子提交、宿主注入 | 组合根注入无独立渲染用例；不提升 CAP 发布状态 |
-| CR-058 / CLI | 连接本机服务的基础问答、交互与诊断 | 学习/复习、记忆专用命令、独立宿主、跨平台和正式分发分别验收 |
+| CR-058 / CLI · ITER-029 | 连接本机服务的基础问答、交互与诊断；通过现有列表 API 显式分页浏览会话 | 列表 offset 不是固定快照；详情/历史读取、模型配置入口、学习/复习、记忆专用命令、独立宿主、跨平台和正式分发分别验收 |
 
 跨切片重复实现只计一次；历史过程从 Git/PR 或归档仓库追溯。本文保留的是现行限制，不是另一份执行队列。
 

@@ -68,6 +68,35 @@ test('packed CLI + authenticated API + file SQLite survives client and API resta
     assert.equal((await cli(['events', first.turnId])).text, first.text);
     assert.equal((await cli(['status', first.turnId])).ok, true);
     assert.ok((await cli(['sessions', 'list'])).data.items.some(item => item.id === 'cli_smoke'));
+
+    // Seed more than one page through the restarted writer, with distinct
+    // timestamps so offset assertions do not depend on wall-clock resolution.
+    const restartedRepository = new SqliteConversationRepository(database.db);
+    const local = { workspaceId: 'local', subjectUserId: 'local' };
+    const orderedIds = Array.from({ length: 101 }, (_, index) => `cli_page_${String(index).padStart(3, '0')}`);
+    const oldest = Date.UTC(2020, 0, 1);
+    await database.client.execute({
+      sql: 'UPDATE sessions SET updated_at = ? WHERE id = ?',
+      args: [new Date(oldest).toISOString(), 'cli_smoke'],
+    });
+    for (const [index, id] of orderedIds.entries()) {
+      await restartedRepository.createSession(local, `分页会话 ${index}`, { id });
+      await database.client.execute({
+        sql: 'UPDATE sessions SET updated_at = ? WHERE id = ?',
+        args: [new Date(oldest + (orderedIds.length - index) * 1000).toISOString(), id],
+      });
+    }
+    const firstPage = await cli(['sessions', 'list']);
+    assert.deepEqual(Object.keys(firstPage).sort(), ['data', 'version']);
+    assert.equal(firstPage.version, 1);
+    assert.deepEqual(Object.keys(firstPage.data), ['items']);
+    assert.deepEqual(firstPage.data.items.map(item => item.id), orderedIds.slice(0, 100));
+    const lastPage = await cli(['sessions', 'list', '--limit', '2', '--offset', '100']);
+    assert.deepEqual(lastPage.data.items.map(item => item.id), [orderedIds[100], 'cli_smoke']);
+    assert.deepEqual(await cli(['sessions', 'list', '--limit', '2', '--offset', '102']), {
+      version: 1, data: { items: [] },
+    });
+
     const second = await cli(['ask', '继续解释', '--session', 'cli_smoke']);
     assert.equal(second.ok, true); assert.notEqual(second.turnId, first.turnId);
     const receipt = JSON.parse(await readFile(join(temporary, 'cli.json.last-run'), 'utf8'));
