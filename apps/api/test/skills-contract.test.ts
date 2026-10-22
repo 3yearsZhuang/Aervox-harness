@@ -85,6 +85,22 @@ describe('ITER-064 basic skill HTTP contracts', () => {
     expect(await new SqliteSkillRegistryRepository(database.db).getSkill('notes')).toEqual(row);
   });
 
+  it.each([['SKILL.md', false], ['SKILL.md', true], ['skill.md', false], ['skill.md', true]] as const)(
+    'rejects file/directory collisions before overwriting an existing skill (ancestor: %s, child first: %s)', async (ancestor, childFirst) => {
+      const installed = await built.app.inject({ method: 'POST', url: '/v1/skills', headers, payload: { name: 'notes', zipBase64: archive() } });
+      const row = installed.json().installed[0];
+      const original = await readFile(row.contentPath, 'utf8');
+      const entries: Array<[string, Uint8Array]> = [
+        ['SKILL.md', strToU8('replacement')], [`${ancestor}/extra`, strToU8('collision')],
+      ];
+      const zipBase64 = Buffer.from(zipSync(Object.fromEntries(childFirst ? entries.reverse() : entries))).toString('base64');
+      const response = await built.app.inject({ method: 'POST', url: '/v1/skills', headers, payload: { name: 'notes', overwrite: true, zipBase64 } });
+      const content = await readFile(row.contentPath, 'utf8').catch((error: NodeJS.ErrnoException) => error.code);
+      expect({ status: response.statusCode, content, row: await new SqliteSkillRegistryRepository(database.db).getSkill('notes') })
+        .toEqual({ status: 400, content: original, row });
+      expect(apiProblemSchema.parse(response.json()).error).toBe('Invalid skill archive');
+    });
+
   it('serves the legacy workflow over real HTTP with registry fields, content description, normalization and empty deletion', async () => {
     const base = await built.app.listen({ host: '127.0.0.1', port: 0 });
     const request = async (method: string, url: string, input?: unknown) => {

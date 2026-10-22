@@ -46,7 +46,8 @@ export function boundedUnpack(
     const rawName = buffer.subarray(cursor + 46, cursor + 46 + nameLength).toString("utf8");
     const name = normalize(rawName);
     if (name !== null) {
-      const key = name.replace(/\/$/, "");
+      // Collision checks must also protect case-insensitive macOS/Windows filesystems.
+      const key = name.replace(/\/$/, "").toLowerCase();
       if (names.has(key)) throw new Error("Duplicate archive entry: " + name);
       names.add(key);
     }
@@ -62,6 +63,17 @@ export function boundedUnpack(
     cursor = next;
   }
   if (cursor !== eocd) throw invalid();
+  // A file cannot also be an ancestor directory, regardless of archive entry order.
+  // Check normalized paths before inflating or allowing a caller to replace files.
+  const fileNames = new Set(entries.flatMap(entry => entry.name !== null && !entry.name.endsWith("/") ? [entry.name.toLowerCase()] : []));
+  for (const { name } of entries) {
+    if (name === null) continue;
+    let parent = name.replace(/\/$/, "").toLowerCase();
+    while (parent.includes("/")) {
+      parent = parent.slice(0, parent.lastIndexOf("/"));
+      if (fileNames.has(parent)) throw invalid();
+    }
+  }
   const result: Record<string, Uint8Array> = Object.create(null);
   for (const entry of entries) {
     if (entry.name === null) continue;
