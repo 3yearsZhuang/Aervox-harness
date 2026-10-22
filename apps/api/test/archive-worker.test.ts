@@ -41,6 +41,28 @@ describe("shared archive limits and compatibility", () => {
     await expect(executeArchive({ kind: "unpack", input: archive, limits: PLUGIN_ARCHIVE_LIMITS })).rejects.toThrow();
   });
 
+  it("rejects files used as ancestor directories in either entry order after path normalization", async () => {
+    for (const [file, child] of [["assets", "assets/icons/icon.svg"], ["Data", "data/child"], ["a/B", "A/b/c"]]) {
+      const entries: Array<[string, Uint8Array]> = [[file!, strToU8("file")], [child!, strToU8("child")]];
+      for (const ordered of [entries, [...entries].reverse()]) {
+        const archive = zipSync(Object.fromEntries(ordered));
+        await expect(executeArchive({ kind: "unpack", input: archive, limits: PLUGIN_ARCHIVE_LIMITS })).rejects.toThrow("Invalid zip archive");
+        const normalized = zipSync(Object.fromEntries(ordered.map(([name, bytes]) => ["./" + name.replaceAll("/", "\\"), bytes])));
+        await expect(unzip(Buffer.from(normalized))).rejects.toThrow("Invalid zip archive");
+      }
+    }
+    await expect(unzip(Buffer.from(zipSync({ "SKILL.md": strToU8("one"), "skill.md": strToU8("two") })))).rejects.toThrow("Duplicate");
+  });
+
+  it("accepts explicit directories before or after their descendants", async () => {
+    const entries: Array<[string, Uint8Array]> = [["assets/", new Uint8Array()], ["assets/icons/", new Uint8Array()], ["assets/icons/icon.svg", strToU8("icon")]];
+    for (const ordered of [entries, [...entries].reverse()]) {
+      const archive = zipSync(Object.fromEntries(ordered));
+      expect(await executeArchive({ kind: "unpack", input: archive, limits: PLUGIN_ARCHIVE_LIMITS })).toEqual(unzipSync(archive));
+      expect((await unzip(Buffer.from(archive))).find(entry => entry.name === "assets/icons/icon.svg")?.data.toString()).toBe("icon");
+    }
+  });
+
   it("rejects compressed, cumulative expanded, entry-count and checksum violations", async () => {
     const archive = zipSync({ a: new Uint8Array(8), b: new Uint8Array(8) }, { level: 0 });
     for (const limits of [
