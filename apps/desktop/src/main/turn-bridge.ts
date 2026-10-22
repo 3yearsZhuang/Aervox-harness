@@ -1,8 +1,12 @@
 import {resolveTurnSessionId} from './runtime-config.js'
 
+type NavigationListener = (event?: {isMainFrame?: boolean; isSameDocument?: boolean}, url?: string, isInPlace?: boolean, isMainFrame?: boolean) => void
+
 interface TurnSender {
     isDestroyed(): boolean
     send(channel: string, message: Record<string, unknown>): void
+    on?(event: 'destroyed' | 'did-start-navigation', callback: NavigationListener): unknown
+    removeListener?(event: 'destroyed' | 'did-start-navigation', callback: NavigationListener): unknown
 }
 
 function isTurnAttachment(value: unknown): value is {attachmentId: string; name?: string; mediaType?: string} {
@@ -45,21 +49,42 @@ export function createDesktopTurnBridge(deps: {
     sessionId?: () => string | undefined
     authToken?: () => string | undefined
     onEmote?: (data: unknown) => void
+    isTrustedSender?: (sender: TurnSender) => boolean
 }) {
-    /** CR-027：在途 Turn 请求的中止控制器（requestId → controller），供渲染层空闲超时/主动放弃时中止上游 */
-    const activeTurnRequests = new Map<string, AbortController>()
+    /** The aggregate is diagnostic; cancellation belongs to each renderer's request map. */
+    const activeTurnRequests = new Set<AbortController>()
+    const senders = new WeakMap<TurnSender, Map<string, AbortController>>()
+
+    function cancelTurn(sender: TurnSender, requestId: unknown): void {
+        if (typeof requestId === 'string') senders.get(sender)?.get(requestId)?.abort()
+    }
 
     async function streamAervoxTurn(event: {sender: TurnSender}, payload: unknown) {
-        if (!isTurnRequest(payload)) return
+        if (!isTurnRequest(payload) || event.sender.isDestroyed() || deps.isTrustedSender?.(event.sender) === false) return
         const {requestId, content} = payload
         const toolApprovalMode = payload.toolApprovalMode ?? 'ask'
-        const send = (message: Record<string, unknown>) => {
-            if (!event.sender.isDestroyed()) event.sender.send('aervox:turn:event', {requestId, ...message})
-        }
         const controller = new AbortController()
-        activeTurnRequests.set(requestId, controller)
+        const send = (message: Record<string, unknown>) => {
+            if (!controller.signal.aborted && !event.sender.isDestroyed() && deps.isTrustedSender?.(event.sender) !== false) {
+                event.sender.send('aervox:turn:event', {requestId, ...message})
+            }
+        }
+        let owned = senders.get(event.sender)
+        if (!owned) { owned = new Map(); senders.set(event.sender, owned) }
+        owned.get(requestId)?.abort()
+        owned.set(requestId, controller)
+        activeTurnRequests.add(controller)
+        const stop = () => controller.abort()
+        const stopForNavigation: NavigationListener = (event, _url, isInPlace, isMainFrame) => {
+            if ((event?.isMainFrame ?? isMainFrame ?? true) && !(event?.isSameDocument ?? isInPlace ?? false)) stop()
+        }
+        event.sender.on?.('destroyed', stop)
+        event.sender.on?.('did-start-navigation', stopForNavigation)
         const unregister = () => {
-            if (activeTurnRequests.get(requestId) === controller) activeTurnRequests.delete(requestId)
+            activeTurnRequests.delete(controller)
+            if (owned.get(requestId) === controller) owned.delete(requestId)
+            event.sender.removeListener?.('destroyed', stop)
+            event.sender.removeListener?.('did-start-navigation', stopForNavigation)
         }
 
         try {
@@ -114,7 +139,9 @@ export function createDesktopTurnBridge(deps: {
                 }
                 const turnEvent = JSON.parse(data) as Record<string, unknown>
                 send({type: 'event', event: turnEvent})
-                if (turnEvent.eventType === 'emote') deps.onEmote?.(turnEvent.data)
+                if (!controller.signal.aborted && deps.isTrustedSender?.(event.sender) !== false && turnEvent.eventType === 'emote') {
+                    deps.onEmote?.(turnEvent.data)
+                }
             }
 
             while (true) {
@@ -137,5 +164,5 @@ export function createDesktopTurnBridge(deps: {
         }
     }
 
-    return {streamAervoxTurn, activeTurnRequests}
+    return {streamAervoxTurn, activeTurnRequests, cancelTurn}
 }
