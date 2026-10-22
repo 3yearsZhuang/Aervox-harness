@@ -367,6 +367,32 @@ describe("CAP-020 插件 Config / Page API", () => {
     expect(assetRes.json().error).toBe("PLUGIN_DISABLED");
   });
 
+  it("卸载不沿预存插件目录链接删除外部 Page 或 generation", async () => {
+    const registered = await app.inject({ method: "POST", url: "/v1/plugins/cfg-demo/pages", payload: {
+      id: "dashboard", title: "Panel", entry: "pages/dashboard/index.html",
+    } });
+    expect(registered.statusCode).toBe(201);
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-uninstall-outside-"));
+    const pluginRoot = path.join(pluginsRoot, "cfg-demo");
+    const generation = "12345678-1234-1234-1234-123456789012";
+    const externalPage = path.join(outside, "pages", "dashboard", "index.html");
+    const externalGeneration = path.join(outside, "releases", generation);
+    try {
+      await fs.mkdir(path.dirname(externalPage), { recursive: true });
+      await fs.writeFile(externalPage, "KEEP_EXTERNAL_PAGE");
+      await fs.mkdir(externalGeneration, { recursive: true });
+      await fs.writeFile(path.join(externalGeneration, "owner.json"), JSON.stringify({ format: 1, pluginId: "cfg-demo", generation }));
+      await fs.writeFile(path.join(externalGeneration, "keep.txt"), "KEEP_EXTERNAL_GENERATION");
+      await fs.mkdir(pluginRoot, { recursive: true });
+      await fs.rename(pluginRoot, `${pluginRoot}-saved`);
+      await fs.symlink(outside, pluginRoot, "dir");
+      expect((await app.inject({ method: "DELETE", url: "/v1/plugins/cfg-demo" })).statusCode).toBe(204);
+      expect(await fs.readFile(externalPage, "utf8")).toBe("KEEP_EXTERNAL_PAGE");
+      expect(await fs.readFile(path.join(externalGeneration, "keep.txt"), "utf8")).toBe("KEEP_EXTERNAL_GENERATION");
+      expect((await fs.lstat(pluginRoot)).isSymbolicLink()).toBe(true);
+    } finally { await fs.rm(outside, { recursive: true, force: true }); }
+  });
+
   it("卸载插件后配置/secret/Page 清理，重新安装可重建", async () => {
     await app.inject({ method: "PUT", url: "/v1/plugins/cfg-demo/config/schema", payload: CONFIG_SCHEMA });
     await app.inject({

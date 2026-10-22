@@ -123,7 +123,7 @@ export class PluginBundleStore {
       }
       return {generation, skillPaths};
     } catch (error) {
-      await fs.rm(root, {recursive: true, force: true}).catch(() => undefined);
+      await this.removeStorageDirectory(root).catch(() => undefined);
       throw error;
     }
   }
@@ -131,7 +131,7 @@ export class PluginBundleStore {
   async discardGeneration(pluginId: string, generation: string): Promise<void> {
     // Never erase files if a commit succeeded but its acknowledgement was interrupted.
     if (await this.generationResolver?.(pluginId) === generation) return;
-    await fs.rm(this.generationRoot(pluginId, generation), {recursive: true, force: true});
+    await this.removeStorageDirectory(this.generationRoot(pluginId, generation));
   }
 
   async readOriginalBundle(pluginId: string, generation: string): Promise<Uint8Array> {
@@ -142,20 +142,23 @@ export class PluginBundleStore {
     if (!/^(?!\.{1,2}$)[\w.-]+$/.test(pluginId)) throw new Error("invalid plugin id");
     const pluginRoot = path.join(this.root, pluginId);
     const releases = path.join(pluginRoot, "releases");
-    const rootStat = await fs.lstat(releases).catch(() => null);
-    if (rootStat?.isDirectory() && !rootStat.isSymbolicLink()) {
-      for (const entry of await fs.readdir(releases, {withFileTypes: true})) {
+    const boundary = await this.storageDirectoryBoundary(releases).catch(() => null);
+    if (boundary) {
+      for (const entry of await fs.readdir(boundary.target, {withFileTypes: true})) {
         if (!entry.isDirectory() || !/^[a-f0-9-]{36}$/.test(entry.name)) continue;
         const directory = this.generationRoot(pluginId, entry.name);
-        const owner = await fs.readFile(path.join(directory, "owner.json"), "utf8").then(JSON.parse).catch(() => null);
+        const generation = await this.storageDirectoryBoundary(directory).catch(() => null);
+        if (!generation) continue;
+        const owner = await this.readBoundaryFile({ ...generation, target: path.join(generation.target, "owner.json") }, 1024)
+          .then(content => JSON.parse(content.toString("utf8"))).catch(() => null);
         if (owner?.format === 1 && owner.pluginId === pluginId && owner.generation === entry.name) {
-          await fs.rm(directory, {recursive: true, force: true});
+          await this.removeStorageDirectory(directory);
         }
       }
     }
     // Unknown notes, backups and legacy directories have no deletion authority.
-    await fs.rmdir(releases).catch(() => undefined);
-    await fs.rmdir(pluginRoot).catch(() => undefined);
+    await this.removeStorageDirectory(releases, false).catch(() => undefined);
+    await this.removeStorageDirectory(pluginRoot, false).catch(() => undefined);
   }
 
   private async pageRoot(pluginId: string, pageId: string): Promise<string> {
@@ -200,6 +203,26 @@ export class PluginBundleStore {
       directories.push({ path: current, dev: checked.dev, ino: checked.ino });
     }
     return directories;
+  }
+
+  /** Cleanup must validate ancestors too: fs.rm only avoids following the final symlink. */
+  private async storageDirectoryBoundary(target: string): Promise<AssetBoundary | null> {
+    const relative = path.relative(path.resolve(this.root), path.resolve(target));
+    if (!isSafeRelativePath(relative.split(path.sep).join("/"))) throw new PageAssetBoundaryError("invalid cleanup directory");
+    let root: string;
+    try { root = await fs.realpath(this.root); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return null; throw error; }
+    const canonical = path.join(root, relative);
+    if (!await statIfPresent(canonical)) return null;
+    return { root, target: canonical, directories: await this.checkedDirectories(root, canonical, false) };
+  }
+
+  private async removeStorageDirectory(target: string, recursive = true): Promise<void> {
+    const boundary = await this.storageDirectoryBoundary(target);
+    if (!boundary) return;
+    await this.checkDirectories(boundary.directories);
+    if (recursive) await fs.rm(boundary.target, { recursive: true, force: true });
+    else await fs.rmdir(boundary.target);
   }
 
   private async assetBoundary(pluginId: string, pageId: string, relPath: string, create: boolean): Promise<AssetBoundary> {
@@ -249,6 +272,10 @@ export class PluginBundleStore {
 
   private async readCheckedAsset(pluginId: string, pageId: string, relPath: string, maxBytes = Infinity): Promise<Buffer> {
     const boundary = await this.assetBoundary(pluginId, pageId, relPath, false);
+    return this.readBoundaryFile(boundary, maxBytes);
+  }
+
+  private async readBoundaryFile(boundary: AssetBoundary, maxBytes = Infinity): Promise<Buffer> {
     const handle = await this.openAsset(boundary, false);
     try {
       if ((await handle.stat()).size > maxBytes) throw new Error("page assets exceed export limits");
@@ -325,6 +352,6 @@ export class PluginBundleStore {
 
   async deletePage(pluginId: string, pageId: string): Promise<void> {
     const target = await this.pageRoot(pluginId, pageId);
-    await fs.rm(target, { recursive: true, force: true }).catch(() => undefined);
+    await this.removeStorageDirectory(target).catch(() => undefined);
   }
 }
