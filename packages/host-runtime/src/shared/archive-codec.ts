@@ -67,7 +67,15 @@ export function boundedUnpack(
     if (entry.name === null) continue;
     const compressed = buffer.subarray(entry.start, entry.start + entry.compressed);
     // Cap actual output independently of advertised sizes, including forged small headers.
-    const data = entry.method === 0 ? compressed : codec.inflateRawSync(compressed, { maxOutputLength: Math.max(1, entry.size) });
+    let data: Uint8Array;
+    try {
+      data = entry.method === 0 ? compressed : codec.inflateRawSync(compressed, { maxOutputLength: Math.max(1, entry.size) });
+    } catch (error: unknown) {
+      // Malformed or over-expanding DEFLATE is input failure; worker infrastructure errors still propagate.
+      const code = error instanceof Error && "code" in error ? error.code : undefined;
+      if (code === "Z_DATA_ERROR" || code === "Z_BUF_ERROR" || code === "ERR_BUFFER_TOO_LARGE") throw invalid();
+      throw error;
+    }
     if (data.byteLength !== entry.size || codec.crc32(data) !== entry.crc) throw new Error("Invalid zip: size or checksum mismatch");
     result[entry.name] = data;
   }

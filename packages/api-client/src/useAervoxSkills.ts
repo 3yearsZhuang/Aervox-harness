@@ -4,37 +4,14 @@
  * Web / Desktop 共用：通过统一 Transport 访问系统级 Skill 列表、内容读取、启停、安装与删除。
  */
 import { ref } from 'vue';
-import { getTransport } from './transport';
+import { skillsApi, type SkillInstallResponse, type SkillRegistrationResponse } from '@aervox/contracts';
+import { requestEndpoint } from './endpoint.js';
+import { getTransport, type AervoxTransport } from './transport.js';
 
-export interface SkillDto {
-  id: string;
-  name: string;
-  description: string;
-  source: 'local' | 'plugin' | 'ai_authored' | string;
-  active: number | boolean;
-  readonly: number | boolean;
-  version?: string;
-  checksum?: string;
-  pluginId?: string | null;
-  contentPath?: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
+export type SkillDto = SkillRegistrationResponse;
+export type SkillInstallResultDto = SkillInstallResponse;
 
-export interface SkillInstallResultDto {
-  installed: Array<{
-    id?: string;
-    name: string;
-    description: string;
-    source: string;
-    active?: boolean | number;
-    readonly?: boolean | number;
-    contentPath?: string;
-  }>;
-}
-
-export function useAervoxSkills() {
-  const transport = getTransport();
+export function useAervoxSkills(transport: AervoxTransport = getTransport()) {
   const skills = ref<SkillDto[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
@@ -43,12 +20,10 @@ export function useAervoxSkills() {
     loading.value = true;
     error.value = null;
     try {
-      const params = new URLSearchParams();
-      if (activeOnly) params.set('activeOnly', 'true');
-      if (source) params.set('source', source);
-      const query = params.toString() ? `?${params.toString()}` : '';
-      const res = await transport.request<{ items: SkillDto[] }>('GET', `/v1/skills${query}`);
-      skills.value = res.items ?? [];
+      const res = await requestEndpoint(transport, skillsApi.list, undefined, undefined, {
+        activeOnly: activeOnly ? 'true' : undefined, source: source || undefined,
+      });
+      skills.value = res.items;
     } catch (e) {
       error.value = e instanceof Error ? e.message : '加载技能列表失败';
     } finally {
@@ -57,13 +32,13 @@ export function useAervoxSkills() {
   };
 
   const getSkill = async (name: string): Promise<SkillDto> =>
-    transport.request<SkillDto>('GET', `/v1/skills/${encodeURIComponent(name)}`);
+    requestEndpoint(transport, skillsApi.get, undefined, { skillName: name });
 
-  const getSkillContent = async (name: string): Promise<{ name: string; content: string }> =>
-    transport.request<{ name: string; content: string }>('GET', `/v1/skills/${encodeURIComponent(name)}/content`);
+  const getSkillContent = async (name: string) =>
+    requestEndpoint(transport, skillsApi.content, undefined, { skillName: name });
 
   const setSkillActive = async (name: string, active: boolean): Promise<SkillDto> => {
-    const res = await transport.request<SkillDto>('PATCH', `/v1/skills/${encodeURIComponent(name)}`, { active });
+    const res = await requestEndpoint(transport, skillsApi.setActive, { active }, { skillName: name });
     await loadSkills();
     return res;
   };
@@ -72,7 +47,7 @@ export function useAervoxSkills() {
     zipBase64: string,
     options?: { name?: string; overwrite?: boolean },
   ): Promise<SkillInstallResultDto> => {
-    const res = await transport.request<SkillInstallResultDto>('POST', '/v1/skills', {
+    const res = await requestEndpoint(transport, skillsApi.install, {
       zipBase64,
       name: options?.name,
       overwrite: options?.overwrite,
@@ -82,13 +57,13 @@ export function useAervoxSkills() {
   };
 
   const deleteSkill = async (name: string): Promise<void> => {
-    await transport.request('DELETE', `/v1/skills/${encodeURIComponent(name)}`);
+    await requestEndpoint(transport, skillsApi.delete, undefined, { skillName: name });
     await loadSkills();
   };
 
   const getSkillPrompt = async (): Promise<string> => {
-    const res = await transport.request<{ prompt: string }>('GET', '/v1/skills/prompt');
-    return res.prompt ?? '';
+    const res = await requestEndpoint(transport, skillsApi.prompt);
+    return res.prompt;
   };
 
   return {

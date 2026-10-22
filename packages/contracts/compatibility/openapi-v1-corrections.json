@@ -1766,6 +1766,164 @@
       "pointer": "/paths/~1v1~1plugins~1{pluginId}~1config/put/requestBody/required",
       "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
       "value": true
+    },
+    {
+      "id": "skills-local-list-response",
+      "reason": "ITER-064 corrects historical documentation to the existing local registry response: items with integer active/readonly and nullable registry columns. Runtime and existing clients have always returned/read items; consumers of the inaccurate workspace skills schema must adopt the registry response.",
+      "pointer": "/paths/~1v1~1skills/get/responses/200/content/application~1json/schema",
+      "beforeHash": "7cbc549df68112fb15054ad24c09fee5108b0d2b96f4652d0ec6298011ece455",
+      "value": {
+        "properties": {
+          "items": {
+            "items": {
+              "properties": {
+                "active": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        0
+                      ],
+                      "type": "number"
+                    },
+                    {
+                      "enum": [
+                        1
+                      ],
+                      "type": "number"
+                    }
+                  ]
+                },
+                "checksum": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "contentPath": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "gatingConditionsJson": {},
+                "id": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "lastUsedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "name": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "pluginId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "readonly": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        0
+                      ],
+                      "type": "number"
+                    },
+                    {
+                      "enum": [
+                        1
+                      ],
+                      "type": "number"
+                    }
+                  ]
+                },
+                "source": {
+                  "type": "string"
+                },
+                "updatedAt": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "description",
+                "source",
+                "active",
+                "readonly",
+                "version",
+                "createdAt",
+                "updatedAt"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "id": "skills-delete-empty-204",
+      "reason": "ITER-064 corrects historical documentation to the existing empty 204 deletion and 409 missing/readonly/ownership conflict behavior. Runtime deletion and existing shared clients retain these semantics; clients built from the inaccurate 200 documentation must accept 204 without JSON.",
+      "pointer": "/paths/~1v1~1skills~1{skillName}/delete/responses",
+      "beforeHash": "0458a7626af94f46480e5b9304fa72dc28f048218869f8ec1bfbede846af7d1d",
+      "value": {
+        "204": {},
+        "400": {
+          "content": {
+            "application/problem+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiProblem"
+              }
+            }
+          }
+        },
+        "401": {
+          "content": {
+            "application/problem+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiProblem"
+              }
+            }
+          }
+        },
+        "409": {
+          "content": {
+            "application/problem+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiProblem"
+              }
+            }
+          }
+        },
+        "500": {
+          "content": {
+            "application/problem+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiProblem"
+              }
+            }
+          }
+        }
+      }
     }
   ],
   "restoration": {

@@ -52,11 +52,11 @@ onMounted(() => {
 })
 
 function isSkillActive(skill: SkillDto): boolean {
-  return skill.active === 1 || skill.active === true
+  return skill.active === 1
 }
 
 function isSkillReadonly(skill: SkillDto): boolean {
-  return skill.readonly === 1 || skill.readonly === true || skill.source === 'plugin'
+  return skill.readonly === 1 || skill.source === 'plugin'
 }
 
 function getSourceLabel(source: string): string {
