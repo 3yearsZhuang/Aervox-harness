@@ -6,6 +6,7 @@
 import { computed, onMounted, ref } from 'vue';
 import type { LearningGoalLevel, LearningGoalStatus, UpdateLearningGoal } from '@aervox/contracts';
 import { getTimeZone, getTransport } from './transport';
+import { useAervoxFeedback } from './useAervoxFeedback';
 
 export interface GoalDto {
   id: string;
@@ -133,6 +134,7 @@ export function useAervoxApi() {
   const error = ref<string | null>(null);
 
   const transport = getTransport();
+  const feedback = useAervoxFeedback(transport);
   const timeZone = getTimeZone();
 
   const loadAll = async (includeArchived = false): Promise<void> => {
@@ -231,7 +233,7 @@ export function useAervoxApi() {
     transport.request('POST', '/v1/mistakes/repractice', { questionIds });
 
   const submitFeedback = async (subjectType: string, subjectId: string, type: string, note?: string): Promise<void> => {
-    await transport.request('POST', '/v1/feedback', { subjectType, subjectId, type, note });
+    await feedback.createFeedback({ subjectType, subjectId, type, note });
   };
 
   const trackEvent = async (eventName: string, context?: unknown): Promise<void> => {
