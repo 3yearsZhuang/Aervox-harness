@@ -15,7 +15,7 @@ export const HELP = `思隅 CLI 0.1.0 — 连接本机思隅服务（Node.js 24+
 用法：siyu <命令> [参数]
   ask <问题>                  单次提问；也可通过 stdin 或 --file 输入
   chat                        连续对话；/exit 退出，--session 继续既有会话
-  sessions list               列出最近 100 个会话
+  sessions list               分页列出会话，默认最近 100 个
   events <turnId>             补读已有回合并等待权威终态，不重新提交
   status <turnId>             等待并显示回合终态（受 --timeout 限制）
   doctor                      检查本机连接、认证和会话接口
@@ -27,6 +27,7 @@ export const HELP = `思隅 CLI 0.1.0 — 连接本机思隅服务（Node.js 24+
       --json（单个最终对象） --jsonl（事件流）
       --timeout <毫秒，1000～600000，默认120000>
       --request-id <ID>（仅同一问题的显式幂等重试使用）
+      --limit <1～100> --offset <非负安全整数>（仅 sessions list；默认 100 / 0）
       --help --version
 
 API Token：环境变量 SIYU_API_TOKEN；地址默认 http://127.0.0.1:3000。

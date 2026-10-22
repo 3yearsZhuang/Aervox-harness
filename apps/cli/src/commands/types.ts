@@ -22,6 +22,8 @@ export interface ParsedCliOptions {
   jsonl?: boolean;
   timeout?: string;
   'request-id'?: string;
+  limit?: string;
+  offset?: string;
 }
 
 export interface TrackState {

@@ -37,6 +37,8 @@ export async function runCli(argv: string[], io: CliIO): Promise<number> {
           jsonl: { type: 'boolean' },
           timeout: { type: 'string' },
           'request-id': { type: 'string' },
+          limit: { type: 'string' },
+          offset: { type: 'string' },
         },
       });
     } catch {
@@ -60,6 +62,10 @@ export async function runCli(argv: string[], io: CliIO): Promise<number> {
     }
 
     output = new Output(options.json ? 'json' : options.jsonl ? 'jsonl' : 'text', io.output, io.error);
+    if ((options.limit !== undefined || options.offset !== undefined)
+        && (command !== 'sessions' || positionals[1] !== 'list')) {
+      throw new CliError('usage', '--limit/--offset 仅用于 sessions list。', 2);
+    }
     const timeoutMs = Number(options.timeout ?? 120_000);
     if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 600_000) {
       throw new CliError('usage', 'timeout 必须为 1000～600000 毫秒。', 2);
