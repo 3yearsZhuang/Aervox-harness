@@ -12,6 +12,7 @@ import {
   type ConversationExecutionPolicy,
 } from "@aervox/schema";
 import { assertConversationExecutionPolicy } from "../../../conversation-execution-policy.js";
+import { BRANCH_TREE_MAX_BRANCHES, BRANCH_TREE_MAX_SESSIONS, BranchTreeLimitError, type BranchTreeReadOptions } from "../../../conversation-branch-tree.js";
 import { deleteBotConversationData } from "./bot-data-deletion.js";
 import type { LocalContext } from "../../../local-context.js";
 import { readSessionHistory } from "../session-history.js";
@@ -194,8 +195,8 @@ export class SessionStore {
     });
   }
 
-  async listBranchesByParent(ctx: LocalContext, parentSessionId: string): Promise<ConversationBranchModel[]> {
-    const rows = await this.db
+  async listBranchesByParent(ctx: LocalContext, parentSessionId: string, options?: { limit?: number }): Promise<ConversationBranchModel[]> {
+    const query = this.db
       .select()
       .from(conversationBranches)
       .where(
@@ -205,6 +206,7 @@ export class SessionStore {
         ),
       )
       .orderBy(conversationBranches.createdAt);
+    const rows = await (options?.limit === undefined ? query : query.limit(options.limit));
     return rows as ConversationBranchModel[];
   }
 
@@ -288,13 +290,30 @@ export class SessionStore {
     return (updated as ConversationBranchModel) ?? null;
   }
 
-  async getBranchTree(ctx: LocalContext, sessionId: string): Promise<ConversationBranchModel[]> {
-    // 递归获取所有以 sessionId 为根的分支（包括子分支的子分支）
-    const direct = await this.listBranchesByParent(ctx, sessionId);
-    const result = [...direct];
-    for (const branch of direct) {
-      const children = await this.getBranchTree(ctx, branch.childSessionId);
-      result.push(...children);
+  async getBranchTree(ctx: LocalContext, sessionId: string, options?: BranchTreeReadOptions): Promise<ConversationBranchModel[]> {
+    const pending = [sessionId];
+    const visitedSessions = new Set<string>();
+    const seenBranches = new Set<string>();
+    const result: ConversationBranchModel[] = [];
+    while (pending.length) {
+      options?.signal?.throwIfAborted();
+      const parentSessionId = pending.pop()!;
+      if (visitedSessions.has(parentSessionId)) continue;
+      if (visitedSessions.size >= BRANCH_TREE_MAX_SESSIONS) throw new BranchTreeLimitError();
+      visitedSessions.add(parentSessionId);
+      // Fetch one sentinel row beyond the remaining budget, rather than materializing a wide node.
+      const direct = await this.listBranchesByParent(ctx, parentSessionId, { limit: BRANCH_TREE_MAX_BRANCHES - result.length + 1 });
+      options?.signal?.throwIfAborted();
+      const children: string[] = [];
+      for (const branch of direct) {
+        if (seenBranches.has(branch.id)) continue;
+        if (result.length >= BRANCH_TREE_MAX_BRANCHES) throw new BranchTreeLimitError();
+        seenBranches.add(branch.id);
+        result.push(branch);
+        children.push(branch.childSessionId);
+      }
+      // Keep direct siblings first, then their descendants in the existing sibling order.
+      for (let index = children.length - 1; index >= 0; index--) pending.push(children[index]!);
     }
     return result;
   }

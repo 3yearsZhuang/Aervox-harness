@@ -3,6 +3,7 @@
  */
 import type { MessageModel, TurnAttemptModel } from "./outbox.js";
 import type { LocalContext } from "../../local-context.js";
+import type { BranchTreeReadOptions } from "../../conversation-branch-tree.js";
 import type { ConversationExecutionPolicy, TurnDispatchTarget } from "@aervox/schema";
 
 export interface SessionModel {
@@ -235,7 +236,7 @@ export interface IConversationRepository {
     layoutData: unknown,
   ): Promise<ConversationBranchModel | null>;
   /** CAP-014：获取会话地图（所有分支树） */
-  getBranchTree(ctx: LocalContext, sessionId: string): Promise<ConversationBranchModel[]>;
+  getBranchTree(ctx: LocalContext, sessionId: string, options?: BranchTreeReadOptions): Promise<ConversationBranchModel[]>;
   /** CR-048 / W3：导入外部会话记录为本地会话与历史 Turn */
   importSession(
     ctx: LocalContext,

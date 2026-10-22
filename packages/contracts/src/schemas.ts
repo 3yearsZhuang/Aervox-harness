@@ -962,8 +962,9 @@ export const createBranchSchema = z.object({
 
 /** 更新布局请求体 */
 export const updateBranchLayoutSchema = z.object({
-  layoutData: z.unknown(),
-});
+  layoutData: z.unknown().refine((value) => value !== undefined, "layoutData is required"),
+// The generator cannot infer presence from an unknown-field refinement.
+}).openapi({ required: ["layoutData"] });
 
 // ============ CAP-015 思维宇宙 ============
 
