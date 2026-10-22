@@ -26639,6 +26639,7 @@
     },
     "/v1/plugins/{pluginId}/config/schema": {
       "get": {
+        "operationId": "get_v1_plugins_pluginId_config_schema",
         "summary": "读取插件配置 Schema",
         "tags": [
           "Plugins"
@@ -26656,29 +26657,15 @@
         ],
         "responses": {
           "200": {
-            "description": "Schema",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "apiVersion": {
-                      "type": "string",
-                      "enum": [
-                        "aervox.dev/v1"
-                      ]
-                    },
-                    "kind": {
-                      "type": "string",
-                      "enum": [
-                        "PluginConfigSchema"
-                      ]
-                    },
                     "schemaVersion": {
-                      "type": "number",
-                      "enum": [
-                        1
-                      ]
+                      "type": "integer",
+                      "minimum": 0
                     },
                     "fields": {
                       "type": "array",
@@ -26690,12 +26677,20 @@
                     }
                   },
                   "required": [
-                    "apiVersion",
-                    "kind",
                     "schemaVersion",
                     "fields"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid plugin id",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
                 }
               }
             }
@@ -26711,7 +26706,7 @@
             }
           },
           "404": {
-            "description": "Plugin or schema not found",
+            "description": "PLUGIN_NOT_FOUND or PLUGIN_CONFIG_SCHEMA_NOT_FOUND",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -26730,10 +26725,10 @@
               }
             }
           }
-        },
-        "operationId": "get_v1_plugins_pluginId_config_schema"
+        }
       },
       "put": {
+        "operationId": "put_v1_plugins_pluginId_config_schema",
         "summary": "注册/更新插件配置 Schema",
         "tags": [
           "Plugins"
@@ -26750,6 +26745,7 @@
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -26795,29 +26791,15 @@
         },
         "responses": {
           "200": {
-            "description": "Schema",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "apiVersion": {
-                      "type": "string",
-                      "enum": [
-                        "aervox.dev/v1"
-                      ]
-                    },
-                    "kind": {
-                      "type": "string",
-                      "enum": [
-                        "PluginConfigSchema"
-                      ]
-                    },
                     "schemaVersion": {
-                      "type": "number",
-                      "enum": [
-                        1
-                      ]
+                      "type": "integer",
+                      "minimum": 0
                     },
                     "fields": {
                       "type": "array",
@@ -26829,8 +26811,6 @@
                     }
                   },
                   "required": [
-                    "apiVersion",
-                    "kind",
                     "schemaVersion",
                     "fields"
                   ],
@@ -26889,12 +26869,12 @@
               }
             }
           }
-        },
-        "operationId": "put_v1_plugins_pluginId_config_schema"
+        }
       }
     },
     "/v1/plugins/{pluginId}/config": {
       "get": {
+        "operationId": "get_v1_plugins_pluginId_config",
         "summary": "读取插件配置（secret 仅返回状态）",
         "tags": [
           "Plugins"
@@ -26912,7 +26892,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Snapshot",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -26988,6 +26968,16 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid plugin id",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Missing or invalid access token (token mode)",
             "content": {
@@ -26999,7 +26989,17 @@
             }
           },
           "404": {
-            "description": "Plugin not found",
+            "description": "PLUGIN_NOT_FOUND or PLUGIN_CONFIG_SCHEMA_NOT_FOUND",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "PLUGIN_DISABLED",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -27018,10 +27018,10 @@
               }
             }
           }
-        },
-        "operationId": "get_v1_plugins_pluginId_config"
+        }
       },
       "put": {
+        "operationId": "put_v1_plugins_pluginId_config",
         "summary": "保存插件配置（revision CAS）",
         "tags": [
           "Plugins"
@@ -27038,6 +27038,7 @@
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -27076,7 +27077,7 @@
         },
         "responses": {
           "200": {
-            "description": "Snapshot",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -27173,7 +27174,7 @@
             }
           },
           "404": {
-            "description": "Plugin not found",
+            "description": "PLUGIN_NOT_FOUND or PLUGIN_CONFIG_SCHEMA_NOT_FOUND",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -27183,7 +27184,7 @@
             }
           },
           "409": {
-            "description": "PLUGIN_CONFIG_REVISION_CONFLICT",
+            "description": "PLUGIN_CONFIG_REVISION_CONFLICT or PLUGIN_DISABLED",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -27202,12 +27203,12 @@
               }
             }
           }
-        },
-        "operationId": "put_v1_plugins_pluginId_config"
+        }
       }
     },
     "/v1/plugins/{pluginId}/config/reset": {
       "post": {
+        "operationId": "post_v1_plugins_pluginId_config_reset",
         "summary": "重置插件配置",
         "tags": [
           "Plugins"
@@ -27225,7 +27226,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Snapshot",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -27301,6 +27302,16 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid plugin id",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Missing or invalid access token (token mode)",
             "content": {
@@ -27312,7 +27323,17 @@
             }
           },
           "404": {
-            "description": "Plugin not found",
+            "description": "PLUGIN_NOT_FOUND or PLUGIN_CONFIG_SCHEMA_NOT_FOUND",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "PLUGIN_CONFIG_REVISION_CONFLICT or PLUGIN_DISABLED",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -27331,8 +27352,7 @@
               }
             }
           }
-        },
-        "operationId": "post_v1_plugins_pluginId_config_reset"
+        }
       }
     },
     "/v1/plugins/{pluginId}/pages": {

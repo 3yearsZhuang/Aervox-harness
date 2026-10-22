@@ -32,6 +32,8 @@ export interface ApiEndpoint<ResponseSchema extends z.ZodType = z.ZodType> {
   readonly params?: z.ZodObject;
   readonly query?: z.ZodObject;
   readonly response: ResponseSchema;
+  /** Generator-only representations for schemas such as bounded recursive DSLs. */
+  readonly openapi?: { readonly body?: z.ZodType; readonly response?: z.ZodType };
   readonly status?: number;
   readonly errors?: Readonly<Record<number, string>>;
   readonly validationErrorCode?: string;

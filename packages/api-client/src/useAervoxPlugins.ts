@@ -5,15 +5,18 @@
  */
 import { ref } from 'vue';
 import type {
-  PluginConfigField,
   PluginConfigSnapshot,
+  PluginConfigSchemaResponse,
+  RegisterPluginConfigSchemaRequest,
+  SavePluginConfigRequest,
   PluginPage,
   PluginPackageInspection,
   PluginMarketItem,
   PluginPackageExportResponse,
 } from '@aervox/contracts';
-import { PLUGIN_SENSOR_PERMISSION } from '@aervox/contracts';
+import { PLUGIN_SENSOR_PERMISSION, pluginConfigApi } from '@aervox/contracts';
 import { getTransport } from './transport';
+import { requestEndpoint } from './endpoint.js';
 
 export type PluginPackageInspectionDto = PluginPackageInspection;
 export type PluginMarketItemDto = PluginMarketItem;
@@ -86,33 +89,23 @@ export function useAervoxPlugins() {
     }
   };
 
-  const getConfigSchema = async (pluginId: string): Promise<{ schemaVersion: number; fields: PluginConfigField[] }> =>
-    transport.request<{ schemaVersion: number; fields: PluginConfigField[] }>(
-      'GET',
-      `/v1/plugins/${encodeURIComponent(pluginId)}/config/schema`,
-    );
+  const getConfigSchema = async (pluginId: string): Promise<PluginConfigSchemaResponse> =>
+    requestEndpoint(transport, pluginConfigApi.getSchema, undefined, { pluginId });
+
+  const registerConfigSchema = async (pluginId: string, input: RegisterPluginConfigSchemaRequest): Promise<PluginConfigSchemaResponse> =>
+    requestEndpoint(transport, pluginConfigApi.registerSchema, input, { pluginId });
 
   const getConfig = async (pluginId: string): Promise<PluginConfigSnapshot> =>
-    transport.request<PluginConfigSnapshot>(
-      'GET',
-      `/v1/plugins/${encodeURIComponent(pluginId)}/config`,
-    );
+    requestEndpoint(transport, pluginConfigApi.get, undefined, { pluginId });
 
   const saveConfig = async (
     pluginId: string,
-    input: { revision: number; values: Record<string, unknown>; secretValues?: Record<string, string | null> },
+    input: SavePluginConfigRequest,
   ): Promise<PluginConfigSnapshot> =>
-    transport.request<PluginConfigSnapshot>(
-      'PUT',
-      `/v1/plugins/${encodeURIComponent(pluginId)}/config`,
-      input,
-    );
+    requestEndpoint(transport, pluginConfigApi.save, input, { pluginId });
 
   const resetConfig = async (pluginId: string): Promise<PluginConfigSnapshot> =>
-    transport.request<PluginConfigSnapshot>(
-      'POST',
-      `/v1/plugins/${encodeURIComponent(pluginId)}/config/reset`,
-    );
+    requestEndpoint(transport, pluginConfigApi.reset, undefined, { pluginId });
 
   const listPages = async (pluginId: string): Promise<PluginPageDto[]> => {
     const res = await transport.request<{ pages: PluginPageDto[] }>(
@@ -242,6 +235,7 @@ export function useAervoxPlugins() {
     error,
     loadPlugins,
     getConfigSchema,
+    registerConfigSchema,
     getConfig,
     saveConfig,
     resetConfig,

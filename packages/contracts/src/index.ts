@@ -215,6 +215,7 @@ export type { PluginApiContribution, PluginOpenApiRoute, ToolResultProjectionSch
 export { createDeletionRequestSchema } from "./privacy-schemas.js";
 export * from "./privacy-api.js";
 export * from "./preferences-api.js";
+export * from "./plugin-config-api.js";
 export * from "./turn-diagnostics-api.js";
 
 export type { LocalContext } from "./local-context.js";
