@@ -192,6 +192,7 @@ Page 与客户端认证：iframe source/nonce/会话/全部 capability、禁用�
 
 - 前置与边界：既有认证漏接可独立修；复用 [ITER-063](#iter-063) 的 Page 来源、会话与能力检查。资源授权方式、凭据签发/绑定/有效期/轮换/撤销及 Origin 信任策略先 ADR；不向插件脚本暴露宿主长期 Bearer，不以降低认证或 CSP 作为资源加载方案，无需等待第三方执行平台。
 - 待实施范围：打通 Token 模式下 Page 入口 HTML、嵌套 JS/CSS/图片与 Bridge SDK 的受限资源通道；补充跨窗口停用/撤权通知与已有会话失效，避免仅依赖当前窗口观察状态。
+- 源码复核剩余：Page 每次打开仍需独立绑定 lifecycleGeneration，不能依赖列表对象刷新；快速停用再启用须使旧会话失效。配置保存目前仅入口检查 enabled，写事务只校验 revision/schema，已派发调用可能跨越启停后完成；若要求旧 Page 会话不能跨代写入，需要会话 generation 与事务内 enabled/availability/generation 联合校验，通知或关闭 iframe 本身不能证明服务端原子撤权。当前为源码确认的时序缺口，未复现完整利用链；Page capability 与 scoped sensor grant 继续区分，资源凭据及撤权合同按上述 ADR 前置决定。
 - 验收：在声明支持的 Web/桌面环境中实际加载完整页面并完成 Bridge 配置操作；覆盖重载、凭据过期/轮换、停用/撤权、跨插件与跨来源拒绝，旧会话不能恢复访问；合法 Token 模式的 JSON、SSE、Page、附件可用，凭据不进入 URL、日志或插件脚本。跨窗口撤权和资源加载须有集成证据，不能仅用消息模拟测试代替。
 - 进展与剩余：已完成 Page postMessage 窗口绑定（event.source 校验）、密码学 nonce、文档会话隔离、全部 Bridge capability 检查及观察到禁用后的页面销毁；API readPageEntry 与 readPageAsset 启用守卫对齐并阻断 symlink 逃逸（FND-03）；桌面附件上传补全 Bearer 认证（ARC-13）。证据见 [PR #281](https://github.com/3yearsZhuang/Aervox-harness/pull/281) 与 [PR #283](https://github.com/3yearsZhuang/Aervox-harness/pull/283)；共享上下文投影同时补齐 Base 历史过滤、有界截断和空摘要失败。已通过的测试仅覆盖这些切片，Token 模式 Page 资源授权通道、合法预检及跨窗口撤权实时失效仍待完成。
 
@@ -266,12 +267,14 @@ HLS 竞赛可行性验证：规则/环境、真实双入口、公开题集与同
 
 <a id="iter-013"></a>
 
-#### ITER-013 · 建议
+#### ITER-013 · 进行中：SSE 分页与背压保护
 
 有界运行和观测：Worker/Host drain、Provider 排队/取消、安全文本窗口、SSE 背压/分页、跨进程终态；复用 metrics；ARC-05/12、FND-05/06/09；CAP-007/018
 
 - 前置与边界：[ITER-002](#iter-002)、[ITER-008](#iter-008)；依赖 ITER-002/008 的相关切片；先观测后定参数；跨进程通知/新隔离边界先 ADR。
 - 验收：慢源/慢客户端和日志洪泛资源有界；停机有截止；已提交窗口提前可读；故障可定位
+
+- SSE 切片：宿主采用单查询/写入执行者，先订阅合并唤醒再按 SQLite 高水位重放；新增独立传输分页，保留 Resume 全历史读取。每页最多 256 行，按持久 data 的 UTF-8 长度选取 256 KiB 前缀；至少完整保留一条超预算历史事件，单事件、元数据和 JSON 临时内存仍可能超过预算，不宣称绝对字节上限。完整帧单次 write，返回 false 后停止取页并最多等 drain 30 秒；总连接 10 分钟从重放开始计时。这些是初始连接保护默认值，未作为性能调优或全局并发限额。断连、失效和连接超时不取消已受理 Turn、不造终态，保留游标重放、持久尾事件及旧 Interrupted Attempt 通知不能截断续跑；preClose 和前置读取期间关停/断连回归覆盖晚注册清理。以 #310 为前置复用其冷启动原生测试依赖，不改变执行权限或恢复模型。定向 API 25 项、Host 15 项、仓储 5 项通过；受控 HTTP false/drain 测试覆盖 10,000 次唤醒合并，另以临时 SQLite 固定 6 MiB 合成事件和真实暂停 TCP 客户端观察自然 write=false、停取页、断连不取消和 Last-Event-ID 补读；600 行快照加窗口新增事件实际分页为 256/256/88/1。日志经宿主可观测性接口输出固定事件与数字，真实背压回归观察写队列峰值 197,085 字节（仅该固定样本，不推算生产峰值）。旧基线 Vitest 4.1.11 审计首次命中 2 条未审阅路径，复用 #309 的精确 4.1.12 修复后为 0 条未审阅、4 条既有已审阅、0 条过期或过时例外，未新增豁免。完整 `./aervox ci all` 实际退出码 0：API 708 项、仓储 483 项、Host 79 项、Worker 126 项及研究、原生、文档门禁通过，交付 PR 链接随后回填；逐帧删除/撤权检查、全局并发流限额、其他 Provider/Worker 预算及 Worker dispose 总截止仍未完成。
 
 <a id="iter-015"></a>
 

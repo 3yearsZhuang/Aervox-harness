@@ -157,8 +157,8 @@ describe("CR-031 Turn 流式推送 Pub/Sub 解耦", () => {
     // 稍微等待客户端连接挂载并重放完毕
     await new Promise((r) => setTimeout(r, 50));
 
-    // 通过 turnStreamHub 实时推流增量事件 (sequence 2)
-    turnStreamHub.publishEvent(turnId, {
+    // 总线只唤醒订阅；业务内容必须先持久化，SQLite 是重放和实时的同一真源。
+    const liveEvent = await repo.appendStreamEvent(tenant, {
       id: "ev_live_delta",
       turnId,
       sequence: 2,
@@ -167,6 +167,7 @@ describe("CR-031 Turn 流式推送 Pub/Sub 解耦", () => {
       occurredAt: new Date().toISOString(),
       data: { text: "实时内容" },
     });
+    turnStreamHub.publishEvent(turnId, liveEvent);
 
     // 终态持久化并广播
     await repo.finalizeTurnAttempt(tenant, {
