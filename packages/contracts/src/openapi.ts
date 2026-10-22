@@ -12,6 +12,7 @@ import { turnDiagnosticsApi } from "./turn-diagnostics-api.js";
 import { modelRuntimeApi } from "./model-runtime-api.js";
 import { preferencesApi } from "./preferences-api.js";
 import { privacyApi } from "./privacy-api.js";
+import { pluginConfigApi } from "./plugin-config-api.js";
 import { createMemoryNodeRequestSchema, memoryNodeSchema, listMemoryNodesResponseSchema } from "./memory-api.js";
 import type { OpenAPIObject } from "openapi3-ts/oas31";
 import { getPluginOpenApiRoutes, getPluginApiRevision, type PluginOpenApiRoute } from "./plugin-api-registry.js";
@@ -1029,7 +1030,7 @@ registry.registerPath({ method: "post", path: "/v1/model-runtime/stop", summary:
 registry.registerPath({ method: "delete", path: "/v1/model-runtime/models/{modelId}", summary: "删除已下载模型（运行中禁止）", tags: ["Model Runtime"], request: { headers: commonHeaders, params: z.object({ modelId: z.string().min(1) }) }, responses: { 200: { description: "State snapshot", content: { "application/json": { schema: modelRuntimeStateSchema } } }, 404: { description: "MODEL_NOT_FOUND" }, 409: { description: "RUNTIME_BUSY" } } });
 
 /** Shared JSON endpoint descriptors are also used by routing and clients. */
-for (const endpoint of [...Object.values(turnDiagnosticsApi), ...Object.values(modelRuntimeApi), ...Object.values(preferencesApi), ...Object.values(privacyApi)] as ApiEndpoint[]) {
+function registerJsonEndpoint(endpoint: ApiEndpoint): void {
   registry.registerPath({
     method: endpoint.method, path: endpoint.path, operationId: endpoint.operationId,
     summary: endpoint.summary, tags: endpoint.tags,
@@ -1038,14 +1039,17 @@ for (const endpoint of [...Object.values(turnDiagnosticsApi), ...Object.values(m
       ...(endpoint.query ? { query: endpoint.query } : {}),
       ...(endpoint.body ? { body: {
         ...(endpoint.bodyRequired === undefined ? {} : { required: endpoint.bodyRequired }),
-        content: { "application/json": { schema: endpoint.body } },
+        content: { "application/json": { schema: endpoint.openapi?.body ?? endpoint.body } },
       } } : {}),
     },
     responses: {
-      [endpoint.status ?? 200]: { description: "Success", content: { "application/json": { schema: endpoint.response } } },
+      [endpoint.status ?? 200]: { description: "Success", content: { "application/json": { schema: endpoint.openapi?.response ?? endpoint.response } } },
       ...Object.fromEntries(Object.entries(endpoint.errors ?? {}).map(([status, description]) => [status, { description }])),
     },
   });
+}
+for (const endpoint of [...Object.values(turnDiagnosticsApi), ...Object.values(modelRuntimeApi), ...Object.values(preferencesApi), ...Object.values(privacyApi)] as ApiEndpoint[]) {
+  registerJsonEndpoint(endpoint);
 }
 registry.registerPath({
   method: "get", path: "/v1/model-runtime/events", summary: "订阅本地模型运行时快照", tags: ["Model Runtime"],
@@ -1072,31 +1076,8 @@ registry.registerPath({
 const pluginIdParam = z.object({ pluginId: z.string().min(1) });
 const pluginPageParam = pluginIdParam.extend({ pageId: z.string().min(1) });
 
-registry.registerPath({
-  method: "get", path: "/v1/plugins/{pluginId}/config/schema", summary: "读取插件配置 Schema", tags: ["Plugins"],
-  request: { params: pluginIdParam, headers: commonHeaders },
-  responses: { 200: { description: "Schema", content: { "application/json": { schema: pluginConfigSchemaOpenApi } } }, 404: { description: "Plugin or schema not found" } },
-});
-registry.registerPath({
-  method: "put", path: "/v1/plugins/{pluginId}/config/schema", summary: "注册/更新插件配置 Schema", tags: ["Plugins"],
-  request: { params: pluginIdParam, headers: commonHeaders, body: { content: { "application/json": { schema: pluginConfigSchemaOpenApi } } } },
-  responses: { 200: { description: "Schema", content: { "application/json": { schema: pluginConfigSchemaOpenApi } } }, 400: { description: "INVALID_CONFIG_SCHEMA" }, 404: { description: "PLUGIN_NOT_FOUND" }, 409: { description: "PLUGIN_PACKAGE_IMMUTABLE: install a new package version to change its config schema" } },
-});
-registry.registerPath({
-  method: "get", path: "/v1/plugins/{pluginId}/config", summary: "读取插件配置（secret 仅返回状态）", tags: ["Plugins"],
-  request: { params: pluginIdParam, headers: commonHeaders },
-  responses: { 200: { description: "Snapshot", content: { "application/json": { schema: pluginConfigSnapshotSchema } } }, 404: { description: "Plugin not found" } },
-});
-registry.registerPath({
-  method: "put", path: "/v1/plugins/{pluginId}/config", summary: "保存插件配置（revision CAS）", tags: ["Plugins"],
-  request: { params: pluginIdParam, headers: commonHeaders, body: { content: { "application/json": { schema: pluginConfigUpdateRequestSchema } } } },
-  responses: { 200: { description: "Snapshot", content: { "application/json": { schema: pluginConfigSnapshotSchema } } }, 400: { description: "INVALID_CONFIG" }, 404: { description: "Plugin not found" }, 409: { description: "PLUGIN_CONFIG_REVISION_CONFLICT" } },
-});
-registry.registerPath({
-  method: "post", path: "/v1/plugins/{pluginId}/config/reset", summary: "重置插件配置", tags: ["Plugins"],
-  request: { params: pluginIdParam, headers: commonHeaders },
-  responses: { 200: { description: "Snapshot", content: { "application/json": { schema: pluginConfigSnapshotSchema } } }, 404: { description: "Plugin not found" } },
-});
+for (const endpoint of Object.values(pluginConfigApi)) registerJsonEndpoint(endpoint);
+
 registry.registerPath({
   method: "get", path: "/v1/plugins/{pluginId}/pages", summary: "列出插件 Page", tags: ["Plugins"],
   request: { params: pluginIdParam, headers: commonHeaders },

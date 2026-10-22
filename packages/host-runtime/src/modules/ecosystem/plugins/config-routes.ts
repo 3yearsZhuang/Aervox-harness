@@ -11,6 +11,8 @@
  * - GET      /v1/plugin-pages/bridge.js           Page Bridge SDK。
  */
 import type { FastifyInstance } from "fastify";
+import { pluginConfigApi, type SavePluginConfigRequest } from "@aervox/contracts";
+import { registerContractRoute } from "../../../shared/contract-route.js";
 import { resolveLocalContext } from "../../../shared/local-context.js";
 import { BRIDGE_SDK } from "./bridge-sdk.js";
 import { PluginConfigError, type PluginConfigService } from "./config-service.js";
@@ -19,12 +21,12 @@ function sendError(reply: { code: (status: number) => { send: (body: unknown) =>
   if (error instanceof PluginConfigError) {
     return reply.code(error.status).send({ error: error.code, code: error.code, message: error.message, issues: error.issues });
   }
-  return reply.code(500).send({ error: "INTERNAL", message: error instanceof Error ? error.message : "internal error" });
+  throw error;
 }
 
 export function registerPluginConfigRoutes(app: FastifyInstance, service: PluginConfigService): void {
   // ── Schema ──────────────────────────────────────────
-  app.get("/v1/plugins/:pluginId/config/schema", async (req, reply) => {
+  registerContractRoute(app, pluginConfigApi.getSchema, async (req, reply) => {
     const { pluginId } = req.params as { pluginId: string };
     try {
       return await service.getConfigSchema(pluginId);
@@ -33,7 +35,7 @@ export function registerPluginConfigRoutes(app: FastifyInstance, service: Plugin
     }
   });
 
-  app.put("/v1/plugins/:pluginId/config/schema", async (req, reply) => {
+  registerContractRoute(app, pluginConfigApi.registerSchema, async (req, reply) => {
     const { pluginId } = req.params as { pluginId: string };
     try {
       return await service.registerConfigSchema(pluginId, req.body);
@@ -43,7 +45,7 @@ export function registerPluginConfigRoutes(app: FastifyInstance, service: Plugin
   });
 
   // ── 配置 ──────────────────────────────────────────
-  app.get("/v1/plugins/:pluginId/config", async (req, reply) => {
+  registerContractRoute(app, pluginConfigApi.get, async (req, reply) => {
     const { pluginId } = req.params as { pluginId: string };
     const tenant = resolveLocalContext(req);
     try {
@@ -53,17 +55,10 @@ export function registerPluginConfigRoutes(app: FastifyInstance, service: Plugin
     }
   });
 
-  app.put("/v1/plugins/:pluginId/config", async (req, reply) => {
+  registerContractRoute(app, pluginConfigApi.save, async (req, reply) => {
     const { pluginId } = req.params as { pluginId: string };
     const tenant = resolveLocalContext(req);
-    const body = (req.body ?? {}) as {
-      revision?: number;
-      values?: Record<string, unknown>;
-      secretValues?: Record<string, string | null>;
-    };
-    if (typeof body.revision !== "number") {
-      return reply.code(400).send({ error: "INVALID_CONFIG", message: "revision is required" });
-    }
+    const body = req.body as SavePluginConfigRequest;
     try {
       return await service.saveConfig(tenant, pluginId, {
         revision: body.revision,
@@ -75,7 +70,7 @@ export function registerPluginConfigRoutes(app: FastifyInstance, service: Plugin
     }
   });
 
-  app.post("/v1/plugins/:pluginId/config/reset", async (req, reply) => {
+  registerContractRoute(app, pluginConfigApi.reset, async (req, reply) => {
     const { pluginId } = req.params as { pluginId: string };
     const tenant = resolveLocalContext(req);
     try {

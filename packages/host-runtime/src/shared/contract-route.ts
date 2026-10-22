@@ -21,7 +21,7 @@ export function registerContractRoute(
           return reply.code(400).send({
             code: endpoint.validationErrorCode ?? "VALIDATION_FAILED",
             message: endpoint.validationErrorMessage ?? `Invalid ${field}`,
-            ...(endpoint.validationErrorMessage ? { error: endpoint.validationErrorMessage } : {}),
+            ...(endpoint.validationErrorMessage ? { error: endpoint.validationErrorCode ?? endpoint.validationErrorMessage } : {}),
             details: parsed.error.issues,
           });
         }

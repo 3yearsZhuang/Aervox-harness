@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apiEndpointPath, apiProblemSchema, buildOpenApiDocument, modelRuntimeApi, preferencesApi, privacyApi } from '../src/index.js';
+import { apiEndpointPath, apiProblemSchema, buildOpenApiDocument, modelRuntimeApi, preferencesApi, privacyApi, pluginConfigApi } from '../src/index.js';
 
 describe('HTTP contracts', () => {
   it('every operation has a unique stable id, structured errors and the actual authentication scheme', () => {
@@ -80,5 +80,26 @@ describe('HTTP contracts', () => {
     const endpoint = { path: '/v1/items/{id}' };
     expect(apiEndpointPath(endpoint, { id: 'a/b?c#d' })).toBe('/v1/items/a%2Fb%3Fc%23d');
     expect(() => apiEndpointPath(endpoint)).toThrow('missing_endpoint_parameter:id');
+  });
+
+  it('publishes all five plugin configuration boundaries with the actual schema response and body presence', () => {
+    const paths = buildOpenApiDocument().paths!;
+    for (const endpoint of Object.values(pluginConfigApi)) {
+      const operation = paths[endpoint.path]?.[endpoint.method];
+      expect(operation?.operationId).toBe(endpoint.operationId);
+      expect(operation?.responses?.[200]).toBeDefined();
+    }
+    for (const endpoint of [pluginConfigApi.registerSchema, pluginConfigApi.save]) {
+      expect(paths[endpoint.path]?.[endpoint.method]?.requestBody).toMatchObject({ required: true });
+    }
+    expect(paths[pluginConfigApi.reset.path]?.post?.requestBody).toBeUndefined();
+    const response = paths[pluginConfigApi.getSchema.path]?.get?.responses?.[200];
+    if (!response || '$ref' in response) throw new Error('Missing inline plugin schema response');
+    expect(response.content?.['application/json']?.schema).toMatchObject({
+      type: 'object', required: ['schemaVersion', 'fields'],
+      properties: { schemaVersion: { type: 'integer', minimum: 0 }, fields: { type: 'array', maxItems: 200 } },
+    });
+    expect(pluginConfigApi.getSchema.response.safeParse({ schemaVersion: 1, fields: [{ key: 'nested', type: 'object', label: 'Nested', children: [{ key: 'bad', type: 'unknown', label: 'Bad' }] }] }).success).toBe(false);
+    expect(pluginConfigApi.registerSchema.body.safeParse({ apiVersion: 'aervox.dev/v1', kind: 'PluginConfigSchema', schemaVersion: 1, fields: [{ key: 'token', type: 'secret', label: 'Token', default: 'forbidden' }] }).success).toBe(false);
   });
 });
