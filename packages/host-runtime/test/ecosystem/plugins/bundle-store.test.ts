@@ -53,6 +53,8 @@ describe("PluginBundleStore Page file boundary", () => {
     await aliased.writeAsset("demo", "dashboard", "index.html", Buffer.from("LOCAL"));
     expect((await aliased.readAsset("demo", "dashboard", "index.html")).content.toString()).toBe("LOCAL");
     expect(await aliased.exportPageAssets("demo", "dashboard", limits)).toHaveProperty("index.html");
+    await aliased.deletePage("demo", "dashboard");
+    expect(await fs.lstat(page).catch(() => null)).toBeNull();
   });
 
   it.each(["demo", "demo/pages", "demo/pages/dashboard", "demo/pages/dashboard/nested"])
@@ -175,6 +177,51 @@ describe("PluginBundleStore Page file boundary", () => {
     await fs.writeFile(path.join(outside, generation, "content", "pages", "dashboard", "index.html"), "OUTSIDE_GENERATION");
     await expect(store.readAsset("demo", "dashboard", "index.html")).rejects.toBeInstanceOf(PageAssetBoundaryError);
     await expect(store.exportPageAssets("demo", "dashboard", limits)).rejects.toBeInstanceOf(PageAssetBoundaryError);
+    expect(await fs.readFile(path.join(outside, "canary.txt"), "utf8")).toBe("KEEP_OUTSIDE");
+  });
+
+  it.each(["demo", "demo/pages"])("Page cleanup does not follow an ancestor link at %s", async relative => {
+    const link = path.join(root, ...relative.split("/"));
+    await fs.mkdir(path.dirname(link), { recursive: true });
+    await fs.symlink(outside, link, "dir");
+    const victim = relative === "demo" ? path.join(outside, "pages", "dashboard") : path.join(outside, "dashboard");
+    await fs.mkdir(victim, { recursive: true });
+    await fs.writeFile(path.join(victim, "keep.txt"), "KEEP_EXTERNAL_PAGE");
+    await store.deletePage("demo", "dashboard");
+    expect(await fs.readFile(path.join(victim, "keep.txt"), "utf8")).toBe("KEEP_EXTERNAL_PAGE");
+    expect((await fs.lstat(link)).isSymbolicLink()).toBe(true);
+  });
+
+  it.each(["discard", "uninstall"])("generation %s preserves external releases behind a plugin link", async action => {
+    const generation = "12345678-1234-1234-1234-123456789012";
+    await fs.symlink(outside, path.join(root, "demo"), "dir");
+    const victim = path.join(outside, "releases", generation);
+    await fs.mkdir(victim, { recursive: true });
+    await fs.writeFile(path.join(victim, "owner.json"), JSON.stringify({ format: 1, pluginId: "demo", generation }));
+    await fs.writeFile(path.join(victim, "keep.txt"), "KEEP_EXTERNAL_GENERATION");
+    if (action === "discard") await store.discardGeneration("demo", generation).catch(() => undefined);
+    else await store.deletePluginResources("demo");
+    expect(await fs.readFile(path.join(victim, "keep.txt"), "utf8")).toBe("KEEP_EXTERNAL_GENERATION");
+    expect((await fs.lstat(path.join(root, "demo"))).isSymbolicLink()).toBe(true);
+  });
+
+  it("normal cleanup deletes only owned directories and remains idempotent when absent", async () => {
+    await store.deletePage("demo", "dashboard");
+    await store.deletePluginResources("demo");
+    const generation = "12345678-1234-1234-1234-123456789012";
+    await store.discardGeneration("demo", generation);
+    await store.writeAsset("demo", "dashboard", "index.html", Buffer.from("LOCAL"));
+    await fs.symlink(outside, path.join(page, "external"), "dir");
+    await store.deletePage("demo", "dashboard");
+    expect(await fs.lstat(page).catch(() => null)).toBeNull();
+    const owned = path.join(root, "demo", "releases", generation);
+    await fs.mkdir(owned, { recursive: true });
+    await fs.writeFile(path.join(owned, "owner.json"), JSON.stringify({ format: 1, pluginId: "demo", generation }));
+    await store.deletePluginResources("demo");
+    expect(await fs.lstat(owned).catch(() => null)).toBeNull();
+    await store.deletePage("demo", "dashboard");
+    await store.deletePluginResources("demo");
+    await store.discardGeneration("demo", generation);
     expect(await fs.readFile(path.join(outside, "canary.txt"), "utf8")).toBe("KEEP_OUTSIDE");
   });
 });
