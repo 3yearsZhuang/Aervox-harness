@@ -45,7 +45,7 @@ function parseInline(text: string): string {
   // 3. 链接 [text](url)
   out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, label: string, url: string) => {
     const safeUrl = sanitizeUrl(url);
-    const target = safeUrl.startsWith('http') ? ' target="_blank" rel="noopener noreferrer"' : '';
+    const target = /^(?:https?:\/\/|\/\/)/i.test(safeUrl) ? ' target="_blank" rel="noopener noreferrer"' : '';
     return `<a href="${escapeHtml(safeUrl)}"${target} class="md-link">${escapeHtml(label)}</a>`;
   });
 
