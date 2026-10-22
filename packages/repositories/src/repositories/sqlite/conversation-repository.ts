@@ -7,6 +7,7 @@
  */
 import type { AervoxDatabase } from "../../client.js";
 import type { LocalContext } from "../../local-context.js";
+import type { BranchTreeReadOptions } from "../../conversation-branch-tree.js";
 import type { ConversationExecutionPolicy } from "@aervox/schema";
 import type {
   IConversationRepository,
@@ -581,8 +582,8 @@ export class SqliteConversationRepository implements IConversationRepository {
     return this.sessionStore.updateBranchLayout(ctx, branchId, layoutData);
   }
 
-  async getBranchTree(ctx: LocalContext, sessionId: string): Promise<ConversationBranchModel[]> {
-    return this.sessionStore.getBranchTree(ctx, sessionId);
+  async getBranchTree(ctx: LocalContext, sessionId: string, options?: BranchTreeReadOptions): Promise<ConversationBranchModel[]> {
+    return this.sessionStore.getBranchTree(ctx, sessionId, options);
   }
 
   async importSession(
