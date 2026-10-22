@@ -62,6 +62,7 @@ import { registerSafetyModule } from "./modules/platform/safety/index.js";
 import type { ToolRuntimePort as ToolRuntime } from "./modules/ecosystem/tools/index.js";
 import type { MemoryEmbeddingProvider } from "./modules/companion/memory/index.js";
 import { assertAuthConfigSafe, createAuthHook, loadAuthConfig, type AuthConfig } from "./shared/auth.js";
+import { createBrowserBoundaryHook, isAllowedBrowserOrigin, isOpaquePageResourceRequest } from "./shared/browser-boundary.js";
 import { createToolApprovalPolicyHook } from "./shared/tool-approval-policy.js";
 import { ApiError, type ApiErrorCode } from "./shared/errors.js";
 import { registerProblemDetails } from "./shared/problem-details.js";
@@ -275,16 +276,20 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
   // 认证前置关口：open=本地免认证；token=强制 Bearer token（生产环境强制守卫校验）
   const authConfig = options.auth ?? loadAuthConfig();
   assertAuthConfigSafe(authConfig);
+  app.addHook("onRequest", createBrowserBoundaryHook(authConfig));
   app.addHook("onRequest", createAuthHook(authConfig));
   if (process.env.AERVOX_NATIVE_SUPERVISOR_MANAGED === "1") {
     app.get("/v1/native-ready", async () => ({ status: "ready", role: "api", protocol: 1 }));
   }
   app.addHook("preValidation", createToolApprovalPolicyHook());
 
-  // CORS：允许本地 Web/移动端跨源访问（生产环境按部署配置收紧 origin）
+  // Reflect only validated local/configured origins; all actual requests retain auth.
   await app.register(cors, {
-    origin: true,
-    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    delegator: (req, callback) => callback(null, {
+      origin: req.headers.origin !== undefined &&
+        (isAllowedBrowserOrigin(req.headers.origin, authConfig) || isOpaquePageResourceRequest(req)),
+      methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    }),
   });
 
   // The document follows the current contribution revision, including removal/reload.

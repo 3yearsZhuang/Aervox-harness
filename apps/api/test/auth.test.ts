@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import type { FastifyInstance } from "fastify";
 import { buildApp, type BuildAppOptions } from "./app-fixture.js";
 import { createInMemoryDatabase } from "@aervox/repositories";
 import { assertAuthConfigSafe, assertSafeApiListenHost, loadAuthConfig, safeTimingCompare } from "@aervox/host-runtime/shared/auth";
@@ -14,6 +13,90 @@ async function buildWith(auth: BuildAppOptions["auth"]) {
 }
 
 describe("本机 API 认证中间件", () => {
+  it("恶意网页的读写、SSE 和 DSH 请求在业务执行前拒绝", async () => {
+    const { app, cleanup } = await buildWith({ mode: "open" });
+    try {
+      const before = await app.inject({ method: "GET", url: "/v1/preferences" });
+      for (const origin of ["https://attacker.example", "null", "http://localhost:5173/path", "http://localhost:5173@attacker.example", "http://localhost:5173,https://attacker.example"]) {
+        const read = await app.inject({ method: "GET", url: "/v1/preferences", headers: { origin } });
+        expect(read.statusCode).toBe(403);
+        expect(read.json().code).toBe("AUTH_ORIGIN_FORBIDDEN");
+        expect(read.headers["access-control-allow-origin"]).toBeUndefined();
+        const write = await app.inject({ method: "POST", url: "/v1/preferences", headers: { origin }, payload: { skipped: true } });
+        expect(write.statusCode).toBe(403);
+        const preflight = await app.inject({ method: "OPTIONS", url: "/v1/preferences", headers: { origin, "access-control-request-method": "POST" } });
+        expect(preflight.statusCode).toBe(403);
+      }
+      for (const url of ["/v1/proactive/events", "/v1/turns/unknown/events", "/v1/plugins/unknown/pages/main"]) {
+        expect((await app.inject({ method: "GET", url, headers: { origin: "https://attacker.example" } })).statusCode).toBe(403);
+      }
+      expect((await app.inject({ method: "POST", url: "/v1/mcp/dsh", headers: { origin: "https://attacker.example" }, payload: { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "dsh_run_command", arguments: { command: "blocked" } } } })).statusCode).toBe(403);
+      const after = await app.inject({ method: "GET", url: "/v1/preferences" });
+      expect(after.json()).toEqual(before.json());
+    } finally { await app.close(); await cleanup(); }
+  });
+
+  it("open 模式阻断 DNS rebinding Host 与无 Origin 的跨站导航", async () => {
+    const { app, cleanup } = await buildWith({ mode: "open" });
+    try {
+      for (const host of ["rebind.attacker.example:3000", "localhost.attacker.example", "localhost@attacker.example", "127.0.0.1:70000", "localhost."]) {
+        const res = await app.inject({ method: "GET", url: "/v1/preferences", headers: { host, "x-forwarded-host": "localhost", origin: "http://localhost:5173" } });
+        expect(res.statusCode).toBe(403);
+        expect(res.json().code).toBe("AUTH_HOST_FORBIDDEN");
+      }
+      expect((await app.inject({ method: "GET", url: "/v1/preferences", headers: { "sec-fetch-site": "cross-site" } })).statusCode).toBe(403);
+      for (const host of ["localhost:3000", "127.0.0.1:3000", "[::1]:3000"]) {
+        expect((await app.inject({ method: "GET", url: "/v1/preferences", headers: { host } })).statusCode).toBe(200);
+      }
+    } finally { await app.close(); await cleanup(); }
+  });
+
+  it("本地 Web 跨端口来源和无 Origin 的桌面 IPC/CLI 保持可用", async () => {
+    const { app, cleanup } = await buildWith({ mode: "open" });
+    try {
+      for (const origin of ["http://localhost:5173", "http://127.0.0.1:5100", "https://[::1]:5100"]) {
+        const write = await app.inject({ method: "POST", url: "/v1/preferences", headers: { origin }, payload: { skipped: true } });
+        expect(write.statusCode).toBe(201);
+        expect(write.headers["access-control-allow-origin"]).toBe(origin);
+      }
+      expect((await app.inject({ method: "GET", url: "/v1/preferences" })).statusCode).toBe(200);
+    } finally { await app.close(); await cleanup(); }
+  });
+
+  it("opaque Page 例外仅用于只读静态资源，不放行普通 fetch 或预检", async () => {
+    const { app, cleanup } = await buildWith({ mode: "open" });
+    try {
+      const metadata = { origin: "null", "sec-fetch-site": "cross-site", "sec-fetch-mode": "cors", "sec-fetch-dest": "script" };
+      const bridge = await app.inject({ method: "GET", url: "/v1/plugin-pages/bridge.js", headers: metadata });
+      expect(bridge.statusCode).toBe(200);
+      expect(bridge.headers["access-control-allow-origin"]).toBe("null");
+      for (const url of ["/v1/preferences", "/v1/proactive/events", "/v1/mcp/dsh"]) {
+        expect((await app.inject({ method: "GET", url, headers: metadata })).statusCode).toBe(403);
+      }
+      expect((await app.inject({ method: "GET", url: "/v1/plugin-pages/bridge.js", headers: { ...metadata, "sec-fetch-dest": "empty" } })).statusCode).toBe(403);
+      expect((await app.inject({ method: "POST", url: "/v1/plugin-pages/bridge.js", headers: metadata, payload: {} })).statusCode).toBe(403);
+      expect((await app.inject({ method: "OPTIONS", url: "/v1/plugin-pages/bridge.js", headers: { ...metadata, "access-control-request-method": "GET" } })).statusCode).toBe(403);
+      expect((await app.inject({ method: "GET", url: "/v1/plugin-pages/bridge.js", headers: { ...metadata, origin: "https://attacker.example" } })).statusCode).toBe(403);
+    } finally { await app.close(); await cleanup(); }
+  });
+
+  it("Token 合法预检不带密钥可协商，实际请求仍必须认证", async () => {
+    const { app, cleanup } = await buildWith({ mode: "token", token: "s3cret-token", allowedOrigins: ["https://ui.example", "capacitor://localhost"] });
+    try {
+      for (const origin of ["http://localhost:5173", "https://ui.example", "capacitor://localhost"]) {
+        const preflight = await app.inject({ method: "OPTIONS", url: "/v1/preferences", headers: { origin, "access-control-request-method": "POST", "access-control-request-headers": "authorization,content-type" } });
+        expect(preflight.statusCode).toBe(204);
+        expect(preflight.headers["access-control-allow-origin"]).toBe(origin);
+        expect(preflight.headers["access-control-allow-headers"]).toContain("authorization");
+        expect((await app.inject({ method: "GET", url: "/v1/preferences", headers: { origin } })).statusCode).toBe(401);
+        expect((await app.inject({ method: "GET", url: "/v1/preferences", headers: { origin, authorization: "Bearer s3cret-token" } })).statusCode).toBe(200);
+      }
+      expect((await app.inject({ method: "OPTIONS", url: "/v1/preferences" })).statusCode).toBe(401);
+      expect((await app.inject({ method: "OPTIONS", url: "/v1/preferences", headers: { origin: "https://attacker.example", "access-control-request-method": "POST" } })).statusCode).toBe(403);
+      expect((await app.inject({ method: "GET", url: "/v1/preferences", headers: { origin: "null", authorization: "Bearer s3cret-token" } })).statusCode).toBe(403);
+      expect((await app.inject({ method: "GET", url: "/v1/preferences", headers: { host: "api.example", authorization: "Bearer s3cret-token" } })).statusCode).toBe(200);
+    } finally { await app.close(); await cleanup(); }
+  });
   it("open 模式（默认）免认证放行", async () => {
     const { app, cleanup } = await buildWith(undefined);
     try {
@@ -79,6 +162,15 @@ describe("本机 API 认证中间件", () => {
     expect(loadAuthConfig({ AERVOX_AUTH_MODE: "TOKEN", AERVOX_AUTH_TOKEN: "x" }).token).toBe("x");
     expect(loadAuthConfig({ AERVOX_AUTH_MODE: "token" }).token).toBeUndefined();
     expect(loadAuthConfig({ AERVOX_AUTH_MODE: "token" }).mode).toBe("token");
+  });
+
+  it("额外浏览器来源必须精确配置且强制 Token 模式", () => {
+    const config = loadAuthConfig({ AERVOX_AUTH_MODE: "token", AERVOX_API_ALLOWED_ORIGINS: " https://ui.example,capacitor://localhost " });
+    expect(config.allowedOrigins).toEqual(["https://ui.example", "capacitor://localhost"]);
+    expect(() => assertAuthConfigSafe({ mode: "open", allowedOrigins: ["https://ui.example"] }, {})).toThrow(/require token/);
+    for (const origin of ["*", "null", "https://ui.example/", "https://user:secret@ui.example", "https://ui.example/path"]) {
+      expect(() => assertAuthConfigSafe({ mode: "token", allowedOrigins: [origin] }, {})).toThrow(/invalid API allowed origin/);
+    }
   });
 
   it("open 认证禁止非 loopback 监听，token 认证允许显式远程监听", () => {
