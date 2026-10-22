@@ -58,6 +58,50 @@ async function invoke(args: string[], options: { input?: CliIO['input']; signal?
 }
 
 describe('连接版命令合同', () => {
+  it.each(['sessions', 'doctor', 'config'])('TTY 人类可读呈现不改变 %s 的 JSON/JSONL 协议', async command => {
+    const args = command === 'sessions' ? ['sessions', 'list'] : command === 'config' ? ['config', 'show'] : ['doctor'];
+    const human = await invoke(args, { ttyOutput: true });
+    expect(human.code).toBe(0);
+    expect(human.stdout).not.toContain('"version"');
+    expect(human.stdout).not.toContain('test-token');
+    for (const mode of ['json', 'jsonl']) {
+      const machine = await invoke([...args, `--${mode}`], { ttyOutput: true });
+      expect(machine.code).toBe(0);
+      expect(JSON.parse(machine.stdout)).toMatchObject({ version: 1, data: expect.any(Object) });
+      expect(machine.stdout).not.toContain('\x1b');
+    }
+  });
+
+  it.each([{}, { NO_COLOR: '1' }, { TERM: 'dumb' }])('TTY 会话列表清理服务端控制序列和换行：%j', async env => {
+    handler = (_req, res) => json(res, { items: [{
+      id: 'session\x1b]52;c;secret\x07', title: '正常\x1b[31m标题\x1b[0m\n伪造行',
+    }] });
+    const result = await invoke(['sessions', 'list'], { ttyOutput: true, env });
+    expect(result.code).toBe(0);
+    const rendered = stripVTControlCharacters(result.stdout);
+    expect(rendered).toContain('session "正常标题 伪造行"');
+    expect(result.stdout).not.toMatch(/\x1b\]|secret|\n伪造行/);
+    if ('NO_COLOR' in env || env.TERM === 'dumb') expect(result.stdout).not.toContain('\x1b');
+  });
+
+  it('TTY 会话列表的摘要不删减机器输出，空列表清楚呈现', async () => {
+    const items = Array.from({ length: 35 }, (_, index) => ({ id: `session_${index}` }));
+    handler = (_req, res) => json(res, { items });
+    const human = await invoke(['sessions', 'list'], { ttyOutput: true, env: { NO_COLOR: '1' } });
+    expect(human.stdout).toContain('还有 5 个会话');
+    expect(human.stdout).not.toContain('session_34');
+    expect(JSON.parse((await invoke(['sessions', 'list', '--json'], { ttyOutput: true })).stdout).data.items).toHaveLength(35);
+    handler = (_req, res) => json(res, { items: [] });
+    expect((await invoke(['sessions', 'list'], { ttyOutput: true })).stdout).toContain('暂无会话记录');
+  });
+
+  it.each([null, {}, { items: [null] }, { items: [{ id: 3 }] }, { items: [{ id: 'session', title: {} }] }])('不兼容的会话响应有明确协议错误：%j', async payload => {
+    handler = (_req, res) => json(res, payload);
+    const result = await invoke(['sessions', 'list', '--json']);
+    expect(result.code).toBe(1);
+    expect(JSON.parse(result.stdout)).toMatchObject({ code: 'protocol' });
+  });
+
   it.each(['text', 'json', 'jsonl'])('正文、控制字符、认证、幂等回执：%s', async mode => {
     const r = await invoke(['ask', 'hello', '--session', 'session', '--request-id', 'request_1', ...(mode === 'text' ? [] : [`--${mode}`])]);
     expect(r.code).toBe(0);
@@ -151,11 +195,11 @@ describe('连接版命令合同', () => {
     input.destroy();
   });
 
-  it('对话命令留在本地，多行合为一轮，新会话不覆盖旧会话', async () => {
+  it.each([false, true])('对话命令留在本地，多行合为一轮，新会话不覆盖旧会话（TTY 呈现 %s）', async ttyOutput => {
     const input = Object.assign(new PassThrough(), { isTTY: true });
     const lines = ['/help', '/session', '/unknown', '第一行\\', '第二行', '/session', '/new', '//literal', '/exit'];
-    const r = await invoke(['chat', '--session', 'old_session'], { input,
-      onErrorText(text) { if (text.includes('❯ ') || text.includes('  · ')) setImmediate(() => input.write(lines.shift() + '\n')); },
+    const r = await invoke(['chat', '--session', 'old_session'], { input, ttyOutput, env: { NO_COLOR: '1' },
+      onErrorText(text) { if (text === '❯ ' || text === '  · ') setImmediate(() => input.write(lines.shift() + '\n')); },
     });
     expect(r.code).toBe(0);
     const posts = requests.filter(r => r.url?.endsWith('/turns'));

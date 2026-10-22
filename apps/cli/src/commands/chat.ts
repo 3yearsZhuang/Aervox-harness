@@ -61,24 +61,41 @@ export async function executeChat(ctx: CommandContext): Promise<number> {
       if (content === '/exit' || content === '/quit') return 0;
       if (!content) continue;
       if (content === '/help') {
-        await output.diagnostic(CHAT_HELP);
+        if (view) {
+          await view.help();
+        } else {
+          await output.diagnostic(CHAT_HELP);
+        }
         continue;
       }
       if (content === '/session') {
-        await output.diagnostic(
-          `会话  ${activeSessionId}\n服务  ${apiBase}\n模型  由本机服务配置${
-            lastReceipt
-              ? `\n回合  ${lastReceipt.turnId ?? '受理状态未知'}\n请求  ${lastReceipt.requestId}`
-              : '\n尚未在本次客户端提交问题'
-          }`,
-        );
+        if (view) {
+          await view.sessionCard({
+            sessionId: activeSessionId,
+            apiBase,
+            turnId: lastReceipt?.turnId,
+            requestId: lastReceipt?.requestId,
+          });
+        } else {
+          await output.diagnostic(
+            `会话  ${activeSessionId}\n服务  ${apiBase}\n模型  由本机服务配置${
+              lastReceipt
+                ? `\n回合  ${lastReceipt.turnId ?? '受理状态未知'}\n请求  ${lastReceipt.requestId}`
+                : '\n尚未在本次客户端提交问题'
+            }`,
+          );
+        }
         continue;
       }
       if (content === '/new') {
         activeSessionId = `cli_${randomUUID()}`;
         track.sessionId = activeSessionId;
         lastReceipt = undefined;
-        await output.diagnostic(`已切换到新会话 ${activeSessionId}；原会话已保留。`);
+        if (view) {
+          await view.newSession(activeSessionId);
+        } else {
+          await output.diagnostic(`已切换到新会话 ${activeSessionId}；原会话已保留。`);
+        }
         continue;
       }
       if (content.startsWith('//')) {
