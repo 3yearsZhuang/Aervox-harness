@@ -25,7 +25,8 @@ import { buildResumeHistory } from "@aervox/core";
 import { registerContractRoute } from "../../../shared/contract-route.js";
 import { resolveLocalContext } from "../../../shared/local-context.js";
 import { acceptConversationTurn } from "./application.js";
-import { turnStreamHub, type StreamEventFrame } from "./stream-hub.js";
+import { turnStreamHub } from "./stream-hub.js";
+import { encodeSseEvent, writeSseFrame, SseWriteError } from "./sse-writer.js";
 import { loadApiConfig } from "@aervox/config";
 
 let seq = 0;
@@ -42,6 +43,13 @@ export function registerConversationRoutes(
 ): void {
   // Accepted local turns own cancellation independently of HTTP/SSE connections.
   const activeTurns = new Map<string, AbortController>();
+  const activeStreams = new Set<() => void>();
+  let hostClosing = false;
+  // preClose runs before server.close waits for open SSE sockets (Fastify 5).
+  app.addHook("preClose", async () => {
+    hostClosing = true;
+    for (const close of activeStreams) close();
+  });
   app.addHook("onClose", async () => {
     for (const controller of activeTurns.values()) controller.abort(new Error("host_closed"));
     activeTurns.clear();
@@ -247,174 +255,160 @@ export function registerConversationRoutes(
     }
     const cursorSequence = cursor?.sequence ?? 0;
 
+    // Reads above can finish after preClose already swept active connections.
+    // Check before hijack/registration, with no intervening await.
+    if (hostClosing) return reply.code(503).send({ error: "host_closed" });
+    if (req.raw.aborted || reply.raw.destroyed) return;
+
     reply.hijack();
     const raw = reply.raw;
     raw.writeHead(200, {
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-store",
+      "X-Accel-Buffering": "no",
       "Access-Control-Allow-Origin": origin,
       "Access-Control-Allow-Credentials": "true",
     });
 
     const TAIL_HEARTBEAT_MS = 15_000;
     const TAIL_MAX_DURATION_MS = 10 * 60_000;
-
-    const writeEventFrame = (ev: {
-      id: string;
-      turnId: string;
-      sequence: number;
-      eventType: string;
-      payloadVersion: number;
-      occurredAt: string;
-      data: unknown;
-    }): void => {
-      const body = {
-        eventId: ev.id,
-        turnId: ev.turnId,
-        sequence: ev.sequence,
-        eventType: ev.eventType,
-        payloadVersion: ev.payloadVersion,
-        occurredAt: ev.occurredAt,
-        data: ev.data,
-      };
-      raw.write(`id: ${ev.id}\n`);
-      raw.write(`data: ${JSON.stringify(body)}\n\n`);
-    };
-
+    const CROSS_PROCESS_POLL_MS = 100;
+    const connection = new AbortController();
     let closed = false;
-    let tailTimer: ReturnType<typeof setInterval> | undefined;
-    let unsubscribe: (() => void) | undefined;
-    let replaying = true;
-    let finishing = false;
-    const bufferedEvents: StreamEventFrame[] = [];
-
-    const finish = (): void => {
-      if (closed) return;
-      closed = true;
-      if (tailTimer) clearInterval(tailTimer);
-      if (unsubscribe) {
-        unsubscribe();
-        unsubscribe = undefined;
-      }
-      raw.end();
-    };
-    req.raw.on("close", finish);
-    raw.on("close", finish);
-
-    // 事件按 sequence 去重。广播与存量快照可能包含同一事件，且重放期间
-    // 收到的广播必须先缓存，避免「读快照 → 订阅总线」之间的竞态窗口。
+    let ready = false;
+    let pumping = false;
+    let wakeRequested = false;
     let lastSequence = cursorSequence;
     let lastWriteAt = Date.now();
-    const writeIfNew = (ev: StreamEventFrame): void => {
-      if (closed || ev.sequence <= lastSequence) return;
-      writeEventFrame(ev);
-      lastSequence = ev.sequence;
+    let pages = 0;
+    let oversizedEvents = 0;
+    let backpressureWaits = 0;
+    let peakQueuedBytes = 0;
+    let writableHighWaterMark = 0;
+    let tailTimer: ReturnType<typeof setInterval> | undefined;
+    let durationTimer: ReturnType<typeof setTimeout> | undefined;
+    let unsubscribe: (() => void) | undefined;
+
+    const finish = (destroy = false, reason = "sse_closed"): void => {
+      if (closed) return;
+      closed = true;
+      connection.abort();
+      if (tailTimer) clearInterval(tailTimer);
+      if (durationTimer) clearTimeout(durationTimer);
+      unsubscribe?.();
+      unsubscribe = undefined;
+      activeStreams.delete(shutdown);
+      req.raw.off("aborted", disconnected);
+      raw.off("close", disconnected);
+      raw.off("error", disconnected);
+      if (backpressureWaits || oversizedEvents) {
+        deps.observability?.log.info({
+          event: "sse.connection.closed",
+          message: "SSE connection closed",
+          fields: { reason, pages, oversizedEvents, backpressureWaits, peakQueuedBytes, writableHighWaterMark },
+        });
+      }
+      // A timed-out/closed socket must not retain queued data while shutdown waits.
+      if (destroy) raw.destroy();
+      else raw.end();
+    };
+    const disconnected = (): void => finish(true);
+    const shutdown = (): void => finish(true, "sse_host_closed");
+    activeStreams.add(shutdown);
+    req.raw.on("aborted", disconnected);
+    raw.on("close", disconnected);
+    raw.on("error", disconnected);
+    durationTimer = setTimeout(() => finish(true, "sse_duration_limit"), TAIL_MAX_DURATION_MS);
+    durationTimer.unref();
+
+    const write = async (frame: string): Promise<void> => {
+      await writeSseFrame(raw, frame, {
+        signal: connection.signal,
+        onBackpressure(queuedBytes, highWaterMark) {
+          backpressureWaits += 1;
+          peakQueuedBytes = Math.max(peakQueuedBytes, queuedBytes);
+          writableHighWaterMark = highWaterMark;
+        },
+      });
       lastWriteAt = Date.now();
     };
-
-    const flushBuffered = (): void => {
-      if (bufferedEvents.length === 0) return;
-      const pending = bufferedEvents.splice(0).sort((a, b) => a.sequence - b.sequence);
-      for (const ev of pending) writeIfNew(ev);
+    const replayThrough = async (upperBound: number): Promise<void> => {
+      while (!closed && lastSequence < upperBound) {
+        const page = await conversationRepo.getStreamEventsPage(tenant, turnId, {
+          afterSequence: lastSequence, throughSequence: upperBound,
+        });
+        pages += 1;
+        if (closed) return;
+        if (page.events.length === 0) throw new Error("sse_replay_page_empty");
+        if (page.oversizedEvent) oversizedEvents += 1;
+        for (const ev of page.events) {
+          if (closed) return;
+          if (ev.sequence <= lastSequence) continue;
+          await write(encodeSseEvent(ev));
+          lastSequence = ev.sequence;
+        }
+        // No next page is queried while any frame is waiting for socket drain.
+      }
     };
-
     const attemptSettled = async (): Promise<boolean> => {
       const attempts = await conversationRepo.listTurnAttempts(tenant, turnId);
       const terminal = ["Completed", "Failed", "Interrupted", "Cancelled"];
       return attempts.length > 0 && attempts.every((a) => terminal.includes(a.status));
     };
-
-    let drainPromise: Promise<void> | undefined;
-    const drainAndFinish = (): Promise<void> => {
-      if (drainPromise) return drainPromise;
-      if (closed) return Promise.resolve();
-      finishing = true;
-      drainPromise = (async () => {
-        try {
-          // 终态提交与 done/error 事件通常同事务；这里再读一次数据库，兜底
-          // 覆盖广播顺序差异，并同时排空查询期间到达的总线事件。
-          for (let pass = 0; pass < 2; pass += 1) {
-            const remaining = await conversationRepo.getStreamEvents(tenant, turnId, lastSequence);
-            for (const ev of remaining) writeIfNew(ev);
-            flushBuffered();
-            if (remaining.length === 0 && bufferedEvents.length === 0) break;
-          }
-        } catch {
-          // 连接关闭路径不应再向 Fastify 抛出异常。
-        } finally {
-          finish();
-        }
-      })();
-      return drainPromise;
+    const failConnection = (error: unknown): void => {
+      finish(true, error instanceof SseWriteError ? error.code : "sse_read_failed");
     };
 
-    // CR-031 活流订阅：先挂载总线，再读取存量快照，彻底消除读快照期间的漏事件窗口。
-    unsubscribe = turnStreamHub.subscribe(turnId, {
-      onEvent(ev) {
-        if (closed) return;
-        if (replaying || finishing) {
-          bufferedEvents.push(ev);
-          return;
-        }
-        writeIfNew(ev);
-      },
-      onSettled() {
-        if (closed) return;
-        if (replaying) return;
-        // A previous Interrupted Attempt can finish its hooks after continuation starts.
-        void attemptSettled().then(settled => { if (settled) return drainAndFinish(); })
-          .catch(() => undefined);
-      },
-    });
-
-    try {
-      const persisted = await conversationRepo.getStreamEvents(tenant, turnId, cursorSequence);
-      for (const ev of persisted) writeIfNew(ev);
-      flushBuffered();
-      replaying = false;
-
-      // 终态通知可能在快照读取期间到达；统一走排空路径，避免漏掉尾事件。
-      if (closed || (await attemptSettled())) {
-        await drainAndFinish();
-        return;
-      }
-    } catch {
-      replaying = false;
-      finish();
-      return;
-    }
-
-    // 跨进程/Worker 增量轮询与心跳安全兜底（每 100ms 增量拉取 SQLite 新事件；15s 一次心跳）
-    const CROSS_PROCESS_POLL_MS = 100;
-    const tailStartedAt = Date.now();
-    let polling = false;
-    tailTimer = setInterval(() => {
-      if (closed || polling) return;
-      if (Date.now() - tailStartedAt >= TAIL_MAX_DURATION_MS) {
-        finish();
-        return;
-      }
-      polling = true;
-      void (async () => {
-        try {
-          const freshEvents = await conversationRepo.getStreamEvents(tenant, turnId, lastSequence);
-          for (const ev of freshEvents) writeIfNew(ev);
-          flushBuffered();
+    // Exactly one query/writer owner. Bus traffic retains only a coalesced wake
+    // bit, never payloads; sequence and content always come from durable SQLite.
+    const pump = async (): Promise<void> => {
+      if (closed || !ready || pumping) return;
+      pumping = true;
+      try {
+        do {
+          wakeRequested = false;
+          await replayThrough(await conversationRepo.getStreamEventHighWater(tenant, turnId));
+          if (closed) return;
           if (await attemptSettled()) {
-            await drainAndFinish();
-            return;
+            // Re-read after settlement, including terminal events committed while
+            // replaying. A late old Attempt notification cannot close continuation.
+            await replayThrough(await conversationRepo.getStreamEventHighWater(tenant, turnId));
+            if (closed) return;
+            if (await attemptSettled()) {
+              const highWater = await conversationRepo.getStreamEventHighWater(tenant, turnId);
+              if (highWater > lastSequence) {
+                wakeRequested = true;
+              } else if (!wakeRequested) {
+                finish();
+                return;
+              }
+            }
           }
-          if (Date.now() - lastWriteAt >= TAIL_HEARTBEAT_MS) {
-            raw.write(`: ping\n\n`);
-            lastWriteAt = Date.now();
-          }
-        } catch {
-          // 连接关闭或临时异常不打断轮询
-        } finally {
-          polling = false;
-        }
-      })();
-    }, CROSS_PROCESS_POLL_MS);
+          if (!closed && Date.now() - lastWriteAt >= TAIL_HEARTBEAT_MS) await write(": ping\n\n");
+        } while (wakeRequested && !closed);
+      } catch (error) {
+        failConnection(error);
+      } finally {
+        pumping = false;
+      }
+    };
+    const wake = (): void => {
+      if (closed) return;
+      wakeRequested = true;
+      void pump();
+    };
+    // Subscribe before capturing the replay snapshot. Events arriving during
+    // replay are subsequently fetched in order, even if bus delivery is reordered.
+    unsubscribe = turnStreamHub.subscribe(turnId, { onEvent: wake, onSettled: wake });
+    tailTimer = setInterval(wake, CROSS_PROCESS_POLL_MS);
+    tailTimer.unref();
+    try {
+      await replayThrough(await conversationRepo.getStreamEventHighWater(tenant, turnId));
+      ready = true;
+      await pump();
+    } catch (error) {
+      failConnection(error);
+    }
   });
 
   // POST /v1/turns/{turnId}/cancel — 取消 Turn（AVX-HAR-001 §11.1：Attempt CAS 置 CancelRequested，executor 检查点中止）
