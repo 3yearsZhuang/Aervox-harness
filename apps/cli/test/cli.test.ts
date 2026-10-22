@@ -84,15 +84,96 @@ describe('连接版命令合同', () => {
     if ('NO_COLOR' in env || env.TERM === 'dumb') expect(result.stdout).not.toContain('\x1b');
   });
 
-  it('TTY 会话列表的摘要不删减机器输出，空列表清楚呈现', async () => {
+  it('TTY 展示完整本页，机器输出保持原信封，空列表清楚呈现', async () => {
     const items = Array.from({ length: 35 }, (_, index) => ({ id: `session_${index}` }));
     handler = (_req, res) => json(res, { items });
     const human = await invoke(['sessions', 'list'], { ttyOutput: true, env: { NO_COLOR: '1' } });
-    expect(human.stdout).toContain('还有 5 个会话');
-    expect(human.stdout).not.toContain('session_34');
+    expect(human.stdout).toContain('本页会话 (35 个，limit=100，offset=0)');
+    expect(human.stdout).toContain('session_34');
+    expect(human.stdout).not.toContain('继续查看');
     expect(JSON.parse((await invoke(['sessions', 'list', '--json'], { ttyOutput: true })).stdout).data.items).toHaveLength(35);
     handler = (_req, res) => json(res, { items: [] });
     expect((await invoke(['sessions', 'list'], { ttyOutput: true })).stdout).toContain('暂无会话记录');
+  });
+
+  it.each(['text', 'json', 'jsonl'])('会话分页只读一页并保留认证和机器协议：%s', async mode => {
+    const items = [{ id: 'page_100' }, { id: 'page_101', title: '第二页' }];
+    handler = (_req, res) => json(res, { items });
+    const result = await invoke(['sessions', 'list', '--limit', '2', '--offset', '100',
+      ...(mode === 'text' ? [] : [`--${mode}`])], { ttyOutput: true, env: { NO_COLOR: '1' } });
+    expect(result.code).toBe(0);
+    expect(requests).toEqual([{ method: 'GET', url: '/v1/sessions?limit=2&offset=100', auth: 'Bearer test-token', key: undefined, body: '' }]);
+    expect(result.stderr).toBe('');
+    if (mode === 'text') {
+      expect(result.stdout).toContain('本页会话 (2 个，limit=2，offset=100)');
+      expect(result.stdout).toContain('page_101');
+      expect(result.stdout).toContain('--limit 2 --offset 102');
+      expect(result.stdout).toContain('下一页可能为空');
+      expect(result.stdout).not.toContain('共');
+    } else {
+      expect(JSON.parse(result.stdout)).toEqual({ version: 1, data: { items } });
+      expect(result.stdout).not.toContain('\x1b');
+    }
+  });
+
+  it('默认请求兼容；只指定 offset 或 limit 时保留其它默认值，重定向仍是 JSON', async () => {
+    for (const args of [[], ['--offset', '100'], ['--limit', '1'], ['--offset', '0']]) {
+      const result = await invoke(['sessions', 'list', ...args]);
+      expect(result.code).toBe(0);
+      expect(JSON.parse(result.stdout)).toEqual({ version: 1, data: { items: [{ id: 'session' }] } });
+    }
+    expect(requests.map(request => request.url)).toEqual([
+      '/v1/sessions?limit=100', '/v1/sessions?limit=100&offset=100',
+      '/v1/sessions?limit=1', '/v1/sessions?limit=100&offset=0',
+    ]);
+  });
+
+  it('空的后续页不宣称全库为空，也不触发继续查询', async () => {
+    handler = (_req, res) => json(res, { items: [] });
+    const result = await invoke(['sessions', 'list', '--offset', '100'], { ttyOutput: true });
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('此页无会话（offset=100）');
+    expect(result.stdout).not.toMatch(/暂无会话记录|继续查看/);
+    expect(requests).toHaveLength(1);
+  });
+
+  it('最大安全整数 offset 不产生溢出的翻页提示', async () => {
+    const result = await invoke(['sessions', 'list', '--limit', '1', '--offset', String(Number.MAX_SAFE_INTEGER)], { ttyOutput: true });
+    expect(result.code).toBe(0);
+    expect(result.stdout).not.toContain('继续查看');
+    expect(requests[0]?.url).toBe(`/v1/sessions?limit=1&offset=${Number.MAX_SAFE_INTEGER}`);
+  });
+
+  it.each([
+    ['--limit', '0'], ['--limit', '101'], ['--limit', '-1'], ['--limit', '1.5'],
+    ['--limit', '1e2'], ['--limit', '0x10'], ['--limit', ' 2'], ['--limit', '2x'], ['--limit', ''],
+    ['--offset', '-1'], ['--offset', '0.5'], ['--offset', '1e2'], ['--offset', '+1'],
+    ['--offset', 'NaN'], ['--offset', 'Infinity'], ['--offset', '9007199254740992'], ['--offset', ''],
+  ])('分页参数 %s=%s 在发送 HTTP 前拒绝', async (option, value) => {
+    const result = await invoke(['sessions', 'list', `${option}=${value}`, '--json']);
+    expect(result.code).toBe(2);
+    expect(JSON.parse(result.stdout).code).toBe('usage');
+    expect(requests).toHaveLength(0);
+  });
+
+  it.each([
+    ['doctor', '--limit', '1'], ['config', 'show', '--offset', '0'],
+    ['ask', 'hello', '--limit', '2'], ['chat', '--offset', '10'],
+    ['events', 'turn_1', '--limit', '1'], ['status', 'turn_1', '--offset', '0'],
+    ['sessions', 'show', '--offset', '0'], ['sessions', 'list', 'extra', '--limit', '1'],
+  ])('不适用的分页参数不能被静默忽略：%j', async (...args) => {
+    const result = await invoke([...args, '--json']);
+    expect(result.code).toBe(2);
+    expect(JSON.parse(result.stdout).code).toBe('usage');
+    expect(requests).toHaveLength(0);
+  });
+
+  it('服务端忽略 limit 时拒绝超额页', async () => {
+    handler = (_req, res) => json(res, { items: [{ id: 'a' }, { id: 'b' }] });
+    const result = await invoke(['sessions', 'list', '--limit', '1', '--json']);
+    expect(result.code).toBe(1);
+    expect(JSON.parse(result.stdout).code).toBe('protocol');
+    expect(result.stdout).not.toContain('"items"');
   });
 
   it.each([null, {}, { items: [null] }, { items: [{ id: 3 }] }, { items: [{ id: 'session', title: {} }] }])('不兼容的会话响应有明确协议错误：%j', async payload => {
