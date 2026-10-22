@@ -16,8 +16,12 @@ import { registerContractRoute } from "../../../shared/contract-route.js";
 import { resolveLocalContext } from "../../../shared/local-context.js";
 import { BRIDGE_SDK } from "./bridge-sdk.js";
 import { PluginConfigError, type PluginConfigService } from "./config-service.js";
+import { PageAssetBoundaryError } from "./bundle-store.js";
 
 function sendError(reply: { code: (status: number) => { send: (body: unknown) => void } }, error: unknown): void {
+  if (error instanceof PageAssetBoundaryError) {
+    return reply.code(400).send({ error: "INVALID_ASSET_PATH", code: "INVALID_ASSET_PATH", message: error.message });
+  }
   if (error instanceof PluginConfigError) {
     return reply.code(error.status).send({ error: error.code, code: error.code, message: error.message, issues: error.issues });
   }
