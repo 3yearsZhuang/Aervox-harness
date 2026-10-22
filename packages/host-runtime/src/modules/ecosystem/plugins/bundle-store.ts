@@ -2,10 +2,12 @@
  * Aervox｜思隅 @aervox/api — 插件 Page 静态资源存储（CAP-020 扩展 · CR-006）
  *
  * 只允许已安装插件 Bundle 本地资源：写入/读取严格限制在
- * <pluginsRoot>/<pluginId>/pages/<pageId>/ 内，拒绝路径穿越、符号链接逃逸与未知类型。
+ * <pluginsRoot>/<pluginId>/pages/<pageId>/ 内，拒绝路径穿越和链接资源。
  * 页面不能加载远程 URL；所有业务操作必须经过 Host Bridge。
  */
 import fs from "node:fs/promises";
+import { constants, type Stats } from "node:fs";
+import type { FileHandle } from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 
@@ -29,12 +31,33 @@ const MIME: Record<string, string> = {
 };
 
 export function isSafeRelativePath(relPath: string): boolean {
-  if (!relPath || relPath.length > 512) return false;
+  if (typeof relPath !== "string" || !relPath || relPath.length > 512 || relPath.includes("\0")) return false;
   if (relPath.startsWith("/") || relPath.includes("\\")) return false;
   if (/^[A-Za-z]:/.test(relPath)) return false;
   const parts = relPath.split("/");
   if (parts.some((p) => p === "" || p === "." || p === "..")) return false;
   return true;
+}
+
+export class PageAssetBoundaryError extends Error {
+  constructor(message: string) { super(message); this.name = "PageAssetBoundaryError"; }
+}
+
+interface DirectoryIdentity { path: string; dev: number; ino: number }
+interface AssetBoundary { root: string; target: string; directories: DirectoryIdentity[] }
+
+function sameFile(left: Stats, right: { dev: number; ino: number }): boolean {
+  return left.dev === right.dev && left.ino === right.ino;
+}
+
+async function statIfPresent(target: string): Promise<Stats | null> {
+  try { return await fs.lstat(target); }
+  catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") return null;
+    if (code === "ENOTDIR" || code === "ELOOP") throw new PageAssetBoundaryError("invalid page asset directory");
+    throw error;
+  }
 }
 
 export class PluginBundleStore {
@@ -100,7 +123,7 @@ export class PluginBundleStore {
       }
       return {generation, skillPaths};
     } catch (error) {
-      await fs.rm(root, {recursive: true, force: true}).catch(() => undefined);
+      await this.removeStorageDirectory(root).catch(() => undefined);
       throw error;
     }
   }
@@ -108,7 +131,7 @@ export class PluginBundleStore {
   async discardGeneration(pluginId: string, generation: string): Promise<void> {
     // Never erase files if a commit succeeded but its acknowledgement was interrupted.
     if (await this.generationResolver?.(pluginId) === generation) return;
-    await fs.rm(this.generationRoot(pluginId, generation), {recursive: true, force: true});
+    await this.removeStorageDirectory(this.generationRoot(pluginId, generation));
   }
 
   async readOriginalBundle(pluginId: string, generation: string): Promise<Uint8Array> {
@@ -119,36 +142,148 @@ export class PluginBundleStore {
     if (!/^(?!\.{1,2}$)[\w.-]+$/.test(pluginId)) throw new Error("invalid plugin id");
     const pluginRoot = path.join(this.root, pluginId);
     const releases = path.join(pluginRoot, "releases");
-    const rootStat = await fs.lstat(releases).catch(() => null);
-    if (rootStat?.isDirectory() && !rootStat.isSymbolicLink()) {
-      for (const entry of await fs.readdir(releases, {withFileTypes: true})) {
+    const boundary = await this.storageDirectoryBoundary(releases).catch(() => null);
+    if (boundary) {
+      for (const entry of await fs.readdir(boundary.target, {withFileTypes: true})) {
         if (!entry.isDirectory() || !/^[a-f0-9-]{36}$/.test(entry.name)) continue;
         const directory = this.generationRoot(pluginId, entry.name);
-        const owner = await fs.readFile(path.join(directory, "owner.json"), "utf8").then(JSON.parse).catch(() => null);
+        const generation = await this.storageDirectoryBoundary(directory).catch(() => null);
+        if (!generation) continue;
+        const owner = await this.readBoundaryFile({ ...generation, target: path.join(generation.target, "owner.json") }, 1024)
+          .then(content => JSON.parse(content.toString("utf8"))).catch(() => null);
         if (owner?.format === 1 && owner.pluginId === pluginId && owner.generation === entry.name) {
-          await fs.rm(directory, {recursive: true, force: true});
+          await this.removeStorageDirectory(directory);
         }
       }
     }
     // Unknown notes, backups and legacy directories have no deletion authority.
-    await fs.rmdir(releases).catch(() => undefined);
-    await fs.rmdir(pluginRoot).catch(() => undefined);
+    await this.removeStorageDirectory(releases, false).catch(() => undefined);
+    await this.removeStorageDirectory(pluginRoot, false).catch(() => undefined);
   }
 
   private async pageRoot(pluginId: string, pageId: string): Promise<string> {
-    if (!/^(?!\.{1,2}$)[\w.-]+$/.test(pluginId) || !/^[\w-]+$/.test(pageId)) throw new Error("invalid page identity");
+    if (!/^(?!\.{1,2}$)[\w.-]+$/.test(pluginId) || !/^[\w-]+$/.test(pageId)) throw new PageAssetBoundaryError("invalid page identity");
     const generation = await this.generationResolver?.(pluginId);
     return generation ? path.join(this.generationRoot(pluginId, generation), "content", "pages", pageId)
       : path.join(this.root, pluginId, "pages", pageId);
   }
 
-  private async resolveInside(pluginId: string, pageId: string, relPath: string): Promise<string> {
-    const base = path.resolve(await this.pageRoot(pluginId, pageId));
-    const target = path.resolve(base, relPath);
-    if (target !== base && !target.startsWith(base + path.sep)) {
-      throw new Error("invalid page asset path");
+  private async checkDirectories(directories: DirectoryIdentity[]): Promise<void> {
+    for (const directory of directories) {
+      const stat = await statIfPresent(directory.path);
+      if (!stat?.isDirectory() || stat.isSymbolicLink() || !sameFile(stat, directory)
+        || await fs.realpath(directory.path) !== directory.path) {
+        throw new PageAssetBoundaryError("page asset directory changed or contains a symlink");
+      }
     }
-    return target;
+  }
+
+  private async checkedDirectories(root: string, target: string, create: boolean): Promise<DirectoryIdentity[]> {
+    // The configured root is trusted and may be a macOS/system path alias. Work from its canonical path.
+    const rootStat = await fs.lstat(root);
+    if (!rootStat.isDirectory() || rootStat.isSymbolicLink() || await fs.realpath(root) !== root) {
+      throw new PageAssetBoundaryError("invalid page asset storage root");
+    }
+    const directories: DirectoryIdentity[] = [{ path: root, dev: rootStat.dev, ino: rootStat.ino }];
+    const relative = path.relative(root, target);
+    if (relative && !isSafeRelativePath(relative.split(path.sep).join("/"))) throw new PageAssetBoundaryError("invalid page asset directory");
+    let current = root;
+    for (const part of relative ? relative.split(path.sep) : []) {
+      current = path.join(current, part);
+      const stat = await statIfPresent(current);
+      if (!stat && create) {
+        await this.checkDirectories(directories);
+        try { await fs.mkdir(current); }
+        catch (error) { if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error; }
+      }
+      const checked = stat ?? await statIfPresent(current);
+      if (!checked?.isDirectory() || checked.isSymbolicLink() || await fs.realpath(current) !== current) {
+        throw new PageAssetBoundaryError("page asset directory contains a symlink or is not a directory");
+      }
+      directories.push({ path: current, dev: checked.dev, ino: checked.ino });
+    }
+    return directories;
+  }
+
+  /** Cleanup must validate ancestors too: fs.rm only avoids following the final symlink. */
+  private async storageDirectoryBoundary(target: string): Promise<AssetBoundary | null> {
+    const relative = path.relative(path.resolve(this.root), path.resolve(target));
+    if (!isSafeRelativePath(relative.split(path.sep).join("/"))) throw new PageAssetBoundaryError("invalid cleanup directory");
+    let root: string;
+    try { root = await fs.realpath(this.root); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return null; throw error; }
+    const canonical = path.join(root, relative);
+    if (!await statIfPresent(canonical)) return null;
+    return { root, target: canonical, directories: await this.checkedDirectories(root, canonical, false) };
+  }
+
+  private async removeStorageDirectory(target: string, recursive = true): Promise<void> {
+    const boundary = await this.storageDirectoryBoundary(target);
+    if (!boundary) return;
+    await this.checkDirectories(boundary.directories);
+    if (recursive) await fs.rm(boundary.target, { recursive: true, force: true });
+    else await fs.rmdir(boundary.target);
+  }
+
+  private async assetBoundary(pluginId: string, pageId: string, relPath: string, create: boolean): Promise<AssetBoundary> {
+    if (!isSafeRelativePath(relPath)) throw new PageAssetBoundaryError("invalid page asset path");
+    const base = path.resolve(await this.pageRoot(pluginId, pageId));
+    const relativeBase = path.relative(path.resolve(this.root), base);
+    if (!isSafeRelativePath(relativeBase.split(path.sep).join("/"))) throw new PageAssetBoundaryError("invalid page asset root");
+    if (create) await fs.mkdir(this.root, { recursive: true });
+    const root = await fs.realpath(this.root);
+    const target = path.join(root, relativeBase, ...relPath.split("/"));
+    const directories = await this.checkedDirectories(root, path.dirname(target), create);
+    return { root, target, directories };
+  }
+
+  private async checkAssetFile(handle: FileHandle, boundary: AssetBoundary, expected?: Stats): Promise<Stats> {
+    const opened = await handle.stat();
+    const current = await statIfPresent(boundary.target);
+    if (!opened.isFile() || opened.nlink !== 1 || !current?.isFile() || current.isSymbolicLink()
+      || current.nlink !== 1 || !sameFile(opened, current) || (expected && !sameFile(opened, expected))) {
+      throw new PageAssetBoundaryError("page asset is not a single regular file or changed during open");
+    }
+    await this.checkDirectories(boundary.directories);
+    if (await fs.realpath(boundary.target) !== boundary.target) throw new PageAssetBoundaryError("page asset escapes page root");
+    return opened;
+  }
+
+  private async openAsset(boundary: AssetBoundary, write: boolean): Promise<FileHandle> {
+    const before = await statIfPresent(boundary.target);
+    if ((before && (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1)) || (!before && !write)) {
+      throw new PageAssetBoundaryError("invalid page asset: not a single regular file or is a symlink");
+    }
+    await this.checkDirectories(boundary.directories);
+    // Never truncate before checking the opened inode. NONBLOCK also prevents a swapped FIFO from hanging.
+    const flags = (write ? constants.O_WRONLY : constants.O_RDONLY) | (constants.O_NOFOLLOW ?? 0)
+      | (constants.O_NONBLOCK ?? 0) | (!before && write ? constants.O_CREAT | constants.O_EXCL : 0);
+    let handle: FileHandle;
+    try { handle = await fs.open(boundary.target, flags, 0o600); }
+    catch (error) {
+      if (["ELOOP", "EEXIST", "ENOTDIR", "EISDIR"].includes((error as NodeJS.ErrnoException).code ?? "")) {
+        throw new PageAssetBoundaryError("page asset changed or contains a symlink");
+      }
+      throw error;
+    }
+    try { await this.checkAssetFile(handle, boundary, before ?? undefined); return handle; }
+    catch (error) { await handle.close(); throw error; }
+  }
+
+  private async readCheckedAsset(pluginId: string, pageId: string, relPath: string, maxBytes = Infinity): Promise<Buffer> {
+    const boundary = await this.assetBoundary(pluginId, pageId, relPath, false);
+    return this.readBoundaryFile(boundary, maxBytes);
+  }
+
+  private async readBoundaryFile(boundary: AssetBoundary, maxBytes = Infinity): Promise<Buffer> {
+    const handle = await this.openAsset(boundary, false);
+    try {
+      if ((await handle.stat()).size > maxBytes) throw new Error("page assets exceed export limits");
+      const content = await handle.readFile();
+      await this.checkAssetFile(handle, boundary);
+      if (content.length > maxBytes) throw new Error("page assets exceed export limits");
+      return content;
+    } finally { await handle.close(); }
   }
 
   async writeAsset(
@@ -158,12 +293,13 @@ export class PluginBundleStore {
     content: Buffer,
   ): Promise<string> {
     if (await this.generationResolver?.(pluginId)) throw new Error("packaged plugin resources are immutable");
-    if (!isSafeRelativePath(relPath)) {
-      throw new Error(`invalid page asset path: ${relPath}`);
-    }
-    const target = await this.resolveInside(pluginId, pageId, relPath);
-    await fs.mkdir(path.dirname(target), { recursive: true });
-    await fs.writeFile(target, content, "utf8");
+    const boundary = await this.assetBoundary(pluginId, pageId, relPath, true);
+    const handle = await this.openAsset(boundary, true);
+    try {
+      await this.checkAssetFile(handle, boundary);
+      await handle.truncate(0);
+      await handle.writeFile(content);
+    } finally { await handle.close(); }
     return crypto.createHash("sha256").update(content).digest("hex");
   }
 
@@ -172,26 +308,8 @@ export class PluginBundleStore {
     pageId: string,
     relPath: string,
   ): Promise<{ content: Buffer; mime: string }> {
-    if (!isSafeRelativePath(relPath)) {
-      throw new Error(`invalid page asset path: ${relPath}`);
-    }
-    const target = await this.resolveInside(pluginId, pageId, relPath);
-    const stat = await fs.lstat(target).catch(() => null);
-    if (!stat || !stat.isFile() || stat.isSymbolicLink()) {
-      throw new Error(`invalid page asset: not a regular file or is a symlink`);
-    }
-    const base = path.resolve(await this.pageRoot(pluginId, pageId));
-    const [realRoot, realBase, realTarget] = await Promise.all([
-      fs.realpath(this.root), fs.realpath(base), fs.realpath(target),
-    ]);
-    if (!realBase.startsWith(realRoot + path.sep) || !realTarget.startsWith(realRoot + path.sep)) {
-      throw new Error("page asset escapes bundle root");
-    }
-    if (realTarget !== realBase && !realTarget.startsWith(realBase + path.sep)) {
-      throw new Error("page asset escapes page root");
-    }
-    const content = await fs.readFile(realTarget);
-    const ext = path.extname(target).toLowerCase();
+    const content = await this.readCheckedAsset(pluginId, pageId, relPath);
+    const ext = path.extname(relPath).toLowerCase();
     return { content, mime: MIME[ext] ?? "application/octet-stream" };
   }
 
@@ -209,26 +327,23 @@ export class PluginBundleStore {
     pluginId: string, pageId: string,
     limits: { entries: number; bytes: number; entryBytes: number },
   ): Promise<Record<string, Uint8Array>> {
-    const base = await this.pageRoot(pluginId, pageId);
-    const root = await fs.realpath(this.root);
-    const resolved = await fs.realpath(base);
-    if (!resolved.startsWith(root + path.sep)) throw new Error("page assets escape bundle root");
+    const boundary = await this.assetBoundary(pluginId, pageId, "index.html", false);
+    const base = path.dirname(boundary.target);
     const files: Record<string, Uint8Array> = {};
     let size = 0;
     let entries = 0;
     const visit = async (relative: string): Promise<void> => {
+      await this.checkDirectories(boundary.directories);
+      await this.checkedDirectories(boundary.root, path.join(base, relative), false);
       for (const entry of await fs.readdir(path.join(base, relative), { withFileTypes: true })) {
         if (++entries > limits.entries) throw new Error("page assets exceed export limits");
         const name = relative ? `${relative}/${entry.name}` : entry.name;
         if (entry.isSymbolicLink()) throw new Error("symlink in page assets");
         if (entry.isDirectory()) { await visit(name); continue; }
         if (!entry.isFile() || !isSafeRelativePath(name)) throw new Error("invalid page asset");
-        const stat = await fs.stat(path.join(base, name));
-        size += stat.size;
-        if (stat.size > limits.entryBytes || size > limits.bytes) {
-          throw new Error("page assets exceed export limits");
-        }
-        files[name] = new Uint8Array((await this.readAsset(pluginId, pageId, name)).content);
+        const content = await this.readCheckedAsset(pluginId, pageId, name, Math.min(limits.entryBytes, limits.bytes - size));
+        size += content.length;
+        files[name] = new Uint8Array(content);
       }
     };
     await visit("");
@@ -237,6 +352,6 @@ export class PluginBundleStore {
 
   async deletePage(pluginId: string, pageId: string): Promise<void> {
     const target = await this.pageRoot(pluginId, pageId);
-    await fs.rm(target, { recursive: true, force: true }).catch(() => undefined);
+    await this.removeStorageDirectory(target).catch(() => undefined);
   }
 }

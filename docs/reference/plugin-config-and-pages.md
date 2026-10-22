@@ -112,7 +112,7 @@ Page 元数据为 `id/title/description/entry/capabilities/checksum`。`id` 最�
 |---|---|
 | `GET /v1/plugins/:id/pages` | 列出 Page |
 | `POST /v1/plugins/:id/pages` | 注册 Page，成功 201；generation 包返回 `409 PLUGIN_PACKAGE_IMMUTABLE` |
-| `POST /v1/plugins/:id/pages/:pageId/assets` | `{files:[{path,contentBase64}]}`，单文件上限 5 MiB；generation 包返回 `409 PLUGIN_PACKAGE_IMMUTABLE` |
+| `POST /v1/plugins/:id/pages/:pageId/assets` | `{files:[{path,contentBase64}]}`，单文件上限 5 MiB；非法路径或链接资源返回 `400 INVALID_ASSET_PATH`，generation 包返回 `409 PLUGIN_PACKAGE_IMMUTABLE` |
 | `GET /v1/plugins/:id/pages/:pageId/assets/*` | 返回本地静态资源与 CSP |
 | `GET /v1/plugin-pages/bridge.js` | 提供浏览器 Bridge 对象；页面须显式加载 |
 
@@ -134,7 +134,11 @@ Page 元数据为 `id/title/description/entry/capabilities/checksum`。`id` 最�
 
 [PluginPageDialog](../../surfaces/panels-ui/src/plugin/PluginPageDialog.vue)使用 `sandbox="allow-scripts allow-forms allow-downloads"`，未授予 `allow-same-origin`；资源响应设置 CSP：默认拒绝、脚本和样式允许本地及内联、图片允许本地及 `data:`、`connect-src 'none'`、`form-action 'none'`，另有 `nosniff/no-store/no-referrer`。这些是浏览器页面约束，不是 OS 进程沙箱。
 
-[BundleStore](../../packages/host-runtime/src/modules/ecosystem/plugins/bundle-store.ts)同时检查相对资源路径、Page 与 Bundle 根的真实路径以及文件类型，拒绝符号链接文件与包外 Page 目录；不会拒绝所有未知扩展名。作者禁止链接文件、路径逃逸、远程资源和动态下载代码；路径检查不等于任意第三方执行隔离证明。
+[BundleStore](../../packages/host-runtime/src/modules/ecosystem/plugins/bundle-store.ts)读取、可写本地 Page 上传与兼容导出都从配置 Bundle 根的真实路径检查每级目录，拒绝根以下的符号链接目录、符号链接文件及多硬链接文件，也拒绝跨 Page 的链接资源。配置根自身的路径别名仍可使用；普通资源可创建与覆盖，不会拒绝所有未知扩展名。文件以 no-follow、无预先截断方式打开，经目录与 inode 复验后由同一文件描述符读写；上传不会自动删除、迁移或替换链接。单个被拒绝文件的已有内容保留，上传批次仍逐文件处理，不承诺批次失败回滚之前成功的文件。
+
+Page 卸载、generation 丢弃、安装失败回滚与插件资源清理同样逐级校验删除目录，避免沿预存祖先链接删除外部文件；卸载保留无法安全确认的链接和未知目录，缺失目录清理保持幂等。generation 卸载只接受边界内普通单链接文件中的有效 ownership marker。
+
+作者禁止链接文件、路径逃逸、远程资源和动态下载代码。上述检查及多硬链接拒绝是文件边界防护，不能证明能隔离主动并发替换目录或改变链接关系的同 OS 用户；该用户若在检查与 `mkdir/open` 创建之间交换祖先，拒绝前仍可能留下外部空目录或文件。此机制不提供任意第三方执行的 OS 沙箱。
 
 当前防护与剩余边界如下，发布安全评估必须分别覆盖：
 
