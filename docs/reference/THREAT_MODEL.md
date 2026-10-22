@@ -32,7 +32,7 @@ id: AVX-SEC-001
 
 | ID | 类别 | 威胁与影响 | 主要控制 | 验证/残余风险 |
 |---|---|---|---|---|
-| TM-001 | Spoofing | 非本机客户端伪造会话、窃取本地 token 或重放写请求 | 默认 loopback、非 loopback 强制 token、CSRF/nonce、幂等键、token 不入日志 | `TC-SEC-LOCAL-API-001`、`TC-SEC-AUTH-001`；远程开关配置错误为阻断 |
+| TM-001 | Spoofing | 非本机客户端伪造会话、恶意网页访问 loopback、DNS rebinding、窃取本地 token 或重放写请求 | 默认 loopback、open Host 校验、路由前 Origin 拒绝、Token 来源精确配置、非 loopback 强制 token、CSRF/nonce、幂等键、token 不入日志 | `TC-SEC-LOCAL-API-001`、`TC-SEC-AUTH-001`；远程开关配置错误为阻断 |
 | TM-002 | Tampering | 修改消息版本、记忆证据、日记来源或删除状态 | 不可变版本、外键、checksum、事务 Outbox、审计 | `TC-INTEG-SOURCE-001`；管理员权限仍需最小化 |
 | TM-003 | Repudiation | 管理员/插件否认访问、用户删除无证据 | AuditRecord、ConsentGrant、DeletionTarget、模型/Prompt 版本 | `TC-SEC-AUDIT-001`；审计不能包含原文 |
 | TM-004 | Information disclosure | API 监听所有网卡、数据目录权限过宽或插件越权导致私人内容泄漏 | loopback 默认、open auth 禁止非 loopback、用户目录 ACL、`actorId`/Grant 分离、默认无插件权限、脱敏日志 | `TC-SEC-LOCAL-API-001`、`TC-SEC-LOCAL-FS-001`；配置错误为严重阻断 |

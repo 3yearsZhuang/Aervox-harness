@@ -6,6 +6,8 @@ HTTP 数据与操作的事实源是 `@aervox/contracts`；[流式协议](STREAMI
 
 - `/v1` 是当前 HTTP 主版本。本地数据库只有一位用户；不接受客户端提供的工作区、用户或审计身份请求头。`LocalContext` 由宿主创建。
 - Token 模式只使用 `Authorization: Bearer …`。开发用 loopback open 模式不要求 Token；生产和非 loopback 访问遵守[认证实现](../../packages/host-runtime/src/shared/auth.ts)。OpenAPI 的 Bearer 声明描述受保护部署。
+- 浏览器来源在认证和路由执行前校验：默认仅允许 HTTP(S) loopback Origin，拒绝 `null`、畸形来源和外部网页；open 模式同时要求 loopback Host，防止 DNS rebinding。无 Origin 的本地 CLI/桌面主进程请求沿用原认证方式。Token 部署可通过 `AERVOX_API_ALLOWED_ORIGINS` 配置精确的额外 Origin（逗号分隔，包括所需移动 WebView 来源）；禁止通配符、路径和 URL 凭据，open 模式不允许追加。合法 CORS 预检只协商访问，实际 JSON、SSE、资源和写请求仍校验 Bearer；不使用 Origin 代替身份认证。
+- sandbox Page 的静态资源是唯一 opaque Origin 例外：仅 GET/HEAD 的 Page assets 与 Bridge SDK，且 Fetch Metadata 对应文档导航或脚本、样式、图片、字体加载。模块/字体的 `Origin: null` 只在这些只读资源响应中获得 CORS；`fetch` 的空 destination、JSON、SSE、写请求和预检不适用。该例外保留页面资源的启用状态、文件边界、CSP 及 Token 校验，不签发 Page 凭据，Token 资源通道继续由 [ITER-006](../../plan.md#iter-006) 协调。
 - 凭据不得放入 URL、查询参数、日志或 Page 资源地址。Page 资源认证通道有独立边界，见插件规范。
 - 路径参数由共享客户端编码为单个路径片段；请求体、路径参数和分页上限由对应 Schema 校验。日期使用明确的 ISO 日期/时间语义，不用本地显示格式作为传输值。
 - 重试只在操作的幂等合同允许时进行。创建 Turn 使用稳定的 `Idempotency-Key`；普通 HTTP 失败不会授权客户端重新执行有副作用的操作。
