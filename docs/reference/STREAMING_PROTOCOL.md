@@ -89,7 +89,7 @@ SSE 传输分页每次最多读取 256 条事件，并在物化 JSON 前按 SQLi
 
 关闭前须在同一 SQLite 语句快照内读取全部 Attempt 的终态判断与事件高水位；不能把旧终态和后续续跑的高水位拼接为关闭依据。快照仍有新事件时继续排空，快照包含运行中续接时保持订阅；读取完成之后新受理的续接由独立请求与重连处理。
 
-建流前错误使用 RFC 9457 Problem Details；建流后的业务错误必须先持久化为事件再发送。响应使用 UTF-8 SSE framing、`Cache-Control: no-store` 和禁用代理缓冲；终态 `done` 提交并发送后关闭连接。
+建流前错误使用 RFC 9457 Problem Details；建流后的业务错误必须先持久化为事件再发送。响应使用 UTF-8 SSE framing、`Cache-Control: no-store` 和禁用代理缓冲；终态 `done` 提交并发送后关闭连接。需要本次流交付的插件增强事件在有界完成阶段产生，并在 `done` 之前持久化；该阶段继续持有租约并受取消、删除与预算检查。完成前重新读取事件水位，再原子提交终态；不能依赖 `done` 后追加事件让已经终结的客户端继续显示。
 
 ### 2.3 取消 Turn
 
@@ -97,7 +97,7 @@ SSE 传输分页每次最多读取 256 条事件，并在物化 JSON 前按 SQLi
 
 请求必须带 `Idempotency-Key`。服务端使用 compare-and-set 将 `Running/Finalizing` 更新为 `CancelRequested`，停止 Provider/工具提交；已提交安全片段保留，后续片段不得提交。重复取消返回同一个终态，不产生新的 Turn 或工具副作用。
 
-上述幂等取消是目标要求。当前[路由](../../packages/host-runtime/src/modules/companion/conversation/routes.ts)不读取取消请求的幂等键，只对 `Running` Attempt 请求 CAS 取消，并向 API 内当前控制器传播信号；响应中的 `Cancelled` 表示取消请求已接受，不能替代执行器的持久终态。没有 Running Attempt 时返回 409（无 Attempt 为 404），不会创建新 Turn。客户端应继续用事件及持久状态确认结果，不把该响应当作已完成物理停止。
+当前[应用取消命令](../../packages/host-runtime/src/modules/companion/conversation/application.ts)不使用请求幂等键创建新事实，而以原 Attempt 的状态与领取身份实现重复取消。尚未领取且 lease 为空、fencing 为初始值时，在同一写者事务中提交 `Cancelled` Attempt、Turn 与唯一 `done`；已领取时只请求 `CancelRequested` 并通知当前 owner，由执行器提交终态。响应如实区分 `CancelRequested` 与 `Cancelled`，重复取消已取消的 Turn 返回同一状态，其它已终结 Attempt 返回 409，无 Attempt 为 404。客户端继续通过持久事件确认物理执行停止，不能把本地等待释放当作该证明。
 
 共享 ConversationController 对取消请求的本地等待最多 30 秒；超时以 `TimeoutError` 报告结果未知，保留当前观察并允许重试。reset/dispose 会中止取消请求和本地等待，即使 IPC 未响应也能释放调用者；迟到结果不能修改新会话。只有成功响应才进入本地已停止状态，物理停止仍须由持久终态确认。
 

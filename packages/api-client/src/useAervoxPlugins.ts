@@ -1,3 +1,4 @@
+import { getClientTransport } from './client-context.js';
 /**
  * Aervox｜思隅 @aervox/api-client — 插件 Config / Page 组合式 API（CR-006）
  *
@@ -15,7 +16,7 @@ import type {
   PluginPackageExportResponse,
 } from '@aervox/contracts';
 import { PLUGIN_SENSOR_PERMISSION, pluginConfigApi } from '@aervox/contracts';
-import { getTransport } from './transport';
+
 import { requestEndpoint } from './endpoint.js';
 
 export type PluginPackageInspectionDto = PluginPackageInspection;
@@ -71,7 +72,7 @@ export interface PluginInstallInputDto {
 }
 
 export function useAervoxPlugins() {
-  const transport = getTransport();
+  const transport = getClientTransport();
   const plugins = ref<PluginSummaryDto[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);

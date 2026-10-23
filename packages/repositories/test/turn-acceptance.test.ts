@@ -86,18 +86,19 @@ describe("atomic Turn acceptance", () => {
 
   it("fresh cancellation is not reclaimed; recovery event failure rolls back the fence and tool outcome", async () => {
     await accept();
+    await repo.claimTurnAttempt(ctx, { turnId: "t", attemptId: "a_t", expectedFencingToken: 0, leaseId: "recovery-owner" });
     await repo.reserveToolExecution(ctx, { turnId: "t", attemptId: "a_t", invocationId: "call", name: "write" });
     await repo.requestCancelTurnAttempt(ctx, { turnId: "t", attemptId: "a_t" });
     expect(await repo.recoverExpiredAttempts(database.client)).toBe(0);
-    await database.client.execute("UPDATE turn_attempts SET started_at = '2000-01-01T00:00:00.000Z'");
+    await database.client.execute("UPDATE turn_attempts SET started_at = '2000-01-01T00:00:00.000Z', lease_expires_at = '2000-01-01T00:00:00.000Z'");
     await database.client.execute("CREATE TRIGGER fail_recovery BEFORE INSERT ON turn_stream_events BEGIN SELECT RAISE(ABORT, 'injected'); END");
     await expect(repo.recoverExpiredAttempts(database.client)).rejects.toMatchObject({ cause: expect.objectContaining({ message: expect.stringContaining("injected") }) });
-    expect(await repo.listTurnAttempts(ctx, "t")).toMatchObject([{ status: "CancelRequested", fencingToken: 0, finishedAt: null }]);
+    expect(await repo.listTurnAttempts(ctx, "t")).toMatchObject([{ status: "CancelRequested", fencingToken: 1, finishedAt: null }]);
     expect((await repo.listToolExecutionsByTurn(ctx, "t"))[0]?.status).toBe("pending");
     expect(await repo.getStreamEvents(ctx, "t")).toEqual([]);
     await database.client.execute("DROP TRIGGER fail_recovery");
     expect(await repo.recoverExpiredAttempts(database.client)).toBe(1);
-    expect(await repo.listTurnAttempts(ctx, "t")).toMatchObject([{ status: "Cancelled", fencingToken: 1 }]);
+    expect(await repo.listTurnAttempts(ctx, "t")).toMatchObject([{ status: "Cancelled", fencingToken: 2 }]);
   });
 
   it("orphan Turn (no Attempt) converges to Interrupted once with a terminal done event", async () => {

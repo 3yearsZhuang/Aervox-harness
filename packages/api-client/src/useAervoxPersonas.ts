@@ -1,10 +1,11 @@
+import { getClientTransport } from './client-context.js';
 /**
  * Aervox｜思隅 @aervox/api-client — Persona 组合式 API
  *
  * Web / Desktop 共用：通过统一 Transport 访问系统级 Persona CRUD、激活、导入与导出。
  */
 import { ref } from 'vue';
-import { getTransport } from './transport';
+
 import type {
   Persona as PersonaDto,
   PersonaRevisionConfig as PersonaRevisionConfigDto,
@@ -51,7 +52,7 @@ export interface UpdatePersonaInputDto {
 }
 
 export function useAervoxPersonas() {
-  const transport = getTransport();
+  const transport = getClientTransport();
   const personas = ref<PersonaDto[]>([]);
   const activePersona = ref<ActivePersonaSelectionDto | null>(null);
   const loading = ref(false);

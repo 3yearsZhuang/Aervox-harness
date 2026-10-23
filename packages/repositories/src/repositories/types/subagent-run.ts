@@ -5,6 +5,8 @@ import type { SubagentRunCreateInput, SubagentRunModel } from "./agent-inbox.js"
 import type { LocalContext } from "../../local-context.js";
 
 export interface ISubagentRunRepository {
+  /** Child intent, Turn, initial Attempt and run linkage share one writer transaction. */
+  acceptRun(ctx: LocalContext, input: SubagentRunCreateInput): Promise<{ created: boolean; run: SubagentRunModel }>;
   /**
    * 幂等创建：同 tenant + parentAttemptId + parentExecutionId 已存在则返回既有行
    * （子任务崩溃/重试不重复落库——Host 幂等键=executionId 语义，AVX-HAR-001 §9）。

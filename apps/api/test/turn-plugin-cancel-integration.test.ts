@@ -5,7 +5,7 @@ import {
   type IExtensionRepository,
 } from "@aervox/repositories";
 import type { TurnPluginContext } from "@aervox/host-plugin-api";
-import { registerConversationRoutes } from "@aervox/host-runtime-test/modules/companion/conversation/routes";
+import { registerConversationRoutes } from "./conversation-fixture.js";
 import { executeConversationTurn } from "@aervox/host-runtime-test/modules/companion/conversation/execution";
 import { ServerPluginRegistry } from "@aervox/host-runtime-test/modules/ecosystem/plugins/turn-plugins/registry";
 import { executeBeforeTurnPlugins, executeAfterTurnPlugins, type TurnPluginHostContext } from "@aervox/host-runtime-test/modules/ecosystem/plugins/turn-plugins/runner";

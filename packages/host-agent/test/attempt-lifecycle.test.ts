@@ -105,3 +105,45 @@ for (const mode of ["native", "adapter"] as const) describe(`${mode} shared Atte
     expect((await store.listEvents(input.turnId)).filter(event => ["done", "error"].includes(event.eventType))).toHaveLength(0);
   });
 });
+
+for (const mode of ["native", "adapter"] as const) describe(`${mode} completion preparation`, () => {
+  async function run(beforeComplete: (signal?: AbortSignal) => Promise<void>, store = new InMemoryExecutionStore()) {
+    store.seedAttempt({ id: input.attemptId, turnId: input.turnId });
+    const result = mode === "native" ? executeTurn({ execution: store, contextBuilder: defaultContextBuilder,
+      provider: { id: "completion", async *stream() { yield { text: "complete", isFinal: true, stopReason: "stop" }; } },
+      options: { beforeComplete, leaseHeartbeatIntervalMs: 10 },
+    }, input) : runAdapterTurn(store, { id: "dsh", manifest, async *run() {
+      yield { type: "delta", text: "complete" }; yield { type: "batch", concludes: [true] };
+    } }, { ...input, beforeComplete, leaseHeartbeatIntervalMs: 10 });
+    return result;
+  }
+  it("commits completion preparation events before done with its actual sequence", async () => {
+    const store = new InMemoryExecutionStore();
+    const result = await run(async () => {
+      expect(await store.attemptStatus(input.attemptId)).toBe("Running");
+      expect((await store.listEvents(input.turnId)).some(event => event.eventType === "done")).toBe(false);
+      await store.appendEvent({ ...input, sequence: await store.nextSequence(input.turnId), eventType: "delta", data: { text: "enhancement" }, expectedFencingToken: 1 });
+    }, store);
+    expect(result.status.toLowerCase()).toBe("completed");
+    const events = await store.listEvents(input.turnId);
+    expect(events.at(-1)?.eventType).toBe("done");
+    expect((events.at(-1)?.data as { lastSequence: number }).lastSequence).toBe(events.at(-1)?.sequence);
+    expect(events.at(-2)?.data).toMatchObject({ text: "enhancement" });
+  });
+  it.each(["cancel", "lease-loss"] as const)("keeps monitoring silent finalization on %s", async cause => {
+    const store = new InMemoryExecutionStore(); let entered!: () => void;
+    const started = new Promise<void>(resolve => { entered = resolve; });
+    const execution = run(async () => { entered(); await new Promise<void>(() => {}); }, store);
+    await started;
+    if (cause === "cancel") await store.requestCancelAttempt(input);
+    else store.simulateLeaseLoss(input.attemptId);
+    const result = await execution;
+    if (cause === "cancel") {
+      expect(result.status.toLowerCase()).toBe("cancelled");
+      expect((await store.listEvents(input.turnId)).filter(event => event.eventType === "done")).toHaveLength(1);
+    } else {
+      expect(result).toMatchObject({ reason: "lease_lost" });
+      expect((await store.listEvents(input.turnId)).filter(event => ["done", "error"].includes(event.eventType))).toHaveLength(0);
+    }
+  });
+});

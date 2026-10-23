@@ -80,7 +80,7 @@ describe("SSE bounded replay over real HTTP", () => {
   });
   const start = async (f: ReturnType<typeof fixture>) => {
     apps.push(f.app);
-    registerConversationRoutes(f.app, f.repo, { observability: f.observability });
+    registerConversationRoutes(f.app, { commands: {}, queries: f.repo } as never, { observability: f.observability });
     return `${await f.app.listen({ host: "127.0.0.1", port: 0 })}/v1/turns/turn/events`;
   };
 
@@ -218,7 +218,7 @@ describe("SSE bounded replay over real HTTP", () => {
   it("rejects late SSE registration after preClose while a Turn read is pending", async () => {
     const f = fixture(); const reading = deferred(); const release = deferred<void>(); const closing = deferred();
     f.getTurn.mockImplementation(async () => { reading.resolve(); await release.promise; return { id: "turn" }; });
-    apps.push(f.app); registerConversationRoutes(f.app, f.repo);
+    apps.push(f.app); registerConversationRoutes(f.app, { commands: {}, queries: f.repo } as never);
     f.app.addHook("preClose", async () => { closing.resolve(); });
     const url = `${await f.app.listen({ host: "127.0.0.1", port: 0 })}/v1/turns/turn/events`;
     const responsePending = open(url, requests);

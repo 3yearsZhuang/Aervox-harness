@@ -146,36 +146,33 @@ export class AttemptStore {
     ctx: LocalContext,
     input: { turnId: string; attemptId: string },
   ): Promise<{ ok: boolean; reason?: "not_found" | "already_finalized" }> {
-    const [updatedAttempt] = await this.db
-      .update(turnAttempts)
-      .set({ status: "CancelRequested" })
-      .from(turns)
-      .where(
-        and(
-          eq(turnAttempts.turnId, turns.id),
-          eq(turnAttempts.id, input.attemptId),
-          eq(turnAttempts.turnId, input.turnId),
-          eq(turnAttempts.status, "Running"),
-        ),
-      )
-      .returning();
-    if (!updatedAttempt) {
-      const exists = await this.getTurnAttemptStatus(ctx, input);
-      return exists === null
-        ? { ok: false, reason: "not_found" }
-        : { ok: false, reason: "already_finalized" };
-    }
-    // turns 终态保护：仅未终态可置 Cancelled；已终态（Completed/Failed/Interrupted/Cancelled 等）不覆盖
-    await this.db
-      .update(turns)
-      .set({ status: "Cancelled" })
-      .where(
-        and(
-          eq(turns.id, input.turnId),
-          notInArray(turns.status, ["Completed", "Failed", "Interrupted", "Cancelled"]),
-        ),
-      );
-    return { ok: true };
+    return this.db.transaction(async tx => {
+      const [attempt] = await tx.select().from(turnAttempts).where(and(
+        eq(turnAttempts.id, input.attemptId), eq(turnAttempts.turnId, input.turnId),
+      ));
+      if (!attempt) return { ok: false, reason: "not_found" as const };
+      if (attempt.status === "Cancelled" || attempt.status === "CancelRequested") return { ok: true };
+      if (attempt.status !== "Running") return { ok: false, reason: "already_finalized" as const };
+      const unclaimed = !attempt.leaseId && attempt.fencingToken === 0;
+      const status = unclaimed ? "Cancelled" : "CancelRequested";
+      await tx.update(turnAttempts).set({ status,
+        ...(unclaimed ? { finishedAt: new Date().toISOString(), fencingToken: 1 } : {}),
+      }).where(and(eq(turnAttempts.id, input.attemptId), eq(turnAttempts.status, "Running"),
+        eq(turnAttempts.fencingToken, attempt.fencingToken)));
+      if (unclaimed) {
+        const [last] = await tx.select({ sequence: turnStreamEvents.sequence }).from(turnStreamEvents)
+          .where(eq(turnStreamEvents.turnId, input.turnId)).orderBy(desc(turnStreamEvents.sequence)).limit(1);
+        const sequence = (last?.sequence ?? 0) + 1;
+        await tx.insert(turnStreamEvents).values({ id: `tev_${input.turnId}_${sequence}`,
+          turnId: input.turnId, attemptId: input.attemptId, sequence, eventType: "done",
+          occurredAt: new Date().toISOString(), safetyDecision: "approved",
+          data: { status: "Cancelled", isComplete: false, lastSequence: sequence, reason: "cancelled" },
+        });
+        await tx.update(turns).set({ status: "Cancelled", lastSequence: sequence, updatedAt: new Date().toISOString() })
+          .where(and(eq(turns.id, input.turnId), inArray(turns.status, ["Created", "Running"])));
+      }
+      return { ok: true };
+    }, { behavior: "immediate" });
   }
 
   /** 2b：读取 Attempt 当前状态（executor 取消检查点轮询） */

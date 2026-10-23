@@ -1,3 +1,4 @@
+import { getClientTransport } from './client-context.js';
 /**
  * Aervox｜思隅 @aervox/api-client — 项目管理与导入 Composable (CR-048 / W3)
  *
@@ -12,7 +13,7 @@ import type {
   ProjectItem,
   UpdateProjectRequest,
 } from '@aervox/contracts';
-import { getTransport } from './transport';
+
 
 export interface UseAervoxProjectsReturn {
   projects: Ref<ProjectItem[]>;
@@ -28,6 +29,7 @@ export interface UseAervoxProjectsReturn {
 }
 
 export function useAervoxProjects(): UseAervoxProjectsReturn {
+  const transport = getClientTransport();
   const projects = ref<ProjectItem[]>([]);
   const selectedProjectId = ref<string | null>(null);
   const loading = ref<boolean>(false);
@@ -38,7 +40,7 @@ export function useAervoxProjects(): UseAervoxProjectsReturn {
     error.value = null;
     try {
       const path = includeArchived ? '/v1/projects?includeArchived=true' : '/v1/projects';
-      const res = await getTransport().request<ListProjectsResponse>('GET', path);
+      const res = await transport.request<ListProjectsResponse>('GET', path);
       projects.value = res.items ?? [];
       return projects.value;
     } catch (err) {
@@ -54,7 +56,7 @@ export function useAervoxProjects(): UseAervoxProjectsReturn {
     loading.value = true;
     error.value = null;
     try {
-      const created = await getTransport().request<ProjectItem>('POST', '/v1/projects', data);
+      const created = await transport.request<ProjectItem>('POST', '/v1/projects', data);
       projects.value = [created, ...projects.value.filter((p) => p.id !== created.id)];
       return created;
     } catch (err) {
@@ -71,7 +73,7 @@ export function useAervoxProjects(): UseAervoxProjectsReturn {
     loading.value = true;
     error.value = null;
     try {
-      const updated = await getTransport().request<ProjectItem>(
+      const updated = await transport.request<ProjectItem>(
         'PATCH',
         `/v1/projects/${encodeURIComponent(id)}`,
         data,
@@ -95,7 +97,7 @@ export function useAervoxProjects(): UseAervoxProjectsReturn {
     loading.value = true;
     error.value = null;
     try {
-      await getTransport().request<void>('DELETE', `/v1/projects/${encodeURIComponent(id)}`);
+      await transport.request<void>('DELETE', `/v1/projects/${encodeURIComponent(id)}`);
       projects.value = projects.value.filter((p) => p.id !== id);
       if (selectedProjectId.value === id) {
         selectedProjectId.value = null;
@@ -114,7 +116,7 @@ export function useAervoxProjects(): UseAervoxProjectsReturn {
     loading.value = true;
     error.value = null;
     try {
-      const result = await getTransport().request<ImportSessionResponse>(
+      const result = await transport.request<ImportSessionResponse>(
         'POST',
         '/v1/sessions/import',
         data,

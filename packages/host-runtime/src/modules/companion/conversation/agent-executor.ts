@@ -41,7 +41,7 @@ import {
   type LocalContext,
   assertConversationExecutionPolicy,
 } from "@aervox/repositories";
-import { loadExecutionConfig, type ExecutionConfig } from "@aervox/config";
+import { type ExecutionConfig } from "@aervox/config";
 import type { Observability } from "@aervox/observability";
 import {
   executeAfterTurnPlugins,
@@ -104,7 +104,7 @@ export async function runLoopTurnOnce(
     resume?: import("@aervox/core").ExecuteTurnResumeInput;
   },
   deps: {
-    executionConfig?: ExecutionConfig;
+    executionConfig: ExecutionConfig;
     apiRegistry?: PluginApiRegistry;
     dshResolver?: DshTurnAdapterResolver;
     pluginToolCatalog?: PluginToolCatalog;
@@ -158,11 +158,11 @@ export async function runLoopTurnOnce(
     pluginRegistry?: ServerPluginRegistry;
     /** 全链路可观测性门面（结构化日志与指标采集） */
     observability?: Observability;
-  } = {},
+  },
 ): Promise<void> {
   const resources: Array<() => void | Promise<void>> = [];
   try {
-  const apiConfig = deps.executionConfig ?? loadExecutionConfig();
+  const apiConfig = deps.executionConfig;
   const apiRegistry = deps.apiRegistry ?? createPluginApiRegistry();
   const persisted = await repo.getTurn(tenant, input.turnId);
   const session = await repo.getSession(tenant, input.sessionId);
@@ -238,21 +238,14 @@ export async function runLoopTurnOnce(
         if (!apiRegistry.isKnownStreamEventType(appendInput.eventType)) {
           throw new Error(`unregistered_stream_event_type: ${appendInput.eventType}`);
         }
-        // 具体仓储的 `appendStreamEvent` 要求显式 sequence（接口虽声明可选，
-        // 实现更严），故按既有序号推进；同一 Turn 的写入由执行器串行化。
-        const existing = await repo.getStreamEvents(tenant, input.turnId, 0);
-        const lastSequence = existing.reduce((max, event) => (event.sequence > max ? event.sequence : max), 0);
-        // Revalidate after async preparation, immediately before the accepted database write.
-        await control?.checkActive();
-        control?.signal.throwIfAborted();
-        const stored = await repo.appendStreamEvent(tenant, {
-          id: `evt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
-          turnId: input.turnId,
-          sequence: lastSequence + 1,
-          eventType: appendInput.eventType,
-          payloadVersion: appendInput.payloadVersion ?? 1,
+        if (!control) throw new Error("plugin_hook_identity_required");
+        await control.checkActive(); control.signal.throwIfAborted();
+        const stored = await repo.appendPluginHookEvent(tenant, {
+          turnId: input.turnId, attemptId: input.attemptId,
+          expectedFencingToken: deps.preparationFencingToken ?? attempt.fencingToken,
+          pluginGeneration: control.pluginGeneration, phase: control.phase,
+          eventType: appendInput.eventType, payloadVersion: appendInput.payloadVersion,
           data: appendInput.data,
-          occurredAt: new Date().toISOString(),
         });
         turnStreamHub.publishEvent(input.turnId, stored);
         return stored;
@@ -488,14 +481,11 @@ export async function runLoopTurnOnce(
     };
     const resolver = deps.dshResolver ?? createDshTurnAdapterResolver({ repoRoot: apiConfig.dshRepoRoot, workingDirectory: apiConfig.dshWorkingDirectory });
     if (!deps.dshResolver) resources.push(() => resolver.close());
-    await runDshAdapterTurn(repo, tenant, broadcastingStore, dshInput, async (status) => {
-      await executeAfterTurnPlugins(
-        pluginRegistry!,
-        { ...turnPluginCtx, status, llm: dshLlm },
-        turnPluginDeps,
-        beforeTurnExec.pluginResults,
-        beforeTurnExec.snapshots,
-      );
+    await runDshAdapterTurn(broadcastingStore, {
+      ...dshInput, beforeComplete: async completionSignal => executeAfterTurnPlugins(
+        pluginRegistry!, { ...turnPluginCtx, signal: completionSignal, status: "Completed", llm: dshLlm },
+        turnPluginDeps, beforeTurnExec.pluginResults, beforeTurnExec.snapshots,
+      ),
     }, resolver);
     return;
   }
@@ -730,6 +720,10 @@ export async function runLoopTurnOnce(
       deletionGate: deps.deletionGate,
       inbox: deps.inbox,
       options: {
+        beforeComplete: !group ? async completionSignal => executeAfterTurnPlugins(
+          pluginRegistry!, { ...turnPluginCtx, signal: completionSignal, status: "Completed", llm: createLLMCallable(provider) },
+          turnPluginDeps, beforeTurnExec.pluginResults, beforeTurnExec.snapshots,
+        ) : undefined,
         resume: input.resume,
       },
       modelRunMeta: routingSnapshot
@@ -766,14 +760,6 @@ export async function runLoopTurnOnce(
         durationMs: turnDurationMs,
       },
     });
-    const llm = provider ? createLLMCallable(provider) : undefined;
-    if (!group) await executeAfterTurnPlugins(
-      pluginRegistry!,
-      { ...turnPluginCtx, status: "Completed", llm },
-      turnPluginDeps,
-      beforeTurnExec.pluginResults,
-      beforeTurnExec.snapshots,
-    );
   } else if (result.status === "failed") {
     deps.observability?.log.error({
       event: "agent.turn.failed",

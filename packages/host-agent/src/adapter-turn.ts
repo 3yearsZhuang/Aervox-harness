@@ -37,6 +37,7 @@ export interface AdapterTurnInput {
   controlContext?: ControlContext;
   deletionGate?: import("@aervox/core").DeletionGatePort;
   leaseHeartbeatIntervalMs?: number;
+  beforeComplete?: (signal?: AbortSignal) => Promise<void>;
 }
 
 export interface AdapterTurnResult {
@@ -64,7 +65,7 @@ export async function runAdapterTurn(
   const parent = input.controlContext ?? new ControlContext({ abortSignal: input.signal, deadlineEpochMs: input.deadlineEpochMs });
   const lifecycle = await claimAttemptExecution(input, {
     execution: store, controlContext: parent, deletionGate: input.deletionGate, maxTurnDurationMs: input.maxTurnDurationMs,
-    leaseHeartbeatIntervalMs: input.leaseHeartbeatIntervalMs,
+    leaseHeartbeatIntervalMs: input.leaseHeartbeatIntervalMs, beforeComplete: input.beforeComplete,
   }).catch(error => { if (!input.controlContext) parent.dispose(); throw error; });
   if (!lifecycle.ok) { if (!input.controlContext) parent.dispose(); return { status: "skipped", reason: lifecycle.reason }; }
   const { claim, control, terminator } = lifecycle;

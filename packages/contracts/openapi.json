@@ -16882,1206 +16882,16 @@
         "operationId": "post_v1_skills_skillName_disable"
       }
     },
-    "/v1/mcp/tools": {
-      "get": {
-        "summary": "列出 MCP 工具",
-        "tags": [
-          "MCP"
-        ],
-        "responses": {
-          "200": {
-            "description": "MCP tools",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "tools": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "serverId": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "name": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "description": {
-                            "type": "string"
-                          },
-                          "inputSchema": {},
-                          "scopes": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            }
-                          },
-                          "healthy": {
-                            "type": "boolean"
-                          },
-                          "authorized": {
-                            "type": "boolean"
-                          },
-                          "revoked": {
-                            "type": "boolean"
-                          },
-                          "killSwitch": {
-                            "type": "boolean"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "serverId",
-                          "name",
-                          "scopes",
-                          "healthy",
-                          "authorized",
-                          "revoked",
-                          "killSwitch"
-                        ]
-                      }
-                    }
-                  },
-                  "required": [
-                    "tools"
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or invalid access token (token mode)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        },
-        "operationId": "get_v1_mcp_tools"
-      }
-    },
-    "/v1/mcp/presets": {
-      "get": {
-        "summary": "列出预设 MCP 服务器（含本机接入状态）",
-        "tags": [
-          "MCP"
-        ],
-        "responses": {
-          "200": {
-            "description": "Presets",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "presets": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "name": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "description": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "transport": {
-                            "type": "string",
-                            "enum": [
-                              "streamable_http",
-                              "sse"
-                            ]
-                          },
-                          "endpointUrl": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "authType": {
-                            "type": "string",
-                            "enum": [
-                              "bearer",
-                              "none"
-                            ]
-                          },
-                          "protocolVersion": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "homepage": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "docsUrl": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "tokenApplyUrl": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "regionNote": {
-                            "type": "string"
-                          },
-                          "rateLimitNote": {
-                            "type": "string"
-                          },
-                          "sourceUrl": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "configured": {
-                            "type": "boolean"
-                          },
-                          "enabled": {
-                            "type": "boolean"
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "disconnected",
-                              "connected",
-                              "error"
-                            ]
-                          },
-                          "toolCount": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "tokenConfigured": {
-                            "type": "boolean"
-                          },
-                          "tokenMasked": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
-                          },
-                          "lastSyncAt": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
-                          },
-                          "lastError": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "name",
-                          "description",
-                          "transport",
-                          "endpointUrl",
-                          "authType",
-                          "protocolVersion",
-                          "homepage",
-                          "docsUrl",
-                          "tokenApplyUrl",
-                          "sourceUrl",
-                          "configured",
-                          "enabled",
-                          "status",
-                          "toolCount",
-                          "tokenConfigured"
-                        ]
-                      }
-                    }
-                  },
-                  "required": [
-                    "presets"
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or invalid access token (token mode)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        },
-        "operationId": "get_v1_mcp_presets"
-      }
-    },
-    "/v1/mcp/servers": {
-      "get": {
-        "summary": "列出已配置 MCP 服务器（token 脱敏）",
-        "tags": [
-          "MCP"
-        ],
-        "responses": {
-          "200": {
-            "description": "Servers",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "servers": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "name": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "transport": {
-                            "type": "string",
-                            "enum": [
-                              "streamable_http",
-                              "sse"
-                            ]
-                          },
-                          "endpointUrl": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "authType": {
-                            "type": "string",
-                            "enum": [
-                              "bearer",
-                              "none"
-                            ]
-                          },
-                          "enabled": {
-                            "type": "boolean"
-                          },
-                          "isPreset": {
-                            "type": "boolean"
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "disconnected",
-                              "connected",
-                              "error"
-                            ]
-                          },
-                          "toolCount": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "tokenConfigured": {
-                            "type": "boolean"
-                          },
-                          "tokenMasked": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
-                          },
-                          "lastSyncAt": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
-                          },
-                          "lastError": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
-                          },
-                          "createdAt": {
-                            "type": "string"
-                          },
-                          "updatedAt": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "name",
-                          "transport",
-                          "endpointUrl",
-                          "authType",
-                          "enabled",
-                          "isPreset",
-                          "status",
-                          "toolCount",
-                          "tokenConfigured",
-                          "lastSyncAt",
-                          "lastError",
-                          "createdAt",
-                          "updatedAt"
-                        ]
-                      }
-                    }
-                  },
-                  "required": [
-                    "servers"
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or invalid access token (token mode)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        },
-        "operationId": "get_v1_mcp_servers"
-      }
-    },
-    "/v1/mcp/servers/{serverId}/tools": {
-      "get": {
-        "summary": "列出 MCP 服务器已同步工具",
-        "tags": [
-          "MCP"
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
-            "required": true,
-            "name": "serverId",
-            "in": "path"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Tools",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "tools": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "name": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "description": {
-                            "type": "string"
-                          },
-                          "safetyLevel": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "enabled": {
-                            "type": "boolean"
-                          },
-                          "inputSchema": {}
-                        },
-                        "required": [
-                          "id",
-                          "name",
-                          "description",
-                          "safetyLevel",
-                          "enabled"
-                        ]
-                      }
-                    }
-                  },
-                  "required": [
-                    "tools"
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or invalid access token (token mode)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "MCP server not connected",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        },
-        "operationId": "get_v1_mcp_servers_serverId_tools"
-      }
-    },
-    "/v1/mcp/servers/{serverId}/connect": {
-      "post": {
-        "summary": "接入预设 MCP 服务器（携带 Token 并同步工具）",
-        "tags": [
-          "MCP"
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
-            "required": true,
-            "name": "serverId",
-            "in": "path"
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "token": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Connected",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "server": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "name": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "transport": {
-                          "type": "string",
-                          "enum": [
-                            "streamable_http",
-                            "sse"
-                          ]
-                        },
-                        "endpointUrl": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "authType": {
-                          "type": "string",
-                          "enum": [
-                            "bearer",
-                            "none"
-                          ]
-                        },
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "isPreset": {
-                          "type": "boolean"
-                        },
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "disconnected",
-                            "connected",
-                            "error"
-                          ]
-                        },
-                        "toolCount": {
-                          "type": "integer",
-                          "minimum": 0
-                        },
-                        "tokenConfigured": {
-                          "type": "boolean"
-                        },
-                        "tokenMasked": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "lastSyncAt": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "lastError": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "createdAt": {
-                          "type": "string"
-                        },
-                        "updatedAt": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "name",
-                        "transport",
-                        "endpointUrl",
-                        "authType",
-                        "enabled",
-                        "isPreset",
-                        "status",
-                        "toolCount",
-                        "tokenConfigured",
-                        "lastSyncAt",
-                        "lastError",
-                        "createdAt",
-                        "updatedAt"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "server"
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or invalid access token (token mode)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Unknown preset",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "502": {
-            "description": "MCP_UPSTREAM_ERROR",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        },
-        "operationId": "post_v1_mcp_servers_serverId_connect"
-      }
-    },
-    "/v1/mcp/servers/{serverId}/sync": {
-      "post": {
-        "summary": "重新同步 MCP 服务器工具",
-        "tags": [
-          "MCP"
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
-            "required": true,
-            "name": "serverId",
-            "in": "path"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Synced",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "server": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "name": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "transport": {
-                          "type": "string",
-                          "enum": [
-                            "streamable_http",
-                            "sse"
-                          ]
-                        },
-                        "endpointUrl": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "authType": {
-                          "type": "string",
-                          "enum": [
-                            "bearer",
-                            "none"
-                          ]
-                        },
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "isPreset": {
-                          "type": "boolean"
-                        },
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "disconnected",
-                            "connected",
-                            "error"
-                          ]
-                        },
-                        "toolCount": {
-                          "type": "integer",
-                          "minimum": 0
-                        },
-                        "tokenConfigured": {
-                          "type": "boolean"
-                        },
-                        "tokenMasked": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "lastSyncAt": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "lastError": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "createdAt": {
-                          "type": "string"
-                        },
-                        "updatedAt": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "name",
-                        "transport",
-                        "endpointUrl",
-                        "authType",
-                        "enabled",
-                        "isPreset",
-                        "status",
-                        "toolCount",
-                        "tokenConfigured",
-                        "lastSyncAt",
-                        "lastError",
-                        "createdAt",
-                        "updatedAt"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "server"
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or invalid access token (token mode)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "MCP server not connected",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "502": {
-            "description": "MCP_UPSTREAM_ERROR",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        },
-        "operationId": "post_v1_mcp_servers_serverId_sync"
-      }
-    },
-    "/v1/mcp/servers/{serverId}/disconnect": {
-      "post": {
-        "summary": "断开 MCP 服务器并注销同步工具",
-        "tags": [
-          "MCP"
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
-            "required": true,
-            "name": "serverId",
-            "in": "path"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Disconnected",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "server": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "name": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "transport": {
-                          "type": "string",
-                          "enum": [
-                            "streamable_http",
-                            "sse"
-                          ]
-                        },
-                        "endpointUrl": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "authType": {
-                          "type": "string",
-                          "enum": [
-                            "bearer",
-                            "none"
-                          ]
-                        },
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "isPreset": {
-                          "type": "boolean"
-                        },
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "disconnected",
-                            "connected",
-                            "error"
-                          ]
-                        },
-                        "toolCount": {
-                          "type": "integer",
-                          "minimum": 0
-                        },
-                        "tokenConfigured": {
-                          "type": "boolean"
-                        },
-                        "tokenMasked": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "lastSyncAt": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "lastError": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "createdAt": {
-                          "type": "string"
-                        },
-                        "updatedAt": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "name",
-                        "transport",
-                        "endpointUrl",
-                        "authType",
-                        "enabled",
-                        "isPreset",
-                        "status",
-                        "toolCount",
-                        "tokenConfigured",
-                        "lastSyncAt",
-                        "lastError",
-                        "createdAt",
-                        "updatedAt"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "server"
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or invalid access token (token mode)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "MCP server not connected",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        },
-        "operationId": "post_v1_mcp_servers_serverId_disconnect"
-      }
-    },
-    "/v1/mcp/dsh": {
-      "get": {
-        "summary": "DSH 本地 MCP 服务端点探活",
-        "tags": [
-          "MCP"
-        ],
-        "responses": {
-          "200": {
-            "description": "DSH MCP server info",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "string"
-                    },
-                    "server": {
-                      "type": "string"
-                    },
-                    "protocolVersion": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "status",
-                    "server",
-                    "protocolVersion"
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or invalid access token (token mode)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        },
-        "operationId": "get_v1_mcp_dsh"
-      },
-      "post": {
-        "summary": "DSH 本地 MCP Streamable HTTP JSON-RPC 2.0 端点",
-        "tags": [
-          "MCP"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "jsonrpc": {
-                    "type": "string"
-                  },
-                  "id": {
-                    "anyOf": [
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "method": {
-                    "type": "string"
-                  },
-                  "params": {
-                    "type": "object",
-                    "additionalProperties": {}
-                  }
-                },
-                "required": [
-                  "method"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "JSON-RPC response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "jsonrpc": {
-                      "type": "string"
-                    },
-                    "id": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "result": {},
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "number"
-                        },
-                        "message": {
-                          "type": "string"
-                        },
-                        "data": {}
-                      },
-                      "required": [
-                        "code",
-                        "message"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "jsonrpc",
-                    "id"
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or invalid access token (token mode)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        },
-        "operationId": "post_v1_mcp_dsh"
-      }
-    },
     "/v1/voice/models": {
       "get": {
-        "summary": "列出 GPT-SoVITS 模型",
+        "operationId": "voice_models",
+        "summary": "Voice models",
         "tags": [
           "Voice"
         ],
         "responses": {
           "200": {
-            "description": "Voice models",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -18159,13 +16969,13 @@
               }
             }
           }
-        },
-        "operationId": "get_v1_voice_models"
+        }
       }
     },
     "/v1/voice/synthesize": {
       "post": {
-        "summary": "GPT-SoVITS 语音合成",
+        "operationId": "voice_synthesize",
+        "summary": "Voice synthesize",
         "tags": [
           "Voice"
         ],
@@ -18220,7 +17030,7 @@
         },
         "responses": {
           "200": {
-            "description": "Audio artifact",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -18283,19 +17093,19 @@
               }
             }
           }
-        },
-        "operationId": "post_v1_voice_synthesize"
+        }
       }
     },
     "/v1/voice/config": {
       "get": {
-        "summary": "读取本地语音模型配置",
+        "operationId": "voice_local",
+        "summary": "Voice local",
         "tags": [
           "Voice"
         ],
         "responses": {
           "200": {
-            "description": "Local voice config",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -18365,11 +17175,11 @@
               }
             }
           }
-        },
-        "operationId": "get_v1_voice_config"
+        }
       },
       "put": {
-        "summary": "保存本地语音模型配置",
+        "operationId": "voice_saveLocal",
+        "summary": "Voice saveLocal",
         "tags": [
           "Voice"
         ],
@@ -18426,7 +17236,7 @@
         },
         "responses": {
           "200": {
-            "description": "Local voice config",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -18477,7 +17287,7 @@
             }
           },
           "400": {
-            "description": "INVALID_VOICE_CONFIG / modelPath 不在白名单",
+            "description": "INVALID_VOICE_CONFIG",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -18516,19 +17326,19 @@
               }
             }
           }
-        },
-        "operationId": "put_v1_voice_config"
+        }
       }
     },
     "/v1/voice/remote/config": {
       "get": {
-        "summary": "读取在线语音模型（GPT-SoVITS 远程 API）配置",
+        "operationId": "voice_remote",
+        "summary": "Voice remote",
         "tags": [
           "Voice"
         ],
         "responses": {
           "200": {
-            "description": "Remote voice config",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -18638,11 +17448,11 @@
               }
             }
           }
-        },
-        "operationId": "get_v1_voice_remote_config"
+        }
       },
       "put": {
-        "summary": "保存在线语音模型配置",
+        "operationId": "voice_saveRemote",
+        "summary": "Voice saveRemote",
         "tags": [
           "Voice"
         ],
@@ -18745,7 +17555,7 @@
         },
         "responses": {
           "200": {
-            "description": "Remote voice config",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -18836,7 +17646,7 @@
             }
           },
           "400": {
-            "description": "INVALID_VOICE_REMOTE_CONFIG / endpoint 非法",
+            "description": "INVALID_VOICE_REMOTE_CONFIG",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -18865,13 +17675,13 @@
               }
             }
           }
-        },
-        "operationId": "put_v1_voice_remote_config"
+        }
       }
     },
     "/v1/voice/remote/test-connection": {
       "post": {
-        "summary": "在线语音服务连通性测试",
+        "operationId": "voice_testRemote",
+        "summary": "Voice testRemote",
         "tags": [
           "Voice"
         ],
@@ -18903,7 +17713,7 @@
         },
         "responses": {
           "200": {
-            "description": "Test connection result",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -18959,19 +17769,19 @@
               }
             }
           }
-        },
-        "operationId": "post_v1_voice_remote_test_connection"
+        }
       }
     },
     "/v1/voice/input/config": {
       "get": {
-        "summary": "读取离线语音输入配置",
+        "operationId": "voice_input",
+        "summary": "Voice input",
         "tags": [
           "Voice"
         ],
         "responses": {
           "200": {
-            "description": "Voice input config",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -19055,11 +17865,11 @@
               }
             }
           }
-        },
-        "operationId": "get_v1_voice_input_config"
+        }
       },
       "put": {
-        "summary": "保存离线语音输入配置",
+        "operationId": "voice_saveInput",
+        "summary": "Voice saveInput",
         "tags": [
           "Voice"
         ],
@@ -19130,7 +17940,7 @@
         },
         "responses": {
           "200": {
-            "description": "Voice input config",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -19195,7 +18005,7 @@
             }
           },
           "400": {
-            "description": "INVALID_VOICE_INPUT_CONFIG / modelPath 不在白名单",
+            "description": "INVALID_VOICE_INPUT_CONFIG",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -19224,19 +18034,19 @@
               }
             }
           }
-        },
-        "operationId": "put_v1_voice_input_config"
+        }
       }
     },
     "/v1/voice/input/model/status": {
       "get": {
-        "summary": "读取离线语音输入模型下载与存在状态",
+        "operationId": "voice_modelStatus",
+        "summary": "Voice modelStatus",
         "tags": [
           "Voice"
         ],
         "responses": {
           "200": {
-            "description": "Model status",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -19304,13 +18114,13 @@
               }
             }
           }
-        },
-        "operationId": "get_v1_voice_input_model_status"
+        }
       }
     },
     "/v1/voice/input/model/download": {
       "post": {
-        "summary": "触发离线语音输入模型下载",
+        "operationId": "voice_downloadModel",
+        "summary": "Voice downloadModel",
         "tags": [
           "Voice"
         ],
@@ -19333,7 +18143,7 @@
         },
         "responses": {
           "200": {
-            "description": "Download started",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -19427,13 +18237,13 @@
               }
             }
           }
-        },
-        "operationId": "post_v1_voice_input_model_download"
+        }
       }
     },
     "/v1/voice/transcribe": {
       "post": {
-        "summary": "语音识别转写 (ASR)",
+        "operationId": "voice_transcribe",
+        "summary": "Voice transcribe",
         "tags": [
           "Voice"
         ],
@@ -19464,7 +18274,7 @@
         },
         "responses": {
           "200": {
-            "description": "Transcription result",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -19528,19 +18338,19 @@
               }
             }
           }
-        },
-        "operationId": "post_v1_voice_transcribe"
+        }
       }
     },
     "/v1/voice/presets": {
       "get": {
-        "summary": "列出语音配置预设（含激活标记）",
+        "operationId": "voice_presets",
+        "summary": "Voice presets",
         "tags": [
           "Voice"
         ],
         "responses": {
           "200": {
-            "description": "Voice presets",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -19803,11 +18613,11 @@
               }
             }
           }
-        },
-        "operationId": "get_v1_voice_presets"
+        }
       },
       "post": {
-        "summary": "新建语音配置预设",
+        "operationId": "voice_createPreset",
+        "summary": "Voice createPreset",
         "tags": [
           "Voice"
         ],
@@ -19840,7 +18650,7 @@
         },
         "responses": {
           "201": {
-            "description": "Created preset",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -19856,210 +18666,12 @@
                     },
                     "isActive": {
                       "type": "boolean"
-                    },
-                    "local": {
-                      "type": [
-                        "object",
-                        "null"
-                      ],
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "providerId": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "modelPath": {
-                          "type": "string"
-                        },
-                        "modelId": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "speakerId": {
-                          "type": "string"
-                        },
-                        "settings": {
-                          "type": "object",
-                          "additionalProperties": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "boolean"
-                              }
-                            ]
-                          },
-                          "default": {}
-                        }
-                      },
-                      "required": [
-                        "enabled",
-                        "providerId",
-                        "modelId"
-                      ]
-                    },
-                    "remote": {
-                      "type": [
-                        "object",
-                        "null"
-                      ],
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "providerId": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "endpoint": {
-                          "type": "string"
-                        },
-                        "apiKey": {
-                          "type": "string"
-                        },
-                        "modelId": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "speakerId": {
-                          "type": "string"
-                        },
-                        "textLang": {
-                          "type": "string",
-                          "enum": [
-                            "auto",
-                            "zh",
-                            "en",
-                            "ja",
-                            "ko",
-                            "yue"
-                          ]
-                        },
-                        "refAudioPath": {
-                          "type": "string"
-                        },
-                        "promptText": {
-                          "type": "string"
-                        },
-                        "promptLang": {
-                          "type": "string",
-                          "enum": [
-                            "auto",
-                            "zh",
-                            "en",
-                            "ja",
-                            "ko",
-                            "yue"
-                          ]
-                        },
-                        "auxRefAudioPaths": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "speedFactor": {
-                          "type": "number"
-                        },
-                        "settings": {
-                          "type": "object",
-                          "additionalProperties": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "boolean"
-                              }
-                            ]
-                          },
-                          "default": {}
-                        }
-                      },
-                      "required": [
-                        "enabled",
-                        "providerId",
-                        "modelId"
-                      ]
-                    },
-                    "input": {
-                      "type": [
-                        "object",
-                        "null"
-                      ],
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "engineType": {
-                          "type": "string",
-                          "enum": [
-                            "sensevoice-local",
-                            "whisper-compatible"
-                          ]
-                        },
-                        "modelPath": {
-                          "type": "string"
-                        },
-                        "modelId": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "endpoint": {
-                          "type": "string"
-                        },
-                        "apiKey": {
-                          "type": "string"
-                        },
-                        "autoStopOnKeyboard": {
-                          "type": "boolean",
-                          "default": true
-                        },
-                        "vadSilenceThresholdMs": {
-                          "type": "integer",
-                          "default": 700
-                        },
-                        "settings": {
-                          "type": "object",
-                          "additionalProperties": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "boolean"
-                              }
-                            ]
-                          },
-                          "default": {}
-                        }
-                      },
-                      "required": [
-                        "enabled",
-                        "engineType",
-                        "modelId"
-                      ]
                     }
                   },
                   "required": [
                     "id",
                     "name",
-                    "isActive",
-                    "local",
-                    "remote",
-                    "input"
+                    "isActive"
                   ]
                 }
               }
@@ -20095,13 +18707,13 @@
               }
             }
           }
-        },
-        "operationId": "post_v1_voice_presets"
+        }
       }
     },
     "/v1/voice/presets/{presetId}/activate": {
       "post": {
-        "summary": "激活语音配置预设",
+        "operationId": "voice_activatePreset",
+        "summary": "Voice activatePreset",
         "tags": [
           "Voice"
         ],
@@ -20118,7 +18730,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Activated preset",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -20134,210 +18746,12 @@
                     },
                     "isActive": {
                       "type": "boolean"
-                    },
-                    "local": {
-                      "type": [
-                        "object",
-                        "null"
-                      ],
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "providerId": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "modelPath": {
-                          "type": "string"
-                        },
-                        "modelId": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "speakerId": {
-                          "type": "string"
-                        },
-                        "settings": {
-                          "type": "object",
-                          "additionalProperties": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "boolean"
-                              }
-                            ]
-                          },
-                          "default": {}
-                        }
-                      },
-                      "required": [
-                        "enabled",
-                        "providerId",
-                        "modelId"
-                      ]
-                    },
-                    "remote": {
-                      "type": [
-                        "object",
-                        "null"
-                      ],
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "providerId": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "endpoint": {
-                          "type": "string"
-                        },
-                        "apiKey": {
-                          "type": "string"
-                        },
-                        "modelId": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "speakerId": {
-                          "type": "string"
-                        },
-                        "textLang": {
-                          "type": "string",
-                          "enum": [
-                            "auto",
-                            "zh",
-                            "en",
-                            "ja",
-                            "ko",
-                            "yue"
-                          ]
-                        },
-                        "refAudioPath": {
-                          "type": "string"
-                        },
-                        "promptText": {
-                          "type": "string"
-                        },
-                        "promptLang": {
-                          "type": "string",
-                          "enum": [
-                            "auto",
-                            "zh",
-                            "en",
-                            "ja",
-                            "ko",
-                            "yue"
-                          ]
-                        },
-                        "auxRefAudioPaths": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "speedFactor": {
-                          "type": "number"
-                        },
-                        "settings": {
-                          "type": "object",
-                          "additionalProperties": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "boolean"
-                              }
-                            ]
-                          },
-                          "default": {}
-                        }
-                      },
-                      "required": [
-                        "enabled",
-                        "providerId",
-                        "modelId"
-                      ]
-                    },
-                    "input": {
-                      "type": [
-                        "object",
-                        "null"
-                      ],
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "engineType": {
-                          "type": "string",
-                          "enum": [
-                            "sensevoice-local",
-                            "whisper-compatible"
-                          ]
-                        },
-                        "modelPath": {
-                          "type": "string"
-                        },
-                        "modelId": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "endpoint": {
-                          "type": "string"
-                        },
-                        "apiKey": {
-                          "type": "string"
-                        },
-                        "autoStopOnKeyboard": {
-                          "type": "boolean",
-                          "default": true
-                        },
-                        "vadSilenceThresholdMs": {
-                          "type": "integer",
-                          "default": 700
-                        },
-                        "settings": {
-                          "type": "object",
-                          "additionalProperties": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "number"
-                              },
-                              {
-                                "type": "boolean"
-                              }
-                            ]
-                          },
-                          "default": {}
-                        }
-                      },
-                      "required": [
-                        "enabled",
-                        "engineType",
-                        "modelId"
-                      ]
                     }
                   },
                   "required": [
                     "id",
                     "name",
-                    "isActive",
-                    "local",
-                    "remote",
-                    "input"
+                    "isActive"
                   ]
                 }
               }
@@ -20373,13 +18787,13 @@
               }
             }
           }
-        },
-        "operationId": "post_v1_voice_presets_presetId_activate"
+        }
       }
     },
     "/v1/voice/presets/{presetId}": {
       "delete": {
-        "summary": "删除语音配置预设",
+        "operationId": "voice_deletePreset",
+        "summary": "Voice deletePreset",
         "tags": [
           "Voice"
         ],
@@ -20396,7 +18810,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Deleted",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -20404,10 +18818,14 @@
                   "properties": {
                     "deleted": {
                       "type": "boolean"
+                    },
+                    "presetId": {
+                      "type": "string"
                     }
                   },
                   "required": [
-                    "deleted"
+                    "deleted",
+                    "presetId"
                   ]
                 }
               }
@@ -20443,8 +18861,1198 @@
               }
             }
           }
+        }
+      }
+    },
+    "/v1/mcp/presets": {
+      "get": {
+        "operationId": "mcp_presets",
+        "summary": "MCP presets",
+        "tags": [
+          "MCP"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "presets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "description": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "transport": {
+                            "type": "string",
+                            "enum": [
+                              "streamable_http",
+                              "sse"
+                            ]
+                          },
+                          "endpointUrl": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "authType": {
+                            "type": "string",
+                            "enum": [
+                              "bearer",
+                              "none"
+                            ]
+                          },
+                          "protocolVersion": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "homepage": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "docsUrl": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "tokenApplyUrl": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "regionNote": {
+                            "type": "string"
+                          },
+                          "rateLimitNote": {
+                            "type": "string"
+                          },
+                          "sourceUrl": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "configured": {
+                            "type": "boolean"
+                          },
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "disconnected",
+                              "connected",
+                              "error"
+                            ]
+                          },
+                          "toolCount": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "tokenConfigured": {
+                            "type": "boolean"
+                          },
+                          "tokenMasked": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "lastSyncAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "lastError": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "description",
+                          "transport",
+                          "endpointUrl",
+                          "authType",
+                          "protocolVersion",
+                          "homepage",
+                          "docsUrl",
+                          "tokenApplyUrl",
+                          "sourceUrl",
+                          "configured",
+                          "enabled",
+                          "status",
+                          "toolCount",
+                          "tokenConfigured"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "presets"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/mcp/servers": {
+      "get": {
+        "operationId": "mcp_servers",
+        "summary": "MCP servers",
+        "tags": [
+          "MCP"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "servers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "transport": {
+                            "type": "string",
+                            "enum": [
+                              "streamable_http",
+                              "sse"
+                            ]
+                          },
+                          "endpointUrl": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "authType": {
+                            "type": "string",
+                            "enum": [
+                              "bearer",
+                              "none"
+                            ]
+                          },
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "isPreset": {
+                            "type": "boolean"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "disconnected",
+                              "connected",
+                              "error"
+                            ]
+                          },
+                          "toolCount": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "tokenConfigured": {
+                            "type": "boolean"
+                          },
+                          "tokenMasked": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "lastSyncAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "lastError": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "transport",
+                          "endpointUrl",
+                          "authType",
+                          "enabled",
+                          "isPreset",
+                          "status",
+                          "toolCount",
+                          "tokenConfigured",
+                          "lastSyncAt",
+                          "lastError",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "servers"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/mcp/servers/{serverId}/tools": {
+      "get": {
+        "operationId": "mcp_tools",
+        "summary": "MCP tools",
+        "tags": [
+          "MCP"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "serverId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tools": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "safetyLevel": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "inputSchema": {}
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "description",
+                          "safetyLevel",
+                          "enabled"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "tools"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "MCP server not connected",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/mcp/servers/{serverId}/connect": {
+      "post": {
+        "operationId": "mcp_connect",
+        "summary": "MCP connect",
+        "tags": [
+          "MCP"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "serverId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
         },
-        "operationId": "delete_v1_voice_presets_presetId"
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "server": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "transport": {
+                          "type": "string",
+                          "enum": [
+                            "streamable_http",
+                            "sse"
+                          ]
+                        },
+                        "endpointUrl": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "authType": {
+                          "type": "string",
+                          "enum": [
+                            "bearer",
+                            "none"
+                          ]
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "isPreset": {
+                          "type": "boolean"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "disconnected",
+                            "connected",
+                            "error"
+                          ]
+                        },
+                        "toolCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "tokenConfigured": {
+                          "type": "boolean"
+                        },
+                        "tokenMasked": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastSyncAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastError": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "transport",
+                        "endpointUrl",
+                        "authType",
+                        "enabled",
+                        "isPreset",
+                        "status",
+                        "toolCount",
+                        "tokenConfigured",
+                        "lastSyncAt",
+                        "lastError",
+                        "createdAt",
+                        "updatedAt"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "server"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "MCP server not connected",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "MCP_UPSTREAM_ERROR",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/mcp/servers/{serverId}/sync": {
+      "post": {
+        "operationId": "mcp_sync",
+        "summary": "MCP sync",
+        "tags": [
+          "MCP"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "serverId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "server": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "transport": {
+                          "type": "string",
+                          "enum": [
+                            "streamable_http",
+                            "sse"
+                          ]
+                        },
+                        "endpointUrl": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "authType": {
+                          "type": "string",
+                          "enum": [
+                            "bearer",
+                            "none"
+                          ]
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "isPreset": {
+                          "type": "boolean"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "disconnected",
+                            "connected",
+                            "error"
+                          ]
+                        },
+                        "toolCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "tokenConfigured": {
+                          "type": "boolean"
+                        },
+                        "tokenMasked": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastSyncAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastError": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "transport",
+                        "endpointUrl",
+                        "authType",
+                        "enabled",
+                        "isPreset",
+                        "status",
+                        "toolCount",
+                        "tokenConfigured",
+                        "lastSyncAt",
+                        "lastError",
+                        "createdAt",
+                        "updatedAt"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "server"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "MCP server not connected",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "MCP_UPSTREAM_ERROR",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/mcp/servers/{serverId}/disconnect": {
+      "post": {
+        "operationId": "mcp_disconnect",
+        "summary": "MCP disconnect",
+        "tags": [
+          "MCP"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "serverId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "server": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "transport": {
+                          "type": "string",
+                          "enum": [
+                            "streamable_http",
+                            "sse"
+                          ]
+                        },
+                        "endpointUrl": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "authType": {
+                          "type": "string",
+                          "enum": [
+                            "bearer",
+                            "none"
+                          ]
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "isPreset": {
+                          "type": "boolean"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "disconnected",
+                            "connected",
+                            "error"
+                          ]
+                        },
+                        "toolCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "tokenConfigured": {
+                          "type": "boolean"
+                        },
+                        "tokenMasked": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastSyncAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lastError": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "transport",
+                        "endpointUrl",
+                        "authType",
+                        "enabled",
+                        "isPreset",
+                        "status",
+                        "toolCount",
+                        "tokenConfigured",
+                        "lastSyncAt",
+                        "lastError",
+                        "createdAt",
+                        "updatedAt"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "server"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "MCP server not connected",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/mcp/tools": {
+      "get": {
+        "summary": "列出 MCP 工具",
+        "tags": [
+          "MCP"
+        ],
+        "responses": {
+          "200": {
+            "description": "MCP tools",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tools": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "serverId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "inputSchema": {},
+                          "scopes": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "healthy": {
+                            "type": "boolean"
+                          },
+                          "authorized": {
+                            "type": "boolean"
+                          },
+                          "revoked": {
+                            "type": "boolean"
+                          },
+                          "killSwitch": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "serverId",
+                          "name",
+                          "scopes",
+                          "healthy",
+                          "authorized",
+                          "revoked",
+                          "killSwitch"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "tools"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "get_v1_mcp_tools"
+      }
+    },
+    "/v1/mcp/dsh": {
+      "get": {
+        "summary": "DSH 本地 MCP 服务端点探活",
+        "tags": [
+          "MCP"
+        ],
+        "responses": {
+          "200": {
+            "description": "DSH MCP server info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "server": {
+                      "type": "string"
+                    },
+                    "protocolVersion": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "server",
+                    "protocolVersion"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "get_v1_mcp_dsh"
+      },
+      "post": {
+        "summary": "DSH 本地 MCP Streamable HTTP JSON-RPC 2.0 端点",
+        "tags": [
+          "MCP"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "jsonrpc": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "params": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                },
+                "required": [
+                  "method"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "JSON-RPC response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jsonrpc": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "result": {},
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "number"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "jsonrpc",
+                    "id"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "post_v1_mcp_dsh"
       }
     },
     "/v1/llm/config": {
@@ -23832,6 +23440,118 @@
           },
           "409": {
             "description": "DOWNLOAD_BUSY",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/llm/providers": {
+      "get": {
+        "operationId": "listModelProviders",
+        "summary": "读取模型配置目录与执行可用性",
+        "tags": [
+          "LLM"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "generation": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "providers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "protocol": {
+                            "type": "string",
+                            "enum": [
+                              "openai-compat",
+                              "replay",
+                              "faux",
+                              "custom",
+                              "anthropic"
+                            ]
+                          },
+                          "defaultBaseUrl": {
+                            "type": "string"
+                          },
+                          "recommendedModels": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "requiresApiKey": {
+                            "type": "boolean"
+                          },
+                          "isLocal": {
+                            "type": "boolean"
+                          },
+                          "available": {
+                            "type": "boolean"
+                          },
+                          "unavailableReason": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "description",
+                          "protocol",
+                          "defaultBaseUrl",
+                          "recommendedModels",
+                          "requiresApiKey",
+                          "isLocal",
+                          "available"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "generation",
+                    "providers"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token (token mode)",
             "content": {
               "application/problem+json": {
                 "schema": {

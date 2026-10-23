@@ -13,7 +13,7 @@ import {
 import type { ModelProviderPort, ReplayStep } from "@aervox/core";
 import type { TurnLlmPort } from "@aervox/host-plugin-api";
 import type { LocalContext } from "@aervox/repositories";
-import { loadExecutionConfig, type ExecutionConfig } from "@aervox/config";
+import type { ExecutionConfig } from "@aervox/config";
 import type { ModelRoutingSnapshot } from "@aervox/contracts";
 import type { LLMConfigPort } from "../../ecosystem/llm/index.js";
 import type { ModelRoutingPort } from "../../ecosystem/llm/index.js";
@@ -43,9 +43,9 @@ export { stableSerialize as stableStringify } from "@aervox/core";
  */
 export async function buildLoopProvider(
   ctx: LocalContext,
-  llmConfigService?: LLMConfigPort,
+  llmConfigService: LLMConfigPort | undefined,
   options: {
-    executionConfig?: ExecutionConfig;
+    executionConfig: ExecutionConfig;
     requireLocalOnly?: boolean;
     sessionId?: string;
     turnId?: string;
@@ -56,11 +56,10 @@ export async function buildLoopProvider(
      * 仅在宿主未内建同名模式时采用——插件不得覆盖宿主内建回放模式。
      */
     pluginReplayScripts?: Record<string, readonly ReplayStep[]>;
-  } = {},
+  },
 ): Promise<ModelProviderPort> {
-  // 缺陷 E：Provider 选择经 @aervox/config 集中解析（AERVOX_LOOP_PROVIDER 启动期枚举校验）；
-  // 每次调用读取，避免模块级缓存导致测试/配置热变失效。
-  const apiConfig = options.executionConfig ?? loadExecutionConfig();
+  // Provider selection consumes the immutable configuration captured by its host.
+  const apiConfig = options.executionConfig;
   const { loopProvider: mode } = apiConfig;
   if (mode === "replay") return createReplayProvider();
   if (mode === "scripted") return createScriptedProvider(API_TOOL_SCRIPT);

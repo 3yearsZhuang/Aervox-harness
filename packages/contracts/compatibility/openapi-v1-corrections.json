@@ -1924,6 +1924,60 @@
           }
         }
       }
+    },
+    {
+      "id": "voice-preset-create-receipt",
+      "reason": "Correct the documented response to the existing id/name/isActive receipt returned by createVoicePreset and activateVoicePreset. Full local/remote/input configuration remains available from GET /v1/voice/presets; runtime validation and real SQLite HTTP regression cover the receipt.",
+      "pointer": "/paths/~1v1~1voice~1presets/post/responses/201/content/application~1json/schema",
+      "beforeHash": "0ecc3bde3575c08f82775b8ee88958b1f95933f4ae09f9ae7c0cb671280794ff",
+      "value": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "isActive"
+        ]
+      }
+    },
+    {
+      "id": "voice-preset-activate-receipt",
+      "reason": "Correct the documented response to the existing id/name/isActive receipt returned by createVoicePreset and activateVoicePreset. Full local/remote/input configuration remains available from GET /v1/voice/presets; runtime validation and real SQLite HTTP regression cover the receipt.",
+      "pointer": "/paths/~1v1~1voice~1presets~1{presetId}~1activate/post/responses/200/content/application~1json/schema",
+      "beforeHash": "0ecc3bde3575c08f82775b8ee88958b1f95933f4ae09f9ae7c0cb671280794ff",
+      "value": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "isActive"
+        ]
+      }
     }
   ],
   "restoration": {

@@ -95,7 +95,7 @@ export interface ServerTurnPlugin {
     config?: Record<string, unknown>,
   ): Promise<BeforeTurnResult | void> | BeforeTurnResult | void;
 
-  /** 后置切面：回合终态后执行增强后处理（异常由宿主按插件隔离） */
+  /** 后置切面：成功阶段在模型正文完成后、持久终态前执行增强，仍受原 Attempt 租约和取消约束（异常由宿主按插件隔离）。 */
   afterTurn?(
     ctx: AfterTurnContext,
     config?: Record<string, unknown>,

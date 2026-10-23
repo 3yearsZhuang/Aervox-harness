@@ -1,8 +1,9 @@
+import { getClientTransport } from './client-context.js';
 import { turnDiagnosticsApi } from '@aervox/contracts';
 import { requestEndpoint } from './endpoint.js';
-import { getTransport, type AervoxTransport } from './transport.js';
+import { type AervoxTransport } from './transport';
 
-export function useAervoxTurnDiagnostics(transport: AervoxTransport = getTransport()) {
+export function useAervoxTurnDiagnostics(transport: AervoxTransport = getClientTransport()) {
   return {
     async get(turnId: string, attemptId?: string) {
       const report = await requestEndpoint(transport, turnDiagnosticsApi.get, undefined, { turnId }, { attemptId });

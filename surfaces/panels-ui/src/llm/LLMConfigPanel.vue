@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { AervoxCard, AervoxSwitch, AervoxSettingsHeading, AervoxButton } from '@aervox/ui/primitives';
-import { computed, onActivated, onMounted, ref, watch } from 'vue'
+import { computed, onActivated, onMounted, ref, unref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from '@aervox/ui/utils/element'
 import {
   Bot,
@@ -35,6 +35,9 @@ const showAdvanced = ref(false)
 const testBusy = ref(false)
 const testResult = ref<LLMTestConnectionResultDto | null>(null)
 const error = ref<string | null>(null)
+const providerCatalogError = ref<string | null>(null)
+const providersLoading = ref(false)
+const providerCatalog = computed(() => unref(api.presetProviders))
 /** 连通性测试探测到的可用模型列表（本地端点 /models 自动感知） */
 const detectedModels = ref<string[]>([])
 
@@ -49,10 +52,10 @@ const draft = computed<LLMConfigDto>({
     return (
       config.value ?? {
         enabled: true,
-        providerType: 'ollama',
-        baseUrl: 'http://127.0.0.1:11434/v1',
+        providerType: '',
+        baseUrl: '',
         apiKey: '',
-        modelId: 'llama3.2',
+        modelId: '',
         temperature: 0.7,
         maxTokens: 4096,
         settings: {},
@@ -91,16 +94,27 @@ async function confirmReplaceDraft(): Promise<boolean> {
 }
 
 const currentPreset = computed(() => {
-  return api.presetProviders.find((p) => p.id === draft.value.providerType)
+  return providerCatalog.value.find((p) => p.id === draft.value.providerType)
 })
 
 const activePreset = computed(() => {
   return presets.value.find((p) => p.id === activePresetId.value) ?? null
 })
 
+async function loadProviderCatalog(): Promise<void> {
+  if (providersLoading.value) return
+  providersLoading.value = true
+  providerCatalogError.value = null
+  try { await api.loadProviders() }
+  catch { providerCatalogError.value = '供应商目录加载失败，已保留当前模型配置。' }
+  finally { providersLoading.value = false }
+}
+
 onMounted(async () => {
-  await Promise.all([loadConfig(), loadPresets()])
-  loading.value = false
+  // Catalog availability cannot block reading or editing the saved configuration.
+  void loadProviderCatalog()
+  try { await Promise.all([loadConfig(), loadPresets()]) }
+  finally { loading.value = false }
 })
 
 onActivated(() => {
@@ -190,7 +204,7 @@ async function handleDeletePreset(preset: LLMPresetDto): Promise<void> {
 }
 
 function handleProviderChange(providerId: LLMProviderType) {
-  const preset = api.presetProviders.find((p) => p.id === providerId)
+  const preset = unref(api.presetProviders).find((p) => p.id === providerId)
   if (preset) {
     draft.value = {
       ...draft.value,
@@ -356,14 +370,19 @@ async function handleSave(): Promise<void> {
           class="aervox-field llm-select-field"
           @change="handleProviderChange(($event.target as HTMLSelectElement).value as LLMProviderType)"
         >
+          <option v-if="!currentPreset" :value="draft.providerType">{{ draft.providerType ? `${draft.providerType}（当前配置）` : '请选择供应商' }}</option>
           <option
-            v-for="provider in api.presetProviders"
+            v-for="provider in providerCatalog"
             :key="provider.id"
             :value="provider.id"
           >
             {{ provider.name }}
           </option>
         </select>
+        <div v-if="providerCatalogError || (!providersLoading && providerCatalog.length === 0)" class="llm-catalog-feedback">
+          <p :role="providerCatalogError ? 'alert' : 'status'">{{ providerCatalogError || '供应商目录为空，已保留当前模型配置。' }}</p>
+          <AervoxButton variant="secondary" type="button" aria-label="重新加载供应商目录" :disabled="providersLoading" @click="loadProviderCatalog">{{ providersLoading ? '加载中…' : '重新加载目录' }}</AervoxButton>
+        </div>
       </div>
 
       <div class="settings-field">

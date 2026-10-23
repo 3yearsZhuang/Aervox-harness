@@ -67,6 +67,8 @@ export interface ExecuteTurnResumeInput {
 }
 
 export interface ExecuteTurnOptions {
+  /** Host completion work runs before done, while lease and cancellation remain active. */
+  beforeComplete?: (signal?: AbortSignal) => Promise<void>;
   /** Step 上限（防死循环）；默认 8。多 Step 工具 Loop 由该边界兜底 */
   maxSteps?: number;
   /** 单个工具超时（ms）；默认 5000 */
@@ -143,7 +145,7 @@ export async function executeTurn(
     expectedFencingToken: resume?.expectedFencingToken,
     maxTurnDurationMs, leaseTtlMs: options?.leaseTtlMs,
     leaseHeartbeatIntervalMs: options?.leaseHeartbeatIntervalMs,
-    stepsTaken: () => stepsTaken,
+    stepsTaken: () => stepsTaken, beforeComplete: options?.beforeComplete,
   });
   if (!lifecycle.ok) return { status: "skipped", attemptId: input.attemptId, reason: lifecycle.reason };
   const { claim, control, terminator, heartbeat } = lifecycle;

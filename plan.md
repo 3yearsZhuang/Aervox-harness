@@ -8,7 +8,7 @@
 
 | 顺序 | 当前目标 | 对应条目与进入下一阶段的条件 |
 |---|---|---|
-| 立即 | 交付第二批修复，继续关闭行为与边界缺口 | [ITER-071](#iter-071) 首批已通过后续远端门禁，第二批 Controller、模型、Catalog、DTO、Schema 约束与接单摘要已通过本地全量；核对远端后推进 Conversation Port、终态政策与配置注入 |
+| 立即 | 交付再审计整改，验证行为与边界缺口 | [ITER-071](#iter-071) 前两批已由 PR #323 合并；本轮实施 Conversation Port、完成阶段、配置注入及其余 16 项审计整改，统一终审与精确提交远端证据待核对 |
 | 接续，可按依赖并行 | 闭合删除、撤权、安全恢复及在线运行门槛 | [ITER-003](#iter-003)/[006](#iter-006)/[010](#iter-010)/[011](#iter-011)/[013](#iter-013)；插件升级只推进 [ITER-005](#iter-005) 的必要安全切片。恢复不能先于 deny 账本和水位，性能优化不能先于资源有界 |
 | 核心产品交付 | 证明现有个人助手、学习和会话入口真实可用 | 先收敛本机路径的 [ITER-064](#iter-064)、[033](#iter-033)、[029](#iter-029)、[第一方界面](#iter-053)；[015](#iter-015) 必要部署与 [062](#iter-062) 连接验证可并行，Bot 独立运行/恢复在主管能力后验收；再做 [032](#iter-032)/[012](#iter-012) 长会话及索引，[026](#iter-026) 有限评审 |
 | 按测量投入 | 消除真实瓶颈和维护成本 | [ITER-017](#iter-017)/[027](#iter-027)/[040](#iter-040)；先固定设备、数据和质量基线，再决定优化或停止，不承诺未测收益 |
@@ -22,18 +22,32 @@
 
 ### ITER-071 · 执行中，部分实施：共享行为所有权与重复实现整改
 
-维护者已批准 [ADR-030](docs/reference/adr/ADR-030-behavior-ownership.md) 和六批整改方案。工作分支 `feat/decoupling-implementation`，交付见 [PR #323](https://github.com/3yearsZhuang/Aervox-harness/pull/323)，尚未合并。审计基线为 `0ebccd20611aa609b2b7609241d98011109a8982`，首次自查对象为 `7abd4fbb6825e06c4e967ccd72a4ad3f185ec402`，后续修复按精确验证证据追踪。此前“消费者均已迁移、完整统一”的表述撤回，以以下剩余验收为准。
+维护者已批准 [ADR-030](docs/reference/adr/ADR-030-behavior-ownership.md) 和六批整改方案。工作分支 `feat/decoupling-implementation`，已交付 [PR #323](https://github.com/3yearsZhuang/Aervox-harness/pull/323)，主线合并提交为 `5ecd8365`。审计基线为 `0ebccd20611aa609b2b7609241d98011109a8982`，首次自查对象为 `7abd4fbb6825e06c4e967ccd72a4ad3f185ec402`，后续修复按精确验证证据追踪。此前“消费者均已迁移、完整统一”的表述撤回，以以下剩余验收为准。
+
+#### 2026-10-24 再审计整改
+
+本轮获维护者授权修复完整审计中的 16 项，工作分支 `fix/decoupling-audit-remediation`，从 `5ecd8365` 隔离实施。沿用本条及 ADR-030，不新增执行队列；迁移、跨重启完整恢复、全链删除与发布仍由原责任条目验收。
+
+- Hook 写事务代际/Attempt/fencing、`done` 前有界增强、领取前原子取消；HTTP 适配迁为应用命令/查询，执行期配置改为显式快照，委托按原始持久 owner 复验。
+- 复习在事务内复用唯一派生政策，报告按真实回执投影；画像候选与恢复按 capture 精确查询，移除 Worker 对表和全局最新窗口的依赖。
+- 子任务 Turn/Attempt/run 原子受理、同键意图校验和模型初始化失败终态；领取前取消、终态摘要写失败后按权威 Attempt 对账且不重跑模型，Interrupted 不再误报 Failed；旧无摘要孤儿明确拒绝，不猜测恢复。
+- 共享插件配置 editor、client 实例与会话资源 generation、宿主 surface 导航及窄主题出口；保留既有布局与独立桌宠默认会话语义。
+- MCP/Voice 由 Schema 派生类型并校验响应；语音新建/激活使用实际标识回执，列表空白输出为 null，修正两处历史 OpenAPI 文档误报。模型 catalog 取自宿主，目录失败可见且可重试，不丢失既有配置/草稿；分层依赖图与明确 DTO 守卫补强，移除非必要运行时环。
+
+**本地验证：** 最终产品与脚本的 `./aervox ci all` 退出 0，构建 32、类型检查 56 个任务通过；API 815、仓储 573、Worker 153、Core 494、Host Runtime 273、Host Agent 113 项通过，Host Agent 2 项既有真实模型/参考库构建跳过保留，不计通过。前端、守卫、HLS、删除故障、Native 及 64 份文档门禁通过；额外 CLI 持久化/API 重启与审批集成 2 项通过。随后只补本条记录并复验文档，远端仍以 PR 精确提交为准，不宣称 ITER-071 或发布整体完成。
+
+**剩余边界：** 旧复习缺回执返回 409、旧报告缺可证回执返回 await_review；自定义多输出提炼的跨 claim 批次恢复、全部主动写者撤权竞态和跨进程自动接管仍不在本轮完成声明内。完整文件图的类型依赖 SCC 保留并明确报告，仅精确登记且验证惰性的 Schema 外键运行时环获准，不以目录图无环代替行为解耦验收。
 
 #### P1：首批已验证，新发现的接单缺口已修
 
 - **静态 privileged 工具的管理员审批漏检已修。** 原[HTTP 路由](packages/host-runtime/src/modules/companion/conversation/routes.ts)只查动态列表，隔离真实路由探针曾复现无管理员批准并执行。现在审批与派发使用同一 ToolBinding 身份，持久安全等级、owner、generation、revision；静态、动态、插件均执行管理员门禁。插件在审批事务内再次检查代际/启用/可用状态，预检后撤权不写批准、不创建续跑 Attempt；保留参数哈希兼容，不扩大免审批。真实 Core→HTTP→Core 及三种撤权竞态已进入回归。
 - **HTTP/插件作答原子命令已统一。** 原[学习路由](packages/host-runtime/src/modules/learning/learning/routes.ts)分步写入，排期失败后同键重试曾虚报 `review_scheduled` 且无复习。现在一个应用策略和写者事务提交事实、掌握度、复习、Outbox 回执，插件由真实 Turn 解析 session/source；旧独立写入口已删除。同键异参 409，重试返回原 nextStep；无知识关联或不可判定时为 `await_review`，仅实际排期才返回 `review_scheduled`。旧事实无完整事务回执时返回 `answer_receipt_unavailable`，不猜测补造；逐步故障、并发、来源/代际及删除顺序纳入隔离回归。
 
-- **Turn 幂等请求已补意图摘要复验。** 原[HTTP 创建路由](packages/host-runtime/src/modules/companion/conversation/routes.ts)提前按键返回原 Turn，[接单事务](packages/repositories/src/repositories/sqlite/conversation/turn-store.ts)只验证 session/policy；隔离探针确认异正文会误认成重试。现在唯一域函数规范化有效意图，在 Inbox 合并前计算版本化 SHA-256，写者事务原子绑定已有 `request_hash`。同键同参复用、异参或跨 Session 409；旧 NULL 摘要/丢失或不符回执明确拒绝，不猜测回填。Worker/Bot 经 ConversationApplication 的执行入口恢复受理时的 metadata/审批模式/可信 actor，调用方不能覆盖；完整 HTTP 审批续跑尚未迁入该入口。新增 HTTP/应用及 Bot/Worker 回归已定向通过；不修改 Schema/release，不扩展子任务 `createTurnWithAttempt` 与父执行键复用为已验收。现有首输入软删/redaction执行资格仍归 ITER-003，不能以摘要一致替代删除门禁。
+- **Turn 幂等请求已补意图摘要复验。** 原[HTTP 创建路由](packages/host-runtime/src/modules/companion/conversation/routes.ts)提前按键返回原 Turn，[接单事务](packages/repositories/src/repositories/sqlite/conversation/turn-store.ts)只验证 session/policy；隔离探针确认异正文会误认成重试。现在唯一域函数规范化有效意图，在 Inbox 合并前计算版本化 SHA-256，写者事务原子绑定已有 `request_hash`。同键同参复用、异参或跨 Session 409；旧 NULL 摘要/丢失或不符回执明确拒绝，不猜测回填。Worker/Bot 经 ConversationApplication 的执行入口恢复受理时的 metadata/审批模式/可信 actor，调用方不能覆盖；完整 HTTP 审批续跑随后在本轮迁入应用命令。新增 HTTP/应用及 Bot/Worker 回归已定向通过；不修改 Schema/release；子任务 `createTurnWithAttempt` 与父执行键复用在本轮另补原子受理、意图校验及初始化失败回归。现有首输入软删/redaction执行资格仍归 ITER-003，不能以摘要一致替代删除门禁。
 
 #### 随后补齐设计与行为闭环
 
-审批 revision、分支幂等和索引语义已随首批实施；第二批客户端、模型、Catalog、DTO、表约束与接单摘要已通过本地整体验证。Conversation Port 及服务端整体终态/配置仍未闭合。源码确认与隔离复现的证据强度在各行区分，不能以结构整改替代入口验收。
+审批 revision、分支幂等和索引语义已随首批实施；第二批客户端、模型、Catalog、DTO、表约束与接单摘要已通过本地整体验证。本轮再审计补齐 Conversation Port、完成前增强及显式配置注入，统一验证结果见上方整改记录。源码确认与隔离复现的证据强度在各行区分，不能以结构整改替代入口验收。
 
 | 缺口与证据 | 实施及验收要求 |
 |---|---|
@@ -50,7 +64,7 @@
 
 #### 交付次序、已完成范围与证据
 
-首批 P1、审批 revision、作答/分支命令已通过后续精确提交的远端门禁；第二批工具目录、模型、客户端、DTO、表约束与接单摘要已通过本地全量。核对远端后推进 Conversation Port，再统一服务端整体终态政策/配置注入，最后收尾旧装配出口及防回退门禁。沿用原六批交付关系，第三批依赖第二批，第四/第五批可并行，第六批只在消费者迁完后收尾。跨域协调归本条，长期迁移、恢复、运行和历史 API 分别归 ITER-011/010/013/064，不另建队列。
+首批 P1、审批 revision、作答/分支命令已通过后续精确提交的远端门禁；第二批工具目录、模型、客户端、DTO、表约束与接单摘要已通过本地全量。本轮继续实施 Conversation Port、服务端完成阶段/配置注入、旧装配出口收口及防回退门禁，当前实现与统一验证状态见上方整改记录。沿用原六批交付关系，第三批依赖第二批，第四/第五批可并行，第六批只在消费者迁完后收尾。跨域协调归本条，长期迁移、恢复、运行和历史 API 分别归 ITER-011/010/013/064，不另建队列。
 
 - **已落地但不能外推为整体完成：** 无 Vue TurnClient 及 Electron 主进程复用；Native/Adapter 领取、心跳、取消、删除、fencing 与原子终态主体；插件代际和事务提交前复验；插件作答及分支组合写；API/Worker 日记解析与原子发布；主路径配置快照。安全逻辑导出排除 FTS/shadow、staging 校验及源库保护已实现；同步网络/进程协调移出仓储，Worker 使用受限投影与删除命令，学习政策提纯；学习 store 按需加载及错误状态、主要 DTO、资产消费端输出、记忆纯函数、审批序列化和依赖图/循环守卫已收敛。
 - **精确验证基线：** `7abd4fbb` 的 `./aervox ci all` 退出 0，API 757、仓储 493、Worker 142 项；CLI 打包/认证/文件 SQLite/API 重启及审批集成 2 项通过。真实 Electron IPC 7 项通过，入口 `mise exec -- node apps/desktop/scripts/turn-ipc-smoke.mjs`。依赖审计 0 未审阅、2 既有审阅路径、0 过时例外；额外只读自查 7 文件 69 项通过，但未覆盖上述反例。

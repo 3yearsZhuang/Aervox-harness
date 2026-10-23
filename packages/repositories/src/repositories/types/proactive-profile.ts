@@ -319,6 +319,8 @@ export interface IProactiveProfileRepository {
       ingestedAt?: string;
     },
   ): Promise<ProactiveCaptureModel>;
+  listDistillationCandidates(ctx: LocalContext, options: { retryBefore: string; limit?: number }): Promise<ProactiveCaptureModel[]>;
+  listCaptureClaims(ctx: LocalContext, captureId: string): Promise<ProactiveProfileClaimModel[]>;
   listCaptures(ctx: LocalContext, options?: { revisionId?: string; sourceKey?: string; includeDeleted?: boolean; limit?: number }): Promise<ProactiveCaptureModel[]>;
   createObservation(
     ctx: LocalContext,

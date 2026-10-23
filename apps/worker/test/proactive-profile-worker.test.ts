@@ -53,7 +53,6 @@ describe("CAP-033 proactive profile worker", () => {
       });
 
       const result = await runProactiveProfileCycle({
-        db: ctx.db,
         repo: ctx.repo,
         distiller: createRuleBasedProactiveDistiller(),
         workerId: "worker_test",
@@ -83,6 +82,85 @@ describe("CAP-033 proactive profile worker", () => {
     }
   });
 
+  it("processes the oldest backlog even when more than 500 newer captures exist", async () => {
+    const ctx = await fixture();
+    try {
+      for (let index = 0; index < 550; index++) {
+        const timestamp = new Date(Date.UTC(2026, 7, 28) + index * 1000).toISOString();
+        await ctx.repo.createCapture(tenant, {
+          id: `backlog_${index}`, revisionId: ctx.revision.id, sourceGrantId: ctx.source.id,
+          sourceKey: ctx.source.sourceKey, contentType: "text/plain", payloadText: `TypeScript ${index}`,
+          checksum: `backlog:${index}`, ingestedAt: timestamp, observedAt: timestamp,
+        });
+      }
+      const result = await runProactiveProfileCycle({ repo: ctx.repo,
+        distiller: createRuleBasedProactiveDistiller(), workerId: "worker_test", now: () => now });
+      expect(result).toMatchObject({ distilled: 50, failed: 0 });
+      const oldest = await ctx.client.execute("SELECT distillation_status FROM proactive_captures WHERE id='backlog_0'");
+      expect(oldest.rows[0]!.distillation_status).toBe("distilled");
+      expect(await runProactiveProfileCycle({ repo: ctx.repo, distiller: createRuleBasedProactiveDistiller(),
+        workerId: "worker_test", now: () => now })).toMatchObject({ distilled: 50, failed: 0 });
+      expect((await ctx.client.execute("SELECT count(*) n FROM proactive_captures WHERE distillation_status='distilled'")).rows[0]!.n).toBe(100);
+    } finally { await ctx.cleanup(); }
+  });
+
+  it("recovers capture claims outside the latest 500 without rerunning the distiller", async () => {
+    const ctx = await fixture();
+    try {
+      await ctx.repo.createCapture(tenant, { id: "recovery", revisionId: ctx.revision.id, sourceGrantId: ctx.source.id,
+        sourceKey: ctx.source.sourceKey, contentType: "text/plain", payloadText: "TypeScript", checksum: "recovery",
+        observedAt: "2026-08-28T00:00:00.000Z", ingestedAt: "2026-08-28T00:00:00.000Z" });
+      await ctx.repo.createClaim(tenant, { id: "recovered-claim", revisionId: ctx.revision.id, claimType: "habit",
+        subjectKey: "recovery", content: "existing", evidenceCaptureIds: ["recovery"], sourceGrantIds: [ctx.source.id] });
+      await ctx.client.execute("UPDATE proactive_profile_claims SET updated_at='2020-01-01T00:00:00.000Z'");
+      for (let index = 0; index < 501; index++) await ctx.repo.createClaim(tenant, {
+        id: `other_${index}`, revisionId: ctx.revision.id, claimType: "habit", subjectKey: `other_${index}`, content: "newer" });
+      const result = await runProactiveProfileCycle({ repo: ctx.repo, workerId: "test", now: () => now,
+        distiller: { processorId: "must-not-run", async distill() { throw new Error("recovery lost"); } } });
+      expect(result).toMatchObject({ distilled: 1, failed: 0 });
+      expect((await ctx.repo.listCaptures(tenant))[0]!.distilledMemoryIds).toEqual(["recovered-claim"]);
+    } finally { await ctx.cleanup(); }
+  });
+
+  it.each(["revoke", "delete"] as const)("rejects a stale selected capture when its source is %s during distillation", async (change) => {
+    const ctx = await fixture();
+    try {
+      await ctx.repo.createCapture(tenant, { id: "stale", revisionId: ctx.revision.id, sourceGrantId: ctx.source.id,
+        sourceKey: ctx.source.sourceKey, contentType: "text/plain", payloadText: "must not be derived", checksum: "stale",
+        observedAt: "2026-08-28T00:00:00.000Z", ingestedAt: "2026-08-28T00:00:00.000Z" });
+      const distiller = createRuleBasedProactiveDistiller();
+      const result = await runProactiveProfileCycle({ repo: ctx.repo, workerId: "test", now: () => now,
+        distiller: { processorId: distiller.processorId, async distill(capture) {
+          if (change === "revoke") await ctx.repo.updateSourceGrant(tenant, ctx.source.id, { state: "revoked", actorId: "test" });
+          else await ctx.repo.deleteSourceData(tenant, ctx.source.id, "test");
+          return distiller.distill(capture);
+        } } });
+      expect(result).toMatchObject({ distilled: 0, failed: 1 });
+      expect(await ctx.repo.listClaims(tenant)).toHaveLength(0);
+      expect(await ctx.repo.listObservations(tenant)).toHaveLength(0);
+      expect(await ctx.repo.listDistillationCandidates(tenant, { retryBefore: now.toISOString() })).toHaveLength(0);
+      if (change === "delete") expect((await ctx.repo.listCaptures(tenant, { includeDeleted: true }))[0]!.payloadText).toBeNull();
+    } finally { await ctx.cleanup(); }
+  });
+
+  it("retries an observation committed before claim failure without creating duplicate observations", async () => {
+    const ctx = await fixture();
+    try {
+      await ctx.repo.createCapture(tenant, { id: "retry", revisionId: ctx.revision.id, sourceGrantId: ctx.source.id,
+        sourceKey: ctx.source.sourceKey, contentType: "text/plain", payloadText: "TypeScript", checksum: "retry",
+        observedAt: "2026-08-28T00:00:00.000Z", ingestedAt: "2026-08-28T00:00:00.000Z" });
+      await ctx.client.execute("CREATE TRIGGER fail_claim BEFORE INSERT ON proactive_profile_claims BEGIN SELECT RAISE(ABORT, 'injected'); END");
+      const deps = { repo: ctx.repo, distiller: createRuleBasedProactiveDistiller(), workerId: "test", now: () => now };
+      expect(await runProactiveProfileCycle(deps)).toMatchObject({ distilled: 0, failed: 1 });
+      expect(await ctx.repo.listObservations(tenant)).toHaveLength(1);
+      await ctx.client.execute("DROP TRIGGER fail_claim");
+      await ctx.client.execute("UPDATE proactive_captures SET updated_at='2026-08-28T00:00:00.000Z' WHERE id='retry'");
+      expect(await runProactiveProfileCycle(deps)).toMatchObject({ distilled: 1, failed: 0 });
+      expect(await ctx.repo.listObservations(tenant)).toHaveLength(1);
+      expect(await ctx.repo.listClaims(tenant)).toHaveLength(1);
+    } finally { await ctx.cleanup(); }
+  });
+
   it("blocks and alerts instead of deleting when distillation fails", async () => {
     const ctx = await fixture();
     try {
@@ -98,7 +176,6 @@ describe("CAP-033 proactive profile worker", () => {
         observedAt: oldIngestedAt,
       });
       const result = await runProactiveProfileCycle({
-        db: ctx.db,
         repo: ctx.repo,
         distiller: {
           processorId: "always-fail",

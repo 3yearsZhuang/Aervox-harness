@@ -1,3 +1,4 @@
+import { loadExecutionConfig } from "@aervox/config";
 /**
  * Aervox｜思隅 @aervox/api — CR-031 Turn 流式推送 Pub/Sub 与轮询解耦集成测试
  *
@@ -325,7 +326,7 @@ describe("CR-031 Turn 流式推送 Pub/Sub 解耦", () => {
         sessionId,
         attemptId,
         userMessage: "stable event ids",
-      });
+      }, { executionConfig: loadExecutionConfig() });
 
       const persisted = await repo.getStreamEvents(tenant, turnId, 0);
       expect(persisted.length).toBeGreaterThanOrEqual(3);

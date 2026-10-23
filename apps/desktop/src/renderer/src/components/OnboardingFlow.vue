@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import {computed, onBeforeUnmount, onMounted, ref} from 'vue'
+import {computed, onBeforeUnmount, onMounted, ref, unref} from 'vue'
 import {useAervoxLLM, type LLMConfigDto, type LLMProviderType} from '@aervox/api-client'
-import {AervoxBrandMark, AervoxCompanionMark, Live2DPet} from '@aervox/ui'
-import {applyOnboardingProvider, validateOnboardingModel} from '@/onboarding-model'
+import {AervoxBrandMark, AervoxCompanionMark, Live2DPet} from '@aervox/ui/companion'
+import '@aervox/ui/theme/companion'
+import {applyOnboardingProvider, validateOnboardingModel} from '../onboarding-model'
 
 const emit = defineEmits<{complete: []}>()
 const llm = useAervoxLLM()
@@ -25,8 +26,11 @@ const draftTouched = ref(false)
 const connectionState = ref<'idle' | 'success' | 'error'>('idle')
 const connectionMessage = ref('配置完成后可先测试连接')
 const error = ref<string | null>(null)
+const providerCatalogError = ref<string | null>(null)
+const providersLoading = ref(false)
 const progress = computed(() => `${String(step.value).padStart(2, '0')} / 04`)
-const currentPreset = computed(() => llm.presetProviders.find((item) => item.id === draft.value.providerType))
+const presetProviders = computed(() => unref(llm.presetProviders))
+const currentPreset = computed(() => presetProviders.value.find((item) => item.id === draft.value.providerType))
 /** 步骤 2 · 六能力辐射图节点（取材自产品宣讲包 P02） */
 const webNodes = [
   {label: '学习', x: 310, y: 62, delay: '.55s'},
@@ -53,7 +57,7 @@ function goTo(next: number) {
 
 function handleProviderChange(providerType: LLMProviderType) {
   draftTouched.value = true
-  const preset = llm.presetProviders.find((item) => item.id === providerType)
+  const preset = presetProviders.value.find((item) => item.id === providerType)
   draft.value = applyOnboardingProvider(draft.value, providerType, preset)
   connectionState.value = 'idle'
   connectionMessage.value = '配置已变更，请重新测试连接'
@@ -125,8 +129,18 @@ function onKeydown(event: KeyboardEvent) {
   if (event.key === 'ArrowRight') goTo(step.value + 1)
 }
 
+async function loadProviderCatalog(): Promise<void> {
+  if (providersLoading.value) return
+  providersLoading.value = true
+  providerCatalogError.value = null
+  try { await llm.loadProviders() }
+  catch { providerCatalogError.value = '供应商目录加载失败，已保留当前模型配置。' }
+  finally { providersLoading.value = false }
+}
+
 onMounted(async () => {
   window.addEventListener('keydown', onKeydown)
+  void loadProviderCatalog()
   try {
     const existingConfig = await llm.getConfig()
     if (!draftTouched.value) draft.value = existingConfig
@@ -233,9 +247,14 @@ onBeforeUnmount(() => {
           <label>
             <span>服务提供商</span>
             <select :value="draft.providerType" @change="handleProviderChange(($event.target as HTMLSelectElement).value as LLMProviderType)">
-              <option v-for="item in llm.presetProviders" :key="item.id" :value="item.id">{{ item.name }}</option>
+              <option v-if="!currentPreset" :value="draft.providerType">{{ draft.providerType }}（当前配置）</option>
+              <option v-for="item in presetProviders" :key="item.id" :value="item.id">{{ item.name }}</option>
             </select>
           </label>
+          <div v-if="providerCatalogError || (!providersLoading && presetProviders.length === 0)" class="catalog-feedback">
+            <p :role="providerCatalogError ? 'alert' : 'status'">{{ providerCatalogError || '供应商目录为空，已保留当前模型配置。' }}</p>
+            <button class="test-action" type="button" aria-label="重新加载供应商目录" :disabled="providersLoading" @click="loadProviderCatalog">{{ providersLoading ? '加载中…' : '重新加载目录' }}</button>
+          </div>
           <div class="console-row">
             <label>
               <span>Base URL</span>

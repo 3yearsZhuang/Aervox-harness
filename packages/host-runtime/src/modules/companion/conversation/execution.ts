@@ -18,7 +18,7 @@ export interface ConversationRouteDeps {
   apiRegistry?: import("@aervox/contracts").PluginApiRegistry;
   dshResolver?: import("./dsh-adapter.js").DshTurnAdapterResolver;
   pluginToolCatalog?: import("./plugin-tool-catalog.js").PluginToolCatalog;
-  executionConfig?: import("@aervox/config").ExecutionConfig;
+  executionConfig: import("@aervox/config").ExecutionConfig;
   signal?: AbortSignal;
   prepareExecution?: () => Promise<void>;
   isMcpToolAllowed?: (tool: { id: string; name: string; pluginId?: string | null }) => Promise<boolean>;

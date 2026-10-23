@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   info: vi.fn(), success: vi.fn(), warning: vi.fn(), error: vi.fn(),
 }));
 vi.mock('@aervox/api-client', () => ({
-  getApiBase: () => 'http://localhost:3000',
+  useAervoxClient: () => ({apiBase: 'http://localhost:3000'}),
   useAervoxPlugins: () => ({ getConfig: mocks.getConfig, saveConfig: mocks.saveConfig }),
 }));
 vi.mock('@aervox/ui/utils/element', () => ({ ElMessage: mocks }));

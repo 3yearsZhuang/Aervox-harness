@@ -10,6 +10,7 @@
  */
 import type { DeletionGatePort, ExecutionStorePort } from "./ports.js";
 import type { ExecuteResult } from "./types.js";
+import { awaitWithSignal } from "./abortable.js";
 import type { ControlContext } from "./control-context.js";
 
 /** 收敛器所需的最小上下文（与 executor 解耦，避免整包回传造成循环依赖） */
@@ -34,6 +35,8 @@ export interface TerminatorContext {
   startedAt: number;
   interruptionReason?: () => string | undefined;
   checkFailure?: () => void;
+  /** Host-owned bounded preparation of observable completion, under this Attempt lease. */
+  beforeComplete?: (signal?: AbortSignal) => Promise<void>;
 }
 
 type TerminalOutcome =
@@ -58,6 +61,16 @@ export function createTurnTerminator(ctx: TerminatorContext): TurnTerminator {
   const { execution, turnId, attemptId, sessionId, claimFencingToken, control } = ctx;
 
   const finalize: TurnTerminator["finalize"] = async (atSequence, outcome, event) => {
+    if (outcome.status === "completed" && ctx.beforeComplete) {
+      await awaitWithSignal(ctx.beforeComplete(control?.abortSignal), control?.abortSignal);
+      ctx.checkFailure?.();
+      const interrupted = await prematureTermination(await execution.nextSequence(turnId));
+      if (interrupted) return interrupted;
+      atSequence = await execution.nextSequence(turnId);
+      if (event.eventType === "done") event = { ...event, eventData: {
+        ...(event.eventData && typeof event.eventData === "object" ? event.eventData : {}), lastSequence: atSequence,
+      } };
+    }
     const statuses = { completed: "Completed", cancelled: "Cancelled", interrupted: "Interrupted", failed: "Failed" } as const;
     // Done closes an attempt, including suspensions and unsuccessful execution.
     // Keep its reason in the same atomic record so observers can distinguish a

@@ -1,11 +1,12 @@
+import { getClientTransport } from './client-context.js';
 import { branchesApi, type ConversationBranchResponse, type CreateBranchRequest } from '@aervox/contracts';
 import { requestEndpoint } from './endpoint.js';
-import { getTransport, type AervoxTransport } from './transport.js';
+import { type AervoxTransport } from './transport';
 
 export type ConversationBranchDto = ConversationBranchResponse;
 
 /** Shared branch operations keep their wire semantics and validate both boundaries. */
-export function useAervoxBranches(transport: AervoxTransport = getTransport()) {
+export function useAervoxBranches(transport: AervoxTransport = getClientTransport()) {
   return {
     createBranch: (sessionId: string, input: CreateBranchRequest): Promise<ConversationBranchDto> =>
       requestEndpoint(transport, branchesApi.create, input, { sessionId }),

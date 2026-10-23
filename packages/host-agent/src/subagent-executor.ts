@@ -11,6 +11,8 @@
  */
 import {
   defaultContextBuilder,
+  claimAttemptExecution,
+  awaitWithSignal,
   executeTurn,
   SUBAGENT_DELEGATE_TOOL,
   WORKFLOW_RUN_TOOL,
@@ -23,7 +25,7 @@ import type {
   SubagentRunResult,
   ToolProviderPort,
 } from "@aervox/core";
-import type { ISubagentRunRepository, SqliteConversationRepository, LocalContext } from "@aervox/repositories";
+import type { ISubagentRunRepository, SubagentRunModel, LocalContext } from "@aervox/repositories";
 import type { SqliteExecutionStore } from "./sqlite-execution-store.js";
 
 export interface SqliteSubagentPortDeps {
@@ -31,8 +33,6 @@ export interface SqliteSubagentPortDeps {
   ctx: LocalContext;
   /** 子任务执行存储（与父同源：事件/工具账本/终态落同一库） */
   store: SqliteExecutionStore;
-  /** 建子 turn/attempt（编程式，不触发 API 路由/Outbox——由本执行器直接驱动） */
-  conversationRepo: SqliteConversationRepository;
   /** subagent_runs 关联仓储（溯源 + 结果摘要） */
   runRepo: ISubagentRunRepository;
   /** 子任务模型提供者（宿主决定模型/配置；支持异步构建，如按配置初始化 LLM provider） */
@@ -65,7 +65,6 @@ export function createSqliteSubagentPort(deps: SqliteSubagentPortDeps): Subagent
   const {
     ctx,
     store,
-    conversationRepo,
     runRepo,
     providerBuilder,
     contextBuilder,
@@ -76,93 +75,90 @@ export function createSqliteSubagentPort(deps: SqliteSubagentPortDeps): Subagent
   const genId = deps.genId ?? defaultGenId;
   const subMaxSteps = maxSubSteps ?? 4;
 
+  const asResult = (run: SubagentRunModel): SubagentRunResult => ({
+    subTurnId: run.subTurnId, subAttemptId: run.subAttemptId, status: run.status as AttemptStatus,
+    resultText: run.resultText ?? undefined, error: run.error ?? undefined,
+  });
+  const terminal = new Set(["Completed", "Failed", "Interrupted", "Cancelled"]);
+  const reconcile = async (run: SubagentRunModel): Promise<SubagentRunResult> => {
+    const status = await store.getAttemptStatus({ turnId: run.subTurnId, attemptId: run.subAttemptId });
+    if (status === null) throw new Error("subagent_attempt_unavailable");
+    // Another owner may still hold the lease. Observation never authorizes replay.
+    if (!terminal.has(status)) return { subTurnId: run.subTurnId, subAttemptId: run.subAttemptId, status: "Running" };
+    if (run.status !== "Running") return asResult(run);
+    const events = (await store.listEvents(run.subTurnId)).filter(event => event.attemptId === run.subAttemptId);
+    const resultText = status === "Completed" ? events.filter(event => event.eventType === "delta")
+      .map(event => (event.data as { text?: string }).text ?? "").join("") : undefined;
+    const error = status === "Completed" ? undefined : status === "Cancelled" ? "subagent_cancelled"
+      : status === "Interrupted" ? "subagent_interrupted" : "subagent_failed";
+    const updated = await runRepo.finalizeRun(ctx, run.id, { status, resultText, error });
+    if (updated) return asResult(updated);
+    // A concurrent observer may have committed the same terminal projection first.
+    const settled = await runRepo.getRunByParentExecution(ctx, run.parentAttemptId, run.parentExecutionId);
+    if (!settled || settled.status === "Running") throw new Error("subagent_reconciliation_unavailable");
+    return asResult(settled);
+  };
+
   return {
     async delegate(input): Promise<SubagentRunResult> {
       const { parentTurnId, parentAttemptId, parentExecutionId, sessionId, task, controlContext } = input;
       controlContext?.abortSignal.throwIfAborted();
 
-      // 幂等：同一父执行键已有子任务 → 复用既有结果（崩溃/重试不重复创建；Host 幂等键语义 §9）
-      const existing = await runRepo.getRunByParentExecution(ctx, parentAttemptId, parentExecutionId);
-      if (existing) {
-        return {
-          subTurnId: existing.subTurnId,
-          subAttemptId: existing.subAttemptId,
-          status: existing.status as AttemptStatus,
-          resultText: existing.resultText ?? undefined,
-          error: existing.error ?? undefined,
-        };
-      }
-
-      // 递归防护：子任务工具集不得含 delegate/workflow（fail-closed）
-      if (childTools && childTools.tools.some((t) => CHILD_FORBIDDEN_TOOLS.has(t.name))) {
+      // Reject recursive capability before any durable admission.
+      if (childTools && childTools.tools.some(t => CHILD_FORBIDDEN_TOOLS.has(t.name))) {
         throw new Error(`subagent childTools must not contain ${[...CHILD_FORBIDDEN_TOOLS].join(" / ")}`);
       }
-
-      const subTurnId = genId("turn");
-      const subAttemptId = genId("attempt");
-      const runId = genId("subrun");
-
-      // 1) 子任务落库：Turn/消息/首个 Attempt 单写者事务（崩溃窗口不可再产生无 Attempt 的孤儿 Turn；
-      //    不消费 Inbox、不写 Outbox）。命中既有幂等键时复用其 Turn 与 Running Attempt（崩溃重试）。
-      const acceptance = await conversationRepo.createTurnWithAttempt(ctx, {
-        turnId: subTurnId,
-        sessionId,
-        idempotencyKey: `subagent:${parentExecutionId}`,
-        message: { id: `msg_${subTurnId}_user`, content: task },
-        attemptId: subAttemptId,
+      const accepted = await runRepo.acceptRun(ctx, {
+        id: genId("subrun"), sessionId, parentTurnId, parentAttemptId, parentExecutionId,
+        subTurnId: genId("turn"), subAttemptId: genId("attempt"), task,
       });
-      const effectiveTurnId = acceptance.turn.id;
-      let effectiveAttemptId: string;
-      if (acceptance.created) {
-        effectiveAttemptId = acceptance.attempt.id;
-      } else {
-        const attempts = await conversationRepo.listTurnAttempts(ctx, effectiveTurnId);
-        effectiveAttemptId = attempts.find((a) => a.status === "Running")?.id
-          ?? (await conversationRepo.createTurnAttempt(ctx, effectiveTurnId, { id: subAttemptId })).id;
-      }
-      await runRepo.createRun(ctx, {
-        id: runId,
-        sessionId,
-        parentTurnId,
-        parentAttemptId,
-        parentExecutionId,
-        subTurnId: effectiveTurnId,
-        subAttemptId: effectiveAttemptId,
-        task,
-      });
-
-      // 2) 嵌套执行（executeTurn 内部 claim 子 attempt：Running+fencing0 → 可领）
+      const run = accepted.run;
+      const effectiveTurnId = run.subTurnId;
+      const effectiveAttemptId = run.subAttemptId;
+      if (!accepted.created) return reconcile(run);
+      const identity = { turnId: effectiveTurnId, sessionId, attemptId: effectiveAttemptId };
+      const lifecycle = await claimAttemptExecution(identity, { execution: store, controlContext });
+      if (!lifecycle.ok) return reconcile(run);
       let status: AttemptStatus = "Failed";
       let failureReason: string | undefined;
+      let handedOff = false;
+      const execution: SqliteExecutionStore = Object.create(store);
+      execution.claimTurnAttempt = async requested => {
+        lifecycle.checkFailure();
+        lifecycle.control.abortSignal.throwIfAborted();
+        if (handedOff || requested.turnId !== effectiveTurnId || requested.attemptId !== effectiveAttemptId) {
+          return { ok: false, reason: "already_claimed" };
+        }
+        handedOff = true;
+        lifecycle.stopMonitoring();
+        return lifecycle.claim;
+      };
       try {
-        const provider = await providerBuilder({ turnId: effectiveTurnId, sessionId, attemptId: effectiveAttemptId, controlContext });
-        const result = await executeTurn(
-          {
-            execution: store,
-            provider,
-            contextBuilder: builder,
-            tools: childTools,
-            controlContext,
-            options: {
-              maxSteps: subMaxSteps,
-              // 截止继承：父级有截止时把剩余墙钟交给子 Turn 终结器（无父截止保持既有行为）
-              ...(controlContext?.deadlineEpochMs !== undefined
-                ? { maxTurnDurationMs: Math.max(1, controlContext.deadlineEpochMs - Date.now()) }
-                : {}),
-            },
+        const provider = await awaitWithSignal(Promise.resolve().then(() => providerBuilder({
+          ...identity, controlContext: lifecycle.control,
+        })), lifecycle.control.abortSignal);
+        const result = await executeTurn({
+          execution, provider, contextBuilder: builder, tools: childTools, controlContext: lifecycle.control,
+          options: { maxSteps: subMaxSteps,
+            ...(controlContext?.deadlineEpochMs !== undefined
+              ? { maxTurnDurationMs: Math.max(1, controlContext.deadlineEpochMs - Date.now()) } : {}),
           },
-          { turnId: effectiveTurnId, sessionId, attemptId: effectiveAttemptId, userMessage: task },
-        );
-        status =
-          result.status === "completed"
-            ? "Completed"
-            : result.status === "cancelled"
-              ? "Cancelled"
-              : "Failed"; // Interrupted/skipped 收敛为 Failed：子任务无续跑，父侧可据 error 重试
+        }, { ...identity, userMessage: task });
+        status = result.status === "completed" ? "Completed" : result.status === "cancelled" ? "Cancelled"
+          : result.status === "interrupted" ? "Interrupted" : "Failed";
       } catch (err) {
-        status = "Failed";
-        // 终态信息仍由事件流 + run 行承载；此处保留原始失败原因（如本地处理限制拒绝）供父级与审计可见
         failureReason = err instanceof Error ? err.message : String(err);
+        // Model setup is part of admission. Its failure cannot leave a Running child.
+        lifecycle.checkFailure();
+        const sequence = (await store.listEvents(effectiveTurnId)).reduce((n, event) => Math.max(n, event.sequence), 0) + 1;
+        const stopped = await lifecycle.terminator.prematureTermination(sequence);
+        const result = stopped ?? await lifecycle.terminator.finalize(sequence, { status: "failed", reason: failureReason }, {
+          eventType: "error", eventData: { code: "SUBAGENT_SETUP_FAILED", message: "Subagent execution failed", retryable: false },
+          safetyDecision: "approved",
+        });
+        status = result.status === "cancelled" ? "Cancelled" : result.status === "interrupted" ? "Interrupted" : "Failed";
+      } finally {
+        lifecycle.dispose();
       }
 
       // 3) 聚合子任务正文（delta 事件文本）→ 终态收口 run 行
@@ -179,9 +175,9 @@ export function createSqliteSubagentPort(deps: SqliteSubagentPortDeps): Subagent
           resultText = undefined;
         }
       } else {
-        error = status === "Cancelled" ? "subagent_cancelled" : (failureReason ?? "subagent_failed");
+        error = status === "Cancelled" ? "subagent_cancelled" : (failureReason ?? (status === "Interrupted" ? "subagent_interrupted" : "subagent_failed"));
       }
-      await runRepo.finalizeRun(ctx, runId, { status, resultText, error });
+      await runRepo.finalizeRun(ctx, run.id, { status, resultText, error });
 
       return { subTurnId: effectiveTurnId, subAttemptId: effectiveAttemptId, status, resultText, error };
     },

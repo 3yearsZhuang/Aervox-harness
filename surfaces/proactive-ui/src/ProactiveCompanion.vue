@@ -10,14 +10,17 @@
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, type Component } from 'vue';
 import { useUISurfaceContext } from '@aervox/ui-host';
-import { AervoxBrandMark, PetWithFallback, UserQuestionComposer, readCompanionIdentity } from '@aervox/ui';
-import { createConversationController, getTransport, useAervoxSessions } from '@aervox/api-client';
+import { AervoxBrandMark, PetWithFallback, UserQuestionComposer, readCompanionIdentity } from '@aervox/ui/companion';
+import { createConversationController, getClientTransport, useAervoxSessions } from '@aervox/api-client';
 import { ArrowUpRight, MessageSquare, RotateCcw, Settings, Square, X } from 'lucide-vue-next';
 import type { AskUserQuestionAnswerItem } from '@aervox/contracts';
 import { useDialogueTyper } from './dialogue-typer';
 import MobileSettingsDialog from './MobileSettingsDialog.vue';
+import '@aervox/ui/theme/companion';
+import type { SurfaceNavigation } from '@aervox/ui/companion';
 
 const props = withDefaults(defineProps<{
+  surfaceNavigation?: SurfaceNavigation;
   settingsPanels?: readonly { category: string; component: Component }[];
 }>(), { settingsPanels: () => [] });
 const settingsOpen = ref(false);
@@ -62,7 +65,7 @@ interface FailedTurn {
   sessionId?: string;
 }
 const failedTurn = ref<FailedTurn>();
-const turnController = createConversationController(getTransport(), surface.signal);
+const turnController = createConversationController(getClientTransport(), surface.signal);
 const conversationState = ref(turnController.state);
 const unsubscribeConversation = turnController.subscribe(state => { conversationState.value = state; });
 const interactionBusy = ref(false);
@@ -277,14 +280,7 @@ async function retryTurn() {
 }
 
 /* ---------- 回到默认工作台（逃生口） ---------- */
-function backToDefaultSurface() {
-  try {
-    localStorage.setItem('aervox.surface.main', 'workbench-ui');
-  } catch { /* 存储不可用时忽略 */ }
-  const target = new URL(window.location.href);
-  target.searchParams.set('surface', 'workbench-ui');
-  window.location.replace(target.toString());
-}
+function backToDefaultSurface() { props.surfaceNavigation?.openDefault(); }
 
 /* Follow the visible viewport when a mobile keyboard or browser toolbar moves. */
 const viewportHeight = ref<number>();
@@ -330,7 +326,7 @@ onBeforeUnmount(() => {
       <div class="pc-brand"><AervoxBrandMark class="pc-brand-mark" :size="28" aria-hidden="true" /><span>思隅</span></div>
       <div class="pc-top-right">
         <button class="pc-quiet-btn" type="button" title="设置" aria-label="打开设置" @click="settingsOpen = true"><Settings :size="18" aria-hidden="true" /></button>
-        <button class="pc-quiet-btn" type="button" title="回到完整工作台" aria-label="回到完整工作台" @click="backToDefaultSurface"><ArrowUpRight :size="19" aria-hidden="true" /></button>
+        <button v-if="surfaceNavigation" class="pc-quiet-btn" type="button" title="回到完整工作台" aria-label="回到完整工作台" @click="backToDefaultSurface"><ArrowUpRight :size="19" aria-hidden="true" /></button>
       </div>
     </header>
 

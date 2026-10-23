@@ -2,7 +2,7 @@
 import { createHash } from "node:crypto";
 import { stableSerialize } from "@aervox/core";
 import { createReviewItem, updateAfterAnswer } from "@aervox/practice-review";
-import type { LearningAnswerCommand, LearningAnswerCommandPort, LearningAnswerPolicy, LocalContext } from "@aervox/repositories";
+import type { LearningAnswerCommand, LearningAnswerCommandPort, LearningAnswerPolicy, ReviewSchedulePort, LocalContext } from "@aervox/repositories";
 
 const answerPolicy: LearningAnswerPolicy = {
   judge(answerSpec, answer) {
@@ -35,6 +35,15 @@ export function createLearningAnswerService(port: LearningAnswerCommandPort) {
             correctAnswer: input.correctAnswer, judgement: input.judgement, explanation: input.explanation ?? null, knowledgeConcept: input.knowledgeConcept ?? null, source: input.source ?? "plugin" };
       const requestDigest = createHash("sha256").update(stableSerialize(request)).digest("hex");
       return port.recordAnswer(ctx, { ...input, requestDigest }, answerPolicy);
+    },
+  };
+}
+
+/** Review self-assessment shares answer derivation, evaluated under the writer lock. */
+export function createLearningReviewService(port: Pick<ReviewSchedulePort, "completeReviewAndSchedule">) {
+  return {
+    completeReview(ctx: LocalContext, input: { reviewId: string; isCorrect: boolean; timeZone?: string }) {
+      return port.completeReviewAndSchedule(ctx, input, answerPolicy.derive);
     },
   };
 }

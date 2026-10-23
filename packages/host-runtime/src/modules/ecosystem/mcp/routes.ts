@@ -11,6 +11,8 @@
  * 上游失败（无法连接 / 401 / 429）统一映射 502 MCP_UPSTREAM_ERROR；
  * 服务器配置状态仍落库（status=error + lastError）供 UI 展示。
  */
+import { mcpApi } from "@aervox/contracts";
+import { registerContractRoute } from "../../../shared/contract-route.js";
 import type { FastifyInstance } from "fastify";
 import { McpUpstreamError } from "./client.js";
 import type { DshMcpBridge } from "./dsh-bridge.js";
@@ -21,11 +23,11 @@ export function registerMcpRoutes(
   service: McpService,
   dshBridge?: DshMcpBridge,
 ): void {
-  app.get("/v1/mcp/presets", async () => ({ presets: await service.listPresets() }));
+  registerContractRoute(app, mcpApi.presets, async () => ({ presets: await service.listPresets() }));
 
-  app.get("/v1/mcp/servers", async () => ({ servers: await service.listServers() }));
+  registerContractRoute(app, mcpApi.servers, async () => ({ servers: await service.listServers() }));
 
-  app.get("/v1/mcp/servers/:serverId/tools", async (req, reply) => {
+  registerContractRoute(app, mcpApi.tools, async (req, reply) => {
     const { serverId } = req.params as { serverId: string };
     try {
       return { tools: await service.listServerTools(serverId) };
@@ -34,7 +36,7 @@ export function registerMcpRoutes(
     }
   });
 
-  app.post("/v1/mcp/servers/:serverId/connect", async (req, reply) => {
+  registerContractRoute(app, mcpApi.connect, async (req, reply) => {
     const { serverId } = req.params as { serverId: string };
     const body = (req.body ?? {}) as { token?: string };
     try {
@@ -45,7 +47,7 @@ export function registerMcpRoutes(
     }
   });
 
-  app.post("/v1/mcp/servers/:serverId/sync", async (req, reply) => {
+  registerContractRoute(app, mcpApi.sync, async (req, reply) => {
     const { serverId } = req.params as { serverId: string };
     try {
       const server = await service.syncServer(serverId);
@@ -55,7 +57,7 @@ export function registerMcpRoutes(
     }
   });
 
-  app.post("/v1/mcp/servers/:serverId/disconnect", async (req, reply) => {
+  registerContractRoute(app, mcpApi.disconnect, async (req, reply) => {
     const { serverId } = req.params as { serverId: string };
     try {
       const server = await service.disconnectServer(serverId);

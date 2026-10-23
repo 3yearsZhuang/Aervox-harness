@@ -43,6 +43,7 @@ import {
   runStartupDiary,
   createUIRegistry,
   provideUIRegistry,
+  type SurfaceNavigation,
   resolveOutgoingMessage,
   MizukiExpression,
   petReact,
@@ -51,15 +52,17 @@ import {
 import { useUISurfaceContext } from '@aervox/ui-host';
 import { PanelLeft } from 'lucide-vue-next';
 
-import { createConversationController, getTransport, useAervoxApi, useAervoxPlugins, useAervoxProjects, useAervoxSessions } from '@aervox/api-client';
+import { createConversationController, getClientTransport, useAervoxApi, useAervoxPlugins, useAervoxProjects, useAervoxSessions } from '@aervox/api-client';
 import type { TurnCallbacks } from '@aervox/api-client';
 import type { TurnAttachmentRef } from '@aervox/contracts';
 
 const surfaceContext = useUISurfaceContext();
+const desktopProactiveBridge = proactiveBridge();
 
 const props = withDefaults(
   defineProps<{
     platform?: Platform;
+    surfaceNavigation?: SurfaceNavigation;
     showCompanion?: boolean;
     /** ADR-027：陪伴角色名（默认「小隅」）；「思隅」是空间名，不再是角色名 */
     companionName?: string;
@@ -140,7 +143,7 @@ const timer = useWorkbenchTimer({
 });
 
 // 4. Shared conversation policy and surface presentation
-const turnController = createConversationController(getTransport(), surfaceContext.signal);
+const turnController = createConversationController(getClientTransport(), surfaceContext.signal);
 const conversation = useWorkbenchConversation({
   recordActivity: proactive.recordProactiveActivity,
   onRefreshProactiveStatus: proactive.refreshProactiveStatus,
@@ -420,6 +423,7 @@ let pluginRuntime: ReturnType<typeof createWorkbenchPluginRuntime> | undefined;
 
 // 提供全局上下文供所有子组件和插件使用
 const workbenchContext = {
+  surfaceNavigation: props.surfaceNavigation,
   layout,
   timer,
   composer,
@@ -447,6 +451,7 @@ const workbenchContext = {
 };
 provideWorkbenchContext(workbenchContext);
 
+const pluginApi = useAervoxPlugins();
 const pluginContext: UIPluginContext = Object.freeze({
   navigation: Object.freeze({openTool: layout.openTool, runMenuAction: layout.runMenuAction,
     closeTaskCenter: () => { layout.taskCenterOpen.value = false; }, setQuietStartup: layout.setQuietStartup}),
@@ -454,7 +459,6 @@ const pluginContext: UIPluginContext = Object.freeze({
   conversation: Object.freeze({streaming: computed(() => conversation.streaming.value), latestAssistantText: computed(() => conversation.latestAssistantLine.value?.text ?? '')}),
   learning, pluginEvents, pluginState, sendMessage,
   async refreshPluginUI() {
-    const pluginApi = useAervoxPlugins();
     await pluginApi.loadPlugins();
     if (pluginApi.error.value) throw new Error(pluginApi.error.value);
     await pluginRuntime?.sync(pluginApi.plugins.value, (id) => pluginApi.getConfig(id));
@@ -552,7 +556,7 @@ onMounted(() => {
   }
 
   if (!layout.isWeb.value) {
-    const bridge = proactiveBridge();
+    const bridge = desktopProactiveBridge;
     removeProactiveStatusListener = bridge?.onStatusChange((status) => {
       proactive.proactiveStatus.value = status;
       proactive.proactiveAutostart.value = status.persistence.autostart;

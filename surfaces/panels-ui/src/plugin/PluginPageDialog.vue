@@ -2,10 +2,11 @@
 import {computed, nextTick, onBeforeUnmount, ref, watch} from 'vue'
 import {ElMessage} from '@aervox/ui/utils/element'
 import {LayoutGrid} from 'lucide-vue-next'
-import {getApiBase, useAervoxPlugins, type PluginPageDto, type PluginSummaryDto} from '@aervox/api-client'
+import {useAervoxClient, useAervoxPlugins, type PluginPageDto, type PluginSummaryDto} from '@aervox/api-client'
 import type {PluginConfigSnapshot} from '@aervox/contracts'
 import {AervoxDialog, AervoxButton} from '@aervox/ui/primitives'
 
+const client = useAervoxClient()
 const props = defineProps<{
   open: boolean
   plugin: PluginSummaryDto | null
@@ -48,7 +49,7 @@ const iframeSrc = computed(() => {
   if (/[\\\u0000-\u001f\u007f]/.test(relative)
     || segments.some(segment => !segment || segment === '.' || segment === '..')) return ''
   const assetPath = segments.map(segment => encodeURIComponent(segment)).join('/')
-  return `${getApiBase()}/v1/plugins/${encodeURIComponent(props.plugin.id)}/pages/${encodeURIComponent(props.page.id)}/assets/${assetPath}`
+  return `${client.apiBase}/v1/plugins/${encodeURIComponent(props.plugin.id)}/pages/${encodeURIComponent(props.page.id)}/assets/${assetPath}`
 })
 
 function isCurrent(current: PageSession): boolean {

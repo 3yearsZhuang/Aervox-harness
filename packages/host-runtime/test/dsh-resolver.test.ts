@@ -33,8 +33,8 @@ describe("host-scoped DSH admission", () => {
     const factory = vi.fn(() => new Promise(resolve => { complete = resolve; }));
     const host = createDshTurnAdapterResolver({ repoRoot: "/root", workingDirectory: "/root" }, factory as unknown as typeof createDSHAdapterDriver);
     const controller = new AbortController();
-    const pending = runDshAdapterTurn({} as never, { workspaceId: "local", subjectUserId: "local" }, {} as never,
-      { turnId: "turn", sessionId: "session", attemptId: "attempt", userMessage: "hello", signal: controller.signal }, undefined, host);
+    const pending = runDshAdapterTurn({} as never,
+      { turnId: "turn", sessionId: "session", attemptId: "attempt", userMessage: "hello", signal: controller.signal }, host);
     controller.abort(new Error("admission_cancelled"));
     await expect(pending).rejects.toThrow("admission_cancelled");
     complete({ ...admitted(close), handle: { driver: { id: "dsh", run }, close } } as ReturnType<typeof admitted>);

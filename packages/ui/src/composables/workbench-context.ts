@@ -11,7 +11,10 @@ import type { PluginEventBus } from './plugin-events';
 import type { PluginStateStore } from './plugin-state';
 import type { UseAervoxProjectsReturn, UseAervoxSessionsReturn } from '@aervox/api-client';
 
+import type { SurfaceNavigation } from '../surface-navigation';
+
 export interface WorkbenchContext {
+  surfaceNavigation?: SurfaceNavigation;
   layout: WorkbenchLayoutComposable;
   timer: WorkbenchTimerComposable;
   composer: WorkbenchComposerComposable;

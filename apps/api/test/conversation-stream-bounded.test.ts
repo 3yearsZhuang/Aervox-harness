@@ -16,8 +16,13 @@ describe("bounded durable SSE over HTTP and paused TCP", () => {
   let database: Awaited<ReturnType<typeof createInMemoryDatabase>>;
   let app: FastifyInstance; let repo: SqliteConversationRepository;
   const clients: (Socket | ClientRequest)[] = [];
+  let page: ReturnType<typeof vi.spyOn>;
+  let highWaterSpy: ReturnType<typeof vi.spyOn>;
+  const highWater = SqliteConversationRepository.prototype.getStreamEventHighWater;
   beforeEach(async () => {
     process.env.AERVOX_LOOP_PROVIDER = "replay";
+    page = vi.spyOn(SqliteConversationRepository.prototype, "getStreamEventsPage");
+    highWaterSpy = vi.spyOn(SqliteConversationRepository.prototype, "getStreamEventHighWater");
     database = await createInMemoryDatabase(); repo = new SqliteConversationRepository(database.db);
     app = (await buildApp({ db: database.db, client: database.client })).app;
     await repo.getOrCreateSession(ctx, "session");
@@ -44,7 +49,6 @@ describe("bounded durable SSE over HTTP and paused TCP", () => {
   it("natural socket backpressure pauses SQLite pages and detachment preserves replayable events", async () => {
     // Fixed synthetic input: 32 x 192 KiB data (6 MiB), temporary SQLite only.
     for (let i = 1; i <= 32; i += 1) await append(i, "x".repeat(192 * 1024));
-    const page = vi.spyOn(SqliteConversationRepository.prototype, "getStreamEventsPage");
     let raw!: ServerResponse; let falseWrites = 0; let peakQueuedBytes = 0;
     app.addHook("onRequest", async (req, reply) => {
       if (!req.url.endsWith("/events")) return;
@@ -84,13 +88,11 @@ describe("bounded durable SSE over HTTP and paused TCP", () => {
   it("replays 600 persisted rows in capped pages and includes a commit in the snapshot window", async () => {
     for (let i = 1; i <= 600; i += 1) await append(i, `event ${i}`);
     await repo.finalizeTurnAttempt(ctx, { turnId: "turn", attemptId: "attempt", status: "Completed" });
-    const highWater = SqliteConversationRepository.prototype.getStreamEventHighWater;
-    vi.spyOn(SqliteConversationRepository.prototype, "getStreamEventHighWater").mockImplementationOnce(async function (tenant, turnId) {
+    highWaterSpy.mockImplementationOnce(async function (tenant, turnId) {
       const snapshot = await highWater.call(this, tenant, turnId);
       const terminal = await append(601, "snapshot-window terminal", "done");
       turnStreamHub.publishEvent("turn", terminal); return snapshot;
     });
-    const page = vi.spyOn(SqliteConversationRepository.prototype, "getStreamEventsPage");
     const base = await app.listen({ host: "127.0.0.1", port: 0 });
     const body = await read(`${base}/v1/turns/turn/events`);
     expect(parse(body).map(e => e.sequence)).toEqual(Array.from({ length: 601 }, (_, i) => i + 1));

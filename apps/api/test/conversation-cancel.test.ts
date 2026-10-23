@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/api — 阶段 2b 用户取消闭环集成测试
  *
  * 覆盖 AVX-HAR-001 §11.1 路由层语义：
- * - Running Attempt 可被取消（Attempt → CancelRequested，turn → Cancelled，不覆盖终态）；
+ * - Running Attempt 可被取消（未领取 Attempt 与 Turn 原子 Cancelled，不覆盖终态）；
  * - 已终态 Turn 取消被拒绝（409 turn_already_finalized）；
  * - 不存在 Turn 返回 404。
  */
@@ -52,7 +52,7 @@ describe("阶段 2b 用户取消（POST /v1/turns/:id/cancel）", () => {
     await repo.createTurnAttempt(tenant, turnId, { id: `atp_${turnId}`, attempt: 1 });
   }
 
-  it("Running Attempt 取消成功：Attempt → CancelRequested，turn → Cancelled（未终态不覆盖）", async () => {
+  it("Running Attempt 取消成功：未领取 Attempt 与 Turn 原子 Cancelled（未终态不覆盖）", async () => {
     const turnId = "turn_cancel_ok";
     await seedRunningTurn(turnId, "ses_cancel_ok");
 
@@ -60,7 +60,8 @@ describe("阶段 2b 用户取消（POST /v1/turns/:id/cancel）", () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ turnId, status: "Cancelled", cancelled: true });
     const attempts = await repo.listTurnAttempts(tenant, turnId);
-    expect(attempts[0]?.status).toBe("CancelRequested");
+    expect(attempts[0]?.status).toBe("Cancelled");
+    expect((await repo.getStreamEvents(tenant, turnId)).filter(event => event.eventType === "done")).toHaveLength(1);
   });
 
   it("已终态 Turn 取消被拒：409 turn_already_finalized，终态不被覆盖", async () => {

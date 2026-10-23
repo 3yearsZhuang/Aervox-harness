@@ -1,12 +1,13 @@
 /**
  * Aervox｜思隅 @aervox/repositories — 原始捕获/观察数据摄取、提炼与保留清理 Store
  */
-import { and, asc, desc, eq, inArray, isNull, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
 import {
   proactiveAuditEvents,
   proactiveCaptures,
   proactiveObservations,
+  proactiveProfileRevisions,
   proactiveSourceGrants,
 } from "@aervox/schema";
 import { DomainConflictError, RepositoryNotFoundError } from "../../../errors.js";
@@ -181,6 +182,19 @@ export class CaptureStore {
       payload: { sourceKey: input.sourceKey, checksum: input.checksum, byteSize: computedSize },
     });
     return toCapture(created, true, this.cipher);
+  }
+
+  /** Select and decode the exact work batch; presentation windows never determine queue visibility. */
+  async listDistillationCandidates(ctx: LocalContext, options: { retryBefore: string; limit?: number }): Promise<ProactiveCaptureModel[]> {
+    const rows = await this.db.select({ capture: proactiveCaptures }).from(proactiveCaptures)
+      .innerJoin(proactiveProfileRevisions, eq(proactiveProfileRevisions.id, proactiveCaptures.revisionId))
+      .innerJoin(proactiveSourceGrants, eq(proactiveSourceGrants.id, proactiveCaptures.sourceGrantId))
+      .where(and(isNull(proactiveCaptures.deletedAt), eq(proactiveProfileRevisions.status, "active"),
+        eq(proactiveProfileRevisions.desiredState, "enabled"), eq(proactiveSourceGrants.state, "granted"),
+        or(eq(proactiveCaptures.distillationStatus, "pending"),
+          and(inArray(proactiveCaptures.distillationStatus, ["failed", "blocked"]), lte(proactiveCaptures.updatedAt, options.retryBefore)))))
+      .orderBy(asc(proactiveCaptures.ingestedAt), asc(proactiveCaptures.id)).limit(clampLimit(options.limit, 50));
+    return rows.map(row => toCapture(row.capture, true, this.cipher));
   }
 
   async listCaptures(

@@ -21,6 +21,7 @@ vi.mock('@aervox/api-client', async (importOriginal) => ({
   ...await importOriginal<typeof import('@aervox/api-client')>(),
   useAervoxLLM: () => ({
     ...llm,
+    loadProviders: async () => undefined,
     presetProviders: [{ id: 'ollama', name: 'Ollama', defaultBaseUrl: 'http://localhost:11434/v1', recommendedModels: ['example-model'] }],
   }),
 }));

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Fastify from "fastify";
 import { loadExecutionConfig } from "@aervox/config";
 import { createInMemoryDatabase, SqliteConversationRepository } from "@aervox/repositories";
-import { registerConversationRoutes } from "@aervox/host-runtime-test/modules/companion/conversation/routes";
+import { registerConversationRoutes } from "./conversation-fixture.js";
 import { setRequestLocalContext } from "@aervox/host-runtime-test/shared/local-context";
 import { replayTurnResponseSchema, turnAcceptanceConflictSchema } from "@aervox/contracts";
 

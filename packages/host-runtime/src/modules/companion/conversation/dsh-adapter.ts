@@ -19,7 +19,6 @@ import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { createDSHAdapterDriver, runAdapterTurn, type SqliteExecutionStore } from "@aervox/host-agent";
 import { awaitWithSignal, type AdapterDriverPort } from "@aervox/core";
-import type { LocalContext, SqliteConversationRepository } from "@aervox/repositories";
 
 export interface DshTurnAdapterOverrides {
   /** 测试注入：显式仓库根（跳过 cwd 向上查找与环境变量） */
@@ -108,8 +107,6 @@ export async function failTurnWithError(
  * 准入失败（子模块缺失/固定 SHA 漂移）fail-closed 写 error 事件 + Failed，不静默回退 native。
  */
 export async function runDshAdapterTurn(
-  _repo: SqliteConversationRepository,
-  _context: LocalContext,
   store: SqliteExecutionStore,
   input: {
     turnId: string;
@@ -121,8 +118,8 @@ export async function runDshAdapterTurn(
     signal?: AbortSignal;
     deadlineEpochMs?: number;
     deletionGate?: import("@aervox/core").DeletionGatePort;
+    beforeComplete?: (signal?: AbortSignal) => Promise<void>;
   },
-  onFinalized: ((status: "Completed" | "Failed" | "Interrupted") => Promise<void>) | undefined,
   resolver: DshTurnAdapterResolver,
 ): Promise<void> {
   const resolved = await awaitWithSignal(resolver.resolve(), input.signal);
@@ -130,18 +127,12 @@ export async function runDshAdapterTurn(
     await failTurnWithError(store, input.turnId, input.attemptId, resolved.reason, "ADAPTER_UNAVAILABLE", input.preparationFencingToken);
     return;
   }
-  const result = await runAdapterTurn(store, resolved.driver, {
+  await runAdapterTurn(store, resolved.driver, {
     turnId: input.turnId,
     sessionId: input.sessionId,
     attemptId: input.attemptId,
     userMessage: input.userMessage,
     systemPrompt: input.systemPrompt,
-    deadlineEpochMs: input.deadlineEpochMs, signal: input.signal, deletionGate: input.deletionGate,
+    deadlineEpochMs: input.deadlineEpochMs, signal: input.signal, deletionGate: input.deletionGate, beforeComplete: input.beforeComplete,
   });
-  if (!result.committed) return;
-  if (result.status === "Completed") {
-    await onFinalized?.("Completed");
-  } else if (result.status === "Failed" || result.status === "Interrupted" || result.status === "Cancelled") {
-    if (result.status !== "Cancelled") await onFinalized?.(result.status);
-  }
 }

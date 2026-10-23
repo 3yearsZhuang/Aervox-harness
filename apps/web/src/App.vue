@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {resolveSurfaceChoice, resolveWebPlatform, UISurfaceHost} from '@aervox/ui-host'
+import {createSurfaceNavigation, resolveSurfaceChoice, resolveWebPlatform, UISurfaceHost} from '@aervox/ui-host'
 import defaultSurface, {compactSurface} from '@aervox/plugin-workbench-ui'
 import proactiveSurface from '@aervox/plugin-proactive-ui'
 // CR-060：第一方插件按**包路径**装配，宿主不绑定插件私有符号（见 check-host-domain-purity）
@@ -18,10 +18,15 @@ const platform = resolveWebPlatform({
 let surfaceStorage: Storage | undefined
 try { surfaceStorage = window.localStorage } catch { /* 浏览器禁止存储时仍按平台或 URL 打开 */ }
 // CR-065 切片六：组合根显式持有受信界面清单，按用户选择（?surface= 或本地存储）装配根界面
-const mainSurface = resolveSurfaceChoice([defaultSurface, compactSurface, proactiveSurface], surfaceStorage, {
+const availableSurfaces = [defaultSurface, compactSurface, proactiveSurface]
+const mainSurface = resolveSurfaceChoice(availableSurfaces, surfaceStorage, {
   storageKey: 'aervox.surface.main',
   defaultSurfaceId: platform === 'mobile' ? proactiveSurface.id : defaultSurface.id,
   queryValue: new URLSearchParams(window.location.search).get('surface'),
+})
+const surfaceNavigation = createSurfaceNavigation(availableSurfaces, {
+  currentSurfaceId: mainSurface.id, defaultSurfaceId: defaultSurface.id, storageKey: 'aervox.surface.main',
+  storage: surfaceStorage, location: window.location,
 })
 </script>
 
@@ -32,7 +37,7 @@ const mainSurface = resolveSurfaceChoice([defaultSurface, compactSurface, proact
     :request-reload="reloadSurface"
     surface="main"
     :platform="platform"
-    :view-props="{ showCompanion: platform === 'web' }"
+    :view-props="{ showCompanion: platform === 'web', surfaceNavigation }"
     :plugins="firstPartyPlugins"
     :settings-panels="settingsPanels"
   />

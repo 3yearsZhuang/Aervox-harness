@@ -1,6 +1,7 @@
 import type { SqliteConversationRepository } from "@aervox/repositories";
-import { executeAcceptedConversationTurn } from "./application.js";
-import type { ConversationRouteDeps } from "./routes.js";
+import type { ConversationTurnInput } from "./execution.js";
+import type { LocalContext } from "@aervox/repositories";
+import type { Observability } from "@aervox/observability";
 import { turnStreamHub } from "./stream-hub.js";
 
 const terminal = new Set(["Completed", "Failed", "Interrupted", "Cancelled"]);
@@ -36,8 +37,11 @@ export class ApiOwnedTurnRecovery {
   private closed = false;
   private readonly active = new Map<string, string>();
 
-  constructor(private readonly repo: SqliteConversationRepository, private readonly deps: ConversationRouteDeps,
-    before = new Date().toISOString()) { this.before = before; }
+  constructor(private readonly repo: SqliteConversationRepository,
+    private readonly execute: (ctx: LocalContext, input: ConversationTurnInput) => Promise<void>,
+    private readonly options: { before?: string; observability?: Observability } = {},
+  ) { this.before = options.before ?? new Date().toISOString(); }
+
 
   start() {
     if (this.closed || this.timer) return;
@@ -71,7 +75,7 @@ export class ApiOwnedTurnRecovery {
       if (sessions.has(turn.sessionId)) continue;
       sessions.add(turn.sessionId);
       work.push(this.recover(turn.id).catch(() => {
-        this.deps.observability?.log.error({ event: "turn.api_recovery_failed", message: "API Turn recovery failed", fields: { turnId: turn.id } });
+        this.options.observability?.log.error({ event: "turn.api_recovery_failed", message: "API Turn recovery failed", fields: { turnId: turn.id } });
       }));
     }
     await Promise.all(work);
@@ -87,9 +91,9 @@ export class ApiOwnedTurnRecovery {
     if (attempt.status !== "Running" || this.closed) return;
     this.active.set(turnId, attempt.id);
     try {
-      await executeAcceptedConversationTurn(this.repo, ctx, {
+      await this.execute(ctx, {
         turnId, sessionId: turn.sessionId, attemptId: attempt.id, userMessage: "",
-      }, this.deps);
+      });
     } finally { this.active.delete(turnId); }
   }
 }

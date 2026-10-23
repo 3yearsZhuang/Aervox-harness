@@ -1,3 +1,4 @@
+import { loadExecutionConfig } from "@aervox/config";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createInMemoryDatabase, SqliteConversationRepository } from "@aervox/repositories";
 import { executeConversationTurn } from "../src/modules/companion/conversation/execution.js";
@@ -23,6 +24,7 @@ describe("Attempt admission cancellation before driver handoff", () => {
     const execution = executeConversationTurn(repo, local, {
       ...input, ...(cause === "caller" ? { signal: controller.signal } : {}),
     }, {
+      executionConfig: loadExecutionConfig(),
       signal: cause === "shutdown" ? controller.signal : undefined,
       privacyRepo: cause === "deletion" ? { hasPendingDeletionRequest: async () => blocked } as never : undefined,
       prepareExecution: async () => { entered(); await new Promise<void>(() => {}); },

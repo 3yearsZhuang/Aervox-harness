@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/repositories — 画像主张与主动动作（授权/状态机）Store
  */
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
 import {
   proactiveActions,
@@ -160,6 +160,14 @@ export class ClaimActionStore {
       .returning();
     if (!created) throw new Error("failed to create proactive profile claim");
     return toClaim(created, this.cipher);
+  }
+
+  /** Recovery addresses one capture, independently of the latest claims presentation window. */
+  async listCaptureClaims(ctx: LocalContext, captureId: string): Promise<ProactiveProfileClaimModel[]> {
+    const rows = await this.db.select().from(proactiveProfileClaims).where(
+      sql`EXISTS (SELECT 1 FROM json_each(${proactiveProfileClaims.evidenceCaptureIdsJson}) WHERE value = ${captureId})`,
+    ).orderBy(proactiveProfileClaims.id);
+    return rows.map(row => toClaim(row, this.cipher));
   }
 
   async listClaims(

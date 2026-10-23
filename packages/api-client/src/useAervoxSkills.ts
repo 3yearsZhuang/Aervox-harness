@@ -1,3 +1,4 @@
+import { getClientTransport } from './client-context.js';
 /**
  * Aervox｜思隅 @aervox/api-client — Skill 组合式 API（CAP-020）
  *
@@ -6,12 +7,12 @@
 import { ref } from 'vue';
 import { skillsApi, type SkillInstallResponse, type SkillRegistrationResponse } from '@aervox/contracts';
 import { requestEndpoint } from './endpoint.js';
-import { getTransport, type AervoxTransport } from './transport.js';
+import { type AervoxTransport } from './transport';
 
 export type SkillDto = SkillRegistrationResponse;
 export type SkillInstallResultDto = SkillInstallResponse;
 
-export function useAervoxSkills(transport: AervoxTransport = getTransport()) {
+export function useAervoxSkills(transport: AervoxTransport = getClientTransport()) {
   const skills = ref<SkillDto[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);

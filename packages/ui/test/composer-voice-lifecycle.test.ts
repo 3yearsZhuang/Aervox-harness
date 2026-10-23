@@ -4,6 +4,7 @@ import { configureAervoxClient } from '@aervox/api-client';
 import { useWorkbenchComposer } from '../src/composables/useWorkbenchComposer';
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+const voiceConfig = {enabled: true, engineType: 'sensevoice-local', modelId: 'sensevoice-small', autoStopOnKeyboard: true, vadSilenceThresholdMs: 700, settings: {}};
 
 it.each(['keyboard', 'enter', 'second-click', 'collapse', 'dispose'])('cancels pending permission on %s', async action => {
   let grant!: (stream: MediaStream) => void;
@@ -16,7 +17,7 @@ it.each(['keyboard', 'enter', 'second-click', 'collapse', 'dispose'])('cancels p
     createScriptProcessor() { return { connect() {}, disconnect() {}, onaudioprocess: null }; }
     async close() {}
   });
-  configureAervoxClient({ transport: { request: vi.fn(async () => ({ vadSilenceThresholdMs: 700 })), streamTurn: vi.fn() } });
+  configureAervoxClient({ transport: { request: vi.fn(async () => voiceConfig), streamTurn: vi.fn() } });
   const scope = effectScope();
   const composer = scope.run(() => useWorkbenchComposer({ onSendMessage: vi.fn(), streaming: ref(false), fullAccessDialogOpen: ref(false) }))!;
   try {
@@ -55,7 +56,7 @@ it.each(['keyboard', 'enter', 'second-click', 'collapse', 'dispose'])('cancels c
     else if (action === 'dispose') scope.stop();
     else await composer.toggleVoiceInput();
     expect(configSignal?.aborted).toBe(true);
-    resolveConfig({ vadSilenceThresholdMs: 700 });
+    resolveConfig(voiceConfig);
     await started;
     expect(getUserMedia).not.toHaveBeenCalled();
     expect(composer.voiceInputStarting.value).toBe(false);
@@ -80,7 +81,7 @@ it('ignores stale config rejection without clearing a new start', async () => {
     expect(composer.voiceInputStarting.value).toBe(true);
     expect(composer.voiceInputError.value).toBeNull();
     scope.stop();
-    pending[1]!.resolve({ vadSilenceThresholdMs: 700 });
+    pending[1]!.resolve(voiceConfig);
     await second;
     expect(composer.voiceInputStarting.value).toBe(false);
   } finally { scope.stop(); }

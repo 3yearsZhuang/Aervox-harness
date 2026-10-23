@@ -83,21 +83,33 @@ export class TurnStore {
       attemptId: string;
     },
   ): Promise<TurnAcceptanceResult> {
-    return withSessionLock(`turn-accept:${input.sessionId}`, () => this.db.transaction(async (tx): Promise<TurnAcceptanceResult> => {
+    return withSessionLock(`turn-accept:${input.sessionId}`, () => this.db.transaction(tx => this.createTurnWithAttemptInTransaction(tx, ctx, input)));
+  }
+
+  /** Internal composition seam: child linkage can share the same writer commit. */
+  async createTurnWithAttemptInTransaction(
+    tx: Parameters<Parameters<AervoxDatabase["transaction"]>[0]>[0],
+    ctx: LocalContext,
+    input: { turnId: string; sessionId: string; idempotencyKey: string; message: { id: string; content: string }; attemptId: string },
+    metadata?: Record<string, unknown>,
+  ): Promise<TurnAcceptanceResult> {
+      const policy = await this.readSessionPolicy(tx, input.sessionId);
+      const requestHash = turnIntentHash(normalizeTurnIntent({ ...input, metadata }, policy, ctx.actorId));
       const [existing] = await tx.select().from(turns).where(eq(turns.idempotencyKey, input.idempotencyKey));
       if (existing) {
-        this.assertTurnPolicy(existing, input.sessionId, await this.readSessionPolicy(tx, input.sessionId));
+        this.assertTurnPolicy(existing, input.sessionId, policy);
+        if (!existing.requestHash) throw new TurnIntentConflictError("intent_unavailable");
+        if (existing.requestHash !== requestHash) throw new TurnIntentConflictError("intent_mismatch");
         return { created: false, turn: existing as TurnModel };
       }
       const now = new Date().toISOString();
       const created = await this.insertTurn(tx, {
-        id: input.turnId, sessionId: input.sessionId, idempotencyKey: input.idempotencyKey,
+        id: input.turnId, sessionId: input.sessionId, idempotencyKey: input.idempotencyKey, requestHash,
       }, input.message);
       const [attempt] = await tx.insert(turnAttempts).values({
         id: input.attemptId, turnId: input.turnId, attempt: 1, fencingToken: 0, status: "Running", startedAt: now,
       }).returning();
       return { created: true, ...created, attempt: attempt as TurnAttemptModel };
-    }));
   }
 
   private async insertTurn(

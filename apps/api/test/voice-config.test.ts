@@ -11,6 +11,7 @@ import { createServer, type AddressInfo } from "node:http";
 import { createInMemoryDatabase, type AervoxDatabase } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 import type { FastifyInstance } from "fastify";
+import { voicePresetReceiptSchema, voicePresetListResponseSchema, localVoiceConfigResponseSchema, remoteVoiceConfigResponseSchema } from "@aervox/contracts";
 import { buildApp } from "./app-fixture.js";
 import {
   GptSovitsLocalProvider,
@@ -84,6 +85,33 @@ describe("语音配置路由 (Voice Config)", () => {
     expect(body.providerId).toBe("gpt-sovits-local");
     expect(body.modelId).toBe("default-local");
     expect(body.modelPath).toBe(root);
+  });
+
+  it("新建、列出和激活空白语音预设均符合共享响应契约，未配置输出保持关闭", async () => {
+    const create = await app.inject({ method: "POST", url: "/v1/voice/presets", headers, payload: { name: "空白预设" } });
+    expect(create.statusCode).toBe(201);
+    const created = voicePresetReceiptSchema.parse(create.json());
+    expect(created).toMatchObject({ name: "空白预设", isActive: true });
+    const list = await app.inject({ method: "GET", url: "/v1/voice/presets", headers });
+    expect(list.statusCode).toBe(200);
+    expect(voicePresetListResponseSchema.parse(list.json()).presets).toEqual([expect.objectContaining({ ...created, local: null, remote: null })]);
+
+    const duplicate = await app.inject({ method: "POST", url: "/v1/voice/presets", headers, payload: { name: "空白预设" } });
+    expect(duplicate.statusCode).toBe(201);
+    expect(voicePresetReceiptSchema.parse(duplicate.json()).id).not.toBe(created.id);
+
+    const next = await app.inject({ method: "POST", url: "/v1/voice/presets", headers, payload: { name: "另一个预设" } });
+    expect(next.statusCode).toBe(201);
+    const activated = await app.inject({ method: "POST", url: `/v1/voice/presets/${next.json().id}/activate`, headers });
+    expect(activated.statusCode).toBe(200);
+    expect(voicePresetReceiptSchema.parse(activated.json())).toMatchObject({ name: "另一个预设", isActive: true });
+
+    const local = await app.inject({ method: "GET", url: "/v1/voice/config", headers });
+    const remote = await app.inject({ method: "GET", url: "/v1/voice/remote/config", headers });
+    expect(local.statusCode).toBe(200);
+    expect(remote.statusCode).toBe(200);
+    expect(localVoiceConfigResponseSchema.parse(local.json())).toMatchObject({ enabled: false, modelId: "default-local" });
+    expect(remoteVoiceConfigResponseSchema.parse(remote.json())).toMatchObject({ enabled: false, modelId: "default-remote" });
   });
 
   it("PUT 合法配置：保存 → GET 回显 + 本地 provider 生效 + 上下文共享", async () => {

@@ -9,7 +9,7 @@ import { registerLearningRoutes } from "./routes.js";
 import { registerLearningPlanRoutes } from "./plan-routes.js";
 import { LearningPlanGenerationService } from "./plan-generation.js";
 
-export { createLearningAnswerService } from "./answer-service.js";
+export { createLearningAnswerService, createLearningReviewService } from "./answer-service.js";
 
 export function registerLearningModule(ctx: ModuleDependencies<"app" | "db" | "modelGeneration" | "executionConfig">): void {
   const { app, db } = ctx;

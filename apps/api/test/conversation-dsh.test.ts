@@ -1,3 +1,4 @@
+import { loadExecutionConfig } from "@aervox/config";
 /**
  * Aervox｜思隅 @aervox/api — DSH 进程外 Adapter API 接线测试（ADR-010 阶段 6f）
  *
@@ -206,7 +207,7 @@ describe("Agent Loop 阶段 6f：AERVOX_LOOP_DRIVER=dsh API 接线", () => {
       repo,
       tenant,
       { turnId: "turn_pa", sessionId, attemptId: "attempt_pa", userMessage: "hi" },
-      { proactiveRepository: { getEffectiveStatus: async () => ({ effectiveState: "active" }) } as never },
+      { executionConfig: loadExecutionConfig(), proactiveRepository: { getEffectiveStatus: async () => ({ effectiveState: "active" }) } as never },
     );
 
     const events = await repo.getStreamEvents(tenant, "turn_pa");
@@ -227,7 +228,7 @@ describe("Agent Loop 阶段 6f：AERVOX_LOOP_DRIVER=dsh API 接线", () => {
       repo,
       tenant,
       { turnId: "turn_dg", sessionId, attemptId: "attempt_dg", userMessage: "hi" },
-      { deletionGate: { isBlocked: async () => true } },
+      { executionConfig: loadExecutionConfig(), deletionGate: { isBlocked: async () => true } },
     );
 
     const events = await repo.getStreamEvents(tenant, "turn_dg");

@@ -1,4 +1,5 @@
 /** Aervox｜思隅 @aervox/api-client 入口 */
+export { provideAervoxClient, useAervoxClient, getClientTransport, getClientPlatformServices, AERVOX_CLIENT } from './client-context';
 export { useAervoxPreferences } from './useAervoxPreferences';
 export { useAervoxPrivacy } from './useAervoxPrivacy';
 export { useAervoxFeedback } from './useAervoxFeedback';
@@ -10,6 +11,9 @@ export {
   type ConversationState,
   type ObserveTurnOptions,
   configureAervoxClient,
+  createAervoxClient,
+  type AervoxClient,
+  type AervoxClientStorage,
   getTransport,
   getPlatformServices,
   type PlatformServices,
@@ -108,7 +112,6 @@ export {
 } from './useAervoxVoice';
 export {
   useAervoxLLM,
-  PRESET_PROVIDERS,
   type LLMProviderType,
   type LLMConfigDto,
   type LLMTestConnectionInput,

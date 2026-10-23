@@ -96,6 +96,83 @@ describe("shared learning answer transaction through HTTP and plugin ports", () 
     expect(after.reviews).toEqual([expect.objectContaining({ interval_days: 15 })]);
   });
 
+  it("keeps answer progress committed between review preparation and its writer transaction", async () => {
+    await learning.createReviewItem(ctx, { id: "review", knowledgeId: "knowledge", dueAt: "2025-01-01T00:00:00.000Z" });
+    const complete = learning.completeReviewAndSchedule.bind(learning);
+    learning.completeReviewAndSchedule = async (...args) => {
+      const answer = await app.inject({ method: "POST", url: "/v1/questions/question/attempts", payload: { answer: "4" } });
+      expect(answer.statusCode).toBe(201);
+      return complete(...args);
+    };
+    const response = await app.inject({ method: "POST", url: "/v1/review-items/review/complete", payload: { isCorrect: true } });
+    expect(response.statusCode).toBe(200);
+    expect(await learning.getKnowledgeItem(ctx, "knowledge")).toMatchObject({ correctCount: 2, correctStreak: 2, mastery: 0.2 });
+  });
+
+  it("reports the persisted answer outcome rather than inferring a review from an incorrect answer", async () => {
+    await learning.createQuestion(ctx, { id: "unlinked", prompt: "test", answerSpec: { answer: "correct" } });
+    await learning.createPracticeSession(ctx, { id: "practice_report", questionCount: 1, questionIds: ["unlinked"] });
+    const response = await app.inject({ method: "POST", url: "/v1/questions/unlinked/attempts", payload: { sessionId: "practice_report", answer: "wrong" } });
+    expect(response.json().nextStep).toBe("await_review");
+    const report = await app.inject({ method: "GET", url: "/v1/practice/sessions/practice_report/report" });
+    expect(report.json().nextStep).toBe("await_review");
+    expect((await database.client.execute("SELECT count(*) n FROM review_items")).rows[0]!.n).toBe(0);
+  });
+
+  it.each(["BEFORE UPDATE ON knowledge_items", "BEFORE INSERT ON review_items", "BEFORE INSERT ON outbox_events"])("rolls back review completion and scheduling when %s fails", async (clause) => {
+    await learning.createReviewItem(ctx, { id: "review", knowledgeId: "knowledge", dueAt: "2025-01-01T00:00:00.000Z" });
+    const before = await state(database);
+    await database.client.execute(`CREATE TRIGGER fail_completion ${clause} BEGIN SELECT RAISE(ABORT, 'injected'); END`);
+    expect((await app.inject({ method: "POST", url: "/v1/review-items/review/complete", payload: { isCorrect: true } })).statusCode).toBe(500);
+    expect(await state(database)).toEqual(before);
+  });
+
+  it("counts a concurrent review once and validates replay against the durable completion receipt", async () => {
+    await learning.createReviewItem(ctx, { id: "review-a", knowledgeId: "knowledge", dueAt: "2025-01-01T00:00:00.000Z" });
+    const complete = (reviewId: string, timeZone = "UTC", isCorrect = true) => app.inject({ method: "POST", url: `/v1/review-items/${reviewId}/complete`, payload: { isCorrect, timeZone } });
+    expect((await Promise.all([complete("review-a"), complete("review-a"), complete("review-a")])).every(response => response.statusCode === 200)).toBe(true);
+    expect(await learning.getKnowledgeItem(ctx, "knowledge")).toMatchObject({ correctCount: 1, mastery: 0.1 });
+    await app.inject({ method: "POST", url: "/v1/questions/question/attempts", payload: { answer: "4", timeZone: "Asia/Shanghai" } });
+    expect((await complete("review-a")).statusCode).toBe(200);
+    expect((await complete("review-a", "Asia/Shanghai")).statusCode).toBe(409);
+    expect((await complete("review-a", "UTC", false)).statusCode).toBe(409);
+  });
+
+  it("keeps scheduled outcomes after the review changes, and refuses to invent outcomes for missing receipts", async () => {
+    await learning.createPracticeSession(ctx, { id: "practice_receipt", questionCount: 1, questionIds: ["question"] });
+    const answer = await app.inject({ method: "POST", url: "/v1/questions/question/attempts", payload: { sessionId: "practice_receipt", answer: "wrong" } });
+    expect(answer.json().nextStep).toBe("review_scheduled");
+    await database.client.execute("UPDATE review_items SET status='completed'");
+    const report = () => app.inject({ method: "GET", url: "/v1/practice/sessions/practice_receipt/report" });
+    expect((await report()).json().nextStep).toBe("review_scheduled");
+    await database.client.execute("DELETE FROM outbox_events WHERE event_type='learning.answer.recorded'");
+    expect((await report()).json().nextStep).toBe("await_review");
+  });
+
+  it("does not reconstruct historical or damaged review completion receipts", async () => {
+    await learning.createReviewItem(ctx, { id: "review-legacy", knowledgeId: "knowledge", dueAt: "2025-01-01T00:00:00.000Z" });
+    const complete = () => app.inject({ method: "POST", url: "/v1/review-items/review-legacy/complete", payload: { isCorrect: true } });
+    expect((await complete()).statusCode).toBe(200);
+    await database.client.execute("DELETE FROM outbox_events WHERE event_type='learning.review.completed'");
+    const before = await state(database);
+    const replay = await complete();
+    expect(replay.statusCode).toBe(409);
+    expect(replay.json().error).toBe("review_completion_receipt_unavailable");
+    expect(await state(database)).toEqual(before);
+  });
+
+  it("sums mixed committed outcomes conservatively and rejects mismatched answer receipts", async () => {
+    await learning.createQuestion(ctx, { id: "unlinked", prompt: "test", answerSpec: { answer: "correct" } });
+    await learning.createPracticeSession(ctx, { id: "practice_mixed", questionCount: 2, questionIds: ["question", "unlinked"] });
+    const submitQuestion = (questionId: string) => app.inject({ method: "POST", url: `/v1/questions/${questionId}/attempts`, payload: { sessionId: "practice_mixed", answer: "wrong" } });
+    expect((await submitQuestion("question")).json().nextStep).toBe("review_scheduled");
+    expect((await submitQuestion("unlinked")).json().nextStep).toBe("await_review");
+    const report = () => app.inject({ method: "GET", url: "/v1/practice/sessions/practice_mixed/report" });
+    expect((await report()).json()).toMatchObject({ answeredCount: 2, nextStep: "await_review" });
+    await database.client.execute("UPDATE outbox_events SET payload=json_set(payload,'$.sessionId','wrong-session') WHERE event_type='learning.answer.recorded'");
+    expect((await report()).json()).toMatchObject({ answeredCount: 2, nextStep: "await_review" });
+  });
+
   it("allows exactly one concurrent same-key differing request to commit", async () => {
     const responses = await Promise.all(["3", "4"].map(answer => app.inject({ method: "POST", url: "/v1/questions/question/attempts", headers, payload: { answer } })));
     expect(responses.map(response => response.statusCode).sort()).toEqual([201, 409]);

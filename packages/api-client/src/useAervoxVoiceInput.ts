@@ -4,46 +4,13 @@
  * 提供：配置读写、录音启动/停止、句子级断句实时转写回调。
  */
 import { getCurrentScope, onScopeDispose, ref } from 'vue';
-import { getTransport } from './transport';
+import { getClientTransport } from './client-context.js';
 import { VoiceInputRecorder } from './voice-input-recorder';
 
-export type VoiceInputEngineType = 'sensevoice-local' | 'whisper-compatible';
-
-export interface VoiceInputConfigDto {
-  enabled: boolean;
-  engineType: VoiceInputEngineType;
-  modelPath?: string;
-  modelId: string;
-  endpoint?: string;
-  apiKey?: string;
-  autoStopOnKeyboard: boolean;
-  vadSilenceThresholdMs: number;
-  settings?: Record<string, string | number | boolean>;
-}
-
-export interface VoiceTranscribeResultDto {
-  text: string;
-  durationMs?: number;
-  isFinal: boolean;
-}
-
-export interface VoiceInputModelStatusDto {
-  downloaded: boolean;
-  downloading: boolean;
-  progressPercent: number;
-  downloadedBytes?: number;
-  totalBytes?: number;
-  verified: boolean;
-  checksum?: string;
-  modelPath?: string;
-  message?: string;
-}
-
-export interface VoiceInputModelDownloadResultDto {
-  accepted: boolean;
-  message: string;
-  status: VoiceInputModelStatusDto;
-}
+export type { VoiceInputEngine as VoiceInputEngineType, VoiceInputConfigInput as VoiceInputConfigDto, VoiceTranscribeOutput as VoiceTranscribeResultDto, VoiceInputModelStatus as VoiceInputModelStatusDto, VoiceInputModelDownloadOutput as VoiceInputModelDownloadResultDto } from '@aervox/contracts';
+import type { VoiceInputConfigInput as VoiceInputConfigDto, VoiceTranscribeOutput as VoiceTranscribeResultDto, VoiceInputModelStatus as VoiceInputModelStatusDto, VoiceInputModelDownloadOutput as VoiceInputModelDownloadResultDto } from '@aervox/contracts';
+import { voiceApi, voiceInputConfigResponseSchema, voiceTranscribeResponseSchema } from '@aervox/contracts';
+import { requestEndpoint } from './endpoint.js';
 
 function asBase64(bytes: Uint8Array): string {
   let binary = '';
@@ -55,7 +22,7 @@ function asBase64(bytes: Uint8Array): string {
 }
 
 export function useAervoxVoiceInput() {
-  const transport = getTransport();
+  const transport = getClientTransport();
   const isListening = ref(false);
   const isTranscribing = ref(false);
   let recorder: VoiceInputRecorder | null = null;
@@ -65,13 +32,13 @@ export function useAervoxVoiceInput() {
 
   /** 读取本地实例的语音输入配置 */
   const getInputConfig = async (signal?: AbortSignal): Promise<VoiceInputConfigDto> =>
-    transport.request<VoiceInputConfigDto>('GET', '/v1/voice/input/config', undefined, { signal });
+    transport.request('GET', voiceApi.input.path, undefined, { signal }).then(value => voiceInputConfigResponseSchema.parse(value));
 
   /** 保存本地实例的语音输入配置 */
   const saveInputConfig = async (
     body: VoiceInputConfigDto,
   ): Promise<VoiceInputConfigDto> =>
-    transport.request<VoiceInputConfigDto>('PUT', '/v1/voice/input/config', body);
+    requestEndpoint(transport, voiceApi.saveInput, body);
 
   /** 单次音频片段转写 */
   const transcribeAudio = async (
@@ -79,10 +46,10 @@ export function useAervoxVoiceInput() {
     mimeType = 'audio/wav',
     signal?: AbortSignal,
   ): Promise<VoiceTranscribeResultDto> => {
-    return transport.request<VoiceTranscribeResultDto>('POST', '/v1/voice/transcribe', {
+    return transport.request('POST', voiceApi.transcribe.path, {
       audioBase64: asBase64(audioBytes),
       mimeType,
-    }, { signal });
+    }, { signal }).then(value => voiceTranscribeResponseSchema.parse(value));
   };
 
   /** 启动连续录音与句子级断句转写 */
@@ -152,18 +119,14 @@ export function useAervoxVoiceInput() {
 
   /** 读取离线语音输入模型状态 */
   const getModelStatus = async (): Promise<VoiceInputModelStatusDto> =>
-    transport.request<VoiceInputModelStatusDto>('GET', '/v1/voice/input/model/status');
+    requestEndpoint(transport, voiceApi.modelStatus);
 
   /** 触发离线语音输入模型下载 */
   const downloadModel = async (options?: {
     targetDir?: string;
     mirrorUrl?: string;
   }): Promise<VoiceInputModelDownloadResultDto> =>
-    transport.request<VoiceInputModelDownloadResultDto>(
-      'POST',
-      '/v1/voice/input/model/download',
-      options ?? {},
-    );
+    requestEndpoint(transport, voiceApi.downloadModel, options ?? {});
 
   return {
     isListening,

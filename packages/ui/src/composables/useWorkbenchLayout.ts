@@ -1,4 +1,4 @@
-import { getPlatformServices } from '@aervox/api-client';
+import { getClientPlatformServices } from '@aervox/api-client';
 import { computed, getCurrentScope, onScopeDispose, ref, type Component, type Ref } from 'vue';
 import {
   Bot,
@@ -59,6 +59,7 @@ export function useWorkbenchLayout(props: {
   getTimerMinutes?: () => number;
   recordActivity: (source: 'aervox.activity' | 'aervox.operation', eventType: string, payloadText?: string, metadata?: Record<string, unknown>) => void;
 }) {
+  const platformServices = getClientPlatformServices();
   // Mobile is a WebView host: it shares browser storage and API behavior,
   // but must never be treated as an Electron desktop host.
   const isWeb = computed(() => props.platform !== 'desktop');
@@ -270,7 +271,7 @@ export function useWorkbenchLayout(props: {
   }
 
   async function setTheme(theme: 'light' | 'dark', timerMinutesVal?: number) {
-    const appliedTheme = isWeb.value ? theme : (await getPlatformServices().setTheme?.(theme)) ?? theme;
+    const appliedTheme = isWeb.value ? theme : (await platformServices.setTheme?.(theme)) ?? theme;
     applyTheme(appliedTheme);
     saveSettings(timerMinutesVal);
   }

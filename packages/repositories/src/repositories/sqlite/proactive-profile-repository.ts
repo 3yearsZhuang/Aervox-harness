@@ -140,6 +140,14 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     return this.captureStore.createCapture(ctx, input);
   }
 
+  listDistillationCandidates(ctx: LocalContext, options: { retryBefore: string; limit?: number }) {
+    return this.captureStore.listDistillationCandidates(ctx, options);
+  }
+
+  listCaptureClaims(ctx: LocalContext, captureId: string) {
+    return this.claimActionStore.listCaptureClaims(ctx, captureId);
+  }
+
   async listCaptures(
     ctx: LocalContext,
     options?: Parameters<IProactiveProfileRepository["listCaptures"]>[1],

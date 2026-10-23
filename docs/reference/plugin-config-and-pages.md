@@ -157,6 +157,8 @@ Page 卸载、generation 丢弃、安装失败回滚与插件资源清理同样�
 
 [ServerTurnPlugin](../../packages/host-plugin-api/src/turn-plugin.ts)定义 `id`、可选 `name`、`beforeTurn(ctx, config)` 和 `afterTurn(ctx, config, beforeResult)`。契约位于 `@aervox/host-plugin-api`（仅类型，零运行时依赖）；[本地出口](../../packages/host-runtime/src/modules/ecosystem/plugins/turn-plugins/types.ts)只做聚合，不再定义任何插件领域字段。上下文含 Turn/Session/Attempt ID、用户消息、`signal/deadlineEpochMs` 与窄端口（回合流读写 `stream`、可选 `llm`）；`LocalContext` 与仓储属宿主侧依赖，经 Runner 的宿主依赖注入，**不进入插件上下文**。后置状态为 `Completed/Failed/Interrupted`。
 
+`afterTurn` 的成功阶段在模型正文完成后、可观察 `done` 之前执行，仍受 Hook 超时、取消信号和原 Attempt 租约约束；它不是持久终态后的任意写窗口。宿主通过通用完成回调运行该阶段，结束后再次检查取消、删除、预算和租约。增强失败按既有隔离政策处理，不能伪造成功增强事件。Hook 写流能力携带宿主捕获的插件代际、Attempt/fencing，写者事务验证资格并分配下一个序号；插件不能自行提供或改变这些身份。
+
 Hook 必须由 API 组合根 import 并注册到 [ServerPluginRegistry](../../packages/host-runtime/src/modules/ecosystem/plugins/turn-plugins/registry.ts)；仅在 Bundle 放置 `.ts/.js` 或 Manifest 字段不会激活 Hook。当前没有对第三方暴露的 Hook npm SDK、进程隔离或运行时代码热加载。第一方实现位于 `plugins/<id>/src/server`，由唯一装配点 [packages/host-runtime/src/plugin-assembly.ts](../../packages/host-runtime/src/plugin-assembly.ts) 以容错方式加载并注入其贡献（缺包或加载失败不中断宿主启动）。注册只按插件唯一 ID，不提供历史别名互查；需要旧配置迁移时由插件自己处理，不让宿主解释领域键。
 
 装配器持有每次 Hook、HTTP 准入和 API 契约登记的注销函数；装配失败逆序释放已取得的贡献，正常装配由 API `onClose` 释放。重复注册身份或已有 Hook 冲突会拒绝本次装配，不替换原插件。HTTP 在挂载前检查整组路由冲突；框架挂载中途失败时关闭整组准入。Fastify 的物理路由不能运行时移除，残留入口返回 404；这不是动态代码卸载或第三方沙箱。

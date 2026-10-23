@@ -159,3 +159,47 @@ describe('useAervoxSessions', () => {
   });
 
 });
+
+it('does not let a pre-create list request replace the confirmed new session', async () => {
+  let finish!: (value: unknown) => void;
+  const pending = new Promise(resolve => { finish = resolve; });
+  const item = (id: string) => ({id, title: id, createdAt: '2026-10-24', updatedAt: '2026-10-24'});
+  const request = vi.fn().mockReturnValueOnce(pending).mockResolvedValueOnce(item('new'));
+  configureAervoxClient({sessionId: 'old', transport: {request, streamTurn: vi.fn(), submitQuestionAnswers: vi.fn(), decideToolApproval: vi.fn()}});
+  const api = useAervoxSessions();
+  const load = api.fetchSessions();
+  await api.createNewSession('new');
+  finish({items: [item('old')]}); await load;
+  expect(api.sessions.value.map(row => row.id)).toEqual(['new']);
+  expect(api.activeSessionId.value).toBe('new');
+  expect(getSessionId()).toBe('new');
+});
+
+it('preserves explicit selection when a project-filtered list excludes it', async () => {
+  const item = (id: string) => ({id, title: id, createdAt: '2026-10-24', updatedAt: '2026-10-24'});
+  const request = vi.fn().mockResolvedValue({items: [item('project-A')]});
+  configureAervoxClient({sessionId: 'selected-B', transport: {request, streamTurn: vi.fn(), submitQuestionAnswers: vi.fn(), decideToolApproval: vi.fn()}});
+  const api = useAervoxSessions();
+  api.switchSession('selected-B');
+  await api.fetchSessions({projectId: 'A'});
+  expect(api.activeSessionId.value).toBe('selected-B');
+});
+
+it('ignores older project reads and pre-delete snapshots without reviving deleted sessions', async () => {
+  const {createAervoxClient} = await import('../src/transport.js');
+  const item = (id: string) => ({id, title: id, createdAt: '2026-10-24', updatedAt: '2026-10-24'});
+  const loads: ((value: unknown) => void)[] = [];
+  const request = vi.fn(async (method: string) => method === 'GET' ? new Promise(resolve => loads.push(resolve)) : undefined);
+  const client = createAervoxClient({sessionId: 'keep', transport: {request, streamTurn: vi.fn(), submitQuestionAnswers: vi.fn(), decideToolApproval: vi.fn()}});
+  const api = useAervoxSessions(client);
+  const old = api.fetchSessions({projectId: 'A'});
+  const fresh = api.fetchSessions({projectId: 'B'});
+  loads[1]!({items: [item('B'), item('keep')]}); await fresh;
+  loads[0]!({items: [item('A')]}); await old;
+  expect(api.sessions.value.map(row => row.id)).toEqual(['B', 'keep']);
+  const beforeDelete = api.fetchSessions();
+  await api.deleteSession('B');
+  loads[2]!({items: [item('B'), item('keep')]}); await beforeDelete;
+  expect(api.sessions.value.map(row => row.id)).toEqual(['keep']);
+  expect(api.activeSessionId.value).toBe('keep');
+});
