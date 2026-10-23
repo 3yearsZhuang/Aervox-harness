@@ -1,10 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ControlContext, InMemoryExecutionStore, defaultContextBuilder, executeTurn } from "@aervox/core";
 import type { AdapterDriverPort, DeletionGatePort, ModelProviderPort } from "@aervox/core";
 import { runAdapterTurn } from "../src/adapter-turn.js";
 const input = { turnId: "turn", sessionId: "session", attemptId: "attempt", userMessage: "hello" };
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const manifest = { adapterId: "dsh" as const, version: "test", sha256: "test", license: "MIT", terminationPolicy: "every" as const };
+afterEach(() => { vi.useRealTimers(); });
 for (const mode of ["native", "adapter"] as const) describe(`${mode} shared Attempt lifecycle`, () => {
   function setup(options: { signal?: AbortSignal; deletionGate?: DeletionGatePort; silent?: boolean; heartbeat?: number; maxTurnDurationMs?: number; deadlineEpochMs?: number } = {}) {
     const store = new InMemoryExecutionStore();
@@ -34,6 +35,34 @@ for (const mode of ["native", "adapter"] as const) describe(`${mode} shared Atte
     await store.requestCancelAttempt({ turnId: input.turnId, attemptId: input.attemptId });
     expect((await execution).status.toLowerCase()).toBe("cancelled");
     expect(await store.attemptStatus(input.attemptId)).toBe("Cancelled");
+    expect((await store.listEvents(input.turnId)).filter(event => event.eventType === "done")).toHaveLength(1);
+  });
+  it("keeps the same lease when a cancellation request precedes heartbeat and lifecycle polling", async () => {
+    vi.useFakeTimers();
+    const {store, started, execution} = setup({silent: true});
+    let result: Awaited<typeof execution> | undefined;
+    void execution.then(value => { result = value; });
+    await vi.waitFor(() => expect(started).toHaveBeenCalled(), {interval: 0});
+    const renew = vi.spyOn(store, "renewAttemptLease");
+    const checkCancellation = vi.spyOn(store, "isCancelRequested");
+    await store.requestCancelAttempt({turnId: input.turnId, attemptId: input.attemptId});
+
+    // The 10 ms heartbeat must see CancelRequested before the 50 ms monitor.
+    // A cancellation is still owned work, not a failed fencing/lease CAS.
+    await vi.advanceTimersByTimeAsync(10);
+    expect(checkCancellation).not.toHaveBeenCalled();
+    expect(renew).toHaveBeenCalledOnce();
+    expect(await renew.mock.results[0]!.value).toEqual({ok: true});
+    expect(store.attemptStatus(input.attemptId)).toBe("CancelRequested");
+    expect(result).toBeUndefined();
+    const ownership = renew.mock.calls[0]![0];
+    expect(await store.renewAttemptLease({...ownership, leaseId: "wrong-lease"})).toEqual({ok: false});
+    expect(await store.renewAttemptLease({...ownership, expectedFencingToken: ownership.expectedFencingToken - 1})).toEqual({ok: false});
+
+    await vi.advanceTimersByTimeAsync(40);
+    expect((await execution).status.toLowerCase()).toBe("cancelled");
+    expect(store.attemptStatus(input.attemptId)).toBe("Cancelled");
+    expect(await store.renewAttemptLease(ownership)).toEqual({ok: false});
     expect((await store.listEvents(input.turnId)).filter(event => event.eventType === "done")).toHaveLength(1);
   });
   it("interrupts silent work when deletion becomes blocked", async () => {
