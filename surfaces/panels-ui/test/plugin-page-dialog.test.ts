@@ -43,6 +43,7 @@ describe('PluginPageDialog.vue (ITER-006 / FND-03 安全沙箱)', () => {
     publisher: 'test',
     version: '1.0.0',
     enabled: 1,
+    lifecycleGeneration: 'test-plugin-generation',
     installSource: 'builtin',
     configSchemaJson: [],
     proactiveSpecJson: null,

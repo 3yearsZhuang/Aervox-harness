@@ -3216,6 +3216,11 @@
             "type": "integer",
             "minimum": 0
           },
+          "expectedLifecycleGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
           "values": {
             "type": "object",
             "additionalProperties": {},
@@ -29143,6 +29148,16 @@
             "required": true,
             "name": "pluginId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": false,
+            "name": "expectedLifecycleGeneration",
+            "in": "query"
           }
         ],
         "responses": {
@@ -29224,7 +29239,7 @@
             }
           },
           "400": {
-            "description": "Invalid plugin id",
+            "description": "Invalid plugin id or lifecycle generation",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -29254,7 +29269,7 @@
             }
           },
           "409": {
-            "description": "PLUGIN_DISABLED",
+            "description": "PLUGIN_CONFIG_REVISION_CONFLICT or PLUGIN_DISABLED or PLUGIN_UNAVAILABLE",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -29302,6 +29317,11 @@
                   "revision": {
                     "type": "integer",
                     "minimum": 0
+                  },
+                  "expectedLifecycleGeneration": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
                   },
                   "values": {
                     "type": "object",
@@ -29439,7 +29459,7 @@
             }
           },
           "409": {
-            "description": "PLUGIN_CONFIG_REVISION_CONFLICT or PLUGIN_DISABLED",
+            "description": "PLUGIN_CONFIG_REVISION_CONFLICT or PLUGIN_DISABLED or PLUGIN_UNAVAILABLE",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -29477,6 +29497,16 @@
             "required": true,
             "name": "pluginId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": false,
+            "name": "expectedLifecycleGeneration",
+            "in": "query"
           }
         ],
         "responses": {
@@ -29558,7 +29588,7 @@
             }
           },
           "400": {
-            "description": "Invalid plugin id",
+            "description": "Invalid plugin id or lifecycle generation",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -29588,7 +29618,7 @@
             }
           },
           "409": {
-            "description": "PLUGIN_CONFIG_REVISION_CONFLICT or PLUGIN_DISABLED",
+            "description": "PLUGIN_CONFIG_REVISION_CONFLICT or PLUGIN_DISABLED or PLUGIN_UNAVAILABLE",
             "content": {
               "application/problem+json": {
                 "schema": {

@@ -34,6 +34,8 @@ export interface PluginSummaryDto {
   enabled: number;
   /** Package availability is independent of the saved user enablement choice. */
   availability?: 'available' | 'missing' | 'invalid' | 'unreadable';
+  /** Runtime identity rotates when the enabled package lifecycle changes. */
+  lifecycleGeneration?: string;
   configSchemaJson?: unknown;
   configSchemaVersion?: number;
   /** CR-032：主动智能声明（spec.proactive，含 sensors/triggers） */
@@ -96,8 +98,8 @@ export function useAervoxPlugins() {
   const registerConfigSchema = async (pluginId: string, input: RegisterPluginConfigSchemaRequest): Promise<PluginConfigSchemaResponse> =>
     requestEndpoint(transport, pluginConfigApi.registerSchema, input, { pluginId });
 
-  const getConfig = async (pluginId: string): Promise<PluginConfigSnapshot> =>
-    requestEndpoint(transport, pluginConfigApi.get, undefined, { pluginId });
+  const getConfig = async (pluginId: string, expectedLifecycleGeneration?: string): Promise<PluginConfigSnapshot> =>
+    requestEndpoint(transport, pluginConfigApi.get, undefined, { pluginId }, { expectedLifecycleGeneration });
 
   const saveConfig = async (
     pluginId: string,
@@ -105,8 +107,8 @@ export function useAervoxPlugins() {
   ): Promise<PluginConfigSnapshot> =>
     requestEndpoint(transport, pluginConfigApi.save, input, { pluginId });
 
-  const resetConfig = async (pluginId: string): Promise<PluginConfigSnapshot> =>
-    requestEndpoint(transport, pluginConfigApi.reset, undefined, { pluginId });
+  const resetConfig = async (pluginId: string, expectedLifecycleGeneration?: string): Promise<PluginConfigSnapshot> =>
+    requestEndpoint(transport, pluginConfigApi.reset, undefined, { pluginId }, { expectedLifecycleGeneration });
 
   const listPages = async (pluginId: string): Promise<PluginPageDto[]> => {
     const res = await transport.request<{ pages: PluginPageDto[] }>(

@@ -48,4 +48,30 @@ describe('plugin configuration shared client', () => {
     await expect(api.resetConfig('plugin')).rejects.toThrow();
     expect(request).toHaveBeenCalledTimes(5);
   });
+
+  it('binds Page configuration reads, saves and resets to the captured lifecycle generation', async () => {
+    const calls: Array<[string, string, unknown]> = [];
+    const api = client(async (method, path, body) => {
+      calls.push([method, path, body]);
+      return snapshot;
+    });
+    const generation = 'generation/a?b#c';
+    await api.getConfig('a/b?c#d', generation);
+    await api.saveConfig('a/b?c#d', { revision: 1, expectedLifecycleGeneration: generation });
+    await api.resetConfig('a/b?c#d', generation);
+    expect(calls).toEqual([
+      ['GET', '/v1/plugins/a%2Fb%3Fc%23d/config?expectedLifecycleGeneration=generation%2Fa%3Fb%23c', undefined],
+      ['PUT', '/v1/plugins/a%2Fb%3Fc%23d/config', { revision: 1, expectedLifecycleGeneration: generation }],
+      ['POST', '/v1/plugins/a%2Fb%3Fc%23d/config/reset?expectedLifecycleGeneration=generation%2Fa%3Fb%23c', undefined],
+    ]);
+  });
+
+  it.each(['', 'x'.repeat(129)])('rejects invalid Page lifecycle generations before transport: %j', async generation => {
+    const request = vi.fn(async () => snapshot);
+    const api = client(request);
+    await expect(api.getConfig('plugin', generation)).rejects.toThrow();
+    await expect(api.saveConfig('plugin', { revision: 1, expectedLifecycleGeneration: generation })).rejects.toThrow();
+    await expect(api.resetConfig('plugin', generation)).rejects.toThrow();
+    expect(request).not.toHaveBeenCalled();
+  });
 });

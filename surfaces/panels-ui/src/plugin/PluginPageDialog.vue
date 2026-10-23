@@ -26,11 +26,13 @@ const frameGeneration = ref(0)
 const bridgeError = ref('')
 const contextCapabilities = computed(() => props.page?.capabilities ?? [])
 const eligible = computed(() => props.open && props.plugin?.enabled === 1
-  && (props.plugin.availability ?? 'available') === 'available' && Boolean(props.page))
+  && (props.plugin.availability ?? 'available') === 'available'
+  && Boolean(props.plugin.lifecycleGeneration) && Boolean(props.page))
 
 interface PageSession {
   nonce: string
   pluginId: string
+  lifecycleGeneration: string
   pageId: string
   target: Window
   revision: number
@@ -56,6 +58,7 @@ function isCurrent(current: PageSession): boolean {
   return session === current && frameEnabled.value && eligible.value
     && iframe.value?.contentWindow === current.target
     && props.plugin?.id === current.pluginId && props.page?.id === current.pageId
+    && props.plugin?.lifecycleGeneration === current.lifecycleGeneration
 }
 
 function currentContext(current: PageSession) {
@@ -78,7 +81,7 @@ function postContext(): void {
 function beginSession(): void {
   session = null
   const target = iframe.value?.contentWindow
-  if (!frameEnabled.value || !eligible.value || !target || !props.plugin || !props.page) return
+  if (!frameEnabled.value || !eligible.value || !target || !props.plugin?.lifecycleGeneration || !props.page) return
   if (!globalThis.crypto?.getRandomValues) {
     bridgeError.value = '当前环境无法建立安全的插件页面连接。'
     frameEnabled.value = false
@@ -88,6 +91,7 @@ function beginSession(): void {
   session = {
     nonce: [...bytes].map(value => value.toString(16).padStart(2, '0')).join(''),
     pluginId: props.plugin.id,
+    lifecycleGeneration: props.plugin.lifecycleGeneration,
     pageId: props.page.id,
     target,
     revision: 0,
@@ -119,13 +123,14 @@ async function handleBridgeCall(current: PageSession, message: {
       return {id, ok: false, error: `capability ${capabilities[method]} required`}
     }
     if (method === 'getConfig') {
-      const snapshot = await api.getConfig(current.pluginId)
+      const snapshot = await api.getConfig(current.pluginId, current.lifecycleGeneration)
       if (isCurrent(current)) current.revision = snapshot.revision
       return {id, ok: true, value: snapshot}
     }
     if (method === 'saveConfig') {
       const snapshot: PluginConfigSnapshot = await api.saveConfig(current.pluginId, {
         revision: current.revision,
+        expectedLifecycleGeneration: current.lifecycleGeneration,
         values: args.values ?? {},
         secretValues: args.secretValues ?? {},
       })
@@ -161,7 +166,7 @@ function onMessage(event: MessageEvent): void {
 }
 
 watch(
-  () => [eligible.value, props.plugin?.id, props.page?.id, props.page?.entry, contextCapabilities.value.join(',')],
+  () => [eligible.value, props.plugin?.id, props.plugin?.lifecycleGeneration, props.page?.id, props.page?.entry, contextCapabilities.value.join(',')],
   async () => {
     session = null
     window.removeEventListener('message', onMessage)

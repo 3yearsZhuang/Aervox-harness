@@ -17,7 +17,7 @@ vi.mock('@aervox/ui/primitives', () => ({
 }));
 import PluginPageDialog from '../src/plugin/PluginPageDialog.vue';
 
-const plugin = { id: 'probe', enabled: 1, availability: 'available' } as PluginSummaryDto;
+const plugin = { id: 'probe', enabled: 1, availability: 'available', lifecycleGeneration: 'generation-1' } as PluginSummaryDto;
 const page = { id: 'settings', capabilities: ['config.read', 'config.write', 'host.notify', 'host.close'] } as PluginPageDto;
 let wrapper: VueWrapper;
 
@@ -73,7 +73,7 @@ describe('Plugin Page session boundary', () => {
     expect(mocks.getConfig).not.toHaveBeenCalled();
     send(target, nonce, 'getConfig');
     await flushPromises();
-    expect(mocks.getConfig).toHaveBeenCalledWith('probe');
+    expect(mocks.getConfig).toHaveBeenCalledWith('probe', 'generation-1');
     expect(target.postMessage).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'aervox:page:result', ok: true, nonce }), '*');
   });
 
@@ -98,6 +98,44 @@ describe('Plugin Page session boundary', () => {
     expect(mocks.info).not.toHaveBeenCalled();
   });
 
+  it.each([undefined, ''])('does not execute a Page without a lifecycle generation: %j', async lifecycleGeneration => {
+    const old = await connect();
+    await wrapper.setProps({ plugin: { ...plugin, lifecycleGeneration } });
+    expect(wrapper.find('iframe').exists()).toBe(false);
+    send(old.target, old.nonce, 'getConfig');
+    await flushPromises();
+    expect(mocks.getConfig).not.toHaveBeenCalled();
+  });
+
+  it.each(['getConfig', 'saveConfig'])('rotates an enabled same-id Page when its lifecycle changes and drops the old %s response', async method => {
+    let finish!: (value: unknown) => void;
+    mocks[method as 'getConfig' | 'saveConfig'].mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    const old = await connect();
+    const oldFrame = wrapper.find('iframe').element;
+    send(old.target, old.nonce, method);
+    await wrapper.setProps({ plugin: { ...plugin, lifecycleGeneration: 'generation-2' } });
+    expect(wrapper.find('iframe').element).not.toBe(oldFrame);
+    const current = await connect();
+    expect(current.nonce).not.toBe(old.nonce);
+    send(old.target, old.nonce, 'notify', 'late-window', { message: 'old document' });
+    send(current.target, old.nonce, 'notify', 'late-nonce', { message: 'old nonce' });
+    finish({ revision: 99, values: { privateValue: 'old lifecycle' } });
+    await flushPromises();
+    expect(mocks.info).not.toHaveBeenCalled();
+    expect(old.target.postMessage.mock.calls.some(([message]) => message.type === 'aervox:page:result')).toBe(false);
+    expect(current.target.postMessage.mock.calls.some(([message]) => message.type === 'aervox:page:result')).toBe(false);
+    mocks.getConfig.mockResolvedValue({ revision: 3, values: {} });
+    mocks.saveConfig.mockResolvedValue({ revision: 4, values: {} });
+    send(current.target, current.nonce, 'saveConfig', 'current-write', { values: { fresh: true } });
+    await flushPromises();
+    expect(mocks.saveConfig).toHaveBeenLastCalledWith('probe', {
+      revision: 0, values: { fresh: true }, secretValues: {}, expectedLifecycleGeneration: 'generation-2',
+    });
+    send(current.target, current.nonce, 'getConfig', 'current-read');
+    await flushPromises();
+    expect(mocks.getConfig).toHaveBeenLastCalledWith('probe', 'generation-2');
+  });
+
   it('does not deliver old configuration to a new plugin session or change its revision', async () => {
     let finish!: (value: unknown) => void;
     mocks.getConfig.mockReturnValue(new Promise(resolve => { finish = resolve; }));
@@ -111,7 +149,9 @@ describe('Plugin Page session boundary', () => {
     expect(current.target.postMessage.mock.calls.some(([message]) => message.type === 'aervox:page:result')).toBe(false);
     send(current.target, current.nonce, 'saveConfig', 'save', { values: { fresh: true } });
     await flushPromises();
-    expect(mocks.saveConfig).toHaveBeenCalledWith('other', { revision: 0, values: { fresh: true }, secretValues: {} });
+    expect(mocks.saveConfig).toHaveBeenCalledWith('other', {
+      revision: 0, values: { fresh: true }, secretValues: {}, expectedLifecycleGeneration: 'generation-1',
+    });
   });
 
   it('rotates the document session on reload and drops a previous document response', async () => {
@@ -144,7 +184,7 @@ describe('Plugin Page session boundary', () => {
     await flushPromises();
     expect(mocks.getConfig).toHaveBeenCalledTimes(2);
     expect(mocks.saveConfig).toHaveBeenCalledWith('probe', {
-      revision: 3, values: { fresh: true }, secretValues: {},
+      revision: 3, values: { fresh: true }, secretValues: {}, expectedLifecycleGeneration: 'generation-1',
     });
   });
 

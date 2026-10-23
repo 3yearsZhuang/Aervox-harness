@@ -107,7 +107,7 @@ export const contextManifests = sqliteTable(
     sourceRevisionId: text("source_revision_id").notNull(),
     selectionReason: text("selection_reason"),
     permissionSnapshot: text("permission_snapshot", { mode: "json" }),
-    /** 阶段 7（ADR-017）：上下文快照（每 Turn 首个 Step 的 messages；多来源为多行 entries） */
+    /** New writes contain versioned request counts, without prompt or tool-schema bodies; historical rows remain unchanged. */
     snapshotJson: text("snapshot_json", { mode: "json" }),
     tokenBudget: integer("token_budget"),
     createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),

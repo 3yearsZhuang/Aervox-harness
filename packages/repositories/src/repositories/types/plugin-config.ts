@@ -18,7 +18,9 @@ export interface IPluginConfigRepository {
     pluginId: string,
     schemaVersion: number,
     defaults: Record<string, unknown>,
-    expectedSchema?: unknown,
+    expectedSchema: unknown,
+    expectedLifecycleGeneration: string,
+    expectedRevision: number,
   ): Promise<PluginConfigModel>;
   deleteConfigsForPlugin(pluginId: string): Promise<void>;
 }

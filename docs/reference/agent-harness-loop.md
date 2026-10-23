@@ -56,7 +56,7 @@ Provider 的 `capabilities` 可报告工具/推理协议支持、已知上下文
 
 当前审计修复补齐两条运行时不变量：OpenAI 兼容流只在 `tool_calls` 正常终止且参数为完整 JSON 对象时交出工具调用；截断、内容过滤、损坏帧及未完成调用不会执行副作用。`ModelRun` 与输入快照按每次实际调用记录，覆盖多 Step、重试和失败，标识包含 Attempt；快照保留调用边界的消息、工具 Schema 和请求生成参数。缓存读取/写入 token 作为输入 usage 的细分传递，不额外累加总量。验证见[模型终止测试](../../packages/core/test/model-terminal.test.ts)与[调用快照测试](../../packages/core/test/context-manifest.test.ts)。
 
-这些快照沿用可观测侧写语义，失败不会阻断执行，不能充当恢复账本或授权证明；API 的快照格式为 `{version:1,messages,tools,maxOutputTokens,temperature}`，旧宿主可继续接受 messages 数组。快照不替代实际派发时的授权、最终窗口和账本检查；真实摘要策略、完整来源删除及生产流式效果仍须独立验收。
+这些快照沿用可观测侧写语义，失败不会阻断执行，不能充当恢复账本或授权证明。Core 保留完整进程内输入，API sink 交给仓储后，新持久快照只含版本化的消息/角色/工具计数及合法生成参数；旧 messages 数组和 `{version:1,messages,tools,...}` 同样经过白名单投影，未知形态写为 null，不保留正文、工具 Schema、扩展字段或内容 hash。历史行不自动改写。快照不替代实际派发时的授权、最终窗口和账本检查；历史正文清理、完整来源删除及生产流式效果仍须独立验收。
 
 审批待决属于显式用户决定的续跑：原 Attempt 以 `Interrupted` 终结，决定、后续 Attempt、工具意图所有权和流事件通过单写者事务提交。工具执行记录移交新 Attempt 后变为 `pending`，崩溃恢复只能将未知结果收敛，不能凭重复批准重放。恢复沿用原模型 callId、参数与已提交历史，复用正常工具管线的取消、删除、授权、租约、预算和超时检查；权限变化可再次中断等待审批。待决审批只在本 Turn 内复用，已批准授权的跨 Turn 匹配规则不变。客户端按决定响应的游标接续原 Turn，不创建第二条用户消息。
 
@@ -259,7 +259,7 @@ Any active state
 
 普通长期记忆由独立召回来源进入 ContextBuilder：当前用户消息使用与写入侧相同的 embedding provider 生成查询向量，与本地 `memories_fts` 结果并行检索，经 RRF 融合后最多回读 5 条权威记录。只允许 `verified`、未删除、`long_term` 记录进入模型上下文；召回失败按无记忆降级，不阻断 Turn。默认 Provider 是 256 维本地特征哈希，只提供词面和局部相似度、无需联网；生产可注入语义 embedding provider，并由 `modelId` 隔离向量空间。召回正文上限 4000 字符，以不可信数据形式注入，不能作为系统指令、工具调用或授权。
 
-每个来源必须进入 ContextManifest，记录来源 ID/版本、purpose、权限快照、截断/压缩方式和内容 hash。原始 Restricted 内容默认不进入日志。[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md) 已冻结一次 ModelRun 对应一个不可变 Manifest，多来源对应条目，Manifest 只以 ModelRun 为父级；attemptId/stepId 存在于 ModelRun。当前逐请求快照已覆盖后续 Step、失败及重试，但宿主仍以 `turn:history` 来源包装消息和工具等输入；细粒度来源修订、权限与截断的完整证据链尚未闭合。
+每个来源必须进入 ContextManifest，记录来源 ID/版本、purpose、权限快照、截断/压缩方式和内容 hash。原始 Restricted 内容默认不进入日志。[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md) 已冻结一次 ModelRun 对应一个不可变 Manifest，多来源对应条目，Manifest 只以 ModelRun 为父级；attemptId/stepId 存在于 ModelRun。当前逐请求记录已覆盖后续 Step、失败及重试，持久快照仅为请求元数据，宿主仍使用 `turn:history` 来源标签；尚未实现来源条目及其 hash，不能从正文推导 hash 代替缺失的来源绑定。细粒度来源修订、权限与截断的完整证据链尚未闭合。
 
 ### 7.2 AgentInboxItem
 

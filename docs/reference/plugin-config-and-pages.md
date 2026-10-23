@@ -93,10 +93,12 @@ Config 是 Aervox 自有 DSL，不是任意 JSON Schema，也不兼容 AstrBot �
 | `GET /v1/plugins/:id/config/schema` | 返回 `{schemaVersion, fields}`；没有 Schema 返回 404 |
 | `PUT /v1/plugins/:id/config/schema` | 注册经过共享校验的完整 DSL，返回 `{schemaVersion, fields}`；`409 PLUGIN_PACKAGE_IMMUTABLE`，generation 包须重新打包升级 |
 | `GET /v1/plugins/:id/config` | 返回 `revision/schemaVersion/values/secretFields/orphanedValues/issues` |
-| `PUT /v1/plugins/:id/config` | 输入 `revision`、`values`、`secretValues`；校验失败 400，版本冲突 409 |
+| `PUT /v1/plugins/:id/config` | 输入 `revision`、`values`、`secretValues`；可携带 Page 打开时的 `expectedLifecycleGeneration`；校验失败 400，版本或代际冲突 409 |
 | `POST /v1/plugins/:id/config/reset` | 恢复默认值并清除该插件 Secret |
 
-**机器强制**：普通值保存按已有顶层对象合并；省略字段保留旧值。Secret 输入位于 `secretValues`，省略保留、字符串写入、`null` 清除；API 只返回 `{configured: boolean}`。禁用插件的配置读写返回 `409 PLUGIN_DISABLED`。普通配置保存使用 SQL revision CAS，首次写入也检查 revision；保存与重置在同一写事务中复验用于校验的 Schema，升级期间的过期请求返回 `409 PLUGIN_CONFIG_REVISION_CONFLICT`，不会写入旧值或删除 Secret。成功保存递增 revision，保存/重置写审计。
+**机器强制**：普通值保存按已有顶层对象合并；省略字段保留旧值。Secret 输入位于 `secretValues`，省略保留、字符串写入、`null` 清除；API 只返回 `{configured: boolean}`。禁用插件的配置读写返回 `409 PLUGIN_DISABLED`。保存和重置还拒绝不可用插件，返回 `409 PLUGIN_UNAVAILABLE`；在同一写事务中复验 enabled、availability、lifecycleGeneration、Schema 内容/版本及配置 revision，首次保存也检查 revision。检查后停用、缺包、换代、升级或并行修改使旧请求返回 `409 PLUGIN_CONFIG_REVISION_CONFLICT`，不会写入旧值或删除 Secret。成功保存递增 revision，保存/重置写审计。
+
+Page Bridge 的配置读取和保存携带打开时的 `expectedLifecycleGeneration`；GET 和 reset 支持同名可选 query，保存使用请求体字段。它是并发身份，不授予权限。Page 读取在返回前再次检查启用、可用性及代际；停用再启用或缺包恢复不能让旧 Page 读取或保存新一代配置。普通旧客户端可以省略该参数，由服务捕获当前写入代际；不带参数的配置读取保留既有启用检查，不能据此宣称全部读取路径已完成撤权传播。
 
 五个 JSON 接口由[共享端点声明](../../packages/contracts/src/plugin-config-api.ts)生成宿主路由、OpenAPI 和客户端调用，并校验成功响应。Schema 注册与配置保存要求请求体，缺少或格式错误分别返回 `400 INVALID_CONFIG_SCHEMA`、`400 INVALID_CONFIG`；revision 为非负整数，`values` 为对象，`secretValues` 仅接受字符串或 `null`。Schema 读取仍可管理停用插件的声明；停用插件的配置读取、保存和重置保持 409。未分类服务端异常只返回通用 500，不回显内部路径或 SQL。
 
@@ -144,8 +146,8 @@ Page 卸载、generation 丢弃、安装失败回滚与插件资源清理同样�
 
 当前防护与剩余边界如下，发布安全评估必须分别覆盖：
 
-- 宿主按 `event.source`、128 位随机 Nonce、插件/Page 身份与文档会话验证调用和迟到响应，SDK 只接受绑定父窗口及 Origin。逐项 capability 对配置、通知和关闭生效；文档刷新重新挂载并初始化配置 revision。
-- 入口 HTML 与普通资源共用启用检查；当前窗口观察到禁用或缺包后立即销毁 iframe 并拒绝旧响应。其它窗口仍需收到更新后的插件状态，尚无跨窗口撤权实时推送。
+- 宿主按 `event.source`、128 位随机 Nonce、插件/Page 身份、lifecycleGeneration 与文档会话验证调用和迟到响应；缺少代际时不建立 Page 会话。SDK 只接受绑定父窗口及 Origin。逐项 capability 对配置、通知和关闭生效；文档刷新重新挂载并初始化配置 revision。同 ID 的插件换代也更换 iframe 与 Nonce，旧窗口及在途响应失效。
+- 入口 HTML 与普通资源共用启用检查；当前窗口观察到禁用、缺包或换代后销毁 iframe 并拒绝旧响应。Page 配置调用还通过服务端代际门禁拒绝旧窗口请求。其它窗口的通知、关闭及 iframe 代码终止仍依赖状态更新，尚无跨窗口撤权实时推送；配置拒绝不能证明全部 capability 或资源已经撤权。
 - iframe 正在运行的代码没有统一 CPU/内存配额与撤权终止证明；不能把网络 CSP 解释为任意第三方执行安全已验收。
 - API 启用 Bearer Token 认证时，当前 iframe `src` 和脚本资源没有注入 Authorization 头，资源请求会受到全局认证检查；尚无完整的受保护 Page 资源授权通道。不能将 Token 放入页面 URL 或为访问页面而关闭生产认证。
 
@@ -358,7 +360,7 @@ MCP 使用独立[服务适配器](../../packages/host-runtime/src/modules/ecosys
 | Config 校验、并发 CAS、同库 Config/Secret 原子保存与重置 | [plugin-config.test.ts](../../apps/api/test/plugin-config.test.ts)、[配置激活竞态测试](../../apps/api/test/plugin-config-activation-race.test.ts)、[atomic-edits.test.ts](../../packages/repositories/test/atomic-edits.test.ts) | Secret 静态加密、外部 SecretStore 补偿、全 Page 撤权 |
 | 工具与权限登记 | [tools-plugins.test.ts](../../apps/api/test/tools-plugins.test.ts) | 任意工具声明自动提供 handler 或 grant 强制检查 |
 | Hook 有界等待、取消与后置门控 | [turn-plugin-lifecycle.test.ts](../../apps/api/test/turn-plugin-lifecycle.test.ts)、[turn-plugin-cancel-integration.test.ts](../../apps/api/test/turn-plugin-cancel-integration.test.ts) | 第三方隔离、同步死循环强制终止或业务幂等 |
-| Page 来源/会话/capability 与销毁 | [plugin-page-bridge.test.ts](../../apps/api/test/plugin-page-bridge.test.ts)、[plugin-page-dialog.test.ts](../../surfaces/panels-ui/test/plugin-page-dialog.test.ts) | 完整 Token 资源通道或全局撤权实时推送 |
+| Page 来源/会话/capability、代际与销毁 | [plugin-page-bridge.test.ts](../../apps/api/test/plugin-page-bridge.test.ts)、[plugin-page-dialog.test.ts](../../surfaces/panels-ui/test/plugin-page-dialog.test.ts)、[真实 Chromium Bridge 配置代际](../../e2e/ui/plugin-page-lifecycle.spec.ts) | 完整 Token 资源通道、全部 capability 跨窗口撤权或全局实时推送 |
 | 作者 CLI 与 API 结构兼容 | [plugin-cli.test.mjs](../../scripts/plugin-cli.test.mjs)、[OpenAPI compatibility tests](../../scripts/openapi-compat.test.mjs) | 任意协议语义兼容或真实平台验收 |
 | UI 注册/清理/配置竞态 | [ui-registry.test.ts](../../packages/ui/test/ui-registry.test.ts)、[plugin-registration.test.ts](../../plugins/focus-mode/test/plugin-registration.test.ts) | 任意第三方 Vue 热加载或安全沙箱 |
 

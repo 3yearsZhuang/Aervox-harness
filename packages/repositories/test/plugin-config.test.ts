@@ -8,6 +8,7 @@ import {
   createInMemoryDatabase,
   initDatabaseSchema,
   SqlitePluginConfigRepository,
+  SqliteExtensionRepository,
   SqlitePluginPageRepository,
   SqlitePluginSecretRepository,
   type AervoxDatabase,
@@ -17,6 +18,9 @@ import type { Client } from "@libsql/client";
 
 const tenantA: LocalContext = { workspaceId: "ws_a", subjectUserId: "usr_a" };
 const tenantB: LocalContext = { workspaceId: "ws_b", subjectUserId: "usr_b" };
+const fields = [{ key: "a", type: "integer", label: "A" }, { key: "value", type: "integer", label: "Value" },
+  { key: "enabled", type: "boolean", label: "Enabled" }, { key: "endpoint", type: "string", label: "Endpoint" },
+  { key: "apiKey", type: "secret", label: "API key" }];
 
 describe("插件 Config / Page 仓储", () => {
   let db: AervoxDatabase;
@@ -25,6 +29,7 @@ describe("插件 Config / Page 仓储", () => {
   let configRepo: SqlitePluginConfigRepository;
   let secretRepo: SqlitePluginSecretRepository;
   let pageRepo: SqlitePluginPageRepository;
+  const generations = new Map<string, string>();
 
   beforeEach(async () => {
     const res = await createInMemoryDatabase();
@@ -35,6 +40,12 @@ describe("插件 Config / Page 仓储", () => {
     configRepo = new SqlitePluginConfigRepository(db);
     secretRepo = new SqlitePluginSecretRepository(db);
     pageRepo = new SqlitePluginPageRepository(db);
+    const extensions = new SqliteExtensionRepository(db);
+    generations.clear();
+    for (const id of ["demo", "cas"]) {
+      const plugin = await extensions.createPlugin({ id, publisher: "test", version: "1", checksum: "fixture", configSchemaJson: fields });
+      generations.set(id, plugin.lifecycleGeneration);
+    }
   });
 
   afterEach(async () => {
@@ -45,7 +56,8 @@ describe("插件 Config / Page 仓储", () => {
     const saved = await configRepo.saveConfig(tenantA, {
       pluginId: "demo",
       schemaVersion: 1,
-      expectedRevision: -1,
+      expectedSchema: fields, expectedLifecycleGeneration: generations.get("demo")!,
+      expectedRevision: 0,
       values: { enabled: true, endpoint: "https://example.test" },
       secretKeys: [],
     });
@@ -61,13 +73,15 @@ describe("插件 Config / Page 仓储", () => {
     await configRepo.saveConfig(tenantA, {
       pluginId: "demo",
       schemaVersion: 1,
-      expectedRevision: -1,
+      expectedSchema: fields, expectedLifecycleGeneration: generations.get("demo")!,
+      expectedRevision: 0,
       values: { a: 1 },
       secretKeys: [],
     });
     const second = await configRepo.saveConfig(tenantA, {
       pluginId: "demo",
       schemaVersion: 1,
+      expectedSchema: fields, expectedLifecycleGeneration: generations.get("demo")!,
       expectedRevision: 1,
       values: { a: 2 },
       secretKeys: [],
@@ -78,6 +92,7 @@ describe("插件 Config / Page 仓储", () => {
     const stale = await configRepo.saveConfig(tenantA, {
       pluginId: "demo",
       schemaVersion: 1,
+      expectedSchema: fields, expectedLifecycleGeneration: generations.get("demo")!,
       expectedRevision: 1,
       values: { a: 3 },
       secretKeys: [],
@@ -86,22 +101,23 @@ describe("插件 Config / Page 仓储", () => {
     expect(stale.saved?.valuesJson).toMatchObject({ a: 2 });
   });
 
-  it("reset 配置并保留租户边界", async () => {
+  it("reset 配置并保留本地共享语义", async () => {
     await configRepo.saveConfig(tenantA, {
       pluginId: "demo",
       schemaVersion: 1,
-      expectedRevision: -1,
+      expectedSchema: fields, expectedLifecycleGeneration: generations.get("demo")!,
+      expectedRevision: 0,
       values: { a: 1 },
       secretKeys: [],
     });
-    const reset = await configRepo.resetConfig(tenantA, "demo", 1, { a: 0 });
+    const reset = await configRepo.resetConfig(tenantA, "demo", 1, { a: 0 }, fields, generations.get("demo")!, 1);
     expect(reset.valuesJson).toMatchObject({ a: 0 });
     expect(reset.revision).toBe(2);
     expect(await configRepo.getConfig(tenantB, "demo")).not.toBeNull();
   });
 
   it("首次保存也检查 revision；同 revision 的并发写最多一个成功", async () => {
-    const input = { pluginId: "cas", schemaVersion: 1, expectedRevision: 9, values: {}, secretKeys: [] };
+    const input = { pluginId: "cas", schemaVersion: 1, expectedSchema: fields, expectedLifecycleGeneration: generations.get("cas")!, expectedRevision: 9, values: {}, secretKeys: [] };
     expect(await configRepo.saveConfig(tenantA, input)).toEqual({ saved: null, conflict: true });
     expect(await configRepo.getConfig(tenantA, "cas")).toBeNull();
     const create = await Promise.all([1, 2].map((value) =>

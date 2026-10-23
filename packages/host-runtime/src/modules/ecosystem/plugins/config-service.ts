@@ -96,6 +96,17 @@ export class PluginConfigService {
     if (plugin.bundleGeneration) throw new PluginConfigError(409, "PLUGIN_PACKAGE_IMMUTABLE", "Repackage and install a new version to change package declarations or resources");
   }
 
+  private requireConfigLifecycle(pluginId: string, plugin: PluginModel, expectedLifecycleGeneration?: string): void {
+    if (plugin.enabled !== 1) throw new PluginConfigError(409, "PLUGIN_DISABLED", `plugin disabled: ${pluginId}`);
+    if ((plugin.availability ?? "available") !== "available") {
+      throw new PluginConfigError(409, "PLUGIN_UNAVAILABLE", `plugin unavailable: ${pluginId}`);
+    }
+    if (!plugin.lifecycleGeneration || (expectedLifecycleGeneration !== undefined
+      && plugin.lifecycleGeneration !== expectedLifecycleGeneration)) {
+      throw new PluginConfigError(409, "PLUGIN_CONFIG_REVISION_CONFLICT", "plugin lifecycle changed; reopen the page");
+    }
+  }
+
   private async requirePlugin(pluginId: string): Promise<PluginModel> {
     const found = await this.findPlugin(pluginId);
     if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
@@ -165,12 +176,13 @@ export class PluginConfigService {
 
   // ── 配置 ──────────────────────────────────────────────
 
-  async getConfig(tenant: LocalContext, pluginId: string): Promise<PluginConfigServiceSnapshot> {
+  async getConfig(tenant: LocalContext, pluginId: string, expectedLifecycleGeneration?: string): Promise<PluginConfigServiceSnapshot> {
     const found = await this.findPlugin(pluginId);
     if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
     if (found.plugin.enabled !== 1) {
       throw new PluginConfigError(409, "PLUGIN_DISABLED", `plugin disabled: ${pluginId}`);
     }
+    if (expectedLifecycleGeneration !== undefined) this.requireConfigLifecycle(pluginId, found.plugin, expectedLifecycleGeneration);
     const targetId = found.resolvedId;
     const schema = await this.getConfigSchema(targetId);
     let stored = await this.deps.configRepo.getConfig(tenant, targetId);
@@ -181,6 +193,13 @@ export class PluginConfigService {
     const fields = schema.fields as Parameters<typeof validateValues>[0];
     const values = stored?.valuesJson as Record<string, unknown> | undefined;
     const { defaults } = diffSchema(fields, (values ?? {}) as Record<string, unknown>);
+    if (expectedLifecycleGeneration !== undefined) {
+      // A Page read can outlive disable/re-enable while awaiting configuration or Secret state.
+      // Recheck the captured identity before releasing its response to the old document session.
+      const current = await this.deps.extensionRepo.getPlugin(targetId);
+      if (!current) throw new PluginConfigError(409, "PLUGIN_CONFIG_REVISION_CONFLICT", "plugin lifecycle changed; reopen the page");
+      this.requireConfigLifecycle(pluginId, current, expectedLifecycleGeneration);
+    }
     return {
       pluginId,
       revision: stored?.revision ?? 0,
@@ -195,13 +214,11 @@ export class PluginConfigService {
   async saveConfig(
     tenant: LocalContext,
     pluginId: string,
-    body: { revision: number; values?: Record<string, unknown>; secretValues?: Record<string, string | null> },
+    body: { revision: number; values?: Record<string, unknown>; secretValues?: Record<string, string | null>; expectedLifecycleGeneration?: string },
   ): Promise<PluginConfigServiceSnapshot> {
     const found = await this.findPlugin(pluginId);
     if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
-    if (found.plugin.enabled !== 1) {
-      throw new PluginConfigError(409, "PLUGIN_DISABLED", `plugin disabled: ${pluginId}`);
-    }
+    this.requireConfigLifecycle(pluginId, found.plugin, body.expectedLifecycleGeneration);
     const targetId = found.resolvedId;
     const schema = await this.getConfigSchema(targetId);
     const fields = schema.fields as Parameters<typeof validateValues>[0];
@@ -231,6 +248,7 @@ export class PluginConfigService {
       schemaVersion: schema.schemaVersion,
       expectedRevision: body.revision,
       expectedSchema: schema.fields,
+      expectedLifecycleGeneration: found.plugin.lifecycleGeneration,
       values,
       secretKeys: [],
       secretChanges,
@@ -251,17 +269,17 @@ export class PluginConfigService {
     };
   }
 
-  async resetConfig(tenant: LocalContext, pluginId: string): Promise<PluginConfigServiceSnapshot> {
+  async resetConfig(tenant: LocalContext, pluginId: string, expectedLifecycleGeneration?: string): Promise<PluginConfigServiceSnapshot> {
     const found = await this.findPlugin(pluginId);
     if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
-    if (found.plugin.enabled !== 1) {
-      throw new PluginConfigError(409, "PLUGIN_DISABLED", `plugin disabled: ${pluginId}`);
-    }
+    this.requireConfigLifecycle(pluginId, found.plugin, expectedLifecycleGeneration);
     const targetId = found.resolvedId;
     const schema = await this.getConfigSchema(targetId);
     const fields = schema.fields as Parameters<typeof validateValues>[0];
     const defaults = applyDefaults(fields);
-    const saved = await this.deps.configRepo.resetConfig(tenant, targetId, schema.schemaVersion, defaults, schema.fields)
+    const stored = await this.deps.configRepo.getConfig(tenant, targetId);
+    const saved = await this.deps.configRepo.resetConfig(tenant, targetId, schema.schemaVersion, defaults, schema.fields,
+      found.plugin.lifecycleGeneration, stored?.revision ?? 0)
       .catch((error: unknown) => {
         if (error instanceof DomainConflictError) throw new PluginConfigError(409, "PLUGIN_CONFIG_REVISION_CONFLICT", error.message);
         throw error;

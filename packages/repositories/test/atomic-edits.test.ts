@@ -1,16 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createInMemoryDatabase, initDatabaseSchema, SqliteConversationRepository, SqlitePluginConfigRepository } from "../src/index.js";
+import { createInMemoryDatabase, initDatabaseSchema, SqliteConversationRepository, SqliteExtensionRepository, SqlitePluginConfigRepository } from "../src/index.js";
 
 const ctx = { workspaceId: "local", subjectUserId: "local" };
+const fields = [{ key: "endpoint", type: "string", label: "Endpoint" }, { key: "key", type: "secret", label: "Key" }];
 describe("atomic message and config writes", () => {
   let database: Awaited<ReturnType<typeof createInMemoryDatabase>>;
   let conversations: SqliteConversationRepository;
   let configs: SqlitePluginConfigRepository;
+  let generation: string;
   beforeEach(async () => {
     database = await createInMemoryDatabase();
     await initDatabaseSchema(database.client);
     conversations = new SqliteConversationRepository(database.db);
     configs = new SqlitePluginConfigRepository(database.db);
+    const plugin = await new SqliteExtensionRepository(database.db).createPlugin({ id: "p", publisher: "test", version: "1", checksum: "fixture", configSchemaJson: fields });
+    generation = plugin.lifecycleGeneration;
   });
   afterEach(async () => { await database.cleanup(); });
   async function seedMessage() {
@@ -42,6 +46,7 @@ describe("atomic message and config writes", () => {
   });
   const save = (revision: number, value: string | null) => configs.saveConfig(ctx, {
     pluginId: "p", expectedRevision: revision, schemaVersion: 1,
+    expectedSchema: fields, expectedLifecycleGeneration: generation,
     values: { endpoint: value }, secretKeys: [], secretChanges: { key: value },
   });
   const secrets = async () => (await database.client.execute("SELECT field_key, value_json FROM plugin_config_secrets WHERE plugin_id = 'p'")).rows;
@@ -74,7 +79,7 @@ describe("atomic message and config writes", () => {
     await save(0, "old");
     const before = await secrets();
     await database.client.execute("CREATE TRIGGER fail_reset BEFORE UPDATE ON plugin_configs BEGIN SELECT RAISE(ABORT, 'injected'); END");
-    await expect(configs.resetConfig(ctx, "p", 1, {})).rejects.toMatchObject({ cause: expect.objectContaining({ message: expect.stringContaining("injected") }) });
+    await expect(configs.resetConfig(ctx, "p", 1, {}, fields, generation, 1)).rejects.toMatchObject({ cause: expect.objectContaining({ message: expect.stringContaining("injected") }) });
     expect(await secrets()).toEqual(before);
   });
 });

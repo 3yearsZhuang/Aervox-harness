@@ -96,10 +96,12 @@ export interface PluginPageModel {
 export interface PluginConfigSaveInput {
   pluginId: string;
   schemaVersion: number;
-  /** 期望 revision（-1 表示无条件写） */
+  /** Nonnegative revision captured by the application before preparing this write. */
   expectedRevision: number;
   /** Schema used to validate this write; checked in the same transaction as values and Secrets. */
-  expectedSchema?: unknown;
+  expectedSchema: unknown;
+  /** Captured plugin lifecycle; enabled, availability and generation are revalidated before any write. */
+  expectedLifecycleGeneration: string;
   values: Record<string, unknown>;
   secretKeys: string[];
   /** Same-database Secret mutations, committed only with the matching config revision. */

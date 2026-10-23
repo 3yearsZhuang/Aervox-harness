@@ -171,6 +171,7 @@ CAP-033 的本地导出还必须能够按用户选择包含原始捕获副本、
 - 认证、loopback、文件 ACL、插件与 Electron 攻击面见[威胁模型](THREAT_MODEL.md)和 [SEC-LOC-001](SRS.md#srs-sec-local)；Web Cookie/移动认证的部署选择须经相应架构决定。
 - 静态与传输加密，Restricted 内容采用 envelope encryption；密钥由受控密钥存储管理，不以明文进入业务库、模型或导出。实际本地密钥与备份边界按 [ADR-018](adr/ADR-018-proactive-local-privacy-host.md)冻结。
 - 日志、错误监控与分析按字段脱敏，ModelRun 使用 ContextManifest，不默认复制完整 Prompt。供应商须评审用途、保留、训练、地区、删除、通知与子处理者。
+- ContextManifest 的新写入由仓储白名单投影为请求元数据：消息数量及角色计数、工具数量和合法生成参数。消息、推理、工具参数/结果、工具描述/Schema、额外字段及正文 hash 均不持久化；未知快照写为 null。Core 的调用边界快照仅供进程内执行诊断，此投影不自动清洗历史正文，也不代替来源删除传播或授权账本。
 - CAP-033 的独立来源/动作授权、本地存储与控制面凭据限制以 [SRS §8](SRS.md#8-cap-033-全域感知与个人画像主动智能模式) 为准；确认推断不解除 `local_only`。
 
 <a id="privacy-gates"></a>

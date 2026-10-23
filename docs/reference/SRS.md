@@ -684,10 +684,11 @@ CAP-014 当前分支 API 与地图读取切片保持会话内容和布局元数�
 ### FR-PLG-003 插件配置并发与重置
 
 - **Parent CAP**：`CAP-020`
-- **必须**：保存使用 revision CAS；冲突返回 409 且不静默覆盖；重置需用户确认并清空 secret。
+- **必须**：保存使用 revision CAS；保存和重置在写事务内联合复验启用、可用性、lifecycleGeneration、Schema 与 revision，冲突返回 409 且不静默覆盖；重置需用户确认并清空 secret。
 - **验收**：
   - `AC-FR-PLG-003-01`：Given 旧 revision 保存，When 提交，Then 返回 `PLUGIN_CONFIG_REVISION_CONFLICT`；
   - `AC-FR-PLG-003-02`：Given 用户确认重置，When 提交，Then 恢复 Schema 默认值且 secret 全部清除。
+  - `AC-FR-PLG-003-03`：Given 校验后插件停用、缺包、换代、Schema 或配置 revision 改变，When 旧保存或重置进入写事务，Then 返回 `PLUGIN_CONFIG_REVISION_CONFLICT` 且配置和 secret 均不改变。
 
 ### FR-PLG-004 插件 Page 与 Bridge
 
@@ -699,6 +700,7 @@ CAP-014 当前分支 API 与地图读取切片保持会话内容和布局元数�
   - `AC-FR-PLG-004-02`：Given Page 声明 `config.write`，When 保存配置，Then revision 递增；未声明时调用被拒绝；
   - `AC-FR-PLG-004-03`：Given 路径穿越或未启用插件，When 访问静态资源，Then 被拒绝。
   - `AC-FR-PLG-004-04`：Given Page 根以下存在符号链接祖先、多硬链接文件或路径在打开前被替换，When 上传或读取资源，Then 拒绝越界访问且不修改外部文件；generation 包资源保持不可变。
+  - `AC-FR-PLG-004-05`：Given Page 已按 lifecycleGeneration 打开，When 插件停用再启用或缺包恢复，Then 旧代际配置读写返回冲突；窗口观察到新代际后丢弃旧 iframe、Nonce 和在途响应。
 
 ### FR-PLG-005 Bot 平台文字接入
 

@@ -122,7 +122,7 @@ export interface ContextManifestModel {
   sourceRevisionId: string;
   selectionReason?: string | null;
   permissionSnapshot?: unknown;
-  /** 阶段 7（ADR-017）：上下文快照（每 Turn 首个 Step 的 messages；可空） */
+  /** Versioned request-count metadata for new writes; null when unknown. Historical snapshots may retain their older shape. */
   snapshot?: unknown;
   tokenBudget?: number | null;
   createdAt: string;

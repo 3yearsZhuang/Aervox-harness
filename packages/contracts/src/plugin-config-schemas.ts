@@ -338,6 +338,8 @@ export const pluginConfigSnapshotSchema = z.object({
 /** 配置更新请求（revision CAS；secretValues 缺失字段=保持不变，null=清除） */
 export const pluginConfigUpdateRequestSchema = z.object({
   revision: z.number().int().nonnegative(),
+  /** Page sessions bind writes to the plugin lifecycle captured when opened. */
+  expectedLifecycleGeneration: z.string().min(1).max(128).optional(),
   values: z.record(z.string(), z.unknown()).default({}),
   secretValues: z.record(z.string(), z.union([z.string(), z.null()])).default({}),
 });
