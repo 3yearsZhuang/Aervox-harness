@@ -4,11 +4,11 @@
 
 ## 1. 当前判断与执行顺序
 
-2026-10-23 自查确认：共享传输、Attempt、领域事务和数据保护已有实质交付，但**ITER-071 尚未完全实现设计**。提交 `7abd4fbb` 的本地全量与远端检查均通过，仍被真实路由和隔离 SQLite 探针发现审批绕过、作答部分提交等未覆盖缺陷。不能以绿测关闭整改，也不能把包边界成立视为行为已经统一。
+2026-10-23 自查确认：共享传输、Attempt、领域事务和数据保护已有实质交付，但**ITER-071 尚未完全实现设计**。提交 `7abd4fbb` 的绿测未覆盖审批绕过、作答部分提交等反例；本轮已实施首批修复及真实入口回归，验证记录见 ITER-071。其余未闭合事项仍按下列风险与依赖推进，不能以包边界成立视为行为已经统一。
 
 | 顺序 | 当前目标 | 对应条目与进入下一阶段的条件 |
 |---|---|---|
-| 立即 | 修复已复现的授权与数据正确性缺陷 | [ITER-071](#iter-071) 的两项 P1 及审批 revision 绑定列入首批；补完整入口回归，再处理同条目其余行为与边界缺口 |
+| 立即 | 验证首批修复，继续关闭行为与边界缺口 | [ITER-071](#iter-071) 的两项 P1、审批 revision、分支幂等及索引语义已实施；完成本轮验证后推进剩余 Controller、模型、Catalog、Port 与 Schema 约束 |
 | 接续，可按依赖并行 | 闭合删除、撤权、安全恢复及在线运行门槛 | [ITER-003](#iter-003)/[006](#iter-006)/[010](#iter-010)/[011](#iter-011)/[013](#iter-013)；插件升级只推进 [ITER-005](#iter-005) 的必要安全切片。恢复不能先于 deny 账本和水位，性能优化不能先于资源有界 |
 | 核心产品交付 | 证明现有个人助手、学习和会话入口真实可用 | 先收敛本机路径的 [ITER-064](#iter-064)、[033](#iter-033)、[029](#iter-029)、[第一方界面](#iter-053)；[015](#iter-015) 必要部署与 [062](#iter-062) 连接验证可并行，Bot 独立运行/恢复在主管能力后验收；再做 [032](#iter-032)/[012](#iter-012) 长会话及索引，[026](#iter-026) 有限评审 |
 | 按测量投入 | 消除真实瓶颈和维护成本 | [ITER-017](#iter-017)/[027](#iter-027)/[040](#iter-040)；先固定设备、数据和质量基线，再决定优化或停止，不承诺未测收益 |
@@ -24,35 +24,36 @@
 
 维护者已批准 [ADR-030](docs/reference/adr/ADR-030-behavior-ownership.md) 和六批整改方案。工作分支 `feat/decoupling-implementation`，交付见 [PR #323](https://github.com/3yearsZhuang/Aervox-harness/pull/323)，尚未合并。审计基线为 `0ebccd20611aa609b2b7609241d98011109a8982`，本次自查对象为 `7abd4fbb6825e06c4e967ccd72a4ad3f185ec402`。此前“消费者均已迁移、完整统一”的表述撤回，以以下剩余验收为准。
 
-#### 先关闭两项 P1
+#### 首批 P1：已实现，进入整体验证
 
-- **静态 privileged 工具可绕过管理员审批。** [审批 HTTP 路由](packages/host-runtime/src/modules/companion/conversation/routes.ts)只从动态运行时列表判断安全等级，静态 Contribution 漏检。真实路由、Core 和内存 SQLite 探针确认：无管理员身份请求返回 200/granted，后续 privileged handler 被调用。审批入口必须消费与执行相同的权威 ToolBinding，固化安全等级、owner、generation、revision；全部工具来源共用管理员及自动授权矩阵，不扩大免审批范围。验收必须经过真实 HTTP 审批入口，覆盖普通用户拒绝、合法管理员批准、停用及跨代拒绝。
-- **HTTP 作答仍非原子，失败重试会永久遗漏复习。** [学习路由](packages/host-runtime/src/modules/learning/learning/routes.ts)先记 Attempt，再分别更新掌握度和排期；重复键提前返回。隔离库注入首次排期失败后，首次 500、同键重试 200 且声称 `review_scheduled`，实际作答 1 条、复习 0 条。将现有题目作答和插件判定作答收敛为一个应用命令，正确解析 Turn/session/source，在同一事务提交事实、掌握度、复习与 Outbox；同键异参冲突。当前 `recordJudgedAnswer` 仅覆盖插件的部分写入，不能直接据此宣布完成。逐步故障、并发和同键重试不得部分成功或返回虚假后续状态。
+- **静态 privileged 工具的管理员审批漏检已修。** 原[HTTP 路由](packages/host-runtime/src/modules/companion/conversation/routes.ts)只查动态列表，隔离真实路由探针曾复现无管理员批准并执行。现在审批与派发使用同一 ToolBinding 身份，持久安全等级、owner、generation、revision；静态、动态、插件均执行管理员门禁。插件在审批事务内再次检查代际/启用/可用状态，预检后撤权不写批准、不创建续跑 Attempt；保留参数哈希兼容，不扩大免审批。真实 Core→HTTP→Core 及三种撤权竞态已进入回归。
+- **HTTP/插件作答原子命令已统一。** 原[学习路由](packages/host-runtime/src/modules/learning/learning/routes.ts)分步写入，排期失败后同键重试曾虚报 `review_scheduled` 且无复习。现在一个应用策略和写者事务提交事实、掌握度、复习、Outbox 回执，插件由真实 Turn 解析 session/source；旧独立写入口已删除。同键异参 409，重试返回原 nextStep；无知识关联或不可判定时为 `await_review`，仅实际排期才返回 `review_scheduled`。旧事实无完整事务回执时返回 `answer_receipt_unavailable`，不猜测补造；逐步故障、并发、来源/代际及删除顺序纳入隔离回归。
 
 #### 随后补齐设计与行为闭环
 
-以下均为尚未关闭的 P2；其中审批 revision 绑定属于授权身份闭环，与上述 P1 同批处理。源码确认与隔离复现的证据强度在各行区分，不能以结构整改替代入口验收。
+审批 revision、分支幂等和索引语义已随首批实施；其余行仍待整改。源码确认与隔离复现的证据强度在各行区分，不能以结构整改替代入口验收。
 
 | 缺口与证据 | 实施及验收要求 |
 |---|---|
-| 工具 revision 未绑定持久审批：[tool-providers](packages/host-runtime/src/modules/companion/conversation/tool-providers.ts) 的审批版本只含 generation/updatedAt。[运行时](packages/core/src/host-tool-runtime.ts)替换 handler 后 revision 改变、updatedAt 不变；探针确认重新声明后仍用旧审批执行新 handler | 声明与实现修订共同进入审批身份，明确持久稳定版本和进程内注册代际；旧声明、重新声明、替换 handler、重启及跨代均验证，保留合法历史 JSON 参数哈希兼容 |
-| 分支入口未贯通幂等：[HTTP](packages/host-runtime/src/modules/companion/branch/routes.ts)及[术语探索](plugins/focus-mode/src/server/terms-routes.ts)每次生成新 ID。同 body/同幂等键实测生成 2 分支、2 Outbox | 请求键贯通领域命令，同键同参返回原结果、异参拒绝；子会话/分支/Outbox 无孤儿。删除仓储旧 `createConversationBranch` 独立路径；保留 opaque `forkAtMessageId` 兼容，新子会话继承父策略，既有子会话不被覆盖 |
+| 已实施：工具 revision 与持久审批绑定。[tool-providers](packages/host-runtime/src/modules/companion/conversation/tool-providers.ts)统一编码声明/实现及安全身份；[运行时](packages/core/src/host-tool-runtime.ts)默认含进程实例和注册代际，不再以 updatedAt 代替实现版本 | 默认替换 handler/重启需新审批；受信宿主只有显式稳定实现版本才跨重启复用，语义变更必须递增版本；插件审批仍绑定 generation。旧无元数据批准不授权新声明，pending 按版本去重；参数哈希保持兼容。替换/重新声明/重启/跨代回归已通过定向验证 |
+| 已实施：分支请求键贯通[HTTP](packages/host-runtime/src/modules/companion/branch/routes.ts)、[插件](plugins/focus-mode/src/server/terms-routes.ts)和领域命令；旧 `createConversationBranch` 已删除，分支路由消费最小 Port | 同键同参复用、异参 409，子会话/分支/Outbox 同事务；软删重试不复活，硬删结果但回执留存时 409。保留 opaque fork 标记与父策略继承，既有子会话不覆盖；无键仍可创建独立重复边。并发及 Outbox 故障回归已通过定向验证 |
 | 三个 surface 仍维护重复业务状态：工作台与桌宠在 `await answer()` 后清空本地问题，源码时序会覆盖先到的新问题；此竞态尚无组件执行探针。桌宠只显示第一个问题的选项，缺自由文本、多选、多问题及完整状态订阅 | 直接消费一个 ConversationController 状态及命令；复用问题交互模型，保留各自布局。覆盖新问题先于旧回答返回、全部合法问题类型、审批、取消、持续可见的发送失败与输入恢复 |
 | 已受理 Turn 的观察失败没有三个 surface 的恢复入口；现有 retry 主要处理受理结果未知 | Controller 保留 Turn/cursor，区分同业务键重试提交与从持久游标恢复观察；接入三个 surface，已受理不得重发新 Turn，断开观察不替用户取消 |
 | 单次模型调用仍分叉：[createLLMCallable](packages/host-runtime/src/modules/companion/conversation/llm-adapter.ts) 的真实插件消费者未迁到[生成端口](packages/host-runtime/src/modules/ecosystem/llm/generation.ts)。相同 partial EOF 探针分别返回正文和 `llm_incomplete_output`；生成端口也未统一消费 contextWindow/timeout 等 settings | 模型基础设施唯一解析协议、默认值、可用性、预算和超时；插件、日记、主动回复及计划消费同一生成语义，覆盖静默取消、EOF/stop reason 与最终输入输出预算。API/Worker 日记 Anthropic 显式模板降级已修复，保留该合同 |
 | [ToolCatalog](packages/host-runtime/src/modules/companion/conversation/plugin-tool-catalog.ts)仅集中 generation/names/投影，定义、handler、guidance 仍逐 Turn 分装；[Contracts](packages/contracts/src/plugin-api-registry.ts)仍包含可变注册表运行时实现 | 定义/handler/guidance/投影作为同一 owner/generation/revision 登记单元，整批预检提交、对称释放；故障注入同时验证四者无部分发布或残留，纯契约与宿主实现分离。保留多 Host 隔离、冲突回滚和旧 disposer 所有权回归；投影按代际保留不能直接认定为泄漏 |
-| ConversationHost 已收窄，但[会话公开出口](packages/host-runtime/src/modules/companion/conversation/index.ts)仍导出具体 repo/deps 装配，HTTP/分支仍接 SQLite；admission、未领取取消和 DSH 另有终态政策；执行器/路由/模型接线保留执行期间环境 fallback | HTTP、Bot、Worker、插件通过最小命令/查询 Port 运行，执行服务独占仓储，删除旧装配后门；最小 fake Port 可运行各适配器。收口终态选择与事件载荷，Native/Adapter 同一合同覆盖预取消、静默源取消、丢租约后禁写终态、删除、关机、fencing 及原子终态，未知副作用不自动重放；配置必须注入，删除业务期重读 |
-| [Schema manifest](packages/repositories/src/schema/manifest.ts)用 `index_info` 忽略索引排序/collation；改为 `NOCASE DESC` 的隔离库仍通过校验，随后区分大小写的幂等键发生冲突 | 用 `index_xinfo` 等完整比对列/表达式、排序、collation、唯一性和条件，补反例；[旧迁移 helper](packages/repositories/src/migration/migration-service.ts)仍从公共入口绕过 staging，删除无消费者路径。完整版本迁移与生产编排归 ITER-011 |
+| ConversationHost 已收窄，但[会话公开出口](packages/host-runtime/src/modules/companion/conversation/index.ts)仍导出具体 repo/deps 装配，会话 HTTP 仍接 SQLite（分支已迁窄 Port）；admission、未领取取消和 DSH 另有终态政策；执行器/路由/模型接线保留执行期间环境 fallback | HTTP、Bot、Worker、插件通过最小命令/查询 Port 运行，执行服务独占仓储，删除旧装配后门；最小 fake Port 可运行各适配器。收口终态选择与事件载荷，Native/Adapter 同一合同覆盖预取消、静默源取消、丢租约后禁写终态、删除、关机、fencing 及原子终态，未知副作用不自动重放；配置必须注入，删除业务期重读 |
+| 已实施：索引通过独立 canonical SQLite + `index_xinfo` 比较列/表达式、排序、collation、唯一及条件；旧原地迁移 helper 和出口已删除，版本指纹保持不变 | 真实 NOCASE/DESC/表达式及 UNIQUE/PK 索引反例、失败源库不变均已定向验证。**完整 Schema 等价仍未闭合**：新隔离探针仅给 learning_goals 增加 CHECK、STRICT 或 WITHOUT ROWID，检查仍返回空并登记版本；CHECK 可拒绝正常写入。下一步补表级约束/选项比较及反例；完整版本迁移与生产编排归 ITER-011 |
 | [术语探索 UI](plugins/focus-mode/src/ui/TermExploreDialog.vue)仍复制网络 DTO；[类型守卫](scripts/check-type-boundary.mjs)只识别同名声明，改名 DTO 探针未被拦截；旧 `useAervoxTurn` 包装仍公开 | 插件使用浏览器/服务端共享纯 Schema 派生网络类型、显式映射视图，补类型兼容证明；删除已无消费者的包装与重复选项。重复代码扫描只作审查线索，不能充当 DTO 一致性证明；历史路由例外归 ITER-064 |
 | [共享传输合同](apps/desktop/test/turn-protocol.test.ts)及真实 Electron 7 项覆盖主协议，但缺完整审批 POST→continuation→observe，以及受理未知→同业务键重试；分散 mock 不能补足 | 同一合同跑 Fetch 与完整 preload/main IPC；补上述整链及新发现的工具来源、handler revision、UI 竞态、领域故障、索引反例。保留 ACK 背压、重连去重、帧限制、提前 EOF 和取消门禁，不降低 oracle 或扩大豁免 |
 
 #### 交付次序、已完成范围与证据
 
-先补 P1、审批 revision 绑定及对应回归；再收口领域命令、工具目录和生命周期；客户端与数据整改可在接口稳定后并行；最后删除旧路径并补防回退门禁。沿用原六批交付关系，第三批依赖第二批，第四/第五批可并行，第六批只在消费者迁完后收尾。跨域协调归本条，长期迁移、恢复、运行和历史 API 分别归 ITER-011/010/013/064，不另建队列。
+首批 P1、审批 revision、作答/分支命令及索引语义已实施；验证后继续工具目录和生命周期收口，客户端与数据整改按稳定接口并行，最后删除余下旧路径并补防回退门禁。沿用原六批交付关系，第三批依赖第二批，第四/第五批可并行，第六批只在消费者迁完后收尾。跨域协调归本条，长期迁移、恢复、运行和历史 API 分别归 ITER-011/010/013/064，不另建队列。
 
 - **已落地但不能外推为整体完成：** 无 Vue TurnClient 及 Electron 主进程复用；Native/Adapter 领取、心跳、取消、删除、fencing 与原子终态主体；插件代际和事务提交前复验；插件作答及分支组合写；API/Worker 日记解析与原子发布；主路径配置快照。安全逻辑导出排除 FTS/shadow、staging 校验及源库保护已实现；同步网络/进程协调移出仓储，Worker 使用受限投影与删除命令，学习政策提纯；学习 store 按需加载及错误状态、主要 DTO、资产消费端输出、记忆纯函数、审批序列化和依赖图/循环守卫已收敛。
 - **精确验证基线：** `7abd4fbb` 的 `./aervox ci all` 退出 0，API 757、仓储 493、Worker 142 项；CLI 打包/认证/文件 SQLite/API 重启及审批集成 2 项通过。真实 Electron IPC 7 项通过，入口 `mise exec -- node apps/desktop/scripts/turn-ipc-smoke.mjs`。依赖审计 0 未审阅、2 既有审阅路径、0 过时例外；额外只读自查 7 文件 69 项通过，但未覆盖上述反例。
 - **远端证据：** 同一提交的[主 CI](https://github.com/3yearsZhuang/Aervox-harness/actions/runs/39923253547)、[三平台 Native](https://github.com/3yearsZhuang/Aervox-harness/actions/runs/39923253363)、[Docs](https://github.com/3yearsZhuang/Aervox-harness/actions/runs/39923253858)共 8 项检查成功；API E2E 45、Chromium UI E2E 18 项，Native 各平台布局 2/Rust 5/TS 42 项。类型、构建入口、Worker 旧消费者、动态工具刷新、分支兼容、OpenAPI 测试及删除研究旧调用者的历次失败与补修保留在 PR/CI；合盖休眠中断的运行不计通过。
+- **本轮首批验证：** 21 个相关包构建通过；授权/运行时 4 文件 60 项、学习 API 7 文件 85 项、仓储数据/迁移/分支 12 文件 87 项定向通过，分支/术语真实入口及 OpenAPI 4 文件 29 项通过，64 份文档门禁通过。首次整体验证捕获插件适配器跨模块私有导入，已改为学习模块公开命令入口，未加豁免；Workflow 版本声明的字段类型及两处旧异参成功断言也已修正。全量与精确提交远端结果按本轮交付继续核对，未据定向测试宣布整体完成。
 - **关闭条件：** 上述缺口逐项有真实入口或等价隔离故障回归，删除旧消费者后完成定向验证与新的 `./aervox ci all`，再核对精确提交远端检查。已有绿测不覆盖后续修订。未操作用户业务数据库；代码验收不代表生产迁移、真实模型/账号/多设备、移动真机、签名或发布完成。
 
 ## 3. 信任、数据安全与运行门槛
@@ -93,7 +94,7 @@ Page/客户端认证；FND-03、ARC-13，CAP-018/020。Window/source、密码学
 
 ARC-09、CAP-027。ITER-071 已撤旧快照原地恢复、由 Schema 编译目标结构并校验指纹，提供单库 staging/备份/源字节复验/换库/回滚保护；尚未证明所有支持旧版本和整体升级恢复。
 
-- **下一步：** 唯一有序、不可变迁移入口，接线版本 journal/校验和/库外阶段状态；删除旧原地 helper。完整列、默认、NULL、PK、FK、索引条件及排序/collation 反例由 ITER-071 补齐。明确主库、Vault、控制账本、密钥和状态的备份/回滚集合，证明 API/Worker/后台及未知消费者已停写；维护锁或 `--stopped` 声明不是停写证明。
+- **下一步：** 唯一有序、不可变迁移入口，接线版本 journal/校验和/库外阶段状态；旧原地 helper 已撤下。列、默认、NULL、PK、FK 与索引语义已有检查，表级 CHECK/STRICT/WITHOUT ROWID 剩余归 ITER-071。明确主库、Vault、控制账本、密钥和状态的备份/回滚集合，证明 API/Worker/后台及未知消费者已停写；维护锁或 `--stopped` 声明不是停写证明。
 - **演练顺序：** 停写→验证备份→显式选择数据范围→同文件系统新 staging→完整结构、integrity、FK、行数、索引、FTS 校验→关闭句柄并原子换库→首次写前只读验证→保留回滚包。中断只继续已证明安全阶段或恢复原库，staging 失败源库不变；回滚包按[数据库契约](docs/reference/DATABASE.md#9-cr-030-破坏性迁移)至少保留 30 天或 10 次成功启动。
 - **边界与验收：** 每个支持旧版本、失败点、恢复及实际回滚均隔离演练；NULL/重复主键、冲突、坏 JSON、孤儿 FK、行数不符、未知消费者阻断并输出清单，不删除/合并、修改幂等键、选择胜者或补造身份。迁移协调方案先评审，破坏性转换先 ADR；用户业务数据库操作单独验收，不因本计划自动执行。
 

@@ -50,7 +50,7 @@ export async function registerDiaryModule(ctx: ModuleDependencies<"app" | "db" |
       builtin: true,
       gatingConditions: [],
       priority: 100,
-    }, { call: (ctx, args) => tool.run(ctx, (args ?? {}) as never) });
+    }, { approvalRevision: "host:diary-write:v1", call: (ctx, args) => tool.run(ctx, (args ?? {}) as never) });
   }
 }
 export { publishGeneratedDiary, type DiaryPublicationInput } from "./publication.js";

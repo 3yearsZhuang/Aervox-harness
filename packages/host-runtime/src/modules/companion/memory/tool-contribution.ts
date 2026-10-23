@@ -32,7 +32,7 @@ export function contributeMemoryTool(runtime: ToolContributionPort, memory: Memo
     builtin: true,
     gatingConditions: [],
     priority: 100,
-  }, { call: (ctx, args, control) => {
+  }, { approvalRevision: "host:memory-store:v1", call: (ctx, args, control) => {
     control.signal.throwIfAborted();
     return memory.store(ctx, args as MemoryStoreToolInput);
   } });

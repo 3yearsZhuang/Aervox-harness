@@ -13,6 +13,7 @@
  */
 import { createHash } from "node:crypto";
 import { awaitWithSignal, stableSerialize } from "@aervox/core";
+import { createLearningAnswerService } from "./modules/learning/learning/index.js";
 import type {
   HostRecord,
   PluginHostServices,
@@ -37,7 +38,7 @@ function createSessionPort(repo: SqliteConversationRepository, ctx: LocalContext
       await control?.checkActive();
       control?.signal?.throwIfAborted();
       const branch = await repo.createExplorationBranch(ctx, {
-        id: input.id, parentSessionId: input.parentSessionId,
+        id: input.id, idempotencyKey: input.idempotencyKey, parentSessionId: input.parentSessionId,
         childSessionId: input.childSessionId, title: input.title,
         branchReason: input.reason, pluginGeneration: control?.pluginGeneration,
       });
@@ -58,6 +59,7 @@ function createLearningFactPort(
   ctx: LocalContext,
   control?: PluginHostServiceControl,
 ): PluginLearningFactPort {
+  const answers = createLearningAnswerService(repo);
   const call = async <T>(operation: () => Promise<T>): Promise<T> => {
     await control?.checkActive(); control?.signal?.throwIfAborted();
     const value = await awaitWithSignal(operation(), control?.signal);
@@ -69,8 +71,10 @@ function createLearningFactPort(
       await control?.checkActive();
       control?.signal?.throwIfAborted();
       const key = input.idempotencyKey ?? createHash("sha256").update(stableSerialize(input)).digest("hex");
-      const idempotencyKey = `${control?.pluginGeneration?.pluginId ?? input.source ?? "host"}:${input.turnId}:${key}`;
-      return repo.recordJudgedAnswer(ctx, { ...input, idempotencyKey, pluginGeneration: control?.pluginGeneration });
+      const idempotencyKey = `${control?.pluginGeneration?.pluginId ?? "host"}:${input.turnId}:${key}`;
+      const legacyIdempotencyKey = control?.pluginGeneration || !input.source ? undefined : `${input.source}:${input.turnId}:${key}`;
+      const { attempt } = await answers.recordAnswer(ctx, { ...input, kind: "judged-question", idempotencyKey, legacyIdempotencyKey, pluginGeneration: control?.pluginGeneration });
+      return { questionId: attempt.questionId, attemptId: attempt.id, judgement: input.judgement, enteredMistakeNotebook: attempt.judgement === "incorrect" };
     },
 
     // 报告行按不透明载荷转发：展开为普通记录，插件侧不解析字段（真源仍在宿主）

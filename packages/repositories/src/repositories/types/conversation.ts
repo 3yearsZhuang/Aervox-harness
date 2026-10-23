@@ -239,17 +239,7 @@ export interface IConversationRepository {
   /** 2c：崩溃释放后将遗留 pending 预留标记为 outcome_unknown（§11.3） */
   markPendingOutcomeUnknown(client: import("@libsql/client").Client): Promise<number>;
   // P1（R2 · CAP-014）：会话地图与替代解法分支
-  createConversationBranch(
-    ctx: LocalContext,
-    branch: {
-      id: string;
-      parentSessionId: string;
-      forkAtMessageId?: string | null;
-      childSessionId: string;
-      title?: string;
-      branchReason?: string;
-    },
-  ): Promise<ConversationBranchModel>;
+  createExplorationBranch(ctx: LocalContext, input: CreateExplorationBranchInput): Promise<ConversationBranchModel | null>;
   listBranchesByParent(ctx: LocalContext, parentSessionId: string): Promise<ConversationBranchModel[]>;
   /** CAP-014：获取分支详情 */
   getBranch(ctx: LocalContext, branchId: string): Promise<ConversationBranchModel | null>;
@@ -285,6 +275,22 @@ export interface IConversationRepository {
     messagesCount: number;
   }>;
 }
+
+/** The command owns generated identities; callers may provide an existing child. */
+export interface CreateExplorationBranchInput {
+  id?: string;
+  idempotencyKey?: string;
+  parentSessionId: string;
+  childSessionId?: string;
+  forkAtMessageId?: string | null;
+  title?: string;
+  branchReason?: string;
+  pluginGeneration?: { pluginId: string; generation: string };
+}
+
+export type ConversationBranchPort = Pick<IConversationRepository,
+  "createExplorationBranch" | "listBranchesByParent" | "getBranchTree" | "getBranch" |
+  "mergeBranch" | "archiveBranch" | "updateBranchLayout" | "deleteBranch">;
 
 export interface ConversationBranchModel {
   id: string;

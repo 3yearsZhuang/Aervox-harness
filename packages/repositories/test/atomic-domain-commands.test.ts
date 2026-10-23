@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { createHash } from "node:crypto";
+import type { LearningAnswerPolicy } from "../src/index.js";
 import { createInMemoryDatabase, SqliteConversationRepository, SqliteLearningRepository, SqliteExtensionRepository } from "../src/index.js";
 const ctx = { workspaceId: "local", subjectUserId: "local" };
 const answer = { idempotencyKey: "invocation", turnId: "turn", prompt: "2+2", userAnswer: "3", correctAnswer: "4", judgement: "incorrect" as const };
+
+const factOnlyPolicy: LearningAnswerPolicy = { judge: () => "unverifiable", derive() { throw new Error("unexpected knowledge derivation"); } };
+const recordJudged = (repository: SqliteLearningRepository, input: typeof answer & { pluginGeneration?: { pluginId: string; generation: string } }) => repository.recordAnswer(ctx, {
+  ...input, kind: "judged-question", requestDigest: createHash("sha256").update(JSON.stringify(input)).digest("hex"),
+}, factOnlyPolicy);
 
 describe("atomic application commands", () => {
   it("records a judged answer against the actual session and atomically emits once on retries", async () => {
@@ -10,14 +17,14 @@ describe("atomic application commands", () => {
       const conversation = new SqliteConversationRepository(database.db), learning = new SqliteLearningRepository(database.db);
       await conversation.createSession(ctx, "parent", { id: "session" });
       await conversation.createTurnWithAttempt(ctx, { turnId: "turn", sessionId: "session", idempotencyKey: "turn", message: { id: "m", content: "question" }, attemptId: "at" });
-      const result = await learning.recordJudgedAnswer(ctx, answer);
-      expect(await learning.recordJudgedAnswer(ctx, answer)).toEqual(result);
+      const result = await recordJudged(learning, answer);
+      expect(await recordJudged(learning, answer)).toEqual({ ...result, created: false });
       expect((await learning.listAttemptsBySession(ctx, "session"))).toHaveLength(1);
       expect((await learning.listAttemptsBySession(ctx, "turn"))).toHaveLength(0);
       expect((await database.client.execute("SELECT * FROM outbox_events WHERE event_type='learning.answer.recorded'")).rows).toHaveLength(1);
-      await expect(learning.recordJudgedAnswer(ctx, { ...answer, userAnswer: "changed" })).rejects.toThrow("idempotency_conflict");
+      await expect(recordJudged(learning, { ...answer, userAnswer: "changed" })).rejects.toThrow("idempotency_key_reused");
       await database.client.execute("CREATE TRIGGER fail_answer BEFORE INSERT ON question_attempts BEGIN SELECT RAISE(ABORT, 'injected'); END");
-      await expect(learning.recordJudgedAnswer(ctx, { ...answer, idempotencyKey: "new" })).rejects.toThrow();
+      await expect(recordJudged(learning, { ...answer, idempotencyKey: "new" })).rejects.toThrow();
       expect((await database.client.execute("SELECT * FROM questions")).rows).toHaveLength(1);
     } finally { await database.cleanup(); }
   });
@@ -59,7 +66,7 @@ describe("atomic application commands", () => {
       const report = { id: "report", sessionId: "session", totalQuestions: 1, correctCount: 0, incorrectCount: 1 };
       const branch = { id: "branch", parentSessionId: "session", childSessionId: "child" };
       const commands = [
-        () => learning.recordJudgedAnswer(ctx, { ...answer, pluginGeneration: stale }),
+        () => recordJudged(learning, { ...answer, pluginGeneration: stale }),
         () => conversation.createExplorationBranch(ctx, { ...branch, pluginGeneration: stale }),
         () => learning.createPracticeReport(ctx, { ...report, pluginGeneration: stale }),
         () => learning.resetMasteryInference(ctx, "session", stale),
@@ -72,7 +79,7 @@ describe("atomic application commands", () => {
       }
       expect((await database.client.execute("SELECT * FROM outbox_events")).rows).toEqual(initialOutbox);
       expect(await conversation.getSession(ctx, "old-session")).toBeNull();
-      await learning.recordJudgedAnswer(ctx, { ...answer, pluginGeneration: current });
+      await recordJudged(learning, { ...answer, pluginGeneration: current });
       await conversation.createExplorationBranch(ctx, { ...branch, pluginGeneration: current });
       await learning.createPracticeReport(ctx, { ...report, pluginGeneration: current });
       await learning.resetMasteryInference(ctx, "session", current);

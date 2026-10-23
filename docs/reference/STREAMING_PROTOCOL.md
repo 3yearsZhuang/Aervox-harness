@@ -164,6 +164,8 @@ Created -> InputChecking -> Running -> Finalizing -> Completed
 
 表示模型请求的写工具（如 `aervox_diary_write`、`aervox_memory_store`）尚未获得用户授权，本次 Attempt 以 `Interrupted` 结束等待授权。`data` 包含 `approvalId`、`toolName`、`argumentsHash`。用户经 `POST /v1/turns/:turnId/tool-approvals` 提交决定（`granted`/`denied`）；宿主在同一事务中保存决定、预留唯一新 Attempt 并移交确认尚未执行的工具意图。响应中的 `continuation.attemptId` 与 `continuation.afterEventId` 指向新尝试及审批事件游标。客户端使用新的投影器订阅原 Turn 的 `events?after=<afterEventId>`，不得重发消息；旧 Attempt 的终态与投影器保持终结。相同决定重复提交返回同一游标，不创建新尝试，冲突决定或尚未中断/已取消的尝试返回 409。客户端对未知事件类型应忽略不影响既有展示。
 
+所有工具来源均从宿主写入的审批绑定快照校验安全等级。`privileged` 批准需要当前管理员白名单中的 `x-admin-user-id`，否则返回 403；缺少绑定身份的旧待决记录、已停用/跨代插件或失效的动态实现返回 409，审批保持待决，仍允许用户拒绝。已执行的同决定重试只返回既有接续结果，不重新派发工具。
+
 标准错误码：
 
 | Code | HTTP/流语义 | 客户端动作 |

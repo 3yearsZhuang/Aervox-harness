@@ -19,6 +19,7 @@ import type {
   MessageVersionModel,
   TurnAttemptModel,
   ConversationBranchModel,
+  CreateExplorationBranchInput,
   TurnStreamEventModel,
   TurnStreamEventPageOptions,
   TurnStreamEventPage,
@@ -77,11 +78,9 @@ export class SqliteConversationRepository implements IConversationRepository {
     return this.sessionStore.getSessionHistory(ctx, input);
   }
 
-  createExplorationBranch(ctx: LocalContext, input: {
-    id: string; parentSessionId: string; childSessionId: string; title?: string;
-    forkAtMessageId?: string | null; branchReason?: string;
-    pluginGeneration?: { pluginId: string; generation: string };
-  }): Promise<ConversationBranchModel | null> { return this.sessionStore.createExplorationBranch(ctx, input); }
+  createExplorationBranch(ctx: LocalContext, input: CreateExplorationBranchInput): Promise<ConversationBranchModel | null> {
+    return this.sessionStore.createExplorationBranch(ctx, input);
+  }
 
   async createSession(
     _tenant: LocalContext,
@@ -530,6 +529,8 @@ export class SqliteConversationRepository implements IConversationRepository {
 
   decideToolApprovalAndResume(ctx: LocalContext, input: {
     turnId: string; approvalId: string; decision: "granted" | "denied"; decidedBy: string;
+    toolVersion?: string;
+    pluginGeneration?: { pluginId: string; generation: string };
   }) {
     return this.approvalStore.decideAndResume(ctx, input);
   }
@@ -556,25 +557,12 @@ export class SqliteConversationRepository implements IConversationRepository {
     input: {
       toolName: string;
       argumentsHash: string;
+      toolVersion?: string | null;
       excludeDecidedByPrefix?: string;
       excludeDecidedByPrefixes?: string[];
     },
   ): Promise<ToolApprovalModel | null> {
     return this.approvalStore.findGrantedToolApproval(ctx, input);
-  }
-
-  async createConversationBranch(
-    ctx: LocalContext,
-    branchData: {
-      id: string;
-      parentSessionId: string;
-      forkAtMessageId?: string | null;
-      childSessionId: string;
-      title?: string;
-      branchReason?: string;
-    },
-  ): Promise<ConversationBranchModel> {
-    return this.sessionStore.createConversationBranch(ctx, branchData);
   }
 
   async listBranchesByParent(ctx: LocalContext, parentSessionId: string): Promise<ConversationBranchModel[]> {

@@ -11,17 +11,6 @@
 import type { PluginHostServices, PluginHttpEndpoint } from "@aervox/host-plugin-api";
 import { termExploreRequestSchema } from "./contracts.js";
 
-let seq = 0;
-
-type ExploreKind = "child" | "related" | "branch";
-
-interface ExploreBody {
-  term: string;
-  kind: ExploreKind;
-  context?: string;
-  sessionId?: string;
-}
-
 function buildChildContent(term: string, context?: string): { content: string; related: string[] } {
   return {
     content:
@@ -61,12 +50,13 @@ function buildRelatedContent(term: string): { content: string; related: string[]
 async function handleTermExplore(
   body: unknown,
   services: PluginHostServices,
+  idempotencyKey?: string,
 ): Promise<{ status?: number; payload: unknown }> {
   const parsed = termExploreRequestSchema.safeParse(body);
   if (!parsed.success) {
     return { status: 400, payload: { error: "Invalid explore request", details: parsed.error.issues } };
   }
-  const { term, kind, context, sessionId } = parsed.data as ExploreBody;
+  const { term, kind, context, sessionId } = parsed.data;
 
   let content = "";
   let relatedQuestions: string[] = [];
@@ -82,12 +72,17 @@ async function handleTermExplore(
     relatedQuestions = built.related;
   } else if (kind === "branch") {
     if (sessionId) {
-      const key = `${Date.now().toString(36)}_${(++seq).toString(36)}`;
-      const child = await services.sessions.createExplorationBranch({
-        id: `br_${key}`, parentSessionId: sessionId,
-        childSessionId: `session_explore_${key}`, title: `探索：${term}`, reason: "term_drill",
-      });
-      childSessionId = child.childSessionId;
+      try {
+        const child = await services.sessions.createExplorationBranch({
+          idempotencyKey, parentSessionId: sessionId, title: `探索：${term}`, reason: "term_drill",
+        });
+        childSessionId = child.childSessionId;
+      } catch (error) {
+        if (error instanceof Error && ["conversation_branch_idempotency_conflict", "conversation_branch_result_unavailable"].includes(error.message)) {
+          return { status: 409, payload: { error: error.message } };
+        }
+        throw error;
+      }
     }
     content = `已为你创建专属探索分支会话【探索：${term}】。你可以进入该分支进行独立多轮对话与深入推导，不污染主会话上下文。`;
     relatedQuestions = [`进入分支深入推导 ${term}`, `返回主会话继续学习`];
@@ -103,11 +98,11 @@ export const focusModeExploreEndpoints: PluginHttpEndpoint[] = [
   {
     method: "POST",
     path: "/v1/terms/explore",
-    handler: (request, services) => handleTermExplore(request.body, services),
+    handler: (request, services) => handleTermExplore(request.body, services, request.idempotencyKey),
   },
   {
     method: "POST",
     path: "/v1/hierarchy/explore",
-    handler: (request, services) => handleTermExplore(request.body, services),
+    handler: (request, services) => handleTermExplore(request.body, services, request.idempotencyKey),
   },
 ];

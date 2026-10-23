@@ -19,6 +19,7 @@ import {
   createAskUserQuestionToolProvider,
   createSummaryCompaction,
   executeTurn,
+  stableSerialize,
 } from "@aervox/core";
 import type {
   InboxPort,
@@ -60,7 +61,7 @@ import { loadProactiveProfilePrompt } from "../../proactive/proactive/index.js";
 import type { ProactiveActionPort } from "../../proactive/proactive/index.js";
 import { buildMemoryContext, type MemoryRecallPort } from "./memory-recall.js";
 import { buildLoopProvider, createLLMCallable } from "./llm-adapter.js";
-import { createContributionToolProvider, createRuntimeToolProvider, hasBotExcludedPermissions, type ContributionToolSource } from "./tool-providers.js";
+import { createContributionToolProvider, createRuntimeToolProvider, hasBotExcludedPermissions, processToolImplementationRevision, type ContributionToolSource } from "./tool-providers.js";
 import { createBroadcastingStore } from "./broadcasting-store.js";
 import { turnStreamHub } from "./stream-hub.js";
 import { createPluginToolScope } from "./plugin-tool-scope.js";
@@ -526,13 +527,17 @@ export async function runLoopTurnOnce(
   const contribution: ContributionToolSource[] = [];
   const subagent = deps.subagentFactory ? deps.subagentFactory(tenant) : undefined;
   if (subagent) {
-    contribution.push({ provider: createSubagentToolProvider({ subagent }) });
+    contribution.push({ provider: createSubagentToolProvider({ subagent }),
+      approvalRevision: `host:subagent:v1:${processToolImplementationRevision(deps.subagentFactory!)}` });
   }
   if (deps.workflows && deps.workflows.length > 0) {
-    contribution.push({ provider: createWorkflowToolProvider(deps.workflows) });
+    contribution.push({ provider: createWorkflowToolProvider(deps.workflows),
+      approvalRevision: stableSerialize(["host:workflow:v1", deps.workflows.map(workflow => ({ name: workflow.name,
+        description: workflow.description, steps: workflow.steps.map(step => ({
+          description: step.description, implementation: processToolImplementationRevision(step.execute) })) }))]) });
   }
   if (deps.userQuestionPort) {
-    contribution.push({ provider: createAskUserQuestionToolProvider({ userQuestionPort: deps.userQuestionPort }) });
+    contribution.push({ provider: createAskUserQuestionToolProvider({ userQuestionPort: deps.userQuestionPort }), approvalRevision: "host:ask-user:v1" });
   }
   // CR-060：插件工具贡献——按当前本地上下文构造，并**按插件启用状态门控**。
   // 禁用、缺记录或不可用的插件不得向模型暴露其工具（与 Runner、插件端点同判据）。
@@ -560,6 +565,7 @@ export async function runLoopTurnOnce(
         const names = new Set(candidates.flatMap(candidate => candidate.provider.tools.map(tool => tool.name)));
         const staged = candidates.map(candidate => ({
           owner: registration.pluginId, generation: record.lifecycleGeneration, checkActive: scope.active,
+          approvalRevision: `plugin:${candidate.id}:${record.lifecycleGeneration}`,
           provider: {
             tools: candidate.provider.tools,
             async listTools() {

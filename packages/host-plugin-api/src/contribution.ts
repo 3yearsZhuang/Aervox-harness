@@ -24,6 +24,8 @@ export interface PluginHttpRequest {
   params: Record<string, string>;
   query: Record<string, string>;
   body: unknown;
+  /** Only the request's bounded operation key is exposed, never authentication headers. */
+  idempotencyKey?: string;
 }
 
 /** 插件端点出参；`status` 缺省为 200 */

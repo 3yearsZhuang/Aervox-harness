@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ApiEndpoint } from "./http-api.js";
+import { idempotencyHeadersSchema } from "./http-api.js";
 import { createBranchSchema, updateBranchLayoutSchema } from "./schemas.js";
 
 /** Preserve the persisted branch row, including historical strings and opaque layout metadata. */
@@ -26,8 +27,9 @@ export const branchesApi = {
     method: "post", path: "/v1/sessions/{sessionId}/branches", operationId: "post_v1_sessions_sessionId_branches",
     summary: "创建会话分支", tags: ["Branches"], params: sessionParamsSchema,
     body: createBranchSchema, bodyRequired: true, response: conversationBranchResponseSchema, status: 201,
+    openapi: { headers: idempotencyHeadersSchema },
     validationErrorMessage: "Validation failed",
-    errors: { 400: "Invalid branch request or execution policy mismatch", 404: "Parent session not found" },
+    errors: { 400: "Invalid branch request or execution policy mismatch", 404: "Parent session not found", 409: "Idempotency key reused with different branch input" },
   },
   list: {
     method: "get", path: "/v1/sessions/{sessionId}/branches", operationId: "get_v1_sessions_sessionId_branches",

@@ -33,7 +33,7 @@ id: AVX-DB-001
 | 事实 | 机器维护入口 | 约束 |
 |---|---|---|
 | Drizzle 表和字段 | `packages/schema/src/*.ts` | D2 后不得出现 `workspaceId`、`subjectUserId` 或租户复合索引 |
-| SQLite 目标结构与版本 | `packages/repositories/src/schema/manifest.ts` | 从 Schema 编译新库；比对列、默认、NULL、主键、外键、唯一约束及索引条件，校验版本和 fingerprint。结构不一致先拒绝启动，不在活动旧库自动变更 |
+| SQLite 目标结构与版本 | `packages/repositories/src/schema/manifest.ts` | 从 Schema 编译新库；比对列、默认、NULL、主键、外键、唯一约束及索引的列/表达式、排序、collation 和条件，校验版本和 fingerprint。结构不一致先拒绝启动，不在活动旧库自动变更 |
 | Repository Port | `packages/repositories/src/repositories/types/*.ts` | D2 后公开签名不得要求 `TenantContext` |
 | SQLite Repository | `packages/repositories/src/repositories/sqlite/*.ts` | 不得绕过来源、授权、删除和幂等规则 |
 | 连接与路径 | `packages/repositories/src/client.ts` | 只接受本地文件或显式内存 URL；禁止远程 LibSQL URL |
@@ -46,7 +46,11 @@ id: AVX-DB-001
 
 新库由 `initDatabaseSchema` / `initLedgerSchema` 初始化对应故障域，并记录版本指纹。已有库在任何结构写入前检查完整等价性；缺失列、NULL 主键、默认值或索引条件等不一致返回 `SCHEMA_STAGING_MIGRATION_REQUIRED`。无版本但完全等价的库可登记当前版本；已登记版本或指纹不符必须显式迁移。不能通过刷新指纹绕过历史数据检查。
 
+当前检查已覆盖列、主/外键和索引语义，但表级 CHECK、STRICT、WITHOUT ROWID 差量仍有漏检；版本登记不能单独证明完整结构等价。这些隔离反例继续由 [ITER-071](../../plan.md#iter-071)整改，生产迁移不能据现有检查外推验收。
+
 `migrateDatabaseViaStaging` 是现行显式重建入口：调用者先停止全部写者与连接，验证备份，再在独立 staging 导入、校验并换库。所有数据保留原身份；未知表/列、NULL 主键、唯一冲突、外键损坏和行数变化均阻断，不删除或选择胜者。操作步骤见[迁移演练](../how-to/run-database-migration-drill.md)。失败保留源文件、备份与 staging 证据；主库、Vault、独立账本及密钥仍须作为完整回滚集合协调。
+
+旧 journal/ALTER helper 的公共入口已移除，不提供绕过 staging 的通用原地 DDL。结构检查使用独立空库编译预期索引语义，不在被检查库创建临时结构或修复漂移；版本迁移与整体中断恢复仍按 ITER-011 验收。
 
 逻辑导出通过 `@aervox/repositories/sync` 显式消费；不导出 FTS 虚表、shadow 表及结构版本元数据。`restoreSnapshot` 的原地删表写回接口已撤下，`restoreSnapshotToEmptyStaging` 只接受空目标，在同一事务导入并检查关系与行数。不可将它用于活动库或取代停写、备份和换库编排；派生索引由已保留的权威来源重建。
 

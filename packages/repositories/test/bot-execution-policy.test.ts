@@ -81,9 +81,9 @@ describe("durable Bot execution boundaries", () => {
   it("requires child branches to inherit the parent policy", async () => {
     await accept("group");
     await repo.createSession(ctx, "local", { id: "local" });
-    await expect(repo.createConversationBranch(ctx, { id: "bad", parentSessionId: "group", childSessionId: "local" })).rejects.toThrow("conversation_execution_policy_mismatch");
+    await expect(repo.createExplorationBranch(ctx, { id: "bad", parentSessionId: "group", childSessionId: "local" })).rejects.toThrow("conversation_execution_policy_mismatch");
     await repo.createSession(ctx, "child", { id: "child", executionPolicy: "bot-group-member-v1" });
-    expect(await repo.createConversationBranch(ctx, { id: "good", parentSessionId: "group", childSessionId: "child" })).toMatchObject({ childSessionId: "child" });
+    expect(await repo.createExplorationBranch(ctx, { id: "good", parentSessionId: "group", childSessionId: "child" })).toMatchObject({ childSessionId: "child" });
     expect((await repo.getSession(ctx, "child"))?.executionPolicy).toBe("bot-group-member-v1");
   });
 

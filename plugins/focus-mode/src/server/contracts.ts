@@ -11,7 +11,7 @@
  * （见 `focus-tools.ts`），由宿主代登记，插件无法为内核/他人工具登记投影。
  */
 import { z } from "zod";
-import type { PluginApiRegistry } from "@aervox/contracts";
+import { idempotencyHeadersSchema, type PluginApiRegistry } from "@aervox/contracts";
 import { extractedTermSchema } from "./terms-extractor.js";
 
 // ============ 回合流事件：术语抽取 ============
@@ -84,12 +84,14 @@ export function registerFocusModeApiContract(registry: Pick<PluginApiRegistry, "
         method: "post",
         path: "/v1/terms/explore",
         summary: "追问探索概念/术语（CAP-007 / CAP-002）",
-        description: "支持深挖（child）、对比发散（related）与分支对话（branch）三种追问探索模式",
+        description: "支持深挖（child）、对比发散（related）与分支对话（branch）；分支创建可用 Idempotency-Key 重试，同键不同分支意图返回 409",
         tags: ["Focus"],
         body: termExploreRequestSchema,
+        headers: idempotencyHeadersSchema,
         responses: {
           200: { description: "探索结果与关联思考问题", schema: termExploreResponseSchema },
           400: { description: "Invalid explore request" },
+          409: { description: "Idempotency key reused with different branch intent" },
         },
       },
       {
@@ -99,9 +101,11 @@ export function registerFocusModeApiContract(registry: Pick<PluginApiRegistry, "
         description: "与 `/v1/terms/explore` 同一处理器，语义侧重层级下钻",
         tags: ["Focus"],
         body: termExploreRequestSchema,
+        headers: idempotencyHeadersSchema,
         responses: {
           200: { description: "探索结果与关联思考问题", schema: termExploreResponseSchema },
           400: { description: "Invalid explore request" },
+          409: { description: "Idempotency key reused with different branch intent" },
         },
       },
       {

@@ -28,6 +28,7 @@ import { acceptConversationTurn } from "./application.js";
 import { turnStreamHub } from "./stream-hub.js";
 import { encodeSseEvent, writeSseFrame, SseWriteError } from "./sse-writer.js";
 import { loadExecutionConfig } from "@aervox/config";
+import { readToolApprovalIdentity } from "./tool-approval-identity.js";
 
 let seq = 0;
 const nextTurnId = (): string => `turn_${Date.now().toString(36)}_${(++seq).toString(36)}`;
@@ -488,15 +489,16 @@ export function registerConversationRoutes(
     if (approval.state !== "pending" && approval.state !== body.decision) {
       return reply.code(409).send({ error: "approval_already_decided" });
     }
-    // 3b：privileged 工具的管理员身份校验（AERVOX_ADMIN_IDS 白名单 + x-admin-user-id）
-    if (deps.toolRuntime) {
-      const approval = await conversationRepo.getToolApproval(tenant, body.approvalId);
-      if (!approval) {
-        return reply.code(404).send({ error: "approval not found" });
+    let pluginGeneration: { pluginId: string; generation: string } | undefined;
+    if (body.decision === "granted" && approval.state === "pending") {
+      // Every source persists the policy of its exact dispatch binding. Looking
+      // only at runtime rows omits static/plugin contributions and fails open.
+      const identity = readToolApprovalIdentity(approval.toolVersion);
+      if (!identity || (identity.kind === "contribution" && identity.id !== approval.toolName)
+        || !["write_with_approval", "privileged", "destructive"].includes(identity.safetyLevel)) {
+        return reply.code(409).send({ error: "approval_binding_unavailable" });
       }
-      const registrations = await deps.toolRuntime.listTools();
-      const tool = registrations.find((t) => t.name === approval.toolName);
-      if (tool?.safetyLevel === "privileged") {
+      if (identity.safetyLevel === "privileged") {
         const adminId = req.headers["x-admin-user-id"] as string | undefined;
         // 缺陷 E：管理员白名单经 @aervox/config 集中解析（AERVOX_ADMIN_IDS）
         const allowed = (deps.executionConfig ?? loadExecutionConfig()).adminIds;
@@ -504,11 +506,38 @@ export function registerConversationRoutes(
           return reply.code(403).send({ error: "admin_required: privileged tool approval requires x-admin-user-id in AERVOX_ADMIN_IDS" });
         }
       }
+      const mcp = identity.kind === "runtime" && identity.owner.startsWith("mcp:");
+      if (identity.generation !== null || (identity.owner !== "host" && !mcp)) {
+        const plugin = await deps.extensionRepo?.getPlugin(identity.owner);
+        if (!identity.generation || !plugin || plugin.enabled !== 1
+          || (plugin.availability ?? "available") !== "available" || plugin.lifecycleGeneration !== identity.generation) {
+          return reply.code(409).send({ error: "approval_binding_expired" });
+        }
+        pluginGeneration = { pluginId: identity.owner, generation: identity.generation };
+      }
+      if (identity.kind === "runtime") {
+        const tool = (await deps.toolRuntime?.exportRegistry())?.find(candidate => candidate.id === identity.id);
+        if (!tool || tool.name !== approval.toolName || (tool.pluginId ?? "host") !== identity.owner
+          || tool.approvalRevision !== identity.revision || (tool.safetyLevel ?? "write_with_approval") !== identity.safetyLevel
+          || (tool.pluginId?.startsWith("mcp:") && !(await deps.isMcpToolAllowed?.(tool)))) {
+          return reply.code(409).send({ error: "approval_binding_expired" });
+        }
+      }
     }
-    const decided = await conversationRepo.decideToolApprovalAndResume(tenant, {
-      turnId, approvalId: body.approvalId, decision: body.decision,
-      decidedBy: tenant.actorId ?? tenant.subjectUserId,
-    });
+    let decided: Awaited<ReturnType<SqliteConversationRepository["decideToolApprovalAndResume"]>>;
+    try {
+      decided = await conversationRepo.decideToolApprovalAndResume(tenant, {
+        turnId, approvalId: body.approvalId, decision: body.decision,
+        decidedBy: tenant.actorId ?? tenant.subjectUserId,
+        ...(body.decision === "granted" && approval.toolVersion ? { toolVersion: approval.toolVersion } : {}),
+        pluginGeneration,
+      });
+    } catch (error) {
+      if (error instanceof Error && ["plugin_generation_changed", "tool_approval_binding_changed"].includes(error.message)) {
+        return reply.code(409).send({ error: "approval_binding_expired" });
+      }
+      throw error;
+    }
     if (!decided) return reply.code(404).send({ error: "approval not found" });
     if (!decided.ready) return reply.code(409).send({ error: "approval_not_resumable" });
     if (decided.approval.state !== body.decision) return reply.code(409).send({ error: "approval_already_decided" });

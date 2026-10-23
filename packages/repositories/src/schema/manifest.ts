@@ -1,6 +1,6 @@
 /** Canonical physical schema compiled from the shared declarations. Historical DDL is never replayed on a live legacy database. */
 import { createHash } from "node:crypto";
-import type { Client } from "@libsql/client";
+import { createClient, type Client } from "@libsql/client";
 import { SQL, is } from "drizzle-orm";
 import { getTableConfig, SQLiteSyncDialect, type SQLiteColumn } from "drizzle-orm/sqlite-core";
 import * as schema from "@aervox/schema";
@@ -91,10 +91,113 @@ export function schemaFingerprint(scope: SchemaScope): string {
   return createHash("sha256").update(JSON.stringify(schemaManifest(scope))).digest("hex");
 }
 
+/** SQLite exposes expression keys as cid=-2; retain their SQL as well as xinfo's physical ordering. */
+function indexSqlParts(definition: string): { terms: string[]; where: string | null } {
+  const terms: string[] = [];
+  let depth = 0, start = -1;
+  let quote: string | null = null;
+  for (let offset = 0; offset < definition.length; offset++) {
+    const char = definition[offset]!;
+    if (quote !== null) {
+      if (char === quote) {
+        if (quote !== "]" && definition[offset + 1] === quote) offset++;
+        else quote = null;
+      }
+      continue;
+    }
+    if (char === "'" || char === '"' || char === "`" || char === "[") {
+      quote = char === "[" ? "]" : char;
+      continue;
+    }
+    if (char === "-" && definition[offset + 1] === "-") {
+      const end = definition.indexOf("\n", offset + 2);
+      if (end < 0) break;
+      offset = end;
+      continue;
+    }
+    if (char === "/" && definition[offset + 1] === "*") {
+      const end = definition.indexOf("*/", offset + 2);
+      if (end < 0) break;
+      offset = end + 1;
+      continue;
+    }
+    if (char === "(") {
+      if (depth++ === 0) start = offset + 1;
+    } else if (char === "," && depth === 1) {
+      terms.push(definition.slice(start, offset).trim());
+      start = offset + 1;
+    } else if (char === ")" && --depth === 0) {
+      terms.push(definition.slice(start, offset).trim());
+      const suffix = definition.slice(offset + 1).replace(/^(?:\s|--[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/)+/, "").trim().replace(/;\s*$/, "");
+      return { terms, where: /^WHERE\b/i.test(suffix) ? normalizeSql(suffix.replace(/^WHERE\b/i, "").trim()) : null };
+    }
+  }
+  return { terms, where: null };
+}
+
+function indexExpression(term: string): string | null {
+  // These suffixes are represented by index_xinfo. Keep modifiers inside an expression intact.
+  return normalizeSql(term.replace(/\s+(?:ASC|DESC)\s*$/i, "")
+    .replace(/\s+COLLATE\s+(?:"(?:""|[^"])*"|`(?:``|[^`])*`|\[[^\]]*\]|[\w]+)\s*$/i, ""));
+}
+
+async function physicalIndexes(client: Client, table: string) {
+  const listed = await client.execute(`PRAGMA index_list(${quoteSqlIdentifier(table)})`);
+  const indexes = [];
+  for (const listedIndex of listed.rows) {
+    const name = String(listedIndex.name);
+    const [details, master] = await Promise.all([
+      client.execute(`PRAGMA index_xinfo(${quoteSqlIdentifier(name)})`),
+      client.execute({ sql: "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = ?", args: [name] }),
+    ]);
+    const parts = indexSqlParts(String(master.rows[0]?.sql ?? ""));
+    const keys = details.rows.filter((key) => Boolean(key.key)).sort((a, b) => Number(a.seqno) - Number(b.seqno)).map((key) => {
+      const term = parts.terms[Number(key.seqno)];
+      if (Number(key.cid) === -2 && term === undefined) throw new Error(`cannot inspect expression key in index ${name}`);
+      return {
+        column: key.name === null ? null : String(key.name),
+        expression: Number(key.cid) === -2 ? indexExpression(term!) : null,
+        descending: Boolean(key.desc),
+        collation: String(key.coll ?? "BINARY").toLowerCase(),
+      };
+    });
+    indexes.push({ name, origin: String(listedIndex.origin), unique: Boolean(listedIndex.unique), partial: Boolean(listedIndex.partial), keys, where: parts.where });
+  }
+  return indexes;
+}
+
+type PhysicalIndexes = Awaited<ReturnType<typeof physicalIndexes>>;
+const canonicalIndexes = new Map<SchemaScope, Promise<Map<string, PhysicalIndexes>>>();
+function canonicalPhysicalIndexes(scope: SchemaScope): Promise<Map<string, PhysicalIndexes>> {
+  const cached = canonicalIndexes.get(scope);
+  if (cached) return cached;
+  const compiled = (async () => {
+    // Compile declarations in an independent disposable database. Never create temporary objects in the inspected database.
+    const isolated = createClient({ url: ":memory:" });
+    try {
+      const tables = schemaManifest(scope);
+      await isolated.batch(tables.flatMap((table) => [table.sql, ...table.indexes.map((index) => index.sql)]), "write");
+      const indexes = new Map<string, PhysicalIndexes>();
+      for (const table of tables) indexes.set(table.name, await physicalIndexes(isolated, table.name));
+      return indexes;
+    } finally { isolated.close(); }
+  })();
+  canonicalIndexes.set(scope, compiled);
+  void compiled.catch(() => { canonicalIndexes.delete(scope); });
+  return compiled;
+}
+
+function comparableIndexes(indexes: PhysicalIndexes, origin: string): string[] {
+  return indexes.filter((index) => index.origin === origin).map(({ name, origin: _origin, ...index }) => JSON.stringify({
+    ...(origin === "c" ? { name } : {}), ...index,
+  })).sort();
+}
+
 /** Full physical comparison, including columns, defaults, nullability, keys and partial indexes. */
 export async function inspectSchemaParity(client: Client, scope: SchemaScope, options: { allowUnversioned?: boolean } = {}): Promise<string[]> {
   const issues: string[] = [];
   const manifest = schemaManifest(scope);
+  const expectedPhysicalIndexes = await canonicalPhysicalIndexes(scope);
   const existing = await client.execute("PRAGMA table_list");
   const actualTables = new Set(existing.rows.filter((row) => row.schema === "main" && (row.type === "table" || row.type === "virtual") && !String(row.name).startsWith("sqlite_") && !isDerivedSearchTable(String(row.name))).map((row) => String(row.name)));
   const allowedOtherScope = scope === "main" ? new Set([LEDGER_TABLE]) : new Set(schemaManifest("main").map((table) => table.name));
@@ -112,23 +215,11 @@ export async function inspectSchemaParity(client: Client, scope: SchemaScope, op
     const fks = await client.execute(`PRAGMA foreign_key_list(${quoteSqlIdentifier(table.name)})`);
     const foreignKeys = fks.rows.map((fk) => `${fk.from}->${fk.table}.${fk.to}|${fk.on_delete}|${fk.on_update}`.toLowerCase()).sort();
     if (JSON.stringify(foreignKeys) !== JSON.stringify(table.foreignKeys)) issues.push(`${table.name}: foreign keys differ`);
-    const indexRows = await client.execute(`PRAGMA index_list(${quoteSqlIdentifier(table.name)})`);
-    const actualIndexes = [];
-    const uniques = [];
-    for (const indexRow of indexRows.rows) {
-      const name = String(indexRow.name);
-      const details = await client.execute(`PRAGMA index_info(${quoteSqlIdentifier(name)})`);
-      const indexColumns = details.rows.map((column) => String(column.name));
-      if (indexRow.origin === "u") uniques.push(indexColumns.join(","));
-      if (indexRow.origin !== "c") continue;
-      const master = await client.execute({ sql: "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = ?", args: [name] });
-      const definition = String(master.rows[0]?.sql ?? "");
-      actualIndexes.push({ name, unique: Boolean(indexRow.unique), columns: indexColumns.map((column) => normalizeSql(column)), where: normalizeSql(/\bWHERE\s+(.+)$/is.exec(definition)?.[1] ?? null) });
-    }
-    const expectedIndexes = table.indexes.map(({ sql: _sql, ...index }) => index).sort((a, b) => a.name.localeCompare(b.name));
-    actualIndexes.sort((a, b) => a.name.localeCompare(b.name));
-    if (JSON.stringify(expectedIndexes) !== JSON.stringify(actualIndexes)) issues.push(`${table.name}: indexes or partial predicates differ`);
-    if (JSON.stringify(table.uniques) !== JSON.stringify(uniques.sort())) issues.push(`${table.name}: unique constraints differ`);
+    const actualIndexes = await physicalIndexes(client, table.name);
+    const expectedIndexes = expectedPhysicalIndexes.get(table.name)!;
+    if (JSON.stringify(comparableIndexes(expectedIndexes, "c")) !== JSON.stringify(comparableIndexes(actualIndexes, "c"))) issues.push(`${table.name}: indexes or partial predicates differ`);
+    if (JSON.stringify(comparableIndexes(expectedIndexes, "u")) !== JSON.stringify(comparableIndexes(actualIndexes, "u"))) issues.push(`${table.name}: unique constraints differ`);
+    if (JSON.stringify(comparableIndexes(expectedIndexes, "pk")) !== JSON.stringify(comparableIndexes(actualIndexes, "pk"))) issues.push(`${table.name}: primary key indexes differ`);
   }
   return issues;
 }

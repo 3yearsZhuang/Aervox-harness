@@ -59,4 +59,22 @@ describe("complete physical schema contract", () => {
       await expect(initDatabaseSchema(database.client)).rejects.toBeInstanceOf(SchemaMigrationRequiredError);
     } finally { await database.cleanup(); }
   });
+  it.each([
+    "idempotency_key COLLATE NOCASE",
+    "idempotency_key DESC",
+    "idempotency_key COLLATE NOCASE DESC",
+    "lower(idempotency_key)",
+  ])("blocks idempotency index drift without changing the database: %s", async (key) => {
+    const database = await createInMemoryDatabase();
+    try {
+      await database.client.execute("DROP INDEX learning_goals_local_idempotency_idx");
+      await database.client.execute(`CREATE UNIQUE INDEX learning_goals_local_idempotency_idx ON learning_goals(${key})`);
+      await database.client.execute("INSERT INTO learning_goals(id, topic, idempotency_key, created_at, updated_at) VALUES('retained', 'keep', 'CaseSensitiveKey', 't', 't')");
+      const original = (await database.client.execute("SELECT * FROM sqlite_master ORDER BY name")).rows;
+      expect(await inspectSchemaParity(database.client, "main")).toContain("learning_goals: indexes or partial predicates differ");
+      await expect(initDatabaseSchema(database.client)).rejects.toBeInstanceOf(SchemaMigrationRequiredError);
+      expect((await database.client.execute("SELECT * FROM sqlite_master ORDER BY name")).rows).toEqual(original);
+      expect((await database.client.execute("SELECT id,idempotency_key FROM learning_goals")).rows).toEqual([{ id: "retained", idempotency_key: "CaseSensitiveKey" }]);
+    } finally { await database.cleanup(); }
+  });
 });

@@ -129,4 +129,19 @@ describe("CAP-007 / CAP-002 术语抽取与追问探索集成测试", () => {
     // 验证事件流中有 delta 或 done
     expect(events.length).toBeGreaterThan(0);
   });
+
+  it("reuses the request identity through plugin services, including the alias, and rejects changed intent", async () => {
+    const parent = await convRepo.createSession(tenant, "parent");
+    const payload = { term: "稳定概念", kind: "branch", sessionId: parent.id };
+    const send = (body = payload, url = "/v1/terms/explore") => app.inject({ method: "POST", url,
+      headers: { ...headers, "idempotency-key": "plugin-exploration" }, payload: body });
+    const first = await send();
+    const retry = await send(payload, "/v1/hierarchy/explore");
+    expect(first.statusCode).toBe(200);
+    expect(retry.json()).toEqual(first.json());
+    expect((await send({ ...payload, term: "changed" })).statusCode).toBe(409);
+    expect(await convRepo.listBranchesByParent(tenant, parent.id)).toHaveLength(1);
+    expect((await client.execute("SELECT id FROM outbox_events WHERE event_type='conversation.branch.created'")).rows).toHaveLength(1);
+    expect((await client.execute("SELECT id FROM sessions")).rows).toHaveLength(2);
+  });
 });

@@ -3,9 +3,8 @@
  *
  * 规则依据：docs/reference/PRD.md §8 + docs/reference/DATABASE.md §14.3
  */
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { assertPluginGeneration, type PluginGenerationIdentity } from "../../plugin-generation-guard.js";
-import { assertPersonalDerivedDataSource } from "../../conversation-execution-policy.js";
 import { eq, and, lte, desc, ne, isNull, or, asc, inArray } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import {
@@ -22,14 +21,15 @@ import {
   learningPlans,
   planMilestones,
   planTasks,
-  turns,
-  outboxEvents,
 } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
+import { recordLearningAnswer } from "./learning-answer-store.js";
 import type {
   ILearningRepository,
   MilestoneTransitionPolicy,
-  JudgedAnswerCommand,
+  LearningAnswerCommand,
+  LearningAnswerPolicy,
+  LearningAnswerResult,
   LearningGoalModel,
   QuestionModel,
   QuestionAttemptModel,
@@ -47,38 +47,8 @@ import type {
 export class SqliteLearningRepository implements ILearningRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
-  /** One atomic domain command: source resolution, immutable fact and derived work. */
-  async recordJudgedAnswer(ctx: LocalContext, input: JudgedAnswerCommand): Promise<{ questionId: string; attemptId: string; judgement: "correct" | "incorrect" | "partial"; enteredMistakeNotebook: boolean }> {
-    if (!input.idempotencyKey.trim()) throw new Error("judged_answer_idempotency_key_required");
-    const digest = createHash("sha256").update(input.idempotencyKey).digest("hex");
-    const questionId = `q_judged_${digest}`;
-    const attemptId = `att_judged_${digest}`;
-    return this.db.transaction(async (tx) => {
-      await assertPluginGeneration(tx, input.pluginGeneration);
-      await assertPersonalDerivedDataSource(tx, input.turnId);
-      const [turn] = await tx.select({ sessionId: turns.sessionId }).from(turns).where(eq(turns.id, input.turnId));
-      if (!turn) throw new Error("judged_answer_source_turn_unavailable");
-      const [existing] = await tx.select().from(questionAttempts).where(eq(questionAttempts.id, attemptId));
-      if (existing) {
-        const [question] = await tx.select().from(questions).where(eq(questions.id, questionId));
-        const spec = question?.answerSpec as { answer?: string; type?: string | null; explanation?: string | null } | undefined;
-        if (JSON.stringify(existing.evidence) !== JSON.stringify({ source: input.source ?? "plugin", turnId: input.turnId, explanation: input.explanation ?? null, knowledgeConcept: input.knowledgeConcept ?? null }) || existing.sessionId !== turn.sessionId || existing.answer !== input.userAnswer || existing.judgement !== input.judgement || question?.prompt !== input.prompt || spec?.answer !== input.correctAnswer || spec?.type !== (input.questionType ?? null) || spec?.explanation !== (input.explanation ?? null)) {
-          throw new Error("judged_answer_idempotency_conflict");
-        }
-        return { questionId, attemptId, judgement: input.judgement, enteredMistakeNotebook: input.judgement === "incorrect" };
-      }
-      const now = new Date().toISOString();
-      await tx.insert(questions).values({ id: questionId, prompt: input.prompt,
-        answerSpec: { answer: input.correctAnswer, type: input.questionType ?? null, explanation: input.explanation ?? null },
-        status: "active", createdAt: now, updatedAt: now });
-      await tx.insert(questionAttempts).values({ id: attemptId, sessionId: turn.sessionId, questionId,
-        answer: input.userAnswer, judgement: input.judgement, idempotencyKey: input.idempotencyKey,
-        evidence: { source: input.source ?? "plugin", turnId: input.turnId, explanation: input.explanation ?? null, knowledgeConcept: input.knowledgeConcept ?? null },
-        hintCount: 0, createdAt: now });
-      await tx.insert(outboxEvents).values({ id: `out_judged_${digest}`, idempotencyKey: `judged:${input.idempotencyKey}`,
-        eventType: "learning.answer.recorded", payload: { questionId, attemptId, sessionId: turn.sessionId, judgement: input.judgement }, createdAt: now });
-      return { questionId, attemptId, judgement: input.judgement, enteredMistakeNotebook: input.judgement === "incorrect" };
-    });
+  recordAnswer(ctx: LocalContext, input: LearningAnswerCommand & { requestDigest: string }, policy: LearningAnswerPolicy): Promise<LearningAnswerResult> {
+    return recordLearningAnswer(this.db, ctx, input, policy);
   }
 
   /** Restricted scheduler projection: no question or knowledge body leaves persistence. */
@@ -313,39 +283,6 @@ export class SqliteLearningRepository implements ILearningRepository {
     return existing?.status === "completed" ? existing : null;
   }
 
-  /** 每次答题为不可变学习事实，仅追加不更新 */
-  async recordAttempt(
-    ctx: LocalContext,
-    attemptData: {
-      id: string;
-      sessionId: string;
-      questionId: string;
-      answer: string;
-      judgement: string;
-      evidence?: unknown;
-      idempotencyKey?: string | null;
-      hintCount?: number;
-      timeSpentSec?: number;
-    },
-  ): Promise<QuestionAttemptModel> {
-    const [created] = await this.db
-      .insert(questionAttempts)
-      .values({
-        id: attemptData.id,
-        sessionId: attemptData.sessionId,
-        questionId: attemptData.questionId,
-        answer: attemptData.answer,
-        judgement: attemptData.judgement,
-        evidence: attemptData.evidence ?? null,
-        idempotencyKey: attemptData.idempotencyKey ?? null,
-        hintCount: attemptData.hintCount ?? 0,
-        timeSpentSec: attemptData.timeSpentSec ?? null,
-        createdAt: new Date().toISOString(),
-      })
-      .returning();
-    return created as QuestionAttemptModel;
-  }
-
   async listAttemptsByQuestion(ctx: LocalContext, questionId: string): Promise<QuestionAttemptModel[]> {
     const rows = await this.db
       .select()
@@ -452,79 +389,6 @@ export class SqliteLearningRepository implements ILearningRepository {
     await this.db.delete(mistakeInsights).where(and(
       eq(mistakeInsights.questionId, questionId),
     ));
-  }
-
-  async getAttemptByIdempotencyKey(
-    ctx: LocalContext,
-    questionId: string,
-    idempotencyKey: string,
-  ): Promise<QuestionAttemptModel | null> {
-    const [found] = await this.db
-      .select()
-      .from(questionAttempts)
-      .where(
-        and(
-          eq(questionAttempts.questionId, questionId),
-          eq(questionAttempts.idempotencyKey, idempotencyKey),
-        ),
-      );
-    return (found as QuestionAttemptModel) ?? null;
-  }
-
-  /** 幂等作答：先查后插，依赖 (ctx, question, idempotency_key) 唯一索引并发兜底；重复返回已有记录与 created=false */
-  async recordAttemptIdempotent(
-    ctx: LocalContext,
-    attemptData: {
-      id: string;
-      sessionId: string;
-      questionId: string;
-      answer: string;
-      judgement: string;
-      evidence?: unknown;
-      idempotencyKey: string;
-      hintCount?: number;
-      timeSpentSec?: number;
-    },
-  ): Promise<{ attempt: QuestionAttemptModel; created: boolean }> {
-    const findExisting = async (): Promise<QuestionAttemptModel | null> => {
-      const [found] = await this.db
-        .select()
-        .from(questionAttempts)
-        .where(
-          and(
-            eq(questionAttempts.questionId, attemptData.questionId),
-            eq(questionAttempts.idempotencyKey, attemptData.idempotencyKey),
-          ),
-        );
-      return (found as QuestionAttemptModel) ?? null;
-    };
-
-    const existing = await findExisting();
-    if (existing) return { attempt: existing, created: false };
-
-    try {
-      const [inserted] = await this.db
-        .insert(questionAttempts)
-        .values({
-          id: attemptData.id,
-          sessionId: attemptData.sessionId,
-          questionId: attemptData.questionId,
-          answer: attemptData.answer,
-          judgement: attemptData.judgement,
-          evidence: attemptData.evidence ?? null,
-          idempotencyKey: attemptData.idempotencyKey,
-          hintCount: attemptData.hintCount ?? 0,
-          timeSpentSec: attemptData.timeSpentSec ?? null,
-          createdAt: new Date().toISOString(),
-        })
-        .returning();
-      return { attempt: inserted as QuestionAttemptModel, created: true };
-    } catch {
-      // 并发竞态：唯一索引兜底后重查，命中即视为已存在
-      const raced = await findExisting();
-      if (raced) return { attempt: raced, created: false };
-      throw new Error("recordAttemptIdempotent: 唯一索引约束与查询结果不一致");
-    }
   }
 
   async createKnowledgeItem(

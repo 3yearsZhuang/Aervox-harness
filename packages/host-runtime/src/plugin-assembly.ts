@@ -22,6 +22,8 @@ import type {
 import type { LocalContext } from "@aervox/repositories";
 import { createPluginApiRegistry, isValidPluginRoutePath, type PluginApiRegistry } from "@aervox/contracts";
 import { resolveLocalContext } from "./shared/local-context.js";
+import { readIdempotencyKey } from "./shared/idempotency-key.js";
+import { ValidationError } from "./shared/errors.js";
 
 /**
  * 插件服务端模块形状。
@@ -199,11 +201,13 @@ export function mountPluginHttpEndpoints(
               params: (request.params ?? {}) as Record<string, string>,
               query: (request.query ?? {}) as Record<string, string>,
               body: request.body,
+              idempotencyKey: readIdempotencyKey(request.headers["idempotency-key"]),
             },
             services(resolveLocalContext(request)),
           );
           return reply.status(result.status ?? 200).send(result.payload);
         } catch (error) {
+          if (error instanceof ValidationError) return reply.status(400).send({ error: error.message });
           warn(`[plugin-assembly] 插件 ${pluginId} 端点 ${endpoint.path} 处理失败`, error);
           return reply.status(500).send({ error: "Plugin endpoint failed" });
         }

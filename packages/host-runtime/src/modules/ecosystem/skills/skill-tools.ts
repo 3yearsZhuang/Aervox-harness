@@ -180,6 +180,7 @@ export async function registerSkillLifecycleTools(
 
     if (!runtime) { await registry.registerTool(definition); continue; }
     await runtime.registerContribution(definition, {
+      approvalRevision: `host:skill-lifecycle:${tool.id}:v1`,
       call: async (_tenant, args) => {
         const a = (args ?? {}) as Record<string, unknown>;
         switch (tool.id) {

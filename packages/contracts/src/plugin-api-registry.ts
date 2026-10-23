@@ -30,6 +30,8 @@ export interface PluginOpenApiRoute {
   params?: z.ZodObject;
   /** 查询参数模式（同上） */
   query?: z.ZodObject;
+  /** Additional operation headers; authentication remains owned by the host. */
+  headers?: z.ZodObject;
   /** 请求体模式 */
   body?: z.ZodType;
   responses: Record<number, { description: string; schema?: z.ZodType }>;

@@ -1035,6 +1035,7 @@ function registerJsonEndpoint(endpoint: ApiEndpoint): void {
     request: {
       ...(endpoint.params ? { params: endpoint.params } : {}),
       ...(endpoint.query ? { query: endpoint.query } : {}),
+      ...(endpoint.openapi?.headers ? { headers: endpoint.openapi.headers } : {}),
       ...(endpoint.body ? { body: {
         ...(endpoint.bodyRequired === undefined ? {} : { required: endpoint.bodyRequired }),
         content: { "application/json": { schema: endpoint.openapi?.body ?? endpoint.body } },
@@ -1214,7 +1215,7 @@ registry.registerPath({
 registry.registerPath({
   method: "post", path: "/v1/questions/{questionId}/attempts", summary: "作答题目（不可变学习事实，可关联练习会话）", tags: ["Learning"],
   request: { params: learningQuestionIdParam, headers: commonHeaders.extend({ "Idempotency-Key": z.string().min(1).optional() }), body: { content: { "application/json": { schema: createAttemptRequestSchema } } } },
-  responses: { 201: { description: "Attempt created" }, 200: { description: "Existing idempotent attempt" }, 400: { description: "请求或会话信息非法" }, 404: { description: "QUESTION_NOT_FOUND" }, 409: { description: "练习会话未激活或题目不属于该会话" } },
+  responses: { 201: { description: "Attempt created atomically with derived state, review and Outbox" }, 200: { description: "Existing idempotent attempt with its original nextStep" }, 400: { description: "请求或会话信息非法" }, 404: { description: "QUESTION_NOT_FOUND" }, 409: { description: "练习会话未激活、idempotency_key_reused 或旧作答缺少可证明完整提交的回执 answer_receipt_unavailable" } },
 });
 
 registry.registerPath({
@@ -1324,7 +1325,7 @@ function registerPluginRouteInto(target: OpenAPIRegistry, route: PluginOpenApiRo
     request: {
       ...(route.params ? { params: route.params } : {}),
       ...(route.query ? { query: route.query } : {}),
-      headers: commonHeaders,
+      headers: route.headers ?? commonHeaders,
       ...(route.body
         ? { body: { content: { "application/json": { schema: route.body } } } }
         : {}),

@@ -44,6 +44,29 @@ describe("tool binding identity and ownership", () => {
     expect(await tools.execute(call)).toMatchObject({ ok: false, needsApproval: { approvalId: "pending" } });
     expect(dispatch).not.toHaveBeenCalled();
   });
+  it("static handler replacement and redeclaration need a new approval while the old declaration retains its captured handler", async () => {
+    const first = vi.fn(async () => ({ ok: true })); const replacement = vi.fn(async () => ({ ok: true }));
+    const provider: ToolProviderPort = { tools: [{ name: call.name, description: "write", readOnly: false }], execute: first };
+    let grantedVersion: string | undefined;
+    const repo = { ...approvals(),
+      findGrantedToolApproval: vi.fn(async () => grantedVersion ? { id: "grant", toolVersion: grantedVersion } : null),
+      recordToolApproval: vi.fn(async (_local: unknown, input: { toolVersion?: string | null }) => {
+        grantedVersion = input.toolVersion ?? undefined; return { id: "pending" };
+      }),
+    };
+    const tools = createContributionToolProvider([{ provider }], local, repo);
+    await tools.listTools!(); await tools.execute(call);
+    const oldVersion = grantedVersion;
+    provider.execute = replacement;
+    expect(await tools.execute(call)).toMatchObject({ ok: true });
+    expect(first).toHaveBeenCalledOnce(); expect(replacement).not.toHaveBeenCalled();
+    await tools.listTools!();
+    expect((await tools.execute(call)).needsApproval).toBeDefined();
+    expect(grantedVersion).not.toBe(oldVersion);
+    expect(replacement).not.toHaveBeenCalled();
+    expect(await tools.execute(call)).toMatchObject({ ok: true });
+    expect(replacement).toHaveBeenCalledOnce();
+  });
   it("destructive contributions remain pending in full access without explicit authorization", async () => {
     const ctx = { ...local }; setRequestToolApprovalMode(ctx, "full_access");
     const dispatch = vi.fn(async () => ({ ok: true }));

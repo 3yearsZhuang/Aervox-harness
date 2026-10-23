@@ -6,6 +6,7 @@ import type { AervoxDatabase } from "../../../client.js";
 import { toolApprovals, turns, turnAttempts, toolExecutions, turnStreamEvents } from "@aervox/schema";
 import type { LocalContext } from "../../../local-context.js";
 import type { ToolApprovalModel } from "../../types/index.js";
+import { assertPluginGeneration, type PluginGenerationIdentity } from "../../../plugin-generation-guard.js";
 
 export class ApprovalStore {
   constructor(private readonly db: AervoxDatabase) {}
@@ -36,6 +37,7 @@ export class ApprovalStore {
             eq(toolApprovals.argumentsHash, input.argumentsHash),
             eq(toolApprovals.state, "pending"),
             eq(toolApprovals.turnId, input.turnId),
+            input.toolVersion == null ? isNull(toolApprovals.toolVersion) : eq(toolApprovals.toolVersion, input.toolVersion),
           ),
         )
         .orderBy(desc(toolApprovals.id))
@@ -86,6 +88,8 @@ export class ApprovalStore {
   /** Decide and reserve the never-executed intent under the same writer transaction. */
   async decideAndResume(ctx: LocalContext, input: {
     turnId: string; approvalId: string; decision: "granted" | "denied"; decidedBy: string;
+    toolVersion?: string;
+    pluginGeneration?: PluginGenerationIdentity;
   }) {
     return this.db.transaction(async tx => {
       const [approval] = await tx.select().from(toolApprovals).where(and(
@@ -98,6 +102,10 @@ export class ApprovalStore {
         const event = events.find(event => ["tool_approval_granted", "tool_approval_denied"].includes(event.eventType)
           && (event.data as { approvalId?: string })?.approvalId === approval.id) ?? null;
         return { approval, continuation: null, event, ready: true };
+      }
+      if (input.decision === "granted") {
+        if (input.toolVersion !== undefined && approval.toolVersion !== input.toolVersion) throw new Error("tool_approval_binding_changed");
+        await assertPluginGeneration(tx, input.pluginGeneration);
       }
       const [turn] = await tx.select().from(turns).where(eq(turns.id, input.turnId)).limit(1);
       const [latest] = await tx.select().from(turnAttempts).where(eq(turnAttempts.turnId, input.turnId))
@@ -185,6 +193,7 @@ export class ApprovalStore {
     input: {
       toolName: string;
       argumentsHash: string;
+      toolVersion?: string | null;
       excludeDecidedByPrefix?: string;
       excludeDecidedByPrefixes?: string[];
     },
@@ -201,6 +210,8 @@ export class ApprovalStore {
           eq(toolApprovals.toolName, input.toolName),
           eq(toolApprovals.argumentsHash, input.argumentsHash),
           eq(toolApprovals.state, "granted"),
+          input.toolVersion === undefined ? undefined : input.toolVersion === null
+            ? isNull(toolApprovals.toolVersion) : eq(toolApprovals.toolVersion, input.toolVersion),
           excludedPrefixes.length > 0
             ? or(
                 isNull(toolApprovals.decidedBy),

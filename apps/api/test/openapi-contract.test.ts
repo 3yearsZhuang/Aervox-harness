@@ -19,6 +19,17 @@ beforeAll(async () => {
 afterAll(() => { assembly?.dispose(); });
 
 describe("Learning OpenAPI 契约", () => {
+  it("documents the same bounded operation key for HTTP and plugin exploration branches", () => {
+    const paths = buildOpenApiDocument().paths;
+    for (const path of ["/v1/sessions/{sessionId}/branches", "/v1/terms/explore", "/v1/hierarchy/explore"]) {
+      expect(paths[path]?.post?.parameters).toEqual(expect.arrayContaining([
+        expect.objectContaining({ name: "Idempotency-Key", in: "header", required: false,
+          schema: expect.objectContaining({ type: "string", minLength: 1, maxLength: 512 }) }),
+      ]));
+      expect(paths[path]?.post?.responses).toHaveProperty("409");
+    }
+  });
+
   it("将作答幂等键声明为请求头，并区分首次写入与重试响应", () => {
     const operation = buildOpenApiDocument().paths["/v1/questions/{questionId}/attempts"]?.post;
 
@@ -30,8 +41,8 @@ describe("Learning OpenAPI 契约", () => {
       }),
     ]));
     expect(operation?.responses).toEqual(expect.objectContaining({
-      200: expect.objectContaining({ description: "Existing idempotent attempt" }),
-      201: expect.objectContaining({ description: "Attempt created" }),
+      200: expect.objectContaining({ description: "Existing idempotent attempt with its original nextStep" }),
+      201: expect.objectContaining({ description: "Attempt created atomically with derived state, review and Outbox" }),
     }));
   });
 

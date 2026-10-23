@@ -56,20 +56,6 @@ export interface QuestionPracticePort {
   getPracticeSession(ctx: LocalContext, sessionId: string): Promise<PracticeSessionModel | null>;
   getLatestActivePracticeSession(ctx: LocalContext): Promise<PracticeSessionModel | null>;
   completePracticeSession(ctx: LocalContext, sessionId: string): Promise<PracticeSessionModel | null>;
-  recordAttempt(
-    ctx: LocalContext,
-    attempt: {
-      id: string;
-      sessionId: string;
-      questionId: string;
-      answer: string;
-      judgement: string;
-      evidence?: unknown;
-      idempotencyKey?: string | null;
-      hintCount?: number;
-      timeSpentSec?: number;
-    },
-  ): Promise<QuestionAttemptModel>;
   listAttemptsByQuestion(ctx: LocalContext, questionId: string): Promise<QuestionAttemptModel[]>;
   listAttemptsBySession(ctx: LocalContext, sessionId: string): Promise<QuestionAttemptModel[]>;
   listMistakes(
@@ -82,25 +68,6 @@ export interface QuestionPracticePort {
     item: { id: string; questionId: string; reasonCode: "concept_gap" | "calculation" | "careless" | "misread" | "other"; note?: string | null },
   ): Promise<void>;
   clearMistakeInsight(ctx: LocalContext, questionId: string): Promise<void>;
-  getAttemptByIdempotencyKey(
-    ctx: LocalContext,
-    questionId: string,
-    idempotencyKey: string,
-  ): Promise<QuestionAttemptModel | null>;
-  recordAttemptIdempotent(
-    ctx: LocalContext,
-    attempt: {
-      id: string;
-      sessionId: string;
-      questionId: string;
-      answer: string;
-      judgement: string;
-      evidence?: unknown;
-      idempotencyKey: string;
-      hintCount?: number;
-      timeSpentSec?: number;
-    },
-  ): Promise<{ attempt: QuestionAttemptModel; created: boolean }>;
 }
 
 export interface KnowledgeStatePort {
@@ -296,18 +263,54 @@ export type MilestoneTransitionPolicy = (
 ) => Array<{ id: string; status: "completed" | "active" | "locked" }>;
 
 /** Composition-only facade. Consumers depend on the specific use-case port above. */
-export interface ILearningRepository extends LearningGoalPort, QuestionPracticePort, KnowledgeStatePort, ReviewSchedulePort, KnowledgeRelationPort, PracticeReportPort, LearningPlanPort, JudgedAnswerCommandPort {}
+export interface ILearningRepository extends LearningGoalPort, QuestionPracticePort, KnowledgeStatePort, ReviewSchedulePort, KnowledgeRelationPort, PracticeReportPort, LearningPlanPort, LearningAnswerCommandPort {}
 
-export interface JudgedAnswerCommand {
-  idempotencyKey: string; turnId: string; prompt: string; questionType?: string;
-  pluginGeneration?: { pluginId: string; generation: string };
-  userAnswer: string; correctAnswer: string; judgement: "correct" | "incorrect" | "partial";
-  explanation?: string; knowledgeConcept?: string; source?: string;
+export type AnswerJudgement = "correct" | "incorrect" | "partial" | "unverifiable";
+export type AnswerNextStep = "continue" | "review_scheduled" | "await_review";
+interface LearningAnswerBase {
+  idempotencyKey?: string;
+  timeZone?: string;
+  hintCount?: number;
+  timeSpentSec?: number;
+  pluginGeneration?: PluginGenerationIdentity;
 }
-export interface JudgedAnswerCommandPort {
-  recordJudgedAnswer(ctx: LocalContext, input: JudgedAnswerCommand): Promise<{
-    questionId: string; attemptId: string; judgement: "correct" | "incorrect" | "partial"; enteredMistakeNotebook: boolean;
-  }>;
+/** Both transports submit intent; source resolution and every write share one transaction. */
+export type LearningAnswerCommand = LearningAnswerBase & ({
+  kind: "existing-question";
+  questionId: string;
+  sessionId?: string;
+  answer: string;
+  evidence?: unknown;
+} | {
+  kind: "judged-question";
+  idempotencyKey: string;
+  /** Compatibility lookup only; old source-scoped host facts cannot be silently recreated. */
+  legacyIdempotencyKey?: string;
+  turnId: string;
+  prompt: string;
+  questionType?: string;
+  userAnswer: string;
+  correctAnswer: string;
+  judgement: "correct" | "incorrect" | "partial";
+  explanation?: string;
+  knowledgeConcept?: string;
+  source?: string;
+});
+/** Pure application policy, evaluated against the transaction's current state. */
+export interface LearningAnswerPolicy {
+  judge(answerSpec: unknown, answer: string): AnswerJudgement;
+  derive(item: KnowledgeItemModel, isCorrect: boolean, now: Date, timeZone: string): {
+    state: Pick<KnowledgeItemModel, "correctCount" | "wrongCount" | "correctStreak" | "mastery" | "masteryState" | "masteryBasis">;
+    review: { dueAt: string; intervalDays: number; schedulerVersion: number; timezoneSnapshot: string };
+  };
+}
+export interface LearningAnswerResult {
+  attempt: QuestionAttemptModel;
+  nextStep: AnswerNextStep;
+  created: boolean;
+}
+export interface LearningAnswerCommandPort {
+  recordAnswer(ctx: LocalContext, input: LearningAnswerCommand & { requestDigest: string }, policy: LearningAnswerPolicy): Promise<LearningAnswerResult>;
 }
 
 export interface KnowledgeRelationModel {

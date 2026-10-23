@@ -27,6 +27,15 @@ import {
 import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index.js";
 import { stableSerialize as stableStringify } from "@aervox/core";
 import { FULL_PROFILE_SOURCE_MANIFEST } from "@aervox/repositories";
+import { encodeToolApprovalIdentity } from "./tool-approval-identity.js";
+
+const contributionRevisions = new WeakMap<object, string>();
+/** Stable only for the same injected implementation object in this process; never infer code identity from function text. */
+export function processToolImplementationRevision(implementation: object): string {
+  let revision = contributionRevisions.get(implementation);
+  if (!revision) { revision = `process:${globalThis.crypto.randomUUID()}`; contributionRevisions.set(implementation, revision); }
+  return revision;
+}
 
 const profilePermissions = new Set<string>(FULL_PROFILE_SOURCE_MANIFEST.map(source => source.sourceKey));
 
@@ -69,14 +78,14 @@ export interface ToolApprovalRepository {
   }): Promise<{ id: string }>;
   decideToolApproval(context: LocalContext, approvalId: string, decision: "granted" | "denied", decidedBy: string): Promise<{ id: string } | null>;
   findGrantedToolApproval(context: LocalContext, input: {
-    toolName: string; argumentsHash: string; excludeDecidedByPrefixes?: string[];
+    toolName: string; argumentsHash: string; toolVersion?: string | null; excludeDecidedByPrefixes?: string[];
   }): Promise<{ id: string; toolVersion?: string | null } | null>;
 }
 
 async function findExplicitToolApproval(
   repo: ToolApprovalRepository,
   tenant: LocalContext,
-  input: { toolName: string; argumentsHash: string },
+  input: { toolName: string; argumentsHash: string; toolVersion?: string | null },
 ) {
   return repo.findGrantedToolApproval(tenant, {
     ...input,
@@ -136,7 +145,6 @@ export interface ToolBinding {
   revision?: string;
   owner: string;
   generation?: string;
-  requireVersionedApproval?: boolean;
   spec: ToolSpec;
   category?: string;
   requiredPermissions?: unknown;
@@ -243,8 +251,9 @@ function createCatalogToolProvider(
       if (!["write_with_approval", "privileged", "destructive"].includes(safetyLevel)) return emit({ ok: false, error: `requires_approval: ${input.name}（未支持的安全级别）` });
       const argumentsHash = stableStringify(approvalArguments(input));
       const approvalInput = { turnId: input.turnId, attemptId: input.attemptId, toolName: input.name, argumentsHash, toolVersion: binding.toolVersion };
-      const granted = await findExplicitToolApproval(repo, tenant, { toolName: input.name, argumentsHash });
-      if (granted && (granted.toolVersion === binding.toolVersion || (!binding.requireVersionedApproval && !granted.toolVersion))) return emit(await dispatch(true));
+      const granted = await findExplicitToolApproval(repo, tenant, { toolName: input.name, argumentsHash, toolVersion: binding.toolVersion });
+      if (!(await active())) return emit({ ok: false, error: "tool_permission_denied" });
+      if (granted && granted.toolVersion === binding.toolVersion) return emit(await dispatch(true));
       if (getRequestToolApprovalMode(tenant) === "full_access") {
         if (proactiveActionAuthorizer) {
           const authorization = await proactiveActionAuthorizer.authorize(tenant, {
@@ -277,6 +286,8 @@ export interface ContributionToolSource {
   provider: ToolProviderPort;
   owner?: string;
   generation?: string;
+  /** Trusted implementation revision; omit for process scoped contributions that must be approved again after replacement/restart. */
+  approvalRevision?: string;
   checkActive?: () => Promise<boolean>;
 }
 
@@ -285,14 +296,18 @@ export function createContributionToolProvider(
   sources: ContributionToolSource[], tenant: LocalContext, repo: ToolApprovalRepository,
   proactiveActionAuthorizer?: ProactiveActionPort, observability?: Observability,
 ): ToolProviderPort {
-  const bind = (source: ContributionToolSource, spec: ToolSpec): ToolBinding => ({
-    id: spec.name, owner: source.owner ?? "host",
-    generation: source.generation, requireVersionedApproval: source.generation !== undefined,
-    revision: stableStringify(spec), spec,
-    toolVersion: source.generation ? `${source.generation}:${stableStringify(spec)}` : stableStringify(spec),
-    checkActive: source.checkActive,
-    dispatch: input => source.provider.execute(input),
-  });
+  const bind = (source: ContributionToolSource, spec: ToolSpec): ToolBinding => {
+    spec = structuredClone(spec);
+    const execute = source.provider.execute.bind(source.provider);
+    const revision = stableStringify([source.approvalRevision ?? processToolImplementationRevision(source.provider.execute), spec]);
+    return {
+      id: spec.name, owner: source.owner ?? "host", generation: source.generation, revision, spec,
+      toolVersion: encodeToolApprovalIdentity({ kind: "contribution", id: spec.name, owner: source.owner ?? "host",
+        generation: source.generation ?? null, revision, safetyLevel: resolveToolSafetyLevel(spec) }),
+      checkActive: source.checkActive,
+      dispatch: input => execute(input),
+    };
+  };
   let current = new Map(sources.flatMap(source => source.provider.tools.map(spec => [spec.name, bind(source, spec)] as const)));
   return createCatalogToolProvider({
     tools: sources.flatMap(source => source.provider.tools), invalidInputCode: "invalid_tool_input",
@@ -334,8 +349,10 @@ export function createRuntimeToolProvider(
   type RuntimeRow = Awaited<ReturnType<ToolRuntime["listTools"]>>[number];
   const bind = (tool: RuntimeRow): ToolBinding => ({
     id: tool.id, owner: tool.pluginId ?? "host", revision: tool.runtimeRevision,
-    generation: deps.generationFor?.(tool), requireVersionedApproval: Boolean(deps.generationFor?.(tool)),
-    toolVersion: deps.generationFor?.(tool) ? `${deps.generationFor(tool)}:${tool.updatedAt ?? ""}` : tool.updatedAt,
+    generation: deps.generationFor?.(tool),
+    toolVersion: encodeToolApprovalIdentity({ kind: "runtime", id: tool.id, owner: tool.pluginId ?? "host",
+      generation: deps.generationFor?.(tool) ?? null, revision: tool.approvalRevision ?? tool.runtimeRevision!,
+      safetyLevel: tool.safetyLevel ?? "write_with_approval" }),
     category: tool.category, requiredPermissions: tool.requiredPermissionsJson,
     spec: {
       name: tool.name, description: tool.description, readOnly: tool.safetyLevel === "read_only",

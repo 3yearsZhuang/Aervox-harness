@@ -16,9 +16,10 @@
 export interface PluginSessionPort {
   /** Atomically creates an exploration child and its branch, inheriting the parent policy. */
   createExplorationBranch(input: {
-    id: string;
+    id?: string;
+    idempotencyKey?: string;
     parentSessionId: string;
-    childSessionId: string;
+    childSessionId?: string;
     title: string;
     reason: string;
   }): Promise<{ id: string; childSessionId: string }>;
