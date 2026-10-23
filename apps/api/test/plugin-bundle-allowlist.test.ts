@@ -40,6 +40,7 @@ const CLASSIFICATION_SAMPLES: Array<[string, boolean]> = [
   ["pages/index.html", false],
   ["package.json", false],
   ["tsconfig.json", false],
+  ["tsconfig.type-tests.json", false],
   ["vitest.config.ts", false],
   ["README.md", false],
   ["src", true],
@@ -69,6 +70,8 @@ describe("CR-060 分发包允许清单单一事实源", () => {
         `出厂集市分类不一致：${rel}${isDir ? "/" : ""}`,
       ).toBe(classifyDistEntry(rel, isDir));
     }
+    expect(classifyPluginBundleEntry("tsconfig.type-tests.json", false)).toBe("local");
+    expect(classifyDistEntry("tsconfig.type-tests.json", false)).toBe("local");
     // 未登记角色的判定必须是 unknown（由调用方 fail-closed），不得静默归入 dist/local
     expect(classifyPluginBundleEntry("random.bin", false)).toBe("unknown");
     expect(classifyPluginBundleEntry("unknown-dir", true)).toBe("unknown");
@@ -79,7 +82,7 @@ describe("CR-060 分发包允许清单单一事实源", () => {
       expect(PLUGIN_BUNDLE_LOCAL_DIR_PREFIXES).toContain(excluded);
       expect(PLUGIN_BUNDLE_DIR_PREFIXES).not.toContain(excluded);
     }
-    for (const excluded of ["package.json", "tsconfig.json", "vitest.config.ts"]) {
+    for (const excluded of ["package.json", "tsconfig.json", "tsconfig.type-tests.json", "vitest.config.ts"]) {
       expect(PLUGIN_BUNDLE_LOCAL_FILENAMES).toContain(excluded);
       expect(PLUGIN_BUNDLE_FILENAMES).not.toContain(excluded);
     }
@@ -96,6 +99,7 @@ describe("CR-060 分发包允许清单单一事实源", () => {
       await fs.writeFile(path.join(pluginDir, "plugin.manifest.json"), "{}");
       await fs.writeFile(path.join(pluginDir, "SKILL.md"), "# skill");
       await fs.writeFile(path.join(pluginDir, "package.json"), "{}");
+      await fs.writeFile(path.join(pluginDir, "tsconfig.type-tests.json"), "{}");
       await fs.writeFile(path.join(pluginDir, "src/index.ts"), "export {};");
       await fs.writeFile(path.join(pluginDir, "dist/index.js"), "export {};");
       await fs.writeFile(path.join(pluginDir, "skills/one.md"), "# one");

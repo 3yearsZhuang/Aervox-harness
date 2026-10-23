@@ -817,6 +817,7 @@ export const PLUGIN_BUNDLE_LOCAL_FILENAMES: readonly string[] = [
   "package.json",
   "tsconfig.json",
   "tsconfig.ui.json",
+  "tsconfig.type-tests.json",
   "vitest.config.ts",
   "vitest.config.js",
   "pnpm-lock.yaml",
