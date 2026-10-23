@@ -32,4 +32,5 @@ export type LLMConfigPort = Pick<import("./service.js").LLMConfigService, "getCo
 
 export type { ModelRoutingPort } from "@aervox/contracts";
 
-export { createModelGenerationPort, type ModelGenerationPort, type ModelGenerationInput } from "./generation.js";
+export { createModelGenerationPort, generateModelText, type ModelGenerationPort, type ModelGenerationInput } from "./generation.js";
+export { createConfiguredModelProvider } from "./provider-config.js";

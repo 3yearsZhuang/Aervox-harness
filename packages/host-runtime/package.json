@@ -33,7 +33,8 @@
     "@aervox/process-coordination": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^22.10.0"
+    "@types/node": "^22.10.0",
+    "zod": "4.4.3"
   },
   "description": "Shared product host composition and execution for API and Worker",
   "exports": {

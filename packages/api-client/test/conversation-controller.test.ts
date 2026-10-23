@@ -15,7 +15,8 @@ function fixture() {
 
 describe('ConversationController', () => {
   it('retains the same reservation for an unknown acceptance and forbids accepted resubmission', async () => {
-    const {controller, streamTurn} = fixture();
+    const {controller, streamTurn, observeTurn} = fixture();
+    observeTurn.mockImplementation(async (_turn, cb) => { cb.onDelta('continued'); cb.onDone(); });
     streamTurn.mockRejectedValueOnce(new Error('offline')).mockImplementationOnce(async (_session, _content, cb, options) => {
       await options?.onAccepted?.('turn'); cb.onDelta('partial'); throw new Error('disconnected');
     });
@@ -24,7 +25,9 @@ describe('ConversationController', () => {
     await expect(controller.retry(callbacks())).rejects.toThrow('disconnected');
     expect(streamTurn.mock.calls[1]![3]!.idempotencyKey).toBe(key);
     expect(controller.state.status).toBe('observer-error');
-    await expect(controller.retry(callbacks())).rejects.toThrow('submission_not_retryable');
+    await controller.retry(callbacks());
+    expect(observeTurn).toHaveBeenCalledWith('turn', expect.any(Object), expect.objectContaining({afterEventId: undefined}));
+    expect(controller.state.status).toBe('completed');
     expect(streamTurn).toHaveBeenCalledTimes(2);
   });
 
@@ -153,4 +156,55 @@ describe('ConversationController', () => {
     expect(controller.state.turnId).toBe('turn');
     controller.dispose(); await expect(pending).rejects.toMatchObject({name: 'AbortError'});
   });
+});
+
+const event = (eventId: string, sequence: number) => ({eventId, turnId: 'turn', sequence, eventType: 'delta', data: {text: eventId}} as const);
+it('resumes after the last consumed event and preserves pending questions across repeated observation failures', async () => {
+  const {controller, streamTurn, observeTurn} = fixture();
+  const question = {turnId: 'turn', questions: [{id: 'q'}]} as never;
+  streamTurn.mockImplementation(async (_s, _c, cb, options) => {
+    await options!.onAccepted!('turn');
+    cb.onUserQuestion!(question);
+    await cb.onEvent!(event('seen', 1));
+    throw new Error('disconnected');
+  });
+  await expect(controller.submit('s', 'hello', callbacks())).rejects.toThrow('disconnected');
+  observeTurn.mockImplementationOnce(async (_turn, cb) => {
+    expect(controller.state.question).toBe(question);
+    await cb.onEvent!(event('next', 2));
+    throw new Error('offline again');
+  }).mockImplementationOnce(async (_turn, cb) => { cb.onDone(); });
+  await expect(controller.retry(callbacks())).rejects.toThrow('offline again');
+  await controller.retry(callbacks());
+  expect(observeTurn.mock.calls.map(call => call[2]!.afterEventId)).toEqual(['seen', 'next']);
+  expect(controller.state.question).toBe(question);
+  expect(controller.state.status).toBe('awaiting-input');
+  expect(streamTurn).toHaveBeenCalledOnce();
+});
+it('does not acknowledge an event whose async consumer fails', async () => {
+  const {controller, streamTurn, observeTurn} = fixture();
+  streamTurn.mockImplementation(async (_s, _c, cb, options) => {
+    await options!.onAccepted!('turn');
+    await cb.onEvent!(event('seen', 1));
+    await cb.onEvent!(event('not-consumed', 2));
+  });
+  await expect(controller.submit('s', 'hello', {...callbacks(), onEvent: async e => {
+    if (e.eventId === 'not-consumed') throw new Error('consumer failed');
+  }})).rejects.toThrow('consumer failed');
+  observeTurn.mockImplementation(async (_turn, cb) => { cb.onDone(); });
+  await controller.retry(callbacks());
+  expect(observeTurn).toHaveBeenCalledWith('turn', expect.any(Object), expect.objectContaining({afterEventId: 'seen'}));
+});
+it('detaches questions and observations on reset without cancelling server execution', async () => {
+  const {controller, streamTurn, request, submitQuestionAnswers} = fixture();
+  let old!: TurnCallbacks;
+  streamTurn.mockImplementation(async (_s, _c, cb, options) => {
+    old = cb; await options!.onAccepted!('turn'); cb.onUserQuestion!({turnId: 'turn', questions: []} as never);
+  });
+  await controller.submit('s', 'hello', callbacks());
+  controller.reset();
+  old.onUserQuestion!({turnId: 'turn', questions: [{id: 'late'}]} as never);
+  expect(controller.state).toMatchObject({status: 'idle', turnId: undefined, question: undefined, retryAvailable: false});
+  await expect(controller.answer([])).rejects.toThrow('question_not_pending');
+  expect(request).not.toHaveBeenCalled(); expect(submitQuestionAnswers).not.toHaveBeenCalled();
 });

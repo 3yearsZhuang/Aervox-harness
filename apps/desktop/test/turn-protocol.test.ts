@@ -1,6 +1,8 @@
 import { EventEmitter } from 'node:events';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createFetchTransport, type AervoxTransport, type TurnCallbacks } from '@aervox/api-client/transport';
+import { createConversationController } from '../../../packages/api-client/src/conversation-controller';
+import { createDesktopApiRequest } from '../src/main/api-request';
 import { desktopTransport } from '../../../packages/api-client/src/desktop-transport';
 import { createDesktopTurnBridge } from '../src/main/turn-bridge';
 import { rendererEntryArgument } from '../src/shared/renderer-trust';
@@ -24,6 +26,11 @@ async function fullIpc(): Promise<AervoxTransport> {
     send: (channel: string, message: unknown) => renderer.emit(channel, {}, message),
   });
   const main = createDesktopTurnBridge({apiBaseUrl: 'http://api.test', authToken: () => 'secret', requireAcknowledgement: true});
+  const apiRequest = createDesktopApiRequest({apiBaseUrl: 'http://api.test', authToken: () => 'secret'});
+  ipc.invoke.mockImplementation((channel, payload) => {
+    if (channel !== 'aervox:api:request') throw new Error(`unexpected_invoke:${channel}`);
+    return apiRequest(payload);
+  });
   ipc.on.mockImplementation((channel, callback) => renderer.on(channel, callback));
   ipc.removeListener.mockImplementation((channel, callback) => renderer.removeListener(channel, callback));
   ipc.send.mockImplementation((channel, payload) => {
@@ -109,4 +116,48 @@ for (const [name, create] of [
     expect(onDelta).toHaveBeenCalledExactlyOnceWith('continued');
     expect(fetch).toHaveBeenCalledExactlyOnceWith('http://api.test/v1/turns/turn/events?after=decision', expect.objectContaining({headers: expect.objectContaining({'Last-Event-ID': 'decision'})}));
   });
+  it('runs approval POST through continuation observation with the same credentials and cursor', async () => {
+    const approval = {approvalId:'approval',toolName:'write',argumentsHash:'hash'};
+    const approvalFrame = `data: ${JSON.stringify({eventId:'pending',turnId:'turn',sequence:1,eventType:'tool_approval_required',data:approval})}\n\n`;
+    const fetch = vi.fn().mockResolvedValueOnce(Response.json({turnId:'turn'}))
+      .mockResolvedValueOnce(new Response(approvalFrame + frame(2,'done')))
+      .mockResolvedValueOnce(Response.json({approvalId:'approval',state:'granted',continuation:{attemptId:'next',afterEventId:'decision'}}))
+      .mockResolvedValueOnce(new Response(frame(4,'delta','continued') + frame(5,'done')));
+    vi.stubGlobal('fetch',fetch);
+    const controller=createConversationController(await create());
+    const onDelta=vi.fn();
+    await controller.submit('session','write',{onDelta,onDone(){}});
+    expect(controller.state.status).toBe('awaiting-approval');
+    await controller.decide('granted',{onDelta,onDone(){}});
+    expect(onDelta).toHaveBeenCalledExactlyOnceWith('continued');
+    expect(fetch.mock.calls.map(call=>call[0])).toEqual([
+      'http://api.test/v1/sessions/session/turns','http://api.test/v1/turns/turn/events',
+      'http://api.test/v1/turns/turn/tool-approvals','http://api.test/v1/turns/turn/events?after=decision',
+    ]);
+    expect(JSON.parse(fetch.mock.calls[2]![1].body)).toMatchObject({approvalId:'approval',decision:'granted'});
+    expect(fetch.mock.calls[3]![1].headers['Last-Event-ID']).toBe('decision');
+    expect(fetch.mock.calls.every(([,init])=>init.headers.Authorization==='Bearer secret')).toBe(true);
+    expect(controller.state.status).toBe('completed');
+  });
+  it('retries unknown acceptance with one business key and independent IPC request identities', async () => {
+    const fetch=vi.fn().mockRejectedValueOnce(new Error('acceptance lost'))
+      .mockResolvedValueOnce(Response.json({turnId:'turn'}))
+      .mockResolvedValueOnce(new Response(frame(1,'delta','result')+frame(2,'done')));
+    vi.stubGlobal('fetch',fetch);
+    const controller=createConversationController(await create());
+    await expect(controller.submit('session','hello',{onDelta(){},onDone(){}})).rejects.toThrow();
+    await controller.retry({onDelta(){},onDone(){}});
+    const posts=fetch.mock.calls.filter(([,init])=>init.method==='POST');
+    expect(posts).toHaveLength(2);
+    expect(posts[1]![1].headers['Idempotency-Key']).toBe(posts[0]![1].headers['Idempotency-Key']);
+    expect(posts[0]![1].headers['Idempotency-Key']).toEqual(expect.any(String));
+    if(name==='full IPC') {
+      const starts=ipc.send.mock.calls.filter(([channel])=>channel==='aervox:turn:start');
+      expect(starts).toHaveLength(2);
+      expect(starts[1]![1].requestId).not.toBe(starts[0]![1].requestId);
+      expect(starts[1]![1].idempotencyKey).toBe(starts[0]![1].idempotencyKey);
+    }
+    expect(controller.state.status).toBe('completed');
+  });
+
 });

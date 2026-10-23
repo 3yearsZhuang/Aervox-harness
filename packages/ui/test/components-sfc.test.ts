@@ -255,6 +255,7 @@ describe('Real SFC Component Mounting', () => {
     ]);
 
     const mockContext = {
+      conversation: { activeQuestion: ref(null), questionSubmitting: ref(false), handleQuestionSubmit: vi.fn() },
       layout: {
         companionDisplayName: ref('思隅'),
       },
@@ -268,10 +269,6 @@ describe('Real SFC Component Mounting', () => {
       cards: {
         slotCards,
         cardCatalog: ref([]),
-        questionCardData: ref(null),
-        questionCardSelected: ref([]),
-        handleQuestionCardOption: vi.fn(),
-        submitQuestionCardAnswers: vi.fn(),
         selectCard,
         activateCard,
         isCardPicked: vi.fn().mockReturnValue(false),

@@ -60,7 +60,6 @@ interface FailedTurn {
   content: string;
   source: 'suggestion' | 'whisper';
   sessionId?: string;
-  idempotencyKey?: string;
 }
 const failedTurn = ref<FailedTurn>();
 const turnController = createConversationController(getTransport(), surface.signal);
@@ -68,9 +67,12 @@ const conversationState = ref(turnController.state);
 const unsubscribeConversation = turnController.subscribe(state => { conversationState.value = state; });
 const interactionBusy = ref(false);
 let stopPreparing = false;
+let hasTurnReply = false;
+const observationFailed = () => turnController.state.status === 'observer-error';
+const canStop = computed(() => sending.value || ['awaiting-input', 'awaiting-approval', 'observer-error'].includes(conversationState.value.status));
 
 async function stopTurn() {
-  if (!sending.value || stopping.value) return;
+  if (!canStop.value || stopping.value) return;
   stopping.value = true;
   stopPreparing = true;
   turnFeedback.value = undefined;
@@ -86,20 +88,21 @@ async function stopTurn() {
   } finally { stopping.value = false; }
 }
 
-function dialogueCallbacks(previousContext: string) {
-  let receivedReply = false;
+function dialogueCallbacks(previousContext: string, preserveReply = false) {
+  let receivedReply = preserveReply;
   return {
     get hasReply() { return receivedReply; },
     onDelta(text: string) {
       if (surface.signal.aborted || !text) return;
-      if (!receivedReply) { say(''); receivedReply = true; waitingForReply.value = false; }
+      if (!receivedReply) { say(''); receivedReply = true; }
+      hasTurnReply = true; waitingForReply.value = false;
       appendDelta(text);
     },
     onDone() {
       if (surface.signal.aborted) return;
       finish(); waitingForReply.value = false;
-      dialogueCtx.value = receivedReply ? companionName.value + ' · 刚刚回复' : previousContext;
-      turnFeedback.value = receivedReply ? undefined : {kind: 'completed', message: '本次回复已完成。'};
+      dialogueCtx.value = turnController.state.question ? '等待你的回答' : turnController.state.approval ? '等待工具授权' : receivedReply ? companionName.value + ' · 刚刚回复' : previousContext;
+      turnFeedback.value = receivedReply || turnController.state.question || turnController.state.approval ? undefined : {kind: 'completed', message: '本次回复已完成。'};
     },
     onError(error: unknown) { throw error; },
     onUserQuestion() { finish(); waitingForReply.value = false; dialogueCtx.value = '等待你的回答'; },
@@ -107,23 +110,23 @@ function dialogueCallbacks(previousContext: string) {
   };
 }
 
-async function sendTurn(content: string, source: 'suggestion' | 'whisper' = 'suggestion', retry?: FailedTurn) {
+async function sendTurn(content: string, source: 'suggestion' | 'whisper' = 'suggestion') {
   if (sending.value || surface.signal.aborted) return false;
   sending.value = true; waitingForReply.value = true; stopPreparing = false;
   turnFeedback.value = undefined; failedTurn.value = undefined; finish();
   const previousContext = dialogueCtx.value;
   let submission: FailedTurn = {content, source};
+  hasTurnReply = false;
   const callbacks = dialogueCallbacks(previousContext);
   try {
     if (!sessions.sessions.value.some(session => session.id === sessions.activeSessionId.value)) await sessions.createNewSession();
     surface.signal.throwIfAborted();
     if (stopPreparing) { turnFeedback.value = {kind: 'stopped', message: '已停止回复。'}; return false; }
     const sessionId = sessions.activeSessionId.value;
-    const idempotencyKey = retry?.content === content && retry.source === source && retry.sessionId === sessionId ? retry.idempotencyKey : undefined;
-    submission = {content, source, sessionId, idempotencyKey};
+    submission = {content, source, sessionId};
     dialogueCtx.value = '正在回复';
     await turnController.submit(sessionId, content, callbacks, {
-      signal: surface.signal, idempotencyKey,
+      signal: surface.signal,
       metadata: {...identity},
     });
     if (turnController.state.status === 'stopped') turnFeedback.value = {kind: 'stopped', message: '已停止回复。'};
@@ -131,8 +134,8 @@ async function sendTurn(content: string, source: 'suggestion' | 'whisper' = 'sug
   } catch {
     if (!surface.signal.aborted) {
       finish(); waitingForReply.value = false;
-      if (turnController.state.status === 'observer-error') {
-        turnFeedback.value = {kind: 'observer-error', message: '连接中断，原请求可能仍在处理。可在完整工作台查看。'};
+      if (observationFailed()) {
+        turnFeedback.value = {kind: 'observer-error', message: '连接中断，已保留收到的回复。可恢复接收。'};
       } else {
         // Controller.retry owns uncertain submissions and their idempotency reservation.
         failedTurn.value = submission;
@@ -153,8 +156,9 @@ async function answerQuestion(answers: AskUserQuestionAnswerItem[]) {
 async function decideApproval(decision: 'granted' | 'denied') {
   if (interactionBusy.value || sending.value) return;
   interactionBusy.value = true; sending.value = true;
-  try { await turnController.decide(decision, dialogueCallbacks(dialogueCtx.value)); }
-  catch { turnFeedback.value = {kind: 'observer-error', message: '授权或续跑连接失败，可在完整工作台查看。'}; }
+  turnFeedback.value = undefined;
+  try { await turnController.decide(decision, dialogueCallbacks(dialogueCtx.value, hasTurnReply)); }
+  catch { turnFeedback.value = {kind: observationFailed() ? 'observer-error' : 'connection-error', message: '授权或续跑连接失败，请重试。'}; }
   finally { interactionBusy.value = false; sending.value = false; }
 }
 
@@ -221,16 +225,24 @@ function onWhisperKeydown(event: KeyboardEvent) {
     void sendWhisper();
   } else if (event.key === 'Escape') void closeWhisper();
 }
-async function sendWhisper(retry?: FailedTurn) {
+async function sendWhisper() {
   const text = whisperText.value.trim();
   if (!text || sending.value) return;
-  if (await sendTurn(text, 'whisper', retry) && whisperText.value.trim() === text) {
+  if (await sendTurn(text, 'whisper') && whisperText.value.trim() === text) {
     whisperText.value = '';
     closeWhisper();
   }
 }
 
 async function retryTurn() {
+  if (observationFailed()) {
+    if (sending.value || !turnController.state.retryAvailable) return;
+    sending.value = true; turnFeedback.value = undefined;
+    try { await turnController.retry(dialogueCallbacks(dialogueCtx.value, hasTurnReply)); }
+    catch { if (!surface.signal.aborted) turnFeedback.value = {kind: 'observer-error', message: '连接失败，已保留回复。可再次恢复接收。'}; }
+    finally { sending.value = false; waitingForReply.value = false; }
+    return;
+  }
   const failed = failedTurn.value;
   if (!failed || sending.value) return;
   const content = failed.source === 'whisper' ? whisperText.value.trim() : failed.content;
@@ -250,8 +262,8 @@ async function retryTurn() {
       if (failed.source === 'whisper') await sendWhisper();
       else await sendTurn(failed.content, failed.source);
     } else if (!surface.signal.aborted) {
-      turnFeedback.value = {kind: turnController.state.status === 'observer-error' ? 'observer-error' : 'connection-error', message: '连接失败，请稍后重试。'};
-      if (turnController.state.status === 'observer-error') failedTurn.value = undefined;
+      turnFeedback.value = {kind: observationFailed() ? 'observer-error' : 'connection-error', message: '连接失败，请稍后重试。'};
+      if (observationFailed()) failedTurn.value = undefined;
     }
   } finally { sending.value = false; waitingForReply.value = false; }
 }
@@ -343,7 +355,7 @@ onBeforeUnmount(() => {
           :disabled="sending || (failedTurn.source === 'whisper' && !whisperText.trim())"
           @click="retryTurn"
         ><RotateCcw :size="14" aria-hidden="true" />重试发送</button>
-        <button v-else-if="turnFeedback.kind === 'observer-error'" type="button" class="pc-workbench-link pc-feedback-action" @click="backToDefaultSurface"><ArrowUpRight :size="14" aria-hidden="true" />查看完整工作台</button>
+        <button v-else-if="conversationState.status === 'observer-error' && conversationState.retryAvailable" type="button" class="pc-resume pc-feedback-action" :disabled="sending" @click="retryTurn"><RotateCcw :size="14" aria-hidden="true" />恢复接收回复</button>
         <button v-else-if="turnFeedback.kind === 'cancel-error' && sending" type="button" class="pc-retry pc-feedback-action" :disabled="stopping" @click="stopTurn">重试停止</button>
       </div>
     </section>
@@ -376,7 +388,7 @@ onBeforeUnmount(() => {
     <aside class="pc-whisper" :class="{ 'pc-whisper--open': whisperOpen }" aria-label="对话输入">
       <template v-if="!whisperOpen">
         <button ref="whisperPill" type="button" class="pc-whisper-pill" @click="openWhisper"><MessageSquare :size="15" aria-hidden="true" /><span>悄悄对{{ companionName }}说…</span></button>
-        <button v-if="sending" type="button" class="pc-stop" :disabled="stopping" @click="stopTurn"><Square :size="12" aria-hidden="true" />{{ stopping ? '停止中' : '停止' }}</button>
+        <button v-if="canStop" type="button" class="pc-stop" :disabled="stopping" @click="stopTurn"><Square :size="12" aria-hidden="true" />{{ stopping ? '停止中' : '停止' }}</button>
       </template>
       <div v-else class="pc-whisper-input">
         <input
@@ -387,7 +399,7 @@ onBeforeUnmount(() => {
           enterkeyhint="send"
           @keydown="onWhisperKeydown"
         />
-        <button v-if="sending" type="button" class="pc-stop" :disabled="stopping" @click="stopTurn"><Square :size="12" aria-hidden="true" />{{ stopping ? '停止中' : '停止' }}</button>
+        <button v-if="canStop" type="button" class="pc-stop" :disabled="stopping" @click="stopTurn"><Square :size="12" aria-hidden="true" />{{ stopping ? '停止中' : '停止' }}</button>
         <button v-else type="button" :disabled="!whisperText.trim()" @click="sendWhisper()">发送</button>
         <button type="button" class="pc-whisper-close" title="收起" aria-label="收起输入" @click="closeWhisper"><X :size="18" aria-hidden="true" /></button>
       </div>

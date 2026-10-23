@@ -5,6 +5,7 @@ import { nextTick, onMounted, ref, watch } from 'vue';
 import { ArrowDown, Check, Copy, FileText } from 'lucide-vue-next';
 import ExtensionSlot from '../extension/ExtensionSlot.vue';
 import ToolApprovalCard from './ToolApprovalCard.vue';
+import UserQuestionComposer from '../UserQuestionComposer.vue';
 import TurnDiagnostics from './TurnDiagnostics.vue';
 import { useWorkbenchContext } from '../../composables/workbench-context';
 import { renderMarkdown } from '../../utils/markdown';
@@ -82,6 +83,9 @@ async function copyMessage(id: number, text: string) {
           </div>
         </article>
         <p v-if="story.length === 0" class="standard-empty">发送消息，开始新的对话</p>
+        <UserQuestionComposer v-if="conversation.activeQuestion.value"
+          :question-data="conversation.activeQuestion.value" :submitting="conversation.questionSubmitting.value"
+          @submit="conversation.handleQuestionSubmit" />
         <ToolApprovalCard />
         <TurnRetryAction />
         <ExtensionSlot name="conversation:bottom" />

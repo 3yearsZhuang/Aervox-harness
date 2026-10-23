@@ -17,6 +17,7 @@ const recentSession = {
 };
 
 const streamTurn = vi.fn();
+const observeTurn = vi.fn();
 const requestImplementation = async (method: string, path: string) => {
   if (path === '/v1/sessions' && method === 'GET') return { items: [recentSession] };
   if (path === '/v1/sessions' && method === 'POST') return { id: 'ses_new', title: '新对话', createdAt: '', updatedAt: '' };
@@ -27,6 +28,7 @@ const request = vi.fn(requestImplementation);
 beforeEach(() => {
   localStorage.clear();
   streamTurn.mockReset();
+  observeTurn.mockReset();
   streamTurn.mockImplementation(async (_sessionId: string, _content: string, callbacks: { onDelta: (t: string) => void; onDone: () => void }) => {
     callbacks.onDelta('我们接着昨天的进度。');
     callbacks.onDone();
@@ -38,6 +40,7 @@ beforeEach(() => {
     transport: {
       request: request as never,
       streamTurn: streamTurn as never,
+      observeTurn: observeTurn as never,
       submitQuestionAnswers: vi.fn(),
       decideToolApproval: vi.fn(),
     },
@@ -226,29 +229,28 @@ it('keeps a partial reply visible and reports a lost connection outside the dial
   expect(wrapper.find('.pc-caret').exists()).toBe(false);
 });
 
-it('preserves an accepted partial reply and opens the workbench without sending another turn', async () => {
+it('resumes an accepted partial reply in place without sending another turn', async () => {
   streamTurn.mockImplementationOnce(async (_id: string, _text: string, callbacks: TurnCallbacks, options: StreamTurnOptions) => {
     await options.onAccepted!('turn_accepted');
     callbacks.onDelta('我收到你的问题了。');
+    await callbacks.onEvent!({eventId:'seen',turnId:'turn_accepted',sequence:1,eventType:'delta',data:{text:'我收到你的问题了。'}});
     throw new Error('observer connection lost');
   });
   const wrapper = await mountSurface();
   await wrapper.findAll('.pc-choice')[1]!.trigger('click');
   await flushPromises();
   expect(wrapper.find('.pc-dialogue-text').text()).toBe('我收到你的问题了。');
-  expect(wrapper.find('.pc-feedback').text()).toContain('连接中断，原请求可能仍在处理。可在完整工作台查看。');
+  expect(wrapper.find('.pc-feedback').text()).toContain('连接中断，已保留收到的回复。可恢复接收。');
   expect(wrapper.find('.pc-feedback').attributes('data-kind')).toBe('observer-error');
   expect(wrapper.find('.pc-caret').exists()).toBe(false);
   expect(wrapper.find('.pc-retry').exists()).toBe(false);
-  const replace = vi.spyOn(window.location, 'replace').mockImplementation(() => undefined);
-  try {
-    await wrapper.find('.pc-workbench-link').trigger('click');
-    expect(localStorage.getItem('aervox.surface.main')).toBe('workbench-ui');
-    expect(new URL(replace.mock.calls[0]![0]).searchParams.get('surface')).toBe('workbench-ui');
-    expect(streamTurn).toHaveBeenCalledOnce();
-  } finally {
-    replace.mockRestore();
-  }
+  observeTurn.mockImplementationOnce(async (_turn, cb) => { cb.onDelta('接着解释。'); cb.onDone(); });
+  await wrapper.find('.pc-resume').trigger('click');
+  await flushPromises();
+  expect(wrapper.find('.pc-dialogue-text').text()).toBe('我收到你的问题了。接着解释。');
+  expect(observeTurn).toHaveBeenCalledWith('turn_accepted', expect.any(Object), expect.objectContaining({afterEventId:'seen'}));
+  expect(streamTurn).toHaveBeenCalledOnce();
+
 });
 
 it('does not offer resend after a stream identifies a turn and disconnects before any reply', async () => {
@@ -264,7 +266,7 @@ it('does not offer resend after a stream identifies a turn and disconnects befor
   await flushPromises();
   expect(wrapper.find('.pc-dialogue-text').text()).toBe(previousReply);
   expect(wrapper.find('.pc-retry').exists()).toBe(false);
-  expect(wrapper.find('.pc-workbench-link').text()).toBe('查看完整工作台');
+  expect(wrapper.find('.pc-resume').text()).toBe('恢复接收回复');
   expect(streamTurn).toHaveBeenCalledTimes(2);
 });
 
@@ -435,4 +437,26 @@ it('keeps a failed whisper editable until retry succeeds', async () => {
   expect(streamTurn.mock.calls[1]![1]).toBe('用例子讲讲环路等待');
   expect(streamTurn.mock.calls[1]![3].idempotencyKey).not.toBe(streamTurn.mock.calls[0]![3].idempotencyKey);
   expect(wrapper.find('.pc-whisper-input').exists()).toBe(false);
+});
+
+it('keeps a new question visible when an earlier multi-question answer finishes', async () => {
+  let forward!: TurnCallbacks;
+  streamTurn.mockImplementation(async (_s,_c,cb,options)=>{
+    forward=cb;await options.onAccepted('turn');cb.onUserQuestion({turnId:'turn',step:1,questions:[
+      {id:'q',question:'选主题',multiSelect:true,options:[{label:'A'},{label:'B'}]},
+      {id:'detail',question:'补充要求'},
+    ]});cb.onDone();
+  });
+  let saved!:()=>void;
+  const submitQuestionAnswers=vi.fn(()=>new Promise<void>(resolve=>{saved=resolve;}));
+  configureAervoxClient({transport:{request:request as never,streamTurn,observeTurn,submitQuestionAnswers,decideToolApproval:vi.fn()}});
+  const wrapper=await mountSurface();
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');await flushPromises();
+  await wrapper.findAll('.uq-option-btn')[0]!.trigger('click');await wrapper.findAll('.uq-option-btn')[1]!.trigger('click');
+  await wrapper.findAll('.uq-custom-input input')[1]!.setValue('带示例');await wrapper.get('.uq-submit-btn').trigger('click');
+  forward.onUserQuestion!({turnId:'turn',step:2,questions:[{id:'next',question:'新的确认'}]});saved();await flushPromises();
+  expect(submitQuestionAnswers).toHaveBeenCalledWith('turn',[
+    {id:'q',selected:['A','B'],custom:undefined},{id:'detail',selected:[],custom:'带示例'},
+  ],expect.any(AbortSignal));
+  expect(wrapper.get('.pc-interaction').text()).toContain('新的确认');
 });

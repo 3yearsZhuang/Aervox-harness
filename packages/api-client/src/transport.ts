@@ -167,7 +167,7 @@ export function getTransport(): AervoxTransport {
   return runtime.transport;
 }
 
-/** 当前会话 ID（useAervoxTurn 默认使用） */
+/** 当前会话 ID（由宿主为新对话注入） */
 export function getSessionId(): string {
   return runtime.sessionId;
 }

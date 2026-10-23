@@ -35,7 +35,7 @@ export interface ConversationHost {
 }
 import { UserQuestionCoordinator } from "./user-question-coordinator.js";
 import { ApiOwnedTurnRecovery } from "./api-owned-recovery.js";
-import { createPluginApiRegistry } from "@aervox/contracts";
+import { createPluginApiRegistry } from "../../../plugin-api-registry.js";
 import { createDshTurnAdapterResolver } from "./dsh-adapter.js";
 import { PluginToolCatalog } from "./plugin-tool-catalog.js";
 

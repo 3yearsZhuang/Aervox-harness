@@ -92,7 +92,7 @@ export {
   type ToolItemDto,
   type SkillItemDto,
 } from './useAervoxPersonas';
-export { watchAervoxTurnContinuation, streamAervoxTurn, uploadAervoxAttachment, submitQuestionAnswers, requestAervoxApi, decideToolApproval, type StreamAervoxTurnCallbacks } from './useAervoxTurn';
+export { uploadAervoxAttachment } from './attachments';
 export {
   useAervoxVoice,
   canPickDirectory,

@@ -202,7 +202,6 @@ export * from "./avatar-schemas.js";
 
 export { projectSafeEventData, KERNEL_PROJECTION_EVENT_TYPES } from "./stream-projection.js";
 export {
-  createPluginApiRegistry,
   isValidPluginRoutePath,
 } from "./plugin-api-registry.js";
 export type { PluginApiRegistry, PluginApiContribution, PluginOpenApiRoute, ToolResultProjectionSchema } from "./plugin-api-registry.js";

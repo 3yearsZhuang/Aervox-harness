@@ -11,7 +11,6 @@ import {
   type DiaryDto,
   type GenerateTodayResultDto,
 } from '@aervox/api-client';
-import type { UserQuestionRequiredEventData } from '@aervox/contracts';
 import { MizukiExpression } from '../live2d/model';
 import { petReactKind } from '../live2d/petReactions';
 import type { UIRegistry } from '../registry/ui-registry';
@@ -60,12 +59,10 @@ type CardLearningPort = Pick<LearningStorePort, 'goals' | 'dueReviews' | 'loadGo
 
 export function useWorkbenchCards(options: {
   learning: CardLearningPort;
-  activeQuestion: Ref<UserQuestionRequiredEventData | null>;
   timerRunning: Ref<boolean>;
   formattedTime: Ref<string>;
   storyCount: Ref<number>;
   onOpenTool: (tool: ToolId) => void;
-  onSubmitQuestionAnswers: (answers: Array<{ id: string; selected: string[] }>) => Promise<void>;
   recordActivity: (source: 'aervox.activity' | 'aervox.operation', eventType: string, payloadText?: string, metadata?: Record<string, unknown>) => void;
   registry?: UIRegistry;
 }) {
@@ -82,32 +79,6 @@ export function useWorkbenchCards(options: {
   let savedCardSlots: Array<CardId | null> | null = null;
   const slotPresets = new Map<symbol, {owner: string; slots: Array<CardId | null>}>();
   let diarySlotRestore: CardId | null | undefined = undefined;
-
-  // 提问卡
-  const questionCardSelected = ref<string[]>([]);
-  const questionCardData = computed(() => options.activeQuestion.value?.questions[0] ?? null);
-
-  watch(options.activeQuestion, (value) => {
-    if (!value) questionCardSelected.value = [];
-  });
-
-  function handleQuestionCardOption(label: string) {
-    const question = questionCardData.value;
-    if (!question) return;
-    if (question.multiSelect) {
-      questionCardSelected.value = questionCardSelected.value.includes(label)
-        ? questionCardSelected.value.filter((item) => item !== label)
-        : [...questionCardSelected.value, label];
-      return;
-    }
-    void options.onSubmitQuestionAnswers([{ id: question.id, selected: [label] }]);
-  }
-
-  function submitQuestionCardAnswers() {
-    const question = questionCardData.value;
-    if (!question || questionCardSelected.value.length === 0) return;
-    void options.onSubmitQuestionAnswers([{ id: question.id, selected: [...questionCardSelected.value] }]);
-  }
 
   // 日记状态
   const todayDiary = ref<GenerateTodayResultDto | null>(null);
@@ -438,8 +409,6 @@ export function useWorkbenchCards(options: {
     removeQuickTool,
     moveQuickTool,
     resetQuickTools,
-    questionCardData,
-    questionCardSelected,
     todayDiary,
     viewingDiary,
     diaryHistory,
@@ -457,8 +426,6 @@ export function useWorkbenchCards(options: {
     goalBusyId,
     reviewBusyId,
     reviewError,
-    handleQuestionCardOption,
-    submitQuestionCardAnswers,
     openDiary,
     selectDiaryDate,
     generateDiaryNow,

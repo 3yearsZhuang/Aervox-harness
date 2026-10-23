@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { AervoxButton, AervoxCard } from '../../primitives';
 import { computed, nextTick, ref } from 'vue';
-import { Check, ChevronRight, CircleHelp, Pause, Play, Plus, TimerReset, X } from 'lucide-vue-next';
+import { Check, ChevronRight, Pause, Play, Plus, TimerReset, X } from 'lucide-vue-next';
 import ExtensionSlot from '../extension/ExtensionSlot.vue';
+import UserQuestionComposer from '../UserQuestionComposer.vue';
 import { useWorkbenchContext } from '../../composables/workbench-context';
 
-const { layout, timer, cards } = useWorkbenchContext();
-const { companionDisplayName } = layout;
+const { timer, cards, conversation } = useWorkbenchContext();
+const { activeQuestion, questionSubmitting, handleQuestionSubmit } = conversation;
 const {
   timerRunning,
   timerMinutes,
@@ -17,10 +18,6 @@ const {
 const {
   slotCards,
   cardCatalog,
-  questionCardData,
-  questionCardSelected,
-  handleQuestionCardOption,
-  submitQuestionCardAnswers,
   selectCard,
   activateCard,
   isCardPicked,
@@ -30,9 +27,9 @@ const pickerOpen = ref(false);
 const pickerRoot = ref<HTMLElement | null>(null);
 const visibleSlots = computed(() => slotCards.value
   .map((card, slotIndex) => ({ card, slotIndex }))
-  .filter(({ card, slotIndex }) => card || (slotIndex === 0 && questionCardData.value)));
+  .filter(({ card, slotIndex }) => card || (slotIndex === 0 && activeQuestion.value)));
 const availableSlot = computed(() => slotCards.value.findIndex(
-  (card, index) => !card && !(index === 0 && questionCardData.value),
+  (card, index) => !card && !(index === 0 && activeQuestion.value),
 ));
 
 function addCard(id: string, event: MouseEvent) {
@@ -52,49 +49,14 @@ function closePicker() {
   <aside class="side-cards" aria-label="功能卡片">
     <div v-for="({ card, slotIndex }) in visibleSlots" :key="slotIndex" class="side-card-slot">
       <Transition name="card-swap" mode="out-in">
-        <div :key="slotIndex === 0 && questionCardData ? 'question' : card?.id ?? 'placeholder'" class="side-card-slot-inner">
-          <!-- UQ-01: AI 提问时第一槽临时切换为提问卡，作答后自动恢复 -->
-          <AervoxCard as="article"
-            v-if="slotIndex === 0 && questionCardData"
-            class="side-card side-question-card companion-panel"
-            role="region"
-            tabindex="0"
-            :aria-label="`${companionDisplayName}想问你`"
-          >
-            <header class="side-card-head companion-panel-head">
-              <span class="side-card-icon" aria-hidden="true"><CircleHelp :size="22" /></span>
-              <span class="side-card-title">
-                <strong class="companion-panel-title">{{ companionDisplayName }}想问你</strong>
-                <small>点选选项作答，答完卡片自动恢复</small>
-              </span>
-            </header>
-            <p class="side-card-summary side-question-text">{{ questionCardData.question }}</p>
-            <div v-if="questionCardData.options?.length" class="side-card-grid side-question-options">
-              <button
-                v-for="option in questionCardData.options"
-                :key="option.label"
-                type="button"
-                class="side-card-grid-item"
-                :class="{ picked: questionCardSelected.includes(option.label) }"
-                :aria-pressed="questionCardSelected.includes(option.label)"
-                @click.stop="handleQuestionCardOption(option.label)"
-              >
-                <span>{{ option.label }}</span>
-              </button>
-            </div>
-            <AervoxButton variant="primary"
-              v-if="questionCardData.multiSelect && questionCardData.options?.length"
-              type="button"
-              class="side-question-submit"
-              :disabled="questionCardSelected.length === 0"
-              @click.stop="submitQuestionCardAnswers()"
-            >
-              {{ `提交（已选 ${questionCardSelected.length}）` }}
-            </AervoxButton>
-            <footer class="side-card-foot companion-panel-footer">
-              <span>正在等待你的回答…</span>
-            </footer>
-          </AervoxCard>
+        <div :key="slotIndex === 0 && activeQuestion ? 'question' : card?.id ?? 'placeholder'" class="side-card-slot-inner">
+          <UserQuestionComposer
+            v-if="slotIndex === 0 && activeQuestion"
+            class="side-question-card"
+            :question-data="activeQuestion"
+            :submitting="questionSubmitting"
+            @submit="handleQuestionSubmit"
+          />
 
           <AervoxCard as="article"
             v-else-if="card"

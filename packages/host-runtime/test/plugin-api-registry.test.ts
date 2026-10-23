@@ -9,17 +9,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import {
-  createPluginApiRegistry,
   buildOpenApiDocument as rawBuildOpenApiDocument,
   isValidPluginRoutePath,
   projectSafeEventData as rawProjectSafeEventData,
   resetOpenApiDocumentCache,
   KERNEL_PROJECTION_EVENT_TYPES,
   KERNEL_STREAM_EVENT_TYPES,
-} from "../src/index.js";
+} from "@aervox/contracts";
+import { createPluginApiRegistry } from "../src/plugin-api-registry.js";
 
 const registry = createPluginApiRegistry();
-const { getPluginOpenApiRoutes, getPluginEventProjection, getPluginStreamEventTypes, getPluginToolResultProjection, getToolResultProjectionOwner, isKnownStreamEventType, registerPluginApiContribution, registerToolResultProjection, resetPluginApiContributions } = registry;
+const { getPluginOpenApiRoutes, getPluginEventProjection, getPluginStreamEventTypes, getPluginToolResultProjection, getToolResultProjectionOwner, isKnownStreamEventType, registerPluginApiContribution, registerToolResultProjections, resetPluginApiContributions } = registry;
 const buildOpenApiDocument = () => rawBuildOpenApiDocument(registry);
 const projectSafeEventData = (type: string, data: unknown) => rawProjectSafeEventData(type, data, registry);
 
@@ -53,7 +53,7 @@ function registerFixturePlugin(): void {
     ],
   });
   // CR-060 §B7：工具结果投影由**宿主**为插件自有工具代登记（随工具贡献声明）
-  registerToolResultProjection(P_id, P_tool, toolResultSchema);
+  registerToolResultProjections(P_id, [{ name: P_tool, schema: toolResultSchema }]);
 }
 
 afterEach(() => {
@@ -213,7 +213,7 @@ describe("CR-060：插件流事件类型登记不是装饰", () => {
 
 describe("CR-060 §B7 工具结果投影归属", () => {
   it("投影归属记录在登记的插件上，未登记的插件无法抢注他人工具", () => {
-    registerToolResultProjection("plugin-a", "tool_x", toolResultSchema);
+    registerToolResultProjections("plugin-a", [{ name: "tool_x", schema: toolResultSchema }]);
     expect(getToolResultProjectionOwner("tool_x")).toBe("plugin-a");
     expect(getPluginToolResultProjection("tool_x")).toBe(toolResultSchema);
   });
@@ -221,11 +221,11 @@ describe("CR-060 §B7 工具结果投影归属", () => {
   it("插件 API 不再提供自声明投影入口：同一工具的第二方登记被拒绝（归属冲突 fail-closed）", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     // 宿主为内核工具登记后，任何其它插件都无法抢注该工具的投影
-    registerToolResultProjection("kernel", "ask_user_question", toolResultSchema);
-    expect(registerToolResultProjection("plugin-b", "ask_user_question", toolResultSchema)).toBe(false);
+    registerToolResultProjections("kernel", [{ name: "ask_user_question", schema: toolResultSchema }]);
+    expect(registerToolResultProjections("plugin-b", [{ name: "ask_user_question", schema: toolResultSchema }])).toBe(false);
     expect(getToolResultProjectionOwner("ask_user_question")).toBe("kernel");
     // 同一归属方重复登记（热重载）允许覆盖
-    expect(registerToolResultProjection("kernel", "ask_user_question", toolResultSchema)).toBeTypeOf("function");
+    expect(registerToolResultProjections("kernel", [{ name: "ask_user_question", schema: toolResultSchema }])).toBeTypeOf("function");
     expect(warn).toHaveBeenCalled();
   });
 
@@ -330,10 +330,44 @@ describe("CR-060 §B6 插件 OpenAPI 路由不得污染内核契约", () => {
 });
 
 describe("host scoped plugin contracts", () => {
+  it("publishes projection batches atomically and leaves the revision unchanged on conflict", () => {
+    const a = createPluginApiRegistry();
+    a.registerToolResultProjections("foreign", [{ name: "occupied", schema: termsSchema }]);
+    const revision = a.getPluginApiRevision();
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    expect(a.registerToolResultProjections("owner", [
+      { name: P_tool, schema: toolResultSchema }, { name: "occupied", schema: toolResultSchema },
+    ])).toBe(false);
+    expect(a.getPluginApiRevision()).toBe(revision);
+    expect(a.getPluginToolResultProjection(P_tool)).toBeUndefined();
+    expect(a.getToolResultProjectionOwner("occupied")).toBe("foreign");
+    const release = a.registerToolResultProjections("owner", [
+      { name: P_tool, schema: toolResultSchema }, { name: "other", schema: termsSchema },
+    ]);
+    if (!release) throw new Error("unexpected owner conflict");
+    expect(a.getPluginApiRevision()).toBe(revision + 1);
+    expect(a.getPluginToolResultProjection(P_tool)).toBe(toolResultSchema);
+    expect(a.getPluginToolResultProjection("other")).toBe(termsSchema);
+    release(); release();
+    expect(a.getPluginApiRevision()).toBe(revision + 2);
+    expect(a.getPluginToolResultProjection(P_tool)).toBeUndefined();
+    expect(a.getPluginToolResultProjection("other")).toBeUndefined();
+  });
+  it("captures OpenAPI metadata and does not let readers mutate a registration without a revision", () => {
+    const a = createPluginApiRegistry();
+    const route = { method: "get" as const, path: "/v1/immutable", tags: ["Original"], responses: { 200: { description: "Original" } } };
+    a.registerPluginApiContribution({ openApiRoutes: [route] });
+    route.tags[0] = "Changed"; route.responses[200].description = "Changed";
+    const published = a.getPluginOpenApiRoutes()[0]!;
+    expect(published.tags).toEqual(["Original"]); expect(published.responses[200]!.description).toBe("Original");
+    published.tags![0] = "Consumer"; published.responses[200]!.description = "Consumer";
+    expect(a.getPluginOpenApiRoutes()[0]!.tags).toEqual(["Original"]);
+    expect(a.getPluginOpenApiRoutes()[0]!.responses[200]!.description).toBe("Original");
+  });
   it("isolates projections and OpenAPI cache between independent hosts", () => {
     const a = createPluginApiRegistry(); const b = createPluginApiRegistry();
     a.registerPluginApiContribution({ streamEventTypes: [P_event], eventProjections: { [P_event]: termsSchema }, openApiRoutes: [{ method: "get", path: "/v1/a-only", responses: { 200: { description: "a" } } }] });
-    a.registerToolResultProjection("owner", P_tool, toolResultSchema);
+    a.registerToolResultProjections("owner", [{ name: P_tool, schema: toolResultSchema }]);
     expect(a.isKnownStreamEventType(P_event)).toBe(true); expect(b.isKnownStreamEventType(P_event)).toBe(false);
     expect(b.getPluginToolResultProjection(P_tool)).toBeUndefined();
     expect(rawBuildOpenApiDocument(a).paths["/v1/a-only"]).toBeDefined();
@@ -341,16 +375,16 @@ describe("host scoped plugin contracts", () => {
   });
   it("disposing a newer projection restores its same-owner predecessor", () => {
     const a = createPluginApiRegistry();
-    const previous = a.registerToolResultProjection("owner", P_tool, termsSchema);
-    const current = a.registerToolResultProjection("owner", P_tool, toolResultSchema);
+    const previous = a.registerToolResultProjections("owner", [{ name: P_tool, schema: termsSchema }]);
+    const current = a.registerToolResultProjections("owner", [{ name: P_tool, schema: toolResultSchema }]);
     if (!previous || !current) throw new Error("unexpected owner conflict");
     current(); expect(a.getPluginToolResultProjection(P_tool)).toBe(termsSchema);
     previous(); expect(a.getPluginToolResultProjection(P_tool)).toBeUndefined();
   });
   it("an old projection disposer cannot remove a newer contribution", () => {
     const a = createPluginApiRegistry();
-    const old = a.registerToolResultProjection("owner", P_tool, termsSchema);
-    const current = a.registerToolResultProjection("owner", P_tool, toolResultSchema);
+    const old = a.registerToolResultProjections("owner", [{ name: P_tool, schema: termsSchema }]);
+    const current = a.registerToolResultProjections("owner", [{ name: P_tool, schema: toolResultSchema }]);
     if (!old || !current) throw new Error("unexpected owner conflict");
     old(); expect(a.getPluginToolResultProjection(P_tool)).toBe(toolResultSchema);
     current(); expect(a.getPluginToolResultProjection(P_tool)).toBeUndefined();

@@ -1,45 +1,92 @@
-import { awaitWithSignal } from "@aervox/core";
-import type { PluginApiRegistry } from "@aervox/contracts";
+import { createHash } from "node:crypto";
+import { awaitWithSignal, stableSerialize, type ToolGuidance, type ToolSpec } from "@aervox/core";
+import type { PluginApiRegistry, ToolResultProjectionSchema } from "@aervox/contracts";
 import type { PluginToolContribution } from "@aervox/host-plugin-api";
 import type { IExtensionRepository } from "@aervox/repositories";
+import { createPluginToolScope } from "./plugin-tool-scope.js";
+import { processToolImplementationRevision, type ContributionToolSource } from "./tool-providers.js";
 
-/** Resolve every asynchronous declaration before publishing any handler, guidance or projection. */
+interface PreparedContribution extends PluginToolContribution { projectionRevision: string | null }
+
+/** Resolve and capture the complete declaration before publishing any of its parts. */
 export async function preparePluginToolContributions(
   candidates: PluginToolContribution[],
   scope: { signal?: AbortSignal; checkActive(): Promise<void> },
   reservedNames: ReadonlySet<string> = new Set(),
-): Promise<PluginToolContribution[]> {
+): Promise<PreparedContribution[]> {
   const ids = new Set<string>();
   const names = new Set<string>(reservedNames);
-  const prepared: PluginToolContribution[] = [];
+  const prepared: PreparedContribution[] = [];
   for (const candidate of candidates) {
     await scope.checkActive();
     if (ids.has(candidate.id)) throw new Error(`duplicate_plugin_contribution: ${candidate.id}`);
     ids.add(candidate.id);
+    const execute = candidate.provider.execute.bind(candidate.provider);
     const declared = candidate.provider.listTools
-      ? await awaitWithSignal(Promise.resolve(candidate.provider.listTools()), scope.signal) : candidate.provider.tools;
+      ? await awaitWithSignal(Promise.resolve(candidate.provider.listTools({ signal: scope.signal })), scope.signal) : candidate.provider.tools;
     const tools = structuredClone(declared);
     for (const tool of tools) {
       if (names.has(tool.name)) throw new Error(`duplicate_tool_binding: ${tool.name}`);
       names.add(tool.name);
     }
-    prepared.push({ ...candidate, guidance: candidate.guidance ? structuredClone(candidate.guidance) : undefined, provider: {
-      tools,
-      listTools: async () => tools,
-      execute: input => candidate.provider.execute(input),
+    const guidance = candidate.guidance ? structuredClone(candidate.guidance) : undefined;
+    for (const item of guidance ?? []) {
+      if (!tools.some(tool => tool.name === item.name)) throw new Error(`undeclared_tool_guidance: ${item.name}`);
+    }
+    // Capture the declared method as well as the provider handler. Reassigning either
+    // property after preflight cannot change an already published declaration.
+    const projectionMethod = candidate.resultProjection?.safeParse;
+    if (candidate.resultProjection && typeof projectionMethod !== "function") throw new Error(`invalid_tool_projection: ${candidate.id}`);
+    const resultProjection = candidate.resultProjection && projectionMethod
+      ? Object.freeze({ safeParse: projectionMethod.bind(candidate.resultProjection) }) : undefined;
+    prepared.push({ id: candidate.id, guidance, resultProjection,
+      // A prototype method alone does not identify the schema receiver it reads.
+      // Reuse a context-free schema declaration across Turns; replacements fail closed.
+      projectionRevision: candidate.resultProjection && projectionMethod ? stableSerialize([
+        processToolImplementationRevision(candidate.resultProjection), processToolImplementationRevision(projectionMethod),
+      ]) : null, provider: {
+      tools, listTools: async () => structuredClone(tools), execute,
     } });
   }
   await scope.checkActive();
   return prepared;
 }
 
-interface Entry {
-  generation: string;
-  names: Set<string>;
+type ToolScope = ReturnType<typeof createPluginToolScope>;
+export interface PluginToolLease {
+  readonly owner: string;
+  readonly generation: string;
+  readonly revision: string;
+  readonly sources: ContributionToolSource[];
+  readonly guidance: ToolGuidance[];
+  /** Ends this invocation only, preserving safe replay projections for the current generation. */
+  release(): void;
+  /** A registration owner can revoke this exact batch; a replaced batch is never affected. */
+  revoke(): void;
+}
+interface LeaseState {
   release(): void;
 }
+interface Entry {
+  owner: string;
+  generation: string;
+  revision: string;
+  names: Set<string>;
+  tools: ToolSpec[];
+  guidance: ToolGuidance[];
+  leases: Set<LeaseState>;
+  release(): void;
+}
+interface Acquisition {
+  owner: string;
+  generation: string;
+  signal?: AbortSignal;
+  reservedNames?: ReadonlySet<string>;
+  /** Factory receives only this invocation's lifecycle-bound services scope. */
+  create(scope: ToolScope): PluginToolContribution[];
+}
 
-/** Host-owned metadata survives turn completion for replay, and expires with its plugin generation. */
+/** One host owns complete tool batches and their invocation leases. Only safe projection metadata survives a Turn. */
 export class PluginToolCatalog {
   private readonly entries = new Map<string, Entry>();
   private timer?: ReturnType<typeof setInterval>;
@@ -47,50 +94,109 @@ export class PluginToolCatalog {
   private disposed = false;
   constructor(private readonly plugins: Pick<IExtensionRepository, "getPlugin">, private readonly api: PluginApiRegistry) {}
 
-  register(owner: string, generation: string, contributions: PluginToolContribution[]): () => void {
+  async acquire(input: Acquisition): Promise<PluginToolLease> {
     if (this.disposed) throw new Error("tool_catalog_disposed");
-    const ids = new Set<string>();
-    const names = new Set<string>();
-    for (const contribution of contributions) {
-      if (ids.has(contribution.id)) throw new Error(`duplicate_plugin_contribution: ${contribution.id}`);
-      ids.add(contribution.id);
-      for (const tool of contribution.provider.tools) {
-        if (names.has(tool.name)) throw new Error(`duplicate_tool_binding: ${tool.name}`);
-        names.add(tool.name);
-        for (const [otherOwner, entry] of this.entries) {
-          if (otherOwner !== owner && entry.names.has(tool.name)) {
-            throw new Error(`duplicate_tool_binding: ${tool.name}`);
-          }
-        }
-      }
-    }
-    const cleanups: Array<() => void> = [];
+    const scope = createPluginToolScope(this.plugins, input.owner, input.generation, input.signal);
     try {
-      for (const contribution of contributions) {
-        if (!contribution.resultProjection) continue;
-        for (const tool of contribution.provider.tools) {
-          const dispose = this.api.registerToolResultProjection(owner, tool.name, contribution.resultProjection);
-          if (!dispose) throw new Error(`tool_projection_owner_conflict: ${tool.name}`);
-          cleanups.push(dispose);
-        }
+      await scope.checkActive();
+      const contributions = await preparePluginToolContributions(input.create(scope), scope, input.reservedNames);
+      await scope.checkActive();
+      scope.signal?.throwIfAborted();
+      if (this.disposed) throw new Error("tool_catalog_disposed");
+      const names = new Set(contributions.flatMap(item => item.provider.tools.map(tool => tool.name)));
+      for (const [owner, entry] of this.entries) {
+        if (owner !== input.owner && [...names].some(name => entry.names.has(name))) throw new Error("duplicate_tool_binding");
       }
+      // Context-bound handler objects differ between Turns. Their trusted implementation
+      // identity is the plugin generation; the complete declaration/projection revision is shared.
+      const revision = createHash("sha256").update(stableSerialize(contributions.map(item => ({
+        id: item.id, tools: item.provider.tools, guidance: item.guidance,
+        projection: item.projectionRevision,
+      })))).digest("hex");
+      let entry = this.entries.get(input.owner);
+      if (!entry || entry.generation !== input.generation || entry.revision !== revision) {
+        entry = this.publish(input.owner, input.generation, revision, names,
+          contributions.flatMap(item => structuredClone(item.provider.tools)),
+          contributions.flatMap(item => structuredClone(item.guidance ?? [])),
+          contributions.flatMap(item => item.resultProjection
+            ? item.provider.tools.map(tool => ({ name: tool.name, schema: item.resultProjection! })) : []));
+      }
+      return this.createLease(entry, contributions, scope);
     } catch (error) {
-      for (const cleanup of cleanups.reverse()) cleanup();
+      scope.dispose();
       throw error;
     }
+  }
+
+  /** Contains no context-bound handlers. Projection installation is synchronous and rolls back as one batch. */
+  private publish(owner: string, generation: string, revision: string, names: Set<string>, tools: ToolSpec[], guidance: ToolGuidance[],
+    projections: Array<{ name: string; schema: ToolResultProjectionSchema }>): Entry {
+    const releaseProjections = this.api.registerToolResultProjections(owner, projections);
+    if (!releaseProjections) throw new Error("tool_projection_owner_conflict");
     const previous = this.entries.get(owner);
-    const entry: Entry = {
-      generation, names,
-      release: () => {
-        for (const cleanup of cleanups.splice(0).reverse()) cleanup();
-        if (this.entries.get(owner) === entry) this.entries.delete(owner);
-        if (!this.entries.size && this.timer) { clearInterval(this.timer); this.timer = undefined; }
-      },
-    };
+    const entry: Entry = { owner, generation, revision, names, tools, guidance, leases: new Set(), release: () => {
+      for (const lease of [...entry.leases]) lease.release();
+      releaseProjections();
+      if (this.entries.get(owner) === entry) this.entries.delete(owner);
+      if (!this.entries.size && this.timer) { clearInterval(this.timer); this.timer = undefined; }
+    } };
     this.entries.set(owner, entry);
     previous?.release();
     this.startMonitoring();
-    return entry.release;
+    return entry;
+  }
+
+  private createLease(entry: Entry, contributions: PluginToolContribution[], scope: ToolScope): PluginToolLease {
+    let bindings = contributions;
+    let open = true;
+    const active = async () => {
+      if (!open || this.entries.get(entry.owner) !== entry) return false;
+      const allowed = await scope.active();
+      return allowed && open && this.entries.get(entry.owner) === entry;
+    };
+    const state: LeaseState = {
+      release: () => {
+        if (!open) return;
+        open = false;
+        bindings = []; // Do not retain an expired Turn's services or handler closures for replay.
+        scope.signal?.removeEventListener("abort", state.release);
+        scope.dispose();
+        entry.leases.delete(state);
+      },
+    };
+    const sources: ContributionToolSource[] = bindings.map((item, index) => ({
+      owner: entry.owner, generation: entry.generation,
+      // Preserve the persisted approval identity already used by the authoritative ToolBinding.
+      approvalRevision: `plugin:${item.id}:${entry.generation}`, checkActive: active,
+      provider: {
+        tools: structuredClone(item.provider.tools),
+        async listTools() { return await active() ? structuredClone(bindings[index]?.provider.tools ?? []) : []; },
+        async execute(call) {
+          if (!(await active())) return { ok: false, error: "tool_permission_denied" };
+          const binding = bindings[index];
+          if (!binding || !open || scope.signal?.aborted) return { ok: false, error: "tool_permission_denied" };
+          const signal = call.signal ? AbortSignal.any([call.signal, scope.signal!]) : scope.signal;
+          return awaitWithSignal(binding.provider.execute({ ...call, signal }), signal);
+        },
+      },
+    }));
+    entry.leases.add(state);
+    scope.signal?.addEventListener("abort", state.release, { once: true });
+    return {
+      owner: entry.owner, generation: entry.generation, revision: entry.revision,
+      get sources() { return open ? sources : []; },
+      get guidance() { return open ? structuredClone(entry.guidance) : []; },
+      release: state.release,
+      revoke: () => { if (this.entries.get(entry.owner) === entry) entry.release(); },
+    };
+  }
+
+  /** Inspection exposes active declarations, never their context ports or handler closures. */
+  snapshot(owner: string): { generation: string; revision: string; tools: ToolSpec[]; guidance: ToolGuidance[]; activeLeases: number } | undefined {
+    const entry = this.entries.get(owner);
+    return entry ? { generation: entry.generation, revision: entry.revision,
+      tools: structuredClone(entry.tools), guidance: structuredClone(entry.guidance),
+      activeLeases: entry.leases.size } : undefined;
   }
 
   private startMonitoring(): void {

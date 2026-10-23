@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import Fastify from 'fastify';
-import { createPluginApiRegistry } from '@aervox/contracts';
+import { createPluginApiRegistry } from '@aervox/host-runtime-test/plugin-api-registry';
 import type { PluginHostServices, ServerPluginRegistration } from '@aervox/host-plugin-api';
 import { assembleFirstPartyPlugins, createHttpEndpointSink, mountPluginHttpEndpoints } from '@aervox/host-runtime-test/plugin-assembly';
 import { ServerPluginRegistry } from '@aervox/host-runtime-test/modules/ecosystem/plugins/turn-plugins/registry';

@@ -325,12 +325,10 @@ describe('Workbench Composables Logic', () => {
 
     const cards = useWorkbenchCards({
       learning: useAervoxApi(),
-      activeQuestion: ref(null),
       timerRunning: ref(false),
       formattedTime: ref('25:00'),
       storyCount: ref(0),
       onOpenTool: vi.fn(),
-      onSubmitQuestionAnswers: vi.fn(),
       recordActivity: vi.fn(),
       registry,
     });
@@ -390,12 +388,10 @@ describe('Workbench Composables Logic', () => {
 
       const cards = useWorkbenchCards({
         learning: useAervoxApi(),
-        activeQuestion: ref(null),
         timerRunning: ref(false),
         formattedTime: ref('25:00'),
         storyCount: ref(0),
         onOpenTool: vi.fn(),
-        onSubmitQuestionAnswers: vi.fn(),
         recordActivity: vi.fn(),
         registry,
       });
@@ -445,12 +441,10 @@ describe('Workbench Composables Logic', () => {
 
     const cards = useWorkbenchCards({
       learning: useAervoxApi(),
-      activeQuestion: ref(null),
       timerRunning: ref(false),
       formattedTime: ref('25:00'),
       storyCount: ref(0),
       onOpenTool: vi.fn(),
-      onSubmitQuestionAnswers: vi.fn(),
       recordActivity: vi.fn(),
       registry: createUIRegistry(),
     });
@@ -486,12 +480,10 @@ describe('Workbench Composables Logic', () => {
     try {
       const cards = useWorkbenchCards({
         learning: useAervoxApi(),
-        activeQuestion: ref(null),
         timerRunning: ref(false),
         formattedTime: ref('25:00'),
         storyCount: ref(0),
         onOpenTool: vi.fn(),
-        onSubmitQuestionAnswers: vi.fn(),
         recordActivity: vi.fn(),
         registry: createUIRegistry(),
       });
@@ -524,12 +516,10 @@ describe('Workbench Composables Logic', () => {
 
       const cards = useWorkbenchCards({
         learning: useAervoxApi(),
-        activeQuestion: ref(null),
         timerRunning: ref(false),
         formattedTime: ref('25:00'),
         storyCount: ref(0),
         onOpenTool: vi.fn(),
-        onSubmitQuestionAnswers: vi.fn(),
         recordActivity: vi.fn(),
         registry,
       });
@@ -609,7 +599,6 @@ it('waits for the interrupted stream to close before observing its continuation'
   await controller.submit('session','hello',{onDelta() {},onDone() {}});
   const onApprovalDecision = vi.fn(decision => controller.decide(decision, {onDelta() {},onDone() {}}));
   const conversation = useWorkbenchConversation({recordActivity:vi.fn(),controller,onApprovalDecision});
-  conversation.pendingApproval.value = approval;
   conversation.streaming.value = true;
   await conversation.handleApprovalDecision('granted');
   expect(decideToolApproval).not.toHaveBeenCalled();

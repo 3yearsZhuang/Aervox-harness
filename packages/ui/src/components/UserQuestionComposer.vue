@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { AervoxButton, AervoxCard } from '../primitives';
-import { computed, ref } from 'vue'
-import { Check, ChevronRight, HelpCircle, Send } from 'lucide-vue-next'
+import { computed, ref, watch } from 'vue'
+import { Check, HelpCircle, Send } from 'lucide-vue-next'
 import type { AskUserQuestionAnswerItem, UserQuestionRequiredEventData } from '@aervox/contracts'
 
 const props = defineProps<{
@@ -18,12 +18,14 @@ const selections = ref<Record<string, string[]>>({})
 const customAnswers = ref<Record<string, string>>({})
 
 // 初始化默认选中的 Recommended 选项（如果有）
-props.questionData.questions.forEach((q) => {
-  if (!selections.value[q.id]) {
+watch(() => props.questionData, (questionData) => {
+  selections.value = {}
+  customAnswers.value = {}
+  questionData.questions.forEach((q) => {
     const recommended = q.options?.find((opt) => opt.label.includes('(Recommended)'))
     selections.value[q.id] = recommended ? [recommended.label] : []
-  }
-})
+  })
+}, { immediate: true })
 
 function toggleOption(questionId: string, label: string, multiSelect = false) {
   const current = selections.value[questionId] || []
@@ -74,7 +76,7 @@ function handleSubmit() {
 
     <div class="uq-body">
       <div
-        v-for="(item, idx) in questionData.questions"
+        v-for="item in questionData.questions"
         :key="item.id"
         class="uq-item"
       >
@@ -96,6 +98,7 @@ function handleSubmit() {
             class="uq-option-btn"
             :class="{ active: isSelected(item.id, opt.label) }"
             :disabled="submitting"
+            :aria-pressed="isSelected(item.id, opt.label)"
             @click="toggleOption(item.id, opt.label, item.multiSelect)"
           >
             <span class="uq-option-check">
@@ -114,6 +117,7 @@ function handleSubmit() {
             v-model="customAnswers[item.id]"
             type="text"
             placeholder="或者输入其他补充说明…"
+            :aria-label="`${item.question}：补充说明`"
             :disabled="submitting"
             @keydown.enter.prevent="handleSubmit"
           />

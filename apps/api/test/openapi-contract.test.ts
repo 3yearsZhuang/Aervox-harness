@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createPluginApiRegistry, buildOpenApiDocument as rawBuildOpenApiDocument, resetOpenApiDocumentCache } from "@aervox/contracts";
+import { buildOpenApiDocument as rawBuildOpenApiDocument, resetOpenApiDocumentCache } from "@aervox/contracts";
+import { createPluginApiRegistry } from "@aervox/host-runtime-test/plugin-api-registry";
 import { assembleFirstPartyPlugins } from "@aervox/host-runtime-test/plugin-assembly";
 
 /**

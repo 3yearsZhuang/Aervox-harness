@@ -4,6 +4,7 @@ import { createClient, type Client } from "@libsql/client";
 import { SQL, is } from "drizzle-orm";
 import { getTableConfig, SQLiteSyncDialect, type SQLiteColumn } from "drizzle-orm/sqlite-core";
 import * as schema from "@aervox/schema";
+import { tableDefinitionSemantics } from "./table-semantics.js";
 
 export type SchemaScope = "main" | "ledger";
 export const CURRENT_SCHEMA_VERSION = 1;
@@ -167,9 +168,44 @@ async function physicalIndexes(client: Client, table: string) {
 }
 
 type PhysicalIndexes = Awaited<ReturnType<typeof physicalIndexes>>;
-const canonicalIndexes = new Map<SchemaScope, Promise<Map<string, PhysicalIndexes>>>();
-function canonicalPhysicalIndexes(scope: SchemaScope): Promise<Map<string, PhysicalIndexes>> {
-  const cached = canonicalIndexes.get(scope);
+
+async function physicalForeignKeys(client: Client, table: string): Promise<string[]> {
+  const result = await client.execute(`PRAGMA foreign_key_list(${quoteSqlIdentifier(table)})`);
+  const groups = new Map<number, typeof result.rows>();
+  for (const row of result.rows) {
+    const group = groups.get(Number(row.id)) ?? [];
+    group.push(row);
+    groups.set(Number(row.id), group);
+  }
+  return [...groups.values()].map(group => {
+    group.sort((a, b) => Number(a.seq) - Number(b.seq));
+    const first = group[0]!;
+    return JSON.stringify({ table: String(first.table).toLowerCase(),
+      columns: group.map(row => [String(row.from).toLowerCase(), row.to === null ? null : String(row.to).toLowerCase()]),
+      onDelete: String(first.on_delete).toLowerCase(), onUpdate: String(first.on_update).toLowerCase(), match: String(first.match).toLowerCase() });
+  }).sort();
+}
+
+async function physicalTable(client: Client, table: string) {
+  const [listed, definition, indexes, foreignKeys, columnInfo] = await Promise.all([
+    client.execute(`PRAGMA table_list(${quoteSqlIdentifier(table)})`),
+    client.execute({ sql: "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?", args: [table] }),
+    physicalIndexes(client, table), physicalForeignKeys(client, table),
+    client.execute(`PRAGMA table_xinfo(${quoteSqlIdentifier(table)})`),
+  ]);
+  const row = listed.rows.find(value => value.schema === "main" && value.name === table);
+  if (!row || typeof definition.rows[0]?.sql !== "string") throw new Error("cannot inspect table definition");
+  const columns = columnInfo.rows.map(column => ({ name: String(column.name), type: String(column.type).toLowerCase(),
+    notNull: Boolean(column.notnull), default: normalizeSql(column.dflt_value === null ? null : String(column.dflt_value)),
+    primaryKey: Number(column.pk), hidden: Number(column.hidden) }));
+  return { indexes, foreignKeys, columns, options: { type: String(row.type), withoutRowid: Boolean(row.wr), strict: Boolean(row.strict) },
+    definition: tableDefinitionSemantics(definition.rows[0].sql) };
+}
+
+type PhysicalTable = Awaited<ReturnType<typeof physicalTable>>;
+const canonicalTables = new Map<SchemaScope, Promise<Map<string, PhysicalTable>>>();
+function canonicalPhysicalTables(scope: SchemaScope): Promise<Map<string, PhysicalTable>> {
+  const cached = canonicalTables.get(scope);
   if (cached) return cached;
   const compiled = (async () => {
     // Compile declarations in an independent disposable database. Never create temporary objects in the inspected database.
@@ -177,13 +213,13 @@ function canonicalPhysicalIndexes(scope: SchemaScope): Promise<Map<string, Physi
     try {
       const tables = schemaManifest(scope);
       await isolated.batch(tables.flatMap((table) => [table.sql, ...table.indexes.map((index) => index.sql)]), "write");
-      const indexes = new Map<string, PhysicalIndexes>();
-      for (const table of tables) indexes.set(table.name, await physicalIndexes(isolated, table.name));
-      return indexes;
+      const result = new Map<string, PhysicalTable>();
+      for (const table of tables) result.set(table.name, await physicalTable(isolated, table.name));
+      return result;
     } finally { isolated.close(); }
   })();
-  canonicalIndexes.set(scope, compiled);
-  void compiled.catch(() => { canonicalIndexes.delete(scope); });
+  canonicalTables.set(scope, compiled);
+  void compiled.catch(() => { canonicalTables.delete(scope); });
   return compiled;
 }
 
@@ -197,7 +233,7 @@ function comparableIndexes(indexes: PhysicalIndexes, origin: string): string[] {
 export async function inspectSchemaParity(client: Client, scope: SchemaScope, options: { allowUnversioned?: boolean } = {}): Promise<string[]> {
   const issues: string[] = [];
   const manifest = schemaManifest(scope);
-  const expectedPhysicalIndexes = await canonicalPhysicalIndexes(scope);
+  const expectedTables = await canonicalPhysicalTables(scope);
   const existing = await client.execute("PRAGMA table_list");
   const actualTables = new Set(existing.rows.filter((row) => row.schema === "main" && (row.type === "table" || row.type === "virtual") && !String(row.name).startsWith("sqlite_") && !isDerivedSearchTable(String(row.name))).map((row) => String(row.name)));
   const allowedOtherScope = scope === "main" ? new Set([LEDGER_TABLE]) : new Set(schemaManifest("main").map((table) => table.name));
@@ -205,18 +241,27 @@ export async function inspectSchemaParity(client: Client, scope: SchemaScope, op
   for (const table of manifest) {
     if (!actualTables.has(table.name) && table.name === VERSION_TABLE && options.allowUnversioned) continue;
     if (!actualTables.has(table.name)) { issues.push(`${table.name}: missing table`); continue; }
-    const columns = await client.execute(`PRAGMA table_info(${quoteSqlIdentifier(table.name)})`);
-    const actualColumns = columns.rows.map((column) => ({ name: String(column.name), type: String(column.type).toLowerCase(), notNull: Boolean(column.notnull), default: normalizeSql(column.dflt_value === null ? null : String(column.dflt_value)), primaryKey: Number(column.pk) }));
-    for (const expected of table.columns) {
-      const actual = actualColumns.find((column) => column.name === expected.name);
+    let actualTable: PhysicalTable;
+    try { actualTable = await physicalTable(client, table.name); }
+    catch { issues.push(`${table.name}: cannot inspect table semantics`); continue; }
+    const expectedTable = expectedTables.get(table.name)!;
+    for (const expected of expectedTable.columns) {
+      const actual = actualTable.columns.find(column => column.name === expected.name);
       if (JSON.stringify(actual) !== JSON.stringify(expected)) issues.push(`${table.name}.${expected.name}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
     }
-    for (const actual of actualColumns) if (!table.columns.some((column) => column.name === actual.name)) issues.push(`${table.name}.${actual.name}: undeclared column`);
-    const fks = await client.execute(`PRAGMA foreign_key_list(${quoteSqlIdentifier(table.name)})`);
-    const foreignKeys = fks.rows.map((fk) => `${fk.from}->${fk.table}.${fk.to}|${fk.on_delete}|${fk.on_update}`.toLowerCase()).sort();
-    if (JSON.stringify(foreignKeys) !== JSON.stringify(table.foreignKeys)) issues.push(`${table.name}: foreign keys differ`);
-    const actualIndexes = await physicalIndexes(client, table.name);
-    const expectedIndexes = expectedPhysicalIndexes.get(table.name)!;
+    for (const actual of actualTable.columns) {
+      const expected = expectedTable.columns.find(column => column.name === actual.name);
+      if (!expected) issues.push(`${table.name}.${actual.name}: undeclared column`);
+      if (actual.hidden !== (expected?.hidden ?? 0)) issues.push(`${table.name}.${actual.name}: undeclared hidden or generated column`);
+    }
+    if (JSON.stringify(actualTable.columns.map(column => column.name)) !== JSON.stringify(expectedTable.columns.map(column => column.name))) issues.push(`${table.name}: column order differs`);
+    if (JSON.stringify(actualTable.options) !== JSON.stringify(expectedTable.options)) issues.push(`${table.name}: table options differ`);
+    if (JSON.stringify(actualTable.foreignKeys) !== JSON.stringify(expectedTable.foreignKeys)) issues.push(`${table.name}: foreign keys differ`);
+    for (const key of ["checks", "collations", "conflicts", "autoIncrement", "foreignModifiers"] as const) {
+      if (JSON.stringify(actualTable.definition[key]) !== JSON.stringify(expectedTable.definition[key])) issues.push(`${table.name}: ${key} differ`);
+    }
+    const actualIndexes = actualTable.indexes;
+    const expectedIndexes = expectedTable.indexes;
     if (JSON.stringify(comparableIndexes(expectedIndexes, "c")) !== JSON.stringify(comparableIndexes(actualIndexes, "c"))) issues.push(`${table.name}: indexes or partial predicates differ`);
     if (JSON.stringify(comparableIndexes(expectedIndexes, "u")) !== JSON.stringify(comparableIndexes(actualIndexes, "u"))) issues.push(`${table.name}: unique constraints differ`);
     if (JSON.stringify(comparableIndexes(expectedIndexes, "pk")) !== JSON.stringify(comparableIndexes(actualIndexes, "pk"))) issues.push(`${table.name}: primary key indexes differ`);

@@ -1,6 +1,6 @@
 import { setRequestToolApprovalMode } from "../../../shared/tool-approval-policy.js";
 import { hostPromptPolicy } from "./prompt-policy.js";
-import { awaitWithSignal, ControlContext, LeaseLostError } from "@aervox/core";
+import { ControlContext, LeaseLostError } from "@aervox/core";
 /**
  * Aervox｜思隅 @aervox/api — 会话回合编排（runLoopTurnOnce）
  *
@@ -27,7 +27,6 @@ import type {
   ReplayStep,
   SkillDescriptor,
   SubagentPort,
-  ToolGuidance,
   ToolProviderPort,
   UserQuestionPort,
   WorkflowDefinition,
@@ -56,7 +55,8 @@ import { HOST_TOOL_GUIDANCE } from "../../ecosystem/tools/index.js";
 import type { LLMConfigPort } from "../../ecosystem/llm/index.js";
 import type { ModelRoutingPort } from "../../ecosystem/llm/index.js";
 import type { ModelRoutingSnapshot } from "@aervox/contracts";
-import { createPluginApiRegistry, type PluginApiRegistry } from "@aervox/contracts";
+import type { PluginApiRegistry } from "@aervox/contracts";
+import { createPluginApiRegistry } from "../../../plugin-api-registry.js";
 import { loadProactiveProfilePrompt } from "../../proactive/proactive/index.js";
 import type { ProactiveActionPort } from "../../proactive/proactive/index.js";
 import { buildMemoryContext, type MemoryRecallPort } from "./memory-recall.js";
@@ -65,7 +65,7 @@ import { createContributionToolProvider, createRuntimeToolProvider, hasBotExclud
 import { createBroadcastingStore } from "./broadcasting-store.js";
 import { turnStreamHub } from "./stream-hub.js";
 import { createPluginToolScope } from "./plugin-tool-scope.js";
-import { PluginToolCatalog, preparePluginToolContributions } from "./plugin-tool-catalog.js";
+import { PluginToolCatalog, type PluginToolLease } from "./plugin-tool-catalog.js";
 import { createDshTurnAdapterResolver, type DshTurnAdapterResolver, failTurnWithError, runDshAdapterTurn } from "./dsh-adapter.js";
 
 /** SqliteExecutionStore 组合根适配由 @aervox/host-agent 提供（见上方 import），API 不再自维护 SQLite 执行存储 */
@@ -546,7 +546,7 @@ export async function runLoopTurnOnce(
   // 模型侧使用指南由插件自述，经内核既有的 customGuidance 通用注入位合入基础提示词；
   // 宿主自有工具（日记 / 笔记检索 / 记忆沉淀）的指南同经该注入位提供
   // （ADR-021 内核提纯修订：产品域 guidance 不再随内核发布，见 host-tool-guidance）。
-  const pluginGuidance: ToolGuidance[] = [];
+  const pluginLeases: PluginToolLease[] = [];
   if (deps.pluginRegistrations?.length && deps.pluginHostServices && extRepo) {
     const catalog = deps.pluginToolCatalog ?? new PluginToolCatalog(extRepo, apiRegistry);
     if (!deps.pluginToolCatalog) resources.push(() => catalog.dispose());
@@ -557,36 +557,16 @@ export async function runLoopTurnOnce(
       if (!record || record.enabled !== 1 || (record.availability ?? "available") !== "available" || !record.lifecycleGeneration) continue;
       const prior = beforeTurnExec.snapshots?.get(registration.pluginId)?.lifecycleGeneration;
       if (prior !== undefined && prior !== record.lifecycleGeneration) continue;
-      const scope = createPluginToolScope(extRepo, registration.pluginId, record.lifecycleGeneration, signal);
-      const cleanups: Array<() => void> = [() => scope.dispose()];
       try {
-        const services = deps.pluginHostServices(tenant, scope);
-        const candidates = await preparePluginToolContributions(registration.toolContributions(services), scope, toolNames);
-        const names = new Set(candidates.flatMap(candidate => candidate.provider.tools.map(tool => tool.name)));
-        const staged = candidates.map(candidate => ({
-          owner: registration.pluginId, generation: record.lifecycleGeneration, checkActive: scope.active,
-          approvalRevision: `plugin:${candidate.id}:${record.lifecycleGeneration}`,
-          provider: {
-            tools: candidate.provider.tools,
-            async listTools() {
-              if (!(await scope.active())) return [];
-              return candidate.provider.listTools ? candidate.provider.listTools() : candidate.provider.tools;
-            },
-            async execute(call: Parameters<ToolProviderPort["execute"]>[0]) {
-              await scope.checkActive();
-              const scopedSignal = call.signal ? AbortSignal.any([call.signal, scope.signal!]) : scope.signal;
-              return awaitWithSignal(candidate.provider.execute({ ...call, signal: scopedSignal }), scopedSignal);
-            },
-          },
-        }));
-        catalog.register(registration.pluginId, record.lifecycleGeneration, candidates);
-        contribution.push(...staged);
-        pluginGuidance.push(...candidates.flatMap(candidate => candidate.guidance ?? []));
-        for (const name of names) toolNames.add(name);
-        // The host catalog retains projection metadata until generation expiry; invocation ports expire with the turn.
-        resources.push(() => scope.dispose());
+        const lease = await catalog.acquire({ owner: registration.pluginId, generation: record.lifecycleGeneration,
+          signal, reservedNames: toolNames,
+          create: scope => registration.toolContributions!(deps.pluginHostServices!(tenant, scope)),
+        });
+        contribution.push(...lease.sources);
+        pluginLeases.push(lease);
+        for (const source of lease.sources) for (const tool of source.provider.tools) toolNames.add(tool.name);
+        resources.push(lease.release);
       } catch (err) {
-        for (const cleanup of cleanups.reverse()) cleanup();
         deps.observability?.log.warn({
           event: "plugin.tool_contribution_failed", message: `插件 ${registration.pluginId} 工具贡献构造失败，已跳过`,
           fields: { pluginId: registration.pluginId, error: err instanceof Error ? err.message : String(err) },
@@ -715,8 +695,8 @@ export async function runLoopTurnOnce(
       personaPrompt: deps.persona?.prompt,
       activeTools: tools?.tools,
       extraSections: beforeTurnExec.extraSections,
-      ...(!group && HOST_TOOL_GUIDANCE.length + pluginGuidance.length > 0
-        ? { customGuidance: [...HOST_TOOL_GUIDANCE, ...pluginGuidance] }
+      ...(!group && HOST_TOOL_GUIDANCE.length + pluginLeases.flatMap(lease => lease.guidance).length > 0
+        ? { customGuidance: [...HOST_TOOL_GUIDANCE, ...pluginLeases.flatMap(lease => lease.guidance)] }
         : {}),
     },
     skills: disclosedSkills,

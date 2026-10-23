@@ -3,7 +3,7 @@ import type { PluginHostServiceControl } from "../../../plugin-host-services.js"
 
 /** A tool declaration belongs to one enabled lifecycle generation, including its writes. */
 export function createPluginToolScope(
-  repo: IExtensionRepository, pluginId: string, generation: string, parent?: AbortSignal,
+  repo: Pick<IExtensionRepository, "getPlugin">, pluginId: string, generation: string, parent?: AbortSignal,
 ): PluginHostServiceControl & { active(): Promise<boolean>; dispose(): void } {
   const controller = new AbortController();
   const abortParent = () => controller.abort(parent?.reason ?? new Error("turn_cancelled"));

@@ -167,12 +167,10 @@ const composer = useWorkbenchComposer({
 const learning = useAervoxApi();
 const cards = useWorkbenchCards({
   learning,
-  activeQuestion: conversation.activeQuestion,
   timerRunning: timer.timerRunning,
   formattedTime: timer.formattedTime,
   storyCount: computed(() => conversation.story.value.length),
   onOpenTool: layout.openTool,
-  onSubmitQuestionAnswers: conversation.handleQuestionSubmit,
   recordActivity: proactive.recordProactiveActivity,
   registry,
 });
@@ -208,14 +206,15 @@ watch(() => projectManagerOpen.value, (open) => { if (open) projectManagerMounte
 watch(() => importSessionOpen.value, (open) => { if (open) importSessionMounted.value = true; }, { immediate: true });
 
 let isSendingMessage = false;
-let lastSubmissionView: {sessionId: string; text: string} | undefined;
+let lastSubmissionView: {sessionId: string; lineId: number} | undefined;
 async function retrySubmission() {
   if (!lastSubmissionView || lastSubmissionView.sessionId !== sessions.activeSessionId.value) return;
-  await sendMessage(lastSubmissionView.text, {resend: true, retry: true});
+  if (conversation.latestAssistantLine.value?.id !== lastSubmissionView.lineId) return;
+  await continueTurn(callbacks => turnController.retry(callbacks));
 }
 
 // 统一整合发送消息逻辑
-async function sendMessage(value = composer.input.value, options?: { metadata?: Record<string, unknown>; resend?: boolean; retry?: boolean }) {
+async function sendMessage(value = composer.input.value, options?: { metadata?: Record<string, unknown>; resend?: boolean }) {
   if (isSendingMessage) return;
   const text = value.trim();
   if ((!text && composer.pendingAttachments.value.length === 0) || conversation.streaming.value || composer.attachmentUploading.value) return;
@@ -223,7 +222,7 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
   isSendingMessage = true;
   try {
     let attachmentRefs: TurnAttachmentRef[] = [];
-    if (!options?.retry && composer.pendingAttachments.value.length > 0) {
+    if (composer.pendingAttachments.value.length > 0) {
       composer.attachmentUploading.value = true;
       try {
         attachmentRefs = await composer.uploadPendingAttachments();
@@ -247,8 +246,7 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
   const outgoing = resolvedOutgoing.text;
   const turnMetadata = resolvedOutgoing.metadata;
   const submittedSessionId = sessions.activeSessionId.value;
-  if (!options?.retry) composer.beginDraftSubmission(displayText, submittedSessionId);
-  lastSubmissionView = {sessionId: submittedSessionId, text: displayText};
+  composer.beginDraftSubmission(displayText, submittedSessionId);
 
   const assistantLine = conversation.createStoryLine('assistant', '', 'streaming');
 
@@ -268,9 +266,9 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
   }
 
   const liveAssistantLine = conversation.story.value[conversation.story.value.length - 1];
-  if (!options?.retry) composer.input.value = '';
+  composer.input.value = '';
+  lastSubmissionView = {sessionId: submittedSessionId, lineId: liveAssistantLine.id};
   conversation.streaming.value = true;
-  conversation.activeQuestion.value = null;
   petReactKind('think', { lookAtEl: '.message-panel' });
   await conversation.scrollStoryToBottom();
   proactive.recordProactiveActivity('aervox.activity', 'conversation.turn_submitted', text, {
@@ -295,7 +293,7 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
     const callbacks: TurnCallbacks = {
         onTurnIdentified: (turnId) => {
           liveAssistantLine.turnId = turnId;
-                },
+        },
         onError: (error) => {
           throw error instanceof Error ? error : new Error(String(error));
         },
@@ -323,14 +321,12 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
             thinkingVisible = false;
             liveAssistantLine.text = '';
           }
-          if (!liveAssistantLine.text && !conversation.pendingApproval.value) liveAssistantLine.text = '这次没有收到可展示的回答，请再试一次。';
+          if (!liveAssistantLine.text && !conversation.pendingApproval.value && !conversation.activeQuestion.value) liveAssistantLine.text = '这次没有收到可展示的回答，请再试一次。';
           void conversation.scrollStoryToBottom();
           petReactKind('glad', { expression: MizukiExpression.face_smile_01, speak: liveAssistantLine.text });
         },
-        onUserQuestion: (qData) => {
+        onUserQuestion: () => {
           deltaBatch.flush();
-          conversation.activeQuestion.value = qData;
-          conversation.currentTurnId.value = qData.turnId;
           petReactKind('tilthead', { lookAtEl: '.side-cards', lookDuration: 3200 });
           void conversation.scrollStoryToBottom();
         },
@@ -339,16 +335,17 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
           deltaBatch.flush();
           pluginEvents.emit(eventType, data);
         },
-        onToolApproval: (aData) => {
+        onToolApproval: () => {
           deltaBatch.flush();
-          conversation.pendingApproval.value = { ...aData, outgoing };
           void conversation.scrollStoryToBottom();
         },
       };
-    if (options?.retry) await turnController.retry(callbacks);
-    else await turnController.submit(submittedSessionId, outgoing, callbacks, {
+    await turnController.submit(submittedSessionId, outgoing, callbacks, {
         signal: surfaceContext.signal,
-        onAccepted: turnId => { liveAssistantLine.turnId = turnId; conversation.currentTurnId.value = turnId; },
+        onAccepted: turnId => {
+          liveAssistantLine.turnId = turnId;
+          if (composer.input.value.trim() === displayText) composer.input.value = '';
+        },
         toolApprovalMode: conversation.toolApprovalMode.value,
         attachments: attachmentRefs.length > 0 ? attachmentRefs : undefined,
         // ADR-027：宿主显式元数据（角色名/用户称呼）优先级最高，插件变换不得覆盖
@@ -360,7 +357,6 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
     deltaBatch.flush();
     liveAssistantLine.state = 'error';
     if (turnController.state.status === 'observer-error') {
-      liveAssistantLine.text += '\n连接中断，原请求可能仍在处理，请从会话记录查看。';
       composer.completeDraftSubmission(submittedSessionId);
     } else {
       liveAssistantLine.text = error instanceof Error ? `连接失败：${error.message}` : '连接失败，请稍后重试。';
@@ -378,10 +374,14 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
   }
 }
 
-// Approval continues the existing assistant reply and never creates another user Turn.
+// Recovery and approval append to the same reply; the controller owns the cursor and reservation.
 async function resumeApprovedTurn(decision: 'granted' | 'denied') {
+  await continueTurn(callbacks => turnController.decide(decision, callbacks));
+}
+async function continueTurn(run: (callbacks: TurnCallbacks) => Promise<void>) {
   const line = conversation.latestAssistantLine.value;
-  if (!line) return;
+  if (!line || conversation.streaming.value) return;
+  if (!turnController.state.turnId && turnController.state.retryAvailable) line.text = '';
   conversation.streaming.value = true;
   line.state = 'streaming';
   const batch = createStreamingDeltaBatcher(text => {
@@ -389,19 +389,25 @@ async function resumeApprovedTurn(decision: 'granted' | 'denied') {
     void conversation.scrollStoryToBottom({ instant: true });
   });
   try {
-    await turnController.decide(decision, {
+    await run({
+      onTurnIdentified: turnId => { line.turnId = turnId; },
       onDelta: text => batch.append(text),
-      onDone: () => { batch.flush(); line.state = 'complete'; },
+      onDone: () => {
+        batch.flush(); line.state = 'complete';
+        if (lastSubmissionView) composer.completeDraftSubmission(lastSubmissionView.sessionId);
+      },
       onError: error => { throw error; },
-      onUserQuestion: data => { batch.flush(); conversation.activeQuestion.value = data; },
-      onToolApproval: data => { batch.flush(); conversation.pendingApproval.value = { ...data, outgoing: '' }; },
+      onUserQuestion: () => { batch.flush(); },
+      onToolApproval: () => { batch.flush(); },
       onPluginEvent: (type, data) => { batch.flush(); pluginEvents.emit(type, data); },
     });
   } catch (error) {
     if (!surfaceContext.signal.aborted) {
       batch.flush();
       line.state = 'error';
-      line.text += `\n授权或续跑失败：${error instanceof Error ? error.message : String(error)}`;
+      if (turnController.state.status !== 'observer-error') {
+        line.text += `\n请求失败：${error instanceof Error ? error.message : String(error)}`;
+      }
     }
   } finally {
     batch.flush();

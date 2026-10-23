@@ -1,8 +1,11 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "src/server",
-    "outDir": "dist/server"
+    "rootDir": "src",
+    "outDir": "dist"
   },
-  "include": ["src/server"]
+  "include": [
+    "src/server",
+    "src/contracts"
+  ]
 }

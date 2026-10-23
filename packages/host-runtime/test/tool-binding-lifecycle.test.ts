@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ToolProviderPort } from "@aervox/core";
+import type { ToolProviderPort, ToolSpec } from "@aervox/core";
 import type { IExtensionRepository, SqliteConversationRepository } from "@aervox/repositories";
 import { createContributionToolProvider, ToolBindingCatalog, type ToolBinding } from "../src/modules/companion/conversation/tool-providers.js";
-import { createPluginApiRegistry } from "../../contracts/src/plugin-api-registry.js";
+import { createPluginApiRegistry } from "../src/plugin-api-registry.js";
+import { projectSafeEventData } from "@aervox/contracts";
+import { focusModeRegistration } from "@aervox/plugin-focus-mode/server";
+import type { PluginHostServices, JudgedAnswerInput } from "@aervox/host-plugin-api";
 import { PluginToolCatalog, preparePluginToolContributions } from "../src/modules/companion/conversation/plugin-tool-catalog.js";
 import { createPluginToolScope } from "../src/modules/companion/conversation/plugin-tool-scope.js";
 import { setRequestToolApprovalMode } from "../src/shared/tool-approval-policy.js";
@@ -146,16 +149,15 @@ describe("tool binding identity and ownership", () => {
 describe("asynchronous plugin contribution preflight", () => {
   const scope = { checkActive: async () => {} };
   it("does not publish earlier providers or projections when a later declaration fails", async () => {
-    const api = createPluginApiRegistry(); const catalog = new PluginToolCatalog({ getPlugin: vi.fn() }, api);
+    const api = createPluginApiRegistry();
+    const repo = { getPlugin: async () => ({ enabled: 1, availability: "available", lifecycleGeneration: "one" }) } as unknown as IExtensionRepository;
+    const catalog = new PluginToolCatalog(repo, api);
     const first = vi.fn(async () => [binding("first").spec]);
     const later = vi.fn(async () => { throw new Error("later_declaration_failed"); });
-    const publish = async () => {
-      const prepared = await preparePluginToolContributions([
-        { id: "first", provider: { tools: [], listTools: first, execute: async () => ({ ok: true }) }, guidance: [{ name: "first", whenToUse: "first" }], resultProjection: { safeParse: () => ({ success: true }) } },
-        { id: "later", provider: { tools: [], listTools: later, execute: async () => ({ ok: true }) } },
-      ], scope);
-      catalog.register("owner", "one", prepared);
-    };
+    const publish = () => catalog.acquire({ owner: "owner", generation: "one", create: () => [
+      { id: "first", provider: { tools: [], listTools: first, execute: async () => ({ ok: true }) }, guidance: [{ name: "first", whenToUse: "first" }], resultProjection: { safeParse: () => ({ success: true }) } },
+      { id: "later", provider: { tools: [], listTools: later, execute: async () => ({ ok: true }) } },
+    ] });
     try {
       await expect(publish()).rejects.toThrow("later_declaration_failed");
       expect(first).toHaveBeenCalledOnce(); expect(later).toHaveBeenCalledOnce();
@@ -183,45 +185,260 @@ describe("asynchronous plugin contribution preflight", () => {
 
 describe("host ToolCatalog lifecycle", () => {
   const projection = (name: string) => ({ safeParse: () => ({ success: true, data: { name } }) });
-  const contribution = (name: string, resultProjection = projection(name)) => ({
-    id: name, provider: { tools: [binding(name).spec], execute: async () => ({ ok: true }) }, resultProjection,
+  const contribution = (name: string, resultProjection = projection(name), execute = async () => ({ ok: true, output: name })) => ({
+    id: name, provider: { tools: [binding(name).spec], execute }, resultProjection,
+    guidance: [{ name, whenToUse: `Use ${name}` }],
   });
-  it("rolls back every projection when a later contribution conflicts, preserving the previous generation", () => {
-    const api = createPluginApiRegistry();
-    const catalog = new PluginToolCatalog({ getPlugin: vi.fn() }, api);
+  const registry = (generation: () => string = () => "one") => ({
+    getPlugin: async () => ({ enabled: 1, availability: "available", lifecycleGeneration: generation() }),
+  }) as unknown as Pick<IExtensionRepository, "getPlugin">;
+
+  it("publishes definitions, handlers, guidance and projections under one registration and revokes them together", async () => {
+    const api = createPluginApiRegistry(); const catalog = new PluginToolCatalog(registry(), api);
+    const dispatched = vi.fn(async () => ({ ok: true, output: "executed" }));
+    try {
+      const lease = await catalog.acquire({ owner: "owner", generation: "one", create: () => [contribution("probe", projection("probe"), dispatched)] });
+      const source = lease.sources[0]!;
+      expect(catalog.snapshot("owner")).toMatchObject({ generation: "one", revision: lease.revision, activeLeases: 1,
+        tools: [{ name: "probe" }], guidance: [{ name: "probe" }] });
+      expect((await source.provider.listTools!()).map(tool => tool.name)).toEqual(["probe"]);
+      expect(lease.guidance).toEqual([{ name: "probe", whenToUse: "Use probe" }]);
+      expect(api.getPluginToolResultProjection("probe")).toBeDefined();
+      expect(await source.provider.execute(call)).toMatchObject({ ok: true });
+      lease.revoke(); lease.revoke();
+      expect(catalog.snapshot("owner")).toBeUndefined();
+      expect(api.getPluginToolResultProjection("probe")).toBeUndefined();
+      expect(lease.sources).toEqual([]); expect(lease.guidance).toEqual([]);
+      expect(await source.provider.listTools!()).toEqual([]);
+      expect(await source.provider.execute(call)).toMatchObject({ ok: false, error: "tool_permission_denied" });
+      expect(dispatched).toHaveBeenCalledOnce();
+    } finally { catalog.dispose(); }
+  });
+
+  it("rolls back every part on a later projection conflict and preserves the previous complete registration", async () => {
+    const api = createPluginApiRegistry(); const catalog = new PluginToolCatalog(registry(), api);
     const previous = projection("previous");
-    catalog.register("owner", "one", [contribution("probe", previous)]);
-    api.registerToolResultProjection("foreign", "occupied", projection("foreign"));
+    const oldHandler = vi.fn(async () => ({ ok: true, output: "old" }));
+    const newHandler = vi.fn(async () => ({ ok: true, output: "new" }));
+    const old = await catalog.acquire({ owner: "owner", generation: "one", create: () => [contribution("probe", previous, oldHandler)] });
+    api.registerToolResultProjections("foreign", [{ name: "occupied", schema: projection("foreign") }]);
+    const beforeRevision = api.getPluginApiRevision();
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     try {
-      expect(() => catalog.register("owner", "two", [contribution("probe"), contribution("occupied")])).toThrow("tool_projection_owner_conflict");
-      expect(api.getPluginToolResultProjection("probe")).toBe(previous);
+      await expect(catalog.acquire({ owner: "owner", generation: "one", create: () => [
+        contribution("probe", projection("new"), newHandler), contribution("occupied"),
+      ] })).rejects.toThrow("tool_projection_owner_conflict");
+      expect(api.getPluginToolResultProjection("probe")?.safeParse({}).data).toEqual({ name: "previous" });
+      expect(api.getPluginApiRevision()).toBe(beforeRevision);
       expect(api.getToolResultProjectionOwner("occupied")).toBe("foreign");
+      expect(catalog.snapshot("owner")).toMatchObject({ revision: old.revision, activeLeases: 1,
+        tools: [{ name: "probe" }], guidance: [{ name: "probe" }] });
+      expect(old.guidance).toHaveLength(1);
+      expect(await old.sources[0]!.provider.execute(call)).toMatchObject({ output: "old" });
+      expect(newHandler).not.toHaveBeenCalled();
     } finally { catalog.dispose(); warn.mockRestore(); }
   });
-  it("expires projections after disable and reenable even while no Turn is running", async () => {
-    let generation = "one";
-    const api = createPluginApiRegistry();
-    const catalog = new PluginToolCatalog({ getPlugin: async () => ({ enabled: 1, availability: "available", lifecycleGeneration: generation }) } as unknown as IExtensionRepository, api);
+
+  it("does not activate foreign guidance or any earlier part of its batch", async () => {
+    const api = createPluginApiRegistry(); const catalog = new PluginToolCatalog(registry(), api);
     try {
-      catalog.register("owner", generation, [contribution("probe")]);
-      expect(api.getPluginToolResultProjection("probe")).toBeDefined();
+      await expect(catalog.acquire({ owner: "owner", generation: "one", create: () => [{
+        ...contribution("probe"), guidance: [{ name: "foreign", whenToUse: "not contributed" }],
+      }] })).rejects.toThrow("undeclared_tool_guidance");
+      expect(catalog.snapshot("owner")).toBeUndefined();
+      expect(api.getPluginToolResultProjection("probe")).toBeUndefined();
+    } finally { catalog.dispose(); }
+  });
+
+  it("releases expired invocation ports while retaining safe declarations and projection metadata for replay", async () => {
+    const api = createPluginApiRegistry(); const catalog = new PluginToolCatalog(registry(), api);
+    const dispatched = vi.fn(async () => ({ ok: true, output: "private-context" }));
+    try {
+      const lease = await catalog.acquire({ owner: "owner", generation: "one", create: () => [contribution("probe", projection("safe"), dispatched)] });
+      const captured = lease.sources[0]!;
+      lease.release(); lease.release();
+      expect(catalog.snapshot("owner")).toMatchObject({ activeLeases: 0, tools: [{ name: "probe" }], guidance: [{ name: "probe" }] });
+      expect(lease.sources).toEqual([]); expect(lease.guidance).toEqual([]);
+      expect(await captured.provider.execute(call)).toMatchObject({ ok: false });
+      expect(dispatched).not.toHaveBeenCalled();
+      expect(api.getPluginToolResultProjection("probe")?.safeParse({ private: "hidden" }).data).toEqual({ name: "safe" });
+      expect(projectSafeEventData("tool_result", { invocationId: "past", name: "probe", ok: true,
+        output: { private: "hidden" } }, api)).toEqual({ invocationId: "past", name: "probe", ok: true, output: { name: "safe" } });
+      lease.revoke(); expect(api.getPluginToolResultProjection("probe")).toBeUndefined();
+    } finally { catalog.dispose(); }
+  });
+
+  it("keeps concurrent Turn handlers bound to their own context without replacing the shared registration", async () => {
+    const api = createPluginApiRegistry(); const catalog = new PluginToolCatalog(registry(), api);
+    const safe = projection("safe");
+    try {
+      const acquire = (context: string) => catalog.acquire({ owner: "owner", generation: "one", create: () => [
+        contribution("probe", safe, async () => ({ ok: true, output: context })),
+      ] });
+      const first = await acquire("session-one"); const second = await acquire("session-two");
+      expect(first.revision).toBe(second.revision);
+      expect(catalog.snapshot("owner")?.activeLeases).toBe(2);
+      const [a, b] = await Promise.all([first.sources[0]!.provider.execute(call), second.sources[0]!.provider.execute(call)]);
+      expect([a.output, b.output]).toEqual(["session-one", "session-two"]);
+      first.release();
+      expect(catalog.snapshot("owner")?.activeLeases).toBe(1);
+      expect(await second.sources[0]!.provider.execute(call)).toMatchObject({ output: "session-two" });
+      second.release(); expect(catalog.snapshot("owner")?.activeLeases).toBe(0);
+    } finally { catalog.dispose(); }
+  });
+
+  it("captures the declared handler, definitions, guidance and projection method before activation", async () => {
+    const api = createPluginApiRegistry(); const catalog = new PluginToolCatalog(registry(), api);
+    const original = vi.fn(async () => ({ ok: true, output: "original" }));
+    const changed = vi.fn(async () => ({ ok: true, output: "changed" }));
+    const candidate = contribution("probe", projection("safe"), original);
+    try {
+      const lease = await catalog.acquire({ owner: "owner", generation: "one", create: () => [candidate] });
+      candidate.provider.execute = changed;
+      candidate.provider.tools[0]!.description = "changed";
+      candidate.guidance[0]!.whenToUse = "changed";
+      candidate.resultProjection.safeParse = () => ({ success: true, data: { name: "unsafe" } });
+      expect(await lease.sources[0]!.provider.execute(call)).toMatchObject({ output: "original" });
+      expect(changed).not.toHaveBeenCalled();
+      expect((await lease.sources[0]!.provider.listTools!())[0]!.description).toBe("probe");
+      expect(lease.guidance[0]!.whenToUse).toBe("Use probe");
+      expect(api.getPluginToolResultProjection("probe")?.safeParse({}).data).toEqual({ name: "safe" });
+      const snapshot = catalog.snapshot("owner")!;
+      snapshot.tools[0]!.description = "consumer mutation";
+      snapshot.guidance[0]!.whenToUse = "consumer mutation";
+      expect(catalog.snapshot("owner")!.tools[0]!.description).toBe("probe");
+      expect(lease.guidance[0]!.whenToUse).toBe("Use probe");
+    } finally { catalog.dispose(); }
+  });
+
+  it("keeps the real first-party factory stable across concurrent Turns with separate learning services", async () => {
+    const api = createPluginApiRegistry(); const catalog = new PluginToolCatalog(registry(), api);
+    const one = vi.fn(async (_input: JudgedAnswerInput) => ({ questionId: "question-one", attemptId: "attempt-one", judgement: "incorrect" as const, enteredMistakeNotebook: true }));
+    const two = vi.fn(async (_input: JudgedAnswerInput) => ({ questionId: "question-two", attemptId: "attempt-two", judgement: "incorrect" as const, enteredMistakeNotebook: true }));
+    const acquire = (recordJudgedAnswer: typeof one) => catalog.acquire({
+      owner: focusModeRegistration.pluginId, generation: "one",
+      create: () => focusModeRegistration.toolContributions!({ learningFacts: { recordJudgedAnswer } } as unknown as PluginHostServices),
+    });
+    try {
+      const [first, second] = await Promise.all([acquire(one), acquire(two)]);
+      expect(first.revision).toBe(second.revision);
+      expect(catalog.snapshot(focusModeRegistration.pluginId)?.activeLeases).toBe(2);
+      const invocation = { ...call, name: "record_practice_attempt", arguments: {
+        prompt: "1 + 1", userAnswer: "3", correctAnswer: "2", judgement: "incorrect",
+      } };
+      const [a, b] = await Promise.all([first.sources[0]!.provider.execute({ ...invocation, turnId: "turn-one" }),
+        second.sources[0]!.provider.execute({ ...invocation, turnId: "turn-two" })]);
+      expect(a.output).toMatchObject({ questionId: "question-one" });
+      expect(b.output).toMatchObject({ questionId: "question-two" });
+      expect(one).toHaveBeenCalledWith(expect.objectContaining({ turnId: "turn-one" }));
+      expect(two).toHaveBeenCalledWith(expect.objectContaining({ turnId: "turn-two" }));
+      first.release();
+      expect(await second.sources[0]!.provider.execute(invocation)).toMatchObject({ ok: true });
+      second.release();
+      expect(projectSafeEventData("tool_result", { invocationId: "past", name: invocation.name, ok: true,
+        output: { ...(b.output as object), private: "hidden" } }, api)).toEqual({
+        invocationId: "past", name: invocation.name, ok: true, output: b.output,
+      });
+    } finally { catalog.dispose(); }
+  });
+
+  it("replaces a projection when its receiver changes even if both declarations share a prototype method", async () => {
+    class Schema {
+      constructor(private readonly label: string) {}
+      safeParse() { return { success: true, data: { name: this.label } }; }
+    }
+    const api = createPluginApiRegistry(); const catalog = new PluginToolCatalog(registry(), api);
+    try {
+      const first = await catalog.acquire({ owner: "owner", generation: "one", create: () => [contribution("probe", new Schema("one"))] });
+      const second = await catalog.acquire({ owner: "owner", generation: "one", create: () => [contribution("probe", new Schema("two"))] });
+      expect(first.revision).not.toBe(second.revision); expect(first.sources).toEqual([]);
+      expect(api.getPluginToolResultProjection("probe")?.safeParse({}).data).toEqual({ name: "two" });
+      first.revoke(); expect(second.sources).toHaveLength(1);
+    } finally { catalog.dispose(); }
+  });
+
+  it("keeps replay projection until the declared generation is revoked even without any active Turn", async () => {
+    let generation = "one";
+    const api = createPluginApiRegistry(); const catalog = new PluginToolCatalog(registry(() => generation), api);
+    const past = { invocationId: "past", name: "probe", ok: true, output: { private: "hidden" } };
+    try {
+      const lease = await catalog.acquire({ owner: "owner", generation, create: () => [contribution("probe")] });
+      lease.release();
+      expect(projectSafeEventData("tool_result", past, api)).toHaveProperty("output", { name: "probe" });
+      generation = "two";
+      await vi.waitFor(() => expect(catalog.snapshot("owner")).toBeUndefined());
+      expect(projectSafeEventData("tool_result", past, api)).not.toHaveProperty("output");
+      expect(api.getPluginToolResultProjection("probe")).toBeUndefined();
+    } finally { catalog.dispose(); }
+  });
+
+  it("a stale registration disposer cannot release its replacement or another host", async () => {
+    const a = createPluginApiRegistry(); const b = createPluginApiRegistry();
+    const first = new PluginToolCatalog(registry(), a); const second = new PluginToolCatalog(registry(), b);
+    try {
+      const old = await first.acquire({ owner: "owner", generation: "one", create: () => [contribution("probe")] });
+      const current = await first.acquire({ owner: "owner", generation: "one", create: () => [contribution("probe", projection("replacement"))] });
+      const other = await second.acquire({ owner: "owner", generation: "one", create: () => [contribution("probe")] });
+      expect(old.revision).not.toBe(current.revision);
+      old.revoke(); old.release();
+      expect(first.snapshot("owner")?.revision).toBe(current.revision);
+      expect(await current.sources[0]!.provider.execute(call)).toMatchObject({ ok: true });
+      first.dispose(); expect(a.getPluginToolResultProjection("probe")).toBeUndefined();
+      expect(await other.sources[0]!.provider.execute(call)).toMatchObject({ ok: true });
+      expect(b.getPluginToolResultProjection("probe")).toBeDefined();
+    } finally { first.dispose(); second.dispose(); }
+  });
+
+  it("expires all four parts and cancels an in-flight handler on disable and reenable", async () => {
+    let generation = "one";
+    const api = createPluginApiRegistry(); const catalog = new PluginToolCatalog(registry(() => generation), api);
+    let signal: AbortSignal | undefined;
+    const dispatched = vi.fn((input: Parameters<ToolProviderPort["execute"]>[0]) => {
+      signal = input.signal;
+      return new Promise<{ ok: boolean; output: string }>(() => {});
+    });
+    try {
+      const lease = await catalog.acquire({ owner: "owner", generation, create: () => [contribution("probe", projection("probe"), dispatched)] });
+      const source = lease.sources[0]!;
+      const execution = source.provider.execute(call).catch(error => error);
+      await vi.waitFor(() => expect(dispatched).toHaveBeenCalledOnce());
       generation = "two";
       await vi.waitFor(() => expect(api.getPluginToolResultProjection("probe")).toBeUndefined());
-      catalog.register("owner", generation, [contribution("probe")]);
+      expect(catalog.snapshot("owner")).toBeUndefined();
+      expect(lease.sources).toEqual([]); expect(lease.guidance).toEqual([]);
+      expect(signal?.aborted).toBe(true); expect(await execution).toBeInstanceOf(Error);
+      expect(await source.provider.execute(call)).toMatchObject({ ok: false });
+      const next = await catalog.acquire({ owner: "owner", generation, create: () => [contribution("probe")] });
+      lease.revoke(); expect(next.guidance).toHaveLength(1);
       expect(api.getPluginToolResultProjection("probe")).toBeDefined();
     } finally { catalog.dispose(); }
-    expect(api.getPluginToolResultProjection("probe")).toBeUndefined();
   });
-  it("an old generation disposer cannot release the replacement or another host", () => {
-    const a = createPluginApiRegistry(); const b = createPluginApiRegistry();
-    const repo = { getPlugin: vi.fn() };
-    const first = new PluginToolCatalog(repo, a); const second = new PluginToolCatalog(repo, b);
-    const disposeOld = first.register("owner", "one", [contribution("probe")]);
-    first.register("owner", "two", [contribution("probe")]);
-    second.register("owner", "one", [contribution("probe")]);
-    disposeOld(); expect(a.getPluginToolResultProjection("probe")).toBeDefined();
-    first.dispose(); expect(a.getPluginToolResultProjection("probe")).toBeUndefined();
-    expect(b.getPluginToolResultProjection("probe")).toBeDefined(); second.dispose();
+
+  it("parent cancellation releases its lease even if the caller has not reached its finally cleanup", async () => {
+    const api = createPluginApiRegistry(); const catalog = new PluginToolCatalog(registry(), api);
+    const controller = new AbortController();
+    try {
+      const lease = await catalog.acquire({ owner: "owner", generation: "one", signal: controller.signal, create: () => [contribution("probe")] });
+      controller.abort(new Error("turn_cancelled"));
+      expect(lease.sources).toEqual([]); expect(lease.guidance).toEqual([]);
+      expect(catalog.snapshot("owner")).toMatchObject({ activeLeases: 0, tools: [{ name: "probe" }], guidance: [{ name: "probe" }] });
+      expect(api.getPluginToolResultProjection("probe")).toBeDefined();
+    } finally { catalog.dispose(); }
+  });
+
+  it("cancellation during asynchronous preflight never publishes a partial registration", async () => {
+    const api = createPluginApiRegistry(); const catalog = new PluginToolCatalog(registry(), api);
+    const controller = new AbortController();
+    const later = vi.fn(() => new Promise<ToolSpec[]>(() => {}));
+    try {
+      const pending = catalog.acquire({ owner: "owner", generation: "one", signal: controller.signal, create: () => [
+        contribution("probe"), { ...contribution("later"), provider: { ...contribution("later").provider, listTools: later } },
+      ] });
+      await vi.waitFor(() => expect(later).toHaveBeenCalledOnce());
+      controller.abort(new Error("preflight_cancelled"));
+      await expect(pending).rejects.toThrow("preflight_cancelled");
+      expect(catalog.snapshot("owner")).toBeUndefined();
+      expect(api.getPluginToolResultProjection("probe")).toBeUndefined();
+    } finally { catalog.dispose(); }
   });
 });

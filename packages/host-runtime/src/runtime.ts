@@ -9,7 +9,8 @@
 import Fastify from "fastify";
 import path from "node:path";
 import cors from "@fastify/cors";
-import { buildOpenApiDocument, createPluginApiRegistry } from "@aervox/contracts";
+import { buildOpenApiDocument } from "@aervox/contracts";
+import { createPluginApiRegistry } from "./plugin-api-registry.js";
 import {
   createDatabase,
   createProactiveVaultDatabase,

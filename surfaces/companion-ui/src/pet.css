@@ -361,3 +361,8 @@ html, body, #pet-app {
 .pet-window.muted {
     opacity: .7
 }
+
+/* Keep complete questions and recovery controls reachable inside the small window. */
+.pet-question { max-height: 48vh; overflow-y: auto; cursor: default; user-select: text; }
+.pet-question .user-question-card { margin: .5rem 0 0; }
+.pet-bubble .pet-turn-feedback { margin-top: .5rem; }

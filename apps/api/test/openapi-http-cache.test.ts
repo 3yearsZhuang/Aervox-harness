@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { createPluginApiRegistry } from '@aervox/contracts';
+import { createPluginApiRegistry } from '@aervox/host-runtime-test/plugin-api-registry';
 import { createInMemoryDatabase } from '@aervox/repositories';
 import { buildApp } from './app-fixture.js';
 

@@ -3,9 +3,7 @@ import type { ConversationController } from '@aervox/api-client';
 import type {
   AskUserQuestionAnswerItem,
   ToolApprovalMode,
-  ToolApprovalRequiredEventData,
   TurnAttachmentRef,
-  UserQuestionRequiredEventData,
 } from '@aervox/contracts';
 import { MizukiExpression } from '../live2d/model';
 import { readCompanionIdentity } from '../utils/companion-identity';
@@ -154,6 +152,7 @@ export function useWorkbenchConversation(options: {
   const unsubscribe = options.controller.subscribe(state => { turnState.value = state; });
   if (getCurrentScope()) onScopeDispose(() => unsubscribe());
   const retryAvailable = computed(() => turnState.value?.retryAvailable ?? false);
+  const retryLabel = computed(() => turnState.value.status === 'observer-error' ? '恢复接收回复' : '重试发送');
   const retrySubmission = () => options.onRetrySubmission?.();
   // CR-065：问候语用陪伴角色名（思隅是空间名，不是角色名）
   const companionGreeting = () => {
@@ -178,12 +177,12 @@ export function useWorkbenchConversation(options: {
   const historyViewport = ref<HTMLElement | null>(null);
 
   // UQ-01: 挂起向用户提问数据与提交状态
-  const activeQuestion = ref<UserQuestionRequiredEventData | null>(null);
+  const activeQuestion = computed(() => turnState.value.question ?? null);
   const questionSubmitting = ref(false);
-  const currentTurnId = ref<string | null>(null);
+  const currentTurnId = computed(() => turnState.value.turnId ?? null);
 
   // PET-05: 写工具审批待决
-  const pendingApproval = ref<(ToolApprovalRequiredEventData & { turnId: string; outgoing: string }) | null>(null);
+  const pendingApproval = computed(() => turnState.value.approval ?? null);
   const approvalBusy = ref(false);
   const approvalToolLabels: Record<string, string> = {
     aervox_diary_write: '把今天的日记写进日记本',
@@ -204,6 +203,7 @@ export function useWorkbenchConversation(options: {
   }
 
   function resetStory(greeting?: string) {
+    options.controller.reset();
     nextStoryId = 2;
     story.value = [
       {
@@ -213,8 +213,6 @@ export function useWorkbenchConversation(options: {
         state: 'complete',
       },
     ];
-    activeQuestion.value = null;
-    pendingApproval.value = null;
   }
 
   let scrollRafId: ReturnType<typeof requestAnimationFrame> | ReturnType<typeof setTimeout> | null = null;
@@ -299,8 +297,6 @@ export function useWorkbenchConversation(options: {
     approvalBusy.value = true;
     try {
       await options.onApprovalDecision(decision);
-      if (!options.controller.state.approval) pendingApproval.value = null;
-
     } catch (err) {
       console.error('提交授权决定失败', err);
     } finally {
@@ -313,7 +309,6 @@ export function useWorkbenchConversation(options: {
     questionSubmitting.value = true;
     try {
       await options.controller.answer(answers);
-      activeQuestion.value = null;
     } catch (err) {
       console.error('提交回答失败', err);
     } finally {
@@ -349,7 +344,7 @@ export function useWorkbenchConversation(options: {
 
   return {
     story,
-    turnState, retryAvailable, retrySubmission,
+    turnState, retryAvailable, retryLabel, retrySubmission,
     streaming,
     consoleCollapsed,
     novelIndex,

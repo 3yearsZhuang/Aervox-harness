@@ -20,7 +20,8 @@ import type {
   TurnPluginRegistryPort,
 } from "@aervox/host-plugin-api";
 import type { LocalContext } from "@aervox/repositories";
-import { createPluginApiRegistry, isValidPluginRoutePath, type PluginApiRegistry } from "@aervox/contracts";
+import { isValidPluginRoutePath, type PluginApiRegistry } from "@aervox/contracts";
+import { createPluginApiRegistry } from "./plugin-api-registry.js";
 import { resolveLocalContext } from "./shared/local-context.js";
 import { readIdempotencyKey } from "./shared/idempotency-key.js";
 import { ValidationError } from "./shared/errors.js";
@@ -75,6 +76,7 @@ export async function assembleFirstPartyPlugins(
   targets: PluginAssemblyTargets,
   loaders: PluginLoader[] = FIRST_PARTY_PLUGIN_LOADERS,
 ): Promise<PluginAssemblyResult> {
+  const apiRegistry = targets.apiRegistry ?? createPluginApiRegistry();
   const loaded: string[] = [];
   const failed: string[] = [];
   const registrations: ServerPluginRegistration[] = [];
@@ -118,7 +120,7 @@ export async function assembleFirstPartyPlugins(
         }
         hookIds.add(plugin.id);
       }
-      if (registration.registerApiContract) cleanups.push(registration.registerApiContract(targets.apiRegistry ?? createPluginApiRegistry()));
+      if (registration.registerApiContract) cleanups.push(registration.registerApiContract(apiRegistry));
       for (const plugin of registration.turnPlugins ?? []) {
         cleanups.push(targets.turnRegistry.register(plugin));
       }

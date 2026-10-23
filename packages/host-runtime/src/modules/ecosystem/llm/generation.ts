@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { abortableStream, awaitWithSignal, defaultModelProviderRegistry, type ModelProviderPort, type ModelProviderRegistryPort } from "@aervox/core";
 import type { LocalContext } from "@aervox/repositories";
 import type { LLMConfigPort } from "./index.js";
+import { createConfiguredModelProvider } from "./provider-config.js";
 
 export interface ModelGenerationInput {
   context: LocalContext;
@@ -10,10 +11,52 @@ export interface ModelGenerationInput {
   task?: string;
   signal?: AbortSignal;
   localOnly?: boolean;
+  temperature?: number;
 }
 
 export interface ModelGenerationPort {
   generate(input: ModelGenerationInput): Promise<string>;
+}
+
+const MAX_GENERATION_BYTES = 256_000;
+const utf8 = new TextEncoder();
+
+/** A single-shot call has no tool execution or partial-success result.
+ * Core owns the wire-level context check and idle timer; these byte budgets also
+ * bound injected providers without pretending to know their tokenizer.
+ */
+export async function generateModelText(provider: ModelProviderPort, input: Omit<ModelGenerationInput, "context" | "localOnly">): Promise<string> {
+  input.signal?.throwIfAborted();
+  if (input.temperature !== undefined && (!Number.isFinite(input.temperature) || input.temperature < 0 || input.temperature > 2)) throw new Error("llm_invalid_input: temperature");
+  const messages = [
+    ...(input.system ? [{ role: "system" as const, content: input.system }] : []),
+    { role: "user" as const, content: input.user },
+  ];
+  if (utf8.encode(JSON.stringify(messages)).length > MAX_GENERATION_BYTES) throw new Error("llm_input_limit: prompt exceeds the input byte budget");
+  const turnId = `${input.task ?? "generation"}_${randomUUID()}`;
+  let text = "";
+  let outputBytes = 0;
+  let completed = false;
+  for await (const chunk of abortableStream(provider.stream({
+    turnId, attemptId: turnId, step: 1, signal: input.signal, temperature: input.temperature,
+    maxOutputTokens: provider.capabilities?.maxOutputTokens,
+    context: { turnId, sessionId: input.task ?? "generation", messages },
+  }), input.signal)) {
+    input.signal?.throwIfAborted();
+    if (completed && (chunk.text || chunk.reasoning || chunk.isFinal || chunk.toolCalls?.length)) throw new Error("llm_incomplete_output: content after final response");
+    outputBytes += utf8.encode(chunk.text ?? "").length + utf8.encode(chunk.reasoning ?? "").length;
+    if (outputBytes > MAX_GENERATION_BYTES ||
+      chunk.usage?.completionTokens !== undefined && provider.capabilities?.maxOutputTokens !== undefined && chunk.usage.completionTokens > provider.capabilities.maxOutputTokens) {
+      throw new Error("llm_output_limit: generated output exceeds the output budget");
+    }
+    if (chunk.toolCalls?.length || chunk.stopReason && chunk.stopReason !== "stop") throw new Error(`llm_incomplete_output: ${chunk.stopReason ?? "unexpected tool calls"}`);
+    text += chunk.text ?? "";
+    if (chunk.isFinal) completed = true;
+  }
+  input.signal?.throwIfAborted();
+  if (!completed) throw new Error("llm_incomplete_output: provider ended without a final response");
+  if (!text.trim()) throw new Error("llm_empty_output: model returned no content");
+  return text;
 }
 
 /** One owner for provider selection and one-shot generation; domains only supply prompts. */
@@ -25,41 +68,8 @@ export function createModelGenerationPort(
     async generate(input) {
       input.signal?.throwIfAborted();
       const config = await awaitWithSignal(source.getConfig(input.context), input.signal);
-      const descriptor = registry.getDescriptor(config.providerType);
-      if (!config.enabled || descriptor?.protocol !== "openai-compat") {
-        throw new Error("llm_disabled: model configuration is disabled or its protocol is unsupported");
-      }
-      if (input.localOnly) {
-        let localEndpoint = false;
-        try { localEndpoint = ["127.0.0.1", "localhost", "[::1]"].includes(new URL(config.baseUrl).hostname); } catch { /* invalid endpoint is unavailable */ }
-        if (!descriptor.isLocal || !localEndpoint) throw new Error("llm_disabled: local processing requires a local provider endpoint");
-      }
-      const provider: ModelProviderPort = registry.createProvider(config.providerType, {
-        baseUrl: config.baseUrl, apiKey: config.apiKey, modelId: config.modelId,
-        temperature: config.temperature, maxTokens: config.maxTokens,
-        ...(input.localOnly ? { redirect: "error" as const } : {}),
-      });
-      const turnId = `${input.task ?? "generation"}_${randomUUID()}`;
-      let text = "";
-      let completed = false;
-      for await (const chunk of abortableStream(provider.stream({
-        turnId, attemptId: turnId, step: 1, signal: input.signal,
-        context: { turnId, sessionId: input.task ?? "generation", messages: [
-          { role: "system", content: input.system }, { role: "user", content: input.user },
-        ] },
-      }), input.signal)) {
-        input.signal?.throwIfAborted();
-        text += chunk.text ?? "";
-        if (text.length > 256_000) throw new Error("llm_output_limit: generated text exceeds the output budget");
-        if (chunk.isFinal) {
-          if (chunk.stopReason && chunk.stopReason !== "stop") throw new Error(`llm_incomplete_output: ${chunk.stopReason}`);
-          completed = true;
-        }
-      }
-      input.signal?.throwIfAborted();
-      if (!completed) throw new Error("llm_incomplete_output: provider ended without a final response");
-      if (!text.trim()) throw new Error("llm_empty_output: model returned no content");
-      return text;
+      const provider = createConfiguredModelProvider(config, { localOnly: input.localOnly, requireLocalProvider: true }, registry);
+      return generateModelText(provider, input);
     },
   };
 }

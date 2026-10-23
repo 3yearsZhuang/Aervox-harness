@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "../..",
+    "noEmit": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": [
+      "@aervox/ui/env"
+    ]
+  },
+  "include": [
+    "test/terms-types.ts"
+  ]
+}

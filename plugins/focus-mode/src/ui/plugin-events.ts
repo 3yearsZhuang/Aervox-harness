@@ -11,37 +11,13 @@
 import { ref, type Ref } from 'vue';
 import type { PluginEventBus } from '@aervox/ui/plugin-api';
 
-/** 抽取出来的单个术语（与服务端 `plugins/focus-mode` 的 `extractedTermSchema` 对齐） */
-export interface ExtractedTerm {
-  text: string;
-  relation: 'background' | 'related';
-  description?: string;
-}
+import { termsExtractedEventDataSchema, TERMS_EXTRACTED_EVENT, type ExtractedTerm, type TermsExtractedEventData } from '../contracts/terms';
+export { TERMS_EXTRACTED_EVENT, type ExtractedTerm, type TermsExtractedEventData } from '../contracts/terms';
 
-/** `terms_extracted` 事件载荷 */
-export interface TermsExtractedEventData {
-  turnId: string;
-  messageId?: string;
-  terms: ExtractedTerm[];
-}
-
-/** 本插件自有流事件类型（与插件服务端 `TERMS_EXTRACTED_EVENT` 一致） */
-export const TERMS_EXTRACTED_EVENT = 'terms_extracted';
-
-/** 校验事件载荷是否为本插件可消费的术语事件（fail-closed：结构不符即忽略） */
+/** Reject malformed events with the same schema used by the server projection. */
 export function parseTermsExtracted(data: unknown): TermsExtractedEventData | null {
-  if (typeof data !== 'object' || data === null) return null;
-  const value = data as Record<string, unknown>;
-  if (!Array.isArray(value.terms)) return null;
-  return {
-    turnId: typeof value.turnId === 'string' ? value.turnId : '',
-    messageId: typeof value.messageId === 'string' ? value.messageId : undefined,
-    terms: value.terms.filter((term): term is ExtractedTerm => {
-      if (typeof term !== 'object' || term === null) return false;
-      const t = term as Record<string, unknown>;
-      return typeof t.text === 'string' && (t.relation === 'background' || t.relation === 'related');
-    }),
-  };
+  const parsed = termsExtractedEventDataSchema.safeParse(data);
+  return parsed.success ? parsed.data : null;
 }
 
 export function createTermsState() {
