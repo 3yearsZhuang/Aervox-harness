@@ -32,6 +32,6 @@ id: AVX-DOC-001
 
 既有稳定编号用于追溯。已归档的 CR 与退役记录仍见 [Aervox-docs-archive](https://github.com/3yearsZhuang/Aervox-docs-archive)，主仓原 CR-055/057/060/061/062/063 已并入 [ADR](reference/adr/README.md)。架构设计、参考项目版本、许可证与演进研究统一维护在[架构与参考学习](reference/ARCHITECTURE.md#reference-learning)。
 
-已完成的卫生审计及整理前的计划、架构详细证据见[归档包](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation)；活动计划保留原编号、剩余验收和交付链接，归档不改变需求或发布状态。
+已完成的卫生审计及整理前的计划、架构详细证据见[归档包](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation)；旧 CR-030 D2 目标 ERD 另见[历史图](https://github.com/3yearsZhuang/Aervox-docs-archive/blob/397d4b4bc924d1315205577ed4fb88a4df2c0619/archive/database-sqlite-erd-cr030-target.md)，现行表结构以 Schema 源码为准。活动计划保留原编号、剩余验收和交付链接，归档不改变需求或发布状态。
 
 第一方根界面与平台装配见 [ADR-025](reference/adr/ADR-025-ui-surface-hosts.md)，第三方界面开放的未决提案见 [ADR-026](reference/adr/ADR-026-ui-surface-open-ecosystem.md)。

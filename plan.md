@@ -6,14 +6,14 @@
 
 <a id="iter-070"></a>
 
-### ITER-070 · 进行中：远端 PR 终审、现状复核与文档归档
+### ITER-070 · 已移交切片：远端 PR 终审、现状复核与文档归档
 
 维护者授权完成远端 PR 的质量、完成度与缺陷审核，修复后按依赖顺序合并；每次合并先清理相应本地与远端分支。原有 #307～#320 已全部合入并清理，工作树、归档标签、忽略的运行资源及业务数据保留。
 
 - 审查补修：[PR #313](https://github.com/3yearsZhuang/Aervox-harness/pull/313) 补齐 Bundle 清理/回滚的祖先 symlink 拒绝；[PR #314](https://github.com/3yearsZhuang/Aervox-harness/pull/314) 在写入前拒绝 ZIP 文件/目录及大小写路径冲突；[PR #316](https://github.com/3yearsZhuang/Aervox-harness/pull/316) 以同一 SQLite 快照读取终态和高水位，避免新续跑被旧终态截断。完整集成代码树 `263cdc99` 的 `./aervox ci all` 退出 0，相关最终 PR 提交的远端检查分别核对。
-- 二次复核：合并后主线的依赖审计捕获 Fastify 新公告 `GHSA-389g-gv7q-r4x8`，独立固定版本补丁与新回归继续经 PR 交付；首次失败证据保留，旧集成审计成功不代表后续公告已消除。
-- 文档范围：逐类核对产品/需求、架构/ADR、协议、操作、开发入口及研究索引；纠正与当前源码不符的描述。将已完成卫生审计及整理前的计划、架构证据转移至[归档包](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation)，保留原文件 SHA-256、失败记录、稳定编号、交付证据与剩余验收。
-- 保留门槛：当前 ContextManifest 仍复制完整输入正文，输入最小化及来源删除传播按 [DATA_PRIVACY §10](docs/reference/DATA_PRIVACY.md#privacy-security) 和 ITER-003/010 的关联合同继续验收；本轮不提高 CAP 发布状态；Page Token、逐帧撤权、自动恢复、真实 Bot/模型/移动设备、签名分发和迁移验收继续由原条目协调。先归档仓合入再删除主仓历史材料，最后完成全文档门禁、PR 审查及分支清理。
+- 二次复核：合并后主线的依赖审计捕获 Fastify 新公告 `GHSA-389g-gv7q-r4x8`，[PR #321](https://github.com/3yearsZhuang/Aervox-harness/pull/321) 将两处依赖固定至最小修复版 5.12.6 并加入真实 HTTP 回归，同时删除上游已撤回的 sprintf-js 公告豁免；最终本地全量终审退出 0，审计为 0 未审阅、2 既有已审阅路径、0 过时例外。首次失败保留，精确提交远端检查与合并结果见 PR，不沿用旧审计成功。
+- 文档范围：逐类核对产品/需求、架构/ADR、协议、操作、开发入口及研究索引；纠正与当前源码不符的描述。将已完成卫生审计及整理前的计划、架构证据转移至[归档包](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation)，保留原文件 SHA-256、失败记录、稳定编号、交付证据与剩余验收；无活动入站的 [CR-030 旧目标 ERD](https://github.com/3yearsZhuang/Aervox-docs-archive/blob/397d4b4bc924d1315205577ed4fb88a4df2c0619/archive/database-sqlite-erd-cr030-target.md)亦按原字节归档。
+- 保留门槛：当前 ContextManifest 仍复制完整输入正文，输入最小化及来源删除传播按 [DATA_PRIVACY §10](docs/reference/DATA_PRIVACY.md#privacy-security) 和 ITER-003/010 的关联合同继续验收；本轮不提高 CAP 发布状态；Page Token、逐帧撤权、自动恢复、真实 Bot/模型/移动设备、签名分发和迁移验收继续由原条目协调。归档仓 PR #2/#3/#4 已先合入并清理对应分支，随后主仓删除历史材料；32 份现行 Markdown 更新及完整 63 文档门禁由 [PR #322](https://github.com/3yearsZhuang/Aervox-harness/pull/322) 交付，最终提交的远端检查与合并/清理记录随 PR 核对。
 
 <a id="iter-056"></a>
 
