@@ -29642,6 +29642,7 @@
     },
     "/v1/plugins/{pluginId}/pages": {
       "get": {
+        "operationId": "get_v1_plugins_pluginId_pages",
         "summary": "列出插件 Page",
         "tags": [
           "Plugins"
@@ -29655,11 +29656,21 @@
             "required": true,
             "name": "pluginId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": false,
+            "name": "expectedLifecycleGeneration",
+            "in": "query"
           }
         ],
         "responses": {
           "200": {
-            "description": "Pages",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -29700,6 +29711,9 @@
                                 "additionalProperties": {
                                   "type": "string"
                                 }
+                              },
+                              {
+                                "type": "null"
                               }
                             ]
                           },
@@ -29722,7 +29736,10 @@
                             "default": []
                           },
                           "checksum": {
-                            "type": "string"
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -29740,6 +29757,16 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid plugin id or lifecycle generation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Missing or invalid access token (token mode)",
             "content": {
@@ -29751,7 +29778,17 @@
             }
           },
           "404": {
-            "description": "Plugin not found",
+            "description": "PLUGIN_NOT_FOUND",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "PLUGIN_CONFIG_REVISION_CONFLICT or PLUGIN_DISABLED or PLUGIN_UNAVAILABLE",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -29770,8 +29807,7 @@
               }
             }
           }
-        },
-        "operationId": "get_v1_plugins_pluginId_pages"
+        }
       },
       "post": {
         "summary": "注册插件 Page 元数据",

@@ -13,7 +13,7 @@ export interface IPluginPageRepository {
     capabilities: string[];
     checksum?: string | null;
   }): Promise<PluginPageModel>;
-  listPages(pluginId: string): Promise<PluginPageModel[]>;
+  listPages(pluginId: string, expectedLifecycleGeneration?: string): Promise<PluginPageModel[]>;
   getPage(pluginId: string, pageId: string): Promise<PluginPageModel | null>;
   deletePagesForPlugin(pluginId: string): Promise<void>;
 }

@@ -10,7 +10,7 @@ import type {
   PluginConfigSchemaResponse,
   RegisterPluginConfigSchemaRequest,
   SavePluginConfigRequest,
-  PluginPage,
+  PluginPageResponse,
   PluginPackageInspection,
   PluginMarketItem,
   PluginPackageExportResponse,
@@ -52,9 +52,7 @@ export interface PluginGrantDto {
   grantedAt: string;
 }
 
-export interface PluginPageDto extends PluginPage {
-  id: string;
-}
+export type PluginPageDto = PluginPageResponse;
 
 /** 安装插件入参（POST /v1/plugins；tools/skills 为插件声明清单，随安装注册） */
 export interface PluginInstallInputDto {
@@ -110,12 +108,9 @@ export function useAervoxPlugins() {
   const resetConfig = async (pluginId: string, expectedLifecycleGeneration?: string): Promise<PluginConfigSnapshot> =>
     requestEndpoint(transport, pluginConfigApi.reset, undefined, { pluginId }, { expectedLifecycleGeneration });
 
-  const listPages = async (pluginId: string): Promise<PluginPageDto[]> => {
-    const res = await transport.request<{ pages: PluginPageDto[] }>(
-      'GET',
-      `/v1/plugins/${encodeURIComponent(pluginId)}/pages`,
-    );
-    return res.pages ?? [];
+  const listPages = async (pluginId: string, expectedLifecycleGeneration?: string): Promise<PluginPageDto[]> => {
+    const res = await requestEndpoint(transport, pluginConfigApi.listPages, undefined, { pluginId }, { expectedLifecycleGeneration });
+    return res.pages;
   };
 
   const setPluginEnabled = async (pluginId: string, enabled: boolean): Promise<void> => {

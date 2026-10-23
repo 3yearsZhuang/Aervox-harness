@@ -2451,6 +2451,36 @@
           }
         }
       }
+    },
+    {
+      "id": "page-list-nullable-checksum",
+      "reason": "Correct the historical Page list response: the repository and HTTP service already return null for absent checksum; API, repository and shared-client regressions in PR #324 preserve that wire behavior.",
+      "pointer": "/paths/~1v1~1plugins~1{pluginId}~1pages/get/responses/200/content/application~1json/schema/properties/pages/items/properties/checksum/type",
+      "beforeHash": "e9e5c1c9e4f6277339d1bcde0733a59bd42f8731f449da6dc13010a916930d48",
+      "value": [
+        "string",
+        "null"
+      ]
+    },
+    {
+      "id": "page-list-nullable-description",
+      "reason": "Correct the historical Page list response: the repository and HTTP service already return null for absent description; API, repository and shared-client regressions in PR #324 preserve that wire behavior.",
+      "pointer": "/paths/~1v1~1plugins~1{pluginId}~1pages/get/responses/200/content/application~1json/schema/properties/pages/items/properties/description/anyOf",
+      "beforeHash": "2e453e06524185b42082da7967f8add669002cd865b5ac1623b0af3a2be3c88f",
+      "value": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   ],
   "restoration": {

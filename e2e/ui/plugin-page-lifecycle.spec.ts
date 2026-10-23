@@ -9,6 +9,8 @@ const PAGE_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>Page 
   <label>Configuration value <input id="value"></label>
   <button id="read" type="button">Read configuration</button>
   <button id="save" type="button">Save configuration</button>
+  <button id="notify" type="button">Notify host</button>
+  <button id="close" type="button">Close Page</button>
   <output id="result" data-state="idle"></output>
   <script src="/v1/plugin-pages/bridge.js"></script>
   <script>
@@ -20,7 +22,9 @@ const PAGE_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>Page 
       result.textContent = '';
       try {
         const value = method === 'getConfig' ? await bridge.getConfig()
-          : await bridge.saveConfig({ values: { value: document.querySelector('#value').value } });
+          : method === 'saveConfig' ? await bridge.saveConfig({ values: { value: document.querySelector('#value').value } })
+          : method === 'notify' ? await bridge.notify({ message: document.querySelector('#value').value })
+          : await bridge.close();
         result.textContent = JSON.stringify({ ok: true, value });
         result.dataset.state = 'success';
       } catch (error) {
@@ -30,6 +34,8 @@ const PAGE_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>Page 
     }
     document.querySelector('#read').addEventListener('click', () => { void run('getConfig'); });
     document.querySelector('#save').addEventListener('click', () => { void run('saveConfig'); });
+    document.querySelector('#notify').addEventListener('click', () => { void run('notify'); });
+    document.querySelector('#close').addEventListener('click', () => { void run('close'); });
   </script>
 </body></html>`;
 
@@ -61,17 +67,18 @@ async function callConfig(
   expectedStatus: number,
 ) {
   const responsePromise = page.waitForResponse(response =>
-    new URL(response.url()).pathname === configPath && response.request().method() === method);
+    new URL(response.url()).pathname === (expectedStatus === 200 ? configPath : configPath.replace(/\/config$/, '/pages'))
+      && response.request().method() === (expectedStatus === 200 ? method : 'GET'));
   await frame.getByRole("button", { name: method === "GET" ? "Read configuration" : "Save configuration", exact: true }).click();
   const response = await responsePromise;
-  expect(response.status(), await response.text()).toBe(expectedStatus);
+  expect(response.status()).toBe(expectedStatus);
   await expect(frame.locator("#result")).toHaveAttribute("data-state", expectedStatus === 200 ? "success" : "error");
   const result = JSON.parse((await frame.locator("#result").textContent())!) as BridgeResult;
   expect(result.ok).toBe(expectedStatus === 200);
   return { response, result };
 }
 
-test("real Page Bridge configuration calls reject an old enabled lifecycle and succeed after host reload", async ({ page, request, servers }) => {
+test("real Page Bridge rejects all four calls from an old lifecycle and succeeds after host reload", async ({ page, request, servers }) => {
   const pluginId = `page-lifecycle-${randomUUID()}`;
   const pluginPath = `/v1/plugins/${pluginId}`;
   const configPath = `${pluginPath}/config`;
@@ -89,7 +96,7 @@ test("real Page Bridge configuration calls reject an old enabled lifecycle and s
     });
     expect(schema.status(), await schema.text()).toBe(200);
     const registerPage = await request.post(api(`${pluginPath}/pages`), {
-      data: { id: "probe", title: "Lifecycle probe", entry: "pages/probe/index.html", capabilities: ["config.read", "config.write"] },
+      data: { id: "probe", title: "Lifecycle probe", entry: "pages/probe/index.html", capabilities: ["config.read", "config.write", "host.notify", "host.close"] },
     });
     expect(registerPage.status(), await registerPage.text()).toBe(201);
     const assets = await request.post(api(`${pluginPath}/pages/probe/assets`), {
@@ -112,6 +119,10 @@ test("real Page Bridge configuration calls reject an old enabled lifecycle and s
     const initialSave = await callConfig(page, frame, configPath, "PUT", 200);
     expect(initialSave.response.request().postDataJSON()).toMatchObject({ expectedLifecycleGeneration: initialGeneration, revision: 0 });
     expect(initialSave.result.value).toMatchObject({ revision: 1, values: { value: "first lifecycle" } });
+    await frame.locator("#value").fill("current Page notification");
+    await frame.getByRole("button", { name: "Notify host", exact: true }).click();
+    await expect(frame.locator("#result")).toHaveAttribute("data-state", "success");
+    await expect(page.getByText("current Page notification", { exact: true })).toBeVisible();
 
     // An independent API client changes the saved lifecycle before this host reloads its plugin list.
     const disabled = await request.patch(api(pluginPath), { data: { enabled: false } });
@@ -127,15 +138,32 @@ test("real Page Bridge configuration calls reject an old enabled lifecycle and s
     expect(currentGeneration).not.toBe(initialGeneration);
     expect(await oldFrame!.evaluate(element => element.isConnected)).toBe(true);
 
+    const blockedConfigRequests: string[] = [];
+    const captureConfig = (req: import('@playwright/test').Request) => {
+      if (new URL(req.url()).pathname === configPath) blockedConfigRequests.push(req.method());
+    };
+    page.on('request', captureConfig);
     const oldRead = await callConfig(page, frame, configPath, "GET", 409);
     expect(new URL(oldRead.response.url()).searchParams.get("expectedLifecycleGeneration")).toBe(initialGeneration);
-    expect(await oldRead.response.json()).toMatchObject({ code: "PLUGIN_CONFIG_REVISION_CONFLICT" });
     expect(oldRead.result.error).toContain("lifecycle changed");
     await frame.locator("#value").fill("late old lifecycle write");
     const oldSave = await callConfig(page, frame, configPath, "PUT", 409);
-    expect(oldSave.response.request().postDataJSON()).toMatchObject({ expectedLifecycleGeneration: initialGeneration, revision: 1 });
-    expect(await oldSave.response.json()).toMatchObject({ code: "PLUGIN_CONFIG_REVISION_CONFLICT" });
+    expect(new URL(oldSave.response.url()).searchParams.get("expectedLifecycleGeneration")).toBe(initialGeneration);
     expect(oldSave.result.error).toContain("lifecycle changed");
+    page.off('request', captureConfig);
+    expect(blockedConfigRequests).toEqual([]);
+    await frame.locator("#value").fill("revoked Page notification");
+    for (const name of ["Notify host", "Close Page"]) {
+      const responsePromise = page.waitForResponse(response => new URL(response.url()).pathname === `${pluginPath}/pages`);
+      await frame.getByRole("button", { name, exact: true }).click();
+      const response = await responsePromise;
+      expect(response.status()).toBe(409);
+      expect(new URL(response.url()).searchParams.get("expectedLifecycleGeneration")).toBe(initialGeneration);
+      await expect(frame.locator("#result")).toHaveAttribute("data-state", "error");
+      expect(JSON.parse((await frame.locator("#result").textContent())!)).toMatchObject({ ok: false, error: expect.stringContaining("lifecycle changed") });
+      expect(await oldFrame!.evaluate(element => element.isConnected)).toBe(true);
+    }
+    await expect(page.getByText("revoked Page notification", { exact: true })).toHaveCount(0);
     const unchanged = await request.get(api(configPath));
     expect(unchanged.status()).toBe(200);
     expect(await unchanged.json()).toMatchObject({ revision: 1, values: { value: "first lifecycle" } });
@@ -154,6 +182,14 @@ test("real Page Bridge configuration calls reject an old enabled lifecycle and s
     const persisted = await request.get(api(configPath));
     expect(persisted.status()).toBe(200);
     expect(await persisted.json()).toMatchObject({ revision: 2, values: { value: "current lifecycle" } });
+    await currentFrame.locator("#value").fill("new lifecycle notification");
+    await currentFrame.getByRole("button", { name: "Notify host", exact: true }).click();
+    await expect(currentFrame.locator("#result")).toHaveAttribute("data-state", "success");
+    await expect(page.getByText("new lifecycle notification", { exact: true })).toBeVisible();
+    const closeAuthorization = page.waitForResponse(response => new URL(response.url()).pathname === `${pluginPath}/pages`);
+    await currentFrame.getByRole("button", { name: "Close Page", exact: true }).click();
+    expect((await closeAuthorization).status()).toBe(200);
+    await expect(page.locator("iframe.plugin-page-frame")).toHaveCount(0);
   } finally {
     const removed = await request.delete(api(pluginPath));
     expect(removed.status(), await removed.text()).toBe(204);

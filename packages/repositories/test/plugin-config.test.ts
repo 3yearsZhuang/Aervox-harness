@@ -11,6 +11,7 @@ import {
   SqliteExtensionRepository,
   SqlitePluginPageRepository,
   SqlitePluginSecretRepository,
+  DomainConflictError,
   type AervoxDatabase,
   type LocalContext,
 } from "../src/index.js";
@@ -161,5 +162,35 @@ describe("插件 Config / Page 仓储", () => {
     expect(await pageRepo.listPages("demo")).toHaveLength(1);
     await pageRepo.deletePagesForPlugin("demo");
     expect(await pageRepo.listPages("demo")).toHaveLength(0);
+  });
+
+  it.each(["disabled", "reenabled", "missing", "restored", "uninstalled"] as const)("rejects Page grants from an expired lifecycle after %s", async transition => {
+    const extension = new SqliteExtensionRepository(db);
+    await pageRepo.upsertPage({ pluginId: "demo", pageId: "settings", title: "Settings", entry: "pages/settings/index.html", capabilities: ["host.notify"] });
+    const before = await pageRepo.listPages("demo", generations.get("demo")!);
+    expect(before).toHaveLength(1);
+    if (transition === "disabled" || transition === "reenabled") {
+      await extension.setPluginEnabled("demo", false);
+      if (transition === "reenabled") await extension.setPluginEnabled("demo", true);
+    } else if (transition === "missing" || transition === "restored") {
+      await extension.setPluginAvailability("demo", "missing");
+      if (transition === "restored") await extension.setPluginAvailability("demo", "available");
+    } else {
+      await client.execute({ sql: "DELETE FROM plugins WHERE id = ?", args: ["demo"] });
+    }
+    await expect(pageRepo.listPages("demo", generations.get("demo")!)).rejects.toBeInstanceOf(DomainConflictError);
+    const current = await extension.getPlugin("demo");
+    if (current?.enabled === 1 && current.availability === "available") {
+      expect(await pageRepo.listPages("demo", current.lifecycleGeneration)).toEqual(before);
+    }
+  });
+
+  it("reads current Page capabilities and distinguishes an empty Page list from a stale lifecycle", async () => {
+    const generation = generations.get("demo")!;
+    expect(await pageRepo.listPages("demo", generation)).toEqual([]);
+    await expect(pageRepo.listPages("demo", "")).rejects.toBeInstanceOf(DomainConflictError);
+    await pageRepo.upsertPage({ pluginId: "demo", pageId: "settings", title: "Settings", entry: "pages/settings/index.html", capabilities: ["host.notify"] });
+    await pageRepo.upsertPage({ pluginId: "demo", pageId: "settings", title: "Settings", entry: "pages/settings/index.html", capabilities: [] });
+    expect((await pageRepo.listPages("demo", generation))[0]?.capabilitiesJson).toEqual([]);
   });
 });

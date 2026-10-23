@@ -1045,11 +1045,6 @@ const pluginPageParam = pluginIdParam.extend({ pageId: z.string().min(1) });
 for (const endpoint of Object.values(pluginConfigApi)) registerJsonEndpoint(endpoint);
 
 registry.registerPath({
-  method: "get", path: "/v1/plugins/{pluginId}/pages", summary: "列出插件 Page", tags: ["Plugins"],
-  request: { params: pluginIdParam, headers: commonHeaders },
-  responses: { 200: { description: "Pages", content: { "application/json": { schema: z.object({ pages: z.array(pluginPageSchema) }) } } }, 404: { description: "Plugin not found" } },
-});
-registry.registerPath({
   method: "post", path: "/v1/plugins/{pluginId}/pages", summary: "注册插件 Page 元数据", tags: ["Plugins"],
   request: { params: pluginIdParam, headers: commonHeaders, body: { content: { "application/json": { schema: pluginPageSchema } } } },
   responses: { 201: { description: "Created", content: { "application/json": { schema: pluginPageSchema } } }, 400: { description: "INVALID_PAGE" }, 404: { description: "PLUGIN_NOT_FOUND" }, 409: { description: "PLUGIN_PACKAGE_IMMUTABLE: install a new package version to change its pages; PLUGIN_DISABLED" } },

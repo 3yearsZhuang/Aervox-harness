@@ -3,7 +3,7 @@ import type { ApiEndpoint } from "./http-api.js";
 import {
   pluginConfigSchema, pluginConfigSchemaOpenApi,
   pluginConfigSnapshotSchema, pluginConfigUpdateRequestSchema,
-  type PluginConfigField,
+  pluginPageSchema, type PluginConfigField,
 } from "./plugin-config-schemas.js";
 import { validatePluginConfigDefinition } from "./plugin-validation.js";
 
@@ -33,6 +33,11 @@ export const pluginConfigSchemaResponseOpenApi = z.object({
 
 const params = z.object({ pluginId: z.string().min(1) });
 const lifecycleQuery = z.object({ expectedLifecycleGeneration: z.string().min(1).max(128).optional() });
+/** Stored Pages preserve the legacy nullable description and checksum fields. */
+export const pluginPageResponseSchema = pluginPageSchema.extend({
+  description: pluginPageSchema.shape.description.nullable(),
+  checksum: pluginPageSchema.shape.checksum.nullable(),
+});
 export const pluginConfigApi = {
   getSchema: {
     method: "get", path: "/v1/plugins/{pluginId}/config/schema", operationId: "get_v1_plugins_pluginId_config_schema",
@@ -65,8 +70,15 @@ export const pluginConfigApi = {
     summary: "重置插件配置", tags: ["Plugins"], params, query: lifecycleQuery, response: pluginConfigSnapshotSchema,
     errors: { 400: "Invalid plugin id or lifecycle generation", 404: "PLUGIN_NOT_FOUND or PLUGIN_CONFIG_SCHEMA_NOT_FOUND", 409: "PLUGIN_CONFIG_REVISION_CONFLICT or PLUGIN_DISABLED or PLUGIN_UNAVAILABLE" },
   },
+  listPages: {
+    method: "get", path: "/v1/plugins/{pluginId}/pages", operationId: "get_v1_plugins_pluginId_pages",
+    summary: "列出插件 Page", tags: ["Plugins"], params, query: lifecycleQuery,
+    response: z.object({ pages: z.array(pluginPageResponseSchema) }),
+    errors: { 400: "Invalid plugin id or lifecycle generation", 404: "PLUGIN_NOT_FOUND", 409: "PLUGIN_CONFIG_REVISION_CONFLICT or PLUGIN_DISABLED or PLUGIN_UNAVAILABLE" },
+  },
 } as const satisfies Record<string, ApiEndpoint>;
 
 export type PluginConfigSchemaResponse = z.output<typeof pluginConfigSchemaResponseSchema>;
 export type RegisterPluginConfigSchemaRequest = z.input<typeof pluginConfigSchema>;
 export type SavePluginConfigRequest = z.input<typeof pluginConfigUpdateRequestSchema>;
+export type PluginPageResponse = z.output<typeof pluginPageResponseSchema>;

@@ -40,7 +40,7 @@ describe('ITER-064 plugin configuration contracts over HTTP', () => {
     await database.cleanup();
   });
 
-  it('authenticates all five endpoints before inspecting write bodies', async () => {
+  it('authenticates all configuration and Page endpoints before inspecting write bodies', async () => {
     for (const endpoint of Object.values(pluginConfigApi)) {
       for (const token of [null, 'Bearer invalid']) {
         const response = await request(endpoint.method.toUpperCase(), url(endpoint), undefined, token);
@@ -135,8 +135,8 @@ describe('ITER-064 plugin configuration contracts over HTTP', () => {
     expect(pluginConfigApi.getSchema.response.parse((await request('GET', url(pluginConfigApi.getSchema))).body).fields).toHaveLength(3);
   });
 
-  it('conceals unexpected service failures on all five endpoints', async () => {
-    const methods = ['getConfigSchema', 'registerConfigSchema', 'getConfig', 'saveConfig', 'resetConfig'] as const;
+  it('conceals unexpected service failures on all configuration and Page endpoints', async () => {
+    const methods = ['getConfigSchema', 'registerConfigSchema', 'getConfig', 'saveConfig', 'resetConfig', 'listPages'] as const;
     for (const method of methods) vi.spyOn(PluginConfigService.prototype, method).mockRejectedValue(new Error('SELECT secret FROM /private/internal.sqlite'));
     for (const endpoint of Object.values(pluginConfigApi)) {
       const body = endpoint === pluginConfigApi.registerSchema ? schema : endpoint === pluginConfigApi.save ? { revision: 0 } : undefined;
@@ -151,7 +151,8 @@ describe('ITER-064 plugin configuration contracts over HTTP', () => {
   it('rejects malformed successful service output through the response contract', async () => {
     vi.spyOn(PluginConfigService.prototype, 'getConfigSchema').mockResolvedValue({ schemaVersion: 1, fields: [{ key: 'unsafe', type: 'unknown', label: 'Unsafe' }] });
     vi.spyOn(PluginConfigService.prototype, 'getConfig').mockResolvedValue({ pluginId, revision: -1 } as never);
-    for (const endpoint of [pluginConfigApi.getSchema, pluginConfigApi.get]) {
+    vi.spyOn(PluginConfigService.prototype, 'listPages').mockResolvedValue([{ id: 'settings', title: 'Settings', entry: 'pages/settings/index.html', capabilities: ['unsafe'] }]);
+    for (const endpoint of [pluginConfigApi.getSchema, pluginConfigApi.get, pluginConfigApi.listPages]) {
       const response = await request('GET', url(endpoint));
       expect(response.status).toBe(500);
       expect(apiProblemSchema.parse(response.body).message).toBe('Internal Server Error');

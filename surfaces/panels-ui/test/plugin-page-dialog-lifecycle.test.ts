@@ -3,12 +3,12 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import type { PluginPageDto, PluginSummaryDto } from '@aervox/api-client';
 
 const mocks = vi.hoisted(() => ({
-  getConfig: vi.fn(), saveConfig: vi.fn(),
+  getConfig: vi.fn(), saveConfig: vi.fn(), listPages: vi.fn(),
   info: vi.fn(), success: vi.fn(), warning: vi.fn(), error: vi.fn(),
 }));
 vi.mock('@aervox/api-client', () => ({
   useAervoxClient: () => ({apiBase: 'http://localhost:3000'}),
-  useAervoxPlugins: () => ({ getConfig: mocks.getConfig, saveConfig: mocks.saveConfig }),
+  useAervoxPlugins: () => ({ getConfig: mocks.getConfig, saveConfig: mocks.saveConfig, listPages: mocks.listPages }),
 }));
 vi.mock('@aervox/ui/utils/element', () => ({ ElMessage: mocks }));
 vi.mock('@aervox/ui/primitives', () => ({
@@ -41,11 +41,69 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.getConfig.mockResolvedValue({ revision: 3, values: { value: 'current' } });
   mocks.saveConfig.mockResolvedValue({ revision: 4, values: {} });
+  mocks.listPages.mockResolvedValue([page]);
   wrapper = mount(PluginPageDialog, { props: { open: true, plugin, page } });
 });
 afterEach(() => wrapper.unmount());
 
 describe('Plugin Page session boundary', () => {
+  it.each(['getConfig', 'saveConfig', 'notify', 'close'])('rechecks the persisted lifecycle before %s while host props are stale', async method => {
+    const { target, nonce } = await connect();
+    mocks.listPages.mockRejectedValue(new Error('plugin lifecycle changed; reopen the page'));
+    send(target, nonce, method, 'old-generation', { message: 'late notification' });
+    await flushPromises();
+    expect(mocks.listPages).toHaveBeenCalledWith('probe', 'generation-1');
+    expect(target.postMessage).toHaveBeenLastCalledWith(expect.objectContaining({ ok: false, error: expect.stringContaining('lifecycle changed') }), '*');
+    expect(mocks.getConfig).not.toHaveBeenCalled();
+    expect(mocks.saveConfig).not.toHaveBeenCalled();
+    expect(mocks.info).not.toHaveBeenCalled();
+    expect(wrapper.emitted('close')).toBeUndefined();
+  });
+
+  it.each(['getConfig', 'saveConfig', 'notify', 'close'])('rejects %s after the persisted Page capability is removed', async method => {
+    const { target, nonce } = await connect();
+    mocks.listPages.mockResolvedValue([{ ...page, capabilities: [] }]);
+    send(target, nonce, method);
+    await flushPromises();
+    expect(target.postMessage).toHaveBeenLastCalledWith(expect.objectContaining({ ok: false, error: expect.stringContaining('capability') }), '*');
+    expect(mocks.getConfig).not.toHaveBeenCalled();
+    expect(mocks.saveConfig).not.toHaveBeenCalled();
+    expect(mocks.info).not.toHaveBeenCalled();
+    expect(wrapper.emitted('close')).toBeUndefined();
+  });
+
+  it.each(['notify', 'close'])('drops a late authorization result for %s after the document session rotates', async method => {
+    let finish!: (value: unknown) => void;
+    mocks.listPages.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    const old = await connect();
+    send(old.target, old.nonce, method, 'late-auth', { message: 'late notification' });
+    await wrapper.find('iframe').trigger('load');
+    finish([page]);
+    await flushPromises();
+    expect(mocks.info).not.toHaveBeenCalled();
+    expect(wrapper.emitted('close')).toBeUndefined();
+    expect(old.target.postMessage.mock.calls.some(([message]) => message.type === 'aervox:page:result')).toBe(false);
+  });
+
+  it('rejects an absent persisted Page without disclosing configuration', async () => {
+    const { target, nonce } = await connect();
+    mocks.listPages.mockResolvedValue([]);
+    send(target, nonce, 'getConfig');
+    await flushPromises();
+    expect(mocks.getConfig).not.toHaveBeenCalled();
+    expect(target.postMessage).toHaveBeenLastCalledWith(expect.objectContaining({ ok: false, error: 'page session is unavailable' }), '*');
+  });
+
+  it.each(['getConfig', 'saveConfig'])('withholds a late %s receipt when its Page capability was revoked during the request', async method => {
+    mocks.listPages.mockResolvedValueOnce([page]).mockResolvedValue([{ ...page, capabilities: [] }]);
+    const { target, nonce } = await connect();
+    send(target, nonce, method);
+    await flushPromises();
+    expect(mocks[method as 'getConfig' | 'saveConfig']).toHaveBeenCalledTimes(1);
+    expect(mocks.listPages).toHaveBeenCalledTimes(2);
+    expect(target.postMessage).toHaveBeenLastCalledWith(expect.objectContaining({ ok: false, error: expect.stringContaining('capability') }), '*');
+    expect(target.postMessage.mock.calls.some(([message]) => message.value?.values)).toBe(false);
+  });
   it('uses the declared nested entry with individually encoded path segments', async () => {
     await wrapper.setProps({ page: { ...page, entry: 'pages/settings/nested dir/配置.html' } });
     expect(wrapper.find('iframe').attributes('src')).toBe(

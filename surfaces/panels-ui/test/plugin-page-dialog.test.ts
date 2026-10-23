@@ -15,6 +15,9 @@ const mockSaveConfig = vi.fn().mockResolvedValue({
   values: { theme: 'light' },
   secretFields: {},
 });
+const mockListPages = vi.fn().mockResolvedValue([{
+  id: 'dashboard', capabilities: ['config.read', 'config.write', 'host.notify', 'host.close'],
+}]);
 
 vi.mock('@aervox/api-client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@aervox/api-client')>();
@@ -24,6 +27,7 @@ vi.mock('@aervox/api-client', async (importOriginal) => {
     useAervoxPlugins: () => ({
       getConfig: mockGetConfig,
       saveConfig: mockSaveConfig,
+      listPages: mockListPages,
     }),
   };
 });

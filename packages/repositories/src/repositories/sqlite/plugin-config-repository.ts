@@ -287,7 +287,18 @@ export class SqlitePluginPageRepository implements IPluginPageRepository {
     return created as PluginPageModel;
   }
 
-  async listPages(pluginId: string): Promise<PluginPageModel[]> {
+  async listPages(pluginId: string, expectedLifecycleGeneration?: string): Promise<PluginPageModel[]> {
+    if (expectedLifecycleGeneration !== undefined) {
+      // One read snapshot binds the current Page grants to the enabled package
+      // identity, including the empty-Page case. No configuration or Secret is read.
+      const rows = await this.db.select({ page: pluginPages }).from(plugins)
+        .leftJoin(pluginPages, eq(pluginPages.pluginId, plugins.id))
+        .where(and(eq(plugins.id, pluginId), eq(plugins.enabled, 1),
+          eq(plugins.availability, "available"), eq(plugins.lifecycleGeneration, expectedLifecycleGeneration)))
+        .orderBy(pluginPages.pageId);
+      if (!expectedLifecycleGeneration || !rows.length) throw new DomainConflictError("plugin lifecycle changed; reopen the page");
+      return rows.flatMap(row => row.page ? [row.page as PluginPageModel] : []);
+    }
     const rows = await this.db
       .select()
       .from(pluginPages)

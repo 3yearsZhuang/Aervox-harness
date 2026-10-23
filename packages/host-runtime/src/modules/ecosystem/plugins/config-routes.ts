@@ -88,10 +88,12 @@ export function registerPluginConfigRoutes(app: FastifyInstance, service: Plugin
   });
 
   // ── Page ──────────────────────────────────────────
-  app.get("/v1/plugins/:pluginId/pages", async (req, reply) => {
+  registerContractRoute(app, pluginConfigApi.listPages, async (req, reply) => {
     const { pluginId } = req.params as { pluginId: string };
+    const { expectedLifecycleGeneration } = req.query as { expectedLifecycleGeneration?: string };
     try {
-      return { pages: await service.listPages(pluginId) };
+      reply.header("Cache-Control", "no-store");
+      return { pages: await service.listPages(pluginId, expectedLifecycleGeneration) };
     } catch (error) {
       return sendError(reply, error);
     }

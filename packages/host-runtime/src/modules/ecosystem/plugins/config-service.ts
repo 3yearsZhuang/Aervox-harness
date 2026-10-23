@@ -330,9 +330,15 @@ export class PluginConfigService {
     });
   }
 
-  async listPages(pluginId: string): Promise<unknown[]> {
+  async listPages(pluginId: string, expectedLifecycleGeneration?: string): Promise<unknown[]> {
     await this.requirePlugin(pluginId);
-    const rows = await this.deps.pageRepo.listPages(pluginId);
+    let rows;
+    try {
+      rows = await this.deps.pageRepo.listPages(pluginId, expectedLifecycleGeneration);
+    } catch (error) {
+      if (error instanceof DomainConflictError) throw new PluginConfigError(409, "PLUGIN_CONFIG_REVISION_CONFLICT", "plugin lifecycle changed; reopen the page");
+      throw error;
+    }
     return rows.map((row) => ({
       id: row.pageId,
       title: row.title,

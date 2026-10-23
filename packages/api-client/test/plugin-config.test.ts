@@ -12,6 +12,21 @@ function client(handler: (method: string, path: string, body?: unknown) => Promi
 }
 
 describe('plugin configuration shared client', () => {
+  it('validates Page grants, preserves nullable metadata and encodes the lifecycle query', async () => {
+    const request = vi.fn(async () => ({ pages: [{ id: 'settings', title: 'Settings', entry: 'pages/settings/index.html',
+      description: null, checksum: null, capabilities: ['host.notify'] }] }));
+    const api = client(request);
+    expect(await api.listPages('a/b?c#d', 'generation/a?b#c')).toEqual([{ id: 'settings', title: 'Settings',
+      entry: 'pages/settings/index.html', description: null, checksum: null, capabilities: ['host.notify'] }]);
+    expect(request).toHaveBeenLastCalledWith('GET', '/v1/plugins/a%2Fb%3Fc%23d/pages?expectedLifecycleGeneration=generation%2Fa%3Fb%23c', undefined);
+    request.mockResolvedValue({ pages: [{ id: 'settings', title: 'Settings', entry: 'pages/settings/index.html',
+      capabilities: ['unknown-grant'] }] } as never);
+    await expect(api.listPages('plugin', 'generation')).rejects.toThrow();
+    request.mockClear();
+    await expect(api.listPages('plugin', '')).rejects.toThrow();
+    await expect(api.listPages('plugin', 'x'.repeat(129))).rejects.toThrow();
+    expect(request).not.toHaveBeenCalled();
+  });
   it('uses all five descriptors, encodes plugin ids once and preserves omitted payload fields', async () => {
     const calls: Array<[string, string, unknown]> = [];
     const api = client(async (method, path, body) => {

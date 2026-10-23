@@ -112,7 +112,7 @@ Page 元数据为 `id/title/description/entry/capabilities/checksum`。`id` 最�
 
 | HTTP 接口 | 行为 |
 |---|---|
-| `GET /v1/plugins/:id/pages` | 列出 Page |
+| `GET /v1/plugins/:id/pages` | 列出 Page；可选 `expectedLifecycleGeneration` 复验当前启用、可用性及代际，旧代际返回 409；响应 `no-store` |
 | `POST /v1/plugins/:id/pages` | 注册 Page，成功 201；generation 包返回 `409 PLUGIN_PACKAGE_IMMUTABLE` |
 | `POST /v1/plugins/:id/pages/:pageId/assets` | `{files:[{path,contentBase64}]}`，单文件上限 5 MiB；非法路径或链接资源返回 `400 INVALID_ASSET_PATH`，generation 包返回 `409 PLUGIN_PACKAGE_IMMUTABLE` |
 | `GET /v1/plugins/:id/pages/:pageId/assets/*` | 返回本地静态资源与 CSP |
@@ -147,7 +147,8 @@ Page 卸载、generation 丢弃、安装失败回滚与插件资源清理同样�
 当前防护与剩余边界如下，发布安全评估必须分别覆盖：
 
 - 宿主按 `event.source`、128 位随机 Nonce、插件/Page 身份、lifecycleGeneration 与文档会话验证调用和迟到响应；缺少代际时不建立 Page 会话。SDK 只接受绑定父窗口及 Origin。逐项 capability 对配置、通知和关闭生效；文档刷新重新挂载并初始化配置 revision。同 ID 的插件换代也更换 iframe 与 Nonce，旧窗口及在途响应失效。
-- 入口 HTML 与普通资源共用启用检查；当前窗口观察到禁用、缺包或换代后销毁 iframe 并拒绝旧响应。Page 配置调用还通过服务端代际门禁拒绝旧窗口请求。其它窗口的通知、关闭及 iframe 代码终止仍依赖状态更新，尚无跨窗口撤权实时推送；配置拒绝不能证明全部 capability 或资源已经撤权。
+- 四种 Bridge 调用均先携带打开时的代际查询 Page；同一 SQL 快照读取插件身份及当前 Page capability，拒绝已停用、不可用、换代、Page 缺失或能力移除的请求。配置读写返回前再次复验，拒绝迟到快照及回执进入旧文档。Page 列表由共享 Schema 校验，保留既有 nullable description/checksum；窗口缓存不能替代本次查询。
+- 入口 HTML 与普通资源共用启用检查；当前窗口观察到禁用、缺包或换代后销毁 iframe。调用时查询不能证明 SQL 快照到客户端动作的原子撤权；配置保存仍由已有配置事务复验代际，Page capability 移除与保存事务之间的窗口尚未闭合。尚无跨窗口撤权实时推送、全部资源代际绑定或 iframe 代码强制终止证明。
 - iframe 正在运行的代码没有统一 CPU/内存配额与撤权终止证明；不能把网络 CSP 解释为任意第三方执行安全已验收。
 - API 启用 Bearer Token 认证时，当前 iframe `src` 和脚本资源没有注入 Authorization 头，资源请求会受到全局认证检查；尚无完整的受保护 Page 资源授权通道。不能将 Token 放入页面 URL 或为访问页面而关闭生产认证。
 

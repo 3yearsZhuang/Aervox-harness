@@ -103,6 +103,16 @@ function beginSession(): void {
   target.postMessage({type: 'aervox:page:init', nonce: session.nonce, context: currentContext(session)}, '*')
 }
 
+async function requirePageCapability(current: PageSession, capability: PluginPageDto['capabilities'][number]): Promise<void> {
+  // Local props can remain enabled after a change in another window/process.
+  // The persisted grant and package identity share one SQL read snapshot.
+  const pages = await api.listPages(current.pluginId, current.lifecycleGeneration)
+  if (!isCurrent(current)) throw new Error('page session is unavailable')
+  const page = pages.find(page => page.id === current.pageId)
+  if (!page) throw new Error('page session is unavailable')
+  if (!page.capabilities.includes(capability)) throw new Error(`capability ${capability} required`)
+}
+
 async function handleBridgeCall(current: PageSession, message: {
   id: string
   method?: unknown
@@ -113,7 +123,7 @@ async function handleBridgeCall(current: PageSession, message: {
     ? message.args : {}) as {values?: Record<string, unknown>; secretValues?: Record<string, string | null>}
   try {
     if (!isCurrent(current)) return {id, ok: false, error: 'page session is unavailable'}
-    const capabilities: Record<string, string> = {
+    const capabilities: Record<string, PluginPageDto['capabilities'][number]> = {
       getConfig: 'config.read', saveConfig: 'config.write', notify: 'host.notify', close: 'host.close',
     }
     if (typeof method !== 'string' || !Object.hasOwn(capabilities, method)) {
@@ -122,9 +132,12 @@ async function handleBridgeCall(current: PageSession, message: {
     if (!current.capabilities.has(capabilities[method]!)) {
       return {id, ok: false, error: `capability ${capabilities[method]} required`}
     }
+    await requirePageCapability(current, capabilities[method]!)
+    if (!isCurrent(current)) return {id, ok: false, error: 'page session is unavailable'}
     if (method === 'getConfig') {
       const snapshot = await api.getConfig(current.pluginId, current.lifecycleGeneration)
-      if (isCurrent(current)) current.revision = snapshot.revision
+      await requirePageCapability(current, 'config.read')
+      current.revision = snapshot.revision
       return {id, ok: true, value: snapshot}
     }
     if (method === 'saveConfig') {
@@ -134,7 +147,8 @@ async function handleBridgeCall(current: PageSession, message: {
         values: args.values ?? {},
         secretValues: args.secretValues ?? {},
       })
-      if (isCurrent(current)) current.revision = snapshot.revision
+      await requirePageCapability(current, 'config.write')
+      current.revision = snapshot.revision
       return {id, ok: true, value: snapshot}
     }
     if (method === 'notify') {

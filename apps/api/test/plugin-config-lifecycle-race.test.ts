@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createInMemoryDatabase, SqliteExtensionRepository, SqlitePluginConfigRepository, SqlitePluginSecretRepository } from "@aervox/repositories";
+import { createInMemoryDatabase, SqliteExtensionRepository, SqlitePluginConfigRepository, SqlitePluginSecretRepository, SqlitePluginPageRepository } from "@aervox/repositories";
 import { buildApp } from "./app-fixture.js";
 
 describe("configuration lifecycle checks at the writer transaction", () => {
@@ -45,6 +45,43 @@ describe("configuration lifecycle checks at the writer transaction", () => {
       await extension.setPluginConfigSchema(id, fields, 2);
     }
   }
+
+  it.each(["disabled", "reenabled", "missing", "restored"] as const)("rechecks Page grants in the same read snapshot after %s during admission", async change => {
+    const pages = new SqlitePluginPageRepository(database.db);
+    await pages.upsertPage({ pluginId: id, pageId: "settings", title: "Settings", entry: "pages/settings/index.html", capabilities: ["host.notify", "host.close"] });
+    const generation = (await extension.getPlugin(id))!.lifecycleGeneration;
+    const before = await state();
+    const original = SqlitePluginPageRepository.prototype.listPages;
+    vi.spyOn(SqlitePluginPageRepository.prototype, "listPages").mockImplementationOnce(async function (...args) {
+      await transition(change);
+      return original.apply(this, args);
+    });
+    const response = await app.inject({ method: "GET", url: `/v1/plugins/${id}/pages?expectedLifecycleGeneration=${generation}` });
+    expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe("PLUGIN_CONFIG_REVISION_CONFLICT");
+    expect(JSON.stringify(response.json())).not.toContain('"capabilities"');
+    expect(await state()).toEqual(before);
+  });
+
+  it("serves only current Page capabilities, preserves nullable metadata and disables response caching", async () => {
+    const pages = new SqlitePluginPageRepository(database.db);
+    const generation = (await extension.getPlugin(id))!.lifecycleGeneration;
+    const url = `/v1/plugins/${id}/pages?expectedLifecycleGeneration=${generation}`;
+    expect((await app.inject({ method: "GET", url })).json()).toEqual({ pages: [] });
+    await pages.upsertPage({ pluginId: id, pageId: "settings", title: "Settings", entry: "pages/settings/index.html", capabilities: ["host.notify"] });
+    const response = await app.inject({ method: "GET", url });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['cache-control']).toBe('no-store');
+    expect(response.json().pages[0]).toMatchObject({ capabilities: ["host.notify"], description: null, checksum: null });
+    await pages.upsertPage({ pluginId: id, pageId: "settings", title: "Settings", entry: "pages/settings/index.html", capabilities: [] });
+    expect((await app.inject({ method: "GET", url })).json().pages[0].capabilities).toEqual([]);
+    const ordinary = await app.inject({ method: "GET", url: `/v1/plugins/${id}/pages` });
+    expect(ordinary.statusCode).toBe(200);
+    for (const query of ['expectedLifecycleGeneration=', 'expectedLifecycleGeneration=' + 'x'.repeat(129), 'expectedLifecycleGeneration=a&expectedLifecycleGeneration=b']) {
+      const invalid = await app.inject({ method: "GET", url: `/v1/plugins/${id}/pages?${query}` });
+      expect(invalid.statusCode).toBe(400);
+    }
+  });
 
   describe.each(["save", "reset"] as const)("%s", (operation) => {
     it.each(transitions)("rejects %s after validation without changing configuration, Secrets or audit", async (change) => {
