@@ -160,4 +160,16 @@ for (const [name, create] of [
     expect(controller.state.status).toBe('completed');
   });
 
+  it('classifies a persisted interruption as incomplete through the complete transport', async()=>{
+    const interrupted=`data: ${JSON.stringify({eventId:'terminal',turnId:'turn',sequence:2,eventType:'done',data:{status:'Interrupted',reason:'max_steps',isComplete:false}})}\n\n`;
+    vi.stubGlobal('fetch',vi.fn().mockResolvedValueOnce(Response.json({turnId:'turn'})).mockResolvedValueOnce(new Response(frame(1,'delta','partial')+interrupted)));
+    const controller=createConversationController(await create());
+    const onDelta=vi.fn(),onDone=vi.fn(),onError=vi.fn();
+    await expect(controller.submit('session','long task',{onDelta,onDone,onError})).rejects.toThrow('turn_incomplete');
+    expect(onDelta).toHaveBeenCalledExactlyOnceWith('partial');
+    expect(onDone).not.toHaveBeenCalled();expect(onError).toHaveBeenCalledOnce();
+    expect(controller.state).toMatchObject({status:'failed',retryAvailable:false});
+    await expect(controller.retry({onDelta(){},onDone(){}})).rejects.toThrow('submission_not_retryable');
+  });
+
 });

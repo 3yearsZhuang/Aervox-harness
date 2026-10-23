@@ -59,6 +59,12 @@ export function createTurnTerminator(ctx: TerminatorContext): TurnTerminator {
 
   const finalize: TurnTerminator["finalize"] = async (atSequence, outcome, event) => {
     const statuses = { completed: "Completed", cancelled: "Cancelled", interrupted: "Interrupted", failed: "Failed" } as const;
+    // Done closes an attempt, including suspensions and unsuccessful execution.
+    // Keep its reason in the same atomic record so observers can distinguish a
+    // pending approval from budgets, deletion or other execution interruption.
+    const eventData = event.eventType === "done" && "reason" in outcome
+      ? { ...(event.eventData && typeof event.eventData === "object" && !Array.isArray(event.eventData) ? event.eventData : {}), reason: outcome.reason }
+      : event.eventData;
     const finalized = await execution.finalizeAttemptWithEvent({
       turnId,
       attemptId,
@@ -66,6 +72,7 @@ export function createTurnTerminator(ctx: TerminatorContext): TurnTerminator {
       expectedFencingToken: claimFencingToken,
       sequence: atSequence,
       ...event,
+      eventData,
     });
     if (!finalized.ok) {
       const reason = "reason" in outcome ? outcome.reason.replaceAll(" ", "_") : outcome.status;
@@ -92,7 +99,7 @@ export function createTurnTerminator(ctx: TerminatorContext): TurnTerminator {
   const finalizeInterrupted = (atSequence: number, reason: string): Promise<ExecuteResult> =>
     finalize(atSequence, { status: "interrupted", reason }, {
       eventType: "done",
-      eventData: { status: "Interrupted", isComplete: false, lastSequence: atSequence, reason },
+      eventData: { status: "Interrupted", isComplete: false, lastSequence: atSequence },
       safetyDecision: "approved",
     });
 

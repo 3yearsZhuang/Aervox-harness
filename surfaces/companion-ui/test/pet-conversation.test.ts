@@ -73,3 +73,14 @@ it('cancels pending user input through the server without auto-answering', async
   expect(request).toHaveBeenCalledWith('POST','/v1/turns/turn/cancel',{},expect.any(Object));
   expect(submitQuestionAnswers).not.toHaveBeenCalled();expect(wrapper.find('.pet-question').exists()).toBe(false);
 });
+it('keeps partial output visible after a terminal interruption and clears stale questions', async()=>{
+  streamTurn.mockImplementationOnce(async (_s,_c,cb,options)=>{
+    await options.onAccepted('turn');cb.onDelta('保留的正文。');cb.onUserQuestion({turnId:'turn',questions:[{id:'q',question:'旧问题'}]});cb.onDone();
+    await cb.onEvent({eventId:'done',turnId:'turn',sequence:3,eventType:'done',data:{status:'Interrupted',reason:'turn_timeout',isComplete:false}});
+  });
+  const wrapper=await pet();
+  expect(wrapper.get('.pet-bubble').text()).toContain('保留的正文。');
+  expect(wrapper.get('.pet-turn-feedback').text()).toContain('本次回复未完成');
+  expect(wrapper.find('.pet-question').exists()).toBe(false);
+  expect(wrapper.find('.pet-choices').exists()).toBe(false);
+});

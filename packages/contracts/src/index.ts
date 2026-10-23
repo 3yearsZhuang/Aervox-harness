@@ -12,6 +12,8 @@ import {
   createLearningGoalSchema,
   createTurnRequestSchema,
   createTurnResponseSchema,
+  replayTurnResponseSchema,
+  turnAcceptanceConflictSchema,
   deltaEventDataSchema,
   doneEventDataSchema,
   emoteEventDataSchema,
@@ -148,6 +150,7 @@ export type TurnAttachmentRef = z.infer<typeof turnAttachmentRefSchema>;
 export type AttachmentMediaType = z.infer<typeof allowedMediaTypesSchema>;
 export type AttachmentPurpose = z.infer<typeof attachmentPurposeSchema>;
 export type CreateTurnResponse = z.infer<typeof createTurnResponseSchema>;
+export type ReplayTurnResponse = z.infer<typeof replayTurnResponseSchema>;
 export type CancelTurnResponse = z.infer<typeof cancelTurnResponseSchema>;
 export type LearningGoalLevel = z.infer<typeof learningGoalLevelSchema>;
 export type LearningGoalStatus = z.infer<typeof learningGoalStatusSchema>;

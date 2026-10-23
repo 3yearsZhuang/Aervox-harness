@@ -114,8 +114,10 @@ async function sendQuickChat() {
 function showTurnFailure(error: unknown) {
     turnFeedback.value = turnController.state.status === 'observer-error'
         ? '连接中断，已保留收到的回复。可恢复接收。'
+        : turnController.state.turnId ? '本次回复未完成，已保留收到的内容。'
         : error instanceof Error ? `请求失败：${error.message}` : '请求失败，请重试。'
-    if (!replyRaw && !activeQuestion.value && !pendingApproval.value) showStreamingBubble('暂时没有收到回复。')
+    if (replyRaw) showStreamingBubble(stripMarkdownForBubble(replyRaw))
+    else if (!activeQuestion.value && !pendingApproval.value) showStreamingBubble('暂时没有收到回复。')
     clearBubbleTimer()
 }
 

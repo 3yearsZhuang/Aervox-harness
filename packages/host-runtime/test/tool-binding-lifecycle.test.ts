@@ -441,4 +441,79 @@ describe("host ToolCatalog lifecycle", () => {
       expect(api.getPluginToolResultProjection("probe")).toBeUndefined();
     } finally { catalog.dispose(); }
   });
+
+  it("disposes an uncooperative pending declaration and stops its lifecycle polling before publication", async () => {
+    const api = createPluginApiRegistry(); const plugins = registry();
+    const reads = vi.spyOn(plugins, "getPlugin");
+    const catalog = new PluginToolCatalog(plugins, api);
+    let declarationSignal: AbortSignal | undefined;
+    const declare = vi.fn((options?: { signal?: AbortSignal }) => {
+      declarationSignal = options?.signal;
+      return new Promise<ToolSpec[]>(() => {});
+    });
+    try {
+      const pending = catalog.acquire({ owner: "owner", generation: "one", create: () => [
+        contribution("earlier"), { ...contribution("blocked"), provider: { tools: [], listTools: declare, execute: async () => ({ ok: true }) } },
+      ] });
+      await vi.waitFor(() => expect(declare).toHaveBeenCalledOnce());
+      catalog.dispose();
+      await expect(pending).rejects.toThrow("tool_catalog_disposed");
+      expect(declarationSignal?.aborted).toBe(true);
+      expect(catalog.snapshot("owner")).toBeUndefined();
+      expect(api.getPluginToolResultProjection("earlier")).toBeUndefined();
+      const count = reads.mock.calls.length;
+      await new Promise(resolve => setTimeout(resolve, 125));
+      expect(reads).toHaveBeenCalledTimes(count);
+      await expect(catalog.acquire({ owner: "owner", generation: "one", create: () => [] })).rejects.toThrow("tool_catalog_disposed");
+    } finally { catalog.dispose(); }
+  });
+
+  it("disposes a pending acquisition even when its lifecycle repository read does not settle", async () => {
+    const api = createPluginApiRegistry();
+    const getPlugin = vi.fn(() => new Promise<Awaited<ReturnType<IExtensionRepository["getPlugin"]>>>(() => {}));
+    const catalog = new PluginToolCatalog({ getPlugin }, api);
+    const create = vi.fn(() => [contribution("probe")]);
+    try {
+      const pending = catalog.acquire({ owner: "owner", generation: "one", create });
+      await vi.waitFor(() => expect(getPlugin).toHaveBeenCalledOnce());
+      catalog.dispose();
+      await expect(pending).rejects.toThrow("tool_catalog_disposed");
+      expect(create).not.toHaveBeenCalled();
+      expect(catalog.snapshot("owner")).toBeUndefined();
+      expect(api.getPluginApiRevision()).toBe(0);
+    } finally { catalog.dispose(); }
+  });
+
+  it("never enters a handler when the individual call was cancelled before dispatch", async () => {
+    const api = createPluginApiRegistry(); const catalog = new PluginToolCatalog(registry(), api);
+    const dispatch = vi.fn(async () => ({ ok: true }));
+    try {
+      const lease = await catalog.acquire({ owner: "owner", generation: "one", create: () => [contribution("probe", projection("safe"), dispatch)] });
+      const controller = new AbortController(); controller.abort(new Error("individual_call_cancelled"));
+      await expect(lease.sources[0]!.provider.execute({ ...call, signal: controller.signal })).rejects.toThrow("individual_call_cancelled");
+      expect(dispatch).not.toHaveBeenCalled();
+      expect(lease.sources).toHaveLength(1);
+    } finally { catalog.dispose(); }
+  });
+
+  it("does not invoke a handler after the call is cancelled during its asynchronous lifecycle check", async () => {
+    const api = createPluginApiRegistry(); const plugins = registry();
+    const catalog = new PluginToolCatalog(plugins, api);
+    const dispatch = vi.fn(async () => ({ ok: true }));
+    try {
+      const lease = await catalog.acquire({ owner: "owner", generation: "one", create: () => [contribution("probe", projection("safe"), dispatch)] });
+      let release!: (plugin: Awaited<ReturnType<IExtensionRepository["getPlugin"]>>) => void;
+      const read = vi.spyOn(plugins, "getPlugin").mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+      const controller = new AbortController();
+      const execution = lease.sources[0]!.provider.execute({ ...call, signal: controller.signal });
+      await vi.waitFor(() => expect(read).toHaveBeenCalled());
+      controller.abort(new Error("individual_call_cancelled"));
+      await expect(execution).rejects.toThrow("individual_call_cancelled");
+      release(await registry().getPlugin("owner"));
+      await new Promise(resolve => setTimeout(resolve, 0));
+      expect(dispatch).not.toHaveBeenCalled();
+      expect(await lease.sources[0]!.provider.execute(call)).toMatchObject({ ok: true });
+      expect(dispatch).toHaveBeenCalledOnce();
+    } finally { catalog.dispose(); }
+  });
 });

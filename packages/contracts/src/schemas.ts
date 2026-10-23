@@ -133,6 +133,8 @@ export const doneEventDataSchema = z.object({
   isComplete: z.boolean(),
   lastSequence: z.number().int().positive(),
   contextVersion: z.string().optional(),
+  /** Execution outcome reason; distinguishes a pending interaction from interruption. */
+  reason: z.string().optional(),
 });
 
 /** error：已持久化的错误诊断（§4.4） */
@@ -291,6 +293,17 @@ export const createTurnResponseSchema = z.object({
   status: z.literal("Created"),
   eventsUrl: z.string().min(1),
   cancelUrl: z.string().min(1),
+});
+
+/** Exact intent replay returns the current accepted Turn, which may already be terminal. */
+export const replayTurnResponseSchema = createTurnResponseSchema.extend({ status: turnStatusSchema });
+
+/** Acceptance conflicts are HTTP responses, not persisted stream errors. */
+export const turnAcceptanceConflictSchema = z.object({
+  code: z.literal("IDEMPOTENCY_KEY_REUSED"),
+  reason: z.enum(["intent_mismatch", "intent_unavailable", "session_mismatch"]),
+  retryable: z.literal(false),
+  message: z.string().min(1),
 });
 
 /** 取消 Turn 响应（§2.3） */

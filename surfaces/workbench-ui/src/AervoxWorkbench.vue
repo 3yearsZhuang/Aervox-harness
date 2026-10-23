@@ -356,7 +356,8 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
     console.error('对话流式失败', error);
     deltaBatch.flush();
     liveAssistantLine.state = 'error';
-    if (turnController.state.status === 'observer-error') {
+    if (thinkingVisible && liveAssistantLine.text === thinkingPlaceholder) liveAssistantLine.text = '';
+    if (turnController.state.turnId) {
       composer.completeDraftSubmission(submittedSessionId);
     } else {
       liveAssistantLine.text = error instanceof Error ? `连接失败：${error.message}` : '连接失败，请稍后重试。';
@@ -405,9 +406,6 @@ async function continueTurn(run: (callbacks: TurnCallbacks) => Promise<void>) {
     if (!surfaceContext.signal.aborted) {
       batch.flush();
       line.state = 'error';
-      if (turnController.state.status !== 'observer-error') {
-        line.text += `\n请求失败：${error instanceof Error ? error.message : String(error)}`;
-      }
     }
   } finally {
     batch.flush();

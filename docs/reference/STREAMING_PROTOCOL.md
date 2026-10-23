@@ -16,6 +16,10 @@ ConversationController 为三个第一方 surface 保存当前 Turn、待答问�
 
 工作台两种模式、主动陪伴和桌宠共用完整问题组件，支持多问题、多选和自由填写；默认推荐项须经用户明确提交。下一问题到达时重置输入，旧回答写入返回不得清掉新问题。授权决定经服务端提交后仅观察返回 continuation 的游标，不重发原消息。
 
+结构化 `done` 先判定持久终态再触发完成回调：`Cancelled` 为停止；`Failed/Rejected`、明确未完成或非等待原因的 `Interrupted` 为失败，保留已收正文且不提供观察重试。仅仍有待决交互并且没有中断原因（审批可为 `pending_approval`）时，`Interrupted` 保留等待；超时、删除等明确中断必须清理旧交互。只有完整成功才表示完成，不能把流正常关闭等同成功。重置、关闭或取消成功会解除本地在途回答/审批的等待，迟到响应不得改写新会话。
+
+共享终态提交为新生成的 `done` 携带权威 outcome 的 `reason`，包括 `max_steps` 与 `pending_approval`，避免失效问题被误判为仍在等待。历史已持久化的无原因 `Interrupted` 仍可能歧义，保留旧待决交互兼容；本次不回填或改写历史事件，完整跨进程恢复另行验收。
+
 客户端侧顺序与去重由[Schema 白名单](../../packages/contracts/src/stream-projection.ts)与 [TurnStreamProjector](../../packages/api-client/src/projector.ts)承载：Fetch 传输在三次连接尝试内保留同一 Turn、同一 Projector 与最后已投递事件游标，HTTP 410 明确失败而不新建 Turn，重复或乱序事件按序号丢弃；Electron IPC 复用同一 Projector，并在终态后丢弃迟到消息。服务端重放与实时读取均取持久事件，但尚未接入该白名单投影；不能由客户端过滤推定服务端已完成脱敏。
 
 本文同时保留已接受的目标要求与现行兼容行为。逐帧撤权、事件保留清理和统一事件负载等未闭合项须独立验收，不能从分页、取消或客户端回归推定完成；以下在对应章节标明差量，不降低原要求。
@@ -39,7 +43,7 @@ ConversationController 为三个第一方 surface 保存当前 Turn、待答问�
 | Header | 要求 |
 |---|---|
 | `Authorization` | 按本机访问令牌鉴权（loopback 默认；非 loopback 强制 Token）；不允许把 bearer token 放入 URL |
-| `Idempotency-Key` | 调用方生成的稳定键；同一认证主体、规范化端点、Session 和键只产生一个 Turn |
+| `Idempotency-Key` | 调用方生成的稳定键；本地数据库内全局唯一，不得跨 Session 或业务意图复用 |
 | `Content-Type` | `application/json` |
 
 请求体最小字段：
@@ -63,7 +67,11 @@ ConversationController 为三个第一方 surface 保存当前 Turn、待答问�
 }
 ```
 
-服务端必须先在一个事务中写入 User `MessageVersion`、Turn 和 Outbox，再返回成功。相同幂等作用域、键和请求摘要必须返回原资源；同键不同摘要返回 `409 IDEMPOTENCY_KEY_REUSED`，不得再次调用模型。CR-030 D2 后不再接受或解析租户 Header；请求只能访问当前本地数据库实例，非 loopback 调用必须通过显式 token 认证。
+服务端必须先在一个事务中写入 User `MessageVersion`、Turn、首个 Attempt、请求摘要和 Outbox，再返回成功。同键同摘要返回原资源；同键不同意图或跨 Session 返回 `409 IDEMPOTENCY_KEY_REUSED`，分别以 `reason: intent_mismatch` 或 `session_mismatch` 标识，不再次调用模型。摘要在会话政策过滤后、Inbox 合并前计算，覆盖结构化消息和附件、引用、有效 metadata、工具审批模式及服务端认证 actor；省略值使用有效默认值，对象键序不影响身份，数组保序。生成 ID、clientVersion、API/Worker 调度配置不属于业务意图，后续入队消息不改变原请求身份。
+
+旧 Turn 缺少可验证摘要时返回同一 409，`reason: intent_unavailable`；不从合并正文或当前配置猜测回填，也不自动换键重放。执行与恢复只能从摘要绑定的持久受理回执读取原始 metadata、审批模式和 actor，不能由 Worker 投递或调用方补造；回执缺失、被改或旧记录缺少摘要时拒绝自动执行，保留现有记录供检查。本轮仅覆盖 HTTP/Bot 共享的 `acceptTurn`，子任务 `createTurnWithAttempt` 与父执行键复用不据此宣称完成意图绑定。
+
+CR-030 D2 后不再接受或解析租户 Header；请求只能访问当前本地数据库实例，非 loopback 调用必须通过显式 token 认证。
 
 ### 2.2 读取事件流
 

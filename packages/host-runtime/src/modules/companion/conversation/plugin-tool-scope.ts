@@ -1,4 +1,5 @@
 import type { IExtensionRepository } from "@aervox/repositories";
+import { awaitWithSignal } from "@aervox/core";
 import type { PluginHostServiceControl } from "../../../plugin-host-services.js";
 
 /** A tool declaration belongs to one enabled lifecycle generation, including its writes. */
@@ -13,7 +14,7 @@ export function createPluginToolScope(
   let disposed = false;
   const checkActive = async () => {
     controller.signal.throwIfAborted();
-    const plugin = await repo.getPlugin(pluginId);
+    const plugin = await awaitWithSignal(repo.getPlugin(pluginId), controller.signal);
     if (disposed || !plugin || plugin.enabled !== 1 || (plugin.availability ?? "available") !== "available"
       || plugin.lifecycleGeneration !== generation) controller.abort(new Error("plugin_generation_changed"));
     controller.signal.throwIfAborted();

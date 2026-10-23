@@ -89,6 +89,7 @@ interface Acquisition {
 /** One host owns complete tool batches and their invocation leases. Only safe projection metadata survives a Turn. */
 export class PluginToolCatalog {
   private readonly entries = new Map<string, Entry>();
+  private readonly shutdown = new AbortController();
   private timer?: ReturnType<typeof setInterval>;
   private checking = false;
   private disposed = false;
@@ -96,7 +97,8 @@ export class PluginToolCatalog {
 
   async acquire(input: Acquisition): Promise<PluginToolLease> {
     if (this.disposed) throw new Error("tool_catalog_disposed");
-    const scope = createPluginToolScope(this.plugins, input.owner, input.generation, input.signal);
+    const signal = input.signal ? AbortSignal.any([input.signal, this.shutdown.signal]) : this.shutdown.signal;
+    const scope = createPluginToolScope(this.plugins, input.owner, input.generation, signal);
     try {
       await scope.checkActive();
       const contributions = await preparePluginToolContributions(input.create(scope), scope, input.reservedNames);
@@ -172,10 +174,13 @@ export class PluginToolCatalog {
         tools: structuredClone(item.provider.tools),
         async listTools() { return await active() ? structuredClone(bindings[index]?.provider.tools ?? []) : []; },
         async execute(call) {
-          if (!(await active())) return { ok: false, error: "tool_permission_denied" };
+          if (!open) return { ok: false, error: "tool_permission_denied" };
+          const signal = call.signal ? AbortSignal.any([call.signal, scope.signal!]) : scope.signal;
+          signal?.throwIfAborted();
+          if (!(await awaitWithSignal(active(), signal))) return { ok: false, error: "tool_permission_denied" };
+          signal?.throwIfAborted();
           const binding = bindings[index];
           if (!binding || !open || scope.signal?.aborted) return { ok: false, error: "tool_permission_denied" };
-          const signal = call.signal ? AbortSignal.any([call.signal, scope.signal!]) : scope.signal;
           return awaitWithSignal(binding.provider.execute({ ...call, signal }), signal);
         },
       },
@@ -215,6 +220,7 @@ export class PluginToolCatalog {
 
   dispose(): void {
     this.disposed = true;
+    this.shutdown.abort(new Error("tool_catalog_disposed"));
     for (const entry of [...this.entries.values()]) entry.release();
     if (this.timer) clearInterval(this.timer);
     this.timer = undefined;

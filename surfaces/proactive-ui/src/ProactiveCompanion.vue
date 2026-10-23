@@ -55,7 +55,7 @@ function relativeDay(iso: string): string {
 const sending = ref(false);
 const stopping = ref(false);
 const waitingForReply = ref(false);
-const turnFeedback = ref<{ kind: 'connection-error' | 'observer-error' | 'cancel-error' | 'stopped' | 'completed'; message: string }>();
+const turnFeedback = ref<{ kind: 'connection-error' | 'observer-error' | 'turn-error' | 'cancel-error' | 'stopped' | 'completed'; message: string }>();
 interface FailedTurn {
   content: string;
   source: 'suggestion' | 'whisper';
@@ -139,7 +139,10 @@ async function sendTurn(content: string, source: 'suggestion' | 'whisper' = 'sug
       } else {
         // Controller.retry owns uncertain submissions and their idempotency reservation.
         failedTurn.value = submission;
-        turnFeedback.value = {kind: 'connection-error', message: callbacks.hasReply ? '连接中断，已保留收到的回复。' : '未能收到回复，请重试。'};
+        turnFeedback.value = turnController.state.turnId
+          ? {kind: 'turn-error', message: '本次回复未完成，已保留收到的内容。'}
+          : {kind: 'connection-error', message: callbacks.hasReply ? '连接中断，已保留收到的回复。' : '未能收到回复，请重试。'};
+        if (turnController.state.turnId) dialogueCtx.value = '回复未完成';
       }
     }
     return false;
@@ -175,6 +178,11 @@ const suggestions = computed<Suggestion[]>(() => {
       reply: `好，我们回到「${recent.title}」。接着上次的地方继续——你还记得到哪里了吗？`,
       ctx: '接续最近会话',
       action: () => {
+        // Keep the actual reply and its recovery cursor together when reselecting
+        // the current conversation; a canned greeting must never replace it.
+        if (sessions.activeSessionId.value === recent.id && turnController.state.turnId) return;
+        turnController.reset(); failedTurn.value = undefined; turnFeedback.value = undefined;
+        hasTurnReply = false; waitingForReply.value = false;
         sessions.switchSession(recent.id);
         say(`好，我们回到「${recent.title}」。接着上次的地方继续——你还记得到哪里了吗？`, '接续最近会话');
       },

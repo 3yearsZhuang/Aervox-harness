@@ -143,3 +143,17 @@ it.each(['standard','companion'])('answers complete questions in %s mode and kee
   expect(wrapper.get('.user-question-card').text()).toContain('新的确认');
   expect(wrapper.get('.user-question-card').text()).not.toContain('选择主题');
 });
+
+it('preserves partial output and reports terminal interruption separately from connection loss', async()=>{
+  const streamTurn=vi.fn(async (_s,_c,cb,options)=>{
+    await options.onAccepted('turn');cb.onDelta('保留这段正文。');cb.onDone();
+    await cb.onEvent({eventId:'done',turnId:'turn',sequence:2,eventType:'done',data:{status:'Interrupted',reason:'max_steps',isComplete:false}});
+  });
+  configureAervoxClient({transport:{request:vi.fn(async <T>(_m:string,path:string)=>({items:path==='/v1/plugins'?[{id:'fixture-extension',enabled:1}]:[]}) as T),streamTurn,observeTurn:vi.fn(),decideToolApproval:vi.fn(),submitQuestionAnswers:vi.fn()}});
+  const plugin:BuiltinUIPlugin={id:'fixture-extension',setup(_registry,context){context!.navigation.setQuietStartup(true);void context!.sendMessage('长任务');}};
+  const wrapper=mount(UISurfaceHost,{props:{plugin:definition,surface:'main',platform:'web',viewProps:{plugins:[plugin],showCompanion:false}}});
+  await vi.waitFor(()=>expect(wrapper.text()).toContain('本次回复未完成'),{timeout:5000});
+  expect(wrapper.text()).toContain('保留这段正文。');
+  expect(wrapper.findAll('button').some(button=>button.text()==='恢复接收回复')).toBe(false);
+  expect(wrapper.findAll('.standard-conversation article')).toHaveLength(3);
+});

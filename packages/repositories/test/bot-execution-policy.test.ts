@@ -48,12 +48,13 @@ describe("durable Bot execution boundaries", () => {
 
   it("deduplicates acceptance and rejects attempts to upgrade a session or reuse another session's idempotency key", async () => {
     await accept("group");
-    const input = { turnId: "second", sessionId: "group", idempotencyKey: "idem_group", attemptId: "second_attempt", message: { id: "second_message", content: "second" }, consumeInbox: false };
+    const input = { turnId: "second", sessionId: "group", idempotencyKey: "idem_group", attemptId: "second_attempt", message: { id: "second_message", content: "group message" }, consumeInbox: false };
     expect(await repo.acceptTurn(ctx, input)).toMatchObject({ created: false, turn: { id: "turn_group", executionPolicy: "bot-group-member-v1" } });
+    await expect(repo.acceptTurn(ctx, { ...input, message: { ...input.message, content: "changed" } })).rejects.toMatchObject({ reason: "intent_mismatch" });
     await expect(repo.acceptTurn(ctx, { ...input, executionPolicy: "local-v1" })).rejects.toThrow("conversation_execution_policy_mismatch");
     await expect(repo.getOrCreateSession(ctx, "group", "group", null, "local-v1")).rejects.toThrow("conversation_execution_policy_mismatch");
     await repo.createSession(ctx, "local", { id: "local" });
-    await expect(repo.acceptTurn(ctx, { ...input, sessionId: "local" })).rejects.toThrow("conversation_execution_policy_mismatch");
+    await expect(repo.acceptTurn(ctx, { ...input, sessionId: "local" })).rejects.toMatchObject({ reason: "session_mismatch" });
     expect(await repo.listTurnAttempts(ctx, "turn_group")).toHaveLength(1);
   });
 

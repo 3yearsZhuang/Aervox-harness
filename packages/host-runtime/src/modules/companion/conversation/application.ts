@@ -1,6 +1,6 @@
 import { recoverApiOwnedTurn } from "./api-owned-recovery.js";
 import type { IConversationRepository, LocalContext, SqliteConversationRepository } from "@aervox/repositories";
-import { assertConversationExecutionPolicy } from "@aervox/repositories";
+import { assertConversationExecutionPolicy, normalizeTurnIntent } from "@aervox/repositories";
 import { executeConversationTurn, type ConversationRouteDeps, type ConversationTurnInput } from "./execution.js";
 
 /** HTTP and platform ingress share policy-aware atomic acceptance. */
@@ -12,9 +12,11 @@ export async function acceptConversationTurn(
   if (!session) throw new Error("session_not_found");
   assertConversationExecutionPolicy(session.executionPolicy);
   const bot = session.executionPolicy !== "local-v1";
+  const intent = normalizeTurnIntent(input, session.executionPolicy, ctx.actorId);
   return repo.acceptTurn(ctx, {
-    ...input,
-    ...(bot ? { execution: "api" as const, metadata: undefined, toolApprovalMode: "ask" as const } : {}),
+    ...input, metadata: intent.metadata, toolApprovalMode: intent.toolApprovalMode,
+    actorId: ctx.actorId, executionPolicy: session.executionPolicy,
+    ...(bot ? { execution: "api" as const } : {}),
     consumeInbox: !bot && input.consumeInbox,
   });
 }
@@ -30,7 +32,9 @@ export function executeAcceptedConversationTurn(
   const key = JSON.stringify([input.turnId, input.sessionId, input.attemptId]);
   const existing = active.get(key);
   if (existing) return existing;
-  const execution = executeConversationTurn(repo, ctx, input, deps).finally(() => active!.delete(key));
+  const execution = repo.getAcceptedTurnParameters(ctx, input.turnId).then(parameters =>
+    executeConversationTurn(repo, { ...ctx, actorId: parameters.actorId }, { ...input, ...parameters }, deps),
+  ).finally(() => active!.delete(key));
   active.set(key, execution);
   return execution;
 }
@@ -52,13 +56,18 @@ export interface ConversationQueryPort {
 /** The application owns repositories and execution assembly; adapters see only commands and projections. */
 export function createConversationApplication(
   repo: SqliteConversationRepository, deps: ConversationRouteDeps,
-  execute: (ctx: LocalContext, input: ConversationTurnInput) => Promise<void> = (ctx, input) => executeAcceptedConversationTurn(repo, ctx, input, deps),
+  execute?: (ctx: LocalContext, input: ConversationTurnInput) => Promise<void>,
 ): { commands: ConversationCommandPort; queries: ConversationQueryPort } {
+  const executePersisted = async (ctx: LocalContext, input: ConversationTurnInput) => {
+    if (!execute) return executeAcceptedConversationTurn(repo, ctx, input, deps);
+    const parameters = await repo.getAcceptedTurnParameters(ctx, input.turnId);
+    await execute({ ...ctx, actorId: parameters.actorId }, { ...input, ...parameters });
+  };
   return {
     commands: {
       ensureSession: repo.getOrCreateSession.bind(repo),
       accept: (ctx, input) => acceptConversationTurn(repo, ctx, input),
-      execute, requestCancel: repo.requestCancelTurnAttempt.bind(repo),
+      execute: executePersisted, requestCancel: repo.requestCancelTurnAttempt.bind(repo),
       recover: turnId => recoverApiOwnedTurn(repo, turnId),
     },
     queries: {
@@ -70,9 +79,8 @@ export function createConversationApplication(
         if (!turn || !["Created", "Running"].includes(turn.status) || turn.dispatchTarget !== "default" || turn.executionPolicy !== "local-v1") return null;
         const attempt = (await repo.listTurnAttempts(ctx, turnId)).find(candidate => candidate.status === "Running" && candidate.fencingToken === 0 && !candidate.leaseId);
         if (!attempt) return null;
-        const userMessage = await repo.getTurnUserMessage(ctx, turnId);
-        if (userMessage === null) throw new Error("Delegated turn has no persisted input");
-        return { turnId, sessionId: turn.sessionId, attemptId: attempt.id, userMessage };
+        const parameters = await repo.getAcceptedTurnParameters(ctx, turnId);
+        return { turnId, sessionId: turn.sessionId, attemptId: attempt.id, ...parameters };
       },
     },
   };

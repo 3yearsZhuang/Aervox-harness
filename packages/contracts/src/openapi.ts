@@ -27,7 +27,9 @@ import {
   cancelTurnResponseSchema,
   createLearningGoalSchema,
   createTurnRequestSchema,
+  turnAcceptanceConflictSchema,
   createTurnResponseSchema,
+  replayTurnResponseSchema,
   deltaEventDataSchema,
   doneEventDataSchema,
   emoteEventDataSchema,
@@ -256,6 +258,7 @@ registry.register("CreateLearningGoal", createLearningGoalSchema);
 registry.register("UpdateLearningGoal", updateLearningGoalSchema);
 registry.register("CreateTurnRequest", createTurnRequestSchema);
 registry.register("CreateTurnResponse", createTurnResponseSchema);
+registry.register("ReplayTurnResponse", replayTurnResponseSchema);
 registry.register("CancelTurnResponse", cancelTurnResponseSchema);
 registry.register("TurnStreamEvent", turnStreamEventSchema);
 registry.register("MessageEventData", messageEventDataSchema);
@@ -607,6 +610,10 @@ registry.registerPath({
     },
   },
   responses: {
+    200: {
+      description: "Existing Turn with the same accepted intent and its current status",
+      content: { "application/json": { schema: replayTurnResponseSchema } },
+    },
     201: {
       description: "Created",
       content: { "application/json": { schema: createTurnResponseSchema } },
@@ -616,8 +623,8 @@ registry.registerPath({
       content: { "application/json": { schema: errorEventDataSchema } },
     },
     409: {
-      description: "IDEMPOTENCY_KEY_REUSED",
-      content: { "application/json": { schema: errorEventDataSchema } },
+      description: "Idempotency key belongs to a different or unverifiable accepted intent",
+      content: { "application/json": { schema: turnAcceptanceConflictSchema } },
     },
   },
 });

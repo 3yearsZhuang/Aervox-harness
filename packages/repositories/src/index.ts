@@ -11,6 +11,7 @@ export * from "./proactive-vault-auth.js";
 export * from "./errors.js";
 export * from "./local-context.js";
 export * from "./conversation-execution-policy.js";
+export * from "./conversation-turn-intent.js";
 export * from "./conversation-branch-tree.js";
 export * from "./memory-eligibility.js";
 export * from "./memory-deletion-protocol.js";

@@ -296,7 +296,7 @@ it('uses a new idempotency key for a new action instead of the retry control', a
   expect(streamTurn.mock.calls[1]![3].idempotencyKey).not.toBe(streamTurn.mock.calls[0]![3].idempotencyKey);
 });
 
-it('uses a new idempotency key when an explicit retry targets another session', async () => {
+it('detaches an uncertain reservation on session switch and uses a new key for the next action', async () => {
   const otherSession = { ...recentSession, id: 'ses_other', title: '另一个话题' };
   localStorage.setItem('aervox_active_session_id', otherSession.id);
   request.mockImplementation(async (method, path) => path === '/v1/sessions' && method === 'GET'
@@ -307,7 +307,8 @@ it('uses a new idempotency key when an explicit retry targets another session', 
   await flushPromises();
   expect(streamTurn.mock.calls[0]![0]).toBe('ses_other');
   await wrapper.findAll('.pc-choice')[0]!.trigger('click');
-  await wrapper.find('.pc-retry').trigger('click');
+  expect(wrapper.find('.pc-retry').exists()).toBe(false);
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');
   await flushPromises();
   expect(streamTurn.mock.calls[1]![0]).toBe('ses_recent');
   expect(streamTurn.mock.calls[1]![3].idempotencyKey).not.toBe(streamTurn.mock.calls[0]![3].idempotencyKey);
@@ -459,4 +460,46 @@ it('keeps a new question visible when an earlier multi-question answer finishes'
     {id:'q',selected:['A','B'],custom:undefined},{id:'detail',selected:[],custom:'带示例'},
   ],expect.any(AbortSignal));
   expect(wrapper.get('.pc-interaction').text()).toContain('新的确认');
+});
+
+it('does not replace a recoverable reply when reselecting the current session', async () => {
+  streamTurn.mockImplementationOnce(async (_s,_c,cb,options)=>{
+    await options.onAccepted('turn');cb.onDelta('原始正文。');
+    await cb.onEvent({eventId:'seen',turnId:'turn',sequence:1,eventType:'delta',data:{text:'原始正文。'}});
+    throw new Error('disconnected');
+  });
+  observeTurn.mockImplementationOnce(async (_id,cb)=>{cb.onDelta('后续正文。');cb.onDone();});
+  const wrapper=await mountSurface();
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');await flushPromises();
+  await wrapper.findAll('.pc-choice')[0]!.trigger('click');
+  expect(wrapper.get('.pc-dialogue-text').text()).toBe('原始正文。');
+  await wrapper.get('.pc-resume').trigger('click');await flushPromises();
+  expect(wrapper.get('.pc-dialogue-text').text()).toBe('原始正文。后续正文。');
+  expect(streamTurn).toHaveBeenCalledOnce();
+});
+it('detaches recovery when selecting another session', async () => {
+  const other={...recentSession,id:'ses_other',title:'另一个话题'};
+  localStorage.setItem('aervox_active_session_id',other.id);
+  request.mockImplementation(async (method,path)=>path==='/v1/sessions'&&method==='GET'?{items:[recentSession,other]}:requestImplementation(method,path));
+  streamTurn.mockImplementationOnce(async (_s,_c,cb,options)=>{await options.onAccepted('turn');cb.onDelta('旧会话正文。');throw new Error('offline');});
+  const wrapper=await mountSurface();
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');await flushPromises();
+  expect(wrapper.find('.pc-resume').exists()).toBe(true);
+  await wrapper.findAll('.pc-choice')[0]!.trigger('click');await flushPromises();
+  expect(localStorage.getItem('aervox_active_session_id')).toBe('ses_recent');
+  expect(wrapper.find('.pc-resume').exists()).toBe(false);
+  expect(wrapper.find('.pc-feedback').exists()).toBe(false);
+  expect(observeTurn).not.toHaveBeenCalled();
+});
+it('preserves partial output when a terminal interruption has no error event', async () => {
+  streamTurn.mockImplementationOnce(async (_s,_c,cb,options)=>{
+    await options.onAccepted('turn');cb.onDelta('已完成的部分。');cb.onDone();
+    await cb.onEvent({eventId:'done',turnId:'turn',sequence:2,eventType:'done',data:{status:'Interrupted',reason:'max_steps',isComplete:false}});
+  });
+  const wrapper=await mountSurface();
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');await flushPromises();
+  expect(wrapper.get('.pc-dialogue-text').text()).toBe('已完成的部分。');
+  expect(wrapper.get('.pc-feedback').attributes('data-kind')).toBe('turn-error');
+  expect(wrapper.get('.pc-feedback').text()).toContain('本次回复未完成');
+  expect(wrapper.find('.pc-resume').exists()).toBe(false);
 });

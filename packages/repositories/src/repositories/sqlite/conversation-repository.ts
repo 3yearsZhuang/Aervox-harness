@@ -157,6 +157,10 @@ export class SqliteConversationRepository implements IConversationRepository {
     return this.turnStore.getTurn(ctx, turnId);
   }
 
+  getAcceptedTurnParameters(ctx: LocalContext, turnId: string) {
+    return this.turnStore.getAcceptedTurnParameters(ctx, turnId);
+  }
+
   async getTurnUserMessage(ctx: LocalContext, turnId: string): Promise<string | null> {
     return this.turnStore.getTurnUserMessage(ctx, turnId);
   }

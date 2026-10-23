@@ -15,6 +15,7 @@ import {
   renameSessionRequestSchema,
 } from "@aervox/contracts";
 import {
+  TurnIntentConflictError,
   type SqliteConversationRepository,
   type SqlitePrivacyRepository,
   type SqliteAgentInboxRepository,
@@ -149,40 +150,25 @@ export function registerConversationRoutes(
     // 确保会话存在（turns.session_id 外键引用 sessions）
     await conversationRepo.getOrCreateSession(tenant, sessionId, "Aervox 会话");
 
-    // 检查幂等性
-    const existingTurn = await conversationRepo.getTurnByIdempotencyKey(tenant, idempotencyKey);
-    if (existingTurn) {
-      if (existingTurn.sessionId !== sessionId) return reply.code(409).send({ code: "IDEMPOTENCY_KEY_REUSED" });
-      return reply.code(200).send({
-        turnId: existingTurn.id,
-        status: existingTurn.status,
-        eventsUrl: `/v1/turns/${existingTurn.id}/events`,
-        cancelUrl: `/v1/turns/${existingTurn.id}/cancel`,
-      });
-    }
-
-    let userMessage = parsed.data.message.content;
-
-    // 多模态输入（CAP-012）：消息携带附件引用时附加结构化清单，
-    // Agent Loop 消费 userMessage 即可感知附件（图片/音频/文档），后续接 OCR/转写管线。
-    const attachments = parsed.data.message.attachments ?? [];
-    if (attachments.length > 0) {
-      const list = attachments
-        .map((a) => `- ${a.name ?? a.attachmentId}${a.mediaType ? ` (${a.mediaType})` : ""} [id: ${a.attachmentId}]`)
-        .join("\n");
-      userMessage = `${userMessage}\n\n[附件清单]\n${list}`;
-    }
-
     const turnId = nextTurnId();
     const messageId = `msg_${Date.now().toString(36)}_${(++seq).toString(36)}`;
     const attemptId = `atp_${turnId}`;
     const executionConfig = deps.executionConfig ?? loadExecutionConfig();
     const execution = executionConfig.turnExecution === "inline" ? "api" : executionConfig.loopDispatch;
-    const accepted = await acceptConversationTurn(conversationRepo, tenant, {
-      execution, metadata: parsed.data.metadata, toolApprovalMode: parsed.data.toolApprovalMode, actorId: tenant.actorId,
-      turnId, sessionId, idempotencyKey, attemptId,
-      message: { id: messageId, content: userMessage }, consumeInbox: Boolean(deps.inboxRepo),
-    });
+    let accepted: Awaited<ReturnType<typeof acceptConversationTurn>>;
+    try {
+      accepted = await acceptConversationTurn(conversationRepo, tenant, {
+        execution, metadata: parsed.data.metadata, toolApprovalMode: parsed.data.toolApprovalMode,
+        turnId, sessionId, idempotencyKey, attemptId, references: parsed.data.references,
+        message: { id: messageId, ...parsed.data.message }, consumeInbox: Boolean(deps.inboxRepo),
+      });
+    } catch (error) {
+      if (error instanceof TurnIntentConflictError) return reply.code(409).send({
+        code: "IDEMPOTENCY_KEY_REUSED", reason: error.reason, retryable: false,
+        message: error.reason === "intent_unavailable" ? "The original Turn intent cannot be verified" : "Idempotency key belongs to a different Turn intent",
+      });
+      throw error;
+    }
     if (!accepted.created) {
       return reply.code(200).send({
         turnId: accepted.turn.id, status: accepted.turn.status,
@@ -190,15 +176,16 @@ export function registerConversationRoutes(
       });
     }
     // Execute precisely the persisted input; only the committing request dispatches the Loop.
-    userMessage = accepted.message.content;
+    const userMessage = accepted.message.content;
+    const acceptedIntent = accepted.intent!;
     // CR-027: acceptance remains independent of background execution and SSE observation.
     const runLoop = async () => {
       const controller = new AbortController();
       activeTurns.set(turnId, controller);
       try {
         await (execute ?? (input => executeConversationTurn(conversationRepo, tenant, input, deps)))({
-          turnId, sessionId, attemptId, userMessage, metadata: parsed.data.metadata,
-          toolApprovalMode: parsed.data.toolApprovalMode, actorId: tenant.actorId, signal: controller.signal,
+          turnId, sessionId, attemptId, userMessage, metadata: acceptedIntent.metadata,
+          toolApprovalMode: acceptedIntent.toolApprovalMode, actorId: acceptedIntent.actorId ?? undefined, signal: controller.signal,
         });
       } finally {
         if (activeTurns.get(turnId) === controller) activeTurns.delete(turnId);
