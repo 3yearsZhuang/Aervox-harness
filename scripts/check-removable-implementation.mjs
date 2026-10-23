@@ -16,7 +16,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve, relative, dirname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { collectSourceFiles } from "./import-boundary.mjs";
-import { parse } from "@babel/parser";
+import { extractSpecifiers, resolveRepoRelative } from "./source-imports.mjs";
 
 export const REMOVABLE_TARGETS = [
   {
@@ -53,6 +53,7 @@ export const REMOVABLE_TARGETS = [
     name: "专注模式第一方插件实现（服务端 + UI + 专属样式）",
     pilot: "BTD-11",
     implementationFiles: [
+      "plugins/focus-mode/src/contracts/terms.ts",
       "plugins/focus-mode/src/server/index.ts",
       "plugins/focus-mode/src/server/contracts.ts",
       "plugins/focus-mode/src/server/focus-tools.ts",
@@ -89,6 +90,8 @@ export const REMOVABLE_TARGETS = [
       "plugins/focus-mode/test/plugin-registration.test.ts",
       "plugins/focus-mode/test/ui-components.test.ts",
       "plugins/focus-mode/test/focus-learning.test.ts",
+      "plugins/focus-mode/test/terms-contract.test.ts",
+      "plugins/focus-mode/test/terms-types.ts",
     ],
     /**
      * 物理移除计划（`run-removability-drill.mjs` 依此演练"代码缺席"）：
@@ -113,80 +116,6 @@ export const REMOVABLE_TARGETS = [
   },
 ];
 
-const CANDIDATE_EXTS = ["", ".ts", ".js", ".mjs", "/index.ts", "/index.js"];
-const JS_TS_MAP = [
-  [".js", [".ts", ".tsx", ".d.ts"]],
-  [".mjs", [".mts"]],
-];
-
-function resolveSpecifier(fromRelFile, specifier) {
-  const hostPath = specifier.startsWith("@aervox/host-runtime/")
-    ? specifier.slice("@aervox/host-runtime/".length) : null;
-  if (hostPath === null && !specifier.startsWith(".")) return null;
-  const baseDir = dirname(resolve(process.cwd(), fromRelFile));
-  const absTarget = hostPath === null ? resolve(baseDir, specifier)
-    : resolve(process.cwd(), "packages/host-runtime/src", hostPath);
-  for (const ext of CANDIDATE_EXTS) {
-    const candidate = absTarget + ext;
-    if (existsSync(candidate)) {
-      return relative(process.cwd(), candidate).split(sep).join("/");
-    }
-  }
-  for (const jsMap of JS_TS_MAP) {
-    if (!absTarget.endsWith(jsMap[0])) continue;
-    const stem = absTarget.slice(0, -jsMap[0].length);
-    for (const tsExt of jsMap[1]) {
-      const candidate = stem + tsExt;
-      if (existsSync(candidate)) {
-        return relative(process.cwd(), candidate).split(sep).join("/");
-      }
-    }
-  }
-  return null;
-}
-
-function extractImports(source, fileName) {
-  if (fileName.endsWith(".vue")) {
-    return [...source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)]
-      .flatMap((match) => extractImports(match[1], "script.ts"));
-  }
-  const specifiers = [];
-  const ast = parse(source, { sourceType: "module", plugins: fileName.endsWith(".tsx") || fileName.endsWith(".jsx") ? ["typescript", "jsx"] : ["typescript"], createImportExpressions: true });
-  const visit = (node) => {
-    if (!node || typeof node !== "object" || typeof node.type !== "string") return;
-    switch (node.type) {
-      case "TSImportType":
-        if (node.argument?.value ?? node.source?.value) specifiers.push(node.argument?.value ?? node.source.value);
-        break;
-      case "ImportExpression":
-        if (node.source?.value) specifiers.push(node.source.value);
-        else if (node.source?.type === "TemplateLiteral" && node.source.expressions.length === 0) specifiers.push(node.source.quasis[0].value.cooked);
-        break;
-      case "ImportDeclaration":
-      case "ExportNamedDeclaration":
-      case "ExportAllDeclaration":
-        if (node.source?.value) specifiers.push(node.source.value);
-        break;
-      case "CallExpression":
-        if (node.callee?.type === "Import" && node.arguments?.[0]?.value) {
-          specifiers.push(node.arguments[0].value);
-        }
-        break;
-    }
-    for (const key of Object.keys(node)) {
-      if (key === "type" || key === "loc" || key === "start" || key === "end") continue;
-      const child = node[key];
-      if (Array.isArray(child)) {
-        for (const item of child) if (item && typeof item === "object") visit(item);
-      } else if (child && typeof child === "object") {
-        visit(child);
-      }
-    }
-  };
-  visit(ast.program);
-  return specifiers;
-}
-
 export function auditTarget(target, fileList) {
   const violations = [];
   const implSet = new Set(target.implementationFiles);
@@ -201,12 +130,12 @@ export function auditTarget(target, fileList) {
       continue;
     }
     let specifiers;
-    try { specifiers = extractImports(source, relFile); } catch (error) {
+    try { specifiers = extractSpecifiers(source, relFile); } catch (error) {
       violations.push({ targetId: target.id, file: relFile, message: `无法解析受审源码: ${error.message}` });
       continue;
     }
     for (const specifier of specifiers) {
-      const resolved = resolveSpecifier(relFile, specifier);
+      const resolved = resolveRepoRelative(relFile, specifier);
       if (resolved && implSet.has(resolved)) {
         violations.push({
           targetId: target.id,

@@ -18,7 +18,7 @@ import { privacyApi } from "./privacy-api.js";
 import { pluginConfigApi } from "./plugin-config-api.js";
 import { createMemoryNodeRequestSchema, memoryNodeSchema, listMemoryNodesResponseSchema } from "./memory-api.js";
 import type { OpenAPIObject } from "openapi3-ts/oas31";
-import { getPluginOpenApiRoutes, getPluginApiRevision, type PluginOpenApiRoute } from "./plugin-api-registry.js";
+import { type PluginApiRegistry, type PluginOpenApiRoute } from "./plugin-api-registry.js";
 import {
   OpenAPIRegistry,
   OpenApiGeneratorV31,
@@ -27,7 +27,9 @@ import {
   cancelTurnResponseSchema,
   createLearningGoalSchema,
   createTurnRequestSchema,
+  turnAcceptanceConflictSchema,
   createTurnResponseSchema,
+  replayTurnResponseSchema,
   deltaEventDataSchema,
   doneEventDataSchema,
   emoteEventDataSchema,
@@ -256,6 +258,7 @@ registry.register("CreateLearningGoal", createLearningGoalSchema);
 registry.register("UpdateLearningGoal", updateLearningGoalSchema);
 registry.register("CreateTurnRequest", createTurnRequestSchema);
 registry.register("CreateTurnResponse", createTurnResponseSchema);
+registry.register("ReplayTurnResponse", replayTurnResponseSchema);
 registry.register("CancelTurnResponse", cancelTurnResponseSchema);
 registry.register("TurnStreamEvent", turnStreamEventSchema);
 registry.register("MessageEventData", messageEventDataSchema);
@@ -607,6 +610,10 @@ registry.registerPath({
     },
   },
   responses: {
+    200: {
+      description: "Existing Turn with the same accepted intent and its current status",
+      content: { "application/json": { schema: replayTurnResponseSchema } },
+    },
     201: {
       description: "Created",
       content: { "application/json": { schema: createTurnResponseSchema } },
@@ -616,8 +623,8 @@ registry.registerPath({
       content: { "application/json": { schema: errorEventDataSchema } },
     },
     409: {
-      description: "IDEMPOTENCY_KEY_REUSED",
-      content: { "application/json": { schema: errorEventDataSchema } },
+      description: "Idempotency key belongs to a different or unverifiable accepted intent",
+      content: { "application/json": { schema: turnAcceptanceConflictSchema } },
     },
   },
 });
@@ -1035,6 +1042,7 @@ function registerJsonEndpoint(endpoint: ApiEndpoint): void {
     request: {
       ...(endpoint.params ? { params: endpoint.params } : {}),
       ...(endpoint.query ? { query: endpoint.query } : {}),
+      ...(endpoint.openapi?.headers ? { headers: endpoint.openapi.headers } : {}),
       ...(endpoint.body ? { body: {
         ...(endpoint.bodyRequired === undefined ? {} : { required: endpoint.bodyRequired }),
         content: { "application/json": { schema: endpoint.openapi?.body ?? endpoint.body } },
@@ -1214,7 +1222,7 @@ registry.registerPath({
 registry.registerPath({
   method: "post", path: "/v1/questions/{questionId}/attempts", summary: "作答题目（不可变学习事实，可关联练习会话）", tags: ["Learning"],
   request: { params: learningQuestionIdParam, headers: commonHeaders.extend({ "Idempotency-Key": z.string().min(1).optional() }), body: { content: { "application/json": { schema: createAttemptRequestSchema } } } },
-  responses: { 201: { description: "Attempt created" }, 200: { description: "Existing idempotent attempt" }, 400: { description: "请求或会话信息非法" }, 404: { description: "QUESTION_NOT_FOUND" }, 409: { description: "练习会话未激活或题目不属于该会话" } },
+  responses: { 201: { description: "Attempt created atomically with derived state, review and Outbox" }, 200: { description: "Existing idempotent attempt with its original nextStep" }, 400: { description: "请求或会话信息非法" }, 404: { description: "QUESTION_NOT_FOUND" }, 409: { description: "练习会话未激活、idempotency_key_reused 或旧作答缺少可证明完整提交的回执 answer_receipt_unavailable" } },
 });
 
 registry.registerPath({
@@ -1324,7 +1332,7 @@ function registerPluginRouteInto(target: OpenAPIRegistry, route: PluginOpenApiRo
     request: {
       ...(route.params ? { params: route.params } : {}),
       ...(route.query ? { query: route.query } : {}),
-      headers: commonHeaders,
+      headers: route.headers ?? commonHeaders,
       ...(route.body
         ? { body: { content: { "application/json": { schema: route.body } } } }
         : {}),
@@ -1357,8 +1365,6 @@ function collectRouteKeys(doc: OpenAPIObject): Set<string> {
   return keys;
 }
 
-let cachedDocument: OpenAPIObject | null = null;
-let cachedPluginApiRevision = -1;
 /** 内核端点文档（不含插件贡献）；插件路由不再写入内核注册表，故可安全缓存 */
 let cachedKernelDocument: OpenAPIObject | null = null;
 
@@ -1410,15 +1416,17 @@ function buildKernelDocument(): OpenAPIObject {
  * 冲突语义：内核端点冲突忽略并告警；插件的同名贡献由注册表选择最后仍存活的一次登记。
  * 贡献注销会使缓存失效，保证旧片段不因缓存继续暴露。
  */
-export function buildOpenApiDocument(): OpenAPIObject {
-  const revision = getPluginApiRevision();
-  if (cachedDocument && cachedPluginApiRevision === revision) return cachedDocument;
+let hostDocumentCache = new WeakMap<PluginApiRegistry, { revision: number; document: OpenAPIObject }>();
+export function buildOpenApiDocument(apiRegistry?: PluginApiRegistry): OpenAPIObject {
+  const revision = apiRegistry?.getPluginApiRevision() ?? 0;
+  const cached = apiRegistry ? hostDocumentCache.get(apiRegistry) : undefined;
+  if (cached && cached.revision === revision) return cached.document;
 
   const kernel = buildKernelDocument();
   const occupied = collectRouteKeys(kernel);
   const accepted: PluginOpenApiRoute[] = [];
 
-  for (const route of getPluginOpenApiRoutes()) {
+  for (const route of (apiRegistry?.getPluginOpenApiRoutes() ?? [])) {
     const key = `${route.method.toUpperCase()} ${route.path}`;
     if (occupied.has(key)) {
       console.warn(`[contracts] 插件 OpenAPI 路由与既有端点冲突，已忽略：${key}`);
@@ -1429,20 +1437,19 @@ export function buildOpenApiDocument(): OpenAPIObject {
   }
 
   if (accepted.length === 0) {
-    cachedDocument = kernel;
-    cachedPluginApiRevision = revision;
-    return cachedDocument;
+    if (apiRegistry) hostDocumentCache.set(apiRegistry, { revision, document: kernel });
+    return kernel;
   }
 
   const pluginRegistry = new OpenAPIRegistry();
   for (const route of accepted) registerPluginRouteInto(pluginRegistry, route);
 
-  cachedDocument = generateDocument([...registry.definitions, ...pluginRegistry.definitions]);
-  cachedPluginApiRevision = revision;
-  return cachedDocument;
+  const document = generateDocument([...registry.definitions, ...pluginRegistry.definitions]);
+  if (apiRegistry) hostDocumentCache.set(apiRegistry, { revision, document });
+  return document;
 }
 
 /** 清空文档缓存（插件登记变更后需重建；测试隔离用） */
 export function resetOpenApiDocumentCache(): void {
-  cachedDocument = null;
+  hostDocumentCache = new WeakMap();
 }

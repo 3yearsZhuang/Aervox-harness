@@ -7,8 +7,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
  */
 const notifyWorkerPressure = vi.fn().mockResolvedValue(true);
 
-vi.mock("@aervox/repositories", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@aervox/repositories")>();
+vi.mock("@aervox/process-coordination", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@aervox/process-coordination")>();
   return { ...actual, notifyWorkerPressure };
 });
 

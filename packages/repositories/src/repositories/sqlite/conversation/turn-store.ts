@@ -7,7 +7,8 @@ import { sessions, turns, messageVersions, outboxEvents, turnAttempts, agentInbo
 import type { LocalContext } from "../../../local-context.js";
 import type { TurnModel, MessageVersionModel, TurnAcceptanceInput, TurnAcceptanceResult, TurnAttemptModel } from "../../types/index.js";
 import { withSessionLock } from "../../../session-lock.js";
-import { notifyWorkerWakeup } from "../../../worker-ipc.js";
+import { notifyWorkerWakeup } from "@aervox/process-coordination";
+import { normalizeTurnIntent, turnIntentHash, renderTurnIntentMessage, TurnIntentConflictError, type AcceptedTurnParameters, type NormalizedTurnIntent } from "../../../conversation-turn-intent.js";
 import { assertConversationExecutionPolicy, conversationDispatchTarget } from "../../../conversation-execution-policy.js";
 
 export class TurnStore {
@@ -15,7 +16,7 @@ export class TurnStore {
 
   async createTurnWithOutbox(
     ctx: LocalContext,
-    turnData: { id: string; sessionId: string; idempotencyKey: string; status?: string },
+    turnData: { id: string; sessionId: string; idempotencyKey: string; status?: string; requestHash?: string },
     userMessage: { id: string; content: string },
     outboxEventData?: { id: string; eventType: string; idempotencyKey: string; payload: unknown },
   ): Promise<{ turn: TurnModel; message: MessageVersionModel }> {
@@ -26,26 +27,31 @@ export class TurnStore {
 
   /** Acceptance is one writer commit: input consumption, Turn, Outbox and initial Attempt. */
   async acceptTurn(ctx: LocalContext, input: TurnAcceptanceInput): Promise<TurnAcceptanceResult> {
-    const result = await withSessionLock(`turn-accept:${input.sessionId}`, () => this.db.transaction(async (tx): Promise<TurnAcceptanceResult> => {
+    const result = await withSessionLock(`turn-idempotency:${input.idempotencyKey}`, () => withSessionLock(`turn-accept:${input.sessionId}`, () => this.db.transaction(async (tx): Promise<TurnAcceptanceResult> => {
       const [existing] = await tx.select().from(turns).where(eq(turns.idempotencyKey, input.idempotencyKey));
       const policy = await this.readSessionPolicy(tx, input.sessionId, input.executionPolicy);
+      const intent = normalizeTurnIntent(input, policy, ctx.actorId);
+      const requestHash = turnIntentHash(intent);
       if (existing) {
+        if (existing.sessionId !== input.sessionId) throw new TurnIntentConflictError("session_mismatch");
         this.assertTurnPolicy(existing, input.sessionId, policy);
+        if (!existing.requestHash || !/^turn-intent-v1:[a-f0-9]{64}$/.test(existing.requestHash)) throw new TurnIntentConflictError("intent_unavailable");
+        if (existing.requestHash !== requestHash) throw new TurnIntentConflictError("intent_mismatch");
         return { created: false, turn: existing as TurnModel };
       }
       const now = new Date().toISOString();
-      const inbox = input.consumeInbox && policy !== "bot-group-member-v1" ? await tx.select().from(agentInboxItems).where(and(
+      const inbox = input.consumeInbox && policy === "local-v1" ? await tx.select().from(agentInboxItems).where(and(
         eq(agentInboxItems.sessionId, input.sessionId), eq(agentInboxItems.consumeBoundary, "next-turn"),
         eq(agentInboxItems.status, "pending"),
         or(isNull(agentInboxItems.expiresAt), gt(agentInboxItems.expiresAt, now)),
       )).orderBy(agentInboxItems.createdAt, agentInboxItems.id).limit(20) : [];
       const content = [...inbox.map((item) => typeof item.payloadJson === "string"
-        ? item.payloadJson : JSON.stringify(item.payloadJson)), input.message.content].join("\n\n");
+        ? item.payloadJson : JSON.stringify(item.payloadJson)), renderTurnIntentMessage(intent)].join("\n\n");
       const accepted = await this.insertTurn(tx, {
-        id: input.turnId, sessionId: input.sessionId, idempotencyKey: input.idempotencyKey,
+        id: input.turnId, sessionId: input.sessionId, idempotencyKey: input.idempotencyKey, requestHash,
       }, { ...input.message, content }, {
-        id: `outbox_${input.turnId}`, eventType: input.execution === "worker" ? "agent.turn.requested" : "turn.created", idempotencyKey: `idem_outbox_${input.turnId}`,
-        payload: { turnId: input.turnId, sessionId: input.sessionId, execution: input.execution ?? "api", metadata: input.metadata, toolApprovalMode: input.toolApprovalMode, actorId: input.actorId, userMessage: content },
+        id: `outbox_${input.turnId}`, eventType: policy === "local-v1" && input.execution === "worker" ? "agent.turn.requested" : "turn.created", idempotencyKey: `idem_outbox_${input.turnId}`,
+        payload: { turnId: input.turnId, sessionId: input.sessionId, execution: policy === "local-v1" ? input.execution ?? "api" : "api", metadata: intent.metadata, toolApprovalMode: intent.toolApprovalMode, actorId: intent.actorId ?? undefined, userMessage: content, intent, requestHash },
       });
       const [attempt] = await tx.insert(turnAttempts).values({
         id: input.attemptId, turnId: input.turnId, attempt: 1, fencingToken: 0, status: "Running", startedAt: now,
@@ -56,8 +62,8 @@ export class TurnStore {
         }).where(and(inArray(agentInboxItems.id, inbox.map((item) => item.id)), eq(agentInboxItems.status, "pending"))).returning();
         if (consumed.length !== inbox.length) throw new Error("inbox_acceptance_conflict");
       }
-      return { created: true, ...accepted, attempt: attempt as TurnAttemptModel };
-    }));
+      return { created: true, ...accepted, attempt: attempt as TurnAttemptModel, intent };
+    })));
     if (result.created) void notifyWorkerWakeup("outbox");
     return result;
   }
@@ -96,7 +102,7 @@ export class TurnStore {
 
   private async insertTurn(
     tx: Parameters<Parameters<AervoxDatabase["transaction"]>[0]>[0],
-    turnData: { id: string; sessionId: string; idempotencyKey: string; status?: string },
+    turnData: { id: string; sessionId: string; idempotencyKey: string; status?: string; requestHash?: string },
     userMessage: { id: string; content: string },
     outboxEventData?: { id: string; eventType: string; idempotencyKey: string; payload: unknown },
   ): Promise<{ turn: TurnModel; message: MessageVersionModel }> {
@@ -135,6 +141,24 @@ export class TurnStore {
       .orderBy(messageVersions.version)
       .limit(1);
     return found?.content ?? null;
+  }
+
+  /** Resume from the accepted receipt only; caller parameters and missing legacy receipts are never substituted. */
+  async getAcceptedTurnParameters(ctx: LocalContext, turnId: string): Promise<AcceptedTurnParameters> {
+    const turn = await this.getTurn(ctx, turnId);
+    if (!turn?.requestHash || !/^turn-intent-v1:[a-f0-9]{64}$/.test(turn.requestHash)) throw new TurnIntentConflictError("intent_unavailable");
+    const [receipt] = await this.db.select({ payload: outboxEvents.payload }).from(outboxEvents).where(eq(outboxEvents.id, `outbox_${turnId}`));
+    let intent: NormalizedTurnIntent;
+    try {
+      const payload = receipt?.payload as { intent?: NormalizedTurnIntent; requestHash?: string } | undefined;
+      if (!payload?.intent || payload.requestHash !== turn.requestHash || payload.intent.version !== 1
+        || payload.intent.sessionId !== turn.sessionId || payload.intent.executionPolicy !== turn.executionPolicy
+        || turnIntentHash(payload.intent) !== turn.requestHash) throw new Error("invalid_acceptance_receipt");
+      intent = payload.intent;
+    } catch { throw new TurnIntentConflictError("intent_unavailable"); }
+    const userMessage = await this.getTurnUserMessage(ctx, turnId);
+    if (userMessage === null) throw new TurnIntentConflictError("intent_unavailable");
+    return { userMessage, metadata: intent.metadata, toolApprovalMode: intent.toolApprovalMode, actorId: intent.actorId ?? undefined };
   }
 
   async getTurnByIdempotencyKey(

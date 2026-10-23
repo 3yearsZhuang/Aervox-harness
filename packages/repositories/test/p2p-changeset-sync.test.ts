@@ -15,16 +15,21 @@ import fs from "node:fs";
 import {
   createDatabase,
   initDatabaseSchema,
+  type AervoxDatabase
+} from "../src/index.js";
+import {
   createDeviceDescriptor,
+  executeP2PBidirectionalSync,
   generateDeviceIdentity,
   encryptSyncPayload,
-  decryptSyncPayload,
+  decryptSyncPayload
+} from "@aervox/sync-runtime";
+import {
   buildP2PSyncBundle,
   applyP2PSyncBundle,
-  executeP2PBidirectionalSync,
-  DEFAULT_SYNC_TABLES,
-  type AervoxDatabase,
-} from "../src/index.js";
+  createSqliteSyncChangesetPort,
+  DEFAULT_SYNC_TABLES
+} from "../src/sync/index.js";
 import { establishVerifiedPairing } from "./helpers/p2p-session.js";
 import type { Client } from "@libsql/client";
 
@@ -251,8 +256,8 @@ describe("ITER-028: 纯本地多端点对点加密同步与 SQLite Changeset 对
 
     // 执行双向 P2P 加密增量对齐（两端各自持有方向感知会话）
     const syncRes = await executeP2PBidirectionalSync({
-      nodeA: { client: desktopConn.client, deviceId: pairing.initiatorIdentity.deviceId },
-      nodeB: { client: mobileConn.client, deviceId: pairing.responderIdentity.deviceId },
+      nodeA: { changesets: createSqliteSyncChangesetPort(desktopConn.client), deviceId: pairing.initiatorIdentity.deviceId },
+      nodeB: { changesets: createSqliteSyncChangesetPort(mobileConn.client), deviceId: pairing.responderIdentity.deviceId },
       sessions: { nodeA: desktopSession, nodeB: mobileSession },
       watermarks: {
         aSince: baselineTime,

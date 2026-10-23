@@ -7,6 +7,7 @@ import type { FastifyInstance } from "fastify";
 import { createLearningGoalSchema, updateLearningGoalSchema, updateMistakeRequestSchema } from "@aervox/contracts";
 import type { SqliteLearningRepository } from "@aervox/repositories";
 import { resolveLocalContext } from "../../../shared/local-context.js";
+import { createLearningAnswerService } from "./answer-service.js";
 import {
   createReviewItem,
   getLocalDayBounds,
@@ -33,27 +34,6 @@ function validTimeZone(value: string): boolean {
   } catch {
     return false;
   }
-}
-
-function judgeAnswer(answerSpec: unknown, answer: string): "correct" | "incorrect" | "unverifiable" {
-  if (
-    !answerSpec ||
-    typeof answerSpec !== "object" ||
-    !("answer" in answerSpec) ||
-    typeof answerSpec.answer !== "string"
-  ) {
-    return "unverifiable";
-  }
-
-  return answer.trim().toLocaleLowerCase() === answerSpec.answer.trim().toLocaleLowerCase()
-    ? "correct"
-    : "incorrect";
-}
-
-function nextStepFor(judgement: "correct" | "incorrect" | "unverifiable"): string {
-  if (judgement === "correct") return "continue";
-  if (judgement === "incorrect") return "review_scheduled";
-  return "await_review";
 }
 
 function practiceReport(sessionId: string, attempted: Array<{ judgement: string; hintCount?: number | null; timeSpentSec?: number | null }>, questionCount: number) {
@@ -107,6 +87,7 @@ export function registerLearningRoutes(
   learningRepo: SqliteLearningRepository,
   questionBankRegistry?: QuestionBankRegistry,
 ): void {
+  const answers = createLearningAnswerService(learningRepo);
   const qbRegistry = questionBankRegistry ?? new QuestionBankRegistry();
   if (!questionBankRegistry) {
     qbRegistry.register(new JsonQuestionBankProvider());
@@ -366,86 +347,21 @@ export function registerLearningRoutes(
       return reply.code(400).send({ error: "hintsUsed must be a non-negative integer" });
     }
     const idempotencyKey = req.headers["idempotency-key"];
-    const hasIdempotencyKey = typeof idempotencyKey === "string" && idempotencyKey.length > 0;
-    const question = await learningRepo.getQuestion(tenant, questionId);
-    if (!question) return reply.code(404).send({ error: "question not found" });
-    if (body.sessionId?.startsWith("practice_")) {
-      const session = await learningRepo.getPracticeSession(tenant, body.sessionId);
-      if (!session || session.status !== "active") {
-        return reply.code(409).send({ error: "practice session is not active" });
-      }
-      if (!session.questionIds.includes(questionId)) {
-        return reply.code(400).send({ error: "question does not belong to practice session" });
-      }
+    try {
+      const { attempt, created, nextStep } = await answers.recordAnswer(tenant, {
+        kind: "existing-question", questionId, sessionId: body.sessionId, answer: body.answer,
+        evidence: body.evidence, timeZone: body.timeZone, hintCount: hintsUsed, timeSpentSec: elapsedSeconds,
+        idempotencyKey: typeof idempotencyKey === "string" && idempotencyKey.length > 0 ? idempotencyKey : undefined,
+      });
+      return reply.code(created ? 201 : 200).send({ ...attempt, nextStep });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (message === "question_not_found") return reply.code(404).send({ error: "question not found" });
+      if (message === "practice_session_not_active") return reply.code(409).send({ error: "practice session is not active" });
+      if (message === "question_not_in_practice_session") return reply.code(400).send({ error: "question does not belong to practice session" });
+      if (message === "idempotency_key_reused" || message === "answer_receipt_unavailable") return reply.code(409).send({ error: message, code: message });
+      throw error;
     }
-    const judgement = judgeAnswer(question.answerSpec, body.answer);
-
-    const { attempt, created } = hasIdempotencyKey
-      ? await learningRepo.recordAttemptIdempotent(tenant, {
-          id: id("att"),
-          sessionId: body.sessionId ?? "ses_unknown",
-          questionId,
-          answer: body.answer,
-          judgement,
-          evidence: body.evidence,
-          idempotencyKey,
-          hintCount: hintsUsed,
-          timeSpentSec: elapsedSeconds,
-        })
-      : {
-          attempt: await learningRepo.recordAttempt(tenant, {
-            id: id("att"),
-            sessionId: body.sessionId ?? "ses_unknown",
-            questionId,
-            answer: body.answer,
-            judgement,
-            evidence: body.evidence,
-            idempotencyKey: null,
-            hintCount: hintsUsed,
-            timeSpentSec: elapsedSeconds,
-          }),
-          created: true,
-        };
-    if (!created) return reply.code(200).send({ ...attempt, nextStep: nextStepFor(attempt.judgement as "correct" | "incorrect" | "unverifiable") });
-    if (!question.knowledgeId || !["correct", "incorrect"].includes(judgement)) {
-      return reply.code(201).send({ ...attempt, nextStep: nextStepFor(judgement) });
-    }
-
-    const storedItem = await learningRepo.getKnowledgeItem(tenant, question.knowledgeId);
-    if (!storedItem) return reply.code(201).send(attempt);
-
-    const item = {
-      id: storedItem.id,
-      name: storedItem.concept,
-      correctCount: storedItem.correctCount,
-      wrongCount: storedItem.wrongCount,
-      correctStreak: storedItem.correctStreak,
-      mastery: storedItem.mastery,
-    };
-    const isCorrect = judgement === "correct";
-    updateAfterAnswer(item, isCorrect);
-    const timeZone = body.timeZone ?? "UTC";
-    const review = createReviewItem(item, isCorrect, { timeZone });
-    const masteryState = item.mastery >= 0.8 ? "mastered" : "learning";
-    await learningRepo.updatePracticeState(tenant, item.id, {
-      ...item,
-      masteryState,
-      masteryBasis: {
-        correctCount: item.correctCount,
-        wrongCount: item.wrongCount,
-        correctStreak: item.correctStreak,
-        schedulerVersion: review.schedulerVersion,
-      },
-    });
-    await learningRepo.scheduleReviewItem(tenant, {
-      id: id("review"),
-      knowledgeId: review.knowledgeId,
-      dueAt: review.dueAt.toISOString(),
-      intervalDays: review.intervalDays,
-      schedulerVersion: review.schedulerVersion,
-      timezoneSnapshot: timeZone,
-    });
-    return reply.code(201).send({ ...attempt, nextStep: nextStepFor(judgement) });
   });
 
   app.get("/v1/questions/:questionId/attempts", async (req) => {

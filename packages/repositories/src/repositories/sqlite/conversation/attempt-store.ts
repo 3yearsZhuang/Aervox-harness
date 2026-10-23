@@ -88,7 +88,7 @@ export class AttemptStore {
     return { ok: true, fencingToken: (updated as TurnAttemptModel).fencingToken, leaseId: input.leaseId, leaseExpiresAt };
   }
 
-  /** 3b-A：续租（CAS：leaseId + fencing 匹配且 Running 才刷新 leaseExpiresAt） */
+  /** Keep ownership while cancellation is being atomically finalized; a request is not lease loss. */
   async renewTurnAttemptLease(
     ctx: LocalContext,
     input: { attemptId: string; leaseId: string; expectedFencingToken: number; ttlMs?: number },
@@ -104,7 +104,7 @@ export class AttemptStore {
           eq(turnAttempts.id, input.attemptId),
           eq(turnAttempts.leaseId, input.leaseId),
           eq(turnAttempts.fencingToken, input.expectedFencingToken),
-          eq(turnAttempts.status, "Running"),
+          inArray(turnAttempts.status, ["Running", "CancelRequested"]),
           eq(turnAttempts.turnId, turns.id),
         ),
       )

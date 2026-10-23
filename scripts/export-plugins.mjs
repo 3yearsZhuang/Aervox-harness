@@ -58,6 +58,7 @@ export const LOCAL_ONLY_FILENAMES = new Set([
   "package.json",
   "tsconfig.json",
   "tsconfig.ui.json",
+  "tsconfig.type-tests.json",
   "vitest.config.ts",
   "vitest.config.js",
   "pnpm-lock.yaml",

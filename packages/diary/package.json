@@ -16,7 +16,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@aervox/core": "workspace:*",
     "@aervox/contracts": "workspace:*"
   },
   "devDependencies": {

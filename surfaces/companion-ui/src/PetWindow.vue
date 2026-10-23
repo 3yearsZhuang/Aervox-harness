@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import {ChevronDown, ChevronUp, Hand, Smile, X} from 'lucide-vue-next'
-import {onBeforeUnmount, onMounted, ref} from 'vue'
-import {PetWithFallback} from '@aervox/ui'
-import {streamAervoxTurn, submitQuestionAnswers} from '@aervox/api-client'
+import {computed, onBeforeUnmount, onMounted, ref, shallowRef} from 'vue'
+import {PetWithFallback, UserQuestionComposer} from '@aervox/ui'
+import {createConversationController, getTransport, getSessionId} from '@aervox/api-client'
 import type {AskUserQuestionAnswerItem, UserQuestionRequiredEventData} from '@aervox/contracts'
 import {replyBubbleDurationMs, stripMarkdownForBubble} from './quick-chat'
 import {pickPetButtonPose, type PetButtonPose, type PetButtonPoseKind} from './pet-button-poses'
@@ -10,9 +10,17 @@ import {pickPetButtonPose, type PetButtonPose, type PetButtonPoseKind} from './p
 import './pet.css'
 import {useUISurfaceContext} from '@aervox/ui-host'
 const surfaceContext = useUISurfaceContext()
+const turnController = createConversationController(getTransport(), surfaceContext.signal)
 
 const bubbleText = ref('')
-const activeQuestion = ref<UserQuestionRequiredEventData | null>(null)
+const turnState = shallowRef(turnController.state)
+const unsubscribeTurn = turnController.subscribe(state => { turnState.value = state })
+const activeQuestion = computed(() => turnState.value.question)
+const pendingApproval = computed(() => turnState.value.approval)
+const interactionBusy = ref(false)
+const turnFeedback = ref('')
+const stopping = ref(false)
+const canStop = computed(() => quickChatPending.value || ['awaiting-input', 'awaiting-approval', 'observer-error'].includes(turnState.value.status))
 let bubbleTimer: number | null = null
 let closingTimer: number | null = null
 
@@ -22,7 +30,8 @@ const quickInput = ref('')
 const quickChatPending = ref(false)
 // 流式回复占用气泡期间，忽略 emote speak 等外部气泡事件，避免覆盖正在展示的回复
 const replyBubbleActive = ref(false)
-const questionBubbleActive = ref(false)
+const questionBubbleActive = computed(() => !!activeQuestion.value)
+let submittedContent = ''
 let replyRaw = ''
 
 function clearBubbleTimer() {
@@ -75,7 +84,7 @@ function scheduleReplyDismiss(text: string) {
 
 /** 点击气泡提前关闭（提问选择肢展示期间不关闭） */
 function dismissBubble() {
-    if (questionBubbleActive.value) return
+    if (questionBubbleActive.value || pendingApproval.value || quickChatPending.value || turnState.value.retryAvailable) return
     clearBubbleTimer()
     bubbleText.value = ''
     bubbleTimer = null
@@ -84,72 +93,99 @@ function dismissBubble() {
 
 async function sendQuickChat() {
     const content = quickInput.value.trim()
-    if (!content || quickChatPending.value) return
-    quickInput.value = ''
+    if (!content || quickChatPending.value || interactionBusy.value) return
+    submittedContent = content
     quickChatPending.value = true
     replyBubbleActive.value = true
     replyRaw = ''
+    turnFeedback.value = ''
     playButtonPose('think')
     showStreamingBubble('思考中…')
     try {
-        await streamAervoxTurn(content, {
-            onDelta: (text) => {
-                replyRaw += text
-                showStreamingBubble(stripMarkdownForBubble(replyRaw) || '…')
-            },
-            onDone: () => {
-                const finalText = stripMarkdownForBubble(replyRaw)
-                if (finalText && !questionBubbleActive.value) showStreamingBubble(finalText)
-                scheduleReplyDismiss(finalText || bubbleText.value)
-            },
-            onError: (err) => {
-                const message = err instanceof Error ? err.message : '回复失败，请稍后再试'
-                showStreamingBubble(`出了点小问题：${message}`)
-                scheduleReplyDismiss(`出了点小问题：${message}`)
-            },
-            onUserQuestion: (data) => {
-                questionBubbleActive.value = true
-                handleQuestionPrompt(data)
-            },
-            onToolApproval: () => {
-                showStreamingBubble('这个请求需要到工作台确认工具使用哦')
-                scheduleReplyDismiss('这个请求需要到工作台确认工具使用哦')
-            },
-        }, {signal: surfaceContext.signal})
+        await turnController.submit(getSessionId(), content, quickChatCallbacks(), {
+            signal: surfaceContext.signal,
+            onAccepted() { if (quickInput.value.trim() === content) quickInput.value = '' },
+        })
     } catch (err) {
-        if (surfaceContext.signal.aborted) return
-        const message = err instanceof Error ? err.message : 'Aervox 请求失败'
-        showStreamingBubble(`出了点小问题：${message}`)
-        scheduleReplyDismiss(`出了点小问题：${message}`)
-    } finally {
-        quickChatPending.value = false
-    }
+        if (!surfaceContext.signal.aborted) showTurnFailure(err)
+    } finally { quickChatPending.value = false }
 }
 
-function handleQuestionPrompt(qData: UserQuestionRequiredEventData) {
-    activeQuestion.value = qData
-    const firstQ = qData.questions[0]
-    if (firstQ) {
+function showTurnFailure(error: unknown) {
+    turnFeedback.value = turnController.state.status === 'observer-error'
+        ? '连接中断，已保留收到的回复。可恢复接收。'
+        : turnController.state.turnId ? '本次回复未完成，已保留收到的内容。'
+        : error instanceof Error ? `请求失败：${error.message}` : '请求失败，请重试。'
+    if (replyRaw) showStreamingBubble(stripMarkdownForBubble(replyRaw))
+    else if (!activeQuestion.value && !pendingApproval.value) showStreamingBubble('暂时没有收到回复。')
+    clearBubbleTimer()
+}
+
+function quickChatCallbacks() { return {
+    onDelta: (text: string) => {
+        replyRaw += text
+        showStreamingBubble(stripMarkdownForBubble(replyRaw) || '…')
+    },
+    onDone: () => {
+        if (quickInput.value.trim() === submittedContent) quickInput.value = ''
+        const finalText = stripMarkdownForBubble(replyRaw)
+        if (finalText && !questionBubbleActive.value && !pendingApproval.value) showStreamingBubble(finalText)
+        if (!pendingApproval.value && !activeQuestion.value) scheduleReplyDismiss(finalText || bubbleText.value)
+    },
+    onError: (error: unknown) => { throw error },
+    onUserQuestion: (_data: UserQuestionRequiredEventData) => {
         window.aervoxLive2D?.playMotion('w-adult-think02')
-        showBubble(firstQ.question)
-    }
+        showStreamingBubble('等待你的回答')
+    },
+    onToolApproval: () => { showStreamingBubble('执行工具前需要你的确认。') },
+} }
+
+async function retryQuickChat() {
+    if (quickChatPending.value || interactionBusy.value || !turnState.value.retryAvailable) return
+    if (!turnState.value.turnId && quickInput.value.trim() !== submittedContent) { await sendQuickChat(); return }
+    quickChatPending.value = true
+    turnFeedback.value = ''
+    if (!turnState.value.turnId) { replyRaw = ''; showStreamingBubble('思考中…') }
+    try { await turnController.retry(quickChatCallbacks()) }
+    catch (error) { if (!surfaceContext.signal.aborted) showTurnFailure(error) }
+    finally { quickChatPending.value = false }
 }
 
-async function selectPetOption(questionId: string, optionLabel: string) {
-    if (!activeQuestion.value) return
-    window.aervoxLive2D?.playMotion('w-normal-nod01')
-    const answers: AskUserQuestionAnswerItem[] = [{
-        id: questionId,
-        selected: [optionLabel],
-    }]
+async function stopQuickChat() {
+    if (stopping.value) return
+    stopping.value = true
     try {
-        await submitQuestionAnswers(activeQuestion.value.turnId, answers, surfaceContext.signal)
-        activeQuestion.value = null
-        questionBubbleActive.value = false
-        showBubble(`已确认：${optionLabel}`)
-    } catch (err) {
-        console.error('桌宠提问回答提交失败', err)
-    }
+        await turnController.stop()
+        if (turnController.state.status === 'stopped') {
+            turnFeedback.value = '已停止回复。'
+            if (!replyRaw) showStreamingBubble('已停止回复。')
+            clearBubbleTimer()
+        }
+    } catch { turnFeedback.value = '停止失败，可以重试。' }
+    finally { stopping.value = false }
+}
+
+async function decidePetApproval(decision: 'granted' | 'denied') {
+    if (!pendingApproval.value || quickChatPending.value || interactionBusy.value) return
+    quickChatPending.value = true
+    turnFeedback.value = ''
+    try { await turnController.decide(decision, quickChatCallbacks()) }
+    catch (error) { if (!surfaceContext.signal.aborted) showTurnFailure(error) }
+    finally { quickChatPending.value = false }
+}
+
+async function answerPetQuestion(answers: AskUserQuestionAnswerItem[]) {
+    if (!activeQuestion.value || interactionBusy.value) return
+    interactionBusy.value = true
+    turnFeedback.value = ''
+    try {
+        await turnController.answer(answers)
+        if (!turnController.state.question) {
+            window.aervoxLive2D?.playMotion('w-normal-nod01')
+            showStreamingBubble(replyRaw ? stripMarkdownForBubble(replyRaw) : '已提交回答，等待回复…')
+        }
+    } catch { turnFeedback.value = '回答提交失败，请重试。' }
+    finally { interactionBusy.value = false }
 }
 
 /** dock 按钮 Live2D 响应：每个按钮绑定独立动作+表情池，随机取用避免连续重复 */
@@ -186,13 +222,12 @@ function toggleDock() {
 }
 
 const onBubble = (event: Event) => {
-    if (replyBubbleActive.value || questionBubbleActive.value) return
+    if (replyBubbleActive.value || questionBubbleActive.value || pendingApproval.value) return
     const detail = (event as CustomEvent<string | {text?: string; preset?: string}>).detail
     const text = typeof detail === 'string' ? detail : detail?.text ?? ''
     const preset = typeof detail === 'string' ? undefined : detail?.preset
     showBubble(text, preset)
 }
-const onPetQuestion = (event: Event) => handleQuestionPrompt((event as CustomEvent<UserQuestionRequiredEventData>).detail)
 
 /** ui 共享 Live2DPet 的 speak 事件 → 桌宠窗口气泡（宿主职责，沿用 aervox:pet-bubble 窗口事件契约；CR-032 起可携带气泡预设） */
 const onSpeak = (text: string, preset?: string) => {
@@ -201,11 +236,11 @@ const onSpeak = (text: string, preset?: string) => {
 
 onMounted(() => {
     window.addEventListener('aervox:pet-bubble', onBubble)
-    window.addEventListener('aervox:pet-question', onPetQuestion)
 })
 onBeforeUnmount(() => {
+    unsubscribeTurn()
+    turnController.dispose()
     window.removeEventListener('aervox:pet-bubble', onBubble)
-    window.removeEventListener('aervox:pet-question', onPetQuestion)
     clearBubbleTimer()
     if (closingTimer !== null) window.clearTimeout(closingTimer)
 })
@@ -215,24 +250,23 @@ onBeforeUnmount(() => {
   <main class="pet-window">
     <transition name="pet-bubble-fade">
       <section
-        v-if="bubbleText"
+        v-if="bubbleText || activeQuestion || pendingApproval || turnFeedback"
         class="pet-bubble"
         :class="[{'pet-bubble-reply': replyBubbleActive}, bubblePresetClass]"
         aria-live="polite"
         @click.stop="dismissBubble"
       >
         <p>{{ bubbleText }}</p>
-        <!-- VN 分支选择肢 -->
-        <div v-if="activeQuestion && activeQuestion.questions[0]?.options" class="pet-choices">
-          <button
-            v-for="opt in activeQuestion.questions[0].options"
-            :key="opt.label"
-            type="button"
-            class="pet-choice-btn"
-            @click.stop="selectPetOption(activeQuestion.questions[0].id, opt.label)"
-          >
-            <span>{{ opt.label }}</span>
-          </button>
+        <p v-if="turnFeedback" class="pet-turn-feedback" role="status">{{ turnFeedback }}</p>
+        <div v-if="turnState.retryAvailable" class="pet-choices">
+          <button type="button" :disabled="quickChatPending || interactionBusy" @click.stop="retryQuickChat">{{ turnState.status === 'observer-error' ? '恢复接收回复' : '重试发送' }}</button>
+        </div>
+        <div v-if="pendingApproval" class="pet-choices" aria-label="工具授权">
+          <button type="button" :disabled="quickChatPending" @click.stop="decidePetApproval('granted')">批准</button>
+          <button type="button" :disabled="quickChatPending" @click.stop="decidePetApproval('denied')">拒绝</button>
+        </div>
+        <div v-if="activeQuestion" class="pet-question" @click.stop>
+          <UserQuestionComposer :question-data="activeQuestion" :submitting="interactionBusy" @submit="answerPetQuestion" />
         </div>
       </section>
     </transition>
@@ -269,6 +303,7 @@ onBeforeUnmount(() => {
           aria-label="桌宠快捷对话输入"
           @keydown.enter.prevent="sendQuickChat"
         />
+        <button v-if="canStop" type="button" class="pet-dock-btn pet-stop" :disabled="stopping" @click.stop="stopQuickChat">{{ stopping ? '停止中' : '停止' }}</button>
         <button
           class="pet-dock-btn pet-dock-toggle"
           type="button"

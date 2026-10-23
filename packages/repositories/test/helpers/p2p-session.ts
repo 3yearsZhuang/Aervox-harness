@@ -18,7 +18,7 @@ import {
   type PairingInvitation,
   type PairingResponse,
   type PairingReveal,
-} from "../../src/index.js";
+} from "@aervox/sync-runtime/pairing";
 
 export interface VerifiedPairingFixture {
   initiatorIdentity: P2PDeviceIdentity;

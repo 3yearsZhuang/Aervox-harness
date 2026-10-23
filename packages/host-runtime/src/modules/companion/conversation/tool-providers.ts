@@ -14,7 +14,6 @@ import type {
 } from "@aervox/core";
 import type {
   LocalContext,
-  SqliteConversationRepository,
 } from "@aervox/repositories";
 import type { Observability } from "@aervox/observability";
 import {
@@ -26,8 +25,17 @@ import {
   type ProactiveActionPort,
 } from "../../proactive/proactive/index.js";
 import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index.js";
-import { stableStringify } from "./llm-adapter.js";
+import { stableSerialize as stableStringify } from "@aervox/core";
 import { FULL_PROFILE_SOURCE_MANIFEST } from "@aervox/repositories";
+import { encodeToolApprovalIdentity } from "./tool-approval-identity.js";
+
+const contributionRevisions = new WeakMap<object, string>();
+/** Stable only for the same injected implementation object in this process; never infer code identity from function text. */
+export function processToolImplementationRevision(implementation: object): string {
+  let revision = contributionRevisions.get(implementation);
+  if (!revision) { revision = `process:${globalThis.crypto.randomUUID()}`; contributionRevisions.set(implementation, revision); }
+  return revision;
+}
 
 const profilePermissions = new Set<string>(FULL_PROFILE_SOURCE_MANIFEST.map(source => source.sourceKey));
 
@@ -63,15 +71,21 @@ function validateToolArguments(schema: unknown, args: unknown, code = "invalid_t
 /** 自动授权决策人前缀；显式授权查询排除该类记录，避免关闭完全访问后泄漏。 */
 export const FULL_ACCESS_DECIDER_PREFIX = "permission:full_access:";
 
-type ToolApprovalRepository = Pick<
-  SqliteConversationRepository,
-  "recordToolApproval" | "decideToolApproval" | "findGrantedToolApproval"
->;
+export interface ToolApprovalRepository {
+  recordToolApproval(context: LocalContext, input: {
+    turnId: string; attemptId: string; toolName: string; argumentsHash: string;
+    requester: string; state: "pending" | "granted" | "denied"; toolVersion?: string | null;
+  }): Promise<{ id: string }>;
+  decideToolApproval(context: LocalContext, approvalId: string, decision: "granted" | "denied", decidedBy: string): Promise<{ id: string } | null>;
+  findGrantedToolApproval(context: LocalContext, input: {
+    toolName: string; argumentsHash: string; toolVersion?: string | null; excludeDecidedByPrefixes?: string[];
+  }): Promise<{ id: string; toolVersion?: string | null } | null>;
+}
 
 async function findExplicitToolApproval(
   repo: ToolApprovalRepository,
   tenant: LocalContext,
-  input: { toolName: string; argumentsHash: string },
+  input: { toolName: string; argumentsHash: string; toolVersion?: string | null },
 ) {
   return repo.findGrantedToolApproval(tenant, {
     ...input,
@@ -125,337 +139,254 @@ async function executeAuthorizedProactiveAction(
   }
 }
 
-/**
- * 给静态 Contribution 工具补齐通用写工具授权门：
- * 参数先校验；安全等级为 read_only 时直接执行，其余已知等级按显式/主动授权策略执行。
- */
-export function createApprovalGatedToolProvider(
-  provider: ToolProviderPort,
-  tenant: LocalContext,
-  repo: ToolApprovalRepository,
-  proactiveActionAuthorizer?: ProactiveActionPort,
-  observability?: Observability,
+/** One declaration carries identity, policy metadata and a controlled dispatcher. */
+export interface ToolBinding {
+  id: string;
+  revision?: string;
+  owner: string;
+  generation?: string;
+  spec: ToolSpec;
+  category?: string;
+  requiredPermissions?: unknown;
+  toolVersion?: string | null;
+  checkActive?(): Promise<boolean>;
+  dispatch(input: ToolExecutionInput, authorization: { approval: boolean; proactiveAuthorization?: boolean }): Promise<ToolExecutionResult>;
+}
+
+/** A snapshot is replaced atomically; conflicting identities never partially publish. */
+export class ToolBindingCatalog {
+  private bindings = new Map<string, ToolBinding>();
+  replace(bindings: ToolBinding[]): void {
+    const next = new Map<string, ToolBinding>();
+    for (const binding of bindings) {
+      if (next.has(binding.spec.name)) throw new Error(`duplicate_tool_binding: ${binding.spec.name}`);
+      next.set(binding.spec.name, { ...binding, spec: structuredClone(binding.spec) });
+    }
+    this.bindings = next;
+  }
+  get(name: string): ToolBinding | undefined { return this.bindings.get(name); }
+  register(owner: string, generation: string, bindings: ToolBinding[]): () => void {
+    const next = new Map([...this.bindings].filter(([, binding]) => binding.owner !== owner));
+    const installed = new Map<string, ToolBinding>();
+    for (const binding of bindings) {
+      if (next.has(binding.spec.name) || installed.has(binding.spec.name)) throw new Error(`duplicate_tool_binding: ${binding.spec.name}`);
+      const entry = { ...binding, owner, generation, spec: structuredClone(binding.spec) };
+      next.set(entry.spec.name, entry); installed.set(entry.spec.name, entry);
+    }
+    this.bindings = next;
+    return () => {
+      for (const [name, identity] of installed) if (this.bindings.get(name) === identity) this.bindings.delete(name);
+    };
+  }
+  clear(): void { this.bindings.clear(); }
+}
+
+interface BindingSource {
+  tools: ToolSpec[];
+  list(): Promise<ToolBinding[]>;
+  resolve(name: string): Promise<ToolBinding | undefined>;
+  invalidInputCode: string;
+  restricted?: boolean;
+}
+
+/** Product approval policy has one implementation for all tool registration sources. */
+function createCatalogToolProvider(
+  source: BindingSource, tenant: LocalContext, repo: ToolApprovalRepository,
+  proactiveActionAuthorizer?: ProactiveActionPort, observability?: Observability,
 ): ToolProviderPort {
-  let specs = new Map(provider.tools.map((tool) => [tool.name, structuredClone(tool)]));
+  const catalog = new ToolBindingCatalog();
+  let declared = false;
+  let declarationRevision = 0;
   return {
-    tools: provider.tools,
-    listTools: provider.listTools ? async options => {
-      // A failed refresh must not leave previously advertised tools authorized.
-      specs.clear();
-      const tools = await provider.listTools!(options);
-      specs = new Map(tools.map((tool) => [tool.name, structuredClone(tool)]));
-      return tools;
-    } : undefined,
-    async execute(input: ToolExecutionInput): Promise<ToolExecutionResult> {
-      input = bindAuthoritativeToolSource(input);
-      const emitResult = (res: ToolExecutionResult): ToolExecutionResult => {
-        if (res.ok) {
-          observability?.metrics.emit({ type: "counter", name: "agent.tool.executed", value: 1 });
-        } else {
-          observability?.metrics.emit({ type: "counter", name: "agent.tool.blocked", value: 1 });
-        }
-        return res;
+    tools: source.tools,
+    async listTools() {
+      try {
+        const bindings = await source.list();
+        catalog.replace(bindings);
+        declared = true;
+        declarationRevision += 1;
+        return bindings.map(binding => binding.spec);
+      } catch (error) {
+        // A failed refresh cannot confirm that the old declaration is still
+        // available or retains its previous safety level. Revoke the complete
+        // snapshot until a later declaration succeeds; never publish a batch
+        // that only some sources managed to resolve.
+        catalog.clear();
+        declared = true;
+        declarationRevision += 1;
+        throw error;
+      }
+    },
+    async execute(raw) {
+      const input = bindAuthoritativeToolSource(raw);
+      const emit = (result: ToolExecutionResult) => {
+        observability?.metrics.emit({ type: "counter", name: result.ok ? "agent.tool.executed" : "agent.tool.blocked", value: 1 });
+        return result;
       };
-
+      input.signal?.throwIfAborted();
       const inspection = inspectToolInput({ name: input.name, arguments: input.arguments });
-      if (!inspection.safe) {
-        return emitResult({ ok: false, error: `unsafe_tool_arguments: ${inspection.reason ?? "validation_failed"}` });
-      }
-
-      const spec = specs.get(input.name);
-      if (!spec) return emitResult({ ok: false, error: `unregistered_tool: ${input.name}` });
-      if (spec.parameters !== undefined) {
-        const invalid = validateToolArguments(spec.parameters, input.arguments);
-        if (invalid) return emitResult(invalid);
-      }
-      const safetyLevel = resolveToolSafetyLevel(spec);
-      if (safetyLevel === "read_only") return emitResult(await provider.execute(input));
-      if (safetyLevel !== "write_with_approval" && safetyLevel !== "privileged" && safetyLevel !== "destructive") {
-        return emitResult({ ok: false, error: `requires_approval: ${input.name}（未支持的安全级别）` });
-      }
-
+      if (!inspection.safe) return emit({ ok: false, error: `unsafe_tool_arguments: ${inspection.reason ?? "validation_failed"}` });
+      const revision = declarationRevision;
+      const snapshot = declared ? catalog.get(input.name) : undefined;
+      if (declared && !snapshot) return emit({ ok: false, error: `unregistered_tool: ${input.name}` });
+      const binding = await source.resolve(input.name);
+      if (!binding) return emit({ ok: false, error: `unregistered_tool: ${input.name}` });
+      if (snapshot && (snapshot.id !== binding.id || snapshot.revision !== binding.revision || snapshot.generation !== binding.generation)) return emit({ ok: false, error: "tool_not_declared" });
+      const invalid = binding.spec.parameters === undefined ? undefined : validateToolArguments(binding.spec.parameters, input.arguments, source.invalidInputCode);
+      if (invalid) return emit(invalid);
+      const active = async () => {
+        input.signal?.throwIfAborted();
+        if (revision !== declarationRevision) return false;
+        const allowed = !binding.checkActive || await binding.checkActive();
+        return allowed && revision === declarationRevision;
+      };
+      if (!(await active())) return emit({ ok: false, error: "tool_permission_denied" });
+      const dispatch = async (approval: boolean, proactiveAuthorization = false) => {
+        if (!(await active())) return { ok: false, error: "tool_permission_denied" };
+        return binding.dispatch(input, { approval, proactiveAuthorization });
+      };
+      const safetyLevel = resolveToolSafetyLevel(binding.spec);
+      if (safetyLevel === "read_only") return emit(await dispatch(false));
+      if (source.restricted) return emit({ ok: false, error: `tool_restricted_in_tier_l1: ${input.name}` });
+      if (!["write_with_approval", "privileged", "destructive"].includes(safetyLevel)) return emit({ ok: false, error: `requires_approval: ${input.name}（未支持的安全级别）` });
       const argumentsHash = stableStringify(approvalArguments(input));
-      const granted = await findExplicitToolApproval(repo, tenant, {
-        toolName: input.name,
-        argumentsHash,
-      });
-      if (granted) return emitResult(await provider.execute(input));
-
-      const autoApprovable = isToolAutoApprovable(
-        {
-          name: input.name,
-          safetyLevel,
-          category: safetyLevel === "destructive" ? "destructive" : undefined,
-        },
-        input.arguments,
-      );
-
+      const approvalInput = { turnId: input.turnId, attemptId: input.attemptId, toolName: input.name, argumentsHash, toolVersion: binding.toolVersion };
+      const granted = await findExplicitToolApproval(repo, tenant, { toolName: input.name, argumentsHash, toolVersion: binding.toolVersion });
+      if (!(await active())) return emit({ ok: false, error: "tool_permission_denied" });
+      if (granted && granted.toolVersion === binding.toolVersion) return emit(await dispatch(true));
       if (getRequestToolApprovalMode(tenant) === "full_access") {
         if (proactiveActionAuthorizer) {
           const authorization = await proactiveActionAuthorizer.authorize(tenant, {
-            turnId: input.turnId,
-            attemptId: input.attemptId,
-            invocationId: input.invocationId,
-            toolId: input.name,
-            toolName: input.name,
-            category: "system",
-            safetyLevel,
-            irreversible: safetyLevel === "destructive",
+            turnId: input.turnId, attemptId: input.attemptId, invocationId: input.invocationId,
+            toolId: binding.id, toolName: input.name, category: binding.category ?? "system",
+            safetyLevel, irreversible: safetyLevel === "destructive", requiredPermissions: binding.requiredPermissions,
             arguments: input.arguments,
           });
           if (authorization.authorized) {
-            const recorded = await recordAutomaticApproval(repo, tenant, {
-              turnId: input.turnId,
-              attemptId: input.attemptId,
-              toolName: input.name,
-              argumentsHash,
-            }, authorization.decidedBy);
-            if (!recorded) {
-              await proactiveActionAuthorizer.markFailed(
-                tenant,
-                authorization.action.id,
-                "proactive_action_approval_not_recorded",
-              );
-              return emitResult({ ok: false, error: "proactive_action_approval_not_recorded" });
+            if (!(await recordAutomaticApproval(repo, tenant, approvalInput, authorization.decidedBy))) {
+              await proactiveActionAuthorizer.markFailed(tenant, authorization.action.id, "proactive_action_approval_not_recorded");
+              return emit({ ok: false, error: "proactive_action_approval_not_recorded" });
             }
-            return emitResult(await executeAuthorizedProactiveAction(
-              proactiveActionAuthorizer,
-              tenant,
-              authorization.action.id,
-              () => provider.execute(input),
-            ));
+            return emit(await executeAuthorizedProactiveAction(proactiveActionAuthorizer, tenant, authorization.action.id, () => dispatch(true, true)));
           }
         }
-        if (safetyLevel === "write_with_approval" && autoApprovable) {
+        if (safetyLevel === "write_with_approval" && isToolAutoApprovable({ name: input.name, category: binding.category, safetyLevel }, input.arguments)) {
           const actor = tenant.actorId ?? tenant.subjectUserId;
-          const recorded = await recordAutomaticApproval(repo, tenant, {
-            turnId: input.turnId,
-            attemptId: input.attemptId,
-            toolName: input.name,
-            argumentsHash,
-          }, `${FULL_ACCESS_DECIDER_PREFIX}${actor}`);
-          if (!recorded) return emitResult({ ok: false, error: "full_access_approval_not_recorded" });
-          return emitResult(await provider.execute(input));
+          if (!(await recordAutomaticApproval(repo, tenant, approvalInput, `${FULL_ACCESS_DECIDER_PREFIX}${actor}`))) return emit({ ok: false, error: "full_access_approval_not_recorded" });
+          return emit(await dispatch(true));
         }
       }
-
-      const approval = await repo.recordToolApproval(tenant, {
-        turnId: input.turnId,
-        attemptId: input.attemptId,
-        toolName: input.name,
-        argumentsHash,
-        requester: tenant.subjectUserId,
-        state: "pending",
-      });
-      return emitResult({
-        ok: false,
-        needsApproval: { approvalId: approval.id, toolName: input.name, argumentsHash },
-      });
+      const approval = await repo.recordToolApproval(tenant, { ...approvalInput, requester: tenant.subjectUserId, state: "pending" });
+      return emit({ ok: false, needsApproval: { approvalId: approval.id, toolName: input.name, argumentsHash } });
     },
   };
 }
 
-/**
- * 把主仓 ToolRuntime（tool_registrations + handler）适配为 agent-loop 的 ToolProviderPort：
- * - read_only：AI 可自主调用（PET-05）；
- * - write_with_approval：需已授权（toolName+参数哈希匹配 granted）才执行，否则生成 pending 授权并返回 needsApproval（阶段 3a）；
- * - 特权操作须显式或主动授权；未知安全等级拒绝；工具停用由 registry enabled 拦截。
- */
+export interface ContributionToolSource {
+  provider: ToolProviderPort;
+  owner?: string;
+  generation?: string;
+  /** Trusted implementation revision; omit for process scoped contributions that must be approved again after replacement/restart. */
+  approvalRevision?: string;
+  checkActive?: () => Promise<boolean>;
+}
+
+/** Static and plugin contributions normalize to the same binding policy as runtime rows. */
+export function createContributionToolProvider(
+  sources: ContributionToolSource[], tenant: LocalContext, repo: ToolApprovalRepository,
+  proactiveActionAuthorizer?: ProactiveActionPort, observability?: Observability,
+): ToolProviderPort {
+  const bind = (source: ContributionToolSource, spec: ToolSpec): ToolBinding => {
+    spec = structuredClone(spec);
+    const execute = source.provider.execute.bind(source.provider);
+    const revision = stableStringify([source.approvalRevision ?? processToolImplementationRevision(source.provider.execute), spec]);
+    return {
+      id: spec.name, owner: source.owner ?? "host", generation: source.generation, revision, spec,
+      toolVersion: encodeToolApprovalIdentity({ kind: "contribution", id: spec.name, owner: source.owner ?? "host",
+        generation: source.generation ?? null, revision, safetyLevel: resolveToolSafetyLevel(spec) }),
+      checkActive: source.checkActive,
+      dispatch: input => execute(input),
+    };
+  };
+  let current = new Map(sources.flatMap(source => source.provider.tools.map(spec => [spec.name, bind(source, spec)] as const)));
+  return createCatalogToolProvider({
+    tools: sources.flatMap(source => source.provider.tools), invalidInputCode: "invalid_tool_input",
+    async list() {
+      const bindings: ToolBinding[] = [];
+      for (const source of sources) {
+        if (source.checkActive && !(await source.checkActive())) continue;
+        const tools = source.provider.listTools ? await source.provider.listTools() : source.provider.tools;
+        bindings.push(...tools.map(spec => bind(source, spec)));
+      }
+      const next = new ToolBindingCatalog();
+      next.replace(bindings);
+      current = new Map(bindings.map(binding => [binding.spec.name, binding]));
+      return bindings;
+    },
+    async resolve(name) { return current.get(name); },
+  }, tenant, repo, proactiveActionAuthorizer, observability);
+}
+
+export function createApprovalGatedToolProvider(
+  provider: ToolProviderPort, tenant: LocalContext, repo: ToolApprovalRepository,
+  proactiveActionAuthorizer?: ProactiveActionPort, observability?: Observability,
+): ToolProviderPort {
+  return createContributionToolProvider([{ provider }], tenant, repo, proactiveActionAuthorizer, observability);
+}
+
 export function createRuntimeToolProvider(
-  runtime: ToolRuntime,
-  tenant: LocalContext,
+  runtime: ToolRuntime, tenant: LocalContext,
   deps: {
-    conversationRepo: SqliteConversationRepository;
+    conversationRepo: ToolApprovalRepository;
     proactiveActionAuthorizer?: ProactiveActionPort;
     observability?: Observability;
     capabilityTier?: string;
+    generationFor?: (tool: Awaited<ReturnType<ToolRuntime["listTools"]>>[number]) => string | undefined;
+    signalFor?: (tool: Awaited<ReturnType<ToolRuntime["listTools"]>>[number]) => AbortSignal | undefined;
     isToolAllowed?: (tool: Awaited<ReturnType<ToolRuntime["listTools"]>>[number]) => Promise<boolean>;
   },
 ): ToolProviderPort {
-  let declared: Map<string, { id: string; revision?: string }> | undefined;
-  return {
-    // 工具清单随注册表动态变化，不在此静态缓存（execute 时实时校验）
-    tools: [],
-    async listTools() {
-      const rows = await runtime.exportRegistry();
-      const visible: ToolSpec[] = [];
-      declared = new Map();
-      for (const tool of rows) {
-        if (deps.capabilityTier === "restricted" && tool.safetyLevel !== "read_only") continue;
-        if (deps.isToolAllowed && !(await deps.isToolAllowed(tool))) continue;
-        declared.set(tool.name, { id: tool.id, revision: tool.runtimeRevision });
-        visible.push({
-          name: tool.name,
-          description: tool.description,
-          readOnly: tool.safetyLevel === "read_only",
-          safetyLevel: tool.safetyLevel ?? "write_with_approval",
-          budget: tool.budget,
-          parameters: typeof tool.inputSchemaJson === "boolean" ? tool.inputSchemaJson
-            : tool.inputSchemaJson && typeof tool.inputSchemaJson === "object" && !Array.isArray(tool.inputSchemaJson)
-              ? tool.inputSchemaJson as Record<string, unknown> : undefined,
-        });
-      }
-      return visible;
+  type RuntimeRow = Awaited<ReturnType<ToolRuntime["listTools"]>>[number];
+  const bind = (tool: RuntimeRow): ToolBinding => ({
+    id: tool.id, owner: tool.pluginId ?? "host", revision: tool.runtimeRevision,
+    generation: deps.generationFor?.(tool),
+    toolVersion: encodeToolApprovalIdentity({ kind: "runtime", id: tool.id, owner: tool.pluginId ?? "host",
+      generation: deps.generationFor?.(tool) ?? null, revision: tool.approvalRevision ?? tool.runtimeRevision!,
+      safetyLevel: tool.safetyLevel ?? "write_with_approval" }),
+    category: tool.category, requiredPermissions: tool.requiredPermissionsJson,
+    spec: {
+      name: tool.name, description: tool.description, readOnly: tool.safetyLevel === "read_only",
+      safetyLevel: tool.safetyLevel ?? "write_with_approval", budget: tool.budget,
+      parameters: typeof tool.inputSchemaJson === "boolean" ? tool.inputSchemaJson
+        : tool.inputSchemaJson && typeof tool.inputSchemaJson === "object" && !Array.isArray(tool.inputSchemaJson) ? tool.inputSchemaJson as Record<string, unknown> : undefined,
     },
-    async execute(input: ToolExecutionInput): Promise<ToolExecutionResult> {
-      input = bindAuthoritativeToolSource(input);
-      const emitResult = (res: ToolExecutionResult): ToolExecutionResult => {
-        if (res.ok) {
-          deps.observability?.metrics.emit({ type: "counter", name: "agent.tool.executed", value: 1 });
-        } else {
-          deps.observability?.metrics.emit({ type: "counter", name: "agent.tool.blocked", value: 1 });
-        }
-        return res;
-      };
-
-      const inspection = inspectToolInput({ name: input.name, arguments: input.arguments });
-      if (!inspection.safe) {
-        return emitResult({ ok: false, error: `unsafe_tool_arguments: ${inspection.reason ?? "validation_failed"}` });
-      }
-
-      const errorMessage = (err: unknown): string => (err instanceof Error ? err.message : "tool_execution_error");
-      const registrations = await runtime.listTools();
-      const tool = registrations.find((t) => t.name === input.name && t.enabled === 1);
-      if (!tool) {
-        return emitResult({ ok: false, error: `unregistered_tool: ${input.name}` });
-      }
-
-      // Schema 校验：入参进入执行或审批前严格校验格式
-      if (tool.inputSchemaJson !== null && tool.inputSchemaJson !== undefined) {
-        const invalid = validateToolArguments(tool.inputSchemaJson, input.arguments, "schema_validation_failed");
-        if (invalid) return emitResult(invalid);
-      }
-
-      if (declared && declared.get(input.name)?.id !== tool.id) return emitResult({ ok: false, error: "tool_not_declared" });
-      const expectedRevision = declared?.get(input.name)?.revision;
-      const authorize = async () => !deps.isToolAllowed || await deps.isToolAllowed(tool);
-      input.signal?.throwIfAborted();
-      if (deps.isToolAllowed && !(await deps.isToolAllowed(tool))) return emitResult({ ok: false, error: "tool_permission_denied" });
-      input.signal?.throwIfAborted();
-      // 只读工具：自主执行
-      if (tool.safetyLevel === "read_only") {
-        try {
-          const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: false, signal: input.signal, controlContext: input.controlContext, expectedRevision, authorize });
-          return emitResult({ ok: true, output });
-        } catch (err) {
-          return emitResult({ ok: false, error: errorMessage(err) });
-        }
-      }
-
-      // CR-043: L1 降级限制层禁止执行写工具与特权工具
-      if (deps.capabilityTier === "restricted") {
-        return emitResult({
-          ok: false,
-          error: `tool_restricted_in_tier_l1: 工具 ${tool.name} 属于写操作，在 L1 本地降级阶梯下被安全收紧拦截`,
-        });
-      }
-
-      // 写工具（write_with_approval / privileged）：须已授权（参数哈希匹配 + granted），否则生成待决授权。
-      // privileged 与 write 同流程；「仅管理员可批准」由路由 decideToolApproval 的管理员校验把关（3b）。
-      if (tool.safetyLevel === "write_with_approval" || tool.safetyLevel === "privileged") {
-        const hash = stableStringify(approvalArguments(input));
-        const granted = await findExplicitToolApproval(deps.conversationRepo, tenant, {
-          toolName: tool.name,
-          argumentsHash: hash,
-        });
-        // 逐项核对授权记录的 toolVersion 与当前工具定义修订：定义已更新（旧 revision）的授权不再放行；
-        // 未记录版本的历史行保持兼容（按名 + 参数哈希授权，回溯兼容）。
-        if (granted && (!granted.toolVersion || granted.toolVersion === tool.updatedAt)) {
-          try {
-            const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: true, signal: input.signal, controlContext: input.controlContext, expectedRevision, authorize });
-            return emitResult({ ok: true, output });
-          } catch (err) {
-            return emitResult({ ok: false, error: errorMessage(err) });
-          }
-        }
-        // 主动智能模式下，全动作授权包可覆盖普通写、外部、privileged 与不可逆动作；
-        // 每次执行仍绑定当前画像修订/租约/scope 并写入本地动作账本。
-        if (
-          getRequestToolApprovalMode(tenant) === "full_access" &&
-          deps.proactiveActionAuthorizer
-        ) {
-          const authorization = await deps.proactiveActionAuthorizer.authorize(tenant, {
-            turnId: input.turnId,
-            attemptId: input.attemptId,
-            invocationId: input.invocationId,
-            toolId: tool.id,
-            toolName: tool.name,
-            category: tool.category,
-            safetyLevel: tool.safetyLevel,
-            requiredPermissions: tool.requiredPermissionsJson,
-            arguments: input.arguments,
-          });
-          if (authorization.authorized) {
-            const recorded = await recordAutomaticApproval(deps.conversationRepo, tenant, {
-              turnId: input.turnId,
-              attemptId: input.attemptId,
-              toolName: tool.name,
-              argumentsHash: hash,
-              toolVersion: tool.updatedAt,
-            }, authorization.decidedBy);
-            if (!recorded) {
-              await deps.proactiveActionAuthorizer.markFailed(
-                tenant,
-                authorization.action.id,
-                "proactive_action_approval_not_recorded",
-              );
-              return emitResult({ ok: false, error: "proactive_action_approval_not_recorded" });
-            }
-            return emitResult(await executeAuthorizedProactiveAction(
-              deps.proactiveActionAuthorizer,
-              tenant,
-              authorization.action.id,
-              async () => {
-                try {
-                  const output = await runtime.callTool(tenant, tool.id, input.arguments, {
-                    approval: true,
-                    proactiveAuthorization: true,
-              signal: input.signal, controlContext: input.controlContext, expectedRevision, authorize,
-                  });
-                  return { ok: true, output };
-                } catch (error) {
-                  return { ok: false, error: errorMessage(error) };
-                }
-              },
-            ));
-          }
-        }
-        // CR-022 fallback：普通写工具可由 Turn full_access 预授权；privileged 与高危非自动免审工具无主动授权时仍走管理员/普通通道。
-        if (
-          tool.safetyLevel === "write_with_approval" &&
-          getRequestToolApprovalMode(tenant) === "full_access" &&
-          isToolAutoApprovable(tool, input.arguments)
-        ) {
-          const actor = tenant.actorId ?? tenant.subjectUserId;
-          const recorded = await recordAutomaticApproval(deps.conversationRepo, tenant, {
-            turnId: input.turnId,
-            attemptId: input.attemptId,
-            toolName: tool.name,
-            argumentsHash: hash,
-            toolVersion: tool.updatedAt,
-          }, `${FULL_ACCESS_DECIDER_PREFIX}${actor}`);
-          if (!recorded) return emitResult({ ok: false, error: "full_access_approval_not_recorded" });
-          try {
-            const output = await runtime.callTool(tenant, tool.id, input.arguments, { approval: true, signal: input.signal, controlContext: input.controlContext, expectedRevision, authorize });
-            return emitResult({ ok: true, output });
-          } catch (err) {
-            return emitResult({ ok: false, error: errorMessage(err) });
-          }
-        }
-        const approval = await deps.conversationRepo.recordToolApproval(tenant, {
-          turnId: input.turnId,
-          attemptId: input.attemptId,
-          toolName: tool.name,
-          argumentsHash: hash,
-          requester: tenant.subjectUserId,
-          state: "pending",
-          toolVersion: tool.updatedAt,
-        });
-        return emitResult({ ok: false, needsApproval: { approvalId: approval.id, toolName: tool.name, argumentsHash: hash } });
-      }
-
-      // 其它（含不可识别的 safetyLevel）：fail-closed 拒绝
-      return emitResult({ ok: false, error: `requires_approval: ${tool.id}（未支持的安全级别）` });
+    checkActive: () => deps.isToolAllowed ? deps.isToolAllowed(tool) : Promise.resolve(true),
+    async dispatch(input, authorization) {
+      try {
+        return { ok: true, output: await runtime.callTool(tenant, tool.id, input.arguments, {
+          ...authorization, signal: deps.signalFor?.(tool)
+            ? AbortSignal.any([deps.signalFor(tool)!, ...(input.signal ? [input.signal] : [])]) : input.signal,
+          controlContext: input.controlContext,
+          expectedRevision: tool.runtimeRevision, authorize: () => deps.isToolAllowed ? deps.isToolAllowed(tool) : Promise.resolve(true),
+        }) };
+      } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "tool_execution_error" }; }
     },
-  };
+  });
+  return createCatalogToolProvider({
+    tools: [], invalidInputCode: "schema_validation_failed", restricted: deps.capabilityTier === "restricted",
+    async list() {
+      const bindings: ToolBinding[] = [];
+      for (const row of await runtime.exportRegistry()) {
+        if (deps.capabilityTier === "restricted" && row.safetyLevel !== "read_only") continue;
+        if (deps.isToolAllowed && !(await deps.isToolAllowed(row))) continue;
+        bindings.push(bind(row));
+      }
+      return bindings;
+    },
+    async resolve(name) {
+      const row = (await runtime.exportRegistry()).find(tool => tool.name === name && tool.enabled === 1);
+      if (row && deps.isToolAllowed) await deps.isToolAllowed(row);
+      return row ? bind(row) : undefined;
+    },
+  }, tenant, deps.conversationRepo, deps.proactiveActionAuthorizer, deps.observability);
 }

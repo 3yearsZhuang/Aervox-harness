@@ -186,3 +186,14 @@ it('模型运行时订阅完全使用注入的传输', async () => {
   expect(events.mock.calls[0]?.[2].aborted).toBe(true);
   configureAervoxClient({ transport });
 });
+
+it('releases the SSE reader when cancellation arrives with the response headers', async () => {
+  const controller = new AbortController();
+  const cancel = vi.fn();
+  const response = new Response(new ReadableStream({cancel}));
+  vi.stubGlobal('fetch', vi.fn(async () => { controller.abort(); return response; }));
+  await expect(createFetchTransport('http://api.test').watchTurn('t', {onDelta() {}, onDone() {}}, controller.signal))
+    .rejects.toMatchObject({name: 'AbortError'});
+  expect(cancel).toHaveBeenCalledOnce();
+  expect(response.body!.locked).toBe(false);
+});

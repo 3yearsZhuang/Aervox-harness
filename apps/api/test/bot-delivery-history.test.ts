@@ -1,14 +1,10 @@
+import { createConversationApplication } from "@aervox/host-runtime-test/modules/companion/conversation/application";
 import { expect, it, vi } from "vitest";
 import { createInMemoryDatabase, createProactiveVaultCipher, SqliteConversationRepository, botDeliveries } from "@aervox/repositories";
 import type { BotAdapterContribution } from "@aervox/host-plugin-api";
 import { SqliteBotRepository } from "@aervox/repositories";
 import { BotManager } from "@aervox/host-runtime-test/modules/ecosystem/bots/manager";
 
-vi.mock("@aervox/host-runtime/modules/companion/conversation/index", () => ({
-  recoverApiOwnedTurn: async (repo: SqliteConversationRepository, turnId: string) =>
-    (await import("@aervox/host-runtime-test/modules/companion/conversation/api-owned-recovery")).recoverApiOwnedTurn(repo, turnId),
-  acceptConversationTurn: vi.fn(), executeAcceptedConversationTurn: vi.fn(),
-}));
 
 it("retries a delivery outside recent history without allowing another connection to access it", async () => {
   const { db, cleanup } = await createInMemoryDatabase();
@@ -22,7 +18,7 @@ it("retries a delivery outside recent history without allowing another connectio
     }),
   };
   const manager = new BotManager({
-    store, conversations: new SqliteConversationRepository(db), conversationDeps: {},
+    store, conversation: createConversationApplication(new SqliteConversationRepository(db), {}),
     adapters: () => [{ pluginId: "test", adapter }], pluginEnabled: async () => true,
     cipher: async () => createProactiveVaultCipher(new Uint8Array(32), "test"),
   });

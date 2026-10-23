@@ -1,3 +1,4 @@
+import {createDesktopApiRequest} from './api-request.js'
 import {app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, Menu, nativeImage, nativeTheme, Notification, powerMonitor, screen, shell, systemPreferences, Tray} from 'electron'
 import type {OpenDialogOptions, SaveDialogOptions} from 'electron'
 import {createFetchTransport} from '@aervox/api-client/transport'
@@ -613,7 +614,8 @@ function broadcastProactiveStatus(status: unknown) {
     }
 }
 
-const {streamAervoxTurn, cancelTurn} = createDesktopTurnBridge({
+const {streamAervoxTurn, observeAervoxTurn, cancelTurn, acknowledge} = createDesktopTurnBridge({
+    requireAcknowledgement: true,
     apiBaseUrl,
     sessionId: () => process.env.AERVOX_SESSION_ID,
     authToken: () => process.env.AERVOX_AUTH_TOKEN,
@@ -623,45 +625,8 @@ const {streamAervoxTurn, cancelTurn} = createDesktopTurnBridge({
     },
 })
 
-function isApiRequest(value: unknown): value is {method?: string; path: string; body?: unknown; headers?: Record<string, string>} {
-    if (!value || typeof value !== 'object') return false
-    const req = value as Record<string, unknown>
-    if (typeof req.path !== 'string') return false
-    if (!req.path.startsWith('/') || req.path.includes('://')) return false // 防 SSRF：仅允许站内相对路径
-    if (req.method !== undefined && typeof req.method !== 'string') return false
-    if (req.headers !== undefined && (typeof req.headers !== 'object' || Array.isArray(req.headers))) return false
-    return true
-}
-
-async function proxyApiRequest(_event: Electron.IpcMainInvokeEvent, payload: unknown) {
-    if (!isApiRequest(payload)) return {status: 400, ok: false, json: null, text: 'invalid api request'}
-    const method = (payload.method ?? 'GET').toUpperCase()
-    const headers: Record<string, string> = {Accept: 'application/json'}
-    const authToken = process.env.AERVOX_AUTH_TOKEN?.trim()
-    if (authToken) headers.Authorization = `Bearer ${authToken}`
-    const idempotencyKey = payload.headers?.['Idempotency-Key']
-    if (typeof idempotencyKey === 'string' && idempotencyKey.length > 0) headers['Idempotency-Key'] = idempotencyKey
-
-    let body: string | undefined
-    if (method !== 'GET' && payload.body !== undefined) {
-        headers['Content-Type'] = 'application/json'
-        body = JSON.stringify(payload.body)
-    }
-
-    try {
-        const res = await fetch(`${apiBaseUrl}${payload.path}`, {method, headers, body})
-        const text = await res.text()
-        let json: unknown = null
-        try {
-            json = text ? JSON.parse(text) : null
-        } catch {
-            json = null
-        }
-        return {status: res.status, ok: res.ok, json, text}
-    } catch (error) {
-        return {status: 0, ok: false, json: null, text: error instanceof Error ? error.message : 'request failed'}
-    }
-}
+const forwardApiRequest = createDesktopApiRequest({apiBaseUrl, authToken: () => process.env.AERVOX_AUTH_TOKEN})
+const proxyApiRequest = (_event: Electron.IpcMainInvokeEvent, payload: unknown) => forwardApiRequest(payload)
 
 /** 多模态输入：附件上传请求校验与 IPC 处理已移至 ./attachment-upload.js (ARC-13) */
 
@@ -967,6 +932,8 @@ app.whenReady().then(async () => {
     desktopIpc.on('aervox:events:start', (event, payload: unknown) => { void apiEvents.start(event.sender, payload) })
     desktopIpc.on('aervox:events:cancel', (event, requestId: unknown) => apiEvents.cancel(event.sender, requestId))
     desktopIpc.on('aervox:turn:start', streamAervoxTurn)
+    desktopIpc.on('aervox:turn:observe', observeAervoxTurn)
+    desktopIpc.on('aervox:turn:ack', (event, payload: unknown) => acknowledge(event.sender, payload))
     // CR-027：中止在途 Turn 请求（渲染层空闲超时收敛后调用，避免幽灵回合继续消耗上游 tokens）
     desktopIpc.on('aervox:turn:cancel', (event, requestId: unknown) => cancelTurn(event.sender, requestId))
     desktopIpc.handle('aervox:api:request', proxyApiRequest)

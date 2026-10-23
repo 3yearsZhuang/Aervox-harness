@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createInMemoryDatabase, initDatabaseSchema } from "../src/index.js";
-import { addColumnIfMissing } from "../src/schema/ddl/common.js";
+import { addColumnIfMissing } from "./fixtures/legacy-ddl/common.js";
 
 describe("Schema 初始化与列迁移安全 (Issue 4 & 5)", () => {
   it("addColumnIfMissing: 正常添加列并幂等处理已存在的 duplicate column", async () => {
@@ -99,32 +99,10 @@ describe("Schema 初始化与列迁移安全 (Issue 4 & 5)", () => {
         "turn_stream_events_turn_type_seq_idx",
       ]);
 
-      // 模拟旧库缺少新索引：重入初始化必须补回索引。
+      // Schema drift requires an explicit verified staging migration; bootstrap is read-only.
       await client.execute(`DROP INDEX agent_inbox_claim_idx`);
-      await client.execute(`DROP INDEX tool_executions_attempt_status_idx`);
-      await client.execute(`DROP INDEX turn_stream_events_turn_type_seq_idx`);
-      await client.execute(`DROP INDEX message_versions_turn_role_ver_idx`);
-      await initDatabaseSchema(client);
-      const restored = await client.execute(
-        `SELECT name FROM sqlite_master
-         WHERE type = 'index'
-           AND name IN (
-             'agent_inbox_claim_idx',
-             'tool_executions_attempt_status_idx',
-             'turn_stream_events_turn_type_seq_idx',
-             'message_versions_turn_role_ver_idx'
-           )
-         ORDER BY name`,
-      );
-      expect(restored.rows.map((row) => String(row.name))).toEqual([
-        "agent_inbox_claim_idx",
-        "message_versions_turn_role_ver_idx",
-        "tool_executions_attempt_status_idx",
-        "turn_stream_events_turn_type_seq_idx",
-      ]);
-
-      // 再次初始化必须保持幂等，不重复创建或抛错。
-      await expect(initDatabaseSchema(client)).resolves.toBeUndefined();
+      await expect(initDatabaseSchema(client)).rejects.toThrow("explicit staging migration");
+      expect((await client.execute(`SELECT name FROM sqlite_master WHERE name='agent_inbox_claim_idx'`)).rows).toEqual([]);
     } finally {
       await cleanup();
     }

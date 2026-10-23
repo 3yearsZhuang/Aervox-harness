@@ -7,21 +7,16 @@
  * 随后通过受控仓储创建通知与审计，不读取知识正文。
  */
 import { createHash } from "node:crypto";
-import { and, asc, eq, lte } from "drizzle-orm";
-import {
-  reviewItems,
-} from "@aervox/schema";
 import type {
-  AervoxDatabase,
   KnowledgeRelationModel,
   SqlitePlatformRepository,
-  SqliteLearningRepository,
+  ReviewSchedulePort,
+  KnowledgeRelationPort,
 } from "@aervox/repositories";
 
 export interface ReviewNotifierContext {
-  db: AervoxDatabase;
-  platformRepo: SqlitePlatformRepository;
-  learningRepo: SqliteLearningRepository;
+  platformRepo: Pick<SqlitePlatformRepository, "createNotificationIdempotent" | "createAuditRecordIdempotent">;
+  learningRepo: Pick<ReviewSchedulePort, "listDueReviewSchedule"> & Pick<KnowledgeRelationPort, "listKnowledgeRelationsForKnowledgeIds">;
   workerId: string;
 }
 
@@ -38,17 +33,7 @@ const occurrenceId = (prefix: string, item: { id: string; dueAt: string }): stri
 export async function runReviewNotificationCycle(ctx: ReviewNotifierContext): Promise<number> {
   const now = new Date().toISOString();
 
-  // 跨租户只读：查询到期且未处理的复习项（仅调度字段）
-  const dueItems = await ctx.db
-    .select({
-      id: reviewItems.id,
-      knowledgeId: reviewItems.knowledgeId,
-      dueAt: reviewItems.dueAt,
-    })
-    .from(reviewItems)
-    .where(and(eq(reviewItems.status, "active"), lte(reviewItems.dueAt, now)))
-    .orderBy(asc(reviewItems.dueAt))
-    .limit(100);
+  const dueItems = await ctx.learningRepo.listDueReviewSchedule(now);
 
   const localContext = { workspaceId: "local", subjectUserId: "local" };
   const relationsByKnowledgeId: Map<string, KnowledgeRelationModel[]> = await ctx.learningRepo

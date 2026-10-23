@@ -221,4 +221,85 @@ describe("host tool contracts before execution and approval", () => {
       freshRuntime.dispose();
     }
   });
+
+  it("redeclaring a replacement handler cannot reuse its old approval even when persistent updatedAt is unchanged", async () => {
+    const first = vi.fn(async () => "first"); const replacement = vi.fn(async () => "replacement");
+    await runtime.registerContribution({ id: "registered", name: input.name, description: "contract", category: "system",
+      safetyLevel: "write_with_approval", inputSchema: parameters }, { call: first });
+    const provider = createRuntimeToolProvider(runtime, local, { conversationRepo: repo });
+    await provider.listTools!();
+    const pending = await provider.execute(input);
+    await repo.decideToolApproval(local, pending.needsApproval!.approvalId, "granted", "local");
+    const previous = await registry.getTool("registered");
+    runtime.registerHandler("registered", { call: replacement });
+    expect((await registry.getTool("registered"))!.updatedAt).toBe(previous!.updatedAt);
+    expect((await provider.execute(input)).error).toBe("tool_not_declared");
+    await provider.listTools!();
+    const next = await provider.execute(input);
+    expect(next.needsApproval).toBeDefined();
+    expect(next.needsApproval!.approvalId).not.toBe(pending.needsApproval!.approvalId);
+    expect(replacement).not.toHaveBeenCalled(); expect(first).not.toHaveBeenCalled();
+    await repo.decideToolApproval(local, next.needsApproval!.approvalId, "granted", "local");
+    expect(await provider.execute(input)).toMatchObject({ ok: true, output: "replacement" });
+    expect(replacement).toHaveBeenCalledOnce();
+  });
+
+  it.each([false, true])("restart reuses a persisted approval only with an explicit stable implementation revision (durable=%s)", async durable => {
+    const handler = vi.fn(async () => "executed");
+    const registration = { id: "registered", name: input.name, description: "contract", category: "system", safetyLevel: "write_with_approval", inputSchema: parameters };
+    await runtime.registerContribution(registration, { call: handler, ...(durable ? { approvalRevision: "impl:v1" } : {}) });
+    const first = createRuntimeToolProvider(runtime, local, { conversationRepo: repo });
+    await first.listTools!();
+    const pending = await first.execute(input);
+    await repo.decideToolApproval(local, pending.needsApproval!.approvalId, "granted", "local");
+    runtime.dispose(); runtime = new ToolRuntime({ registry });
+    await runtime.registerContribution(registration, { call: handler, ...(durable ? { approvalRevision: "impl:v1" } : {}) });
+    const restarted = createRuntimeToolProvider(runtime, local, { conversationRepo: repo });
+    await restarted.listTools!();
+    const result = await restarted.execute(input);
+    if (durable) { expect(result).toMatchObject({ ok: true }); expect(handler).toHaveBeenCalledOnce(); }
+    else { expect(result.needsApproval).toBeDefined(); expect(handler).not.toHaveBeenCalled(); }
+  });
+
+  it("changed durable implementation or declaration revisions require distinct pending approvals", async () => {
+    const handler = vi.fn(async () => "executed");
+    const registration = { id: "registered", name: input.name, description: "contract", category: "system", safetyLevel: "write_with_approval", inputSchema: parameters };
+    await runtime.registerContribution(registration, { call: handler, approvalRevision: "impl:v1" });
+    const provider = createRuntimeToolProvider(runtime, local, { conversationRepo: repo });
+    await provider.listTools!();
+    const first = await provider.execute(input);
+    runtime.registerHandler("registered", { call: handler, approvalRevision: "impl:v2" });
+    await provider.listTools!(); const second = await provider.execute(input);
+    await runtime.registerContribution({ ...registration, inputSchema: { ...parameters, additionalProperties: true } }, { call: handler, approvalRevision: "impl:v2" });
+    await provider.listTools!(); const third = await provider.execute(input);
+    const ids = [first, second, third].map(result => result.needsApproval!.approvalId);
+    expect(new Set(ids).size).toBe(3);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("a stable runtime implementation never carries its grant into another plugin generation", async () => {
+    const handler = vi.fn(async () => "executed"); let generation = "one";
+    await runtime.registerContribution({ id: "registered", name: input.name, description: "plugin contract", category: "system",
+      pluginId: "plugin", safetyLevel: "write_with_approval", inputSchema: parameters }, { call: handler, approvalRevision: "impl:v1" });
+    const provider = createRuntimeToolProvider(runtime, local, { conversationRepo: repo, generationFor: () => generation });
+    await provider.listTools!();
+    const old = await provider.execute(input);
+    await repo.decideToolApproval(local, old.needsApproval!.approvalId, "granted", "local");
+    generation = "two";
+    expect((await provider.execute(input)).error).toBe("tool_not_declared");
+    await provider.listTools!();
+    const fresh = await provider.execute(input);
+    expect(fresh.needsApproval).toBeDefined();
+    expect(fresh.needsApproval!.approvalId).not.toBe(old.needsApproval!.approvalId);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("a legacy unversioned grant cannot authorize a newly declared implementation", async () => {
+    const old = await repo.recordToolApproval(local, { turnId: input.turnId, attemptId: input.attemptId,
+      toolName: input.name, argumentsHash: '{"count":2}', requester: "local", state: "pending" });
+    await repo.decideToolApproval(local, old.id, "granted", "local");
+    const { execute, gated } = staticProvider({ readOnly: false });
+    expect((await gated.execute(input)).needsApproval).toBeDefined();
+    expect(execute).not.toHaveBeenCalled();
+  });
 });

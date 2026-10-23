@@ -5,8 +5,7 @@ id: AVX-DB-001
 # Aervox｜思隅 SQLite 本地单用户数据库契约
 
 本文规定 Aervox 持久化层的目标契约、机器事实源、关键不变量、破坏性迁移协议和发布门禁。
-字段与 DDL 的机器真源是 `packages/schema` 和 `packages/repositories/src/schema/ddl`；本文不复制
-每张表的完整定义。表结构与字段定义直接以 `packages/schema/src/*.ts` 为唯一真源。
+表结构与字段的唯一目标真源是 `packages/schema/src/*.ts`，由仓储的 Schema manifest 编译实际 SQLite 建库语句；本文不复制每张表的完整定义。历史手写 DDL 仅保留为旧库升级测试夹具，不能继续维护第二套目标结构。
 
 > [!IMPORTANT]
 > `CR-030`（已归档） 的决策为 Accepted、交付状态为
@@ -34,7 +33,7 @@ id: AVX-DB-001
 | 事实 | 机器维护入口 | 约束 |
 |---|---|---|
 | Drizzle 表和字段 | `packages/schema/src/*.ts` | D2 后不得出现 `workspaceId`、`subjectUserId` 或租户复合索引 |
-| SQLite DDL | `packages/repositories/src/schema/ddl/*.ts` | 必须与 Schema 等价并可从空库幂等初始化；该等价性由 `packages/repositories/test/schema-index-parity.test.ts` 用真实空库的 `PRAGMA index_list/index_info` 对照 Drizzle `getTableConfig` 双向守卫 |
+| SQLite 目标结构与版本 | `packages/repositories/src/schema/manifest.ts` | 从 Schema 编译新库；比对列、默认、NULL、主键、复合外键、CHECK、表选项、约束行为及索引的列/表达式、排序、collation 和条件，校验版本和 fingerprint。结构不一致先拒绝启动，不在活动旧库自动变更 |
 | Repository Port | `packages/repositories/src/repositories/types/*.ts` | D2 后公开签名不得要求 `TenantContext` |
 | SQLite Repository | `packages/repositories/src/repositories/sqlite/*.ts` | 不得绕过来源、授权、删除和幂等规则 |
 | 连接与路径 | `packages/repositories/src/client.ts` | 只接受本地文件或显式内存 URL；禁止远程 LibSQL URL |
@@ -42,6 +41,18 @@ id: AVX-DB-001
 
 业务模块只消费 Repository Port，不直接导入 Drizzle 表。需要事务原子性的组合写由仓储层提供明确方法，
 不得把裸连接或方言错误码泄露给 API、Worker 或 UI。
+
+### 2.1 结构升级与逻辑恢复
+
+新库由 `initDatabaseSchema` / `initLedgerSchema` 初始化对应故障域，并记录版本指纹。已有库在任何结构写入前检查完整等价性；缺失列、NULL 主键、默认值或索引条件等不一致返回 `SCHEMA_STAGING_MIGRATION_REQUIRED`。无版本但完全等价的库可登记当前版本；已登记版本或指纹不符必须显式迁移。不能通过刷新指纹绕过历史数据检查。
+
+结构检查从独立空库读取同一份目标声明的物理语义，对照 STRICT、WITHOUT ROWID、完整列属性与列序、隐藏/生成列、复合外键分组及列配对；有界 SQL token 读取补充 CHECK、未索引列 collation、各约束的非默认冲突策略、AUTOINCREMENT 和各外键的延期行为。CHECK 比较保留字符串字面量，允许空白、引用和约束名称差异，不猜测表达式代数等价；无法检查的表定义直接阻断。检查增强不更新目标指纹、历史发布账本或迁移身份。检查及漂移拒绝不写被检查库，生产迁移仍须独立完成 [ITER-011](../../plan.md#iter-011)停写和恢复编排验收。
+
+`migrateDatabaseViaStaging` 是现行显式重建入口：调用者先停止全部写者与连接，验证备份，再在独立 staging 导入、校验并换库。所有数据保留原身份；未知表/列、NULL 主键、唯一冲突、外键损坏和行数变化均阻断，不删除或选择胜者。操作步骤见[迁移演练](../how-to/run-database-migration-drill.md)。失败保留源文件、备份与 staging 证据；主库、Vault、独立账本及密钥仍须作为完整回滚集合协调。
+
+旧 journal/ALTER helper 的公共入口已移除，不提供绕过 staging 的通用原地 DDL。结构检查使用独立空库编译预期表与索引语义，不在被检查库创建临时结构或修复漂移；版本迁移与整体中断恢复仍按 ITER-011 验收。
+
+逻辑导出通过 `@aervox/repositories/sync` 显式消费；不导出 FTS 虚表、shadow 表及结构版本元数据。`restoreSnapshot` 的原地删表写回接口已撤下，`restoreSnapshotToEmptyStaging` 只接受空目标，在同一事务导入并检查关系与行数。不可将它用于活动库或取代停写、备份和换库编排；派生索引由已保留的权威来源重建。
 
 ## 3. 本地存储拓扑
 

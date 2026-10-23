@@ -22,10 +22,10 @@ describe('branch shared contracts over real HTTP', () => {
   let repo: SqliteConversationRepository
   let base: string
 
-  async function request(method: string, path: string, body?: unknown, auth: string | null = `Bearer ${token}`) {
+  async function request(method: string, path: string, body?: unknown, auth: string | null = `Bearer ${token}`, extraHeaders: Record<string, string> = {}) {
     const response = await fetch(base + path, {
       method,
-      headers: {...(auth ? {authorization: auth} : {}), ...(body === undefined ? {} : {'content-type': 'application/json'})},
+      headers: {...(auth ? {authorization: auth} : {}), ...(body === undefined ? {} : {'content-type': 'application/json'}), ...extraHeaders},
       ...(body === undefined ? {} : {body: JSON.stringify(body)}),
     })
     return {status: response.status, body: await response.json(), contentType: response.headers.get('content-type')}
@@ -47,7 +47,7 @@ describe('branch shared contracts over real HTTP', () => {
   afterEach(async () => {vi.restoreAllMocks(); await built.app.close(); await database.cleanup()})
 
   it('authenticates all eight endpoint shapes before validating bodies or reaching persistence', async () => {
-    const mutations = vi.spyOn(SqliteConversationRepository.prototype, 'createConversationBranch')
+    const mutations = vi.spyOn(SqliteConversationRepository.prototype, 'createExplorationBranch')
     for (const [method, path] of endpointRequests) {
       for (const auth of [null, 'Bearer wrong-token']) {
         const response = await request(method, path, undefined, auth)
@@ -60,7 +60,7 @@ describe('branch shared contracts over real HTTP', () => {
   })
 
   it('rejects absent/invalid create inputs without creating an orphan child', async () => {
-    const mutations = vi.spyOn(SqliteConversationRepository.prototype, 'createConversationBranch')
+    const mutations = vi.spyOn(SqliteConversationRepository.prototype, 'createExplorationBranch')
     for (const body of [undefined, null, {}, {childSessionId: ''}, {childSessionId: 42}, {childSessionId: 'child', branchReason: 'unsafe'}, {childSessionId: 'child', title: []}]) {
       const response = await request('POST', '/v1/sessions/root/branches', body)
       expect(response.status).toBe(400)
@@ -90,11 +90,54 @@ describe('branch shared contracts over real HTTP', () => {
     }
   })
 
+  it('replays one durable branch across concurrent same-key requests and rejects changed intent', async () => {
+    const payload = {childSessionId: 'idempotent-child', title: 'Stable title', forkAtMessageId: 'opaque-history'}
+    const send = (body: unknown) => request('POST', '/v1/sessions/root/branches', body, `Bearer ${token}`, {'idempotency-key': 'branch-request'})
+    const [first, second] = await Promise.all([send(payload), send(payload)])
+    expect(first.status).toBe(201)
+    expect(second).toEqual(first)
+    expect((await send({...payload, childSessionId: 'unwanted-child'})).status).toBe(409)
+    expect((await send({...payload, title: 'Changed title'})).status).toBe(409)
+    expect(await repo.getSession(ctx, 'unwanted-child')).toBeNull()
+    expect((await database.client.execute('SELECT id FROM conversation_branches')).rows).toHaveLength(1)
+    expect((await database.client.execute("SELECT id FROM outbox_events WHERE event_type='conversation.branch.created'")).rows).toHaveLength(1)
+    await repo.deleteBranch(ctx, first.body.id)
+    expect((await send(payload)).body).toMatchObject({id: first.body.id, status: 'deleted'})
+    expect((await repo.listBranchesByParent(ctx, 'root'))).toEqual([])
+    await repo.deleteSession(ctx, payload.childSessionId)
+    const afterDelete = await send(payload)
+    expect(afterDelete.status).toBe(409)
+    expect(apiProblemSchema.parse(afterDelete.body).error).toBe('conversation_branch_result_unavailable')
+    expect(await repo.getSession(ctx, payload.childSessionId)).toBeNull()
+    expect((await database.client.execute('SELECT id FROM conversation_branches')).rows).toHaveLength(0)
+  })
+
+  it('rolls back the child and edge when outbox commit fails, then safely retries the same key', async () => {
+    const send = () => request('POST', '/v1/sessions/root/branches', {childSessionId: 'rollback-child'}, `Bearer ${token}`, {'idempotency-key': 'outbox-fault'})
+    await database.client.execute("CREATE TRIGGER fail_branch_outbox BEFORE INSERT ON outbox_events WHEN NEW.event_type='conversation.branch.created' BEGIN SELECT RAISE(ABORT, 'injected'); END")
+    expect((await send()).status).toBe(500)
+    expect(await repo.getSession(ctx, 'rollback-child')).toBeNull()
+    expect((await database.client.execute('SELECT id FROM conversation_branches')).rows).toHaveLength(0)
+    await database.client.execute('DROP TRIGGER fail_branch_outbox')
+    const first = await send()
+    expect(first.status).toBe(201)
+    expect(await send()).toEqual(first)
+  })
+
+  it('rejects invalid operation keys before creating a child', async () => {
+    for (const key of ['', 'x'.repeat(513)]) {
+      const response = await request('POST', '/v1/sessions/root/branches', {childSessionId: 'invalid-key-child'}, `Bearer ${token}`, {'idempotency-key': key})
+      expect(response.status).toBe(400)
+    }
+    expect(await repo.getSession(ctx, 'invalid-key-child')).toBeNull()
+  })
+
   it('keeps all eight success statuses, fields and lifecycle transitions through the shared response schemas', async () => {
     const merged = await create('merge-child', {title: 'Fork title', branchReason: 'text_followup', forkAtMessageId: 'message-fixture'})
     expect(merged).toMatchObject({parentSessionId: 'root', childSessionId: 'merge-child', title: 'Fork title', branchReason: 'text_followup', forkAtMessageId: 'message-fixture', status: 'active'})
     expect(await repo.getSession(ctx, 'merge-child')).toMatchObject({title: 'Fork title', executionPolicy: 'local-v1'})
     const archived = await create('archive-child')
+    expect(await repo.getSession(ctx, 'archive-child')).toMatchObject({title: 'Parent title', executionPolicy: 'local-v1'})
     const deleted = await create('delete-child')
     const list = await request('GET', apiEndpointPath(branchesApi.list, {sessionId: 'root'}))
     expect(list.status).toBe(200)
@@ -156,7 +199,7 @@ describe('branch shared contracts over real HTTP', () => {
     for (const [id, parentSessionId, childSessionId] of [
       ['root_a', 'root', 'A'], ['root_b', 'root', 'B'], ['a_root', 'A', 'root'],
       ['a_shared', 'A', 'shared'], ['b_shared', 'B', 'shared'], ['shared_leaf', 'shared', 'leaf'],
-    ]) await repo.createConversationBranch(ctx, {id, parentSessionId, childSessionId})
+    ]) await repo.createExplorationBranch(ctx, {id, parentSessionId, childSessionId})
     const response = await request('GET', '/v1/sessions/root/branch-tree')
     expect(response.status).toBe(200)
     expect(branchesApi.tree.response.parse(response.body).items.map(item => item.id)).toEqual(['root_a', 'root_b', 'a_root', 'a_shared', 'shared_leaf', 'b_shared'])
@@ -172,7 +215,7 @@ describe('branch shared contracts over real HTTP', () => {
   })
 
   it('conceals unexpected repository failures on all eight endpoints', async () => {
-    for (const method of ['createConversationBranch', 'listBranchesByParent', 'getBranchTree', 'getBranch', 'mergeBranch', 'archiveBranch', 'updateBranchLayout', 'deleteBranch'] as const) {
+    for (const method of ['createExplorationBranch', 'listBranchesByParent', 'getBranchTree', 'getBranch', 'mergeBranch', 'archiveBranch', 'updateBranchLayout', 'deleteBranch'] as const) {
       vi.spyOn(SqliteConversationRepository.prototype, method).mockRejectedValue(new Error('SELECT secret FROM /private/internal.sqlite'))
     }
     for (const [method, path] of endpointRequests) {

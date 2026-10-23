@@ -83,7 +83,7 @@ describe("PRD §8 P1（R2）：记忆树投影独立化 + 会话地图 + 知识�
   it("会话地图分支：创建并按父会话列出，且本地上下文共享", async () => {
     const parent = await conversation.createSession(ctx, "Parent Session");
     const child = await conversation.createSession(ctx, "Child Session");
-    const branch = await conversation.createConversationBranch(ctx, {
+    const branch = await conversation.createExplorationBranch(ctx, {
       id: "br_1",
       parentSessionId: parent.id,
       childSessionId: child.id,

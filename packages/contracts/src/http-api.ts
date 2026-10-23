@@ -19,6 +19,11 @@ export const apiProblemSchema = z.object({
 
 export type ApiProblem = z.infer<typeof apiProblemSchema>;
 
+export const idempotencyKeySchema = z.string().min(1).max(512).refine(value => value.trim().length > 0);
+export const idempotencyHeadersSchema = z.object({
+  "Idempotency-Key": idempotencyKeySchema.optional(),
+});
+
 /** Transport-independent JSON endpoint definition. Paths use OpenAPI placeholders. */
 export interface ApiEndpoint<ResponseSchema extends z.ZodType = z.ZodType> {
   readonly method: "get" | "post" | "put" | "patch" | "delete";
@@ -33,7 +38,7 @@ export interface ApiEndpoint<ResponseSchema extends z.ZodType = z.ZodType> {
   readonly query?: z.ZodObject;
   readonly response: ResponseSchema;
   /** Generator-only representations for schemas such as bounded recursive DSLs. */
-  readonly openapi?: { readonly body?: z.ZodType; readonly response?: z.ZodType };
+  readonly openapi?: { readonly body?: z.ZodType; readonly response?: z.ZodType; readonly headers?: z.ZodObject };
   readonly status?: number;
   readonly errors?: Readonly<Record<number, string>>;
   readonly validationErrorCode?: string;

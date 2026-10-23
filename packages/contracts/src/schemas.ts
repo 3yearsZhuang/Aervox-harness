@@ -133,6 +133,8 @@ export const doneEventDataSchema = z.object({
   isComplete: z.boolean(),
   lastSequence: z.number().int().positive(),
   contextVersion: z.string().optional(),
+  /** Execution outcome reason; distinguishes a pending interaction from interruption. */
+  reason: z.string().optional(),
 });
 
 /** error：已持久化的错误诊断（§4.4） */
@@ -293,6 +295,17 @@ export const createTurnResponseSchema = z.object({
   cancelUrl: z.string().min(1),
 });
 
+/** Exact intent replay returns the current accepted Turn, which may already be terminal. */
+export const replayTurnResponseSchema = createTurnResponseSchema.extend({ status: turnStatusSchema });
+
+/** Acceptance conflicts are HTTP responses, not persisted stream errors. */
+export const turnAcceptanceConflictSchema = z.object({
+  code: z.literal("IDEMPOTENCY_KEY_REUSED"),
+  reason: z.enum(["intent_mismatch", "intent_unavailable", "session_mismatch"]),
+  retryable: z.literal(false),
+  message: z.string().min(1),
+});
+
 /** 取消 Turn 响应（§2.3） */
 export const cancelTurnResponseSchema = z.object({
   turnId: z.string().min(1),
@@ -315,6 +328,13 @@ export const createLearningGoalSchema = z.object({
     .int("availableMinutes must be a positive integer")
     .positive("availableMinutes must be a positive integer")
     .optional(),
+});
+
+/** Public learning-goal response shared by HTTP clients. */
+export const learningGoalResponseSchema = z.object({
+  id: z.string(), topic: z.string(), level: learningGoalLevelSchema,
+  availableMinutes: z.number().int().positive(), status: learningGoalStatusSchema,
+  idempotencyKey: z.string().nullable().optional(),
 });
 
 /** 更新学习目标请求体；归档由 DELETE 路由统一处理。 */

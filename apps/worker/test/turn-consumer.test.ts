@@ -87,11 +87,17 @@ describe("Worker uses the complete product host", () => {
   it.each(["default", "inline"])("%s API execution is never stolen by Worker", async mode => {
     if (mode === "default") vi.stubEnv("AERVOX_LOOP_DISPATCH", "api");
     else vi.stubEnv("AERVOX_TURN_EXECUTION", "inline");
+    // Configuration belongs to each composition root and is read once at startup.
+    await fixture.close();
+    fixture = await createHostFixture();
+    const workerExecute = vi.spyOn(fixture.worker.conversation.commands, "execute");
     const fetch = vi.fn(async () => llmSse("API 回复")); vi.stubGlobal("fetch", fetch);
     const id = await fixture.accept();
+    expect((await fixture.outboxRepo.fetchPendingEvents({ limit: 100 })).some(e => e.eventType === "agent.turn.requested")).toBe(false);
     await fixture.consume();
     await vi.waitFor(async () => expect((await fixture.repo.getTurn(local, id))?.status).toBe("Completed"));
     expect(fetch).toHaveBeenCalledTimes(1);
+    expect(workerExecute).not.toHaveBeenCalled();
     expect((await fixture.outboxRepo.fetchPendingEvents({ limit: 100 })).some(e => e.eventType === "agent.turn.requested")).toBe(false);
   });
 
@@ -162,8 +168,16 @@ describe("Worker uses the complete product host", () => {
 
   it("runs enabled plugin contributions using persisted turn metadata", async () => {
     vi.stubEnv("AERVOX_LOOP_PROVIDER", "scripted-plugin");
+    await fixture.close();
+    fixture = await createHostFixture();
+    const workerExecute = vi.spyOn(fixture.worker.conversation.commands, "execute");
     const id = await fixture.accept({ mode: "focus", intent: "quiz" });
     await fixture.consume();
+    expect(workerExecute).toHaveBeenCalledWith(local, expect.objectContaining({
+      turnId: id,
+      metadata: { mode: "focus", intent: "quiz" },
+    }));
+    expect((await fixture.repo.getTurn(local, id))?.status).toBe("Completed");
     const events = await fixture.repo.getStreamEvents(local, id);
     expect(events.find(e => e.eventType === "tool_result")?.data).toMatchObject({ name: "record_practice_attempt", ok: true });
     expect((await fixture.api.app.inject({ method: "GET", url: "/v1/mistakes" })).json().items).toHaveLength(1);

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useWorkbenchContext } from '@aervox/ui/plugin-api';
+import { useUIPluginContext } from '@aervox/ui/plugin-api';
 import { AervoxSwitch } from '@aervox/ui/primitives';
 import { useFocusModeState } from './plugin-state';
 const { focusModeEnabled, setFocusModeEnabled } = useFocusModeState();
@@ -10,8 +10,8 @@ const { focusModeEnabled, setFocusModeEnabled } = useFocusModeState();
  * CR-060：宿主设置面板只提供 `settings:conversation-rows` 通用插槽，
  * 行内的开关、文案与可用性判断全部归插件。
  */
-const { pluginRuntime } = useWorkbenchContext();
-const isAvailable = pluginRuntime?.isPluginAvailable('focus-mode') ?? true;
+const { isPluginAvailable } = useUIPluginContext();
+const isAvailable = isPluginAvailable('focus-mode') ?? true;
 </script>
 
 <template>

@@ -10,7 +10,7 @@ const bridge = vi.hoisted(() => ({exposeInMainWorld: vi.fn()}))
 vi.mock('electron', () => ({contextBridge: bridge}))
 vi.mock('../src/preload/domains/window-api', () => ({windowApi: {openExternal: vi.fn()}}))
 vi.mock('../src/preload/domains/settings-api', () => ({settingsApi: {getTheme: vi.fn()}}))
-vi.mock('../src/preload/domains/aervox-api', () => ({aervoxApi: {apiRequest: vi.fn()}}))
+vi.mock('../src/preload/domains/aervox-api', () => ({aervoxApi: {apiRequest: vi.fn(), observeTurn: vi.fn()}}))
 vi.mock('../src/preload/domains/dialog-api', () => ({dialogApi: {pickDirectory: vi.fn()}}))
 vi.mock('../src/preload/domains/proactive-api', () => ({proactiveApi: {getStatus: vi.fn()}}))
 
@@ -109,6 +109,7 @@ describe('actual preload bridge exposure', () => {
         expect(bridge.exposeInMainWorld).toHaveBeenCalledOnce()
         expect(bridge.exposeInMainWorld).toHaveBeenCalledWith('fairyDesktop', expect.objectContaining({
             apiRequest: expect.any(Function),
+            observeTurn: expect.any(Function),
             openExternal: expect.any(Function),
             pickDirectory: expect.any(Function),
             proactive: expect.any(Object),

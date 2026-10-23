@@ -6,8 +6,8 @@
   "type": "module",
   "description": "Aervox Vue 3 web workbench (Vue full-stack monolith, see ADR-015).",
   "scripts": {
-    "dev": "vite",
-    "build": "vue-tsc --noEmit && vite build",
+    "dev": "node scripts/prepare-assets.mjs && vite",
+    "build": "node scripts/prepare-assets.mjs && vue-tsc --noEmit && vite build",
     "typecheck": "vue-tsc --noEmit",
     "start": "vite preview"
   },

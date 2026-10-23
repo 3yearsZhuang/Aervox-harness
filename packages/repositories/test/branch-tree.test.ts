@@ -28,7 +28,7 @@ describe('bounded conversation branch graph reads', () => {
       await store.createSession(ctx, id, {id})
     }
     for (const [id, parentSessionId, childSessionId] of edges) {
-      await store.createConversationBranch(ctx, {id, parentSessionId, childSessionId})
+      await store.createExplorationBranch(ctx, {id, parentSessionId, childSessionId})
     }
   }
 

@@ -4,6 +4,7 @@
 import type { MessageModel, TurnAttemptModel } from "./outbox.js";
 import type { LocalContext } from "../../local-context.js";
 import type { BranchTreeReadOptions } from "../../conversation-branch-tree.js";
+import type { TurnIntentInput, NormalizedTurnIntent, AcceptedTurnParameters } from "../../conversation-turn-intent.js";
 import type { ConversationExecutionPolicy, TurnDispatchTarget } from "@aervox/schema";
 
 export interface SessionModel {
@@ -25,6 +26,7 @@ export interface TurnModel {
   lastSequence: number;
   error?: unknown;
   quoteMessageId?: string | null;
+  requestHash?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -91,16 +93,16 @@ export interface SessionHistoryMessage {
   content: string;
 }
 
-export interface TurnAcceptanceInput {
+export interface TurnAcceptanceInput extends TurnIntentInput {
   /** Durable owner selected at acceptance; legacy callers stay in the API. */
   execution?: "api" | "worker";
   toolApprovalMode?: "ask" | "full_access";
+  /** Ignored for identity and dispatch; the trusted actor is read from LocalContext. */
   actorId?: string;
-  metadata?: Record<string, unknown>;
   turnId: string;
   sessionId: string;
   idempotencyKey: string;
-  message: { id: string; content: string };
+  message: TurnIntentInput["message"] & { id: string };
   attemptId: string;
   consumeInbox: boolean;
   /** Optional assertion; the authoritative policy is always inherited from the session. */
@@ -108,7 +110,7 @@ export interface TurnAcceptanceInput {
 }
 export type TurnAcceptanceResult =
   | { created: false; turn: TurnModel }
-  | { created: true; turn: TurnModel; message: MessageVersionModel; attempt: TurnAttemptModel };
+  | { created: true; turn: TurnModel; message: MessageVersionModel; attempt: TurnAttemptModel; intent?: NormalizedTurnIntent };
 
 export interface IConversationRepository {
   acceptTurn(ctx: LocalContext, input: TurnAcceptanceInput): Promise<TurnAcceptanceResult>;
@@ -141,6 +143,7 @@ export interface IConversationRepository {
   ): Promise<{ turn: TurnModel; message: MessageVersionModel }>;
   getTurn(ctx: LocalContext, turnId: string): Promise<TurnModel | null>;
   getTurnUserMessage(ctx: LocalContext, turnId: string): Promise<string | null>;
+  getAcceptedTurnParameters(ctx: LocalContext, turnId: string): Promise<AcceptedTurnParameters>;
   getTurnByIdempotencyKey(ctx: LocalContext, idempotencyKey: string): Promise<TurnModel | null>;
   updateTurnStatus(
     ctx: LocalContext,
@@ -169,6 +172,7 @@ export interface IConversationRepository {
        * 否则抛 FencingMismatchError（迟到的抢占执行器写入被拒绝）。
        */
       expectedFencingToken?: number | null;
+      pluginGeneration?: { pluginId: string; generation: string };
     },
   ): Promise<TurnStreamEventModel>;
   getStreamEvents(
@@ -238,17 +242,7 @@ export interface IConversationRepository {
   /** 2c：崩溃释放后将遗留 pending 预留标记为 outcome_unknown（§11.3） */
   markPendingOutcomeUnknown(client: import("@libsql/client").Client): Promise<number>;
   // P1（R2 · CAP-014）：会话地图与替代解法分支
-  createConversationBranch(
-    ctx: LocalContext,
-    branch: {
-      id: string;
-      parentSessionId: string;
-      forkAtMessageId?: string | null;
-      childSessionId: string;
-      title?: string;
-      branchReason?: string;
-    },
-  ): Promise<ConversationBranchModel>;
+  createExplorationBranch(ctx: LocalContext, input: CreateExplorationBranchInput): Promise<ConversationBranchModel | null>;
   listBranchesByParent(ctx: LocalContext, parentSessionId: string): Promise<ConversationBranchModel[]>;
   /** CAP-014：获取分支详情 */
   getBranch(ctx: LocalContext, branchId: string): Promise<ConversationBranchModel | null>;
@@ -284,6 +278,22 @@ export interface IConversationRepository {
     messagesCount: number;
   }>;
 }
+
+/** The command owns generated identities; callers may provide an existing child. */
+export interface CreateExplorationBranchInput {
+  id?: string;
+  idempotencyKey?: string;
+  parentSessionId: string;
+  childSessionId?: string;
+  forkAtMessageId?: string | null;
+  title?: string;
+  branchReason?: string;
+  pluginGeneration?: { pluginId: string; generation: string };
+}
+
+export type ConversationBranchPort = Pick<IConversationRepository,
+  "createExplorationBranch" | "listBranchesByParent" | "getBranchTree" | "getBranch" |
+  "mergeBranch" | "archiveBranch" | "updateBranchLayout" | "deleteBranch">;
 
 export interface ConversationBranchModel {
   id: string;

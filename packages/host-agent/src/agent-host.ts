@@ -14,7 +14,7 @@ import type {
   ToolProviderPort,
   AdapterDriverPort,
 } from "@aervox/core";
-import { defaultContextBuilder, executeTurn } from "@aervox/core";
+import { ControlContext, defaultContextBuilder, executeTurn } from "@aervox/core";
 import { runAdapterTurn } from "./adapter-turn.js";
 import type { Observability } from "@aervox/observability";
 
@@ -37,6 +37,9 @@ export interface TurnSourcePort {
 }
 
 export interface AgentHostDeps {
+  signal?: AbortSignal;
+  controlContext?: ControlContext;
+  deletionGate?: import("@aervox/core").DeletionGatePort;
   source: TurnSourcePort;
   /** 每条候选的 ExecutionStore（宿主组合根构造，如 SqliteExecutionStore） */
   createStore(turn: ClaimableTurn): ExecutionStorePort;
@@ -132,6 +135,8 @@ export function createAgentHost(deps: AgentHostDeps): AgentHost {
 
   const executeOne = async (turn: ClaimableTurn): Promise<void> => {
     const turnStartedAt = Date.now();
+    const control = deps.controlContext?.deriveSubtask({ subtaskSignal: deps.signal })
+      ?? new ControlContext({ abortSignal: deps.signal });
     try {
       const store = deps.createStore(turn);
       // 6b：已准入 Adapter 存在且非续跑 → 整 Turn 代理执行（事件映射既有契约 + 收紧）；
@@ -143,11 +148,11 @@ export function createAgentHost(deps: AgentHostDeps): AgentHost {
               sessionId: turn.sessionId,
               attemptId: turn.attemptId,
               userMessage: turn.userMessage,
-              tools: deps.tools?.tools,
+              tools: deps.tools?.tools, controlContext: control, deletionGate: deps.deletionGate,
             })
           : await executeTurn(
               {
-                execution: store,
+                execution: store, controlContext: control, deletionGate: deps.deletionGate,
                 provider: deps.provider,
                 contextBuilder: deps.contextBuilder ?? defaultContextBuilder,
                 tools: deps.tools,
@@ -178,6 +183,7 @@ export function createAgentHost(deps: AgentHostDeps): AgentHost {
         fields: { turnId: turn.turnId, sessionId: turn.sessionId, attemptId: turn.attemptId },
       });
     } finally {
+      control.dispose();
       runningCount -= 1;
       processedCount += 1;
     }

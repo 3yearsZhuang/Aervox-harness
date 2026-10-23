@@ -1,12 +1,10 @@
 /** Delete only explicitly supported targets; completion requires independent verification. */
-import { eq, sql } from "drizzle-orm";
-import { deletionRequests, deletionTargets } from "@aervox/schema";
-import { SqliteMemoryDeletionStore, MEMORY_DELETION_VERIFIER, unverifiedDeletionRequest, type AervoxDatabase, type SqlitePrivacyRepository, type SqlitePlatformRepository } from "@aervox/repositories";
+import { MEMORY_DELETION_VERIFIER, type SqliteMemoryDeletionStore, type DeletionQueuePort, type SqlitePlatformRepository } from "@aervox/repositories";
 
 export interface DeletionWorkerContext {
-  db: AervoxDatabase;
-  privacyRepo: SqlitePrivacyRepository;
-  platformRepo: SqlitePlatformRepository;
+  memoryDeletion: Pick<SqliteMemoryDeletionStore, "clean" | "verify">;
+  privacyRepo: DeletionQueuePort;
+  platformRepo: Pick<SqlitePlatformRepository, "createAuditRecord">;
   workerId: string;
 }
 const local = { workspaceId: "local", subjectUserId: "local" };
@@ -20,17 +18,14 @@ export const DELETION_FAILURE_REASONS = {
 
 /** Failed work is idempotently retried by later polling cycles and stays denied throughout. */
 export async function runDeletionCycle(ctx: DeletionWorkerContext): Promise<number> {
-  const requests = await ctx.db.select().from(deletionRequests)
-    .where(unverifiedDeletionRequest)
-    .orderBy(deletionRequests.updatedAt).limit(20);
-  const memory = new SqliteMemoryDeletionStore(ctx.db);
+  const requests = await ctx.privacyRepo.listUnverifiedDeletionRequests();
+  const memory = ctx.memoryDeletion;
   let completed = 0;
   for (const request of requests) {
     try {
-      await ctx.privacyRepo.updateDeletionRequestStatus(local, request.id, "in_progress", {
-        attemptCount: request.attemptCount + 1, lastError: null,
-      });
-      const targets = await ctx.db.select().from(deletionTargets).where(eq(deletionTargets.requestId, request.id));
+      const claimed = await ctx.privacyRepo.beginDeletionRequestAttempt(request.id);
+      if (!claimed) continue;
+      const targets = await ctx.privacyRepo.listDeletionTargets(request.id);
       if (request.scope !== "memory" || request.ownerModule !== "memory") throw new Error(DELETION_FAILURE_REASONS.scopeUnsupported);
       if (!targets.length) throw new Error(DELETION_FAILURE_REASONS.targetsEmpty);
       // Validate the whole dispatch set before mutating any target.
@@ -40,9 +35,7 @@ export async function runDeletionCycle(ctx: DeletionWorkerContext): Promise<numb
       for (const target of targets) {
         const key = { requestId: request.id, targetType: target.targetType, targetId: target.targetId };
         try {
-          await ctx.privacyRepo.updateDeletionTargetStatus(key, "in_progress");
-          await ctx.db.update(deletionTargets).set({ attemptCount: sql`${deletionTargets.attemptCount} + 1` })
-            .where(sql`${deletionTargets.requestId} = ${request.id} AND ${deletionTargets.targetType} = ${target.targetType} AND ${deletionTargets.targetId} = ${target.targetId}`);
+          await ctx.privacyRepo.beginDeletionTargetAttempt(key);
           await memory.clean(target.targetId);
           const evidence = await memory.verify(target.targetId);
           await ctx.privacyRepo.updateDeletionTargetStatus(key, "completed", evidence);

@@ -33,6 +33,57 @@ describe("atomic Turn acceptance", () => {
     expect((await accept("retry")).created).toBe(false);
     expect((await inbox.getByIdempotencyKey(ctx, "later"))?.status).toBe("pending");
   });
+  it("binds request identity before inbox merging and preserves accepted execution parameters", async () => {
+    const input = { turnId: "bound", sessionId: "s", idempotencyKey: "bound", attemptId: "a_bound", message: { id: "m_bound", content: "current", attachments: [{ attachmentId: "a", name: "paper" }] },
+      references: [{ sourceId: "source", sourceVersion: "v1" }], metadata: { nested: { b: 2, a: 1 } }, toolApprovalMode: "full_access" as const, actorId: "forged", consumeInbox: true };
+    const accepted = await repo.acceptTurn({ ...ctx, actorId: "trusted" }, input);
+    expect(accepted.created && accepted.message.content).toBe("queued\n\ncurrent\n\n[附件清单]\n- paper [id: a]");
+    const parameters = await repo.getAcceptedTurnParameters(ctx, "bound");
+    expect(parameters).toMatchObject({ actorId: "trusted", toolApprovalMode: "full_access", metadata: { nested: { a: 1, b: 2 } } });
+    expect(accepted.turn.requestHash).toMatch(/^turn-intent-v1:[a-f0-9]{64}$/);
+    await inbox.enqueue(ctx, { id: "later", idempotencyKey: "later", sessionId: "s", type: "followup", payload: "later", sourceActor: "user" });
+    expect(await repo.acceptTurn({ ...ctx, actorId: "trusted" }, { ...input, turnId: "retry", attemptId: "retry_attempt", execution: "worker", metadata: { nested: { a: 1, b: 2 } } })).toMatchObject({ created: false });
+    expect((await inbox.getByIdempotencyKey(ctx, "later"))?.status).toBe("pending");
+    for (const changed of [
+      { message: { ...input.message, content: "changed" } }, { references: [{ sourceId: "source", sourceVersion: "v2" }] },
+      { metadata: { nested: { a: 2, b: 2 } } }, { toolApprovalMode: "ask" as const },
+    ]) await expect(repo.acceptTurn({ ...ctx, actorId: "trusted" }, { ...input, ...changed })).rejects.toMatchObject({ reason: "intent_mismatch" });
+    await expect(repo.acceptTurn({ ...ctx, actorId: "other" }, input)).rejects.toMatchObject({ reason: "intent_mismatch" });
+    expect(await repo.listTurnAttempts(ctx, "bound")).toHaveLength(1);
+    expect(await repo.getAcceptedTurnParameters(ctx, "bound")).toEqual(parameters);
+  });
+
+  it.each([null, "old-hash", "turn-intent-v2:" + "a".repeat(64)])("does not guess or replace an unverifiable existing hash: %s", async requestHash => {
+    await accept();
+    await database.client.execute({ sql: "UPDATE turns SET request_hash=? WHERE id='t'", args: [requestHash] });
+    await expect(accept("retry")).rejects.toMatchObject({ reason: "intent_unavailable" });
+    await expect(repo.getAcceptedTurnParameters(ctx, "t")).rejects.toMatchObject({ reason: "intent_unavailable" });
+    expect((await repo.getTurn(ctx, "t"))?.requestHash).toBe(requestHash);
+    expect(await repo.listTurnAttempts(ctx, "t")).toHaveLength(1);
+  });
+
+  it.each(["missing", "changed"])("fails closed when the accepted receipt is %s", async variant => {
+    await accept();
+    if (variant === "missing") await database.client.execute("DELETE FROM outbox_events WHERE id='outbox_t'");
+    else await database.client.execute("UPDATE outbox_events SET payload=json_set(payload,'$.intent.metadata.mode','forged') WHERE id='outbox_t'");
+    await expect(repo.getAcceptedTurnParameters(ctx, "t")).rejects.toMatchObject({ reason: "intent_unavailable" });
+    expect((await repo.listTurnAttempts(ctx, "t"))[0]?.fencingToken).toBe(0);
+    expect(await repo.getStreamEvents(ctx, "t")).toEqual([]);
+  });
+
+  it("serializes the same idempotency key across sessions without consuming the losing session inbox", async () => {
+    await repo.getOrCreateSession(ctx, "other");
+    await inbox.enqueue(ctx, { id: "other-inbox", idempotencyKey: "other-inbox", sessionId: "other", type: "followup", sourceActor: "user", payload: "untouched" });
+    const outcomes = await Promise.allSettled([
+      accept("winner"),
+      repo.acceptTurn(ctx, { turnId: "loser", sessionId: "other", idempotencyKey: "same", attemptId: "a_loser", message: { id: "m_loser", content: "current" }, consumeInbox: true }),
+    ]);
+    expect(outcomes.filter(outcome => outcome.status === "fulfilled")).toHaveLength(1);
+    expect(outcomes.find(outcome => outcome.status === "rejected")).toMatchObject({ reason: { reason: "session_mismatch" } });
+    expect((await inbox.getByIdempotencyKey(ctx, "other-inbox"))?.status).toBe("pending");
+    expect(Number((await database.client.execute("SELECT COUNT(*) AS n FROM turns")).rows[0]?.n)).toBe(1);
+  });
+
   it("fresh cancellation is not reclaimed; recovery event failure rolls back the fence and tool outcome", async () => {
     await accept();
     await repo.reserveToolExecution(ctx, { turnId: "t", attemptId: "a_t", invocationId: "call", name: "write" });

@@ -10,6 +10,7 @@
  * 3. HTTP 端点（`httpEndpoints`）—— 插件自有 API，经宿主适配为框架路由；
  * 4. Bot 适配器（`botAdapters`）—— 平台文字传输，受宿主连接与会话策略管理。
  */
+import type { PluginApiRegistry } from "@aervox/contracts";
 import type { ReplayStep, ToolGuidance, ToolProviderPort } from "@aervox/core";
 import type { PluginHostServices } from "./host-services.js";
 import type { ServerTurnPlugin } from "./turn-plugin.js";
@@ -23,6 +24,8 @@ export interface PluginHttpRequest {
   params: Record<string, string>;
   query: Record<string, string>;
   body: unknown;
+  /** Only the request's bounded operation key is exposed, never authentication headers. */
+  idempotencyKey?: string;
 }
 
 /** 插件端点出参；`status` 缺省为 200 */
@@ -90,7 +93,7 @@ export interface ServerPluginRegistration {
   /** Trusted, compile-time Bot transports; the host owns connection lifecycle and admission policy. */
   botAdapters?: BotAdapterContribution[];
   /** 对外 API 契约登记；宿主持有注销函数，在装配失败或宿主关闭时释放。不得在 import 时登记。 */
-  registerApiContract?: () => (() => void);
+  registerApiContract?: (registry: Pick<PluginApiRegistry, "registerPluginApiContribution">) => (() => void);
   /** 回合切面：与本地上下文无关，装配期一次性注册，启用门控由 Runner 负责 */
   turnPlugins?: ServerTurnPlugin[];
   /**

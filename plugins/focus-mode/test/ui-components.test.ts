@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { enableAutoUnmount, mount } from '@vue/test-utils';
 import { ref } from 'vue';
-import { WORKBENCH_CONTEXT_KEY, type WorkbenchContext } from '@aervox/ui/plugin-api';
+import { UI_PLUGIN_CONTEXT_KEY, type UIPluginContext } from '@aervox/ui/plugin-api';
 import FocusSettingsRow from '../src/ui/FocusSettingsRow.vue';
 import FocusModeSwitch from '../src/ui/FocusModeSwitch.vue';
 import FocusNavMenuItem from '../src/ui/FocusNavMenuItem.vue';
@@ -21,13 +21,13 @@ vi.mock('../src/ui/daily-problem', () => ({
  * CR-060：插件 UI 组件测试随实现内聚于插件包。
  * 宿主包不再引用任何插件组件（`import-boundary` 规则 `host-no-plugin-implementation`）。
  */
-function contextWith(extra: Record<string, unknown> = {}): WorkbenchContext {
-  return { layout: {}, cards: {}, ...extra } as unknown as WorkbenchContext;
+function contextWith(extra: Record<string, unknown> = {}): UIPluginContext {
+  return { navigation: {}, cards: {}, ...extra } as unknown as UIPluginContext;
 }
 
-function mountWith(component: unknown, context: WorkbenchContext) {
+function mountWith(component: unknown, context: UIPluginContext) {
   return mount(component as never, {
-    global: { provide: { [WORKBENCH_CONTEXT_KEY as symbol]: context } },
+    global: { provide: { [UI_PLUGIN_CONTEXT_KEY as symbol]: context } },
   });
 }
 
@@ -35,7 +35,7 @@ enableAutoUnmount(afterEach);
 
 describe('plugins/focus-mode UI 组件', () => {
     it('shares the mode state between the header switch and settings row', async () => {
-      const context = contextWith({ pluginRuntime: { isPluginAvailable: () => true } });
+      const context = contextWith({ isPluginAvailable: () => true });
       const { focusModeEnabled } = useFocusModeState(context);
       focusModeEnabled.value = false;
       const header = mountWith(FocusModeSwitch, context);
@@ -52,7 +52,7 @@ describe('plugins/focus-mode UI 组件', () => {
 
     it('keeps the settings switch unavailable when the plugin is disabled', () => {
       const settings = mountWith(FocusSettingsRow, contextWith({
-        pluginRuntime: { isPluginAvailable: () => false },
+        isPluginAvailable: () => false,
       }));
       expect(settings.find('[role="switch"]').exists()).toBe(false);
     });
@@ -62,9 +62,9 @@ describe('plugins/focus-mode UI 组件', () => {
 
       const mockContext = {
 
-        layout: { runMenuAction },
+        navigation: { runMenuAction },
 
-      } as unknown as WorkbenchContext;
+      } as unknown as UIPluginContext;
 
       const { learningOpen, activeLearningView } = useFocusModeState(mockContext);
       learningOpen.value = false;
@@ -114,11 +114,11 @@ describe('plugins/focus-mode UI 组件', () => {
 
       const mockContext = {
 
-        layout: { openTool },
+        navigation: { openTool },
 
         cards: { openDailyProblem: hostOpenDailyProblem },
 
-      } as unknown as WorkbenchContext;
+      } as unknown as UIPluginContext;
 
       const { focusModeEnabled, learningOpen, activeLearningView } = useFocusModeState(mockContext);
       focusModeEnabled.value = true;
@@ -169,11 +169,11 @@ describe('plugins/focus-mode UI 组件', () => {
 
       const mockContext = {
 
-        layout: { taskCenterOpen },
+        navigation: { closeTaskCenter: () => { taskCenterOpen.value = false; } },
 
-        cards: { syncReviewCount: ref(5) },
+        cards: { reviewCount: ref(5) },
 
-      } as unknown as WorkbenchContext;
+      } as unknown as UIPluginContext;
 
       const { learningOpen, activeLearningView } = useFocusModeState(mockContext);
       learningOpen.value = false;

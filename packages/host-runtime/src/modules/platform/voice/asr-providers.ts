@@ -10,7 +10,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 // sherpa-onnx-node 为 CJS 包，命名导出无法被 Node ESM 静态识别，必须默认导入
 import sherpaOnnx from "sherpa-onnx-node";
-import { loadApiConfig } from "@aervox/config";
+import { loadVoiceConfig } from "@aervox/config";
 import type { OfflineRecognizer } from "sherpa-onnx-node";
 import type {
   ASRProviderPort,
@@ -26,9 +26,12 @@ export interface SenseVoiceProviderOptions {
   modelPath?: string;
   allowedRoots?: string[];
   modelId?: string;
+  modelBaseUrl?: string;
 }
 
 export class SenseVoiceLocalProvider implements ASRProviderPort, DownloadableModelPort {
+  readonly modelBaseUrl: string;
+  readonly allowedMirrorHosts: readonly string[];
   private readonly audioPreprocessor?: SenseVoiceProviderOptions["audioPreprocessor"];
   readonly kind = "sensevoice-local";
   private currentModelPath?: string;
@@ -53,34 +56,32 @@ export class SenseVoiceLocalProvider implements ASRProviderPort, DownloadableMod
    * SenseVoice-Small（sherpa-onnx 发布包）权重约 227MB，全程离线。
    * 缺陷 E：默认值经 @aervox/config 集中解析（SENSEVOICE_MODEL_BASE_URL）。
    */
-  static readonly DEFAULT_MODEL_BASE_URL = loadApiConfig().asr.senseVoiceBaseUrl;
+  static readonly DEFAULT_MODEL_BASE_URL = loadVoiceConfig({}).asr.senseVoiceBaseUrl;
 
   /**
    * CR-016 安全整改：允许的模型镜像源 host 白名单。
    * 默认 hf-mirror.com；SENSEVOICE_MODEL_BASE_URL 指向的 host 也在其列。
    * 防止 mirrorUrl 被用作 SSRF 探测任意内网/公网地址。
    */
-  static isAllowedMirrorHost(mirrorBase: string): boolean {
-    let host: string;
+  static isAllowedMirrorHost(mirrorBase: string, configuredBase = SenseVoiceLocalProvider.DEFAULT_MODEL_BASE_URL): boolean {
     try {
-      host = new URL(mirrorBase).host;
-    } catch {
-      return false;
-    }
-    if (host === "hf-mirror.com") return true;
-    const envBase = loadApiConfig().asr.senseVoiceBaseUrl;
-    if (!envBase) return false;
-    try {
-      return new URL(envBase).host === host;
-    } catch {
-      return false;
-    }
+      const url = new URL(mirrorBase);
+      return ["http:", "https:"].includes(url.protocol) &&
+        (url.host === "hf-mirror.com" || url.host === new URL(configuredBase).host);
+    } catch { return false; }
   }
 
   constructor(
     readonly id: string = "sensevoice-local",
     options: SenseVoiceProviderOptions = {},
   ) {
+    this.modelBaseUrl = options.modelBaseUrl ?? SenseVoiceLocalProvider.DEFAULT_MODEL_BASE_URL;
+    const allowedMirrorHosts = ["hf-mirror.com"];
+    try {
+      const configured = new URL(this.modelBaseUrl);
+      if (["http:", "https:"].includes(configured.protocol)) allowedMirrorHosts.push(configured.host);
+    } catch { /* An invalid mirror remains unavailable for downloads without breaking local transcription. */ }
+    this.allowedMirrorHosts = allowedMirrorHosts;
     this.audioPreprocessor = options.audioPreprocessor;
     this.currentModelPath = options.modelPath;
     this.currentModelId = options.modelId ?? "sensevoice-small";
@@ -216,7 +217,7 @@ export class SenseVoiceLocalProvider implements ASRProviderPort, DownloadableMod
       options?.targetDir ||
       this.currentModelPath ||
       path.join(process.cwd(), "data", "models", "sensevoice-small");
-    const mirrorBase = (options?.mirrorUrl || SenseVoiceLocalProvider.DEFAULT_MODEL_BASE_URL).replace(/\/+$/, "");
+    const mirrorBase = (options?.mirrorUrl || this.modelBaseUrl).replace(/\/+$/, "");
     if (!/^https?:\/\//.test(mirrorBase)) {
       return {
         accepted: false,
@@ -233,7 +234,7 @@ export class SenseVoiceLocalProvider implements ASRProviderPort, DownloadableMod
         status: this.getModelStatus(),
       };
     }
-    if (!SenseVoiceLocalProvider.isAllowedMirrorHost(mirrorBase)) {
+    if (!SenseVoiceLocalProvider.isAllowedMirrorHost(mirrorBase, this.modelBaseUrl)) {
       return {
         accepted: false,
         message: "mirrorUrl host 不在允许的镜像源白名单内",

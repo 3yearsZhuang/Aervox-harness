@@ -5,20 +5,16 @@
  * 各端（desktop/web）构建时从包拷贝到自己的 public 目录供运行时 fetch。
  * 消费端 public 下的 live2d/mizuki 是构建产物，已 gitignore，不入库。
  *
- * 由 @aervox/live2d 的 build 脚本触发（turbo dependsOn ^build 保证顺序）。
+ * 消费端显式传入自己的输出目录。
  */
 import { cpSync, mkdirSync, existsSync, mkdtempSync, rmSync, renameSync, lstatSync, realpathSync } from 'node:fs'
 import { dirname, join, resolve, relative, sep, isAbsolute } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 
 const pkgDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const source = join(pkgDir, 'mizuki')
 
-/** 消费端 public 目录：desktop 的 renderer/public 与 web 的 public */
-const targets = [
-  resolve(pkgDir, '../../apps/desktop/src/renderer/public/live2d'),
-  resolve(pkgDir, '../../apps/web/public/live2d'),
-]
+export const modelAssetSource = source
 
 export function copyModelAssets(source, targets) {
   if (!existsSync(source)) throw new Error(`live2d 资源目录不存在: ${source}`)
@@ -54,5 +50,3 @@ export function copyModelAssets(source, targets) {
     console.log(`✓ 已同步 mizuki → ${join(targetDir, 'mizuki')}`)
   }
 }
-
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) copyModelAssets(source, targets)

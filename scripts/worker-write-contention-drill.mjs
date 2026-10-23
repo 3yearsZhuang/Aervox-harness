@@ -318,7 +318,7 @@ function distFingerprint() {
     repositoriesIndex: hashFile(REPOSITORIES_DIST),
     repositoriesClient: hashFile(path.join(REPO_ROOT, "packages/repositories/dist/client.js")),
     repositoriesWriteRetry: hashFile(path.join(REPO_ROOT, "packages/repositories/dist/write-retry.js")),
-    repositoriesWorkerIpc: hashFile(path.join(REPO_ROOT, "packages/repositories/dist/worker-ipc.js")),
+    repositoriesWorkerIpc: hashFile(path.join(REPO_ROOT, "packages/process-coordination/dist/index.js")),
     workerHost: hashFile(WORKER_HOST_DIST),
     outboxWorker: hashFile(OUTBOX_WORKER_DIST),
     pressureLease: hashFile(PRESSURE_LEASE_DIST),
@@ -506,6 +506,7 @@ function createErrorTally(classify) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function runApiWriter(flags) {
+  const { notifyWorkerWakeup } = await import("../packages/process-coordination/dist/index.js");
   const cfg = roleConfig(flags);
   const repos = await import(pathToFileURL(REPOSITORIES_DIST).href);
   const {
@@ -514,7 +515,6 @@ async function runApiWriter(flags) {
     SqliteOutboxRepository,
     isSqliteBusyError,
     isSqliteConnectionPoisonedError,
-    notifyWorkerWakeup,
   } = repos;
 
   const tally = createErrorTally({
@@ -1258,7 +1258,7 @@ async function runOrchestrator(flags) {
     // ── 3. 真实压力租约：与 apps/api 线上握手序列完全一致 ────────────────────
     let pressureHandle = null;
     let pressureSource = "api-worker-pressure-lease (apps/api/dist)";
-    const { notifyWorkerPressure } = repos;
+    const { notifyWorkerPressure } = await import("../packages/process-coordination/dist/index.js");
     if (pressureLeaseAvailable) {
       const lease = await import(pathToFileURL(PRESSURE_LEASE_DIST).href);
       pressureHandle = {

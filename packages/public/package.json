@@ -4,13 +4,17 @@
   "license": "AGPL-3.0-or-later",
   "private": true,
   "type": "module",
-  "description": "Aervox 共享静态资产包：favicon 与产品介绍页（intro）单份真源，构建期拷贝至 desktop/web 的 public 目录。",
+  "description": "Aervox shared static assets and consumer-invoked asset manifest.",
   "files": [
     "aervox-intro",
-    "aervox-mark.svg"
+    "aervox-mark.svg",
+    "scripts/copy-assets.mjs"
   ],
   "scripts": {
-    "build": "node scripts/vendor-assets.mjs --verify && node scripts/copy-assets.mjs",
+    "build": "node scripts/vendor-assets.mjs --verify",
     "test": "node --test scripts/*.test.mjs"
+  },
+  "exports": {
+    "./build-assets": "./scripts/copy-assets.mjs"
   }
 }

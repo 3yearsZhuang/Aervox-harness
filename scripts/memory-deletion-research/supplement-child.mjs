@@ -85,7 +85,7 @@ async function crash(url, stage) {
     if (stage === 'after-request-complete' && args[2] === 'completed') await barrier(stage);
     return result;
   };
-  await runDeletionCycle({ db, privacyRepo: privacy, platformRepo: new SqlitePlatformRepository(db), workerId: 'crash-probe' });
+  await runDeletionCycle({ memoryDeletion: new SqliteMemoryDeletionStore(db), privacyRepo: privacy, platformRepo: new SqlitePlatformRepository(db), workerId: 'crash-probe' });
   throw new Error(`unreached worker crash barrier ${stage}`);
 }
 

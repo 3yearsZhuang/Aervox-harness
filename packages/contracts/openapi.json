@@ -591,6 +591,44 @@
           "cancelUrl"
         ]
       },
+      "ReplayTurnResponse": {
+        "type": "object",
+        "properties": {
+          "turnId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "Created",
+              "InputChecking",
+              "Running",
+              "Finalizing",
+              "Completed",
+              "Rejected",
+              "CancelRequested",
+              "Cancelled",
+              "Interrupted",
+              "Failed"
+            ]
+          },
+          "eventsUrl": {
+            "type": "string",
+            "minLength": 1
+          },
+          "cancelUrl": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "turnId",
+          "status",
+          "eventsUrl",
+          "cancelUrl"
+        ]
+      },
       "CancelTurnResponse": {
         "type": "object",
         "properties": {
@@ -748,6 +786,9 @@
             "exclusiveMinimum": 0
           },
           "contextVersion": {
+            "type": "string"
+          },
+          "reason": {
             "type": "string"
           }
         },
@@ -11782,6 +11823,51 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "Existing Turn with the same accepted intent and its current status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "turnId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "Created",
+                        "InputChecking",
+                        "Running",
+                        "Finalizing",
+                        "Completed",
+                        "Rejected",
+                        "CancelRequested",
+                        "Cancelled",
+                        "Interrupted",
+                        "Failed"
+                      ]
+                    },
+                    "eventsUrl": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "cancelUrl": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "turnId",
+                    "status",
+                    "eventsUrl",
+                    "cancelUrl"
+                  ]
+                }
+              }
+            }
+          },
           "201": {
             "description": "Created",
             "content": {
@@ -11839,7 +11925,7 @@
             }
           },
           "409": {
-            "description": "IDEMPOTENCY_KEY_REUSED",
+            "description": "Idempotency key belongs to a different or unverifiable accepted intent",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -25776,6 +25862,16 @@
             "required": true,
             "name": "sessionId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "required": false,
+            "name": "Idempotency-Key",
+            "in": "header"
           }
         ],
         "requestBody": {
@@ -25907,6 +26003,16 @@
           },
           "404": {
             "description": "Parent session not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency key reused with different branch input",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -33345,10 +33451,10 @@
         },
         "responses": {
           "200": {
-            "description": "Existing idempotent attempt"
+            "description": "Existing idempotent attempt with its original nextStep"
           },
           "201": {
-            "description": "Attempt created"
+            "description": "Attempt created atomically with derived state, review and Outbox"
           },
           "400": {
             "description": "请求或会话信息非法",
@@ -33381,7 +33487,7 @@
             }
           },
           "409": {
-            "description": "练习会话未激活或题目不属于该会话",
+            "description": "练习会话未激活、idempotency_key_reused 或旧作答缺少可证明完整提交的回执 answer_receipt_unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {

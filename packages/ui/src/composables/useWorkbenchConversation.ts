@@ -1,15 +1,9 @@
-import { computed, nextTick, ref, watch, type Ref } from 'vue';
-import {
-  decideToolApproval,
-  streamAervoxTurn,
-  submitQuestionAnswers,
-} from '@aervox/api-client';
+import { computed, getCurrentScope, nextTick, onScopeDispose, ref, shallowRef, watch, type Ref } from 'vue';
+import type { ConversationController } from '@aervox/api-client';
 import type {
   AskUserQuestionAnswerItem,
   ToolApprovalMode,
-  ToolApprovalRequiredEventData,
   TurnAttachmentRef,
-  UserQuestionRequiredEventData,
 } from '@aervox/contracts';
 import { MizukiExpression } from '../live2d/model';
 import { readCompanionIdentity } from '../utils/companion-identity';
@@ -150,8 +144,16 @@ export function createStreamingDeltaBatcher(
 export function useWorkbenchConversation(options: {
   recordActivity: (source: 'aervox.activity' | 'aervox.operation', eventType: string, payloadText?: string, metadata?: Record<string, unknown>) => void;
   onRefreshProactiveStatus?: () => Promise<void>;
-  onApprovalContinuation?: (turnId: string, afterEventId: string) => Promise<void>;
+  controller: ConversationController;
+  onApprovalDecision: (decision: 'granted' | 'denied') => Promise<void>;
+  onRetrySubmission?: () => Promise<void>;
 }) {
+  const turnState = shallowRef(options.controller.state);
+  const unsubscribe = options.controller.subscribe(state => { turnState.value = state; });
+  if (getCurrentScope()) onScopeDispose(() => unsubscribe());
+  const retryAvailable = computed(() => turnState.value?.retryAvailable ?? false);
+  const retryLabel = computed(() => turnState.value.status === 'observer-error' ? '恢复接收回复' : '重试发送');
+  const retrySubmission = () => options.onRetrySubmission?.();
   // CR-065：问候语用陪伴角色名（思隅是空间名，不是角色名）
   const companionGreeting = () => {
     const { companionName, userAddress } = readCompanionIdentity();
@@ -175,12 +177,12 @@ export function useWorkbenchConversation(options: {
   const historyViewport = ref<HTMLElement | null>(null);
 
   // UQ-01: 挂起向用户提问数据与提交状态
-  const activeQuestion = ref<UserQuestionRequiredEventData | null>(null);
+  const activeQuestion = computed(() => turnState.value.question ?? null);
   const questionSubmitting = ref(false);
-  const currentTurnId = ref<string | null>(null);
+  const currentTurnId = computed(() => turnState.value.turnId ?? null);
 
   // PET-05: 写工具审批待决
-  const pendingApproval = ref<(ToolApprovalRequiredEventData & { turnId: string; outgoing: string }) | null>(null);
+  const pendingApproval = computed(() => turnState.value.approval ?? null);
   const approvalBusy = ref(false);
   const approvalToolLabels: Record<string, string> = {
     aervox_diary_write: '把今天的日记写进日记本',
@@ -201,6 +203,7 @@ export function useWorkbenchConversation(options: {
   }
 
   function resetStory(greeting?: string) {
+    options.controller.reset();
     nextStoryId = 2;
     story.value = [
       {
@@ -210,8 +213,6 @@ export function useWorkbenchConversation(options: {
         state: 'complete',
       },
     ];
-    activeQuestion.value = null;
-    pendingApproval.value = null;
   }
 
   let scrollRafId: ReturnType<typeof requestAnimationFrame> | ReturnType<typeof setTimeout> | null = null;
@@ -295,12 +296,7 @@ export function useWorkbenchConversation(options: {
     if (!pending || approvalBusy.value || streaming.value) return;
     approvalBusy.value = true;
     try {
-      const response = await decideToolApproval(pending.turnId, pending.approvalId, decision);
-      pendingApproval.value = null;
-      if (response?.continuation) {
-        await options.onApprovalContinuation?.(pending.turnId, response.continuation.afterEventId);
-      }
-
+      await options.onApprovalDecision(decision);
     } catch (err) {
       console.error('提交授权决定失败', err);
     } finally {
@@ -312,8 +308,7 @@ export function useWorkbenchConversation(options: {
     if (!currentTurnId.value || questionSubmitting.value) return;
     questionSubmitting.value = true;
     try {
-      await submitQuestionAnswers(currentTurnId.value, answers);
-      activeQuestion.value = null;
+      await options.controller.answer(answers);
     } catch (err) {
       console.error('提交回答失败', err);
     } finally {
@@ -349,6 +344,7 @@ export function useWorkbenchConversation(options: {
 
   return {
     story,
+    turnState, retryAvailable, retryLabel, retrySubmission,
     streaming,
     consoleCollapsed,
     novelIndex,

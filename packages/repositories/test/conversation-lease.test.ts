@@ -77,6 +77,17 @@ describe("3b-A 租约 TTL 与续租", () => {
       await repo.renewTurnAttemptLease(ctx, { attemptId: "atp_lease", leaseId: "lease_1", expectedFencingToken: 0 }),
     ).toBe(false);
   });
+  it("cancellation preserves the owned heartbeat until atomic terminal commit, then prevents renewal", async () => {
+    await repo.claimTurnAttempt(ctx, { turnId: "turn_lease", attemptId: "atp_lease", expectedFencingToken: 0, leaseId: "lease_1" });
+    await repo.requestCancelTurnAttempt(ctx, { turnId: "turn_lease", attemptId: "atp_lease" });
+    expect(await repo.renewTurnAttemptLease(ctx, { attemptId: "atp_lease", leaseId: "lease_1", expectedFencingToken: 1 })).toBe(true);
+    expect(await repo.renewTurnAttemptLease(ctx, { attemptId: "atp_lease", leaseId: "other", expectedFencingToken: 1 })).toBe(false);
+    expect(await repo.finalizeAttemptWithEventAtomically(ctx, { turnId: "turn_lease", attemptId: "atp_lease", status: "Cancelled", expectedFencingToken: 1,
+      sequence: 1, eventType: "done", eventData: { status: "Cancelled" } })).toBe(true);
+    expect(await repo.getTurnAttemptStatus(ctx, { turnId: "turn_lease", attemptId: "atp_lease" })).toBe("Cancelled");
+    expect(await repo.renewTurnAttemptLease(ctx, { attemptId: "atp_lease", leaseId: "lease_1", expectedFencingToken: 1 })).toBe(false);
+    expect((await repo.getStreamEvents(ctx, "turn_lease"))).toHaveLength(1);
+  });
 
   it("3b-B 抢占：租约未过期不可被抢占", async () => {
     await repo.claimTurnAttempt(ctx, {

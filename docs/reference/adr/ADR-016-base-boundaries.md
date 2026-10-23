@@ -53,7 +53,7 @@ API `src/modules/<domain>/<module>` 的跨模块引用仅允许公开 `index.ts`
 
 ## Consequences and verification
 
-边界违规可在 CI 阻断；代价是维护 AST 解析、精确例外和契约。验证包括真实违规注入、动态/类型导入与 Vue 场景、插件停用/缺包、端点失败可观测、投影归属和组合根编译；详见[边界测试](../../../scripts/import-boundary.test.mjs)、[插件契约测试](../../../packages/contracts/test/plugin-api-registry.test.ts)及[物理移除演练](../../../scripts/run-removability-drill.mjs)。
+边界违规可在 CI 阻断；代价是维护 AST 解析、精确例外和契约。验证包括真实违规注入、动态/类型导入与 Vue 场景、插件停用/缺包、端点失败可观测、投影归属和组合根编译；详见[边界测试](../../../scripts/import-boundary.test.mjs)、[插件契约测试](../../../packages/host-runtime/test/plugin-api-registry.test.ts)及[物理移除演练](../../../scripts/run-removability-drill.mjs)。
 
 插件移除演练须删除实现并剥离包清单和三处装配后冷构建 API/Worker、检查 Web/Desktop 类型与数据权利入口。纯净性棘轮零命中仅证明已登记规则未命中，不证明语义上没有领域知识。分发清单与字节可重现性独立验证，结果以相关 PR 为证，不在本文累积运行日志。
 

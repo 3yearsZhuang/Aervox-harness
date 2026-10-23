@@ -19,6 +19,7 @@ import type {
   MessageVersionModel,
   TurnAttemptModel,
   ConversationBranchModel,
+  CreateExplorationBranchInput,
   TurnStreamEventModel,
   TurnStreamEventPageOptions,
   TurnStreamEventPage,
@@ -77,10 +78,14 @@ export class SqliteConversationRepository implements IConversationRepository {
     return this.sessionStore.getSessionHistory(ctx, input);
   }
 
+  createExplorationBranch(ctx: LocalContext, input: CreateExplorationBranchInput): Promise<ConversationBranchModel | null> {
+    return this.sessionStore.createExplorationBranch(ctx, input);
+  }
+
   async createSession(
     _tenant: LocalContext,
     title: string,
-    options?: { id?: string; projectId?: string | null; executionPolicy?: ConversationExecutionPolicy },
+    options?: { id?: string; projectId?: string | null; executionPolicy?: ConversationExecutionPolicy; pluginGeneration?: { pluginId: string; generation: string } },
   ): Promise<SessionModel> {
     return this.sessionStore.createSession(_tenant, title, options);
   }
@@ -152,6 +157,10 @@ export class SqliteConversationRepository implements IConversationRepository {
     return this.turnStore.getTurn(ctx, turnId);
   }
 
+  getAcceptedTurnParameters(ctx: LocalContext, turnId: string) {
+    return this.turnStore.getAcceptedTurnParameters(ctx, turnId);
+  }
+
   async getTurnUserMessage(ctx: LocalContext, turnId: string): Promise<string | null> {
     return this.turnStore.getTurnUserMessage(ctx, turnId);
   }
@@ -194,6 +203,7 @@ export class SqliteConversationRepository implements IConversationRepository {
        * FencingMismatchError（AVX-HAR-001 §11.2/§12.2）。
        */
       expectedFencingToken?: number | null;
+      pluginGeneration?: { pluginId: string; generation: string };
     },
   ): Promise<TurnStreamEventModel> {
     return this.streamEventStore.appendStreamEvent(ctx, eventData);
@@ -523,6 +533,8 @@ export class SqliteConversationRepository implements IConversationRepository {
 
   decideToolApprovalAndResume(ctx: LocalContext, input: {
     turnId: string; approvalId: string; decision: "granted" | "denied"; decidedBy: string;
+    toolVersion?: string;
+    pluginGeneration?: { pluginId: string; generation: string };
   }) {
     return this.approvalStore.decideAndResume(ctx, input);
   }
@@ -549,25 +561,12 @@ export class SqliteConversationRepository implements IConversationRepository {
     input: {
       toolName: string;
       argumentsHash: string;
+      toolVersion?: string | null;
       excludeDecidedByPrefix?: string;
       excludeDecidedByPrefixes?: string[];
     },
   ): Promise<ToolApprovalModel | null> {
     return this.approvalStore.findGrantedToolApproval(ctx, input);
-  }
-
-  async createConversationBranch(
-    ctx: LocalContext,
-    branchData: {
-      id: string;
-      parentSessionId: string;
-      forkAtMessageId?: string | null;
-      childSessionId: string;
-      title?: string;
-      branchReason?: string;
-    },
-  ): Promise<ConversationBranchModel> {
-    return this.sessionStore.createConversationBranch(ctx, branchData);
   }
 
   async listBranchesByParent(ctx: LocalContext, parentSessionId: string): Promise<ConversationBranchModel[]> {

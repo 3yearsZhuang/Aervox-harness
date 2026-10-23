@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { buildOpenApiDocument, modelRuntimeApi, preferencesApi, privacyApi, pluginConfigApi, skillsApi, branchesApi, feedbackApi } from '@aervox/contracts';
+import { modelRuntimeApi, preferencesApi, privacyApi, pluginConfigApi, skillsApi, branchesApi, feedbackApi } from '@aervox/contracts';
 import { createInMemoryDatabase } from '@aervox/repositories';
 import { buildApp } from './app-fixture.js';
 import { compareRouteCoverage, routeCoverageKey, type RouteCoverageException } from './helpers/openapi-coverage.js';
@@ -16,7 +16,10 @@ describe('OpenAPI route coverage ratchet', () => {
       for (const endpoint of [...Object.values(modelRuntimeApi), ...Object.values(preferencesApi), ...Object.values(privacyApi), ...Object.values(pluginConfigApi), ...Object.values(skillsApi), ...Object.values(branchesApi), ...Object.values(feedbackApi)]) {
         expect(routes.map(route => routeCoverageKey(route.method, route.path))).toContain(routeCoverageKey(endpoint.method, endpoint.path));
       }
-      const result = compareRouteCoverage(routes, buildOpenApiDocument(), baseline.exceptions);
+      // Plugin contracts belong to this Host, so compare its actual HTTP document.
+      const document = await built.app.inject({ method: 'GET', url: '/openapi.json' });
+      expect(document.statusCode).toBe(200);
+      const result = compareRouteCoverage(routes, document.json(), baseline.exceptions);
       if (result.missing.length || result.stale.length || result.invalid.length) {
         throw new Error(`ROUTE_COVERAGE_GAPS=${JSON.stringify(result)}`);
       }

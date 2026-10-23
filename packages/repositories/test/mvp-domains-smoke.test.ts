@@ -71,9 +71,9 @@ describe("PRD §8 MVP 优先队列：新域仓储冒烟测试", () => {
     const q = await learning.createQuestion(ctx, { id: "q_1", prompt: "2+2=?", answerSpec: { answer: "4" } });
     expect(q.answerSpec).toEqual({ answer: "4" });
 
-    const attempt = await learning.recordAttempt(ctx, {
-      id: "att_1", sessionId: "ses_1", questionId: "q_1", answer: "4", judgement: "correct",
-    });
+    const { attempt } = await learning.recordAnswer(ctx, {
+      kind: "existing-question", sessionId: "ses_1", questionId: "q_1", answer: "4", requestDigest: "0".repeat(64),
+    }, { judge: () => "correct", derive() { throw new Error("question has no knowledge"); } });
     expect(attempt.judgement).toBe("correct");
     expect(await learning.listAttemptsByQuestion(ctx, "q_1")).toHaveLength(1);
 

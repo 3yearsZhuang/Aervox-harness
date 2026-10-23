@@ -59,3 +59,11 @@ export interface RecoveryLedgerEventModel {
   sequence: number;
   tamperEvidence?: unknown;
 }
+
+/** System scheduler capability: bounded retry projection and atomic attempt commands. */
+export interface DeletionQueuePort extends Pick<IPrivacyRepository, "updateDeletionRequestStatus" | "updateDeletionTargetStatus"> {
+  listUnverifiedDeletionRequests(limit?: number): Promise<DeletionRequestModel[]>;
+  listDeletionTargets(requestId: string): Promise<DeletionTargetModel[]>;
+  beginDeletionRequestAttempt(id: string): Promise<DeletionRequestModel | null>;
+  beginDeletionTargetAttempt(target: { requestId: string; targetType: string; targetId: string }): Promise<DeletionTargetModel | null>;
+}

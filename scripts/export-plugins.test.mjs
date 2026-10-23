@@ -93,7 +93,7 @@ test("允许清单分类：声明与资源进包，本地开发载体排除，�
   assert.equal(classifyDistEntry("pages/dashboard/index.html"), "dist");
 
   // 本地开发载体：第一方实现与声明同置一处，但不得进分发包
-  for (const rel of ["package.json", "tsconfig.json", "vitest.config.ts", "README.md"]) {
+  for (const rel of ["package.json", "tsconfig.json", "tsconfig.type-tests.json", "vitest.config.ts", "README.md"]) {
     assert.equal(classifyDistEntry(rel), "local", rel);
   }
   for (const rel of ["src", "dist", "node_modules", "test"]) {

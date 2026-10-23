@@ -46,3 +46,4 @@ export * from "./project.js";
 export * from "./workspace-skills.js";
 export * from "./sync.js";
 export * from "./bots.js";
+export * from "./schema-version.js";

@@ -17,6 +17,8 @@ function fixture(lines: StoryLine[]) {
         [WORKBENCH_CONTEXT_KEY as symbol]: {
           layout: { companionDisplayName: ref('思隅') },
           conversation: {
+            activeQuestion: ref(null), questionSubmitting: ref(false), handleQuestionSubmit: vi.fn(),
+            turnState: ref({status:'idle'}), retryAvailable: ref(false),
             story, streaming: ref(false), pendingApproval,
             approvalBusy: ref(false), approvalToolLabel: ref('测试工具'),
             handleApprovalDecision,

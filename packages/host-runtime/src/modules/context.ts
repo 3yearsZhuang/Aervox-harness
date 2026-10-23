@@ -25,6 +25,8 @@ import type { Observability } from "@aervox/observability";
 import type { SafetyPort } from "./platform/safety/index.js";
 
 export interface ModuleContext {
+  apiRegistry?: import("@aervox/contracts").PluginApiRegistry;
+  executionConfig?: import("@aervox/config").ExecutionConfig;
   app: FastifyInstance;
   db: AervoxDatabase;
   client: Client;
@@ -44,6 +46,7 @@ export interface ModuleContext {
   memoryRecall?: MemoryRecallPort;
   /** LLM 配置服务（llm 模块填充；conversation 读取） */
   llmConfigService?: LLMConfigPort;
+  modelGeneration?: import("./ecosystem/llm/index.js").ModelGenerationPort;
   /** 本地模型运行时服务（model-runtime 模块填充；对话工具/UI 读取） */
   modelRuntimeService?: ModelRuntimePort;
   /** CR-034 模型降级与路由决策服务（llm 模块填充；conversation/proactive 读取） */

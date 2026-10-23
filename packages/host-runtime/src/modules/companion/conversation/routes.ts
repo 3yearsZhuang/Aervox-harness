@@ -15,6 +15,8 @@ import {
   renameSessionRequestSchema,
 } from "@aervox/contracts";
 import {
+  TurnIntentConflictError,
+  type LocalContext,
   type SqliteConversationRepository,
   type SqlitePrivacyRepository,
   type SqliteAgentInboxRepository,
@@ -24,16 +26,17 @@ import {
 import { buildResumeHistory } from "@aervox/core";
 import { registerContractRoute } from "../../../shared/contract-route.js";
 import { resolveLocalContext } from "../../../shared/local-context.js";
-import { acceptConversationTurn } from "./application.js";
+import { acceptConversationTurn, executeAcceptedConversationTurn } from "./application.js";
 import { turnStreamHub } from "./stream-hub.js";
 import { encodeSseEvent, writeSseFrame, SseWriteError } from "./sse-writer.js";
-import { loadApiConfig } from "@aervox/config";
+import { loadExecutionConfig } from "@aervox/config";
+import { readToolApprovalIdentity } from "./tool-approval-identity.js";
 
 let seq = 0;
 const nextTurnId = (): string => `turn_${Date.now().toString(36)}_${(++seq).toString(36)}`;
 
 export type { ConversationRouteDeps } from "./execution.js";
-import { executeConversationTurn, type ConversationRouteDeps, type ConversationTurnInput } from "./execution.js";
+import type { ConversationRouteDeps, ConversationTurnInput } from "./execution.js";
 
 export function registerConversationRoutes(
   app: FastifyInstance,
@@ -41,6 +44,8 @@ export function registerConversationRoutes(
   deps: ConversationRouteDeps = {},
   execute?: (input: ConversationTurnInput) => Promise<void>,
 ): void {
+  const executeAccepted = (ctx: LocalContext, input: ConversationTurnInput) =>
+    executeAcceptedConversationTurn(conversationRepo, ctx, input, deps, execute ? (_ctx, input) => execute(input) : undefined);
   // Accepted local turns own cancellation independently of HTTP/SSE connections.
   const activeTurns = new Map<string, AbortController>();
   const activeStreams = new Set<() => void>();
@@ -148,40 +153,25 @@ export function registerConversationRoutes(
     // 确保会话存在（turns.session_id 外键引用 sessions）
     await conversationRepo.getOrCreateSession(tenant, sessionId, "Aervox 会话");
 
-    // 检查幂等性
-    const existingTurn = await conversationRepo.getTurnByIdempotencyKey(tenant, idempotencyKey);
-    if (existingTurn) {
-      if (existingTurn.sessionId !== sessionId) return reply.code(409).send({ code: "IDEMPOTENCY_KEY_REUSED" });
-      return reply.code(200).send({
-        turnId: existingTurn.id,
-        status: existingTurn.status,
-        eventsUrl: `/v1/turns/${existingTurn.id}/events`,
-        cancelUrl: `/v1/turns/${existingTurn.id}/cancel`,
-      });
-    }
-
-    let userMessage = parsed.data.message.content;
-
-    // 多模态输入（CAP-012）：消息携带附件引用时附加结构化清单，
-    // Agent Loop 消费 userMessage 即可感知附件（图片/音频/文档），后续接 OCR/转写管线。
-    const attachments = parsed.data.message.attachments ?? [];
-    if (attachments.length > 0) {
-      const list = attachments
-        .map((a) => `- ${a.name ?? a.attachmentId}${a.mediaType ? ` (${a.mediaType})` : ""} [id: ${a.attachmentId}]`)
-        .join("\n");
-      userMessage = `${userMessage}\n\n[附件清单]\n${list}`;
-    }
-
     const turnId = nextTurnId();
     const messageId = `msg_${Date.now().toString(36)}_${(++seq).toString(36)}`;
     const attemptId = `atp_${turnId}`;
-    const executionConfig = loadApiConfig();
+    const executionConfig = deps.executionConfig ?? loadExecutionConfig();
     const execution = executionConfig.turnExecution === "inline" ? "api" : executionConfig.loopDispatch;
-    const accepted = await acceptConversationTurn(conversationRepo, tenant, {
-      execution, metadata: parsed.data.metadata, toolApprovalMode: parsed.data.toolApprovalMode, actorId: tenant.actorId,
-      turnId, sessionId, idempotencyKey, attemptId,
-      message: { id: messageId, content: userMessage }, consumeInbox: Boolean(deps.inboxRepo),
-    });
+    let accepted: Awaited<ReturnType<typeof acceptConversationTurn>>;
+    try {
+      accepted = await acceptConversationTurn(conversationRepo, tenant, {
+        execution, metadata: parsed.data.metadata, toolApprovalMode: parsed.data.toolApprovalMode,
+        turnId, sessionId, idempotencyKey, attemptId, references: parsed.data.references,
+        message: { id: messageId, ...parsed.data.message }, consumeInbox: Boolean(deps.inboxRepo),
+      });
+    } catch (error) {
+      if (error instanceof TurnIntentConflictError) return reply.code(409).send({
+        code: "IDEMPOTENCY_KEY_REUSED", reason: error.reason, retryable: false,
+        message: error.reason === "intent_unavailable" ? "The original Turn intent cannot be verified" : "Idempotency key belongs to a different Turn intent",
+      });
+      throw error;
+    }
     if (!accepted.created) {
       return reply.code(200).send({
         turnId: accepted.turn.id, status: accepted.turn.status,
@@ -189,15 +179,16 @@ export function registerConversationRoutes(
       });
     }
     // Execute precisely the persisted input; only the committing request dispatches the Loop.
-    userMessage = accepted.message.content;
+    const userMessage = accepted.message.content;
+    const acceptedIntent = accepted.intent!;
     // CR-027: acceptance remains independent of background execution and SSE observation.
     const runLoop = async () => {
       const controller = new AbortController();
       activeTurns.set(turnId, controller);
       try {
-        await (execute ?? (input => executeConversationTurn(conversationRepo, tenant, input, deps)))({
-          turnId, sessionId, attemptId, userMessage, metadata: parsed.data.metadata,
-          toolApprovalMode: parsed.data.toolApprovalMode, actorId: tenant.actorId, signal: controller.signal,
+        await executeAccepted(tenant, {
+          turnId, sessionId, attemptId, userMessage, metadata: acceptedIntent.metadata,
+          toolApprovalMode: acceptedIntent.toolApprovalMode, actorId: acceptedIntent.actorId ?? undefined, signal: controller.signal,
         });
       } finally {
         if (activeTurns.get(turnId) === controller) activeTurns.delete(turnId);
@@ -344,7 +335,7 @@ export function registerConversationRoutes(
         for (const ev of page.events) {
           if (closed) return;
           if (ev.sequence <= lastSequence) continue;
-          await write(encodeSseEvent(ev));
+          await write(encodeSseEvent(ev, deps.apiRegistry));
           lastSequence = ev.sequence;
         }
         // No next page is queried while any frame is waiting for socket drain.
@@ -488,27 +479,64 @@ export function registerConversationRoutes(
     if (approval.state !== "pending" && approval.state !== body.decision) {
       return reply.code(409).send({ error: "approval_already_decided" });
     }
-    // 3b：privileged 工具的管理员身份校验（AERVOX_ADMIN_IDS 白名单 + x-admin-user-id）
-    if (deps.toolRuntime) {
-      const approval = await conversationRepo.getToolApproval(tenant, body.approvalId);
-      if (!approval) {
-        return reply.code(404).send({ error: "approval not found" });
+    let pluginGeneration: { pluginId: string; generation: string } | undefined;
+    if (body.decision === "granted" && approval.state === "pending") {
+      // Every source persists the policy of its exact dispatch binding. Looking
+      // only at runtime rows omits static/plugin contributions and fails open.
+      const identity = readToolApprovalIdentity(approval.toolVersion);
+      if (!identity || (identity.kind === "contribution" && identity.id !== approval.toolName)
+        || !["write_with_approval", "privileged", "destructive"].includes(identity.safetyLevel)) {
+        return reply.code(409).send({ error: "approval_binding_unavailable" });
       }
-      const registrations = await deps.toolRuntime.listTools();
-      const tool = registrations.find((t) => t.name === approval.toolName);
-      if (tool?.safetyLevel === "privileged") {
+      if (identity.safetyLevel === "privileged") {
         const adminId = req.headers["x-admin-user-id"] as string | undefined;
         // 缺陷 E：管理员白名单经 @aervox/config 集中解析（AERVOX_ADMIN_IDS）
-        const allowed = loadApiConfig().adminIds;
+        const allowed = (deps.executionConfig ?? loadExecutionConfig()).adminIds;
         if (adminId === undefined || !allowed.includes(adminId)) {
           return reply.code(403).send({ error: "admin_required: privileged tool approval requires x-admin-user-id in AERVOX_ADMIN_IDS" });
         }
       }
+      const mcp = identity.kind === "runtime" && identity.owner.startsWith("mcp:");
+      if (identity.generation !== null || (identity.owner !== "host" && !mcp)) {
+        const plugin = await deps.extensionRepo?.getPlugin(identity.owner);
+        if (!identity.generation || !plugin || plugin.enabled !== 1
+          || (plugin.availability ?? "available") !== "available" || plugin.lifecycleGeneration !== identity.generation) {
+          return reply.code(409).send({ error: "approval_binding_expired" });
+        }
+        pluginGeneration = { pluginId: identity.owner, generation: identity.generation };
+      }
+      if (identity.kind === "runtime") {
+        const tool = (await deps.toolRuntime?.exportRegistry())?.find(candidate => candidate.id === identity.id);
+        if (!tool || tool.name !== approval.toolName || (tool.pluginId ?? "host") !== identity.owner
+          || tool.approvalRevision !== identity.revision || (tool.safetyLevel ?? "write_with_approval") !== identity.safetyLevel
+          || (tool.pluginId?.startsWith("mcp:") && !(await deps.isMcpToolAllowed?.(tool)))) {
+          return reply.code(409).send({ error: "approval_binding_expired" });
+        }
+      }
     }
-    const decided = await conversationRepo.decideToolApprovalAndResume(tenant, {
-      turnId, approvalId: body.approvalId, decision: body.decision,
-      decidedBy: tenant.actorId ?? tenant.subjectUserId,
-    });
+    // Verify the receipt before transferring ownership to a new Attempt. The
+    // execution entry revalidates it again before dispatching any product work.
+    if (approval.state === "pending") {
+      try { await conversationRepo.getAcceptedTurnParameters(tenant, turnId); }
+      catch (error) {
+        if (error instanceof TurnIntentConflictError) return reply.code(409).send({error: "turn_intent_unavailable"});
+        throw error;
+      }
+    }
+    let decided: Awaited<ReturnType<SqliteConversationRepository["decideToolApprovalAndResume"]>>;
+    try {
+      decided = await conversationRepo.decideToolApprovalAndResume(tenant, {
+        turnId, approvalId: body.approvalId, decision: body.decision,
+        decidedBy: tenant.actorId ?? tenant.subjectUserId,
+        ...(body.decision === "granted" && approval.toolVersion ? { toolVersion: approval.toolVersion } : {}),
+        pluginGeneration,
+      });
+    } catch (error) {
+      if (error instanceof Error && ["plugin_generation_changed", "tool_approval_binding_changed"].includes(error.message)) {
+        return reply.code(409).send({ error: "approval_binding_expired" });
+      }
+      throw error;
+    }
     if (!decided) return reply.code(404).send({ error: "approval not found" });
     if (!decided.ready) return reply.code(409).send({ error: "approval_not_resumable" });
     if (decided.approval.state !== body.decision) return reply.code(409).send({ error: "approval_already_decided" });
@@ -521,8 +549,7 @@ export function registerConversationRoutes(
         events: events as unknown as import("@aervox/core").ResumeEventLike[] });
       const controller = new AbortController();
       activeTurns.set(turnId, controller);
-      const runTurn = execute ?? ((turnInput: ConversationTurnInput) => executeConversationTurn(conversationRepo, tenant, turnInput, deps));
-      void runTurn({ turnId, sessionId: turn.sessionId, attemptId: attempt.id, userMessage,
+      void executeAccepted(tenant, { turnId, sessionId: turn.sessionId, attemptId: attempt.id, userMessage,
         signal: controller.signal,
         resume: { expectedFencingToken: 0, lastSequence: decided.event!.sequence,
           lastStep: step, history: resumed.history, messageId: resumed.messageId,

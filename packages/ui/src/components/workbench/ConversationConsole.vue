@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import TurnRetryAction from './TurnRetryAction.vue';
 import { AervoxButton, AervoxCard } from '../../primitives';
 import { computed } from 'vue';
 import { ChevronDown, ChevronRight, ChevronUp, History } from 'lucide-vue-next';
@@ -105,6 +106,7 @@ const isGreeting = computed(() => conversation.story.value.length === 1
       <TurnDiagnostics v-if="latestAssistantLine?.turnId" :turn-id="latestAssistantLine.turnId" />
     </footer>
 
-    <ExtensionSlot name="conversation:bottom" />
+    <TurnRetryAction />
+        <ExtensionSlot name="conversation:bottom" />
   </AervoxCard>
 </template>

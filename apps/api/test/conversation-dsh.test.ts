@@ -11,7 +11,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createInMemoryDatabase, SqliteConversationRepository } from "@aervox/repositories";
 import { buildApp } from "./app-fixture.js";
-import { resetDshTurnAdapterForTests, resolveDshTurnAdapter } from "@aervox/host-runtime-test/modules/companion/conversation/dsh-adapter";
+import { resolveDshTurnAdapter } from "@aervox/host-runtime-test/modules/companion/conversation/dsh-adapter";
 import { runLoopTurnOnce } from "@aervox/host-runtime-test/modules/companion/conversation/agent-executor";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -65,6 +65,7 @@ describe("Agent Loop 阶段 6f：AERVOX_LOOP_DRIVER=dsh API 接线", () => {
   let app: FastifyInstance;
   let cleanup: (() => Promise<void>) | undefined;
   let repo: SqliteConversationRepository;
+  let database: Awaited<ReturnType<typeof createInMemoryDatabase>>;
   const closeFns: Array<() => Promise<void>> = [];
 
   const createTurn = async (sessionId = "ses_dsh") =>
@@ -92,8 +93,8 @@ describe("Agent Loop 阶段 6f：AERVOX_LOOP_DRIVER=dsh API 接线", () => {
   beforeEach(async () => {
     process.env.AERVOX_LOOP_DRIVER = "dsh";
     process.env.AERVOX_DSH_REPO_ROOT = nonRepoRoot;
-    resetDshTurnAdapterForTests();
     const res = await createInMemoryDatabase();
+    database = res;
     cleanup = res.cleanup;
     repo = new SqliteConversationRepository(res.db);
     const built = await buildApp({ db: res.db, client: res.client });
@@ -106,7 +107,6 @@ describe("Agent Loop 阶段 6f：AERVOX_LOOP_DRIVER=dsh API 接线", () => {
     delete process.env.AERVOX_DSH_REPO_ROOT;
     delete process.env.DSH_LLM_BASE_URL;
     delete process.env.DEEPSEEK_API_KEY;
-    resetDshTurnAdapterForTests();
     while (closeFns.length > 0) {
       await closeFns.pop()?.();
     }
@@ -175,7 +175,9 @@ describe("Agent Loop 阶段 6f：AERVOX_LOOP_DRIVER=dsh API 接线", () => {
 
       process.env.AERVOX_DSH_REPO_ROOT = repoRoot;
       process.env.DSH_LLM_BASE_URL = `http://127.0.0.1:${port}`;
-      resetDshTurnAdapterForTests();
+      await app.close();
+      app = (await buildApp({ db: database.db, client: database.client })).app;
+      await app.ready();
 
       const created = await createTurn();
       expect(created.statusCode).toBe(201);

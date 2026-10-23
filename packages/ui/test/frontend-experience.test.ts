@@ -148,12 +148,13 @@ describe('frontend experience', () => {
         stubs: { ExtensionSlot: true },
         provide: {
           [WORKBENCH_CONTEXT_KEY as symbol]: {
+            conversation: { activeQuestion: question, questionSubmitting: ref(false), handleQuestionSubmit: vi.fn() },
             layout: { companionDisplayName: ref('思隅') },
             timer: { timerRunning: ref(false), timerMinutes: ref(25) },
             cards: {
               slotCards: ref([null, null]),
               cardCatalog: ref([{ id: 'todo', label: '待办清单' }]),
-              questionCardData: question, questionCardSelected: ref([]), selectCard,
+              selectCard,
               isCardPicked: () => false,
             },
           },
@@ -162,7 +163,7 @@ describe('frontend experience', () => {
     });
     expect(wrapper.findAll('.side-card-placeholder')).toHaveLength(0);
     expect(wrapper.findAll('.side-card-add')).toHaveLength(1);
-    question.value = { id: 'q', question: '请选择', options: [] };
+    question.value = { turnId: 'turn', questions: [{ id: 'q', question: '请选择', options: [] }] };
     await wrapper.get('.side-card-add').trigger('click');
     await wrapper.get('.side-card-grid-item').trigger('click');
     expect(selectCard).toHaveBeenCalledWith(1, 'todo', expect.anything());

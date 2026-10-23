@@ -1,12 +1,12 @@
 /**
- * CR-032 旧库升级回归：proactive_trigger_rules 旧形态（无 plugin_id）经
- * initDatabaseSchema 幂等补列后，归属索引才能创建——补列必须先于索引。
+ * CR-032 旧库升级回归：旧形态只读阻断，经显式 staging 导入后保留规则并建立归属索引。
  */
 import { describe, expect, it } from "vitest";
-import { createInMemoryDatabase, initDatabaseSchema } from "@aervox/repositories";
+import { createInMemoryDatabase, initDatabaseSchema } from "../src/index.js";
+import { exportSnapshot, restoreSnapshotToEmptyStaging } from "../src/sync/git-snapshot.js";
 
 describe("proactive intelligence schema upgrade (CR-032)", () => {
-  it("adds plugin_id column and ownership index to a pre-CR-032 database", async () => {
+  it("upgrades a pre-CR-032 database in staging without changing the source", async () => {
     const {db, client, cleanup} = await createInMemoryDatabase({ empty: true });
     try {
       // 1) 先构造旧形态表（无 plugin_id），模拟 CR-032 之前的存量库
@@ -20,22 +20,26 @@ describe("proactive intelligence schema upgrade (CR-032)", () => {
       `);
       await client.execute(`CREATE INDEX IF NOT EXISTS proactive_trigger_rule_local_enabled_idx ON proactive_trigger_rules(enabled);`);
 
-      // 2) 幂等初始化应先补列再建索引（顺序颠倒会在此处抛 no such column）
-      await initDatabaseSchema(client);
+      await db.run(`INSERT INTO proactive_trigger_rules (id, revision_id, name, trigger_type, enabled, created_at, updated_at)
+        VALUES ('rule_upgrade_probe', 'rev_probe', 'probe', 'system_state', 0, '2026-09-13T00:00:00.000Z', '2026-09-13T00:00:00.000Z')`);
+      const original = await client.execute("SELECT * FROM proactive_trigger_rules");
+      await expect(initDatabaseSchema(client)).rejects.toThrow("explicit staging migration");
+      expect((await client.execute("SELECT * FROM proactive_trigger_rules")).rows).toEqual(original.rows);
+      const staging = await createInMemoryDatabase();
+      try {
+      await restoreSnapshotToEmptyStaging(staging.client, await exportSnapshot(client, 1));
 
-      const columns = await client.execute(`PRAGMA table_info(proactive_trigger_rules)`);
+      const columns = await staging.client.execute(`PRAGMA table_info(proactive_trigger_rules)`);
       const names = columns.rows.map((row) => String(row.name));
       expect(names).toContain("plugin_id");
 
-      const indexes = await client.execute(`PRAGMA index_list(proactive_trigger_rules)`);
+      const indexes = await staging.client.execute(`PRAGMA index_list(proactive_trigger_rules)`);
       const indexNames = indexes.rows.map((row) => String(row.name));
       expect(indexNames).toContain("proactive_trigger_rules_plugin_idx");
 
-      // 3) 归属索引可用：按 plugin_id 查询可执行
-      await db.run(`INSERT INTO proactive_trigger_rules (id, revision_id, name, trigger_type, enabled, created_at, updated_at)
-        VALUES ('rule_upgrade_probe', 'rev_probe', 'probe', 'system_state', 0, '2026-09-13T00:00:00.000Z', '2026-09-13T00:00:00.000Z')`);
-      const probe = await client.execute(`SELECT id FROM proactive_trigger_rules WHERE plugin_id IS NULL`);
-      expect(probe.rows.length).toBeGreaterThanOrEqual(1);
+      const probe = await staging.client.execute(`SELECT id FROM proactive_trigger_rules WHERE plugin_id IS NULL`);
+      expect(probe.rows).toEqual([{ id: "rule_upgrade_probe" }]);
+      } finally { await staging.cleanup(); }
     } finally {
       await cleanup();
     }

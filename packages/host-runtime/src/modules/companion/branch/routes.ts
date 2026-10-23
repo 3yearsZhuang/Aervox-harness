@@ -8,18 +8,16 @@
  * - 分支树查询（有界获取所有可达子分支）
  */
 import type { FastifyInstance } from "fastify";
-import { BranchTreeLimitError, type SqliteConversationRepository } from "@aervox/repositories";
+import { BranchTreeLimitError, type ConversationBranchPort } from "@aervox/repositories";
 import { branchesApi, type CreateBranchRequest } from "@aervox/contracts";
 import { resolveLocalContext } from "../../../shared/local-context.js";
 import { registerContractRoute } from "../../../shared/contract-route.js";
 import { withRequestSignal } from "../../../shared/request-signal.js";
-
-let seq = 0;
-const nextId = (): string => `br_${Date.now().toString(36)}_${(++seq).toString(36)}`;
+import { readIdempotencyKey } from "../../../shared/idempotency-key.js";
 
 export function registerBranchRoutes(
   app: FastifyInstance,
-  conversationRepo: SqliteConversationRepository,
+  conversationRepo: ConversationBranchPort,
 ): void {
   // POST /v1/sessions/:sessionId/branches — 创建分支
   registerContractRoute(app, branchesApi.create, async (req, reply) => {
@@ -29,21 +27,17 @@ export function registerBranchRoutes(
 
     if (input.childSessionId === sessionId) return reply.status(400).send({ error: "branch_requires_distinct_sessions" });
     try {
-      const parent = await conversationRepo.getSession(ctx, sessionId);
-      if (!parent) return reply.status(404).send({ error: "Parent session not found" });
-      // An existing child keeps its creation boundary; a new child inherits it from the parent.
-      await conversationRepo.getOrCreateSession(
-        ctx, input.childSessionId, input.title ?? parent.title, parent.projectId, parent.executionPolicy,
-      );
-      return await conversationRepo.createConversationBranch(ctx, {
-        id: nextId(),
-        parentSessionId: sessionId,
-        childSessionId: input.childSessionId,
-        forkAtMessageId: input.forkAtMessageId,
-        title: input.title,
-        branchReason: input.branchReason,
+      const branch = await conversationRepo.createExplorationBranch(ctx, {
+        idempotencyKey: readIdempotencyKey(req.headers["idempotency-key"]), parentSessionId: sessionId,
+        childSessionId: input.childSessionId, forkAtMessageId: input.forkAtMessageId,
+        title: input.title, branchReason: input.branchReason,
       });
+      if (!branch) return reply.status(404).send({ error: "Parent session not found" });
+      return branch;
     } catch (error) {
+      if (error instanceof Error && ["conversation_branch_idempotency_conflict", "conversation_branch_result_unavailable"].includes(error.message)) {
+        return reply.status(409).send({ error: error.message });
+      }
       if (error instanceof Error && error.message.startsWith("conversation_execution_policy_")) {
         return reply.status(400).send({ error: error.message });
       }

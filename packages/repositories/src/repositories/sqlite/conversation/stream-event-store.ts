@@ -5,6 +5,7 @@ import { eq, and, gt, lte, desc, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
 import { turnStreamEvents, turnAttempts } from "@aervox/schema";
 import type { LocalContext } from "../../../local-context.js";
+import { assertPluginGeneration, type PluginGenerationIdentity } from "../../../plugin-generation-guard.js";
 import { FencingMismatchError } from "../../../errors.js";
 import type { TurnStreamEventModel, TurnStreamEventPageOptions, TurnStreamEventPage, TurnStreamReplayState } from "../../types/index.js";
 
@@ -38,6 +39,7 @@ export class StreamEventStore {
        * FencingMismatchError（AVX-HAR-001 §11.2/§12.2）。
        */
       expectedFencingToken?: number | null;
+      pluginGeneration?: PluginGenerationIdentity;
     },
   ): Promise<TurnStreamEventModel> {
     const fenced =
@@ -46,6 +48,7 @@ export class StreamEventStore {
     // 杜绝「SELECT 校验通过 → 他方抢占提交 → 本事务再插入」的窗口（B1 CAS）。
     return this.db.transaction(
       async (tx) => {
+        await assertPluginGeneration(tx, eventData.pluginGeneration);
         if (fenced) {
           const [attempt] = await tx
             .select({ status: turnAttempts.status, fencingToken: turnAttempts.fencingToken })

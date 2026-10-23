@@ -179,9 +179,9 @@ Hook 必须由 API 组合根 import 并注册到 [ServerPluginRegistry](../../pa
 
 ### 4.4 结构化请求元数据契约（Structured Request Metadata）
 
-底层 [useAervoxTurn](../../packages/api-client/src/useAervoxTurn.ts)与 Turn 协议支持 `metadata`；模式信息一律通过该结构传递，**禁止**向消息文本插入控制标签。
+共享 [ConversationController](../../packages/api-client/src/conversation-controller.ts) 与 Turn 协议支持 `metadata`；模式信息一律通过该结构传递，**禁止**向消息文本插入控制标签。
 
-通用接缝为：[WorkbenchContext](../../packages/ui/src/composables/workbench-context.ts)的 `sendMessage(text, { metadata, resend })` 直接透传任意结构化元数据，宿主不解释其取值，也不为任何插件预留字段（原 `quizMode` 选项已删除）。携带元数据时消息变换器不再改写文本，避免语义双写。
+通用接缝为：[UIPluginContext](../../packages/ui/src/composables/ui-plugin-context.ts) 的 `sendMessage(text, { metadata, resend })` 直接透传任意结构化元数据，宿主不解释其取值，也不为任何插件预留字段（原 `quizMode` 选项已删除）。携带元数据时消息变换器不再改写文本，避免语义双写。
 
 ### 4.5 HTTP、工具投影与事件贡献
 
@@ -190,6 +190,8 @@ Hook 必须由 API 组合根 import 并注册到 [ServerPluginRegistry](../../pa
 HTTP 适配负责鉴权、限流、本地上下文、出参包装、每请求生效检查及异常日志；门控和诊断出口都是必填。未生效返回 404 且不进入 handler，缺包不挂载端点。插件回放只在 `scripted-plugin` 等受信装配中提供，不能覆盖宿主内建模式。
 
 OpenAPI 片段使用独立贡献注册表，惰性生成公共文档；非法路径和内核端点冲突忽略并告警，同一方法与路径的插件片段使用最后仍存活的登记，注销/重建须清理旧贡献。工具结果投影随 `PluginToolContribution.resultProjection` 声明，宿主只为该插件自有工具登记，跨插件同名抢注及对内核工具登记投影均拒绝。
+
+可变注册表属于 Host Runtime 实例，Contracts 仅持有接口与纯校验。宿主 ToolCatalog 整批捕获工具声明、handler、guidance 和投影，预检成功后同步发布；失败不改变现有内容与修订。每个 Turn 取得独立 lease，绑定本次上下文的 handler/services；结束释放执行资源，安全投影按当前代际保留供历史重放。换代、撤权或宿主关闭统一释放登记及全部 lease，旧 disposer 不得撤销后来登记。
 
 `registerPluginApiContribution()` 返回幂等注销函数。每次登记有独立身份；注销不会删除其它宿主实例的同名贡献，后登记的覆盖贡献注销后恢复仍在场的前一贡献。登记与注销自动使 OpenAPI 缓存失效。契约登记持续到装配释放，用户停用只阻断执行入口；历史事件的识别和投影不因开关消失。工具结果投影仍使用宿主按工具归属登记的既有路径，不纳入本次契约注销。
 

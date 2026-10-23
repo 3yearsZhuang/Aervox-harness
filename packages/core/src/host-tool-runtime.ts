@@ -95,6 +95,8 @@ export interface HostToolRegistrationModel {
   pluginId?: string | null;
   updatedAt?: string | null;
   runtimeRevision?: string;
+  /** Approval identity; process scoped unless the trusted handler declares a durable implementation revision. */
+  approvalRevision?: string;
   /** 执行期预算；持久化注册表可省略，由 HostToolRuntime 补入当前进程登记值。 */
   budget?: ToolBudget;
 }
@@ -124,6 +126,8 @@ export interface HostToolHandlerContext {
 }
 
 export interface HostToolHandler {
+  /** Stable across hosts/restarts only when implementation semantics are identical. Bump on implementation changes. */
+  approvalRevision?: string;
   call(
     ctx: LocalContext,
     args: unknown,
@@ -289,6 +293,8 @@ interface Registration {
 function definitionKey(tool: HostToolRegistrationModel): string {
   return JSON.stringify([
     tool.name,
+    tool.description,
+    tool.category,
     tool.safetyLevel,
     tool.inputSchemaJson,
     tool.requiredPermissionsJson,
@@ -303,6 +309,7 @@ function definitionKey(tool: HostToolRegistrationModel): string {
  * 宿主工具沙箱运行时（HostToolRuntime）
  */
 export class HostToolRuntime {
+  private readonly instanceRevision = globalThis.crypto.randomUUID();
   private readonly handlers = new Map<string, Registration>();
   private readonly writes = new Map<string, Promise<unknown>>();
   // SQLite 持久化权限/门控元数据仍为真源；预算随进程登记，不要求仓储新增列。
@@ -353,7 +360,9 @@ export class HostToolRuntime {
   ): HostToolDisposer {
     if (this.disposed) throw new HostToolForbiddenError("tool runtime disposed");
     this.handlers.get(id)?.controller.abort();
-    const entry: Registration = { owner, generation: ++this.generation, handler, definition, controller: new AbortController() };
+    const entry: Registration = { owner, generation: ++this.generation,
+      handler: { call: handler.call.bind(handler), approvalRevision: handler.approvalRevision },
+      definition, controller: new AbortController() };
     this.handlers.set(id, entry);
     void definition.catch(() => {
       if (this.handlers.get(id) === entry) this.handlers.delete(id);
@@ -458,7 +467,11 @@ export class HostToolRuntime {
           definition &&
           definitionKey(definition) === definitionKey(tool)
           && tool.enabled === 1 && gatingAllows(tool.gatingConditionsJson, options?.gatingContext)
-          ? { ...tool, runtimeRevision: `${entry.generation}:${definitionKey(tool)}` }
+          ? { ...tool,
+            runtimeRevision: `${this.instanceRevision}:${entry.generation}:${definitionKey(tool)}`,
+            approvalRevision: entry.handler.approvalRevision
+              ? `durable:${entry.handler.approvalRevision}:${definitionKey(tool)}`
+              : `process:${this.instanceRevision}:${entry.generation}:${definitionKey(tool)}` }
           : null;
       }),
     );
@@ -493,7 +506,7 @@ export class HostToolRuntime {
     if (!definition || definitionKey(definition) !== definitionKey(tool)) {
       throw new HostToolForbiddenError(`tool definition changed: ${toolId}`);
     }
-    if (opts.expectedRevision !== undefined && opts.expectedRevision !== `${entry.generation}:${definitionKey(tool)}`) throw new HostToolForbiddenError(`tool declaration expired: ${toolId}`);
+    if (opts.expectedRevision !== undefined && opts.expectedRevision !== `${this.instanceRevision}:${entry.generation}:${definitionKey(tool)}`) throw new HostToolForbiddenError(`tool declaration expired: ${toolId}`);
     if (tool.enabled !== 1) throw new HostToolForbiddenError(`tool disabled: ${toolId}`);
 
     // AST-04：调用时门禁求值——列表过滤之外的调用边界防线；

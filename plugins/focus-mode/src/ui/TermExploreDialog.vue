@@ -5,22 +5,12 @@ import {
   Sparkles,
   Loader2,
 } from 'lucide-vue-next';
-import { requestAervoxApi, useAervoxPlugins } from '@aervox/api-client';
+import { getTransport, useAervoxPlugins } from '@aervox/api-client';
 import type { ExtractedTerm } from './plugin-events';
 import { renderMarkdown } from '@aervox/ui/markdown';
 import { AervoxDialog, AervoxButton } from '@aervox/ui/primitives';
 
-/** 追问探索方向（本插件自有端点契约；S6 起与插件服务端共用同一份模式定义） */
-type TermExploreKind = 'child' | 'related' | 'branch';
-
-/** `/v1/terms/explore` 响应体（本插件自有端点） */
-interface TermExploreResponse {
-  term: string;
-  kind: TermExploreKind;
-  content: string;
-  relatedQuestions: string[];
-  childSessionId?: string;
-}
+import { termExploreResponseSchema, type TermExploreKind, type TermExploreResponse } from '../contracts/terms';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -62,13 +52,13 @@ async function fetchExploreData() {
       }
     }
     // CR-060：插件自有端点经通用请求透传调用，宿主无需为该路径提供具名函数
-    const res = await requestAervoxApi<TermExploreResponse>('POST', '/v1/terms/explore', {
+    const res = await getTransport().request<unknown>('POST', '/v1/terms/explore', {
       term: props.term.text,
       kind: exploreKind,
       context: props.contextText,
       sessionId: props.sessionId,
     });
-    exploreResult.value = res;
+    exploreResult.value = termExploreResponseSchema.parse(res);
   } catch (err) {
     error.value = err instanceof Error ? err.message : '加载名词解释失败';
   } finally {

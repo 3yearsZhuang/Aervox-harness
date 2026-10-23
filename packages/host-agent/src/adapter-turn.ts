@@ -20,7 +20,7 @@ import type {
   AdapterDriverPort,
   AdapterRequest,
 } from "@aervox/core";
-import { drainAdapterDriver } from "@aervox/core";
+import { claimAttemptExecution, ControlContext, drainAdapterDriver, LeaseLostError } from "@aervox/core";
 
 export interface AdapterTurnInput {
   turnId: string;
@@ -31,11 +31,18 @@ export interface AdapterTurnInput {
   systemPrompt?: string;
   /** 可注入的工具 schema（透传给 adapter；缺省无） */
   tools?: import("@aervox/core").ToolSpec[];
+  signal?: AbortSignal;
+  deadlineEpochMs?: number;
+  maxTurnDurationMs?: number;
+  controlContext?: ControlContext;
+  deletionGate?: import("@aervox/core").DeletionGatePort;
+  leaseHeartbeatIntervalMs?: number;
 }
 
 export interface AdapterTurnResult {
-  status: "Completed" | "Interrupted" | "Failed" | "skipped";
+  status: "Completed" | "Interrupted" | "Failed" | "Cancelled" | "skipped";
   reason?: string;
+  committed?: boolean;
 }
 
 /** Host 幂等键（attempt:0:seq；adapter 无 Step 概念，为其保留审计键面） */
@@ -54,10 +61,18 @@ export async function runAdapterTurn(
   const { turnId, sessionId, attemptId, userMessage, systemPrompt, tools } = input;
 
   // 1) claim（CAS + fencing；expected=0 —— 全新 Attempt 语义与 executeTurn 一致）
-  const claim = await store.claimTurnAttempt({ turnId, attemptId, expectedFencingToken: 0 });
-  if (!claim.ok) {
-    return { status: "skipped", reason: claim.reason };
-  }
+  const parent = input.controlContext ?? new ControlContext({ abortSignal: input.signal, deadlineEpochMs: input.deadlineEpochMs });
+  const lifecycle = await claimAttemptExecution(input, {
+    execution: store, controlContext: parent, deletionGate: input.deletionGate, maxTurnDurationMs: input.maxTurnDurationMs,
+    leaseHeartbeatIntervalMs: input.leaseHeartbeatIntervalMs,
+  }).catch(error => { if (!input.controlContext) parent.dispose(); throw error; });
+  if (!lifecycle.ok) { if (!input.controlContext) parent.dispose(); return { status: "skipped", reason: lifecycle.reason }; }
+  const { claim, control, terminator } = lifecycle;
+  const mapResult = (result: import("@aervox/core").ExecuteResult): AdapterTurnResult => ({
+    status: ({ completed: "Completed", interrupted: "Interrupted", failed: "Failed", cancelled: "Cancelled", skipped: "skipped" } as const)[result.status],
+    reason: "reason" in result ? result.reason : undefined,
+    committed: result.status !== "skipped" && !(result.status === "failed" && result.reason.endsWith("_finalize_contested")),
+  });
 
   const append = async (
     sequence: number,
@@ -79,17 +94,21 @@ export async function runAdapterTurn(
 
   try {
     let sequence = await store.nextSequence(turnId);
+    const early = await terminator.prematureTermination(sequence);
+    if (early) return mapResult(early);
     const messageId = `msg_${turnId}_assistant`;
 
     // 2) message 身份事件（与 executeTurn 同构）
     await append(sequence++, "message", { messageId, role: "assistant", contentType: "text", isComplete: false });
 
     // 3) adapter 整 Turn 执行 + 事件映射（映射既有事件类型，SSE 契约稳定）
-    const request: AdapterRequest = { turnId, sessionId, attemptId, userMessage, systemPrompt, tools };
+    const request: AdapterRequest = { turnId, sessionId, attemptId, userMessage, systemPrompt, tools, signal: control.abortSignal };
     const { events, decision, protocolError } = await drainAdapterDriver(adapter, request);
 
     let toolSeq = 0;
     for (const ev of events) {
+      const interrupted = await terminator.prematureTermination(sequence);
+      if (interrupted) return mapResult(interrupted);
       if (ev.type === "delta") {
         await append(sequence++, "delta", { messageId, text: ev.text, isFinal: true });
       } else if (ev.type === "tool_request") {
@@ -114,9 +133,11 @@ export async function runAdapterTurn(
 
     // 4) 收紧判定 → 终态
     if (decision.concluded) {
-      await append(sequence, "done", { status: "Completed", messageId, isComplete: true, lastSequence: sequence });
-      await store.finalizeAttempt({ turnId, attemptId, status: "Completed", expectedFencingToken: claim.fencingToken });
-      return { status: "Completed" };
+      const interrupted = await terminator.prematureTermination(sequence);
+      if (interrupted) return mapResult(interrupted);
+      return mapResult(await terminator.finalize(sequence, { status: "completed" }, {
+        eventType: "done", eventData: { status: "Completed", messageId, isComplete: true, lastSequence: sequence }, safetyDecision: "approved",
+      }));
     }
 
     // 未收敛：mixed_batch 拒绝 / none / 空批次 / 协议缺陷 → Interrupted + 原因事件
@@ -134,19 +155,27 @@ export async function runAdapterTurn(
       message: reason,
       lastSequence: sequence,
     });
-    await append(sequence, "done", { status: "Interrupted", messageId, isComplete: false, lastSequence: sequence });
-    await store.finalizeAttempt({ turnId, attemptId, status: "Interrupted", expectedFencingToken: claim.fencingToken });
-    return { status: "Interrupted", reason };
+    return mapResult(await terminator.finalize(sequence, { status: "interrupted", reason }, {
+      eventType: "done", eventData: { status: "Interrupted", messageId, isComplete: false, lastSequence: sequence }, safetyDecision: "approved",
+    }));
   } catch (err) {
+    if (err instanceof LeaseLostError || lifecycle.leaseLost) return { status: "Failed", reason: "lease_lost" };
+    if (lifecycle.interruption && lifecycle.interruption !== "cancelled") return mapResult(await terminator.finalizeInterrupted(await store.nextSequence(turnId), lifecycle.interruption));
+    if (control.isExpired()) return mapResult(await terminator.finalizeInterrupted(await store.nextSequence(turnId), "deadline_exceeded"));
+    if (control.isAborted() && !lifecycle.failure) return mapResult(await terminator.finalizeCancelled(await store.nextSequence(turnId)));
     // 超时/协议违约/外部异常 → Failed（host 失败自动禁用语义在端口层）
     const message = err instanceof Error ? err.message : String(err);
     try {
       const seq = await store.nextSequence(turnId);
-      await append(seq, "error", { code: "ADAPTER_UNAVAILABLE", retryable: true, message, lastSequence: seq });
-      await store.finalizeAttempt({ turnId, attemptId, status: "Failed", expectedFencingToken: claim.fencingToken });
+      return mapResult(await terminator.finalize(seq, { status: "failed", reason: message }, {
+        eventType: "error", eventData: { code: "ADAPTER_UNAVAILABLE", retryable: true, message, lastSequence: seq }, safetyDecision: "approved",
+      }));
     } catch {
       // 落库兜底失败不再上抛（审计失败不得循环）
     }
     return { status: "Failed", reason: message };
+  } finally {
+    lifecycle.dispose();
+    if (!input.controlContext) parent.dispose();
   }
 }

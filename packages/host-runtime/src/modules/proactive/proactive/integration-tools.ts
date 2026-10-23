@@ -151,5 +151,7 @@ export async function registerProactiveIntegrationTools(input: {
       inputSchema: {type: "object", properties: {connectionId: commonConnection, date: {type: "string", format: "date"}}}, builtin: true, priority: 75,
     },
   ];
-  for (const definition of definitions) await runtime.registerContribution(definition, handlers.get(definition.id)!);
+  for (const definition of definitions) await runtime.registerContribution(definition, {
+    ...handlers.get(definition.id)!, approvalRevision: `host:proactive:${definition.id}:v1`,
+  });
 }

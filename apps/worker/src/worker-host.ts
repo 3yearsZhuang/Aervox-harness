@@ -13,11 +13,8 @@
  * - 优雅启停生命周期：清理 timers、ipcServer 并支持优雅退出（stop() 可重复调用）。
  */
 import type { LoggerPort } from "@aervox/observability";
-import {
-  isSqliteBusyError,
-  MAX_WORKER_PRESSURE_DURATION_MS,
-  WorkerIpcServer,
-} from "@aervox/repositories";
+import { isSqliteBusyError } from "@aervox/repositories";
+import { MAX_WORKER_PRESSURE_DURATION_MS, WorkerIpcServer } from "@aervox/process-coordination";
 import { resolveWorkerTaskInterval, DEFAULT_WORKER_TICK_MS } from "./task-scheduling.js";
 
 export interface JobContributionContext {

@@ -129,6 +129,7 @@ export function createPracticeAttemptToolProvider(
       try {
         const res = await learningFacts.recordJudgedAnswer({
           turnId: input.turnId,
+          idempotencyKey: input.invocationId,
           prompt,
           questionType: str(args.questionType),
           userAnswer,

@@ -1,5 +1,5 @@
 import { hostPromptPolicy } from "./prompt-policy.js";
-import { loadApiConfig } from "@aervox/config";
+import { loadExecutionConfig } from "@aervox/config";
 import { createBroadcastingStore } from "./broadcasting-store.js";
 /**
  * Aervox｜思隅 @aervox/api — 对话模块入口
@@ -26,17 +26,20 @@ import { buildLoopProvider } from "./llm-adapter.js";
 import { registerConversationRoutes } from "./routes.js";
 import { executeConversationTurn, type ConversationRouteDeps, type ConversationTurnInput } from "./execution.js";
 export type { ConversationTurnInput } from "./execution.js";
+import { createConversationApplication, type ConversationCommandPort, type ConversationQueryPort } from "./application.js";
 export interface ConversationHost {
-  repo: SqliteConversationRepository;
-  deps: ConversationRouteDeps;
-  execute(input: ConversationTurnInput): Promise<void>;
+  commands: ConversationCommandPort;
+  queries: ConversationQueryPort;
   resume(signal?: AbortSignal): Promise<unknown>;
   abort(): void;
 }
 import { UserQuestionCoordinator } from "./user-question-coordinator.js";
 import { ApiOwnedTurnRecovery } from "./api-owned-recovery.js";
+import { createPluginApiRegistry } from "../../../plugin-api-registry.js";
+import { createDshTurnAdapterResolver } from "./dsh-adapter.js";
+import { PluginToolCatalog } from "./plugin-tool-catalog.js";
 
-export function registerConversationModule(ctx: ModuleDependencies<"app" | "client" | "db" | "getPersona" | "getPluginRegistrations" | "llmConfigService" | "memoryRecall" | "modelRoutingService" | "observability" | "pluginHostServices" | "pluginRegistry" | "proactiveActionAuthorizer" | "proactiveRepository" | "safetyService" | "toolRuntime" | "workflows">, options: { startupRecovery?: boolean; prepareExecution?: () => Promise<void>; isMcpToolAllowed?: ConversationRouteDeps["isMcpToolAllowed"] } = {}): ConversationHost {
+export function registerConversationModule(ctx: ModuleDependencies<"apiRegistry" | "executionConfig" | "app" | "client" | "db" | "getPersona" | "getPluginRegistrations" | "llmConfigService" | "memoryRecall" | "modelRoutingService" | "observability" | "pluginHostServices" | "pluginRegistry" | "proactiveActionAuthorizer" | "proactiveRepository" | "safetyService" | "toolRuntime" | "workflows">, options: { startupRecovery?: boolean; prepareExecution?: () => Promise<void>; isMcpToolAllowed?: ConversationRouteDeps["isMcpToolAllowed"] } = {}): ConversationHost {
   const {
     app,
     db,
@@ -47,6 +50,8 @@ export function registerConversationModule(ctx: ModuleDependencies<"app" | "clie
     proactiveActionAuthorizer,
     proactiveRepository,
   } = ctx;
+  const executionConfig = ctx.executionConfig ?? loadExecutionConfig();
+  const dshResolver = createDshTurnAdapterResolver({ repoRoot: executionConfig.dshRepoRoot, workingDirectory: executionConfig.dshWorkingDirectory });
   const conversationRepo = new SqliteConversationRepository(db);
   const privacyRepo = new SqlitePrivacyRepository(db);
   const skillRepo = new SqliteSkillRegistryRepository(db);
@@ -54,6 +59,8 @@ export function registerConversationModule(ctx: ModuleDependencies<"app" | "clie
   // 阶段 7：ModelRun/ContextManifest 落库口（Step 级可追溯写入）
   const platformRepo = new SqlitePlatformRepository(db);
   const extensionRepo = new SqliteExtensionRepository(db);
+  const apiRegistry = ctx.apiRegistry ?? createPluginApiRegistry();
+  const pluginToolCatalog = new PluginToolCatalog(extensionRepo, apiRegistry);
   const pluginConfigRepo = new SqlitePluginConfigRepository(db);
   const userQuestionCoordinator = new UserQuestionCoordinator(
     conversationRepo,
@@ -73,13 +80,13 @@ export function registerConversationModule(ctx: ModuleDependencies<"app" | "clie
         source: createSqliteResumeSource({ repo: conversationRepo, client: ctx.client }),
         createStore: () => createBroadcastingStore(new SqliteExecutionStore(conversationRepo, local)),
         createProvider: (turn, control) => buildLoopProvider(local, llmConfigService, {
-          requireLocalOnly: control.localProcessingOnly, sessionId: turn.sessionId, turnId: turn.turnId,
+          executionConfig, requireLocalOnly: control.localProcessingOnly, sessionId: turn.sessionId, turnId: turn.turnId,
           modelRoutingService: ctx.modelRoutingService,
         }),
         deletionGate: { isBlocked: () => privacyRepo.hasPendingDeletionRequest(local) },
         signal: signal ? AbortSignal.any([signal, executionAbort.signal]) : executionAbort.signal,
       }));
-  if (options.startupRecovery !== false && loadApiConfig().loopResume === "local-results") {
+  if (options.startupRecovery !== false && executionConfig.loopResume === "local-results") {
     const controller = new AbortController();
     let recovery: Promise<unknown> | undefined;
     app.addHook("onReady", async () => {
@@ -90,8 +97,11 @@ export function registerConversationModule(ctx: ModuleDependencies<"app" | "clie
   app.addHook("onClose", async () => {
     executionAbort.abort(new Error("host_shutdown"));
     await Promise.allSettled(running);
+    pluginToolCatalog.dispose();
+    await dshResolver.close();
   });
   const deps: ConversationRouteDeps = {
+    executionConfig, apiRegistry, pluginToolCatalog, dshResolver,
     signal: executionAbort.signal,
     prepareExecution: options.prepareExecution,
     isMcpToolAllowed: options.isMcpToolAllowed,
@@ -127,7 +137,7 @@ export function registerConversationModule(ctx: ModuleDependencies<"app" | "clie
         conversationRepo,
         runRepo: subagentRunRepo,
         providerBuilder: (input) => buildLoopProvider(tenant, llmConfigService, {
-          requireLocalOnly: input.controlContext?.localProcessingOnly,
+          executionConfig, requireLocalOnly: input.controlContext?.localProcessingOnly,
           sessionId: input.sessionId, turnId: input.turnId, modelRoutingService: ctx.modelRoutingService,
         }),
       }),
@@ -151,11 +161,15 @@ export function registerConversationModule(ctx: ModuleDependencies<"app" | "clie
     app.addHook("onClose", () => recovery.close());
   }
   registerConversationRoutes(app, conversationRepo, deps, execute);
+  const application = createConversationApplication(conversationRepo, deps,
+    (ctx, input) => track(executeConversationTurn(conversationRepo, ctx, input, deps)));
   return {
-    repo: conversationRepo, deps, resume, execute,
+    ...application, resume,
     abort: () => executionAbort.abort(new Error("host_shutdown")),
   };
 }
-export { acceptConversationTurn, executeAcceptedConversationTurn } from "./application.js";
+export { acceptConversationTurn, executeAcceptedConversationTurn, createConversationApplication } from "./application.js";
 export { recoverApiOwnedTurn } from "./api-owned-recovery.js";
 export type { ConversationRouteDeps } from "./execution.js";
+
+export type { ConversationCommandPort, ConversationQueryPort } from "./application.js";

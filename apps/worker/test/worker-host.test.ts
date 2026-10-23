@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { MAX_WORKER_PRESSURE_DURATION_MS } from "@aervox/repositories";
+import { MAX_WORKER_PRESSURE_DURATION_MS } from "@aervox/process-coordination";
 import { WorkerHost, type JobContribution } from "../src/worker-host.js";
 
 describe("WorkerHost (模块化后台任务调度器)", () => {

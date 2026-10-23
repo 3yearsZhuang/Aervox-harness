@@ -12,6 +12,8 @@ import {
   createLearningGoalSchema,
   createTurnRequestSchema,
   createTurnResponseSchema,
+  replayTurnResponseSchema,
+  turnAcceptanceConflictSchema,
   deltaEventDataSchema,
   doneEventDataSchema,
   emoteEventDataSchema,
@@ -148,6 +150,7 @@ export type TurnAttachmentRef = z.infer<typeof turnAttachmentRefSchema>;
 export type AttachmentMediaType = z.infer<typeof allowedMediaTypesSchema>;
 export type AttachmentPurpose = z.infer<typeof attachmentPurposeSchema>;
 export type CreateTurnResponse = z.infer<typeof createTurnResponseSchema>;
+export type ReplayTurnResponse = z.infer<typeof replayTurnResponseSchema>;
 export type CancelTurnResponse = z.infer<typeof cancelTurnResponseSchema>;
 export type LearningGoalLevel = z.infer<typeof learningGoalLevelSchema>;
 export type LearningGoalStatus = z.infer<typeof learningGoalStatusSchema>;
@@ -202,19 +205,9 @@ export * from "./avatar-schemas.js";
 
 export { projectSafeEventData, KERNEL_PROJECTION_EVENT_TYPES } from "./stream-projection.js";
 export {
-  registerPluginApiContribution,
-  getPluginStreamEventTypes,
-  getPluginEventProjection,
-  getPluginToolResultProjection,
-  getToolResultProjectionOwner,
-  getPluginOpenApiRoutes,
-  getPluginApiRevision,
-  isKnownStreamEventType,
   isValidPluginRoutePath,
-  registerToolResultProjection,
-  resetPluginApiContributions,
 } from "./plugin-api-registry.js";
-export type { PluginApiContribution, PluginOpenApiRoute, ToolResultProjectionSchema } from "./plugin-api-registry.js";
+export type { PluginApiRegistry, PluginApiContribution, PluginOpenApiRoute, ToolResultProjectionSchema } from "./plugin-api-registry.js";
 export { createDeletionRequestSchema } from "./privacy-schemas.js";
 export * from "./privacy-api.js";
 export * from "./preferences-api.js";
@@ -223,3 +216,5 @@ export * from "./turn-diagnostics-api.js";
 
 export type { LocalContext } from "./local-context.js";
 export type { DiaryMaterial, DiaryMaterialMessage, DiaryMaterialMemory, DiaryMaterialPort } from "./diary-material.js";
+
+export { learningGoalResponseSchema, planTaskResponseSchema, planMilestoneResponseSchema, learningPlanResponseSchema } from "./schemas.js";

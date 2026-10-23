@@ -65,6 +65,23 @@ describe("阶段 6 createStdioAdapterDriver（子进程 JSON-RPC）", () => {
     } finally { await rm(dir, { recursive: true, force: true }); }
   });
 
+  it("caller cancellation kills a silent child and makes later requests fail closed", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "adapter-cancel-pid-"));
+    try {
+      const pidFile = join(dir, "pid");
+      const handle = await open({ SIM_PID_FILE: pidFile, SIM_HANG: "1", ADAPTER_SHA: dshSha });
+      const pid = Number(await readFile(pidFile, "utf8"));
+      const controller = new AbortController();
+      const iterator = handle.driver.run({ ...request, signal: controller.signal })[Symbol.asyncIterator]();
+      const pending = iterator.next();
+      controller.abort(new Error("cancelled"));
+      await expect(pending).rejects.toThrow(/adapter_request_cancelled|adapter_unavailable/);
+      await handle.close();
+      expect(() => process.kill(pid, 0)).toThrow();
+      await expect(drainAdapterDriver(handle.driver, request)).rejects.toThrow("adapter_unavailable");
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
+
   it("early iterator return cancels its deadline without killing later requests", async () => {
     const handle = await createStdioAdapterDriver({
       command: process.execPath, args: [fixturePath], env: { ADAPTER_SHA: dshSha },

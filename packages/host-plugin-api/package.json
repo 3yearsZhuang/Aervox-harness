@@ -16,6 +16,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@aervox/core": "workspace:*"
+    "@aervox/core": "workspace:*",
+    "@aervox/contracts": "workspace:*"
   }
 }

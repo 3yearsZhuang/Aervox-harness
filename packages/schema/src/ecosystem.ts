@@ -41,6 +41,13 @@ export const plugins = sqliteTable(
     checksum: text("checksum").notNull(),
     /** Immutable bundle directory selected atomically with its registrations. Null is legacy storage. */
     bundleGeneration: text("bundle_generation"),
+    /** Legacy registry metadata remains owned and preserved by the schema. */
+    displayName: text("display_name"),
+    repository: text("repository"),
+    platformsJson: text("platforms_json", { mode: "json" }),
+    dependenciesJson: text("dependencies_json", { mode: "json" }),
+    i18nJson: text("i18n_json", { mode: "json" }),
+    registryMetaJson: text("registry_meta_json", { mode: "json" }),
     signature: text("signature"),
     permissions: text("permissions", { mode: "json" }), // 插件声明的权限
     installSource: text("install_source").notNull().default("registry"), // "registry" | "local" | "marketplace"

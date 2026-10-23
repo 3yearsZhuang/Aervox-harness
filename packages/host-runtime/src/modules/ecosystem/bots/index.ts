@@ -4,7 +4,7 @@ import type { FastifyInstance } from "fastify";
 import type { ServerPluginRegistration } from "@aervox/host-plugin-api";
 import { SqliteBotRepository, SqliteExtensionRepository, loadProactiveVaultCipher, type AervoxDatabase, type ProactiveVaultCipher, type SqliteConversationRepository } from "@aervox/repositories";
 import { isPluginEnabled } from "../plugins/index.js";
-import type { ConversationRouteDeps } from "../../companion/conversation/index.js";
+import type { ConversationHost } from "../../companion/conversation/index.js";
 import { BotManager, type RegisteredBotAdapter } from "./manager.js";
 import { registerBotRoutes } from "./routes.js";
 
@@ -15,13 +15,12 @@ export interface BotModuleOptions {
   pluginEnabled?: (id: string) => Promise<boolean>;
 }
 export function registerBotsModule(input: {
-  app: FastifyInstance; db: AervoxDatabase; conversationRepo: SqliteConversationRepository;
-  conversationDeps: ConversationRouteDeps; registrations: () => ServerPluginRegistration[];
+  app: FastifyInstance; db: AervoxDatabase; conversation: Pick<ConversationHost, "commands" | "queries">; registrations: () => ServerPluginRegistration[];
 }, options: BotModuleOptions = {}) {
   const extensionRepo = new SqliteExtensionRepository(input.db);
   let cipher: Promise<ProactiveVaultCipher> | undefined;
   const manager = new BotManager({
-    store: new SqliteBotRepository(input.db), conversations: input.conversationRepo, conversationDeps: input.conversationDeps,
+    store: new SqliteBotRepository(input.db), conversation: input.conversation,
     adapters: () => options.adapters ?? input.registrations().flatMap(registration =>
       (registration.botAdapters ?? []).map(adapter => ({ pluginId: registration.pluginId, adapter }))),
     pluginEnabled: options.pluginEnabled ?? (id => isPluginEnabled(id, extensionRepo)),

@@ -11,6 +11,9 @@
  *
  * 本文件不含任何插件领域标识：插件 id、配置键与领域文案一律由插件侧声明。
  */
+import { createHash } from "node:crypto";
+import { awaitWithSignal, stableSerialize } from "@aervox/core";
+import { createLearningAnswerService } from "./modules/learning/learning/index.js";
 import type {
   HostRecord,
   PluginHostServices,
@@ -28,21 +31,19 @@ let seq = 0;
 const nextId = (prefix: string): string =>
   `${prefix}_${Date.now().toString(36)}_${(++seq).toString(36)}`;
 
-/** 会话编排端口：把会话仓储收敛为「新建会话 / 建立探索分支」两个意图 */
-function createSessionPort(repo: SqliteConversationRepository, ctx: LocalContext): PluginSessionPort {
+/** Exploration is one command so a failed branch cannot leave an orphan session. */
+function createSessionPort(repo: SqliteConversationRepository, ctx: LocalContext, control?: PluginHostServiceControl): PluginSessionPort {
   return {
-    async createSession(title) {
-      const session = await repo.createSession(ctx, title);
-      return { id: session.id };
-    },
-    async createBranch(input) {
-      await repo.createConversationBranch(ctx, {
-        id: input.id,
-        parentSessionId: input.parentSessionId,
-        childSessionId: input.childSessionId,
-        title: input.title,
-        branchReason: input.reason,
+    async createExplorationBranch(input) {
+      await control?.checkActive();
+      control?.signal?.throwIfAborted();
+      const branch = await repo.createExplorationBranch(ctx, {
+        id: input.id, idempotencyKey: input.idempotencyKey, parentSessionId: input.parentSessionId,
+        childSessionId: input.childSessionId, title: input.title,
+        branchReason: input.reason, pluginGeneration: control?.pluginGeneration,
       });
+      if (!branch) throw new Error("parent_session_not_found");
+      return { id: branch.id, childSessionId: branch.childSessionId };
     },
   };
 }
@@ -56,56 +57,40 @@ function createSessionPort(repo: SqliteConversationRepository, ctx: LocalContext
 function createLearningFactPort(
   repo: SqliteLearningRepository,
   ctx: LocalContext,
+  control?: PluginHostServiceControl,
 ): PluginLearningFactPort {
+  const answers = createLearningAnswerService(repo);
+  const call = async <T>(operation: () => Promise<T>): Promise<T> => {
+    await control?.checkActive(); control?.signal?.throwIfAborted();
+    const value = await awaitWithSignal(operation(), control?.signal);
+    await control?.checkActive(); control?.signal?.throwIfAborted();
+    return value;
+  };
   return {
     async recordJudgedAnswer(input) {
-      const question = await repo.createQuestion(ctx, {
-        id: nextId("q"),
-        prompt: input.prompt,
-        answerSpec: {
-          answer: input.correctAnswer,
-          type: input.questionType ?? null,
-          explanation: input.explanation ?? null,
-        },
-        knowledgeId: null,
-      });
-
-      const attempt = await repo.recordAttempt(ctx, {
-        id: nextId("att"),
-        sessionId: input.turnId,
-        questionId: question.id,
-        answer: input.userAnswer,
-        judgement: input.judgement,
-        evidence: {
-          source: input.source ?? "plugin",
-          turnId: input.turnId,
-          explanation: input.explanation ?? null,
-          knowledgeConcept: input.knowledgeConcept ?? null,
-        },
-      });
-
-      return {
-        questionId: question.id,
-        attemptId: attempt.id,
-        judgement: input.judgement,
-        enteredMistakeNotebook: input.judgement === "incorrect",
-      };
+      await control?.checkActive();
+      control?.signal?.throwIfAborted();
+      const key = input.idempotencyKey ?? createHash("sha256").update(stableSerialize(input)).digest("hex");
+      const idempotencyKey = `${control?.pluginGeneration?.pluginId ?? "host"}:${input.turnId}:${key}`;
+      const legacyIdempotencyKey = control?.pluginGeneration || !input.source ? undefined : `${input.source}:${input.turnId}:${key}`;
+      const { attempt } = await answers.recordAnswer(ctx, { ...input, kind: "judged-question", idempotencyKey, legacyIdempotencyKey, pluginGeneration: control?.pluginGeneration });
+      return { questionId: attempt.questionId, attemptId: attempt.id, judgement: input.judgement, enteredMistakeNotebook: attempt.judgement === "incorrect" };
     },
 
     // 报告行按不透明载荷转发：展开为普通记录，插件侧不解析字段（真源仍在宿主）
-    writeReport: async (draft): Promise<HostRecord> =>
-      ({ ...(await repo.createPracticeReport(ctx, { id: nextId("rpt"), ...draft })) }),
+    writeReport: draft => call(async (): Promise<HostRecord> =>
+      ({ ...(await repo.createPracticeReport(ctx, { ...draft, id: nextId("rpt"), pluginGeneration: control?.pluginGeneration })) })),
 
-    readReport: async (reportId): Promise<HostRecord | null> => {
+    readReport: reportId => call(async (): Promise<HostRecord | null> => {
       const row = await repo.getPracticeReport(ctx, reportId);
       return row ? { ...row } : null;
-    },
+    }),
 
-    listReports: async (sessionId): Promise<HostRecord[]> =>
-      (await repo.listPracticeReports(ctx, sessionId)).map((row) => ({ ...row })),
+    listReports: sessionId => call(async (): Promise<HostRecord[]> =>
+      (await repo.listPracticeReports(ctx, sessionId)).map((row) => ({ ...row }))),
 
-    resetInference: async (sessionId): Promise<HostRecord> =>
-      ({ ...(await repo.resetMasteryInference(ctx, sessionId)) }),
+    resetInference: sessionId => call(async (): Promise<HostRecord> =>
+      ({ ...(await repo.resetMasteryInference(ctx, sessionId, control?.pluginGeneration)) })),
   };
 }
 
@@ -113,14 +98,19 @@ function createLearningFactPort(
  * 构造宿主服务工厂：按当前本地上下文产出插件可见的窄端口集合。
  * 插件不得缓存跨上下文实例，故宿主按 request / turn 粒度调用本工厂。
  */
+export interface PluginHostServiceControl {
+  signal?: AbortSignal;
+  checkActive(): Promise<void>;
+  pluginGeneration?: { pluginId: string; generation: string };
+}
 export function createPluginHostServicesFactory(
   db: AervoxDatabase,
-): (ctx: LocalContext) => PluginHostServices {
+): (ctx: LocalContext, control?: PluginHostServiceControl) => PluginHostServices {
   const conversationRepo = new SqliteConversationRepository(db);
   const learningRepo = new SqliteLearningRepository(db);
 
-  return (ctx) => ({
-    sessions: createSessionPort(conversationRepo, ctx),
-    learningFacts: createLearningFactPort(learningRepo, ctx),
+  return (ctx, control) => ({
+    sessions: createSessionPort(conversationRepo, ctx, control),
+    learningFacts: createLearningFactPort(learningRepo, ctx, control),
   });
 }

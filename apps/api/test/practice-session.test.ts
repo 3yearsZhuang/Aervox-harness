@@ -150,7 +150,7 @@ describe("练习会话报告", () => {
     expect(report.json().correctCount).toBe(1);
   });
 
-  it("不同答案使用相同幂等键仍返回首次结果，不创建第二条作答", async () => {
+  it("不同答案使用相同幂等键返回冲突，不创建第二条作答", async () => {
     for (const [prompt, answer] of [["5 + 5 = ?", "10"], ["6 + 6 = ?", "12"], ["7 + 7 = ?", "14"]]) {
       await app.inject({ method: "POST", url: "/v1/questions", headers, payload: { prompt, answerSpec: { answer } } });
     }
@@ -163,8 +163,8 @@ describe("练习会话报告", () => {
     await app.inject({ method: "POST", url: `/v1/questions/${questionId}/attempts`, headers: idempotencyHeaders, payload: { sessionId, answer: "10" } });
 
     const conflictRetry = await app.inject({ method: "POST", url: `/v1/questions/${questionId}/attempts`, headers: idempotencyHeaders, payload: { sessionId, answer: "wrong" } });
-    expect(conflictRetry.statusCode).toBe(200);
-    expect(conflictRetry.json().answer).toBe("10");
+    expect(conflictRetry.statusCode).toBe(409);
+    expect(conflictRetry.json().code).toBe("idempotency_key_reused");
 
     const attempts = await app.inject({ method: "GET", url: `/v1/questions/${questionId}/attempts`, headers });
     expect(attempts.json().items).toHaveLength(1);
@@ -305,7 +305,7 @@ describe("练习会话报告", () => {
     expect(report.json().avgTimeSpentSec).toBeNull();
   });
 
-  it("CR-019：幂等重试保留首次用时和提示数，不重复统计", async () => {
+  it("CR-019：幂等重试拒绝变更用时和提示数，同输入回放不重复统计", async () => {
     for (const [prompt, answer] of [["q1", "a1"], ["q2", "a2"], ["q3", "a3"]]) {
       await app.inject({ method: "POST", url: "/v1/questions", headers, payload: { prompt, answerSpec: { answer } } });
     }
@@ -328,7 +328,16 @@ describe("练习会话报告", () => {
       headers: idemHeaders,
       payload: { sessionId, answer: "a1", elapsedSeconds: 999, hintsUsed: 999 },
     });
-    expect(retry.statusCode).toBe(200);
+    expect(retry.statusCode).toBe(409);
+    expect(retry.json().code).toBe("idempotency_key_reused");
+    const replay = await app.inject({
+      method: "POST",
+      url: `/v1/questions/${qid}/attempts`,
+      headers: idemHeaders,
+      payload: { sessionId, answer: "a1", elapsedSeconds: 25, hintsUsed: 1 },
+    });
+    expect(replay.statusCode).toBe(200);
+    expect(replay.json()).toEqual(first.json());
 
     const report = await app.inject({ method: "GET", url: `/v1/practice/sessions/${sessionId}/report`, headers });
     expect(report.json().answeredCount).toBe(1);

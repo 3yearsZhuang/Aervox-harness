@@ -5,7 +5,7 @@ import {Puzzle, Ellipsis, LayoutGrid, Zap, Wrench, PackagePlus, Radar, SlidersHo
 import {ElDropdown, ElDropdownMenu, ElDropdownItem} from 'element-plus/es/components/dropdown/index.mjs'
 import {useAervoxPlugins, type PluginGrantDto, type PluginPageDto, type PluginSummaryDto} from '@aervox/api-client'
 import {PLUGIN_SENSOR_PERMISSION} from '@aervox/contracts'
-import {useWorkbenchContext} from '@aervox/ui/workbench'
+import {useUIPluginContext} from '@aervox/ui/plugin-api'
 import PluginConfigDialog from './PluginConfigDialog.vue'
 import PluginInstallDialog from './PluginInstallDialog.vue'
 import PluginPageDialog from './PluginPageDialog.vue'
@@ -27,15 +27,16 @@ const emit = defineEmits<{
   'change': []
 }>()
 
-let workbenchCtx: ReturnType<typeof useWorkbenchContext> | undefined
+let pluginContext: ReturnType<typeof useUIPluginContext> | undefined
 try {
-  workbenchCtx = useWorkbenchContext()
+  pluginContext = useUIPluginContext()
 } catch {
   // 隔离运行环境（如单元测试）时可能无提供者
 }
 
 const api = useAervoxPlugins()
 const {plugins, loading, error, setPluginEnabled, listPages} = api
+const uiSyncError = ref<string | null>(null)
 
 // CR-032：感知源授权——插件声明的 sensors 需在扩展中心显式授权（未授权时内核切断事件输入）
 interface DeclaredSensor {
@@ -139,10 +140,6 @@ async function toggleEnabled(plugin: PluginSummaryDto): Promise<void> {
   plugin.enabled = nextEnabled ? 1 : 0
   try {
     await setPluginEnabled(plugin.id, nextEnabled)
-    // 2. 触发热插拔同步（若在工作台环境内）
-    if (workbenchCtx?.pluginRuntime) {
-      await workbenchCtx.pluginRuntime.sync(plugins.value, (id) => api.getConfig(id))
-    }
     emit('change')
     // 3. 若新启用插件，异步平滑同步插件 Page 状态
     if (nextEnabled && !pluginsWithPages.value.has(plugin.id)) {
@@ -152,22 +149,23 @@ async function toggleEnabled(plugin: PluginSummaryDto): Promise<void> {
     // 失败回滚
     plugin.enabled = previousState
     console.error('切换插件状态失败', e)
+    return
   }
+  // The persisted choice has committed; a UI refresh failure must not undo it.
+  uiSyncError.value = null
+  try { await pluginContext?.refreshPluginUI() }
+  catch { uiSyncError.value = '设置已保存，界面同步失败，请重新打开工作台。' }
 }
 
 async function handleInstalled(): Promise<void> {
   emit('change')
   await refresh(true)
-  if (workbenchCtx?.pluginRuntime) {
-    await workbenchCtx.pluginRuntime.sync(plugins.value, (id) => api.getConfig(id))
-  }
+  await pluginContext?.refreshPluginUI()
 }
 
 async function handleConfigSaved(): Promise<void> {
   emit('change')
-  if (workbenchCtx?.pluginRuntime) {
-    await workbenchCtx.pluginRuntime.sync(plugins.value, (id) => api.getConfig(id))
-  }
+  await pluginContext?.refreshPluginUI()
 }
 
 function openConfig(plugin: PluginSummaryDto): void {
@@ -236,6 +234,7 @@ async function handleExport(plugin: PluginSummaryDto): Promise<void> {
           <span>安装插件</span>
         </AervoxButton>
       </div>
+      <p v-if="uiSyncError" role="status" class="plugin-empty">{{ uiSyncError }}</p>
       <div v-if="loading" class="pcfg-loading">加载插件…</div>
       <p v-else-if="error" class="plugin-empty">{{ api.error.value }}</p>
       <p v-else-if="plugins.length === 0" class="plugin-empty">还没有安装插件。点击右上角「安装插件」登记声明，或把插件 Bundle 放入 data/plugins 后重启。</p>

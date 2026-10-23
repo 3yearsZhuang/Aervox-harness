@@ -90,7 +90,7 @@ export class InMemoryExecutionStore implements ExecutionStorePort {
     };
   }
 
-  /** 3b-A：续租（CAS：leaseId + fencing 匹配且 Running 才刷新） */
+  /** 3b-A：取消收尾前仍持有租约；CAS 与 SQLite 一致保留 leaseId/fencing 校验。 */
   async renewAttemptLease(input: {
     attemptId: string;
     leaseId: string;
@@ -98,7 +98,7 @@ export class InMemoryExecutionStore implements ExecutionStorePort {
     ttlMs?: number;
   }): Promise<{ ok: boolean }> {
     const attempt = this.attempts.get(input.attemptId);
-    if (!attempt || attempt.status !== "Running") return { ok: false };
+    if (!attempt || (attempt.status !== "Running" && attempt.status !== "CancelRequested")) return { ok: false };
     if (attempt.leaseId !== input.leaseId || attempt.fencingToken !== input.expectedFencingToken) return { ok: false };
     attempt.leaseExpiresAt = new Date(Date.now() + (input.ttlMs ?? 60_000)).toISOString();
     this.leaseRenewalCount += 1;

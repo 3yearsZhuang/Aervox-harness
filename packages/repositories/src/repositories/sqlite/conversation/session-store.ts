@@ -1,6 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/repositories — 会话生命周期、分支地图（CAP-014）与会话导入 Store
  */
+import { createHash, randomUUID } from "node:crypto";
 import { eq, and, desc, isNull } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
 import {
@@ -9,14 +10,16 @@ import {
   messages,
   messageVersions,
   conversationBranches,
+  outboxEvents,
   type ConversationExecutionPolicy,
 } from "@aervox/schema";
+import { assertPluginGeneration, type PluginGenerationIdentity } from "../../../plugin-generation-guard.js";
 import { assertConversationExecutionPolicy } from "../../../conversation-execution-policy.js";
 import { BRANCH_TREE_MAX_BRANCHES, BRANCH_TREE_MAX_SESSIONS, BranchTreeLimitError, type BranchTreeReadOptions } from "../../../conversation-branch-tree.js";
 import { deleteBotConversationData } from "./bot-data-deletion.js";
 import type { LocalContext } from "../../../local-context.js";
 import { readSessionHistory } from "../session-history.js";
-import type { SessionModel, ConversationBranchModel } from "../../types/index.js";
+import type { SessionModel, ConversationBranchModel, CreateExplorationBranchInput } from "../../types/index.js";
 
 export class SessionStore {
   constructor(private readonly db: AervoxDatabase) {}
@@ -28,13 +31,15 @@ export class SessionStore {
   async createSession(
     _tenant: LocalContext,
     title: string,
-    options?: { id?: string; projectId?: string | null; executionPolicy?: ConversationExecutionPolicy },
+    options?: { id?: string; projectId?: string | null; executionPolicy?: ConversationExecutionPolicy; pluginGeneration?: PluginGenerationIdentity },
   ): Promise<SessionModel> {
+    return this.db.transaction(async (tx) => {
+    await assertPluginGeneration(tx, options?.pluginGeneration);
     const executionPolicy = options?.executionPolicy ?? "local-v1";
     assertConversationExecutionPolicy(executionPolicy);
     const id = options?.id?.trim() || `ses_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     const now = new Date().toISOString();
-    const [created] = await this.db
+    const [created] = await tx
       .insert(sessions)
       .values({
         id,
@@ -46,6 +51,7 @@ export class SessionStore {
       })
       .returning();
     return created as SessionModel;
+    });
   }
 
   async getSession(ctx: LocalContext, sessionId: string): Promise<SessionModel | null> {
@@ -158,40 +164,45 @@ export class SessionStore {
 
   // ============ P1（R2 · CAP-014）：会话地图分支 ============
 
-  async createConversationBranch(
-    ctx: LocalContext,
-    branchData: {
-      id: string;
-      parentSessionId: string;
-      forkAtMessageId?: string | null;
-      childSessionId: string;
-      title?: string;
-      branchReason?: string;
-    },
-  ): Promise<ConversationBranchModel> {
+  /** Child, edge and outbox share a transaction and one request identity. */
+  async createExplorationBranch(ctx: LocalContext, input: CreateExplorationBranchInput): Promise<ConversationBranchModel | null> {
+    if (input.idempotencyKey !== undefined && (!input.idempotencyKey.trim() || input.idempotencyKey.length > 512)) {
+      throw new Error("conversation_branch_idempotency_key_invalid");
+    }
+    // Scope to the parent and command, rather than a process-local IPC/request ID.
+    // No key preserves the established ability to create independent duplicate edges.
+    const id = input.idempotencyKey === undefined ? (input.id ?? `br_${randomUUID()}`)
+      : `br_${createHash("sha256").update(JSON.stringify(["exploration-branch-v1", input.parentSessionId, input.idempotencyKey])).digest("hex")}`;
+    const childSessionId = input.childSessionId ?? `session_explore_${id}`;
+    if (input.parentSessionId === childSessionId) throw new Error("conversation_branch_self_reference");
     return this.db.transaction(async (tx) => {
-      const [parent] = await tx.select({ policy: sessions.executionPolicy }).from(sessions).where(eq(sessions.id, branchData.parentSessionId));
-      const [child] = await tx.select({ policy: sessions.executionPolicy }).from(sessions).where(eq(sessions.id, branchData.childSessionId));
-      if (!parent || !child) throw new Error("conversation_session_unavailable");
-      assertConversationExecutionPolicy(parent.policy);
-      assertConversationExecutionPolicy(child.policy);
-      if (parent.policy !== child.policy) throw new Error("conversation_execution_policy_mismatch");
+      await assertPluginGeneration(tx, input.pluginGeneration);
+      const [parent] = await tx.select().from(sessions).where(eq(sessions.id, input.parentSessionId));
+      if (!parent) return null;
+      assertConversationExecutionPolicy(parent.executionPolicy);
+      const [existing] = await tx.select().from(conversationBranches).where(eq(conversationBranches.id, id));
+      if (existing) {
+        if (existing.parentSessionId !== input.parentSessionId || existing.childSessionId !== childSessionId ||
+          existing.title !== (input.title ?? null) || existing.forkAtMessageId !== (input.forkAtMessageId ?? null) ||
+          existing.branchReason !== (input.branchReason ?? null)) throw new Error("conversation_branch_idempotency_conflict");
+        return existing as ConversationBranchModel;
+      }
+      const [receipt] = await tx.select({ id: outboxEvents.id }).from(outboxEvents)
+        .where(eq(outboxEvents.idempotencyKey, `branch:${id}`)).limit(1);
+      // A deleted child cascades its edge away. Its durable command receipt must
+      // prevent recreation, even though there is no longer a row to return.
+      if (receipt) throw new Error("conversation_branch_result_unavailable");
+      // Historical fork markers are opaque metadata, not a source-message FK.
       const now = new Date().toISOString();
-      const [created] = await tx
-        .insert(conversationBranches)
-        .values({
-          id: branchData.id,
-          parentSessionId: branchData.parentSessionId,
-          forkAtMessageId: branchData.forkAtMessageId ?? null,
-          childSessionId: branchData.childSessionId,
-          title: branchData.title ?? null,
-          branchReason: branchData.branchReason ?? null,
-          status: "active",
-          createdAt: now,
-          updatedAt: now,
-        })
-        .returning();
-      return created as ConversationBranchModel;
+      const [child] = await tx.select().from(sessions).where(eq(sessions.id, childSessionId));
+      if (child && child.executionPolicy !== parent.executionPolicy) throw new Error("conversation_execution_policy_mismatch");
+      if (!child) await tx.insert(sessions).values({ id: childSessionId, title: input.title ?? parent.title, projectId: parent.projectId,
+        executionPolicy: parent.executionPolicy, createdAt: now, updatedAt: now });
+      const [branch] = await tx.insert(conversationBranches).values({ id, parentSessionId: input.parentSessionId, childSessionId, title: input.title ?? null,
+        forkAtMessageId: input.forkAtMessageId ?? null, branchReason: input.branchReason ?? null, status: "active", createdAt: now, updatedAt: now }).returning();
+      await tx.insert(outboxEvents).values({ id: `out_branch_${id}`, idempotencyKey: `branch:${id}`, eventType: "conversation.branch.created",
+        payload: { branchId: id, parentSessionId: input.parentSessionId, childSessionId }, createdAt: now });
+      return branch as ConversationBranchModel;
     });
   }
 

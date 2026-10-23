@@ -16,7 +16,7 @@
  * 因此"释放"可能被在途的"续期"覆盖，形成至多一个续期周期（≤10s）的额外压力窗口。
  * Worker 侧窗口单调延长，且该窗口本身有界，因此影响可控；如需严格次序需改为带序号的控制协议。
  */
-import { notifyWorkerPressure } from "@aervox/repositories";
+import { notifyWorkerPressure } from "@aervox/process-coordination";
 
 /** 单次压力窗口时长；租约续期保证活跃期间持续有效 */
 export const PRESSURE_LEASE_TTL_MS = 15_000;

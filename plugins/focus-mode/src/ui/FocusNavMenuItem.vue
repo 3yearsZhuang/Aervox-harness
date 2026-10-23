@@ -1,18 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { GraduationCap } from 'lucide-vue-next';
-import { useWorkbenchContext } from '@aervox/ui/plugin-api';
+import { useUIPluginContext } from '@aervox/ui/plugin-api';
 import { useFocusModeState } from './plugin-state';
 const { activeLearningView, learningOpen, openLearningView } = useFocusModeState();
 
-const { layout } = useWorkbenchContext();
+const { navigation } = useUIPluginContext();
 
 const isActive = computed(() => Boolean(learningOpen.value && activeLearningView.value === 'study'));
 
 function handleClick() {
   const open = () => openLearningView('study');
-  if (layout?.runMenuAction) {
-    layout.runMenuAction(open);
+  if (navigation?.runMenuAction) {
+    navigation.runMenuAction(open);
   } else {
     open();
   }

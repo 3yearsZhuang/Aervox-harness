@@ -29,27 +29,32 @@ import fs from "node:fs";
 import {
   createDatabase,
   initDatabaseSchema,
+  type AervoxDatabase
+} from "../src/index.js";
+import {
   buildP2PSyncBundle,
   applyP2PSyncBundle,
-  executeP2PBidirectionalSync,
+  createSqliteSyncChangesetPort,
   extractTableChangeset,
   assertSyncTableOrder,
   assertSyncBundleVersionCompatible,
   installSyncTriggers,
   readSyncRowStates,
   triggerName,
-  generateDeviceIdentity,
   DEFAULT_SYNC_TABLES,
+  SyncMetadataTableMissingError,
+  SyncVersionMismatchError
+} from "../src/sync/index.js";
+import {
+  generateDeviceIdentity,
+  executeP2PBidirectionalSync,
   SYNC_CHANGESET_PROTOCOL_VERSION,
   SYNC_CHANGESET_SCHEMA_VERSION,
-  SyncMetadataTableMissingError,
   SyncPartialMergeError,
-  SyncVersionMismatchError,
-  type AervoxDatabase,
   type P2PSyncBundle,
   type SyncTableDefinition,
-  type TableChangeset,
-} from "../src/index.js";
+  type TableChangeset
+} from "@aervox/sync-runtime";
 import { establishVerifiedPairing } from "./helpers/p2p-session.js";
 import type { Client } from "@libsql/client";
 
@@ -446,8 +451,8 @@ describe("ITER-028 合并引擎缺陷回归（D1–D10）", () => {
     });
 
     const syncRes = await executeP2PBidirectionalSync({
-      nodeA: { client: nodeA.client, deviceId: DEVICE_A },
-      nodeB: { client: nodeB.client, deviceId: DEVICE_B },
+      nodeA: { changesets: createSqliteSyncChangesetPort(nodeA.client), deviceId: DEVICE_A },
+      nodeB: { changesets: createSqliteSyncChangesetPort(nodeB.client), deviceId: DEVICE_B },
       sessions: establishSessions(),
       watermarks: { aSince: T2, bSince: T3 },
     });
@@ -606,8 +611,8 @@ describe("ITER-028 合并引擎缺陷回归（D1–D10）", () => {
 
     // 双向同步也必须保持删除状态（A 端不得因 B 的回传而复活该行）
     await executeP2PBidirectionalSync({
-      nodeA: { client: nodeA.client, deviceId: DEVICE_A },
-      nodeB: { client: nodeB.client, deviceId: DEVICE_B },
+      nodeA: { changesets: createSqliteSyncChangesetPort(nodeA.client), deviceId: DEVICE_A },
+      nodeB: { changesets: createSqliteSyncChangesetPort(nodeB.client), deviceId: DEVICE_B },
       sessions: establishSessions(),
       watermarks: { aSince: T0, bSince: T0 },
     });

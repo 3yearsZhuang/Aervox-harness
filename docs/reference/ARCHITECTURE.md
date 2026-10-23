@@ -96,6 +96,8 @@ native/
 
 连接版终端入口 `apps/cli` 只消费 `@aervox/api-client/transport` 的纯传输构建出口，该子路径不加载 Vue composables；CLI 使用根目录统一管理的 esbuild 生成独立 ESM 制品，业务数据与执行权威仍在已有 API/Worker。配置与请求标识回执是宿主私有文件，CLI 不导入 API 私有模块、不直接访问业务库，也不因此新增服务端路由或授权口径；独立 Core 组合另立条目认领。命令边界、受限本机地址、审批与取消语义及兼容范围见 CR-058（已归档至 Aervox-docs-archive），实施状态与剩余差量见 [§4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
+共享行为所有权由 [ADR-030](adr/ADR-030-behavior-ownership.md) 收敛：平台桥复用同一 Turn 客户端，根界面复用无视觉会话控制器；领域命令掌握事务，执行生命周期和工具授权分别具有单一所有者。插件 API 与结果投影属于宿主实例，配置由组合根解析后注入。`@aervox/sync-runtime` 提供显式启用的网络适配，`@aervox/process-coordination` 提供进程 IPC；默认仓储入口只暴露数据能力，同步数据适配通过 `/sync` 子入口消费。
+
 ### 3.1 共享产品宿主结构（演进式模块化单体）
 
 `packages/host-runtime/src/` 采用**按领域模块组织**的结构（ADR-014 0.3.0 两层分组：25 模块 → 6 域，归属表见 `CR-052 §3.1`（已归档）），每个模块自管路由与仓储实例化。持久异步副作用使用 SQLite Outbox 由 Worker 投递，同步能力经公开 Port/组合根注入，进程内 UI 唤醒不代替持久事件；实际所有权收敛仍由边界守卫与专项验收证明：

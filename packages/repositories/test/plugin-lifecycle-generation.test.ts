@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createInMemoryDatabase, initDatabaseSchema, SqliteExtensionRepository } from "../src/index.js";
+import { exportSnapshot, restoreSnapshotToEmptyStaging } from "../src/sync/git-snapshot.js";
 
 describe("persistent plugin lifecycle generations", () => {
   let database: Awaited<ReturnType<typeof createInMemoryDatabase>>;
@@ -40,14 +41,21 @@ describe("persistent plugin lifecycle generations", () => {
     expect(new Set([initial.lifecycleGeneration, replaced.lifecycleGeneration, reinstalled.lifecycleGeneration]).size).toBe(3);
   });
 
-  it("backfills a pre-generation database once without replacing existing plugin data", async () => {
+  it("requires staging for a pre-generation database and preserves plugin data during the explicit upgrade", async () => {
     await extensions.createPlugin({ id: "legacy", publisher: "test", version: "1", checksum: "legacy-checksum" });
     await database.client.execute("ALTER TABLE plugins DROP COLUMN lifecycle_generation");
-    await initDatabaseSchema(database.client);
-    const upgraded = (await extensions.getPlugin("legacy"))!;
-    expect(upgraded.lifecycleGeneration).toMatch(/^[a-f0-9]{32}$/);
-    expect(upgraded.checksum).toBe("legacy-checksum");
-    await initDatabaseSchema(database.client);
-    expect((await extensions.getPlugin("legacy"))!.lifecycleGeneration).toBe(upgraded.lifecycleGeneration);
+    const original = await database.client.execute("SELECT * FROM plugins");
+    await expect(initDatabaseSchema(database.client)).rejects.toThrow("explicit staging migration");
+    expect((await database.client.execute("SELECT * FROM plugins")).rows).toEqual(original.rows);
+    const staging = await createInMemoryDatabase();
+    try {
+      await restoreSnapshotToEmptyStaging(staging.client, await exportSnapshot(database.client, 1));
+      const upgradedRepository = new SqliteExtensionRepository(staging.db);
+      const upgraded = (await upgradedRepository.getPlugin("legacy"))!;
+      expect(upgraded.lifecycleGeneration).toMatch(/^[a-f0-9]{32}$/);
+      expect(upgraded.checksum).toBe("legacy-checksum");
+      await initDatabaseSchema(staging.client);
+      expect((await upgradedRepository.getPlugin("legacy"))!.lifecycleGeneration).toBe(upgraded.lifecycleGeneration);
+    } finally { await staging.cleanup(); }
   });
 });

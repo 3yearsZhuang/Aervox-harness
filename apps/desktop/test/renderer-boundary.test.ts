@@ -180,7 +180,7 @@ describe('privileged IPC and outbound messages', () => {
         expect(f.raw.removeHandler).toHaveBeenCalledWith(channel)
     })
 
-    it.each(['aervox:events:start', 'aervox:events:cancel', 'aervox:turn:start', 'aervox:turn:cancel'])('silently rejects untrusted send event %s', channel => {
+    it.each(['aervox:events:start', 'aervox:events:cancel', 'aervox:turn:start', 'aervox:turn:observe', 'aervox:turn:ack', 'aervox:turn:cancel'])('silently rejects untrusted send event %s', channel => {
         const f = ipcFixture()
         const privileged = vi.fn()
         f.ipc.on(channel, privileged)
@@ -205,7 +205,7 @@ describe('privileged IPC and outbound messages', () => {
 })
 
 describe('desktop composition-root IPC coverage', () => {
-    it('registers all 32 desktop capabilities through the shared sender guard', () => {
+    it('registers all 34 desktop capabilities through the shared sender guard', () => {
         const main = readFileSync(new URL('../src/main/index.ts', import.meta.url), 'utf8')
         const windowIpc = readFileSync(new URL('../src/main/window-ipc.ts', import.meta.url), 'utf8')
         expect(main).not.toMatch(/\bipcMain\.(?:handle|on)\s*\(/)
@@ -221,10 +221,10 @@ describe('desktop composition-root IPC coverage', () => {
             'proactive:claims:list', 'proactive:claims:state', 'proactive:intelligence:dashboard',
             'proactive:ha:connect', 'proactive:ha:sync', 'proactive:ha:entity', 'proactive:ha:delete',
             'proactive:xiaomi:connect', 'proactive:xiaomi:sync', 'proactive:xiaomi:delete', 'proactive:export', 'proactive:keep-alive',
-            'aervox:events:start', 'aervox:events:cancel', 'aervox:turn:start', 'aervox:turn:cancel',
+            'aervox:events:start', 'aervox:events:cancel', 'aervox:turn:start', 'aervox:turn:observe', 'aervox:turn:ack', 'aervox:turn:cancel',
             'aervox:api:request', 'aervox:attachment:upload',
         ]
         expect([...mainChannels, ...windowChannels].sort()).toEqual(expected.sort())
-        expect(new Set([...mainChannels, ...windowChannels]).size).toBe(32)
+        expect(new Set([...mainChannels, ...windowChannels]).size).toBe(34)
     })
 })

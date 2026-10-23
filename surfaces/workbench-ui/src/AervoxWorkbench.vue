@@ -35,6 +35,8 @@ import {
   useWorkbenchProactive,
   proactiveBridge,
   provideWorkbenchContext,
+  provideUIPluginContext,
+  type UIPluginContext,
   createPluginEventBus,
   createPluginStateStore,
   resolveStartupQuiet,
@@ -49,7 +51,8 @@ import {
 import { useUISurfaceContext } from '@aervox/ui-host';
 import { PanelLeft } from 'lucide-vue-next';
 
-import { watchAervoxTurnContinuation, streamAervoxTurn, useAervoxPlugins, useAervoxProjects, useAervoxSessions } from '@aervox/api-client';
+import { createConversationController, getTransport, useAervoxApi, useAervoxPlugins, useAervoxProjects, useAervoxSessions } from '@aervox/api-client';
+import type { TurnCallbacks } from '@aervox/api-client';
 import type { TurnAttachmentRef } from '@aervox/contracts';
 
 const surfaceContext = useUISurfaceContext();
@@ -136,11 +139,14 @@ const timer = useWorkbenchTimer({
   },
 });
 
-// 4. Conversation Composable
+// 4. Shared conversation policy and surface presentation
+const turnController = createConversationController(getTransport(), surfaceContext.signal);
 const conversation = useWorkbenchConversation({
   recordActivity: proactive.recordProactiveActivity,
   onRefreshProactiveStatus: proactive.refreshProactiveStatus,
-  onApprovalContinuation: resumeApprovedTurn,
+  controller: turnController,
+  onApprovalDecision: resumeApprovedTurn,
+  onRetrySubmission: retrySubmission,
 });
 
 // 5. Session identity is created before the composer so mobile drafts stay
@@ -157,14 +163,14 @@ const composer = useWorkbenchComposer({
   draftsEnabled: layout.isMobile,
 });
 
-// 7. Cards Composable
+// 7. The composition root owns domain stores; cards and plugins receive explicit ports.
+const learning = useAervoxApi();
 const cards = useWorkbenchCards({
-  activeQuestion: conversation.activeQuestion,
+  learning,
   timerRunning: timer.timerRunning,
   formattedTime: timer.formattedTime,
   storyCount: computed(() => conversation.story.value.length),
   onOpenTool: layout.openTool,
-  onSubmitQuestionAnswers: conversation.handleQuestionSubmit,
   recordActivity: proactive.recordProactiveActivity,
   registry,
 });
@@ -200,6 +206,12 @@ watch(() => projectManagerOpen.value, (open) => { if (open) projectManagerMounte
 watch(() => importSessionOpen.value, (open) => { if (open) importSessionMounted.value = true; }, { immediate: true });
 
 let isSendingMessage = false;
+let lastSubmissionView: {sessionId: string; lineId: number} | undefined;
+async function retrySubmission() {
+  if (!lastSubmissionView || lastSubmissionView.sessionId !== sessions.activeSessionId.value) return;
+  if (conversation.latestAssistantLine.value?.id !== lastSubmissionView.lineId) return;
+  await continueTurn(callbacks => turnController.retry(callbacks));
+}
 
 // 统一整合发送消息逻辑
 async function sendMessage(value = composer.input.value, options?: { metadata?: Record<string, unknown>; resend?: boolean }) {
@@ -255,8 +267,8 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
 
   const liveAssistantLine = conversation.story.value[conversation.story.value.length - 1];
   composer.input.value = '';
+  lastSubmissionView = {sessionId: submittedSessionId, lineId: liveAssistantLine.id};
   conversation.streaming.value = true;
-  conversation.activeQuestion.value = null;
   petReactKind('think', { lookAtEl: '.message-panel' });
   await conversation.scrollStoryToBottom();
   proactive.recordProactiveActivity('aervox.activity', 'conversation.turn_submitted', text, {
@@ -278,13 +290,9 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
   });
 
   try {
-
-    await streamAervoxTurn(
-      outgoing,
-      {
+    const callbacks: TurnCallbacks = {
         onTurnIdentified: (turnId) => {
           liveAssistantLine.turnId = turnId;
-          conversation.currentTurnId.value = turnId;
         },
         onError: (error) => {
           throw error instanceof Error ? error : new Error(String(error));
@@ -309,19 +317,16 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
           deltaBatch.flush();
           composer.completeDraftSubmission(submittedSessionId);
           liveAssistantLine.state = 'complete';
-          conversation.activeQuestion.value = null;
           if (thinkingVisible && !liveAssistantLine.text.replace(thinkingPlaceholder, '')) {
             thinkingVisible = false;
             liveAssistantLine.text = '';
           }
-          if (!liveAssistantLine.text && !conversation.pendingApproval.value) liveAssistantLine.text = '这次没有收到可展示的回答，请再试一次。';
+          if (!liveAssistantLine.text && !conversation.pendingApproval.value && !conversation.activeQuestion.value) liveAssistantLine.text = '这次没有收到可展示的回答，请再试一次。';
           void conversation.scrollStoryToBottom();
           petReactKind('glad', { expression: MizukiExpression.face_smile_01, speak: liveAssistantLine.text });
         },
-        onUserQuestion: (qData) => {
+        onUserQuestion: () => {
           deltaBatch.flush();
-          conversation.activeQuestion.value = qData;
-          conversation.currentTurnId.value = qData.turnId;
           petReactKind('tilthead', { lookAtEl: '.side-cards', lookDuration: 3200 });
           void conversation.scrollStoryToBottom();
         },
@@ -330,28 +335,34 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
           deltaBatch.flush();
           pluginEvents.emit(eventType, data);
         },
-        onToolApproval: (aData) => {
+        onToolApproval: () => {
           deltaBatch.flush();
-          conversation.pendingApproval.value = { ...aData, outgoing };
           void conversation.scrollStoryToBottom();
         },
-      },
-      {
+      };
+    await turnController.submit(submittedSessionId, outgoing, callbacks, {
         signal: surfaceContext.signal,
+        onAccepted: turnId => {
+          liveAssistantLine.turnId = turnId;
+          if (composer.input.value.trim() === displayText) composer.input.value = '';
+        },
         toolApprovalMode: conversation.toolApprovalMode.value,
         attachments: attachmentRefs.length > 0 ? attachmentRefs : undefined,
         // ADR-027：宿主显式元数据（角色名/用户称呼）优先级最高，插件变换不得覆盖
         metadata: { ...turnMetadata, ...readCompanionIdentity() },
-        sessionId: submittedSessionId,
-      },
-    );
+      });
   } catch (error) {
     if (surfaceContext.signal.aborted) return;
     console.error('对话流式失败', error);
     deltaBatch.flush();
     liveAssistantLine.state = 'error';
-    liveAssistantLine.text = error instanceof Error ? `连接失败：${error.message}` : '连接失败，请稍后重试。';
-    composer.restoreFailedDraft();
+    if (thinkingVisible && liveAssistantLine.text === thinkingPlaceholder) liveAssistantLine.text = '';
+    if (turnController.state.turnId) {
+      composer.completeDraftSubmission(submittedSessionId);
+    } else {
+      liveAssistantLine.text = error instanceof Error ? `连接失败：${error.message}` : '连接失败，请稍后重试。';
+      composer.restoreFailedDraft();
+    }
     petReactKind('sad', { expression: MizukiExpression.face_sad_01 });
   } finally {
     deltaBatch.flush();
@@ -364,34 +375,41 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
   }
 }
 
-// Approval continues the existing assistant reply and never creates another user Turn.
-async function resumeApprovedTurn(turnId: string, afterEventId: string) {
+// Recovery and approval append to the same reply; the controller owns the cursor and reservation.
+async function resumeApprovedTurn(decision: 'granted' | 'denied') {
+  await continueTurn(callbacks => turnController.decide(decision, callbacks));
+}
+async function continueTurn(run: (callbacks: TurnCallbacks) => Promise<void>) {
   const line = conversation.latestAssistantLine.value;
-  if (!line) return;
+  if (!line || conversation.streaming.value) return;
+  if (!turnController.state.turnId && turnController.state.retryAvailable) line.text = '';
   conversation.streaming.value = true;
   line.state = 'streaming';
-  conversation.currentTurnId.value = turnId;
   const batch = createStreamingDeltaBatcher(text => {
     line.text += text;
     void conversation.scrollStoryToBottom({ instant: true });
   });
   try {
-    await watchAervoxTurnContinuation(turnId, afterEventId, {
+    await run({
+      onTurnIdentified: turnId => { line.turnId = turnId; },
       onDelta: text => batch.append(text),
-      onDone: () => { batch.flush(); line.state = 'complete'; conversation.activeQuestion.value = null; },
+      onDone: () => {
+        batch.flush(); line.state = 'complete';
+        if (lastSubmissionView) composer.completeDraftSubmission(lastSubmissionView.sessionId);
+      },
       onError: error => { throw error; },
-      onUserQuestion: data => { batch.flush(); conversation.activeQuestion.value = data; },
-      onToolApproval: data => { batch.flush(); conversation.pendingApproval.value = { ...data, outgoing: '' }; },
+      onUserQuestion: () => { batch.flush(); },
+      onToolApproval: () => { batch.flush(); },
       onPluginEvent: (type, data) => { batch.flush(); pluginEvents.emit(type, data); },
-    }, surfaceContext.signal);
+    });
   } catch (error) {
     if (!surfaceContext.signal.aborted) {
       batch.flush();
       line.state = 'error';
-      line.text += `\n续跑连接失败：${error instanceof Error ? error.message : String(error)}`;
     }
   } finally {
     batch.flush();
+    if (line.state === 'streaming' && turnController.state.status === 'completed') line.state = 'complete';
     conversation.streaming.value = false;
     await conversation.scrollStoryToBottom();
   }
@@ -429,7 +447,22 @@ const workbenchContext = {
 };
 provideWorkbenchContext(workbenchContext);
 
-pluginRuntime = createWorkbenchPluginRuntime(registry, () => workbenchContext, props.plugins);
+const pluginContext: UIPluginContext = Object.freeze({
+  navigation: Object.freeze({openTool: layout.openTool, runMenuAction: layout.runMenuAction,
+    closeTaskCenter: () => { layout.taskCenterOpen.value = false; }, setQuietStartup: layout.setQuietStartup}),
+  cards: Object.freeze({acquireSlotPreset: cards.acquireSlotPreset, reviewCount: cards.syncReviewCount}),
+  conversation: Object.freeze({streaming: computed(() => conversation.streaming.value), latestAssistantText: computed(() => conversation.latestAssistantLine.value?.text ?? '')}),
+  learning, pluginEvents, pluginState, sendMessage,
+  async refreshPluginUI() {
+    const pluginApi = useAervoxPlugins();
+    await pluginApi.loadPlugins();
+    if (pluginApi.error.value) throw new Error(pluginApi.error.value);
+    await pluginRuntime?.sync(pluginApi.plugins.value, (id) => pluginApi.getConfig(id));
+  },
+  isPluginAvailable: (id: string) => pluginRuntime?.isPluginAvailable(id) ?? false,
+});
+provideUIPluginContext(pluginContext);
+pluginRuntime = createWorkbenchPluginRuntime(registry, () => pluginContext, props.plugins);
 
 // 组件替换支持（允许插件通过 uiRegistry.overrideComponent('ComposerDock', CustomComp) 替换输入底座）
 const resolvedComposerComponent = computed(() => {
@@ -486,9 +519,7 @@ onMounted(() => {
   // （quietStartup）表达诉求，宿主不判断具体插件状态。顺序由 workbench-startup 保证并被单测覆盖。
   const pluginStartupReady = (async () => {
     try {
-      const pluginApi = useAervoxPlugins();
-      await pluginApi.loadPlugins();
-      await pluginRuntime?.sync(pluginApi.plugins.value, (id) => pluginApi.getConfig(id));
+      await pluginContext.refreshPluginUI();
     } catch {
       // Ignore plugin sync failures in offline/mock environments
     }
@@ -554,6 +585,7 @@ function handleGlobalKeydown(e: KeyboardEvent) {
 }
 
 onUnmounted(() => {
+  turnController.dispose();
   pluginRuntime?.destroy();
   pluginState.dispose();
   registry.clear();

@@ -15,11 +15,12 @@ it('closes the tool picker with Escape and restores focus to its opener', async 
     global: {
       stubs: { ExtensionSlot: true },
       provide: { [WORKBENCH_CONTEXT_KEY as symbol]: {
+        conversation: { activeQuestion: ref(null), questionSubmitting: ref(false), handleQuestionSubmit: vi.fn() },
         layout: { companionDisplayName: ref('小隅') },
         timer: { timerRunning: ref(false), timerMinutes: ref(25) },
         cards: {
           slotCards: ref([null, null]), cardCatalog: ref([{ id: 'todo', label: '待办清单' }]),
-          questionCardData: ref(null), questionCardSelected: ref([]), isCardPicked: () => true,
+          isCardPicked: () => true,
         },
       } },
     },
@@ -77,6 +78,7 @@ it('keeps run details available when the dialogue is collapsed', async () => {
       provide: { [WORKBENCH_CONTEXT_KEY as symbol]: {
         layout: { companionDisplayName: ref('小隅'), historyOpen: ref(false) },
         conversation: {
+          turnState: ref({status:'idle'}), retryAvailable: ref(false),
           consoleCollapsed: collapsed, collapsedSummaryText: ref('已完成'), storyViewport: ref(null),
           story: ref([{}, {}]), latestAssistantLine: ref({ text: '回复', state: 'done', turnId: 'turn_saved' }),
           novelStreamingText: ref(''), novelIndex: ref(0), novelDisplayText: ref('回复'),

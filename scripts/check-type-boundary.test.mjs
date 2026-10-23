@@ -71,3 +71,8 @@ test("check-type-boundary: 插件目录内的重复类型声明同样被判定�
   );
   assert.equal(duplicates.length, 1);
 });
+
+
+test("check-type-boundary: malformed sources cannot silently bypass DTO ownership", () => {
+  assert.throws(() => inspectFileForDuplicateTypes("apps/cli/src/broken.ts", "export interface X {", new Set(["X"])), /Cannot parse governed type source/);
+});

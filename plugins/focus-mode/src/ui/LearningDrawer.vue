@@ -51,7 +51,7 @@ const {
   planMilestoneStatusLabel,
   learningPlans,
   apiError,
-  reloadGoals,
+  reloadLearning,
 } = useFocusLearning();
 
 const hasActiveMistakes = computed(() => mistakes.value.some((item) => item.status === 'active'));
@@ -68,11 +68,11 @@ const hasActiveMistakes = computed(() => mistakes.value.some((item) => item.stat
     nav-aria-label="学习导航"
     custom-class="learning-dialog"
     @update:active-key="activeLearningView = $event as any"
-    @open="reloadGoals"
+    @open="reloadLearning"
   >
     <template #content>
+      <p v-if="apiError" class="drawer-error" role="alert">{{ apiError }}</p>
       <div v-if="activeLearningView === 'study'" class="learning-detail">
-        <p v-if="apiError" class="drawer-error">{{ apiError }}</p>
 
           <!-- AI 学习规划生成 -->
           <div class="settings-section">

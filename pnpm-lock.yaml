@@ -113,6 +113,9 @@ importers:
       '@aervox/plugin-focus-mode':
         specifier: workspace:*
         version: link:../../plugins/focus-mode
+      '@aervox/process-coordination':
+        specifier: workspace:*
+        version: link:../../packages/process-coordination
       '@aervox/repositories':
         specifier: workspace:*
         version: link:../../packages/repositories
@@ -314,6 +317,9 @@ importers:
       '@aervox/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@aervox/process-coordination':
+        specifier: workspace:*
+        version: link:../../packages/process-coordination
       '@aervox/repositories':
         specifier: workspace:*
         version: link:../../packages/repositories
@@ -376,9 +382,6 @@ importers:
       '@aervox/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@aervox/core':
-        specifier: workspace:*
-        version: link:../core
     devDependencies:
       '@types/node':
         specifier: ^22.10.0
@@ -408,6 +411,9 @@ importers:
 
   packages/host-plugin-api:
     dependencies:
+      '@aervox/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@aervox/core':
         specifier: workspace:*
         version: link:../core
@@ -450,6 +456,9 @@ importers:
       '@aervox/practice-review':
         specifier: workspace:*
         version: link:../practice-review
+      '@aervox/process-coordination':
+        specifier: workspace:*
+        version: link:../process-coordination
       '@aervox/repositories':
         specifier: workspace:*
         version: link:../repositories
@@ -478,6 +487,9 @@ importers:
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.1
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
 
   packages/live2d: {}
 
@@ -491,6 +503,12 @@ importers:
 
   packages/practice-review: {}
 
+  packages/process-coordination:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
+
   packages/public: {}
 
   packages/repositories:
@@ -501,9 +519,15 @@ importers:
       '@aervox/native-runtime':
         specifier: workspace:*
         version: link:../native-runtime
+      '@aervox/process-coordination':
+        specifier: workspace:*
+        version: link:../process-coordination
       '@aervox/schema':
         specifier: workspace:*
         version: link:../schema
+      '@aervox/sync-runtime':
+        specifier: workspace:*
+        version: link:../sync-runtime
       '@libsql/client':
         specifier: ^0.14.0
         version: 0.14.0
@@ -527,6 +551,12 @@ importers:
       drizzle-kit:
         specifier: ^0.31.11
         version: 0.31.11
+
+  packages/sync-runtime:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
 
   packages/ui:
     devDependencies:

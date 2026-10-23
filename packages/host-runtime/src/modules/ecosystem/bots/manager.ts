@@ -4,7 +4,7 @@ import type { BotAdapterContribution, BotAdapterInstance, BotMessage } from "@ae
 import type { BotConnection, BotDelivery, BotPairing, CreateBotConnectionRequest, UpdateBotConnectionRequest } from "@aervox/contracts";
 import { botConnectionSchema, botDeliverySchema } from "@aervox/contracts";
 import { SqliteBotRepository, type BotConnectionRecord, type BotInboxRecord, type BotLeaseFence, type ProactiveVaultCipher, type SqliteConversationRepository } from "@aervox/repositories";
-import { acceptConversationTurn, executeAcceptedConversationTurn, recoverApiOwnedTurn, type ConversationRouteDeps } from "../../companion/conversation/index.js";
+import type { ConversationCommandPort, ConversationQueryPort } from "../../companion/conversation/index.js";
 
 const local = () => ({ workspaceId: "local", subjectUserId: "local" });
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
@@ -15,8 +15,7 @@ export interface RegisteredBotAdapter { pluginId: string; adapter: BotAdapterCon
 interface RunningConnection { revision: number; abort: AbortController; instance: BotAdapterInstance; adapter: BotAdapterContribution; ready: boolean }
 export interface BotManagerOptions {
   store: SqliteBotRepository;
-  conversations: SqliteConversationRepository;
-  conversationDeps: ConversationRouteDeps;
+  conversation: { commands: ConversationCommandPort; queries: ConversationQueryPort };
   cipher: () => Promise<ProactiveVaultCipher>;
   adapters: () => RegisteredBotAdapter[];
   pluginEnabled: (id: string) => Promise<boolean>;
@@ -272,7 +271,7 @@ export class BotManager {
     const sessionId = `bs_${hash(id + routeKey)}`;
     const isCancel = message.text.trim() === "/cancel";
     const policy = message.address.kind === "group" ? "bot-group-member-v1" : "bot-owner-v1";
-    await this.options.conversations.getOrCreateSession(local(), sessionId, `Bot · ${message.address.kind}`, undefined, policy);
+    await this.options.conversation.commands.ensureSession(local(), sessionId, `Bot · ${message.address.kind}`, undefined, policy);
     await this.options.store.bindSession(id, routeKey, sessionId);
     const item = await this.options.store.enqueue({ id: eventId, connectionId: id, sessionId,
       messageJson: JSON.stringify(isCancel ? { ...message, text: "/cancel" } : message),
@@ -284,9 +283,9 @@ export class BotManager {
     }
   }
   private async cancelTurn(turnId: string) {
-    const attempts = await this.options.conversations.listTurnAttempts(local(), turnId);
+    const attempts = await this.options.conversation.queries.listTurnAttempts(local(), turnId);
     const running = attempts.find(attempt => attempt.status === "Running");
-    if (running) await this.options.conversations.requestCancelTurnAttempt(local(), { turnId, attemptId: running.id });
+    if (running) await this.options.conversation.commands.requestCancel(local(), { turnId, attemptId: running.id });
   }
   private async applyCancel(item: BotInboxRecord, active: RunningConnection) {
     const cancellation = this.admission.then(() => this.options.store.cancelBefore(item.id, this.fence(item.connectionId, active)));
@@ -319,7 +318,7 @@ export class BotManager {
       const acceptance = this.admission.then(async () => {
         const latest = await this.options.store.getInbox(item.id);
         if (!latest || !["queued", "processing"].includes(latest.state) || !await this.valid(item.connectionId, active)) return null;
-        return acceptConversationTurn(this.options.conversations, ctx, {
+        return this.options.conversation.commands.accept(ctx, {
           turnId, sessionId: item.sessionId, idempotencyKey: `bot:${item.id}`, attemptId: `atp_${turnId}`,
           message: { id: `msg_${turnId}`, content: message.text }, consumeInbox: false,
         });
@@ -331,20 +330,20 @@ export class BotManager {
       await this.admission;
       if (!await this.valid(item.connectionId, active)
         || !await this.options.store.updateInbox(item.id, { state: "processing", turnId }, fence)) return;
-      const recovery = await recoverApiOwnedTurn(this.options.conversations, turnId);
+      const recovery = await this.options.conversation.commands.recover(turnId);
       if (recovery === "active") return;
       if (recovery === "unclaimed") {
         if (terminal.has(accepted.turn.status)) return;
-        const attempt = (await this.options.conversations.listTurnAttempts(ctx, turnId))[0];
+        const attempt = (await this.options.conversation.queries.listTurnAttempts(ctx, turnId))[0];
         if (!attempt) return;
-        await executeAcceptedConversationTurn(this.options.conversations, ctx,
-          { turnId, sessionId: item.sessionId, attemptId: attempt.id, userMessage: message.text }, this.options.conversationDeps);
+        await this.options.conversation.commands.execute(ctx,
+          { turnId, sessionId: item.sessionId, attemptId: attempt.id, userMessage: message.text });
       }
-      const turn = await this.options.conversations.getTurn(ctx, turnId);
+      const turn = await this.options.conversation.queries.getTurn(ctx, turnId);
       if (!turn || !terminal.has(turn.status)) return;
       if (!await this.valid(item.connectionId, active) || ["deleted", "cancelled", "superseded"].includes((await this.options.store.getInbox(item.id))?.state ?? "deleted")) return;
-      const events = await this.options.conversations.getStreamEvents(ctx, turnId, 0);
-      const currentAttempt = (await this.options.conversations.listTurnAttempts(ctx, turnId))[0];
+      const events = await this.options.conversation.queries.getStreamEvents(ctx, turnId, 0);
+      const currentAttempt = (await this.options.conversation.queries.listTurnAttempts(ctx, turnId))[0];
       const visible = events.filter(event => event.attemptId === currentAttempt?.id);
       const withdrawn = visible.some(event => event.eventType === "redacted" || event.safetyDecision === "blocked");
       const text = (withdrawn ? [] : visible).filter(event => event.eventType === "delta" && (event.safetyDecision === "approved" || event.safetyDecision === "redacted"))

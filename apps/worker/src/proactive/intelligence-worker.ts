@@ -1,3 +1,4 @@
+import type { ModelGenerationPort } from "@aervox/host-runtime/modules/ecosystem/llm/index";
 /**
  * Deterministic local engine for the twelve proactive intelligence capabilities.
  *
@@ -32,7 +33,6 @@ import type {
   BudgetRow,
   IntelligenceTriggerRule,
   SqliteExtensionRepository,
-  SqliteLLMConfigRepository,
   SqliteMemoryRepository,
   SqlitePersonaRepository,
   SqlitePlatformRepository,
@@ -87,7 +87,7 @@ export interface ProactiveIntelligenceCycleContext {
   /** CR-032：主库插件声明与感知源授权读取（缺省时插件化调度降级关闭） */
   extensionRepo?: SqliteExtensionRepository;
   /** CR-032：关怀话术组合器依赖 */
-  llmConfigRepo?: SqliteLLMConfigRepository;
+  modelGeneration?: ModelGenerationPort;
   skillRegistry?: SqliteSkillRegistryRepository;
   personaRepo?: SqlitePersonaRepository;
   memoryRepo?: SqliteMemoryRepository;
@@ -160,7 +160,7 @@ async function dispatchProactiveTurn(
       })
     : null;
   const compose = await composeProactiveMessage({
-    llmConfigRepo: ctx.llmConfigRepo,
+    modelGeneration: ctx.modelGeneration,
     input: {
       ctx: localCtx,
       pluginId,

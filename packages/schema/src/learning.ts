@@ -117,7 +117,7 @@ export const practiceSessions = sqliteTable(
   {
     id: text("id").primaryKey(),
     questionCount: integer("question_count").notNull(),
-    questionIds: text("question_ids", { mode: "json" }).notNull(),
+    questionIds: text("question_ids", { mode: "json" }).notNull().default([]),
     status: text("status").notNull().default("active"), // "active" | "completed"
     startedAt: text("started_at").notNull(),
     endedAt: text("ended_at"),
