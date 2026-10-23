@@ -66,8 +66,8 @@
 | 脚本文件 | 职责说明 | 执行指令 |
 |---|---|---|
 | `benchmark-core.mjs` | 假 Provider 与内存存储下的流首段可见、取消和采样堆内存基准 | `pnpm benchmark:core` / `mise tasks run core-benchmark` |
-| `benchmark-native-runtime.mjs` | 原生 SQLite 引擎、音频处理与 CPU 密集任务压测基准 | `mise tasks run native-runtime-benchmark` |
-| `benchmark-native-search.mjs` | 原生 Rust 向量索引算法与相似度搜索基准 | `mise tasks run native-search-benchmark` |
+| `benchmark-native-runtime.mjs` | 临时 SQLite 上的只读向量、音频预处理与 ZIP 路径对照，不替换生产数据库或索引 | `mise tasks run native-runtime-benchmark` |
+| `benchmark-native-search.mjs` | 固定种子合成向量的 TypeScript/Rust 计算与进程 IPC 对照 | `mise tasks run native-search-benchmark` |
 | `worker-write-contention-drill.mjs` | 多进程 SQLite 跨进程写锁冲突与退避演练 | `pnpm drill:worker-contention` |
 | `run-removability-drill.mjs` | 插件模块物理移除、独立编译、数据保留与恢复全流程演练 | `pnpm drill:removability` / `mise tasks run drill-removability` |
 

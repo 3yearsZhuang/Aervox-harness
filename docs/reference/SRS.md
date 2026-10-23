@@ -132,6 +132,7 @@ id: AVX-SRS-001
 
 - **Parent CAP**：`CAP-002`、`CAP-007`
 - **规则**：用户可对每个回答标记“有帮助/没帮助/讲错了”；反馈携带回答类型与版本进入质量队列供复盘；反馈不修改历史版本；“讲错了”触发关联内容复核，不自动改写已展示内容。
+- **审计**：反馈操作者只取宿主认证上下文，请求体或 Header 不得替换该身份。基础记录接口遵循[共享反馈合同](../../packages/contracts/src/feedback-api.ts)；记录成功不等于回答版本关联、质量入队或复核已经完成，当前缺口见[追踪基线](REQUIREMENTS_TRACEABILITY.md#42-证据与适用限制)。
 - **验收**：
   - `AC-BR-CONV-002-01`：Given 用户标记反馈，When 提交，Then 反馈连同回答类型/版本进入质量队列，不修改历史。
   - `AC-BR-CONV-002-02`：Given 反馈为“讲错了”，When 处理，Then 触发关联内容复核并记录，不自动改写已展示内容。
@@ -194,6 +195,7 @@ id: AVX-SRS-001
 - **必须**：服务端先持久化 User Message、Turn 和 Outbox；Provider 原始 chunk 只能进入有界缓冲，只有通过 purpose 安全/结构检查并提交事务的 `message`/`delta` 才能发送。`eventId` 不可复用，Turn 内 `sequence` 单调递增；SSE `id` 等于 `eventId`。
 - **幂等与恢复**：相同幂等作用域、键和请求摘要返回同一 Turn；不同摘要返回 `409 IDEMPOTENCY_KEY_REUSED`。重连必须校验 `Last-Event-ID` 属于当前 Turn，支持高水位重放和重复去重；游标过期返回 `410 STREAM_CURSOR_EXPIRED`，不得隐式重跑模型。
 - **取消/失败**：取消使用 CAS；已提交安全前缀保留并标记不完整，后续片段不得提交。首个可见片段前且无工具副作用时可用新的内部 `TurnAttempt` 重试；首片段后基础设施中断必须收敛为 `Interrupted`，用户显式发起新 Turn。只有 `Completed` 才能触发普通记忆、掌握度或日记来源。
+- **传输资源**：历史重放与实时补读须有界分页并遵守 socket 背压；慢消费者、连接期限或宿主关停只能结束传输，不取消已受理 Turn、不伪造终态。关闭前以一致的持久快照判断执行终态与事件水位并排空尾事件；具体预算、超大历史事件例外及重连语义见[流式协议](STREAMING_PROTOCOL.md#22-读取事件流)。
 - **撤权**：连接存续期间每个事件发送前重新检查数据范围、purpose、同意和删除状态；撤权/删除必须主动断流或发送不含正文的 `redacted`。
 - **验收**：
   - `AC-FR-STREAM-001-01`：Given 相同幂等键并发提交，When 请求体摘要相同，Then 只创建一个 Turn、User Message 和 Outbox，并返回同一资源。
@@ -201,7 +203,8 @@ id: AVX-SRS-001
   - `AC-FR-STREAM-001-03`：Given 游标早于保留窗口或属于其他 Turn，When 建立 SSE，Then 返回 `410 STREAM_CURSOR_EXPIRED` 或统一无权错误，不泄露正文/资源存在性且不自动重跑。
   - `AC-FR-STREAM-001-04`：Given 用户在 Running/Finalizing 取消，When 取消与片段提交并发，Then 由 CAS 决定唯一胜者，已提交前缀保留，失去 fencing 的 Worker 不得晚提交。
   - `AC-FR-STREAM-001-05`：Given 输出分类服务不可用或来源在流期间撤权，When 继续生成，Then 不发送未经检查的新片段，并主动断流或发送 `redacted`；不得进入普通记忆/日记。
-- **测试**：`TC-CONTRACT-STREAM-001`、`TC-RES-STREAM-001`、`TC-SEC-STREAM-001`、`TC-E2E-STREAM-001`。
+  - `AC-FR-STREAM-001-06`：Given 历史重放期间持续收到唤醒、socket 返回背压或审批续接提交尾事件，When 等待、关闭或重连，Then 不积压广播正文、不跳过持久事件、不把连接中断记录成执行完成。
+- **测试**：`TC-CONTRACT-STREAM-001`、`TC-RES-STREAM-001`、`TC-SEC-STREAM-001`、`TC-E2E-STREAM-001`；传输资源与尾事件回归见[有界流测试](../../apps/api/test/conversation-stream-bounded.test.ts)与[宿主路由测试](../../packages/host-runtime/test/sse-routes.test.ts)。
 
 <a id="prd-cap-003-004"></a>
 
@@ -491,12 +494,14 @@ id: AVX-SRS-001
 
 - **Parent CAP**：`CAP-001`～`CAP-035`
 - **必须**：个人业务数据归属于当前操作系统用户的数据目录；API 默认只监听 loopback。非 loopback 监听必须显式开启并强制 token 认证，`open` 认证与非 loopback 组合必须在启动期 fail closed。插件和外部连接器保留独立 `actorId`、Grant、来源与审计，不得扩大文件、工具或网络权限。
+- **浏览器请求**：Origin 校验在业务执行前拒绝不受信来源，不能只省略 CORS 响应头；open 模式另核对 loopback Host，拒绝 DNS rebinding 和无 Origin 的跨站导航。Token 模式的显式来源配置不替代实际请求认证；opaque Page 的只读静态资源例外不得放行普通 JSON、写操作或 DSH 请求，精确规则见 [API 约定](API_CONVENTIONS.md)。
 - **验收**：
   - `AC-SEC-LOC-001-01`：Given 默认配置，When API 启动，Then 仅监听 `127.0.0.1`/`::1`。
   - `AC-SEC-LOC-001-02`：Given `open` 认证与非 loopback 地址，When API 启动，Then 启动失败且不开放端口。
   - `AC-SEC-LOC-001-03`：Given 第二个操作系统用户读取数据目录，When 权限检查，Then 默认 ACL/权限拒绝访问。
   - `AC-SEC-LOC-001-04`：Given 插件或外部内容请求扩大权限，When 执行，Then ToolPolicy/Grant 拒绝并写入最小审计。
-- **测试**：`TC-SEC-LOCAL-API-001`、`TC-SEC-LOCAL-FS-001`、`TC-SEC-PLUG-001`。
+  - `AC-SEC-LOC-001-05`：Given 恶意浏览器来源或 open 模式下伪造的非 loopback Host，When 请求读、写、事件流或工具入口，Then 在业务执行前拒绝且不产生写入；合法预检仍不能绕过实际请求认证。
+- **测试**：`TC-SEC-LOCAL-API-001`、`TC-SEC-LOCAL-FS-001`、`TC-SEC-PLUG-001`；浏览器与 Host 边界回归见[认证测试](../../apps/api/test/auth.test.ts)。
 
 ## 3. 记忆业务规则
 
@@ -687,10 +692,12 @@ CAP-014 当前分支 API 与地图读取切片保持会话内容和布局元数�
 
 - **Parent CAP**：`CAP-020`
 - **必须**：插件可注册 Page 并写入本地 Bundle 静态资源；设置弹窗内可通过 iframe 打开 Page；Page 仅通过 Host Bridge 读取/保存本插件配置、通知与关闭，能力按 Manifest 声明放行。
+- **文件边界**：本地资源上传、读取、导出和清理必须遵守[Page 文件合同](plugin-config-and-pages.md#32-已有防护与未完成边界)；路径校验、iframe 或 renderer 来源守卫均不能替代操作系统沙箱，也不授予 Page 宿主 IPC 权限。
 - **验收**：
   - `AC-FR-PLG-004-01`：Given Page 已注册且资源已写入，When 打开，Then 渲染 `index.html` 且 Bridge 可读取配置；
   - `AC-FR-PLG-004-02`：Given Page 声明 `config.write`，When 保存配置，Then revision 递增；未声明时调用被拒绝；
   - `AC-FR-PLG-004-03`：Given 路径穿越或未启用插件，When 访问静态资源，Then 被拒绝。
+  - `AC-FR-PLG-004-04`：Given Page 根以下存在符号链接祖先、多硬链接文件或路径在打开前被替换，When 上传或读取资源，Then 拒绝越界访问且不修改外部文件；generation 包资源保持不可变。
 
 ### FR-PLG-005 Bot 平台文字接入
 

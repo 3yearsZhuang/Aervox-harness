@@ -30,12 +30,12 @@ CR-030 已去租户化，上层统一使用本地上下文 `LocalContext`，**�
 
 ## 3. API 路由与 HTTP 语义
 
-对现有 80+ 端点盘点后，事实层已经统一，本规范将其固化为强制标准：
+下表是新增接口的命名与默认语义；现有接口的状态码、分页和响应体以[共享契约与 API 约定](../API_CONVENTIONS.md)为准，不因整理命名而更改兼容行为。例如会话列表使用 limit/offset，分支软删除返回 200 的持久记录，Skills 删除返回无内容 204。
 
 | 语义 | 约定 | 示例 |
 |---|---|---|
 | 资源名 | **复数 kebab-case** | `/v1/sessions`、`/v1/diaries`、`/v1/study-materials` |
-| 集合读取 | `GET /v1/资源`，分页走 query | `GET /v1/sessions?limit=&cursor=` |
+| 集合读取 | `GET /v1/资源`，分页走 query，参数由对应合同定义 | `GET /v1/sessions?limit=20&offset=0` |
 | 单资源读取 | `GET /v1/资源/:id` | `GET /v1/sessions/:id` |
 | 创建 | `POST /v1/资源` → `201` + `Location`；幂等键 `Idempotency-Key` | `POST /v1/memories` |
 | 局部更新 | `PATCH /v1/资源/:id` | `PATCH /v1/diaries/:id` |

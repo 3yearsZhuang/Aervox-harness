@@ -8,6 +8,8 @@ ADR 编号标识决定，不作为变更编号。需要持续协调的工作统�
 
 本索引手工维护主题链接；决策状态只在对应 ADR 的 `decision_status` 中维护，交付以 PR 和可复核验证为证，不在此复制状态矩阵。编号一经分配不复用；新增时核对已有编号。ADR-020 随 [PR #232](https://github.com/3yearsZhuang/Aervox-harness/pull/232) 回退退役，原文位于 `Aervox-docs-archive`，不得复用。
 
+ADR 中带日期的背景、实施进展和验收差距是对应时点的记录；后续修订与现行契约决定适用范围，当前实现和发布门槛以[追踪基线](../REQUIREMENTS_TRACEABILITY.md)及关联 PR 为准。保留这些历史段落不表示旧缺口至今仍存在，也不表示已接受决定的全部验收已经完成。
+
 ## 按主题查找
 
 - [ADR-001](ADR-001-modular-monolith.md)：模块化单体 + 独立 Worker。
@@ -23,7 +25,7 @@ ADR 编号标识决定，不作为变更编号。需要持续协调的工作统�
 - [ADR-011](ADR-011-diary-cycle-schedule-revision.md)：日记周期、计划修订与连续窗口。
 - [ADR-012](ADR-012-streaming-safety-persistence.md)：可恢复 Turn 流式协议、输出安全门与部分响应持久化。
 - [ADR-013](ADR-013-recovery-control-ledger.md)：独立恢复控制账本与撤权先行。
-- [ADR-014](ADR-014-modular-monolith-structure.md)：演进式模块化单体：apps/api 目录结构。
+- [ADR-014](ADR-014-modular-monolith-structure.md)：演进式模块化单体与共享产品宿主目录结构。
 - [ADR-015](ADR-015-vue-full-stack.md)：Vue 全栈单栈：Web 复用桌面端技术族。
 - [ADR-016](ADR-016-base-boundaries.md)：底座边界冻结：Kernel Substrate 与能力层的依赖边界。
 - [ADR-017](ADR-017-context-manifest-modelrun-step.md)：冻结 ContextManifest / ModelRun / AgentStep 关联与 Inbox 数据模型。
@@ -51,7 +53,6 @@ CR 流程已退役；下列编号只作为历史别名，不再分配编号或�
 | CR-061 | [ADR-021：执行与恢复合同](ADR-021-aervox-core-standalone-package.md#cr-061) |
 | CR-062 | [ADR-024：搜索与测量](ADR-024-native-runtime-boundaries.md#cr-062) |
 | CR-063 | [ADR-024：原生运行](ADR-024-native-runtime-boundaries.md#cr-063)，[源码与 IPC 结构](ADR-024-native-runtime-boundaries.md#cr-063-layout) |
-
 | CR-064 | [ADR-026：界面开放提案](ADR-026-ui-surface-open-ecosystem.md#cr-064) |
 | CR-065 | [ADR-025：根界面装配](ADR-025-ui-surface-hosts.md#cr-065) |
 

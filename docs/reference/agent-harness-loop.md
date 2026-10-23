@@ -87,7 +87,7 @@ Agent Harness Loop 是驱动一次 Agent Turn 的执行能力：它领取已持�
 | Loop 与 Provider | [executor](../../packages/core/src/executor.ts)、[Provider](../../packages/core/src/openai-compat-provider.ts) | Replay/Scripted/OpenAI 兼容流、多 Step、审批 SPI、取消与预算；API 与 Worker 共用产品宿主注入上下文和权限 |
 | 租约与公开事件 | [SQLite ExecutionStore](../../packages/host-agent/src/sqlite-execution-store.ts)、[心跳](../../packages/core/src/lease-heartbeat.ts) | claim/renew、事件 fencing、安全片段与事件原子提交、工具结果与事件原子提交、终态 CAS 已存在；不能据此推定全部旧写入口均有相同保护 |
 | 工具执行 | [工具管线](../../packages/core/src/tool-pipeline.ts)、[工具账本](../../packages/core/src/tool-ledger.ts)、[API Runtime](../../packages/host-runtime/src/modules/ecosystem/tools/runtime.ts) | 已有输入检查、审批、幂等预留、超时、结果检查与账本；动态权限快照、资源隔离及完整副作用恢复仍需专项验收 |
-| 模型调用记录 | [executor 写入](../../packages/core/src/executor.ts)、[API sink](../../packages/host-runtime/src/modules/companion/conversation/agent-executor.ts) | 每个成功返回的 Step 写 ModelRun，关联 attemptId/stepId；首 Step 写上下文快照。写入为可选、尽力而为，尚不满足每次请求/重试独立且不可缺失的 Manifest 合同 |
+| 模型调用记录 | [executor 写入](../../packages/core/src/executor.ts)、[API sink](../../packages/host-runtime/src/modules/companion/conversation/agent-executor.ts) | 每次实际模型调用记录 ModelRun 与输入快照，覆盖多 Step、重试和失败；写入仍为可选、尽力而为，不是可靠恢复或完整来源 Manifest 证明 |
 | Inbox 与扩展 | [Inbox API](../../packages/host-runtime/src/modules/companion/inbox/routes.ts)、[ContextBuilder](../../packages/core/src/context-builder.ts) | 已有持久 inbox、claim/ack、followup/steer/inject 消费、Skill 与压缩接缝、Subagent/Workflow Contribution；唤醒和恢复的端到端语义仍按下文验收 |
 | 可复用 Host/Profile | [Agent Host](../../packages/host-agent/src/agent-host.ts)、[Profile](../../packages/host-agent/src/profile.ts)、[恢复源](../../packages/host-agent/src/sqlite-resume-source.ts) | 已有轮询、claim、容量限制、健康检查、排空和最小 Provider/Adapter 选择；API/Worker 通过 `@aervox/host-runtime` 共用产品装配，Worker 继续使用自己的任务调度器 |
 | Worker 恢复 | [attempt-recovery](../../apps/worker/src/attempt-recovery.ts) | 默认把过期 Attempt 收敛为 Interrupted；显式 local-results 通过共享宿主的本机模型补完已提交结果 |
@@ -96,7 +96,7 @@ Agent Harness Loop 是驱动一次 Agent Turn 的执行能力：它领取已持�
 
 ### 2.2 尚未兑现的目标
 
-当前差量包括独立 Worker 的生产部署验收、完整 `LoopDriverPort`、AgentStep/ToolInvocation 独立持久化、每请求/重试的 ModelRun 与来源 Manifest、工具 Schema/授权修订的一致快照，以及完整安全、背压、取消和恢复矩阵。对应验收见 §15～16，排序与认领见根计划，不在本文另建任务队列。
+当前差量包括独立 Worker 的生产部署验收、完整 `LoopDriverPort`、AgentStep/ToolInvocation 独立持久化、不可缺失的来源 Manifest、工具 Schema 与持久授权修订的关联，以及完整安全、背压、取消和恢复矩阵。现有每请求记录、有界 Schema 校验、SSE 分页和 Worker 总截止分别覆盖局部边界，不能替代这些验收。对应验收见 §15～16，排序与认领见根计划，不在本文另建任务队列。
 
 DSH 已有整 Turn 进程外 Adapter 接口和模拟器/夹具验证，API 可用 `AERVOX_LOOP_DRIVER=dsh` 选择；真实外部运行时及其兼容性验收不得从开关或夹具通过推定。pi 仍需真实 Adapter。客户端 SSE 读取循环不承担 Agent Loop。
 
@@ -146,8 +146,8 @@ AgentLoop Definition ──> LoopDriverPort <── Native / DSH / pi / Replay D
 | `Turn` | 用户可观察的请求—响应边界；终态唯一，客户端只读取权威状态 |
 | `TurnAttempt` | 可领取的执行尝试；claim/renew/recover 与终态 CAS 均绑定租约及 fencing |
 | `AgentStep` | Attempt 内一次模型请求及工具结果闭环；序号单调，目标为独立持久实体 |
-| `ModelRun` | 一次精确 Provider 请求；已存 attemptId/stepId，目标为每次重试另建记录并归属同一 Step |
-| `ContextManifest` | 模型请求的不可变来源清单；唯一父级为 ModelRun，来源条目与关联基数由 [ADR-017](adr/ADR-017-context-manifest-modelrun-step.md) 冻结；当前首 Step 快照不等于完整来源清单 |
+| `ModelRun` | 一次实际 Provider 请求；标识含 Attempt，重试另建记录并关联所属 Step，写入仍为可选诊断 |
+| `ContextManifest` | 模型请求的不可变来源清单；唯一父级为 ModelRun，来源条目与关联基数由 [ADR-017](adr/ADR-017-context-manifest-modelrun-step.md) 冻结；当前逐请求输入快照不等于完整来源清单 |
 | `ToolInvocation` | 规范化工具请求，目标独立持久化 Schema 版本、参数 hash 和授权快照；当前由事件、审批及 ToolExecution 组合承载 |
 | `ToolExecution` | 受控执行的预留、结果和未知状态账本；失败/未知不能被包装成已成功执行 |
 | `AgentInboxItem` | 已有持久表与仓储；绑定 Session、消费边界、顺序、来源、状态和过期时间 |
@@ -257,7 +257,7 @@ Any active state
 
 普通长期记忆由独立召回来源进入 ContextBuilder：当前用户消息使用与写入侧相同的 embedding provider 生成查询向量，与本地 `memories_fts` 结果并行检索，经 RRF 融合后最多回读 5 条权威记录。只允许 `verified`、未删除、`long_term` 记录进入模型上下文；召回失败按无记忆降级，不阻断 Turn。默认 Provider 是 256 维本地特征哈希，只提供词面和局部相似度、无需联网；生产可注入语义 embedding provider，并由 `modelId` 隔离向量空间。召回正文上限 4000 字符，以不可信数据形式注入，不能作为系统指令、工具调用或授权。
 
-每个来源必须进入 ContextManifest，记录来源 ID/版本、purpose、权限快照、截断/压缩方式和内容 hash。原始 Restricted 内容默认不进入日志。[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md) 已冻结一次 ModelRun 对应一个不可变 Manifest，多来源对应条目，Manifest 只以 ModelRun 为父级；attemptId/stepId 存在于 ModelRun。当前实现仅在首 Step 写 `turn:history` 快照，后续 Step、失败请求及重试尚未形成完整来源证据链，不能将该快照解释为满足目标的每请求 Manifest。
+每个来源必须进入 ContextManifest，记录来源 ID/版本、purpose、权限快照、截断/压缩方式和内容 hash。原始 Restricted 内容默认不进入日志。[ADR-017](adr/ADR-017-context-manifest-modelrun-step.md) 已冻结一次 ModelRun 对应一个不可变 Manifest，多来源对应条目，Manifest 只以 ModelRun 为父级；attemptId/stepId 存在于 ModelRun。当前逐请求快照已覆盖后续 Step、失败及重试，但宿主仍以 `turn:history` 来源包装消息和工具等输入；细粒度来源修订、权限与截断的完整证据链尚未闭合。
 
 ### 7.2 AgentInboxItem
 
@@ -531,6 +531,8 @@ pi 的低层 `agent-loop.ts` 采用 outer/inner loop，其工具批次采用 eve
 | 恢复 | [派发与取消恢复](../../apps/api/test/conversation-dispatch-resilience.test.ts)、[recovery](../../packages/core/test/recovery.test.ts)、[resume-source](../../packages/host-agent/test/sqlite-resume-source.test.ts) | 首片段前重试、可见后中断、确定结果续跑和合成结果；生产接线与完整故障矩阵独立验收 |
 | 输入与上下文 | [原子接单](../../packages/repositories/test/turn-acceptance.test.ts)、[inbox](../../packages/core/test/inbox.test.ts)、[Inbox API](../../apps/api/test/inbox-routes.test.ts)、[context-manifest](../../packages/core/test/context-manifest.test.ts) | 受控消费与当前快照粒度；每请求来源证据链仍待闭合 |
 | 限额与取消 | [动态工具取消](../../apps/api/test/tool-runtime-lifecycle.test.ts)、[budget](../../packages/core/test/budget.test.ts)、[control-context](../../packages/core/test/control-context.test.ts)、[cancel](../../packages/core/test/cancel.test.ts) | step/token/time/tool 限额与取消传播；费用和 Provider 窗口不得由字节预算替代 |
+| Schema、文件与进程边界 | [Schema 子集](../../packages/core/test/tool-schema-completion.test.ts)、[宿主派发](../../packages/host-runtime/test/tool-provider-contract.test.ts)、[DSH 文件及命令](../../packages/host-runtime/test/ecosystem/mcp/dsh-bridge.test.ts) | 不支持的断言拒绝、handler 前校验、文件描述符复验和取消后进程回收；逻辑预算与目录限制不能替代 OS 隔离 |
+| SSE 与 Worker 关闭 | [SSE HTTP](../../packages/host-runtime/test/sse-routes.test.ts)、[真实慢 TCP](../../apps/api/test/conversation-stream-bounded.test.ts)、[Worker 子进程](../../apps/worker/test/shutdown-process.test.ts) | 背压停取页、终态一致快照、断连不取消 Turn、共享关闭截止与数据库顺序；同步阻塞、全局流限额及平台部署另验 |
 | Host 与 Provider | [profile](../../packages/host-agent/test/profile.test.ts)、[host-health](../../packages/host-agent/test/host-health.test.ts)、[provider-parity](../../packages/core/test/provider-parity.test.ts) | native/replay 独立可用与接口一致；真实 DSH/pi 运行时另验 |
 
 SSE 必须验证持久后发送、高水位补读、弱网重连与游标过期，见[流式协议](STREAMING_PROTOCOL.md)及[测试策略](TEST_STRATEGY.md)。删除/撤权后的零召回、零副作用和 fail closed 必须跨 API、Host、记忆与工具路径验证，不能只由 Loop 单元测试证明。

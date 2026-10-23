@@ -15,7 +15,7 @@ QQ 回复仍发在群里，群成员均可看见；“成员独立上下文”�
 
 ## 2. 微信：扫码后再配对本人
 
-源码部署若尚未安装 Bot 声明包，先在仓库根运行 `mise tasks run package-plugins`，再通过插件管理导入 `dist-plugins/` 下的 `bot-weixin-<version>.aervox-plugin` 或 `bot-onebot-<version>.aervox-plugin` 并启用。声明包只登记随宿主构建的第一方能力，不加载包内任意服务端代码。
+源码部署若尚未安装 Bot 声明包，先在仓库根运行 `mise tasks run package-plugins`，再通过插件管理导入 `dist/plugins/` 下的 `bot-weixin-<version>.aervox-plugin` 或 `bot-onebot-<version>.aervox-plugin` 并启用。声明包只登记随宿主构建的第一方能力，不加载包内任意服务端代码。
 
 1. 在设置中的“机器人连接”创建微信连接，填写便于识别的名称并启用。确认微信第一方插件已安装且启用；默认服务地址无需修改。
 2. 发起扫码登录，用手机微信扫描管理页二维码并在微信内确认。二维码由浏览器本地渲染；过期后重新发起登录。首次连接需要手机微信具备 ClawBot 功能，平台条件参考 [AstrBot 固定版本说明](https://github.com/AstrBotDevs/AstrBot/blob/6ca3931925ab60a05c638fd66cb3c977b0d97f39/docs/zh/platform/weixin_oc.md)。

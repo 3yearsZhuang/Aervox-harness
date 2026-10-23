@@ -8,7 +8,9 @@ id: AVX-SPC-001
 
 本文是对话流式 API 和客户端行为的可执行契约。OpenAPI 3.1 描述 HTTP 资源、鉴权和错误；本文件描述 SSE 事件 envelope、状态机、重连、取消、幂等和持久化顺序。实现必须从同一份 `packages/contracts` schema 生成服务端校验、客户端类型和契约测试，不能只依赖本文件中的示例。
 
-本文的客户端侧顺序与去重契约由 `packages/contracts/src/stream-projection.ts` 的 Schema 白名单与 `packages/api-client/src/projector.ts` 的 `TurnStreamProjector` 承载：Fetch 传输在三次连接尝试内保留同一 Turn、同一 Projector 与最后已投递事件游标，`HTTP 410` 明确失败而不新建 Turn，重复或乱序事件按序号丢弃；Electron IPC 传输复用同一 Projector，并在终态后丢弃迟到消息。**服务端实时与历史回放的白名单投影不在本次变更范围内**（其对应改动随 PR #231 一并被 #232 回退），因此服务端仍按原样下发事件；本变更只覆盖客户端侧投影与游标重连，复用既有 SSE 合同，未新增服务端路由、授权口径或 Schema。接口、兼容与剩余差量见 CR-059（已归档至 Aervox-docs-archive）。
+客户端侧顺序与去重由[Schema 白名单](../../packages/contracts/src/stream-projection.ts)与 [TurnStreamProjector](../../packages/api-client/src/projector.ts)承载：Fetch 传输在三次连接尝试内保留同一 Turn、同一 Projector 与最后已投递事件游标，HTTP 410 明确失败而不新建 Turn，重复或乱序事件按序号丢弃；Electron IPC 复用同一 Projector，并在终态后丢弃迟到消息。服务端重放与实时读取均取持久事件，但尚未接入该白名单投影；不能由客户端过滤推定服务端已完成脱敏。
+
+本文同时保留已接受的目标要求与现行兼容行为。逐帧撤权、事件保留清理和统一事件负载等未闭合项须独立验收，不能从分页、取消或客户端回归推定完成；以下在对应章节标明差量，不降低原要求。
 
 ## 1. 适用范围与不变量
 
@@ -79,6 +81,8 @@ SSE 传输分页每次最多读取 256 条事件，并在物化 JSON 前按 SQLi
 
 请求必须带 `Idempotency-Key`。服务端使用 compare-and-set 将 `Running/Finalizing` 更新为 `CancelRequested`，停止 Provider/工具提交；已提交安全片段保留，后续片段不得提交。重复取消返回同一个终态，不产生新的 Turn 或工具副作用。
 
+上述幂等取消是目标要求。当前[路由](../../packages/host-runtime/src/modules/companion/conversation/routes.ts)不读取取消请求的幂等键，只对 `Running` Attempt 请求 CAS 取消，并向 API 内当前控制器传播信号；响应中的 `Cancelled` 表示取消请求已接受，不能替代执行器的持久终态。没有 Running Attempt 时返回 409（无 Attempt 为 404），不会创建新 Turn。客户端应继续用事件及持久状态确认结果，不把该响应当作已完成物理停止。
+
 ## 3. Turn 状态
 
 ```text
@@ -139,7 +143,9 @@ Created -> InputChecking -> Running -> Finalizing -> Completed
 
 ### 4.4 `error`
 
-表示已持久化的错误诊断。`data` 至少包含 `code`、`retryable`、`message`（用户可见且不泄露内部细节）和 `lastSequence`；不得包含完整 Prompt、凭据、Restricted 原文或供应商秘密。`error` 本身不是终态，服务端随后必须提交并发送一个带 `Rejected/Cancelled/Interrupted/Failed` 状态的 `done`，客户端只以 `done` 判断流结束。
+表示已持久化的错误诊断。目标负载包含 `code`、`retryable`、`message`（用户可见且不泄露内部细节）和 `lastSequence`；不得包含完整 Prompt、凭据、Restricted 原文或供应商秘密。统一目标是随后用带 `Rejected/Cancelled/Interrupted/Failed` 的 `done` 表示终态。
+
+当前兼容路径仍由 Core 原子提交 `Failed` Attempt 与 `error`，不保证再发送 `done`；`TurnStreamProjector` 收到 `error` 即终结，迟到消息被丢弃，投影 Schema 也兼容历史可选字段。客户端不能在该路径无限等待第二个终态，统一负载与双事件目标仍需明确迁移及兼容验证。
 
 ### 4.5 `redacted`
 
@@ -174,6 +180,8 @@ Created -> InputChecking -> Running -> Finalizing -> Completed
 3. `TurnStreamEvent` 是传输/恢复数据而非长期会话副本。MVP 在线正文重放窗口默认 24 小时，具体值必须进入保留策略；任何事件正文的保留上限不得超过对应 `MessageVersion` 的可见保留、有效同意和来源可用期三者中的最短者。窗口结束、来源删除或权限撤销后只保留不含正文的最小事件元数据/tombstone，长期历史由 `MessageVersion` 承担。
 4. 游标过期返回 `410 STREAM_CURSOR_EXPIRED` 和当前 Turn 状态/`lastSequence`。客户端只能读取已持久化 MessageVersion 或显示重新开始按钮，不得隐式重跑模型。
 5. 客户端收到重复、乱序或未知 `payloadVersion`：按 `eventId/sequence` 去重；未知版本停止渲染并请求兼容降级，不猜测字段含义。
+
+当前 SSE 路由在建流时读取 Turn 和游标，之后按页读取事件，并未在每个帧前重验删除或授权版本，也未实现上述 24 小时自动正文清理。无效游标的现行 410 为 `stream_cursor_expired`，不附加状态和高水位。这些是目标与当前实现的差量；订阅到期或背压断连只保护连接资源，不能作为撤权传播或保留策略完成的证据。
 
 ## 6. 超时、失败、降级和取消
 

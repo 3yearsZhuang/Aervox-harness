@@ -4,115 +4,16 @@
 
 ## 1. 当前协调工作
 
-<a id="iter-068"></a>
+<a id="iter-070"></a>
 
-### ITER-068 · 已移交：本地分支收敛与遗漏补完
+### ITER-070 · 已移交切片：远端 PR 终审、现状复核与文档归档
 
-维护者于 2026-10-22 授权继续完成未发起 PR 的本地分支。主线基线更新为 `92ecbfe7`；两组实现草稿在各自工作树审查、验证并独立提交 PR。
+维护者授权完成远端 PR 的质量、完成度与缺陷审核，修复后按依赖顺序合并；每次合并先清理相应本地与远端分支。原有 #307～#320 已全部合入并清理，工作树、归档标签、忽略的运行资源及业务数据保留。
 
-- 已交付证据：工具契约、审批续跑和隐私/偏好接口见 [PR #295](https://github.com/3yearsZhuang/Aervox-harness/pull/295)、[PR #296](https://github.com/3yearsZhuang/Aervox-harness/pull/296)、[PR #298](https://github.com/3yearsZhuang/Aervox-harness/pull/298)；工作台、工具预算、Agent 和 HTTP/工作台诊断见 [PR #299](https://github.com/3yearsZhuang/Aervox-harness/pull/299)、[PR #300](https://github.com/3yearsZhuang/Aervox-harness/pull/300)、[PR #301](https://github.com/3yearsZhuang/Aervox-harness/pull/301)、[PR #302](https://github.com/3yearsZhuang/Aervox-harness/pull/302)。README 与桌面/移动陪伴见 [PR #303](https://github.com/3yearsZhuang/Aervox-harness/pull/303)、[PR #304](https://github.com/3yearsZhuang/Aervox-harness/pull/304)、[PR #305](https://github.com/3yearsZhuang/Aervox-harness/pull/305)。
-- 已执行整理：原 7 个本地分支中，5 个已交付任务分支已清理，3 个对应远端分支已清理，本地 `main` 只快进到远端主线。首轮收敛为 `main` 和下表两条修复分支；并行新增的 `feat/personal-assistant-readme` 已经 [PR #306](https://github.com/3yearsZhuang/Aervox-harness/pull/306) 合入，原分支及工作树保留；squash 来源保留 `archive/2026-10-22-*` 标签，旧整合/Agent 标签、9 文件暂存包、所有工作树目录、忽略的运行资源及业务数据保留。协作者 fork 远端保持只读。
-
-| 批次 | 目标分支 | 尚需完成 | 交付条件 |
-|---|---|---|---|
-| 1 · 工具参数合同 | `fix/tool-schema-validation-completion` | 已补齐有界 JSON Schema、组合断言、未知/非法 Schema 拒绝、Unicode/date/精确十进制倍数及资源上限；静态与 SQLite 宿主均在审批与副作用前拒绝非法参数；[PR #307](https://github.com/3yearsZhuang/Aervox-harness/pull/307) 已审查合入 | Core 与宿主定向回归、全量 `./aervox ci all` 完整退出成功；独立修复 PR 已审查合入 |
-| 2 · 开发与终端体验 | `fix/dev-output-and-db-resolution` | 已补齐 URI 语义、调用方环境优先级、端口校验与按目标终止、令牌探测前本机 URL 校验、API 就绪失败及进程组回收；窄终端和 TTY/JSON/JSONL 回归通过，[PR #308](https://github.com/3yearsZhuang/Aervox-harness/pull/308) 已审查合入 | 启动器隔离回归、仓储与 CLI 测试/类型检查、真实临时 API/SQLite 的 CLI 打包安装闭环、全量 `./aervox ci all` 完整退出成功；独立修复 PR 已审查合入 |
-| 3 · 并行 README | `feat/personal-assistant-readme` | 已经 PR #306 合入，本轮同步最新主线 | 已交付；保留原分支及工作树 |
-| 4 · 交付核对 | 上述任务分支 | 两组代码分别提交 PR #307/#308，均通过本地全量终审；本轮完成源码、合同与回归审核、全量集成验证及顺序合并；工作树与归档资源保留 | 按维护者授权经 PR 审核合并；合并后先清理对应本地和远端分支，再继续下一项；保留工作树、归档与暂存包 |
-
-- 顺序与依赖：两组代码功能独立，可分别审查；优先补齐工具校验遗漏，再交付开发体验。全量构建逐组执行，避免并行构建争抢资源；两组均不以回灌旧分支替代当前主线审查。
-- 当前验证边界：工具分支本轮 Core 490 项、宿主 53 项及重建后提供器 16 项回归通过，全量 `./aervox ci all` 已完整退出成功，见 PR #307。开发分支启动器/CI 作用域 45 项、CLI 58 项、仓储 489 项（URI 11 项）及打包安装闭环 2 项通过；真实子进程退出回收、调用方环境经真实 mise 入口保留已验证，全量 `./aervox ci all` 完整退出成功，包含 API 706 项及代码、研究、原生、文档门禁。
-- 范围边界：不扩张到计划中的全部未来建议，不承诺跨重启自动续跑、真实模型、移动实机或正式发布验收；不自动重试未知工具副作用，不迁移或合并业务数据库。两组代码实现与本地验证完成，PR 审查、远端 CI 和正式发布分别记录。
-
-- 最新远端证据：#308 修复 Linux zombie 退出观察后，提交 `1c0de1cc` 的八项检查均成功；#307 的五项检查成功。两项已于 2026-10-23 完成审查并合入，对应本地和远端分支已清理；历史检查与后续集成证据分别保留。
-
-<a id="iter-069"></a>
-
-### ITER-069 · 已移交：本地 API、DSH 与桌面安全边界修复
-
-维护者授权按计划推进并排查高危漏洞。基于主线 `92ecbfe7`，以临时 SQLite、临时文件根及合成内容验证；不访问或迁移业务数据库。
-
-- 已确认入口：open API 反射任意 Origin，外部来源可创建、读取、删除合成会话并经 DSH 读写文件及执行命令；恶意域名 Host 同样被受理，服务端未阻断 DNS rebinding。浏览器 PNA/LNA 版本与用户许可影响实际网络访问条件，不作为服务端授权边界。
-- 修复切片：在认证、CORS 和业务处理前检查 open Host 与浏览器 Origin；保留本地 Web 和无 Origin 的桌面 IPC/CLI。额外浏览器来源仅在 Token 模式精确配置；合法预检不放行业务请求。opaque Page 例外仅限只读静态资源和匹配的 Fetch Metadata，JSON、SSE、写请求和普通 fetch 不适用；Token Page 凭据仍由 [ITER-006](#iter-006) 协调。
-- DSH 切片：合成夹具复现文件工具沿 symlink 越出仓库及取消后命令迟到写入；以 canonical containment、文件描述符与 inode 校验修复路径读写，取消、超时、输出上限会尝试终止命令进程组，并有界等待清理；取消不回滚已经发生的副作用。已授权 shell 沿用宿主用户权限，不承诺 OS 文件或网络沙箱。
-- 验收与边界：未授权浏览器请求和预存链接的负向读写须保持数据不变，正常本地客户端、合法 Token 预检及 sandbox Page 资源须有回归；命令先取消、运行后取消和后代退出均独立验证。各切片全量终审和 PR 审查分别记录；本次范围不构成完整渗透测试、全部平台实机验证或正式发布。
-- 本地证据：浏览器边界切片 `./aervox ci all` 完整退出 0，API 712 项通过；真实 Chromium 2 项通过，恶意 Origin 到达服务端后返回 403 且合成会话不变，跨站 sandbox Page 的普通/模块脚本、样式、图片和 Bridge 可用。DSH 独立定向 25 项及既有 API 20 项通过；首次全量因 API 原生产物构建竞态失败，补显式任务依赖和 25 项脚本回归后重跑完整退出 0（API 706 项、宿主 64 项及研究、原生、文档门禁通过）。首次失败与修复后成功证据均保留。
-- 交付：[PR #309](https://github.com/3yearsZhuang/Aervox-harness/pull/309) 的提交 `41561224` 曾通过八项远端检查；后续提交的依赖审计命中新公告，补修证据另列，不沿用旧提交的成功状态。[PR #310](https://github.com/3yearsZhuang/Aervox-harness/pull/310) 交付 DSH 文件及取消修复与原生测试依赖修正，提交 `c6a6383f` 的八项远端检查成功。2026-10-23 的最新提交审核与远端检查通过后，#309、#310、#312、#313 已按依赖顺序合入，对应本地和远端分支已清理，工作树保留；正式发布继续单列。
-- 桌面切片：独立隐藏 Electron 合成探针复现大写 HTTP Markdown 链接导航外部页面、真实 preload 继续暴露 API 代理、外部 senderFrame 经同等代理 handler 附带合成 Bearer 取得 200 响应。探针不使用真实凭据或 API，未运行完整产品主进程；主窗口/宠物窗口固定入口、全部 32 个特权 IPC 来源校验、preload 暴露边界、外部导航/重定向/新窗口与流取消已由 [PR #312](https://github.com/3yearsZhuang/Aervox-harness/pull/312) 修复；大小写 HTTP(S) 与协议相对 Markdown 外链统一外部打开。实际 helper 与新 preload 的独立 Electron 对照 27 项合成检查全部通过，覆盖独立 main/pet、query/hash、正常合成 API、真实 302、sandbox iframe；未知/子 frame 拒绝使用实际守卫与真实 frame 对象，部分断言直接调用信任谓词，不计为完整产品攻击场景。首次全量 `./aervox ci all` 完整退出 0（API 706 项、桌面 137 项、UI 141 项及研究、原生、文档门禁通过）。
-- 供应链补修：#309 提交 `c1275405` 与 #312 提交 `7b639b5a` 的远端审计捕获 2026-10-21 新公布的两个 Vitest mocker 中危公告（`GHSA-qxg6-89mg-rqv8`、`GHSA-xp26-3454-mjgp`）。两分支均将整套 Vitest 从 4.1.11 升到同版本线修复版 4.1.12；未新增豁免，更新后依赖审计均完整退出 0（0 条未审阅、4 条既有已审阅路径、0 条过期或过时例外）。升级后两分支的 `./aervox ci all` 均完整退出 0，#309 API 712 项、#312 API 706 项及桌面 137 项/UI 141 项通过，均含研究、原生与文档门禁；最新远端结果随各 PR 核对，保留首次失败证据。
-- 合并核对：六个 PR 的临时三方合并未发现代码或配置冲突，重复 Vitest 修复自然去重；#309 与 #307/#308 仅 `plan.md` 历史段冲突。保留 #309 当前完整计划并叠加 #311 的插件配置切片后，旧 ITER-068 证据逐行保留、锚点唯一，四种顺序得到相同仓库树。此项仅验证合并结果，不代替六 PR 合并后的执行验证。
-- Page 文件补修：沿用[现有 Page 文件边界合同](docs/reference/plugin-config-and-pages.md#32-已有防护与未完成边界)，可写本地资源上传逐级拒绝 Bundle 根以下的预存 symlink，文件使用无预先截断的 no-follow 描述符，复验目录/inode 并拒绝多硬链接后从同一描述符读写；读取与兼容导出复用检查。根路径别名、正常创建/覆盖/checksum 与 generation 不可写保持兼容，链接拒绝返回 `400 INVALID_ASSET_PATH`，不自动删除或迁移资源。宿主 18 项临时文件回归和 API 配置/升级/代际冲突 23 项通过，API/宿主构建完整退出 0；首次交换注入测试因 macOS 临时路径别名未命中失败，固定夹具真实路径并断言注入执行后通过，保留首次失败。`./aervox ci all` 完整退出 0（API 713 项、宿主 68 项及研究、原生、文档门禁通过）；交付 [PR #313](https://github.com/3yearsZhuang/Aervox-harness/pull/313)，以 #309 为前置；PR 审查和最新远端结果单独记录，不宣称隔离主动修改文件系统的同 OS 用户；上传批次仍无整体回滚承诺。
-- 受限剩余：补修前确认可写本地插件的 Page 资源写入可沿预先存在的 symlink 越界，前提是已有本机文件系统控制或旧资源；此发现由前述 Page 文件补修承接。声明归档不能创建 symlink，generation 资源不可写，不计为外部安装直接可利用高危。独立临时探针仍确认主动同 OS 用户在检查与创建之间交换祖先，拒绝前可留下外部空文件或目录；canary 内容保持不变，不将该受限修复称为完整竞态隔离。桌面风险链与修复已有独立 Electron 合成证据，不将探针称为完整已安装产品或全平台实机验证。已受理的异步主动操作保留原有完成语义，不承诺导航回滚既有副作用。依赖公告审计无未审阅路径，4 条已审阅例外仍保留，不称为告警已消除。
-
-<a id="iter-067"></a>
-
-### ITER-067 · 已移交：项目结构与卫生审计整改
-
-用户授权完整落实 2026-10-18 审计建议；在 `fix/project-hygiene` 上承接研究 PR #288，基线 `5f2510bd`。原始审计快照保留在本地 artifacts，实施状态仅由本条目协调。
-
-- 范围：共享 workspace 发现及默认门禁覆盖、pnpm 11 配置、锁定安装失败处理、统一生成物清理、Live2D 资源同步、共享数据目录与旧身份兼容、研究依赖归属与分层 CI、host-runtime 出口、桌面采集器拆分、目录说明、第三方许可来源及受跟踪文件卫生门禁。
-- 数据边界：只清理明确生成的 dist/out/缓存，先拒绝受跟踪文件与链接目录；业务数据、模型、Vault、凭据和并行工作保留。研究迁移继续根安装及全依赖审计，不声称默认安装规模缩小。
-- 研究边界：归档论文和三轮原始实验不改写；历史实验使用冻结提交 `84424da3` / `f69addab` 复现。新布局属于工程修订，仅运行回归和输入检查，不作为新增正式实验，不改变 `NOT ESTABLISHED` 结论。
-- 补充发现：桌面类型检查现在显式覆盖 Node 和 renderer 配置；修正目标库、构建工具输入和直接 Vite 声明，收敛重复的 IPC 类型，并修复无窗口时的对话框重载及持久化状态类型。
-- 验收入口：故障回归、公开出口与依赖约束、安装及清理边界测试、分层研究检查、依赖审计与 `./aervox ci all`；提交前结果和差异由本条目所在 PR 提供，PR 审查和发布验收单独记录。
-- 交付：[PR #289](https://github.com/3yearsZhuang/Aervox-harness/pull/289) 于 2026-10-18 合入；主线保留其实现与门禁，不提升真实数据库迁移或正式发布状态。
-- 依赖审计补证（2026-10-22）：PR #319 远端审计与本地复核命中 `@vitest/mocker@4.1.11` 的 GHSA-qxg6-89mg-rqv8、GHSA-xp26-3454-mjgp；[PR #320](https://github.com/3yearsZhuang/Aervox-harness/pull/320) 基于主线独立将 Vitest 及配套包锁定到同系列修复版 `4.1.12`，其余依赖解析不变。冻结锁安装、依赖审计及完整 `./aervox ci all` 通过；审计为 0 条未审阅、4 条既有已审阅路径、0 条过期或过时例外，未新增豁免。补丁提交 `5691f9ad` 的 7 项远端检查全部成功，包含三平台原生合同、API/浏览器 E2E 与依赖审计。CLI 分页分支同步此补丁后单独复验，其余开放分支仍需同步后核对；PR 审查与发布验收单列。
-
-<a id="iter-066"></a>
-
-### ITER-066 · 已移交代码：异步删除故障测试生成研究
-
-用户于 2026-10-18 授权继续落地下一篇论文。基于主线 `b08636ac` 在 `feat/deletion-fault-testing` 实现词法候选扫描、执行轨迹、删除交错计划及反例重放；论文与实验材料在归档仓根目录独立的 `deletion-fault-testing/` 维护，实施协调仅取本条目。
-
-- 范围：只在新临时存储中使用合成内容及本地确定性 embedding；真实调用固定历史版本的 LangChain LibSQL 和 LlamaIndex.TS 存储 API。Aervox 为校准对象，旧 SQL 仅为显式历史重构，不算新生产缺陷。所有权、工作负载、观察范围和 checkpoint 仍由人工适配，首版不声称进程崩溃或任意并发生成能力。
-- 协议：生成器与预算在外部正式比较前冻结；比较通用边界、随机边界、仅轨迹和静态候选加轨迹四组，固定预算、种子及 20 次重放。未触发、异常、超时与观察缺失单列，不能计安全通过；相同计划与嵌套预算不是独立样本。
-- 去留：两个外部对象仅建立固定历史集成的可行性；若留出项目上完整方法不优于简单基线，不声称方法效果或新颖性，按工具/可行性报告交付并保留负结果。还未建立独立人工入口真值、接入工时、现行系统代表性或外部独立复现。
-- 实现：候选扫描、轨迹、四策略、持久化观察、逐行证据、重放与源码重扫校验已完成，研究工具进入全量与增量 CI。观察器和计划生成仍依赖显式人工合同；报告校验只验证一致性，不认证独立实际执行。
-- 实验证据：初始冻结 `84424da3` 的两轮各执行 1600 次主调度，均因各一次清理超时标为失败并完整保留。事后工程修订 `f69addab` 只将隐含 1 秒清理上限改为显式独立的 10 秒；唯一一次完整工程验证的 1665 次实际执行全部完成，119 项输入无漂移，三个见证各 20/20 重放成功，58 项研究工具测试通过。旧失败和修订政策均在归档仓新目录记录，清理延迟原因仍未知，不能称为新的盲测或总体零错误。
-- 研究结论：三轮留出对象在全部预算下四策略均发现同一人工声明根因族，guided 与 trace-only 的计划相同。机器判断为 `NOT ESTABLISHED`，未建立方法发现收益；按有限可行性与负结果报告交付，不能提升为方法创新或已确认上游漏洞。双语论文与三轮原始材料保存在归档仓 `deletion-fault-testing/`，代码全量终审及两个仓库 PR 状态在交付时记录。
-- 代码交付：[PR #288](https://github.com/3yearsZhuang/Aervox-harness/pull/288) 于 2026-10-18 合入；论文归档和研究结论沿用上述边界。
-
-<a id="iter-065"></a>
-
-### ITER-065 · 已归档：记忆删除质量研究
-
-生产修复与合并后复验见 [PR #285](https://github.com/3yearsZhuang/Aervox-harness/pull/285)、[PR #286](https://github.com/3yearsZhuang/Aervox-harness/pull/286)。论文、双语 PDF、两轮实验原始证据、文献与下一研究建议已迁至[归档仓根目录 `memory-deletion-study/`](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/main/memory-deletion-study)；历史协调记录随包归档。主仓保留生产实现与现场生成证据的实验回归，CI 不依赖私有归档。下一方向的后续授权和实施见 [ITER-066](#iter-066)；归档不改变真实数据库验收、CAP 发布或论文发表状态。
-
-<a id="iter-058"></a>
-
-### ITER-058 · 已移交：文档体系精简
-
-合并重复文档与 CR，直接维护计划，退役冗余元数据和生成治理；保留需求、数据责任、未决项与发布门槛。验收包括链接迁移完整、脚本回归、纯文档不启动业务/原生构建及最终双门禁。本次不建设 Skills。实现与验证见 [PR #273](https://github.com/3yearsZhuang/Aervox-harness/pull/273)；包含 Core、根界面与主动陪伴的最终整合基线已通过全量代码和文档门禁，完成链接、编号与未决状态迁移。
-
-<a id="iter-053"></a>
-
-### ITER-053 · 已移交
-
-前端体验优化：大比例 Live2D、轻量聊天输入、跨页面统一开关/卡片/按钮/表单/标签导航、草稿保存和窄窗口导航；CAP-001/002/018/020。
-
-2026-10-13 由 PR #275 统一移交前端体验、根界面与二阶段切片；全量代码/文档门禁及三项浏览器 E2E 通过。UI 决定见 [ADR-025](docs/reference/adr/ADR-025-ui-surface-hosts.md)；真实模型、移动实机与发布验收未提升。
-
-证据与边界：[260](https://github.com/3yearsZhuang/Aervox-harness/pull/260)；[275](https://github.com/3yearsZhuang/Aervox-harness/pull/275)
-
-<a id="iter-054"></a>
-
-### ITER-054 · 已移交
-
-根界面插件首个切片：薄 UI 宿主、默认工作台与桌宠插件、跨端组合根；CAP-001/002/018/020；决定见 [ADR-025](docs/reference/adr/ADR-025-ui-surface-hosts.md)。
-
-2026-10-13 由 PR #275 统一移交前端体验、根界面与二阶段切片；全量代码/文档门禁及三项浏览器 E2E 通过。UI 决定见 [ADR-025](docs/reference/adr/ADR-025-ui-surface-hosts.md)；真实模型、移动实机与发布验收未提升。
-
-证据与边界：[275](https://github.com/3yearsZhuang/Aervox-harness/pull/275)
-
-<a id="iter-055"></a>
-
-### ITER-055 · 已移交
-
-界面插件化二阶段：UISurfaceManifest 清单契约与宿主校验、加载骨架与退避重试、宠物降级链（PetWithFallback）、浏览器级 E2E、五块设置面板迁入 panels-ui、设计令牌单源、紧凑工作台多根界面试验田；修复 workbench 出口主题链缺失；CAP-001/002/018/020；决定见 [ADR-025](docs/reference/adr/ADR-025-ui-surface-hosts.md)。
-
-2026-10-13 由 PR #275 统一移交前端体验、根界面与二阶段切片；全量代码/文档门禁及三项浏览器 E2E 通过。UI 决定见 [ADR-025](docs/reference/adr/ADR-025-ui-surface-hosts.md)；真实模型、移动实机与发布验收未提升。
-
-证据与边界：[275](https://github.com/3yearsZhuang/Aervox-harness/pull/275)
+- 审查补修：[PR #313](https://github.com/3yearsZhuang/Aervox-harness/pull/313) 补齐 Bundle 清理/回滚的祖先 symlink 拒绝；[PR #314](https://github.com/3yearsZhuang/Aervox-harness/pull/314) 在写入前拒绝 ZIP 文件/目录及大小写路径冲突；[PR #316](https://github.com/3yearsZhuang/Aervox-harness/pull/316) 以同一 SQLite 快照读取终态和高水位，避免新续跑被旧终态截断。完整集成代码树 `263cdc99` 的 `./aervox ci all` 退出 0，相关最终 PR 提交的远端检查分别核对。
+- 二次复核：合并后主线的依赖审计捕获 Fastify 新公告 `GHSA-389g-gv7q-r4x8`，[PR #321](https://github.com/3yearsZhuang/Aervox-harness/pull/321) 将两处依赖固定至最小修复版 5.12.6 并加入真实 HTTP 回归，同时删除上游已撤回的 sprintf-js 公告豁免；最终本地全量终审退出 0，审计为 0 未审阅、2 既有已审阅路径、0 过时例外。首次失败保留，精确提交远端检查与合并结果见 PR，不沿用旧审计成功。
+- 文档范围：逐类核对产品/需求、架构/ADR、协议、操作、开发入口及研究索引；纠正与当前源码不符的描述。将已完成卫生审计及整理前的计划、架构证据转移至[归档包](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation)，保留原文件 SHA-256、失败记录、稳定编号、交付证据与剩余验收；无活动入站的 [CR-030 旧目标 ERD](https://github.com/3yearsZhuang/Aervox-docs-archive/blob/397d4b4bc924d1315205577ed4fb88a4df2c0619/archive/database-sqlite-erd-cr030-target.md)亦按原字节归档。
+- 保留门槛：当前 ContextManifest 仍复制完整输入正文，输入最小化及来源删除传播按 [DATA_PRIVACY §10](docs/reference/DATA_PRIVACY.md#privacy-security) 和 ITER-003/010 的关联合同继续验收；本轮不提高 CAP 发布状态；Page Token、逐帧撤权、自动恢复、真实 Bot/模型/移动设备、签名分发和迁移验收继续由原条目协调。归档仓 PR #2/#3/#4 已先合入并清理对应分支，随后主仓删除历史材料；32 份现行 Markdown 更新及完整 63 文档门禁由 [PR #322](https://github.com/3yearsZhuang/Aervox-harness/pull/322) 交付，最终提交的远端检查与合并/清理记录随 PR 核对。
 
 <a id="iter-056"></a>
 
@@ -123,74 +24,6 @@
 2026-10-13 立项提案，ADR-026 保持 Proposed；原生移动真机验收继续由 [ITER-009](#iter-009) 协调，边界见 [ADR-022](docs/reference/adr/ADR-022-mobile-runtime-access.md)，不在本条目扩张。
 
 证据与边界：[界面开放提案](docs/reference/adr/ADR-026-ui-surface-open-ecosystem.md)；保持 Proposed，未批准实施。
-
-<a id="iter-057"></a>
-
-### ITER-057 · 已移交
-
-内核执行边界修复：终态提交与返回值一致、连续小块正文限时刷新、准备阶段取消传播；CAP-002/007；延续 [ADR-021 的执行合同](docs/reference/adr/ADR-021-aervox-core-standalone-package.md#cr-061)。
-
-2026-10-13 完成全量终审并由 PR #274 移交；终态争抢、密集流刷新与准备取消回归通过，基准仅为假 Provider 与内存存储。
-
-证据与边界：[274](https://github.com/3yearsZhuang/Aervox-harness/pull/274)
-
-<a id="iter-059"></a>
-
-### ITER-059 · 已移交
-
-思隅·主动陪伴界面：Live2D 舞台、打字机对话盒、最近会话接续、固定专注入口与文字输入；通过设置或查询参数选择，默认入口仍为工作台。依赖 ITER-055，沿用 ADR-025。
-
-由 [PR #276](https://github.com/3yearsZhuang/Aervox-harness/pull/276) 移交；全量双门禁与四项浏览器回归通过。首次发送建会话、连接失败重试与查询参数退出已验证。建议首版仅来自最近会话与固定动作；学习记录驱动的主动推荐、历史消息加载及真实模型/移动实机验收仍待后续。
-
-<a id="iter-060"></a>
-
-### ITER-060 · 已移交：仓库卫生审计整改
-
-用户已授权按[2026-10-13 审计](docs/explanation/repository-hygiene-audit-2026-10-13.md)实施 HYG-01～14。修复会话持久化与录音、预设选择和 Skill 所有权、Adapter/Worker 清理；统一归档预算、CI 入口、依赖审计及重复实现。
-
-- 基线：`511f9d1e`（插件生命周期变更之上），工作分支 `fix/repository-hygiene`；保留原审计数据作为整改前快照。
-- 依赖与边界：Worker 排空对应 [ITER-013](#iter-013) 的退出清理差量；不宣称该迭代整体完成。延续本地 SQLite 所有权，不执行迁移或发布操作。
-- 验收：定向回归、全量代码/文档门禁、API/UI/CLI E2E；通过 PR 审查。依赖剩余项按具体版本/路径和到期日审阅，不能计为漏洞已消除。
-- 当前证据：2026-10-14 已修复自查发现的录音等待取消、Skill 目录所有权和 Adapter 坏协议清理残留，接通归档业务断连取消，并补齐双会话落库、第 51 项配置写入和真实进程退出验收。本地全量终审退出 0，API 598 项、仓储 402 项通过；API/UI/CLI 集成 45/4/2 项通过。依赖保留 3 项中危例外（4 条路径），2026-11-13 到期；不计为告警消除。逐项证据见审计报告 §8.4；[PR #277](https://github.com/3yearsZhuang/Aervox-harness/pull/277) 于 2026-10-15 经审查合入 `main`，包含插件生命周期前置提交；最新提交 `c18c9d7d` 的八项远端检查均成功。
-
-<a id="iter-061"></a>
-
-### ITER-061 · 陪伴命名整合（素简文档界面已移除）
-
-命名分层工作已落地：统一 companionName/userAddress、旧 assistantName 迁移、设置双字段、各界面问候和随轮元数据；CAP-001/018。依赖已移交的 ITER-055/059/060，合同见 [ADR-025](docs/reference/adr/ADR-025-ui-surface-hosts.md)、[ADR-027](docs/reference/adr/ADR-027-companion-identity.md)。
-
-- 工作分支：`feat/companion-identity`；保留原提交 `de0357ac` / `1c43ddec`。旧 UI 分支的 ITER-057 / ITER-060 与现行 Core/卫生编号冲突，本条目承接新增差量，已有主线编号不变。
-- 2026-10-15 变更：按维护者决定移除本迭代新增的素简文档根界面（`@aervox/plugin-document-ui`）。根界面清单回到完整工作台／紧凑工作台／思隅陪伴（桌面另有桌宠）；组合根装配、外观设置选项、依赖与锁文件、用例同步收敛，记录见 [ADR-025](docs/reference/adr/ADR-025-ui-surface-hosts.md) 同日条目。命名分层与身份模型不受影响。
-- 验收：设置身份保存与重载、各界面发送元数据、人格优先级、真实会话创建、失败重试与草稿保留；界面选择/退出、窄屏与键盘浏览器回归；完整终审后提交独立 PR。
-- 边界：最近会话与固定建议沿用既有来源。服务端人格与客户端身份统一入册、真实模型与移动实机验收留后续；第三方界面开放仍为 Proposed，不因本次整合提升发布状态。
-- 证据：最新代码提交 `2db0f8d6` 的 `./aervox ci all` 退出 0，完整代码、原生专项与文档门禁通过；身份与布局/界面/API 定向 46 项、Chromium UI 7 项及补充 320px 回归通过。[PR #279](https://github.com/3yearsZhuang/Aervox-harness/pull/279) 待评审；测试中的模型响应为模拟输入，不计为真实模型或移动实机验收。移除素简文档界面后重测：Chromium UI project 5 项通过（文档界面 3 条随界面移除，身份用例移入 `e2e/ui/workbench-identity.spec.ts`）、`@aervox/ui` 119 项、`builtin-plugins-market` 5 项、Web 与桌面组合根构建 16/16、`check:guards` 与 `check:boundary` 通过。
-
-<a id="iter-062"></a>
-
-### ITER-062 · 已移交代码：Bot 平台插件化
-
-维护者已授权在 `05200288` 基线上创建独立工作区与 `feat/bot-platform-adapters`，交付微信本人私聊和 QQ 白名单群文字接入；决定见 [ADR-029](docs/reference/adr/ADR-029-bot-platform-adapters.md)，操作见[连接机器人](docs/how-to/connect-bots.md)。复用插件生命周期与完整会话执行链路；本轮审查整合最新主线共享宿主，修复崩溃恢复与扫码失败回退。
-
-- 实施依赖：先完成贡献接口、连接生命周期、增量表与持久执行策略；再接入受理队列、投递记录与个人派生数据隔离；最后交付两个适配器、管理面板和部署指南。
-- 范围：API 单宿主持有连接；微信须扫码及管理页确认本人；QQ 按连接、账号、群和成员分会话，无个人记忆或工具。停用、撤权、重配与旧实例迟到均须拒绝继续副作用；不引入共享数据库多租户。
-- 原分支证据：2026-10-15 完整 `./aervox ci all` 退出 0，API 89 文件/656 项、仓储 71 文件/426 项测试通过，包含秘密标记与工具隔离、完整 API 双成员并发、Worker 排除、重启恢复、满队列取消和 SQLite 短事务协调。两个适配器共 57 项协议模拟通过；桌面配置冲突、本人配对、登录失败与投递重试回归通过。Chromium 模拟传输层检查覆盖两种页面在 320、360、460、680、1100 像素宽度及 Tab/Escape；文档全量门禁通过。
-- 审查整改：合并 `99c82924` 共享宿主基线；平台和工作台共用来源策略与执行准入，崩溃取消、终态间隙、过期工具和扫码失败均有定向回归。构建、代码守卫及全量文档检查通过；更新后的完整终审以本 PR 后续证据为准，不沿用旧分支结果。
-- 本次代码验收：贡献接口、两个适配器、持久队列与策略、个人派生数据隔离、管理界面和部署说明均已实现；交付代码、文档及自动化证据，等待 PR 审查。
-- 延后真实验收：维护者已明确目前没有真实微信、NapCat 与独立部署测试环境，本次只交付代码、文档和自动化测试。真实微信配对/连续对话、真实 NapCat 多成员/重连及本机/独立机器恢复待环境具备后分别验收；未通过前不宣称平台已验证或正式发布，不以缺少真实环境阻断本次代码移交。
-- 交付：[PR #284](https://github.com/3yearsZhuang/Aervox-harness/pull/284) 已整合最新主线及 #281～#283 的审查修订；按前置依赖顺序合入，增量数据保留，回退先停适配器，不盲重发结果未知的消息。
-
-<a id="iter-063"></a>
-
-### ITER-063 · 已移交切片：API 与插件规范落地
-
-用户授权在 `feat/api-plugin-standards` 推进。统一本地认证、Problem Details、共享端点描述与客户端校验，建立实际路由覆盖棘轮和历史 OpenAPI 兼容门禁；补插件作者工具、宿主版本要求、Hook 有界生命周期与 Page 消息来源/撤权检查。声明包升级复用 ITER-005，由 ADR-028 定义资源准备与原子激活。
-
-- 验收：契约/客户端/路由负向回归、真实声明包检查与可重现打包；配置/Secret/撤权保留、失败回滚和真实进程退出；全量代码与文档门禁，PR 审查。
-- 边界：保留单用户数据所有权和第三方进程外隔离；不将单一模块试点称为全部路由迁移，不将 Page 消息加固称为跨端资源认证已完成。第三方执行及 UI 独立安装仍按 ITER-019/056 单独评审。
-- 原分支证据：2026-10-15 实现提交 `a75f24aa` 的本地 `./aervox ci all` 全量终审通过，覆盖规范、API/客户端、插件生命周期与升级、原生组件及文档门禁。[PR #283](https://github.com/3yearsZhuang/Aervox-harness/pull/283) 以 #281 的安全加固分支为前置，随后完成以下审查与交付；不代表正式发布。
-- 审查修复：已对齐主线共享宿主，恢复兼容基线误删的业务字段，并统一 Skill 名称校验及 Page 刷新生命周期。API/Worker 构建、定向回归与文档检查通过，后续交付见下一项。
-- 交付：[PR #281](https://github.com/3yearsZhuang/Aervox-harness/pull/281) 与 [PR #283](https://github.com/3yearsZhuang/Aervox-harness/pull/283) 于 2026-10-15 合入。后续合法预检及本地浏览器来源边界由 [ITER-069](#iter-069) 修复；历史接口和 Page Token 通道仍分别保留以下协调范围。
-- 后续计划：147 条历史接口缺口由 [ITER-064](#iter-064) 分批收敛；Page Token 资源通道继续 [ITER-006](#iter-006)；第三方代码执行继续 [ITER-019](#iter-019)，第三方根界面开放仍归 [ITER-056](#iter-056)。三项均为未完成范围，不随本切片的测试通过结项。
 
 ## 2. 当前建议工作
 
@@ -205,12 +38,17 @@
 - 前置与边界：依赖 [ITER-063](#iter-063) 的规范和兼容门禁及 PR #283 审查结果；遵循 [API 约定](docs/reference/API_CONVENTIONS.md)，保持本地单用户身份与数据所有权。JSON 接口优先共享端点描述；SSE、文件和二进制接口保留各自协议适配，不以统一 JSON 响应改变现有语义。
 - 分批范围：先补隐私、配置及插件/技能写入口，再补会话、内容与学习接口，最后收敛主动模块等剩余分组；每批核对实际方法/路径、稳定 operationId、请求校验、成功/错误响应和认证要求，同步客户端及真实请求回归。
 - 验收：每补齐一个接口就删除其精确例外，原 147 条历史缺口最终归零；新增遗漏、残留例外和扩大豁免均被门禁拒绝。每批通过实际路由覆盖、结构兼容与旧客户端行为回归；破坏性变化单列迁移决定，不通过刷新基线掩盖。
-- 当前切片：隐私授权/撤销/查询、删除请求与用户偏好读写/重置共 8 个接口改由共享端点描述驱动宿主、OpenAPI 与客户端校验，精确覆盖例外由 147 条降至 139 条。授权操作者统一取宿主认证上下文，旧请求体的 actorId 不再覆盖审计身份；保留默认偏好、版本递增、授权缺参返回未授权、删除去重/幂等及 202 受理语义。本切片的验证与审查证据随交付 PR 记录，其余接口继续按上述顺序迁移，不提升整项验收或发布状态。
-- 插件配置切片：Schema 读写、配置读写和重置共 5 个接口改由共享端点描述驱动宿主、OpenAPI 与客户端；保留原 operationId、修订 CAS、Secret 脱敏、停用/缺插件及 generation 不可变性。Schema 先检查深度再解析；成功响应也校验。四个精确纠偏对齐既有 `{schemaVersion, fields}` 响应和两个必需请求体，历史兼容基线不刷新。这 5 个接口原本已有 OpenAPI 且不在覆盖例外中，剩余仍为 139 条；本切片推进共享契约一致性，不计作删除 5 条例外。定向 HTTP、客户端、契约、路由覆盖和兼容回归通过，`./aervox ci all` 完整退出 0（API 712 项及研究、原生、文档门禁通过）；交付 [PR #311](https://github.com/3yearsZhuang/Aervox-harness/pull/311)，审查及远端 CI 单独记录。
-- 基础技能切片：列表、ZIP 安装、提示词、元数据、内容、启停与删除共 7 个端点改由[共享技能声明](packages/contracts/src/skills-api.ts)驱动宿主、OpenAPI 与客户端，删除 5 条精确例外，剩余由 139 条降至 134 条。列表 `{ items }`、注册表整数旗标、内容描述和删除无内容 204 依实际行为纠正历史文档；非布尔 overwrite 在写前拒绝，保留默认不覆盖、只读与插件目录所有权、名称归一化、准备阶段取消及越过提交边界后完成的语义。归档输入错误单列，内部故障不回传路径诊断。定向 API 63 项、客户端 30 项、契约 8 项通过，真实 Worker 验证损坏及伪造展开尺寸归档返回 400，真实 desktopTransport 验证删除 204 后刷新。叠在 #311 上后重新生成 OpenAPI 无差异；首次完整终审因两个界面仍将整数旗标与布尔值比较而构建失败，修正消费者后类型检查和既有界面 8 项通过，保留首次失败。修正后 `./aervox ci all` 完整退出 0（API 719 项、客户端 95 项、契约 73 项、设置界面 68 项及研究、原生、文档门禁通过）；依赖审计 0 条未审阅、4 条既有已审阅路径、0 条过期或过时例外，未新增豁免。交付 [PR #314](https://github.com/3yearsZhuang/Aervox-harness/pull/314)，以 #311 为前置；PR 审查和最新远端结果单独记录；Neo 生命周期及其余历史接口继续未完成。
-- 会话分支切片：创建、直接列表、地图、详情、合并、归档、布局和软删除共 8 个接口改由[共享分支声明](packages/contracts/src/branches-api.ts)驱动宿主、OpenAPI 与客户端，删除 8 条精确例外，剩余由 134 条降至 126 条；以前置 #314 保留插件配置及基础技能切片。保留创建 201、删除 200 的软删除记录、缺失根空列表和任意 JSON/null 布局；运行时及 OpenAPI 均要求布局字段，客户端在运输前拒绝不可表示的 undefined。临时 SQLite 旧实现探针确认两个合法 201 写入可形成环，树读取在第 13 次查询被注入预算终止；本切片改为迭代遍历，每会话一次查询、分支 ID 去重，保留独立重复边与多父关系。单次读取最多 1,000 个会话和 10,000 条唯一分支，SQL 只物化剩余预算加一条哨兵，超限固定 422、不返回部分成功，断开后停止后续查询。这是初始读取保护预算，不宣称扫描/排序耗时或单条布局字节数有硬上限；来源归属、完整删除决策、布局恢复与大图性能验收仍未完成。定向真实 HTTP/API 27 项、仓储 11 项、客户端 3 项和共享契约 2 项通过，结构兼容门禁通过且历史兼容基线不刷新；客户端首次 1 项 undefined 回归失败已保留，修正并重建后通过。`./aervox ci all` 完整退出 0（API 728 项、仓储 489 项、客户端 98 项、契约 75 项及研究、原生、文档门禁通过），依赖审计 0 条未审阅、4 条既有已审阅路径、0 条过期或过时例外；交付 [PR #315](https://github.com/3yearsZhuang/Aervox-harness/pull/315)，以 #314 为前置；PR 审查与远端结果单独记录。
+已合并切片见下表；历史例外从 147 条降至 124 条，当前明细仍只维护在路由基线。全部共享端点继续保留稳定 operationId、输入/成功响应校验及结构兼容门禁；不通过刷新基线掩盖变化。
 
-- 质量反馈切片：创建和列表共 2 个接口改由[共享反馈声明](packages/contracts/src/feedback-api.ts)驱动宿主、OpenAPI 与客户端，删除 2 条精确例外，剩余由 126 条降至 124 条；以前置 #315 保留会话分支、基础技能及插件配置切片。旧路由在真实认证和临时 SQLite 中允许 body.actorId 覆盖 Token 配置身份及 open 模式本地主体，并接受数值 subjectType 持久化为字符串；旧定向回归 4 项失败、1 项既有错误脱敏通过。现在操作者只取宿主认证上下文，旧 body.actorId 被剥离，错误字段类型和重复查询键在仓储调用前返回 400。保留扩展及空白字符串、optional/nullable note、创建 201 持久记录、列表 200 的 `{ items }`，只在两个非空筛选值齐备时筛选；客户端校验输入与成功响应，旧 submitFeedback 继续返回 void，失败不重试。定向真实 API/覆盖 13 项、客户端 5 项、共享契约 5 项、结构兼容及依赖审计通过（0 条未审阅、4 条既有已审阅路径、0 条过期或过时例外），历史兼容基线不刷新；`./aervox ci all` 完整退出 0（API 739 项、仓储 489 项、客户端 103 项、契约 80 项及研究、原生、文档门禁通过），交付 [PR #318](https://github.com/3yearsZhuang/Aervox-harness/pull/318)，以 #315 为前置；审查与最新提交的远端检查单独记录。全量读取的资源预算、BR-CONV-002 回答版本关联和质量复核队列尚未完成，不以本切片结项。
+| 切片 | 当前交付与保留行为 | 证据 |
+|---|---|---|
+| 隐私/偏好 8 个接口 | 宿主身份审计、默认偏好及版本、删除去重/幂等与 202；例外 147→139 | [PR #298](https://github.com/3yearsZhuang/Aervox-harness/pull/298) |
+| 插件配置 5 个接口 | Schema 深度、修订 CAS、Secret 脱敏与 generation 不可变；原已有 OpenAPI，不计新增例外减少 | [PR #311](https://github.com/3yearsZhuang/Aervox-harness/pull/311) |
+| 基础技能 7 个接口 | 整数旗标/列表信封、删除 204、所有权/只读、归档写前冲突拒绝和取消提交边界；例外 139→134 | [PR #314](https://github.com/3yearsZhuang/Aervox-harness/pull/314) |
+| 会话分支 8 个接口 | 创建 201/软删 200、必需 JSON/null 布局、有环图迭代去重与断连停止；最多 1000 会话/10000 唯一分支，超限 422 不部分返回；例外 134→126 | [PR #315](https://github.com/3yearsZhuang/Aervox-harness/pull/315) |
+| 质量反馈 2 个接口 | actor 只取认证上下文，剥离旧 body.actorId；类型/重复查询键写前拒绝，保留扩展字符串、nullable note、201/200 和旧客户端 void 行为；例外 126→124 | [PR #318](https://github.com/3yearsZhuang/Aervox-harness/pull/318) |
+
+剩余 124 条历史接口、Neo 生命周期、分支来源/完整删除/布局恢复/大图性能、反馈读取预算/回答版本关联与复核队列仍未完成。图读取预算不提供 SQL 排序耗时或单条布局字节硬上限。最初消费者旗标构建失败及客户端 undefined 回归失败、修正后的定向/全量结果保存在[原计划](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation/reading/plan.md#iter-064)与各 PR/CI，不将失败记作通过。
 
 <a id="iter-005"></a>
 
@@ -220,7 +58,7 @@
 
 - 前置与边界：[ITER-004](#iter-004)；激活依赖 ITER-004；限制资源可先做；升级/卸载状态和迁移语义先 ADR。
 - 验收：成功意味着全部声明入口可用；超额包有界失败；任一安装阶段中断后可恢复完整旧/新版；同源码导出分发包的字节与校验和稳定
-- 进展与剩余：缺包保护、预检/解压配额已有；本分支按 ADR-028 实施独立资源准备、短事务激活、失败保留旧版与原始归档导出。原子激活切片已通过本地全量终审，证据见 [PR #283](https://github.com/3yearsZhuang/Aervox-harness/pull/283)。运行失败后的自动回退、复杂配置迁移和旧资源自动回收仍未完成，不能提升为整个插件生态发布完成。
+- 进展与剩余：缺包保护、预检/解压配额已有；已按 ADR-028 实施独立资源准备、短事务激活、失败保留旧版与原始归档导出。原子激活切片已通过本地全量终审，证据见 [PR #283](https://github.com/3yearsZhuang/Aervox-harness/pull/283)。运行失败后的自动回退、复杂配置迁移和旧资源自动回收仍未完成，不能提升为整个插件生态发布完成。
 
 <a id="iter-006"></a>
 
@@ -262,9 +100,9 @@ HLS 竞赛可行性验证：规则/环境、真实双入口、公开题集与同
 
 - 前置与边界：只消费本机 API 与共享传输层；不修改服务端路由、授权与恢复合同，不新增数据库 Schema，不引入中心化服务或独立宿主。
 - 验收：打包产物在真实 API + 文件 SQLite 下完成受理/流式/终态、跨客户端与 API 重启的补读与续会话；非交互路径不自动批准工具；有界取消只在中断时触发，超时或失败不替用户取消已受理回合；依赖边界与文档门禁通过，CLI 不反向依赖共享包，共享包也不反向引用 CLI 宿主
-- 进展与剩余：单次/连续会话和共享传输已实施。本轮在 `feat/cli-session-pagination` 完成列表分页，前置为 [PR #308](https://github.com/3yearsZhuang/Aervox-harness/pull/308)：新增有界 `--limit` 与安全整数 `--offset`，终端展示完整本页并提示继续查询，JSON/JSONL 保持既有信封；只消费现有列表 API，不自动翻页或推定总数。会话详情与历史读取当前缺服务端接口，后续需由 ITER-064 协调接口合同；模型配置入口及平台矩阵仍待补。offset 不是快照，不承诺并发更新时无重复或遗漏。
-- 本轮验证与交付：CLI 90 项回归与类型检查通过；打包安装闭环 2 项通过，覆盖真实 API 重启后的 102 个临时 SQLite 会话、默认页/最后页/空页与原会话接续。`./aervox ci all` 完整退出 0，覆盖代码、研究、原生和文档门禁。[PR #319](https://github.com/3yearsZhuang/Aervox-harness/pull/319) 以前置 PR #308 完成审查；集成代码树 `263cdc99` 的本地全量门禁与远端检查通过，合并及分支清理状态见该 PR。测试使用确定性 Provider，不计为真实模型或平台发布验收；PR 审查与远端 CI 单列。
-- 依赖修复后复验：同步 [PR #320](https://github.com/3yearsZhuang/Aervox-harness/pull/320) 的 Vitest `4.1.12` 补丁，冻结锁安装、依赖审计及打包安装闭环 2 项通过。首次全量复验在 API 测试阶段被中断，没有最终退出码，不计为通过；保留日志后重跑 `./aervox ci all` 完整退出 0，包含 CLI 90 项、API 706 项、仓储 489 项及研究、原生与文档门禁。PR #319 原提交的依赖失败保留，新提交远端结果单独核对；其余功能与发布门槛不变。
+- 已交付：单次/连续会话、共享传输与列表分页经 [PR #308](https://github.com/3yearsZhuang/Aervox-harness/pull/308)、[PR #319](https://github.com/3yearsZhuang/Aervox-harness/pull/319) 合入。`--limit` 有界、`--offset` 为安全整数；TTY 展示本页并提示继续，JSON/JSONL 保留信封，不自动翻页或推定总数。offset 不是快照，并发更新仍可重复/遗漏。
+- 剩余：会话详情/历史缺服务端接口，由 [ITER-064](#iter-064) 协调；模型配置入口及平台矩阵待补。确定性 Provider、真实临时 API/SQLite 与打包安装验证不等于真实模型或平台发布验收。
+- 证据：全量集成门禁和精确最终提交的远端检查通过，API 重启后的 102 个临时会话覆盖默认/末尾/空页及原会话接续。首次中断无退出码及旧依赖失败继续保留在[原计划](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation/reading/plan.md#iter-029)和 PR/CI，修正后结果单列。
 
 <a id="iter-032"></a>
 
@@ -314,9 +152,10 @@ HLS 竞赛可行性验证：规则/环境、真实双入口、公开题集与同
 - 前置与边界：[ITER-002](#iter-002)、[ITER-008](#iter-008)；依赖 ITER-002/008 的相关切片；先观测后定参数；跨进程通知/新隔离边界先 ADR。
 - 验收：慢源/慢客户端和日志洪泛资源有界；停机有截止；已提交窗口提前可读；故障可定位
 
-- SSE 切片：宿主采用单查询/写入执行者，先订阅合并唤醒再按 SQLite 高水位重放；新增独立传输分页，保留 Resume 全历史读取。每页最多 256 行，按持久 data 的 UTF-8 长度选取 256 KiB 前缀；至少完整保留一条超预算历史事件，单事件、元数据和 JSON 临时内存仍可能超过预算，不宣称绝对字节上限。完整帧单次 write，返回 false 后停止取页并最多等 drain 30 秒；总连接 10 分钟从重放开始计时。这些是初始连接保护默认值，未作为性能调优或全局并发限额。断连、失效和连接超时不取消已受理 Turn、不造终态，保留游标重放、持久尾事件及旧 Interrupted Attempt 通知不能截断续跑；preClose 和前置读取期间关停/断连回归覆盖晚注册清理。以 #310 为前置复用其冷启动原生测试依赖，不改变执行权限或恢复模型。定向 API 25 项、Host 15 项、仓储 5 项通过；受控 HTTP false/drain 测试覆盖 10,000 次唤醒合并，另以临时 SQLite 固定 6 MiB 合成事件和真实暂停 TCP 客户端观察自然 write=false、停取页、断连不取消和 Last-Event-ID 补读；600 行快照加窗口新增事件实际分页为 256/256/88/1。日志经宿主可观测性接口输出固定事件与数字，真实背压回归观察写队列峰值 197,085 字节（仅该固定样本，不推算生产峰值）。旧基线 Vitest 4.1.11 审计首次命中 2 条未审阅路径，复用 #309 的精确 4.1.12 修复后为 0 条未审阅、4 条既有已审阅、0 条过期或过时例外，未新增豁免。完整 `./aervox ci all` 实际退出码 0：API 708 项、仓储 483 项、Host 79 项、Worker 126 项及研究、原生、文档门禁通过，交付见 [PR #316](https://github.com/3yearsZhuang/Aervox-harness/pull/316)；逐帧删除/撤权检查、全局并发流限额、其他 Provider/Worker 预算仍未完成；Worker 关闭总截止继续下述切片。
-
-- Worker 关闭切片：以前置 #316 继续现有关闭协调器，从首个信号共享 20 秒默认总等待预算，覆盖任务排空、宿主释放和健康服务关闭；重复信号不重置，成功后才显式关闭主库与 Vault。超时或释放异常记录阶段与预算并退出 1，异步前置失败不提前显式关闭数据库，数据库关闭自身失败可能已部分关闭；不改变恢复或未知副作用合同。真实子进程新回归在旧实现中 6 项通过、3 项有界失败，修正后 15 项通过；覆盖宿主/健康服务挂起、释放异常、两库写入与关闭顺序、累计预算、重复信号及无效定时参数，完整 `./aervox ci all` 实际退出码 0，Worker 139 项、API 708 项、仓储 483 项、Host 79 项及研究、原生、文档门禁通过，依赖审计 0 条未审阅、4 条既有已审阅、0 条过期或过时例外，交付见 [PR #317](https://github.com/3yearsZhuang/Aervox-harness/pull/317)；该预算不能打断事件循环阻塞，不证明全部宿主写者排空，也不覆盖原生主管较短的强制回收时限。
+- SSE 已交付：[PR #316](https://github.com/3yearsZhuang/Aervox-harness/pull/316) 使用单读取/写入执行者合并 Hub 唤醒、SQLite 终态/高水位一致快照及分页重放；每页最多 256 行/256 KiB 持久 data 前缀，至少完整保留一条超预算历史事件，故单事件/元数据/JSON 临时内存仍可超预算。完整帧 write=false 后停取页、最多等 drain 30 秒，总连接 10 分钟从重放开始计时。断连/超时不取消 Turn、不造终态；旧 Attempt 终态不能截断当前续跑。
+- Worker 已交付：[PR #317](https://github.com/3yearsZhuang/Aervox-harness/pull/317) 从首信号共享默认 20 秒总预算，覆盖排空/宿主释放/健康服务关闭，重复信号不重置；前序成功才显式关闭主库/Vault。超时或释放异常退出 1，数据库关闭失败可能已部分关闭；预算不能打断同步阻塞、不覆盖全部写者或原生主管更短强杀时限。
+- 剩余：逐帧删除/撤权、全局并发流限额、其它 Provider 队列/取消与完整宿主排空仍未完成；兼容取消幂等、error/done 及事件保留差量见[流式协议](docs/reference/STREAMING_PROTOCOL.md)，不得以连接保护默认值声称完成性能调优或全面恢复。
+- 验证证据：真实慢 TCP/临时 SQLite、合并唤醒/尾事件/Last-Event-ID 及独立 Worker 子进程关闭回归通过；全量集成与各最终 PR 提交远端检查通过。旧实现失败、依赖首次失败与固定样本观测值见[原计划](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation/reading/plan.md#iter-013)及 PR/CI，不推算生产峰值。
 
 <a id="iter-015"></a>
 
@@ -455,6 +294,8 @@ ITER-009 需要给出下面的可审阅结论，目前不替用户选定产品�
 
 ## 4. 已移交切片
 
+已完成条目只保留交付结果、证据与未关闭边界；整理前详细实施/失败日志见[计划快照](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation/reading/plan.md)。编号与锚点不变，不能将切片完成推为整项 CAP 或发布完成。
+
 详细实现、测试与剩余限制归 PR 和[追踪基线](docs/reference/REQUIREMENTS_TRACEABILITY.md)。本表保留旧链接入口，不据此宣布生产发布。
 
 | 编号 | 结果 | 证据 |
@@ -487,5 +328,21 @@ ITER-009 需要给出下面的可审阅结论，目前不替用户选定产品�
 | <a id="iter-050"></a>ITER-050 | PR #258 审计发现落地：删除效果验证、原子接单/组合写入、动态工具取消、取消恢复、锁回收与资产单源；关联 ITER-002/003/004/007/010/017。 | [PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258) |
 | <a id="iter-051"></a>ITER-051 | 参考审计首批正确性修复：消息/配置原子写入、锁尾链回收、Memory 清理验证与召回资格、模型异常终止与逐调用快照、插件包预检；对应 ITER-003/004/005/007/039。 | [PR #259](https://github.com/3yearsZhuang/Aervox-harness/pull/259)、[PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258)、[PR #257](https://github.com/3yearsZhuang/Aervox-harness/pull/257) |
 | <a id="iter-052"></a>ITER-052 | 框架解耦审计整改：事件传输与平台能力注入、插件实例生命周期、API 窄依赖、日记素材访问、内核提示词策略与边界守卫；CAP-002/007/018/020。 | [PR #262](https://github.com/3yearsZhuang/Aervox-harness/pull/262) |
+
+| <a id="iter-053"></a>ITER-053 | 前端体验与跨端连续对话；保留真实模型、移动实机与发布门槛。 | [PR #260](https://github.com/3yearsZhuang/Aervox-harness/pull/260)、[PR #275](https://github.com/3yearsZhuang/Aervox-harness/pull/275) |
+| <a id="iter-054"></a>ITER-054 | 薄 UI 宿主、工作台/桌宠插件及平台组合根；ADR-025。 | [PR #275](https://github.com/3yearsZhuang/Aervox-harness/pull/275) |
+| <a id="iter-055"></a>ITER-055 | UISurfaceManifest、加载重试/降级、设置插件与设计令牌；第三方开放另见 ITER-056。 | [PR #275](https://github.com/3yearsZhuang/Aervox-harness/pull/275) |
+| <a id="iter-057"></a>ITER-057 | 终态一致、密集正文窗口与准备取消；基准使用假 Provider/内存存储。 | [PR #274](https://github.com/3yearsZhuang/Aervox-harness/pull/274) |
+| <a id="iter-058"></a>ITER-058 | 文档体系精简、事实源与稳定编号收敛；详细旧记录见归档快照。 | [历史记录](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation/reading/plan.md#iter-058) |
+| <a id="iter-059"></a>ITER-059 | 陪伴界面、最近会话与固定入口；后续桌面经典布局、移动陪伴由 PR #306 对齐。推荐来源、真实模型/实机仍单列。 | [PR #276](https://github.com/3yearsZhuang/Aervox-harness/pull/276)、[PR #306](https://github.com/3yearsZhuang/Aervox-harness/pull/306) |
+| <a id="iter-060"></a>ITER-060 | HYG-01～14 卫生整改及插件生命周期前置；全量门禁和远端检查已通过。Worker 其余预算留 ITER-013，依赖例外继续审阅。 | [PR #277](https://github.com/3yearsZhuang/Aervox-harness/pull/277)、[原审计](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation/reading/docs/explanation/repository-hygiene-audit-2026-10-13.md) |
+| <a id="iter-061"></a>ITER-061 | companionName/userAddress 与旧字段迁移；按维护者决定移除素简文档界面，命名与身份分层保留。服务端统一身份与真实模型/实机未验收。 | [PR #279](https://github.com/3yearsZhuang/Aervox-harness/pull/279) |
+| <a id="iter-062"></a>ITER-062 | 第一方 Bot 适配器、连接代际、持久队列与来源隔离；模拟协议/自动化移交。真实微信/NapCat、独立部署与恢复待环境，回退先停适配器且未知结果不盲重发。 | [PR #284](https://github.com/3yearsZhuang/Aervox-harness/pull/284) |
+| <a id="iter-063"></a>ITER-063 | 本地认证、Problem Details、共享端点、路由棘轮与插件生命周期；余下历史路由、Page Token、第三方代码/UI开放分别留 ITER-064/006/019/056。 | [PR #281](https://github.com/3yearsZhuang/Aervox-harness/pull/281)、[PR #283](https://github.com/3yearsZhuang/Aervox-harness/pull/283) |
+| <a id="iter-065"></a>ITER-065 | 记忆删除质量研究与两轮实验已归档；有界实验不构成完整生产删除或外部独立复现。 | [研究归档](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/main/memory-deletion-study) |
+| <a id="iter-066"></a>ITER-066 | 异步删除故障测试生成器、输入校验与研究门禁；两次失败尝试和一次清理预算工程修订均保留，方法收益结论仍为 NOT ESTABLISHED。 | [PR #288](https://github.com/3yearsZhuang/Aervox-harness/pull/288)、[归档 PR #2](https://github.com/3yearsZhuang/Aervox-docs-archive/pull/2) |
+| <a id="iter-067"></a>ITER-067 | workspace/清理/数据目录/资源/研究依赖/宿主出口/许可及跟踪卫生整改；Vitest 新公告由 #320 精确升至 4.1.12，未加豁免。 | [PR #289](https://github.com/3yearsZhuang/Aervox-harness/pull/289)、[PR #320](https://github.com/3yearsZhuang/Aervox-harness/pull/320) |
+| <a id="iter-068"></a>ITER-068 | 工具参数合同、开发启动器/URI/终端体验，以及并行 README/经典桌面布局已交付；#307/#308 合并后对应分支清理，#306 既有并行工作树保留。 | [PR #295](https://github.com/3yearsZhuang/Aervox-harness/pull/295)～[PR #308](https://github.com/3yearsZhuang/Aervox-harness/pull/308) |
+| <a id="iter-069"></a>ITER-069 | open Host/Origin 与 Token 预检、DSH 文件/命令取消、Electron IPC/导航及 Page 文件/清理边界；合成浏览器、Electron、临时存储回归与全量门禁通过，主动同 OS 祖先交换及外部副作用撤回不在隔离保证内。 | [PR #309](https://github.com/3yearsZhuang/Aervox-harness/pull/309)、[PR #310](https://github.com/3yearsZhuang/Aervox-harness/pull/310)、[PR #312](https://github.com/3yearsZhuang/Aervox-harness/pull/312)、[PR #313](https://github.com/3yearsZhuang/Aervox-harness/pull/313) |
 
 HLS 的 H1～H4、S1～S3、M1～M6 是带条件的验证/交付路径，见[HLS 运行指南](docs/how-to/run-hls-agent.md#hls-plugin-delivery)。未获真实环境证据或产品化决定，不自动推进下一阶段。

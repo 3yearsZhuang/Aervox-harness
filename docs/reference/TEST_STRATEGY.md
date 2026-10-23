@@ -19,10 +19,10 @@ Aervox 测试体系收敛为清晰的四层模型，各层权责明确、指令�
 
 | 层级 | 工具与环境 | 核心覆盖范围 | 标准执行指令 |
 |---|---|---|---|
-| 1. 架构与守卫层 | Node 原生测试、AST 边界扫描 | 依赖纯度、禁用标识符、文档与治理规则、CI 作用域覆盖、插件打包规范 | `pnpm test:guards`<br>`pnpm check:guards` |
-| 2. 单元与业务包集成层 | Monorepo Vitest、`@vue/test-utils`、内存/隔离 SQLite | 纯逻辑、领域契约、前端组件、状态机、数据访问层与业务聚合 | `pnpm test:unit`（选定包集）<br>`pnpm test:affected`（变更增量）<br>`pnpm test` / `pnpm test:all`（Monorepo 全量 2 并发）<br>`./aervox test <pkg>` |
-| 3. 领域专项与原生契约层 | 独立专项 Runner、Cargo / Rust 工具链 | 记忆删除可验证性、故障注入断言、Native 运行时与向量搜索基准、HLS 契约 | `pnpm check:memory-deletion`<br>`pnpm check:deletion-fault-testing`<br>`mise tasks run native-runtime-check`<br>`pnpm check:hls` |
-| 4. 系统集成与端到端层 | Playwright、CLI 冒烟脚本 | 端到端学习与对话闭环、API SSE 流式契约、Desktop/Web 交互、CLI 客户端集成冒烟 | `pnpm test:e2e:api`<br>`pnpm test:e2e:ui`<br>`pnpm test:cli:integration`<br>`node scripts/cli-smoke.test.mjs` |
+| 1. 架构与守卫层 | Node 原生测试、AST 边界扫描 | 依赖纯度、禁用标识符、文档与治理规则、CI 作用域覆盖、插件打包规范 | `mise exec -- pnpm test:guards`<br>`mise exec -- pnpm check:guards` |
+| 2. 单元与业务包集成层 | Monorepo Vitest、`@vue/test-utils`、内存/隔离 SQLite | 纯逻辑、领域契约、前端组件、状态机、数据访问层与业务聚合 | `./aervox test unit`（选定包集）<br>`./aervox test affected`（变更增量）<br>`./aervox test all`（Monorepo 全量 2 并发）<br>`./aervox test <pkg>` |
+| 3. 领域专项与原生契约层 | 独立专项 Runner、Cargo / Rust 工具链 | 记忆删除可验证性、故障注入断言、Native 运行时与向量搜索基准、HLS 契约 | `mise exec -- pnpm check:memory-deletion`<br>`mise exec -- pnpm check:deletion-fault-testing`<br>`mise tasks run native-runtime-check`<br>`mise exec -- pnpm check:hls` |
+| 4. 系统集成与端到端层 | Playwright、CLI 冒烟脚本 | 端到端学习与对话闭环、API SSE 流式契约、Desktop/Web 交互、CLI 客户端集成冒烟 | `mise exec -- pnpm test:e2e:api`<br>`mise exec -- pnpm test:e2e:ui`<br>`mise exec -- pnpm test:cli:integration` |
 
 ### 2.1 统一命令速查
 
@@ -35,6 +35,8 @@ Aervox 测试体系收敛为清晰的四层模型，各层权责明确、指令�
 - `./aervox test <pkg>`：支持真实包名、目录短名（如 `api`、`repositories`、`companion-ui`）与 pnpm 过滤器；无匹配包或选中包均未声明测试时失败。
 
 `pnpm test` 保持全量语义；智能增量使用 `pnpm test:affected` 或默认的 `./aervox test`。命令耗时取决于选择范围、构建缓存与运行环境。
+
+所有命令从仓库根经 `./aervox` 或 `mise exec --` 使用锁定工具链；直接脚本测试不自动代表依赖和产物已构建。CLI 安装闭环入口会按拓扑先构建 API/CLI；API 包测试对原生制品声明显式任务依赖。全量本地终审使用 `./aervox ci all`，远端还有独立 API/Chromium E2E 与依赖审计，均应核对同一 head 的最终结论。空检查、排队、运行中和旧 head 的成功不能当作当前门禁通过。
 
 ### 2.2 专项质量与可靠性要求
 
@@ -86,6 +88,18 @@ Aervox 测试体系收敛为清晰的四层模型，各层权责明确、指令�
 2. `RecoveryControlLedger` 独立故障域：账本先写获得 durable ack、业务提交失败后的 reconciler 重放、重复/乱序/序列缺口、账本不可用时 fail closed，以及 PITR 前后水位校验。
 3. 未认证非 loopback 客户端、未获 Grant 的插件或外部连接器读取、导出、删除本地数据的拒绝与审计场景。
 
+### 3.5 已有运行时边界回归
+
+| 边界 | 可执行入口 | 证据限制 |
+|---|---|---|
+| 工具 Schema 与派发 | [有界 Schema](../../packages/core/test/tool-schema-completion.test.ts)、[宿主工具](../../packages/host-runtime/test/tool-provider-contract.test.ts) | 未支持断言、非 JSON、复杂度上限及 handler 前拒绝；不是完整 JSON Schema 方言 |
+| DSH 文件和命令 | [DSH 回归](../../packages/host-runtime/test/ecosystem/mcp/dsh-bridge.test.ts) | symlink/inode、预取消、运行中取消、超时与输出限制；不能推定 OS 沙箱或脱离进程组的命令已回收 |
+| Page 写入及删除 | [BundleStore](../../packages/host-runtime/test/ecosystem/plugins/bundle-store.test.ts) | 祖先链接、ownership marker、缺失目录和拒绝后数据保留；不是同 OS 用户并发目录交换的隔离证明 |
+| ZIP 与断连 | [归档 Worker](../../apps/api/test/archive-worker.test.ts)、[断连](../../apps/api/test/archive-disconnect.test.ts) | 规范化/大小写冲突、文件父目录冲突在展开及替换前拒绝，取消和输出预算；不是任意归档写入整体回滚 |
+| SSE 一致快照与背压 | [HTTP 路由](../../packages/host-runtime/test/sse-routes.test.ts)、[慢 TCP](../../apps/api/test/conversation-stream-bounded.test.ts)、[分页](../../packages/repositories/test/stream-event-pagination.test.ts) | 运行续接不被旧终态截断、断线可补读、背压停取页；逐帧撤权和全局并发预算仍独立验收 |
+| Worker 完整关闭 | [真实子进程](../../apps/worker/test/shutdown-process.test.ts) | 累计截止、重复信号、挂起/异常和两库关闭顺序；不证明同步阻塞可打断或全部后台写者已排空 |
+| CLI 列表分页 | [CLI](../../apps/cli/test/cli.test.ts)、[安装闭环](../../scripts/cli-smoke.test.mjs) | 默认页、合法后页、非法参数及持久服务集成；不是快照分页或全量导出 |
+
 ## 4. AI 评估
 
 每次模型/Prompt/算法变更记录 EvalSet 版本、样本量、语言/领域、标注协议、结果、95% 置信区间和失败样本。CAP-033 另评估跨来源画像证据、七天提炼清理、动作目标授权和本地 Provider 证明；原始画像不得上传评估供应商。门槛采用 [AI 质量规范](AI_QUALITY_SAFETY.md#43-mvp-门槛)。危机召回、来源覆盖和删除后零召回未达 100% 时阻断发布。
@@ -101,7 +115,7 @@ Aervox 测试体系收敛为清晰的四层模型，各层权责明确、指令�
 ## 6. 当前阻断
 
 - 删除传播已不再是整体占位：`apps/api/test/conversation-deletion.test.ts` 与 `apps/api/test/proactive.test.ts`（来源级 revoke/delete：撤销 consent、scrub capture、删 observation/claim、撤销动作）提供可执行证据；追踪矩阵中仍为占位 ID 的 `TC-*` 在目标版本 G1 前逐项替换为可点击用例并回填。
-- CAP-033 全量平台适配（应用活动正文、通信、音视频、位置等 Provider）、生产 OS Broker 与全链本地出网证明仍未闭合；全部能力状态不得超过 `Specified`。
+- CAP-033 全量平台适配（应用活动正文、通信、音视频、位置等 Provider）、生产 OS Broker 与全链本地出网证明仍未闭合；各子能力的实现状态按追踪基线分别记录，局部测试不能升格为全部平台或生产发布验收。
 - 测试范围须覆盖 `packages/core` 内核矩阵（契约/回放/状态机/fencing，见 [Agent Harness Loop §16.1](agent-harness-loop.md#16-测试与验收)）与 CLI 冒烟（`scripts/cli-smoke.test.mjs`、`test:cli:integration`）。
 
 进入 G1 前建立可执行用例仓库/任务并回填追踪矩阵。

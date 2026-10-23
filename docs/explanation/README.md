@@ -16,7 +16,8 @@ id: AVX-EXPL-000
 
 - [架构设计、参考项目学习与演进候选](../reference/ARCHITECTURE.md#reference-learning)
 - [记忆删除质量论文与原始证据（已归档）](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/main/memory-deletion-study)
-- [仓库卫生与代码质量审计（2026-10-13）](repository-hygiene-audit-2026-10-13.md)
+- [仓库卫生与代码质量审计（2026-10-13，已归档）](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation/reading/docs/explanation/repository-hygiene-audit-2026-10-13.md)
+- [异步删除故障测试研究与负结果（已归档）](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/main/deletion-fault-testing)
 - [配套硬件方向](companion-hardware-directions.md)
 - [HLS 研究执行指南](../how-to/run-hls-agent.md)
 - [点对点加密同步探索](p2p-local-sync-exploration.md)

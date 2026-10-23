@@ -13,7 +13,7 @@ id: AVX-OPS-001
 | 服务 | 职责 | 关键观测 |
 |---|---|---|
 | API（Fastify 5，默认 loopback:3000） | 会话/Turn/SSE、领域路由、插件与工具运行时 | `GET /v1/metrics`（Prometheus 文本/JSON）、`http.request.completed/error` 日志、审计落库 |
-| Worker（独立进程） | outbox/review/diary/deletion/embedding/attempt-recovery/proactive 等 10 个任务 | 任务完成日志、outbox 积压、DLQ 计数、退避状态 |
+| Worker（独立进程） | Outbox、复习、日记、删除、Embedding、Attempt 恢复与主动任务；实际清单以组合根为准 | 任务完成日志、outbox 积压、DLQ 计数、退避状态 |
 | model-runtime 侧车（llama.cpp） | 本地模型推理（OpenAI 兼容端点） | `/health` 就绪、`/metrics` 采样、下载与启动状态 |
 | SQLite 主库（WAL） | 业务真源 + Outbox + FTS5/向量 | 文件大小、WAL 增长、busy/换连接自愈计数 |
 | proactive Vault / RecoveryControlLedger | 加密画像库 / 独立控制账本 | Vault 可用性、账本 sequence 连续性 |
@@ -26,7 +26,7 @@ id: AVX-OPS-001
 1. 确认影响范围、开始时间、版本和最近变更（`git log`）；
 2. 优先止损：关闭非核心任务、熔断受影响模型/供应商、停用插件、进入只读；
 3. 保留最小审计证据，不把完整用户内容复制到工单或聊天；
-4. 恢复后验证业务事实、来源链、删除状态和监控；72 小时内完成复盘并登记 `CR/RISK`。
+4. 恢复后验证业务事实、来源链、删除状态和监控；72 小时内完成复盘。需要协调的改进按[贡献指南](../../CONTRIBUTING.md#change-numbering)登记到 `plan.md`，普通修复关联 PR，不再分配 CR 编号。
 
 严重度：`SEV-0` 数据不可逆损坏/泄露/危机响应失效；`SEV-1` 核心闭环不可用或删除链失效；`SEV-2` 局部功能/供应商降级；`SEV-3` 低影响缺陷。涉及用户数据外泄风险一律按 `SEV-0/1` 处置并通知数据主体。
 
@@ -38,7 +38,7 @@ id: AVX-OPS-001
 - 不得：跳过输入/输出安全分类、使用未评估模型、把失败输出写入记忆/日记/掌握度。
 - 验证：ModelRun、路由比例、TTFT、事实/安全抽检、成本；恢复需渐进放量。
 
-Worker 收到退出信号后先停止新调度与 IPC 唤醒，等待正在执行的任务结束，再关闭数据库连接。默认排空期限为 5 秒（`WorkerHost.shutdownTimeoutMs`）；超时记录 `worker.shutdown.failed` 并以非零状态退出，不报告为成功停机。未完成任务的恢复仍由任务本身的持久化/租约语义负责。
+Worker 从首个 `SIGINT` / `SIGTERM` 起共用默认 20 秒关闭预算：取消执行、停止调度并排空、释放共享宿主、关闭健康服务，全部完成后才显式关闭主库与 Vault。`WorkerHost.shutdownTimeoutMs` 默认 5 秒只限制任务排空；重复信号不重置总预算。失败记录 `worker.shutdown.failed` 的阶段、预算与耗时并退出 1，总截止原因是 `worker_shutdown_deadline_exceeded`；失败前置不提前关闭数据库。先保存该日志与退出码，再检查未完成任务的租约与副作用状态，不自动重放未知结果。此预算不能中断同步阻塞，原生主管较短的强制回收可能先发生，边界见[执行合同](agent-harness-loop.md#121-内部领域事件)。
 
 ## 4. Outbox 积压与 Worker 异常
 

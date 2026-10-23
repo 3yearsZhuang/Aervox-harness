@@ -235,11 +235,11 @@ JS
 
 ### 3.1 定义组件与可回收注册
 
-以下示例位于 `packages/ui/src/plugins/<id>/`，由主仓第一方代码评审；它不属于 §2 ZIP 的动态入口。创建 `FocusDraftButton.vue`：
+以下示例位于 `plugins/acme-focus-card/src/ui/`，由主仓第一方代码评审并通过插件包的公开入口导出；它不属于 §2 ZIP 的动态入口。创建 `FocusDraftButton.vue`：
 
 ```vue
 <script setup lang="ts">
-import { useWorkbenchContext } from '../../composables/workbench-context';
+import { useWorkbenchContext } from '@aervox/ui/plugin-api';
 const { composer } = useWorkbenchContext();
 function draft() {
   if (!composer.input.value.trim()) {
@@ -256,7 +256,7 @@ function draft() {
 在同目录 `index.ts` 定义注册；ID 必须与对应插件主记录一致：
 
 ```ts
-import type { BuiltinUIPlugin } from '../plugin-runtime';
+import type { BuiltinUIPlugin } from '@aervox/ui/plugin-api';
 import FocusDraftButton from './FocusDraftButton.vue';
 
 export const focusDraftPlugin: BuiltinUIPlugin = {

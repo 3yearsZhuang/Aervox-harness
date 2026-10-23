@@ -30,21 +30,23 @@ id: AVX-SEC-001
 
 ## 3. 威胁登记（STRIDE）
 
+主要控制列同时包含发布要求与已有措施，不能由表中列名推定它们已全部实现。当前切片与剩余限制见[追踪基线](REQUIREMENTS_TRACEABILITY.md#42-证据与适用限制)；以下测试证明对应路径，签名、沙箱、生产部署及全链删除仍需各自验收。
+
 | ID | 类别 | 威胁与影响 | 主要控制 | 验证/残余风险 |
 |---|---|---|---|---|
-| TM-001 | Spoofing | 非本机客户端伪造会话、恶意网页访问 loopback、DNS rebinding、窃取本地 token 或重放写请求 | 默认 loopback、open Host 校验、路由前 Origin 拒绝、Token 来源精确配置、非 loopback 强制 token、CSRF/nonce、幂等键、token 不入日志 | `TC-SEC-LOCAL-API-001`、`TC-SEC-AUTH-001`；远程开关配置错误为阻断 |
+| TM-001 | Spoofing | 非本机客户端伪造会话、恶意网页访问 loopback、DNS rebinding、窃取本地 token 或重放写请求 | 默认 loopback、open Host 校验、路由前 Origin 拒绝、Token 来源精确配置、非 loopback 强制 token、CSRF/nonce、幂等键、token 不入日志 | [认证/浏览器边界回归](../../apps/api/test/auth.test.ts)覆盖业务前拒绝与合法预检仍需实际认证；Cookie/移动认证与 nonce 方案仍待相应决定，远程开关配置错误为阻断 |
 | TM-002 | Tampering | 修改消息版本、记忆证据、日记来源或删除状态 | 不可变版本、外键、checksum、事务 Outbox、审计 | `TC-INTEG-SOURCE-001`；管理员权限仍需最小化 |
-| TM-003 | Repudiation | 管理员/插件否认访问、用户删除无证据 | AuditRecord、ConsentGrant、DeletionTarget、模型/Prompt 版本 | `TC-SEC-AUDIT-001`；审计不能包含原文 |
+| TM-003 | Repudiation | 管理员/插件否认访问、用户删除无证据 | AuditRecord、ConsentGrant、DeletionTarget、模型/Prompt 版本；同意与 Feedback 操作者取宿主认证上下文 | [反馈身份回归](../../apps/api/test/feedback-contracts.test.ts)覆盖 body/Header 不能冒充操作者；不等于审计、权限或质量复核全链完成，审计不能包含原文 |
 | TM-004 | Information disclosure | API 监听所有网卡、数据目录权限过宽或插件越权导致私人内容泄漏 | loopback 默认、open auth 禁止非 loopback、用户目录 ACL、`actorId`/Grant 分离、默认无插件权限、脱敏日志 | `TC-SEC-LOCAL-API-001`、`TC-SEC-LOCAL-FS-001`；配置错误为严重阻断 |
-| TM-005 | Denial of service | 流式会话、OCR、日记或插件耗尽模型/队列/CPU | 限流、配额、队列隔离、超时、熔断、预算门槛 | `TC-PERF-ABUSE-001`；供应商级故障用备用/只读降级 |
-| TM-006 | Elevation | Prompt injection 或插件提升工具/文件/网络权限 | 信任层隔离、ToolPolicy、进程外沙箱、allowlist、kill switch | `TC-SEC-PROMPT-001`、`TC-SEC-PLUG-001` |
+| TM-005 | Denial of service | 流式会话、OCR、日记或插件耗尽模型/队列/CPU | 限流、配额、队列隔离、超时、熔断、预算门槛；有界 SSE 分页/背压、地图遍历和归档准备 | [SSE 回归](../../apps/api/test/conversation-stream-bounded.test.ts)、[分支预算](../../packages/repositories/test/branch-tree.test.ts)、[归档回归](../../apps/api/test/archive-worker.test.ts)覆盖局部保护；超大历史单事件、无界列表和全局并发/资源配额仍待完成 |
+| TM-006 | Elevation | Prompt injection 或插件提升工具/文件/网络权限 | 信任层隔离、ToolPolicy、进程外沙箱、allowlist、kill switch | 有界工具 Schema 与 DSH 路径/取消规则见 [Agent Harness](agent-harness-loop.md#14-dsh-与-pi-适配边界)；参数/路径检查不是 OS 沙箱，任意第三方代码执行隔离尚未交付 |
 | TM-007 | Disclosure | 模型/监控供应商保留或训练私人内容 | Provider 审查、用途同意、最小 ContextManifest、关闭训练、合同删除 | `TC-PRIV-PROVIDER-001`；无合格供应商则不启用该用途 |
 | TM-008 | Tampering/Disclosure | 删除后索引、缓存、备份或供应商副本复活，或恢复时漏掉撤权事件 | `RecoveryControlLedger` 先 durable append 作为 deny 控制事实源；业务状态按 sequence 幂等重放；序列缺口/账本不可用/水位未追平时 fail closed；零召回验证 | `TC-PRIV-DEL-001`、`TC-RES-LEDGER-001`；供应商 SLA 超时需告警和用户状态 |
-| TM-009 | Elevation | 外部文档占用 Electron renderer 或借 IPC 取得宿主能力 | contextIsolation、禁用 nodeIntegration、受信文档导航、逐请求 IPC 来源校验、schema IPC、签名更新 | `TC-SEC-DESKTOP-001`；R3 前阻断 |
+| TM-009 | Elevation | 外部文档占用 Electron renderer 或借 IPC 取得宿主能力 | contextIsolation、禁用 nodeIntegration、受信文档导航、逐请求 IPC 来源校验、schema IPC、签名更新 | [renderer 边界回归](../../apps/desktop/test/renderer-boundary.test.ts)与[preload 回归](../../apps/desktop/test/preload-boundary.test.ts)覆盖固定入口和主 frame；不防御受信入口自身被攻陷，签名更新与目标平台发布仍待验收 |
 | TM-010 | Abuse | 情绪脆弱/危机内容被用于留存、推荐或日记 | purpose 隔离、安全事件受限、禁止商业定向/关系分数 | `TC-AIEVAL-SAFE-001`；政策误分类持续监控 |
 | TM-011 | Supply chain | 依赖、参考代码或插件引入恶意代码/许可证风险 | lockfile、SBOM、签名、漏洞/许可证扫描、AGPL 隔离 | `TC-SEC-SUPPLY-001`；高危/许可未决阻断发布 |
 | TM-012 | Data poisoning | 外部题库/附件污染掌握度、记忆或知识树 | 来源/许可/置信状态、人工纠正、候选机制、回滚 | `TC-AIEVAL-POISON-001`；低置信内容不入正式事实 |
-| TM-013 | Elevation/Disclosure | 插件 Page 越权读取配置、secret 泄露或静态资源逃逸 | 受限 iframe sandbox、Host Bridge 能力白名单、Bundle 路径安全与 checksum、secret 不回显、AuditRecord | `TC-SEC-PLUG-001`、`TC-SEC-PLUG-CFG-001`；本地默认 secret 存储必须替换为加密 Store 后上线 |
+| TM-013 | Elevation/Disclosure | 插件 Page 越权读取配置、secret 泄露或静态资源逃逸 | 受限 iframe sandbox、Host Bridge 能力白名单、Bundle 路径/链接及描述符复验、checksum、secret 不回显、AuditRecord | 现行[Page 边界与缺口](plugin-config-and-pages.md#32-已有防护与未完成边界)及[配置/文件回归](../../apps/api/test/plugin-config.test.ts)；Page Token 未交付，不隔离主动修改文件系统的同 OS 用户；本地默认 Secret 仍须加密 Store 发布验收 |
 | TM-014 | Disclosure/Tampering | CAP-033 原始屏幕、音频、输入、剪贴板或文件副本被写入远程存储/模型/日志，或七天提炼前被错误清理 | 独立本地加密存储、`local_only` provenance、Provider/出网准入、七天+distillation gate、零外传/零召回测试 | `TC-SEC-PRO-LOCAL-001`、`TC-PRIV-PRO-RETENTION-001`；本地证明失效时 fail closed |
 | TM-015 | Elevation/Disclosure | CAP-033 观察内容或 Prompt injection 扩大 `FullProfileActionGrant`，跨用户操作、外发或不可逆修改 | 用户确认的版本化 action grant、目标 scope/OS/身份校验、沙箱、幂等、deny ledger 和动作审计 | `TC-SEC-PRO-ACTION-001`、`TC-SEC-PROMPT-001`；模型/插件不能自授 |
 | TM-016 | Spoofing/Repudiation | 伪造设备/Host/activation epoch 或重放后台恢复，绕过用户通知和撤权 | 签名 Host、设备绑定、heartbeat/expiry、版本和 grant hash、审计回执、恢复竞争 CAS | `TC-SEC-PRO-HOST-001`、`TC-RES-PRO-LIFECYCLE-001` |

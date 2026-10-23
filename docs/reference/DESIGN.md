@@ -10,7 +10,9 @@ id: AVX-DS-001
 
 ## 1. 视觉主题与设计哲学 (Visual Theme & Atmosphere)
 
-Aervox（思隅）是伴学与成长的双形态桌面智能体，融合“桌宠陪伴”的温度与“专业工程工作台”的秩序感。
+Aervox（思隅）是服务生活、工作与学习的主动智能个人助手，学习是首批验证场景。界面融合桌宠陪伴与专业工作台，产品范围以 [PRD](PRD.md#12-产品定位) 为准；视觉表现不能暗示尚未授权或验收的观察、动作和后台能力。
+
+桌面默认陪伴布局保留左侧大角色、轻量工具区和底部对话/输入；标准工作台为可选模式。手机和平板浏览器默认使用主动陪伴界面，已有手动选择和查询参数优先，缩放桌面窗口不会切换根界面。布局实现见[工作台主题](../../packages/ui/src/theme/workbench-experience.css)与[根界面解析](../../packages/ui-host/src/resolve-web-platform.ts)，短窗口工具可点击、输入不越界的回归见[经典布局测试](../../e2e/ui/classic-workbench.spec.ts)；这些证据不替代移动真机或桌面发布验收。
 
 - **设计语言定位**：**Ethereal Glass & Neo-Mica（空灵玻璃与新云母）**，结合微结构拟物（Doppelrand 双层边框 / 嵌入高光）、单主色秩序与流体微动效。
 - **三向调盘基准（The Three Dials）**：
@@ -138,6 +140,8 @@ button:active,
 ```
 
 说明文案必须能在最窄侧栏（200px）内一行排完，避免末行孤字。
+
+列表尚未载入时显示骨架及忙状态，读取失败时显示可重试故障态；只有成功载入且无匹配项时才显示空态。不得把接口失败或加载中的空数组解释成用户尚无数据，状态分支见 [WorkbenchSidebar](../../packages/ui/src/components/workbench/WorkbenchSidebar.vue)。
 
 **会话流不在空态约束内。** `useWorkbenchConversation` 在初始化与 `resetStory` 时都会写入一条 assistant 问候，`story` 永不为空，消费方只做 `push`；因此 `StandardConversation` 的 `.standard-empty` 与 `HistoryDrawer` 的 `.vn-history-empty` 都是不可达的防御分支。新增空态前先确认容器确实可能为空，不要为空态而造空态。
 
