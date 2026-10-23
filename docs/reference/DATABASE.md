@@ -116,7 +116,7 @@ POSIX 权限目标为目录 `0700`、数据库/状态清单/token `0600`；Windo
 
 ## 6. Repository Port 契约
 
-D2 完成后的 Repository 方法直接接收业务参数，不再把 `tenant` 作为首参。以下原则保持不变：
+Repository Port 仍可保留首参 `LocalContext`，由宿主构造；部分实现沿用 `ctx` 或 `tenant` 参数名，但这些值不参与持久化分区或数据归属判定。不得恢复 `TenantContext`、租户列或客户端身份头。以下原则保持不变：
 
 - 读方法明确返回 `null`/空列表或领域错误；不得用租户不匹配模拟 404。
 - 写方法在单个 SQLite 事务内完成事实、Outbox、CAS/fencing 和必要控制投影。
@@ -124,8 +124,9 @@ D2 完成后的 Repository 方法直接接收业务参数，不再把 `tenant` �
 - 后台 Job 携带业务实体 ID、来源修订、授权版本和幂等键，不携带伪造的本地租户常量。
 - `actorId` 只用于授权和审计；不能改变事实所属来源或绕过删除水位。
 
-迁移期间允许旧接口存在，但 D2 退出条件是全仓源码和测试中的 `TenantContext` 调用归零，不能长期保留
-接受后忽略参数的 no-op 兼容层。
+接口调整以当前类型声明和消费者为准；移除兼容参数不能顺带改变授权、审计或删除语义。`LocalContext` 与已移除的 `TenantContext` 不是同一合同。
+
+SSE 传输使用独立的有界分页接口，Resume 等全历史读取保持原语义。关闭订阅时，全部 Attempt 是否终态与事件高水位由同一 SQLite 语句快照读取，防止旧终态截断已开始的审批续接；页大小、超大单事件和快照之后新续接的边界见[流式协议](STREAMING_PROTOCOL.md#22-读取事件流)。
 
 ### 6.1 CR-033 F0/F1 主动智能基础设施
 
@@ -286,12 +287,7 @@ D1～D3 每阶段都必须运行 `mise tasks run ci-code` 与 `mise tasks run ci
 
 ## 13. 当前交付状态
 
-| CR-030 阶段 | 状态 | 说明 |
-|---|---|---|
-| D0 决策基线 | Implemented | 文档、需求、安全、隐私、测试和架构同步 |
-| D1 迁移器与安全入口 | Implemented | 预检、备份清单、范围选择、staging、校验、原子换库和 loopback 守卫已落地；运行编排与故障注入演练为发布前门禁 |
-| D2 Schema/Repository 去租户 | Implemented | 最终 Schema/DDL、Repository、API、Worker 和 Host Agent 不再读写租户列；`LocalContext` 仅保留兼容签名 |
-| D3 清理与发布 | Implemented | 静态审计、旧测试迁移和文档登记完成；完整 DSH 环境、停写协调与 rollback 保留仍需发布前复核 |
+CR-030 的迁移器、无租户 Schema/Repository 和消费者适配已实现，阶段证据统一见[追踪基线](REQUIREMENTS_TRACEABILITY.md)。完整运行编排、停写证明、故障注入及回滚保留仍按发布门禁独立验收；实现完成不等于已迁移真实用户库或正式发布。
 
 ## CR-056 插件实现可用性
 

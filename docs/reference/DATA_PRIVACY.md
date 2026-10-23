@@ -29,6 +29,8 @@ id: AVX-DATA-001
 - **插件/外部集成**：是独立权限主体。安装不代表获得数据，必须按 scope 授权，可撤销、过期和审计。
 - **插件配置**：普通配置值按本地插件 ID 保存；`secret` 字段属于 Restricted，不进入普通配置 JSON、日志、API 响应或 iframe HTML，生产环境使用加密 SecretStore Port；卸载按删除规则清理配置、secret 与 Page。
 
+当前 SQLite 插件 Secret 实现保证同库配置提交与 API 不回显，仍保存原值，不具备默认静态加密或 OS Keychain 保证；不能把上述生产要求当作已交付能力。配置/Secret 原子性、外部 Store 和审计边界见[插件配置合同](plugin-config-and-pages.md#2-配置存储与-api)，发布缺口仍受隐私门禁约束。
+
 ## 3. 数据分类
 
 | 等级 | 示例 | 默认控制 |
@@ -60,6 +62,8 @@ id: AVX-DATA-001
 - `external_sync:xiaomi_health`：CAP-035 使用用户自己有权使用的官方开放平台配置同步每日指标；不代表 Aervox 已获厂商审批，不允许逆向私有协议。
 
 同意记录包含政策版本、范围、授予/撤销时间、来源界面和证据。撤销只影响后续处理时，界面必须说明历史数据会保留还是删除，并提供相应操作。
+
+同意与质量反馈 API 的审计操作者只取宿主认证上下文，旧请求体 `actorId` 和身份 Header 不得覆盖它；这维护本地单用户审计完整性，不建立新的数据隔离或权限主体。接口与回归入口见[API 约定](API_CONVENTIONS.md)。
 
 <a id="privacy-retention"></a>
 

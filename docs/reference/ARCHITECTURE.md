@@ -22,13 +22,13 @@ id: AVX-SAD-001
 
 ## 1. 架构结论
 
-采用 **TypeScript-first 模块化单体 + 独立 Worker/Scheduler**。Web、API、后台任务和桌面壳共享契约、领域类型和 UI；SQLite（WAL 模式）是永久本地单用户业务真源，`@aervox/schema` 与 `@aervox/repositories` 分别承载结构和访问边界；AI、记忆、日记和插件通过稳定内部 Port 解耦。API 默认仅监听 loopback，非 loopback 必须显式启用并强制认证。CAP-033 由受信本地 Privacy Host/Helper 承担全量观察、画像、后台生命周期和主动动作，主动数据不得进入普通远程数据面；CAP-034/035 通过同机本地连接网关接入家庭环境和规范化健康信号。
+采用 **TypeScript-first 模块化单体 + 独立 Worker/Scheduler**。Web、API、后台任务和桌面壳共享契约、领域类型和 UI；SQLite（WAL 模式）是永久本地单用户业务真源，`@aervox/schema` 与 `@aervox/repositories` 分别承载结构和访问边界；AI、记忆、日记和插件通过稳定内部 Port 解耦。API 默认仅监听 loopback，非 loopback 必须显式启用并强制认证。CAP-033 要求由受信本地 Privacy Host/Helper 承担全量观察、画像、后台生命周期和主动动作；当前仍有平台/生产验收缺口，状态见[追踪基线](REQUIREMENTS_TRACEABILITY.md#42-证据与适用限制)，主动数据不得进入普通远程数据面；CAP-034/035 通过同机本地连接网关接入家庭环境和规范化健康信号。
 
 MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应商成为核心运行时依赖。共享数据库多租户、组织权限和 PostgreSQL 演进由 CR-030 取消；未来若重新需要多人协作或远程服务，必须新建 ADR，不能恢复旧租户字段作为捷径。
 
 ## 1.1 插件配置与页面边界（CR-006）
 
-插件配置使用 Aervox Config Schema v1：Schema 随 Bundle 注册并存储在 `plugins` 表，配置值按 `pluginId` 存入本地 `plugin_configs`，secret 走 `plugin_config_secrets`（生产注入加密 SecretStore Port）。插件 Page 只加载本地 Bundle 静态资源，运行在受限 iframe 中并通过 Host Bridge 读写本插件配置；不开放插件自有后端路由、文件上传、SSE 或直接数据库访问，符合 `ADR-009` 与 `AVX-CAP-001` 的沙箱与最小权限要求。
+插件配置使用 Aervox Config Schema v1：Schema 随 Bundle 注册并存储在 `plugins` 表，配置值按 `pluginId` 存入本地 `plugin_configs`，secret 走 `plugin_config_secrets`；当前 SQLite SecretStore 未实现静态加密，加密 Port 是生产目标，不能据字段脱敏声称已加密。插件 Page 只加载本地 Bundle 静态资源，运行在受限 iframe 中并通过 Host Bridge 读写本插件配置；不开放插件自有后端路由、文件上传、SSE 或直接数据库访问，这是已实现的 Page 静态隔离范围；第三方代码执行、独立进程沙箱及跨端 Page Token 通道仍按 `ADR-009`、插件契约和 ITER-006/019 验收。
 
 ## 1.2 Bot 平台入口与群会话边界（ADR-029）
 
@@ -50,12 +50,12 @@ API 组合根显式装配第一方 Bot 传输贡献，共用会话受理与完�
 | UI/editor | Element Plus + 定制主题（迁移自 desktop styles）、CodeMirror 6 | 组件共享、键盘可用和 WCAG 2.2 AA |
 | API | Fastify 5、Zod 4、OpenAPI 3.1、POST Turn + GET SSE（Fetch 消费） | 客户端和插件通过契约访问；事件 envelope、重连、取消、幂等和安全持久化遵循[流式协议契约](STREAMING_PROTOCOL.md)；不以 tRPC 锁定消费者 |
 | Database | SQLite（WAL 模式）+ Drizzle ORM + `@aervox/schema`/`@aervox/repositories` | 事务、约束、递归 CTE、全文检索；当前操作系统用户和本机 API 是安全边界；禁止跨模块直接写表 |
-| Retrieval | SQLite FTS5 + VectorSearchPort（`sqlite-vec`/内存适配） | 记录 embedding 模型/维度/版本，可离线重建；MVP 不引入 Neo4j/独立向量库 |
+| Retrieval | SQLite FTS5 + VectorSearchPort；当前本地 JSON 向量评分，`sqlite-vec`/原生计算为可替换候选 | 记录 embedding 模型/维度/版本，可离线重建；MVP 不引入 Neo4j/独立向量库 |
 | Queue | 本地 SQLite Outbox + Worker 轮询 | 至少一次投递、幂等键、重试、指数退避；SQLite Outbox 是持久化真源（CR-030） |
 | Object | 本地文件系统目录（attachments/exports） | 本地安全存储、上传前后做大小/格式/解压比扫描；删除遵循数据 SLA（CR-030） |
 | AI | 内部 `ProviderPort`：`@aervox/core` 自研 OpenAI 兼容流式 Provider（运行时零外部依赖，ADR-021） | 业务通过内部接口调用模型；本地 llama.cpp 侧车以 OpenAI 兼容端点接入（model-runtime）；模型不能直写业务表 |
 | Desktop/mobile | Electron（P1）、Capacitor（后续，打包 web UI） | `contextIsolation`、关闭 `nodeIntegration`、受限 IPC、签名更新包、逐项设备授权；CAP-033 使用独立签名 Privacy Host/OS Permission Broker 管理后台和设备能力；移动端以 Capacitor 打包 Web UI（WebView 壳 + 受限桥接，不引入 RN，见 ADR-015/022） |
-| Test/observability | Vitest、Playwright、Testing Library、fast-check、OpenTelemetry、Pino、Prometheus/Grafana、Sentry | 正常 CI 不依赖实时供应商；日志默认不含完整用户内容 |
+| Test/observability | Vitest、Playwright、Testing Library、fast-check；运行观测通过 `@aervox/observability` 与受认证 Metrics；OpenTelemetry/Pino/Grafana/Sentry 为目标选型 | 正常 CI 不依赖实时供应商；目标选型不表示全部后端已接入，日志默认不含完整用户内容 |
 
 ## 3. 仓库与领域边界
 
@@ -98,7 +98,7 @@ native/
 
 ### 3.1 共享产品宿主结构（演进式模块化单体）
 
-`packages/host-runtime/src/` 采用**按领域模块组织**的结构（ADR-014 0.3.0 两层分组：25 模块 → 6 域，归属表见 `CR-052 §3.1`（已归档）），每个模块自管路由与仓储实例化，跨模块解耦走持久化的 SQLite Outbox 表由 Worker 轮询投递：
+`packages/host-runtime/src/` 采用**按领域模块组织**的结构（ADR-014 0.3.0 两层分组：25 模块 → 6 域，归属表见 `CR-052 §3.1`（已归档）），每个模块自管路由与仓储实例化。持久异步副作用使用 SQLite Outbox 由 Worker 投递，同步能力经公开 Port/组合根注入，进程内 UI 唤醒不代替持久事件；实际所有权收敛仍由边界守卫与专项验收证明：
 
 ```text
 packages/host-runtime/src/
@@ -176,7 +176,7 @@ apps/api/test/                       # 集成测试
 
 ### 3.2 跨端工作台与平台壳
 
-Web 与桌面端使用 `@aervox/ui` 的 `AervoxWorkbench`、主题与设置组件，通过 `@aervox/api-client` 消费同一 API/SSE 合同。Web 使用 Fetch 传输，Electron 注入受限 IPC 传输；重连、去重与 `Last-Event-ID` 语义相同。平台组合根注入能力，不让共享组件依赖 Electron 或 Capacitor。
+Web 与桌面组合根按平台装配第一方根界面，并复用 `@aervox/ui` 的主题、设置与工作台组件；桌面默认是角色居左、轻量工具与底部对话输入的经典陪伴布局，移动默认使用主动陪伴入口，完整/紧凑工作台仍可选择，通过 `@aervox/api-client` 消费同一 API/SSE 合同。Web 使用 Fetch 传输，Electron 注入受限 IPC 传输；重连、去重与 `Last-Event-ID` 语义相同。平台组合根注入能力，不让共享组件依赖 Electron 或 Capacitor。
 
 两端主工作台均可显示共享 `Live2DPet`；Electron 另保留 `pet.html` 独立桌宠窗口、标题栏和窗口控制。Web 不提供 Electron 窗口能力。空间名「思隅」固定；角色名默认「小隅」，用户称呼默认「你」，可在对话设置修改。提示词优先采用当前人格名，再采用客户端角色名；界面设置不直接改写服务端人格，见 [ADR-027](adr/ADR-027-companion-identity.md)。设置共用左侧分类/右侧详情结构，窄屏采用横向分类；主题、角色名、用户称呼、发送偏好、密度和提醒保存在当前设备，桌面主题通过受限 IPC 同步壳窗口。
 
@@ -365,9 +365,9 @@ Captured
   -> 记忆候选/评估事件
 ```
 
-`ProviderPort` 至少支持 `streamText`、`generateObject`、`embed`、`classify`，并声明上下文长度、成本、数据地区和能力。流式协议采用 POST 创建 Turn + GET SSE，事件使用 Turn 内单调 `eventId/sequence` 和 `Last-Event-ID` 重连；供应商输出先进有界分段缓冲，逐段通过安全/结构检查并持久化后才展示。TTFT 从 Turn 持久化接受时刻起计到首个已安全检查且持久化的可见分段，另记端到端首段渲染延迟。每个 `ModelRun` 记录模型、供应商、Prompt、ContextManifest、token、延迟、成本、失败和安全决策；默认不记录完整敏感 Prompt。
+统一 Provider 能力面是架构目标：`ProviderPort` 至少支持 `streamText`、`generateObject`、`embed`、`classify`，并声明上下文长度、成本、数据地区和能力。当前 Core 对话执行接口是 `ModelProviderPort.stream`，embedding/分类等仍由独立 Port/服务承载，不能据目标接口推定两栈已统一；剩余见 [ITER-033](../../plan.md#iter-033)。流式协议采用 POST 创建 Turn + GET SSE，事件使用 Turn 内单调 `eventId/sequence` 和 `Last-Event-ID` 重连；供应商输出先进有界分段缓冲，逐段通过安全/结构检查并持久化后才展示。TTFT 从 Turn 持久化接受时刻起计到首个已安全检查且持久化的可见分段，另记端到端首段渲染延迟。当前每次实际模型调用记录 ModelRun 与 ContextManifest，包括失败调用、请求快照、可选 usage 和耗时；诊断 best effort 不等于授权/恢复账本。目标要求关联模型、供应商、Prompt 版本、token、成本、失败和安全决策，并默认不复制完整敏感 Prompt；当前快照仍包含完整 messages/tools 正文，最小化与来源删除传播的实现差距见[追踪基线](REQUIREMENTS_TRACEABILITY.md#privacy-gates)，不视为已满足隐私发布门槛。
 
-附件、网页、插件输出和外部题库都是不可信数据，不能覆盖系统提示或直接触发工具。模型只能请求工具，权限代理根据用户授权和工具策略作最终决定。CAP-033 主动动作还需校验 `FullProfileActionGrant`、目标 scope、设备 lease 和本地处理证明；用户确认后可覆盖声明的本地、外部、特权和不可逆动作，但模型/插件不能自授。插件默认无数据库、文件、网络、记忆和日记权限；远程插件能力仍需隔离运行，桌面插件使用受限子进程，Node `vm` 不作为安全沙箱。
+附件、网页、插件输出和外部题库都是不可信数据，不能覆盖系统提示或直接触发工具。模型只能请求工具，权限代理根据用户授权和工具策略作最终决定。CAP-033 主动动作还需校验 `FullProfileActionGrant`、目标 scope、设备 lease 和本地处理证明；用户确认后可覆盖声明的本地、外部、特权和不可逆动作，但模型/插件不能自授。第三方插件的安全目标是默认无数据库、文件、网络、记忆和日记权限，远程能力隔离、桌面执行使用受限子进程；Node `vm` 不作为安全沙箱。当前第一方受信贡献在宿主内装配，Page 静态隔离已实现，第三方代码执行开放与进程沙箱仍待 ITER-019，不能用 Page iframe 推定代码隔离已交付。
 
 ## 8. 日记调度与时区
 
@@ -381,9 +381,11 @@ UTC/IANA 时区、首次窗口、迟到素材、补写、CAS/fencing 与跨时�
 
 性能、可用性、日记发布、删除与灾备指标只维护在 [SRS 非功能需求](SRS.md#srs-nfr)。部署容量按本机 CPU、内存、磁盘 I/O 与 SQLite 写入吞吐测量；云端多用户容量基线已取消，不作为本地发布达标依据。云端可用性及 RPO/RTO 的本地适用目标仍待复审，见[未决事项](REQUIREMENTS_TRACEABILITY.md#operational-decisions)。
 
-告警覆盖 API 错误、TTFT、队列延迟/DLQ、日记迟到、来源验证失败、删除积压、AI 成本和安全分类异常。逐场景恢复操作见[运行手册](operations.md)。
+运维告警目标覆盖 API 错误、TTFT、队列延迟/DLQ、日记迟到、来源验证失败、删除积压、AI 成本和安全分类异常。逐场景恢复操作见[运行手册](operations.md)。
 
 ### 9.1 成本与供应商降级
+
+以下阈值与动作是待批准预算下的目标策略；现有 usage 采集和降级路由不证明全部百分比熔断已接入。实际发布状态仍以追踪基线证据为准。
 
 - 会话/月度成本预算的待批准数值见[未决事项](REQUIREMENTS_TRACEABILITY.md#operational-decisions)，预算未确定前不以估算冒充已通过成本门槛。
 - 预算达到 70% 触发预测告警，85% 停止非核心高成本任务（自动扩展阅读、批量重写等），100% 只保留已批准的核心模型/固定降级；不得通过降低安全分类或删除能力省钱。
@@ -482,14 +484,14 @@ UTC/IANA 时区、首次窗口、迟到素材、补写、CAS/fencing 与跨时�
 
 ### 13.3 思隅现状复核与剩余差量
 
-下表纠正旧评估中的现状判断。并行提交的能力单独标注；未合入主线的工作不视为当前默认行为。
+参考项目比较仍冻结于 §13.1/13.2 的版本；下表对照当前主线纠正旧判断。历史反例不直接证明今天仍存在同一缺陷，详细旧证据见[归档快照](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation/reading/docs/reference/ARCHITECTURE.md)。
 
 | 历史评估中的判断 | 本次实际检查 | 真正剩余的问题 |
 |---|---|---|
 | ContextManifest 只保存首个 Step | [recording-provider](../../packages/core/src/recording-provider.ts) 已对每次实际请求复制消息、工具和生成参数；[多 Step/重试测试](../../packages/core/test/context-manifest.test.ts)已覆盖 | 诊断写入仍为 best effort，不能当作恢复或授权账本；新建议应聚焦实际使用的策略版本及消费链路 |
 | 规则压缩只留首尾并伪称生成摘要 | [context-builder](../../packages/core/src/context-builder.ts) 已保留 system 和完整工具组，并明确提示被省略的消息没有生成摘要；[测试](../../packages/core/test/audit-provider.test.ts)验证配对 | 仍未实现保真摘要；应验证学习目标、错因、承诺和来源的保留，以及摘要失败后的明确降级 |
-| 需要新增缓存 Token 分账字段 | [Provider](../../packages/core/src/openai-compat-provider.ts) 已解析缓存读写用量，[存储工具](../../packages/repositories/src/token-usage.ts)也已有分账 | [ModelRunRecord](../../packages/core/src/types.ts)没有 usage，recording-provider 未向记录传递用量，[API 装配](../../packages/host-runtime/src/modules/companion/conversation/agent-executor.ts)结束记录只传状态和耗时；需接通实际调用到数据库的链路 |
-| 插件注册失败没有 owned lifecycle | `511f9d1e` 已增加 owned activation、暂存注册、失败回滚和 scope 失效 | 注册生命周期和分发包升级是不同问题；仍应独立审查安装目录、持久状态、恢复日志和进程崩溃，不能重复建设已有注册层 |
+| 需要新增缓存 Token 分账字段 | [Provider](../../packages/core/src/openai-compat-provider.ts) 已解析缓存读写用量，[存储工具](../../packages/repositories/src/token-usage.ts)也已有分账 | [ModelRunRecord](../../packages/core/src/types.ts)及 recording-provider 已传递可选 usage，[API 装配](../../packages/host-runtime/src/modules/companion/conversation/agent-executor.ts)写入 tokenUsage；缺失上游用量不伪造为零，实际策略版本、成本估算与诊断消费仍需分别核验 |
+| 插件注册失败没有 owned lifecycle | PR #277 已合入 owned activation、暂存注册、失败回滚和 scope 失效；声明包 generation 的原子激活切片另由 ADR-028 和 PR #281 交付 | 注册生命周期和分发包升级是不同问题；仍应独立审查安装目录、持久状态、恢复日志和进程崩溃，不能重复建设已有注册层 |
 
 ### 13.4 八个项目的实际增量与迁移取舍
 
@@ -705,9 +707,7 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 ## 15. 架构演进设计与历史问题证据
 
-本章是候选演进与历史反例。ARC/FND 分项来自 2026-09-18 基线 `6b20e7e`，其中“现状”“当前”、行号和实验结果均指该快照；后续闭环摘要按注明的 PR 解释。它们不能直接证明今天仍有同一缺陷。优先阅读 §13.3 的 2026-10-14 复核，再对照主线源码、测试和[当前计划](../../plan.md)。
-
-已合入的原子接单、配置/消息 CAS、锁回收、删除与控制继承切片，不重复列为待实现。PR #277 的插件 owned lifecycle、目录所有权和停机整改于 2026-10-15 独立合入主线，不属于 #278 的参考学习实现差量；注册激活回滚不自动证明分发包的崩溃恢复升级完成。现行契约仍由 §1～§12、专项契约和 ADR 定义，不由历史缺陷降低要求。
+本章保留当前边界、采用条件与未关闭验收。ARC/FND 编号来自旧基线，详细反例、行号、实验及 2026-10-08 审计已迁入[历史架构快照](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation/reading/docs/reference/ARCHITECTURE.md#architecture-evolution)。原始文件与 SHA-256 同包保存，旧失败和局部成功不改写为今日结论。现行合同由 §1～§12、专项契约及 ADR 定义；当前排序只维护[计划](../../plan.md)。
 
 ### 15.1 先统一边界与生命周期
 
@@ -737,330 +737,143 @@ AST-08/09 的 Config Schema、Page 和 Host Bridge 只按[插件契约](plugin-c
 
 ### 15.3 ARC-01～14：反例、取舍与验收
 
-以下每项保留旧基线的故障触发条件、实现/库级区别和建议验收；“建议”不表示批准新架构。恢复账本、授权、进程信任、公开 Port 等合同差量先走 ADR，破坏性迁移继续停写、备份、显式范围、staging 校验、原子换库与回滚保留。
+各项保留旧编号与锚点，详细触发条件见[原始评估](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation/reading/docs/reference/ARCHITECTURE.md#arc-01)。已交付与待验收分开陈述，不以历史故障降低现行合同。
 
 <a id="arc-01"></a>
 
 #### 15.3.1 ARC-01：从接单成功到可恢复执行（历史评估）
 
-原评估复现了领取前失败留下无租约 Running Attempt 的问题。消费隔离、死信、预加载失败与已有无租约 Attempt 恢复已由 [ITER-002](../../plan.md#iter-002) / PR [#228](https://github.com/3yearsZhuang/Aervox-harness/pull/228) 修复，回归入口为[对话派发恢复测试](../../apps/api/test/conversation-dispatch-resilience.test.ts)及 [Outbox 测试](../../apps/worker/test/outbox-worker.test.ts)。历史过程见 Git。PR #258 随后以原子接单闭合提前确认 Inbox 和尚未创建 Attempt 的窗口，故障与并发回归见[历史审计](#audit-findings)。
-
-已受理任务须可追踪、重试不得重复消费或产生副作用，这些约束继续有效。容量准入、独立 Host 与完整互动恢复不由此切片自动证明，分别按 ITER-013/010 继续核验。
+原子受理、Outbox 消费归属与无租约 Attempt 收敛已由 [ITER-002](../../plan.md#iter-002) / PR #228、#258 交付。已受理任务仍须可追踪且重复消费不产生副作用；容量准入与完整互动恢复分别留 [ITER-013](../../plan.md#iter-013)/010，不能由接单切片推定自动续跑完成。
 
 <a id="arc-02"></a>
 
 #### 15.3.2 ARC-02：执行控制必须沿父子任务与 Driver 传递（历史评估）
 
-**历史实现与证据。** [原生执行器](../../packages/core/src/executor.ts)已有工具 AbortSignal、租约心跳、默认 8 Step 和通常 5 秒工具超时；API 没有注入总 Turn 时长，相关默认值为 0。[OpenAI 兼容 Provider](../../packages/core/src/openai-compat-provider.ts)的默认 45 秒是随上游数据重置的空闲超时。持续输出不受它约束为固定总时长。
-
-[Subagent/Workflow Contribution](../../packages/core/src/subagent-contribution.ts)没有把工具信号传入 delegate/WorkflowContext。[子任务执行器](../../packages/host-agent/src/subagent-executor.ts)另起 lease、仅限制 4 Step；[API 组合根](../../packages/host-runtime/src/modules/companion/conversation/index.ts)为子任务构造 Provider 时，没有传入父执行器使用的 `requireLocalOnly`、路由和会话上下文。父本地处理约束不能据此推断子任务已继承。Workflow 需注入定义才出现；Subagent 已在生产组合根注册，默认子任务无工具且禁止递归委托，这些保护应保留。
-
-**已复现与限制。** 两步 Fake Workflow 在第一步取消信号后仍执行第二步并返回成功；Fake Subagent 收到的 delegate 输入不含 signal。实验没有运行真实模型或外部副作用。父工具超时后子模型是否继续写入属于这条接线导致的风险，不是本轮已观察到的用户数据事件。
-
-**建议。** 用窄的执行控制对象传递根/父任务身份、取消、绝对截止时间、删除/授权修订和本地处理约束；子任务只能收紧父策略。预算先覆盖墙钟、调用数与并发，再按真实 usage 增加 token/成本；恢复不能重置已消耗预算。没有取消能力的 Provider 应停止新派发、丢弃已取消结果，必要时依赖受限进程终止。已发出的外部动作仍可能结果未知，取消不等于副作用撤回。
-
-**Driver 边界。** [API 执行器](../../packages/host-runtime/src/modules/companion/conversation/agent-executor.ts)的 DSH 分支在原生本地策略检查之前返回；[Adapter](../../packages/host-agent/src/adapter-turn.ts)与[当前 runner](../../packages/host-agent/test/fixtures/dsh-turn-runner.mjs)没有自动继承原生全部控制合同。当前 runner 是 `stream:false` 的单次兼容请求，库模式仅探测 DSH 导出；推广完整外部 Agent 前，应逐项验证本地策略、取消、删除、租约、工具账本与终态原子性，不能凭名称认为实现等价。
-
-**验收。** 父取消后子任务不再进入下一步；总截止时间覆盖持续输出；本地处理任务委托时拒绝 Fake 远程 Provider；重启后累计预算连续。Driver 使用同一合同夹具，但可以明确声明不同能力等级；当前没有证据支持宣布 DSH/Pi 与原生执行完全等价。
+父子任务、Workflow、Driver 的取消/截止/local-only 和授权修订由 ControlContext 传递并在副作用前复验，已交付切片见 [ITER-007](../../plan.md#iter-007)/034/044/045。未知外部结果不自动重放，取消不回滚既有副作用；累计预算、Driver 能力等价与真实外部执行仍按 [ITER-013](../../plan.md#iter-013) 及 [ITER-033](../../plan.md#iter-033) 验收。
 
 <a id="arc-03"></a>
 
 #### 15.3.3 ARC-03：动态工具的可执行性与可发现性（历史评估）
 
-**历史实现与证据。** [createRuntimeToolProvider](../../packages/host-runtime/src/modules/companion/conversation/tool-providers.ts)返回 `tools: []`，执行时才读取注册表。[组合器](../../packages/core/src/subagent-contribution.ts)只合并已有清单，模型 Provider 又只将 `request.tools` 转成 function Schema。因此静态 Subagent/Question/Practice/已配置 Workflow 可见，Memory、MCP 和插件注册工具不会自动进入真实模型请求。
-
-**已复现。** Fake 注册表包含一个只读 `fake_memory`，静态 Provider 包含 `fake_static`。捕获真实 OpenAI 兼容序列化生成的请求体，只看到 `avx_fake_static`；直接调用动态 `fake_memory` 却成功。这个实验解释了为什么手写 ToolCall 的执行测试可以通过，同时真实模型无法自然选择该工具。
-
-**建议与验收。** 在上下文构建前产生经过可见性与能力级别过滤的工具 Schema 快照，记录注册修订；执行时仍重查启用状态和授权。先实现每 Turn 清单，再根据注册版本失效缓存；工具很多时才评估按任务筛选。验证应捕获模型 HTTP 请求体，覆盖安装/启用/禁用与在途旧快照；不能把发现缓存变成授权真源。此项会增加 Prompt 开销，应与 FND-08 的完整上下文预算一起测量。
+动态工具的模型可见 Schema 快照、执行时授权重验与参数验证已由 [ITER-007](../../plan.md#iter-007)/068 交付。注册缓存不成为授权真源；新增工具继续捕获真实模型请求、覆盖启停与旧快照拒绝，并与最终上下文预算一起核验。
 
 <a id="arc-04"></a>
 
 #### 15.3.4 ARC-04：自动恢复与互动等待的连续性（历史评估）
 
-**接线边界。** 当前 [Attempt Recovery Worker](../../apps/worker/src/attempt-recovery.ts)主要将过期 Running 收敛为 Interrupted，并处理未知工具结果；`createAgentHost` 和 `createSqliteResumeSource` 尚未接入默认生产启动。已提交答案、已批准工具与已恢复执行是三个不同事实。
-
-**库级已复现。** [decideResume](../../packages/core/src/resume.ts)在同一 Step 的事件为 `request1(seq=1) → result1(seq=2) → request2(seq=3)`、账本只有第一个执行完成时，返回 `resume=true,lastSequence=2`。它没有证明所有请求都具备账本，而且游标低于持久最大序号 3。[ResumeSource](../../packages/host-agent/src/sqlite-resume-source.ts)还需要按 executionId 正确关联多工具结果与互动事件。当前未接线，不能把这个实验描述为默认 API 已重复执行副作用。
-
-**互动语义。** 当前审批结束主要依赖新 Turn 命中已有授权，不是原 Attempt 自动续跑；授权查询按工具名、参数和 granted 匹配，虽记录 `toolVersion`，查询未校验该版本，一次性消费与有效期语义也未闭环。这是需要明确的持续授权语义，不能直接用“一次批准”概括。[问题协调器](../../packages/host-runtime/src/modules/companion/conversation/user-question-coordinator.ts)能持久接收恢复后的答案，但原进程 Promise 消失后仍需后续执行消费者。
-
-**建议与验收。** 自动恢复启用前，先固定完整请求/账本覆盖、全体持久事件高水位、当前 Attempt 归属和原子接管规则；未知外部结果保持人工处理或明确补偿。将等待审批/答案与续跑意图关联，区分一次动作批准和持续规则授权。覆盖每个工具崩溃边界、多工具、缺账本、审批中重启、答案由另一进程提交和 Worker/Host 同时接管；不复用事件序号、不重复副作用、不吞答案。持久续跑语义及授权范围应先由 CR 冻结。
+Resume 库的请求/账本覆盖和高水位已有修复；运行中审批续跑不等于跨进程恢复。默认启动未因此启用完整自动 Resume；缺账本、多工具、审批/答案重启、重复接管、一次性授权/有效期与未知结果人工处置继续见 [ITER-010](../../plan.md#iter-010) 和 [Loop 合同](agent-harness-loop.md)。
 
 <a id="arc-05"></a>
 
 #### 15.3.5 ARC-05：流式输出需要贯通整个链路（历史评估）
 
-**历史实现与证据。** [collectStep](../../packages/core/src/executor.ts)将普通文本 chunk 收进数组，等待 Provider 当前 Step 完成后才批量 `recordSafeSegments`。reasoning 会在流中节流持久化；普通文本不会随上游首段立即可见。批量落库减少事务开销是已有收益，但整个 Step 并没有按字节数或时间切成有界窗口。DSH Adapter 则先收齐事件，runner 本身也未使用流式请求。
-
-**影响。** 长文本可能表现为持续等待后集中出现；进程中途退出时，已接收但未落库的普通文本没有重放依据。FND-06 处理 SSE 的下游慢连接，无法单独解决这个上游等待。本轮是源码审阅，没有测量真实首字延迟或内存峰值。
-
-**建议。** 采用“Provider → 有界安全分段 → 批量持久提交 → 广播 → 有界 SSE”的链路。窗口由字节/时间双阈值控制，只有通过检查并提交的内容才可见；一旦输出已提交，Provider 重试要遵守已提交水位，不能重新播放整段。保留批量事务，不退回逐 token 写事务。Driver 的能力声明应说明真实增量输出还是整次响应后转事件。
-
-**验收。** Fake Provider 慢速产生多段文本时，后段未到达前首个已批准窗口即可重放；中断只损失未提交窗口。对慢客户端同时验证 FND-06 的背压、分页重放与断连释放。分别记录上游首 chunk、首个安全持久段、客户端首渲染时间，避免用一个 TTFT 数字掩盖等待位置。
+安全正文已按时间/字节窗口提交，SSE 已有 SQLite 分页、背压及持久终态核对，见 [ITER-057](../../plan.md#iter-057)/013。持久提交先于可见输出；慢源、慢客户端、跨进程终态、断连续传分别验证，DSH/其它 Driver 的整次响应能力不能冒充真实增量流。
 
 <a id="arc-06"></a>
 
 #### 15.3.6 ARC-06：删除完成证明和恢复后的撤权保留（历史评估）
 
-**活动路径的缺口。** [隐私路由](../../packages/host-runtime/src/modules/platform/privacy/routes.ts)创建 DeletionRequest，但没有物化目标；[删除 Worker](../../apps/worker/src/deletion-worker.ts)的 owner 清理仍是骨架，直接将目标标 completed 并生成 evidenceRef。空目标数组也可通过 `every(completed)`。已有消息/记忆软删与读取过滤有效，本项限定为统一删除编排，不能概括为所有删除入口无效。
-
-**已复现。** 临时库创建一条记忆和对应删除请求/目标，执行真实 `runDeletionCycle` 后，请求与目标 completed、`verified_at` 已写、删除闸门由 true 变为 false，但记忆原文仍可通过仓储读取。[隐私仓储](../../packages/repositories/src/repositories/sqlite/privacy-repository.ts)的闸门只看 pending/in_progress，failed 也不继续阻断。完成状态不是零召回证明。
-
-**建议。** 删除先形成范围化 deny/tombstone，再由数据所有者物化目标、幂等清理，最后独立核对真源、FTS/向量、附件及派生关系。只有验证成功才推进完成水位；空目标必须有范围确实为空的证据；失败或未知继续禁止受影响范围。先交付 Memory 与其索引的完整切片，再扩大到消息和派生数据，不把全局永久停用当作最终设计。
-
-**恢复账本的区别。** [RecoveryLedgerRepository](../../packages/repositories/src/repositories/sqlite/recovery-ledger-repository.ts)目前仅见库/测试调用；撤权路由没有独立账本确认及恢复追平。[账本 Schema](../../packages/schema/src/ledger.ts)的 sequence 索引非唯一，追加使用 `MAX+1`；临时库并发追加得到 `[1,1]`，这是未接线库级问题。`tamperEvidence` 接收调用方值也不等于实现了防篡改链。
-
-**演进与代价。** 基于既有恢复契约建立原子单调序列、幂等追加、账本确认后投影 deny、恢复水位追平。当前主库、Vault 与账本使用独立连接，不能据此获得跨库原子提交保证，应采用持久事件与幂等投影。独立文件也不自动具备独立故障域或防回滚能力；保留、密钥与备份部署按 ADR 明确。
-
-**验收。** 删除中断、清理失败、并发新写、重复投递和旧备份恢复均不得让已删除/撤权内容重新可用；每个 completed 都有可重做的验证证据。账本不可读或水位不足时，受影响操作保持关闭。物理清理不应破坏用户数据恢复包的既定保留政策，继续遵循[数据隐私契约](DATA_PRIVACY.md)。
+Memory owner 的清理、独立验证、迟到写入拒绝与失败不解闸已交付；未知 owner/目标不能伪造 completed。完整来源传播、独立 deny 账本、恢复水位和旧备份撤权保留仍见 [ITER-003](../../plan.md#iter-003)/010 及 [隐私合同](DATA_PRIVACY.md)。删除成功须可重做验证，恢复包保留不能代替零召回证明。
 
 <a id="arc-07"></a>
 
 #### 15.3.7 ARC-07：消息版本变更需要一个业务工作单元（历史评估）
 
-**历史实现与复现。** [MessageStore.editMessage](../../packages/repositories/src/repositories/sqlite/conversation/message-store.ts)被 PATCH 消息路径直接调用。它先检查 expectedVersion，再依次标旧版本 superseded、插入新版本、更新当前指针，三步不在同一事务，写条件也没有真正的版本 CAS。临时库用触发器在插入第二版时抛错，结果是当前指针仍指第一版、第一版已 superseded、未被替代版本数为 0。
-
-**建议。** 将“一个活动消息恰有一个当前版本”作为仓储命令不变量，以短写事务完成创建版本、版本条件更新和旧版本推进；核对影响行数。与编辑相关的索引失效或派生重建意图可同事务进入 Outbox，文件/模型 I/O 留在事务外。复用现有 Turn、工具结果和安全片段的原子实现经验，不为所有仓储强行增加泛型事务层。
-
-**验收。** 每个写点失败只允许完整旧版或完整新版；两个相同 expectedVersion 并发最多一个成功；编辑与删除竞争不能复活消息。由写者连接验证不变量。若已有历史不一致，先报告并显式修复，不能按最大行号静默选择。此模式随后可用于审查 FND-02 的配置 CAS，而不是仅加一个全局锁掩盖多步写问题。
+消息版本在写者短事务中完成 CAS、旧版推进与当前指针切换，失败回滚/同版本竞争回归见 [ITER-004](../../plan.md#iter-004) / PR #258、#259。新写点须继续保持唯一当前版本，编辑/删除竞争不得复活内容；历史不一致不能按最大行号静默修补。
 
 <a id="arc-08"></a>
 
 #### 15.3.8 ARC-08：检索资格与派生索引生命周期（历史评估）
 
-**历史读路径。** [createSqliteMemoryRecall](../../packages/host-runtime/src/modules/companion/conversation/memory-recall.ts)进行混合检索，再核对软删、verified 和 long_term；尚未统一执行 `aiRecallUntil`、用途与分类资格检查。临时夹具把记忆设为已过期且 Restricted，该条仍进入 recall。生产创建路径尚未见这些字段赋值，所以这是资格边界验证，不是已发现真实敏感数据泄露。按[隐私授权](DATA_PRIVACY.md)，Restricted 默认不进入普通记忆；`restricted.profile` 仅授权 CAP-033 指定范围的本地处理，不自动授权普通长期记忆召回，不能增加一个通用授权开关就放行。
-
-**历史索引。** [记忆写工具](../../packages/host-runtime/src/modules/companion/memory/memory-store-tool.ts)先写业务记录，再更新 FTS，再调用 embedding；任一步失败不代表前一步已撤销。[FTS](../../packages/repositories/src/search/fts.ts)默认 `unicode61`，临时中文样本“今天学习数学”全文命中 1 条、子词“学习”命中 0 条；这说明需中文检索质量基线，不代表所有中文查询都失败。
-
-**可选回填的缺口。** [Embedding Worker](../../apps/worker/src/embedding-migration.ts)默认没有注入 Provider，直接返回 0。注入最小 Provider 后，真实临时库报 `no such column: r.workspace_id`，说明扫描仍引用已移除的历史列；修复应采用当前 LocalContext，不能重新加入旧隔离列。扫描也未按模型区分缺失；[向量适配器](../../packages/repositories/src/repositories/sqlite/memory-embedding-repository.ts)的通用 upsert 使用 `vec_<memoryId>`，不符合多个模型版本共存方向。后者是库级静态风险，当前主要生产调用是 search，不能声称已经覆盖了用户旧向量。
-
-**建议与权衡。** 业务记录继续是真源；FTS/向量是可删除重建的投影，携带来源修订、索引版本、模型/维度与资格水位。返回模型上下文前做权威资格检查，必要时过采样以补足合格 topK；写入通过 dirty/reindex 意图可恢复追平。新模型使用独立版本构建、验证再切换，避免就地覆盖。中文分词或字符 n-gram 需比较 Recall@K、空间与构建成本，不能只看返回条数。
-
-当前向量检索仍读取模型下的 JSON 向量，在 JavaScript 做余弦评分；2026-10-12 的 CR-062 切片将全排序替换为保持同分顺序的有界 top-K。合成对照显示 JSON 解析仍占据主要成本，连续数组与 Rust 计算均值得进一步比较；尚无生产查询瓶颈证据。候选过滤、数据表示和原生计算须分别测量，再决定是否接入 SQLite 向量扩展。没有证据要求引入外置向量服务。
-
-**验收。** 正常、过期、撤权、软删与 Restricted 数据混合，越权结果必须为零，且无资格旧索引不能挤掉合格结果；索引失败后可追平；模型 A→B→A 能切换并保持来源版本。权限验证、中文质量和检索性能分别报告，不能用一项通过代替另外两项。
+召回资格和迟到索引写入已加闸，向量仍以当前模型 JSON 数据做本地评分；有界 top-K 不证明生产瓶颈消失。投影失败追平、来源/模型版本、可选回填、中文 Recall@K 和 A→B→A 切换留 [ITER-012](../../plan.md#iter-012) 及 [ITER-017](../../plan.md#iter-017)；Restricted 与过期数据的权威资格在返回上下文前复验。
 
 <a id="arc-09"></a>
 
 #### 15.3.9 ARC-09：启动建表、Schema 迁移和索引重建分工（历史评估）
 
-**历史实现与复现。** API 与 Worker 默认启动均调用 `initDatabaseSchema`，已有索引等价性测试；现有 [runMigrations](../../packages/repositories/src/migration/migration-service.ts)提供名称/时间 journal，但本轮只见测试调用，未接入默认启动，也没有校验和或恢复状态。这些基础不等于完整旧版本升级已经验证。[buildCr030Staging](../../packages/repositories/src/migration/staging-migration.ts)只识别虚表 SQL，仍会复制 FTS shadow 表。两个当前完整 Schema 的临时库执行该流程，报 `UNIQUE constraint failed: memories_fts_config.k`；现有 staging 测试主要使用简单父子表。此路径属于迁移库/演练，正常启动不自动执行搬库，不能描述成线上搬库事故。
-
-**建议。** 明确主库、Vault、账本各自的受支持 Schema 版本和迁移计划，业务表按清单迁移；排除虚表及其 shadow 表，FTS/向量从有效源记录重建。完善并接线现有迁移 Runner，记录步骤、校验和与恢复状态；服务启动只在兼容性检查和受控协调后放行，避免多个进程同时尝试未版本化 DDL。主库和 Vault 使用完整初始化的表集合可以后续收窄，不应因此合并隐私边界。
-
-**验收。** 使用包含 FTS、外键、软删、多模型投影的完整小库，从每个受支持旧版本升级；核对权威行/哈希、查询结果、删除水位和失败后的连接设置。保持已有索引 parity 测试并扩展列默认值、外键与数据转换。生产操作仍按[停写、备份、范围选择、staging、校验、换库与回滚](../how-to/run-database-migration-drill.md)执行，不能用简单文件 rename 测试替代数据库恢复演练。
+启动 Schema 初始化不等于旧版本升级协议。FTS/shadow 排除、版本 journal/校验和、完整旧库升级及失败恢复留 [ITER-011](../../plan.md#iter-011)；任何业务换库遵循[停写、备份、显式范围、staging、校验、原子切换与回滚保留](../how-to/run-database-migration-drill.md)，不能恢复租户列或以简单 rename 代替恢复演练。
 
 <a id="arc-10"></a>
 
 #### 15.3.10 ARC-10：领域目录需要可执行的所有权边界（历史评估）
 
-**实测结构。** 对 `packages/host-runtime/src/modules/<domain>/<module>/` 下 130 个 TypeScript 文件做只读 AST 统计，得到 6 域、26 模块、14 条不同的模块间有向边，其中 10 条跨域；语法层面 10 处 value import、19 处显式 type-only 引用，解析失败和未解析相对路径均为 0。统计仅含顶层静态相对 import/export，不包含动态导入、ModuleContext 服务调用或真实调用图；value import 不保证最终保留在编译产物中。
-
-代表依赖为 conversation→proactive 的画像/授权实现、conversation→plugins 的 Turn 插件、plugins→conversation 的 `stream-hub`、persona→skills。模块图中 conversation 与 plugins 双向相依，不等于已证明文件级 ESM 初始化环。真正的问题是内部实现路径成为其它模块的依赖，而重构时没有稳定公开边界。
-
-**门禁覆盖。** [边界脚本](../../scripts/import-boundary.mjs)有 5 条包层规则；本轮现有检查与 14 项脚本测试全部通过。用纯内存 fixture 让 conversation 导入另一个领域的 `routes.ts`，检查结果仍为 `[]`。另一个语法错误 fixture 也因 parser catch 返回空结果；Typecheck 可另行发现语法错误，这只说明边界工具没有报告漏检，不代表整个 CI 会接受非法代码。
-
-**与 ADR 的差异。** [ADR-014](adr/ADR-014-modular-monolith-structure.md)要求模块仅 `index.ts` 对外、跨模块经 shared 总线，而 `event-bus.ts` 没有领域调用者（已在卫生清理中移除）；[ModuleContext](../../packages/host-runtime/src/modules/context.ts)仍提供 raw db/client 和按顺序填入的可选服务。对话模块也直接创建多个领域仓储。目录分组已经完成，数据所有权与接口强制还没有同等程度的保证。
-
-**候选演进，需 ADR。** 同步查询/命令使用明确类型的公开 Port，异步业务副作用走有归属的持久 Outbox，短暂 UI 通知走进程内广播；三者各自声明失败和重放语义。先冻结实际需要的公开接口，再增加 API 内部深层引用限制、数据写入所有权和解析失败报告。已有违规用带 owner/退出条件的迁移清单逐步收敛，不一次性把所有业务塞进 shared，也不机械改成异步事件调用。
-
-**验收与代价。** 注入跨模块私有路径必须失败；批准的公开 Port 必须通过；模块可在 Fake Port 下独立测试。将可变全局槽替换为每模块所需的窄依赖对象，组合根在启动时检查必需依赖。此举增加接口维护成本，但能让后续变更范围可预测；它不要求拆服务，也不需要立即改造所有 26 个模块。
+公开 Port、插件实例生命周期、平台注入与导入守卫已有切片，见 [ITER-014](../../plan.md#iter-014)/052 及 ADR-014/021。目录分域不自动证明所有写入所有权；新增跨模块私有导入须拒绝、公开 Port 可独立 Fake 测试，产品域深层依赖继续按 [ITER-026](../../plan.md#iter-026) 收敛，其它跨模块路径由 ADR-014 的公开边界约束，不机械改为异步调用。
 
 <a id="arc-11"></a>
 
 #### 15.3.11 ARC-11：模型制品接收需要受限且可验证（历史评估）
 
-**生产范围。** [Model Runtime](../../packages/host-runtime/src/modules/ecosystem/model-runtime/index.ts)默认注册；下载端点受全局认证，生产/strict 要求 Token，开发 open 模式仅允许 loopback 监听。它不是未认证的公网接口，但仍需对已接收请求做路径和内容验证。
-
-[请求 Schema](../../packages/contracts/src/model-runtime-schemas.ts)的 `fileName` 仅为可选字符串；[服务](../../packages/host-runtime/src/modules/ecosystem/model-runtime/service.ts)直接 `path.join(modelsDir, fileName)`。[下载器](../../packages/host-runtime/src/modules/ecosystem/model-runtime/downloader.ts)在 416/405 后重新全量请求，没有再次检查响应成功；206 续传没有核对 Content-Range 与实体版本。已有并发 2、`.part`、流式写入、rename、可选 SHA-256 和活动任务去重，应保留。
-
-**三个安全复现。** 实验仅使用自建临时目录和 Fake fetch：`../escaped.gguf` 覆盖了模型目录外的临时哨兵文件且未被扫描注册；416 后返回的 500 错误正文仍保存为正式模型；旧前缀 `OLD` 遇到错误起点的 206 响应仍追加为 `OLDNEW`。没有访问下载源，也未读写真实用户数据或仓库文件。
-
-**建议。** 请求规范化后进入私有 staging，服务端拒绝路径分隔/编码越界，最终 resolve 并检查根目录与 symlink 边界；逐次请求验证状态、范围、实体标识、总长和截断。内容验证后再原子提升并注册。可信摘要校验与“计算出了摘要”应区分，未验证来源应有明确状态。续传前缀哈希目前整段读入内存，可改为流式，并增加磁盘、大小与总时限配额。
-
-**验收与代价。** 越界、符号链接、错误响应、内容变化和重启不得写出模型根或注册坏文件；成功下载与 autoStart 失败分开可见。代价是校验 I/O、侧车状态和失败恢复逻辑，收益首先是正确性；制品信任策略变更记录 ADR，无需新增下载服务。
+模型文件名/根路径/symlink、续传范围/响应及实体校验已由 [ITER-008](../../plan.md#iter-008) / PR #266 加固。可信来源摘要与仅计算摘要有区别；私有 staging 后提升、磁盘/总时限、重启一致性及下载成功/启动失败分别保持可见，不能因已认证就跳过内容验证。
 
 <a id="arc-12"></a>
 
 #### 15.3.12 ARC-12：进程代际、资源准入与真实就绪（历史评估）
 
-**模型进程问题。** [LlamaServerManager](../../packages/host-runtime/src/modules/ecosystem/model-runtime/llama-server.ts)的启动 deadline 只在循环外计算，等待 `/health` 的 fetch 没有单次超时；旧 child 的 exit/error 回调可修改当前全局状态。Fake 实验中，设置 20 ms 超时后观察到 136 ms 仍在 starting，说明等待未受总截止控制，136 ms 不是性能基准。另一实验在新 child 已 running 后触发旧 child exit，状态变成 error、PID 为空。
-
-可见日志虽有上限，内部 stderr chunks/无换行 partial 仍可增长；指标 fetch 无时限，2 秒采样无在途锁。这些是静态资源风险。已有 busy 拒绝、SIGTERM→SIGKILL、健康探测和 Fastify onClose dispose，不应重新实现一套接口。
-
-**建议。** 每次启动分配 epoch，child、探针、取消与日志归属于同一运行对象；只有当前 epoch 可修改当前状态。start/stop/delete 控制串行化；stop 返回应区分确认退出和仍在清理，不能在旧进程状态未知时启动第二个模型。健康与指标 I/O 都继承总截止时间，探针最多一个在途，内部日志按字节限额。
-
-**多模态资源事实。** [SenseVoice](../../packages/host-runtime/src/modules/platform/voice/asr-providers.ts)已缓存识别器、使用异步初始化/解码并串行 decode；不是每次都同步重载模型。但队列无长度/等待预算，语音请求 Port 没有统一取消和 dispose。模型状态/重配置路径存在约 227 MB 权重同步读取校验；远程 ASR/TTS 的 fetch 和整段音频读取也需时限/大小边界。内置 llama-server 默认 4 线程、SenseVoice 配置 2 线程、下载 2 并发只是局部配置，不能证明全机资源预算合适。
-
-**资源演进。** 先给每个 Provider 有界队列、优先级、取消和等待上限，再以轻量协调器管理交互推理与后台下载/校验的竞争；模型切换执行停接单、drain/取消、释放、加载的生命周期。原生库难以取消或初始化显著阻塞时，再选择 Worker Thread/受限子进程隔离。不要因需要隔离计算而拆分全部业务服务。
-
-**就绪等级。** [通用 LLM 探活](../../packages/host-runtime/src/modules/ecosystem/llm/health-prober.ts)已有 5 秒超时，但 `/models=200` 不证明目标模型存在或可推理；404/405 也不会触发其仅在异常分支实现的 fallback。建议区分配置有效、制品验证、进程存活、模型加载、推理可用。`GptSovitsLocalProvider` 与默认 `ocr.mock` 的占位问题仍需对照基础边界评估与硬件文档逐 Provider 复核；HTTP TTS 可指向同机真实服务，应单独验收，不能由一个占位 Provider 推断全部本地语音不可用。
-
-**验收。** 永不返回的探针、旧 exit、取消队列项、旧初始化迟到、日志洪泛和模型切换都保持有界；`/models` 不含目标模型时不标 ready。先用 Fake 资源预算验证控制，再用固定设备测 CPU、RSS、排队和 event-loop delay；本轮没有给出任何实际性能提升比例。
+模型进程 epoch、有界探针/日志/指标已由 [ITER-008](../../plan.md#iter-008) 交付。Provider 队列/等待/取消、真实推理就绪及全机资源竞争仍见 [ITER-013](../../plan.md#iter-013) 及 [ITER-033](../../plan.md#iter-033)；旧 child/初始化迟到不得覆盖新实例，原生阻塞是否需要隔离须用固定设备测量，不能由 HTTP 200 推定模型可用。
 
 <a id="arc-13"></a>
 
 #### 15.3.13 ARC-13：部署主管与客户端访问边界（历史评估）
 
-**认证组合已验证。** 按 [app.ts](../../apps/api/src/app.ts)的顺序装配真实 [auth hook](../../packages/host-runtime/src/shared/auth.ts) 与 CORS，用内存 `/probe` 路由注入请求：open 模式对未知 Origin 返回 200 并反射允许源；Token 模式对标准浏览器 OPTIONS 预检返回 401，而直接带正确 Bearer 的 POST 返回 200。实验只证明服务端配置，不代表已经绕过具体浏览器的本地网络权限策略。
-
-[Desktop 主进程](../../apps/desktop/src/main/index.ts)的 JSON 代理与 SSE 带 Bearer，但活动 `uploadAttachment` 路径只设置 Content-Type。该项为静态接线核查，未启动 Electron。FND-03 的 iframe 资源认证属于同一客户端类型矩阵，不能通过关闭 Token 来修复。
-
-**建议。** 明确合法 Web 来源及桌面 IPC，严格验证的预检交给 CORS，真实业务继续认证。统一受限 transport 为 JSON、SSE、附件注入凭据、取消和超时，长期 Token 不出现在 URL 或插件页面。新来源策略按信任边界评审；漏发已有认证头可独立修复。
-
-**部署需要解决的事实。** 现有桌面打包没有后端运行包；API 入口没有信号到 `app.close()` 的完整链路，Worker stop 不 drain，默认数据路径仍从仓库定位。模块 `onClose` 存在不代表操作系统退出时一定被调用。完整单机分发需明确谁拥有 API/Worker/模型子进程、数据目录、端口、Token、启动就绪、版本兼容与退出顺序。
-
-**候选方案与验收。** 开发环境可继续独立启动各进程；桌面产品可由 Electron 管理受限后端子进程；无屏硬件则可由系统服务主管托管同一后端。两种产品部署应复用服务协议，避免把硬件固件直接接 SQLite。新的主管以 CR 冻结。用干净用户目录安装、启动、升级、端口占用、磁盘满、后端异常退出和卸载保留数据逐项验收，桌面签名/公证与真实设备恢复另列发布门禁。
+open Host/Origin、Token 预检、桌面 IPC/导航与统一传输已加固，见 [ITER-069](../../plan.md#iter-069)；Page Token 仍留 [ITER-006](../../plan.md#iter-006)。完整桌面/服务主管需管理目录、凭据、版本、就绪与退出，沿 [ITER-015](../../plan.md#iter-015)；干净安装、升级、端口占用、磁盘满、异常退出及数据保留逐项验收，签名/公证和真实设备恢复单列。
 
 <a id="arc-14"></a>
 
 #### 15.3.14 ARC-14：CI 必须证明冷启动和真实输入（历史评估）
 
-锁文件安装、包外输入触发、插件制品恢复与可重现导出任务已由 [ITER-001](../../plan.md#iter-001) / PR [#221](https://github.com/3yearsZhuang/Aervox-harness/pull/221) 交付。回归入口为 [ci-scope](../../scripts/ci-scope.test.mjs) 与 [export-plugins](../../scripts/export-plugins.test.mjs)，实际 Job 步骤见 [CI 工作流](../../.github/workflows/ci.yml)。
-
-冷检出可恢复产物、仅插件变动仍触发验证、缓存不替代构建前置条件，这三项仍是验收要求。产品导出端点的可重现性属于 ITER-005，不能以构建脚本通过推定它已完成；静态资源缓存归属见[基础边界评估](#foundation-review)。
+冻结安装、包外输入触发、插件导出恢复与原生构建依赖已由 [ITER-001](../../plan.md#iter-001)/067 及 PR #310 交付。冷检出和缓存命中均须恢复完整消费产物；真实分发端点可重现性仍属 [ITER-005](../../plan.md#iter-005)，正式安装/签名验收不由构建通过替代。
 
 <a id="foundation-review"></a>
 
 ### 15.4 FND-01～10：基础边界与资源反例
 
-本节同属 2026-09-18 历史快照，旧安装/锁/流式/调度诊断不覆盖后续修复。保留触发条件和验证设计，不恢复旧工期、P1/P2 排序或第二张活动任务表。
+旧基线实验与行号见[归档评估](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation/reading/docs/reference/ARCHITECTURE.md#foundation-review)，本节保留当前约束和未关闭门槛。
 
 #### 15.4.1 FND-01：Outbox 消费归属与失败恢复（历史评估）
 
-原缺陷是通用审计消费者提前发布压缩事件，导致业务消费者无法读取。消费归属与失败恢复已纳入 [ARC-01](#arc-01) 的闭环，保留 FND 编号供历史引用。业务完成前不得由审计消费者确认、重复处理必须幂等；新增多订阅契约仍需单独评审。
+Outbox 业务消费者完成前不能被审计消费者提前确认，重复处理须幂等；已交付范围见 ARC-01/[ITER-002](../../plan.md#iter-002)。新增多订阅协议仍需明确消费归属、水位与失败重放。
 
 #### 15.4.2 FND-02：插件升级与失败恢复（历史评估）
 
-**证据。** [分发引擎](../../packages/host-runtime/src/modules/ecosystem/plugins/package-bundle.ts) `installPluginFromBundle` 第 410～412 行在覆盖时先卸载旧插件；第 477～531 行先建立主记录，随后注册配置、Page 和资源，后几步异常只记 warning 并继续返回成功。[配置服务](../../packages/host-runtime/src/modules/ecosystem/plugins/config-service.ts) `cleanupPlugin` 第 391～399 行会清除配置、Secret 和 Page 数据。
-
-**触发与影响。** 升级过程中磁盘写满、Schema 无效或 Page 注册失败，可能同时失去旧版本配置并留下部分新版本；返回成功也不证明插件完整可用。对未来硬件插件，这会表现为设备集成升级后凭据或控制页面失效。
-
-**已有保护。** 安装前已经进行结构预检、重复安装拦截、校验和计算与路径约束，卸载有资源清理。它们尚未构成跨数据库和文件系统的原子升级。
-
-配置写入也有并发边界：[配置仓储](../../packages/repositories/src/repositories/sqlite/plugin-config-repository.ts) `saveConfig` 先读取 revision，再仅按 ID 更新，未用 revision 条件保护 UPDATE；并发旧版本请求可能都通过检查而互相覆盖。[配置服务](../../packages/host-runtime/src/modules/ecosystem/plugins/config-service.ts)还先写 Secret、后检查普通配置版本，发生 409 不保证 Secret 未变。现有串行过期版本测试不能证明原子 CAS。该判断来自源代码审阅，本轮未执行并发配置复现。
-
-**建议与权衡。** 在独立 staging 目录验证全部声明、配置和资源，生成安装计划后再激活新版本；用持久安装状态记录、短数据库事务及目录切换构成可恢复流程。旧版本、配置修订与 Secret 引用保留到激活成功，配置迁移需明确而不能复用卸载清理。数据库事务内禁止进行解压和文件复制。代价是额外磁盘空间及崩溃恢复逻辑；升级/卸载语义改变需在相应 ADR 中明确。
-
-**验收。** 对预检、文件写入、注册、激活的每个失败点注入异常或进程退出；重启后只能处于完整旧版本或完整新版本，旧配置与 Secret 不因失败升级丢失。返回成功必须表示所有声明入口可读取；同一包重试安装不生成重复能力。
-
-配置保存应使用带预期 revision 的条件更新，核对影响行数，并使同库 Secret 变更与配置在短事务内一致提交；未来外部 SecretStore 需另定义补偿策略。增加两个窗口同时提交同一 revision 的验证，预期恰有一个成功，其余返回冲突且不留下 Secret 部分写入。
+Config/Secret 同库 CAS、owned activation 与声明包 generation 原子激活已有交付。真实分发端点的每个预检/写入/注册/切换失败与崩溃恢复、旧凭据保留、幂等重试及可重现导出继续见 [ITER-005](../../plan.md#iter-005) / ADR-028；单个数据库事务不提供文件系统跨介质原子保证。
 
 #### 15.4.3 FND-03：Page Bridge 的身份、权限与撤权（历史评估）
 
-**证据。** [Page 宿主](../../surfaces/panels-ui/src/plugin/PluginPageDialog.vue) `onMessage` 第 97～104 行校验 nonce，但未校验 `event.source` 与当前 iframe 的绑定；`handleBridgeCall` 第 60～89 行对配置读写检查 capability，`notify` 与 `close` 未做同等检查。nonce 由时间与 `Math.random()` 生成。[配置服务](../../packages/host-runtime/src/modules/ecosystem/plugins/config-service.ts) `readPageEntry` 第 370～378 行直接读取 Page，未检查插件启用状态；一般资源读取已调用 `requirePlugin` 检查存在性与启用状态，因此缺口集中在入口路径。
-
-**触发与影响。** 同窗口存在其它 frame、Page 发生导航或插件被禁用时，Bridge 身份和生命周期可能脱节；已知 nonce 的其它消息源缺少第二道窗口身份校验。禁用后入口仍可读取，不能把“界面已隐藏”等同于执行已撤权。本次未进行利用链或端到端攻击验证。
-
-**已有保护。** iframe sandbox、禁止直连网络的 CSP、nonce、配置读写 capability 及服务端配置校验已存在。受 sandbox 影响，消息 origin 可能为 `null`，因此不能机械要求 origin 等于普通站点 URL。
-
-正常授权访问也需要补齐：[API 认证](../../packages/host-runtime/src/shared/auth.ts)在 Token 模式检查 Bearer 请求头，而当前 iframe URL 与页面脚本资源请求不注入该头，Page 资源会被拒绝。应设计受限的页面资源授权通道并验证 Token 模式，不能把关闭生产认证或将长期 Token 放入 URL 作为修复。
-
-**建议与权衡。** 首先绑定 `event.source === iframe.contentWindow`，为普通源与 opaque origin 分别定义可验证策略；每次加载/切换生成加密随机 nonce，异步响应绑定发起时的 Page 会话。以显式方法表统一全部 Bridge 权限，禁用/撤权时销毁会话并让入口、资产和命令走一致门控。能力名称、兼容策略及新信任边界由插件契约/CR 冻结，不在 UI 层临时发明权限。
-
-**验收。** 覆盖错误窗口、错误 nonce、导航后的旧响应、无权限通知、禁用后直接访问入口、禁用期间未完成调用；被拒绝调用不能产生配置写入或 UI 副作用，拒绝原因可审计。
+Page Bridge 已校验 Window/source、请求身份、配置修订与生命周期，Page 文件上传/清理拒绝预存 symlink。跨端认证资源通道仍留 [ITER-006](../../plan.md#iter-006)，长期 Token 不放 URL 或插件页；主动同 OS 祖先交换不是当前静态资源边界保证。
 
 #### 15.4.4 FND-04：归档预检的资源配额（历史评估）
 
-**证据。** [分发引擎](../../packages/host-runtime/src/modules/ecosystem/plugins/package-bundle.ts) `inspectPluginBundle` 第 76～108 行先 `unzipSync` 完整展开，再检查路径；`installPluginFromBundle` 第 415 行再次展开。[插件路由](../../packages/host-runtime/src/modules/ecosystem/plugins/routes.ts) 已设置 20 MiB HTTP body 上限，但这不是展开体积或文件数量上限。
-
-**触发与影响。** 高压缩比或大量小文件归档即使满足上传限制，仍可能占用大量内存并同步阻塞 API 事件循环；同进程对话、心跳和设备请求会一起受影响。此项未通过压测量化。
-
-**已有保护。** 上传体积限制、ZIP 格式检查和不安全路径拒绝已经存在。路径校验不会约束展开成本，校验和也不提供发布者签名认证。
-
-**建议与权衡。** 在解压前读取归档目录，并在实际展开期间持续限制总字节、单文件字节、文件数、路径深度和处理时限；不能只信任归档声明大小。复用一次验证后的 staging 内容，把解压移入受控 Worker Thread/子进程或采用有界流式处理。签名信任根属于另一个准入决策，应单独冻结，不能把 SHA-256 摘要标为已验签。代价是预检流程更复杂、并发安装需限流。
-
-**验收。** 使用高压缩比、多文件、声明大小不符、超时和正常最大包夹具；超额包在配额内终止，安装失败不改变旧插件，API 心跳仍可响应。具体配额经正常插件样本统计后确定。
+归档统一预算、ZIP/重复路径预检及大小写文件/目录冲突拒绝已加固，见 [ITER-060](../../plan.md#iter-060)/064。所有安装入口仍须在写入前检查路径、条目数、声明与实际展开尺寸/总量、压缩比和取消，失败不能丢失旧技能或留下部分注册。
 
 #### 15.4.5 FND-05：宿主轮询故障与停机（历史评估）
 
-**证据。** [Agent Host](../../packages/host-agent/src/agent-host.ts) `tick/start/stop` 第 186～235 行使用 `setInterval(() => void tick())`，候选查询没有轮询在途锁和异常收敛；`stop` 持续等待运行数归零，没有总截止时间。[WorkerHost](../../apps/worker/src/worker-host.ts) `stop` 第 162～172 行只清定时器，不等待已开始的 Job；[Worker 入口](../../apps/worker/src/index.ts) 启动后没有相应信号停机与连接关闭流程。当前 `createAgentHost` 的直接调用主要在测试，不能据此宣称默认 API 已经由此宿主驱动。
-
-**触发与影响。** Agent Host 被接入时，慢候选查询可能重叠，后续查询拒绝可能成为未处理 Promise 拒绝；不响应取消的 Provider 可能使停机长期等待。当前 Worker 被终止时，在途 Job 是否完成依赖操作系统终止时点。
-
-**已有保护。** Agent 有并发槽、fencing、健康状态与 drain；Worker 已隔离 Job 异常并禁止同一 Job 重叠。原生 Loop 已有流内取消检查和工具 AbortSignal，真实模型适配也有请求超时配置；需要补的是宿主总生命周期，不能重新实现一套工具取消。
-
-**建议与权衡。** Agent 轮询用单次在途标记或完成后再调度，捕获 source 异常并计数退避；为两个宿主统一停止接单、等待在途、截止后取消、收敛状态和关闭连接的顺序。明确 Provider 不再产出 chunk 时如何被宿主取消，停机超时不得把未知副作用自动重放。较短停机预算改善退出速度，但会增加可恢复中断。
-
-**验收。** 模拟 source 查询超过两个周期、连续拒绝、Provider 永不结束和 SIGTERM 到达写入中途；最多一个候选查询在途，无未处理拒绝，停机在配置截止时间内结束，重启后由原有恢复/幂等机制接续。无需为此拆成新服务。
+Worker 已从首信号共享关闭总预算，重复信号不重置；超时/释放异常退出非零，数据库只在前序释放成功后显式关闭，见 [ITER-013](../../plan.md#iter-013) / PR #317。Agent 轮询、其它 Provider 与所有宿主写者的排空仍分别验收；同步阻塞无法由异步定时器打断，未知副作用不盲重放。
 
 #### 15.4.6 FND-06：SSE 的有界缓冲与持久恢复（历史评估）
 
-**证据。** [SSE 路由](../../packages/host-runtime/src/modules/companion/conversation/routes.ts) 第 343～362 行忽略 `raw.write()` 的布尔返回值；第 371～438 行重放期间使用无容量上限的数组；[流事件仓储](../../packages/repositories/src/repositories/sqlite/conversation/stream-event-store.ts) `getStreamEvents` 第 92～107 行一次读取游标后的全部事件。路由第 470～481 行心跳不读取数据库；[恢复 Worker](../../apps/worker/src/attempt-recovery.ts) 在另一进程更新 Attempt，不会经过 API 的 [广播桥](../../packages/host-runtime/src/modules/companion/conversation/broadcasting-store.ts)。
-
-**触发与影响。** 慢客户端或很长的事件重放会扩大应用/Socket 缓冲；后续独立执行宿主写入、或 Worker 恢复终态时，当前连接不能仅靠进程内广播获知状态变化。持久化数据仍可用于重连，不应把这一风险描述为所有 SSE 数据丢失。
-
-**已有保护。** 先订阅再重放、序号去重、稳定游标查询、15 秒心跳、10 分钟连接时限及终态排空均已存在。
-
-**建议与权衡。** 使用按序号分页的高水位重放，写入遇到背压时等待 `drain`，对单连接和全局缓冲设上限；超限慢消费者可主动断开，客户端按持久游标续传。跨进程终态优先增加受控状态通知，必要时使用低频、有界的持久水位核对；继续保留当前总线用于低延迟路径。不要恢复每连接高频空查询。跨进程通道若改变部署/信任边界需 ADR。
-
-**验收。** 覆盖限速客户端、10 万条合成事件重放、重放中断线、终态发生于另一进程和广播遗漏；连接内存受配置上限约束、重连无缺号、重复事件可去重、终态在规定窗口内可见。合成规模用于暴露边界，不代表当前用户会产生此流量。
+SSE Hub 仅唤醒，SQLite 有界分页、write/drain 背压及同一快照终态/高水位核对见 [ITER-013](../../plan.md#iter-013) / PR #316。单超大历史事件、元数据及 JSON 临时内存仍可超过页预算；全局并发与逐帧撤权未完成。断连只释放连接，客户端依持久 ID 重连去重，不取消已受理任务。
 
 #### 15.4.7 FND-07：会话锁回收与 SQLite 写竞争（历史评估）
 
-**证据。** [会话锁](../../packages/repositories/src/session-lock.ts) `runExclusive` 第 38～44 行把 `run.then(...)` 存进 `tails`，第 54 行却比较 `tails.get(key) === run`，两者不是同一个 Promise。本次对 100 个不同 key 依次执行空任务后，纯内存复现得到 `activeLockCount=0`、实际 `tails.size=100`。仓库搜索只发现定义和测试调用，未找到 `apps/` 生产接入，因此这是库级缺陷，不能推断它已造成当前 API 长期内存增长。
-
-SQLite 写竞争的独立证据在 [客户端](../../packages/repositories/src/client.ts) `createDatabase` 与 [重试封装](../../packages/repositories/src/write-retry.ts) `withBusyRetry`：默认忙等待 5 秒，部分操作最多尝试 5 次；事务 BEGIN 因当前驱动状态问题明确不自动重试。进程内会话锁无论是否接入，都不能解决不同进程争用同一 SQLite 写锁。
-
-**触发与影响。** 库调用者创建大量不同会话 key 时，表面锁计数归零而尾链 Map 保留；API、Worker 同时进行写事务时，BEGIN 忙错误仍可能暴露。实际锁竞争率、等待分位数和影响范围本次未测量。
-
-**已有保护。** WAL、忙等待、操作级退避、短事务、fencing 和 Worker 错峰已存在；安全片段也已批量提交，不能直接把逐 token 事务当作现状。读写一致性断言继续使用写者连接，不能通过放宽测试来隐藏快照滞后。
-
-**建议与权衡。** 先保留实际存入 Map 的尾 Promise 并以该对象进行比较回收，补充不同 key 与排队重入的资源回收验证。随后记录 BEGIN/提交耗时、忙错误次数和重试耗时，以真实竞争决定是否增加每进程写入调度、批次限额或带抖动的总等待预算。只有可证明没有提交且操作幂等时，才在重新取得安全连接/事务状态后重试整个业务操作；不得盲目重试失败 BEGIN 或带外部副作用的事务函数。全局单写者服务会改变架构，当前没有测量证据支持直接引入。
-
-**验收。** 10,000 个不同 key 完成后真实内部尾链条目归零，同 key 顺序和异常后继续执行不变；用两个独立进程写同一临时库测量 P50/P95/P99 等待及失败率，并测试长读快照。先记录基线再设改善目标，不能承诺未经测试的吞吐倍数。
+会话锁尾链按真实存入 Promise 回收，万 key/异常排队回归已交付。跨进程 SQLite 写竞争仍用 WAL、短事务和受控忙等待；BEGIN 不盲重试，事务不得包含外部副作用。真实 P50/P95/P99 竞争测量及调度选择留 [ITER-017](../../plan.md#iter-017)，不能据内存锁推定跨进程无竞争。
 
 #### 15.4.8 FND-08：完整上下文预算与保真压缩（历史评估）
 
-**证据。** [历史读取](../../packages/repositories/src/repositories/sqlite/session-history.ts) 已限制 20 轮、32,000 字符，保留完整对话轮并排除删除/脱敏内容；[上下文组合根](../../packages/host-runtime/src/modules/companion/conversation/agent-executor.ts) 第 449～500 行还会加入技能、工具说明、召回和画像。[规则压缩](../../packages/core/src/context-builder.ts) `createSummaryCompaction` 第 154～168 行在超过消息数阈值后只保留首尾各两条，中间用数量说明占位，并不含中间内容摘要；该模式默认关闭，通过 `AERVOX_LOOP_COMPACTION=rule` 启用。
-
-**触发与影响。** 较小上下文模型、大型工具 Schema 或长工具结果可能使完整 Prompt 超出模型窗口，即使历史本身已限长；启用规则压缩后，未完成目标、约束和工具对应关系可能被丢弃。消息数量和字符数都不是模型 token 预算的精确替代。
-
-**已有保护。** 历史上限、安全过滤、按 Turn 缓存历史查询、压缩 Port 和上下文快照已经存在；无需重新建立上下文基础设施。
-
-**建议与权衡。** 在最终组装后按 Provider 窗口预留输出预算，覆盖 system、技能、工具 Schema、召回、历史与在途工具消息；工具调用/结果成组保留，根约束与未完成事项不可随意删除。规则模式应准确标记为裁剪，或替换成有来源水位和验收的摘要；模型摘要额外增加延迟与成本，先采用可解释的整轮选择。新摘要必须继续受删除/撤权水位保护。
-
-**验收。** 对长中文、代码、大型 Schema、工具多轮和删除后再召回建立固定回放；最终输入不超窗口，工具消息结构合法，最近目标与关键约束可追溯，压缩前后按任务完成率和上下文成本比较，而非只验证消息条数减少。
+最终请求预算、完整工具组与“未生成摘要”的规则裁剪已具备；真实保真摘要、权威事实输入和任务完成率验收留 [ITER-032](../../plan.md#iter-032)。压缩投影不等于用户删除，原文/摘要/索引仍受删除及撤权水位约束。
 
 #### 15.4.9 FND-09：让已有观测能支持决策（历史评估）
 
-**证据。** [SQLite 观测门面](../../packages/host-agent/src/sqlite-observability.ts) `createSqliteObservability` 第 65～74 行将 metrics 存入最多 10,000 条的内部数组，`flush` 为空，返回接口未提供读取这些样本的路径；审计插入失败在第 90～92 行输出错误后返回。[WorkerHost](../../apps/worker/src/worker-host.ts) 只在处理数量大于零时记录完成日志，跳过重叠周期直接返回。这些是具体实现的限制，不能推断整个仓库没有任何指标或日志。
-
-第二轮确认 [API 组合根](../../apps/api/src/app.ts)已通过独立的 Metrics Registry 提供受认证的 `/v1/metrics`，支持 JSON 与 Prometheus；本项缺口仅限定于 Host 专用观测实现和未覆盖的运行信号。建议复用 API 已有注册表与导出能力，并核对 Worker/Host 是否实际接入，不另建重复端点。
-
-**触发与影响。** 设备长期运行时，很难区分“没有工作”“一直跳过”“写竞争”“审计落库失败”；内存中样本存在也不等于运维或性能检查能使用它们。
-
-**已有保护。** 日志、Metrics/Audit Port、Agent 健康检查及审计持久化已经存在；日志不应包含完整 Prompt、凭据或私密画像。
-
-**建议与权衡。** 使用有界聚合器维护计数、直方图和最近错误，并通过受限本地诊断或脱敏诊断包读取；复用现有 Port，先不部署外部监控系统。补充队列最老事件年龄、Job 跳过数、忙等待、SSE 缓冲、上下文裁剪、审计失败等指标。指标可丢样，关键授权/副作用审计的失败策略则应依既有契约分别处理，不统一吞错或统一阻断。
-
-**验收。** 人工注入一次队列积压、数据库忙、审计失败和慢连接，诊断数据能明确指出受影响路径；清空队列后相应 gauge 恢复。诊断输出不含用户正文、Secret 或设备敏感原始数据，存储容量长期有界。
+受认证 API 指标及宿主诊断已经提供有界可观测路径；应复用现有 Port，继续覆盖积压、跳过、忙等待、裁剪、审计失败及慢连接，见 [ITER-013](../../plan.md#iter-013)。指标可丢样不代表关键授权/副作用审计可吞错；诊断不输出用户正文或 Secret。
 
 #### 15.4.10 FND-10：静态资产与构建缓存的产物归属（历史评估）
 
-**证据。** [Turbo 配置](../../turbo.json) 对 `@aervox/live2d#build`、`@aervox/public#build` 和移动端构建明确设置 `cache: false`。[Live2D 复制脚本](../../packages/live2d/scripts/copy-assets.mjs) 与 [公共资源复制脚本](../../packages/public/scripts/copy-assets.mjs) 从依赖包直接写入消费端目录，因此普通包内 `outputs` 不能完整表达其副作用。
-
-**触发与影响。** 重复构建会重复复制资源；随着模型和多端资源增长可能增加 I/O。当前关闭缓存已保护正确性，本次没有测量这部分耗时，也未发现需要立即开启缓存的依据。
-
-**建议与权衡。** 若冷/热构建统计显示复制占比显著，可让资源包只生成自身确定性产物，消费包在自己的构建生命周期复制到自有输出，或使用可追踪输入的打包资源导入。内容哈希避免无变化复制；迁移成本包括开发模式资源路径和打包兼容。保持受控测试并发及模板克隆，不要为追求表面 CI 速度扩大 SQLite 测试并发。
-
-**验收。** 分别测量冷构建、热构建和更改单个资源的构建时间；删除消费端产物后，仅依赖可用缓存也能恢复完整资源；修改源资源能正确失效缓存。完成这些验证前继续保留现有 `cache: false`。
+公共/Live2D 资源保持单一源码与消费端恢复检查；关闭缓存是正确性保护。仅在冷/热/单资源基线显示值得时调整产物所有权，并证明清空消费目录后缓存可恢复、源修改能失效，见 [ITER-017](../../plan.md#iter-017)；不为表面速度扩大 SQLite 测试并发。
 
 <a id="audit-findings"></a>
 
 ### 15.5 2026-10-08 审计的交付范围
 
-审计基线 `d7fd6d87`，第一方 Git 文件与关键链路抽查；外部 reference 仅核对边界。以下是 PR #258 的历史交付，不等同关联 ITER 的全部合同或正式发布完成。
-
-以下八项由 [PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258) 承接；严重性描述的是原缺陷。源码和测试是行为证据，关联队列的其它验收仍独立保留。
-
-1. **P1：删除完成没有清理证明（ITER-003，有限切片）。** [删除 Worker](../../apps/worker/src/deletion-worker.ts) 已按明确 owner/target 派发 [Memory 清理与独立验证](../../packages/repositories/src/repositories/sqlite/memory-deletion-store.ts)，清除正文、版本正文、摘要、FTS 和向量，保留无正文的 tombstone；索引写入端拒绝已删除记录的迟到结果。失败可重复轮询，空目标、未知范围/目标、旧占位证明不能解闸；已有共享树、时态事实或技能派生关系的目标明确拒绝完成，留待其 owner 实施清理。实效与保留无关数据由[删除回归](../../apps/worker/test/deletion-worker.test.ts)证明，完整来源传播和独立 deny 账本仍未闭环。
-2. **P1：接单存在分离提交窗口（ITER-002）。** [Turn Store](../../packages/repositories/src/repositories/sqlite/conversation/turn-store.ts) 以一个写者事务关联 next-turn Inbox、Turn、消息、Outbox 和首个 Attempt；重复幂等键不再次消费或派发，执行器读取实际持久化输入。[接单回归](../../packages/repositories/test/turn-acceptance.test.ts)覆盖五个写点失败及并发，[API 回归](../../apps/api/test/conversation-dispatch-resilience.test.ts)覆盖 HTTP 重试、预加载失败和恢复。
-3. **P1：动态工具没有收到调用级取消（ITER-007，接线切片）。** [Tool Provider](../../packages/host-runtime/src/modules/companion/conversation/tool-providers.ts) 的全部调用路径已传递 signal/controlContext；[Runtime](../../packages/host-runtime/src/modules/ecosystem/tools/runtime.ts) 合并调用、控制上下文和注册信号，结束/取消时解绑，MCP 代理继续传至 HTTP 请求。[生命周期回归](../../apps/api/test/tool-runtime-lifecycle.test.ts)与 [MCP 回归](../../packages/host-runtime/test/ecosystem/mcp/client.test.ts)覆盖预取消、在途取消、下一副作用拒绝和注册替换。取消需要 handler 在 I/O/副作用边界协作，尚不等于所有 Driver、子任务和授权修订合同完成。
-4. **P1：消息版本更新缺乏原子 CAS（ITER-004）。** [Message Store](../../packages/repositories/src/repositories/sqlite/conversation/message-store.ts) 将旧版废弃、新版插入与指针切换纳入短事务和条件更新，同一消息在进程内按键串行；[组合写回归](../../packages/repositories/test/atomic-edits.test.ts)验证三处失败回滚与同版本竞争仅一项成功。
-5. **P1：返回配置冲突前已改 Secret（ITER-004）。** [配置仓储](../../packages/repositories/src/repositories/sqlite/plugin-config-repository.ts) 同事务校验 revision、写 Config/Secret，重置也一致提交；不存在的配置仅接受初始 revision 或显式无条件写。[组合写回归](../../packages/repositories/test/atomic-edits.test.ts)与 [API 回归](../../apps/api/test/plugin-config.test.ts)证明 409 不改凭据、中途失败回滚、同 revision 仅一次成功；外部 SecretStore 补偿不在此范围。
-6. **P2：取消后崩溃无法收敛（ITER-010，恢复切片）。** [Attempt 恢复](../../packages/repositories/src/repositories/sqlite/conversation/attempt-store.ts) 将过期 CancelRequested 收敛为 Cancelled，并在同事务推进 fencing、Turn 与终态事件；pending 工具结果记为 outcome_unknown，不自动重放。[重连回归](../../apps/api/test/conversation-dispatch-resilience.test.ts)验证旧 fencing 拒绝落库、重复恢复幂等及 SSE 观察终态；自动 Resume 仍不启用。
-7. **P2：会话锁尾链泄漏（ITER-004）。** [SessionLockManager](../../packages/repositories/src/session-lock.ts) 现在比较实际存储的尾 Promise，观测值直接读取尾链 Map；[锁回归](../../packages/repositories/test/session-lock.test.ts)验证一万个 key 回收及异常后队列仍保留到末项完成。
-8. **P2：共享资产与消费产物双份入库（ITER-017，资产切片）。** `packages/public` 成为介绍页和标记图的唯一源码；九个消费文件取消跟踪并忽略。冷构建已逐字节验证 Desktop/Web 消费目录和打包输入，已有禁用缓存保护保留；[资产回归](../../packages/public/scripts/copy-assets.test.mjs)验证从空目录恢复与重建清除旧派生文件。正式签名分发不由构建输入检查证明。
+[PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258) 交付 Memory owner 清理/独立验证、原子接单、动态工具取消、消息/配置 CAS、取消终态恢复、锁回收与公共资产单源。八项触发条件、局部回归和原始严重性见[审计快照](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation/reading/docs/reference/ARCHITECTURE.md#audit-findings)。完整来源传播、独立恢复账本、自动 Resume 与签名分发仍按对应现行合同及 ITER 条目验收，局部修复不能关闭全部发布门槛。
 
 <a id="AVX-EXPL-015"></a>
 <a id="product-experience"></a>

@@ -138,6 +138,8 @@ Page 元数据为 `id/title/description/entry/capabilities/checksum`。`id` 最�
 
 Page 卸载、generation 丢弃、安装失败回滚与插件资源清理同样逐级校验删除目录，避免沿预存祖先链接删除外部文件；卸载保留无法安全确认的链接和未知目录，缺失目录清理保持幂等。generation 卸载只接受边界内普通单链接文件中的有效 ownership marker。
 
+删除会再次核验已记录目录的 inode；拒绝不安全清理不等于所有资源都已删除。`deletePage` 和部分回滚清理保留无法安全删除的残留，不能把它们描述为磁盘全清或主动目录交换的隔离证明。边界回归见[BundleStore 测试](../../packages/host-runtime/test/ecosystem/plugins/bundle-store.test.ts)。
+
 作者禁止链接文件、路径逃逸、远程资源和动态下载代码。上述检查及多硬链接拒绝是文件边界防护，不能证明能隔离主动并发替换目录或改变链接关系的同 OS 用户；该用户若在检查与 `mkdir/open` 创建之间交换祖先，拒绝前仍可能留下外部空目录或文件。此机制不提供任意第三方执行的 OS 沙箱。
 
 当前防护与剩余边界如下，发布安全评估必须分别覆盖：
@@ -334,7 +336,7 @@ Manifest 根可声明宿主兼容区间：
 
 [出厂同步](../../packages/host-runtime/src/modules/ecosystem/plugins/index.ts)扫描 `plugins/*`，同步主记录、根 Skill、Config 与主动声明；没有执行任意包内代码，也不等同完整包导入（工具/Page 贡献需走分发安装验证）。API 启动发现缺失、无效或不可读的 `installSource=builtin` 插件时，仅更新可用性状态，保留用户开关、配置、Secret 与授权记录；恢复包不会恢复已撤销授权（见[缺包回归](../../apps/api/test/builtin-plugin-absence.test.ts)）。
 
-集市 `GET /v1/plugins/market` 当前来自本地出厂目录，不是远程公共插件商店；`POST /v1/plugins/market/:id/install` 走该目录打包安装，内部固定 `overwrite: true`；对已安装插件执行集市安装/更新时使用 §8.3 的代际准备与原子激活，保留状态并检查并发冲突。就地打包与构建期导出共用同一份**允许清单**（只收 Manifest、Config、Skill 与 `skills/`、`pages/` 资源；排除 `src/`、`dist/`、`node_modules/`、`test/`、构建配置），两份清单的一致性由 `apps/api/test/plugin-bundle-allowlist.test.ts` 机器断言。更新提示采用版本字符串是否不同，不是 SemVer 新旧判断。根 `mise tasks run package-plugins` 批量生成 `dist-plugins/<id>-<version>.aervox-plugin`（等价 `pnpm package:plugins`）；脚本先运行共享作者校验，再打包；不执行功能或签名安全认证。产物字节可重现（ZIP 条目时间戳固化、目录与条目排序），同源码重复打包的 SHA-256 稳定；`dist-plugins/` 是 gitignore 产物，测试不得依赖它，需分发包时经导出端点现场生成。
+集市 `GET /v1/plugins/market` 当前来自本地出厂目录，不是远程公共插件商店；`POST /v1/plugins/market/:id/install` 走该目录打包安装，内部固定 `overwrite: true`；对已安装插件执行集市安装/更新时使用 §8.3 的代际准备与原子激活，保留状态并检查并发冲突。就地打包与构建期导出共用同一份**允许清单**（只收 Manifest、Config、Skill 与 `skills/`、`pages/` 资源；排除 `src/`、`dist/`、`node_modules/`、`test/`、构建配置），两份清单的一致性由 `apps/api/test/plugin-bundle-allowlist.test.ts` 机器断言。更新提示采用版本字符串是否不同，不是 SemVer 新旧判断。根 `mise tasks run package-plugins` 批量生成 `dist/plugins/<id>-<version>.aervox-plugin`（等价 `mise exec -- pnpm package:plugins`）；脚本先运行共享作者校验，再打包；不执行功能或签名安全认证。产物字节可重现（ZIP 条目时间戳固化、目录与条目排序），同源码重复打包的 SHA-256 稳定；`dist/plugins/` 是 gitignore 产物，冷检出后按上述任务恢复，测试不得依赖手工保留的生成物。
 
 ### 8.5 主动规则、MCP 与授权
 

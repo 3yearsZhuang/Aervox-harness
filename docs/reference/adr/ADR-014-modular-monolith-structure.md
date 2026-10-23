@@ -3,7 +3,9 @@ id: ADR-014
 decision_status: accepted
 ---
 
-# ADR-014 演进式模块化单体：apps/api 目录结构
+# ADR-014 演进式模块化单体与共享产品宿主目录结构
+
+现行载体由 [ADR-021 的共享产品宿主修订](ADR-021-aervox-core-standalone-package.md#api-与-worker-共享产品宿主)明确：下文目录树中的领域模块与 shared 已迁入 `packages/host-runtime/src/`，组合工厂为 `runtime.ts`；`apps/api` 保留监听入口，Worker 复用同一产品宿主。两层领域目录、公开 Port、模块自管仓储和单一数据真源决定继续有效；下文 `apps/api/src`、`app.ts` 及阶段计数保留为原迁移背景，不表示当前代码路径。
 
 - 状态：Accepted（2026-08-31；2026-09-16 修订 0.3.0，见修订记录与 `CR-052`（已归档））
 - 日期：2026-08-25
