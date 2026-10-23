@@ -180,14 +180,12 @@ export class SessionStore {
         if (existing.parentSessionId !== input.parentSessionId || existing.childSessionId !== input.childSessionId || existing.title !== (input.title ?? null) || existing.forkAtMessageId !== (input.forkAtMessageId ?? null) || existing.branchReason !== (input.branchReason ?? null)) throw new Error("conversation_branch_idempotency_conflict");
         return existing as ConversationBranchModel;
       }
-      if (input.forkAtMessageId) {
-        const [message] = await tx.select({ sessionId: messages.sessionId }).from(messages).where(eq(messages.id, input.forkAtMessageId));
-        if (!message || message.sessionId !== input.parentSessionId) throw new Error("conversation_branch_fork_message_unavailable");
-      }
+      // The HTTP contract preserves opaque historical fork markers. They are
+      // branch metadata, not a source-message FK or an authority to read data.
       const now = new Date().toISOString();
       const [child] = await tx.select().from(sessions).where(eq(sessions.id, input.childSessionId));
-      if (child && (child.executionPolicy !== parent.executionPolicy || child.projectId !== parent.projectId)) throw new Error("conversation_execution_policy_mismatch");
-      if (!child) await tx.insert(sessions).values({ id: input.childSessionId, title: input.title ?? "探索分支", projectId: parent.projectId,
+      if (child && child.executionPolicy !== parent.executionPolicy) throw new Error("conversation_execution_policy_mismatch");
+      if (!child) await tx.insert(sessions).values({ id: input.childSessionId, title: input.title ?? parent.title, projectId: parent.projectId,
         executionPolicy: parent.executionPolicy, createdAt: now, updatedAt: now });
       const [branch] = await tx.insert(conversationBranches).values({ id: input.id, parentSessionId: input.parentSessionId, childSessionId: input.childSessionId, title: input.title ?? null,
         forkAtMessageId: input.forkAtMessageId ?? null, branchReason: input.branchReason ?? null, status: "active", createdAt: now, updatedAt: now }).returning();

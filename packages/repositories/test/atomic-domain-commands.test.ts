@@ -25,11 +25,18 @@ describe("atomic application commands", () => {
     const database = await createInMemoryDatabase();
     try {
       const repository = new SqliteConversationRepository(database.db);
-      await repository.createSession(ctx, "parent", { id: "parent", executionPolicy: "bot-group-member-v1" });
-      const input = { id: "branch", parentSessionId: "parent", childSessionId: "child", title: "explore" };
+      await repository.createSession(ctx, "parent", { id: "parent", projectId: "parent-project", executionPolicy: "bot-group-member-v1" });
+      const input = { id: "branch", parentSessionId: "parent", childSessionId: "child", forkAtMessageId: "historical-fork-marker" };
       const result = await repository.createExplorationBranch(ctx, input);
       expect(await repository.createExplorationBranch(ctx, input)).toEqual(result);
-      expect((await repository.getSession(ctx, "child"))?.executionPolicy).toBe("bot-group-member-v1");
+      expect(result?.forkAtMessageId).toBe("historical-fork-marker");
+      expect(await repository.getSession(ctx, "child")).toMatchObject({ title: "parent", projectId: "parent-project", executionPolicy: "bot-group-member-v1" });
+      await repository.createSession(ctx, "existing child", { id: "existing", projectId: "child-project", executionPolicy: "bot-group-member-v1" });
+      await repository.createExplorationBranch(ctx, { ...input, id: "existing-branch", childSessionId: "existing", title: "branch title" });
+      expect(await repository.getSession(ctx, "existing")).toMatchObject({ title: "existing child", projectId: "child-project", executionPolicy: "bot-group-member-v1" });
+      await repository.createSession(ctx, "local child", { id: "local-child" });
+      await expect(repository.createExplorationBranch(ctx, { ...input, id: "mismatched-policy", childSessionId: "local-child" })).rejects.toThrow("conversation_execution_policy_mismatch");
+      expect(await repository.getBranch(ctx, "mismatched-policy")).toBeNull();
       await database.client.execute("CREATE TRIGGER fail_branch BEFORE INSERT ON conversation_branches BEGIN SELECT RAISE(ABORT, 'injected'); END");
       await expect(repository.createExplorationBranch(ctx, { ...input, id: "new", childSessionId: "orphan" })).rejects.toThrow();
       expect(await repository.getSession(ctx, "orphan")).toBeNull();

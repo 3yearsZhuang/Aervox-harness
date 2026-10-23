@@ -47,7 +47,7 @@ describe('branch shared contracts over real HTTP', () => {
   afterEach(async () => {vi.restoreAllMocks(); await built.app.close(); await database.cleanup()})
 
   it('authenticates all eight endpoint shapes before validating bodies or reaching persistence', async () => {
-    const mutations = vi.spyOn(SqliteConversationRepository.prototype, 'createConversationBranch')
+    const mutations = vi.spyOn(SqliteConversationRepository.prototype, 'createExplorationBranch')
     for (const [method, path] of endpointRequests) {
       for (const auth of [null, 'Bearer wrong-token']) {
         const response = await request(method, path, undefined, auth)
@@ -60,7 +60,7 @@ describe('branch shared contracts over real HTTP', () => {
   })
 
   it('rejects absent/invalid create inputs without creating an orphan child', async () => {
-    const mutations = vi.spyOn(SqliteConversationRepository.prototype, 'createConversationBranch')
+    const mutations = vi.spyOn(SqliteConversationRepository.prototype, 'createExplorationBranch')
     for (const body of [undefined, null, {}, {childSessionId: ''}, {childSessionId: 42}, {childSessionId: 'child', branchReason: 'unsafe'}, {childSessionId: 'child', title: []}]) {
       const response = await request('POST', '/v1/sessions/root/branches', body)
       expect(response.status).toBe(400)
@@ -95,6 +95,7 @@ describe('branch shared contracts over real HTTP', () => {
     expect(merged).toMatchObject({parentSessionId: 'root', childSessionId: 'merge-child', title: 'Fork title', branchReason: 'text_followup', forkAtMessageId: 'message-fixture', status: 'active'})
     expect(await repo.getSession(ctx, 'merge-child')).toMatchObject({title: 'Fork title', executionPolicy: 'local-v1'})
     const archived = await create('archive-child')
+    expect(await repo.getSession(ctx, 'archive-child')).toMatchObject({title: 'Parent title', executionPolicy: 'local-v1'})
     const deleted = await create('delete-child')
     const list = await request('GET', apiEndpointPath(branchesApi.list, {sessionId: 'root'}))
     expect(list.status).toBe(200)
@@ -172,7 +173,7 @@ describe('branch shared contracts over real HTTP', () => {
   })
 
   it('conceals unexpected repository failures on all eight endpoints', async () => {
-    for (const method of ['createConversationBranch', 'listBranchesByParent', 'getBranchTree', 'getBranch', 'mergeBranch', 'archiveBranch', 'updateBranchLayout', 'deleteBranch'] as const) {
+    for (const method of ['createExplorationBranch', 'listBranchesByParent', 'getBranchTree', 'getBranch', 'mergeBranch', 'archiveBranch', 'updateBranchLayout', 'deleteBranch'] as const) {
       vi.spyOn(SqliteConversationRepository.prototype, method).mockRejectedValue(new Error('SELECT secret FROM /private/internal.sqlite'))
     }
     for (const [method, path] of endpointRequests) {

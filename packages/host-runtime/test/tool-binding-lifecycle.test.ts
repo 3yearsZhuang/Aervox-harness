@@ -64,6 +64,60 @@ describe("tool binding identity and ownership", () => {
       expect(dispatch).not.toHaveBeenCalled(); expect(scope.signal?.aborted).toBe(true);
     } finally { scope.dispose(); }
   });
+  it("revokes static declarations when their first asynchronous listing fails", async () => {
+    const dispatch = vi.fn(async () => ({ ok: true }));
+    const listTools = vi.fn(async () => [binding("probe").spec]);
+    const tools = createContributionToolProvider([{ provider: {
+      tools: [binding("probe").spec], listTools, execute: dispatch,
+    } }], local, approvals());
+    listTools.mockRejectedValueOnce(new Error("registry_unavailable"));
+    await expect(tools.listTools!()).rejects.toThrow("registry_unavailable");
+    expect(await tools.execute(call)).toMatchObject({ ok: false, error: "unregistered_tool: probe" });
+    expect(dispatch).not.toHaveBeenCalled();
+    await tools.listTools!();
+    expect(await tools.execute(call)).toMatchObject({ ok: true });
+    expect(dispatch).toHaveBeenCalledOnce();
+  });
+  it("revokes the complete snapshot after a later source fails without publishing its partial replacement", async () => {
+    const dispatch = vi.fn(async () => ({ ok: true }));
+    const first = vi.fn(async () => [binding("probe").spec]);
+    const later = vi.fn(async () => [binding("other").spec]);
+    const tools = createContributionToolProvider([
+      { provider: { tools: [], listTools: first, execute: dispatch } },
+      { provider: { tools: [], listTools: later, execute: dispatch } },
+    ], local, approvals());
+    await tools.listTools!();
+    expect(await tools.execute(call)).toMatchObject({ ok: true });
+    first.mockResolvedValueOnce([binding("replacement").spec]);
+    later.mockRejectedValueOnce(new Error("later_registry_unavailable"));
+    await expect(tools.listTools!()).rejects.toThrow("later_registry_unavailable");
+    for (const name of ["probe", "other", "replacement"]) {
+      expect(await tools.execute({ ...call, name })).toMatchObject({ ok: false, error: `unregistered_tool: ${name}` });
+    }
+    expect(dispatch).toHaveBeenCalledOnce();
+    expect((await tools.listTools!()).map(tool => tool.name)).toEqual(["probe", "other"]);
+    expect(await tools.execute(call)).toMatchObject({ ok: true });
+    expect(dispatch).toHaveBeenCalledTimes(2);
+  });
+  it("does not dispatch an authorized call if its declaration was revoked while approval was loading", async () => {
+    let release!: (approval: { id: string }) => void;
+    const repo = {
+      ...approvals(),
+      findGrantedToolApproval: vi.fn(() => new Promise<{ id: string }>(resolve => { release = resolve; })),
+    };
+    const dispatch = vi.fn(async () => ({ ok: true }));
+    const spec = { ...binding("probe").spec, readOnly: false };
+    const listTools = vi.fn(async () => [spec]);
+    const tools = createContributionToolProvider([{ provider: { tools: [], listTools, execute: dispatch } }], local, repo);
+    await tools.listTools!();
+    const execution = tools.execute(call);
+    await vi.waitFor(() => expect(repo.findGrantedToolApproval).toHaveBeenCalledOnce());
+    listTools.mockRejectedValueOnce(new Error("registry_unavailable"));
+    await expect(tools.listTools!()).rejects.toThrow("registry_unavailable");
+    release({ id: "explicit_grant" });
+    expect(await execution).toMatchObject({ ok: false, error: "tool_permission_denied" });
+    expect(dispatch).not.toHaveBeenCalled();
+  });
 });
 
 describe("asynchronous plugin contribution preflight", () => {

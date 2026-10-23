@@ -188,13 +188,26 @@ function createCatalogToolProvider(
 ): ToolProviderPort {
   const catalog = new ToolBindingCatalog();
   let declared = false;
+  let declarationRevision = 0;
   return {
     tools: source.tools,
     async listTools() {
-      const bindings = await source.list();
-      catalog.replace(bindings);
-      declared = true;
-      return bindings.map(binding => binding.spec);
+      try {
+        const bindings = await source.list();
+        catalog.replace(bindings);
+        declared = true;
+        declarationRevision += 1;
+        return bindings.map(binding => binding.spec);
+      } catch (error) {
+        // A failed refresh cannot confirm that the old declaration is still
+        // available or retains its previous safety level. Revoke the complete
+        // snapshot until a later declaration succeeds; never publish a batch
+        // that only some sources managed to resolve.
+        catalog.clear();
+        declared = true;
+        declarationRevision += 1;
+        throw error;
+      }
     },
     async execute(raw) {
       const input = bindAuthoritativeToolSource(raw);
@@ -205,15 +218,20 @@ function createCatalogToolProvider(
       input.signal?.throwIfAborted();
       const inspection = inspectToolInput({ name: input.name, arguments: input.arguments });
       if (!inspection.safe) return emit({ ok: false, error: `unsafe_tool_arguments: ${inspection.reason ?? "validation_failed"}` });
+      const revision = declarationRevision;
+      const snapshot = declared ? catalog.get(input.name) : undefined;
+      if (declared && !snapshot) return emit({ ok: false, error: `unregistered_tool: ${input.name}` });
       const binding = await source.resolve(input.name);
       if (!binding) return emit({ ok: false, error: `unregistered_tool: ${input.name}` });
-      if (declared) {
-        const snapshot = catalog.get(input.name);
-        if (!snapshot || snapshot.id !== binding.id || snapshot.revision !== binding.revision || snapshot.generation !== binding.generation) return emit({ ok: false, error: "tool_not_declared" });
-      }
+      if (snapshot && (snapshot.id !== binding.id || snapshot.revision !== binding.revision || snapshot.generation !== binding.generation)) return emit({ ok: false, error: "tool_not_declared" });
       const invalid = binding.spec.parameters === undefined ? undefined : validateToolArguments(binding.spec.parameters, input.arguments, source.invalidInputCode);
       if (invalid) return emit(invalid);
-      const active = async () => { input.signal?.throwIfAborted(); return !binding.checkActive || await binding.checkActive(); };
+      const active = async () => {
+        input.signal?.throwIfAborted();
+        if (revision !== declarationRevision) return false;
+        const allowed = !binding.checkActive || await binding.checkActive();
+        return allowed && revision === declarationRevision;
+      };
       if (!(await active())) return emit({ ok: false, error: "tool_permission_denied" });
       const dispatch = async (approval: boolean, proactiveAuthorization = false) => {
         if (!(await active())) return { ok: false, error: "tool_permission_denied" };
