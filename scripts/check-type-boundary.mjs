@@ -166,7 +166,21 @@ export const DTO_ALIAS_CONTRACTS = new Map([
   }],
 ]);
 
+/** Mixed owners retain unrelated projections; only these migrated names are governed. */
+export const SCOPED_DTO_ALIAS_CONTRACTS = new Map([
+  ["packages/api-client/src/useAervoxPersonas.ts", {
+    PersonaDto: "Persona", PersonaRevisionConfigDto: "PersonaRevisionConfig", PersonaRevisionDto: "PersonaRevision",
+    ActivePersonaSelectionDto: "ActivePersonaSelection", CreatePersonaInputDto: "CreatePersonaRequest", UpdatePersonaInputDto: "UpdatePersonaRequest",
+  }],
+]);
+
 export const SCHEMA_TYPE_CONTRACTS = new Map([
+  ["packages/contracts/src/persona-api.ts", {
+    CreatePersonaRequest: ["input", "createPersonaRequestSchema"], UpdatePersonaRequest: ["input", "updatePersonaRequestSchema"],
+    PersonaListResponse: ["output", "personaListResponseSchema"], PersonaDetailResponse: ["output", "personaDetailResponseSchema"],
+    PersonaMutationResponse: ["output", "personaMutationResponseSchema"], PersonaImportResponse: ["output", "personaImportResponseSchema"],
+    PersonaBundleResponse: ["output", "personaBundleResponseSchema"],
+  }],
   ["plugins/focus-mode/src/contracts/terms.ts", {
     ExtractedTerm: ["infer", "extractedTermSchema"], TermsExtractedEventData: ["infer", "termsExtractedEventDataSchema"],
     TermExploreKind: ["infer", "termExploreKindSchema"], TermExploreRequest: ["infer", "termExploreRequestSchema"],
@@ -188,7 +202,8 @@ export const SCHEMA_TYPE_CONTRACTS = new Map([
 ]);
 
 export function inspectDtoDerivations(file, source) {
-  const aliases = DTO_ALIAS_CONTRACTS.get(file), schemas = SCHEMA_TYPE_CONTRACTS.get(file);
+  const strictAliases = DTO_ALIAS_CONTRACTS.get(file);
+  const aliases = strictAliases ?? SCOPED_DTO_ALIAS_CONTRACTS.get(file), schemas = SCHEMA_TYPE_CONTRACTS.get(file);
   if (!aliases && !schemas) return [];
   const ast = parse(source, { sourceType: "module", plugins: ["typescript"] });
   const declarations = new Map(), imported = new Map(), violations = [];
@@ -198,7 +213,7 @@ export function inspectDtoDerivations(file, source) {
     const declaration = node.type === "ExportNamedDeclaration" ? node.declaration : node;
     if (declaration?.type === "TSInterfaceDeclaration" || declaration?.type === "TSTypeAliasDeclaration") {
       declarations.set(declaration.id.name, declaration);
-      if (aliases && declaration.id.name.endsWith("Dto")) add(declaration.id.name, "Migrated public wire DTOs must alias @aervox/contracts; no handwritten DTO declaration in this owner", declaration);
+      if (strictAliases && declaration.id.name.endsWith("Dto")) add(declaration.id.name, "Migrated public wire DTOs must alias @aervox/contracts; no handwritten DTO declaration in this owner", declaration);
     }
     if ((node.type === "ImportDeclaration" || node.type === "ExportNamedDeclaration") && node.source?.value === "@aervox/contracts") {
       for (const specifier of node.specifiers ?? []) {
@@ -227,7 +242,7 @@ export function inspectDtoDerivations(file, source) {
 
 export function runDtoDerivationInspection() {
   const violations = [];
-  for (const file of new Set([...DTO_ALIAS_CONTRACTS.keys(), ...SCHEMA_TYPE_CONTRACTS.keys()])) {
+  for (const file of new Set([...DTO_ALIAS_CONTRACTS.keys(), ...SCOPED_DTO_ALIAS_CONTRACTS.keys(), ...SCHEMA_TYPE_CONTRACTS.keys()])) {
     if (!existsSync(file)) violations.push({ file, name: "<source>", line: 1, column: 0, message: "Missing explicitly governed DTO source" });
     else violations.push(...inspectDtoDerivations(file, readFileSync(file, "utf8")));
   }
@@ -241,5 +256,5 @@ if (process.argv[1]?.endsWith("check-type-boundary.mjs")) {
     for (const d of duplicates) console.error(`${d.file}:${d.line}:${d.column} ${d.name}: ${d.message ?? "local declaration conflicts with @aervox/contracts; import its type instead"}`);
     process.exit(1);
   }
-  console.log("Type ownership passed: no same-name contract redeclarations; explicit migrated MCP/Voice/Terms aliases derive from their declared Schema. This is not semantic equivalence detection for arbitrary DTO names.");
+  console.log("Type ownership passed: no same-name contract redeclarations; explicit migrated MCP/Voice/Persona/Terms aliases derive from their declared Schema. This is not semantic equivalence detection for arbitrary DTO names.");
 }

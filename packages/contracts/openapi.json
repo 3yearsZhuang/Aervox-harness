@@ -15017,13 +15017,14 @@
     },
     "/v1/personas": {
       "get": {
+        "operationId": "get_v1_personas",
         "summary": "列出人格",
         "tags": [
           "Persona"
         ],
         "responses": {
           "200": {
-            "description": "Persona list",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -15184,10 +15185,10 @@
               }
             }
           }
-        },
-        "operationId": "get_v1_personas"
+        }
       },
       "post": {
+        "operationId": "post_v1_personas",
         "summary": "创建人格",
         "tags": [
           "Persona"
@@ -15284,7 +15285,7 @@
         },
         "responses": {
           "201": {
-            "description": "Created",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -15486,6 +15487,16 @@
               }
             }
           },
+          "400": {
+            "description": "INVALID_PERSONA",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Missing or invalid access token (token mode)",
             "content": {
@@ -15506,12 +15517,12 @@
               }
             }
           }
-        },
-        "operationId": "post_v1_personas"
+        }
       }
     },
     "/v1/personas/{personaId}": {
       "get": {
+        "operationId": "get_v1_personas_personaId",
         "summary": "读取人格",
         "tags": [
           "Persona"
@@ -15529,7 +15540,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Persona",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -15621,7 +15632,10 @@
                       ]
                     },
                     "revision": {
-                      "type": "object",
+                      "type": [
+                        "object",
+                        "null"
+                      ],
                       "properties": {
                         "id": {
                           "type": "string",
@@ -15765,10 +15779,10 @@
               }
             }
           }
-        },
-        "operationId": "get_v1_personas_personaId"
+        }
       },
       "patch": {
+        "operationId": "patch_v1_personas_personaId",
         "summary": "创建人格新修订",
         "tags": [
           "Persona"
@@ -15880,7 +15894,7 @@
         },
         "responses": {
           "200": {
-            "description": "Updated",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -16082,8 +16096,28 @@
               }
             }
           },
+          "400": {
+            "description": "INVALID_PERSONA",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PERSONA_NOT_FOUND",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -16112,10 +16146,10 @@
               }
             }
           }
-        },
-        "operationId": "patch_v1_personas_personaId"
+        }
       },
       "delete": {
+        "operationId": "delete_v1_personas_personaId",
         "summary": "归档人格",
         "tags": [
           "Persona"
@@ -16133,7 +16167,26 @@
         ],
         "responses": {
           "200": {
-            "description": "Deleted"
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "boolean"
+                    },
+                    "personaId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "deleted",
+                    "personaId"
+                  ]
+                }
+              }
+            }
           },
           "401": {
             "description": "Missing or invalid access token (token mode)",
@@ -16165,12 +16218,12 @@
               }
             }
           }
-        },
-        "operationId": "delete_v1_personas_personaId"
+        }
       }
     },
     "/v1/personas/{personaId}/activate": {
       "post": {
+        "operationId": "post_v1_personas_personaId_activate",
         "summary": "激活人格",
         "tags": [
           "Persona"
@@ -16203,7 +16256,7 @@
         },
         "responses": {
           "200": {
-            "description": "Activated",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -16244,8 +16297,28 @@
               }
             }
           },
+          "400": {
+            "description": "INVALID_PERSONA",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PERSONA_NOT_FOUND",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -16264,12 +16337,12 @@
               }
             }
           }
-        },
-        "operationId": "post_v1_personas_personaId_activate"
+        }
       }
     },
     "/v1/personas/{personaId}/export": {
       "post": {
+        "operationId": "post_v1_personas_personaId_export",
         "summary": "导出人格及实际生效 Skills",
         "tags": [
           "Persona"
@@ -16287,7 +16360,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Base64 ZIP",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
@@ -16334,6 +16407,329 @@
               }
             }
           },
+          "404": {
+            "description": "EXPORT_FAILED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "EXPORT_FAILED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/personas/import": {
+      "post": {
+        "operationId": "post_v1_personas_import",
+        "summary": "导入人格及 Skills",
+        "tags": [
+          "Persona"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "bundleBase64": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "conflictResolution": {
+                    "type": "string",
+                    "enum": [
+                      "error",
+                      "replace"
+                    ],
+                    "default": "error"
+                  }
+                },
+                "required": [
+                  "bundleBase64"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "persona": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "workspaceId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "subjectUserId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "builtin",
+                            "user_created",
+                            "imported"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "archived"
+                          ]
+                        },
+                        "reviewStatus": {
+                          "type": "string",
+                          "enum": [
+                            "draft",
+                            "pending_review",
+                            "approved",
+                            "rejected"
+                          ]
+                        },
+                        "reviewNotes": {
+                          "type": "string"
+                        },
+                        "reviewedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time"
+                        },
+                        "currentRevisionId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "workspaceId",
+                        "subjectUserId",
+                        "name",
+                        "description",
+                        "source",
+                        "status",
+                        "reviewStatus",
+                        "reviewNotes",
+                        "reviewedAt",
+                        "currentRevisionId",
+                        "createdAt",
+                        "updatedAt"
+                      ]
+                    },
+                    "revision": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "personaId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "config": {
+                          "type": "object",
+                          "properties": {
+                            "systemPromptAppend": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 32000
+                            },
+                            "allowedSkillNames": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "allowedMcpToolIds": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "voice": {
+                              "type": "object",
+                              "properties": {
+                                "enabled": {
+                                  "type": "boolean"
+                                },
+                                "providerId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "modelId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "speakerId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "settings": {
+                                  "type": "object",
+                                  "additionalProperties": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "boolean"
+                                      }
+                                    ]
+                                  }
+                                }
+                              },
+                              "required": [
+                                "enabled",
+                                "providerId",
+                                "modelId"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "systemPromptAppend"
+                          ]
+                        },
+                        "checksum": {
+                          "type": "string",
+                          "minLength": 64,
+                          "maxLength": 64
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "personaId",
+                        "revision",
+                        "config",
+                        "checksum",
+                        "createdAt"
+                      ]
+                    },
+                    "skills": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "checksum": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "description"
+                        ]
+                      }
+                    },
+                    "missingDependencies": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "persona",
+                    "revision",
+                    "skills",
+                    "missingDependencies"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_BUNDLE",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "SKILL_CONFLICT",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -16344,8 +16740,7 @@
               }
             }
           }
-        },
-        "operationId": "post_v1_personas_personaId_export"
+        }
       }
     },
     "/v1/personas/import/preview": {
@@ -16416,66 +16811,6 @@
           }
         },
         "operationId": "post_v1_personas_import_preview"
-      }
-    },
-    "/v1/personas/import": {
-      "post": {
-        "summary": "导入人格及 Skills",
-        "tags": [
-          "Persona"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "bundleBase64": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "conflictResolution": {
-                    "type": "string",
-                    "enum": [
-                      "error",
-                      "replace"
-                    ],
-                    "default": "error"
-                  }
-                },
-                "required": [
-                  "bundleBase64"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Imported"
-          },
-          "401": {
-            "description": "Missing or invalid access token (token mode)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        },
-        "operationId": "post_v1_personas_import"
       }
     },
     "/v1/skills/import": {

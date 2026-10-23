@@ -1,4 +1,5 @@
 import { hostPromptPolicy } from "./prompt-policy.js";
+import { snapshotExecutionConfig } from "@aervox/config";
 import { createBroadcastingStore } from "./broadcasting-store.js";
 /**
  * Aervox｜思隅 @aervox/api — 对话模块入口
@@ -50,8 +51,9 @@ export function registerConversationModule(ctx: ModuleDependencies<"apiRegistry"
     proactiveRepository,
   } = ctx;
   if (!ctx.executionConfig) throw new Error("execution_config_required");
-  const executionConfig = ctx.executionConfig;
-  const dshResolver = createDshTurnAdapterResolver({ repoRoot: executionConfig.dshRepoRoot, workingDirectory: executionConfig.dshWorkingDirectory });
+  const executionConfig = snapshotExecutionConfig(ctx.executionConfig);
+  const dshResolver = createDshTurnAdapterResolver({ repoRoot: executionConfig.dshRepoRoot,
+    workingDirectory: executionConfig.dshWorkingDirectory, environment: { ...process.env } });
   const conversationRepo = new SqliteConversationRepository(db);
   const privacyRepo = new SqlitePrivacyRepository(db);
   const skillRepo = new SqliteSkillRegistryRepository(db);

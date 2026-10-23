@@ -1,3 +1,4 @@
+import { personaApi } from "./persona-api.js";
 /**
  * Aervox｜思隅 @aervox/contracts — OpenAPI 3.1 文档生成
  *
@@ -948,49 +949,20 @@ registry.registerPath({
   },
 });
 
-const personaIdParam = z.object({ personaId: z.string().min(1) });
+for (const endpoint of Object.values(personaApi)) registerJsonEndpoint(endpoint);
 const skillNameParam = z.object({ skillName: z.string().min(1) });
-registry.registerPath({
-  method: "get", path: "/v1/personas", summary: "列出人格", tags: ["Persona"],
-  request: { headers: commonHeaders },
-  responses: { 200: { description: "Persona list", content: { "application/json": { schema: z.object({ personas: z.array(personaSchema), active: activePersonaSelectionSchema.nullable() }) } } } },
-});
-registry.registerPath({
-  method: "post", path: "/v1/personas", summary: "创建人格", tags: ["Persona"],
-  request: { headers: commonHeaders, body: { content: { "application/json": { schema: createPersonaRequestSchema } } } },
-  responses: { 201: { description: "Created", content: { "application/json": { schema: z.object({ persona: personaSchema, revision: personaRevisionSchema }) } } } },
-});
-registry.registerPath({
-  method: "get", path: "/v1/personas/{personaId}", summary: "读取人格", tags: ["Persona"],
-  request: { params: personaIdParam, headers: commonHeaders },
-  responses: { 200: { description: "Persona", content: { "application/json": { schema: z.object({ persona: personaSchema, revision: personaRevisionSchema, active: z.boolean() }) } } }, 404: { description: "PERSONA_NOT_FOUND" } },
-});
-registry.registerPath({
-  method: "patch", path: "/v1/personas/{personaId}", summary: "创建人格新修订", tags: ["Persona"],
-  request: { params: personaIdParam, headers: commonHeaders, body: { content: { "application/json": { schema: updatePersonaRequestSchema } } } },
-  responses: { 200: { description: "Updated", content: { "application/json": { schema: z.object({ persona: personaSchema, revision: personaRevisionSchema }) } } }, 409: { description: "PERSONA_REVISION_CONFLICT" } },
-});
-registry.registerPath({
-  method: "delete", path: "/v1/personas/{personaId}", summary: "归档人格", tags: ["Persona"],
-  request: { params: personaIdParam, headers: commonHeaders }, responses: { 200: { description: "Deleted" }, 404: { description: "PERSONA_NOT_FOUND" } },
-});
-registry.registerPath({
-  method: "post", path: "/v1/personas/{personaId}/activate", summary: "激活人格", tags: ["Persona"],
-  request: { params: personaIdParam, headers: commonHeaders, body: { content: { "application/json": { schema: activatePersonaRequestSchema } } } },
-  responses: { 200: { description: "Activated", content: { "application/json": { schema: activePersonaSelectionSchema } } } },
-});
-registry.registerPath({
-  method: "post", path: "/v1/personas/{personaId}/export", summary: "导出人格及实际生效 Skills", tags: ["Persona"],
-  request: { params: personaIdParam, headers: commonHeaders }, responses: { 200: { description: "Base64 ZIP", content: { "application/json": { schema: personaBundleResponseSchema } } } },
-});
+
+
+
+
+
+
+
 registry.registerPath({
   method: "post", path: "/v1/personas/import/preview", summary: "预览人格 Bundle", tags: ["Persona"],
   request: { headers: commonHeaders, body: { content: { "application/json": { schema: importPersonaRequestSchema } } } }, responses: { 200: { description: "Preview" }, 400: { description: "INVALID_BUNDLE" } },
 });
-registry.registerPath({
-  method: "post", path: "/v1/personas/import", summary: "导入人格及 Skills", tags: ["Persona"],
-  request: { headers: commonHeaders, body: { content: { "application/json": { schema: importPersonaRequestSchema } } } }, responses: { 201: { description: "Imported" } },
-});
+
 registry.registerPath({
   method: "post", path: "/v1/skills/import", summary: "导入 Anthropic Skills ZIP", tags: ["Skills"],
   request: { headers: commonHeaders, body: { content: { "application/json": { schema: importSkillsRequestSchema } } } }, responses: { 201: { description: "Imported" } },

@@ -1,6 +1,6 @@
 import { setRequestToolApprovalMode } from "../../../shared/tool-approval-policy.js";
 import { hostPromptPolicy } from "./prompt-policy.js";
-import { ControlContext, LeaseLostError } from "@aervox/core";
+import { ControlContext, createTurnTerminator, type TurnTerminator } from "@aervox/core";
 /**
  * Aervox｜思隅 @aervox/api — 会话回合编排（runLoopTurnOnce）
  *
@@ -66,7 +66,7 @@ import { createBroadcastingStore } from "./broadcasting-store.js";
 import { turnStreamHub } from "./stream-hub.js";
 import { createPluginToolScope } from "./plugin-tool-scope.js";
 import { PluginToolCatalog, type PluginToolLease } from "./plugin-tool-catalog.js";
-import { createDshTurnAdapterResolver, type DshTurnAdapterResolver, failTurnWithError, runDshAdapterTurn } from "./dsh-adapter.js";
+import { type DshTurnAdapterResolver, runDshAdapterTurn } from "./dsh-adapter.js";
 
 /** SqliteExecutionStore 组合根适配由 @aervox/host-agent 提供（见上方 import），API 不再自维护 SQLite 执行存储 */
 
@@ -111,6 +111,7 @@ export async function runLoopTurnOnce(
     signal?: AbortSignal;
     claimTurnAttempt?: SqliteExecutionStore["claimTurnAttempt"];
     preparationFencingToken?: number;
+    preparationTerminator?: TurnTerminator;
     isMcpToolAllowed?: (tool: { id: string; name: string; pluginId?: string | null }) => Promise<boolean>;
     toolRuntime?: ToolRuntime;
     llmConfigService?: LLMConfigPort;
@@ -178,6 +179,7 @@ export async function runLoopTurnOnce(
   if (group) {
     deps = { executionConfig: deps.executionConfig, apiRegistry: deps.apiRegistry, llmConfigService: deps.llmConfigService, modelRoutingService: deps.modelRoutingService,
       signal: deps.signal, claimTurnAttempt: deps.claimTurnAttempt, preparationFencingToken: deps.preparationFencingToken,
+      preparationTerminator: deps.preparationTerminator,
       safetyService: deps.safetyService, deletionGate: deps.deletionGate,
       platformRepo: deps.platformRepo, observability: deps.observability };
   } else if (bot) {
@@ -295,24 +297,21 @@ export async function runLoopTurnOnce(
   );
   if (deps.claimTurnAttempt) store.claimTurnAttempt = deps.claimTurnAttempt;
   const broadcastingStore = createBroadcastingStore(store);
-  // A Hook can be cancelled before the executor claims its Attempt. Finalize here
-  // because a CancelRequested Attempt will correctly refuse that later claim.
-  const finishUnclaimedCancellation = async (): Promise<boolean> => {
-    const cancelRequested = await store.isCancelRequested(input);
-    if (!signal?.aborted && !cancelRequested && !(input.deadlineEpochMs !== undefined && Date.now() >= input.deadlineEpochMs)) return false;
-    if (signal?.reason instanceof LeaseLostError) return true;
-    const reason = signal?.reason instanceof Error ? signal.reason.message : undefined;
-    const interrupted = reason === "deletion_blocked" || reason === "turn_timeout";
-    const status = (signal?.aborted || cancelRequested) && !interrupted ? "Cancelled" : "Interrupted";
-    const sequence = await store.nextSequence(input.turnId);
-    await broadcastingStore.finalizeAttemptWithEvent({
-      turnId: input.turnId, attemptId: input.attemptId, expectedFencingToken: deps.preparationFencingToken ?? 0,
-      status, sequence, eventType: "done",
-      eventData: { status, isComplete: false, lastSequence: sequence, reason: interrupted ? reason : status === "Cancelled" ? "cancelled" : "deadline_exceeded" },
-    });
-    return true;
-  };
-  if (await finishUnclaimedCancellation()) return;
+  // Production preparation uses the same claimed lifecycle that will be handed
+  // to the driver. Standalone internal callers still use Core terminal policy.
+  const preparationControl = deps.preparationTerminator ? undefined : new ControlContext({
+    abortSignal: signal, deadlineEpochMs: input.deadlineEpochMs,
+  });
+  if (preparationControl) resources.push(() => preparationControl.dispose());
+  const preparationTerminator = deps.preparationTerminator ?? createTurnTerminator({
+    ...input, execution: broadcastingStore, claimFencingToken: deps.preparationFencingToken ?? 0,
+    stepsTaken: 0, startedAt: turnStartTime, control: preparationControl, deletionGate: deps.deletionGate,
+  });
+  const stopPreparation = async () => preparationTerminator.prematureTermination(await store.nextSequence(input.turnId));
+  const failPreparation = async (error: unknown, code = "MODEL_UNAVAILABLE") => preparationTerminator.finalizeFailure(
+    await store.nextSequence(input.turnId), error, { code, retryable: false },
+  );
+  if (await stopPreparation()) return;
 
   // CAP-008：前置安全门禁拦截（Crisis Safety Gate & Emotional Companionship）
   // 规则依据：PRD §4.3、§6.5、SRS FR-SAFE-001。
@@ -372,7 +371,7 @@ export async function runLoopTurnOnce(
       }).catch(() => undefined);
 
       // 5. Terminal status and done are committed together under the preparation fence.
-      if (await finishUnclaimedCancellation()) return;
+      if (await stopPreparation()) return;
       await broadcastingStore.appendEvent({
         turnId: input.turnId,
         attemptId: input.attemptId,
@@ -386,14 +385,9 @@ export async function runLoopTurnOnce(
         expectedFencingToken: deps.preparationFencingToken ?? 0,
       }).catch(() => undefined);
 
-      if (await finishUnclaimedCancellation()) return;
+      if (await stopPreparation()) return;
       const terminalSequence = await store.nextSequence(input.turnId);
-      await broadcastingStore.finalizeAttemptWithEvent({
-        turnId: input.turnId,
-        attemptId: input.attemptId,
-        status: "Completed",
-        expectedFencingToken: deps.preparationFencingToken ?? 0,
-        sequence: terminalSequence,
+      await preparationTerminator.finalize(terminalSequence, { status: "completed" }, {
         eventType: "done",
         eventData: {
           status: "Completed",
@@ -434,7 +428,7 @@ export async function runLoopTurnOnce(
       const proactiveStatus = await deps.proactiveRepository.getEffectiveStatus(tenant);
       proactiveActive = proactiveStatus?.effectiveState === "active";
     } catch (err) {
-      await failTurnWithError(broadcastingStore, input.turnId, input.attemptId, err instanceof Error ? err.message : "provider_unavailable", undefined, deps.preparationFencingToken);
+      await failPreparation(err);
       return;
     }
   }
@@ -445,26 +439,10 @@ export async function runLoopTurnOnce(
   if (!bot && apiConfig.loopDriver === "dsh") {
     // 主动智能本地处理期间：进程外 Adapter 不得代执行（既有策略接进本分支，不新增政策）
     if (localProcessingOnly) {
-      await failTurnWithError(
-        broadcastingStore,
-        input.turnId,
-        input.attemptId,
-        "proactive_local_provider_required: 主动智能本地处理期间不允许进程外 Adapter",
-        undefined, deps.preparationFencingToken,
-      );
+      await failPreparation(new Error("proactive_local_provider_required: 主动智能本地处理期间不允许进程外 Adapter"));
       return;
     }
-    // 删除/撤权水位未追平：进程外路径同样 fail-closed（水位读取失败按阻断处理）
-    if (deps.deletionGate && await deps.deletionGate.isBlocked({ turnId: input.turnId, sessionId: input.sessionId }).catch(() => true)) {
-      await failTurnWithError(
-        broadcastingStore,
-        input.turnId,
-        input.attemptId,
-        "deletion_gate_blocked: 删除/撤权水位未追平，进程外 Adapter 拒绝执行",
-        undefined, deps.preparationFencingToken,
-      );
-      return;
-    }
+    if (await stopPreparation()) return;
     let dshLlm: TurnLlmPort | undefined;
     if (deps.llmConfigService && apiConfig.loopProvider === "llm") {
       try {
@@ -479,14 +457,14 @@ export async function runLoopTurnOnce(
         ? { systemPrompt: beforeTurnExec.extraSections.join("\n\n") }
         : {}),
     };
-    const resolver = deps.dshResolver ?? createDshTurnAdapterResolver({ repoRoot: apiConfig.dshRepoRoot, workingDirectory: apiConfig.dshWorkingDirectory });
-    if (!deps.dshResolver) resources.push(() => resolver.close());
+    const resolver = deps.dshResolver;
+    if (!resolver) { await failPreparation(new Error("dsh_resolver_required"), "ADAPTER_UNAVAILABLE"); return; }
     await runDshAdapterTurn(broadcastingStore, {
       ...dshInput, beforeComplete: async completionSignal => executeAfterTurnPlugins(
         pluginRegistry!, { ...turnPluginCtx, signal: completionSignal, status: "Completed", llm: dshLlm },
         turnPluginDeps, beforeTurnExec.pluginResults, beforeTurnExec.snapshots,
       ),
-    }, resolver);
+    }, resolver, preparationTerminator);
     return;
   }
 
@@ -506,7 +484,7 @@ export async function runLoopTurnOnce(
       proactiveProfilePrompt = await loadProactiveProfilePrompt(deps.proactiveRepository, tenant);
     }
   } catch (err) {
-    await failTurnWithError(broadcastingStore, input.turnId, input.attemptId, err instanceof Error ? err.message : "provider_unavailable", undefined, deps.preparationFencingToken);
+    await failPreparation(err);
     return;
   }
 
@@ -736,7 +714,7 @@ export async function runLoopTurnOnce(
     },
     input,
   ).finally(() => control.dispose());
-  if (result.status === "skipped" && await finishUnclaimedCancellation()) return;
+  if (result.status === "skipped" && await stopPreparation()) return;
   const turnDurationMs = Date.now() - turnStartTime;
   deps.observability?.metrics.emit({
     type: "histogram",

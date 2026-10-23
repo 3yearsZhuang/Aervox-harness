@@ -159,6 +159,8 @@ Created -> InputChecking -> Running -> Finalizing -> Completed
 
 表示 Turn 终态已提交。`data` 至少包含 `status`、`messageId`（如有）、`isComplete`、`lastSequence` 和 `contextVersion`。只有 `status=Completed` 且 `isComplete=true` 的结果可触发普通下游派生；`Cancelled/Interrupted/Failed/Rejected` 的安全前缀只能作为明确标记的不完整历史保留。
 
+接单准备、Native 和 Adapter 共用取消、删除、预算与失败裁决。准备阶段已被阻断时可以直接提交终态，不创建空 Assistant 身份。取消的 `done.reason=cancelled`，中断保留具体原因；`done/error.lastSequence` 对应原子提交的事件序号。丢失租约或 fencing 后不得发布终态，子任务摘要只能按持久 Attempt 对账，不能把本地失去执行权映射为已完成的失败。
+
 ### 4.4 `error`
 
 表示已持久化的错误诊断。目标负载包含 `code`、`retryable`、`message`（用户可见且不泄露内部细节）和 `lastSequence`；不得包含完整 Prompt、凭据、Restricted 原文或供应商秘密。统一目标是随后用带 `Rejected/Cancelled/Interrupted/Failed` 的 `done` 表示终态。

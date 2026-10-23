@@ -1,4 +1,5 @@
 import { recoverApiOwnedTurn } from "./api-owned-recovery.js";
+import { snapshotExecutionConfig } from "@aervox/config";
 import type { IConversationRepository, LocalContext, SqliteConversationRepository } from "@aervox/repositories";
 import { assertConversationExecutionPolicy, normalizeTurnIntent } from "@aervox/repositories";
 import { decideConversationApproval, ConversationCommandError } from "./approval-command.js";
@@ -29,11 +30,7 @@ export function createConversationApplication(
   execute?: (ctx: LocalContext, input: ConversationTurnInput) => Promise<void>,
 ) {
   if (!deps.executionConfig) throw new Error("execution_config_required");
-  const executionConfig = Object.freeze({ ...deps.executionConfig,
-    adminIds: [...deps.executionConfig.adminIds],
-    proactiveFeatureFlags: new Set(deps.executionConfig.proactiveFeatureFlags),
-    modelRoutingFeatureFlags: new Set(deps.executionConfig.modelRoutingFeatureFlags),
-  });
+  const executionConfig = snapshotExecutionConfig(deps.executionConfig);
   const executionDeps = () => ({ ...deps, executionConfig });
   let closed = false;
   const assertOpen = () => { if (closed) throw new Error("conversation_host_closed"); };

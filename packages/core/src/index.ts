@@ -40,4 +40,6 @@ export * from "./tool-contract.js";
 export * from "./diagnostics-manifest.js";
 export * from "./agent-contract.js";
 export * from "./attempt-execution.js";
+export { createTurnTerminator } from "./turn-terminator.js";
+export type { TurnTerminator, TurnFailureEvent } from "./turn-terminator.js";
 export { stableSerialize } from "./stable-serialize.js";

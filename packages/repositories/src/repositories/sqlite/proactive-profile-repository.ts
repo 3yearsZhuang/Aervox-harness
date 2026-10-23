@@ -14,6 +14,7 @@ import type { LocalContext } from "../../local-context.js";
 import type { ProactiveVaultCipher } from "../../proactive-vault-crypto.js";
 import type {
   IProactiveProfileRepository,
+  CaptureDistillationInput,
   ProactiveActionModel,
   ProactiveActivationLeaseModel,
   ProactiveAuditEventModel,
@@ -142,6 +143,10 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
 
   listDistillationCandidates(ctx: LocalContext, options: { retryBefore: string; limit?: number }) {
     return this.captureStore.listDistillationCandidates(ctx, options);
+  }
+
+  publishCaptureDistillation(ctx: LocalContext, input: CaptureDistillationInput) {
+    return this.captureStore.publishCaptureDistillation(ctx, input);
   }
 
   listCaptureClaims(ctx: LocalContext, captureId: string) {

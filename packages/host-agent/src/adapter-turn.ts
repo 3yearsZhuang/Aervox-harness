@@ -20,7 +20,7 @@ import type {
   AdapterDriverPort,
   AdapterRequest,
 } from "@aervox/core";
-import { claimAttemptExecution, ControlContext, drainAdapterDriver, LeaseLostError } from "@aervox/core";
+import { claimAttemptExecution, ControlContext, drainAdapterDriver } from "@aervox/core";
 
 export interface AdapterTurnInput {
   turnId: string;
@@ -72,7 +72,7 @@ export async function runAdapterTurn(
   const mapResult = (result: import("@aervox/core").ExecuteResult): AdapterTurnResult => ({
     status: ({ completed: "Completed", interrupted: "Interrupted", failed: "Failed", cancelled: "Cancelled", skipped: "skipped" } as const)[result.status],
     reason: "reason" in result ? result.reason : undefined,
-    committed: result.status !== "skipped" && !(result.status === "failed" && result.reason.endsWith("_finalize_contested")),
+    committed: result.status !== "skipped" && !(result.status === "failed" && (result.reason === "lease_lost" || result.reason.endsWith("_finalize_contested"))),
   });
 
   const append = async (
@@ -160,16 +160,10 @@ export async function runAdapterTurn(
       eventType: "done", eventData: { status: "Interrupted", messageId, isComplete: false, lastSequence: sequence }, safetyDecision: "approved",
     }));
   } catch (err) {
-    if (err instanceof LeaseLostError || lifecycle.leaseLost) return { status: "Failed", reason: "lease_lost" };
-    if (lifecycle.interruption && lifecycle.interruption !== "cancelled") return mapResult(await terminator.finalizeInterrupted(await store.nextSequence(turnId), lifecycle.interruption));
-    if (control.isExpired()) return mapResult(await terminator.finalizeInterrupted(await store.nextSequence(turnId), "deadline_exceeded"));
-    if (control.isAborted() && !lifecycle.failure) return mapResult(await terminator.finalizeCancelled(await store.nextSequence(turnId)));
-    // 超时/协议违约/外部异常 → Failed（host 失败自动禁用语义在端口层）
     const message = err instanceof Error ? err.message : String(err);
     try {
-      const seq = await store.nextSequence(turnId);
-      return mapResult(await terminator.finalize(seq, { status: "failed", reason: message }, {
-        eventType: "error", eventData: { code: "ADAPTER_UNAVAILABLE", retryable: true, message, lastSequence: seq }, safetyDecision: "approved",
+      return mapResult(await terminator.finalizeFailure(await store.nextSequence(turnId), err, {
+        code: "ADAPTER_UNAVAILABLE", retryable: true,
       }));
     } catch {
       // 落库兜底失败不再上抛（审计失败不得循环）

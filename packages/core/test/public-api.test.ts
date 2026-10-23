@@ -15,8 +15,9 @@ describe("public entrypoints", () => {
       "createFauxProvider",
       "ModelProviderRegistry",
       "defaultModelProviderRegistry",
+      "createTurnTerminator",
     ]) expect(core).toHaveProperty(name);
-    for (const name of ["StepCollector", "runToolExecution", "settleToolLedger", "createTurnTerminator", "safeStringify", "dedupeKey"]) expect(core).not.toHaveProperty(name);
+    for (const name of ["StepCollector", "runToolExecution", "settleToolLedger", "safeStringify", "dedupeKey"]) expect(core).not.toHaveProperty(name);
     expect(lightweight.executeTurn).toBe(core.executeTurn);
   });
 });

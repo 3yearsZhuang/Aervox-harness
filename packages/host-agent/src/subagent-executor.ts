@@ -149,17 +149,18 @@ export function createSqliteSubagentPort(deps: SqliteSubagentPortDeps): Subagent
       } catch (err) {
         failureReason = err instanceof Error ? err.message : String(err);
         // Model setup is part of admission. Its failure cannot leave a Running child.
-        lifecycle.checkFailure();
         const sequence = (await store.listEvents(effectiveTurnId)).reduce((n, event) => Math.max(n, event.sequence), 0) + 1;
-        const stopped = await lifecycle.terminator.prematureTermination(sequence);
-        const result = stopped ?? await lifecycle.terminator.finalize(sequence, { status: "failed", reason: failureReason }, {
-          eventType: "error", eventData: { code: "SUBAGENT_SETUP_FAILED", message: "Subagent execution failed", retryable: false },
-          safetyDecision: "approved",
+        const result = await lifecycle.terminator.finalizeFailure(sequence, err, {
+          code: "SUBAGENT_SETUP_FAILED", message: "Subagent execution failed", retryable: false,
         });
         status = result.status === "cancelled" ? "Cancelled" : result.status === "interrupted" ? "Interrupted" : "Failed";
       } finally {
         lifecycle.dispose();
       }
+
+      // A driver result can report a lost fence or a failed terminal write.
+      // Only the durable Attempt authorizes a terminal summary for this run.
+      if ((await store.getAttemptStatus(identity)) !== status) return reconcile(run);
 
       // 3) 聚合子任务正文（delta 事件文本）→ 终态收口 run 行
       let resultText: string | undefined;

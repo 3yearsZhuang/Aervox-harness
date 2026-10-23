@@ -75,6 +75,60 @@ describe("SqliteSubagentPort（子任务委托执行器）", () => {
     expect(runs[0]?.subTurnId).toBe(result.subTurnId);
   });
 
+  it("does not project Failed when setup loses its Attempt fence before failing", async () => {
+    const subagent = createSqliteSubagentPort({ ctx, store: new SqliteExecutionStore(repo, ctx), runRepo, genId: gen,
+      providerBuilder: async input => {
+        await client.execute({ sql: "UPDATE turn_attempts SET fencing_token=fencing_token+1 WHERE id=?", args: [input.attemptId] });
+        throw new Error("late_provider_failure");
+      },
+    });
+    const result = await subagent.delegate(delegateInput);
+    expect(result.status).toBe("Running");
+    expect((await runRepo.listRunsByTurn(ctx, delegateInput.parentTurnId))[0]?.status).toBe("Running");
+    expect((await repo.getStreamEvents(ctx, result.subTurnId)).some(event => ["done", "error"].includes(event.eventType))).toBe(false);
+  });
+
+  it.each(["lease-lost", "finalize-contested"] as const)("reconciles %s after child model execution without replaying it", async outcome => {
+    let builds = 0;
+    let modelCalls = 0;
+    const subagent = createSqliteSubagentPort({ ctx, store: new SqliteExecutionStore(repo, ctx), runRepo, genId: gen,
+      providerBuilder: input => {
+        builds++;
+        return { id: "fence-race", async *stream() {
+          modelCalls++;
+          await client.execute({ sql: "UPDATE turn_attempts SET fencing_token=fencing_token+1 WHERE id=?", args: [input.attemptId] });
+          // A visible segment loses its write fence; an empty completed response
+          // reaches the terminal CAS and loses it there instead.
+          yield { text: outcome === "lease-lost" ? "uncommitted response" : "", isFinal: true };
+        } };
+      },
+    });
+    const result = await subagent.delegate(delegateInput);
+    expect(result.status).toBe("Running");
+    expect((await repo.listTurnAttempts(ctx, result.subTurnId))[0]?.status).toBe("Running");
+    expect((await runRepo.listRunsByTurn(ctx, delegateInput.parentTurnId))[0]?.status).toBe("Running");
+    expect((await repo.getStreamEvents(ctx, result.subTurnId)).some(event => ["done", "error", "delta"].includes(event.eventType))).toBe(false);
+    expect(await subagent.delegate(delegateInput)).toMatchObject({ subTurnId: result.subTurnId, status: "Running" });
+    expect(builds).toBe(1);
+    expect(modelCalls).toBe(1);
+  });
+
+  it("keeps the run Running when the child executor cannot persist its terminal event", async () => {
+    const store = new SqliteExecutionStore(repo, ctx);
+    store.finalizeAttemptWithEvent = async () => { throw new Error("terminal write failed"); };
+    let builds = 0;
+    const subagent = createSqliteSubagentPort({ ctx, store, runRepo, genId: gen,
+      providerBuilder: () => { builds++; return createScriptedProvider([{ text: "durable prefix" }]); },
+    });
+    const result = await subagent.delegate(delegateInput);
+    expect(result.status).toBe("Running");
+    expect((await repo.listTurnAttempts(ctx, result.subTurnId))[0]?.status).toBe("Running");
+    expect((await runRepo.listRunsByTurn(ctx, delegateInput.parentTurnId))[0]?.status).toBe("Running");
+    expect((await repo.getStreamEvents(ctx, result.subTurnId)).some(event => ["done", "error"].includes(event.eventType))).toBe(false);
+    expect(await subagent.delegate(delegateInput)).toMatchObject({ subTurnId: result.subTurnId, status: "Running" });
+    expect(builds).toBe(1);
+  });
+
   it("parent cancellation prevents child admission; local-only and budget propagate", async () => {
     const control = new ControlContext({ localProcessingOnly: true, callBudget: { maxCalls: 3, usedCalls: 0 } });
     let calls = 0;

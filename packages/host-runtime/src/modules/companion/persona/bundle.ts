@@ -3,6 +3,7 @@
  */
 import { createHash } from "node:crypto";
 import { strFromU8, strToU8 } from "fflate";
+import { createPersonaRequestSchema, personaBundleResponseSchema } from "@aervox/contracts";
 import { executeArchive, ARCHIVE_LIMITS, normalizeSkillArchivePath } from "../../../shared/archive-worker.js";
 import type { LocalContext, SqlitePersonaRepository, SkillRegistrationModel } from "@aervox/repositories";
 import type { SkillCatalogPort } from "../../ecosystem/skills/index.js";
@@ -161,7 +162,11 @@ async function previewPersonaFiles(files: Record<string, Uint8Array>, workspaceI
     throw new Error("UNSUPPORTED_PERSONA_BUNDLE_VERSION");
   }
 
-  const normalizedConfig = validatePersonaConfig(personaJson.config);
+  // Validate every imported field projected into a persisted persona or receipt
+  // before SkillCatalog can install anything on disk or in the registry.
+  const personaInput = createPersonaRequestSchema.parse(personaJson);
+  const missingDependencies = personaBundleResponseSchema.shape.missingDependencies.parse(manifest.missingDependencies ?? []);
+  const normalizedConfig = validatePersonaConfig(personaInput.config);
   if (manifest.personaChecksum !== computeRevisionChecksum(normalizedConfig)) {
     throw new Error("PERSONA_BUNDLE_PERSONA_CHECKSUM_MISMATCH");
   }
@@ -195,8 +200,8 @@ async function previewPersonaFiles(files: Record<string, Uint8Array>, workspaceI
     persona: {
       workspaceId,
       subjectUserId: "",
-      name: assertNonEmpty(personaJson.name, "name"),
-      description: personaJson.description ?? "",
+      name: assertNonEmpty(personaInput.name, "name"),
+      description: personaInput.description ?? "",
       source: "imported",
       status: "active",
       reviewStatus: "draft",
@@ -210,7 +215,7 @@ async function previewPersonaFiles(files: Record<string, Uint8Array>, workspaceI
     },
     skills: previewSkills,
     manifest,
-    missingDependencies: manifest.missingDependencies ?? [],
+    missingDependencies,
   };
 }
 

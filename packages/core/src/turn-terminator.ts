@@ -12,6 +12,7 @@ import type { DeletionGatePort, ExecutionStorePort } from "./ports.js";
 import type { ExecuteResult } from "./types.js";
 import { awaitWithSignal } from "./abortable.js";
 import type { ControlContext } from "./control-context.js";
+import { LeaseLostError } from "./errors.js";
 
 /** 收敛器所需的最小上下文（与 executor 解耦，避免整包回传造成循环依赖） */
 export interface TerminatorContext {
@@ -44,6 +45,14 @@ type TerminalOutcome =
   | { status: "interrupted" | "failed"; reason: string };
 type TerminalEvent = Pick<Parameters<ExecutionStorePort["finalizeAttemptWithEvent"]>[0], "eventType" | "eventData" | "safetyDecision">;
 
+export interface TurnFailureEvent {
+  code: string;
+  retryable: boolean;
+  /** The host may sanitize the public message without changing terminal policy. */
+  message?: string;
+  reason?: string;
+}
+
 /** 所有终态共享提交与结果映射，检查点复用取消和中断入口。 */
 export interface TurnTerminator {
   finalize(atSequence: number, outcome: TerminalOutcome, event: TerminalEvent): Promise<ExecuteResult>;
@@ -51,6 +60,8 @@ export interface TurnTerminator {
   finalizeCancelled(atSequence: number): Promise<ExecuteResult>;
   /** 2d：预算/环境原因终止（Interrupted + done） */
   finalizeInterrupted(atSequence: number, reason: string): Promise<ExecuteResult>;
+  /** Resolve execution controls before classifying an admission or driver error. */
+  finalizeFailure(atSequence: number, error: unknown, event: TurnFailureEvent): Promise<ExecuteResult>;
   /** 检查点：已被请求取消时立刻走取消终态；未请求则返回 null */
   abortIfCancelled(atSequence: number): Promise<ExecuteResult | null>;
   /** Step 边界守卫：取消 / 删除水位 / 预算 / ControlContext，任一命中即收敛 */
@@ -75,8 +86,11 @@ export function createTurnTerminator(ctx: TerminatorContext): TurnTerminator {
     // Done closes an attempt, including suspensions and unsuccessful execution.
     // Keep its reason in the same atomic record so observers can distinguish a
     // pending approval from budgets, deletion or other execution interruption.
-    const eventData = event.eventType === "done" && "reason" in outcome
-      ? { ...(event.eventData && typeof event.eventData === "object" && !Array.isArray(event.eventData) ? event.eventData : {}), reason: outcome.reason }
+    const eventData = event.eventType === "done" || event.eventType === "error"
+      ? { ...(event.eventData && typeof event.eventData === "object" && !Array.isArray(event.eventData) ? event.eventData : {}),
+        lastSequence: atSequence,
+        ...(event.eventType === "done" && "reason" in outcome ? { reason: outcome.reason } : {}),
+      }
       : event.eventData;
     const finalized = await execution.finalizeAttemptWithEvent({
       turnId,
@@ -98,7 +112,7 @@ export function createTurnTerminator(ctx: TerminatorContext): TurnTerminator {
   const finalizeCancelled = (atSequence: number): Promise<ExecuteResult> =>
     finalize(atSequence, { status: "cancelled" }, {
       eventType: "done",
-      eventData: { status: "Cancelled", isComplete: false, lastSequence: atSequence },
+      eventData: { status: "Cancelled", isComplete: false, lastSequence: atSequence, reason: "cancelled" },
       safetyDecision: "approved",
     });
 
@@ -116,10 +130,12 @@ export function createTurnTerminator(ctx: TerminatorContext): TurnTerminator {
       safetyDecision: "approved",
     });
 
-  /** Step 边界守卫 —— 取消 / 删除撤权水位 / 总耗时预算 / ControlContext，任一命中即收敛 */
-  const prematureTermination = async (atSequence: number): Promise<ExecuteResult | null> => {
-    ctx.checkFailure?.();
-    const reason = ctx.interruptionReason?.();
+  const terminateFromControls = async (atSequence: number): Promise<ExecuteResult | null> => {
+    const abortReason = control?.abortSignal.reason;
+    // A host may hand an already claimed lease to another driver. Preserve the
+    // monitor's interruption across that boundary rather than call it a cancel.
+    const reason = ctx.interruptionReason?.() ?? (abortReason instanceof Error
+      && ["deletion_blocked", "turn_timeout"].includes(abortReason.message) ? abortReason.message : undefined);
     if (reason && reason !== "cancelled") return finalizeInterrupted(atSequence, reason);
     if (control?.isExpired()) {
       return finalizeInterrupted(atSequence, "deadline_exceeded");
@@ -140,5 +156,34 @@ export function createTurnTerminator(ctx: TerminatorContext): TurnTerminator {
     return null;
   };
 
-  return { finalize, finalizeCancelled, finalizeInterrupted, abortIfCancelled, prematureTermination };
+  /** Step 边界守卫 —— 取消 / 删除撤权水位 / 总耗时预算 / ControlContext，任一命中即收敛 */
+  const prematureTermination = async (atSequence: number): Promise<ExecuteResult | null> => {
+    ctx.checkFailure?.();
+    if (control?.abortSignal.reason instanceof LeaseLostError) throw control.abortSignal.reason;
+    return terminateFromControls(atSequence);
+  };
+
+  const finalizeFailure: TurnTerminator["finalizeFailure"] = async (atSequence, error, event) => {
+    let failure = error;
+    let controlFailure = false;
+    try { ctx.checkFailure?.(); } catch (err) { failure = err; controlFailure = true; }
+    if (error instanceof LeaseLostError || failure instanceof LeaseLostError || control?.abortSignal.reason instanceof LeaseLostError) {
+      return { status: "failed", attemptId, reason: "lease_lost" };
+    }
+    // A failed cancellation/deletion monitor aborts its work but is an execution
+    // error. It must not be reclassified as a user cancellation by that abort.
+    if (!controlFailure) {
+      try {
+        const stopped = await terminateFromControls(atSequence);
+        if (stopped) return stopped;
+      } catch (err) { failure = err; }
+    }
+    const message = failure instanceof Error ? failure.message : String(failure);
+    return finalize(atSequence, { status: "failed", reason: event.reason ?? message }, {
+      eventType: "error", eventData: { code: event.code, retryable: event.retryable, message: event.message ?? message },
+      safetyDecision: "approved",
+    });
+  };
+
+  return { finalize, finalizeCancelled, finalizeInterrupted, finalizeFailure, abortIfCancelled, prematureTermination };
 }

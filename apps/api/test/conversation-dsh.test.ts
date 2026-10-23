@@ -143,7 +143,7 @@ describe("Agent Loop 阶段 6f：AERVOX_LOOP_DRIVER=dsh API 接线", () => {
   });
 
   it("resolver：非 git 根 → ok:false（dsh_probe_failed / submodule_missing）", async () => {
-    const resolved = await resolveDshTurnAdapter({ repoRoot: nonRepoRoot });
+    const resolved = await resolveDshTurnAdapter({ repoRoot: nonRepoRoot, environment: { ...process.env } });
     expect(resolved.ok).toBe(false);
     if (!resolved.ok) {
       expect(resolved.reason).toContain("dsh_probe_failed");
@@ -179,6 +179,9 @@ describe("Agent Loop 阶段 6f：AERVOX_LOOP_DRIVER=dsh API 接线", () => {
       await app.close();
       app = (await buildApp({ db: database.db, client: database.client })).app;
       await app.ready();
+
+      // The process is admitted lazily. Later host mutation cannot redirect its model endpoint.
+      process.env.DSH_LLM_BASE_URL = "http://127.0.0.1:1";
 
       const created = await createTurn();
       expect(created.statusCode).toBe(201);
@@ -232,8 +235,8 @@ describe("Agent Loop 阶段 6f：AERVOX_LOOP_DRIVER=dsh API 接线", () => {
     );
 
     const events = await repo.getStreamEvents(tenant, "turn_dg");
-    const error = events.find((e) => e.eventType === "error");
-    expect((error?.data as { message?: string }).message).toContain("deletion_gate_blocked");
-    expect((await repo.getTurn(tenant, "turn_dg"))?.status).toBe("Failed");
+    expect(events.some(event => event.eventType === "error")).toBe(false);
+    expect(events.at(-1)).toMatchObject({ eventType: "done", data: { status: "Interrupted", reason: "deletion_blocked" } });
+    expect((await repo.getTurn(tenant, "turn_dg"))?.status).toBe("Interrupted");
   });
 });

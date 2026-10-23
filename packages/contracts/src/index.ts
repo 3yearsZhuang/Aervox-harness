@@ -220,5 +220,6 @@ export type { DiaryMaterial, DiaryMaterialMessage, DiaryMaterialMemory, DiaryMat
 export { learningGoalResponseSchema, planTaskResponseSchema, planMilestoneResponseSchema, learningPlanResponseSchema } from "./schemas.js";
 
 export * from "./voice-api.js";
+export * from "./persona-api.js";
 export * from "./mcp-api.js";
 export * from "./llm-api.js";

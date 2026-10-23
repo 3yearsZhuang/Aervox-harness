@@ -1,7 +1,7 @@
 /**
  * CAP-033 本地画像提炼与原始副本保留周期。
  *
- * 顺序不变量：capture -> local claim memory -> mark distilled -> TTL purge。
+ * 顺序不变量：capture -> 原子提交本地结果、完成标记与回执 -> TTL purge。
  * 任何一步失败都保留原始副本；到期未提炼由仓储标为 blocked 并写本地告警。
  */
 import type { IProactiveProfileRepository, LocalContext } from "@aervox/repositories";
@@ -9,8 +9,7 @@ import type { ProactiveCaptureDistiller } from "./distiller.js";
 
 export interface ProactiveProfileWorkerContext {
   repo: Pick<IProactiveProfileRepository,
-    "listDistillationCandidates" | "listCaptureClaims" | "createObservation" | "createClaim"
-    | "markCaptureDistilled" | "markCaptureDistillationFailed" | "purgeEligibleCaptures">;
+    "listDistillationCandidates" | "publishCaptureDistillation" | "markCaptureDistillationFailed" | "purgeEligibleCaptures">;
   distiller: ProactiveCaptureDistiller;
   workerId: string;
   limit?: number;
@@ -42,63 +41,12 @@ export async function runProactiveProfileCycle(
     try {
       const capture = candidate;
 
-      // Crash recovery: claims may already exist if the previous process stopped between
-      // claim creation and capture finalization. Reuse them instead of duplicating memory.
-      const claims = await deps.repo.listCaptureClaims(ctx, capture.id);
-      let memoryIds = claims.map(claim => claim.id);
-      if (memoryIds.length === 0) {
-        const memories = await deps.distiller.distill(capture);
-        if (memories.length === 0) throw new Error("local distiller produced no profile memory");
-        memoryIds = [];
-        for (let index = 0; index < memories.length; index += 1) {
-          const memory = memories[index]!;
-          const observationId = `pobs_${capture.id}_${index + 1}`;
-          const observation = await deps.repo.createObservation(ctx, {
-            id: observationId,
-            revisionId: capture.revisionId,
-            sourceGrantId: capture.sourceGrantId,
-            sourceKey: capture.sourceKey,
-            observationType: memory.claimType,
-            subjectKey: memory.subjectKey,
-            payload: {
-              captureId: capture.id,
-              content: memory.content,
-              confidence: memory.confidence,
-              evidenceRefs: memory.evidenceRefs,
-              // CR-032：结构化证据直通（idle_state 等元数据级样本）
-              ...(memory.structured ?? {}),
-            },
-            checksum: capture.checksum,
-            algorithmVersion: deps.distiller.processorId,
-            observedAt: capture.observedAt,
-            normalizedAt: nowIso,
-          });
-          // CR-032：observationOnly 样本（idle_state 等元数据级高频源）不进 claim 审阅流
-          if (memory.observationOnly) {
-            memoryIds.push(observation.id);
-            continue;
-          }
-          const claimId = `pclaim_${capture.id}_${index + 1}`;
-          const claim = await deps.repo.createClaim(ctx, {
-            id: claimId,
-            revisionId: capture.revisionId,
-            claimType: memory.claimType,
-            subjectKey: memory.subjectKey,
-            content: memory.content,
-            state: "inferred",
-            confidence: memory.confidence,
-            evidenceCaptureIds: [capture.id],
-            evidenceRefs: [
-              ...memory.evidenceRefs,
-              { observationId: observation.id, algorithmVersion: observation.algorithmVersion },
-            ],
-            sourceGrantIds: [capture.sourceGrantId],
-          });
-          memoryIds.push(claim.id);
-        }
-      }
-      const updated = await deps.repo.markCaptureDistilled(ctx, capture.id, memoryIds);
-      if (updated) distilled += 1;
+      const outputs = await deps.distiller.distill(capture);
+      await deps.repo.publishCaptureDistillation(ctx, {
+        captureId: capture.id, revisionId: capture.revisionId, sourceGrantId: capture.sourceGrantId,
+        sourceKey: capture.sourceKey, checksum: capture.checksum, processorId: deps.distiller.processorId, outputs,
+      });
+      distilled += 1;
     } catch (error) {
       failed += 1;
       const reason = error instanceof Error ? error.message : String(error);

@@ -170,6 +170,9 @@ describe("CAP-033 proactive profile repository", () => {
 
     expect(await repository.purgeEligibleCaptures(ctx, "2026-08-09T00:00:00.000Z")).toBe(0);
     expect((await repository.listCaptures(ctx))[0]!.distillationStatus).toBe("blocked");
+    await repository.createClaim(ctx, { id: "memory-1", revisionId: profile.revision.id, claimType: "habit",
+      subjectKey: "capture-derived", content: "distilled private source", evidenceCaptureIds: [capture.id],
+      sourceGrantIds: [capture.sourceGrantId] });
     await repository.markCaptureDistilled(ctx, capture.id, ["memory-1"]);
     expect(await repository.purgeEligibleCaptures(ctx, "2026-08-09T00:00:00.000Z")).toBe(1);
     const deleted = (await repository.listCaptures(ctx, { includeDeleted: true }))[0]!;

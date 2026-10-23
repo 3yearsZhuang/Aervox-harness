@@ -27,6 +27,8 @@ for (const mode of ["native", "adapter"] as const) describe(`${mode} shared Atte
     expect((await execution).status.toLowerCase()).toBe("cancelled");
     expect(started).not.toHaveBeenCalled();
     expect((await store.listEvents(input.turnId)).filter(event => event.eventType === "done")).toHaveLength(1);
+    const terminal = (await store.listEvents(input.turnId)).at(-1);
+    expect(terminal?.data).toMatchObject({ status: "Cancelled", reason: "cancelled", isComplete: false, lastSequence: terminal?.sequence });
     expect(await store.attemptStatus(input.attemptId)).toBe("Cancelled");
   });
   it("cancels a silent uncooperative source after a persisted cancellation", async () => {
@@ -73,6 +75,19 @@ for (const mode of ["native", "adapter"] as const) describe(`${mode} shared Atte
     expect(result.status.toLowerCase()).toBe("interrupted");
     expect(result).toMatchObject({ reason: "deletion_blocked" });
     expect(await store.attemptStatus(input.attemptId)).toBe("Interrupted");
+    const terminal = (await store.listEvents(input.turnId)).at(-1);
+    expect(terminal).toMatchObject({ eventType: "done", data: { status: "Interrupted", reason: "deletion_blocked", lastSequence: terminal?.sequence } });
+  });
+  it("fails closed when the deletion monitor fails without misreporting its abort as cancellation", async () => {
+    let failGate = false;
+    const { store, started, execution } = setup({ silent: true, deletionGate: { isBlocked: async () => {
+      if (failGate) throw new Error("gate_unavailable"); return false;
+    } } });
+    await vi.waitFor(() => expect(started).toHaveBeenCalled()); failGate = true;
+    expect((await execution).status.toLowerCase()).toBe("failed");
+    expect(await store.attemptStatus(input.attemptId)).toBe("Failed");
+    const terminal = (await store.listEvents(input.turnId)).at(-1);
+    expect(terminal).toMatchObject({ eventType: "error", data: { message: "gate_unavailable", lastSequence: terminal?.sequence } });
   });
   it("propagates host shutdown while a driver is silent", async () => {
     const controller = new AbortController();
