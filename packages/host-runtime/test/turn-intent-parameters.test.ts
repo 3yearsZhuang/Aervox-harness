@@ -27,6 +27,19 @@ describe("accepted Turn parameters remain the execution authority", () => {
     await application.commands.execute({ ...local, actorId: "forged" }, input);
     expect(execute).toHaveBeenCalledWith(local, expect.objectContaining({ userMessage: "accepted", metadata: { mode: "focus" }, toolApprovalMode: "ask", actorId: "trusted" }));
   });
+  it('deduplicates one attempt across application adapters while restoring its accepted parameters', async () => {
+    await accept();
+    let release!: () => void;
+    const execute = vi.fn(async (_ctx: unknown, _input: ConversationTurnInput) => new Promise<void>(resolve => {release = resolve;}));
+    const http = createConversationApplication(repo, {}, execute);
+    const worker = createConversationApplication(repo, {}, execute);
+    const first = http.commands.execute(local, input);
+    const repeated = worker.commands.execute({...local, actorId: 'forged'}, input);
+    expect(first).toBe(repeated);
+    await vi.waitFor(() => expect(execute).toHaveBeenCalledOnce());
+    expect(execute).toHaveBeenCalledWith(local, expect.objectContaining({metadata: {mode: 'focus'}, toolApprovalMode: 'ask', actorId: 'trusted'}));
+    release(); await Promise.all([first, repeated]);
+  });
   it.each(["missing-receipt", "changed-intent", "legacy-hash"])("refuses execution when acceptance evidence is %s", async failure => {
     await accept();
     if (failure === "missing-receipt") await database.client.execute("DELETE FROM outbox_events WHERE id='outbox_turn'");

@@ -26,6 +26,7 @@ export interface ConversationController {
   dispose(): void;
 }
 const submissionKey = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
+const CANCEL_WAIT_MS = 30_000;
 
 /** Owns request/interaction policy; the surface owns rendering and its layout. */
 export function createConversationController(transport: AervoxTransport, lifetime?: AbortSignal): ConversationController {
@@ -38,6 +39,7 @@ export function createConversationController(transport: AervoxTransport, lifetim
   let disposed = false;
   let generation = 0;
   let interaction: InteractionOwner | undefined;
+  const cancellations = new Set<AbortController>();
   const listeners = new Set<(state: Readonly<ConversationState>) => void>();
   const update = (patch: Partial<ConversationState>) => {
     if (disposed) return;
@@ -60,8 +62,7 @@ export function createConversationController(transport: AervoxTransport, lifetim
     interaction = owner;
     return owner;
   };
-  const interactionRequest = async <T>(owner: InteractionOwner, request: (signal: AbortSignal) => Promise<T>): Promise<T> => {
-    const signal = lifetime ? AbortSignal.any([owner.controller.signal, lifetime]) : owner.controller.signal;
+  const requestWithSignal = async <T>(signal: AbortSignal, request: (signal: AbortSignal) => Promise<T>): Promise<T> => {
     signal.throwIfAborted();
     // A detached IPC request may ignore cancellation. Stop waiting locally while
     // retaining rejection handlers on the underlying write, whose result is unknown.
@@ -71,16 +72,26 @@ export function createConversationController(transport: AervoxTransport, lifetim
         onAbort = () => reject(signal.reason ?? new DOMException('Aborted', 'AbortError'));
         signal.addEventListener('abort', onAbort, {once: true});
         if (signal.aborted) { onAbort(); return; }
-        Promise.resolve().then(() => { signal.throwIfAborted(); return request(signal); }).then(resolve, reject);
+        request(signal).then(resolve, reject);
       });
     } finally { signal.removeEventListener('abort', onAbort); }
+  };
+  const interactionRequest = <T>(owner: InteractionOwner, request: (signal: AbortSignal) => Promise<T>) =>
+    requestWithSignal(lifetime ? AbortSignal.any([owner.controller.signal, lifetime]) : owner.controller.signal, request);
+  const detachCancellations = () => {
+    for (const controller of cancellations) controller.abort();
+    cancellations.clear();
   };
   const cancel = (owner: Owner): Promise<void> => {
     if (!state.turnId) return Promise.resolve();
     if (owner.cancel) return owner.cancel;
     const turnId = state.turnId;
     const expectedGeneration = generation;
-    owner.cancel = transport.request('POST', `/v1/turns/${encodeURIComponent(turnId)}/cancel`, {}, {signal: lifetime})
+    const controller = new AbortController();
+    cancellations.add(controller);
+    const timer = setTimeout(() => controller.abort(new DOMException('turn_cancel_timeout: result_unknown', 'TimeoutError')), CANCEL_WAIT_MS);
+    const signal = lifetime ? AbortSignal.any([controller.signal, lifetime]) : controller.signal;
+    owner.cancel = requestWithSignal(signal, signal => transport.request('POST', `/v1/turns/${encodeURIComponent(turnId)}/cancel`, {}, {signal}))
       .then(() => {
         if (generation === expectedGeneration && state.turnId === turnId && (!active || active === owner)) {
           detachInteraction();
@@ -92,6 +103,9 @@ export function createConversationController(transport: AervoxTransport, lifetim
         owner.stopRequested = false;
         if (generation === expectedGeneration && state.turnId === turnId && (!active || active === owner)) update({error});
         throw error;
+      }).finally(() => {
+        clearTimeout(timer);
+        cancellations.delete(controller);
       });
     return owner.cancel;
   };
@@ -268,12 +282,13 @@ export function createConversationController(transport: AervoxTransport, lifetim
     },
     reset() {
       generation++;
+      detachCancellations();
       stopOwner = undefined;
       active?.controller.abort(); active = undefined; retryable = undefined;
       detachInteraction();
       update({status: 'idle', turnId: undefined, afterEventId: undefined, question: undefined, approval: undefined, error: undefined, retryAvailable: false});
     },
-    dispose() { disposed = true; active?.controller.abort(); detachInteraction(); listeners.clear(); lifetime?.removeEventListener('abort', dispose); },
+    dispose() { disposed = true; detachCancellations(); active?.controller.abort(); detachInteraction(); listeners.clear(); lifetime?.removeEventListener('abort', dispose); },
   };
   const dispose = () => controller.dispose();
   lifetime?.addEventListener('abort', dispose, {once: true});

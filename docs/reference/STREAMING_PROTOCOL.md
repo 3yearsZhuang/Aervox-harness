@@ -99,6 +99,8 @@ SSE 传输分页每次最多读取 256 条事件，并在物化 JSON 前按 SQLi
 
 上述幂等取消是目标要求。当前[路由](../../packages/host-runtime/src/modules/companion/conversation/routes.ts)不读取取消请求的幂等键，只对 `Running` Attempt 请求 CAS 取消，并向 API 内当前控制器传播信号；响应中的 `Cancelled` 表示取消请求已接受，不能替代执行器的持久终态。没有 Running Attempt 时返回 409（无 Attempt 为 404），不会创建新 Turn。客户端应继续用事件及持久状态确认结果，不把该响应当作已完成物理停止。
 
+共享 ConversationController 对取消请求的本地等待最多 30 秒；超时以 `TimeoutError` 报告结果未知，保留当前观察并允许重试。reset/dispose 会中止取消请求和本地等待，即使 IPC 未响应也能释放调用者；迟到结果不能修改新会话。只有成功响应才进入本地已停止状态，物理停止仍须由持久终态确认。
+
 ## 3. Turn 状态
 
 ```text
@@ -177,6 +179,8 @@ Created -> InputChecking -> Running -> Finalizing -> Completed
 表示模型请求的写工具（如 `aervox_diary_write`、`aervox_memory_store`）尚未获得用户授权，本次 Attempt 以 `Interrupted` 结束等待授权。`data` 包含 `approvalId`、`toolName`、`argumentsHash`。用户经 `POST /v1/turns/:turnId/tool-approvals` 提交决定（`granted`/`denied`）；宿主在同一事务中保存决定、预留唯一新 Attempt 并移交确认尚未执行的工具意图。响应中的 `continuation.attemptId` 与 `continuation.afterEventId` 指向新尝试及审批事件游标。客户端使用新的投影器订阅原 Turn 的 `events?after=<afterEventId>`，不得重发消息；旧 Attempt 的终态与投影器保持终结。相同决定重复提交返回同一游标，不创建新尝试，冲突决定或尚未中断/已取消的尝试返回 409。客户端对未知事件类型应忽略不影响既有展示。
 
 所有工具来源均从宿主写入的审批绑定快照校验安全等级。`privileged` 批准需要当前管理员白名单中的 `x-admin-user-id`，否则返回 403；缺少绑定身份的旧待决记录、已停用/跨代插件或失效的动态实现返回 409，审批保持待决，仍允许用户拒绝。已执行的同决定重试只返回既有接续结果，不重新派发工具。
+
+HTTP 创建和审批续跑与 Worker/Bot 共用应用执行入口，从有效的受理回执恢复 metadata、审批模式及可信 actor；后续审批请求的 actor 不替换原始执行身份。预留续跑前先验证受理回执，缺失或不一致时返回 `409 turn_intent_unavailable`，不记录决定或创建新 Attempt；这也适用于拒绝后需要继续执行的路径。同一活动 Attempt 的并发派发共享一次执行，持久 CAS/fencing 继续承担最终写入门禁。
 
 标准错误码：
 

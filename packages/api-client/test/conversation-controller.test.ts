@@ -4,7 +4,7 @@ import { createFetchTransport } from '../src/transport';
 import type { AervoxTransport, TurnCallbacks, StreamTurnOptions } from '../src/transport';
 
 const callbacks = (): TurnCallbacks => ({onDelta: vi.fn(), onDone: vi.fn()});
-afterEach(() => { vi.unstubAllGlobals(); });
+afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 function fixture() {
   const streamTurn = vi.fn<AervoxTransport['streamTurn']>();
   const request = vi.fn<AervoxTransport['request']>().mockResolvedValue({});
@@ -65,6 +65,56 @@ describe('ConversationController', () => {
     expect(options.signal!.aborted).toBe(false);
     await controller.stop(); await pending;
     expect(request).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['reset', 'dispose'] as const)('%s releases a silent cancellation even when the observer has ended', async action => {
+    const {controller, streamTurn, request} = fixture();
+    streamTurn.mockImplementation(async (_s, _c, cb, options) => {
+      await options!.onAccepted!('turn'); cb.onDone();
+    });
+    await controller.submit('session', 'hello', callbacks());
+    const response = deferred<any>();
+    request.mockImplementation(() => response.promise);
+    const stopped = controller.stop();
+    const rejected = expect(stopped).rejects.toMatchObject({name: 'AbortError'});
+    const signal = request.mock.calls[0]![3]!.signal!;
+    controller[action]();
+    await rejected;
+    expect(signal.aborted).toBe(true);
+    if (action === 'reset') {
+      await controller.submit('other-session', 'next', callbacks());
+      response.resolve({});
+      await Promise.resolve();
+      expect(controller.state.status).toBe('completed');
+    } else response.reject(new Error('late IPC failure'));
+  });
+
+  it('bounds a silent cancellation, preserves observation and permits a fresh retry', async () => {
+    vi.useFakeTimers();
+    const {controller, streamTurn, request} = fixture();
+    let observation!: AbortSignal;
+    streamTurn.mockImplementation(async (_s, _c, _cb, options) => {
+      observation = options!.signal!;
+      await options!.onAccepted!('turn');
+      await new Promise<void>((_resolve, reject) => observation.addEventListener('abort', () => reject(observation.reason), {once: true}));
+    });
+    const submitted = controller.submit('session', 'hello', callbacks());
+    await Promise.resolve();
+    const response = deferred<any>();
+    request.mockImplementationOnce(() => response.promise);
+    const stopped = controller.stop();
+    const rejected = expect(stopped).rejects.toMatchObject({name: 'TimeoutError'});
+    const signal = request.mock.calls[0]![3]!.signal!;
+    await vi.advanceTimersByTimeAsync(30_000);
+    await rejected;
+    expect(signal.aborted).toBe(true);
+    expect(observation.aborted).toBe(false);
+    expect(controller.state.status).toBe('observing');
+    await controller.stop(); await submitted;
+    expect(controller.state.status).toBe('stopped');
+    expect(request).toHaveBeenCalledTimes(2);
+    response.resolve({});
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('does not let a late cancellation overwrite a different Turn', async () => {

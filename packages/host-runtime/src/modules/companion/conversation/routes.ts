@@ -16,6 +16,7 @@ import {
 } from "@aervox/contracts";
 import {
   TurnIntentConflictError,
+  type LocalContext,
   type SqliteConversationRepository,
   type SqlitePrivacyRepository,
   type SqliteAgentInboxRepository,
@@ -25,7 +26,7 @@ import {
 import { buildResumeHistory } from "@aervox/core";
 import { registerContractRoute } from "../../../shared/contract-route.js";
 import { resolveLocalContext } from "../../../shared/local-context.js";
-import { acceptConversationTurn } from "./application.js";
+import { acceptConversationTurn, executeAcceptedConversationTurn } from "./application.js";
 import { turnStreamHub } from "./stream-hub.js";
 import { encodeSseEvent, writeSseFrame, SseWriteError } from "./sse-writer.js";
 import { loadExecutionConfig } from "@aervox/config";
@@ -35,7 +36,7 @@ let seq = 0;
 const nextTurnId = (): string => `turn_${Date.now().toString(36)}_${(++seq).toString(36)}`;
 
 export type { ConversationRouteDeps } from "./execution.js";
-import { executeConversationTurn, type ConversationRouteDeps, type ConversationTurnInput } from "./execution.js";
+import type { ConversationRouteDeps, ConversationTurnInput } from "./execution.js";
 
 export function registerConversationRoutes(
   app: FastifyInstance,
@@ -43,6 +44,8 @@ export function registerConversationRoutes(
   deps: ConversationRouteDeps = {},
   execute?: (input: ConversationTurnInput) => Promise<void>,
 ): void {
+  const executeAccepted = (ctx: LocalContext, input: ConversationTurnInput) =>
+    executeAcceptedConversationTurn(conversationRepo, ctx, input, deps, execute ? (_ctx, input) => execute(input) : undefined);
   // Accepted local turns own cancellation independently of HTTP/SSE connections.
   const activeTurns = new Map<string, AbortController>();
   const activeStreams = new Set<() => void>();
@@ -183,7 +186,7 @@ export function registerConversationRoutes(
       const controller = new AbortController();
       activeTurns.set(turnId, controller);
       try {
-        await (execute ?? (input => executeConversationTurn(conversationRepo, tenant, input, deps)))({
+        await executeAccepted(tenant, {
           turnId, sessionId, attemptId, userMessage, metadata: acceptedIntent.metadata,
           toolApprovalMode: acceptedIntent.toolApprovalMode, actorId: acceptedIntent.actorId ?? undefined, signal: controller.signal,
         });
@@ -511,6 +514,15 @@ export function registerConversationRoutes(
         }
       }
     }
+    // Verify the receipt before transferring ownership to a new Attempt. The
+    // execution entry revalidates it again before dispatching any product work.
+    if (approval.state === "pending") {
+      try { await conversationRepo.getAcceptedTurnParameters(tenant, turnId); }
+      catch (error) {
+        if (error instanceof TurnIntentConflictError) return reply.code(409).send({error: "turn_intent_unavailable"});
+        throw error;
+      }
+    }
     let decided: Awaited<ReturnType<SqliteConversationRepository["decideToolApprovalAndResume"]>>;
     try {
       decided = await conversationRepo.decideToolApprovalAndResume(tenant, {
@@ -537,8 +549,7 @@ export function registerConversationRoutes(
         events: events as unknown as import("@aervox/core").ResumeEventLike[] });
       const controller = new AbortController();
       activeTurns.set(turnId, controller);
-      const runTurn = execute ?? ((turnInput: ConversationTurnInput) => executeConversationTurn(conversationRepo, tenant, turnInput, deps));
-      void runTurn({ turnId, sessionId: turn.sessionId, attemptId: attempt.id, userMessage,
+      void executeAccepted(tenant, { turnId, sessionId: turn.sessionId, attemptId: attempt.id, userMessage,
         signal: controller.signal,
         resume: { expectedFencingToken: 0, lastSequence: decided.event!.sequence,
           lastStep: step, history: resumed.history, messageId: resumed.messageId,

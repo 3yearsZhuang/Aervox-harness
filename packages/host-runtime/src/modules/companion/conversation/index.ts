@@ -26,7 +26,7 @@ import { buildLoopProvider } from "./llm-adapter.js";
 import { registerConversationRoutes } from "./routes.js";
 import { executeConversationTurn, type ConversationRouteDeps, type ConversationTurnInput } from "./execution.js";
 export type { ConversationTurnInput } from "./execution.js";
-import { createConversationApplication, executeAcceptedConversationTurn, type ConversationCommandPort, type ConversationQueryPort } from "./application.js";
+import { createConversationApplication, type ConversationCommandPort, type ConversationQueryPort } from "./application.js";
 export interface ConversationHost {
   commands: ConversationCommandPort;
   queries: ConversationQueryPort;
@@ -162,7 +162,7 @@ export function registerConversationModule(ctx: ModuleDependencies<"apiRegistry"
   }
   registerConversationRoutes(app, conversationRepo, deps, execute);
   const application = createConversationApplication(conversationRepo, deps,
-    (ctx, input) => track(executeAcceptedConversationTurn(conversationRepo, ctx, input, deps)));
+    (ctx, input) => track(executeConversationTurn(conversationRepo, ctx, input, deps)));
   return {
     ...application, resume,
     abort: () => executionAbort.abort(new Error("host_shutdown")),

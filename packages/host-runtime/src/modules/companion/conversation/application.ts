@@ -26,6 +26,7 @@ const activeExecutions = new WeakMap<SqliteConversationRepository, Map<string, P
 /** Platform dispatch and restart recovery use the same admission and product executor as HTTP/Worker. */
 export function executeAcceptedConversationTurn(
   repo: SqliteConversationRepository, ctx: LocalContext, input: ConversationTurnInput, deps: ConversationRouteDeps,
+  execute?: (ctx: LocalContext, input: ConversationTurnInput) => Promise<void>,
 ): Promise<void> {
   let active = activeExecutions.get(repo);
   if (!active) { active = new Map(); activeExecutions.set(repo, active); }
@@ -33,7 +34,8 @@ export function executeAcceptedConversationTurn(
   const existing = active.get(key);
   if (existing) return existing;
   const execution = repo.getAcceptedTurnParameters(ctx, input.turnId).then(parameters =>
-    executeConversationTurn(repo, { ...ctx, actorId: parameters.actorId }, { ...input, ...parameters }, deps),
+    execute ? execute({ ...ctx, actorId: parameters.actorId }, { ...input, ...parameters })
+      : executeConversationTurn(repo, { ...ctx, actorId: parameters.actorId }, { ...input, ...parameters }, deps),
   ).finally(() => active!.delete(key));
   active.set(key, execution);
   return execution;
@@ -58,16 +60,12 @@ export function createConversationApplication(
   repo: SqliteConversationRepository, deps: ConversationRouteDeps,
   execute?: (ctx: LocalContext, input: ConversationTurnInput) => Promise<void>,
 ): { commands: ConversationCommandPort; queries: ConversationQueryPort } {
-  const executePersisted = async (ctx: LocalContext, input: ConversationTurnInput) => {
-    if (!execute) return executeAcceptedConversationTurn(repo, ctx, input, deps);
-    const parameters = await repo.getAcceptedTurnParameters(ctx, input.turnId);
-    await execute({ ...ctx, actorId: parameters.actorId }, { ...input, ...parameters });
-  };
   return {
     commands: {
       ensureSession: repo.getOrCreateSession.bind(repo),
       accept: (ctx, input) => acceptConversationTurn(repo, ctx, input),
-      execute: executePersisted, requestCancel: repo.requestCancelTurnAttempt.bind(repo),
+      execute: (ctx, input) => executeAcceptedConversationTurn(repo, ctx, input, deps, execute),
+      requestCancel: repo.requestCancelTurnAttempt.bind(repo),
       recover: turnId => recoverApiOwnedTurn(repo, turnId),
     },
     queries: {
