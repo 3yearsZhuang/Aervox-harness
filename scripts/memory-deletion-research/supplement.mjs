@@ -48,7 +48,7 @@ function childSession(args) {
 }
 
 function workerContext(f) {
-  return { db: f.db, privacyRepo: new SqlitePrivacyRepository(f.db), platformRepo: new SqlitePlatformRepository(f.db), workerId: 'supplement' };
+  return { memoryDeletion: new SqliteMemoryDeletionStore(f.db), privacyRepo: new SqlitePrivacyRepository(f.db), platformRepo: new SqlitePlatformRepository(f.db), workerId: 'supplement' };
 }
 async function request(f) {
   await new SqlitePrivacyRepository(f.db).createDeletionRequest(LOCAL, {
