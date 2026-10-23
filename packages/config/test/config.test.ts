@@ -9,7 +9,7 @@
  * - 优先级声明一致性（注入 env 与默认）。
  */
 import { describe, expect, it } from "vitest";
-import { loadApiConfig, loadWorkerConfig, loadProactiveFeatureFlags } from "../src/index.js";
+import { loadApiConfig, loadWorkerConfig, loadProactiveFeatureFlags, loadHostRuntimeConfig, loadExecutionConfig, loadVoiceConfig } from "../src/index.js";
 
 describe("loadApiConfig（缺陷 E）", () => {
   it("缺省值：port 3000 / loopProvider llm / compaction off / 白名单空 / voice 默认", () => {
@@ -134,5 +134,27 @@ describe("loadProactiveFeatureFlags（CR-033 F0-4 独立 flag）", () => {
   it("非 1/true 值一律视为关闭（fail-closed）", () => {
     const cfg = loadWorkerConfig({ AERVOX_PROACTIVE_ATTENTION_BUDGET: "yes" });
     expect(cfg.proactiveFeatureFlags.has("attention_budget")).toBe(false);
+  });
+});
+
+
+describe("configuration responsibility boundaries", () => {
+  it("invalid HTTP settings cannot prevent a worker, execution or voice configuration", () => {
+    const env = { PORT: "invalid", AERVOX_LOOP_PROVIDER: "scripted", WHISPER_MODEL_ID: "test-model" };
+    expect(() => loadApiConfig(env)).toThrow(/PORT/);
+    expect(loadHostRuntimeConfig(env).loopProvider).toBe("scripted");
+    expect(loadExecutionConfig(env).loopProvider).toBe("scripted");
+    expect(loadVoiceConfig(env).asr.whisperModelId).toBe("test-model");
+  });
+  it("a parsed snapshot does not change when its environment changes", () => {
+    const env = { AERVOX_LOOP_PROVIDER: "scripted", WHISPER_MODEL_ID: "first", AERVOX_DSH_REPO_ROOT: "/first" };
+    const snapshot = loadHostRuntimeConfig(env);
+    env.AERVOX_LOOP_PROVIDER = "llm";
+    env.WHISPER_MODEL_ID = "second";
+    env.AERVOX_DSH_REPO_ROOT = "/second";
+    expect(snapshot.loopProvider).toBe("scripted");
+    expect(snapshot.asr.whisperModelId).toBe("first");
+    expect(snapshot.dshRepoRoot).toBe("/first");
+    expect(snapshot.dshWorkingDirectory).toBe(process.cwd());
   });
 });

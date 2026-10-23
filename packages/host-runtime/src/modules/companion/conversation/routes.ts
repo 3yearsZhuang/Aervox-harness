@@ -27,7 +27,7 @@ import { resolveLocalContext } from "../../../shared/local-context.js";
 import { acceptConversationTurn } from "./application.js";
 import { turnStreamHub } from "./stream-hub.js";
 import { encodeSseEvent, writeSseFrame, SseWriteError } from "./sse-writer.js";
-import { loadApiConfig } from "@aervox/config";
+import { loadExecutionConfig } from "@aervox/config";
 
 let seq = 0;
 const nextTurnId = (): string => `turn_${Date.now().toString(36)}_${(++seq).toString(36)}`;
@@ -175,7 +175,7 @@ export function registerConversationRoutes(
     const turnId = nextTurnId();
     const messageId = `msg_${Date.now().toString(36)}_${(++seq).toString(36)}`;
     const attemptId = `atp_${turnId}`;
-    const executionConfig = loadApiConfig();
+    const executionConfig = deps.executionConfig ?? loadExecutionConfig();
     const execution = executionConfig.turnExecution === "inline" ? "api" : executionConfig.loopDispatch;
     const accepted = await acceptConversationTurn(conversationRepo, tenant, {
       execution, metadata: parsed.data.metadata, toolApprovalMode: parsed.data.toolApprovalMode, actorId: tenant.actorId,
@@ -344,7 +344,7 @@ export function registerConversationRoutes(
         for (const ev of page.events) {
           if (closed) return;
           if (ev.sequence <= lastSequence) continue;
-          await write(encodeSseEvent(ev));
+          await write(encodeSseEvent(ev, deps.apiRegistry));
           lastSequence = ev.sequence;
         }
         // No next page is queried while any frame is waiting for socket drain.
@@ -499,7 +499,7 @@ export function registerConversationRoutes(
       if (tool?.safetyLevel === "privileged") {
         const adminId = req.headers["x-admin-user-id"] as string | undefined;
         // 缺陷 E：管理员白名单经 @aervox/config 集中解析（AERVOX_ADMIN_IDS）
-        const allowed = loadApiConfig().adminIds;
+        const allowed = (deps.executionConfig ?? loadExecutionConfig()).adminIds;
         if (adminId === undefined || !allowed.includes(adminId)) {
           return reply.code(403).send({ error: "admin_required: privileged tool approval requires x-admin-user-id in AERVOX_ADMIN_IDS" });
         }

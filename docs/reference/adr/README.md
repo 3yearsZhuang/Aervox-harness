@@ -40,6 +40,7 @@ ADR 中带日期的背景、实施进展和验收差距是对应时点的记录�
 - [ADR-027](ADR-027-companion-identity.md)：空间名、陪伴角色名与用户称呼。
 - [ADR-028](ADR-028-plugin-atomic-activation.md)：声明式插件资源准备与原子激活。
 - [ADR-029](ADR-029-bot-platform-adapters.md)：Bot 平台适配器与外部会话边界。
+- [ADR-030](ADR-030-behavior-ownership.md)：共享行为所有权与可替换接口。
 
 ## 原 CR 编号迁移索引
 

@@ -7,9 +7,8 @@
  * 一次性生成；LLM 未启用或失败时按气泡预设模板诚实降级（输出标注 source=template）。
  * 该细化已回写 CR-032 文档。
  */
-import { createOpenAICompatProvider } from "@aervox/core";
-import { createRepoDiaryLlmConfigPort } from "@aervox/diary";
-import type { SqliteLLMConfigRepository, LocalContext } from "@aervox/repositories";
+import type { LocalContext } from "@aervox/repositories";
+import type { ModelGenerationPort } from "@aervox/host-runtime/modules/ecosystem/llm/index";
 import type { ProactiveTurnContext } from "@aervox/contracts";
 
 export interface ProactiveComposeInput {
@@ -112,10 +111,10 @@ export function buildComposerUserPrompt(input: ProactiveComposeInput): string {
 
 /** 裁决器放行后生成关怀话术；LLM 不可用或输出为空时模板降级（永不抛出） */
 export async function composeProactiveMessage(ctx: {
-  llmConfigRepo?: SqliteLLMConfigRepository;
+  modelGeneration?: ModelGenerationPort;
   input: ProactiveComposeInput;
 }): Promise<ProactiveComposeResult> {
-  const {llmConfigRepo, input} = ctx;
+  const {modelGeneration, input} = ctx;
   // P5 安全门控：crisis 内容一律走固定安全响应，不调用 LLM（安全服务不可用即保守拒绝）
   if (input.turnContext?.safety.classificationLevel === "crisis") {
     return {
@@ -123,36 +122,14 @@ export async function composeProactiveMessage(ctx: {
       source: "template",
     };
   }
-  if (!llmConfigRepo) return {message: renderTemplateMessage(input), source: "template"};
+  if (!modelGeneration) return {message: renderTemplateMessage(input), source: "template"};
   try {
-    // 复用日记生成的配置端口语义：无配置行 → ollama 缺省；显式禁用 → null（模板降级）
-    const cfgPort = createRepoDiaryLlmConfigPort(llmConfigRepo);
-    const cfg = await cfgPort.getConfig(input.ctx);
-    if (!cfg) return {message: renderTemplateMessage(input), source: "template"};
-    const provider = createOpenAICompatProvider({
-      baseUrl: cfg.baseUrl,
-      apiKey: cfg.apiKey,
-      modelId: cfg.modelId,
-      temperature: cfg.temperature,
-      maxTokens: cfg.maxTokens ?? 512,
+    const text = await modelGeneration.generate({
+      context: input.ctx,
+      task: "proactive_compose",
+      system: buildComposerSystemPrompt(input), user: buildComposerUserPrompt(input),
+      localOnly: input.turnContext?.localOnly,
     });
-    const turnId = `proactive_compose_${Date.now().toString(36)}`;
-    let text = "";
-    for await (const chunk of provider.stream({
-      turnId,
-      attemptId: turnId,
-      step: 1,
-      context: {
-        turnId,
-        sessionId: "proactive_compose",
-        messages: [
-          {role: "system", content: buildComposerSystemPrompt(input)},
-          {role: "user", content: buildComposerUserPrompt(input)},
-        ],
-      },
-    })) {
-      text += chunk.text ?? "";
-    }
     const message = text.trim().replace(/^["'「『]|["'」』]$/g, "").slice(0, 300);
     if (!message) return {message: renderTemplateMessage(input), source: "template"};
     return {message, source: "llm"};

@@ -2,7 +2,7 @@ import './styles.css';
 import { BookOpen, ClipboardList, Puzzle } from 'lucide-vue-next';
 import type { UIRegistry } from '@aervox/ui/plugin-api';
 import { defaultUIRegistry } from '@aervox/ui/plugin-api';
-import type { WorkbenchContext } from '@aervox/ui/plugin-api';
+import type { UIPluginContext } from '@aervox/ui/plugin-api';
 import type { BuiltinUIPlugin } from '@aervox/ui/plugin-api';
 import FocusModeSwitch from './FocusModeSwitch.vue';
 import FocusTermsBar from './FocusTermsBar.vue';
@@ -40,7 +40,7 @@ export {
  */
 export function registerFocusModePlugin(
   registry: UIRegistry = defaultUIRegistry,
-  context?: WorkbenchContext,
+  context?: UIPluginContext,
 ): () => void {
   if (!context) throw new Error('focus_mode_context_required');
   const { focusModeEnabled, openLearningView } = useFocusModeState(context);
@@ -87,7 +87,7 @@ export function registerFocusModePlugin(
     label: '刷题模式',
     description: 'AI 现场出题，答错自动进错题本',
     icon: ClipboardList,
-    summary: () => (focusLearning?.practiceSession.value || context?.cards?.api?.activePracticeSession?.value) ? '进行中的练习' : 'AI 出题 · 即时判定',
+    summary: () => (focusLearning?.practiceSession.value || context?.learning?.activePracticeSession?.value) ? '进行中的练习' : 'AI 出题 · 即时判定',
     action: () => {
       if (context?.conversation?.streaming?.value) return;
       // 出题意图是本插件自有语义，经 metadata 出站（宿主不解释其取值）

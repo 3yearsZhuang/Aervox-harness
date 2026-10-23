@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import TurnRetryAction from './TurnRetryAction.vue';
 import { AervoxButton } from '../../primitives';
 import { nextTick, onMounted, ref, watch } from 'vue';
 import { ArrowDown, Check, Copy, FileText } from 'lucide-vue-next';
@@ -82,6 +83,7 @@ async function copyMessage(id: number, text: string) {
         </article>
         <p v-if="story.length === 0" class="standard-empty">发送消息，开始新的对话</p>
         <ToolApprovalCard />
+        <TurnRetryAction />
         <ExtensionSlot name="conversation:bottom" />
         <p v-if="copyError" class="standard-copy-error" role="alert">{{ copyError }}</p>
       </div>

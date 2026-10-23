@@ -3,7 +3,7 @@ import { nextTick } from 'vue';
 import { createUIRegistry, resolveOutgoingMessage } from '@aervox/ui/plugin-api';
 import { createPluginStateStore } from '@aervox/ui/plugin-api';
 import { createPluginEventBus } from '@aervox/ui/plugin-api';
-import { createWorkbenchPluginRuntime, type BuiltinUIPlugin, type WorkbenchContext } from '@aervox/ui/plugin-api';
+import { createWorkbenchPluginRuntime, type BuiltinUIPlugin, type UIPluginContext } from '@aervox/ui/plugin-api';
 import focusModePluginDefinition, {
   registerFocusModePlugin,
   FocusModeSwitch,
@@ -27,13 +27,13 @@ import { useFocusModeState } from '../src/ui';
  */
 function createContext() {
   return {
-    layout: {
+    navigation: {
       setQuietStartup: () => undefined,
       runMenuAction: (action: () => void) => action(),
     },
     pluginState: createPluginStateStore(),
     pluginEvents: createPluginEventBus(),
-    cards: { api: { learningPlans: { value: [] } } },
+    cards: {}, learning: { learningPlans: { value: [] } },
     conversation: { streaming: { value: false } },
     sendMessage: async () => undefined,
   } as never;
@@ -138,24 +138,24 @@ describe('FocusModePlugin（CR-060 无别名单一 id）', () => {
 
   it('开关切换经宿主通用槽位预设应用/恢复本插件卡片清单（宿主不硬编码卡片 id）', async () => {
     const registry = createUIRegistry();
-    const applySlotPreset = vi.fn(() => true);
-    const restoreSlotPreset = vi.fn(() => true);
+    const releasePreset = vi.fn();
+    const acquireSlotPreset = vi.fn(() => releasePreset);
     const context = createContext() as unknown as { cards: Record<string, unknown> };
-    context.cards = { ...(context.cards as object), applySlotPreset, restoreSlotPreset };
+    context.cards = { ...(context.cards as object), acquireSlotPreset };
 
     const { focusModeEnabled } = useFocusModeState(context as never);
     const unregister = registerFocusModePlugin(registry, context as never);
     // 初始化时开关为关：只应表达"恢复"，不应应用预设
-    expect(applySlotPreset).not.toHaveBeenCalled();
-    restoreSlotPreset.mockClear();
+    expect(acquireSlotPreset).not.toHaveBeenCalled();
+    releasePreset.mockClear();
 
     focusModeEnabled.value = true;
     await nextTick();
-    expect(applySlotPreset).toHaveBeenCalledWith(['study', 'timer']);
+    expect(acquireSlotPreset).toHaveBeenCalledWith('focus-mode', ['study', 'timer']);
 
     focusModeEnabled.value = false;
     await nextTick();
-    expect(restoreSlotPreset).toHaveBeenCalledTimes(1);
+    expect(releasePreset).toHaveBeenCalledTimes(1);
 
     unregister();
     focusModeEnabled.value = false;
@@ -163,14 +163,14 @@ describe('FocusModePlugin（CR-060 无别名单一 id）', () => {
 
   it('插件状态经宿主 pluginState 命名空间读写（宿主 layout 无该字段）', () => {
     const context = createContext() as unknown as {
-      layout: Record<string, unknown>;
+      navigation: Record<string, unknown>;
       pluginState: ReturnType<typeof createPluginStateStore>;
     };
     const { focusModeEnabled } = useFocusModeState(context as never);
     registerFocusModePlugin(createUIRegistry(), context as never);
 
-    expect(context.layout).not.toHaveProperty('focusModeEnabled');
-    expect(typeof context.layout.setQuietStartup).toBe('function');
+    expect(context.navigation).not.toHaveProperty('focusModeEnabled');
+    expect(typeof context.navigation.setQuietStartup).toBe('function');
     expect(focusModeEnabled.value).toBe(false);
   });
 });
@@ -186,10 +186,10 @@ describe('WorkbenchPluginRuntime（CR-060：不内建插件、fail-closed）', (
       setItem: (key: string, value: string) => stored.set(key, value),
     });
     const registry = createUIRegistry();
-    const context = createContext() as WorkbenchContext;
+    const context = createContext() as UIPluginContext;
     const runtime = createWorkbenchPluginRuntime(registry, () => context, definitions);
     let next: ReturnType<typeof createWorkbenchPluginRuntime> | undefined;
-    let freshContext: WorkbenchContext | undefined;
+    let freshContext: UIPluginContext | undefined;
     try {
       await runtime.sync([{ id: 'focus-mode', enabled: 1 }], async () => ({ values: {} }));
       const state = useFocusModeState(context);
@@ -281,8 +281,8 @@ describe('WorkbenchPluginRuntime（CR-060：不内建插件、fail-closed）', (
 it('不同工作台状态隔离，注销后旧 Ref 和迟到配置不能回写宿主', async () => {
   const a = createContext(); const b = createContext();
   const quietA = vi.fn(); const quietB = vi.fn();
-  (a as any).layout.setQuietStartup = quietA;
-  (b as any).layout.setQuietStartup = quietB;
+  (a as any).navigation.setQuietStartup = quietA;
+  (b as any).navigation.setQuietStartup = quietB;
   const offA = registerFocusModePlugin(createUIRegistry(), a);
   const offB = registerFocusModePlugin(createUIRegistry(), b);
   const stateA = useFocusModeState(a); const stateB = useFocusModeState(b);

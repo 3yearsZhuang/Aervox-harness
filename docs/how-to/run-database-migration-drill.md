@@ -16,6 +16,19 @@ id: AVX-GUIDE-006
   - 数据目录：确保待迁移数据库（`aervox.db`）处于非繁忙状态，且磁盘保留至少原数据库大小 3 倍的可用空间；
   - 工具链：支持 SQLite 3.45+ CLI 工具。
 
+## 现行结构指纹升级
+
+启动出现 `SCHEMA_STAGING_MIGRATION_REQUIRED` 时，先按下节完成停写、checkpoint、全部连接关闭及主库/Vault/账本/密钥回滚包核对，再使用显式 staging 入口。该入口保留所有身份，不选择数据胜者；脏数据或未声明表列导致失败时，保留报告及备份并停止。跨旧租户数据范围转换仍先按下文 CR-030 规则选择，不能直接把多范围快照当成单用户库恢复。
+
+```bash
+mise exec -- pnpm exec turbo run build --filter=@aervox/repositories...
+mise exec -- node scripts/schema-staging.mjs --source /absolute/selected-data/aervox.db --staging /absolute/selected-data/aervox.staging.db --rollback /absolute/selected-data/aervox.rollback.db --backup /absolute/selected-data/backups/new-verified-backup --scope main --stopped
+```
+
+所有路径必须明确给出；staging、rollback 与备份输出必须未占用。`--stopped` 表示操作者已经完成全部消费者停写和连接关闭，不会自动停止进程；维护锁只防止本入口重复运行，不能替代停写证明。主库与 Vault 使用 `main` 结构，恢复控制账本使用 `ledger`，按各自来源分别编排，不能只升级主库后声称完整恢复。成功输出备份清单、回滚文件和逐表行数；失败保留材料，源库不被原地恢复覆盖。
+
+以下步骤保留完整迁移与 CR-030 范围转换的人工核对责任。
+
 ## 步骤
 
 ### 第一步：服务停写与不可变时间戳备份
@@ -59,7 +72,7 @@ sqlite3 "$BACKUP_DIR/aervox_source.db" "PRAGMA quick_check;"
 
 先调用 `scanLegacyScopes` 检查备份中的数据范围，再按 `selectLegacyScope` 的规则决定选择。零或单范围可按现行合同处理；多范围必须由用户显式选择并确认未选数据只保留在备份/导出包中，严禁使用 `MAX(rowid)` 等随机策略。记录选择与源库快照身份后，才能开始构建新库。
 
-迁移器入口见 [`packages/repositories/src/migration/`](../../packages/repositories/src/migration/index.ts)。仓库未提供独立迁移 CLI，演练须编排一次性脚本，把已验证源快照、选定范围及新 staging 路径按服务签名传入；空库初始化不等于完成迁移。
+迁移器入口见 [`packages/repositories/src/migration/`](../../packages/repositories/src/migration/index.ts)。CR-030 的多范围选择仍须编排一次性脚本，把已验证源快照、选定范围及新 staging 路径按服务签名传入；空库初始化不等于完成迁移。
 
 ### 第三步：在独立隔离目录构建 Staging 新库
 
@@ -78,7 +91,7 @@ test ! -e "$STAGING_DB" && test ! -e "${STAGING_DB}-wal" && test ! -e "${STAGING
 
 #### 2. 在新库上初始化纯本地单用户 Schema
 
-使用 `@aervox/repositories` 的建库入口初始化最新 DDL（无 `workspace_id` 与 `tenant_id`）。仓库未提供独立迁移 CLI，用一次性 Node 脚本调用编程入口：
+使用 `@aervox/repositories` 的建库入口初始化最新 DDL（无 `workspace_id` 与 `tenant_id`）。可用一次性 Node 脚本调用编程入口：
 
 ```bash
 mise exec -- pnpm exec turbo run build --filter=@aervox/repositories
@@ -138,7 +151,7 @@ await atomicSwapCr030Database({ sourcePath: SOURCE_DB, stagingPath: STAGING_DB, 
 JS
 ```
 
-换库后先保持写入口关闭，使用只读验证确认业务行数、Schema、FTS 与删除/撤权水位。确认启动配置仍指向所选 `SOURCE_DB` 后，才通过原启动方式恢复服务并执行烟雾检查；不得以默认开发目录启动来代替目标库验收。换库服务会尝试回退失败的第二次 rename，但进程中断恢复仍依赖外部迁移状态与完整回滚包。
+换库后先保持写入口关闭，使用只读验证确认业务行数、Schema、FTS 与删除/撤权水位。确认启动配置仍指向所选 `SOURCE_DB` 后，才通过原启动方式恢复服务并执行烟雾检查；不得以默认开发目录启动来代替目标库验收。换库服务先以独占硬链接保留原文件，再通过一次原子 rename 替换来源路径；rename 失败时源文件仍在，staging 与回滚材料保留。进程中断恢复仍依赖外部迁移状态与完整回滚包。
 
 ### 第六步：应急回滚演练（Rollback Drill）
 

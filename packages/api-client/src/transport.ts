@@ -21,6 +21,7 @@ import { TurnStreamProjector } from './projector.js';
 export interface TurnCallbacks {
   /** Identity from an accepted, ordered stream event; shared by HTTP and IPC. */
   onTurnIdentified?: (turnId: string) => void;
+  onHeartbeat?: () => void;
   onDelta: (text: string) => void;
   onDone: () => void;
   onError?: (err: unknown) => void;
@@ -76,8 +77,13 @@ export interface UploadedAttachment {
 }
 
 export interface EventStreamCallbacks {
-  onEvent: (value: unknown) => void;
+  onEvent: (value: unknown) => void | Promise<void>;
   onHeartbeat?: () => void;
+}
+
+export interface ObserveTurnOptions {
+  signal?: AbortSignal;
+  afterEventId?: string;
 }
 
 export interface ToolApprovalDecisionResponse {
@@ -92,6 +98,8 @@ export interface AervoxTransport {
   streamEvents?(path: string, callbacks: EventStreamCallbacks, signal?: AbortSignal): Promise<void>;
   request<T = unknown>(method: string, path: string, body?: unknown, options?: { headers?: Record<string, string>; signal?: AbortSignal }): Promise<T>;
   streamTurn(sessionId: string, content: string, callbacks: TurnCallbacks, options?: StreamTurnOptions): Promise<void>;
+  /** Observe an existing attempt; never creates or replays a user submission. */
+  observeTurn?(turnId: string, callbacks: TurnCallbacks, options?: ObserveTurnOptions): Promise<void>;
   submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[], signal?: AbortSignal): Promise<void>;
   /** 多模态输入：原始二进制上传（Web 直连；桌面经 IPC 桥） */
   uploadAttachment?(input: AttachmentUploadInput): Promise<UploadedAttachment>;
@@ -257,6 +265,7 @@ export function createFetchTransport(apiBase: string, config: FetchTransportOpti
     body?: unknown,
     options?: { headers?: Record<string, string>; signal?: AbortSignal },
   ): Promise<T> => {
+    options?.signal?.throwIfAborted();
     const res = await fetch(`${base}${path}`, {
       method,
       headers: { 'Content-Type': 'application/json', ...config.headers, ...options?.headers },
@@ -311,7 +320,7 @@ export function createFetchTransport(apiBase: string, config: FetchTransportOpti
           if (!data) { callbacks.onHeartbeat?.(); continue; }
           let value: unknown;
           try { value = JSON.parse(data); } catch { continue; }
-          callbacks.onEvent(value);
+          await callbacks.onEvent(value);
         }
       }
     } finally {
@@ -328,6 +337,7 @@ export function createFetchTransport(apiBase: string, config: FetchTransportOpti
     callbacks: TurnCallbacks,
     options: StreamTurnOptions = {},
   ): Promise<void> => {
+    options.signal?.throwIfAborted();
     const message: { content: string; contentType: 'text'; attachments?: TurnAttachmentRef[] } = {
       content,
       contentType: 'text',
@@ -358,8 +368,10 @@ export function createFetchTransport(apiBase: string, config: FetchTransportOpti
         { signal, headers: options.idempotencyKey ? { 'Idempotency-Key': options.idempotencyKey } : undefined },
       );
       if (typeof turn.turnId !== 'string' || !turn.turnId) throw new Error('invalid_turn_response');
+      if (idleTimer) clearTimeout(idleTimer);
       await options.onAccepted?.(turn.turnId);
-      await consumeSse(turn.turnId, callbacks, signal, armIdleTimer);
+      armIdleTimer();
+      await consumeSse(turn.turnId, callbacks, signal, armIdleTimer, undefined, () => clearTimeout(idleTimer));
     } catch (err) {
       if (timedOut) {
         throw new DOMException('turn_stream_idle', 'TimeoutError');
@@ -394,15 +406,18 @@ export function createFetchTransport(apiBase: string, config: FetchTransportOpti
     callbacks: TurnCallbacks,
     signal?: AbortSignal,
     armIdleTimer?: () => void,
+    afterEventId?: string,
+    pauseIdleTimer?: () => void,
   ): Promise<void> => {
     const projector = new TurnStreamProjector({ expectedTurnId: turnId });
-    let cursor: string | undefined;
+    let cursor: string | undefined = afterEventId;
     let failure: unknown;
     for (let attempt = 0; attempt < 3; attempt++) {
       signal?.throwIfAborted();
       let res: Response;
       try {
-        res = await fetch(`${base}/v1/turns/${encodeURIComponent(turnId)}/events`, {
+        const query = afterEventId && cursor ? `?after=${encodeURIComponent(cursor)}` : '';
+        res = await fetch(`${base}/v1/turns/${encodeURIComponent(turnId)}/events${query}`, {
           headers: { ...config.headers, Accept: 'text/event-stream', ...(cursor ? { 'Last-Event-ID': cursor } : {}) }, signal,
           redirect: config.redirect,
         });
@@ -410,12 +425,16 @@ export function createFetchTransport(apiBase: string, config: FetchTransportOpti
       if (!res.ok) throw await httpError(res, 'SSE');
       if (!res.body) throw new AervoxHttpError(res.status, 'SSE');
       const reader = res.body.getReader();
+      const cancelReader = () => { void reader.cancel().catch(() => undefined); };
+      signal?.addEventListener('abort', cancelReader, { once: true });
       const decoder = new TextDecoder();
       let buffer = '';
       try {
+        signal?.throwIfAborted();
         for (;;) {
           let chunk: ReadableStreamReadResult<Uint8Array>;
           try { chunk = await reader.read(); } catch (error) { failure = error; break; }
+          signal?.throwIfAborted();
           if (chunk.done) break;
           armIdleTimer?.();
           buffer = (buffer + decoder.decode(chunk.value, { stream: true })).replace(/\r\n/g, '\n');
@@ -425,17 +444,20 @@ export function createFetchTransport(apiBase: string, config: FetchTransportOpti
           for (const block of blocks) {
             if (new TextEncoder().encode(block).byteLength > 1_048_576) throw new Error('sse_event_too_large');
             const data = block.split('\n').filter((line) => line.startsWith('data:')).map((line) => line.slice(5).trim()).join('\n');
-            if (!data) continue;
+            if (!data) { callbacks.onHeartbeat?.(); continue; }
             let event: TurnStreamEvent;
             try { event = JSON.parse(data) as TurnStreamEvent; } catch { continue; }
             if (projector.project(event, callbacks)) {
               if (event.eventId) cursor = event.eventId;
-              await callbacks.onEvent?.(event);
+              pauseIdleTimer?.();
+              try { await callbacks.onEvent?.(event); } finally { armIdleTimer?.(); }
             }
+            if (projector.failure) throw projector.failure;
             if (projector.finalized) return;
           }
         }
       } finally {
+        signal?.removeEventListener('abort', cancelReader);
         await reader.cancel().catch(() => undefined);
         reader.releaseLock();
       }
@@ -462,7 +484,8 @@ export function createFetchTransport(apiBase: string, config: FetchTransportOpti
     );
   };
 
-  const watchTurn = async (turnId: string, callbacks: TurnCallbacks, signal?: AbortSignal): Promise<void> => {
+  const observeTurn = async (turnId: string, callbacks: TurnCallbacks, options: ObserveTurnOptions = {}): Promise<void> => {
+    const signal = options.signal;
     const controller = new AbortController();
     const combined = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
     let timer: ReturnType<typeof setTimeout>;
@@ -471,11 +494,15 @@ export function createFetchTransport(apiBase: string, config: FetchTransportOpti
       timer = setTimeout(() => controller.abort(new DOMException('turn_stream_idle', 'TimeoutError')), config.streamIdleTimeoutMs ?? TURN_STREAM_IDLE_TIMEOUT_MS);
     };
     arm();
-    try { await consumeSse(turnId, callbacks, combined, arm); }
+    try { await consumeSse(turnId, callbacks, combined, arm, options.afterEventId, () => clearTimeout(timer)); }
     finally { clearTimeout(timer!); }
   };
+  const watchTurn = (turnId: string, callbacks: TurnCallbacks, signal?: AbortSignal) => observeTurn(turnId, callbacks, { signal });
   const cancelTurn = (turnId: string, signal?: AbortSignal): Promise<unknown> =>
     request('POST', `/v1/turns/${encodeURIComponent(turnId)}/cancel`, {}, { signal });
 
-  return { request, streamEvents, streamTurn, watchTurn, cancelTurn, submitQuestionAnswers, uploadAttachment, decideToolApproval };
+  return { request, streamEvents, streamTurn, observeTurn, watchTurn, cancelTurn, submitQuestionAnswers, uploadAttachment, decideToolApproval };
 }
+
+export { createConversationController } from './conversation-controller.js';
+export type { ConversationController, ConversationState, ConversationStatus } from './conversation-controller.js';

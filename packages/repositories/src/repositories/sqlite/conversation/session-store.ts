@@ -9,8 +9,10 @@ import {
   messages,
   messageVersions,
   conversationBranches,
+  outboxEvents,
   type ConversationExecutionPolicy,
 } from "@aervox/schema";
+import { assertPluginGeneration, type PluginGenerationIdentity } from "../../../plugin-generation-guard.js";
 import { assertConversationExecutionPolicy } from "../../../conversation-execution-policy.js";
 import { BRANCH_TREE_MAX_BRANCHES, BRANCH_TREE_MAX_SESSIONS, BranchTreeLimitError, type BranchTreeReadOptions } from "../../../conversation-branch-tree.js";
 import { deleteBotConversationData } from "./bot-data-deletion.js";
@@ -28,13 +30,15 @@ export class SessionStore {
   async createSession(
     _tenant: LocalContext,
     title: string,
-    options?: { id?: string; projectId?: string | null; executionPolicy?: ConversationExecutionPolicy },
+    options?: { id?: string; projectId?: string | null; executionPolicy?: ConversationExecutionPolicy; pluginGeneration?: PluginGenerationIdentity },
   ): Promise<SessionModel> {
+    return this.db.transaction(async (tx) => {
+    await assertPluginGeneration(tx, options?.pluginGeneration);
     const executionPolicy = options?.executionPolicy ?? "local-v1";
     assertConversationExecutionPolicy(executionPolicy);
     const id = options?.id?.trim() || `ses_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     const now = new Date().toISOString();
-    const [created] = await this.db
+    const [created] = await tx
       .insert(sessions)
       .values({
         id,
@@ -46,6 +50,7 @@ export class SessionStore {
       })
       .returning();
     return created as SessionModel;
+    });
   }
 
   async getSession(ctx: LocalContext, sessionId: string): Promise<SessionModel | null> {
@@ -157,6 +162,40 @@ export class SessionStore {
   }
 
   // ============ P1（R2 · CAP-014）：会话地图分支 ============
+
+  /** Child creation and branch edge are one transaction, inheriting parent policy. */
+  async createExplorationBranch(ctx: LocalContext, input: {
+    id: string; parentSessionId: string; childSessionId: string; title?: string;
+    forkAtMessageId?: string | null; branchReason?: string;
+    pluginGeneration?: { pluginId: string; generation: string };
+  }): Promise<ConversationBranchModel | null> {
+    if (input.parentSessionId === input.childSessionId) throw new Error("conversation_branch_self_reference");
+    return this.db.transaction(async (tx) => {
+      await assertPluginGeneration(tx, input.pluginGeneration);
+      const [parent] = await tx.select().from(sessions).where(eq(sessions.id, input.parentSessionId));
+      if (!parent) return null;
+      assertConversationExecutionPolicy(parent.executionPolicy);
+      const [existing] = await tx.select().from(conversationBranches).where(eq(conversationBranches.id, input.id));
+      if (existing) {
+        if (existing.parentSessionId !== input.parentSessionId || existing.childSessionId !== input.childSessionId || existing.title !== (input.title ?? null) || existing.forkAtMessageId !== (input.forkAtMessageId ?? null) || existing.branchReason !== (input.branchReason ?? null)) throw new Error("conversation_branch_idempotency_conflict");
+        return existing as ConversationBranchModel;
+      }
+      if (input.forkAtMessageId) {
+        const [message] = await tx.select({ sessionId: messages.sessionId }).from(messages).where(eq(messages.id, input.forkAtMessageId));
+        if (!message || message.sessionId !== input.parentSessionId) throw new Error("conversation_branch_fork_message_unavailable");
+      }
+      const now = new Date().toISOString();
+      const [child] = await tx.select().from(sessions).where(eq(sessions.id, input.childSessionId));
+      if (child && (child.executionPolicy !== parent.executionPolicy || child.projectId !== parent.projectId)) throw new Error("conversation_execution_policy_mismatch");
+      if (!child) await tx.insert(sessions).values({ id: input.childSessionId, title: input.title ?? "探索分支", projectId: parent.projectId,
+        executionPolicy: parent.executionPolicy, createdAt: now, updatedAt: now });
+      const [branch] = await tx.insert(conversationBranches).values({ id: input.id, parentSessionId: input.parentSessionId, childSessionId: input.childSessionId, title: input.title ?? null,
+        forkAtMessageId: input.forkAtMessageId ?? null, branchReason: input.branchReason ?? null, status: "active", createdAt: now, updatedAt: now }).returning();
+      await tx.insert(outboxEvents).values({ id: `out_branch_${input.id}`, idempotencyKey: `branch:${input.id}`, eventType: "conversation.branch.created",
+        payload: { branchId: input.id, parentSessionId: input.parentSessionId, childSessionId: input.childSessionId }, createdAt: now });
+      return branch as ConversationBranchModel;
+    });
+  }
 
   async createConversationBranch(
     ctx: LocalContext,

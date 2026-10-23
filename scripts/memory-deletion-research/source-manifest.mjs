@@ -4,9 +4,9 @@ export const LEGACY_REQUIRED_SOURCE_FILES = [
     'repositories/sqlite/memory-deletion-store', 'repositories/sqlite/outbox-repository',
     'repositories/sqlite/memory-compaction-guard', 'repositories/sqlite/memory-compaction-repository',
     'repositories/sqlite/memory-embedding-repository', 'search/fts',
-    ...['index', 'common', 'memories', 'provenance', 'memory-compaction', 'embeddings', 'outbox', 'fts', 'conversations'].map(name => `schema/ddl/${name}`),
+    'schema/manifest', 'schema/ddl/index', 'schema/ddl/fts',
   ].flatMap(file => [`packages/repositories/src/${file}.ts`, `packages/repositories/dist/${file}.js`]),
-  ...['index', 'common', 'memories', 'provenance', 'memory-compaction', 'embeddings', 'outbox', 'conversations']
+  ...['index', 'common', 'memories', 'provenance', 'memory-compaction', 'embeddings', 'outbox', 'conversations', 'schema-version']
     .flatMap(file => [`packages/schema/src/${file}.ts`, `packages/schema/dist/${file}.js`]),
   'packages/repositories/package.json', 'packages/schema/package.json',
   'scripts/memory-deletion-research/fixture.mjs', 'scripts/memory-deletion-research/runner.mjs',
@@ -18,7 +18,7 @@ export const REQUIRED_SOURCE_FILES = [
   ...['data-directory', 'memory-deletion-protocol', 'repositories/sqlite/provenance-repository',
     'repositories/sqlite/memory-write-guard', 'repositories/sqlite/privacy-repository',
     'repositories/sqlite/skill-lifecycle-repository', 'repositories/sqlite/platform-repository',
-    'schema/ddl/privacy', 'schema/ddl/platform', 'index', 'repositories/sqlite/index']
+    'index', 'repositories/sqlite/index']
     .flatMap(file => [`packages/repositories/src/${file}.ts`, `packages/repositories/dist/${file}.js`]),
   ...['privacy', 'platform'].flatMap(file => [`packages/schema/src/${file}.ts`, `packages/schema/dist/${file}.js`]),
   'scripts/memory-deletion-research/protocol.mjs',

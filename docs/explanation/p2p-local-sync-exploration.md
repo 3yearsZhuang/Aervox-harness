@@ -57,9 +57,11 @@ flowchart TD
   end
 ```
 
+网络发现、配对和传输现归显式启用的 `@aervox/sync-runtime`；传输通过 `SyncChangesetPort` 消费 `@aervox/repositories/sync` 的 SQLite 适配，不接收裸 Client。默认仓储入口不导出这些探索性网络实现，包迁移不提升真实多设备验收状态；所有权决定见 [ADR-030](../reference/adr/ADR-030-behavior-ownership.md)。
+
 ### 2.1 第一层：局域网发现与 6 位 SAS 零信任配对握手
 
-**已实现（`packages/repositories/src/sync/p2p-pairing.ts`、`p2p-discovery.ts`、`p2p-transport.ts`）**
+**已实现（`packages/sync-runtime/src/pairing.ts`、`discovery.ts`、`transport.ts`）**
 
 1. **局域网发现（自研 UDP 多播信标，**不是** mDNS）**：`P2PDiscovery` 向可配置的多播组/端口（默认 `239.255.42.99:48201`）周期性发送**明文 JSON 信标**（设备描述符 + 协议版本 + 建议 TTL），收到信标即登记对端、超过 TTL 未刷新即过期移除；信标解析有硬长度上限并逐字段校验，对端地址一律取**报文源地址**（绝不采信对端自报的 `host`），对端自报 TTL 只能**缩短**、不能超过本地 `peerTtlMs`。多播在 CI/容器/开启 AP 隔离的网络下不可靠，因此同时提供**静态对端列表**兜底（`multicast: false` 时完全不创建 socket）。`_aervox-sync._tcp` 只是与未来 mDNS 实现对齐的**字符串常量**，当前没有任何 DNS 语义。
 2. **设备身份（Device Identity）**：Ed25519 签名密钥对与永久设备标识（如 `desktop_xxx`）。身份通过 `loadOrCreateDeviceIdentity` **落盘持久化**（私钥文件始终 `0600`；专用身份目录按 `0700` 创建，若复用已存在的目录——例如默认的仓库 `data/`（通常 0755）——则不改动其模式；可用 `AERVOX_P2P_IDENTITY_PATH` 覆盖路径），跨进程重启保持稳定；当前**未**使用 OS Keychain / 安全隔区托管。
@@ -71,7 +73,7 @@ flowchart TD
 4. **6 位 SAS 目视核验**：两端基于完整 transcript（邀请 ID、双方身份公钥、承诺、双方临时公钥与 nonce）独立派生 6 位十进制验证码。用户在两端核对一致后调用 `markSessionVerified`；**未确认前会话禁止用于加密**（fail-closed）。传输层把 SAS 通过 `onSessionReady` 回调交给调用方，**绝不代为验证**：回调未确认时在 `verificationTimeoutMs` 内**有界等待**，超时即以 `session_not_verified` 中止。
 5. **会话密钥派生与双向确认**：由 ECDH（P-256）共享秘密经 HKDF-SHA256 派生**分向密钥**（发起方→响应方 `a2b`、响应方→发起方 `b2a`）与确认密钥。两侧确认值使用不同的域分离标签（`i2r` / `r2i`），因此把对端确认值原样回传（回声）无法通过校验。
 
-#### 传输层协议（`p2p-transport.ts`，本切片新增）
+#### 传输层协议（`packages/sync-runtime/src/transport.ts`）
 
 - **分帧**：4 字节大端长度前缀 + UTF-8 JSON 体；单帧硬上限默认 8 MiB（`maxFrameBytes`，编码与解码两侧强制，超限立即失败且不缓冲）；读取有界超时；同一连接最多缓存 8 帧，超出即判定协议违规并断链。
 - **报文类型白名单**：配对邀请 / 配对响应 / 揭示 / 密钥确认 / 加密 Changeset（`sync_bundle`）/ 合并回执（`sync_result`）/ 错误帧；未知类型、版本不符、字段缺失或超长一律 fail-closed 拒绝。
@@ -160,11 +162,11 @@ P2P 相关用例合计 **69 项**（下表）。`@aervox/repositories` 全量 57
 
 实现代码：
 
-- `packages/repositories/src/sync/p2p-pairing.ts`：设备身份（含落盘）、承诺-揭示配对、分向密钥、计数器 nonce、重放拒绝、密钥确认；
+- `packages/sync-runtime/src/pairing.ts`：设备身份（含落盘）、承诺-揭示配对、分向密钥、计数器 nonce、重放拒绝、密钥确认；
 - `packages/repositories/src/sync/p2p-changeset.ts`：变更集提取（含墓碑）、分块幂等合并、领域感知裁决、版本门禁、触发器维护元数据；
-- `packages/repositories/src/sync/p2p-discovery.ts`（本切片新增）：UDP 多播信标发现（长度受限的编解码、TTL 过期、静态对端兜底、可注入 socket/时钟）；
-- `packages/repositories/src/sync/p2p-transport.ts`（本切片新增）：4 字节长度前缀分帧、报文白名单校验、承诺-揭示握手驱动、AES-256-GCM Changeset 双向交换、`SyncPartialMergeError` 透传；
-- `packages/repositories/src/schema/ddl/sync-metadata.ts`：`sync_row_state` 表与索引（由 `initDatabaseSchema` 建表，触发器需显式安装）。
+- `packages/sync-runtime/src/discovery.ts`（本切片新增）：UDP 多播信标发现（长度受限的编解码、TTL 过期、静态对端兜底、可注入 socket/时钟）；
+- `packages/sync-runtime/src/transport.ts`（本切片新增）：4 字节长度前缀分帧、报文白名单校验、承诺-揭示握手驱动、AES-256-GCM Changeset 双向交换、`SyncPartialMergeError` 透传；
+- `packages/schema/src/sync.ts`：`sync_row_state` 表与索引（由 `initDatabaseSchema` 建表，触发器需显式安装）。
 
 ### 3.2 明确**未实现**（勿默认已覆盖）
 

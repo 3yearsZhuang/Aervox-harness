@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import { CircleHelp, Clock3, Puzzle } from 'lucide-vue-next';
 import { AervoxButton } from '@aervox/ui/primitives';
-import { useWorkbenchContext } from '@aervox/ui/plugin-api';
+import { useUIPluginContext } from '@aervox/ui/plugin-api';
 import { useFocusModeState } from './plugin-state';
 const { focusModeEnabled, openLearningView } = useFocusModeState();
 import { openDailyProblem } from './daily-problem';
 
-const { layout } = useWorkbenchContext();
+const { navigation } = useUIPluginContext();
 
 function handleDailyProblem() {
   openDailyProblem();
 }
 
 function handleStartTimer() {
-  layout?.openTool?.('timer');
+  navigation?.openTool?.('timer');
 }
 
 function handleOpenMistakes() {

@@ -14,7 +14,7 @@ import { messageEventDataSchema, deltaEventDataSchema, reasoningDeltaEventDataSc
   doneEventDataSchema, errorEventDataSchema, redactedEventDataSchema, emoteEventDataSchema,
   userQuestionRequiredEventDataSchema, userQuestionAnsweredEventDataSchema,
   toolApprovalRequiredEventDataSchema } from "./schemas.js";
-import { getPluginEventProjection, getPluginToolResultProjection } from "./plugin-api-registry.js";
+import type { PluginApiRegistry } from "./plugin-api-registry.js";
 
 /** 内核内建事件投影白名单（键集即 `KERNEL_STREAM_EVENT_TYPES`，由单测断言一致） */
 const kernelEventSchemas: Record<string, z.ZodType> = {
@@ -35,10 +35,10 @@ const kernelEventSchemas: Record<string, z.ZodType> = {
 export const KERNEL_PROJECTION_EVENT_TYPES: readonly string[] = Object.keys(kernelEventSchemas);
 
 /** 解析事件类型的投影模式：内核白名单优先，其次插件登记；均无则为未登记（投影为空） */
-function resolveEventSchema(eventType: string): z.ZodType | undefined {
+function resolveEventSchema(eventType: string, registry?: PluginApiRegistry): z.ZodType | undefined {
   return Object.hasOwn(kernelEventSchemas, eventType)
     ? kernelEventSchemas[eventType]
-    : getPluginEventProjection(eventType);
+    : registry?.getPluginEventProjection(eventType);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -46,14 +46,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /** Schema allowlists apply identically to live events and persisted replay, including nested DTOs. */
-export function projectSafeEventData(eventType: string, data: unknown): unknown {
-  const schema = resolveEventSchema(eventType);
+export function projectSafeEventData(eventType: string, data: unknown, registry?: PluginApiRegistry): unknown {
+  const schema = resolveEventSchema(eventType, registry);
   const result = schema ? schema.safeParse(data) : undefined;
   if (!result?.success) return {};
   if (eventType === "tool_result" && isRecord(data)) {
     // 工具结果载荷默认不对外；只有登记了投影模式的插件工具才暴露其白名单字段
     const toolName = typeof data.name === "string" ? data.name : undefined;
-    const projection = toolName ? getPluginToolResultProjection(toolName) : undefined;
+    const projection = toolName ? registry?.getPluginToolResultProjection(toolName) : undefined;
     if (projection) {
       const output = projection.safeParse(data.output);
       if (output.success) return { ...(result.data as object), output: output.data };

@@ -317,6 +317,13 @@ export const createLearningGoalSchema = z.object({
     .optional(),
 });
 
+/** Public learning-goal response shared by HTTP clients. */
+export const learningGoalResponseSchema = z.object({
+  id: z.string(), topic: z.string(), level: learningGoalLevelSchema,
+  availableMinutes: z.number().int().positive(), status: learningGoalStatusSchema,
+  idempotencyKey: z.string().nullable().optional(),
+});
+
 /** 更新学习目标请求体；归档由 DELETE 路由统一处理。 */
 export const updateLearningGoalSchema = z
   .object({

@@ -41,3 +41,6 @@ export const SettingsModal = defineAsyncComponent(() => import('./components/wor
 export const CommandPalette = defineAsyncComponent(() => import('./components/workbench/CommandPalette.vue'));
 export const ProjectManagerModal = defineAsyncComponent(() => import('./components/workbench/modals/ProjectManagerModal.vue'));
 export const ImportSessionModal = defineAsyncComponent(() => import('./components/workbench/modals/ImportSessionModal.vue'));
+
+export { provideUIPluginContext } from './composables/ui-plugin-context';
+export type { UIPluginContext } from './composables/ui-plugin-context';

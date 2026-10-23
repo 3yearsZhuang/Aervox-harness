@@ -3,7 +3,7 @@
  */
 import path from "node:path";
 import type { ModuleDependencies } from "../../context.js";
-import { loadApiConfig } from "@aervox/config";
+import { loadVoiceConfig, type VoiceConfig } from "@aervox/config";
 import {
   SqliteVoiceConfigRepository,
   SqliteVoiceInputConfigRepository,
@@ -22,13 +22,14 @@ export * from "./asr-providers.js";
 export * from "./service.js";
 
 export interface VoiceModuleOptions {
+  config?: VoiceConfig;
   providers?: VoiceProviderPort[];
   asrProviders?: ASRProviderPort[];
 }
 
-export function createDefaultVoiceProviders(): VoiceProviderPort[] {
+export function createDefaultVoiceProviders(config: VoiceConfig = loadVoiceConfig()): VoiceProviderPort[] {
   // 缺陷 E：GPT-Sovits 配置经 @aervox/config 集中解析（GPT_SOVITS_*）
-  const { gptSovits } = loadApiConfig();
+  const { gptSovits } = config;
   return [
     new GptSovitsLocalProvider("gpt-sovits-local", {
       modelId: "default-local",
@@ -44,10 +45,10 @@ export function createDefaultVoiceProviders(): VoiceProviderPort[] {
   ];
 }
 
-export function createDefaultASRProviders(): ASRProviderPort[] {
-  const artifact = process.env.AERVOX_AUDIO_PREPROCESSOR === "rust" ? nativeArtifactFromEnvironment() : undefined;
+export function createDefaultASRProviders(config: VoiceConfig = loadVoiceConfig()): ASRProviderPort[] {
+  const artifact = config.audioPreprocessor === "rust" ? nativeArtifactFromEnvironment() : undefined;
   // 缺陷 E：ASR 配置经 @aervox/config 集中解析（SENSEVOICE_* / WHISPER_*）
-  const { asr } = loadApiConfig();
+  const { asr } = config;
   const defaultAllowedRoots = [
     process.cwd(),
     path.join(process.cwd(), "data"),
@@ -58,6 +59,7 @@ export function createDefaultASRProviders(): ASRProviderPort[] {
     new SenseVoiceLocalProvider("sensevoice-local", {
       audioPreprocessor: artifact ? new NativeAudioPreprocessor(artifact) : undefined,
       modelId: "sensevoice-small",
+      modelBaseUrl: asr.senseVoiceBaseUrl,
       modelPath: asr.senseVoiceModelPath,
       allowedRoots: defaultAllowedRoots,
     }),
@@ -77,12 +79,13 @@ export function registerVoiceModule(
   const configRepository = new SqliteVoiceConfigRepository(db);
   const inputConfigRepository = new SqliteVoiceInputConfigRepository(db);
   const remoteConfigRepository = new SqliteVoiceRemoteConfigRepository(db);
-  const asrProviders = options.asrProviders ?? createDefaultASRProviders();
+  const config = options.config ?? loadVoiceConfig();
+  const asrProviders = options.asrProviders ?? createDefaultASRProviders(config);
   app.addHook("onClose", async () => {
     await Promise.all(asrProviders.filter((p): p is SenseVoiceLocalProvider => p instanceof SenseVoiceLocalProvider).map(p => p.close()));
   });
   const service = new VoiceService(
-    options.providers ?? createDefaultVoiceProviders(),
+    options.providers ?? createDefaultVoiceProviders(config),
     configRepository,
     asrProviders,
     inputConfigRepository,

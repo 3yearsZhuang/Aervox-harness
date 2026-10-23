@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, ref, watchSyncEffect } from 'vue';
 import { createUIRegistry } from '../src/registry/ui-registry';
-import type { WorkbenchContext } from '../src/composables/workbench-context';
+import type { UIPluginContext } from '../src/composables/ui-plugin-context';
 import { createPluginEventBus } from '../src/composables/plugin-events';
 import { createWorkbenchPluginRuntime, type BuiltinUIPlugin, type UIPluginLifecycle } from '../src/plugins/plugin-runtime';
 
 const Component = defineComponent({ render: () => null });
 const enabled = [{ id: 'probe', enabled: 1 }];
 const config = async () => ({ values: {} });
-const context = () => ({ pluginEvents: createPluginEventBus() }) as WorkbenchContext;
+const context = () => ({ pluginEvents: createPluginEventBus() }) as UIPluginContext;
 
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
@@ -23,7 +23,7 @@ describe('UI plugin activation ownership', () => {
     const listener = vi.fn();
     let fail = true;
     const getConfig = vi.fn(config);
-    const runtime = createWorkbenchPluginRuntime(registry, () => ({ pluginEvents: events }) as WorkbenchContext, [{
+    const runtime = createWorkbenchPluginRuntime(registry, () => ({ pluginEvents: events }) as UIPluginContext, [{
       id: 'probe',
       setup(scoped, ctx, life) {
         scoped.registerSlotItem('header:actions', replacement, { id: 'probe:item' });

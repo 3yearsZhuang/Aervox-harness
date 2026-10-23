@@ -1,4 +1,4 @@
-import { computed, markRaw, ref, watch, type Component, type Ref } from 'vue';
+import { computed, markRaw, onMounted, ref, watch, type Component, type Ref } from 'vue';
 import {
   Clock3,
   History,
@@ -6,7 +6,7 @@ import {
   NotebookPen,
 } from 'lucide-vue-next';
 import {
-  useAervoxApi,
+  type LearningStorePort,
   useAervoxDiary,
   type DiaryDto,
   type GenerateTodayResultDto,
@@ -54,7 +54,12 @@ export const todayLocalDate = (): string =>
   new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 
 
+type CardLearningPort = Pick<LearningStorePort, 'goals' | 'dueReviews' | 'loadGoals' | 'loadReviews' | 'updateGoal' | 'completeReview'> & {
+  resources: Pick<LearningStorePort['resources'], 'goals' | 'reviews'>;
+};
+
 export function useWorkbenchCards(options: {
+  learning: CardLearningPort;
   activeQuestion: Ref<UserQuestionRequiredEventData | null>;
   timerRunning: Ref<boolean>;
   formattedTime: Ref<string>;
@@ -64,8 +69,9 @@ export function useWorkbenchCards(options: {
   recordActivity: (source: 'aervox.activity' | 'aervox.operation', eventType: string, payloadText?: string, metadata?: Record<string, unknown>) => void;
   registry?: UIRegistry;
 }) {
-  const api = useAervoxApi();
+  const api = options.learning;
   const diaryApi = useAervoxDiary();
+  onMounted(() => { void Promise.allSettled([api.loadGoals(), api.loadReviews()]); });
 
   const {
     goals,
@@ -74,6 +80,7 @@ export function useWorkbenchCards(options: {
 
   const cardSlots = ref<Array<CardId | null>>(['todo', null]);
   let savedCardSlots: Array<CardId | null> | null = null;
+  const slotPresets = new Map<symbol, {owner: string; slots: Array<CardId | null>}>();
   let diarySlotRestore: CardId | null | undefined = undefined;
 
   // 提问卡
@@ -171,6 +178,7 @@ export function useWorkbenchCards(options: {
   const completedTodoCount = computed(() => todos.value.length - unfinishedTodos.value.length);
   const syncGoals = computed(() => goals.value.filter((goal) => goal.status === 'active' || goal.status === 'paused'));
   const syncReviewCount = computed(() => dueReviews.value.length);
+  const syncError = computed(() => [api.resources.goals.error.value, api.resources.reviews.error.value].filter(Boolean).join('；'));
   const syncedTodoCount = computed(() => syncGoals.value.length + syncReviewCount.value);
   const goalBusyId = ref<string | null>(null);
 
@@ -393,44 +401,24 @@ export function useWorkbenchCards(options: {
     card.action();
   }
 
-  /**
-   * CR-060：通用槽位预设——宿主不再硬编码任何插件卡片 id，
-   * 由插件在需要时把**自己的**卡片 id 清单交进来。
-   *
-   * 语义：
-   * - 基线只在首次调用时记录，重复调用不覆盖，保证 `restoreSlotPreset()` 回到用户原始布局；
-   * - 预设项数必须与槽位数一致，否则视为契约缺陷：不应用并告警（fail-closed，不静默截断）；
-   * - **应用**不写 `localStorage`：预设是临时视图态。但 `restoreSlotPreset()` 会把恢复后的
-   *   基线写回，以对齐用户在预设期间经 `selectCard` 落盘的显式选择（见该函数注释）。
-   *
-   * @returns 是否应用成功
-   */
-  function applySlotPreset(slots: Array<CardId | null>): boolean {
-    if (slots.length !== cardSlots.value.length) {
-      console.warn(
-        `[useWorkbenchCards] applySlotPreset 项数(${slots.length})与槽位数(${cardSlots.value.length})不一致，已忽略本次预设`,
-      );
-      return false;
-    }
-    if (!savedCardSlots) savedCardSlots = [...cardSlots.value];
+  /** Each acquisition owns one opaque token; releasing A cannot reset B's preset. */
+  function acquireSlotPreset(owner: string, slots: Array<CardId | null>): () => void {
+    if (!owner || slots.length !== cardSlots.value.length) throw new Error('invalid_card_preset');
+    if (!slotPresets.size) savedCardSlots = [...cardSlots.value];
+    const token = Symbol(owner);
+    slotPresets.set(token, {owner, slots: [...slots]});
     cardSlots.value = [...slots];
-    return true;
-  }
-
-  /**
-   * 恢复预设前的槽位（未预设时为空操作）。
-   *
-   * 恢复同样落盘：预设本身是临时视图态（不落盘），但用户若在预设期间显式换过卡片，
-   * `selectCard` 已把预设布局写进 `localStorage`；此时只还原内存会让两者分叉，
-   * 下次启动会载回刚被恢复掉的布局。故恢复必须把基线一并写回，
-   * 使 `localStorage` 与屏幕始终一致。
-   */
-  function restoreSlotPreset(): boolean {
-    if (!savedCardSlots) return false;
-    cardSlots.value = savedCardSlots;
-    savedCardSlots = null;
-    persistCardSlots();
-    return true;
+    return () => {
+      const current = [...slotPresets.keys()].at(-1);
+      if (!slotPresets.delete(token) || current !== token) return;
+      const next = [...slotPresets.values()].at(-1);
+      if (next) cardSlots.value = [...next.slots];
+      else if (savedCardSlots) {
+        cardSlots.value = savedCardSlots;
+        savedCardSlots = null;
+        persistCardSlots();
+      }
+    };
   }
 
   function setDiarySlotRestore(val: CardId | null | undefined) {
@@ -438,7 +426,7 @@ export function useWorkbenchCards(options: {
   }
 
   return {
-    api,
+    dueReviews,
     diaryApi,
     cardSlots,
     slotCards,
@@ -465,6 +453,7 @@ export function useWorkbenchCards(options: {
     syncGoals,
     syncReviewCount,
     syncedTodoCount,
+    syncError,
     goalBusyId,
     reviewBusyId,
     reviewError,
@@ -480,8 +469,7 @@ export function useWorkbenchCards(options: {
     isCardPicked,
     selectCard,
     activateCard,
-    applySlotPreset,
-    restoreSlotPreset,
+    acquireSlotPreset,
     setDiarySlotRestore,
   };
 }

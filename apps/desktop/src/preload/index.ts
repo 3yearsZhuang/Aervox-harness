@@ -18,6 +18,7 @@ if (trustedPreloadEntry(process.argv, locationUrl, process.isMainFrame)) {
         setTheme: settingsApi.setTheme,
         onThemeChange: settingsApi.onThemeChange,
         streamTurn: aervoxApi.streamTurn,
+        observeTurn: aervoxApi.observeTurn,
         streamEvents: aervoxApi.streamEvents,
         cancelTurn: aervoxApi.cancelTurn,
         apiRequest: aervoxApi.apiRequest,

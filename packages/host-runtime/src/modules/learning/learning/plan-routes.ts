@@ -4,16 +4,18 @@
  * 生成（单次 LLM 调用内完成）/ 列表 / 详情 / 任务勾选（含里程碑推进）/ 归档。
  */
 import type { FastifyInstance } from "fastify";
-import type { SqliteLearningRepository } from "@aervox/repositories";
+import type { LearningPlanPort } from "@aervox/repositories";
 import { generateLearningPlanSchema, updatePlanTaskStatusSchema } from "@aervox/contracts";
 import { resolveLocalContext } from "../../../shared/local-context.js";
+import { createLearningPlanService } from "./learning-plan-service.js";
 import type { LearningPlanGenerationService } from "./plan-generation.js";
 
 export function registerLearningPlanRoutes(
   app: FastifyInstance,
-  learningRepo: SqliteLearningRepository,
+  learningRepo: LearningPlanPort,
   planGeneration: LearningPlanGenerationService,
 ): void {
+  const planService = createLearningPlanService(learningRepo);
   // POST /v1/learning-plans/generate — AI 生成学习规划并落库
   app.post("/v1/learning-plans/generate", async (req, reply) => {
     const tenant = resolveLocalContext(req);
@@ -70,7 +72,7 @@ export function registerLearningPlanRoutes(
       return reply.status(400).send({ error: "Validation failed", details: parsed.error.issues });
     }
 
-    const plan = await learningRepo.setPlanTaskStatus(tenant, taskId, parsed.data.status);
+    const plan = await planService.setTaskStatus(tenant, taskId, parsed.data.status);
     if (!plan) {
       return reply.status(404).send({ error: "Task not found" });
     }

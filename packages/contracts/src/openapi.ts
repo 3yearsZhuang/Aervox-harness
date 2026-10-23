@@ -18,7 +18,7 @@ import { privacyApi } from "./privacy-api.js";
 import { pluginConfigApi } from "./plugin-config-api.js";
 import { createMemoryNodeRequestSchema, memoryNodeSchema, listMemoryNodesResponseSchema } from "./memory-api.js";
 import type { OpenAPIObject } from "openapi3-ts/oas31";
-import { getPluginOpenApiRoutes, getPluginApiRevision, type PluginOpenApiRoute } from "./plugin-api-registry.js";
+import { type PluginApiRegistry, type PluginOpenApiRoute } from "./plugin-api-registry.js";
 import {
   OpenAPIRegistry,
   OpenApiGeneratorV31,
@@ -1357,8 +1357,6 @@ function collectRouteKeys(doc: OpenAPIObject): Set<string> {
   return keys;
 }
 
-let cachedDocument: OpenAPIObject | null = null;
-let cachedPluginApiRevision = -1;
 /** 内核端点文档（不含插件贡献）；插件路由不再写入内核注册表，故可安全缓存 */
 let cachedKernelDocument: OpenAPIObject | null = null;
 
@@ -1410,15 +1408,17 @@ function buildKernelDocument(): OpenAPIObject {
  * 冲突语义：内核端点冲突忽略并告警；插件的同名贡献由注册表选择最后仍存活的一次登记。
  * 贡献注销会使缓存失效，保证旧片段不因缓存继续暴露。
  */
-export function buildOpenApiDocument(): OpenAPIObject {
-  const revision = getPluginApiRevision();
-  if (cachedDocument && cachedPluginApiRevision === revision) return cachedDocument;
+let hostDocumentCache = new WeakMap<PluginApiRegistry, { revision: number; document: OpenAPIObject }>();
+export function buildOpenApiDocument(apiRegistry?: PluginApiRegistry): OpenAPIObject {
+  const revision = apiRegistry?.getPluginApiRevision() ?? 0;
+  const cached = apiRegistry ? hostDocumentCache.get(apiRegistry) : undefined;
+  if (cached && cached.revision === revision) return cached.document;
 
   const kernel = buildKernelDocument();
   const occupied = collectRouteKeys(kernel);
   const accepted: PluginOpenApiRoute[] = [];
 
-  for (const route of getPluginOpenApiRoutes()) {
+  for (const route of (apiRegistry?.getPluginOpenApiRoutes() ?? [])) {
     const key = `${route.method.toUpperCase()} ${route.path}`;
     if (occupied.has(key)) {
       console.warn(`[contracts] 插件 OpenAPI 路由与既有端点冲突，已忽略：${key}`);
@@ -1429,20 +1429,19 @@ export function buildOpenApiDocument(): OpenAPIObject {
   }
 
   if (accepted.length === 0) {
-    cachedDocument = kernel;
-    cachedPluginApiRevision = revision;
-    return cachedDocument;
+    if (apiRegistry) hostDocumentCache.set(apiRegistry, { revision, document: kernel });
+    return kernel;
   }
 
   const pluginRegistry = new OpenAPIRegistry();
   for (const route of accepted) registerPluginRouteInto(pluginRegistry, route);
 
-  cachedDocument = generateDocument([...registry.definitions, ...pluginRegistry.definitions]);
-  cachedPluginApiRevision = revision;
-  return cachedDocument;
+  const document = generateDocument([...registry.definitions, ...pluginRegistry.definitions]);
+  if (apiRegistry) hostDocumentCache.set(apiRegistry, { revision, document });
+  return document;
 }
 
 /** 清空文档缓存（插件登记变更后需重建；测试隔离用） */
 export function resetOpenApiDocumentCache(): void {
-  cachedDocument = null;
+  hostDocumentCache = new WeakMap();
 }

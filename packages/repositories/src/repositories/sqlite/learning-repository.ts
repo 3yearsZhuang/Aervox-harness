@@ -3,6 +3,9 @@
  *
  * 规则依据：docs/reference/PRD.md §8 + docs/reference/DATABASE.md §14.3
  */
+import { createHash, randomUUID } from "node:crypto";
+import { assertPluginGeneration, type PluginGenerationIdentity } from "../../plugin-generation-guard.js";
+import { assertPersonalDerivedDataSource } from "../../conversation-execution-policy.js";
 import { eq, and, lte, desc, ne, isNull, or, asc, inArray } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import {
@@ -19,10 +22,14 @@ import {
   learningPlans,
   planMilestones,
   planTasks,
+  turns,
+  outboxEvents,
 } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
 import type {
   ILearningRepository,
+  MilestoneTransitionPolicy,
+  JudgedAnswerCommand,
   LearningGoalModel,
   QuestionModel,
   QuestionAttemptModel,
@@ -39,6 +46,47 @@ import type {
 
 export class SqliteLearningRepository implements ILearningRepository {
   constructor(private readonly db: AervoxDatabase) {}
+
+  /** One atomic domain command: source resolution, immutable fact and derived work. */
+  async recordJudgedAnswer(ctx: LocalContext, input: JudgedAnswerCommand): Promise<{ questionId: string; attemptId: string; judgement: "correct" | "incorrect" | "partial"; enteredMistakeNotebook: boolean }> {
+    if (!input.idempotencyKey.trim()) throw new Error("judged_answer_idempotency_key_required");
+    const digest = createHash("sha256").update(input.idempotencyKey).digest("hex");
+    const questionId = `q_judged_${digest}`;
+    const attemptId = `att_judged_${digest}`;
+    return this.db.transaction(async (tx) => {
+      await assertPluginGeneration(tx, input.pluginGeneration);
+      await assertPersonalDerivedDataSource(tx, input.turnId);
+      const [turn] = await tx.select({ sessionId: turns.sessionId }).from(turns).where(eq(turns.id, input.turnId));
+      if (!turn) throw new Error("judged_answer_source_turn_unavailable");
+      const [existing] = await tx.select().from(questionAttempts).where(eq(questionAttempts.id, attemptId));
+      if (existing) {
+        const [question] = await tx.select().from(questions).where(eq(questions.id, questionId));
+        const spec = question?.answerSpec as { answer?: string; type?: string | null; explanation?: string | null } | undefined;
+        if (JSON.stringify(existing.evidence) !== JSON.stringify({ source: input.source ?? "plugin", turnId: input.turnId, explanation: input.explanation ?? null, knowledgeConcept: input.knowledgeConcept ?? null }) || existing.sessionId !== turn.sessionId || existing.answer !== input.userAnswer || existing.judgement !== input.judgement || question?.prompt !== input.prompt || spec?.answer !== input.correctAnswer || spec?.type !== (input.questionType ?? null) || spec?.explanation !== (input.explanation ?? null)) {
+          throw new Error("judged_answer_idempotency_conflict");
+        }
+        return { questionId, attemptId, judgement: input.judgement, enteredMistakeNotebook: input.judgement === "incorrect" };
+      }
+      const now = new Date().toISOString();
+      await tx.insert(questions).values({ id: questionId, prompt: input.prompt,
+        answerSpec: { answer: input.correctAnswer, type: input.questionType ?? null, explanation: input.explanation ?? null },
+        status: "active", createdAt: now, updatedAt: now });
+      await tx.insert(questionAttempts).values({ id: attemptId, sessionId: turn.sessionId, questionId,
+        answer: input.userAnswer, judgement: input.judgement, idempotencyKey: input.idempotencyKey,
+        evidence: { source: input.source ?? "plugin", turnId: input.turnId, explanation: input.explanation ?? null, knowledgeConcept: input.knowledgeConcept ?? null },
+        hintCount: 0, createdAt: now });
+      await tx.insert(outboxEvents).values({ id: `out_judged_${digest}`, idempotencyKey: `judged:${input.idempotencyKey}`,
+        eventType: "learning.answer.recorded", payload: { questionId, attemptId, sessionId: turn.sessionId, judgement: input.judgement }, createdAt: now });
+      return { questionId, attemptId, judgement: input.judgement, enteredMistakeNotebook: input.judgement === "incorrect" };
+    });
+  }
+
+  /** Restricted scheduler projection: no question or knowledge body leaves persistence. */
+  async listDueReviewSchedule(before: string, limit = 100): Promise<Array<{ id: string; knowledgeId: string; dueAt: string }>> {
+    return this.db.select({ id: reviewItems.id, knowledgeId: reviewItems.knowledgeId, dueAt: reviewItems.dueAt })
+      .from(reviewItems).where(and(eq(reviewItems.status, "active"), lte(reviewItems.dueAt, before)))
+      .orderBy(asc(reviewItems.dueAt)).limit(Math.max(1, Math.min(100, limit)));
+  }
 
   async createLearningGoal(
     ctx: LocalContext,
@@ -968,10 +1016,13 @@ export class SqliteLearningRepository implements ILearningRepository {
       masteryPrediction?: number;
       biasAssessment?: string;
       reportType?: string;
+      pluginGeneration?: PluginGenerationIdentity;
     },
   ): Promise<PracticeReportModel> {
+    return this.db.transaction(async (tx) => {
+    await assertPluginGeneration(tx, input.pluginGeneration);
     const now = new Date().toISOString();
-    const [created] = await this.db
+    const [created] = await tx
       .insert(practiceReports)
       .values({
         id: input.id,
@@ -990,6 +1041,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       })
       .returning();
     return created as PracticeReportModel;
+    });
   }
 
   async getPracticeReport(ctx: LocalContext, reportId: string): Promise<PracticeReportModel | null> {
@@ -1018,13 +1070,15 @@ export class SqliteLearningRepository implements ILearningRepository {
     return rows as PracticeReportModel[];
   }
 
-  async resetMasteryInference(ctx: LocalContext, sessionId: string): Promise<PracticeReportModel> {
+  async resetMasteryInference(ctx: LocalContext, sessionId: string, pluginGeneration?: PluginGenerationIdentity): Promise<PracticeReportModel> {
+    return this.db.transaction(async (tx) => {
+    await assertPluginGeneration(tx, pluginGeneration);
     const now = new Date().toISOString();
     // 创建一个 reset 类型的报告（保留原始作答，仅重置推断）
-    const [created] = await this.db
+    const [created] = await tx
       .insert(practiceReports)
       .values({
-        id: `rpt_reset_${Date.now().toString(36)}`,
+        id: `rpt_reset_${randomUUID()}`,
         sessionId,
         totalQuestions: 0,
         correctCount: 0,
@@ -1038,6 +1092,7 @@ export class SqliteLearningRepository implements ILearningRepository {
       })
       .returning();
     return created as PracticeReportModel;
+    });
   }
 
   // ============ CAP-017 学习规划（里程碑 + 任务路线图） ============
@@ -1159,65 +1214,25 @@ export class SqliteLearningRepository implements ILearningRepository {
     );
   }
 
-  async setPlanTaskStatus(
-    ctx: LocalContext,
-    taskId: string,
-    status: "todo" | "done",
-  ): Promise<LearningPlanModel | null> {
-    const [task] = await this.db
-      .select()
-      .from(planTasks)
-      .where(
-        and(
-          eq(planTasks.id, taskId),
-        ),
-      )
-      .limit(1);
-    if (!task) return null;
-    const [milestone] = await this.db
-      .select()
-      .from(planMilestones)
-      .where(eq(planMilestones.id, task.milestoneId))
-      .limit(1);
-    if (!milestone) return null;
-
-    const now = new Date().toISOString();
-    await this.db.transaction(async (tx) => {
-      await tx
-        .update(planTasks)
-        .set({ status, updatedAt: now })
-        .where(eq(planTasks.id, taskId));
-      // 里程碑链推进：前置里程碑全部完成 → completed；其后第一个未完成 → active；再后 → locked
-      const chain = await tx
-        .select()
-        .from(planMilestones)
-        .where(
-          and(
-            eq(planMilestones.planId, milestone.planId),
-          ),
-        )
-        .orderBy(asc(planMilestones.order));
+  /** Writer transaction only; the application supplies the pure milestone policy. */
+  async transitionPlanTask(ctx: LocalContext, taskId: string, status: "todo" | "done", deriveMilestones: MilestoneTransitionPolicy): Promise<LearningPlanModel | null> {
+    const planId = await this.db.transaction(async (tx) => {
+      const [task] = await tx.select().from(planTasks).where(eq(planTasks.id, taskId)).limit(1);
+      if (!task) return null;
+      const [milestone] = await tx.select().from(planMilestones).where(eq(planMilestones.id, task.milestoneId)).limit(1);
+      if (!milestone) return null;
+      const now = new Date().toISOString();
+      await tx.update(planTasks).set({ status, updatedAt: now }).where(eq(planTasks.id, taskId));
+      const chain = await tx.select().from(planMilestones).where(eq(planMilestones.planId, milestone.planId)).orderBy(asc(planMilestones.order));
       const milestoneIds = chain.map((item) => item.id);
-      const taskRows =
-        milestoneIds.length > 0
-          ? await tx.select().from(planTasks).where(inArray(planTasks.milestoneId, milestoneIds))
-          : [];
-      let chainComplete = true;
-      for (const item of chain) {
-        const itemTasks = taskRows.filter((row) => row.milestoneId === item.id);
-        const allDone =
-          itemTasks.length > 0 && itemTasks.every((row) => row.status === "done");
-        const nextStatus = allDone && chainComplete ? "completed" : chainComplete ? "active" : "locked";
-        if (!allDone) chainComplete = false;
-        if (item.status !== nextStatus) {
-          await tx
-            .update(planMilestones)
-            .set({ status: nextStatus, updatedAt: now })
-            .where(eq(planMilestones.id, item.id));
-        }
+      const taskRows = milestoneIds.length ? await tx.select().from(planTasks).where(inArray(planTasks.milestoneId, milestoneIds)) : [];
+      for (const item of deriveMilestones(chain, taskRows)) {
+        if (!milestoneIds.includes(item.id) || !["completed", "active", "locked"].includes(item.status)) throw new Error("learning_plan_transition_invalid");
+        await tx.update(planMilestones).set({ status: item.status, updatedAt: now }).where(eq(planMilestones.id, item.id));
       }
+      return milestone.planId;
     });
-    return this.getLearningPlan(ctx, milestone.planId);
+    return planId ? this.getLearningPlan(ctx, planId) : null;
   }
 
   async archiveLearningPlan(ctx: LocalContext, planId: string): Promise<LearningPlanModel | null> {

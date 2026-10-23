@@ -1,12 +1,9 @@
 /**
  * Aervox｜思隅 @aervox/diary — 日记生成核心（API 按需路径 + Worker 定时路径共用）
  *
- * Provider 缝隙：DiaryModelPort 由装配层注入——llm 模式走 OpenAI 兼容 provider
- * （经 DiaryLlmConfigPort 解析租户配置），replay/scripted 等非 LLM 模式走确定性模板
- * （诚实降级，输出标注 template）；租户 LLM 未启用时同样模板降级。
+ * DiaryModelPort 由宿主注入；协议、默认配置与 Provider 创建归模型基础设施。
+ * 非模型模式和显式不可用配置采用标明 template 的确定性模板。
  */
-import { createOpenAICompatProvider } from "@aervox/core";
-import type { ModelProviderPort, ModelRequest } from "@aervox/core";
 import type { DiaryMaterialPort, LocalContext } from "@aervox/contracts";
 import { diaryMaterialCount } from "./material.js";
 import { buildDiarySystemPrompt, buildDiaryUserPrompt } from "./prompts.js";
@@ -15,101 +12,10 @@ import { renderTemplateDiary, type DiaryDraft } from "./template.js";
 /** 单次日记生成的模型端口（宿主注入；测试注入确定性实现） */
 export interface DiaryModelPort {
   generate(input: {
-    tenant: LocalContext;
+    context: LocalContext;
     system: string;
     user: string;
   }): Promise<string>;
-}
-
-/** 供 openai-compat provider 使用的纯配置（不含是否启用/供应商协议判断） */
-export interface DiaryLlmConfig {
-  baseUrl: string;
-  apiKey?: string;
-  modelId: string;
-  temperature?: number;
-  maxTokens?: number;
-}
-
-/** 按租户解析日记 LLM 配置的端口（null = 未启用/不支持，服务层模板降级） */
-export interface DiaryLlmConfigPort {
-  getConfig(ctx: LocalContext): Promise<DiaryLlmConfig | null>;
-}
-
-/** 无配置行时的缺省供应商参数（镜像 apps/api LLMConfigService 的 ollama 预设） */
-const DEFAULT_LLM_BASE_URL = "http://127.0.0.1:11434/v1";
-const DEFAULT_LLM_MODEL_ID = "llama3.2";
-
-/** 配置读取契约；宿主负责提供持久化或内存实现。 */
-export interface DiaryConfigSource {
-  getConfig(context: LocalContext): Promise<{
-    enabled: number | boolean; baseUrl: string; apiKey?: string | null; modelId: string;
-    temperature: number; maxTokens?: number | null;
-  } | null>;
-}
-
-/** 无配置行使用缺省配置，显式禁用返回 null。 */
-export function createRepoDiaryLlmConfigPort(
-  repo: DiaryConfigSource,
-): DiaryLlmConfigPort {
-  return {
-    async getConfig(ctx) {
-      const found = await repo.getConfig(ctx);
-      if (!found) {
-        return {
-          baseUrl: DEFAULT_LLM_BASE_URL,
-          modelId: DEFAULT_LLM_MODEL_ID,
-          temperature: 0.7,
-          maxTokens: 4096,
-        };
-      }
-      if (!Boolean(found.enabled)) return null;
-      return {
-        baseUrl: found.baseUrl,
-        apiKey: found.apiKey ?? undefined,
-        modelId: found.modelId,
-        temperature: found.temperature,
-        maxTokens: found.maxTokens ?? 4096,
-      };
-    },
-  };
-}
-
-/** LLM 模式端口：解析租户配置 → OpenAI 兼容 provider，消费流式输出拼接全文 */
-export function createLlmDiaryModelPort(cfgPort: DiaryLlmConfigPort): DiaryModelPort {
-  return {
-    async generate({ tenant, system, user }) {
-      const cfg = await cfgPort.getConfig(tenant);
-      if (!cfg) {
-        throw new Error("llm_disabled: 当前租户未启用 LLM 配置，无法生成日记");
-      }
-      const provider = createOpenAICompatProvider({
-        baseUrl: cfg.baseUrl,
-        apiKey: cfg.apiKey,
-        modelId: cfg.modelId,
-        temperature: cfg.temperature,
-        maxTokens: cfg.maxTokens,
-      });
-      const request: ModelRequest = {
-        turnId: "diary_generation",
-        attemptId: `diary_${Date.now().toString(36)}`,
-        step: 1,
-        context: {
-          turnId: "diary_generation",
-          sessionId: "diary_generation",
-          messages: [
-            { role: "system", content: system },
-            { role: "user", content: user },
-          ],
-        },
-      };
-      let text = "";
-      for await (const chunk of provider.stream(request)) {
-        text += chunk.text ?? "";
-      }
-      if (!text.trim()) throw new Error("llm_empty_output: 模型未返回日记内容");
-      return text;
-    },
-  };
 }
 
 /** 解析模型输出：「标题：…」首行 + 正文；缺标题时回退默认 */
@@ -191,7 +97,7 @@ export class DiaryGenerationService {
 
     try {
       const raw = await this.deps.model.generate({
-        tenant,
+        context: tenant,
         system: style.buildSystemPrompt("思思"),
         user: style.buildUserPrompt(material, input.localDate, input.focus),
       });

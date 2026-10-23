@@ -11,13 +11,15 @@ describe('desktop session across transport and preload', () => {
   it('preserves two selected sessions through IPC instead of choosing the environment default', async () => {
     vi.stubGlobal('window', { fairyDesktop: aervoxApi });
     ipc.send.mockImplementation((_channel, payload) => {
+      if (_channel !== 'aervox:turn:start') return;
       const listener = ipc.on.mock.calls.at(-1)![1];
+      listener({}, { requestId: payload.requestId, type: 'event', event: {eventType: 'done', data: {}} });
       listener({}, { requestId: payload.requestId, type: 'closed' });
     });
     for (const session of ['ses_A', 'ses_B']) {
       await desktopTransport.streamTurn(session, 'hello', { onDelta() {}, onDone() {} });
     }
-    const sessions = ipc.send.mock.calls.map(([, payload]) => resolveTurnSessionId(payload.sessionId, 'environment_default'));
+    const sessions = ipc.send.mock.calls.filter(([channel]) => channel === 'aervox:turn:start').map(([, payload]) => resolveTurnSessionId(payload.sessionId, 'environment_default'));
     expect(sessions).toEqual(['ses_A', 'ses_B']);
   });
   it.each(['', ' ', 3, null, 'x'.repeat(129)])('rejects an invalid explicit session %s', value => {

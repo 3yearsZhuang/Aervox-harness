@@ -174,6 +174,8 @@ export interface ApiConfig {
   loopProvider: LoopProvider;
   /** Loop Driver（AERVOX_LOOP_DRIVER，默认 native；dsh = 整 Turn 进程外 DSH Adapter） */
   loopDriver: ApiLoopDriver;
+  dshRepoRoot?: string;
+  dshWorkingDirectory: string;
   /** Turn 执行模式（AERVOX_TURN_EXECUTION，默认 background） */
   turnExecution: TurnExecution;
   loopDispatch: "api" | "worker";
@@ -185,6 +187,7 @@ export interface ApiConfig {
   adminIds: string[];
   gptSovits: GptSovitsConfig;
   asr: AsrConfig;
+  audioPreprocessor: "off" | "rust";
   /** CR-033 API 侧事件双写等切片开关。 */
   proactiveFeatureFlags: ReadonlySet<ProactiveFeatureFlag>;
   /** CR-034 模型路由与降级阶梯开关。 */
@@ -232,58 +235,54 @@ function requireEnum<T extends string>(name: string, raw: string | undefined, al
   throw new Error(`[config] ${name}=${value} is invalid; expected one of ${allowed.join(" | ")}`);
 }
 
-/** 加载 @aervox/api 配置（可注入 env 便于测试；默认读取进程环境变量） */
-export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
-  const defaultLogFormat: LogFormat = env.NODE_ENV === "production" ? "json" : "pretty";
-  const gptSovitsProtocol = requireEnum(
-    "GPT_SOVITS_PROTOCOL",
-    env.GPT_SOVITS_PROTOCOL,
-    ["http", "websocket"] as const,
-    "http",
-  );
+export type LoggingConfig = Pick<ApiConfig, "logLevel" | "logFormat">;
+export type HttpConfig = Pick<ApiConfig, "port" | "host">;
+export type ExecutionConfig = Pick<ApiConfig,
+  "loopProvider" | "loopDriver" | "dshRepoRoot" | "dshWorkingDirectory" | "turnExecution" | "loopDispatch" | "loopCompaction" | "loopResume" | "adminIds" |
+  "proactiveFeatureFlags" | "modelRoutingFeatureFlags">;
+export type VoiceConfig = Pick<ApiConfig, "gptSovits" | "asr"> & { audioPreprocessor: "off" | "rust" };
+export type HostRuntimeConfig = LoggingConfig & ExecutionConfig & VoiceConfig;
+
+export function loadLoggingConfig(env: NodeJS.ProcessEnv = process.env): LoggingConfig {
   return {
-    port: requirePositiveInt("PORT", env.PORT, 3000),
-    host: env.AERVOX_API_HOST?.trim() || "127.0.0.1",
-    logLevel: requireEnum(
-      "AERVOX_LOG_LEVEL",
-      env.AERVOX_LOG_LEVEL,
-      ["debug", "info", "warn", "error"] as const,
-      "info",
-    ),
-    logFormat: requireEnum(
-      "AERVOX_LOG_FORMAT",
-      env.AERVOX_LOG_FORMAT,
-      ["json", "pretty"] as const,
-      defaultLogFormat,
-    ),
+    logLevel: requireEnum("AERVOX_LOG_LEVEL", env.AERVOX_LOG_LEVEL, ["debug", "info", "warn", "error"] as const, "info"),
+    logFormat: requireEnum("AERVOX_LOG_FORMAT", env.AERVOX_LOG_FORMAT, ["json", "pretty"] as const, env.NODE_ENV === "production" ? "json" : "pretty"),
+  };
+}
+
+export function loadHttpConfig(env: NodeJS.ProcessEnv = process.env): HttpConfig {
+  return { port: requirePositiveInt("PORT", env.PORT, 3000), host: env.AERVOX_API_HOST?.trim() || "127.0.0.1" };
+}
+
+export function loadExecutionConfig(env: NodeJS.ProcessEnv = process.env): ExecutionConfig {
+  return {
     loopProvider: loadLoopProvider(env),
     loopDriver: requireEnum("AERVOX_LOOP_DRIVER", env.AERVOX_LOOP_DRIVER, ["native", "dsh"] as const, "native"),
-    turnExecution: requireEnum(
-      "AERVOX_TURN_EXECUTION",
-      env.AERVOX_TURN_EXECUTION,
-      ["background", "inline"] as const,
-      "background",
-    ),
+    dshRepoRoot: env.AERVOX_DSH_REPO_ROOT?.trim() || undefined,
+    dshWorkingDirectory: process.cwd(),
+    turnExecution: requireEnum("AERVOX_TURN_EXECUTION", env.AERVOX_TURN_EXECUTION, ["background", "inline"] as const, "background"),
     loopDispatch: requireEnum("AERVOX_LOOP_DISPATCH", env.AERVOX_LOOP_DISPATCH, ["api", "worker"] as const, "api"),
     loopResume: requireEnum("AERVOX_LOOP_RESUME", env.AERVOX_LOOP_RESUME, ["off", "local-results"] as const, "off"),
-    loopCompaction: requireEnum(
-      "AERVOX_LOOP_COMPACTION",
-      env.AERVOX_LOOP_COMPACTION,
-      ["rule", "off"] as const,
-      "off",
-    ),
+    loopCompaction: requireEnum("AERVOX_LOOP_COMPACTION", env.AERVOX_LOOP_COMPACTION, ["rule", "off"] as const, "off"),
     adminIds: splitList(env.AERVOX_ADMIN_IDS, ","),
+    proactiveFeatureFlags: loadProactiveFeatureFlags(env),
+    modelRoutingFeatureFlags: loadModelRoutingFeatureFlags(env),
+  };
+}
+
+export function loadVoiceConfig(env: NodeJS.ProcessEnv = process.env): VoiceConfig {
+  return {
+    audioPreprocessor: env.AERVOX_AUDIO_PREPROCESSOR === "rust" ? "rust" : "off",
     gptSovits: {
       modelPath: env.GPT_SOVITS_MODEL_PATH?.trim() || undefined,
       allowedRoots: splitList(env.GPT_SOVITS_ALLOWED_ROOTS, ":"),
       endpoint: env.GPT_SOVITS_ENDPOINT?.trim() || undefined,
-      protocol: gptSovitsProtocol,
+      protocol: requireEnum("GPT_SOVITS_PROTOCOL", env.GPT_SOVITS_PROTOCOL, ["http", "websocket"] as const, "http"),
       modelId: env.GPT_SOVITS_MODEL_ID?.trim() || "default-remote",
       secretRef: env.GPT_SOVITS_SECRET_REF?.trim() || undefined,
     },
     asr: {
-      senseVoiceBaseUrl:
-        env.SENSEVOICE_MODEL_BASE_URL?.trim() ||
+      senseVoiceBaseUrl: env.SENSEVOICE_MODEL_BASE_URL?.trim() ||
         "https://hf-mirror.com/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/main",
       senseVoiceModelPath: env.SENSEVOICE_MODEL_PATH?.trim() || undefined,
       senseVoiceAllowedRoots: splitList(env.SENSEVOICE_ALLOWED_ROOTS, ":"),
@@ -291,14 +290,20 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
       whisperApiKey: env.WHISPER_API_KEY?.trim() || undefined,
       whisperModelId: env.WHISPER_MODEL_ID?.trim() || "whisper-1",
     },
-    proactiveFeatureFlags: loadProactiveFeatureFlags(env),
-    modelRoutingFeatureFlags: loadModelRoutingFeatureFlags(env),
   };
+}
+
+/** Shared product configuration excludes HTTP listener settings. Read once at the composition root. */
+export function loadHostRuntimeConfig(env: NodeJS.ProcessEnv = process.env): HostRuntimeConfig {
+  return { ...loadLoggingConfig(env), ...loadExecutionConfig(env), ...loadVoiceConfig(env) };
+}
+
+export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
+  return { ...loadHttpConfig(env), ...loadHostRuntimeConfig(env) };
 }
 
 /** 加载 @aervox/worker 配置（可注入 env 便于测试；默认读取进程环境变量） */
 export function loadWorkerConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
-  const defaultLogFormat: LogFormat = env.NODE_ENV === "production" ? "json" : "pretty";
   const tickMs = requirePositiveInt("WORKER_TICK_MS", env.WORKER_TICK_MS, 5000);
   const intervalOverrides: Record<string, number> = {};
   for (const [key, value] of Object.entries(env)) {
@@ -316,18 +321,7 @@ export function loadWorkerConfig(env: NodeJS.ProcessEnv = process.env): WorkerCo
   return {
     workerId: env.WORKER_ID?.trim() || `worker_${Date.now().toString(36)}`,
     tickMs,
-    logLevel: requireEnum(
-      "AERVOX_LOG_LEVEL",
-      env.AERVOX_LOG_LEVEL,
-      ["debug", "info", "warn", "error"] as const,
-      "info",
-    ),
-    logFormat: requireEnum(
-      "AERVOX_LOG_FORMAT",
-      env.AERVOX_LOG_FORMAT,
-      ["json", "pretty"] as const,
-      defaultLogFormat,
-    ),
+    ...loadLoggingConfig(env),
     intervalOverrides,
     proactiveFeatureFlags: loadProactiveFeatureFlags(env),
     modelRoutingFeatureFlags: loadModelRoutingFeatureFlags(env),

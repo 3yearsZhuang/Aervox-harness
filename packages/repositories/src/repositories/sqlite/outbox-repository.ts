@@ -8,7 +8,7 @@ import type { AervoxDatabase } from "../../client.js";
 import { memoryRecords, outboxEvents } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
 import type { FetchPendingEventsOptions, IOutboxRepository, OutboxEventModel } from "../types/index.js";
-import { notifyWorkerWakeup } from "../../worker-ipc.js";
+import { notifyWorkerWakeup } from "@aervox/process-coordination";
 import { assertMemoryCompactionAvailable, MEMORY_COMPACTION_EVENT_TYPE, MemoryCompactionUnavailableError } from "./memory-compaction-guard.js";
 
 // Error text can contain a fetched summary. Check the persisted source in the

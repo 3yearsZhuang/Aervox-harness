@@ -14,21 +14,21 @@
 
 /** 会话编排窄端口：插件可发起新会话与探索分支 */
 export interface PluginSessionPort {
-  /** 新建会话，返回其 id */
-  createSession(title: string): Promise<{ id: string }>;
-  /** 在父会话下建立探索分支（`reason` 为分支归因标签，由调用方自述来源） */
-  createBranch(input: {
+  /** Atomically creates an exploration child and its branch, inheriting the parent policy. */
+  createExplorationBranch(input: {
     id: string;
     parentSessionId: string;
     childSessionId: string;
     title: string;
     reason: string;
-  }): Promise<void>;
+  }): Promise<{ id: string; childSessionId: string }>;
 }
 
 /** 一次作答判定的写入意图（本地上下文已绑定在端口实例上，故不经参数传递） */
 export interface JudgedAnswerInput {
-  /** 触发本次作答的回合 id（作为作答记录的会话溯源） */
+  /** Stable call identity; retries of the same command return the original receipt. */
+  idempotencyKey?: string;
+  /** 触发本次作答的回合 id（宿主解析其真实 sessionId） */
   turnId: string;
   /** 题干 */
   prompt: string;

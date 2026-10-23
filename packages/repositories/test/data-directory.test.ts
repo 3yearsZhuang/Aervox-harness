@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defaultDataDirectory } from '../src/data-directory.js';
-import { defaultP2PIdentityPath, resolveIdentityPath, loadOrCreateDeviceIdentity } from '../src/sync/p2p-pairing.js';
+import { defaultP2PIdentityPath, resolveIdentityPath, loadOrCreateDeviceIdentity } from '@aervox/sync-runtime/pairing';
 
 describe('shared data directory and legacy P2P identity', () => {
   it('resolves repository data from the shared src/dist module depth', () => {

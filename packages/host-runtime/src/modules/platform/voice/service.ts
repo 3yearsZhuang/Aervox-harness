@@ -12,7 +12,6 @@ import {
   SenseVoiceLocalProvider,
   WhisperCompatibleProvider,
 } from "./asr-providers.js";
-import { loadApiConfig } from "@aervox/config";
 import type {
   AudioArtifact,
   VoiceModel,
@@ -574,7 +573,7 @@ export class VoiceService {
     }
     // CR-016 安全整改：targetDir 必须位于 allowedRoots 白名单内（允许尚不存在的目录），
     // 防止任意路径写入；mirrorUrl 必须命中允许的镜像源，防止 SSRF。
-    const downloadError = validateDownloadTarget(senseVoice.allowedRoots, options);
+    const downloadError = validateDownloadTarget(senseVoice.allowedRoots, options, senseVoice.allowedMirrorHosts);
     if (downloadError) {
       throw new Error(`INVALID_DOWNLOAD_REQUEST: ${downloadError}`);
     }
@@ -817,18 +816,7 @@ export class VoiceService {
 }
 
 /** 允许的 SenseVoice 模型镜像源 host（默认 hf-mirror.com，可通过环境变量覆盖；缺陷 E 经 @aervox/config 解析） */
-export const ALLOWED_SENSEVOICE_MIRROR_HOSTS: readonly string[] = (() => {
-  const envBase = loadApiConfig().asr.senseVoiceBaseUrl;
-  const hosts = ["hf-mirror.com"];
-  if (envBase) {
-    try {
-      hosts.push(new URL(envBase).host);
-    } catch {
-      // 忽略非法 SENSEVOICE_MODEL_BASE_URL，回退默认镜像
-    }
-  }
-  return hosts;
-})();
+export const ALLOWED_SENSEVOICE_MIRROR_HOSTS: readonly string[] = ["hf-mirror.com"];
 
 /**
  * 校验模型下载请求：targetDir 位于 allowedRoots 内（允许不存在），
@@ -837,6 +825,7 @@ export const ALLOWED_SENSEVOICE_MIRROR_HOSTS: readonly string[] = (() => {
 export function validateDownloadTarget(
   allowedRoots: readonly string[],
   options?: { targetDir?: string; mirrorUrl?: string },
+  allowedMirrorHosts: readonly string[] = ALLOWED_SENSEVOICE_MIRROR_HOSTS,
 ): string | undefined {
   if (options?.targetDir) {
     if (allowedRoots.length === 0) return "no local model roots are configured";
@@ -854,7 +843,7 @@ export function validateDownloadTarget(
     } catch {
       return "mirrorUrl is not a valid http(s) URL";
     }
-    if (!ALLOWED_SENSEVOICE_MIRROR_HOSTS.includes(host)) {
+    if (!allowedMirrorHosts.includes(host)) {
       return `mirrorUrl host "${host}" is not allowed`;
     }
   }

@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createInMemoryDatabase,
   SqliteLearningRepository,
+  SqliteConversationRepository,
   type AervoxDatabase,
   type LocalContext,
 } from "@aervox/repositories";
@@ -237,6 +238,9 @@ describe("CR-060 第一方插件端到端接线", () => {
   });
 
   it("宿主窄端口工厂：correct 作答落库但不进入错题本", async () => {
+    const conversations = new SqliteConversationRepository(db);
+    await conversations.getOrCreateSession(tenant, "session_correct", "source");
+    await conversations.createTurnWithOutbox(tenant, { id: "turn_correct", sessionId: "session_correct", idempotencyKey: "correct" }, { id: "message_correct", content: "4" });
     const services = createPluginHostServicesFactory(db)(tenant);
     const receipt = await services.learningFacts.recordJudgedAnswer({
       turnId: "turn_correct",
@@ -249,6 +253,7 @@ describe("CR-060 第一方插件端到端接线", () => {
 
     expect(receipt.enteredMistakeNotebook).toBe(false);
     const learningRepo = new SqliteLearningRepository(db);
+    expect(await learningRepo.listAttemptsBySession(tenant, "session_correct")).toEqual([expect.objectContaining({ id: receipt.attemptId })]);
     const mistakes = await learningRepo.listMistakes(tenant, "active");
     expect(mistakes.find((m) => m.prompt === "2 + 2 等于几？")).toBeUndefined();
   });

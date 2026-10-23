@@ -1,3 +1,5 @@
+import { DiaryGenerationService } from "@aervox/diary";
+import { createSqliteDiaryMaterialPort } from "@aervox/repositories";
 /**
  * Worker 日记定时生成测试（scripted 模板模式，无网络依赖）
  *
@@ -10,9 +12,7 @@ import {
   createInMemoryDatabase,
   initDatabaseSchema,
   SqliteDiaryRepository,
-  SqliteLLMConfigRepository,
   SqliteMemoryRepository,
-  SqliteOutboxRepository,
   SqlitePlatformRepository,
   type AervoxDatabase,
 } from "@aervox/repositories";
@@ -74,11 +74,9 @@ describe("Worker 日记定时生成", () => {
     await seedDueScheduleWithMemory();
 
     const generated = await runDiaryGenerationCycle({
-      db,
       diaryRepo,
-      llmConfigRepo: new SqliteLLMConfigRepository(db),
+      generation: new DiaryGenerationService({ materials: createSqliteDiaryMaterialPort(db), useModel: false, model: null }),
       platformRepo: new SqlitePlatformRepository(db),
-      outboxRepo: new SqliteOutboxRepository(db),
       workerId: "worker-test",
     });
 
@@ -96,11 +94,9 @@ describe("Worker 日记定时生成", () => {
     await seedDueScheduleWithMemory();
 
     const ctx = {
-      db,
       diaryRepo,
-      llmConfigRepo: new SqliteLLMConfigRepository(db),
+      generation: new DiaryGenerationService({ materials: createSqliteDiaryMaterialPort(db), useModel: false, model: null }),
       platformRepo: new SqlitePlatformRepository(db),
-      outboxRepo: new SqliteOutboxRepository(db),
       workerId: "worker-test",
     };
 

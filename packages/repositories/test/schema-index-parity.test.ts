@@ -3,7 +3,7 @@
  *
  * 规则依据：docs/reference/DATABASE.md §2「机器事实源与包边界」——
  * `packages/schema/src/*.ts` 是表与字段的机器事实源，而
- * `packages/repositories/src/schema/ddl/*.ts` **必须与 Schema 等价**且可从空库幂等初始化。
+ * `packages/repositories/src/schema/manifest.ts` 将声明编译成物理结构，并可从空库幂等初始化。
  *
  * 背景：该不变量此前长期无人校验，实际漂移严重——DDL 创建了 169 个索引而 Schema 只声明 106 个，
  * 交集仅 96。后果有二：

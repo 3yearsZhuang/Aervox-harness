@@ -39,3 +39,5 @@ export * from "./json-schema-validator.js";
 export * from "./tool-contract.js";
 export * from "./diagnostics-manifest.js";
 export * from "./agent-contract.js";
+export * from "./attempt-execution.js";
+export { stableSerialize } from "./stable-serialize.js";

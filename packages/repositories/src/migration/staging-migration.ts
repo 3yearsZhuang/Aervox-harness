@@ -133,14 +133,10 @@ export async function atomicSwapCr030Database(options: {
 }): Promise<void> {
   const [sourceStat, stagingStat] = await Promise.all([fs.stat(options.sourcePath), fs.stat(options.stagingPath)]);
   if (sourceStat.dev !== stagingStat.dev) throw new Error("CR-030 atomic swap requires one filesystem");
-  await fs.rm(options.rollbackPath, { force: true });
-  await fs.rename(options.sourcePath, options.rollbackPath);
-  try {
-    await fs.rename(options.stagingPath, options.sourcePath);
-  } catch (error) {
-    await fs.rename(options.rollbackPath, options.sourcePath).catch(() => undefined);
-    throw error;
-  }
+  // Exclusive rollback link retains the old inode and cannot overwrite prior recovery data.
+  // Rename replaces source in one atomic operation; a failed rename leaves the source intact.
+  await fs.link(options.sourcePath, options.rollbackPath);
+  await fs.rename(options.stagingPath, options.sourcePath);
   // Windows does not support fsync on directory handles (EPERM). The same-volume
   // renames above still provide the swap; sync directory metadata where supported.
   if (process.platform !== "win32") {

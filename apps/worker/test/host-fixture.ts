@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServerPluginRegistry } from "@aervox/host-runtime/modules/ecosystem/plugins/index";
 import { buildHostRuntime } from "@aervox/host-runtime";
-import { createInMemoryDatabase, SqliteOutboxRepository, SqlitePlatformRepository } from "@aervox/repositories";
+import { createInMemoryDatabase, SqliteConversationRepository, SqliteOutboxRepository, SqlitePlatformRepository } from "@aervox/repositories";
 import { createTurnConsumerHandler } from "../src/turn-consumer.js";
 import { runOutboxCycle } from "../src/outbox-worker.js";
 
@@ -21,7 +21,7 @@ export async function createHostFixture() {
   const pluginRegistry = createServerPluginRegistry();
   const worker = await buildHostRuntime({ ...options, role: "worker", pluginRegistry });
   await worker.app.ready();
-  const repo = worker.conversation.repo;
+  const repo = new SqliteConversationRepository(database.db);
   const outboxRepo = new SqliteOutboxRepository(database.db);
   const platformRepo = new SqlitePlatformRepository(database.db);
   const handler = createTurnConsumerHandler(worker.conversation);

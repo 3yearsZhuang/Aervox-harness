@@ -5,24 +5,18 @@
  * `packages/ui/src/composables/useWorkbenchCards.ts`，而该状态只被本插件组件消费。
  * 迁出后宿主只保留与插件无关的卡片目录、槽位、待办、日记与目标同步。
  *
- * 数据来源：宿主经 `context.cards.api` 暴露的**通用** `@aervox/api-client` 端口实例
+ * 数据来源：宿主经 `context.learning` 暴露的**通用** `@aervox/api-client` 端口实例
  * （宿主仍是唯一请求编排者与本地上下文持有者；插件只消费该实例，不自行新建，
  * 以免出现两份互相不可见的 API 状态）。
  *
  * 生命周期：每个工作台上下文独立创建，插件清理时解除 API 引用。
  */
 import { computed, ref, shallowRef } from 'vue';
-import type { useAervoxApi } from '@aervox/api-client';
-import { aervoxConfirm, useWorkbenchContext, type WorkbenchContext } from '@aervox/ui/plugin-api';
+import { aervoxConfirm, useUIPluginContext, type UIPluginContext } from '@aervox/ui/plugin-api';
 
-type FocusLearningApi = ReturnType<typeof useAervoxApi>;
+type FocusLearningApi = UIPluginContext['learning'];
 
-/** 练习会话视图（与宿主 `practiceSession` 契约一致） */
-interface PracticeSessionView {
-  sessionId: string;
-  items: Array<{ id: string; prompt: string }>;
-  nextQuestionIndex?: number;
-}
+type PracticeSessionView = Pick<import('@aervox/api-client').PracticeSessionDto, 'sessionId' | 'items' | 'nextQuestionIndex'>;
 
 export const mistakeReasonOptions = [
   { value: 'concept_gap', label: '概念不清' },
@@ -32,15 +26,15 @@ export const mistakeReasonOptions = [
   { value: 'other', label: '其他' },
 ] as const;
 
-const instances = new WeakMap<WorkbenchContext, ReturnType<typeof createFocusLearning>>();
+const instances = new WeakMap<UIPluginContext, ReturnType<typeof createFocusLearning>>();
 
-export function useFocusLearning(context: WorkbenchContext = useWorkbenchContext()) {
+export function useFocusLearning(context: UIPluginContext = useUIPluginContext()) {
   let learning = instances.get(context);
-  if (!learning) { learning = createFocusLearning(context.cards?.api ?? null); instances.set(context, learning); }
+  if (!learning) { learning = createFocusLearning(context.learning ?? null); instances.set(context, learning); }
   return learning;
 }
 
-export function disposeFocusLearning(context: WorkbenchContext): void {
+export function disposeFocusLearning(context: UIPluginContext): void {
   instances.get(context)?.dispose();
   instances.delete(context);
 }
@@ -54,19 +48,7 @@ const practiceReadyToComplete = ref(false);
 const practiceAnswer = ref('');
 const practiceFeedback = ref<{ judgement: string; nextStep: string } | null>(null);
 const practiceSubmission = ref<{ sessionId: string; questionId: string; answer: string; idempotencyKey: string } | null>(null);
-const practiceReport = ref<{
-  answeredCount: number;
-  questionCount: number;
-  remainingCount: number;
-  correctCount: number;
-  incorrectCount: number;
-  unverifiableCount: number;
-  accuracy: number | null;
-  avgTimeSpentSec: number | null;
-  totalHintsUsed: number;
-  guidance: { difficulty: 'ease' | 'maintain' | 'increase'; reasonCode: string; message: string };
-  nextStep: string;
-} | null>(null);
+const practiceReport = ref<import('@aervox/api-client').PracticeReportDto | null>(null);
 const questionStartTime = ref<number>(0);
 const practiceBusy = ref(false);
 const practiceError = ref<string | null>(null);
@@ -190,7 +172,7 @@ function bindApi(api: FocusLearningApi | null): void {
     }
   }
 
-  async function finishPractice(showArchivedGoals = false) {
+  async function finishPractice() {
     if (!practiceSession.value) return;
     practiceBusy.value = true;
     practiceError.value = null;
@@ -198,7 +180,7 @@ function bindApi(api: FocusLearningApi | null): void {
       practiceReport.value = await requireApi().completePracticeSession(practiceSession.value.sessionId);
       practiceFeedback.value = null;
       practiceReadyToComplete.value = false;
-      await requireApi().loadAll(showArchivedGoals);
+      await Promise.allSettled([requireApi().loadMistakes(), requireApi().loadReviews(), requireApi().loadPractice()]);
     } catch {
       practiceError.value = '暂时无法生成练习报告，请稍后再试。';
     } finally {
@@ -323,8 +305,8 @@ function bindApi(api: FocusLearningApi | null): void {
     return ({ active: '进行中', completed: '已完成', locked: '未解锁' } as Record<string, string>)[status] ?? status;
   }
 
-  async function reloadGoals() {
-    await requireApi().loadAll();
+  async function reloadLearning() {
+    await Promise.allSettled([requireApi().loadMistakes(), requireApi().loadPlans(), requireApi().loadPractice()]);
   }
 
   return {
@@ -333,7 +315,7 @@ function bindApi(api: FocusLearningApi | null): void {
     mistakes,
     learningPlans,
     apiError,
-    reloadGoals,
+    reloadLearning,
     // 错题
     activeMistakeCount,
     visibleMistakes,

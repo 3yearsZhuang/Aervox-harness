@@ -1,3 +1,4 @@
+import { createConversationApplication } from "@aervox/host-runtime-test/modules/companion/conversation/application";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setImmediate as nextTask } from "node:timers/promises";
 import {
@@ -9,12 +10,6 @@ import { SqliteBotRepository } from "@aervox/repositories";
 import { BotManager } from "@aervox/host-runtime-test/modules/ecosystem/bots/manager";
 
 const { execute } = vi.hoisted(() => ({ execute: vi.fn() }));
-vi.mock("@aervox/host-runtime/modules/companion/conversation/index", () => ({
-  recoverApiOwnedTurn: async (repo: SqliteConversationRepository, turnId: string) =>
-    (await import("@aervox/host-runtime-test/modules/companion/conversation/api-owned-recovery")).recoverApiOwnedTurn(repo, turnId),
-  acceptConversationTurn: (repo: SqliteConversationRepository, ctx: object, input: never) => repo.acceptTurn(ctx as never, input),
-  executeAcceptedConversationTurn: execute,
-}));
 const local = { workspaceId: "local", subjectUserId: "local" };
 const deferred = <T>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; };
 const message = (id: string, senderId = "member", text = "hello"): BotMessage => ({
@@ -74,7 +69,7 @@ describe("Bot manager transport durability and lifetime", () => {
     await cleanup();
   });
   function makeManager() {
-    const current = new BotManager({ store, conversations, conversationDeps: {}, adapters: () => [{ pluginId: "test", adapter: descriptor }],
+    const current = new BotManager({ store, conversation: createConversationApplication(conversations, {}, (ctx, input) => execute(conversations, ctx, input)), adapters: () => [{ pluginId: "test", adapter: descriptor }],
       pluginEnabled: async () => enabled, cipher: async () => createProactiveVaultCipher(new Uint8Array(32), "test") });
     managers.push(current);
     return current;

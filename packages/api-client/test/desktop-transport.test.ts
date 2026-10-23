@@ -36,7 +36,7 @@ describe('desktopTransport', () => {
     await expect(result).rejects.toBeInstanceOf(AervoxHttpError)
     await expect(result).rejects.toMatchObject({
       status: 409,
-      message: `API PATCH /v1/bot-connections/bot-1 → HTTP 409: ${body}`,
+      code: 'bot_connection_revision_conflict',
     })
   })
 
@@ -164,6 +164,7 @@ describe('desktopTransport', () => {
       onReasoning,
     })
     callback?.({ type: 'event', event: { eventType: 'reasoning_delta', data: { text: '思考中' } } })
+    callback?.({ type: 'event', event: { eventType: 'done', data: {} } })
     callback?.({ type: 'closed' })
 
     await expect(result).resolves.toBeUndefined()
@@ -208,7 +209,7 @@ it('an already detached surface cannot start an IPC turn', async () => {
 it('synchronous bridge completion still releases the returned subscription', async () => {
   const stop = vi.fn()
   ;(globalThis as { window: unknown }).window = {
-    fairyDesktop: { apiRequest: vi.fn(), streamTurn: vi.fn((_c, _o, cb) => { cb({ type: 'closed' }); return stop }) },
+    fairyDesktop: { apiRequest: vi.fn(), streamTurn: vi.fn((_c, _o, cb) => { cb({ type: 'event', event: {eventType: 'done', data: {}} }); cb({ type: 'closed' }); return stop }) },
   }
   await desktopTransport.streamTurn('s', 'hello', { onDelta: vi.fn(), onDone: vi.fn() })
   expect(stop).toHaveBeenCalledOnce()

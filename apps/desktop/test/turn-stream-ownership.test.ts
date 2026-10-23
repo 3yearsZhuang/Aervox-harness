@@ -73,15 +73,16 @@ describe('Turn renderer ownership', () => {
         const onEmote = vi.fn()
         let release!: () => void
         const fetch = vi.fn()
-            .mockResolvedValueOnce(Response.json({eventsUrl: '/v1/turns/turn_A/events'}))
+            .mockResolvedValueOnce(Response.json({turnId: 'turn_A', eventsUrl: '/v1/turns/turn_A/events'}))
             .mockImplementationOnce(async () => {
                 await new Promise<void>(resolve => { release = resolve })
-                return new Response('data: {"eventType":"emote","data":{"secret":true}}\n\n')
+                return new Response('data: {"eventType":"emote","data":{"secret":true}}\n\ndata: {"eventType":"done","data":{}}\n\n')
             })
         vi.stubGlobal('fetch', fetch)
         const bridge = createDesktopTurnBridge({apiBaseUrl: 'http://127.0.0.1:3000', isTrustedSender: sender => (sender as Sender).trusted, onEmote})
         const pending = bridge.streamAervoxTurn({sender}, {requestId: 'request_late', content: 'Hello'})
         await vi.waitFor(() => expect(release).toBeTypeOf('function'))
+        sender.send.mockClear() // Acceptance was delivered while the document was trusted.
         sender.trusted = false
         release()
         await pending

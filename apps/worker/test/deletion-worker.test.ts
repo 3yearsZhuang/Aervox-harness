@@ -6,10 +6,10 @@ import { runCompactionMarkerCycle, COMPACTION_EVENT_TYPE } from "../src/compacti
 const local = { workspaceId: "local", subjectUserId: "local" };
 describe("verified Memory deletion", () => {
   let database: Awaited<ReturnType<typeof createInMemoryDatabase>>;
-  let ctx: DeletionWorkerContext;
+  let ctx: DeletionWorkerContext & { privacyRepo: SqlitePrivacyRepository };
   beforeEach(async () => {
     database = await createInMemoryDatabase(); await initDatabaseSchema(database.client);
-    ctx = { db: database.db, privacyRepo: new SqlitePrivacyRepository(database.db), platformRepo: new SqlitePlatformRepository(database.db), workerId: "test" };
+    ctx = { memoryDeletion: new SqliteMemoryDeletionStore(database.db), privacyRepo: new SqlitePrivacyRepository(database.db), platformRepo: new SqlitePlatformRepository(database.db), workerId: "test" };
     const memory = new SqliteMemoryRepository(database.db, database.client);
     const embeddings = new SqliteMemoryEmbeddingRepository(database.db);
     for (const id of ["remove", "keep"]) {

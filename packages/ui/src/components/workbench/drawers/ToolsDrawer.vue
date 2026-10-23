@@ -107,6 +107,7 @@ function openHistoryView() {
 
           <!-- 学习同步：进行中目标 + 到期复习 -->
           <div v-if="syncGoals.length > 0 || syncReviewCount > 0" class="settings-section" style="margin-top: 18px;">
+            <p v-if="cards.syncError?.value" class="drawer-error" role="alert">{{ cards.syncError?.value }}</p>
             <h4>学习同步 <small>{{ syncedTodoCount }}</small></h4>
             <ul class="tool-list">
               <li v-for="goal in syncGoals" :key="goal.id">
@@ -127,7 +128,7 @@ function openHistoryView() {
                   </AervoxButton>
                 </div>
               </li>
-              <li v-for="item in cards.api.dueReviews.value" :key="item.id">
+              <li v-for="item in cards.dueReviews.value" :key="item.id">
                 <label class="todo-item">
                   <input class="aervox-checkbox"
                     type="checkbox"

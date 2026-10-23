@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { buildOpenApiDocument, resetOpenApiDocumentCache } from "@aervox/contracts";
+import { createPluginApiRegistry, buildOpenApiDocument as rawBuildOpenApiDocument, resetOpenApiDocumentCache } from "@aervox/contracts";
 import { assembleFirstPartyPlugins } from "@aervox/host-runtime-test/plugin-assembly";
 
 /**
@@ -7,10 +7,12 @@ import { assembleFirstPartyPlugins } from "@aervox/host-runtime-test/plugin-asse
  * `registerPluginApiContribution({ openApiRoutes })` 登记后由内核泛化补全。
  * 因此断言插件端点前必须先跑一次真实装配（不硬编码插件 id）。
  */
+const apiRegistry = createPluginApiRegistry();
+const buildOpenApiDocument = () => rawBuildOpenApiDocument(apiRegistry);
 let assembly: Awaited<ReturnType<typeof assembleFirstPartyPlugins>>;
 beforeAll(async () => {
   assembly = await assembleFirstPartyPlugins({
-    turnRegistry: { register: () => () => undefined, get: () => undefined, getAll: () => [] },
+    apiRegistry, turnRegistry: { register: () => () => undefined, get: () => undefined, getAll: () => [] },
   });
   resetOpenApiDocumentCache();
 });

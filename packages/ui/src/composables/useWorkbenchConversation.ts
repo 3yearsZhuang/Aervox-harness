@@ -1,9 +1,5 @@
-import { computed, nextTick, ref, watch, type Ref } from 'vue';
-import {
-  decideToolApproval,
-  streamAervoxTurn,
-  submitQuestionAnswers,
-} from '@aervox/api-client';
+import { computed, getCurrentScope, nextTick, onScopeDispose, ref, shallowRef, watch, type Ref } from 'vue';
+import type { ConversationController } from '@aervox/api-client';
 import type {
   AskUserQuestionAnswerItem,
   ToolApprovalMode,
@@ -150,8 +146,15 @@ export function createStreamingDeltaBatcher(
 export function useWorkbenchConversation(options: {
   recordActivity: (source: 'aervox.activity' | 'aervox.operation', eventType: string, payloadText?: string, metadata?: Record<string, unknown>) => void;
   onRefreshProactiveStatus?: () => Promise<void>;
-  onApprovalContinuation?: (turnId: string, afterEventId: string) => Promise<void>;
+  controller: ConversationController;
+  onApprovalDecision: (decision: 'granted' | 'denied') => Promise<void>;
+  onRetrySubmission?: () => Promise<void>;
 }) {
+  const turnState = shallowRef(options.controller.state);
+  const unsubscribe = options.controller.subscribe(state => { turnState.value = state; });
+  if (getCurrentScope()) onScopeDispose(() => unsubscribe());
+  const retryAvailable = computed(() => turnState.value?.retryAvailable ?? false);
+  const retrySubmission = () => options.onRetrySubmission?.();
   // CR-065：问候语用陪伴角色名（思隅是空间名，不是角色名）
   const companionGreeting = () => {
     const { companionName, userAddress } = readCompanionIdentity();
@@ -295,11 +298,8 @@ export function useWorkbenchConversation(options: {
     if (!pending || approvalBusy.value || streaming.value) return;
     approvalBusy.value = true;
     try {
-      const response = await decideToolApproval(pending.turnId, pending.approvalId, decision);
-      pendingApproval.value = null;
-      if (response?.continuation) {
-        await options.onApprovalContinuation?.(pending.turnId, response.continuation.afterEventId);
-      }
+      await options.onApprovalDecision(decision);
+      if (!options.controller.state.approval) pendingApproval.value = null;
 
     } catch (err) {
       console.error('提交授权决定失败', err);
@@ -312,7 +312,7 @@ export function useWorkbenchConversation(options: {
     if (!currentTurnId.value || questionSubmitting.value) return;
     questionSubmitting.value = true;
     try {
-      await submitQuestionAnswers(currentTurnId.value, answers);
+      await options.controller.answer(answers);
       activeQuestion.value = null;
     } catch (err) {
       console.error('提交回答失败', err);
@@ -349,6 +349,7 @@ export function useWorkbenchConversation(options: {
 
   return {
     story,
+    turnState, retryAvailable, retrySubmission,
     streaming,
     consoleCollapsed,
     novelIndex,

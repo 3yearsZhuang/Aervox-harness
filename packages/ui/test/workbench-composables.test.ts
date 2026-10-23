@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ref } from 'vue';
+import { useAervoxApi } from '@aervox/api-client';
 import { createStreamingDeltaBatcher, splitIntoSentences } from '../src/composables/useWorkbenchConversation';
 import { resolveMediaType, formatAttachmentSize } from '../src/composables/useWorkbenchComposer';
 import { DIAL_RADIUS, DIAL_CIRCUMFERENCE } from '../src/composables/useWorkbenchTimer';
@@ -290,7 +291,9 @@ describe('Workbench Composables Logic', () => {
 
   it('scrollStoryToBottom handles instant mode and rAF batching during streaming', async () => {
     const { useWorkbenchConversation } = await import('../src/composables/useWorkbenchConversation');
+    const {createConversationController, createFetchTransport} = await import('@aervox/api-client');
     const conv = useWorkbenchConversation({
+      controller: createConversationController(createFetchTransport('http://unused')), onApprovalDecision: async () => undefined,
       recordActivity: () => {},
     });
 
@@ -321,6 +324,7 @@ describe('Workbench Composables Logic', () => {
     const registry = createUIRegistry();
 
     const cards = useWorkbenchCards({
+      learning: useAervoxApi(),
       activeQuestion: ref(null),
       timerRunning: ref(false),
       formattedTime: ref('25:00'),
@@ -385,6 +389,7 @@ describe('Workbench Composables Logic', () => {
       const registry = createUIRegistry();
 
       const cards = useWorkbenchCards({
+        learning: useAervoxApi(),
         activeQuestion: ref(null),
         timerRunning: ref(false),
         formattedTime: ref('25:00'),
@@ -399,18 +404,20 @@ describe('Workbench Composables Logic', () => {
       cards.cardSlots.value = ['diary', 'timer'];
       mockLocalStorage.setItem('aervox-side-cards', JSON.stringify(['diary', 'timer']));
 
-      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-
       // 1. 项数与槽位数不一致：不应用、不改变现状（fail-closed，不静默截断）
-      expect(cards.applySlotPreset(['study', 'timer', 'quiz'])).toBe(false);
+      expect(() => cards.acquireSlotPreset('focus-mode', ['study', 'timer', 'quiz'])).toThrow('invalid_card_preset');
       expect(cards.cardSlots.value).toEqual(['diary', 'timer']);
 
       // 2. 插件自述预设生效
-      expect(cards.applySlotPreset(['study', 'quiz'])).toBe(true);
+      const releaseA = cards.acquireSlotPreset('focus-mode', ['study', 'quiz']);
       expect(cards.cardSlots.value).toEqual(['study', 'quiz']);
 
       // 3. 重复应用不覆盖基线，否则恢复会回到「上一次预设」而非用户原始布局
-      expect(cards.applySlotPreset(['mistake', 'timer'])).toBe(true);
+      const releaseB = cards.acquireSlotPreset('another-plugin', ['mistake', 'timer']);
+      expect(cards.cardSlots.value).toEqual(['mistake', 'timer']);
+
+      // Releasing A cannot reclaim another plugin's later preset.
+      releaseA();
       expect(cards.cardSlots.value).toEqual(['mistake', 'timer']);
 
       // 4. 预设期间用户显式换过卡片：该布局按既定行为落盘，内存与存储随之分叉
@@ -419,14 +426,14 @@ describe('Workbench Composables Logic', () => {
       expect(JSON.parse(mockLocalStorage.getItem('aervox-side-cards') ?? 'null')).toEqual(['todo', 'timer']);
 
       // 5. 恢复回到首帧基线，且必须**同步落盘**——只还原内存会让下次启动载回刚被恢复掉的布局
-      expect(cards.restoreSlotPreset()).toBe(true);
+      releaseB();
       expect(cards.cardSlots.value).toEqual(['diary', 'timer']);
       expect(JSON.parse(mockLocalStorage.getItem('aervox-side-cards') ?? 'null')).toEqual(['diary', 'timer']);
 
       // 6. 未预设时恢复是空操作
-      expect(cards.restoreSlotPreset()).toBe(false);
+      releaseB();
+      expect(cards.cardSlots.value).toEqual(['diary', 'timer']);
 
-      warn.mockRestore();
     } finally {
       Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: origStorage });
     }
@@ -437,6 +444,7 @@ describe('Workbench Composables Logic', () => {
     const { createUIRegistry } = await import('../src/registry/ui-registry');
 
     const cards = useWorkbenchCards({
+      learning: useAervoxApi(),
       activeQuestion: ref(null),
       timerRunning: ref(false),
       formattedTime: ref('25:00'),
@@ -477,6 +485,7 @@ describe('Workbench Composables Logic', () => {
 
     try {
       const cards = useWorkbenchCards({
+        learning: useAervoxApi(),
         activeQuestion: ref(null),
         timerRunning: ref(false),
         formattedTime: ref('25:00'),
@@ -495,7 +504,6 @@ describe('Workbench Composables Logic', () => {
       expect(cards.reviewError.value).toBe('复习结果没有保存，请使用相同结果重试。');
       expect(cards.reviewBusyId.value).toBeNull();
     } finally {
-      warn.mockRestore();
     }
   }, 20000);
 
@@ -515,6 +523,7 @@ describe('Workbench Composables Logic', () => {
       const registry = createUIRegistry();
 
       const cards = useWorkbenchCards({
+        learning: useAervoxApi(),
         activeQuestion: ref(null),
         timerRunning: ref(false),
         formattedTime: ref('25:00'),
@@ -590,20 +599,23 @@ describe('Workbench Composables Logic', () => {
 });
 
 it('waits for the interrupted stream to close before observing its continuation', async () => {
-  const { configureAervoxClient } = await import('@aervox/api-client');
+  const { createConversationController } = await import('@aervox/api-client');
   const { useWorkbenchConversation } = await import('../src/composables/useWorkbenchConversation');
   const decideToolApproval = vi.fn(async () => ({approvalId:'approval',state:'granted' as const,continuation:{attemptId:'new',afterEventId:'decision'}}));
-  const streamTurn = vi.fn();
-  configureAervoxClient({transport:{request:vi.fn(),streamTurn,submitQuestionAnswers:vi.fn(),decideToolApproval}});
-  const onApprovalContinuation = vi.fn();
-  const conversation = useWorkbenchConversation({recordActivity:vi.fn(),onApprovalContinuation});
-  conversation.pendingApproval.value = {approvalId:'approval',toolName:'save',argumentsHash:'hash',turnId:'turn',outgoing:'save'};
+  const observeTurn = vi.fn(async () => undefined);
+  const approval = {approvalId:'approval',toolName:'save',argumentsHash:'hash',turnId:'turn',outgoing:'save'};
+  const streamTurn = vi.fn(async (_session, _content, callbacks, options) => { await options?.onAccepted?.('turn'); callbacks.onToolApproval(approval); callbacks.onDone(); });
+  const controller = createConversationController({request:vi.fn(),streamTurn,observeTurn,submitQuestionAnswers:vi.fn(),decideToolApproval});
+  await controller.submit('session','hello',{onDelta() {},onDone() {}});
+  const onApprovalDecision = vi.fn(decision => controller.decide(decision, {onDelta() {},onDone() {}}));
+  const conversation = useWorkbenchConversation({recordActivity:vi.fn(),controller,onApprovalDecision});
+  conversation.pendingApproval.value = approval;
   conversation.streaming.value = true;
   await conversation.handleApprovalDecision('granted');
   expect(decideToolApproval).not.toHaveBeenCalled();
   conversation.streaming.value = false;
   await conversation.handleApprovalDecision('granted');
   expect(decideToolApproval).toHaveBeenCalledOnce();
-  expect(onApprovalContinuation).toHaveBeenCalledWith('turn','decision');
-  expect(streamTurn).not.toHaveBeenCalled();
+  expect(observeTurn).toHaveBeenCalledWith('turn',expect.any(Object),expect.objectContaining({afterEventId:'decision'}));
+  expect(streamTurn).toHaveBeenCalledOnce();
 });

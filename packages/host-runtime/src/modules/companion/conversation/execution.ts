@@ -1,7 +1,7 @@
 import { SqliteExecutionStore } from "@aervox/host-agent";
 import { createBroadcastingStore } from "./broadcasting-store.js";
 import { setRequestToolApprovalMode } from "../../../shared/tool-approval-policy.js";
-import type { SkillDescriptor } from "@aervox/core";
+import { awaitWithSignal, claimAttemptExecution, ControlContext, LeaseLostError, type SkillDescriptor } from "@aervox/core";
 import type { SqliteConversationRepository, SqlitePrivacyRepository, SqliteAgentInboxRepository, SqliteSubagentRunRepository, SqlitePlatformRepository, LocalContext } from "@aervox/repositories";
 import { assertConversationExecutionPolicy } from "@aervox/repositories";
 import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index.js";
@@ -15,6 +15,10 @@ import { createTenantInboxPort } from "../inbox/index.js";
 import { runLoopTurnOnce } from "./agent-executor.js";
 
 export interface ConversationRouteDeps {
+  apiRegistry?: import("@aervox/contracts").PluginApiRegistry;
+  dshResolver?: import("./dsh-adapter.js").DshTurnAdapterResolver;
+  pluginToolCatalog?: import("./plugin-tool-catalog.js").PluginToolCatalog;
+  executionConfig?: import("@aervox/config").ExecutionConfig;
   signal?: AbortSignal;
   prepareExecution?: () => Promise<void>;
   isMcpToolAllowed?: (tool: { id: string; name: string; pluginId?: string | null }) => Promise<boolean>;
@@ -115,36 +119,27 @@ export async function executeConversationTurn(
   if (input.toolApprovalMode) setRequestToolApprovalMode(tenant, input.toolApprovalMode);
   // Acquire ownership before product hooks or other preparatory side effects.
   const admissionStore = createBroadcastingStore(new SqliteExecutionStore(conversationRepo, tenant));
-  const claim = await admissionStore.claimTurnAttempt({ turnId, attemptId, expectedFencingToken: 0 });
-  if (!claim.ok) return;
-  const preparationAbort = new AbortController();
-  const signal = AbortSignal.any([preparationAbort.signal, ...(deps.signal ? [deps.signal] : []), ...(input.signal ? [input.signal] : [])]);
-  // Cancellation is persisted by another host when this Turn runs in a Worker.
-  let pollingCancellation = false;
-  const cancellation = setInterval(() => {
-    if (pollingCancellation || signal.aborted) return;
-    pollingCancellation = true;
-    void admissionStore.isCancelRequested({ turnId, attemptId }).then(cancelled => {
-      if (cancelled) preparationAbort.abort(new Error("turn_cancel_requested"));
-    }).catch(error => preparationAbort.abort(error)).finally(() => { pollingCancellation = false; });
-  }, 100);
-  cancellation.unref();
+  const parent = new ControlContext({ abortSignal: AbortSignal.any([
+    ...(deps.signal ? [deps.signal] : []), ...(input.signal ? [input.signal] : []),
+  ]) });
+  const lifecycle = await claimAttemptExecution(input, {
+    execution: admissionStore, controlContext: parent,
+    deletionGate: deps.privacyRepo ? { isBlocked: () => deps.privacyRepo!.hasPendingDeletionRequest(tenant) } : undefined,
+  });
+  if (!lifecycle.ok) { parent.dispose(); return; }
+  const { claim } = lifecycle;
+  const signal = lifecycle.control.abortSignal;
   let preparing = true;
-  const renew = () => claim.leaseId ? admissionStore.renewAttemptLease({
-    attemptId, leaseId: claim.leaseId, expectedFencingToken: claim.fencingToken,
-  }) : Promise.resolve({ ok: true });
-  const heartbeat = setInterval(() => {
-    void renew().then(result => {
-      if (preparing && !result.ok) preparationAbort.abort(new Error("preparation_lease_lost"));
-    }).catch(error => { if (preparing) preparationAbort.abort(error); });
-  }, 30_000);
-  heartbeat.unref();
   const handoffClaim: SqliteExecutionStore["claimTurnAttempt"] = async requested => {
-    if (!preparing || requested.turnId !== turnId || requested.attemptId !== attemptId || signal.aborted || !(await renew()).ok) {
+    lifecycle.checkFailure();
+    if (!preparing || requested.turnId !== turnId || requested.attemptId !== attemptId || signal.aborted) {
       return { ok: false, reason: "already_claimed" };
     }
+    if (claim.leaseId && !(await admissionStore.renewAttemptLease({
+      attemptId, leaseId: claim.leaseId, expectedFencingToken: claim.fencingToken,
+    })).ok) throw new LeaseLostError("preparation lease lost");
     preparing = false;
-    clearInterval(heartbeat);
+    lifecycle.stopMonitoring();
     return claim;
   };
   const settleAdmission = async (status: "Interrupted" | "Failed" | "Cancelled", reason: string) => {
@@ -175,7 +170,7 @@ export async function executeConversationTurn(
       await settleAdmission("Interrupted", "deletion_blocked");
       return;
     }
-    await deps.prepareExecution?.();
+    if (deps.prepareExecution) await awaitWithSignal(deps.prepareExecution(), signal);
     await runLoopTurnOnce(
       conversationRepo,
       tenant,
@@ -189,6 +184,10 @@ export async function executeConversationTurn(
       },
       {
         signal,
+        executionConfig: deps.executionConfig,
+        apiRegistry: deps.apiRegistry,
+        pluginToolCatalog: deps.pluginToolCatalog,
+        dshResolver: deps.dshResolver,
         claimTurnAttempt: handoffClaim,
         preparationFencingToken: claim.fencingToken,
         toolRuntime: deps.toolRuntime,
@@ -197,7 +196,7 @@ export async function executeConversationTurn(
         modelRoutingService: deps.modelRoutingService,
         safetyService: deps.safetyService,
         // 人格覆盖：激活人格的名称/设定/技能白名单覆盖系统默认（无人格时 undefined 不注入）
-        persona: deps.personaLoader ? await deps.personaLoader(tenant) : undefined,
+        persona: deps.personaLoader ? await awaitWithSignal(deps.personaLoader(tenant), signal) : undefined,
         // 2d：删除/撤权水位未追平 → Loop fail-closed（AVX-HAR-001 §11.3）
         deletionGate: deps.privacyRepo
           ? { isBlocked: async () => deps.privacyRepo!.hasPendingDeletionRequest(tenant) }
@@ -205,7 +204,7 @@ export async function executeConversationTurn(
         // 5a-2：受控收件箱端口（每 Step 消费 next-step；steer/inject 注入上下文）
         inbox: deps.inboxRepo ? createTenantInboxPort(deps.inboxRepo, tenant) : undefined,
         // 5b：Skill 渐进披露（activeOnly 清单注入 system prompt）
-        skills: deps.skillLoader ? await deps.skillLoader() : undefined,
+        skills: deps.skillLoader ? await awaitWithSignal(deps.skillLoader(), signal) : undefined,
         // 5c：Subagent/Workflow Contribution（独立 Tool/Provider 组合；惰性工厂按 request tenant 绑定）
         subagentFactory: deps.subagentFactory,
         workflows: deps.workflows,
@@ -234,12 +233,14 @@ export async function executeConversationTurn(
       fields: { turnId, sessionId, attemptId, error: errMsg },
     });
 
-    await settleAdmission("Failed", bot ? "conversation_execution_failed" : errMsg);
+    if (err instanceof LeaseLostError || lifecycle.leaseLost) return;
+    if (lifecycle.interruption === "deletion_blocked") await settleAdmission("Interrupted", "deletion_blocked");
+    else if (signal.aborted && !lifecycle.failure) await settleAdmission("Cancelled", "cancelled");
+    else await settleAdmission("Failed", bot ? "conversation_execution_failed" : errMsg);
   } finally {
     preparing = false;
-    clearInterval(heartbeat);
-    preparationAbort.abort();
-    clearInterval(cancellation);
+    lifecycle.dispose();
+    parent.dispose();
     releaseWorkerPressureLease(pressureLease);
     if (bot) await conversationRepo.synchronizeTurnWithLatestAttempt(turnId);
   }

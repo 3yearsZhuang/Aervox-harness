@@ -18,7 +18,7 @@ Aervox 先持久化受理事实，再派发工作：客户端把输入按幂等 
 |---|---|---|
 | API 模块化单体 | `packages/host-runtime/src/modules/` | conversation / memory / knowledge / learning / diary / branch 等自包含模块（[ADR-014](../reference/adr/ADR-014-modular-monolith-structure.md)） |
 | Worker | `apps/worker/src/` | outbox / review-notifier / diary-generator / deletion 等独立任务循环；每项任务有独立频率、错峰首轮和不重叠跳过 |
-| 数据库 | `packages/schema/src/`、`packages/repositories/src/schema/ddl/` | conversations / memories / learning / ledger / outbox / privacy 等表族（[数据库契约](../reference/DATABASE.md)） |
+| 数据库 | `packages/schema/src/`、`packages/repositories/src/schema/manifest.ts` | conversations / memories / learning / ledger / outbox / privacy 等表族（[数据库契约](../reference/DATABASE.md)） |
 | 契约 | `docs/reference/` | 事件 envelope 与状态机（[流式协议](../reference/STREAMING_PROTOCOL.md)）、Schema 生成的 OpenAPI |
 
 ## 端到端视角

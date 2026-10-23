@@ -54,7 +54,7 @@ it('keeps extension registries and cleanup separate across mounted workbenches',
     id: 'fixture-extension',
     setup(registry, context) {
       const index = registries.push(registry) - 1;
-      context!.layout.quietStartup.value = true;
+      context!.navigation.setQuietStartup(true);
       return cleanups[index];
     },
   };
@@ -73,27 +73,29 @@ it('keeps extension registries and cleanup separate across mounted workbenches',
 });
 
 it.each(['web', 'desktop'] as const)('approval on %s observes the original Turn without resending', async platform => {
-  const streamTurn = vi.fn();
+  const streamTurn = vi.fn(async (_session, _content, callbacks, options) => {
+    await options.onAccepted?.('turn');
+    callbacks.onTurnIdentified?.('turn');
+    callbacks.onDelta('审批前。');
+    callbacks.onToolApproval({approvalId:'approval',toolName:'save',argumentsHash:'hash',turnId:'turn'});
+    callbacks.onDone();
+  });
   const continuation = { attemptId: 'attempt2', afterEventId: 'decision' };
   const decideToolApproval = vi.fn(async () => ({ approvalId: 'approval', state: 'granted' as const, continuation }));
-  const streamEvents = vi.fn(async (_path: string, callbacks: { onEvent: (event: unknown) => void }) => {
-    callbacks.onEvent({ turnId: 'turn', sequence: 11, eventType: 'delta', data: { text: '续跑正文' } });
-    callbacks.onEvent({ turnId: 'turn', sequence: 12, eventType: 'done', data: { status: 'Completed' } });
-  });
+  const observeTurn = vi.fn(async (_id: string, callbacks) => { callbacks.onDelta('续跑正文'); callbacks.onDone(); });
   configureAervoxClient({ transport: {
     request: vi.fn(async <T>(_method: string, path: string) => ({items: path === '/v1/plugins' ? [{id:'fixture-extension',enabled:1}] : []}) as T),
-    streamTurn, streamEvents, decideToolApproval, submitQuestionAnswers: vi.fn(),
+    streamTurn, observeTurn, decideToolApproval, submitQuestionAnswers: vi.fn(),
   } });
   const plugin: BuiltinUIPlugin = { id:'fixture-extension', setup(_registry, context) {
-    context!.layout.quietStartup.value = true;
-    context!.conversation.story.value = [{id:1,speaker:'assistant',text:'审批前。',state:'complete'}];
-    context!.conversation.pendingApproval.value = {approvalId:'approval',toolName:'save',argumentsHash:'hash',turnId:'turn',outgoing:'save'};
+    context!.navigation.setQuietStartup(true);
+    void context!.sendMessage('save');
   }};
   const wrapper = mount(UISurfaceHost, {props:{ plugin:definition,surface:'main',platform,viewProps:{plugins:[plugin],showCompanion:false}}});
   await vi.waitFor(()=>expect(wrapper.find('.tool-approval-actions button').exists()).toBe(true),{timeout:5000});
   await wrapper.find('.tool-approval-actions button').trigger('click');
   await vi.waitFor(()=>expect(wrapper.text()).toContain('审批前。续跑正文'));
-  expect(decideToolApproval).toHaveBeenCalledOnce();expect(streamTurn).not.toHaveBeenCalled();
-  expect(streamEvents).toHaveBeenCalledWith('/v1/turns/turn/events?after=decision',expect.any(Object),expect.any(AbortSignal));
-  expect(wrapper.findAll('.standard-conversation article')).toHaveLength(1);
+  expect(decideToolApproval).toHaveBeenCalledOnce();expect(streamTurn).toHaveBeenCalledOnce();
+  expect(observeTurn).toHaveBeenCalledWith('turn',expect.any(Object),expect.objectContaining({afterEventId:'decision'}));
+  expect(wrapper.findAll('.standard-conversation article')).toHaveLength(3);
 });

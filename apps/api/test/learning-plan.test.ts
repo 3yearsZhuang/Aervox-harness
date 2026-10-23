@@ -124,7 +124,7 @@ describe("LearningPlanGenerationService", () => {
     await cleanup();
   });
 
-  function makeService(rawOutputs: string[]) {
+  function makeService(rawOutputs: string[], useModel = true) {
     const calls: string[] = [];
     const model: PlanModelPort = {
       async generate({ user }) {
@@ -135,7 +135,7 @@ describe("LearningPlanGenerationService", () => {
       },
     };
     const learningRepo = new SqliteLearningRepository(db);
-    const service = new LearningPlanGenerationService({ db, learningRepo, model });
+    const service = new LearningPlanGenerationService({ learningRepo, model, useModel });
     return { service, calls };
   }
 
@@ -174,7 +174,7 @@ describe("LearningPlanGenerationService", () => {
 
   it("非 LLM 模式：模板降级，generatedBy=template", async () => {
     process.env.AERVOX_LOOP_PROVIDER = "replay";
-    const { service, calls } = makeService([]);
+    const { service, calls } = makeService([], false);
     const { plan, generatedBy } = await service.generate(tenant, { topic: "番茄钟" });
 
     expect(generatedBy).toBe("template");

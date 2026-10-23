@@ -1,3 +1,5 @@
+import { DiaryGenerationService } from "@aervox/diary";
+import { createSqliteDiaryMaterialPort } from "@aervox/repositories";
 /**
  * Aervox｜思隅 @aervox/worker — 后台任务入口
  *
@@ -16,12 +18,12 @@ import { createDatabase,
   SqliteOutboxRepository,
   SqlitePlatformRepository,
   SqliteDiaryRepository,
-  SqliteLLMConfigRepository,
   SqlitePrivacyRepository,
   SqliteLearningRepository,
   SqliteMemoryCompactionRepository,
   SqliteMemoryEmbeddingRepository,
   SqliteMemoryRepository,
+  SqliteMemoryDeletionStore,
   SqlitePersonaRepository,
   SqliteProactiveIntelligenceRepository,
   SqliteProactiveBudgetRepository,
@@ -32,7 +34,7 @@ import { createDatabase,
   createProactiveVaultDatabase,
   loadProactiveVaultCipher,
 } from "@aervox/repositories";
-import { loadWorkerConfig, loadApiConfig } from "@aervox/config";
+import { loadWorkerConfig, loadHostRuntimeConfig } from "@aervox/config";
 import { registerWorkerShutdown } from "./shutdown.js";
 import { createServer } from "node:http";
 import { createStandardLogger } from "@aervox/observability";
@@ -54,6 +56,7 @@ import { resolveWorkerTaskInterval } from "./task-scheduling.js";
 
 // 集中类型化配置（WORKER_ID / WORKER_TICK_MS / WORKER_INTERVAL_<NAME>_MS；启动期校验）
 const config = loadWorkerConfig();
+const hostConfig = loadHostRuntimeConfig();
 const unsupportedProactiveFlags = [...config.proactiveFeatureFlags]
   .filter((flag) => !["situation_projection", "proactive_dsl", "attention_budget", "proactive_persona", "perception_events"].includes(flag));
 if (unsupportedProactiveFlags.length > 0) {
@@ -87,16 +90,21 @@ const defaultTickMs = config.tickMs;
 
 const outboxRepo = new SqliteOutboxRepository(db);
 const platformRepo = new SqlitePlatformRepository(db);
-const llmConfigRepo = new SqliteLLMConfigRepository(db);
 const privacyRepo = new SqlitePrivacyRepository(db);
+const memoryDeletion = new SqliteMemoryDeletionStore(db);
 const embeddingRepo = new SqliteMemoryEmbeddingRepository(db);
 const embeddingProvider = resolveEmbeddingProvider(process.env);
 const runtime = await buildHostRuntime({
-  role: "worker", db, client, proactiveDb, proactiveClient, proactiveCipher, embeddingProvider,
+  role: "worker", config: hostConfig, db, client, proactiveDb, proactiveClient, proactiveCipher, embeddingProvider,
 });
 await runtime.app.ready();
 const turnConsumer = createTurnConsumerHandler(runtime.conversation);
 const diaryRepo = new SqliteDiaryRepository(db);
+const diaryGeneration = new DiaryGenerationService({
+  materials: createSqliteDiaryMaterialPort(db),
+  useModel: hostConfig.loopProvider === "llm",
+  model: runtime.modelGeneration,
+});
 const learningRepo = new SqliteLearningRepository(db);
 const compactionRepo = new SqliteMemoryCompactionRepository(db);
 const memoryRepo = new SqliteMemoryRepository(db, client);
@@ -136,15 +144,15 @@ host
   })
   .registerJob({
     name: "review",
-    run: () => runReviewNotificationCycle({ db, platformRepo, learningRepo, workerId }),
+    run: () => runReviewNotificationCycle({ platformRepo, learningRepo, workerId }),
   })
   .registerJob({
     name: "diary",
-    run: () => runDiaryGenerationCycle({ db, diaryRepo, llmConfigRepo, platformRepo, outboxRepo, workerId }),
+    run: () => runDiaryGenerationCycle({ diaryRepo, generation: diaryGeneration, platformRepo, workerId }),
   })
   .registerJob({
     name: "deletion",
-    run: () => runDeletionCycle({ db, privacyRepo, platformRepo, workerId }),
+    run: () => runDeletionCycle({ memoryDeletion, privacyRepo, platformRepo, workerId }),
   })
   .registerJob({
     name: "compaction",
@@ -157,7 +165,7 @@ host
   .registerJob({
     name: "attempt-recovery",
     run: () => runAttemptRecoveryCycle({ db, client, workerId,
-      resume: loadApiConfig().loopResume === "local-results" ? () => runtime.conversation.resume() : undefined,
+      resume: hostConfig.loopResume === "local-results" ? () => runtime.conversation.resume() : undefined,
     }),
   })
   .registerJob({
@@ -200,7 +208,7 @@ host
         workerId,
         // CR-032：插件化主动调度依赖（插件声明/感知源授权 + 关怀话术组合器 + 插件 SKILL.md）
         extensionRepo,
-        llmConfigRepo,
+        modelGeneration: runtime.modelGeneration,
         skillRegistry: skillRegistryRepo,
       });
       return result.timeline + result.projects + result.workflows + result.triggers +

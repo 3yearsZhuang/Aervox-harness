@@ -1,3 +1,4 @@
+import { createSqliteSyncChangesetPort } from "../src/sync/index.js";
 /**
  * Aervox｜思隅 @aervox/repositories — P2P 局域网同步端到端测试：**真实环回 socket**（ITER-028）
  *
@@ -20,6 +21,10 @@ import path from "node:path";
 import fs from "node:fs";
 import {
   DEFAULT_SYNC_TABLES,
+  installSyncTriggers,
+  readSyncRowStates
+} from "../src/sync/index.js";
+import {
   P2PDiscovery,
   P2PFrameDecoder,
   P2PFrameError,
@@ -31,22 +36,22 @@ import {
   beginPairing,
   completePairingAsInitiatorV2,
   computePublicKeyFingerprint,
-  createDatabase,
   encodeFrame,
   encryptSyncPayload,
   finalizePairingAsResponder,
   generateDeviceIdentity,
-  initDatabaseSchema,
-  installSyncTriggers,
   markSessionVerified,
   parseP2PTransportMessage,
-  readSyncRowStates,
   respondToPairing,
-  type AervoxDatabase,
   type P2PDeviceIdentity,
   type P2PExchangeResult,
   type P2PSessionReadyContext,
-  type SyncMergeResult,
+  type SyncMergeResult
+} from "@aervox/sync-runtime";
+import {
+  createDatabase,
+  initDatabaseSchema,
+  type AervoxDatabase
 } from "../src/index.js";
 import type { Client } from "@libsql/client";
 
@@ -211,7 +216,7 @@ describe("ITER-028: P2P 局域网同步（真实环回 socket）", () => {
     const serverResults: P2PExchangeResult[] = [];
     const server = new P2PSyncServer({
       identity: mobile.identity,
-      client: mobile.client,
+      changesets: createSqliteSyncChangesetPort(mobile.client),
       host: "127.0.0.1",
       port: 0,
       onSessionReady: verifyingHook(serverSas),
@@ -253,7 +258,7 @@ describe("ITER-028: P2P 局域网同步（真实环回 socket）", () => {
     const runClient = (): Promise<P2PExchangeResult> =>
       new P2PSyncClient({
         identity: desktop.identity,
-        client: desktop.client,
+        changesets: createSqliteSyncChangesetPort(desktop.client),
         peer: peerAddress,
         onSessionReady: verifyingHook(clientSas),
       }).run();
@@ -350,7 +355,7 @@ describe("ITER-028: P2P 局域网同步（真实环回 socket）", () => {
     const serverErrors = new ErrorCollector();
     const server = new P2PSyncServer({
       identity: mobile.identity,
-      client: mobile.client,
+      changesets: createSqliteSyncChangesetPort(mobile.client),
       host: "127.0.0.1",
       port: 0,
       onSessionReady: async () => true, // 故意不验证
@@ -363,7 +368,7 @@ describe("ITER-028: P2P 局域网同步（真实环回 socket）", () => {
     const startedAt = Date.now();
     const failure = await new P2PSyncClient({
       identity: desktop.identity,
-      client: desktop.client,
+      changesets: createSqliteSyncChangesetPort(desktop.client),
       peer: { host: "127.0.0.1", port },
       onSessionReady: async () => true, // 故意不验证
       verificationTimeoutMs: 150,
@@ -382,7 +387,7 @@ describe("ITER-028: P2P 局域网同步（真实环回 socket）", () => {
     const server2Errors = new ErrorCollector();
     const server2 = new P2PSyncServer({
       identity: mobile.identity,
-      client: mobile.client,
+      changesets: createSqliteSyncChangesetPort(mobile.client),
       host: "127.0.0.1",
       port: 0,
       onSessionReady: async () => true,
@@ -394,7 +399,7 @@ describe("ITER-028: P2P 局域网同步（真实环回 socket）", () => {
     const rejectedAt = Date.now();
     const rejection = await new P2PSyncClient({
       identity: desktop.identity,
-      client: desktop.client,
+      changesets: createSqliteSyncChangesetPort(desktop.client),
       peer: { host: "127.0.0.1", port: port2 },
       onSessionReady: async () => false, // 用户判定 SAS 不一致
       verificationTimeoutMs: 10_000,
@@ -414,7 +419,7 @@ describe("ITER-028: P2P 局域网同步（真实环回 socket）", () => {
     const serverErrors = new ErrorCollector();
     const server = new P2PSyncServer({
       identity: mobile.identity,
-      client: mobile.client,
+      changesets: createSqliteSyncChangesetPort(mobile.client),
       host: "127.0.0.1",
       port: 0,
       // 收紧到 16 KiB：既让"超长帧"用例可控，也仍能装下一次真实 Changeset 交换
@@ -471,7 +476,7 @@ describe("ITER-028: P2P 局域网同步（真实环回 socket）", () => {
     await insertGoal(desktop.client, "goal_after_attacks", "攻击后仍可用", T0);
     const result = await new P2PSyncClient({
       identity: desktop.identity,
-      client: desktop.client,
+      changesets: createSqliteSyncChangesetPort(desktop.client),
       peer: { host: "127.0.0.1", port },
       onSessionReady: verifyingHook([]),
     }).run();
@@ -499,7 +504,7 @@ describe("ITER-028: P2P 局域网同步（真实环回 socket）", () => {
     const clientStartedAt = Date.now();
     const timeoutError = await new P2PSyncClient({
       identity: desktop.identity,
-      client: desktop.client,
+      changesets: createSqliteSyncChangesetPort(desktop.client),
       peer: { host: "127.0.0.1", port: silentPort },
       onSessionReady: verifyingHook([]),
       handshakeTimeoutMs: 150,
@@ -519,7 +524,7 @@ describe("ITER-028: P2P 局域网同步（真实环回 socket）", () => {
     const serverErrors = new ErrorCollector();
     const server = new P2PSyncServer({
       identity: mobile.identity,
-      client: mobile.client,
+      changesets: createSqliteSyncChangesetPort(mobile.client),
       host: "127.0.0.1",
       port: 0,
       onSessionReady: async () => false,
@@ -576,7 +581,7 @@ describe("ITER-028: P2P 局域网同步（真实环回 socket）", () => {
     const serverErrors = new ErrorCollector();
     const server = new P2PSyncServer({
       identity: mobile.identity,
-      client: mobile.client,
+      changesets: createSqliteSyncChangesetPort(mobile.client),
       host: "127.0.0.1",
       port: 0,
       onSessionReady: verifyingHook([]),
@@ -605,10 +610,9 @@ describe("ITER-028: P2P 局域网同步（真实环回 socket）", () => {
 
     const failure = await new P2PSyncClient({
       identity: desktop.identity,
-      client: failingClient,
+      changesets: createSqliteSyncChangesetPort(failingClient, { chunkSize: 1 }),
       peer: { host: "127.0.0.1", port },
       onSessionReady: verifyingHook([]),
-      mergeChunkSize: 1,
       maxFrameBytes: 8 * 1024 * 1024,
     })
       .run()

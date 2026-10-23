@@ -9,7 +9,7 @@
 import Fastify from "fastify";
 import path from "node:path";
 import cors from "@fastify/cors";
-import { buildOpenApiDocument, getPluginApiRevision } from "@aervox/contracts";
+import { buildOpenApiDocument, createPluginApiRegistry } from "@aervox/contracts";
 import {
   createDatabase,
   createProactiveVaultDatabase,
@@ -74,10 +74,12 @@ import {
   type Observability,
   type InMemoryMetricsRegistry,
 } from "@aervox/observability";
-import { loadApiConfig } from "@aervox/config";
+import { loadHostRuntimeConfig, type HostRuntimeConfig } from "@aervox/config";
 import { registerBotsModule, type BotModuleOptions, type BotManager } from "./modules/ecosystem/bots/index.js";
 
 export interface BuildAppOptions {
+  config?: HostRuntimeConfig;
+  apiRegistry?: import("@aervox/contracts").PluginApiRegistry;
   botOptions?: BotModuleOptions;
   /** Worker owns scheduling; its shared HTTP adapter remains unbound. */
   role?: "api" | "worker";
@@ -125,6 +127,7 @@ export interface BuildAppOptions {
 }
 
 export interface BuildAppResult {
+  modelGeneration: import("./modules/ecosystem/llm/index.js").ModelGenerationPort;
   botManager: BotManager;
   conversation: ConversationHost;
   app: ReturnType<typeof Fastify>;
@@ -145,6 +148,7 @@ export interface BuildAppResult {
 
 export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<BuildAppResult> {
   const app = Fastify({ logger: false });
+  const apiRegistry = options.apiRegistry ?? createPluginApiRegistry();
   const routeInventory: { method: string; path: string }[] = [];
   app.addHook("onRoute", (route) => {
     for (const method of Array.isArray(route.method) ? route.method : [route.method]) {
@@ -152,7 +156,7 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
     }
   });
   registerProblemDetails(app);
-  const apiConfig = loadApiConfig();
+  const apiConfig = options.config ?? loadHostRuntimeConfig();
   const metricsRegistry =
     options.observability?.metrics && "toPrometheusText" in options.observability.metrics
       ? (options.observability.metrics as InMemoryMetricsRegistry)
@@ -297,9 +301,9 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
   let openApiSerialized: string | null = null;
   let openApiRevision = -1;
   app.get("/openapi.json", async (_req, reply) => {
-    const revision = getPluginApiRevision();
+    const revision = apiRegistry.getPluginApiRevision();
     if (openApiSerialized === null || revision !== openApiRevision) {
-      openApiSerialized = JSON.stringify(buildOpenApiDocument());
+      openApiSerialized = JSON.stringify(buildOpenApiDocument(apiRegistry));
       openApiRevision = revision;
     }
     reply.header("Content-Type", "application/json; charset=utf-8");
@@ -325,6 +329,8 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
 
 // 模块装配上下文：基础设施 + 构建期配置；共享服务按注册顺序填充
   const ctx = {
+    apiRegistry,
+    executionConfig: apiConfig,
     app,
     db,
     client,
@@ -352,7 +358,7 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
   const memoryRecall = await registerMemoryModule(withTools, { embeddingProvider: options.embeddingProvider });
   const mcp = registerMcpModule(withTools, options.mcpOptions);
   const llm = registerLLMModule(withTools, options.llmOptions);
-  const withModel = { ...withTools, memoryRecall, llmConfigService: llm.config, modelRoutingService: llm.routing };
+  const withModel = { ...withTools, memoryRecall, llmConfigService: llm.config, modelGeneration: llm.generation, modelRoutingService: llm.routing };
   const modelRuntimeService = registerModelRuntimeModule(withModel, options.modelRuntimeOptions);
   const safetyService = registerSafetyModule(withModel);
   const proactive = await registerProactiveModule(withModel, {
@@ -390,14 +396,14 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
   registerBranchModule(services);
   registerProjectModule(services);
   pluginRegistrations = await registerPluginsModule(services, (id, uninstall) => botManager?.stopPlugin(id, uninstall) ?? Promise.resolve());
-  const voiceService = registerVoiceModule(services, options.voiceOptions);
+  const voiceService = registerVoiceModule(services, { config: apiConfig, ...options.voiceOptions });
   const skillManager = await registerSkillsModule(services);
   registerPreferencesModule(services);
   registerStudyMaterialModule(services);
   personaService = registerPersonaModule({ ...services, voiceService, skillManager });
   registerInboxModule(services);
   botManager = registerBotsModule({
-    app, db, conversationRepo: conversation.repo, conversationDeps: conversation.deps,
+    app, db, conversation,
     registrations: () => pluginRegistrations ?? [],
   }, { ...options.botOptions, start: options.role !== "worker" });
 
@@ -408,6 +414,7 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
   }
 
   return {
+    modelGeneration: llm.generation,
     botManager,
     conversation,
     app,

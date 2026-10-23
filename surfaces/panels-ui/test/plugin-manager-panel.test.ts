@@ -58,11 +58,14 @@ vi.mock('@aervox/api-client', async (importOriginal) => {
 });
 
 import PluginManagerPanel from '../src/plugin/PluginManagerPanel.vue';
+import { UI_PLUGIN_CONTEXT_KEY } from '@aervox/ui/plugin-api';
 
 describe('PluginManagerPanel.vue Actions Layout & State', () => {
   it('provides one management entry and a more menu while preserving the enable switch', async () => {
+    const refreshPluginUI = vi.fn().mockResolvedValue(undefined);
     const wrapper = mount(PluginManagerPanel, {
       global: {
+        provide: {[UI_PLUGIN_CONTEXT_KEY as symbol]: {refreshPluginUI}},
         stubs: {
           PluginInstallDialog: true,
           PluginConfigDialog: true,
@@ -102,5 +105,25 @@ describe('PluginManagerPanel.vue Actions Layout & State', () => {
     // 4. Click health toggle to enable: invokes setPluginEnabled
     await healthToggle.setValue(true);
     expect(mockSetPluginEnabled).toHaveBeenCalledWith('health-guard', true);
+    await flushPromises();
+    expect(refreshPluginUI).toHaveBeenCalledOnce();
   });
+
+  it('preserves the committed enablement when UI reconciliation fails', async () => {
+    const refreshPluginUI = vi.fn().mockRejectedValue(new Error('offline'));
+    const wrapper = mount(PluginManagerPanel, {
+      global: {
+        provide: {[UI_PLUGIN_CONTEXT_KEY as symbol]: {refreshPluginUI}},
+        stubs: {PluginInstallDialog: true, PluginConfigDialog: true, PluginPageDialog: true,
+          PluginSettingsDialog: true, SkillManagerTab: true, McpToolsTab: true},
+      },
+    });
+    await flushPromises();
+    await wrapper.findAll('.plugin-card')[2].get('.plugin-toggle').setValue(true);
+    await flushPromises();
+    expect(mockPlugins.value[2].enabled).toBe(1);
+    expect(wrapper.get('[role="status"]').text()).toContain('设置已保存');
+    wrapper.unmount();
+  });
+
 });

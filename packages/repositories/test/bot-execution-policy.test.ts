@@ -6,7 +6,7 @@ import {
   memoryRecords, agentInboxItems, type AervoxDatabase, type ConversationExecutionPolicy,
   botConnections, botInbox, botDeliveries, botSessionBindings,
 } from "../src/index.js";
-import { createConversationsTables } from "../src/schema/ddl/conversations.js";
+import { createConversationsTables } from "./fixtures/legacy-ddl/conversations.js";
 
 const ctx = { workspaceId: "local", subjectUserId: "local" };
 

@@ -5,3 +5,5 @@ export * from "./migration-service.js";
 export * from "./cr030-migration.js";
 export * from "./backup-manifest.js";
 export * from "./staging-migration.js";
+
+export * from "./schema-staging.js";

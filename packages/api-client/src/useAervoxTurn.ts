@@ -4,7 +4,6 @@
  * 与具体传输解耦：桌面走 IPC transport，Web 走 fetch/SSE transport。
  */
 import { getTransport, getSessionId } from './transport';
-import { TurnStreamProjector } from './projector';
 import type { ToolApprovalDecisionResponse, AttachmentUploadInput, UploadedAttachment } from './transport';
 import type {
   AskUserQuestionAnswerItem,
@@ -78,21 +77,6 @@ export async function watchAervoxTurnContinuation(
   turnId: string, afterEventId: string, callbacks: StreamAervoxTurnCallbacks, signal?: AbortSignal,
 ): Promise<void> {
   const transport = getTransport();
-  if (!transport.streamEvents) throw new Error('event_stream_unavailable');
-  const controller = new AbortController();
-  const combined = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
-  const projector = new TurnStreamProjector({ expectedTurnId: turnId });
-  try {
-    await transport.streamEvents(`/v1/turns/${encodeURIComponent(turnId)}/events?after=${encodeURIComponent(afterEventId)}`, {
-      onEvent: value => {
-        if (!value || typeof value !== 'object' || !('eventType' in value)) return;
-        projector.project(value as TurnStreamEvent, callbacks);
-        if (projector.finalized) controller.abort();
-      },
-    }, combined);
-  } catch (error) {
-    if (!controller.signal.aborted || !projector.finalized || signal?.aborted) throw error;
-  }
-  signal?.throwIfAborted();
-  if (!projector.finalized) throw new Error('turn_stream_incomplete');
+  if (!transport.observeTurn) throw new Error('turn_observation_unavailable');
+  await transport.observeTurn(turnId, callbacks, { afterEventId, signal });
 }

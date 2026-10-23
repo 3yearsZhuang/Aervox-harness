@@ -4,7 +4,7 @@ import {
   initDatabaseSchema,
   SqliteExtensionRepository,
   type AervoxDatabase,
-  type LocalContext,
+  type LocalContext
 } from "../src/index.js";
 import type { Client } from "@libsql/client";
 

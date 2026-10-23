@@ -7,7 +7,7 @@ import { sessions, turns, messageVersions, outboxEvents, turnAttempts, agentInbo
 import type { LocalContext } from "../../../local-context.js";
 import type { TurnModel, MessageVersionModel, TurnAcceptanceInput, TurnAcceptanceResult, TurnAttemptModel } from "../../types/index.js";
 import { withSessionLock } from "../../../session-lock.js";
-import { notifyWorkerWakeup } from "../../../worker-ipc.js";
+import { notifyWorkerWakeup } from "@aervox/process-coordination";
 import { assertConversationExecutionPolicy, conversationDispatchTarget } from "../../../conversation-execution-policy.js";
 
 export class TurnStore {

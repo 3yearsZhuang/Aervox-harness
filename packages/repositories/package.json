@@ -8,6 +8,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./sync": {
+      "types": "./dist/sync/index.d.ts",
+      "default": "./dist/sync/index.js"
     }
   },
   "scripts": {
@@ -20,7 +24,9 @@
     "@aervox/native-runtime": "workspace:*",
     "@aervox/schema": "workspace:*",
     "@libsql/client": "^0.14.0",
-    "drizzle-orm": "^0.45.4"
+    "drizzle-orm": "^0.45.4",
+    "@aervox/sync-runtime": "workspace:*",
+    "@aervox/process-coordination": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.10.0"

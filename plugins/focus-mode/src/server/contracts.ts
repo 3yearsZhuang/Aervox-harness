@@ -11,7 +11,7 @@
  * （见 `focus-tools.ts`），由宿主代登记，插件无法为内核/他人工具登记投影。
  */
 import { z } from "zod";
-import { registerPluginApiContribution } from "@aervox/contracts";
+import type { PluginApiRegistry } from "@aervox/contracts";
 import { extractedTermSchema } from "./terms-extractor.js";
 
 // ============ 回合流事件：术语抽取 ============
@@ -75,8 +75,8 @@ export const createPracticeReportSchema = z.object({
 // ============ 登记 ============
 
 /** 登记并返回本次贡献的注销函数，须先于文档生成与请求处理。 */
-export function registerFocusModeApiContract(): () => void {
-  return registerPluginApiContribution({
+export function registerFocusModeApiContract(registry: Pick<PluginApiRegistry, "registerPluginApiContribution">): () => void {
+  return registry.registerPluginApiContribution({
     streamEventTypes: [TERMS_EXTRACTED_EVENT],
     eventProjections: { [TERMS_EXTRACTED_EVENT]: termsExtractedEventDataSchema },
     openApiRoutes: [

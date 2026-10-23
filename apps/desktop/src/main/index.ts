@@ -613,7 +613,8 @@ function broadcastProactiveStatus(status: unknown) {
     }
 }
 
-const {streamAervoxTurn, cancelTurn} = createDesktopTurnBridge({
+const {streamAervoxTurn, observeAervoxTurn, cancelTurn, acknowledge} = createDesktopTurnBridge({
+    requireAcknowledgement: true,
     apiBaseUrl,
     sessionId: () => process.env.AERVOX_SESSION_ID,
     authToken: () => process.env.AERVOX_AUTH_TOKEN,
@@ -967,6 +968,8 @@ app.whenReady().then(async () => {
     desktopIpc.on('aervox:events:start', (event, payload: unknown) => { void apiEvents.start(event.sender, payload) })
     desktopIpc.on('aervox:events:cancel', (event, requestId: unknown) => apiEvents.cancel(event.sender, requestId))
     desktopIpc.on('aervox:turn:start', streamAervoxTurn)
+    desktopIpc.on('aervox:turn:observe', observeAervoxTurn)
+    desktopIpc.on('aervox:turn:ack', (event, payload: unknown) => acknowledge(event.sender, payload))
     // CR-027：中止在途 Turn 请求（渲染层空闲超时收敛后调用，避免幽灵回合继续消耗上游 tokens）
     desktopIpc.on('aervox:turn:cancel', (event, requestId: unknown) => cancelTurn(event.sender, requestId))
     desktopIpc.handle('aervox:api:request', proxyApiRequest)

@@ -1,6 +1,6 @@
 import { setRequestToolApprovalMode } from "../../../shared/tool-approval-policy.js";
 import { hostPromptPolicy } from "./prompt-policy.js";
-import { ControlContext } from "@aervox/core";
+import { awaitWithSignal, ControlContext, LeaseLostError } from "@aervox/core";
 /**
  * Aervox｜思隅 @aervox/api — 会话回合编排（runLoopTurnOnce）
  *
@@ -34,23 +34,20 @@ import type {
 import type { PluginHostServices, ServerPluginRegistration, TurnLlmPort } from "@aervox/host-plugin-api";
 import { SqliteExecutionStore } from "@aervox/host-agent";
 import {
-  type AervoxDatabase,
   type IExtensionRepository,
   type IPluginConfigRepository,
   type IProactiveProfileRepository,
   type SqliteConversationRepository,
   type LocalContext,
-  SqliteExtensionRepository,
   assertConversationExecutionPolicy,
 } from "@aervox/repositories";
-import { loadApiConfig } from "@aervox/config";
+import { loadExecutionConfig, type ExecutionConfig } from "@aervox/config";
 import type { Observability } from "@aervox/observability";
 import {
   executeAfterTurnPlugins,
   executeBeforeTurnPlugins,
   isPluginEnabled,
-  defaultServerPluginRegistry,
-  type ServerPluginRegistry,
+  ServerPluginRegistry,
   type TurnPluginHostContext,
 } from "../../ecosystem/plugins/index.js";
 import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index.js";
@@ -58,15 +55,17 @@ import { HOST_TOOL_GUIDANCE } from "../../ecosystem/tools/index.js";
 import type { LLMConfigPort } from "../../ecosystem/llm/index.js";
 import type { ModelRoutingPort } from "../../ecosystem/llm/index.js";
 import type { ModelRoutingSnapshot } from "@aervox/contracts";
-import { isKnownStreamEventType, registerToolResultProjection } from "@aervox/contracts";
+import { createPluginApiRegistry, type PluginApiRegistry } from "@aervox/contracts";
 import { loadProactiveProfilePrompt } from "../../proactive/proactive/index.js";
 import type { ProactiveActionPort } from "../../proactive/proactive/index.js";
 import { buildMemoryContext, type MemoryRecallPort } from "./memory-recall.js";
 import { buildLoopProvider, createLLMCallable } from "./llm-adapter.js";
-import { createApprovalGatedToolProvider, createRuntimeToolProvider, hasBotExcludedPermissions } from "./tool-providers.js";
+import { createContributionToolProvider, createRuntimeToolProvider, hasBotExcludedPermissions, type ContributionToolSource } from "./tool-providers.js";
 import { createBroadcastingStore } from "./broadcasting-store.js";
 import { turnStreamHub } from "./stream-hub.js";
-import { failTurnWithError, runDshAdapterTurn } from "./dsh-adapter.js";
+import { createPluginToolScope } from "./plugin-tool-scope.js";
+import { PluginToolCatalog, preparePluginToolContributions } from "./plugin-tool-catalog.js";
+import { createDshTurnAdapterResolver, type DshTurnAdapterResolver, failTurnWithError, runDshAdapterTurn } from "./dsh-adapter.js";
 
 /** SqliteExecutionStore 组合根适配由 @aervox/host-agent 提供（见上方 import），API 不再自维护 SQLite 执行存储 */
 
@@ -104,6 +103,10 @@ export async function runLoopTurnOnce(
     resume?: import("@aervox/core").ExecuteTurnResumeInput;
   },
   deps: {
+    executionConfig?: ExecutionConfig;
+    apiRegistry?: PluginApiRegistry;
+    dshResolver?: DshTurnAdapterResolver;
+    pluginToolCatalog?: PluginToolCatalog;
     signal?: AbortSignal;
     claimTurnAttempt?: SqliteExecutionStore["claimTurnAttempt"];
     preparationFencingToken?: number;
@@ -139,7 +142,7 @@ export async function runLoopTurnOnce(
     /** CR-060：已装配的第一方插件注册单元（其工具贡献按启用状态门控后合入模型工具面） */
     pluginRegistrations?: ServerPluginRegistration[];
     /** CR-060：插件宿主服务工厂（按当前本地上下文产出窄端口集合） */
-    pluginHostServices?: (ctx: LocalContext) => PluginHostServices;
+    pluginHostServices?: import("../../../plugin-assembly.js").PluginHostServicesFactory;
     /** CAP-033：主动智能全动作授权与本地动作账本。 */
     proactiveActionAuthorizer?: ProactiveActionPort;
     /** CAP-033：本地画像声明来源；仅在有效且本地模型准入时注入。 */
@@ -156,6 +159,10 @@ export async function runLoopTurnOnce(
     observability?: Observability;
   } = {},
 ): Promise<void> {
+  const resources: Array<() => void | Promise<void>> = [];
+  try {
+  const apiConfig = deps.executionConfig ?? loadExecutionConfig();
+  const apiRegistry = deps.apiRegistry ?? createPluginApiRegistry();
   const persisted = await repo.getTurn(tenant, input.turnId);
   const session = await repo.getSession(tenant, input.sessionId);
   if (!persisted || !session || persisted.sessionId !== input.sessionId || persisted.executionPolicy !== session.executionPolicy) throw new Error("conversation_policy_mismatch");
@@ -168,7 +175,7 @@ export async function runLoopTurnOnce(
   const group = persisted.executionPolicy === "bot-group-member-v1";
   const bot = persisted.executionPolicy !== "local-v1";
   if (group) {
-    deps = { llmConfigService: deps.llmConfigService, modelRoutingService: deps.modelRoutingService,
+    deps = { executionConfig: deps.executionConfig, apiRegistry: deps.apiRegistry, llmConfigService: deps.llmConfigService, modelRoutingService: deps.modelRoutingService,
       signal: deps.signal, claimTurnAttempt: deps.claimTurnAttempt, preparationFencingToken: deps.preparationFencingToken,
       safetyService: deps.safetyService, deletionGate: deps.deletionGate,
       platformRepo: deps.platformRepo, observability: deps.observability };
@@ -197,10 +204,7 @@ export async function runLoopTurnOnce(
     },
   });
 
-  const repoDb = (repo as unknown as { db?: AervoxDatabase })?.db;
-  const baseExtRepo = group ? null :
-    deps.extensionRepo ??
-    (repoDb ? new SqliteExtensionRepository(repoDb) : null);
+  const baseExtRepo = group ? null : deps.extensionRepo ?? null;
   const extRepo = bot && baseExtRepo ? new Proxy(baseExtRepo, {
     get(target, property) {
       if (property === "getPlugin") return async (pluginId: string) => {
@@ -211,7 +215,7 @@ export async function runLoopTurnOnce(
       return typeof value === "function" ? value.bind(target) : value;
     },
   }) : baseExtRepo;
-  const pluginRegistry = group ? undefined : deps.pluginRegistry ?? defaultServerPluginRegistry;
+  const pluginRegistry = group ? undefined : deps.pluginRegistry ?? new ServerPluginRegistry();
 
   // CR-060：向插件暴露**窄端口**而非仓储与总线本体。
   // 序号交由仓储原子分配（appendStreamEvent 缺省 sequence），避免插件自行推算；
@@ -230,7 +234,7 @@ export async function runLoopTurnOnce(
         // CR-060：插件只能写入内核事件类型或其在登记表中**声明过**的事件类型。
         // 登记表不是装饰——未声明的类型在此拒绝（fail-closed），避免插件静默塞入
         // 前端不认识、投影白名单也无从收敛的事件。
-        if (!isKnownStreamEventType(appendInput.eventType)) {
+        if (!apiRegistry.isKnownStreamEventType(appendInput.eventType)) {
           throw new Error(`unregistered_stream_event_type: ${appendInput.eventType}`);
         }
         // 具体仓储的 `appendStreamEvent` 要求显式 sequence（接口虽声明可选，
@@ -300,15 +304,18 @@ export async function runLoopTurnOnce(
   // A Hook can be cancelled before the executor claims its Attempt. Finalize here
   // because a CancelRequested Attempt will correctly refuse that later claim.
   const finishUnclaimedCancellation = async (): Promise<boolean> => {
-    if (!signal?.aborted && !(input.deadlineEpochMs !== undefined && Date.now() >= input.deadlineEpochMs)) return false;
-    const status = signal?.aborted ? "Cancelled" : "Interrupted";
+    const cancelRequested = await store.isCancelRequested(input);
+    if (!signal?.aborted && !cancelRequested && !(input.deadlineEpochMs !== undefined && Date.now() >= input.deadlineEpochMs)) return false;
+    if (signal?.reason instanceof LeaseLostError) return true;
+    const reason = signal?.reason instanceof Error ? signal.reason.message : undefined;
+    const interrupted = reason === "deletion_blocked" || reason === "turn_timeout";
+    const status = (signal?.aborted || cancelRequested) && !interrupted ? "Cancelled" : "Interrupted";
     const sequence = await store.nextSequence(input.turnId);
-    const finalized = await broadcastingStore.finalizeAttemptWithEvent({
+    await broadcastingStore.finalizeAttemptWithEvent({
       turnId: input.turnId, attemptId: input.attemptId, expectedFencingToken: deps.preparationFencingToken ?? 0,
       status, sequence, eventType: "done",
-      eventData: { status, isComplete: false, lastSequence: sequence, reason: status === "Cancelled" ? "cancelled" : "deadline_exceeded" },
+      eventData: { status, isComplete: false, lastSequence: sequence, reason: interrupted ? reason : status === "Cancelled" ? "cancelled" : "deadline_exceeded" },
     });
-    if (finalized.ok) await repo.updateTurnStatus(tenant, input.turnId, status);
     return true;
   };
   if (await finishUnclaimedCancellation()) return;
@@ -370,11 +377,12 @@ export async function runLoopTurnOnce(
         policyVersion: deps.safetyService.getPolicyVersion(),
       }).catch(() => undefined);
 
-      // 5. 通过 broadcastingStore 广播 SSE delta + done 事件并以 Completed 终态收口
+      // 5. Terminal status and done are committed together under the preparation fence.
+      if (await finishUnclaimedCancellation()) return;
       await broadcastingStore.appendEvent({
         turnId: input.turnId,
         attemptId: input.attemptId,
-        sequence: 1,
+        sequence: await store.nextSequence(input.turnId),
         eventType: "delta",
         data: {
           messageId: assistantMsgId,
@@ -384,28 +392,23 @@ export async function runLoopTurnOnce(
         expectedFencingToken: deps.preparationFencingToken ?? 0,
       }).catch(() => undefined);
 
-      await broadcastingStore.appendEvent({
-        turnId: input.turnId,
-        attemptId: input.attemptId,
-        sequence: 2,
-        eventType: "done",
-        data: {
-          status: "Completed",
-          messageId: assistantMsgId,
-          isComplete: true,
-          lastSequence: 2,
-        },
-        safetyDecision: "approved",
-        expectedFencingToken: deps.preparationFencingToken ?? 0,
-      }).catch(() => undefined);
-
-      await broadcastingStore.finalizeAttempt({
+      if (await finishUnclaimedCancellation()) return;
+      const terminalSequence = await store.nextSequence(input.turnId);
+      await broadcastingStore.finalizeAttemptWithEvent({
         turnId: input.turnId,
         attemptId: input.attemptId,
         status: "Completed",
+        expectedFencingToken: deps.preparationFencingToken ?? 0,
+        sequence: terminalSequence,
+        eventType: "done",
+        eventData: {
+          status: "Completed",
+          messageId: assistantMsgId,
+          isComplete: true,
+          lastSequence: terminalSequence,
+        },
+        safetyDecision: "approved",
       }).catch(() => undefined);
-
-      await repo.updateTurnStatus(tenant, input.turnId, "Completed").catch(() => undefined);
 
       // 6. 立即退出：绝对阻断大模型调用、工具执行与事后插件（绝不提取记忆、术语或知识点）
       return;
@@ -438,7 +441,6 @@ export async function runLoopTurnOnce(
       proactiveActive = proactiveStatus?.effectiveState === "active";
     } catch (err) {
       await failTurnWithError(broadcastingStore, input.turnId, input.attemptId, err instanceof Error ? err.message : "provider_unavailable", undefined, deps.preparationFencingToken);
-      await repo.updateTurnStatus(tenant, input.turnId, "Failed").catch(() => undefined);
       return;
     }
   }
@@ -446,7 +448,7 @@ export async function runLoopTurnOnce(
 
   // ADR-010 阶段 6f：AERVOX_LOOP_DRIVER=dsh → 整 Turn 走 DSH 进程外 Adapter
   // （自带 Agent 循环与模型回合，Provider/工具/上下文组合全部跳过；未就绪 fail-closed 不回退 native）。
-  if (!bot && loadApiConfig().loopDriver === "dsh") {
+  if (!bot && apiConfig.loopDriver === "dsh") {
     // 主动智能本地处理期间：进程外 Adapter 不得代执行（既有策略接进本分支，不新增政策）
     if (localProcessingOnly) {
       await failTurnWithError(
@@ -456,7 +458,6 @@ export async function runLoopTurnOnce(
         "proactive_local_provider_required: 主动智能本地处理期间不允许进程外 Adapter",
         undefined, deps.preparationFencingToken,
       );
-      await repo.updateTurnStatus(tenant, input.turnId, "Failed").catch(() => undefined);
       return;
     }
     // 删除/撤权水位未追平：进程外路径同样 fail-closed（水位读取失败按阻断处理）
@@ -468,24 +469,24 @@ export async function runLoopTurnOnce(
         "deletion_gate_blocked: 删除/撤权水位未追平，进程外 Adapter 拒绝执行",
         undefined, deps.preparationFencingToken,
       );
-      await repo.updateTurnStatus(tenant, input.turnId, "Failed").catch(() => undefined);
       return;
     }
     let dshLlm: TurnLlmPort | undefined;
-    if (deps.llmConfigService && loadApiConfig().loopProvider === "llm") {
+    if (deps.llmConfigService && apiConfig.loopProvider === "llm") {
       try {
-        const p = await buildLoopProvider(tenant, deps.llmConfigService);
+        const p = await buildLoopProvider(tenant, deps.llmConfigService, { executionConfig: apiConfig });
         dshLlm = createLLMCallable(p);
       } catch {
         // ignore
       }
     }
-    const dshInput = { preparationFencingToken: deps.preparationFencingToken,
-      ...input,
+    const dshInput = { ...input, signal, deletionGate: deps.deletionGate, preparationFencingToken: deps.preparationFencingToken,
       ...(beforeTurnExec.extraSections.length > 0
         ? { systemPrompt: beforeTurnExec.extraSections.join("\n\n") }
         : {}),
     };
+    const resolver = deps.dshResolver ?? createDshTurnAdapterResolver({ repoRoot: apiConfig.dshRepoRoot, workingDirectory: apiConfig.dshWorkingDirectory });
+    if (!deps.dshResolver) resources.push(() => resolver.close());
     await runDshAdapterTurn(repo, tenant, broadcastingStore, dshInput, async (status) => {
       await executeAfterTurnPlugins(
         pluginRegistry!,
@@ -494,7 +495,7 @@ export async function runLoopTurnOnce(
         beforeTurnExec.pluginResults,
         beforeTurnExec.snapshots,
       );
-    });
+    }, resolver);
     return;
   }
 
@@ -502,7 +503,7 @@ export async function runLoopTurnOnce(
   let proactiveProfilePrompt = "";
   try {
     const loopProvider = await buildLoopProvider(tenant, deps.llmConfigService, {
-      requireLocalOnly: proactiveActive,
+      executionConfig: apiConfig, requireLocalOnly: proactiveActive,
       sessionId: input.sessionId,
       turnId: input.turnId,
       modelRoutingService: deps.modelRoutingService,
@@ -515,7 +516,6 @@ export async function runLoopTurnOnce(
     }
   } catch (err) {
     await failTurnWithError(broadcastingStore, input.turnId, input.attemptId, err instanceof Error ? err.message : "provider_unavailable", undefined, deps.preparationFencingToken);
-    await repo.updateTurnStatus(tenant, input.turnId, "Failed").catch(() => undefined);
     return;
   }
 
@@ -523,16 +523,16 @@ export async function runLoopTurnOnce(
   // - subagent/workflow 为静态声明的 Contribution（compose 路由 + 工具清单入模型 schema）；
   // - toolRuntime（createRuntimeToolProvider）为动态注册表：tools 实时校验不静态声明，
   //   故作为 compose 的 fallback 兜底（未命中静态清单时由其自判 unregistered/审批，语义与既有一致）。
-  const contribution: ToolProviderPort[] = [];
+  const contribution: ContributionToolSource[] = [];
   const subagent = deps.subagentFactory ? deps.subagentFactory(tenant) : undefined;
   if (subagent) {
-    contribution.push(createSubagentToolProvider({ subagent }));
+    contribution.push({ provider: createSubagentToolProvider({ subagent }) });
   }
   if (deps.workflows && deps.workflows.length > 0) {
-    contribution.push(createWorkflowToolProvider(deps.workflows));
+    contribution.push({ provider: createWorkflowToolProvider(deps.workflows) });
   }
   if (deps.userQuestionPort) {
-    contribution.push(createAskUserQuestionToolProvider({ userQuestionPort: deps.userQuestionPort }));
+    contribution.push({ provider: createAskUserQuestionToolProvider({ userQuestionPort: deps.userQuestionPort }) });
   }
   // CR-060：插件工具贡献——按当前本地上下文构造，并**按插件启用状态门控**。
   // 禁用、缺记录或不可用的插件不得向模型暴露其工具（与 Runner、插件端点同判据）。
@@ -542,77 +542,84 @@ export async function runLoopTurnOnce(
   // 宿主自有工具（日记 / 笔记检索 / 记忆沉淀）的指南同经该注入位提供
   // （ADR-021 内核提纯修订：产品域 guidance 不再随内核发布，见 host-tool-guidance）。
   const pluginGuidance: ToolGuidance[] = [];
-  if (deps.pluginRegistrations?.length && deps.pluginHostServices) {
-    const services = deps.pluginHostServices(tenant);
+  if (deps.pluginRegistrations?.length && deps.pluginHostServices && extRepo) {
+    const catalog = deps.pluginToolCatalog ?? new PluginToolCatalog(extRepo, apiRegistry);
+    if (!deps.pluginToolCatalog) resources.push(() => catalog.dispose());
+    const toolNames = new Set(contribution.flatMap(item => item.provider.tools.map(tool => tool.name)));
     for (const registration of deps.pluginRegistrations) {
       if (!registration.toolContributions) continue;
-      if (!(await isPluginEnabled(registration.pluginId, extRepo))) continue;
+      const record = await extRepo.getPlugin(registration.pluginId);
+      if (!record || record.enabled !== 1 || (record.availability ?? "available") !== "available" || !record.lifecycleGeneration) continue;
+      const prior = beforeTurnExec.snapshots?.get(registration.pluginId)?.lifecycleGeneration;
+      if (prior !== undefined && prior !== record.lifecycleGeneration) continue;
+      const scope = createPluginToolScope(extRepo, registration.pluginId, record.lifecycleGeneration, signal);
+      const cleanups: Array<() => void> = [() => scope.dispose()];
       try {
-        for (const pluginContribution of registration.toolContributions(services)) {
-          const pluginTools = pluginContribution.provider;
-          contribution.push({
-            tools: pluginTools.tools,
+        const services = deps.pluginHostServices(tenant, scope);
+        const candidates = await preparePluginToolContributions(registration.toolContributions(services), scope, toolNames);
+        const names = new Set(candidates.flatMap(candidate => candidate.provider.tools.map(tool => tool.name)));
+        const staged = candidates.map(candidate => ({
+          owner: registration.pluginId, generation: record.lifecycleGeneration, checkActive: scope.active,
+          provider: {
+            tools: candidate.provider.tools,
             async listTools() {
-              if (!(await isPluginEnabled(registration.pluginId, extRepo))) return [];
-              return pluginTools.listTools ? pluginTools.listTools() : pluginTools.tools;
+              if (!(await scope.active())) return [];
+              return candidate.provider.listTools ? candidate.provider.listTools() : candidate.provider.tools;
             },
-            async execute(input) {
-              input.signal?.throwIfAborted();
-              if (!(await isPluginEnabled(registration.pluginId, extRepo))) return { ok: false, error: "plugin_disabled" };
-              input.signal?.throwIfAborted();
-              return pluginTools.execute(input);
+            async execute(call: Parameters<ToolProviderPort["execute"]>[0]) {
+              await scope.checkActive();
+              const scopedSignal = call.signal ? AbortSignal.any([call.signal, scope.signal!]) : scope.signal;
+              return awaitWithSignal(candidate.provider.execute({ ...call, signal: scopedSignal }), scopedSignal);
             },
-          });
-          pluginGuidance.push(...(pluginContribution.guidance ?? []));
-          // CR-060 §B7：结果投影随工具贡献声明，宿主只为**本插件实际贡献的工具**代登记，
-          // 插件因此无法为内核工具或他人工具登记投影。
-          if (pluginContribution.resultProjection) {
-            for (const spec of pluginContribution.provider.tools) {
-              registerToolResultProjection(
-                registration.pluginId,
-                spec.name,
-                pluginContribution.resultProjection,
-              );
-            }
-          }
-        }
+          },
+        }));
+        catalog.register(registration.pluginId, record.lifecycleGeneration, candidates);
+        contribution.push(...staged);
+        pluginGuidance.push(...candidates.flatMap(candidate => candidate.guidance ?? []));
+        for (const name of names) toolNames.add(name);
+        // The host catalog retains projection metadata until generation expiry; invocation ports expire with the turn.
+        resources.push(() => scope.dispose());
       } catch (err) {
+        for (const cleanup of cleanups.reverse()) cleanup();
         deps.observability?.log.warn({
-          event: "plugin.tool_contribution_failed",
-          message: `插件 ${registration.pluginId} 工具贡献构造失败，已跳过`,
+          event: "plugin.tool_contribution_failed", message: `插件 ${registration.pluginId} 工具贡献构造失败，已跳过`,
           fields: { pluginId: registration.pluginId, error: err instanceof Error ? err.message : String(err) },
         });
       }
     }
   }
-  const contributionProvider =
-    contribution.length > 0
-      ? createApprovalGatedToolProvider(
-          composeToolProviders(contribution),
-          tenant,
-          repo,
-          deps.proactiveActionAuthorizer,
-          deps.observability,
-        )
-      : undefined;
-  const apiConfig = loadApiConfig();
+  const contributionProvider = contribution.length > 0
+    ? createContributionToolProvider(contribution, tenant, repo, deps.proactiveActionAuthorizer, deps.observability)
+    : undefined;
   const routingSnapshot = (provider as unknown as { routingSnapshot?: ModelRoutingSnapshot }).routingSnapshot;
   const isL1Tier = routingSnapshot?.tier === "L1";
   const isL2Tier = routingSnapshot?.tier === "L2";
   const isCapabilityTiering = apiConfig.modelRoutingFeatureFlags.has("capability_tiering");
 
+  const runtimeScopes = new Map<string, ReturnType<typeof createPluginToolScope>>();
   const runtimeProvider = deps.toolRuntime
     ? createRuntimeToolProvider(deps.toolRuntime, tenant, {
         conversationRepo: repo,
         proactiveActionAuthorizer: deps.proactiveActionAuthorizer,
         observability: deps.observability,
+        generationFor: tool => tool.pluginId ? runtimeScopes.get(tool.pluginId)?.pluginGeneration?.generation : undefined,
+        signalFor: tool => tool.pluginId ? runtimeScopes.get(tool.pluginId)?.signal : undefined,
         capabilityTier: isL1Tier && isCapabilityTiering ? "restricted" : undefined,
         async isToolAllowed(tool) {
           if (bot && hasBotExcludedPermissions(tool.requiredPermissionsJson)) return false;
           // Native tools retain their domain-owned authorization. Plugin grants are re-read per dispatch.
           if (tool.pluginId?.startsWith("mcp:")) return deps.isMcpToolAllowed?.(tool) ?? false;
           if (!tool.pluginId) return tool.builtin === 1 || !tool.requiredPermissionsJson || (Array.isArray(tool.requiredPermissionsJson) && !tool.requiredPermissionsJson.length);
-          if (!extRepo || !(await isPluginEnabled(tool.pluginId, extRepo))) return false;
+          if (!extRepo) return false;
+          let scope = runtimeScopes.get(tool.pluginId);
+          if (!scope) {
+            const plugin = await extRepo.getPlugin(tool.pluginId);
+            if (!plugin || plugin.enabled !== 1 || (plugin.availability ?? "available") !== "available" || !plugin.lifecycleGeneration) return false;
+            scope = createPluginToolScope(extRepo, tool.pluginId, plugin.lifecycleGeneration, signal);
+            runtimeScopes.set(tool.pluginId, scope);
+            resources.push(() => scope!.dispose());
+          }
+          if (!(await scope.active())) return false;
           const required = tool.requiredPermissionsJson ?? [];
           if (!Array.isArray(required)) return false;
           for (const item of required) {
@@ -707,7 +714,7 @@ export async function runLoopTurnOnce(
         : {}),
     },
     skills: disclosedSkills,
-    ...(loadApiConfig().loopCompaction === "rule"
+    ...(apiConfig.loopCompaction === "rule"
       ? { compaction: createSummaryCompaction() }
       : {}),
   });
@@ -773,7 +780,6 @@ export async function runLoopTurnOnce(
         durationMs: turnDurationMs,
       },
     });
-    await repo.updateTurnStatus(tenant, input.turnId, "Completed");
     const llm = provider ? createLLMCallable(provider) : undefined;
     if (!group) await executeAfterTurnPlugins(
       pluginRegistry!,
@@ -805,4 +811,5 @@ export async function runLoopTurnOnce(
       },
     });
   }
+  } finally { for (const dispose of resources.reverse()) await dispose(); }
 }

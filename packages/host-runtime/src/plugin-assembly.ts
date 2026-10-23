@@ -20,7 +20,7 @@ import type {
   TurnPluginRegistryPort,
 } from "@aervox/host-plugin-api";
 import type { LocalContext } from "@aervox/repositories";
-import { isValidPluginRoutePath } from "@aervox/contracts";
+import { createPluginApiRegistry, isValidPluginRoutePath, type PluginApiRegistry } from "@aervox/contracts";
 import { resolveLocalContext } from "./shared/local-context.js";
 
 /**
@@ -47,6 +47,7 @@ const FIRST_PARTY_PLUGIN_LOADERS: PluginLoader[] = [
 ];
 
 export interface PluginAssemblyTargets {
+  apiRegistry?: PluginApiRegistry;
   /** 回合插件注册表；装配点按插件启用状态无关地注册，门控由 Runner 负责 */
   turnRegistry: TurnPluginRegistryPort;
   /** HTTP 端点接收器（宿主适配为真实路由） */
@@ -115,7 +116,7 @@ export async function assembleFirstPartyPlugins(
         }
         hookIds.add(plugin.id);
       }
-      if (registration.registerApiContract) cleanups.push(registration.registerApiContract());
+      if (registration.registerApiContract) cleanups.push(registration.registerApiContract(targets.apiRegistry ?? createPluginApiRegistry()));
       for (const plugin of registration.turnPlugins ?? []) {
         cleanups.push(targets.turnRegistry.register(plugin));
       }
@@ -140,7 +141,7 @@ export async function assembleFirstPartyPlugins(
 }
 
 /** 宿主按本地上下文产出插件服务集合的工厂（组合根注入，见 plugin-host-services.ts） */
-export type PluginHostServicesFactory = (ctx: LocalContext) => PluginHostServices;
+export type PluginHostServicesFactory = (ctx: LocalContext, control?: import("./plugin-host-services.js").PluginHostServiceControl) => PluginHostServices;
 
 /**
  * 插件启用判定：宿主按仓储启停与可用性记录判定（与回合切面、工具贡献同一判据）。

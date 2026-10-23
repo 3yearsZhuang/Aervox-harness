@@ -23,6 +23,8 @@ const TARGET_DIRS = [
   "apps/api/src",
   "packages/host-runtime/src",
   "apps/worker/src",
+  "apps/cli/src",
+  "apps/mobile/src",
 ];
 
 /**
@@ -51,8 +53,8 @@ export function collectContractExports(contractsDir = CONTRACTS_SRC_DIR) {
     let ast;
     try {
       ast = parse(content, { sourceType: "module", plugins: ["typescript"] });
-    } catch {
-      continue;
+    } catch (error) {
+      throw new Error(`Cannot parse contract source ${full}: ${error.message}`);
     }
     for (const node of ast.program.body) {
       if (node.type === "ExportNamedDeclaration") {
@@ -81,12 +83,12 @@ export function collectContractExports(contractsDir = CONTRACTS_SRC_DIR) {
 
 export function inspectFileForDuplicateTypes(filePath, content, exportedNames) {
   const duplicates = [];
-  const inspectCode = (code) => {
+  const inspectCode = (code, jsx = /\.[jt]sx$/.test(filePath)) => {
     let ast;
     try {
-      ast = parse(code, { sourceType: "module", plugins: ["typescript", "jsx"] });
-    } catch {
-      return;
+      ast = parse(code, { sourceType: "module", plugins: jsx ? ["typescript", "jsx"] : ["typescript"] });
+    } catch (error) {
+      throw new Error(`Cannot parse governed type source ${filePath}: ${error.message}`);
     }
     for (const node of ast.program.body) {
       let decl = node;
@@ -109,7 +111,7 @@ export function inspectFileForDuplicateTypes(filePath, content, exportedNames) {
 
   if (filePath.endsWith(".vue")) {
     for (const match of content.matchAll(SCRIPT_BLOCK_RE)) {
-      inspectCode(match[1]);
+      inspectCode(match[1], /\blang\s*=\s*["'](?:t|j)sx["']/.test(match[0].split(">", 1)[0]));
     }
   } else {
     inspectCode(content);

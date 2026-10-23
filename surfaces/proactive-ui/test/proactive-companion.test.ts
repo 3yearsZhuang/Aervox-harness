@@ -68,14 +68,16 @@ it('preserves the desktop host theme when the mobile surface is explicitly selec
   expect(document.documentElement.dataset.theme).toBe('dark');
 });
 
-it('does not offer an uncertain resend through the desktop bridge', async () => {
+it('retries an uncertain desktop submission with the same business idempotency key', async () => {
   streamTurn.mockRejectedValueOnce(new Error('acceptance response lost'));
   const wrapper = await mountSurface('desktop');
   await wrapper.findAll('.pc-choice')[1]!.trigger('click');
   await flushPromises();
-  expect(wrapper.find('.pc-retry').exists()).toBe(false);
-  expect(wrapper.find('.pc-workbench-link').exists()).toBe(true);
-  expect(streamTurn).toHaveBeenCalledOnce();
+  expect(wrapper.find('.pc-retry').exists()).toBe(true);
+  await wrapper.find('.pc-retry').trigger('click');
+  await flushPromises();
+  expect(streamTurn).toHaveBeenCalledTimes(2);
+  expect(streamTurn.mock.calls[1]![3].idempotencyKey).toBe(streamTurn.mock.calls[0]![3].idempotencyKey);
 });
 
 it('loads through the host and renders the minimal first-level page', async () => {

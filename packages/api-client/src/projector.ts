@@ -46,6 +46,7 @@ export class TurnStreamProjector {
   private lastSequence: number;
   private isFinalized = false;
   private identityDelivered = false;
+  private terminalFailure?: Error;
   private expectedTurnId?: string;
   private onDropped?: (reason: DropReason, event: unknown) => void;
 
@@ -58,6 +59,8 @@ export class TurnStreamProjector {
   public get currentSequence(): number {
     return this.lastSequence;
   }
+
+  public get failure(): Error | undefined { return this.terminalFailure; }
 
   public get finalized(): boolean {
     return this.isFinalized;
@@ -130,7 +133,8 @@ export class TurnStreamProjector {
     } else if (eventType === 'error') {
       this.isFinalized = true;
       const message = (data as { message?: string })?.message ?? 'Turn 出错';
-      callbacks.onError?.(new Error(message));
+      this.terminalFailure = new Error(message);
+      callbacks.onError?.(this.terminalFailure);
     } else if (eventType === 'emote') {
       callbacks.onEmote?.(data as PetCommand);
     } else if (eventType === 'user_question_required') {

@@ -35,6 +35,8 @@ import {
   useWorkbenchProactive,
   proactiveBridge,
   provideWorkbenchContext,
+  provideUIPluginContext,
+  type UIPluginContext,
   createPluginEventBus,
   createPluginStateStore,
   resolveStartupQuiet,
@@ -49,7 +51,8 @@ import {
 import { useUISurfaceContext } from '@aervox/ui-host';
 import { PanelLeft } from 'lucide-vue-next';
 
-import { watchAervoxTurnContinuation, streamAervoxTurn, useAervoxPlugins, useAervoxProjects, useAervoxSessions } from '@aervox/api-client';
+import { createConversationController, getTransport, useAervoxApi, useAervoxPlugins, useAervoxProjects, useAervoxSessions } from '@aervox/api-client';
+import type { TurnCallbacks } from '@aervox/api-client';
 import type { TurnAttachmentRef } from '@aervox/contracts';
 
 const surfaceContext = useUISurfaceContext();
@@ -136,11 +139,14 @@ const timer = useWorkbenchTimer({
   },
 });
 
-// 4. Conversation Composable
+// 4. Shared conversation policy and surface presentation
+const turnController = createConversationController(getTransport(), surfaceContext.signal);
 const conversation = useWorkbenchConversation({
   recordActivity: proactive.recordProactiveActivity,
   onRefreshProactiveStatus: proactive.refreshProactiveStatus,
-  onApprovalContinuation: resumeApprovedTurn,
+  controller: turnController,
+  onApprovalDecision: resumeApprovedTurn,
+  onRetrySubmission: retrySubmission,
 });
 
 // 5. Session identity is created before the composer so mobile drafts stay
@@ -157,8 +163,10 @@ const composer = useWorkbenchComposer({
   draftsEnabled: layout.isMobile,
 });
 
-// 7. Cards Composable
+// 7. The composition root owns domain stores; cards and plugins receive explicit ports.
+const learning = useAervoxApi();
 const cards = useWorkbenchCards({
+  learning,
   activeQuestion: conversation.activeQuestion,
   timerRunning: timer.timerRunning,
   formattedTime: timer.formattedTime,
@@ -200,9 +208,14 @@ watch(() => projectManagerOpen.value, (open) => { if (open) projectManagerMounte
 watch(() => importSessionOpen.value, (open) => { if (open) importSessionMounted.value = true; }, { immediate: true });
 
 let isSendingMessage = false;
+let lastSubmissionView: {sessionId: string; text: string} | undefined;
+async function retrySubmission() {
+  if (!lastSubmissionView || lastSubmissionView.sessionId !== sessions.activeSessionId.value) return;
+  await sendMessage(lastSubmissionView.text, {resend: true, retry: true});
+}
 
 // 统一整合发送消息逻辑
-async function sendMessage(value = composer.input.value, options?: { metadata?: Record<string, unknown>; resend?: boolean }) {
+async function sendMessage(value = composer.input.value, options?: { metadata?: Record<string, unknown>; resend?: boolean; retry?: boolean }) {
   if (isSendingMessage) return;
   const text = value.trim();
   if ((!text && composer.pendingAttachments.value.length === 0) || conversation.streaming.value || composer.attachmentUploading.value) return;
@@ -210,7 +223,7 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
   isSendingMessage = true;
   try {
     let attachmentRefs: TurnAttachmentRef[] = [];
-    if (composer.pendingAttachments.value.length > 0) {
+    if (!options?.retry && composer.pendingAttachments.value.length > 0) {
       composer.attachmentUploading.value = true;
       try {
         attachmentRefs = await composer.uploadPendingAttachments();
@@ -234,7 +247,8 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
   const outgoing = resolvedOutgoing.text;
   const turnMetadata = resolvedOutgoing.metadata;
   const submittedSessionId = sessions.activeSessionId.value;
-  composer.beginDraftSubmission(displayText, submittedSessionId);
+  if (!options?.retry) composer.beginDraftSubmission(displayText, submittedSessionId);
+  lastSubmissionView = {sessionId: submittedSessionId, text: displayText};
 
   const assistantLine = conversation.createStoryLine('assistant', '', 'streaming');
 
@@ -254,7 +268,7 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
   }
 
   const liveAssistantLine = conversation.story.value[conversation.story.value.length - 1];
-  composer.input.value = '';
+  if (!options?.retry) composer.input.value = '';
   conversation.streaming.value = true;
   conversation.activeQuestion.value = null;
   petReactKind('think', { lookAtEl: '.message-panel' });
@@ -278,14 +292,10 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
   });
 
   try {
-
-    await streamAervoxTurn(
-      outgoing,
-      {
+    const callbacks: TurnCallbacks = {
         onTurnIdentified: (turnId) => {
           liveAssistantLine.turnId = turnId;
-          conversation.currentTurnId.value = turnId;
-        },
+                },
         onError: (error) => {
           throw error instanceof Error ? error : new Error(String(error));
         },
@@ -309,7 +319,6 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
           deltaBatch.flush();
           composer.completeDraftSubmission(submittedSessionId);
           liveAssistantLine.state = 'complete';
-          conversation.activeQuestion.value = null;
           if (thinkingVisible && !liveAssistantLine.text.replace(thinkingPlaceholder, '')) {
             thinkingVisible = false;
             liveAssistantLine.text = '';
@@ -335,23 +344,28 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
           conversation.pendingApproval.value = { ...aData, outgoing };
           void conversation.scrollStoryToBottom();
         },
-      },
-      {
+      };
+    if (options?.retry) await turnController.retry(callbacks);
+    else await turnController.submit(submittedSessionId, outgoing, callbacks, {
         signal: surfaceContext.signal,
+        onAccepted: turnId => { liveAssistantLine.turnId = turnId; conversation.currentTurnId.value = turnId; },
         toolApprovalMode: conversation.toolApprovalMode.value,
         attachments: attachmentRefs.length > 0 ? attachmentRefs : undefined,
         // ADR-027：宿主显式元数据（角色名/用户称呼）优先级最高，插件变换不得覆盖
         metadata: { ...turnMetadata, ...readCompanionIdentity() },
-        sessionId: submittedSessionId,
-      },
-    );
+      });
   } catch (error) {
     if (surfaceContext.signal.aborted) return;
     console.error('对话流式失败', error);
     deltaBatch.flush();
     liveAssistantLine.state = 'error';
-    liveAssistantLine.text = error instanceof Error ? `连接失败：${error.message}` : '连接失败，请稍后重试。';
-    composer.restoreFailedDraft();
+    if (turnController.state.status === 'observer-error') {
+      liveAssistantLine.text += '\n连接中断，原请求可能仍在处理，请从会话记录查看。';
+      composer.completeDraftSubmission(submittedSessionId);
+    } else {
+      liveAssistantLine.text = error instanceof Error ? `连接失败：${error.message}` : '连接失败，请稍后重试。';
+      composer.restoreFailedDraft();
+    }
     petReactKind('sad', { expression: MizukiExpression.face_sad_01 });
   } finally {
     deltaBatch.flush();
@@ -365,33 +379,33 @@ async function sendMessage(value = composer.input.value, options?: { metadata?: 
 }
 
 // Approval continues the existing assistant reply and never creates another user Turn.
-async function resumeApprovedTurn(turnId: string, afterEventId: string) {
+async function resumeApprovedTurn(decision: 'granted' | 'denied') {
   const line = conversation.latestAssistantLine.value;
   if (!line) return;
   conversation.streaming.value = true;
   line.state = 'streaming';
-  conversation.currentTurnId.value = turnId;
   const batch = createStreamingDeltaBatcher(text => {
     line.text += text;
     void conversation.scrollStoryToBottom({ instant: true });
   });
   try {
-    await watchAervoxTurnContinuation(turnId, afterEventId, {
+    await turnController.decide(decision, {
       onDelta: text => batch.append(text),
-      onDone: () => { batch.flush(); line.state = 'complete'; conversation.activeQuestion.value = null; },
+      onDone: () => { batch.flush(); line.state = 'complete'; },
       onError: error => { throw error; },
       onUserQuestion: data => { batch.flush(); conversation.activeQuestion.value = data; },
       onToolApproval: data => { batch.flush(); conversation.pendingApproval.value = { ...data, outgoing: '' }; },
       onPluginEvent: (type, data) => { batch.flush(); pluginEvents.emit(type, data); },
-    }, surfaceContext.signal);
+    });
   } catch (error) {
     if (!surfaceContext.signal.aborted) {
       batch.flush();
       line.state = 'error';
-      line.text += `\n续跑连接失败：${error instanceof Error ? error.message : String(error)}`;
+      line.text += `\n授权或续跑失败：${error instanceof Error ? error.message : String(error)}`;
     }
   } finally {
     batch.flush();
+    if (line.state === 'streaming' && turnController.state.status === 'completed') line.state = 'complete';
     conversation.streaming.value = false;
     await conversation.scrollStoryToBottom();
   }
@@ -429,7 +443,22 @@ const workbenchContext = {
 };
 provideWorkbenchContext(workbenchContext);
 
-pluginRuntime = createWorkbenchPluginRuntime(registry, () => workbenchContext, props.plugins);
+const pluginContext: UIPluginContext = Object.freeze({
+  navigation: Object.freeze({openTool: layout.openTool, runMenuAction: layout.runMenuAction,
+    closeTaskCenter: () => { layout.taskCenterOpen.value = false; }, setQuietStartup: layout.setQuietStartup}),
+  cards: Object.freeze({acquireSlotPreset: cards.acquireSlotPreset, reviewCount: cards.syncReviewCount}),
+  conversation: Object.freeze({streaming: computed(() => conversation.streaming.value), latestAssistantText: computed(() => conversation.latestAssistantLine.value?.text ?? '')}),
+  learning, pluginEvents, pluginState, sendMessage,
+  async refreshPluginUI() {
+    const pluginApi = useAervoxPlugins();
+    await pluginApi.loadPlugins();
+    if (pluginApi.error.value) throw new Error(pluginApi.error.value);
+    await pluginRuntime?.sync(pluginApi.plugins.value, (id) => pluginApi.getConfig(id));
+  },
+  isPluginAvailable: (id: string) => pluginRuntime?.isPluginAvailable(id) ?? false,
+});
+provideUIPluginContext(pluginContext);
+pluginRuntime = createWorkbenchPluginRuntime(registry, () => pluginContext, props.plugins);
 
 // 组件替换支持（允许插件通过 uiRegistry.overrideComponent('ComposerDock', CustomComp) 替换输入底座）
 const resolvedComposerComponent = computed(() => {
@@ -486,9 +515,7 @@ onMounted(() => {
   // （quietStartup）表达诉求，宿主不判断具体插件状态。顺序由 workbench-startup 保证并被单测覆盖。
   const pluginStartupReady = (async () => {
     try {
-      const pluginApi = useAervoxPlugins();
-      await pluginApi.loadPlugins();
-      await pluginRuntime?.sync(pluginApi.plugins.value, (id) => pluginApi.getConfig(id));
+      await pluginContext.refreshPluginUI();
     } catch {
       // Ignore plugin sync failures in offline/mock environments
     }
@@ -554,6 +581,7 @@ function handleGlobalKeydown(e: KeyboardEvent) {
 }
 
 onUnmounted(() => {
+  turnController.dispose();
   pluginRuntime?.destroy();
   pluginState.dispose();
   registry.clear();

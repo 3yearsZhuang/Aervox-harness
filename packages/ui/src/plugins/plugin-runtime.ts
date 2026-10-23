@@ -1,15 +1,15 @@
 import { shallowReactive } from 'vue';
 import type { UIRegistry } from '../registry/ui-registry';
-import type { WorkbenchContext } from '../composables/workbench-context';
+import type { UIPluginContext } from '../composables/ui-plugin-context';
 import { createUIPluginScope, type UIPluginLifecycle } from './plugin-scope';
 
 export type { UIPluginLifecycle } from './plugin-scope';
 
 export interface BuiltinUIPlugin {
   id: string;
-  setup: (registry: UIRegistry, context?: WorkbenchContext, lifecycle?: UIPluginLifecycle) => (() => void) | void;
-  onConfig?: (values: Record<string, unknown>, context: WorkbenchContext, lifecycle?: UIPluginLifecycle) => void | Promise<void>;
-  onDisable?: (context: WorkbenchContext) => void;
+  setup: (registry: UIRegistry, context?: UIPluginContext, lifecycle?: UIPluginLifecycle) => (() => void) | void;
+  onConfig?: (values: Record<string, unknown>, context: UIPluginContext, lifecycle?: UIPluginLifecycle) => void | Promise<void>;
+  onDisable?: (context: UIPluginContext) => void;
 }
 
 export interface UIPluginState {
@@ -30,7 +30,7 @@ export interface WorkbenchPluginRuntime {
 /** 编排组合根注入的受信插件；每次激活独占注册、Vue effect 与取消作用域。 */
 export function createWorkbenchPluginRuntime(
   registry: UIRegistry,
-  getContext: () => WorkbenchContext,
+  getContext: () => UIPluginContext,
   pluginDefinitions: BuiltinUIPlugin[] = [],
 ): WorkbenchPluginRuntime {
   const ids = new Set<string>();
@@ -39,7 +39,7 @@ export function createWorkbenchPluginRuntime(
     ids.add(def.id);
   }
 
-  type Instance = { scope: ReturnType<typeof createUIPluginScope>; context: WorkbenchContext };
+  type Instance = { scope: ReturnType<typeof createUIPluginScope>; context: UIPluginContext };
   const instances = new Map<string, Instance>();
   const states = shallowReactive<Record<string, UIPluginState>>(Object.create(null));
   let currentSyncSeq = 0;

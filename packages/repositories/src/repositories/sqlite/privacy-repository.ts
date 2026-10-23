@@ -25,6 +25,29 @@ export const unverifiedDeletionRequest = sql`${deletionRequests.status} != 'comp
 export class SqlitePrivacyRepository implements IPrivacyRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
+  async listUnverifiedDeletionRequests(limit = 20): Promise<DeletionRequestModel[]> {
+    return this.db.select().from(deletionRequests).where(unverifiedDeletionRequest)
+      .orderBy(deletionRequests.updatedAt).limit(Math.max(1, Math.min(20, limit))) as Promise<DeletionRequestModel[]>;
+  }
+
+  async listDeletionTargets(requestId: string): Promise<DeletionTargetModel[]> {
+    return this.db.select().from(deletionTargets).where(eq(deletionTargets.requestId, requestId)) as Promise<DeletionTargetModel[]>;
+  }
+
+  async beginDeletionRequestAttempt(id: string): Promise<DeletionRequestModel | null> {
+    const [updated] = await this.db.update(deletionRequests).set({ status: "in_progress",
+      attemptCount: sql`${deletionRequests.attemptCount} + 1`, lastError: null, updatedAt: new Date().toISOString() })
+      .where(and(eq(deletionRequests.id, id), unverifiedDeletionRequest)).returning();
+    return updated as DeletionRequestModel ?? null;
+  }
+
+  async beginDeletionTargetAttempt(target: { requestId: string; targetType: string; targetId: string }): Promise<DeletionTargetModel | null> {
+    const [updated] = await this.db.update(deletionTargets).set({ status: "in_progress", verifiedAt: null, evidenceRef: null,
+      attemptCount: sql`${deletionTargets.attemptCount} + 1` }).where(and(eq(deletionTargets.requestId, target.requestId),
+      eq(deletionTargets.targetType, target.targetType), eq(deletionTargets.targetId, target.targetId))).returning();
+    return updated as DeletionTargetModel ?? null;
+  }
+
   async grantConsent(
     ctx: LocalContext,
     grantData: {

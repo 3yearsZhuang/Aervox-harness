@@ -75,7 +75,7 @@ describe("CR-033 P5 proactive persona unification", () => {
       safety: { policyVersion: "safety-v1", classificationLevel: "crisis" },
     };
     const result = await composeProactiveMessage({
-      llmConfigRepo: { getConfig: async () => null } as never,
+      modelGeneration: { generate: async () => { throw new Error("must not call model in crisis"); } },
       input: { ...baseInput, turnContext: ctx },
     });
     expect(result.source).toBe("template");

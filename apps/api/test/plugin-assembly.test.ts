@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import Fastify from 'fastify';
-import { isKnownStreamEventType, registerPluginApiContribution, resetPluginApiContributions } from '@aervox/contracts';
+import { createPluginApiRegistry } from '@aervox/contracts';
 import type { PluginHostServices, ServerPluginRegistration } from '@aervox/host-plugin-api';
 import { assembleFirstPartyPlugins, createHttpEndpointSink, mountPluginHttpEndpoints } from '@aervox/host-runtime-test/plugin-assembly';
 import { ServerPluginRegistry } from '@aervox/host-runtime-test/modules/ecosystem/plugins/turn-plugins/registry';
 
+const apiRegistry = createPluginApiRegistry();
+const { isKnownStreamEventType, registerPluginApiContribution, resetPluginApiContributions } = apiRegistry;
 const services = () => ({}) as PluginHostServices;
 const loader = (registration: ServerPluginRegistration) => ({ pluginId: registration.pluginId, load: async () => ({ default: registration }) });
 
@@ -15,7 +17,7 @@ describe('first-party plugin assembly lifecycle', () => {
     const registry = new ServerPluginRegistry();
     const warn = vi.fn();
     const assembly = await assembleFirstPartyPlugins({
-      turnRegistry: registry, warn,
+      turnRegistry: registry, apiRegistry, warn,
       onHttpEndpoints() { throw new Error('mount failure'); },
     }, [loader({
       pluginId: 'probe', turnPlugins: [{ id: 'probe' }],
@@ -38,7 +40,7 @@ describe('first-party plugin assembly lifecycle', () => {
     const handler = vi.fn(() => ({ payload: { owner: 'bad' } }));
     try {
       const assembly = await assembleFirstPartyPlugins({
-        turnRegistry: registry,
+        turnRegistry: registry, apiRegistry,
         onHttpEndpoints: createHttpEndpointSink(app, services, async () => true, vi.fn()),
         warn: vi.fn(),
       }, [loader({
@@ -92,7 +94,7 @@ describe('first-party plugin assembly lifecycle', () => {
       return () => { order.push('hook'); dispose(); };
     });
     const assembly = await assembleFirstPartyPlugins({
-      turnRegistry: registry, warn,
+      turnRegistry: registry, apiRegistry, warn,
       onHttpEndpoints: () => () => { order.push('http'); throw new Error('cleanup failure'); },
     }, [loader({
       pluginId: 'probe', turnPlugins: [{ id: 'probe' }],
@@ -110,7 +112,7 @@ describe('first-party plugin assembly lifecycle', () => {
     const registry = new ServerPluginRegistry();
     const original = { id: 'probe' };
     const unwanted = vi.fn(() => () => undefined);
-    const assembly = await assembleFirstPartyPlugins({ turnRegistry: registry, warn: vi.fn() }, [
+    const assembly = await assembleFirstPartyPlugins({ turnRegistry: registry, apiRegistry, warn: vi.fn() }, [
       loader({ pluginId: 'probe', turnPlugins: [original] }),
       loader({ pluginId: 'probe', registerApiContract: unwanted, turnPlugins: [{ id: 'probe' }] }),
       { pluginId: 'expected', load: async () => ({ default: { pluginId: 'imposter', registerApiContract: unwanted } }) },
@@ -125,8 +127,8 @@ describe('first-party plugin assembly lifecycle', () => {
   it('supports reassembling cached modules and closing one host without unregistering another host contract', async () => {
     const registerApiContract = () => registerPluginApiContribution({ streamEventTypes: ['shared_host_event'] });
     const loaders = [loader({ pluginId: 'probe', turnPlugins: [{ id: 'probe' }], registerApiContract })];
-    const a = await assembleFirstPartyPlugins({ turnRegistry: new ServerPluginRegistry() }, loaders);
-    const b = await assembleFirstPartyPlugins({ turnRegistry: new ServerPluginRegistry() }, loaders);
+    const a = await assembleFirstPartyPlugins({ apiRegistry, turnRegistry: new ServerPluginRegistry() }, loaders);
+    const b = await assembleFirstPartyPlugins({ apiRegistry, turnRegistry: new ServerPluginRegistry() }, loaders);
     a.dispose();
     expect(isKnownStreamEventType('shared_host_event')).toBe(true);
     b.dispose();

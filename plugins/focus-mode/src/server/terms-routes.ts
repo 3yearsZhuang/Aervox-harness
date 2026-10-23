@@ -82,15 +82,12 @@ async function handleTermExplore(
     relatedQuestions = built.related;
   } else if (kind === "branch") {
     if (sessionId) {
-      const child = await services.sessions.createSession(`探索分支：${term}`);
-      childSessionId = child.id;
-      await services.sessions.createBranch({
-        id: `br_${Date.now().toString(36)}_${(++seq).toString(36)}`,
-        parentSessionId: sessionId,
-        childSessionId: child.id,
-        title: `探索：${term}`,
-        reason: "term_drill",
+      const key = `${Date.now().toString(36)}_${(++seq).toString(36)}`;
+      const child = await services.sessions.createExplorationBranch({
+        id: `br_${key}`, parentSessionId: sessionId,
+        childSessionId: `session_explore_${key}`, title: `探索：${term}`, reason: "term_drill",
       });
+      childSessionId = child.childSessionId;
     }
     content = `已为你创建专属探索分支会话【探索：${term}】。你可以进入该分支进行独立多轮对话与深入推导，不污染主会话上下文。`;
     relatedQuestions = [`进入分支深入推导 ${term}`, `返回主会话继续学习`];

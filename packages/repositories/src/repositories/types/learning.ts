@@ -2,9 +2,10 @@
  * Aervox｜思隅 @aervox/repositories — learning 仓储类型（自 types.ts 机械拆分）
  */
 import type { KnowledgeItemModel, LearningGoalModel, MistakeItemModel, PracticeSessionModel, QuestionAttemptModel, QuestionModel, ReviewItemModel } from "./user-question.js";
+import type { PluginGenerationIdentity } from "../../plugin-generation-guard.js";
 import type { LocalContext } from "../../local-context.js";
 
-export interface ILearningRepository {
+export interface LearningGoalPort {
   createLearningGoal(
     ctx: LocalContext,
     goal: {
@@ -33,6 +34,9 @@ export interface ILearningRepository {
     id: string,
     goal: { topic?: string; level?: string; availableMinutes?: number; status?: string },
   ): Promise<LearningGoalModel | null>;
+}
+
+export interface QuestionPracticePort {
   createQuestion(
     ctx: LocalContext,
     question: {
@@ -97,6 +101,9 @@ export interface ILearningRepository {
       timeSpentSec?: number;
     },
   ): Promise<{ attempt: QuestionAttemptModel; created: boolean }>;
+}
+
+export interface KnowledgeStatePort {
   createKnowledgeItem(
     ctx: LocalContext,
     item: {
@@ -124,6 +131,10 @@ export interface ILearningRepository {
       masteryBasis: unknown;
     },
   ): Promise<KnowledgeItemModel | null>;
+}
+
+export interface ReviewSchedulePort {
+  listDueReviewSchedule(before: string, limit?: number): Promise<Array<{ id: string; knowledgeId: string; dueAt: string }>>;
   scheduleReviewItem(
     ctx: LocalContext,
     item: { id: string; knowledgeId: string; dueAt: string; intervalDays: number; schedulerVersion?: number; timezoneSnapshot?: string },
@@ -153,6 +164,10 @@ export interface ILearningRepository {
   ): Promise<{ completed: ReviewItemModel; nextReview: ReviewItemModel; knowledge: KnowledgeItemModel } | null>;
   listDueReviewItems(ctx: LocalContext, before: string): Promise<ReviewItemModel[]>;
   completeReviewItem(ctx: LocalContext, id: string): Promise<ReviewItemModel | null>;
+}
+
+export interface KnowledgeRelationPort {
+  listKnowledgeRelationsForKnowledgeIds(ctx: LocalContext, knowledgeIds: string[]): Promise<Map<string, KnowledgeRelationModel[]>>;
   // P1（R2 · CAP-015）：思维宇宙知识关系
   createKnowledgeRelation(
     ctx: LocalContext,
@@ -194,6 +209,9 @@ export interface ILearningRepository {
     knowledgeId: string,
   ): Promise<KnowledgeRelationModel[]>;
 
+}
+
+export interface PracticeReportPort {
   // ============ CAP-016 练习报告 ============
 
   /** CAP-016：创建练习报告 */
@@ -210,6 +228,7 @@ export interface ILearningRepository {
       masteryPrediction?: number;
       biasAssessment?: string;
       reportType?: string;
+      pluginGeneration?: PluginGenerationIdentity;
     },
   ): Promise<PracticeReportModel>;
   /** CAP-016：获取练习报告 */
@@ -220,8 +239,12 @@ export interface ILearningRepository {
   resetMasteryInference(
     ctx: LocalContext,
     sessionId: string,
+    pluginGeneration?: PluginGenerationIdentity,
   ): Promise<PracticeReportModel>;
 
+}
+
+export interface LearningPlanPort {
   // ============ CAP-017 学习规划（里程碑 + 任务路线图） ============
 
   /** 创建学习规划（事务写入规划 + 里程碑 + 任务） */
@@ -257,13 +280,34 @@ export interface ILearningRepository {
   /** 列出规划 */
   listLearningPlans(ctx: LocalContext, includeArchived?: boolean): Promise<LearningPlanModel[]>;
   /** 更新任务状态并推进里程碑（任务全 done → 里程碑 completed + 下一里程碑 active） */
-  setPlanTaskStatus(
+  transitionPlanTask(
     ctx: LocalContext,
     taskId: string,
     status: "todo" | "done",
+    deriveMilestones: MilestoneTransitionPolicy,
   ): Promise<LearningPlanModel | null>;
   /** 归档规划 */
   archiveLearningPlan(ctx: LocalContext, planId: string): Promise<LearningPlanModel | null>;
+}
+
+export type MilestoneTransitionPolicy = (
+  milestones: readonly { id: string; order: number; status: string }[],
+  tasks: readonly { milestoneId: string; status: string }[],
+) => Array<{ id: string; status: "completed" | "active" | "locked" }>;
+
+/** Composition-only facade. Consumers depend on the specific use-case port above. */
+export interface ILearningRepository extends LearningGoalPort, QuestionPracticePort, KnowledgeStatePort, ReviewSchedulePort, KnowledgeRelationPort, PracticeReportPort, LearningPlanPort, JudgedAnswerCommandPort {}
+
+export interface JudgedAnswerCommand {
+  idempotencyKey: string; turnId: string; prompt: string; questionType?: string;
+  pluginGeneration?: { pluginId: string; generation: string };
+  userAnswer: string; correctAnswer: string; judgement: "correct" | "incorrect" | "partial";
+  explanation?: string; knowledgeConcept?: string; source?: string;
+}
+export interface JudgedAnswerCommandPort {
+  recordJudgedAnswer(ctx: LocalContext, input: JudgedAnswerCommand): Promise<{
+    questionId: string; attemptId: string; judgement: "correct" | "incorrect" | "partial"; enteredMistakeNotebook: boolean;
+  }>;
 }
 
 export interface KnowledgeRelationModel {

@@ -9,11 +9,10 @@ import {
   SqliteOutboxRepository,
   SqlitePlatformRepository,
   SqliteConversationRepository,
-  notifyWorkerWakeup,
-  notifyWorkerPressure,
   type AervoxDatabase,
   type LocalContext,
 } from "@aervox/repositories";
+import { notifyWorkerWakeup, notifyWorkerPressure } from "@aervox/process-coordination";
 import type { Client } from "@libsql/client";
 import { WorkerHost } from "../src/worker-host.js";
 import { runOutboxCycle } from "../src/outbox-worker.js";

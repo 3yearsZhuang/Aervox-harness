@@ -60,18 +60,7 @@ interface ToolResultProjectionEntry {
 
 interface PluginApiRegistryState {
   contributions: PluginApiContribution[];
-  toolResultProjections: Map<string, ToolResultProjectionEntry>;
-}
-
-const state: PluginApiRegistryState = {
-  contributions: [],
-  toolResultProjections: new Map<string, ToolResultProjectionEntry>(),
-};
-let revision = 0;
-
-/** OpenAPI 缓存随贡献登记/注销失效，不依赖调用方手工重置。 */
-export function getPluginApiRevision(): number {
-  return revision;
+  toolResultProjections: Map<string, ToolResultProjectionEntry[]>;
 }
 
 /**
@@ -88,6 +77,11 @@ export function isValidPluginRoutePath(path: string): boolean {
   return /^\/v1\/[A-Za-z0-9._~\-/{}:]*$/.test(path);
 }
 
+/** Each host owns its registry. Contracts never keep process-global plugin state. */
+export function createPluginApiRegistry() {
+  const state: PluginApiRegistryState = { contributions: [], toolResultProjections: new Map() };
+  let revision = 0;
+  function getPluginApiRevision(): number { return revision; }
 /**
  * 登记插件对 API 契约的扩展。
  *
@@ -95,7 +89,7 @@ export function isValidPluginRoutePath(path: string): boolean {
  * `streamEventTypes` 与 `eventProjections` 可分别声明（有负载模式的类型必须同时登记投影）。
  * 非法路径的 OpenAPI 片段被忽略并告警，避免污染对外文档契约。
  */
-export function registerPluginApiContribution(contribution: PluginApiContribution): () => void {
+function registerPluginApiContribution(contribution: PluginApiContribution): () => void {
   const routes: PluginOpenApiRoute[] = [];
   for (const route of contribution.openApiRoutes ?? []) {
     if (!isValidPluginRoutePath(route.path)) {
@@ -128,28 +122,34 @@ export function registerPluginApiContribution(contribution: PluginApiContributio
  * 贡献的工具调用本函数，因此插件无法为内核工具或他人工具登记投影。
  * 同一工具被不同插件重复登记属归属冲突 —— 保留先登记者并告警（fail-closed）。
  */
-export function registerToolResultProjection(
+function registerToolResultProjection(
   pluginId: string,
   toolName: string,
   schema: ToolResultProjectionSchema,
-): boolean {
-  const existing = state.toolResultProjections.get(toolName);
-  if (existing) {
-    if (existing.pluginId !== pluginId) {
-      console.warn(
-        `[contracts] 工具 ${toolName} 的投影已归属插件 ${existing.pluginId}，忽略来自 ${pluginId} 的重复登记`,
-      );
-      return false;
-    }
-    state.toolResultProjections.set(toolName, { pluginId, schema });
-    return true;
+): (() => void) | false {
+  const entries = state.toolResultProjections.get(toolName) ?? [];
+  const existing = entries.at(-1);
+  if (existing && existing.pluginId !== pluginId) {
+    console.warn(`[contracts] 工具 ${toolName} 的投影已归属插件 ${existing.pluginId}，拒绝 ${pluginId} 的重复登记`);
+    return false;
   }
-  state.toolResultProjections.set(toolName, { pluginId, schema });
-  return true;
+  const entry = { pluginId, schema };
+  entries.push(entry);
+  state.toolResultProjections.set(toolName, entries);
+  revision++;
+  return () => {
+    const current = state.toolResultProjections.get(toolName);
+    const index = current?.indexOf(entry) ?? -1;
+    if (current && index >= 0) {
+      current.splice(index, 1);
+      if (!current.length) state.toolResultProjections.delete(toolName);
+      revision++;
+    }
+  };
 }
 
 /** 插件登记的流事件类型（不含内核枚举） */
-export function getPluginStreamEventTypes(): readonly string[] {
+function getPluginStreamEventTypes(): readonly string[] {
   return [...new Set(state.contributions.flatMap((entry) => [
     ...(entry.streamEventTypes ?? []),
     ...Object.keys(entry.eventProjections ?? {}),
@@ -157,7 +157,7 @@ export function getPluginStreamEventTypes(): readonly string[] {
 }
 
 /** 插件登记的事件负载投影模式 */
-export function getPluginEventProjection(eventType: string): z.ZodType | undefined {
+function getPluginEventProjection(eventType: string): z.ZodType | undefined {
   for (let i = state.contributions.length - 1; i >= 0; i--) {
     const schema = state.contributions[i]!.eventProjections?.[eventType];
     if (schema) return schema;
@@ -166,13 +166,13 @@ export function getPluginEventProjection(eventType: string): z.ZodType | undefin
 }
 
 /** 插件登记的工具结果投影模式（仅对该工具的实际贡献方可见） */
-export function getPluginToolResultProjection(toolName: string): ToolResultProjectionSchema | undefined {
-  return state.toolResultProjections.get(toolName)?.schema;
+function getPluginToolResultProjection(toolName: string): ToolResultProjectionSchema | undefined {
+  return state.toolResultProjections.get(toolName)?.at(-1)?.schema;
 }
 
 /** 工具结果投影的归属插件 id（诊断用） */
-export function getToolResultProjectionOwner(toolName: string): string | undefined {
-  return state.toolResultProjections.get(toolName)?.pluginId;
+function getToolResultProjectionOwner(toolName: string): string | undefined {
+  return state.toolResultProjections.get(toolName)?.at(-1)?.pluginId;
 }
 
 /**
@@ -182,7 +182,7 @@ export function getToolResultProjectionOwner(toolName: string): string | undefin
  * 供宿主在**插件写入回合流**时校验：登记表不是装饰，未声明即拒绝（fail-closed）。
  * 内核自身的写入路径不经过本判据。
  */
-export function isKnownStreamEventType(eventType: string): boolean {
+function isKnownStreamEventType(eventType: string): boolean {
   return (
     (KERNEL_STREAM_EVENT_TYPES as readonly string[]).includes(eventType) ||
     state.contributions.some((entry) =>
@@ -191,7 +191,7 @@ export function isKnownStreamEventType(eventType: string): boolean {
 }
 
 /** 插件登记的 OpenAPI 路由片段（按登记顺序） */
-export function getPluginOpenApiRoutes(): readonly PluginOpenApiRoute[] {
+function getPluginOpenApiRoutes(): readonly PluginOpenApiRoute[] {
   const routes = new Map<string, PluginOpenApiRoute>();
   for (const entry of state.contributions) {
     for (const route of entry.openApiRoutes ?? []) routes.set(`${route.method}:${route.path}`, route);
@@ -202,8 +202,17 @@ export function getPluginOpenApiRoutes(): readonly PluginOpenApiRoute[] {
 /**
  * 清空登记表。仅供测试隔离使用；生产路径不得调用。
  */
-export function resetPluginApiContributions(): void {
+function resetPluginApiContributions(): void {
   state.contributions.length = 0;
   state.toolResultProjections.clear();
   revision++;
 }
+
+  return {
+    getPluginApiRevision, registerPluginApiContribution, registerToolResultProjection,
+    getPluginStreamEventTypes, getPluginEventProjection, getPluginToolResultProjection,
+    getToolResultProjectionOwner, isKnownStreamEventType, getPluginOpenApiRoutes,
+    resetPluginApiContributions,
+  };
+}
+export type PluginApiRegistry = ReturnType<typeof createPluginApiRegistry>;

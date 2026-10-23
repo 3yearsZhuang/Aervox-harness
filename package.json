@@ -28,7 +28,7 @@
     "check:affected": "node scripts/check-affected.mjs",
     "check:ci-config": "node --test scripts/ci-scope.test.mjs",
     "check:artifacts": "pnpm --filter @aervox/contracts build && node --test scripts/export-plugins.test.mjs",
-    "check:guards": "node --test scripts/check-*.test.mjs && node scripts/check-banned-identifiers.mjs && node scripts/check-host-domain-purity.mjs && node scripts/check-type-boundary.mjs && node scripts/check-dep-hoisting.mjs && node scripts/check-removable-implementation.mjs && node scripts/check-tracked-files.mjs",
+    "check:guards": "node --test scripts/check-*.test.mjs && node scripts/check-banned-identifiers.mjs && node scripts/check-host-domain-purity.mjs && node scripts/check-type-boundary.mjs && node scripts/check-architecture.mjs && node scripts/check-dep-hoisting.mjs && node scripts/check-removable-implementation.mjs && node scripts/check-tracked-files.mjs",
     "package:plugins": "pnpm --filter @aervox/contracts build && node scripts/export-plugins.mjs",
     "drill:worker-contention": "node scripts/worker-write-contention-drill.mjs",
     "drill:removability": "node scripts/run-removability-drill.mjs",

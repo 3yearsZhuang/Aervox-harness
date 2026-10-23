@@ -1,5 +1,4 @@
 import { createSqliteDiaryMaterialPort } from "@aervox/repositories";
-import { loadApiConfig } from "@aervox/config";
 /**
  * Aervox｜思隅 @aervox/api — 日记模块入口
  *
@@ -15,34 +14,16 @@ import { DiaryWriteTool } from "./diary-write-tool.js";
 import { DiaryApplicationService } from "./application.js";
 import {
   DiaryGenerationService,
-  createLlmDiaryModelPort,
-  type DiaryLlmConfigPort,
 } from "@aervox/diary";
 
-export async function registerDiaryModule(ctx: ModuleDependencies<"app" | "db" | "llmConfigService" | "toolRuntime">): Promise<void> {
+export async function registerDiaryModule(ctx: ModuleDependencies<"app" | "db" | "modelGeneration" | "executionConfig" | "toolRuntime">): Promise<void> {
   const { app, db } = ctx;
   const diaryRepo = new SqliteDiaryRepository(db);
 
-  // 生成服务：LLM 模式经 llmConfigService 解析租户配置；未接线/供应商不支持 → 模板降级
-  const llmConfigPort: DiaryLlmConfigPort = {
-    async getConfig(tenant) {
-      if (!ctx.llmConfigService) return null;
-      const cfg = await ctx.llmConfigService.getConfig(tenant);
-      if (!cfg.enabled) return null;
-      if (cfg.providerType === "anthropic") return null; // 日记生成仅支持 OpenAI 兼容协议
-      return {
-        baseUrl: cfg.baseUrl,
-        apiKey: cfg.apiKey,
-        modelId: cfg.modelId,
-        temperature: cfg.temperature,
-        maxTokens: cfg.maxTokens,
-      };
-    },
-  };
   const generation = new DiaryGenerationService({
     materials: createSqliteDiaryMaterialPort(db),
-    useModel: loadApiConfig().loopProvider === "llm",
-    model: ctx.llmConfigService ? createLlmDiaryModelPort(llmConfigPort) : null,
+    useModel: ctx.executionConfig?.loopProvider === "llm",
+    model: ctx.modelGeneration ?? null,
   });
   const service = new DiaryApplicationService({ diaryRepo, generation });
 
@@ -72,3 +53,4 @@ export async function registerDiaryModule(ctx: ModuleDependencies<"app" | "db" |
     }, { call: (ctx, args) => tool.run(ctx, (args ?? {}) as never) });
   }
 }
+export { publishGeneratedDiary, type DiaryPublicationInput } from "./publication.js";

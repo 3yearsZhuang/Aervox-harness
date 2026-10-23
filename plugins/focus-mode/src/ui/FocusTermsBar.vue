@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { onBeforeUnmount, watch } from 'vue';
 import { Sparkles } from 'lucide-vue-next';
-import { useWorkbenchContext } from '@aervox/ui/plugin-api';
+import { useUIPluginContext } from '@aervox/ui/plugin-api';
 import TermExploreDialog from './TermExploreDialog.vue';
 import { useFocusModeState } from './plugin-state';
 const { focusModeEnabled } = useFocusModeState();
 import { createTermsState } from './plugin-events';
 const { exploreDialogOpen, extractedTerms, openTermExplore, resetTermsState, selectedTerm, subscribeTermsEvents } = createTermsState();
 
-const { conversation, pluginEvents } = useWorkbenchContext();
-const { streaming, latestAssistantLine } = conversation;
+const { conversation, pluginEvents } = useUIPluginContext();
+const { streaming, latestAssistantText } = conversation;
 
 // CR-060：术语状态归插件；宿主只提供通用事件总线，不解释事件语义
 const unsubscribe = subscribeTermsEvents(pluginEvents);
@@ -48,7 +48,7 @@ watch(streaming, (isStreaming) => {
     <TermExploreDialog
       v-model="exploreDialogOpen"
       :term="selectedTerm"
-      :context-text="latestAssistantLine?.text"
+      :context-text="latestAssistantText"
     />
   </div>
 </template>

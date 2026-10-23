@@ -226,10 +226,18 @@ export async function createStdioAdapterDriver(
       },
     });
 
-    child.stdin?.write(`${encodeAdapterLine({ kind: "request", id: requestId, request })}\n`);
-
+    const onAbort = () => {
+      queue.length = 0;
+      streams.get(requestId)?.onError("adapter_request_cancelled");
+      // The admitted wire protocol has no cancellation verb. Stop its process so it cannot
+      // continue an external side effect after the host has cancelled the Attempt.
+      void close().catch(error => process.stderr.write(`[adapter-stop] ${String(error)}\n`));
+    };
     let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
+      request.signal?.throwIfAborted();
+      request.signal?.addEventListener("abort", onAbort, { once: true });
+      child.stdin?.write(`${encodeAdapterLine({ kind: "request", id: requestId, request })}\n`);
       // 每次请求整体超时：超时 kill（失败自动禁用）
       timeout = setTimeout(() => {
         streams.get(requestId)?.onError("adapter_request_timeout");
@@ -246,6 +254,7 @@ export async function createStdioAdapterDriver(
         yield ev;
       }
     } finally {
+      request.signal?.removeEventListener("abort", onAbort);
       clearTimeout(timeout);
       if (timeout) requestTimers.delete(timeout);
       streams.delete(requestId);

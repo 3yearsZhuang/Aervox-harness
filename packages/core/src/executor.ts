@@ -1,4 +1,3 @@
-import { ControlContext } from "./control-context.js";
 import { dedupeKey } from "./stable-serialize.js";
 /**
  * Aervox｜思隅 @aervox/core — Turn 执行器（阶段 2：只读工具多 Step Loop）
@@ -21,9 +20,8 @@ import type {
   ToolCallResult,
 } from "./types.js";
 import { LeaseLostError } from "./errors.js";
-import { LeaseHeartbeat } from "./lease-heartbeat.js";
+import { claimAttemptExecution } from "./attempt-execution.js";
 import { inspectToolResult } from "./tool-result-safe.js";
-import { createTurnTerminator } from "./turn-terminator.js";
 import { settleDuplicateToolCall, settleToolLedger } from "./tool-ledger.js";
 import { runToolExecution, ToolExecutionAborted } from "./tool-pipeline.js";
 import { StepCollector } from "./step-collector.js";
@@ -138,82 +136,20 @@ export async function executeTurn(
   const maxModelRetries = options?.maxModelRetries ?? 1;
   const startedAt = Date.now();
   const parentControl = input.controlContext ?? deps.controlContext;
-  const control = parentControl?.deriveSubtask() ?? new ControlContext();
-
-  // 4b 续跑：以「抢占续跑」语义重新 claim（预期 = 原执行已持有的 fencing）；
-  // 全新执行为 0（首次 claim）。
   const resume = options?.resume;
-  const claim = await execution.claimTurnAttempt({
-    turnId: input.turnId,
-    attemptId: input.attemptId,
-    expectedFencingToken: resume?.expectedFencingToken ?? 0,
+  let stepsTaken = 0;
+  const lifecycle = await claimAttemptExecution(input, {
+    execution, controlContext: parentControl, deletionGate, startedAt,
+    expectedFencingToken: resume?.expectedFencingToken,
+    maxTurnDurationMs, leaseTtlMs: options?.leaseTtlMs,
+    leaseHeartbeatIntervalMs: options?.leaseHeartbeatIntervalMs,
+    stepsTaken: () => stepsTaken,
   });
-  if (!claim.ok) {
-    control.dispose();
-    return { status: "skipped", attemptId: input.attemptId, reason: claim.reason };
-  }
+  if (!lifecycle.ok) return { status: "skipped", attemptId: input.attemptId, reason: lifecycle.reason };
+  const { claim, control, terminator, heartbeat } = lifecycle;
   const claimLeaseId = claim.leaseId;
   const claimFencingToken = claim.fencingToken;
-  let stepsTaken = 0;
-
-  // B2：长模型/工具调用期间周期心跳续租（§11.2）。默认 TTL/2 间隔；0 关闭。
-  // 心跳续租失败（CAS 语义：被抢占/恢复/终态）→ lost，abort 在途工具并在检查点收敛 lease_lost。
-  const leaseTtlMs = options?.leaseTtlMs ?? 60_000;
-  const leaseHeartbeatIntervalMs =
-    options?.leaseHeartbeatIntervalMs ?? Math.floor(leaseTtlMs / 2);
-  const heartbeat =
-    claimLeaseId && leaseHeartbeatIntervalMs > 0
-      ? new LeaseHeartbeat({
-          renew: () =>
-            execution.renewAttemptLease({
-              attemptId: input.attemptId,
-              leaseId: claimLeaseId,
-              expectedFencingToken: claimFencingToken,
-              ttlMs: leaseTtlMs,
-            }),
-          intervalMs: leaseHeartbeatIntervalMs,
-        })
-      : null;
-  heartbeat?.start();
-
-  // ITER-041：终态收敛器已切至 turn-terminator.ts（取消 / 预算 / 删除闸门 / 租约丢失
-  // 四条收敛路径与主循环解耦）。stepsTaken 以 getter 传入，保持与主循环同步递增。
-  let interruption: string | undefined;
-  let monitorFailure: unknown;
-  let monitoring = true;
-  const terminator = createTurnTerminator({
-    execution,
-    turnId: input.turnId,
-    attemptId: input.attemptId,
-    sessionId: input.sessionId,
-    claimFencingToken,
-    get stepsTaken() {
-      return stepsTaken;
-    },
-    deletionGate,
-    control,
-    maxTurnDurationMs,
-    startedAt,
-    interruptionReason: () => interruption,
-    checkFailure: () => {
-      heartbeat?.throwIfLost();
-      if (monitorFailure) throw monitorFailure;
-    },
-  });
   const { finalize, finalizeCancelled, finalizeInterrupted, prematureTermination } = terminator;
-
-  let checking = false;
-  const removeLost = heartbeat?.onLost(() => control.abort(new LeaseLostError()));
-  const monitor = setInterval(() => {
-    if (!monitoring || checking || control.isAborted()) return;
-    checking = true;
-    void (async () => {
-      if (await execution.isCancelRequested(input)) interruption = "cancelled";
-      else if (deletionGate && await deletionGate.isBlocked(input)) interruption = "deletion_blocked";
-      else if (maxTurnDurationMs > 0 && Date.now() - startedAt >= maxTurnDurationMs) interruption = "turn_timeout";
-      if (monitoring && interruption) control.abort(new Error(interruption));
-    })().catch(error => { if (monitoring) { monitorFailure = error; control.abort(error); } }).finally(() => { checking = false; });
-  }, 50);
 
   try {
     // 4b 续跑：sequence 沿用已存在事件之后（lastSequence+1 起），message 身份事件已有则跳过、
@@ -431,7 +367,7 @@ export async function executeTurn(
         if (stop) return stop;
         // B4-C：仅【首个可见片段前且无副作用】时允许重试（§10 maxModelRetries）
         const canRetry = canRetryModel && !visibleText && !activeCollector.hasEmittedReasoning
-          && !(err instanceof LeaseLostError) && !heartbeat?.lost;
+          && !(err instanceof LeaseLostError) && !lifecycle.leaseLost;
         if (!canRetry) throw err;
         canRetryModel = false;
         persistedChunks = 0;
@@ -726,21 +662,16 @@ export async function executeTurn(
       safetyDecision: "approved",
     });
   } catch (err) {
-    if (interruption === "deletion_blocked" || interruption === "turn_timeout") return finalizeInterrupted(await execution.nextSequence(input.turnId), interruption);
-    if (err instanceof LeaseLostError || heartbeat?.lost) return { status: "failed", attemptId: input.attemptId, reason: "lease_lost" };
+    if (lifecycle.interruption === "deletion_blocked" || lifecycle.interruption === "turn_timeout") return finalizeInterrupted(await execution.nextSequence(input.turnId), lifecycle.interruption);
+    if (err instanceof LeaseLostError || lifecycle.leaseLost) return { status: "failed", attemptId: input.attemptId, reason: "lease_lost" };
     if (control?.budgetExceeded) return finalizeInterrupted(await execution.nextSequence(input.turnId), "token_or_call_budget_exceeded");
     if (control?.isExpired()) {
       const atSeq = await execution.nextSequence(input.turnId);
       return finalizeInterrupted(atSeq, "deadline_exceeded");
     }
-    if (control?.isAborted() && !monitorFailure) {
+    if (control?.isAborted() && !lifecycle.failure) {
       const atSeq = await execution.nextSequence(input.turnId);
       return finalizeCancelled(atSeq);
-    }
-    // B1：事件写入被 fencing CAS 拒绝（Attempt 已被抢占/恢复）→ 立即中止，不再产生新副作用（AVX-HAR-001 §11.2）
-    // B2：心跳探知租约已失（含工具 abort 引发的错误）→ 同样收敛 lease_lost
-    if (err instanceof LeaseLostError || heartbeat?.lost) {
-      return { status: "failed", attemptId: input.attemptId, reason: "lease_lost" };
     }
     // B4-D：终态 + error 事件原子提交（§12.2；失败即他方已终结/锁定 → 静默，无孤儿 error）
     return await finalize(await execution.nextSequence(input.turnId), { status: "failed", reason: "execution error" }, {
@@ -754,11 +685,6 @@ export async function executeTurn(
       safetyDecision: "approved",
     }).catch((): ExecuteResult => ({ status: "failed", attemptId: input.attemptId, reason: "execution error" }));
   } finally {
-    // B2：无论正常/中止均停止心跳，避免泄漏定时器或在终态后继续续租
-    monitoring = false;
-    clearInterval(monitor);
-    removeLost?.();
-    control.dispose();
-    heartbeat?.stop();
+    lifecycle.dispose();
   }
 }

@@ -2,17 +2,19 @@
 import {ChevronDown, ChevronUp, Hand, Smile, X} from 'lucide-vue-next'
 import {onBeforeUnmount, onMounted, ref} from 'vue'
 import {PetWithFallback} from '@aervox/ui'
-import {streamAervoxTurn, submitQuestionAnswers} from '@aervox/api-client'
-import type {AskUserQuestionAnswerItem, UserQuestionRequiredEventData} from '@aervox/contracts'
+import {createConversationController, getTransport, getSessionId} from '@aervox/api-client'
+import type {AskUserQuestionAnswerItem, UserQuestionRequiredEventData, ToolApprovalRequiredEventData} from '@aervox/contracts'
 import {replyBubbleDurationMs, stripMarkdownForBubble} from './quick-chat'
 import {pickPetButtonPose, type PetButtonPose, type PetButtonPoseKind} from './pet-button-poses'
 
 import './pet.css'
 import {useUISurfaceContext} from '@aervox/ui-host'
 const surfaceContext = useUISurfaceContext()
+const turnController = createConversationController(getTransport(), surfaceContext.signal)
 
 const bubbleText = ref('')
 const activeQuestion = ref<UserQuestionRequiredEventData | null>(null)
+const pendingApproval = ref<(ToolApprovalRequiredEventData & {turnId: string}) | null>(null)
 let bubbleTimer: number | null = null
 let closingTimer: number | null = null
 
@@ -75,7 +77,7 @@ function scheduleReplyDismiss(text: string) {
 
 /** 点击气泡提前关闭（提问选择肢展示期间不关闭） */
 function dismissBubble() {
-    if (questionBubbleActive.value) return
+    if (questionBubbleActive.value || pendingApproval.value) return
     clearBubbleTimer()
     bubbleText.value = ''
     bubbleTimer = null
@@ -92,30 +94,7 @@ async function sendQuickChat() {
     playButtonPose('think')
     showStreamingBubble('思考中…')
     try {
-        await streamAervoxTurn(content, {
-            onDelta: (text) => {
-                replyRaw += text
-                showStreamingBubble(stripMarkdownForBubble(replyRaw) || '…')
-            },
-            onDone: () => {
-                const finalText = stripMarkdownForBubble(replyRaw)
-                if (finalText && !questionBubbleActive.value) showStreamingBubble(finalText)
-                scheduleReplyDismiss(finalText || bubbleText.value)
-            },
-            onError: (err) => {
-                const message = err instanceof Error ? err.message : '回复失败，请稍后再试'
-                showStreamingBubble(`出了点小问题：${message}`)
-                scheduleReplyDismiss(`出了点小问题：${message}`)
-            },
-            onUserQuestion: (data) => {
-                questionBubbleActive.value = true
-                handleQuestionPrompt(data)
-            },
-            onToolApproval: () => {
-                showStreamingBubble('这个请求需要到工作台确认工具使用哦')
-                scheduleReplyDismiss('这个请求需要到工作台确认工具使用哦')
-            },
-        }, {signal: surfaceContext.signal})
+        await turnController.submit(getSessionId(), content, quickChatCallbacks(), {signal: surfaceContext.signal})
     } catch (err) {
         if (surfaceContext.signal.aborted) return
         const message = err instanceof Error ? err.message : 'Aervox 请求失败'
@@ -124,6 +103,43 @@ async function sendQuickChat() {
     } finally {
         quickChatPending.value = false
     }
+}
+
+function quickChatCallbacks() { return {
+            onDelta: (text: string) => {
+                replyRaw += text
+                showStreamingBubble(stripMarkdownForBubble(replyRaw) || '…')
+            },
+            onDone: () => {
+                const finalText = stripMarkdownForBubble(replyRaw)
+                if (finalText && !questionBubbleActive.value) showStreamingBubble(finalText)
+                if (!pendingApproval.value && !activeQuestion.value) scheduleReplyDismiss(finalText || bubbleText.value)
+            },
+            onError: (err: unknown) => {
+                const message = err instanceof Error ? err.message : '回复失败，请稍后再试'
+                showStreamingBubble(`出了点小问题：${message}`)
+                scheduleReplyDismiss(`出了点小问题：${message}`)
+            },
+            onUserQuestion: (data: UserQuestionRequiredEventData) => {
+                questionBubbleActive.value = true
+                handleQuestionPrompt(data)
+            },
+            onToolApproval: (data: ToolApprovalRequiredEventData & {turnId: string}) => {
+                pendingApproval.value = data
+                showStreamingBubble(`请求执行 ${data.toolName}，需要你的确认。`)
+            },
+        } }
+
+async function decidePetApproval(decision: 'granted' | 'denied') {
+    if (!pendingApproval.value || quickChatPending.value) return
+    quickChatPending.value = true
+    try {
+        await turnController.decide(decision, quickChatCallbacks())
+        pendingApproval.value = turnController.state.approval ?? null
+    } catch (error) {
+        pendingApproval.value = turnController.state.approval ?? null
+        showStreamingBubble(error instanceof Error ? error.message : '授权或续跑失败，请到工作台查看。')
+    } finally { quickChatPending.value = false }
 }
 
 function handleQuestionPrompt(qData: UserQuestionRequiredEventData) {
@@ -143,7 +159,7 @@ async function selectPetOption(questionId: string, optionLabel: string) {
         selected: [optionLabel],
     }]
     try {
-        await submitQuestionAnswers(activeQuestion.value.turnId, answers, surfaceContext.signal)
+        await turnController.answer(answers)
         activeQuestion.value = null
         questionBubbleActive.value = false
         showBubble(`已确认：${optionLabel}`)
@@ -186,7 +202,7 @@ function toggleDock() {
 }
 
 const onBubble = (event: Event) => {
-    if (replyBubbleActive.value || questionBubbleActive.value) return
+    if (replyBubbleActive.value || questionBubbleActive.value || pendingApproval.value) return
     const detail = (event as CustomEvent<string | {text?: string; preset?: string}>).detail
     const text = typeof detail === 'string' ? detail : detail?.text ?? ''
     const preset = typeof detail === 'string' ? undefined : detail?.preset
@@ -204,6 +220,7 @@ onMounted(() => {
     window.addEventListener('aervox:pet-question', onPetQuestion)
 })
 onBeforeUnmount(() => {
+    turnController.dispose()
     window.removeEventListener('aervox:pet-bubble', onBubble)
     window.removeEventListener('aervox:pet-question', onPetQuestion)
     clearBubbleTimer()
@@ -222,6 +239,10 @@ onBeforeUnmount(() => {
         @click.stop="dismissBubble"
       >
         <p>{{ bubbleText }}</p>
+        <div v-if="pendingApproval" class="pet-choices" aria-label="工具授权">
+          <button type="button" :disabled="quickChatPending" @click.stop="decidePetApproval('granted')">批准</button>
+          <button type="button" :disabled="quickChatPending" @click.stop="decidePetApproval('denied')">拒绝</button>
+        </div>
         <!-- VN 分支选择肢 -->
         <div v-if="activeQuestion && activeQuestion.questions[0]?.options" class="pet-choices">
           <button

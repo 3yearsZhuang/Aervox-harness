@@ -7,9 +7,9 @@ import type { ModuleDependencies } from "../../context.js";
 import { SqliteLearningRepository } from "@aervox/repositories";
 import { registerLearningRoutes } from "./routes.js";
 import { registerLearningPlanRoutes } from "./plan-routes.js";
-import { LearningPlanGenerationService, createLlmPlanModelPort } from "./plan-generation.js";
+import { LearningPlanGenerationService } from "./plan-generation.js";
 
-export function registerLearningModule(ctx: ModuleDependencies<"app" | "db" | "llmConfigService">): void {
+export function registerLearningModule(ctx: ModuleDependencies<"app" | "db" | "modelGeneration" | "executionConfig">): void {
   const { app, db } = ctx;
   const learningRepo = new SqliteLearningRepository(db);
   registerLearningRoutes(app, learningRepo);
@@ -17,11 +17,9 @@ export function registerLearningModule(ctx: ModuleDependencies<"app" | "db" | "l
 
   // 学习规划生成：llm 模式走 LLM 端口；llm 模块未接线或非 llm 模式由服务内模板降级/抛错
   const planGeneration = new LearningPlanGenerationService({
-    db,
     learningRepo,
-    model: ctx.llmConfigService
-      ? createLlmPlanModelPort(ctx.llmConfigService)
-      : (undefined as never),
+    model: ctx.modelGeneration ?? null,
+    useModel: ctx.executionConfig?.loopProvider === "llm",
   });
   registerLearningPlanRoutes(app, learningRepo, planGeneration);
 }

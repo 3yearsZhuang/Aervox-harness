@@ -1,10 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs'
+import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync, existsSync, mkdirSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { execFileSync } from 'node:child_process'
+import { copyPublicAssets } from './copy-assets.mjs'
 
 const source = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const files = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((entry) => entry.isDirectory()
@@ -17,8 +17,10 @@ test('cold copy reconstructs both consumers and rebuild removes stale generated 
     cpSync(source, pkg, { recursive: true, filter: (path) => !path.includes('node_modules') && !path.includes('.turbo') })
     const desktop = join(root, 'apps/desktop/src/renderer/public')
     const web = join(root, 'apps/web/public')
-    const build = () => execFileSync(process.execPath, [join(pkg, 'scripts/copy-assets.mjs')], { stdio: 'pipe' })
+    const build = () => copyPublicAssets(desktop, { includeIntro: true })
     build()
+    assert.equal(existsSync(web), false) // A desktop build owns no web output.
+    copyPublicAssets(web)
     for (const target of [desktop, web]) assert.deepEqual(readFileSync(join(target, 'aervox-mark.svg')), readFileSync(join(source, 'aervox-mark.svg')))
     const intro = join(desktop, 'aervox-intro')
     const originals = files(join(source, 'aervox-intro'))
@@ -28,5 +30,18 @@ test('cold copy reconstructs both consumers and rebuild removes stale generated 
     build()
     assert.deepEqual(files(intro), originals)
     assert.equal(existsSync(join(web, 'aervox-intro')), false)
+  } finally { rmSync(root, { recursive: true, force: true }) }
+})
+
+
+test('consumer copy rejects linked output directories before replacing assets', () => {
+  const root = mkdtempSync(join(tmpdir(), 'aervox-public-links-'))
+  try {
+    const victim = join(root, 'user-resources')
+    mkdirSync(victim)
+    writeFileSync(join(victim, 'aervox-mark.svg'), 'user asset')
+    symlinkSync(victim, join(root, 'linked'), 'dir')
+    assert.throws(() => copyPublicAssets(join(root, 'linked')), /链接资源目录/)
+    assert.equal(readFileSync(join(victim, 'aervox-mark.svg'), 'utf8'), 'user asset')
   } finally { rmSync(root, { recursive: true, force: true }) }
 })

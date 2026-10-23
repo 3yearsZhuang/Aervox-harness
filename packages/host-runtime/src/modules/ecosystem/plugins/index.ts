@@ -151,7 +151,7 @@ async function syncBuiltinPlugins(
   }
 }
 
-export async function registerPluginsModule(ctx: ModuleDependencies<"app" | "builtinPluginsSourceRoot" | "db" | "pluginHostServices" | "pluginRegistry" | "pluginsRoot" | "proactiveIntelligenceRepository" | "skillsRoot">, beforeDeactivate?: (pluginId: string, uninstall: boolean) => Promise<void>): Promise<import("@aervox/host-plugin-api").ServerPluginRegistration[]> {
+export async function registerPluginsModule(ctx: ModuleDependencies<"apiRegistry" | "app" | "builtinPluginsSourceRoot" | "db" | "pluginHostServices" | "pluginRegistry" | "pluginsRoot" | "proactiveIntelligenceRepository" | "skillsRoot">, beforeDeactivate?: (pluginId: string, uninstall: boolean) => Promise<void>): Promise<import("@aervox/host-plugin-api").ServerPluginRegistration[]> {
   const pluginRegistry = ctx.pluginRegistry ?? createServerPluginRegistry();
   const { app, db, skillsRoot, pluginsRoot } = ctx;
   const extensionRepo = new SqliteExtensionRepository(db);
@@ -222,6 +222,7 @@ export async function registerPluginsModule(ctx: ModuleDependencies<"app" | "bui
   const hostServices = ctx.pluginHostServices ?? createPluginHostServicesFactory(db);
   const assembly = await assembleFirstPartyPlugins({
     turnRegistry: pluginRegistry,
+    apiRegistry: ctx.apiRegistry,
     // 端点与面向模型的贡献同一判据：停用、缺记录或不可用的插件一律 404
     onHttpEndpoints: createHttpEndpointSink(
       app,

@@ -169,6 +169,7 @@ export interface IConversationRepository {
        * 否则抛 FencingMismatchError（迟到的抢占执行器写入被拒绝）。
        */
       expectedFencingToken?: number | null;
+      pluginGeneration?: { pluginId: string; generation: string };
     },
   ): Promise<TurnStreamEventModel>;
   getStreamEvents(

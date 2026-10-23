@@ -14,7 +14,7 @@ import {
 import type { ModelProviderPort, ReplayStep } from "@aervox/core";
 import type { TurnLlmPort } from "@aervox/host-plugin-api";
 import type { LocalContext } from "@aervox/repositories";
-import { loadApiConfig } from "@aervox/config";
+import { loadExecutionConfig, type ExecutionConfig } from "@aervox/config";
 import type { ModelRoutingSnapshot } from "@aervox/contracts";
 import type { LLMConfigPort } from "../../ecosystem/llm/index.js";
 import type { ModelRoutingPort } from "../../ecosystem/llm/index.js";
@@ -57,18 +57,8 @@ export function createLLMCallable(provider: ModelProviderPort): TurnLlmPort {
   };
 }
 
-/** 参数规范化哈希：key 排序，保证等价 JSON 命中同一授权 */
-export function stableStringify(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
-  if (value !== null && typeof value === "object") {
-    const obj = value as Record<string, unknown>;
-    return `{${Object.keys(obj)
-      .sort()
-      .map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`)
-      .join(",")}}`;
-  }
-  return JSON.stringify(value);
-}
+// Persisted approvals use Core canonical JSON; JSON inputs preserve historic hashes.
+export { stableSerialize as stableStringify } from "@aervox/core";
 
 /**
  * Loop 模型 Provider 构建（Leader 与 5c 子任务共用）。
@@ -79,6 +69,7 @@ export async function buildLoopProvider(
   ctx: LocalContext,
   llmConfigService?: LLMConfigPort,
   options: {
+    executionConfig?: ExecutionConfig;
     requireLocalOnly?: boolean;
     sessionId?: string;
     turnId?: string;
@@ -93,7 +84,7 @@ export async function buildLoopProvider(
 ): Promise<ModelProviderPort> {
   // 缺陷 E：Provider 选择经 @aervox/config 集中解析（AERVOX_LOOP_PROVIDER 启动期枚举校验）；
   // 每次调用读取，避免模块级缓存导致测试/配置热变失效。
-  const apiConfig = loadApiConfig();
+  const apiConfig = options.executionConfig ?? loadExecutionConfig();
   const { loopProvider: mode } = apiConfig;
   if (mode === "replay") return createReplayProvider();
   if (mode === "scripted") return createScriptedProvider(API_TOOL_SCRIPT);

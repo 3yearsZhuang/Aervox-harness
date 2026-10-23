@@ -10,7 +10,7 @@
  */
 import { effectScope, ref, watch, type Component } from 'vue';
 import { BookOpen, Puzzle } from 'lucide-vue-next';
-import { useWorkbenchContext, type WorkbenchContext } from '@aervox/ui/plugin-api';
+import { useUIPluginContext, type UIPluginContext } from '@aervox/ui/plugin-api';
 
 /** 插件 id（与 Manifest / 服务端注册单元一致；仅本插件内部使用） */
 export const PLUGIN_ID = 'focus-mode';
@@ -54,21 +54,21 @@ function readLegacyHostEnabled(): boolean | undefined {
   }
 }
 
-const instances = new WeakMap<WorkbenchContext, ReturnType<typeof createFocusModeState>>();
+const instances = new WeakMap<UIPluginContext, ReturnType<typeof createFocusModeState>>();
 
-export function useFocusModeState(context: WorkbenchContext = useWorkbenchContext()) {
+export function useFocusModeState(context: UIPluginContext = useUIPluginContext()) {
   let state = instances.get(context);
   if (!state) { state = createFocusModeState(context); instances.set(context, state); }
   state.connect();
   return state;
 }
 
-export function disposeFocusModeState(context: WorkbenchContext): void {
+export function disposeFocusModeState(context: UIPluginContext): void {
   instances.get(context)?.dispose();
   instances.delete(context);
 }
 
-function createFocusModeState(context: WorkbenchContext) {
+function createFocusModeState(context: UIPluginContext) {
 /** 专注模式开关（持久化于宿主插件状态命名空间） */
 const focusModeEnabled = ref(false);
 
@@ -80,8 +80,9 @@ const activeLearningView = ref<'study' | 'mistake'>('study');
   const scope = effectScope(true);
   let connected = false;
   let disposed = false;
+  let releasePreset: (() => void) | undefined;
   function connect() {
-    if (connected || disposed || !context?.pluginState || !context.layout) return;
+    if (connected || disposed || !context?.pluginState || !context.navigation) return;
     connected = true;
     if (context.pluginState.read<boolean | undefined>(PLUGIN_ID, 'enabled', undefined) === undefined) {
       const legacy = readLegacyHostEnabled();
@@ -93,10 +94,15 @@ const activeLearningView = ref<'study' | 'mistake'>('study');
       watch(persisted, value => { focusModeEnabled.value = value; }, { flush: 'sync' });
       watch(focusModeEnabled, value => {
         persisted.value = value;
-        applyFocusModeSurfaces(context, value);
+        applySurfaces(value);
       }, { flush: 'sync' });
     });
-    applyFocusModeSurfaces(context, persisted.value);
+    applySurfaces(persisted.value);
+  }
+  function applySurfaces(enabled: boolean) {
+    context.navigation?.setQuietStartup?.(enabled);
+    if (enabled && !releasePreset) releasePreset = context.cards?.acquireSlotPreset?.(PLUGIN_ID, FOCUS_CARD_PRESET);
+    if (!enabled) { releasePreset?.(); releasePreset = undefined; }
   }
   function setFocusModeEnabled(enabled: boolean) { if (!disposed) focusModeEnabled.value = enabled; }
   function toggleFocusMode() { setFocusModeEnabled(!focusModeEnabled.value); }
@@ -111,7 +117,7 @@ const activeLearningView = ref<'study' | 'mistake'>('study');
     scope.stop();
     learningOpen.value = false;
     // 释放本实例的表现诉求，保留用户持久化开关。
-    applyFocusModeSurfaces(context, false);
+    applySurfaces(false);
   }
   return { focusModeEnabled, learningOpen, activeLearningView, setFocusModeEnabled, toggleFocusMode, openLearningView, connect, dispose };
 }
@@ -122,15 +128,3 @@ const activeLearningView = ref<'study' | 'mistake'>('study');
  * 但**预设清单由插件自述**，宿主不硬编码任何插件卡片 id（CR-060）。
  */
 const FOCUS_CARD_PRESET: Array<string | null> = ['study', 'timer'];
-
-/**
- * 把开关的副作用收敛到一处：启动期静默诉求 + 宿主通用槽位预设。
- * 宿主只提供领域中立接缝，语义全部由插件自述。
- */
-function applyFocusModeSurfaces(context: WorkbenchContext, enabled: boolean): void {
-  // 专注模式下请求宿主启动期静默（不弹打扰面板），经通用接缝表达
-  context.layout?.setQuietStartup?.(enabled);
-  if (enabled) context.cards?.applySlotPreset?.(FOCUS_CARD_PRESET);
-  else context.cards?.restoreSlotPreset?.();
-}
-

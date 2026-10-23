@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import { ArrowRight, GraduationCap } from 'lucide-vue-next';
 import { AervoxButton, AervoxCard } from '@aervox/ui/primitives';
-import { useWorkbenchContext } from '@aervox/ui/plugin-api';
+import { useUIPluginContext } from '@aervox/ui/plugin-api';
 import { useFocusModeState } from './plugin-state';
 const { openLearningView } = useFocusModeState();
 
-const { layout, cards } = useWorkbenchContext();
+const { navigation, cards } = useUIPluginContext();
 
 function goToReview() {
-  if (layout) layout.taskCenterOpen.value = false;
+  navigation.closeTaskCenter();
   openLearningView('mistake');
 }
 
 function goToStudy() {
-  if (layout) layout.taskCenterOpen.value = false;
+  navigation.closeTaskCenter();
   openLearningView('study');
 }
 </script>
@@ -26,8 +26,8 @@ function goToStudy() {
       </div>
       <div class="task-card-meta">
         <h4>间隔复习与错题排期</h4>
-        <span class="aervox-badge task-status-tag" :class="{ 'tag-active': (cards?.syncReviewCount?.value ?? 0) > 0 }">
-          {{ (cards?.syncReviewCount?.value ?? 0) > 0 ? `${cards.syncReviewCount.value} 个待复习` : '今日已全部完成' }}
+        <span class="aervox-badge task-status-tag" :class="{ 'tag-active': (cards?.reviewCount?.value ?? 0) > 0 }">
+          {{ (cards?.reviewCount?.value ?? 0) > 0 ? `${cards.reviewCount.value} 个待复习` : '今日已全部完成' }}
         </span>
       </div>
     </div>

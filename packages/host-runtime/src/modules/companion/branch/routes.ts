@@ -29,20 +29,13 @@ export function registerBranchRoutes(
 
     if (input.childSessionId === sessionId) return reply.status(400).send({ error: "branch_requires_distinct_sessions" });
     try {
-      const parent = await conversationRepo.getSession(ctx, sessionId);
-      if (!parent) return reply.status(404).send({ error: "Parent session not found" });
-      // An existing child keeps its creation boundary; a new child inherits it from the parent.
-      await conversationRepo.getOrCreateSession(
-        ctx, input.childSessionId, input.title ?? parent.title, parent.projectId, parent.executionPolicy,
-      );
-      return await conversationRepo.createConversationBranch(ctx, {
-        id: nextId(),
-        parentSessionId: sessionId,
-        childSessionId: input.childSessionId,
-        forkAtMessageId: input.forkAtMessageId,
-        title: input.title,
-        branchReason: input.branchReason,
+      const branch = await conversationRepo.createExplorationBranch(ctx, {
+        id: nextId(), parentSessionId: sessionId,
+        childSessionId: input.childSessionId, forkAtMessageId: input.forkAtMessageId,
+        title: input.title, branchReason: input.branchReason,
       });
+      if (!branch) return reply.status(404).send({ error: "Parent session not found" });
+      return branch;
     } catch (error) {
       if (error instanceof Error && error.message.startsWith("conversation_execution_policy_")) {
         return reply.status(400).send({ error: error.message });

@@ -6,59 +6,11 @@
  * Provider 缝隙：PlanModelPort 由装配层注入——llm 模式走 OpenAI 兼容 provider，
  * replay/scripted 等非 LLM 模式走确定性模板（诚实降级，输出标注 template）。
  */
-import { createOpenAICompatProvider } from "@aervox/core";
-import type { ModelProviderPort, ModelRequest } from "@aervox/core";
-import type { AervoxDatabase, LocalContext, LearningPlanModel } from "@aervox/repositories";
-import type { ILearningRepository } from "@aervox/repositories";
-import type { LLMConfigPort } from "../../ecosystem/llm/index.js";
+import type { LocalContext, LearningPlanModel } from "@aervox/repositories";
+import type { LearningPlanPort } from "@aervox/repositories";
+import type { ModelGenerationPort } from "../../ecosystem/llm/index.js";
 
-/** 单次规划生成的模型端口（宿主注入；测试注入确定性实现） */
-export interface PlanModelPort {
-  generate(input: {
-    tenant: LocalContext;
-    system: string;
-    user: string;
-  }): Promise<string>;
-}
-
-/** LLM 模式端口：租户配置 → OpenAI 兼容 provider，消费流式输出拼接全文 */
-export function createLlmPlanModelPort(llmConfigService: LLMConfigPort): PlanModelPort {
-  return {
-    async generate({ tenant, system, user }) {
-      const cfg = await llmConfigService.getConfig(tenant);
-      if (!cfg.enabled) throw new Error("llm_disabled: 当前租户未启用 LLM 配置，无法生成学习规划");
-      if (cfg.providerType === "anthropic") {
-        throw new Error("anthropic_unsupported: 学习规划生成仅支持 OpenAI 兼容协议");
-      }
-      const provider: ModelProviderPort = createOpenAICompatProvider({
-        baseUrl: cfg.baseUrl,
-        apiKey: cfg.apiKey,
-        modelId: cfg.modelId,
-        temperature: cfg.temperature,
-        maxTokens: cfg.maxTokens,
-      });
-      const request: ModelRequest = {
-        turnId: "plan_generation",
-        attemptId: `plan_${Date.now().toString(36)}`,
-        step: 1,
-        context: {
-          turnId: "plan_generation",
-          sessionId: "plan_generation",
-          messages: [
-            { role: "system", content: system },
-            { role: "user", content: user },
-          ],
-        },
-      };
-      let text = "";
-      for await (const chunk of provider.stream(request)) {
-        text += chunk.text ?? "";
-      }
-      if (!text.trim()) throw new Error("llm_empty_output: 模型未返回学习规划内容");
-      return text;
-    },
-  };
-}
+export type PlanModelPort = ModelGenerationPort;
 
 const LEVEL_LABELS: Record<string, string> = {
   beginner: "入门（零基础或刚接触）",
@@ -362,9 +314,9 @@ export interface LearningPlanGenerationResult {
 export class LearningPlanGenerationService {
   constructor(
     private readonly deps: {
-      db: AervoxDatabase;
-      learningRepo: ILearningRepository;
-      model: PlanModelPort;
+      learningRepo: Pick<LearningPlanPort, "createLearningPlan">;
+      model: PlanModelPort | null;
+      useModel?: boolean;
     },
   ) {}
 
@@ -376,8 +328,7 @@ export class LearningPlanGenerationService {
     const level = input.level ?? "beginner";
     const dailyMinutes = input.dailyMinutes ?? 25;
 
-    const mode = process.env.AERVOX_LOOP_PROVIDER ?? "llm";
-    if (mode !== "llm") {
+    if (this.deps.useModel === false || !this.deps.model) {
       const template = renderTemplatePlan({ topic: input.topic, level, dailyMinutes });
       const hydrated = hydratePlan(template, { topic: input.topic, level, dailyMinutes });
       const plan = await this.deps.learningRepo.createLearningPlan(tenant, hydrated);
@@ -388,7 +339,7 @@ export class LearningPlanGenerationService {
     const basePrompt = buildPlanUserPrompt(input.topic, level, dailyMinutes);
 
     const attempt = async (prompt: string): Promise<unknown> => {
-      const raw = await this.deps.model.generate({ tenant, system, user: prompt });
+      const raw = await this.deps.model!.generate({ context: tenant, system, user: prompt });
       return extractJsonObject(raw);
     };
 

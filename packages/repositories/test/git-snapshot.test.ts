@@ -1,54 +1,34 @@
-/**
- * Aervox｜思隅 @aervox/repositories — T-09 Git 快照导出/恢复测试
- */
 import { describe, expect, it } from "vitest";
-import { createInMemoryDatabase, initDatabaseSchema } from "../src/index.js";
-import { exportSnapshot, restoreSnapshot, snapshotFileName } from "../src/sync/git-snapshot.js";
+import { createInMemoryDatabase } from "../src/index.js";
+import { exportSnapshot, restoreSnapshotToEmptyStaging, snapshotFileName } from "../src/sync/git-snapshot.js";
 
-describe("T-09 数据版本快照", () => {
-  it("导出全库快照 → 修改 → 恢复 → 数据复原", async () => {
-    const db1 = await createInMemoryDatabase();
-    await initDatabaseSchema(db1.client);
+describe("logical snapshots", () => {
+  it("round trips parent and child rows without cascade deletion, excludes all virtual/shadow tables", async () => {
+    const source = await createInMemoryDatabase(), target = await createInMemoryDatabase();
     try {
-      // 写入一行数据
-      await db1.client.execute({
-        sql: `INSERT INTO sessions(id, title, created_at, updated_at) VALUES (?, ?, ?, ?)`,
-        args: ["s1", "snapshot session", "2026-08-26T00:00:00.000Z", "2026-08-26T00:00:00.000Z"],
-      });
-
-      // 导出快照
-      const snapshot = await exportSnapshot(db1.client, 1);
-      expect(snapshot.tables["sessions"]).toHaveLength(1);
-      expect(snapshot.tables["sessions"]![0]!.title).toBe("snapshot session");
-
-      // 序列化 → 反序列化（模拟 git 落盘再读回）
-      const json = JSON.stringify(snapshot);
-      const parsed = JSON.parse(json) as Parameters<typeof restoreSnapshot>[1];
-
-      // 清库
-      await db1.client.execute(`DELETE FROM sessions`);
-
-      // 恢复
-      await restoreSnapshot(db1.client, parsed);
-      const after = await db1.client.execute(`SELECT * FROM sessions`);
-      expect(after.rows).toHaveLength(1);
-      expect(String(after.rows[0]!.title)).toBe("snapshot session");
-    } finally {
-      await db1.cleanup();
-    }
+      await source.client.execute("INSERT INTO sessions(id,title,created_at,updated_at) VALUES ('s','session','t','t')");
+      await source.client.execute("INSERT INTO turns(id,session_id,idempotency_key,status,created_at,updated_at) VALUES ('t','s','i','Completed','t','t')");
+      await source.client.execute("INSERT INTO messages(id,session_id,role,current_version_id,created_at) VALUES ('m','s','user','mv','t')");
+      await source.client.execute("INSERT INTO message_versions(id,turn_id,message_id,role,content,created_at) VALUES ('mv','t','m','user','retained','t')");
+      await source.client.execute("CREATE VIRTUAL TABLE custom_search USING fts5(content)");
+      const snapshot = JSON.parse(JSON.stringify(await exportSnapshot(source.client, 1)));
+      expect(Object.keys(snapshot.tables).some((table) => table.includes("fts") || table.includes("custom_search"))).toBe(false);
+      expect(snapshot.tables._aervox_schema_versions).toBeUndefined();
+      await restoreSnapshotToEmptyStaging(target.client, snapshot);
+      expect((await target.client.execute("SELECT content FROM message_versions")).rows[0]?.content).toBe("retained");
+      expect((await target.client.execute("PRAGMA foreign_key_check")).rows).toEqual([]);
+      await expect(restoreSnapshotToEmptyStaging(target.client, snapshot)).rejects.toThrow("must be empty");
+    } finally { await source.cleanup(); await target.cleanup(); }
   });
-
-  it("快照文件名约定稳定", () => {
-    expect(snapshotFileName(3)).toBe("snapshot-v3.json");
-  });
-
-  it("迁移 journal 表不参与导出", async () => {
-    const db1 = await createInMemoryDatabase();
+  it("rolls back the entire staging import on a broken foreign key", async () => {
+    const target = await createInMemoryDatabase();
     try {
-      const snapshot = await exportSnapshot(db1.client, 1);
-      expect(snapshot.tables["_migration_journal"]).toBeUndefined();
-    } finally {
-      await db1.cleanup();
-    }
+      await expect(restoreSnapshotToEmptyStaging(target.client, { version: 1, exportedAt: "t", tables: {
+        sessions: [{ id: "s", title: "parent", created_at: "t", updated_at: "t" }],
+        turns: [{ id: "broken", session_id: "missing", idempotency_key: "i", status: "Completed", created_at: "t", updated_at: "t" }],
+      } })).rejects.toThrow("foreign key check");
+      expect((await target.client.execute("SELECT * FROM sessions")).rows).toEqual([]);
+    } finally { await target.cleanup(); }
   });
+  it("keeps file identity stable", () => expect(snapshotFileName(3)).toBe("snapshot-v3.json"));
 });

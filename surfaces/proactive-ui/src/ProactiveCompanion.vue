@@ -10,9 +10,10 @@
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, type Component } from 'vue';
 import { useUISurfaceContext } from '@aervox/ui-host';
-import { AervoxBrandMark, PetWithFallback, readCompanionIdentity } from '@aervox/ui';
-import { getTransport, useAervoxSessions } from '@aervox/api-client';
+import { AervoxBrandMark, PetWithFallback, UserQuestionComposer, readCompanionIdentity } from '@aervox/ui';
+import { createConversationController, getTransport, useAervoxSessions } from '@aervox/api-client';
 import { ArrowUpRight, MessageSquare, RotateCcw, Settings, Square, X } from 'lucide-vue-next';
+import type { AskUserQuestionAnswerItem } from '@aervox/contracts';
 import { useDialogueTyper } from './dialogue-typer';
 import MobileSettingsDialog from './MobileSettingsDialog.vue';
 
@@ -62,135 +63,99 @@ interface FailedTurn {
   idempotencyKey?: string;
 }
 const failedTurn = ref<FailedTurn>();
-let activeTurn: { controller: AbortController; turnId?: string; stopRequested: boolean; cancelSent: boolean } | undefined;
-
-function createSubmissionKey() {
-  // getRandomValues also works on a local-network HTTP origin where randomUUID is unavailable.
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
-}
-
-async function cancelActiveTurn(turn: NonNullable<typeof activeTurn>) {
-  if (!turn.turnId || turn.cancelSent) return;
-  turn.cancelSent = true;
-  try {
-    await getTransport().request('POST', `/v1/turns/${encodeURIComponent(turn.turnId)}/cancel`, {}, { signal: surface.signal });
-    turn.controller.abort();
-    if (activeTurn === turn && !surface.signal.aborted) {
-      finish();
-      waitingForReply.value = false;
-      turnFeedback.value = { kind: 'stopped', message: '已停止回复。' };
-    }
-  } catch {
-    turn.cancelSent = false;
-    turn.stopRequested = false;
-    if (activeTurn === turn && !surface.signal.aborted) {
-      turnFeedback.value = { kind: 'cancel-error', message: '停止失败，回复仍在继续。可以再试一次。' };
-    }
-  } finally {
-    if (activeTurn === turn) stopping.value = false;
-  }
-}
+const turnController = createConversationController(getTransport(), surface.signal);
+const conversationState = ref(turnController.state);
+const unsubscribeConversation = turnController.subscribe(state => { conversationState.value = state; });
+const interactionBusy = ref(false);
+let stopPreparing = false;
 
 async function stopTurn() {
-  const turn = activeTurn;
-  if (!turn || stopping.value) return;
+  if (!sending.value || stopping.value) return;
   stopping.value = true;
-  turn.stopRequested = true;
+  stopPreparing = true;
   turnFeedback.value = undefined;
-  // Stop before acceptance still cancels the accepted server turn once its id arrives.
-  if (turn.turnId) await cancelActiveTurn(turn);
+  try {
+    await turnController.stop();
+    if (turnController.state.status === 'stopped') {
+      finish(); waitingForReply.value = false;
+      turnFeedback.value = {kind: 'stopped', message: '已停止回复。'};
+    }
+  } catch {
+    stopPreparing = false;
+    turnFeedback.value = {kind: 'cancel-error', message: '停止失败，回复仍在继续。可以再试一次。'};
+  } finally { stopping.value = false; }
 }
 
-function reportConnectionError(failed: FailedTurn, receivedReply: boolean) {
-  if (surface.signal.aborted) return;
-  finish();
-  waitingForReply.value = false;
-  failedTurn.value = failed;
-  turnFeedback.value = {
-    kind: 'connection-error',
-    message: receivedReply ? '连接中断，已保留收到的回复。' : '未能收到回复，请重试。',
+function dialogueCallbacks(previousContext: string) {
+  let receivedReply = false;
+  return {
+    get hasReply() { return receivedReply; },
+    onDelta(text: string) {
+      if (surface.signal.aborted || !text) return;
+      if (!receivedReply) { say(''); receivedReply = true; waitingForReply.value = false; }
+      appendDelta(text);
+    },
+    onDone() {
+      if (surface.signal.aborted) return;
+      finish(); waitingForReply.value = false;
+      dialogueCtx.value = receivedReply ? companionName.value + ' · 刚刚回复' : previousContext;
+      turnFeedback.value = receivedReply ? undefined : {kind: 'completed', message: '本次回复已完成。'};
+    },
+    onError(error: unknown) { throw error; },
+    onUserQuestion() { finish(); waitingForReply.value = false; dialogueCtx.value = '等待你的回答'; },
+    onToolApproval() { finish(); waitingForReply.value = false; dialogueCtx.value = '等待工具授权'; },
   };
 }
 
 async function sendTurn(content: string, source: 'suggestion' | 'whisper' = 'suggestion', retry?: FailedTurn) {
   if (sending.value || surface.signal.aborted) return false;
-  sending.value = true;
-  waitingForReply.value = true;
-  turnFeedback.value = undefined;
-  failedTurn.value = undefined;
-  finish();
+  sending.value = true; waitingForReply.value = true; stopPreparing = false;
+  turnFeedback.value = undefined; failedTurn.value = undefined; finish();
   const previousContext = dialogueCtx.value;
-  let receivedReply = false;
-  let terminalError = false;
-  let submission: FailedTurn = { content, source };
-  const turn = { controller: new AbortController(), stopRequested: false, cancelSent: false, turnId: undefined as string | undefined };
-  activeTurn = turn;
-  const signal = AbortSignal.any([surface.signal, turn.controller.signal]);
-  function identifyTurn(turnId: string) {
-    turn.turnId ??= turnId;
-    if (turn.stopRequested) return cancelActiveTurn(turn);
-  }
+  let submission: FailedTurn = {content, source};
+  const callbacks = dialogueCallbacks(previousContext);
   try {
-    if (!sessions.sessions.value.some(session => session.id === sessions.activeSessionId.value)) {
-      await sessions.createNewSession();
-    }
-    signal.throwIfAborted();
-    if (turn.stopRequested) {
-      turnFeedback.value = { kind: 'stopped', message: '已停止回复。' };
-      return false;
-    }
+    if (!sessions.sessions.value.some(session => session.id === sessions.activeSessionId.value)) await sessions.createNewSession();
+    surface.signal.throwIfAborted();
+    if (stopPreparing) { turnFeedback.value = {kind: 'stopped', message: '已停止回复。'}; return false; }
     const sessionId = sessions.activeSessionId.value;
-    // Only an explicit retry of the same uncertain submission reuses its reservation.
-    const idempotencyKey = retry?.content === content && retry.source === source && retry.sessionId === sessionId
-      ? retry.idempotencyKey ?? createSubmissionKey()
-      : createSubmissionKey();
-    submission = { content, source, sessionId, idempotencyKey };
+    const idempotencyKey = retry?.content === content && retry.source === source && retry.sessionId === sessionId ? retry.idempotencyKey : undefined;
+    submission = {content, source, sessionId, idempotencyKey};
     dialogueCtx.value = '正在回复';
-    await getTransport().streamTurn(sessionId, content, {
-      onTurnIdentified: identifyTurn,
-      onDelta: text => {
-        if (activeTurn !== turn || signal.aborted || !text) return;
-        if (!receivedReply) {
-          say('');
-          receivedReply = true;
-          waitingForReply.value = false;
-        }
-        appendDelta(text);
-      },
-      onDone: () => {
-        if (activeTurn !== turn || signal.aborted) return;
-        finish();
-        waitingForReply.value = false;
-        dialogueCtx.value = receivedReply ? companionName.value + ' · 刚刚回复' : previousContext;
-        turnFeedback.value = receivedReply ? undefined : { kind: 'completed', message: '本次回复已完成。' };
-      },
-      onError: err => { terminalError = true; throw err; },
-    }, { signal, onAccepted: identifyTurn, idempotencyKey, metadata: { ...identity } });
-    return !signal.aborted;
-  } catch (err) {
-    if (activeTurn === turn && !signal.aborted) {
-      if (!terminalError && (turn.turnId || surface.platform === 'desktop')) {
-        finish();
-        waitingForReply.value = false;
-        turnFeedback.value = {
-          kind: 'observer-error',
-          message: '连接中断，原请求可能仍在处理。可在完整工作台查看。',
-        };
+    await turnController.submit(sessionId, content, callbacks, {
+      signal: surface.signal, idempotencyKey,
+      metadata: {...identity},
+    });
+    if (turnController.state.status === 'stopped') turnFeedback.value = {kind: 'stopped', message: '已停止回复。'};
+    return turnController.state.status !== 'stopped';
+  } catch {
+    if (!surface.signal.aborted) {
+      finish(); waitingForReply.value = false;
+      if (turnController.state.status === 'observer-error') {
+        turnFeedback.value = {kind: 'observer-error', message: '连接中断，原请求可能仍在处理。可在完整工作台查看。'};
       } else {
-        reportConnectionError({ ...submission, idempotencyKey: terminalError ? undefined : submission.idempotencyKey }, receivedReply);
+        // Controller.retry owns uncertain submissions and their idempotency reservation.
+        failedTurn.value = submission;
+        turnFeedback.value = {kind: 'connection-error', message: callbacks.hasReply ? '连接中断，已保留收到的回复。' : '未能收到回复，请重试。'};
       }
     }
     return false;
-  } finally {
-    if (activeTurn === turn) {
-      activeTurn = undefined;
-      sending.value = false;
-      stopping.value = false;
-      waitingForReply.value = false;
-      if (!receivedReply) dialogueCtx.value = previousContext;
-    }
-  }
+  } finally { sending.value = false; stopping.value = false; waitingForReply.value = false; }
+}
+
+async function answerQuestion(answers: AskUserQuestionAnswerItem[]) {
+  if (interactionBusy.value) return;
+  interactionBusy.value = true;
+  try { await turnController.answer(answers); }
+  catch { turnFeedback.value = {kind: 'connection-error', message: '回答没有保存，请重试。'}; }
+  finally { interactionBusy.value = false; }
+}
+async function decideApproval(decision: 'granted' | 'denied') {
+  if (interactionBusy.value || sending.value) return;
+  interactionBusy.value = true; sending.value = true;
+  try { await turnController.decide(decision, dialogueCallbacks(dialogueCtx.value)); }
+  catch { turnFeedback.value = {kind: 'observer-error', message: '授权或续跑连接失败，可在完整工作台查看。'}; }
+  finally { interactionBusy.value = false; sending.value = false; }
 }
 
 const suggestions = computed<Suggestion[]>(() => {
@@ -268,10 +233,27 @@ async function sendWhisper(retry?: FailedTurn) {
 async function retryTurn() {
   const failed = failedTurn.value;
   if (!failed || sending.value) return;
-  if (failed.source === 'whisper') {
-    await openWhisper();
-    await sendWhisper(failed);
-  } else await sendTurn(failed.content, failed.source, failed);
+  const content = failed.source === 'whisper' ? whisperText.value.trim() : failed.content;
+  if (content !== failed.content || failed.sessionId !== sessions.activeSessionId.value) {
+    if (failed.source === 'whisper') await sendWhisper();
+    else await sendTurn(content, failed.source);
+    return;
+  }
+  sending.value = true; waitingForReply.value = true; turnFeedback.value = undefined;
+  try {
+    await turnController.retry(dialogueCallbacks(dialogueCtx.value));
+    failedTurn.value = undefined;
+    if (failed.source === 'whisper' && whisperText.value.trim() === failed.content) { whisperText.value = ''; closeWhisper(); }
+  } catch (error) {
+    if (error instanceof Error && error.message === 'submission_not_retryable') {
+      sending.value = false;
+      if (failed.source === 'whisper') await sendWhisper();
+      else await sendTurn(failed.content, failed.source);
+    } else if (!surface.signal.aborted) {
+      turnFeedback.value = {kind: turnController.state.status === 'observer-error' ? 'observer-error' : 'connection-error', message: '连接失败，请稍后重试。'};
+      if (turnController.state.status === 'observer-error') failedTurn.value = undefined;
+    }
+  } finally { sending.value = false; waitingForReply.value = false; }
 }
 
 /* ---------- 回到默认工作台（逃生口） ---------- */
@@ -309,6 +291,7 @@ onMounted(() => {
   window.visualViewport?.addEventListener('scroll', syncViewport);
 });
 onBeforeUnmount(() => {
+  unsubscribeConversation(); turnController.dispose();
   finish();
   window.removeEventListener('resize', syncViewport);
   window.visualViewport?.removeEventListener('resize', syncViewport);
@@ -363,6 +346,15 @@ onBeforeUnmount(() => {
         <button v-else-if="turnFeedback.kind === 'observer-error'" type="button" class="pc-workbench-link pc-feedback-action" @click="backToDefaultSurface"><ArrowUpRight :size="14" aria-hidden="true" />查看完整工作台</button>
         <button v-else-if="turnFeedback.kind === 'cancel-error' && sending" type="button" class="pc-retry pc-feedback-action" :disabled="stopping" @click="stopTurn">重试停止</button>
       </div>
+    </section>
+
+    <section v-if="conversationState.question" class="pc-interaction" aria-label="回答问题">
+      <UserQuestionComposer :question-data="conversationState.question" :submitting="interactionBusy" @submit="answerQuestion" />
+    </section>
+    <section v-if="conversationState.approval" class="pc-interaction" aria-label="工具授权">
+      <p>请求执行 {{ conversationState.approval.toolName }}，需要你的确认。</p>
+      <button type="button" :disabled="interactionBusy || sending" @click="decideApproval('granted')">批准</button>
+      <button type="button" :disabled="interactionBusy || sending" @click="decideApproval('denied')">拒绝</button>
     </section>
 
     <section v-if="!whisperOpen" class="pc-choices" aria-label="今日建议">

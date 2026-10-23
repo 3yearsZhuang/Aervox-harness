@@ -5,6 +5,10 @@ export { useAervoxFeedback } from './useAervoxFeedback';
 export { useAervoxBranches, type ConversationBranchDto } from './useAervoxBranches';
 export { useAervoxBots } from './useAervoxBots';
 export {
+  createConversationController,
+  type ConversationController,
+  type ConversationState,
+  type ObserveTurnOptions,
   configureAervoxClient,
   getTransport,
   getPlatformServices,
@@ -38,6 +42,8 @@ export {
 export {
   useAervoxApi,
   type GoalDto,
+  type PracticeSessionDto,
+  type PracticeReportDto,
   type ReviewItemDto,
   type LearningPlanDto,
   type PlanMilestoneDto,
@@ -135,3 +141,7 @@ export {
 } from './voice-input-recorder';
 
 export * from './useAervoxTurnDiagnostics.js';
+
+export type { LearningStorePort, GoalStorePort, ReviewStorePort, PracticeStorePort, PlanStorePort, MistakeStorePort, ResourceStatePort } from './learning-store-port.js';
+
+export { createGoalStore, createReviewStore, createPracticeStore, createPlanStore, createMistakeStore } from './learning-stores.js';

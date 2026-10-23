@@ -6,12 +6,8 @@
  *
  * 这里只导出**通用**契约——不含任何具体插件的字段、组件或配置键。
  */
-export {
-  WORKBENCH_CONTEXT_KEY,
-  provideWorkbenchContext,
-  useWorkbenchContext,
-} from './composables/workbench-context';
-export type { WorkbenchContext } from './composables/workbench-context';
+export { useUIPluginContext, UI_PLUGIN_CONTEXT_KEY } from './composables/ui-plugin-context';
+export type { UIPluginContext } from './composables/ui-plugin-context';
 
 export { createPluginEventBus } from './composables/plugin-events';
 export type { PluginEventBus, PluginEventHandler, PluginEventType } from './composables/plugin-events';

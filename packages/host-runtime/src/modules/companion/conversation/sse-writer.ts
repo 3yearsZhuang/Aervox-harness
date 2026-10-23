@@ -1,3 +1,4 @@
+import { projectSafeEventData, type PluginApiRegistry } from "@aervox/contracts";
 import type { TurnStreamEventModel } from "@aervox/repositories";
 
 /** Local connection protection, not a Turn deadline or a payload quota. */
@@ -17,11 +18,11 @@ export class SseWriteError extends Error {
   constructor(readonly code: "sse_closed" | "sse_drain_timeout") { super(code); }
 }
 
-export function encodeSseEvent(ev: TurnStreamEventModel): string {
+export function encodeSseEvent(ev: TurnStreamEventModel, registry?: PluginApiRegistry): string {
   return `id: ${ev.id}\ndata: ${JSON.stringify({
     eventId: ev.id, turnId: ev.turnId, sequence: ev.sequence,
     eventType: ev.eventType, payloadVersion: ev.payloadVersion,
-    occurredAt: ev.occurredAt, data: ev.data,
+    occurredAt: ev.occurredAt, data: projectSafeEventData(ev.eventType, ev.data, registry),
   })}\n\n`;
 }
 

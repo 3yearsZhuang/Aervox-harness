@@ -61,7 +61,7 @@ describe("Worker 复习到期提醒", () => {
     await seedDueItems();
     const batchRelations = vi.spyOn(learningRepo, "listKnowledgeRelationsForKnowledgeIds");
     const singleRelations = vi.spyOn(learningRepo, "listKnowledgeRelations");
-    const context = { db, platformRepo, learningRepo, workerId: "worker-review-test" };
+    const context = { platformRepo, learningRepo, workerId: "worker-review-test" };
 
     expect(await runReviewNotificationCycle(context)).toBe(2);
     expect(batchRelations).toHaveBeenCalledTimes(1);
@@ -103,7 +103,7 @@ describe("Worker 复习到期提醒", () => {
       }
       return createAudit(context, record);
     });
-    const workerContext = { db, platformRepo, learningRepo, workerId: "worker-review-test" };
+    const workerContext = { platformRepo, learningRepo, workerId: "worker-review-test" };
 
     await expect(runReviewNotificationCycle(workerContext)).rejects.toThrow("simulated audit failure");
     expect(await db.select().from(notifications)).toHaveLength(1);

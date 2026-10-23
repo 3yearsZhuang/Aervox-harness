@@ -8,6 +8,10 @@ id: AVX-SPC-001
 
 本文是对话流式 API 和客户端行为的可执行契约。OpenAPI 3.1 描述 HTTP 资源、鉴权和错误；本文件描述 SSE 事件 envelope、状态机、重连、取消、幂等和持久化顺序。实现必须从同一份 `packages/contracts` schema 生成服务端校验、客户端类型和契约测试，不能只依赖本文件中的示例。
 
+共享行为所有权见 [ADR-030](adr/ADR-030-behavior-ownership.md)。Fetch 与 Electron 主进程共用无 Vue 的 Turn 客户端；创建与后续订阅使用同一认证配置，业务幂等键不与 IPC 请求标识混用。受理回执先交付，再按顺序交付事件；提前 EOF 不能冒充终态成功。Electron 保留凭据和受信 sender，续跑使用有类型的观察命令，由主进程构造资源地址，不扩大任意 URL 白名单。
+
+观察断线、窗口关闭和闲置错误只结束观察；用户明确取消才调用服务端取消入口。共享会话控制器分别表达等待答案、等待工具审批与真正执行完成，界面可改变呈现，不改变协议状态。
+
 客户端侧顺序与去重由[Schema 白名单](../../packages/contracts/src/stream-projection.ts)与 [TurnStreamProjector](../../packages/api-client/src/projector.ts)承载：Fetch 传输在三次连接尝试内保留同一 Turn、同一 Projector 与最后已投递事件游标，HTTP 410 明确失败而不新建 Turn，重复或乱序事件按序号丢弃；Electron IPC 复用同一 Projector，并在终态后丢弃迟到消息。服务端重放与实时读取均取持久事件，但尚未接入该白名单投影；不能由客户端过滤推定服务端已完成脱敏。
 
 本文同时保留已接受的目标要求与现行兼容行为。逐帧撤权、事件保留清理和统一事件负载等未闭合项须独立验收，不能从分页、取消或客户端回归推定完成；以下在对应章节标明差量，不降低原要求。
