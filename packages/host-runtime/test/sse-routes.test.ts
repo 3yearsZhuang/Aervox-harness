@@ -30,6 +30,10 @@ function fixture() {
   const events = [event(1), event(2), event(3)];
   const attempts = [{ id: "attempt", status: "Running" }];
   const getTurn = vi.fn(async () => ({ id: "turn" }));
+  const source = { disclosable: true, turnExists: true };
+  const isTurnStreamDisclosable = vi.fn(async () => source.disclosable && source.turnExists);
+  const eventForDisclosure = vi.fn(async (_ctx, _turnId, id) =>
+    source.disclosable ? events.find(e => e.id === id) ?? null : null);
   const highWater = vi.fn(async () => events.at(-1)?.sequence ?? 0);
   const replayState = vi.fn(async () => ({
     highWaterSequence: events.at(-1)?.sequence ?? 0,
@@ -42,6 +46,7 @@ function fixture() {
   const repo = {
     getTurn, getStreamEventHighWater: highWater, getStreamReplayState: replayState, getStreamEventsPage: page,
     getStreamEventById: vi.fn(async (_ctx, _turnId, id) => events.find(e => e.id === id) ?? null),
+    isTurnStreamDisclosable, getStreamEventForDisclosure: eventForDisclosure,
     listTurnAttempts: vi.fn(async () => attempts.map(a => ({ ...a }))),
     requestCancelTurnAttempt: vi.fn(),
   } as unknown as SqliteConversationRepository;
@@ -49,7 +54,7 @@ function fixture() {
   const logInfo = vi.fn();
   const noopObservability = createNoopObservability();
   const observability = { ...noopObservability, log: { ...noopObservability.log, info: logInfo } };
-  return { app, repo, events, attempts, getTurn, highWater, replayState, page, observability, logInfo };
+  return { app, repo, events, attempts, source, isTurnStreamDisclosable, eventForDisclosure, getTurn, highWater, replayState, page, observability, logInfo };
 }
 
 async function open(url: string, requests: ClientRequest[], cursor?: string) {
@@ -129,6 +134,68 @@ describe("SSE bounded replay over real HTTP", () => {
     const second = await open(url, requests, "ev_1"); await bounded(second.ended);
     expect(parse(second.body()).map(e => e.sequence)).toEqual([2, 3, 4]);
     expect(unsubscribe).toHaveBeenCalledTimes(2);
+  });
+
+  it("discards the rest of a cached page when its source is deleted during socket drain", async () => {
+    const f = fixture(); const blocked = deferred(); let raw!: ServerResponse; let hold = true;
+    f.page.mockImplementation(async () => ({
+      events: structuredClone(f.events), persistedDataBytes: 96, oversizedEvent: false,
+    }));
+    f.app.addHook("onRequest", async (_req, reply) => {
+      raw = reply.raw; const original = raw.write.bind(raw);
+      raw.write = ((frame: string) => {
+        const accepted = original(frame);
+        if (hold) { blocked.resolve(); return false; }
+        return accepted;
+      }) as typeof raw.write;
+    });
+    const response = await open(await start(f), requests); await bounded(blocked.promise);
+    const closed = deferred(); response.response.once("close", () => closed.resolve());
+    f.source.disclosable = false;
+    hold = false; raw.emit("drain"); await tick(120);
+    expect(parse(response.body()).map(e => e.sequence)).toEqual([1]);
+    await bounded(closed.promise);
+    expect(f.eventForDisclosure.mock.calls.map(call => call[2])).toEqual(["ev_1", "ev_2"]);
+    expect(f.page).toHaveBeenCalledOnce();
+    expect(f.attempts[0]!.status).toBe("Running");
+    expect(f.repo.requestCancelTurnAttempt).not.toHaveBeenCalled();
+    expect(f.events.map(e => e.eventType)).toEqual(["delta", "delta", "delta"]);
+  });
+
+  it("encodes the current persisted event instead of the body cached by pagination", async () => {
+    const f = fixture(); f.attempts[0]!.status = "Completed";
+    f.page.mockImplementation(async (_ctx, _turnId, options) => {
+      const cached = structuredClone(f.events.filter(e => e.sequence > options.afterSequence));
+      f.events[1]!.data = { text: "current persisted projection" };
+      return { events: cached, persistedDataBytes: 96, oversizedEvent: false };
+    });
+    const response = await open(await start(f), requests); await bounded(response.ended);
+    expect(parse(response.body())[1].data).toEqual({ text: "current persisted projection" });
+    expect(f.eventForDisclosure).toHaveBeenCalledTimes(3);
+  });
+
+  it("closes an idle stream after its source becomes unavailable without a bus event", async () => {
+    const f = fixture(); const response = await open(await start(f), requests);
+    await vi.waitFor(() => expect(parse(response.body())).toHaveLength(3));
+    const closed = deferred(); response.response.once("close", () => closed.resolve());
+    f.source.disclosable = false;
+    await bounded(closed.promise);
+    expect(parse(response.body()).map(e => e.sequence)).toEqual([1, 2, 3]);
+    expect(f.attempts[0]!.status).toBe("Running");
+    expect(f.repo.requestCancelTurnAttempt).not.toHaveBeenCalled();
+    expect(f.events.some(e => e.eventType === "done" || e.eventType === "error")).toBe(false);
+  });
+
+  it("uses the same pre-stream response for an unavailable source and an absent Turn", async () => {
+    const f = fixture(); f.source.disclosable = false;
+    const url = await start(f);
+    const unavailable = await open(url, requests); await bounded(unavailable.ended);
+    f.source.turnExists = false;
+    const absent = await open(url, requests); await bounded(absent.ended);
+    expect(unavailable.response.statusCode).toBe(404);
+    expect(unavailable.body()).toBe(absent.body());
+    expect(f.page).not.toHaveBeenCalled();
+    expect(f.eventForDisclosure).not.toHaveBeenCalled();
   });
 
   it("replays commits made while capturing the initial high-water in database order", async () => {
@@ -215,9 +282,9 @@ describe("SSE bounded replay over real HTTP", () => {
     expect(parse(response.body()).map(e => e.eventType)).toEqual(["delta"]);
   });
 
-  it("rejects late SSE registration after preClose while a Turn read is pending", async () => {
+  it("rejects late SSE registration after preClose while its source check is pending", async () => {
     const f = fixture(); const reading = deferred(); const release = deferred<void>(); const closing = deferred();
-    f.getTurn.mockImplementation(async () => { reading.resolve(); await release.promise; return { id: "turn" }; });
+    f.isTurnStreamDisclosable.mockImplementation(async () => { reading.resolve(); await release.promise; return true; });
     apps.push(f.app); registerConversationRoutes(f.app, { commands: {}, queries: f.repo } as never);
     f.app.addHook("preClose", async () => { closing.resolve(); });
     const url = `${await f.app.listen({ host: "127.0.0.1", port: 0 })}/v1/turns/turn/events`;
@@ -230,11 +297,11 @@ describe("SSE bounded replay over real HTTP", () => {
     expect(f.highWater).not.toHaveBeenCalled();
   });
 
-  it("does not register a disconnected request after its pending Turn read", async () => {
+  it("does not register a disconnected request after its pending source check", async () => {
     const f = fixture(); f.events.splice(0);
     const reading = deferred(); const release = deferred<void>(); const readDone = deferred();
-    f.getTurn.mockImplementation(async () => {
-      reading.resolve(); await release.promise; readDone.resolve(); return { id: "turn" };
+    f.isTurnStreamDisclosable.mockImplementation(async () => {
+      reading.resolve(); await release.promise; readDone.resolve(); return true;
     });
     const subscribe = vi.spyOn(turnStreamHub, "subscribe");
     const url = await start(f); const request = get(url); requests.push(request);
@@ -255,5 +322,36 @@ describe("SSE bounded replay over real HTTP", () => {
     request.on("response", response => { response.resume(); response.on("close", () => closed.resolve()); });
     await bounded(closed.promise); expect(f.page).toHaveBeenCalledOnce();
     expect(f.highWater).toHaveBeenCalledOnce();
+  });
+
+  it("does not write a disclosure query result after the client disconnects", async () => {
+    const f = fixture(); const reading = deferred(); const release = deferred();
+    const write = vi.fn();
+    f.eventForDisclosure.mockImplementationOnce(async () => {
+      reading.resolve(); await release.promise; return f.events[0]!;
+    });
+    f.app.addHook("onRequest", async (_req, reply) => {
+      const original = reply.raw.write.bind(reply.raw);
+      reply.raw.write = ((frame: string) => { write(frame); return original(frame); }) as typeof reply.raw.write;
+    });
+    const request = get(await start(f)); requests.push(request);
+    request.on("error", () => undefined);
+    await bounded(reading.promise); request.destroy(); await tick(); release.resolve(); await tick(120);
+    expect(write).not.toHaveBeenCalled();
+    expect(f.eventForDisclosure).toHaveBeenCalledOnce();
+    expect(f.repo.requestCancelTurnAttempt).not.toHaveBeenCalled();
+    expect(f.attempts[0]!.status).toBe("Running");
+  });
+
+  it("closes a failed disclosure query without changing durable events or the Attempt", async () => {
+    const f = fixture(); f.eventForDisclosure.mockRejectedValueOnce(new Error("synthetic_read_failure"));
+    const request = get(await start(f)); requests.push(request);
+    const closed = deferred(); request.on("error", () => closed.resolve());
+    request.on("response", response => { response.resume(); response.on("close", () => closed.resolve()); });
+    await bounded(closed.promise);
+    expect(f.eventForDisclosure).toHaveBeenCalledOnce();
+    expect(f.repo.requestCancelTurnAttempt).not.toHaveBeenCalled();
+    expect(f.attempts[0]!.status).toBe("Running");
+    expect(f.events.map(e => e.eventType)).toEqual(["delta", "delta", "delta"]);
   });
 });

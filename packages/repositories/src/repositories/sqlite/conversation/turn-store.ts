@@ -1,15 +1,23 @@
 /**
  * Aervox｜思隅 @aervox/repositories — Turn 生命周期与 Outbox 伴随写入 Store
  */
-import { eq, and, or, isNull, gt, inArray } from "drizzle-orm";
+import { eq, and, or, isNull, gt, inArray, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
-import { sessions, turns, messageVersions, outboxEvents, turnAttempts, agentInboxItems, type ConversationExecutionPolicy } from "@aervox/schema";
+import { sessions, turns, messages, messageVersions, outboxEvents, turnAttempts, agentInboxItems, type ConversationExecutionPolicy } from "@aervox/schema";
 import type { LocalContext } from "../../../local-context.js";
 import type { TurnModel, MessageVersionModel, TurnAcceptanceInput, TurnAcceptanceResult, TurnAttemptModel } from "../../types/index.js";
 import { withSessionLock } from "../../../session-lock.js";
 import { notifyWorkerWakeup } from "@aervox/process-coordination";
 import { normalizeTurnIntent, turnIntentHash, renderTurnIntentMessage, TurnIntentConflictError, type AcceptedTurnParameters, type NormalizedTurnIntent } from "../../../conversation-turn-intent.js";
 import { assertConversationExecutionPolicy, conversationDispatchTarget } from "../../../conversation-execution-policy.js";
+
+const deletedInputIdentity = sql<number>`EXISTS (
+  SELECT 1 FROM ${messages}
+  WHERE ${messages.deletedAt} IS NOT NULL
+    AND (${messages.id} = ${messageVersions.messageId}
+      OR ${messages.id} = ${messageVersions.id}
+      OR ${messages.currentVersionId} = ${messageVersions.id})
+)`;
 
 export class TurnStore {
   constructor(private readonly db: AervoxDatabase) {}
@@ -146,13 +154,28 @@ export class TurnStore {
   }
 
   async getTurnUserMessage(ctx: LocalContext, turnId: string): Promise<string | null> {
+    // Acceptance always writes user version 1. A deleted/redacted first input must
+    // not be replaced by a later edit or the duplicate body in its Outbox receipt.
+    // Read the body and current identity eligibility in the same SQL snapshot.
     const [found] = await this.db
-      .select({ content: messageVersions.content })
+      .select({
+        content: messageVersions.content,
+        isRedacted: messageVersions.isRedacted,
+        deleted: deletedInputIdentity,
+      })
       .from(messageVersions)
-      .where(and(eq(messageVersions.turnId, turnId), eq(messageVersions.role, "user")))
-      .orderBy(messageVersions.version)
+      .where(and(eq(messageVersions.turnId, turnId), eq(messageVersions.role, "user"), eq(messageVersions.version, 1)))
       .limit(1);
-    return found?.content ?? null;
+    return found && found.isRedacted === 0 && found.deleted === 0 ? found.content : null;
+  }
+
+  /** Source presence only: crisis redaction still permits a context-free safety response. */
+  async isTurnInputPresent(ctx: LocalContext, turnId: string): Promise<boolean> {
+    const [found] = await this.db.select({ id: messageVersions.id }).from(messageVersions).where(and(
+      eq(messageVersions.turnId, turnId), eq(messageVersions.role, "user"), eq(messageVersions.version, 1),
+      sql`${deletedInputIdentity} = 0`,
+    )).limit(1);
+    return Boolean(found);
   }
 
   /** Resume from the accepted receipt only; caller parameters and missing legacy receipts are never substituted. */

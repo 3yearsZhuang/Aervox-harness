@@ -64,6 +64,13 @@
 - **范围和反例：** 配置竞态、Page 旧代际和 Manifest 正文复制均先红后修。历史 Manifest 正文不自动清洗，来源传播与授权修订、全主动写者、全 capability 跨窗口推送和 Token 资源通道仍未闭合；真实模型/平台、业务数据迁移和发布单独验收。新提交验证结果由本条及 PR 记录，不沿用上一提交绿测。
 - **本地验证：** 新 `./aervox ci all` 退出 0，构建 32、类型 56 个任务通过；API 837、仓储 633、Host Runtime 290、Worker 156、Core 494、Host Agent 120、客户端 173、Panels 94 项通过，Host Agent 2 项既有真实模型/参考库构建跳过保留，不计通过。守卫、HLS、删除故障、Native Search/Runtime 和 64 份文档门禁通过；依赖审计 0 未审阅、2 既有审阅路径、0 过时例外。浏览器全套 19 项通过，包含新增[真实 Chromium Page 回归](e2e/ui/plugin-page-lifecycle.spec.ts)：旧 iframe 在外部停用再启用后仍连接，但 Bridge 配置读写均 409 且不改变配置，宿主刷新后新代际成功读写并持久化。该测试使用临时 SQLite、真实 API/Bridge 与 Web 设置入口，不证明 Electron、Token 资源或全 capability 撤权；提交前仅补本条记录并复验文档，精确提交的远端结果仍由 PR 保存。
 
+#### PR #324 · 首输入资格与逐帧删除接续
+
+- **受理恢复与执行：** 固定读取 User version 1，并在同一 SQL 快照检查正文及软删/脱敏资格；缺失或不可用时不从后续版本、调用方或 Outbox 正文恢复。准备、模型请求及工具检查点复验首输入存在且未软删，复用现有生命周期和终态提交；资格检查只读取最小身份，不重复物化完整输入。
+- **在线 SSE：** 窄查询在同一 SQL 快照验证 Session/Turn、策略与派发一致、首版输入存在及同 Turn 现存消息身份未软删。建流不可用统一 404；每帧重新读取当前持久事件，删除后丢弃背压页缓存，空闲轮询也关闭观察，不取消 Turn、不造终态。原历史读取接口不改变，来源恢复依当前状态判断，未引入撤权代际。
+- **范围调整：** `isRedacted` 也用于隔离固定危机求助回复的记忆用途，一律当作删除会破坏 CAP-008。受理恢复仍拒绝已脱敏输入；运行中及 SSE 的完整脱敏披露和 grant 修订须与受信固定回复一起验收，本轮不建立新权限例外。全部持久写者、历史正文/Outbox/派生清理、已物理删除的非首输入来源关联仍未闭合；查询完成至网络或后续写入仍有并发窗口，不宣称原子撤权或全链删除完成。
+- **反例与验证：** 已复现首输入删除后仍可执行、后续版本回落和独立 SQLite 进程删除后缓存页继续披露。回归覆盖准备、工具前、下一模型 Step、原子来源/事件读取、空闲轮询、查询中断连、读取失败以及固定求助回复；真实 HTTP 删除后批准返回 409，审批/Attempt/事件/工具/ModelRun 保持原状态。新的 `./aervox ci all` 退出 0，API 840、仓储 655、Host Runtime 306 项通过；构建 32、类型 56 个任务及守卫、HLS、删除故障验证、Native Search/Runtime、64 份文档门禁通过。Host Agent 120 项通过、2 项既有真实模型/参考库构建跳过保留，不计通过。提交前仅补本条记录并复验文档，精确提交远端结果由 PR 保存，不沿用上一提交或宣称整体完成。
+
 #### 随后补齐设计与行为闭环
 
 审批 revision、分支幂等和索引语义已随首批实施；第二批客户端、模型、Catalog、DTO、表约束与接单摘要已通过本地整体验证。本轮再审计补齐 Conversation Port、完成前增强及显式配置注入，统一验证结果见上方整改记录。源码确认与隔离复现的证据强度在各行区分，不能以结构整改替代入口验收。
@@ -103,7 +110,7 @@
 
 Memory 清理、独立验证、迟到写拒绝、召回资格及用途闸门已由 [PR #268](https://github.com/3yearsZhuang/Aervox-harness/pull/268)、[PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258)、[PR #259](https://github.com/3yearsZhuang/Aervox-harness/pull/259)交付；ARC-06/08、CAP-005/013/027/033。将未完成责任从历史切片恢复到活动计划，不将有限 Memory 研究推为全链证明。
 
-- **已补切片：** PR #324 接续将 ContextManifest 新写入投影为白名单请求元数据，Core 仅在进程内保留完整输入；未知形态写为 null，不自动改写历史行，具体记录见 ITER-071。
+- **已补切片：** PR #324 接续将 ContextManifest 新写入投影为白名单请求元数据，Core 仅在进程内保留完整输入；另补首输入恢复资格、执行检查点及 SSE 当前来源读取，具体记录与范围见 ITER-071。不自动改写历史行或清洗 Outbox/派生副本。
 - **下一步：** 先固化 `scope→targets`、来源→派生传播及 grant 修订绑定；显式覆盖消息/工具结果、事件、摘要、Memory、日记、附件、缓存和错误副本。历史 ContextManifest 正文清理及来源删除传播仍须闭合，不能以新写入最小化或诊断 UI 不显示正文代替全链验证。
 - **依赖与验收：** 联动 ITER-071 写者门禁、ITER-013 逐帧撤权及 ITER-010 deny 账本；数据库级唯一 sequence 约束经 ITER-011 演练。撤权/删除立即阻断用途，迟到写、重试、备份恢复均不复活；独立验证无召回、无越权动作，失败/未知 owner 不返回完成。权威边界见[隐私合同](docs/reference/DATA_PRIVACY.md#privacy-deletion-sla)及[当前限制](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-证据与适用限制)。
 
@@ -146,7 +153,8 @@ ARC-09、CAP-027。ITER-071 已撤旧快照原地恢复、由 Schema 编译目�
 ARC-05/12、FND-05/06/09，CAP-007/018。依赖 ITER-002/008 必要切片，与 ITER-071 生命周期和配置收口协同；先观测后定参数，跨进程通知/新隔离边界先 ADR。
 
 - **已交付：** [PR #316](https://github.com/3yearsZhuang/Aervox-harness/pull/316) 单读取/写入执行者、Hub 唤醒合并、终态/高水位同快照及分页重放；页最多 256 行/256 KiB data 前缀，保留至少一条超预算事件，单事件/元数据/JSON 内存仍可超预算。write=false 等 drain 最多 30 秒，连接总限 10 分钟从重放起计；断连不取消 Turn、不造终态，旧 Attempt 不截断续跑。[PR #317](https://github.com/3yearsZhuang/Aervox-harness/pull/317) 从首信号共享默认 20 秒 Worker 关闭预算，前序释放成功才显式关库；超时/异常非零，数据库关闭可能部分成功。
-- **下一步：** 优先逐帧删除/撤权和全局并发流限额，再覆盖所有 Provider 队列/取消、Host/Worker 全部写者 drain、跨进程终态及累计预算策略。ITER-007 的费用/跨重启计量和一次性授权剩余分别联动 ITER-033/010；不将异步计时器视为同步阻塞或原生强杀时限的保证。
+- **逐帧删除切片：** PR #324 在建流和逐帧发送前查询当前来源状态与持久事件，删除后不继续发送缓存页，空闲轮询也关闭观察；真实 API/独立 SQLite 进程及背压反例见 ITER-071。只覆盖首输入缺失和现存同 Turn 身份软删，完整授权/脱敏、非首输入物理删除传播及网络原子撤权不在完成声明内。
+- **下一步：** 优先完整逐帧授权/同意版本及来源传播、全局并发流限额，再覆盖所有 Provider 队列/取消、Host/Worker 全部写者 drain、跨进程终态及累计预算策略。ITER-007 的费用/跨重启计量和一次性授权剩余分别联动 ITER-033/010；不将异步计时器视为同步阻塞或原生强杀时限的保证。
 - **验收与证据：** 慢源/慢客户端/日志洪泛资源有界、停机有截止、已提交窗口可读、失败可定位，复用现有 metrics。真实慢 TCP/临时 SQLite、独立 Worker 子进程回归与精确 PR 门禁已通过；error/done、取消幂等及事件保留遵守[流式协议](docs/reference/STREAMING_PROTOCOL.md)。历史失败与样本值保留在[原计划](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation/reading/plan.md#iter-013)，不能外推生产峰值。
 
 <a id="iter-005"></a>

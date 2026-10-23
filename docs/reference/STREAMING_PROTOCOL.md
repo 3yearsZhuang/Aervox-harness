@@ -20,7 +20,7 @@ ConversationController 为三个第一方 surface 保存当前 Turn、待答问�
 
 共享终态提交为新生成的 `done` 携带权威 outcome 的 `reason`，包括 `max_steps` 与 `pending_approval`，避免失效问题被误判为仍在等待。历史已持久化的无原因 `Interrupted` 仍可能歧义，保留旧待决交互兼容；本次不回填或改写历史事件，完整跨进程恢复另行验收。
 
-客户端侧顺序与去重由[Schema 白名单](../../packages/contracts/src/stream-projection.ts)与 [TurnStreamProjector](../../packages/api-client/src/projector.ts)承载：Fetch 传输在三次连接尝试内保留同一 Turn、同一 Projector 与最后已投递事件游标，HTTP 410 明确失败而不新建 Turn，重复或乱序事件按序号丢弃；Electron IPC 复用同一 Projector，并在终态后丢弃迟到消息。服务端重放与实时读取均取持久事件，但尚未接入该白名单投影；不能由客户端过滤推定服务端已完成脱敏。
+客户端侧顺序与去重由[Schema 白名单](../../packages/contracts/src/stream-projection.ts)与 [TurnStreamProjector](../../packages/api-client/src/projector.ts)承载：Fetch 传输在三次连接尝试内保留同一 Turn、同一 Projector 与最后已投递事件游标，HTTP 410 明确失败而不新建 Turn，重复或乱序事件按序号丢弃；Electron IPC 复用同一 Projector，并在终态后丢弃迟到消息。服务端重放与实时读取均取持久事件，并在编码时使用同一字段白名单；字段投影不代替来源资格、授权和保留检查。
 
 本文同时保留已接受的目标要求与现行兼容行为。逐帧撤权、事件保留清理和统一事件负载等未闭合项须独立验收，不能从分页、取消或客户端回归推定完成；以下在对应章节标明差量，不降低原要求。
 
@@ -69,7 +69,7 @@ ConversationController 为三个第一方 surface 保存当前 Turn、待答问�
 
 服务端必须先在一个事务中写入 User `MessageVersion`、Turn、首个 Attempt、请求摘要和 Outbox，再返回成功。同键同摘要返回原资源；同键不同意图或跨 Session 返回 `409 IDEMPOTENCY_KEY_REUSED`，分别以 `reason: intent_mismatch` 或 `session_mismatch` 标识，不再次调用模型。摘要在会话政策过滤后、Inbox 合并前计算，覆盖结构化消息和附件、引用、有效 metadata、工具审批模式及服务端认证 actor；省略值使用有效默认值，对象键序不影响身份，数组保序。生成 ID、clientVersion、API/Worker 调度配置不属于业务意图，后续入队消息不改变原请求身份。
 
-旧 Turn 缺少可验证摘要时返回同一 409，`reason: intent_unavailable`；不从合并正文或当前配置猜测回填，也不自动换键重放。执行与恢复只能从摘要绑定的持久受理回执读取原始 metadata、审批模式和 actor，不能由 Worker 投递或调用方补造；回执缺失、被改或旧记录缺少摘要时拒绝自动执行，保留现有记录供检查。本轮仅覆盖 HTTP/Bot 共享的 `acceptTurn`，子任务 `createTurnWithAttempt` 与父执行键复用不据此宣称完成意图绑定。
+旧 Turn 缺少可验证摘要时返回同一 409，`reason: intent_unavailable`；不从合并正文或当前配置猜测回填，也不自动换键重放。执行与恢复只能从摘要绑定的持久受理回执读取原始 metadata、审批模式和 actor，不能由 Worker 投递或调用方补造；回执缺失、被改或旧记录缺少摘要时拒绝自动执行，保留现有记录供检查。首输入固定为受理时的 User version 1，其正文与当前软删/脱敏标记在同一 SQL 快照读取；首输入不存在、脱敏或身份已软删时不从后续版本或 Outbox 正文副本恢复执行。准备和模型/工具检查点另复验首输入存在且未软删，不重复物化正文；检查后的全部持久写者竞态与完整来源传播仍待闭合。子任务与父执行键复用的意图绑定证据见 ITER-071，不据此宣称完整恢复完成。
 
 CR-030 D2 后不再接受或解析租户 Header；请求只能访问当前本地数据库实例，非 loopback 调用必须通过显式 token 认证。
 
@@ -205,7 +205,9 @@ HTTP 创建和审批续跑与 Worker/Bot 共用应用执行入口，从有效的
 4. 游标过期返回 `410 STREAM_CURSOR_EXPIRED` 和当前 Turn 状态/`lastSequence`。客户端只能读取已持久化 MessageVersion 或显示重新开始按钮，不得隐式重跑模型。
 5. 客户端收到重复、乱序或未知 `payloadVersion`：按 `eventId/sequence` 去重；未知版本停止渲染并请求兼容降级，不猜测字段含义。
 
-当前 SSE 路由在建流时读取 Turn 和游标，之后按页读取事件，并未在每个帧前重验删除或授权版本，也未实现上述 24 小时自动正文清理。无效游标的现行 410 为 `stream_cursor_expired`，不附加状态和高水位。这些是目标与当前实现的差量；订阅到期或背压断连只保护连接资源，不能作为撤权传播或保留策略完成的证据。
+当前 SSE 建流和空闲轮询使用窄来源查询，在同一 SQL 快照验证 Session/Turn、策略与派发一致、User version 1 存在及同 Turn 现存消息身份未软删；不可用与不存在的建流请求统一 404。每个业务帧发送前重新读取当前持久事件并复验这些条件，不发送背压期间缓存页中的正文；事件消失或来源不可用时仅关闭观察，不取消 Turn、不追加 `error`/`done`。空闲连接沿用 100ms 轮询，不依赖进程内通知。查询完成至 socket 写入仍存在并发窗口，已经写入的字节不能追回；这不是跨进程原子网络撤权。
+
+本切片不把 `isRedacted` 单独当作删除：它也用于将固定危机求助回复排除出记忆用途，现有受信固定回复仍可交付。任意脱敏来源的在线披露、授权/同意版本、已物理删除的非首输入来源关联、完整派生清理和 24 小时自动正文清理仍待独立验收；历史读取接口未改为上述在线查询。逐帧新增一次 SQL，版本及消息身份关联的成本随历史规模增长，不能作为全局资源有界的证据。无效游标的现行 410 为 `stream_cursor_expired`，不附加状态和高水位。
 
 ## 6. 超时、失败、降级和取消
 

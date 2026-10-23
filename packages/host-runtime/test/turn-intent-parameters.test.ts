@@ -78,4 +78,18 @@ describe("accepted Turn parameters remain the execution authority", () => {
     expect(execute).not.toHaveBeenCalled(); expect((await repo.listTurnAttempts(local, "turn"))[0]?.fencingToken).toBe(0);
     expect(await repo.getStreamEvents(local, "turn")).toEqual([]);
   });
+  it.each(["soft-deleted", "redacted"])("refuses Worker delegation and execution after accepted input is %s", async failure => {
+    await accept();
+    if (failure === "soft-deleted") {
+      await repo.createMessage(local, { id: "message", sessionId: "session", role: "user" });
+      await repo.softDeleteMessage(local, "message");
+    } else await repo.redactTurnMessages(local, "turn");
+    const execute = vi.fn(async () => {});
+    const application = createConversationApplication(repo, { executionConfig: loadExecutionConfig() }, execute);
+    await expect(application.queries.loadDelegatedTurn("turn")).rejects.toMatchObject({ reason: "intent_unavailable" });
+    await expect(application.commands.execute(local, input)).rejects.toMatchObject({ reason: "intent_unavailable" });
+    expect(execute).not.toHaveBeenCalled();
+    expect((await repo.listTurnAttempts(local, "turn"))[0]?.fencingToken).toBe(0);
+    expect(await repo.getStreamEvents(local, "turn")).toEqual([]);
+  });
 });

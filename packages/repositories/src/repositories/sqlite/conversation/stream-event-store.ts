@@ -3,11 +3,12 @@
  */
 import { eq, and, gt, lte, desc, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
-import { turnStreamEvents, turnAttempts, deletionRequests } from "@aervox/schema";
+import { turnStreamEvents, turnAttempts, deletionRequests, turns, sessions, messageVersions, messages, conversationExecutionPolicies } from "@aervox/schema";
 import type { LocalContext } from "../../../local-context.js";
 import { assertPluginGeneration, type PluginGenerationIdentity } from "../../../plugin-generation-guard.js";
 import { unverifiedDeletionRequest } from "../privacy-repository.js";
 import { FencingMismatchError } from "../../../errors.js";
+import { conversationDispatchTarget } from "../../../conversation-execution-policy.js";
 import type { TurnStreamEventModel, TurnStreamEventPageOptions, TurnStreamEventPage, TurnStreamReplayState } from "../../types/index.js";
 
 export const MAX_STREAM_EVENT_PAGE_ROWS = 256;
@@ -15,6 +16,31 @@ export const MAX_STREAM_EVENT_PAGE_DATA_BYTES = 256 * 1024;
 
 /** Turn 内 sequence 唯一，因此可构造跨进程稳定、可重连复用的事件标识。 */
 export const streamEventId = (turnId: string, sequence: number): string => `tev_${turnId}_${sequence}`;
+
+// Only the online transport uses this predicate. Legacy accepted input may have
+// no Message identity, but its version 1 must still exist: a later edited version
+// cannot replace a physically deleted source. Related identities are checked for
+// soft deletion. isRedacted excludes extraction and also marks the fixed crisis
+// response; it is not an independent online disclosure decision.
+const validStreamPolicy = sql.join(conversationExecutionPolicies.map(policy => sql`(
+  ${turns.executionPolicy} = ${policy} and ${turns.dispatchTarget} = ${conversationDispatchTarget(policy)}
+)`), sql` or `);
+const disclosableTurn = (turnId: string) => sql`exists (
+  select 1 from ${turns} inner join ${sessions} on ${sessions.id} = ${turns.sessionId}
+  where ${turns.id} = ${turnId}
+    and ${turns.executionPolicy} = ${sessions.executionPolicy} and (${validStreamPolicy})
+    and exists (select 1 from ${messageVersions}
+      where ${messageVersions.turnId} = ${turnId}
+        and ${messageVersions.role} = 'user' and ${messageVersions.version} = 1)
+    and not exists (select 1 from ${messageVersions}
+      where ${messageVersions.turnId} = ${turnId}
+        and exists (select 1 from ${messages}
+          where ${messages.deletedAt} is not null and (
+            ${messages.id} = ${messageVersions.messageId}
+            or ${messages.id} = ${messageVersions.id}
+            or ${messages.currentVersionId} = ${messageVersions.id}
+          )))
+)`;
 
 export class StreamEventStore {
   constructor(private readonly db: AervoxDatabase) {}
@@ -155,6 +181,26 @@ export class StreamEventStore {
         eq(turnStreamEvents.id, eventId),
       ))
       .limit(1);
+    return (row as TurnStreamEventModel | undefined) ?? null;
+  }
+
+  async isTurnStreamDisclosable(ctx: LocalContext, turnId: string): Promise<boolean> {
+    const [row] = await this.db.select({ id: turns.id }).from(turns)
+      .where(and(eq(turns.id, turnId), disclosableTurn(turnId))).limit(1);
+    return row !== undefined;
+  }
+
+  async getStreamEventForDisclosure(
+    ctx: LocalContext,
+    turnId: string,
+    eventId: string,
+  ): Promise<TurnStreamEventModel | null> {
+    // Fetch the durable payload and source visibility in one SQLite snapshot.
+    // A transport page captured before deletion must never supply this payload.
+    const [row] = await this.db.select().from(turnStreamEvents).where(and(
+      eq(turnStreamEvents.turnId, turnId), eq(turnStreamEvents.id, eventId),
+      disclosableTurn(turnId),
+    )).limit(1);
     return (row as TurnStreamEventModel | undefined) ?? null;
   }
 

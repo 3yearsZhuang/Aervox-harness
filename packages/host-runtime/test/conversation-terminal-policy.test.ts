@@ -20,6 +20,20 @@ async function fixture() {
 }
 
 describe("one terminal policy across conversation admission and drivers", () => {
+  it.each(["native", "dsh"] as const)("stops %s preparation when its source is removed after admission", async loopDriver => {
+    const { repo } = await fixture(); let driverCalled = false;
+    await executeConversationTurn(repo, local, input, {
+      executionConfig: { ...loadExecutionConfig({ AERVOX_LOOP_PROVIDER: "replay" }), loopDriver },
+      prepareExecution: async () => { await repo.deleteMessage(local, "message"); },
+      dshResolver: { resolve: async () => { driverCalled = true; return { ok: false, reason: "must_not_resolve" }; }, close: async () => {} },
+    });
+    expect(driverCalled).toBe(false);
+    expect((await repo.listTurnAttempts(local, input.turnId))[0]?.status).toBe("Interrupted");
+    const events = await repo.getStreamEvents(local, input.turnId);
+    expect(events.filter(event => ["done", "error"].includes(event.eventType))).toHaveLength(1);
+    expect(events.at(-1)).toMatchObject({ eventType: "done", data: { status: "Interrupted", isComplete: false, reason: "deletion_blocked" } });
+  });
+
   it.each(["native", "dsh"] as const)("interrupts %s when deletion becomes blocked after admission", async loopDriver => {
     const { repo } = await fixture(); let blocked = false; let driverCalled = false;
     await executeConversationTurn(repo, local, input, {

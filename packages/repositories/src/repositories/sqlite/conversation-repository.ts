@@ -168,6 +168,10 @@ export class SqliteConversationRepository implements IConversationRepository {
     return this.turnStore.getTurnUserMessage(ctx, turnId);
   }
 
+  isTurnInputPresent(ctx: LocalContext, turnId: string): Promise<boolean> {
+    return this.turnStore.isTurnInputPresent(ctx, turnId);
+  }
+
   async getTurnByIdempotencyKey(
     ctx: LocalContext,
     idempotencyKey: string,
@@ -230,6 +234,14 @@ export class SqliteConversationRepository implements IConversationRepository {
     eventId: string,
   ): Promise<TurnStreamEventModel | null> {
     return this.streamEventStore.getStreamEventById(ctx, turnId, eventId);
+  }
+
+  isTurnStreamDisclosable(ctx: LocalContext, turnId: string): Promise<boolean> {
+    return this.streamEventStore.isTurnStreamDisclosable(ctx, turnId);
+  }
+
+  getStreamEventForDisclosure(ctx: LocalContext, turnId: string, eventId: string): Promise<TurnStreamEventModel | null> {
+    return this.streamEventStore.getStreamEventForDisclosure(ctx, turnId, eventId);
   }
 
   getStreamEventHighWater(ctx: LocalContext, turnId: string): Promise<number> {

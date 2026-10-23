@@ -101,6 +101,15 @@ export async function executeConversationTurn(
   if (!["Created", "Running"].includes(turn.status) || attempt.status !== "Running") return;
   const userMessage = await conversationRepo.getTurnUserMessage(tenant, turnId);
   if (userMessage === null) throw new Error("conversation_input_unavailable");
+  // The accepted body may already be in process memory when its source becomes
+  // unavailable. Reuse the lifecycle/step gate so preparation, model requests
+  // and tool checkpoints stop using that cached input after source deletion.
+  // Redaction blocks receipt replay above; an admitted crisis can still finish
+  // its fixed safety response without making a model request or calling tools.
+  const deletionGate = { isBlocked: async () => {
+    if (await deps.privacyRepo?.hasPendingDeletionRequest(tenant)) return true;
+    return !(await conversationRepo.isTurnInputPresent(tenant, turnId));
+  } };
   const bot = turn.executionPolicy !== "local-v1";
   const group = turn.executionPolicy === "bot-group-member-v1";
   if (bot) {
@@ -124,7 +133,7 @@ export async function executeConversationTurn(
   ]) });
   const lifecycle = await claimAttemptExecution(input, {
     execution: admissionStore, controlContext: parent,
-    deletionGate: deps.privacyRepo ? { isBlocked: () => deps.privacyRepo!.hasPendingDeletionRequest(tenant) } : undefined,
+    deletionGate,
   });
   if (!lifecycle.ok) { parent.dispose(); return; }
   const { claim } = lifecycle;
@@ -177,9 +186,7 @@ export async function executeConversationTurn(
         // 人格覆盖：激活人格的名称/设定/技能白名单覆盖系统默认（无人格时 undefined 不注入）
         persona: deps.personaLoader ? await awaitWithSignal(deps.personaLoader(tenant), signal) : undefined,
         // 2d：删除/撤权水位未追平 → Loop fail-closed（AVX-HAR-001 §11.3）
-        deletionGate: deps.privacyRepo
-          ? { isBlocked: async () => deps.privacyRepo!.hasPendingDeletionRequest(tenant) }
-          : undefined,
+        deletionGate,
         // 5a-2：受控收件箱端口（每 Step 消费 next-step；steer/inject 注入上下文）
         inbox: deps.inboxRepo ? createTenantInboxPort(deps.inboxRepo, tenant) : undefined,
         // 5b：Skill 渐进披露（activeOnly 清单注入 system prompt）

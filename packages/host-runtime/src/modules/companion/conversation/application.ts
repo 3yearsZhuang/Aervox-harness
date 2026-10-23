@@ -117,6 +117,7 @@ export function createConversationApplication(
       return { messageId, impacts, totalAffected: impacts.length };
     },
     getStreamEvents: repo.getStreamEvents.bind(repo), getStreamEventById: repo.getStreamEventById.bind(repo),
+    getStreamEventForDisclosure: repo.getStreamEventForDisclosure.bind(repo), isTurnStreamDisclosable: repo.isTurnStreamDisclosable.bind(repo),
     getStreamEventHighWater: repo.getStreamEventHighWater.bind(repo), getStreamReplayState: repo.getStreamReplayState.bind(repo), getStreamEventsPage: repo.getStreamEventsPage.bind(repo),
     async pendingQuestions(ctx: LocalContext, turnId: string) {
       if (!deps.userQuestionCoordinator) throw new ConversationCommandError(404, { error: "user_questions_disabled" });

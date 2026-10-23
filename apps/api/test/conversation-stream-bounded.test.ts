@@ -1,6 +1,8 @@
 import { connect, type Socket } from "node:net";
 import { get, type ClientRequest } from "node:http";
 import type { ServerResponse } from "node:http";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createInMemoryDatabase, SqliteConversationRepository, type LocalContext } from "@aervox/repositories";
 import type { FastifyInstance } from "fastify";
@@ -18,11 +20,13 @@ describe("bounded durable SSE over HTTP and paused TCP", () => {
   const clients: (Socket | ClientRequest)[] = [];
   let page: ReturnType<typeof vi.spyOn>;
   let highWaterSpy: ReturnType<typeof vi.spyOn>;
+  let disclosure: ReturnType<typeof vi.spyOn>;
   const highWater = SqliteConversationRepository.prototype.getStreamEventHighWater;
   beforeEach(async () => {
     process.env.AERVOX_LOOP_PROVIDER = "replay";
     page = vi.spyOn(SqliteConversationRepository.prototype, "getStreamEventsPage");
     highWaterSpy = vi.spyOn(SqliteConversationRepository.prototype, "getStreamEventHighWater");
+    disclosure = vi.spyOn(SqliteConversationRepository.prototype, "getStreamEventForDisclosure");
     database = await createInMemoryDatabase(); repo = new SqliteConversationRepository(database.db);
     app = (await buildApp({ db: database.db, client: database.client })).app;
     await repo.getOrCreateSession(ctx, "session");
@@ -99,5 +103,60 @@ describe("bounded durable SSE over HTTP and paused TCP", () => {
     const sizes = await Promise.all(page.mock.results.map(async result => (await result.value).events.length));
     expect(sizes).toEqual([256, 256, 88, 1]);
     expect(page.mock.calls[0]![2].throughSequence).toBe(600);
+  });
+
+  it("drops a cached page after a separate SQLite process deletes its source during drain", async () => {
+    await repo.createMessage(ctx, { id: "source_identity", sessionId: "session", role: "user" });
+    await database.client.execute("UPDATE message_versions SET message_id='source_identity' WHERE turn_id='turn' AND role='user' AND version=1");
+    for (let i = 1; i <= 3; i += 1) await append(i, `private event ${i}`);
+    let raw!: ServerResponse; let hold = true; let body = "";
+    app.addHook("onRequest", async (req, reply) => {
+      if (!req.url.endsWith("/events")) return;
+      raw = reply.raw; const original = raw.write.bind(raw);
+      raw.write = ((frame: string) => {
+        const accepted = original(frame);
+        return hold ? false : accepted;
+      }) as typeof raw.write;
+    });
+    const base = await app.listen({ host: "127.0.0.1", port: 0 });
+    let close!: () => void;
+    const closed = new Promise<void>(resolve => { close = resolve; });
+    const request = get(`${base}/v1/turns/turn/events`, response => {
+      response.on("data", chunk => { body += chunk.toString(); });
+      response.on("error", () => undefined);
+      response.on("close", close);
+    });
+    clients.push(request); request.on("error", () => undefined);
+    await vi.waitFor(() => expect(parse(body).map(e => e.sequence)).toEqual([1]));
+    expect(page).toHaveBeenCalledOnce();
+    const databasePath = String((await database.client.execute("PRAGMA database_list")).rows.find(row => row.name === "main")!.file);
+    // Separate connection/process: no shared hub wake or in-memory source flag.
+    await promisify(execFile)(process.execPath, ["--input-type=module", "-e", `
+      import { createDatabase, SqliteConversationRepository } from '@aervox/repositories';
+      const database = await createDatabase({ url: 'file:' + process.argv[1] });
+      try {
+        const result = await new SqliteConversationRepository(database.db).softDeleteMessage(
+          { workspaceId: 'local', subjectUserId: 'local' }, 'source_identity');
+        if (!result) throw new Error('synthetic_source_not_deleted');
+      } finally { database.client.close(); }
+    `, databasePath], { timeout: 5_000 });
+    expect((await repo.getMessage(ctx, "source_identity"))?.deletedAt).toBeTruthy();
+    hold = false; raw.emit("drain");
+    await tick(120);
+    expect(parse(body).map(e => e.sequence)).toEqual([1]);
+    await vi.waitFor(() => expect(raw.destroyed).toBe(true));
+    await closed;
+    expect(parse(body).map(e => e.sequence)).toEqual([1]);
+    expect(disclosure.mock.calls.map(call => call[2])).toEqual(["event_1", "event_2"]);
+    expect(page).toHaveBeenCalledOnce();
+    expect((await repo.listTurnAttempts(ctx, "turn"))[0]!.status).toBe("Running");
+    expect((await repo.getStreamEvents(ctx, "turn")).map(e => e.eventType)).toEqual(["delta", "delta", "delta"]);
+    const denied = await app.inject({ method: "GET", url: "/v1/turns/turn/events", headers: { "last-event-id": "event_1" } });
+    const missing = await app.inject({ method: "GET", url: "/v1/turns/missing/events" });
+    expect(denied.statusCode).toBe(404);
+    const { requestId: deniedRequestId, ...deniedProblem } = denied.json();
+    const { requestId: missingRequestId, ...missingProblem } = missing.json();
+    expect(deniedRequestId).toBeTypeOf("string"); expect(missingRequestId).toBeTypeOf("string");
+    expect(deniedProblem).toEqual(missingProblem);
   });
 });

@@ -29,8 +29,9 @@ const nextTurnId = (): string => `turn_${Date.now().toString(36)}_${(++seq).toSt
 export interface ConversationHttpPort {
   commands: Pick<ConversationCommandPort, "ensureSession" | "createSession" | "renameSession" | "deleteSession" | "createTurn" |
     "cancelTurn" | "answerQuestions" | "approve" | "createMessage" | "editMessage" | "deleteMessage" | "restoreMessage">;
-  queries: Pick<ConversationQueryPort, "getTurnDiagnostics" | "listSessions" | "getTurn" | "getStreamEventById" |
-    "getStreamEventHighWater" | "getStreamReplayState" | "getStreamEventsPage" | "pendingQuestions" | "subagents" |
+  queries: Pick<ConversationQueryPort, "getTurnDiagnostics" | "listSessions" | "getStreamEventById" |
+    "getStreamEventHighWater" | "getStreamReplayState" | "getStreamEventsPage" | "getStreamEventForDisclosure" |
+    "isTurnStreamDisclosable" | "pendingQuestions" | "subagents" |
     "workflows" | "messageDeleteImpact" | "listMessageVersions">;
 }
 
@@ -189,8 +190,7 @@ export function registerConversationRoutes(
       return reply.code(400).send({error: "conflicting_stream_cursors"});
     }
     const cursorId = headerCursor ?? queryCursor;
-    const turn = await queries.getTurn(tenant, turnId);
-    if (!turn) {
+    if (!(await queries.isTurnStreamDisclosable(tenant, turnId))) {
       return reply.code(404).send({error: "turn_not_found"});
     }
     // Resolve the cursor against this Turn before hijacking the response. A
@@ -292,8 +292,15 @@ export function registerConversationRoutes(
         for (const ev of page.events) {
           if (closed) return;
           if (ev.sequence <= lastSequence) continue;
-          await write(encodeSseEvent(ev, deps.apiRegistry));
-          lastSequence = ev.sequence;
+          // A page can outlive source deletion while a prior frame waits for
+          // drain. Re-read this frame and its current eligibility together;
+          // cached page payloads are never authority for disclosure.
+          const current = await queries.getStreamEventForDisclosure(tenant, turnId, ev.id);
+          if (closed) return;
+          if (!current) { finish(true, "sse_source_unavailable"); return; }
+          if (current.sequence !== ev.sequence) throw new Error("sse_replay_sequence_changed");
+          await write(encodeSseEvent(current, deps.apiRegistry));
+          lastSequence = current.sequence;
         }
         // No next page is queried while any frame is waiting for socket drain.
       }
@@ -310,6 +317,11 @@ export function registerConversationRoutes(
       try {
         do {
           wakeRequested = false;
+          // Poll even when no new business event exists. Source deletion does
+          // not require a process-local hub notification to close observation.
+          const disclosable = await queries.isTurnStreamDisclosable(tenant, turnId);
+          if (closed) return;
+          if (!disclosable) { finish(true, "sse_source_unavailable"); return; }
           const state = await queries.getStreamReplayState(tenant, turnId);
           await replayThrough(state.highWaterSequence);
           if (closed) return;

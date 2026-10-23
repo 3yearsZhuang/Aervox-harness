@@ -250,7 +250,7 @@ PR、自动化测试和目标环境验证是交付证据，不抄写终端日志
 | `PRIV-PRO-003` | 七天保留、撤权删除与导出权利 | CAP-033/005/013/026/027 | `Specified` | [SRS 主动智能规格](SRS.md#priv-pro-003-保留删除与导出) | `AC-PRIV-PRO-003-01～03` | `TC-PRIV-PRO-RETENTION-001`、`TC-PRIV-PRO-REVOKE-001` |
 | `OPS-PRO-001` | 后台 Host 心跳、崩溃恢复与状态收敛 | CAP-033/018/027/030 | `Specified` | [SRS 主动智能规格](SRS.md#ops-pro-001-后台运行与恢复) | `AC-OPS-PRO-001-01～03` | `TC-RES-PRO-LIFECYCLE-001`、`TC-PERF-PRO-001` |
 | `FR-PRC-001` | 练习题组、作答判定与错题派生 | CAP-003/004 | `Specified` | [SRS 练习需求](SRS.md#fr-prc-001-练习判定与错题)、`CR-008`（已归档） | `AC-FR-PRC-001-01～11` | `TC-UNIT-PRC-001`、`TC-API-PRC-001`、`TC-INTEG-PRC-001`、`TC-E2E-PRC-001` |
-| `DATA-STREAM-001` | Turn 事件保留、撤回与删除 | CAP-002/007/008/013 | `Specified` | [SRS 跨域规则](SRS.md#srs-data-stream)、[流式协议](STREAMING_PROTOCOL.md#5-重连保留与断点恢复) | `AC-DATA-STREAM-001-01～02` | `TC-PRIV-STREAM-001`、`TC-INTEG-STREAM-RET-001` |
+| `DATA-STREAM-001` | Turn 事件保留、撤回与删除 | CAP-002/007/008/013 | `Specified` | [SRS 跨域规则](SRS.md#srs-data-stream)、[流式协议](STREAMING_PROTOCOL.md#5-重连保留与断点恢复) | `AC-DATA-STREAM-001-01～02` | `TC-PRIV-STREAM-001`、`TC-INTEG-STREAM-RET-001`；[逐帧来源查询](../../packages/repositories/test/stream-event-disclosure.test.ts)、[API 跨进程删除/背压](../../apps/api/test/conversation-stream-bounded.test.ts)，仅部分删除切片，保留与完整授权待验收 |
 | `DATA-DEL-001` | 删除传播与账本 | CAP-005/009/013/026/027 | `Specified` | [删除 SLA](DATA_PRIVACY.md#privacy-deletion-sla) | `AC-DATA-DEL-001` | `TC-PRIV-DEL-001` |
 | `BR-CTRL-001` | 独立恢复控制账本一致性 | CAP-001～035 | `Specified` | [SRS 控制规则](SRS.md#srs-br-ctrl) | `AC-BR-CTRL-001-01～03` | `TC-RES-LEDGER-001`、`TC-SEC-REVOKE-001` |
 | `SEC-PLG-001` | 插件最小权限/沙箱 | CAP-020/031 | `Mapped` | [架构插件边界](ARCHITECTURE.md#arch-ai-security) | `AC-SEC-PLG-001` | `TC-SEC-PLUG-001` |

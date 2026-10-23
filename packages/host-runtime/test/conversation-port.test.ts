@@ -19,6 +19,8 @@ it("adapts every HTTP conversation use case with only a fake application Port", 
     messageDeleteImpact: vi.fn(async () => ({ messageId: "message", impacts: [], totalAffected: 0 })),
     listMessageVersions: vi.fn(async () => []), getTurn: vi.fn(async () => ({ id: "turn" })),
     getStreamEventById: vi.fn(async () => null), getStreamEventHighWater: vi.fn(async () => 1),
+    isTurnStreamDisclosable: vi.fn(async () => true),
+    getStreamEventForDisclosure: vi.fn(async () => ({ id: "event", turnId: "turn", sequence: 1, eventType: "done", data: { status: "Completed", isComplete: true } })),
     getStreamReplayState: vi.fn(async () => ({ highWaterSequence: 1, settled: true })),
     getStreamEventsPage: vi.fn(async () => ({ events: [{ id: "event", turnId: "turn", sequence: 1, eventType: "done", data: { status: "Completed", isComplete: true } }], persistedDataBytes: 20, oversizedEvent: false })),
   };

@@ -71,6 +71,63 @@ describe("atomic Turn acceptance", () => {
     expect(await repo.getStreamEvents(ctx, "t")).toEqual([]);
   });
 
+  it("does not substitute a later user version or receipt copy for a redacted accepted input", async () => {
+    await accept();
+    await database.client.execute("UPDATE message_versions SET is_redacted=1 WHERE id='m_t'");
+    await database.client.execute("INSERT INTO message_versions(id,turn_id,role,version,content,created_at) VALUES('edited','t','user',2,'later visible input','2026-01-01T00:00:00.000Z')");
+    expect(await repo.getTurnUserMessage(ctx, "t")).toBeNull();
+    expect(await repo.isTurnInputPresent(ctx, "t")).toBe(true);
+    await expect(repo.getAcceptedTurnParameters(ctx, "t")).rejects.toMatchObject({ reason: "intent_unavailable" });
+    expect(String((await database.client.execute("SELECT payload FROM outbox_events WHERE id='outbox_t'")).rows[0]?.payload)).toContain("current");
+    expect((await repo.listTurnAttempts(ctx, "t"))[0]?.fencingToken).toBe(0);
+  });
+
+  it.each(["message-id", "legacy-id", "version-pointer"])("stops input restoration after %s identity is soft deleted", async identity => {
+    await accept();
+    const messageId = identity === "legacy-id" ? "m_t" : "identity";
+    await repo.createMessage(ctx, { id: messageId, sessionId: "s", role: "user" });
+    if (identity === "message-id") await database.client.execute("UPDATE message_versions SET message_id='identity' WHERE id='m_t'");
+    if (identity === "version-pointer") await database.client.execute("UPDATE messages SET current_version_id='m_t' WHERE id='identity'");
+    expect(await repo.getTurnUserMessage(ctx, "t")).toBe("queued\n\ncurrent");
+    await repo.softDeleteMessage(ctx, messageId);
+    expect(await repo.getTurnUserMessage(ctx, "t")).toBeNull();
+    expect(await repo.isTurnInputPresent(ctx, "t")).toBe(false);
+    await expect(repo.getAcceptedTurnParameters(ctx, "t")).rejects.toMatchObject({ reason: "intent_unavailable" });
+    expect((await repo.listTurnAttempts(ctx, "t"))[0]?.fencingToken).toBe(0);
+    expect(await repo.getStreamEvents(ctx, "t")).toEqual([]);
+    await repo.restoreMessage(ctx, messageId);
+    expect((await repo.getAcceptedTurnParameters(ctx, "t")).userMessage).toBe("queued\n\ncurrent");
+    expect(await repo.isTurnInputPresent(ctx, "t")).toBe(true);
+  });
+
+  it("does not restore input physically removed while its receipt remains", async () => {
+    await accept();
+    await database.client.execute("INSERT INTO message_versions(id,turn_id,role,version,content,created_at) VALUES('edited','t','user',2,'later visible input','2026-01-01T00:00:00.000Z')");
+    await repo.deleteMessage(ctx, "m_t");
+    expect(await repo.getTurnUserMessage(ctx, "t")).toBeNull();
+    expect(await repo.isTurnInputPresent(ctx, "t")).toBe(false);
+    await expect(repo.getAcceptedTurnParameters(ctx, "t")).rejects.toMatchObject({ reason: "intent_unavailable" });
+    expect(String((await database.client.execute("SELECT payload FROM outbox_events WHERE id='outbox_t'")).rows[0]?.payload)).toContain("current");
+  });
+
+  it("preserves imported user version 1 while refusing receipt execution for imported history", async () => {
+    const imported = await repo.importSession(ctx, { messages: [
+      { role: "system", content: "imported system" }, { role: "assistant", content: "initial assistant" },
+      { role: "user", content: "first imported input" }, { role: "assistant", content: "first answer" },
+      { role: "user", content: "second imported input" }, { role: "assistant", content: "second answer" },
+    ] });
+    const rows = (await database.client.execute({
+      sql: "SELECT t.id,mv.role,mv.content FROM turns t JOIN message_versions mv ON mv.turn_id=t.id AND mv.version=1 WHERE t.session_id=? ORDER BY mv.content",
+      args: [imported.session.id],
+    })).rows;
+    expect(rows).toHaveLength(3);
+    for (const row of rows) {
+      expect(await repo.getTurnUserMessage(ctx, String(row.id))).toBe(row.role === "user" ? row.content : null);
+      expect(await repo.isTurnInputPresent(ctx, String(row.id))).toBe(row.role === "user");
+      await expect(repo.getAcceptedTurnParameters(ctx, String(row.id))).rejects.toMatchObject({ reason: "intent_unavailable" });
+    }
+  });
+
   it("serializes the same idempotency key across sessions without consuming the losing session inbox", async () => {
     await repo.getOrCreateSession(ctx, "other");
     await inbox.enqueue(ctx, { id: "other-inbox", idempotencyKey: "other-inbox", sessionId: "other", type: "followup", sourceActor: "user", payload: "untouched" });
