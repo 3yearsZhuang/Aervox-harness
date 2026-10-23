@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createInMemoryDatabase, DomainConflictError, SqliteExtensionRepository, SqlitePluginConfigRepository } from "../src/index.js";
+import { createInMemoryDatabase, DomainConflictError, SqliteExtensionRepository, SqlitePluginConfigRepository, SqlitePluginPageRepository } from "../src/index.js";
 
 const ctx = { workspaceId: "local", subjectUserId: "local" };
 describe("plugin configuration lifecycle transaction", () => {
@@ -24,6 +24,62 @@ describe("plugin configuration lifecycle transaction", () => {
   const state = async () => ({
     config: await configs.getConfig(ctx, id),
     secrets: (await database.client.execute({ sql: "SELECT * FROM plugin_config_secrets WHERE plugin_id = ?", args: [id] })).rows,
+  });
+
+  const pageInput = (expectedPageId: unknown = "settings") => ({
+    pluginId: id, schemaVersion: 1, expectedSchema: fields, expectedLifecycleGeneration: generation,
+    expectedRevision: 1, expectedPageId: expectedPageId as string,
+    values: { label: "from page" }, secretKeys: [], secretChanges: { token: "page secret" },
+  });
+  async function registerPage(capabilities: unknown = ["config.write"]): Promise<void> {
+    await new SqlitePluginPageRepository(database.db).upsertPage({
+      pluginId: id, pageId: "settings", title: "Settings", entry: "pages/settings/index.html",
+      capabilities: Array.isArray(capabilities) ? capabilities : [],
+    });
+    if (!Array.isArray(capabilities)) {
+      await database.client.execute({ sql: "UPDATE plugin_pages SET capabilities_json = ? WHERE plugin_id = ? AND page_id = ?",
+        args: [JSON.stringify(capabilities), id, "settings"] });
+    }
+  }
+
+  it.each(["removed", "missing", "other-plugin", "read-only", "unknown", "string", "object", "null"] as const)(
+    "refuses a Page save with %s capability state before config or Secret writes", async change => {
+      await registerPage();
+      if (change === "missing" || change === "other-plugin") {
+        const pages = new SqlitePluginPageRepository(database.db);
+        await pages.deletePagesForPlugin(id);
+        if (change === "other-plugin") {
+          await extension.createPlugin({ id: "other", publisher: "test", version: "1", checksum: "other" });
+          await pages.upsertPage({ pluginId: "other", pageId: "settings", title: "Other", entry: "pages/settings/index.html", capabilities: ["config.write"] });
+        }
+      } else {
+        const capabilities = change === "removed" ? [] : change === "read-only" ? ["config.read"] : change === "unknown" ? ["config.write", "unknown"]
+          : change === "string" ? "config.write" : change === "object" ? { capability: "config.write" } : null;
+        await registerPage(capabilities);
+      }
+      const before = await state();
+      expect((await configs.saveConfig(ctx, pageInput())).conflict).toBe(true);
+      expect(await state()).toEqual(before);
+    },
+  );
+
+  it.each(["", "nested/page", "x".repeat(65), null])("refuses an invalid Page id %j before config or Secret writes", async pageId => {
+    await registerPage();
+    const before = await state();
+    expect((await configs.saveConfig(ctx, pageInput(pageId))).conflict).toBe(true);
+    expect(await state()).toEqual(before);
+  });
+
+  it("accepts an authorized Page save and preserves ordinary management saves after Page capability removal", async () => {
+    await registerPage();
+    const accepted = await configs.saveConfig(ctx, pageInput());
+    expect(accepted.conflict).toBe(false);
+    expect(accepted.saved).toMatchObject({ revision: 2, valuesJson: { label: "from page" }, secretKeysJson: ["token"] });
+    await registerPage([]);
+    const { expectedPageId: _pageId, ...management } = pageInput();
+    const saved = await configs.saveConfig(ctx, { ...management, expectedRevision: 2, values: { label: "management" } });
+    expect(saved.conflict).toBe(false);
+    expect(saved.saved).toMatchObject({ revision: 3, valuesJson: { label: "management" } });
   });
 
   it.each(["disabled", "reenabled", "missing", "restored", "schema-version"] as const)("rejects stale save and reset for %s before Secret changes", async (transition) => {

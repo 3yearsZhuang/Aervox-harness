@@ -17,7 +17,7 @@ import type {
   LocalContext,
 } from "@aervox/repositories";
 import { DomainConflictError, SqliteExtensionRepository, withSessionLock } from "@aervox/repositories";
-import { pluginPageSchema } from "@aervox/contracts";
+import { pluginPageSchema, type SavePluginConfigRequest } from "@aervox/contracts";
 import crypto from "node:crypto";
 import { PluginBundleStore } from "./bundle-store.js";
 import {
@@ -214,8 +214,12 @@ export class PluginConfigService {
   async saveConfig(
     tenant: LocalContext,
     pluginId: string,
-    body: { revision: number; values?: Record<string, unknown>; secretValues?: Record<string, string | null>; expectedLifecycleGeneration?: string },
+    body: SavePluginConfigRequest,
   ): Promise<PluginConfigServiceSnapshot> {
+    if (body.expectedPageId !== undefined && (!pluginPageSchema.shape.id.safeParse(body.expectedPageId).success
+      || !body.expectedLifecycleGeneration)) {
+      throw new PluginConfigError(400, "INVALID_CONFIG", "Page writes require a valid Page id and captured plugin lifecycle generation");
+    }
     const found = await this.findPlugin(pluginId);
     if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
     this.requireConfigLifecycle(pluginId, found.plugin, body.expectedLifecycleGeneration);
@@ -249,6 +253,7 @@ export class PluginConfigService {
       expectedRevision: body.revision,
       expectedSchema: schema.fields,
       expectedLifecycleGeneration: found.plugin.lifecycleGeneration,
+      expectedPageId: body.expectedPageId,
       values,
       secretKeys: [],
       secretChanges,

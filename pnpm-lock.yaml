@@ -205,8 +205,8 @@ importers:
         specifier: ^6.0.1
         version: 6.0.8(vite@6.4.4(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1))(vue@3.5.43(typescript@5.9.3))
       electron:
-        specifier: ^43.7.9
-        version: 43.7.9(supports-color@7.2.0)
+        specifier: ^43.8.1
+        version: 43.8.3(supports-color@7.2.0)
       electron-vite:
         specifier: ^3.1.0
         version: 3.1.0(supports-color@7.2.0)(vite@6.4.4(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1))
@@ -3675,8 +3675,8 @@ packages:
     resolution: {integrity: sha512-bO3y10YikuUwUuDUQRM4KfwNkKhnpVO7IPdbsrejwN9/AABJzzTQ4GeHwyzNSrVO+tEH3/Np255a3sVZpZDjvg==}
     engines: {node: '>=8.0.0'}
 
-  electron@43.7.9:
-    resolution: {integrity: sha512-wZkQ/R9F5Bv8dM5vX6vWboNo5ZCBC/IYQV195dtG9JvFAlNbebzlkWWSE5esgpCVy3rVYQ/g09GeknJwvQnS9A==}
+  electron@43.8.3:
+    resolution: {integrity: sha512-KgvSm3bHXz96hSXzqxyRjLeli80rIdszbDQFKlRSfckmGazTPCH/CxUN31Dp9c5rFKTQSNf9gPJRWl1yWNB3pA==}
     engines: {node: '>= 22.12.0'}
     hasBin: true
 
@@ -7836,7 +7836,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  electron@43.7.9(supports-color@7.2.0):
+  electron@43.8.3(supports-color@7.2.0):
     dependencies:
       '@electron-internal/extract-zip': 1.0.5
       '@electron/get': 5.1.0(supports-color@7.2.0)

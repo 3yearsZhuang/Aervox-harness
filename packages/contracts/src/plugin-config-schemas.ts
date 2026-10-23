@@ -340,8 +340,14 @@ export const pluginConfigUpdateRequestSchema = z.object({
   revision: z.number().int().nonnegative(),
   /** Page sessions bind writes to the plugin lifecycle captured when opened. */
   expectedLifecycleGeneration: z.string().min(1).max(128).optional(),
+  /** Captured by the host; restricts this write to the current Page's config.write capability. */
+  expectedPageId: pluginPageSchema.shape.id.optional().openapi({
+    description: "Host-captured Page id; requires expectedLifecycleGeneration and current config.write capability at commit.",
+  }),
   values: z.record(z.string(), z.unknown()).default({}),
   secretValues: z.record(z.string(), z.union([z.string(), z.null()])).default({}),
+}).refine(input => input.expectedPageId === undefined || input.expectedLifecycleGeneration !== undefined, {
+  path: ["expectedLifecycleGeneration"], message: "Page writes require the captured plugin lifecycle generation",
 });
 
 /** Page 资源写入请求（base64 内容） */

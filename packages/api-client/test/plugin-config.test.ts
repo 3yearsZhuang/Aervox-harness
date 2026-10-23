@@ -89,4 +89,31 @@ describe('plugin configuration shared client', () => {
     await expect(api.resetConfig('plugin', generation)).rejects.toThrow();
     expect(request).not.toHaveBeenCalled();
   });
+
+  it('preserves the Page write identity in the shared save payload', async () => {
+    const request = vi.fn(async () => snapshot);
+    const api = client(request);
+    await api.saveConfig('plugin', {
+      revision: 1, expectedPageId: 'settings', expectedLifecycleGeneration: 'generation',
+    });
+    expect(request).toHaveBeenCalledWith('PUT', '/v1/plugins/plugin/config', {
+      revision: 1, expectedPageId: 'settings', expectedLifecycleGeneration: 'generation',
+    });
+  });
+
+  it.each(['', '../settings', 'settings/other', 'x'.repeat(65), null])('rejects an invalid Page write identity before transport: %j', async expectedPageId => {
+    const request = vi.fn(async () => snapshot);
+    const api = client(request);
+    await expect(api.saveConfig('plugin', {
+      revision: 1, expectedPageId, expectedLifecycleGeneration: 'generation',
+    } as never)).rejects.toThrow();
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it('rejects a Page write identity without an explicit lifecycle generation before transport', async () => {
+    const request = vi.fn(async () => snapshot);
+    const api = client(request);
+    await expect(api.saveConfig('plugin', { revision: 1, expectedPageId: 'settings' })).rejects.toThrow();
+    expect(request).not.toHaveBeenCalled();
+  });
 });

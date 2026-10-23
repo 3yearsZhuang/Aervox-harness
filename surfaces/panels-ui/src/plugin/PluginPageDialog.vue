@@ -144,6 +144,7 @@ async function handleBridgeCall(current: PageSession, message: {
       const snapshot: PluginConfigSnapshot = await api.saveConfig(current.pluginId, {
         revision: current.revision,
         expectedLifecycleGeneration: current.lifecycleGeneration,
+        expectedPageId: current.pageId,
         values: args.values ?? {},
         secretValues: args.secretValues ?? {},
       })

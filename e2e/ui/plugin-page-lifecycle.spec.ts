@@ -117,8 +117,43 @@ test("real Page Bridge rejects all four calls from an old lifecycle and succeeds
     expect(initialRead.result.value).toMatchObject({ revision: 0, values: { value: "initial" } });
     await frame.locator("#value").fill("first lifecycle");
     const initialSave = await callConfig(page, frame, configPath, "PUT", 200);
-    expect(initialSave.response.request().postDataJSON()).toMatchObject({ expectedLifecycleGeneration: initialGeneration, revision: 0 });
+    expect(initialSave.response.request().postDataJSON()).toMatchObject({ expectedLifecycleGeneration: initialGeneration, expectedPageId: "probe", revision: 0 });
     expect(initialSave.result.value).toMatchObject({ revision: 1, values: { value: "first lifecycle" } });
+    // Pause the real PUT after the Bridge's successful Page lookup. An independent
+    // client removes config.write without changing the plugin lifecycle.
+    const saveUrl = api(configPath);
+    await page.route(saveUrl, async route => {
+      if (route.request().method() === "PUT") {
+        const revoked = await request.post(api(`${pluginPath}/pages`), {
+          data: { id: "probe", title: "Lifecycle probe", entry: "pages/probe/index.html", capabilities: ["config.read", "host.notify", "host.close"] },
+        });
+        expect(revoked.status(), await revoked.text()).toBe(201);
+      }
+      await route.continue();
+    });
+    try {
+      await frame.locator("#value").fill("revoked during save");
+      const rejectedSave = page.waitForResponse(response => new URL(response.url()).pathname === configPath && response.request().method() === "PUT");
+      await frame.getByRole("button", { name: "Save configuration", exact: true }).click();
+      const rejected = await rejectedSave;
+      expect(rejected.request().postDataJSON()).toMatchObject({ expectedPageId: "probe", expectedLifecycleGeneration: initialGeneration, revision: 1 });
+      expect(rejected.status()).toBe(409);
+      await expect(frame.locator("#result")).toHaveAttribute("data-state", "error");
+      expect(JSON.parse((await frame.locator("#result").textContent())!)).toMatchObject({ ok: false });
+      expect(await oldFrame!.evaluate(element => element.isConnected)).toBe(true);
+      const unchangedAfterRevocation = await request.get(api(configPath));
+      expect(unchangedAfterRevocation.status()).toBe(200);
+      expect(await unchangedAfterRevocation.json()).toMatchObject({ revision: 1, values: { value: "first lifecycle" } });
+      const pluginsAfterRevocation = await request.get(api("/v1/plugins"));
+      expect(pluginsAfterRevocation.status()).toBe(200);
+      expect((await pluginsAfterRevocation.json()).items.find((plugin: { id: string }) => plugin.id === pluginId).lifecycleGeneration).toBe(initialGeneration);
+    } finally {
+      await page.unroute(saveUrl);
+    }
+    const restoreCapability = await request.post(api(`${pluginPath}/pages`), {
+      data: { id: "probe", title: "Lifecycle probe", entry: "pages/probe/index.html", capabilities: ["config.read", "config.write", "host.notify", "host.close"] },
+    });
+    expect(restoreCapability.status(), await restoreCapability.text()).toBe(201);
     await frame.locator("#value").fill("current Page notification");
     await frame.getByRole("button", { name: "Notify host", exact: true }).click();
     await expect(frame.locator("#result")).toHaveAttribute("data-state", "success");
@@ -177,7 +212,7 @@ test("real Page Bridge rejects all four calls from an old lifecycle and succeeds
     expect(currentRead.result.value).toMatchObject({ revision: 1, values: { value: "first lifecycle" } });
     await currentFrame.locator("#value").fill("current lifecycle");
     const currentSave = await callConfig(page, currentFrame, configPath, "PUT", 200);
-    expect(currentSave.response.request().postDataJSON()).toMatchObject({ expectedLifecycleGeneration: currentGeneration, revision: 1 });
+    expect(currentSave.response.request().postDataJSON()).toMatchObject({ expectedLifecycleGeneration: currentGeneration, expectedPageId: "probe", revision: 1 });
     expect(currentSave.result.value).toMatchObject({ revision: 2, values: { value: "current lifecycle" } });
     const persisted = await request.get(api(configPath));
     expect(persisted.status()).toBe(200);

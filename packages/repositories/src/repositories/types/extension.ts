@@ -102,6 +102,8 @@ export interface PluginConfigSaveInput {
   expectedSchema: unknown;
   /** Captured plugin lifecycle; enabled, availability and generation are revalidated before any write. */
   expectedLifecycleGeneration: string;
+  /** Host-captured Page identity; config.write is checked before any config or Secret mutation. */
+  expectedPageId?: string;
   values: Record<string, unknown>;
   secretKeys: string[];
   /** Same-database Secret mutations, committed only with the matching config revision. */

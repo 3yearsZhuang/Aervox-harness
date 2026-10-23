@@ -7,6 +7,7 @@
  */
 import { withSessionLock } from "../../session-lock.js";
 import { DomainConflictError } from "../../errors.js";
+import { pluginPageSchema } from "@aervox/contracts";
 import { and, eq, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import {
@@ -61,6 +62,19 @@ export class SqlitePluginConfigRepository implements IPluginConfigRepository {
         || plugin.generation !== input.expectedLifecycleGeneration || plugin.schemaVersion !== input.schemaVersion
         || JSON.stringify(plugin.schema) !== JSON.stringify(input.expectedSchema)) {
         return { saved: (existing as PluginConfigModel) ?? null, conflict: true as const };
+      }
+      if (input.expectedPageId !== undefined) {
+        if (!pluginPageSchema.shape.id.safeParse(input.expectedPageId).success) {
+          return { saved: (existing as PluginConfigModel) ?? null, conflict: true as const };
+        }
+        // Page declarations can change without a plugin lifecycle rotation. Bind
+        // this save to its actual Page in the same writer transaction as Secrets.
+        const [page] = await tx.select({ capabilities: pluginPages.capabilitiesJson }).from(pluginPages)
+          .where(and(eq(pluginPages.pluginId, input.pluginId), eq(pluginPages.pageId, input.expectedPageId)));
+        const capabilities = pluginPageSchema.shape.capabilities.safeParse(page?.capabilities);
+        if (!page || !capabilities.success || !capabilities.data.includes("config.write")) {
+          return { saved: (existing as PluginConfigModel) ?? null, conflict: true as const };
+        }
       }
       if ((existing?.revision ?? 0) !== input.expectedRevision) {
         return { saved: (existing as PluginConfigModel) ?? null, conflict: true as const };
