@@ -34,7 +34,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
-    "zod": "4.4.3"
+    "zod": "4.6.7"
   },
   "description": "Shared product host composition and execution for API and Worker",
   "exports": {
