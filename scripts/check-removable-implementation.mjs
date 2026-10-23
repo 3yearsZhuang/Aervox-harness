@@ -53,6 +53,7 @@ export const REMOVABLE_TARGETS = [
     name: "专注模式第一方插件实现（服务端 + UI + 专属样式）",
     pilot: "BTD-11",
     implementationFiles: [
+      "plugins/focus-mode/src/contracts/terms.ts",
       "plugins/focus-mode/src/server/index.ts",
       "plugins/focus-mode/src/server/contracts.ts",
       "plugins/focus-mode/src/server/focus-tools.ts",
@@ -89,6 +90,8 @@ export const REMOVABLE_TARGETS = [
       "plugins/focus-mode/test/plugin-registration.test.ts",
       "plugins/focus-mode/test/ui-components.test.ts",
       "plugins/focus-mode/test/focus-learning.test.ts",
+      "plugins/focus-mode/test/terms-contract.test.ts",
+      "plugins/focus-mode/test/terms-types.ts",
     ],
     /**
      * 物理移除计划（`run-removability-drill.mjs` 依此演练"代码缺席"）：
