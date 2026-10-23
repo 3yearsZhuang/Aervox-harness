@@ -169,8 +169,8 @@ describe("CAP-009 对话触发写日记", () => {
     expect(first.ok).toBe(false);
     expect(first.needsApproval?.toolName).toBe("aervox_diary_write");
 
-    // 2. 用户批准（granted）后同参数执行 → 工具真正运行
-    const approval = await repo.recordToolApproval(tenant, {
+    // 2. 缺少绑定身份的历史授权不能放行当前实现。
+    const legacy = await repo.recordToolApproval(tenant, {
       turnId,
       attemptId: executionInput.attemptId,
       toolName: "aervox_diary_write",
@@ -179,7 +179,16 @@ describe("CAP-009 对话触发写日记", () => {
       state: "granted",
       toolVersion: null,
     });
-    expect(approval.state).toBe("granted");
+    expect(legacy.state).toBe("granted");
+    const blocked = await provider.execute(executionInput);
+    expect(blocked.ok).toBe(false);
+    expect(blocked.needsApproval!.approvalId).toBe(first.needsApproval!.approvalId);
+
+    // 3. 用户批准由真实工具声明生成的待决记录，保留其绑定身份与参数哈希。
+    const approval = (await repo.getToolApproval(tenant, first.needsApproval!.approvalId))!;
+    expect(approval.toolVersion).toMatch(/^binding-v1:/);
+    expect(approval.argumentsHash).toBe("{}");
+    await repo.decideToolApproval(tenant, approval.id, "granted", tenant.subjectUserId);
 
     const second = await provider.execute(executionInput);
     expect(second.ok).toBe(true);

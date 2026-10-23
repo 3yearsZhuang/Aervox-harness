@@ -248,9 +248,9 @@ describe("B 阶段安全加固：工具沙箱与不可绕过策略执行机制",
       expect(approvals).toHaveLength(0);
     });
 
-    it("授权记录的 toolVersion 与工具定义修订核对：修订变化后旧授权不放行并重新挂起（ITER-007）", async () => {
+    it("旧时间戳授权不能放行，真实绑定批准后仅对相同声明和实现有效（ITER-007）", async () => {
       await createTurn("turn_revise", "attempt_revise");
-      await registry.registerTool({
+      const definition = {
         id: "aervox_revise_note",
         name: "aervox_revise_note",
         description: "修订笔记",
@@ -261,9 +261,11 @@ describe("B 阶段安全加固：工具沙箱与不可绕过策略执行机制",
         builtin: false,
         gatingConditions: [],
         priority: 10,
-      });
+      };
+      await registry.registerTool(definition);
+      let writes = 0;
       built.toolRuntime.registerHandler("aervox_revise_note", {
-        call: async (_t, args) => ({ revised: true, title: (args as { title: string }).title }),
+        call: async (_t, args) => { writes++; return { revised: true, title: (args as { title: string }).title }; },
       });
       setRequestToolApprovalMode(tenant, "ask");
 
@@ -281,6 +283,7 @@ describe("B 阶段安全加固：工具沙箱与不可绕过策略执行机制",
       await repo.decideToolApproval(tenant, pending.id, "granted", tenant.subjectUserId);
 
       const provider = createRuntimeToolProvider(built.toolRuntime, tenant, { conversationRepo: repo });
+      await provider.listTools!();
       const input = {
         turnId: "turn_revise",
         attemptId: "attempt_revise",
@@ -288,15 +291,36 @@ describe("B 阶段安全加固：工具沙箱与不可绕过策略执行机制",
         name: "aervox_revise_note",
         arguments: { title: "复盘" },
       };
+      const first = await provider.execute(input);
+      expect(first.needsApproval?.approvalId).toBeDefined();
+      expect(first.needsApproval!.approvalId).not.toBe(pending.id);
+      expect(writes).toBe(0);
+      const approval = (await repo.getToolApproval(tenant, first.needsApproval!.approvalId))!;
+      expect(approval.toolVersion).toMatch(/^binding-v1:/);
+      expect(approval.argumentsHash).toBe(stableStringify(input.arguments));
+      await repo.decideToolApproval(tenant, approval.id, "granted", tenant.subjectUserId);
       expect(await provider.execute(input)).toMatchObject({ ok: true, output: { revised: true, title: "复盘" } });
+      expect(writes).toBe(1);
 
-      // 工具定义修订变化（updatedAt 前移）→ 旧授权失配：不执行，重新生成 pending
-      await client.execute("UPDATE tool_registrations SET updated_at = '2099-01-01T00:00:00.000Z' WHERE id = 'aervox_revise_note'");
+      // 修改真正的声明和 handler，并保持时间戳不变，旧声明与授权仍必须失效。
+      await built.toolRuntime.registerContribution({ ...definition,
+        inputSchema: { ...definition.inputSchema, additionalProperties: false },
+      }, { call: async () => { writes++; return { revised: true, implementation: "replacement" }; } });
+      await client.execute({ sql: "UPDATE tool_registrations SET updated_at = ? WHERE id = ?",
+        args: [tool!.updatedAt!, "aervox_revise_note"] });
+      expect((await registry.getTool("aervox_revise_note"))!.updatedAt).toBe(tool!.updatedAt);
+      expect((await provider.execute(input)).error).toBe("tool_not_declared");
+      await provider.listTools!();
       const stale = await provider.execute(input);
       expect(stale.ok).toBe(false);
       expect(stale.needsApproval?.toolName).toBe("aervox_revise_note");
+      expect(stale.needsApproval!.approvalId).not.toBe(approval.id);
+      expect(writes).toBe(1);
       const approvalsAfter = await repo.listToolApprovalsByTurn(tenant, "turn_revise");
       expect(approvalsAfter.some((a) => a.state === "pending")).toBe(true);
+      await repo.decideToolApproval(tenant, stale.needsApproval!.approvalId, "granted", tenant.subjectUserId);
+      expect(await provider.execute(input)).toMatchObject({ ok: true, output: { implementation: "replacement" } });
+      expect(writes).toBe(2);
     });
   });
 });

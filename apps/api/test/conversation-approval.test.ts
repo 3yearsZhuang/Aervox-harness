@@ -309,22 +309,59 @@ describe("Agent Loop 阶段 3a：写工具审批通道", () => {
     expect(writes).toBe(1);
   });
 
-  it("工具版本改变后再次审批仍关联原意图，不复用失效授权", async () => {
+  it("仅更新时间不会改变同一声明和实现的审批身份", async () => {
     const turnId = (await createTurn()).json().turnId as string;
     const repo = new SqliteConversationRepository(db);
     const [original] = await repo.listToolApprovalsByTurn(tenant,turnId);
+    const before = (await built.toolRuntime.exportRegistry()).find(tool => tool.id === "aervox_save_note")!;
     await built.client.execute({sql:"UPDATE tool_registrations SET updated_at = ? WHERE id = ?",args:["2099-01-01T00:00:00.000Z","aervox_save_note"]});
+    const after = (await built.toolRuntime.exportRegistry()).find(tool => tool.id === "aervox_save_note")!;
+    expect(after.updatedAt).not.toBe(before.updatedAt);
+    expect(after.approvalRevision).toBe(before.approvalRevision);
     const grant = (approvalId: string) => app.inject({method:"POST",url:`/v1/turns/${turnId}/tool-approvals`,headers,payload:{approvalId,decision:"granted"}});
     expect((await grant(original!.id)).statusCode).toBe(200);
-    await expect.poll(async () => (await repo.listTurnAttempts(tenant,turnId)).length).toBe(2);
-    await expect.poll(async () => (await repo.listTurnAttempts(tenant,turnId))[0]?.status).toBe("Interrupted");
-    expect(writes).toBe(0);
-    const pending = (await repo.listToolApprovalsByTurn(tenant,turnId)).find(row=>row.state==="pending");
-    expect(pending?.id).not.toBe(original!.id);
-    expect((await grant(pending!.id)).statusCode).toBe(200);
     await expect.poll(async () => (await repo.listTurnAttempts(tenant,turnId))[0]?.status).toBe("Completed");
-    expect(await repo.listTurnAttempts(tenant,turnId)).toHaveLength(3);
+    expect(await repo.listTurnAttempts(tenant,turnId)).toHaveLength(2);
+    expect(await repo.listToolApprovalsByTurn(tenant,turnId)).toHaveLength(1);
     expect(writes).toBe(1);
+  });
+
+  it.each(["handler", "declaration"])("%s 修订改变而更新时间不变时，旧审批不能续跑或授权新实现", async change => {
+    const turnId = (await createTurn()).json().turnId as string;
+    const repo = new SqliteConversationRepository(db);
+    const [original] = await repo.listToolApprovalsByTurn(tenant, turnId);
+    const before = (await built.toolRuntime.exportRegistry()).find(tool => tool.id === "aervox_save_note")!;
+    const handler = { call: async () => { writes++; return { saved: true, implementation: "replacement" }; } };
+    if (change === "handler") built.toolRuntime.registerHandler("aervox_save_note", handler);
+    else {
+      await built.toolRuntime.registerContribution({ id: "aervox_save_note", name: "aervox_save_note",
+        description: "保存笔记的新声明", category: "memory", safetyLevel: "write_with_approval",
+        requiredPermissions: [], inputSchema: { type: "object", properties: { content: { type: "string", maxLength: 10000 } } },
+        builtin: false, gatingConditions: [], priority: 20 }, handler);
+      await built.client.execute({ sql: "UPDATE tool_registrations SET updated_at = ? WHERE id = ?",
+        args: [before.updatedAt!, "aervox_save_note"] });
+    }
+    const after = (await built.toolRuntime.exportRegistry()).find(tool => tool.id === "aervox_save_note")!;
+    expect(after.updatedAt).toBe(before.updatedAt);
+    expect(after.approvalRevision).not.toBe(before.approvalRevision);
+    const grant = (targetTurn: string, approvalId: string) => app.inject({ method: "POST",
+      url: `/v1/turns/${targetTurn}/tool-approvals`, headers, payload: { approvalId, decision: "granted" } });
+    const rejected = await grant(turnId, original!.id);
+    expect(rejected.statusCode).toBe(409);
+    expect(rejected.json().error).toBe("approval_binding_expired");
+    expect((await repo.getToolApproval(tenant, original!.id))!.state).toBe("pending");
+    expect((await repo.getTurn(tenant, turnId))!.status).toBe("Interrupted");
+    expect(await repo.listTurnAttempts(tenant, turnId)).toHaveLength(1);
+    expect(writes).toBe(0);
+
+    const freshTurnId = (await createTurn()).json().turnId as string;
+    const [fresh] = await repo.listToolApprovalsByTurn(tenant, freshTurnId);
+    expect(fresh!.toolVersion).not.toBe(original!.toolVersion);
+    expect((await grant(freshTurnId, fresh!.id)).statusCode).toBe(200);
+    await expect.poll(async () => (await repo.getTurn(tenant, freshTurnId))!.status).toBe("Completed");
+    expect(writes).toBe(1);
+    expect((await repo.listToolExecutionsByTurn(tenant, turnId))[0]!.status).toBe("pending_approval");
+    expect((await repo.listToolExecutionsByTurn(tenant, freshTurnId))[0]!.status).toBe("executed");
   });
 
 });
