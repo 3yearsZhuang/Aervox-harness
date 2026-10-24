@@ -8,7 +8,7 @@
 
 | 顺序 | 当前目标 | 对应条目与进入下一阶段的条件 |
 |---|---|---|
-| 立即 | 交付再审计及接续整改，验证行为与边界缺口 | [ITER-071](#iter-071) 前两批已由 PR #323 合并；PR #324 已补 Conversation Port、共享终态、配置快照、原子画像批次与客户端契约；[PR #325](https://github.com/3yearsZhuang/Aervox-harness/pull/325) 接续 Page 配置身份、Worker 恢复所有者与来源 claim 写者，精确范围及验证见本条和各 PR |
+| 立即 | 交付再审计及接续整改，验证行为与边界缺口 | [ITER-071](#iter-071) 前两批已由 PR #323 合并；PR #324 已补 Conversation Port、共享终态、配置快照、原子画像批次与客户端契约；[PR #325](https://github.com/3yearsZhuang/Aervox-harness/pull/325) 接续 Page 配置身份、Worker 恢复所有者、来源写入与动作状态事务，精确范围及验证见本条和各 PR |
 | 接续，可按依赖并行 | 闭合删除、撤权、安全恢复及在线运行门槛 | [ITER-003](#iter-003)/[006](#iter-006)/[010](#iter-010)/[011](#iter-011)/[013](#iter-013)；插件升级只推进 [ITER-005](#iter-005) 的必要安全切片。恢复不能先于 deny 账本和水位，性能优化不能先于资源有界 |
 | 核心产品交付 | 证明现有个人助手、学习和会话入口真实可用 | 先收敛本机路径的 [ITER-064](#iter-064)、[033](#iter-033)、[029](#iter-029)、[第一方界面](#iter-053)；[015](#iter-015) 必要部署与 [062](#iter-062) 连接验证可并行，Bot 独立运行/恢复在主管能力后验收；再做 [032](#iter-032)/[012](#iter-012) 长会话及索引，[026](#iter-026) 有限评审 |
 | 按测量投入 | 消除真实瓶颈和维护成本 | [ITER-017](#iter-017)/[027](#iter-027)/[040](#iter-040)；先固定设备、数据和质量基线，再决定优化或停止，不承诺未测收益 |
@@ -126,6 +126,15 @@
 - **本轮完整验证：** 新的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务，API 913、仓储 760、Host Runtime 314、Worker 159、Core 494、Host Agent 120 项通过，2 项既有真实模型/参考库构建跳过不计通过。守卫、OpenAPI 兼容、全套前端测试、HLS、删除故障、Native Search/Runtime 及 64 份文档门禁通过；独立依赖审计为 0 未审阅、2 既有审阅路径、0 过时例外，API E2E 45 项与打包 CLI 集成 2 项另验通过。提交前仅补此记录并复验文档。基线 `a8c8790e` 的远端 5 项及主代码/CLI 实际步骤已确认成功，本轮远端结果仍以 PR 精确 HEAD 为准。
 - **剩余边界：** 未绑定 grant 修订或补造历史缺失审计；observation 物理删除后重新授权仍不能识别旧草稿。capture 后的感知事件副写、其他持久写者及 SQL 至响应交付的并发窗口仍需独立验收，不宣称全链删除、实时撤权或发布完成。
 
+#### 主动动作状态转移接续
+
+沿用本分支及 [PR #325](https://github.com/3yearsZhuang/Aervox-harness/pull/325)，接续 ITER-071/003 的持久写者整改。基线 `437d96ef` 的 [CI](https://github.com/3yearsZhuang/Aervox-harness/actions/runs/40106479387) 和 [Docs](https://github.com/3yearsZhuang/Aervox-harness/actions/runs/40106479308) 共 5 项均成功，主代码与打包 CLI 实际步骤已核对，不覆盖本轮后续实现。
+
+- **事务与状态机：** `updateAction` 固定状态、actor、outcome 和 error 输入，在同一写者事务内读取当前动作、校验既有状态转移、更新与提交元数据审计。来源删除已将未终结动作置为 revoked 后，旧 approved/running 快照不能再覆盖删除结果；审计失败回滚状态、时间戳和正文，保留既有加密、缺失动作返回 null 及正常状态回执。
+- **反例与验收：** 旧构建在实际 UPDATE 前暂停，先完成来源删除再放行，独立 SQL 在 4 条 approved/running → running/executed/failed 序列中确认 revoked 被覆盖且私人 outcome/error 回填。仓储 8 项、HTTP 审计失败 4 项先确认红测；补修后仓储定向 16 项、HTTP 33 项通过，覆盖互斥并发转移、删除竞争、审计失败回滚、输入突变和缺失 ID；独立静态复审未发现阻断问题。
+- **本轮完整验证：** 新的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务，API 922、仓储 769、Host Runtime 314、Worker 159、Core 494、Host Agent 120 项通过，2 项既有真实模型/参考库构建跳过不计通过。守卫、OpenAPI 兼容、全套前端测试、HLS、删除故障、Native Search/Runtime 及 64 份文档门禁通过；独立依赖审计为 0 未审阅、2 既有审阅路径、0 过时例外，API E2E 45 项与打包 CLI 集成 2 项另验通过。完整门禁后仅补此验证记录并复验文档，精确提交远端结果由 PR 保存，不沿用前一提交绿测。
+- **剩余边界：** 本轮不新增动作创建、当前 source/lease/grant 修订政策，不证明真实外部动作与撤权原子提交。创建入口预检至 INSERT，以及删除时保留 failed 终态后仍允许 failed → revoked 携带正文的路径待独立闭合；后者已在本轮构建以独立 SQL 确认仍成立，不计作修复或安全通过。动作删除墓碑、capture 后感知副写、全来源传播与 deny 账本仍归 ITER-003/010，不宣称完整动作安全或发布完成。
+
 #### 随后补齐设计与行为闭环
 
 审批 revision、分支幂等和索引语义已随首批实施；第二批客户端、模型、Catalog、DTO、表约束与接单摘要已通过本地整体验证。本轮再审计补齐 Conversation Port、完成前增强及显式配置注入，统一验证结果见上方整改记录。源码确认与隔离复现的证据强度在各行区分，不能以结构整改替代入口验收。
@@ -165,7 +174,7 @@
 
 Memory 清理、独立验证、迟到写拒绝、召回资格及用途闸门已由 [PR #268](https://github.com/3yearsZhuang/Aervox-harness/pull/268)、[PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258)、[PR #259](https://github.com/3yearsZhuang/Aervox-harness/pull/259)交付；ARC-06/08、CAP-005/013/027/033。将未完成责任从历史切片恢复到活动计划，不将有限 Memory 研究推为全链证明。
 
-- **已补切片：** PR #324 接续将 ContextManifest 新写入投影为白名单请求元数据，Core 仅在进程内保留完整输入；另补首输入恢复资格、执行检查点及 SSE 当前来源读取。PR #325 又为带来源引用的旧 claim 入口补齐写事务内当前资格，具体记录与范围见 ITER-071。不自动改写历史行或清洗 Outbox/派生副本。
+- **已补切片：** PR #324 接续将 ContextManifest 新写入投影为白名单请求元数据，Core 仅在进程内保留完整输入；另补首输入恢复资格、执行检查点及 SSE 当前来源读取。PR #325 又为 claim/capture/observation 旧写入口补齐事务内当前资格，并收敛动作状态更新与审计原子性，具体记录与边界见 ITER-071。不自动改写历史行或清洗 Outbox/派生副本。
 - **下一步：** 先固化 `scope→targets`、来源→派生传播及 grant 修订绑定；显式覆盖消息/工具结果、事件、摘要、Memory、日记、附件、缓存和错误副本。历史 ContextManifest 正文清理及来源删除传播仍须闭合，不能以新写入最小化或诊断 UI 不显示正文代替全链验证。
 - **依赖与验收：** 联动 ITER-071 写者门禁、ITER-013 逐帧撤权及 ITER-010 deny 账本；数据库级唯一 sequence 约束经 ITER-011 演练。撤权/删除立即阻断用途，迟到写、重试、备份恢复均不复活；独立验证无召回、无越权动作，失败/未知 owner 不返回完成。权威边界见[隐私合同](docs/reference/DATA_PRIVACY.md#privacy-deletion-sla)及[当前限制](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-证据与适用限制)。
 

@@ -48,6 +48,78 @@ describe("CAP-033 proactive API", () => {
     }));
   }
 
+  async function pendingAction(suffix: string) {
+    const profileId = `action-transition-${suffix}`;
+    const profile = await app.inject({ method: "POST", url: "/v1/proactive/authorize", headers,
+      payload: { id: profileId, deviceId: "device-api", fullAccessConfirmed: true, sources: grantedSources(profileId) } });
+    expect(profile.statusCode).toBe(201);
+    const id = `action-${suffix}`;
+    const action = await app.inject({ method: "POST", url: "/v1/proactive/actions", headers,
+      payload: { id, revisionId: profile.json().revision.id, actionType: "file.write", target: "/private/action-target",
+        request: { text: "PRIVATE_ACTION_REQUEST" }, authorizationScope: "action.local", actionGrantRevision: "caller-ignored" } });
+    expect(action.statusCode).toBe(201);
+    const transition = (state: string, extra: Record<string, unknown> = {}) => app.inject({ method: "POST",
+      url: `/v1/proactive/actions/${id}/state`, headers, payload: { state, ...extra } });
+    const persisted = async () => ({
+      actions: (await client.execute("SELECT * FROM proactive_actions ORDER BY id")).rows,
+      audits: (await client.execute("SELECT * FROM proactive_audit_events ORDER BY id")).rows,
+    });
+    const source = profile.json().sources.find((item: { sourceKey: string }) => item.sourceKey === "action.local");
+    return { id, source, transition, persisted };
+  }
+
+  it("commits only one of concurrent action approval and denial requests", async () => {
+    const action = await pendingAction("concurrent");
+    const responses = await Promise.all([action.transition("approved"), action.transition("denied")]);
+    expect(responses.map(response => response.statusCode).sort()).toEqual([200, 409]);
+    const rejected = responses.find(response => response.statusCode === 409)!;
+    expect(rejected.body).not.toContain("PRIVATE_ACTION_REQUEST");
+    const current = await action.persisted();
+    expect(current.actions[0]?.state).toBe(responses.find(response => response.statusCode === 200)!.json().state);
+    const transitions = current.audits.filter(row => row.event_type === "action.approved" || row.event_type === "action.denied");
+    expect(transitions).toHaveLength(1);
+  });
+
+  it.each(["approved", "running", "executed", "failed"])("rolls back an action %s update when its metadata audit fails", async state => {
+    const action = await pendingAction(`audit-${state}`);
+    if (state !== "approved") expect((await action.transition("approved")).statusCode).toBe(200);
+    if (state === "executed") expect((await action.transition("running")).statusCode).toBe(200);
+    await client.execute(`CREATE TRIGGER fail_action_transition_audit BEFORE INSERT ON proactive_audit_events WHEN NEW.event_type = 'action.${state}' BEGIN SELECT RAISE(ABORT, 'injected_action_audit_failure'); END`);
+    const before = await action.persisted();
+    const failed = await action.transition(state, { outcome: { text: "PRIVATE_ACTION_OUTCOME" }, error: "PRIVATE_ACTION_ERROR" });
+    expect(failed.statusCode).toBe(500);
+    expect(failed.body).not.toContain("PRIVATE_ACTION_OUTCOME");
+    expect(failed.body).not.toContain("PRIVATE_ACTION_ERROR");
+    expect(await action.persisted()).toEqual(before);
+    await client.execute("DROP TRIGGER fail_action_transition_audit");
+    const retried = await action.transition(state, { outcome: { text: "PRIVATE_ACTION_OUTCOME" }, error: "PRIVATE_ACTION_ERROR" });
+    expect(retried.statusCode).toBe(200);
+    expect(retried.json()).toMatchObject({ state, outcome: { text: "PRIVATE_ACTION_OUTCOME" }, error: "PRIVATE_ACTION_ERROR" });
+    const audits = (await client.execute({ sql: "SELECT payload_json FROM proactive_audit_events WHERE resource_id = ? AND event_type = ?",
+      args: [action.id, `action.${state}`] })).rows;
+    expect(audits).toHaveLength(1);
+    expect(JSON.stringify(audits)).not.toContain("PRIVATE_ACTION_OUTCOME");
+    expect(JSON.stringify(audits)).not.toContain("PRIVATE_ACTION_ERROR");
+  });
+
+  it.each([
+    ["approved", "running"], ["approved", "failed"], ["running", "executed"], ["running", "failed"],
+  ])("rejects an action %s -> %s update after source deletion without changing the scrubbed row", async (before, after) => {
+    const action = await pendingAction(`deleted-${before}-${after}`);
+    expect((await action.transition("approved")).statusCode).toBe(200);
+    if (before === "running") expect((await action.transition("running")).statusCode).toBe(200);
+    const deleted = await app.inject({ method: "DELETE", url: `/v1/proactive/sources/${action.source.id}/data`, headers });
+    expect(deleted.statusCode).toBe(200);
+    expect(deleted.json().actionsScrubbed).toBe(1);
+    const scrubbed = await action.persisted();
+    expect(scrubbed.actions[0]).toMatchObject({ state: "revoked", outcome_json: null, error: null });
+    const rejected = await action.transition(after, { outcome: { text: "PRIVATE_ACTION_OUTCOME" }, error: "PRIVATE_ACTION_ERROR" });
+    expect(rejected.statusCode).toBe(409);
+    expect(rejected.body).not.toContain("PRIVATE_ACTION_OUTCOME");
+    expect(rejected.body).not.toContain("PRIVATE_ACTION_ERROR");
+    expect(await action.persisted()).toEqual(scrubbed);
+  });
+
   async function sourceIngest(kind: "capture" | "observation", suffix: string) {
     const profileId = `ingest-${kind}-${suffix}`;
     const profile = await app.inject({ method: "POST", url: "/v1/proactive/authorize", headers,

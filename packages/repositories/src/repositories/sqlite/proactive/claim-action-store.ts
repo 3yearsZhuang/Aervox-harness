@@ -5,6 +5,7 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
 import {
   proactiveActions,
+  proactiveAuditEvents,
   proactiveProfileClaims,
   proactiveProfileRevisions,
   proactiveSourceGrants,
@@ -311,67 +312,56 @@ export class ClaimActionStore {
   async updateAction(
     ctx: LocalContext,
     actionId: string,
-    input: Parameters<IProactiveProfileRepository["updateAction"]>[2],
+    submitted: Parameters<IProactiveProfileRepository["updateAction"]>[2],
   ): Promise<ProactiveActionModel | null> {
-    const [existing] = await this.db
-      .select()
-      .from(proactiveActions)
-      .where(
-        and(
-          eq(proactiveActions.id, actionId),
-        ),
-      )
-      .limit(1);
-    if (!existing) return null;
-    // 动作状态机约束：approved 只能来自 pending；running/executed 只能从 approved 前进。
-    // 调用方不能把未决动作直接置为执行态，也不能二次批准已批准动作。
-    const ALLOWED_TRANSITIONS: Record<string, readonly string[]> = {
-      pending: ["approved", "denied", "revoked"],
-      approved: ["running", "revoked", "failed"],
-      running: ["executed", "failed", "revoked"],
-      executed: [],
-      denied: [],
-      failed: ["revoked"],
-      revoked: [],
-    };
-    const allowed = ALLOWED_TRANSITIONS[existing.state] ?? [];
-    if (!allowed.includes(input.state)) {
-      throw new DomainConflictError(`state transition ${existing.state} -> ${input.state} not allowed`);
-    }
-    const now = new Date().toISOString();
-    const terminal = ["executed", "denied", "failed", "revoked"].includes(input.state);
-    const [updated] = await this.db
-      .update(proactiveActions)
-      .set({
+    // Preserve this call's intent while it waits for admission to the writer.
+    const input = { ...submitted };
+    const outcomeJson = input.outcome === undefined ? undefined : stringify(input.outcome, "null");
+    return this.db.transaction(async tx => {
+      const [existing] = await tx.select().from(proactiveActions).where(eq(proactiveActions.id, actionId)).limit(1);
+      if (!existing) return null;
+      // 动作状态机约束：approved 只能来自 pending；running/executed 只能从 approved 前进。
+      // 在写者事务中读取和检查，避免并行状态变更或删除后使用旧快照。
+      const ALLOWED_TRANSITIONS: Record<string, readonly string[]> = {
+        pending: ["approved", "denied", "revoked"],
+        approved: ["running", "revoked", "failed"],
+        running: ["executed", "failed", "revoked"],
+        executed: [],
+        denied: [],
+        failed: ["revoked"],
+        revoked: [],
+      };
+      const allowed = ALLOWED_TRANSITIONS[existing.state] ?? [];
+      if (!allowed.includes(input.state)) {
+        throw new DomainConflictError(`state transition ${existing.state} -> ${input.state} not allowed`);
+      }
+      const now = new Date().toISOString();
+      const terminal = ["executed", "denied", "failed", "revoked"].includes(input.state);
+      const [updated] = await tx.update(proactiveActions).set({
         state: input.state,
         approvedBy: input.state === "approved" ? input.actorId ?? "user" : existing.approvedBy,
         approvedAt: input.state === "approved" ? now : existing.approvedAt,
         startedAt: input.state === "running" ? existing.startedAt ?? now : existing.startedAt,
         finishedAt: terminal ? now : existing.finishedAt,
-        outcomeJson: input.outcome === undefined
-          ? existing.outcomeJson
-          : encrypt(stringify(input.outcome, "null"), "action", actionId, this.cipher) ?? "null",
-        error: input.error === undefined
-          ? existing.error
-          : encrypt(input.error, "action", actionId, this.cipher) ?? null,
+        outcomeJson: outcomeJson === undefined ? existing.outcomeJson : encrypt(outcomeJson, "action", actionId, this.cipher) ?? "null",
+        error: input.error === undefined ? existing.error : encrypt(input.error, "action", actionId, this.cipher) ?? null,
         updatedAt: now,
-      })
-      .where(
-        and(
-          eq(proactiveActions.id, actionId),
-        ),
-      )
-      .returning();
-    if (!updated) return null;
-    await this.audit.recordAudit(ctx, {
-      id: `${actionId}_audit_${input.state}_${Date.now().toString(36)}`,
-      revisionId: updated.revisionId,
-      eventType: `action.${input.state}`,
-      actorId: input.actorId ?? "system",
-      resourceType: "proactive_action",
-      resourceId: actionId,
-      payload: input.error ? { failed: true } : {},
-    });
-    return toAction(updated, this.cipher);
+      }).where(eq(proactiveActions.id, actionId)).returning();
+      if (!updated) return null;
+      const [audit] = await tx.insert(proactiveAuditEvents).values({
+        id: `${actionId}_audit_${input.state}_${Date.now().toString(36)}`,
+        revisionId: updated.revisionId,
+        eventType: `action.${input.state}`,
+        actorId: input.actorId ?? "system",
+        resourceType: "proactive_action",
+        resourceId: actionId,
+        payloadJson: JSON.stringify(input.error ? { failed: true } : {}),
+        processingBoundary: "local_only",
+        occurredAt: now,
+        createdAt: now,
+      }).returning({ id: proactiveAuditEvents.id });
+      if (!audit) throw new Error("failed to record proactive audit event");
+      return toAction(updated, this.cipher);
+    }, { behavior: "immediate" });
   }
 }

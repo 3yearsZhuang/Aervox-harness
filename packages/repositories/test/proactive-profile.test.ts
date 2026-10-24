@@ -307,4 +307,85 @@ describe("CAP-033 proactive profile repository", () => {
     await expect(repository.updateAction(ctx, "action-sm-1", { state: "revoked", actorId: "usr_pro" }))
       .rejects.toThrow(/state transition/);
   });
+
+  describe("atomic action state transitions", () => {
+    async function actionFixture(state: "pending" | "approved" | "running" = "pending") {
+      const cipher = createProactiveVaultCipher(new Uint8Array(32).fill(4), "action-test-v1");
+      const repository = new SqliteProactiveProfileRepository(db, cipher);
+      const profile = await repository.confirmProfile(ctx, { id: "atomic-profile", deviceId: "atomic-device",
+        actorId: ctx.subjectUserId, sources: allGrantedSources("atomic-profile") });
+      const action = await repository.createAction(ctx, { id: "atomic-action", revisionId: profile.revision.id,
+        actionType: "file.write", target: "/private/target", request: { value: "private request" },
+        authorizationScope: "action.local", actionGrantRevision: "ignored", requestedBy: ctx.subjectUserId });
+      if (state !== "pending") await repository.updateAction(ctx, action.id, { state: "approved", actorId: "approver" });
+      if (state === "running") await repository.updateAction(ctx, action.id, { state: "running" });
+      const snapshot = async () => ({
+        action: (await client.execute({ sql: "SELECT * FROM proactive_actions WHERE id = ?", args: [action.id] })).rows,
+        audits: (await client.execute({ sql: "SELECT * FROM proactive_audit_events WHERE resource_id = ? ORDER BY id", args: [action.id] })).rows,
+      });
+      return { repository, action, source: profile.sources.find(source => source.sourceKey === "action.local")!, snapshot };
+    }
+
+    it("accepts only one of two incompatible transitions from the same state", async () => {
+      const { repository, action } = await actionFixture();
+      const results = await Promise.allSettled([
+        repository.updateAction(ctx, action.id, { state: "approved", actorId: "approver" }),
+        repository.updateAction(ctx, action.id, { state: "denied", actorId: "denier" }),
+      ]);
+      expect(results.filter(result => result.status === "fulfilled")).toHaveLength(1);
+      const rejected = results.find(result => result.status === "rejected");
+      expect(rejected).toMatchObject({ status: "rejected", reason: { message: expect.stringMatching(/state transition/) } });
+      const audits = await client.execute({ sql: "SELECT event_type FROM proactive_audit_events WHERE resource_id = ? AND event_type IN ('action.approved', 'action.denied')", args: [action.id] });
+      expect(audits.rows).toHaveLength(1);
+    });
+
+    it.each(["running", "failed"] as const)("rolls back %s and private output when its metadata audit fails", async state => {
+      const { repository, action, snapshot } = await actionFixture("approved");
+      await client.execute(`CREATE TRIGGER fail_action_audit BEFORE INSERT ON proactive_audit_events WHEN NEW.event_type = 'action.${state}' BEGIN SELECT RAISE(ABORT, 'injected_action_audit_failure'); END`);
+      const before = await snapshot();
+      await expect(repository.updateAction(ctx, action.id, { state, outcome: { value: "private late outcome" }, error: "private late error" }))
+        .rejects.toThrow();
+      expect(await snapshot()).toEqual(before);
+      await client.execute("DROP TRIGGER fail_action_audit");
+      expect(await repository.updateAction(ctx, action.id, { state })).toMatchObject({ state });
+    });
+
+    it.each([
+      ["approved", "running"], ["approved", "failed"], ["running", "executed"], ["running", "failed"],
+    ] as const)("keeps source deletion scrubbing intact when %s -> %s races it", async (initial, state) => {
+      const { repository, action, source } = await actionFixture(initial);
+      const [deleted, transitioned] = await Promise.allSettled([
+        repository.deleteSourceData(ctx, source.id, ctx.subjectUserId),
+        repository.updateAction(ctx, action.id, { state, outcome: { value: "private late outcome" }, error: "private late error" }),
+      ]);
+      expect(deleted).toMatchObject({ status: "fulfilled", value: { actionsScrubbed: 1 } });
+      if (transitioned.status === "rejected") expect(transitioned.reason).toHaveProperty("message", expect.stringMatching(/state transition/));
+      const [saved] = await repository.listActions(ctx);
+      expect(saved).toMatchObject({ target: "[deleted]", request: {}, error: null });
+      expect(saved!.outcome).toBeUndefined();
+      expect(state === "running" ? ["revoked"] : ["revoked", state]).toContain(saved!.state);
+    });
+
+    it("freezes transition, actor and nested output before awaiting the writer", async () => {
+      const { repository, action } = await actionFixture("running");
+      const input: Parameters<typeof repository.updateAction>[2] = { state: "executed", actorId: "original-actor",
+        outcome: { nested: { value: "original outcome" } }, error: null };
+      const transition = repository.updateAction(ctx, action.id, input);
+      input.state = "failed";
+      input.actorId = "mutated-actor";
+      (input.outcome as { nested: { value: string } }).nested.value = "mutated outcome";
+      input.error = "mutated error";
+      expect(await transition).toMatchObject({ state: "executed", outcome: { nested: { value: "original outcome" } }, error: null });
+      const audit = await client.execute({ sql: "SELECT actor_id, payload_json FROM proactive_audit_events WHERE resource_id = ? AND event_type = 'action.executed'", args: [action.id] });
+      expect(audit.rows).toEqual([expect.objectContaining({ actor_id: "original-actor", payload_json: "{}" })]);
+    });
+
+    it("returns null for a missing action without creating an audit", async () => {
+      const { repository, snapshot } = await actionFixture();
+      const before = await snapshot();
+      expect(await repository.updateAction(ctx, "missing-action", { state: "approved" })).toBeNull();
+      expect(await snapshot()).toEqual(before);
+      expect((await client.execute("SELECT id FROM proactive_audit_events WHERE resource_id = 'missing-action'")).rows).toEqual([]);
+    });
+  });
 });
