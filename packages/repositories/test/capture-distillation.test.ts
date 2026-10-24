@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createInMemoryDatabase, createProactiveVaultCipher, SqliteProactiveProfileRepository,
-  type CaptureDistillationInput } from "../src/index.js";
+  DomainConflictError, type CaptureDistillationInput } from "../src/index.js";
 
 const ctx = { workspaceId: "local", subjectUserId: "local" };
 describe("atomic capture distillation publication", () => {
@@ -23,6 +23,126 @@ describe("atomic capture distillation publication", () => {
   afterEach(async () => { await database.cleanup(); });
   const state = async () => Promise.all(["proactive_captures", "proactive_observations", "proactive_profile_claims", "proactive_audit_events"].map(async table =>
     (await database.client.execute(`SELECT * FROM ${table} ORDER BY id`)).rows));
+
+  describe("capture and observation ingestion source transactions", () => {
+    const captureDraft = (id = "capture-new") => ({ id, revisionId: "profile", sourceGrantId: "source", sourceKey: "device.browser_activity",
+      contentType: "text/plain", payloadText: "private captured text", payload: { nested: { content: "private captured JSON" } },
+      checksum: id === "capture" ? "capture-checksum" : "new-capture-checksum", observedAt: "2026-10-01T00:00:00.000Z" });
+    const observationDraft = () => ({ id: "observation-new", revisionId: "profile", sourceGrantId: "source", sourceKey: "device.browser_activity",
+      observationType: "activity", subjectKey: "private subject", payload: { nested: { content: "private observation" } }, checksum: "observation-checksum" });
+    const applyControl = async (change: string) => {
+      if (change === "delete") await repo.deleteSourceData(ctx, "source", "local");
+      else if (change === "pause") await repo.setDesiredState(ctx, "paused", "local", "profile");
+      else if (change === "profile-boundary") await database.client.execute("UPDATE proactive_profile_revisions SET processing_boundary='cloud' WHERE id='profile'");
+      else if (change === "source-boundary") await database.client.execute("UPDATE proactive_source_grants SET processing_boundary='cloud' WHERE id='source'");
+      else await repo.updateSourceGrant(ctx, "source", { state: change as "revoked" | "expired", actorId: "local" });
+    };
+
+    describe.each(["capture", "observation"] as const)("%s", kind => {
+      const create = (retry = false) => kind === "capture"
+        ? repo.createCapture(ctx, captureDraft(retry ? "capture" : "capture-new"))
+        : repo.createObservation(ctx, observationDraft());
+
+      it.each(["revoked", "expired", "pause", "profile-boundary", "source-boundary"])(
+        "does not disclose an existing idempotent result after %s", async change => {
+          if (kind === "observation") await create();
+          await applyControl(change);
+          const before = await state();
+          await expect(create(true)).rejects.toBeInstanceOf(DomainConflictError);
+          expect(await state()).toEqual(before);
+        },
+      );
+
+      it.each(["delete", "revoked", "expired", "pause"])("rejects %s when it commits before the ingestion writer transaction", async change => {
+        const transaction = database.db.transaction.bind(database.db);
+        let controlled: Awaited<ReturnType<typeof state>> | undefined;
+        database.db.transaction = async (...args) => {
+          database.db.transaction = transaction;
+          await applyControl(change);
+          controlled = await state();
+          return transaction(...args);
+        };
+        await expect(create()).rejects.toBeInstanceOf(DomainConflictError);
+        expect(controlled).toBeDefined();
+        expect(await state()).toEqual(controlled);
+      });
+
+      it("rolls back private content when its metadata audit cannot be committed", async () => {
+        const event = kind === "capture" ? "capture.ingested" : "observation.normalized";
+        const before = await state();
+        await database.client.execute(`CREATE TRIGGER fail_ingestion_audit BEFORE INSERT ON proactive_audit_events WHEN new.event_type='${event}' BEGIN SELECT RAISE(ABORT, 'injected'); END`);
+        await expect(create()).rejects.toThrow();
+        expect(await state()).toEqual(before);
+        await database.client.execute("DROP TRIGGER fail_ingestion_audit");
+        const result = await create();
+        const audits = await database.client.execute({ sql: "SELECT payload_json FROM proactive_audit_events WHERE resource_id = ? AND event_type = ?",
+          args: [result.id, event] });
+        expect(audits.rows).toHaveLength(1);
+        expect(String(audits.rows[0]!.payload_json)).not.toContain("private");
+      });
+
+      it("serializes same-key ingestion and retains one unchanged result and audit", async () => {
+        const results = await Promise.all(Array.from({ length: 4 }, () => create()));
+        expect(results).toEqual(Array.from({ length: 4 }, () => results[0]));
+        const before = await state();
+        expect(await create()).toEqual(results[0]);
+        expect(await state()).toEqual(before);
+        const rows = await database.client.execute({ sql: "SELECT id FROM proactive_audit_events WHERE resource_id = ?", args: [results[0]!.id] });
+        expect(rows.rows).toHaveLength(1);
+      });
+
+      it("captures input content and identity before awaiting writer admission", async () => {
+        const transaction = database.db.transaction.bind(database.db);
+        const capture = captureDraft();
+        const observation = observationDraft();
+        let mutated = false;
+        database.db.transaction = async (...args) => {
+          database.db.transaction = transaction;
+          mutated = true;
+          capture.sourceGrantId = "changed-source";
+          capture.payloadText = "mutated text";
+          capture.payload.nested.content = "mutated JSON";
+          observation.sourceGrantId = "changed-source";
+          observation.subjectKey = "mutated subject";
+          observation.payload.nested.content = "mutated JSON";
+          return transaction(...args);
+        };
+        if (kind === "capture") {
+          expect(await repo.createCapture(ctx, capture)).toMatchObject({ sourceGrantId: "source", payloadText: "private captured text",
+            payload: { nested: { content: "private captured JSON" } }, retentionUntil: "2026-10-08T00:00:00.000Z" });
+        } else {
+          expect(await repo.createObservation(ctx, observation)).toMatchObject({ sourceGrantId: "source", subjectKey: "private subject",
+            payload: { nested: { content: "private observation" } } });
+        }
+        expect(mutated).toBe(true);
+      });
+
+      it("does not return a historical result outside the local processing boundary", async () => {
+        if (kind === "observation") await create();
+        const table = kind === "capture" ? "proactive_captures" : "proactive_observations";
+        const id = kind === "capture" ? "capture" : "observation-new";
+        await database.client.execute({ sql: `UPDATE ${table} SET processing_boundary='cloud' WHERE id = ?`, args: [id] });
+        const before = await state();
+        await expect(create(true)).rejects.toBeInstanceOf(DomainConflictError);
+        expect(await state()).toEqual(before);
+      });
+    });
+
+    it("does not accept a deleted capture as an idempotent success after its source is granted again", async () => {
+      await repo.deleteSourceData(ctx, "source", "local");
+      await repo.updateSourceGrant(ctx, "source", { state: "granted", actorId: "local" });
+      const before = await state();
+      await expect(repo.createCapture(ctx, captureDraft("capture"))).rejects.toBeInstanceOf(DomainConflictError);
+      expect(await state()).toEqual(before);
+    });
+
+    it("does not return a deleted-state historical capture even when its timestamp is missing", async () => {
+      await database.client.execute("UPDATE proactive_captures SET distillation_status='deleted', deleted_at=NULL WHERE id='capture'");
+      const before = await state();
+      await expect(repo.createCapture(ctx, captureDraft("capture"))).rejects.toBeInstanceOf(DomainConflictError);
+      expect(await state()).toEqual(before);
+    });
+  });
 
   it.each([
     "BEFORE INSERT ON proactive_observations",

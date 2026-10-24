@@ -49,7 +49,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     this.sourceGrantStore = new SourceGrantStore(db, this.auditStore, cipher);
     this.lifecycleStore = new ProfileLifecycleStore(db, this.sourceGrantStore, this.auditStore, cipher);
     this.activationLeaseStore = new ActivationLeaseStore(db, this.lifecycleStore, this.auditStore);
-    this.captureStore = new CaptureStore(db, this.lifecycleStore, this.auditStore, cipher);
+    this.captureStore = new CaptureStore(db, cipher);
     this.claimActionStore = new ClaimActionStore(
       db,
       this.lifecycleStore,

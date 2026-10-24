@@ -48,6 +48,96 @@ describe("CAP-033 proactive API", () => {
     }));
   }
 
+  async function sourceIngest(kind: "capture" | "observation", suffix: string) {
+    const profileId = `ingest-${kind}-${suffix}`;
+    const profile = await app.inject({ method: "POST", url: "/v1/proactive/authorize", headers,
+      payload: { id: profileId, deviceId: "device-api", fullAccessConfirmed: true, sources: grantedSources(profileId) } });
+    expect(profile.statusCode).toBe(201);
+    const revisionId = profile.json().revision.id;
+    const source = profile.json().sources[0];
+    const input = { id: `${kind}-${suffix}`, revisionId, sourceGrantId: source.id, sourceKey: source.sourceKey,
+      checksum: `sha256:${kind}-${suffix}`,
+      ...(kind === "capture" ? { contentType: "text/plain", payloadText: "PRIVATE_CAPTURE_INPUT" }
+        : { observationType: "activity", subjectKey: "private-subject", payload: { value: "PRIVATE_OBSERVATION_INPUT" } }),
+    };
+    const state = async () => ({
+      captures: (await client.execute("SELECT * FROM proactive_captures ORDER BY id")).rows,
+      observations: (await client.execute("SELECT * FROM proactive_observations ORDER BY id")).rows,
+      audits: (await client.execute("SELECT * FROM proactive_audit_events ORDER BY id")).rows,
+    });
+    return { path: `/v1/proactive/${kind === "capture" ? "captures" : "observations"}`, input, source, revisionId, state };
+  }
+
+  describe.each(["capture", "observation"] as const)("%s ingestion source qualification", kind => {
+    it.each(["revoked", "expired", "pause"] as const)(
+      "rejects both new and same-id requests after %s without payload disclosure or audit writes", async change => {
+        const f = await sourceIngest(kind, change);
+        expect((await app.inject({ method: "POST", url: f.path, headers, payload: f.input })).statusCode).toBe(201);
+        const control = change === "pause"
+          ? await app.inject({ method: "POST", url: "/v1/proactive/desired-state", headers,
+            payload: { revisionId: f.revisionId, desiredState: "paused" } })
+          : await app.inject({ method: "PATCH", url: `/v1/proactive/sources/${f.source.id}`, headers,
+            payload: { state: change } });
+        expect(control.statusCode).toBe(200);
+        const before = await f.state();
+        for (const id of [`${f.input.id}-late`, f.input.id]) {
+          const response = await app.inject({ method: "POST", url: f.path, headers, payload: { ...f.input, id } });
+          expect(response.statusCode).toBe(409);
+          expect(response.json().code).toBe("CONFLICT");
+          expect(response.body).not.toContain("PRIVATE_CAPTURE_INPUT");
+          expect(response.body).not.toContain("PRIVATE_OBSERVATION_INPUT");
+          expect(await f.state()).toEqual(before);
+        }
+      },
+    );
+
+    it("rolls back the write when its metadata audit fails, then retries once without duplicating the audit", async () => {
+      const f = await sourceIngest(kind, "audit-failure");
+      const eventType = kind === "capture" ? "capture.ingested" : "observation.normalized";
+      await client.execute(`CREATE TRIGGER fail_ingest_audit BEFORE INSERT ON proactive_audit_events WHEN NEW.event_type = '${eventType}' BEGIN SELECT RAISE(ABORT, 'injected_ingest_audit_failure'); END`);
+      const before = await f.state();
+      const failed = await app.inject({ method: "POST", url: f.path, headers, payload: f.input });
+      expect(failed.statusCode).toBe(500);
+      expect(failed.body).not.toContain("PRIVATE_CAPTURE_INPUT");
+      expect(failed.body).not.toContain("PRIVATE_OBSERVATION_INPUT");
+      expect(await f.state()).toEqual(before);
+      await client.execute("DROP TRIGGER fail_ingest_audit");
+      const accepted = await app.inject({ method: "POST", url: f.path, headers, payload: f.input });
+      expect(accepted.statusCode).toBe(201);
+      const saved = await f.state();
+      const retried = await app.inject({ method: "POST", url: f.path, headers, payload: f.input });
+      expect(retried.statusCode).toBe(201);
+      expect(retried.json()).toEqual(accepted.json());
+      expect(await f.state()).toEqual(saved);
+      const audits = (await client.execute({ sql: "SELECT payload_json FROM proactive_audit_events WHERE resource_id = ? AND event_type = ?",
+        args: [f.input.id, eventType] })).rows;
+      expect(audits).toHaveLength(1);
+      expect(JSON.stringify(audits)).not.toContain("PRIVATE_CAPTURE_INPUT");
+      expect(JSON.stringify(audits)).not.toContain("PRIVATE_OBSERVATION_INPUT");
+      const conflict = await app.inject({ method: "POST", url: f.path, headers, payload: { ...f.input, checksum: "sha256:different-intent" } });
+      expect(conflict.statusCode).toBe(409);
+      expect(conflict.json().code).toBe("CONFLICT");
+      expect(await f.state()).toEqual(saved);
+    });
+  });
+
+  it.each([false, true])("rejects a deleted capture retry even when its source is regranted=%s", async regranted => {
+    const f = await sourceIngest("capture", `deleted-${regranted}`);
+    expect((await app.inject({ method: "POST", url: f.path, headers, payload: f.input })).statusCode).toBe(201);
+    const deleted = await app.inject({ method: "DELETE", url: `/v1/proactive/sources/${f.source.id}/data`, headers });
+    expect(deleted.statusCode).toBe(200);
+    expect(deleted.json().capturesScrubbed).toBe(1);
+    if (regranted) expect((await app.inject({ method: "PATCH", url: `/v1/proactive/sources/${f.source.id}`, headers,
+      payload: { state: "granted" } })).statusCode).toBe(200);
+    const before = await f.state();
+    const response = await app.inject({ method: "POST", url: f.path, headers, payload: f.input });
+    expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe("CONFLICT");
+    expect(response.body).not.toContain("PRIVATE_CAPTURE_INPUT");
+    expect(await f.state()).toEqual(before);
+    expect(before.captures[0]).toMatchObject({ distillation_status: "deleted", payload_text: null, payload_json: null });
+  });
+
   it("requires the device token when the local Vault is protected", async () => {
     await app.close();
     const token = "device-token-1234567890-abcdefghijk";
