@@ -3,7 +3,7 @@ import type { ApiEndpoint } from "./http-api.js";
 import {
   pluginConfigSchema, pluginConfigSchemaOpenApi,
   pluginConfigSnapshotSchema, pluginConfigUpdateRequestSchema,
-  pluginPageSchema, type PluginConfigField,
+  pluginPageSchema, pluginPageGenerationSchema, type PluginConfigField,
 } from "./plugin-config-schemas.js";
 import { validatePluginConfigDefinition } from "./plugin-validation.js";
 
@@ -35,6 +35,7 @@ const params = z.object({ pluginId: z.string().min(1) });
 const lifecycleQuery = z.object({ expectedLifecycleGeneration: z.string().min(1).max(128).optional() });
 /** Stored Pages preserve the legacy nullable description and checksum fields. */
 export const pluginPageResponseSchema = pluginPageSchema.extend({
+  pageGeneration: pluginPageGenerationSchema.openapi({ description: "Host-owned Page declaration identity; rotates when the Page changes or is recreated." }),
   description: pluginPageSchema.shape.description.nullable(),
   checksum: pluginPageSchema.shape.checksum.nullable(),
 });

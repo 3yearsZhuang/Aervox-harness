@@ -151,7 +151,7 @@ describe('ITER-064 plugin configuration contracts over HTTP', () => {
   it('rejects malformed successful service output through the response contract', async () => {
     vi.spyOn(PluginConfigService.prototype, 'getConfigSchema').mockResolvedValue({ schemaVersion: 1, fields: [{ key: 'unsafe', type: 'unknown', label: 'Unsafe' }] });
     vi.spyOn(PluginConfigService.prototype, 'getConfig').mockResolvedValue({ pluginId, revision: -1 } as never);
-    vi.spyOn(PluginConfigService.prototype, 'listPages').mockResolvedValue([{ id: 'settings', title: 'Settings', entry: 'pages/settings/index.html', capabilities: ['unsafe'] }]);
+    vi.spyOn(PluginConfigService.prototype, 'listPages').mockResolvedValue([{ id: 'settings', pageGeneration: 'current-page', title: 'Settings', entry: 'pages/settings/index.html', capabilities: ['unsafe'] }]);
     for (const endpoint of [pluginConfigApi.getSchema, pluginConfigApi.get, pluginConfigApi.listPages]) {
       const response = await request('GET', url(endpoint));
       expect(response.status).toBe(500);

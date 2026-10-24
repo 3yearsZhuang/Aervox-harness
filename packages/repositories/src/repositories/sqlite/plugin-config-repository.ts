@@ -63,16 +63,20 @@ export class SqlitePluginConfigRepository implements IPluginConfigRepository {
         || JSON.stringify(plugin.schema) !== JSON.stringify(input.expectedSchema)) {
         return { saved: (existing as PluginConfigModel) ?? null, conflict: true as const };
       }
-      if (input.expectedPageId !== undefined) {
-        if (!pluginPageSchema.shape.id.safeParse(input.expectedPageId).success) {
+      if (input.expectedPageId !== undefined || input.expectedPageGeneration !== undefined) {
+        const expectedPageId = pluginPageSchema.shape.id.safeParse(input.expectedPageId);
+        if (!expectedPageId.success
+          || typeof input.expectedPageGeneration !== "string" || !input.expectedPageGeneration
+          || input.expectedPageGeneration.length > 128) {
           return { saved: (existing as PluginConfigModel) ?? null, conflict: true as const };
         }
         // Page declarations can change without a plugin lifecycle rotation. Bind
         // this save to its actual Page in the same writer transaction as Secrets.
-        const [page] = await tx.select({ capabilities: pluginPages.capabilitiesJson }).from(pluginPages)
-          .where(and(eq(pluginPages.pluginId, input.pluginId), eq(pluginPages.pageId, input.expectedPageId)));
+        const [page] = await tx.select({ generation: pluginPages.id, capabilities: pluginPages.capabilitiesJson }).from(pluginPages)
+          .where(and(eq(pluginPages.pluginId, input.pluginId), eq(pluginPages.pageId, expectedPageId.data)));
         const capabilities = pluginPageSchema.shape.capabilities.safeParse(page?.capabilities);
-        if (!page || !capabilities.success || !capabilities.data.includes("config.write")) {
+        if (!page || page.generation !== input.expectedPageGeneration
+          || !capabilities.success || !capabilities.data.includes("config.write")) {
           return { saved: (existing as PluginConfigModel) ?? null, conflict: true as const };
         }
       }
@@ -267,38 +271,45 @@ export class SqlitePluginPageRepository implements IPluginPageRepository {
     checksum?: string | null;
   }): Promise<PluginPageModel> {
     const now = new Date().toISOString();
-    const existing = await this.getPage(page.pluginId, page.pageId);
-    if (existing) {
-      const [updated] = await this.db
-        .update(pluginPages)
-        .set({
-          title: page.title,
-          description: page.description ?? null,
-          entry: page.entry,
-          capabilitiesJson: page.capabilities,
-          checksum: page.checksum ?? null,
-          updatedAt: now,
-        })
-        .where(eq(pluginPages.id, existing.id))
-        .returning();
-      return updated as PluginPageModel;
-    }
-    const [created] = await this.db
+    // The internal primary key is the durable host-owned incarnation. One SQL
+    // upsert rotates it even for an identical declaration, so a removed grant
+    // cannot revive a previously opened Page when that grant is restored.
+    const incarnation = `ppage_${crypto.randomUUID()}`;
+    const metadata = {
+      title: page.title,
+      description: page.description ?? null,
+      entry: page.entry,
+      capabilitiesJson: page.capabilities,
+      checksum: page.checksum ?? null,
+      updatedAt: now,
+    };
+    const [saved] = await this.db
       .insert(pluginPages)
       .values({
-        id: `ppage_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
+        id: incarnation,
         pluginId: page.pluginId,
         pageId: page.pageId,
-        title: page.title,
-        description: page.description ?? null,
-        entry: page.entry,
-        capabilitiesJson: page.capabilities,
-        checksum: page.checksum ?? null,
+        ...metadata,
         createdAt: now,
-        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: [pluginPages.pluginId, pluginPages.pageId],
+        set: { id: incarnation, ...metadata },
       })
       .returning();
-    return created as PluginPageModel;
+    return saved as PluginPageModel;
+  }
+
+  async updatePageChecksum(pluginId: string, pageId: string, expectedPageGeneration: string, checksum: string): Promise<PluginPageModel | null> {
+    if (typeof expectedPageGeneration !== "string" || !expectedPageGeneration || expectedPageGeneration.length > 128) return null;
+    // Files are written outside the SQL transaction. Only the incarnation that
+    // authorized those writes may publish their checksum; a changed/deleted Page
+    // must retain its current declaration and must never be recreated here.
+    const [updated] = await this.db.update(pluginPages)
+      .set({ id: `ppage_${crypto.randomUUID()}`, checksum, updatedAt: new Date().toISOString() })
+      .where(and(eq(pluginPages.pluginId, pluginId), eq(pluginPages.pageId, pageId), eq(pluginPages.id, expectedPageGeneration)))
+      .returning();
+    return (updated as PluginPageModel) ?? null;
   }
 
   async listPages(pluginId: string, expectedLifecycleGeneration?: string): Promise<PluginPageModel[]> {

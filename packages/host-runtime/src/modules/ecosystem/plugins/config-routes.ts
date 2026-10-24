@@ -71,6 +71,7 @@ export function registerPluginConfigRoutes(app: FastifyInstance, service: Plugin
         secretValues: body.secretValues ?? {},
         expectedLifecycleGeneration: body.expectedLifecycleGeneration,
         expectedPageId: body.expectedPageId,
+        expectedPageGeneration: body.expectedPageGeneration,
       });
     } catch (error) {
       return sendError(reply, error);

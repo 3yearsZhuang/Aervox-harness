@@ -16,7 +16,7 @@ const mockSaveConfig = vi.fn().mockResolvedValue({
   secretFields: {},
 });
 const mockListPages = vi.fn().mockResolvedValue([{
-  id: 'dashboard', capabilities: ['config.read', 'config.write', 'host.notify', 'host.close'],
+  id: 'dashboard', pageGeneration: 'dashboard-1', capabilities: ['config.read', 'config.write', 'host.notify', 'host.close'],
 }]);
 
 vi.mock('@aervox/api-client', async (importOriginal) => {
@@ -57,7 +57,7 @@ describe('PluginPageDialog.vue (ITER-006 / FND-03 安全沙箱)', () => {
   } as unknown as PluginSummaryDto;
 
   const mockPage: PluginPageDto = {
-    id: 'dashboard',
+    id: 'dashboard', pageGeneration: 'dashboard-1',
     title: '测试页面',
     entry: 'pages/dashboard/index.html',
     capabilities: ['config.read', 'config.write', 'host.notify', 'host.close'],
@@ -278,7 +278,7 @@ describe('PluginPageDialog.vue (ITER-006 / FND-03 安全沙箱)', () => {
 
   it('缺少对应 capability 时拒绝 notify 与 close', async () => {
     const limitedPage: PluginPageDto = {
-      id: 'limited',
+      id: 'limited', pageGeneration: 'limited-1',
       title: '受限页面',
       entry: 'pages/limited/index.html',
       capabilities: [], // 无 host.notify，无 host.close

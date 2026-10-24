@@ -17,7 +17,7 @@ import type {
   LocalContext,
 } from "@aervox/repositories";
 import { DomainConflictError, SqliteExtensionRepository, withSessionLock } from "@aervox/repositories";
-import { pluginPageSchema, type SavePluginConfigRequest } from "@aervox/contracts";
+import { pluginPageSchema, pluginPageGenerationSchema, type SavePluginConfigRequest } from "@aervox/contracts";
 import crypto from "node:crypto";
 import { PluginBundleStore } from "./bundle-store.js";
 import {
@@ -216,9 +216,10 @@ export class PluginConfigService {
     pluginId: string,
     body: SavePluginConfigRequest,
   ): Promise<PluginConfigServiceSnapshot> {
-    if (body.expectedPageId !== undefined && (!pluginPageSchema.shape.id.safeParse(body.expectedPageId).success
-      || !body.expectedLifecycleGeneration)) {
-      throw new PluginConfigError(400, "INVALID_CONFIG", "Page writes require a valid Page id and captured plugin lifecycle generation");
+    if ((body.expectedPageId !== undefined || body.expectedPageGeneration !== undefined)
+      && (!pluginPageSchema.shape.id.safeParse(body.expectedPageId).success
+        || !pluginPageGenerationSchema.safeParse(body.expectedPageGeneration).success || !body.expectedLifecycleGeneration)) {
+      throw new PluginConfigError(400, "INVALID_CONFIG", "Page writes require a valid Page id and captured Page and plugin generations");
     }
     const found = await this.findPlugin(pluginId);
     if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
@@ -254,6 +255,7 @@ export class PluginConfigService {
       expectedSchema: schema.fields,
       expectedLifecycleGeneration: found.plugin.lifecycleGeneration,
       expectedPageId: body.expectedPageId,
+      expectedPageGeneration: body.expectedPageGeneration,
       values,
       secretKeys: [],
       secretChanges,
@@ -326,6 +328,7 @@ export class PluginConfigService {
     });
     return {
       id: saved.pageId,
+      pageGeneration: saved.id,
       title: saved.title,
       description: saved.description,
       entry: saved.entry,
@@ -346,6 +349,7 @@ export class PluginConfigService {
     }
     return rows.map((row) => ({
       id: row.pageId,
+      pageGeneration: row.id,
       title: row.title,
       description: row.description,
       entry: row.entry,
@@ -360,6 +364,7 @@ export class PluginConfigService {
     if (!page) throw new PluginConfigError(404, "PLUGIN_PAGE_NOT_FOUND", `page not found: ${pageId}`);
     return {
       id: page.pageId,
+      pageGeneration: page.id,
       title: page.title,
       description: page.description,
       entry: page.entry,
@@ -393,15 +398,10 @@ export class PluginConfigService {
       hashes.push(`${file.path}:${hash}`);
     }
     const checksum = crypto.createHash("sha256").update(hashes.sort().join("|")).digest("hex");
-    await this.deps.pageRepo.upsertPage({
-      pluginId,
-      pageId,
-      title: page.title,
-      description: page.description ?? undefined,
-      entry: page.entry,
-      capabilities: page.capabilitiesJson,
-      checksum,
-    });
+    // Files are written outside the database transaction. Do not let stale
+    // metadata restore a revoked declaration or recreate a deleted Page.
+    const updated = await this.deps.pageRepo.updatePageChecksum(pluginId, pageId, page.id, checksum);
+    if (!updated) throw new PluginConfigError(409, "PLUGIN_PAGE_REVISION_CONFLICT", "Page changed during resource upload; reload before uploading again");
     return { checksum };
     });
   }

@@ -4,6 +4,7 @@
 import type { PluginPageModel } from "./extension.js";
 
 export interface IPluginPageRepository {
+  /** Each completed registration atomically replaces the persisted Page incarnation. */
   upsertPage(page: {
     pluginId: string;
     pageId: string;
@@ -13,6 +14,8 @@ export interface IPluginPageRepository {
     capabilities: string[];
     checksum?: string | null;
   }): Promise<PluginPageModel>;
+  /** Rotate the captured incarnation after asset writes without restoring a stale Page declaration. */
+  updatePageChecksum(pluginId: string, pageId: string, expectedPageGeneration: string, checksum: string): Promise<PluginPageModel | null>;
   listPages(pluginId: string, expectedLifecycleGeneration?: string): Promise<PluginPageModel[]>;
   getPage(pluginId: string, pageId: string): Promise<PluginPageModel | null>;
   deletePagesForPlugin(pluginId: string): Promise<void>;

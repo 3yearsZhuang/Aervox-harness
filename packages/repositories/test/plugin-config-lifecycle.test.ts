@@ -9,6 +9,7 @@ describe("plugin configuration lifecycle transaction", () => {
   const id = "config-generation";
   const fields = [{ key: "label", type: "string", label: "Label" }, { key: "token", type: "secret", label: "Token" }];
   let generation: string;
+  let pageGeneration: string;
   beforeEach(async () => {
     database = await createInMemoryDatabase();
     extension = new SqliteExtensionRepository(database.db);
@@ -28,14 +29,15 @@ describe("plugin configuration lifecycle transaction", () => {
 
   const pageInput = (expectedPageId: unknown = "settings") => ({
     pluginId: id, schemaVersion: 1, expectedSchema: fields, expectedLifecycleGeneration: generation,
-    expectedRevision: 1, expectedPageId: expectedPageId as string,
+    expectedRevision: 1, expectedPageId: expectedPageId as string, expectedPageGeneration: pageGeneration,
     values: { label: "from page" }, secretKeys: [], secretChanges: { token: "page secret" },
   });
   async function registerPage(capabilities: unknown = ["config.write"]): Promise<void> {
-    await new SqlitePluginPageRepository(database.db).upsertPage({
+    const page = await new SqlitePluginPageRepository(database.db).upsertPage({
       pluginId: id, pageId: "settings", title: "Settings", entry: "pages/settings/index.html",
       capabilities: Array.isArray(capabilities) ? capabilities : [],
     });
+    pageGeneration = page.id;
     if (!Array.isArray(capabilities)) {
       await database.client.execute({ sql: "UPDATE plugin_pages SET capabilities_json = ? WHERE plugin_id = ? AND page_id = ?",
         args: [JSON.stringify(capabilities), id, "settings"] });
@@ -76,10 +78,45 @@ describe("plugin configuration lifecycle transaction", () => {
     expect(accepted.conflict).toBe(false);
     expect(accepted.saved).toMatchObject({ revision: 2, valuesJson: { label: "from page" }, secretKeysJson: ["token"] });
     await registerPage([]);
-    const { expectedPageId: _pageId, ...management } = pageInput();
+    const { expectedPageId: _pageId, expectedPageGeneration: _pageGeneration, ...management } = pageInput();
     const saved = await configs.saveConfig(ctx, { ...management, expectedRevision: 2, values: { label: "management" } });
     expect(saved.conflict).toBe(false);
     expect(saved.saved).toMatchObject({ revision: 3, valuesJson: { label: "management" } });
+  });
+
+  it.each(["reregistered", "regranted", "recreated"] as const)("refuses a captured Page save after the Page is %s within the same plugin lifecycle", async transition => {
+    await registerPage();
+    const captured = pageInput();
+    if (transition === "regranted") await registerPage([]);
+    if (transition === "recreated") await new SqlitePluginPageRepository(database.db).deletePagesForPlugin(id);
+    await registerPage();
+    expect((await extension.getPlugin(id))!.lifecycleGeneration).toBe(generation);
+    expect(pageGeneration).not.toBe(captured.expectedPageGeneration);
+    const before = await state();
+    expect((await configs.saveConfig(ctx, captured)).conflict).toBe(true);
+    expect(await state()).toEqual(before);
+    const current = await new SqlitePluginPageRepository(database.db).getPage(id, "settings");
+    expect(current!.id).toBe(pageGeneration);
+    const accepted = await new SqlitePluginConfigRepository(database.db).saveConfig(ctx, pageInput());
+    expect(accepted.conflict).toBe(false);
+    expect(accepted.saved).toMatchObject({ revision: 2, valuesJson: { label: "from page" }, secretKeysJson: ["token"] });
+  });
+
+  it.each(["", "x".repeat(129), null, 1, {}, "another-registration"])("refuses an invalid or stale Page generation %j before config or Secret writes", async invalid => {
+    await registerPage();
+    const before = await state();
+    const input = { ...pageInput(), expectedPageGeneration: invalid } as unknown as Parameters<SqlitePluginConfigRepository["saveConfig"]>[1];
+    expect((await configs.saveConfig(ctx, input)).conflict).toBe(true);
+    expect(await state()).toEqual(before);
+  });
+
+  it.each(["expectedPageId", "expectedPageGeneration"] as const)("refuses an incomplete Page expectation without %s before config or Secret writes", async missing => {
+    await registerPage();
+    const input: Record<string, unknown> = pageInput();
+    delete input[missing];
+    const before = await state();
+    expect((await configs.saveConfig(ctx, input as unknown as Parameters<SqlitePluginConfigRepository["saveConfig"]>[1])).conflict).toBe(true);
+    expect(await state()).toEqual(before);
   });
 
   it.each(["disabled", "reenabled", "missing", "restored", "schema-version"] as const)("rejects stale save and reset for %s before Secret changes", async (transition) => {

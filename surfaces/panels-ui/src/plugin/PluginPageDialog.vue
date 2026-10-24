@@ -27,13 +27,15 @@ const bridgeError = ref('')
 const contextCapabilities = computed(() => props.page?.capabilities ?? [])
 const eligible = computed(() => props.open && props.plugin?.enabled === 1
   && (props.plugin.availability ?? 'available') === 'available'
-  && Boolean(props.plugin.lifecycleGeneration) && Boolean(props.page))
+  && Boolean(props.plugin.lifecycleGeneration) && typeof props.page?.pageGeneration === 'string'
+  && props.page.pageGeneration.length > 0 && props.page.pageGeneration.length <= 128)
 
 interface PageSession {
   nonce: string
   pluginId: string
   lifecycleGeneration: string
   pageId: string
+  pageGeneration: string
   target: Window
   revision: number
   capabilities: Set<string>
@@ -59,6 +61,7 @@ function isCurrent(current: PageSession): boolean {
     && iframe.value?.contentWindow === current.target
     && props.plugin?.id === current.pluginId && props.page?.id === current.pageId
     && props.plugin?.lifecycleGeneration === current.lifecycleGeneration
+    && props.page?.pageGeneration === current.pageGeneration
 }
 
 function currentContext(current: PageSession) {
@@ -93,6 +96,7 @@ function beginSession(): void {
     pluginId: props.plugin.id,
     lifecycleGeneration: props.plugin.lifecycleGeneration,
     pageId: props.page.id,
+    pageGeneration: props.page.pageGeneration,
     target,
     revision: 0,
     capabilities: new Set(contextCapabilities.value),
@@ -109,7 +113,7 @@ async function requirePageCapability(current: PageSession, capability: PluginPag
   const pages = await api.listPages(current.pluginId, current.lifecycleGeneration)
   if (!isCurrent(current)) throw new Error('page session is unavailable')
   const page = pages.find(page => page.id === current.pageId)
-  if (!page) throw new Error('page session is unavailable')
+  if (!page || page.pageGeneration !== current.pageGeneration) throw new Error('page session is unavailable')
   if (!page.capabilities.includes(capability)) throw new Error(`capability ${capability} required`)
 }
 
@@ -145,6 +149,7 @@ async function handleBridgeCall(current: PageSession, message: {
         revision: current.revision,
         expectedLifecycleGeneration: current.lifecycleGeneration,
         expectedPageId: current.pageId,
+        expectedPageGeneration: current.pageGeneration,
         values: args.values ?? {},
         secretValues: args.secretValues ?? {},
       })
@@ -181,7 +186,7 @@ function onMessage(event: MessageEvent): void {
 }
 
 watch(
-  () => [eligible.value, props.plugin?.id, props.plugin?.lifecycleGeneration, props.page?.id, props.page?.entry, contextCapabilities.value.join(',')],
+  () => [eligible.value, props.plugin?.id, props.plugin?.lifecycleGeneration, props.page?.id, props.page?.pageGeneration, props.page?.entry, contextCapabilities.value.join(',')],
   async () => {
     session = null
     window.removeEventListener('message', onMessage)

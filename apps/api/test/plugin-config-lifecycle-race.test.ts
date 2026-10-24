@@ -34,8 +34,8 @@ describe("configuration lifecycle checks at the writer transaction", () => {
     audits: (await database.client.execute({ sql: "SELECT * FROM audit_records WHERE subject_id = ?", args: [id] })).rows,
   });
 
-  async function registerPage(capabilities: unknown = ["config.write"]): Promise<void> {
-    await new SqlitePluginPageRepository(database.db).upsertPage({
+  async function registerPage(capabilities: unknown = ["config.write"]): Promise<string> {
+    const saved = await new SqlitePluginPageRepository(database.db).upsertPage({
       pluginId: id, pageId: "settings", title: "Settings", entry: "pages/settings/index.html",
       capabilities: Array.isArray(capabilities) ? capabilities : [],
     });
@@ -43,22 +43,27 @@ describe("configuration lifecycle checks at the writer transaction", () => {
       await database.client.execute({ sql: "UPDATE plugin_pages SET capabilities_json = ? WHERE plugin_id = ? AND page_id = ?",
         args: [JSON.stringify(capabilities), id, "settings"] });
     }
+    return saved.id;
   }
 
-  it.each(["removed", "missing", "other-plugin", "read-only", "unknown", "string", "object", "null"] as const)(
+  it.each(["removed", "missing", "other-plugin", "read-only", "unknown", "string", "object", "null", "reregistered", "reauthorized", "recreated"] as const)(
     "refuses a Page save when %s changes after admission without config, Secret or audit mutations", async change => {
-      await registerPage();
+      const pageGeneration = await registerPage();
       const generation = (await extension.getPlugin(id))!.lifecycleGeneration;
       const before = await state();
       const original = SqlitePluginConfigRepository.prototype.saveConfig;
       vi.spyOn(SqlitePluginConfigRepository.prototype, "saveConfig").mockImplementationOnce(async function (...args) {
-        if (change === "missing" || change === "other-plugin") {
+        if (change === "missing" || change === "other-plugin" || change === "recreated") {
           const pages = new SqlitePluginPageRepository(database.db);
           await pages.deletePagesForPlugin(id);
           if (change === "other-plugin") {
             await extension.createPlugin({ id: "other", publisher: "test", version: "1", checksum: "other" });
             await pages.upsertPage({ pluginId: "other", pageId: "settings", title: "Other", entry: "pages/settings/index.html", capabilities: ["config.write"] });
           }
+          if (change === "recreated") await registerPage();
+        } else if (change === "reregistered" || change === "reauthorized") {
+          if (change === "reauthorized") await registerPage([]);
+          await registerPage();
         } else {
           const capabilities = change === "removed" ? [] : change === "read-only" ? ["config.read"] : change === "unknown" ? ["config.write", "unknown"]
             : change === "string" ? "config.write" : change === "object" ? { capability: "config.write" } : null;
@@ -67,25 +72,70 @@ describe("configuration lifecycle checks at the writer transaction", () => {
         return original.apply(this, args);
       });
       const response = await app.inject({ method: "PUT", url: `/v1/plugins/${id}/config`, payload: {
-        revision: 1, expectedLifecycleGeneration: generation, expectedPageId: "settings",
+        revision: 1, expectedLifecycleGeneration: generation, expectedPageId: "settings", expectedPageGeneration: pageGeneration,
         values: { label: "revoked page" }, secretValues: { token: "revoked page secret" },
       } });
       expect(response.statusCode).toBe(409);
       expect(response.json().code).toBe("PLUGIN_CONFIG_REVISION_CONFLICT");
       expect(await state()).toEqual(before);
+      expect((await extension.getPlugin(id))!.lifecycleGeneration).toBe(generation);
     },
   );
 
+  it("returns a host-owned Page generation on registration and listing, and accepts a freshly captured Page save", async () => {
+    const url = `/v1/plugins/${id}/pages`;
+    const declaration = { id: "settings", title: "Settings", entry: "pages/settings/index.html", capabilities: ["config.write"], pageGeneration: "forged" };
+    const initial = await app.inject({ method: "POST", url, payload: declaration });
+    expect(initial.statusCode).toBe(201);
+    const first = initial.json().pageGeneration;
+    expect(first).toEqual(expect.any(String));
+    expect(first).not.toBe("forged");
+    const generation = (await extension.getPlugin(id))!.lifecycleGeneration;
+    const second = await app.inject({ method: "POST", url, payload: declaration });
+    expect(second.statusCode).toBe(201);
+    const current = second.json().pageGeneration;
+    expect(current).not.toBe(first);
+    const listed = await app.inject({ method: "GET", url });
+    expect(listed.json().pages[0]).toMatchObject({ id: "settings", pageGeneration: current });
+    const before = await state();
+    const payload = { revision: 1, expectedLifecycleGeneration: generation, expectedPageId: "settings", values: { label: "new Page" }, secretValues: { token: null } };
+    const rejected = await app.inject({ method: "PUT", url: `/v1/plugins/${id}/config`, payload: { ...payload, expectedPageGeneration: first } });
+    expect(rejected.statusCode).toBe(409);
+    expect(await state()).toEqual(before);
+    const accepted = await app.inject({ method: "PUT", url: `/v1/plugins/${id}/config`, payload: { ...payload, expectedPageGeneration: current } });
+    expect(accepted.statusCode).toBe(200);
+    expect(accepted.json()).toMatchObject({ revision: 2, values: { label: "new Page" }, secretFields: { token: { configured: false } } });
+  });
+
+  it.each([undefined, "", null, 5, "x".repeat(129)])("rejects a direct service Page save with invalid Page generation %j before entering the writer", async expectedPageGeneration => {
+    await registerPage();
+    let service: PluginConfigService | undefined;
+    const original = PluginConfigService.prototype.getConfig;
+    vi.spyOn(PluginConfigService.prototype, "getConfig").mockImplementationOnce(function (...args) {
+      service = this;
+      return original.apply(this, args);
+    });
+    expect((await app.inject({ method: "GET", url: `/v1/plugins/${id}/config` })).statusCode).toBe(200);
+    const writer = vi.spyOn(SqlitePluginConfigRepository.prototype, "saveConfig");
+    const before = await state();
+    const input = { revision: 1, expectedLifecycleGeneration: (await extension.getPlugin(id))!.lifecycleGeneration, expectedPageId: "settings", expectedPageGeneration,
+      values: { label: "invalid generation" }, secretValues: { token: null } };
+    await expect(service!.saveConfig({ workspaceId: "local", subjectUserId: "local" }, id,
+      input as Parameters<PluginConfigService["saveConfig"]>[2])).rejects.toMatchObject({ status: 400, code: "INVALID_CONFIG" });
+    expect(writer).not.toHaveBeenCalled();
+    expect(await state()).toEqual(before);
+  });
+
   it.each(["missing-generation", "", "nested/page", "x".repeat(65), null])(
     "rejects an invalid Page identity %j before entering the config writer", async identity => {
-      await registerPage();
+      const pageGeneration = await registerPage();
       const before = await state();
       const writer = vi.spyOn(SqlitePluginConfigRepository.prototype, "saveConfig");
       const generation = (await extension.getPlugin(id))!.lifecycleGeneration;
       const response = await app.inject({ method: "PUT", url: `/v1/plugins/${id}/config`, payload: {
         revision: 1,
         ...(identity === "missing-generation" ? {} : { expectedLifecycleGeneration: generation }),
-        expectedPageId: identity === "missing-generation" ? "settings" : identity,
+        expectedPageId: identity === "missing-generation" ? "settings" : identity, expectedPageGeneration: pageGeneration,
         values: { label: "invalid page" }, secretValues: { token: null },
       } });
       expect(response.statusCode).toBe(400);
@@ -96,10 +146,10 @@ describe("configuration lifecycle checks at the writer transaction", () => {
   );
 
   it("commits an authorized Page save and preserves ordinary management writes without Page authority", async () => {
-    await registerPage();
+    const pageGeneration = await registerPage();
     const generation = (await extension.getPlugin(id))!.lifecycleGeneration;
     const accepted = await app.inject({ method: "PUT", url: `/v1/plugins/${id}/config`, payload: {
-      revision: 1, expectedLifecycleGeneration: generation, expectedPageId: "settings",
+      revision: 1, expectedLifecycleGeneration: generation, expectedPageId: "settings", expectedPageGeneration: pageGeneration,
       values: { label: "accepted page" }, secretValues: { token: "accepted page secret" },
     } });
     expect(accepted.statusCode).toBe(200);
@@ -113,7 +163,7 @@ describe("configuration lifecycle checks at the writer transaction", () => {
   });
 
   it("refuses a direct service Page save without the caller's captured generation before any writer call", async () => {
-    await registerPage();
+    const pageGeneration = await registerPage();
     let service: PluginConfigService | undefined;
     const original = PluginConfigService.prototype.getConfig;
     vi.spyOn(PluginConfigService.prototype, "getConfig").mockImplementationOnce(function (...args) {
@@ -125,14 +175,14 @@ describe("configuration lifecycle checks at the writer transaction", () => {
     const writer = vi.spyOn(SqlitePluginConfigRepository.prototype, "saveConfig");
     const before = await state();
     await expect(service!.saveConfig({ workspaceId: "local", subjectUserId: "local" }, id, {
-      revision: 1, expectedPageId: "settings", values: { label: "no caller identity" }, secretValues: { token: null },
+      revision: 1, expectedPageId: "settings", expectedPageGeneration: pageGeneration, values: { label: "no caller identity" }, secretValues: { token: null },
     })).rejects.toMatchObject({ status: 400, code: "INVALID_CONFIG" });
     expect(writer).not.toHaveBeenCalled();
     expect(await state()).toEqual(before);
   });
 
   it("preserves an accepted Page save receipt when capability removal follows the commit, then rejects further Page saves", async () => {
-    await registerPage();
+    const pageGeneration = await registerPage();
     const generation = (await extension.getPlugin(id))!.lifecycleGeneration;
     const original = SqlitePluginConfigRepository.prototype.saveConfig;
     vi.spyOn(SqlitePluginConfigRepository.prototype, "saveConfig").mockImplementationOnce(async function (...args) {
@@ -141,14 +191,14 @@ describe("configuration lifecycle checks at the writer transaction", () => {
       return result;
     });
     const accepted = await app.inject({ method: "PUT", url: `/v1/plugins/${id}/config`, payload: {
-      revision: 1, expectedLifecycleGeneration: generation, expectedPageId: "settings",
+      revision: 1, expectedLifecycleGeneration: generation, expectedPageId: "settings", expectedPageGeneration: pageGeneration,
       values: { label: "committed page" }, secretValues: { token: "committed page secret" },
     } });
     expect(accepted.statusCode).toBe(200);
     expect(accepted.json()).toMatchObject({ revision: 2, values: { label: "committed page" }, secretFields: { token: { configured: true } } });
     const beforeRetry = await state();
     const rejected = await app.inject({ method: "PUT", url: `/v1/plugins/${id}/config`, payload: {
-      revision: 2, expectedLifecycleGeneration: generation, expectedPageId: "settings",
+      revision: 2, expectedLifecycleGeneration: generation, expectedPageId: "settings", expectedPageGeneration: pageGeneration,
       values: { label: "after revoke" }, secretValues: { token: null },
     } });
     expect(rejected.statusCode).toBe(409);

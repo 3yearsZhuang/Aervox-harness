@@ -3226,7 +3226,13 @@
             "minLength": 1,
             "maxLength": 64,
             "pattern": "^[A-Za-z0-9_-]+$",
-            "description": "Host-captured Page id; requires expectedLifecycleGeneration and current config.write capability at commit."
+            "description": "Host-captured Page id; requires expectedPageGeneration, expectedLifecycleGeneration and current config.write capability at commit."
+          },
+          "expectedPageGeneration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Host-captured Page declaration generation; paired with expectedPageId and checked at commit."
           },
           "values": {
             "type": "object",
@@ -29335,7 +29341,13 @@
                     "minLength": 1,
                     "maxLength": 64,
                     "pattern": "^[A-Za-z0-9_-]+$",
-                    "description": "Host-captured Page id; requires expectedLifecycleGeneration and current config.write capability at commit."
+                    "description": "Host-captured Page id; requires expectedPageGeneration, expectedLifecycleGeneration and current config.write capability at commit."
+                  },
+                  "expectedPageGeneration": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "Host-captured Page declaration generation; paired with expectedPageId and checked at commit."
                   },
                   "values": {
                     "type": "object",
@@ -29754,12 +29766,19 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "pageGeneration": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "description": "Host-owned Page declaration identity; rotates when the Page changes or is recreated."
                           }
                         },
                         "required": [
                           "id",
                           "title",
-                          "entry"
+                          "entry",
+                          "pageGeneration"
                         ]
                       }
                     }

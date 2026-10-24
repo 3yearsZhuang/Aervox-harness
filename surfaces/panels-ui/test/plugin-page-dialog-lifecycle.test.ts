@@ -18,7 +18,7 @@ vi.mock('@aervox/ui/primitives', () => ({
 import PluginPageDialog from '../src/plugin/PluginPageDialog.vue';
 
 const plugin = { id: 'probe', enabled: 1, availability: 'available', lifecycleGeneration: 'generation-1' } as PluginSummaryDto;
-const page = { id: 'settings', capabilities: ['config.read', 'config.write', 'host.notify', 'host.close'] } as PluginPageDto;
+const page = { id: 'settings', pageGeneration: 'page-1', capabilities: ['config.read', 'config.write', 'host.notify', 'host.close'] } as PluginPageDto;
 let wrapper: VueWrapper;
 
 async function connect() {
@@ -47,6 +47,59 @@ beforeEach(() => {
 afterEach(() => wrapper.unmount());
 
 describe('Plugin Page session boundary', () => {
+  it.each(['getConfig', 'saveConfig', 'notify', 'close'])('rejects %s when the same Page id is registered again with restored capabilities', async method => {
+    const { target, nonce } = await connect();
+    mocks.listPages.mockResolvedValue([{ ...page, pageGeneration: 'page-3' }]);
+    send(target, nonce, method, 'restored-page', { message: 'restored notification' });
+    await flushPromises();
+    expect(target.postMessage).toHaveBeenLastCalledWith(expect.objectContaining({ ok: false, error: 'page session is unavailable' }), '*');
+    expect(mocks.getConfig).not.toHaveBeenCalled();
+    expect(mocks.saveConfig).not.toHaveBeenCalled();
+    expect(mocks.info).not.toHaveBeenCalled();
+    expect(wrapper.emitted('close')).toBeUndefined();
+    expect(wrapper.find('iframe').exists()).toBe(true);
+  });
+
+  it.each(['getConfig', 'saveConfig'])('withholds a late %s response after the Page is registered again', async method => {
+    mocks.listPages.mockResolvedValueOnce([page]).mockResolvedValue([{ ...page, pageGeneration: 'page-2' }]);
+    const { target, nonce } = await connect();
+    send(target, nonce, method);
+    await flushPromises();
+    expect(mocks[method as 'getConfig' | 'saveConfig']).toHaveBeenCalledTimes(1);
+    expect(target.postMessage).toHaveBeenLastCalledWith(expect.objectContaining({ ok: false, error: 'page session is unavailable' }), '*');
+    expect(target.postMessage.mock.calls.some(([message]) => message.value?.values)).toBe(false);
+  });
+
+  it.each([undefined, '', null, 7, 'x'.repeat(129)])('does not mount a Page without a valid registration generation: %j', async pageGeneration => {
+    const old = await connect();
+    await wrapper.setProps({ page: { ...page, pageGeneration } as PluginPageDto });
+    expect(wrapper.find('iframe').exists()).toBe(false);
+    send(old.target, old.nonce, 'getConfig');
+    await flushPromises();
+    expect(mocks.getConfig).not.toHaveBeenCalled();
+  });
+
+  it('rotates the document when the host observes a new Page generation and rejects the old response', async () => {
+    let finish!: (value: unknown) => void;
+    mocks.getConfig.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    const old = await connect();
+    const oldFrame = wrapper.find('iframe').element;
+    send(old.target, old.nonce, 'getConfig');
+    await flushPromises();
+    const restored = { ...page, pageGeneration: 'page-3' };
+    mocks.listPages.mockResolvedValue([restored]);
+    await wrapper.setProps({ page: restored });
+    expect(wrapper.find('iframe').element).not.toBe(oldFrame);
+    const current = await connect();
+    expect(current.nonce).not.toBe(old.nonce);
+    finish({ revision: 99, values: { privateValue: 'old page' } });
+    await flushPromises();
+    expect(old.target.postMessage.mock.calls.some(([message]) => message.type === 'aervox:page:result')).toBe(false);
+    send(current.target, current.nonce, 'saveConfig', 'new-page', { values: { fresh: true } });
+    await flushPromises();
+    expect(mocks.saveConfig).toHaveBeenLastCalledWith('probe', expect.objectContaining({ expectedPageGeneration: 'page-3', revision: 0 }));
+  });
+
   it.each(['getConfig', 'saveConfig', 'notify', 'close'])('rechecks the persisted lifecycle before %s while host props are stale', async method => {
     const { target, nonce } = await connect();
     mocks.listPages.mockRejectedValue(new Error('plugin lifecycle changed; reopen the page'));
@@ -99,11 +152,12 @@ describe('Plugin Page session boundary', () => {
     send(target, nonce, 'saveConfig', 'forged-page', {
       values: { fresh: true }, expectedPageId: 'other-page', pageId: 'other-page',
       expectedLifecycleGeneration: 'forged-generation',
+      expectedPageGeneration: 'forged-page-generation', pageGeneration: 'forged-page-generation',
     });
     await flushPromises();
     expect(mocks.saveConfig).toHaveBeenCalledWith('probe', {
       revision: 0, values: { fresh: true }, secretValues: {},
-      expectedLifecycleGeneration: 'generation-1', expectedPageId: 'settings',
+      expectedLifecycleGeneration: 'generation-1', expectedPageId: 'settings', expectedPageGeneration: 'page-1',
     });
     expect(target.postMessage).toHaveBeenLastCalledWith(expect.objectContaining({ ok: true }), '*');
   });
@@ -201,7 +255,7 @@ describe('Plugin Page session boundary', () => {
     send(current.target, current.nonce, 'saveConfig', 'current-write', { values: { fresh: true } });
     await flushPromises();
     expect(mocks.saveConfig).toHaveBeenLastCalledWith('probe', {
-      revision: 0, values: { fresh: true }, secretValues: {}, expectedLifecycleGeneration: 'generation-2', expectedPageId: 'settings',
+      revision: 0, values: { fresh: true }, secretValues: {}, expectedLifecycleGeneration: 'generation-2', expectedPageId: 'settings', expectedPageGeneration: 'page-1',
     });
     send(current.target, current.nonce, 'getConfig', 'current-read');
     await flushPromises();
@@ -222,7 +276,7 @@ describe('Plugin Page session boundary', () => {
     send(current.target, current.nonce, 'saveConfig', 'save', { values: { fresh: true } });
     await flushPromises();
     expect(mocks.saveConfig).toHaveBeenCalledWith('other', {
-      revision: 0, values: { fresh: true }, secretValues: {}, expectedLifecycleGeneration: 'generation-1', expectedPageId: 'settings',
+      revision: 0, values: { fresh: true }, secretValues: {}, expectedLifecycleGeneration: 'generation-1', expectedPageId: 'settings', expectedPageGeneration: 'page-1',
     });
   });
 
@@ -256,7 +310,7 @@ describe('Plugin Page session boundary', () => {
     await flushPromises();
     expect(mocks.getConfig).toHaveBeenCalledTimes(2);
     expect(mocks.saveConfig).toHaveBeenCalledWith('probe', {
-      revision: 3, values: { fresh: true }, secretValues: {}, expectedLifecycleGeneration: 'generation-1', expectedPageId: 'settings',
+      revision: 3, values: { fresh: true }, secretValues: {}, expectedLifecycleGeneration: 'generation-1', expectedPageId: 'settings', expectedPageGeneration: 'page-1',
     });
   });
 

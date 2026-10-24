@@ -78,7 +78,7 @@ async function callConfig(
   return { response, result };
 }
 
-test("real Page Bridge rejects all four calls from an old lifecycle and succeeds after host reload", async ({ page, request, servers }) => {
+test("real Page Bridge rejects restored Page generations and old lifecycles, and succeeds after host reload", async ({ page, request, servers }) => {
   const pluginId = `page-lifecycle-${randomUUID()}`;
   const pluginPath = `/v1/plugins/${pluginId}`;
   const configPath = `${pluginPath}/config`;
@@ -109,8 +109,8 @@ test("real Page Bridge rejects all four calls from an old lifecycle and succeeds
     expect(initialGeneration).toBeTruthy();
 
     await openWorkbench(page, servers.webUrl);
-    const frame = await openPluginPage(page, pluginId);
-    const oldFrame = await page.locator("iframe.plugin-page-frame").elementHandle();
+    let frame = await openPluginPage(page, pluginId);
+    let oldFrame = await page.locator("iframe.plugin-page-frame").elementHandle();
     expect(oldFrame).not.toBeNull();
     const initialRead = await callConfig(page, frame, configPath, "GET", 200);
     expect(new URL(initialRead.response.url()).searchParams.get("expectedLifecycleGeneration")).toBe(initialGeneration);
@@ -154,10 +154,70 @@ test("real Page Bridge rejects all four calls from an old lifecycle and succeeds
       data: { id: "probe", title: "Lifecycle probe", entry: "pages/probe/index.html", capabilities: ["config.read", "config.write", "host.notify", "host.close"] },
     });
     expect(restoreCapability.status(), await restoreCapability.text()).toBe(201);
-    await frame.locator("#value").fill("current Page notification");
-    await frame.getByRole("button", { name: "Notify host", exact: true }).click();
-    await expect(frame.locator("#result")).toHaveAttribute("data-state", "success");
-    await expect(page.getByText("current Page notification", { exact: true })).toBeVisible();
+    const restoredPageGeneration = (await restoreCapability.json()).pageGeneration as string;
+    expect(restoredPageGeneration).toBeTruthy();
+    expect(restoredPageGeneration).not.toBe(initialSave.response.request().postDataJSON().expectedPageGeneration);
+    const restoredConfigRequests: string[] = [];
+    const captureRestoredConfig = (req: import('@playwright/test').Request) => {
+      if (new URL(req.url()).pathname === configPath) restoredConfigRequests.push(req.method());
+    };
+    page.on('request', captureRestoredConfig);
+    await frame.locator("#value").fill("restored old Page notification");
+    for (const name of ["Read configuration", "Save configuration", "Notify host", "Close Page"]) {
+      const authorization = page.waitForResponse(response => new URL(response.url()).pathname === `${pluginPath}/pages`);
+      await frame.getByRole("button", { name, exact: true }).click();
+      expect((await authorization).status()).toBe(200);
+      await expect(frame.locator("#result")).toHaveAttribute("data-state", "error");
+      expect(JSON.parse((await frame.locator("#result").textContent())!)).toMatchObject({ ok: false, error: "page session is unavailable" });
+      expect(await oldFrame!.evaluate(element => element.isConnected)).toBe(true);
+    }
+    page.off('request', captureRestoredConfig);
+    expect(restoredConfigRequests).toEqual([]);
+    await expect(page.getByText("restored old Page notification", { exact: true })).toHaveCount(0);
+
+    // The actual host reload obtains a new Page generation within the same plugin lifecycle.
+    await page.reload({ timeout: 90_000 });
+    await expect(page.locator(".aervox-workbench")).toBeVisible();
+    frame = await openPluginPage(page, pluginId);
+    oldFrame = await page.locator("iframe.plugin-page-frame").elementHandle();
+    const restoredRead = await callConfig(page, frame, configPath, "GET", 200);
+    expect(restoredRead.result.value).toMatchObject({ revision: 1, values: { value: "first lifecycle" } });
+    await frame.locator("#value").fill("new Page generation");
+    const restoredSave = await callConfig(page, frame, configPath, "PUT", 200);
+    expect(restoredSave.response.request().postDataJSON()).toMatchObject({ expectedLifecycleGeneration: initialGeneration, expectedPageGeneration: restoredPageGeneration, revision: 1 });
+    expect(restoredSave.result.value).toMatchObject({ revision: 2, values: { value: "new Page generation" } });
+
+    // Also pause a real write after its Page lookup, remove and restore the grant,
+    // and prove the old request cannot commit even when current capabilities match.
+    await page.route(saveUrl, async route => {
+      if (route.request().method() === "PUT") {
+        for (const capabilities of [[], ["config.read", "config.write", "host.notify", "host.close"]]) {
+          const registered = await request.post(api(`${pluginPath}/pages`), {
+            data: { id: "probe", title: "Lifecycle probe", entry: "pages/probe/index.html", capabilities },
+          });
+          expect(registered.status(), await registered.text()).toBe(201);
+        }
+      }
+      await route.continue();
+    });
+    try {
+      await frame.locator("#value").fill("reauthorized during save");
+      const response = page.waitForResponse(response => new URL(response.url()).pathname === configPath && response.request().method() === "PUT");
+      await frame.getByRole("button", { name: "Save configuration", exact: true }).click();
+      const rejected = await response;
+      expect(rejected.status()).toBe(409);
+      expect(rejected.request().postDataJSON()).toMatchObject({ expectedPageGeneration: restoredPageGeneration, revision: 2 });
+      await expect(frame.locator("#result")).toHaveAttribute("data-state", "error");
+      expect(await oldFrame!.evaluate(element => element.isConnected)).toBe(true);
+      const unchanged = await request.get(api(configPath));
+      expect(await unchanged.json()).toMatchObject({ revision: 2, values: { value: "new Page generation" } });
+      const currentPages = await request.get(api(`${pluginPath}/pages`));
+      expect((await currentPages.json()).pages[0].capabilities).toContain("config.write");
+      const currentPlugins = await request.get(api("/v1/plugins"));
+      expect((await currentPlugins.json()).items.find((plugin: { id: string }) => plugin.id === pluginId).lifecycleGeneration).toBe(initialGeneration);
+    } finally {
+      await page.unroute(saveUrl);
+    }
 
     // An independent API client changes the saved lifecycle before this host reloads its plugin list.
     const disabled = await request.patch(api(pluginPath), { data: { enabled: false } });
@@ -201,7 +261,7 @@ test("real Page Bridge rejects all four calls from an old lifecycle and succeeds
     await expect(page.getByText("revoked Page notification", { exact: true })).toHaveCount(0);
     const unchanged = await request.get(api(configPath));
     expect(unchanged.status()).toBe(200);
-    expect(await unchanged.json()).toMatchObject({ revision: 1, values: { value: "first lifecycle" } });
+    expect(await unchanged.json()).toMatchObject({ revision: 2, values: { value: "new Page generation" } });
 
     // Reload through the actual host UI, which obtains the current PluginSummary and opens a new Page.
     await page.reload({ timeout: 90_000 });
@@ -209,14 +269,14 @@ test("real Page Bridge rejects all four calls from an old lifecycle and succeeds
     const currentFrame = await openPluginPage(page, pluginId);
     const currentRead = await callConfig(page, currentFrame, configPath, "GET", 200);
     expect(new URL(currentRead.response.url()).searchParams.get("expectedLifecycleGeneration")).toBe(currentGeneration);
-    expect(currentRead.result.value).toMatchObject({ revision: 1, values: { value: "first lifecycle" } });
+    expect(currentRead.result.value).toMatchObject({ revision: 2, values: { value: "new Page generation" } });
     await currentFrame.locator("#value").fill("current lifecycle");
     const currentSave = await callConfig(page, currentFrame, configPath, "PUT", 200);
-    expect(currentSave.response.request().postDataJSON()).toMatchObject({ expectedLifecycleGeneration: currentGeneration, expectedPageId: "probe", revision: 1 });
-    expect(currentSave.result.value).toMatchObject({ revision: 2, values: { value: "current lifecycle" } });
+    expect(currentSave.response.request().postDataJSON()).toMatchObject({ expectedLifecycleGeneration: currentGeneration, expectedPageId: "probe", revision: 2 });
+    expect(currentSave.result.value).toMatchObject({ revision: 3, values: { value: "current lifecycle" } });
     const persisted = await request.get(api(configPath));
     expect(persisted.status()).toBe(200);
-    expect(await persisted.json()).toMatchObject({ revision: 2, values: { value: "current lifecycle" } });
+    expect(await persisted.json()).toMatchObject({ revision: 3, values: { value: "current lifecycle" } });
     await currentFrame.locator("#value").fill("new lifecycle notification");
     await currentFrame.getByRole("button", { name: "Notify host", exact: true }).click();
     await expect(currentFrame.locator("#result")).toHaveAttribute("data-state", "success");
