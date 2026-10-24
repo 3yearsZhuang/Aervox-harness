@@ -6,6 +6,33 @@ const declaration = { id: "settings", title: "Settings", entry: "pages/settings/
 const identity = { expectedPageId: "settings", expectedPageGeneration: "page-generation", expectedLifecycleGeneration: "plugin-generation" };
 
 describe("Page generation contracts", () => {
+  describe.each(["get", "reset"] as const)("%s configuration access query", operation => {
+    it("preserves a complete captured identity and accepts ordinary management access", () => {
+      const query = pluginConfigApi[operation].query;
+      expect(query.parse(identity)).toEqual(identity);
+      expect(query.parse({})).toEqual({});
+      expect(query.parse({ expectedLifecycleGeneration: "plugin-generation" })).toEqual({ expectedLifecycleGeneration: "plugin-generation" });
+    });
+
+    it.each([
+      { expectedPageId: "settings", expectedLifecycleGeneration: "plugin-generation" },
+      { expectedPageGeneration: "page-generation", expectedLifecycleGeneration: "plugin-generation" },
+      { expectedPageId: "settings", expectedPageGeneration: "page-generation" },
+    ])("rejects an incomplete captured access identity %j", incomplete => {
+      expect(pluginConfigApi[operation].query.safeParse(incomplete).success).toBe(false);
+    });
+
+    it.each([
+      ["expectedPageId", [null, "", "../settings", "settings/other", "x".repeat(65), 7, [], {}]],
+      ["expectedPageGeneration", [null, "", "x".repeat(129), 7, [], {}]],
+      ["expectedLifecycleGeneration", [null, "", "x".repeat(129), 7, [], {}]],
+    ])("rejects malformed %s in access queries", (field, invalidValues) => {
+      for (const value of invalidValues) {
+        expect(pluginConfigApi[operation].query.safeParse({ ...identity, [field]: value }).success, JSON.stringify({ field, value })).toBe(false);
+      }
+    });
+  });
+
   it("preserves the host Page generation in the response and requires it independently of optional metadata", () => {
     expect(pluginPageResponseSchema.parse({ ...declaration, pageGeneration: "page-generation", description: null, checksum: null }))
       .toMatchObject({ pageGeneration: "page-generation", description: null, checksum: null });

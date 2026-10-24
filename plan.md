@@ -97,6 +97,15 @@
 - **最终本地全量：** 依赖升级后新的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务及守卫、OpenAPI 兼容、HLS、删除故障、Native Search/Runtime 和 64 份文档门禁通过；API 873、仓储 696、Host Runtime 306、Worker 156、Core 494、Host Agent 120、客户端 196、Panels 120、桌面 156 项通过，Host Agent 2 项既有跳过保留、不计通过。独立审计为 0 未审阅、2 既有审阅路径、0 过时例外；打包 CLI 集成 2、实际 Electron IPC 7 项另验通过。真实 Chromium 保持旧 iframe 连接，恢复 capability 后四种调用仍拒绝，预检后撤权再授权的 PUT 返回 409 且配置不变；宿主刷新后新 Page 可操作。随后仅补验证记录并复验文档，完整浏览器及精确提交远端结果由 PR 保存。
 - **剩余边界：** GET/reset 未扩 Page HTTP 身份，SQL 至客户端动作、跨窗口实时撤权、资源代际绑定和 Token 通道继续归 ITER-006；全链删除与恢复归原条目，不宣称 ITER-071/006 整体完成。
 
+#### Page 配置读取与重置身份接续
+
+从 `8bf05880` 的整改分支隔离接续，工作分支 `fix/page-config-read-reset`；沿用 ITER-071/006 及既有 Page 身份合同，不新增队列或权限通道。
+
+- **读取与事务：** GET/reset query 共用 Page 身份 Schema，要求 Page ID、Page 代际成对且伴显式插件代际。Bridge 配置读取由宿主注入完整身份；服务端在读取前、返回前分别以单 SQL 快照复验当前插件、Page 及 `config.read`。保存和重置共享事务内 Page 写资格检查，重置在清除 Secret 或配置前复验 `config.write` 和打开身份。无 Page 身份及旧插件代际参数的管理调用保持兼容，已提交写操作保留真实 HTTP 回执，GET/reset 成功及执行期拒绝响应为 `no-store`。
+- **反例与验证：** 先复现失效 Page 读取成功及重置清除 Secret；共享契约、客户端、组件、仓储和真实 HTTP 已补身份半缺、他插件同名、畸形能力、重登记、撤权再授权、删除再建及读取期间换代回归。拒绝时无配置内容披露或配置/Secret/审计变更；读写能力分别验收。完整本地、实际 Chromium 和精确提交远端证据随本切片更新，不沿用上一提交绿测。
+- **最终本地全量：** 新的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务，API 896、仓储 699、Host Runtime 306、Worker 156、Core 494、Host Agent 120、客户端 202、Panels 121、Contracts 98 项通过；Host Agent 2 项既有真实模型/参考库构建跳过保留，不计通过。守卫、OpenAPI 兼容、HLS、删除故障、Native Search/Runtime 及 64 份文档门禁通过。独立依赖审计 0 未审阅、2 既有审阅路径、0 过时例外，打包 CLI 持久化/API 重启与审批集成 2 项通过。首次浏览器启动缺少锁定 Chromium，补齐后完整 19 项通过、无重试；新增实际 GET 在预检后撤权再授权返回 409，旧身份 reset 409、配置不变，宿主刷新后读取成功。随后只补本条记录并复验文档；精确提交远端结果以接续 PR 为准，不扩大为完整平台或发布验收。
+- **剩余边界：** 本切片不新增 Bridge 重置方法；SQL 至客户端动作、实时撤权、资源通道及完整原子发布仍归 ITER-006，全链删除及恢复保留原责任，不宣称 ITER-071/006 整体完成或发布。
+
 #### 随后补齐设计与行为闭环
 
 审批 revision、分支幂等和索引语义已随首批实施；第二批客户端、模型、Catalog、DTO、表约束与接单摘要已通过本地整体验证。本轮再审计补齐 Conversation Port、完成前增强及显式配置注入，统一验证结果见上方整改记录。源码确认与隔离复现的证据强度在各行区分，不能以结构整改替代入口验收。
@@ -147,7 +156,7 @@ Memory 清理、独立验证、迟到写拒绝、召回资格及用途闸门已�
 Page/客户端认证；FND-03、ARC-13，CAP-018/020。Window/source、密码学 nonce、文档会话、全部 Bridge capability、观察到禁用后销毁及 Page 文件启用/symlink 边界已有 [PR #281](https://github.com/3yearsZhuang/Aervox-harness/pull/281)、[PR #283](https://github.com/3yearsZhuang/Aervox-harness/pull/283)；附件 Bearer、ITER-069 合法预检已有交付。
 
 - **接续切片：** PR #324 在配置事务联合检查 enabled/availability/lifecycleGeneration 与 revision/Schema；Page 打开绑定代际，四种 Bridge 调用都查询当前代际和 Page capability，配置返回前再复验。Page 保存另由宿主注入 Page ID，在同一写事务检查当前 `config.write`，预检后能力移除不提交配置或 Secret。每次 Page 登记/资源摘要更新绑定独立持久代际，保存同事务核对；同插件代际撤权再授权/删除再建拒绝旧会话，资源摘要 CAS 不覆盖当前声明。同 ID 换代拒绝旧请求和迟到响应；配置事务竞态及实际旧 Page 调用反例见 ITER-071。
-- **下一步：** 补全实时撤权与资源通道、SQL 至客户端动作、GET/reset Page 身份、完整资源原子发布和实际平台集成；调用时拒绝与当前能力检查不能证明运行中代码终止或全资源原子撤权。
+- **下一步：** GET/reset Page 身份已在本轮接续，验证见 ITER-071；继续补全实时撤权与资源通道、SQL 至客户端动作、完整资源原子发布和实际平台集成。调用时拒绝与当前能力检查不能证明运行中代码终止或全资源原子撤权。
 - **决策前置：** Token 模式下 HTML/嵌套 JS/CSS/图片/Bridge SDK 资源通道，须先决定凭据签发、绑定、期限、轮换、撤销和 Origin 信任；沿用 ITER-063。长期 Bearer 不暴露给插件，不放 URL/日志，不降低认证或 CSP；Page capability 与 scoped sensor grant 分开。
 - **验收：** 声明支持的 Web/桌面实际加载及配置操作，覆盖重载、过期/轮换、跨窗口停用、跨插件/来源拒绝、旧会话不能恢复。JSON/SSE/Page/附件均可在合法 Token 模式使用，实际资源和撤权集成证据不能由消息模拟代替。
 

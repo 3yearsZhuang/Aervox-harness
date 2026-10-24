@@ -45,7 +45,7 @@ describe("plugin configuration lifecycle transaction", () => {
   }
 
   it.each(["removed", "missing", "other-plugin", "read-only", "unknown", "string", "object", "null"] as const)(
-    "refuses a Page save with %s capability state before config or Secret writes", async change => {
+    "refuses a Page save/reset with %s capability state before config or Secret writes", async change => {
       await registerPage();
       if (change === "missing" || change === "other-plugin") {
         const pages = new SqlitePluginPageRepository(database.db);
@@ -61,14 +61,16 @@ describe("plugin configuration lifecycle transaction", () => {
       }
       const before = await state();
       expect((await configs.saveConfig(ctx, pageInput())).conflict).toBe(true);
+      await expect(configs.resetConfig(ctx, id, 1, {}, fields, generation, 1, pageInput())).rejects.toBeInstanceOf(DomainConflictError);
       expect(await state()).toEqual(before);
     },
   );
 
-  it.each(["", "nested/page", "x".repeat(65), null])("refuses an invalid Page id %j before config or Secret writes", async pageId => {
+  it.each(["", "nested/page", "x".repeat(65), null, 1, {}])("refuses an invalid Page id %j before config or Secret writes", async pageId => {
     await registerPage();
     const before = await state();
     expect((await configs.saveConfig(ctx, pageInput(pageId))).conflict).toBe(true);
+    await expect(configs.resetConfig(ctx, id, 1, {}, fields, generation, 1, pageInput(pageId))).rejects.toBeInstanceOf(DomainConflictError);
     expect(await state()).toEqual(before);
   });
 
@@ -84,7 +86,19 @@ describe("plugin configuration lifecycle transaction", () => {
     expect(saved.saved).toMatchObject({ revision: 3, valuesJson: { label: "management" } });
   });
 
-  it.each(["reregistered", "regranted", "recreated"] as const)("refuses a captured Page save after the Page is %s within the same plugin lifecycle", async transition => {
+  it("accepts an authorized Page reset and preserves ordinary management resets after Page capability removal", async () => {
+    await registerPage();
+    const accepted = await configs.resetConfig(ctx, id, 1, { label: "page default" }, fields, generation, 1, pageInput());
+    expect(accepted).toMatchObject({ revision: 2, valuesJson: { label: "page default" }, secretKeysJson: [] });
+    expect((await state()).secrets).toEqual([]);
+    await registerPage([]);
+    const saved = await configs.resetConfig(ctx, id, 1, { label: "management default" }, fields, generation, 2,
+      { expectedPageId: undefined, expectedPageGeneration: undefined });
+    expect(saved).toMatchObject({ revision: 3, valuesJson: { label: "management default" } });
+    expect((await configs.resetConfig(ctx, id, 1, { label: "default" }, fields, generation, 3)).revision).toBe(4);
+  });
+
+  it.each(["reregistered", "regranted", "recreated"] as const)("refuses a captured Page save/reset after the Page is %s within the same plugin lifecycle", async transition => {
     await registerPage();
     const captured = pageInput();
     if (transition === "regranted") await registerPage([]);
@@ -94,12 +108,16 @@ describe("plugin configuration lifecycle transaction", () => {
     expect(pageGeneration).not.toBe(captured.expectedPageGeneration);
     const before = await state();
     expect((await configs.saveConfig(ctx, captured)).conflict).toBe(true);
+    await expect(configs.resetConfig(ctx, id, 1, {}, fields, generation, 1, captured)).rejects.toBeInstanceOf(DomainConflictError);
     expect(await state()).toEqual(before);
     const current = await new SqlitePluginPageRepository(database.db).getPage(id, "settings");
     expect(current!.id).toBe(pageGeneration);
     const accepted = await new SqlitePluginConfigRepository(database.db).saveConfig(ctx, pageInput());
     expect(accepted.conflict).toBe(false);
     expect(accepted.saved).toMatchObject({ revision: 2, valuesJson: { label: "from page" }, secretKeysJson: ["token"] });
+    const reset = await new SqlitePluginConfigRepository(database.db).resetConfig(ctx, id, 1, { label: "current default" }, fields, generation, 2, pageInput());
+    expect(reset).toMatchObject({ revision: 3, valuesJson: { label: "current default" }, secretKeysJson: [] });
+    expect((await state()).secrets).toEqual([]);
   });
 
   it.each(["", "x".repeat(129), null, 1, {}, "another-registration"])("refuses an invalid or stale Page generation %j before config or Secret writes", async invalid => {
@@ -107,6 +125,7 @@ describe("plugin configuration lifecycle transaction", () => {
     const before = await state();
     const input = { ...pageInput(), expectedPageGeneration: invalid } as unknown as Parameters<SqlitePluginConfigRepository["saveConfig"]>[1];
     expect((await configs.saveConfig(ctx, input)).conflict).toBe(true);
+    await expect(configs.resetConfig(ctx, id, 1, {}, fields, generation, 1, input)).rejects.toBeInstanceOf(DomainConflictError);
     expect(await state()).toEqual(before);
   });
 
@@ -116,6 +135,8 @@ describe("plugin configuration lifecycle transaction", () => {
     delete input[missing];
     const before = await state();
     expect((await configs.saveConfig(ctx, input as unknown as Parameters<SqlitePluginConfigRepository["saveConfig"]>[1])).conflict).toBe(true);
+    await expect(configs.resetConfig(ctx, id, 1, {}, fields, generation, 1,
+      input as unknown as Parameters<SqlitePluginConfigRepository["saveConfig"]>[1])).rejects.toBeInstanceOf(DomainConflictError);
     expect(await state()).toEqual(before);
   });
 

@@ -46,6 +46,145 @@ describe("configuration lifecycle checks at the writer transaction", () => {
     return saved.id;
   }
 
+  async function pageQuery(pageGeneration: string): Promise<string> {
+    return new URLSearchParams({
+      expectedLifecycleGeneration: (await extension.getPlugin(id))!.lifecycleGeneration,
+      expectedPageId: "settings", expectedPageGeneration: pageGeneration,
+    }).toString();
+  }
+
+  it.each([
+    { expectedPageId: "settings" },
+    { expectedPageGeneration: "page-generation" },
+    { expectedPageId: "settings", expectedPageGeneration: "page-generation" },
+    { expectedPageId: "nested/page", expectedPageGeneration: "page-generation", expectedLifecycleGeneration: "plugin-generation" },
+    { expectedPageId: "settings", expectedPageGeneration: "", expectedLifecycleGeneration: "plugin-generation" },
+  ])("rejects incomplete or invalid GET/reset Page identity %j before configuration access", async query => {
+    const reader = vi.spyOn(SqlitePluginConfigRepository.prototype, "getConfig");
+    const secrets = vi.spyOn(SqlitePluginSecretRepository.prototype, "listStates");
+    const writer = vi.spyOn(SqlitePluginConfigRepository.prototype, "resetConfig");
+    const encoded = new URLSearchParams(query).toString();
+    const before = await state();
+    for (const method of ["GET", "POST"] as const) {
+      const response = await app.inject({ method, url: `/v1/plugins/${id}/config${method === "POST" ? "/reset" : ""}?${encoded}` });
+      expect(response.statusCode).toBe(400);
+      expect(response.json().code).toBe("VALIDATION_FAILED");
+    }
+    expect(reader).not.toHaveBeenCalled();
+    expect(secrets).not.toHaveBeenCalled();
+    expect(writer).not.toHaveBeenCalled();
+    expect(await state()).toEqual(before);
+  });
+
+  it.each(["removed", "missing", "other-plugin", "write-only", "unknown", "string", "object", "null"] as const)(
+    "refuses a Page config read with %s authority before reading configuration or Secret state", async change => {
+      const captured = await registerPage(["config.read"]);
+      if (change === "missing" || change === "other-plugin") {
+        const pages = new SqlitePluginPageRepository(database.db);
+        await pages.deletePagesForPlugin(id);
+        if (change === "other-plugin") {
+          await extension.createPlugin({ id: "other", publisher: "test", version: "1", checksum: "other" });
+          await pages.upsertPage({ pluginId: "other", pageId: "settings", title: "Other", entry: "pages/settings/index.html", capabilities: ["config.read"] });
+        }
+      } else {
+        // Keep the captured row identity to independently exercise the capability parser.
+        const capabilities = change === "removed" ? [] : change === "write-only" ? ["config.write"]
+          : change === "unknown" ? ["config.read", "unknown"] : change === "string" ? "config.read"
+            : change === "object" ? { capability: "config.read" } : null;
+        await database.client.execute({ sql: "UPDATE plugin_pages SET capabilities_json = ? WHERE plugin_id = ?", args: [JSON.stringify(capabilities), id] });
+      }
+      const read = vi.spyOn(SqlitePluginConfigRepository.prototype, "getConfig");
+      const secrets = vi.spyOn(SqlitePluginSecretRepository.prototype, "listStates");
+      const response = await app.inject({ method: "GET", url: `/v1/plugins/${id}/config?${await pageQuery(captured)}` });
+      expect(response.statusCode).toBe(409);
+      expect(response.json().code).toBe("PLUGIN_CONFIG_REVISION_CONFLICT");
+      expect(response.json()).not.toHaveProperty("values");
+      expect(read).not.toHaveBeenCalled();
+      expect(secrets).not.toHaveBeenCalled();
+      expect(response.headers["cache-control"]).toBe("no-store");
+    },
+  );
+
+  it.each(["reregistered", "reauthorized", "recreated", "lifecycle"] as const)(
+    "does not disclose a config response after %s while reading Secret state", async transition => {
+      const captured = await registerPage(["config.read"]);
+      const query = await pageQuery(captured);
+      const original = SqlitePluginSecretRepository.prototype.listStates;
+      vi.spyOn(SqlitePluginSecretRepository.prototype, "listStates").mockImplementationOnce(async function (...args) {
+        const result = await original.apply(this, args);
+        if (transition === "lifecycle") {
+          await extension.setPluginEnabled(id, false);
+          await extension.setPluginEnabled(id, true);
+        } else {
+          if (transition === "reauthorized") await registerPage([]);
+          if (transition === "recreated") await new SqlitePluginPageRepository(database.db).deletePagesForPlugin(id);
+          await registerPage(["config.read"]);
+        }
+        return result;
+      });
+      const response = await app.inject({ method: "GET", url: `/v1/plugins/${id}/config?${query}` });
+      expect(response.statusCode).toBe(409);
+      expect(response.json().code).toBe("PLUGIN_CONFIG_REVISION_CONFLICT");
+      for (const key of ["values", "secretFields", "orphanedValues"]) expect(response.json()).not.toHaveProperty(key);
+      expect(response.headers["cache-control"]).toBe("no-store");
+    },
+  );
+
+  it("separates Page config read and reset permissions while retaining management access", async () => {
+    let captured = await registerPage(["config.read"]);
+    let query = await pageQuery(captured);
+    const read = await app.inject({ method: "GET", url: `/v1/plugins/${id}/config?${query}` });
+    expect(read.statusCode).toBe(200);
+    expect(read.headers["cache-control"]).toBe("no-store");
+    expect(read.json()).toMatchObject({ revision: 1, values: { label: "saved" }, secretFields: { token: { configured: true } } });
+    const before = await state();
+    expect((await app.inject({ method: "POST", url: `/v1/plugins/${id}/config/reset?${query}` })).statusCode).toBe(409);
+    expect(await state()).toEqual(before);
+    captured = await registerPage(["config.write"]);
+    query = await pageQuery(captured);
+    expect((await app.inject({ method: "GET", url: `/v1/plugins/${id}/config?${query}` })).statusCode).toBe(409);
+    const reset = await app.inject({ method: "POST", url: `/v1/plugins/${id}/config/reset?${query}` });
+    expect(reset.statusCode).toBe(200);
+    expect(reset.json()).toMatchObject({ revision: 2, values: { label: "initial" }, secretFields: { token: { configured: false } } });
+    await registerPage([]);
+    expect((await app.inject({ method: "GET", url: `/v1/plugins/${id}/config` })).statusCode).toBe(200);
+    expect((await app.inject({ method: "POST", url: `/v1/plugins/${id}/config/reset` })).statusCode).toBe(200);
+  });
+
+  it.each(["reregistered", "reauthorized", "recreated", "removed"] as const)(
+    "rejects Page reset after %s between admission and its writer transaction", async transition => {
+      const captured = await registerPage(["config.write"]);
+      const query = await pageQuery(captured);
+      const before = await state();
+      const original = SqlitePluginConfigRepository.prototype.resetConfig;
+      vi.spyOn(SqlitePluginConfigRepository.prototype, "resetConfig").mockImplementationOnce(async function (...args) {
+        if (transition === "reauthorized") await registerPage([]);
+        if (transition === "recreated") await new SqlitePluginPageRepository(database.db).deletePagesForPlugin(id);
+        await registerPage(transition === "removed" ? [] : ["config.write"]);
+        return original.apply(this, args);
+      });
+      const response = await app.inject({ method: "POST", url: `/v1/plugins/${id}/config/reset?${query}` });
+      expect(response.statusCode).toBe(409);
+      expect(response.json().code).toBe("PLUGIN_CONFIG_REVISION_CONFLICT");
+      expect(await state()).toEqual(before);
+    },
+  );
+
+  it("returns the committed reset receipt if the Page changes after its transaction", async () => {
+    const captured = await registerPage(["config.write"]);
+    const original = SqlitePluginConfigRepository.prototype.resetConfig;
+    vi.spyOn(SqlitePluginConfigRepository.prototype, "resetConfig").mockImplementationOnce(async function (...args) {
+      const saved = await original.apply(this, args);
+      await registerPage([]);
+      return saved;
+    });
+    const response = await app.inject({ method: "POST", url: `/v1/plugins/${id}/config/reset?${await pageQuery(captured)}` });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["cache-control"]).toBe("no-store");
+    expect(response.json()).toMatchObject({ revision: 2, values: { label: "initial" }, secretFields: { token: { configured: false } } });
+    expect((await state()).secrets).toEqual([]);
+  });
+
   it.each(["removed", "missing", "other-plugin", "read-only", "unknown", "string", "object", "null", "reregistered", "reauthorized", "recreated"] as const)(
     "refuses a Page save when %s changes after admission without config, Secret or audit mutations", async change => {
       const pageGeneration = await registerPage();

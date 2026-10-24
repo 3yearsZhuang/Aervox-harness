@@ -29171,6 +29171,31 @@
             "required": false,
             "name": "expectedLifecycleGeneration",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "description": "Host-captured Page id; requires expectedPageGeneration, expectedLifecycleGeneration and the current config.read (GET) or config.write (reset) capability."
+            },
+            "required": false,
+            "description": "Host-captured Page id; requires expectedPageGeneration, expectedLifecycleGeneration and the current config.read (GET) or config.write (reset) capability.",
+            "name": "expectedPageId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "Host-captured Page declaration generation; paired with expectedPageId and checked when reading or committing a reset."
+            },
+            "required": false,
+            "description": "Host-captured Page declaration generation; paired with expectedPageId and checked when reading or committing a reset.",
+            "name": "expectedPageGeneration",
+            "in": "query"
           }
         ],
         "responses": {
@@ -29252,7 +29277,7 @@
             }
           },
           "400": {
-            "description": "Invalid plugin id or lifecycle generation",
+            "description": "Invalid plugin id or captured Page identity",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -29533,6 +29558,31 @@
             "required": false,
             "name": "expectedLifecycleGeneration",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "description": "Host-captured Page id; requires expectedPageGeneration, expectedLifecycleGeneration and the current config.read (GET) or config.write (reset) capability."
+            },
+            "required": false,
+            "description": "Host-captured Page id; requires expectedPageGeneration, expectedLifecycleGeneration and the current config.read (GET) or config.write (reset) capability.",
+            "name": "expectedPageId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "Host-captured Page declaration generation; paired with expectedPageId and checked when reading or committing a reset."
+            },
+            "required": false,
+            "description": "Host-captured Page declaration generation; paired with expectedPageId and checked when reading or committing a reset.",
+            "name": "expectedPageGeneration",
+            "in": "query"
           }
         ],
         "responses": {
@@ -29614,7 +29664,7 @@
             }
           },
           "400": {
-            "description": "Invalid plugin id or lifecycle generation",
+            "description": "Invalid plugin id or captured Page identity",
             "content": {
               "application/problem+json": {
                 "schema": {
