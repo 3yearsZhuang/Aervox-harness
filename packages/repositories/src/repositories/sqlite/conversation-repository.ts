@@ -527,8 +527,8 @@ export class SqliteConversationRepository implements IConversationRepository {
     return this.safeSegmentStore.findResumeCandidates(client, limit);
   }
 
-  async markPendingOutcomeUnknown(client: import("@libsql/client").Client): Promise<number> {
-    return this.safeSegmentStore.markPendingOutcomeUnknown(client);
+  async markPendingOutcomeUnknown(client: import("@libsql/client").Client, options?: { dispatchTarget?: "default" | "api" }): Promise<number> {
+    return this.safeSegmentStore.markPendingOutcomeUnknown(client, options);
   }
 
   async listToolExecutionsByTurn(ctx: LocalContext, turnId: string): Promise<ToolExecutionModel[]> {

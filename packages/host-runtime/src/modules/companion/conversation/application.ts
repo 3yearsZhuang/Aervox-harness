@@ -6,6 +6,19 @@ import { decideConversationApproval, ConversationCommandError } from "./approval
 import { turnStreamHub } from "./stream-hub.js";
 import { executeConversationTurn, type ConversationRouteDeps, type ConversationTurnInput } from "./execution.js";
 
+export interface ConversationRecoveryOptions {
+  client: import("@libsql/client").Client;
+  /** The composition root alone decides whether configured local-result resume is enabled. */
+  resume?: () => Promise<unknown>;
+}
+
+export interface StaleExecutionRecoveryResult {
+  recoveredAttempts: number;
+  unknownOutcomes: number;
+  orphanTurns: number;
+  resumeFailed: boolean;
+}
+
 /** HTTP and platform ingress share policy-aware atomic acceptance. */
 export async function acceptConversationTurn(
   repo: SqliteConversationRepository, ctx: LocalContext,
@@ -28,14 +41,35 @@ export async function acceptConversationTurn(
 export function createConversationApplication(
   repo: SqliteConversationRepository, deps: ConversationRouteDeps,
   execute?: (ctx: LocalContext, input: ConversationTurnInput) => Promise<void>,
+  recovery?: ConversationRecoveryOptions,
 ) {
   if (!deps.executionConfig) throw new Error("execution_config_required");
   const executionConfig = snapshotExecutionConfig(deps.executionConfig);
+  const recoveryOptions = recovery ? { client: recovery.client, resume: recovery.resume } : undefined;
   const executionDeps = () => ({ ...deps, executionConfig });
   let closed = false;
   const assertOpen = () => { if (closed) throw new Error("conversation_host_closed"); };
   const active = new Map<string, Promise<void>>();
   const controllers = new Map<string, AbortController>();
+  let recovering: Promise<StaleExecutionRecoveryResult> | undefined;
+  const recoverStaleExecutions = (): Promise<StaleExecutionRecoveryResult> => {
+    assertOpen();
+    if (!recoveryOptions) throw new Error("conversation_recovery_unavailable");
+    // Timer overlap and direct callers share one run. Establish ownership before
+    // invoking the optional resume callback, including synchronous callbacks.
+    recovering ??= Promise.resolve().then(async () => {
+      let resumeFailed = false;
+      if (recoveryOptions.resume) {
+        try { await recoveryOptions.resume(); } catch { resumeFailed = true; }
+      }
+      const recoveredAttempts = await repo.recoverExpiredAttempts(recoveryOptions.client, { dispatchTarget: "default" });
+      const unknownOutcomes = recoveredAttempts > 0
+        ? await repo.markPendingOutcomeUnknown(recoveryOptions.client, { dispatchTarget: "default" }) : 0;
+      const orphanTurns = await repo.recoverOrphanTurns({ dispatchTarget: "default" });
+      return { recoveredAttempts, unknownOutcomes, orphanTurns, resumeFailed };
+    }).finally(() => { recovering = undefined; });
+    return recovering;
+  };
   const run = (ctx: LocalContext, input: ConversationTurnInput): Promise<void> => {
     if (closed) return Promise.reject(new Error("conversation_host_closed"));
     const key = JSON.stringify([input.turnId, input.sessionId, input.attemptId]);
@@ -63,6 +97,7 @@ export function createConversationApplication(
     return result;
   };
   const commands = {
+    recoverStaleExecutions,
     ensureSession: repo.getOrCreateSession.bind(repo),
     createSession: repo.createSession.bind(repo), renameSession: repo.renameSession.bind(repo), deleteSession: repo.deleteSession.bind(repo),
     createMessage: repo.createMessage.bind(repo), editMessage: repo.editMessage.bind(repo),
@@ -142,7 +177,7 @@ export function createConversationApplication(
   return { commands, queries, async close() {
     closed = true;
     for (const controller of controllers.values()) controller.abort(new Error("host_shutdown"));
-    await Promise.allSettled(active.values());
+    await Promise.allSettled([...active.values(), ...(recovering ? [recovering] : [])]);
   } };
 }
 export type ConversationApplication = ReturnType<typeof createConversationApplication>;

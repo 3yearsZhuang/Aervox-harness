@@ -5,7 +5,7 @@
  * - reserve 幂等：attempt+invocation 唯一，重复预留不重复写行（ON CONFLICT DO NOTHING）；
  * - update 收口：执行后以权威状态/结果回写；预留未收口的 pending 在释放后标记 outcome_unknown。
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createInMemoryDatabase,
   initDatabaseSchema,
@@ -13,6 +13,7 @@ import {
   SqliteConversationRepository,
   type AervoxDatabase,
   type LocalContext,
+  type ConversationExecutionPolicy,
 } from "../src/index.js";
 import type { Client } from "@libsql/client";
 
@@ -115,6 +116,95 @@ describe("2c 工具幂等预留与结果收口", () => {
     const rows = await repo.listToolExecutionsByTurn(ctx, "turn_resv");
     expect(rows[0]?.status).toBe("outcome_unknown");
     expect(await repo.markPendingOutcomeUnknown(client)).toBe(0);
+  });
+});
+
+describe("unknown outcome cleanup stays within its recovery owner", () => {
+  let database: Awaited<ReturnType<typeof createInMemoryDatabase>>;
+  let repo: SqliteConversationRepository;
+  beforeEach(async () => {
+    database = await createInMemoryDatabase();
+    repo = new SqliteConversationRepository(database.db);
+  });
+  afterEach(async () => { await database.cleanup(); });
+
+  async function pending(id: string, status: string, policy: ConversationExecutionPolicy = "local-v1", dispatch: "default" | "api" = "default") {
+    await repo.createSession(ctx, id, { id, executionPolicy: policy });
+    const accepted = await repo.acceptTurn(ctx, {
+      turnId: `turn_${id}`, sessionId: id, idempotencyKey: id, attemptId: `attempt_${id}`,
+      execution: dispatch === "api" ? "api" : "worker", consumeInbox: false,
+      message: { id: `message_${id}`, content: "owner fixture" },
+    });
+    await repo.reserveToolExecution(ctx, {
+      turnId: accepted.turn.id, attemptId: accepted.attempt!.id, invocationId: `call_${id}`, name: "write_fixture", arguments: {},
+    });
+    // Explicit API scope also understands older persisted API dispatch on a local
+    // Turn; the current acceptance API derives dispatch exclusively from policy.
+    if (dispatch === "api" && policy === "local-v1") {
+      await database.client.execute({ sql: "UPDATE turns SET dispatch_target = 'api' WHERE id = ?", args: [accepted.turn.id] });
+    }
+    // Deliberately retain a historical pending reservation after Attempt settlement.
+    await database.client.execute({ sql: "UPDATE turn_attempts SET status = ? WHERE id = ?", args: [status, `attempt_${id}`] });
+  }
+
+  const rows = async () => (await database.client.execute("SELECT * FROM tool_executions ORDER BY turn_id")).rows;
+
+  it("cleans only terminal local Worker reservations and preserves other owners and states byte-for-byte", async () => {
+    for (const status of ["Interrupted", "Failed", "Cancelled", "Running", "CancelRequested", "Completed"]) await pending(status, status);
+    await pending("api-local", "Interrupted", "local-v1", "api");
+    await pending("api-owner", "Failed", "bot-owner-v1", "api");
+    await pending("api-group", "Cancelled", "bot-group-member-v1", "api");
+    await pending("unknown-session", "Interrupted");
+    await pending("mismatch-session", "Interrupted");
+    await pending("missing-session", "Interrupted");
+    await pending("unknown-turn", "Interrupted");
+    await pending("mismatch-turn", "Interrupted");
+    await database.client.execute("UPDATE sessions SET execution_policy = 'future-v9' WHERE id = 'unknown-session'");
+    await database.client.execute("UPDATE sessions SET execution_policy = 'bot-owner-v1' WHERE id = 'mismatch-session'");
+    await database.client.execute("UPDATE turns SET execution_policy = 'future-v9' WHERE id = 'turn_unknown-turn'");
+    await database.client.execute("UPDATE turns SET execution_policy = 'bot-owner-v1' WHERE id = 'turn_mismatch-turn'");
+    await database.client.execute("PRAGMA foreign_keys = OFF");
+    await database.client.execute("UPDATE turns SET session_id = 'missing' WHERE id = 'turn_missing-session'");
+    await database.client.execute("PRAGMA foreign_keys = ON");
+    const before = await rows();
+    expect(await repo.markPendingOutcomeUnknown(database.client, { dispatchTarget: "default" })).toBe(3);
+    const after = await rows();
+    for (const row of before) {
+      const current = after.find(candidate => candidate.id === row.id)!;
+      if (["turn_Interrupted", "turn_Failed", "turn_Cancelled"].includes(String(row.turn_id))) {
+        expect(current).toEqual({ ...row, status: "outcome_unknown", finished_at: expect.any(String) });
+      } else expect(current).toEqual(row);
+    }
+    expect(await repo.markPendingOutcomeUnknown(database.client, { dispatchTarget: "default" })).toBe(0);
+  });
+
+  it("scopes API cleanup to API turns while leaving Worker reservations untouched", async () => {
+    await pending("worker", "Interrupted");
+    await pending("api-local", "Failed", "local-v1", "api");
+    await pending("api-group", "Cancelled", "bot-group-member-v1", "api");
+    expect(await repo.markPendingOutcomeUnknown(database.client, { dispatchTarget: "api" })).toBe(2);
+    expect((await rows()).map(row => [row.turn_id, row.status])).toEqual([
+      ["turn_api-group", "outcome_unknown"], ["turn_api-local", "outcome_unknown"], ["turn_worker", "pending"],
+    ]);
+  });
+
+  it("retains explicit unscoped compatibility and never marks non-pending tool outcomes", async () => {
+    await pending("worker", "Interrupted");
+    await pending("api", "Cancelled", "bot-owner-v1", "api");
+    await pending("executed", "Interrupted");
+    await pending("approval", "Interrupted");
+    await database.client.execute("UPDATE tool_executions SET status = 'executed', output_json = '{\"ok\":true}' WHERE turn_id = 'turn_executed'");
+    await database.client.execute("UPDATE tool_executions SET status = 'pending_approval' WHERE turn_id = 'turn_approval'");
+    const before = await rows();
+    expect(await repo.markPendingOutcomeUnknown(database.client)).toBe(2);
+    for (const row of before.filter(row => row.status !== "pending")) expect((await rows()).find(candidate => candidate.id === row.id)).toEqual(row);
+  });
+
+  it("refuses an invalid JavaScript recovery scope without broadening to global cleanup", async () => {
+    await pending("worker", "Interrupted");
+    const before = await rows();
+    expect(await repo.markPendingOutcomeUnknown(database.client, { dispatchTarget: "future" } as unknown as { dispatchTarget: "default" })).toBe(0);
+    expect(await rows()).toEqual(before);
   });
 });
 

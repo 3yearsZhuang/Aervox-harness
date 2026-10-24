@@ -196,6 +196,64 @@ describe("CAP-033 proactive API", () => {
     expect((await app.inject({ method: "GET", url: "/v1/proactive/claims", headers })).json().items).toHaveLength(0);
   });
 
+  it.each(["delete", "revoked", "expired", "pause", "missing-source", "wrong-source"])(
+    "rejects a source-derived claim after %s without durable content or audit writes", async change => {
+      const profileId = `claim-source-${change}`;
+      const profile = await app.inject({ method: "POST", url: "/v1/proactive/authorize", headers,
+        payload: { id: profileId, deviceId: "device-api", fullAccessConfirmed: true, sources: grantedSources(profileId) } });
+      expect(profile.statusCode).toBe(201);
+      const revisionId = profile.json().revision.id;
+      const [source, other] = profile.json().sources;
+      const captureId = `capture-${change}`;
+      const captured = await app.inject({ method: "POST", url: "/v1/proactive/captures", headers,
+        payload: { id: captureId, revisionId, sourceGrantId: source.id, sourceKey: source.sourceKey,
+          contentType: "text/plain", payloadText: "private captured content" } });
+      expect(captured.statusCode).toBe(201);
+      const draft = { id: `claim-${change}`, revisionId, claimType: "habit", subjectKey: "private-subject",
+        content: "late private derived content", evidenceCaptureIds: [captureId], sourceGrantIds: [source.id] };
+      const accepted = await app.inject({ method: "POST", url: "/v1/proactive/claims", headers,
+        payload: { ...draft, id: `accepted-${change}` } });
+      expect(accepted.statusCode).toBe(201);
+      if (change === "delete") {
+        expect((await app.inject({ method: "DELETE", url: `/v1/proactive/sources/${source.id}/data`, headers })).statusCode).toBe(200);
+      } else if (change === "pause") {
+        expect((await app.inject({ method: "POST", url: "/v1/proactive/desired-state", headers,
+          payload: { revisionId, desiredState: "paused" } })).statusCode).toBe(200);
+      } else if (change === "revoked" || change === "expired") {
+        expect((await app.inject({ method: "PATCH", url: `/v1/proactive/sources/${source.id}`, headers,
+          payload: { state: change } })).statusCode).toBe(200);
+      }
+      const readState = async () => ({
+        claims: (await client.execute("SELECT * FROM proactive_profile_claims ORDER BY id")).rows,
+        audits: (await client.execute("SELECT * FROM proactive_audit_events ORDER BY id")).rows,
+      });
+      const before = await readState();
+      const response = await app.inject({ method: "POST", url: "/v1/proactive/claims", headers, payload: {
+        ...draft, ...(change === "missing-source" ? { sourceGrantIds: [] }
+          : change === "wrong-source" ? { sourceGrantIds: [other.id] } : {}),
+      } });
+      expect(response.statusCode).toBe(409);
+      expect(response.json()).toMatchObject({ code: "CONFLICT", message: "claim_source_unavailable" });
+      expect(response.body).not.toContain(draft.content);
+      expect(await readState()).toEqual(before);
+      expect((await client.execute({ sql: "SELECT id FROM proactive_profile_claims WHERE id = ?", args: [draft.id] })).rows).toEqual([]);
+    },
+  );
+
+  it("keeps explicitly unlinked user claims available while the proactive profile is paused", async () => {
+    const profileId = "manual-claim-profile";
+    const profile = await app.inject({ method: "POST", url: "/v1/proactive/authorize", headers,
+      payload: { id: profileId, deviceId: "device-api", fullAccessConfirmed: true, sources: grantedSources(profileId) } });
+    const revisionId = profile.json().revision.id;
+    expect((await app.inject({ method: "POST", url: "/v1/proactive/desired-state", headers,
+      payload: { revisionId, desiredState: "paused" } })).statusCode).toBe(200);
+    const response = await app.inject({ method: "POST", url: "/v1/proactive/claims", headers,
+      payload: { id: "manual-unlinked", revisionId, claimType: "habit", subjectKey: "user-authored",
+        state: "user_asserted", content: "explicit manual input", evidenceCaptureIds: [], sourceGrantIds: [] } });
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toMatchObject({ state: "user_asserted", content: "explicit manual input", evidenceCaptureIds: [], sourceGrantIds: [] });
+  });
+
   it("E3 开关开启时校验 activation 并把 capture 双写为最小感知事件", async () => {
     await app.close();
     app = (await buildApp({

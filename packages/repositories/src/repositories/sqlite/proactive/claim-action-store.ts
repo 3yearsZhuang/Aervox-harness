@@ -5,8 +5,8 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
 import {
   proactiveActions,
-  proactiveCaptures,
   proactiveProfileClaims,
+  proactiveProfileRevisions,
   proactiveSourceGrants,
 } from "@aervox/schema";
 import { DomainConflictError, RepositoryNotFoundError } from "../../../errors.js";
@@ -23,6 +23,7 @@ import { AuditExportStore } from "./audit-export-store.js";
 import { decodeWithCipher, encrypt } from "./crypto.js";
 import { ProfileLifecycleStore } from "./profile-lifecycle-store.js";
 import { SourceGrantStore } from "./source-grant-store.js";
+import { findEligibleCaptureDistillation } from "./capture-distillation-store.js";
 import {
   ACTION_SCOPES,
   bool,
@@ -99,67 +100,75 @@ export class ClaimActionStore {
 
   async createClaim(
     ctx: LocalContext,
-    input: Parameters<IProactiveProfileRepository["createClaim"]>[1],
+    submitted: Parameters<IProactiveProfileRepository["createClaim"]>[1],
   ): Promise<ProactiveProfileClaimModel> {
-    const revision = await this.lifecycle.getRevision(ctx, input.revisionId);
-    if (!revision) throw new RepositoryNotFoundError("proactive profile revision not found");
-    const evidenceCaptureIds = [...new Set(input.evidenceCaptureIds ?? [])];
-    if (evidenceCaptureIds.length > 0) {
-      const evidenceRows = await this.db
-        .select({ id: proactiveCaptures.id })
-        .from(proactiveCaptures)
-        .where(
-          and(
-            inArray(proactiveCaptures.id, evidenceCaptureIds),
-            eq(proactiveCaptures.revisionId, revision.id),
-          ),
-        );
-      if (evidenceRows.length !== evidenceCaptureIds.length) {
-        throw new DomainConflictError("claim evidence capture is not in the same profile revision");
+    // Capture the caller's intent before waiting for the writer. Its evidence
+    // must not change after qualification while the same private text is saved.
+    const input = { ...submitted,
+      evidenceCaptureIds: [...new Set(submitted.evidenceCaptureIds ?? [])],
+      sourceGrantIds: [...new Set(submitted.sourceGrantIds ?? [])],
+    };
+    const evidenceRefsJson = encrypt(JSON.stringify(submitted.evidenceRefs ?? []), "claim", input.id, this.cipher) ?? "[]";
+    return this.db.transaction(async tx => {
+      const [revision] = await tx.select().from(proactiveProfileRevisions).where(eq(proactiveProfileRevisions.id, input.revisionId));
+      if (!revision) throw new RepositoryNotFoundError("proactive profile revision not found");
+      const { evidenceCaptureIds, sourceGrantIds } = input;
+      const sourceDerived = evidenceCaptureIds.length > 0 || sourceGrantIds.length > 0;
+      if (sourceDerived && (revision.status !== "active" || revision.desiredState !== "enabled" || revision.processingBoundary !== "local_only")) {
+        throw new DomainConflictError("claim_source_unavailable");
       }
-    }
-    const sourceGrantIds = [...new Set(input.sourceGrantIds ?? [])];
-    if (sourceGrantIds.length > 0) {
-      const sourceRows = await this.db
-        .select({ id: proactiveSourceGrants.id })
-        .from(proactiveSourceGrants)
-        .where(
-          and(
-            inArray(proactiveSourceGrants.id, sourceGrantIds),
-            eq(proactiveSourceGrants.revisionId, revision.id),
-          ),
-        );
-      if (sourceRows.length !== sourceGrantIds.length) {
-        throw new DomainConflictError("claim source grant is not in the same profile revision");
+      for (const captureId of evidenceCaptureIds) {
+        // Reuse publication's existing authorization definition. Do not invent
+        // provenance for old callers: each capture's source must be declared.
+        const capture = await findEligibleCaptureDistillation(tx, captureId);
+        if (!capture || capture.revisionId !== revision.id || !sourceGrantIds.includes(capture.sourceGrantId)) {
+          throw new DomainConflictError("claim_source_unavailable");
+        }
       }
-    }
-    const now = new Date().toISOString();
-    const state = input.state ?? "inferred";
-    const [created] = await this.db
-      .insert(proactiveProfileClaims)
-      .values({
-        id: input.id,
-        revisionId: revision.id,
-        claimType: input.claimType,
-        subjectKey: encrypt(input.subjectKey, "claim", input.id, this.cipher) ?? "",
-        content: encrypt(input.content, "claim", input.id, this.cipher) ?? "",
-        state,
-        confidence: Math.max(0, Math.min(100, Math.floor(input.confidence ?? 0))),
-        algorithmVersion: input.algorithmVersion ?? "local-profile-v1",
-        processingBoundary: "local_only",
-        evidenceCaptureIdsJson: JSON.stringify(evidenceCaptureIds),
-        evidenceRefsJson: encrypt(JSON.stringify(input.evidenceRefs ?? []), "claim", input.id, this.cipher) ?? "[]",
-        sourceGrantIdsJson: JSON.stringify(sourceGrantIds),
-        firstObservedAt: input.firstObservedAt ?? null,
-        lastObservedAt: input.lastObservedAt ?? null,
-        confirmedAt: state === "confirmed" ? now : null,
-        rejectedAt: state === "rejected" ? now : null,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
-    if (!created) throw new Error("failed to create proactive profile claim");
-    return toClaim(created, this.cipher);
+      if (sourceGrantIds.length > 0) {
+        const sourceRows = await tx
+          .select({ id: proactiveSourceGrants.id })
+          .from(proactiveSourceGrants)
+          .where(
+            and(
+              inArray(proactiveSourceGrants.id, sourceGrantIds),
+              eq(proactiveSourceGrants.revisionId, revision.id),
+              eq(proactiveSourceGrants.state, "granted"),
+              eq(proactiveSourceGrants.processingBoundary, "local_only"),
+            ),
+          );
+        if (sourceRows.length !== sourceGrantIds.length) {
+          throw new DomainConflictError("claim_source_unavailable");
+        }
+      }
+      const now = new Date().toISOString();
+      const state = input.state ?? "inferred";
+      const [created] = await tx
+        .insert(proactiveProfileClaims)
+        .values({
+          id: input.id,
+          revisionId: revision.id,
+          claimType: input.claimType,
+          subjectKey: encrypt(input.subjectKey, "claim", input.id, this.cipher) ?? "",
+          content: encrypt(input.content, "claim", input.id, this.cipher) ?? "",
+          state,
+          confidence: Math.max(0, Math.min(100, Math.floor(input.confidence ?? 0))),
+          algorithmVersion: input.algorithmVersion ?? "local-profile-v1",
+          processingBoundary: "local_only",
+          evidenceCaptureIdsJson: JSON.stringify(evidenceCaptureIds),
+          evidenceRefsJson,
+          sourceGrantIdsJson: JSON.stringify(sourceGrantIds),
+          firstObservedAt: input.firstObservedAt ?? null,
+          lastObservedAt: input.lastObservedAt ?? null,
+          confirmedAt: state === "confirmed" ? now : null,
+          rejectedAt: state === "rejected" ? now : null,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
+      if (!created) throw new Error("failed to create proactive profile claim");
+      return toClaim(created, this.cipher);
+    }, { behavior: "immediate" });
   }
 
   /** Recovery addresses one capture, independently of the latest claims presentation window. */

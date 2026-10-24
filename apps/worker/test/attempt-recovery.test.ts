@@ -8,7 +8,7 @@ describe("Worker recovery admits only configured local models and committed resu
   beforeEach(async () => {
     vi.stubEnv("AERVOX_LOOP_PROVIDER", "llm");
     vi.stubEnv("AERVOX_LOOP_DISPATCH", "worker");
-    vi.stubEnv("AERVOX_LOOP_RESUME", "off");
+    vi.stubEnv("AERVOX_LOOP_RESUME", "local-results");
     f = await createHostFixture();
   });
   afterEach(async () => { await f?.close(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
@@ -30,11 +30,16 @@ describe("Worker recovery admits only configured local models and committed resu
   async function configure(baseUrl: string) {
     await new SqliteLLMConfigRepository(f.db).saveConfig(local, { enabled: true, providerType: "custom_openai", baseUrl, apiKey: "local-key", modelId: "configured-model", temperature: 0.7, maxTokens: 4096, settings: {} });
   }
-  const cycle = (resume = true) => runAttemptRecoveryCycle({ db: f.db, client: f.client, workerId: "recovery", resume: resume ? () => f.worker.conversation.resume() : undefined });
+  const cycle = () => runAttemptRecoveryCycle({ commands: f.worker.conversation.commands, workerId: "recovery" });
 
   it("without opt-in, interrupts committed results rather than writing fixture model text", async () => {
+    await f.close();
+    vi.stubEnv("AERVOX_LOOP_RESUME", "off");
+    f = await createHostFixture();
     const { turnId } = await prepare(); const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
-    expect(await cycle(false)).toBe(1);
+    // Changing the environment after composition cannot opt this host into resume.
+    vi.stubEnv("AERVOX_LOOP_RESUME", "local-results");
+    expect(await cycle()).toBe(1);
     expect((await f.repo.getTurn(local, turnId))?.status).toBe("Interrupted");
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -64,5 +69,31 @@ describe("Worker recovery admits only configured local models and committed resu
     expect(await cycle()).toBe(1);
     expect((await f.repo.listToolExecutionsByTurn(local, turnId))[0].status).toBe("outcome_unknown");
     expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("Worker recovery command adapter", () => {
+  afterEach(() => vi.restoreAllMocks());
+  it("adapts only a fake command Port without storage or execution dependencies", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const commands = { recoverStaleExecutions: vi.fn(async () => ({
+      recoveredAttempts: 2, unknownOutcomes: 3, orphanTurns: 4, resumeFailed: true,
+    })) };
+    expect(await runAttemptRecoveryCycle({ commands, workerId: "port" })).toBe(2);
+    expect(commands.recoverStaleExecutions).toHaveBeenCalledExactlyOnceWith();
+    expect(log.mock.calls).toEqual([
+      ["[worker:port] turn_attempt_recovery=2 tool_outcome_unknown=3"], ["[worker:port] orphan_turn_recovery=4"],
+    ]);
+    expect(error).toHaveBeenCalledExactlyOnceWith("[worker:port] resume_error: local-result resume failed");
+  });
+  it("does not invent progress or swallow a failed recovery command", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const failure = new Error("recovery_store_unavailable");
+    const commands = { recoverStaleExecutions: vi.fn(async () => { throw failure; }) };
+    await expect(runAttemptRecoveryCycle({ commands, workerId: "port" })).rejects.toBe(failure);
+    expect(log).not.toHaveBeenCalled();
+    expect(error).not.toHaveBeenCalled();
   });
 });

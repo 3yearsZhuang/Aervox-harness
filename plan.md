@@ -8,7 +8,7 @@
 
 | 顺序 | 当前目标 | 对应条目与进入下一阶段的条件 |
 |---|---|---|
-| 立即 | 交付再审计及接续整改，验证行为与边界缺口 | [ITER-071](#iter-071) 前两批已由 PR #323 合并；PR #324 已补 Conversation Port、共享终态、配置快照、原子画像批次与客户端契约；[PR #325](https://github.com/3yearsZhuang/Aervox-harness/pull/325) 接续 Page 配置读取与重置身份，两者本地全量通过，精确提交远端证据见各 PR |
+| 立即 | 交付再审计及接续整改，验证行为与边界缺口 | [ITER-071](#iter-071) 前两批已由 PR #323 合并；PR #324 已补 Conversation Port、共享终态、配置快照、原子画像批次与客户端契约；[PR #325](https://github.com/3yearsZhuang/Aervox-harness/pull/325) 接续 Page 配置身份、Worker 恢复所有者与来源 claim 写者，精确范围及验证见本条和各 PR |
 | 接续，可按依赖并行 | 闭合删除、撤权、安全恢复及在线运行门槛 | [ITER-003](#iter-003)/[006](#iter-006)/[010](#iter-010)/[011](#iter-011)/[013](#iter-013)；插件升级只推进 [ITER-005](#iter-005) 的必要安全切片。恢复不能先于 deny 账本和水位，性能优化不能先于资源有界 |
 | 核心产品交付 | 证明现有个人助手、学习和会话入口真实可用 | 先收敛本机路径的 [ITER-064](#iter-064)、[033](#iter-033)、[029](#iter-029)、[第一方界面](#iter-053)；[015](#iter-015) 必要部署与 [062](#iter-062) 连接验证可并行，Bot 独立运行/恢复在主管能力后验收；再做 [032](#iter-032)/[012](#iter-012) 长会话及索引，[026](#iter-026) 有限评审 |
 | 按测量投入 | 消除真实瓶颈和维护成本 | [ITER-017](#iter-017)/[027](#iter-027)/[040](#iter-040)；先固定设备、数据和质量基线，再决定优化或停止，不承诺未测收益 |
@@ -106,6 +106,17 @@
 - **最终本地全量：** 新的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务，API 896、仓储 699、Host Runtime 306、Worker 156、Core 494、Host Agent 120、客户端 202、Panels 121、Contracts 98 项通过；Host Agent 2 项既有真实模型/参考库构建跳过保留，不计通过。守卫、OpenAPI 兼容、HLS、删除故障、Native Search/Runtime 及 64 份文档门禁通过。独立依赖审计 0 未审阅、2 既有审阅路径、0 过时例外，打包 CLI 持久化/API 重启与审批集成 2 项通过。首次浏览器启动缺少锁定 Chromium，补齐后完整 19 项通过、无重试；新增实际 GET 在预检后撤权再授权返回 409，旧身份 reset 409、配置不变，宿主刷新后读取成功。随后只补本条记录并复验文档；精确提交远端结果以接续 PR 为准，不扩大为完整平台或发布验收。
 - **剩余边界：** 本切片不新增 Bridge 重置方法；SQL 至客户端动作、实时撤权、资源通道及完整原子发布仍归 ITER-006，全链删除及恢复保留原责任，不宣称 ITER-071/006 整体完成或发布。
 
+#### Worker 恢复所有者与来源 claim 写者接续
+
+沿用 `fix/page-config-read-reset` 及 [PR #325](https://github.com/3yearsZhuang/Aervox-harness/pull/325)，继续落实 ADR-030；Page 切片提交 `93227a6f` 的远端 [CI](https://github.com/3yearsZhuang/Aervox-harness/actions/runs/40101580872) 和 [Docs](https://github.com/3yearsZhuang/Aervox-harness/actions/runs/40101581025) 已核对为 5 项成功，不能覆盖本次后续修订。
+
+- **会话恢复：** Worker 只调用共享应用的窄恢复命令，组合根拥有本机结果续跑配置；应用合并同实例并发调用、关闭等待在途恢复并拒绝新调用。过期 Attempt、孤儿 Turn 和历史终态未知工具收敛限定 default 派发且 Turn/Session 均 local-v1，缺失或失配 Session 不认领；本地恢复不再附带修改 API/Bot 工具账本。保留显式 local-results、续跑失败后的中断收敛和未知副作用不重放，不扩大为自动接管。
+- **旧 claim 写入口：** 独立 HTTP/仓储入口原先在来源已删除后仍能写入正文，且检查与插入不在事务内。现在带来源引用的 claim 复用批次发布的当前资格，在同一写者事务检查 active/enabled/local_only revision、granted/local_only 来源及未删 capture；capture 的实际来源必须由调用方显式列入，不补造关联。删除、撤权、过期或暂停先提交即拒绝迟到写入，完全无来源引用的直接输入保持兼容。
+- **反例与验收：** 已分别复现本地恢复误改 API/Bot 工具状态，以及来源删除后 HTTP/仓储新建私人 claim；先红后修。定向与全量验证、提交及远端结果随本切片记录，不沿用 Page 切片绿测。
+- **复审补修：** 主恢复事务原先只按 Attempt ID 更新工具预留，公开仓储可以形成 Turn/Attempt 错配的旧记录；独立 SQLite 探针与 Worker 回归确认仍会修改 Bot 工具。已补双身份条件并与后续清理一致。进行中的首轮全量因补修而主动终止，退出 143 不计通过；修复后重新构建并运行完整门禁。夹具曾将 Outbox 的 `execution=api` 误当持久派发所有者，已显式构造历史 API dispatch 行，保留真实 Bot 回归和原拒绝期待，未改生产门禁。
+- **最终本地全量：** 新的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务，API 903、仓储 732、Host Runtime 314、Worker 159、Core 494、Host Agent 120 项通过；Host Agent 2 项既有真实模型/参考库构建跳过保留，不计通过。守卫、OpenAPI 兼容、全套前端测试、HLS、删除故障、Native Search/Runtime 及 64 份文档门禁通过。独立依赖审计为 0 未审阅、2 既有审阅路径、0 过时例外；API E2E 45、打包 CLI 持久化/API 重启与工具审批集成 2 项另验通过。提交前仅补本条记录并复验文档，精确提交远端证据由 PR 保存，不把前一提交成功扩大为本轮远端结果。
+- **剩余边界：** 当前 claim 资格未绑定 grant 修订，capture/observation 及其他写者的并发门禁、历史关联清洗和 deny 账本继续归 ITER-003/010；恢复命令并发合并仅限同应用实例，跨进程接管与发布未验收。
+
 #### 随后补齐设计与行为闭环
 
 审批 revision、分支幂等和索引语义已随首批实施；第二批客户端、模型、Catalog、DTO、表约束与接单摘要已通过本地整体验证。本轮再审计补齐 Conversation Port、完成前增强及显式配置注入，统一验证结果见上方整改记录。源码确认与隔离复现的证据强度在各行区分，不能以结构整改替代入口验收。
@@ -145,7 +156,7 @@
 
 Memory 清理、独立验证、迟到写拒绝、召回资格及用途闸门已由 [PR #268](https://github.com/3yearsZhuang/Aervox-harness/pull/268)、[PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258)、[PR #259](https://github.com/3yearsZhuang/Aervox-harness/pull/259)交付；ARC-06/08、CAP-005/013/027/033。将未完成责任从历史切片恢复到活动计划，不将有限 Memory 研究推为全链证明。
 
-- **已补切片：** PR #324 接续将 ContextManifest 新写入投影为白名单请求元数据，Core 仅在进程内保留完整输入；另补首输入恢复资格、执行检查点及 SSE 当前来源读取，具体记录与范围见 ITER-071。不自动改写历史行或清洗 Outbox/派生副本。
+- **已补切片：** PR #324 接续将 ContextManifest 新写入投影为白名单请求元数据，Core 仅在进程内保留完整输入；另补首输入恢复资格、执行检查点及 SSE 当前来源读取。PR #325 又为带来源引用的旧 claim 入口补齐写事务内当前资格，具体记录与范围见 ITER-071。不自动改写历史行或清洗 Outbox/派生副本。
 - **下一步：** 先固化 `scope→targets`、来源→派生传播及 grant 修订绑定；显式覆盖消息/工具结果、事件、摘要、Memory、日记、附件、缓存和错误副本。历史 ContextManifest 正文清理及来源删除传播仍须闭合，不能以新写入最小化或诊断 UI 不显示正文代替全链验证。
 - **依赖与验收：** 联动 ITER-071 写者门禁、ITER-013 逐帧撤权及 ITER-010 deny 账本；数据库级唯一 sequence 约束经 ITER-011 演练。撤权/删除立即阻断用途，迟到写、重试、备份恢复均不复活；独立验证无召回、无越权动作，失败/未知 owner 不返回完成。权威边界见[隐私合同](docs/reference/DATA_PRIVACY.md#privacy-deletion-sla)及[当前限制](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-证据与适用限制)。
 

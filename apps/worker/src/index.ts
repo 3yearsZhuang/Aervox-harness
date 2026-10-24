@@ -164,9 +164,7 @@ host
   })
   .registerJob({
     name: "attempt-recovery",
-    run: () => runAttemptRecoveryCycle({ db, client, workerId,
-      resume: hostConfig.loopResume === "local-results" ? () => runtime.conversation.resume() : undefined,
-    }),
+    run: () => runAttemptRecoveryCycle({ commands: runtime.conversation.commands, workerId }),
   })
   .registerJob({
     name: "inbox-expiry",

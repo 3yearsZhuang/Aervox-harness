@@ -113,6 +113,103 @@ describe("atomic capture distillation publication", () => {
   const manualClaim = () => repo.createClaim(ctx, { id: "manual-claim", revisionId: "profile", claimType: "habit",
     subjectKey: "manual", content: "manually distilled private output", evidenceCaptureIds: ["capture"], sourceGrantIds: ["source"] });
 
+  describe("legacy claim writer source qualification", () => {
+    const applyControl = async (change: string) => {
+      if (change === "delete") await repo.deleteSourceData(ctx, "source", "local");
+      else if (change === "pause") await repo.setDesiredState(ctx, "paused", "local", "profile");
+      else if (change === "deleted-capture") await database.client.execute("UPDATE proactive_captures SET deleted_at = '2026-10-24T00:00:00Z' WHERE id = 'capture'");
+      else if (change === "capture-boundary") await database.client.execute("UPDATE proactive_captures SET processing_boundary = 'cloud' WHERE id = 'capture'");
+      else if (change === "profile-boundary") await database.client.execute("UPDATE proactive_profile_revisions SET processing_boundary = 'cloud' WHERE id = 'profile'");
+      else if (change === "source-boundary") await database.client.execute("UPDATE proactive_source_grants SET processing_boundary = 'cloud' WHERE id = 'source'");
+      else await repo.updateSourceGrant(ctx, "source", { state: change as "revoked" | "expired" | "denied" | "requested", actorId: "local" });
+    };
+
+    it.each(["delete", "pause", "revoked", "expired", "denied", "requested", "deleted-capture", "capture-boundary", "profile-boundary", "source-boundary"])(
+      "rejects source-derived claim after %s without inserting private content", async change => {
+        await applyControl(change);
+        const before = await state();
+        await expect(manualClaim()).rejects.toThrow("claim_source_unavailable");
+        expect(await state()).toEqual(before);
+        expect((await database.client.execute("SELECT id FROM proactive_profile_claims WHERE id='manual-claim'")).rows).toEqual([]);
+      },
+    );
+
+    it.each(["delete", "pause", "revoked", "expired"])(
+      "rechecks %s when it wins the race before the claim writer transaction", async change => {
+        const transaction = database.db.transaction.bind(database.db);
+        let before: Awaited<ReturnType<typeof state>>;
+        database.db.transaction = async (...args) => {
+          database.db.transaction = transaction;
+          await applyControl(change);
+          before = await state();
+          return transaction(...args);
+        };
+        await expect(manualClaim()).rejects.toThrow("claim_source_unavailable");
+        expect(await state()).toEqual(before!);
+        expect((await database.client.execute("SELECT id FROM proactive_profile_claims WHERE id='manual-claim'")).rows).toEqual([]);
+      },
+    );
+
+    it.each(["omitted", "unrelated", "missing", "foreign"])("rejects %s capture source provenance instead of inventing a linkage", async kind => {
+      await database.client.execute("INSERT INTO proactive_source_grants SELECT 'unrelated-source', revision_id, 'device.app_activity', purpose, scope, os_capability, state, mandatory, processing_boundary, grant_version, metadata_json, granted_at, revoked_at, last_verified_at, created_at, updated_at FROM proactive_source_grants WHERE id='source'");
+      if (kind === "foreign") {
+        await repo.confirmProfile(ctx, { id: "other-profile", deviceId: "other", actorId: "local", sources: [{ id: "other-source",
+          sourceKey: "device.browser_activity", purpose: "profile.observe", scope: "all", osCapability: "os.browser_history", state: "granted", mandatory: true }] });
+        // Keep this assertion about foreign provenance, independently of the
+        // profile supersession performed when confirming the other fixture.
+        await database.client.execute("UPDATE proactive_profile_revisions SET status='active', desired_state='enabled' WHERE id='profile'");
+      }
+      const before = await state();
+      await expect(repo.createClaim(ctx, { id: "bad-provenance", revisionId: "profile", claimType: "habit", subjectKey: "manual",
+        content: "private derived output", evidenceCaptureIds: ["capture"],
+        sourceGrantIds: kind === "omitted" ? undefined : [kind === "unrelated" ? "unrelated-source" : kind === "foreign" ? "other-source" : "missing-source"],
+      })).rejects.toThrow("claim_source_unavailable");
+      expect(await state()).toEqual(before);
+    });
+
+    it("checks source-only claims but preserves unlinked manual claims while paused", async () => {
+      await repo.updateSourceGrant(ctx, "source", { state: "revoked", actorId: "local" });
+      const before = await state();
+      await expect(repo.createClaim(ctx, { id: "source-only", revisionId: "profile", claimType: "habit", subjectKey: "manual",
+        content: "private source-derived output", sourceGrantIds: ["source"] })).rejects.toThrow("claim_source_unavailable");
+      expect(await state()).toEqual(before);
+      await repo.setDesiredState(ctx, "paused", "local", "profile");
+      expect(await repo.createClaim(ctx, { id: "manual-unlinked", revisionId: "profile", claimType: "habit", subjectKey: "manual",
+        state: "user_asserted", content: "explicit user-authored claim" })).toMatchObject({ id: "manual-unlinked", content: "explicit user-authored claim", evidenceCaptureIds: [], sourceGrantIds: [] });
+    });
+
+    it("accepts a currently authorized derived claim without altering its declared provenance", async () => {
+      const claim = await manualClaim();
+      expect(claim).toMatchObject({ id: "manual-claim", content: "manually distilled private output", evidenceCaptureIds: ["capture"], sourceGrantIds: ["source"] });
+    });
+
+    it.each(["missing-capture", "wrong-source-key"])("rejects %s evidence without retaining claim content", async kind => {
+      if (kind === "wrong-source-key") await database.client.execute("UPDATE proactive_captures SET source_key='device.screen_capture' WHERE id='capture'");
+      const before = await state();
+      await expect(repo.createClaim(ctx, { id: "bad-evidence", revisionId: "profile", claimType: "habit", subjectKey: "manual", content: "private derived output",
+        evidenceCaptureIds: [kind === "missing-capture" ? "missing-capture" : "capture"], sourceGrantIds: ["source"] })).rejects.toThrow("claim_source_unavailable");
+      expect(await state()).toEqual(before);
+    });
+
+    it("snapshots the declared evidence and text before waiting for the writer", async () => {
+      const submitted = { id: "captured-intent", revisionId: "profile", claimType: "habit", subjectKey: "manual", content: "captured private output",
+        evidenceCaptureIds: ["capture"], sourceGrantIds: ["source"], evidenceRefs: [{ source: "original" }] };
+      const transaction = database.db.transaction.bind(database.db);
+      database.db.transaction = async (...args) => {
+        database.db.transaction = transaction;
+        submitted.id = "mutated-id";
+        submitted.content = "mutated private output";
+        submitted.evidenceCaptureIds.splice(0);
+        submitted.sourceGrantIds.splice(0);
+        submitted.evidenceRefs[0]!.source = "mutated";
+        return transaction(...args);
+      };
+      expect(await repo.createClaim(ctx, submitted)).toMatchObject({ id: "captured-intent", content: "captured private output",
+        evidenceCaptureIds: ["capture"], sourceGrantIds: ["source"], evidenceRefs: [{ source: "original" }] });
+      expect((await database.client.execute("SELECT id FROM proactive_profile_claims WHERE id='mutated-id'")).rows).toEqual([]);
+    });
+  });
+
   it("accepts verified manual claim and observation results and replays without changing their receipt", async () => {
     await manualClaim();
     await repo.createObservation(ctx, { id: "manual-observation", revisionId: "profile", sourceGrantId: "source",
@@ -140,8 +237,10 @@ describe("atomic capture distillation publication", () => {
     }
     if (kind === "wrong-source") {
       id = "unlinked";
+      // A malformed historical row must not become a valid distillation receipt.
       await repo.createClaim(ctx, { id, revisionId: "profile", claimType: "habit", subjectKey: "other", content: "missing source",
-        evidenceCaptureIds: ["capture"] });
+      });
+      await database.client.execute({ sql: "UPDATE proactive_profile_claims SET evidence_capture_ids_json=? WHERE id=?", args: [JSON.stringify(["capture"]), id] });
     }
     const before = await state();
     await expect(repo.markCaptureDistilled(ctx, "capture", [id])).rejects.toThrow("capture_distillation_result_unavailable");

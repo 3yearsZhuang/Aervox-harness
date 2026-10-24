@@ -273,16 +273,26 @@ export class SafeSegmentStore {
   }
 
   /** 2c：崩溃释放后将遗留 pending 预留标记为 outcome_unknown（§11.3：结果未知不自动重放） */
-  async markPendingOutcomeUnknown(client: import("@libsql/client").Client): Promise<number> {
-    const result = await client.execute(`
+  async markPendingOutcomeUnknown(client: import("@libsql/client").Client, options?: { dispatchTarget?: "default" | "api" }): Promise<number> {
+    const dispatchTarget = options?.dispatchTarget;
+    if (dispatchTarget !== undefined && dispatchTarget !== "default" && dispatchTarget !== "api") return 0;
+    const result = await client.execute({ sql: `
       UPDATE tool_executions
-      SET status = 'outcome_unknown', finished_at = COALESCE(finished_at, '${new Date().toISOString()}')
+      SET status = 'outcome_unknown', finished_at = COALESCE(finished_at, ?)
       WHERE status = 'pending'
-        AND attempt_id IN (
-          SELECT id FROM turn_attempts
-          WHERE status IN ('Interrupted', 'Failed', 'Cancelled')
+        AND EXISTS (
+          SELECT 1 FROM turn_attempts ta
+          WHERE ta.id = tool_executions.attempt_id
+            AND ta.status IN ('Interrupted', 'Failed', 'Cancelled')
+            ${dispatchTarget === undefined ? "" : `AND EXISTS (
+              SELECT 1 FROM turns t
+              WHERE t.id = ta.turn_id AND t.id = tool_executions.turn_id
+                AND t.dispatch_target = ?
+                ${dispatchTarget === "default" ? `AND t.execution_policy = 'local-v1'
+                  AND EXISTS (SELECT 1 FROM sessions s WHERE s.id = t.session_id AND s.execution_policy = 'local-v1')` : ""}
+            )`}
         )
-    `);
+    `, args: [new Date().toISOString(), ...(dispatchTarget === undefined ? [] : [dispatchTarget])] });
     return result.rowsAffected ?? 0;
   }
 }
