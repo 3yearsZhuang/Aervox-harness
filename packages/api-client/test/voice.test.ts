@@ -80,8 +80,8 @@ describe('useAervoxVoice / 语音组合式 API', () => {
       const api = useAervoxVoice();
       const res = await api.getConfig();
 
-      expect(requestMock).toHaveBeenCalledWith('GET', '/v1/voice/config');
-      expect(res).toEqual(mockConfig);
+      expect(requestMock).toHaveBeenCalledWith('GET', '/v1/voice/config', undefined);
+      expect(res).toEqual({ ...mockConfig, settings: mockConfig.settings ?? {} });
     });
 
     it('saveConfig 正确发起 PUT /v1/voice/config 请求', async () => {
@@ -134,7 +134,7 @@ describe('useAervoxVoice / 语音组合式 API', () => {
       const api = useAervoxVoice();
       const res = await api.loadLocalVoices();
 
-      expect(requestMock).toHaveBeenCalledWith('GET', '/v1/voice/models');
+      expect(requestMock).toHaveBeenCalledWith('GET', '/v1/voice/models', undefined);
       expect(res).toHaveLength(1);
       expect(res[0].modelId).toBe('local-1');
     });
@@ -241,12 +241,12 @@ describe('useAervoxVoice / 语音组合式 API', () => {
 
       const api = useAervoxVoice();
       const got = await api.getRemoteConfig();
-      expect(requestMock).toHaveBeenCalledWith('GET', '/v1/voice/remote/config');
-      expect(got).toEqual(mockConfig);
+      expect(requestMock).toHaveBeenCalledWith('GET', '/v1/voice/remote/config', undefined);
+      expect(got).toEqual({ ...mockConfig, settings: mockConfig.settings ?? {} });
 
       const saved = await api.saveRemoteConfig(mockConfig);
       expect(requestMock).toHaveBeenCalledWith('PUT', '/v1/voice/remote/config', mockConfig);
-      expect(saved).toEqual(mockConfig);
+      expect(saved).toEqual({ ...mockConfig, settings: mockConfig.settings ?? {} });
     });
 
     it('testRemoteConnection 正确发起连通性测试请求（CR-028）', async () => {
@@ -278,8 +278,8 @@ describe('useAervoxVoice / 语音组合式 API', () => {
         },
       };
 
-      const api = useAervoxVoice();
       configureAervoxClient({ platform: (globalThis as any).window?.fairyDesktop ?? {} });
+      const api = useAervoxVoice();
       const res = await api.pickDirectory();
 
       expect(pickMock).toHaveBeenCalled();

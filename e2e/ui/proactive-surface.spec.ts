@@ -85,7 +85,7 @@ test("settings can switch away from an explicit workbench URL", async ({ page, s
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "通用", exact: false }).click();
   await dialog.getByRole("button", { name: "外观", exact: true }).click();
-  await dialog.getByRole("group", { name: "工作台界面" }).getByRole("button", { name: "移动陪伴", exact: true }).click();
+  await dialog.getByRole("group", { name: "工作台界面" }).getByRole("button", { name: "思隅·主动陪伴", exact: true }).click();
   await expect(page.locator(".proactive-companion")).toBeVisible({ timeout: 90_000 });
   await expect(page).toHaveURL(/surface=proactive-ui/);
 });

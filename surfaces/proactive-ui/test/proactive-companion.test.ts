@@ -50,7 +50,7 @@ beforeEach(() => {
 
 async function mountSurface(platform: 'web' | 'desktop' = 'web') {
   const wrapper = mount(UISurfaceHost, {
-    props: { plugin: definition, surface: 'main', platform },
+    props: { plugin: definition, surface: 'main', platform, viewProps: {surfaceNavigation: {currentId: definition.id, options: [], select: vi.fn(), openDefault: vi.fn()}} },
   });
   await vi.waitFor(() => expect(wrapper.find('.proactive-companion').exists()).toBe(true), { timeout: 5000 });
   await flushPromises();
@@ -502,4 +502,18 @@ it('preserves partial output when a terminal interruption has no error event', a
   expect(wrapper.get('.pc-feedback').attributes('data-kind')).toBe('turn-error');
   expect(wrapper.get('.pc-feedback').text()).toContain('本次回复未完成');
   expect(wrapper.find('.pc-resume').exists()).toBe(false);
+});
+
+it('uses the host-provided default-surface command without knowing its ID or URL', async () => {
+  const openDefault = vi.fn();
+  const wrapper = mount(UISurfaceHost, {
+    props: {plugin: definition, surface: 'main', platform: 'web', viewProps: {surfaceNavigation: {
+      currentId: 'custom-companion', options: [{value: 'custom-main', label: '主界面'}], select: vi.fn(), openDefault,
+    }}},
+    global: {stubs: {PetWithFallback: true}},
+  });
+  await vi.waitFor(() => expect(wrapper.find('.pc-quiet-btn').exists()).toBe(true));
+  await wrapper.get('[aria-label="回到完整工作台"]').trigger('click');
+  expect(openDefault).toHaveBeenCalledOnce();
+  wrapper.unmount();
 });

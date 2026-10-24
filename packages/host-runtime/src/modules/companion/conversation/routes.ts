@@ -14,40 +14,37 @@ import {
   createSessionRequestSchema,
   renameSessionRequestSchema,
 } from "@aervox/contracts";
-import {
-  TurnIntentConflictError,
-  type LocalContext,
-  type SqliteConversationRepository,
-  type SqlitePrivacyRepository,
-  type SqliteAgentInboxRepository,
-  type SqliteSubagentRunRepository,
-  type SqlitePlatformRepository,
-} from "@aervox/repositories";
-import { buildResumeHistory } from "@aervox/core";
+import { TurnIntentConflictError } from "@aervox/repositories";
+import type { ConversationCommandPort, ConversationQueryPort } from "./application.js";
+import { ConversationCommandError } from "./approval-command.js";
 import { registerContractRoute } from "../../../shared/contract-route.js";
 import { resolveLocalContext } from "../../../shared/local-context.js";
-import { acceptConversationTurn, executeAcceptedConversationTurn } from "./application.js";
 import { turnStreamHub } from "./stream-hub.js";
 import { encodeSseEvent, writeSseFrame, SseWriteError } from "./sse-writer.js";
-import { loadExecutionConfig } from "@aervox/config";
-import { readToolApprovalIdentity } from "./tool-approval-identity.js";
 
 let seq = 0;
 const nextTurnId = (): string => `turn_${Date.now().toString(36)}_${(++seq).toString(36)}`;
 
-export type { ConversationRouteDeps } from "./execution.js";
-import type { ConversationRouteDeps, ConversationTurnInput } from "./execution.js";
+/** HTTP exposes supported application use cases and bounded observation projections only. */
+export interface ConversationHttpPort {
+  commands: Pick<ConversationCommandPort, "ensureSession" | "createSession" | "renameSession" | "deleteSession" | "createTurn" |
+    "cancelTurn" | "answerQuestions" | "approve" | "createMessage" | "editMessage" | "deleteMessage" | "restoreMessage">;
+  queries: Pick<ConversationQueryPort, "getTurnDiagnostics" | "listSessions" | "getStreamEventById" |
+    "getStreamEventHighWater" | "getStreamReplayState" | "getStreamEventsPage" | "getStreamEventForDisclosure" |
+    "isTurnStreamDisclosable" | "pendingQuestions" | "subagents" |
+    "workflows" | "messageDeleteImpact" | "listMessageVersions">;
+}
 
 export function registerConversationRoutes(
   app: FastifyInstance,
-  conversationRepo: SqliteConversationRepository,
-  deps: ConversationRouteDeps = {},
-  execute?: (input: ConversationTurnInput) => Promise<void>,
+  application: ConversationHttpPort,
+  deps: { apiRegistry?: import("@aervox/contracts").PluginApiRegistry; observability?: import("@aervox/observability").Observability } = {},
 ): void {
-  const executeAccepted = (ctx: LocalContext, input: ConversationTurnInput) =>
-    executeAcceptedConversationTurn(conversationRepo, ctx, input, deps, execute ? (_ctx, input) => execute(input) : undefined);
-  // Accepted local turns own cancellation independently of HTTP/SSE connections.
-  const activeTurns = new Map<string, AbortController>();
+  const { commands, queries } = application;
+  // Domain errors stay in the application; this hook only maps their HTTP representation.
+  app.addHook("onError", async (_request, reply, error) => {
+    if (error instanceof ConversationCommandError) reply.code(error.statusCode);
+  });
   const activeStreams = new Set<() => void>();
   let hostClosing = false;
   // preClose runs before server.close waits for open SSE sockets (Fastify 5).
@@ -55,15 +52,11 @@ export function registerConversationRoutes(
     hostClosing = true;
     for (const close of activeStreams) close();
   });
-  app.addHook("onClose", async () => {
-    for (const controller of activeTurns.values()) controller.abort(new Error("host_closed"));
-    activeTurns.clear();
-  });
   registerContractRoute(app, turnDiagnosticsApi.get, async (req, reply) => {
     reply.header("Cache-Control", "no-store");
     const { turnId } = req.params as { turnId: string };
     const { attemptId } = req.query as { attemptId?: string };
-    const diagnostics = await conversationRepo.getTurnDiagnostics(resolveLocalContext(req), turnId, attemptId);
+    const diagnostics = await queries.getTurnDiagnostics(resolveLocalContext(req), turnId, attemptId);
     if (!diagnostics) return reply.code(404).send({ code: "TURN_OR_ATTEMPT_NOT_FOUND", message: "Turn or Attempt not found" });
     return diagnostics;
   });
@@ -77,7 +70,7 @@ export function registerConversationRoutes(
     };
     const parsedLimit = limit ? Number.parseInt(limit, 10) : 100;
     const parsedOffset = offset ? Number.parseInt(offset, 10) : 0;
-    const items = await conversationRepo.listSessions(tenant, {
+    const items = await queries.listSessions(tenant, {
       limit: Number.isFinite(parsedLimit) && parsedLimit >= 0 ? parsedLimit : 100,
       offset: Number.isFinite(parsedOffset) && parsedOffset >= 0 ? parsedOffset : 0,
       projectId: projectId || undefined,
@@ -95,9 +88,9 @@ export function registerConversationRoutes(
     const title = parsed.data.title || "新会话";
     let session;
     if (parsed.data.id) {
-      session = await conversationRepo.getOrCreateSession(tenant, parsed.data.id, title, parsed.data.projectId);
+      session = await commands.ensureSession(tenant, parsed.data.id, title, parsed.data.projectId);
     } else {
-      session = await conversationRepo.createSession(tenant, title, { projectId: parsed.data.projectId });
+      session = await commands.createSession(tenant, title, { projectId: parsed.data.projectId });
     }
     return reply.code(201).send(session);
   });
@@ -110,7 +103,7 @@ export function registerConversationRoutes(
     if (!parsed.success) {
       return reply.code(400).send({ error: "Invalid request", details: parsed.error.issues });
     }
-    const updated = await conversationRepo.renameSession(tenant, sessionId, {
+    const updated = await commands.renameSession(tenant, sessionId, {
       title: parsed.data.title,
       projectId: parsed.data.projectId,
     });
@@ -124,7 +117,7 @@ export function registerConversationRoutes(
   app.delete("/v1/sessions/:sessionId", async (req, reply) => {
     const tenant = resolveLocalContext(req);
     const { sessionId } = req.params as { sessionId: string };
-    const deleted = await conversationRepo.deleteSession(tenant, sessionId);
+    const deleted = await commands.deleteSession(tenant, sessionId);
     if (!deleted) {
       return reply.code(404).send({ error: "Session not found" });
     }
@@ -150,20 +143,15 @@ export function registerConversationRoutes(
 
     const tenant = resolveLocalContext(req);
 
-    // 确保会话存在（turns.session_id 外键引用 sessions）
-    await conversationRepo.getOrCreateSession(tenant, sessionId, "Aervox 会话");
-
     const turnId = nextTurnId();
     const messageId = `msg_${Date.now().toString(36)}_${(++seq).toString(36)}`;
     const attemptId = `atp_${turnId}`;
-    const executionConfig = deps.executionConfig ?? loadExecutionConfig();
-    const execution = executionConfig.turnExecution === "inline" ? "api" : executionConfig.loopDispatch;
-    let accepted: Awaited<ReturnType<typeof acceptConversationTurn>>;
+    let accepted: Awaited<ReturnType<typeof commands.createTurn>>;
     try {
-      accepted = await acceptConversationTurn(conversationRepo, tenant, {
-        execution, metadata: parsed.data.metadata, toolApprovalMode: parsed.data.toolApprovalMode,
+      accepted = await commands.createTurn(tenant, {
+        metadata: parsed.data.metadata, toolApprovalMode: parsed.data.toolApprovalMode,
         turnId, sessionId, idempotencyKey, attemptId, references: parsed.data.references,
-        message: { id: messageId, ...parsed.data.message }, consumeInbox: Boolean(deps.inboxRepo),
+        message: { id: messageId, ...parsed.data.message },
       });
     } catch (error) {
       if (error instanceof TurnIntentConflictError) return reply.code(409).send({
@@ -178,36 +166,6 @@ export function registerConversationRoutes(
         eventsUrl: `/v1/turns/${accepted.turn.id}/events`, cancelUrl: `/v1/turns/${accepted.turn.id}/cancel`,
       });
     }
-    // Execute precisely the persisted input; only the committing request dispatches the Loop.
-    const userMessage = accepted.message.content;
-    const acceptedIntent = accepted.intent!;
-    // CR-027: acceptance remains independent of background execution and SSE observation.
-    const runLoop = async () => {
-      const controller = new AbortController();
-      activeTurns.set(turnId, controller);
-      try {
-        await executeAccepted(tenant, {
-          turnId, sessionId, attemptId, userMessage, metadata: acceptedIntent.metadata,
-          toolApprovalMode: acceptedIntent.toolApprovalMode, actorId: acceptedIntent.actorId ?? undefined, signal: controller.signal,
-        });
-      } finally {
-        if (activeTurns.get(turnId) === controller) activeTurns.delete(turnId);
-        controller.abort(new Error("turn_execution_finished"));
-      }
-    };
-    if (executionConfig.turnExecution === "inline") {
-      await runLoop();
-    } else if (execution === "worker" && accepted.turn.dispatchTarget !== "api") {
-      deps.observability?.log.info({
-        event: "turn.dispatched_to_worker",
-        message: `Turn ${turnId} dispatched to background worker via outbox`,
-        fields: { turnId, sessionId },
-      });
-    } else {
-      // 后台执行：异常已在 runLoop 内部捕获并推进 Failed 终态，此处仅兜底防 unhandledRejection
-      void runLoop().catch(() => undefined);
-    }
-
     return reply.code(201).send({
       turnId,
       status: "Created" as const,
@@ -232,14 +190,13 @@ export function registerConversationRoutes(
       return reply.code(400).send({error: "conflicting_stream_cursors"});
     }
     const cursorId = headerCursor ?? queryCursor;
-    const turn = await conversationRepo.getTurn(tenant, turnId);
-    if (!turn) {
+    if (!(await queries.isTurnStreamDisclosable(tenant, turnId))) {
       return reply.code(404).send({error: "turn_not_found"});
     }
     // Resolve the cursor against this Turn before hijacking the response. A
     // single-row lookup keeps reconnect cost independent of the event history.
     const cursor = cursorId
-      ? await conversationRepo.getStreamEventById(tenant, turnId, cursorId)
+      ? await queries.getStreamEventById(tenant, turnId, cursorId)
       : null;
     if (cursorId && !cursor) {
       return reply.code(410).send({error: "stream_cursor_expired"});
@@ -325,7 +282,7 @@ export function registerConversationRoutes(
     };
     const replayThrough = async (upperBound: number): Promise<void> => {
       while (!closed && lastSequence < upperBound) {
-        const page = await conversationRepo.getStreamEventsPage(tenant, turnId, {
+        const page = await queries.getStreamEventsPage(tenant, turnId, {
           afterSequence: lastSequence, throughSequence: upperBound,
         });
         pages += 1;
@@ -335,8 +292,15 @@ export function registerConversationRoutes(
         for (const ev of page.events) {
           if (closed) return;
           if (ev.sequence <= lastSequence) continue;
-          await write(encodeSseEvent(ev, deps.apiRegistry));
-          lastSequence = ev.sequence;
+          // A page can outlive source deletion while a prior frame waits for
+          // drain. Re-read this frame and its current eligibility together;
+          // cached page payloads are never authority for disclosure.
+          const current = await queries.getStreamEventForDisclosure(tenant, turnId, ev.id);
+          if (closed) return;
+          if (!current) { finish(true, "sse_source_unavailable"); return; }
+          if (current.sequence !== ev.sequence) throw new Error("sse_replay_sequence_changed");
+          await write(encodeSseEvent(current, deps.apiRegistry));
+          lastSequence = current.sequence;
         }
         // No next page is queried while any frame is waiting for socket drain.
       }
@@ -353,13 +317,18 @@ export function registerConversationRoutes(
       try {
         do {
           wakeRequested = false;
-          const state = await conversationRepo.getStreamReplayState(tenant, turnId);
+          // Poll even when no new business event exists. Source deletion does
+          // not require a process-local hub notification to close observation.
+          const disclosable = await queries.isTurnStreamDisclosable(tenant, turnId);
+          if (closed) return;
+          if (!disclosable) { finish(true, "sse_source_unavailable"); return; }
+          const state = await queries.getStreamReplayState(tenant, turnId);
           await replayThrough(state.highWaterSequence);
           if (closed) return;
           if (state.settled) {
             // Refresh both facts together after replay. A continuation or terminal
             // commit during replay must not be paired with an older status/watermark.
-            const latest = await conversationRepo.getStreamReplayState(tenant, turnId);
+            const latest = await queries.getStreamReplayState(tenant, turnId);
             if (closed) return;
             if (latest.highWaterSequence > lastSequence) {
               wakeRequested = true;
@@ -387,7 +356,7 @@ export function registerConversationRoutes(
     tailTimer = setInterval(wake, CROSS_PROCESS_POLL_MS);
     tailTimer.unref();
     try {
-      await replayThrough(await conversationRepo.getStreamEventHighWater(tenant, turnId));
+      await replayThrough(await queries.getStreamEventHighWater(tenant, turnId));
       ready = true;
       await pump();
     } catch (error) {
@@ -399,36 +368,15 @@ export function registerConversationRoutes(
   app.post("/v1/turns/:turnId/cancel", async (req, reply) => {
     const { turnId } = req.params as { turnId: string };
     const tenant = resolveLocalContext(req);
-    const attempts = await conversationRepo.listTurnAttempts(tenant, turnId);
-    const running = attempts.find((a) => a.status === "Running");
-    if (!running) {
-      const latest = attempts[0];
-      return reply.code(latest ? 409 : 404).send({
-        error: latest ? "turn_already_finalized" : "turn_not_found",
-        turnId,
-        status: latest?.status ?? "Unknown",
-      });
-    }
-    const res = await conversationRepo.requestCancelTurnAttempt(tenant, {
-      turnId,
-      attemptId: running.id,
-    });
-    if (!res.ok) {
-      const latest = attempts[0];
-      return reply.code(409).send({ error: res.reason ?? "request_cancel_failed", turnId, status: latest?.status });
-    }
-    activeTurns.get(turnId)?.abort(new Error("turn_cancel_requested"));
-    turnStreamHub.publishSettled(turnId, "Cancelled");
-    return reply.send({ turnId, status: "Cancelled", cancelled: true });
+    try { return reply.send(await commands.cancelTurn(tenant, turnId)); }
+    catch (error) { if (error instanceof ConversationCommandError) return reply.code(error.statusCode).send(error.body); throw error; }
+
   });
 
   // POST /v1/turns/{turnId}/questions/answers — 提交对向用户询问的回答 (UQ-01)
   app.post("/v1/turns/:turnId/questions/answers", async (req, reply) => {
     const { turnId } = req.params as { turnId: string };
     const tenant = resolveLocalContext(req);
-    if (!deps.userQuestionCoordinator) {
-      return reply.code(404).send({ error: "user_questions_disabled" });
-    }
     const parsed = submitQuestionAnswersRequestSchema.safeParse(req.body);
     if (!parsed.success) {
       return reply.code(400).send({
@@ -437,13 +385,14 @@ export function registerConversationRoutes(
       });
     }
     try {
-      const res = await deps.userQuestionCoordinator.submitAnswers(
+      const res = await commands.answerQuestions(
         tenant,
         turnId,
         parsed.data.answers,
       );
       return reply.send(res);
     } catch (err) {
+      if (err instanceof ConversationCommandError) return reply.code(err.statusCode).send(err.body);
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.startsWith("NO_PENDING_QUESTION")) {
         return reply.code(409).send({ error: msg });
@@ -455,11 +404,10 @@ export function registerConversationRoutes(
   // GET /v1/turns/{turnId}/questions/pending — 查询当前 Turn 待作答问题 (UQ-01)
   app.get("/v1/turns/:turnId/questions/pending", async (req, reply) => {
     const { turnId } = req.params as { turnId: string };
-    if (!deps.userQuestionCoordinator) {
-      return reply.code(404).send({ error: "user_questions_disabled" });
-    }
     const tenant = resolveLocalContext(req);
-    const pending = await deps.userQuestionCoordinator.getPending(tenant, turnId);
+    let pending: Awaited<ReturnType<typeof queries.pendingQuestions>>;
+    try { pending = await queries.pendingQuestions(tenant, turnId); }
+    catch (error) { if (error instanceof ConversationCommandError) return reply.code(error.statusCode).send(error.body); throw error; }
     if (!pending) {
       return reply.send({ turnId, pending: false, questions: [] });
     }
@@ -474,116 +422,29 @@ export function registerConversationRoutes(
     if (!body.approvalId || (body.decision !== "granted" && body.decision !== "denied")) {
       return reply.code(400).send({ error: "approvalId and decision (granted|denied) are required" });
     }
-    const approval = await conversationRepo.getToolApproval(tenant, body.approvalId);
-    if (!approval || approval.turnId !== turnId) return reply.code(404).send({ error: "approval not found" });
-    if (approval.state !== "pending" && approval.state !== body.decision) {
-      return reply.code(409).send({ error: "approval_already_decided" });
-    }
-    let pluginGeneration: { pluginId: string; generation: string } | undefined;
-    if (body.decision === "granted" && approval.state === "pending") {
-      // Every source persists the policy of its exact dispatch binding. Looking
-      // only at runtime rows omits static/plugin contributions and fails open.
-      const identity = readToolApprovalIdentity(approval.toolVersion);
-      if (!identity || (identity.kind === "contribution" && identity.id !== approval.toolName)
-        || !["write_with_approval", "privileged", "destructive"].includes(identity.safetyLevel)) {
-        return reply.code(409).send({ error: "approval_binding_unavailable" });
-      }
-      if (identity.safetyLevel === "privileged") {
-        const adminId = req.headers["x-admin-user-id"] as string | undefined;
-        // 缺陷 E：管理员白名单经 @aervox/config 集中解析（AERVOX_ADMIN_IDS）
-        const allowed = (deps.executionConfig ?? loadExecutionConfig()).adminIds;
-        if (adminId === undefined || !allowed.includes(adminId)) {
-          return reply.code(403).send({ error: "admin_required: privileged tool approval requires x-admin-user-id in AERVOX_ADMIN_IDS" });
-        }
-      }
-      const mcp = identity.kind === "runtime" && identity.owner.startsWith("mcp:");
-      if (identity.generation !== null || (identity.owner !== "host" && !mcp)) {
-        const plugin = await deps.extensionRepo?.getPlugin(identity.owner);
-        if (!identity.generation || !plugin || plugin.enabled !== 1
-          || (plugin.availability ?? "available") !== "available" || plugin.lifecycleGeneration !== identity.generation) {
-          return reply.code(409).send({ error: "approval_binding_expired" });
-        }
-        pluginGeneration = { pluginId: identity.owner, generation: identity.generation };
-      }
-      if (identity.kind === "runtime") {
-        const tool = (await deps.toolRuntime?.exportRegistry())?.find(candidate => candidate.id === identity.id);
-        if (!tool || tool.name !== approval.toolName || (tool.pluginId ?? "host") !== identity.owner
-          || tool.approvalRevision !== identity.revision || (tool.safetyLevel ?? "write_with_approval") !== identity.safetyLevel
-          || (tool.pluginId?.startsWith("mcp:") && !(await deps.isMcpToolAllowed?.(tool)))) {
-          return reply.code(409).send({ error: "approval_binding_expired" });
-        }
-      }
-    }
-    // Verify the receipt before transferring ownership to a new Attempt. The
-    // execution entry revalidates it again before dispatching any product work.
-    if (approval.state === "pending") {
-      try { await conversationRepo.getAcceptedTurnParameters(tenant, turnId); }
-      catch (error) {
-        if (error instanceof TurnIntentConflictError) return reply.code(409).send({error: "turn_intent_unavailable"});
-        throw error;
-      }
-    }
-    let decided: Awaited<ReturnType<SqliteConversationRepository["decideToolApprovalAndResume"]>>;
-    try {
-      decided = await conversationRepo.decideToolApprovalAndResume(tenant, {
-        turnId, approvalId: body.approvalId, decision: body.decision,
-        decidedBy: tenant.actorId ?? tenant.subjectUserId,
-        ...(body.decision === "granted" && approval.toolVersion ? { toolVersion: approval.toolVersion } : {}),
-        pluginGeneration,
-      });
-    } catch (error) {
-      if (error instanceof Error && ["plugin_generation_changed", "tool_approval_binding_changed"].includes(error.message)) {
-        return reply.code(409).send({ error: "approval_binding_expired" });
-      }
+    try { return reply.send(await commands.approve(tenant, turnId, {
+      approvalId: body.approvalId, decision: body.decision,
+      adminId: req.headers["x-admin-user-id"] as string | undefined,
+    })); } catch (error) {
+      if (error instanceof ConversationCommandError) return reply.code(error.statusCode).send(error.body);
       throw error;
     }
-    if (!decided) return reply.code(404).send({ error: "approval not found" });
-    if (!decided.ready) return reply.code(409).send({ error: "approval_not_resumable" });
-    if (decided.approval.state !== body.decision) return reply.code(409).send({ error: "approval_already_decided" });
-    if (decided.event) turnStreamHub.publishEvent(turnId, decided.event);
-    if (decided.continuation) {
-      const { attempt, pending, turn, toolCallId, step } = decided.continuation;
-      const userMessage = (await conversationRepo.getTurnUserMessage(tenant, turnId)) ?? "";
-      const events = await conversationRepo.getStreamEvents(tenant, turnId, 0);
-      const resumed = buildResumeHistory({ userMessage,
-        events: events as unknown as import("@aervox/core").ResumeEventLike[] });
-      const controller = new AbortController();
-      activeTurns.set(turnId, controller);
-      void executeAccepted(tenant, { turnId, sessionId: turn.sessionId, attemptId: attempt.id, userMessage,
-        signal: controller.signal,
-        resume: { expectedFencingToken: 0, lastSequence: decided.event!.sequence,
-          lastStep: step, history: resumed.history, messageId: resumed.messageId,
-          pendingApprovalResolution: { approvalId: decided.approval.id, decision: body.decision,
-            invocationId: pending.invocationId,
-            toolCall: { id: toolCallId, name: pending.name, arguments: pending.argumentsJson ?? {} } },
-        },
-      }).catch(err => req.log?.warn?.({ err, turnId, approvalId: decided.approval.id }, "Turn resume failed after approval decision"))
-        .finally(() => { if (activeTurns.get(turnId) === controller) activeTurns.delete(turnId); });
-    }
-    const attemptId = (decided.event?.data as { continuationAttemptId?: string } | undefined)?.continuationAttemptId;
-    return reply.send({ approvalId: decided.approval.id, state: decided.approval.state,
-      ...(attemptId && decided.event ? { continuation: { attemptId, afterEventId: decided.event.id } } : {}),
-    });
+
   });
 
   // 阶段 5c：子任务审计（subagent_runs；租户隔离；返回父 Turn 委托的全部子任务运行记录）
   app.get("/v1/turns/:turnId/subagents", async (req, reply) => {
     const { turnId } = req.params as { turnId: string };
     const tenant = resolveLocalContext(req);
-    if (!deps.subagentRunRepo) {
-      return reply.code(404).send({ error: "subagent_runs_disabled" });
-    }
-    const runs = await deps.subagentRunRepo.listRunsByTurn(tenant, turnId);
+    let runs: Awaited<ReturnType<typeof queries.subagents>>;
+    try { runs = await queries.subagents(tenant, turnId); }
+    catch (error) { if (error instanceof ConversationCommandError) return reply.code(error.statusCode).send(error.body); throw error; }
     return reply.send({ turnId, runs });
   });
 
   // 阶段 5c：Workflow 注册清单（元数据；执行经 `workflow_run` 工具，不在此直接触发）
   app.get("/v1/workflows", async (_req, reply) => {
-    const workflows = (deps.workflows ?? []).map((w) => ({
-      name: w.name,
-      description: w.description,
-      steps: w.steps.map((s) => s.description),
-    }));
+    const workflows = queries.workflows();
     return reply.send({ workflows });
   });
 
@@ -594,7 +455,7 @@ export function registerConversationRoutes(
     if (!body.sessionId || !body.role) {
       return reply.code(400).send({ error: "sessionId and role are required" });
     }
-    const message = await conversationRepo.createMessage(tenant, {
+    const message = await commands.createMessage(tenant, {
       id: `msg_${Date.now().toString(36)}_${(++seq).toString(36)}`,
       sessionId: body.sessionId,
       role: body.role,
@@ -614,7 +475,7 @@ export function registerConversationRoutes(
       return reply.code(400).send({ error: "Validation failed", details: parsed.error.issues });
     }
 
-    const result = await conversationRepo.editMessage(
+    const result = await commands.editMessage(
       tenant,
       messageId,
       parsed.data.content,
@@ -640,7 +501,7 @@ export function registerConversationRoutes(
     const { messageId } = req.params as { messageId: string };
     const tenant = resolveLocalContext(req);
 
-    const deleted = await conversationRepo.softDeleteMessage(tenant, messageId);
+    const deleted = await commands.deleteMessage(tenant, messageId);
     if (!deleted) {
       return reply.code(404).send({ error: "Message not found or already deleted" });
     }
@@ -653,32 +514,10 @@ export function registerConversationRoutes(
     const { messageId } = req.params as { messageId: string };
     const tenant = resolveLocalContext(req);
 
-    const message = await conversationRepo.getMessage(tenant, messageId);
-    if (!message) {
-      return reply.code(404).send({ error: "Message not found" });
-    }
+    const impact = await queries.messageDeleteImpact(tenant, messageId);
+    if (!impact) return reply.code(404).send({ error: "Message not found" });
+    return reply.send(impact);
 
-    // 派生影响预览：检查关联的摘要、错题、复习项、日记和记忆
-    // AC-FR-CONV-005-01：展示受影响派生清单
-    const impacts: { type: "summary" | "mistake" | "review" | "diary" | "memory"; id: string; description: string }[] = [];
-
-    // 检查 message_versions 关联的 turn → 关联的派生数据
-    const versions = await conversationRepo.listMessageVersions(tenant, messageId);
-    const turnIds = [...new Set(versions.map((v) => v.turnId))];
-
-    for (const turnId of turnIds) {
-      impacts.push({
-        type: "summary",
-        id: turnId,
-        description: `Turn ${turnId} 的摘要可能引用此消息`,
-      });
-    }
-
-    return reply.send({
-      messageId,
-      impacts,
-      totalAffected: impacts.length,
-    });
   });
 
   // POST /v1/messages/:messageId/restore — 恢复已删除消息
@@ -686,7 +525,7 @@ export function registerConversationRoutes(
     const { messageId } = req.params as { messageId: string };
     const tenant = resolveLocalContext(req);
 
-    const restored = await conversationRepo.restoreMessage(tenant, messageId);
+    const restored = await commands.restoreMessage(tenant, messageId);
     if (!restored) {
       return reply.code(404).send({ error: "Message not found" });
     }
@@ -699,7 +538,7 @@ export function registerConversationRoutes(
     const { messageId } = req.params as { messageId: string };
     const tenant = resolveLocalContext(req);
 
-    const versions = await conversationRepo.listMessageVersions(tenant, messageId);
+    const versions = await queries.listMessageVersions(tenant, messageId);
     return reply.send({ messageId, versions });
   });
 }

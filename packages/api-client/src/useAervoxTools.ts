@@ -1,10 +1,11 @@
+import { getClientTransport } from './client-context.js';
 /**
  * Aervox｜思隅 @aervox/api-client — 工具与 MCP 组合式 API（T-04 / AST-04 / PET-05）
  *
  * Web / Desktop 共用：通过统一 Transport 访问系统级工具注册表、启停、注册、注销与 MCP 测试调用。
  */
 import { ref } from 'vue';
-import { getTransport } from './transport';
+
 
 export interface ToolRegistrationDto {
   id: string;
@@ -53,7 +54,7 @@ export interface McpCallToolResultDto {
 }
 
 export function useAervoxTools() {
-  const transport = getTransport();
+  const transport = getClientTransport();
   const tools = ref<ToolRegistrationDto[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);

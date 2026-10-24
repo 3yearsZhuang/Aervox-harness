@@ -1,3 +1,4 @@
+import { loadExecutionConfig } from "@aervox/config";
 import { afterEach, describe, expect, it } from "vitest";
 import type { ProactiveProfileClaimModel } from "@aervox/repositories";
 import { buildLoopProvider } from "@aervox/host-runtime-test/modules/companion/conversation/llm-adapter";
@@ -70,7 +71,7 @@ describe("CAP-033 proactive profile context", () => {
     await expect(buildLoopProvider(
       { workspaceId: "ws_1", subjectUserId: "usr_1" },
       llmConfigService as never,
-      { requireLocalOnly: true },
+      { executionConfig: loadExecutionConfig(), requireLocalOnly: true },
     )).rejects.toThrow("proactive_local_provider_required");
   });
 });

@@ -1,5 +1,5 @@
 import { hostPromptPolicy } from "./prompt-policy.js";
-import { loadExecutionConfig } from "@aervox/config";
+import { snapshotExecutionConfig } from "@aervox/config";
 import { createBroadcastingStore } from "./broadcasting-store.js";
 /**
  * Aervox｜思隅 @aervox/api — 对话模块入口
@@ -24,7 +24,7 @@ import {
 import { createSqliteSubagentPort, createSqliteResumeSource, resumeCommittedTurns, SqliteExecutionStore } from "@aervox/host-agent";
 import { buildLoopProvider } from "./llm-adapter.js";
 import { registerConversationRoutes } from "./routes.js";
-import { executeConversationTurn, type ConversationRouteDeps, type ConversationTurnInput } from "./execution.js";
+import { type ConversationRouteDeps } from "./execution.js";
 export type { ConversationTurnInput } from "./execution.js";
 import { createConversationApplication, type ConversationCommandPort, type ConversationQueryPort } from "./application.js";
 export interface ConversationHost {
@@ -50,8 +50,10 @@ export function registerConversationModule(ctx: ModuleDependencies<"apiRegistry"
     proactiveActionAuthorizer,
     proactiveRepository,
   } = ctx;
-  const executionConfig = ctx.executionConfig ?? loadExecutionConfig();
-  const dshResolver = createDshTurnAdapterResolver({ repoRoot: executionConfig.dshRepoRoot, workingDirectory: executionConfig.dshWorkingDirectory });
+  if (!ctx.executionConfig) throw new Error("execution_config_required");
+  const executionConfig = snapshotExecutionConfig(ctx.executionConfig);
+  const dshResolver = createDshTurnAdapterResolver({ repoRoot: executionConfig.dshRepoRoot,
+    workingDirectory: executionConfig.dshWorkingDirectory, environment: { ...process.env } });
   const conversationRepo = new SqliteConversationRepository(db);
   const privacyRepo = new SqlitePrivacyRepository(db);
   const skillRepo = new SqliteSkillRegistryRepository(db);
@@ -68,6 +70,7 @@ export function registerConversationModule(ctx: ModuleDependencies<"apiRegistry"
     new SqliteUserQuestionRepository(db),
   );
   const executionAbort = new AbortController();
+  let closeApplication: (() => Promise<void>) | undefined;
   const running = new Set<Promise<unknown>>();
   const track = <T>(task: Promise<T>): Promise<T> => {
     running.add(task);
@@ -96,6 +99,7 @@ export function registerConversationModule(ctx: ModuleDependencies<"apiRegistry"
   }
   app.addHook("onClose", async () => {
     executionAbort.abort(new Error("host_shutdown"));
+    await closeApplication?.();
     await Promise.allSettled(running);
     pluginToolCatalog.dispose();
     await dshResolver.close();
@@ -134,7 +138,6 @@ export function registerConversationModule(ctx: ModuleDependencies<"apiRegistry"
       createSqliteSubagentPort({
         ctx: tenant,
         store: new SqliteExecutionStore(conversationRepo, tenant),
-        conversationRepo,
         runRepo: subagentRunRepo,
         providerBuilder: (input) => buildLoopProvider(tenant, llmConfigService, {
           executionConfig, requireLocalOnly: input.controlContext?.localProcessingOnly,
@@ -154,22 +157,18 @@ export function registerConversationModule(ctx: ModuleDependencies<"apiRegistry"
     memoryRecall: ctx.memoryRecall,
     observability: ctx.observability,
   };
-  const execute = (input: ConversationTurnInput) => track(executeConversationTurn(conversationRepo, { ...local, ...(input.actorId ? { actorId: input.actorId } : {}) }, input, deps));
+  const application = createConversationApplication(conversationRepo, deps);
+  closeApplication = application.close;
   if (options.startupRecovery !== false) {
-    const recovery = new ApiOwnedTurnRecovery(conversationRepo, deps);
+    const recovery = new ApiOwnedTurnRecovery(conversationRepo, application.commands.execute, { observability: ctx.observability });
     app.addHook("onReady", async () => recovery.start());
     app.addHook("onClose", () => recovery.close());
   }
-  registerConversationRoutes(app, conversationRepo, deps, execute);
-  const application = createConversationApplication(conversationRepo, deps,
-    (ctx, input) => track(executeConversationTurn(conversationRepo, ctx, input, deps)));
+  registerConversationRoutes(app, application, { apiRegistry, observability: ctx.observability });
   return {
     ...application, resume,
     abort: () => executionAbort.abort(new Error("host_shutdown")),
   };
 }
-export { acceptConversationTurn, executeAcceptedConversationTurn, createConversationApplication } from "./application.js";
-export { recoverApiOwnedTurn } from "./api-owned-recovery.js";
-export type { ConversationRouteDeps } from "./execution.js";
 
 export type { ConversationCommandPort, ConversationQueryPort } from "./application.js";

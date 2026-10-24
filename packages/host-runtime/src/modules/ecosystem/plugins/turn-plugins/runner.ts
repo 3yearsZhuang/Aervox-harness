@@ -16,6 +16,8 @@ import type { AfterTurnContext, BeforeTurnResult, TurnPluginContext } from "./ty
 export interface PluginStreamCommitControl {
   signal: AbortSignal;
   checkActive(): Promise<void>;
+  pluginGeneration: { pluginId: string; generation: string };
+  phase: "beforeTurn" | "afterTurn";
 }
 
 export type TurnPluginHostContext = Omit<TurnPluginContext, "signal" | "deadlineEpochMs" | "stream"> & {
@@ -161,7 +163,8 @@ async function runHook<C extends TurnPluginHostContext, T>(
     ...ctx, signal, deadlineEpochMs,
     stream: {
       readEvents: (turnId: string, fromSequence: number) => call(() => ctx.stream.readEvents(turnId, fromSequence)),
-      appendEvent: (input: Parameters<TurnPluginContext["stream"]["appendEvent"]>[0]) => call(() => ctx.stream.appendEvent(input, { signal, checkActive })),
+      appendEvent: (input: Parameters<TurnPluginContext["stream"]["appendEvent"]>[0]) => call(() => ctx.stream.appendEvent(input, { signal, checkActive,
+        pluginGeneration: { pluginId, generation: lifecycleGeneration! }, phase: "status" in ctx ? "afterTurn" : "beforeTurn" })),
     },
     llm: ctx.llm ? {
       generate: (prompt: string, options?: Parameters<NonNullable<TurnPluginContext["llm"]>["generate"]>[1]) => call(() => {

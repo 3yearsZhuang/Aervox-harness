@@ -1,3 +1,5 @@
+import { personaApi } from "@aervox/contracts";
+import { registerContractRoute } from "../../../shared/contract-route.js";
 import { withRequestSignal } from "../../../shared/request-signal.js";
 /**
  * Aervox｜思隅 @aervox/api — 系统级 Persona HTTP 路由
@@ -35,7 +37,7 @@ function sendError(
 
 export function registerPersonaRoutes(app: FastifyInstance, service: PersonaService): void {
   // GET /v1/personas
-  app.get("/v1/personas", async (request) => {
+  registerContractRoute(app, personaApi.list, async (request) => {
     const tenant = resolveLocalContext(request);
     const list = await service.listPersonas(tenant);
     const active = await service.getActivePersona(tenant);
@@ -43,7 +45,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
   });
 
   // POST /v1/personas
-  app.post("/v1/personas", async (request, reply) => {
+  registerContractRoute(app, personaApi.create, async (request, reply) => {
     const parsed = createPersonaRequestSchema.safeParse(request.body);
     if (!parsed.success) {
       return sendError(reply, 400, "INVALID_PERSONA", "Invalid persona request", parsed.error.issues);
@@ -55,7 +57,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
         description: parsed.data.description,
         config: parsed.data.config,
       });
-      return reply.code(201).send(created);
+      return created;
     } catch (error) {
       return sendError(
         reply,
@@ -67,7 +69,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
   });
 
   // GET /v1/personas/:personaId
-  app.get("/v1/personas/:personaId", async (request, reply) => {
+  registerContractRoute(app, personaApi.get, async (request, reply) => {
     const { personaId } = request.params as { personaId: string };
     const tenant = resolveLocalContext(request);
     const result = await service.getPersona(tenant, personaId);
@@ -76,7 +78,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
   });
 
   // PATCH /v1/personas/:personaId
-  app.patch("/v1/personas/:personaId", async (request, reply) => {
+  registerContractRoute(app, personaApi.update, async (request, reply) => {
     const { personaId } = request.params as { personaId: string };
     const parsed = updatePersonaRequestSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -105,7 +107,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
   });
 
   // DELETE /v1/personas/:personaId
-  app.delete("/v1/personas/:personaId", async (request, reply) => {
+  registerContractRoute(app, personaApi.delete, async (request, reply) => {
     const { personaId } = request.params as { personaId: string };
     const tenant = resolveLocalContext(request);
     const ok = await service.deletePersona(tenant, personaId);
@@ -114,7 +116,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
   });
 
   // POST /v1/personas/:personaId/activate
-  app.post("/v1/personas/:personaId/activate", async (request, reply) => {
+  registerContractRoute(app, personaApi.activate, async (request, reply) => {
     const { personaId } = request.params as { personaId: string };
     const parsed = activatePersonaRequestSchema.safeParse(request.body ?? {});
     if (!parsed.success) {
@@ -127,7 +129,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
   });
 
   // POST /v1/personas/:personaId/export
-  app.post("/v1/personas/:personaId/export", async (request, reply) => {
+  registerContractRoute(app, personaApi.export, async (request, reply) => {
     const { personaId } = request.params as { personaId: string };
     const tenant = resolveLocalContext(request);
     try {
@@ -171,7 +173,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
   });
 
   // POST /v1/personas/import
-  app.post("/v1/personas/import", async (request, reply) => {
+  registerContractRoute(app, personaApi.import, async (request, reply) => {
     const parsed = importPersonaRequestSchema.safeParse(request.body);
     if (!parsed.success) {
       return sendError(reply, 400, "INVALID_BUNDLE", "Invalid persona bundle request", parsed.error.issues);
@@ -184,7 +186,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
         parsed.data.conflictResolution,
         signal,
       ));
-      return reply.code(201).send({
+      return {
         persona: imported.persona,
         revision: imported.revision,
         skills: imported.skills.map((s) => ({
@@ -193,7 +195,7 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
           checksum: s.checksum,
         })),
         missingDependencies: imported.missingDependencies,
-      });
+      };
     } catch (error) {
       const isConflict =
         error instanceof FileExistsError ||

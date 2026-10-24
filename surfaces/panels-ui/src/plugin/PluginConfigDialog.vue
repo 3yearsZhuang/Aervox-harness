@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import {ref, watch} from 'vue'
 import {ElMessage} from '@aervox/ui/utils/element'
 import {Puzzle} from 'lucide-vue-next'
-import type {PluginConfigField} from '@aervox/contracts'
 import {useAervoxPlugins, type PluginSummaryDto} from '@aervox/api-client'
-import {AervoxDialog, AervoxButton, aervoxConfirm} from '@aervox/ui/primitives'
+import {AervoxDialog, AervoxButton} from '@aervox/ui/primitives'
 import PluginConfigForm from './PluginConfigForm.vue'
+import {usePluginConfigEditor} from './use-plugin-config-editor'
 
 const props = defineProps<{
   open: boolean
@@ -18,100 +17,12 @@ const emit = defineEmits<{
 }>()
 
 const api = useAervoxPlugins()
-const fields = ref<PluginConfigField[]>([])
-const values = ref<Record<string, unknown>>({})
-const secretFields = ref<Record<string, {configured: boolean}>>({})
-const secretValues = ref<Record<string, string | null>>({})
-const revision = ref(0)
-const loading = ref(false)
-const saving = ref(false)
-const issues = ref<Array<{key: string; code: string; message: string}>>([])
-
-watch(
-  () => props.open,
-  async (open) => {
-    if (!open || !props.plugin) return
-    issues.value = []
-    loading.value = true
-    try {
-      const [schema, config] = await Promise.all([
-        api.getConfigSchema(props.plugin.id),
-        api.getConfig(props.plugin.id),
-      ])
-      fields.value = schema.fields
-      values.value = config.values ?? {}
-      secretFields.value = config.secretFields ?? {}
-      secretValues.value = {}
-      revision.value = config.revision ?? 0
-    } catch (e) {
-      ElMessage.error(e instanceof Error ? e.message : '读取插件配置失败')
-      emit('close')
-    } finally {
-      loading.value = false
-    }
-  },
-)
-
-function updateValue(key: string, value: unknown): void {
-  values.value = {...values.value, [key]: value}
-}
-
-function updateSecret(key: string, value: string | null): void {
-  secretValues.value = {...secretValues.value, [key]: value}
-}
-
-async function save(): Promise<void> {
-  if (!props.plugin) return
-  saving.value = true
-  issues.value = []
-  try {
-    const snapshot = await api.saveConfig(props.plugin.id, {
-      revision: revision.value,
-      values: values.value,
-      secretValues: secretValues.value,
-    })
-    revision.value = snapshot.revision
-    values.value = snapshot.values ?? {}
-    secretFields.value = snapshot.secretFields ?? {}
-    secretValues.value = {}
-    ElMessage.success('配置已保存')
-    emit('saved')
-  } catch (e) {
-    const message = e instanceof Error ? e.message : '保存失败'
-    if (message.includes('REVISION_CONFLICT') || message.includes('409')) {
-      ElMessage.error('配置已被其他设备修改，请重新打开后重试')
-    } else {
-      ElMessage.error(message)
-    }
-  } finally {
-    saving.value = false
-  }
-}
-
-async function reset(): Promise<void> {
-  if (!props.plugin) return
-  const confirmed = await aervoxConfirm({
-    title: '恢复默认配置？',
-    message: '恢复默认值将清空全部插件配置（含密钥），确定继续吗？',
-    variant: 'danger',
-    confirmText: '恢复默认',
-  })
-  if (!confirmed) return
-  saving.value = true
-  try {
-    const snapshot = await api.resetConfig(props.plugin.id)
-    revision.value = snapshot.revision
-    values.value = snapshot.values ?? {}
-    secretFields.value = snapshot.secretFields ?? {}
-    secretValues.value = {}
-    ElMessage.success('已恢复默认配置')
-    emit('saved')
-  } catch (e) {
-    ElMessage.error(e instanceof Error ? e.message : '重置失败')
-  } finally {
-    saving.value = false
-  }
-}
+const {fields, values, secretFields, secretValues, revision, loading, saving, ready, error, issues, save, reset, updateValue, updateSecret} = usePluginConfigEditor({
+  owner: () => ({open: props.open, pluginId: props.plugin?.id, hasConfig: Boolean(props.plugin?.configSchemaJson)}),
+  api,
+  onSaved(reset) { ElMessage.success(reset ? '已恢复默认配置' : '配置已保存'); emit('saved') },
+  onError(message, loading) { ElMessage.error(message); if (loading) emit('close') },
+})
 </script>
 
 <template>
@@ -123,6 +34,7 @@ async function reset(): Promise<void> {
     size="md"
     @close="emit('close')"
   >
+    <p v-if="error" role="alert">{{ error }}</p>
     <div v-if="loading" class="pcfg-loading">加载配置…</div>
     <div v-else-if="issues.length > 0" class="pcfg-issues">
       <p v-for="issue in issues" :key="issue.key" class="pcfg-issue">{{ issue.key }}: {{ issue.message }}</p>
@@ -137,9 +49,9 @@ async function reset(): Promise<void> {
       @update-secret="updateSecret"
     />
     <template #footer>
-      <AervoxButton variant="secondary" :disabled="saving" @click="reset">恢复默认</AervoxButton>
+      <AervoxButton variant="secondary" :disabled="saving || !ready" @click="reset">恢复默认</AervoxButton>
       <AervoxButton variant="secondary" @click="emit('close')">取消</AervoxButton>
-      <AervoxButton variant="primary" :loading="saving" @click="save">保存</AervoxButton>
+      <AervoxButton variant="primary" :loading="saving" :disabled="!ready || loading" @click="save">保存</AervoxButton>
     </template>
   </AervoxDialog>
 </template>

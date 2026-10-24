@@ -143,6 +143,8 @@ export interface IConversationRepository {
   ): Promise<{ turn: TurnModel; message: MessageVersionModel }>;
   getTurn(ctx: LocalContext, turnId: string): Promise<TurnModel | null>;
   getTurnUserMessage(ctx: LocalContext, turnId: string): Promise<string | null>;
+  /** Active execution source presence without loading its body; safety redaction does not imply deletion. */
+  isTurnInputPresent(ctx: LocalContext, turnId: string): Promise<boolean>;
   getAcceptedTurnParameters(ctx: LocalContext, turnId: string): Promise<AcceptedTurnParameters>;
   getTurnByIdempotencyKey(ctx: LocalContext, idempotencyKey: string): Promise<TurnModel | null>;
   updateTurnStatus(
@@ -190,6 +192,14 @@ export interface IConversationRepository {
   ): Promise<TurnStreamEventPage>;
   /** 按 Turn 与稳定事件 ID 查询单条流事件，供 SSE 重连游标校验。 */
   getStreamEventById(
+    ctx: LocalContext,
+    turnId: string,
+    eventId: string,
+  ): Promise<TurnStreamEventModel | null>;
+  /** Online source presence: Session/Turn policies match, first input exists, related identities are not soft deleted. */
+  isTurnStreamDisclosable(ctx: LocalContext, turnId: string): Promise<boolean>;
+  /** Reload one durable event and validate its Turn sources in the same current SQL snapshot. */
+  getStreamEventForDisclosure(
     ctx: LocalContext,
     turnId: string,
     eventId: string,

@@ -267,6 +267,10 @@ export const voicePresetSchema = z.object({
   input: voiceInputConfigResponseSchema.nullable(),
 });
 
+/** 新建和激活只返回预设标识回执；完整配置通过列表读取。 */
+export const voicePresetReceiptSchema = voicePresetSchema.pick({ id: true, name: true, isActive: true });
+export type VoicePresetReceipt = z.infer<typeof voicePresetReceiptSchema>;
+
 /** 语音配置预设列表响应 */
 export const voicePresetListResponseSchema = z.object({
   presets: z.array(voicePresetSchema),
@@ -380,3 +384,22 @@ export type ActivePersonaSelection = z.infer<typeof activePersonaSelectionSchema
 export type PersonaSwitchLog = z.infer<typeof personaSwitchLogSchema>;
 export type PersonaMemoryScope = z.infer<typeof personaMemoryScopeSchema>;
 
+
+// Public wire types derive from the same schemas used by server and clients.
+export type LocalVoiceConfigInput = z.input<typeof localVoiceConfigSchema>;
+export type LocalVoiceConfigOutput = z.output<typeof localVoiceConfigResponseSchema>;
+export type RemoteVoiceConfigInput = z.input<typeof remoteVoiceConfigSchema>;
+export type RemoteVoiceConfigOutput = z.output<typeof remoteVoiceConfigResponseSchema>;
+export type VoiceInputConfigInput = z.input<typeof voiceInputConfigSchema>;
+export type VoiceInputConfigOutput = z.output<typeof voiceInputConfigResponseSchema>;
+export type VoiceInputEngine = z.output<typeof voiceInputEngineTypeSchema>;
+export type VoiceModelOutput = z.output<typeof voiceModelSchema>;
+export type VoiceSynthesisInput = z.input<typeof voiceSynthesisRequestSchema>;
+export type VoiceSynthesisOutput = z.output<typeof voiceSynthesisResponseSchema>;
+export type VoiceRemoteTestOutput = z.output<typeof voiceRemoteTestConnectionResponseSchema>;
+export type VoiceTranscribeOutput = z.output<typeof voiceTranscribeResponseSchema>;
+export type VoiceInputModelStatus = z.output<typeof voiceInputModelStatusSchema>;
+export type VoiceInputModelDownloadOutput = z.output<typeof voiceInputModelDownloadResponseSchema>;
+
+export type LocalVoiceConfigDraft = z.input<typeof localVoiceConfigResponseSchema>;
+export type RemoteVoiceConfigDraft = z.input<typeof remoteVoiceConfigResponseSchema>;

@@ -368,7 +368,7 @@ describe("API 集成测试：用户侧域路由", () => {
       correctCount: 1,
       incorrectCount: 1,
       accuracy: 0.5,
-      nextStep: "review_scheduled",
+      nextStep: "await_review",
     });
 
     const afterCompletion = await app.inject({
@@ -594,8 +594,11 @@ describe("API 集成测试：用户侧域路由", () => {
       headers,
       payload: { isCorrect: true, timeZone: "Asia/Shanghai" },
     });
-    expect(retry.statusCode).toBe(200);
-    expect(retry.json().nextReview.timezoneSnapshot).toBe("America/New_York");
+    expect(retry.statusCode).toBe(409);
+    const sameInput = await app.inject({ method: "POST", url: "/v1/review-items/ri_tz/complete", headers,
+      payload: { isCorrect: true, timeZone: "America/New_York" } });
+    expect(sameInput.statusCode).toBe(200);
+    expect(sameInput.json().nextReview.timezoneSnapshot).toBe("America/New_York");
   });
 
   it("汇总接口按时区区分今日到期与逾期", async () => {

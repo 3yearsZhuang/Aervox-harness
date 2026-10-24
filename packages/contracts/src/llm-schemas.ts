@@ -88,3 +88,14 @@ export type LLMConfigResponse = z.infer<typeof llmConfigResponseSchema>;
 export type LLMModelCapabilities = z.infer<typeof llmModelCapabilitiesSchema>;
 export type LLMTestConnectionRequest = z.infer<typeof llmTestConnectionRequestSchema>;
 export type LLMTestConnectionResponse = z.infer<typeof llmTestConnectionResponseSchema>;
+
+/** Safe configuration catalog; recommendations and execution support are explicit. */
+export const llmProviderCatalogEntrySchema = z.object({
+  id: llmProviderTypeSchema, name: z.string().min(1), description: z.string(),
+  protocol: z.enum(["openai-compat", "replay", "faux", "custom", "anthropic"]),
+  defaultBaseUrl: z.string(), recommendedModels: z.array(z.string()),
+  requiresApiKey: z.boolean(), isLocal: z.boolean(), available: z.boolean(), unavailableReason: z.string().optional(),
+});
+export const llmProviderCatalogResponseSchema = z.object({ generation: z.number().int().nonnegative(), providers: z.array(llmProviderCatalogEntrySchema) });
+export type LLMProviderCatalogEntry = z.output<typeof llmProviderCatalogEntrySchema>;
+export type LLMProviderCatalogResponse = z.output<typeof llmProviderCatalogResponseSchema>;

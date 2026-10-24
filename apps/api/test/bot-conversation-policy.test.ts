@@ -1,3 +1,4 @@
+import { loadExecutionConfig } from "@aervox/config";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
 import { errorEventDataSchema } from "@aervox/contracts";
@@ -7,8 +8,8 @@ import {
   type AervoxDatabase, type ConversationExecutionPolicy,
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
-import { registerConversationRoutes, type ConversationRouteDeps } from "@aervox/host-runtime-test/modules/companion/conversation/routes";
-import { acceptConversationTurn, executeAcceptedConversationTurn } from "@aervox/host-runtime-test/modules/companion/conversation/application";
+import { registerConversationRoutes, type ConversationRouteDeps } from "./conversation-fixture.js";
+import { acceptConversationTurn, createConversationApplication } from "@aervox/host-runtime-test/modules/companion/conversation/application";
 import { ApiOwnedTurnRecovery } from "@aervox/host-runtime-test/modules/companion/conversation/api-owned-recovery";
 import { runLoopTurnOnce } from "@aervox/host-runtime-test/modules/companion/conversation/agent-executor";
 import { ToolRuntime } from "@aervox/host-runtime-test/modules/ecosystem/tools/runtime";
@@ -21,6 +22,10 @@ type ModelRequest = { messages: Array<{ role: string; content: string }>; tools?
 const textSse = (text = "公开回复") => `data: ${JSON.stringify({ choices: [{ delta: { content: text }, finish_reason: "stop" }] })}\n\ndata: [DONE]\n\n`;
 const toolSse = (name: string, args: unknown) => `data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: "call_1", function: { name, arguments: JSON.stringify(args) } }] }, finish_reason: "tool_calls" }] })}\n\ndata: [DONE]\n\n`;
 
+
+async function executeAcceptedConversationTurn(repo: SqliteConversationRepository, ctx: typeof local, input: Parameters<ReturnType<typeof createConversationApplication>["commands"]["execute"]>[1], deps: ConversationRouteDeps) {
+  return createConversationApplication(repo, deps).commands.execute(ctx, input);
+}
 describe("API Bot execution audience enforcement", () => {
   let app: FastifyInstance;
   let db: AervoxDatabase;
@@ -49,6 +54,7 @@ describe("API Bot execution audience enforcement", () => {
       return new Response(replyFor(request), { status: 200 });
     }));
     dependencies = {
+      executionConfig: loadExecutionConfig(),
       llmConfigService: {
         getConfig: async () => ({ enabled: true, providerType: "custom_openai", baseUrl: "http://127.0.0.1:9999/v1", modelId: "test", temperature: 0, maxTokens: 512, settings: {} }),
         listPresets: async () => ({ presets: [], activePresetId: null }),
@@ -196,7 +202,7 @@ describe("API Bot execution audience enforcement", () => {
     const input = await accept("group");
     const recall = vi.fn(async () => [{ id: "private", content: "PRIVATE_MEMORY_SECRET", source: "fts" as const }]);
     setRequestToolApprovalMode(local, "full_access");
-    await runLoopTurnOnce(repo, local, input, { llmConfigService: dependencies.llmConfigService, toolRuntime: runtime,
+    await runLoopTurnOnce(repo, local, input, { executionConfig: dependencies.executionConfig, llmConfigService: dependencies.llmConfigService, toolRuntime: runtime,
       memoryRecall: { recall }, persona: { prompt: "PRIVATE_PERSONA_SECRET" },
     });
     expect(JSON.stringify(requests)).toContain("已受理正文");
@@ -226,7 +232,7 @@ describe("API Bot execution audience enforcement", () => {
     await session("recovered-group", "bot-group-member-v1");
     const input = await accept("recovered-group");
     const privateLoader = vi.fn(async () => ({ prompt: "PRIVATE_RECOVERY_SECRET" }));
-    const recovery = new ApiOwnedTurnRecovery(repo, { ...dependencies, personaLoader: privateLoader }, "2999-01-01T00:00:00.000Z");
+    const recovery = new ApiOwnedTurnRecovery(repo, createConversationApplication(repo, { ...dependencies, personaLoader: privateLoader }).commands.execute, { before: "2999-01-01T00:00:00.000Z" });
     await recovery.reconcile();
     await recovery.reconcile();
     await recovery.close();
@@ -244,13 +250,13 @@ describe("API Bot execution audience enforcement", () => {
     await bots.enqueue({ id: "inbound", connectionId: "connection", sessionId: "platform-group", connectionRevision: 1, messageJson: "{}", createdAt: new Date().toISOString() });
     await acceptConversationTurn(repo, local, { turnId: "platform-turn", sessionId: "platform-group", idempotencyKey: "bot:inbound",
       attemptId: "platform-attempt", message: { id: "platform-message", content: "平台队列" } });
-    const recovery = new ApiOwnedTurnRecovery(repo, dependencies, "2999-01-01T00:00:00.000Z");
+    const recovery = new ApiOwnedTurnRecovery(repo, createConversationApplication(repo, dependencies).commands.execute, { before: "2999-01-01T00:00:00.000Z" });
     await recovery.reconcile();
     expect((await repo.getTurn(local, "platform-turn"))?.status).toBe("Created");
     expect(requests).toEqual([]);
     await session("new-group", "bot-group-member-v1");
     await accept("new-group");
-    const beforeStartup = new ApiOwnedTurnRecovery(repo, dependencies, "2000-01-01T00:00:00.000Z");
+    const beforeStartup = new ApiOwnedTurnRecovery(repo, createConversationApplication(repo, dependencies).commands.execute, { before: "2000-01-01T00:00:00.000Z" });
     await beforeStartup.reconcile();
     expect(requests).toEqual([]);
     await recovery.close(); await beforeStartup.close();
@@ -261,7 +267,7 @@ describe("API Bot execution audience enforcement", () => {
     const input = await accept("expired-owner");
     const claim = await repo.claimTurnAttempt(local, { turnId: input.turnId, attemptId: input.attemptId, expectedFencingToken: 0, leaseId: "lost-host", ttlMs: -1 });
     await repo.recordToolExecution(local, { turnId: input.turnId, attemptId: input.attemptId, invocationId: "uncertain", name: "write", status: "pending", startedAt: new Date().toISOString(), finishedAt: new Date().toISOString() });
-    const recovery = new ApiOwnedTurnRecovery(repo, dependencies, "2999-01-01T00:00:00.000Z");
+    const recovery = new ApiOwnedTurnRecovery(repo, createConversationApplication(repo, dependencies).commands.execute, { before: "2999-01-01T00:00:00.000Z" });
     await recovery.reconcile(); await recovery.reconcile(); await recovery.close();
     expect(requests).toEqual([]);
     expect((await repo.getTurn(local, input.turnId))?.status).toBe("Interrupted");
@@ -276,7 +282,7 @@ describe("API Bot execution audience enforcement", () => {
     const input = await accept("live-owner");
     const privateLoader = vi.fn(async () => ({ prompt: "OWNER_RECOVERY_CONTEXT" }));
     const deps = { ...dependencies, personaLoader: privateLoader };
-    const recovery = new ApiOwnedTurnRecovery(repo, deps, "2999-01-01T00:00:00.000Z");
+    const recovery = new ApiOwnedTurnRecovery(repo, createConversationApplication(repo, deps).commands.execute, { before: "2999-01-01T00:00:00.000Z" });
     await Promise.all([executeAcceptedConversationTurn(repo, local, input, deps), recovery.reconcile()]);
     expect(requests).toHaveLength(1);
     expect(privateLoader).toHaveBeenCalledOnce();

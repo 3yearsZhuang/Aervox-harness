@@ -1,9 +1,10 @@
+import { getClientTransport } from './client-context.js';
 /**
  * Aervox｜思隅 @aervox/api-client — 日记 API 封装
  *
  * 每日按需生成/取回、按日期查询、历史回看列表；桌面与 Web 共用一份。
  */
-import { getTransport } from './transport';
+
 import type {
   Diary as DiaryDto,
   DiaryGenerateTodayOutput as GenerateTodayResultDto,
@@ -13,7 +14,7 @@ export type { DiaryDto, GenerateTodayResultDto };
 
 
 export function useAervoxDiary() {
-  const transport = getTransport();
+  const transport = getClientTransport();
 
   /** 每日取回/生成：当日已有 → existing 幂等返回；无 → 生成新建；rewrite=true 时改写 */
   const generateToday = async (input: { rewrite?: boolean; focus?: string } = {}): Promise<GenerateTodayResultDto> => {

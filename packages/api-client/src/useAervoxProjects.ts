@@ -1,18 +1,27 @@
+import { getClientTransport } from './client-context.js';
 /**
  * Aervox｜思隅 @aervox/api-client — 项目管理与导入 Composable (CR-048 / W3)
  *
  * 提供项目列表拉取、新建、编辑、归档、删除及外部会话安全导入能力。
  */
-import { ref, type Ref } from 'vue';
+import { computed, ref, type Ref } from 'vue';
+import { createResource } from './resource.js';
+import {
+  createProjectRequestSchema,
+  updateProjectRequestSchema,
+  projectItemSchema,
+  listProjectsResponseSchema,
+  importSessionRequestSchema,
+  importSessionResponseSchema,
+} from '@aervox/contracts';
 import type {
   CreateProjectRequest,
   ImportSessionRequest,
   ImportSessionResponse,
-  ListProjectsResponse,
   ProjectItem,
   UpdateProjectRequest,
 } from '@aervox/contracts';
-import { getTransport } from './transport';
+
 
 export interface UseAervoxProjectsReturn {
   projects: Ref<ProjectItem[]>;
@@ -28,106 +37,60 @@ export interface UseAervoxProjectsReturn {
 }
 
 export function useAervoxProjects(): UseAervoxProjectsReturn {
+  const transport = getClientTransport();
   const projects = ref<ProjectItem[]>([]);
   const selectedProjectId = ref<string | null>(null);
-  const loading = ref<boolean>(false);
-  const error = ref<string | null>(null);
+  const writeError = ref<string | null>(null);
+  const pendingWrites = ref(0);
+  const resource = createResource(async (includeArchived = false) => {
+    const path = includeArchived ? '/v1/projects?includeArchived=true' : '/v1/projects';
+    const response = await transport.request('GET', path);
+    return listProjectsResponseSchema.parse(response).items;
+  }, items => { projects.value = items; });
+  const loading = computed(() => resource.loading.value || pendingWrites.value > 0);
+  const error = computed(() => writeError.value ?? resource.error.value);
+  const write = async <T>(command: () => Promise<T>, fallback: T): Promise<T> => {
+    pendingWrites.value++; writeError.value = null;
+    try { return await command(); }
+    catch (cause) { writeError.value = cause instanceof Error ? cause.message : String(cause); return fallback; }
+    finally { pendingWrites.value--; }
+  };
 
   const fetchProjects = async (includeArchived = false): Promise<ProjectItem[]> => {
-    loading.value = true;
-    error.value = null;
-    try {
-      const path = includeArchived ? '/v1/projects?includeArchived=true' : '/v1/projects';
-      const res = await getTransport().request<ListProjectsResponse>('GET', path);
-      projects.value = res.items ?? [];
-      return projects.value;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      error.value = msg;
-      return projects.value;
-    } finally {
-      loading.value = false;
-    }
+    writeError.value = null;
+    try { await resource.load(includeArchived); }
+    catch { /* Failed refresh retains the previous projection and its observable error. */ }
+    return projects.value;
   };
-
-  const createProject = async (data: CreateProjectRequest): Promise<ProjectItem | null> => {
-    loading.value = true;
-    error.value = null;
-    try {
-      const created = await getTransport().request<ProjectItem>('POST', '/v1/projects', data);
-      projects.value = [created, ...projects.value.filter((p) => p.id !== created.id)];
-      return created;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      error.value = msg;
-      return null;
-    } finally {
-      loading.value = false;
-    }
-  };
-
+  const createProject = (data: CreateProjectRequest): Promise<ProjectItem | null> => write(async () => {
+    createProjectRequestSchema.parse(data);
+    const created = projectItemSchema.parse(await transport.request('POST', '/v1/projects', data));
+    // A confirmed write invalidates every older list query, including archived filters.
+    resource.replace([created, ...projects.value.filter(project => project.id !== created.id)]);
+    return created;
+  }, null);
   const updateProject = async (id: string, data: UpdateProjectRequest): Promise<ProjectItem | null> => {
     if (!id) return null;
-    loading.value = true;
-    error.value = null;
-    try {
-      const updated = await getTransport().request<ProjectItem>(
-        'PATCH',
-        `/v1/projects/${encodeURIComponent(id)}`,
-        data,
-      );
-      const index = projects.value.findIndex((p) => p.id === id);
-      if (index !== -1) {
-        projects.value[index] = updated;
-      }
+    return write(async () => {
+      updateProjectRequestSchema.parse(data);
+      const updated = projectItemSchema.parse(await transport.request('PATCH', `/v1/projects/${encodeURIComponent(id)}`, data));
+      resource.replace(projects.value.map(project => project.id === id ? updated : project));
       return updated;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      error.value = msg;
-      return null;
-    } finally {
-      loading.value = false;
-    }
+    }, null);
   };
-
   const deleteProject = async (id: string): Promise<boolean> => {
     if (!id) return false;
-    loading.value = true;
-    error.value = null;
-    try {
-      await getTransport().request<void>('DELETE', `/v1/projects/${encodeURIComponent(id)}`);
-      projects.value = projects.value.filter((p) => p.id !== id);
-      if (selectedProjectId.value === id) {
-        selectedProjectId.value = null;
-      }
+    return write(async () => {
+      await transport.request<void>('DELETE', `/v1/projects/${encodeURIComponent(id)}`);
+      resource.replace(projects.value.filter(project => project.id !== id));
+      if (selectedProjectId.value === id) selectedProjectId.value = null;
       return true;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      error.value = msg;
-      return false;
-    } finally {
-      loading.value = false;
-    }
+    }, false);
   };
-
-  const importSession = async (data: ImportSessionRequest): Promise<ImportSessionResponse | null> => {
-    loading.value = true;
-    error.value = null;
-    try {
-      const result = await getTransport().request<ImportSessionResponse>(
-        'POST',
-        '/v1/sessions/import',
-        data,
-      );
-      return result;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      error.value = msg;
-      return null;
-    } finally {
-      loading.value = false;
-    }
-  };
+  const importSession = (data: ImportSessionRequest): Promise<ImportSessionResponse | null> => write(async () => {
+    importSessionRequestSchema.parse(data);
+    return importSessionResponseSchema.parse(await transport.request('POST', '/v1/sessions/import', data));
+  }, null);
 
   const selectProject = (id: string | null): void => {
     selectedProjectId.value = id;

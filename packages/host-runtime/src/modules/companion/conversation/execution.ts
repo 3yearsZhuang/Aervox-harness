@@ -18,7 +18,7 @@ export interface ConversationRouteDeps {
   apiRegistry?: import("@aervox/contracts").PluginApiRegistry;
   dshResolver?: import("./dsh-adapter.js").DshTurnAdapterResolver;
   pluginToolCatalog?: import("./plugin-tool-catalog.js").PluginToolCatalog;
-  executionConfig?: import("@aervox/config").ExecutionConfig;
+  executionConfig: import("@aervox/config").ExecutionConfig;
   signal?: AbortSignal;
   prepareExecution?: () => Promise<void>;
   isMcpToolAllowed?: (tool: { id: string; name: string; pluginId?: string | null }) => Promise<boolean>;
@@ -101,6 +101,15 @@ export async function executeConversationTurn(
   if (!["Created", "Running"].includes(turn.status) || attempt.status !== "Running") return;
   const userMessage = await conversationRepo.getTurnUserMessage(tenant, turnId);
   if (userMessage === null) throw new Error("conversation_input_unavailable");
+  // The accepted body may already be in process memory when its source becomes
+  // unavailable. Reuse the lifecycle/step gate so preparation, model requests
+  // and tool checkpoints stop using that cached input after source deletion.
+  // Redaction blocks receipt replay above; an admitted crisis can still finish
+  // its fixed safety response without making a model request or calling tools.
+  const deletionGate = { isBlocked: async () => {
+    if (await deps.privacyRepo?.hasPendingDeletionRequest(tenant)) return true;
+    return !(await conversationRepo.isTurnInputPresent(tenant, turnId));
+  } };
   const bot = turn.executionPolicy !== "local-v1";
   const group = turn.executionPolicy === "bot-group-member-v1";
   if (bot) {
@@ -124,7 +133,7 @@ export async function executeConversationTurn(
   ]) });
   const lifecycle = await claimAttemptExecution(input, {
     execution: admissionStore, controlContext: parent,
-    deletionGate: deps.privacyRepo ? { isBlocked: () => deps.privacyRepo!.hasPendingDeletionRequest(tenant) } : undefined,
+    deletionGate,
   });
   if (!lifecycle.ok) { parent.dispose(); return; }
   const { claim } = lifecycle;
@@ -142,34 +151,12 @@ export async function executeConversationTurn(
     lifecycle.stopMonitoring();
     return claim;
   };
-  const settleAdmission = async (status: "Interrupted" | "Failed" | "Cancelled", reason: string) => {
-    const store = admissionStore;
-    const messageId = `msg_${turnId}_assistant`;
-    if (status === "Interrupted") await store.appendEvent({
-      turnId, attemptId, expectedFencingToken: claim.fencingToken,
-      sequence: await store.nextSequence(turnId), eventType: "message", safetyDecision: "approved",
-      data: { messageId, role: "assistant" },
-    });
-    const sequence = await store.nextSequence(turnId);
-    await store.finalizeAttemptWithEvent({
-      turnId, attemptId, status, expectedFencingToken: claim.fencingToken,
-      sequence, eventType: status === "Failed" ? "error" : "done",
-      eventData: status === "Failed" ? {
-        code: "MODEL_UNAVAILABLE", retryable: false,
-        message: bot ? "会话执行失败，请在工作台重试。" : reason, lastSequence: sequence,
-      } : { status, messageId, isComplete: false, reason, lastSequence: sequence }, safetyDecision: "approved",
-    });
-  };
   const uqPort = deps.userQuestionCoordinator ? deps.userQuestionCoordinator.createPort(tenant) : undefined;
   // ITER-027: 会话流式/多轮密集执行期间下发写入压力信号，协调后台 Worker 降频退避。
   // 以租约（而非裸 true/false）下发：并发会话互不提前解除，长回合按 TTL 续期。
   const pressureLease = acquireWorkerPressureLease();
   try {
-    if (signal.aborted) { await settleAdmission("Cancelled", "host_shutdown"); return; }
-    if (deps.privacyRepo && await deps.privacyRepo.hasPendingDeletionRequest(tenant)) {
-      await settleAdmission("Interrupted", "deletion_blocked");
-      return;
-    }
+    if (await lifecycle.terminator.prematureTermination(await admissionStore.nextSequence(turnId))) return;
     if (deps.prepareExecution) await awaitWithSignal(deps.prepareExecution(), signal);
     await runLoopTurnOnce(
       conversationRepo,
@@ -190,6 +177,7 @@ export async function executeConversationTurn(
         dshResolver: deps.dshResolver,
         claimTurnAttempt: handoffClaim,
         preparationFencingToken: claim.fencingToken,
+        preparationTerminator: lifecycle.terminator,
         toolRuntime: deps.toolRuntime,
         isMcpToolAllowed: deps.isMcpToolAllowed,
         llmConfigService: deps.llmConfigService,
@@ -198,9 +186,7 @@ export async function executeConversationTurn(
         // 人格覆盖：激活人格的名称/设定/技能白名单覆盖系统默认（无人格时 undefined 不注入）
         persona: deps.personaLoader ? await awaitWithSignal(deps.personaLoader(tenant), signal) : undefined,
         // 2d：删除/撤权水位未追平 → Loop fail-closed（AVX-HAR-001 §11.3）
-        deletionGate: deps.privacyRepo
-          ? { isBlocked: async () => deps.privacyRepo!.hasPendingDeletionRequest(tenant) }
-          : undefined,
+        deletionGate,
         // 5a-2：受控收件箱端口（每 Step 消费 next-step；steer/inject 注入上下文）
         inbox: deps.inboxRepo ? createTenantInboxPort(deps.inboxRepo, tenant) : undefined,
         // 5b：Skill 渐进披露（activeOnly 清单注入 system prompt）
@@ -233,10 +219,10 @@ export async function executeConversationTurn(
       fields: { turnId, sessionId, attemptId, error: errMsg },
     });
 
-    if (err instanceof LeaseLostError || lifecycle.leaseLost) return;
-    if (lifecycle.interruption === "deletion_blocked") await settleAdmission("Interrupted", "deletion_blocked");
-    else if (signal.aborted && !lifecycle.failure) await settleAdmission("Cancelled", "cancelled");
-    else await settleAdmission("Failed", bot ? "conversation_execution_failed" : errMsg);
+    await lifecycle.terminator.finalizeFailure(await admissionStore.nextSequence(turnId), err, {
+      code: "MODEL_UNAVAILABLE", retryable: false,
+      ...(bot ? { message: "会话执行失败，请在工作台重试。", reason: "conversation_execution_failed" } : {}),
+    });
   } finally {
     preparing = false;
     lifecycle.dispose();

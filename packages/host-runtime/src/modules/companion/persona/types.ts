@@ -3,6 +3,7 @@
  */
 import { createHash } from "node:crypto";
 import type { LocalContext } from "@aervox/repositories";
+import { personaRevisionConfigSchema } from "@aervox/contracts";
 
 export const PERSONA_SCHEMA_VERSION = 1;
 
@@ -19,6 +20,8 @@ import type {
   ActivePersonaSelection,
   PersonaSwitchLog,
   PersonaMemoryScope,
+  CreatePersonaRequest,
+  UpdatePersonaRequest,
 } from "@aervox/contracts";
 
 export type {
@@ -82,20 +85,13 @@ export interface PersonaBundleImportPreview {
   missingDependencies: string[];
 }
 
-export interface CreatePersonaInput {
-  name: string;
-  description?: string;
+export type CreatePersonaInput = CreatePersonaRequest & {
   source?: PersonaSource;
-  config: PersonaRevisionConfig;
-}
+};
 
-export interface UpdatePersonaInput {
+export type UpdatePersonaInput = UpdatePersonaRequest & {
   personaId: string;
-  expectedRevision: number;
-  name?: string;
-  description?: string;
-  config: PersonaRevisionConfig;
-}
+};
 
 // ---- CAP-019 扩展：审核、回滚、切换历史、记忆范围（类型已由 @aervox/contracts 统一定义） ----
 
@@ -107,6 +103,7 @@ export function assertNonEmpty(value: string, field: string): string {
 }
 
 export function validatePersonaConfig(config: PersonaRevisionConfig): PersonaRevisionConfig {
+  config = personaRevisionConfigSchema.parse(config);
   const systemPromptAppend = assertNonEmpty(config.systemPromptAppend, "systemPromptAppend");
   if (systemPromptAppend.length > 32_000) throw new Error("systemPromptAppend is too long");
   const normalizeList = (values: string[] | undefined, field: string): string[] | undefined => {

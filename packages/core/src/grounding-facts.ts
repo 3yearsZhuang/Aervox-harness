@@ -7,7 +7,7 @@
  */
 import type { ContextBuilderPort } from "./ports.js";
 import type { GroundingFactItem, GroundingFacts, PromptContext, PromptMessage } from "./types.js";
-import { defaultContextBuilder } from "./context-builder.js";
+import { defaultContextBuilder } from "./default-context-builder.js";
 
 function formatFactItem(item: string | GroundingFactItem): string {
   if (typeof item === "string") {

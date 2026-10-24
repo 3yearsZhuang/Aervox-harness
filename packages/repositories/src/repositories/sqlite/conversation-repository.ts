@@ -36,6 +36,7 @@ import { SessionStore } from "./conversation/session-store.js";
 import { StreamEventStore } from "./conversation/stream-event-store.js";
 import { ToolExecutionStore } from "./conversation/tool-execution-store.js";
 import { TurnStore } from "./conversation/turn-store.js";
+import { hasWorkerDelegation } from "./conversation/delegation-store.js";
 import { ApiRecoveryStore } from "./conversation/api-recovery-store.js";
 
 export { MAX_RESUME_CANDIDATE_LIMIT } from "./conversation/safe-segment-store.js";
@@ -63,6 +64,8 @@ export class SqliteConversationRepository implements IConversationRepository {
     this.approvalStore = new ApprovalStore(db);
     this.apiRecoveryStore = new ApiRecoveryStore(db);
   }
+
+  hasWorkerDelegation(turnId: string, eventId?: string) { return hasWorkerDelegation(this.db, turnId, eventId); }
 
   getTurnDiagnostics(_ctx: LocalContext, turnId: string, attemptId?: string) {
     return readTurnDiagnostics(this.db, turnId, attemptId);
@@ -165,6 +168,10 @@ export class SqliteConversationRepository implements IConversationRepository {
     return this.turnStore.getTurnUserMessage(ctx, turnId);
   }
 
+  isTurnInputPresent(ctx: LocalContext, turnId: string): Promise<boolean> {
+    return this.turnStore.isTurnInputPresent(ctx, turnId);
+  }
+
   async getTurnByIdempotencyKey(
     ctx: LocalContext,
     idempotencyKey: string,
@@ -180,6 +187,10 @@ export class SqliteConversationRepository implements IConversationRepository {
     error?: unknown,
   ): Promise<TurnModel | null> {
     return this.turnStore.updateTurnStatus(ctx, turnId, status, lastSequence, error);
+  }
+
+  appendPluginHookEvent(ctx: LocalContext, input: Parameters<StreamEventStore["appendPluginHookEvent"]>[1]) {
+    return this.streamEventStore.appendPluginHookEvent(ctx, input);
   }
 
   async appendStreamEvent(
@@ -223,6 +234,14 @@ export class SqliteConversationRepository implements IConversationRepository {
     eventId: string,
   ): Promise<TurnStreamEventModel | null> {
     return this.streamEventStore.getStreamEventById(ctx, turnId, eventId);
+  }
+
+  isTurnStreamDisclosable(ctx: LocalContext, turnId: string): Promise<boolean> {
+    return this.streamEventStore.isTurnStreamDisclosable(ctx, turnId);
+  }
+
+  getStreamEventForDisclosure(ctx: LocalContext, turnId: string, eventId: string): Promise<TurnStreamEventModel | null> {
+    return this.streamEventStore.getStreamEventForDisclosure(ctx, turnId, eventId);
   }
 
   getStreamEventHighWater(ctx: LocalContext, turnId: string): Promise<number> {

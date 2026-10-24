@@ -1,12 +1,15 @@
 /**
  * Aervox｜思隅 @aervox/repositories — 原始捕获/观察数据摄取、提炼与保留清理 Store
  */
-import { and, asc, desc, eq, inArray, isNull, lte, sql } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
+import { and, asc, desc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
 import {
   proactiveAuditEvents,
   proactiveCaptures,
   proactiveObservations,
+  proactiveProfileClaims,
+  proactiveProfileRevisions,
   proactiveSourceGrants,
 } from "@aervox/schema";
 import { DomainConflictError, RepositoryNotFoundError } from "../../../errors.js";
@@ -17,6 +20,8 @@ import type {
   ProactiveBehaviorObservationModel,
   ProactiveCaptureModel,
 } from "../../types/index.js";
+import { captureDistillationFailureCode, captureDistillationReceiptId, findEligibleCaptureDistillation,
+  publishCaptureDistillation } from "./capture-distillation-store.js";
 import { AuditExportStore } from "./audit-export-store.js";
 import { decodeWithCipher, encrypt } from "./crypto.js";
 import { ProfileLifecycleStore } from "./profile-lifecycle-store.js";
@@ -183,6 +188,23 @@ export class CaptureStore {
     return toCapture(created, true, this.cipher);
   }
 
+  publishCaptureDistillation(ctx: LocalContext, input: Parameters<IProactiveProfileRepository["publishCaptureDistillation"]>[1]) {
+    return publishCaptureDistillation(this.db, this.cipher, input);
+  }
+
+  /** Select and decode the exact work batch; presentation windows never determine queue visibility. */
+  async listDistillationCandidates(ctx: LocalContext, options: { retryBefore: string; limit?: number }): Promise<ProactiveCaptureModel[]> {
+    const rows = await this.db.select({ capture: proactiveCaptures }).from(proactiveCaptures)
+      .innerJoin(proactiveProfileRevisions, eq(proactiveProfileRevisions.id, proactiveCaptures.revisionId))
+      .innerJoin(proactiveSourceGrants, eq(proactiveSourceGrants.id, proactiveCaptures.sourceGrantId))
+      .where(and(isNull(proactiveCaptures.deletedAt), eq(proactiveProfileRevisions.status, "active"),
+        eq(proactiveProfileRevisions.desiredState, "enabled"), eq(proactiveSourceGrants.state, "granted"),
+        or(eq(proactiveCaptures.distillationStatus, "pending"),
+          and(inArray(proactiveCaptures.distillationStatus, ["failed", "blocked"]), lte(proactiveCaptures.updatedAt, options.retryBefore)))))
+      .orderBy(asc(proactiveCaptures.ingestedAt), asc(proactiveCaptures.id)).limit(clampLimit(options.limit, 50));
+    return rows.map(row => toCapture(row.capture, true, this.cipher));
+  }
+
   async listCaptures(
     ctx: LocalContext,
     options?: Parameters<IProactiveProfileRepository["listCaptures"]>[1],
@@ -292,66 +314,73 @@ export class CaptureStore {
   }
 
   async markCaptureDistilled(ctx: LocalContext, captureId: string, memoryIds: string[]): Promise<ProactiveCaptureModel | null> {
-    const ids = [...new Set(memoryIds.filter((id) => typeof id === "string" && id.length > 0))];
+    const ids = [...new Set(memoryIds.filter((id) => typeof id === "string" && id.trim().length > 0))];
     if (ids.length === 0) throw new DomainConflictError("at least one memory id is required before capture deletion");
-    const now = new Date().toISOString();
-    const [updated] = await this.db
-      .update(proactiveCaptures)
-      .set({
-        distillationStatus: "distilled",
-        distilledAt: now,
-        distilledMemoryIdsJson: JSON.stringify(ids),
-        lastDistillationError: null,
-        retentionBlockedAt: null,
-        updatedAt: now,
-      })
-      .where(
-        and(
-          eq(proactiveCaptures.id, captureId),
-          isNull(proactiveCaptures.deletedAt),
-        ),
-      )
-      .returning();
-    if (!updated) return null;
-    await this.audit.recordAudit(ctx, {
-      id: `${captureId}_audit_distilled_${Date.now().toString(36)}`,
-      revisionId: updated.revisionId,
-      eventType: "capture.distilled",
-      actorId: "local-memory-pipeline",
-      resourceType: "capture",
-      resourceId: captureId,
-      payload: { memoryIds: ids },
-    });
-    return toCapture(updated, true, this.cipher);
+    return this.db.transaction(async tx => {
+      const capture = await findEligibleCaptureDistillation(tx, captureId);
+      if (!capture) return null;
+      const [receipt] = await tx.select().from(proactiveAuditEvents)
+        .where(eq(proactiveAuditEvents.id, captureDistillationReceiptId(captureId)));
+      if (receipt && capture.distillationStatus !== "distilled") {
+        throw new DomainConflictError("capture_distillation_receipt_unavailable");
+      }
+      if (capture.distillationStatus === "distilled"
+        && JSON.stringify(ids) !== capture.distilledMemoryIdsJson) {
+        throw new DomainConflictError("capture_distillation_intent_mismatch");
+      }
+      if (receipt) {
+        const metadata = parseJson<{ version?: number; memoryIds?: string[] }>(receipt.payloadJson, {});
+        if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)
+          || receipt.eventType !== "capture.distilled" || receipt.resourceType !== "capture" || receipt.resourceId !== captureId
+          || receipt.revisionId !== capture.revisionId || receipt.processingBoundary !== "local_only" || metadata.version !== 1
+          || JSON.stringify(metadata.memoryIds) !== capture.distilledMemoryIdsJson) {
+          throw new DomainConflictError("capture_distillation_receipt_unavailable");
+        }
+      }
+      // A manual completion is an explicit declaration, but every declared result must exist
+      // and retain this capture's source provenance. Arbitrary IDs cannot unlock raw deletion.
+      const claims = await tx.select().from(proactiveProfileClaims).where(inArray(proactiveProfileClaims.id, ids));
+      const observations = await tx.select().from(proactiveObservations).where(inArray(proactiveObservations.id, ids));
+      for (const id of ids) {
+        const claim = claims.find(row => row.id === id);
+        const observation = observations.find(row => row.id === id);
+        const validClaim = claim?.revisionId === capture.revisionId && claim.processingBoundary === "local_only"
+          && parseJson<string[]>(claim.evidenceCaptureIdsJson, []).includes(captureId)
+          && parseJson<string[]>(claim.sourceGrantIdsJson, []).includes(capture.sourceGrantId);
+        const validObservation = observation?.revisionId === capture.revisionId
+          && observation.processingBoundary === "local_only" && observation.sourceGrantId === capture.sourceGrantId
+          && observation.sourceKey === capture.sourceKey && observation.checksum === capture.checksum
+          && parseJson<{ captureId?: string }>(decodeWithCipher(observation.payloadJson, this.cipher, `observation:${id}`), {}).captureId === captureId;
+        if (!validClaim && !validObservation) throw new DomainConflictError("capture_distillation_result_unavailable");
+      }
+      if (capture.distillationStatus === "distilled") return toCapture(capture, true, this.cipher);
+      const now = new Date().toISOString();
+      const [updated] = await tx.update(proactiveCaptures).set({ distillationStatus: "distilled", distilledAt: now,
+        distilledMemoryIdsJson: JSON.stringify(ids), lastDistillationError: null, retentionBlockedAt: null, updatedAt: now })
+        .where(eq(proactiveCaptures.id, captureId)).returning();
+      await tx.insert(proactiveAuditEvents).values({ id: `${captureDistillationReceiptId(captureId)}_manual`,
+        revisionId: capture.revisionId, eventType: "capture.distilled", actorId: "local-memory-pipeline",
+        resourceType: "capture", resourceId: captureId, payloadJson: JSON.stringify({ origin: "manual", memoryIds: ids }),
+        processingBoundary: "local_only", occurredAt: now, createdAt: now });
+      return updated ? toCapture(updated, true, this.cipher) : null;
+    }, { behavior: "immediate" });
   }
 
   async markCaptureDistillationFailed(ctx: LocalContext, captureId: string, reason?: string): Promise<ProactiveCaptureModel | null> {
-    const [updated] = await this.db
-      .update(proactiveCaptures)
-      .set({
-        distillationStatus: "failed",
-        distillationAttemptCount: sql`${proactiveCaptures.distillationAttemptCount} + 1`,
-        lastDistillationError: reason ?? null,
-        updatedAt: new Date().toISOString(),
-      })
-      .where(
-        and(
-          eq(proactiveCaptures.id, captureId),
-          isNull(proactiveCaptures.deletedAt),
-        ),
-      )
-      .returning();
-    if (!updated) return null;
-    await this.audit.recordAudit(ctx, {
-      id: `${captureId}_audit_distill_failed_${Date.now().toString(36)}`,
-      revisionId: updated.revisionId,
-      eventType: "capture.distillation_failed",
-      actorId: "local-memory-pipeline",
-      resourceType: "capture",
-      resourceId: captureId,
-      payload: reason ? { reason } : {},
-    });
-    return toCapture(updated, true, this.cipher);
+    const code = captureDistillationFailureCode(reason);
+    return this.db.transaction(async tx => {
+      const capture = await findEligibleCaptureDistillation(tx, captureId);
+      if (!capture || capture.distillationStatus === "distilled") return null;
+      const now = new Date().toISOString();
+      const [updated] = await tx.update(proactiveCaptures).set({ distillationStatus: "failed",
+        distillationAttemptCount: sql`${proactiveCaptures.distillationAttemptCount} + 1`, lastDistillationError: code, updatedAt: now })
+        .where(eq(proactiveCaptures.id, captureId)).returning();
+      await tx.insert(proactiveAuditEvents).values({ id: `${captureId}_audit_distill_failed_${randomUUID()}`,
+        revisionId: capture.revisionId, eventType: "capture.distillation_failed", actorId: "local-memory-pipeline",
+        resourceType: "capture", resourceId: captureId, payloadJson: JSON.stringify({ reason: code }),
+        processingBoundary: "local_only", occurredAt: now, createdAt: now });
+      return updated ? toCapture(updated, true, this.cipher) : null;
+    }, { behavior: "immediate" });
   }
 
   async purgeEligibleCaptures(ctx?: LocalContext, now = new Date().toISOString(), limit = 200): Promise<number> {

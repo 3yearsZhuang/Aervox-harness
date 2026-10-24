@@ -2,7 +2,7 @@
 import {Maximize2, Minimize2, Minus, Moon, Settings, Sun, X} from 'lucide-vue-next'
 import {computed, onMounted, onUnmounted, ref} from 'vue'
 import {useAervoxLLM, type LLMConfigDto} from '@aervox/api-client'
-import {AervoxBrandMark} from '@aervox/ui'
+import {AervoxBrandMark} from '@aervox/ui/companion'
 
 const isMaximized = ref(false)
 const isDark = ref(false)

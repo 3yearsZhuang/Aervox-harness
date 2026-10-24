@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { inspectDependency, findCycles, auditArchitecture } from "./check-architecture.mjs";
+import { inspectDependency, findCycles, auditArchitecture, inspectLazySchemaImport } from "./check-architecture.mjs";
 import { extractImports, resolveRepoRelative } from "./source-imports.mjs";
 
 test("architecture rejects inverted dependencies even when old blacklist permits them", () => {
@@ -60,4 +60,71 @@ test("application aliases cannot hide dependencies outside the application", () 
     const result = auditArchitecture({ sources: new Map([[file, `import "${specifier}";`]]) });
     assert.ok(result.violations.some(violation => violation.includes(target)));
   }
+});
+
+
+test("workspace source resolution follows exact exports and plugin UI/server subpaths", () => {
+  const from = "apps/web/src/App.vue";
+  for (const [specifier, target] of [
+    ["@aervox/core", "packages/core/src/index.ts"],
+    ["@aervox/plugin-focus-mode/ui", "plugins/focus-mode/src/ui/index.ts"],
+    ["@aervox/plugin-focus-mode/server", "plugins/focus-mode/src/server/index.ts"],
+    ["@aervox/contracts/proactive", "packages/contracts/src/proactive.ts"],
+    ["@aervox/ui/env", "packages/ui/src/env.d.ts"],
+  ]) assert.equal(resolveRepoRelative(from, specifier), target);
+  assert.equal(resolveRepoRelative(from, "@aervox/plugin-focus-mode/not-exported"), null);
+  // Private host targets remain discoverable for rejection by import/removability guards.
+  assert.equal(resolveRepoRelative(from, "@aervox/host-runtime/modules/companion/memory/tool-contribution"),
+    "packages/host-runtime/src/modules/companion/memory/tool-contribution.ts");
+});
+
+test("resolver supports conditional and wildcard exports without using built artifacts", () => {
+  const workspaces = [{ name: "@aervox/sample", relDir: "packages/sample", manifest: { exports: {
+    ".": { import: { types: "./dist/index.d.mts", default: "./dist/index.mjs" } },
+    "./feature/*": { types: "./dist/feature/*.d.ts", default: "./dist/feature/*.js" },
+  } } }];
+  const files = new Set(["packages/sample/src/index.mts", "packages/sample/src/feature/one.ts"]);
+  assert.equal(resolveRepoRelative("apps/web/src/a.ts", "@aervox/sample", { workspaces, files }), "packages/sample/src/index.mts");
+  assert.equal(resolveRepoRelative("apps/web/src/a.ts", "@aervox/sample/feature/one", { workspaces, files }), "packages/sample/src/feature/one.ts");
+});
+
+test("full file graph catches shared/context runtime cycles hidden by direct module graphs", () => {
+  const a = "packages/host-runtime/src/modules/context.ts", b = "packages/host-runtime/src/shared/audit-helper.ts";
+  const result = auditArchitecture({ sources: new Map([[a, 'import "../shared/audit-helper.js"'], [b, 'import "../modules/context.js"']]) });
+  assert.deepEqual(result.graphs.workspace.runtimeCycles, []);
+  assert.deepEqual(result.graphs.directModule.runtimeCycles, []);
+  assert.deepEqual(result.graphs.file.runtimeCycles, [[a, b].sort()]);
+  assert.ok(result.violations.some(value => value.includes("source file runtime dependency cycle")));
+});
+
+test("type-inclusive file SCCs report real members without becoming runtime-cycle violations", () => {
+  const a = "packages/core/src/audit-a.ts", b = "packages/core/src/audit-b.ts";
+  const result = auditArchitecture({ sources: new Map([[a, 'import type { B } from "./audit-b.js"'], [b, 'import { a } from "./audit-a.js"']]) });
+  assert.deepEqual(result.graphs.file.runtimeCycles, []);
+  assert.deepEqual(result.graphs.file.combinedCycles, [[a, b]]);
+  assert.deepEqual(result.violations, []);
+});
+
+test("source self imports are runtime cycles too", () => {
+  const file = "packages/core/src/audit-self.ts";
+  const result = auditArchitecture({ sources: new Map([[file, 'import "./audit-self.js"']]) });
+  assert.deepEqual(result.graphs.file.runtimeCycles, [[file]]);
+  assert.ok(result.violations.some(value => value.includes("runtime dependency cycle")));
+});
+
+test("the exact lazy Schema exception cannot authorize eager table access or other file cycles", () => {
+  const resolve = () => "packages/schema/src/provenance.ts";
+  const lazy = 'import { memoryRevisions } from "./provenance.js"; const fk = text("id").references(() => memoryRevisions.id);';
+  assert.equal(inspectLazySchemaImport(lazy, "x.ts", resolve(), ["memoryRevisions"], resolve), true);
+  assert.equal(inspectLazySchemaImport(lazy + " console.log(memoryRevisions.id);", "x.ts", resolve(), ["memoryRevisions"], resolve), false);
+  assert.equal(inspectLazySchemaImport(lazy + ' export { unrelated } from "./provenance.js";', "x.ts", resolve(), ["memoryRevisions"], resolve), false);
+  assert.equal(inspectLazySchemaImport(lazy.replace("memoryRevisions.id", "memoryRevisions"), "x.ts", resolve(), ["anotherTable"], resolve), false);
+  const a = "packages/schema/src/audit-a.ts", b = "packages/schema/src/audit-b.ts";
+  const result = auditArchitecture({ sources: new Map([[a, 'import "./audit-b.js"'], [b, 'import "./audit-a.js"']]) });
+  assert.equal(result.approvedRuntimeCycles.length, 0);
+  assert.ok(result.violations.some(value => value.includes("runtime dependency cycle")));
+});
+
+test("TypeScript import type equals require remains an erased edge", () => {
+  assert.deepEqual(extractImports('import type Value = require("type-only");', "x.ts", true), [{ specifier: "type-only", kind: "type" }]);
 });

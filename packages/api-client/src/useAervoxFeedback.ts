@@ -1,8 +1,9 @@
+import { getClientTransport } from './client-context.js';
 import { feedbackApi, type CreateFeedbackRequest, type FeedbackListQuery } from '@aervox/contracts';
 import { requestEndpoint } from './endpoint.js';
-import { getTransport, type AervoxTransport } from './transport.js';
+import { type AervoxTransport } from './transport';
 
-export function useAervoxFeedback(transport: AervoxTransport = getTransport()) {
+export function useAervoxFeedback(transport: AervoxTransport = getClientTransport()) {
   return {
     createFeedback: async (input: CreateFeedbackRequest) => requestEndpoint(transport, feedbackApi.create, feedbackApi.create.body.parse(input)),
     listFeedback: async (query: FeedbackListQuery = {}) => {

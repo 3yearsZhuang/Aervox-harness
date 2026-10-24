@@ -54,58 +54,9 @@ export function maskToken(token: string | null | undefined): string | null {
   return `${token.slice(0, 4)}****${token.slice(-4)}`;
 }
 
-export interface McpPresetDto {
-  id: string;
-  name: string;
-  description: string;
-  transport: string;
-  endpointUrl: string;
-  authType: string;
-  protocolVersion: string;
-  homepage: string;
-  docsUrl: string;
-  tokenApplyUrl: string;
-  regionNote?: string;
-  rateLimitNote?: string;
-  sourceUrl: string;
-  /** 已接入过（存在配置行） */
-  configured: boolean;
-  enabled: boolean;
-  /** disconnected / connected / error */
-  status: string;
-  toolCount: number;
-  tokenConfigured: boolean;
-  tokenMasked?: string | null;
-  lastSyncAt?: string | null;
-  lastError?: string | null;
-}
-
-export interface McpServerDto {
-  id: string;
-  name: string;
-  transport: string;
-  endpointUrl: string;
-  authType: string;
-  enabled: boolean;
-  isPreset: boolean;
-  status: string;
-  toolCount: number;
-  tokenConfigured: boolean;
-  tokenMasked?: string | null;
-  lastSyncAt: string | null;
-  lastError: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface McpServerToolDto {
-  id: string;
-  name: string;
-  description: string;
-  safetyLevel: string;
-  enabled: boolean;
-  inputSchema?: unknown;
-}
+export type { McpPresetServer as McpPresetDto, McpServerConfig as McpServerDto, McpServerToolEntry as McpServerToolDto } from "@aervox/contracts";
+import { mcpPresetServerSchema, mcpServerConfigSchema } from "@aervox/contracts";
+import type { McpPresetServer as McpPresetDto, McpServerConfig as McpServerDto, McpServerToolEntry as McpServerToolDto } from "@aervox/contracts";
 
 export interface McpServiceDeps {
   repo: SqliteMcpServerRepository;
@@ -117,7 +68,7 @@ export interface McpServiceDeps {
 }
 
 function toServerDto(row: McpServerModel): McpServerDto {
-  return {
+  return mcpServerConfigSchema.parse({
     id: row.id,
     name: row.name,
     transport: row.transport,
@@ -133,11 +84,11 @@ function toServerDto(row: McpServerModel): McpServerDto {
     lastError: row.lastError,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
-  };
+  });
 }
 
 function toPresetDto(preset: McpPresetDefinition, row: McpServerModel | null): McpPresetDto {
-  return {
+  return mcpPresetServerSchema.parse({
     id: preset.id,
     name: preset.name,
     description: preset.description,
@@ -159,7 +110,7 @@ function toPresetDto(preset: McpPresetDefinition, row: McpServerModel | null): M
     tokenMasked: maskToken(row?.token),
     lastSyncAt: row?.lastSyncAt ?? null,
     lastError: row?.lastError ?? null,
-  };
+  });
 }
 
 export class McpService {

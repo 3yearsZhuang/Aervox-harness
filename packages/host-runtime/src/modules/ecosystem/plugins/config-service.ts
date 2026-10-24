@@ -17,7 +17,7 @@ import type {
   LocalContext,
 } from "@aervox/repositories";
 import { DomainConflictError, SqliteExtensionRepository, withSessionLock } from "@aervox/repositories";
-import { pluginPageSchema } from "@aervox/contracts";
+import { pluginPageSchema, pluginPageGenerationSchema, type SavePluginConfigRequest } from "@aervox/contracts";
 import crypto from "node:crypto";
 import { PluginBundleStore } from "./bundle-store.js";
 import {
@@ -96,6 +96,17 @@ export class PluginConfigService {
     if (plugin.bundleGeneration) throw new PluginConfigError(409, "PLUGIN_PACKAGE_IMMUTABLE", "Repackage and install a new version to change package declarations or resources");
   }
 
+  private requireConfigLifecycle(pluginId: string, plugin: PluginModel, expectedLifecycleGeneration?: string): void {
+    if (plugin.enabled !== 1) throw new PluginConfigError(409, "PLUGIN_DISABLED", `plugin disabled: ${pluginId}`);
+    if ((plugin.availability ?? "available") !== "available") {
+      throw new PluginConfigError(409, "PLUGIN_UNAVAILABLE", `plugin unavailable: ${pluginId}`);
+    }
+    if (!plugin.lifecycleGeneration || (expectedLifecycleGeneration !== undefined
+      && plugin.lifecycleGeneration !== expectedLifecycleGeneration)) {
+      throw new PluginConfigError(409, "PLUGIN_CONFIG_REVISION_CONFLICT", "plugin lifecycle changed; reopen the page");
+    }
+  }
+
   private async requirePlugin(pluginId: string): Promise<PluginModel> {
     const found = await this.findPlugin(pluginId);
     if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
@@ -165,12 +176,13 @@ export class PluginConfigService {
 
   // ── 配置 ──────────────────────────────────────────────
 
-  async getConfig(tenant: LocalContext, pluginId: string): Promise<PluginConfigServiceSnapshot> {
+  async getConfig(tenant: LocalContext, pluginId: string, expectedLifecycleGeneration?: string): Promise<PluginConfigServiceSnapshot> {
     const found = await this.findPlugin(pluginId);
     if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
     if (found.plugin.enabled !== 1) {
       throw new PluginConfigError(409, "PLUGIN_DISABLED", `plugin disabled: ${pluginId}`);
     }
+    if (expectedLifecycleGeneration !== undefined) this.requireConfigLifecycle(pluginId, found.plugin, expectedLifecycleGeneration);
     const targetId = found.resolvedId;
     const schema = await this.getConfigSchema(targetId);
     let stored = await this.deps.configRepo.getConfig(tenant, targetId);
@@ -181,6 +193,13 @@ export class PluginConfigService {
     const fields = schema.fields as Parameters<typeof validateValues>[0];
     const values = stored?.valuesJson as Record<string, unknown> | undefined;
     const { defaults } = diffSchema(fields, (values ?? {}) as Record<string, unknown>);
+    if (expectedLifecycleGeneration !== undefined) {
+      // A Page read can outlive disable/re-enable while awaiting configuration or Secret state.
+      // Recheck the captured identity before releasing its response to the old document session.
+      const current = await this.deps.extensionRepo.getPlugin(targetId);
+      if (!current) throw new PluginConfigError(409, "PLUGIN_CONFIG_REVISION_CONFLICT", "plugin lifecycle changed; reopen the page");
+      this.requireConfigLifecycle(pluginId, current, expectedLifecycleGeneration);
+    }
     return {
       pluginId,
       revision: stored?.revision ?? 0,
@@ -195,13 +214,16 @@ export class PluginConfigService {
   async saveConfig(
     tenant: LocalContext,
     pluginId: string,
-    body: { revision: number; values?: Record<string, unknown>; secretValues?: Record<string, string | null> },
+    body: SavePluginConfigRequest,
   ): Promise<PluginConfigServiceSnapshot> {
+    if ((body.expectedPageId !== undefined || body.expectedPageGeneration !== undefined)
+      && (!pluginPageSchema.shape.id.safeParse(body.expectedPageId).success
+        || !pluginPageGenerationSchema.safeParse(body.expectedPageGeneration).success || !body.expectedLifecycleGeneration)) {
+      throw new PluginConfigError(400, "INVALID_CONFIG", "Page writes require a valid Page id and captured Page and plugin generations");
+    }
     const found = await this.findPlugin(pluginId);
     if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
-    if (found.plugin.enabled !== 1) {
-      throw new PluginConfigError(409, "PLUGIN_DISABLED", `plugin disabled: ${pluginId}`);
-    }
+    this.requireConfigLifecycle(pluginId, found.plugin, body.expectedLifecycleGeneration);
     const targetId = found.resolvedId;
     const schema = await this.getConfigSchema(targetId);
     const fields = schema.fields as Parameters<typeof validateValues>[0];
@@ -231,6 +253,9 @@ export class PluginConfigService {
       schemaVersion: schema.schemaVersion,
       expectedRevision: body.revision,
       expectedSchema: schema.fields,
+      expectedLifecycleGeneration: found.plugin.lifecycleGeneration,
+      expectedPageId: body.expectedPageId,
+      expectedPageGeneration: body.expectedPageGeneration,
       values,
       secretKeys: [],
       secretChanges,
@@ -251,17 +276,17 @@ export class PluginConfigService {
     };
   }
 
-  async resetConfig(tenant: LocalContext, pluginId: string): Promise<PluginConfigServiceSnapshot> {
+  async resetConfig(tenant: LocalContext, pluginId: string, expectedLifecycleGeneration?: string): Promise<PluginConfigServiceSnapshot> {
     const found = await this.findPlugin(pluginId);
     if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
-    if (found.plugin.enabled !== 1) {
-      throw new PluginConfigError(409, "PLUGIN_DISABLED", `plugin disabled: ${pluginId}`);
-    }
+    this.requireConfigLifecycle(pluginId, found.plugin, expectedLifecycleGeneration);
     const targetId = found.resolvedId;
     const schema = await this.getConfigSchema(targetId);
     const fields = schema.fields as Parameters<typeof validateValues>[0];
     const defaults = applyDefaults(fields);
-    const saved = await this.deps.configRepo.resetConfig(tenant, targetId, schema.schemaVersion, defaults, schema.fields)
+    const stored = await this.deps.configRepo.getConfig(tenant, targetId);
+    const saved = await this.deps.configRepo.resetConfig(tenant, targetId, schema.schemaVersion, defaults, schema.fields,
+      found.plugin.lifecycleGeneration, stored?.revision ?? 0)
       .catch((error: unknown) => {
         if (error instanceof DomainConflictError) throw new PluginConfigError(409, "PLUGIN_CONFIG_REVISION_CONFLICT", error.message);
         throw error;
@@ -303,6 +328,7 @@ export class PluginConfigService {
     });
     return {
       id: saved.pageId,
+      pageGeneration: saved.id,
       title: saved.title,
       description: saved.description,
       entry: saved.entry,
@@ -312,11 +338,18 @@ export class PluginConfigService {
     });
   }
 
-  async listPages(pluginId: string): Promise<unknown[]> {
+  async listPages(pluginId: string, expectedLifecycleGeneration?: string): Promise<unknown[]> {
     await this.requirePlugin(pluginId);
-    const rows = await this.deps.pageRepo.listPages(pluginId);
+    let rows;
+    try {
+      rows = await this.deps.pageRepo.listPages(pluginId, expectedLifecycleGeneration);
+    } catch (error) {
+      if (error instanceof DomainConflictError) throw new PluginConfigError(409, "PLUGIN_CONFIG_REVISION_CONFLICT", "plugin lifecycle changed; reopen the page");
+      throw error;
+    }
     return rows.map((row) => ({
       id: row.pageId,
+      pageGeneration: row.id,
       title: row.title,
       description: row.description,
       entry: row.entry,
@@ -331,6 +364,7 @@ export class PluginConfigService {
     if (!page) throw new PluginConfigError(404, "PLUGIN_PAGE_NOT_FOUND", `page not found: ${pageId}`);
     return {
       id: page.pageId,
+      pageGeneration: page.id,
       title: page.title,
       description: page.description,
       entry: page.entry,
@@ -364,15 +398,10 @@ export class PluginConfigService {
       hashes.push(`${file.path}:${hash}`);
     }
     const checksum = crypto.createHash("sha256").update(hashes.sort().join("|")).digest("hex");
-    await this.deps.pageRepo.upsertPage({
-      pluginId,
-      pageId,
-      title: page.title,
-      description: page.description ?? undefined,
-      entry: page.entry,
-      capabilities: page.capabilitiesJson,
-      checksum,
-    });
+    // Files are written outside the database transaction. Do not let stale
+    // metadata restore a revoked declaration or recreate a deleted Page.
+    const updated = await this.deps.pageRepo.updatePageChecksum(pluginId, pageId, page.id, checksum);
+    if (!updated) throw new PluginConfigError(409, "PLUGIN_PAGE_REVISION_CONFLICT", "Page changed during resource upload; reload before uploading again");
     return { checksum };
     });
   }

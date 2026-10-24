@@ -55,7 +55,7 @@
     "electron-builder": "^26.15.3",
     "esbuild": "0.28.2",
     "fflate": "0.8.3",
-    "happy-dom": "^20.14.0",
+    "happy-dom": "^21.0.4",
     "playwright": "^1.62.1",
     "sharp": "^0.35.5",
     "sqlite-vec": "0.1.7",

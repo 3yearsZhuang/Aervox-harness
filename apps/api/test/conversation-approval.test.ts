@@ -219,6 +219,52 @@ describe("Agent Loop 阶段 3a：写工具审批通道", () => {
     const executions = await repo.listToolExecutionsByTurn(tenant, firstTurnId);
     expect(executions[0]).toMatchObject({ name: "aervox_save_note", status: "executed" });
   });
+
+  it.each(["soft-deleted", "missing"])("首输入 %s 后 HTTP 批准返回 409，不预留续跑或执行工具/模型", async failure => {
+    const created = await createTurn();
+    expect(created.statusCode).toBe(201);
+    const turnId = created.json().turnId as string;
+    const repo = new SqliteConversationRepository(db);
+    const [approval] = await repo.listToolApprovalsByTurn(tenant, turnId);
+    expect(approval).toMatchObject({ state: "pending", toolName: "aervox_save_note" });
+    const attemptsBefore = await repo.listTurnAttempts(tenant, turnId);
+    expect(attemptsBefore).toHaveLength(1);
+    expect(attemptsBefore[0]?.status).toBe("Interrupted");
+    const eventsBefore = await repo.getStreamEvents(tenant, turnId);
+    const modelRuns = async () => (await built.client.execute({
+      sql: "SELECT mr.id FROM model_runs mr JOIN turn_attempts ta ON ta.id=mr.attempt_id WHERE ta.turn_id=? ORDER BY mr.id",
+      args: [turnId],
+    })).rows;
+    const modelRunsBefore = await modelRuns();
+    expect(modelRunsBefore.length).toBeGreaterThan(0);
+    const [source] = (await built.client.execute({
+      sql: "SELECT id FROM message_versions WHERE turn_id=? AND role='user' AND version=1",
+      args: [turnId],
+    })).rows;
+    expect(source).toBeDefined();
+    if (failure === "soft-deleted") {
+      const identity = await app.inject({ method: "POST", url: "/v1/messages", headers,
+        payload: { sessionId: "ses_3a", role: "user" } });
+      expect(identity.statusCode).toBe(201);
+      const messageId = identity.json().id as string;
+      await built.client.execute({ sql: "UPDATE message_versions SET message_id=? WHERE id=?", args: [messageId, String(source!.id)] });
+      const deleted = await app.inject({ method: "DELETE", url: `/v1/messages/${messageId}`, headers });
+      expect(deleted.statusCode).toBe(200);
+    } else await repo.deleteMessage(tenant, String(source!.id));
+    expect(await repo.getTurnUserMessage(tenant, turnId)).toBeNull();
+
+    const decided = await app.inject({ method: "POST", url: `/v1/turns/${turnId}/tool-approvals`, headers,
+      payload: { approvalId: approval!.id, decision: "granted" } });
+    expect(decided.statusCode).toBe(409);
+    expect(decided.json().error).toBe("turn_intent_unavailable");
+    expect((await repo.getToolApproval(tenant, approval!.id))?.state).toBe("pending");
+    expect(await repo.listTurnAttempts(tenant, turnId)).toEqual(attemptsBefore);
+    expect(await repo.getStreamEvents(tenant, turnId)).toEqual(eventsBefore);
+    expect((await repo.listToolExecutionsByTurn(tenant, turnId))[0]).toMatchObject({ status: "pending_approval" });
+    expect(writes).toBe(0);
+    expect(await modelRuns()).toEqual(modelRunsBefore);
+  });
+
   it("重复及并发批准只预留一个续跑 Attempt、执行一次副作用", async () => {
     const turnId = (await createTurn()).json().turnId as string;
     const repo = new SqliteConversationRepository(db);

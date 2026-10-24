@@ -335,11 +335,28 @@ export const pluginConfigSnapshotSchema = z.object({
   issues: z.array(pluginConfigIssueSchema).default([]),
 });
 
+/** Host-owned identity for a current Page declaration, independent of the plugin lifecycle. */
+export const pluginPageGenerationSchema = z.string().min(1).max(128);
+
 /** 配置更新请求（revision CAS；secretValues 缺失字段=保持不变，null=清除） */
 export const pluginConfigUpdateRequestSchema = z.object({
   revision: z.number().int().nonnegative(),
+  /** Page sessions bind writes to the plugin lifecycle captured when opened. */
+  expectedLifecycleGeneration: z.string().min(1).max(128).optional(),
+  /** Captured by the host; restricts this write to the current Page's config.write capability. */
+  expectedPageId: pluginPageSchema.shape.id.optional().openapi({
+    description: "Host-captured Page id; requires expectedPageGeneration, expectedLifecycleGeneration and current config.write capability at commit.",
+  }),
+  /** Captured by the host; revoked or replaced Page declarations invalidate older sessions. */
+  expectedPageGeneration: pluginPageGenerationSchema.optional().openapi({
+    description: "Host-captured Page declaration generation; paired with expectedPageId and checked at commit.",
+  }),
   values: z.record(z.string(), z.unknown()).default({}),
   secretValues: z.record(z.string(), z.union([z.string(), z.null()])).default({}),
+}).refine(input => (input.expectedPageId === undefined) === (input.expectedPageGeneration === undefined), {
+  path: ["expectedPageGeneration"], message: "Page writes require both the captured Page id and generation",
+}).refine(input => input.expectedPageId === undefined || input.expectedLifecycleGeneration !== undefined, {
+  path: ["expectedLifecycleGeneration"], message: "Page writes require the captured plugin lifecycle generation",
 });
 
 /** Page 资源写入请求（base64 内容） */

@@ -15,6 +15,7 @@ export interface AttemptExecutionOptions {
   leaseHeartbeatIntervalMs?: number;
   startedAt?: number;
   stepsTaken?: () => number;
+  beforeComplete?: (signal?: AbortSignal) => Promise<void>;
 }
 
 /** The lease and cancellation scope is shared by native and external loop drivers. */
@@ -41,7 +42,7 @@ export async function claimAttemptExecution(input: AttemptIdentity, options: Att
     ...input, execution, control, deletionGate, claimFencingToken: claim.fencingToken,
     startedAt, maxTurnDurationMs,
     get stepsTaken() { return options.stepsTaken?.() ?? 0; },
-    interruptionReason: () => interruption, checkFailure,
+    interruptionReason: () => interruption, checkFailure, beforeComplete: options.beforeComplete,
   });
   const removeLost = heartbeat?.onLost(() => control.abort(new LeaseLostError()));
   heartbeat?.start();

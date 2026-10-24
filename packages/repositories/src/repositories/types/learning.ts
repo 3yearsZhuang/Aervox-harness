@@ -58,6 +58,7 @@ export interface QuestionPracticePort {
   completePracticeSession(ctx: LocalContext, sessionId: string): Promise<PracticeSessionModel | null>;
   listAttemptsByQuestion(ctx: LocalContext, questionId: string): Promise<QuestionAttemptModel[]>;
   listAttemptsBySession(ctx: LocalContext, sessionId: string): Promise<QuestionAttemptModel[]>;
+  listPracticeAnswerOutcomes(ctx: LocalContext, sessionId: string): Promise<Array<QuestionAttemptModel & { nextStep: AnswerNextStep }>>;
   listMistakes(
     ctx: LocalContext,
     status?: "active" | "mastered" | "dismissed" | "all",
@@ -86,18 +87,7 @@ export interface KnowledgeStatePort {
   ): Promise<KnowledgeItemModel>;
   getKnowledgeItem(ctx: LocalContext, id: string): Promise<KnowledgeItemModel | null>;
   updateMastery(ctx: LocalContext, id: string, masteryState: string, basis?: unknown): Promise<KnowledgeItemModel | null>;
-  updatePracticeState(
-    ctx: LocalContext,
-    id: string,
-    state: {
-      correctCount: number;
-      wrongCount: number;
-      correctStreak: number;
-      mastery: number;
-      masteryState: string;
-      masteryBasis: unknown;
-    },
-  ): Promise<KnowledgeItemModel | null>;
+
 }
 
 export interface ReviewSchedulePort {
@@ -114,20 +104,8 @@ export interface ReviewSchedulePort {
   listCompletedReviewItems(ctx: LocalContext, limit?: number): Promise<ReviewItemModel[]>;
   completeReviewAndSchedule(
     ctx: LocalContext,
-    data: {
-      reviewId: string;
-      knowledgeId: string;
-      isCorrect: boolean;
-      practiceState: {
-        correctCount: number;
-        wrongCount: number;
-        correctStreak: number;
-        mastery: number;
-        masteryState: string;
-        masteryBasis: unknown;
-      };
-      nextReview: { id: string; dueAt: string; intervalDays: number; schedulerVersion: number; timezoneSnapshot: string };
-    },
+    input: { reviewId: string; isCorrect: boolean; timeZone?: string },
+    derive: LearningAnswerPolicy["derive"],
   ): Promise<{ completed: ReviewItemModel; nextReview: ReviewItemModel; knowledge: KnowledgeItemModel } | null>;
   listDueReviewItems(ctx: LocalContext, before: string): Promise<ReviewItemModel[]>;
   completeReviewItem(ctx: LocalContext, id: string): Promise<ReviewItemModel | null>;

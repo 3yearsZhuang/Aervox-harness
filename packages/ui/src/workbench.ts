@@ -44,3 +44,5 @@ export const ImportSessionModal = defineAsyncComponent(() => import('./component
 
 export { provideUIPluginContext } from './composables/ui-plugin-context';
 export type { UIPluginContext } from './composables/ui-plugin-context';
+
+export type { SurfaceNavigation } from './surface-navigation';

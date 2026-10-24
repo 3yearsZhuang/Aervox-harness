@@ -44,7 +44,7 @@ describe("阶段 6d createDSHAdapterDriver（DSH 真 Turn 接入）", () => {
   });
 
   it("固定 SHA 复核通过 → spawn runner 且握手 manifest 一致（adapterId=dsh, MIT）", async () => {
-    const { probe, handle } = await createDSHAdapterDriver({ repoRoot });
+    const { probe, handle } = await createDSHAdapterDriver({ repoRoot, env: { ...process.env } });
     expect(probe.ready).toBe(true);
     expect(handle).toBeDefined();
     closeHandle = handle?.close;
@@ -53,14 +53,14 @@ describe("阶段 6d createDSHAdapterDriver（DSH 真 Turn 接入）", () => {
   });
 
   it.runIf(!hasModelConfig)("未配置模型 key → request 返回指引性 error（dsh_unconfigured），不挂死", async () => {
-    const { probe, handle } = await createDSHAdapterDriver({ repoRoot });
+    const { probe, handle } = await createDSHAdapterDriver({ repoRoot, env: { ...process.env } });
     expect(probe.ready).toBe(true);
     closeHandle = handle?.close;
     await expect(drainAdapterDriver(handle!.driver, request)).rejects.toThrow(/dsh_unconfigured|adapter_/);
   }, 8000);
 
   it.runIf(hasModelConfig)("真实模型 turn：delta + batch(全结论) → concluded（OpenAI 兼容直连）", async () => {
-    const { probe, handle } = await createDSHAdapterDriver({ repoRoot });
+    const { probe, handle } = await createDSHAdapterDriver({ repoRoot, env: { ...process.env } });
     expect(probe.ready).toBe(true);
     closeHandle = handle?.close;
     try {
@@ -74,7 +74,7 @@ describe("阶段 6d createDSHAdapterDriver（DSH 真 Turn 接入）", () => {
   }, 40_000);
 
   it("probe 未就绪（非 git 根）→ 不 spawn 且给出 reason（fail-closed）", async () => {
-    const result = await createDSHAdapterDriver({ repoRoot: nonRepoRoot });
+    const result = await createDSHAdapterDriver({ repoRoot: nonRepoRoot, env: { ...process.env } });
     expect(result.probe.ready).toBe(false);
     expect(result.probe.reason).toContain("submodule_missing");
     expect(result.handle).toBeUndefined();
@@ -117,7 +117,7 @@ describe("阶段 6d createDSHAdapterDriver（DSH 真 Turn 接入）", () => {
     try {
       const { probe, handle } = await createDSHAdapterDriver({
         repoRoot,
-        env: { DSH_LLM_BASE_URL: `http://127.0.0.1:${port}` },
+        env: { ...process.env, DSH_LLM_BASE_URL: `http://127.0.0.1:${port}` },
       });
       expect(probe.ready).toBe(true);
       closeHandle = handle?.close;

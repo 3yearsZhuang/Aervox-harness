@@ -157,3 +157,24 @@ it('preserves partial output and reports terminal interruption separately from c
   expect(wrapper.findAll('button').some(button=>button.text()==='恢复接收回复')).toBe(false);
   expect(wrapper.findAll('.standard-conversation article')).toHaveLength(3);
 });
+
+it('renders a newly injected surface in real settings and delegates selection to the host', async () => {
+  const select = vi.fn();
+  const wrapper = mount(UISurfaceHost, {props: {
+    plugin: definition, surface: 'main', platform: 'web', viewProps: {
+      showCompanion: false,
+      surfaceNavigation: {currentId: 'custom-current', options: [{value: 'custom-current', label: '当前界面'}, {value: 'new-test-surface', label: '新增测试界面'}], select, openDefault: vi.fn()},
+    },
+  }});
+  await vi.waitFor(() => expect(wrapper.find('.aervox-workbench').exists()).toBe(true));
+  window.dispatchEvent(new Event('aervox:open-settings'));
+  await vi.waitFor(() => expect(document.querySelector('.settings-dialog')).not.toBeNull());
+  const appearance = [...document.querySelectorAll<HTMLButtonElement>('.settings-dialog button')].find(button => button.textContent?.includes('通用'));
+  appearance!.click(); await flushPromises();
+  const choices = document.querySelector('[aria-label="工作台界面"]');
+  expect(choices?.textContent).toContain('新增测试界面');
+  const option = [...choices!.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent?.includes('新增测试界面'))!;
+  option.click(); await flushPromises();
+  expect(select).toHaveBeenCalledWith('new-test-surface');
+  wrapper.unmount();
+});

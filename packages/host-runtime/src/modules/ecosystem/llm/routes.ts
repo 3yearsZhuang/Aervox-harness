@@ -1,13 +1,17 @@
 import type { FastifyInstance } from "fastify";
 import {
+  llmApi,
   llmConfigSchema,
   llmCreatePresetRequestSchema,
   llmTestConnectionRequestSchema,
 } from "@aervox/contracts";
+import { modelProviderCatalog } from "./provider-catalog.js";
+import { registerContractRoute } from "../../../shared/contract-route.js";
 import { resolveLocalContext } from "../../../shared/local-context.js";
 import type { LLMConfigService } from "./service.js";
 
 export function registerLLMRoutes(app: FastifyInstance, service: LLMConfigService): void {
+  registerContractRoute(app, llmApi.providers, async () => modelProviderCatalog());
   // GET /v1/llm/config — 读取大语言模型配置（当前激活预设）
   app.get("/v1/llm/config", async (req) => {
     const tenant = resolveLocalContext(req);

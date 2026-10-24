@@ -55,7 +55,6 @@ describe("SqliteSubagentPort（子任务委托执行器）", () => {
     const subagent = createSqliteSubagentPort({
       ctx,
       store: new SqliteExecutionStore(repo, ctx),
-      conversationRepo: repo,
       runRepo,
       providerBuilder: () => createScriptedProvider([{ text: "子任务完成：已总结要点", toolCalls: [] }]),
       genId: gen,
@@ -76,10 +75,64 @@ describe("SqliteSubagentPort（子任务委托执行器）", () => {
     expect(runs[0]?.subTurnId).toBe(result.subTurnId);
   });
 
+  it("does not project Failed when setup loses its Attempt fence before failing", async () => {
+    const subagent = createSqliteSubagentPort({ ctx, store: new SqliteExecutionStore(repo, ctx), runRepo, genId: gen,
+      providerBuilder: async input => {
+        await client.execute({ sql: "UPDATE turn_attempts SET fencing_token=fencing_token+1 WHERE id=?", args: [input.attemptId] });
+        throw new Error("late_provider_failure");
+      },
+    });
+    const result = await subagent.delegate(delegateInput);
+    expect(result.status).toBe("Running");
+    expect((await runRepo.listRunsByTurn(ctx, delegateInput.parentTurnId))[0]?.status).toBe("Running");
+    expect((await repo.getStreamEvents(ctx, result.subTurnId)).some(event => ["done", "error"].includes(event.eventType))).toBe(false);
+  });
+
+  it.each(["lease-lost", "finalize-contested"] as const)("reconciles %s after child model execution without replaying it", async outcome => {
+    let builds = 0;
+    let modelCalls = 0;
+    const subagent = createSqliteSubagentPort({ ctx, store: new SqliteExecutionStore(repo, ctx), runRepo, genId: gen,
+      providerBuilder: input => {
+        builds++;
+        return { id: "fence-race", async *stream() {
+          modelCalls++;
+          await client.execute({ sql: "UPDATE turn_attempts SET fencing_token=fencing_token+1 WHERE id=?", args: [input.attemptId] });
+          // A visible segment loses its write fence; an empty completed response
+          // reaches the terminal CAS and loses it there instead.
+          yield { text: outcome === "lease-lost" ? "uncommitted response" : "", isFinal: true };
+        } };
+      },
+    });
+    const result = await subagent.delegate(delegateInput);
+    expect(result.status).toBe("Running");
+    expect((await repo.listTurnAttempts(ctx, result.subTurnId))[0]?.status).toBe("Running");
+    expect((await runRepo.listRunsByTurn(ctx, delegateInput.parentTurnId))[0]?.status).toBe("Running");
+    expect((await repo.getStreamEvents(ctx, result.subTurnId)).some(event => ["done", "error", "delta"].includes(event.eventType))).toBe(false);
+    expect(await subagent.delegate(delegateInput)).toMatchObject({ subTurnId: result.subTurnId, status: "Running" });
+    expect(builds).toBe(1);
+    expect(modelCalls).toBe(1);
+  });
+
+  it("keeps the run Running when the child executor cannot persist its terminal event", async () => {
+    const store = new SqliteExecutionStore(repo, ctx);
+    store.finalizeAttemptWithEvent = async () => { throw new Error("terminal write failed"); };
+    let builds = 0;
+    const subagent = createSqliteSubagentPort({ ctx, store, runRepo, genId: gen,
+      providerBuilder: () => { builds++; return createScriptedProvider([{ text: "durable prefix" }]); },
+    });
+    const result = await subagent.delegate(delegateInput);
+    expect(result.status).toBe("Running");
+    expect((await repo.listTurnAttempts(ctx, result.subTurnId))[0]?.status).toBe("Running");
+    expect((await runRepo.listRunsByTurn(ctx, delegateInput.parentTurnId))[0]?.status).toBe("Running");
+    expect((await repo.getStreamEvents(ctx, result.subTurnId)).some(event => ["done", "error"].includes(event.eventType))).toBe(false);
+    expect(await subagent.delegate(delegateInput)).toMatchObject({ subTurnId: result.subTurnId, status: "Running" });
+    expect(builds).toBe(1);
+  });
+
   it("parent cancellation prevents child admission; local-only and budget propagate", async () => {
     const control = new ControlContext({ localProcessingOnly: true, callBudget: { maxCalls: 3, usedCalls: 0 } });
     let calls = 0;
-    const subagent = createSqliteSubagentPort({ ctx, store: new SqliteExecutionStore(repo, ctx), conversationRepo: repo, runRepo, genId: gen,
+    const subagent = createSqliteSubagentPort({ ctx, store: new SqliteExecutionStore(repo, ctx), runRepo, genId: gen,
       providerBuilder: (input) => { calls++; expect(input.controlContext?.localProcessingOnly).toBe(true); return createScriptedProvider([{ text: "ok" }]); },
     });
     try {
@@ -96,7 +149,6 @@ describe("SqliteSubagentPort（子任务委托执行器）", () => {
     const subagent = createSqliteSubagentPort({
       ctx,
       store: new SqliteExecutionStore(repo, ctx),
-      conversationRepo: repo,
       runRepo,
       providerBuilder: () => createScriptedProvider([{ text: "ok", toolCalls: [] }]),
       genId: gen,
@@ -114,7 +166,6 @@ describe("SqliteSubagentPort（子任务委托执行器）", () => {
     const subagent = createSqliteSubagentPort({
       ctx,
       store: new SqliteExecutionStore(repo, ctx),
-      conversationRepo: repo,
       runRepo,
       providerBuilder: () => createScriptedProvider([{ text: "x", toolCalls: [] }]),
       genId: gen,
@@ -134,7 +185,6 @@ describe("SqliteSubagentPort（子任务委托执行器）", () => {
     const subagent = createSqliteSubagentPort({
       ctx,
       store: new SqliteExecutionStore(repo, ctx),
-      conversationRepo: repo,
       runRepo,
       providerBuilder: () =>
         createScriptedProvider([
@@ -154,7 +204,6 @@ describe("SqliteSubagentPort（子任务委托执行器）", () => {
     const subagent = createSqliteSubagentPort({
       ctx,
       store: new SqliteExecutionStore(repo, ctx),
-      conversationRepo: repo,
       runRepo,
       providerBuilder: () => createScriptedProvider([{ text: "ok", toolCalls: [] }]),
       genId: gen,
@@ -169,34 +218,23 @@ describe("SqliteSubagentPort（子任务委托执行器）", () => {
     expect(await repo.listTurnAttempts(ctx, result.subTurnId)).toHaveLength(1);
   });
 
-  it("崩溃窗口重放：既有无 Attempt 的子 Turn 被复用并补建 Attempt，不重复落库", async () => {
-    const subagent = createSqliteSubagentPort({
-      ctx,
-      store: new SqliteExecutionStore(repo, ctx),
-      conversationRepo: repo,
-      runRepo,
-      providerBuilder: () => createScriptedProvider([{ text: "ok", toolCalls: [] }]),
-      genId: gen,
+  it("legacy orphan without an intent receipt is rejected without guessing recovery", async () => {
+    const subagent = createSqliteSubagentPort({ ctx, store: new SqliteExecutionStore(repo, ctx), runRepo, genId: gen,
+      providerBuilder: () => createScriptedProvider([{ text: "ok" }]),
     });
-    await repo.createTurnWithOutbox(
-      ctx,
+    await repo.createTurnWithOutbox(ctx,
       { id: "turn_crashed", sessionId: "ses_sub", idempotencyKey: "subagent:attempt_parent:2:3" },
       { id: "msg_crashed", content: "总结这段对话" },
     );
-    const result = await subagent.delegate(delegateInput);
-    expect(result.status).toBe("Completed");
-    expect(result.subTurnId).toBe("turn_crashed");
-    expect(await repo.listTurnAttempts(ctx, "turn_crashed")).toHaveLength(1);
-    const runs = await runRepo.listRunsByTurn(ctx, "turn_parent");
-    expect(runs).toHaveLength(1);
-    expect(runs[0]?.subTurnId).toBe("turn_crashed");
+    await expect(subagent.delegate(delegateInput)).rejects.toThrow("intent_unavailable");
+    expect(await repo.listTurnAttempts(ctx, "turn_crashed")).toHaveLength(0);
+    expect(await runRepo.listRunsByTurn(ctx, "turn_parent")).toHaveLength(0);
   });
 
   it("providerBuilder 拒绝（如本地处理限制）时保留原始失败原因，不再一律 subagent_failed", async () => {
     const subagent = createSqliteSubagentPort({
       ctx,
       store: new SqliteExecutionStore(repo, ctx),
-      conversationRepo: repo,
       runRepo,
       providerBuilder: () => {
         throw new Error("proactive_local_provider_required");
@@ -209,5 +247,90 @@ describe("SqliteSubagentPort（子任务委托执行器）", () => {
     const runs = await runRepo.listRunsByTurn(ctx, "turn_parent");
     expect(runs[0]?.status).toBe("Failed");
     expect(runs[0]?.error).toBe("proactive_local_provider_required");
+    expect((await repo.getTurn(ctx, result.subTurnId))?.status).toBe("Failed");
+    expect((await repo.listTurnAttempts(ctx, result.subTurnId))[0]?.status).toBe("Failed");
+    expect((await repo.getStreamReplayState(ctx, result.subTurnId)).settled).toBe(true);
+    expect(await repo.getStreamEvents(ctx, result.subTurnId)).toHaveLength(1);
+  });
+
+  it("reconciles a child cancelled after atomic acceptance but before claim, including replay", async () => {
+    const accept = runRepo.acceptRun.bind(runRepo);
+    runRepo.acceptRun = async (...args) => {
+      const result = await accept(...args);
+      if (result.created) await repo.requestCancelTurnAttempt(ctx, { turnId: result.run.subTurnId, attemptId: result.run.subAttemptId });
+      return result;
+    };
+    let builds = 0;
+    const subagent = createSqliteSubagentPort({ ctx, store: new SqliteExecutionStore(repo, ctx), runRepo, genId: gen,
+      providerBuilder: () => { builds++; return createScriptedProvider([{ text: "never" }]); },
+    });
+    const result = await subagent.delegate(delegateInput);
+    expect(result.status).toBe("Cancelled");
+    expect((await subagent.delegate(delegateInput)).status).toBe("Cancelled");
+    expect((await runRepo.listRunsByTurn(ctx, "turn_parent"))[0]?.status).toBe("Cancelled");
+    expect(builds).toBe(0);
+  });
+
+  it("replays authoritative completed child output when run summary was not committed", async () => {
+    const finalize = runRepo.finalizeRun.bind(runRepo);
+    runRepo.finalizeRun = async () => { throw new Error("summary write failed"); };
+    let builds = 0;
+    const subagent = createSqliteSubagentPort({ ctx, store: new SqliteExecutionStore(repo, ctx), runRepo, genId: gen,
+      providerBuilder: () => { builds++; return createScriptedProvider([{ text: "durable child output" }]); },
+    });
+    await expect(subagent.delegate(delegateInput)).rejects.toThrow("summary write failed");
+    runRepo.finalizeRun = finalize;
+    expect(await subagent.delegate(delegateInput)).toMatchObject({ status: "Completed", resultText: "durable child output" });
+    expect((await runRepo.listRunsByTurn(ctx, "turn_parent"))[0]?.status).toBe("Completed");
+    expect(builds).toBe(1);
+  });
+
+  it("leaves another live child owner Running and never rebuilds its provider", async () => {
+    const accept = runRepo.acceptRun.bind(runRepo);
+    runRepo.acceptRun = async (...args) => {
+      const result = await accept(...args);
+      if (result.created) await repo.claimTurnAttempt(ctx, { turnId: result.run.subTurnId, attemptId: result.run.subAttemptId,
+        expectedFencingToken: 0, leaseId: "other-live-owner" });
+      return result;
+    };
+    let builds = 0;
+    const subagent = createSqliteSubagentPort({ ctx, store: new SqliteExecutionStore(repo, ctx), runRepo, genId: gen,
+      providerBuilder: () => { builds++; return createScriptedProvider([{ text: "never" }]); },
+    });
+    expect((await subagent.delegate(delegateInput)).status).toBe("Running");
+    expect((await subagent.delegate(delegateInput)).status).toBe("Running");
+    expect(builds).toBe(0);
+    expect((await runRepo.listRunsByTurn(ctx, "turn_parent"))[0]?.status).toBe("Running");
+  });
+
+  it("preserves an authoritative Interrupted child result rather than relabeling it Failed", async () => {
+    const subagent = createSqliteSubagentPort({ ctx, store: new SqliteExecutionStore(repo, ctx), runRepo, genId: gen,
+      maxSubSteps: 0, providerBuilder: () => createScriptedProvider([{ text: "never" }]),
+    });
+    const result = await subagent.delegate(delegateInput);
+    expect(result.status).toBe("Interrupted");
+    expect((await repo.listTurnAttempts(ctx, result.subTurnId))[0]?.status).toBe("Interrupted");
+    expect((await runRepo.listRunsByTurn(ctx, "turn_parent"))[0]?.status).toBe("Interrupted");
+    expect((await subagent.delegate(delegateInput)).status).toBe("Interrupted");
+  });
+
+  it("same parent execution cannot reuse a different child intent", async () => {
+    const subagent = createSqliteSubagentPort({ ctx, store: new SqliteExecutionStore(repo, ctx), runRepo, genId: gen,
+      providerBuilder: () => createScriptedProvider([{ text: "ok" }]),
+    });
+    await subagent.delegate(delegateInput);
+    await expect(subagent.delegate({ ...delegateInput, task: "different task" })).rejects.toThrow(/intent.*mismatch/);
+    await expect(subagent.delegate({ ...delegateInput, parentTurnId: "different_parent" })).rejects.toThrow(/intent.*mismatch/);
+    expect(await runRepo.listRunsByTurn(ctx, "turn_parent")).toHaveLength(1);
+  });
+
+  it("run linkage failure rolls back child Turn and Attempt with the run", async () => {
+    const subagent = createSqliteSubagentPort({ ctx, store: new SqliteExecutionStore(repo, ctx), runRepo, genId: gen,
+      providerBuilder: () => createScriptedProvider([{ text: "ok" }]),
+    });
+    await client.execute("CREATE TRIGGER fail_sub_run BEFORE INSERT ON subagent_runs BEGIN SELECT RAISE(ABORT, 'injected_run'); END");
+    await expect(subagent.delegate(delegateInput)).rejects.toThrow();
+    expect(Number((await client.execute("SELECT COUNT(*) AS n FROM turns")).rows[0]!.n)).toBe(0);
+    expect(Number((await client.execute("SELECT COUNT(*) AS n FROM turn_attempts")).rows[0]!.n)).toBe(0);
   });
 });

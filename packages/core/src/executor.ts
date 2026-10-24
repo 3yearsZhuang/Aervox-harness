@@ -67,6 +67,8 @@ export interface ExecuteTurnResumeInput {
 }
 
 export interface ExecuteTurnOptions {
+  /** Host completion work runs before done, while lease and cancellation remain active. */
+  beforeComplete?: (signal?: AbortSignal) => Promise<void>;
   /** Step 上限（防死循环）；默认 8。多 Step 工具 Loop 由该边界兜底 */
   maxSteps?: number;
   /** 单个工具超时（ms）；默认 5000 */
@@ -143,13 +145,13 @@ export async function executeTurn(
     expectedFencingToken: resume?.expectedFencingToken,
     maxTurnDurationMs, leaseTtlMs: options?.leaseTtlMs,
     leaseHeartbeatIntervalMs: options?.leaseHeartbeatIntervalMs,
-    stepsTaken: () => stepsTaken,
+    stepsTaken: () => stepsTaken, beforeComplete: options?.beforeComplete,
   });
   if (!lifecycle.ok) return { status: "skipped", attemptId: input.attemptId, reason: lifecycle.reason };
   const { claim, control, terminator, heartbeat } = lifecycle;
   const claimLeaseId = claim.leaseId;
   const claimFencingToken = claim.fencingToken;
-  const { finalize, finalizeCancelled, finalizeInterrupted, prematureTermination } = terminator;
+  const { finalize, finalizeInterrupted, prematureTermination } = terminator;
 
   try {
     // 4b 续跑：sequence 沿用已存在事件之后（lastSequence+1 起），message 身份事件已有则跳过、
@@ -662,27 +664,8 @@ export async function executeTurn(
       safetyDecision: "approved",
     });
   } catch (err) {
-    if (lifecycle.interruption === "deletion_blocked" || lifecycle.interruption === "turn_timeout") return finalizeInterrupted(await execution.nextSequence(input.turnId), lifecycle.interruption);
-    if (err instanceof LeaseLostError || lifecycle.leaseLost) return { status: "failed", attemptId: input.attemptId, reason: "lease_lost" };
-    if (control?.budgetExceeded) return finalizeInterrupted(await execution.nextSequence(input.turnId), "token_or_call_budget_exceeded");
-    if (control?.isExpired()) {
-      const atSeq = await execution.nextSequence(input.turnId);
-      return finalizeInterrupted(atSeq, "deadline_exceeded");
-    }
-    if (control?.isAborted() && !lifecycle.failure) {
-      const atSeq = await execution.nextSequence(input.turnId);
-      return finalizeCancelled(atSeq);
-    }
-    // B4-D：终态 + error 事件原子提交（§12.2；失败即他方已终结/锁定 → 静默，无孤儿 error）
-    return await finalize(await execution.nextSequence(input.turnId), { status: "failed", reason: "execution error" }, {
-      eventType: "error",
-      eventData: {
-        code: "MODEL_UNAVAILABLE",
-        retryable: true,
-        message: err instanceof Error ? err.message : "execution failed",
-        lastSequence: Math.max(0, (await execution.nextSequence(input.turnId)) - 1),
-      },
-      safetyDecision: "approved",
+    return await terminator.finalizeFailure(await execution.nextSequence(input.turnId), err, {
+      code: "MODEL_UNAVAILABLE", retryable: true, reason: "execution error",
     }).catch((): ExecuteResult => ({ status: "failed", attemptId: input.attemptId, reason: "execution error" }));
   } finally {
     lifecycle.dispose();

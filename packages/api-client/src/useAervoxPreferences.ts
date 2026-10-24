@@ -1,8 +1,9 @@
+import { getClientTransport } from './client-context.js';
 import { preferencesApi, type SavePreferencesRequest, type UpdatePreferencesRequest } from '@aervox/contracts';
 import { requestEndpoint } from './endpoint.js';
-import { getTransport, type AervoxTransport } from './transport.js';
+import { type AervoxTransport } from './transport';
 
-export function useAervoxPreferences(transport: AervoxTransport = getTransport()) {
+export function useAervoxPreferences(transport: AervoxTransport = getClientTransport()) {
   return {
     get: () => requestEndpoint(transport, preferencesApi.get),
     save: (input: SavePreferencesRequest) => requestEndpoint(transport, preferencesApi.save, input),

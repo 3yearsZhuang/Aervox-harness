@@ -20,7 +20,6 @@ import {
   Zap,
 } from 'lucide-vue-next'
 import { ElMessage } from '@aervox/ui/utils/element'
-import type { PluginConfigField } from '@aervox/contracts'
 import {
   useAervoxPlugins,
   useAervoxSkills,
@@ -32,6 +31,7 @@ import {
   type ToolRegistrationDto,
 } from '@aervox/api-client'
 import PluginConfigForm from './PluginConfigForm.vue'
+import { usePluginConfigEditor } from './use-plugin-config-editor'
 import SkillContentDialog from './SkillContentDialog.vue'
 import ToolCallDialog from './ToolCallDialog.vue'
 import PluginPageDialog from './PluginPageDialog.vue'
@@ -54,15 +54,12 @@ const toolsApi = useAervoxTools()
 type TabKey = 'config' | 'skills' | 'tools' | 'proactive' | 'pages' | 'info'
 const currentTab = ref<TabKey>('config')
 
-// 配置相关状态
-const fields = ref<PluginConfigField[]>([])
-const values = ref<Record<string, unknown>>({})
-const secretFields = ref<Record<string, { configured: boolean }>>({})
-const secretValues = ref<Record<string, string | null>>({})
-const revision = ref(0)
-const configLoading = ref(false)
-const configSaving = ref(false)
-const issues = ref<Array<{ key: string; code: string; message: string }>>([])
+const {fields, values, secretFields, secretValues, revision, loading: configLoading, saving: configSaving, ready: configReady, error: configError, issues, save: saveConfig, reset: resetConfig, updateValue, updateSecret} = usePluginConfigEditor({
+  owner: () => ({open: props.open, pluginId: props.plugin?.id, hasConfig: Boolean(props.plugin?.configSchemaJson)}),
+  api: pluginsApi,
+  onSaved(reset) { ElMessage.success(reset ? '已恢复默认配置' : '插件配置已保存'); emit('saved'); emit('change') },
+  onError(message) { ElMessage.error(message) },
+})
 
 // 技能与工具状态
 const pluginSkills = ref<SkillDto[]>([])
@@ -121,27 +118,6 @@ const declaredMcpServers = computed<string[]>(() => {
   const spec = (props.plugin as unknown as { spec?: { mcpServers?: string[] } })?.spec
   return Array.isArray(spec?.mcpServers) ? spec.mcpServers : []
 })
-
-async function loadConfigData(): Promise<void> {
-  if (!props.plugin || !hasConfig.value) return
-  configLoading.value = true
-  issues.value = []
-  try {
-    const [schema, config] = await Promise.all([
-      pluginsApi.getConfigSchema(props.plugin.id),
-      pluginsApi.getConfig(props.plugin.id),
-    ])
-    fields.value = schema.fields
-    values.value = config.values ?? {}
-    secretFields.value = config.secretFields ?? {}
-    secretValues.value = {}
-    revision.value = config.revision ?? 0
-  } catch (e) {
-    console.error('加载插件配置失败', e)
-  } finally {
-    configLoading.value = false
-  }
-}
 
 async function loadSkillsData(): Promise<void> {
   if (!props.plugin) return
@@ -218,7 +194,6 @@ async function initializeData(): Promise<void> {
   }
 
   await Promise.all([
-    loadConfigData(),
     loadSkillsData(),
     loadToolsData(),
     loadPagesData(),
@@ -244,70 +219,6 @@ watch(
   },
   { immediate: true },
 )
-
-// 配置更新与保存
-function updateValue(key: string, value: unknown): void {
-  values.value = { ...values.value, [key]: value }
-}
-
-function updateSecret(key: string, value: string | null): void {
-  secretValues.value = { ...secretValues.value, [key]: value }
-}
-
-async function saveConfig(): Promise<void> {
-  if (!props.plugin) return
-  configSaving.value = true
-  issues.value = []
-  try {
-    const snapshot = await pluginsApi.saveConfig(props.plugin.id, {
-      revision: revision.value,
-      values: values.value,
-      secretValues: secretValues.value,
-    })
-    revision.value = snapshot.revision
-    values.value = snapshot.values ?? {}
-    secretFields.value = snapshot.secretFields ?? {}
-    secretValues.value = {}
-    ElMessage.success('插件配置已保存')
-    emit('saved')
-    emit('change')
-  } catch (e) {
-    const message = e instanceof Error ? e.message : '保存失败'
-    if (message.includes('REVISION_CONFLICT') || message.includes('409')) {
-      ElMessage.error('配置已被其他设备修改，请重新打开后重试')
-    } else {
-      ElMessage.error(message)
-    }
-  } finally {
-    configSaving.value = false
-  }
-}
-
-async function resetConfig(): Promise<void> {
-  if (!props.plugin) return
-  const confirmed = await aervoxConfirm({
-    title: '恢复默认配置？',
-    message: '恢复默认值将清空全部插件配置（含密钥），确定继续吗？',
-    variant: 'danger',
-    confirmText: '恢复默认',
-  })
-  if (!confirmed) return
-  configSaving.value = true
-  try {
-    const snapshot = await pluginsApi.resetConfig(props.plugin.id)
-    revision.value = snapshot.revision
-    values.value = snapshot.values ?? {}
-    secretFields.value = snapshot.secretFields ?? {}
-    secretValues.value = {}
-    ElMessage.success('已恢复默认配置')
-    emit('saved')
-    emit('change')
-  } catch (e) {
-    ElMessage.error(e instanceof Error ? e.message : '重置失败')
-  } finally {
-    configSaving.value = false
-  }
-}
 
 // 技能操作
 function isSkillActive(skill: SkillDto): boolean {
@@ -458,7 +369,8 @@ async function handleExport(): Promise<void> {
       <div class="settings-tab-pane">
         <!-- 1. 运行配置 -->
         <section v-if="currentTab === 'config' && hasConfig" class="tab-pane-content">
-          <div v-if="configLoading" class="settings-loading">加载配置中…</div>
+          <p v-if="configError" role="alert">{{ configError }}</p>
+      <div v-if="configLoading" class="settings-loading">加载配置中…</div>
           <div v-else-if="issues.length > 0" class="settings-issues">
             <p v-for="issue in issues" :key="issue.key" class="settings-issue">
               {{ issue.key }}: {{ issue.message }}
@@ -683,9 +595,9 @@ async function handleExport(): Promise<void> {
 
     <template #footer>
       <template v-if="currentTab === 'config' && hasConfig">
-        <AervoxButton variant="secondary" :disabled="configSaving" @click="resetConfig">恢复默认</AervoxButton>
+        <AervoxButton variant="secondary" :disabled="configSaving || !configReady" @click="resetConfig">恢复默认</AervoxButton>
         <AervoxButton variant="secondary" @click="emit('close')">取消</AervoxButton>
-        <AervoxButton variant="primary" :loading="configSaving" @click="saveConfig">保存配置</AervoxButton>
+        <AervoxButton variant="primary" :loading="configSaving" :disabled="!configReady || configLoading" @click="saveConfig">保存配置</AervoxButton>
       </template>
       <template v-else>
         <AervoxButton variant="secondary" @click="emit('close')">关闭</AervoxButton>

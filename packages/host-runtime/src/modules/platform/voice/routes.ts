@@ -3,6 +3,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import {
+  voiceApi,
   localVoiceConfigSchema,
   voiceSynthesisRequestSchema,
   voiceInputConfigSchema,
@@ -11,6 +12,7 @@ import {
   voiceRemoteTestConnectionRequestSchema,
   voiceCreatePresetRequestSchema,
 } from "@aervox/contracts";
+import { registerContractRoute } from "../../../shared/contract-route.js";
 import { resolveLocalContext } from "../../../shared/local-context.js";
 import { GptSovitsRemoteProvider } from "./gpt-sovits.js";
 import type { VoiceService } from "./service.js";
@@ -24,12 +26,12 @@ function fromBase64(value: string): Buffer {
 }
 
 export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService): void {
-  app.get("/v1/voice/models", async () => {
+  registerContractRoute(app, voiceApi.models, async () => {
     const models = await service.listModels();
     return { models };
   });
 
-  app.post("/v1/voice/synthesize", async (request, reply) => {
+  registerContractRoute(app, voiceApi.synthesize, async (request, reply) => {
     const parsed = voiceSynthesisRequestSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.code(400).send({
@@ -61,13 +63,13 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
   });
 
   // GET /v1/voice/config — 读取当前租户本地语音模型配置（CR-011 阶段 1）
-  app.get("/v1/voice/config", async (request) => {
+  registerContractRoute(app, voiceApi.local, async (request) => {
     const tenant = resolveLocalContext(request);
     return service.getLocalConfig(tenant);
   });
 
   // PUT /v1/voice/config — 保存本地语音模型配置（modelPath 受 allowedRoots 白名单约束）
-  app.put("/v1/voice/config", async (request, reply) => {
+  registerContractRoute(app, voiceApi.saveLocal, async (request, reply) => {
     const parsed = localVoiceConfigSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.code(400).send({
@@ -89,13 +91,13 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
   });
 
   // GET /v1/voice/remote/config — 读取当前租户在线语音模型配置（CR-028）
-  app.get("/v1/voice/remote/config", async (request) => {
+  registerContractRoute(app, voiceApi.remote, async (request) => {
     const tenant = resolveLocalContext(request);
     return service.getRemoteConfig(tenant);
   });
 
   // PUT /v1/voice/remote/config — 保存在线语音模型配置（endpoint 必须为合法 http(s) URL）
-  app.put("/v1/voice/remote/config", async (request, reply) => {
+  registerContractRoute(app, voiceApi.saveRemote, async (request, reply) => {
     const parsed = remoteVoiceConfigSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.code(400).send({
@@ -106,7 +108,7 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
     }
     const tenant = resolveLocalContext(request);
     try {
-      const cfg = await service.setRemoteConfig(tenant, parsed.data);
+      const cfg = await service.setRemoteConfig(tenant, { ...parsed.data, settings: parsed.data.settings ?? {} });
       return cfg;
     } catch (error) {
       return reply.code(400).send({
@@ -117,7 +119,7 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
   });
 
   // POST /v1/voice/remote/test-connection — 在线语音服务连通性测试（CR-028，对齐 /v1/llm/test-connection 先例）
-  app.post("/v1/voice/remote/test-connection", async (request, reply) => {
+  registerContractRoute(app, voiceApi.testRemote, async (request, reply) => {
     const parsed = voiceRemoteTestConnectionRequestSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.code(400).send({
@@ -142,13 +144,13 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
   });
 
   // GET /v1/voice/input/config — 读取离线语音输入配置（CR-016）
-  app.get("/v1/voice/input/config", async (request) => {
+  registerContractRoute(app, voiceApi.input, async (request) => {
     const tenant = resolveLocalContext(request);
     return service.getVoiceInputConfig(tenant);
   });
 
   // PUT /v1/voice/input/config — 保存离线语音输入配置
-  app.put("/v1/voice/input/config", async (request, reply) => {
+  registerContractRoute(app, voiceApi.saveInput, async (request, reply) => {
     const parsed = voiceInputConfigSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.code(400).send({
@@ -159,7 +161,7 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
     }
     const tenant = resolveLocalContext(request);
     try {
-      const cfg = await service.setVoiceInputConfig(tenant, parsed.data as any);
+      const cfg = await service.setVoiceInputConfig(tenant, { ...parsed.data, settings: parsed.data.settings ?? {} });
       return cfg;
     } catch (error) {
       return reply.code(400).send({
@@ -170,13 +172,13 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
   });
 
   // GET /v1/voice/input/model/status — 读取模型状态
-  app.get("/v1/voice/input/model/status", async (request) => {
+  registerContractRoute(app, voiceApi.modelStatus, async (request) => {
     const tenant = resolveLocalContext(request);
     return service.getVoiceInputModelStatus(tenant);
   });
 
   // POST /v1/voice/input/model/download — 触发模型下载
-  app.post("/v1/voice/input/model/download", async (request, reply) => {
+  registerContractRoute(app, voiceApi.downloadModel, async (request, reply) => {
     const tenant = resolveLocalContext(request);
     const body = (request.body as { targetDir?: string; mirrorUrl?: string } | undefined) ?? {};
     try {
@@ -191,7 +193,7 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
   });
 
   // POST /v1/voice/transcribe — 离线语音识别转写
-  app.post("/v1/voice/transcribe", async (request, reply) => {
+  registerContractRoute(app, voiceApi.transcribe, async (request, reply) => {
     const parsed = voiceTranscribeRequestSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.code(400).send({
@@ -230,13 +232,13 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
   // ---- 多预设管理（与人格设定同款：列表/新建/激活/删除） ----
 
   // GET /v1/voice/presets — 列出全部语音配置预设（含激活标记与三块配置）
-  app.get("/v1/voice/presets", async (request) => {
+  registerContractRoute(app, voiceApi.presets, async (request) => {
     const tenant = resolveLocalContext(request);
     return service.listVoicePresets(tenant);
   });
 
   // POST /v1/voice/presets — 新建语音配置预设
-  app.post("/v1/voice/presets", async (request, reply) => {
+  registerContractRoute(app, voiceApi.createPreset, async (request, reply) => {
     const parsed = voiceCreatePresetRequestSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.code(400).send({
@@ -248,7 +250,7 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
     const tenant = resolveLocalContext(request);
     try {
       const created = await service.createVoicePreset(tenant, parsed.data.name);
-      return reply.code(201).send(created);
+      return created;
     } catch (error) {
       return reply.code(400).send({
         code: "INVALID_VOICE_PRESET",
@@ -258,7 +260,7 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
   });
 
   // POST /v1/voice/presets/:presetId/activate — 激活指定语音配置预设
-  app.post("/v1/voice/presets/:presetId/activate", async (request, reply) => {
+  registerContractRoute(app, voiceApi.activatePreset, async (request, reply) => {
     const { presetId } = request.params as { presetId: string };
     const tenant = resolveLocalContext(request);
     const activated = await service.activateVoicePreset(tenant, presetId);
@@ -269,7 +271,7 @@ export function registerVoiceRoutes(app: FastifyInstance, service: VoiceService)
   });
 
   // DELETE /v1/voice/presets/:presetId — 删除指定语音配置预设
-  app.delete("/v1/voice/presets/:presetId", async (request, reply) => {
+  registerContractRoute(app, voiceApi.deletePreset, async (request, reply) => {
     const { presetId } = request.params as { presetId: string };
     const tenant = resolveLocalContext(request);
     const deleted = await service.deleteVoicePreset(tenant, presetId);

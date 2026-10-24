@@ -4,7 +4,7 @@ import { createScriptedProvider, defaultContextBuilder, executeTurn, type ToolPr
 import { SqliteExecutionStore } from "@aervox/host-agent";
 import { createInMemoryDatabase, SqliteConversationRepository, SqliteExtensionRepository, SqliteToolRegistryRepository } from "@aervox/repositories";
 import { loadExecutionConfig } from "@aervox/config";
-import { registerConversationRoutes, type ConversationRouteDeps } from "../src/modules/companion/conversation/routes.js";
+import { registerConversationRoutes, type ConversationRouteDeps } from "./conversation-fixture.js";
 import { createContributionToolProvider, createRuntimeToolProvider } from "../src/modules/companion/conversation/tool-providers.js";
 import { ToolRuntime } from "../src/modules/ecosystem/tools/runtime.js";
 import { setRequestLocalContext } from "../src/shared/local-context.js";

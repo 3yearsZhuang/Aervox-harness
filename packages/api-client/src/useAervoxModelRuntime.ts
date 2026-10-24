@@ -4,8 +4,8 @@
  * 封装模型下载（多任务队列）/ llama-server 生命周期 / 状态查询 / SSE 实时订阅，
  * 供 Web 与 Desktop 共用。
  */
-import { getTransport } from './transport';
-import { modelRuntimeApi } from '@aervox/contracts';
+import { getClientTransport } from './client-context.js';
+import { modelRuntimeApi, modelRuntimeStateSchema } from '@aervox/contracts';
 import { requestEndpoint } from './endpoint.js';
 
 // Preserve public client names while deriving every DTO from the shared schemas.
@@ -26,7 +26,7 @@ import type {
 } from '@aervox/contracts';
 
 export function useAervoxModelRuntime() {
-  const transport = getTransport();
+  const transport = getClientTransport();
 
   /** 全量状态（模型注册表 / 运行时 / 下载队列 / llama-server 配置） */
   const getState = async (): Promise<ModelRuntimeStateDto> =>
@@ -44,39 +44,39 @@ export function useAervoxModelRuntime() {
 
   /** 暂停下载（保留 .part，支持断点续传） */
   const pauseDownload = async (taskId: string): Promise<ModelRuntimeStateDto> =>
-    transport.request<ModelRuntimeStateDto>(
+    transport.request(
       'POST',
       `/v1/model-runtime/downloads/${encodeURIComponent(taskId)}/pause`,
-    );
+    ).then(value => modelRuntimeStateSchema.parse(value));
 
   /** 恢复已暂停的下载（.part 续传） */
   const resumeDownload = async (taskId: string): Promise<ModelRuntimeStateDto> =>
-    transport.request<ModelRuntimeStateDto>(
+    transport.request(
       'POST',
       `/v1/model-runtime/downloads/${encodeURIComponent(taskId)}/resume`,
-    );
+    ).then(value => modelRuntimeStateSchema.parse(value));
 
   /** 取消下载（清除 .part 残片） */
   const cancelDownload = async (taskId: string): Promise<ModelRuntimeStateDto> =>
-    transport.request<ModelRuntimeStateDto>(
+    transport.request(
       'POST',
       `/v1/model-runtime/downloads/${encodeURIComponent(taskId)}/cancel`,
-    );
+    ).then(value => modelRuntimeStateSchema.parse(value));
 
   /** 启动 llama-server 服务指定模型 */
   const start = async (input: ModelRuntimeStartInput): Promise<ModelRuntimeStateDto> =>
-    transport.request<ModelRuntimeStateDto>('POST', '/v1/model-runtime/start', input);
+    transport.request('POST', '/v1/model-runtime/start', input).then(value => modelRuntimeStateSchema.parse(value));
 
   /** 停止当前 llama-server（幂等） */
   const stop = async (): Promise<ModelRuntimeStateDto> =>
-    transport.request<ModelRuntimeStateDto>('POST', '/v1/model-runtime/stop');
+    transport.request('POST', '/v1/model-runtime/stop').then(value => modelRuntimeStateSchema.parse(value));
 
   /** 删除已下载模型（运行中禁止） */
   const deleteModel = async (modelId: string): Promise<ModelRuntimeStateDto> =>
-    transport.request<ModelRuntimeStateDto>(
+    transport.request(
       'DELETE',
       `/v1/model-runtime/models/${encodeURIComponent(modelId)}`,
-    );
+    ).then(value => modelRuntimeStateSchema.parse(value));
 
   /**
    * 订阅运行时状态实时快照（GET /v1/model-runtime/events）。
@@ -94,8 +94,8 @@ export function useAervoxModelRuntime() {
         await transport.streamEvents('/v1/model-runtime/events', {
           onEvent(value) {
             if (!value || typeof value !== 'object') return;
-            const payload = value as { event?: string; data?: ModelRuntimeStateDto };
-            if (payload.event === 'snapshot' && payload.data) onSnapshot(payload.data);
+            const payload = value as { event?: string; data?: unknown };
+            if (payload.event === 'snapshot' && payload.data) onSnapshot(modelRuntimeStateSchema.parse(payload.data));
           },
         }, controller.signal);
       } catch (err) {

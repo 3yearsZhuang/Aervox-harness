@@ -82,6 +82,9 @@ export const REMOVABLE_TARGETS = [
     // 插件自带测试直接引用其私有文件属合法（测试随实现内聚）。
     allowedAssemblyFiles: [
       "packages/host-runtime/src/plugin-assembly.ts",
+      // Exact integration tests exercise the removable public server contribution.
+      "apps/api/test/study-term-plugins.test.ts",
+      "packages/host-runtime/test/tool-binding-lifecycle.test.ts",
       "apps/web/src/App.vue",
       "apps/desktop/src/renderer/src/App.vue",
       "plugins/focus-mode/test/focus-tools.test.ts",

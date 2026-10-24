@@ -189,7 +189,8 @@ describe("2b 取消请求位（CancelRequested）", () => {
     await repo.createTurnAttempt(ctx, "turn_cancel", { id: "atp_cancel", attempt: 1 });
   });
 
-  it("Running attempt 可置取消请求位，turns 同步 Cancelled（未终态）", async () => {
+  it("claimed Running attempt records cancellation without pretending the Turn is settled", async () => {
+    await repo.claimTurnAttempt(ctx, { turnId: "turn_cancel", attemptId: "atp_cancel", expectedFencingToken: 0, leaseId: "cancel-owner" });
     const res = await repo.requestCancelTurnAttempt(ctx, { turnId: "turn_cancel", attemptId: "atp_cancel" });
     expect(res.ok).toBe(true);
     expect(await repo.getTurnAttemptStatus(ctx, { turnId: "turn_cancel", attemptId: "atp_cancel" })).toBe("CancelRequested");
@@ -217,12 +218,13 @@ describe("2b 取消请求位（CancelRequested）", () => {
   });
 
   it("CancelRequested 可提交终态（Cancelled），且单一终态仍成立", async () => {
+    await repo.claimTurnAttempt(ctx, { turnId: "turn_cancel", attemptId: "atp_cancel", expectedFencingToken: 0, leaseId: "cancel-owner" });
     await repo.requestCancelTurnAttempt(ctx, { turnId: "turn_cancel", attemptId: "atp_cancel" });
     const finalized = await repo.finalizeTurnAttempt(ctx, {
       turnId: "turn_cancel",
       attemptId: "atp_cancel",
       status: "Cancelled",
-      expectedFencingToken: 0,
+      expectedFencingToken: 1,
     });
     expect(finalized).not.toBeNull();
     // 已终态：二次提交被拒
@@ -230,10 +232,27 @@ describe("2b 取消请求位（CancelRequested）", () => {
       turnId: "turn_cancel",
       attemptId: "atp_cancel",
       status: "Failed",
-      expectedFencingToken: 0,
+      expectedFencingToken: 1,
     });
     expect(second).toBeNull();
     expect(await repo.getTurnAttemptStatus(ctx, { turnId: "turn_cancel", attemptId: "atp_cancel" })).toBe("Cancelled");
+  });
+
+  it("unclaimed cancellation and a racing claim commit exactly one terminal", async () => {
+    const [cancel, claim] = await Promise.all([
+      repo.requestCancelTurnAttempt(ctx, { turnId: "turn_cancel", attemptId: "atp_cancel" }),
+      repo.claimTurnAttempt(ctx, { turnId: "turn_cancel", attemptId: "atp_cancel", expectedFencingToken: 0, leaseId: "racing-owner" }),
+    ]);
+    expect(cancel.ok).toBe(true);
+    if (claim.ok) {
+      expect(await repo.getTurnAttemptStatus(ctx, { turnId: "turn_cancel", attemptId: "atp_cancel" })).toBe("CancelRequested");
+      expect(await repo.getStreamEvents(ctx, "turn_cancel")).toHaveLength(0);
+    } else {
+      expect(await repo.getTurnAttemptStatus(ctx, { turnId: "turn_cancel", attemptId: "atp_cancel" })).toBe("Cancelled");
+      expect(await repo.getStreamEvents(ctx, "turn_cancel")).toHaveLength(1);
+    }
+    await repo.requestCancelTurnAttempt(ctx, { turnId: "turn_cancel", attemptId: "atp_cancel" });
+    expect((await repo.getStreamEvents(ctx, "turn_cancel")).filter(event => event.eventType === "done")).toHaveLength(claim.ok ? 0 : 1);
   });
 
   it("未知 attempt 返回 not_found（查询状态为 null）", async () => {

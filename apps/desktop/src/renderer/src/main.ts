@@ -4,12 +4,13 @@ import { ElDialog } from 'element-plus/es/components/dialog/index.mjs'
 import { ElDropdown, ElDropdownItem, ElDropdownMenu } from 'element-plus/es/components/dropdown/index.mjs'
 import { ElTooltip } from 'element-plus/es/components/tooltip/index.mjs'
 import 'element-plus/dist/index.css'
-import {configureAervoxClient, desktopTransport} from '@aervox/api-client'
+import {createAervoxClient, provideAervoxClient, desktopTransport} from '@aervox/api-client'
 import './styles/shell.css'
+import '@aervox/ui/theme'
 import App from './App.vue'
 
 // 桌面端统一走 IPC transport（无桥环境可换 fetch，见 @aervox/api-client）
-configureAervoxClient({ transport: desktopTransport, platform: {
+const client = createAervoxClient({ sessionStorage: (() => { try { return window.localStorage; } catch { return null; } })(), transport: desktopTransport, platform: {
     setTheme: window.fairyDesktop?.setTheme,
     onPetCommand: window.fairyDesktop?.onPetCommand,
     pickDirectory: window.fairyDesktop?.pickDirectory,
@@ -23,6 +24,7 @@ window.fairyDesktop?.getTheme().then((theme) => {
 })
 
 const app = createApp(App)
+provideAervoxClient(client, app)
 const elementComponents = [
   ElButton,
   ElDialog,

@@ -215,6 +215,7 @@ id: AVX-SRS-001
 - **会话状态**：会话只能从 `active` 转为 `completed`；结束操作可重试并返回同一汇总结果。已结束、不属于题组的作答不得写入；不属于当前本地用户的资源统一返回 404。
 - **判定与数据**：服务端根据题目的标准答案判定可确定答案（标准化比较，忽略大小写与首尾空白）；短文本题保留正确、部分正确与待确认的判定语义；部分正确和不可验证的待确认结果不直接计入掌握度。`QuestionAttempt` 为不可变事实，掌握度和复习项为派生状态；待确认或答案不可验证的题目不得进入掌握度、正式错题或复习调度。
 - **重试与事务**：HTTP 既有题目作答和插件判定作答使用同一领域事务命令，原子提交作答事实、可确定判定的掌握度、关联知识点的复习调度及 Outbox 回执；插件的 `turnId` 必须解析为来源回合的真实 `sessionId`，不能混用。作答请求可携带 `Idempotency-Key`；同一题目和业务操作维度内同键同有效输入只创建一个作答事实，且只触发一次掌握度与复习调度更新。同键异参返回 `409 idempotency_key_reused`。请求超时后客户端必须使用原键重试，服务端以 `200` 重放首个成功事务的作答和 `nextStep`，不随之后的题目、会话结束或复习状态重算。回执随不可变作答保留；旧作答缺少可证明完整提交的回执时返回 `409 answer_receipt_unavailable`，不得虚报调度成功或自动补造派生结果。只有事务实际写入复习项时才返回 `review_scheduled`，不可验证、部分正确或答错但无关联知识点时返回 `await_review`。
+- **复习完成与报告**：复习完成使用同一学习派生政策，在写者事务中读取最新知识状态、推进计数与掌握度、完成原复习并创建后续排期；不得接受路由计算的绝对旧快照。重复完成通过持久回执复用，正确性或显式时区不同返回 `409 review_completion_payload_mismatch`；旧完成记录缺回执返回 `409 review_completion_receipt_unavailable`，不自动回填。练习报告按作答事务回执聚合 `nextStep`，缺失或失配回执表示 `await_review`，不根据错题数量推测排期已成功。
 - **错题处置与错因**：错题本条目可为 `active`、`mastered` 或 `dismissed`。`dismissed` 仅隐藏派生错题条目，并排除错题重练；恢复后重新进入 `active`。用户可以为任一错题保存一个标准错因（概念不清、计算失误、粗心、审题偏差或其他）和最多 500 字的补充说明，并按错因筛选。错因是用户元数据，不参与判题、掌握度或复习调度；任何处置或错因更新均不得删除或改写 `QuestionAttempt`、知识点统计或已创建复习项。
 - **验收**：
   - `AC-FR-PRC-001-01`：Given 用户重复提交同一答案，When 请求重试，Then 只产生一个作答事实和一个调度结果。
@@ -683,10 +684,11 @@ CAP-014 当前分支 API 与地图读取切片保持会话内容和布局元数�
 ### FR-PLG-003 插件配置并发与重置
 
 - **Parent CAP**：`CAP-020`
-- **必须**：保存使用 revision CAS；冲突返回 409 且不静默覆盖；重置需用户确认并清空 secret。
+- **必须**：保存使用 revision CAS；保存和重置在写事务内联合复验启用、可用性、lifecycleGeneration、Schema 与 revision，冲突返回 409 且不静默覆盖；重置需用户确认并清空 secret。
 - **验收**：
   - `AC-FR-PLG-003-01`：Given 旧 revision 保存，When 提交，Then 返回 `PLUGIN_CONFIG_REVISION_CONFLICT`；
   - `AC-FR-PLG-003-02`：Given 用户确认重置，When 提交，Then 恢复 Schema 默认值且 secret 全部清除。
+  - `AC-FR-PLG-003-03`：Given 校验后插件停用、缺包、换代、Schema 或配置 revision 改变，When 旧保存或重置进入写事务，Then 返回 `PLUGIN_CONFIG_REVISION_CONFLICT` 且配置和 secret 均不改变。
 
 ### FR-PLG-004 插件 Page 与 Bridge
 
@@ -698,6 +700,7 @@ CAP-014 当前分支 API 与地图读取切片保持会话内容和布局元数�
   - `AC-FR-PLG-004-02`：Given Page 声明 `config.write`，When 保存配置，Then revision 递增；未声明时调用被拒绝；
   - `AC-FR-PLG-004-03`：Given 路径穿越或未启用插件，When 访问静态资源，Then 被拒绝。
   - `AC-FR-PLG-004-04`：Given Page 根以下存在符号链接祖先、多硬链接文件或路径在打开前被替换，When 上传或读取资源，Then 拒绝越界访问且不修改外部文件；generation 包资源保持不可变。
+  - `AC-FR-PLG-004-05`：Given Page 已按 lifecycleGeneration 打开，When 插件停用再启用或缺包恢复，Then 旧代际配置读写返回冲突；窗口观察到新代际后丢弃旧 iframe、Nonce 和在途响应。
 
 ### FR-PLG-005 Bot 平台文字接入
 
@@ -789,6 +792,7 @@ CAP-014 当前分支 API 与地图读取切片保持会话内容和布局元数�
 - **必须**：仅在本地处理观察，形成带证据、置信度、授权修订和来源范围的 `ProfileClaim`；允许自动生成 `inferred` 候选并提炼为既有用户记忆，但不得跳过记忆层级、来源链或用户确认规则；支持查看、确认、纠正、拒绝和删除。
 - **异常**：本地模型/Embedding 不可用、证据冲突、来源已撤权、提炼失败或记忆写入失败。
 - **数据**：`ProfileClaim`、`MemoryRecord/Revision/Event`、`MemoryEvidence`；所有派生记录继承 `processingBoundary=local_only`。
+- **批次一致性**：单次自动提炼的全部观察、claim、捕获完成标记和元数据回执在同一写者事务提交，并复验来源授权与删除状态。同一捕获的相同有效批次复用回执，异参或旧部分结果缺回执时明确拒绝，不猜测完整性。手工完成只接受与该捕获真实关联的结果，不覆盖已完成批次；迟到失败不得回退成功状态，错误记录只保留安全错误码。
 - **验收**：
   - `AC-FR-PRO-003-01`：Given 多个有效本地观察，When 处理，Then 生成 `inferred` claim 并显示证据、置信度和适用范围。
   - `AC-FR-PRO-003-02`：Given 用户确认 claim，When 提炼为长期记忆，Then 保留来源捕获、grant revision 和提炼事件，且不覆盖原始事实。

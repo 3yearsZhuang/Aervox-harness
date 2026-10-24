@@ -28,6 +28,9 @@ const systemPromptAppend = ref('')
 const expectedRevision = ref(1)
 const loading = ref(false)
 const saving = ref(false)
+const ready = ref(false)
+let generation = 0
+let loadedOwner: {generation: number; personaId: string | null} | undefined
 
 const availableTools = ref<ToolItemDto[]>([])
 const availableSkills = ref<SkillItemDto[]>([])
@@ -52,63 +55,52 @@ const selectedSkillsCount = computed(() => {
   return selectedSkillNames.value.length
 })
 
+function clearDraft() {
+  name.value = ''; description.value = ''; systemPromptAppend.value = ''; expectedRevision.value = 1
+  availableTools.value = []; availableSkills.value = []
+  useAllTools.value = true; selectedToolIds.value = []
+  useAllSkills.value = true; selectedSkillNames.value = []; voice.value = null
+  loading.value = false; saving.value = false; ready.value = false; loadedOwner = undefined
+}
+function isCurrent(owner: {generation: number; personaId: string | null}) {
+  return props.open && owner.generation === generation && owner.personaId === props.personaId
+}
 watch(
-  () => props.open,
-  async (isOpen) => {
-    if (!isOpen) return
+  () => [props.open, props.personaId] as const,
+  async ([open, personaId], _, onCleanup) => {
+    const owner = {generation: ++generation, personaId}
+    clearDraft()
+    onCleanup(() => { ++generation; clearDraft() })
+    if (!open) return
     loading.value = true
     try {
-      const [tools, skills] = await Promise.all([
-        api.loadAvailableTools(),
-        api.loadAvailableSkills(),
+      const [tools, skills, detail] = await Promise.all([
+        api.loadAvailableTools(), api.loadAvailableSkills(),
+        personaId ? api.getPersonaDetail(personaId) : Promise.resolve(null),
       ])
-      availableTools.value = tools
-      availableSkills.value = skills
-
-      if (props.personaId) {
-        const detail = await api.getPersonaDetail(props.personaId)
+      if (!isCurrent(owner)) return
+      availableTools.value = tools; availableSkills.value = skills
+      if (detail) {
         name.value = detail.persona.name
         description.value = detail.persona.description ?? ''
         if (detail.revision) {
           expectedRevision.value = detail.revision.revision
           systemPromptAppend.value = detail.revision.config.systemPromptAppend
-          if (detail.revision.config.allowedMcpToolIds === undefined) {
-            useAllTools.value = true
-            selectedToolIds.value = []
-          } else {
-            useAllTools.value = false
-            selectedToolIds.value = [...detail.revision.config.allowedMcpToolIds]
-          }
-
-          if (detail.revision.config.allowedSkillNames === undefined) {
-            useAllSkills.value = true
-            selectedSkillNames.value = []
-          } else {
-            useAllSkills.value = false
-            selectedSkillNames.value = [...detail.revision.config.allowedSkillNames]
-          }
-
+          useAllTools.value = detail.revision.config.allowedMcpToolIds === undefined
+          selectedToolIds.value = [...detail.revision.config.allowedMcpToolIds ?? []]
+          useAllSkills.value = detail.revision.config.allowedSkillNames === undefined
+          selectedSkillNames.value = [...detail.revision.config.allowedSkillNames ?? []]
           voice.value = detail.revision.config.voice ? {...detail.revision.config.voice} : null
         }
-      } else {
-        // 创建模式默认值
-        name.value = ''
-        description.value = ''
-        systemPromptAppend.value = ''
-        expectedRevision.value = 1
-        useAllTools.value = true
-        selectedToolIds.value = []
-        useAllSkills.value = true
-        selectedSkillNames.value = []
-        voice.value = null
       }
-    } catch (e) {
-      ElMessage.error(e instanceof Error ? e.message : '加载人格配置失败')
-      emit('close')
-    } finally {
-      loading.value = false
-    }
-  },
+      loadedOwner = owner; ready.value = true
+    } catch (cause) {
+      if (isCurrent(owner)) {
+        ElMessage.error(cause instanceof Error ? cause.message : '加载人格配置失败')
+        emit('close')
+      }
+    } finally { if (isCurrent(owner)) loading.value = false }
+  }, {immediate: true},
 )
 
 function toggleTool(toolId: string) {
@@ -165,7 +157,18 @@ function isSkillSelected(skillName: string) {
   return useAllSkills.value || selectedSkillNames.value.includes(skillName)
 }
 
+function updateVoice(value: VoiceSelectionValue | null) {
+  const previous = voice.value
+  // The voice picker edits model and speaker fields, while persisted provider
+  // settings have no editor here. Keep them when changing the same model.
+  voice.value = value && previous?.providerId === value.providerId && previous.modelId === value.modelId
+    ? {...value, ...(previous.settings && value.settings === undefined ? {settings: {...previous.settings}} : {})}
+    : value
+}
+
 async function save() {
+  const owner = loadedOwner
+  if (!owner || !isCurrent(owner) || !ready.value || loading.value || saving.value) return
   const trimmedName = name.value.trim()
   const trimmedPrompt = systemPromptAppend.value.trim()
 
@@ -182,18 +185,19 @@ async function save() {
   try {
     const config = {
       systemPromptAppend: trimmedPrompt,
-      allowedSkillNames: useAllSkills.value ? undefined : selectedSkillNames.value,
-      allowedMcpToolIds: useAllTools.value ? undefined : selectedToolIds.value,
-      voice: voice.value ?? undefined,
+      allowedSkillNames: useAllSkills.value ? undefined : [...selectedSkillNames.value],
+      allowedMcpToolIds: useAllTools.value ? undefined : [...selectedToolIds.value],
+      voice: voice.value ? {...voice.value, ...(voice.value.settings ? {settings: {...voice.value.settings}} : {})} : undefined,
     }
 
-    if (props.personaId) {
-      await api.updatePersona(props.personaId, {
+    if (owner.personaId) {
+      await api.updatePersona(owner.personaId, {
         expectedRevision: expectedRevision.value,
         name: trimmedName,
         description: description.value.trim(),
         config,
       })
+      if (!isCurrent(owner)) return
       ElMessage.success('人格已更新')
     } else {
       await api.createPersona({
@@ -201,11 +205,13 @@ async function save() {
         description: description.value.trim(),
         config,
       })
+      if (!isCurrent(owner)) return
       ElMessage.success('人格已创建')
     }
     emit('saved')
     emit('close')
   } catch (e) {
+    if (!isCurrent(owner)) return
     const message = e instanceof Error ? e.message : '保存失败'
     if (message.includes('409') || message.includes('REVISION_CONFLICT')) {
       ElMessage.error('人格版本发生冲突，请重新打开后重试')
@@ -213,7 +219,7 @@ async function save() {
       ElMessage.error(message)
     }
   } finally {
-    saving.value = false
+    if (isCurrent(owner)) saving.value = false
   }
 }
 </script>
@@ -310,7 +316,7 @@ async function save() {
         </AervoxCard>
 
         <!-- 语音块 -->
-        <VoiceAbilityCard v-model="voice" />
+        <VoiceAbilityCard :model-value="voice" @update:model-value="updateVoice" />
 
         <!-- 技能块 -->
         <AervoxCard as="div" class="ability-card">
@@ -352,7 +358,7 @@ async function save() {
 
     <template #footer>
       <AervoxButton variant="secondary" @click="emit('close')">取消</AervoxButton>
-      <AervoxButton variant="primary" :loading="saving" @click="save">
+      <AervoxButton variant="primary" :loading="saving" :disabled="!ready || loading" @click="save">
         保存
       </AervoxButton>
     </template>

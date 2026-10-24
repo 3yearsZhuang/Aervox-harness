@@ -7,7 +7,7 @@
  * - 协议缺陷（未声明批次）；请求超时 kill（失败自动禁用 → 后续 run 抛 adapter_unavailable）；
  * - Profile 解析：dsh/pi 缺 adapter 拒绝、adapterId 失配拒绝、有 adapter 解析成功；replay/native 不回归。
  */
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAgentProfile, createStdioAdapterDriver } from "../src/index.js";
 import { drainAdapterDriver, createSimAdapterDriver } from "@aervox/core";
 import type { AdapterManifest } from "@aervox/core";
@@ -41,6 +41,7 @@ describe("阶段 6 createStdioAdapterDriver（子进程 JSON-RPC）", () => {
   afterEach(async () => {
     for (const h of handles) await h.close();
     handles = [];
+    vi.unstubAllEnvs();
   });
 
   const open = (env: Record<string, string> = {}, expected?: { adapterId: "dsh" | "pi"; sha256?: string }) =>
@@ -54,6 +55,13 @@ describe("阶段 6 createStdioAdapterDriver（子进程 JSON-RPC）", () => {
       handles.push(h);
       return h;
     });
+
+  it("spawns from the explicit environment without inheriting later host variables", async () => {
+    vi.stubEnv("SIM_DELTA", "late host value");
+    const handle = await open({ ADAPTER_SHA: dshSha });
+    const { events } = await drainAdapterDriver(handle.driver, request);
+    expect(events.find(event => event.type === "delta")).toEqual({ type: "delta", text: "模拟适配器执行完成" });
+  });
 
   it("rejected admission waits until the child has exited", async () => {
     const dir = await mkdtemp(join(tmpdir(), "adapter-pid-"));

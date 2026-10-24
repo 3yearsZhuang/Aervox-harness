@@ -22,46 +22,9 @@ import type {
   ASRTranscribeResult,
 } from "./types.js";
 
-/** 本地语音模型配置（CR-011 阶段 1 · WebUI 设置读写） */
-export interface LocalVoiceConfig {
-  enabled: boolean;
-  providerId: string;
-  modelPath?: string;
-  modelId: string;
-  speakerId?: string;
-  settings?: Record<string, string | number | boolean>;
-}
-
-/** 在线语音模型配置（CR-028 · GPT-SoVITS 远程 API，WebUI 设置读写） */
-export interface RemoteVoiceConfig {
-  enabled: boolean;
-  providerId: string;
-  /** api_v2 服务 base URL（env 未配置且未持久化时缺省） */
-  endpoint?: string;
-  apiKey?: string;
-  modelId: string;
-  speakerId?: string;
-  textLang?: string;
-  refAudioPath?: string;
-  promptText?: string;
-  promptLang?: string;
-  auxRefAudioPaths?: string[];
-  speedFactor?: number;
-  settings?: Record<string, string | number | boolean>;
-}
-
-/** 离线语音输入 (ASR) 配置（CR-016） */
-export interface VoiceInputConfig {
-  enabled: boolean;
-  engineType: "sensevoice-local" | "whisper-compatible";
-  modelPath?: string;
-  modelId: string;
-  endpoint?: string;
-  apiKey?: string;
-  autoStopOnKeyboard: boolean;
-  vadSilenceThresholdMs: number;
-  settings?: Record<string, string | number | boolean>;
-}
+import { remoteVoiceConfigResponseSchema, voicePresetListResponseSchema } from "@aervox/contracts";
+import type { LocalVoiceConfigInput as LocalVoiceConfig, RemoteVoiceConfigOutput as RemoteVoiceConfig, VoiceInputConfigOutput as VoiceInputConfig, VoicePresetReceipt, VoicePresetListResponse } from "@aervox/contracts";
+export type { LocalVoiceConfig, RemoteVoiceConfig, VoiceInputConfig };
 
 function normalizeLocalConfig(model: {
   enabled: number;
@@ -120,7 +83,7 @@ function normalizeRemoteConfig(model: {
   speedFactor?: number | null;
   settingsJson?: unknown;
 }): RemoteVoiceConfig {
-  return {
+  return remoteVoiceConfigResponseSchema.parse({
     enabled: model.enabled === 1,
     providerId: model.providerId,
     endpoint: model.endpoint,
@@ -138,7 +101,7 @@ function normalizeRemoteConfig(model: {
       ? { speedFactor: model.speedFactor }
       : {}),
     settings: (model.settingsJson as Record<string, string | number | boolean> | undefined) ?? {},
-  };
+  });
 }
 
 export class VoiceService {
@@ -270,7 +233,7 @@ export class VoiceService {
     const stored = this.configRepository
       ? await this.configRepository.getConfig(tenant)
       : null;
-    if (stored) {
+    if (stored?.modelId) {
       return normalizeLocalConfig({
         enabled: stored.enabled,
         providerId: stored.providerId,
@@ -282,7 +245,7 @@ export class VoiceService {
     }
     const local = this.getLocalProvider();
     return {
-      enabled: true,
+      enabled: !stored,
       providerId: this.localProviderId,
       ...(local?.defaultModelPath ? { modelPath: local.defaultModelPath } : {}),
       modelId: local?.defaultModelId ?? "default-local",
@@ -338,7 +301,7 @@ export class VoiceService {
     const stored = this.remoteConfigRepository
       ? await this.remoteConfigRepository.getConfig(tenant)
       : null;
-    if (stored) {
+    if (stored?.modelId) {
       return normalizeRemoteConfig({
         enabled: stored.enabled,
         providerId: stored.providerId,
@@ -590,17 +553,7 @@ export class VoiceService {
   // ---- 多预设管理（与人格设定同款：列表/新建/激活/删除；聚合本地输出/在线输出/输入三表） ----
 
   /** 列出全部语音配置预设（含激活标记与三块配置） */
-  async listVoicePresets(tenant: LocalContext): Promise<{
-    presets: Array<{
-      id: string;
-      name: string;
-      isActive: boolean;
-      local: LocalVoiceConfig | null;
-      remote: RemoteVoiceConfig | null;
-      input: VoiceInputConfig | null;
-    }>;
-    activeId: string | null;
-  }> {
+  async listVoicePresets(tenant: LocalContext): Promise<VoicePresetListResponse> {
     const [locals, remotes, inputs] = await Promise.all([
       this.configRepository?.listPresets(tenant) ?? [],
       this.remoteConfigRepository?.listPresets(tenant) ?? [],
@@ -624,7 +577,7 @@ export class VoiceService {
       name: string,
       id: string,
       isActive: boolean,
-      block: { kind: "local" | "remote" | "input"; config: LocalVoiceConfig | RemoteVoiceConfig | VoiceInputConfig },
+      block: { kind: "local" | "remote" | "input"; config: LocalVoiceConfig | RemoteVoiceConfig | VoiceInputConfig | null },
     ) => {
       if (!aggregates.has(name)) {
         aggregates.set(name, { name, id, isActive, local: null, remote: null, input: null });
@@ -632,21 +585,21 @@ export class VoiceService {
       }
       const entry = aggregates.get(name)!;
       if (isActive) entry.isActive = true;
-      if (block.kind === "local") entry.local = block.config as LocalVoiceConfig;
-      else if (block.kind === "remote") entry.remote = block.config as RemoteVoiceConfig;
-      else entry.input = block.config as VoiceInputConfig;
+      if (block.kind === "local") entry.local = block.config as LocalVoiceConfig | null;
+      else if (block.kind === "remote") entry.remote = block.config as RemoteVoiceConfig | null;
+      else entry.input = block.config as VoiceInputConfig | null;
     };
 
     for (const row of locals) {
       upsert(row.name ?? row.id, row.id, row.isActive === 1, {
         kind: "local" as const,
-        config: normalizeLocalConfig(row),
+        config: row.modelId ? normalizeLocalConfig(row) : null,
       });
     }
     for (const row of remotes) {
       upsert(row.name ?? row.id, row.id, row.isActive === 1, {
         kind: "remote" as const,
-        config: normalizeRemoteConfig(row),
+        config: row.modelId ? normalizeRemoteConfig(row) : null,
       });
     }
     for (const row of inputs) {
@@ -658,14 +611,14 @@ export class VoiceService {
 
     const presets = order.map((name) => aggregates.get(name)!);
     const active = presets.find((p) => p.isActive) ?? null;
-    return { presets, activeId: active?.id ?? null };
+    return voicePresetListResponseSchema.parse({ presets, activeId: active?.id ?? null });
   }
 
   /** 新建语音配置预设：在三表（若可用）各建同名占位行，保证后续保存端点按名对齐 */
   async createVoicePreset(
     tenant: LocalContext,
     name: string,
-  ): Promise<{ id: string; name: string; isActive: boolean }> {
+  ): Promise<VoicePresetReceipt> {
     const trimmed = name.trim() || "默认配置";
     const localRepo = this.configRepository;
     const remoteRepo = this.remoteConfigRepository;
@@ -675,7 +628,7 @@ export class VoiceService {
     let isActive = false;
     if (localRepo) {
       const created = await localRepo.createPreset(tenant, trimmed, {
-        enabled: true,
+        enabled: false,
         providerId: this.localProviderId,
         modelId: "",
         settings: {},
@@ -685,7 +638,7 @@ export class VoiceService {
     }
     if (remoteRepo) {
       const created = await remoteRepo.createPreset(tenant, trimmed, {
-        enabled: true,
+        enabled: false,
         providerId: this.remoteProviderId,
         endpoint: "",
         modelId: "",
@@ -713,7 +666,7 @@ export class VoiceService {
   async activateVoicePreset(
     tenant: LocalContext,
     presetId: string,
-  ): Promise<{ id: string; name: string; isActive: boolean } | null> {
+  ): Promise<VoicePresetReceipt | null> {
     let activated:
       | { id: string; name?: string; isActive?: number }
       | null = null;

@@ -23,5 +23,6 @@ export function createResource<Args extends unknown[], Value>(query: (...args: A
     error.value = null;
     commit(value);
   };
-  return {loading: readonly(loading), error: readonly(error), load, replace};
+  const invalidate = (): void => { generation++; loading.value = false; error.value = null; };
+  return {loading: readonly(loading), error: readonly(error), load, replace, invalidate};
 }

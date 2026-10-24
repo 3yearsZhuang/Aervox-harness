@@ -176,7 +176,6 @@ host
     name: "proactive-profile",
     run: async () => {
       const result = await runProactiveProfileCycle({
-        db: proactiveDb,
         repo: proactiveRepo,
         distiller: proactiveDistiller,
         workerId,

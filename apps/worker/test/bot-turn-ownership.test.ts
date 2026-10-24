@@ -1,4 +1,5 @@
-import { createConversationApplication } from "@aervox/host-runtime/modules/companion/conversation/index";
+import { loadExecutionConfig } from "@aervox/config";
+import { createConversationApplication } from "@aervox/host-runtime-test/modules/companion/conversation/application";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Client } from "@libsql/client";
 import { createReplayProvider } from "@aervox/core";
@@ -39,7 +40,7 @@ describe("Bot turns remain owned by the API across Worker cycles", () => {
     await accept("bot-group-member-v1");
     const provider = vi.fn(async () => createReplayProvider([{ type: "text", delta: "PRIVATE_MODEL_SECRET" }]));
     const recall = vi.fn();
-    const handler = createTurnConsumerHandler(createConversationApplication(repo, {}, async () => { await provider(); await recall(); }));
+    const handler = createTurnConsumerHandler(createConversationApplication(repo, {executionConfig: loadExecutionConfig()}, async () => { await provider(); await recall(); }));
     expect(await runOutboxCycle({
       outboxRepo: new SqliteOutboxRepository(db), platformRepo: new SqlitePlatformRepository(db), workerId: "bot-ownership-test",
       handlers: { "agent.turn.requested": handler },

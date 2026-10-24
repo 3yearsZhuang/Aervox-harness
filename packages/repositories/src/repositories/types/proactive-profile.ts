@@ -78,6 +78,33 @@ export interface ProactiveActivationLeaseModel {
   updatedAt: string;
 }
 
+/** One complete local processor result; storage owns identities and atomic publication. */
+export interface CaptureDistillationInput {
+  captureId: string;
+  revisionId: string;
+  sourceGrantId: string;
+  sourceKey: string;
+  checksum: string;
+  processorId: string;
+  outputs: Array<{
+    claimType: string;
+    subjectKey: string;
+    content: string;
+    confidence: number;
+    evidenceRefs: unknown[];
+    structured?: Record<string, unknown>;
+    observationOnly?: boolean;
+  }>;
+}
+export interface CaptureDistillationReceipt {
+  captureId: string;
+  processorId: string;
+  checksum: string;
+  outputCount: number;
+  memoryIds: string[];
+  created: boolean;
+}
+
 export interface ProactiveCaptureModel {
   id: string;
   revisionId: string;
@@ -319,6 +346,9 @@ export interface IProactiveProfileRepository {
       ingestedAt?: string;
     },
   ): Promise<ProactiveCaptureModel>;
+  listDistillationCandidates(ctx: LocalContext, options: { retryBefore: string; limit?: number }): Promise<ProactiveCaptureModel[]>;
+  publishCaptureDistillation(ctx: LocalContext, input: CaptureDistillationInput): Promise<CaptureDistillationReceipt>;
+  listCaptureClaims(ctx: LocalContext, captureId: string): Promise<ProactiveProfileClaimModel[]>;
   listCaptures(ctx: LocalContext, options?: { revisionId?: string; sourceKey?: string; includeDeleted?: boolean; limit?: number }): Promise<ProactiveCaptureModel[]>;
   createObservation(
     ctx: LocalContext,

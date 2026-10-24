@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import {ChevronDown, ChevronUp, Hand, Smile, X} from 'lucide-vue-next'
 import {computed, onBeforeUnmount, onMounted, ref, shallowRef} from 'vue'
-import {PetWithFallback, UserQuestionComposer} from '@aervox/ui'
-import {createConversationController, getTransport, getSessionId} from '@aervox/api-client'
+import {PetWithFallback, UserQuestionComposer} from '@aervox/ui/companion'
+import {createConversationController, getClientTransport, useAervoxClient} from '@aervox/api-client'
 import type {AskUserQuestionAnswerItem, UserQuestionRequiredEventData} from '@aervox/contracts'
 import {replyBubbleDurationMs, stripMarkdownForBubble} from './quick-chat'
 import {pickPetButtonPose, type PetButtonPose, type PetButtonPoseKind} from './pet-button-poses'
 
 import './pet.css'
+import '@aervox/ui/theme/companion'
 import {useUISurfaceContext} from '@aervox/ui-host'
 const surfaceContext = useUISurfaceContext()
-const turnController = createConversationController(getTransport(), surfaceContext.signal)
+const client = useAervoxClient()
+const turnController = createConversationController(getClientTransport(), surfaceContext.signal)
 
 const bubbleText = ref('')
 const turnState = shallowRef(turnController.state)
@@ -102,7 +104,7 @@ async function sendQuickChat() {
     playButtonPose('think')
     showStreamingBubble('思考中…')
     try {
-        await turnController.submit(getSessionId(), content, quickChatCallbacks(), {
+        await turnController.submit(client.sessionId, content, quickChatCallbacks(), {
             signal: surfaceContext.signal,
             onAccepted() { if (quickInput.value.trim() === content) quickInput.value = '' },
         })

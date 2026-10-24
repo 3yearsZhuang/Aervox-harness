@@ -1,15 +1,23 @@
 /**
  * Aervox｜思隅 @aervox/repositories — Turn 生命周期与 Outbox 伴随写入 Store
  */
-import { eq, and, or, isNull, gt, inArray } from "drizzle-orm";
+import { eq, and, or, isNull, gt, inArray, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
-import { sessions, turns, messageVersions, outboxEvents, turnAttempts, agentInboxItems, type ConversationExecutionPolicy } from "@aervox/schema";
+import { sessions, turns, messages, messageVersions, outboxEvents, turnAttempts, agentInboxItems, type ConversationExecutionPolicy } from "@aervox/schema";
 import type { LocalContext } from "../../../local-context.js";
 import type { TurnModel, MessageVersionModel, TurnAcceptanceInput, TurnAcceptanceResult, TurnAttemptModel } from "../../types/index.js";
 import { withSessionLock } from "../../../session-lock.js";
 import { notifyWorkerWakeup } from "@aervox/process-coordination";
 import { normalizeTurnIntent, turnIntentHash, renderTurnIntentMessage, TurnIntentConflictError, type AcceptedTurnParameters, type NormalizedTurnIntent } from "../../../conversation-turn-intent.js";
 import { assertConversationExecutionPolicy, conversationDispatchTarget } from "../../../conversation-execution-policy.js";
+
+const deletedInputIdentity = sql<number>`EXISTS (
+  SELECT 1 FROM ${messages}
+  WHERE ${messages.deletedAt} IS NOT NULL
+    AND (${messages.id} = ${messageVersions.messageId}
+      OR ${messages.id} = ${messageVersions.id}
+      OR ${messages.currentVersionId} = ${messageVersions.id})
+)`;
 
 export class TurnStore {
   constructor(private readonly db: AervoxDatabase) {}
@@ -83,21 +91,33 @@ export class TurnStore {
       attemptId: string;
     },
   ): Promise<TurnAcceptanceResult> {
-    return withSessionLock(`turn-accept:${input.sessionId}`, () => this.db.transaction(async (tx): Promise<TurnAcceptanceResult> => {
+    return withSessionLock(`turn-accept:${input.sessionId}`, () => this.db.transaction(tx => this.createTurnWithAttemptInTransaction(tx, ctx, input)));
+  }
+
+  /** Internal composition seam: child linkage can share the same writer commit. */
+  async createTurnWithAttemptInTransaction(
+    tx: Parameters<Parameters<AervoxDatabase["transaction"]>[0]>[0],
+    ctx: LocalContext,
+    input: { turnId: string; sessionId: string; idempotencyKey: string; message: { id: string; content: string }; attemptId: string },
+    metadata?: Record<string, unknown>,
+  ): Promise<TurnAcceptanceResult> {
+      const policy = await this.readSessionPolicy(tx, input.sessionId);
+      const requestHash = turnIntentHash(normalizeTurnIntent({ ...input, metadata }, policy, ctx.actorId));
       const [existing] = await tx.select().from(turns).where(eq(turns.idempotencyKey, input.idempotencyKey));
       if (existing) {
-        this.assertTurnPolicy(existing, input.sessionId, await this.readSessionPolicy(tx, input.sessionId));
+        this.assertTurnPolicy(existing, input.sessionId, policy);
+        if (!existing.requestHash) throw new TurnIntentConflictError("intent_unavailable");
+        if (existing.requestHash !== requestHash) throw new TurnIntentConflictError("intent_mismatch");
         return { created: false, turn: existing as TurnModel };
       }
       const now = new Date().toISOString();
       const created = await this.insertTurn(tx, {
-        id: input.turnId, sessionId: input.sessionId, idempotencyKey: input.idempotencyKey,
+        id: input.turnId, sessionId: input.sessionId, idempotencyKey: input.idempotencyKey, requestHash,
       }, input.message);
       const [attempt] = await tx.insert(turnAttempts).values({
         id: input.attemptId, turnId: input.turnId, attempt: 1, fencingToken: 0, status: "Running", startedAt: now,
       }).returning();
       return { created: true, ...created, attempt: attempt as TurnAttemptModel };
-    }));
   }
 
   private async insertTurn(
@@ -134,13 +154,28 @@ export class TurnStore {
   }
 
   async getTurnUserMessage(ctx: LocalContext, turnId: string): Promise<string | null> {
+    // Acceptance always writes user version 1. A deleted/redacted first input must
+    // not be replaced by a later edit or the duplicate body in its Outbox receipt.
+    // Read the body and current identity eligibility in the same SQL snapshot.
     const [found] = await this.db
-      .select({ content: messageVersions.content })
+      .select({
+        content: messageVersions.content,
+        isRedacted: messageVersions.isRedacted,
+        deleted: deletedInputIdentity,
+      })
       .from(messageVersions)
-      .where(and(eq(messageVersions.turnId, turnId), eq(messageVersions.role, "user")))
-      .orderBy(messageVersions.version)
+      .where(and(eq(messageVersions.turnId, turnId), eq(messageVersions.role, "user"), eq(messageVersions.version, 1)))
       .limit(1);
-    return found?.content ?? null;
+    return found && found.isRedacted === 0 && found.deleted === 0 ? found.content : null;
+  }
+
+  /** Source presence only: crisis redaction still permits a context-free safety response. */
+  async isTurnInputPresent(ctx: LocalContext, turnId: string): Promise<boolean> {
+    const [found] = await this.db.select({ id: messageVersions.id }).from(messageVersions).where(and(
+      eq(messageVersions.turnId, turnId), eq(messageVersions.role, "user"), eq(messageVersions.version, 1),
+      sql`${deletedInputIdentity} = 0`,
+    )).limit(1);
+    return Boolean(found);
   }
 
   /** Resume from the accepted receipt only; caller parameters and missing legacy receipts are never substituted. */

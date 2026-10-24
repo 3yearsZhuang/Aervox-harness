@@ -173,14 +173,14 @@ it('模型运行时订阅完全使用注入的传输', async () => {
   const { configureAervoxClient } = await import('../src/transport.js');
   const { useAervoxModelRuntime } = await import('../src/useAervoxModelRuntime.js');
   const transport = createFetchTransport('http://unused.test');
-  const events = vi.fn(async (_path, callbacks) => { callbacks.onEvent({ event: 'snapshot', data: { status: 'running' } }); });
+  const events = vi.fn(async (_path, callbacks) => { callbacks.onEvent({ event: 'snapshot', data: { models: [], runtime: { status: 'running' } } }); });
   configureAervoxClient({ transport: { ...transport, streamEvents: events } });
   const fetchMock = vi.fn(); vi.stubGlobal('fetch', fetchMock);
   const snapshot = vi.fn();
   const stop = useAervoxModelRuntime().subscribeState(snapshot);
   await Promise.resolve();
   expect(events).toHaveBeenCalledWith('/v1/model-runtime/events', expect.any(Object), expect.any(AbortSignal));
-  expect(snapshot).toHaveBeenCalledWith({ status: 'running' });
+  expect(snapshot).toHaveBeenCalledWith(expect.objectContaining({ models: [], runtime: { status: 'running' } }));
   expect(fetchMock).not.toHaveBeenCalled();
   stop();
   expect(events.mock.calls[0]?.[2].aborted).toBe(true);

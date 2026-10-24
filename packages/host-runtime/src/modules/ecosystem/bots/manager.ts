@@ -15,7 +15,10 @@ export interface RegisteredBotAdapter { pluginId: string; adapter: BotAdapterCon
 interface RunningConnection { revision: number; abort: AbortController; instance: BotAdapterInstance; adapter: BotAdapterContribution; ready: boolean }
 export interface BotManagerOptions {
   store: SqliteBotRepository;
-  conversation: { commands: ConversationCommandPort; queries: ConversationQueryPort };
+  conversation: {
+    commands: Pick<ConversationCommandPort, "ensureSession" | "requestCancel" | "accept" | "recover" | "execute">;
+    queries: Pick<ConversationQueryPort, "listTurnAttempts" | "getTurn" | "getStreamEvents">;
+  };
   cipher: () => Promise<ProactiveVaultCipher>;
   adapters: () => RegisteredBotAdapter[];
   pluginEnabled: (id: string) => Promise<boolean>;

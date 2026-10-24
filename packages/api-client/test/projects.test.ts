@@ -137,3 +137,74 @@ describe('useAervoxProjects (CR-048 / W3)', () => {
     });
   });
 });
+
+describe('project resource ownership', () => {
+  const project = (id: string) => ({id, name: id, createdAt: '2026-10-24', updatedAt: '2026-10-24'});
+  const deferred = () => {
+    let resolve!: (value: unknown) => void, reject!: (cause: Error) => void;
+    const promise = new Promise((done, fail) => { resolve = done; reject = fail; });
+    return {promise, resolve, reject};
+  };
+  const setup = (request: ReturnType<typeof vi.fn>) => {
+    configureAervoxClient({transport: {request, streamTurn: vi.fn(), submitQuestionAnswers: vi.fn(), decideToolApproval: vi.fn()}});
+    return useAervoxProjects();
+  };
+  it('invalidates pre-create, pre-update, and pre-delete list requests only after a confirmed write', async () => {
+    for (const action of ['create', 'update', 'delete'] as const) {
+      const read = deferred(); const request = vi.fn().mockReturnValueOnce(read.promise).mockResolvedValueOnce(action === 'update' ? {...project('old'), name: 'updated'} : project('new'));
+      const store = setup(request); store.projects.value = [project('old')];
+      const pending = store.fetchProjects();
+      if (action === 'create') await store.createProject({name: 'new'});
+      else if (action === 'update') await store.updateProject('old', {name: 'new'});
+      else await store.deleteProject('old');
+      const afterWrite = store.projects.value.map(item => ({...item}));
+      read.resolve({items: [project('old')]}); await pending;
+      expect(store.projects.value).toEqual(afterWrite);
+    }
+  });
+  it('lets the latest query own data, loading and errors regardless of response order', async () => {
+    const old = deferred(), latest = deferred();
+    const store = setup(vi.fn().mockReturnValueOnce(old.promise).mockReturnValueOnce(latest.promise));
+    const first = store.fetchProjects(), second = store.fetchProjects(true);
+    old.reject(new Error('old failure')); await first;
+    expect(store.loading.value).toBe(true); expect(store.error.value).toBeNull();
+    latest.resolve({items: [project('latest')]}); await second;
+    expect(store.projects.value).toEqual([project('latest')]); expect(store.loading.value).toBe(false);
+  });
+  it('preserves current data and selection on failed writes and exposes the write failure', async () => {
+    const store = setup(vi.fn().mockRejectedValue(new Error('write failed')));
+    store.projects.value = [project('old')]; store.selectProject('old');
+    expect(await store.deleteProject('old')).toBe(false);
+    expect(store.projects.value).toEqual([project('old')]); expect(store.selectedProjectId.value).toBe('old');
+    expect(store.error.value).toBe('write failed');
+  });
+  it('rejects invalid list projections and write receipts before replacing validated state', async () => {
+    const read = deferred();
+    const request = vi.fn().mockResolvedValueOnce({items: [project('old')]})
+      .mockResolvedValueOnce({items: [{...project('bad'), name: 42}]})
+      .mockReturnValueOnce(read.promise)
+      .mockResolvedValueOnce({...project('bad'), name: 42});
+    const store = setup(request); store.selectProject('old');
+    await store.fetchProjects(); await store.fetchProjects();
+    expect(store.projects.value).toEqual([project('old')]);
+    expect(store.error.value).toBeTruthy();
+    const pending = store.fetchProjects();
+    expect(await store.createProject({name: 'new'})).toBeNull();
+    expect(store.projects.value).toEqual([project('old')]);
+    expect(store.selectedProjectId.value).toBe('old');
+    read.resolve({items: [project('latest')]}); await pending;
+    expect(store.projects.value).toEqual([project('latest')]);
+  });
+  it('validates update and import receipts and rejects invalid requests before transport', async () => {
+    const request = vi.fn().mockResolvedValueOnce({id: 'old', name: 'invalid receipt'})
+      .mockResolvedValueOnce({session: project('session'), turnsCount: -1, messagesCount: 1});
+    const store = setup(request); store.projects.value = [project('old')];
+    expect(await store.updateProject('old', {name: 'new'})).toBeNull();
+    expect(store.projects.value).toEqual([project('old')]);
+    expect(await store.importSession({messages: [{role: 'user', content: 'Hello'}]})).toBeNull();
+    expect(await store.createProject({name: ''})).toBeNull();
+    expect(await store.updateProject('old', {name: ''})).toBeNull();
+    expect(await store.importSession({messages: []})).toBeNull();
+    expect(request).toHaveBeenCalledTimes(2);
+  });
+});

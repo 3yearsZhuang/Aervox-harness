@@ -1,8 +1,9 @@
+import { getClientTransport } from './client-context.js';
 import { privacyApi, type ConsentQuery, type CreateDeletionRequest, type GrantConsentRequest } from '@aervox/contracts';
 import { requestEndpoint } from './endpoint.js';
-import { getTransport, type AervoxTransport } from './transport.js';
+import { type AervoxTransport } from './transport';
 
-export function useAervoxPrivacy(transport: AervoxTransport = getTransport()) {
+export function useAervoxPrivacy(transport: AervoxTransport = getClientTransport()) {
   return {
     grantConsent: (input: GrantConsentRequest) => requestEndpoint(transport, privacyApi.grantConsent, input),
     revokeConsent: (grantId: string) => requestEndpoint(transport, privacyApi.revokeConsent, undefined, { grantId }),

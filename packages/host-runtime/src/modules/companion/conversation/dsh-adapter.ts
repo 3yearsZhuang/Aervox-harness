@@ -8,24 +8,21 @@
  * - 准入：probeDSHReference（submodule gitlink 固定 SHA + MIT 白名单），未就绪不 spawn；
  * - repoRoot：启动配置显式指定优先，缺省从启动工作目录向上查找含
  *   reference/deepseek-harness 的目录（monorepo dev 的 API cwd 可能为 apps/api）；
- * - runner 环境经 stdio spawn 继承进程 env（DEEPSEEK_API_KEY / DSH_LLM_BASE_URL /
- *   DSH_MODEL_ID），端口层自带握手准入、单 Turn 超时、kill switch 与失败自动禁用。
- *
- * 机械拆分自 agent-executor.ts（B 档第三步，零行为变更）：
- * failTurnWithError 与 runDshAdapterTurn（整 Turn 交已准入 DSH Adapter 执行）
- * 逐字节迁移至本文件。
+ * - runner 仅接收组合根捕获的环境快照；端口层自带握手准入、单 Turn 超时、
+ *   kill switch 与失败自动禁用。准入失败终态复用 Core 所有者。
  */
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { createDSHAdapterDriver, runAdapterTurn, type SqliteExecutionStore } from "@aervox/host-agent";
-import { awaitWithSignal, type AdapterDriverPort } from "@aervox/core";
-import type { LocalContext, SqliteConversationRepository } from "@aervox/repositories";
+import { awaitWithSignal, type AdapterDriverPort, type TurnTerminator } from "@aervox/core";
 
 export interface DshTurnAdapterOverrides {
   /** 测试注入：显式仓库根（跳过 cwd 向上查找与环境变量） */
   repoRoot?: string;
   /** 测试注入：透传给 runner 的额外环境（如 DSH_LLM_BASE_URL 指向本地兼容端点） */
   env?: Record<string, string>;
+  /** Complete environment captured by the host before the first Turn. */
+  environment: Readonly<NodeJS.ProcessEnv>;
 }
 
 export type ResolvedDshTurnAdapter =
@@ -54,8 +51,9 @@ export function createDshTurnAdapterResolver(
   options: DshTurnAdapterOverrides & { workingDirectory: string },
   createDriver: typeof createDSHAdapterDriver = createDSHAdapterDriver,
 ): DshTurnAdapterResolver {
+  if (!options.environment) throw new Error("dsh_environment_required");
   const repoRoot = options.repoRoot ? resolve(options.workingDirectory, options.repoRoot) : findRepoRoot(options.workingDirectory);
-  const env = options.env ? { ...options.env } : undefined;
+  const env = Object.freeze({ ...options.environment, ...options.env });
   let cached: Promise<ResolvedDshTurnAdapter> | undefined;
   let closed = false;
   return {
@@ -85,22 +83,6 @@ export async function resolveDshTurnAdapter(options: DshTurnAdapterOverrides): P
   return createDshTurnAdapterResolver({ ...options, workingDirectory: options.repoRoot }).resolve();
 }
 
-/** 迁移期接线：把 Loop 未完成/配置失败写为 error 事件 + Failed 终态（不抛到 HTTP 层） */
-export async function failTurnWithError(
-  store: SqliteExecutionStore,
-  turnId: string,
-  attemptId: string,
-  message: string,
-  code = "MODEL_UNAVAILABLE",
-  expectedFencingToken = 0,
-): Promise<void> {
-  await store.finalizeAttemptWithEvent({
-    turnId, attemptId, status: "Failed", expectedFencingToken,
-    sequence: await store.nextSequence(turnId), eventType: "error",
-    eventData: { code, retryable: false, message }, safetyDecision: "approved",
-  });
-}
-
 /**
  * ADR-010 阶段 6f：整 Turn 交已准入的 DSH Adapter 执行（runAdapterTurn：claim →
  * adapter 事件映射既有契约落库 → finalize；SSE 契约零改动）。
@@ -108,8 +90,6 @@ export async function failTurnWithError(
  * 准入失败（子模块缺失/固定 SHA 漂移）fail-closed 写 error 事件 + Failed，不静默回退 native。
  */
 export async function runDshAdapterTurn(
-  _repo: SqliteConversationRepository,
-  _context: LocalContext,
   store: SqliteExecutionStore,
   input: {
     turnId: string;
@@ -121,13 +101,16 @@ export async function runDshAdapterTurn(
     signal?: AbortSignal;
     deadlineEpochMs?: number;
     deletionGate?: import("@aervox/core").DeletionGatePort;
+    beforeComplete?: (signal?: AbortSignal) => Promise<void>;
   },
-  onFinalized: ((status: "Completed" | "Failed" | "Interrupted") => Promise<void>) | undefined,
   resolver: DshTurnAdapterResolver,
+  terminator: TurnTerminator,
 ): Promise<void> {
   const resolved = await awaitWithSignal(resolver.resolve(), input.signal);
   if (!resolved.ok) {
-    await failTurnWithError(store, input.turnId, input.attemptId, resolved.reason, "ADAPTER_UNAVAILABLE", input.preparationFencingToken);
+    await terminator.finalizeFailure(await store.nextSequence(input.turnId), new Error(resolved.reason), {
+      code: "ADAPTER_UNAVAILABLE", retryable: false,
+    });
     return;
   }
   const result = await runAdapterTurn(store, resolved.driver, {
@@ -136,12 +119,9 @@ export async function runDshAdapterTurn(
     attemptId: input.attemptId,
     userMessage: input.userMessage,
     systemPrompt: input.systemPrompt,
-    deadlineEpochMs: input.deadlineEpochMs, signal: input.signal, deletionGate: input.deletionGate,
+    deadlineEpochMs: input.deadlineEpochMs, signal: input.signal, deletionGate: input.deletionGate, beforeComplete: input.beforeComplete,
   });
-  if (!result.committed) return;
-  if (result.status === "Completed") {
-    await onFinalized?.("Completed");
-  } else if (result.status === "Failed" || result.status === "Interrupted" || result.status === "Cancelled") {
-    if (result.status !== "Cancelled") await onFinalized?.(result.status);
-  }
+  // A cancelled preparation owner may refuse the lease handoff. The driver
+  // cannot finalize an Attempt it did not claim, so its original owner settles it.
+  if (result.status === "skipped") await terminator.prematureTermination(await store.nextSequence(input.turnId));
 }
