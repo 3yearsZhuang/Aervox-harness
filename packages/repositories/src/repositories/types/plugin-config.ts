@@ -21,6 +21,8 @@ export interface IPluginConfigRepository {
     expectedSchema: unknown,
     expectedLifecycleGeneration: string,
     expectedRevision: number,
+    /** Optional Page identity; checked with config.write before any config or Secret mutation. */
+    pageExpectation?: Pick<PluginConfigSaveInput, "expectedPageId" | "expectedPageGeneration">,
   ): Promise<PluginConfigModel>;
   deleteConfigsForPlugin(pluginId: string): Promise<void>;
 }

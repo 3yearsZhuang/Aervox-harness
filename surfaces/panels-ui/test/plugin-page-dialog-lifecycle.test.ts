@@ -47,6 +47,20 @@ beforeEach(() => {
 afterEach(() => wrapper.unmount());
 
 describe('Plugin Page session boundary', () => {
+  it('binds a read to the captured Page identity and ignores forged Bridge identity arguments', async () => {
+    const { target, nonce } = await connect();
+    send(target, nonce, 'getConfig', 'forged-read', {
+      expectedPageId: 'other-page', pageId: 'other-page', expectedLifecycleGeneration: 'forged-generation',
+      expectedPageGeneration: 'forged-page-generation', pageGeneration: 'forged-page-generation',
+    });
+    await flushPromises();
+    expect(mocks.getConfig).toHaveBeenCalledWith('probe', {
+      expectedLifecycleGeneration: 'generation-1', expectedPageId: 'settings', expectedPageGeneration: 'page-1',
+    });
+    expect(mocks.listPages).toHaveBeenCalledTimes(2);
+    expect(target.postMessage).toHaveBeenLastCalledWith(expect.objectContaining({ ok: true }), '*');
+  });
+
   it.each(['getConfig', 'saveConfig', 'notify', 'close'])('rejects %s when the same Page id is registered again with restored capabilities', async method => {
     const { target, nonce } = await connect();
     mocks.listPages.mockResolvedValue([{ ...page, pageGeneration: 'page-3' }]);
@@ -199,7 +213,9 @@ describe('Plugin Page session boundary', () => {
     expect(mocks.getConfig).not.toHaveBeenCalled();
     send(target, nonce, 'getConfig');
     await flushPromises();
-    expect(mocks.getConfig).toHaveBeenCalledWith('probe', 'generation-1');
+    expect(mocks.getConfig).toHaveBeenCalledWith('probe', {
+      expectedLifecycleGeneration: 'generation-1', expectedPageId: 'settings', expectedPageGeneration: 'page-1',
+    });
     expect(target.postMessage).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'aervox:page:result', ok: true, nonce }), '*');
   });
 
@@ -259,7 +275,9 @@ describe('Plugin Page session boundary', () => {
     });
     send(current.target, current.nonce, 'getConfig', 'current-read');
     await flushPromises();
-    expect(mocks.getConfig).toHaveBeenLastCalledWith('probe', 'generation-2');
+    expect(mocks.getConfig).toHaveBeenLastCalledWith('probe', {
+      expectedLifecycleGeneration: 'generation-2', expectedPageId: 'settings', expectedPageGeneration: 'page-1',
+    });
   });
 
   it('does not deliver old configuration to a new plugin session or change its revision', async () => {

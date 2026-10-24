@@ -157,7 +157,10 @@ export function registerConversationModule(ctx: ModuleDependencies<"apiRegistry"
     memoryRecall: ctx.memoryRecall,
     observability: ctx.observability,
   };
-  const application = createConversationApplication(conversationRepo, deps);
+  const application = createConversationApplication(conversationRepo, deps, undefined, {
+    client: ctx.client,
+    resume: executionConfig.loopResume === "local-results" ? () => resume() : undefined,
+  });
   closeApplication = application.close;
   if (options.startupRecovery !== false) {
     const recovery = new ApiOwnedTurnRecovery(conversationRepo, application.commands.execute, { observability: ctx.observability });

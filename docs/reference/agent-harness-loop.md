@@ -394,7 +394,9 @@ CAP-033 的后台主动动作仍复用本管线，但授权来源改为用户确
 | 终态已提交但事件未发送 | 重发持久 done 事件 |
 | 删除/撤权水位未追平 | fail closed，不继续模型或工具调用 |
 
-这些是 Aervox 的恢复规则，不继承外部 Driver 的默认行为。当前 [Worker 恢复周期](../../apps/worker/src/attempt-recovery.ts)默认将过期 Attempt 收敛；显式 `AERVOX_LOOP_RESUME=local-results` 才通过共享宿主准入本机模型补完已知结果；[Core 裁决](../../packages/core/src/resume.ts)与 [Host 恢复源](../../packages/host-agent/src/sqlite-resume-source.ts)已经提供基于权威工具结果的续跑构件。
+这些是 Aervox 的恢复规则，不继承外部 Driver 的默认行为。当前 [Worker 恢复周期](../../apps/worker/src/attempt-recovery.ts)只消费共享会话应用的 `recoverStaleExecutions` 命令，不持有会话数据库或编排恢复。应用对同实例调用合并为一次执行，关闭时等待在途恢复并拒绝新调用；组合根按配置快照决定是否提供本机结果续跑。显式 `AERVOX_LOOP_RESUME=local-results` 才准入本机模型补完已知结果，续跑失败后仍执行既有中断收敛，不重放未知副作用。[Core 裁决](../../packages/core/src/resume.ts)与 [Host 恢复源](../../packages/host-agent/src/sqlite-resume-source.ts)提供对应构件。
+
+Worker 的过期 Attempt、孤儿 Turn 及历史终态 `pending` 工具清理均只处理 `dispatchTarget=default` 且 Turn、Session 策略同时为 `local-v1` 的记录；工具还须同时匹配 Turn 与 Attempt 身份，缺失或失配 Session 不视为本地执行所有者。历史终态工具清理保留本轮确有过期 Attempt 回收时才触发的既有条件。API/Bot 所有者的状态由原执行者处理，本地回收不能触发跨所有者工具状态更新。此边界不构成跨进程自动接管或完整安全恢复验收。
 
 对于已识别批次中的 `pending/outcome_unknown`，只有相关未确定工具全部声明 `replay: safe`，才可注入 `TOOL_NOT_STARTED` / `TOOL_OUTCOME_UNKNOWN` 合成结果后继续；合成结果不证明副作用成功，也不授权重放。未声明、`never` 或 `pending_approval` 一律收敛。没有权威依据的结果不得猜测；完整生产恢复还须验证候选领取竞争、上下文保真和所有故障边界。
 

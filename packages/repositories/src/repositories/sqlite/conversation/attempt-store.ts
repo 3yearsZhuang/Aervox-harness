@@ -3,7 +3,7 @@
  */
 import { eq, and, or, lt, isNull, inArray, notInArray, desc, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
-import { turnAttempts, turns, turnStreamEvents, toolExecutions } from "@aervox/schema";
+import { turnAttempts, turns, turnStreamEvents, toolExecutions, sessions } from "@aervox/schema";
 import type { LocalContext } from "../../../local-context.js";
 import type { TurnAttemptModel } from "../../types/index.js";
 
@@ -218,13 +218,14 @@ export class AttemptStore {
         options?.dispatchTarget ? inArray(turnAttempts.turnId, tx.select({ id: turns.id }).from(turns).where(and(
           eq(turns.dispatchTarget, options.dispatchTarget),
           options.dispatchTarget === "default" ? eq(turns.executionPolicy, "local-v1") : undefined,
+          options.dispatchTarget === "default" ? inArray(turns.sessionId, tx.select({ id: sessions.id }).from(sessions).where(eq(sessions.executionPolicy, "local-v1"))) : undefined,
         ))) : undefined,
         or(lt(turnAttempts.leaseExpiresAt, nowIso), and(isNull(turnAttempts.leaseExpiresAt), lt(turnAttempts.startedAt, unclaimedThresholdIso))),
       )).returning();
       for (const attempt of recovered) {
         // A reservation without an authoritative result is uncertain, never a replay instruction.
         await tx.update(toolExecutions).set({ status: "outcome_unknown", error: "recovery_outcome_unknown", finishedAt: nowIso })
-          .where(and(eq(toolExecutions.attemptId, attempt.id), eq(toolExecutions.status, "pending")));
+          .where(and(eq(toolExecutions.attemptId, attempt.id), eq(toolExecutions.turnId, attempt.turnId), eq(toolExecutions.status, "pending")));
         const [latest] = await tx.select().from(turnAttempts).where(eq(turnAttempts.turnId, attempt.turnId))
           .orderBy(desc(turnAttempts.attempt)).limit(1);
         const [active] = await tx.select({ id: turnAttempts.id }).from(turnAttempts).where(and(
@@ -265,6 +266,7 @@ export class AttemptStore {
         inArray(turns.status, ["Created", "Running"]),
         options?.dispatchTarget ? eq(turns.dispatchTarget, options.dispatchTarget) : undefined,
         options?.dispatchTarget === "default" ? eq(turns.executionPolicy, "local-v1") : undefined,
+        options?.dispatchTarget === "default" ? inArray(turns.sessionId, tx.select({ id: sessions.id }).from(sessions).where(eq(sessions.executionPolicy, "local-v1"))) : undefined,
         lt(turns.createdAt, thresholdIso),
       )).limit(50);
       let recovered = 0;

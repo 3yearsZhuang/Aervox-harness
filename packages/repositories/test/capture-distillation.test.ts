@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createInMemoryDatabase, createProactiveVaultCipher, SqliteProactiveProfileRepository,
-  type CaptureDistillationInput } from "../src/index.js";
+  DomainConflictError, type CaptureDistillationInput } from "../src/index.js";
 
 const ctx = { workspaceId: "local", subjectUserId: "local" };
 describe("atomic capture distillation publication", () => {
@@ -23,6 +23,126 @@ describe("atomic capture distillation publication", () => {
   afterEach(async () => { await database.cleanup(); });
   const state = async () => Promise.all(["proactive_captures", "proactive_observations", "proactive_profile_claims", "proactive_audit_events"].map(async table =>
     (await database.client.execute(`SELECT * FROM ${table} ORDER BY id`)).rows));
+
+  describe("capture and observation ingestion source transactions", () => {
+    const captureDraft = (id = "capture-new") => ({ id, revisionId: "profile", sourceGrantId: "source", sourceKey: "device.browser_activity",
+      contentType: "text/plain", payloadText: "private captured text", payload: { nested: { content: "private captured JSON" } },
+      checksum: id === "capture" ? "capture-checksum" : "new-capture-checksum", observedAt: "2026-10-01T00:00:00.000Z" });
+    const observationDraft = () => ({ id: "observation-new", revisionId: "profile", sourceGrantId: "source", sourceKey: "device.browser_activity",
+      observationType: "activity", subjectKey: "private subject", payload: { nested: { content: "private observation" } }, checksum: "observation-checksum" });
+    const applyControl = async (change: string) => {
+      if (change === "delete") await repo.deleteSourceData(ctx, "source", "local");
+      else if (change === "pause") await repo.setDesiredState(ctx, "paused", "local", "profile");
+      else if (change === "profile-boundary") await database.client.execute("UPDATE proactive_profile_revisions SET processing_boundary='cloud' WHERE id='profile'");
+      else if (change === "source-boundary") await database.client.execute("UPDATE proactive_source_grants SET processing_boundary='cloud' WHERE id='source'");
+      else await repo.updateSourceGrant(ctx, "source", { state: change as "revoked" | "expired", actorId: "local" });
+    };
+
+    describe.each(["capture", "observation"] as const)("%s", kind => {
+      const create = (retry = false) => kind === "capture"
+        ? repo.createCapture(ctx, captureDraft(retry ? "capture" : "capture-new"))
+        : repo.createObservation(ctx, observationDraft());
+
+      it.each(["revoked", "expired", "pause", "profile-boundary", "source-boundary"])(
+        "does not disclose an existing idempotent result after %s", async change => {
+          if (kind === "observation") await create();
+          await applyControl(change);
+          const before = await state();
+          await expect(create(true)).rejects.toBeInstanceOf(DomainConflictError);
+          expect(await state()).toEqual(before);
+        },
+      );
+
+      it.each(["delete", "revoked", "expired", "pause"])("rejects %s when it commits before the ingestion writer transaction", async change => {
+        const transaction = database.db.transaction.bind(database.db);
+        let controlled: Awaited<ReturnType<typeof state>> | undefined;
+        database.db.transaction = async (...args) => {
+          database.db.transaction = transaction;
+          await applyControl(change);
+          controlled = await state();
+          return transaction(...args);
+        };
+        await expect(create()).rejects.toBeInstanceOf(DomainConflictError);
+        expect(controlled).toBeDefined();
+        expect(await state()).toEqual(controlled);
+      });
+
+      it("rolls back private content when its metadata audit cannot be committed", async () => {
+        const event = kind === "capture" ? "capture.ingested" : "observation.normalized";
+        const before = await state();
+        await database.client.execute(`CREATE TRIGGER fail_ingestion_audit BEFORE INSERT ON proactive_audit_events WHEN new.event_type='${event}' BEGIN SELECT RAISE(ABORT, 'injected'); END`);
+        await expect(create()).rejects.toThrow();
+        expect(await state()).toEqual(before);
+        await database.client.execute("DROP TRIGGER fail_ingestion_audit");
+        const result = await create();
+        const audits = await database.client.execute({ sql: "SELECT payload_json FROM proactive_audit_events WHERE resource_id = ? AND event_type = ?",
+          args: [result.id, event] });
+        expect(audits.rows).toHaveLength(1);
+        expect(String(audits.rows[0]!.payload_json)).not.toContain("private");
+      });
+
+      it("serializes same-key ingestion and retains one unchanged result and audit", async () => {
+        const results = await Promise.all(Array.from({ length: 4 }, () => create()));
+        expect(results).toEqual(Array.from({ length: 4 }, () => results[0]));
+        const before = await state();
+        expect(await create()).toEqual(results[0]);
+        expect(await state()).toEqual(before);
+        const rows = await database.client.execute({ sql: "SELECT id FROM proactive_audit_events WHERE resource_id = ?", args: [results[0]!.id] });
+        expect(rows.rows).toHaveLength(1);
+      });
+
+      it("captures input content and identity before awaiting writer admission", async () => {
+        const transaction = database.db.transaction.bind(database.db);
+        const capture = captureDraft();
+        const observation = observationDraft();
+        let mutated = false;
+        database.db.transaction = async (...args) => {
+          database.db.transaction = transaction;
+          mutated = true;
+          capture.sourceGrantId = "changed-source";
+          capture.payloadText = "mutated text";
+          capture.payload.nested.content = "mutated JSON";
+          observation.sourceGrantId = "changed-source";
+          observation.subjectKey = "mutated subject";
+          observation.payload.nested.content = "mutated JSON";
+          return transaction(...args);
+        };
+        if (kind === "capture") {
+          expect(await repo.createCapture(ctx, capture)).toMatchObject({ sourceGrantId: "source", payloadText: "private captured text",
+            payload: { nested: { content: "private captured JSON" } }, retentionUntil: "2026-10-08T00:00:00.000Z" });
+        } else {
+          expect(await repo.createObservation(ctx, observation)).toMatchObject({ sourceGrantId: "source", subjectKey: "private subject",
+            payload: { nested: { content: "private observation" } } });
+        }
+        expect(mutated).toBe(true);
+      });
+
+      it("does not return a historical result outside the local processing boundary", async () => {
+        if (kind === "observation") await create();
+        const table = kind === "capture" ? "proactive_captures" : "proactive_observations";
+        const id = kind === "capture" ? "capture" : "observation-new";
+        await database.client.execute({ sql: `UPDATE ${table} SET processing_boundary='cloud' WHERE id = ?`, args: [id] });
+        const before = await state();
+        await expect(create(true)).rejects.toBeInstanceOf(DomainConflictError);
+        expect(await state()).toEqual(before);
+      });
+    });
+
+    it("does not accept a deleted capture as an idempotent success after its source is granted again", async () => {
+      await repo.deleteSourceData(ctx, "source", "local");
+      await repo.updateSourceGrant(ctx, "source", { state: "granted", actorId: "local" });
+      const before = await state();
+      await expect(repo.createCapture(ctx, captureDraft("capture"))).rejects.toBeInstanceOf(DomainConflictError);
+      expect(await state()).toEqual(before);
+    });
+
+    it("does not return a deleted-state historical capture even when its timestamp is missing", async () => {
+      await database.client.execute("UPDATE proactive_captures SET distillation_status='deleted', deleted_at=NULL WHERE id='capture'");
+      const before = await state();
+      await expect(repo.createCapture(ctx, captureDraft("capture"))).rejects.toBeInstanceOf(DomainConflictError);
+      expect(await state()).toEqual(before);
+    });
+  });
 
   it.each([
     "BEFORE INSERT ON proactive_observations",
@@ -113,6 +233,103 @@ describe("atomic capture distillation publication", () => {
   const manualClaim = () => repo.createClaim(ctx, { id: "manual-claim", revisionId: "profile", claimType: "habit",
     subjectKey: "manual", content: "manually distilled private output", evidenceCaptureIds: ["capture"], sourceGrantIds: ["source"] });
 
+  describe("legacy claim writer source qualification", () => {
+    const applyControl = async (change: string) => {
+      if (change === "delete") await repo.deleteSourceData(ctx, "source", "local");
+      else if (change === "pause") await repo.setDesiredState(ctx, "paused", "local", "profile");
+      else if (change === "deleted-capture") await database.client.execute("UPDATE proactive_captures SET deleted_at = '2026-10-24T00:00:00Z' WHERE id = 'capture'");
+      else if (change === "capture-boundary") await database.client.execute("UPDATE proactive_captures SET processing_boundary = 'cloud' WHERE id = 'capture'");
+      else if (change === "profile-boundary") await database.client.execute("UPDATE proactive_profile_revisions SET processing_boundary = 'cloud' WHERE id = 'profile'");
+      else if (change === "source-boundary") await database.client.execute("UPDATE proactive_source_grants SET processing_boundary = 'cloud' WHERE id = 'source'");
+      else await repo.updateSourceGrant(ctx, "source", { state: change as "revoked" | "expired" | "denied" | "requested", actorId: "local" });
+    };
+
+    it.each(["delete", "pause", "revoked", "expired", "denied", "requested", "deleted-capture", "capture-boundary", "profile-boundary", "source-boundary"])(
+      "rejects source-derived claim after %s without inserting private content", async change => {
+        await applyControl(change);
+        const before = await state();
+        await expect(manualClaim()).rejects.toThrow("claim_source_unavailable");
+        expect(await state()).toEqual(before);
+        expect((await database.client.execute("SELECT id FROM proactive_profile_claims WHERE id='manual-claim'")).rows).toEqual([]);
+      },
+    );
+
+    it.each(["delete", "pause", "revoked", "expired"])(
+      "rechecks %s when it wins the race before the claim writer transaction", async change => {
+        const transaction = database.db.transaction.bind(database.db);
+        let before: Awaited<ReturnType<typeof state>>;
+        database.db.transaction = async (...args) => {
+          database.db.transaction = transaction;
+          await applyControl(change);
+          before = await state();
+          return transaction(...args);
+        };
+        await expect(manualClaim()).rejects.toThrow("claim_source_unavailable");
+        expect(await state()).toEqual(before!);
+        expect((await database.client.execute("SELECT id FROM proactive_profile_claims WHERE id='manual-claim'")).rows).toEqual([]);
+      },
+    );
+
+    it.each(["omitted", "unrelated", "missing", "foreign"])("rejects %s capture source provenance instead of inventing a linkage", async kind => {
+      await database.client.execute("INSERT INTO proactive_source_grants SELECT 'unrelated-source', revision_id, 'device.app_activity', purpose, scope, os_capability, state, mandatory, processing_boundary, grant_version, metadata_json, granted_at, revoked_at, last_verified_at, created_at, updated_at FROM proactive_source_grants WHERE id='source'");
+      if (kind === "foreign") {
+        await repo.confirmProfile(ctx, { id: "other-profile", deviceId: "other", actorId: "local", sources: [{ id: "other-source",
+          sourceKey: "device.browser_activity", purpose: "profile.observe", scope: "all", osCapability: "os.browser_history", state: "granted", mandatory: true }] });
+        // Keep this assertion about foreign provenance, independently of the
+        // profile supersession performed when confirming the other fixture.
+        await database.client.execute("UPDATE proactive_profile_revisions SET status='active', desired_state='enabled' WHERE id='profile'");
+      }
+      const before = await state();
+      await expect(repo.createClaim(ctx, { id: "bad-provenance", revisionId: "profile", claimType: "habit", subjectKey: "manual",
+        content: "private derived output", evidenceCaptureIds: ["capture"],
+        sourceGrantIds: kind === "omitted" ? undefined : [kind === "unrelated" ? "unrelated-source" : kind === "foreign" ? "other-source" : "missing-source"],
+      })).rejects.toThrow("claim_source_unavailable");
+      expect(await state()).toEqual(before);
+    });
+
+    it("checks source-only claims but preserves unlinked manual claims while paused", async () => {
+      await repo.updateSourceGrant(ctx, "source", { state: "revoked", actorId: "local" });
+      const before = await state();
+      await expect(repo.createClaim(ctx, { id: "source-only", revisionId: "profile", claimType: "habit", subjectKey: "manual",
+        content: "private source-derived output", sourceGrantIds: ["source"] })).rejects.toThrow("claim_source_unavailable");
+      expect(await state()).toEqual(before);
+      await repo.setDesiredState(ctx, "paused", "local", "profile");
+      expect(await repo.createClaim(ctx, { id: "manual-unlinked", revisionId: "profile", claimType: "habit", subjectKey: "manual",
+        state: "user_asserted", content: "explicit user-authored claim" })).toMatchObject({ id: "manual-unlinked", content: "explicit user-authored claim", evidenceCaptureIds: [], sourceGrantIds: [] });
+    });
+
+    it("accepts a currently authorized derived claim without altering its declared provenance", async () => {
+      const claim = await manualClaim();
+      expect(claim).toMatchObject({ id: "manual-claim", content: "manually distilled private output", evidenceCaptureIds: ["capture"], sourceGrantIds: ["source"] });
+    });
+
+    it.each(["missing-capture", "wrong-source-key"])("rejects %s evidence without retaining claim content", async kind => {
+      if (kind === "wrong-source-key") await database.client.execute("UPDATE proactive_captures SET source_key='device.screen_capture' WHERE id='capture'");
+      const before = await state();
+      await expect(repo.createClaim(ctx, { id: "bad-evidence", revisionId: "profile", claimType: "habit", subjectKey: "manual", content: "private derived output",
+        evidenceCaptureIds: [kind === "missing-capture" ? "missing-capture" : "capture"], sourceGrantIds: ["source"] })).rejects.toThrow("claim_source_unavailable");
+      expect(await state()).toEqual(before);
+    });
+
+    it("snapshots the declared evidence and text before waiting for the writer", async () => {
+      const submitted = { id: "captured-intent", revisionId: "profile", claimType: "habit", subjectKey: "manual", content: "captured private output",
+        evidenceCaptureIds: ["capture"], sourceGrantIds: ["source"], evidenceRefs: [{ source: "original" }] };
+      const transaction = database.db.transaction.bind(database.db);
+      database.db.transaction = async (...args) => {
+        database.db.transaction = transaction;
+        submitted.id = "mutated-id";
+        submitted.content = "mutated private output";
+        submitted.evidenceCaptureIds.splice(0);
+        submitted.sourceGrantIds.splice(0);
+        submitted.evidenceRefs[0]!.source = "mutated";
+        return transaction(...args);
+      };
+      expect(await repo.createClaim(ctx, submitted)).toMatchObject({ id: "captured-intent", content: "captured private output",
+        evidenceCaptureIds: ["capture"], sourceGrantIds: ["source"], evidenceRefs: [{ source: "original" }] });
+      expect((await database.client.execute("SELECT id FROM proactive_profile_claims WHERE id='mutated-id'")).rows).toEqual([]);
+    });
+  });
+
   it("accepts verified manual claim and observation results and replays without changing their receipt", async () => {
     await manualClaim();
     await repo.createObservation(ctx, { id: "manual-observation", revisionId: "profile", sourceGrantId: "source",
@@ -140,8 +357,10 @@ describe("atomic capture distillation publication", () => {
     }
     if (kind === "wrong-source") {
       id = "unlinked";
+      // A malformed historical row must not become a valid distillation receipt.
       await repo.createClaim(ctx, { id, revisionId: "profile", claimType: "habit", subjectKey: "other", content: "missing source",
-        evidenceCaptureIds: ["capture"] });
+      });
+      await database.client.execute({ sql: "UPDATE proactive_profile_claims SET evidence_capture_ids_json=? WHERE id=?", args: [JSON.stringify(["capture"]), id] });
     }
     const before = await state();
     await expect(repo.markCaptureDistilled(ctx, "capture", [id])).rejects.toThrow("capture_distillation_result_unavailable");

@@ -22,15 +22,36 @@ import type {
 } from "../../types/index.js";
 import { captureDistillationFailureCode, captureDistillationReceiptId, findEligibleCaptureDistillation,
   publishCaptureDistillation } from "./capture-distillation-store.js";
-import { AuditExportStore } from "./audit-export-store.js";
 import { decodeWithCipher, encrypt } from "./crypto.js";
-import { ProfileLifecycleStore } from "./profile-lifecycle-store.js";
 import { MAX_LIST_LIMIT, bool, clampLimit, datePlusMs, localBoundary, parseJson, stringify } from "./shared.js";
 
 const RETENTION_DAYS = 7;
 
 type CaptureRow = typeof proactiveCaptures.$inferSelect;
 type ObservationRow = typeof proactiveObservations.$inferSelect;
+type IngestionWriter = Parameters<Parameters<AervoxDatabase["transaction"]>[0]>[0];
+
+/** The current source grant and the content commit use one writer snapshot. */
+async function requireIngestionSource(
+  tx: IngestionWriter,
+  input: { revisionId: string; sourceGrantId: string; sourceKey: string },
+  kind: "capture" | "observation",
+) {
+  const [revision] = await tx.select().from(proactiveProfileRevisions).where(eq(proactiveProfileRevisions.id, input.revisionId));
+  if (!revision) throw new RepositoryNotFoundError("proactive profile revision not found");
+  if (revision.status !== "active" || revision.desiredState !== "enabled") {
+    throw new DomainConflictError(`proactive profile is not accepting ${kind === "capture" ? "captures" : "observations"}`);
+  }
+  const [source] = await tx.select().from(proactiveSourceGrants).where(and(
+    eq(proactiveSourceGrants.id, input.sourceGrantId), eq(proactiveSourceGrants.revisionId, revision.id), eq(proactiveSourceGrants.sourceKey, input.sourceKey),
+  ));
+  if (!source) throw new RepositoryNotFoundError("proactive source grant not found");
+  if (source.state !== "granted") throw new DomainConflictError("source grant is not active");
+  if (revision.processingBoundary !== "local_only" || source.processingBoundary !== "local_only") {
+    throw new DomainConflictError(`${kind}_source_unavailable`);
+  }
+  return { revision, source };
+}
 
 function asIso(value: string | undefined): string {
   if (!value || !Number.isFinite(Date.parse(value))) return new Date().toISOString();
@@ -90,54 +111,16 @@ function toObservation(row: ObservationRow, cipher?: ProactiveVaultCipher): Proa
 export class CaptureStore {
   constructor(
     private readonly db: AervoxDatabase,
-    private readonly lifecycle: ProfileLifecycleStore,
-    private readonly audit: AuditExportStore,
     private readonly cipher?: ProactiveVaultCipher,
   ) {}
 
   async createCapture(
     ctx: LocalContext,
-    input: Parameters<IProactiveProfileRepository["createCapture"]>[1],
+    submitted: Parameters<IProactiveProfileRepository["createCapture"]>[1],
   ): Promise<ProactiveCaptureModel> {
-    const [existingCapture] = await this.db
-      .select()
-      .from(proactiveCaptures)
-      .where(
-        and(
-          eq(proactiveCaptures.id, input.id),
-        ),
-      )
-      .limit(1);
-    if (existingCapture) {
-      if (
-        existingCapture.revisionId !== input.revisionId
-        || existingCapture.sourceGrantId !== input.sourceGrantId
-        || existingCapture.sourceKey !== input.sourceKey
-        || existingCapture.checksum !== input.checksum
-      ) {
-        throw new DomainConflictError("capture idempotency key reused with different content");
-      }
-      return toCapture(existingCapture, true, this.cipher);
-    }
-    const revision = await this.lifecycle.getRevision(ctx, input.revisionId);
-    if (!revision) throw new RepositoryNotFoundError("proactive profile revision not found");
-    if (revision.status !== "active" || revision.desiredState !== "enabled") {
-      throw new DomainConflictError("proactive profile is not accepting captures");
-    }
-    if (!input.checksum.trim()) throw new DomainConflictError("capture checksum is required");
-    const [source] = await this.db
-      .select()
-      .from(proactiveSourceGrants)
-      .where(
-        and(
-          eq(proactiveSourceGrants.id, input.sourceGrantId),
-          eq(proactiveSourceGrants.revisionId, revision.id),
-          eq(proactiveSourceGrants.sourceKey, input.sourceKey),
-        ),
-      )
-      .limit(1);
-    if (!source) throw new RepositoryNotFoundError("proactive source grant not found");
-    if (source.state !== "granted") throw new DomainConflictError("source grant is not active");
+    // Freeze primitive fields and serialize nested content before waiting for the
+    // writer. A caller cannot change the admitted source or payload after that.
+    const input = { ...submitted };
     const ingestedAt = asIso(input.ingestedAt);
     const observedAt = asIso(input.observedAt ?? ingestedAt);
     const payloadJson = input.payload === undefined ? null : stringify(input.payload, "null");
@@ -147,45 +130,53 @@ export class CaptureStore {
         : payloadJson
           ? new TextEncoder().encode(payloadJson).byteLength
           : 0);
-    const now = new Date().toISOString();
-    const [created] = await this.db
-      .insert(proactiveCaptures)
-      .values({
-        id: input.id,
-        revisionId: revision.id,
-        sourceGrantId: source.id,
-        sourceKey: input.sourceKey,
-        contentType: input.contentType,
-        payloadText: encrypt(input.payloadText ?? null, "capture", input.id, this.cipher) ?? null,
-        payloadJson: encrypt(payloadJson, "capture", input.id, this.cipher) ?? null,
-        checksum: input.checksum,
-        byteSize: computedSize,
-        processingBoundary: "local_only",
-        observedAt,
-        ingestedAt,
-        // 业务保留窗口以观察发生时间计算；摄取延迟只用于管道审计。
-        retentionUntil: datePlusMs(observedAt, RETENTION_DAYS * 24 * 60 * 60 * 1000),
-        distillationStatus: "pending",
-        distillationAttemptCount: 0,
-        lastDistillationError: null,
-        retentionBlockedAt: null,
-        distilledMemoryIdsJson: "[]",
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
-    if (!created) throw new Error("failed to create proactive capture");
-    // 仅记录元数据；绝不将 payload 写入审计。
-    await this.audit.recordAudit(ctx, {
-      id: `${input.id}_audit_ingested`,
-      revisionId: revision.id,
-      eventType: "capture.ingested",
-      actorId: "local-host",
-      resourceType: "capture",
-      resourceId: input.id,
-      payload: { sourceKey: input.sourceKey, checksum: input.checksum, byteSize: computedSize },
-    });
-    return toCapture(created, true, this.cipher);
+    return this.db.transaction(async tx => {
+      const [existingCapture] = await tx.select().from(proactiveCaptures).where(eq(proactiveCaptures.id, input.id)).limit(1);
+      if (existingCapture && (existingCapture.revisionId !== input.revisionId || existingCapture.sourceGrantId !== input.sourceGrantId
+        || existingCapture.sourceKey !== input.sourceKey || existingCapture.checksum !== input.checksum)) {
+        throw new DomainConflictError("capture idempotency key reused with different content");
+      }
+      if (existingCapture && (existingCapture.deletedAt || existingCapture.distillationStatus === "deleted" || existingCapture.processingBoundary !== "local_only")) {
+        throw new DomainConflictError("capture_source_unavailable");
+      }
+      const { revision, source } = await requireIngestionSource(tx, input, "capture");
+      if (existingCapture) return toCapture(existingCapture, true, this.cipher);
+      if (!input.checksum.trim()) throw new DomainConflictError("capture checksum is required");
+      const now = new Date().toISOString();
+      const [created] = await tx
+        .insert(proactiveCaptures)
+        .values({
+          id: input.id,
+          revisionId: revision.id,
+          sourceGrantId: source.id,
+          sourceKey: input.sourceKey,
+          contentType: input.contentType,
+          payloadText: encrypt(input.payloadText ?? null, "capture", input.id, this.cipher) ?? null,
+          payloadJson: encrypt(payloadJson, "capture", input.id, this.cipher) ?? null,
+          checksum: input.checksum,
+          byteSize: computedSize,
+          processingBoundary: "local_only",
+          observedAt,
+          ingestedAt,
+          // 业务保留窗口以观察发生时间计算；摄取延迟只用于管道审计。
+          retentionUntil: datePlusMs(observedAt, RETENTION_DAYS * 24 * 60 * 60 * 1000),
+          distillationStatus: "pending",
+          distillationAttemptCount: 0,
+          lastDistillationError: null,
+          retentionBlockedAt: null,
+          distilledMemoryIdsJson: "[]",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
+      if (!created) throw new Error("failed to create proactive capture");
+      // Content and its metadata-only audit either both commit or both roll back.
+      await tx.insert(proactiveAuditEvents).values({ id: `${input.id}_audit_ingested`, revisionId: revision.id,
+        eventType: "capture.ingested", actorId: "local-host", resourceType: "capture", resourceId: input.id,
+        payloadJson: JSON.stringify({ sourceKey: input.sourceKey, checksum: input.checksum, byteSize: computedSize }),
+        processingBoundary: "local_only", occurredAt: now, createdAt: now });
+      return toCapture(created, true, this.cipher);
+    }, { behavior: "immediate" });
   }
 
   publishCaptureDistillation(ctx: LocalContext, input: Parameters<IProactiveProfileRepository["publishCaptureDistillation"]>[1]) {
@@ -225,75 +216,48 @@ export class CaptureStore {
 
   async createObservation(
     ctx: LocalContext,
-    input: Parameters<IProactiveProfileRepository["createObservation"]>[1],
+    submitted: Parameters<IProactiveProfileRepository["createObservation"]>[1],
   ): Promise<ProactiveBehaviorObservationModel> {
-    const [existingObservation] = await this.db
-      .select()
-      .from(proactiveObservations)
-      .where(eq(proactiveObservations.id, input.id))
-      .limit(1);
-    if (existingObservation) {
-      if (
-        existingObservation.revisionId !== input.revisionId
-        || existingObservation.sourceGrantId !== input.sourceGrantId
-        || existingObservation.sourceKey !== input.sourceKey
-        || existingObservation.checksum !== input.checksum
-      ) {
+    const input = { ...submitted };
+    const payloadJson = stringify(input.payload);
+    const observedAt = asIso(input.observedAt);
+    const normalizedAt = asIso(input.normalizedAt);
+    return this.db.transaction(async tx => {
+      const [existingObservation] = await tx.select().from(proactiveObservations).where(eq(proactiveObservations.id, input.id)).limit(1);
+      if (existingObservation && (existingObservation.revisionId !== input.revisionId || existingObservation.sourceGrantId !== input.sourceGrantId
+        || existingObservation.sourceKey !== input.sourceKey || existingObservation.checksum !== input.checksum)) {
         throw new DomainConflictError("observation idempotency key reused with different content");
       }
-      return toObservation(existingObservation, this.cipher);
-    }
-    const revision = await this.lifecycle.getRevision(ctx, input.revisionId);
-    if (!revision) throw new RepositoryNotFoundError("proactive profile revision not found");
-    if (revision.status !== "active" || revision.desiredState !== "enabled") {
-      throw new DomainConflictError("proactive profile is not accepting observations");
-    }
-    const [source] = await this.db
-      .select()
-      .from(proactiveSourceGrants)
-      .where(
-        and(
-          eq(proactiveSourceGrants.id, input.sourceGrantId),
-          eq(proactiveSourceGrants.revisionId, revision.id),
-          eq(proactiveSourceGrants.sourceKey, input.sourceKey),
-        ),
-      )
-      .limit(1);
-    if (!source) throw new RepositoryNotFoundError("proactive source grant not found");
-    if (source.state !== "granted") throw new DomainConflictError("source grant is not active");
-    const now = new Date().toISOString();
-    const observedAt = asIso(input.observedAt);
-    const normalizedAt = asIso(input.normalizedAt ?? now);
-    const [created] = await this.db
-      .insert(proactiveObservations)
-      .values({
-        id: input.id,
-        revisionId: revision.id,
-        sourceGrantId: source.id,
-        sourceKey: input.sourceKey,
-        observationType: input.observationType,
-        subjectKey: encrypt(input.subjectKey, "observation", input.id, this.cipher) ?? "",
-        payloadJson: encrypt(stringify(input.payload), "observation", input.id, this.cipher) ?? "{}",
-        checksum: input.checksum,
-        processingBoundary: "local_only",
-        algorithmVersion: input.algorithmVersion ?? "local-observation-v1",
-        observedAt,
-        normalizedAt,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
-    if (!created) throw new Error("failed to create proactive observation");
-    await this.audit.recordAudit(ctx, {
-      id: `${input.id}_audit_normalized`,
-      revisionId: revision.id,
-      eventType: "observation.normalized",
-      actorId: "local-observation-adapter",
-      resourceType: "observation",
-      resourceId: input.id,
-      payload: { sourceKey: input.sourceKey, checksum: input.checksum, algorithmVersion: input.algorithmVersion ?? "local-observation-v1" },
-    });
-    return toObservation(created, this.cipher);
+      if (existingObservation && existingObservation.processingBoundary !== "local_only") throw new DomainConflictError("observation_source_unavailable");
+      const { revision, source } = await requireIngestionSource(tx, input, "observation");
+      if (existingObservation) return toObservation(existingObservation, this.cipher);
+      const now = new Date().toISOString();
+      const [created] = await tx
+        .insert(proactiveObservations)
+        .values({
+          id: input.id,
+          revisionId: revision.id,
+          sourceGrantId: source.id,
+          sourceKey: input.sourceKey,
+          observationType: input.observationType,
+          subjectKey: encrypt(input.subjectKey, "observation", input.id, this.cipher) ?? "",
+          payloadJson: encrypt(payloadJson, "observation", input.id, this.cipher) ?? "{}",
+          checksum: input.checksum,
+          processingBoundary: "local_only",
+          algorithmVersion: input.algorithmVersion ?? "local-observation-v1",
+          observedAt,
+          normalizedAt,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
+      if (!created) throw new Error("failed to create proactive observation");
+      await tx.insert(proactiveAuditEvents).values({ id: `${input.id}_audit_normalized`, revisionId: revision.id,
+        eventType: "observation.normalized", actorId: "local-observation-adapter", resourceType: "observation", resourceId: input.id,
+        payloadJson: JSON.stringify({ sourceKey: input.sourceKey, checksum: input.checksum, algorithmVersion: input.algorithmVersion ?? "local-observation-v1" }),
+        processingBoundary: "local_only", occurredAt: now, createdAt: now });
+      return toObservation(created, this.cipher);
+    }, { behavior: "immediate" });
   }
 
   async listObservations(

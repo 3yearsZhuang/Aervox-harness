@@ -9,30 +9,19 @@
  *
  * 规则依据：AVX-HAR-001 §11.3 恢复。
  */
-import { SqliteConversationRepository } from "@aervox/repositories";
-import type { AervoxDatabase } from "@aervox/repositories";
-import type { Client } from "@libsql/client";
+import type { ConversationHost } from "@aervox/host-runtime";
 
 export interface AttemptRecoveryOptions {
-  db: AervoxDatabase;
-  client: Client;
+  commands: Pick<ConversationHost["commands"], "recoverStaleExecutions">;
   workerId: string;
-  /** Explicit local-only recovery supplied by the shared product host. */
-  resume?: () => Promise<unknown>;
 }
 
 export async function runAttemptRecoveryCycle(opts: AttemptRecoveryOptions): Promise<number> {
-  const repo = new SqliteConversationRepository(opts.db);
-  if (opts.resume) {
-    try { await opts.resume(); }
-    catch (error) { console.error(`[worker:${opts.workerId}] resume_error:`, error); }
+  const result = await opts.commands.recoverStaleExecutions();
+  if (result.resumeFailed) console.error(`[worker:${opts.workerId}] resume_error: local-result resume failed`);
+  if (result.recoveredAttempts > 0) {
+    console.log(`[worker:${opts.workerId}] turn_attempt_recovery=${result.recoveredAttempts} tool_outcome_unknown=${result.unknownOutcomes}`);
   }
-  const recovered = await repo.recoverExpiredAttempts(opts.client, { dispatchTarget: "default" });
-  if (recovered > 0) {
-    const unknown = await repo.markPendingOutcomeUnknown(opts.client);
-    console.log(`[worker:${opts.workerId}] turn_attempt_recovery=${recovered} tool_outcome_unknown=${unknown}`);
-  }
-  const orphans = await repo.recoverOrphanTurns({ dispatchTarget: "default" });
-  if (orphans > 0) console.log(`[worker:${opts.workerId}] orphan_turn_recovery=${orphans}`);
-  return recovered;
+  if (result.orphanTurns > 0) console.log(`[worker:${opts.workerId}] orphan_turn_recovery=${result.orphanTurns}`);
+  return result.recoveredAttempts;
 }

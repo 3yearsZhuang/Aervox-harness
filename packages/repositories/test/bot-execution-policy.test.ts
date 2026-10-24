@@ -118,6 +118,35 @@ describe("durable Bot execution boundaries", () => {
     expect((await repo.getTurn(ctx, "turn_local"))?.status).toBe("Interrupted");
   });
 
+  it.each(["bot-owner-v1", "future-v9", "missing"])("refuses Worker expiry recovery when its local Turn has %s Session ownership", async policy => {
+    await accept("local", "local-v1");
+    await client.execute("UPDATE turn_attempts SET started_at = '2000-01-01T00:00:00.000Z'");
+    if (policy === "missing") {
+      await client.execute("PRAGMA foreign_keys = OFF");
+      await client.execute("UPDATE turns SET session_id = 'missing' WHERE id = 'turn_local'");
+      await client.execute("PRAGMA foreign_keys = ON");
+    } else await client.execute({ sql: "UPDATE sessions SET execution_policy = ? WHERE id = 'local'", args: [policy] });
+    const before = (await client.execute("SELECT * FROM turn_attempts")).rows;
+    expect(await repo.recoverExpiredAttempts(client, { dispatchTarget: "default" })).toBe(0);
+    expect((await client.execute("SELECT * FROM turn_attempts")).rows).toEqual(before);
+    expect((await client.execute("SELECT * FROM turn_stream_events")).rows).toEqual([]);
+  });
+
+  it.each(["bot-group-member-v1", "future-v9", "missing"])("refuses Worker orphan recovery when its local Turn has %s Session ownership", async policy => {
+    await repo.createSession(ctx, "orphan", { id: "orphan" });
+    await repo.createTurnWithOutbox(ctx, { id: "orphan", sessionId: "orphan", idempotencyKey: "orphan" }, { id: "orphan_message", content: "orphan" });
+    await client.execute("UPDATE turns SET created_at = '2000-01-01T00:00:00.000Z'");
+    if (policy === "missing") {
+      await client.execute("PRAGMA foreign_keys = OFF");
+      await client.execute("UPDATE turns SET session_id = 'missing' WHERE id = 'orphan'");
+      await client.execute("PRAGMA foreign_keys = ON");
+    } else await client.execute({ sql: "UPDATE sessions SET execution_policy = ? WHERE id = 'orphan'", args: [policy] });
+    const before = (await client.execute("SELECT * FROM turns")).rows;
+    expect(await repo.recoverOrphanTurns({ dispatchTarget: "default" })).toBe(0);
+    expect((await client.execute("SELECT * FROM turns")).rows).toEqual(before);
+    expect((await client.execute("SELECT * FROM turn_stream_events")).rows).toEqual([]);
+  });
+
   async function seedBotDelivery() {
     await accept("group");
     const now = new Date().toISOString();

@@ -33,6 +33,21 @@ export const pluginConfigSchemaResponseOpenApi = z.object({
 
 const params = z.object({ pluginId: z.string().min(1) });
 const lifecycleQuery = z.object({ expectedLifecycleGeneration: z.string().min(1).max(128).optional() });
+
+/** Page access uses host-captured identities; ordinary management may omit them. */
+export const pluginConfigAccessQuerySchema = lifecycleQuery.extend({
+  expectedPageId: pluginPageSchema.shape.id.optional().openapi({
+    description: "Host-captured Page id; requires expectedPageGeneration, expectedLifecycleGeneration and the current config.read (GET) or config.write (reset) capability.",
+  }),
+  expectedPageGeneration: pluginPageGenerationSchema.optional().openapi({
+    description: "Host-captured Page declaration generation; paired with expectedPageId and checked when reading or committing a reset.",
+  }),
+}).refine(input => (input.expectedPageId === undefined) === (input.expectedPageGeneration === undefined), {
+  path: ["expectedPageGeneration"], message: "Page access requires both the captured Page id and generation",
+}).refine(input => input.expectedPageId === undefined || input.expectedLifecycleGeneration !== undefined, {
+  path: ["expectedLifecycleGeneration"], message: "Page access requires the captured plugin lifecycle generation",
+});
+
 /** Stored Pages preserve the legacy nullable description and checksum fields. */
 export const pluginPageResponseSchema = pluginPageSchema.extend({
   pageGeneration: pluginPageGenerationSchema.openapi({ description: "Host-owned Page declaration identity; rotates when the Page changes or is recreated." }),
@@ -56,8 +71,8 @@ export const pluginConfigApi = {
   },
   get: {
     method: "get", path: "/v1/plugins/{pluginId}/config", operationId: "get_v1_plugins_pluginId_config",
-    summary: "读取插件配置（secret 仅返回状态）", tags: ["Plugins"], params, query: lifecycleQuery, response: pluginConfigSnapshotSchema,
-    errors: { 400: "Invalid plugin id or lifecycle generation", 404: "PLUGIN_NOT_FOUND or PLUGIN_CONFIG_SCHEMA_NOT_FOUND", 409: "PLUGIN_CONFIG_REVISION_CONFLICT or PLUGIN_DISABLED or PLUGIN_UNAVAILABLE" },
+    summary: "读取插件配置（secret 仅返回状态）", tags: ["Plugins"], params, query: pluginConfigAccessQuerySchema, response: pluginConfigSnapshotSchema,
+    errors: { 400: "Invalid plugin id or captured Page identity", 404: "PLUGIN_NOT_FOUND or PLUGIN_CONFIG_SCHEMA_NOT_FOUND", 409: "PLUGIN_CONFIG_REVISION_CONFLICT or PLUGIN_DISABLED or PLUGIN_UNAVAILABLE" },
   },
   save: {
     method: "put", path: "/v1/plugins/{pluginId}/config", operationId: "put_v1_plugins_pluginId_config",
@@ -68,8 +83,8 @@ export const pluginConfigApi = {
   },
   reset: {
     method: "post", path: "/v1/plugins/{pluginId}/config/reset", operationId: "post_v1_plugins_pluginId_config_reset",
-    summary: "重置插件配置", tags: ["Plugins"], params, query: lifecycleQuery, response: pluginConfigSnapshotSchema,
-    errors: { 400: "Invalid plugin id or lifecycle generation", 404: "PLUGIN_NOT_FOUND or PLUGIN_CONFIG_SCHEMA_NOT_FOUND", 409: "PLUGIN_CONFIG_REVISION_CONFLICT or PLUGIN_DISABLED or PLUGIN_UNAVAILABLE" },
+    summary: "重置插件配置", tags: ["Plugins"], params, query: pluginConfigAccessQuerySchema, response: pluginConfigSnapshotSchema,
+    errors: { 400: "Invalid plugin id or captured Page identity", 404: "PLUGIN_NOT_FOUND or PLUGIN_CONFIG_SCHEMA_NOT_FOUND", 409: "PLUGIN_CONFIG_REVISION_CONFLICT or PLUGIN_DISABLED or PLUGIN_UNAVAILABLE" },
   },
   listPages: {
     method: "get", path: "/v1/plugins/{pluginId}/pages", operationId: "get_v1_plugins_pluginId_pages",
@@ -82,4 +97,5 @@ export const pluginConfigApi = {
 export type PluginConfigSchemaResponse = z.output<typeof pluginConfigSchemaResponseSchema>;
 export type RegisterPluginConfigSchemaRequest = z.input<typeof pluginConfigSchema>;
 export type SavePluginConfigRequest = z.input<typeof pluginConfigUpdateRequestSchema>;
+export type PluginConfigAccessQuery = z.input<typeof pluginConfigAccessQuerySchema>;
 export type PluginPageResponse = z.output<typeof pluginPageResponseSchema>;

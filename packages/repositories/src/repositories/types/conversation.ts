@@ -250,7 +250,7 @@ export interface IConversationRepository {
     input: { turnId: string; attemptId: string; invocationId: string; status: string; output?: unknown; error?: string; finishedAt?: string },
   ): Promise<{ ok: boolean }>;
   /** 2c：崩溃释放后将遗留 pending 预留标记为 outcome_unknown（§11.3） */
-  markPendingOutcomeUnknown(client: import("@libsql/client").Client): Promise<number>;
+  markPendingOutcomeUnknown(client: import("@libsql/client").Client, options?: { dispatchTarget?: "default" | "api" }): Promise<number>;
   // P1（R2 · CAP-014）：会话地图与替代解法分支
   createExplorationBranch(ctx: LocalContext, input: CreateExplorationBranchInput): Promise<ConversationBranchModel | null>;
   listBranchesByParent(ctx: LocalContext, parentSessionId: string): Promise<ConversationBranchModel[]>;

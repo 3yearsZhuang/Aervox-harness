@@ -27,6 +27,25 @@ import type {
   PluginSecretModel,
 } from "../types/index.js";
 
+async function hasCurrentPageWriteGrant(
+  tx: Parameters<Parameters<AervoxDatabase["transaction"]>[0]>[0],
+  pluginId: string,
+  expectation?: Pick<PluginConfigSaveInput, "expectedPageId" | "expectedPageGeneration">,
+): Promise<boolean> {
+  if (expectation?.expectedPageId === undefined && expectation?.expectedPageGeneration === undefined) return true;
+  const expectedPageId = pluginPageSchema.shape.id.safeParse(expectation?.expectedPageId);
+  if (!expectedPageId.success
+    || typeof expectation?.expectedPageGeneration !== "string" || !expectation.expectedPageGeneration
+    || expectation.expectedPageGeneration.length > 128) return false;
+  // Page declarations can change without a plugin lifecycle rotation. Resolve
+  // their current incarnation and grant in the same writer transaction as Secrets.
+  const [page] = await tx.select({ generation: pluginPages.id, capabilities: pluginPages.capabilitiesJson }).from(pluginPages)
+    .where(and(eq(pluginPages.pluginId, pluginId), eq(pluginPages.pageId, expectedPageId.data)));
+  const capabilities = pluginPageSchema.shape.capabilities.safeParse(page?.capabilities);
+  return !!page && page.generation === expectation.expectedPageGeneration
+    && capabilities.success && capabilities.data.includes("config.write");
+}
+
 export class SqlitePluginConfigRepository implements IPluginConfigRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
@@ -63,22 +82,8 @@ export class SqlitePluginConfigRepository implements IPluginConfigRepository {
         || JSON.stringify(plugin.schema) !== JSON.stringify(input.expectedSchema)) {
         return { saved: (existing as PluginConfigModel) ?? null, conflict: true as const };
       }
-      if (input.expectedPageId !== undefined || input.expectedPageGeneration !== undefined) {
-        const expectedPageId = pluginPageSchema.shape.id.safeParse(input.expectedPageId);
-        if (!expectedPageId.success
-          || typeof input.expectedPageGeneration !== "string" || !input.expectedPageGeneration
-          || input.expectedPageGeneration.length > 128) {
-          return { saved: (existing as PluginConfigModel) ?? null, conflict: true as const };
-        }
-        // Page declarations can change without a plugin lifecycle rotation. Bind
-        // this save to its actual Page in the same writer transaction as Secrets.
-        const [page] = await tx.select({ generation: pluginPages.id, capabilities: pluginPages.capabilitiesJson }).from(pluginPages)
-          .where(and(eq(pluginPages.pluginId, input.pluginId), eq(pluginPages.pageId, expectedPageId.data)));
-        const capabilities = pluginPageSchema.shape.capabilities.safeParse(page?.capabilities);
-        if (!page || page.generation !== input.expectedPageGeneration
-          || !capabilities.success || !capabilities.data.includes("config.write")) {
-          return { saved: (existing as PluginConfigModel) ?? null, conflict: true as const };
-        }
+      if (!await hasCurrentPageWriteGrant(tx, input.pluginId, input)) {
+        return { saved: (existing as PluginConfigModel) ?? null, conflict: true as const };
       }
       if ((existing?.revision ?? 0) !== input.expectedRevision) {
         return { saved: (existing as PluginConfigModel) ?? null, conflict: true as const };
@@ -129,6 +134,7 @@ export class SqlitePluginConfigRepository implements IPluginConfigRepository {
     expectedSchema: unknown,
     expectedLifecycleGeneration: string,
     expectedRevision: number,
+    pageExpectation?: Pick<PluginConfigSaveInput, "expectedPageId" | "expectedPageGeneration">,
   ): Promise<PluginConfigModel> {
     return withSessionLock(`plugin-config:${pluginId}`, () => this.db.transaction(async (tx) => {
       if (expectedSchema == null || typeof expectedLifecycleGeneration !== "string" || !expectedLifecycleGeneration
@@ -143,6 +149,9 @@ export class SqlitePluginConfigRepository implements IPluginConfigRepository {
         || plugin.generation !== expectedLifecycleGeneration || plugin.schemaVersion !== schemaVersion
         || JSON.stringify(plugin.schema) !== JSON.stringify(expectedSchema)) {
         throw new DomainConflictError("Plugin configuration lifecycle or schema changed; reload before resetting");
+      }
+      if (!await hasCurrentPageWriteGrant(tx, pluginId, pageExpectation)) {
+        throw new DomainConflictError("Plugin Page identity or config.write permission changed; reload before resetting");
       }
       const [existing] = await tx.select({ revision: pluginConfigs.revision }).from(pluginConfigs).where(eq(pluginConfigs.pluginId, pluginId));
       if ((existing?.revision ?? 0) !== expectedRevision) {

@@ -114,6 +114,8 @@ test("real Page Bridge rejects restored Page generations and old lifecycles, and
     expect(oldFrame).not.toBeNull();
     const initialRead = await callConfig(page, frame, configPath, "GET", 200);
     expect(new URL(initialRead.response.url()).searchParams.get("expectedLifecycleGeneration")).toBe(initialGeneration);
+    expect(new URL(initialRead.response.url()).searchParams.get("expectedPageId")).toBe("probe");
+    expect(new URL(initialRead.response.url()).searchParams.get("expectedPageGeneration")).toBeTruthy();
     expect(initialRead.result.value).toMatchObject({ revision: 0, values: { value: "initial" } });
     await frame.locator("#value").fill("first lifecycle");
     const initialSave = await callConfig(page, frame, configPath, "PUT", 200);
@@ -154,7 +156,7 @@ test("real Page Bridge rejects restored Page generations and old lifecycles, and
       data: { id: "probe", title: "Lifecycle probe", entry: "pages/probe/index.html", capabilities: ["config.read", "config.write", "host.notify", "host.close"] },
     });
     expect(restoreCapability.status(), await restoreCapability.text()).toBe(201);
-    const restoredPageGeneration = (await restoreCapability.json()).pageGeneration as string;
+    let restoredPageGeneration = (await restoreCapability.json()).pageGeneration as string;
     expect(restoredPageGeneration).toBeTruthy();
     expect(restoredPageGeneration).not.toBe(initialSave.response.request().postDataJSON().expectedPageGeneration);
     const restoredConfigRequests: string[] = [];
@@ -186,6 +188,49 @@ test("real Page Bridge rejects restored Page generations and old lifecycles, and
     const restoredSave = await callConfig(page, frame, configPath, "PUT", 200);
     expect(restoredSave.response.request().postDataJSON()).toMatchObject({ expectedLifecycleGeneration: initialGeneration, expectedPageGeneration: restoredPageGeneration, revision: 1 });
     expect(restoredSave.result.value).toMatchObject({ revision: 2, values: { value: "new Page generation" } });
+
+    // Pause the actual config GET after Bridge preflight. A grant restored before
+    // the API receives it must not disclose configuration to the captured Page.
+    const readUrl = (url: URL) => url.origin === new URL(servers.apiUrl).origin && url.pathname === configPath;
+    await page.route(readUrl, async route => {
+      if (route.request().method() === "GET") {
+        for (const capabilities of [[], ["config.read", "config.write", "host.notify", "host.close"]]) {
+          const registered = await request.post(api(`${pluginPath}/pages`), {
+            data: { id: "probe", title: "Lifecycle probe", entry: "pages/probe/index.html", capabilities },
+          });
+          expect(registered.status(), await registered.text()).toBe(201);
+        }
+      }
+      await route.continue();
+    });
+    try {
+      const response = page.waitForResponse(response => new URL(response.url()).pathname === configPath && response.request().method() === "GET");
+      await frame.getByRole("button", { name: "Read configuration", exact: true }).click();
+      const rejected = await response;
+      expect(rejected.status()).toBe(409);
+      expect(rejected.headers()["cache-control"]).toBe("no-store");
+      const capturedQuery = new URL(rejected.url()).searchParams;
+      expect(capturedQuery.get("expectedPageGeneration")).toBe(restoredPageGeneration);
+      await expect(frame.locator("#result")).toHaveAttribute("data-state", "error");
+      expect(JSON.parse((await frame.locator("#result").textContent())!)).toMatchObject({ ok: false });
+      expect(await oldFrame!.evaluate(element => element.isConnected)).toBe(true);
+      const staleReset = await request.post(`${api(`${configPath}/reset`)}?${capturedQuery}`);
+      expect(staleReset.status()).toBe(409);
+      const unchanged = await request.get(api(configPath));
+      expect(await unchanged.json()).toMatchObject({ revision: 2, values: { value: "new Page generation" } });
+      const currentPages = await request.get(api(`${pluginPath}/pages`));
+      const currentPage = (await currentPages.json()).pages[0];
+      expect(currentPage.capabilities).toContain("config.read");
+      expect(currentPage.pageGeneration).not.toBe(restoredPageGeneration);
+      restoredPageGeneration = currentPage.pageGeneration;
+    } finally {
+      await page.unroute(readUrl);
+    }
+    await page.reload({ timeout: 90_000 });
+    await expect(page.locator(".aervox-workbench")).toBeVisible();
+    frame = await openPluginPage(page, pluginId);
+    oldFrame = await page.locator("iframe.plugin-page-frame").elementHandle();
+    expect((await callConfig(page, frame, configPath, "GET", 200)).result.value).toMatchObject({ revision: 2, values: { value: "new Page generation" } });
 
     // Also pause a real write after its Page lookup, remove and restore the grant,
     // and prove the old request cannot commit even when current capabilities match.

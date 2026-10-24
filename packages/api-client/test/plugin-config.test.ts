@@ -12,6 +12,49 @@ function client(handler: (method: string, path: string, body?: unknown) => Promi
 }
 
 describe('plugin configuration shared client', () => {
+  it.each(['getConfig', 'resetConfig'] as const)('encodes the complete captured Page identity for %s', async operation => {
+    const request = vi.fn(async () => snapshot);
+    const api = client(request);
+    await api[operation]('a/b?c#d', {
+      expectedLifecycleGeneration: 'generation/a?b#c', expectedPageId: 'settings', expectedPageGeneration: 'page/a?b#c',
+    });
+    const path = operation === 'getConfig' ? '/config' : '/config/reset';
+    expect(request).toHaveBeenCalledWith(operation === 'getConfig' ? 'GET' : 'POST',
+      `/v1/plugins/a%2Fb%3Fc%23d${path}?expectedLifecycleGeneration=generation%2Fa%3Fb%23c&expectedPageId=settings&expectedPageGeneration=page%2Fa%3Fb%23c`, undefined);
+  });
+
+  it.each(['getConfig', 'resetConfig'] as const)('keeps empty and lifecycle-only management query objects valid for %s', async operation => {
+    const request = vi.fn(async () => snapshot);
+    const api = client(request);
+    await api[operation]('plugin', {});
+    await api[operation]('plugin', { expectedLifecycleGeneration: 'generation' });
+    const path = `/v1/plugins/plugin${operation === 'getConfig' ? '/config' : '/config/reset'}`;
+    expect(request.mock.calls).toEqual([
+      [operation === 'getConfig' ? 'GET' : 'POST', path, undefined],
+      [operation === 'getConfig' ? 'GET' : 'POST', `${path}?expectedLifecycleGeneration=generation`, undefined],
+    ]);
+  });
+
+  it.each(['getConfig', 'resetConfig'] as const)('rejects malformed or incomplete %s identity before transport', async operation => {
+    const request = vi.fn(async () => snapshot);
+    const api = client(request);
+    const identity = { expectedPageId: 'settings', expectedPageGeneration: 'page-generation', expectedLifecycleGeneration: 'generation' };
+    const inputs: unknown[] = [
+      null, 7, [],
+      { expectedPageId: 'settings', expectedLifecycleGeneration: 'generation' },
+      { expectedPageGeneration: 'page-generation', expectedLifecycleGeneration: 'generation' },
+      { expectedPageId: 'settings', expectedPageGeneration: 'page-generation' },
+      ...[null, '', '../settings', 'settings/other', 'x'.repeat(65), 7, [], {}].map(expectedPageId => ({ ...identity, expectedPageId })),
+      ...[null, '', 'x'.repeat(129), 7, [], {}].flatMap(value => [
+        { ...identity, expectedPageGeneration: value }, { ...identity, expectedLifecycleGeneration: value },
+      ]),
+    ];
+    for (const input of inputs) {
+      await expect(api[operation]('plugin', input as never), JSON.stringify(input)).rejects.toThrow();
+    }
+    expect(request).not.toHaveBeenCalled();
+  });
+
   it('validates Page grants, preserves nullable metadata and encodes the lifecycle query', async () => {
     const request = vi.fn(async () => ({ pages: [{ id: 'settings', title: 'Settings', entry: 'pages/settings/index.html',
       description: null, checksum: null, capabilities: ['host.notify'], pageGeneration: 'page-generation' }] }));

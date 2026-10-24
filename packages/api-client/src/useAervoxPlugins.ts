@@ -7,6 +7,7 @@ import { getClientTransport } from './client-context.js';
 import { ref } from 'vue';
 import type {
   PluginConfigSnapshot,
+  PluginConfigAccessQuery,
   PluginConfigSchemaResponse,
   RegisterPluginConfigSchemaRequest,
   SavePluginConfigRequest,
@@ -15,7 +16,7 @@ import type {
   PluginMarketItem,
   PluginPackageExportResponse,
 } from '@aervox/contracts';
-import { PLUGIN_SENSOR_PERMISSION, pluginConfigApi } from '@aervox/contracts';
+import { PLUGIN_SENSOR_PERMISSION, pluginConfigAccessQuerySchema, pluginConfigApi } from '@aervox/contracts';
 
 import { requestEndpoint } from './endpoint.js';
 
@@ -96,8 +97,11 @@ export function useAervoxPlugins() {
   const registerConfigSchema = async (pluginId: string, input: RegisterPluginConfigSchemaRequest): Promise<PluginConfigSchemaResponse> =>
     requestEndpoint(transport, pluginConfigApi.registerSchema, input, { pluginId });
 
-  const getConfig = async (pluginId: string, expectedLifecycleGeneration?: string): Promise<PluginConfigSnapshot> =>
-    requestEndpoint(transport, pluginConfigApi.get, undefined, { pluginId }, { expectedLifecycleGeneration });
+  const configAccessQuery = (expected?: string | PluginConfigAccessQuery): PluginConfigAccessQuery =>
+    pluginConfigAccessQuerySchema.parse(typeof expected === 'string' ? { expectedLifecycleGeneration: expected } : expected === undefined ? {} : expected);
+
+  const getConfig = async (pluginId: string, expected?: string | PluginConfigAccessQuery): Promise<PluginConfigSnapshot> =>
+    requestEndpoint(transport, pluginConfigApi.get, undefined, { pluginId }, configAccessQuery(expected));
 
   const saveConfig = async (
     pluginId: string,
@@ -105,8 +109,8 @@ export function useAervoxPlugins() {
   ): Promise<PluginConfigSnapshot> =>
     requestEndpoint(transport, pluginConfigApi.save, input, { pluginId });
 
-  const resetConfig = async (pluginId: string, expectedLifecycleGeneration?: string): Promise<PluginConfigSnapshot> =>
-    requestEndpoint(transport, pluginConfigApi.reset, undefined, { pluginId }, { expectedLifecycleGeneration });
+  const resetConfig = async (pluginId: string, expected?: string | PluginConfigAccessQuery): Promise<PluginConfigSnapshot> =>
+    requestEndpoint(transport, pluginConfigApi.reset, undefined, { pluginId }, configAccessQuery(expected));
 
   const listPages = async (pluginId: string, expectedLifecycleGeneration?: string): Promise<PluginPageDto[]> => {
     const res = await requestEndpoint(transport, pluginConfigApi.listPages, undefined, { pluginId }, { expectedLifecycleGeneration });
