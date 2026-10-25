@@ -44,10 +44,10 @@ check-affected = "node scripts/check-affected.mjs"
 docs-lint-affected = "node scripts/docs-lint-affected.mjs"
 
 # 文档门禁：docs 与根文档的格式、术语、ID、ADR 状态与本地链接/资产。
-ci-docs = "node --test scripts/docs-*.test.mjs && markdownlint-cli2 --config .markdownlint-cli2.jsonc 'docs/**/*.md' 'README.md' 'AGENTS.md' 'CONTRIBUTING.md' 'plan.md' && mise tasks run docs-lint-prose && mise tasks run docs-validate"
+ci-docs = "node --test scripts/docs-*.test.mjs && node scripts/docs-check.mjs"
 
-# 术语/散文一致性（配置见 .vale.ini，错误级别阻断）
-docs-lint-prose = "vale --minAlertLevel=error docs README.md AGENTS.md CONTRIBUTING.md plan.md"
+# 术语/散文一致性（使用 tooling/docs/ 的显式配置，错误级别阻断）
+docs-lint-prose = "node scripts/docs-check.mjs --prose"
 
 # 稳定 ID、ADR 状态与本地链接/锚点一致性
 docs-validate = "node scripts/docs-governance.mjs"

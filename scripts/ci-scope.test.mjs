@@ -12,6 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 import { workspacePatterns } from './workspaces.mjs';
+import { DOCUMENTATION_TARGETS, DOCUMENTATION_TOOL_DIRECTORY } from './docs-config.mjs';
 import {
   ROOT_DIR,
   buildTurboFilterArgs,
@@ -138,11 +139,11 @@ test("仅包内变更时交给差异过滤器，不额外扩容", () => {
 test("纯项目文档跳过代码检查，工具配置、锁文件和产品 Markdown 仍验证", () => {
   const scope = syntheticScope();
   assert.equal(isDocumentationOnlyChange(["docs/guide.md", "plan.md", "README.md"], scope), true);
-  assert.equal(isDocumentationOnlyChange([".vale.ini", ".vale/Styles/Terms.yml"], scope), true);
+  assert.equal(isDocumentationOnlyChange(["tooling/docs/.vale.ini", "tooling/docs/styles/Project/Terms.yml"], scope), true);
   for (const file of [
     "mise.toml", "package.json", "pnpm-lock.yaml", "turbo.json", "tooling/vitest.shared.ts",
     "native/Cargo.lock", "native/crates/runtime/src/lib.rs", "plugins/example/SKILL.md",
-    "apps/api/src/app.ts", "scripts/check-affected.mjs",
+    "apps/api/src/app.ts", "scripts/check-affected.mjs", "scripts/docs-config.mjs",
   ]) {
     assert.equal(isDocumentationOnlyChange(["docs/guide.md", file], scope), false, file);
   }
@@ -193,7 +194,9 @@ test("工作流的 pull_request 与 push 触发路径保持一致", () => {
 test("项目文档只触发 Docs，工具链与原生输入仍触发代码工作流", () => {
   for (const workflow of [CI_WORKFLOW, path.join(ROOT_DIR, ".github/workflows/native-runtime.yml")]) {
     const paths = readWorkflowPaths(workflow).pullRequest;
-    for (const file of ["docs/guide.md", "README.md", "plan.md"]) {
+    for (const file of ["docs/guide.md", "README.md", "plan.md",
+      `${DOCUMENTATION_TOOL_DIRECTORY}/.markdownlint-cli2.jsonc`, `${DOCUMENTATION_TOOL_DIRECTORY}/.vale.ini`,
+      `${DOCUMENTATION_TOOL_DIRECTORY}/styles/Project/Terms.yml`]) {
       assert.equal(paths.some((pattern) => matchesGlob(file, pattern)), false, file);
     }
     for (const file of ["mise.toml", "pnpm-lock.yaml", "native/Cargo.lock"]) {
@@ -205,27 +208,20 @@ test("项目文档只触发 Docs，工具链与原生输入仍触发代码工作
 test("Docs 触发路径覆盖文档门禁声明的 Markdown 范围与治理输入", () => {
   const docs = readWorkflowPaths(DOCS_WORKFLOW);
 
-  // Markdown 范围直接从 `mise tasks run ci-docs` 的命令串解析，避免与门禁双源漂移。
-  const ciDocsCommand = fs
-    .readFileSync(MISE_CONFIG, "utf8")
-    .split(/\r?\n/)
-    .filter((line) => /^ci-docs\s*=/.test(line))
-    .join("\n");
-  const markdownScope = [...ciDocsCommand.matchAll(/'([^']*\.md)'/g)].map((match) => match[1]);
-  assert.ok(markdownScope.length > 0, "应从 mise ci-docs 解析出 Markdown 检查范围");
-
+  const markdownScope = DOCUMENTATION_TARGETS.map(target => target.endsWith(".md") ? target : target + "/**");
   const governanceInputs = [
-    ".markdownlint-cli2.jsonc",
-    ".lycheeignore",
-    ".vale.ini",
-    ".vale/**",
-    "scripts/docs-governance.mjs",
-    "scripts/docs-lint-affected.mjs",
-    "mise.toml",
+    DOCUMENTATION_TOOL_DIRECTORY + "/**", "scripts/docs-*.mjs", "mise.toml", ".github/workflows/docs.yml",
   ];
+  const workflow = fs.readFileSync(DOCS_WORKFLOW, "utf8");
+  assert.match(workflow, /mise exec -- node scripts\/docs-config\.mjs --github-output/);
+  assert.ok(workflow.includes("steps.docs_links.outputs.args"), "Link checker must consume the shared generated targets");
+  const config = fs.readFileSync(MISE_CONFIG, "utf8");
+  assert.match(config, /ci-docs = "node --test scripts\/docs-\*\.test\.mjs && node scripts\/docs-check\.mjs"/);
+  assert.match(config, /docs-lint-prose = "node scripts\/docs-check\.mjs --prose"/);
 
   const gaps = findUncoveredPaths(docs.pullRequest, [...new Set([...markdownScope, ...governanceInputs])]);
   assert.deepEqual(gaps, [], `Docs 触发路径未覆盖：${gaps.join(", ")}`);
+  assert.deepEqual(findUncoveredPaths(docs.push, [...markdownScope, ...governanceInputs]), []);
 });
 
 test("无法解析路径声明时按失败处理（fail-closed）", () => {

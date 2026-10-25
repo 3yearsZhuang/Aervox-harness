@@ -15,7 +15,7 @@ function fixture(t) {
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.mkdirSync(path.join(root, "scripts"));
   fs.mkdirSync(path.join(root, "docs/reference/adr"), { recursive: true });
-  for (const name of ["docs-governance.mjs", "docs-lint-affected.mjs"]) {
+  for (const name of ["docs-governance.mjs", "docs-lint-affected.mjs", "docs-config.mjs", "docs-check.mjs"]) {
     fs.copyFileSync(path.join(scriptsDirectory, name), path.join(root, "scripts", name));
   }
   write(root, "plan.md", "# 当前计划\n\n直接维护内容。\n");
@@ -216,14 +216,14 @@ test("增量检查保留删除和文档工具输入，普通源码变动快退",
 });
 
 test("排版、术语和工具版本变化必须重查全部文档", () => {
-  for (const file of [".markdownlint-cli2.jsonc", ".vale.ini", ".vale/Aervox/Terms.yml", "mise.toml"]) {
+  for (const file of ["tooling/docs/.markdownlint-cli2.jsonc", "tooling/docs/.vale.ini", "tooling/docs/styles/Project/Terms.yml", "scripts/docs-config.mjs", "scripts/docs-check.mjs", "mise.toml"]) {
     assert.equal(selectDocumentationChecks([file], () => false).lintAll, true, file);
   }
   assert.equal(selectDocumentationChecks(["docs/guide.md"], () => true).lintAll, false);
 });
 
 test("配置单独变化时增量 CLI 也向两个 linter 传入未修改文档并传播失败", { skip: process.platform === "win32" }, (t) => {
-  for (const config of [".markdownlint-cli2.jsonc", ".vale.ini", ".vale/Aervox/Terms.yml"]) {
+  for (const config of ["tooling/docs/.markdownlint-cli2.jsonc", "tooling/docs/.vale.ini", "tooling/docs/styles/Project/Terms.yml", "scripts/docs-config.mjs"]) {
     const root = fixture(t);
     write(root, "docs/untouched.md", "# Existing document\n");
     const env = mockGitEnvironment(root, ` M ${config}\0`);
@@ -240,9 +240,12 @@ if (${JSON.stringify(command)} === "vale") process.exitCode = 7;
     const recorded = fs.readFileSync(calls, "utf8").trim().split("\n").map(JSON.parse);
     assert.deepEqual(recorded.map((args) => args[0]), ["markdownlint-cli2", "vale"]);
     for (const args of recorded) {
-      assert.ok(args.includes("docs/untouched.md"), `${config} -> ${args[0]}`);
-      assert.ok(args.includes("plan.md"));
-      assert.ok(args.includes("CONTRIBUTING.md"));
+      const prefix = args[0] === "markdownlint-cli2" ? ":" : "";
+      assert.ok(args.includes(`${prefix}docs/untouched.md`), `${config} -> ${args[0]}`);
+      assert.ok(args.includes(`${prefix}plan.md`));
+      assert.ok(args.includes(`${prefix}CONTRIBUTING.md`));
+      assert.equal(args[1], "--config");
+      assert.equal(args[2], args[0] === "vale" ? "tooling/docs/.vale.ini" : "tooling/docs/.markdownlint-cli2.jsonc");
     }
   }
 });

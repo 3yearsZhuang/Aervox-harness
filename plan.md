@@ -53,19 +53,20 @@
 
 #### 最近验证基线与关键失败
 
-最近代码基线 `1fd0067e55496f9b07f79bd7afe47f5feafc5d59` 的新完整本地门禁退出 0：构建 32、类型 56 个任务，API 935、仓储 793、Host Runtime 314、Worker 159、Core 494、Host Agent 120 项通过；Host Agent 2 项既有真实模型/参考库构建跳过不计通过。守卫、OpenAPI 兼容、全套前端、HLS、删除故障、Native Search/Runtime 及 64 份文档门禁通过，独立依赖审计为 0 未审阅、2 既有审阅路径、0 过时例外；API E2E 45、打包 CLI 持久化/API 重启与工具审批集成 2 项另验通过。Page 切片真实 Chromium 19 项、较早代码的真实 Electron IPC 7 项仅证明各自提交，不能扩大为本轮平台或发布验收。
+本轮提交前的新完整本地 `./aervox ci all` 退出 0：构建 32、类型 56 个任务，API 935、仓储 793、Host Runtime 314、Worker 159、Core 494、Host Agent 120 项通过；Host Agent 2 项既有真实模型/参考库构建跳过不计通过。守卫、OpenAPI 兼容、全套前端、HLS、删除故障、Native Search/Runtime 及文档门禁通过，文档回归 32 项、检查范围仍为 63 份；独立依赖审计为 0 未审阅、2 既有审阅路径、0 过时例外。基线 `2efae408` 的统一 E2E 64 项（API 45、Chromium 19）、打包 CLI 持久化/API 重启与工具审批集成 2 项，以及更早代码的真实 Electron IPC 7 项仅证明各自提交，本轮文档工具整理未重跑这些集成，不扩大为平台或发布验收。
 
-本次根目录整合将共享 TS/Vitest 配置归入 `tooling/`、Playwright 配置归入 `e2e/`，同步包引用、缓存输入、增量选择和 CI，变更历史导航并入文档导航。根文件 27 → 22，可见文件 18 → 13；计划保留 69 个稳定锚点与后续队列，历史详情固定回链。迁移中 3 处旧路径假设先由守卫暴露，修正后定向 50 项通过，独立静态复审未发现阻断；新的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务及全部测试、Native、63 份文档门禁通过，2 项既有跳过仍不计通过。统一 E2E 64 项（API 45、Chromium 19）、打包 CLI 集成 2 项另验通过，依赖审计仍为 0 未审阅、2 既有审阅路径、0 过时例外；此后仅补本摘要并复验文档，精确提交远端结果由 PR 保存。
+根目录整合将共享 TS/Vitest 配置归入 `tooling/`、Playwright 配置归入 `e2e/`，同步包引用、缓存输入、增量选择和 CI，变更历史导航并入文档导航。第二轮把 Markdownlint/Vale/Lychee 配置与词表归入 `tooling/docs/`，全量、增量、治理和 CI 链接检查共用文档目标与工具路径；配置变化仍重查全部文档，删除文件仍校验入链。根文件 27 → 22 → 19，可见文件 18 → 13，保留必要工具根锚点和启动入口；计划保留 69 个稳定锚点与后续队列。第二轮定向 58 项、真实全量/增量文档门禁及术语正反例通过，独立静态复审未发现阻断。此后仅补本摘要并复验文档，精确提交远端结果由 PR 保存。
 
 | 必须保留的失败/证据 | 当前处理 |
 |---|---|
 | `7abd4fbb` 曾全量通过，但真实 privileged 审批绕过、作答部分提交及同键异参仍可复现；批次/删除写者也取得独立 SQL 和 HTTP 红测 | 已补统一授权/领域事务、意图摘要、来源写者和事务审计回归。旧无完整回执结果仍拒绝，不猜测修补。动作最近反例为来源失效后迟到 INSERT，以及 failed 删除后撤销回填；对应仓储 40、HTTP 46 项通过。 |
 | `fa709a84` 的远端主代码门禁失败、CLI 跳过：Core 对 CancelRequested 的续租语义与 SQLite 不同 | 固定心跳/取消顺序确认原因并修复；丢租约/fencing/CAS/终态提交失败及 DSH 交接取消均有回归，不伪造终态或重跑模型。 |
 | Worker 恢复初修仍会修改 Turn/Attempt 错配的 Bot 工具；正在进行的全量被主动终止，退出 143 | 补双身份及所有者门禁后重新构建和完整验证；测试夹具修正真实持久 dispatch，不放宽生产规则。 |
+| 首轮目录迁移暴露 3 处旧路径假设；第二轮增量回归有 3 项因临时仓库漏复制新共用模块失败 | 同步真实配置与 CI 路径后首轮 50 项通过；补齐夹具依赖后第二轮 58 项通过，未放宽断言。文档 CLI 显式指定新配置，保留失败码与删除入链检查。 |
 | 历次 OpenAPI/nullable 回执、旧审批/取消夹具、分发/导入守卫及 Chromium 断言失败；Zod、Electron、undici、fast-uri、happy-dom 审计新增命中 | 按真实合同修复并重验；依赖升级不增豁免，happy-dom 保持默认关闭 CSS/iframe 网络。详细差异和各次精确 CI 见固定历史记录及 PR，不将取消、跳过或上一提交成功计作新提交通过。 |
 | 最近动作切片首轮全量退出 1，Worker 3 项及仓储 3 文件出现 30 秒测试/Hook 超时，运行区间系统日志有多次休眠 | 不改代码或阈值，原文件复验 Worker 40、仓储 36 项通过；以仅随命令存续的空闲休眠抑制重跑完整门禁取得上述成功，未跳过失败文件。 |
 
-基线 `1fd0067e` 的 [CI](https://github.com/3yearsZhuang/Aervox-harness/actions/runs/40171462969) 与 [Docs](https://github.com/3yearsZhuang/Aervox-harness/actions/runs/40171462985) 已有 5 项成功，主代码及 CLI 实际步骤成功；本次整理后精确 HEAD 的远端结果由 PR 保存。更早批次的全量、三平台 Native、Electron/Chromium 与失败日志均保留于各 PR/CI 和固定历史，不在活动队列重复列流水。验证通过、实现完成与正式发布分别陈述。
+基线 `2efae408` 的 [CI](https://github.com/3yearsZhuang/Aervox-harness/actions/runs/40173247448)、[Docs](https://github.com/3yearsZhuang/Aervox-harness/actions/runs/40173247569) 与[三平台 Native](https://github.com/3yearsZhuang/Aervox-harness/actions/runs/40173247437) 已有 8 项成功，主代码及 CLI 实际步骤成功；第二轮整理后精确 HEAD 的远端结果由 PR 保存。更早批次与失败日志均保留于各 PR/CI 和固定历史，不在活动队列重复列流水。验证通过、实现完成与正式发布分别陈述。
 
 ## 3. 信任、数据安全与运行门槛
 

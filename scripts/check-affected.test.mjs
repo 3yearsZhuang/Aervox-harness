@@ -14,7 +14,7 @@ function runFixture(t, changedFiles, hasBase = true) {
   const bin = path.join(root, "bin");
   fs.mkdirSync(bin);
   fs.mkdirSync(path.join(root, "scripts"));
-  for (const name of ["check-affected.mjs", "ci-scope.mjs"]) {
+  for (const name of ["check-affected.mjs", "ci-scope.mjs", "docs-config.mjs"]) {
     fs.copyFileSync(path.join(scriptsDirectory, name), path.join(root, "scripts", name));
   }
   fs.writeFileSync(path.join(root, "turbo.json"), JSON.stringify({ tasks: {} }));
@@ -45,7 +45,7 @@ fs.appendFileSync(${JSON.stringify(calls)}, JSON.stringify([${JSON.stringify(com
 }
 
 test("纯项目文档改动不会启动代码守卫、Turbo 或 Cargo", { skip: process.platform === "win32" }, (t) => {
-  const result = runFixture(t, ["plan.md", "docs/guide.md"]);
+  const result = runFixture(t, ["plan.md", "docs/guide.md", "tooling/docs/.vale.ini", "tooling/docs/styles/Project/Terms.yml"]);
   assert.deepEqual(result.calls, []);
   assert.match(result.output, /跳过代码守卫、业务构建与原生编译/);
 });

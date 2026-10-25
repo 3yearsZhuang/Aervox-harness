@@ -2,6 +2,8 @@
 
 本目录包含 Aervox 项目的架构守卫、门禁分析、契约验证、领域专项研究套件及基准测试工具。
 
+文档工具配置、规则和词表位于 `tooling/docs/`，检查目标由 `docs-config.mjs` 统一维护。全量与增量仍使用既有 mise 任务；直接运行 Vale 或 Markdownlint 时须显式指定该目录中的配置。
+
 所有脚本均遵循统一工具链锁定规范。优先使用 `./aervox` 或 `mise tasks run <task>`；下表中的 `pnpm`、`node` 指令需加 `mise exec --` 前缀，或在已激活 mise 的终端中执行。
 
 TypeScript 基类与 Vitest 共享配置集中在仓库的 [tooling/](../tooling/)，端到端测试配置位于 [e2e/playwright.config.ts](../e2e/playwright.config.ts)。`./aervox` 与现有 `pnpm` 脚本的使用方式保持不变，配置路径由入口或各包引用。
@@ -36,6 +38,8 @@ TypeScript 基类与 Vitest 共享配置集中在仓库的 [tooling/](../tooling
 | `export-plugins.mjs` | 遍历 `plugins/`，生成字节可重现的 `.aervox-plugin` 分发包 | `pnpm package:plugins` |
 | `plugin-cli.mjs` | 声明式插件开发与本地预检 CLI | `pnpm plugin` |
 | `openapi-compat.mjs` | OpenAPI 模式向后兼容性守卫与基线校验 | `pnpm check:standards` / `pnpm update:api-baseline` |
+| `docs-config.mjs` | 文档目标与工具配置路径的唯一工程定义，生成 CI 链接检查输入 | 由文档入口共享 |
+| `docs-check.mjs` | 共用目标的排版、术语与治理检查，显式加载 `tooling/docs/` 配置 | `mise tasks run ci-docs` |
 | `docs-governance.mjs` | 文档规范性校验器（稳定 ID、ADR 状态、本地链接与锚点） | `node scripts/docs-governance.mjs` |
 | `docs-lint-affected.mjs` | 增量文档格式、术语与一致性检查调度器 | `node scripts/docs-lint-affected.mjs` |
 

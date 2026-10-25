@@ -77,7 +77,7 @@ PRD 定义产品价值与范围，SRS 定义可观察行为和验收，架构/AD
 | 依赖公告审计 | `mise exec -- pnpm check:dependency-audit` |
 | 全量代码检查 | `mise tasks run ci-code` |
 | 全量终审 | `./aervox ci all` |
-| Markdown 排版修复 | `mise exec -- markdownlint-cli2 --fix <files>` |
+| Markdown 排版修复 | `mise exec -- markdownlint-cli2 --config tooling/docs/.markdownlint-cli2.jsonc --fix <files>` |
 | 插件分发包恢复 | `mise tasks run package-plugins` |
 
 Markdownlint 必须使用 mise 注入的固定版本，不用 `npx` 临时下载。纯文档 PR 运行文档门禁；代码或 CI 工具变更按影响范围验证，推送代码 PR 前运行全量终审。CI 配置变更本身需要相应脚本回归。测试通过证明所覆盖行为，不能代替实机、签名、迁移或发布验收。

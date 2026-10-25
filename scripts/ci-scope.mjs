@@ -20,6 +20,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { isProjectDocumentation } from "./docs-config.mjs";
 
 export const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -116,10 +117,7 @@ export function matchesGlob(file, pattern) {
 export function isDocumentationOnlyChange(changedFiles, scope) {
   const declaredInputs = collectRequiredCodePaths(scope);
   return changedFiles.every((file) =>
-    (file.startsWith("docs/") ||
-      ["README.md", "AGENTS.md", "CONTRIBUTING.md", "plan.md"].includes(file) ||
-      file === ".markdownlint-cli2.jsonc" || file === ".vale.ini" ||
-      file === ".lycheeignore" || file.startsWith(".vale/")) &&
+    isProjectDocumentation(file) &&
     !declaredInputs.some((glob) => matchesGlob(file, glob)),
   );
 }

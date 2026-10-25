@@ -7,17 +7,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const ROOT_DOCUMENTS = ["README.md", "AGENTS.md", "CONTRIBUTING.md", "plan.md"];
-const ADR_STATUSES = new Set(["proposed", "accepted", "rejected", "superseded"]);
+import { collectDocumentationFiles } from "./docs-config.mjs";
 
-function walk(directory) {
-  if (!fs.existsSync(directory)) return [];
-  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const file = path.join(directory, entry.name);
-    return entry.isDirectory() ? walk(file) : file.endsWith(".md") ? [file] : [];
-  });
-}
+const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const ADR_STATUSES = new Set(["proposed", "accepted", "rejected", "superseded"]);
 
 function parseFrontMatter(text) {
   if (!text.startsWith("---\n")) return { fields: {} };
@@ -114,10 +107,7 @@ export function parsePorcelainStatus(output) {
 }
 
 export function checkDocumentation(root = rootDir) {
-  const files = [
-    ...walk(path.join(root, "docs")),
-    ...ROOT_DOCUMENTS.map((name) => path.join(root, name)).filter((file) => fs.existsSync(file)),
-  ];
+  const files = collectDocumentationFiles(root);
   const errors = [];
   const ids = new Map();
   const documents = files.map((file) => {

@@ -6,7 +6,7 @@ id: AVX-TERM-001
 
 关联：[文档写作规范](../../../CONTRIBUTING.md#documentation)
 
-本表是项目术语的唯一事实源。正文一律使用「规范写法」列；「禁写」列由 Vale 的 [`Project/Terms.yml`](../../../.vale/styles/Project/Terms.yml) 自动校验（规则见[文档写作规范](../../../CONTRIBUTING.md#documentation)），应为其它拼写变体时在提交前修正。
+本表是项目术语的唯一事实源。正文一律使用「规范写法」列；「禁写」列由 Vale 的 [`Project/Terms.yml`](../../../tooling/docs/styles/Project/Terms.yml) 自动校验（规则见[文档写作规范](../../../CONTRIBUTING.md#documentation)），应为其它拼写变体时在提交前修正。
 
 ## 产品与代号
 
