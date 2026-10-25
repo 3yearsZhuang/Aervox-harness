@@ -67,5 +67,5 @@ ADR-002 将 Web 层基线定为 React 19/Vite 7；但首版桌面端 `apps/deskt
 - **推进路径**：引入 Playwright 基线后走 G2 评审。
 
 > [!NOTE]
-> **验收差距修订（2026-10-10）**：Playwright 基线已引入并常驻（`playwright.config.ts`、`e2e/`，CI 观察期运行）；
+> **验收差距修订（2026-10-10）**：Playwright 基线已引入并常驻（当前配置见 [e2e/playwright.config.ts](../../../e2e/playwright.config.ts)，用例位于 `e2e/`，CI 观察期运行）；
 > 原「Playwright E2E 未引入」与推进路径仅作历史记录保留，具体 TC 证据仍按追踪基线维护。

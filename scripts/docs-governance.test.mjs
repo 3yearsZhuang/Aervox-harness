@@ -20,7 +20,7 @@ function fixture(t) {
   }
   write(root, "plan.md", "# 当前计划\n\n直接维护内容。\n");
   write(root, "README.md", "# Project\n\n[当前计划](plan.md)\n");
-  write(root, "CHANGELOG.md", "# Changelog\n");
+  write(root, "CONTRIBUTING.md", "# Contributing\n");
   return root;
 }
 
@@ -156,8 +156,8 @@ test("HTML href/src 检查本地文档、锚点与图片，忽略代码围栏和
   const root = fixture(t);
   write(root, "docs/page.md", "# Page\n");
   write(root, "docs/image.png", "image fixture");
-  write(root, "CHANGELOG.md", [
-    "# Changelog",
+  write(root, "CONTRIBUTING.md", [
+    "# Contributing",
     '<a href="docs/page.md#page">Page</a>',
     "<img alt='preview > detail' src='docs/image.png'>",
     "<img\n src=docs/image.png>",
@@ -170,7 +170,7 @@ test("HTML href/src 检查本地文档、锚点与图片，忽略代码围栏和
     "```",
   ].join("\n"));
   assert.deepEqual(checkDocumentation(root).errors, []);
-  fs.appendFileSync(path.join(root, "CHANGELOG.md"), [
+  fs.appendFileSync(path.join(root, "CONTRIBUTING.md"), [
     "",
     "<a href='docs/missing.md'>Missing</a>",
     '<img src="docs/missing.png">',
@@ -210,8 +210,8 @@ test("增量检查保留删除和文档工具输入，普通源码变动快退",
     assert.equal(selectDocumentationChecks([file], exists).runGovernance, true, file);
   }
   assert.deepEqual(selectDocumentationChecks(["apps/api/src/app.ts"], exists), { markdownFiles: [], runGovernance: false, lintAll: false });
-  assert.deepEqual(selectDocumentationChecks(["docs/README.md", "plan.md", "CHANGELOG.md", ".agents/example.md", "plugins/example/SKILL.md"], () => true), {
-    markdownFiles: ["docs/README.md", "plan.md", "CHANGELOG.md"], runGovernance: true, lintAll: false,
+  assert.deepEqual(selectDocumentationChecks(["docs/README.md", "plan.md", "CONTRIBUTING.md", ".agents/example.md", "plugins/example/SKILL.md"], () => true), {
+    markdownFiles: ["docs/README.md", "plan.md", "CONTRIBUTING.md"], runGovernance: true, lintAll: false,
   });
 });
 
@@ -242,7 +242,7 @@ if (${JSON.stringify(command)} === "vale") process.exitCode = 7;
     for (const args of recorded) {
       assert.ok(args.includes("docs/untouched.md"), `${config} -> ${args[0]}`);
       assert.ok(args.includes("plan.md"));
-      assert.ok(args.includes("CHANGELOG.md"));
+      assert.ok(args.includes("CONTRIBUTING.md"));
     }
   }
 });

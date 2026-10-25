@@ -54,7 +54,7 @@ export function isGovernanceInput(file) {
 
 /**
  * 受治 Markdown 范围：与 `mise tasks run ci-docs` 的检查清单保持一致
- * （`docs/**` + 根 README/AGENTS/CONTRIBUTING/CHANGELOG/plan.md）。增量门禁若放宽到
+ * （`docs/**` + 根 README/AGENTS/CONTRIBUTING/plan.md）。增量门禁若放宽到
  * 任意 `.md`，会去 lint 全量门禁从不检查的路径（如 `.agents/` 下的代理定义），
  * 使本地 `ci-fast` 因无关文件的历史排版问题变红。
  */
@@ -64,7 +64,6 @@ export function isGovernedMarkdown(file) {
     file === "README.md" ||
     file === "AGENTS.md" ||
     file === "CONTRIBUTING.md" ||
-    file === "CHANGELOG.md" ||
     file === "plan.md"
   );
 }
@@ -102,7 +101,7 @@ function main() {
   }
 
   if (checks.lintAll) {
-    checks.markdownFiles = fs.globSync(["docs/**/*.md", "README.md", "AGENTS.md", "CONTRIBUTING.md", "CHANGELOG.md", "plan.md"]).sort();
+    checks.markdownFiles = fs.globSync(["docs/**/*.md", "README.md", "AGENTS.md", "CONTRIBUTING.md", "plan.md"]).sort();
   }
   if (checks.markdownFiles.length > 0) {
     console.log(`[docs-affected] 检查 ${checks.markdownFiles.length} 个${checks.lintAll ? "全部" : "变更"}文档：`);

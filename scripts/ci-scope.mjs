@@ -6,11 +6,11 @@
  * 变更，仓库里却存在两类声明在包目录之外的 Turbo 输入：
  *
  * 1. 包级任务的自定义 inputs，如 `@aervox/api#test` 的 `../../plugins/**`；
- * 2. 无包前缀任务的共享 inputs，如 `test` 的 `../../vitest.shared.ts`。
+ * 2. 无包前缀任务的共享 inputs，如 `test` 的 `../../tooling/vitest.shared.ts`。
  *
  * 只改这些路径时，缓存哈希确实变了（`cache=MISS`），但差异过滤器会选中 0 个任务
  * ——任务从不被调度，本地 `./aervox ci` 与 `./aervox test` 因此假绿；根级
- * `globalDependencies`（如 `tsconfig.base*.json`）甚至连哈希都不变，陈旧结果被
+ * `globalDependencies`（如 `tooling/tsconfig.base*.json`）甚至连哈希都不变，陈旧结果被
  * 直接重放。工作流触发路径若不同步，CI 侧同样不会重新验证。
  *
  * 本模块把「变更文件 → 受影响范围」显式解析出来，并让同一份声明同时约束
@@ -117,7 +117,7 @@ export function isDocumentationOnlyChange(changedFiles, scope) {
   const declaredInputs = collectRequiredCodePaths(scope);
   return changedFiles.every((file) =>
     (file.startsWith("docs/") ||
-      ["README.md", "AGENTS.md", "CONTRIBUTING.md", "CHANGELOG.md", "plan.md"].includes(file) ||
+      ["README.md", "AGENTS.md", "CONTRIBUTING.md", "plan.md"].includes(file) ||
       file === ".markdownlint-cli2.jsonc" || file === ".vale.ini" ||
       file === ".lycheeignore" || file.startsWith(".vale/")) &&
     !declaredInputs.some((glob) => matchesGlob(file, glob)),

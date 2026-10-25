@@ -66,4 +66,4 @@ jobs:
           # accept 503：github.com 深链（参考项目上游固定 commit）在批量检查时
           # 易触发 GitHub 服务端限流 503，与 429/403 同属暂时性不可达，不判失败。
           # 本地链接已由 docs-validate 阻断；外站可达性只提供非阻断信号。
-          args: --no-progress --scheme http --scheme https --accept 200,429,403,503 --max-retries 3 --timeout 30 --exclude-file .lycheeignore README.md docs AGENTS.md CONTRIBUTING.md CHANGELOG.md plan.md
+          args: --no-progress --scheme http --scheme https --accept 200,429,403,503 --max-retries 3 --timeout 30 --exclude-file .lycheeignore README.md docs AGENTS.md CONTRIBUTING.md plan.md

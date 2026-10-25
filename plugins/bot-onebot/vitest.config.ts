@@ -1,1 +1,1 @@
-export { default } from "../../vitest.shared.js";
+export { default } from "../../tooling/vitest.shared.js";

@@ -6,7 +6,7 @@
  * 并调度 Turbo 对变更包及其全部下游依赖运行受控并发测试。
  *
  * 与 `check-affected.mjs` 共用 `scripts/ci-scope.mjs`：包外声明的输入
- * （`plugins/**`、`vitest.shared.ts`、根级 tsconfig）不在任何包目录内，
+ * （`plugins/**`、`tooling/vitest.shared.ts`、共享 tsconfig）不在任何包目录内，
  * Turbo 的差异过滤器看不见它们，需显式补入范围。
  */
 import { spawnSync } from "node:child_process";

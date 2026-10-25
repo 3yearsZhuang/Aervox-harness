@@ -1,1 +1,1 @@
-export { default } from '../../vitest.shared'
+export { default } from '../../tooling/vitest.shared'

@@ -57,7 +57,7 @@ app.js
 .zcode/
 .commandcode/
 
-# tsc 产物误入 src/ 的提交兜底（根因护栏见 tsconfig.base.json 的 "include": []）
+# tsc 产物误入 src/ 的提交兜底（根因护栏见 tooling/tsconfig.base.json 的 "include": []）
 # 编译产物与同名 .ts 并存时，vitest/tsx 会优先解析到过期的 .js ——
 # 表现为「行为与源码不符」且不报任何错。此处只做提交层面的兜底，不替代根因护栏。
 packages/*/src/**/*.js

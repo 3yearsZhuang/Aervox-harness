@@ -58,7 +58,7 @@ decision_status: accepted
 
 ### 2026-10-15 · E2E 目录与配置收拢
 
-API 级用例移入 `e2e/api/`，浏览器级用例移入 `e2e/ui/`，删除 `playwright.ui.config.ts`；两套用例改由根 [playwright.config.ts](../../../playwright.config.ts) 的 `api` 与 `ui` 两个 project 承载，超时与设备差异落在 project 级。`test:e2e:api` 与 `test:e2e:ui` 分别锁定单个 project，`test:e2e` 同时执行两者。
+API 级用例移入 `e2e/api/`，浏览器级用例移入 `e2e/ui/`，删除 `playwright.ui.config.ts`；两套用例由 [e2e/playwright.config.ts](../../../e2e/playwright.config.ts) 中的 `api` 与 `ui` 两个 project 承载，超时与设备差异落在 project 级。`test:e2e:api` 与 `test:e2e:ui` 分别锁定单个 project，`test:e2e` 同时执行两者。
 
 此前的形态是"新增 `e2e-ui/` 与 `playwright.ui.config.ts`（独立于 API 级配置）"（见上方 2026-10-13 v0.2.0 条目）；本次改为单目录单配置，**覆盖的回归用例、执行环境与隔离语义不变**，API job 仍只跑 request fixture 用例，因此不会在未安装浏览器二进制的环境里执行浏览器用例。CI 路径过滤中的 `e2e-ui/**` 与 `playwright.ui.config.ts` 一并删除，`e2e/**` 继续覆盖两个 project；回归守卫见 `scripts/ci-scope.test.mjs`。
 

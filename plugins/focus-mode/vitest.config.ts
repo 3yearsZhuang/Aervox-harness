@@ -1,6 +1,6 @@
 import { defineConfig, mergeConfig } from 'vitest/config';
 import vue from '@vitejs/plugin-vue';
-import sharedConfig from '../../vitest.shared';
+import sharedConfig from '../../tooling/vitest.shared';
 
 // 插件包测试环境（CR-060：插件测试随实现内聚）。
 // 需要 DOM 的组件用例在文件头用 `// @vitest-environment happy-dom` 单独声明，

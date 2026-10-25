@@ -44,9 +44,9 @@ test("CI covers every package root declared in pnpm-workspace.yaml", () => {
 
 function syntheticScope() {
   return {
-    globalDependencies: ["tsconfig.base.json", "tsconfig.base.node.json"],
+    globalDependencies: ["tooling/tsconfig.base.json", "tooling/tsconfig.base.node.json"],
     packageInputs: [{ pkg: "@aervox/api", task: "test", glob: "plugins/**", raw: "../../plugins/**" }],
-    sharedInputs: [{ task: "test", glob: "vitest.shared.ts", raw: "../../vitest.shared.ts" }],
+    sharedInputs: [{ task: "test", glob: "tooling/vitest.shared.ts", raw: "../../tooling/vitest.shared.ts" }],
   };
 }
 
@@ -55,8 +55,8 @@ test("glob 语义：`*` 不跨目录，`**` 跨目录且允许零层", () => {
   assert.equal(matchesGlob("plugins/readme.md", "plugins/**"), true);
   assert.equal(matchesGlob("dist/plugins/x.aervox-plugin", "plugins/**"), false);
   assert.equal(matchesGlob("apps/api/src/app.ts", "packages/**"), false);
-  assert.equal(matchesGlob("vitest.shared.ts", "vitest.shared.ts"), true);
-  assert.equal(matchesGlob("nested/vitest.shared.ts", "vitest.shared.ts"), false);
+  assert.equal(matchesGlob("tooling/vitest.shared.ts", "tooling/vitest.shared.ts"), true);
+  assert.equal(matchesGlob("nested/tooling/vitest.shared.ts", "tooling/vitest.shared.ts"), false);
   assert.equal(matchesGlob("docs/a/b/c.md", "docs/**/*.md"), true);
   assert.equal(matchesGlob("docs/c.md", "docs/**/*.md"), true);
   assert.equal(matchesGlob("plan.md", "*.md"), true);
@@ -67,7 +67,7 @@ test("glob 语义：`*` 不跨目录，`**` 跨目录且允许零层", () => {
 
 test("包内相对声明归一化为仓库根相对 glob", () => {
   assert.equal(normalizeDeclaredInput("../../plugins/**"), "plugins/**");
-  assert.equal(normalizeDeclaredInput("../../vitest.shared.ts"), "vitest.shared.ts");
+  assert.equal(normalizeDeclaredInput("../../tooling/vitest.shared.ts"), "tooling/vitest.shared.ts");
   assert.equal(normalizeDeclaredInput("src/**"), "src/**");
   assert.equal(normalizeDeclaredInput("./turbo.json"), "turbo.json");
 });
@@ -80,7 +80,7 @@ test("loadTurboScope 只提取包目录之外的声明", () => {
   assert.equal(apiPluginInput.task, "test");
 
   const shared = scope.sharedInputs.map((decl) => decl.glob);
-  assert.ok(shared.includes("vitest.shared.ts"), "应识别共享输入 ../../vitest.shared.ts");
+  assert.ok(shared.includes("tooling/vitest.shared.ts"), "应识别共享输入 ../../tooling/vitest.shared.ts");
 
   const allGlobs = [
     ...scope.globalDependencies,
@@ -90,8 +90,8 @@ test("loadTurboScope 只提取包目录之外的声明", () => {
   assert.equal(allGlobs.some((glob) => glob.startsWith("src/")), false, "包内输入不应出现在包外声明中");
 
   assert.ok(
-    scope.globalDependencies.includes("tsconfig.base.json") &&
-      scope.globalDependencies.includes("tsconfig.base.node.json"),
+    scope.globalDependencies.includes("tooling/tsconfig.base.json") &&
+      scope.globalDependencies.includes("tooling/tsconfig.base.node.json"),
     "根级共享 tsconfig 必须进入 globalDependencies，否则改动不会使缓存失效",
   );
 });
@@ -120,10 +120,12 @@ test("桌面主进程桥接变更会重新验证 API 会话落库验收", () => 
 });
 
 test("共享输入与根级依赖变更时收敛为全量，不按包收窄", () => {
-  for (const changed of [["vitest.shared.ts"], ["tsconfig.base.json"], ["tsconfig.base.node.json"]]) {
-    const changeScope = resolveChangeScope(changed, syntheticScope());
-    assert.equal(changeScope.mode, "full", `${changed[0]} 变更应触发全量`);
-    assert.deepEqual(buildTurboFilterArgs("origin/main", changeScope), []);
+  for (const scope of [syntheticScope(), loadTurboScope()]) {
+    for (const changed of [["tooling/vitest.shared.ts"], ["tooling/tsconfig.base.json"], ["tooling/tsconfig.base.node.json"]]) {
+      const changeScope = resolveChangeScope(changed, scope);
+      assert.equal(changeScope.mode, "full", `${changed[0]} 变更应触发全量`);
+      assert.deepEqual(buildTurboFilterArgs("origin/main", changeScope), []);
+    }
   }
 });
 
@@ -138,7 +140,7 @@ test("纯项目文档跳过代码检查，工具配置、锁文件和产品 Mark
   assert.equal(isDocumentationOnlyChange(["docs/guide.md", "plan.md", "README.md"], scope), true);
   assert.equal(isDocumentationOnlyChange([".vale.ini", ".vale/Styles/Terms.yml"], scope), true);
   for (const file of [
-    "mise.toml", "package.json", "pnpm-lock.yaml", "turbo.json", "vitest.shared.ts",
+    "mise.toml", "package.json", "pnpm-lock.yaml", "turbo.json", "tooling/vitest.shared.ts",
     "native/Cargo.lock", "native/crates/runtime/src/lib.rs", "plugins/example/SKILL.md",
     "apps/api/src/app.ts", "scripts/check-affected.mjs",
   ]) {
@@ -325,14 +327,20 @@ test('desktop checks both referenced projects before bundling', () => {
 test("CI covers Playwright test directories, configs and executable root launchers", () => {
   const workflow = readWorkflowPaths(CI_WORKFLOW);
   const required = ["aervox", "siyu-chat.command"];
-  const config = "playwright.config.ts";
+  const config = "e2e/playwright.config.ts";
   const configSource = fs.readFileSync(path.join(ROOT_DIR, config), "utf8");
   // 单配置多 project：每个 project 的 testDir 都必须被工作流路径过滤覆盖，
   // 否则改动某个 project 的用例会既不触发工作流、也不使缓存失效。
-  const testDirs = [...configSource.matchAll(/testDir:\s*["']\.\/([^"']+)["']/g)].map((match) => match[1]);
+  const testDirs = [...configSource.matchAll(/testDir:\s*["']\.\/([^"']+)["']/g)]
+    .map((match) => path.posix.join(path.posix.dirname(config), match[1]));
   assert.ok(testDirs.length > 0, `${config} must declare at least one testDir`);
   for (const project of ["api", "ui"]) {
     assert.match(configSource, new RegExp(`name:\\s*["']${project}["']`), `${config} must declare the ${project} project`);
+  }
+  assert.deepEqual(testDirs, ["e2e/api", "e2e/ui"]);
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, "package.json"), "utf8"));
+  for (const script of ["test:e2e", "test:e2e:api", "test:e2e:ui"]) {
+    assert.ok(pkg.scripts[script].includes(`--config ${config}`), `${script} must select the relocated config`);
   }
   required.push(config, ...testDirs.map((dir) => `${dir}/**`));
   assert.deepEqual(findUncoveredPaths(workflow.pullRequest, required), []);

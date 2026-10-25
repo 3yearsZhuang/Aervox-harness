@@ -5,7 +5,7 @@
  * 自动识别 Git 变更包及其下游，仅执行必要的边界检查、受影响包构建、
  * 类型检查与增量受控测试，杜绝全量 18 包与冷启动 install 的无效耗时。
  *
- * 包外声明的输入（`plugins/**`、`vitest.shared.ts`、根级 tsconfig）由
+ * 包外声明的输入（`plugins/**`、`tooling/vitest.shared.ts`、共享 tsconfig）由
  * `scripts/ci-scope.mjs` 显式补入范围：Turbo 的 `--filter=...[<base>]` 只看包目录内
  * 的变更，只改这些路径时会选中 0 个任务——哈希虽变为 MISS，任务却从不被调度。
  */

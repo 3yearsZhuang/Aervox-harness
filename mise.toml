@@ -43,11 +43,11 @@ check-standards = "pnpm --filter @aervox/contracts build && pnpm check:standards
 check-affected = "node scripts/check-affected.mjs"
 docs-lint-affected = "node scripts/docs-lint-affected.mjs"
 
-# 文档门禁：docs 与根文档（含 CHANGELOG）的格式、术语、ID、ADR 状态与本地链接/资产。
-ci-docs = "node --test scripts/docs-*.test.mjs && markdownlint-cli2 --config .markdownlint-cli2.jsonc 'docs/**/*.md' 'README.md' 'AGENTS.md' 'CONTRIBUTING.md' 'CHANGELOG.md' 'plan.md' && mise tasks run docs-lint-prose && mise tasks run docs-validate"
+# 文档门禁：docs 与根文档的格式、术语、ID、ADR 状态与本地链接/资产。
+ci-docs = "node --test scripts/docs-*.test.mjs && markdownlint-cli2 --config .markdownlint-cli2.jsonc 'docs/**/*.md' 'README.md' 'AGENTS.md' 'CONTRIBUTING.md' 'plan.md' && mise tasks run docs-lint-prose && mise tasks run docs-validate"
 
 # 术语/散文一致性（配置见 .vale.ini，错误级别阻断）
-docs-lint-prose = "vale --minAlertLevel=error docs README.md AGENTS.md CONTRIBUTING.md CHANGELOG.md plan.md"
+docs-lint-prose = "vale --minAlertLevel=error docs README.md AGENTS.md CONTRIBUTING.md plan.md"
 
 # 稳定 ID、ADR 状态与本地链接/锚点一致性
 docs-validate = "node scripts/docs-governance.mjs"

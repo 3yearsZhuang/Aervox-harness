@@ -22,7 +22,7 @@ export default defineConfig({
   // Tests may exercise private implementations without publishing them to consumers.
   resolve: { alias: [{
     find: /^@aervox\/host-runtime-test\//,
-    replacement: fileURLToPath(new URL('./packages/host-runtime/dist/', import.meta.url)),
+    replacement: fileURLToPath(new URL('../packages/host-runtime/dist/', import.meta.url)),
   }] },
   test: {
     include: ['test/**/*.test.ts'],

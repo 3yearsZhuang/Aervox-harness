@@ -30,6 +30,8 @@ id: AVX-DOC-001
 
 产品范围由 PRD 定义，可观察行为由 SRS 定义，技术决定由架构与 ADR 说明，机器契约由代码及 Schema 提供。测试和 PR 证明实现情况，不能反向修改需求或法律、安全、隐私承诺；文档冲突按[贡献指南](../CONTRIBUTING.md#documentation)处理。
 
+版本变更与验证证据通过 [Pull Requests](https://github.com/3yearsZhuang/Aervox-harness/pulls) 和 Git 历史追溯，能力状态与剩余发布门槛以[需求追踪](reference/REQUIREMENTS_TRACEABILITY.md)为准。代码合并、验收通过和正式发布分别取证，不在导航页复制交付流水。
+
 既有稳定编号用于追溯。已归档的 CR 与退役记录仍见 [Aervox-docs-archive](https://github.com/3yearsZhuang/Aervox-docs-archive)，主仓原 CR-055/057/060/061/062/063 已并入 [ADR](reference/adr/README.md)。架构设计、参考项目版本、许可证与演进研究统一维护在[架构与参考学习](reference/ARCHITECTURE.md#reference-learning)。
 
 已完成的卫生审计及整理前的计划、架构详细证据见[归档包](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation)；旧 CR-030 D2 目标 ERD 另见[历史图](https://github.com/3yearsZhuang/Aervox-docs-archive/blob/397d4b4bc924d1315205577ed4fb88a4df2c0619/archive/database-sqlite-erd-cr030-target.md)，现行表结构以 Schema 源码为准。活动计划保留原编号、剩余验收和交付链接，归档不改变需求或发布状态。

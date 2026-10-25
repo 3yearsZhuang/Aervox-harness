@@ -4,6 +4,8 @@
 
 所有脚本均遵循统一工具链锁定规范。优先使用 `./aervox` 或 `mise tasks run <task>`；下表中的 `pnpm`、`node` 指令需加 `mise exec --` 前缀，或在已激活 mise 的终端中执行。
 
+TypeScript 基类与 Vitest 共享配置集中在仓库的 [tooling/](../tooling/)，端到端测试配置位于 [e2e/playwright.config.ts](../e2e/playwright.config.ts)。`./aervox` 与现有 `pnpm` 脚本的使用方式保持不变，配置路径由入口或各包引用。
+
 ---
 
 ## 1. 架构守卫与门禁 (Guards & Hygiene)

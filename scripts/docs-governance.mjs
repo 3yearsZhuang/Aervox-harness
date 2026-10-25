@@ -8,7 +8,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const ROOT_DOCUMENTS = ["README.md", "AGENTS.md", "CONTRIBUTING.md", "CHANGELOG.md", "plan.md"];
+const ROOT_DOCUMENTS = ["README.md", "AGENTS.md", "CONTRIBUTING.md", "plan.md"];
 const ADR_STATUSES = new Set(["proposed", "accepted", "rejected", "superseded"]);
 
 function walk(directory) {

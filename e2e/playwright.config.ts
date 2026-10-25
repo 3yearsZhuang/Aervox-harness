@@ -22,7 +22,7 @@ export default defineConfig({
   projects: [
     {
       name: "api",
-      testDir: "./e2e/api",
+      testDir: "./api",
       timeout: 60_000,
       use: {
         baseURL: "http://localhost:3000",
@@ -30,7 +30,7 @@ export default defineConfig({
     },
     {
       name: "ui",
-      testDir: "./e2e/ui",
+      testDir: "./ui",
       timeout: 120_000,
       expect: { timeout: 15_000 },
       use: {
