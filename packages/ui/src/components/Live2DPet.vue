@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { getPlatformServices } from '@aervox/api-client'
+import { getClientPlatformServices } from '@aervox/api-client'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import type { PetCommand } from '@aervox/contracts'
 import { AervoxLive2DController } from '../live2d/controller'
 import { PET_REACT_EVENT, resolveLookAtElement, type PetReactionDetail } from '../live2d/petReactions'
 import { DEFAULT_AERVOX_MODEL, MIZUKI_EXPRESSIONS, MIZUKI_MOTIONS, type Live2DPose } from '../live2d/model'
 
+const platformServices = getClientPlatformServices()
 const emit = defineEmits<{ onSpeak: [text: string, preset?: string] }>()
 
 const canvasHost = ref<HTMLDivElement | null>(null)
@@ -84,7 +85,7 @@ onMounted(async () => {
     await controller.load(DEFAULT_AERVOX_MODEL)
     if (disposed) return
     exposeApi()
-    removePetCommandListener = getPlatformServices().onPetCommand?.((value: unknown) => onCommand(value as PetCommand)) ?? null
+    removePetCommandListener = platformServices.onPetCommand?.((value: unknown) => onCommand(value as PetCommand)) ?? null
     status.value = 'ready'
   } catch (error) {
     if (disposed) return

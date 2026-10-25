@@ -9,13 +9,14 @@ import WorkbenchSideCards from '../src/components/workbench/WorkbenchSideCards.v
 import { AervoxSegmentedControl, AervoxSwitch } from '../src/primitives';
 
 const llm = vi.hoisted(() => ({
-  getConfig: vi.fn(), listPresets: vi.fn(), saveConfig: vi.fn(), testConnection: vi.fn(),
+  getConfig: vi.fn(), loadProviders: vi.fn().mockResolvedValue([]), listPresets: vi.fn(), saveConfig: vi.fn(), testConnection: vi.fn(),
 }));
 
 vi.mock('@aervox/api-client', async (importOriginal) => ({
   ...await importOriginal<typeof import('@aervox/api-client')>(),
   useAervoxLLM: () => ({
     ...llm,
+    loadProviders: async () => undefined,
     presetProviders: [{ id: 'ollama', name: 'Ollama', defaultBaseUrl: 'http://localhost:11434/v1', recommendedModels: ['example-model'] }],
   }),
 }));

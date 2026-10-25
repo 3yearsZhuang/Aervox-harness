@@ -12,6 +12,27 @@ function client(handler: (method: string, path: string, body?: unknown) => Promi
 }
 
 describe('plugin configuration shared client', () => {
+  it('validates Page grants, preserves nullable metadata and encodes the lifecycle query', async () => {
+    const request = vi.fn(async () => ({ pages: [{ id: 'settings', title: 'Settings', entry: 'pages/settings/index.html',
+      description: null, checksum: null, capabilities: ['host.notify'], pageGeneration: 'page-generation' }] }));
+    const api = client(request);
+    expect(await api.listPages('a/b?c#d', 'generation/a?b#c')).toEqual([{ id: 'settings', title: 'Settings',
+      entry: 'pages/settings/index.html', description: null, checksum: null, capabilities: ['host.notify'], pageGeneration: 'page-generation' }]);
+    expect(request).toHaveBeenLastCalledWith('GET', '/v1/plugins/a%2Fb%3Fc%23d/pages?expectedLifecycleGeneration=generation%2Fa%3Fb%23c', undefined);
+    request.mockResolvedValue({ pages: [{ id: 'settings', title: 'Settings', entry: 'pages/settings/index.html',
+      capabilities: ['unknown-grant'], pageGeneration: 'page-generation' }] } as never);
+    await expect(api.listPages('plugin', 'generation')).rejects.toThrow();
+    request.mockClear();
+    await expect(api.listPages('plugin', '')).rejects.toThrow();
+    await expect(api.listPages('plugin', 'x'.repeat(129))).rejects.toThrow();
+    expect(request).not.toHaveBeenCalled();
+  });
+  it.each([[undefined], [null], [''], ['x'.repeat(129)], [7], [[]], [{}]])('rejects a Page response with malformed generation %j', async pageGeneration => {
+    const request = vi.fn(async () => ({ pages: [{ id: 'settings', title: 'Settings', entry: 'pages/settings/index.html',
+      capabilities: ['config.read'], pageGeneration }] }));
+    await expect(client(request).listPages('plugin', 'generation')).rejects.toThrow();
+    expect(request).toHaveBeenCalledTimes(1);
+  });
   it('uses all five descriptors, encodes plugin ids once and preserves omitted payload fields', async () => {
     const calls: Array<[string, string, unknown]> = [];
     const api = client(async (method, path, body) => {
@@ -47,5 +68,77 @@ describe('plugin configuration shared client', () => {
     await expect(api.saveConfig('plugin', { revision: 0 })).rejects.toThrow();
     await expect(api.resetConfig('plugin')).rejects.toThrow();
     expect(request).toHaveBeenCalledTimes(5);
+  });
+
+  it('binds Page configuration reads, saves and resets to the captured lifecycle generation', async () => {
+    const calls: Array<[string, string, unknown]> = [];
+    const api = client(async (method, path, body) => {
+      calls.push([method, path, body]);
+      return snapshot;
+    });
+    const generation = 'generation/a?b#c';
+    await api.getConfig('a/b?c#d', generation);
+    await api.saveConfig('a/b?c#d', { revision: 1, expectedLifecycleGeneration: generation });
+    await api.resetConfig('a/b?c#d', generation);
+    expect(calls).toEqual([
+      ['GET', '/v1/plugins/a%2Fb%3Fc%23d/config?expectedLifecycleGeneration=generation%2Fa%3Fb%23c', undefined],
+      ['PUT', '/v1/plugins/a%2Fb%3Fc%23d/config', { revision: 1, expectedLifecycleGeneration: generation }],
+      ['POST', '/v1/plugins/a%2Fb%3Fc%23d/config/reset?expectedLifecycleGeneration=generation%2Fa%3Fb%23c', undefined],
+    ]);
+  });
+
+  it.each(['', 'x'.repeat(129)])('rejects invalid Page lifecycle generations before transport: %j', async generation => {
+    const request = vi.fn(async () => snapshot);
+    const api = client(request);
+    await expect(api.getConfig('plugin', generation)).rejects.toThrow();
+    await expect(api.saveConfig('plugin', { revision: 1, expectedLifecycleGeneration: generation })).rejects.toThrow();
+    await expect(api.resetConfig('plugin', generation)).rejects.toThrow();
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it('preserves the Page write identity in the shared save payload', async () => {
+    const request = vi.fn(async () => snapshot);
+    const api = client(request);
+    await api.saveConfig('plugin', {
+      revision: 1, expectedPageId: 'settings', expectedPageGeneration: 'page-generation', expectedLifecycleGeneration: 'generation',
+    });
+    expect(request).toHaveBeenCalledWith('PUT', '/v1/plugins/plugin/config', {
+      revision: 1, expectedPageId: 'settings', expectedPageGeneration: 'page-generation', expectedLifecycleGeneration: 'generation',
+    });
+  });
+
+  it.each(['', '../settings', 'settings/other', 'x'.repeat(65), null])('rejects an invalid Page write identity before transport: %j', async expectedPageId => {
+    const request = vi.fn(async () => snapshot);
+    const api = client(request);
+    await expect(api.saveConfig('plugin', {
+      revision: 1, expectedPageId, expectedPageGeneration: 'page-generation', expectedLifecycleGeneration: 'generation',
+    } as never)).rejects.toThrow();
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it('rejects a Page write identity without an explicit lifecycle generation before transport', async () => {
+    const request = vi.fn(async () => snapshot);
+    const api = client(request);
+    await expect(api.saveConfig('plugin', { revision: 1, expectedPageId: 'settings', expectedPageGeneration: 'page-generation' })).rejects.toThrow();
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { expectedPageId: 'settings', expectedLifecycleGeneration: 'generation' },
+    { expectedPageGeneration: 'page-generation', expectedLifecycleGeneration: 'generation' },
+  ])('rejects half of the Page identity before transport: %j', async incomplete => {
+    const request = vi.fn(async () => snapshot);
+    const api = client(request);
+    await expect(api.saveConfig('plugin', { revision: 1, ...incomplete })).rejects.toThrow();
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it.each([[null], [''], ['x'.repeat(129)], [7], [[]], [{}]])('rejects an invalid Page write generation before transport: %j', async expectedPageGeneration => {
+    const request = vi.fn(async () => snapshot);
+    const api = client(request);
+    await expect(api.saveConfig('plugin', {
+      revision: 1, expectedPageId: 'settings', expectedLifecycleGeneration: 'generation', expectedPageGeneration,
+    } as never)).rejects.toThrow();
+    expect(request).not.toHaveBeenCalled();
   });
 });

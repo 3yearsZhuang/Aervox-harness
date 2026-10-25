@@ -150,14 +150,111 @@ export function runInspection(
   return duplicates;
 }
 
-if (process.argv[1]?.endsWith("check-type-boundary.mjs")) {
-  const duplicates = runInspection();
-  if (duplicates.length > 0) {
-    console.error(`❌ 发现 ${duplicates.length} 处违规本地重复类型声明（已在 @aervox/contracts 中导出）：`);
-    for (const d of duplicates) {
-      console.error(`   ${d.file}:${d.line}:${d.column} 本地声明了 "${d.name}"，请直接 import from "@aervox/contracts"`);
+/** Explicit migrated wire contracts, not a structural similarity detector for arbitrary types. */
+export const DTO_ALIAS_CONTRACTS = new Map([
+  ["packages/api-client/src/useAervoxMcp.ts", {
+    McpPresetDto: "McpPresetServer", McpServerConfigDto: "McpServerConfig", McpServerToolDto: "McpServerToolEntry",
+  }],
+  ["packages/host-runtime/src/modules/ecosystem/mcp/service.ts", {
+    McpPresetDto: "McpPresetServer", McpServerDto: "McpServerConfig", McpServerToolDto: "McpServerToolEntry",
+  }],
+  ["packages/api-client/src/useAervoxVoice.ts", {
+    LocalVoiceConfigDto: "LocalVoiceConfigDraft", RemoteVoiceConfigDto: "RemoteVoiceConfigDraft",
+    VoiceRemoteTestConnectionResultDto: "VoiceRemoteTestOutput", VoiceModelDto: "VoiceModelOutput",
+    VoiceSynthesisResultDto: "VoiceSynthesisOutput", VoicePresetDto: "VoicePreset",
+    VoiceInputConfigRefDto: "VoiceInputConfigOutput", VoicePresetListDto: "VoicePresetListResponse",
+  }],
+]);
+
+/** Mixed owners retain unrelated projections; only these migrated names are governed. */
+export const SCOPED_DTO_ALIAS_CONTRACTS = new Map([
+  ["packages/api-client/src/useAervoxPersonas.ts", {
+    PersonaDto: "Persona", PersonaRevisionConfigDto: "PersonaRevisionConfig", PersonaRevisionDto: "PersonaRevision",
+    ActivePersonaSelectionDto: "ActivePersonaSelection", CreatePersonaInputDto: "CreatePersonaRequest", UpdatePersonaInputDto: "UpdatePersonaRequest",
+  }],
+]);
+
+export const SCHEMA_TYPE_CONTRACTS = new Map([
+  ["packages/contracts/src/persona-api.ts", {
+    CreatePersonaRequest: ["input", "createPersonaRequestSchema"], UpdatePersonaRequest: ["input", "updatePersonaRequestSchema"],
+    PersonaListResponse: ["output", "personaListResponseSchema"], PersonaDetailResponse: ["output", "personaDetailResponseSchema"],
+    PersonaMutationResponse: ["output", "personaMutationResponseSchema"], PersonaImportResponse: ["output", "personaImportResponseSchema"],
+    PersonaBundleResponse: ["output", "personaBundleResponseSchema"],
+  }],
+  ["plugins/focus-mode/src/contracts/terms.ts", {
+    ExtractedTerm: ["infer", "extractedTermSchema"], TermsExtractedEventData: ["infer", "termsExtractedEventDataSchema"],
+    TermExploreKind: ["infer", "termExploreKindSchema"], TermExploreRequest: ["infer", "termExploreRequestSchema"],
+    TermExploreResponse: ["infer", "termExploreResponseSchema"],
+  }],
+  ["packages/contracts/src/mcp-schemas.ts", {
+    McpPresetServer: ["infer", "mcpPresetServerSchema"], McpServerConfig: ["infer", "mcpServerConfigSchema"],
+    McpServerToolEntry: ["infer", "mcpServerToolEntrySchema"],
+  }],
+  ["packages/contracts/src/persona-schemas.ts", {
+    VoicePreset: ["infer", "voicePresetSchema"], VoicePresetListResponse: ["infer", "voicePresetListResponseSchema"],
+    LocalVoiceConfigInput: ["input", "localVoiceConfigSchema"], LocalVoiceConfigOutput: ["output", "localVoiceConfigResponseSchema"],
+    RemoteVoiceConfigInput: ["input", "remoteVoiceConfigSchema"], RemoteVoiceConfigOutput: ["output", "remoteVoiceConfigResponseSchema"],
+    VoiceInputConfigOutput: ["output", "voiceInputConfigResponseSchema"], VoiceModelOutput: ["output", "voiceModelSchema"],
+    VoiceSynthesisInput: ["input", "voiceSynthesisRequestSchema"], VoiceSynthesisOutput: ["output", "voiceSynthesisResponseSchema"],
+    VoiceRemoteTestOutput: ["output", "voiceRemoteTestConnectionResponseSchema"],
+    LocalVoiceConfigDraft: ["input", "localVoiceConfigResponseSchema"], RemoteVoiceConfigDraft: ["input", "remoteVoiceConfigResponseSchema"],
+  }],
+]);
+
+export function inspectDtoDerivations(file, source) {
+  const strictAliases = DTO_ALIAS_CONTRACTS.get(file);
+  const aliases = strictAliases ?? SCOPED_DTO_ALIAS_CONTRACTS.get(file), schemas = SCHEMA_TYPE_CONTRACTS.get(file);
+  if (!aliases && !schemas) return [];
+  const ast = parse(source, { sourceType: "module", plugins: ["typescript"] });
+  const declarations = new Map(), imported = new Map(), violations = [];
+  let zod = false;
+  const add = (name, message, node) => violations.push({ file, name, message, line: node?.loc?.start?.line ?? 1, column: 0 });
+  for (const node of ast.program.body) {
+    const declaration = node.type === "ExportNamedDeclaration" ? node.declaration : node;
+    if (declaration?.type === "TSInterfaceDeclaration" || declaration?.type === "TSTypeAliasDeclaration") {
+      declarations.set(declaration.id.name, declaration);
+      if (strictAliases && declaration.id.name.endsWith("Dto")) add(declaration.id.name, "Migrated public wire DTOs must alias @aervox/contracts; no handwritten DTO declaration in this owner", declaration);
     }
+    if ((node.type === "ImportDeclaration" || node.type === "ExportNamedDeclaration") && node.source?.value === "@aervox/contracts") {
+      for (const specifier of node.specifiers ?? []) {
+        const local = specifier.local?.name ?? specifier.exported?.name;
+        const name = specifier.imported?.name ?? specifier.local?.name;
+        const alias = node.type === "ExportNamedDeclaration" ? specifier.exported?.name : local;
+        imported.set(alias, name);
+      }
+    }
+    if (node.type === "ImportDeclaration" && node.source?.value === "zod") zod ||= node.specifiers.some(specifier => specifier.imported?.name === "z" && specifier.local.name === "z");
+  }
+  for (const [alias, original] of Object.entries(aliases ?? {})) {
+    if (declarations.has(alias) || imported.get(alias) !== original) add(alias, `Expected contract alias ${original} as ${alias} from @aervox/contracts`, declarations.get(alias));
+  }
+  for (const [name, [mode, schema]] of Object.entries(schemas ?? {})) {
+    const declaration = declarations.get(name), type = declaration?.typeAnnotation;
+    const parameter = (type?.typeParameters ?? type?.typeArguments)?.params?.[0];
+    if (!zod || declaration?.type !== "TSTypeAliasDeclaration" || type?.type !== "TSTypeReference"
+      || type.typeName?.left?.name !== "z" || type.typeName?.right?.name !== mode
+      || parameter?.type !== "TSTypeQuery" || parameter.exprName?.name !== schema) {
+      add(name, `Expected public DTO derived as z.${mode}<typeof ${schema}>`, declaration);
+    }
+  }
+  return violations;
+}
+
+export function runDtoDerivationInspection() {
+  const violations = [];
+  for (const file of new Set([...DTO_ALIAS_CONTRACTS.keys(), ...SCOPED_DTO_ALIAS_CONTRACTS.keys(), ...SCHEMA_TYPE_CONTRACTS.keys()])) {
+    if (!existsSync(file)) violations.push({ file, name: "<source>", line: 1, column: 0, message: "Missing explicitly governed DTO source" });
+    else violations.push(...inspectDtoDerivations(file, readFileSync(file, "utf8")));
+  }
+  return violations;
+}
+
+if (process.argv[1]?.endsWith("check-type-boundary.mjs")) {
+  const duplicates = [...runInspection(), ...runDtoDerivationInspection()];
+  if (duplicates.length > 0) {
+    console.error(`Type ownership failed: ${duplicates.length} violations`);
+    for (const d of duplicates) console.error(`${d.file}:${d.line}:${d.column} ${d.name}: ${d.message ?? "local declaration conflicts with @aervox/contracts; import its type instead"}`);
     process.exit(1);
   }
-  console.log("✔ 类型边界检查通过：下游包中无与 @aervox/contracts 冲突的本地重复类型声明");
+  console.log("Type ownership passed: no same-name contract redeclarations; explicit migrated MCP/Voice/Persona/Terms aliases derive from their declared Schema. This is not semantic equivalence detection for arbitrary DTO names.");
 }

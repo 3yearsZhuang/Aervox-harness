@@ -1924,6 +1924,563 @@
           }
         }
       }
+    },
+    {
+      "id": "voice-preset-create-receipt",
+      "reason": "Correct the documented response to the existing id/name/isActive receipt returned by createVoicePreset and activateVoicePreset. Full local/remote/input configuration remains available from GET /v1/voice/presets; runtime validation and real SQLite HTTP regression cover the receipt.",
+      "pointer": "/paths/~1v1~1voice~1presets/post/responses/201/content/application~1json/schema",
+      "beforeHash": "0ecc3bde3575c08f82775b8ee88958b1f95933f4ae09f9ae7c0cb671280794ff",
+      "value": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "isActive"
+        ]
+      }
+    },
+    {
+      "id": "voice-preset-activate-receipt",
+      "reason": "Correct the documented response to the existing id/name/isActive receipt returned by createVoicePreset and activateVoicePreset. Full local/remote/input configuration remains available from GET /v1/voice/presets; runtime validation and real SQLite HTTP regression cover the receipt.",
+      "pointer": "/paths/~1v1~1voice~1presets~1{presetId}~1activate/post/responses/200/content/application~1json/schema",
+      "beforeHash": "0ecc3bde3575c08f82775b8ee88958b1f95933f4ae09f9ae7c0cb671280794ff",
+      "value": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "isActive"
+        ]
+      }
+    },
+    {
+      "id": "persona-detail-nullable-revision",
+      "reason": "Document the existing nullable revision returned by PersonaService.getPersona when the current revision is unavailable. The client already accepted null; a route contract test preserves the response.",
+      "pointer": "/paths/~1v1~1personas~1{personaId}/get/responses/200/content/application~1json/schema",
+      "beforeHash": "33725988db197cc9624d8af1c840d1648be29eba19da34444cd6f6088e7a51c1",
+      "value": {
+        "type": "object",
+        "properties": {
+          "persona": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "workspaceId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "subjectUserId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "builtin",
+                  "user_created",
+                  "imported"
+                ]
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "archived"
+                ]
+              },
+              "reviewStatus": {
+                "type": "string",
+                "enum": [
+                  "draft",
+                  "pending_review",
+                  "approved",
+                  "rejected"
+                ]
+              },
+              "reviewNotes": {
+                "type": "string"
+              },
+              "reviewedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "currentRevisionId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "updatedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "id",
+              "workspaceId",
+              "subjectUserId",
+              "name",
+              "description",
+              "source",
+              "status",
+              "reviewStatus",
+              "reviewNotes",
+              "reviewedAt",
+              "currentRevisionId",
+              "createdAt",
+              "updatedAt"
+            ]
+          },
+          "revision": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "personaId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "revision": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "config": {
+                "type": "object",
+                "properties": {
+                  "systemPromptAppend": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32000
+                  },
+                  "allowedSkillNames": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "allowedMcpToolIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "voice": {
+                    "type": "object",
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "providerId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "modelId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "speakerId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "settings": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "boolean"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "enabled",
+                      "providerId",
+                      "modelId"
+                    ]
+                  }
+                },
+                "required": [
+                  "systemPromptAppend"
+                ]
+              },
+              "checksum": {
+                "type": "string",
+                "minLength": 64,
+                "maxLength": 64
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "id",
+              "personaId",
+              "revision",
+              "config",
+              "checksum",
+              "createdAt"
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "persona",
+          "revision",
+          "active"
+        ]
+      }
+    },
+    {
+      "id": "persona-delete-json-receipt",
+      "reason": "Document the existing JSON deleted/personaId receipt returned by the archive route; the old document omitted its content.",
+      "pointer": "/paths/~1v1~1personas~1{personaId}/delete/responses/200/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "deleted": {
+                "type": "boolean"
+              },
+              "personaId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "deleted",
+              "personaId"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "persona-import-json-receipt",
+      "reason": "Document the existing JSON import result containing persona/revision, installed skill summaries with nullable optional checksum, and missing dependencies. Real SQLite and nested skill ZIP integration preserves historical null checksum and validates controlled fields before any write.",
+      "pointer": "/paths/~1v1~1personas~1import/post/responses/201/content",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "persona": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "workspaceId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "subjectUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "builtin",
+                      "user_created",
+                      "imported"
+                    ]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "archived"
+                    ]
+                  },
+                  "reviewStatus": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "pending_review",
+                      "approved",
+                      "rejected"
+                    ]
+                  },
+                  "reviewNotes": {
+                    "type": "string"
+                  },
+                  "reviewedAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time"
+                  },
+                  "currentRevisionId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "updatedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "id",
+                  "workspaceId",
+                  "subjectUserId",
+                  "name",
+                  "description",
+                  "source",
+                  "status",
+                  "reviewStatus",
+                  "reviewNotes",
+                  "reviewedAt",
+                  "currentRevisionId",
+                  "createdAt",
+                  "updatedAt"
+                ]
+              },
+              "revision": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "personaId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  },
+                  "config": {
+                    "type": "object",
+                    "properties": {
+                      "systemPromptAppend": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 32000
+                      },
+                      "allowedSkillNames": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "allowedMcpToolIds": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "voice": {
+                        "type": "object",
+                        "properties": {
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "providerId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "modelId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "speakerId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "settings": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "boolean"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "enabled",
+                          "providerId",
+                          "modelId"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "systemPromptAppend"
+                    ]
+                  },
+                  "checksum": {
+                    "type": "string",
+                    "minLength": 64,
+                    "maxLength": 64
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "id",
+                  "personaId",
+                  "revision",
+                  "config",
+                  "checksum",
+                  "createdAt"
+                ]
+              },
+              "skills": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "checksum": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "description"
+                  ]
+                }
+              },
+              "missingDependencies": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "persona",
+              "revision",
+              "skills",
+              "missingDependencies"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "page-list-nullable-checksum",
+      "reason": "Correct the historical Page list response: the repository and HTTP service already return null for absent checksum; API, repository and shared-client regressions in PR #324 preserve that wire behavior.",
+      "pointer": "/paths/~1v1~1plugins~1{pluginId}~1pages/get/responses/200/content/application~1json/schema/properties/pages/items/properties/checksum/type",
+      "beforeHash": "e9e5c1c9e4f6277339d1bcde0733a59bd42f8731f449da6dc13010a916930d48",
+      "value": [
+        "string",
+        "null"
+      ]
+    },
+    {
+      "id": "page-list-nullable-description",
+      "reason": "Correct the historical Page list response: the repository and HTTP service already return null for absent description; API, repository and shared-client regressions in PR #324 preserve that wire behavior.",
+      "pointer": "/paths/~1v1~1plugins~1{pluginId}~1pages/get/responses/200/content/application~1json/schema/properties/pages/items/properties/description/anyOf",
+      "beforeHash": "2e453e06524185b42082da7967f8add669002cd865b5ac1623b0af3a2be3c88f",
+      "value": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   ],
   "restoration": {

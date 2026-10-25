@@ -10,7 +10,9 @@
  */
 import { eq, and } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
-import { subagentRuns } from "@aervox/schema";
+import { subagentRuns, turnAttempts } from "@aervox/schema";
+import { TurnStore } from "./conversation/turn-store.js";
+import { TurnIntentConflictError } from "../../conversation-turn-intent.js";
 import type { LocalContext } from "../../local-context.js";
 import type {
   ISubagentRunRepository,
@@ -40,6 +42,36 @@ const toModel = (row: RunRow): SubagentRunModel => ({
 
 export class SqliteSubagentRunRepository implements ISubagentRunRepository {
   constructor(private readonly db: AervoxDatabase) {}
+
+  async acceptRun(ctx: LocalContext, input: SubagentRunCreateInput): Promise<{ created: boolean; run: SubagentRunModel }> {
+    return this.db.transaction(async tx => {
+      const [existing] = await tx.select().from(subagentRuns).where(and(
+        eq(subagentRuns.parentAttemptId, input.parentAttemptId), eq(subagentRuns.parentExecutionId, input.parentExecutionId),
+      ));
+      if (existing) {
+        if (existing.sessionId !== input.sessionId || existing.parentTurnId !== input.parentTurnId
+          || existing.task !== input.task || JSON.stringify(existing.toolScopeJson ?? null) !== JSON.stringify(input.toolScope ?? null)) {
+          throw new TurnIntentConflictError("intent_mismatch");
+        }
+        return { created: false, run: toModel(existing) };
+      }
+      const acceptance = await new TurnStore(this.db).createTurnWithAttemptInTransaction(tx, ctx, {
+        turnId: input.subTurnId, sessionId: input.sessionId, attemptId: input.subAttemptId,
+        idempotencyKey: `subagent:${input.parentExecutionId}`,
+        message: { id: `msg_${input.subTurnId}_user`, content: input.task },
+      }, { parentTurnId: input.parentTurnId, parentAttemptId: input.parentAttemptId, parentExecutionId: input.parentExecutionId });
+      const attempt = acceptance.created ? acceptance.attempt : (await tx.select().from(turnAttempts).where(and(
+        eq(turnAttempts.turnId, acceptance.turn.id), eq(turnAttempts.attempt, 1),
+      )))[0];
+      if (!attempt || attempt.status !== "Running" || attempt.leaseId || attempt.fencingToken !== 0) throw new Error("subagent_acceptance_unavailable");
+      const now = new Date().toISOString();
+      const [row] = await tx.insert(subagentRuns).values({
+        ...input, subTurnId: acceptance.turn.id, subAttemptId: attempt.id,
+        toolScopeJson: input.toolScope ?? null, status: "Running", createdAt: now, updatedAt: now,
+      }).returning();
+      return { created: true, run: toModel(row!) };
+    });
+  }
 
   async createRun(ctx: LocalContext, input: SubagentRunCreateInput): Promise<SubagentRunModel> {
     const existing = await this.getRunByParentExecution(ctx, input.parentAttemptId, input.parentExecutionId);

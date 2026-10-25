@@ -81,6 +81,6 @@ TurnAttempt
 ## Verification evidence
 
 - 已有 ModelRun attemptId/stepId、Manifest 快照和 Inbox 表/消费链；实现见 [Platform Schema](../../../packages/schema/src/platform.ts)、[Core executor](../../../packages/core/src/executor.ts)、[API sink](../../../packages/host-runtime/src/modules/companion/conversation/agent-executor.ts) 与 [Inbox API](../../../packages/host-runtime/src/modules/companion/inbox/routes.ts)。
-- [Recording Provider](../../../packages/core/src/recording-provider.ts)在每次实际模型调用边界复制输入，分别记录成功、失败与重试的 ModelRun 和 Manifest；快照包含当次消息、工具声明及请求参数。API sink 仍使用 `turn:history` 来源标签，诊断写入尽力而为，不承担恢复或授权账本责任；完整来源条目、独立 AgentStep 持久实体及 Inbox 目标合同仍需分别验收，不能据此宣布本 ADR 全部完成。
+- [Recording Provider](../../../packages/core/src/recording-provider.ts)在每次实际模型调用边界复制输入，分别记录成功、失败与重试的 ModelRun 和 Manifest；进程内快照包含当次消息、工具声明及请求参数。[Platform 仓储](../../../packages/repositories/src/repositories/sqlite/platform-repository.ts)只把白名单请求元数据写入新 Manifest：消息/角色/工具计数及合法生成参数，不复制正文、工具 Schema 或内容 hash，未知快照写为 null。API sink 仍使用 `turn:history` 来源标签，诊断写入尽力而为，不承担恢复或授权账本责任；历史正文清理、完整来源条目、删除传播、独立 AgentStep 持久实体及 Inbox 目标合同仍需分别验收，不能据此宣布本 ADR 全部完成。
 - 回归入口：[context-manifest](../../../packages/core/test/context-manifest.test.ts)、[platform-modelrun](../../../packages/repositories/test/platform-modelrun.test.ts)、[agent-inbox](../../../packages/repositories/test/agent-inbox.test.ts)、[Inbox API](../../../apps/api/test/inbox-routes.test.ts)。测试存在不等于本次已运行或覆盖完整目标。
 - 依赖边界由 [`import-boundary.mjs`](../../../scripts/import-boundary.mjs)守卫；恢复、删除/撤权、请求级关联与 G2 门禁须有独立证据。后续排序只在根 [plan.md](../../../plan.md)维护。

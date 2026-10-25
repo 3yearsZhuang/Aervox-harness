@@ -25,16 +25,8 @@ import {
   projectContextToModelVisible,
 } from "./context-projection.js";
 
-/** 默认 builder：仅透传原始输入（inbox 项不注入，由宿主按需开启） */
-export const defaultContextBuilder: ContextBuilderPort = {
-  build(input: Parameters<ContextBuilderPort["build"]>[0]): PromptContext {
-    return {
-      turnId: input.turnId,
-      sessionId: input.sessionId,
-      messages: input.messages,
-    };
-  },
-};
+import { defaultContextBuilder } from "./default-context-builder.js";
+export { defaultContextBuilder } from "./default-context-builder.js";
 
 /** 从 inbox 项构造追加输入消息（§7.1 第 7 项；附来源与用途标注） */
 export function inboxItemsToMessages(items: AgentInboxItem[]): PromptMessage[] {

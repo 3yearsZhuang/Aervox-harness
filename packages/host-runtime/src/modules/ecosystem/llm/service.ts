@@ -6,7 +6,7 @@ import type {
   LLMProviderType,
 } from "@aervox/contracts";
 import type { SqliteLLMConfigRepository, LocalContext } from "@aervox/repositories";
-import { defaultModelProviderRegistry } from "@aervox/core";
+import { configuredProviderDescriptor } from "./provider-catalog.js";
 import type {
   LLMServiceOptions,
   ModelCapabilities,
@@ -60,31 +60,19 @@ function toPreset(found: {
 function getConfiguredDefault(options: LLMServiceOptions): LLMConfigResponse {
   const defaultProvider = options.defaultProviderType ?? "ollama";
   assertConfiguredProvider(defaultProvider);
-  const descriptor = defaultModelProviderRegistry.getDescriptor(defaultProvider);
-  const preset = defaultProvider === "anthropic"
-    ? { baseUrl: "https://api.anthropic.com/v1", modelId: "claude-3-5-sonnet-20241022" }
-    : {
-        baseUrl: descriptor?.defaultBaseUrl ?? "http://127.0.0.1:8000/v1",
-        modelId: descriptor?.recommendedModels?.[0] ?? "default",
-      };
+  const descriptor = configuredProviderDescriptor(defaultProvider);
   return {
     enabled: true,
     providerType: defaultProvider,
-    baseUrl: options.defaultBaseUrl ?? preset.baseUrl,
-    modelId: options.defaultModelId ?? preset.modelId,
+    baseUrl: options.defaultBaseUrl ?? descriptor.defaultBaseUrl,
+    modelId: options.defaultModelId ?? descriptor.recommendedModels[0] ?? "default",
     temperature: 0.7,
     maxTokens: 4096,
     settings: {},
   };
 }
 
-function assertConfiguredProvider(id: string): void {
-  // Preserve existing Anthropic configuration; execution still reports its unsupported protocol explicitly.
-  if (id === "anthropic") return;
-  if (defaultModelProviderRegistry.getDescriptor(id)?.protocol !== "openai-compat") {
-    throw new Error(`unknown_model_provider: ${id}`);
-  }
-}
+function assertConfiguredProvider(id: string): void { configuredProviderDescriptor(id); }
 
 export class LLMConfigService {
   constructor(

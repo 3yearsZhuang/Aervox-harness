@@ -1,3 +1,4 @@
+import { personaApi } from "./persona-api.js";
 /**
  * Aervox｜思隅 @aervox/contracts — OpenAPI 3.1 文档生成
  *
@@ -9,6 +10,9 @@ import { registerBotOpenApi } from './bot-openapi.js';
 import { registerMcpOpenApiPaths, registerMcpOpenApiSchemas } from './mcp-openapi.js';
 import { apiProblemSchema, type ApiEndpoint } from "./http-api.js";
 import { turnDiagnosticsApi } from "./turn-diagnostics-api.js";
+import { voiceApi } from "./voice-api.js";
+import { mcpApi } from "./mcp-api.js";
+import { llmApi } from "./llm-api.js";
 import { modelRuntimeApi } from "./model-runtime-api.js";
 import { preferencesApi } from "./preferences-api.js";
 import { skillsApi } from "./skills-api.js";
@@ -945,49 +949,20 @@ registry.registerPath({
   },
 });
 
-const personaIdParam = z.object({ personaId: z.string().min(1) });
+for (const endpoint of Object.values(personaApi)) registerJsonEndpoint(endpoint);
 const skillNameParam = z.object({ skillName: z.string().min(1) });
-registry.registerPath({
-  method: "get", path: "/v1/personas", summary: "列出人格", tags: ["Persona"],
-  request: { headers: commonHeaders },
-  responses: { 200: { description: "Persona list", content: { "application/json": { schema: z.object({ personas: z.array(personaSchema), active: activePersonaSelectionSchema.nullable() }) } } } },
-});
-registry.registerPath({
-  method: "post", path: "/v1/personas", summary: "创建人格", tags: ["Persona"],
-  request: { headers: commonHeaders, body: { content: { "application/json": { schema: createPersonaRequestSchema } } } },
-  responses: { 201: { description: "Created", content: { "application/json": { schema: z.object({ persona: personaSchema, revision: personaRevisionSchema }) } } } },
-});
-registry.registerPath({
-  method: "get", path: "/v1/personas/{personaId}", summary: "读取人格", tags: ["Persona"],
-  request: { params: personaIdParam, headers: commonHeaders },
-  responses: { 200: { description: "Persona", content: { "application/json": { schema: z.object({ persona: personaSchema, revision: personaRevisionSchema, active: z.boolean() }) } } }, 404: { description: "PERSONA_NOT_FOUND" } },
-});
-registry.registerPath({
-  method: "patch", path: "/v1/personas/{personaId}", summary: "创建人格新修订", tags: ["Persona"],
-  request: { params: personaIdParam, headers: commonHeaders, body: { content: { "application/json": { schema: updatePersonaRequestSchema } } } },
-  responses: { 200: { description: "Updated", content: { "application/json": { schema: z.object({ persona: personaSchema, revision: personaRevisionSchema }) } } }, 409: { description: "PERSONA_REVISION_CONFLICT" } },
-});
-registry.registerPath({
-  method: "delete", path: "/v1/personas/{personaId}", summary: "归档人格", tags: ["Persona"],
-  request: { params: personaIdParam, headers: commonHeaders }, responses: { 200: { description: "Deleted" }, 404: { description: "PERSONA_NOT_FOUND" } },
-});
-registry.registerPath({
-  method: "post", path: "/v1/personas/{personaId}/activate", summary: "激活人格", tags: ["Persona"],
-  request: { params: personaIdParam, headers: commonHeaders, body: { content: { "application/json": { schema: activatePersonaRequestSchema } } } },
-  responses: { 200: { description: "Activated", content: { "application/json": { schema: activePersonaSelectionSchema } } } },
-});
-registry.registerPath({
-  method: "post", path: "/v1/personas/{personaId}/export", summary: "导出人格及实际生效 Skills", tags: ["Persona"],
-  request: { params: personaIdParam, headers: commonHeaders }, responses: { 200: { description: "Base64 ZIP", content: { "application/json": { schema: personaBundleResponseSchema } } } },
-});
+
+
+
+
+
+
+
 registry.registerPath({
   method: "post", path: "/v1/personas/import/preview", summary: "预览人格 Bundle", tags: ["Persona"],
   request: { headers: commonHeaders, body: { content: { "application/json": { schema: importPersonaRequestSchema } } } }, responses: { 200: { description: "Preview" }, 400: { description: "INVALID_BUNDLE" } },
 });
-registry.registerPath({
-  method: "post", path: "/v1/personas/import", summary: "导入人格及 Skills", tags: ["Persona"],
-  request: { headers: commonHeaders, body: { content: { "application/json": { schema: importPersonaRequestSchema } } } }, responses: { 201: { description: "Imported" } },
-});
+
 registry.registerPath({
   method: "post", path: "/v1/skills/import", summary: "导入 Anthropic Skills ZIP", tags: ["Skills"],
   request: { headers: commonHeaders, body: { content: { "application/json": { schema: importSkillsRequestSchema } } } }, responses: { 201: { description: "Imported" } },
@@ -1000,26 +975,8 @@ for (const action of ["enable", "disable"] as const) registry.registerPath({
   method: "post", path: `/v1/skills/{skillName}/${action}`, summary: `${action} Skill`, tags: ["Skills"],
   request: { params: skillNameParam, headers: commonHeaders }, responses: { 200: { description: "Skill", content: { "application/json": { schema: skillSummarySchema } } } },
 });
+for (const endpoint of [...Object.values(voiceApi), ...Object.values(mcpApi)]) registerJsonEndpoint(endpoint);
 registerMcpOpenApiPaths(registry, commonHeaders);
-registry.registerPath({ method: "get", path: "/v1/voice/models", summary: "列出 GPT-SoVITS 模型", tags: ["Voice"], responses: { 200: { description: "Voice models", content: { "application/json": { schema: z.object({ models: z.array(voiceModelSchema) }) } } } } });
-registry.registerPath({ method: "post", path: "/v1/voice/synthesize", summary: "GPT-SoVITS 语音合成", tags: ["Voice"], request: { body: { content: { "application/json": { schema: voiceSynthesisRequestSchema } } } }, responses: { 200: { description: "Audio artifact", content: { "application/json": { schema: voiceSynthesisResponseSchema } } }, 503: { description: "VOICE_PROVIDER_UNAVAILABLE" } } });
-registry.registerPath({ method: "get", path: "/v1/voice/config", summary: "读取本地语音模型配置", tags: ["Voice"], request: { headers: commonHeaders }, responses: { 200: { description: "Local voice config", content: { "application/json": { schema: localVoiceConfigResponseSchema } } } } });
-registry.registerPath({ method: "put", path: "/v1/voice/config", summary: "保存本地语音模型配置", tags: ["Voice"], request: { headers: commonHeaders, body: { content: { "application/json": { schema: localVoiceConfigSchema } } } }, responses: { 200: { description: "Local voice config", content: { "application/json": { schema: localVoiceConfigResponseSchema } } }, 400: { description: "INVALID_VOICE_CONFIG / modelPath 不在白名单" }, 503: { description: "VOICE_PROVIDER_UNAVAILABLE" } } });
-
-registry.registerPath({ method: "get", path: "/v1/voice/remote/config", summary: "读取在线语音模型（GPT-SoVITS 远程 API）配置", tags: ["Voice"], request: { headers: commonHeaders }, responses: { 200: { description: "Remote voice config", content: { "application/json": { schema: remoteVoiceConfigResponseSchema } } } } });
-registry.registerPath({ method: "put", path: "/v1/voice/remote/config", summary: "保存在线语音模型配置", tags: ["Voice"], request: { headers: commonHeaders, body: { content: { "application/json": { schema: remoteVoiceConfigSchema } } } }, responses: { 200: { description: "Remote voice config", content: { "application/json": { schema: remoteVoiceConfigResponseSchema } } }, 400: { description: "INVALID_VOICE_REMOTE_CONFIG / endpoint 非法" } } });
-registry.registerPath({ method: "post", path: "/v1/voice/remote/test-connection", summary: "在线语音服务连通性测试", tags: ["Voice"], request: { headers: commonHeaders, body: { content: { "application/json": { schema: voiceRemoteTestConnectionRequestSchema } } } }, responses: { 200: { description: "Test connection result", content: { "application/json": { schema: voiceRemoteTestConnectionResponseSchema } } }, 400: { description: "INVALID_REQUEST" } } });
-
-registry.registerPath({ method: "get", path: "/v1/voice/input/config", summary: "读取离线语音输入配置", tags: ["Voice"], request: { headers: commonHeaders }, responses: { 200: { description: "Voice input config", content: { "application/json": { schema: voiceInputConfigResponseSchema } } } } });
-registry.registerPath({ method: "put", path: "/v1/voice/input/config", summary: "保存离线语音输入配置", tags: ["Voice"], request: { headers: commonHeaders, body: { content: { "application/json": { schema: voiceInputConfigSchema } } } }, responses: { 200: { description: "Voice input config", content: { "application/json": { schema: voiceInputConfigResponseSchema } } }, 400: { description: "INVALID_VOICE_INPUT_CONFIG / modelPath 不在白名单" } } });
-registry.registerPath({ method: "get", path: "/v1/voice/input/model/status", summary: "读取离线语音输入模型下载与存在状态", tags: ["Voice"], request: { headers: commonHeaders }, responses: { 200: { description: "Model status", content: { "application/json": { schema: voiceInputModelStatusSchema } } } } });
-registry.registerPath({ method: "post", path: "/v1/voice/input/model/download", summary: "触发离线语音输入模型下载", tags: ["Voice"], request: { headers: commonHeaders, body: { content: { "application/json": { schema: voiceInputModelDownloadRequestSchema } } } }, responses: { 200: { description: "Download started", content: { "application/json": { schema: voiceInputModelDownloadResponseSchema } } }, 400: { description: "INVALID_DOWNLOAD_REQUEST" } } });
-registry.registerPath({ method: "post", path: "/v1/voice/transcribe", summary: "语音识别转写 (ASR)", tags: ["Voice"], request: { headers: commonHeaders, body: { content: { "application/json": { schema: voiceTranscribeRequestSchema } } } }, responses: { 200: { description: "Transcription result", content: { "application/json": { schema: voiceTranscribeResponseSchema } } }, 400: { description: "INVALID_AUDIO" }, 503: { description: "VOICE_INPUT_PROVIDER_UNAVAILABLE" } } });
-
-registry.registerPath({ method: "get", path: "/v1/voice/presets", summary: "列出语音配置预设（含激活标记）", tags: ["Voice"], request: { headers: commonHeaders }, responses: { 200: { description: "Voice presets", content: { "application/json": { schema: voicePresetListResponseSchema } } } } });
-registry.registerPath({ method: "post", path: "/v1/voice/presets", summary: "新建语音配置预设", tags: ["Voice"], request: { headers: commonHeaders, body: { content: { "application/json": { schema: voiceCreatePresetRequestSchema } } } }, responses: { 201: { description: "Created preset", content: { "application/json": { schema: voicePresetSchema } } }, 400: { description: "INVALID_VOICE_PRESET" } } });
-registry.registerPath({ method: "post", path: "/v1/voice/presets/{presetId}/activate", summary: "激活语音配置预设", tags: ["Voice"], request: { headers: commonHeaders, params: z.object({ presetId: z.string().min(1) }) }, responses: { 200: { description: "Activated preset", content: { "application/json": { schema: voicePresetSchema } } }, 404: { description: "PRESET_NOT_FOUND" } } });
-registry.registerPath({ method: "delete", path: "/v1/voice/presets/{presetId}", summary: "删除语音配置预设", tags: ["Voice"], request: { headers: commonHeaders, params: z.object({ presetId: z.string().min(1) }) }, responses: { 200: { description: "Deleted", content: { "application/json": { schema: z.object({ deleted: z.boolean() }) } } }, 404: { description: "PRESET_NOT_FOUND" } } });
 
 registry.registerPath({ method: "get", path: "/v1/llm/config", summary: "读取大语言模型与供应商配置", tags: ["LLM"], request: { headers: commonHeaders }, responses: { 200: { description: "LLM config", content: { "application/json": { schema: llmConfigResponseSchema } } } } });
 registry.registerPath({ method: "put", path: "/v1/llm/config", summary: "保存大语言模型与供应商配置", tags: ["LLM"], request: { headers: commonHeaders, body: { content: { "application/json": { schema: llmConfigSchema } } } }, responses: { 200: { description: "LLM config", content: { "application/json": { schema: llmConfigResponseSchema } } }, 400: { description: "INVALID_LLM_CONFIG" } } });
@@ -1057,7 +1014,7 @@ function registerJsonEndpoint(endpoint: ApiEndpoint): void {
     },
   });
 }
-for (const endpoint of [...Object.values(turnDiagnosticsApi), ...Object.values(modelRuntimeApi), ...Object.values(preferencesApi), ...Object.values(privacyApi), ...Object.values(skillsApi), ...Object.values(branchesApi), ...Object.values(feedbackApi)] as ApiEndpoint[]) {
+for (const endpoint of [...Object.values(turnDiagnosticsApi), ...Object.values(modelRuntimeApi), ...Object.values(llmApi), ...Object.values(preferencesApi), ...Object.values(privacyApi), ...Object.values(skillsApi), ...Object.values(branchesApi), ...Object.values(feedbackApi)] as ApiEndpoint[]) {
   registerJsonEndpoint(endpoint);
 }
 registry.registerPath({
@@ -1087,11 +1044,6 @@ const pluginPageParam = pluginIdParam.extend({ pageId: z.string().min(1) });
 
 for (const endpoint of Object.values(pluginConfigApi)) registerJsonEndpoint(endpoint);
 
-registry.registerPath({
-  method: "get", path: "/v1/plugins/{pluginId}/pages", summary: "列出插件 Page", tags: ["Plugins"],
-  request: { params: pluginIdParam, headers: commonHeaders },
-  responses: { 200: { description: "Pages", content: { "application/json": { schema: z.object({ pages: z.array(pluginPageSchema) }) } } }, 404: { description: "Plugin not found" } },
-});
 registry.registerPath({
   method: "post", path: "/v1/plugins/{pluginId}/pages", summary: "注册插件 Page 元数据", tags: ["Plugins"],
   request: { params: pluginIdParam, headers: commonHeaders, body: { content: { "application/json": { schema: pluginPageSchema } } } },

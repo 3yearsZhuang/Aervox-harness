@@ -270,6 +270,15 @@ export function loadExecutionConfig(env: NodeJS.ProcessEnv = process.env): Execu
   };
 }
 
+/** Isolate every execution consumer from later changes to its caller's config. */
+export function snapshotExecutionConfig(config: ExecutionConfig): Readonly<ExecutionConfig> {
+  return Object.freeze({ ...config,
+    adminIds: [...config.adminIds],
+    proactiveFeatureFlags: new Set(config.proactiveFeatureFlags),
+    modelRoutingFeatureFlags: new Set(config.modelRoutingFeatureFlags),
+  });
+}
+
 export function loadVoiceConfig(env: NodeJS.ProcessEnv = process.env): VoiceConfig {
   return {
     audioPreprocessor: env.AERVOX_AUDIO_PREPROCESSOR === "rust" ? "rust" : "off",

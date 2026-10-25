@@ -1,4 +1,4 @@
-import { getPlatformServices } from '@aervox/api-client';
+import { getClientPlatformServices } from '@aervox/api-client';
 import { computed, ref, type Ref } from 'vue';
 import {
   Activity,
@@ -33,13 +33,15 @@ import { profileStatusLabel } from '@aervox/contracts/proactive';
 import { aervoxConfirm } from '../primitives';
 
 export function proactiveBridge(): ProactiveDesktopBridge | undefined {
-  return getPlatformServices().proactive;
+  return getClientPlatformServices().proactive;
 }
 
 export function useWorkbenchProactive(options: {
   isWeb: Ref<boolean>;
   toolApprovalMode: Ref<ToolApprovalMode>;
 }) {
+  const platformServices = getClientPlatformServices();
+  const proactiveBridge = () => platformServices.proactive;
   const proactiveStatus = ref<ProactiveProfileStatus | null>(null);
   const proactiveClaims = ref<readonly ProactiveProfileClaimView[]>([]);
   const proactiveDialogOpen = ref(false);

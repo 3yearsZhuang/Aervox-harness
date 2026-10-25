@@ -7,6 +7,7 @@
  */
 import { withSessionLock } from "../../session-lock.js";
 import { DomainConflictError } from "../../errors.js";
+import { pluginPageSchema } from "@aervox/contracts";
 import { and, eq, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import {
@@ -49,13 +50,37 @@ export class SqlitePluginConfigRepository implements IPluginConfigRepository {
     return withSessionLock(`plugin-config:${input.pluginId}`, () => this.db.transaction(async (tx) => {
       const now = new Date().toISOString();
       const [existing] = await tx.select().from(pluginConfigs).where(eq(pluginConfigs.pluginId, input.pluginId));
-      if (input.expectedSchema !== undefined) {
-        const [plugin] = await tx.select({ schema: plugins.configSchemaJson }).from(plugins).where(eq(plugins.id, input.pluginId));
-        if (!plugin || JSON.stringify(plugin.schema) !== JSON.stringify(input.expectedSchema)) {
+      if (input.expectedSchema == null || typeof input.expectedLifecycleGeneration !== "string" || !input.expectedLifecycleGeneration
+        || !Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0) {
+        return { saved: (existing as PluginConfigModel) ?? null, conflict: true as const };
+      }
+      const [plugin] = await tx.select({
+        schema: plugins.configSchemaJson, schemaVersion: plugins.configSchemaVersion,
+        enabled: plugins.enabled, availability: plugins.availability, generation: plugins.lifecycleGeneration,
+      }).from(plugins).where(eq(plugins.id, input.pluginId));
+      if (!plugin || plugin.enabled !== 1 || plugin.availability !== "available"
+        || plugin.generation !== input.expectedLifecycleGeneration || plugin.schemaVersion !== input.schemaVersion
+        || JSON.stringify(plugin.schema) !== JSON.stringify(input.expectedSchema)) {
+        return { saved: (existing as PluginConfigModel) ?? null, conflict: true as const };
+      }
+      if (input.expectedPageId !== undefined || input.expectedPageGeneration !== undefined) {
+        const expectedPageId = pluginPageSchema.shape.id.safeParse(input.expectedPageId);
+        if (!expectedPageId.success
+          || typeof input.expectedPageGeneration !== "string" || !input.expectedPageGeneration
+          || input.expectedPageGeneration.length > 128) {
+          return { saved: (existing as PluginConfigModel) ?? null, conflict: true as const };
+        }
+        // Page declarations can change without a plugin lifecycle rotation. Bind
+        // this save to its actual Page in the same writer transaction as Secrets.
+        const [page] = await tx.select({ generation: pluginPages.id, capabilities: pluginPages.capabilitiesJson }).from(pluginPages)
+          .where(and(eq(pluginPages.pluginId, input.pluginId), eq(pluginPages.pageId, expectedPageId.data)));
+        const capabilities = pluginPageSchema.shape.capabilities.safeParse(page?.capabilities);
+        if (!page || page.generation !== input.expectedPageGeneration
+          || !capabilities.success || !capabilities.data.includes("config.write")) {
           return { saved: (existing as PluginConfigModel) ?? null, conflict: true as const };
         }
       }
-      if (input.expectedRevision >= 0 && (existing?.revision ?? 0) !== input.expectedRevision) {
+      if ((existing?.revision ?? 0) !== input.expectedRevision) {
         return { saved: (existing as PluginConfigModel) ?? null, conflict: true as const };
       }
       // The revision check and all credential writes share the same writer transaction.
@@ -101,14 +126,27 @@ export class SqlitePluginConfigRepository implements IPluginConfigRepository {
     pluginId: string,
     schemaVersion: number,
     defaults: Record<string, unknown>,
-    expectedSchema?: unknown,
+    expectedSchema: unknown,
+    expectedLifecycleGeneration: string,
+    expectedRevision: number,
   ): Promise<PluginConfigModel> {
     return withSessionLock(`plugin-config:${pluginId}`, () => this.db.transaction(async (tx) => {
-      if (expectedSchema !== undefined) {
-        const [plugin] = await tx.select({ schema: plugins.configSchemaJson }).from(plugins).where(eq(plugins.id, pluginId));
-        if (!plugin || JSON.stringify(plugin.schema) !== JSON.stringify(expectedSchema)) {
-          throw new DomainConflictError("Plugin configuration schema changed; reload before resetting");
-        }
+      if (expectedSchema == null || typeof expectedLifecycleGeneration !== "string" || !expectedLifecycleGeneration
+        || !Number.isSafeInteger(expectedRevision) || expectedRevision < 0) {
+        throw new DomainConflictError("Plugin configuration expectations are required before resetting");
+      }
+      const [plugin] = await tx.select({
+        schema: plugins.configSchemaJson, schemaVersion: plugins.configSchemaVersion,
+        enabled: plugins.enabled, availability: plugins.availability, generation: plugins.lifecycleGeneration,
+      }).from(plugins).where(eq(plugins.id, pluginId));
+      if (!plugin || plugin.enabled !== 1 || plugin.availability !== "available"
+        || plugin.generation !== expectedLifecycleGeneration || plugin.schemaVersion !== schemaVersion
+        || JSON.stringify(plugin.schema) !== JSON.stringify(expectedSchema)) {
+        throw new DomainConflictError("Plugin configuration lifecycle or schema changed; reload before resetting");
+      }
+      const [existing] = await tx.select({ revision: pluginConfigs.revision }).from(pluginConfigs).where(eq(pluginConfigs.pluginId, pluginId));
+      if ((existing?.revision ?? 0) !== expectedRevision) {
+        throw new DomainConflictError("Plugin configuration revision changed; reload before resetting");
       }
       const now = new Date().toISOString();
       await tx.delete(pluginConfigSecrets).where(eq(pluginConfigSecrets.pluginId, pluginId));
@@ -233,41 +271,59 @@ export class SqlitePluginPageRepository implements IPluginPageRepository {
     checksum?: string | null;
   }): Promise<PluginPageModel> {
     const now = new Date().toISOString();
-    const existing = await this.getPage(page.pluginId, page.pageId);
-    if (existing) {
-      const [updated] = await this.db
-        .update(pluginPages)
-        .set({
-          title: page.title,
-          description: page.description ?? null,
-          entry: page.entry,
-          capabilitiesJson: page.capabilities,
-          checksum: page.checksum ?? null,
-          updatedAt: now,
-        })
-        .where(eq(pluginPages.id, existing.id))
-        .returning();
-      return updated as PluginPageModel;
-    }
-    const [created] = await this.db
+    // The internal primary key is the durable host-owned incarnation. One SQL
+    // upsert rotates it even for an identical declaration, so a removed grant
+    // cannot revive a previously opened Page when that grant is restored.
+    const incarnation = `ppage_${crypto.randomUUID()}`;
+    const metadata = {
+      title: page.title,
+      description: page.description ?? null,
+      entry: page.entry,
+      capabilitiesJson: page.capabilities,
+      checksum: page.checksum ?? null,
+      updatedAt: now,
+    };
+    const [saved] = await this.db
       .insert(pluginPages)
       .values({
-        id: `ppage_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
+        id: incarnation,
         pluginId: page.pluginId,
         pageId: page.pageId,
-        title: page.title,
-        description: page.description ?? null,
-        entry: page.entry,
-        capabilitiesJson: page.capabilities,
-        checksum: page.checksum ?? null,
+        ...metadata,
         createdAt: now,
-        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: [pluginPages.pluginId, pluginPages.pageId],
+        set: { id: incarnation, ...metadata },
       })
       .returning();
-    return created as PluginPageModel;
+    return saved as PluginPageModel;
   }
 
-  async listPages(pluginId: string): Promise<PluginPageModel[]> {
+  async updatePageChecksum(pluginId: string, pageId: string, expectedPageGeneration: string, checksum: string): Promise<PluginPageModel | null> {
+    if (typeof expectedPageGeneration !== "string" || !expectedPageGeneration || expectedPageGeneration.length > 128) return null;
+    // Files are written outside the SQL transaction. Only the incarnation that
+    // authorized those writes may publish their checksum; a changed/deleted Page
+    // must retain its current declaration and must never be recreated here.
+    const [updated] = await this.db.update(pluginPages)
+      .set({ id: `ppage_${crypto.randomUUID()}`, checksum, updatedAt: new Date().toISOString() })
+      .where(and(eq(pluginPages.pluginId, pluginId), eq(pluginPages.pageId, pageId), eq(pluginPages.id, expectedPageGeneration)))
+      .returning();
+    return (updated as PluginPageModel) ?? null;
+  }
+
+  async listPages(pluginId: string, expectedLifecycleGeneration?: string): Promise<PluginPageModel[]> {
+    if (expectedLifecycleGeneration !== undefined) {
+      // One read snapshot binds the current Page grants to the enabled package
+      // identity, including the empty-Page case. No configuration or Secret is read.
+      const rows = await this.db.select({ page: pluginPages }).from(plugins)
+        .leftJoin(pluginPages, eq(pluginPages.pluginId, plugins.id))
+        .where(and(eq(plugins.id, pluginId), eq(plugins.enabled, 1),
+          eq(plugins.availability, "available"), eq(plugins.lifecycleGeneration, expectedLifecycleGeneration)))
+        .orderBy(pluginPages.pageId);
+      if (!expectedLifecycleGeneration || !rows.length) throw new DomainConflictError("plugin lifecycle changed; reopen the page");
+      return rows.flatMap(row => row.page ? [row.page as PluginPageModel] : []);
+    }
     const rows = await this.db
       .select()
       .from(pluginPages)

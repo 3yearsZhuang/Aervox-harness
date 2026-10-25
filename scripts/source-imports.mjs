@@ -1,6 +1,7 @@
 import { existsSync, statSync } from "node:fs";
 import { join, relative, sep, dirname, resolve } from "node:path";
 import { parse } from "@babel/parser";
+import { discoverWorkspaces } from "./workspaces.mjs";
 
 /** Scan raw SFC script blocks without interpreting tag-like JavaScript strings as new blocks. */
 function vueScripts(source) {
@@ -52,11 +53,12 @@ export function extractImports(source, fileName, strict = false) {
   const { fragments, external: out } = fileName.endsWith(".vue") ? vueScripts(source) : { fragments: [{ text: source, file: fileName }], external: [] };
   for (const fragment of fragments) {
     const ast = parse(fragment.text, { sourceType: "module", plugins: /\.[jt]sx$/.test(fragment.file) ? ["typescript", "jsx"] : ["typescript"], createImportExpressions: true });
-    const visit = node => {
+    const visit = (node, parent = null) => {
       if (!node || typeof node !== "object" || typeof node.type !== "string") return;
       if ((node.type === "CallExpression" && node.callee?.type === "Identifier" && node.callee.name === "require") || node.type === "TSExternalModuleReference") {
         const argument = node.type === "TSExternalModuleReference" ? node.expression : node.arguments[0];
-        if (argument?.type === "StringLiteral") out.push({ specifier: argument.value, kind: "runtime" });
+        if (argument?.type === "StringLiteral") out.push({ specifier: argument.value,
+          kind: node.type === "TSExternalModuleReference" && parent?.type === "TSImportEqualsDeclaration" && parent.importKind === "type" ? "type" : "runtime" });
         else if (strict) throw new Error("纳管源码禁止无法静态解析的动态导入");
       }
       if (["ImportDeclaration", "ExportNamedDeclaration", "ExportAllDeclaration", "TSImportType", "ImportExpression"].includes(node.type)) {
@@ -69,8 +71,8 @@ export function extractImports(source, fileName, strict = false) {
         } else if (strict && node.type === "ImportExpression") throw new Error("纳管源码禁止无法静态解析的动态导入");
       }
       for (const child of Object.values(node)) {
-        if (Array.isArray(child)) child.forEach(visit);
-        else if (child && typeof child === "object") visit(child);
+        if (Array.isArray(child)) child.forEach(value => visit(value, node));
+        else if (child && typeof child === "object") visit(child, node);
       }
     };
     visit(ast.program);
@@ -88,7 +90,7 @@ export function stripImportSuffix(specifier) {
   return suffix > 0 ? specifier.slice(0, suffix) : specifier;
 }
 
-const CANDIDATE_EXTS = ["", ".ts", ".tsx", ".js", ".mjs", ".cjs", ".vue", "/index.ts"];
+const CANDIDATE_EXTS = ["", ".ts", ".tsx", ".mts", ".cts", ".js", ".mjs", ".cjs", ".vue", "/index.ts", "/index.tsx", "/index.js"];
 /** NodeNext 以 .js 引用 .ts 源：对 JS 扩展名做 TS 源回退 */
 const JS_TO_TS = [
   [".js", [".ts", ".tsx"]],
@@ -96,32 +98,71 @@ const JS_TO_TS = [
   [".cjs", [".cts", ".ts"]],
 ];
 
-/** 相对导入（./ ../）解析为仓库相对路径；解析不到返回 null */
-export function resolveRepoRelative(fromRelFile, specifier) {
-  specifier = stripImportSuffix(specifier);
-  const hostPath = specifier.startsWith("@aervox/host-runtime/")
-    ? specifier.slice("@aervox/host-runtime/".length) : null;
-  const appAlias = specifier.startsWith("@/")
-    ? (fromRelFile.startsWith("apps/desktop/") ? "apps/desktop/src/renderer/src" : fromRelFile.startsWith("apps/web/") ? "apps/web/src" : null) : null;
-  if (hostPath === null && appAlias === null && !specifier.startsWith(".")) return null;
-  const baseDir = dirname(join(process.cwd(), fromRelFile));
-  const absTarget = appAlias !== null ? resolve(process.cwd(), appAlias, specifier.slice(2))
-    : hostPath === null ? resolve(baseDir, specifier) : resolve(process.cwd(), "packages/host-runtime/src", hostPath);
-  for (const ext of CANDIDATE_EXTS) {
-    const candidate = absTarget + ext;
-    if (existsSync(candidate) && statSync(candidate).isFile()) {
-      return relative(process.cwd(), candidate).split(sep).join("/");
+/** Resolve package export conditions to source without loading stale build output. */
+function exportTarget(value) {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map(exportTarget).find(Boolean) ?? null;
+  if (!value || typeof value !== "object") return null;
+  for (const condition of ["source", "import", "default", "types"]) {
+    const target = exportTarget(value[condition]);
+    if (target) return target;
+  }
+  return null;
+}
+
+function workspaceExport(workspace, subpath) {
+  const exports = workspace.manifest.exports;
+  if (exports === undefined) return subpath === "." ? "./src/index.ts" : null;
+  if (typeof exports === "string" || Array.isArray(exports) || !Object.keys(exports ?? {}).some(key => key.startsWith("."))) {
+    return subpath === "." ? exportTarget(exports) : null;
+  }
+  if (Object.hasOwn(exports, subpath)) return exportTarget(exports[subpath]);
+  const patterns = Object.keys(exports).filter(key => key.includes("*")).sort((a, b) => b.length - a.length);
+  for (const key of patterns) {
+    const [prefix, suffix] = key.split("*");
+    if (subpath.startsWith(prefix) && subpath.endsWith(suffix)) {
+      const match = subpath.slice(prefix.length, suffix ? -suffix.length : undefined);
+      const target = exportTarget(exports[key]);
+      if (target) return target.replaceAll("*", match);
     }
   }
+  return null;
+}
+
+let workspaceCache;
+/** Relative, application alias and declared workspace exports resolve to current checkout source. */
+export function resolveRepoRelative(fromRelFile, specifier, options = {}) {
+  specifier = stripImportSuffix(specifier);
+  const workspaces = options.workspaces ?? (workspaceCache ??= discoverWorkspaces());
+  const workspace = workspaces.find(pkg => specifier === pkg.name || specifier.startsWith(`${pkg.name}/`));
+  const appAlias = specifier.startsWith("@/")
+    ? (fromRelFile.startsWith("apps/desktop/") ? "apps/desktop/src/renderer/src" : fromRelFile.startsWith("apps/web/") ? "apps/web/src" : null) : null;
+  let absTarget;
+  if (workspace) {
+    const subpath = specifier === workspace.name ? "." : `.${specifier.slice(workspace.name.length)}`;
+    // Private host paths must stay visible to boundary/removability checks. Resolving them
+    // identifies the forbidden target; it does not grant a package export or import edge.
+    const target = workspaceExport(workspace, subpath) ?? (workspace.name === "@aervox/host-runtime" && subpath !== "."
+      ? `./src/${subpath.slice(2)}` : null);
+    if (!target?.startsWith("./") || target.split("/").includes("..")) return null;
+    // Build manifests publish dist, while source graphs must follow the source implementation.
+    const sourceTarget = target.startsWith("./dist/")
+      ? target.replace(/^\.\/dist\//, "./src/").replace(/\.d\.([cm]?ts)$/, ".$1") : target;
+    absTarget = resolve(process.cwd(), workspace.relDir, sourceTarget);
+  } else if (appAlias !== null) absTarget = resolve(process.cwd(), appAlias, specifier.slice(2));
+  else if (specifier.startsWith(".")) absTarget = resolve(dirname(join(process.cwd(), fromRelFile)), specifier);
+  else return null;
+  const available = candidate => {
+    const file = relative(process.cwd(), candidate).split(sep).join("/");
+    if (options.files?.has(file) || (existsSync(candidate) && statSync(candidate).isFile())) return file;
+    return null;
+  };
+  // NodeNext .js references must prefer .ts over incidental adjacent generated JS.
   const jsMap = JS_TO_TS.find(([js]) => absTarget.endsWith(js));
   if (jsMap) {
     const stem = absTarget.slice(0, -jsMap[0].length);
-    for (const tsExt of jsMap[1]) {
-      const candidate = stem + tsExt;
-      if (existsSync(candidate) && statSync(candidate).isFile()) {
-        return relative(process.cwd(), candidate).split(sep).join("/");
-      }
-    }
+    for (const tsExt of jsMap[1]) { const file = available(stem + tsExt); if (file) return file; }
   }
+  for (const ext of CANDIDATE_EXTS) { const file = available(absTarget + ext); if (file) return file; }
   return null;
 }

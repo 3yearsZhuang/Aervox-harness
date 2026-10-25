@@ -3,7 +3,8 @@ import { strToU8, zipSync } from "fflate";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { createInMemoryDatabase, type AervoxDatabase } from "@aervox/repositories";
+import { createHash } from "node:crypto";
+import { createInMemoryDatabase, SqliteSkillRegistryRepository, type AervoxDatabase } from "@aervox/repositories";
 import { buildApp } from "./app-fixture.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
@@ -111,6 +112,105 @@ describe("Persona API：SQLite 持久化 + Skills/MCP/Voice", () => {
       payload: { expectedRevision: 99, config: { systemPromptAppend: "v2" } },
     });
     expect(conflict.statusCode).toBe(409);
+  });
+
+  it.each(["voice", "dependencies", "description"])("导入包的无效 %s 在安装 Skills 或创建人格之前返回 400", async (invalidField) => {
+    const beforePersonas = await app.inject({ method: "GET", url: "/v1/personas" });
+    const beforeSkills = await app.inject({ method: "GET", url: "/v1/skills" });
+    const skillName = "invalid-persona-voice";
+    const skillZip = zipSync({
+      [`${skillName}/SKILL.md`]: strToU8(
+        `---\nname: ${skillName}\ndescription: Must not be installed\n---\n\nBe useful.`,
+      ),
+    });
+    const config = {
+      systemPromptAppend: "A valid prompt with invalid nested voice settings",
+      ...(invalidField === "voice" ? { voice: { enabled: true, providerId: "gpt-sovits-local", modelId: "" } } : {}),
+    };
+    // The checksum deliberately matches: rejection must come from the nested
+    // configuration contract, rather than archive integrity checks.
+    const personaChecksum = createHash("sha256").update(JSON.stringify(config)).digest("hex");
+    const bundle = zipSync({
+      "manifest.json": strToU8(JSON.stringify({
+        schemaVersion: 1,
+        exportedAt: new Date().toISOString(),
+        personaId: "invalid-voice-source",
+        personaRevisionId: "invalid-voice-revision",
+        personaChecksum,
+        skills: [{ name: skillName, version: 1, checksum: "a".repeat(64), exported: true }],
+        missingDependencies: invalidField === "dependencies" ? "tool:missing" : [],
+      })),
+      "persona.json": strToU8(JSON.stringify({ schemaVersion: 1, name: "Invalid voice", config,
+        ...(invalidField === "description" ? { description: { invalid: true } } : {}) })),
+      "skills/skills.zip": skillZip,
+    });
+
+    const imported = await app.inject({
+      method: "POST",
+      url: "/v1/personas/import",
+      payload: { bundleBase64: Buffer.from(bundle).toString("base64") },
+    });
+    const afterPersonas = await app.inject({ method: "GET", url: "/v1/personas" });
+    const afterSkills = await app.inject({ method: "GET", url: "/v1/skills" });
+
+    expect.soft(imported.statusCode).toBe(400);
+    expect.soft(imported.json().code).toBe("INVALID_BUNDLE");
+    expect.soft(afterPersonas.statusCode).toBe(200);
+    expect.soft(afterPersonas.json()).toEqual(beforePersonas.json());
+    expect.soft(afterSkills.statusCode).toBe(200);
+    expect.soft(afterSkills.json()).toEqual(beforeSkills.json());
+    await expect(fs.access(path.join(skillsRoot, skillName))).rejects.toThrow();
+  });
+
+  it("导入旧版 Bundle 复用 checksum 为 null 的既有技能并返回 201", async () => {
+    const skillName = "legacy-persona-skill";
+    const registry = new SqliteSkillRegistryRepository(db);
+    const existingSkill = await registry.registerSkill({
+      id: skillName,
+      name: skillName,
+      description: "Existing legacy registration",
+      source: "local",
+      checksum: null,
+    });
+    const config = { systemPromptAppend: "Reuse a legacy skill", allowedSkillNames: [skillName] };
+    const personaChecksum = createHash("sha256").update(JSON.stringify(config)).digest("hex");
+    const bundle = zipSync({
+      "manifest.json": strToU8(JSON.stringify({
+        schemaVersion: 1,
+        exportedAt: new Date().toISOString(),
+        personaId: "legacy-source",
+        personaRevisionId: "legacy-revision",
+        personaChecksum,
+        // Older manifests may omit skill checksums; the importer reuses the
+        // existing registration instead of replacing its files or metadata.
+        skills: [{ name: skillName, version: 1, exported: true }],
+        missingDependencies: [],
+      })),
+      "persona.json": strToU8(JSON.stringify({ schemaVersion: 1, name: "Legacy import", config })),
+      "skills/skills.zip": zipSync({
+        [`${skillName}/SKILL.md`]: strToU8(
+          `---\nname: ${skillName}\ndescription: Archive content must not replace the existing skill\n---\n\nBe useful.`,
+        ),
+      }),
+    });
+
+    const imported = await app.inject({
+      method: "POST",
+      url: "/v1/personas/import",
+      payload: { bundleBase64: Buffer.from(bundle).toString("base64") },
+    });
+
+    expect(imported.statusCode).toBe(201);
+    expect(imported.json().skills).toEqual([{
+      name: skillName,
+      description: existingSkill.description,
+      checksum: null,
+    }]);
+    expect(await registry.getSkill(skillName)).toEqual(existingSkill);
+    await expect(fs.access(path.join(skillsRoot, skillName))).rejects.toThrow();
+    const detail = await app.inject({ method: "GET", url: `/v1/personas/${imported.json().persona.id}` });
+    expect(detail.statusCode).toBe(200);
+    expect(detail.json().revision.config).toEqual(config);
   });
 
   it("语音 provider 未配置时返回 503 且不阻断文本", async () => {

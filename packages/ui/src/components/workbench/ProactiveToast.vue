@@ -8,7 +8,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { Bell } from 'lucide-vue-next';
-import { getTransport } from '@aervox/api-client';
+import { getClientTransport } from '@aervox/api-client';
 
 interface ProactiveNotificationPayload {
   title?: string;
@@ -30,7 +30,7 @@ interface NotificationRow {
 const POLL_INTERVAL_MS = 30_000;
 const TOAST_DURATION_MS = 8_000;
 
-const transport = getTransport();
+const transport = getClientTransport();
 const seenIds = new Set<string>();
 const mountedAt = new Date().toISOString();
 

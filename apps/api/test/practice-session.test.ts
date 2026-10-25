@@ -57,7 +57,7 @@ describe("练习会话报告", () => {
       correctCount: 1,
       incorrectCount: 1,
       accuracy: 0.5,
-      nextStep: "review_scheduled",
+      nextStep: "await_review",
     });
 
     const retriedCompletion = await app.inject({ method: "POST", url: `/v1/practice/sessions/${sessionId}/complete`, headers });

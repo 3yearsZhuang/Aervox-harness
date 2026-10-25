@@ -23,7 +23,7 @@
     "@aervox/core": "workspace:*",
     "@aervox/host-plugin-api": "workspace:*",
     "@aervox/ui": "workspace:*",
-    "zod": "4.4.3"
+    "zod": "4.6.7"
   },
   "peerDependencies": {
     "lucide-vue-next": "^0.468.0",

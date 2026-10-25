@@ -10,7 +10,7 @@ import {
   type LocalContext,
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
-import { registerConversationRoutes } from "@aervox/host-runtime-test/modules/companion/conversation/routes";
+import { registerConversationRoutes } from "./conversation-fixture.js";
 
 describe("ARC-01: 对话接单弹性、Claim 前故障追踪与孤儿 Attempt 恢复测试", () => {
   let app: FastifyInstance;
@@ -166,12 +166,13 @@ describe("ARC-01: 对话接单弹性、Claim 前故障追踪与孤儿 Attempt �
     await conversationRepo.getOrCreateSession(localCtx, "s");
     await conversationRepo.acceptTurn(localCtx, { turnId: "cancelled", sessionId: "s", idempotencyKey: "cancelled", attemptId: "a", message: { id: "m", content: "x" }, consumeInbox: false });
     await conversationRepo.reserveToolExecution(localCtx, { turnId: "cancelled", attemptId: "a", invocationId: "i", name: "write" });
+    await conversationRepo.claimTurnAttempt(localCtx, { turnId: "cancelled", attemptId: "a", expectedFencingToken: 0, leaseId: "crashed", ttlMs: -1 });
     await conversationRepo.requestCancelTurnAttempt(localCtx, { turnId: "cancelled", attemptId: "a" });
     await client.execute("UPDATE turn_attempts SET started_at = '2000-01-01T00:00:00.000Z'");
     const restarted = new SqliteConversationRepository(db);
     expect(await restarted.recoverExpiredAttempts(client)).toBe(1);
     expect(await restarted.recoverExpiredAttempts(client)).toBe(0);
-    expect(await restarted.listTurnAttempts(localCtx, "cancelled")).toMatchObject([{ status: "Cancelled", fencingToken: 1 }]);
+    expect(await restarted.listTurnAttempts(localCtx, "cancelled")).toMatchObject([{ status: "Cancelled", fencingToken: 2 }]);
     expect(await restarted.finalizeTurnAttempt(localCtx, { turnId: "cancelled", attemptId: "a", status: "Completed", expectedFencingToken: 0 })).toBeNull();
     expect((await client.execute("SELECT status FROM tool_executions")).rows[0]!.status).toBe("outcome_unknown");
     registerConversationRoutes(app, restarted, {}); await app.ready();

@@ -5,7 +5,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { assertPluginGeneration, type PluginGenerationIdentity } from "../../plugin-generation-guard.js";
-import { eq, and, lte, desc, ne, isNull, or, asc, inArray } from "drizzle-orm";
+import { eq, and, lte, desc, ne, isNull, or, asc, inArray, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import {
   learningGoals,
@@ -21,6 +21,7 @@ import {
   learningPlans,
   planMilestones,
   planTasks,
+  outboxEvents,
 } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
 import { recordLearningAnswer } from "./learning-answer-store.js";
@@ -30,6 +31,7 @@ import type {
   LearningAnswerCommand,
   LearningAnswerPolicy,
   LearningAnswerResult,
+  AnswerNextStep,
   LearningGoalModel,
   QuestionModel,
   QuestionAttemptModel,
@@ -457,30 +459,6 @@ export class SqliteLearningRepository implements ILearningRepository {
     return (updated as KnowledgeItemModel) ?? null;
   }
 
-  async updatePracticeState(
-    ctx: LocalContext,
-    id: string,
-    state: {
-      correctCount: number;
-      wrongCount: number;
-      correctStreak: number;
-      mastery: number;
-      masteryState: string;
-      masteryBasis: unknown;
-    },
-  ): Promise<KnowledgeItemModel | null> {
-    const [updated] = await this.db
-      .update(knowledgeItems)
-      .set({ ...state, updatedAt: new Date().toISOString() })
-      .where(
-        and(
-          eq(knowledgeItems.id, id),
-        ),
-      )
-      .returning();
-    return (updated as KnowledgeItemModel) ?? null;
-  }
-
   async createReviewItem(
     ctx: LocalContext,
     itemData: { id: string; knowledgeId: string; dueAt: string; intervalDays?: number; schedulerVersion?: number; timezoneSnapshot?: string },
@@ -556,66 +534,62 @@ export class SqliteLearningRepository implements ILearningRepository {
 
   async completeReviewAndSchedule(
     ctx: LocalContext,
-    data: {
-      reviewId: string;
-      knowledgeId: string;
-      isCorrect: boolean;
-      practiceState: {
-        correctCount: number;
-        wrongCount: number;
-        correctStreak: number;
-        mastery: number;
-        masteryState: string;
-        masteryBasis: unknown;
-      };
-      nextReview: { id: string; dueAt: string; intervalDays: number; schedulerVersion: number; timezoneSnapshot: string };
-    },
+    input: { reviewId: string; isCorrect: boolean; timeZone?: string },
+    derive: LearningAnswerPolicy["derive"],
   ): Promise<{ completed: ReviewItemModel; nextReview: ReviewItemModel; knowledge: KnowledgeItemModel } | null> {
     return this.db.transaction(async (tx) => {
-      const now = new Date().toISOString();
-      const [completed] = await tx
-        .update(reviewItems)
-        .set({ status: "completed", completionIsCorrect: data.isCorrect, nextReviewId: data.nextReview.id, updatedAt: now })
-        .where(
-          and(
-            eq(reviewItems.id, data.reviewId),
-            eq(reviewItems.knowledgeId, data.knowledgeId),
-            eq(reviewItems.status, "active"),
-          ),
-        )
-        .returning();
+      const [review] = await tx.select().from(reviewItems).where(eq(reviewItems.id, input.reviewId));
+      if (!review) return null;
+      if (review.status === "completed" && review.nextReviewId) {
+        const [event] = await tx.select({ payload: outboxEvents.payload }).from(outboxEvents)
+          .where(and(eq(outboxEvents.eventType, "learning.review.completed"), eq(outboxEvents.idempotencyKey, `learning-review:${review.id}`)));
+        const receipt = event?.payload as { payloadVersion?: number; reviewId?: string; nextReviewId?: string; isCorrect?: boolean; timeZone?: string } | undefined;
+        if (receipt?.payloadVersion !== 1 || receipt.reviewId !== review.id || receipt.nextReviewId !== review.nextReviewId
+          || receipt.isCorrect !== review.completionIsCorrect || typeof receipt.timeZone !== "string") throw new Error("review_completion_receipt_unavailable");
+        if (receipt.isCorrect !== input.isCorrect || (input.timeZone !== undefined && receipt.timeZone !== input.timeZone)) throw new Error("review_completion_payload_mismatch");
+        const [nextReview] = await tx.select().from(reviewItems).where(eq(reviewItems.id, review.nextReviewId));
+        const [knowledge] = await tx.select().from(knowledgeItems).where(eq(knowledgeItems.id, review.knowledgeId));
+        if (!nextReview || nextReview.knowledgeId !== review.knowledgeId || !knowledge) throw new Error("review_completion_receipt_unavailable");
+        return { completed: review as ReviewItemModel, nextReview: nextReview as ReviewItemModel, knowledge: knowledge as KnowledgeItemModel };
+      }
+      if (review.status !== "active") return null;
+      const [stored] = await tx.select().from(knowledgeItems).where(eq(knowledgeItems.id, review.knowledgeId));
+      if (!stored) throw new Error("review completion references a missing knowledge item");
+      const now = new Date();
+      const timeZone = input.timeZone ?? review.timezoneSnapshot ?? "UTC";
+      const derived = derive(stored, input.isCorrect, now, timeZone);
+      const nextReviewId = `review_${randomUUID()}`;
+      const [completed] = await tx.update(reviewItems)
+        .set({ status: "completed", completionIsCorrect: input.isCorrect, nextReviewId, updatedAt: now.toISOString() })
+        .where(and(eq(reviewItems.id, review.id), eq(reviewItems.status, "active"))).returning();
       if (!completed) return null;
+      const [knowledge] = await tx.update(knowledgeItems).set({ ...derived.state, updatedAt: now.toISOString() })
+        .where(eq(knowledgeItems.id, stored.id)).returning();
+      const [nextReview] = await tx.insert(reviewItems).values({ id: nextReviewId, knowledgeId: stored.id,
+        ...derived.review, status: "active", createdAt: now.toISOString(), updatedAt: now.toISOString() }).returning();
+      await tx.insert(outboxEvents).values({ id: `out_review_${review.id}`, idempotencyKey: `learning-review:${review.id}`,
+        eventType: "learning.review.completed", payload: { payloadVersion: 1, reviewId: review.id, nextReviewId,
+          isCorrect: input.isCorrect, timeZone }, createdAt: now.toISOString() });
+      return { completed: completed as ReviewItemModel, nextReview: nextReview as ReviewItemModel, knowledge: knowledge as KnowledgeItemModel };
+    });
+  }
 
-      const [knowledge] = await tx
-        .update(knowledgeItems)
-        .set({ ...data.practiceState, updatedAt: now })
-        .where(
-          and(
-            eq(knowledgeItems.id, data.knowledgeId),
-          ),
-        )
-        .returning();
-      if (!knowledge) throw new Error("review completion references a missing knowledge item");
-
-      const [nextReview] = await tx
-        .insert(reviewItems)
-        .values({
-          id: data.nextReview.id,
-          knowledgeId: data.knowledgeId,
-          dueAt: data.nextReview.dueAt,
-          intervalDays: data.nextReview.intervalDays,
-          schedulerVersion: data.nextReview.schedulerVersion,
-          timezoneSnapshot: data.nextReview.timezoneSnapshot,
-          status: "active",
-          createdAt: now,
-          updatedAt: now,
-        })
-        .returning();
-      return {
-        completed: completed as ReviewItemModel,
-        nextReview: nextReview as ReviewItemModel,
-        knowledge: knowledge as KnowledgeItemModel,
-      };
+  async listPracticeAnswerOutcomes(ctx: LocalContext, sessionId: string) {
+    const rows = await this.db.select({ attempt: questionAttempts, receipt: outboxEvents.payload })
+      .from(questionAttempts).leftJoin(outboxEvents, and(
+        eq(outboxEvents.eventType, "learning.answer.recorded"),
+        // Existing-question command IDs share the digest, allowing an indexed lookup.
+        // Legacy facts without that command receipt remain explicitly unresolved.
+        eq(outboxEvents.id, sql`'out_' || substr(${questionAttempts.id}, 5)`),
+      )).where(eq(questionAttempts.sessionId, sessionId)).orderBy(questionAttempts.createdAt);
+    return rows.map(({ attempt, receipt }) => {
+      const outcome = receipt as { payloadVersion?: unknown; attemptId?: unknown; questionId?: unknown; sessionId?: unknown; judgement?: unknown; nextStep?: unknown; reviewId?: unknown } | null;
+      const valid = outcome?.payloadVersion === 1 && outcome.attemptId === attempt.id
+        && outcome.questionId === attempt.questionId && outcome.sessionId === attempt.sessionId && outcome.judgement === attempt.judgement;
+      const nextStep = valid && (outcome.nextStep === "continue" || outcome.nextStep === "await_review"
+        || (outcome.nextStep === "review_scheduled" && typeof outcome.reviewId === "string" && outcome.reviewId.length > 0))
+        ? outcome.nextStep : "await_review";
+      return { ...attempt, nextStep: nextStep as AnswerNextStep };
     });
   }
 

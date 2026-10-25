@@ -25,7 +25,8 @@ const turnPayload = {
 
 interface ParsedEvent {
   eventType: string;
-  data: { status?: string; reason?: string };
+  sequence: number;
+  data: { status?: string; reason?: string; lastSequence?: number };
 }
 
 const parseSse = (body: string): ParsedEvent[] =>
@@ -79,10 +80,12 @@ describe("阶段 2d 删除/撤权未追平 → Loop fail-closed", () => {
     const eventsRes = await app.inject({ method: "GET", url: `/v1/turns/${turnId}/events`, headers });
     const events = parseSse(eventsRes.body);
     const types = events.map((e) => e.eventType);
-    expect(types).toEqual(["message", "done"]); // 无 delta / 工具事件
-    const done = events[1];
+    expect(types).toEqual(["done"]); // 准备阶段拒绝，不创建空 Assistant 或输出工具事件。
+    const done = events[0];
     expect(done.data.status).toBe("Interrupted");
     expect(done.data.reason).toBe("deletion_blocked");
+    expect(done.data.lastSequence).toBe(done.sequence);
+    expect(await conversationRepo.getMessage(tenant, `msg_${turnId}_assistant`)).toBeNull();
 
     const attempts = await conversationRepo.listTurnAttempts(tenant, turnId);
     expect(attempts[0]?.status).toBe("Interrupted");

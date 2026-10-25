@@ -7,14 +7,12 @@ import type { FastifyInstance } from "fastify";
 import { createLearningGoalSchema, updateLearningGoalSchema, updateMistakeRequestSchema } from "@aervox/contracts";
 import type { SqliteLearningRepository } from "@aervox/repositories";
 import { resolveLocalContext } from "../../../shared/local-context.js";
-import { createLearningAnswerService } from "./answer-service.js";
+import { createLearningAnswerService, createLearningReviewService } from "./answer-service.js";
 import {
-  createReviewItem,
   getLocalDayBounds,
   getPracticeGuidance,
   getPracticeSessionProgress,
   normalizeMistakeNote,
-  updateAfterAnswer,
 } from "@aervox/practice-review";
 import {
   QuestionBankRegistry,
@@ -36,7 +34,7 @@ function validTimeZone(value: string): boolean {
   }
 }
 
-function practiceReport(sessionId: string, attempted: Array<{ judgement: string; hintCount?: number | null; timeSpentSec?: number | null }>, questionCount: number) {
+function practiceReport(sessionId: string, attempted: Array<{ judgement: string; hintCount?: number | null; timeSpentSec?: number | null; nextStep: "continue" | "review_scheduled" | "await_review" }>, questionCount: number) {
   const correctCount = attempted.filter((attempt) => attempt.judgement === "correct").length;
   const incorrectCount = attempted.filter((attempt) => attempt.judgement === "incorrect").length;
   const unverifiableCount = attempted.filter((attempt) => attempt.judgement === "unverifiable").length;
@@ -59,7 +57,8 @@ function practiceReport(sessionId: string, attempted: Array<{ judgement: string;
     totalHintsUsed,
     guidance: getPracticeGuidance({ correctCount, incorrectCount, unverifiableCount, avgTimeSpentSec, totalHintsUsed }),
     nextStep:
-      incorrectCount > 0 ? "review_scheduled" : unverifiableCount > 0 ? "await_review" : "continue",
+      attempted.some(attempt => attempt.nextStep === "await_review") ? "await_review"
+        : attempted.some(attempt => attempt.nextStep === "review_scheduled") ? "review_scheduled" : "continue",
   };
 }
 
@@ -88,6 +87,7 @@ export function registerLearningRoutes(
   questionBankRegistry?: QuestionBankRegistry,
 ): void {
   const answers = createLearningAnswerService(learningRepo);
+  const reviews = createLearningReviewService(learningRepo);
   const qbRegistry = questionBankRegistry ?? new QuestionBankRegistry();
   if (!questionBankRegistry) {
     qbRegistry.register(new JsonQuestionBankProvider());
@@ -305,8 +305,7 @@ export function registerLearningRoutes(
     const tenant = resolveLocalContext(req);
     const session = await learningRepo.getPracticeSession(tenant, sessionId);
     if (!session) return reply.code(404).send({ error: "practice session not found" });
-    const attempts = await learningRepo.listAttemptsBySession(tenant, sessionId);
-    return practiceReport(sessionId, attempts, session.questionCount);
+    return practiceReport(sessionId, await learningRepo.listPracticeAnswerOutcomes(tenant, sessionId), session.questionCount);
   });
 
   app.post("/v1/practice/sessions/:sessionId/complete", async (req, reply) => {
@@ -314,8 +313,7 @@ export function registerLearningRoutes(
     const tenant = resolveLocalContext(req);
     const session = await learningRepo.completePracticeSession(tenant, sessionId);
     if (!session) return reply.code(404).send({ error: "practice session not found" });
-    const attempts = await learningRepo.listAttemptsBySession(tenant, sessionId);
-    return practiceReport(sessionId, attempts, session.questionCount);
+    return practiceReport(sessionId, await learningRepo.listPracticeAnswerOutcomes(tenant, sessionId), session.questionCount);
   });
 
   // 作答（不可变学习事实）
@@ -540,65 +538,15 @@ export function registerLearningRoutes(
     if (body.timeZone !== undefined && !validTimeZone(body.timeZone)) {
       return reply.code(400).send({ error: "timeZone must be a valid IANA time zone" });
     }
-    const reviewItem = await learningRepo.getReviewItem(tenant, reviewId);
-    if (!reviewItem) return reply.code(404).send({ error: "review item not found" });
-    const replayCompletion = async (completed: typeof reviewItem) => {
-      if (completed.status !== "completed" || !completed.nextReviewId) return null;
-      if (completed.completionIsCorrect !== body.isCorrect) {
-        return reply.code(409).send({ error: "review completion payload does not match" });
+    try {
+      const result = await reviews.completeReview(tenant, { reviewId, isCorrect: body.isCorrect, timeZone: body.timeZone });
+      if (!result) return reply.code(404).send({ error: "active review item not found" });
+      return result;
+    } catch (error) {
+      if (error instanceof Error && (error.message === "review_completion_payload_mismatch" || error.message === "review_completion_receipt_unavailable")) {
+        return reply.code(409).send({ error: error.message });
       }
-      const nextReview = await learningRepo.getReviewItem(tenant, completed.nextReviewId);
-      const knowledge = await learningRepo.getKnowledgeItem(tenant, completed.knowledgeId);
-      return nextReview && knowledge ? { completed, nextReview, knowledge } : null;
-    };
-    const replay = await replayCompletion(reviewItem);
-    if (replay) return replay;
-    if (reviewItem.status !== "active") return reply.code(404).send({ error: "active review item not found" });
-    const storedItem = await learningRepo.getKnowledgeItem(tenant, reviewItem.knowledgeId);
-    if (!storedItem) return reply.code(404).send({ error: "knowledge item not found" });
-
-    const item = {
-      id: storedItem.id,
-      name: storedItem.concept,
-      correctCount: storedItem.correctCount,
-      wrongCount: storedItem.wrongCount,
-      correctStreak: storedItem.correctStreak,
-      mastery: storedItem.mastery,
-    };
-    updateAfterAnswer(item, body.isCorrect);
-    const timeZone = body.timeZone ?? reviewItem.timezoneSnapshot ?? "UTC";
-    const next = createReviewItem(item, body.isCorrect, { timeZone });
-    const masteryState = item.mastery >= 0.8 ? "mastered" : "learning";
-    const result = await learningRepo.completeReviewAndSchedule(tenant, {
-      reviewId,
-      knowledgeId: item.id,
-      isCorrect: body.isCorrect,
-      practiceState: {
-        ...item,
-        masteryState,
-        masteryBasis: {
-          correctCount: item.correctCount,
-          wrongCount: item.wrongCount,
-          correctStreak: item.correctStreak,
-          schedulerVersion: next.schedulerVersion,
-        },
-      },
-      nextReview: {
-        id: id("review"),
-        dueAt: next.dueAt.toISOString(),
-        intervalDays: next.intervalDays,
-        schedulerVersion: next.schedulerVersion,
-        timezoneSnapshot: timeZone,
-      },
-    });
-    if (!result) {
-      const concurrentCompletion = await learningRepo.getReviewItem(tenant, reviewId);
-      if (concurrentCompletion) {
-        const concurrentReplay = await replayCompletion(concurrentCompletion);
-        if (concurrentReplay) return concurrentReplay;
-      }
-      return reply.code(409).send({ error: "review item was already completed" });
+      throw error;
     }
-    return result;
   });
 }

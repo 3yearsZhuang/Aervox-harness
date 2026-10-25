@@ -93,10 +93,12 @@ Config 是 Aervox 自有 DSL，不是任意 JSON Schema，也不兼容 AstrBot �
 | `GET /v1/plugins/:id/config/schema` | 返回 `{schemaVersion, fields}`；没有 Schema 返回 404 |
 | `PUT /v1/plugins/:id/config/schema` | 注册经过共享校验的完整 DSL，返回 `{schemaVersion, fields}`；`409 PLUGIN_PACKAGE_IMMUTABLE`，generation 包须重新打包升级 |
 | `GET /v1/plugins/:id/config` | 返回 `revision/schemaVersion/values/secretFields/orphanedValues/issues` |
-| `PUT /v1/plugins/:id/config` | 输入 `revision`、`values`、`secretValues`；校验失败 400，版本冲突 409 |
+| `PUT /v1/plugins/:id/config` | 输入 `revision`、`values`、`secretValues`；Page 携带打开时的 `expectedLifecycleGeneration` 、`expectedPageId` 和 `expectedPageGeneration`；校验失败 400，版本、代际或 Page 能力冲突 409 |
 | `POST /v1/plugins/:id/config/reset` | 恢复默认值并清除该插件 Secret |
 
-**机器强制**：普通值保存按已有顶层对象合并；省略字段保留旧值。Secret 输入位于 `secretValues`，省略保留、字符串写入、`null` 清除；API 只返回 `{configured: boolean}`。禁用插件的配置读写返回 `409 PLUGIN_DISABLED`。普通配置保存使用 SQL revision CAS，首次写入也检查 revision；保存与重置在同一写事务中复验用于校验的 Schema，升级期间的过期请求返回 `409 PLUGIN_CONFIG_REVISION_CONFLICT`，不会写入旧值或删除 Secret。成功保存递增 revision，保存/重置写审计。
+**机器强制**：普通值保存按已有顶层对象合并；省略字段保留旧值。Secret 输入位于 `secretValues`，省略保留、字符串写入、`null` 清除；API 只返回 `{configured: boolean}`。禁用插件的配置读写返回 `409 PLUGIN_DISABLED`。保存和重置还拒绝不可用插件，返回 `409 PLUGIN_UNAVAILABLE`；在同一写事务中复验 enabled、availability、lifecycleGeneration、Schema 内容/版本及配置 revision，首次保存也检查 revision。检查后停用、缺包、换代、升级或并行修改使旧请求返回 `409 PLUGIN_CONFIG_REVISION_CONFLICT`，不会写入旧值或删除 Secret。成功保存递增 revision，保存/重置写审计。
+
+Page Bridge 的配置读取和保存携带打开时的 `expectedLifecycleGeneration`；GET 和 reset 支持同名可选 query，保存使用请求体字段。保存还由宿主从当前会话注入 `expectedPageId` 与 `expectedPageGeneration`，插件参数不能覆盖；两字段必须成对并显式携带有效插件代际，否则返回 `400 INVALID_CONFIG`。写事务在任何配置或 Secret 变更前查询同插件和 Page ID 的当前声明，同时核对 Page 代际、严格校验 capability 数组并要求 `config.write`；Page 缺失、重登记、能力移除或畸形声明均返回 `409 PLUGIN_CONFIG_REVISION_CONFLICT`，配置、Secret 和保存审计不变。Page 身份与代际是并发约束，不授予权限，也不替代 HTTP 管理认证。普通旧管理客户端可以省略这些参数，由服务捕获当前写入代际；GET/reset 沿用既有合同，未新增 Bridge 方法或 Page 身份检查。Page 读取在返回前再次检查启用、可用性及代际；停用再启用或缺包恢复不能让旧 Page 读取或保存新一代配置，不带参数的配置读取保留既有启用检查。
 
 五个 JSON 接口由[共享端点声明](../../packages/contracts/src/plugin-config-api.ts)生成宿主路由、OpenAPI 和客户端调用，并校验成功响应。Schema 注册与配置保存要求请求体，缺少或格式错误分别返回 `400 INVALID_CONFIG_SCHEMA`、`400 INVALID_CONFIG`；revision 为非负整数，`values` 为对象，`secretValues` 仅接受字符串或 `null`。Schema 读取仍可管理停用插件的声明；停用插件的配置读取、保存和重置保持 409。未分类服务端异常只返回通用 500，不回显内部路径或 SQL。
 
@@ -106,13 +108,13 @@ Config 是 Aervox 自有 DSL，不是任意 JSON Schema，也不兼容 AstrBot �
 
 ## 3. Page 与 Bridge
 
-Page 元数据为 `id/title/description/entry/capabilities/checksum`。`id` 最长 64、匹配 `[A-Za-z0-9_-]+`；`entry` 必须以 `pages/<id>/` 开头。推荐 `pages/<id>/index.html`；页面资源必须打入包内。宿主使用 Manifest 声明的实际入口路径，嵌套入口中的相对脚本、样式和图片据此解析。`.../pages/:pageId/assets/index.html` 仍保留为解析实际入口的兼容别名，新代码不要依赖该别名改变相对资源基址。
+Page 声明元数据为 `id/title/description/entry/capabilities/checksum`。响应另有宿主生成的 `pageGeneration`，它是持久 Page 登记实例的身份，不由作者指定。每次登记（包括相同声明重登记）、资源 checksum 成功更新及删除再建均更换该身份；数据库重开保持已提交身份。`id` 最长 64、匹配 `[A-Za-z0-9_-]+`；`entry` 必须以 `pages/<id>/` 开头。推荐 `pages/<id>/index.html`；页面资源必须打入包内。宿主使用 Manifest 声明的实际入口路径，嵌套入口中的相对脚本、样式和图片据此解析。`.../pages/:pageId/assets/index.html` 仍保留为解析实际入口的兼容别名，新代码不要依赖该别名改变相对资源基址。
 
 | HTTP 接口 | 行为 |
 |---|---|
-| `GET /v1/plugins/:id/pages` | 列出 Page |
+| `GET /v1/plugins/:id/pages` | 列出 Page；可选 `expectedLifecycleGeneration` 复验当前启用、可用性及代际，旧代际返回 409；响应 `no-store` |
 | `POST /v1/plugins/:id/pages` | 注册 Page，成功 201；generation 包返回 `409 PLUGIN_PACKAGE_IMMUTABLE` |
-| `POST /v1/plugins/:id/pages/:pageId/assets` | `{files:[{path,contentBase64}]}`，单文件上限 5 MiB；非法路径或链接资源返回 `400 INVALID_ASSET_PATH`，generation 包返回 `409 PLUGIN_PACKAGE_IMMUTABLE` |
+| `POST /v1/plugins/:id/pages/:pageId/assets` | `{files:[{path,contentBase64}]}`，单文件上限 5 MiB；更新 checksum 前复验读取时的 Page 代际，变化或删除返回 `409 PLUGIN_PAGE_REVISION_CONFLICT`；非法路径或链接资源返回 `400 INVALID_ASSET_PATH`，generation 包返回 `409 PLUGIN_PACKAGE_IMMUTABLE` |
 | `GET /v1/plugins/:id/pages/:pageId/assets/*` | 返回本地静态资源与 CSP |
 | `GET /v1/plugin-pages/bridge.js` | 提供浏览器 Bridge 对象；页面须显式加载 |
 
@@ -134,7 +136,7 @@ Page 元数据为 `id/title/description/entry/capabilities/checksum`。`id` 最�
 
 [PluginPageDialog](../../surfaces/panels-ui/src/plugin/PluginPageDialog.vue)使用 `sandbox="allow-scripts allow-forms allow-downloads"`，未授予 `allow-same-origin`；资源响应设置 CSP：默认拒绝、脚本和样式允许本地及内联、图片允许本地及 `data:`、`connect-src 'none'`、`form-action 'none'`，另有 `nosniff/no-store/no-referrer`。这些是浏览器页面约束，不是 OS 进程沙箱。
 
-[BundleStore](../../packages/host-runtime/src/modules/ecosystem/plugins/bundle-store.ts)读取、可写本地 Page 上传与兼容导出都从配置 Bundle 根的真实路径检查每级目录，拒绝根以下的符号链接目录、符号链接文件及多硬链接文件，也拒绝跨 Page 的链接资源。配置根自身的路径别名仍可使用；普通资源可创建与覆盖，不会拒绝所有未知扩展名。文件以 no-follow、无预先截断方式打开，经目录与 inode 复验后由同一文件描述符读写；上传不会自动删除、迁移或替换链接。单个被拒绝文件的已有内容保留，上传批次仍逐文件处理，不承诺批次失败回滚之前成功的文件。
+[BundleStore](../../packages/host-runtime/src/modules/ecosystem/plugins/bundle-store.ts)读取、可写本地 Page 上传与兼容导出都从配置 Bundle 根的真实路径检查每级目录，拒绝根以下的符号链接目录、符号链接文件及多硬链接文件，也拒绝跨 Page 的链接资源。配置根自身的路径别名仍可使用；普通资源可创建与覆盖，不会拒绝所有未知扩展名。文件以 no-follow、无预先截断方式打开，经目录与 inode 复验后由同一文件描述符读写；上传不会自动删除、迁移或替换链接。单个被拒绝文件的已有内容保留，上传批次仍逐文件处理，不承诺批次失败回滚之前成功的文件。 checksum 更新只修改当前 Page 代际的资源摘要并旋转身份，不复制旧 capability 或重建已删除声明；并行重登记使元数据提交返回 409。文件先于 SQL 更新，已写入的资源字节不会因 409 回滚，完整资源原子发布仍未实现。
 
 Page 卸载、generation 丢弃、安装失败回滚与插件资源清理同样逐级校验删除目录，避免沿预存祖先链接删除外部文件；卸载保留无法安全确认的链接和未知目录，缺失目录清理保持幂等。generation 卸载只接受边界内普通单链接文件中的有效 ownership marker。
 
@@ -144,8 +146,10 @@ Page 卸载、generation 丢弃、安装失败回滚与插件资源清理同样�
 
 当前防护与剩余边界如下，发布安全评估必须分别覆盖：
 
-- 宿主按 `event.source`、128 位随机 Nonce、插件/Page 身份与文档会话验证调用和迟到响应，SDK 只接受绑定父窗口及 Origin。逐项 capability 对配置、通知和关闭生效；文档刷新重新挂载并初始化配置 revision。
-- 入口 HTML 与普通资源共用启用检查；当前窗口观察到禁用或缺包后立即销毁 iframe 并拒绝旧响应。其它窗口仍需收到更新后的插件状态，尚无跨窗口撤权实时推送。
+- 宿主按 `event.source`、128 位随机 Nonce、插件/Page 身份、lifecycleGeneration、pageGeneration 与文档会话验证调用和迟到响应；缺少代际时不建立 Page 会话。SDK 只接受绑定父窗口及 Origin。逐项 capability 对配置、通知和关闭生效；文档刷新重新挂载并初始化配置 revision。同 ID 的插件或 Page 换代也更换 iframe 与 Nonce，旧窗口及在途响应失效。
+- 四种 Bridge 调用均先携带打开时的代际查询 Page；同一 SQL 快照读取插件身份、Page 代际及当前 capability，拒绝已停用、不可用、换代、Page 缺失或能力移除的请求。配置读写返回前再次复验，拒绝迟到快照及回执进入旧文档。Page 列表由共享 Schema 校验，保留既有 nullable description/checksum；窗口缓存不能替代本次查询。
+- Page 配置保存由同一写者事务复验插件代际和宿主捕获的 Page 当前 `config.write`，预检后移除能力不能提交配置或 Secret。插件同代际下 Page 删除再建或撤权再授权也不会恢复旧会话；提交后已受理保存保留真实 HTTP 回执，Page 返回前继续复验并屏蔽迟到结果。
+- 入口 HTML 与普通资源共用启用检查；当前窗口观察到禁用、缺包或换代后销毁 iframe。调用时查询不能证明 SQL 快照到客户端动作的原子撤权；尚无跨窗口撤权实时推送、全部资源代际绑定或 iframe 代码强制终止证明。
 - iframe 正在运行的代码没有统一 CPU/内存配额与撤权终止证明；不能把网络 CSP 解释为任意第三方执行安全已验收。
 - API 启用 Bearer Token 认证时，当前 iframe `src` 和脚本资源没有注入 Authorization 头，资源请求会受到全局认证检查；尚无完整的受保护 Page 资源授权通道。不能将 Token 放入页面 URL 或为访问页面而关闭生产认证。
 
@@ -156,6 +160,8 @@ Page 卸载、generation 丢弃、安装失败回滚与插件资源清理同样�
 ### 4.1 核心契约与执行生命周期
 
 [ServerTurnPlugin](../../packages/host-plugin-api/src/turn-plugin.ts)定义 `id`、可选 `name`、`beforeTurn(ctx, config)` 和 `afterTurn(ctx, config, beforeResult)`。契约位于 `@aervox/host-plugin-api`（仅类型，零运行时依赖）；[本地出口](../../packages/host-runtime/src/modules/ecosystem/plugins/turn-plugins/types.ts)只做聚合，不再定义任何插件领域字段。上下文含 Turn/Session/Attempt ID、用户消息、`signal/deadlineEpochMs` 与窄端口（回合流读写 `stream`、可选 `llm`）；`LocalContext` 与仓储属宿主侧依赖，经 Runner 的宿主依赖注入，**不进入插件上下文**。后置状态为 `Completed/Failed/Interrupted`。
+
+`afterTurn` 的成功阶段在模型正文完成后、可观察 `done` 之前执行，仍受 Hook 超时、取消信号和原 Attempt 租约约束；它不是持久终态后的任意写窗口。宿主通过通用完成回调运行该阶段，结束后再次检查取消、删除、预算和租约。增强失败按既有隔离政策处理，不能伪造成功增强事件。Hook 写流能力携带宿主捕获的插件代际、Attempt/fencing，写者事务验证资格并分配下一个序号；插件不能自行提供或改变这些身份。
 
 Hook 必须由 API 组合根 import 并注册到 [ServerPluginRegistry](../../packages/host-runtime/src/modules/ecosystem/plugins/turn-plugins/registry.ts)；仅在 Bundle 放置 `.ts/.js` 或 Manifest 字段不会激活 Hook。当前没有对第三方暴露的 Hook npm SDK、进程隔离或运行时代码热加载。第一方实现位于 `plugins/<id>/src/server`，由唯一装配点 [packages/host-runtime/src/plugin-assembly.ts](../../packages/host-runtime/src/plugin-assembly.ts) 以容错方式加载并注入其贡献（缺包或加载失败不中断宿主启动）。注册只按插件唯一 ID，不提供历史别名互查；需要旧配置迁移时由插件自己处理，不让宿主解释领域键。
 
@@ -356,7 +362,7 @@ MCP 使用独立[服务适配器](../../packages/host-runtime/src/modules/ecosys
 | Config 校验、并发 CAS、同库 Config/Secret 原子保存与重置 | [plugin-config.test.ts](../../apps/api/test/plugin-config.test.ts)、[配置激活竞态测试](../../apps/api/test/plugin-config-activation-race.test.ts)、[atomic-edits.test.ts](../../packages/repositories/test/atomic-edits.test.ts) | Secret 静态加密、外部 SecretStore 补偿、全 Page 撤权 |
 | 工具与权限登记 | [tools-plugins.test.ts](../../apps/api/test/tools-plugins.test.ts) | 任意工具声明自动提供 handler 或 grant 强制检查 |
 | Hook 有界等待、取消与后置门控 | [turn-plugin-lifecycle.test.ts](../../apps/api/test/turn-plugin-lifecycle.test.ts)、[turn-plugin-cancel-integration.test.ts](../../apps/api/test/turn-plugin-cancel-integration.test.ts) | 第三方隔离、同步死循环强制终止或业务幂等 |
-| Page 来源/会话/capability 与销毁 | [plugin-page-bridge.test.ts](../../apps/api/test/plugin-page-bridge.test.ts)、[plugin-page-dialog.test.ts](../../surfaces/panels-ui/test/plugin-page-dialog.test.ts) | 完整 Token 资源通道或全局撤权实时推送 |
+| Page 来源/会话/capability、代际与销毁 | [plugin-page-bridge.test.ts](../../apps/api/test/plugin-page-bridge.test.ts)、[plugin-page-dialog.test.ts](../../surfaces/panels-ui/test/plugin-page-dialog.test.ts)、[真实 Chromium Bridge 配置代际](../../e2e/ui/plugin-page-lifecycle.spec.ts) | 完整 Token 资源通道、全部 capability 跨窗口撤权或全局实时推送 |
 | 作者 CLI 与 API 结构兼容 | [plugin-cli.test.mjs](../../scripts/plugin-cli.test.mjs)、[OpenAPI compatibility tests](../../scripts/openapi-compat.test.mjs) | 任意协议语义兼容或真实平台验收 |
 | UI 注册/清理/配置竞态 | [ui-registry.test.ts](../../packages/ui/test/ui-registry.test.ts)、[plugin-registration.test.ts](../../plugins/focus-mode/test/plugin-registration.test.ts) | 任意第三方 Vue 热加载或安全沙箱 |
 

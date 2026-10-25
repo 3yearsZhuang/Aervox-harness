@@ -1,3 +1,4 @@
+import { loadExecutionConfig } from "@aervox/config";
 import { createConversationApplication } from "@aervox/host-runtime-test/modules/companion/conversation/application";
 import { expect, it, vi } from "vitest";
 import { createInMemoryDatabase, createProactiveVaultCipher, SqliteConversationRepository, botDeliveries } from "@aervox/repositories";
@@ -18,7 +19,7 @@ it("retries a delivery outside recent history without allowing another connectio
     }),
   };
   const manager = new BotManager({
-    store, conversation: createConversationApplication(new SqliteConversationRepository(db), {}),
+    store, conversation: createConversationApplication(new SqliteConversationRepository(db), {executionConfig: loadExecutionConfig()}),
     adapters: () => [{ pluginId: "test", adapter }], pluginEnabled: async () => true,
     cipher: async () => createProactiveVaultCipher(new Uint8Array(32), "test"),
   });

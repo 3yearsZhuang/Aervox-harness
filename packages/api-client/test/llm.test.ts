@@ -1,39 +1,16 @@
 import { reactive } from 'vue';
 import { describe, expect, it } from 'vitest';
 import { configureAervoxClient, type AervoxTransport } from '../src/transport';
-import { PRESET_PROVIDERS, useAervoxLLM } from '../src/useAervoxLLM';
+import { useAervoxLLM } from '../src/useAervoxLLM';
 
 describe('useAervoxLLM & PRESET_PROVIDERS (CR-012)', () => {
-  it('预置供应商定义完整且包含推荐模型与 BaseURL', () => {
-    expect(PRESET_PROVIDERS.length).toBeGreaterThanOrEqual(4);
-
-    const ollama = PRESET_PROVIDERS.find((p) => p.id === 'ollama');
-    expect(ollama).toBeDefined();
-    expect(ollama?.defaultBaseUrl).toBe('http://127.0.0.1:11434/v1');
-    expect(ollama?.requiresApiKey).toBe(false);
-    expect(ollama?.recommendedModels).toContain('llama3.2');
-
-    const deepseek = PRESET_PROVIDERS.find((p) => p.id === 'deepseek');
-    expect(deepseek).toBeDefined();
-    expect(deepseek?.defaultBaseUrl).toBe('https://api.deepseek.com/v1');
-    expect(deepseek?.requiresApiKey).toBe(true);
-    expect(deepseek?.recommendedModels).toContain('deepseek-chat');
-
-    const openai = PRESET_PROVIDERS.find((p) => p.id === 'openai');
-    expect(openai).toBeDefined();
-    expect(openai?.defaultBaseUrl).toBe('https://api.openai.com/v1');
-    expect(openai?.requiresApiKey).toBe(true);
-
-    const anthropic = PRESET_PROVIDERS.find((p) => p.id === 'anthropic');
-    expect(anthropic).toBeDefined();
-    expect(anthropic?.defaultBaseUrl).toBe('https://api.anthropic.com/v1');
-    expect(anthropic?.requiresApiKey).toBe(true);
-
-    const llamacpp = PRESET_PROVIDERS.find((p) => p.id === 'llamacpp');
-    expect(llamacpp).toBeDefined();
-    expect(llamacpp?.defaultBaseUrl).toBe('http://127.0.0.1:8080/v1');
-    expect(llamacpp?.requiresApiKey).toBe(false);
-    expect(llamacpp?.recommendedModels.length).toBeGreaterThanOrEqual(3);
+  it('loads provider metadata from the host rather than maintaining a local catalog', async () => {
+    const provider = { id: 'injected', name: 'Injected', description: 'test', protocol: 'openai-compat', defaultBaseUrl: 'http://127.0.0.1:9000/v1', recommendedModels: ['test-model'], requiresApiKey: false, isLocal: true, available: true };
+    configureAervoxClient({ transport: { request: async () => ({ generation: 3, providers: [provider] }) } as AervoxTransport });
+    const api = useAervoxLLM();
+    expect(api.presetProviders.value).toEqual([]);
+    await api.loadProviders();
+    expect(api.presetProviders.value).toEqual([provider]);
   });
 
   it('保存时将 Vue 响应式配置规范化为可经 Electron IPC 克隆的纯数据', async () => {

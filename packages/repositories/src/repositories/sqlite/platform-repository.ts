@@ -28,6 +28,61 @@ import type {
   EvalSetModel,
 } from "../types/index.js";
 
+const contextMessageRoles = ["system", "user", "assistant", "tool"] as const;
+type ContextMessageRole = typeof contextMessageRoles[number];
+interface ContextRequestMetadata {
+  version: 2;
+  kind: "request-metadata";
+  messageCount: number;
+  messageRoles: Record<ContextMessageRole, number>;
+  toolCount: number;
+  maxOutputTokens?: number;
+  temperature?: number;
+}
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+const isCount = (value: unknown): value is number =>
+  typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+
+/** Durable diagnostics keep counts, never prompt bodies, tool schemas or content hashes.
+ * Accept older request shapes without changing the Core's in-process snapshot contract.
+ * Rebuild even v2 inputs so extension fields cannot bypass the write boundary.
+ */
+function contextRequestMetadata(snapshot: unknown): ContextRequestMetadata | null {
+  const record = isRecord(snapshot) ? snapshot : undefined;
+  const roles: Record<ContextMessageRole, number> = { system: 0, user: 0, assistant: 0, tool: 0 };
+  let messageCount: number;
+  let toolCount: number;
+  if (record?.version === 2) {
+    if (record.kind !== "request-metadata" || !isCount(record.messageCount) || !isCount(record.toolCount)
+      || !isRecord(record.messageRoles)) return null;
+    for (const role of contextMessageRoles) {
+      const count = record.messageRoles[role];
+      if (!isCount(count)) return null;
+      roles[role] = count;
+    }
+    const total = contextMessageRoles.reduce((count, role) => count + roles[role], 0);
+    if (!Number.isSafeInteger(total) || total !== record.messageCount) return null;
+    messageCount = record.messageCount;
+    toolCount = record.toolCount;
+  } else {
+    if (record?.version !== undefined && record.version !== 1) return null;
+    const messages = Array.isArray(snapshot) ? snapshot : record?.messages;
+    if (!Array.isArray(messages) || (record?.tools !== undefined && !Array.isArray(record.tools))) return null;
+    for (const message of messages) {
+      if (!isRecord(message) || !contextMessageRoles.includes(message.role as ContextMessageRole)) return null;
+      roles[message.role as ContextMessageRole] += 1;
+    }
+    messageCount = messages.length;
+    toolCount = Array.isArray(record?.tools) ? record.tools.length : 0;
+  }
+  const metadata: ContextRequestMetadata = { version: 2, kind: "request-metadata", messageCount, messageRoles: roles, toolCount };
+  if (isCount(record?.maxOutputTokens) && record.maxOutputTokens > 0) metadata.maxOutputTokens = record.maxOutputTokens;
+  if (typeof record?.temperature === "number" && Number.isFinite(record.temperature)
+    && record.temperature >= 0 && record.temperature <= 2) metadata.temperature = record.temperature;
+  return metadata;
+}
+
 export class SqlitePlatformRepository implements IPlatformRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
@@ -245,7 +300,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
       sourceRevisionId: string;
       selectionReason?: string | null;
       permissionSnapshot?: unknown;
-      /** 阶段 7（ADR-017）：上下文快照（可空；多来源为多行 entries） */
+      /** Request input or metadata; only a versioned count projection is persisted. */
       snapshot?: unknown;
       tokenBudget?: number | null;
     },
@@ -260,7 +315,7 @@ export class SqlitePlatformRepository implements IPlatformRepository {
         sourceRevisionId: manifestData.sourceRevisionId,
         selectionReason: manifestData.selectionReason ?? null,
         permissionSnapshot: manifestData.permissionSnapshot ?? null,
-        snapshotJson: manifestData.snapshot ?? null,
+        snapshotJson: contextRequestMetadata(manifestData.snapshot),
         tokenBudget: manifestData.tokenBudget ?? null,
         createdAt: new Date().toISOString(),
       })

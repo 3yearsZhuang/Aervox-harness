@@ -20,3 +20,30 @@ export function resolveSurfaceChoice<T extends { readonly id: string }>(
   }
   return surfaces.find((s) => s.id === picked) ?? fallback;
 }
+
+/** Host-owned selection/persistence; consumers only see trusted descriptors and commands. */
+export function createSurfaceNavigation(
+  surfaces: readonly { readonly id: string; readonly displayName?: string }[],
+  options: {
+    currentSurfaceId: string;
+    defaultSurfaceId: string;
+    storageKey: string;
+    storage?: Pick<Storage, 'setItem'>;
+    location: { readonly href: string; replace(url: string): void };
+  },
+) {
+  if (!surfaces.some(surface => surface.id === options.defaultSurfaceId)) throw new Error('[ui-host] Default surface is not registered');
+  const select = (id: string) => {
+    if (!surfaces.some(surface => surface.id === id)) throw new Error('[ui-host] Surface is not registered');
+    try { options.storage?.setItem(options.storageKey, id); } catch { /* URL still carries this selection. */ }
+    const url = new URL(options.location.href);
+    url.searchParams.set('surface', id);
+    options.location.replace(url.toString());
+  };
+  return Object.freeze({
+    currentId: options.currentSurfaceId,
+    options: Object.freeze(surfaces.map(surface => Object.freeze({value: surface.id, label: surface.displayName ?? surface.id}))),
+    select,
+    openDefault: () => select(options.defaultSurfaceId),
+  });
+}

@@ -61,6 +61,11 @@ it.each(["claimed", "unclaimed", "terminal_gap"])("recovers cancelled platform w
     await repo.updateTurnStatus(local, "turn-cancelled", "Cancelled");
   } else await repo.requestCancelTurnAttempt(local, { turnId: "turn-cancelled", attemptId: "attempt-cancelled" });
   await bots.updateInbox("event", { state: "cancelled" });
+  if (mode === "unclaimed") {
+    expect((await repo.getStreamEvents(local, "turn-cancelled")).map(event => event.eventType)).toEqual(["done"]);
+    expect(await repo.listApiOwnedRecoveryTurns("2999-01-01T00:00:00.000Z")).toEqual([]);
+    return;
+  }
   expect((await repo.listApiOwnedRecoveryTurns("2999-01-01T00:00:00.000Z")).map(turn => turn.id)).toContain("turn-cancelled");
   if (mode === "terminal_gap") await repo.synchronizeTurnWithLatestAttempt("turn-cancelled");
   else expect(await repo.retireExpiredApiOwnedAttempt("turn-cancelled", "attempt-cancelled", fencingToken)).toBe(true);

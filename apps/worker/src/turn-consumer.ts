@@ -7,17 +7,11 @@ export function createTurnConsumerHandler(host: { queries: Pick<ConversationHost
     if (event.eventType !== "agent.turn.requested") return;
     const raw: unknown = typeof event.payload === "string" ? JSON.parse(event.payload) : event.payload;
     if (!raw || typeof raw !== "object") throw new Error("Invalid delegated turn payload");
-    const payload = raw as { execution?: unknown; turnId?: unknown; metadata?: unknown; toolApprovalMode?: unknown; actorId?: unknown };
+    const payload = raw as { execution?: unknown; turnId?: unknown };
     if (payload.execution !== "worker" || typeof payload.turnId !== "string") throw new Error("Invalid delegated turn owner");
     const local = { workspaceId: "local", subjectUserId: "local" };
-    const accepted = await host.queries.loadDelegatedTurn(payload.turnId);
+    const accepted = await host.queries.loadDelegatedTurn(payload.turnId, event.id);
     if (!accepted) return;
-    await host.commands.execute(local, {
-      ...accepted,
-      toolApprovalMode: payload.toolApprovalMode === "full_access" ? "full_access" : "ask",
-      actorId: typeof payload.actorId === "string" ? payload.actorId : undefined,
-      metadata: payload.metadata && typeof payload.metadata === "object" && !Array.isArray(payload.metadata)
-        ? payload.metadata as Record<string, unknown> : undefined,
-    });
+    await host.commands.execute(local, accepted);
   };
 }

@@ -1,15 +1,22 @@
+import { getClientTransport } from './client-context.js';
 /**
  * Aervox｜思隅 @aervox/api-client — Persona 组合式 API
  *
  * Web / Desktop 共用：通过统一 Transport 访问系统级 Persona CRUD、激活、导入与导出。
  */
 import { ref } from 'vue';
-import { getTransport } from './transport';
+import { personaApi } from '@aervox/contracts';
+import { requestEndpoint } from './endpoint.js';
+import { createResource } from './resource.js';
+
 import type {
   Persona as PersonaDto,
   PersonaRevisionConfig as PersonaRevisionConfigDto,
   PersonaRevision as PersonaRevisionDto,
   ActivePersonaSelection as ActivePersonaSelectionDto,
+  CreatePersonaRequest as CreatePersonaInputDto,
+  UpdatePersonaRequest as UpdatePersonaInputDto,
+  PersonaDetailResponse, PersonaMutationResponse, PersonaImportResponse, PersonaBundleResponse,
 } from '@aervox/contracts';
 
 export type {
@@ -17,6 +24,7 @@ export type {
   PersonaRevisionConfigDto,
   PersonaRevisionDto,
   ActivePersonaSelectionDto,
+  CreatePersonaInputDto, UpdatePersonaInputDto,
 };
 
 
@@ -37,59 +45,31 @@ export interface SkillItemDto {
   source?: string;
 }
 
-export interface CreatePersonaInputDto {
-  name: string;
-  description?: string;
-  config: PersonaRevisionConfigDto;
-}
-
-export interface UpdatePersonaInputDto {
-  expectedRevision: number;
-  name?: string;
-  description?: string;
-  config: PersonaRevisionConfigDto;
-}
-
 export function useAervoxPersonas() {
-  const transport = getTransport();
+  const transport = getClientTransport();
   const personas = ref<PersonaDto[]>([]);
   const activePersona = ref<ActivePersonaSelectionDto | null>(null);
-  const loading = ref(false);
-  const error = ref<string | null>(null);
+  const resource = createResource(() => requestEndpoint(transport, personaApi.list), response => {
+    personas.value = response.personas;
+    activePersona.value = response.active;
+  });
+  const { loading, error } = resource;
 
   const loadPersonas = async (): Promise<void> => {
-    loading.value = true;
-    error.value = null;
-    try {
-      const res = await transport.request<{
-        personas: PersonaDto[];
-        active: ActivePersonaSelectionDto | null;
-      }>('GET', '/v1/personas');
-      personas.value = res.personas ?? [];
-      activePersona.value = res.active ?? null;
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : '加载人格列表失败';
-    } finally {
-      loading.value = false;
-    }
+    try { await resource.load(); }
+    catch { /* Failed refresh retains the last validated projection and error. */ }
   };
 
   const getPersonaDetail = async (
     personaId: string,
-  ): Promise<{ persona: PersonaDto; revision: PersonaRevisionDto | null; active: boolean }> =>
-    transport.request<{ persona: PersonaDto; revision: PersonaRevisionDto | null; active: boolean }>(
-      'GET',
-      `/v1/personas/${encodeURIComponent(personaId)}`,
-    );
+  ): Promise<PersonaDetailResponse> =>
+    requestEndpoint(transport, personaApi.get, undefined, { personaId });
 
   const createPersona = async (
     input: CreatePersonaInputDto,
-  ): Promise<{ persona: PersonaDto; revision: PersonaRevisionDto }> => {
-    const res = await transport.request<{ persona: PersonaDto; revision: PersonaRevisionDto }>(
-      'POST',
-      '/v1/personas',
-      input,
-    );
+  ): Promise<PersonaMutationResponse> => {
+    const res = await requestEndpoint(transport, personaApi.create, input);
+    resource.invalidate();
     await loadPersonas();
     return res;
   };
@@ -97,21 +77,16 @@ export function useAervoxPersonas() {
   const updatePersona = async (
     personaId: string,
     input: UpdatePersonaInputDto,
-  ): Promise<{ persona: PersonaDto; revision: PersonaRevisionDto }> => {
-    const res = await transport.request<{ persona: PersonaDto; revision: PersonaRevisionDto }>(
-      'PATCH',
-      `/v1/personas/${encodeURIComponent(personaId)}`,
-      input,
-    );
+  ): Promise<PersonaMutationResponse> => {
+    const res = await requestEndpoint(transport, personaApi.update, input, { personaId });
+    resource.invalidate();
     await loadPersonas();
     return res;
   };
 
   const deletePersona = async (personaId: string): Promise<boolean> => {
-    const res = await transport.request<{ deleted: boolean }>(
-      'DELETE',
-      `/v1/personas/${encodeURIComponent(personaId)}`,
-    );
+    const res = await requestEndpoint(transport, personaApi.delete, undefined, { personaId });
+    resource.invalidate();
     await loadPersonas();
     return res.deleted;
   };
@@ -120,35 +95,23 @@ export function useAervoxPersonas() {
     personaId: string,
     revisionId?: string,
   ): Promise<ActivePersonaSelectionDto> => {
-    const res = await transport.request<ActivePersonaSelectionDto>(
-      'POST',
-      `/v1/personas/${encodeURIComponent(personaId)}/activate`,
-      revisionId ? { revisionId } : {},
-    );
+    const res = await requestEndpoint(transport, personaApi.activate, revisionId ? { revisionId } : {}, { personaId });
+    resource.invalidate();
     await loadPersonas();
     return res;
   };
 
   const exportPersona = async (
     personaId: string,
-  ): Promise<{ bundleBase64: string; fileName: string; skillNames: string[]; missingDependencies: string[] }> =>
-    transport.request<{
-      bundleBase64: string;
-      fileName: string;
-      skillNames: string[];
-      missingDependencies: string[];
-    }>('POST', `/v1/personas/${encodeURIComponent(personaId)}/export`);
+  ): Promise<PersonaBundleResponse> =>
+    requestEndpoint(transport, personaApi.export, undefined, { personaId });
 
   const importPersona = async (
     bundleBase64: string,
     conflictResolution: 'error' | 'replace' = 'error',
-  ): Promise<{ persona: PersonaDto; revision: PersonaRevisionDto; skills: Array<{ name: string }>; missingDependencies: string[] }> => {
-    const res = await transport.request<{
-      persona: PersonaDto;
-      revision: PersonaRevisionDto;
-      skills: Array<{ name: string }>;
-      missingDependencies: string[];
-    }>('POST', '/v1/personas/import', { bundleBase64, conflictResolution });
+  ): Promise<PersonaImportResponse> => {
+    const res = await requestEndpoint(transport, personaApi.import, { bundleBase64, conflictResolution });
+    resource.invalidate();
     await loadPersonas();
     return res;
   };

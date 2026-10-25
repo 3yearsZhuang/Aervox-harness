@@ -117,6 +117,9 @@ export interface PlatformServices {
 }
 
 export interface AervoxClientConfig {
+  /** Explicit persistence adapter; absent/null keeps this client's selection in memory. */
+  sessionStorage?: AervoxClientStorage | null;
+  sessionStorageKey?: string;
   platform?: PlatformServices;
   /** API 基址，仅 fetchTransport 使用（默认 http://127.0.0.1:3000） */
   apiBase?: string;
@@ -128,64 +131,75 @@ export interface AervoxClientConfig {
   transport?: AervoxTransport;
 }
 
-interface RuntimeConfig {
-  platform: PlatformServices;
-  apiBase: string;
-  timeZone: string;
-  sessionId: string;
-  transport: AervoxTransport;
+export type AervoxClientStorage = Pick<Storage, 'getItem' | 'setItem'>;
+
+/** One API/host identity. Selection is shared only by consumers of this instance. */
+export interface AervoxClient {
+  readonly transport: AervoxTransport;
+  readonly platform: PlatformServices;
+  readonly apiBase: string;
+  readonly timeZone: string;
+  readonly sessionId: string;
+  setSessionId(id: string): void;
+  subscribeSession(listener: (id: string) => void): () => void;
+  restoreSession(): void;
 }
 
-const DEFAULTS: RuntimeConfig = {
-  platform: {},
-  apiBase: 'http://127.0.0.1:3000',
-  timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-  sessionId: 'web_default',
-  transport: null as unknown as AervoxTransport, // 惰性：未配置时返回 fetchTransport
-};
-
-let runtime: RuntimeConfig = { ...DEFAULTS };
-
-export function getPlatformServices(): PlatformServices { return runtime.platform; }
-
-export function configureAervoxClient(config: AervoxClientConfig): void {
-  runtime = {
-    platform: config.platform ?? runtime.platform,
-    apiBase: config.apiBase?.replace(/\/+$/, '') || runtime.apiBase,
-    timeZone: config.timeZone ?? runtime.timeZone,
-    sessionId: config.sessionId ?? runtime.sessionId,
-    transport: config.transport ?? (config.apiBase
-      ? createFetchTransport(config.apiBase?.replace(/\/+$/, '') || runtime.apiBase)
-      : runtime.transport),
+export function createAervoxClient(config: AervoxClientConfig = {}): AervoxClient {
+  const apiBase = config.apiBase?.replace(/\/+$/, '') || 'http://127.0.0.1:3000';
+  const transport = config.transport ?? createFetchTransport(apiBase);
+  const platform = config.platform ?? {};
+  const timeZone = config.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC';
+  const storage = config.sessionStorage;
+  const key = config.sessionStorageKey ?? 'aervox_active_session_id';
+  let sessionId = config.sessionId ?? 'web_default';
+  let restored = false;
+  const listeners = new Set<(id: string) => void>();
+  const setSessionId = (id: string) => {
+    sessionId = id;
+    try { storage?.setItem(key, id); } catch { /* Selection still works without persistence. */ }
+    for (const listener of listeners) listener(id);
   };
+  return Object.freeze({
+    apiBase, transport, platform, timeZone,
+    get sessionId() { return sessionId; },
+    setSessionId,
+    subscribeSession(listener: (id: string) => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
+    restoreSession() {
+      if (restored) return;
+      restored = true;
+      try { const saved = storage?.getItem(key)?.trim(); if (saved) setSessionId(saved); } catch { /* Storage can be unavailable. */ }
+    },
+  });
 }
 
-export function getTransport(): AervoxTransport {
-  if (!runtime.transport) {
-    runtime.transport = createFetchTransport(runtime.apiBase);
-  }
-  return runtime.transport;
+let defaultClient: AervoxClient | undefined;
+function browserSessionStorage(): AervoxClientStorage | undefined {
+  try { return typeof localStorage === 'undefined' ? undefined : localStorage; } catch { return undefined; }
+}
+export function getDefaultAervoxClient(): AervoxClient {
+  return defaultClient ??= createAervoxClient({sessionStorage: browserSessionStorage()});
 }
 
-/** 当前会话 ID（由宿主为新对话注入） */
-export function getSessionId(): string {
-  return runtime.sessionId;
+/** Compatibility for standalone consumers; mounted hosts provide an explicit client. */
+export function configureAervoxClient(config: AervoxClientConfig): void {
+  const previous = getDefaultAervoxClient();
+  defaultClient = createAervoxClient({
+    platform: config.platform ?? previous.platform,
+    apiBase: config.apiBase ?? previous.apiBase,
+    timeZone: config.timeZone ?? previous.timeZone,
+    sessionId: config.sessionId ?? previous.sessionId,
+    transport: config.transport ?? (config.apiBase ? undefined : previous.transport),
+    sessionStorage: config.sessionStorage === undefined ? browserSessionStorage() : config.sessionStorage,
+    sessionStorageKey: config.sessionStorageKey,
+  });
 }
-
-/** 设置当前活跃会话 ID */
-export function setSessionId(sessionId: string): void {
-  runtime.sessionId = sessionId;
-}
-
-
-export function getTimeZone(): string {
-  return runtime.timeZone;
-}
-
-/** 当前 API 基址（插件 Page iframe 资源地址等场景使用） */
-export function getApiBase(): string {
-  return runtime.apiBase;
-}
+export function getTransport(): AervoxTransport { return getDefaultAervoxClient().transport; }
+export function getPlatformServices(): PlatformServices { return getDefaultAervoxClient().platform; }
+export function getSessionId(): string { return getDefaultAervoxClient().sessionId; }
+export function setSessionId(id: string): void { getDefaultAervoxClient().setSessionId(id); }
+export function getTimeZone(): string { return getDefaultAervoxClient().timeZone; }
+export function getApiBase(): string { return getDefaultAervoxClient().apiBase; }
 
 // ── fetchTransport（Web / 无桌面桥时的默认实现） ─────────────────────────
 

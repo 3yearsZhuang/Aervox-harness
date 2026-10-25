@@ -1,3 +1,4 @@
+import { loadExecutionConfig } from "@aervox/config";
 /**
  * Aervox｜思隅 @aervox/api — DSH 进程外 Adapter API 接线测试（ADR-010 阶段 6f）
  *
@@ -142,7 +143,7 @@ describe("Agent Loop 阶段 6f：AERVOX_LOOP_DRIVER=dsh API 接线", () => {
   });
 
   it("resolver：非 git 根 → ok:false（dsh_probe_failed / submodule_missing）", async () => {
-    const resolved = await resolveDshTurnAdapter({ repoRoot: nonRepoRoot });
+    const resolved = await resolveDshTurnAdapter({ repoRoot: nonRepoRoot, environment: { ...process.env } });
     expect(resolved.ok).toBe(false);
     if (!resolved.ok) {
       expect(resolved.reason).toContain("dsh_probe_failed");
@@ -179,6 +180,9 @@ describe("Agent Loop 阶段 6f：AERVOX_LOOP_DRIVER=dsh API 接线", () => {
       app = (await buildApp({ db: database.db, client: database.client })).app;
       await app.ready();
 
+      // The process is admitted lazily. Later host mutation cannot redirect its model endpoint.
+      process.env.DSH_LLM_BASE_URL = "http://127.0.0.1:1";
+
       const created = await createTurn();
       expect(created.statusCode).toBe(201);
       const turnId = created.json().turnId as string;
@@ -206,7 +210,7 @@ describe("Agent Loop 阶段 6f：AERVOX_LOOP_DRIVER=dsh API 接线", () => {
       repo,
       tenant,
       { turnId: "turn_pa", sessionId, attemptId: "attempt_pa", userMessage: "hi" },
-      { proactiveRepository: { getEffectiveStatus: async () => ({ effectiveState: "active" }) } as never },
+      { executionConfig: loadExecutionConfig(), proactiveRepository: { getEffectiveStatus: async () => ({ effectiveState: "active" }) } as never },
     );
 
     const events = await repo.getStreamEvents(tenant, "turn_pa");
@@ -227,12 +231,12 @@ describe("Agent Loop 阶段 6f：AERVOX_LOOP_DRIVER=dsh API 接线", () => {
       repo,
       tenant,
       { turnId: "turn_dg", sessionId, attemptId: "attempt_dg", userMessage: "hi" },
-      { deletionGate: { isBlocked: async () => true } },
+      { executionConfig: loadExecutionConfig(), deletionGate: { isBlocked: async () => true } },
     );
 
     const events = await repo.getStreamEvents(tenant, "turn_dg");
-    const error = events.find((e) => e.eventType === "error");
-    expect((error?.data as { message?: string }).message).toContain("deletion_gate_blocked");
-    expect((await repo.getTurn(tenant, "turn_dg"))?.status).toBe("Failed");
+    expect(events.some(event => event.eventType === "error")).toBe(false);
+    expect(events.at(-1)).toMatchObject({ eventType: "done", data: { status: "Interrupted", reason: "deletion_blocked" } });
+    expect((await repo.getTurn(tenant, "turn_dg"))?.status).toBe("Interrupted");
   });
 });

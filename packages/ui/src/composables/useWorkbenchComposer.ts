@@ -1,5 +1,5 @@
 import { getCurrentScope, nextTick, onScopeDispose, ref, watch, type Ref } from 'vue';
-import { useAervoxVoiceInput, uploadAervoxAttachment } from '@aervox/api-client';
+import { useAervoxVoiceInput, uploadAervoxAttachment, getClientTransport } from '@aervox/api-client';
 import {
   allowedMediaTypesSchema,
   MAX_ATTACHMENT_SIZE,
@@ -81,6 +81,7 @@ export function useWorkbenchComposer(options: {
   const attachmentUploading = ref(false);
 
   const voiceInput = useAervoxVoiceInput();
+  const attachmentTransport = getClientTransport();
   const voiceInputError = ref<string | null>(null);
   const voiceInputStarting = ref(false);
   let voiceStartGeneration = 0;
@@ -262,7 +263,7 @@ export function useWorkbenchComposer(options: {
         name: item.name,
         mediaType: item.mediaType,
         purpose: purposeForMediaType(item.mediaType),
-      });
+      }, attachmentTransport);
       refs.push({ attachmentId: uploaded.id, name: item.name, mediaType: item.mediaType });
     }
     return refs;

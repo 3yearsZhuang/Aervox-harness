@@ -1,6 +1,7 @@
+import { getClientTransport, useAervoxClient } from './client-context.js';
 /** Composition of independent, lazy learning resources for the workbench. */
 import { computed } from 'vue';
-import { getTimeZone, getTransport } from './transport';
+
 import { useAervoxFeedback } from './useAervoxFeedback';
 import { createGoalStore, createReviewStore, createPracticeStore, createPlanStore, createMistakeStore } from './learning-stores.js';
 import type { LearningStorePort } from './learning-store-port.js';
@@ -8,8 +9,8 @@ import type { LearningStorePort } from './learning-store-port.js';
 export type * from './learning-types.js';
 
 export function useAervoxApi(): LearningStorePort {
-  const transport = getTransport();
-  const timeZone = getTimeZone();
+  const transport = getClientTransport();
+  const timeZone = useAervoxClient().timeZone;
   const feedback = useAervoxFeedback(transport);
   const {resource: goals, ...goalStore} = createGoalStore(transport);
   const {resource: reviews, ...reviewStore} = createReviewStore(transport, timeZone);

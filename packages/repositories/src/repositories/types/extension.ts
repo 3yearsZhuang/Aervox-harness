@@ -81,6 +81,7 @@ export interface PluginSecretModel {
 }
 
 export interface PluginPageModel {
+  /** Persisted host-generated Page incarnation; replaced atomically on every registration. */
   id: string;
   pluginId: string;
   pageId: string;
@@ -96,10 +97,16 @@ export interface PluginPageModel {
 export interface PluginConfigSaveInput {
   pluginId: string;
   schemaVersion: number;
-  /** 期望 revision（-1 表示无条件写） */
+  /** Nonnegative revision captured by the application before preparing this write. */
   expectedRevision: number;
   /** Schema used to validate this write; checked in the same transaction as values and Secrets. */
-  expectedSchema?: unknown;
+  expectedSchema: unknown;
+  /** Captured plugin lifecycle; enabled, availability and generation are revalidated before any write. */
+  expectedLifecycleGeneration: string;
+  /** Host-captured Page identity; config.write is checked before any config or Secret mutation. */
+  expectedPageId?: string;
+  /** Paired with expectedPageId; the Page incarnation must still match inside the write transaction. */
+  expectedPageGeneration?: string;
   values: Record<string, unknown>;
   secretKeys: string[];
   /** Same-database Secret mutations, committed only with the matching config revision. */

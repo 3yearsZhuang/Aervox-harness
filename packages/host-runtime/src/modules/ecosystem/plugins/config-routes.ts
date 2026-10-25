@@ -51,9 +51,10 @@ export function registerPluginConfigRoutes(app: FastifyInstance, service: Plugin
   // ── 配置 ──────────────────────────────────────────
   registerContractRoute(app, pluginConfigApi.get, async (req, reply) => {
     const { pluginId } = req.params as { pluginId: string };
+    const { expectedLifecycleGeneration } = req.query as { expectedLifecycleGeneration?: string };
     const tenant = resolveLocalContext(req);
     try {
-      return await service.getConfig(tenant, pluginId);
+      return await service.getConfig(tenant, pluginId, expectedLifecycleGeneration);
     } catch (error) {
       return sendError(reply, error);
     }
@@ -68,6 +69,9 @@ export function registerPluginConfigRoutes(app: FastifyInstance, service: Plugin
         revision: body.revision,
         values: body.values ?? {},
         secretValues: body.secretValues ?? {},
+        expectedLifecycleGeneration: body.expectedLifecycleGeneration,
+        expectedPageId: body.expectedPageId,
+        expectedPageGeneration: body.expectedPageGeneration,
       });
     } catch (error) {
       return sendError(reply, error);
@@ -76,19 +80,22 @@ export function registerPluginConfigRoutes(app: FastifyInstance, service: Plugin
 
   registerContractRoute(app, pluginConfigApi.reset, async (req, reply) => {
     const { pluginId } = req.params as { pluginId: string };
+    const { expectedLifecycleGeneration } = req.query as { expectedLifecycleGeneration?: string };
     const tenant = resolveLocalContext(req);
     try {
-      return await service.resetConfig(tenant, pluginId);
+      return await service.resetConfig(tenant, pluginId, expectedLifecycleGeneration);
     } catch (error) {
       return sendError(reply, error);
     }
   });
 
   // ── Page ──────────────────────────────────────────
-  app.get("/v1/plugins/:pluginId/pages", async (req, reply) => {
+  registerContractRoute(app, pluginConfigApi.listPages, async (req, reply) => {
     const { pluginId } = req.params as { pluginId: string };
+    const { expectedLifecycleGeneration } = req.query as { expectedLifecycleGeneration?: string };
     try {
-      return { pages: await service.listPages(pluginId) };
+      reply.header("Cache-Control", "no-store");
+      return { pages: await service.listPages(pluginId, expectedLifecycleGeneration) };
     } catch (error) {
       return sendError(reply, error);
     }

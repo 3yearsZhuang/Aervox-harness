@@ -82,3 +82,21 @@ describe('resolveSurfaceChoice', () => {
     expect(() => resolveSurfaceChoice([], undefined, { storageKey: 'k' })).toThrow(/at least one surface/);
   });
 });
+
+it('navigates only through the injected trusted catalog and preserves other URL state', async () => {
+  const {createSurfaceNavigation} = await import('../src/resolve-surface');
+  const storage = memoryStorage();
+  const urls: string[] = [];
+  const navigation = createSurfaceNavigation([{id: 'new-view', displayName: 'New view'}, {id: 'default-view'}], {
+    currentSurfaceId: 'new-view', defaultSurfaceId: 'default-view', storageKey: 'choice', storage,
+    location: {href: 'https://example.test/app?x=1#anchor', replace: url => {urls.push(url);}},
+  });
+  expect(navigation.options).toEqual([{value: 'new-view', label: 'New view'}, {value: 'default-view', label: 'default-view'}]);
+  navigation.select('new-view');
+  expect(storage.getItem('choice')).toBe('new-view');
+  expect(urls[0]).toBe('https://example.test/app?x=1&surface=new-view#anchor');
+  navigation.openDefault();
+  expect(storage.getItem('choice')).toBe('default-view');
+  expect(() => navigation.select('removed-view')).toThrow('not registered');
+  expect(urls).toHaveLength(2);
+});

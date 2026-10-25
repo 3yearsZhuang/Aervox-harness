@@ -31,7 +31,8 @@ export interface StdioAdapterDriverDeps {
   command: string;
   args?: string[];
   cwd?: string;
-  env?: Record<string, string>;
+  /** Complete composition-time environment. Missing keys stay absent. */
+  env: Readonly<NodeJS.ProcessEnv>;
   /** host 期望的准入键（固定 SHA 复核；缺 sha 则仅校验 adapterId+许可证+策略） */
   expected: { adapterId: AdapterDriverId; sha256?: string };
   /** 握手（hello）超时，缺省 2000ms */
@@ -66,12 +67,13 @@ const withTimeout = <T>(promise: Promise<T>, ms: number, reason: string): Promis
 export async function createStdioAdapterDriver(
   deps: StdioAdapterDriverDeps,
 ): Promise<StdioAdapterDriverHandle> {
+  if (!deps.env) throw new Error("adapter_environment_required");
   const handshakeTimeoutMs = deps.handshakeTimeoutMs ?? 5000;
   const requestTimeoutMs = deps.requestTimeoutMs ?? 10000;
 
   const child: ChildProcess = spawn(deps.command, deps.args ?? [], {
     cwd: deps.cwd,
-    env: { ...process.env, ...deps.env },
+    env: { ...deps.env },
     stdio: ["pipe", "pipe", "pipe"],
   });
   const childClosed = new Promise<void>(resolve => child.once("close", () => resolve()));

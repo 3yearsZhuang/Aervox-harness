@@ -5,60 +5,15 @@
  * Token 只随 connect 请求上送，接口不回传原文（仅 tokenConfigured / tokenMasked）。
  */
 import { ref } from 'vue';
-import { getTransport } from './transport';
+import { getClientTransport } from './client-context.js';
 
-export interface McpPresetDto {
-  id: string;
-  name: string;
-  description: string;
-  transport: string;
-  endpointUrl: string;
-  authType: string;
-  protocolVersion: string;
-  homepage: string;
-  docsUrl: string;
-  tokenApplyUrl: string;
-  regionNote?: string;
-  rateLimitNote?: string;
-  sourceUrl: string;
-  configured: boolean;
-  enabled: boolean;
-  status: string;
-  toolCount: number;
-  tokenConfigured: boolean;
-  tokenMasked?: string | null;
-  lastSyncAt?: string | null;
-  lastError?: string | null;
-}
-
-export interface McpServerConfigDto {
-  id: string;
-  name: string;
-  transport: string;
-  endpointUrl: string;
-  authType: string;
-  enabled: boolean;
-  isPreset: boolean;
-  status: string;
-  toolCount: number;
-  tokenConfigured: boolean;
-  tokenMasked?: string | null;
-  lastSyncAt: string | null;
-  lastError: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface McpServerToolDto {
-  id: string;
-  name: string;
-  description: string;
-  safetyLevel: string;
-  enabled: boolean;
-  inputSchema?: unknown;
-}
+export type { McpPresetServer as McpPresetDto, McpServerConfig as McpServerConfigDto, McpServerToolEntry as McpServerToolDto } from '@aervox/contracts';
+import type { McpPresetServer as McpPresetDto, McpServerConfig as McpServerConfigDto, McpServerToolEntry as McpServerToolDto } from '@aervox/contracts';
+import { mcpApi } from '@aervox/contracts';
+import { requestEndpoint } from './endpoint.js';
 
 export function useAervoxMcp() {
+  const transport = getClientTransport();
   const presets = ref<McpPresetDto[]>([]);
   const servers = ref<McpServerConfigDto[]>([]);
   const loading = ref(false);
@@ -68,10 +23,7 @@ export function useAervoxMcp() {
     loading.value = true;
     error.value = null;
     try {
-      const res = await getTransport().request<{ presets: McpPresetDto[] }>(
-        'GET',
-        '/v1/mcp/presets',
-      );
+      const res = await requestEndpoint(transport, mcpApi.presets);
       presets.value = res.presets ?? [];
     } catch (e) {
       error.value = e instanceof Error ? e.message : '加载预设 MCP 服务器失败';
@@ -81,43 +33,27 @@ export function useAervoxMcp() {
   };
 
   const loadServers = async (): Promise<void> => {
-    const res = await getTransport().request<{ servers: McpServerConfigDto[] }>(
-      'GET',
-      '/v1/mcp/servers',
-    );
+    const res = await requestEndpoint(transport, mcpApi.servers);
     servers.value = res.servers ?? [];
   };
 
   const connectServer = async (serverId: string, token?: string): Promise<McpServerConfigDto> => {
-    const res = await getTransport().request<{ server: McpServerConfigDto }>(
-      'POST',
-      `/v1/mcp/servers/${encodeURIComponent(serverId)}/connect`,
-      token ? { token } : {},
-    );
+    const res = await requestEndpoint(transport, mcpApi.connect, token ? { token } : {}, { serverId });
     return res.server;
   };
 
   const syncServer = async (serverId: string): Promise<McpServerConfigDto> => {
-    const res = await getTransport().request<{ server: McpServerConfigDto }>(
-      'POST',
-      `/v1/mcp/servers/${encodeURIComponent(serverId)}/sync`,
-    );
+    const res = await requestEndpoint(transport, mcpApi.sync, undefined, { serverId });
     return res.server;
   };
 
   const disconnectServer = async (serverId: string): Promise<McpServerConfigDto> => {
-    const res = await getTransport().request<{ server: McpServerConfigDto }>(
-      'POST',
-      `/v1/mcp/servers/${encodeURIComponent(serverId)}/disconnect`,
-    );
+    const res = await requestEndpoint(transport, mcpApi.disconnect, undefined, { serverId });
     return res.server;
   };
 
   const loadServerTools = async (serverId: string): Promise<McpServerToolDto[]> => {
-    const res = await getTransport().request<{ tools: McpServerToolDto[] }>(
-      'GET',
-      `/v1/mcp/servers/${encodeURIComponent(serverId)}/tools`,
-    );
+    const res = await requestEndpoint(transport, mcpApi.tools, undefined, { serverId });
     return res.tools ?? [];
   };
 

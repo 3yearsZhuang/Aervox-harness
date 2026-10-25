@@ -3,7 +3,10 @@
  *
  * Web / Desktop 共用：通过统一 Transport 读写大语言模型与供应商配置、发起连通性测试。
  */
-import { getTransport } from './transport';
+import { shallowRef } from 'vue';
+import { getClientTransport } from './client-context.js';
+import { llmApi } from '@aervox/contracts';
+import { requestEndpoint } from './endpoint.js';
 import type {
   LLMProviderType,
   LLMConfig as LLMConfigDto,
@@ -23,75 +26,8 @@ export type {
 };
 
 
-export interface PresetProviderInfo {
-  id: LLMProviderType;
-  name: string;
-  description: string;
-  defaultBaseUrl: string;
-  recommendedModels: string[];
-  requiresApiKey: boolean;
-}
-
-export const PRESET_PROVIDERS: PresetProviderInfo[] = [
-  {
-    id: 'ollama',
-    name: 'Ollama (本地模型)',
-    description: '运行在本地机器的 Ollama 服务，默认免 API Key',
-    defaultBaseUrl: 'http://127.0.0.1:11434/v1',
-    recommendedModels: ['llama3.2', 'qwen2.5', 'deepseek-r1:8b', 'mistral'],
-    requiresApiKey: false,
-  },
-  {
-    id: 'deepseek',
-    name: 'DeepSeek 官方',
-    description: 'DeepSeek 开放平台 API',
-    defaultBaseUrl: 'https://api.deepseek.com/v1',
-    recommendedModels: ['deepseek-chat', 'deepseek-reasoner'],
-    requiresApiKey: true,
-  },
-  {
-    id: 'openai',
-    name: 'OpenAI 官方',
-    description: 'OpenAI 官方 API 服务',
-    defaultBaseUrl: 'https://api.openai.com/v1',
-    recommendedModels: ['gpt-4o', 'gpt-4o-mini', 'o3-mini', 'gpt-4-turbo'],
-    requiresApiKey: true,
-  },
-  {
-    id: 'anthropic',
-    name: 'Anthropic Claude',
-    description: 'Anthropic Claude API 服务',
-    defaultBaseUrl: 'https://api.anthropic.com/v1',
-    recommendedModels: [
-      'claude-3-5-sonnet-20241022',
-      'claude-3-5-haiku-20241022',
-      'claude-3-opus-20240229',
-    ],
-    requiresApiKey: true,
-  },
-  {
-    id: 'custom_openai',
-    name: '自定义 OpenAI 兼容接口',
-    description: '兼容 OpenAI 协议的第三方中转或自建 vLLM / llama.cpp / LMDeploy 服务',
-    defaultBaseUrl: 'http://127.0.0.1:8000/v1',
-    recommendedModels: ['default'],
-    requiresApiKey: false,
-  },
-  {
-    id: 'llamacpp',
-    name: 'llama.cpp (本地模型)',
-    description: '本地 llama-server（llama.cpp）OpenAI 兼容端点，默认免 API Key',
-    defaultBaseUrl: 'http://127.0.0.1:8080/v1',
-    recommendedModels: [
-      'qwen2.5-7b-instruct',
-      'llama3.1-8b-instruct',
-      'qwen3-8b',
-      'deepseek-r1-distill-qwen-7b',
-      'mistral-7b-instruct',
-    ],
-    requiresApiKey: false,
-  },
-];
+export type { LLMProviderCatalogEntry as PresetProviderInfo } from '@aervox/contracts';
+import type { LLMProviderCatalogEntry as PresetProviderInfo } from '@aervox/contracts';
 
 /**
  * Electron IPC only accepts structured-cloneable values. Vue may hand this
@@ -111,7 +47,12 @@ export function toLLMConfigRequest(body: LLMConfigDto): LLMConfigDto {
 }
 
 export function useAervoxLLM() {
-  const transport = getTransport();
+  const transport = getClientTransport();
+  const presetProviders = shallowRef<PresetProviderInfo[]>([]);
+  const loadProviders = async () => {
+    presetProviders.value = (await requestEndpoint(transport, llmApi.providers)).providers;
+    return presetProviders.value;
+  };
 
   /** 读取本地实例的大语言模型与供应商配置 */
   const getConfig = async (): Promise<LLMConfigDto> =>
@@ -154,6 +95,7 @@ export function useAervoxLLM() {
     createPreset,
     activatePreset,
     deletePreset,
-    presetProviders: PRESET_PROVIDERS,
+    presetProviders,
+    loadProviders,
   };
 }

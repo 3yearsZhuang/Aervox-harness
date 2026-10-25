@@ -2,10 +2,11 @@
 import {computed, nextTick, onBeforeUnmount, ref, watch} from 'vue'
 import {ElMessage} from '@aervox/ui/utils/element'
 import {LayoutGrid} from 'lucide-vue-next'
-import {getApiBase, useAervoxPlugins, type PluginPageDto, type PluginSummaryDto} from '@aervox/api-client'
+import {useAervoxClient, useAervoxPlugins, type PluginPageDto, type PluginSummaryDto} from '@aervox/api-client'
 import type {PluginConfigSnapshot} from '@aervox/contracts'
 import {AervoxDialog, AervoxButton} from '@aervox/ui/primitives'
 
+const client = useAervoxClient()
 const props = defineProps<{
   open: boolean
   plugin: PluginSummaryDto | null
@@ -25,12 +26,16 @@ const frameGeneration = ref(0)
 const bridgeError = ref('')
 const contextCapabilities = computed(() => props.page?.capabilities ?? [])
 const eligible = computed(() => props.open && props.plugin?.enabled === 1
-  && (props.plugin.availability ?? 'available') === 'available' && Boolean(props.page))
+  && (props.plugin.availability ?? 'available') === 'available'
+  && Boolean(props.plugin.lifecycleGeneration) && typeof props.page?.pageGeneration === 'string'
+  && props.page.pageGeneration.length > 0 && props.page.pageGeneration.length <= 128)
 
 interface PageSession {
   nonce: string
   pluginId: string
+  lifecycleGeneration: string
   pageId: string
+  pageGeneration: string
   target: Window
   revision: number
   capabilities: Set<string>
@@ -48,13 +53,15 @@ const iframeSrc = computed(() => {
   if (/[\\\u0000-\u001f\u007f]/.test(relative)
     || segments.some(segment => !segment || segment === '.' || segment === '..')) return ''
   const assetPath = segments.map(segment => encodeURIComponent(segment)).join('/')
-  return `${getApiBase()}/v1/plugins/${encodeURIComponent(props.plugin.id)}/pages/${encodeURIComponent(props.page.id)}/assets/${assetPath}`
+  return `${client.apiBase}/v1/plugins/${encodeURIComponent(props.plugin.id)}/pages/${encodeURIComponent(props.page.id)}/assets/${assetPath}`
 })
 
 function isCurrent(current: PageSession): boolean {
   return session === current && frameEnabled.value && eligible.value
     && iframe.value?.contentWindow === current.target
     && props.plugin?.id === current.pluginId && props.page?.id === current.pageId
+    && props.plugin?.lifecycleGeneration === current.lifecycleGeneration
+    && props.page?.pageGeneration === current.pageGeneration
 }
 
 function currentContext(current: PageSession) {
@@ -77,7 +84,7 @@ function postContext(): void {
 function beginSession(): void {
   session = null
   const target = iframe.value?.contentWindow
-  if (!frameEnabled.value || !eligible.value || !target || !props.plugin || !props.page) return
+  if (!frameEnabled.value || !eligible.value || !target || !props.plugin?.lifecycleGeneration || !props.page) return
   if (!globalThis.crypto?.getRandomValues) {
     bridgeError.value = '当前环境无法建立安全的插件页面连接。'
     frameEnabled.value = false
@@ -87,7 +94,9 @@ function beginSession(): void {
   session = {
     nonce: [...bytes].map(value => value.toString(16).padStart(2, '0')).join(''),
     pluginId: props.plugin.id,
+    lifecycleGeneration: props.plugin.lifecycleGeneration,
     pageId: props.page.id,
+    pageGeneration: props.page.pageGeneration,
     target,
     revision: 0,
     capabilities: new Set(contextCapabilities.value),
@@ -96,6 +105,16 @@ function beginSession(): void {
   // A sandboxed iframe has an opaque origin. Bind the WindowProxy and a fresh
   // document session instead of treating the shared "null" origin as identity.
   target.postMessage({type: 'aervox:page:init', nonce: session.nonce, context: currentContext(session)}, '*')
+}
+
+async function requirePageCapability(current: PageSession, capability: PluginPageDto['capabilities'][number]): Promise<void> {
+  // Local props can remain enabled after a change in another window/process.
+  // The persisted grant and package identity share one SQL read snapshot.
+  const pages = await api.listPages(current.pluginId, current.lifecycleGeneration)
+  if (!isCurrent(current)) throw new Error('page session is unavailable')
+  const page = pages.find(page => page.id === current.pageId)
+  if (!page || page.pageGeneration !== current.pageGeneration) throw new Error('page session is unavailable')
+  if (!page.capabilities.includes(capability)) throw new Error(`capability ${capability} required`)
 }
 
 async function handleBridgeCall(current: PageSession, message: {
@@ -108,7 +127,7 @@ async function handleBridgeCall(current: PageSession, message: {
     ? message.args : {}) as {values?: Record<string, unknown>; secretValues?: Record<string, string | null>}
   try {
     if (!isCurrent(current)) return {id, ok: false, error: 'page session is unavailable'}
-    const capabilities: Record<string, string> = {
+    const capabilities: Record<string, PluginPageDto['capabilities'][number]> = {
       getConfig: 'config.read', saveConfig: 'config.write', notify: 'host.notify', close: 'host.close',
     }
     if (typeof method !== 'string' || !Object.hasOwn(capabilities, method)) {
@@ -117,18 +136,25 @@ async function handleBridgeCall(current: PageSession, message: {
     if (!current.capabilities.has(capabilities[method]!)) {
       return {id, ok: false, error: `capability ${capabilities[method]} required`}
     }
+    await requirePageCapability(current, capabilities[method]!)
+    if (!isCurrent(current)) return {id, ok: false, error: 'page session is unavailable'}
     if (method === 'getConfig') {
-      const snapshot = await api.getConfig(current.pluginId)
-      if (isCurrent(current)) current.revision = snapshot.revision
+      const snapshot = await api.getConfig(current.pluginId, current.lifecycleGeneration)
+      await requirePageCapability(current, 'config.read')
+      current.revision = snapshot.revision
       return {id, ok: true, value: snapshot}
     }
     if (method === 'saveConfig') {
       const snapshot: PluginConfigSnapshot = await api.saveConfig(current.pluginId, {
         revision: current.revision,
+        expectedLifecycleGeneration: current.lifecycleGeneration,
+        expectedPageId: current.pageId,
+        expectedPageGeneration: current.pageGeneration,
         values: args.values ?? {},
         secretValues: args.secretValues ?? {},
       })
-      if (isCurrent(current)) current.revision = snapshot.revision
+      await requirePageCapability(current, 'config.write')
+      current.revision = snapshot.revision
       return {id, ok: true, value: snapshot}
     }
     if (method === 'notify') {
@@ -160,7 +186,7 @@ function onMessage(event: MessageEvent): void {
 }
 
 watch(
-  () => [eligible.value, props.plugin?.id, props.page?.id, props.page?.entry, contextCapabilities.value.join(',')],
+  () => [eligible.value, props.plugin?.id, props.plugin?.lifecycleGeneration, props.page?.id, props.page?.pageGeneration, props.page?.entry, contextCapabilities.value.join(',')],
   async () => {
     session = null
     window.removeEventListener('message', onMessage)

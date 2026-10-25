@@ -14,11 +14,11 @@ import type { StdioAdapterDriverHandle } from "./stdio-adapter.js";
 
 export interface DSHAdapterOptions {
   /** 仓库根（含 reference/deepseek-harness 子模块） */
-  repoRoot?: string;
+  repoRoot: string;
   /** 单 Turn 总超时（缺省 30s：真实模型回合） */
   requestTimeoutMs?: number;
-  /** 透传给 runner 的环境（如 DSH_LLM_BASE_URL 指向本地兼容端点） */
-  env?: Record<string, string>;
+  /** Complete startup environment, including any explicit runner overrides. */
+  env: Readonly<NodeJS.ProcessEnv>;
 }
 
 export interface DSHAdapterResult {
@@ -34,9 +34,9 @@ const runnerPath = join(fileURLToPath(new URL("../test/fixtures/dsh-turn-runner.
  * 构造 DSH Adapter：先做固定 SHA 复核，通过后 spawn runner（stdio JSON 行）。
  * probe 未就绪（submodule 缺失/SHA 漂移/许可证拒绝）时不 spawn，返回 reason。
  */
-export async function createDSHAdapterDriver(options: DSHAdapterOptions = {}): Promise<DSHAdapterResult> {
-  const repoRoot = options.repoRoot ?? process.cwd();
-  const probe = probeDSHReference(repoRoot);
+export async function createDSHAdapterDriver(options: DSHAdapterOptions): Promise<DSHAdapterResult> {
+  if (!options.env) throw new Error("dsh_environment_required");
+  const probe = probeDSHReference(options.repoRoot);
   if (!probe.ready || !probe.manifest) {
     return { probe };
   }

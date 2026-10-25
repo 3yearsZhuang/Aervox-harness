@@ -91,6 +91,11 @@ export class SqliteExecutionStore implements ExecutionStorePort {
     };
   }
 
+  /** SQLite host reconciliation reads the authoritative child Attempt; not a Core execution capability. */
+  getAttemptStatus(input: { turnId: string; attemptId: string }): Promise<string | null> {
+    return this.repo.getTurnAttemptStatus(this.ctx, input);
+  }
+
   /** 3b-A：续租（CAS 委托仓储） */
   async renewAttemptLease(input: {
     attemptId: string;

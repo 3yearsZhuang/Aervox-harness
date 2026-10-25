@@ -229,7 +229,7 @@ JS
 
 同时验证刷新、通过 `onContext` 接收的明暗主题、键盘操作、缺 capability 时拒绝，以及两个窗口持有同一 revision 后保存的冲突。配置保存使用 SQL revision CAS，旧 revision 返回 409 且不修改 Secret；遇到冲突重新读取并由用户核对合并，不要无条件覆盖重试。
 
-验证伪造来源/旧 nonce 消息无效，重新加载或切换 Page 后旧请求结果不进入新页。当前界面获知禁用或不可用状态后销毁 iframe，入口 HTML 与普通资源也拒绝访问；尚无跨窗口或外部 API 变化的全局撤权实时推送。完整 Bearer 页面资源通道和任意第三方代码强制终止仍未实现，见[Page 边界](../reference/plugin-config-and-pages.md#32-已有防护与未完成边界)。控制台出现 CSP 错误时核对是否依赖远程资源；使用嵌套 Page 入口时，验证宿主打开声明的实际路径且相对脚本、样式和图片可加载，`assets/index.html` 只保留为兼容别名。
+验证伪造来源/旧 nonce 消息无效，重新加载或切换 Page 后旧请求结果不进入新页。用另一 API 客户端停用再启用插件，保持旧 iframe，验证配置、通知、关闭均被拒绝，刷新宿主后新 Page 可调用；移除 Page capability 后旧窗口也不能继续使用该能力。四种调用均复验当前 Page 及打开代际，配置返回前再复验；保存由宿主注入当前 `expectedPageId`、`expectedPageGeneration` 与插件代际，写事务再检查 Page 身份和 `config.write`。在预检通过后、PUT 提交前移除该能力，验证返回 409 且配置 revision、值与 Secret 不变；插件不能通过 Bridge 参数伪造别的 Page 身份。界面获知禁用或不可用状态后销毁 iframe，入口 HTML 与普通资源也拒绝访问。尚无跨窗口或外部 API 变化的全局撤权实时推送；同插件代际撤权后再授权或删除后重建 Page，旧 iframe 的四种调用仍应被拒绝，刷新宿主并重新打开后新 Page 才可操作；每次相同声明重登记或资源 checksum 更新也更换 Page 代际。完整 Bearer 页面资源通道和任意第三方代码强制终止仍未验收，见[Page 边界](../reference/plugin-config-and-pages.md#32-已有防护与未完成边界)。控制台出现 CSP 错误时核对是否依赖远程资源；使用嵌套 Page 入口时，验证宿主打开声明的实际路径且相对脚本、样式和图片可加载，`assets/index.html` 只保留为兼容别名。
 
 ## 3. 接入第一方 Vue 插槽
 

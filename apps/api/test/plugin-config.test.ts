@@ -4,11 +4,11 @@
  * 覆盖：安装插件 → 注册 Schema → 保存配置（secret 不回显）→ CAS 冲突 →
  * 重置 → Page 注册/资源写入/读取（含路径穿越拒绝）→ Bridge SDK → 卸载清理。
  */
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { createInMemoryDatabase, initDatabaseSchema, type AervoxDatabase } from "@aervox/repositories";
+import { createInMemoryDatabase, initDatabaseSchema, SqlitePluginPageRepository, type AervoxDatabase } from "@aervox/repositories";
 import { buildApp } from "./app-fixture.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
@@ -57,6 +57,7 @@ describe("CAP-020 插件 Config / Page API", () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await app.close();
     await fs.rm(pluginsRoot, { recursive: true, force: true }).catch(() => undefined);
     await cleanup();
@@ -252,6 +253,31 @@ describe("CAP-020 插件 Config / Page API", () => {
     const list = await app.inject({ method: "GET", url: "/v1/plugins/cfg-demo/pages" });
     expect(list.statusCode).toBe(200);
     expect(list.json().pages).toHaveLength(1);
+    expect(list.json().pages[0].pageGeneration).not.toBe(page.json().pageGeneration);
+    expect(list.json().pages[0]).toMatchObject({ title: "面板", capabilities: ["config.read", "config.write"] });
+  });
+
+  it.each(["revoked", "recreated", "deleted"] as const)("resource upload cannot overwrite or recreate a %s Page declaration after writing files", async change => {
+    const pages = new SqlitePluginPageRepository(db);
+    const input = { pluginId: "cfg-demo", pageId: "dashboard", title: "Original", entry: "pages/dashboard/index.html", capabilities: ["config.write"], checksum: "original" };
+    const opened = await pages.upsertPage(input);
+    let current: Awaited<ReturnType<typeof pages.getPage>>;
+    const original = SqlitePluginPageRepository.prototype.updatePageChecksum;
+    vi.spyOn(SqlitePluginPageRepository.prototype, "updatePageChecksum").mockImplementationOnce(async function (...args) {
+      expect(args[2]).toBe(opened.id);
+      // The API has written the actual file before attempting its SQL CAS.
+      expect(await fs.readFile(path.join(pluginsRoot, "cfg-demo", "pages", "dashboard", "index.html"), "utf8")).toBe("updated resource");
+      if (change !== "revoked") await pages.deletePagesForPlugin("cfg-demo");
+      if (change !== "deleted") await pages.upsertPage({ ...input, title: "Current", capabilities: [], checksum: "current" });
+      current = await pages.getPage("cfg-demo", "dashboard");
+      return original.apply(this, args);
+    });
+    const uploaded = await app.inject({ method: "POST", url: "/v1/plugins/cfg-demo/pages/dashboard/assets", payload: {
+      files: [{ path: "index.html", contentBase64: Buffer.from("updated resource").toString("base64") }],
+    } });
+    expect(uploaded.statusCode).toBe(409);
+    expect(uploaded.json().code).toBe("PLUGIN_PAGE_REVISION_CONFLICT");
+    expect(await pages.getPage("cfg-demo", "dashboard")).toEqual(current!);
   });
 
   it("Page 整目录符号链接不能把包外文件变成页面资源", async () => {

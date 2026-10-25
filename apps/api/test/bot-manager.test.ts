@@ -1,3 +1,4 @@
+import { loadExecutionConfig } from "@aervox/config";
 import { createConversationApplication } from "@aervox/host-runtime-test/modules/companion/conversation/application";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setImmediate as nextTask } from "node:timers/promises";
@@ -69,7 +70,7 @@ describe("Bot manager transport durability and lifetime", () => {
     await cleanup();
   });
   function makeManager() {
-    const current = new BotManager({ store, conversation: createConversationApplication(conversations, {}, (ctx, input) => execute(conversations, ctx, input)), adapters: () => [{ pluginId: "test", adapter: descriptor }],
+    const current = new BotManager({ store, conversation: createConversationApplication(conversations, {executionConfig: loadExecutionConfig()}, (ctx, input) => execute(conversations, ctx, input)), adapters: () => [{ pluginId: "test", adapter: descriptor }],
       pluginEnabled: async () => enabled, cipher: async () => createProactiveVaultCipher(new Uint8Array(32), "test") });
     managers.push(current);
     return current;
