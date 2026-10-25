@@ -24,6 +24,7 @@ import type {
   PluginConfigModel,
   PluginConfigSaveInput,
   PluginPageModel,
+  PluginPageResourceSnapshot,
   PluginSecretModel,
 } from "../types/index.js";
 
@@ -397,6 +398,21 @@ export class SqlitePluginPageRepository implements IPluginPageRepository {
       .where(and(eq(pluginPages.pluginId, pluginId), eq(pluginPages.pageId, pageId)))
       .limit(1);
     return (found as PluginPageModel) ?? null;
+  }
+
+  async getPageResourceSnapshot(pluginId: string, pageId: string): Promise<PluginPageResourceSnapshot | null> {
+    // Read both identities together: separate plugin and Page reads can admit a
+    // resource from two different registrations. File I/O happens outside SQL.
+    const [snapshot] = await this.db.select({
+      plugin: {
+        id: plugins.id, enabled: plugins.enabled, availability: plugins.availability,
+        lifecycleGeneration: plugins.lifecycleGeneration, bundleGeneration: plugins.bundleGeneration,
+      },
+      page: { id: pluginPages.id, pluginId: pluginPages.pluginId, pageId: pluginPages.pageId, entry: pluginPages.entry },
+    }).from(plugins)
+      .leftJoin(pluginPages, and(eq(pluginPages.pluginId, plugins.id), eq(pluginPages.pageId, pageId)))
+      .where(eq(plugins.id, pluginId)).limit(1);
+    return snapshot ?? null;
   }
 
   async deletePagesForPlugin(pluginId: string): Promise<void> {

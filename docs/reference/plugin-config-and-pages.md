@@ -151,7 +151,8 @@ Page 卸载、generation 丢弃、安装失败回滚与插件资源清理同样�
 - 宿主按 `event.source`、128 位随机 Nonce、插件/Page 身份、lifecycleGeneration、pageGeneration 与文档会话验证调用和迟到响应；缺少代际时不建立 Page 会话。SDK 只接受绑定父窗口及 Origin。逐项 capability 对配置、通知和关闭生效；文档刷新重新挂载并初始化配置 revision。同 ID 的插件或 Page 换代也更换 iframe 与 Nonce，旧窗口及在途响应失效。
 - 四种 Bridge 调用均先携带打开时的代际查询 Page；同一 SQL 快照读取插件身份、Page 代际及当前 capability，拒绝已停用、不可用、换代、Page 缺失或能力移除的请求。配置读写返回前再次复验，拒绝迟到快照及回执进入旧文档。Page 列表由共享 Schema 校验，保留既有 nullable description/checksum；窗口缓存不能替代本次查询。
 - Page 配置 GET 在同一 SQL 快照复验插件/Page 身份和 `config.read`，返回前再检查；保存和携带 Page 身份的重置由同一写者事务复验当前 `config.write`，预检后移除能力不能提交配置或 Secret。插件同代际下 Page 删除再建或撤权再授权也不会恢复旧会话；提交后已受理写入保留真实 HTTP 回执，Page 返回前继续复验并屏蔽迟到结果。
-- 入口 HTML 与普通资源共用启用检查；当前窗口观察到禁用、缺包或换代后销毁 iframe。调用时查询不能证明 SQL 快照到客户端动作的原子撤权；尚无跨窗口撤权实时推送、全部资源代际绑定或 iframe 代码强制终止证明。
+- 入口 HTML 与普通资源在同一 SQL 快照读取插件启用、可用性、生命周期、Bundle 指针与同插件 Page 的身份/入口，文件 I/O 前检查资格。文件成功读取后，复验若发现期间停用再启用、缺包恢复、Page 重登记/删除再建或 Bundle 切换，则丢弃已读内容并返回 `409 PLUGIN_PAGE_REVISION_CONFLICT`；底层文件读取失败仍走原错误路径。初始已停用或不可用的请求在文件读取前返回 409，缺失插件或 Page 返回 404；文件路径和链接检查继续由 BundleStore 执行，不跨文件 I/O 持有数据库事务。
+- 当前窗口观察到禁用、缺包或换代后销毁 iframe。资源读后复验不绑定 iframe 打开时的代际，也不覆盖资源上传字节与元数据之间的原子发布；最终 SQL 快照至网络发送或客户端动作仍有并发窗口。尚无跨窗口撤权实时推送、全部资源代际绑定或 iframe 代码强制终止证明。
 - iframe 正在运行的代码没有统一 CPU/内存配额与撤权终止证明；不能把网络 CSP 解释为任意第三方执行安全已验收。
 - API 启用 Bearer Token 认证时，当前 iframe `src` 和脚本资源没有注入 Authorization 头，资源请求会受到全局认证检查；尚无完整的受保护 Page 资源授权通道。不能将 Token 放入页面 URL 或为访问页面而关闭生产认证。
 

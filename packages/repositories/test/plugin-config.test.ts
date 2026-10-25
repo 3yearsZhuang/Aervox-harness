@@ -3,7 +3,7 @@
  *
  * 覆盖：本地上下文共享、revision CAS、reset、secret 状态、Page 元数据幂等、卸载清理。
  */
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   createInMemoryDatabase,
   initDatabaseSchema,
@@ -50,6 +50,7 @@ describe("插件 Config / Page 仓储", () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await cleanup();
   });
 
@@ -252,5 +253,50 @@ describe("插件 Config / Page 仓储", () => {
     await pageRepo.upsertPage({ pluginId: "demo", pageId: "settings", title: "Settings", entry: "pages/settings/index.html", capabilities: ["host.notify"] });
     await pageRepo.upsertPage({ pluginId: "demo", pageId: "settings", title: "Settings", entry: "pages/settings/index.html", capabilities: [] });
     expect((await pageRepo.listPages("demo", generation))[0]?.capabilitiesJson).toEqual([]);
+  });
+
+  it("reads Page resource identity with its exact plugin in one SQL snapshot", async () => {
+    const page = await pageRepo.upsertPage({ pluginId: "demo", pageId: "settings", title: "Settings", entry: "pages/settings/nested/start.html", capabilities: ["config.read"] });
+    await pageRepo.upsertPage({ pluginId: "cas", pageId: "settings", title: "Other", entry: "pages/settings/other.html", capabilities: [] });
+    const reads = vi.spyOn(client, "execute");
+    expect(await pageRepo.getPageResourceSnapshot("demo", "settings")).toEqual({
+      plugin: { id: "demo", enabled: 1, availability: "available", lifecycleGeneration: generations.get("demo"), bundleGeneration: null },
+      page: { id: page.id, pluginId: "demo", pageId: "settings", entry: "pages/settings/nested/start.html" },
+    });
+    expect(reads).toHaveBeenCalledTimes(1);
+    const statement = reads.mock.calls[0]![0];
+    const sqlText = typeof statement === "string" ? statement : statement.sql;
+    expect(sqlText.toLowerCase()).toContain("join");
+    expect(sqlText.toLowerCase()).toContain("plugin_pages");
+    expect(sqlText.toLowerCase()).toContain("plugins");
+  });
+
+  it("distinguishes missing plugin and missing Page without borrowing another plugin's Page", async () => {
+    await pageRepo.upsertPage({ pluginId: "cas", pageId: "settings", title: "Other", entry: "pages/settings/other.html", capabilities: [] });
+    expect(await pageRepo.getPageResourceSnapshot("unknown", "settings")).toBeNull();
+    expect(await pageRepo.getPageResourceSnapshot("demo", "settings")).toEqual({
+      plugin: { id: "demo", enabled: 1, availability: "available", lifecycleGeneration: generations.get("demo"), bundleGeneration: null },
+      page: null,
+    });
+  });
+
+  it("captures lifecycle, Page and bundle pointer changes as current resource identity", async () => {
+    const extension = new SqliteExtensionRepository(db);
+    const declaration = { pluginId: "demo", pageId: "settings", title: "Settings", entry: "pages/settings/index.html", capabilities: ["config.read"] };
+    const original = await pageRepo.upsertPage(declaration);
+    const before = (await pageRepo.getPageResourceSnapshot("demo", "settings"))!;
+    await extension.setPluginEnabled("demo", false);
+    expect((await pageRepo.getPageResourceSnapshot("demo", "settings"))!.plugin).toMatchObject({ enabled: 0 });
+    await extension.setPluginEnabled("demo", true);
+    await extension.setPluginAvailability("demo", "missing");
+    expect((await pageRepo.getPageResourceSnapshot("demo", "settings"))!.plugin.availability).toBe("missing");
+    await extension.setPluginAvailability("demo", "available");
+    const page = await pageRepo.upsertPage(declaration);
+    await client.execute({ sql: "UPDATE plugins SET bundle_generation = ? WHERE id = ?", args: ["10000000-0000-4000-8000-000000000001", "demo"] });
+    const current = (await pageRepo.getPageResourceSnapshot("demo", "settings"))!;
+    expect(current.plugin).toMatchObject({ enabled: 1, availability: "available", bundleGeneration: "10000000-0000-4000-8000-000000000001" });
+    expect(current.plugin.lifecycleGeneration).not.toBe(before.plugin.lifecycleGeneration);
+    expect(current.page).toMatchObject({ id: page.id });
+    expect(current.page!.id).not.toBe(original.id);
   });
 });

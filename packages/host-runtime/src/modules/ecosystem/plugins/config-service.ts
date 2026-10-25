@@ -428,11 +428,7 @@ export class PluginConfigService {
     pluginId: string,
     pageId: string,
   ): Promise<{ content: Buffer; mime: string }> {
-    await this.requirePlugin(pluginId);
-    const page = await this.deps.pageRepo.getPage(pluginId, pageId);
-    if (!page) throw new PluginConfigError(404, "PLUGIN_PAGE_NOT_FOUND", `page not found: ${pageId}`);
-    const rel = this.deps.bundleStore.entryToPageRelative(pluginId, pageId, page.entry);
-    return this.deps.bundleStore.readAsset(pluginId, pageId, rel);
+    return this.readPageResource(pluginId, pageId);
   }
 
   /** 读取 Page 内静态资源（相对 Page 根） */
@@ -441,11 +437,32 @@ export class PluginConfigService {
     pageId: string,
     relPath: string,
   ): Promise<{ content: Buffer; mime: string }> {
-    await this.requirePlugin(pluginId);
-    if (!await this.deps.pageRepo.getPage(pluginId, pageId)) {
-      throw new PluginConfigError(404, "PLUGIN_PAGE_NOT_FOUND", `page not found: ${pageId}`);
+    return this.readPageResource(pluginId, pageId, relPath);
+  }
+
+  private async readPageResource(pluginId: string, pageId: string, relPath?: string): Promise<{ content: Buffer; mime: string }> {
+    const captured = await this.deps.pageRepo.getPageResourceSnapshot(pluginId, pageId);
+    if (!captured) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
+    if (captured.plugin.enabled !== 1) throw new PluginConfigError(409, "PLUGIN_DISABLED", `plugin disabled: ${pluginId}`);
+    if (captured.plugin.availability !== "available") throw new PluginConfigError(409, "PLUGIN_UNAVAILABLE", `plugin unavailable: ${pluginId}`);
+    if (!captured.page) throw new PluginConfigError(404, "PLUGIN_PAGE_NOT_FOUND", `page not found: ${pageId}`);
+    if (!captured.plugin.lifecycleGeneration || !captured.page.id) {
+      throw new PluginConfigError(409, "PLUGIN_PAGE_REVISION_CONFLICT", "Page identity is unavailable; reopen the page");
     }
-    return this.deps.bundleStore.readAsset(pluginId, pageId, relPath);
+    const relative = relPath === undefined
+      ? this.deps.bundleStore.entryToPageRelative(pluginId, pageId, captured.page.entry) : relPath;
+    const asset = await this.deps.bundleStore.readAsset(pluginId, pageId, relative);
+    // Do not hold a database transaction across filesystem work. Recheck the
+    // same SQL projection before releasing bytes from the captured package.
+    const current = await this.deps.pageRepo.getPageResourceSnapshot(pluginId, pageId);
+    if (!current || current.plugin.enabled !== 1 || current.plugin.availability !== "available"
+      || current.plugin.id !== captured.plugin.id || current.plugin.lifecycleGeneration !== captured.plugin.lifecycleGeneration
+      || current.plugin.bundleGeneration !== captured.plugin.bundleGeneration || !current.page
+      || current.page.id !== captured.page.id || current.page.pluginId !== captured.page.pluginId
+      || current.page.pageId !== captured.page.pageId || current.page.entry !== captured.page.entry) {
+      throw new PluginConfigError(409, "PLUGIN_PAGE_REVISION_CONFLICT", "Page changed while reading resources; reopen the page");
+    }
+    return asset;
   }
 
   /** 供卸载钩子调用：清理配置/secret/Page 元数据与 Bundle 目录 */
