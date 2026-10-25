@@ -120,6 +120,91 @@ describe("CAP-033 proactive API", () => {
     expect(await action.persisted()).toEqual(scrubbed);
   });
 
+  function nextActionDraft(action: { id: string; source: { revisionId: string } }) {
+    return { id: `${action.id}-next`, revisionId: action.source.revisionId, actionType: "file.write",
+      target: "/private/new-action-target", request: { text: "PRIVATE_NEW_ACTION_REQUEST" },
+      authorizationScope: "action.local", actionGrantRevision: "caller-forged" };
+  }
+
+  it("rolls back action creation when its request audit fails and allows a clean retry", async () => {
+    const existing = await pendingAction("create-audit");
+    const draft = nextActionDraft(existing);
+    await client.execute("CREATE TRIGGER fail_action_request_audit BEFORE INSERT ON proactive_audit_events WHEN NEW.event_type = 'action.requested' BEGIN SELECT RAISE(ABORT, 'injected_action_request_audit_failure'); END");
+    const before = await existing.persisted();
+    const failed = await app.inject({ method: "POST", url: "/v1/proactive/actions", headers, payload: draft });
+    expect(failed.statusCode).toBe(500);
+    expect(failed.body).not.toContain("PRIVATE_NEW_ACTION_REQUEST");
+    expect(failed.body).not.toContain("/private/new-action-target");
+    expect(await existing.persisted()).toEqual(before);
+    await client.execute("DROP TRIGGER fail_action_request_audit");
+    const retried = await app.inject({ method: "POST", url: "/v1/proactive/actions", headers, payload: draft });
+    expect(retried.statusCode).toBe(201);
+    expect(retried.json()).toMatchObject({ id: draft.id, state: "pending", request: draft.request });
+    expect(retried.json().actionGrantRevision).toMatch(/^action\.local@\d+$/);
+    expect(retried.json().actionGrantRevision).not.toBe("caller-forged");
+    const audits = (await client.execute({ sql: "SELECT payload_json FROM proactive_audit_events WHERE resource_id = ? AND event_type = 'action.requested'", args: [draft.id] })).rows;
+    expect(audits).toHaveLength(1);
+    expect(JSON.stringify(audits)).not.toContain("PRIVATE_NEW_ACTION_REQUEST");
+    expect(JSON.stringify(audits)).not.toContain("/private/new-action-target");
+  });
+
+  it.each(["revoked", "expired", "deleted"])("rejects a new action with a %s source without adding a row or audit", async change => {
+    const existing = await pendingAction(`create-${change}`);
+    const changed = change === "deleted"
+      ? await app.inject({ method: "DELETE", url: `/v1/proactive/sources/${existing.source.id}/data`, headers })
+      : await app.inject({ method: "PATCH", url: `/v1/proactive/sources/${existing.source.id}`, headers, payload: { state: change } });
+    expect(changed.statusCode).toBe(200);
+    const before = await existing.persisted();
+    const rejected = await app.inject({ method: "POST", url: "/v1/proactive/actions", headers, payload: nextActionDraft(existing) });
+    expect(rejected.statusCode).toBe(409);
+    expect(rejected.json().code).toBe("CONFLICT");
+    expect(rejected.body).not.toContain("PRIVATE_NEW_ACTION_REQUEST");
+    expect(rejected.body).not.toContain("/private/new-action-target");
+    expect(await existing.persisted()).toEqual(before);
+  });
+
+  describe.each([false, true])("revocation after deleting a failed action, source regranted=%s", regranted => {
+    it.each([
+      { outcome: { text: "PRIVATE_REVOKED_OUTCOME" } },
+      { error: "PRIVATE_REVOKED_ERROR" },
+      { outcome: null, error: "PRIVATE_REVOKED_ERROR" },
+    ])("rejects new revocation body %j without changing the scrubbed row or audit", async extra => {
+      const action = await pendingAction(`revoke-body-${regranted}`);
+      expect((await action.transition("approved")).statusCode).toBe(200);
+      expect((await action.transition("failed", { outcome: { old: "PRIVATE_PRIOR_OUTCOME" }, error: "PRIVATE_PRIOR_ERROR" })).statusCode).toBe(200);
+      expect((await app.inject({ method: "DELETE", url: `/v1/proactive/sources/${action.source.id}/data`, headers })).statusCode).toBe(200);
+      if (regranted) expect((await app.inject({ method: "PATCH", url: `/v1/proactive/sources/${action.source.id}`, headers, payload: { state: "granted" } })).statusCode).toBe(200);
+      const before = await action.persisted();
+      expect(before.actions[0]).toMatchObject({ state: "failed", outcome_json: null, error: null });
+      const rejected = await action.transition("revoked", extra);
+      expect(rejected.statusCode).toBe(409);
+      expect(rejected.json().code).toBe("CONFLICT");
+      expect(rejected.body).not.toContain("PRIVATE_REVOKED");
+      expect(rejected.body).not.toContain("PRIVATE_PRIOR");
+      expect(await action.persisted()).toEqual(before);
+      const cleared = await action.transition("revoked", { outcome: null, error: null });
+      expect(cleared.statusCode).toBe(200);
+      expect(cleared.json()).toMatchObject({ state: "revoked", target: "[deleted]", request: {}, outcome: null, error: null });
+    });
+  });
+
+  it.each([false, true])("allows revocation with no new body, explicitly clear prior outcome=%s", async clear => {
+    const action = await pendingAction(`revoke-existing-${clear}`);
+    expect((await action.transition("approved")).statusCode).toBe(200);
+    expect((await action.transition("failed", { outcome: { retained: true }, error: "prior failure" })).statusCode).toBe(200);
+    const revoked = await action.transition("revoked", clear ? { outcome: null } : {});
+    expect(revoked.statusCode).toBe(200);
+    expect(revoked.json()).toMatchObject({ state: "revoked", outcome: clear ? null : { retained: true }, error: null });
+  });
+
+  it("keeps a missing action as 404 when the revocation body contains content", async () => {
+    const response = await app.inject({ method: "POST", url: "/v1/proactive/actions/missing-action/state", headers,
+      payload: { state: "revoked", outcome: { text: "PRIVATE_MISSING_OUTCOME" }, error: "PRIVATE_MISSING_ERROR" } });
+    expect(response.statusCode).toBe(404);
+    expect(response.body).not.toContain("PRIVATE_MISSING");
+    expect((await client.execute("SELECT * FROM proactive_audit_events WHERE resource_id = 'missing-action'")).rows).toEqual([]);
+  });
+
   async function sourceIngest(kind: "capture" | "observation", suffix: string) {
     const profileId = `ingest-${kind}-${suffix}`;
     const profile = await app.inject({ method: "POST", url: "/v1/proactive/authorize", headers,

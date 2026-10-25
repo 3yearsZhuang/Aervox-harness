@@ -52,9 +52,6 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
     this.captureStore = new CaptureStore(db, cipher);
     this.claimActionStore = new ClaimActionStore(
       db,
-      this.lifecycleStore,
-      this.sourceGrantStore,
-      this.activationLeaseStore,
       this.auditStore,
       cipher,
     );

@@ -5,6 +5,7 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
 import {
   proactiveActions,
+  proactiveActivationLeases,
   proactiveAuditEvents,
   proactiveProfileClaims,
   proactiveProfileRevisions,
@@ -19,11 +20,8 @@ import type {
   ProactiveClaimState,
   ProactiveProfileClaimModel,
 } from "../../types/index.js";
-import { ActivationLeaseStore } from "./activation-lease-store.js";
 import { AuditExportStore } from "./audit-export-store.js";
 import { decodeWithCipher, encrypt } from "./crypto.js";
-import { ProfileLifecycleStore } from "./profile-lifecycle-store.js";
-import { SourceGrantStore } from "./source-grant-store.js";
 import { findEligibleCaptureDistillation } from "./capture-distillation-store.js";
 import {
   ACTION_SCOPES,
@@ -33,6 +31,7 @@ import {
   parseActionScopes,
   parseJson,
   stringify,
+  toSource,
 } from "./shared.js";
 
 type ClaimRow = typeof proactiveProfileClaims.$inferSelect;
@@ -92,9 +91,6 @@ function toAction(row: ActionRow, cipher?: ProactiveVaultCipher): ProactiveActio
 export class ClaimActionStore {
   constructor(
     private readonly db: AervoxDatabase,
-    private readonly lifecycle: ProfileLifecycleStore,
-    private readonly sourceGrants: SourceGrantStore,
-    private readonly leases: ActivationLeaseStore,
     private readonly audit: AuditExportStore,
     private readonly cipher?: ProactiveVaultCipher,
   ) {}
@@ -228,41 +224,43 @@ export class ClaimActionStore {
 
   async createAction(
     ctx: LocalContext,
-    input: Parameters<IProactiveProfileRepository["createAction"]>[1],
+    submitted: Parameters<IProactiveProfileRepository["createAction"]>[1],
   ): Promise<ProactiveActionModel> {
+    const input = { ...submitted };
+    const requestJson = stringify(input.request);
     if (!input.authorizationScope.trim()) throw new DomainConflictError("authorizationScope is required");
-    const revision = await this.lifecycle.getRevision(ctx, input.revisionId);
-    if (!revision) throw new RepositoryNotFoundError("proactive profile revision not found");
-    const scopes = parseActionScopes(input.authorizationScope);
-    if (scopes.length === 0 || scopes.some((scope) => !ACTION_SCOPES.has(scope))) {
-      throw new DomainConflictError("authorizationScope contains an unsupported action scope");
-    }
-    const grants = await this.sourceGrants.listSourceGrants(ctx, revision.id);
-    const missingScopes = scopes.filter((scope) => grants.find((grant) => grant.sourceKey === scope)?.state !== "granted");
-    if (missingScopes.length > 0) {
-      throw new DomainConflictError(`action grant missing: ${missingScopes.join(",")}`);
-    }
-    // 授权指纹由服务端从真实 granted grant 版本派生，禁止调用方伪造 actionGrantRevision
-    const actionGrantRevision = scopes
-      .map((scope) => {
-        const grant = grants.find((grant) => grant.sourceKey === scope);
+    return this.db.transaction(async tx => {
+      const [revision] = await tx.select().from(proactiveProfileRevisions).where(eq(proactiveProfileRevisions.id, input.revisionId));
+      if (!revision) throw new RepositoryNotFoundError("proactive profile revision not found");
+      localBoundary(revision.processingBoundary);
+      decodeWithCipher(revision.manifestJson, this.cipher, `profile:${revision.id}`);
+      const scopes = parseActionScopes(input.authorizationScope);
+      if (scopes.length === 0 || scopes.some((scope) => !ACTION_SCOPES.has(scope))) {
+        throw new DomainConflictError("authorizationScope contains an unsupported action scope");
+      }
+      const grantRows = await tx.select().from(proactiveSourceGrants).where(eq(proactiveSourceGrants.revisionId, revision.id));
+      // Retain the existing local-boundary and encrypted metadata validation of
+      // listSourceGrants, while reading admission facts from this writer.
+      const grants = grantRows.map(row => toSource(row, this.cipher));
+      const missingScopes = scopes.filter(scope => grants.find(grant => grant.sourceKey === scope)?.state !== "granted");
+      if (missingScopes.length > 0) throw new DomainConflictError(`action grant missing: ${missingScopes.join(",")}`);
+      // The snapshot comes from actual grants; caller actionGrantRevision is not authority.
+      const actionGrantRevision = scopes.map(scope => {
+        const grant = grants.find(grant => grant.sourceKey === scope);
         return `${scope}@${grant?.grantVersion ?? 1}`;
-      })
-      .join("+");
-    if (input.activationLeaseId) {
-      const lease = await this.leases.getLease(ctx, input.activationLeaseId);
-      if (!lease || lease.revisionId !== revision.id) throw new RepositoryNotFoundError("activation lease not found");
-    }
-    const now = new Date().toISOString();
-    const [created] = await this.db
-      .insert(proactiveActions)
-      .values({
+      }).join("+");
+      if (input.activationLeaseId) {
+        const [lease] = await tx.select().from(proactiveActivationLeases).where(eq(proactiveActivationLeases.id, input.activationLeaseId));
+        if (!lease || lease.revisionId !== revision.id) throw new RepositoryNotFoundError("activation lease not found");
+      }
+      const now = new Date().toISOString();
+      const [created] = await tx.insert(proactiveActions).values({
         id: input.id,
         revisionId: revision.id,
         activationLeaseId: input.activationLeaseId ?? null,
         actionType: input.actionType,
         target: encrypt(input.target, "action", input.id, this.cipher) ?? "",
-        requestJson: encrypt(stringify(input.request), "action", input.id, this.cipher) ?? "{}",
+        requestJson: encrypt(requestJson, "action", input.id, this.cipher) ?? "{}",
         authorizationScope: input.authorizationScope,
         actionGrantRevision,
         state: "pending",
@@ -278,18 +276,23 @@ export class ClaimActionStore {
         createdAt: now,
         updatedAt: now,
       })
-      .returning();
-    if (!created) throw new Error("failed to create proactive action");
-    await this.audit.recordAudit(ctx, {
-      id: `${input.id}_audit_requested`,
-      revisionId: revision.id,
-      eventType: "action.requested",
-      actorId: input.requestedBy,
-      resourceType: "proactive_action",
-      resourceId: input.id,
-      payload: { actionType: input.actionType, external: input.external ?? false },
-    });
-    return toAction(created, this.cipher);
+        .returning();
+      if (!created) throw new Error("failed to create proactive action");
+      const [audit] = await tx.insert(proactiveAuditEvents).values({
+        id: `${input.id}_audit_requested`,
+        revisionId: revision.id,
+        eventType: "action.requested",
+        actorId: input.requestedBy,
+        resourceType: "proactive_action",
+        resourceId: input.id,
+        payloadJson: JSON.stringify({ actionType: input.actionType, external: input.external ?? false }),
+        processingBoundary: "local_only",
+        occurredAt: now,
+        createdAt: now,
+      }).returning({ id: proactiveAuditEvents.id });
+      if (!audit) throw new Error("failed to record proactive audit event");
+      return toAction(created, this.cipher);
+    }, { behavior: "immediate" });
   }
 
   async listActions(
@@ -334,6 +337,12 @@ export class ClaimActionStore {
       const allowed = ALLOWED_TRANSITIONS[existing.state] ?? [];
       if (!allowed.includes(input.state)) {
         throw new DomainConflictError(`state transition ${existing.state} -> ${input.state} not allowed`);
+      }
+      // Revocation can preserve or clear existing results; it cannot introduce
+      // new content after a failed action's source data has been scrubbed.
+      if (input.state === "revoked" && ((input.outcome !== undefined && input.outcome !== null)
+        || (typeof input.error === "string" && input.error.length > 0))) {
+        throw new DomainConflictError("revocation cannot introduce outcome or error content");
       }
       const now = new Date().toISOString();
       const terminal = ["executed", "denied", "failed", "revoked"].includes(input.state);
