@@ -3212,10 +3212,6 @@
       "PluginConfigUpdateRequest": {
         "type": "object",
         "properties": {
-          "revision": {
-            "type": "integer",
-            "minimum": 0
-          },
           "expectedLifecycleGeneration": {
             "type": "string",
             "minLength": 1,
@@ -3226,13 +3222,17 @@
             "minLength": 1,
             "maxLength": 64,
             "pattern": "^[A-Za-z0-9_-]+$",
-            "description": "Host-captured Page id; requires expectedPageGeneration, expectedLifecycleGeneration and current config.write capability at commit."
+            "description": "Host-captured Page id; requires both captured generations and the operation's current configuration capability."
           },
           "expectedPageGeneration": {
             "type": "string",
             "minLength": 1,
             "maxLength": 128,
-            "description": "Host-captured Page declaration generation; paired with expectedPageId and checked at commit."
+            "description": "Host-captured Page declaration generation; paired with expectedPageId and checked when accessing configuration."
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
           },
           "values": {
             "type": "object",
@@ -29171,6 +29171,31 @@
             "required": false,
             "name": "expectedLifecycleGeneration",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "description": "Host-captured Page id; requires both captured generations and the operation's current configuration capability."
+            },
+            "required": false,
+            "description": "Host-captured Page id; requires both captured generations and the operation's current configuration capability.",
+            "name": "expectedPageId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "Host-captured Page declaration generation; paired with expectedPageId and checked when accessing configuration."
+            },
+            "required": false,
+            "description": "Host-captured Page declaration generation; paired with expectedPageId and checked when accessing configuration.",
+            "name": "expectedPageGeneration",
+            "in": "query"
           }
         ],
         "responses": {
@@ -29252,7 +29277,7 @@
             }
           },
           "400": {
-            "description": "Invalid plugin id or lifecycle generation",
+            "description": "Invalid plugin id or captured Page identity",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -29327,10 +29352,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "revision": {
-                    "type": "integer",
-                    "minimum": 0
-                  },
                   "expectedLifecycleGeneration": {
                     "type": "string",
                     "minLength": 1,
@@ -29341,13 +29362,17 @@
                     "minLength": 1,
                     "maxLength": 64,
                     "pattern": "^[A-Za-z0-9_-]+$",
-                    "description": "Host-captured Page id; requires expectedPageGeneration, expectedLifecycleGeneration and current config.write capability at commit."
+                    "description": "Host-captured Page id; requires both captured generations and the operation's current configuration capability."
                   },
                   "expectedPageGeneration": {
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 128,
-                    "description": "Host-captured Page declaration generation; paired with expectedPageId and checked at commit."
+                    "description": "Host-captured Page declaration generation; paired with expectedPageId and checked when accessing configuration."
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 0
                   },
                   "values": {
                     "type": "object",
@@ -29533,6 +29558,31 @@
             "required": false,
             "name": "expectedLifecycleGeneration",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "description": "Host-captured Page id; requires both captured generations and the operation's current configuration capability."
+            },
+            "required": false,
+            "description": "Host-captured Page id; requires both captured generations and the operation's current configuration capability.",
+            "name": "expectedPageId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "Host-captured Page declaration generation; paired with expectedPageId and checked when accessing configuration."
+            },
+            "required": false,
+            "description": "Host-captured Page declaration generation; paired with expectedPageId and checked when accessing configuration.",
+            "name": "expectedPageGeneration",
+            "in": "query"
           }
         ],
         "responses": {
@@ -29614,7 +29664,7 @@
             }
           },
           "400": {
-            "description": "Invalid plugin id or lifecycle generation",
+            "description": "Invalid plugin id or captured Page identity",
             "content": {
               "application/problem+json": {
                 "schema": {

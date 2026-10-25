@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { ApiEndpoint } from "./http-api.js";
 import {
   pluginConfigSchema, pluginConfigSchemaOpenApi,
-  pluginConfigSnapshotSchema, pluginConfigUpdateRequestSchema,
+  pluginConfigSnapshotSchema, pluginConfigUpdateRequestSchema, pluginConfigAccessQuerySchema,
   pluginPageSchema, pluginPageGenerationSchema, type PluginConfigField,
 } from "./plugin-config-schemas.js";
 import { validatePluginConfigDefinition } from "./plugin-validation.js";
@@ -56,8 +56,8 @@ export const pluginConfigApi = {
   },
   get: {
     method: "get", path: "/v1/plugins/{pluginId}/config", operationId: "get_v1_plugins_pluginId_config",
-    summary: "读取插件配置（secret 仅返回状态）", tags: ["Plugins"], params, query: lifecycleQuery, response: pluginConfigSnapshotSchema,
-    errors: { 400: "Invalid plugin id or lifecycle generation", 404: "PLUGIN_NOT_FOUND or PLUGIN_CONFIG_SCHEMA_NOT_FOUND", 409: "PLUGIN_CONFIG_REVISION_CONFLICT or PLUGIN_DISABLED or PLUGIN_UNAVAILABLE" },
+    summary: "读取插件配置（secret 仅返回状态）", tags: ["Plugins"], params, query: pluginConfigAccessQuerySchema, response: pluginConfigSnapshotSchema,
+    errors: { 400: "Invalid plugin id or captured Page identity", 404: "PLUGIN_NOT_FOUND or PLUGIN_CONFIG_SCHEMA_NOT_FOUND", 409: "PLUGIN_CONFIG_REVISION_CONFLICT or PLUGIN_DISABLED or PLUGIN_UNAVAILABLE" },
   },
   save: {
     method: "put", path: "/v1/plugins/{pluginId}/config", operationId: "put_v1_plugins_pluginId_config",
@@ -68,8 +68,8 @@ export const pluginConfigApi = {
   },
   reset: {
     method: "post", path: "/v1/plugins/{pluginId}/config/reset", operationId: "post_v1_plugins_pluginId_config_reset",
-    summary: "重置插件配置", tags: ["Plugins"], params, query: lifecycleQuery, response: pluginConfigSnapshotSchema,
-    errors: { 400: "Invalid plugin id or lifecycle generation", 404: "PLUGIN_NOT_FOUND or PLUGIN_CONFIG_SCHEMA_NOT_FOUND", 409: "PLUGIN_CONFIG_REVISION_CONFLICT or PLUGIN_DISABLED or PLUGIN_UNAVAILABLE" },
+    summary: "重置插件配置", tags: ["Plugins"], params, query: pluginConfigAccessQuerySchema, response: pluginConfigSnapshotSchema,
+    errors: { 400: "Invalid plugin id or captured Page identity", 404: "PLUGIN_NOT_FOUND or PLUGIN_CONFIG_SCHEMA_NOT_FOUND", 409: "PLUGIN_CONFIG_REVISION_CONFLICT or PLUGIN_DISABLED or PLUGIN_UNAVAILABLE" },
   },
   listPages: {
     method: "get", path: "/v1/plugins/{pluginId}/pages", operationId: "get_v1_plugins_pluginId_pages",
@@ -82,4 +82,5 @@ export const pluginConfigApi = {
 export type PluginConfigSchemaResponse = z.output<typeof pluginConfigSchemaResponseSchema>;
 export type RegisterPluginConfigSchemaRequest = z.input<typeof pluginConfigSchema>;
 export type SavePluginConfigRequest = z.input<typeof pluginConfigUpdateRequestSchema>;
+export type PluginConfigAccessQuery = z.input<typeof pluginConfigAccessQuerySchema>;
 export type PluginPageResponse = z.output<typeof pluginPageResponseSchema>;

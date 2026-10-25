@@ -162,6 +162,19 @@ describe('Plugin Page session boundary', () => {
     expect(target.postMessage).toHaveBeenLastCalledWith(expect.objectContaining({ ok: true }), '*');
   });
 
+  it('binds a read to the captured Page identity and ignores forged Bridge identity arguments', async () => {
+    const { target, nonce } = await connect();
+    send(target, nonce, 'getConfig', 'forged-read', {
+      expectedPageId: 'other-page', expectedPageGeneration: 'forged-page-generation',
+      expectedLifecycleGeneration: 'forged-generation',
+    });
+    await flushPromises();
+    expect(mocks.getConfig).toHaveBeenCalledWith('probe', 'generation-1', {
+      expectedPageId: 'settings', expectedPageGeneration: 'page-1',
+    });
+    expect(target.postMessage).toHaveBeenLastCalledWith(expect.objectContaining({ ok: true }), '*');
+  });
+
   it.each(['getConfig', 'saveConfig'])('withholds a late %s receipt when its Page capability was revoked during the request', async method => {
     mocks.listPages.mockResolvedValueOnce([page]).mockResolvedValue([{ ...page, capabilities: [] }]);
     const { target, nonce } = await connect();
@@ -199,7 +212,7 @@ describe('Plugin Page session boundary', () => {
     expect(mocks.getConfig).not.toHaveBeenCalled();
     send(target, nonce, 'getConfig');
     await flushPromises();
-    expect(mocks.getConfig).toHaveBeenCalledWith('probe', 'generation-1');
+    expect(mocks.getConfig).toHaveBeenCalledWith('probe', 'generation-1', { expectedPageId: 'settings', expectedPageGeneration: 'page-1' });
     expect(target.postMessage).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'aervox:page:result', ok: true, nonce }), '*');
   });
 
@@ -259,7 +272,7 @@ describe('Plugin Page session boundary', () => {
     });
     send(current.target, current.nonce, 'getConfig', 'current-read');
     await flushPromises();
-    expect(mocks.getConfig).toHaveBeenLastCalledWith('probe', 'generation-2');
+    expect(mocks.getConfig).toHaveBeenLastCalledWith('probe', 'generation-2', { expectedPageId: 'settings', expectedPageGeneration: 'page-1' });
   });
 
   it('does not deliver old configuration to a new plugin session or change its revision', async () => {

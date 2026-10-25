@@ -114,6 +114,8 @@ test("real Page Bridge rejects restored Page generations and old lifecycles, and
     expect(oldFrame).not.toBeNull();
     const initialRead = await callConfig(page, frame, configPath, "GET", 200);
     expect(new URL(initialRead.response.url()).searchParams.get("expectedLifecycleGeneration")).toBe(initialGeneration);
+    expect(new URL(initialRead.response.url()).searchParams.get("expectedPageId")).toBe("probe");
+    expect(new URL(initialRead.response.url()).searchParams.get("expectedPageGeneration")).toBeTruthy();
     expect(initialRead.result.value).toMatchObject({ revision: 0, values: { value: "initial" } });
     await frame.locator("#value").fill("first lifecycle");
     const initialSave = await callConfig(page, frame, configPath, "PUT", 200);
@@ -219,6 +221,50 @@ test("real Page Bridge rejects restored Page generations and old lifecycles, and
       await page.unroute(saveUrl);
     }
 
+    // The GET itself carries the opened Page identity. Pause it after the
+    // Bridge's successful preflight, then revoke and restore the declaration.
+    await page.reload({ timeout: 90_000 });
+    await expect(page.locator(".aervox-workbench")).toBeVisible();
+    frame = await openPluginPage(page, pluginId);
+    oldFrame = await page.locator("iframe.plugin-page-frame").elementHandle();
+    const beforeReadRace = await callConfig(page, frame, configPath, "GET", 200);
+    const oldPageGeneration = new URL(beforeReadRace.response.url()).searchParams.get("expectedPageGeneration");
+    expect(oldPageGeneration).toBeTruthy();
+    await page.route(`${saveUrl}?*`, async route => {
+      if (route.request().method() === "GET") {
+        for (const capabilities of [[], ["config.read", "config.write", "host.notify", "host.close"]]) {
+          const registered = await request.post(api(`${pluginPath}/pages`), {
+            data: { id: "probe", title: "Lifecycle probe", entry: "pages/probe/index.html", capabilities },
+          });
+          expect(registered.status(), await registered.text()).toBe(201);
+        }
+      }
+      await route.continue();
+    });
+    try {
+      const responsePromise = page.waitForResponse(response => new URL(response.url()).pathname === configPath
+        && response.request().method() === "GET");
+      await frame.getByRole("button", { name: "Read configuration", exact: true }).click();
+      const rejected = await responsePromise;
+      expect(new URL(rejected.url()).searchParams.get("expectedPageId")).toBe("probe");
+      expect(new URL(rejected.url()).searchParams.get("expectedPageGeneration")).toBe(oldPageGeneration);
+      expect(rejected.status()).toBe(409);
+      const error = await rejected.json();
+      expect(error).not.toHaveProperty("values");
+      expect(JSON.stringify(error)).not.toContain("new Page generation");
+      await expect(frame.locator("#result")).toHaveAttribute("data-state", "error");
+      expect(JSON.parse((await frame.locator("#result").textContent())!)).toMatchObject({ ok: false });
+      expect(await oldFrame!.evaluate(element => element.isConnected)).toBe(true);
+    } finally {
+      await page.unroute(`${saveUrl}?*`);
+    }
+    const oldResetQuery = new URLSearchParams({ expectedLifecycleGeneration: initialGeneration,
+      expectedPageId: "probe", expectedPageGeneration: oldPageGeneration! });
+    const oldReset = await request.post(api(`${configPath}/reset?${oldResetQuery}`));
+    expect(oldReset.status(), await oldReset.text()).toBe(409);
+    const afterReadRace = await request.get(api(configPath));
+    expect(await afterReadRace.json()).toMatchObject({ revision: 2, values: { value: "new Page generation" } });
+
     // An independent API client changes the saved lifecycle before this host reloads its plugin list.
     const disabled = await request.patch(api(pluginPath), { data: { enabled: false } });
     expect(disabled.status(), await disabled.text()).toBe(200);
@@ -269,6 +315,8 @@ test("real Page Bridge rejects restored Page generations and old lifecycles, and
     const currentFrame = await openPluginPage(page, pluginId);
     const currentRead = await callConfig(page, currentFrame, configPath, "GET", 200);
     expect(new URL(currentRead.response.url()).searchParams.get("expectedLifecycleGeneration")).toBe(currentGeneration);
+    const currentPageGeneration = new URL(currentRead.response.url()).searchParams.get("expectedPageGeneration");
+    expect(currentPageGeneration).toBeTruthy();
     expect(currentRead.result.value).toMatchObject({ revision: 2, values: { value: "new Page generation" } });
     await currentFrame.locator("#value").fill("current lifecycle");
     const currentSave = await callConfig(page, currentFrame, configPath, "PUT", 200);
@@ -277,6 +325,11 @@ test("real Page Bridge rejects restored Page generations and old lifecycles, and
     const persisted = await request.get(api(configPath));
     expect(persisted.status()).toBe(200);
     expect(await persisted.json()).toMatchObject({ revision: 3, values: { value: "current lifecycle" } });
+    const currentResetQuery = new URLSearchParams({ expectedLifecycleGeneration: currentGeneration,
+      expectedPageId: "probe", expectedPageGeneration: currentPageGeneration! });
+    const currentReset = await request.post(api(`${configPath}/reset?${currentResetQuery}`));
+    expect(currentReset.status(), await currentReset.text()).toBe(200);
+    expect(await currentReset.json()).toMatchObject({ revision: 4, values: { value: "initial" } });
     await currentFrame.locator("#value").fill("new lifecycle notification");
     await currentFrame.getByRole("button", { name: "Notify host", exact: true }).click();
     await expect(currentFrame.locator("#result")).toHaveAttribute("data-state", "success");

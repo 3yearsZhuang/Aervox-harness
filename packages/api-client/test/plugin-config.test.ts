@@ -107,6 +107,32 @@ describe('plugin configuration shared client', () => {
     });
   });
 
+  it.each(['getConfig', 'resetConfig'] as const)('preserves and encodes the captured Page identity for %s', async method => {
+    const request = vi.fn(async () => snapshot);
+    const api = client(request);
+    await api[method]('a/b?c#d', 'generation/a?b#c', { expectedPageId: 'settings', expectedPageGeneration: 'page/a?b#c' });
+    const suffix = method === 'resetConfig' ? '/reset' : '';
+    expect(request).toHaveBeenCalledWith(method === 'resetConfig' ? 'POST' : 'GET',
+      `/v1/plugins/a%2Fb%3Fc%23d/config${suffix}?expectedLifecycleGeneration=generation%2Fa%3Fb%23c&expectedPageId=settings&expectedPageGeneration=page%2Fa%3Fb%23c`, undefined);
+  });
+
+  it.each(['getConfig', 'resetConfig'] as const)('rejects incomplete or malformed Page identity before %s transport', async method => {
+    const request = vi.fn(async () => snapshot);
+    const api = client(request);
+    for (const identity of [
+      { expectedPageId: 'settings' },
+      { expectedPageGeneration: 'page-generation' },
+      { expectedPageId: '../settings', expectedPageGeneration: 'page-generation' },
+      { expectedPageId: 'settings', expectedPageGeneration: '' },
+      { expectedPageId: 'settings', expectedPageGeneration: 'x'.repeat(129) },
+      { expectedPageId: 'settings', expectedPageGeneration: null },
+    ]) {
+      await expect(api[method]('plugin', 'generation', identity as never)).rejects.toThrow();
+    }
+    await expect(api[method]('plugin', undefined, { expectedPageId: 'settings', expectedPageGeneration: 'page-generation' })).rejects.toThrow();
+    expect(request).not.toHaveBeenCalled();
+  });
+
   it.each(['', '../settings', 'settings/other', 'x'.repeat(65), null])('rejects an invalid Page write identity before transport: %j', async expectedPageId => {
     const request = vi.fn(async () => snapshot);
     const api = client(request);

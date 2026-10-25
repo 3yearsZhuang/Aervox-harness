@@ -92,13 +92,15 @@ Config 是 Aervox 自有 DSL，不是任意 JSON Schema，也不兼容 AstrBot �
 |---|---|
 | `GET /v1/plugins/:id/config/schema` | 返回 `{schemaVersion, fields}`；没有 Schema 返回 404 |
 | `PUT /v1/plugins/:id/config/schema` | 注册经过共享校验的完整 DSL，返回 `{schemaVersion, fields}`；`409 PLUGIN_PACKAGE_IMMUTABLE`，generation 包须重新打包升级 |
-| `GET /v1/plugins/:id/config` | 返回 `revision/schemaVersion/values/secretFields/orphanedValues/issues` |
+| `GET /v1/plugins/:id/config` | 返回 `revision/schemaVersion/values/secretFields/orphanedValues/issues`，响应 `no-store`；可选 query 绑定打开时的插件和 Page 代际 |
 | `PUT /v1/plugins/:id/config` | 输入 `revision`、`values`、`secretValues`；Page 携带打开时的 `expectedLifecycleGeneration` 、`expectedPageId` 和 `expectedPageGeneration`；校验失败 400，版本、代际或 Page 能力冲突 409 |
-| `POST /v1/plugins/:id/config/reset` | 恢复默认值并清除该插件 Secret |
+| `POST /v1/plugins/:id/config/reset` | 恢复默认值并清除该插件 Secret；可选 query 绑定插件和 Page 代际，在写事务要求当前 `config.write` |
 
 **机器强制**：普通值保存按已有顶层对象合并；省略字段保留旧值。Secret 输入位于 `secretValues`，省略保留、字符串写入、`null` 清除；API 只返回 `{configured: boolean}`。禁用插件的配置读写返回 `409 PLUGIN_DISABLED`。保存和重置还拒绝不可用插件，返回 `409 PLUGIN_UNAVAILABLE`；在同一写事务中复验 enabled、availability、lifecycleGeneration、Schema 内容/版本及配置 revision，首次保存也检查 revision。检查后停用、缺包、换代、升级或并行修改使旧请求返回 `409 PLUGIN_CONFIG_REVISION_CONFLICT`，不会写入旧值或删除 Secret。成功保存递增 revision，保存/重置写审计。
 
-Page Bridge 的配置读取和保存携带打开时的 `expectedLifecycleGeneration`；GET 和 reset 支持同名可选 query，保存使用请求体字段。保存还由宿主从当前会话注入 `expectedPageId` 与 `expectedPageGeneration`，插件参数不能覆盖；两字段必须成对并显式携带有效插件代际，否则返回 `400 INVALID_CONFIG`。写事务在任何配置或 Secret 变更前查询同插件和 Page ID 的当前声明，同时核对 Page 代际、严格校验 capability 数组并要求 `config.write`；Page 缺失、重登记、能力移除或畸形声明均返回 `409 PLUGIN_CONFIG_REVISION_CONFLICT`，配置、Secret 和保存审计不变。Page 身份与代际是并发约束，不授予权限，也不替代 HTTP 管理认证。普通旧管理客户端可以省略这些参数，由服务捕获当前写入代际；GET/reset 沿用既有合同，未新增 Bridge 方法或 Page 身份检查。Page 读取在返回前再次检查启用、可用性及代际；停用再启用或缺包恢复不能让旧 Page 读取或保存新一代配置，不带参数的配置读取保留既有启用检查。
+Page Bridge 的配置读取和保存由宿主从当前会话注入 `expectedLifecycleGeneration`、`expectedPageId` 与 `expectedPageGeneration`，插件参数不能覆盖；GET 和 reset 使用可选 query，保存使用请求体字段。Page ID 与 Page 代际必须成对并显式携带有效插件代际，不完整或畸形请求返回 400。Page 身份与代际是并发约束，不授予权限，也不替代 HTTP 管理认证；普通管理客户端可以省略这些参数，保留既有读取和写入语义。本轮不新增 Bridge 方法。
+
+Page 配置读取在同一 SQL 快照查询同插件的当前 Page、启用、可用性、插件/Page 代际与配置，严格校验 capability 数组并要求 `config.read`；资格失败不得回落历史别名或默认配置。读取 Secret 状态后、返回前再次复验身份与能力，期间停用、缺包、重登记或撤权再授权均返回 `409 PLUGIN_CONFIG_REVISION_CONFLICT`，不释放配置正文。保存与重置在任何配置或 Secret 变更前，由同一写事务核对当前插件/Page 代际与 `config.write`；Page 缺失、重登记、能力移除或畸形声明均返回 409，配置、Secret 和写审计不变。已提交的保存或重置保留真实 HTTP 回执，Bridge 在返回旧文档前继续复验并屏蔽迟到结果。
 
 五个 JSON 接口由[共享端点声明](../../packages/contracts/src/plugin-config-api.ts)生成宿主路由、OpenAPI 和客户端调用，并校验成功响应。Schema 注册与配置保存要求请求体，缺少或格式错误分别返回 `400 INVALID_CONFIG_SCHEMA`、`400 INVALID_CONFIG`；revision 为非负整数，`values` 为对象，`secretValues` 仅接受字符串或 `null`。Schema 读取仍可管理停用插件的声明；停用插件的配置读取、保存和重置保持 409。未分类服务端异常只返回通用 500，不回显内部路径或 SQL。
 
@@ -148,7 +150,7 @@ Page 卸载、generation 丢弃、安装失败回滚与插件资源清理同样�
 
 - 宿主按 `event.source`、128 位随机 Nonce、插件/Page 身份、lifecycleGeneration、pageGeneration 与文档会话验证调用和迟到响应；缺少代际时不建立 Page 会话。SDK 只接受绑定父窗口及 Origin。逐项 capability 对配置、通知和关闭生效；文档刷新重新挂载并初始化配置 revision。同 ID 的插件或 Page 换代也更换 iframe 与 Nonce，旧窗口及在途响应失效。
 - 四种 Bridge 调用均先携带打开时的代际查询 Page；同一 SQL 快照读取插件身份、Page 代际及当前 capability，拒绝已停用、不可用、换代、Page 缺失或能力移除的请求。配置读写返回前再次复验，拒绝迟到快照及回执进入旧文档。Page 列表由共享 Schema 校验，保留既有 nullable description/checksum；窗口缓存不能替代本次查询。
-- Page 配置保存由同一写者事务复验插件代际和宿主捕获的 Page 当前 `config.write`，预检后移除能力不能提交配置或 Secret。插件同代际下 Page 删除再建或撤权再授权也不会恢复旧会话；提交后已受理保存保留真实 HTTP 回执，Page 返回前继续复验并屏蔽迟到结果。
+- Page 配置 GET 在同一 SQL 快照复验插件/Page 身份和 `config.read`，返回前再检查；保存和携带 Page 身份的重置由同一写者事务复验当前 `config.write`，预检后移除能力不能提交配置或 Secret。插件同代际下 Page 删除再建或撤权再授权也不会恢复旧会话；提交后已受理写入保留真实 HTTP 回执，Page 返回前继续复验并屏蔽迟到结果。
 - 入口 HTML 与普通资源共用启用检查；当前窗口观察到禁用、缺包或换代后销毁 iframe。调用时查询不能证明 SQL 快照到客户端动作的原子撤权；尚无跨窗口撤权实时推送、全部资源代际绑定或 iframe 代码强制终止证明。
 - iframe 正在运行的代码没有统一 CPU/内存配额与撤权终止证明；不能把网络 CSP 解释为任意第三方执行安全已验收。
 - API 启用 Bearer Token 认证时，当前 iframe `src` 和脚本资源没有注入 Authorization 头，资源请求会受到全局认证检查；尚无完整的受保护 Page 资源授权通道。不能将 Token 放入页面 URL 或为访问页面而关闭生产认证。

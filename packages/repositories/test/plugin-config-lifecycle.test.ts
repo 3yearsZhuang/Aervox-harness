@@ -119,6 +119,43 @@ describe("plugin configuration lifecycle transaction", () => {
     expect(await state()).toEqual(before);
   });
 
+  describe.each(["read", "reset"] as const)("Page %s qualification", operation => {
+    it.each(["removed", "missing", "other-plugin", "wrong-capability", "malformed", "reregistered", "reauthorized", "recreated"] as const)("rejects %s without exposing or mutating configuration", async change => {
+      await registerPage(["config.read", "config.write"]);
+      const access = { expectedLifecycleGeneration: generation, expectedPageId: "settings", expectedPageGeneration: pageGeneration };
+      if (change === "missing" || change === "other-plugin" || change === "recreated") {
+        await new SqlitePluginPageRepository(database.db).deletePagesForPlugin(id);
+        if (change === "other-plugin") {
+          await extension.createPlugin({ id: "other", publisher: "test", version: "1", checksum: "other" });
+          await new SqlitePluginPageRepository(database.db).upsertPage({ pluginId: "other", pageId: "settings", title: "Other", entry: "pages/settings/index.html", capabilities: ["config.read", "config.write"] });
+        }
+        if (change === "recreated") await registerPage(["config.read", "config.write"]);
+      } else if (change === "reregistered" || change === "reauthorized") {
+        if (change === "reauthorized") await registerPage([]);
+        await registerPage(["config.read", "config.write"]);
+      } else {
+        await registerPage(change === "removed" ? [] : change === "malformed" ? { capability: "config.read" }
+          : operation === "read" ? ["config.write"] : ["config.read"]);
+        // Keep the captured generation to isolate capability validation from generation mismatch.
+        access.expectedPageGeneration = pageGeneration;
+      }
+      const before = await state();
+      const result = operation === "read" ? configs.getConfig(ctx, id, access)
+        : configs.resetConfig(ctx, id, 1, { label: "default" }, fields, generation, 1, access);
+      await expect(result).rejects.toBeInstanceOf(DomainConflictError);
+      expect(await state()).toEqual(before);
+    });
+
+    it("accepts current Page identity and preserves management access without a Page", async () => {
+      await registerPage(["config.read", "config.write"]);
+      const access = { expectedLifecycleGeneration: generation, expectedPageId: "settings", expectedPageGeneration: pageGeneration };
+      if (operation === "read") expect(await configs.getConfig(ctx, id, access)).toMatchObject({ revision: 1, valuesJson: { label: "saved" } });
+      else expect(await configs.resetConfig(ctx, id, 1, { label: "default" }, fields, generation, 1, access)).toMatchObject({ revision: 2, valuesJson: { label: "default" } });
+      await registerPage([]);
+      expect(await configs.getConfig(ctx, id)).toMatchObject({ revision: operation === "read" ? 1 : 2 });
+    });
+  });
+
   it.each(["disabled", "reenabled", "missing", "restored", "schema-version"] as const)("rejects stale save and reset for %s before Secret changes", async (transition) => {
     const before = await state();
     if (transition === "disabled" || transition === "reenabled") {

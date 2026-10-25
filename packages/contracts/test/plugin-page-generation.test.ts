@@ -6,6 +6,27 @@ const declaration = { id: "settings", title: "Settings", entry: "pages/settings/
 const identity = { expectedPageId: "settings", expectedPageGeneration: "page-generation", expectedLifecycleGeneration: "plugin-generation" };
 
 describe("Page generation contracts", () => {
+  describe.each(["get", "reset"] as const)("configuration %s identity", operation => {
+    it("preserves the complete captured identity and accepts management requests", () => {
+      expect(pluginConfigApi[operation].query.parse(identity)).toEqual(identity);
+      expect(pluginConfigApi[operation].query.parse({})).toEqual({});
+      expect(pluginConfigApi[operation].query.parse({ expectedLifecycleGeneration: "plugin-generation" }))
+        .toEqual({ expectedLifecycleGeneration: "plugin-generation" });
+    });
+
+    it.each([
+      { expectedPageId: "settings", expectedLifecycleGeneration: "plugin-generation" },
+      { expectedPageGeneration: "page-generation", expectedLifecycleGeneration: "plugin-generation" },
+      { expectedPageId: "settings", expectedPageGeneration: "page-generation" },
+      { ...identity, expectedPageId: "../settings" },
+      { ...identity, expectedPageGeneration: "" },
+      { ...identity, expectedPageGeneration: "x".repeat(129) },
+      { ...identity, expectedPageGeneration: null },
+    ])("rejects an incomplete or malformed Page identity %j", input => {
+      expect(pluginConfigApi[operation].query.safeParse(input).success).toBe(false);
+    });
+  });
+
   it("preserves the host Page generation in the response and requires it independently of optional metadata", () => {
     expect(pluginPageResponseSchema.parse({ ...declaration, pageGeneration: "page-generation", description: null, checksum: null }))
       .toMatchObject({ pageGeneration: "page-generation", description: null, checksum: null });

@@ -139,7 +139,10 @@ async function handleBridgeCall(current: PageSession, message: {
     await requirePageCapability(current, capabilities[method]!)
     if (!isCurrent(current)) return {id, ok: false, error: 'page session is unavailable'}
     if (method === 'getConfig') {
-      const snapshot = await api.getConfig(current.pluginId, current.lifecycleGeneration)
+      const snapshot = await api.getConfig(current.pluginId, current.lifecycleGeneration, {
+        expectedPageId: current.pageId,
+        expectedPageGeneration: current.pageGeneration,
+      })
       await requirePageCapability(current, 'config.read')
       current.revision = snapshot.revision
       return {id, ok: true, value: snapshot}

@@ -10,6 +10,7 @@ import type {
   PluginConfigSchemaResponse,
   RegisterPluginConfigSchemaRequest,
   SavePluginConfigRequest,
+  PluginConfigAccessQuery,
   PluginPageResponse,
   PluginPackageInspection,
   PluginMarketItem,
@@ -96,8 +97,14 @@ export function useAervoxPlugins() {
   const registerConfigSchema = async (pluginId: string, input: RegisterPluginConfigSchemaRequest): Promise<PluginConfigSchemaResponse> =>
     requestEndpoint(transport, pluginConfigApi.registerSchema, input, { pluginId });
 
-  const getConfig = async (pluginId: string, expectedLifecycleGeneration?: string): Promise<PluginConfigSnapshot> =>
-    requestEndpoint(transport, pluginConfigApi.get, undefined, { pluginId }, { expectedLifecycleGeneration });
+  const getConfig = async (
+    pluginId: string,
+    expectedLifecycleGeneration?: string,
+    pageIdentity?: Pick<PluginConfigAccessQuery, 'expectedPageId' | 'expectedPageGeneration'>,
+  ): Promise<PluginConfigSnapshot> =>
+    requestEndpoint(transport, pluginConfigApi.get, undefined, { pluginId }, {
+      expectedLifecycleGeneration, expectedPageId: pageIdentity?.expectedPageId, expectedPageGeneration: pageIdentity?.expectedPageGeneration,
+    });
 
   const saveConfig = async (
     pluginId: string,
@@ -105,8 +112,14 @@ export function useAervoxPlugins() {
   ): Promise<PluginConfigSnapshot> =>
     requestEndpoint(transport, pluginConfigApi.save, input, { pluginId });
 
-  const resetConfig = async (pluginId: string, expectedLifecycleGeneration?: string): Promise<PluginConfigSnapshot> =>
-    requestEndpoint(transport, pluginConfigApi.reset, undefined, { pluginId }, { expectedLifecycleGeneration });
+  const resetConfig = async (
+    pluginId: string,
+    expectedLifecycleGeneration?: string,
+    pageIdentity?: Pick<PluginConfigAccessQuery, 'expectedPageId' | 'expectedPageGeneration'>,
+  ): Promise<PluginConfigSnapshot> =>
+    requestEndpoint(transport, pluginConfigApi.reset, undefined, { pluginId }, {
+      expectedLifecycleGeneration, expectedPageId: pageIdentity?.expectedPageId, expectedPageGeneration: pageIdentity?.expectedPageGeneration,
+    });
 
   const listPages = async (pluginId: string, expectedLifecycleGeneration?: string): Promise<PluginPageDto[]> => {
     const res = await requestEndpoint(transport, pluginConfigApi.listPages, undefined, { pluginId }, { expectedLifecycleGeneration });

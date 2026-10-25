@@ -11,7 +11,7 @@
  * - GET      /v1/plugin-pages/bridge.js           Page Bridge SDK。
  */
 import type { FastifyInstance } from "fastify";
-import { pluginConfigApi, type SavePluginConfigRequest } from "@aervox/contracts";
+import { pluginConfigApi, type PluginConfigAccessQuery, type SavePluginConfigRequest } from "@aervox/contracts";
 import { registerContractRoute } from "../../../shared/contract-route.js";
 import { resolveLocalContext } from "../../../shared/local-context.js";
 import { BRIDGE_SDK } from "./bridge-sdk.js";
@@ -51,10 +51,11 @@ export function registerPluginConfigRoutes(app: FastifyInstance, service: Plugin
   // ── 配置 ──────────────────────────────────────────
   registerContractRoute(app, pluginConfigApi.get, async (req, reply) => {
     const { pluginId } = req.params as { pluginId: string };
-    const { expectedLifecycleGeneration } = req.query as { expectedLifecycleGeneration?: string };
+    const { expectedLifecycleGeneration, expectedPageId, expectedPageGeneration } = req.query as PluginConfigAccessQuery;
     const tenant = resolveLocalContext(req);
     try {
-      return await service.getConfig(tenant, pluginId, expectedLifecycleGeneration);
+      reply.header("Cache-Control", "no-store");
+      return await service.getConfig(tenant, pluginId, expectedLifecycleGeneration, { expectedPageId, expectedPageGeneration });
     } catch (error) {
       return sendError(reply, error);
     }
@@ -80,10 +81,10 @@ export function registerPluginConfigRoutes(app: FastifyInstance, service: Plugin
 
   registerContractRoute(app, pluginConfigApi.reset, async (req, reply) => {
     const { pluginId } = req.params as { pluginId: string };
-    const { expectedLifecycleGeneration } = req.query as { expectedLifecycleGeneration?: string };
+    const { expectedLifecycleGeneration, expectedPageId, expectedPageGeneration } = req.query as PluginConfigAccessQuery;
     const tenant = resolveLocalContext(req);
     try {
-      return await service.resetConfig(tenant, pluginId, expectedLifecycleGeneration);
+      return await service.resetConfig(tenant, pluginId, expectedLifecycleGeneration, { expectedPageId, expectedPageGeneration });
     } catch (error) {
       return sendError(reply, error);
     }
