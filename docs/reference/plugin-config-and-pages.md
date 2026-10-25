@@ -148,11 +148,13 @@ Page 卸载、generation 丢弃、安装失败回滚与插件资源清理同样�
 
 当前防护与剩余边界如下，发布安全评估必须分别覆盖：
 
-- 宿主按 `event.source`、128 位随机 Nonce、插件/Page 身份、lifecycleGeneration、pageGeneration 与文档会话验证调用和迟到响应；缺少代际时不建立 Page 会话。SDK 只接受绑定父窗口及 Origin。逐项 capability 对配置、通知和关闭生效；文档刷新重新挂载并初始化配置 revision。同 ID 的插件或 Page 换代也更换 iframe 与 Nonce，旧窗口及在途响应失效。
+- 宿主按 `event.source`、128 位随机 Nonce、插件/Page 身份、lifecycleGeneration、pageGeneration 与文档会话验证调用和迟到响应；缺少代际时不建立 Page 会话。SDK 只接受绑定父窗口及 Origin。逐项 capability 对配置、通知和关闭生效；每次文档 load 复验资格并轮换 Nonce、配置 revision 与文档请求，同一选择的宿主观察及其截止不随 load 重置。只有最新文档可接收初始化，旧窗口及在途响应失效。
+- 挂载 iframe 前，以捕获的插件代际查询持久 Page 身份、入口及 capability；运行期间不依赖 Bridge 调用，每次资格观察完成后等待 2 秒再串行查询，窗口 focus 或恢复可见时也触发复验。同一宿主 owner 最多一项观察查询在途，单次本地等待上限 5 秒；超时、错误或资格失配均移除 iframe，释放会话、Nonce、监听器、计时器及在途等待，忽略迟到结果。文档请求另行取消，不能借连续 load 延长宿主观察截止。
+- 失效的同一选择保持关闭，后续查询成功、同 ID props 更新或 focus 不会自动恢复。刷新或关闭后重开由父级重新读取插件列表、当前 lifecycleGeneration 和 Page 声明，再进行挂载前复验；旧列表、旧身份及旧选择的异步结果不能重开页面。两个管理入口共用[打开逻辑](../../surfaces/panels-ui/src/plugin/use-plugin-page-opening.ts)，回归见[会话边界](../../surfaces/panels-ui/test/plugin-page-dialog-lifecycle.test.ts)、[父级打开](../../surfaces/panels-ui/test/plugin-page-parent-opening.test.ts)与[真实浏览器](../../e2e/ui/plugin-page-lifecycle.spec.ts)。
 - 四种 Bridge 调用均先携带打开时的代际查询 Page；同一 SQL 快照读取插件身份、Page 代际及当前 capability，拒绝已停用、不可用、换代、Page 缺失或能力移除的请求。配置读写返回前再次复验，拒绝迟到快照及回执进入旧文档。Page 列表由共享 Schema 校验，保留既有 nullable description/checksum；窗口缓存不能替代本次查询。
 - Page 配置 GET 在同一 SQL 快照复验插件/Page 身份和 `config.read`，返回前再检查；保存和携带 Page 身份的重置由同一写者事务复验当前 `config.write`，预检后移除能力不能提交配置或 Secret。插件同代际下 Page 删除再建或撤权再授权也不会恢复旧会话；提交后已受理写入保留真实 HTTP 回执，Page 返回前继续复验并屏蔽迟到结果。
 - 入口 HTML 与普通资源在同一 SQL 快照读取插件启用、可用性、生命周期、Bundle 指针与同插件 Page 的身份/入口，文件 I/O 前检查资格。文件成功读取后，复验若发现期间停用再启用、缺包恢复、Page 重登记/删除再建或 Bundle 切换，则丢弃已读内容并返回 `409 PLUGIN_PAGE_REVISION_CONFLICT`；底层文件读取失败仍走原错误路径。初始已停用或不可用的请求在文件读取前返回 409，缺失插件或 Page 返回 404；文件路径和链接检查继续由 BundleStore 执行，不跨文件 I/O 持有数据库事务。
-- 当前窗口观察到禁用、缺包或换代后销毁 iframe。资源读后复验不绑定 iframe 打开时的代际，也不覆盖资源上传字节与元数据之间的原子发布；最终 SQL 快照至网络发送或客户端动作仍有并发窗口。尚无跨窗口撤权实时推送、全部资源代际绑定或 iframe 代码强制终止证明。
+- 观察采用本地计时和查询，后台节流、事件循环阻塞及网络耗时会影响实际发现时间；2 秒间隔与 5 秒本地截止不构成跨窗口实时撤权或墙钟终止 SLA。资源读后复验不绑定 iframe 打开时的代际，也不覆盖资源上传字节与元数据之间的原子发布；最终 SQL 快照至网络发送或客户端动作仍有并发窗口。尚无跨窗口撤权实时推送、全部资源代际绑定或 iframe 代码强制终止证明。
 - iframe 正在运行的代码没有统一 CPU/内存配额与撤权终止证明；不能把网络 CSP 解释为任意第三方执行安全已验收。
 - API 启用 Bearer Token 认证时，当前 iframe `src` 和脚本资源没有注入 Authorization 头，资源请求会受到全局认证检查；尚无完整的受保护 Page 资源授权通道。不能将 Token 放入页面 URL 或为访问页面而关闭生产认证。
 

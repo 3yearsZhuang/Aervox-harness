@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { FrameLocator, Page } from "@playwright/test";
+import type { APIRequestContext, FrameLocator, Page } from "@playwright/test";
 import { test, expect, openWorkbench } from "./fixtures";
 
 test.use({ platform: "web" });
@@ -39,6 +39,65 @@ const PAGE_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>Page 
   </script>
 </body></html>`;
 
+interface Probe {
+  pluginId: string;
+  pluginPath: string;
+  configPath: string;
+  api(path: string): string;
+  register(capabilities?: string[]): Promise<string>;
+  identity(): Promise<{ lifecycle: string; page: string }>;
+}
+const capabilities = ["config.read", "config.write", "host.notify", "host.close"];
+
+async function createProbe(request: APIRequestContext, apiUrl: string): Promise<Probe> {
+  const pluginId = `page-lifecycle-${randomUUID()}`;
+  const pluginPath = `/v1/plugins/${pluginId}`;
+  const configPath = `${pluginPath}/config`;
+  const api = (path: string) => `${apiUrl}${path}`;
+  const installed = await request.post(api("/v1/plugins"), {
+    data: { id: pluginId, publisher: "synthetic-e2e", version: "1.0.0", installSource: "local" },
+  });
+  expect(installed.status(), await installed.text()).toBe(201);
+  const schema = await request.put(api(`${configPath}/schema`), {
+    data: { apiVersion: "aervox.dev/v1", kind: "PluginConfigSchema", schemaVersion: 1,
+      fields: [{ key: "value", type: "string", label: "Value", default: "initial" }] },
+  });
+  expect(schema.status(), await schema.text()).toBe(200);
+  const register = async (grants = capabilities): Promise<string> => {
+    const response = await request.post(api(`${pluginPath}/pages`), {
+      data: { id: "probe", title: "Lifecycle probe", entry: "pages/probe/index.html", capabilities: grants },
+    });
+    expect(response.status(), await response.text()).toBe(201);
+    return (await response.json()).pageGeneration as string;
+  };
+  await register();
+  const assets = await request.post(api(`${pluginPath}/pages/probe/assets`), {
+    data: { files: [{ path: "index.html", contentBase64: Buffer.from(PAGE_HTML).toString("base64") }] },
+  });
+  expect(assets.status(), await assets.text()).toBe(201);
+  return { pluginId, pluginPath, configPath, api, register,
+    async identity() {
+      const plugins = await request.get(api("/v1/plugins"));
+      expect(plugins.status()).toBe(200);
+      const lifecycle = (await plugins.json()).items.find((plugin: { id: string }) => plugin.id === pluginId).lifecycleGeneration as string;
+      const pages = await request.get(api(`${pluginPath}/pages?${new URLSearchParams({ expectedLifecycleGeneration: lifecycle })}`));
+      expect(pages.status()).toBe(200);
+      return { lifecycle, page: (await pages.json()).pages.find((page: { id: string }) => page.id === "probe").pageGeneration as string };
+    },
+  };
+}
+
+const pageTests = test.extend<{ probe: Probe }>({
+  probe: async ({ request, servers }, use) => {
+    const probe = await createProbe(request, servers.apiUrl);
+    try { await use(probe); }
+    finally {
+      const removed = await request.delete(probe.api(probe.pluginPath));
+      expect(removed.status(), await removed.text()).toBe(204);
+    }
+  },
+});
+
 async function openPluginPage(page: Page, pluginId: string): Promise<FrameLocator> {
   await page.getByRole("button", { name: "打开设置", exact: true }).click();
   const settings = page.getByRole("dialog", { name: "设置", exact: true });
@@ -48,9 +107,18 @@ async function openPluginPage(page: Page, pluginId: string): Promise<FrameLocato
   const card = settings.locator(".plugin-card").filter({ has: page.getByText(pluginId, { exact: true }) });
   await expect(card).toBeVisible();
   await card.getByTitle("打开插件页面", { exact: true }).click();
+  return readyFrame(page);
+}
+
+async function readyFrame(page: Page): Promise<FrameLocator> {
   const frame = page.frameLocator("iframe.plugin-page-frame");
   await expect(frame.locator("#ready")).toHaveText("ready");
   return frame;
+}
+
+async function refreshPage(page: Page): Promise<FrameLocator> {
+  await page.locator(".plugin-page-toolbar").getByRole("button", { name: "刷新", exact: true }).click();
+  return readyFrame(page);
 }
 
 interface BridgeResult {
@@ -58,288 +126,129 @@ interface BridgeResult {
   error?: string;
   value?: { revision: number; values: { value: string } };
 }
-
-async function callConfig(
-  page: Page,
-  frame: FrameLocator,
-  configPath: string,
-  method: "GET" | "PUT",
-  expectedStatus: number,
-) {
-  const responsePromise = page.waitForResponse(response =>
-    new URL(response.url()).pathname === (expectedStatus === 200 ? configPath : configPath.replace(/\/config$/, '/pages'))
-      && response.request().method() === (expectedStatus === 200 ? method : 'GET'));
+async function callConfig(page: Page, frame: FrameLocator, configPath: string, method: "GET" | "PUT") {
+  const responsePromise = page.waitForResponse(response => new URL(response.url()).pathname === configPath
+    && response.request().method() === method);
   await frame.getByRole("button", { name: method === "GET" ? "Read configuration" : "Save configuration", exact: true }).click();
   const response = await responsePromise;
-  expect(response.status()).toBe(expectedStatus);
-  await expect(frame.locator("#result")).toHaveAttribute("data-state", expectedStatus === 200 ? "success" : "error");
+  expect(response.status()).toBe(200);
+  await expect(frame.locator("#result")).toHaveAttribute("data-state", "success");
   const result = JSON.parse((await frame.locator("#result").textContent())!) as BridgeResult;
-  expect(result.ok).toBe(expectedStatus === 200);
+  expect(result.ok).toBe(true);
   return { response, result };
 }
 
-test("real Page Bridge rejects restored Page generations and old lifecycles, and succeeds after host reload", async ({ page, request, servers }) => {
-  const pluginId = `page-lifecycle-${randomUUID()}`;
-  const pluginPath = `/v1/plugins/${pluginId}`;
-  const configPath = `${pluginPath}/config`;
-  const api = (path: string) => `${servers.apiUrl}${path}`;
-  const install = await request.post(api("/v1/plugins"), {
-    data: { id: pluginId, publisher: "synthetic-e2e", version: "1.0.0", installSource: "local" },
+pageTests("real Bridge carries captured identity, rejects config races and explicitly reopens fresh Page declarations", async ({ page, request, servers, probe }) => {
+  const { configPath, api } = probe;
+  const initial = await probe.identity();
+  await openWorkbench(page, servers.webUrl);
+  let frame = await openPluginPage(page, probe.pluginId);
+  const read = await callConfig(page, frame, configPath, "GET");
+  const query = new URL(read.response.url()).searchParams;
+  expect(Object.fromEntries(query)).toEqual({ expectedLifecycleGeneration: initial.lifecycle,
+    expectedPageId: "probe", expectedPageGeneration: initial.page });
+  expect(read.result.value).toMatchObject({ revision: 0, values: { value: "initial" } });
+  await frame.locator("#value").fill("committed configuration");
+  const saved = await callConfig(page, frame, configPath, "PUT");
+  expect(saved.response.request().postDataJSON()).toMatchObject({ expectedLifecycleGeneration: initial.lifecycle,
+    expectedPageId: "probe", expectedPageGeneration: initial.page, revision: 0 });
+  expect(saved.result.value).toMatchObject({ revision: 1, values: { value: "committed configuration" } });
+
+  // A real PUT reaches HTTP after the Bridge probe; an independent client removes
+  // and restores the Page grant before the configuration transaction starts.
+  const oldFrame = await page.locator("iframe.plugin-page-frame").elementHandle();
+  await page.route(api(configPath), async route => {
+    if (route.request().method() === "PUT") { await probe.register([]); await probe.register(); }
+    await route.continue();
   });
-  expect(install.status(), await install.text()).toBe(201);
   try {
-    const schema = await request.put(api(`${configPath}/schema`), {
-      data: {
-        apiVersion: "aervox.dev/v1", kind: "PluginConfigSchema", schemaVersion: 1,
-        fields: [{ key: "value", type: "string", label: "Value", default: "initial" }],
-      },
-    });
-    expect(schema.status(), await schema.text()).toBe(200);
-    const registerPage = await request.post(api(`${pluginPath}/pages`), {
-      data: { id: "probe", title: "Lifecycle probe", entry: "pages/probe/index.html", capabilities: ["config.read", "config.write", "host.notify", "host.close"] },
-    });
-    expect(registerPage.status(), await registerPage.text()).toBe(201);
-    const assets = await request.post(api(`${pluginPath}/pages/probe/assets`), {
-      data: { files: [{ path: "index.html", contentBase64: Buffer.from(PAGE_HTML).toString("base64") }] },
-    });
-    expect(assets.status(), await assets.text()).toBe(201);
-    const initialPlugins = await request.get(api("/v1/plugins"));
-    expect(initialPlugins.status()).toBe(200);
-    const initialGeneration = (await initialPlugins.json()).items.find((plugin: { id: string }) => plugin.id === pluginId).lifecycleGeneration as string;
-    expect(initialGeneration).toBeTruthy();
-
-    await openWorkbench(page, servers.webUrl);
-    let frame = await openPluginPage(page, pluginId);
-    let oldFrame = await page.locator("iframe.plugin-page-frame").elementHandle();
-    expect(oldFrame).not.toBeNull();
-    const initialRead = await callConfig(page, frame, configPath, "GET", 200);
-    expect(new URL(initialRead.response.url()).searchParams.get("expectedLifecycleGeneration")).toBe(initialGeneration);
-    expect(new URL(initialRead.response.url()).searchParams.get("expectedPageId")).toBe("probe");
-    expect(new URL(initialRead.response.url()).searchParams.get("expectedPageGeneration")).toBeTruthy();
-    expect(initialRead.result.value).toMatchObject({ revision: 0, values: { value: "initial" } });
-    await frame.locator("#value").fill("first lifecycle");
-    const initialSave = await callConfig(page, frame, configPath, "PUT", 200);
-    expect(initialSave.response.request().postDataJSON()).toMatchObject({ expectedLifecycleGeneration: initialGeneration, expectedPageId: "probe", revision: 0 });
-    expect(initialSave.result.value).toMatchObject({ revision: 1, values: { value: "first lifecycle" } });
-    // Pause the real PUT after the Bridge's successful Page lookup. An independent
-    // client removes config.write without changing the plugin lifecycle.
-    const saveUrl = api(configPath);
-    await page.route(saveUrl, async route => {
-      if (route.request().method() === "PUT") {
-        const revoked = await request.post(api(`${pluginPath}/pages`), {
-          data: { id: "probe", title: "Lifecycle probe", entry: "pages/probe/index.html", capabilities: ["config.read", "host.notify", "host.close"] },
-        });
-        expect(revoked.status(), await revoked.text()).toBe(201);
-      }
-      await route.continue();
-    });
-    try {
-      await frame.locator("#value").fill("revoked during save");
-      const rejectedSave = page.waitForResponse(response => new URL(response.url()).pathname === configPath && response.request().method() === "PUT");
-      await frame.getByRole("button", { name: "Save configuration", exact: true }).click();
-      const rejected = await rejectedSave;
-      expect(rejected.request().postDataJSON()).toMatchObject({ expectedPageId: "probe", expectedLifecycleGeneration: initialGeneration, revision: 1 });
-      expect(rejected.status()).toBe(409);
-      await expect(frame.locator("#result")).toHaveAttribute("data-state", "error");
-      expect(JSON.parse((await frame.locator("#result").textContent())!)).toMatchObject({ ok: false });
-      expect(await oldFrame!.evaluate(element => element.isConnected)).toBe(true);
-      const unchangedAfterRevocation = await request.get(api(configPath));
-      expect(unchangedAfterRevocation.status()).toBe(200);
-      expect(await unchangedAfterRevocation.json()).toMatchObject({ revision: 1, values: { value: "first lifecycle" } });
-      const pluginsAfterRevocation = await request.get(api("/v1/plugins"));
-      expect(pluginsAfterRevocation.status()).toBe(200);
-      expect((await pluginsAfterRevocation.json()).items.find((plugin: { id: string }) => plugin.id === pluginId).lifecycleGeneration).toBe(initialGeneration);
-    } finally {
-      await page.unroute(saveUrl);
-    }
-    const restoreCapability = await request.post(api(`${pluginPath}/pages`), {
-      data: { id: "probe", title: "Lifecycle probe", entry: "pages/probe/index.html", capabilities: ["config.read", "config.write", "host.notify", "host.close"] },
-    });
-    expect(restoreCapability.status(), await restoreCapability.text()).toBe(201);
-    const restoredPageGeneration = (await restoreCapability.json()).pageGeneration as string;
-    expect(restoredPageGeneration).toBeTruthy();
-    expect(restoredPageGeneration).not.toBe(initialSave.response.request().postDataJSON().expectedPageGeneration);
-    const restoredConfigRequests: string[] = [];
-    const captureRestoredConfig = (req: import('@playwright/test').Request) => {
-      if (new URL(req.url()).pathname === configPath) restoredConfigRequests.push(req.method());
-    };
-    page.on('request', captureRestoredConfig);
-    await frame.locator("#value").fill("restored old Page notification");
-    for (const name of ["Read configuration", "Save configuration", "Notify host", "Close Page"]) {
-      const authorization = page.waitForResponse(response => new URL(response.url()).pathname === `${pluginPath}/pages`);
-      await frame.getByRole("button", { name, exact: true }).click();
-      expect((await authorization).status()).toBe(200);
-      await expect(frame.locator("#result")).toHaveAttribute("data-state", "error");
-      expect(JSON.parse((await frame.locator("#result").textContent())!)).toMatchObject({ ok: false, error: "page session is unavailable" });
-      expect(await oldFrame!.evaluate(element => element.isConnected)).toBe(true);
-    }
-    page.off('request', captureRestoredConfig);
-    expect(restoredConfigRequests).toEqual([]);
-    await expect(page.getByText("restored old Page notification", { exact: true })).toHaveCount(0);
-
-    // The actual host reload obtains a new Page generation within the same plugin lifecycle.
-    await page.reload({ timeout: 90_000 });
-    await expect(page.locator(".aervox-workbench")).toBeVisible();
-    frame = await openPluginPage(page, pluginId);
-    oldFrame = await page.locator("iframe.plugin-page-frame").elementHandle();
-    const restoredRead = await callConfig(page, frame, configPath, "GET", 200);
-    expect(restoredRead.result.value).toMatchObject({ revision: 1, values: { value: "first lifecycle" } });
-    await frame.locator("#value").fill("new Page generation");
-    const restoredSave = await callConfig(page, frame, configPath, "PUT", 200);
-    expect(restoredSave.response.request().postDataJSON()).toMatchObject({ expectedLifecycleGeneration: initialGeneration, expectedPageGeneration: restoredPageGeneration, revision: 1 });
-    expect(restoredSave.result.value).toMatchObject({ revision: 2, values: { value: "new Page generation" } });
-
-    // Also pause a real write after its Page lookup, remove and restore the grant,
-    // and prove the old request cannot commit even when current capabilities match.
-    await page.route(saveUrl, async route => {
-      if (route.request().method() === "PUT") {
-        for (const capabilities of [[], ["config.read", "config.write", "host.notify", "host.close"]]) {
-          const registered = await request.post(api(`${pluginPath}/pages`), {
-            data: { id: "probe", title: "Lifecycle probe", entry: "pages/probe/index.html", capabilities },
-          });
-          expect(registered.status(), await registered.text()).toBe(201);
-        }
-      }
-      await route.continue();
-    });
-    try {
-      await frame.locator("#value").fill("reauthorized during save");
-      const response = page.waitForResponse(response => new URL(response.url()).pathname === configPath && response.request().method() === "PUT");
-      await frame.getByRole("button", { name: "Save configuration", exact: true }).click();
-      const rejected = await response;
-      expect(rejected.status()).toBe(409);
-      expect(rejected.request().postDataJSON()).toMatchObject({ expectedPageGeneration: restoredPageGeneration, revision: 2 });
-      await expect(frame.locator("#result")).toHaveAttribute("data-state", "error");
-      expect(await oldFrame!.evaluate(element => element.isConnected)).toBe(true);
-      const unchanged = await request.get(api(configPath));
-      expect(await unchanged.json()).toMatchObject({ revision: 2, values: { value: "new Page generation" } });
-      const currentPages = await request.get(api(`${pluginPath}/pages`));
-      expect((await currentPages.json()).pages[0].capabilities).toContain("config.write");
-      const currentPlugins = await request.get(api("/v1/plugins"));
-      expect((await currentPlugins.json()).items.find((plugin: { id: string }) => plugin.id === pluginId).lifecycleGeneration).toBe(initialGeneration);
-    } finally {
-      await page.unroute(saveUrl);
-    }
-
-    // The GET itself carries the opened Page identity. Pause it after the
-    // Bridge's successful preflight, then revoke and restore the declaration.
-    await page.reload({ timeout: 90_000 });
-    await expect(page.locator(".aervox-workbench")).toBeVisible();
-    frame = await openPluginPage(page, pluginId);
-    oldFrame = await page.locator("iframe.plugin-page-frame").elementHandle();
-    const beforeReadRace = await callConfig(page, frame, configPath, "GET", 200);
-    const oldPageGeneration = new URL(beforeReadRace.response.url()).searchParams.get("expectedPageGeneration");
-    expect(oldPageGeneration).toBeTruthy();
-    await page.route(`${saveUrl}?*`, async route => {
-      if (route.request().method() === "GET") {
-        for (const capabilities of [[], ["config.read", "config.write", "host.notify", "host.close"]]) {
-          const registered = await request.post(api(`${pluginPath}/pages`), {
-            data: { id: "probe", title: "Lifecycle probe", entry: "pages/probe/index.html", capabilities },
-          });
-          expect(registered.status(), await registered.text()).toBe(201);
-        }
-      }
-      await route.continue();
-    });
-    try {
-      const responsePromise = page.waitForResponse(response => new URL(response.url()).pathname === configPath
-        && response.request().method() === "GET");
-      await frame.getByRole("button", { name: "Read configuration", exact: true }).click();
-      const rejected = await responsePromise;
-      expect(new URL(rejected.url()).searchParams.get("expectedPageId")).toBe("probe");
-      expect(new URL(rejected.url()).searchParams.get("expectedPageGeneration")).toBe(oldPageGeneration);
-      expect(rejected.status()).toBe(409);
-      const error = await rejected.json();
-      expect(error).not.toHaveProperty("values");
-      expect(JSON.stringify(error)).not.toContain("new Page generation");
-      await expect(frame.locator("#result")).toHaveAttribute("data-state", "error");
-      expect(JSON.parse((await frame.locator("#result").textContent())!)).toMatchObject({ ok: false });
-      expect(await oldFrame!.evaluate(element => element.isConnected)).toBe(true);
-    } finally {
-      await page.unroute(`${saveUrl}?*`);
-    }
-    const oldResetQuery = new URLSearchParams({ expectedLifecycleGeneration: initialGeneration,
-      expectedPageId: "probe", expectedPageGeneration: oldPageGeneration! });
-    const oldReset = await request.post(api(`${configPath}/reset?${oldResetQuery}`));
-    expect(oldReset.status(), await oldReset.text()).toBe(409);
-    const afterReadRace = await request.get(api(configPath));
-    expect(await afterReadRace.json()).toMatchObject({ revision: 2, values: { value: "new Page generation" } });
-
-    // An independent API client changes the saved lifecycle before this host reloads its plugin list.
-    const disabled = await request.patch(api(pluginPath), { data: { enabled: false } });
-    expect(disabled.status(), await disabled.text()).toBe(200);
-    const enabled = await request.patch(api(pluginPath), { data: { enabled: true } });
-    expect(enabled.status(), await enabled.text()).toBe(200);
-    const currentPlugins = await request.get(api("/v1/plugins"));
-    expect(currentPlugins.status()).toBe(200);
-    const currentPlugin = (await currentPlugins.json()).items.find((plugin: { id: string }) => plugin.id === pluginId);
-    const currentGeneration = currentPlugin.lifecycleGeneration as string;
-    expect(currentPlugin.enabled).toBe(1);
-    expect(currentGeneration).toBeTruthy();
-    expect(currentGeneration).not.toBe(initialGeneration);
-    expect(await oldFrame!.evaluate(element => element.isConnected)).toBe(true);
-
-    const blockedConfigRequests: string[] = [];
-    const captureConfig = (req: import('@playwright/test').Request) => {
-      if (new URL(req.url()).pathname === configPath) blockedConfigRequests.push(req.method());
-    };
-    page.on('request', captureConfig);
-    const oldRead = await callConfig(page, frame, configPath, "GET", 409);
-    expect(new URL(oldRead.response.url()).searchParams.get("expectedLifecycleGeneration")).toBe(initialGeneration);
-    expect(oldRead.result.error).toContain("lifecycle changed");
-    await frame.locator("#value").fill("late old lifecycle write");
-    const oldSave = await callConfig(page, frame, configPath, "PUT", 409);
-    expect(new URL(oldSave.response.url()).searchParams.get("expectedLifecycleGeneration")).toBe(initialGeneration);
-    expect(oldSave.result.error).toContain("lifecycle changed");
-    page.off('request', captureConfig);
-    expect(blockedConfigRequests).toEqual([]);
-    await frame.locator("#value").fill("revoked Page notification");
-    for (const name of ["Notify host", "Close Page"]) {
-      const responsePromise = page.waitForResponse(response => new URL(response.url()).pathname === `${pluginPath}/pages`);
-      await frame.getByRole("button", { name, exact: true }).click();
-      const response = await responsePromise;
-      expect(response.status()).toBe(409);
-      expect(new URL(response.url()).searchParams.get("expectedLifecycleGeneration")).toBe(initialGeneration);
-      await expect(frame.locator("#result")).toHaveAttribute("data-state", "error");
-      expect(JSON.parse((await frame.locator("#result").textContent())!)).toMatchObject({ ok: false, error: expect.stringContaining("lifecycle changed") });
-      expect(await oldFrame!.evaluate(element => element.isConnected)).toBe(true);
-    }
-    await expect(page.getByText("revoked Page notification", { exact: true })).toHaveCount(0);
-    const unchanged = await request.get(api(configPath));
-    expect(unchanged.status()).toBe(200);
-    expect(await unchanged.json()).toMatchObject({ revision: 2, values: { value: "new Page generation" } });
-
-    // Reload through the actual host UI, which obtains the current PluginSummary and opens a new Page.
-    await page.reload({ timeout: 90_000 });
-    await expect(page.locator(".aervox-workbench")).toBeVisible();
-    const currentFrame = await openPluginPage(page, pluginId);
-    const currentRead = await callConfig(page, currentFrame, configPath, "GET", 200);
-    expect(new URL(currentRead.response.url()).searchParams.get("expectedLifecycleGeneration")).toBe(currentGeneration);
-    const currentPageGeneration = new URL(currentRead.response.url()).searchParams.get("expectedPageGeneration");
-    expect(currentPageGeneration).toBeTruthy();
-    expect(currentRead.result.value).toMatchObject({ revision: 2, values: { value: "new Page generation" } });
-    await currentFrame.locator("#value").fill("current lifecycle");
-    const currentSave = await callConfig(page, currentFrame, configPath, "PUT", 200);
-    expect(currentSave.response.request().postDataJSON()).toMatchObject({ expectedLifecycleGeneration: currentGeneration, expectedPageId: "probe", revision: 2 });
-    expect(currentSave.result.value).toMatchObject({ revision: 3, values: { value: "current lifecycle" } });
-    const persisted = await request.get(api(configPath));
-    expect(persisted.status()).toBe(200);
-    expect(await persisted.json()).toMatchObject({ revision: 3, values: { value: "current lifecycle" } });
-    const currentResetQuery = new URLSearchParams({ expectedLifecycleGeneration: currentGeneration,
-      expectedPageId: "probe", expectedPageGeneration: currentPageGeneration! });
-    const currentReset = await request.post(api(`${configPath}/reset?${currentResetQuery}`));
-    expect(currentReset.status(), await currentReset.text()).toBe(200);
-    expect(await currentReset.json()).toMatchObject({ revision: 4, values: { value: "initial" } });
-    await currentFrame.locator("#value").fill("new lifecycle notification");
-    await currentFrame.getByRole("button", { name: "Notify host", exact: true }).click();
-    await expect(currentFrame.locator("#result")).toHaveAttribute("data-state", "success");
-    await expect(page.getByText("new lifecycle notification", { exact: true })).toBeVisible();
-    const closeAuthorization = page.waitForResponse(response => new URL(response.url()).pathname === `${pluginPath}/pages`);
-    await currentFrame.getByRole("button", { name: "Close Page", exact: true }).click();
-    expect((await closeAuthorization).status()).toBe(200);
+    await frame.locator("#value").fill("stale write");
+    const rejected = page.waitForResponse(response => new URL(response.url()).pathname === configPath && response.request().method() === "PUT");
+    await frame.getByRole("button", { name: "Save configuration", exact: true }).click();
+    expect((await rejected).status()).toBe(409);
     await expect(page.locator("iframe.plugin-page-frame")).toHaveCount(0);
-  } finally {
-    const removed = await request.delete(api(pluginPath));
-    expect(removed.status(), await removed.text()).toBe(204);
-  }
+    expect(await oldFrame!.evaluate(element => element.isConnected)).toBe(false);
+    const unchanged = await request.get(api(configPath));
+    expect(await unchanged.json()).toMatchObject({ revision: 1, values: { value: "committed configuration" } });
+    const oldReset = await request.post(api(`${configPath}/reset?${query}`));
+    expect(oldReset.status()).toBe(409);
+  } finally { await page.unroute(api(configPath)); }
+
+  frame = await refreshPage(page);
+  const fresh = await probe.identity();
+  expect(fresh.lifecycle).toBe(initial.lifecycle);
+  expect(fresh.page).not.toBe(initial.page);
+  const refreshedRead = await callConfig(page, frame, configPath, "GET");
+  expect(new URL(refreshedRead.response.url()).searchParams.get("expectedPageGeneration")).toBe(fresh.page);
+
+  // The real GET also carries the captured declaration through a successful
+  // preflight; replacement before HTTP admission cannot disclose configuration.
+  await page.route(`${api(configPath)}?*`, async route => {
+    if (route.request().method() === "GET") await probe.register();
+    await route.continue();
+  });
+  try {
+    const rejected = page.waitForResponse(response => new URL(response.url()).pathname === configPath && response.request().method() === "GET");
+    await frame.getByRole("button", { name: "Read configuration", exact: true }).click();
+    const response = await rejected;
+    expect(response.status()).toBe(409);
+    expect(new URL(response.url()).searchParams.get("expectedPageGeneration")).toBe(fresh.page);
+    expect(JSON.stringify(await response.json())).not.toContain("committed configuration");
+    await expect(page.locator("iframe.plugin-page-frame")).toHaveCount(0);
+  } finally { await page.unroute(`${api(configPath)}?*`); }
+
+  frame = await refreshPage(page);
+  const currentRead = await callConfig(page, frame, configPath, "GET");
+  const currentQuery = new URL(currentRead.response.url()).searchParams;
+  const reset = await request.post(api(`${configPath}/reset?${currentQuery}`));
+  expect(reset.status()).toBe(200);
+  expect(await reset.json()).toMatchObject({ revision: 2, values: { value: "initial" } });
+  const persisted = await request.get(api(configPath));
+  expect(await persisted.json()).toMatchObject({ revision: 2, values: { value: "initial" } });
+  await frame.locator("#value").fill("current Page notification");
+  await frame.getByRole("button", { name: "Notify host", exact: true }).click();
+  await expect(page.getByText("current Page notification", { exact: true })).toBeVisible();
+  await frame.getByRole("button", { name: "Close Page", exact: true }).click();
+  await expect(page.locator("iframe.plugin-page-frame")).toHaveCount(0);
 });
+
+for (const change of ["plugin lifecycle", "Page declaration"] as const) {
+  pageTests(`quiet Page is removed after external ${change} changes and cannot revive without an explicit fresh reopen`, async ({ page, request, servers, probe }) => {
+    const before = await probe.identity();
+    await openWorkbench(page, servers.webUrl);
+    let frame = await openPluginPage(page, probe.pluginId);
+    const oldFrame = await page.locator("iframe.plugin-page-frame").elementHandle();
+    const configurationCalls: string[] = [];
+    const capture = (req: import("@playwright/test").Request) => {
+      if (new URL(req.url()).pathname === probe.configPath) configurationCalls.push(req.method());
+    };
+    page.on("request", capture);
+    try {
+      // No Bridge call follows ready(): the host must observe this external change.
+      if (change === "plugin lifecycle") {
+        for (const enabled of [false, true]) {
+          const response = await request.patch(probe.api(probe.pluginPath), { data: { enabled } });
+          expect(response.status()).toBe(200);
+        }
+      } else { await probe.register([]); await probe.register(); }
+      await expect(page.locator("iframe.plugin-page-frame")).toHaveCount(0);
+      expect(await oldFrame!.evaluate(element => element.isConnected)).toBe(false);
+      expect(configurationCalls).toEqual([]);
+      await expect(page.locator(".plugin-page-toolbar")).toBeVisible();
+      const current = await probe.identity();
+      expect(change === "plugin lifecycle" ? current.lifecycle : current.page)
+        .not.toBe(change === "plugin lifecycle" ? before.lifecycle : before.page);
+      // Focus/visibility resumes cannot recover a latched document, even though
+      // the external client has already restored an enabled, writable declaration.
+      await page.evaluate(() => { window.dispatchEvent(new Event("focus")); document.dispatchEvent(new Event("visibilitychange")); });
+      await expect(page.locator("iframe.plugin-page-frame")).toHaveCount(0);
+      expect(configurationCalls).toEqual([]);
+      frame = await refreshPage(page);
+      const read = await callConfig(page, frame, probe.configPath, "GET");
+      const query = new URL(read.response.url()).searchParams;
+      expect(query.get("expectedLifecycleGeneration")).toBe(current.lifecycle);
+      expect(query.get("expectedPageGeneration")).toBe(current.page);
+      expect(await oldFrame!.evaluate(element => element.isConnected)).toBe(false);
+    } finally { page.off("request", capture); }
+  });
+}

@@ -121,8 +121,9 @@ export function useAervoxPlugins() {
       expectedLifecycleGeneration, expectedPageId: pageIdentity?.expectedPageId, expectedPageGeneration: pageIdentity?.expectedPageGeneration,
     });
 
-  const listPages = async (pluginId: string, expectedLifecycleGeneration?: string): Promise<PluginPageDto[]> => {
-    const res = await requestEndpoint(transport, pluginConfigApi.listPages, undefined, { pluginId }, { expectedLifecycleGeneration });
+  const listPages = async (pluginId: string, expectedLifecycleGeneration?: string, signal?: AbortSignal): Promise<PluginPageDto[]> => {
+    const res = await requestEndpoint(transport, pluginConfigApi.listPages, undefined, { pluginId }, { expectedLifecycleGeneration },
+      signal === undefined ? undefined : { signal });
     return res.pages;
   };
 

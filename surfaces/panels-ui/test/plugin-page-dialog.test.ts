@@ -16,7 +16,7 @@ const mockSaveConfig = vi.fn().mockResolvedValue({
   secretFields: {},
 });
 const mockListPages = vi.fn().mockResolvedValue([{
-  id: 'dashboard', pageGeneration: 'dashboard-1', capabilities: ['config.read', 'config.write', 'host.notify', 'host.close'],
+  id: 'dashboard', pageGeneration: 'dashboard-1', entry: 'pages/dashboard/index.html', capabilities: ['config.read', 'config.write', 'host.notify', 'host.close'],
 }]);
 
 vi.mock('@aervox/api-client', async (importOriginal) => {
@@ -284,6 +284,7 @@ describe('PluginPageDialog.vue (ITER-006 / FND-03 安全沙箱)', () => {
       capabilities: [], // 无 host.notify，无 host.close
     };
 
+    mockListPages.mockResolvedValueOnce([limitedPage]).mockResolvedValueOnce([limitedPage]);
     const wrapper = mount(PluginPageDialog, {
       props: {
         open: true,

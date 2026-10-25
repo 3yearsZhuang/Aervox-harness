@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { AervoxCard, AervoxSwitch, AervoxSettingsHeading, AervoxButton, AervoxSegmentedControl } from '@aervox/ui/primitives';
-import {computed, onMounted, ref} from 'vue'
+import {computed, onMounted, ref, watch} from 'vue'
 import {Puzzle, Ellipsis, LayoutGrid, Zap, Wrench, PackagePlus, Radar, SlidersHorizontal, ShoppingBag, Download} from 'lucide-vue-next'
 import {ElDropdown, ElDropdownMenu, ElDropdownItem} from 'element-plus/es/components/dropdown/index.mjs'
 import {useAervoxPlugins, type PluginGrantDto, type PluginPageDto, type PluginSummaryDto} from '@aervox/api-client'
 import {PLUGIN_SENSOR_PERMISSION} from '@aervox/contracts'
 import {useUIPluginContext} from '@aervox/ui/plugin-api'
+import {ElMessage} from '@aervox/ui/utils/element'
+import {usePluginPageOpening} from './use-plugin-page-opening'
 import PluginConfigDialog from './PluginConfigDialog.vue'
 import PluginInstallDialog from './PluginInstallDialog.vue'
 import PluginPageDialog from './PluginPageDialog.vue'
@@ -93,10 +95,11 @@ const configTarget = ref<PluginSummaryDto | null>(null)
 const configOpen = ref(false)
 const settingsTarget = ref<PluginSummaryDto | null>(null)
 const settingsOpen = ref(false)
-const pageTarget = ref<PluginSummaryDto | null>(null)
-const pageOpen = ref(false)
-const pageTargetPage = ref<PluginPageDto | null>(null)
-const pageBusy = ref<string | null>(null)
+const {targetPlugin: pageTarget, open: pageOpen, targetPage: pageTargetPage, busy: pageBusy,
+  select: selectPage, refresh: refreshPage, close: closePage} = usePluginPageOpening({
+  api, onError: message => ElMessage.error(message),
+})
+watch(currentTab, closePage)
 const installOpen = ref(false)
 
 /** 已提供 Page 资源的插件 ID 集合（无页面时隐藏「页面」按钮） */
@@ -179,24 +182,11 @@ function openSettings(plugin: PluginSummaryDto): void {
 }
 
 async function openPage(plugin: PluginSummaryDto): Promise<void> {
-  pageBusy.value = plugin.id
-  try {
-    const pages = await listPages(plugin.id)
-    const first = pages[0]
-    if (!first) {
-      window.alert('该插件没有可用的页面')
-      return
-    }
-    pageTarget.value = plugin
-    pageTargetPage.value = first
-    pageOpen.value = true
-  } finally {
-    pageBusy.value = null
-  }
+  await selectPage(plugin.id)
 }
 
 function openConfigFromPage(): void {
-  pageOpen.value = false
+  closePage()
   if (pageTarget.value) openConfig(pageTarget.value)
 }
 
@@ -339,7 +329,8 @@ async function handleExport(plugin: PluginSummaryDto): Promise<void> {
       :open="pageOpen"
       :plugin="pageTarget"
       :page="pageTargetPage"
-      @close="pageOpen = false"
+      @close="closePage"
+      @refresh="refreshPage"
       @open-config="openConfigFromPage"
     />
   </div>
