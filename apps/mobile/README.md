@@ -69,3 +69,11 @@ mise exec -- pnpm --filter @aervox/mobile android:check:device
 `NativeMessageChannel` 是尚未注册的内部消息通道，只使用 AndroidX WebKit 的 WebMessageListener，固定 HTTPS localhost，并逐消息检查 WebView 身份、主帧与来源；功能不支持或注册失败即关闭，不回退到 JS interface。请求/响应分别限制 1 MiB/4 MiB、JSON 深度 32、同时在途 8 项；严格流式预校验先于 JSONObject 解析，错误只返回固定码。完成后回包仍核对活动票据；close 撤销回包，不代表已接受原生工作被撤销或回滚，执行器须另行 drain。
 
 通道限于一个 WebView 的完整生命周期，同一个实例不重装；换文档时调用者必须关闭并销毁/重建 WebView，来源信息不能证明文档代际。启用前还须固定 APK 资产来源并排除不受信脚本，不能把固定 origin 当成资产认证或同源脚本沙箱。当前 MainActivity/Capacitor 未装入该通道，不暴露 SQLite、凭据或模型命令；纯 JVM 策略、原生测试编译与真实 WebView 设备验证分别记录。
+
+## 未注册的 M0 运行时接线
+
+`NativeSqliteSession` 是只在原生代码中构造的单线程写者，初始化回调必须交付固定且已验证 Schema 的私有库；该回调不向 JS 暴露。它独立核对原生生成的 epoch/事务身份，事务持有者排他，根语句自带 IMMEDIATE 事务。结果只读取一个 1 MiB 首窗，超过 512 行/128 列或 3 MiB 编码结果即拒绝；参数、SQL 和队列另有上限。声明列类型明确为未知空串，不伪造完整 libsql 元数据。只接受受信仓储的有限 positional 数据语句，拒绝路径/DDL/PRAGMA/ATTACH/脚本/扩展，词法子集不当通用 SQLite authorizer。
+
+5 秒信号只请求协作取消，不承诺原生强杀或提交硬截止；终态异常隔离连接，不根据 Java inTransaction 判断原生提交结果。dispose 只在已接受任务退出、游标/事务/连接池实际关闭后确认 drain；未知先前 commit 仍须查原回执。尚无生产初始化或 JS SQL 注册。
+
+`NativeAssetWebViewHost` 同样未接 MainActivity，固定只读 APK m0/ 资源；首文档前建立全新独立 Profile、禁该 Profile 的 Service Worker 及外部网络，再注册消息通道。不支持 MULTI_PROFILE 或消息功能直接不可用，不使用默认 Capacitor Profile。导航/重载/渲染进程退出会关闭通道并销毁旧 WebView；原生工作仍须另行 drain。仅清理私有登记的随机 Profile，保留失败记录并限制累计数量；删除请求可能异步，不能作为磁盘擦除证明。

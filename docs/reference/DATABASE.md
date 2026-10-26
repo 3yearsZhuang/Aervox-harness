@@ -56,6 +56,8 @@ Android 隔离库需以 `NO_LOCALIZED_COLLATORS` 开启：固定 Java 绑定的�
 
 `@aervox/repositories/native-sqlite-client` 是 M0 受限 Client 适配器，只消费原生宿主已准备的固定 connectionEpoch，不负责开库或 Schema。根操作串行，事务独占同一写者直至明确提交/回滚回执，事务内另有有界顺序队列；默认 transaction 与 batch 均为 write/BEGIN IMMEDIATE，read/deferred、migrate、sync 和多语句脚本显式拒绝。未知、错代际/持有者或畸形结果停止准入，不自动重放事务或交出写者；close 只关闭准入，只有 dispose/drained 的原生精确回执才证明清理完成，也不能证明先前未知 commit 未发生。关闭期间终态拒绝不得使旧句柄复活；batch 无法确认回滚时同样隔离。原生 Transport 仍须独立执行事务身份、单语句、禁止控制/ATTACH/扩展及资源门禁，本步骤未提供该原生执行器。
 
+Android 原生候选 `NativeSqliteSession` 在专属线程维护同一写者与原生 epoch/事务身份，拒绝根请求混入活动事务。原生终态异常一律隔离，Java 事务栈不能证明 SQLite 已回到 autocommit；dispose 的实际连接池关闭回执才允许认定清理完成，仍不裁定先前未知提交。结果只取一次有界首窗，超窗的根语句整体回滚，活动事务超窗则保留隔离直到清理。它保守支持受信仓储的 positional 数据语句，声明列类型为未知；没有生产开库/Schema 初始化、完整 SQL authorizer 或硬取消保证。
+
 `@aervox/repositories/conversation` 提供同一会话命令的共享实现，要求受信 Host 显式提供同步 SHA-256/UUID 和提交后 Outbox 唤醒 Port；没有内存持久化或散列/唤醒默认。旧 `SqliteConversationRepository`、SessionStore、TurnStore 与意图函数保留 Node 默认包装，SQL、事务、fencing、删除资格和错误身份仍共用唯一实现。宿主摘要必须按原 UTF-8/canonical JSON 算法计算，错误类型/格式与异步误接直接拒绝；通知失败不能把已提交接单回执误报为未受理，持久 Outbox 始终保留。
 
 该公开入口在无 Node 全局的运行时复用注入数据库完成原子接单与历史读取；实际手机 Client、同步散列实现及问答/内部 Transport 尚须单独装配。声明消费者延续现行 skipLibCheck 限制，不将运行时边界提升为上游声明或整个移动端已验收。

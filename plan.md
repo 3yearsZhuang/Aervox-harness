@@ -422,6 +422,8 @@ Android 集成分支新的 `./aervox ci all` 退出 0，构建 32、类型 56 �
 
 首次实际设备执行补证：维护者授权连接的 Android 17/API 37、arm64、4 KiB 设备，WebView 155.0.8059.46。首次 Gradle 执行等待系统安装确认超时，0 项执行；确认安装后直接 AndroidJUnitRunner 跑 32 项，31 通过、1 个 Schema 空库断言失败。查实默认 Android opener 生成 `android_metadata`，现以 `NO_LOCALIZED_COLLATORS` 开启隔离 Schema 库，保留原空库/319 个物理定义检查，新增默认元数据对照，不靠过滤额外表通过。接续固定 `NativeExecutionProbe` 在单线程临时库证明 typed positional/NUL/浮点位/BLOB/int64、一次 RETURNING、64 KiB 首窗不足时拒绝并回滚全部128行、合作取消/关闭重开/线程 drain；未注册 SQL 服务。复验 AndroidJUnitRunner **35 项全部通过、无跳过**，包含 Keystore、严格 JSON/WebMessage、主帧/同源子帧/异源 iframe、Schema/FTS/FK/回滚和重开。首轮失败/超时均保留，不外推16 KiB、其它ABI/版本矩阵、完整终态故障矩阵、真实模型或手机独立UI；窗口实验要求API28只是探针前置，正式平台下限仍待矩阵。最后实现的 `./aervox ci all` 退出 0，构建 32、类型 56 任务、仓储 893、API 983、Host Agent 129、Worker 161 及既有包/所有守卫/兼容/HLS/删除故障/Native/64 文档通过，1 项真实模型跳过保留；9 项 JVM 策略通过、App/测试 APK 构建成功。随后只补验证记录并复验文档，新 PR 保存精确提交远端结果。
 
+原生运行时接线前置继续提供未注册的 `NativeSqliteSession` 与固定资产 WebView Host：Java 专用写者独立裁定 epoch/事务持有者、有限语句/参数/结果/队列、单次首窗，终态异常隔离并在实际关闭后确认 drain；固定页面在首次加载前使用全新随机 Profile，按该 Profile 阻断 Service Worker/网络，导航/重载销毁旧所有者，清理只涉及本方登记 Profile 并保留失败证据。未接生产初始化/默认 MainActivity 或授予 JS SQL 权限。此批构建与 19 项 JVM 策略通过，同一 Android17/API37 arm64/4KiB/WebView155 真机 **46 项全部通过、无跳过**，实际覆盖零列 DML 受取消游标路径/changes/rowid、事务身份、整根/活动事务超窗、deferred-FK 提交异常隔离/关闭重开、队列满时 drain 等待，以及固定APK首文档/新Profile/默认Cookie设置不变、导航/重载/关闭撤权。原生信号不是硬提交截止，声明列类型/通用authorizer/正式平台版本仍是明确子集限制；最后实现的 `./aervox ci all` 退出 0，构建 32、类型 56 任务、仓储 893、API 983、Host Agent 129、Worker 161 及既有包/全部守卫/兼容/HLS/删除故障/Native/64 文档通过，1 项真实模型跳过保留；独立复核无新增实质问题。随后只补记录并复验文档，精确提交远端门禁由 PR 保存。真正仓储/Core 联测、持久初始化、问答/删除和独立UI/模型继续接线。
+
 <a id="iter-016"></a>
 
 ### ITER-016 · 建议：所选单设备 PoC
