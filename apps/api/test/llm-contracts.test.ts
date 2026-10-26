@@ -203,6 +203,92 @@ describe('ITER-064 LLM shared contracts over HTTP', () => {
     } finally { provider.closeAllConnections(); await new Promise<void>(resolve => provider.close(() => resolve())); }
   });
 
+  it.each([
+    ['fractional', '8192.5'], ['nonfinite', '1e400'], ['unsafe', '9007199254740992'],
+    ['zero', '0'], ['negative', '-1'], ['null', 'null'],
+  ])('ignores %s props metadata and continues to a valid model capability', async (_kind, value) => {
+    let metadataRequests = 0;
+    const provider = createServer((req, res) => {
+      res.setHeader('Content-Type', 'application/json');
+      if (req.url?.endsWith('/models')) res.end('{"data":[]}');
+      else if (req.url?.endsWith('/props')) res.end(`{"default_generation_settings":{"n_ctx":${value}}}`);
+      else { metadataRequests++; res.end('{"context_length":8192}'); }
+    });
+    await new Promise<void>(resolve => provider.listen(0, '127.0.0.1', resolve));
+    try {
+      const response = await request('POST', llmApi.testConnection.path, { ...config,
+        baseUrl: `http://127.0.0.1:${(provider.address() as { port: number }).port}/v1` });
+      expect(response.status).toBe(200);
+      expect(llmApi.testConnection.response.parse(response.body)).toMatchObject({
+        ok: true, capabilities: { contextWindow: 8192, supportsToolCalls: true },
+      });
+      expect(metadataRequests).toBe(1);
+    } finally { provider.closeAllConnections(); await new Promise<void>(resolve => provider.close(() => resolve())); }
+  });
+
+  it.each([
+    ['fractional', '8192.5'], ['nonfinite', '1e400'], ['unsafe', '9007199254740992'],
+    ['oversized-string', JSON.stringify('9'.repeat(400))],
+  ])('ignores %s model metadata without failing a successful connection', async (_kind, value) => {
+    const provider = createServer((req, res) => {
+      res.setHeader('Content-Type', 'application/json');
+      if (req.url?.endsWith('/models')) res.end('{"data":[]}');
+      else if (req.url?.endsWith('/props')) { res.writeHead(404); res.end(); }
+      else res.end(`{"context_length":${value}}`);
+    });
+    await new Promise<void>(resolve => provider.listen(0, '127.0.0.1', resolve));
+    try {
+      const response = await request('POST', llmApi.testConnection.path, { ...config,
+        baseUrl: `http://127.0.0.1:${(provider.address() as { port: number }).port}/v1` });
+      expect(response.status).toBe(200);
+      expect(llmApi.testConnection.response.parse(response.body)).toMatchObject({
+        ok: true, capabilities: { supportsToolCalls: true },
+      });
+      expect(response.body.capabilities).not.toHaveProperty('contextWindow');
+    } finally { provider.closeAllConnections(); await new Promise<void>(resolve => provider.close(() => resolve())); }
+  });
+
+  it('continues through invalid model capability fields to a valid numeric string', async () => {
+    const provider = createServer((req, res) => {
+      res.setHeader('Content-Type', 'application/json');
+      if (req.url?.endsWith('/models')) res.end('{"data":[]}');
+      else if (req.url?.endsWith('/props')) { res.writeHead(404); res.end(); }
+      else res.end('{"meta":{"context_length":8192.5,"context_window":"16384"},"context_length":32768}');
+    });
+    await new Promise<void>(resolve => provider.listen(0, '127.0.0.1', resolve));
+    try {
+      const response = await request('POST', llmApi.testConnection.path, { ...config,
+        baseUrl: `http://127.0.0.1:${(provider.address() as { port: number }).port}/v1` });
+      expect(response.status).toBe(200);
+      expect(llmApi.testConnection.response.parse(response.body)).toMatchObject({
+        ok: true, capabilities: { contextWindow: 16384, supportsToolCalls: true },
+      });
+    } finally { provider.closeAllConnections(); await new Promise<void>(resolve => provider.close(() => resolve())); }
+  });
+
+  it.each([
+    ['data', { data: [{ id: 'first' }, {}, { id: 19 }, { id: 'last' }] }, ['first', 'last']],
+    ['models', { models: [{ name: 'first' }, { name: null }, { name: 'last' }] }, ['first', 'last']],
+    ['null-and-primitive', { data: [{ id: 'first' }, null, false, { id: 'last' }] }, ['first', 'last']],
+    ['bounded', { data: [{}, ...Array.from({ length: 25 }, (_, index) => ({ id: `model-${index}` }))] },
+      Array.from({ length: 20 }, (_, index) => `model-${index}`)],
+  ])('preserves valid names from %s model lists while ignoring malformed entries', async (_kind, models, expectedModels) => {
+    const provider = createServer((req, res) => {
+      res.setHeader('Content-Type', 'application/json');
+      if (req.url?.endsWith('/models')) res.end(JSON.stringify(models));
+      else { res.writeHead(404); res.end(); }
+    });
+    await new Promise<void>(resolve => provider.listen(0, '127.0.0.1', resolve));
+    try {
+      const response = await request('POST', llmApi.testConnection.path, { ...config,
+        baseUrl: `http://127.0.0.1:${(provider.address() as { port: number }).port}/v1` });
+      expect(response.status).toBe(200);
+      expect(llmApi.testConnection.response.parse(response.body)).toMatchObject({
+        ok: true, availableModels: expectedModels, capabilities: { supportsToolCalls: true },
+      });
+    } finally { provider.closeAllConnections(); await new Promise<void>(resolve => provider.close(() => resolve())); }
+  });
+
   it('conceals unexpected service failures and rejects malformed successful responses', async () => {
     const cases = [
       [llmApi.getConfig, 'getConfig', undefined], [llmApi.saveConfig, 'saveConfig', config],

@@ -5,6 +5,7 @@ import type {
   LLMPresetListResponse,
   LLMProviderType,
 } from "@aervox/contracts";
+import { llmModelCapabilitiesSchema, llmTestConnectionResponseSchema } from "@aervox/contracts";
 import type { SqliteLLMConfigRepository, LocalContext } from "@aervox/repositories";
 import { configuredProviderDescriptor } from "./provider-catalog.js";
 import type {
@@ -13,6 +14,31 @@ import type {
   TestConnectionParams,
   TestConnectionResult,
 } from "./types.js";
+
+const contextWindowSchema = llmModelCapabilitiesSchema.shape.contextWindow.unwrap();
+const modelNameSchema = llmTestConnectionResponseSchema.shape.availableModels.unwrap().element;
+
+/** Optional provider metadata cannot invalidate a successful connection. */
+function normalizeContextWindow(value: unknown): number | undefined {
+  const parsed = contextWindowSchema.safeParse(value);
+  return parsed.success ? parsed.data : undefined;
+}
+
+function normalizeAvailableModels(value: unknown): string[] | undefined {
+  if (value === null || typeof value !== "object") return undefined;
+  const payload = value as Record<string, unknown>;
+  const field = Array.isArray(payload.data) ? "id" : "name";
+  const rows: unknown = field === "id" ? payload.data : payload.models;
+  if (!Array.isArray(rows)) return undefined;
+  const models: string[] = [];
+  for (const row of rows) {
+    if (row === null || typeof row !== "object") continue;
+    const parsed = modelNameSchema.safeParse((row as Record<string, unknown>)[field]);
+    if (parsed.success) models.push(parsed.data);
+    if (models.length === 20) break;
+  }
+  return models;
+}
 
 function toResponse(found: {
   enabled: number;
@@ -196,18 +222,18 @@ export class LLMConfigService {
 
     // 1) llama.cpp 专属 /props（default_generation_settings.n_ctx）
     const props = await withTimeout(`${params.baseUrl}/props`) as { default_generation_settings?: Record<string, unknown> } | null;
-    const nCtx = props?.default_generation_settings?.n_ctx;
-    if (typeof nCtx === "number" && nCtx > 0) contextWindow = nCtx;
+    contextWindow = normalizeContextWindow(props?.default_generation_settings?.n_ctx);
 
     // 2) /models/{modelId} 的 meta（llama.cpp 新版 OpenAI 兼容返回 context_length 等元数据）
     if (contextWindow === undefined) {
       const meta = await withTimeout(
         `${params.baseUrl}/models/${encodeURIComponent(params.modelId)}`,
       ) as { meta?: Record<string, unknown>; context_length?: unknown } | null;
-      const raw = meta?.meta?.context_length ?? meta?.meta?.context_window ?? meta?.context_length;
-      const parsed = typeof raw === "number" ? raw
-        : typeof raw === "string" && /^\d+$/.test(raw) ? Number(raw) : undefined;
-      if (parsed !== undefined && parsed > 0) contextWindow = parsed;
+      for (const raw of [meta?.meta?.context_length, meta?.meta?.context_window, meta?.context_length]) {
+        const candidate = typeof raw === "string" && /^\d+$/.test(raw) ? Number(raw) : raw;
+        contextWindow = normalizeContextWindow(candidate);
+        if (contextWindow !== undefined) break;
+      }
     }
 
     if (contextWindow !== undefined) capabilities.contextWindow = contextWindow;
@@ -301,12 +327,7 @@ export class LLMConfigService {
       if (res.ok) {
         let availableModels: string[] | undefined;
         try {
-          const data = (await res.json()) as { data?: Array<{ id: string }>; models?: Array<{ name: string }> };
-          if (Array.isArray(data.data)) {
-            availableModels = data.data.map((m) => m.id).slice(0, 20);
-          } else if (Array.isArray(data.models)) {
-            availableModels = data.models.map((m) => m.name).slice(0, 20);
-          }
+          availableModels = normalizeAvailableModels(await res.json());
         } catch {
           controller.signal.throwIfAborted();
           // ignore json parse error on probe
