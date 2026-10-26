@@ -45,6 +45,35 @@ describe('owner history pages use current durable versions only', () => {
     await database.client.execute({ sql: 'DELETE FROM message_versions WHERE id = ?', args: [edited!.newVersion.id] });
     expect((await page()).items.flatMap(turn => turn.messages).some(message => message.role === 'assistant')).toBe(false);
   });
+  it('distinguishes an edited current user version from the original accepted input without changing its answer', async () => {
+    await accepted('turn');
+    expect((await page()).items[0]?.messages[0]).toMatchObject({ version: 1, contentKind: 'accepted_input', content: 'input turn' });
+    const edit = await repo.editMessage(ctx, 'user-turn', 'corrected input', 1);
+    const result = await page();
+    expect(result.items[0]?.messages).toMatchObject([
+      { version: edit!.newVersion.version, versionId: edit!.newVersion.id, contentKind: 'message', content: 'corrected input' },
+      { version: 3, contentKind: 'message', content: 'answer turn' },
+    ]);
+    await repo.softDeleteMessage(ctx, 'user-turn'); expect((await page()).items).toEqual([]);
+    await repo.restoreMessage(ctx, 'user-turn');
+    expect((await page()).items[0]?.messages[0]).toMatchObject({ versionId: edit!.newVersion.id, contentKind: 'message', content: 'corrected input' });
+    expect((await repo.listMessageVersions(ctx, 'user-turn')).find(version => version.id === 'user-turn')?.content).toBe('input turn');
+  });
+  it('retains original-input semantics across automatic assistant checkpoints and downgrades an unproven source label', async () => {
+    await accepted('turn', 'Interrupted');
+    await repo.createTurnAttempt(ctx, 'turn', { id: 'continuation', attempt: 2 });
+    await repo.recordSafeSegmentAtomically(ctx, { turnId: 'turn', attemptId: 'continuation', expectedFencingToken: 0, sequence: 4,
+      text: ' continued', eventData: { messageId: 'assistant-turn', text: ' continued' }, safetyDecision: 'approved' });
+    await repo.finalizeAttemptWithEventAtomically(ctx, { turnId: 'turn', attemptId: 'continuation', expectedFencingToken: 0,
+      sequence: 5, status: 'Completed', eventType: 'done', eventData: { status: 'Completed' }, safetyDecision: 'approved' });
+    expect((await page()).items[0]?.messages).toMatchObject([
+      { version: 1, contentKind: 'accepted_input' }, { version: 4, contentKind: 'message', content: 'answer turn continued' },
+    ]);
+    await database.client.execute({ sql: 'UPDATE turns SET request_hash = ? WHERE id = ?', args: ['turn-intent-v1:' + 'g'.repeat(64), 'turn'] });
+    expect((await page()).items[0]?.messages).toMatchObject([
+      { version: 1, contentKind: 'message', content: 'input turn' }, { version: 4, content: 'answer turn continued' },
+    ]);
+  });
   it('never replaces a missing original source with its edited version', async () => {
     await accepted('turn'); await repo.editMessage(ctx, 'user-turn', 'later input', 1);
     await repo.deleteMessage(ctx, 'user-turn');
@@ -76,10 +105,10 @@ describe('owner history pages use current durable versions only', () => {
     await repo.createTurnWithOutbox(ctx, { id: 'legacy', sessionId: 'session', idempotencyKey: 'legacy', status: 'Completed' }, { id: 'legacy-user', content: 'legacy input' });
     await repo.appendStreamEvent(ctx, { id: 'legacy-body', turnId: 'legacy', sequence: 1, eventType: 'delta', data: { text: 'event-only-canary' }, safetyDecision: 'approved' });
     const legacy = (await page()).items[0]?.messages;
-    expect(legacy).toMatchObject([{ messageId: null, versionId: 'legacy-user', legacy: true, readOnly: true, content: 'legacy input' }]);
+    expect(legacy).toMatchObject([{ messageId: null, versionId: 'legacy-user', contentKind: 'message', legacy: true, readOnly: true, content: 'legacy input' }]);
     expect(JSON.stringify(legacy)).not.toContain('event-only-canary');
     const imported = await repo.importSession(ctx, { messages: [{ role: 'user', content: 'import input' }, { role: 'assistant', content: 'import answer' }] });
-    expect((await page({}, imported.session.id)).items[0]?.messages).toMatchObject([{ legacy: false, content: 'import input' }, { legacy: false, content: 'import answer' }]);
+    expect((await page({}, imported.session.id)).items[0]?.messages).toMatchObject([{ legacy: false, contentKind: 'message', content: 'import input' }, { legacy: false, contentKind: 'message', content: 'import answer' }]);
   });
   it('withholds every extraction-redacted body including fixed-response legacy rows', async () => {
     await accepted('turn'); await repo.redactTurnMessages(ctx, 'turn');

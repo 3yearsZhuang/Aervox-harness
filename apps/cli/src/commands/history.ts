@@ -47,8 +47,9 @@ export async function executeHistory(ctx: CommandContext): Promise<number> {
   for (const turn of page.items) {
     lines.push('', `${terminalText(turn.turnId)} · ${turn.isComplete ? '已完成' : `未完成（${terminalText(turn.status)}）`}`);
     for (const message of turn.messages) {
-      const label = message.contentKind === 'accepted_input' ? '本轮输入' : message.role === 'assistant' ? '助手' : '会话记录';
-      lines.push(`${label}${message.readOnly ? '（只读）' : ''}：${message.visibility === 'withheld'
+      const label = message.contentKind === 'accepted_input' ? '本轮输入' : message.role === 'assistant' ? '助手'
+        : message.role === 'user' ? '用户记录' : '系统记录';
+      lines.push(`${label} · 版本 ${message.version}${message.readOnly ? '（只读）' : ''}：${message.visibility === 'withheld'
         ? '这条记录当前不可显示。' : terminalText(message.content ?? '')}`);
     }
   }

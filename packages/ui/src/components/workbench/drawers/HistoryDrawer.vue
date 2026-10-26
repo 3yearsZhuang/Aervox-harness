@@ -39,7 +39,7 @@ function speaker(message: SessionHistoryMessage) {
         <section v-for="turn in page.items" :key="turn.turnId" class="history-turn" :aria-label="`对话轮次 · ${labels[turn.status] ?? turn.status}`">
           <p class="history-turn-status">{{ labels[turn.status] ?? turn.status }}<span v-if="!turn.isComplete"> · 未完成</span></p>
           <p v-for="message in turn.messages" :key="message.versionId" class="vn-history-line" :class="message.role">
-            <span class="vn-history-speaker">{{ speaker(message) }} <small v-if="message.readOnly">只读记录</small></span>
+            <span class="vn-history-speaker">{{ speaker(message) }} <small>版本 {{ message.version }}</small> <small v-if="message.readOnly">只读记录</small></span>
             <span v-if="message.visibility === 'withheld'" class="vn-history-text history-withheld">这条记录当前不可显示。</span>
             <span v-else class="vn-history-text">
               <span v-if="message.role === 'assistant'" class="markdown-body" v-html="renderMarkdown(message.content || '（空记录）')" />
@@ -55,7 +55,7 @@ function speaker(message: SessionHistoryMessage) {
       <p v-else class="vn-history-empty">请先选择一段对话。</p>
     </div>
     <template #footer>
-      每次显示一页已保存的记录；发送中的回复可能尚未保存，刷新可更新。Esc 或点击空白处关闭。
+      显示当前保存版本；版本号不代表编辑次数。发送中的回复可能尚未保存，刷新可更新。Esc 或点击空白处关闭。
     </template>
   </AervoxDrawer>
 </template>
