@@ -206,6 +206,165 @@ describe("configuration lifecycle checks at the writer transaction", () => {
     expect(await state()).toEqual(beforeRetry);
   });
 
+  const pageQuery = (generation: string, pageGeneration: string) => new URLSearchParams({
+    expectedLifecycleGeneration: generation, expectedPageId: "settings", expectedPageGeneration: pageGeneration,
+  }).toString();
+
+  describe.each(["read", "reset"] as const)("Page HTTP %s", operation => {
+    it.each(["removed", "missing", "other-plugin", "wrong-capability", "malformed", "reregistered", "reauthorized", "recreated"] as const)("rejects %s after admission without disclosing or mutating configuration", async change => {
+      const pageGeneration = await registerPage(["config.read", "config.write"]);
+      const generation = (await extension.getPlugin(id))!.lifecycleGeneration;
+      const before = await state();
+      async function revoke(): Promise<void> {
+        if (change === "missing" || change === "other-plugin" || change === "recreated") {
+          const pages = new SqlitePluginPageRepository(database.db);
+          await pages.deletePagesForPlugin(id);
+          if (change === "other-plugin") {
+            await extension.createPlugin({ id: "other", publisher: "test", version: "1", checksum: "other" });
+            await pages.upsertPage({ pluginId: "other", pageId: "settings", title: "Other", entry: "pages/settings/index.html", capabilities: ["config.read", "config.write"] });
+          }
+          if (change === "recreated") await registerPage(["config.read", "config.write"]);
+        } else if (change === "reregistered" || change === "reauthorized") {
+          if (change === "reauthorized") await registerPage([]);
+          await registerPage(["config.read", "config.write"]);
+        } else await registerPage(change === "removed" ? [] : change === "malformed" ? { capability: "config.read" }
+          : operation === "read" ? ["config.write"] : ["config.read"]);
+      }
+      if (operation === "read") {
+        const original = SqlitePluginConfigRepository.prototype.getConfig;
+        vi.spyOn(SqlitePluginConfigRepository.prototype, "getConfig").mockImplementationOnce(async function (...args) {
+          await revoke();
+          return original.apply(this, args);
+        });
+      } else {
+        const original = SqlitePluginConfigRepository.prototype.resetConfig;
+        vi.spyOn(SqlitePluginConfigRepository.prototype, "resetConfig").mockImplementationOnce(async function (...args) {
+          await revoke();
+          return original.apply(this, args);
+        });
+      }
+      const response = await app.inject({ method: operation === "read" ? "GET" : "POST",
+        url: `/v1/plugins/${id}/config${operation === "reset" ? "/reset" : ""}?${pageQuery(generation, pageGeneration)}` });
+      expect(response.statusCode).toBe(409);
+      expect(response.json().code).toBe("PLUGIN_CONFIG_REVISION_CONFLICT");
+      expect(response.body).not.toContain('"saved"');
+      expect(await state()).toEqual(before);
+    });
+
+    it("rejects incomplete Page identity before configuration I/O", async () => {
+      const pageGeneration = await registerPage(["config.read", "config.write"]);
+      const generation = (await extension.getPlugin(id))!.lifecycleGeneration;
+      const before = await state();
+      const query = { expectedLifecycleGeneration: generation, expectedPageId: "settings", expectedPageGeneration: pageGeneration };
+      for (const key of Object.keys(query)) {
+        const incomplete = { ...query };
+        delete incomplete[key as keyof typeof incomplete];
+        const response = await app.inject({ method: operation === "read" ? "GET" : "POST",
+          url: `/v1/plugins/${id}/config${operation === "reset" ? "/reset" : ""}?${new URLSearchParams(incomplete)}` });
+        expect(response.statusCode).toBe(400);
+      }
+      expect(await state()).toEqual(before);
+    });
+  });
+
+  it.each(["page-generation", "read-capability", "plugin-generation", "schema"] as const)("rechecks %s after awaiting Secret state before releasing a Page configuration response", async phase => {
+    const pageGeneration = await registerPage(["config.read", "config.write"]);
+    const generation = (await extension.getPlugin(id))!.lifecycleGeneration;
+    const before = await state();
+    const original = SqlitePluginSecretRepository.prototype.listStates;
+    vi.spyOn(SqlitePluginSecretRepository.prototype, "listStates").mockImplementationOnce(async function (...args) {
+      const result = await original.apply(this, args);
+      if (phase === "plugin-generation") { await extension.setPluginEnabled(id, false); await extension.setPluginEnabled(id, true); }
+      else if (phase === "schema") await extension.setPluginConfigSchema(id, [...fields, { key: "new", label: "New", type: "string" }], 2);
+      else if (phase === "read-capability") {
+        await database.client.execute({ sql: "UPDATE plugin_pages SET capabilities_json = ? WHERE plugin_id = ?", args: [JSON.stringify(["config.write"]), id] });
+      } else await registerPage(["config.read", "config.write"]);
+      return result;
+    });
+    const response = await app.inject({ method: "GET", url: `/v1/plugins/${id}/config?${pageQuery(generation, pageGeneration)}` });
+    expect(response.statusCode).toBe(409);
+    expect(response.body).not.toContain('"saved"');
+    expect(response.body).not.toContain('"configured"');
+    expect(await state()).toEqual(before);
+  });
+
+  it("serves current Page reads without caching and resets only with current write authority", async () => {
+    const pageGeneration = await registerPage(["config.read", "config.write"]);
+    const generation = (await extension.getPlugin(id))!.lifecycleGeneration;
+    const query = pageQuery(generation, pageGeneration);
+    const read = await app.inject({ method: "GET", url: `/v1/plugins/${id}/config?${query}` });
+    expect(read.statusCode).toBe(200);
+    expect(read.headers["cache-control"]).toBe("no-store");
+    expect(read.json()).toMatchObject({ revision: 1, values: { label: "saved" }, secretFields: { token: { configured: true } } });
+    const reset = await app.inject({ method: "POST", url: `/v1/plugins/${id}/config/reset?${query}` });
+    expect(reset.statusCode).toBe(200);
+    expect(reset.json()).toMatchObject({ revision: 2, values: { label: "initial" }, secretFields: { token: { configured: false } } });
+    await registerPage([]);
+    expect((await app.inject({ method: "GET", url: `/v1/plugins/${id}/config` })).statusCode).toBe(200);
+    expect((await app.inject({ method: "POST", url: `/v1/plugins/${id}/config/reset` })).statusCode).toBe(200);
+  });
+
+  it("returns defaults only for an authorized Page when no configuration exists", async () => {
+    const pageGeneration = await registerPage(["config.read", "config.write"]);
+    const generation = (await extension.getPlugin(id))!.lifecycleGeneration;
+    await database.client.execute({ sql: "DELETE FROM plugin_config_secrets WHERE plugin_id = ?", args: [id] });
+    await database.client.execute({ sql: "DELETE FROM plugin_configs WHERE plugin_id = ?", args: [id] });
+    const url = `/v1/plugins/${id}/config?${pageQuery(generation, pageGeneration)}`;
+    const current = await app.inject({ method: "GET", url });
+    expect(current.statusCode).toBe(200);
+    expect(current.json()).toMatchObject({ revision: 0, values: { label: "initial" }, secretFields: { token: { configured: false } } });
+    await registerPage([]);
+    const revoked = await app.inject({ method: "GET", url });
+    expect(revoked.statusCode).toBe(409);
+    expect(revoked.body).not.toContain('"initial"');
+    expect(revoked.body).not.toContain('"configured"');
+  });
+
+  it.each(["read", "reset"] as const)("rejects malformed direct-service Page %s identities before configuration access", async operation => {
+    const pageGeneration = await registerPage(["config.read", "config.write"]);
+    const generation = (await extension.getPlugin(id))!.lifecycleGeneration;
+    let service: PluginConfigService | undefined;
+    const original = PluginConfigService.prototype.getConfig;
+    vi.spyOn(PluginConfigService.prototype, "getConfig").mockImplementationOnce(function (...args) {
+      service = this;
+      return original.apply(this, args);
+    });
+    expect((await app.inject({ method: "GET", url: `/v1/plugins/${id}/config` })).statusCode).toBe(200);
+    const reader = vi.spyOn(SqlitePluginConfigRepository.prototype, "getConfig");
+    const writer = vi.spyOn(SqlitePluginConfigRepository.prototype, "resetConfig");
+    const before = await state();
+    for (const identity of [
+      { expectedPageId: "settings" }, { expectedPageGeneration: pageGeneration },
+      { expectedPageId: "nested/page", expectedPageGeneration: pageGeneration },
+      { expectedPageId: "settings", expectedPageGeneration: "" },
+    ]) {
+      const result = operation === "read" ? service!.getConfig({ workspaceId: "local", subjectUserId: "local" }, id, generation, identity)
+        : service!.resetConfig({ workspaceId: "local", subjectUserId: "local" }, id, generation, identity);
+      await expect(result).rejects.toMatchObject({ status: 400, code: "INVALID_CONFIG" });
+    }
+    const identity = { expectedPageId: "settings", expectedPageGeneration: pageGeneration };
+    const missingLifecycle = operation === "read" ? service!.getConfig({ workspaceId: "local", subjectUserId: "local" }, id, undefined, identity)
+      : service!.resetConfig({ workspaceId: "local", subjectUserId: "local" }, id, undefined, identity);
+    await expect(missingLifecycle).rejects.toMatchObject({ status: 400, code: "INVALID_CONFIG" });
+    expect(reader).not.toHaveBeenCalled();
+    expect(writer).not.toHaveBeenCalled();
+    expect(await state()).toEqual(before);
+  });
+
+  it("preserves a committed reset receipt when Page authority changes after commit", async () => {
+    const pageGeneration = await registerPage(["config.read", "config.write"]);
+    const generation = (await extension.getPlugin(id))!.lifecycleGeneration;
+    const original = SqlitePluginConfigRepository.prototype.resetConfig;
+    vi.spyOn(SqlitePluginConfigRepository.prototype, "resetConfig").mockImplementationOnce(async function (...args) {
+      const result = await original.apply(this, args);
+      await registerPage([]);
+      return result;
+    });
+    const accepted = await app.inject({ method: "POST", url: `/v1/plugins/${id}/config/reset?${pageQuery(generation, pageGeneration)}` });
+    expect(accepted.statusCode).toBe(200);
+    expect(accepted.json()).toMatchObject({ revision: 2, secretFields: { token: { configured: false } } });
+  });
+
   const transitions = ["disabled", "reenabled", "missing", "restored", "schema-version"] as const;
   async function transition(change: typeof transitions[number]): Promise<void> {
     if (change === "disabled" || change === "reenabled") {

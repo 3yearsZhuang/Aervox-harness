@@ -5,13 +5,44 @@ import { useAervoxPlugins } from '../src/useAervoxPlugins.js';
 const schema = { apiVersion: 'aervox.dev/v1' as const, kind: 'PluginConfigSchema' as const, schemaVersion: 1 as const, fields: [{ key: 'token', type: 'secret' as const, label: 'Token' }] };
 const schemaResponse = { schemaVersion: 1, fields: schema.fields };
 const snapshot = { pluginId: 'a/b?c#d', revision: 1, schemaVersion: 1, values: {}, secretFields: { token: { configured: true } }, orphanedValues: {}, issues: [] };
-function client(handler: (method: string, path: string, body?: unknown) => Promise<unknown>) {
-  const transport: AervoxTransport = { request: async <T>(method: string, path: string, body?: unknown) => handler(method, path, body) as Promise<T> };
+function client(handler: (method: string, path: string, body?: unknown, options?: Parameters<AervoxTransport['request']>[3]) => Promise<unknown>) {
+  const transport: AervoxTransport = { request: async <T>(method: string, path: string, body?: unknown, options?: Parameters<AervoxTransport['request']>[3]) =>
+    (options === undefined ? handler(method, path, body) : handler(method, path, body, options)) as Promise<T> };
   configureAervoxClient({ transport });
   return useAervoxPlugins();
 }
 
 describe('plugin configuration shared client', () => {
+  it('passes the Page observation signal to transport separately from its lifecycle query', async () => {
+    const request = vi.fn(async () => ({ pages: [] }));
+    const controller = new AbortController();
+    expect(await client(request).listPages('a/b?c#d', 'generation/a?b#c', controller.signal)).toEqual([]);
+    expect(request).toHaveBeenCalledExactlyOnceWith('GET',
+      '/v1/plugins/a%2Fb%3Fc%23d/pages?expectedLifecycleGeneration=generation%2Fa%3Fb%23c', undefined, { signal: controller.signal });
+    expect(request.mock.calls[0]![3].signal).toBe(controller.signal);
+  });
+
+  it('does not dispatch a Page observation whose signal is already cancelled', async () => {
+    const request = vi.fn(async () => ({ pages: [] }));
+    const reason = new Error('dialog closed');
+    await expect(client(request).listPages('plugin', 'generation', AbortSignal.abort(reason))).rejects.toBe(reason);
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it('does not publish a late Page list after the observation signal is cancelled', async () => {
+    let finish!: (value: unknown) => void;
+    const request = vi.fn(() => new Promise<unknown>(resolve => { finish = resolve; }));
+    const controller = new AbortController();
+    const reason = new Error('dialog moved to another Page');
+    const published = vi.fn();
+    const pending = client(request).listPages('plugin', 'generation', controller.signal).then(published);
+    const rejected = expect(pending).rejects.toBe(reason);
+    controller.abort(reason);
+    finish({ pages: [] });
+    await rejected;
+    expect(published).not.toHaveBeenCalled();
+  });
+
   it('validates Page grants, preserves nullable metadata and encodes the lifecycle query', async () => {
     const request = vi.fn(async () => ({ pages: [{ id: 'settings', title: 'Settings', entry: 'pages/settings/index.html',
       description: null, checksum: null, capabilities: ['host.notify'], pageGeneration: 'page-generation' }] }));
@@ -105,6 +136,32 @@ describe('plugin configuration shared client', () => {
     expect(request).toHaveBeenCalledWith('PUT', '/v1/plugins/plugin/config', {
       revision: 1, expectedPageId: 'settings', expectedPageGeneration: 'page-generation', expectedLifecycleGeneration: 'generation',
     });
+  });
+
+  it.each(['getConfig', 'resetConfig'] as const)('preserves and encodes the captured Page identity for %s', async method => {
+    const request = vi.fn(async () => snapshot);
+    const api = client(request);
+    await api[method]('a/b?c#d', 'generation/a?b#c', { expectedPageId: 'settings', expectedPageGeneration: 'page/a?b#c' });
+    const suffix = method === 'resetConfig' ? '/reset' : '';
+    expect(request).toHaveBeenCalledWith(method === 'resetConfig' ? 'POST' : 'GET',
+      `/v1/plugins/a%2Fb%3Fc%23d/config${suffix}?expectedLifecycleGeneration=generation%2Fa%3Fb%23c&expectedPageId=settings&expectedPageGeneration=page%2Fa%3Fb%23c`, undefined);
+  });
+
+  it.each(['getConfig', 'resetConfig'] as const)('rejects incomplete or malformed Page identity before %s transport', async method => {
+    const request = vi.fn(async () => snapshot);
+    const api = client(request);
+    for (const identity of [
+      { expectedPageId: 'settings' },
+      { expectedPageGeneration: 'page-generation' },
+      { expectedPageId: '../settings', expectedPageGeneration: 'page-generation' },
+      { expectedPageId: 'settings', expectedPageGeneration: '' },
+      { expectedPageId: 'settings', expectedPageGeneration: 'x'.repeat(129) },
+      { expectedPageId: 'settings', expectedPageGeneration: null },
+    ]) {
+      await expect(api[method]('plugin', 'generation', identity as never)).rejects.toThrow();
+    }
+    await expect(api[method]('plugin', undefined, { expectedPageId: 'settings', expectedPageGeneration: 'page-generation' })).rejects.toThrow();
+    expect(request).not.toHaveBeenCalled();
   });
 
   it.each(['', '../settings', 'settings/other', 'x'.repeat(65), null])('rejects an invalid Page write identity before transport: %j', async expectedPageId => {

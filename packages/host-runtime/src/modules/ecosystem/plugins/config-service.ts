@@ -17,7 +17,7 @@ import type {
   LocalContext,
 } from "@aervox/repositories";
 import { DomainConflictError, SqliteExtensionRepository, withSessionLock } from "@aervox/repositories";
-import { pluginPageSchema, pluginPageGenerationSchema, type SavePluginConfigRequest } from "@aervox/contracts";
+import { pluginConfigAccessQuerySchema, pluginPageSchema, pluginPageGenerationSchema, type PluginConfigAccessQuery, type PluginConfigSchemaResponse, type SavePluginConfigRequest } from "@aervox/contracts";
 import crypto from "node:crypto";
 import { PluginBundleStore } from "./bundle-store.js";
 import {
@@ -161,7 +161,7 @@ export class PluginConfigService {
     });
   }
 
-  async getConfigSchema(pluginId: string): Promise<{ schemaVersion: number; fields: unknown[] }> {
+  async getConfigSchema(pluginId: string): Promise<PluginConfigSchemaResponse> {
     const found = await this.findPlugin(pluginId);
     if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
     const { plugin } = found;
@@ -170,13 +170,27 @@ export class PluginConfigService {
     }
     return {
       schemaVersion: plugin.configSchemaVersion ?? 1,
-      fields: plugin.configSchemaJson as unknown[],
+      fields: plugin.configSchemaJson as PluginConfigSchemaResponse["fields"],
     };
   }
 
   // ── 配置 ──────────────────────────────────────────────
 
-  async getConfig(tenant: LocalContext, pluginId: string, expectedLifecycleGeneration?: string): Promise<PluginConfigServiceSnapshot> {
+  private configAccess(expectedLifecycleGeneration?: string, pageIdentity?: Pick<PluginConfigAccessQuery, "expectedPageId" | "expectedPageGeneration">): PluginConfigAccessQuery {
+    const parsed = pluginConfigAccessQuerySchema.safeParse({ ...pageIdentity, expectedLifecycleGeneration });
+    if (!parsed.success) throw new PluginConfigError(400, "INVALID_CONFIG", "Invalid captured Page or plugin identity");
+    return parsed.data;
+  }
+
+  private configConflict(error: unknown): never {
+    if (error instanceof DomainConflictError) throw new PluginConfigError(409, "PLUGIN_CONFIG_REVISION_CONFLICT", error.message);
+    throw error;
+  }
+
+  async getConfig(tenant: LocalContext, pluginId: string, expectedLifecycleGeneration?: string,
+    pageIdentity?: Pick<PluginConfigAccessQuery, "expectedPageId" | "expectedPageGeneration">): Promise<PluginConfigServiceSnapshot> {
+    const access = this.configAccess(expectedLifecycleGeneration, pageIdentity);
+    const pageBound = access.expectedPageId !== undefined;
     const found = await this.findPlugin(pluginId);
     if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
     if (found.plugin.enabled !== 1) {
@@ -185,15 +199,19 @@ export class PluginConfigService {
     if (expectedLifecycleGeneration !== undefined) this.requireConfigLifecycle(pluginId, found.plugin, expectedLifecycleGeneration);
     const targetId = found.resolvedId;
     const schema = await this.getConfigSchema(targetId);
-    let stored = await this.deps.configRepo.getConfig(tenant, targetId);
-    if (!stored && targetId !== pluginId) {
+    let stored = await this.deps.configRepo.getConfig(tenant, targetId, pageBound ? access : undefined, pageBound ? schema : undefined)
+      .catch((error: unknown) => this.configConflict(error));
+    if (!stored && targetId !== pluginId && !pageBound) {
       stored = await this.deps.configRepo.getConfig(tenant, pluginId);
     }
     const secretStates = await this.deps.secretRepo.listStates(tenant, targetId);
     const fields = schema.fields as Parameters<typeof validateValues>[0];
     const values = stored?.valuesJson as Record<string, unknown> | undefined;
     const { defaults } = diffSchema(fields, (values ?? {}) as Record<string, unknown>);
-    if (expectedLifecycleGeneration !== undefined) {
+    if (pageBound) {
+      await this.deps.configRepo.assertPageConfigAccess(targetId, access, schema)
+        .catch((error: unknown) => this.configConflict(error));
+    } else if (expectedLifecycleGeneration !== undefined) {
       // A Page read can outlive disable/re-enable while awaiting configuration or Secret state.
       // Recheck the captured identity before releasing its response to the old document session.
       const current = await this.deps.extensionRepo.getPlugin(targetId);
@@ -276,7 +294,9 @@ export class PluginConfigService {
     };
   }
 
-  async resetConfig(tenant: LocalContext, pluginId: string, expectedLifecycleGeneration?: string): Promise<PluginConfigServiceSnapshot> {
+  async resetConfig(tenant: LocalContext, pluginId: string, expectedLifecycleGeneration?: string,
+    pageIdentity?: Pick<PluginConfigAccessQuery, "expectedPageId" | "expectedPageGeneration">): Promise<PluginConfigServiceSnapshot> {
+    const access = this.configAccess(expectedLifecycleGeneration, pageIdentity);
     const found = await this.findPlugin(pluginId);
     if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
     this.requireConfigLifecycle(pluginId, found.plugin, expectedLifecycleGeneration);
@@ -286,11 +306,8 @@ export class PluginConfigService {
     const defaults = applyDefaults(fields);
     const stored = await this.deps.configRepo.getConfig(tenant, targetId);
     const saved = await this.deps.configRepo.resetConfig(tenant, targetId, schema.schemaVersion, defaults, schema.fields,
-      found.plugin.lifecycleGeneration, stored?.revision ?? 0)
-      .catch((error: unknown) => {
-        if (error instanceof DomainConflictError) throw new PluginConfigError(409, "PLUGIN_CONFIG_REVISION_CONFLICT", error.message);
-        throw error;
-      });
+      found.plugin.lifecycleGeneration, stored?.revision ?? 0, access.expectedPageId !== undefined ? access : undefined)
+      .catch((error: unknown) => this.configConflict(error));
     await this.audit(tenant, "plugin.config.reset", pluginId, { revision: saved.revision });
     return {
       pluginId,
@@ -411,11 +428,7 @@ export class PluginConfigService {
     pluginId: string,
     pageId: string,
   ): Promise<{ content: Buffer; mime: string }> {
-    await this.requirePlugin(pluginId);
-    const page = await this.deps.pageRepo.getPage(pluginId, pageId);
-    if (!page) throw new PluginConfigError(404, "PLUGIN_PAGE_NOT_FOUND", `page not found: ${pageId}`);
-    const rel = this.deps.bundleStore.entryToPageRelative(pluginId, pageId, page.entry);
-    return this.deps.bundleStore.readAsset(pluginId, pageId, rel);
+    return this.readPageResource(pluginId, pageId);
   }
 
   /** 读取 Page 内静态资源（相对 Page 根） */
@@ -424,11 +437,32 @@ export class PluginConfigService {
     pageId: string,
     relPath: string,
   ): Promise<{ content: Buffer; mime: string }> {
-    await this.requirePlugin(pluginId);
-    if (!await this.deps.pageRepo.getPage(pluginId, pageId)) {
-      throw new PluginConfigError(404, "PLUGIN_PAGE_NOT_FOUND", `page not found: ${pageId}`);
+    return this.readPageResource(pluginId, pageId, relPath);
+  }
+
+  private async readPageResource(pluginId: string, pageId: string, relPath?: string): Promise<{ content: Buffer; mime: string }> {
+    const captured = await this.deps.pageRepo.getPageResourceSnapshot(pluginId, pageId);
+    if (!captured) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
+    if (captured.plugin.enabled !== 1) throw new PluginConfigError(409, "PLUGIN_DISABLED", `plugin disabled: ${pluginId}`);
+    if (captured.plugin.availability !== "available") throw new PluginConfigError(409, "PLUGIN_UNAVAILABLE", `plugin unavailable: ${pluginId}`);
+    if (!captured.page) throw new PluginConfigError(404, "PLUGIN_PAGE_NOT_FOUND", `page not found: ${pageId}`);
+    if (!captured.plugin.lifecycleGeneration || !captured.page.id) {
+      throw new PluginConfigError(409, "PLUGIN_PAGE_REVISION_CONFLICT", "Page identity is unavailable; reopen the page");
     }
-    return this.deps.bundleStore.readAsset(pluginId, pageId, relPath);
+    const relative = relPath === undefined
+      ? this.deps.bundleStore.entryToPageRelative(pluginId, pageId, captured.page.entry) : relPath;
+    const asset = await this.deps.bundleStore.readAsset(pluginId, pageId, relative);
+    // Do not hold a database transaction across filesystem work. Recheck the
+    // same SQL projection before releasing bytes from the captured package.
+    const current = await this.deps.pageRepo.getPageResourceSnapshot(pluginId, pageId);
+    if (!current || current.plugin.enabled !== 1 || current.plugin.availability !== "available"
+      || current.plugin.id !== captured.plugin.id || current.plugin.lifecycleGeneration !== captured.plugin.lifecycleGeneration
+      || current.plugin.bundleGeneration !== captured.plugin.bundleGeneration || !current.page
+      || current.page.id !== captured.page.id || current.page.pluginId !== captured.page.pluginId
+      || current.page.pageId !== captured.page.pageId || current.page.entry !== captured.page.entry) {
+      throw new PluginConfigError(409, "PLUGIN_PAGE_REVISION_CONFLICT", "Page changed while reading resources; reopen the page");
+    }
+    return asset;
   }
 
   /** 供卸载钩子调用：清理配置/secret/Page 元数据与 Bundle 目录 */

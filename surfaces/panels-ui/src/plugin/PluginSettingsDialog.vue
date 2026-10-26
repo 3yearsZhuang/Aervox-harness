@@ -35,6 +35,7 @@ import { usePluginConfigEditor } from './use-plugin-config-editor'
 import SkillContentDialog from './SkillContentDialog.vue'
 import ToolCallDialog from './ToolCallDialog.vue'
 import PluginPageDialog from './PluginPageDialog.vue'
+import { usePluginPageOpening } from './use-plugin-page-opening'
 
 const props = defineProps<{
   open: boolean
@@ -80,8 +81,12 @@ const selectedTool = ref<ToolRegistrationDto | null>(null)
 // 页面相关
 const pluginPages = ref<PluginPageDto[]>([])
 const pagesLoading = ref(false)
-const pageDialogOpen = ref(false)
-const pageTargetPage = ref<PluginPageDto | null>(null)
+const {open: pageDialogOpen, targetPlugin: pageTargetPlugin, targetPage: pageTargetPage,
+  select: selectPage, refresh: refreshPage, close: closePage} = usePluginPageOpening({
+  api: pluginsApi,
+  owner: () => props.open ? props.plugin?.id ?? null : null,
+  onError: message => ElMessage.error(message),
+})
 
 // 主动感知源相关
 interface DeclaredSensor {
@@ -306,9 +311,13 @@ async function toggleSensorGrant(sensor: DeclaredSensor): Promise<void> {
 }
 
 // 页面操作
-function openPage(page: PluginPageDto): void {
-  pageTargetPage.value = page
-  pageDialogOpen.value = true
+async function openPage(page: PluginPageDto): Promise<void> {
+  if (props.plugin) await selectPage(props.plugin.id, page.id)
+}
+
+function closeSettings(): void {
+  closePage()
+  emit('close')
 }
 
 const isExporting = ref(false)
@@ -333,7 +342,7 @@ async function handleExport(): Promise<void> {
     :subtitle="`${plugin?.publisher ?? ''}@${plugin?.version ?? ''} · 集中管理插件配置、技能与工具能力`"
     :icon="SlidersHorizontal"
     size="lg"
-    @close="emit('close')"
+    @close="closeSettings"
   >
     <template #header-actions>
       <AervoxButton variant="secondary"
@@ -596,11 +605,11 @@ async function handleExport(): Promise<void> {
     <template #footer>
       <template v-if="currentTab === 'config' && hasConfig">
         <AervoxButton variant="secondary" :disabled="configSaving || !configReady" @click="resetConfig">恢复默认</AervoxButton>
-        <AervoxButton variant="secondary" @click="emit('close')">取消</AervoxButton>
+        <AervoxButton variant="secondary" @click="closeSettings">取消</AervoxButton>
         <AervoxButton variant="primary" :loading="configSaving" :disabled="!configReady || configLoading" @click="saveConfig">保存配置</AervoxButton>
       </template>
       <template v-else>
-        <AervoxButton variant="secondary" @click="emit('close')">关闭</AervoxButton>
+        <AervoxButton variant="secondary" @click="closeSettings">关闭</AervoxButton>
       </template>
     </template>
 
@@ -617,9 +626,10 @@ async function handleExport(): Promise<void> {
     />
     <PluginPageDialog
       :open="pageDialogOpen"
-      :plugin="plugin"
+      :plugin="pageTargetPlugin"
       :page="pageTargetPage"
-      @close="pageDialogOpen = false"
+      @close="closePage"
+      @refresh="refreshPage"
     />
   </AervoxDialog>
 </template>

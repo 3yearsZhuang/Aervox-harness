@@ -7,7 +7,7 @@
  */
 import { withSessionLock } from "../../session-lock.js";
 import { DomainConflictError } from "../../errors.js";
-import { pluginPageSchema } from "@aervox/contracts";
+import { pluginConfigAccessQuerySchema, pluginPageSchema, type PluginConfigAccessQuery, type PluginConfigSchemaResponse } from "@aervox/contracts";
 import { and, eq, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import {
@@ -24,13 +24,54 @@ import type {
   PluginConfigModel,
   PluginConfigSaveInput,
   PluginPageModel,
+  PluginPageResourceSnapshot,
   PluginSecretModel,
 } from "../types/index.js";
 
 export class SqlitePluginConfigRepository implements IPluginConfigRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
-  async getConfig(ctx: LocalContext, pluginId: string): Promise<PluginConfigModel | null> {
+  private requirePageAccessIdentity(access: PluginConfigAccessQuery): PluginConfigAccessQuery {
+    const parsed = pluginConfigAccessQuerySchema.safeParse(access);
+    if (!parsed.success || !parsed.data.expectedLifecycleGeneration || !parsed.data.expectedPageId || !parsed.data.expectedPageGeneration) {
+      throw new DomainConflictError("A captured Page and plugin identity are required");
+    }
+    return parsed.data;
+  }
+
+  private pageAccessColumns = {
+    enabled: plugins.enabled, availability: plugins.availability, lifecycleGeneration: plugins.lifecycleGeneration,
+    schemaVersion: plugins.configSchemaVersion, fields: plugins.configSchemaJson,
+    pageGeneration: pluginPages.id, capabilities: pluginPages.capabilitiesJson,
+  };
+
+  private requirePageAccess(
+    row: (Pick<typeof plugins.$inferSelect, "enabled" | "availability" | "lifecycleGeneration"> & {
+      schemaVersion: number; fields: unknown; pageGeneration: string | null; capabilities: unknown;
+    }) | undefined,
+    access: PluginConfigAccessQuery,
+    expectedSchema?: PluginConfigSchemaResponse,
+  ): void {
+    const capabilities = pluginPageSchema.shape.capabilities.safeParse(row?.capabilities);
+    if (!row || row.enabled !== 1 || row.availability !== "available" || row.lifecycleGeneration !== access.expectedLifecycleGeneration
+      || row.pageGeneration !== access.expectedPageGeneration || !capabilities.success || !capabilities.data.includes("config.read")
+      || (expectedSchema !== undefined && (row.schemaVersion !== expectedSchema.schemaVersion
+        || JSON.stringify(row.fields) !== JSON.stringify(expectedSchema.fields)))) {
+      throw new DomainConflictError("Plugin or Page configuration access changed; reopen the page");
+    }
+  }
+
+  async getConfig(ctx: LocalContext, pluginId: string, access?: PluginConfigAccessQuery, expectedSchema?: PluginConfigSchemaResponse): Promise<PluginConfigModel | null> {
+    if (access !== undefined) {
+      const captured = this.requirePageAccessIdentity(access);
+      // The grant, schema, and optional configuration share one SQLite snapshot.
+      // A missing configuration is distinct from a missing/revoked Page.
+      const [row] = await this.db.select({ ...this.pageAccessColumns, config: pluginConfigs }).from(plugins)
+        .leftJoin(pluginPages, and(eq(pluginPages.pluginId, plugins.id), eq(pluginPages.pageId, captured.expectedPageId!)))
+        .leftJoin(pluginConfigs, eq(pluginConfigs.pluginId, plugins.id)).where(eq(plugins.id, pluginId)).limit(1);
+      this.requirePageAccess(row, captured, expectedSchema);
+      return (row?.config as PluginConfigModel | null) ?? null;
+    }
     const [found] = await this.db
       .select()
       .from(pluginConfigs)
@@ -41,6 +82,14 @@ export class SqlitePluginConfigRepository implements IPluginConfigRepository {
       )
       .limit(1);
     return (found as PluginConfigModel) ?? null;
+  }
+
+  async assertPageConfigAccess(pluginId: string, access: PluginConfigAccessQuery, expectedSchema?: PluginConfigSchemaResponse): Promise<void> {
+    const captured = this.requirePageAccessIdentity(access);
+    const [row] = await this.db.select(this.pageAccessColumns).from(plugins)
+      .leftJoin(pluginPages, and(eq(pluginPages.pluginId, plugins.id), eq(pluginPages.pageId, captured.expectedPageId!)))
+      .where(eq(plugins.id, pluginId)).limit(1);
+    this.requirePageAccess(row, captured, expectedSchema);
   }
 
   async saveConfig(
@@ -129,6 +178,7 @@ export class SqlitePluginConfigRepository implements IPluginConfigRepository {
     expectedSchema: unknown,
     expectedLifecycleGeneration: string,
     expectedRevision: number,
+    pageIdentity?: Pick<PluginConfigAccessQuery, "expectedPageId" | "expectedPageGeneration">,
   ): Promise<PluginConfigModel> {
     return withSessionLock(`plugin-config:${pluginId}`, () => this.db.transaction(async (tx) => {
       if (expectedSchema == null || typeof expectedLifecycleGeneration !== "string" || !expectedLifecycleGeneration
@@ -143,6 +193,15 @@ export class SqlitePluginConfigRepository implements IPluginConfigRepository {
         || plugin.generation !== expectedLifecycleGeneration || plugin.schemaVersion !== schemaVersion
         || JSON.stringify(plugin.schema) !== JSON.stringify(expectedSchema)) {
         throw new DomainConflictError("Plugin configuration lifecycle or schema changed; reload before resetting");
+      }
+      if (pageIdentity !== undefined) {
+        const captured = this.requirePageAccessIdentity({ ...pageIdentity, expectedLifecycleGeneration });
+        const [page] = await tx.select({ generation: pluginPages.id, capabilities: pluginPages.capabilitiesJson }).from(pluginPages)
+          .where(and(eq(pluginPages.pluginId, pluginId), eq(pluginPages.pageId, captured.expectedPageId!)));
+        const capabilities = pluginPageSchema.shape.capabilities.safeParse(page?.capabilities);
+        if (!page || page.generation !== captured.expectedPageGeneration || !capabilities.success || !capabilities.data.includes("config.write")) {
+          throw new DomainConflictError("Page configuration write access changed; reopen the page");
+        }
       }
       const [existing] = await tx.select({ revision: pluginConfigs.revision }).from(pluginConfigs).where(eq(pluginConfigs.pluginId, pluginId));
       if ((existing?.revision ?? 0) !== expectedRevision) {
@@ -339,6 +398,21 @@ export class SqlitePluginPageRepository implements IPluginPageRepository {
       .where(and(eq(pluginPages.pluginId, pluginId), eq(pluginPages.pageId, pageId)))
       .limit(1);
     return (found as PluginPageModel) ?? null;
+  }
+
+  async getPageResourceSnapshot(pluginId: string, pageId: string): Promise<PluginPageResourceSnapshot | null> {
+    // Read both identities together: separate plugin and Page reads can admit a
+    // resource from two different registrations. File I/O happens outside SQL.
+    const [snapshot] = await this.db.select({
+      plugin: {
+        id: plugins.id, enabled: plugins.enabled, availability: plugins.availability,
+        lifecycleGeneration: plugins.lifecycleGeneration, bundleGeneration: plugins.bundleGeneration,
+      },
+      page: { id: pluginPages.id, pluginId: pluginPages.pluginId, pageId: pluginPages.pageId, entry: pluginPages.entry },
+    }).from(plugins)
+      .leftJoin(pluginPages, and(eq(pluginPages.pluginId, plugins.id), eq(pluginPages.pageId, pageId)))
+      .where(eq(plugins.id, pluginId)).limit(1);
+    return snapshot ?? null;
   }
 
   async deletePagesForPlugin(pluginId: string): Promise<void> {

@@ -701,6 +701,7 @@ CAP-014 当前分支 API 与地图读取切片保持会话内容和布局元数�
   - `AC-FR-PLG-004-03`：Given 路径穿越或未启用插件，When 访问静态资源，Then 被拒绝。
   - `AC-FR-PLG-004-04`：Given Page 根以下存在符号链接祖先、多硬链接文件或路径在打开前被替换，When 上传或读取资源，Then 拒绝越界访问且不修改外部文件；generation 包资源保持不可变。
   - `AC-FR-PLG-004-05`：Given Page 已按 lifecycleGeneration 打开，When 插件停用再启用或缺包恢复，Then 旧代际配置读写返回冲突；窗口观察到新代际后丢弃旧 iframe、Nonce 和在途响应。
+  - `AC-FR-PLG-004-06`：Given Page 不发 Bridge 调用，When 持久资格观察发现插件/Page 换代、入口或 capability 失配，或资格查询失败/超出本地截止，Then 移除 iframe 并锁定旧选择，迟到结果与文档连续 load 不能复活或延长原截止；用户显式刷新/重开须重新捕获插件及 Page 身份并复验。观察间隔与调度限制见[Page 合同](plugin-config-and-pages.md#32-已有防护与未完成边界)，不宣称跨窗口实时推送或代码强制终止。
 
 ### FR-PLG-005 Bot 平台文字接入
 
