@@ -148,7 +148,9 @@ export interface BuildAppResult {
 }
 
 export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<BuildAppResult> {
-  const app = Fastify({ logger: false });
+  // Existing session creation accepts 128 Unicode characters; percent-encoded
+  // identities need more than the router's default 100-byte parameter budget.
+  const app = Fastify({ logger: false, routerOptions: { maxParamLength: 4096 } });
   const apiRegistry = options.apiRegistry ?? createPluginApiRegistry();
   const routeInventory: { method: string; path: string }[] = [];
   app.addHook("onRoute", (route) => {

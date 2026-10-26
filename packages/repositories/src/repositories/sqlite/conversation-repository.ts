@@ -27,6 +27,7 @@ import type {
   ToolExecutionModel,
   ToolApprovalModel,
 } from "../types/index.js";
+import { readSessionHistoryPage } from "./conversation/history-page.js";
 import { readTurnDiagnostics } from "./conversation/diagnostics-store.js";
 import { ApprovalStore } from "./conversation/approval-store.js";
 import { AttemptStore } from "./conversation/attempt-store.js";
@@ -75,6 +76,10 @@ export class SqliteConversationRepository implements IConversationRepository {
   synchronizeTurnWithLatestAttempt(turnId: string) { return this.apiRecoveryStore.synchronize(turnId); }
   retireExpiredApiOwnedAttempt(turnId: string, attemptId: string, expectedFencingToken: number) {
     return this.apiRecoveryStore.retireExpired(turnId, attemptId, expectedFencingToken);
+  }
+
+  getSessionHistoryPage(_ctx: LocalContext, input: { sessionId: string; limit?: number; cursor?: string }) {
+    return readSessionHistoryPage(this.db, input);
   }
 
   getSessionHistory(ctx: LocalContext, input: { sessionId: string; beforeTurnId: string }) {

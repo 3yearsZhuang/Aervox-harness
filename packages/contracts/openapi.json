@@ -9693,6 +9693,139 @@
           "unavailable"
         ]
       },
+      "SessionHistoryPage": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SessionHistoryTurn"
+            },
+            "maxItems": 50
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 16384,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          }
+        },
+        "required": [
+          "sessionId",
+          "items",
+          "nextCursor"
+        ]
+      },
+      "SessionHistoryTurn": {
+        "type": "object",
+        "properties": {
+          "turnId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "isComplete": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SessionHistoryMessage"
+            },
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "turnId",
+          "status",
+          "isComplete",
+          "createdAt",
+          "messages"
+        ]
+      },
+      "SessionHistoryMessage": {
+        "type": "object",
+        "properties": {
+          "messageId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "versionId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant",
+              "system"
+            ]
+          },
+          "contentKind": {
+            "type": "string",
+            "enum": [
+              "accepted_input",
+              "message"
+            ]
+          },
+          "content": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "available",
+              "withheld"
+            ]
+          },
+          "legacy": {
+            "type": "boolean"
+          },
+          "readOnly": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "messageId",
+          "versionId",
+          "version",
+          "role",
+          "contentKind",
+          "content",
+          "visibility",
+          "legacy",
+          "readOnly",
+          "createdAt"
+        ]
+      },
       "ListMemoryNodesResponse": {
         "type": "object",
         "properties": {
@@ -20857,6 +20990,119 @@
           },
           "404": {
             "description": "TURN_OR_ATTEMPT_NOT_FOUND",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sessions/{sessionId}/history": {
+      "get": {
+        "operationId": "getSessionHistoryPage",
+        "summary": "读取当前持久消息版本的单页历史，不执行模型或重建旧事件正文",
+        "tags": [
+          "Conversation"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": true,
+            "name": "sessionId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(?:[1-9]|[1-4][0-9]|50)$"
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 16384,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionHistoryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_HISTORY_QUERY",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "SESSION_NOT_FOUND",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "HISTORY_CURSOR_EXPIRED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "HISTORY_ITEM_TOO_LARGE",
             "content": {
               "application/problem+json": {
                 "schema": {

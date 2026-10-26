@@ -10,6 +10,7 @@ import { registerBotOpenApi } from './bot-openapi.js';
 import { registerMcpOpenApiPaths, registerMcpOpenApiSchemas } from './mcp-openapi.js';
 import { apiProblemSchema, type ApiEndpoint } from "./http-api.js";
 import { turnDiagnosticsApi } from "./turn-diagnostics-api.js";
+import { sessionHistoryApi } from "./session-history-api.js";
 import { voiceApi } from "./voice-api.js";
 import { mcpApi } from "./mcp-api.js";
 import { llmApi } from "./llm-api.js";
@@ -1007,7 +1008,7 @@ function registerJsonEndpoint(endpoint: ApiEndpoint): void {
     },
   });
 }
-for (const endpoint of [...Object.values(turnDiagnosticsApi), ...Object.values(modelRuntimeApi), ...Object.values(llmApi), ...Object.values(preferencesApi), ...Object.values(privacyApi), ...Object.values(skillsApi), ...Object.values(branchesApi), ...Object.values(feedbackApi)] as ApiEndpoint[]) {
+for (const endpoint of [...Object.values(turnDiagnosticsApi), ...Object.values(sessionHistoryApi), ...Object.values(modelRuntimeApi), ...Object.values(llmApi), ...Object.values(preferencesApi), ...Object.values(privacyApi), ...Object.values(skillsApi), ...Object.values(branchesApi), ...Object.values(feedbackApi)] as ApiEndpoint[]) {
   registerJsonEndpoint(endpoint);
 }
 registry.registerPath({

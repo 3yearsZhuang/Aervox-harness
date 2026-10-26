@@ -522,3 +522,4 @@ export { createConversationController } from './conversation-controller.js';
 export type { ConversationController, ConversationState, ConversationStatus } from './conversation-controller.js';
 
 export { createLLMConfigClient } from './llm-client.js';
+export { createSessionHistoryClient, isValidSessionHistoryId } from './session-history-client.js';

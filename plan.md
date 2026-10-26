@@ -4,7 +4,7 @@
 
 ## 1. 当前判断与执行顺序
 
-2026-10-26 核对：PR #323/#324 已合并，主线为 `29db872c`；PR #326 的配置、资源 I/O 复验及静默 Page 观察在 `4e0e7f39` 通过 5 项远端检查，尚未合并。共享传输、Attempt、领域事务、Conversation Port 和 Page 登记代际已有交付，但**ITER-071 尚未完全实现设计**。本轮在 `fix/plan-safety-contract-continuation` 继续删除/账本意图、插件授权及接口契约、Provider 登记所有权与移除/负载验证；其余未闭合事项仍按下列风险与依赖推进，不能以包边界成立视为行为已经统一。
+2026-10-26 核对：PR #323/#324 已合并，主线为 `29db872c`；PR #326 的配置、资源 I/O 复验及静默 Page 观察在 `4e0e7f39` 通过 5 项远端检查，尚未合并。共享传输、Attempt、领域事务、Conversation Port 和 Page 登记代际已有交付，但**ITER-071 尚未完全实现设计**。接续的 PR #327/#328/#330/#331 分别交付安全/契约、LLM/CLI、Android 工程和持久消息真源，精确提交远端检查均通过，仍待审查合入。本轮在 `feat/session-history-read` 接上历史分页 API、CLI 与工作台抽屉；其余未闭合事项仍按下列风险与依赖推进，不能以包边界成立视为行为已经统一。
 
 | 顺序 | 当前目标 | 对应条目与进入下一阶段的条件 |
 |---|---|---|
@@ -148,7 +148,7 @@
 
 #### 本轮接续：会话长期消息真源
 
-原先普通 assistant 只在安全片段和在线事件中，无法承接 24 小时后的历史。现新接单、终态与恢复共用[消息持久化命令](packages/repositories/src/repositories/sqlite/conversation/message-history.ts)；不引入 Schema 或用户库迁移。对 NUL 身份的终态/恢复使用 SQL 比较或 JSON 转义，避免原生文本截断导致同步失败或误用前缀身份。新写链同步修复自动日记、消息 FTS 和模型上下文的现有消费者；不完整/已删正文不能经新持久版本进入自动派生。物理删除首版、审批删流后续接、取消/恢复、人工编辑、故障回滚和身份碰撞有定向反例；整体验证另记。该切片不关闭完整授权传播、历史用户入口或生产恢复的原有边界。
+原先普通 assistant 只在安全片段和在线事件中，无法承接 24 小时后的历史。现新接单、终态与恢复共用[消息持久化命令](packages/repositories/src/repositories/sqlite/conversation/message-history.ts)；不引入 Schema 或用户库迁移。对 NUL 身份的终态/恢复使用 SQL 比较或 JSON 转义，避免原生文本截断导致同步失败或误用前缀身份。新写链同步修复自动日记、消息 FTS 和模型上下文的现有消费者；不完整/已删正文不能经新持久版本进入自动派生。物理删除首版、审批删流后续接、取消/恢复、人工编辑、故障回滚和身份碰撞有定向反例；整体验证另记。该切片不关闭完整授权传播或生产恢复的原有边界；[PR #331](https://github.com/3yearsZhuang/Aervox-harness/pull/331) 的 `30b11948` 已通过 8 项远端检查。用户历史读取入口由下一切片接续。
 
 本批最终新的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务及守卫、兼容、HLS、删除故障、Native、64 份文档门禁通过；仓储 801、API 960、Host Agent 123、Host Runtime 306、Worker 161、Core 501、客户端 230、CLI 131 项通过，1 项既有真实模型跳过保留。最后代码另跑真实 API E2E 45、打包 CLI/真实 API/文件 SQLite/API 重启与清理在线事件后的历史 2 项通过，审计 0 未审阅、2 既有审阅、0 过时例外。首轮 7 个重复创建身份夹具、次轮 1 个将未完成 Turn 当日记素材的旧夹具失败均保留；改为断言真实身份/明确完成素材，不放宽删除或唯一约束。NUL 恢复和取消/Hook 水位回退反例先红后绿。随后仅补本条并复验文档，精确提交远端结果另记；不将这些切片升级为整个计划完成。
 
@@ -243,7 +243,7 @@ FND-02/04、CAP-020，依赖 ITER-004/063，遵循 [ADR-028](docs/reference/adr/
 
 ### ITER-053/059/061 · 第一方界面切片已交付，产品场景待验收
 
-- **ITER-053：** 前端体验与跨端连续对话已有 [PR #260](https://github.com/3yearsZhuang/Aervox-harness/pull/260)、[PR #275](https://github.com/3yearsZhuang/Aervox-harness/pull/275)；剩余历史消息加载、真实模型和跨端用户操作闭环，结合 ITER-064 当前接口验收。移动真机按 ITER-009 的平台/运行位置决定后取证。
+- **ITER-053：** 前端体验与跨端连续对话已有 [PR #260](https://github.com/3yearsZhuang/Aervox-harness/pull/260)、[PR #275](https://github.com/3yearsZhuang/Aervox-harness/pull/275)；本轮历史抽屉接上 ITER-064 持久分页；实时对话面板自动回填、主动陪伴的历史入口、真实模型和跨端用户操作闭环继续验收。移动真机按 ITER-009 的平台/运行位置决定后取证。
 - **ITER-059：** 陪伴界面、最近会话和固定入口由 [PR #276](https://github.com/3yearsZhuang/Aervox-harness/pull/276)交付，桌面经典布局/移动陪伴由 [PR #306](https://github.com/3yearsZhuang/Aervox-harness/pull/306)对齐；仍须验证学习记录推荐来源、真实模型及设备行为。
 - **ITER-061：** companionName/userAddress 与旧字段迁移由 [PR #279](https://github.com/3yearsZhuang/Aervox-harness/pull/279)交付，按维护者决定移除素简文档界面；命名与身份分层保留，服务端统一身份、真实模型/实机仍未验收。以上原编号分别承接剩余，ITER-071 先修 Controller/问答/观察缺口，各 surface 保留布局。
 
@@ -255,7 +255,9 @@ CAP 与合同遵循 [API 约定](docs/reference/API_CONVENTIONS.md)，依赖 ITE
 
 - **顺序：** 先隐私/配置/插件及技能写入口，再补当前会话详情/历史、作答/分支入口和 CLI 所需接口，随后内容/学习/主动模块剩余分组。ITER-071 的鉴权与原子性修复不等待全部历史路由清零。
 - **验收：** 精确方法/路径、稳定 operationId、请求与成功/错误 Schema、认证、真实请求和旧客户端行为；新增遗漏/扩大豁免被拒绝，每补一个删除其精确例外。JSON 共享端点不改变 SSE/文件/二进制协议，破坏性变化单列迁移决定。
-- **历史真源前置：** 本轮接续普通在线 user 的真实 Message 身份和 assistant 空版绑定，终态/取消/恢复事务发布已提交安全前缀、当前指针及 sequence 水位；审批续接保留已存前缀，人工编辑不被迟到写覆盖。来源/删除资格与日记、FTS 派生同步收口，旧 unlinked/import 不迁移、不从事件猜造正文。模型上下文对新消息改读长期当前版本，清理在线事件后仍能读取；保留 20 轮/32000 字符预算及旧路径边界。用户历史分页 API、CLI 与界面尚待接线，当前集成与 PR 证据另记。
+- **历史真源前置：** 本轮接续普通在线 user 的真实 Message 身份和 assistant 空版绑定，终态/取消/恢复事务发布已提交安全前缀、当前指针及 sequence 水位；审批续接保留已存前缀，人工编辑不被迟到写覆盖。来源/删除资格与日记、FTS 派生同步收口，旧 unlinked/import 不迁移、不从事件猜造正文。模型上下文对新消息改读长期当前版本，清理在线事件后仍能读取；保留 20 轮/32000 字符预算及旧路径边界。用户历史分页 API、CLI 与工作台抽屉由下列切片接续，当前集成与 PR 证据另记。
+- **本轮持久历史读取：** 新增共享 `GET /v1/sessions/{sessionId}/history` 与 headless Client，CLI `sessions history` 和工作台“对话回看”读取同一当前版本投影。单页默认 20/最多 50 个候选，按插入顺序显式向前翻页；隐藏候选不额外扫描填充，空页仍可返回游标。单轮 100 消息/256 KiB、整页 512 KiB，超限含游标转义膨胀返回明确 422，不截断成功正文。未完成状态保留、脱敏正文为 null，旧 unlinked 只读，不从事件补造缺失历史；无首 User 的导入轮仍受保守来源门槛阻断。工作台单页替换，关闭/切会话/改页数清正文并释放旧 GET，不改变实时 Controller；完整授权传播、真实模型与移动独立运行仍分别验收。
+- **本轮验证：** 最后代码的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务，API 967、仓储 820、Host Agent 123、Host Runtime 306、Core 501、Worker 161、客户端 234、CLI 148、UI 155 项通过，1 项既有真实模型跳过保留；守卫、OpenAPI 兼容、HLS、删除故障、Native 与 64 份文档门禁通过。打包安装 CLI/真实 Token API/文件 SQLite/重启/清理在线行/分页及隐藏 2 项通过，Chromium 全套 23 项通过，其中 390/1280px 真实浏览器新回看 2 项；依赖审计 0 未审阅、2 既有审阅路径、0 过时例外。独立复核发现合法中文 ID 被旧 CLI 限制，以及 NUL 转义使游标超限，新增反例修复；首次全量因 CLI 直接依赖 Contracts 被架构守卫拒绝，改由 headless Client 暴露共享校验，未放宽依赖规则。随后只补验证记录并复验文档，精确提交远端证据由新 PR 保存。
 - **剩余产品责任：** Neo 生命周期；分支来源、完整删除、布局恢复、大图性能；反馈读取预算、回答版本关联和复核队列。图读取行数预算不证明 SQL 排序时间或单布局字节有界。
 
 | 已合并切片 | 保留行为与数量 | 证据 |
@@ -290,7 +292,8 @@ CAP-002/007、本地模型基础设施。Core Provider 与本地 Driver 的统�
 
 `@aervox/cli` / `siyu` 只消费本机 API 与 `@aervox/api-client/transport`，CAP-002/007/020。单次/TTY 连续会话、事件补读/终态、诊断、配置读写、JSON/JSONL、Token/幂等、审批/补问/有界取消已由 [PR #308](https://github.com/3yearsZhuang/Aervox-harness/pull/308)、[PR #319](https://github.com/3yearsZhuang/Aervox-harness/pull/319)交付。
 
-- **下一步：** 依赖 ITER-064 的详情/历史接口，完成真实模型下的跨客户端/API 重启接续与平台矩阵。学习/复习、记忆专用命令、独立运行另验，不扩大首个连接版为独立宿主；不增 Schema、中心服务或第二执行栈。
+- **下一步：** 基于 ITER-064 的持久历史分页，完成真实模型下的跨客户端/API 重启接续与平台矩阵。学习/复习、记忆专用命令、独立运行另验，不扩大首个连接版为独立宿主；不增 Schema、中心服务或第二执行栈。
+- **本轮历史入口：** `sessions history <ID> [--limit 1～50] [--cursor …]` 只请求显式一页，JSON/JSONL 保留共享 DTO；TTY 区分有效输入、未完成前缀和只读/隐藏记录并清除控制序列。采用共享 Session 参数校验，支持中文及带斜杠的已有 ID；不创建/取消 Turn、不自动重试或改变上次执行回执。安装制品连接真实 API/文件 SQLite，跨 API 重启及清理在线行后的分页/隐藏读取另验。
 - **本轮模型配置入口：** 共享 headless LLM Client 供 CLI 与 Vue 使用；`models` 提供目录、配置、连接探测及 Preset 管理，配置从文件读取，密钥可经环境变量注入，输出仅白名单字段和去除凭据/查询的 URL。省略 apiKey 仍按旧合同清空，命令不存本机模型密钥；不把模拟探测当真实 Provider 验收。
 - **验收与边界：** 打包产物+真实 API/文件 SQLite，非交互不自动批准，观察超时/失败不取消已受理回合，中断有界取消；共享包不反向依赖 CLI。列表 limit 有界、offset 安全整数，只翻用户指定页，offset 非快照；不当完整导出。
 - **证据：** 重启后 102 个临时会话的默认/末尾/空页和接续、全量及远端检查通过；不等于真实模型/正式平台发布。首次无退出码及旧依赖失败保留在[原计划](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation/reading/plan.md#iter-029)及 PR。

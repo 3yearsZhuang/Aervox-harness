@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { modelRuntimeApi, preferencesApi, privacyApi, pluginConfigApi, pluginsApi, skillsApi, branchesApi, feedbackApi, llmApi } from '@aervox/contracts';
+import { modelRuntimeApi, preferencesApi, privacyApi, pluginConfigApi, pluginsApi, skillsApi, branchesApi, feedbackApi, llmApi, sessionHistoryApi } from '@aervox/contracts';
 import { createInMemoryDatabase } from '@aervox/repositories';
 import { buildApp } from './app-fixture.js';
 import { compareRouteCoverage, routeCoverageKey, type RouteCoverageException } from './helpers/openapi-coverage.js';
@@ -13,7 +13,7 @@ describe('OpenAPI route coverage ratchet', () => {
       await built.app.ready();
       const baseline = JSON.parse(readFileSync(new URL('./fixtures/openapi-route-baseline.json', import.meta.url), 'utf8')) as { exceptions: RouteCoverageException[] };
       const routes = built.routeInventory;
-      for (const endpoint of [...Object.values(modelRuntimeApi), ...Object.values(preferencesApi), ...Object.values(privacyApi), ...Object.values(pluginConfigApi), ...Object.values(pluginsApi), ...Object.values(skillsApi), ...Object.values(branchesApi), ...Object.values(feedbackApi), ...Object.values(llmApi)]) {
+      for (const endpoint of [...Object.values(modelRuntimeApi), ...Object.values(preferencesApi), ...Object.values(privacyApi), ...Object.values(pluginConfigApi), ...Object.values(pluginsApi), ...Object.values(skillsApi), ...Object.values(branchesApi), ...Object.values(feedbackApi), ...Object.values(llmApi), ...Object.values(sessionHistoryApi)]) {
         expect(routes.map(route => routeCoverageKey(route.method, route.path))).toContain(routeCoverageKey(endpoint.method, endpoint.path));
       }
       // Plugin contracts belong to this Host, so compare its actual HTTP document.

@@ -72,6 +72,11 @@ test('packed CLI + authenticated API + file SQLite survives client and API resta
       return result.rows.map(row => row.content).join('');
     };
     assert.equal(await durableAnswer(), first.text);
+    const savedHistory = (await cli(['sessions', 'history', 'cli_smoke'])).data;
+    assert.equal(savedHistory.items[0].turnId, first.turnId);
+    assert.equal(savedHistory.items[0].isComplete, true);
+    assert.deepEqual(savedHistory.items[0].messages.map(message => message.content), ['解释闭包', first.text]);
+    assert.ok(savedHistory.items[0].messages.every(message => message.messageId && !message.legacy));
 
     // Exercise the installed headless LLM client against the real routes and writer.
     const modelSecret = 'sk/packed-model-canary';
@@ -102,6 +107,7 @@ test('packed CLI + authenticated API + file SQLite survives client and API resta
     assert.equal((await cli(['events', first.turnId])).text, first.text);
     assert.equal((await cli(['status', first.turnId])).ok, true);
     assert.equal(await durableAnswer(), first.text);
+    assert.deepEqual((await cli(['sessions', 'history', 'cli_smoke'])).data, savedHistory);
     assert.ok((await cli(['sessions', 'list'])).data.items.some(item => item.id === 'cli_smoke'));
 
     // Seed more than one page through the restarted writer, with distinct
@@ -142,6 +148,19 @@ test('packed CLI + authenticated API + file SQLite survives client and API resta
     ]);
     const receipt = JSON.parse(await readFile(join(temporary, 'cli.json.last-run'), 'utf8'));
     assert.equal(receipt.turnId, second.turnId);
+    const latest = (await cli(['sessions', 'history', 'cli_smoke', '--limit', '1'])).data;
+    assert.deepEqual(latest.items.map(item => item.turnId), [second.turnId]);
+    assert.ok(latest.nextCursor);
+    const older = (await cli(['sessions', 'history', 'cli_smoke', '--limit', '1', '--cursor', latest.nextCursor])).data;
+    assert.deepEqual(older, savedHistory);
+    assert.equal((await restartedRepository.listTurnAttempts(local, first.turnId)).length, 1);
+    assert.equal((await restartedRepository.listTurnAttempts(local, second.turnId)).length, 1);
+    // Reads preserve the last execution receipt and cannot recreate cleared events.
+    assert.equal(JSON.parse(await readFile(join(temporary, 'cli.json.last-run'), 'utf8')).turnId, second.turnId);
+    await restartedRepository.redactTurnMessages(local, first.turnId);
+    const withdrawn = (await cli(['sessions', 'history', 'cli_smoke', '--cursor', latest.nextCursor])).data;
+    assert.ok(withdrawn.items[0].messages.every(message => message.visibility === 'withheld' && message.content === null));
+    assert.ok(!JSON.stringify(withdrawn).includes(first.text));
   } finally {
     await app?.close(); database?.client.close();
     for (const [key, value] of previous) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
