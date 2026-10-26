@@ -1096,11 +1096,13 @@ CAP-014 当前分支 API 与地图读取切片保持会话内容和布局元数�
 - **必须**：连接 Token、Refresh Token、Client Secret 和私密设置不得进入日志、模型上下文、普通分析、API 响应或导出；HA 只缓存受限属性，健康只保存规范化每日指标；按连接撤销执行本地删除。
 - **验收**：`TC-PRIV-EXT-CREDENTIAL-001`、`TC-PRIV-HEALTH-001`。
 
-## 10. 移动端验收建议（待 M0 采纳）
+## 10. 移动端 M0 范围与后续验收建议
 
 <a id="mobile-proposal-acceptance"></a>
 
-以下由原 CR-055 §3.2 迁入，保留 `M-AC-01`～`M-AC-09`，仍是 **Proposed** 的切片建议。M0 确认范围后再关联正式 AC/TC；迁移文档不提高任何 CAP 状态，也不把配套端当作独立手机运行时。架构决策见 [ADR-022](adr/ADR-022-mobile-runtime-access.md)，范围与门禁见[追踪基线](REQUIREMENTS_TRACEABILITY.md#mobile-decisions)。
+维护者已接受 Android 独立端的 M0 隔离原型：本安装固定内置 SQLite、复用现有 Core/仓储规则、原生持钥模型请求，先完成新测试会话的前台与重启闭环。以下原 CR-055 §3.2 的 `M-AC-01`～`M-AC-09` 保留，其中前台持久会话子集按 M0 实施；配套连接、完整学习、其它原生能力与发布仍是后续建议，不把整表视作已采纳或已验收，不提高任何 CAP 状态。架构决策见 [ADR-022](adr/ADR-022-mobile-runtime-access.md)，范围与门禁见[追踪基线](REQUIREMENTS_TRACEABILITY.md#mobile-decisions)。
+
+M0 的可观察门槛是：电脑 API/Worker 不运行时，手机在隔离库新建并接受 Turn，正文只从已提交安全片段展示；进程终止后重开可读相同消息身份、状态和已保存前缀。取消与一次补问作答按原业务键/账本幂等，删除验证后迟到写不能复活正文。固定引擎的 RETURNING、JSON/NUL、FTS5、FK、ROLLBACK 和 Schema 版本/指纹先在实际 Android 执行验证；凭据不返回 WebView，缺失或失效、local_only 与远程模型冲突均拒绝。确定性 Provider、真实获准模型、编译/设备执行各自取证；只生成 APK 或编译测试不能通过此门槛。旧业务库迁移、同步、后台常驻和第三方代码插件不属于该隔离原型。
 
 | 移动切片 | CAP / 要求 | 首版范围 | 验收建议 |
 |---|---|---|---|

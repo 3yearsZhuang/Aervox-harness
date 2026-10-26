@@ -1,0 +1,333 @@
+/** Platform-neutral adaptation only; the repository owns every durable command,
+ * transaction, source/deletion gate and fencing check. Mobile hosts supply the
+ * same durable command authority through the repository port.
+ */
+import type {
+  AgentStreamEvent,
+  AgentStreamEventInput,
+  ContextManifestRecord,
+  ExecutionStorePort,
+  ModelRunRecord,
+  ToolExecutionRecord,
+  ToolExecutionStatus,
+} from "@aervox/core/browser";
+import { LeaseLostError } from "@aervox/core/browser";
+import type { ConversationExecutionRepositoryPort, ConversationExecutionStoreOptions } from "./conversation-execution-repository-port.js";
+
+/**
+ * 阶段 7（ADR-017）ModelRun/ContextManifest 落库口（可选委托）。
+ * 不注入时 record* 为 no-op（缺省兼容既有宿主/测试）。
+ */
+export interface ModelRunSink {
+  recordModelRun(input: ModelRunRecord): Promise<void>;
+  recordContextManifest(input: ContextManifestRecord): Promise<void>;
+}
+
+const now = (): string => new Date().toISOString();
+const nextEventId = (turnId: string, sequence: number): string => `tev_${turnId}_${sequence}`;
+
+const toAgentEvent = (row: {
+  id: string;
+  turnId: string;
+  sequence: number;
+  eventType: string;
+  payloadVersion: number;
+  data: unknown;
+  occurredAt: string;
+  attemptId?: string | null;
+  safetyDecision?: string | null;
+}): AgentStreamEvent => ({
+  eventId: row.id,
+  turnId: row.turnId,
+  attemptId: row.attemptId ?? "",
+  sequence: row.sequence,
+  eventType: row.eventType as AgentStreamEvent["eventType"],
+  payloadVersion: row.payloadVersion,
+  data: row.data,
+  safetyDecision: (row.safetyDecision as AgentStreamEvent["safetyDecision"]) ?? "pending",
+  occurredAt: row.occurredAt,
+});
+
+export class ConversationExecutionStore<Context> implements ExecutionStorePort {
+  constructor(
+    private readonly repo: ConversationExecutionRepositoryPort<Context>,
+    private readonly ctx: Context,
+    /** 阶段 7：ModelRun/Manifest 落库口（可选；缺省 no-op，兼容既有宿主/测试） */
+    private readonly modelRunSink?: ModelRunSink,
+    private readonly options: ConversationExecutionStoreOptions = {},
+  ) {}
+
+  /** 阶段 7（ADR-017）：Step 级 ModelRun 写入（委托可选落库口；缺省 no-op） */
+  async recordModelRun(input: ModelRunRecord): Promise<void> {
+    await this.modelRunSink?.recordModelRun(input);
+  }
+
+  /** 阶段 7（ADR-017）：ContextManifest 快照写入（同上） */
+  async recordContextManifest(input: ContextManifestRecord): Promise<void> {
+    await this.modelRunSink?.recordContextManifest(input);
+  }
+
+  async claimTurnAttempt(input: {
+    turnId: string;
+    attemptId: string;
+    expectedFencingToken: number;
+  }): Promise<
+    | { ok: true; fencingToken: number; leaseId?: string; leaseExpiresAt?: string }
+    | { ok: false; reason: "not_runnable" | "already_claimed" }
+  > {
+    const res = await this.repo.claimTurnAttempt(this.ctx, {
+      ...input,
+      leaseId: `lease_${Date.now().toString(36)}`,
+    });
+    if (!res.ok) return { ok: false, reason: "already_claimed" };
+    return {
+      ok: true,
+      fencingToken: res.fencingToken,
+      leaseId: res.leaseId,
+      leaseExpiresAt: res.leaseExpiresAt,
+    };
+  }
+
+  /** SQLite host reconciliation reads the authoritative child Attempt; not a Core execution capability. */
+  getAttemptStatus(input: { turnId: string; attemptId: string }): Promise<string | null> {
+    return this.repo.getTurnAttemptStatus(this.ctx, input);
+  }
+
+  /** 3b-A：续租（CAS 委托仓储） */
+  async renewAttemptLease(input: {
+    attemptId: string;
+    leaseId: string;
+    expectedFencingToken: number;
+    ttlMs?: number;
+  }): Promise<{ ok: boolean }> {
+    const ok = await this.repo.renewTurnAttemptLease(this.ctx, input);
+    return { ok };
+  }
+
+  async nextSequence(turnId: string): Promise<number> {
+    const [turn, highWater] = await Promise.all([
+      this.repo.getTurn(this.ctx, turnId), this.repo.getStreamEventHighWater(this.ctx, turnId),
+    ]);
+    return Math.max(turn?.lastSequence ?? 0, highWater) + 1;
+  }
+
+  async appendEvent(input: AgentStreamEventInput): Promise<AgentStreamEvent> {
+    try {
+      const created = await this.repo.appendStreamEvent(this.ctx, {
+        id: nextEventId(input.turnId, input.sequence),
+        turnId: input.turnId,
+        sequence: input.sequence,
+        eventType: input.eventType,
+        data: input.data,
+        occurredAt: now(),
+        attemptId: input.attemptId,
+        safetyDecision: input.safetyDecision,
+        // B1：事件写入 fencing CAS（携带 expectedFencingToken 时仓储强制校验）
+        expectedFencingToken: input.expectedFencingToken,
+      });
+      return toAgentEvent(created);
+    } catch (err) {
+      // B1：被抢占/恢复后写入被 CAS 拒绝 → 转译为 Loop 语义错误（executor 收敛为 lease_lost）
+      if (this.options.isFencingMismatchError?.(err)) {
+        throw new LeaseLostError(`event write rejected: ${err.message}`);
+      }
+      throw err;
+    }
+  }
+
+  async listEvents(turnId: string, afterSequence = 0): Promise<AgentStreamEvent[]> {
+    const rows = await this.repo.getStreamEvents(this.ctx, turnId, afterSequence);
+    return rows.map(toAgentEvent);
+  }
+
+  async finalizeAttempt(input: {
+    turnId: string;
+    attemptId: string;
+    status: "Running" | "Completed" | "Failed" | "Interrupted" | "Cancelled";
+    expectedFencingToken?: number;
+  }): Promise<{ ok: boolean }> {
+    const updated = await this.repo.finalizeTurnAttempt(this.ctx, {
+      turnId: input.turnId,
+      attemptId: input.attemptId,
+      status: input.status,
+      expectedFencingToken: input.expectedFencingToken,
+    });
+    return { ok: Boolean(updated) };
+  }
+
+  /** B4-D：原子提交「工具结果账本收口 + tool_result 事件」（§12.2） */
+  async recordToolOutcome(input: {
+    turnId: string;
+    attemptId: string;
+    sequence: number;
+    invocationId: string;
+    name: string;
+    arguments: unknown;
+    status: import("@aervox/core/browser").ToolExecutionStatus;
+    output?: unknown;
+    error?: string;
+    startedAt: string;
+    finishedAt?: string;
+    eventData: unknown;
+    safetyDecision: import("@aervox/core/browser").SafetyDecision;
+    expectedFencingToken: number;
+  }): Promise<{ ok: boolean }> {
+    try {
+      const done = await this.repo.recordToolOutcomeAtomically(this.ctx, {
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        sequence: input.sequence,
+        invocationId: input.invocationId,
+        name: input.name,
+        arguments: input.arguments,
+        status: input.status,
+        output: input.output,
+        error: input.error,
+        startedAt: input.startedAt,
+        finishedAt: input.finishedAt,
+        eventData: input.eventData,
+        safetyDecision: input.safetyDecision,
+        expectedFencingToken: input.expectedFencingToken,
+      });
+      return { ok: done };
+    } catch (err) {
+      if (this.options.isFencingMismatchError?.(err)) {
+        throw new LeaseLostError(`tool outcome rejected: ${err.message}`);
+      }
+      throw err;
+    }
+  }
+
+  /** B4-D：原子提交「Attempt 终态 + 收尾事件（done/error）」（§12.2；CAS 失败返回 false） */
+  async finalizeAttemptWithEvent(input: {
+    turnId: string;
+    attemptId: string;
+    status: "Completed" | "Failed" | "Interrupted" | "Cancelled";
+    expectedFencingToken: number;
+    sequence: number;
+    eventType: "done" | "error";
+    eventData: unknown;
+    safetyDecision?: import("@aervox/core/browser").SafetyDecision;
+  }): Promise<{ ok: boolean }> {
+    const done = await this.repo.finalizeAttemptWithEventAtomically(this.ctx, {
+      turnId: input.turnId,
+      attemptId: input.attemptId,
+      status: input.status,
+      expectedFencingToken: input.expectedFencingToken,
+      sequence: input.sequence,
+      eventType: input.eventType,
+      eventData: input.eventData,
+      safetyDecision: input.safetyDecision ?? null,
+    });
+    return { ok: done };
+  }
+
+  /** E2：原子提交「安全片段 + delta 事件」（§12.2；fencing 失配转译 LeaseLostError） */
+  async recordSafeSegment(input: {
+    turnId: string;
+    attemptId: string;
+    sequence: number;
+    text: string;
+    eventData: unknown;
+    safetyDecision: import("@aervox/core/browser").SafetyDecision;
+    expectedFencingToken: number;
+  }): Promise<{ ok: boolean }> {
+    try {
+      const done = await this.repo.recordSafeSegmentAtomically(this.ctx, {
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        sequence: input.sequence,
+        text: input.text,
+        eventData: input.eventData,
+        safetyDecision: input.safetyDecision,
+        expectedFencingToken: input.expectedFencingToken,
+      });
+      return { ok: done };
+    } catch (err) {
+      if (this.options.isFencingMismatchError?.(err)) {
+        throw new LeaseLostError(`safe segment rejected: ${err.message}`);
+      }
+      throw err;
+    }
+  }
+
+  /** E2：批量安全片段写入；每个片段仍对应独立 delta/sequence。 */
+  async recordSafeSegments(inputs: Array<{
+    turnId: string;
+    attemptId: string;
+    sequence: number;
+    text: string;
+    eventData: unknown;
+    safetyDecision: import("@aervox/core/browser").SafetyDecision;
+    expectedFencingToken: number;
+  }>): Promise<{ ok: boolean }> {
+    if (inputs.length === 0) return { ok: true };
+    try {
+      const done = await this.repo.recordSafeSegmentsAtomically(this.ctx, inputs);
+      return { ok: done };
+    } catch (err) {
+      if (this.options.isFencingMismatchError?.(err)) {
+        throw new LeaseLostError(`safe segment batch rejected: ${err.message}`);
+      }
+      throw err;
+    }
+  }
+
+  /** E2：已提交安全片段（可见前缀；sequence 升序） */
+  async listCommittedSegments(turnId: string): Promise<Array<{ id: string; sequence: number; text: string; streamEventId: string | null }>> {
+    return this.repo.listCommittedSegments(this.ctx, turnId);
+  }
+
+  /** 2b：用户取消请求位（CAS 委托仓储） */
+  async requestCancelAttempt(input: {
+    turnId: string;
+    attemptId: string;
+  }): Promise<{ ok: boolean; reason?: "not_found" | "already_finalized" }> {
+    return this.repo.requestCancelTurnAttempt(this.ctx, input);
+  }
+
+  /** 2b：executor 取消检查点（轮询仓储状态） */
+  async isCancelRequested(input: { turnId: string; attemptId: string }): Promise<boolean> {
+    return (await this.repo.getTurnAttemptStatus(this.ctx, input)) === "CancelRequested";
+  }
+
+  /** 工具副作用证据落库（tool_executions，AVX-HAR-001 §12） */
+  async recordToolExecution(input: ToolExecutionRecord): Promise<void> {
+    await this.repo.recordToolExecution(this.ctx, {
+      turnId: input.turnId,
+      attemptId: input.attemptId,
+      invocationId: input.invocationId,
+      name: input.name,
+      arguments: input.arguments,
+      status: input.status,
+      output: input.output,
+      error: input.error ?? null,
+      startedAt: input.startedAt,
+      finishedAt: input.finishedAt,
+    });
+  }
+
+  /** 2c：幂等预留（attempt+invocation 唯一） */
+  async reserveToolExecution(input: {
+    turnId: string;
+    attemptId: string;
+    invocationId: string;
+    name: string;
+    arguments: unknown;
+  }): Promise<{ ok: boolean; alreadyReserved: boolean }> {
+    return this.repo.reserveToolExecution(this.ctx, input);
+  }
+
+  /** 2c：以权威结果收口预留行 */
+  async updateToolExecutionResult(input: {
+    turnId: string;
+    attemptId: string;
+    invocationId: string;
+    status: ToolExecutionStatus;
+    output?: unknown;
+    error?: string;
+    finishedAt?: string;
+  }): Promise<{ ok: boolean }> {
+    return this.repo.updateToolExecutionResult(this.ctx, input);
+  }
+}
