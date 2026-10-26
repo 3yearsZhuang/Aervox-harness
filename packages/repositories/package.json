@@ -24,6 +24,10 @@
     "./native-sqlite-values": {
       "types": "./dist/driver/native-sqlite-values.d.ts",
       "default": "./dist/driver/native-sqlite-values.js"
+    },
+    "./native-sqlite-client": {
+      "types": "./dist/driver/native-sqlite-client.d.ts",
+      "default": "./dist/driver/native-sqlite-client.js"
     }
   },
   "scripts": {
