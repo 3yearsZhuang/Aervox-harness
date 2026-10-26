@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { inspectAndroidEnvironment, mobileRoot } from '../scripts/check-android-environment.mjs';
 import { buildAndroid } from '../scripts/build-android.mjs';
@@ -25,6 +26,137 @@ function environment(overrides = {}) {
         : { status: 0, stdout: '36\n' },
     ...overrides };
 }
+
+function fileEnvironment(t) {
+  const root = mkdtempSync(path.join(tmpdir(), 'aervox-android-preflight-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const android = path.join(root, 'android');
+  mkdirSync(android);
+  writeFileSync(path.join(android, 'variables.gradle'), 'ext { minSdkVersion = 24\ncompileSdkVersion = 36 }');
+  const sdk = path.join(root, 'SDK with spaces');
+  for (const relative of ['platforms/android-36/android.jar', 'build-tools/35.0.0/aapt2',
+    'build-tools/35.0.0/zipalign', 'build-tools/35.0.0/apksigner']) {
+    const file = path.join(sdk, relative);
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, '');
+  }
+  const properties = path.join(android, 'local.properties');
+  const encode = value => value.replace(/\\/g, '\\\\').replace(/ /g, '\\ ');
+  writeFileSync(properties, `sdk.dir=${encode(sdk)}\n`);
+  const inspect = overrides => inspectAndroidEnvironment({ root, home: root, platform: 'linux',
+    env: { ANDROID_HOME: sdk }, run: command => ({ status: 0,
+      stderr: `openjdk version "${command.includes('jdk17') ? 17 : 21}.0.7"` }), ...overrides });
+  return { root, android, sdk, properties, encode, inspect };
+}
+
+test('SDK environment conflicts with real local.properties fail before native build', t => {
+  const fixture = fileEnvironment(t);
+  const before = readFileSync(fixture.properties);
+  for (const env of [{ ANDROID_HOME: '/other-sdk' }, { ANDROID_SDK_ROOT: '/other-sdk' },
+    { ANDROID_HOME: fixture.sdk, ANDROID_SDK_ROOT: '/other-sdk' }]) {
+    const result = fixture.inspect({ env });
+    assert.equal(result.ok, false);
+    assert.equal(result.sdkRoot, undefined);
+    assert.match(result.checks.find(check => check.id === 'sdk').message, /same SDK/);
+    const calls = [];
+    assert.equal(buildAndroid({ env, root: fixture.root, inspect: fixture.inspect,
+      report: () => {}, run: (...args) => calls.push(args) }), 1);
+    assert.deepEqual(calls, []);
+  }
+  assert.deepEqual(readFileSync(fixture.properties), before);
+});
+
+test('the real local SDK is selected without env and equivalent normalized paths agree', t => {
+  const fixture = fileEnvironment(t);
+  const before = readFileSync(fixture.properties);
+  for (const env of [{}, { ANDROID_HOME: `${fixture.sdk}/../SDK with spaces/`, ANDROID_SDK_ROOT: fixture.sdk }]) {
+    const result = fixture.inspect({ env });
+    assert.equal(result.ok, true);
+    assert.equal(result.sdkRoot, realpathSync(fixture.sdk));
+  }
+  assert.deepEqual(readFileSync(fixture.properties), before);
+});
+
+test('SDK aliases use real paths and Java property syntax instead of bypassing sdk.dir', t => {
+  const fixture = fileEnvironment(t);
+  const alias = path.join(fixture.root, 'sdk-link');
+  symlinkSync(fixture.sdk, alias, 'junction');
+  // Java Properties accepts colon separators, continuations and escaped Unicode.
+  writeFileSync(fixture.properties, `# comment ending in a slash\\\nsdk.dir=/obsolete\nsdk\\.dir : ${fixture.encode(fixture.sdk).replace('SDK', '\\u0053DK')}\\\n  /\n`);
+  const before = readFileSync(fixture.properties);
+  const result = fixture.inspect({ env: { ANDROID_HOME: alias } });
+  assert.equal(result.ok, true);
+  assert.equal(result.sdkRoot, realpathSync(fixture.sdk));
+  assert.deepEqual(readFileSync(fixture.properties), before);
+});
+
+test('empty or malformed local sdk.dir cannot be hidden by a valid environment SDK', t => {
+  const fixture = fileEnvironment(t);
+  for (const contents of ['sdk.dir=\n', 'sdk.dir=\\uZZZZ\n']) {
+    writeFileSync(fixture.properties, contents);
+    const result = fixture.inspect();
+    assert.equal(result.ok, false);
+    assert.equal(result.sdkRoot, undefined);
+  }
+});
+
+test('Windows SDK properties and environment paths agree after platform normalization', () => {
+  const root = 'C:\\project\\mobile';
+  const sdk = 'C:\\Android\\Sdk';
+  const files = new Map([
+    [path.win32.join(root, 'android/variables.gradle'), 'ext { minSdkVersion = 24\ncompileSdkVersion = 36 }'],
+    [path.win32.join(root, 'android/local.properties'), 'sdk.dir=C\\:\\\\Android\\\\Sdk\n'],
+    [sdk, ''], [path.win32.join(sdk, 'platforms/android-36/android.jar'), ''],
+    [path.win32.join(sdk, 'build-tools/35.0.0/aapt2.exe'), ''],
+    [path.win32.join(sdk, 'build-tools/35.0.0/zipalign.exe'), ''],
+    [path.win32.join(sdk, 'build-tools/35.0.0/apksigner.bat'), ''],
+  ].map(([file, value]) => [file.toLowerCase(), value]));
+  const result = inspectAndroidEnvironment({ root, home: 'C:\\Users\\test', platform: 'win32',
+    env: { ANDROID_HOME: 'c:/android/sdk/../sdk/' }, realpath: file => file,
+    exists: file => files.has(file.toLowerCase()), read: file => files.get(file.toLowerCase()),
+    run: () => ({ status: 0, stderr: 'openjdk version "21.0.7"' }) });
+  assert.equal(result.ok, true);
+  assert.equal(result.sdkRoot, sdk);
+});
+
+test('the Gradle JVM override is checked separately from the Java 21 launcher', t => {
+  const fixture = fileEnvironment(t);
+  const properties = path.join(fixture.android, 'gradle.properties');
+  const jdk17 = path.join(fixture.root, 'jdk17');
+  writeFileSync(properties, `org.gradle.java.home=${fixture.encode(jdk17)}\n`);
+  const before = readFileSync(properties);
+  const result = fixture.inspect();
+  assert.equal(result.checks.find(check => check.id === 'java').ok, true);
+  assert.equal(result.checks.find(check => check.id === 'gradle-java').ok, false);
+  assert.equal(result.ok, false);
+  assert.deepEqual(readFileSync(properties), before);
+});
+
+test('Gradle user properties take precedence and respect GRADLE_USER_HOME', t => {
+  const fixture = fileEnvironment(t);
+  writeFileSync(path.join(fixture.android, 'gradle.properties'), 'org.gradle.java.home=/jdk17\n');
+  for (const userHome of [path.join(fixture.root, '.gradle'), path.join(fixture.root, 'selected-gradle')]) {
+    mkdirSync(userHome);
+    writeFileSync(path.join(userHome, 'gradle.properties'), 'org.gradle.java.home=/jdk21\n');
+  }
+  assert.equal(fixture.inspect().ok, true);
+  const selected = path.join(fixture.root, 'selected-gradle');
+  writeFileSync(path.join(selected, 'gradle.properties'), 'org.gradle.java.home=/jdk17\n');
+  const result = fixture.inspect({ env: { ANDROID_HOME: fixture.sdk, GRADLE_USER_HOME: selected } });
+  assert.equal(result.ok, false);
+  assert.equal(result.checks.find(check => check.id === 'gradle-java').ok, false);
+});
+
+test('uninspected Gradle JVM overrides fail explicitly instead of claiming prerequisites pass', t => {
+  const fixture = fileEnvironment(t);
+  for (const name of ['GRADLE_OPTS', 'JAVA_OPTS', 'JAVA_TOOL_OPTIONS', 'JDK_JAVA_OPTIONS', '_JAVA_OPTIONS']) {
+    assert.equal(fixture.inspect({ env: { ANDROID_HOME: fixture.sdk, [name]: '-Dorg.gradle.java.home=/jdk17' } }).ok, false);
+  }
+  assert.equal(fixture.inspect({ env: { ANDROID_HOME: fixture.sdk, GRADLE_OPTS: '-Dgradle.user.home=/other' } }).ok, false);
+  mkdirSync(path.join(fixture.android, 'gradle'));
+  writeFileSync(path.join(fixture.android, 'gradle/gradle-daemon-jvm.properties'), 'toolchainVersion=17\n');
+  assert.equal(fixture.inspect().ok, false);
+});
 
 test('preflight requires the actual project SDK platform and Java 21', () => {
   assert.equal(inspectAndroidEnvironment(environment()).ok, true);
