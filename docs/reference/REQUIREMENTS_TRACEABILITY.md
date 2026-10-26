@@ -141,7 +141,7 @@ CAP-027 的 SQLite 本地真源、保留、导出、删除和恢复责任不可�
 
 自选分类按[能力组合边界](capability-composition.md#核心与可选的边界判定)判定；“候选/远期”是是否纳入自选及近期范围的分类，不是另一套交付状态。构建选择决定产物是否包含代码，运行选择决定当前用户是否可用，均不能关闭数据权利。
 
-CAP-014～017/019 已按 CR-019 转主仓交付，重新自选需重新裁决；CAP-002/007/016 的实现按 CR-060 内聚到第一方 `focus-mode`，Schema、复习算法与学习事实仍归主仓。当前没有已注册的 `modules/*` 独立模块；不存在的目录不作为运行能力。`apps/desktop`、`apps/cli` 是宿主；移动宿主仍按 [ADR-022](adr/ADR-022-mobile-runtime-access.md) 提案评审。
+CAP-014～017/019 已按 CR-019 转主仓交付，重新自选需重新裁决；CAP-002/007/016 的实现按 CR-060 内聚到第一方 `focus-mode`，Schema、复习算法与学习事实仍归主仓。当前没有已注册的 `modules/*` 独立模块；不存在的目录不作为运行能力。`apps/desktop`、`apps/cli` 是宿主；移动宿主按 [ADR-022](adr/ADR-022-mobile-runtime-access.md) 已接受的 Android M0 隔离原型实施，设备与发布状态分别验收。
 
 CAP-033 依赖记忆、桌面权限、插件、本地数据与提醒边界；CAP-034/035 分别要求有效 `device.sensors`/`restricted.profile`，HA 实体默认禁用且受 service 白名单控制，健康连接只接受用户有权使用的官方平台。插件主动触发与模型降级不能扩大授权，外部内容始终按不可信输入处理。
 
@@ -408,9 +408,9 @@ PR、自动化测试和目标环境验证是交付证据，不抄写终端日志
 
 <a id="mobile-decisions"></a>
 
-### 11.4 移动端提案
+### 11.4 移动端 M0 与保留门槛
 
-原 CR-055 的移动端方案由 [ADR-022](adr/ADR-022-mobile-runtime-access.md) 承接，保持 Proposed。M0 尚须裁决配套/独立优先级、平台顺序、认证与跨设备可见范围；[M-AC-01～09](SRS.md#mobile-proposal-acceptance) 仍是建议，原生签名、真机网络、生命周期、`local_only` 拒绝和发布证据不得由 Web 构建或本地 API 测试代替。
+原 CR-055 由 [ADR-022](adr/ADR-022-mobile-runtime-access.md) 承接；维护者已接受手机独立、Android 先行和 M0 隔离原型的固定内置 SQLite/原生持钥方案。原生工程、Core 与执行适配中性入口是前置切片；实际本机接单/存储/模型桥和电脑关闭后的完整闭环尚待验证，平台支持与 CAP 状态未提高。[SRS M0 门槛及 M-AC-01～09](SRS.md#mobile-proposal-acceptance) 区分已接受子集和后续建议；配套认证/跨设备范围仍须单独裁定，原生签名、真机网络、生命周期、local_only 拒绝和发布证据不得由 Web 构建、测试编译或本地 API 测试代替。
 
 ## 12. 变更与维护
 

@@ -257,7 +257,7 @@ CAP 与合同遵循 [API 约定](docs/reference/API_CONVENTIONS.md)，依赖 ITE
 - **验收：** 精确方法/路径、稳定 operationId、请求与成功/错误 Schema、认证、真实请求和旧客户端行为；新增遗漏/扩大豁免被拒绝，每补一个删除其精确例外。JSON 共享端点不改变 SSE/文件/二进制协议，破坏性变化单列迁移决定。
 - **历史真源前置：** 本轮接续普通在线 user 的真实 Message 身份和 assistant 空版绑定，终态/取消/恢复事务发布已提交安全前缀、当前指针及 sequence 水位；审批续接保留已存前缀，人工编辑不被迟到写覆盖。来源/删除资格与日记、FTS 派生同步收口，旧 unlinked/import 不迁移、不从事件猜造正文。模型上下文对新消息改读长期当前版本，清理在线事件后仍能读取；保留 20 轮/32000 字符预算及旧路径边界。用户历史分页 API、CLI 与工作台抽屉由下列切片接续，当前集成与 PR 证据另记。
 - **本轮持久历史读取：** 新增共享 `GET /v1/sessions/{sessionId}/history` 与 headless Client，CLI `sessions history` 和工作台“对话回看”读取同一当前版本投影。单页默认 20/最多 50 个候选，按插入顺序显式向前翻页；隐藏候选不额外扫描填充，空页仍可返回游标。单轮 100 消息/256 KiB、整页 512 KiB，超限含游标转义膨胀返回明确 422，不截断成功正文。未完成状态保留、脱敏正文为 null，旧 unlinked 只读，不从事件补造缺失历史；无首 User 的导入轮仍受保守来源门槛阻断。工作台单页替换，关闭/切会话/改页数清正文并释放旧 GET，不改变实时 Controller；完整授权传播、真实模型与移动独立运行仍分别验收。
-- **本轮验证：** 最后代码的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务，API 967、仓储 820、Host Agent 123、Host Runtime 306、Core 501、Worker 161、客户端 234、CLI 148、UI 155 项通过，1 项既有真实模型跳过保留；守卫、OpenAPI 兼容、HLS、删除故障、Native 与 64 份文档门禁通过。打包安装 CLI/真实 Token API/文件 SQLite/重启/清理在线行/分页及隐藏 2 项通过，Chromium 全套 23 项通过，其中 390/1280px 真实浏览器新回看 2 项；依赖审计 0 未审阅、2 既有审阅路径、0 过时例外。独立复核发现合法中文 ID 被旧 CLI 限制，以及 NUL 转义使游标超限，新增反例修复；首次全量因 CLI 直接依赖 Contracts 被架构守卫拒绝，改由 headless Client 暴露共享校验，未放宽依赖规则。随后只补验证记录并复验文档，精确提交远端证据由新 PR 保存。
+- **本轮验证：** 最后代码的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务，API 967、仓储 820、Host Agent 123、Host Runtime 306、Core 501、Worker 161、客户端 234、CLI 148、UI 155 项通过，1 项既有真实模型跳过保留；守卫、OpenAPI 兼容、HLS、删除故障、Native 与 64 份文档门禁通过。打包安装 CLI/真实 Token API/文件 SQLite/重启/清理在线行/分页及隐藏 2 项通过，Chromium 全套 23 项通过，其中 390/1280px 真实浏览器新回看 2 项；依赖审计 0 未审阅、2 既有审阅路径、0 过时例外。独立复核发现合法中文 ID 被旧 CLI 限制，以及 NUL 转义使游标超限，新增反例修复；首次全量因 CLI 直接依赖 Contracts 被架构守卫拒绝，改由 headless Client 暴露共享校验，未放宽依赖规则。随后只补验证记录并复验文档，[PR #332](https://github.com/3yearsZhuang/Aervox-harness/pull/332) 的 `30e75c57` 已通过 5 项远端检查，仍待审查合入。
 - **剩余产品责任：** Neo 生命周期；分支来源、完整删除、布局恢复、大图性能；反馈读取预算、回答版本关联和复核队列。图读取行数预算不证明 SQL 排序时间或单布局字节有界。
 
 | 已合并切片 | 保留行为与数量 | 证据 |
@@ -394,13 +394,17 @@ ARC-05/FND-07，依赖 ITER-002 Outbox 归属、ITER-013/017 指标。IPC 唤醒
 
 ### ITER-009 · 进行中：Android 独立端前置与硬件定位
 
-比较九个硬件方向、电脑依赖、目标 OS、真实 Provider、成本和数据边界；CAP-001/012/018/025/030/033。只做候选/样本和继续或暂缓结论，选一至两个方向，不默认采购/SKU/固件/顺序/工期。维护者已选择手机独立运行、电脑关闭后仍可使用，并确认 Android 先行；移动 M0 在 Android 路线上接续验证本地执行/存储适配，再裁定版本范围、凭据与数据范围，之后细化 M1～M6。本轮接入 Android 原生工程，iOS 工程尚未创建；前次仅见 Command Line Tools 的环境结论已过时，本轮实时可见 Android SDK API 36 和 adb；兼容 JDK 接线、原生构建与设备验收继续另验，不能由工具存在推定通过。具体待决定事项见下一节，关联 ITER-016。
+比较九个硬件方向、电脑依赖、目标 OS、真实 Provider、成本和数据边界；CAP-001/012/018/025/030/033。只做候选/样本和继续或暂缓结论，选一至两个方向，不默认采购/SKU/固件/顺序/工期。维护者已选择手机独立运行、电脑关闭后仍可使用，并确认 Android 先行；移动 M0 在 Android 路线上接续验证本地执行/存储适配，按已接受的 M0 凭据/普通会话范围实施，再由实际证据裁定平台版本范围，之后细化 M1～M6。本轮接入 Android 原生工程，iOS 工程尚未创建；前次仅见 Command Line Tools 的环境结论已过时，本轮实时可见 Android SDK API 36 和 adb；兼容 JDK 接线、原生构建与设备验收继续另验，不能由工具存在推定通过。具体待决定事项见下一节，关联 ITER-016。
 
 本轮 Android 工程前置提供显式 Web 构建、Android 同步/doctor、只读环境预检和 debug 构建命令，Java 21 固定于 mise，Gradle 分发带校验值。官方模板源码与许可纳入版本控制，资源复制、SDK 路径、签名密钥与构建产物不跟踪；自动备份和明文网络默认关闭。初始 Capacitor 8.5.0 的依赖审计命中严重公告，统一升至 8.5.1 后为 0 未审阅、2 既有审阅、0 过时例外，不新增豁免。工程、Web 构建与原生 APK/设备验收分别记录；本机 SQLite/凭据/模型桥、独立运行及跨设备数据仍未交付。
 
 Android 集成分支新的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务、12 项移动脚本/环境合同及既有包测试、守卫、OpenAPI 兼容、HLS、删除故障、Native 和 64 份文档通过；冻结安装与移动说明排版另验通过。真实 `android:build`、sync、doctor 退出 0，生成约 8.3 MiB debug APK，包名 `com.aervox.mobile`、最低 API 24/目标 API 36，v2 调试签名有效，合并 Manifest 两项禁用均保留。曾因 SDK 路径未传入子进程和缺 Build Tools 35.0.0 失败，修脚本并显式补唯一组件后通过；不将 Web 构建或环境预检计作 APK 成功。临时 AVD 两次启动均遇 HVF/mprotect 权限错误，ADB 未就绪，自有进程已退出；App 身份测试 APK 已编译，未执行设备测试。设备交互、独立运行和发布仍未验收，精确提交远端结果由新 PR 保存。
 
+维护者已审阅并接受 [ADR-022 的 M0 技术差量](docs/reference/adr/ADR-022-mobile-runtime-access.md#已接受的-m0android-独立隔离原型)：固定官方 SQLite 候选、手机本安装唯一真源、复用仓储原子规则、原生持钥及受限模型请求，先新建隔离会话的前台/重启/取消/问答/删除闭环。真实特性、ABI/16 KiB 页面、设备、真实 Provider 与发布分别验收；不自动操作桌面库或扩入同步/后台常驻/第三方代码插件。
+
 本轮先交付 `@aervox/core/browser` 中性入口，整包打包不包含 Node/CLI，VM 无 process/require/Buffer 仍能执行 Turn，声明闭包以 DOM、types=[] 编译；现有入口保持。独立复核捕获旧 `./core` 独有的 abortable 导出丢失，新增以旧轻量符号表为基线的回归先红后绿，补回两项后定向 3 文件 13 项和类型检查通过。该前置不等于本机持久 Store、原生 SQLite/密钥/模型桥或手机闭环，后续依次补齐，不把 Node API/Worker 原包直接装入 WebView。
+
+本轮接续将既有执行适配方法提炼为 `@aervox/host-agent/browser` 的中性 `ConversationExecutionStore` 和明确仓储 Port；原 `SqliteExecutionStore` 保持三参构造及同一委托方法，事务、fencing、来源/删除和幂等仍由原仓储负责。生产包装仅以真实 FencingMismatchError 身份转换租约错误，同名伪造或未知异常原样抛出；中性入口不导入 Node、SQLite/Drizzle 驱动或 Vue。独立整包无 Node VM、实际构建声明的 DOM/types=[] 闭包、真实 SQLite 与 Object.create/Proxy 子任务路径定向 5 文件 37 项通过；仍不包含手机数据库实现或独立运行完成声明。 中性适配最后代码的新 `./aervox ci all` 退出 0，构建 32、类型 56 个任务及全部守卫、兼容、HLS、删除故障、Native 与 64 份文档通过；Host Agent 增至 129 项通过、1 项既有真实模型跳过保留，API 967、仓储 820、Worker 161 等既有包测试通过。随后只补本记录并复验文档，精确提交远端结果由新 PR 保存。
 
 <a id="iter-016"></a>
 
@@ -457,7 +461,7 @@ ITER-009 先形成可审阅结论，以下建议不替用户选定产品或批�
 | 跨设备数据范围 | 普通资料与 local_only/混合来源严格分开 | 导出/同步授权、删除传播、离线期限与来源验证 |
 | 第一版交互范围 | 从通知、图片、分享、只读复习中选择最小闭环 | 实际任务完成率与成本，不按接口数量决定范围 |
 
-[ADR-022 移动端提案](docs/reference/adr/ADR-022-mobile-runtime-access.md#cr-055) 已记录独立运行、Android 先行的产品决定，技术方案仍是 Proposed/Planned；运行时、平台版本范围和工期尚未裁定，具体取舍在本节维护。
+[ADR-022](docs/reference/adr/ADR-022-mobile-runtime-access.md#cr-055) 已接受独立运行、Android 先行及 M0 隔离原型：固定内置 SQLite、复用现有规则、原生持钥模型桥。候选仅准入隔离测试库，正式平台版本范围和工期未裁定，具体取舍在本节维护。
 
 ## 8. 已移交切片与历史证据
 
