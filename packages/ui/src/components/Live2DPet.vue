@@ -6,6 +6,11 @@ import { AervoxLive2DController } from '../live2d/controller'
 import { PET_REACT_EVENT, resolveLookAtElement, type PetReactionDetail } from '../live2d/petReactions'
 import { DEFAULT_AERVOX_MODEL, MIZUKI_EXPRESSIONS, MIZUKI_MOTIONS, type Live2DPose } from '../live2d/model'
 
+withDefaults(defineProps<{
+  /** Android may show the existing fallback until the model is ready. */
+  showFallbackWhileLoading?: boolean
+}>(), { showFallbackWhileLoading: false })
+
 const platformServices = getClientPlatformServices()
 const emit = defineEmits<{ onSpeak: [text: string, preset?: string] }>()
 
@@ -107,16 +112,18 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="aervox-live2d-pet" :data-status="status" role="img" aria-label="Aervox Live2D 桌宠">
+  <div class="aervox-live2d-pet" :class="{ 'is-loading-fallback': showFallbackWhileLoading && status === 'loading' }" :data-status="status" role="img" aria-label="Aervox Live2D 桌宠">
     <div ref="canvasHost" class="aervox-live2d-pet__canvas" aria-hidden="true" />
-    <slot v-if="status === 'error'" name="fallback" />
-    <span v-if="status === 'loading'" class="aervox-live2d-pet__status">正在加载桌宠…</span>
+    <slot v-if="status === 'error' || (showFallbackWhileLoading && status === 'loading')" name="fallback" />
+    <span v-if="status === 'loading' && !showFallbackWhileLoading" class="aervox-live2d-pet__status">正在加载桌宠…</span>
   </div>
 </template>
 
 <style scoped>
 .aervox-live2d-pet { position: relative; width: 100%; height: 100%; min-height: 220px; overflow: hidden; }
 .aervox-live2d-pet__canvas { position: absolute; inset: 70px 0 0; height: auto; display: grid; place-items: center; }
+/* Keep the canvas measurable while the controller prepares the model. */
+.aervox-live2d-pet.is-loading-fallback .aervox-live2d-pet__canvas { visibility: hidden; }
 .aervox-live2d-pet__canvas :deep(canvas) { display: block; width: 100%; height: 100%; }
 .aervox-live2d-pet__status { position: absolute; inset: 50% 0 auto; text-align: center; color: #737d90; font-size: 11px; }
 </style>

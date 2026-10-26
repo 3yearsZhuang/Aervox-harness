@@ -10,6 +10,7 @@
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, type Component } from 'vue';
 import { useUISurfaceContext } from '@aervox/ui-host';
+import { useMaterial3 } from '@aervox/ui/material3';
 import { AervoxBrandMark, PetWithFallback, UserQuestionComposer, readCompanionIdentity } from '@aervox/ui/companion';
 import { createConversationController, getClientTransport, useAervoxSessions } from '@aervox/api-client';
 import { ArrowUpRight, MessageSquare, RotateCcw, Settings, Square, X } from 'lucide-vue-next';
@@ -26,6 +27,10 @@ const props = withDefaults(defineProps<{
 const settingsOpen = ref(false);
 
 const surface = useUISurfaceContext();
+const material3 = useMaterial3();
+// The Android composition root registers the official Material Web elements.
+// Other hosts keep their existing native controls and visual language.
+const buttonTag = (materialTag: string) => material3 ? materialTag : 'button';
 const sessions = useAervoxSessions();
 
 /* ---------- 对话盒 ---------- */
@@ -320,13 +325,14 @@ onBeforeUnmount(() => {
     class="proactive-companion"
     :class="{ 'pc-viewport--short': viewportHeight !== undefined && viewportHeight < 500 }"
     :data-platform="surface.platform"
+    :data-design-system="material3 ? 'material3' : undefined"
     :style="{ '--pc-viewport-height': viewportHeight === undefined ? undefined : `${viewportHeight}px`, '--pc-viewport-top': `${viewportTop}px` }"
   >
     <header class="pc-header">
       <div class="pc-brand"><AervoxBrandMark class="pc-brand-mark" :size="28" aria-hidden="true" /><span>思隅</span></div>
       <div class="pc-top-right">
-        <button class="pc-quiet-btn" type="button" title="设置" aria-label="打开设置" @click="settingsOpen = true"><Settings :size="18" aria-hidden="true" /></button>
-        <button v-if="surfaceNavigation" class="pc-quiet-btn" type="button" title="回到完整工作台" aria-label="回到完整工作台" @click="backToDefaultSurface"><ArrowUpRight :size="19" aria-hidden="true" /></button>
+        <component :is="buttonTag('md-icon-button')" class="pc-quiet-btn" type="button" title="设置" aria-label="打开设置" @click="settingsOpen = true"><Settings :size="material3 ? 24 : 18" aria-hidden="true" /></component>
+        <component :is="buttonTag('md-icon-button')" v-if="surfaceNavigation" class="pc-quiet-btn" type="button" title="回到完整工作台" aria-label="回到完整工作台" @click="backToDefaultSurface"><ArrowUpRight :size="material3 ? 24 : 19" aria-hidden="true" /></component>
       </div>
     </header>
 
@@ -334,7 +340,7 @@ onBeforeUnmount(() => {
     <div class="pc-stage">
       <div class="pc-pet-wrap">
         <div class="pc-pet-status">伴学中</div>
-        <PetWithFallback />
+        <PetWithFallback :show-fallback-while-loading="material3" />
       </div>
     </div>
 
@@ -342,7 +348,8 @@ onBeforeUnmount(() => {
       <div class="pc-dialogue-name">{{ companionName }}</div>
       <div class="pc-dialogue-box">
         <p v-if="waitingForReply" class="pc-dialogue-waiting" role="status">
-          <span class="pc-waiting-dots" aria-hidden="true"><i /><i /><i /></span>
+          <component v-if="material3" :is="'md-linear-progress'" class="pc-material-progress" indeterminate aria-hidden="true" />
+          <span v-else class="pc-waiting-dots" aria-hidden="true"><i /><i /><i /></span>
           <span>正在等待回复…</span>
         </p>
         <p v-else class="pc-dialogue-text" aria-live="polite">{{ dialogueText }}<span v-if="dialogueTyping" class="pc-caret" aria-hidden="true" /></p>
@@ -352,15 +359,15 @@ onBeforeUnmount(() => {
       </div>
       <div v-if="turnFeedback" class="pc-feedback" :data-kind="turnFeedback.kind" role="status">
         <span>{{ turnFeedback.message }}</span>
-        <button
+        <component :is="buttonTag('md-text-button')"
           v-if="failedTurn"
           type="button"
           class="pc-retry pc-feedback-action"
           :disabled="sending || (failedTurn.source === 'whisper' && !whisperText.trim())"
           @click="retryTurn"
-        ><RotateCcw :size="14" aria-hidden="true" />重试发送</button>
-        <button v-else-if="conversationState.status === 'observer-error' && conversationState.retryAvailable" type="button" class="pc-resume pc-feedback-action" :disabled="sending" @click="retryTurn"><RotateCcw :size="14" aria-hidden="true" />恢复接收回复</button>
-        <button v-else-if="turnFeedback.kind === 'cancel-error' && sending" type="button" class="pc-retry pc-feedback-action" :disabled="stopping" @click="stopTurn">重试停止</button>
+        ><RotateCcw :slot="material3 ? 'icon' : undefined" :size="material3 ? 18 : 14" aria-hidden="true" />重试发送</component>
+        <component :is="buttonTag('md-text-button')" v-else-if="conversationState.status === 'observer-error' && conversationState.retryAvailable" type="button" class="pc-resume pc-feedback-action" :disabled="sending" @click="retryTurn"><RotateCcw :slot="material3 ? 'icon' : undefined" :size="material3 ? 18 : 14" aria-hidden="true" />恢复接收回复</component>
+        <component :is="buttonTag('md-text-button')" v-else-if="turnFeedback.kind === 'cancel-error' && sending" type="button" class="pc-retry pc-feedback-action" :disabled="stopping" @click="stopTurn">重试停止</component>
       </div>
     </section>
 
@@ -369,33 +376,36 @@ onBeforeUnmount(() => {
     </section>
     <section v-if="conversationState.approval" class="pc-interaction" aria-label="工具授权">
       <p>请求执行 {{ conversationState.approval.toolName }}，需要你的确认。</p>
-      <button type="button" :disabled="interactionBusy || sending" @click="decideApproval('granted')">批准</button>
-      <button type="button" :disabled="interactionBusy || sending" @click="decideApproval('denied')">拒绝</button>
+      <component :is="buttonTag('md-filled-button')" type="button" :disabled="interactionBusy || sending" @click="decideApproval('granted')">批准</component>
+      <component :is="buttonTag('md-text-button')" type="button" :disabled="interactionBusy || sending" @click="decideApproval('denied')">拒绝</component>
     </section>
 
     <section v-if="!whisperOpen" class="pc-choices" aria-label="今日建议">
-      <button
-        v-for="card in suggestions"
+      <component :is="buttonTag('button')"
+        v-for="(card, index) in suggestions"
         :key="card.key"
         type="button"
         class="pc-choice"
-        :class="{ 'pc-choice--primary': card.primary }"
+        :class="{ 'pc-choice--primary': card.primary && (!material3 || index === 0) }"
         :disabled="sending"
         @click="card.action"
       >
+        <component v-if="material3" :is="'md-ripple'" aria-hidden="true" />
         <span class="pc-choice-label">{{ card.label }}</span>
         <span class="pc-choice-reason">{{ card.reason }}</span>
-      </button>
+      </component>
     </section>
     </main>
 
     <aside class="pc-whisper" :class="{ 'pc-whisper--open': whisperOpen }" aria-label="对话输入">
       <template v-if="!whisperOpen">
-        <button ref="whisperPill" type="button" class="pc-whisper-pill" @click="openWhisper"><MessageSquare :size="15" aria-hidden="true" /><span>悄悄对{{ companionName }}说…</span></button>
-        <button v-if="canStop" type="button" class="pc-stop" :disabled="stopping" @click="stopTurn"><Square :size="12" aria-hidden="true" />{{ stopping ? '停止中' : '停止' }}</button>
+        <component :is="buttonTag('md-filled-tonal-button')" ref="whisperPill" type="button" class="pc-whisper-pill" @click="openWhisper"><MessageSquare :slot="material3 ? 'icon' : undefined" :size="material3 ? 20 : 15" aria-hidden="true" /><span>悄悄对{{ companionName }}说…</span></component>
+        <component :is="buttonTag('md-filled-tonal-button')" v-if="canStop" type="button" class="pc-stop" :disabled="stopping" @click="stopTurn"><Square :slot="material3 ? 'icon' : undefined" :size="material3 ? 18 : 12" aria-hidden="true" />{{ stopping ? '停止中' : '停止' }}</component>
       </template>
       <div v-else class="pc-whisper-input">
+        <label v-if="material3" class="pc-whisper-label" for="pc-material-whisper">悄悄对{{ companionName }}说</label>
         <input
+          :id="material3 ? 'pc-material-whisper' : undefined"
           ref="whisperInput"
           v-model="whisperText"
           :aria-label="'悄悄对' + companionName + '说'"
@@ -403,9 +413,9 @@ onBeforeUnmount(() => {
           enterkeyhint="send"
           @keydown="onWhisperKeydown"
         />
-        <button v-if="canStop" type="button" class="pc-stop" :disabled="stopping" @click="stopTurn"><Square :size="12" aria-hidden="true" />{{ stopping ? '停止中' : '停止' }}</button>
-        <button v-else type="button" :disabled="!whisperText.trim()" @click="sendWhisper()">发送</button>
-        <button type="button" class="pc-whisper-close" title="收起" aria-label="收起输入" @click="closeWhisper"><X :size="18" aria-hidden="true" /></button>
+        <component :is="buttonTag('md-filled-tonal-button')" v-if="canStop" type="button" class="pc-stop" :disabled="stopping" @click="stopTurn"><Square :slot="material3 ? 'icon' : undefined" :size="material3 ? 18 : 12" aria-hidden="true" />{{ stopping ? '停止中' : '停止' }}</component>
+        <component :is="buttonTag('md-filled-button')" v-else type="button" :disabled="!whisperText.trim()" @click="sendWhisper()">发送</component>
+        <component :is="buttonTag('md-icon-button')" type="button" class="pc-whisper-close" title="收起" aria-label="收起输入" @click="closeWhisper"><X :size="material3 ? 24 : 18" aria-hidden="true" /></component>
       </div>
     </aside>
     <MobileSettingsDialog v-model="settingsOpen" :panels="props.settingsPanels" />
@@ -699,5 +709,106 @@ onBeforeUnmount(() => {
 @media (prefers-reduced-motion: reduce) {
   .pc-caret, .pc-waiting-dots i { animation: none; }
   .pc-choice, .pc-quiet-btn, .pc-whisper-pill, .pc-stop, .pc-feedback-action, .pc-whisper-input button { transition: none; }
+}
+
+/* Android: Material 3 roles and official component states. The composition
+ * root alone opts into this language; desktop/web retain the existing surface. */
+.proactive-companion[data-design-system="material3"][data-platform] {
+  --pc-bg: var(--md-sys-color-surface);
+  --pc-ink: var(--md-sys-color-on-surface);
+  --pc-ink-2: var(--md-sys-color-on-surface-variant);
+  --pc-ink-3: var(--md-sys-color-on-surface-variant);
+  --pc-feedback: var(--md-sys-color-error);
+  --pc-line: var(--md-sys-color-outline-variant);
+  --pc-line-soft: var(--md-sys-color-outline-variant);
+  --pc-accent: var(--md-sys-color-primary);
+  --pc-accent-soft: var(--md-sys-color-primary-container);
+  --pc-card: var(--md-sys-color-surface-container-low);
+  --pc-radius: 24px;
+  --pc-ease: cubic-bezier(.2, 0, 0, 1);
+  background: var(--pc-bg);
+  font-family: var(--md-ref-typeface-plain, Roboto, "Noto Sans SC", sans-serif);
+  letter-spacing: 0;
+}
+.proactive-companion[data-design-system="material3"] .pc-header {
+  min-height: calc(64px + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: 0;
+  background: var(--md-sys-color-surface);
+}
+.proactive-companion[data-design-system="material3"] .pc-brand { gap: 12px; font-size: 22px; line-height: 28px; font-weight: 400; letter-spacing: 0; }
+.proactive-companion[data-design-system="material3"] .pc-top-right { gap: 0; }
+.proactive-companion[data-design-system="material3"] .pc-quiet-btn {
+  --md-icon-button-icon-size: 24px;
+  --md-icon-button-state-layer-shape: 50%;
+  width: 48px; height: 48px; flex-basis: 48px; border-radius: 50%; padding: 0;
+  background: transparent; color: var(--md-sys-color-on-surface-variant);
+}
+.proactive-companion[data-design-system="material3"] .pc-content { gap: 24px; padding-block: 20px 24px; }
+.proactive-companion[data-design-system="material3"] .pc-stage { padding-top: 24px; }
+.proactive-companion[data-design-system="material3"] .pc-pet-status { font-size: 12px; line-height: 16px; font-weight: 500; letter-spacing: .5px; }
+.proactive-companion[data-design-system="material3"] .pc-pet-status::before { background: var(--md-sys-color-tertiary); }
+.proactive-companion[data-design-system="material3"] .pc-dialogue-name { margin: 0 16px 8px; font-size: 14px; line-height: 20px; font-weight: 500; letter-spacing: .1px; }
+.proactive-companion[data-design-system="material3"] .pc-dialogue-name::after { display: none; }
+.proactive-companion[data-design-system="material3"] .pc-dialogue-box { padding: 20px 24px; border: 0; border-radius: 24px; box-shadow: none; }
+.proactive-companion[data-design-system="material3"] .pc-dialogue-text { margin-block: 0; font-size: 16px; line-height: 26px; letter-spacing: .2px; }
+.proactive-companion[data-design-system="material3"] .pc-dialogue-foot { padding-top: 0; margin-top: 16px; border-top: 0; }
+.proactive-companion[data-design-system="material3"] .pc-dialogue-ctx { font-size: 12px; line-height: 16px; letter-spacing: .4px; }
+.proactive-companion[data-design-system="material3"] .pc-dialogue-waiting { display: grid; gap: 12px; margin: 0; font-size: 14px; line-height: 20px; }
+.pc-material-progress { width: min(160px, 100%); }
+.proactive-companion[data-design-system="material3"] .pc-choices { gap: 12px; }
+.proactive-companion[data-design-system="material3"] .pc-choice {
+  position: relative; isolation: isolate; min-height: 88px; padding: 16px 20px;
+  justify-content: center; border: 0; border-radius: 16px;
+  background: var(--md-sys-color-surface-container); color: var(--md-sys-color-on-surface);
+  box-shadow: none; transform: none; overflow: hidden;
+}
+.proactive-companion[data-design-system="material3"] .pc-choice:hover:not(:disabled) { transform: none; box-shadow: none; }
+.proactive-companion[data-design-system="material3"] .pc-choice--primary { background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); }
+.proactive-companion[data-design-system="material3"] .pc-choice-label { font-size: 16px; line-height: 24px; font-weight: 500; letter-spacing: .15px; color: inherit; }
+.proactive-companion[data-design-system="material3"] .pc-choice--primary .pc-choice-label::before { display: none; }
+.proactive-companion[data-design-system="material3"] .pc-choice-reason { margin-top: 4px; font-size: 12px; line-height: 18px; letter-spacing: .25px; color: var(--md-sys-color-on-surface-variant); }
+.proactive-companion[data-design-system="material3"] .pc-choice--primary .pc-choice-reason { color: var(--md-sys-color-on-primary-container); }
+.proactive-companion[data-design-system="material3"] .pc-feedback {
+  gap: 4px 12px; margin-top: 12px; padding: 12px 16px; border-radius: 16px;
+  color: var(--md-sys-color-on-surface-variant); background: var(--md-sys-color-surface-container-high);
+  font-size: 14px; line-height: 20px;
+}
+.proactive-companion[data-design-system="material3"] .pc-feedback[data-kind$="error"] { background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); }
+.proactive-companion[data-design-system="material3"] .pc-feedback-action { min-height: 48px; padding: 0; background: transparent; font-weight: 500; border-radius: 24px; }
+.proactive-companion[data-design-system="material3"] .pc-whisper { gap: 8px; align-items: center; background: var(--md-sys-color-surface); }
+.proactive-companion[data-design-system="material3"] .pc-whisper-pill {
+  --md-filled-tonal-button-container-height: 48px;
+  flex: 1 1 auto; min-width: 0; min-height: 48px; padding: 0; border: 0; box-shadow: none;
+  font-size: 14px; line-height: 20px;
+  color: var(--md-sys-color-on-secondary-container); background: transparent; border-radius: 24px;
+}
+.proactive-companion[data-design-system="material3"] .pc-whisper-pill svg { width: 20px; height: 20px; }
+.proactive-companion[data-design-system="material3"] .pc-stop {
+  --md-filled-tonal-button-container-height: 48px;
+  margin: 0; min-height: 48px; border: 0; padding: 0; border-radius: 24px; background: transparent;
+}
+.proactive-companion[data-design-system="material3"] .pc-whisper-input {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center;
+  gap: 0 4px; padding: 8px 8px 8px 16px; background: var(--md-sys-color-surface-container-high);
+  border: 0; border-radius: 28px; box-shadow: none;
+}
+.proactive-companion[data-design-system="material3"] .pc-whisper-label { grid-column: 1; grid-row: 1; color: var(--md-sys-color-on-surface-variant); font-size: 12px; line-height: 16px; letter-spacing: .4px; }
+.proactive-companion[data-design-system="material3"] .pc-whisper-input input { grid-column: 1; grid-row: 2; min-height: 32px; width: 100%; font-size: 16px; line-height: 24px; letter-spacing: .2px; }
+.proactive-companion[data-design-system="material3"] .pc-whisper-input > :is(md-filled-button, md-filled-tonal-button) { grid-column: 2; grid-row: 1 / 3; min-width: 64px; --md-filled-button-container-height: 48px; }
+.proactive-companion[data-design-system="material3"] .pc-whisper-close { grid-column: 3; grid-row: 1 / 3; width: 48px; height: 48px; padding: 0 !important; --md-icon-button-icon-size: 24px; }
+.proactive-companion[data-design-system="material3"] .pc-interaction {
+  width: 100%; max-width: 620px; justify-self: center; padding: 20px; border-radius: 24px;
+  background: var(--md-sys-color-surface-container-low); color: var(--md-sys-color-on-surface);
+}
+.proactive-companion[data-design-system="material3"] .pc-interaction > md-filled-button { margin-inline-end: 8px; }
+.proactive-companion[data-design-system="material3"] .pc-choice:focus-visible,
+.proactive-companion[data-design-system="material3"] .pc-whisper-input:focus-within { outline: 3px solid var(--md-sys-color-primary); outline-offset: 3px; }
+.proactive-companion[data-design-system="material3"] :is(.pc-quiet-btn, .pc-whisper-pill, .pc-stop, .pc-feedback-action, .pc-whisper-close):active { transform: none; }
+.proactive-companion[data-design-system="material3"].pc-viewport--short .pc-content { padding-block: 12px; gap: 16px; }
+@media (max-width: 359px) {
+  .proactive-companion[data-design-system="material3"] .pc-dialogue-box { padding: 16px; }
+  .proactive-companion[data-design-system="material3"] .pc-whisper-input { padding-inline-start: 12px; }
+  .proactive-companion[data-design-system="material3"] .pc-whisper-input > :is(md-filled-button, md-filled-tonal-button) { min-width: 48px; }
 }
 </style>

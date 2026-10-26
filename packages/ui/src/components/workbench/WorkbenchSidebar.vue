@@ -50,7 +50,7 @@ watch(() => narrowSidebar.value && !layout.standardSidebarCollapsed.value, async
   if (open) {
     returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     await nextTick();
-    sidebar.value?.querySelector<HTMLButtonElement>('button')?.focus();
+    sidebar.value?.querySelector<HTMLElement>('[data-aervox-button], button')?.focus();
   } else {
     await nextTick();
     if (returnFocus?.isConnected && returnFocus !== document.body) returnFocus.focus();
@@ -71,7 +71,7 @@ function handleSidebarKeydown(event: KeyboardEvent) {
     closeNarrowSidebar();
   } else if (event.key === 'Tab') {
     const elements = Array.from(sidebar.value?.querySelectorAll<HTMLElement>(
-      'button:not(:disabled), input:not(:disabled), [href], [tabindex="0"]',
+      '[data-aervox-button]:not([disabled]), button:not(:disabled), input:not(:disabled), [href], [tabindex="0"]',
     ) ?? []).filter((el) => el.getClientRects().length > 0);
     const first = elements[0];
     const last = elements.at(-1);

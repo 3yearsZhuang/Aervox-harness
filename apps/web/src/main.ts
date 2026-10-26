@@ -28,4 +28,11 @@ const elementComponents = [
 for (const comp of elementComponents) {
   app.use(comp);
 }
-app.mount('#app');
+async function mount() {
+  if (import.meta.env.VITE_AERVOX_PLATFORM === 'mobile') {
+    const { installMaterial3 } = await import('@aervox/ui/material3/register');
+    installMaterial3(app);
+  }
+  app.mount('#app');
+}
+void mount();

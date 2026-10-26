@@ -3,6 +3,9 @@ import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils';
 import { UISurfaceHost } from '@aervox/ui-host';
 import { configureAervoxClient, type StreamTurnOptions, type TurnCallbacks } from '@aervox/api-client';
 import definition from '../src';
+import { material3ContextKey } from '@aervox/ui/material3';
+import { defineComponent } from 'vue';
+import MobileSettingsDialog from '../src/MobileSettingsDialog.vue';
 
 enableAutoUnmount(afterEach);
 
@@ -48,9 +51,10 @@ beforeEach(() => {
   });
 });
 
-async function mountSurface(platform: 'web' | 'desktop' = 'web') {
+async function mountSurface(platform: 'web' | 'desktop' | 'mobile' = 'web', material3 = false) {
   const wrapper = mount(UISurfaceHost, {
     props: { plugin: definition, surface: 'main', platform, viewProps: {surfaceNavigation: {currentId: definition.id, options: [], select: vi.fn(), openDefault: vi.fn()}} },
+    global: { provide: { [material3ContextKey as symbol]: material3 } },
   });
   await vi.waitFor(() => expect(wrapper.find('.proactive-companion').exists()).toBe(true), { timeout: 5000 });
   await flushPromises();
@@ -516,4 +520,71 @@ it('uses the host-provided default-surface command without knowing its ID or URL
   await wrapper.get('[aria-label="回到完整工作台"]').trigger('click');
   expect(openDefault).toHaveBeenCalledOnce();
   wrapper.unmount();
+});
+
+
+it('opts into official Material controls only when the mobile composition root provides the design system', async () => {
+  const mobile = await mountSurface('mobile', true);
+  expect(mobile.get('.proactive-companion').attributes('data-design-system')).toBe('material3');
+  expect(mobile.findAll('md-icon-button.pc-quiet-btn')).toHaveLength(2);
+  expect(mobile.findAll('.pc-choice md-ripple')).toHaveLength(2);
+  expect(mobile.find('md-filled-tonal-button.pc-whisper-pill').exists()).toBe(true);
+  const desktop = await mountSurface('desktop');
+  expect(desktop.get('.proactive-companion').attributes('data-design-system')).toBeUndefined();
+  expect(desktop.findAll('button.pc-quiet-btn')).toHaveLength(2);
+  expect(desktop.find('md-ripple').exists()).toBe(false);
+});
+
+it('retains native input IME, its persistent label and real submission in the Material surface', async () => {
+  const wrapper = await mountSurface('mobile', true);
+  await wrapper.get('md-filled-tonal-button.pc-whisper-pill').trigger('click');
+  const input = wrapper.get('.pc-whisper-input input');
+  expect(wrapper.get('label.pc-whisper-label').attributes('for')).toBe(input.attributes('id'));
+  await input.setValue('学习事务回滚');
+  await input.trigger('keydown', { key: 'Enter', isComposing: true });
+  expect(streamTurn).not.toHaveBeenCalled();
+  await wrapper.get('.pc-whisper-input md-filled-button').trigger('click');
+  await flushPromises();
+  expect(streamTurn).toHaveBeenCalledOnce();
+  expect(streamTurn.mock.calls[0]![1]).toBe('学习事务回滚');
+  expect(wrapper.find('.pc-whisper-input').exists()).toBe(false);
+});
+
+it('keeps persistent cancellation before observer abort through a Material stop control', async () => {
+  const pending = pendingStream();
+  const wrapper = await mountSurface('mobile', true);
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click');
+  await flushPromises();
+  await pending.options.onAccepted!('turn_material');
+  expect(wrapper.get('md-linear-progress').attributes('indeterminate')).toBeDefined();
+  await wrapper.get('md-filled-tonal-button.pc-stop').trigger('click');
+  await flushPromises();
+  expect(request).toHaveBeenCalledWith('POST', '/v1/turns/turn_material/cancel', {}, expect.any(Object));
+  expect(pending.options.signal!.aborted).toBe(true);
+  expect(wrapper.get('.pc-feedback').text()).toBe('已停止回复。');
+});
+
+it('uses Material tabs to select the existing settings panels through keyboard change events', async () => {
+  const panel = (name: string) => defineComponent({ template: `<p>${name}</p>` });
+  const wrapper = mount(MobileSettingsDialog, { props: { modelValue: true, panels: [
+    { category: 'model', component: panel('模型设置') },
+    { category: 'voice', component: panel('语音设置') },
+  ] }, global: { provide: { [material3ContextKey as symbol]: true },
+    stubs: { AervoxDialog: { template: '<section><slot /></section>' } } } });
+  const tabs = wrapper.get('md-tabs');
+  expect(wrapper.findAll('md-primary-tab').map(tab => tab.text())).toEqual(['模型服务', '语音']);
+  Object.assign(tabs.element, { activeTabIndex: 1 });
+  await tabs.trigger('change');
+  expect(wrapper.get('[role="tabpanel"]').text()).toBe('语音设置');
+  expect(wrapper.get('[role="tabpanel"]').attributes('id')).toBe('mobile-settings-panel-voice');
+});
+
+
+it('selects the first available settings category when the host does not provide a model panel', () => {
+  const wrapper = mount(MobileSettingsDialog, { props: { modelValue: true, panels: [
+    { category: 'voice', component: defineComponent({ template: '<p>语音设置</p>' }) },
+  ] }, global: { provide: { [material3ContextKey as symbol]: true },
+    stubs: { AervoxDialog: { template: '<section><slot /></section>' } } } });
+  expect(wrapper.get('[role="tabpanel"]').text()).toBe('语音设置');
+  expect(wrapper.get('[role="tabpanel"]').attributes('aria-labelledby')).toBe('mobile-settings-tab-voice');
 });

@@ -2,6 +2,9 @@
 import { computed, type Component } from 'vue';
 import { ElDialog } from '../../utils/element';
 import AervoxDialogHeader from './AervoxDialogHeader.vue';
+import MaterialDialogFrame from '../../material3/MaterialDialogFrame.vue';
+import { useMaterial3 } from '../../material3/context';
+const material3 = useMaterial3();
 
 export type DialogSize = 'sm' | 'md' | 'lg' | 'xl' | 'custom';
 
@@ -98,7 +101,28 @@ function handleClose() {
 </script>
 
 <template>
-  <ElDialog
+  <MaterialDialogFrame v-if="material3"
+    :model-value="modelValue" :title="title" :width="resolvedWidth" :height="height"
+    :class="dialogClasses" :append-to-body="appendToBody" :destroy-on-close="destroyOnClose"
+    :close-on-click-modal="closeOnClickModal" :close-on-press-escape="closeOnPressEscape"
+    @update:model-value="emit('update:modelValue', $event)"
+    @open="emit('open')" @opened="emit('opened')" @close="emit('close')" @closed="emit('closed')"
+  >
+    <template v-if="showHeader" #header>
+      <slot name="header">
+        <AervoxDialogHeader :title="title" :subtitle="subtitle" :icon="icon" :show-close="showClose"
+          @close="emit('update:modelValue', false)">
+          <template v-if="$slots['header-icon']" #icon><slot name="header-icon" /></template>
+          <template v-if="$slots['header-title']" #title><slot name="header-title" /></template>
+          <template v-if="$slots['header-subtitle']" #subtitle><slot name="header-subtitle" /></template>
+          <template v-if="$slots['header-actions']" #actions><slot name="header-actions" /></template>
+        </AervoxDialogHeader>
+      </slot>
+    </template>
+    <div class="aervox-dialog-body" :class="{ 'is-no-padding': noPadding }" :style="bodyStyle"><slot /></div>
+    <template v-if="$slots.footer" #footer><div class="aervox-dialog-footer"><slot name="footer" /></div></template>
+  </MaterialDialogFrame>
+  <ElDialog v-else
     :model-value="modelValue"
     :title="title"
     :width="resolvedWidth"
