@@ -68,7 +68,9 @@ export function inspectAndroidEnvironment({
   };
   const samePath = (left, right) => platform === 'win32'
     ? left?.toLowerCase() === right?.toLowerCase() : left === right;
-  const properties = file => exists(file) ? parseProperties(read(file, 'latin1')) : new Map();
+  // Gradle properties use Properties.load(InputStream), while AGP reads its
+  // local.properties as UTF-8 text before Properties.load(Reader).
+  const properties = (file, encoding = 'latin1') => exists(file) ? parseProperties(read(file, encoding)) : new Map();
   const binary = name => platform === 'win32' ? `${name}.exe` : name;
   const inspectJava = command => {
     const result = run(command, ['-version'], { env, encoding: 'utf8', timeout: 10_000 });
@@ -119,7 +121,7 @@ export function inspectAndroidEnvironment({
 
   let localSdk;
   let localSdkError = false;
-  try { localSdk = properties(paths.join(root, 'android', 'local.properties')).get('sdk.dir'); }
+  try { localSdk = properties(paths.join(root, 'android', 'local.properties'), 'utf8').get('sdk.dir'); }
   catch { localSdkError = true; }
   // AGP selects sdk.dir before the environment. Injecting ANDROID_HOME into a
   // child cannot override an existing local.properties selection.

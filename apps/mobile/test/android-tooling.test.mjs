@@ -90,6 +90,18 @@ test('SDK aliases use real paths and Java property syntax instead of bypassing s
   assert.deepEqual(readFileSync(fixture.properties), before);
 });
 
+test('non-escaped UTF-8 SDK paths match the Android Gradle local.properties reader', t => {
+  const fixture = fileEnvironment(t);
+  const alias = path.join(fixture.root, '中文 SDK');
+  symlinkSync(fixture.sdk, alias, 'junction');
+  writeFileSync(fixture.properties, `sdk.dir=${fixture.encode(alias)}\n`, 'utf8');
+  const before = readFileSync(fixture.properties);
+  const result = fixture.inspect();
+  assert.equal(result.ok, true);
+  assert.equal(result.sdkRoot, realpathSync(fixture.sdk));
+  assert.deepEqual(readFileSync(fixture.properties), before);
+});
+
 test('empty or malformed local sdk.dir cannot be hidden by a valid environment SDK', t => {
   const fixture = fileEnvironment(t);
   for (const contents of ['sdk.dir=\n', 'sdk.dir=\\uZZZZ\n']) {
