@@ -249,6 +249,7 @@ CAP 与合同遵循 [API 约定](docs/reference/API_CONVENTIONS.md)，依赖 ITE
 
 - **顺序：** 先隐私/配置/插件及技能写入口，再补当前会话详情/历史、作答/分支入口和 CLI 所需接口，随后内容/学习/主动模块剩余分组。ITER-071 的鉴权与原子性修复不等待全部历史路由清零。
 - **验收：** 精确方法/路径、稳定 operationId、请求与成功/错误 Schema、认证、真实请求和旧客户端行为；新增遗漏/扩大豁免被拒绝，每补一个删除其精确例外。JSON 共享端点不改变 SSE/文件/二进制协议，破坏性变化单列迁移决定。
+- **历史真源前置：** 本轮审计确认普通在线 user 版本尚未关联 Message 身份，assistant 主要留在 safe_segments/流事件；事件正文的 24 小时保留期不能支持长期历史。接续先补真实受理、可见安全前缀及终态的消息持久链路，同事务复验来源/删除资格；不以模型上下文投影或缓存事件伪装完整用户历史。
 - **剩余产品责任：** Neo 生命周期；分支来源、完整删除、布局恢复、大图性能；反馈读取预算、回答版本关联和复核队列。图读取行数预算不证明 SQL 排序时间或单布局字节有界。
 
 | 已合并切片 | 保留行为与数量 | 证据 |
@@ -260,6 +261,10 @@ CAP 与合同遵循 [API 约定](docs/reference/API_CONVENTIONS.md)，依赖 ITE
 | 质量反馈 2 接口 | actor 取认证上下文、剥离旧 body.actorId；重复查询/类型写前拒绝，扩展字符串/nullable note/201、200/旧 void 行为；126→124 | [PR #318](https://github.com/3yearsZhuang/Aervox-harness/pull/318) |
 
 本轮在 `fix/plan-safety-contract-continuation` 接续插件列表、启停/卸载、授权/有效感知列表/撤权及权限查询 7 个端点，精确例外 124→117；保留完整插件行、整数旗标、nullable/扩展元数据、撤权 200 行与卸载 204。撤权 SQL 同时绑定 grant ID 与 URL 的插件 ID，错误插件路径返回 404 且原行不变；仓储/HTTP 反例先红后绿。定向仓储 5、API 30、Contracts 100、客户端 218 项、相关类型及 OpenAPI 兼容通过，全量与新 PR 另验。首次全量拒绝生成 OpenAPI 超出受跟踪文件预算，现复用命名插件响应与既有 ModelRuntimeState，生成物降至 938288 B，兼容及卫生门禁通过；不扩大预算或删除契约。
+
+本轮接续 LLM 配置读取/保存、连接探测和四个 Preset 端点，共 7 个共享声明；保留已有 operationId、默认配置、可空密钥、首个 Preset 自动激活、删除 200 回执及探测失败 200/ok=false。它们原已列入 OpenAPI，精确例外仍为 117；只补三处历史必需请求体的精确文档纠正，不刷新基线。连接错误使用固定消息，不回传凭据 URL、Provider 错误正文或内部异常；新增泄漏反例；连接探测的既有截止原先只覆盖响应头，现贯通正文与能力读取，真实 200 半截流/慢主响应与 500 不结束正文均验证释放。CLI 编码脱敏及最终集成验证与新 PR 证据另记。
+
+本轮 LLM/CLI 最终新的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务及守卫、OpenAPI 兼容、HLS、删除故障、Native 和 64 份文档门禁通过；API 960、仓储 742、Worker 161、Host Runtime 306、Core 501、Host Agent 121、客户端 230、CLI 131 项通过，1 项既有真实模型跳过保留。独立复核捕获编码密钥路径/标签、响应正文无截止和异常能力元数据三处缺口并补回归修复，真实 API 13、CLI 模型 41 项通过；打包安装的 CLI 连接真实 API/临时文件 SQLite，模型配置及 Preset 跨 API 重启保持，2 项集成通过。依赖审计为 0 未审阅、2 既有审阅路径、0 过时例外；随后仅补本条记录并复验文档，精确提交远端结果由新 PR 保存。
 
 首次旗标构建及客户端 undefined 回归失败与后续修复保留在各 PR/CI 和[原计划](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation/reading/plan.md#iter-064)。
 
@@ -279,7 +284,8 @@ CAP-002/007、本地模型基础设施。Core Provider 与本地 Driver 的统�
 
 `@aervox/cli` / `siyu` 只消费本机 API 与 `@aervox/api-client/transport`，CAP-002/007/020。单次/TTY 连续会话、事件补读/终态、诊断、配置读写、JSON/JSONL、Token/幂等、审批/补问/有界取消已由 [PR #308](https://github.com/3yearsZhuang/Aervox-harness/pull/308)、[PR #319](https://github.com/3yearsZhuang/Aervox-harness/pull/319)交付。
 
-- **下一步：** 依赖 ITER-064 的详情/历史接口，补模型配置入口，完成真实模型下的跨客户端/API 重启接续与平台矩阵。学习/复习、记忆专用命令、独立运行另验，不扩大首个连接版为独立宿主；不增 Schema、中心服务或第二执行栈。
+- **下一步：** 依赖 ITER-064 的详情/历史接口，完成真实模型下的跨客户端/API 重启接续与平台矩阵。学习/复习、记忆专用命令、独立运行另验，不扩大首个连接版为独立宿主；不增 Schema、中心服务或第二执行栈。
+- **本轮模型配置入口：** 共享 headless LLM Client 供 CLI 与 Vue 使用；`models` 提供目录、配置、连接探测及 Preset 管理，配置从文件读取，密钥可经环境变量注入，输出仅白名单字段和去除凭据/查询的 URL。省略 apiKey 仍按旧合同清空，命令不存本机模型密钥；不把模拟探测当真实 Provider 验收。
 - **验收与边界：** 打包产物+真实 API/文件 SQLite，非交互不自动批准，观察超时/失败不取消已受理回合，中断有界取消；共享包不反向依赖 CLI。列表 limit 有界、offset 安全整数，只翻用户指定页，offset 非快照；不当完整导出。
 - **证据：** 重启后 102 个临时会话的默认/末尾/空页和接续、全量及远端检查通过；不等于真实模型/正式平台发布。首次无退出码及旧依赖失败保留在[原计划](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation/reading/plan.md#iter-029)及 PR。
 
@@ -377,9 +383,9 @@ ARC-05/FND-07，依赖 ITER-002 Outbox 归属、ITER-013/017 指标。IPC 唤醒
 
 <a id="iter-009"></a>
 
-### ITER-009 · 建议：硬件与移动定位决定
+### ITER-009 · 进行中：Android 独立端前置与硬件定位
 
-比较九个硬件方向、电脑依赖、目标 OS、真实 Provider、成本和数据边界；CAP-001/012/018/025/030/033。只做候选/样本和继续或暂缓结论，选一至两个方向，不默认采购/SKU/固件/顺序/工期。维护者已选择手机独立运行、电脑关闭后仍可使用；移动 M0 接续验证本地执行/存储适配，再裁定平台、凭据与数据范围，之后细化 M1～M6。现有 Capacitor 配置只有 Web 壳，没有 Android/iOS 原生工程；本机仅 Command Line Tools，未发现 simctl/adb，不能宣称真机或模拟器验收。具体待决定事项见下一节，关联 ITER-016。
+比较九个硬件方向、电脑依赖、目标 OS、真实 Provider、成本和数据边界；CAP-001/012/018/025/030/033。只做候选/样本和继续或暂缓结论，选一至两个方向，不默认采购/SKU/固件/顺序/工期。维护者已选择手机独立运行、电脑关闭后仍可使用，并确认 Android 先行；移动 M0 在 Android 路线上接续验证本地执行/存储适配，再裁定版本范围、凭据与数据范围，之后细化 M1～M6。现有 Capacitor 配置只有 Web 壳，没有 Android/iOS 原生工程；前次仅见 Command Line Tools 的环境结论已过时，本轮实时可见 Android SDK API 36 和 adb；兼容 JDK 接线、原生构建与设备验收继续另验，不能由工具存在推定通过。具体待决定事项见下一节，关联 ITER-016。
 
 本轮先交付 `@aervox/core/browser` 中性入口，整包打包不包含 Node/CLI，VM 无 process/require/Buffer 仍能执行 Turn，声明闭包以 DOM、types=[] 编译；现有入口保持。独立复核捕获旧 `./core` 独有的 abortable 导出丢失，新增以旧轻量符号表为基线的回归先红后绿，补回两项后定向 3 文件 13 项和类型检查通过。该前置不等于本机持久 Store、原生 SQLite/密钥/模型桥或手机闭环，后续依次补齐，不把 Node API/Worker 原包直接装入 WebView。
 
@@ -433,12 +439,12 @@ ITER-009 先形成可审阅结论，以下建议不替用户选定产品或批�
 |---|---|---|
 | 是否要求电脑关机后独立使用 | 先分别比较依赖现有电脑的配件与独立算力盒 | 典型使用时段、成本/能耗、维护能力与本地模型规格 |
 | 首个硬件形态 | USB 桌宠、专注旋钮、电子纸卡可优先做低成本概念比较；语音/扫描由真实能力验证决定 | 用户价值、现有外设替代、Provider 真实性、无设备时流程完整性 |
-| 移动端定位与平台 | 已选择独立端：电脑关闭仍可使用；接续验证手机本地运行时，再决定 Android/iOS 顺序和版本范围 | 后台/权限限制、目标用户设备、本地 SQLite/密钥/迁移、打包与真实平台验收 |
+| 移动端定位与平台 | 已选择独立端、Android 先行：电脑关闭仍可使用；接续验证手机本地运行时，再决定 Android 版本范围；iOS 后续另验 | 后台/权限限制、目标用户设备、本地 SQLite/密钥/迁移、打包与真实平台验收 |
 | 同网连接与认证 | 明确发现、证书、设备凭据和撤销；不把同一 Wi-Fi 当作授权 | 当前 Token 与隐私契约中身份要求的差量及威胁评审 |
 | 跨设备数据范围 | 普通资料与 local_only/混合来源严格分开 | 导出/同步授权、删除传播、离线期限与来源验证 |
 | 第一版交互范围 | 从通知、图片、分享、只读复习中选择最小闭环 | 实际任务完成率与成本，不按接口数量决定范围 |
 
-[ADR-022 移动端提案](docs/reference/adr/ADR-022-mobile-runtime-access.md#cr-055) 已记录独立运行的产品决定，技术方案仍是 Proposed/Planned；平台顺序、运行时和工期尚未裁定，具体取舍在本节维护。
+[ADR-022 移动端提案](docs/reference/adr/ADR-022-mobile-runtime-access.md#cr-055) 已记录独立运行、Android 先行的产品决定，技术方案仍是 Proposed/Planned；运行时、平台版本范围和工期尚未裁定，具体取舍在本节维护。
 
 ## 8. 已移交切片与历史证据
 

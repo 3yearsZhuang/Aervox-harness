@@ -2481,6 +2481,27 @@
           "type": "null"
         }
       ]
+    },
+    {
+      "id": "llm-write-body-required",
+      "reason": "The existing LLM route already rejects an absent JSON body before invoking the service; record its actual HTTP requirement without changing the historical baseline.",
+      "pointer": "/paths/~1v1~1llm~1config/put/requestBody/required",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": true
+    },
+    {
+      "id": "llm-write-body-required",
+      "reason": "The existing LLM route already rejects an absent JSON body before invoking the service; record its actual HTTP requirement without changing the historical baseline.",
+      "pointer": "/paths/~1v1~1llm~1test-connection/post/requestBody/required",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": true
+    },
+    {
+      "id": "llm-write-body-required",
+      "reason": "The existing LLM route already rejects an absent JSON body before invoking the service; record its actual HTTP requirement without changing the historical baseline.",
+      "pointer": "/paths/~1v1~1llm~1presets/post/requestBody/required",
+      "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
+      "value": true
     }
   ],
   "restoration": {

@@ -8,6 +8,7 @@ import { executeSessions, executeDoctor } from './commands/sessions.js';
 import { executeWatch } from './commands/watch.js';
 import { executeAsk } from './commands/ask.js';
 import { executeChat } from './commands/chat.js';
+import { executeModels } from './commands/models.js';
 import type { CliIO, CommandContext, ParsedCliOptions, TrackState } from './commands/types.js';
 
 export { HELP };
@@ -94,8 +95,11 @@ export async function runCli(argv: string[], io: CliIO): Promise<number> {
     const timedSignal = () => AbortSignal.any([AbortSignal.timeout(timeoutMs), interactiveSignal]);
     track.currentSignal = timedSignal();
 
-    if (command !== 'ask' && (options.file || options['request-id'])) {
-      throw new CliError('usage', '--file/--request-id 仅用于 ask。', 2);
+    if (command !== 'ask' && options['request-id']) {
+      throw new CliError('usage', '--request-id 仅用于 ask。', 2);
+    }
+    if (command !== 'ask' && command !== 'models' && options.file !== undefined) {
+      throw new CliError('usage', '--file 仅用于 ask 或 models 的显式 JSON 输入。', 2);
     }
     if (command === 'ask' && options['request-id'] && !sessionId) {
       throw new CliError('usage', '--request-id 必须与固定 --session 一起使用。', 2);
@@ -134,6 +138,8 @@ export async function runCli(argv: string[], io: CliIO): Promise<number> {
         return await executeAsk(ctx);
       case 'chat':
         return await executeChat(ctx);
+      case 'models':
+        return await executeModels(ctx);
       default:
         throw new CliError('usage', '未知命令；运行 siyu --help。', 2);
     }

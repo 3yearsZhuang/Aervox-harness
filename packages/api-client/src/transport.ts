@@ -520,3 +520,5 @@ export function createFetchTransport(apiBase: string, config: FetchTransportOpti
 
 export { createConversationController } from './conversation-controller.js';
 export type { ConversationController, ConversationState, ConversationStatus } from './conversation-controller.js';
+
+export { createLLMConfigClient } from './llm-client.js';

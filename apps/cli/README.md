@@ -46,6 +46,23 @@ Ctrl-C 退出客户端并尝试取消当前回合；停止客户端不会关闭�
 
 Token 由 `SIYU_API_TOKEN` 环境变量注入，不作为命令参数、不写入配置；地址用 `SIYU_API_URL` 或 `--api-base`。`config show` 查看实际配置，`config set apiBase http://127.0.0.1:3000` 保存地址。默认配置在用户目录 `.config/aervox/cli.json`；设置 `XDG_CONFIG_HOME` 或 `SIYU_CONFIG_FILE` 可覆盖位置。
 
+模型配置通过本机 API 读写，使用当前共享契约；不会启动模型或自动调用供应商。先查看目录与脱敏摘要：
+
+```bash
+siyu models providers --json
+siyu models config show --json
+siyu models config set --file ./model.json --json
+siyu models test --file ./connection.json --json
+siyu models presets list --json
+siyu models presets create 日常模型 --file ./model.json --json
+siyu models presets activate <ID> --json
+siyu models presets delete <ID> --json
+```
+
+`model.json` 使用 `enabled`、`providerType`、`baseUrl`、`modelId` 和可选 `temperature`、`maxTokens`、`settings`、`apiKey`；`connection.json` 只需 `providerType`、`baseUrl`、`modelId` 与可选 `apiKey`。文件上限 64 KiB。密钥可由 `SIYU_MODEL_API_KEY` 覆盖文件中的 `apiKey`，不作为命令行选项，也不会写入 CLI 连接配置。 `models config set` 使用完整配置；若文件省略 `apiKey` 且没有环境覆盖，会清空当前保存的模型密钥。含密钥的文件应放在版本控制之外并限制读取权限。
+
+`models` 子命令中，`test` 会显式连接供应商，不保存测试配置；它可能产生供应商请求及相应费用。其余 `models` 子命令只管理本机配置。输出仅包含能力目录或配置摘要，密钥只显示配置状态；不输出原始 `settings`、供应商消息、探测模型名称列表或 URL 用户信息、query、fragment。保存、新建、激活和删除不会因超时或响应丢失自动重发；结果未知时先读取配置或预设列表确认。
+
 `ask` 默认创建新会话，用 `--session` 继续已有会话；会话内容与学习记录始终由 API 持久化。`sessions list` 查看会话，`events <turnId>` 补读回合，`status <turnId>` 等待并查询终态。客户端只保存请求标识回执；提交响应丢失时不会自动重发，可用保存的幂等键对相同问题显式重试。
 
 `--json` 输出一个最终对象；`--jsonl` 输出版本化事件。正文走 stdout，诊断与审批走 stderr。非交互输入不会自动批准写工具；交互批准只代表决定已保存，不保证当前工具自动续跑。只有中断（Ctrl-C / SIGTERM / 断管）会尝试通知服务端取消当前回合；超时或请求失败属于状态未知，不会替你取消已受理的回合，可用 `events <turnId>` 或 `status <turnId>` 追认结果，输出会区分取消请求与确认的执行结果。

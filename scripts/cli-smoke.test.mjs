@@ -63,8 +63,32 @@ test('packed CLI + authenticated API + file SQLite survives client and API resta
     assert.equal(attempts.length, 1); assert.equal(attempts[0].status, 'Completed');
     assert.equal((await cli(['events', first.turnId])).text, first.text);
 
+    // Exercise the installed headless LLM client against the real routes and writer.
+    const modelSecret = 'sk/packed-model-canary';
+    const modelFile = join(temporary, 'model.json');
+    await writeFile(modelFile, JSON.stringify({ enabled: true, providerType: 'ollama',
+      baseUrl: 'http://127.0.0.1:11434/v1', modelId: 'packed-fixture',
+      settings: { private: modelSecret },
+    }), { mode: 0o600 });
+    env.SIYU_MODEL_API_KEY = modelSecret;
+    const savedModel = await cli(['models', 'config', 'set', '--file', modelFile]);
+    assert.equal(savedModel.data.saved, true);
+    assert.equal(savedModel.data.apiKeyConfigured, true);
+    assert.ok(!JSON.stringify(savedModel).includes(modelSecret));
+    const createdModel = await cli(['models', 'presets', 'create', '安装回归', '--file', modelFile]);
+    const modelPresetId = createdModel.data.preset.id;
+    await cli(['models', 'presets', 'activate', modelPresetId]);
+    assert.ok(!JSON.stringify(await cli(['models', 'presets', 'list'])).includes(modelSecret));
+
     await app.close(); app = undefined; database.client.close(); database = undefined;
     await startApi(false);
+    const persistedModel = await cli(['models', 'config', 'show']);
+    assert.equal(persistedModel.data.modelId, 'packed-fixture');
+    assert.equal(persistedModel.data.apiKeyConfigured, true);
+    assert.ok(!JSON.stringify(persistedModel).includes(modelSecret));
+    assert.equal((await cli(['models', 'presets', 'list'])).data.activeId, modelPresetId);
+    assert.equal((await cli(['models', 'presets', 'delete', modelPresetId])).data.deleted, true);
+    delete env.SIYU_MODEL_API_KEY;
     assert.equal((await cli(['events', first.turnId])).text, first.text);
     assert.equal((await cli(['status', first.turnId])).ok, true);
     assert.ok((await cli(['sessions', 'list'])).data.items.some(item => item.id === 'cli_smoke'));
