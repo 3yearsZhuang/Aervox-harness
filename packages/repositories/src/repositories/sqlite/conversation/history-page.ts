@@ -66,9 +66,17 @@ const eligibleVersion = sql`${messageVersions.supersededAt} is null and ${messag
 const withheld = sql`(${messageVersions.isRedacted} <> 0 or exists (
   select 1 from ${turnStreamEvents} where ${turnStreamEvents.turnId} = ${turns.id} and ${turnStreamEvents.eventType} = 'redacted'
 ))`;
+// Only the original linked input of a known atomic admission describes what
+// this Turn accepted. Current edits and imported/unlinked rows remain readable
+// messages; their role or Turn-wide version number cannot prove that provenance.
+const acceptedInput = sql`(${messageVersions.role} = 'user' and ${messageVersions.version} = 1
+  and ${messageVersions.messageId} = ${messageVersions.id}
+  and length(cast(${turns.requestHash} as blob)) = 79 and substr(${turns.requestHash}, 1, 15) = 'turn-intent-v1:'
+  and substr(${turns.requestHash}, 16) not glob '*[^a-f0-9]*'
+)`;
 const messageProjection = sql<string>`json_object(
   'messageId', ${messageVersions.messageId}, 'versionId', ${messageVersions.id}, 'version', ${messageVersions.version},
-  'role', ${messageVersions.role}, 'contentKind', case when ${messageVersions.role} = 'user' then 'accepted_input' else 'message' end,
+  'role', ${messageVersions.role}, 'contentKind', case when ${acceptedInput} then 'accepted_input' else 'message' end,
   'content', case when not ${withheld} then ${messageVersions.content} else null end,
   'visibility', case when not ${withheld} then 'available' else 'withheld' end,
   'legacy', json(case when ${messageVersions.messageId} is null then 'true' else 'false' end),

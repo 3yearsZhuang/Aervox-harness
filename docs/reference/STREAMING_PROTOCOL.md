@@ -107,7 +107,7 @@ SSE 传输分页每次最多读取 256 条事件，并在物化 JSON 前按 SQLi
 
 `GET /v1/sessions/{sessionId}/history` 使用现有本机认证，响应 `Cache-Control: no-store`。请求、回执和错误的唯一字段声明见[共享契约](../../packages/contracts/src/session-history-api.ts)，headless Client 供 CLI 和界面复用；读取不创建或取消 Turn、不调用模型、不回填数据库。
 
-读取在同一事务快照复验 Session 政策/派发、首输入存在、当前身份与版本指针、关联身份软删。只返回当前未被替代的持久版本，不回退旧版或事件正文；允许未完成回合，`status` 与 `isComplete` 表达实际状态。User 的 `contentKind=accepted_input` 指服务端接受的有效输入，可能包含合并的 Inbox，不能标注为完整原始手输。旧未关联记录保留真实 versionId，messageId 为 null、legacy/readOnly 为 true，不补造身份；导入的有效关联记录保留当前身份。以 system/assistant 开头、缺少首个 User 的导入轮不满足当前来源证明，仍不显示，不放宽删除保护补读。
+读取在同一事务快照复验 Session 政策/派发、首输入存在、当前身份与版本指针、关联身份软删。只返回当前未被替代的持久版本，不回退旧版或事件正文；允许未完成回合，`status` 与 `isComplete` 表达实际状态。`contentKind=accepted_input` 仅标识已知原子接单的原始 User 首版：有效意图摘要、首版与消息身份同 ID，且该版仍为当前版本；正文可能包含合并的 Inbox，不能标注为完整原始手输。编辑后的 User、导入和未关联记录使用 `contentKind=message`，仅降低标签的来源声明，不改变其正文可读资格。界面及 CLI 文本为每条记录显示实际持久版本号；版本号在 Turn 内分配，自动 Assistant 发布也会生成新版本，不表示人工编辑次数。旧未关联记录保留真实 versionId，messageId 为 null、legacy/readOnly 为 true，不补造身份；导入的有效关联记录保留当前身份。以 system/assistant 开头、缺少首个 User 的导入轮不满足当前来源证明，仍不显示，不放宽删除保护补读。
 
 `isRedacted` 或仍保留的旧 `redacted` 事件标记使正文返回 null、visibility=withheld、readOnly=true。当前标记未区分固定危机回复与撤回，该历史入口保守隐藏两者；实时固定回复交付合同保持。已清理且无持久标记的旧撤回状态无法从事件推断，完整历史修复和授权/同意传播仍须另验。
 

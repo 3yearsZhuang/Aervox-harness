@@ -65,9 +65,21 @@ describe('read-only session history CLI', () => {
     const result = await invoke(['sessions', 'history', 'session'], 'text');
     expect(result.code).toBe(0);
     expect(result.stdout).toContain('本轮输入'); expect(result.stdout).toContain('未完成');
+    expect(result.stdout).toContain('版本 1'); expect(result.stdout).toContain('版本 3');
     expect(result.stdout).toContain('这条记录当前不可显示');
     expect(result.stdout).toContain('--cursor eyJ2IjoxfQ');
     expect(result.stdout).not.toMatch(/\u001b|52;c;private|auth-canary/);
+    expect(requests).toHaveLength(1);
+  });
+  it('shows current user and assistant versions without labelling edited input as originally accepted or automatic versions as manual edits', async () => {
+    const value = page();
+    Object.assign(value.items[0]!.messages[0]!, { version: 5, versionId: 'edited-user', contentKind: 'message', content: 'corrected input' });
+    value.items[0]!.messages[1]!.version = 4;
+    handler = response => send(response, value);
+    const result = await invoke(['sessions', 'history', 'session'], 'text');
+    expect(result.code).toBe(0); expect(result.stdout).toContain('用户记录');
+    expect(result.stdout).toContain('版本 5'); expect(result.stdout).toContain('版本 4');
+    expect(result.stdout).not.toContain('本轮输入'); expect(result.stdout).not.toContain('已编辑');
     expect(requests).toHaveLength(1);
   });
   it.each([

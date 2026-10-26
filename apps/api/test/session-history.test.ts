@@ -27,7 +27,7 @@ describe('owner history HTTP contract', () => {
     expect((await request(endpoint, 'wrong')).status).toBe(401); expect(read).not.toHaveBeenCalled();
     const response = await request(); expect(response.status).toBe(200); expect(response.cache).toBe('no-store');
     expect(sessionHistoryPageSchema.parse(response.body)).toMatchObject({ sessionId: 'session', nextCursor: null,
-      items: [{ turnId: 'turn', status: 'Interrupted', isComplete: false, messages: [{ messageId: null, versionId: 'user', contentKind: 'accepted_input', legacy: true, readOnly: true, content: 'durable input' }] }] });
+      items: [{ turnId: 'turn', status: 'Interrupted', isComplete: false, messages: [{ messageId: null, versionId: 'user', contentKind: 'message', legacy: true, readOnly: true, content: 'durable input' }] }] });
     expect(sessionHistoryApi.get.path).toBe('/v1/sessions/{sessionId}/history');
   });
   it('rejects unknown, repeated and malformed query arguments instead of coercing them', async () => {
@@ -35,6 +35,28 @@ describe('owner history HTTP contract', () => {
       const response = await request(endpoint + '?' + query); expect(response.status, query).toBe(400);
       expect(response.body.code).toBe('INVALID_HISTORY_QUERY');
     }
+  });
+  it('returns an edited current input as a message alongside its unchanged answer through the authenticated HTTP API', async () => {
+    const repo = new SqliteConversationRepository(database.db);
+    await repo.acceptTurn(ctx, { turnId: 'accepted', sessionId: 'session', idempotencyKey: 'accepted', attemptId: 'accepted-attempt',
+      message: { id: 'accepted-user', content: 'original accepted input' }, consumeInbox: false });
+    await repo.appendStreamEvent(ctx, { id: 'accepted-start', turnId: 'accepted', attemptId: 'accepted-attempt', expectedFencingToken: 0,
+      sequence: 1, eventType: 'message', data: { role: 'assistant', messageId: 'accepted-assistant' }, safetyDecision: 'approved' });
+    await repo.recordSafeSegmentAtomically(ctx, { turnId: 'accepted', attemptId: 'accepted-attempt', expectedFencingToken: 0,
+      sequence: 2, text: 'original answer', eventData: { messageId: 'accepted-assistant', text: 'original answer' }, safetyDecision: 'approved' });
+    await repo.finalizeAttemptWithEventAtomically(ctx, { turnId: 'accepted', attemptId: 'accepted-attempt', expectedFencingToken: 0,
+      sequence: 3, status: 'Completed', eventType: 'done', eventData: { status: 'Completed' }, safetyDecision: 'approved' });
+    const edited = await fetch(base + '/v1/messages/accepted-user', { method: 'PATCH',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ content: 'corrected input', expectedVersion: 1 }) });
+    expect(edited.status).toBe(200);
+    const response = await request(); expect(response.status).toBe(200);
+    const history = sessionHistoryPageSchema.parse(response.body).items.find(item => item.turnId === 'accepted')!;
+    expect(history.messages).toMatchObject([
+      { version: 4, contentKind: 'message', content: 'corrected input' },
+      { version: 3, contentKind: 'message', content: 'original answer' },
+    ]);
+    expect((await repo.listMessageVersions(ctx, 'accepted-user')).find(version => version.id === 'accepted-user')?.content).toBe('original accepted input');
   });
   it('returns explicit missing-session and expired-anchor errors without executing work', async () => {
     expect((await request('/v1/sessions/missing/history')).status).toBe(404);
