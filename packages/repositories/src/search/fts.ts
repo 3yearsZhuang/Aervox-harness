@@ -3,7 +3,11 @@
  *
  * 为会话消息与记忆提供无外置搜索引擎依赖的本地全文检索能力。
  */
-import type { Client } from "@libsql/client";
+import type { Client, InValue } from "@libsql/client";
+import { sql, type SQL } from "drizzle-orm";
+import { SQLiteSyncDialect } from "drizzle-orm/sqlite-core";
+import { messages, messageVersions, turns } from "@aervox/schema";
+import { derivableConversationTurn } from "../repositories/sqlite/conversation/source-visibility.js";
 import { assertLocalContext, type LocalContext } from "../local-context.js";
 
 /**
@@ -27,8 +31,44 @@ export async function initFtsTables(client: Client): Promise<void> {
   `);
 }
 
+const dialect = new SQLiteSyncDialect();
+const statement = (query: SQL) => {
+  const compiled = dialect.sqlToQuery(query);
+  return { sql: compiled.sql, args: compiled.params as InValue[] };
+};
+const messageIdentity = sql`coalesce(${messageVersions.messageId}, ${messageVersions.id})`;
+// One predicate owns live indexing, stale-index qualification and migration rebuilds.
+// FTS is a projection of current conversation truth, never an independent source.
+const eligibleMessage = sql`(
+  ${derivableConversationTurn(turns.id)}
+  and ${turns.executionPolicy} in ('local-v1', 'bot-owner-v1')
+  and ${messageVersions.role} in ('user', 'assistant')
+  and ${messageVersions.isRedacted} = 0 and ${messageVersions.supersededAt} is null
+  and ${messageVersions.content} <> ''
+  and ((${messageVersions.messageId} is null and not exists (
+    select 1 from message_versions newer_fts_version
+    where newer_fts_version.turn_id = ${messageVersions.turnId}
+      and newer_fts_version.role = ${messageVersions.role}
+      and newer_fts_version.superseded_at is null and newer_fts_version.version > ${messageVersions.version}
+  )) or exists (
+    select 1 from ${messages} where ${messages.id} = ${messageVersions.messageId}
+      and ${messages.sessionId} = ${turns.sessionId} and ${messages.role} = ${messageVersions.role}
+      and ${messages.deletedAt} is null and ${messages.currentVersionId} = ${messageVersions.id}
+  ))
+)`;
+const messageSources = sql`${messageVersions} inner join ${turns} on ${turns.id} = ${messageVersions.turnId}`;
+
+/** Rebuild only eligible current sources; caller owns the explicit staging lifecycle. */
+export async function rebuildMessageFts(client: Client): Promise<void> {
+  await client.batch([
+    "DELETE FROM messages_fts",
+    statement(sql`insert into messages_fts(id, content)
+      select ${messageIdentity}, ${messageVersions.content} from ${messageSources} where ${eligibleMessage}`),
+  ], "write");
+}
+
 /**
- * 同步消息文本到 FTS5 虚表
+ * 同步消息文本到 FTS5 虚表。迟到或伪造的正文不能覆盖当前事实。
  */
 export async function indexMessageFts(
   client: Client,
@@ -36,12 +76,12 @@ export async function indexMessageFts(
   message: { id: string; content: string },
 ): Promise<void> {
   assertLocalContext(ctx);
-  // 先清理旧索引（若存在），再插入新索引
-  await client.execute({ sql: `DELETE FROM messages_fts WHERE id = ?`, args: [message.id] });
-  await client.execute({
-    sql: `INSERT INTO messages_fts(id, content) VALUES (?, ?)`,
-    args: [message.id, message.content],
-  });
+  await client.batch([
+    { sql: "DELETE FROM messages_fts WHERE id = ?", args: [message.id] },
+    statement(sql`insert into messages_fts(id, content)
+      select ${messageIdentity}, ${messageVersions.content} from ${messageSources}
+      where ${eligibleMessage} and ${messageIdentity} = ${message.id} and ${messageVersions.content} = ${message.content}`),
+  ], "write");
 }
 
 /**
@@ -74,19 +114,19 @@ export async function searchMessagesFts(
   const sanitized = query.replace(/[^\p{L}\p{N}\s]/gu, " ").trim();
   if (!sanitized) return [];
 
-  const res = await client.execute({
-    sql: `
-      SELECT id, rank AS score
-      FROM messages_fts
-      WHERE messages_fts MATCH ?
-      ORDER BY rank
-      LIMIT ?;
-    `,
-    args: [sanitized, limit],
-  });
+  const res = await client.execute(statement(sql`
+    select json_quote(messages_fts.id) as encoded_id, rank as score
+    from messages_fts
+    where messages_fts match ${sanitized} and exists (
+      select 1 from ${messageSources} where ${eligibleMessage}
+        and ${messageIdentity} = messages_fts.id and ${messageVersions.content} = messages_fts.content
+    )
+    order by rank limit ${limit}
+  `));
 
   return res.rows.map((row) => ({
-    id: String(row.id),
+    // The native text decoder truncates embedded NUL; JSON preserves the complete identity.
+    id: JSON.parse(String(row.encoded_id)) as string,
     score: Number(row.score),
   }));
 }

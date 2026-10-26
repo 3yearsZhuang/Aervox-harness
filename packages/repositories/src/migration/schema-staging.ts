@@ -8,6 +8,7 @@ import { inspectSchemaParity, schemaFingerprint, type SchemaScope } from "../sch
 import { exportSnapshot, restoreSnapshotToEmptyStaging, type DatabaseSnapshot } from "../sync/git-snapshot.js";
 import { createVerifiedBackup, assertVerifiedBackup } from "./backup-manifest.js";
 import { atomicSwapCr030Database } from "./staging-migration.js";
+import { rebuildMessageFts } from "../search/fts.js";
 
 export interface QuiescedDatabaseLease {
   /** Called after every writer, reader and SQLite connection to source has stopped. */
@@ -76,7 +77,7 @@ export async function migrateDatabaseViaStaging(input: {
     if (String(integrity.rows[0]?.integrity_check) !== "ok") throw new Error("staging integrity check failed");
     // Search indexes are derived and rebuilt locally, never imported as FTS shadow tables.
     if (scope === "main") {
-      await staging.client.execute("INSERT INTO messages_fts(id, content) SELECT m.id, v.content FROM messages m JOIN message_versions v ON v.id = m.current_version_id WHERE m.deleted_at IS NULL AND v.is_redacted = 0");
+      await rebuildMessageFts(staging.client);
       await staging.client.execute("INSERT INTO memories_fts(id, content) SELECT id, content FROM memory_records WHERE is_deleted = 0");
     }
     await staging.client.execute("PRAGMA wal_checkpoint(TRUNCATE)");

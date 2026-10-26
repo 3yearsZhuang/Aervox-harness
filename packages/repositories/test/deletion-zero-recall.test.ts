@@ -43,7 +43,7 @@ describe("TC-PRIV-DEL-001: 删除传播与即刻零召回验证测试", () => {
     // 1. 落库业务消息
     await convRepo.createTurnWithOutbox(
       ctx,
-      { id: "turn_sens_1", sessionId: session.id, idempotencyKey: "idem_sens_1" },
+      { id: "turn_sens_1", sessionId: session.id, idempotencyKey: "idem_sens_1", status: "Completed" },
       { id: messageId, content: sensitiveText },
     );
 

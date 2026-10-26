@@ -4,6 +4,7 @@ import {
   createInMemoryDatabase,
   initDatabaseSchema,
   SqliteMemoryRepository,
+  SqliteConversationRepository,
   indexMessageFts,
   indexMemoryFts,
   InMemoryVectorSearchAdapter,
@@ -36,11 +37,20 @@ describe("T-02 混合检索（FTS + 向量 RRF 融合）", () => {
     vectorPort = new InMemoryVectorSearchAdapter();
   });
 
+  async function indexText(id: string, content: string) {
+    const conversations = new SqliteConversationRepository(db);
+    await conversations.getOrCreateSession(ctx, "fts-fixture");
+    await conversations.createTurnWithOutbox(ctx,
+      { id: `turn-${id}`, sessionId: "fts-fixture", idempotencyKey: `turn-${id}`, status: "Completed" },
+      { id, content });
+    await indexMessageFts(client, ctx, { id, content });
+  }
+
   it("双通道命中：RRF 融合排序并标记 hybrid / 单通道来源", async () => {
     // FTS5 unicode61 以空格为分词单元，中文内容需空格分隔；仅 mango 命中"苹果"
-    await indexMessageFts(client, ctx, { id: "mango", content: "苹果 很好吃" });
-    await indexMessageFts(client, ctx, { id: "banana", content: "香蕉 也不错" });
-    await indexMessageFts(client, ctx, { id: "game", content: "游戏 时间到" });
+    await indexText("mango", "苹果 很好吃");
+    await indexText("banana", "香蕉 也不错");
+    await indexText("game", "游戏 时间到");
 
     // 向量：apple 语义最近的是 apple 条目；id 与 FTS 可重叠或不同
     await vectorPort.upsert(ctx, [
@@ -93,7 +103,7 @@ describe("T-02 混合检索（FTS + 向量 RRF 融合）", () => {
   });
 
   it("向量通道为空时降级为纯 FTS 结果", async () => {
-    await indexMessageFts(client, ctx, { id: "mango", content: "苹果 派" });
+    await indexText("mango", "苹果 派");
     const hybrid = createHybridSearchStorage({ domain: "message", client, vectorPort });
     const service = new HybridSearchService(hybrid, "message");
 
@@ -135,7 +145,7 @@ describe("T-02 混合检索（FTS + 向量 RRF 融合）", () => {
   });
 
   it("不同兼容上下文共享本地 FTS 召回", async () => {
-    await indexMessageFts(client, ctx, { id: "mango", content: "苹果 派" });
+    await indexText("mango", "苹果 派");
     const hybrid = createHybridSearchStorage({ domain: "message", client, vectorPort });
     const service = new HybridSearchService(hybrid, "message");
 
@@ -151,7 +161,7 @@ describe("T-02 混合检索（FTS + 向量 RRF 融合）", () => {
 
   it("limit 生效：只返回 topK 上限的条数", async () => {
     for (let i = 0; i < 6; i += 1) {
-      await indexMessageFts(client, ctx, { id: `m${i}`, content: "苹果 每日一学" });
+      await indexText(`m${i}`, "苹果 每日一学");
     }
     const hybrid = createHybridSearchStorage({ domain: "message", client, vectorPort });
     const service = new HybridSearchService(hybrid, "message");

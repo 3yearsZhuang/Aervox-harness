@@ -1,7 +1,8 @@
 import { and, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
-import { learningGoals, memoryRecords, messageVersions, questionAttempts, sessions, turns } from "@aervox/schema";
+import { learningGoals, memoryRecords, messages, messageVersions, questionAttempts, sessions, turns } from "@aervox/schema";
 import type { DiaryMaterial, DiaryMaterialPort, LocalContext } from "@aervox/contracts";
 import type { AervoxDatabase } from "../../client.js";
+import { derivableConversationTurn } from "./conversation/source-visibility.js";
 
 export function createSqliteDiaryMaterialPort(db: AervoxDatabase): DiaryMaterialPort {
   return { collect: (context, window) => collectDiaryMaterial(db, context, window) };
@@ -17,7 +18,7 @@ export async function collectDiaryMaterial(
   const messageRows = await db
     .select({
       role: messageVersions.role,
-      content: messageVersions.content,
+      content: sql<string>`json_quote(${messageVersions.content})`.mapWith(value => JSON.parse(value) as string),
       createdAt: messageVersions.createdAt,
     })
     .from(messageVersions)
@@ -28,6 +29,13 @@ export async function collectDiaryMaterial(
         inArray(turns.executionPolicy, ["local-v1", "bot-owner-v1"]),
         eq(turns.executionPolicy, sessions.executionPolicy),
         inArray(messageVersions.role, ["user", "assistant"]),
+        derivableConversationTurn(turns.id),
+        sql`${messageVersions.content} <> ''`,
+        sql`(${messageVersions.messageId} IS NULL OR EXISTS (
+          SELECT 1 FROM ${messages} WHERE ${messages.id} = ${messageVersions.messageId}
+            AND ${messages.sessionId} = ${turns.sessionId} AND ${messages.role} = ${messageVersions.role}
+            AND ${messages.deletedAt} IS NULL AND ${messages.currentVersionId} = ${messageVersions.id}
+        ))`,
         isNull(messageVersions.supersededAt),
         eq(messageVersions.isRedacted, 0),
         gte(messageVersions.createdAt, window.startIso),

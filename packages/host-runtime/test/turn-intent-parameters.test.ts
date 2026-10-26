@@ -81,7 +81,7 @@ describe("accepted Turn parameters remain the execution authority", () => {
   it.each(["soft-deleted", "redacted"])("refuses Worker delegation and execution after accepted input is %s", async failure => {
     await accept();
     if (failure === "soft-deleted") {
-      await repo.createMessage(local, { id: "message", sessionId: "session", role: "user" });
+      expect(await repo.getMessage(local, "message")).toMatchObject({ sessionId: "session", role: "user", currentVersionId: "message" });
       await repo.softDeleteMessage(local, "message");
     } else await repo.redactTurnMessages(local, "turn");
     const execute = vi.fn(async () => {});

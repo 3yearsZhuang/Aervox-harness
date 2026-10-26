@@ -60,7 +60,7 @@ export class TurnStore {
       }, { ...input.message, content }, {
         id: `outbox_${input.turnId}`, eventType: policy === "local-v1" && input.execution === "worker" ? "agent.turn.requested" : "turn.created", idempotencyKey: `idem_outbox_${input.turnId}`,
         payload: { turnId: input.turnId, sessionId: input.sessionId, execution: policy === "local-v1" ? input.execution ?? "api" : "api", metadata: intent.metadata, toolApprovalMode: intent.toolApprovalMode, actorId: intent.actorId ?? undefined, userMessage: content, intent, requestHash },
-      });
+      }, true);
       const [attempt] = await tx.insert(turnAttempts).values({
         id: input.attemptId, turnId: input.turnId, attempt: 1, fencingToken: 0, status: "Running", startedAt: now,
       }).returning();
@@ -113,7 +113,7 @@ export class TurnStore {
       const now = new Date().toISOString();
       const created = await this.insertTurn(tx, {
         id: input.turnId, sessionId: input.sessionId, idempotencyKey: input.idempotencyKey, requestHash,
-      }, input.message);
+      }, input.message, undefined, true);
       const [attempt] = await tx.insert(turnAttempts).values({
         id: input.attemptId, turnId: input.turnId, attempt: 1, fencingToken: 0, status: "Running", startedAt: now,
       }).returning();
@@ -125,6 +125,7 @@ export class TurnStore {
     turnData: { id: string; sessionId: string; idempotencyKey: string; status?: string; requestHash?: string },
     userMessage: { id: string; content: string },
     outboxEventData?: { id: string; eventType: string; idempotencyKey: string; payload: unknown },
+    withMessageIdentity = false,
   ): Promise<{ turn: TurnModel; message: MessageVersionModel }> {
     const now = new Date().toISOString();
     const executionPolicy = await this.readSessionPolicy(tx, turnData.sessionId);
@@ -132,7 +133,11 @@ export class TurnStore {
       ...turnData, status: turnData.status ?? "Created", lastSequence: 0, acceptedAt: now, createdAt: now, updatedAt: now,
       executionPolicy, dispatchTarget: conversationDispatchTarget(executionPolicy),
     }).returning();
+    if (withMessageIdentity) await tx.insert(messages).values({
+      id: userMessage.id, sessionId: turnData.sessionId, role: "user", currentVersionId: userMessage.id, createdAt: now,
+    });
     const [message] = await tx.insert(messageVersions).values({
+      messageId: withMessageIdentity ? userMessage.id : null,
       id: userMessage.id, turnId: turnData.id, role: "user", version: 1,
       content: userMessage.content, isRedacted: 0, createdAt: now,
     }).returning();

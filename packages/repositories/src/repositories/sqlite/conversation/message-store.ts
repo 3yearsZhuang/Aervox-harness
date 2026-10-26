@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/repositories — 消息身份与版本（编辑/软删/脱敏）Store
  */
 import { withSessionLock } from "../../../session-lock.js";
-import { eq, and, desc, isNull, or } from "drizzle-orm";
+import { eq, and, desc, isNull, or, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
 import { messages, messageVersions, sessions } from "@aervox/schema";
 import type { LocalContext } from "../../../local-context.js";
@@ -57,10 +57,13 @@ export class MessageStore {
         isNull(messageVersions.supersededAt),
       )).returning();
       if (!claimed) return null;
+      const [maximum] = await tx.select({ version: sql<number>`coalesce(max(${messageVersions.version}), 0)` }).from(messageVersions)
+        .where(eq(messageVersions.turnId, currentVersion.turnId));
+      const nextVersion = maximum!.version + 1;
       const newVersionId = `mv_${crypto.randomUUID()}`;
       const [newVersion] = await tx.insert(messageVersions).values({
         id: newVersionId, turnId: currentVersion.turnId, messageId,
-        role: currentVersion.role, version: expectedVersion + 1, content,
+        role: currentVersion.role, version: nextVersion, content,
         isRedacted: currentVersion.isRedacted, createdAt: now,
       }).returning();
       const [updated] = await tx.update(messages).set({ currentVersionId: newVersionId }).where(and(

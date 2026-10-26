@@ -137,4 +137,58 @@ describe("安全会话历史读取", () => {
       { role: "user", content: "question_recent" }, { role: "assistant", content: "answer_recent" },
     ]);
   });
+  async function accepted(id = "durable", sessionId = "session", user = "persistent question", assistant = "persistent answer") {
+    const messageId = `assistant_${id}`;
+    await repo.acceptTurn(ctx, { turnId: id, sessionId, idempotencyKey: id, attemptId: `attempt_${id}`,
+      message: { id: `user_${id}`, content: user }, consumeInbox: false });
+    await repo.appendStreamEvent(ctx, { id: `message_${id}`, turnId: id, attemptId: `attempt_${id}`, expectedFencingToken: 0,
+      sequence: 1, eventType: "message", safetyDecision: "approved", data: { messageId, role: "assistant" } });
+    await repo.recordSafeSegmentAtomically(ctx, { turnId: id, attemptId: `attempt_${id}`, expectedFencingToken: 0,
+      sequence: 2, text: assistant, eventData: { messageId, text: assistant }, safetyDecision: "approved" });
+    await repo.finalizeAttemptWithEventAtomically(ctx, { turnId: id, attemptId: `attempt_${id}`, expectedFencingToken: 0,
+      sequence: 3, status: "Completed", eventType: "done", eventData: { messageId, status: "Completed", isComplete: true }, safetyDecision: "approved" });
+    return messageId;
+  }
+
+  it("uses the current durable assistant version after online events and safe segments are cleaned", async () => {
+    const messageId = await accepted();
+    const identity = await repo.getMessage(ctx, messageId);
+    const version = (await repo.listMessageVersions(ctx, messageId)).find(row => row.id === identity?.currentVersionId)!;
+    await repo.editMessage(ctx, messageId, "user corrected durable answer", version.version);
+    await database.client.execute("DELETE FROM turn_stream_events WHERE turn_id = 'durable'");
+    await database.client.execute("DELETE FROM safe_segments WHERE turn_id = 'durable'");
+    await seed("current");
+    expect(await history()).toEqual([
+      { role: "user", content: "persistent question" }, { role: "assistant", content: "user corrected durable answer" },
+    ]);
+  });
+
+  it("does not recover a linked assistant from events after its current version is redacted or missing", async () => {
+    const messageId = await accepted(); await seed("current");
+    const identity = await repo.getMessage(ctx, messageId);
+    await database.client.execute({ sql: "UPDATE message_versions SET is_redacted = 1 WHERE id = ?", args: [identity!.currentVersionId!] });
+    expect(await history()).toEqual([]);
+    await database.client.execute({ sql: "DELETE FROM message_versions WHERE id = ?", args: [identity!.currentVersionId!] });
+    expect(await history()).toEqual([]);
+  });
+
+  it("does not fall back to an edited user version after its original accepted input is physically removed", async () => {
+    await accepted(); await repo.editMessage(ctx, "user_durable", "later version", 1); await seed("current");
+    await repo.deleteMessage(ctx, "user_durable");
+    expect(await history()).toEqual([]);
+  });
+
+  it("retains NUL-bearing session, turn and message identities and content in model history", async () => {
+    const sessionId = "session\0tail";
+    await repo.getOrCreateSession(ctx, sessionId);
+    await accepted("durable\0tail", sessionId, "question\0tail", "answer\0tail");
+    await repo.acceptTurn(ctx, { turnId: "current\0tail", sessionId, idempotencyKey: "current\0tail", attemptId: "next-attempt",
+      message: { id: "next-user", content: "continue" }, consumeInbox: false });
+    await database.client.execute("DELETE FROM turn_stream_events"); await database.client.execute("DELETE FROM safe_segments");
+    expect(await repo.getSessionHistory(ctx, { sessionId, beforeTurnId: "current\0tail" })).toEqual([
+      { role: "user", content: "question\0tail" }, { role: "assistant", content: "answer\0tail" },
+    ]);
+    expect(await repo.getSessionHistory(ctx, { sessionId: "session", beforeTurnId: "current\0tail" })).toEqual([]);
+  });
+
 });
