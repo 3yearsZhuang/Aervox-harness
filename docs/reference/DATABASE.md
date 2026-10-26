@@ -44,6 +44,8 @@ id: AVX-DB-001
 
 `buildPortableSchemaArtifact(scope)` 是移动原型使用的构建期数据出口，从同一 manifest 和 release 指纹生成 DDL、参数化版本回执及独立 FTS 投影。`main` 与 `ledger` 分开生成，不能据此合并其故障域；FTS 与现有初始化器共用唯一 DDL，不进入权威数据或 Schema 身份。制品不执行数据库写入，也不是升级计划。移动主库资产由根 `mobile:schema` 命令生成，包含版本与发布指纹，生成回执另报告字节 SHA256；该散列不自证真实性。
 
+Android 隔离库需以 `NO_LOCALIZED_COLLATORS` 开启：固定 Java 绑定的默认 opener 会创建 `android_metadata`，不能把该默认文件当成唯一 Schema 所要求的空库，也不能放宽为空或忽略任意额外表。使用与 canonical Schema 一致的显式 SQLite collation，不依赖 Android locale 元数据；已有未知结构仍拒绝，本规则不迁移用户库。
+
 原生消费者只能对已证明为空的隔离目标，在一个事务执行结构、校验物理语义及完整性后绑定版本回执；旧库、未知库、错误指纹/版本与未验证结构继续拒绝，不能通过重放目标 DDL 或写 journal 绕过迁移门槛。当前 Android 测试入口只验证临时库，不接业务库或恢复账本。
 
 `@aervox/repositories/database` 的 `createInjectedDatabase(client)` 只装配已由受信宿主准备的 Client，不创建本地或远程连接、不初始化 Schema。它复用锁定 Drizzle 0.45.4 的 LibSQLSession、方言和关系装配；类的部分构造签名标记为 internal，升级时必须重验，不能当跨版本稳定 factory。现有 Node `createDatabase` 的路径、准备、重连和默认行为保持。

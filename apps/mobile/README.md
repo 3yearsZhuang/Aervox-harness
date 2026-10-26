@@ -50,6 +50,10 @@ mise exec -- pnpm --filter @aervox/mobile android:check:device
 
 主库 Schema 资产由根命令 `mise exec -- pnpm mobile:schema` 从唯一仓储声明生成，包含现有版本/发布指纹、空库 DDL、参数化 journal 和可重建 FTS；不复制业务数据，不生成手机恢复账本。资产仅作构建输入，Git 忽略；生成回执的 SHA256 是字节证据，不是认证。原生消费者仍须证明空库、原子初始化与物理结构校验后才能写版本回执，未知旧库继续拒绝写入。本切片未将资产应用于手机业务库。
 
+`NativeExecutionProbe` 接续验证原生执行 API，仍只接受 Context 并建立唯一临时库，不接受外部 SQL/路径或注册桥。独立写者线程绑定原生类型，只取一次 CursorWindow 并直接复制首窗：整结果不在首窗时拒绝，在事务内回滚，避免 Cursor 补窗重跑 RETURNING。它还验证 NUL、浮点位、大整数、BLOB、协作取消、关闭重开和线程 drain；固定 64 KiB 窗口实验显式要求 API 28，不能据此宣称 Android 正式最低版本。
+
+可移植空库测试以 `NO_LOCALIZED_COLLATORS` 开库，保留空库/物理结构断言；默认 opener 会生成 `android_metadata`，另有设备反例，不能把默认开库后的额外表忽略为通过。原生 Java API 尚未提供完整声明列类型、prepare-tail/authorizer/autocommit 证明，本探针不替代通用 SQL 权限与生产初始化。
+
 ## 原生凭据存储前置
 
 `NativeCredentialStore` 仅供受信原生调用者使用，固定 `PRIMARY_MODEL` 槽位，不接受外部路径或任意 Keystore alias；没有注册 JS Bridge、模型请求或 UI 配置入口。它用 Android Keystore 的不可导出 AES-256 包装密钥加密最多 8192 字节凭据，AES-GCM 的 AAD 绑定用途、槽位和版本；密文保存在应用 no-backup 私有目录。调用者负责及时擦除拿到的明文 byte[]，这不构成已经接通“WebView 从不接触配置输入”的产品证明。
