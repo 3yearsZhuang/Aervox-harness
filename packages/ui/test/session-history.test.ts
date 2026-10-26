@@ -132,14 +132,30 @@ function drawer(response: SessionHistoryPage | (() => Promise<SessionHistoryPage
 }
 
 describe('saved conversation drawer', () => {
+  it('shows the current version for edited input and automatic assistant revisions without claiming either is the original input or an edit count', async () => {
+    const value = page();
+    value.items[0]!.messages[0]!.version = 4;
+    value.items[0]!.messages.unshift({ ...value.items[0]!.messages[0]!, role: 'user', version: 5,
+      versionId: 'edited-input', content: '修改后的用户记录' });
+    const f = drawer(value); await flushPromises();
+    const lines = f.wrapper.findAll('.vn-history-line');
+    expect(lines[0]!.text()).toContain('用户记录'); expect(lines[0]!.text()).toContain('版本 5');
+    expect(lines[1]!.text()).toContain('小隅'); expect(lines[1]!.text()).toContain('版本 4');
+    expect(f.wrapper.text()).not.toContain('本轮输入'); expect(f.wrapper.text()).not.toContain('已编辑');
+    expect(f.wrapper.text()).not.toContain('第 4 次'); expect(f.streamTurn).not.toHaveBeenCalled();
+  });
   it('shows current saved versions, honest incomplete/input/read-only labels, and no live story or executable actions', async () => {
     const value = page(); value.items[0]!.status = 'Interrupted'; value.items[0]!.isComplete = false;
-    value.items[0]!.messages.unshift({ ...value.items[0]!.messages[0]!, role: 'user', contentKind: 'accepted_input', messageId: null,
-      versionId: 'input', content: '手动输入与 Inbox', legacy: true, readOnly: true });
+    value.items[0]!.messages.unshift({ ...value.items[0]!.messages[0]!, role: 'user', contentKind: 'accepted_input', messageId: 'input',
+      versionId: 'input', content: '手动输入与 Inbox', legacy: false, readOnly: false });
+    value.items[0]!.messages.push({ ...value.items[0]!.messages[0]!, contentKind: 'message', messageId: null,
+      versionId: 'legacy-input', content: '旧用户记录', legacy: true, readOnly: true });
     value.items[0]!.messages.push({ ...value.items[0]!.messages[1]!, versionId: 'withheld', content: null, visibility: 'withheld' });
     const f = drawer(value); await flushPromises();
     expect(f.request).toHaveBeenCalledWith('GET', '/v1/sessions/session/history?limit=20', undefined, expect.objectContaining({ signal: expect.any(AbortSignal) }));
     expect(f.wrapper.text()).toContain('本轮输入'); expect(f.wrapper.text()).toContain('只读记录');
+    expect(f.wrapper.findAll('.vn-history-line').every(line => line.text().includes('版本 1'))).toBe(true);
+    expect(f.wrapper.findAll('.vn-history-line').find(line => line.text().includes('旧用户记录'))?.text()).toContain('用户记录');
     expect(f.wrapper.text()).toContain('已中断 · 未完成'); expect(f.wrapper.text()).toContain('这条记录当前不可显示');
     expect(f.wrapper.text()).toContain('小隅'); expect(f.wrapper.text()).not.toContain('实时正文');
     expect(f.wrapper.find('.run-details-entry').exists()).toBe(false);
