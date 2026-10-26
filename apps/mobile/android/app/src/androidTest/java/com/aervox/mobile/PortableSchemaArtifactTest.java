@@ -46,7 +46,7 @@ public final class PortableSchemaArtifactTest {
         File file = File.createTempFile("main-", ".db", directory);
         SQLiteDatabase db = null;
         try {
-            db = SQLiteDatabase.openOrCreateDatabase(file, null);
+            db = portableDatabase(file);
             db.setForeignKeyConstraintsEnabled(true);
             assertEquals(0, objectCount(db));
             boolean rejected = false;
@@ -81,7 +81,7 @@ public final class PortableSchemaArtifactTest {
                         parameters.getString("fingerprint"), "2026-10-26T00:00:00.000Z"});
                 db.setTransactionSuccessful();
             } finally { db.endTransaction(); }
-            db.close(); db = SQLiteDatabase.openOrCreateDatabase(file, null);
+            db.close(); db = portableDatabase(file);
             try (Cursor receipt = db.rawQuery("SELECT scope, version, fingerprint FROM _aervox_schema_versions", null)) {
                 assertTrue(receipt.moveToFirst());
                 assertEquals("main", receipt.getString(0));
@@ -93,6 +93,26 @@ public final class PortableSchemaArtifactTest {
             if (db != null) db.close();
             assertTrue("Probe cleanup", SQLiteDatabase.deleteDatabase(file));
         }
+    }
+    @Test public void defaultLocaleMetadataIsNotPartOfThePortableEmptySchema() throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        File file = File.createTempFile("locale-", ".db", context.getNoBackupFilesDir());
+        try {
+            try (SQLiteDatabase db = SQLiteDatabase.openOrCreateDatabase(file, null)) {
+                assertEquals(1, objectCount(db));
+                try (Cursor row = db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'", null)) {
+                    assertTrue(row.moveToFirst()); assertEquals("android_metadata", row.getString(0)); assertFalse(row.moveToNext());
+                }
+            }
+            assertTrue(SQLiteDatabase.deleteDatabase(file));
+            try (SQLiteDatabase db = portableDatabase(file)) { assertEquals(0, objectCount(db)); }
+        } finally { assertTrue("Locale probe cleanup", SQLiteDatabase.deleteDatabase(file)); }
+    }
+    private static SQLiteDatabase portableDatabase(File file) {
+        // The canonical schema uses explicit SQLite collations. Android locale
+        // metadata must not be created before the required empty-state check.
+        return SQLiteDatabase.openDatabase(file.getAbsolutePath(), null,
+            SQLiteDatabase.OPEN_READWRITE | SQLiteDatabase.CREATE_IF_NECESSARY | SQLiteDatabase.NO_LOCALIZED_COLLATORS);
     }
     private static int objectCount(SQLiteDatabase db) {
         try (Cursor row = db.rawQuery("SELECT count(*) FROM sqlite_master WHERE type IN ('table','index') AND name NOT LIKE 'sqlite_%'", null)) {
