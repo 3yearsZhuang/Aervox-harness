@@ -62,6 +62,16 @@ test('packed CLI + authenticated API + file SQLite survives client and API resta
     const attempts = await repository.listTurnAttempts({ workspaceId: 'local', subjectUserId: 'local' }, first.turnId);
     assert.equal(attempts.length, 1); assert.equal(attempts[0].status, 'Completed');
     assert.equal((await cli(['events', first.turnId])).text, first.text);
+    const durableAnswer = async () => {
+      const result = await database.client.execute({
+        sql: `SELECT v.content FROM messages m JOIN message_versions v
+          ON v.id = m.current_version_id AND v.message_id = m.id
+          WHERE v.turn_id = ? AND m.role = 'assistant' AND m.deleted_at IS NULL`,
+        args: [first.turnId],
+      });
+      return result.rows.map(row => row.content).join('');
+    };
+    assert.equal(await durableAnswer(), first.text);
 
     // Exercise the installed headless LLM client against the real routes and writer.
     const modelSecret = 'sk/packed-model-canary';
@@ -91,6 +101,7 @@ test('packed CLI + authenticated API + file SQLite survives client and API resta
     delete env.SIYU_MODEL_API_KEY;
     assert.equal((await cli(['events', first.turnId])).text, first.text);
     assert.equal((await cli(['status', first.turnId])).ok, true);
+    assert.equal(await durableAnswer(), first.text);
     assert.ok((await cli(['sessions', 'list'])).data.items.some(item => item.id === 'cli_smoke'));
 
     // Seed more than one page through the restarted writer, with distinct
@@ -121,8 +132,14 @@ test('packed CLI + authenticated API + file SQLite survives client and API resta
       version: 1, data: { items: [] },
     });
 
+    // Clearing transport-only rows must preserve the next Turn's model history.
+    await database.client.execute({ sql: 'DELETE FROM turn_stream_events WHERE turn_id = ?', args: [first.turnId] });
+    await database.client.execute({ sql: 'DELETE FROM safe_segments WHERE turn_id = ?', args: [first.turnId] });
     const second = await cli(['ask', '继续解释', '--session', 'cli_smoke']);
     assert.equal(second.ok, true); assert.notEqual(second.turnId, first.turnId);
+    assert.deepEqual(await restartedRepository.getSessionHistory(local, { sessionId: 'cli_smoke', beforeTurnId: second.turnId }), [
+      { role: 'user', content: '解释闭包' }, { role: 'assistant', content: first.text },
+    ]);
     const receipt = JSON.parse(await readFile(join(temporary, 'cli.json.last-run'), 'utf8'));
     assert.equal(receipt.turnId, second.turnId);
   } finally {

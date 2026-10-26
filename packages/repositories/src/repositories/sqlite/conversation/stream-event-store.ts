@@ -3,12 +3,13 @@
  */
 import { eq, and, gt, lte, desc, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
-import { turnStreamEvents, turnAttempts, deletionRequests, turns, sessions, messageVersions, messages, conversationExecutionPolicies } from "@aervox/schema";
+import { turnStreamEvents, turnAttempts, deletionRequests, turns, messageVersions } from "@aervox/schema";
 import type { LocalContext } from "../../../local-context.js";
 import { assertPluginGeneration, type PluginGenerationIdentity } from "../../../plugin-generation-guard.js";
 import { unverifiedDeletionRequest } from "../privacy-repository.js";
 import { FencingMismatchError } from "../../../errors.js";
-import { conversationDispatchTarget } from "../../../conversation-execution-policy.js";
+import { disclosableTurn } from "./source-visibility.js";
+import { initializeAssistantHistory, publishAssistantHistory, assertConversationBodyWritable } from "./message-history.js";
 import type { TurnStreamEventModel, TurnStreamEventPageOptions, TurnStreamEventPage, TurnStreamReplayState } from "../../types/index.js";
 
 export const MAX_STREAM_EVENT_PAGE_ROWS = 256;
@@ -17,30 +18,6 @@ export const MAX_STREAM_EVENT_PAGE_DATA_BYTES = 256 * 1024;
 /** Turn 内 sequence 唯一，因此可构造跨进程稳定、可重连复用的事件标识。 */
 export const streamEventId = (turnId: string, sequence: number): string => `tev_${turnId}_${sequence}`;
 
-// Only the online transport uses this predicate. Legacy accepted input may have
-// no Message identity, but its version 1 must still exist: a later edited version
-// cannot replace a physically deleted source. Related identities are checked for
-// soft deletion. isRedacted excludes extraction and also marks the fixed crisis
-// response; it is not an independent online disclosure decision.
-const validStreamPolicy = sql.join(conversationExecutionPolicies.map(policy => sql`(
-  ${turns.executionPolicy} = ${policy} and ${turns.dispatchTarget} = ${conversationDispatchTarget(policy)}
-)`), sql` or `);
-const disclosableTurn = (turnId: string) => sql`exists (
-  select 1 from ${turns} inner join ${sessions} on ${sessions.id} = ${turns.sessionId}
-  where ${turns.id} = ${turnId}
-    and ${turns.executionPolicy} = ${sessions.executionPolicy} and (${validStreamPolicy})
-    and exists (select 1 from ${messageVersions}
-      where ${messageVersions.turnId} = ${turnId}
-        and ${messageVersions.role} = 'user' and ${messageVersions.version} = 1)
-    and not exists (select 1 from ${messageVersions}
-      where ${messageVersions.turnId} = ${turnId}
-        and exists (select 1 from ${messages}
-          where ${messages.deletedAt} is not null and (
-            ${messages.id} = ${messageVersions.messageId}
-            or ${messages.id} = ${messageVersions.id}
-            or ${messages.currentVersionId} = ${messageVersions.id}
-          )))
-)`;
 
 export class StreamEventStore {
   constructor(private readonly db: AervoxDatabase) {}
@@ -63,7 +40,8 @@ export class StreamEventStore {
       }
       const [last] = await tx.select({ sequence: turnStreamEvents.sequence }).from(turnStreamEvents)
         .where(eq(turnStreamEvents.turnId, input.turnId)).orderBy(desc(turnStreamEvents.sequence)).limit(1);
-      const sequence = (last?.sequence ?? 0) + 1;
+      const [turn] = await tx.select({ lastSequence: turns.lastSequence }).from(turns).where(eq(turns.id, input.turnId));
+      const sequence = Math.max(turn?.lastSequence ?? 0, last?.sequence ?? 0) + 1;
       const [created] = await tx.insert(turnStreamEvents).values({
         id: streamEventId(input.turnId, sequence), turnId: input.turnId, attemptId: input.attemptId,
         sequence, eventType: input.eventType, payloadVersion: input.payloadVersion ?? 1,
@@ -129,6 +107,12 @@ export class StreamEventStore {
             );
           }
         }
+        if (fenced && ["delta", "reasoning_delta"].includes(eventData.eventType)) {
+          await assertConversationBodyWritable(tx, eventData.turnId);
+        }
+        if (fenced && eventData.eventType === "message") {
+          await initializeAssistantHistory(tx, eventData.turnId, eventData.data, eventData.sequence);
+        }
         const [created] = await tx
           .insert(turnStreamEvents)
           .values({
@@ -144,6 +128,13 @@ export class StreamEventStore {
             committedAt: eventData.committedAt ?? null,
           })
           .returning();
+        if (eventData.eventType === "redacted") {
+          // Revocation cannot disappear when its short-lived replay row is cleaned.
+          await tx.update(messageVersions).set({ isRedacted: 1 }).where(eq(messageVersions.turnId, eventData.turnId));
+        }
+        if (fenced && ["done", "error"].includes(eventData.eventType)) {
+          await publishAssistantHistory(tx, eventData.turnId, eventData.sequence);
+        }
         return created as TurnStreamEventModel;
       },
       { behavior: "immediate" },

@@ -62,7 +62,7 @@ describe("CAP-009 对话触发写日记", () => {
   });
 
   /** 种一条当日聊天消息（走真实 session → turn → message 版本写入路径） */
-  const seedMessage = async (content: string): Promise<{ turnId: string }> => {
+  const seedMessage = async (content: string, completed = false): Promise<{ turnId: string }> => {
     const repo = new SqliteConversationRepository(db);
     const session = await repo.createSession(tenant, "CAP-009 素材会话");
     seq += 1;
@@ -72,6 +72,7 @@ describe("CAP-009 对话触发写日记", () => {
         id: `t_${seq}_${Date.now().toString(36)}`,
         sessionId: session.id,
         idempotencyKey: `idem_${seq}_${Date.now().toString(36)}`,
+        status: completed ? "Completed" : "Created",
       },
       { id: `m_${seq}_${Date.now().toString(36)}`, content },
     );
@@ -85,7 +86,7 @@ describe("CAP-009 对话触发写日记", () => {
   });
 
   it("授权后新建当日日记：模板生成、可经 GET /v1/diaries 查询、素材含当日消息", async () => {
-    await seedMessage("今天复习了导数，错了两道题");
+    await seedMessage("今天复习了导数，错了两道题", true);
 
     const output = (await built.toolRuntime.callTool(
       tenant,

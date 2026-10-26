@@ -34,7 +34,7 @@ describe("accepted input eligibility across execution checkpoints", () => {
     try {
       await repo.getOrCreateSession(local, input.sessionId);
       await repo.acceptTurn(local, { ...input, idempotencyKey: "turn", execution: "api", message: { id: "message", content: input.userMessage } });
-      await repo.createMessage(local, { id: "message", sessionId: input.sessionId, role: "user" });
+      expect(await repo.getMessage(local, "message")).toMatchObject({ sessionId: input.sessionId, role: "user", currentVersionId: "message" });
       await toolRuntime.registerTool({ id: "source_probe", name: "source_probe", description: "Read a fixture value", category: "memory",
         safetyLevel: "read_only", requiredPermissions: [], inputSchema: { type: "object", properties: {} }, builtin: true, gatingConditions: [] });
       toolRuntime.registerHandler("source_probe", { call: async () => {

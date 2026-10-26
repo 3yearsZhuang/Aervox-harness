@@ -92,6 +92,10 @@ describe("durable Bot execution boundaries", () => {
     await accept("GROUP_SECRET");
     await accept("owner", "bot-owner-v1");
     await accept("local", "local-v1");
+    for (const id of ["GROUP_SECRET", "owner", "local"]) await repo.finalizeAttemptWithEventAtomically(ctx, {
+      turnId: `turn_${id}`, attemptId: `attempt_${id}`, expectedFencingToken: 0, status: "Completed", sequence: 1,
+      eventType: "done", eventData: { status: "Completed", isComplete: true }, safetyDecision: "approved",
+    });
     const memories = new SqliteMemoryRepository(db, client);
     await expect(memories.createRecord(ctx, {
       id: "forbidden", layer: "long_term", type: "user_fact", content: "GROUP_SECRET", sourceTurnId: "turn_GROUP_SECRET",
@@ -140,7 +144,7 @@ describe("durable Bot execution boundaries", () => {
     await seedBotDelivery();
     if (kind === "physical") expect(await repo.deleteMessage(ctx, "message_group")).toBe(true);
     else {
-      await repo.createMessage(ctx, { id: "message_group", sessionId: "group", role: "user" });
+      expect(await repo.getMessage(ctx, "message_group")).toMatchObject({ role: "user", currentVersionId: "message_group" });
       expect(await repo.softDeleteMessage(ctx, "message_group")).not.toBeNull();
     }
     expect(await db.select().from(botDeliveries)).toEqual([]);

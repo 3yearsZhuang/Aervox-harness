@@ -5,6 +5,7 @@ import { eq, and, or, lt, isNull, inArray, notInArray, desc, sql } from "drizzle
 import type { AervoxDatabase } from "../../../client.js";
 import { turnAttempts, turns, turnStreamEvents, toolExecutions } from "@aervox/schema";
 import type { LocalContext } from "../../../local-context.js";
+import { publishAssistantHistory } from "./message-history.js";
 import type { TurnAttemptModel } from "../../types/index.js";
 
 export class AttemptStore {
@@ -162,12 +163,14 @@ export class AttemptStore {
       if (unclaimed) {
         const [last] = await tx.select({ sequence: turnStreamEvents.sequence }).from(turnStreamEvents)
           .where(eq(turnStreamEvents.turnId, input.turnId)).orderBy(desc(turnStreamEvents.sequence)).limit(1);
-        const sequence = (last?.sequence ?? 0) + 1;
+        const [turn] = await tx.select({ lastSequence: turns.lastSequence }).from(turns).where(eq(turns.id, input.turnId));
+        const sequence = Math.max(turn?.lastSequence ?? 0, last?.sequence ?? 0) + 1;
         await tx.insert(turnStreamEvents).values({ id: `tev_${input.turnId}_${sequence}`,
           turnId: input.turnId, attemptId: input.attemptId, sequence, eventType: "done",
           occurredAt: new Date().toISOString(), safetyDecision: "approved",
           data: { status: "Cancelled", isComplete: false, lastSequence: sequence, reason: "cancelled" },
         });
+        await publishAssistantHistory(tx, input.turnId, sequence);
         await tx.update(turns).set({ status: "Cancelled", lastSequence: sequence, updatedAt: new Date().toISOString() })
           .where(and(eq(turns.id, input.turnId), inArray(turns.status, ["Created", "Running"])));
       }
@@ -220,19 +223,25 @@ export class AttemptStore {
           options.dispatchTarget === "default" ? eq(turns.executionPolicy, "local-v1") : undefined,
         ))) : undefined,
         or(lt(turnAttempts.leaseExpiresAt, nowIso), and(isNull(turnAttempts.leaseExpiresAt), lt(turnAttempts.startedAt, unclaimedThresholdIso))),
-      )).returning();
+      )).returning({
+        id: sql<string>`json_quote(${turnAttempts.id})`.mapWith(value => JSON.parse(value) as string),
+        turnId: sql<string>`json_quote(${turnAttempts.turnId})`.mapWith(value => JSON.parse(value) as string),
+        status: turnAttempts.status,
+      });
       for (const attempt of recovered) {
         // A reservation without an authoritative result is uncertain, never a replay instruction.
         await tx.update(toolExecutions).set({ status: "outcome_unknown", error: "recovery_outcome_unknown", finishedAt: nowIso })
           .where(and(eq(toolExecutions.attemptId, attempt.id), eq(toolExecutions.status, "pending")));
-        const [latest] = await tx.select().from(turnAttempts).where(eq(turnAttempts.turnId, attempt.turnId))
-          .orderBy(desc(turnAttempts.attempt)).limit(1);
+        const [latest] = await tx.select({ isCurrent: sql<number>`${turnAttempts.id} = ${attempt.id}` }).from(turnAttempts)
+          .where(eq(turnAttempts.turnId, attempt.turnId)).orderBy(desc(turnAttempts.attempt)).limit(1);
         const [active] = await tx.select({ id: turnAttempts.id }).from(turnAttempts).where(and(
           eq(turnAttempts.turnId, attempt.turnId), inArray(turnAttempts.status, ["Running", "CancelRequested"]),
         )).limit(1);
-        if (active || latest?.id !== attempt.id) continue;
+        if (active || latest?.isCurrent !== 1) continue;
         const [turn] = await tx.update(turns).set({ status: attempt.status, updatedAt: nowIso })
-          .where(and(eq(turns.id, attempt.turnId), inArray(turns.status, ["Created", "Running", "Cancelled"]))).returning();
+          .where(and(eq(turns.id, attempt.turnId), inArray(turns.status, ["Created", "Running", "Cancelled"]))).returning({
+            id: sql<string>`json_quote(${turns.id})`.mapWith(value => JSON.parse(value) as string), lastSequence: turns.lastSequence,
+          });
         if (!turn) continue;
         const [last] = await tx.select({ sequence: turnStreamEvents.sequence }).from(turnStreamEvents)
           .where(eq(turnStreamEvents.turnId, turn.id)).orderBy(desc(turnStreamEvents.sequence)).limit(1);
@@ -242,6 +251,7 @@ export class AttemptStore {
           sequence, eventType: "done", occurredAt: nowIso, committedAt: nowIso,
           safetyDecision: "approved", data: { status: attempt.status, isComplete: false, lastSequence: sequence, reason: "execution_recovered" },
         });
+        await publishAssistantHistory(tx, turn.id, sequence);
         await tx.update(turns).set({ lastSequence: sequence }).where(eq(turns.id, turn.id));
       }
       return recovered.length;
@@ -261,7 +271,7 @@ export class AttemptStore {
     const thresholdIso = new Date(now.getTime() - orphanTimeoutMs).toISOString();
 
     return this.db.transaction(async (tx) => {
-      const candidates = await tx.select().from(turns).where(and(
+      const candidates = await tx.select({ id: sql<string>`json_quote(${turns.id})`.mapWith(value => JSON.parse(value) as string) }).from(turns).where(and(
         inArray(turns.status, ["Created", "Running"]),
         options?.dispatchTarget ? eq(turns.dispatchTarget, options.dispatchTarget) : undefined,
         options?.dispatchTarget === "default" ? eq(turns.executionPolicy, "local-v1") : undefined,
@@ -273,7 +283,9 @@ export class AttemptStore {
           .where(eq(turnAttempts.turnId, candidate.id)).limit(1);
         if (attempt) continue;
         const [turn] = await tx.update(turns).set({ status: "Interrupted", updatedAt: nowIso })
-          .where(and(eq(turns.id, candidate.id), inArray(turns.status, ["Created", "Running"]))).returning();
+          .where(and(eq(turns.id, candidate.id), inArray(turns.status, ["Created", "Running"]))).returning({
+            id: sql<string>`json_quote(${turns.id})`.mapWith(value => JSON.parse(value) as string), lastSequence: turns.lastSequence,
+          });
         if (!turn) continue;
         const [last] = await tx.select({ sequence: turnStreamEvents.sequence }).from(turnStreamEvents)
           .where(eq(turnStreamEvents.turnId, turn.id)).orderBy(desc(turnStreamEvents.sequence)).limit(1);
@@ -284,6 +296,7 @@ export class AttemptStore {
           safetyDecision: "approved",
           data: { status: "Interrupted", isComplete: false, lastSequence: sequence, reason: "orphan_turn_recovered" },
         });
+        await publishAssistantHistory(tx, turn.id, sequence);
         await tx.update(turns).set({ lastSequence: sequence }).where(eq(turns.id, turn.id));
         recovered += 1;
       }

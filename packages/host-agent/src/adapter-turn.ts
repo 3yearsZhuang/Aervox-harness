@@ -111,7 +111,11 @@ export async function runAdapterTurn(
       const interrupted = await terminator.prematureTermination(sequence);
       if (interrupted) return mapResult(interrupted);
       if (ev.type === "delta") {
-        await append(sequence++, "delta", { messageId, text: ev.text, isFinal: true });
+        await store.recordSafeSegment({
+          turnId, attemptId, sequence: sequence++, text: ev.text,
+          eventData: { messageId, text: ev.text, isFinal: true },
+          safetyDecision: "approved", expectedFencingToken: claim.ok ? claim.fencingToken : 0,
+        });
       } else if (ev.type === "tool_request") {
         await append(sequence++, "tool_request", {
           invocationId: ev.invocationId,

@@ -3,13 +3,47 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { createClient } from "@libsql/client";
-import { createDatabase, initDatabaseSchema, migrateDatabaseViaStaging, inspectSchemaParity } from "../src/index.js";
+import { createDatabase, initDatabaseSchema, migrateDatabaseViaStaging, inspectSchemaParity, SqliteConversationRepository, searchMessagesFts } from "../src/index.js";
 
 async function temporary() {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-schema-staging-"));
   return { directory, sourcePath: path.join(directory, "source.db"), stagingPath: path.join(directory, "staging.db"), rollbackPath: path.join(directory, "rollback.db"), backupDirectory: path.join(directory, "backup") };
 }
 describe("explicit staging replacement", () => {
+  it("rebuilds message search from eligible history without reviving partial or deleted-input answers", async () => {
+    const fixture = await temporary();
+    const ctx = { workspaceId: "local", subjectUserId: "local" };
+    try {
+      const source = await createDatabase({ url: `file:${fixture.sourcePath}` });
+      await initDatabaseSchema(source.client);
+      const repo = new SqliteConversationRepository(source.db);
+      await repo.getOrCreateSession(ctx, "session");
+      for (const kind of ["valid", "partial", "deleted"] as const) {
+        await repo.acceptTurn(ctx, { turnId: kind, sessionId: "session", idempotencyKey: kind, attemptId: kind,
+          message: { id: `user-${kind}`, content: `question ${kind}` }, consumeInbox: false });
+        const id = `assistant-${kind}`, content = `${kind}canary`;
+        await repo.appendStreamEvent(ctx, { id: `message-${kind}`, turnId: kind, attemptId: kind, expectedFencingToken: 0, sequence: 1,
+          eventType: "message", data: { role: "assistant", messageId: id }, safetyDecision: "approved" });
+        await repo.recordSafeSegmentAtomically(ctx, { turnId: kind, attemptId: kind, expectedFencingToken: 0, sequence: 2,
+          text: content, eventData: { messageId: id, text: content }, safetyDecision: "approved" });
+        const status = kind === "partial" ? "Interrupted" : "Completed";
+        await repo.finalizeAttemptWithEventAtomically(ctx, { turnId: kind, attemptId: kind, expectedFencingToken: 0, sequence: 3,
+          status, eventType: "done", eventData: { status }, safetyDecision: "approved" });
+        if (kind === "deleted") await repo.deleteMessage(ctx, `user-${kind}`);
+      }
+      await source.client.execute("PRAGMA wal_checkpoint(TRUNCATE)"); source.client.close();
+      await migrateDatabaseViaStaging({ ...fixture, quiesce: async () => ({ release: async () => {} }) });
+      const restored = await createDatabase({ url: `file:${fixture.sourcePath}` });
+      try {
+        expect((await restored.client.execute("SELECT id FROM messages_fts ORDER BY id")).rows.map(row => row.id)).toEqual(["assistant-valid", "user-valid"]);
+        expect(await searchMessagesFts(restored.client, ctx, "validcanary")).toMatchObject([{ id: "assistant-valid" }]);
+        expect(await searchMessagesFts(restored.client, ctx, "partialcanary")).toEqual([]);
+        expect(await searchMessagesFts(restored.client, ctx, "deletedcanary")).toEqual([]);
+        await new SqliteConversationRepository(restored.db).softDeleteMessage(ctx, "user-valid");
+        expect(await searchMessagesFts(restored.client, ctx, "validcanary")).toEqual([]);
+      } finally { restored.client.close(); }
+    } finally { await fs.rm(fixture.directory, { recursive: true, force: true }); }
+  });
   it("blocks dirty NULL identities with a row list, keeps original bytes and verified rollback evidence", async () => {
     const fixture = await temporary(), release = vi.fn(async () => {});
     try {

@@ -1,7 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/repositories — 工具执行账本（幂等预留/原子收口）Store
  */
-import { eq, and, or, inArray, desc } from "drizzle-orm";
+import { eq, and, or, inArray, desc, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
 import {
   turns,
@@ -14,6 +14,7 @@ import type { LocalContext } from "../../../local-context.js";
 import { FencingMismatchError } from "../../../errors.js";
 import type { ToolExecutionModel } from "../../types/index.js";
 import { streamEventId } from "./stream-event-store.js";
+import { publishAssistantHistory } from "./message-history.js";
 
 export class ToolExecutionStore {
   constructor(private readonly db: AervoxDatabase) {}
@@ -227,9 +228,9 @@ export class ToolExecutionStore {
           .returning({ id: turnAttempts.id });
         if (!updated) return false;
         // Keep the durable Turn aligned with its latest terminal Attempt in the same transaction.
-        const [latest] = await tx.select({ id: turnAttempts.id }).from(turnAttempts)
+        const [latest] = await tx.select({ isCurrent: sql<number>`${turnAttempts.id} = ${input.attemptId}` }).from(turnAttempts)
           .where(eq(turnAttempts.turnId, input.turnId)).orderBy(desc(turnAttempts.attempt)).limit(1);
-        if (latest?.id === input.attemptId) {
+        if (latest?.isCurrent === 1) {
           await tx.update(turns).set({ status: input.status, updatedAt: new Date().toISOString() })
             .where(and(eq(turns.id, input.turnId), inArray(turns.status, ["Created", "Running"])));
         }
@@ -243,6 +244,7 @@ export class ToolExecutionStore {
           occurredAt: new Date().toISOString(),
           safetyDecision: input.safetyDecision ?? null,
         });
+        await publishAssistantHistory(tx, input.turnId, input.sequence);
         return true;
       },
       { behavior: "immediate" },

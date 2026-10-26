@@ -28,6 +28,8 @@ function normalizeResumeCandidateLimit(limit?: number): number {
   return Math.max(0, Math.min(MAX_RESUME_CANDIDATE_LIMIT, Math.floor(limit)));
 }
 
+import { assertConversationBodyWritable } from "./message-history.js";
+
 export class SafeSegmentStore {
   constructor(private readonly db: AervoxDatabase) {}
 
@@ -66,6 +68,7 @@ export class SafeSegmentStore {
             `attempt ${input.attemptId} fencing=${attempt?.fencingToken ?? "?"} status=${attempt?.status ?? "?"} cannot record safe segment`,
           );
         }
+        await assertConversationBodyWritable(tx, input.turnId);
         const segmentId = safeSegmentId(input.turnId, input.sequence);
         const eventId = streamEventId(input.turnId, input.sequence);
         const now = new Date().toISOString();
@@ -141,6 +144,7 @@ export class SafeSegmentStore {
           );
         }
 
+        await assertConversationBodyWritable(tx, first.turnId);
         const now = new Date().toISOString();
         for (let offset = 0; offset < inputs.length; offset += SAFE_SEGMENT_BATCH_SIZE) {
           const batch = inputs.slice(offset, offset + SAFE_SEGMENT_BATCH_SIZE);

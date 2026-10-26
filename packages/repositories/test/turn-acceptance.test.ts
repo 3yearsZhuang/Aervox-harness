@@ -84,6 +84,9 @@ describe("atomic Turn acceptance", () => {
 
   it.each(["message-id", "legacy-id", "version-pointer"])("stops input restoration after %s identity is soft deleted", async identity => {
     await accept();
+    // Retain explicit legacy relation coverage now that new acceptance creates a real identity.
+    await database.client.execute("UPDATE message_versions SET message_id=NULL WHERE id='m_t'");
+    await database.client.execute("DELETE FROM messages WHERE id='m_t'");
     const messageId = identity === "legacy-id" ? "m_t" : "identity";
     await repo.createMessage(ctx, { id: messageId, sessionId: "s", role: "user" });
     if (identity === "message-id") await database.client.execute("UPDATE message_versions SET message_id='identity' WHERE id='m_t'");
