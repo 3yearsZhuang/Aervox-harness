@@ -252,7 +252,7 @@ test("Memory deletion regression gates generate their evidence without the paper
   const steps = command.split(/\s+&&\s+/);
   assert.deepEqual(steps, [
     "turbo run build --filter=@aervox/worker...",
-    "node --test scripts/memory-deletion-research/runner.test.mjs scripts/memory-deletion-research/supplement.test.mjs",
+    "node --test scripts/memory-deletion-research/runner.test.mjs scripts/memory-deletion-research/supplement.test.mjs scripts/memory-deletion-research/cost-test.mjs",
   ], "build dependencies before exercising the runner and production supplement");
   assert.equal(command.includes("docs/"), false, "code gates must not depend on archived paper assets");
 
