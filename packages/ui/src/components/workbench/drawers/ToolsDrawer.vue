@@ -15,7 +15,7 @@ import { useWorkbenchContext } from '../../../composables/workbench-context';
 import { renderMarkdown } from '../../../utils/markdown';
 import { DIAL_RADIUS, DIAL_CIRCUMFERENCE } from '../../../composables/useWorkbenchTimer';
 
-const { layout, timer, cards, conversation } = useWorkbenchContext();
+const { layout, timer, cards } = useWorkbenchContext();
 const {
   toolsOpen,
   activeToolView,
@@ -62,8 +62,6 @@ const {
   reviewBusyId,
   reviewError,
 } = cards;
-
-const { story } = conversation;
 
 function openHistoryView() {
   toolsOpen.value = false;
@@ -228,11 +226,11 @@ function openHistoryView() {
         </template>
 
         <template v-else-if="activeToolView === 'history'">
-          <p class="drawer-intro">完整上下文回看：视觉小说式滚动浏览与思隅的全部对话。</p>
+          <p class="drawer-intro">按页回看当前对话已保存的记录，刷新可查看新保存的内容。</p>
           <div class="diary-actions">
             <AervoxButton variant="primary" type="button" class="diary-generate-btn" @click="openHistoryView">
               <History :size="16" />
-              <span>打开对话回看（{{ story.length }} 条记录）</span>
+              <span>打开已保存的对话记录</span>
             </AervoxButton>
           </div>
         </template>

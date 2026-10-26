@@ -107,6 +107,7 @@ export function createConversationApplication(
   };
   const queries = {
     getTurn: repo.getTurn.bind(repo), listTurnAttempts: repo.listTurnAttempts.bind(repo), getTurnDiagnostics: repo.getTurnDiagnostics.bind(repo),
+    getSessionHistoryPage: repo.getSessionHistoryPage.bind(repo),
     listSessions: repo.listSessions.bind(repo), listMessageVersions: repo.listMessageVersions.bind(repo),
     async messageDeleteImpact(ctx: LocalContext, messageId: string) {
       if (!(await repo.getMessage(ctx, messageId))) return null;

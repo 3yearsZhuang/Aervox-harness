@@ -24,6 +24,7 @@ siyu ask '用一个例子解释闭包' --session my_learning
 siyu ask --file ./question.txt --json
 siyu sessions list
 siyu sessions list --limit 20 --offset 20
+siyu sessions history my_learning --limit 10
 ```
 
 进入 `chat` 后会显示思隅欢迎区、当前会话和本机服务地址。在 `❯` 后输入问题并按回车，回答结束后可继续追问；发送/等待时有进度提示，回答以“思隅”标识，结束后显示真实状态与耗时。重新用相同 `--session` 启动可继续该会话，不会自动重放旧正文。已安装的制品直接提供 `siyu` 命令，无需上述源码简写。
@@ -42,7 +43,11 @@ Ctrl-C 退出客户端并尝试取消当前回合；停止客户端不会关闭�
 
 直接在终端运行 `doctor`、`sessions list` 和 `config show` 时显示可读内容；使用 `--json` / `--jsonl` 或重定向输出时保留机器格式。欢迎区和等待提示按终端列宽裁剪，支持中文与 emoji；会话标题等外部字段在终端显示前会清除控制序列。
 
-`sessions list` 每次只读取一页，默认 `--limit 100 --offset 0`，按服务端最近更新时间排序。`--limit` 可设为 1～100，`--offset` 是跳过的条数，可设为 0～9007199254740991；两者仅接受十进制整数，且只能用于此命令。终端显示完整本页，满页时提示下一组参数；服务端没有总数或下一页标记，后续页可能为空。JSON/JSONL 继续输出 `{ "version": 1, "data": { "items": [] } }`，不自动合并多页。会话新增或更新时间改变时，offset 分页可能重复或遗漏条目，不作为固定快照或完整导出。当前服务端尚无会话详情或历史读取接口，CLI 本切片仅补齐列表分页。
+`sessions list` 每次只读取一页，默认 `--limit 100 --offset 0`，按服务端最近更新时间排序。`--limit` 可设为 1～100，`--offset` 是跳过的条数，可设为 0～9007199254740991；两者仅接受十进制整数，offset 只能用于此命令。终端显示完整本页，满页时提示下一组参数；服务端没有总数或下一页标记，后续页可能为空。JSON/JSONL 继续输出 `{ "version": 1, "data": { "items": [] } }`，不自动合并多页。会话新增或更新时间改变时，offset 分页可能重复或遗漏条目，不作为固定快照或完整导出。
+
+`sessions history <ID>` 读取持久消息的当前版本，默认最近 20 轮，`--limit` 可设为 1～50。继续查看更早记录时显式传入上次返回的 `--cursor`，每页按回合创建顺序显示；不接受 offset、不自动翻页，也不重跑模型。JSON/JSONL 输出 `{ "version": 1, "data": { "sessionId": "…", "items": [], "nextCursor": null } }`；空页仍可能有下一游标。游标不是跨页固定快照，锚点被移除时提示从最近页重新读取。超限时可减小 limit，单轮超过读取上限仍无法由此入口读取，不静默截断正文。
+
+历史显示真实完成状态与已保存前缀；“本轮输入”是服务端接受的有效输入，可能已合并 Inbox 内容。旧未关联版本标记只读，不从事件补造已缺失正文；撤回或脱敏版本仅显示占位符。此入口不提供编辑、完整导出或实时流替代，详细资格和预算见[持久历史协议](../../docs/reference/STREAMING_PROTOCOL.md#session-history-page)。
 
 Token 由 `SIYU_API_TOKEN` 环境变量注入，不作为命令参数、不写入配置；地址用 `SIYU_API_URL` 或 `--api-base`。`config show` 查看实际配置，`config set apiBase http://127.0.0.1:3000` 保存地址。默认配置在用户目录 `.config/aervox/cli.json`；设置 `XDG_CONFIG_HOME` 或 `SIYU_CONFIG_FILE` 可覆盖位置。
 

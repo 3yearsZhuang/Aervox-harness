@@ -21,6 +21,7 @@ export {
   setSessionId,
   getApiBase,
   createFetchTransport,
+  AervoxHttpError,
   type AervoxTransport,
   type AervoxClientConfig,
   type StreamTurnOptions,
@@ -148,3 +149,5 @@ export * from './useAervoxTurnDiagnostics.js';
 export type { LearningStorePort, GoalStorePort, ReviewStorePort, PracticeStorePort, PlanStorePort, MistakeStorePort, ResourceStatePort } from './learning-store-port.js';
 
 export { createGoalStore, createReviewStore, createPracticeStore, createPlanStore, createMistakeStore } from './learning-stores.js';
+
+export { createSessionHistoryClient } from './session-history-client.js';

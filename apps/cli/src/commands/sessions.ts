@@ -2,6 +2,7 @@ import { CliError } from '../config.js';
 import { write } from '../output.js';
 import { createTerminalStyle } from '../terminal.js';
 import type { CommandContext } from './types.js';
+import { executeHistory } from './history.js';
 
 function pageInteger(value: string | undefined, fallback: number, name: string, min: number, max: number): number {
   if (value === undefined) return fallback;
@@ -15,6 +16,7 @@ function pageInteger(value: string | undefined, fallback: number, name: string, 
 export async function executeSessions(ctx: CommandContext): Promise<number> {
   const { positionals, options, transport, timedSignal, output, track, io } = ctx;
   const rest = positionals.slice(1);
+  if (rest[0] === 'history') return executeHistory(ctx);
   if (rest.length !== 1 || rest[0] !== 'list') {
     throw new CliError('usage', '使用 sessions list [--limit 1～100] [--offset 非负整数]。', 2);
   }

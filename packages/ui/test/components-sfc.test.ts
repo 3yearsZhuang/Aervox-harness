@@ -606,7 +606,8 @@ describe('Real SFC Component Mounting', () => {
     // Side drawer must NOT be opened when merely viewing history tab
     expect(historyOpen.value).toBe(false);
     expect(toolsOpen.value).toBe(true);
-    expect(wrapper.text()).toContain('打开对话回看（1 条记录）');
+    expect(wrapper.text()).toContain('打开已保存的对话记录');
+    expect(wrapper.text()).not.toContain('1 条记录');
 
     // 3. Click "打开对话回看" button
     const openBtn = wrapper.find('.diary-generate-btn');

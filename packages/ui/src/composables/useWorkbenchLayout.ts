@@ -128,7 +128,7 @@ export function useWorkbenchLayout(props: {
   const toolsNavItems: Array<{ id: 'todo' | 'timer' | 'history' | 'diary'; label: string; description: string; icon: Component }> = [
     { id: 'todo', label: '待办清单', description: '勾选完成今天的待办', icon: ListTodo },
     { id: 'timer', label: '番茄钟', description: '专注计时，劳逸结合', icon: Clock3 },
-    { id: 'history', label: '对话回看', description: '视觉小说式回看完整对话', icon: History },
+    { id: 'history', label: '对话回看', description: '按页浏览已保存的对话', icon: History },
     { id: 'diary', label: '日记本', description: 'AI 每日日记与历史回看', icon: NotebookPen },
   ];
 

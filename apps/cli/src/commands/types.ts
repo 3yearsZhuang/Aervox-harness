@@ -24,6 +24,7 @@ export interface ParsedCliOptions {
   'request-id'?: string;
   limit?: string;
   offset?: string;
+  cursor?: string;
 }
 
 export interface TrackState {

@@ -8,13 +8,14 @@
 import type { FastifyInstance } from "fastify";
 import {
   turnDiagnosticsApi,
+  sessionHistoryApi,
   createTurnRequestSchema,
   editMessageSchema,
   submitQuestionAnswersRequestSchema,
   createSessionRequestSchema,
   renameSessionRequestSchema,
 } from "@aervox/contracts";
-import { TurnIntentConflictError } from "@aervox/repositories";
+import { TurnIntentConflictError, SessionHistoryReadError } from "@aervox/repositories";
 import type { ConversationCommandPort, ConversationQueryPort } from "./application.js";
 import { ConversationCommandError } from "./approval-command.js";
 import { registerContractRoute } from "../../../shared/contract-route.js";
@@ -29,7 +30,7 @@ const nextTurnId = (): string => `turn_${Date.now().toString(36)}_${(++seq).toSt
 export interface ConversationHttpPort {
   commands: Pick<ConversationCommandPort, "ensureSession" | "createSession" | "renameSession" | "deleteSession" | "createTurn" |
     "cancelTurn" | "answerQuestions" | "approve" | "createMessage" | "editMessage" | "deleteMessage" | "restoreMessage">;
-  queries: Pick<ConversationQueryPort, "getTurnDiagnostics" | "listSessions" | "getStreamEventById" |
+  queries: Pick<ConversationQueryPort, "getTurnDiagnostics" | "getSessionHistoryPage" | "listSessions" | "getStreamEventById" |
     "getStreamEventHighWater" | "getStreamReplayState" | "getStreamEventsPage" | "getStreamEventForDisclosure" |
     "isTurnStreamDisclosable" | "pendingQuestions" | "subagents" |
     "workflows" | "messageDeleteImpact" | "listMessageVersions">;
@@ -59,6 +60,18 @@ export function registerConversationRoutes(
     const diagnostics = await queries.getTurnDiagnostics(resolveLocalContext(req), turnId, attemptId);
     if (!diagnostics) return reply.code(404).send({ code: "TURN_OR_ATTEMPT_NOT_FOUND", message: "Turn or Attempt not found" });
     return diagnostics;
+  });
+  registerContractRoute(app, sessionHistoryApi.get, async (req, reply) => {
+    reply.header("Cache-Control", "no-store");
+    const { sessionId } = req.params as { sessionId: string };
+    const { limit, cursor } = req.query as { limit?: string; cursor?: string };
+    try { return await queries.getSessionHistoryPage(resolveLocalContext(req), { sessionId,
+      ...(limit === undefined ? {} : { limit: Number(limit) }), ...(cursor === undefined ? {} : { cursor }) }); }
+    catch (error) {
+      if (!(error instanceof SessionHistoryReadError)) throw error;
+      const status = { INVALID_HISTORY_QUERY: 400, SESSION_NOT_FOUND: 404, HISTORY_CURSOR_EXPIRED: 410, HISTORY_ITEM_TOO_LARGE: 422 } as const;
+      return reply.code(status[error.code]).send({ code: error.code, message: "Session history is unavailable for this query" });
+    }
   });
   // GET /v1/sessions — 枚举会话列表（按最近更新时间排序）
   app.get("/v1/sessions", async (req, reply) => {

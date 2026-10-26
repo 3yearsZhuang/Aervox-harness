@@ -16,6 +16,7 @@ export const HELP = `思隅 CLI 0.1.0 — 连接本机思隅服务（Node.js 24+
   ask <问题>                  单次提问；也可通过 stdin 或 --file 输入
   chat                        连续对话；/exit 退出，--session 继续既有会话
   sessions list               分页列出会话，默认最近 100 个
+  sessions history <ID>        分页读取已保存消息，默认最近 20 轮
   models providers            查看当前供应商能力目录
   models config show          查看已脱敏的模型配置摘要
   models config set --file <JSON> 保存模型配置
@@ -34,7 +35,8 @@ export const HELP = `思隅 CLI 0.1.0 — 连接本机思隅服务（Node.js 24+
       --json（单个最终对象） --jsonl（事件流）
       --timeout <毫秒，1000～600000，默认120000>
       --request-id <ID>（仅同一问题的显式幂等重试使用）
-      --limit <1～100> --offset <非负安全整数>（仅 sessions list；默认 100 / 0）
+      --limit <1～100> --offset <非负安全整数>（sessions list；默认 100 / 0）
+      --limit <1～50> --cursor <游标>（sessions history；默认 20，不自动翻页）
       --help --version
 
 API Token：环境变量 SIYU_API_TOKEN；地址默认 http://127.0.0.1:3000。

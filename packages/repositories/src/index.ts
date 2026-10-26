@@ -31,3 +31,5 @@ export { NativeMemoryVectorSearchAdapter } from "./search/native-memory-vector-p
 export { CachedMemoryVectorSearchAdapter } from "./search/cached-memory-vector-port.js";
 
 export * from "./schema/manifest.js";
+
+export { SessionHistoryReadError } from "./repositories/sqlite/conversation/history-page.js";
