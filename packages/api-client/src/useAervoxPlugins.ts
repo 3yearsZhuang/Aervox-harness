@@ -15,8 +15,10 @@ import type {
   PluginPackageInspection,
   PluginMarketItem,
   PluginPackageExportResponse,
+  PluginSummaryResponse,
+  PluginGrantResponse,
 } from '@aervox/contracts';
-import { PLUGIN_SENSOR_PERMISSION, pluginConfigApi } from '@aervox/contracts';
+import { PLUGIN_SENSOR_PERMISSION, pluginConfigApi, pluginsApi } from '@aervox/contracts';
 
 import { requestEndpoint } from './endpoint.js';
 
@@ -24,34 +26,8 @@ export type PluginPackageInspectionDto = PluginPackageInspection;
 export type PluginMarketItemDto = PluginMarketItem;
 export type PluginPackageExportDto = PluginPackageExportResponse;
 
-export interface PluginSummaryDto {
-  id: string;
-  publisher: string;
-  version: string;
-  checksum: string;
-  signature?: string | null;
-  permissions?: unknown;
-  installSource: string;
-  enabled: number;
-  /** Package availability is independent of the saved user enablement choice. */
-  availability?: 'available' | 'missing' | 'invalid' | 'unreadable';
-  /** Runtime identity rotates when the enabled package lifecycle changes. */
-  lifecycleGeneration?: string;
-  configSchemaJson?: unknown;
-  configSchemaVersion?: number;
-  /** CR-032：主动智能声明（spec.proactive，含 sensors/triggers） */
-  proactiveSpecJson?: unknown;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface PluginGrantDto {
-  id: string;
-  pluginId: string;
-  permission: string;
-  scope: string;
-  grantedAt: string;
-}
+export type PluginSummaryDto = PluginSummaryResponse;
+export type PluginGrantDto = PluginGrantResponse;
 
 export type PluginPageDto = PluginPageResponse;
 
@@ -82,8 +58,8 @@ export function useAervoxPlugins() {
     loading.value = true;
     error.value = null;
     try {
-      const res = await transport.request<{ items: PluginSummaryDto[] }>('GET', '/v1/plugins');
-      plugins.value = res.items ?? [];
+      const res = await requestEndpoint(transport, pluginsApi.list);
+      plugins.value = res.items;
     } catch (e) {
       error.value = e instanceof Error ? e.message : '加载插件失败';
     } finally {
@@ -128,38 +104,29 @@ export function useAervoxPlugins() {
   };
 
   const setPluginEnabled = async (pluginId: string, enabled: boolean): Promise<void> => {
-    await transport.request('PATCH', `/v1/plugins/${encodeURIComponent(pluginId)}`, { enabled });
+    await requestEndpoint(transport, pluginsApi.setEnabled, { enabled }, { pluginId });
   };
 
   /** CR-032：授予插件感知源授权（permission=PLUGIN_SENSOR_PERMISSION，scope=sourceId） */
   const grantSensor = async (pluginId: string, sourceId: string): Promise<PluginGrantDto> =>
-    transport.request<PluginGrantDto>(
-      'POST',
-      `/v1/plugins/${encodeURIComponent(pluginId)}/grants`,
-      { permission: PLUGIN_SENSOR_PERMISSION, scope: sourceId },
-    );
+    requestEndpoint(transport, pluginsApi.grant, { permission: PLUGIN_SENSOR_PERMISSION, scope: sourceId }, { pluginId });
 
   /** CR-032：撤销插件感知源授权 */
   const revokeSensorGrant = async (pluginId: string, grantId: string): Promise<void> => {
-    await transport.request('DELETE', `/v1/plugins/${encodeURIComponent(pluginId)}/grants/${encodeURIComponent(grantId)}`);
+    await requestEndpoint(transport, pluginsApi.revokeGrant, undefined, { pluginId, grantId });
   };
 
   /** CR-032：列出插件有效感知源授权（撤销需 grantId） */
   const listSensorGrants = async (pluginId: string): Promise<PluginGrantDto[]> => {
-    const res = await transport.request<{ items: PluginGrantDto[] }>(
-      'GET',
-      `/v1/plugins/${encodeURIComponent(pluginId)}/grants`,
-    );
-    return res.items ?? [];
+    const res = await requestEndpoint(transport, pluginsApi.listSensorGrants, undefined, { pluginId });
+    return res.items;
   };
 
   /** CR-032：查询感知源是否已授权 */
   const hasSensorGrant = async (pluginId: string, sourceId: string): Promise<boolean> => {
-    const res = await transport.request<{ granted: boolean }>(
-      'GET',
-      `/v1/plugins/${encodeURIComponent(pluginId)}/permissions/${PLUGIN_SENSOR_PERMISSION}?scope=${encodeURIComponent(sourceId)}`,
-    );
-    return Boolean(res.granted);
+    const res = await requestEndpoint(transport, pluginsApi.permission, undefined,
+      { pluginId, permission: PLUGIN_SENSOR_PERMISSION }, { scope: sourceId });
+    return res.granted;
   };
 
   /** 安装插件：登记声明并联动工具/技能注册（API 幂等），成功后刷新列表 */

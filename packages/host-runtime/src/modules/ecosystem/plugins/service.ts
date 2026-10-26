@@ -319,8 +319,8 @@ export class PluginService {
   }
 
   /** 撤销插件权限 */
-  async revoke(tenant: LocalContext, id: string) {
-    const grant = await this.deps.extensionRepo.revokePluginGrant(tenant, id);
+  async revoke(tenant: LocalContext, id: string, expectedPluginId?: string) {
+    const grant = await this.deps.extensionRepo.revokePluginGrant(tenant, id, expectedPluginId);
     if (grant) await this.deps.beforeDeactivate?.(grant.pluginId, false);
     return grant;
   }

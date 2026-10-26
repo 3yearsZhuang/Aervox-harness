@@ -16,7 +16,9 @@ import {
   PLUGIN_SENSOR_PERMISSION,
   pluginProactiveSpecSchema,
   validateDslExpression,
+  pluginsApi,
 } from "@aervox/contracts";
+import { registerContractRoute } from "../../../shared/contract-route.js";
 import { resolveLocalContext } from "../../../shared/local-context.js";
 import type { PluginService } from "./service.js";
 import { FileExistsError } from "../skills/index.js";
@@ -86,69 +88,63 @@ export function registerPluginRoutes(app: FastifyInstance, service: PluginServic
   });
 
   // 列出
-  app.get("/v1/plugins", async () => {
+  registerContractRoute(app, pluginsApi.list, async () => {
     const rows = await service.listPlugins();
     return { items: rows };
   });
 
   // 启停
-  app.patch("/v1/plugins/:id", async (req, reply) => {
-    const { id: pluginId } = req.params as { id: string };
-    const body = (req.body ?? {}) as { enabled?: boolean };
-    if (typeof body.enabled !== "boolean") {
-      return reply.code(400).send({ error: "enabled is required" });
-    }
+  registerContractRoute(app, pluginsApi.setEnabled, async (req, reply) => {
+    const { pluginId } = req.params as { pluginId: string };
+    const body = req.body as { enabled: boolean };
     const plugin = await service.setEnabled(pluginId, body.enabled);
     if (!plugin) return reply.code(404).send({ error: "plugin not found" });
     return plugin;
   });
 
   // 卸载
-  app.delete("/v1/plugins/:id", async (req, reply) => {
-    const { id: pluginId } = req.params as { id: string };
+  registerContractRoute(app, pluginsApi.delete, async (req, reply) => {
+    const { pluginId } = req.params as { pluginId: string };
     const ok = await service.uninstallPlugin(pluginId);
     if (!ok) return reply.code(404).send({ error: "plugin not found" });
-    return reply.code(204).send();
+    return undefined;
   });
 
   // 授予权限
-  app.post("/v1/plugins/:id/grants", async (req, reply) => {
-    const { id: pluginId } = req.params as { id: string };
+  registerContractRoute(app, pluginsApi.grant, async (req) => {
+    const { pluginId } = req.params as { pluginId: string };
     const tenant = resolveLocalContext(req);
-    const body = (req.body ?? {}) as { permission?: string; scope?: string };
-    if (!body.permission || !body.scope) {
-      return reply.code(400).send({ error: "permission/scope are required" });
-    }
+    const body = req.body as { permission: string; scope: string };
     const grant = await service.grant(tenant, {
       id: id("grant"),
       pluginId,
       permission: body.permission,
       scope: body.scope,
     });
-    return reply.code(201).send(grant);
+    return grant;
   });
 
   // CR-032：列出插件有效感知源授权
-  app.get("/v1/plugins/:id/grants", async (req) => {
-    const { id: pluginId } = req.params as { id: string };
+  registerContractRoute(app, pluginsApi.listSensorGrants, async (req) => {
+    const { pluginId } = req.params as { pluginId: string };
     const tenant = resolveLocalContext(req);
     const grants = await service.listSensorGrants(tenant, pluginId, PLUGIN_SENSOR_PERMISSION);
     return { items: grants };
   });
 
   // 撤销权限
-  app.delete("/v1/plugins/:id/grants/:grantId", async (req, reply) => {
-    const { grantId } = req.params as { id: string; grantId: string };
+  registerContractRoute(app, pluginsApi.revokeGrant, async (req, reply) => {
+    const { pluginId, grantId } = req.params as { pluginId: string; grantId: string };
     const tenant = resolveLocalContext(req);
-    const grant = await service.revoke(tenant, grantId);
+    const grant = await service.revoke(tenant, grantId, pluginId);
     if (!grant) return reply.code(404).send({ error: "grant not found" });
     return grant;
   });
 
   // 查询权限（可选 ?scope= 精确到授权范围，CR-032 感知源授权用）
-  app.get("/v1/plugins/:id/permissions/:permission", async (req, reply) => {
-    const { id: pluginId, permission } = req.params as {
-      id: string;
+  registerContractRoute(app, pluginsApi.permission, async (req) => {
+    const { pluginId, permission } = req.params as {
+      pluginId: string;
       permission: string;
     };
     const tenant = resolveLocalContext(req);

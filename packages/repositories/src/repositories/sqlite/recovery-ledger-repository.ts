@@ -3,15 +3,26 @@
  *
  * 规则依据：docs/reference/PRD.md §8 数据规则 + docs/reference/DATABASE.md §14.7
  *
- * 关键约束：本仓储使用独立 libsql client / 数据库文件，与业务库分离凭据与故障域。
- * 服务端先以确定性 eventId/idempotencyKey 追加账本并取得持久确认，再幂等提交业务状态。
+ * 调用方须提供独立 ledger client，并满足凭据、备份和故障域隔离；
+ * 本类不建立或验证这些部署条件，也不替代账本先行的业务接线与水位对账。
  */
 import { eq, sql } from "drizzle-orm";
+import { isDeepStrictEqual } from "node:util";
 import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
 import type { Client } from "@libsql/client";
 import { recoveryControlLedger } from "@aervox/schema";
 import { initLedgerSchema } from "../../schema/ddl/index.js";
 import type { IRecoveryLedgerPort, RecoveryLedgerEventModel } from "../types/index.js";
+import { DomainConflictError } from "../../errors.js";
+
+/** Escape text before the native driver can truncate a control reference at NUL. */
+const ledgerEventProjection = { value: sql<string>`json_object(
+  'eventId', ${recoveryControlLedger.eventId}, 'idempotencyKey', ${recoveryControlLedger.idempotencyKey},
+  'eventType', ${recoveryControlLedger.eventType}, 'workspaceRef', ${recoveryControlLedger.workspaceRef},
+  'subjectRef', ${recoveryControlLedger.subjectRef}, 'targetRef', ${recoveryControlLedger.targetRef},
+  'occurredAt', ${recoveryControlLedger.occurredAt}, 'sequence', ${recoveryControlLedger.sequence},
+  'tamperEvidence', json(${recoveryControlLedger.tamperEvidence})
+)`.mapWith((value: string): RecoveryLedgerEventModel => JSON.parse(value)) };
 
 export class SqliteRecoveryLedgerRepository implements IRecoveryLedgerPort {
   private readonly db: LibSQLDatabase<{ recoveryControlLedger: typeof recoveryControlLedger }>;
@@ -35,14 +46,23 @@ export class SqliteRecoveryLedgerRepository implements IRecoveryLedgerPort {
     occurredAt?: string;
     tamperEvidence?: unknown;
   }): Promise<RecoveryLedgerEventModel> {
-    // 同键幂等：同摘要（eventId/eventType 一致）返回既有事件；摘要不同则冲突拒绝，不静默追加
-    const existing = await this.getByIdempotencyKey(event.idempotencyKey);
-    if (existing) {
-      if (existing.eventId !== event.eventId || existing.eventType !== event.eventType) {
-        throw new Error("recovery_ledger_conflict");
+    // Bind the receipt to the persisted control intent, not just its public ids.
+    // Normalize as stored JSON so key order and JSON serialization do not create
+    // false conflicts; omitted server-generated time keeps its original value.
+    const proof = event.tamperEvidence === undefined ? null : JSON.parse(JSON.stringify(event.tamperEvidence));
+    const assertIntent = (existing: RecoveryLedgerEventModel): RecoveryLedgerEventModel => {
+      if (existing.eventId !== event.eventId || existing.eventType !== event.eventType
+        || (existing.workspaceRef ?? null) !== (event.workspaceRef ?? null)
+        || (existing.subjectRef ?? null) !== (event.subjectRef ?? null)
+        || (existing.targetRef ?? null) !== (event.targetRef ?? null)
+        || (event.occurredAt !== undefined && existing.occurredAt !== event.occurredAt)
+        || !isDeepStrictEqual(existing.tamperEvidence ?? null, proof)) {
+        throw new DomainConflictError("recovery_ledger_conflict");
       }
       return existing;
-    }
+    };
+    const existing = await this.getByIdempotencyKey(event.idempotencyKey);
+    if (existing) return assertIntent(existing);
     const now = new Date().toISOString();
     // 序列在单条 INSERT ... SELECT 内原子分配（MAX+1 与写入同一语句，避免并发重复序列）
     await this.db.run(sql`
@@ -52,12 +72,16 @@ export class SqliteRecoveryLedgerRepository implements IRecoveryLedgerPort {
         ${event.eventId}, ${event.idempotencyKey}, ${event.eventType},
         ${event.workspaceRef ?? null}, ${event.subjectRef ?? null}, ${event.targetRef ?? null},
         ${event.occurredAt ?? now}, COALESCE(MAX(${recoveryControlLedger.sequence}), 0) + 1,
-        ${event.tamperEvidence === undefined ? null : JSON.stringify(event.tamperEvidence)}
+        ${proof === null ? null : JSON.stringify(proof)}
       FROM ${recoveryControlLedger}
+      WHERE true
+      ON CONFLICT (idempotency_key) DO NOTHING
     `);
     const created = await this.getByIdempotencyKey(event.idempotencyKey);
     if (!created) throw new Error("recovery_ledger_append_failed");
-    return created;
+    // Another caller can win after our first read. It is an idempotent receipt
+    // only if its complete intent still matches this command.
+    return assertIntent(created);
   }
 
   /**
@@ -96,17 +120,17 @@ export class SqliteRecoveryLedgerRepository implements IRecoveryLedgerPort {
 
   async getBySequence(sequence: number): Promise<RecoveryLedgerEventModel | null> {
     const [found] = await this.db
-      .select()
+      .select(ledgerEventProjection)
       .from(recoveryControlLedger)
       .where(eq(recoveryControlLedger.sequence, sequence));
-    return (found as RecoveryLedgerEventModel) ?? null;
+    return found?.value ?? null;
   }
 
   async getByIdempotencyKey(idempotencyKey: string): Promise<RecoveryLedgerEventModel | null> {
     const [found] = await this.db
-      .select()
+      .select(ledgerEventProjection)
       .from(recoveryControlLedger)
       .where(eq(recoveryControlLedger.idempotencyKey, idempotencyKey));
-    return (found as RecoveryLedgerEventModel) ?? null;
+    return found?.value ?? null;
   }
 }

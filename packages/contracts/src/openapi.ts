@@ -20,6 +20,7 @@ import { branchesApi } from "./branches-api.js";
 import { feedbackApi } from "./feedback-api.js";
 import { privacyApi } from "./privacy-api.js";
 import { pluginConfigApi } from "./plugin-config-api.js";
+import { pluginsApi } from "./plugins-api.js";
 import { createMemoryNodeRequestSchema, memoryNodeSchema, listMemoryNodesResponseSchema } from "./memory-api.js";
 import type { OpenAPIObject } from "openapi3-ts/oas31";
 import { type PluginApiRegistry, type PluginOpenApiRoute } from "./plugin-api-registry.js";
@@ -1043,6 +1044,7 @@ const pluginIdParam = z.object({ pluginId: z.string().min(1) });
 const pluginPageParam = pluginIdParam.extend({ pageId: z.string().min(1) });
 
 for (const endpoint of Object.values(pluginConfigApi)) registerJsonEndpoint(endpoint);
+for (const endpoint of Object.values(pluginsApi)) registerJsonEndpoint(endpoint);
 
 registry.registerPath({
   method: "post", path: "/v1/plugins/{pluginId}/pages", summary: "注册插件 Page 元数据", tags: ["Plugins"],

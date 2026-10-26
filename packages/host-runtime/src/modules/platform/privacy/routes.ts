@@ -5,7 +5,7 @@
  */
 import { privacyApi, type ConsentQuery, type CreateDeletionRequest, type GrantConsentRequest } from "@aervox/contracts";
 import type { FastifyInstance } from "fastify";
-import type { SqlitePrivacyRepository } from "@aervox/repositories";
+import { DomainConflictError, type SqlitePrivacyRepository } from "@aervox/repositories";
 import { resolveLocalContext } from "../../../shared/local-context.js";
 import { registerContractRoute } from "../../../shared/contract-route.js";
 
@@ -47,28 +47,21 @@ export function registerPrivacyRoutes(
   registerContractRoute(app, privacyApi.createDeletion, async (req, reply) => {
     const tenant = resolveLocalContext(req);
     const body = req.body as CreateDeletionRequest;
-    // 同一请求内按 (targetType, targetId) 去重：复合主键冲突会让整批写入失败（500）；
-    // 同键不同 ownerModule 属声明歧义，fail-closed 拒绝而不是任选其一。
-    let targets: Array<{ targetType: string; targetId: string; ownerModule: string }> | undefined;
-    if (body.targets) {
-      const byKey = new Map<string, { targetType: string; targetId: string; ownerModule: string }>();
-      for (const target of body.targets) {
-        const key = `${target.targetType}\u0000${target.targetId}`;
-        const existing = byKey.get(key);
-        if (existing && existing.ownerModule !== target.ownerModule) {
-          return reply.code(400).send({ error: "conflicting ownerModule for duplicate target" });
-        }
-        byKey.set(key, target);
+    // Target normalization belongs to the transactional command; the HTTP
+    // adapter only preserves the existing 400 response for ambiguous owners.
+    try {
+      return await privacyRepo.createDeletionRequest(tenant, {
+        id: id("dr"),
+        scope: body.scope,
+        idempotencyKey: body.idempotencyKey ?? id("del"),
+        ownerModule: body.ownerModule,
+        targets: body.targets,
+      });
+    } catch (error) {
+      if (error instanceof DomainConflictError && error.message === "deletion_target_owner_conflict") {
+        return reply.code(400).send({ error: "conflicting ownerModule for duplicate target" });
       }
-      targets = [...byKey.values()];
+      throw error;
     }
-    const request = await privacyRepo.createDeletionRequest(tenant, {
-      id: id("dr"),
-      scope: body.scope,
-      idempotencyKey: body.idempotencyKey ?? id("del"),
-      ownerModule: body.ownerModule,
-      targets,
-    });
-    return request;
   });
 }

@@ -14,7 +14,7 @@ HTTP 数据与操作的事实源是 `@aervox/contracts`；[流式协议](STREAMI
 
 ## 操作声明与覆盖
 
-新 JSON 端点优先使用 [ApiEndpoint](../../packages/contracts/src/http-api.ts) 定义方法、路径、稳定 `operationId`、输入、成功响应及错误响应；使用宿主 [registerContractRoute](../../packages/host-runtime/src/shared/contract-route.ts) 注册，并由 OpenAPI 与共享客户端消费同一声明。已有切片包括 [Model Runtime](../../packages/contracts/src/model-runtime-api.ts)、[隐私授权与删除请求](../../packages/contracts/src/privacy-api.ts)、[用户偏好](../../packages/contracts/src/preferences-api.ts)、[插件配置](../../packages/contracts/src/plugin-config-api.ts)、[基础技能管理](../../packages/contracts/src/skills-api.ts)、[会话分支](../../packages/contracts/src/branches-api.ts)和[质量反馈](../../packages/contracts/src/feedback-api.ts)。共享声明校验路径、查询参数、请求体和成功响应；SSE、文件和已有路由可以保留专用适配器，但仍须登记协议。
+新 JSON 端点优先使用 [ApiEndpoint](../../packages/contracts/src/http-api.ts) 定义方法、路径、稳定 `operationId`、输入、成功响应及错误响应；使用宿主 [registerContractRoute](../../packages/host-runtime/src/shared/contract-route.ts) 注册，并由 OpenAPI 与共享客户端消费同一声明。已有切片包括 [Model Runtime](../../packages/contracts/src/model-runtime-api.ts)、[隐私授权与删除请求](../../packages/contracts/src/privacy-api.ts)、[用户偏好](../../packages/contracts/src/preferences-api.ts)、[插件配置](../../packages/contracts/src/plugin-config-api.ts)、[插件管理与授权](../../packages/contracts/src/plugins-api.ts)、[基础技能管理](../../packages/contracts/src/skills-api.ts)、[会话分支](../../packages/contracts/src/branches-api.ts)和[质量反馈](../../packages/contracts/src/feedback-api.ts)。共享声明校验路径、查询参数、请求体和成功响应；SSE、文件和已有路由可以保留专用适配器，但仍须登记协议。
 
 新声明中需要请求体的操作显式设置 `bodyRequired: true`，使 OpenAPI 的请求体存在性与运行时 Schema 校验一致；这与对象内部的必填字段不同。隐私授权、删除请求和偏好保存、更新缺少请求体时返回 400；撤销授权与重置偏好保留无请求体调用。
 
@@ -22,9 +22,11 @@ HTTP 数据与操作的事实源是 `@aervox/contracts`；[流式协议](STREAMI
 
 认证由宿主统一执行，插件或业务 handler 不能通过自定义声明降低要求。共享契约不得导入具体插件实现或宿主应用。
 
-`POST /v1/consent` 的审计操作者只取宿主认证上下文；兼容请求中的 `actorId` 被忽略，不能覆盖服务端身份。`GET /v1/consent` 缺少或留空 purpose/scope 时继续返回 `{ active: false }`，重复查询键等非字符串输入返回 400。未配置偏好时保留 `id: null`、`version: 0` 的中性默认响应，不创建持久化记录；保存、更新和重置返回持久化版本。`POST /v1/deletions` 返回 202 仅证明受理，保留显式目标去重与幂等重放，不表示清理或独立验证已经完成。
+`POST /v1/consent` 的审计操作者只取宿主认证上下文；兼容请求中的 `actorId` 被忽略，不能覆盖服务端身份。`GET /v1/consent` 缺少或留空 purpose/scope 时继续返回 `{ active: false }`，重复查询键等非字符串输入返回 400。未配置偏好时保留 `id: null`、`version: 0` 的中性默认响应，不创建持久化记录；保存、更新和重置返回持久化版本。`POST /v1/deletions` 返回 202 仅证明受理；幂等键绑定 scope、owner 和完整去重目标集合，同意图重放原回执及进度，异意图返回 409 且不改原请求或目标。目标顺序与重复项不改变意图，不表示清理或独立验证已经完成。
 
 基础技能管理保留本地注册表的实际返回：列表为 `{ items }`，元数据的 `active/readonly` 为 0 或 1，内容读取包含 `name/description/content`；不转换为旧工作区 Skill 模型。安装以 JSON `zipBase64` 承载 ZIP，单技能包须提供目标名，名称空白仍由管理器归一化；`overwrite` 省略等同 false，只接受布尔值。安装与启停缺少请求体、错误字段类型或重复筛选键返回 400；列表仅在 `activeOnly=true` 时过滤启用项。删除成功返回无内容的 204，技能不存在、只读或目录所有权冲突返回 409。归档输入错误与内部文件系统、数据库、Worker 故障分别处理，内部故障交由统一错误处理隐藏诊断；取消和写入边界继续遵守[归档与所有权契约](plugin-config-and-pages.md#归档资源与-skill-所有权)。Neo 候选及发布生命周期仍为后续迁移范围。
+
+插件管理 7 个共享端点保留完整插件行与 `{ items }` 列表，启用旗标为 0/1，nullable 及扩展元数据不丢失；PATCH 要求布尔 enabled，卸载成功为无内容 204。授权创建要求非空字符串 permission/scope 并返回 201 行；授权列表只返回有效的感知源授权，撤权仍返回 200 的撤销行。撤权更新同时匹配 URL 插件 ID 和 grant ID，跨插件路径或缺失授权返回 404 且不改行。权限查询省略 scope 或留空时保留不限定范围的判定，响应仍区分 null 与空字符串；重复 scope 返回 400。共享客户端保留启停/撤权的 void 返回，同时校验实际成功响应；直接安装及声明注册仍按插件生命周期合同推进。
 
 会话分支的 8 个操作保留实际记录语义：列表和地图为 `{ items }`，根会话不存在时返回空列表；创建返回 201，合并和归档只更新分支状态，删除返回 200 的软删除记录，不删除会话或消息。布局更新要求 `layoutData` 字段，接受任意 JSON（包括 null），布局元数据不改变内容。地图读取保留多个父节点、循环及独立的重复边，每个可达会话只查询一次、每个分支 ID 只返回一次；顺序为直接兄弟先列，再按兄弟顺序读取后代。单次最多查询 1,000 个会话（包括根与无子分支的叶节点）、返回 10,000 条唯一分支；SQL 每次只物化剩余分支预算加一条哨兵，超过任一预算返回 422、固定 `branch_tree_limit_exceeded`，不返回部分成功。预算限制单次读取，不拒绝合法图写入或删除数据；客户端不得通过参数扩大预算。请求断开在每次查询前后终止后续遍历，已开始的单次 SQL 查询可以完成；行预算限制结果物化，不承诺数据库扫描、排序耗时或单条布局字节数有硬上限。来源归属与完整 CAP-014 验收继续按[需求边界](SRS.md#prd-cap-014-019)推进。
 
