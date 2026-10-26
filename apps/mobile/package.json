@@ -4,20 +4,27 @@
   "license": "AGPL-3.0-or-later",
   "private": true,
   "type": "module",
-  "description": "Aervox Capacitor mobile shell (packages apps/web, see ADR-015).",
+  "description": "Aervox Android project and shared mobile Web UI (ADR-022; local runtime pending).",
   "scripts": {
-    "build": "VITE_AERVOX_PLATFORM=mobile pnpm --filter @aervox/web build && cap sync web",
+    "build": "pnpm run build:web",
+    "build:web": "VITE_AERVOX_PLATFORM=mobile pnpm --filter @aervox/web build",
     "dev": "VITE_AERVOX_PLATFORM=mobile pnpm --filter @aervox/web dev",
-    "preview": "cap serve web",
+    "preview": "pnpm --filter @aervox/web start",
     "cap:sync": "cap sync",
     "cap:sync:web": "cap sync web",
-    "cap:doctor": "cap doctor"
+    "cap:sync:android": "pnpm run build:web && cap sync android",
+    "cap:doctor": "cap doctor android",
+    "android:check": "node scripts/check-android-environment.mjs",
+    "android:check:device": "node scripts/check-android-environment.mjs --device",
+    "android:build": "node scripts/build-android.mjs",
+    "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
     "@aervox/web": "workspace:*",
-    "@capacitor/core": "^8.5.0"
+    "@capacitor/android": "8.5.1",
+    "@capacitor/core": "8.5.1"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.5.0"
+    "@capacitor/cli": "8.5.1"
   }
 }

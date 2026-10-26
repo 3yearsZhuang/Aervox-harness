@@ -1,6 +1,8 @@
 [tools]
 node = "24"
 pnpm = "11.22.0"
+# Capacitor Android emits Java 21; keep the JDK reproducible without global overrides.
+java = "21.0.13+9.0.LTS"
 rust = "1.98.0"
 vale = "3.18.0"
 # Markdown 门禁工具纳入工具链真源：此前用 `npx markdownlint-cli2` 每次现取，

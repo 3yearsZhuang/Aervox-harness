@@ -1,7 +1,6 @@
-# Capacitor 生成/构建产物
+# Capacitor 构建产物；Android 工程源码纳入版本控制。
 www/
 dist/
-android/
 ios/
 
 # 本地工具

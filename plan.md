@@ -385,7 +385,11 @@ ARC-05/FND-07，依赖 ITER-002 Outbox 归属、ITER-013/017 指标。IPC 唤醒
 
 ### ITER-009 · 进行中：Android 独立端前置与硬件定位
 
-比较九个硬件方向、电脑依赖、目标 OS、真实 Provider、成本和数据边界；CAP-001/012/018/025/030/033。只做候选/样本和继续或暂缓结论，选一至两个方向，不默认采购/SKU/固件/顺序/工期。维护者已选择手机独立运行、电脑关闭后仍可使用，并确认 Android 先行；移动 M0 在 Android 路线上接续验证本地执行/存储适配，再裁定版本范围、凭据与数据范围，之后细化 M1～M6。现有 Capacitor 配置只有 Web 壳，没有 Android/iOS 原生工程；前次仅见 Command Line Tools 的环境结论已过时，本轮实时可见 Android SDK API 36 和 adb；兼容 JDK 接线、原生构建与设备验收继续另验，不能由工具存在推定通过。具体待决定事项见下一节，关联 ITER-016。
+比较九个硬件方向、电脑依赖、目标 OS、真实 Provider、成本和数据边界；CAP-001/012/018/025/030/033。只做候选/样本和继续或暂缓结论，选一至两个方向，不默认采购/SKU/固件/顺序/工期。维护者已选择手机独立运行、电脑关闭后仍可使用，并确认 Android 先行；移动 M0 在 Android 路线上接续验证本地执行/存储适配，再裁定版本范围、凭据与数据范围，之后细化 M1～M6。本轮接入 Android 原生工程，iOS 工程尚未创建；前次仅见 Command Line Tools 的环境结论已过时，本轮实时可见 Android SDK API 36 和 adb；兼容 JDK 接线、原生构建与设备验收继续另验，不能由工具存在推定通过。具体待决定事项见下一节，关联 ITER-016。
+
+本轮 Android 工程前置提供显式 Web 构建、Android 同步/doctor、只读环境预检和 debug 构建命令，Java 21 固定于 mise，Gradle 分发带校验值。官方模板源码与许可纳入版本控制，资源复制、SDK 路径、签名密钥与构建产物不跟踪；自动备份和明文网络默认关闭。初始 Capacitor 8.5.0 的依赖审计命中严重公告，统一升至 8.5.1 后为 0 未审阅、2 既有审阅、0 过时例外，不新增豁免。工程、Web 构建与原生 APK/设备验收分别记录；本机 SQLite/凭据/模型桥、独立运行及跨设备数据仍未交付。
+
+Android 集成分支新的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务、12 项移动脚本/环境合同及既有包测试、守卫、OpenAPI 兼容、HLS、删除故障、Native 和 64 份文档通过；冻结安装与移动说明排版另验通过。真实 `android:build`、sync、doctor 退出 0，生成约 8.3 MiB debug APK，包名 `com.aervox.mobile`、最低 API 24/目标 API 36，v2 调试签名有效，合并 Manifest 两项禁用均保留。曾因 SDK 路径未传入子进程和缺 Build Tools 35.0.0 失败，修脚本并显式补唯一组件后通过；不将 Web 构建或环境预检计作 APK 成功。设备交互、独立运行和发布仍未验收，精确提交远端结果由新 PR 保存。
 
 本轮先交付 `@aervox/core/browser` 中性入口，整包打包不包含 Node/CLI，VM 无 process/require/Buffer 仍能执行 Turn，声明闭包以 DOM、types=[] 编译；现有入口保持。独立复核捕获旧 `./core` 独有的 abortable 导出丢失，新增以旧轻量符号表为基线的回归先红后绿，补回两项后定向 3 文件 13 项和类型检查通过。该前置不等于本机持久 Store、原生 SQLite/密钥/模型桥或手机闭环，后续依次补齐，不把 Node API/Worker 原包直接装入 WebView。
 

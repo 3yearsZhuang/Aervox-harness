@@ -54,6 +54,8 @@ decision_status: proposed
 
 独立原型须用测试库证明不依赖电脑的新会话、落盘、获准模型调用、流式展示、重启恢复和一次作答；实测移动 SQLite/FTS、文件、密钥、备份及迁移，保留 Schema/Repository 边界。后台调度必须持久化且可补偿，不能承诺桌面常驻 Worker 的时效。
 
+Android 工程现已纳入版本控制，Web 构建和原生编译使用显式分开的命令；环境预检检查仓库 JDK、SDK platform、Build Tools 及可选设备，不安装工具或接受许可。Gradle 自动 SDK 下载关闭，默认拒绝明文网络和系统自动备份；模板资源、依赖、许可证和调试包构建边界见[移动工程说明](../../../apps/mobile/README.md)。该工程仍装配现有 API Transport，未将手机本机数据库或执行器接入 UI；工程可生成或 APK 可安装都不能替代独立端闭环。
+
 首个代码前置提供 `@aervox/core/browser` 中性出口，排除终端审批的 Node 静态依赖，保留现有 `.` 与 `./core` 终端兼容。整包浏览器构建、无 Node 全局的 VM Turn 和不带 ambient Node 类型的声明闭包有[回归证明](../../../packages/core/test/browser-entry.test.ts)；原有轻量出口的全部中性运行时符号另作兼容基线。这只证明内核入口可用于后续移动 Host，不包含本机持久化、原生密钥/模型桥、实际 WebView 或手机验收；现有 Fetch Provider 不能直接承载需要保留在原生侧的密钥。
 
 独立运行不等于离线推理。模型调用仍经 Provider、安全检查和持久化，不由 WebView 持有模型密钥；本机推理另验内存、许可、温升、耗电和中断，`local_only` 不降级给远程模型。导入桌面资料显式选范围、备份和校验；同步不得复制活动 SQLite/WAL 或直接最后写入覆盖，另定冲突、墓碑、撤权与密钥协议。安装成功不能替代运行闭环证据。
