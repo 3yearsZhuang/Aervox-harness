@@ -4,8 +4,9 @@ import { readFile, writeFile, mkdir, open } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { COST_SCHEMA_VERSION, COST_KIND, COST_REPETITIONS, COST_BASELINE, COST_CONFIGURATIONS, COST_GUARD_MODES, COST_BOUNDARY, COST_REQUIRED_SOURCE_FILES, costSchedule } from './cost-protocol.mjs';
+import { COST_SCHEMA_VERSION, COST_KIND, COST_REPETITIONS, COST_BASELINE, COST_CONFIGURATIONS, COST_GUARD_MODES, COST_BOUNDARY, COST_REQUIRED_SOURCE_FILES, COST_RUNTIME_ROLES, costSchedule } from './cost-protocol.mjs';
 import { validateCostReport, validateCostFiles } from './cost-validator.mjs';
+import { readCostRuntimeInputs } from './cost-runtime.mjs';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const CHILD = fileURLToPath(new URL('./cost-child.mjs', import.meta.url));
@@ -79,13 +80,16 @@ export async function runCostStudy({ out, repetitions = COST_REPETITIONS, timeou
     commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim(),
     workingTree: execFileSync('git', ['status', '--porcelain'], { cwd: ROOT, encoding: 'utf8' }),
     baseline: COST_BASELINE, configurations: COST_CONFIGURATIONS, guardModes: COST_GUARD_MODES,
-    boundary: COST_BOUNDARY, rawFile, samples: [], hashes: {}, sourceConsistency: {} };
+    boundary: COST_BOUNDARY, rawFile, samples: [], hashes: {}, sourceConsistency: {},
+    runtimeInputs: [], runtimeConsistency: { beforeReadError: null } };
   let rawHandle;
   try {
     rawHandle = await open(rawPath, 'wx');
     const before = await hashCostSources(); report.hashes = before.hashes;
     report.sourceConsistency.beforeReadErrors = before.readErrors;
     if (Object.keys(before.readErrors).length) throw new Error('measurement source inputs could not be read');
+    try { report.runtimeInputs = await readCostRuntimeInputs(ROOT); }
+    catch (error) { report.runtimeConsistency.beforeReadError = `${error.name}: ${error.message}`; throw error; }
     await writeFile(out, JSON.stringify(report, null, 2) + '\n');
     for (const [ordinal, unit] of schedule.entries()) {
       const row = { ...await runCostChild(unit, timeoutMs), ordinal };
@@ -105,6 +109,13 @@ export async function runCostStudy({ out, repetitions = COST_REPETITIONS, timeou
     if (report.sourceConsistency.changedFiles.length || Object.keys(after.readErrors).length) {
       report.status = 'failed'; report.error ??= 'source inputs changed during measurement';
     }
+    let afterInputs = [], readError = null;
+    try { afterInputs = await readCostRuntimeInputs(ROOT); }
+    catch (error) { readError = `${error.name}: ${error.message}`; }
+    const changedRoles = COST_RUNTIME_ROLES.filter(role =>
+      JSON.stringify(report.runtimeInputs.find(value => value.role === role)) !== JSON.stringify(afterInputs.find(value => value.role === role)));
+    report.runtimeConsistency = { ...report.runtimeConsistency, afterInputs, readError, changedRoles };
+    if (readError || changedRoles.length) { report.status = 'failed'; report.error ??= 'selected execution dependencies changed during measurement'; }
     report.completedAt = new Date().toISOString();
     report.summary = summarize(report.samples);
     try { report.rawSha256 = sha(await readFile(rawPath)); }

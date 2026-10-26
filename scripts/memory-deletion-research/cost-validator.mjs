@@ -5,7 +5,8 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { STORES } from './protocol.mjs';
-import { COST_SCHEMA_VERSION, COST_KIND, COST_REPETITIONS, COST_BASELINE, COST_CONFIGURATIONS, COST_GUARD_MODES, COST_BOUNDARY, COST_REQUIRED_SOURCE_FILES, costSchedule } from './cost-protocol.mjs';
+import { COST_SCHEMA_VERSION, COST_KIND, COST_REPETITIONS, COST_BASELINE, COST_CONFIGURATIONS, COST_GUARD_MODES, COST_BOUNDARY, COST_REQUIRED_SOURCE_FILES, COST_RUNTIME_ROLES, COST_RUNTIME_PACKAGES, costSchedule } from './cost-protocol.mjs';
+import { readCostRuntimeInputs } from './cost-runtime.mjs';
 
 const finite = (value, name) => assert.ok(Number.isFinite(value) && value >= 0, `${name}: invalid timing`);
 const sha = value => assert.match(value, /^[0-9a-f]{64}$/);
@@ -50,7 +51,7 @@ export function recomputeCostSummary(rows) {
 }
 
 export function validateCostReport(report, { requireFormal = true } = {}) {
-  assert.equal(report.schemaVersion, COST_SCHEMA_VERSION);
+  assert.equal(report.schemaVersion, COST_SCHEMA_VERSION, 'cost schema 2 required; schema 1 remains checkable with the frozen cea6b687 validator');
   assert.equal(report.kind, COST_KIND);
   assert.equal(report.status, 'completed', 'failed or incomplete measurement');
   assert.equal(report.error, null, 'measurement error');
@@ -73,6 +74,31 @@ export function validateCostReport(report, { requireFormal = true } = {}) {
   assert.deepEqual(report.sourceConsistency.readErrors, {}, 'final source read errors');
   assert.deepEqual(report.sourceConsistency.changedFiles, [], 'source input drift');
   assert.deepEqual(report.hashes, report.sourceConsistency.afterHashes, 'source hashes changed');
+  assert.deepEqual(report.runtimeInputs.map(value => value.role), COST_RUNTIME_ROLES, 'selected runtime roles missing or duplicated');
+  for (const input of report.runtimeInputs) {
+    const expectedPackage = COST_RUNTIME_PACKAGES[input.role];
+    if (expectedPackage === null) assert.match(input.packageName, /^@libsql\/[a-z0-9-]+$/);
+    else assert.equal(input.packageName, expectedPackage, 'runtime package role mismatch');
+    assert.match(input.packageVersion, /^\d+\.\d+\.\d+(?:[+-][A-Za-z0-9.-]+)?$/, 'runtime version missing');
+    assert.ok(typeof input.path === 'string' && input.path.startsWith('node_modules/.pnpm/') && !input.path.includes('\\') && !input.path.split('/').some(part => ['', '.', '..'].includes(part)) && path.posix.normalize(input.path) === input.path, 'runtime path must be normalized inside the repository install');
+    sha(input.sha256);
+    if (input.role.endsWith('-package')) assert.ok(input.path.endsWith('/package.json'));
+    if (input.role === 'native-addon') assert.ok(input.path.endsWith('/index.node'));
+  }
+  const native = report.runtimeInputs.find(value => value.role === 'native-addon'), packageVersions = new Map();
+  for (const input of report.runtimeInputs) {
+    if (packageVersions.has(input.packageName)) assert.equal(input.packageVersion, packageVersions.get(input.packageName), 'runtime package versions disagree');
+    else packageVersions.set(input.packageName, input.packageVersion);
+    if (input.role.startsWith('native-')) {
+      assert.equal(input.packageName, native.packageName, 'native package disagrees');
+      assert.equal(input.packageVersion, native.packageVersion, 'native package version disagrees');
+    }
+  }
+  assert.equal(native.packageVersion, report.runtimeInputs.find(value => value.role === 'libsql-entry').packageVersion, 'libsql wrapper and addon versions disagree');
+  assert.equal(report.runtimeConsistency.beforeReadError, null, 'initial runtime read failure');
+  assert.equal(report.runtimeConsistency.readError, null, 'final runtime read failure');
+  assert.deepEqual(report.runtimeConsistency.changedRoles, [], 'selected runtime input drift');
+  assert.deepEqual(report.runtimeInputs, report.runtimeConsistency.afterInputs, 'selected runtime changed');
   const schedule = costSchedule(report.repetitions);
   assert.equal(report.samples.length, schedule.length, 'missing or duplicate observations');
   const pids = new Set(), databases = new Set();
@@ -128,7 +154,7 @@ export function validateCostReport(report, { requireFormal = true } = {}) {
     }
   }
   assert.deepEqual(report.summary, recomputeCostSummary(report.samples), 'summary not derived from raw rows');
-  return { valid: true, purpose: report.purpose, scaleSamples: report.repetitions * COST_CONFIGURATIONS.length, guardSamples: report.repetitions * COST_GUARD_MODES.length, sourceInputs: COST_REQUIRED_SOURCE_FILES.length };
+  return { valid: true, purpose: report.purpose, scaleSamples: report.repetitions * COST_CONFIGURATIONS.length, guardSamples: report.repetitions * COST_GUARD_MODES.length, sourceInputs: COST_REQUIRED_SOURCE_FILES.length, runtimeInputs: COST_RUNTIME_ROLES.length };
 }
 
 export async function validateCostFiles(file, { checkSource = false, requireFormal = true } = {}) {
@@ -144,6 +170,9 @@ export async function validateCostFiles(file, { checkSource = false, requireForm
       const hash = createHash('sha256').update(await readFile(path.join(root, name))).digest('hex');
       assert.equal(hash, report.hashes[name], `current source changed: ${name}`);
     }
+    // Reading saved paths alone would miss a switched dependency symlink while
+    // the old package remained installed. Resolve the currently selected chain.
+    assert.deepEqual(await readCostRuntimeInputs(root), report.runtimeInputs, 'currently selected execution dependencies differ from the measurement');
     result.sourceChecked = true;
   }
   return result;

@@ -1,7 +1,7 @@
 // This study is separate from the frozen correctness and supplement protocols.
 import { REQUIRED_SOURCE_FILES } from './source-manifest.mjs';
 
-export const COST_SCHEMA_VERSION = 1;
+export const COST_SCHEMA_VERSION = 2;
 export const COST_KIND = 'memory-deletion-single-factor-cost';
 export const COST_REPETITIONS = 30;
 export const COST_BASELINE = { backgroundRecords: 1000, targetRevisions: 100, contentBytes: 1024 };
@@ -22,18 +22,34 @@ export const COST_BOUNDARY = {
   statistics: 'Type 7 interpolated descriptive quantiles. One local machine; OS and file-system caches uncontrolled. Rotated order does not establish independent identical distributions or a cross-device scalability guarantee.',
   baseline: 'The baseline appears once in each axis under distinct configuration IDs; its three groups are reported separately and are not pooled.',
   content: 'ASCII contentBytes applies to the target main record, all target revisions and their evidence ranges, and background main records. The retained control and seeded FTS, vectors, summaries, audit and Outbox fan-out remain fixed.',
+  completion: 'completed describes a fully observed measurement sample. clean and verify are called directly; this study does not persist a deletion request or its completion record. The disabled-guard late-write calibration intentionally creates revision residue before recleanup.',
+  provenance: 'Static key source fingerprints and dynamically resolved core, libsql, loader and native-addon inputs are checked before and after the run. These selected inputs do not represent every transitive module or all host state.',
 };
 export const COST_REQUIRED_SOURCE_FILES = [
   ...REQUIRED_SOURCE_FILES,
-  ...['protocol', 'child', 'runner', 'validator', 'test'].map(name => `scripts/memory-deletion-research/cost-${name}.mjs`),
+  ...['protocol', 'child', 'runner', 'validator', 'test', 'runtime'].map(name => `scripts/memory-deletion-research/cost-${name}.mjs`),
+  ...['schema/table-semantics', 'errors'].flatMap(name => [`packages/repositories/src/${name}.ts`, `packages/repositories/dist/${name}.js`]),
   'packages/repositories/node_modules/drizzle-orm/package.json',
   'packages/repositories/node_modules/drizzle-orm/libsql/session.js',
   'packages/repositories/node_modules/drizzle-orm/libsql/driver-core.js',
   'packages/repositories/node_modules/drizzle-orm/sqlite-core/query-builders/insert.js',
+  'packages/repositories/node_modules/drizzle-orm/sqlite-core/query-builders/select.js',
+  'packages/repositories/node_modules/drizzle-orm/sqlite-core/query-builders/update.js',
+  'packages/repositories/node_modules/drizzle-orm/sqlite-core/dialect.js',
+  'packages/repositories/node_modules/drizzle-orm/sql/sql.js',
   'packages/repositories/node_modules/@libsql/client/package.json',
   'packages/repositories/node_modules/@libsql/client/lib-esm/node.js',
   'packages/repositories/node_modules/@libsql/client/lib-esm/sqlite3.js',
 ];
+export const COST_RUNTIME_PACKAGES = {
+  'core-package': '@libsql/core', 'core-api': '@libsql/core', 'core-config': '@libsql/core', 'core-util': '@libsql/core', 'core-uri': '@libsql/core',
+  'base64-package': 'js-base64', 'base64-entry': 'js-base64',
+  'libsql-package': 'libsql', 'libsql-entry': 'libsql', 'libsql-error': 'libsql',
+  'loader-package': '@neon-rs/load', 'loader-entry': '@neon-rs/load',
+  'libc-package': 'detect-libc', 'libc-entry': 'detect-libc',
+  'native-package': null, 'native-addon': null,
+};
+export const COST_RUNTIME_ROLES = Object.keys(COST_RUNTIME_PACKAGES);
 
 export function costSchedule(repetitions = COST_REPETITIONS) {
   if (!Number.isSafeInteger(repetitions) || repetitions < 1 || repetitions > COST_REPETITIONS) throw new Error('repetitions must be 1..30');

@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { COST_SCHEMA_VERSION, COST_KIND, COST_BASELINE, COST_CONFIGURATIONS, COST_GUARD_MODES, COST_BOUNDARY, COST_REQUIRED_SOURCE_FILES, costSchedule } from './cost-protocol.mjs';
+import { COST_SCHEMA_VERSION, COST_KIND, COST_BASELINE, COST_CONFIGURATIONS, COST_GUARD_MODES, COST_BOUNDARY, COST_REQUIRED_SOURCE_FILES, COST_RUNTIME_PACKAGES, costSchedule } from './cost-protocol.mjs';
 import { validateCostReport, validateCostFiles, recomputeCostSummary } from './cost-validator.mjs';
 import { appendCostRevision } from './cost-child.mjs';
 import { runCostStudy, finalizeCostChild } from './cost-runner.mjs';
@@ -72,10 +72,17 @@ function validatorFixture() {
       returned: { id: 'cost-timed-revision', memoryId: 'target', content: 'x'.repeat(1024), confidence: 0, importance: 0, algorithmVersion: null, createdAt: '2026-10-26T00:00:00.000Z' } };
   });
   const hashes = Object.fromEntries(COST_REQUIRED_SOURCE_FILES.map(name => [name, 'a'.repeat(64)]));
+  const runtimeInputs = Object.entries(COST_RUNTIME_PACKAGES).map(([role, expected]) => {
+    const packageName = expected ?? '@libsql/darwin-arm64';
+    const name = role.endsWith('-package') ? 'package.json' : role === 'native-addon' ? 'index.node' : `${role}.js`;
+    return { role, packageName, packageVersion: '1.0.0', path: `node_modules/.pnpm/cost-fixture@1.0.0/node_modules/${packageName}/${name}`, sha256: 'a'.repeat(64) };
+  });
   return { schemaVersion: COST_SCHEMA_VERSION, kind: COST_KIND, status: 'completed', error: null, purpose: 'smoke', repetitions: 1,
     baseline: COST_BASELINE, configurations: COST_CONFIGURATIONS, guardModes: COST_GUARD_MODES, boundary: COST_BOUNDARY,
     commit: 'a'.repeat(40), workingTree: '', startedAt: '2026-10-26T00:00:00.000Z', completedAt: '2026-10-26T00:01:00.000Z', rawFile: 'report.raw.jsonl', rawSha256: 'a'.repeat(64),
-    hashes, sourceConsistency: { afterHashes: structuredClone(hashes), beforeReadErrors: {}, readErrors: {}, changedFiles: [] }, samples: rows, summary: recomputeCostSummary(rows) };
+    hashes, sourceConsistency: { afterHashes: structuredClone(hashes), beforeReadErrors: {}, readErrors: {}, changedFiles: [] },
+    runtimeInputs, runtimeConsistency: { beforeReadError: null, readError: null, changedRoles: [], afterInputs: structuredClone(runtimeInputs) },
+    samples: rows, summary: recomputeCostSummary(rows) };
 }
 
 test('validator refuses incomplete, forged, drifted and incorrectly summarized cost evidence', () => {
@@ -110,6 +117,19 @@ test('validator refuses incomplete, forged, drifted and incorrectly summarized c
     report => { report.sourceConsistency.beforeReadErrors.missing = 'failure'; },
     report => { report.sourceConsistency.afterHashes[COST_REQUIRED_SOURCE_FILES[0]] = 'b'.repeat(64); },
     report => { report.rawFile = '../raw.jsonl'; },
+    report => { report.schemaVersion = 1; },
+    report => { report.runtimeInputs.pop(); },
+    report => { report.runtimeInputs[1] = report.runtimeInputs[0]; },
+    report => { report.runtimeInputs[0].sha256 = 'not-a-hash'; },
+    report => { report.runtimeInputs[0].path = '/tmp/package.json'; },
+    report => { report.runtimeInputs[0].path = 'node_modules/.pnpm/../escape/package.json'; },
+    report => { report.runtimeInputs[0].packageName = 'other-package'; },
+    report => { report.runtimeInputs[0].packageVersion = ''; },
+    report => { report.runtimeInputs[1].packageVersion = '2.0.0'; },
+    report => { report.runtimeInputs.at(-1).packageVersion = '2.0.0'; },
+    report => { report.runtimeConsistency.beforeReadError = 'could not resolve native'; },
+    report => { report.runtimeConsistency.changedRoles = ['native-addon']; },
+    report => { report.runtimeConsistency.afterInputs[0].sha256 = 'b'.repeat(64); },
   ];
   for (const mutate of mutations) {
     const changed = structuredClone(fixtureReport); mutate(changed);
@@ -143,6 +163,10 @@ test('fresh-process smoke preserves raw evidence, source hashes and isolated con
     const report = await runCostStudy({ out, repetitions: 1 });
     assert.equal(report.samples.length, 11);
     assert.equal(new Set(report.samples.map(row => row.pid)).size, 11);
+    assert.equal(report.schemaVersion, 2);
+    assert.equal(report.runtimeInputs.length, 16);
+    assert.ok(report.runtimeInputs.find(value => value.role === 'base64-entry').path.endsWith('/base64.mjs'), 'core imports the ESM base64 entry');
+    assert.ok(report.runtimeInputs.find(value => value.role === 'native-addon').path.endsWith('/index.node'));
     assert.equal((await validateCostFiles(out, { checkSource: true, requireFormal: false })).sourceChecked, true);
     await assert.rejects(validateCostFiles(out), /30 repetitions/);
     await assert.rejects(runCostStudy({ out, repetitions: 1 }), /refusing to overwrite/);
