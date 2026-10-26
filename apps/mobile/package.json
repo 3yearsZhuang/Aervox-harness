@@ -17,7 +17,9 @@
     "android:check": "node scripts/check-android-environment.mjs",
     "android:check:device": "node scripts/check-android-environment.mjs --device",
     "android:build": "node scripts/build-android.mjs",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "sqlite:restore": "node scripts/sqlite-artifact.mjs",
+    "sqlite:check": "node scripts/sqlite-artifact.mjs --check"
   },
   "dependencies": {
     "@aervox/web": "workspace:*",

@@ -1,0 +1,44 @@
+SQLite Android Bindings 3.54.1
+
+Artifact: sqlite-android-3540100.aar
+Source: https://sqlite.org/2026/sqlite-android-3540100.aar
+SHA3-256: 3afb0568a107d753b640e4d65cdb1d9a2247e9833c25e72ca7d1086b78365de1
+
+SQLite core is dedicated to the public domain.
+https://sqlite.org/copyright.html
+
+Android Java bindings and JNI support include Android Open Source Project code
+licensed under the Apache License, Version 2.0. See sqlite-Apache-2.0.txt.
+
+Copyright (C) 2006 The Android Open Source Project
+Copyright (C) 2007 The Android Open Source Project
+Copyright (C) 2008 The Android Open Source Project
+Copyright (C) 2009 The Android Open Source Project
+Copyright (C) 2010 The Android Open Source Project
+Copyright (C) 2011 The Android Open Source Project
+Copyright 2013 The Android Open Source Project
+
+Modified to support SQLite extensions by the SQLite developers:
+sqlite-dev@sqlite.org.
+
+Sources and retained copyright headers:
+https://sqlite.org/android/raw/sqlite3/src/main/java/org/sqlite/database/sqlite/SQLiteDatabase.java?ci=trunk
+https://sqlite.org/android/raw/sqlite3/src/main/jni/sqlite/android_database_SQLiteConnection.cpp?ci=trunk
+https://sqlite.org/android/raw/sqlite3/src/main/jni/sqlite/ALog-priv.h?ci=trunk
+
+The Android bindings build selects c++_static:
+https://sqlite.org/android/raw/sqlite3/src/main/jni/Application.mk?ci=trunk
+The distributed native library identifies Android LLVM commit
+97a699bf4812a18fb657c2779f5296a4ab2694d2.
+Retain the complete sqlite-libcxx-LICENSE.txt, sqlite-libcxxabi-LICENSE.txt and
+sqlite-compiler-rt-LICENSE.txt, including the LLVM exceptions and legacy license text.
+Their sources are the corresponding LICENSE.TXT files in that exact commit at
+https://android.googlesource.com/toolchain/llvm-project/
+
+Static ELF inspection (PT_LOAD segments; not device execution):
+ABI          ELF class  PT_LOAD p_align  16KiB offset/address congruence
+arm64-v8a    64         16384            all load segments satisfy
+x86_64       64         16384            all load segments satisfy
+armeabi-v7a  32         4096             not all load segments satisfy
+x86          32         4096             not all load segments satisfy
+These facts do not establish device support or loaded-library behavior.

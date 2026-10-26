@@ -42,6 +42,10 @@ id: AVX-DB-001
 业务模块只消费 Repository Port，不直接导入 Drizzle 表。需要事务原子性的组合写由仓储层提供明确方法，
 不得把裸连接或方言错误码泄露给 API、Worker 或 UI。
 
+`buildPortableSchemaArtifact(scope)` 是移动原型使用的构建期数据出口，从同一 manifest 和 release 指纹生成 DDL、参数化版本回执及独立 FTS 投影。`main` 与 `ledger` 分开生成，不能据此合并其故障域；FTS 与现有初始化器共用唯一 DDL，不进入权威数据或 Schema 身份。制品不执行数据库写入，也不是升级计划。移动主库资产由根 `mobile:schema` 命令生成，包含版本与发布指纹，生成回执另报告字节 SHA256；该散列不自证真实性。
+
+原生消费者只能对已证明为空的隔离目标，在一个事务执行结构、校验物理语义及完整性后绑定版本回执；旧库、未知库、错误指纹/版本与未验证结构继续拒绝，不能通过重放目标 DDL 或写 journal 绕过迁移门槛。当前 Android 测试入口只验证临时库，不接业务库或恢复账本。
+
 ### 2.1 结构升级与逻辑恢复
 
 新库由 `initDatabaseSchema` / `initLedgerSchema` 初始化对应故障域，并记录版本指纹。已有库在任何结构写入前检查完整等价性；缺失列、NULL 主键、默认值或索引条件等不一致返回 `SCHEMA_STAGING_MIGRATION_REQUIRED`。无版本但完全等价的库可登记当前版本；已登记版本或指纹不符必须显式迁移。不能通过刷新指纹绕过历史数据检查。

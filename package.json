@@ -43,7 +43,8 @@
     "check:standards": "node --test scripts/plugin-cli.test.mjs scripts/openapi-compat.test.mjs && node scripts/plugin-cli.mjs check --all && node scripts/openapi-compat.mjs",
     "update:api-baseline": "node scripts/openapi-compat.mjs --update",
     "check:deletion-fault-testing": "turbo run build --filter=@aervox/worker... && node --test scripts/deletion-fault-testing/*.test.mjs",
-    "check:deletion-fault-integration": "turbo run build --filter=@aervox/worker... && pnpm --filter @aervox/research-deletion-fault-testing test:integration"
+    "check:deletion-fault-integration": "turbo run build --filter=@aervox/worker... && pnpm --filter @aervox/research-deletion-fault-testing test:integration",
+    "mobile:schema": "turbo run build --filter=@aervox/repositories && node scripts/generate-mobile-schema.mjs"
   },
   "devDependencies": {
     "@babel/parser": "^8.0.4",
