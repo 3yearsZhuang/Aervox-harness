@@ -66,7 +66,8 @@ describe('useAervoxPlugins distribution methods', () => {
             installSource: 'package',
           } as T;
         }
-        return { items: [{ id: 'test-plugin', enabled: 1 }] } as T;
+        return { items: [{ id: 'test-plugin', publisher: 'tester', version: '1.0.0', enabled: 1,
+          installSource: 'package', checksum: 'fixture', createdAt: 'created', updatedAt: 'updated' }] } as T;
       },
       streamTurn: async () => undefined,
       submitQuestionAnswers: async () => undefined,

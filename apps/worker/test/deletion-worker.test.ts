@@ -80,6 +80,18 @@ describe("verified Memory deletion", () => {
     expect((await ctx.privacyRepo.getDeletionRequest(local, "request"))?.status).toBe("failed");
     expect(await ctx.privacyRepo.hasPendingDeletionRequest(local)).toBe(true);
   });
+  it.each(["scope", "owner", "target-type", "target-id", "target-owner"])("does not turn a NUL-containing %s into a different deletion identity", async scenario => {
+    await ctx.privacyRepo.createDeletionRequest(local, { id: "request", idempotencyKey: "request",
+      scope: scenario === "scope" ? "memory\0other" : "memory", ownerModule: scenario === "owner" ? "memory\0other" : "memory",
+      targets: [{ targetType: scenario === "target-type" ? "memory\0other" : "memory",
+        targetId: scenario === "target-id" ? "remove\0other" : "remove",
+        ownerModule: scenario === "target-owner" ? "memory\0other" : "memory" }] });
+    expect(await runDeletionCycle(ctx)).toBe(0);
+    expect(await ctx.privacyRepo.hasPendingDeletionRequest(local)).toBe(true);
+    for (const id of ["remove", "keep"]) {
+      expect((await new SqliteMemoryRepository(database.db, database.client).getRecord(local, id))?.content).toBe(`privateword ${id}`);
+    }
+  });
   it("failed index cleanup rolls back and later polling retries idempotently", async () => {
     await request();
     await database.client.execute("CREATE TRIGGER fail_vector BEFORE DELETE ON memory_embeddings BEGIN SELECT RAISE(ABORT, 'injected'); END");

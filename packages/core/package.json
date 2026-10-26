@@ -13,6 +13,10 @@
     "./core": {
       "types": "./dist/core.d.ts",
       "default": "./dist/core.js"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "default": "./dist/browser.js"
     }
   },
   "scripts": {

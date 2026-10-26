@@ -189,7 +189,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
     return created as PluginGrantModel;
   }
 
-  async revokePluginGrant(ctx: LocalContext, id: string): Promise<PluginGrantModel | null> {
+  async revokePluginGrant(ctx: LocalContext, id: string, expectedPluginId?: string): Promise<PluginGrantModel | null> {
     const now = new Date().toISOString();
     const [updated] = await this.db
       .update(pluginGrants)
@@ -197,6 +197,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
       .where(
         and(
           eq(pluginGrants.id, id),
+          expectedPluginId === undefined ? undefined : eq(pluginGrants.pluginId, expectedPluginId),
         ),
       )
       .returning();

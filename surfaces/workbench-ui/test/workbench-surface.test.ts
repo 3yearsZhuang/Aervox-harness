@@ -1,9 +1,13 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils';
 import { UISurfaceHost } from '@aervox/ui-host';
-import { configureAervoxClient } from '@aervox/api-client';
+import { configureAervoxClient, type PluginSummaryDto } from '@aervox/api-client';
 import type { BuiltinUIPlugin, UIRegistry } from '@aervox/ui/plugin-api';
 import definition, { compactSurface } from '../src';
+
+const fixturePlugin = { id: 'fixture-extension', enabled: 1, availability: 'available', lifecycleGeneration: 'fixture-generation',
+  publisher: 'fixture', version: '1', checksum: 'fixture', installSource: 'builtin',
+  createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' } satisfies PluginSummaryDto;
 
 enableAutoUnmount(afterEach);
 beforeEach(() => {
@@ -12,7 +16,7 @@ beforeEach(() => {
   configureAervoxClient({
     transport: {
       request: vi.fn(async <T>(_method: string, path: string) => ({
-        items: path === '/v1/plugins' ? [{ id: 'fixture-extension', enabled: 1 }] : [],
+        items: path === '/v1/plugins' ? [fixturePlugin] : [],
       }) as T),
       streamTurn: vi.fn(), submitQuestionAnswers: vi.fn(), decideToolApproval: vi.fn(),
     },
@@ -84,7 +88,7 @@ it.each(['web', 'desktop'] as const)('approval on %s observes the original Turn 
   const decideToolApproval = vi.fn(async () => ({ approvalId: 'approval', state: 'granted' as const, continuation }));
   const observeTurn = vi.fn(async (_id: string, callbacks) => { callbacks.onDelta('续跑正文'); callbacks.onDone(); });
   configureAervoxClient({ transport: {
-    request: vi.fn(async <T>(_method: string, path: string) => ({items: path === '/v1/plugins' ? [{id:'fixture-extension',enabled:1}] : []}) as T),
+    request: vi.fn(async <T>(_method: string, path: string) => ({items: path === '/v1/plugins' ? [fixturePlugin] : []}) as T),
     streamTurn, observeTurn, decideToolApproval, submitQuestionAnswers: vi.fn(),
   } });
   const plugin: BuiltinUIPlugin = { id:'fixture-extension', setup(_registry, context) {
@@ -107,7 +111,7 @@ it.each(['web', 'desktop'] as const)('recovers %s observation into the same repl
     throw new Error('observer lost');
   });
   const observeTurn = vi.fn(async (_turn,cb)=>{cb.onDelta('继续正文。');cb.onDone();});
-  configureAervoxClient({transport:{request:vi.fn(async <T>(_m:string,path:string)=>({items:path==='/v1/plugins'?[{id:'fixture-extension',enabled:1}]:[]}) as T),streamTurn,observeTurn,decideToolApproval:vi.fn(),submitQuestionAnswers:vi.fn()}});
+  configureAervoxClient({transport:{request:vi.fn(async <T>(_m:string,path:string)=>({items:path==='/v1/plugins'?[fixturePlugin]:[]}) as T),streamTurn,observeTurn,decideToolApproval:vi.fn(),submitQuestionAnswers:vi.fn()}});
   const plugin: BuiltinUIPlugin={id:'fixture-extension',setup(_registry,context){context!.navigation.setQuietStartup(true);void context!.sendMessage('你好');}};
   const wrapper=mount(UISurfaceHost,{props:{plugin:definition,surface:'main',platform,viewProps:{plugins:[plugin],showCompanion:false}}});
   await vi.waitFor(()=>expect(wrapper.text()).toContain('恢复接收回复'),{timeout:5000});
@@ -130,7 +134,7 @@ it.each(['standard','companion'])('answers complete questions in %s mode and kee
   });
   let saved!:()=>void;
   const submitQuestionAnswers=vi.fn(()=>new Promise<void>(resolve=>{saved=resolve;}));
-  configureAervoxClient({transport:{request:vi.fn(async <T>(_m:string,path:string)=>({items:path==='/v1/plugins'?[{id:'fixture-extension',enabled:1}]:[]}) as T),streamTurn,observeTurn:vi.fn(),decideToolApproval:vi.fn(),submitQuestionAnswers}});
+  configureAervoxClient({transport:{request:vi.fn(async <T>(_m:string,path:string)=>({items:path==='/v1/plugins'?[fixturePlugin]:[]}) as T),streamTurn,observeTurn:vi.fn(),decideToolApproval:vi.fn(),submitQuestionAnswers}});
   const plugin:BuiltinUIPlugin={id:'fixture-extension',setup(_registry,context){context!.navigation.setQuietStartup(true);void context!.sendMessage('帮我选择');}};
   const wrapper=mount(UISurfaceHost,{props:{plugin:definition,surface:'main',platform:'web',viewProps:{plugins:[plugin],showCompanion:false}}});
   await vi.waitFor(()=>expect(wrapper.find('.uq-submit-btn').exists()).toBe(true),{timeout:5000});
@@ -149,7 +153,7 @@ it('preserves partial output and reports terminal interruption separately from c
     await options.onAccepted('turn');cb.onDelta('保留这段正文。');cb.onDone();
     await cb.onEvent({eventId:'done',turnId:'turn',sequence:2,eventType:'done',data:{status:'Interrupted',reason:'max_steps',isComplete:false}});
   });
-  configureAervoxClient({transport:{request:vi.fn(async <T>(_m:string,path:string)=>({items:path==='/v1/plugins'?[{id:'fixture-extension',enabled:1}]:[]}) as T),streamTurn,observeTurn:vi.fn(),decideToolApproval:vi.fn(),submitQuestionAnswers:vi.fn()}});
+  configureAervoxClient({transport:{request:vi.fn(async <T>(_m:string,path:string)=>({items:path==='/v1/plugins'?[fixturePlugin]:[]}) as T),streamTurn,observeTurn:vi.fn(),decideToolApproval:vi.fn(),submitQuestionAnswers:vi.fn()}});
   const plugin:BuiltinUIPlugin={id:'fixture-extension',setup(_registry,context){context!.navigation.setQuietStartup(true);void context!.sendMessage('长任务');}};
   const wrapper=mount(UISurfaceHost,{props:{plugin:definition,surface:'main',platform:'web',viewProps:{plugins:[plugin],showCompanion:false}}});
   await vi.waitFor(()=>expect(wrapper.text()).toContain('本次回复未完成'),{timeout:5000});

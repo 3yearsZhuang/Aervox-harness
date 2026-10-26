@@ -1,10 +1,10 @@
 # Aervox 当前迭代计划
 
-本文件是唯一协调队列，按风险、依赖和当前产品价值排序；编号不随排序改变。维护规则见[贡献指南](CONTRIBUTING.md#plan-maintenance)及[唯一变更编号](CONTRIBUTING.md#change-numbering)。需求与发布状态仍以[追踪基线](docs/reference/REQUIREMENTS_TRACEABILITY.md)为准，已移交只代表对应切片。本次重排不改变既有授权：ITER-071 按已批准方案继续整改，其余建议、ADR 前置、生产迁移及发布仍遵守各条目的边界。
+本文件是唯一协调队列，按风险、依赖和当前产品价值排序；编号不随排序改变。维护规则见[贡献指南](CONTRIBUTING.md#plan-maintenance)及[唯一变更编号](CONTRIBUTING.md#change-numbering)。需求与发布状态仍以[追踪基线](docs/reference/REQUIREMENTS_TRACEABILITY.md)为准，已移交只代表对应切片。维护者已要求持续推进整个计划；按依赖执行已有合同下的实现与验证，待定产品路线、ADR 差量、真实环境、用户业务库迁移和发布仍须分别满足各条目的前置，不以单项绿测代替整体完成。
 
 ## 1. 当前判断与执行顺序
 
-2026-10-26 核对：PR #323/#324 已合并，主线为 `29db872c`；PR #326 的配置 GET/reset 与资源 I/O 复验切片在 `619d26a7` 通过 5 项远端检查，尚未合并。共享传输、Attempt、领域事务、Conversation Port 和 Page 登记代际已有交付，但**ITER-071 尚未完全实现设计**。本轮继续在原分支补静默 Page 资格观察与显式重开；其余未闭合事项仍按下列风险与依赖推进，不能以包边界成立视为行为已经统一。
+2026-10-26 核对：PR #323/#324 已合并，主线为 `29db872c`；PR #326 的配置、资源 I/O 复验及静默 Page 观察在 `4e0e7f39` 通过 5 项远端检查，尚未合并。共享传输、Attempt、领域事务、Conversation Port 和 Page 登记代际已有交付，但**ITER-071 尚未完全实现设计**。本轮在 `fix/plan-safety-contract-continuation` 继续删除/账本意图、插件授权及接口契约、Provider 登记所有权与移除/负载验证；其余未闭合事项仍按下列风险与依赖推进，不能以包边界成立视为行为已经统一。
 
 | 顺序 | 当前目标 | 对应条目与进入下一阶段的条件 |
 |---|---|---|
@@ -15,6 +15,8 @@
 | 条件成立后启动 | 扩端、开放生态及研究 | [ITER-009](#iter-009)/[016](#iter-016)/[018](#iter-018)/[028](#iter-028)、[019](#iter-019)/[056](#iter-056)、[021](#iter-021)→[022](#iter-022)→[043](#iter-043)；保留决策与环境前置，不挤占当前正确性和产品闭环 |
 
 同一缺口只在对应 ITER 维护；上表用于导航。已有切片、未完成设计、外部环境验收和正式发布分别陈述；不设未经确认的日期、平台顺序或采购承诺。
+
+**本轮接续验证：** `fix/plan-safety-contract-continuation` 的新 `./aervox ci all` 退出 0，构建 32、类型 56 个任务及守卫、OpenAPI 兼容、HLS、删除故障、Native Search/Runtime 与 64 份文档门禁通过；API 947、仓储 742、Worker 161、Host Runtime 306、Core 501、Host Agent 121、客户端 218、Panels 157、工作台 11 项通过，1 项既有真实模型跳过保留、不计通过。相关 Chromium 3 项和依赖审计另验通过（0 未审阅、2 既有审阅路径、0 过时例外）。全量先捕获 OpenAPI 预算，再捕获工作台旧简化插件夹具造成的 8 项失败；分别通过组件复用和完整响应夹具修复，重新全量通过。随后仅补验证记录并复验文档，新提交远端结果由接续 PR 保存；负载演练的 NOT CLEAN、真实环境及全计划未闭合项仍按各条保留。
 
 ## 2. 立即整改：ITER-071
 
@@ -167,6 +169,8 @@
 Memory 清理、独立验证、迟到写拒绝、召回资格及用途闸门已由 [PR #268](https://github.com/3yearsZhuang/Aervox-harness/pull/268)、[PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258)、[PR #259](https://github.com/3yearsZhuang/Aervox-harness/pull/259)交付；ARC-06/08、CAP-005/013/027/033。将未完成责任从历史切片恢复到活动计划，不将有限 Memory 研究推为全链证明。
 
 - **已补切片：** PR #324 接续将 ContextManifest 新写入投影为白名单请求元数据，Core 仅在进程内保留完整输入；另补首输入恢复资格、执行检查点及 SSE 当前来源读取，具体记录与范围见 ITER-071。不自动改写历史行或清洗 Outbox/派生副本。
+- **本轮接续：** 在 `fix/plan-safety-contract-continuation` 修复删除请求只按幂等键重放、忽略 scope/owner/targets 的反例；同意图按完整去重目标集合返回原回执，异意图 409 且不改原请求、目标或进度。与 ITER-010 共用 21 项控制意图回归，旧实现 18 项失败；修复后仓储相关 33、真实 API 13 项及类型检查通过，整体验证另验。不扩 Worker 的 Memory owner 范围或宣称全链删除已完成。
+- **身份完整性补修：** 独立复核发现 HTTP 的 NUL 分隔元组可碰撞，原生驱动又截断文本的 NUL 后缀，未知删除身份可能被当成受支持前缀。现去重归仓储单一命令所有，JSON 转义覆盖删除请求/目标的全部读取和 RETURNING，以及账本回执；不截短、清洗或收窄合法字符串。新增仓储 2、真实 API 4、Worker 5 项反例先红；修复后控制意图 23、真实 API 4 文件 25、Worker 删除 20 项通过，后续完整集成另验。
 - **下一步：** 先固化 `scope→targets`、来源→派生传播及 grant 修订绑定；显式覆盖消息/工具结果、事件、摘要、Memory、日记、附件、缓存和错误副本。历史 ContextManifest 正文清理及来源删除传播仍须闭合，不能以新写入最小化或诊断 UI 不显示正文代替全链验证。
 - **依赖与验收：** 联动 ITER-071 写者门禁、ITER-013 逐帧撤权及 ITER-010 deny 账本；数据库级唯一 sequence 约束经 ITER-011 演练。撤权/删除立即阻断用途，迟到写、重试、备份恢复均不复活；独立验证无召回、无越权动作，失败/未知 owner 不返回完成。权威边界见[隐私合同](docs/reference/DATA_PRIVACY.md#privacy-deletion-sla)及[当前限制](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-证据与适用限制)。
 
@@ -188,6 +192,7 @@ Page/客户端认证；FND-03、ARC-13，CAP-018/020。Window/source、密码学
 依赖 ITER-002/003/007 的必要切片，ARC-04/06、CAP-007/027/033。Resume 请求/账本覆盖及高水位已有切片，运行中审批续跑不代表跨进程自动恢复；不直接启用旧 Resume Host。
 
 - **先做控制面：** 按[隐私合同](docs/reference/DATA_PRIVACY.md#privacy-deletion-sla)控制操作先取得独立 RecoveryControlLedger 的 durable ack，业务失败由 reconciler 按连续 sequence 幂等补齐；账本不含正文。缺失、验签失败、sequence 缺口、最老备份覆盖不足或水位未追平时，对受影响来源/用途保持 deny。
+- **本轮接续：** 账本同键回执原先只比 eventId/eventType，可把另一 target 的请求误报为已完成。现比对完整控制引用、显式时间及规范化 JSON 证明，并发同意图只返回同一 sequence、异意图冲突拒绝；反例和定向证据见 ITER-003。仓储修复不等于账本先行、水位对账或恢复接线，ADR-013 的独立凭据/故障域与当前本地单用户部署仍需明确适配，不能重引租户隔离。
 - **再做恢复：** 旧备份先阻断流量，重放删除/撤权事实和授权期限，验证零召回/零越权后开放；与 ITER-011 的主库/Vault/账本回滚集合联动。续跑、一次性授权/有效期、跨库恢复和保留策略的差量先 ADR。
 - **验收：** 缺账本、多工具、跨进程答案/审批、重复接管、旧备份不吞答案或重复副作用；未知结果不盲重放。取消提交后进程退出，过期 CancelRequested 以 fencing 收敛终态并结束重连流。
 - **接单切片的保留限制：** ITER-002 的 `subagent_runs` 自身中断恢复及跨进程同幂等键 HTTP 语义尚未验收，纳入接管/恢复故障矩阵；不因 Turn 原子受理已交付而推定这些场景完成。
@@ -240,7 +245,7 @@ FND-02/04、CAP-020，依赖 ITER-004/063，遵循 [ADR-028](docs/reference/adr/
 
 ### ITER-064 · 进行中：历史 API 契约按用户路径收敛
 
-CAP 与合同遵循 [API 约定](docs/reference/API_CONVENTIONS.md)，依赖 ITER-063 的共享声明、认证与兼容门禁。2026-10-15 基线 147 条，现剩 **124 条**；唯一明细是[实际路由例外](apps/api/test/fixtures/openapi-route-baseline.json)，不刷新基线隐藏遗漏。
+CAP 与合同遵循 [API 约定](docs/reference/API_CONVENTIONS.md)，依赖 ITER-063 的共享声明、认证与兼容门禁。2026-10-15 基线 147 条，现剩 **117 条**；唯一明细是[实际路由例外](apps/api/test/fixtures/openapi-route-baseline.json)，不刷新基线隐藏遗漏。
 
 - **顺序：** 先隐私/配置/插件及技能写入口，再补当前会话详情/历史、作答/分支入口和 CLI 所需接口，随后内容/学习/主动模块剩余分组。ITER-071 的鉴权与原子性修复不等待全部历史路由清零。
 - **验收：** 精确方法/路径、稳定 operationId、请求与成功/错误 Schema、认证、真实请求和旧客户端行为；新增遗漏/扩大豁免被拒绝，每补一个删除其精确例外。JSON 共享端点不改变 SSE/文件/二进制协议，破坏性变化单列迁移决定。
@@ -254,6 +259,8 @@ CAP 与合同遵循 [API 约定](docs/reference/API_CONVENTIONS.md)，依赖 ITE
 | 会话分支 8 接口 | 201/软删 200、必需 JSON/null 布局；图迭代去重/断连，1000 会话/10000 唯一分支超限 422 不部分返回；134→126 | [PR #315](https://github.com/3yearsZhuang/Aervox-harness/pull/315) |
 | 质量反馈 2 接口 | actor 取认证上下文、剥离旧 body.actorId；重复查询/类型写前拒绝，扩展字符串/nullable note/201、200/旧 void 行为；126→124 | [PR #318](https://github.com/3yearsZhuang/Aervox-harness/pull/318) |
 
+本轮在 `fix/plan-safety-contract-continuation` 接续插件列表、启停/卸载、授权/有效感知列表/撤权及权限查询 7 个端点，精确例外 124→117；保留完整插件行、整数旗标、nullable/扩展元数据、撤权 200 行与卸载 204。撤权 SQL 同时绑定 grant ID 与 URL 的插件 ID，错误插件路径返回 404 且原行不变；仓储/HTTP 反例先红后绿。定向仓储 5、API 30、Contracts 100、客户端 218 项、相关类型及 OpenAPI 兼容通过，全量与新 PR 另验。首次全量拒绝生成 OpenAPI 超出受跟踪文件预算，现复用命名插件响应与既有 ModelRuntimeState，生成物降至 938288 B，兼容及卫生门禁通过；不扩大预算或删除契约。
+
 首次旗标构建及客户端 undefined 回归失败与后续修复保留在各 PR/CI 和[原计划](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation/reading/plan.md#iter-064)。
 
 <a id="iter-033"></a>
@@ -264,6 +271,7 @@ CAP-002/007、本地模型基础设施。Core Provider 与本地 Driver 的统�
 
 - **下一步：** 先与 ITER-071 统一协议、配置、单次生成的最终输出和预算；固定真实 Provider 验证取消/故障/就绪及完整对话闭环，再补注册 generation 的宿主失效消费、跨 Provider 上下文交接和实现移除演练。用同一 Fake/Replay 轨迹对照终止语义与 usage 分账，新增兼容端点只注册声明，不改执行器/路由。
 - **边界：** 依赖 ITER-008 制品/进程安全；Driver 缺省 unavailable，受限本地任务不得静默转远程。新增远程 Provider、制品信任或两栈持久语义改变先 ADR，不建第二注册真源；标准测试桩关联 ITER-040，Core 零运行时依赖保持。
+- **本轮目录修复：** 外部输入、getter/list 与工厂共享可变描述符，原本可不递增 generation 就改变能力与本地声明；同 ID 不带工厂重登记还会沿用旧 handler。4 项回归先红后绿，现由注册表持有独立快照、冻结内建种子，并随新登记替换工厂；custom 缺工厂拒绝，内建协议按新声明创建。定向目录 11 项通过；不取消旧实例或在途请求，真实 Provider 与宿主失效消费仍未整体验收。
 
 <a id="iter-029"></a>
 
@@ -318,6 +326,7 @@ S1～S7 及评审修正由 [PR #250](https://github.com/3yearsZhuang/Aervox-harn
 
 - **复核：** 宿主纯净性零违规/零豁免，删除插件实现后三相移除演练与 Web/桌面组合根 typecheck 通过；组合根注入补独立渲染证据。插件禁用无专属请求/工具，旧配置一次迁入 pluginState 不丢失；安装记录/配置/数据管理保留，插件 id 唯一、历史别名全删。
 - **兼容与产物：** 通用状态/metadata/流事件/槽位/设置/Composer/工具/路由接缝保留，Core 不含产品提示词/刷题工具；分发只含 manifest/config Schema/SKILL 且 SHA-256 可重现，协议或公开类型破坏性差量按 ADR-016 维护。ITER-071 的端口/DTO/事务剩余由其修复，本条不重复登记。
+- **本轮隔离演练：** 精确提交 `4e0e7f39` 在独立临时克隆完成 seed/absent/restored 三相物理移除，0 缓存冷构建分别 21/18/21、Web/桌面类型依赖图 28/22/28 个任务通过；53 个源码/锁文件逐字节恢复、克隆工作区干净。宿主纯净性 470 文件零命中/零豁免、3 个可移除试点通过；数据夹具仅证明 Memory 保留/查询/导出/软删、通用工具、模型文件与 Unavailable 驱动，不涵盖 focus 旧配置迁移、禁用零专属请求、独立 UI 运行或真实模型，不能据此关闭整个 ITER-026/033。
 
 ## 5. 有证据再投入的性能与维护工作
 
@@ -328,6 +337,7 @@ S1～S7 及评审修正由 [PR #250](https://github.com/3yearsZhuang/Aervox-harn
 FND-07/08/10、ARC-05/08/12。依赖 ITER-013 的正确性和指标；依据 [ADR-024](docs/reference/adr/ADR-024-native-runtime-boundaries.md)测量代码搜索、向量端到端、三平台活动 Helper 与计算隔离。[PR #272](https://github.com/3yearsZhuang/Aervox-harness/pull/272)已有有界搜索、向量对照、活动 Helper、音频/插件 Worker 及 Cargo/IPC 收敛；ITER-071 另补语义差分与资产归属，不据此宣布生产收益。
 
 - **下一步与验收：** 同设备同数据报告 P50/P95/P99、失败率、内存、质量，分别决定 Prompt/压缩、SQLite 竞争、topK、隔离及资产缓存投入；未达收益门槛就停止，不为表面速度扩大 SQLite 测试并发。生产索引迁移、签名、真实权限/设备单独取证。
+- **本轮受控基线：** 在独立克隆 `4e0e7f39`、同一 Core 构建摘要下复跑 large/small-chunks 各 5 样本，均退出 0。macOS arm64 开发机首段 P50/P95 分别 31.575/32.546 ms 与 50.974/52.067 ms，取消 P95 53.662/52.353 ms，最大提交批次 3840/80 B；写入点采样堆峰约 7.54～9.00/7.82～8.91 MB。仅 Fake Provider/内存存储、小样本且非独占机器，不作为真实模型、生产收益或完整内存峰值证明，不新增性能阈值。
 
 <a id="iter-027"></a>
 
@@ -336,6 +346,8 @@ FND-07/08/10、ARC-05/08/12。依赖 ITER-013 的正确性和指标；依据 [AD
 ARC-05/FND-07，依赖 ITER-002 Outbox 归属、ITER-013/017 指标。IPC 唤醒、写压退避和连接自愈已实现，真实单用户仅部分达成；双写极限仍受 SQLite 单写者吞吐限制。
 
 - **验收：** 固定密集会话/后台任务样本，验证退避至 3s+、避免空写轮询，报告 SQLITE_BUSY、锁冲突、P99 及长周期表现。原零冲突目标仅在明确支持负载下验收，不能承诺任意负载；保留 WAL 快照与短事务，不盲重试 BEGIN，不把外部副作用放入事务。本地 socket/命名管道替代轮询按测量决定。
+- **本轮演练差异：** 首次真实演练因脚本仍从仓储旧出口读取 `sendWorkerIpcMessage` 失败，现仅改为进程协调公开出口。保留原失败，在同一隔离克隆、2 写者、15 秒写入+15 秒 drain 下复跑 0/40 ms 节奏，两组写入均成功、逃逸错误均 0，但仍分别剩余 15146/270 个 Outbox，整轮退出 1、NOT CLEAN；未放宽 drain 或成功判据。压力期最小观察间隔 3067/3056 ms，写延迟 P99 4.872/6.988 ms，连接自愈 5473/353 次，零逃逸不等于零竞争。只证明退避与保留积压，排空、长期和支持负载仍未完成。
+- **有限负载补测：** 仅将生产节奏改为 500 ms，其他参数和截止相同，双写者共 60 Turn/消息、120 次写入、60 事件全部消费，0 pending/failed/dead-letter/孤儿，整轮 CLEAN、退出 0；写延迟 P50/P95/P99 3.151/7.022/11.045 ms，压力期间隔最小 3346 ms。该设备一次约 4 Turn/s 的有限点通过不覆盖 0/40 ms 失败，不建立生产吞吐区间、零竞争或长周期 SLA。
 
 <a id="iter-040"></a>
 
@@ -367,7 +379,9 @@ ARC-05/FND-07，依赖 ITER-002 Outbox 归属、ITER-013/017 指标。IPC 唤醒
 
 ### ITER-009 · 建议：硬件与移动定位决定
 
-比较九个硬件方向、电脑依赖、目标 OS、真实 Provider、成本和数据边界；CAP-001/012/018/025/030/033。只做候选/样本和继续或暂缓结论，选一至两个方向，不默认采购/SKU/固件/顺序/工期。移动 M0 先明确运行位置、平台、认证与数据范围，之后才细化 M1～M6；具体待决定事项见下一节，关联 ITER-016。
+比较九个硬件方向、电脑依赖、目标 OS、真实 Provider、成本和数据边界；CAP-001/012/018/025/030/033。只做候选/样本和继续或暂缓结论，选一至两个方向，不默认采购/SKU/固件/顺序/工期。维护者已选择手机独立运行、电脑关闭后仍可使用；移动 M0 接续验证本地执行/存储适配，再裁定平台、凭据与数据范围，之后细化 M1～M6。现有 Capacitor 配置只有 Web 壳，没有 Android/iOS 原生工程；本机仅 Command Line Tools，未发现 simctl/adb，不能宣称真机或模拟器验收。具体待决定事项见下一节，关联 ITER-016。
+
+本轮先交付 `@aervox/core/browser` 中性入口，整包打包不包含 Node/CLI，VM 无 process/require/Buffer 仍能执行 Turn，声明闭包以 DOM、types=[] 编译；现有入口保持。独立复核捕获旧 `./core` 独有的 abortable 导出丢失，新增以旧轻量符号表为基线的回归先红后绿，补回两项后定向 3 文件 13 项和类型检查通过。该前置不等于本机持久 Store、原生 SQLite/密钥/模型桥或手机闭环，后续依次补齐，不把 Node API/Worker 原包直接装入 WebView。
 
 <a id="iter-016"></a>
 
@@ -419,12 +433,12 @@ ITER-009 先形成可审阅结论，以下建议不替用户选定产品或批�
 |---|---|---|
 | 是否要求电脑关机后独立使用 | 先分别比较依赖现有电脑的配件与独立算力盒 | 典型使用时段、成本/能耗、维护能力与本地模型规格 |
 | 首个硬件形态 | USB 桌宠、专注旋钮、电子纸卡可优先做低成本概念比较；语音/扫描由真实能力验证决定 | 用户价值、现有外设替代、Provider 真实性、无设备时流程完整性 |
-| 移动端定位与平台 | 先明确配套端还是独立端，再决定 Android/iOS 顺序和版本范围 | 后台/权限限制、目标用户设备、打包与真实平台验收 |
+| 移动端定位与平台 | 已选择独立端：电脑关闭仍可使用；接续验证手机本地运行时，再决定 Android/iOS 顺序和版本范围 | 后台/权限限制、目标用户设备、本地 SQLite/密钥/迁移、打包与真实平台验收 |
 | 同网连接与认证 | 明确发现、证书、设备凭据和撤销；不把同一 Wi-Fi 当作授权 | 当前 Token 与隐私契约中身份要求的差量及威胁评审 |
 | 跨设备数据范围 | 普通资料与 local_only/混合来源严格分开 | 导出/同步授权、删除传播、离线期限与来源验证 |
 | 第一版交互范围 | 从通知、图片、分享、只读复习中选择最小闭环 | 实际任务完成率与成本，不按接口数量决定范围 |
 
-[ADR-022 移动端提案](docs/reference/adr/ADR-022-mobile-runtime-access.md#cr-055) 已纳入主仓，仍是 Proposed/Planned；平台顺序与工期仅为提案输入，具体取舍在本节维护。
+[ADR-022 移动端提案](docs/reference/adr/ADR-022-mobile-runtime-access.md#cr-055) 已记录独立运行的产品决定，技术方案仍是 Proposed/Planned；平台顺序、运行时和工期尚未裁定，具体取舍在本节维护。
 
 ## 8. 已移交切片与历史证据
 

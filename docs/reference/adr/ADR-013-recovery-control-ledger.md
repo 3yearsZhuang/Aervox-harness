@@ -38,6 +38,7 @@ decision_status: accepted
 
 - `RecoveryControlLedger` 使用独立账号、凭据、备份和故障域，提供 append-only 记录、单调 `sequence`、完整性/防篡改证据和可验证的 durable ack。账本记录假名化 `workspaceRef`、`subjectRef`、`targetRef`、事件类型和时间，不含用户正文。
 - 控制事件的 `controlEventId` 和 `idempotencyKey` 由请求目标、事件类型、授权主体、撤权版本和命令意图按规范化规则确定；同一键同一摘要重试返回原 sequence，不能追加第二条；同键不同摘要返回冲突并告警。
+- 当前账本仓储的回执比对覆盖 eventId、eventType、workspace/subject/target 控制引用、调用方显式时间和规范化 JSON 证明；省略服务端生成时间的重试保留原时间，并发同意图只取得原 sequence。此处只规定回执不能复用另一控制意图，不表示本地仓储已经具备独立故障域、验签、水位对账或业务命令先行接线；相关未验收范围保留在 [ITER-010](../../../plan.md#iter-010)。
 - 处理删除、同意撤销、插件撤权或外部权限撤销时，服务端必须：
   1. 完成目标与权限校验，生成确定性 `controlEventId/idempotencyKey`；
   2. 向账本追加 deny/revoke 事件并等待 durable ack；

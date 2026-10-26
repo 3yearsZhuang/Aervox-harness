@@ -64,7 +64,12 @@ export interface ModelProviderRegistryPort {
   createProvider(id: string, options?: CreateProviderOptions): ModelProviderPort;
 }
 
-export const BUILTIN_PROVIDER_DESCRIPTORS: readonly ModelProviderDescriptor[] = [
+function copyDescriptor(descriptor: ModelProviderDescriptor): ModelProviderDescriptor {
+  return { ...descriptor, capabilities: { ...descriptor.capabilities },
+    ...(descriptor.recommendedModels ? { recommendedModels: [...descriptor.recommendedModels] } : {}) };
+}
+
+const builtinProviderDescriptors: ModelProviderDescriptor[] = [
   {
     id: "openai",
     name: "OpenAI",
@@ -125,6 +130,15 @@ export const BUILTIN_PROVIDER_DESCRIPTORS: readonly ModelProviderDescriptor[] = 
   },
 ];
 
+export const BUILTIN_PROVIDER_DESCRIPTORS: readonly ModelProviderDescriptor[] = Object.freeze(
+  builtinProviderDescriptors.map(descriptor => {
+    const snapshot = copyDescriptor(descriptor);
+    Object.freeze(snapshot.capabilities);
+    if (snapshot.recommendedModels) Object.freeze(snapshot.recommendedModels);
+    return Object.freeze(snapshot);
+  }),
+);
+
 export class ModelProviderRegistry implements ModelProviderRegistryPort {
   private readonly descriptors = new Map<string, ModelProviderDescriptor>();
   private readonly factories = new Map<string, ModelProviderFactory>();
@@ -137,7 +151,7 @@ export class ModelProviderRegistry implements ModelProviderRegistryPort {
   constructor(seedBuiltins = true) {
     if (seedBuiltins) {
       for (const desc of BUILTIN_PROVIDER_DESCRIPTORS) {
-        this.descriptors.set(desc.id, desc);
+        this.descriptors.set(desc.id, copyDescriptor(desc));
       }
     }
   }
@@ -146,9 +160,11 @@ export class ModelProviderRegistry implements ModelProviderRegistryPort {
     if (typeof descriptor.id !== "string" || !/^[a-z][a-z0-9_-]{0,63}$/.test(descriptor.id)) {
       throw new Error("invalid_provider_id");
     }
-    this.descriptors.set(descriptor.id, descriptor);
+    this.descriptors.set(descriptor.id, copyDescriptor(descriptor));
     if (factory) {
       this.factories.set(descriptor.id, factory);
+    } else {
+      this.factories.delete(descriptor.id);
     }
     this._generation++;
   }
@@ -163,11 +179,12 @@ export class ModelProviderRegistry implements ModelProviderRegistryPort {
   }
 
   getDescriptor(id: string): ModelProviderDescriptor | undefined {
-    return this.descriptors.get(id);
+    const descriptor = this.descriptors.get(id);
+    return descriptor && copyDescriptor(descriptor);
   }
 
   listDescriptors(): ModelProviderDescriptor[] {
-    return [...this.descriptors.values()];
+    return [...this.descriptors.values()].map(copyDescriptor);
   }
 
   createProvider(id: string, options: CreateProviderOptions = {}): ModelProviderPort {
@@ -175,7 +192,7 @@ export class ModelProviderRegistry implements ModelProviderRegistryPort {
     const descriptor = this.descriptors.get(id);
 
     if (customFactory && descriptor) {
-      return customFactory(descriptor, options);
+      return customFactory(copyDescriptor(descriptor), options);
     }
 
     if (!descriptor) {

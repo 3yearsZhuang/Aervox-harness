@@ -803,6 +803,7 @@ function createRecordingLogger(sink) {
 }
 
 async function runWorker(flags) {
+  const { sendWorkerIpcMessage } = await import("../packages/process-coordination/dist/index.js");
   const cfg = roleConfig(flags);
   const repos = await import(pathToFileURL(REPOSITORIES_DIST).href);
   const {
@@ -812,7 +813,6 @@ async function runWorker(flags) {
     SqlitePlatformRepository,
     isSqliteBusyError,
     isSqliteConnectionPoisonedError,
-    sendWorkerIpcMessage,
   } = repos;
   const { WorkerHost } = await import(pathToFileURL(WORKER_HOST_DIST).href);
   const { runOutboxCycle } = await import(pathToFileURL(OUTBOX_WORKER_DIST).href);

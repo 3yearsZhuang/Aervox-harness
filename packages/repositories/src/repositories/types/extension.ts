@@ -38,7 +38,7 @@ export interface IExtensionRepository {
     ctx: LocalContext,
     grant: { id: string; pluginId: string; permission: string; scope: string; grantedAt?: string },
   ): Promise<PluginGrantModel>;
-  revokePluginGrant(ctx: LocalContext, id: string): Promise<PluginGrantModel | null>;
+  revokePluginGrant(ctx: LocalContext, id: string, expectedPluginId?: string): Promise<PluginGrantModel | null>;
   hasPluginPermission(ctx: LocalContext, pluginId: string, permission: string): Promise<boolean>;
   /** CR-032：带 scope 的授权检查（感知源授权） */
   hasPluginGrant(ctx: LocalContext, pluginId: string, permission: string, scope: string): Promise<boolean>;

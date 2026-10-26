@@ -30,6 +30,7 @@ describe('useAervoxPlugins.installPlugin', () => {
               version: '0.1.0',
               installSource: 'manual',
               enabled: 1,
+              checksum: 'fixture', createdAt: 'created', updatedAt: 'updated',
             },
           ],
         } as T;

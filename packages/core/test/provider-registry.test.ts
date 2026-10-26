@@ -110,6 +110,60 @@ describe("ModelProviderRegistry (ITER-033 统一模型 Provider 目录与代际�
     expect(created).toBe(mockProvider);
   });
 
+  it("owns registered metadata so caller mutation cannot change a published generation", () => {
+    const registry = new ModelProviderRegistry(false);
+    const descriptor: ModelProviderDescriptor = {
+      id: "snapshot", name: "Snapshot", protocol: "openai-compat", isLocal: true,
+      capabilities: { toolCalls: false, reasoning: false, maxOutputTokens: 1024 }, recommendedModels: ["original"],
+    };
+    registry.register(descriptor);
+    Object.assign(descriptor, { name: "Mutated", isLocal: false });
+    descriptor.capabilities.toolCalls = true;
+    (descriptor.recommendedModels as string[]).push("mutated");
+    expect(registry.generation).toBe(1);
+    expect(registry.getDescriptor("snapshot")).toMatchObject({ name: "Snapshot", isLocal: true,
+      capabilities: { toolCalls: false }, recommendedModels: ["original"] });
+    expect(registry.createProvider("snapshot").capabilities?.toolCalls).toBe(false);
+  });
+
+  it("does not expose live descriptors through queries or a custom factory", () => {
+    const registry = new ModelProviderRegistry(false);
+    registry.register({ id: "snapshot", name: "Snapshot", protocol: "custom", isLocal: true,
+      capabilities: { toolCalls: false, reasoning: false }, recommendedModels: ["original"] }, descriptor => {
+      descriptor.capabilities.toolCalls = true;
+      return { id: "custom", async *stream() {} };
+    });
+    registry.getDescriptor("snapshot")!.capabilities.reasoning = true;
+    (registry.listDescriptors()[0]!.recommendedModels as string[]).push("mutated");
+    registry.createProvider("snapshot");
+    expect(registry.generation).toBe(1);
+    expect(registry.getDescriptor("snapshot")).toMatchObject({
+      capabilities: { toolCalls: false, reasoning: false }, recommendedModels: ["original"],
+    });
+  });
+
+  it("does not retain a previous generation's custom factory on descriptor-only replacement", () => {
+    const registry = new ModelProviderRegistry(false);
+    const descriptor: ModelProviderDescriptor = { id: "replace", name: "Replace", protocol: "custom", isLocal: true,
+      capabilities: { toolCalls: false, reasoning: false } };
+    const previous = vi.fn(() => ({ id: "obsolete", async *stream() {} }));
+    registry.register(descriptor, previous);
+    registry.register(descriptor);
+    expect(() => registry.createProvider("replace")).toThrow("model_provider_factory_required");
+    expect(previous).not.toHaveBeenCalled();
+    registry.register({ ...descriptor, protocol: "replay" });
+    expect(registry.createProvider("replace").id).toBe("replay");
+  });
+
+  it("keeps builtin registry seeds immutable and independent across instances", () => {
+    const registry = new ModelProviderRegistry();
+    registry.getDescriptor("openai")!.capabilities.toolCalls = false;
+    expect(new ModelProviderRegistry().getDescriptor("openai")?.capabilities.toolCalls).toBe(true);
+    const builtin = BUILTIN_PROVIDER_DESCRIPTORS.find(provider => provider.id === "openai")!;
+    expect(() => { builtin.capabilities.toolCalls = false; }).toThrow(TypeError);
+    expect(new ModelProviderRegistry().getDescriptor("openai")?.capabilities.toolCalls).toBe(true);
+  });
+
   it("unknown and unregistered IDs fail without choosing an implicit HTTP provider", () => {
     const registry = new ModelProviderRegistry();
     expect(() => registry.createProvider("typo")).toThrow("unknown_model_provider");

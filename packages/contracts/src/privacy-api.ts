@@ -70,7 +70,7 @@ export const privacyApi = {
     summary: "受理幂等删除请求及显式目标，不代表删除完成", tags: ["Privacy"],
     body: createDeletionRequestSchema, bodyRequired: true, response: deletionRequestResponseSchema, status: 202,
     validationErrorMessage: "invalid deletion request",
-    errors: { 400: "Invalid deletion request or conflicting ownerModule" },
+    errors: { 400: "Invalid deletion request or conflicting ownerModule", 409: "Deletion idempotency key belongs to a different intent" },
   },
 } as const satisfies Record<string, ApiEndpoint>;
 

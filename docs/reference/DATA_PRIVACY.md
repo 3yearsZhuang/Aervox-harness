@@ -156,7 +156,9 @@ PR #324 的会话切片在受理参数恢复时拒绝缺失、软删或脱敏的
 
 自动召回仅接受已确认的长期记忆，并排除已删除、召回期限到期/非法及敏感或未知分级的数据；主对话召回与主动回合上下文共用同一资格谓词，候选按过采样读取后逐条判定，防止不合格命中挤占注入名额，见[召回资格测试](../../apps/api/test/memory-recall-eligibility.test.ts)。自动召回另受 `memory_long` 用途闸门约束：宿主接线后无有效授权（或授权读取失败）即不召回，撤权立即生效；历史查看与导出不受该闸门影响。召回到期不删除仍在用户保留期内的历史。
 
-创建面按 `(targetType, targetId)` 去重并拒绝同目标不同 ownerModule；重复幂等键返回原请求。行为回归见[删除 Worker 测试](../../apps/worker/test/deletion-worker.test.ts)，现行实现范围与尚未闭合的全链删除/恢复限制只在[追踪基线](REQUIREMENTS_TRACEABILITY.md#42-证据与适用限制)维护。
+创建面按 `(targetType, targetId)` 去重并拒绝同目标不同 ownerModule；幂等键绑定 scope、请求 owner 及去重、忽略顺序后的完整目标集合。同意图重试返回原请求及进度，不替换请求 ID、时间或状态；同键异意图返回 409，不增删原目标。行为回归见[控制意图测试](../../packages/repositories/test/privacy-control-intent.test.ts)、[真实 HTTP](../../apps/api/test/privacy-deletion-routes.test.ts)及[删除 Worker 测试](../../apps/worker/test/deletion-worker.test.ts)，现行实现范围与尚未闭合的全链删除/恢复限制只在[追踪基线](REQUIREMENTS_TRACEABILITY.md#42-证据与适用限制)维护。
+
+目标规范化只由仓储命令执行，HTTP 适配保留歧义 owner 的 400 映射；复合身份按完整元组比较，不使用可能碰撞的分隔字符串。删除请求/目标及账本读取、写入回执以 SQLite JSON 转义文本跨越原生驱动，保留合法 NUL 和其后缀，不将未知 scope/owner/type 或目标解释成另一已知前缀；不通过清洗输入、截短身份或迁移历史行修复该问题。
 
 ## 9. 导出、更正与迁移
 

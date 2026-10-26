@@ -7,6 +7,7 @@ import { eq, and, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { consentGrants, deletionRequests, deletionTargets } from "@aervox/schema";
 import { MEMORY_DELETION_VERIFIER } from "../../memory-deletion-protocol.js";
+import { DomainConflictError } from "../../errors.js";
 import type { LocalContext } from "../../local-context.js";
 import type {
   IPrivacyRepository,
@@ -22,30 +23,62 @@ export const unverifiedDeletionRequest = sql`${deletionRequests.status} != 'comp
               AND (t.status != 'completed' OR t.verified_at IS NULL OR
                 CASE WHEN json_valid(t.evidence_ref) THEN json_extract(t.evidence_ref, '$.verifier') ELSE NULL END IS NOT ${MEMORY_DELETION_VERIFIER}))`;
 
+type DeletionTargetIntent = { targetType: string; targetId: string; ownerModule: string };
+function normalizeDeletionTargets(targets: readonly DeletionTargetIntent[] = []): DeletionTargetIntent[] {
+  const byTarget = new Map<string, DeletionTargetIntent>();
+  for (const target of targets) {
+    const key = JSON.stringify([target.targetType, target.targetId]);
+    const existing = byTarget.get(key);
+    if (existing && existing.ownerModule !== target.ownerModule) throw new DomainConflictError("deletion_target_owner_conflict");
+    byTarget.set(key, { targetType: target.targetType, targetId: target.targetId, ownerModule: target.ownerModule });
+  }
+  return [...byTarget.entries()].sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0).map(([, target]) => target);
+}
+
+// The native text decoder can truncate at embedded NUL. SQLite JSON escapes it
+// before crossing that boundary, so a stored identity never becomes its prefix.
+// Keep this projection on SELECT and RETURNING, including Worker attempt paths.
+const deletionRequestProjection = { value: sql<string>`json_object(
+  'id', ${deletionRequests.id}, 'scope', ${deletionRequests.scope},
+  'idempotencyKey', ${deletionRequests.idempotencyKey}, 'requestedAt', ${deletionRequests.requestedAt},
+  'effectiveAt', ${deletionRequests.effectiveAt}, 'status', ${deletionRequests.status},
+  'attemptCount', ${deletionRequests.attemptCount}, 'lastError', ${deletionRequests.lastError},
+  'ownerModule', ${deletionRequests.ownerModule}, 'lastVerifiedAt', ${deletionRequests.lastVerifiedAt},
+  'createdAt', ${deletionRequests.createdAt}, 'updatedAt', ${deletionRequests.updatedAt}
+)`.mapWith((value: string): DeletionRequestModel => JSON.parse(value)) };
+const deletionTargetProjection = { value: sql<string>`json_object(
+  'requestId', ${deletionTargets.requestId}, 'targetType', ${deletionTargets.targetType},
+  'targetId', ${deletionTargets.targetId}, 'ownerModule', ${deletionTargets.ownerModule},
+  'status', ${deletionTargets.status}, 'attemptCount', ${deletionTargets.attemptCount},
+  'verifiedAt', ${deletionTargets.verifiedAt}, 'evidenceRef', ${deletionTargets.evidenceRef}
+)`.mapWith((value: string): DeletionTargetModel => JSON.parse(value)) };
+
 export class SqlitePrivacyRepository implements IPrivacyRepository {
   constructor(private readonly db: AervoxDatabase) {}
 
   async listUnverifiedDeletionRequests(limit = 20): Promise<DeletionRequestModel[]> {
-    return this.db.select().from(deletionRequests).where(unverifiedDeletionRequest)
-      .orderBy(deletionRequests.updatedAt).limit(Math.max(1, Math.min(20, limit))) as Promise<DeletionRequestModel[]>;
+    const rows = await this.db.select(deletionRequestProjection).from(deletionRequests).where(unverifiedDeletionRequest)
+      .orderBy(deletionRequests.updatedAt).limit(Math.max(1, Math.min(20, limit)));
+    return rows.map(row => row.value);
   }
 
   async listDeletionTargets(requestId: string): Promise<DeletionTargetModel[]> {
-    return this.db.select().from(deletionTargets).where(eq(deletionTargets.requestId, requestId)) as Promise<DeletionTargetModel[]>;
+    const rows = await this.db.select(deletionTargetProjection).from(deletionTargets).where(eq(deletionTargets.requestId, requestId));
+    return rows.map(row => row.value);
   }
 
   async beginDeletionRequestAttempt(id: string): Promise<DeletionRequestModel | null> {
     const [updated] = await this.db.update(deletionRequests).set({ status: "in_progress",
       attemptCount: sql`${deletionRequests.attemptCount} + 1`, lastError: null, updatedAt: new Date().toISOString() })
-      .where(and(eq(deletionRequests.id, id), unverifiedDeletionRequest)).returning();
-    return updated as DeletionRequestModel ?? null;
+      .where(and(eq(deletionRequests.id, id), unverifiedDeletionRequest)).returning(deletionRequestProjection);
+    return updated?.value ?? null;
   }
 
   async beginDeletionTargetAttempt(target: { requestId: string; targetType: string; targetId: string }): Promise<DeletionTargetModel | null> {
     const [updated] = await this.db.update(deletionTargets).set({ status: "in_progress", verifiedAt: null, evidenceRef: null,
       attemptCount: sql`${deletionTargets.attemptCount} + 1` }).where(and(eq(deletionTargets.requestId, target.requestId),
-      eq(deletionTargets.targetType, target.targetType), eq(deletionTargets.targetId, target.targetId))).returning();
-    return updated as DeletionTargetModel ?? null;
+      eq(deletionTargets.targetType, target.targetType), eq(deletionTargets.targetId, target.targetId))).returning(deletionTargetProjection);
+    return updated?.value ?? null;
   }
 
   async grantConsent(
@@ -126,32 +159,41 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
       targets?: Array<{ targetType: string; targetId: string; ownerModule: string }>;
     },
   ): Promise<DeletionRequestModel> {
+    const targets = normalizeDeletionTargets(requestData.targets);
     return this.db.transaction(async (tx) => {
-      const [existing] = await tx.select().from(deletionRequests).where(eq(deletionRequests.idempotencyKey, requestData.idempotencyKey));
-      if (existing) return existing as DeletionRequestModel;
+      const [existingRow] = await tx.select(deletionRequestProjection).from(deletionRequests).where(eq(deletionRequests.idempotencyKey, requestData.idempotencyKey));
+      const existing = existingRow?.value;
+      if (existing) {
+        const existingTargets = await tx.select(deletionTargetProjection).from(deletionTargets).where(eq(deletionTargets.requestId, existing.id));
+        if (existing.scope !== requestData.scope || existing.ownerModule !== requestData.ownerModule
+          || JSON.stringify(normalizeDeletionTargets(existingTargets.map(row => row.value))) !== JSON.stringify(targets)) {
+          throw new DomainConflictError("deletion_intent_conflict");
+        }
+        return existing;
+      }
       const now = new Date().toISOString();
       const [created] = await tx.insert(deletionRequests).values({
         id: requestData.id, scope: requestData.scope, idempotencyKey: requestData.idempotencyKey,
         requestedAt: requestData.requestedAt ?? now, status: "pending", attemptCount: 0,
         ownerModule: requestData.ownerModule, createdAt: now, updatedAt: now,
-      }).returning();
-      for (const target of requestData.targets ?? []) {
+      }).returning(deletionRequestProjection);
+      for (const target of targets) {
         await tx.insert(deletionTargets).values({ ...target, requestId: requestData.id, status: "pending", attemptCount: 0 });
       }
-      return created as DeletionRequestModel;
-    });
+      return created!.value;
+    }, { behavior: "immediate" });
   }
 
   async getDeletionRequest(ctx: LocalContext, id: string): Promise<DeletionRequestModel | null> {
     const [found] = await this.db
-      .select()
+      .select(deletionRequestProjection)
       .from(deletionRequests)
       .where(
         and(
           eq(deletionRequests.id, id),
         ),
       );
-    return (found as DeletionRequestModel) ?? null;
+    return found?.value ?? null;
   }
 
   async updateDeletionRequestStatus(
@@ -173,8 +215,8 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
           eq(deletionRequests.id, id),
         ),
       )
-      .returning();
-    return (updated as DeletionRequestModel) ?? null;
+      .returning(deletionRequestProjection);
+    return updated?.value ?? null;
   }
 
   async createDeletionTarget(
@@ -190,8 +232,8 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
         status: "pending",
         attemptCount: 0,
       })
-      .returning();
-    return created as DeletionTargetModel;
+      .returning(deletionTargetProjection);
+    return created!.value;
   }
 
   async updateDeletionTargetStatus(
@@ -218,7 +260,7 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
           eq(deletionTargets.targetId, target.targetId),
         ),
       )
-      .returning();
-    return (updated as DeletionTargetModel) ?? null;
+      .returning(deletionTargetProjection);
+    return updated?.value ?? null;
   }
 }

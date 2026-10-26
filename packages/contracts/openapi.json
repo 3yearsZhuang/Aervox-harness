@@ -9780,6 +9780,134 @@
           "label"
         ],
         "additionalProperties": false
+      },
+      "PluginSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "publisher": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "checksum": {
+            "type": "string"
+          },
+          "signature": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "permissions": {},
+          "installSource": {
+            "type": "string"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "number",
+                "enum": [
+                  0
+                ]
+              },
+              {
+                "type": "number",
+                "enum": [
+                  1
+                ]
+              }
+            ]
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "available",
+              "missing",
+              "invalid",
+              "unreadable"
+            ]
+          },
+          "lifecycleGeneration": {
+            "type": "string",
+            "minLength": 1
+          },
+          "bundleGeneration": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "configSchemaJson": {},
+          "configSchemaVersion": {
+            "type": "integer"
+          },
+          "proactiveSpecJson": {},
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "publisher",
+          "version",
+          "checksum",
+          "installSource",
+          "enabled",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": {}
+      },
+      "PluginGrantResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "pluginId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "permission": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "grantedAt": {
+            "type": "string"
+          },
+          "revokedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "pluginId",
+          "permission",
+          "scope",
+          "grantedAt",
+          "createdAt",
+          "updatedAt"
+        ]
       }
     },
     "parameters": {}
@@ -21308,327 +21436,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "models": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "fileName": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "sizeBytes": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "url": {
-                            "type": "string",
-                            "format": "uri"
-                          },
-                          "sha256": {
-                            "type": "string"
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "downloaded",
-                              "downloading",
-                              "error"
-                            ],
-                            "default": "downloaded"
-                          },
-                          "downloadedAt": {
-                            "type": "string",
-                            "format": "date-time"
-                          },
-                          "path": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "error": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "fileName",
-                          "path"
-                        ]
-                      }
-                    },
-                    "runtime": {
-                      "type": "object",
-                      "properties": {
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "idle",
-                            "starting",
-                            "running",
-                            "stopping",
-                            "error"
-                          ]
-                        },
-                        "pid": {
-                          "type": [
-                            "integer",
-                            "null"
-                          ],
-                          "exclusiveMinimum": 0
-                        },
-                        "port": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0
-                        },
-                        "modelId": {
-                          "type": "string"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "startedAt": {
-                          "type": "string",
-                          "format": "date-time"
-                        },
-                        "error": {
-                          "type": "string"
-                        },
-                        "logs": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "metrics": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "at": {
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              "tokensPerSec": {
-                                "type": "number",
-                                "minimum": 0
-                              },
-                              "promptTokensPerSec": {
-                                "type": "number",
-                                "minimum": 0
-                              }
-                            },
-                            "required": [
-                              "at"
-                            ]
-                          }
-                        },
-                        "restored": {
-                          "type": "object",
-                          "properties": {
-                            "at": {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            "downloads": {
-                              "type": "integer",
-                              "minimum": 0
-                            }
-                          },
-                          "required": [
-                            "at",
-                            "downloads"
-                          ]
-                        },
-                        "resume": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "modelId": {
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "status"
-                      ]
-                    },
-                    "params": {
-                      "type": "object",
-                      "properties": {
-                        "port": {
-                          "type": "integer",
-                          "minimum": 1024,
-                          "maximum": 65535,
-                          "default": 8080
-                        },
-                        "ctxSize": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 8192
-                        },
-                        "gpuLayers": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "default": 99
-                        },
-                        "threads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 4
-                        }
-                      }
-                    },
-                    "downloads": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "url": {
-                            "type": "string",
-                            "format": "uri"
-                          },
-                          "fileName": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "modelId": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "queued",
-                              "running",
-                              "paused",
-                              "done",
-                              "error",
-                              "cancelled"
-                            ]
-                          },
-                          "receivedBytes": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "totalBytes": {
-                            "type": [
-                              "integer",
-                              "null"
-                            ],
-                            "minimum": 0
-                          },
-                          "resumableFrom": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "rateLimitBps": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "error": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "url",
-                          "fileName",
-                          "modelId",
-                          "status"
-                        ]
-                      },
-                      "default": []
-                    },
-                    "driver": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "default": "llama-server"
-                        },
-                        "name": {
-                          "type": "string",
-                          "default": "llama.cpp server"
-                        },
-                        "configured": {
-                          "type": "boolean"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "source": {
-                          "type": "string",
-                          "enum": [
-                            "env",
-                            "default",
-                            "missing"
-                          ],
-                          "default": "missing"
-                        },
-                        "maxConcurrentDownloads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 2
-                        }
-                      },
-                      "required": [
-                        "configured"
-                      ]
-                    },
-                    "llamaServer": {
-                      "type": "object",
-                      "properties": {
-                        "configured": {
-                          "type": "boolean"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "source": {
-                          "type": "string",
-                          "enum": [
-                            "env",
-                            "default",
-                            "missing"
-                          ],
-                          "default": "missing"
-                        },
-                        "maxConcurrentDownloads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 2
-                        }
-                      },
-                      "default": {
-                        "configured": false,
-                        "source": "missing",
-                        "maxConcurrentDownloads": 2
-                      },
-                      "required": [
-                        "configured"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "models",
-                    "runtime"
-                  ]
+                  "$ref": "#/components/schemas/ModelRuntimeState"
                 }
               }
             }
@@ -21713,327 +21521,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "models": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "fileName": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "sizeBytes": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "url": {
-                            "type": "string",
-                            "format": "uri"
-                          },
-                          "sha256": {
-                            "type": "string"
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "downloaded",
-                              "downloading",
-                              "error"
-                            ],
-                            "default": "downloaded"
-                          },
-                          "downloadedAt": {
-                            "type": "string",
-                            "format": "date-time"
-                          },
-                          "path": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "error": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "fileName",
-                          "path"
-                        ]
-                      }
-                    },
-                    "runtime": {
-                      "type": "object",
-                      "properties": {
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "idle",
-                            "starting",
-                            "running",
-                            "stopping",
-                            "error"
-                          ]
-                        },
-                        "pid": {
-                          "type": [
-                            "integer",
-                            "null"
-                          ],
-                          "exclusiveMinimum": 0
-                        },
-                        "port": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0
-                        },
-                        "modelId": {
-                          "type": "string"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "startedAt": {
-                          "type": "string",
-                          "format": "date-time"
-                        },
-                        "error": {
-                          "type": "string"
-                        },
-                        "logs": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "metrics": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "at": {
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              "tokensPerSec": {
-                                "type": "number",
-                                "minimum": 0
-                              },
-                              "promptTokensPerSec": {
-                                "type": "number",
-                                "minimum": 0
-                              }
-                            },
-                            "required": [
-                              "at"
-                            ]
-                          }
-                        },
-                        "restored": {
-                          "type": "object",
-                          "properties": {
-                            "at": {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            "downloads": {
-                              "type": "integer",
-                              "minimum": 0
-                            }
-                          },
-                          "required": [
-                            "at",
-                            "downloads"
-                          ]
-                        },
-                        "resume": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "modelId": {
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "status"
-                      ]
-                    },
-                    "params": {
-                      "type": "object",
-                      "properties": {
-                        "port": {
-                          "type": "integer",
-                          "minimum": 1024,
-                          "maximum": 65535,
-                          "default": 8080
-                        },
-                        "ctxSize": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 8192
-                        },
-                        "gpuLayers": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "default": 99
-                        },
-                        "threads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 4
-                        }
-                      }
-                    },
-                    "downloads": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "url": {
-                            "type": "string",
-                            "format": "uri"
-                          },
-                          "fileName": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "modelId": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "queued",
-                              "running",
-                              "paused",
-                              "done",
-                              "error",
-                              "cancelled"
-                            ]
-                          },
-                          "receivedBytes": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "totalBytes": {
-                            "type": [
-                              "integer",
-                              "null"
-                            ],
-                            "minimum": 0
-                          },
-                          "resumableFrom": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "rateLimitBps": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "error": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "url",
-                          "fileName",
-                          "modelId",
-                          "status"
-                        ]
-                      },
-                      "default": []
-                    },
-                    "driver": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "default": "llama-server"
-                        },
-                        "name": {
-                          "type": "string",
-                          "default": "llama.cpp server"
-                        },
-                        "configured": {
-                          "type": "boolean"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "source": {
-                          "type": "string",
-                          "enum": [
-                            "env",
-                            "default",
-                            "missing"
-                          ],
-                          "default": "missing"
-                        },
-                        "maxConcurrentDownloads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 2
-                        }
-                      },
-                      "required": [
-                        "configured"
-                      ]
-                    },
-                    "llamaServer": {
-                      "type": "object",
-                      "properties": {
-                        "configured": {
-                          "type": "boolean"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "source": {
-                          "type": "string",
-                          "enum": [
-                            "env",
-                            "default",
-                            "missing"
-                          ],
-                          "default": "missing"
-                        },
-                        "maxConcurrentDownloads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 2
-                        }
-                      },
-                      "default": {
-                        "configured": false,
-                        "source": "missing",
-                        "maxConcurrentDownloads": 2
-                      },
-                      "required": [
-                        "configured"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "models",
-                    "runtime"
-                  ]
+                  "$ref": "#/components/schemas/ModelRuntimeState"
                 }
               }
             }
@@ -22094,327 +21582,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "models": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "fileName": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "sizeBytes": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "url": {
-                            "type": "string",
-                            "format": "uri"
-                          },
-                          "sha256": {
-                            "type": "string"
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "downloaded",
-                              "downloading",
-                              "error"
-                            ],
-                            "default": "downloaded"
-                          },
-                          "downloadedAt": {
-                            "type": "string",
-                            "format": "date-time"
-                          },
-                          "path": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "error": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "fileName",
-                          "path"
-                        ]
-                      }
-                    },
-                    "runtime": {
-                      "type": "object",
-                      "properties": {
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "idle",
-                            "starting",
-                            "running",
-                            "stopping",
-                            "error"
-                          ]
-                        },
-                        "pid": {
-                          "type": [
-                            "integer",
-                            "null"
-                          ],
-                          "exclusiveMinimum": 0
-                        },
-                        "port": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0
-                        },
-                        "modelId": {
-                          "type": "string"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "startedAt": {
-                          "type": "string",
-                          "format": "date-time"
-                        },
-                        "error": {
-                          "type": "string"
-                        },
-                        "logs": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "metrics": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "at": {
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              "tokensPerSec": {
-                                "type": "number",
-                                "minimum": 0
-                              },
-                              "promptTokensPerSec": {
-                                "type": "number",
-                                "minimum": 0
-                              }
-                            },
-                            "required": [
-                              "at"
-                            ]
-                          }
-                        },
-                        "restored": {
-                          "type": "object",
-                          "properties": {
-                            "at": {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            "downloads": {
-                              "type": "integer",
-                              "minimum": 0
-                            }
-                          },
-                          "required": [
-                            "at",
-                            "downloads"
-                          ]
-                        },
-                        "resume": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "modelId": {
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "status"
-                      ]
-                    },
-                    "params": {
-                      "type": "object",
-                      "properties": {
-                        "port": {
-                          "type": "integer",
-                          "minimum": 1024,
-                          "maximum": 65535,
-                          "default": 8080
-                        },
-                        "ctxSize": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 8192
-                        },
-                        "gpuLayers": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "default": 99
-                        },
-                        "threads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 4
-                        }
-                      }
-                    },
-                    "downloads": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "url": {
-                            "type": "string",
-                            "format": "uri"
-                          },
-                          "fileName": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "modelId": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "queued",
-                              "running",
-                              "paused",
-                              "done",
-                              "error",
-                              "cancelled"
-                            ]
-                          },
-                          "receivedBytes": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "totalBytes": {
-                            "type": [
-                              "integer",
-                              "null"
-                            ],
-                            "minimum": 0
-                          },
-                          "resumableFrom": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "rateLimitBps": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "error": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "url",
-                          "fileName",
-                          "modelId",
-                          "status"
-                        ]
-                      },
-                      "default": []
-                    },
-                    "driver": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "default": "llama-server"
-                        },
-                        "name": {
-                          "type": "string",
-                          "default": "llama.cpp server"
-                        },
-                        "configured": {
-                          "type": "boolean"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "source": {
-                          "type": "string",
-                          "enum": [
-                            "env",
-                            "default",
-                            "missing"
-                          ],
-                          "default": "missing"
-                        },
-                        "maxConcurrentDownloads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 2
-                        }
-                      },
-                      "required": [
-                        "configured"
-                      ]
-                    },
-                    "llamaServer": {
-                      "type": "object",
-                      "properties": {
-                        "configured": {
-                          "type": "boolean"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "source": {
-                          "type": "string",
-                          "enum": [
-                            "env",
-                            "default",
-                            "missing"
-                          ],
-                          "default": "missing"
-                        },
-                        "maxConcurrentDownloads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 2
-                        }
-                      },
-                      "default": {
-                        "configured": false,
-                        "source": "missing",
-                        "maxConcurrentDownloads": 2
-                      },
-                      "required": [
-                        "configured"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "models",
-                    "runtime"
-                  ]
+                  "$ref": "#/components/schemas/ModelRuntimeState"
                 }
               }
             }
@@ -22466,327 +21634,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "models": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "fileName": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "sizeBytes": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "url": {
-                            "type": "string",
-                            "format": "uri"
-                          },
-                          "sha256": {
-                            "type": "string"
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "downloaded",
-                              "downloading",
-                              "error"
-                            ],
-                            "default": "downloaded"
-                          },
-                          "downloadedAt": {
-                            "type": "string",
-                            "format": "date-time"
-                          },
-                          "path": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "error": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "fileName",
-                          "path"
-                        ]
-                      }
-                    },
-                    "runtime": {
-                      "type": "object",
-                      "properties": {
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "idle",
-                            "starting",
-                            "running",
-                            "stopping",
-                            "error"
-                          ]
-                        },
-                        "pid": {
-                          "type": [
-                            "integer",
-                            "null"
-                          ],
-                          "exclusiveMinimum": 0
-                        },
-                        "port": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0
-                        },
-                        "modelId": {
-                          "type": "string"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "startedAt": {
-                          "type": "string",
-                          "format": "date-time"
-                        },
-                        "error": {
-                          "type": "string"
-                        },
-                        "logs": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "metrics": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "at": {
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              "tokensPerSec": {
-                                "type": "number",
-                                "minimum": 0
-                              },
-                              "promptTokensPerSec": {
-                                "type": "number",
-                                "minimum": 0
-                              }
-                            },
-                            "required": [
-                              "at"
-                            ]
-                          }
-                        },
-                        "restored": {
-                          "type": "object",
-                          "properties": {
-                            "at": {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            "downloads": {
-                              "type": "integer",
-                              "minimum": 0
-                            }
-                          },
-                          "required": [
-                            "at",
-                            "downloads"
-                          ]
-                        },
-                        "resume": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "modelId": {
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "status"
-                      ]
-                    },
-                    "params": {
-                      "type": "object",
-                      "properties": {
-                        "port": {
-                          "type": "integer",
-                          "minimum": 1024,
-                          "maximum": 65535,
-                          "default": 8080
-                        },
-                        "ctxSize": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 8192
-                        },
-                        "gpuLayers": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "default": 99
-                        },
-                        "threads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 4
-                        }
-                      }
-                    },
-                    "downloads": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "url": {
-                            "type": "string",
-                            "format": "uri"
-                          },
-                          "fileName": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "modelId": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "queued",
-                              "running",
-                              "paused",
-                              "done",
-                              "error",
-                              "cancelled"
-                            ]
-                          },
-                          "receivedBytes": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "totalBytes": {
-                            "type": [
-                              "integer",
-                              "null"
-                            ],
-                            "minimum": 0
-                          },
-                          "resumableFrom": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "rateLimitBps": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "error": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "url",
-                          "fileName",
-                          "modelId",
-                          "status"
-                        ]
-                      },
-                      "default": []
-                    },
-                    "driver": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "default": "llama-server"
-                        },
-                        "name": {
-                          "type": "string",
-                          "default": "llama.cpp server"
-                        },
-                        "configured": {
-                          "type": "boolean"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "source": {
-                          "type": "string",
-                          "enum": [
-                            "env",
-                            "default",
-                            "missing"
-                          ],
-                          "default": "missing"
-                        },
-                        "maxConcurrentDownloads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 2
-                        }
-                      },
-                      "required": [
-                        "configured"
-                      ]
-                    },
-                    "llamaServer": {
-                      "type": "object",
-                      "properties": {
-                        "configured": {
-                          "type": "boolean"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "source": {
-                          "type": "string",
-                          "enum": [
-                            "env",
-                            "default",
-                            "missing"
-                          ],
-                          "default": "missing"
-                        },
-                        "maxConcurrentDownloads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 2
-                        }
-                      },
-                      "default": {
-                        "configured": false,
-                        "source": "missing",
-                        "maxConcurrentDownloads": 2
-                      },
-                      "required": [
-                        "configured"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "models",
-                    "runtime"
-                  ]
+                  "$ref": "#/components/schemas/ModelRuntimeState"
                 }
               }
             }
@@ -22931,327 +21779,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "models": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "fileName": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "sizeBytes": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "url": {
-                            "type": "string",
-                            "format": "uri"
-                          },
-                          "sha256": {
-                            "type": "string"
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "downloaded",
-                              "downloading",
-                              "error"
-                            ],
-                            "default": "downloaded"
-                          },
-                          "downloadedAt": {
-                            "type": "string",
-                            "format": "date-time"
-                          },
-                          "path": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "error": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "fileName",
-                          "path"
-                        ]
-                      }
-                    },
-                    "runtime": {
-                      "type": "object",
-                      "properties": {
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "idle",
-                            "starting",
-                            "running",
-                            "stopping",
-                            "error"
-                          ]
-                        },
-                        "pid": {
-                          "type": [
-                            "integer",
-                            "null"
-                          ],
-                          "exclusiveMinimum": 0
-                        },
-                        "port": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0
-                        },
-                        "modelId": {
-                          "type": "string"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "startedAt": {
-                          "type": "string",
-                          "format": "date-time"
-                        },
-                        "error": {
-                          "type": "string"
-                        },
-                        "logs": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "metrics": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "at": {
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              "tokensPerSec": {
-                                "type": "number",
-                                "minimum": 0
-                              },
-                              "promptTokensPerSec": {
-                                "type": "number",
-                                "minimum": 0
-                              }
-                            },
-                            "required": [
-                              "at"
-                            ]
-                          }
-                        },
-                        "restored": {
-                          "type": "object",
-                          "properties": {
-                            "at": {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            "downloads": {
-                              "type": "integer",
-                              "minimum": 0
-                            }
-                          },
-                          "required": [
-                            "at",
-                            "downloads"
-                          ]
-                        },
-                        "resume": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "modelId": {
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "status"
-                      ]
-                    },
-                    "params": {
-                      "type": "object",
-                      "properties": {
-                        "port": {
-                          "type": "integer",
-                          "minimum": 1024,
-                          "maximum": 65535,
-                          "default": 8080
-                        },
-                        "ctxSize": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 8192
-                        },
-                        "gpuLayers": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "default": 99
-                        },
-                        "threads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 4
-                        }
-                      }
-                    },
-                    "downloads": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "url": {
-                            "type": "string",
-                            "format": "uri"
-                          },
-                          "fileName": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "modelId": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "queued",
-                              "running",
-                              "paused",
-                              "done",
-                              "error",
-                              "cancelled"
-                            ]
-                          },
-                          "receivedBytes": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "totalBytes": {
-                            "type": [
-                              "integer",
-                              "null"
-                            ],
-                            "minimum": 0
-                          },
-                          "resumableFrom": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "rateLimitBps": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "error": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "url",
-                          "fileName",
-                          "modelId",
-                          "status"
-                        ]
-                      },
-                      "default": []
-                    },
-                    "driver": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "default": "llama-server"
-                        },
-                        "name": {
-                          "type": "string",
-                          "default": "llama.cpp server"
-                        },
-                        "configured": {
-                          "type": "boolean"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "source": {
-                          "type": "string",
-                          "enum": [
-                            "env",
-                            "default",
-                            "missing"
-                          ],
-                          "default": "missing"
-                        },
-                        "maxConcurrentDownloads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 2
-                        }
-                      },
-                      "required": [
-                        "configured"
-                      ]
-                    },
-                    "llamaServer": {
-                      "type": "object",
-                      "properties": {
-                        "configured": {
-                          "type": "boolean"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "source": {
-                          "type": "string",
-                          "enum": [
-                            "env",
-                            "default",
-                            "missing"
-                          ],
-                          "default": "missing"
-                        },
-                        "maxConcurrentDownloads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 2
-                        }
-                      },
-                      "default": {
-                        "configured": false,
-                        "source": "missing",
-                        "maxConcurrentDownloads": 2
-                      },
-                      "required": [
-                        "configured"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "models",
-                    "runtime"
-                  ]
+                  "$ref": "#/components/schemas/ModelRuntimeState"
                 }
               }
             }
@@ -23446,327 +21974,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "models": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "fileName": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "sizeBytes": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "url": {
-                            "type": "string",
-                            "format": "uri"
-                          },
-                          "sha256": {
-                            "type": "string"
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "downloaded",
-                              "downloading",
-                              "error"
-                            ],
-                            "default": "downloaded"
-                          },
-                          "downloadedAt": {
-                            "type": "string",
-                            "format": "date-time"
-                          },
-                          "path": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "error": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "fileName",
-                          "path"
-                        ]
-                      }
-                    },
-                    "runtime": {
-                      "type": "object",
-                      "properties": {
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "idle",
-                            "starting",
-                            "running",
-                            "stopping",
-                            "error"
-                          ]
-                        },
-                        "pid": {
-                          "type": [
-                            "integer",
-                            "null"
-                          ],
-                          "exclusiveMinimum": 0
-                        },
-                        "port": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0
-                        },
-                        "modelId": {
-                          "type": "string"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "startedAt": {
-                          "type": "string",
-                          "format": "date-time"
-                        },
-                        "error": {
-                          "type": "string"
-                        },
-                        "logs": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "metrics": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "at": {
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              "tokensPerSec": {
-                                "type": "number",
-                                "minimum": 0
-                              },
-                              "promptTokensPerSec": {
-                                "type": "number",
-                                "minimum": 0
-                              }
-                            },
-                            "required": [
-                              "at"
-                            ]
-                          }
-                        },
-                        "restored": {
-                          "type": "object",
-                          "properties": {
-                            "at": {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            "downloads": {
-                              "type": "integer",
-                              "minimum": 0
-                            }
-                          },
-                          "required": [
-                            "at",
-                            "downloads"
-                          ]
-                        },
-                        "resume": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "modelId": {
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "status"
-                      ]
-                    },
-                    "params": {
-                      "type": "object",
-                      "properties": {
-                        "port": {
-                          "type": "integer",
-                          "minimum": 1024,
-                          "maximum": 65535,
-                          "default": 8080
-                        },
-                        "ctxSize": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 8192
-                        },
-                        "gpuLayers": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "default": 99
-                        },
-                        "threads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 4
-                        }
-                      }
-                    },
-                    "downloads": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "url": {
-                            "type": "string",
-                            "format": "uri"
-                          },
-                          "fileName": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "modelId": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "queued",
-                              "running",
-                              "paused",
-                              "done",
-                              "error",
-                              "cancelled"
-                            ]
-                          },
-                          "receivedBytes": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "totalBytes": {
-                            "type": [
-                              "integer",
-                              "null"
-                            ],
-                            "minimum": 0
-                          },
-                          "resumableFrom": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "rateLimitBps": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "error": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "url",
-                          "fileName",
-                          "modelId",
-                          "status"
-                        ]
-                      },
-                      "default": []
-                    },
-                    "driver": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "default": "llama-server"
-                        },
-                        "name": {
-                          "type": "string",
-                          "default": "llama.cpp server"
-                        },
-                        "configured": {
-                          "type": "boolean"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "source": {
-                          "type": "string",
-                          "enum": [
-                            "env",
-                            "default",
-                            "missing"
-                          ],
-                          "default": "missing"
-                        },
-                        "maxConcurrentDownloads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 2
-                        }
-                      },
-                      "required": [
-                        "configured"
-                      ]
-                    },
-                    "llamaServer": {
-                      "type": "object",
-                      "properties": {
-                        "configured": {
-                          "type": "boolean"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "source": {
-                          "type": "string",
-                          "enum": [
-                            "env",
-                            "default",
-                            "missing"
-                          ],
-                          "default": "missing"
-                        },
-                        "maxConcurrentDownloads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 2
-                        }
-                      },
-                      "default": {
-                        "configured": false,
-                        "source": "missing",
-                        "maxConcurrentDownloads": 2
-                      },
-                      "required": [
-                        "configured"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "models",
-                    "runtime"
-                  ]
+                  "$ref": "#/components/schemas/ModelRuntimeState"
                 }
               }
             }
@@ -24991,6 +23199,16 @@
           },
           "401": {
             "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Deletion idempotency key belongs to a different intent",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -27316,327 +25534,7 @@
             "content": {
               "text/event-stream": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "models": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "fileName": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "sizeBytes": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "url": {
-                            "type": "string",
-                            "format": "uri"
-                          },
-                          "sha256": {
-                            "type": "string"
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "downloaded",
-                              "downloading",
-                              "error"
-                            ],
-                            "default": "downloaded"
-                          },
-                          "downloadedAt": {
-                            "type": "string",
-                            "format": "date-time"
-                          },
-                          "path": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "error": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "fileName",
-                          "path"
-                        ]
-                      }
-                    },
-                    "runtime": {
-                      "type": "object",
-                      "properties": {
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "idle",
-                            "starting",
-                            "running",
-                            "stopping",
-                            "error"
-                          ]
-                        },
-                        "pid": {
-                          "type": [
-                            "integer",
-                            "null"
-                          ],
-                          "exclusiveMinimum": 0
-                        },
-                        "port": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0
-                        },
-                        "modelId": {
-                          "type": "string"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "startedAt": {
-                          "type": "string",
-                          "format": "date-time"
-                        },
-                        "error": {
-                          "type": "string"
-                        },
-                        "logs": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "metrics": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "at": {
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              "tokensPerSec": {
-                                "type": "number",
-                                "minimum": 0
-                              },
-                              "promptTokensPerSec": {
-                                "type": "number",
-                                "minimum": 0
-                              }
-                            },
-                            "required": [
-                              "at"
-                            ]
-                          }
-                        },
-                        "restored": {
-                          "type": "object",
-                          "properties": {
-                            "at": {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            "downloads": {
-                              "type": "integer",
-                              "minimum": 0
-                            }
-                          },
-                          "required": [
-                            "at",
-                            "downloads"
-                          ]
-                        },
-                        "resume": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "modelId": {
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "status"
-                      ]
-                    },
-                    "params": {
-                      "type": "object",
-                      "properties": {
-                        "port": {
-                          "type": "integer",
-                          "minimum": 1024,
-                          "maximum": 65535,
-                          "default": 8080
-                        },
-                        "ctxSize": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 8192
-                        },
-                        "gpuLayers": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "default": 99
-                        },
-                        "threads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 4
-                        }
-                      }
-                    },
-                    "downloads": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "url": {
-                            "type": "string",
-                            "format": "uri"
-                          },
-                          "fileName": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "modelId": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "queued",
-                              "running",
-                              "paused",
-                              "done",
-                              "error",
-                              "cancelled"
-                            ]
-                          },
-                          "receivedBytes": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "totalBytes": {
-                            "type": [
-                              "integer",
-                              "null"
-                            ],
-                            "minimum": 0
-                          },
-                          "resumableFrom": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "rateLimitBps": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "error": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "url",
-                          "fileName",
-                          "modelId",
-                          "status"
-                        ]
-                      },
-                      "default": []
-                    },
-                    "driver": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "default": "llama-server"
-                        },
-                        "name": {
-                          "type": "string",
-                          "default": "llama.cpp server"
-                        },
-                        "configured": {
-                          "type": "boolean"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "source": {
-                          "type": "string",
-                          "enum": [
-                            "env",
-                            "default",
-                            "missing"
-                          ],
-                          "default": "missing"
-                        },
-                        "maxConcurrentDownloads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 2
-                        }
-                      },
-                      "required": [
-                        "configured"
-                      ]
-                    },
-                    "llamaServer": {
-                      "type": "object",
-                      "properties": {
-                        "configured": {
-                          "type": "boolean"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "source": {
-                          "type": "string",
-                          "enum": [
-                            "env",
-                            "default",
-                            "missing"
-                          ],
-                          "default": "missing"
-                        },
-                        "maxConcurrentDownloads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 2
-                        }
-                      },
-                      "default": {
-                        "configured": false,
-                        "source": "missing",
-                        "maxConcurrentDownloads": 2
-                      },
-                      "required": [
-                        "configured"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "models",
-                    "runtime"
-                  ]
+                  "$ref": "#/components/schemas/ModelRuntimeState"
                 }
               }
             }
@@ -27688,327 +25586,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "models": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "fileName": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "sizeBytes": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "url": {
-                            "type": "string",
-                            "format": "uri"
-                          },
-                          "sha256": {
-                            "type": "string"
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "downloaded",
-                              "downloading",
-                              "error"
-                            ],
-                            "default": "downloaded"
-                          },
-                          "downloadedAt": {
-                            "type": "string",
-                            "format": "date-time"
-                          },
-                          "path": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "error": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "fileName",
-                          "path"
-                        ]
-                      }
-                    },
-                    "runtime": {
-                      "type": "object",
-                      "properties": {
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "idle",
-                            "starting",
-                            "running",
-                            "stopping",
-                            "error"
-                          ]
-                        },
-                        "pid": {
-                          "type": [
-                            "integer",
-                            "null"
-                          ],
-                          "exclusiveMinimum": 0
-                        },
-                        "port": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0
-                        },
-                        "modelId": {
-                          "type": "string"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "startedAt": {
-                          "type": "string",
-                          "format": "date-time"
-                        },
-                        "error": {
-                          "type": "string"
-                        },
-                        "logs": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "metrics": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "at": {
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              "tokensPerSec": {
-                                "type": "number",
-                                "minimum": 0
-                              },
-                              "promptTokensPerSec": {
-                                "type": "number",
-                                "minimum": 0
-                              }
-                            },
-                            "required": [
-                              "at"
-                            ]
-                          }
-                        },
-                        "restored": {
-                          "type": "object",
-                          "properties": {
-                            "at": {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            "downloads": {
-                              "type": "integer",
-                              "minimum": 0
-                            }
-                          },
-                          "required": [
-                            "at",
-                            "downloads"
-                          ]
-                        },
-                        "resume": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "modelId": {
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "status"
-                      ]
-                    },
-                    "params": {
-                      "type": "object",
-                      "properties": {
-                        "port": {
-                          "type": "integer",
-                          "minimum": 1024,
-                          "maximum": 65535,
-                          "default": 8080
-                        },
-                        "ctxSize": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 8192
-                        },
-                        "gpuLayers": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "default": 99
-                        },
-                        "threads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 4
-                        }
-                      }
-                    },
-                    "downloads": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "url": {
-                            "type": "string",
-                            "format": "uri"
-                          },
-                          "fileName": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "modelId": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "queued",
-                              "running",
-                              "paused",
-                              "done",
-                              "error",
-                              "cancelled"
-                            ]
-                          },
-                          "receivedBytes": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "totalBytes": {
-                            "type": [
-                              "integer",
-                              "null"
-                            ],
-                            "minimum": 0
-                          },
-                          "resumableFrom": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "rateLimitBps": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "error": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "url",
-                          "fileName",
-                          "modelId",
-                          "status"
-                        ]
-                      },
-                      "default": []
-                    },
-                    "driver": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "default": "llama-server"
-                        },
-                        "name": {
-                          "type": "string",
-                          "default": "llama.cpp server"
-                        },
-                        "configured": {
-                          "type": "boolean"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "source": {
-                          "type": "string",
-                          "enum": [
-                            "env",
-                            "default",
-                            "missing"
-                          ],
-                          "default": "missing"
-                        },
-                        "maxConcurrentDownloads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 2
-                        }
-                      },
-                      "required": [
-                        "configured"
-                      ]
-                    },
-                    "llamaServer": {
-                      "type": "object",
-                      "properties": {
-                        "configured": {
-                          "type": "boolean"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "source": {
-                          "type": "string",
-                          "enum": [
-                            "env",
-                            "default",
-                            "missing"
-                          ],
-                          "default": "missing"
-                        },
-                        "maxConcurrentDownloads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 2
-                        }
-                      },
-                      "default": {
-                        "configured": false,
-                        "source": "missing",
-                        "maxConcurrentDownloads": 2
-                      },
-                      "required": [
-                        "configured"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "models",
-                    "runtime"
-                  ]
+                  "$ref": "#/components/schemas/ModelRuntimeState"
                 }
               }
             }
@@ -28070,327 +25648,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "models": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "fileName": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "sizeBytes": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "url": {
-                            "type": "string",
-                            "format": "uri"
-                          },
-                          "sha256": {
-                            "type": "string"
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "downloaded",
-                              "downloading",
-                              "error"
-                            ],
-                            "default": "downloaded"
-                          },
-                          "downloadedAt": {
-                            "type": "string",
-                            "format": "date-time"
-                          },
-                          "path": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "error": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "fileName",
-                          "path"
-                        ]
-                      }
-                    },
-                    "runtime": {
-                      "type": "object",
-                      "properties": {
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "idle",
-                            "starting",
-                            "running",
-                            "stopping",
-                            "error"
-                          ]
-                        },
-                        "pid": {
-                          "type": [
-                            "integer",
-                            "null"
-                          ],
-                          "exclusiveMinimum": 0
-                        },
-                        "port": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0
-                        },
-                        "modelId": {
-                          "type": "string"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "startedAt": {
-                          "type": "string",
-                          "format": "date-time"
-                        },
-                        "error": {
-                          "type": "string"
-                        },
-                        "logs": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "metrics": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "at": {
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              "tokensPerSec": {
-                                "type": "number",
-                                "minimum": 0
-                              },
-                              "promptTokensPerSec": {
-                                "type": "number",
-                                "minimum": 0
-                              }
-                            },
-                            "required": [
-                              "at"
-                            ]
-                          }
-                        },
-                        "restored": {
-                          "type": "object",
-                          "properties": {
-                            "at": {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            "downloads": {
-                              "type": "integer",
-                              "minimum": 0
-                            }
-                          },
-                          "required": [
-                            "at",
-                            "downloads"
-                          ]
-                        },
-                        "resume": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "modelId": {
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "status"
-                      ]
-                    },
-                    "params": {
-                      "type": "object",
-                      "properties": {
-                        "port": {
-                          "type": "integer",
-                          "minimum": 1024,
-                          "maximum": 65535,
-                          "default": 8080
-                        },
-                        "ctxSize": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 8192
-                        },
-                        "gpuLayers": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "default": 99
-                        },
-                        "threads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 4
-                        }
-                      }
-                    },
-                    "downloads": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "url": {
-                            "type": "string",
-                            "format": "uri"
-                          },
-                          "fileName": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "modelId": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "queued",
-                              "running",
-                              "paused",
-                              "done",
-                              "error",
-                              "cancelled"
-                            ]
-                          },
-                          "receivedBytes": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "totalBytes": {
-                            "type": [
-                              "integer",
-                              "null"
-                            ],
-                            "minimum": 0
-                          },
-                          "resumableFrom": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "rateLimitBps": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "error": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "url",
-                          "fileName",
-                          "modelId",
-                          "status"
-                        ]
-                      },
-                      "default": []
-                    },
-                    "driver": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "default": "llama-server"
-                        },
-                        "name": {
-                          "type": "string",
-                          "default": "llama.cpp server"
-                        },
-                        "configured": {
-                          "type": "boolean"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "source": {
-                          "type": "string",
-                          "enum": [
-                            "env",
-                            "default",
-                            "missing"
-                          ],
-                          "default": "missing"
-                        },
-                        "maxConcurrentDownloads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 2
-                        }
-                      },
-                      "required": [
-                        "configured"
-                      ]
-                    },
-                    "llamaServer": {
-                      "type": "object",
-                      "properties": {
-                        "configured": {
-                          "type": "boolean"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "source": {
-                          "type": "string",
-                          "enum": [
-                            "env",
-                            "default",
-                            "missing"
-                          ],
-                          "default": "missing"
-                        },
-                        "maxConcurrentDownloads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 2
-                        }
-                      },
-                      "default": {
-                        "configured": false,
-                        "source": "missing",
-                        "maxConcurrentDownloads": 2
-                      },
-                      "required": [
-                        "configured"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "models",
-                    "runtime"
-                  ]
+                  "$ref": "#/components/schemas/ModelRuntimeState"
                 }
               }
             }
@@ -28452,327 +25710,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "models": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "fileName": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "sizeBytes": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "url": {
-                            "type": "string",
-                            "format": "uri"
-                          },
-                          "sha256": {
-                            "type": "string"
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "downloaded",
-                              "downloading",
-                              "error"
-                            ],
-                            "default": "downloaded"
-                          },
-                          "downloadedAt": {
-                            "type": "string",
-                            "format": "date-time"
-                          },
-                          "path": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "error": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "fileName",
-                          "path"
-                        ]
-                      }
-                    },
-                    "runtime": {
-                      "type": "object",
-                      "properties": {
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "idle",
-                            "starting",
-                            "running",
-                            "stopping",
-                            "error"
-                          ]
-                        },
-                        "pid": {
-                          "type": [
-                            "integer",
-                            "null"
-                          ],
-                          "exclusiveMinimum": 0
-                        },
-                        "port": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0
-                        },
-                        "modelId": {
-                          "type": "string"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "startedAt": {
-                          "type": "string",
-                          "format": "date-time"
-                        },
-                        "error": {
-                          "type": "string"
-                        },
-                        "logs": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "metrics": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "at": {
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              "tokensPerSec": {
-                                "type": "number",
-                                "minimum": 0
-                              },
-                              "promptTokensPerSec": {
-                                "type": "number",
-                                "minimum": 0
-                              }
-                            },
-                            "required": [
-                              "at"
-                            ]
-                          }
-                        },
-                        "restored": {
-                          "type": "object",
-                          "properties": {
-                            "at": {
-                              "type": "string",
-                              "format": "date-time"
-                            },
-                            "downloads": {
-                              "type": "integer",
-                              "minimum": 0
-                            }
-                          },
-                          "required": [
-                            "at",
-                            "downloads"
-                          ]
-                        },
-                        "resume": {
-                          "type": "object",
-                          "properties": {
-                            "enabled": {
-                              "type": "boolean"
-                            },
-                            "modelId": {
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "enabled"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "status"
-                      ]
-                    },
-                    "params": {
-                      "type": "object",
-                      "properties": {
-                        "port": {
-                          "type": "integer",
-                          "minimum": 1024,
-                          "maximum": 65535,
-                          "default": 8080
-                        },
-                        "ctxSize": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 8192
-                        },
-                        "gpuLayers": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "default": 99
-                        },
-                        "threads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 4
-                        }
-                      }
-                    },
-                    "downloads": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "url": {
-                            "type": "string",
-                            "format": "uri"
-                          },
-                          "fileName": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "modelId": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "queued",
-                              "running",
-                              "paused",
-                              "done",
-                              "error",
-                              "cancelled"
-                            ]
-                          },
-                          "receivedBytes": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "totalBytes": {
-                            "type": [
-                              "integer",
-                              "null"
-                            ],
-                            "minimum": 0
-                          },
-                          "resumableFrom": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "rateLimitBps": {
-                            "type": "integer",
-                            "minimum": 0
-                          },
-                          "error": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "url",
-                          "fileName",
-                          "modelId",
-                          "status"
-                        ]
-                      },
-                      "default": []
-                    },
-                    "driver": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "default": "llama-server"
-                        },
-                        "name": {
-                          "type": "string",
-                          "default": "llama.cpp server"
-                        },
-                        "configured": {
-                          "type": "boolean"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "source": {
-                          "type": "string",
-                          "enum": [
-                            "env",
-                            "default",
-                            "missing"
-                          ],
-                          "default": "missing"
-                        },
-                        "maxConcurrentDownloads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 2
-                        }
-                      },
-                      "required": [
-                        "configured"
-                      ]
-                    },
-                    "llamaServer": {
-                      "type": "object",
-                      "properties": {
-                        "configured": {
-                          "type": "boolean"
-                        },
-                        "binPath": {
-                          "type": "string"
-                        },
-                        "source": {
-                          "type": "string",
-                          "enum": [
-                            "env",
-                            "default",
-                            "missing"
-                          ],
-                          "default": "missing"
-                        },
-                        "maxConcurrentDownloads": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "default": 2
-                        }
-                      },
-                      "default": {
-                        "configured": false,
-                        "source": "missing",
-                        "maxConcurrentDownloads": 2
-                      },
-                      "required": [
-                        "configured"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "models",
-                    "runtime"
-                  ]
+                  "$ref": "#/components/schemas/ModelRuntimeState"
                 }
               }
             }
@@ -30102,6 +27040,553 @@
           }
         },
         "operationId": "post_v1_plugins_pluginId_pages"
+      }
+    },
+    "/v1/plugins": {
+      "get": {
+        "operationId": "get_v1_plugins",
+        "summary": "列出本地插件",
+        "tags": [
+          "Plugins"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PluginSummaryResponse"
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/plugins/{pluginId}": {
+      "patch": {
+        "operationId": "patch_v1_plugins_pluginId",
+        "summary": "启用或停用插件",
+        "tags": [
+          "Plugins"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "pluginId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "enabled"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginSummaryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "enabled is required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "plugin not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "delete_v1_plugins_pluginId",
+        "summary": "卸载插件",
+        "tags": [
+          "Plugins"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "pluginId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid params",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "plugin not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/plugins/{pluginId}/grants": {
+      "post": {
+        "operationId": "post_v1_plugins_pluginId_grants",
+        "summary": "授予插件权限",
+        "tags": [
+          "Plugins"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "pluginId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "permission": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "scope": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "permission",
+                  "scope"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginGrantResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "permission/scope are required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "get_v1_plugins_pluginId_grants",
+        "summary": "列出插件有效感知源授权",
+        "tags": [
+          "Plugins"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "pluginId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PluginGrantResponse"
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid params",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/plugins/{pluginId}/grants/{grantId}": {
+      "delete": {
+        "operationId": "delete_v1_plugins_pluginId_grants_grantId",
+        "summary": "撤销指定插件的授权",
+        "tags": [
+          "Plugins"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "pluginId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "grantId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginGrantResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid params",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "grant not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/plugins/{pluginId}/permissions/{permission}": {
+      "get": {
+        "operationId": "get_v1_plugins_pluginId_permissions_permission",
+        "summary": "查询插件权限",
+        "tags": [
+          "Plugins"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "pluginId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "permission",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "scope",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pluginId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "permission": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "scope": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "granted": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "pluginId",
+                    "permission",
+                    "scope",
+                    "granted"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid params or scope",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1/plugins/{pluginId}/pages/{pageId}/assets": {

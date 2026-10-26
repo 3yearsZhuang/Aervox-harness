@@ -118,7 +118,7 @@ export const modelRuntimeStateSchema = z.object({
       maxConcurrentDownloads: z.number().int().positive().default(2),
     })
     .default({ configured: false, source: "missing", maxConcurrentDownloads: 2 }),
-});
+}).openapi("ModelRuntimeState");
 
 /** 发起下载请求 */
 export const modelDownloadRequestSchema = z.object({

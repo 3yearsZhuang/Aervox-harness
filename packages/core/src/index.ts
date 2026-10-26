@@ -6,40 +6,5 @@
  * 回归插件宿主（apps/api 装配点与 plugins/ 第一方插件），内核只保留通用执行/审批/提示词基座能力。
  * 运行时依赖为空（dependencies: {}）；禁止引入 SQLite/LibSQL/Drizzle 等持久层依赖。
  */
-export * from "./types.js";
-export * from "./ports.js";
-export * from "./errors.js";
-export * from "./grounding-facts.js";
-export * from "./context-projection.js";
-export * from "./context-builder.js";
-export * from "./replay-provider.js";
-export * from "./openai-compat-provider.js";
-export * from "./tool-provider.js";
-export * from "./executor.js";
-export * from "./in-memory-store.js";
-export * from "./in-memory-inbox.js";
-export * from "./adapter-contract.js";
-export * from "./adapter-sim.js";
-export * from "./base-prompt.js";
-export * from "./subagent-contribution.js";
-export * from "./user-question-tool.js";
-export * from "./resume.js";
-export * from "./lease-heartbeat.js";
-export * from "./tool-result-safe.js";
-export * from "./tool-input-safe.js";
-export * from "./control-context.js";
-export * from "./approval-policy.js";
+export * from "./browser.js";
 export * from "./cli-approval.js";
-export * from "./host-tool-runtime.js";
-export * from "./approval-decision.js";
-export * from "./faux-provider.js";
-export * from "./provider-registry.js";
-export * from "./core.js";
-export * from "./json-schema-validator.js";
-export * from "./tool-contract.js";
-export * from "./diagnostics-manifest.js";
-export * from "./agent-contract.js";
-export * from "./attempt-execution.js";
-export { createTurnTerminator } from "./turn-terminator.js";
-export type { TurnTerminator, TurnFailureEvent } from "./turn-terminator.js";
-export { stableSerialize } from "./stable-serialize.js";
