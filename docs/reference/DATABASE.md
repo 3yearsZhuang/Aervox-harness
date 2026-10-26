@@ -46,6 +46,10 @@ id: AVX-DB-001
 
 原生消费者只能对已证明为空的隔离目标，在一个事务执行结构、校验物理语义及完整性后绑定版本回执；旧库、未知库、错误指纹/版本与未验证结构继续拒绝，不能通过重放目标 DDL 或写 journal 绕过迁移门槛。当前 Android 测试入口只验证临时库，不接业务库或恢复账本。
 
+`@aervox/repositories/database` 的 `createInjectedDatabase(client)` 只装配已由受信宿主准备的 Client，不创建本地或远程连接、不初始化 Schema。它复用锁定 Drizzle 0.45.4 的 LibSQLSession、方言和关系装配；类的部分构造签名标记为 internal，升级时必须重验，不能当跨版本稳定 factory。现有 Node `createDatabase` 的路径、准备、重连和默认行为保持。
+
+注入连接仍须兑现单一事务句柄、串行写者、结果/值类型和确定的释放语义。事务回调不自动重放；commit 响应丢失可能在实际提交后表现为错误，甚至被后续 rollback 的已关闭错误覆盖，不能据此认定未提交，应按原幂等键/权威回执核对。该装配入口的完整运行时包不含 Node 或连接创建器；声明按现行 skipLibCheck 消费可编译，但上游 Drizzle 的严格 DOM 声明闭包仍有缺口，不以注入 factory 宣称全部仓储已可在手机运行。
+
 ### 2.1 结构升级与逻辑恢复
 
 新库由 `initDatabaseSchema` / `initLedgerSchema` 初始化对应故障域，并记录版本指纹。已有库在任何结构写入前检查完整等价性；缺失列、NULL 主键、默认值或索引条件等不一致返回 `SCHEMA_STAGING_MIGRATION_REQUIRED`。无版本但完全等价的库可登记当前版本；已登记版本或指纹不符必须显式迁移。不能通过刷新指纹绕过历史数据检查。
