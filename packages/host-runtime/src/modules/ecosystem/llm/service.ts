@@ -72,7 +72,21 @@ function getConfiguredDefault(options: LLMServiceOptions): LLMConfigResponse {
   };
 }
 
-function assertConfiguredProvider(id: string): void { configuredProviderDescriptor(id); }
+/** Safe input failures are distinct from storage and internal service errors. */
+export class LLMConfigInputError extends Error {}
+function assertConfiguredProvider(id: string): void {
+  try { configuredProviderDescriptor(id); }
+  catch (error) {
+    if (error instanceof Error && error.message === `unknown_model_provider: ${id}`) throw new LLMConfigInputError(error.message);
+    throw error;
+  }
+}
+function assertConfigInput(config: LLMConfig): void {
+  assertConfiguredProvider(config.providerType);
+  try { new URL(config.baseUrl); }
+  catch { throw new LLMConfigInputError("Invalid baseUrl format"); }
+  if (!config.modelId.trim()) throw new LLMConfigInputError("modelId must not be blank");
+}
 
 export class LLMConfigService {
   constructor(
@@ -96,12 +110,7 @@ export class LLMConfigService {
 
   /** 新建 LLM 配置预设（首个预设自动激活） */
   async createPreset(tenant: LocalContext, name: string, config: LLMConfig): Promise<LLMPreset> {
-    assertConfiguredProvider(config.providerType);
-    try {
-      new URL(config.baseUrl);
-    } catch {
-      throw new Error(`Invalid baseUrl format: ${config.baseUrl}`);
-    }
+    assertConfigInput(config);
     const saved = await this.repo.createPreset(tenant, name, {
       enabled: config.enabled,
       providerType: config.providerType,
@@ -127,13 +136,7 @@ export class LLMConfigService {
   }
 
   async saveConfig(tenant: LocalContext, config: LLMConfig): Promise<LLMConfigResponse> {
-    assertConfiguredProvider(config.providerType);
-    // 校验 Base URL 格式
-    try {
-      new URL(config.baseUrl);
-    } catch {
-      throw new Error(`Invalid baseUrl format: ${config.baseUrl}`);
-    }
+    assertConfigInput(config);
 
     const saved = await this.repo.saveConfig(tenant, {
       enabled: config.enabled,
@@ -164,6 +167,7 @@ export class LLMConfigService {
     providerType: LLMProviderType;
     modelId: string;
     headers: Record<string, string>;
+    signal: AbortSignal;
   }): Promise<ModelCapabilities | undefined> {
     const isLocal =
       params.providerType === "llamacpp" ||
@@ -173,48 +177,37 @@ export class LLMConfigService {
     const capabilities: ModelCapabilities = {};
     let contextWindow: number | undefined;
 
-    const withTimeout = async (url: string): Promise<Response | null> => {
+    const withTimeout = async (url: string): Promise<unknown> => {
+      if (params.signal.aborted) return null;
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 3000);
+      const signal = AbortSignal.any([controller.signal, params.signal]);
+      let response: Response | undefined;
       try {
-        return await fetch(url, { method: "GET", headers: params.headers, signal: controller.signal });
+        response = await fetch(url, { method: "GET", headers: params.headers, signal });
+        return response.ok ? await response.json() : null;
       } catch {
         return null;
       } finally {
         clearTimeout(timer);
+        if (response?.body && !response.bodyUsed) await response.body.cancel().catch(() => undefined);
       }
     };
 
     // 1) llama.cpp 专属 /props（default_generation_settings.n_ctx）
-    const propsRes = await withTimeout(`${params.baseUrl}/props`);
-    if (propsRes?.ok) {
-      try {
-        const props = (await propsRes.json()) as { default_generation_settings?: Record<string, unknown> };
-        const nCtx = props.default_generation_settings?.n_ctx;
-        if (typeof nCtx === "number" && nCtx > 0) contextWindow = nCtx;
-      } catch {
-        // ignore
-      }
-    }
+    const props = await withTimeout(`${params.baseUrl}/props`) as { default_generation_settings?: Record<string, unknown> } | null;
+    const nCtx = props?.default_generation_settings?.n_ctx;
+    if (typeof nCtx === "number" && nCtx > 0) contextWindow = nCtx;
 
     // 2) /models/{modelId} 的 meta（llama.cpp 新版 OpenAI 兼容返回 context_length 等元数据）
     if (contextWindow === undefined) {
-      const metaRes = await withTimeout(
+      const meta = await withTimeout(
         `${params.baseUrl}/models/${encodeURIComponent(params.modelId)}`,
-      );
-      if (metaRes?.ok) {
-        try {
-          const meta = (await metaRes.json()) as {
-            meta?: Record<string, unknown>;
-            context_length?: unknown;
-          };
-          const raw = meta.meta?.context_length ?? meta.meta?.context_window ?? meta.context_length;
-          const parsed = typeof raw === "number" || /^\d+$/.test(String(raw)) ? Number(raw) : undefined;
-          if (parsed !== undefined && parsed > 0) contextWindow = parsed;
-        } catch {
-          // ignore
-        }
-      }
+      ) as { meta?: Record<string, unknown>; context_length?: unknown } | null;
+      const raw = meta?.meta?.context_length ?? meta?.meta?.context_window ?? meta?.context_length;
+      const parsed = typeof raw === "number" ? raw
+        : typeof raw === "string" && /^\d+$/.test(raw) ? Number(raw) : undefined;
+      if (parsed !== undefined && parsed > 0) contextWindow = parsed;
     }
 
     if (contextWindow !== undefined) capabilities.contextWindow = contextWindow;
@@ -245,7 +238,7 @@ export class LLMConfigService {
       return {
         ok: false,
         latencyMs: 0,
-        message: `URL 格式非法: ${params.baseUrl}`,
+        message: "URL 格式非法，请检查模型连接配置。",
       };
     }
 
@@ -262,21 +255,22 @@ export class LLMConfigService {
     }
 
     // 针对不同 Provider 发送轻量探测请求
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    let res: Response | undefined;
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
-
       // 优先尝试探测 models 列表；若不支持则发起单 Token 极简生成探测
       let testEndpoint = `${cleanBaseUrl}/models`;
       if (params.providerType === "anthropic") {
         testEndpoint = `${cleanBaseUrl}/models`;
       }
 
-      let res = await fetch(testEndpoint, {
+      res = await fetch(testEndpoint, {
         method: "GET",
         headers,
         signal: controller.signal,
       }).catch(async () => {
+        controller.signal.throwIfAborted();
         // 若 /models 不支持或失败，尝试发送 POST /chat/completions 或 /messages 极简 probe
         const fallbackEndpoint =
           params.providerType === "anthropic"
@@ -302,7 +296,6 @@ export class LLMConfigService {
         });
       });
 
-      clearTimeout(timeoutId);
       const latencyMs = Date.now() - start;
 
       if (res.ok) {
@@ -315,6 +308,7 @@ export class LLMConfigService {
             availableModels = data.models.map((m) => m.name).slice(0, 20);
           }
         } catch {
+          controller.signal.throwIfAborted();
           // ignore json parse error on probe
         }
         // 顺带探测模型能力（上下文窗口 / 工具调用支持），best-effort 失败不阻断
@@ -323,6 +317,7 @@ export class LLMConfigService {
           providerType: params.providerType,
           modelId: params.modelId,
           headers,
+          signal: controller.signal,
         });
         return {
           ok: true,
@@ -333,20 +328,13 @@ export class LLMConfigService {
         };
       }
 
-      const errorText = await res.text().catch(() => "");
-      return {
-        ok: false,
-        latencyMs,
-        message: `服务返回错误 HTTP ${res.status}${errorText ? `: ${errorText.slice(0, 100)}` : ""}`,
-      };
-    } catch (err: unknown) {
-      const latencyMs = Date.now() - start;
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      return {
-        ok: false,
-        latencyMs,
-        message: `连接失败: ${errorMsg}`,
-      };
+      // Provider errors and fetch exceptions can embed credentials or full URLs.
+      return { ok: false, latencyMs, message: `服务返回错误 HTTP ${res.status}` };
+    } catch {
+      return { ok: false, latencyMs: Date.now() - start, message: "连接失败，请检查模型服务和连接配置。" };
+    } finally {
+      clearTimeout(timeoutId);
+      if (res?.body && !res.bodyUsed) await res.body.cancel().catch(() => undefined);
     }
   }
 }

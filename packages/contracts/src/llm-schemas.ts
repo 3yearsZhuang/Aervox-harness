@@ -12,7 +12,7 @@ export const llmConfigSchema = z.object({
   providerType: llmProviderTypeSchema,
   baseUrl: z.string().min(1),
   apiKey: z.string().optional(),
-  modelId: z.string().min(1),
+  modelId: z.string().min(1).refine(value => value.trim().length > 0, { message: "modelId must not be blank" }),
   temperature: z.number().min(0).max(2).default(0.7),
   maxTokens: z.number().int().positive().optional().default(4096),
   settings: z
