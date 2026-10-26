@@ -408,6 +408,8 @@ Android 集成分支新的 `./aervox ci all` 退出 0，构建 32、类型 56 �
 
 本轮固定 SQLite 3.54.1 官方 Android 制品，显式 HTTPS 恢复按固定长度/SHA3 验证，缺失/篡改阻断构建，不跟踪 AAR 或隐式下载；合并 Manifest 显式保持备份/明文网络关闭，AOSP/LLVM 许可随 APK 分发。新增原生隔离临时库探针及设备测试，覆盖 RETURNING、JSON/NUL、FTS5、FK、失败事务回滚与重开；没有注册 JS SQL 桥或接入 UI。唯一 Schema 制品保留现版本/指纹，main/ledger 分离，根生成器只产 main 资产；Android 编译期打入主库 DTO，设备测试在临时空库执行 DDL、回滚/结构与版本回执检查，不代替生产初始化或迁移。真实 Android SQL/16 KiB 设备运行仍未执行，现 UI 仍连 API。 本批先在旧基线全量通过，再合入已审查主线 `f94ebfd6`，最后重新 `./aervox ci all` 退出 0：构建 32、类型 56 个任务，API 983、仓储 829、Host Agent 129、Worker 161、客户端 234、CLI 149、UI 156 项通过，1 项既有真实模型跳过保留；守卫、兼容、HLS、删除故障、Native 及 64 文档通过。另有 33 移动脚本、8 生成器测试通过；实际 `android:build` 和 App 测试 APK 编译成功，最终调试 APK SHA256 `004ea67e2b211e18a02a879c32a6897d7c8964da0320dcc0faf1d877cdd06c98`，v2 签名、ZIP 16 KiB 对齐与 Manifest 两禁用核验通过。静态 ELF 仅两个 64 位 ABI 满足 16 KiB LOAD 对齐，不外推全部设备；缺失/篡改 AAR 的 Gradle 反例在隔离工程失败后恢复通过。依赖审计 0 未审阅、2 既有审阅、0 过时例外；随后仅补记录并复验文档，精确提交远端门禁由新 PR 保存。
 
+原生凭据前置只提供固定模型槽位的本机 API：Keystore AES-GCM 包装密钥、私有 no-backup 密文、AAD 身份/版本、进程及文件锁和原子替换；旧密文认证前不覆盖，丢密钥及 backup/stage 不补建新密钥，中断保留证据并明确拒绝。显式清除覆盖三类文件、保留包装密钥，不接受外部路径/alias；未接 UI、JS Bridge 或模型网络。隔离设备测试覆盖密钥不可导出、随机 nonce、篡改/丢 key/中断/回滚与定长错误，编译和设备执行分别记录；设备、断电持久性、原生配置入口及真正模型桥仍待验收。 最后代码的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务、API 983、仓储 829、Host Agent 129、Worker 161 及既有客户端/界面测试、所有守卫/兼容/Native/64 文档通过，1 项真实模型跳过保留；App 与包含 11 项凭据用例的设备测试 APK 编译成功。独立复核无新增实质问题，补了 API 24 staging 文件清除的跨版本处理；设备 Keystore 用例未执行，不计为测试通过。随后只补记录并复验文档，新 PR 保存精确提交远端状态。
+
 <a id="iter-016"></a>
 
 ### ITER-016 · 建议：所选单设备 PoC
