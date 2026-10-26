@@ -414,6 +414,8 @@ Android 集成分支新的 `./aervox ci all` 退出 0，构建 32、类型 56 �
 
 历史读取接续将 UTF-8 字节预算和规范 base64url 游标提为纯 Web 编码工具，移除 Buffer；保留 BOM、NUL、未配对 UTF-16 替换、非法 UTF-8 拒绝、规范尾位及既有 16 KiB/页面预算语义。确定性全量短字节及长字节/字符串对照旧 Buffer 实现，真实 history 21 项与 codec 5 项通过；整读取入口在无 Buffer/process/require 的 VM 实际校验中文 NUL 游标后到达注入数据库。该变化不改变读取资格、游标或内容合同，也不提供手机持久 Client。 最后代码 `./aervox ci all` 退出 0，构建 32、类型 56 任务、仓储 841、API 983 及既有包测试、守卫/兼容/HLS/删除故障/Native/64 文档通过，1 项真实模型跳过保留；两文件 26 项定向及 codec 的严格 DOM/types=[] 检查通过。其严格声明只覆盖编码工具，不扩大为上游 Drizzle 或全部仓储声明已通过；随后仅补记录并复验文档，新 PR 保存远端精确提交结果。
 
+会话仓储进一步提炼 `/conversation` 的共享 SQL 命令，旧 Node 三个类及意图出口保留默认包装；显式 HostPort 提供同步哈希/UUID和提交后唤醒，没有默认散列或内存存储。原 canonical 意图/分支摘要、Error 身份及现有事务/删除/水位不变；格式错误或异步误接的原语拒绝且零部分接单，通知同步/异步失败不抹去已提交 Outbox。新整包入口不含 Node、Buffer、进程协调或 LibSQL 创建器，在无 Node VM 通过注入文件 SQLite 完成真实接单和历史读取；实际手机 Client/同步散列/问答宿主/内部 Transport 仍待装配。最后代码的 `./aervox ci all` 退出 0，构建 32、类型 56 任务、仓储 857、API 983、Host Agent 129、Worker 161 及既有包测试、守卫/兼容/HLS/删除故障/Native/64 文档通过，1 项真实模型跳过保留；4 文件 62 项定向、实际 dist 整包 VM 和无 ambient Node 的现行声明消费者通过。独立复核新增异步哈希误接的未处理拒绝反例，先红后绿，命令仍明确拒绝且零部分接单；严格上游 Drizzle 声明限制未隐藏。随后只补记录并复验文档，精确提交远端证据由新 PR 保存，不把宿主 Port 提炼当独立端完成。
+
 <a id="iter-016"></a>
 
 ### ITER-016 · 建议：所选单设备 PoC

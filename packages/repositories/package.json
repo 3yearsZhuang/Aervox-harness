@@ -16,6 +16,10 @@
     "./database": {
       "types": "./dist/database.d.ts",
       "default": "./dist/database.js"
+    },
+    "./conversation": {
+      "types": "./dist/conversation.d.ts",
+      "default": "./dist/conversation.js"
     }
   },
   "scripts": {
