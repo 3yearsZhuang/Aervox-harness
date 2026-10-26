@@ -9,26 +9,13 @@ import { SQLiteSyncDialect } from "drizzle-orm/sqlite-core";
 import { messages, messageVersions, turns } from "@aervox/schema";
 import { derivableConversationTurn } from "../repositories/sqlite/conversation/source-visibility.js";
 import { assertLocalContext, type LocalContext } from "../local-context.js";
+import { FTS_SCHEMA_STATEMENTS } from "../schema/fts-definition.js";
 
 /**
  * 初始化 FTS5 全文检索引擎虚表
  */
 export async function initFtsTables(client: Client): Promise<void> {
-  await client.execute(`
-    CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
-      id UNINDEXED,
-      content,
-      tokenize = 'unicode61'
-    );
-  `);
-
-  await client.execute(`
-    CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
-      id UNINDEXED,
-      content,
-      tokenize = 'unicode61'
-    );
-  `);
+  for (const statement of FTS_SCHEMA_STATEMENTS) await client.execute(statement);
 }
 
 const dialect = new SQLiteSyncDialect();

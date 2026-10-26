@@ -1,18 +1,21 @@
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
+import { verifySqliteArtifact } from './sqlite-artifact.mjs';
 import { inspectAndroidEnvironment, mobileRoot, printAndroidChecks } from './check-android-environment.mjs';
 
 /** Explicit native build: missing prerequisites fail before asset generation or downloads. */
 export function buildAndroid({ inspect = inspectAndroidEnvironment, report = printAndroidChecks,
-  run = spawnSync, root = mobileRoot, platform = process.platform, env = process.env } = {}) {
+  run = spawnSync, verifySqlite = verifySqliteArtifact, root = mobileRoot, platform = process.platform, env = process.env } = {}) {
   const prerequisites = inspect({ env, root });
   report(prerequisites);
   if (!prerequisites.ok) return 1;
+  try { verifySqlite({ root }); } catch (error) { console.error(error.message); return 1; }
   const buildEnv = { ...env, ...(prerequisites.sdkRoot
     ? { ANDROID_HOME: prerequisites.sdkRoot, ANDROID_SDK_ROOT: prerequisites.sdkRoot } : {}) };
   const pnpm = platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
   const steps = [
+    { command: pnpm, args: ['run', 'mobile:schema'], cwd: path.resolve(root, '../..') },
     { command: pnpm, args: ['run', 'build:web'], cwd: root },
     { command: pnpm, args: ['exec', 'cap', 'sync', 'android'], cwd: root },
     { command: platform === 'win32' ? 'gradlew.bat' : './gradlew', args: ['assembleDebug'], cwd: path.join(root, 'android') },

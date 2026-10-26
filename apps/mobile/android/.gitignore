@@ -98,8 +98,12 @@ app/src/main/assets/public
 # Generated Config files
 app/src/main/assets/capacitor.config.json
 app/src/main/assets/capacitor.plugins.json
+app/src/main/assets/aervox-schema-main.json
 app/src/main/res/xml/config.xml
 
 # Generated dependency wiring contains the installer's physical node_modules layout.
 capacitor.settings.gradle
 app/capacitor.build.gradle
+
+# Explicitly restored and verified SQLite native dependency (including partial downloads).
+vendor/

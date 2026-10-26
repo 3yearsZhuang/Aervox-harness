@@ -13,6 +13,8 @@ export const SCHEMA_RELEASES: Readonly<Record<number, Readonly<Record<SchemaScop
   1: { main: "c749a41cf2155d0b070c08746bd353e77479d6766b113d8e4f78bcaeda5961b4", ledger: "a14fd3df3feaf5a736b112f3d65c731a26e0689b90583c3ae9030840f308d8eb" },
 };
 const VERSION_TABLE = "_aervox_schema_versions";
+/** Shared parameterized receipt. applied_at is supplied only after initialization verification. */
+export const SCHEMA_VERSION_JOURNAL_SQL = `INSERT INTO "${VERSION_TABLE}" (scope, version, fingerprint, applied_at) VALUES (:scope, :version, :fingerprint, :applied_at) ON CONFLICT(scope) DO NOTHING`;
 const LEDGER_TABLE = "recovery_control_ledger";
 const isDerivedSearchTable = (name: string): boolean => /^(messages|memories)_fts(?:_(?:data|idx|content|docsize|config))?$/.test(name);
 export const quoteSqlIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
@@ -306,5 +308,5 @@ export async function initializeCanonicalSchema(client: Client, scope: SchemaSco
     await client.batch(statements, "write");
   }
   if (!versionTableExists) await client.execute(schemaManifest(scope).find((table) => table.name === VERSION_TABLE)!.sql.replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS "));
-  await client.execute({ sql: `INSERT INTO ${quoteSqlIdentifier(VERSION_TABLE)} (scope, version, fingerprint, applied_at) VALUES (?, ?, ?, ?) ON CONFLICT(scope) DO NOTHING`, args: [scope, String(CURRENT_SCHEMA_VERSION), fingerprint, new Date().toISOString()] });
+  await client.execute({ sql: SCHEMA_VERSION_JOURNAL_SQL, args: { scope, version: String(CURRENT_SCHEMA_VERSION), fingerprint, applied_at: new Date().toISOString() } });
 }

@@ -4,11 +4,11 @@
 
 ## 1. 当前判断与执行顺序
 
-2026-10-26 核对：PR #323/#324 已合并，主线为 `29db872c`；PR #326 的配置、资源 I/O 复验及静默 Page 观察在 `4e0e7f39` 通过 5 项远端检查，尚未合并。共享传输、Attempt、领域事务、Conversation Port 和 Page 登记代际已有交付，但**ITER-071 尚未完全实现设计**。接续的 PR #327/#328/#330/#331 分别交付安全/契约、LLM/CLI、Android 工程和持久消息真源，精确提交远端检查均通过，仍待审查合入。本轮在 `feat/session-history-read` 接上历史分页 API、CLI 与工作台抽屉；其余未闭合事项仍按下列风险与依赖推进，不能以包边界成立视为行为已经统一。
+2026-10-26 核对：PR #326/#327/#328/#330/#331/#332/#333 已经审查合入，已核对主线 `f94ebfd6`。共享传输、Attempt、领域事务、Conversation Port、Page 登记代际、LLM/CLI、长期消息及历史分页已有交付，但**ITER-071 尚未完全实现设计**。当前 `feat/mobile-sqlite-baseline` 在该主线继续 Android M0 的固定 SQLite 与唯一 Schema 前置，历史 API/CLI/工作台接续修正也已随主线同步；其余未闭合事项仍按下列风险与依赖推进，不能以包边界成立视为行为已经统一。
 
 | 顺序 | 当前目标 | 对应条目与进入下一阶段的条件 |
 |---|---|---|
-| 立即 | 交付 Page 配置、资源读取身份及宿主资格观察，继续验收行为缺口 | [ITER-071](#iter-071) 前两批及再审计由 PR #323/#324 合并；[PR #326](https://github.com/3yearsZhuang/Aervox-harness/pull/326) 衔接 GET/reset 身份、资源 I/O 前后复验及静默 Page 观察，新提交验证单独记录；剩余资源通道/实时撤权归 [ITER-006](#iter-006) |
+| 立即 | 交付 Page 配置、资源读取身份及宿主资格观察，继续验收行为缺口 | [ITER-071](#iter-071) 前两批及再审计由 PR #323/#324 合并；[PR #326](https://github.com/3yearsZhuang/Aervox-harness/pull/326) 已合入 GET/reset 身份、资源 I/O 前后复验及静默 Page 观察；剩余资源通道/实时撤权归 [ITER-006](#iter-006) |
 | 接续，可按依赖并行 | 闭合删除、撤权、安全恢复及在线运行门槛 | [ITER-003](#iter-003)/[006](#iter-006)/[010](#iter-010)/[011](#iter-011)/[013](#iter-013)；插件升级只推进 [ITER-005](#iter-005) 的必要安全切片。恢复不能先于 deny 账本和水位，性能优化不能先于资源有界 |
 | 核心产品交付 | 证明现有个人助手、学习和会话入口真实可用 | 先收敛本机路径的 [ITER-064](#iter-064)、[033](#iter-033)、[029](#iter-029)、[第一方界面](#iter-053)；[015](#iter-015) 必要部署与 [062](#iter-062) 连接验证可并行，Bot 独立运行/恢复在主管能力后验收；再做 [032](#iter-032)/[012](#iter-012) 长会话及索引，[026](#iter-026) 有限评审 |
 | 按测量投入 | 消除真实瓶颈和维护成本 | [ITER-017](#iter-017)/[027](#iter-027)/[040](#iter-040)；先固定设备、数据和质量基线，再决定优化或停止，不承诺未测收益 |
@@ -404,7 +404,9 @@ Android 集成分支新的 `./aervox ci all` 退出 0，构建 32、类型 56 �
 
 本轮先交付 `@aervox/core/browser` 中性入口，整包打包不包含 Node/CLI，VM 无 process/require/Buffer 仍能执行 Turn，声明闭包以 DOM、types=[] 编译；现有入口保持。独立复核捕获旧 `./core` 独有的 abortable 导出丢失，新增以旧轻量符号表为基线的回归先红后绿，补回两项后定向 3 文件 13 项和类型检查通过。该前置不等于本机持久 Store、原生 SQLite/密钥/模型桥或手机闭环，后续依次补齐，不把 Node API/Worker 原包直接装入 WebView。
 
-本轮接续将既有执行适配方法提炼为 `@aervox/host-agent/browser` 的中性 `ConversationExecutionStore` 和明确仓储 Port；原 `SqliteExecutionStore` 保持三参构造及同一委托方法，事务、fencing、来源/删除和幂等仍由原仓储负责。生产包装仅以真实 FencingMismatchError 身份转换租约错误，同名伪造或未知异常原样抛出；中性入口不导入 Node、SQLite/Drizzle 驱动或 Vue。独立整包无 Node VM、实际构建声明的 DOM/types=[] 闭包、真实 SQLite 与 Object.create/Proxy 子任务路径定向 5 文件 37 项通过；仍不包含手机数据库实现或独立运行完成声明。 中性适配最后代码的新 `./aervox ci all` 退出 0，构建 32、类型 56 个任务及全部守卫、兼容、HLS、删除故障、Native 与 64 份文档通过；Host Agent 增至 129 项通过、1 项既有真实模型跳过保留，API 967、仓储 820、Worker 161 等既有包测试通过。随后只补本记录并复验文档，精确提交远端结果由新 PR 保存。
+本轮接续将既有执行适配方法提炼为 `@aervox/host-agent/browser` 的中性 `ConversationExecutionStore` 和明确仓储 Port；原 `SqliteExecutionStore` 保持三参构造及同一委托方法，事务、fencing、来源/删除和幂等仍由原仓储负责。生产包装仅以真实 FencingMismatchError 身份转换租约错误，同名伪造或未知异常原样抛出；中性入口不导入 Node、SQLite/Drizzle 驱动或 Vue。独立整包无 Node VM、实际构建声明的 DOM/types=[] 闭包、真实 SQLite 与 Object.create/Proxy 子任务路径定向 5 文件 37 项通过；仍不包含手机数据库实现或独立运行完成声明。 中性适配最后代码的新 `./aervox ci all` 退出 0，构建 32、类型 56 个任务及全部守卫、兼容、HLS、删除故障、Native 与 64 份文档通过；Host Agent 增至 129 项通过、1 项既有真实模型跳过保留，API 967、仓储 820、Worker 161 等既有包测试通过。随后只补本记录并复验文档，PR #333 的审查修正与精确提交远端门禁通过后已合入主线。
+
+本轮固定 SQLite 3.54.1 官方 Android 制品，显式 HTTPS 恢复按固定长度/SHA3 验证，缺失/篡改阻断构建，不跟踪 AAR 或隐式下载；合并 Manifest 显式保持备份/明文网络关闭，AOSP/LLVM 许可随 APK 分发。新增原生隔离临时库探针及设备测试，覆盖 RETURNING、JSON/NUL、FTS5、FK、失败事务回滚与重开；没有注册 JS SQL 桥或接入 UI。唯一 Schema 制品保留现版本/指纹，main/ledger 分离，根生成器只产 main 资产；Android 编译期打入主库 DTO，设备测试在临时空库执行 DDL、回滚/结构与版本回执检查，不代替生产初始化或迁移。真实 Android SQL/16 KiB 设备运行仍未执行，现 UI 仍连 API。 本批先在旧基线全量通过，再合入已审查主线 `f94ebfd6`，最后重新 `./aervox ci all` 退出 0：构建 32、类型 56 个任务，API 983、仓储 829、Host Agent 129、Worker 161、客户端 234、CLI 149、UI 156 项通过，1 项既有真实模型跳过保留；守卫、兼容、HLS、删除故障、Native 及 64 文档通过。另有 33 移动脚本、8 生成器测试通过；实际 `android:build` 和 App 测试 APK 编译成功，最终调试 APK SHA256 `004ea67e2b211e18a02a879c32a6897d7c8964da0320dcc0faf1d877cdd06c98`，v2 签名、ZIP 16 KiB 对齐与 Manifest 两禁用核验通过。静态 ELF 仅两个 64 位 ABI 满足 16 KiB LOAD 对齐，不外推全部设备；缺失/篡改 AAR 的 Gradle 反例在隔离工程失败后恢复通过。依赖审计 0 未审阅、2 既有审阅、0 过时例外；随后仅补记录并复验文档，精确提交远端门禁由新 PR 保存。
 
 <a id="iter-016"></a>
 

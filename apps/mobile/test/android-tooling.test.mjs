@@ -242,7 +242,7 @@ test('ANDROID_SERIAL chooses an authorized target explicitly and binds the API q
 
 test('native build fails before touching assets or running Gradle when prerequisites are missing', () => {
   const calls = [];
-  const code = buildAndroid({ inspect: () => ({ ok: false, checks: [] }), report: () => {}, run: (...args) => calls.push(args) });
+  const code = buildAndroid({ verifySqlite: () => {}, inspect: () => ({ ok: false, checks: [] }), report: () => {}, run: (...args) => calls.push(args) });
   assert.equal(code, 1);
   assert.deepEqual(calls, []);
 });
@@ -250,7 +250,7 @@ test('native build fails before touching assets or running Gradle when prerequis
 test('native build supplies the discovered SDK to child processes without changing the caller environment', () => {
   const env = { PATH: '/tools' };
   const calls = [];
-  const code = buildAndroid({ env, inspect: () => ({ ok: true, checks: [], sdkRoot: '/android-sdk' }), report: () => {},
+  const code = buildAndroid({ verifySqlite: () => {}, env, inspect: () => ({ ok: true, checks: [], sdkRoot: '/android-sdk' }), report: () => {},
     platform: 'linux', run: (command, args, options) => { calls.push(options); return { status: 0 }; } });
   assert.equal(code, 0);
   assert.equal(calls.at(-1).env.ANDROID_HOME, '/android-sdk');
@@ -258,17 +258,18 @@ test('native build supplies the discovered SDK to child processes without changi
   assert.deepEqual(env, { PATH: '/tools' });
 });
 
-test('native build stops on Web or sync failure and preserves the failing exit status', () => {
-  for (const failAt of [0, 1, 2]) {
+test('native build stops on schema generation, Web, sync or Gradle failure and preserves the failing exit status', () => {
+  for (const failAt of [0, 1, 2, 3]) {
     const calls = [];
-    const code = buildAndroid({ root: mobileRoot, inspect: () => ({ ok: true, checks: [] }), report: () => {},
+    const code = buildAndroid({ verifySqlite: () => {}, root: mobileRoot, inspect: () => ({ ok: true, checks: [] }), report: () => {},
       platform: 'linux', run: (command, args, options) => {
         calls.push({ command, args, cwd: options.cwd });
         return { status: calls.length - 1 === failAt ? 7 : 0 };
       } });
     assert.equal(code, 7);
     assert.equal(calls.length, failAt + 1);
-    if (failAt === 2) assert.deepEqual(calls[2], { command: './gradlew', args: ['assembleDebug'], cwd: path.join(mobileRoot, 'android') });
+    assert.deepEqual(calls[0], { command: 'pnpm', args: ['run', 'mobile:schema'], cwd: path.resolve(mobileRoot, '../..') });
+    if (failAt === 3) assert.deepEqual(calls[3], { command: './gradlew', args: ['assembleDebug'], cwd: path.join(mobileRoot, 'android') });
   }
 });
 

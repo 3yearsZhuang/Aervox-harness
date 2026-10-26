@@ -1,5 +1,20 @@
 apply plugin: 'com.android.application'
 
+def sqliteArtifact = rootProject.file('vendor/sqlite-android-3540100.aar')
+def verifyBundledSqlite = tasks.register('verifyBundledSqlite') {
+    doLast {
+        if (!sqliteArtifact.isFile() || sqliteArtifact.length() != 3688530L) {
+            throw new GradleException('SQLite artifact missing or invalid; run sqlite:restore explicitly from the mobile package.')
+        }
+        def digest = java.security.MessageDigest.getInstance('SHA3-256').digest(sqliteArtifact.bytes).encodeHex().toString()
+        if (digest != '3afb0568a107d753b640e4d65cdb1d9a2247e9833c25e72ca7d1086b78365de1') {
+            throw new GradleException('SQLite artifact verification failed; do not build with unverified native bytes.')
+        }
+    }
+}
+tasks.named('preBuild').configure { dependsOn(verifyBundledSqlite) }
+
+
 android {
     namespace = "com.aervox.mobile"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -32,6 +47,7 @@ repositories {
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation files(sqliteArtifact)
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
