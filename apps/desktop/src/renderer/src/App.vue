@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {defineAsyncComponent, onBeforeUnmount, onMounted, ref} from 'vue'
 import {X} from 'lucide-vue-next'
+import type { BuiltinUIPlugin } from '@aervox/ui/plugin-api'
 import AppTitlebar from '@/components/AppTitlebar.vue'
 import {hasCompletedOnboarding, markOnboardingCompleted} from '@/onboarding-state'
 import {createSurfaceNavigation, resolveSurfaceChoice, UISurfaceHost} from '@aervox/ui-host'
@@ -8,6 +9,7 @@ import defaultSurface, {compactSurface} from '@aervox/plugin-workbench-ui'
 import proactiveSurface from '@aervox/plugin-proactive-ui'
 // CR-060：第一方插件按**包路径**装配，宿主不绑定插件私有符号（见 check-host-domain-purity）
 import * as firstPartyPlugin from '@aervox/plugin-focus-mode/ui'
+import * as campusPlugin from '@aervox/plugin-flowcampus/ui'
 import { settingsPanels } from '@aervox/plugin-panels-ui'
 
 const OnboardingFlow = defineAsyncComponent(() => import('@/components/OnboardingFlow.vue'))
@@ -15,7 +17,10 @@ let surfaceStorage: Storage | undefined
 try { surfaceStorage = window.localStorage } catch { /* 无存储时使用本次窗口的默认值 */ }
 const showOnboarding = ref(!hasCompletedOnboarding(surfaceStorage))
 const reloadSurface = () => window.location.reload()
-const firstPartyPlugins = [firstPartyPlugin.default]
+const pluginDefinitions: BuiltinUIPlugin[] = [
+  firstPartyPlugin.default,
+  campusPlugin.default,
+]
 const showIntroDeck = ref(false)
 // CR-065 切片六：组合根按用户选择装配主界面（本地存储 aervox.surface.main）
 const availableSurfaces = [defaultSurface, compactSurface, proactiveSurface]
@@ -67,7 +72,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
       v-else
       platform="desktop"
       :view-props="{ showCompanion: true, surfaceNavigation }"
-      :plugins="firstPartyPlugins"
+    :plugins="pluginDefinitions"
       :settings-panels="settingsPanels"
       @replay-onboarding="replayOnboarding"
       @open-intro-deck="openIntroDeck"

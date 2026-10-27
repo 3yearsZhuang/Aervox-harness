@@ -11,8 +11,10 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue';
 import { useUISurfaceContext } from '@aervox/ui-host';
 import { useMaterial3, useMobileBackNavigation } from '@aervox/ui/material3';
+import { ExtensionSlot } from '@aervox/ui/primitives';
 import { AervoxBrandMark, PetWithFallback, UserQuestionComposer, readCompanionIdentity, useSessionDraft } from '@aervox/ui/companion';
-import { createConversationController, getClientTransport, useAervoxSessions } from '@aervox/api-client';
+import { createConversationController, getClientTransport, useAervoxApi, useAervoxPlugins, useAervoxSessions } from '@aervox/api-client';
+import { createUIRegistry, provideUIRegistry, createWorkbenchPluginRuntime, createPluginEventBus, createPluginStateStore, provideUIPluginContext, resolveOutgoingMessage, type BuiltinUIPlugin, type UIPluginContext } from '@aervox/ui/plugin-api';
 import { ArrowUpRight, History, MessagesSquare, MessageSquare, RotateCcw, Settings, Square, X } from 'lucide-vue-next';
 import type { AskUserQuestionAnswerItem } from '@aervox/contracts';
 import { useDialogueTyper } from './dialogue-typer';
@@ -25,10 +27,18 @@ import type { SurfaceNavigation } from '@aervox/ui/companion';
 const props = withDefaults(defineProps<{
   surfaceNavigation?: SurfaceNavigation;
   settingsPanels?: readonly { category: string; component: Component }[];
-}>(), { settingsPanels: () => [] });
+  plugins?: BuiltinUIPlugin[];
+}>(), { settingsPanels: () => [], plugins: () => [] });
 const settingsOpen = ref(false);
 
 const surface = useUISurfaceContext();
+const registry = createUIRegistry();
+provideUIRegistry(registry);
+const pluginEvents = createPluginEventBus();
+const pluginState = createPluginStateStore();
+const pluginApi = useAervoxPlugins();
+const learning = useAervoxApi();
+const pluginLoadError = ref(false);
 const material3 = useMaterial3();
 const mobileBack = useMobileBackNavigation();
 const mobileScreen = ref<HTMLElement>();
@@ -88,6 +98,36 @@ const failedTurn = ref<FailedTurn>();
 const turnController = createConversationController(getClientTransport(), surface.signal);
 const conversationState = ref(turnController.state);
 const unsubscribeConversation = turnController.subscribe(state => { conversationState.value = state; });
+let pluginRuntime: ReturnType<typeof createWorkbenchPluginRuntime> | undefined;
+async function refreshPluginUI() {
+  if (!props.plugins.length || surface.signal.aborted) return;
+  await pluginApi.loadPlugins();
+  if (surface.signal.aborted) return;
+  pluginLoadError.value = !!pluginApi.error.value;
+  if (pluginLoadError.value) throw new Error('PLUGIN_LIST_UNAVAILABLE');
+  await pluginRuntime?.sync(pluginApi.plugins.value, id => pluginApi.getConfig(id));
+}
+const unavailableCapability = (): never => { throw new Error('SURFACE_CAPABILITY_UNAVAILABLE'); };
+const pluginContext: UIPluginContext = Object.freeze({
+  navigation: Object.freeze({
+    openTool: (tool: string) => { if (tool === 'history') openMobileHistory(); else unavailableCapability(); },
+    runMenuAction: (action: () => void) => action(),
+    closeTaskCenter: unavailableCapability,
+    setQuietStartup: unavailableCapability,
+  }),
+  cards: Object.freeze({ acquireSlotPreset: unavailableCapability, reviewCount: computed(() => learning.dueReviews.value.length) }),
+  conversation: Object.freeze({ streaming: computed(() => sending.value), latestAssistantText: computed(() => dialogueText.value) }),
+  learning, pluginEvents, pluginState,
+  isPluginAvailable: (id: string) => pluginRuntime?.isPluginAvailable(id) ?? false,
+  refreshPluginUI,
+  async sendMessage(value?: string, options?: {metadata?: Record<string, unknown>}) {
+    if (!value?.trim()) return;
+    if (!await sendTurn(value, 'suggestion', undefined, options?.metadata)) throw new Error('MESSAGE_NOT_COMPLETED');
+  },
+});
+provideUIPluginContext(pluginContext);
+pluginRuntime = createWorkbenchPluginRuntime(registry, () => pluginContext, props.plugins, { surfaceKind: 'companion' });
+watch(settingsOpen, (open, previous) => { if (previous && !open) void refreshPluginUI().catch(() => undefined); });
 const interactionBusy = ref(false);
 let stopPreparing = false;
 let hasTurnReply = false;
@@ -138,10 +178,11 @@ function dialogueCallbacks(previousContext: string, preserveReply = false) {
     onError(error: unknown) { throw error; },
     onUserQuestion() { finish(); waitingForReply.value = false; dialogueCtx.value = '等待你的回答'; },
     onToolApproval() { finish(); waitingForReply.value = false; dialogueCtx.value = '等待工具授权'; },
+    onPluginEvent(eventType: string, data: unknown) { pluginEvents.emit(eventType, data); },
   };
 }
 
-async function sendTurn(content: string, source: 'suggestion' | 'whisper' = 'suggestion', draftText?: string) {
+async function sendTurn(content: string, source: 'suggestion' | 'whisper' = 'suggestion', draftText?: string, metadata?: Record<string, unknown>) {
   if (sending.value || surface.signal.aborted || material3 && sessionSwitchLocked.value) return false;
   if (material3 && (!sessionsReady.value || sessionListError.value)) {
     sessionFeedback.value = '请先读取会话列表，再发送消息。你的草稿会保留。'; sessionsOpen.value = true; return false;
@@ -169,9 +210,10 @@ async function sendTurn(content: string, source: 'suggestion' | 'whisper' = 'sug
     submission = {content, source, sessionId};
     if (material3 && draftText !== undefined) drafts.beginDraftSubmission(draftText, sessionId);
     dialogueCtx.value = '正在回复';
-    await turnController.submit(sessionId, content, callbacks, {
+    const outgoing = resolveOutgoingMessage(registry, content, {...metadata, ...identity});
+    await turnController.submit(sessionId, outgoing.text, callbacks, {
       signal: surface.signal,
-      metadata: {...identity},
+      metadata: outgoing.metadata,
       onAccepted: material3 && source === 'whisper' ? () => {
         if (surface.signal.aborted) return;
         drafts.acceptDraftSubmission(sessionId);
@@ -422,6 +464,7 @@ onMounted(() => {
       ? savedTheme : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
   if (material3) void refreshMobileSessions(); else void sessions.fetchSessions();
+  void refreshPluginUI().catch(() => undefined);
   syncViewport();
   window.addEventListener('resize', syncViewport);
   window.visualViewport?.addEventListener('resize', syncViewport);
@@ -430,6 +473,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   inputLayer?.dispose(); inputLayer = undefined;
   unsubscribeConversation(); turnController.dispose();
+  pluginRuntime?.destroy(); registry.dispose(); pluginState.dispose();
   finish();
   window.removeEventListener('resize', syncViewport);
   window.visualViewport?.removeEventListener('resize', syncViewport);
@@ -515,6 +559,8 @@ onBeforeUnmount(() => {
         <span class="pc-choice-reason">{{ card.reason }}</span>
       </component>
     </section>
+    <ExtensionSlot name="companion:cards" wrapper-class="pc-plugin-cards" />
+    <p v-if="pluginLoadError" class="pc-mobile-session-feedback" role="alert">扩展加载失败。<button type="button" @click="refreshPluginUI().catch(() => undefined)">重试加载</button></p>
     </main>
 
     <p v-if="preparingSession || sessionChanging" class="pc-mobile-preparing" role="status">正在准备新对话，草稿会保留…</p>
@@ -546,6 +592,7 @@ onBeforeUnmount(() => {
       @refresh="refreshMobileSessions" @new="createMobileSession" @select="selectMobileSession" @history="session => openMobileHistory(session.id, session.title)" />
     <MobileHistoryDialog v-if="material3" v-model="historyOpen" :session-id="historySessionId" :title="historyTitle" />
     <MobileSettingsDialog v-model="settingsOpen" :panels="props.settingsPanels" />
+    <ExtensionSlot name="companion:drawers" />
   </div>
 </template>
 
@@ -817,6 +864,7 @@ onBeforeUnmount(() => {
   .pc-choices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pc-dialogue-box { padding: 20px 24px 18px; }
 }
+.pc-plugin-cards { min-width: 0; display: grid; gap: 16px; }
 @media (min-width: 900px) {
   .pc-header { padding-inline: max(24px, env(safe-area-inset-left, 0px)) max(24px, env(safe-area-inset-right, 0px)); }
   .pc-content {
@@ -830,6 +878,7 @@ onBeforeUnmount(() => {
   .pc-pet-wrap { width: min(420px, 100%); height: clamp(340px, 55dvh, 560px); }
   .pc-dialogue { grid-column: 2; grid-row: 1; align-self: end; }
   .pc-choices { grid-column: 2; grid-row: 2; }
+  .pc-plugin-cards { grid-column: 2; }
   .pc-whisper { padding-inline: max(24px, env(safe-area-inset-left, 0px)) max(24px, env(safe-area-inset-right, 0px)); }
 }
 .proactive-companion.pc-viewport--short .pc-stage,
@@ -845,8 +894,10 @@ onBeforeUnmount(() => {
 }
 .proactive-companion.pc-viewport--short .pc-dialogue,
 .proactive-companion.pc-viewport--short .pc-choices,
+.proactive-companion.pc-viewport--short .pc-plugin-cards,
 .pc-viewport--short .pc-dialogue,
-.pc-viewport--short .pc-choices { grid-column: auto; grid-row: auto; }
+.pc-viewport--short .pc-choices,
+.pc-viewport--short .pc-plugin-cards { grid-column: auto; grid-row: auto; }
 .proactive-companion[data-platform="mobile"].pc-viewport--short .pc-dialogue { margin-block-start: 0; }
 @media (max-height: 520px) {
   .pc-stage { display: none; }
@@ -854,7 +905,7 @@ onBeforeUnmount(() => {
     grid-template-columns: minmax(0, 1fr); grid-template-rows: none;
     grid-auto-rows: max-content; align-content: start; gap: 12px; padding-block: 8px 12px;
   }
-  .pc-dialogue, .pc-choices { grid-column: auto; grid-row: auto; }
+  .pc-dialogue, .pc-choices, .pc-plugin-cards { grid-column: auto; grid-row: auto; }
   .proactive-companion[data-platform="mobile"] .pc-dialogue { margin-block-start: 0; }
 }
 @media (prefers-reduced-motion: reduce) {

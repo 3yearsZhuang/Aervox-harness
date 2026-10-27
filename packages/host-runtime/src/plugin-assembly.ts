@@ -25,6 +25,7 @@ import { createPluginApiRegistry } from "./plugin-api-registry.js";
 import { resolveLocalContext } from "./shared/local-context.js";
 import { readIdempotencyKey } from "./shared/idempotency-key.js";
 import { ValidationError } from "./shared/errors.js";
+import { PluginConfigurationError, PluginConfigurationConflictError } from "./plugin-host-services.js";
 
 /**
  * 插件服务端模块形状。
@@ -47,6 +48,7 @@ const FIRST_PARTY_PLUGIN_LOADERS: PluginLoader[] = [
   { pluginId: "bot-weixin", load: () => import("@aervox/plugin-bot-weixin/server") },
   { pluginId: "bot-onebot", load: () => import("@aervox/plugin-bot-onebot/server") },
   { pluginId: "focus-mode", load: () => import("@aervox/plugin-focus-mode/server") },
+  { pluginId: "flowcampus", load: () => import("@aervox/plugin-flowcampus/server") },
 ];
 
 export interface PluginAssemblyTargets {
@@ -152,6 +154,7 @@ export type PluginHostServicesFactory = (ctx: LocalContext, control?: import("./
  * 缺省视为不启用（fail-closed）：未经显式判定的调用方不得让插件 API 面生效。
  */
 export type PluginEnablementPredicate = (pluginId: string) => Promise<boolean>;
+export type PluginGenerationGetter = (pluginId: string) => Promise<string | undefined>;
 
 /**
  * 把插件声明的 HTTP 端点挂载为 Fastify 路由。
@@ -175,6 +178,7 @@ export function mountPluginHttpEndpoints(
   services: PluginHostServicesFactory,
   isEnabled: PluginEnablementPredicate,
   warn: (message: string, error?: unknown) => void,
+  getPluginGeneration?: PluginGenerationGetter,
 ): () => void {
   let active = false;
   const accepted = (endpoints ?? []).filter((endpoint) => {
@@ -198,6 +202,16 @@ export function mountPluginHttpEndpoints(
           if (!active || !(await isEnabled(pluginId)) || !active) {
             return reply.status(404).send({ error: "Plugin endpoint unavailable" });
           }
+          const generation = await getPluginGeneration?.(pluginId);
+          if (!active || (getPluginGeneration && !generation)) {
+            return reply.status(404).send({ error: "Plugin endpoint unavailable" });
+          }
+          const checkActive = async () => {
+            if (!active || !(await isEnabled(pluginId)) || !active
+              || (generation !== undefined && (await getPluginGeneration!(pluginId)) !== generation) || !active) {
+              throw new PluginConfigurationConflictError();
+            }
+          };
           const result = await endpoint.handler(
             {
               params: (request.params ?? {}) as Record<string, string>,
@@ -205,11 +219,17 @@ export function mountPluginHttpEndpoints(
               body: request.body,
               idempotencyKey: readIdempotencyKey(request.headers["idempotency-key"]),
             },
-            services(resolveLocalContext(request)),
+            services(resolveLocalContext(request), {
+              checkActive, pluginGeneration: generation ? { pluginId, generation } : undefined,
+            }),
           );
+          if (endpoint.method === "GET") await checkActive();
           return reply.status(result.status ?? 200).send(result.payload);
         } catch (error) {
           if (error instanceof ValidationError) return reply.status(400).send({ error: error.message });
+          if (error instanceof PluginConfigurationError) {
+            return reply.status(error.status).send({ code: error.code, message: error.message });
+          }
           warn(`[plugin-assembly] 插件 ${pluginId} 端点 ${endpoint.path} 处理失败`, error);
           return reply.status(500).send({ error: "Plugin endpoint failed" });
         }
@@ -232,7 +252,8 @@ export function createHttpEndpointSink(
   services: PluginHostServicesFactory,
   isEnabled: PluginEnablementPredicate,
   warn: (message: string, error?: unknown) => void,
+  getPluginGeneration?: PluginGenerationGetter,
 ): NonNullable<PluginAssemblyTargets['onHttpEndpoints']> {
   return (pluginId, endpoints) =>
-    mountPluginHttpEndpoints(app, pluginId, endpoints, services, isEnabled, warn);
+    mountPluginHttpEndpoints(app, pluginId, endpoints, services, isEnabled, warn, getPluginGeneration);
 }

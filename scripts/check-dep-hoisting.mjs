@@ -45,6 +45,8 @@ export const ALLOWED_DUPLICATES = new Map([
       "surfaces/companion-ui",
       "surfaces/proactive-ui",
       "surfaces/panels-ui",
+      // Campus Vue SFCs use the same vue-tsc / TS 5 compiler boundary as first-party surfaces.
+      "plugins/flowcampus",
       "apps/web",
       "apps/desktop",
     ]),

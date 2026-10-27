@@ -10,3 +10,5 @@ export { default as AervoxSettingsHeading } from './settings/AervoxSettingsHeadi
 export { default as AervoxSwitch } from './form/AervoxSwitch.vue';
 export { default as AervoxCard } from './card/AervoxCard.vue';
 import './form/controls.css';
+// Vue rendering primitives stay outside the type-safe plugin contract entry.
+export { default as ExtensionSlot } from '../components/extension/ExtensionSlot.vue';

@@ -16,6 +16,14 @@ export type ApiErrorCode =
   | "FORBIDDEN"
   | "INTERNAL_ERROR";
 
+/** Neutral plugin configuration diagnostics shared by services and host port adapters. */
+export interface ConfigIssue { key: string; code: string; message: string }
+export class PluginConfigError extends Error {
+  constructor(readonly status: number, readonly code: string, message: string, readonly issues?: ConfigIssue[]) {
+    super(message);
+  }
+}
+
 /** API 异常基类：携带机器可读错误码与 HTTP 状态码 */
 export class ApiError extends Error {
   readonly code: ApiErrorCode;

@@ -19,6 +19,8 @@ import type {
 import { DomainConflictError, SqliteExtensionRepository, withSessionLock } from "@aervox/repositories";
 import { pluginConfigAccessQuerySchema, pluginPageSchema, pluginPageGenerationSchema, type PluginConfigAccessQuery, type PluginConfigSchemaResponse, type SavePluginConfigRequest } from "@aervox/contracts";
 import crypto from "node:crypto";
+import { PluginConfigError } from "../../../shared/errors.js";
+export { PluginConfigError } from "../../../shared/errors.js";
 import { PluginBundleStore } from "./bundle-store.js";
 import {
   applyDefaults,
@@ -40,17 +42,6 @@ export interface PluginConfigServiceSnapshot {
   secretFields: Record<string, { configured: boolean }>;
   orphanedValues: Record<string, unknown>;
   issues: ConfigIssue[];
-}
-
-export class PluginConfigError extends Error {
-  constructor(
-    readonly status: number,
-    readonly code: string,
-    message: string,
-    readonly issues?: ConfigIssue[],
-  ) {
-    super(message);
-  }
 }
 
 export interface PluginConfigServiceDeps {
@@ -174,6 +165,17 @@ export class PluginConfigService {
     };
   }
 
+  /** Filter plugin-visible values using one current schema/lifecycle row snapshot. */
+  async getOrdinaryConfigValues(pluginId: string, values: Record<string, unknown>, expectedLifecycleGeneration: string): Promise<Record<string, unknown>> {
+    const found = await this.findPlugin(pluginId);
+    if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
+    this.requireConfigLifecycle(pluginId, found.plugin, expectedLifecycleGeneration);
+    if (!found.plugin.configSchemaJson) {
+      throw new PluginConfigError(404, "PLUGIN_CONFIG_SCHEMA_NOT_FOUND", "plugin has no config schema");
+    }
+    return validateValues(found.plugin.configSchemaJson as PluginConfigSchemaResponse["fields"], values).values;
+  }
+
   // ── 配置 ──────────────────────────────────────────────
 
   private configAccess(expectedLifecycleGeneration?: string, pageIdentity?: Pick<PluginConfigAccessQuery, "expectedPageId" | "expectedPageGeneration">): PluginConfigAccessQuery {
@@ -189,6 +191,17 @@ export class PluginConfigService {
 
   async getConfig(tenant: LocalContext, pluginId: string, expectedLifecycleGeneration?: string,
     pageIdentity?: Pick<PluginConfigAccessQuery, "expectedPageId" | "expectedPageGeneration">): Promise<PluginConfigServiceSnapshot> {
+    return (await this.getConfigWithSchema(tenant, pluginId, expectedLifecycleGeneration, pageIdentity)).snapshot;
+  }
+
+  /** The initial ordinary view must use the schema that produced the configuration snapshot. */
+  async getOrdinaryConfig(tenant: LocalContext, pluginId: string, expectedLifecycleGeneration: string): Promise<Pick<PluginConfigServiceSnapshot, "revision" | "values">> {
+    const { snapshot, schema } = await this.getConfigWithSchema(tenant, pluginId, expectedLifecycleGeneration);
+    return { revision: snapshot.revision, values: validateValues(schema.fields, snapshot.values).values };
+  }
+
+  private async getConfigWithSchema(tenant: LocalContext, pluginId: string, expectedLifecycleGeneration?: string,
+    pageIdentity?: Pick<PluginConfigAccessQuery, "expectedPageId" | "expectedPageGeneration">): Promise<{ snapshot: PluginConfigServiceSnapshot; schema: PluginConfigSchemaResponse }> {
     const access = this.configAccess(expectedLifecycleGeneration, pageIdentity);
     const pageBound = access.expectedPageId !== undefined;
     const found = await this.findPlugin(pluginId);
@@ -218,7 +231,7 @@ export class PluginConfigService {
       if (!current) throw new PluginConfigError(409, "PLUGIN_CONFIG_REVISION_CONFLICT", "plugin lifecycle changed; reopen the page");
       this.requireConfigLifecycle(pluginId, current, expectedLifecycleGeneration);
     }
-    return {
+    return { schema, snapshot: {
       pluginId,
       revision: stored?.revision ?? 0,
       schemaVersion: schema.schemaVersion,
@@ -226,7 +239,7 @@ export class PluginConfigService {
       secretFields: this.buildSecretFields(fields, secretStates),
       orphanedValues: (stored?.orphanedValuesJson as Record<string, unknown>) ?? {},
       issues: [],
-    };
+    } };
   }
 
   async saveConfig(

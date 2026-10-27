@@ -330,6 +330,7 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
     return metricsRegistry ? metricsRegistry.toPrometheusText() : "";
   });
 
+  let pluginConfigService: import("./modules/ecosystem/plugins/index.js").PluginConfigService | undefined;
 // 模块装配上下文：基础设施 + 构建期配置；共享服务按注册顺序填充
   const ctx = {
     apiRegistry,
@@ -348,8 +349,8 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
     builtinPluginsSourceRoot: options.builtinPluginsSourceRoot,
     attachmentsRoot: options.attachmentsRoot,
     pluginRegistry: options.pluginRegistry ?? createServerPluginRegistry(),
-    // CR-060：插件宿主服务工厂只依赖 db，构建期即确定，供插件端点与回合工具贡献共用
-    pluginHostServices: options.pluginHostServices ?? createPluginHostServicesFactory(db),
+    // Endpoints and turn tools share the module-owned configuration service after late assembly.
+    pluginHostServices: options.pluginHostServices ?? createPluginHostServicesFactory(db, () => pluginConfigService),
   };
 
   // 组合根显式构造依赖；模块只能接收其声明的只读输入。
@@ -398,7 +399,8 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
   registerKnowledgeModule(services);
   registerBranchModule(services);
   registerProjectModule(services);
-  pluginRegistrations = await registerPluginsModule(services, (id, uninstall) => botManager?.stopPlugin(id, uninstall) ?? Promise.resolve());
+  pluginRegistrations = await registerPluginsModule(services, (id, uninstall) => botManager?.stopPlugin(id, uninstall) ?? Promise.resolve(),
+    service => { pluginConfigService = service; });
   const voiceService = registerVoiceModule(services, { config: apiConfig, ...options.voiceOptions });
   const skillManager = await registerSkillsModule(services);
   registerPreferencesModule(services);

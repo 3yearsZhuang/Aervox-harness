@@ -57,6 +57,12 @@ id: AVX-PLUG-001
 
 首批实现为 `plugins/bot-weixin` 与 `plugins/bot-onebot`；它们仍随宿主构建，`.aervox-plugin` 不分发可执行实现。微信与 QQ 的权限差异、持久策略和恢复不变量以 [ADR-029](adr/ADR-029-bot-platform-adapters.md) 与 [SRS](SRS.md#fr-plg-005-bot-平台文字接入) 为准，接入步骤见[连接机器人](../how-to/connect-bots.md)。新的第三方平台代码不能借此获得动态安装执行权限。
 
+### 0.6 受信插件的配置窄端口与校园文档
+
+`PluginHostServices.configuration` 是可选的宿主绑定端口：读取非 Secret 值、配置 revision 与捕获的插件生命周期代际；保存携带这两项预期版本，不接受插件 ID 或访问其它插件的配置。未提供端口、缺失身份或旧代际时明确拒绝。HTTP 与工具消费同一配置服务；宿主在读取前后及保存事务中复验当前启用、可用性、代际和 Schema。读取只返回原快照与当前 Schema 普通字段的交集，保存回执返回提交时 Schema 校验后的普通值；提交后的变更不把成功回执改写为失败。成功写回执不自动重放，未知结果由客户端重新读取核对。
+
+第一方 `flowcampus` 插件把用户维护的地点、具体日期事件、短任务、手工路程和偏好保存在有界 `state` 配置文档。文档语义、引用校验和确定性规划属于插件；SQLite、CAS、生命周期及数据管理属于宿主。浏览器只持有编辑草稿与派生结果。首版不新增物理表，不把演示种子或 CAP-033 私密观察数据写入该文档；更大数据集、关联仓储或文档版本转换须另行定义迁移。用法与当前限制见[校园插件](../../plugins/flowcampus/README.md)。
+
 ## 1. Config Schema v1
 
 Config 是 Aervox 自有 DSL，不是任意 JSON Schema，也不兼容 AstrBot 配置文件直接导入。[契约](../../packages/contracts/src/plugin-config-schemas.ts)与[共享作者校验器](../../packages/contracts/src/plugin-validation.ts)定义行为；配置注册、分发预检和作者 CLI 复用同一校验器。
@@ -222,6 +228,7 @@ OpenAPI 片段使用独立贡献注册表，惰性生成公共文档；非法路
 | 侧栏与消息流 | `sidecards:widgets`、`conversation:top`、`conversation:bottom`、`message:bubble-actions` |
 | 输入区 | `composer:toolbar-actions`、`composer:bottom-bar`、`composer:indicator` |
 | 设置、抽屉、任务中心 | `settings:tabs`、`settings:conversation-rows`、`workbench:drawers`、`taskcenter:cards` |
+| 主动陪伴摘要与详情 | `companion:cards`、`companion:drawers` |
 
 插件实现（`plugins/<id>/src/ui`）只能经下列**公共子路径**接入宿主展示基座，禁止深链 `packages/ui/src/**`：
 

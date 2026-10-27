@@ -5,6 +5,7 @@ import { AervoxHttpError, configureAervoxClient, setSessionId, type StreamTurnOp
 import definition from '../src';
 import { material3ContextKey } from '@aervox/ui/material3';
 import { defineComponent } from 'vue';
+import { useUIPluginContext, type BuiltinUIPlugin, type UIPluginContext } from '@aervox/ui/plugin-api';
 import MobileSettingsDialog from '../src/MobileSettingsDialog.vue';
 import MobileSessionsDialog from '../src/MobileSessionsDialog.vue';
 import MobileHistoryDialog from '../src/MobileHistoryDialog.vue';
@@ -53,16 +54,44 @@ beforeEach(() => {
   });
 });
 
-async function mountSurface(platform: 'web' | 'desktop' | 'mobile' = 'web', material3 = false, sessionId = material3 ? recentSession.id : undefined, back?: unknown) {
+async function mountSurface(platform: 'web' | 'desktop' | 'mobile' = 'web', material3 = false, sessionId = material3 ? recentSession.id : undefined, back?: unknown, plugins: BuiltinUIPlugin[] = []) {
   if (sessionId) setSessionId(sessionId);
   const wrapper = mount(UISurfaceHost, {
-    props: { plugin: definition, surface: 'main', platform, viewProps: {surfaceNavigation: {currentId: definition.id, options: [], select: vi.fn(), openDefault: vi.fn()}} },
+    props: { plugin: definition, surface: 'main', platform, viewProps: {plugins, surfaceNavigation: {currentId: definition.id, options: [], select: vi.fn(), openDefault: vi.fn()}} },
     global: { provide: { [material3ContextKey as symbol]: material3, ...(back ? { [Symbol.for('aervox.material3.mobileBack')]: back } : {}) } },
   });
   await vi.waitFor(() => expect(wrapper.find('.proactive-companion').exists()).toBe(true), { timeout: 5000 });
   await flushPromises();
   return wrapper;
 }
+
+it('hosts companion contributions in the existing conversation and removes them when disabled', async () => {
+  let enabled = true;
+  let context!: UIPluginContext;
+  const Widget = defineComponent({
+    setup() { const plugin = useUIPluginContext(); return { send: () => plugin.sendMessage('查询下一站', { metadata: { scene: 'campus' } }) }; },
+    template: '<button class="probe-companion-card" @click="send">查询安排</button>',
+  });
+  const workbenchSetup = vi.fn();
+  const plugin: BuiltinUIPlugin = {
+    id: 'probe', surfaces: ['companion'],
+    setup(registry, capabilities) { context = capabilities!; return registry.registerSlotComponent('companion:cards', Widget, { id: 'probe:card' }); },
+  };
+  request.mockImplementation(async (method, path) => {
+    if (path === '/v1/plugins') return { items: enabled ? [{ id: 'probe', publisher: 'test', version: '1.0.0', checksum: '', installSource: 'builtin', enabled: 1, availability: 'available', createdAt: '', updatedAt: '' }] : [] };
+    return requestImplementation(method, path);
+  });
+  const wrapper = await mountSurface('mobile', false, undefined, undefined, [plugin, { id: 'workbench-only', setup: workbenchSetup }]);
+  expect(wrapper.find('.probe-companion-card').exists()).toBe(true);
+  expect(workbenchSetup).not.toHaveBeenCalled();
+  await wrapper.find('.probe-companion-card').trigger('click');
+  await flushPromises();
+  expect(streamTurn).toHaveBeenCalledTimes(1);
+  expect(streamTurn.mock.calls[0]![3].metadata.scene).toBe('campus');
+  enabled = false;
+  await context.refreshPluginUI();
+  expect(wrapper.find('.probe-companion-card').exists()).toBe(false);
+});
 
 it('restores the saved dark theme without mounting the desktop workbench', async () => {
   localStorage.setItem('aervox-theme', 'dark');

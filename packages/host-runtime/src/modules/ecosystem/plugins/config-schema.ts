@@ -6,12 +6,8 @@
  */
 import type { PluginConfigField } from "@aervox/contracts";
 import { PLUGIN_CONFIG_MAX_DEPTH, validatePluginConfigDefinition } from "@aervox/contracts";
-
-export interface ConfigIssue {
-  key: string;
-  code: string;
-  message: string;
-}
+import type { ConfigIssue } from "../../../shared/errors.js";
+export type { ConfigIssue } from "../../../shared/errors.js";
 
 export const MAX_DEPTH = PLUGIN_CONFIG_MAX_DEPTH;
 
@@ -64,7 +60,7 @@ export function validateValues(
       // secret 不参与普通值校验；由保存请求的 secretValues 单独处理
       continue;
     }
-    if (isMissing || raw === null) {
+    if (isMissing || (raw === null && field.type !== "object" && field.type !== "array")) {
       if (field.required) {
         issues.push({ key, code: "REQUIRED", message: `缺少必填字段 ${key}` });
       }
@@ -131,7 +127,7 @@ export function validateValues(
             issues.push({ key: `${key}[${index}]`, code: "TYPE", message: `${key}[${index}] 必须是对象` });
             return;
           }
-          const nested = validateValues([itemField], item as Record<string, unknown>, `${key}[${index}]`);
+          const nested = validateValues([itemField], { [itemField.key]: item }, `${key}[${index}]`);
           issues.push(...nested.issues);
           items.push(nested.values[itemField.key]);
           return;

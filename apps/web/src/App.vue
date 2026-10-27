@@ -2,17 +2,22 @@
 import { onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus/es/components/message/index.mjs'
 import { useMaterial3, useMobileBackNavigation } from '@aervox/ui/material3'
+import type { BuiltinUIPlugin } from '@aervox/ui/plugin-api'
 import { createMobileSurfaceLocation } from './mobile-surface-location'
 import {createSurfaceNavigation, resolveSurfaceChoice, resolveWebPlatform, UISurfaceHost} from '@aervox/ui-host'
 import defaultSurface, {compactSurface} from '@aervox/plugin-workbench-ui'
 import proactiveSurface from '@aervox/plugin-proactive-ui'
 // CR-060：第一方插件按**包路径**装配，宿主不绑定插件私有符号（见 check-host-domain-purity）
 import * as firstPartyPlugin from '@aervox/plugin-focus-mode/ui'
+import * as campusPlugin from '@aervox/plugin-flowcampus/ui'
 // CR-065 切片四：内置设置面板同为受信构建输入，由组合根显式注入
 import { settingsPanels } from '@aervox/plugin-panels-ui'
 
 const reloadSurface = () => { if (mobileLocation) mobileLocation.reload(); else window.location.reload() }
-const firstPartyPlugins = [firstPartyPlugin.default]
+const pluginDefinitions: BuiltinUIPlugin[] = [
+  firstPartyPlugin.default,
+  campusPlugin.default,
+]
 
 const platform = resolveWebPlatform({
   configuredPlatform: import.meta.env.VITE_AERVOX_PLATFORM,
@@ -51,7 +56,7 @@ const surfaceNavigation = createSurfaceNavigation(availableSurfaces, {
     surface="main"
     :platform="platform"
     :view-props="{ showCompanion: platform === 'web', surfaceNavigation }"
-    :plugins="firstPartyPlugins"
+    :plugins="pluginDefinitions"
     :settings-panels="settingsPanels"
   />
 </template>

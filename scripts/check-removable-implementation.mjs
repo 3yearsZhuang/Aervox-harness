@@ -117,6 +117,55 @@ export const REMOVABLE_TARGETS = [
       "移除插件实现不删除任何数据：安装记录、配置、授权与数据管理入口保留（代码缺席容错语义）；" +
       "学习事实（questions/question_attempts/practice_reports）真源由宿主持有，不随插件删除",
   },
+  {
+    id: "flowcampus-plugin",
+    name: "FlowCampus 第一方校园规划插件实现（确定性规划 + 服务端 + UI）",
+    pilot: "BTD-12",
+    implementationFiles: [
+      "plugins/flowcampus/src/contracts/index.ts",
+      "plugins/flowcampus/src/domain/index.ts",
+      "plugins/flowcampus/src/domain/planner.ts",
+      "plugins/flowcampus/src/server/api-contract.ts",
+      "plugins/flowcampus/src/server/index.ts",
+      "plugins/flowcampus/src/server/routes.ts",
+      "plugins/flowcampus/src/server/state.ts",
+      "plugins/flowcampus/src/server/tools.ts",
+      "plugins/flowcampus/src/ui/api.ts",
+      "plugins/flowcampus/src/ui/CampusCard.vue",
+      "plugins/flowcampus/src/ui/CampusDrawer.vue",
+      "plugins/flowcampus/src/ui/CampusNavItem.vue",
+      "plugins/flowcampus/src/ui/CampusPlanSummary.vue",
+      "plugins/flowcampus/src/ui/index.ts",
+      "plugins/flowcampus/src/ui/store.ts",
+      "plugins/flowcampus/src/ui/time.ts",
+    ],
+    allowedAssemblyFiles: [
+      "packages/host-runtime/src/plugin-assembly.ts",
+      "apps/web/src/App.vue",
+      "apps/desktop/src/renderer/src/App.vue",
+      "plugins/flowcampus/test/domain-fixtures.ts",
+      "plugins/flowcampus/test/domain-planner.test.ts",
+      "plugins/flowcampus/test/server-endpoints.test.ts",
+      "plugins/flowcampus/test/ui-components.test.ts",
+      "plugins/flowcampus/test/ui-store.test.ts",
+      "e2e/ui/flowcampus.spec.ts",
+    ],
+    removalPlan: {
+      removeDirectories: ["plugins/flowcampus"],
+      strips: [
+        { file: "packages/host-runtime/src/plugin-assembly.ts", pattern: "^.*@aervox/plugin-flowcampus[^\\n]*\\n", flags: "gm" },
+        { file: "apps/web/src/App.vue", pattern: "^.*(@aervox/plugin-flowcampus|campusPlugin)[^\\n]*\\n", flags: "gm" },
+        { file: "apps/desktop/src/renderer/src/App.vue", pattern: "^.*(@aervox/plugin-flowcampus|campusPlugin)[^\\n]*\\n", flags: "gm" },
+        // A dependency may be the final property: remove its preceding comma as well.
+        { file: "packages/host-runtime/package.json", pattern: ",\\n[ \\t]*\"@aervox/plugin-flowcampus\": \"[^\"]*\"(?=\\n[ \\t]*})|^[ \\t]*\"@aervox/plugin-flowcampus\": \"[^\"]*\",?\\n", flags: "gm" },
+        { file: "apps/web/package.json", pattern: ",\\n[ \\t]*\"@aervox/plugin-flowcampus\": \"[^\"]*\"(?=\\n[ \\t]*})|^[ \\t]*\"@aervox/plugin-flowcampus\": \"[^\"]*\",?\\n", flags: "gm" },
+        { file: "apps/desktop/package.json", pattern: ",\\n[ \\t]*\"@aervox/plugin-flowcampus\": \"[^\"]*\"(?=\\n[ \\t]*})|^[ \\t]*\"@aervox/plugin-flowcampus\": \"[^\"]*\",?\\n", flags: "gm" },
+      ],
+    },
+    dataRetentionRule:
+      "移除插件实现不删除安装记录与配置；地点、具体日期日程、任务、手工路程与偏好 state 文档继续由宿主 SQLite 持有；" +
+      "启用时插件可导出校园 JSON，恢复默认和显式卸载沿用宿主清除规则；缺包后的独立数据管理入口仍待验收",
+  },
 ];
 
 export function auditTarget(target, fileList) {

@@ -24,6 +24,7 @@ import {
 import { registerPluginRoutes } from "./routes.js";
 import { PluginService } from "./service.js";
 import { PluginConfigService } from "./config-service.js";
+export { PluginConfigService, PluginConfigError } from "./config-service.js";
 import { registerPluginConfigRoutes } from "./config-routes.js";
 import { PluginBundleStore } from "./bundle-store.js";
 import { DEFAULT_SKILLS_ROOT } from "../skills/index.js";
@@ -151,7 +152,7 @@ async function syncBuiltinPlugins(
   }
 }
 
-export async function registerPluginsModule(ctx: ModuleDependencies<"apiRegistry" | "app" | "builtinPluginsSourceRoot" | "db" | "pluginHostServices" | "pluginRegistry" | "pluginsRoot" | "proactiveIntelligenceRepository" | "skillsRoot">, beforeDeactivate?: (pluginId: string, uninstall: boolean) => Promise<void>): Promise<import("@aervox/host-plugin-api").ServerPluginRegistration[]> {
+export async function registerPluginsModule(ctx: ModuleDependencies<"apiRegistry" | "app" | "builtinPluginsSourceRoot" | "db" | "pluginHostServices" | "pluginRegistry" | "pluginsRoot" | "proactiveIntelligenceRepository" | "skillsRoot">, beforeDeactivate?: (pluginId: string, uninstall: boolean) => Promise<void>, onConfigService?: (service: PluginConfigService) => void): Promise<import("@aervox/host-plugin-api").ServerPluginRegistration[]> {
   const pluginRegistry = ctx.pluginRegistry ?? createServerPluginRegistry();
   const { app, db, skillsRoot, pluginsRoot } = ctx;
   const extensionRepo = new SqliteExtensionRepository(db);
@@ -174,6 +175,7 @@ export async function registerPluginsModule(ctx: ModuleDependencies<"apiRegistry
     bundleStore,
     pluginRegistry: ctx.pluginRegistry,
   });
+  onConfigService?.(configService);
 
   // CR-032：proactive 模块先于本模块注册并填充 ctx.proactiveIntelligenceRepository，
   // 据此构建插件 → vault 物化规则的级联口（未装配时为 undefined，Worker 物化器兜底）。
@@ -219,7 +221,7 @@ export async function registerPluginsModule(ctx: ModuleDependencies<"apiRegistry
   // CR-060：装配第一方插件贡献。缺包或装配失败只记录诊断、不中断宿主启动，
   // 插件是否生效仍由 Runner 按仓储启停记录门控（CR-056 代码缺席语义）。
   const warn = (message: string, error?: unknown) => console.warn(message, error);
-  const hostServices = ctx.pluginHostServices ?? createPluginHostServicesFactory(db);
+  const hostServices = ctx.pluginHostServices ?? createPluginHostServicesFactory(db, () => configService);
   const assembly = await assembleFirstPartyPlugins({
     turnRegistry: pluginRegistry,
     apiRegistry: ctx.apiRegistry,
@@ -229,6 +231,11 @@ export async function registerPluginsModule(ctx: ModuleDependencies<"apiRegistry
       hostServices,
       (pluginId) => isPluginEnabled(pluginId, extensionRepo),
       warn,
+      async (pluginId) => {
+        const plugin = await extensionRepo.getPlugin(pluginId);
+        return plugin?.enabled === 1 && (plugin.availability ?? "available") === "available"
+          ? plugin.lifecycleGeneration ?? undefined : undefined;
+      },
     ),
     warn,
   });

@@ -83,6 +83,25 @@ describe('UI plugin activation ownership', () => {
     runtime.destroy();
   });
 
+  it('keeps workbench-only resources out of a companion and withdraws supported contributions', async () => {
+    const registry = createUIRegistry();
+    const workbenchSetup = vi.fn();
+    const sharedSetup = vi.fn((scoped) => {
+      scoped.registerSlotComponent('companion:cards', Component, { id: 'shared:card' });
+    });
+    const runtime = createWorkbenchPluginRuntime(registry, context, [
+      { id: 'workbench', setup: workbenchSetup },
+      { id: 'shared', surfaces: ['workbench', 'companion'], setup: sharedSetup },
+    ], { surfaceKind: 'companion' });
+    await runtime.sync([{ id: 'workbench', enabled: 1 }, { id: 'shared', enabled: 1 }], config);
+    expect(workbenchSetup).not.toHaveBeenCalled();
+    expect(sharedSetup).toHaveBeenCalledTimes(1);
+    expect(registry.getSlotComponents('companion:cards')).toHaveLength(1);
+    await runtime.sync([{ id: 'shared', enabled: 1, availability: 'missing' }], config);
+    expect(registry.getSlotComponents('companion:cards')).toEqual([]);
+    runtime.destroy();
+  });
+
   it('preserves context identity and stops Vue watchers, owned event listeners, timers and registrations', async () => {
     vi.useFakeTimers();
     const registry = createUIRegistry();

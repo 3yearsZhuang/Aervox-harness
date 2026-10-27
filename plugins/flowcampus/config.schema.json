@@ -1,0 +1,394 @@
+{
+  "apiVersion": "aervox.dev/v1",
+  "kind": "PluginConfigSchema",
+  "schemaVersion": 1,
+  "fields": [
+    {
+      "key": "state",
+      "type": "object",
+      "label": "校园规划数据",
+      "required": true,
+      "children": [
+        {
+          "key": "version",
+          "type": "integer",
+          "label": "版本",
+          "required": true,
+          "validation": {
+            "min": 1,
+            "max": 1
+          }
+        },
+        {
+          "key": "places",
+          "type": "array",
+          "label": "常用地点",
+          "required": true,
+          "validation": {
+            "maxLength": 64
+          },
+          "items": {
+            "key": "entry",
+            "type": "object",
+            "label": "常用地点",
+            "required": true,
+            "children": [
+              {
+                "key": "id",
+                "type": "string",
+                "label": "地点标识",
+                "required": true,
+                "validation": {
+                  "maxLength": 100
+                }
+              },
+              {
+                "key": "name",
+                "type": "string",
+                "label": "地点名称",
+                "required": true,
+                "validation": {
+                  "maxLength": 160
+                }
+              },
+              {
+                "key": "address",
+                "type": "string",
+                "label": "地址",
+                "required": false,
+                "validation": {
+                  "maxLength": 300
+                }
+              },
+              {
+                "key": "coords",
+                "type": "object",
+                "label": "地点坐标",
+                "required": false,
+                "children": [
+                  {
+                    "key": "latitude",
+                    "type": "number",
+                    "label": "纬度",
+                    "required": true,
+                    "validation": {
+                      "min": -90,
+                      "max": 90
+                    }
+                  },
+                  {
+                    "key": "longitude",
+                    "type": "number",
+                    "label": "经度",
+                    "required": true,
+                    "validation": {
+                      "min": -180,
+                      "max": 180
+                    }
+                  },
+                  {
+                    "key": "coordinateSystem",
+                    "type": "select",
+                    "label": "坐标系",
+                    "required": true,
+                    "options": [
+                      {
+                        "value": "gcj02",
+                        "label": "gcj02"
+                      },
+                      {
+                        "value": "wgs84",
+                        "label": "wgs84"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "key": "events",
+          "type": "array",
+          "label": "具体日期日程",
+          "required": true,
+          "validation": {
+            "maxLength": 128
+          },
+          "items": {
+            "key": "entry",
+            "type": "object",
+            "label": "具体日期日程",
+            "required": true,
+            "children": [
+              {
+                "key": "id",
+                "type": "string",
+                "label": "日程标识",
+                "required": true,
+                "validation": {
+                  "maxLength": 100
+                }
+              },
+              {
+                "key": "title",
+                "type": "string",
+                "label": "日程名称",
+                "required": true,
+                "validation": {
+                  "maxLength": 160
+                }
+              },
+              {
+                "key": "startAt",
+                "type": "string",
+                "label": "开始时间",
+                "required": true,
+                "validation": {
+                  "maxLength": 64
+                }
+              },
+              {
+                "key": "endAt",
+                "type": "string",
+                "label": "结束时间",
+                "required": true,
+                "validation": {
+                  "maxLength": 64
+                }
+              },
+              {
+                "key": "placeId",
+                "type": "string",
+                "label": "地点标识",
+                "required": true,
+                "validation": {
+                  "maxLength": 100
+                }
+              },
+              {
+                "key": "status",
+                "type": "select",
+                "label": "日程状态",
+                "required": true,
+                "options": [
+                  {
+                    "value": "scheduled",
+                    "label": "scheduled"
+                  },
+                  {
+                    "value": "arrived",
+                    "label": "arrived"
+                  },
+                  {
+                    "value": "cancelled",
+                    "label": "cancelled"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "key": "tasks",
+          "type": "array",
+          "label": "出发前任务",
+          "required": true,
+          "validation": {
+            "maxLength": 128
+          },
+          "items": {
+            "key": "entry",
+            "type": "object",
+            "label": "出发前任务",
+            "required": true,
+            "children": [
+              {
+                "key": "id",
+                "type": "string",
+                "label": "任务标识",
+                "required": true,
+                "validation": {
+                  "maxLength": 100
+                }
+              },
+              {
+                "key": "title",
+                "type": "string",
+                "label": "任务名称",
+                "required": true,
+                "validation": {
+                  "maxLength": 160
+                }
+              },
+              {
+                "key": "estimatedMinutes",
+                "type": "integer",
+                "label": "预计分钟",
+                "required": true,
+                "validation": {
+                  "min": 1,
+                  "max": 1440
+                }
+              },
+              {
+                "key": "priority",
+                "type": "select",
+                "label": "优先级",
+                "required": true,
+                "options": [
+                  {
+                    "value": "high",
+                    "label": "high"
+                  },
+                  {
+                    "value": "medium",
+                    "label": "medium"
+                  },
+                  {
+                    "value": "low",
+                    "label": "low"
+                  }
+                ]
+              },
+              {
+                "key": "status",
+                "type": "select",
+                "label": "任务状态",
+                "required": true,
+                "options": [
+                  {
+                    "value": "pending",
+                    "label": "pending"
+                  },
+                  {
+                    "value": "done",
+                    "label": "done"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "key": "routes",
+          "type": "array",
+          "label": "路线耗时记录",
+          "required": true,
+          "validation": {
+            "maxLength": 128
+          },
+          "items": {
+            "key": "entry",
+            "type": "object",
+            "label": "路线耗时记录",
+            "required": true,
+            "children": [
+              {
+                "key": "originId",
+                "type": "string",
+                "label": "起点标识",
+                "required": true,
+                "validation": {
+                  "maxLength": 100
+                }
+              },
+              {
+                "key": "destinationId",
+                "type": "string",
+                "label": "终点标识",
+                "required": true,
+                "validation": {
+                  "maxLength": 100
+                }
+              },
+              {
+                "key": "durationSeconds",
+                "type": "integer",
+                "label": "耗时秒数",
+                "required": true,
+                "validation": {
+                  "min": 0,
+                  "max": 86400
+                }
+              },
+              {
+                "key": "source",
+                "type": "select",
+                "label": "记录来源",
+                "required": true,
+                "options": [
+                  {
+                    "value": "manual",
+                    "label": "manual"
+                  },
+                  {
+                    "value": "amap",
+                    "label": "amap"
+                  }
+                ]
+              },
+              {
+                "key": "observedAt",
+                "type": "string",
+                "label": "记录时间",
+                "required": true,
+                "validation": {
+                  "maxLength": 64
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "settings",
+          "type": "object",
+          "label": "出发设置",
+          "required": true,
+          "children": [
+            {
+              "key": "originId",
+              "type": "string",
+              "label": "当前起点",
+              "required": false,
+              "validation": {
+                "maxLength": 100
+              }
+            },
+            {
+              "key": "bufferMinutes",
+              "type": "integer",
+              "label": "提前量分钟",
+              "required": true,
+              "validation": {
+                "min": 0,
+                "max": 120
+              }
+            },
+            {
+              "key": "timezone",
+              "type": "string",
+              "label": "时区",
+              "required": true,
+              "validation": {
+                "maxLength": 80
+              }
+            }
+          ]
+        }
+      ],
+      "description": "在校园规划面板维护；路线耗时记录不会构成实时导航。清空或重置本字段会移除本插件的日程与任务。",
+      "default": {
+        "version": 1,
+        "places": [],
+        "events": [],
+        "tasks": [],
+        "routes": [],
+        "settings": {
+          "bufferMinutes": 5,
+          "timezone": "Asia/Shanghai"
+        }
+      }
+    }
+  ]
+}
