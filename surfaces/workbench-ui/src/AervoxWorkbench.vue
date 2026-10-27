@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch, type Component } from 'vue';
+import { useMaterial3 } from '@aervox/ui/material3';
 import {
   readCompanionIdentity,
   type Platform,
@@ -59,6 +60,7 @@ import type { TurnAttachmentRef } from '@aervox/contracts';
 const surfaceContext = useUISurfaceContext();
 const desktopProactiveBridge = proactiveBridge();
 
+const material3 = useMaterial3();
 const props = withDefaults(
   defineProps<{
     platform?: Platform;
@@ -203,7 +205,12 @@ const importSessionMounted = ref(false);
 watch(() => layout.toolsOpen.value, (open) => { if (open) toolsMounted.value = true; }, { immediate: true });
 watch(() => layout.historyOpen.value, (open) => { if (open) historyMounted.value = true; }, { immediate: true });
 watch(() => layout.taskCenterOpen.value, (open) => { if (open) taskCenterMounted.value = true; }, { immediate: true });
-watch(() => layout.settingsOpen.value, (open) => { if (open) settingsMounted.value = true; }, { immediate: true });
+// Permission confirmations share this lazy shell and can open before settings.
+watch([
+  () => layout.settingsOpen.value,
+  () => conversation.fullAccessDialogOpen.value,
+  () => proactive.proactiveDialogOpen.value,
+], (open) => { if (open.some(Boolean)) settingsMounted.value = true; }, { immediate: true });
 watch(() => commandPaletteOpen.value, (open) => { if (open) commandPaletteMounted.value = true; }, { immediate: true });
 watch(() => projectManagerOpen.value, (open) => { if (open) projectManagerMounted.value = true; }, { immediate: true });
 watch(() => importSessionOpen.value, (open) => { if (open) importSessionMounted.value = true; }, { immediate: true });
@@ -478,6 +485,7 @@ function handleComposerInputUpdate(val: string) {
 }
 
 let removeProactiveStatusListener: (() => void) | undefined;
+let materialThemeObserver: MutationObserver | undefined;
 
 onMounted(() => {
   window.addEventListener('aervox:open-settings', layout.openSettings);
@@ -549,7 +557,17 @@ onMounted(() => {
   if (layout.isWeb.value) {
     const saved = localStorage.getItem('aervox-theme');
     const fallback = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    layout.applyTheme(saved === 'dark' || saved === 'light' ? saved : fallback);
+    const initial = saved === 'dark' || saved === 'light' ? saved : fallback;
+    if (material3) {
+      // Initializing the palette must not turn a system preference into a saved
+      // user choice. Keep settings indicators in sync with the mobile host.
+      document.documentElement.dataset.theme = initial;
+      layout.isDark.value = initial === 'dark';
+      materialThemeObserver = new MutationObserver(() => {
+        layout.isDark.value = document.documentElement.dataset.theme === 'dark';
+      });
+      materialThemeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    } else layout.applyTheme(initial);
   } else {
     const saved = document.documentElement.dataset.theme;
     layout.isDark.value = saved === 'dark';
@@ -598,6 +616,7 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleGlobalKeydown);
   window.removeEventListener('aervox:open-settings', layout.openSettings);
   removeProactiveStatusListener?.();
+  materialThemeObserver?.disconnect();
   composer.clearPendingAttachments();
 });
 </script>

@@ -16,11 +16,14 @@ withDefaults(
     spriteManifest?: PetManifest;
     spriteState?: PetSheetState;
     spriteToolActivity?: PetToolActivity;
+    /** Opt in to a visible local fallback while the Live2D model loads. */
+    showFallbackWhileLoading?: boolean;
   }>(),
   {
     spriteManifest: undefined,
     spriteState: 'idle',
     spriteToolActivity: 'idle',
+    showFallbackWhileLoading: false,
   },
 );
 
@@ -32,7 +35,7 @@ function forwardSpeak(text: string, preset?: string) {
 </script>
 
 <template>
-  <Live2DPet @on-speak="forwardSpeak">
+  <Live2DPet :show-fallback-while-loading="showFallbackWhileLoading" @on-speak="forwardSpeak">
     <template #fallback>
       <SpritePet
         v-if="spriteManifest"

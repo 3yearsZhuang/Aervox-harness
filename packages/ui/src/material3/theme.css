@@ -1,0 +1,558 @@
+/**
+ * Android Material 3 adapter. Material Color Utilities supplies the --md-sys-
+ * color roles; this file maps existing shared components onto those roles.
+ * The opt-in root attribute also scopes teleported overlays. Desktop and normal
+ * Web surfaces keep their existing theme. Native form semantics stay intact.
+ */
+html:root[data-design-system="material3"] {
+  --md-ref-typeface-plain: Roboto, "Noto Sans SC", "Noto Sans", system-ui, sans-serif;
+  --md-ref-typeface-brand: var(--md-ref-typeface-plain);
+  --md-sys-typescale-body-large-font: var(--md-ref-typeface-plain);
+  --md-sys-typescale-body-large-size: 1rem;
+  --md-sys-typescale-body-large-line-height: 1.5rem;
+  --md-sys-typescale-body-medium-font: var(--md-ref-typeface-plain);
+  --md-sys-typescale-body-medium-size: .875rem;
+  --md-sys-typescale-body-medium-line-height: 1.25rem;
+  --md-sys-typescale-title-large-font: var(--md-ref-typeface-brand);
+  --md-sys-typescale-title-large-size: 1.375rem;
+  --md-sys-typescale-title-large-line-height: 1.75rem;
+  --md-sys-typescale-title-medium-font: var(--md-ref-typeface-plain);
+  --md-sys-typescale-title-medium-size: 1rem;
+  --md-sys-typescale-title-medium-line-height: 1.5rem;
+  --md-sys-typescale-label-large-font: var(--md-ref-typeface-plain);
+  --md-sys-typescale-label-large-size: .875rem;
+  --md-sys-typescale-label-large-line-height: 1.25rem;
+  --md-sys-typescale-label-large-weight: 500;
+  --md-sys-typescale-label-large-tracking: .00625rem;
+
+  --avx-color-accent: var(--md-sys-color-primary);
+  --avx-color-accent-hover: color-mix(in srgb, var(--md-sys-color-primary) 92%, var(--md-sys-color-on-primary));
+  --avx-color-accent-soft: var(--md-sys-color-primary-container);
+  --avx-color-accent-glow: transparent;
+  --avx-color-on-accent: var(--md-sys-color-on-primary);
+  --avx-color-bg-app: var(--md-sys-color-surface);
+  --avx-color-bg-titlebar: var(--md-sys-color-surface);
+  --avx-color-bg-main: var(--md-sys-color-surface);
+  --avx-color-bg-card-soft: var(--md-sys-color-surface-container-low, var(--md-sys-color-surface));
+  --avx-color-bg-card-hover: var(--md-sys-color-surface-container-high, var(--md-sys-color-surface-variant));
+  --avx-color-bg-soft: var(--md-sys-color-surface-container, var(--md-sys-color-surface-variant));
+  --avx-color-bg-hover: var(--md-sys-color-surface-container-high, var(--md-sys-color-surface-variant));
+  --avx-color-bg-input: var(--md-sys-color-surface-container-highest, var(--md-sys-color-surface-variant));
+  --avx-color-fill-light: var(--md-sys-color-surface-container-low, var(--md-sys-color-surface));
+  --avx-color-text-primary: var(--md-sys-color-on-surface);
+  --avx-color-text-secondary: var(--md-sys-color-on-surface-variant);
+  --avx-color-text-muted: var(--md-sys-color-on-surface-variant);
+  --avx-color-border-subtle: color-mix(in srgb, var(--md-sys-color-outline-variant) 50%, transparent);
+  --avx-color-border: var(--md-sys-color-outline-variant);
+  --avx-color-border-strong: var(--md-sys-color-outline);
+  --avx-color-danger: var(--md-sys-color-error);
+  --avx-color-danger-soft: var(--md-sys-color-error-container);
+  --avx-color-danger-vivid: var(--md-sys-color-error);
+  --avx-color-success: var(--md-sys-color-tertiary);
+  --avx-color-success-vivid: var(--md-sys-color-tertiary);
+  --avx-color-warning: var(--md-sys-color-on-tertiary-container);
+  --avx-color-warning-vivid: var(--md-sys-color-on-tertiary-container);
+
+  --avx-mica-base: var(--md-sys-color-surface);
+  --avx-mica-wash-a: transparent;
+  --avx-mica-wash-b: transparent;
+  --avx-mica-wash-c: transparent;
+  --avx-glass-bg: var(--md-sys-color-surface-container-low, var(--md-sys-color-surface));
+  --avx-glass-bg-strong: var(--md-sys-color-surface-container, var(--md-sys-color-surface-variant));
+  --avx-glass-bg-overlay: var(--md-sys-color-surface-container-high, var(--md-sys-color-surface-variant));
+  --avx-glass-blur: none;
+
+  --avx-font-family-sans: var(--md-ref-typeface-plain);
+  --avx-font-family-mono: "Roboto Mono", "Noto Sans Mono", ui-monospace, monospace;
+  --avx-font-size-2xs: .75rem;
+  --avx-font-size-xs: .75rem;
+  --avx-font-size-sm: .875rem;
+  --avx-font-size-md: .875rem;
+  --avx-font-size-base: 1rem;
+  --avx-font-size-lg: 1rem;
+  --avx-font-size-xl: 1rem;
+  --avx-line-height-tight: 1.4;
+  --avx-line-height-base: 1.5;
+  --avx-line-height-relaxed: 1.6;
+  --avx-line-height-loose: 1.65;
+
+  --avx-radius-2xs: 4px;
+  --avx-radius-xs: 8px;
+  --avx-radius-sm: 12px;
+  --avx-radius-md: 16px;
+  --avx-radius-lg: 16px;
+  --avx-radius-xl: 28px;
+  --avx-radius-pill: 9999px;
+  --avx-shadow-sm: none;
+  --avx-shadow-md: 0 1px 3px color-mix(in srgb, var(--md-sys-color-shadow, black) 20%, transparent);
+  --avx-shadow-lg: 0 4px 12px color-mix(in srgb, var(--md-sys-color-shadow, black) 24%, transparent);
+  --avx-shadow-inner: none;
+  --avx-shadow-glass: none;
+  --avx-shadow-glass-open: var(--avx-shadow-md);
+  --avx-shadow-overlay: var(--avx-shadow-lg);
+  --avx-duration-instant: 100ms;
+  --avx-duration-fast: 150ms;
+  --avx-duration-base: 200ms;
+  --avx-duration-moderate: 250ms;
+  --avx-duration-slow: 300ms;
+  --avx-ease-standard: cubic-bezier(.2, 0, 0, 1);
+  --avx-ease-spring: var(--avx-ease-standard);
+
+  --md-filled-button-container-height: 48px;
+  --md-filled-tonal-button-container-height: 48px;
+  --md-outlined-button-container-height: 48px;
+  --md-text-button-container-height: 48px;
+  --md-icon-button-state-layer-height: 48px;
+  --md-icon-button-state-layer-width: 48px;
+  --md-filled-icon-button-container-height: 48px;
+  --md-filled-icon-button-container-width: 48px;
+  --md-filled-text-field-container-shape: 12px 12px 0 0;
+  --md-outlined-text-field-container-shape: 12px;
+  --md-dialog-container-shape: 28px;
+
+  /* Compatibility variables stay semantic, including teleported settings. */
+  --bg-app: var(--avx-color-bg-app);
+  --bg-titlebar: var(--avx-color-bg-titlebar);
+  --bg-main: var(--avx-color-bg-main);
+  --bg-card: var(--avx-color-bg-card-soft);
+  --bg-card-soft: var(--avx-color-bg-card-soft);
+  --bg-card-hover: var(--avx-color-bg-card-hover);
+  --bg-soft: var(--avx-color-bg-soft);
+  --bg-hover: var(--avx-color-bg-hover);
+  --bg-input: var(--avx-color-bg-input);
+  --text-primary: var(--avx-color-text-primary);
+  --text-secondary: var(--avx-color-text-secondary);
+  --text-muted: var(--avx-color-text-muted);
+  --border-subtle: var(--avx-color-border-subtle);
+  --border: var(--avx-color-border);
+  --border-strong: var(--avx-color-border-strong);
+  --accent: var(--avx-color-accent);
+  --accent-hover: var(--avx-color-accent-hover);
+  --accent-soft: var(--avx-color-accent-soft);
+  --accent-glow: transparent;
+  --danger: var(--avx-color-danger);
+  --danger-soft: var(--avx-color-danger-soft);
+  --success: var(--avx-color-success);
+  --warning: var(--avx-color-warning);
+  --shadow-sm: var(--avx-shadow-sm);
+  --shadow: var(--avx-shadow-md);
+  --shadow-lg: var(--avx-shadow-lg);
+  --shadow-inner: none;
+  --font-mono: var(--avx-font-family-mono);
+  --aervox-primary: var(--accent);
+  --aervox-primary-light: var(--accent-soft);
+  --aervox-fill-light: var(--bg-soft);
+  --aervox-text: var(--text-primary);
+  --aervox-text-secondary: var(--text-secondary);
+  --aervox-border-lighter: var(--border);
+  --aervox-radius: 16px;
+  --aervox-radius-sm: 12px;
+  --aervox-radius-lg: 28px;
+  --aervox-radius-pill: 9999px;
+
+  --el-font-family: var(--avx-font-family-sans);
+  --el-font-size-base: 16px;
+  --el-color-primary: var(--md-sys-color-primary);
+  --el-color-primary-light-9: var(--md-sys-color-primary-container);
+  --el-color-primary-light-8: var(--md-sys-color-primary-container);
+  --el-color-danger: var(--md-sys-color-error);
+  --el-color-danger-light-9: var(--md-sys-color-error-container);
+  --el-color-success: var(--md-sys-color-tertiary);
+  --el-color-warning: var(--md-sys-color-on-tertiary-container);
+  --el-bg-color: var(--md-sys-color-surface);
+  --el-bg-color-overlay: var(--md-sys-color-surface-container-high, var(--md-sys-color-surface-variant));
+  --el-fill-color-blank: var(--md-sys-color-surface-container-low, var(--md-sys-color-surface));
+  --el-fill-color-light: var(--md-sys-color-surface-container-high, var(--md-sys-color-surface-variant));
+  --el-fill-color: var(--md-sys-color-surface-container, var(--md-sys-color-surface-variant));
+  --el-text-color-primary: var(--md-sys-color-on-surface);
+  --el-text-color-regular: var(--md-sys-color-on-surface-variant);
+  --el-text-color-secondary: var(--md-sys-color-on-surface-variant);
+  --el-text-color-placeholder: var(--md-sys-color-on-surface-variant);
+  --el-border-color: var(--md-sys-color-outline);
+  --el-border-color-light: var(--md-sys-color-outline-variant);
+  --el-border-color-lighter: var(--md-sys-color-outline-variant);
+  --el-border-radius-base: 12px;
+  --el-border-radius-small: 8px;
+  --el-border-radius-round: 9999px;
+  --el-mask-color: color-mix(in srgb, var(--md-sys-color-scrim, black) 32%, transparent);
+  --el-mask-color-extra-light: color-mix(in srgb, var(--md-sys-color-scrim, black) 32%, transparent);
+  font-family: var(--avx-font-family-sans);
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface);
+  accent-color: var(--md-sys-color-primary);
+}
+
+html:root[data-design-system="material3"] body {
+  font-family: var(--avx-font-family-sans);
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface);
+}
+
+/* Existing full-workbench escape routes use the same Android roles. */
+html:root[data-design-system="material3"] .aervox-workbench {
+  --glass-bg: var(--avx-glass-bg);
+  --glass-bg-strong: var(--avx-glass-bg-strong);
+  --glass-border: var(--md-sys-color-outline-variant);
+  --glass-blur: none;
+  font-family: var(--avx-font-family-sans);
+  background: var(--md-sys-color-surface);
+}
+html:root[data-design-system="material3"] :is(.app-titlebar, .topbar, .standard-topbar, .workbench-sidebar, .settings-sidebar, .aervox-nav-sidebar) {
+  background: var(--md-sys-color-surface-container-low, var(--md-sys-color-surface));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+html:root[data-design-system="material3"] :is(.session-item, .sidebar-nav-item, .nav-sidebar-item) {
+  min-height: 48px;
+  border-radius: 9999px;
+  font-size: .875rem;
+  line-height: 1.25rem;
+}
+html:root[data-design-system="material3"] :is(.session-item.active, .sidebar-nav-item.active, .nav-sidebar-item.active) {
+  color: var(--md-sys-color-on-secondary-container);
+  background: var(--md-sys-color-secondary-container);
+}
+html:root[data-design-system="material3"] :is(.standard-message.user .standard-message-content, .composer-expanded, .composer-card) {
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface-container-high, var(--md-sys-color-surface-variant));
+  border-radius: 24px;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Native controls retain keyboard, IME and form behavior during the migration. */
+html:root[data-design-system="material3"] :is(input, textarea, select).aervox-field.aervox-field {
+  min-height: 56px;
+  padding: 14px 16px;
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface-container-highest, var(--md-sys-color-surface-variant));
+  border: 0;
+  border-bottom: 1px solid var(--md-sys-color-on-surface-variant);
+  border-radius: 12px 12px 0 0;
+  font-family: var(--avx-font-family-sans);
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+html:root[data-design-system="material3"] :is(input, textarea, select).aervox-field.aervox-field:focus-visible {
+  border-bottom: 2px solid var(--md-sys-color-primary);
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+}
+html:root[data-design-system="material3"] :is(input, textarea).aervox-field::placeholder {
+  color: var(--md-sys-color-on-surface-variant);
+  opacity: 1;
+}
+html:root[data-design-system="material3"] :is(input, textarea, select).aervox-field:disabled {
+  color: color-mix(in srgb, var(--md-sys-color-on-surface) 38%, transparent);
+  background: color-mix(in srgb, var(--md-sys-color-on-surface) 4%, var(--md-sys-color-surface));
+  border-color: color-mix(in srgb, var(--md-sys-color-on-surface) 12%, transparent);
+  opacity: 1;
+}
+html:root[data-design-system="material3"] :is(button, [role="button"]):not(:disabled) {
+  -webkit-tap-highlight-color: transparent;
+}
+html:root[data-design-system="material3"] :is(button, [role="button"]):focus-visible {
+  outline: 3px solid var(--md-sys-color-primary);
+  outline-offset: 3px;
+}
+html:root[data-design-system="material3"] button:not(.no-tactile):not(:disabled):active {
+  transform: none;
+}
+html:root[data-design-system="material3"] :is(.dialog-close-btn, .drawer-close-btn, .composer-op-btn, .sidebar-icon-btn, .el-button) {
+  min-width: 48px;
+  min-height: 48px;
+}
+html:root[data-design-system="material3"] .el-button {
+  border-radius: 9999px;
+  font-family: var(--avx-font-family-sans);
+  font-size: .875rem;
+  font-weight: 500;
+  padding-inline: 24px;
+}
+html:root[data-design-system="material3"] .el-button--primary {
+  --el-button-text-color: var(--md-sys-color-on-primary);
+  --el-button-hover-text-color: var(--md-sys-color-on-primary);
+  --el-button-active-text-color: var(--md-sys-color-on-primary);
+}
+
+/* Scoped adapters for existing overlays, not replacements for Material Dialog. */
+html:root[data-design-system="material3"] :is(.el-dialog.aervox-dialog, .el-message-box.aervox-message-box) {
+  background: var(--md-sys-color-surface-container-high, var(--md-sys-color-surface-variant)) !important;
+  color: var(--md-sys-color-on-surface);
+  border: 0;
+  border-radius: 28px !important;
+  box-shadow: var(--avx-shadow-lg);
+}
+html:root[data-design-system="material3"] :is(.el-dialog.aervox-dialog .el-dialog__header, .el-dialog.aervox-dialog .el-dialog__body, .el-dialog.aervox-dialog .el-dialog__footer) {
+  background: var(--md-sys-color-surface-container-high, var(--md-sys-color-surface-variant));
+  border: 0;
+}
+html:root[data-design-system="material3"] :is(.el-dialog__title, .drawer-title, .el-message-box__title) {
+  font-family: var(--avx-font-family-sans);
+  font-size: 1.375rem;
+  line-height: 1.75rem;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+html:root[data-design-system="material3"] :is(.aervox-drawer-overlay, .el-overlay) {
+  background: color-mix(in srgb, var(--md-sys-color-scrim, black) 32%, transparent);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+html:root[data-design-system="material3"] .aervox-drawer-panel {
+  background: var(--md-sys-color-surface-container-low, var(--md-sys-color-surface));
+  border: 0;
+  border-radius: 28px 0 0 28px;
+  box-shadow: none;
+}
+html:root[data-design-system="material3"] .aervox-drawer-panel.placement-left { border-radius: 0 28px 28px 0; }
+html:root[data-design-system="material3"] :is(.drawer-header, .drawer-footer) { border: 0; }
+html:root[data-design-system="material3"] :is(.el-popper.is-light, .el-popper.is-pure) {
+  background: var(--md-sys-color-surface-container-high, var(--md-sys-color-surface-variant)) !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  box-shadow: var(--avx-shadow-md) !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+html:root[data-design-system="material3"] .el-dropdown-menu__item {
+  min-height: 48px;
+  font-size: .875rem !important;
+}
+html:root[data-design-system="material3"] .el-message {
+  --el-message-bg-color: var(--md-sys-color-inverse-surface);
+  --el-message-border-color: transparent;
+  --el-message-text-color: var(--md-sys-color-inverse-on-surface);
+  color: var(--md-sys-color-inverse-on-surface);
+  background: var(--md-sys-color-inverse-surface);
+  border: 0;
+  border-radius: 4px;
+  box-shadow: var(--avx-shadow-md);
+}
+html:root[data-design-system="material3"] .el-message__content { color: inherit; }
+
+@media (prefers-reduced-motion: reduce) {
+  html:root[data-design-system="material3"] {
+    --avx-duration-instant: 0ms;
+    --avx-duration-fast: 0ms;
+    --avx-duration-base: 0ms;
+    --avx-duration-moderate: 0ms;
+    --avx-duration-slow: 0ms;
+  }
+  html:root[data-design-system="material3"] *,
+  html:root[data-design-system="material3"] *::before,
+  html:root[data-design-system="material3"] *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+html:root[data-design-system="material3"] .avx-material-button.is-block { display: flex; width: 100%; }
+html:root[data-design-system="material3"] .avx-material-button.is-danger {
+  --md-filled-button-container-color: var(--md-sys-color-error);
+  --md-filled-button-label-text-color: var(--md-sys-color-on-error);
+  --md-filled-button-icon-color: var(--md-sys-color-on-error);
+  --md-filled-button-hover-label-text-color: var(--md-sys-color-on-error);
+  --md-filled-button-focus-label-text-color: var(--md-sys-color-on-error);
+  --md-filled-button-pressed-label-text-color: var(--md-sys-color-on-error);
+}
+html:root[data-design-system="material3"] .avx-material-switch { flex: 0 0 auto; min-height: 48px; }
+html:root[data-design-system="material3"] .avx-material-dialog {
+  max-width: calc(100vw - 48px);
+  max-height: calc(100dvh - 48px);
+  min-width: 0;
+  --md-dialog-container-color: var(--md-sys-color-surface-container-high);
+  --md-dialog-headline-color: var(--md-sys-color-on-surface);
+  --md-dialog-supporting-text-color: var(--md-sys-color-on-surface-variant);
+}
+html:root[data-design-system="material3"] .avx-material-dialog .header-text strong {
+  font: 400 1.375rem/1.75rem var(--md-ref-typeface-plain);
+}
+html:root[data-design-system="material3"] .avx-material-dialog .header-text small {
+  font: 400 .875rem/1.25rem var(--md-ref-typeface-plain);
+}
+html:root[data-design-system="material3"] .avx-material-dialog .aervox-dialog-body {
+  padding: 0;
+  max-height: none !important;
+  overflow: visible;
+}
+html:root[data-design-system="material3"] .avx-material-dialog :is(.avx-material-dialog-content, .avx-material-dialog-headline) { min-width: 0; }
+
+/* Panels are also used outside the desktop settings shell. Android always
+ * stacks labels and fields rather than inheriting desktop percentage widths. */
+html:root[data-design-system="material3"] .avx-material-dialog .settings-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 12px;
+  padding-block: 16px;
+  min-width: 0;
+}
+html:root[data-design-system="material3"] .avx-material-dialog .settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-block: 16px;
+}
+html:root[data-design-system="material3"] .avx-material-dialog :is(.settings-field, .settings-row) > span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+html:root[data-design-system="material3"] .avx-material-dialog :is(.settings-field, .settings-row) strong {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 500;
+}
+html:root[data-design-system="material3"] .avx-material-dialog :is(.settings-field, .settings-row) small {
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: .875rem;
+  line-height: 1.25rem;
+}
+html:root[data-design-system="material3"] .avx-material-dialog .settings-field > :is(input, select, textarea, .api-key-input-wrapper, .voice-key-wrapper, .voice-picker, .voice-slider-row, .slider-field-row) {
+  width: 100%;
+  min-width: 0;
+}
+html:root[data-design-system="material3"] .avx-material-dialog :is(.llm-actions, .voice-actions) {
+  position: static;
+  padding-block: 16px 0;
+  background: transparent;
+  gap: 12px;
+}
+html:root[data-design-system="material3"] .avx-material-dialog .llm-save-status { flex-basis: 100%; }
+html:root[data-design-system="material3"] .avx-material-dialog .advanced-toggle { min-height: 48px; font-size: .875rem; }
+html:root[data-design-system="material3"] .avx-material-dialog .settings-heading h2 { font-size: 1.375rem; line-height: 1.75rem; font-weight: 400; }
+html:root[data-design-system="material3"] .avx-material-dialog .settings-heading p { font-size: .875rem; line-height: 1.25rem; }
+
+
+/* Questions, history and compact workbench settings also appear on Android.
+ * Keep their native selection/keyboard behavior while using the same roles. */
+html:root[data-design-system="material3"] .user-question-card {
+  background: var(--md-sys-color-surface-container);
+  border-color: var(--md-sys-color-outline-variant);
+  border-radius: 16px;
+}
+html:root[data-design-system="material3"] :is(.uq-header, .uq-question-text, .uq-option-label) {
+  color: var(--md-sys-color-on-surface);
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+html:root[data-design-system="material3"] .uq-icon { color: var(--md-sys-color-primary); }
+html:root[data-design-system="material3"] .uq-chip {
+  color: var(--md-sys-color-on-secondary-container);
+  background: var(--md-sys-color-secondary-container);
+  border-radius: 8px;
+  font-size: .75rem;
+  line-height: 1rem;
+}
+html:root[data-design-system="material3"] .uq-detail {
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface-container-highest);
+  border-radius: 12px;
+  font-size: .875rem;
+  line-height: 1.25rem;
+}
+html:root[data-design-system="material3"] .uq-option-btn {
+  min-height: 48px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 12px 16px;
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface-container-high);
+  border-color: var(--md-sys-color-outline);
+  border-radius: 12px;
+}
+html:root[data-design-system="material3"] .uq-option-info { min-width: 0; overflow-wrap: anywhere; }
+html:root[data-design-system="material3"] .uq-option-desc {
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: .875rem;
+  line-height: 1.25rem;
+}
+html:root[data-design-system="material3"] .uq-option-btn:hover:not(:disabled) { border-color: var(--md-sys-color-primary); }
+html:root[data-design-system="material3"] .uq-option-btn.active {
+  color: var(--md-sys-color-on-secondary-container);
+  background: var(--md-sys-color-secondary-container);
+  border-color: var(--md-sys-color-secondary-container);
+}
+html:root[data-design-system="material3"] .uq-option-btn.active :is(.uq-option-label, .uq-option-desc) { color: inherit; }
+html:root[data-design-system="material3"] .uq-option-check {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  color: var(--md-sys-color-primary);
+  border-color: var(--md-sys-color-outline);
+}
+html:root[data-design-system="material3"] .uq-option-btn.active .uq-option-check {
+  color: var(--md-sys-color-on-primary);
+  background: var(--md-sys-color-primary);
+  border-color: var(--md-sys-color-primary);
+}
+html:root[data-design-system="material3"] .uq-option-btn:disabled { opacity: .38; cursor: not-allowed; }
+html:root[data-design-system="material3"] .history-controls { gap: 12px; padding: 16px 20px; }
+html:root[data-design-system="material3"] .history-controls label { font-size: .875rem; line-height: 1.25rem; }
+html:root[data-design-system="material3"] .history-controls select {
+  min-width: 64px;
+  min-height: 48px;
+  padding: 12px;
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface-container-highest);
+  border-color: var(--md-sys-color-outline);
+  border-radius: 12px;
+  font: 400 1rem/1.5rem var(--md-ref-typeface-plain);
+}
+html:root[data-design-system="material3"] .aervox-segmented {
+  padding: 0;
+  gap: 0;
+  border-color: var(--md-sys-color-outline);
+  border-radius: 24px;
+  background: transparent;
+}
+html:root[data-design-system="material3"] .aervox-segmented button {
+  min-height: 48px;
+  padding: 12px 16px;
+  border-radius: 24px;
+  color: var(--md-sys-color-on-surface);
+  font-size: .875rem;
+  line-height: 1.25rem;
+}
+html:root[data-design-system="material3"] .aervox-segmented button.active {
+  color: var(--md-sys-color-on-secondary-container);
+  background: var(--md-sys-color-secondary-container);
+  border-color: transparent;
+}
+html:root[data-design-system="material3"] .aervox-segmented.is-tabs {
+  border: 0;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 0;
+}
+html:root[data-design-system="material3"] .aervox-segmented.is-tabs button {
+  border-radius: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+}
+html:root[data-design-system="material3"] .aervox-segmented.is-tabs button.active {
+  color: var(--md-sys-color-primary);
+  border-bottom-color: var(--md-sys-color-primary);
+}
+
+/* The desktop sidebar's compact icon dimensions must not shrink Android taps. */
+html:root[data-design-system="material3"] .workbench-standard-sidebar .sidebar-mini-icon-btn {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  flex: 0 0 48px;
+}
+
+html:root[data-design-system="material3"] .confirm-acknowledge {
+  min-height: 48px;
+  padding-block: 12px;
+  gap: 12px;
+  color: var(--md-sys-color-on-surface);
+  font-size: .875rem;
+  line-height: 1.25rem;
+}

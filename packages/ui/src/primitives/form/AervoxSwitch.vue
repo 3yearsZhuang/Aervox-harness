@@ -1,23 +1,34 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
+import { useMaterial3 } from '../../material3/context';
+const material3 = useMaterial3();
 
 const props = withDefaults(defineProps<{ modelValue?: boolean; checked?: boolean; disabled?: boolean }>(), {
   modelValue: undefined, checked: false, disabled: false,
 });
 const emit = defineEmits<{ 'update:modelValue': [value: boolean]; change: [event: Event] }>();
-const input = ref<HTMLInputElement | null>(null);
+const input = ref<(HTMLInputElement & { selected: boolean }) | null>(null);
 const enabled = computed(() => props.modelValue ?? props.checked ?? false);
+// Existing authorization handlers both read and restore event.target.checked.
+// Keep that public checkbox contract while Material owns selected internally.
+onMounted(() => {
+  if (material3 && input.value) Object.defineProperty(input.value, 'checked', {
+    configurable: true,
+    get() { return this.selected; },
+    set(value: boolean) { this.selected = Boolean(value); },
+  });
+});
 function onChange(event: Event) {
   if (props.disabled) return;
-  emit('update:modelValue', (event.target as HTMLInputElement).checked);
+  emit('update:modelValue', material3 ? (event.target as HTMLElement & { selected: boolean }).selected : (event.target as HTMLInputElement).checked);
   emit('change', event);
   // Controlled authorization switches reflect the accepted state, including a declined request.
-  void nextTick(() => { if (input.value) input.value.checked = enabled.value; });
+  void nextTick(() => { if (input.value) { if (material3) input.value.selected = enabled.value; else input.value.checked = enabled.value; } });
 }
 </script>
 
 <template>
-  <input ref="input" class="aervox-switch" type="checkbox" role="switch" :checked="enabled" :disabled="disabled" @change="onChange" />
+  <component :is="material3 ? 'md-switch' : 'input'" ref="input" :class="material3 ? 'avx-material-switch' : 'aervox-switch'" :type="material3 ? undefined : 'checkbox'" role="switch" :checked="material3 ? undefined : enabled" :selected="material3 ? enabled : undefined" :disabled="disabled" @change="onChange" />
 </template>
 
 <style scoped>

@@ -24,7 +24,10 @@
     "./theme/tokens": "./src/theme/tokens.css",
     "./env": "./src/env.d.ts",
     "./companion": "./src/companion.ts",
-    "./theme/companion": "./src/theme/companion.css"
+    "./theme/companion": "./src/theme/companion.css",
+    "./material3": "./src/material3/index.ts",
+    "./material3/register": "./src/material3/register.ts",
+    "./theme/material3": "./src/material3/theme.css"
   },
   "scripts": {
     "typecheck": "vue-tsc --noEmit",
@@ -38,7 +41,9 @@
     "element-plus": "^2.11.5",
     "lucide-vue-next": "^0.468.0",
     "pixi.js": "^7.4.3",
-    "vue": "^3.5.21"
+    "vue": "^3.5.21",
+    "@material/web": "2.5.0",
+    "@material/material-color-utilities": "0.4.0"
   },
   "devDependencies": {
     "@aervox/api-client": "workspace:*",
@@ -49,6 +54,8 @@
     "pixi.js": "^7.4.3",
     "typescript": "^5.8.3",
     "vue": "^3.5.43",
-    "vue-tsc": "^2.2.12"
+    "vue-tsc": "^2.2.12",
+    "@material/web": "2.5.0",
+    "@material/material-color-utilities": "0.4.0"
   }
 }

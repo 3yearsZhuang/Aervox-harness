@@ -77,3 +77,9 @@ mise exec -- pnpm --filter @aervox/mobile android:check:device
 5 秒信号只请求协作取消，不承诺原生强杀或提交硬截止；终态异常隔离连接，不根据 Java inTransaction 判断原生提交结果。dispose 只在已接受任务退出、游标/事务/连接池实际关闭后确认 drain；未知先前 commit 仍须查原回执。尚无生产初始化或 JS SQL 注册。
 
 `NativeAssetWebViewHost` 同样未接 MainActivity，固定只读 APK m0/ 资源；首文档前建立全新独立 Profile、禁该 Profile 的 Service Worker 及外部网络，再注册消息通道。不支持 MULTI_PROFILE 或消息功能直接不可用，不使用默认 Capacitor Profile。导航/重载/渲染进程退出会关闭通道并销毁旧 WebView；原生工作仍须另行 drain。仅清理私有登记的随机 Profile，保留失败记录并限制累计数量；删除请求可能异步，不能作为磁盘擦除证明。
+
+## Android 界面
+
+显式 mobile 构建采用 [Material 3](../../docs/reference/DESIGN.md#11-androidmaterial-3)：官方 Material Web 按钮、开关、弹窗和设置标签配合品牌色生成的浅色/深色角色，统一 Roboto/系统中文排版、48 px 触控、tonal surface 与状态反馈。仅开启 mobile 构建不会改变普通 Web/桌面外观；系统主题和已有手动选择继续有效，未接壁纸动态色或外部字体服务。
+
+本轮保留现有陪伴界面的角色、建议、输入/IME、取消/重试以及模型设置草稿，不增加没有实际目的地的导航。模型资源尚未就绪时显示现有本地角色，避免加载期舞台空白；就绪后切换到 Live2D。既有表单与抽屉使用语义令牌适配；视觉统一与原生独立业务接线分别验收。

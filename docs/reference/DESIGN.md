@@ -14,13 +14,24 @@ Aervox（思隅）是服务生活、工作与学习的主动智能个人助手�
 
 桌面默认陪伴布局保留左侧大角色、轻量工具区和底部对话/输入；标准工作台为可选模式。手机和平板浏览器默认使用主动陪伴界面，已有手动选择和查询参数优先，缩放桌面窗口不会切换根界面。布局实现见[工作台主题](../../packages/ui/src/theme/workbench-experience.css)与[根界面解析](../../packages/ui-host/src/resolve-web-platform.ts)，短窗口工具可点击、输入不越界的回归见[经典布局测试](../../e2e/ui/classic-workbench.spec.ts)；这些证据不替代移动真机或桌面发布验收。
 
-- **设计语言定位**：**Ethereal Glass & Neo-Mica（空灵玻璃与新云母）**，结合微结构拟物（Doppelrand 双层边框 / 嵌入高光）、单主色秩序与流体微动效。
+- **桌面设计语言定位**：**Ethereal Glass & Neo-Mica（空灵玻璃与新云母）**，结合微结构拟物（Doppelrand 双层边框 / 嵌入高光）、单主色秩序与流体微动效。
 - **三向调盘基准（The Three Dials）**：
   - **`DESIGN_VARIANCE: 6`**（控制性非对称：标准工作台严整有序，伴学模式如视觉小说般生动自由）；
   - **`MOTION_INTENSITY: 6`**（流体弹性微动效：触控下沉、弹簧物理曲线 `cubic-bezier(0.16, 1, 0.3, 1)`、呼吸光晕）；
   - **`VISUAL_DENSITY: 5`**（日常应用平衡度：卡片克制，间距适度呼吸，支持紧凑模式切换）。
 
 ---
+
+### 1.1 Android：Material 3
+
+Android 界面采用 [Google Material 3](https://m3.material.io/)，保留思隅品牌、角色、既有导航和业务行为。显式 mobile 构建在挂载前装配 Material 主题与组件；普通 Web/桌面及仅缩小窗口不启用。以下桌面玻璃、字阶、圆角和下沉反馈规则不覆盖 Android 的本节约定。
+
+- **颜色与主题：** 使用官方 Material Color Utilities 从品牌蓝生成浅色/深色 Tonal Spot 角色。主动作、容器、正文、轮廓、错误及逆色反馈分别消费对应 color roles，Android 表面使用 tonal elevation，去除桌面玻璃模糊、渐变与发光。遵守现有用户主题选择和系统偏好；这是品牌基线，不声称已接 Android 壁纸动态色。
+- **排版与形状：** 使用 Android 系统 Roboto 与系统中文回退，不向外部字体服务请求资源。正文 16/24、辅助正文 14/20、标题 22/28 CSS px；控件遵循 4/8/12/16/28/full 形状阶梯，按钮与图标按钮至少 48 CSS px 触控范围，输入保留清晰标签、IME 和焦点状态。
+- **组件：** 交互按钮、开关、设置弹窗、标签、波纹及等待进度使用官方 `@material/web`；既有原生表单/抽屉按同一语义令牌适配，保留其键盘和滚动行为。建议仍为真实业务入口，不为凑导航栏添加未实现目的地。普通/禁用/焦点/加载/错误/取消反馈必须可区分，系统减少动态效果时停用非必要动画。
+- **平台边界：** 主题装配与宿主能力分别验收。Material UI 不代表已接通手机 SQLite、模型、后台或发布；独立原型的固定资产宿主启用时复用同一主题入口，不能因移动标记放开原生权限。
+
+源码入口为[Material 主题与装配](../../packages/ui/src/material3/register.ts)，平台选择位于[Web 组合根](../../apps/web/src/main.ts)。
 
 ## 2. 色彩校准与角色契约 (Color Palette & Roles)
 

@@ -23,7 +23,7 @@ for (const { width, theme } of [{ width: 390, theme: "dark" }, { width: 1280, th
     const entry = page.getByRole("button", { name: "运行详情", exact: true });
     await expect(entry).toBeVisible();
     await entry.click();
-    const dialog = page.getByRole("dialog", { name: "运行详情" });
+    const dialog = await page.locator("html").getAttribute("data-design-system") === "material3" ? page.locator('md-dialog[data-aria-label="运行详情"]') : page.getByRole("dialog", { name: "运行详情" });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole("combobox")).toBeVisible();
     await expect(dialog).toContainText("模型调用");

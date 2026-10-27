@@ -55,3 +55,37 @@ it('keeps the Live2D stage when the model loads', async () => {
   expect(wrapper.get('[data-status="ready"]').exists()).toBe(true);
   expect(wrapper.find('.pet-hero').exists()).toBe(false);
 });
+
+
+it.each([false, true])('shows a local fallback during pending load only when opted in (sprite: %s), then hands over to Live2D', async useSprite => {
+  let ready!: () => void;
+  mock.load.mockImplementation(() => new Promise<void>(resolve => { ready = resolve; }));
+  configureAervoxClient({ platform: {} });
+  const wrapper = mount(PetWithFallback, {
+    props: { showFallbackWhileLoading: true, ...(useSprite ? { spriteManifest } : {}) },
+    global: { stubs: { SpritePet: { name: 'SpritePet', template: '<div class="sprite-stub" />' } } },
+  });
+  await flushPromises();
+  expect(wrapper.get('[data-status="loading"]').exists()).toBe(true);
+  expect(wrapper.find(useSprite ? '.sprite-stub' : '.pet-hero').exists()).toBe(true);
+  ready();
+  await flushPromises();
+  expect(wrapper.get('[data-status="ready"]').exists()).toBe(true);
+  expect(wrapper.find('.sprite-stub').exists()).toBe(false);
+  expect(wrapper.find('.pet-hero').exists()).toBe(false);
+  wrapper.unmount();
+});
+
+it('preserves the default loading presentation before a model is ready', async () => {
+  let ready!: () => void;
+  mock.load.mockImplementation(() => new Promise<void>(resolve => { ready = resolve; }));
+  configureAervoxClient({ platform: {} });
+  const wrapper = mount(PetWithFallback);
+  await flushPromises();
+  expect(wrapper.get('[data-status="loading"]').exists()).toBe(true);
+  expect(wrapper.find('.pet-hero').exists()).toBe(false);
+  expect(wrapper.text()).toContain('正在加载桌宠');
+  ready();
+  await flushPromises();
+  wrapper.unmount();
+});
