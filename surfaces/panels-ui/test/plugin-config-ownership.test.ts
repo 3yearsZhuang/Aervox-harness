@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { shallowMount, flushPromises } from '@vue/test-utils';
+import { DOMWrapper, shallowMount, flushPromises } from '@vue/test-utils';
+import { material3ContextKey } from '@aervox/ui/material3';
 import PluginConfigDialog from '../src/plugin/PluginConfigDialog.vue';
 import PluginSettingsDialog from '../src/plugin/PluginSettingsDialog.vue';
 
@@ -24,6 +25,11 @@ vi.mock('@aervox/ui/primitives', async importOriginal => ({
 }));
 const plugin = (id: string) => ({id, publisher: 'test', version: '1', enabled: 1, configSchemaJson: [{}]});
 const snapshot = (theme: string) => ({revision: 1, values: {theme}, secretFields: {}});
+const materialGlobal = {
+  provide: {[material3ContextKey as symbol]: true},
+  // Keep the native prompt real while shallow-mounting unrelated plugin panels.
+  stubs: {Teleport: false, DialogPrompt: false, AervoxDialog: false, MaterialDialogFrame: false, AervoxButton: false},
+};
 const wrappers: ReturnType<typeof shallowMount>[] = [];
 afterEach(() => { for (const wrapper of wrappers.splice(0)) wrapper.unmount(); api.loads.clear(); vi.clearAllMocks(); });
 
@@ -62,6 +68,41 @@ for (const [Component, save, reset] of [[PluginConfigDialog, 'save', 'reset'], [
     api.loads.get('B')!(snapshot('B')); await flushPromises();
     confirm(true); await pending;
     expect(api.reset).not.toHaveBeenCalled();
+  });
+  it(`${Component.__name}: Material reset cancellation uses a native prompt and preserves configuration`, async () => {
+    const wrapper = shallowMount(Component, {
+      props: {open: false, plugin: plugin('A')} as never,
+      global: materialGlobal,
+    }); wrappers.push(wrapper);
+    await wrapper.setProps({open: true}); await flushPromises();
+    api.loads.get('A')!(snapshot('A')); await flushPromises();
+    const pending = (wrapper.vm as unknown as Record<string, () => Promise<void>>)[reset]!();
+    await flushPromises();
+    const dialog = document.querySelector('md-dialog.avx-dialog-prompt')!;
+    expect(dialog).not.toBeNull();
+    expect(api.confirm).not.toHaveBeenCalled();
+    await new DOMWrapper(dialog.querySelector('md-filled-tonal-button')!).trigger('click');
+    dialog.dispatchEvent(new Event('closed'));
+    await pending;
+    expect(api.reset).not.toHaveBeenCalled();
+    await (wrapper.vm as unknown as Record<string, () => Promise<void>>)[save]!();
+    expect(api.save).toHaveBeenCalledWith('A', {revision: 1, values: {theme: 'A'}, secretValues: {}});
+  });
+  it(`${Component.__name}: closing its own window cancels a pending Material reset`, async () => {
+    const wrapper = shallowMount(Component, {
+      props: {open: false, plugin: plugin('A')} as never,
+      global: materialGlobal,
+    }); wrappers.push(wrapper);
+    await wrapper.setProps({open: true}); await flushPromises();
+    api.loads.get('A')!(snapshot('A')); await flushPromises();
+    const pending = (wrapper.vm as unknown as Record<string, () => Promise<void>>)[reset]!();
+    await flushPromises();
+    expect(document.querySelector('md-dialog.avx-dialog-prompt')).not.toBeNull();
+    await wrapper.setProps({open: false}); await flushPromises();
+    await pending;
+    expect(document.querySelector('md-dialog.avx-dialog-prompt')).toBeNull();
+    expect(api.reset).not.toHaveBeenCalled();
+    expect(api.confirm).not.toHaveBeenCalled();
   });
   it(`${Component.__name}: late A save result cannot replace B's draft or emit saved`, async () => {
     let finish!: (value: unknown) => void;

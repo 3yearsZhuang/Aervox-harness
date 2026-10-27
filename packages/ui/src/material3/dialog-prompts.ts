@@ -1,4 +1,4 @@
-import { createVNode, getCurrentInstance, inject, nextTick, onActivated, onBeforeUnmount, onDeactivated, render, watch } from 'vue';
+import { createVNode, getCurrentInstance, inject, nextTick, onActivated, onBeforeUnmount, onDeactivated, render, watch, type Ref } from 'vue';
 import { ElMessageBox } from '../utils/element';
 import { material3ContextKey, useMaterial3 } from './context';
 import { materialDialogOpenKey } from './dialog-owner';
@@ -22,11 +22,15 @@ export interface DialogPromptOptions {
 export type DialogPromptAction = 'confirm' | 'cancel' | 'close';
 
 /** Native modal prompts; ordinary hosts keep the original Element service. */
-export function useDialogPrompts(fallback: Pick<typeof ElMessageBox, 'confirm' | 'prompt'> = ElMessageBox) {
+export function useDialogPrompts(
+  fallback: Pick<typeof ElMessageBox, 'confirm' | 'prompt'> = ElMessageBox,
+  ownerOpen?: Readonly<Ref<boolean>>,
+) {
   if (!useMaterial3()) return fallback;
   const instance = getCurrentInstance();
   if (!instance) throw new Error('dialog_prompts_require_setup');
-  const ownerOpen = inject(materialDialogOpenKey, undefined);
+  const parentOpen = inject(materialDialogOpenKey, undefined);
+  const ownerClosed = () => ownerOpen?.value === false || parentOpen?.value === false;
   const context = { ...instance.appContext, provides: {
     ...instance.appContext.provides, [material3ContextKey as symbol]: true,
   } };
@@ -35,11 +39,12 @@ export function useDialogPrompts(fallback: Pick<typeof ElMessageBox, 'confirm' |
   let active = true;
 
   function open(kind: 'confirm' | 'prompt', message: string, title: string, options: DialogPromptOptions = {}) {
-    if (disposed || !active || ownerOpen?.value === false) return Promise.reject('cancel');
+    if (disposed || !active || ownerClosed()) return Promise.reject('cancel');
     return new Promise<{ value: string; action: 'confirm' }>((resolve, reject) => {
       const container = document.createElement('div');
       let settled = false;
       let destroyed = false;
+      let answer: { action: DialogPromptAction; value: string } | undefined;
       const settle = (action: DialogPromptAction, value: string) => {
         if (settled) return;
         settled = true;
@@ -63,7 +68,14 @@ export function useDialogPrompts(fallback: Pick<typeof ElMessageBox, 'confirm' |
       };
       const binding = { dismiss, destroy };
       const vnode = createVNode(DialogPrompt, {
-        id: `avx-dialog-prompt-${++promptSequence}`, kind, message, title, options, onAnswer: settle, onClosed: destroy,
+        id: `avx-dialog-prompt-${++promptSequence}`, kind, message, title, options,
+        onAnswer: (action: DialogPromptAction, value: string) => { answer ??= { action, value }; },
+        onClosed: () => {
+          // Native close restores the trigger's focus. Only then may the caller
+          // open another prompt; otherwise it inherits a soon-to-be-removed target.
+          if (answer) settle(answer.action, answer.value);
+          destroy();
+        },
       });
       vnode.appContext = context;
       pending.add(binding);
@@ -72,8 +84,8 @@ export function useDialogPrompts(fallback: Pick<typeof ElMessageBox, 'confirm' |
       catch (error) { if (!settled) { settled = true; reject(error); } destroy(); }
     });
   }
-  if (ownerOpen) watch(ownerOpen, open => {
-    if (!open) for (const prompt of [...pending]) prompt.dismiss();
+  if (ownerOpen || parentOpen) watch(ownerClosed, closed => {
+    if (closed) for (const prompt of [...pending]) prompt.dismiss();
   }, { flush: 'sync' });
   onActivated(() => { active = true; });
   onDeactivated(() => { active = false; for (const prompt of [...pending]) prompt.dismiss(); });

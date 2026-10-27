@@ -14,15 +14,15 @@ afterEach(async () => {
 });
 function fixture(material = true, keepAlive = false) {
   let prompts!: ReturnType<typeof useDialogPrompts>;
-  const ownerOpen = ref(true), visible = ref(true);
-  const Consumer = defineComponent({ setup() { prompts = useDialogPrompts(ElMessageBox); return () => h('div'); } });
+  const ownerOpen = ref(true), requestOpen = ref(true), visible = ref(true);
+  const Consumer = defineComponent({ setup() { prompts = useDialogPrompts(ElMessageBox, requestOpen); return () => h('div'); } });
   const wrapper = mount(defineComponent({ setup: () => () => keepAlive
     ? h(KeepAlive, () => visible.value ? h(Consumer) : null) : h(Consumer) }), {
     attachTo: document.body,
     global: { provide: { [material3ContextKey as symbol]: material, [materialDialogOpenKey as symbol]: ownerOpen } },
   });
   cleanups.push(() => wrapper.unmount());
-  return { prompts, ownerOpen, visible, wrapper };
+  return { prompts, ownerOpen, requestOpen, visible, wrapper };
 }
 const dialog = () => document.querySelector('md-dialog')!;
 // Vue Test Utils timestamps synthetic clicks after listener registration,
@@ -36,14 +36,18 @@ describe('Material prompts owned by the requesting panel', () => {
     expect(document.querySelector('md-dialog')).toBeNull();
   });
 
-  it('settles once and removes its detached root only after the dialog closes', async () => {
+  it('settles once only after native close restores focus and removes the detached root', async () => {
     const { prompts } = fixture();
     const result = prompts.confirm('删除预设？', '删除确认');
+    const confirmed = vi.fn();
+    void result.then(confirmed);
     await nextTick();
-    click('md-filled-button'); click('md-filled-button');
-    await expect(result).resolves.toBe('confirm');
+    await click('md-filled-button'); await click('md-filled-button');
+    expect(confirmed).not.toHaveBeenCalled();
     expect(dialog()).not.toBeNull();
     await closed(); expect(dialog()).toBeNull();
+    await expect(result).resolves.toBe('confirm');
+    expect(confirmed).toHaveBeenCalledTimes(1);
   });
 
   it('validates input and ignores IME Enter before accepting the original draft', async () => {
@@ -58,8 +62,8 @@ describe('Material prompts owned by the requesting panel', () => {
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true }));
     expect(validator).toHaveBeenCalledTimes(1);
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-    await expect(result).resolves.toEqual({ value: 'ok', action: 'confirm' });
     await closed();
+    await expect(result).resolves.toEqual({ value: 'ok', action: 'confirm' });
   });
 
   it('keeps thrown validators visible and does not mutate caller regex state', async () => {
@@ -71,8 +75,9 @@ describe('Material prompts owned by the requesting panel', () => {
     await nextTick(); click('md-filled-button'); await nextTick();
     expect(dialog().querySelector('[role=alert]')?.textContent).toBe('无法验证输入，请重试');
     expect(pattern.lastIndex).toBe(2);
-    click('md-filled-button'); await expect(result).resolves.toMatchObject({ value: 'ok' });
+    await click('md-filled-button');
     await closed();
+    await expect(result).resolves.toMatchObject({ value: 'ok' });
   });
 
   it('assigns distinct description IDs to overlapping detached prompt roots', async () => {
@@ -90,18 +95,19 @@ describe('Material prompts owned by the requesting panel', () => {
     const { prompts } = fixture();
     const result = prompts.confirm('删除？', '确认', { distinguishCancelAndClose: distinguish });
     const rejected = expect(result).rejects.toBe(distinguish ? 'close' : 'cancel');
-    await nextTick(); dialog().dispatchEvent(new Event('close')); await rejected; await closed();
+    await nextTick(); dialog().dispatchEvent(new Event('close')); await closed(); await rejected;
     const cancel = prompts.confirm('删除？', '确认', { distinguishCancelAndClose: distinguish });
     const cancelled = expect(cancel).rejects.toBe('cancel');
-    await nextTick(); click('md-filled-tonal-button'); await cancelled; await closed();
+    await nextTick(); await click('md-filled-tonal-button'); await closed(); await cancelled;
   });
 
-  it.each(['close', 'unmount', 'deactivate'] as const)('cancels pending work on owner %s and prevents a late confirmation', async action => {
-    const { prompts, ownerOpen, visible, wrapper } = fixture(true, action === 'deactivate');
+  it.each(['close', 'request-close', 'unmount', 'deactivate'] as const)('cancels pending work on owner %s and prevents a late confirmation', async action => {
+    const { prompts, ownerOpen, requestOpen, visible, wrapper } = fixture(true, action === 'deactivate');
     const result = prompts.prompt('名称', '新建');
     const rejected = expect(result).rejects.toBe('cancel');
     await nextTick(); const button = dialog().querySelector('md-filled-button') as HTMLElement;
     if (action === 'close') ownerOpen.value = false;
+    else if (action === 'request-close') requestOpen.value = false;
     else if (action === 'unmount') wrapper.unmount();
     else visible.value = false;
     await nextTick(); await nextTick(); await rejected;
@@ -110,7 +116,16 @@ describe('Material prompts owned by the requesting panel', () => {
     if (action === 'deactivate') {
       visible.value = true; await nextTick();
       const again = prompts.confirm('删除？', '确认');
-      await nextTick(); click('md-filled-button'); await expect(again).resolves.toBe('confirm'); await closed();
+      await nextTick(); await click('md-filled-button'); await closed(); await expect(again).resolves.toBe('confirm');
     }
+  });
+
+  it('cancels an answered prompt if its owner unmounts before native close completes', async () => {
+    const { prompts, wrapper } = fixture();
+    const result = prompts.confirm('删除？', '确认');
+    const rejected = expect(result).rejects.toBe('cancel');
+    await nextTick(); await click('md-filled-button');
+    wrapper.unmount(); await rejected;
+    expect(dialog()).toBeNull();
   });
 });
