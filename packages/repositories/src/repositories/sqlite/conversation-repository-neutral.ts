@@ -1,0 +1,648 @@
+/**
+ * Aervox｜思隅 @aervox/repositories — 对话与流式协议 SQLite 仓储 Facade
+ *
+ * 机械拆分（W-19 先例模式，零行为变更）：实现委托给 conversation/ 目录下
+ * 8 个协作 Store；对外导出面（类、MAX_RESUME_CANDIDATE_LIMIT）与
+ * IConversationRepository 契约保持不变。
+ */
+import type { AervoxDatabase } from "../../database.js";
+import { requireConversationHost, type ConversationHostPort } from "../../conversation-host-port.js";
+import type { LocalContext } from "../../local-context.js";
+import type { BranchTreeReadOptions } from "../../conversation-branch-tree.js";
+import type { ConversationExecutionPolicy } from "@aervox/schema";
+import type {
+  IConversationRepository,
+  TurnAcceptanceInput,
+  TurnAcceptanceResult,
+  SessionModel,
+  TurnModel,
+  MessageModel,
+  MessageVersionModel,
+  TurnAttemptModel,
+  ConversationBranchModel,
+  CreateExplorationBranchInput,
+  TurnStreamEventModel,
+  TurnStreamEventPageOptions,
+  TurnStreamEventPage,
+  TurnStreamReplayState,
+  ToolExecutionModel,
+  ToolApprovalModel,
+} from "../types/index.js";
+import { readSessionHistoryPage } from "./conversation/history-page.js";
+import { readTurnDiagnostics } from "./conversation/diagnostics-store.js";
+import { ApprovalStore } from "./conversation/approval-store.js";
+import { AttemptStore } from "./conversation/attempt-store.js";
+import { MessageStore } from "./conversation/message-store.js";
+import { SafeSegmentStore } from "./conversation/safe-segment-store.js";
+import { ConversationSessionStore as SessionStore } from "./conversation/session-store-neutral.js";
+import { StreamEventStore } from "./conversation/stream-event-store.js";
+import { ToolExecutionStore } from "./conversation/tool-execution-store.js";
+import { ConversationTurnStore as TurnStore } from "./conversation/turn-store-neutral.js";
+import { hasWorkerDelegation } from "./conversation/delegation-store.js";
+import { ApiRecoveryStore } from "./conversation/api-recovery-store.js";
+
+export { MAX_RESUME_CANDIDATE_LIMIT } from "./conversation/safe-segment-store.js";
+export { MAX_STREAM_EVENT_PAGE_ROWS, MAX_STREAM_EVENT_PAGE_DATA_BYTES } from "./conversation/stream-event-store.js";
+
+export class ConversationRepository implements IConversationRepository {
+  private readonly sessionStore: SessionStore;
+  private readonly turnStore: TurnStore;
+  private readonly streamEventStore: StreamEventStore;
+  private readonly messageStore: MessageStore;
+  private readonly attemptStore: AttemptStore;
+  private readonly toolExecutionStore: ToolExecutionStore;
+  private readonly safeSegmentStore: SafeSegmentStore;
+  private readonly approvalStore: ApprovalStore;
+  private readonly apiRecoveryStore: ApiRecoveryStore;
+
+  constructor(private readonly db: AervoxDatabase, host: ConversationHostPort) {
+    requireConversationHost(host);
+    this.sessionStore = new SessionStore(db, host);
+    this.turnStore = new TurnStore(db, host);
+    this.streamEventStore = new StreamEventStore(db);
+    this.messageStore = new MessageStore(db);
+    this.attemptStore = new AttemptStore(db);
+    this.toolExecutionStore = new ToolExecutionStore(db);
+    this.safeSegmentStore = new SafeSegmentStore(db);
+    this.approvalStore = new ApprovalStore(db);
+    this.apiRecoveryStore = new ApiRecoveryStore(db);
+  }
+
+  hasWorkerDelegation(turnId: string, eventId?: string) { return hasWorkerDelegation(this.db, turnId, eventId); }
+
+  getTurnDiagnostics(_ctx: LocalContext, turnId: string, attemptId?: string) {
+    return readTurnDiagnostics(this.db, turnId, attemptId);
+  }
+
+  listApiOwnedRecoveryTurns(before: string, limit?: number) { return this.apiRecoveryStore.list(before, limit); }
+  synchronizeTurnWithLatestAttempt(turnId: string) { return this.apiRecoveryStore.synchronize(turnId); }
+  retireExpiredApiOwnedAttempt(turnId: string, attemptId: string, expectedFencingToken: number) {
+    return this.apiRecoveryStore.retireExpired(turnId, attemptId, expectedFencingToken);
+  }
+
+  getSessionHistoryPage(_ctx: LocalContext, input: { sessionId: string; limit?: number; cursor?: string }) {
+    return readSessionHistoryPage(this.db, input);
+  }
+
+  getSessionHistory(ctx: LocalContext, input: { sessionId: string; beforeTurnId: string }) {
+    return this.sessionStore.getSessionHistory(ctx, input);
+  }
+
+  createExplorationBranch(ctx: LocalContext, input: CreateExplorationBranchInput): Promise<ConversationBranchModel | null> {
+    return this.sessionStore.createExplorationBranch(ctx, input);
+  }
+
+  async createSession(
+    _tenant: LocalContext,
+    title: string,
+    options?: { id?: string; projectId?: string | null; executionPolicy?: ConversationExecutionPolicy; pluginGeneration?: { pluginId: string; generation: string } },
+  ): Promise<SessionModel> {
+    return this.sessionStore.createSession(_tenant, title, options);
+  }
+
+  async getSession(ctx: LocalContext, sessionId: string): Promise<SessionModel | null> {
+    return this.sessionStore.getSession(ctx, sessionId);
+  }
+
+  async getOrCreateSession(
+    ctx: LocalContext,
+    sessionId: string,
+    title = "默认会话",
+    projectId?: string | null,
+    executionPolicy?: ConversationExecutionPolicy,
+  ): Promise<SessionModel> {
+    return this.sessionStore.getOrCreateSession(ctx, sessionId, title, projectId, executionPolicy);
+  }
+
+  async listSessions(
+    _tenant: LocalContext,
+    options?: { limit?: number; offset?: number; projectId?: string },
+  ): Promise<SessionModel[]> {
+    return this.sessionStore.listSessions(_tenant, options);
+  }
+
+  async renameSession(
+    _tenant: LocalContext,
+    sessionId: string,
+    updates: string | { title?: string; projectId?: string | null },
+  ): Promise<SessionModel | null> {
+    return this.sessionStore.renameSession(_tenant, sessionId, updates);
+  }
+
+  async deleteSession(
+    _tenant: LocalContext,
+    sessionId: string,
+  ): Promise<boolean> {
+    return this.sessionStore.deleteSession(_tenant, sessionId);
+  }
+
+  acceptTurn(ctx: LocalContext, input: TurnAcceptanceInput) {
+    return this.turnStore.acceptTurn(ctx, input);
+  }
+
+  /** 编程式接单（子任务/宿主内部）：Turn/消息/首个 Attempt 单写者事务（不消费 Inbox、不写 Outbox） */
+  async createTurnWithAttempt(
+    ctx: LocalContext,
+    input: {
+      turnId: string;
+      sessionId: string;
+      idempotencyKey: string;
+      message: { id: string; content: string };
+      attemptId: string;
+    },
+  ): Promise<TurnAcceptanceResult> {
+    return this.turnStore.createTurnWithAttempt(ctx, input);
+  }
+
+  async createTurnWithOutbox(
+    ctx: LocalContext,
+    turnData: { id: string; sessionId: string; idempotencyKey: string; status?: string },
+    userMessage: { id: string; content: string },
+    outboxEventData?: { id: string; eventType: string; idempotencyKey: string; payload: unknown },
+  ): Promise<{ turn: TurnModel; message: MessageVersionModel }> {
+    return this.turnStore.createTurnWithOutbox(ctx, turnData, userMessage, outboxEventData);
+  }
+
+  async getTurn(ctx: LocalContext, turnId: string): Promise<TurnModel | null> {
+    return this.turnStore.getTurn(ctx, turnId);
+  }
+
+  getAcceptedTurnParameters(ctx: LocalContext, turnId: string) {
+    return this.turnStore.getAcceptedTurnParameters(ctx, turnId);
+  }
+
+  async getTurnUserMessage(ctx: LocalContext, turnId: string): Promise<string | null> {
+    return this.turnStore.getTurnUserMessage(ctx, turnId);
+  }
+
+  isTurnInputPresent(ctx: LocalContext, turnId: string): Promise<boolean> {
+    return this.turnStore.isTurnInputPresent(ctx, turnId);
+  }
+
+  async getTurnByIdempotencyKey(
+    ctx: LocalContext,
+    idempotencyKey: string,
+  ): Promise<TurnModel | null> {
+    return this.turnStore.getTurnByIdempotencyKey(ctx, idempotencyKey);
+  }
+
+  async updateTurnStatus(
+    ctx: LocalContext,
+    turnId: string,
+    status: string,
+    lastSequence?: number,
+    error?: unknown,
+  ): Promise<TurnModel | null> {
+    return this.turnStore.updateTurnStatus(ctx, turnId, status, lastSequence, error);
+  }
+
+  appendPluginHookEvent(ctx: LocalContext, input: Parameters<StreamEventStore["appendPluginHookEvent"]>[1]) {
+    return this.streamEventStore.appendPluginHookEvent(ctx, input);
+  }
+
+  async appendStreamEvent(
+    ctx: LocalContext,
+    eventData: {
+      id: string;
+      turnId: string;
+      sequence: number;
+      eventType: string;
+      payloadVersion?: number;
+      data: unknown;
+      occurredAt?: string;
+      attemptId?: string | null;
+      safetyDecision?: string | null;
+      committedAt?: string | null;
+      /**
+       * 3c+（B1）：事件写入 fencing CAS 校验。仅当 attemptId 与本字段同时给出时启用：
+       * 要求对应 turn_attempts 行存在、fencing_token 与期望一致，且状态允许
+       * （Running/CancelRequested，或终态下仅收尾的 done/error 事件——终态提交先于
+       * done 的路径需要）。被抢占/恢复的执行器（fencing 已递增）写入将被拒绝并抛
+       * FencingMismatchError（AVX-HAR-001 §11.2/§12.2）。
+       */
+      expectedFencingToken?: number | null;
+      pluginGeneration?: { pluginId: string; generation: string };
+    },
+  ): Promise<TurnStreamEventModel> {
+    return this.streamEventStore.appendStreamEvent(ctx, eventData);
+  }
+
+  async getStreamEvents(
+    ctx: LocalContext,
+    turnId: string,
+    afterSequence: number = 0,
+  ): Promise<TurnStreamEventModel[]> {
+    return this.streamEventStore.getStreamEvents(ctx, turnId, afterSequence);
+  }
+
+  async getStreamEventById(
+    ctx: LocalContext,
+    turnId: string,
+    eventId: string,
+  ): Promise<TurnStreamEventModel | null> {
+    return this.streamEventStore.getStreamEventById(ctx, turnId, eventId);
+  }
+
+  isTurnStreamDisclosable(ctx: LocalContext, turnId: string): Promise<boolean> {
+    return this.streamEventStore.isTurnStreamDisclosable(ctx, turnId);
+  }
+
+  getStreamEventForDisclosure(ctx: LocalContext, turnId: string, eventId: string): Promise<TurnStreamEventModel | null> {
+    return this.streamEventStore.getStreamEventForDisclosure(ctx, turnId, eventId);
+  }
+
+  getStreamEventHighWater(ctx: LocalContext, turnId: string): Promise<number> {
+    return this.streamEventStore.getStreamEventHighWater(ctx, turnId);
+  }
+
+  getStreamReplayState(ctx: LocalContext, turnId: string): Promise<TurnStreamReplayState> {
+    return this.streamEventStore.getStreamReplayState(ctx, turnId);
+  }
+
+  getStreamEventsPage(ctx: LocalContext, turnId: string, options: TurnStreamEventPageOptions): Promise<TurnStreamEventPage> {
+    return this.streamEventStore.getStreamEventsPage(ctx, turnId, options);
+  }
+
+  async recordTurnStreamEvent(
+    ctx: LocalContext,
+    eventData: {
+      id?: string;
+      turnId: string;
+      sequence: number;
+      eventType: string;
+      payloadVersion?: number;
+      data: unknown;
+      occurredAt?: string;
+      attemptId?: string | null;
+      safetyDecision?: string | null;
+      committedAt?: string | null;
+    },
+  ): Promise<TurnStreamEventModel> {
+    return this.streamEventStore.recordTurnStreamEvent(ctx, eventData);
+  }
+
+  async deleteMessage(ctx: LocalContext, messageId: string): Promise<boolean> {
+    return this.messageStore.deleteMessage(ctx, messageId);
+  }
+
+  async editMessage(
+    ctx: LocalContext,
+    messageId: string,
+    content: string,
+    expectedVersion: number,
+  ): Promise<{ message: MessageModel; newVersion: MessageVersionModel } | null> {
+    return this.messageStore.editMessage(ctx, messageId, content, expectedVersion);
+  }
+
+  async softDeleteMessage(ctx: LocalContext, messageId: string): Promise<MessageModel | null> {
+    return this.messageStore.softDeleteMessage(ctx, messageId);
+  }
+
+  async restoreMessage(ctx: LocalContext, messageId: string): Promise<MessageModel | null> {
+    return this.messageStore.restoreMessage(ctx, messageId);
+  }
+
+  async listMessageVersions(
+    ctx: LocalContext,
+    messageId: string,
+  ): Promise<MessageVersionModel[]> {
+    return this.messageStore.listMessageVersions(ctx, messageId);
+  }
+
+  async redactTurnMessages(ctx: LocalContext, turnId: string): Promise<void> {
+    return this.messageStore.redactTurnMessages(ctx, turnId);
+  }
+
+  async appendRedactedAssistantMessage(
+    ctx: LocalContext,
+    input: { id: string; turnId: string; content: string },
+  ): Promise<MessageVersionModel> {
+    return this.messageStore.appendRedactedAssistantMessage(ctx, input);
+  }
+
+  async createMessage(
+    ctx: LocalContext,
+    messageData: { id: string; sessionId: string; role: string; label?: string | null },
+  ): Promise<MessageModel> {
+    return this.messageStore.createMessage(ctx, messageData);
+  }
+
+  async getMessage(ctx: LocalContext, messageId: string): Promise<MessageModel | null> {
+    return this.messageStore.getMessage(ctx, messageId);
+  }
+
+  async createTurnAttempt(
+    ctx: LocalContext,
+    turnId: string,
+    attemptData: { id: string; attempt?: number; leaseId?: string | null; fencingToken?: number },
+  ): Promise<TurnAttemptModel> {
+    return this.attemptStore.createTurnAttempt(ctx, turnId, attemptData);
+  }
+
+  async listTurnAttempts(ctx: LocalContext, turnId: string): Promise<TurnAttemptModel[]> {
+    return this.attemptStore.listTurnAttempts(ctx, turnId);
+  }
+
+  async claimTurnAttempt(
+    ctx: LocalContext,
+    input: {
+      turnId: string;
+      attemptId: string;
+      expectedFencingToken: number;
+      leaseId: string;
+      ttlMs?: number;
+    },
+  ): Promise<{ ok: boolean; fencingToken: number; leaseId: string; leaseExpiresAt: string }> {
+    return this.attemptStore.claimTurnAttempt(ctx, input);
+  }
+
+  async renewTurnAttemptLease(
+    ctx: LocalContext,
+    input: { attemptId: string; leaseId: string; expectedFencingToken: number; ttlMs?: number },
+  ): Promise<boolean> {
+    return this.attemptStore.renewTurnAttemptLease(ctx, input);
+  }
+
+  async finalizeTurnAttempt(
+    ctx: LocalContext,
+    input: { turnId: string; attemptId: string; status: string; finishedAt?: string; expectedFencingToken?: number },
+  ): Promise<TurnAttemptModel | null> {
+    return this.attemptStore.finalizeTurnAttempt(ctx, input);
+  }
+
+  async requestCancelTurnAttempt(
+    ctx: LocalContext,
+    input: { turnId: string; attemptId: string },
+  ): Promise<{ ok: boolean; reason?: "not_found" | "already_finalized" }> {
+    return this.attemptStore.requestCancelTurnAttempt(ctx, input);
+  }
+
+  async getTurnAttemptStatus(
+    ctx: LocalContext,
+    input: { turnId: string; attemptId: string },
+  ): Promise<string | null> {
+    return this.attemptStore.getTurnAttemptStatus(ctx, input);
+  }
+
+  async recoverExpiredAttempts(
+    client: import("@libsql/client").Client,
+    options?: { unclaimedTimeoutMs?: number; dispatchTarget?: "default" | "api" },
+  ): Promise<number> {
+    return this.attemptStore.recoverExpiredAttempts(client, options);
+  }
+
+  /** ARC-01 补：回收「Turn 已提交但首个 Attempt 从未创建」的孤儿 Turn（无 Attempt → Interrupted + done） */
+  async recoverOrphanTurns(options?: { orphanTimeoutMs?: number; dispatchTarget?: "default" | "api" }): Promise<number> {
+    return this.attemptStore.recoverOrphanTurns(options);
+  }
+
+  async recordToolExecution(
+    ctx: LocalContext,
+    input: {
+      turnId: string;
+      attemptId: string;
+      invocationId: string;
+      name: string;
+      arguments?: unknown;
+      status: string;
+      output?: unknown;
+      error?: string | null;
+      startedAt: string;
+      finishedAt: string;
+    },
+  ): Promise<ToolExecutionModel> {
+    return this.toolExecutionStore.recordToolExecution(ctx, input);
+  }
+
+  async reserveToolExecution(
+    ctx: LocalContext,
+    input: {
+      turnId: string;
+      attemptId: string;
+      invocationId: string;
+      name: string;
+      arguments?: unknown;
+    },
+  ): Promise<{ ok: boolean; alreadyReserved: boolean }> {
+    return this.toolExecutionStore.reserveToolExecution(ctx, input);
+  }
+
+  async updateToolExecutionResult(
+    ctx: LocalContext,
+    input: {
+      turnId: string;
+      attemptId: string;
+      invocationId: string;
+      status: string;
+      output?: unknown;
+      error?: string;
+      finishedAt?: string;
+    },
+  ): Promise<{ ok: boolean }> {
+    return this.toolExecutionStore.updateToolExecutionResult(ctx, input);
+  }
+
+  async recordToolOutcomeAtomically(
+    ctx: LocalContext,
+    input: {
+      turnId: string;
+      attemptId: string;
+      sequence: number;
+      invocationId: string;
+      name: string;
+      arguments: unknown;
+      status: string;
+      output?: unknown;
+      error?: string;
+      startedAt: string;
+      finishedAt?: string;
+      eventData: unknown;
+      safetyDecision?: string | null;
+      expectedFencingToken: number;
+    },
+  ): Promise<boolean> {
+    return this.toolExecutionStore.recordToolOutcomeAtomically(ctx, input);
+  }
+
+  async finalizeAttemptWithEventAtomically(
+    ctx: LocalContext,
+    input: {
+      turnId: string;
+      attemptId: string;
+      status: string;
+      expectedFencingToken: number;
+      sequence: number;
+      eventType: string; // "done" | "error"
+      eventData: unknown;
+      safetyDecision?: string | null;
+    },
+  ): Promise<boolean> {
+    return this.toolExecutionStore.finalizeAttemptWithEventAtomically(ctx, input);
+  }
+
+  async recordSafeSegmentAtomically(
+    ctx: LocalContext,
+    input: {
+      turnId: string;
+      attemptId: string;
+      sequence: number;
+      text: string;
+      eventData: unknown;
+      safetyDecision?: string | null;
+      expectedFencingToken: number;
+    },
+  ): Promise<boolean> {
+    return this.safeSegmentStore.recordSafeSegmentAtomically(ctx, input);
+  }
+
+  async recordSafeSegmentsAtomically(
+    ctx: LocalContext,
+    inputs: Array<{
+      turnId: string;
+      attemptId: string;
+      sequence: number;
+      text: string;
+      eventData: unknown;
+      safetyDecision?: string | null;
+      expectedFencingToken: number;
+    }>,
+  ): Promise<boolean> {
+    return this.safeSegmentStore.recordSafeSegmentsAtomically(ctx, inputs);
+  }
+
+  async listCommittedSegments(
+    ctx: LocalContext,
+    turnId: string,
+  ): Promise<Array<{ id: string; sequence: number; text: string; streamEventId: string | null }>> {
+    return this.safeSegmentStore.listCommittedSegments(ctx, turnId);
+  }
+
+  async findResumeCandidates(
+    client: import("@libsql/client").Client,
+    limit?: number,
+  ): Promise<
+    Array<{
+      attemptId: string;
+      turnId: string;
+      sessionId: string;
+      lastSequence: number;
+      userMessage: string;
+      /** 续跑 claim 预期 = 当前已持有的 fencing（抢占语义） */
+      fencingToken: number;
+    }>
+  > {
+    return this.safeSegmentStore.findResumeCandidates(client, limit);
+  }
+
+  async markPendingOutcomeUnknown(client: import("@libsql/client").Client): Promise<number> {
+    return this.safeSegmentStore.markPendingOutcomeUnknown(client);
+  }
+
+  async listToolExecutionsByTurn(ctx: LocalContext, turnId: string): Promise<ToolExecutionModel[]> {
+    return this.toolExecutionStore.listToolExecutionsByTurn(ctx, turnId);
+  }
+
+  async recordToolApproval(
+    ctx: LocalContext,
+    input: {
+      turnId: string;
+      attemptId: string;
+      toolName: string;
+      argumentsHash: string;
+      requester: string;
+      state: "pending" | "granted" | "denied";
+      toolVersion?: string | null;
+    },
+  ): Promise<ToolApprovalModel> {
+    return this.approvalStore.recordToolApproval(ctx, input);
+  }
+
+  decideToolApprovalAndResume(ctx: LocalContext, input: {
+    turnId: string; approvalId: string; decision: "granted" | "denied"; decidedBy: string;
+    toolVersion?: string;
+    pluginGeneration?: { pluginId: string; generation: string };
+  }) {
+    return this.approvalStore.decideAndResume(ctx, input);
+  }
+
+  async decideToolApproval(
+    ctx: LocalContext,
+    approvalId: string,
+    decision: "granted" | "denied",
+    decidedBy: string,
+  ): Promise<ToolApprovalModel | null> {
+    return this.approvalStore.decideToolApproval(ctx, approvalId, decision, decidedBy);
+  }
+
+  async getToolApproval(ctx: LocalContext, approvalId: string): Promise<ToolApprovalModel | null> {
+    return this.approvalStore.getToolApproval(ctx, approvalId);
+  }
+
+  async listToolApprovalsByTurn(ctx: LocalContext, turnId: string): Promise<ToolApprovalModel[]> {
+    return this.approvalStore.listToolApprovalsByTurn(ctx, turnId);
+  }
+
+  async findGrantedToolApproval(
+    ctx: LocalContext,
+    input: {
+      toolName: string;
+      argumentsHash: string;
+      toolVersion?: string | null;
+      excludeDecidedByPrefix?: string;
+      excludeDecidedByPrefixes?: string[];
+    },
+  ): Promise<ToolApprovalModel | null> {
+    return this.approvalStore.findGrantedToolApproval(ctx, input);
+  }
+
+  async listBranchesByParent(ctx: LocalContext, parentSessionId: string): Promise<ConversationBranchModel[]> {
+    return this.sessionStore.listBranchesByParent(ctx, parentSessionId);
+  }
+
+  async getBranch(ctx: LocalContext, branchId: string): Promise<ConversationBranchModel | null> {
+    return this.sessionStore.getBranch(ctx, branchId);
+  }
+
+  async mergeBranch(ctx: LocalContext, branchId: string): Promise<ConversationBranchModel | null> {
+    return this.sessionStore.mergeBranch(ctx, branchId);
+  }
+
+  async archiveBranch(ctx: LocalContext, branchId: string): Promise<ConversationBranchModel | null> {
+    return this.sessionStore.archiveBranch(ctx, branchId);
+  }
+
+  async deleteBranch(ctx: LocalContext, branchId: string): Promise<ConversationBranchModel | null> {
+    return this.sessionStore.deleteBranch(ctx, branchId);
+  }
+
+  async updateBranchLayout(
+    ctx: LocalContext,
+    branchId: string,
+    layoutData: unknown,
+  ): Promise<ConversationBranchModel | null> {
+    return this.sessionStore.updateBranchLayout(ctx, branchId, layoutData);
+  }
+
+  async getBranchTree(ctx: LocalContext, sessionId: string, options?: BranchTreeReadOptions): Promise<ConversationBranchModel[]> {
+    return this.sessionStore.getBranchTree(ctx, sessionId, options);
+  }
+
+  async importSession(
+    _tenant: LocalContext,
+    input: {
+      title?: string;
+      projectId?: string | null;
+      messages: Array<{
+        role: "user" | "assistant" | "system";
+        content: string;
+        createdAt?: string;
+      }>;
+    },
+  ): Promise<{
+    session: SessionModel;
+    turnsCount: number;
+    messagesCount: number;
+  }> {
+    return this.sessionStore.importSession(_tenant, input);
+  }
+}

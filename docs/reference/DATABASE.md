@@ -52,6 +52,10 @@ Android 隔离库需以 `NO_LOCALIZED_COLLATORS` 开启：固定 Java 绑定的�
 
 注入连接仍须兑现单一事务句柄、串行写者、结果/值类型和确定的释放语义。事务回调不自动重放；commit 响应丢失可能在实际提交后表现为错误，甚至被后续 rollback 的已关闭错误覆盖，不能据此认定未提交，应按原幂等键/权威回执核对。该装配入口的完整运行时包不含 Node 或连接创建器；声明按现行 skipLibCheck 消费可编译，但上游 Drizzle 的严格 DOM 声明闭包仍有缺口，不以注入 factory 宣称全部仓储已可在手机运行。
 
+`@aervox/repositories/conversation` 提供同一会话命令的共享实现，要求受信 Host 显式提供同步 SHA-256/UUID 和提交后 Outbox 唤醒 Port；没有内存持久化或散列/唤醒默认。旧 `SqliteConversationRepository`、SessionStore、TurnStore 与意图函数保留 Node 默认包装，SQL、事务、fencing、删除资格和错误身份仍共用唯一实现。宿主摘要必须按原 UTF-8/canonical JSON 算法计算，错误类型/格式与异步误接直接拒绝；通知失败不能把已提交接单回执误报为未受理，持久 Outbox 始终保留。
+
+该公开入口在无 Node 全局的运行时复用注入数据库完成原子接单与历史读取；实际手机 Client、同步散列实现及问答/内部 Transport 尚须单独装配。声明消费者延续现行 skipLibCheck 限制，不将运行时边界提升为上游声明或整个移动端已验收。
+
 ### 2.1 结构升级与逻辑恢复
 
 新库由 `initDatabaseSchema` / `initLedgerSchema` 初始化对应故障域，并记录版本指纹。已有库在任何结构写入前检查完整等价性；缺失列、NULL 主键、默认值或索引条件等不一致返回 `SCHEMA_STAGING_MIGRATION_REQUIRED`。无版本但完全等价的库可登记当前版本；已登记版本或指纹不符必须显式迁移。不能通过刷新指纹绕过历史数据检查。
