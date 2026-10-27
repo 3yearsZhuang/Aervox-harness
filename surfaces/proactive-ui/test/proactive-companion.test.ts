@@ -720,6 +720,58 @@ it('can retry an uncertain original mobile request even after the editor is clea
   expect(streamTurn.mock.calls[1]![3]!.idempotencyKey).toBe(firstKey);
 });
 
+it.each([401, 403, 409])('recovers one accepted mobile request after a lost receipt and HTTP %i refusal without replacing its key', async status => {
+  const receipts = new Map<string, string>();
+  let attempts = 0;
+  streamTurn.mockImplementation(async (_id, _text, cb, options) => {
+    if (++attempts === 2) throw new AervoxHttpError(status, 'POST /turns', status === 409
+      ? { code: 'IDEMPOTENCY_KEY_REUSED', details: { reason: 'intent_unavailable' } } : undefined);
+    const key = options!.idempotencyKey!;
+    if (!receipts.has(key)) receipts.set(key, `accepted_${receipts.size + 1}`);
+    if (attempts === 1) throw new TypeError('acceptance receipt lost');
+    await options!.onAccepted!(receipts.get(key)!);
+    cb.onDelta('原请求的回复。');
+    throw new AervoxHttpError(401, 'GET /events');
+  });
+  observeTurn.mockImplementationOnce(async (_id, cb) => { cb.onDelta('恢复完成。'); cb.onDone(); });
+  const wrapper = await mountSurface('mobile', true);
+  const input = wrapper.get('.pc-whisper-input textarea');
+  await input.setValue('只执行一次的请求');
+  await wrapper.get('.pc-whisper-input md-filled-button').trigger('click'); await flushPromises();
+  const original = streamTurn.mock.calls[0]![3]!.idempotencyKey;
+  await input.setValue('下一条仍待发送的草稿');
+  await wrapper.get('.pc-retry').trigger('click'); await flushPromises();
+  const lockedAfterRefusal = wrapper.getComponent(MobileSessionsDialog).props('switchLocked');
+  await wrapper.get('.pc-retry').trigger('click'); await flushPromises();
+  expect(streamTurn.mock.calls.map(call => call[3]!.idempotencyKey)).toEqual([original, original, original]);
+  expect(streamTurn.mock.calls.map(call => call[1])).toEqual(Array(3).fill('只执行一次的请求'));
+  expect(receipts.size).toBe(1);
+  expect(lockedAfterRefusal).toBe(true);
+  expect((input.element as HTMLTextAreaElement).value).toBe('下一条仍待发送的草稿');
+  await wrapper.get('.pc-resume').trigger('click'); await flushPromises();
+  expect(observeTurn).toHaveBeenCalledWith('accepted_1', expect.anything(), expect.anything());
+  expect(streamTurn).toHaveBeenCalledTimes(3);
+  expect(wrapper.get('.pc-dialogue-text').text()).toBe('原请求的回复。恢复完成。');
+  expect(wrapper.getComponent(MobileSessionsDialog).props('switchLocked')).toBe(false);
+  expect(localStorage.getItem('aervox-mobile-draft:ses_recent')).toBe('下一条仍待发送的草稿');
+});
+
+it('allows editing and submitting a new mobile request after an initial definite refusal', async () => {
+  streamTurn.mockRejectedValueOnce(new AervoxHttpError(401, 'POST /turns'))
+    .mockImplementationOnce(async (_id, _text, cb, options) => { await options!.onAccepted!('corrected'); cb.onDone(); });
+  const wrapper = await mountSurface('mobile', true);
+  const input = wrapper.get('.pc-whisper-input textarea');
+  await input.setValue('初次请求');
+  await wrapper.get('.pc-whisper-input md-filled-button').trigger('click'); await flushPromises();
+  expect(wrapper.getComponent(MobileSessionsDialog).props('switchLocked')).toBe(false);
+  await input.setValue('重新编辑的请求');
+  await wrapper.get('.pc-whisper-input md-filled-button').trigger('click'); await flushPromises();
+  expect(streamTurn).toHaveBeenCalledTimes(2);
+  expect(streamTurn.mock.calls[1]![1]).toBe('重新编辑的请求');
+  expect(streamTurn.mock.calls[1]![3]!.idempotencyKey).not.toBe(streamTurn.mock.calls[0]![3]!.idempotencyKey);
+  expect((input.element as HTMLTextAreaElement).value).toBe('');
+});
+
 it('allows an explicit mobile session choice after the server has refused an unaccepted request', async () => {
   streamTurn.mockRejectedValueOnce(new AervoxHttpError(404, 'POST /turns'));
   const wrapper = await mountSurface('mobile', true);

@@ -36,7 +36,8 @@ export function createConversationController(transport: AervoxTransport, lifetim
   type InteractionOwner = {controller: AbortController; generation: number};
   let active: Owner | undefined;
   let stopOwner: Owner | undefined;
-  let retryable: {sessionId: string; content: string; options: StreamTurnOptions} | undefined;
+  type Submission = {sessionId: string; content: string; options: StreamTurnOptions; uncertain: boolean};
+  let retryable: Submission | undefined;
   let disposed = false;
   let generation = 0;
   let interaction: InteractionOwner | undefined;
@@ -187,13 +188,16 @@ export function createConversationController(transport: AervoxTransport, lifetim
       // Older injected transports only call onDone and do not expose onEvent.
       if (doneRequested) finishDone();
     } catch (error) {
+      if (generation === expectedGeneration && retryable && !state.turnId) {
+        // A refusal only describes this attempt. Once an earlier receipt was
+        // lost, it cannot prove that the original reservation was unaccepted.
+        // A 409 may itself identify an existing, currently unavailable intent.
+        const rejected = error instanceof AervoxHttpError
+          && [400, 401, 403, 404, 405, 410, 413, 415, 422].includes(error.status);
+        if (rejected && !retryable.uncertain) retryable = undefined;
+        else retryable.uncertain = true;
+      }
       if (current()) {
-        // These API refusal responses reject this submission before acceptance.
-        // Timeout/rate-limit/server/network failures remain uncertain and retain
-        // their original reservation; an identified turn is always observed.
-        const rejected = !state.turnId && error instanceof AervoxHttpError
-          && [400, 401, 403, 404, 405, 409, 410, 413, 415, 422].includes(error.status);
-        if (rejected) retryable = undefined;
         update({status: !terminalError && state.turnId ? 'observer-error' : 'failed', error, retryAvailable: !terminalError && (state.turnId ? !!transport.observeTurn : !!retryable)});
         // An accepted submission is observed again, never resubmitted as a new Turn.
         if (terminalError || state.turnId) retryable = undefined;
@@ -202,26 +206,32 @@ export function createConversationController(transport: AervoxTransport, lifetim
       if (!owner.stopRequested) throw error;
     } finally { if (active === owner) active = undefined; }
   };
+  const submitReservation = async (submission: Submission, callbacks: TurnCallbacks, signal?: AbortSignal) => {
+    available();
+    signal?.throwIfAborted();
+    const {sessionId, content, options} = submission;
+    const expectedGeneration = ++generation;
+    stopOwner = undefined;
+    retryable = submission;
+    update({status: 'submitting', turnId: undefined, afterEventId: undefined, question: undefined, approval: undefined, error: undefined, retryAvailable: false});
+    await execute(callbacks, (forward, signal) => transport.streamTurn(sessionId, content, forward, {
+      ...options, signal,
+      async onAccepted(turnId) {
+        if (signal.aborted || generation !== expectedGeneration) return;
+        update({turnId, status: 'observing', retryAvailable: false});
+        if (active?.stopRequested) await cancel(active);
+        await options.onAccepted?.(turnId);
+      },
+    }), signal);
+  };
   const controller: ConversationController = {
     get state() { return state; },
     subscribe(listener) { listeners.add(listener); listener(state); return () => listeners.delete(listener); },
     async submit(sessionId, content, callbacks, options = {}) {
       available();
       options.signal?.throwIfAborted();
-      const expectedGeneration = ++generation;
-      stopOwner = undefined;
-      update({status: 'submitting', turnId: undefined, afterEventId: undefined, question: undefined, approval: undefined, error: undefined, retryAvailable: false});
       const idempotencyKey = options.idempotencyKey ?? submissionKey();
-      retryable = {sessionId, content, options: {...options, signal: undefined, idempotencyKey}};
-      await execute(callbacks, (forward, signal) => transport.streamTurn(sessionId, content, forward, {
-        ...options, signal, idempotencyKey,
-        async onAccepted(turnId) {
-          if (signal.aborted || generation !== expectedGeneration) return;
-          update({turnId, status: 'observing', retryAvailable: false});
-          if (active?.stopRequested) await cancel(active);
-          await options.onAccepted?.(turnId);
-        },
-      }), options.signal);
+      await submitReservation({sessionId, content, options: {...options, signal: undefined, idempotencyKey}, uncertain: false}, callbacks, options.signal);
     },
     async observe(turnId, callbacks, options = {}) {
       available();
@@ -243,8 +253,7 @@ export function createConversationController(transport: AervoxTransport, lifetim
         return;
       }
       if (!retryable) throw new Error('submission_not_retryable');
-      const previous = retryable;
-      await controller.submit(previous.sessionId, previous.content, callbacks, previous.options);
+      await submitReservation(retryable, callbacks);
     },
     async stop() {
       if (disposed || state.status === 'stopped') return;

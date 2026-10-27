@@ -491,17 +491,20 @@ describe('structured terminal state through Fetch and the stream projector', () 
 });
 
 
-it.each([400, 401, 403, 404, 409, 413, 422])('does not retain an uncertain reservation after an explicit unaccepted HTTP %i refusal', async status => {
+it.each([400, 401, 403, 404, 405, 410, 413, 415, 422])('releases an initial reservation after an explicit unaccepted HTTP %i refusal', async status => {
   const f = fixture(); f.streamTurn.mockRejectedValueOnce(new AervoxHttpError(status, 'POST /v1/sessions/s/turns'));
   await expect(f.controller.submit('s', 'invalid', callbacks())).rejects.toBeInstanceOf(AervoxHttpError);
+  const original = f.streamTurn.mock.calls[0]![3]!.idempotencyKey;
   expect(f.controller.state).toMatchObject({ status: 'failed', turnId: undefined, retryAvailable: false });
   await expect(f.controller.retry(callbacks())).rejects.toThrow('submission_not_retryable');
-  f.controller.reset(); f.streamTurn.mockResolvedValueOnce(undefined);
-  await f.controller.submit('other', 'new explicit intent', callbacks());
+  f.streamTurn.mockImplementationOnce(async (_session, _content, cb) => { cb.onDone(); });
+  await f.controller.submit('s', 'corrected explicit intent', callbacks());
   expect(f.streamTurn).toHaveBeenCalledTimes(2);
+  expect(f.streamTurn.mock.calls[1]![3]!.idempotencyKey).not.toBe(original);
+  expect(f.controller.state.status).toBe('completed');
 });
 
-it.each([408, 425, 429, 500, 503])('retains the same reservation when unaccepted HTTP %i does not prove rejection', async status => {
+it.each([408, 409, 425, 429, 500, 503])('retains the same reservation when unaccepted HTTP %i does not prove rejection', async status => {
   const f = fixture(); f.streamTurn.mockRejectedValueOnce(new AervoxHttpError(status, 'POST /v1/sessions/s/turns')).mockResolvedValueOnce(undefined);
   await expect(f.controller.submit('s', 'uncertain', callbacks())).rejects.toBeInstanceOf(AervoxHttpError);
   const original = f.streamTurn.mock.calls[0]![3]!.idempotencyKey;
@@ -510,6 +513,58 @@ it.each([408, 425, 429, 500, 503])('retains the same reservation when unaccepted
   expect(f.streamTurn.mock.calls[1]![3]!.idempotencyKey).toBe(original);
 });
 
+it.each(['intent_mismatch', 'session_mismatch', 'intent_unavailable'])('retains an initial idempotency conflict reservation for %s', async reason => {
+  const f = fixture();
+  f.streamTurn.mockRejectedValueOnce(new AervoxHttpError(409, 'POST /v1/sessions/s/turns', {
+    code: 'IDEMPOTENCY_KEY_REUSED', details: { reason },
+  })).mockResolvedValueOnce(undefined);
+  await expect(f.controller.submit('s', 'unconfirmed', callbacks())).rejects.toBeInstanceOf(AervoxHttpError);
+  const original = f.streamTurn.mock.calls[0]![3]!.idempotencyKey;
+  expect(f.controller.state.retryAvailable).toBe(true);
+  await f.controller.retry(callbacks());
+  expect(f.streamTurn.mock.calls[1]![3]!.idempotencyKey).toBe(original);
+});
+
+it.each([400, 401, 403, 404, 405, 409, 410, 413, 415, 422])('recovers an unknown receipt with the original reservation after a later HTTP %i refusal', async status => {
+  const f = fixture();
+  const receipts = new Map<string, string>();
+  let attempts = 0;
+  f.streamTurn.mockImplementation(async (_session, _content, cb, options) => {
+    if (++attempts === 2) throw new AervoxHttpError(status, 'POST /v1/sessions/s/turns');
+    const key = options!.idempotencyKey!;
+    if (!receipts.has(key)) receipts.set(key, `turn_${receipts.size + 1}`);
+    if (attempts === 1) throw new TypeError('acceptance receipt lost');
+    await options!.onAccepted!(receipts.get(key)!);
+    cb.onDone();
+  });
+  await expect(f.controller.submit('s', 'accepted once', callbacks())).rejects.toThrow('acceptance receipt lost');
+  const original = f.streamTurn.mock.calls[0]![3]!.idempotencyKey;
+  await expect(f.controller.retry(callbacks())).rejects.toBeInstanceOf(AervoxHttpError);
+  expect(f.controller.state).toMatchObject({ status: 'failed', turnId: undefined, retryAvailable: true });
+  await f.controller.retry(callbacks());
+  expect(f.streamTurn.mock.calls.map(call => call[3]!.idempotencyKey)).toEqual([original, original, original]);
+  expect(receipts.size).toBe(1);
+  expect(f.controller.state).toMatchObject({ status: 'completed', turnId: 'turn_1', retryAvailable: false });
+  await expect(f.controller.retry(callbacks())).rejects.toThrow('submission_not_retryable');
+});
+
+
+it('retains uncertainty when the caller aborts before receiving the accepted receipt', async () => {
+  const f = fixture();
+  const signal = new AbortController();
+  f.streamTurn.mockImplementationOnce(async (_session, _content, _cb, options) => {
+    await new Promise<void>((_resolve, reject) => options!.signal!.addEventListener('abort', () => reject(options!.signal!.reason), { once: true }));
+  }).mockRejectedValueOnce(new AervoxHttpError(401, 'POST /turns'))
+    .mockImplementationOnce(async (_session, _content, cb, options) => { await options!.onAccepted!('accepted'); cb.onDone(); });
+  const pending = f.controller.submit('s', 'unknown', callbacks(), { signal: signal.signal });
+  const aborted = expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+  signal.abort(); await aborted;
+  await expect(f.controller.retry(callbacks())).rejects.toBeInstanceOf(AervoxHttpError);
+  await f.controller.retry(callbacks());
+  const keys = f.streamTurn.mock.calls.map(call => call[3]!.idempotencyKey);
+  expect(keys).toEqual([keys[0], keys[0], keys[0]]);
+  expect(f.controller.state.turnId).toBe('accepted');
+});
 
 it('recovers an already identified turn after an observation HTTP refusal without resubmitting', async () => {
   const f = fixture(); f.streamTurn.mockImplementationOnce(async (_id, _content, _callbacks, options) => {
