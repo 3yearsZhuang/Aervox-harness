@@ -10,7 +10,9 @@ import fs from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { defaultDataDirectory, repositoryRoot } from './data-directory.js';
 import { createClient, LibsqlError, type Client, type Transaction } from "@libsql/client";
-import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
+import { drizzle } from "drizzle-orm/libsql";
+import type { AervoxDatabase } from "./database.js";
+export type { AervoxDatabase } from "./database.js";
 import * as schema from "@aervox/schema";
 import {
   withBusyRetry,
@@ -18,8 +20,6 @@ import {
   isSqliteConnectionPoisonedError,
   type BusyRetryConfig,
 } from "./write-retry.js";
-
-export type AervoxDatabase = LibSQLDatabase<typeof schema>;
 
 /**
  * 具备连接自愈能力的 client。

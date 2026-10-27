@@ -12,6 +12,10 @@
     "./sync": {
       "types": "./dist/sync/index.d.ts",
       "default": "./dist/sync/index.js"
+    },
+    "./database": {
+      "types": "./dist/database.d.ts",
+      "default": "./dist/database.js"
     }
   },
   "scripts": {
