@@ -57,3 +57,11 @@ mise exec -- pnpm --filter @aervox/mobile android:check:device
 进程锁与固定文件锁串行化读写，替换前必须认证既有密文；丢失密钥、认证失败或未知版本保留文件并返回固定错误码。base/backup/stage 都算已有证据，不会因主文件缺失创建替代密钥；中断文件返回 `RECOVERY_REQUIRED`，不自动猜测恢复。显式 clear 只删除该槽的三类密文并保留包装密钥，覆盖旧 Android AtomicFile 对 staging 文件的版本差异。写入失败先恢复旧版；全部断电/目录元数据持久性与设备 Keystore 行为仍待实际验证。
 
 设备测试为每项创建随机隔离目录和测试专用 alias，覆盖非导出密钥、随机 nonce、丢密钥、篡改、AAD、版本/大小、提交前失败和 backup/stage；清理不触及真实槽。`:app:assembleDebugAndroidTest` 只编译这些测试，实际执行与原生模型桥接续验收。
+
+## 原生值与消息通道前置
+
+`NativeSqliteValues` 只转换受限类型：有限 REAL 输入、规范 int64、文本/NUL、空值和十六进制 BLOB；结果另保留负零和正负 Infinity。它不创建连接或执行 SQL，与仓储的 `/native-sqlite-values` 共用值约定。Android `org.json` 的往返与拒绝测试属于设备测试，编译通过不代表原生运行已通过。
+
+`NativeMessageChannel` 是尚未注册的内部消息通道，只使用 AndroidX WebKit 的 WebMessageListener，固定 HTTPS localhost，并逐消息检查 WebView 身份、主帧与来源；功能不支持或注册失败即关闭，不回退到 JS interface。请求/响应分别限制 1 MiB/4 MiB、JSON 深度 32、同时在途 8 项；严格流式预校验先于 JSONObject 解析，错误只返回固定码。完成后回包仍核对活动票据；close 撤销回包，不代表已接受原生工作被撤销或回滚，执行器须另行 drain。
+
+通道限于一个 WebView 的完整生命周期，同一个实例不重装；换文档时调用者必须关闭并销毁/重建 WebView，来源信息不能证明文档代际。启用前还须固定 APK 资产来源并排除不受信脚本，不能把固定 origin 当成资产认证或同源脚本沙箱。当前 MainActivity/Capacitor 未装入该通道，不暴露 SQLite、凭据或模型命令；纯 JVM 策略、原生测试编译与真实 WebView 设备验证分别记录。
