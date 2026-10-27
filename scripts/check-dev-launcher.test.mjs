@@ -14,6 +14,7 @@ function fixture(t) {
   copyFileSync(new URL('../aervox', import.meta.url), join(dir, 'aervox'));
   mkdirSync(join(dir, 'scripts'));
   copyFileSync(new URL('./project-env.sh', import.meta.url), join(dir, 'scripts/project-env.sh'));
+  copyFileSync(new URL('./core-submodule.mjs', import.meta.url), join(dir, 'scripts/core-submodule.mjs'));
   mkdirSync(join(dir, 'bin'));
   mkdirSync(join(dir, 'apps/cli/dist'), { recursive: true });
   // Bundle the actual launcher validator, while stubbing installs and services.
@@ -44,7 +45,7 @@ process.exit(process.env.FIXTURE_CURL_MODE === 'existing' || (process.env.FIXTUR
   put('node', `#!${process.execPath}
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
-if (process.argv[2]?.endsWith('validate-api-url.js')) {
+if (process.argv[2]?.endsWith('validate-api-url.js') || process.argv[2]?.endsWith('core-submodule.mjs')) {
   const result = spawnSync(${JSON.stringify(process.execPath)}, process.argv.slice(2), { stdio: 'inherit' });
   process.exit(result.status ?? 1);
 }

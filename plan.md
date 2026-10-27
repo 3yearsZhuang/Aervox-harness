@@ -18,6 +18,18 @@
 
 **本轮接续验证：** `fix/plan-safety-contract-continuation` 的新 `./aervox ci all` 退出 0，构建 32、类型 56 个任务及守卫、OpenAPI 兼容、HLS、删除故障、Native Search/Runtime 与 64 份文档门禁通过；API 947、仓储 742、Worker 161、Host Runtime 306、Core 501、Host Agent 121、客户端 218、Panels 157、工作台 11 项通过，1 项既有真实模型跳过保留、不计通过。相关 Chromium 3 项和依赖审计另验通过（0 未审阅、2 既有审阅路径、0 过时例外）。全量先捕获 OpenAPI 预算，再捕获工作台旧简化插件夹具造成的 8 项失败；分别通过组件复用和完整响应夹具修复，重新全量通过。随后仅补验证记录并复验文档，新提交远端结果由接续 PR 保存；负载演练的 NOT CLEAN、真实环境及全计划未闭合项仍按各条保留。
 
+<a id="core-repository-migration"></a>
+
+### ITER-035 接续 · 已实施，交付核验中：Core 独立仓库与必需子模块
+
+维护者已授权将 `packages/core` 迁至 `Aervox-agent` 组织下的公开 [Aervox-core](https://github.com/Aervox-agent/Aervox-core)，再以固定提交的 Git submodule 接回原路径。沿用 [ADR-021](docs/reference/adr/ADR-021-aervox-core-standalone-package.md#仓库分离与主仓集成) 和 ITER-035/037，不分配并行编号；主仓工作分支 `feat/core-submodule` 从已合并 `9e4f047a` 隔离接续，保留 Android 和其他并行工作。
+
+- **范围：** 保留 Core 路径过滤历史、真人提交者及 Apache-2.0；生产源码与公共 API 保持兼容，补齐独立配置和 CI；主仓继续通过 workspace 消费，业务 Schema 类型兼容证明留在宿主。主仓产品与文档许可保持原有边界。
+- **安装与门禁：** 首次安装和 CI 精确初始化必需 Core，缺失或版本失配明确失败；受跟踪源码继续参与安全与架构扫描。`reference/` 保持可选，仅完整门禁按需初始化 DSH 夹具。独立和主仓锁文件分别验证，不在子包重复安装主仓依赖。
+- **完成条件：** 独立仓库与主仓分别有冷检出、冻结安装、构建/类型/测试证据；主仓新的 `./aervox ci all`、公开远端可获取的 gitlink、精确提交 CI 和两仓 PR 分别核对。当前记录不宣称已合并、公开 npm 发行或产品发布；验证结果随实际提交补充。
+- **独立仓库：** [Core PR #1](https://github.com/Aervox-agent/Aervox-core/pull/1) 保留过滤历史合入，[PR #2](https://github.com/Aervox-agent/Aervox-core/pull/2) 补齐宿主缓存忽略；主仓固定公开 `main` 的 `208d28ce26de4651a258ef208d21479e22ab315f`。真正公开远端冷克隆的冻结安装、构建、类型检查和 62 文件 498 项测试全部通过，源码树与许可证和拆分前完全一致，工作区干净。独立锁文件审计无已知命中。
+- **主仓本地验证：** 新的 `./aervox ci all` 退出 0，构建 32、类型 56、测试 57 个任务通过；API 983、仓储 893、Worker 161、Host Runtime 306、Core 498 项通过，Host Agent 128 项通过、2 项条件跳过保留。116 项守卫、HLS、删除故障、Native Search/Runtime 和 64 份文档门禁通过；依赖审计 0 未审阅、2 既有审阅、0 过时例外。首次全量捕获旧启动/增量夹具未复制新增脚本，补齐后重新全量通过。独立复审发现并修正 Turbo 下游过滤方向及缺 Core 时直接命令的准入检查，真实任务图与残留旧产物反例通过；宿主兼容证明实际编译通过，人为类型漂移被编译器拒绝。主仓冷检出与精确提交远端验证继续随交付核对。
+
 ## 2. 立即整改：ITER-071
 
 <a id="iter-071"></a>
@@ -510,7 +522,7 @@ ITER-009 先形成可审阅结论，以下建议不替用户选定产品或批�
 | <a id="iter-030"></a>ITER-030 | DSH、pi、AstrBot 固定版本更新与差异复评；CAP-007/020/027/033。 | [原交付登记](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记) |
 | <a id="iter-031"></a>ITER-031 | 标准工作台连续对话与雾蓝视觉重构；CAP-001/002/018。 | [PR #233](https://github.com/3yearsZhuang/Aervox-harness/pull/233) |
 | <a id="iter-034"></a>ITER-034 | ControlContext、abortable 与 ApprovalPolicyPort 内核构件及 executor 接线；ITER-007/013。 | [PR #241](https://github.com/3yearsZhuang/Aervox-harness/pull/241) |
-| <a id="iter-035"></a>ITER-035 | 建立独立 @aervox/core、内存 HostToolRuntime、轻量出口与分层许可证；ADR-021。 | [PR #244](https://github.com/3yearsZhuang/Aervox-harness/pull/244) |
+| <a id="iter-035"></a>ITER-035 | 建立独立 @aervox/core、内存 HostToolRuntime、轻量出口与分层许可证；ADR-021。独立仓库与必需子模块迁移继续在[接续条目](#core-repository-migration)验收。 | [PR #244](https://github.com/3yearsZhuang/Aervox-harness/pull/244) |
 | <a id="iter-036"></a>ITER-036 | 伴学 Prompt、工具契约与宿主 guidance 迁出内核，收窄内核导出面；ADR-021。 | [PR #245](https://github.com/3yearsZhuang/Aervox-harness/pull/245) |
 | <a id="iter-037"></a>ITER-037 | 移除 agent-loop/cli-approval 过渡壳，下游直连 core，内核类型自持与边界守卫；ADR-021。 | [PR #248](https://github.com/3yearsZhuang/Aervox-harness/pull/248) |
 | <a id="iter-038"></a>ITER-038 | Provider stopReason 归一与输入/输出 usage 分账；ITER-033 拆分切片。 | [PR #247](https://github.com/3yearsZhuang/Aervox-harness/pull/247) |

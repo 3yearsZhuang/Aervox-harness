@@ -9,6 +9,7 @@ on:
     paths:
       - "apps/**"
       - "packages/**"
+      - "packages/core"
       - "native/**"
       - "plugins/**"
       - "surfaces/**"
@@ -37,6 +38,7 @@ on:
     paths:
       - "apps/**"
       - "packages/**"
+      - "packages/core"
       - "native/**"
       - "plugins/**"
       - "surfaces/**"
@@ -71,8 +73,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      - name: Initialize required Core and DSH test fixture
+        run: git submodule update --init -- packages/core reference/deepseek-harness
 
       - name: Install mise
         run: |
@@ -184,8 +187,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      - name: Initialize required Core
+        run: git submodule update --init -- packages/core
 
       - name: Install mise
         run: |
@@ -243,6 +247,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - name: Initialize required Core
+        run: git submodule update --init -- packages/core
       - name: Install mise
         run: |
           curl https://mise.run | sh
@@ -264,6 +270,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - name: Initialize required Core
+        run: git submodule update --init -- packages/core
       - name: Install mise
         run: |
           curl https://mise.run | sh

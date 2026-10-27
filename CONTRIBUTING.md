@@ -51,7 +51,7 @@
 - Fastify 路由与中间件使用 `async/await`；中间件重构只修改所需路由范围。OpenAPI 使用锁定的 `zod-to-openapi` v9 与 `OpenApiGeneratorV31`；定义 Zod Schema 前先调用 `extendZodWithOpenApi(z)`。
 - 模块导入、宿主纯净性、类型、依赖和实现可移除性由代码守卫检查。变更边界需同步其权威合同，不另写目录副本。
 
-Workspace 扫描以 `pnpm-workspace.yaml` 的包列表及各包真实名称为准。研究依赖在独立私有 `research/` workspace 声明，产品包不得引用；安装仍在根执行，完整锁文件统一审计。受跟踪文件卫生门禁拒绝生成目录、本地数据库/日志/备份、凭据文件、私钥块及超预算文件；大资源例外必须在 `scripts/check-tracked-files.mjs` 逐文件注明理由和上限。门禁不读取忽略的业务数据或子模块内容，也不替代完整的秘密扫描。
+Workspace 扫描以 `pnpm-workspace.yaml` 的包列表及各包真实名称为准。研究依赖在独立私有 `research/` workspace 声明，产品包不得引用；安装仍在根执行，完整锁文件统一审计。`packages/core` 是必需的产品子模块，源码、依赖与受跟踪文件参与主仓门禁；缺失或检出版本与主仓固定提交失配时检查失败。Core 独立开发所需的工具依赖只在该路径及 `@aervox/core` 包名匹配时允许包内声明，主仓仍统一安装与审计。受跟踪文件卫生门禁拒绝生成目录、本地数据库/日志/备份、凭据文件、私钥块及超预算文件；大资源例外必须在 `scripts/check-tracked-files.mjs` 逐文件注明理由和上限。门禁不读取忽略的业务数据或 `reference/` 子模块内容，也不替代完整的秘密扫描。
 
 <a id="documentation"></a>
 
@@ -84,7 +84,9 @@ Markdownlint 必须使用 mise 注入的固定版本，不用 `npx` 临时下载
 
 依赖审计在独立 CI job 执行，扫描包含开发依赖与桌面运行时的完整锁文件；新增命中、错误响应或过期豁免均失败。临时豁免只匹配 `scripts/dependency-audit-exceptions.json` 中的公告、版本和依赖路径，必须有原因、负责方与到期日；修复后删除过时豁免。
 
-外部参考子模块不属于默认构建前置条件；完整代码门禁中的 DSH 适配测试要求先运行 `git submodule update --init reference/deepseek-harness`。其他参考代码按需初始化。工具版本、测试选择及脚本入口以配置为准，不在本文手工维护用例数量和耗时。
+`packages/core` 固定到 [Aervox-agent/Aervox-core](https://github.com/Aervox-agent/Aervox-core) 的确定提交；首次安装由 `./aervox setup` 或 `mise tasks run install` 初始化，也可显式运行 `git submodule update --init -- packages/core`。外部参考子模块不属于默认构建前置条件；完整代码门禁中的 DSH 适配测试要求先运行 `git submodule update --init -- reference/deepseek-harness`。其他参考代码按需初始化。工具版本、测试选择及脚本入口以配置为准，不在本文手工维护用例数量和耗时。
+
+修改 Core 时在子仓的 `feat/`、`fix/` 或 `docs/` 分支提交 PR，先完成子仓构建、类型检查和测试，再在主仓 PR 更新 gitlink 并验证实际消费者；不要直接提交子仓 `main`。主仓使用根工具链与锁文件编排 workspace，Core 的独立锁文件与 CI 服务于独立检出；更新任一工具依赖时同时核对这两种安装。回退使用主仓先前固定的 Core 提交，不在主仓复制一份实现；相关边界见 [ADR-021](docs/reference/adr/ADR-021-aervox-core-standalone-package.md#仓库分离与主仓集成)。
 
 ## 参考项目与许可
 

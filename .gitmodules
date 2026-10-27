@@ -30,3 +30,6 @@
 	path = reference/archify
 	url = https://github.com/tt-a1i/archify
 	shallow = true
+[submodule "packages/core"]
+	path = packages/core
+	url = https://github.com/Aervox-agent/Aervox-core.git

@@ -67,6 +67,8 @@ cd Aervox-harness
 
 先准备可用的本地或远程模型服务；安装项目不会自动安装模型。配置步骤与安装细节见[完整入门指南](docs/getting-started.md)。
 
+安装会初始化必需的 `packages/core` 子模块，其源码独立维护于 [Aervox-agent/Aervox-core](https://github.com/Aervox-agent/Aervox-core)，主仓固定到确定提交。其他 `reference/` 仓库按需拉取。
+
 浏览器体验启动 API 与 Web。要同时运行桌宠和处理复习、日记的后台 Worker，停止当前开发服务后运行：
 
 ```bash

@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
+import { execFileSync } from 'node:child_process';
 import { workspacePatterns } from './workspaces.mjs';
 import {
   ROOT_DIR,
@@ -102,7 +103,7 @@ test("仅插件目录变更时命中声明它的包（而非选中 0 个任务�
   assert.deepEqual(changeScope.packages, ["@aervox/api"]);
   assert.deepEqual(
     buildTurboFilterArgs("origin/main", changeScope),
-    ["--filter=...[origin/main]", "--filter=@aervox/api..."],
+    ["--filter=...[origin/main]", "--filter=...@aervox/api..."],
   );
 });
 
@@ -115,7 +116,7 @@ test("桌面主进程桥接变更会重新验证 API 会话落库验收", () => 
     const changeScope = resolveChangeScope([file], scope);
     assert.equal(changeScope.mode, "scoped", file);
     assert.ok(changeScope.packages.includes("@aervox/api"), `${file} must invalidate API acceptance`);
-    assert.ok(buildTurboFilterArgs("origin/main", changeScope).includes("--filter=@aervox/api..."));
+    assert.ok(buildTurboFilterArgs("origin/main", changeScope).includes("--filter=...@aervox/api..."));
   }
 });
 
@@ -131,6 +132,65 @@ test("仅包内变更时交给差异过滤器，不额外扩容", () => {
   const changeScope = resolveChangeScope(["apps/api/src/app.ts", "docs/README.md"], syntheticScope());
   assert.equal(changeScope.mode, "diff-only");
   assert.deepEqual(buildTurboFilterArgs("origin/main", changeScope), ["--filter=...[origin/main]"]);
+});
+
+test('Core gitlink updates explicitly select the kernel and all consumers', () => {
+  const changeScope = resolveChangeScope(['packages/core'], syntheticScope());
+  assert.equal(changeScope.mode, 'scoped');
+  assert.deepEqual(changeScope.packages, ['@aervox/core']);
+  assert.deepEqual(buildTurboFilterArgs('origin/main', changeScope), ['--filter=...[origin/main]', '--filter=...@aervox/core...']);
+  assert.equal(resolveChangeScope(['.gitmodules'], syntheticScope()).mode, 'full');
+});
+
+test('real Turbo Core gitlink selection schedules consumer typechecks, without the Git diff filter', () => {
+  const changeScope = resolveChangeScope(['packages/core'], syntheticScope());
+  // An actual branch diff could select the whole workspace and conceal a reversed explicit filter.
+  const explicit = buildTurboFilterArgs('fixture-base', changeScope).filter(arg => !arg.includes('[fixture-base]'));
+  const plan = JSON.parse(execFileSync('pnpm', ['exec', 'turbo', 'run', 'typecheck', ...explicit, '--dry=json'], {
+    cwd: ROOT_DIR, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 8 * 1024 * 1024,
+  }));
+  const scheduled = new Set(plan.tasks.filter(task => task.task === 'typecheck').map(task => task.package));
+  for (const pkg of ['core', 'host-agent', 'host-runtime', 'api', 'web', 'desktop', 'worker']) {
+    assert.ok(scheduled.has(`@aervox/${pkg}`), `Core revision must verify @aervox/${pkg}`);
+  }
+});
+
+test('Core mount and submodule configuration trigger code, docs and native verification', () => {
+  for (const workflow of [CI_WORKFLOW, DOCS_WORKFLOW, path.join(ROOT_DIR, '.github/workflows/native-runtime.yml')]) {
+    const paths = readWorkflowPaths(workflow);
+    for (const trigger of [paths.pullRequest, paths.push]) {
+      assert.deepEqual(findUncoveredPaths(trigger, ['packages/core', '.gitmodules']), [], workflow);
+    }
+  }
+});
+
+test('every checkout initializes only required Core before dependency install or documentation scans', () => {
+  for (const file of ['ci.yml', 'docs.yml', 'native-runtime.yml', 'package.yml']) {
+    const source = fs.readFileSync(path.join(ROOT_DIR, '.github/workflows', file), 'utf8').split(/^jobs:\s*$/m)[1];
+    assert.ok(source, `${file} must declare jobs`);
+    const jobs = source.split(/(?=^  [\w-]+:\s*$)/m).slice(1);
+    assert.ok(jobs.length, file);
+    for (const job of jobs) {
+      if (!job.includes('actions/checkout@')) continue;
+      const initialization = job.indexOf('git submodule update --init -- packages/core');
+      const checkout = job.indexOf('actions/checkout@');
+      const dependent = job.search(/(?:pnpm install|mise tasks run ci-docs)/);
+      assert.ok(initialization > checkout, `${file}/${job.split('\n')[0]} must initialize Core after checkout`);
+      assert.ok(dependent > initialization, `${file}/${job.split('\n')[0]} must initialize Core before install/scans`);
+      const updates = [...job.matchAll(/git submodule update[^\n]+/g)].map(match => match[0].trim());
+      const isCodeGate = file === 'ci.yml' && /^  build:/.test(job);
+      assert.deepEqual(updates, [isCodeGate
+        ? 'git submodule update --init -- packages/core reference/deepseek-harness'
+        : 'git submodule update --init -- packages/core']);
+      assert.doesNotMatch(job, /submodules:\s*(?:true|recursive)/, 'reference repositories must remain optional');
+    }
+  }
+  const mise = fs.readFileSync(MISE_CONFIG, 'utf8');
+  for (const task of ['install', 'ci-code-full']) {
+    const line = mise.split('\n').find(entry => entry.startsWith(`${task} =`));
+    assert.ok(line?.indexOf('node scripts/core-submodule.mjs --init') < line?.indexOf('pnpm install'), task);
+    assert.ok(line?.includes('node scripts/core-submodule.mjs --init'), task);
+  }
 });
 
 test("纯项目文档跳过代码检查，工具配置、锁文件和产品 Markdown 仍验证", () => {
@@ -251,6 +311,7 @@ test("Memory deletion regression gates generate their evidence without the paper
   assert.equal(typeof command, "string");
   const steps = command.split(/\s+&&\s+/);
   assert.deepEqual(steps, [
+    "node scripts/core-submodule.mjs",
     "turbo run build --filter=@aervox/worker...",
     "node --test scripts/memory-deletion-research/runner.test.mjs scripts/memory-deletion-research/supplement.test.mjs scripts/memory-deletion-research/cost-test.mjs",
   ], "build dependencies before exercising the runner and production supplement");
@@ -282,7 +343,7 @@ test("Memory deletion regression gates generate their evidence without the paper
 test("Deletion fault testing runs live evidence and never reads the private paper archive", () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, "package.json"), "utf8"));
   const command = pkg.scripts["check:deletion-fault-testing"];
-  assert.equal(command, "turbo run build --filter=@aervox/worker... && node --test scripts/deletion-fault-testing/*.test.mjs");
+  assert.equal(command, "node scripts/core-submodule.mjs && turbo run build --filter=@aervox/worker... && node --test scripts/deletion-fault-testing/*.test.mjs");
   for (const gate of ["ci-code", "ci-code-full"]) {
     const entry = fs.readFileSync(MISE_CONFIG, "utf8").split(/\r?\n/).find(line => line.startsWith(`${gate} =`));
     assert.ok(entry?.includes("pnpm check:deletion-fault-testing"));
