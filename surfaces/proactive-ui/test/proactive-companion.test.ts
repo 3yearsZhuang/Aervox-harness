@@ -1,11 +1,13 @@
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils';
 import { UISurfaceHost } from '@aervox/ui-host';
-import { configureAervoxClient, type StreamTurnOptions, type TurnCallbacks } from '@aervox/api-client';
+import { AervoxHttpError, configureAervoxClient, setSessionId, type StreamTurnOptions, type TurnCallbacks } from '@aervox/api-client';
 import definition from '../src';
 import { material3ContextKey } from '@aervox/ui/material3';
 import { defineComponent } from 'vue';
 import MobileSettingsDialog from '../src/MobileSettingsDialog.vue';
+import MobileSessionsDialog from '../src/MobileSessionsDialog.vue';
+import MobileHistoryDialog from '../src/MobileHistoryDialog.vue';
 
 enableAutoUnmount(afterEach);
 
@@ -51,10 +53,11 @@ beforeEach(() => {
   });
 });
 
-async function mountSurface(platform: 'web' | 'desktop' | 'mobile' = 'web', material3 = false) {
+async function mountSurface(platform: 'web' | 'desktop' | 'mobile' = 'web', material3 = false, sessionId = material3 ? recentSession.id : undefined, back?: unknown) {
+  if (sessionId) setSessionId(sessionId);
   const wrapper = mount(UISurfaceHost, {
     props: { plugin: definition, surface: 'main', platform, viewProps: {surfaceNavigation: {currentId: definition.id, options: [], select: vi.fn(), openDefault: vi.fn()}} },
-    global: { provide: { [material3ContextKey as symbol]: material3 } },
+    global: { provide: { [material3ContextKey as symbol]: material3, ...(back ? { [Symbol.for('aervox.material3.mobileBack')]: back } : {}) } },
   });
   await vi.waitFor(() => expect(wrapper.find('.proactive-companion').exists()).toBe(true), { timeout: 5000 });
   await flushPromises();
@@ -526,9 +529,10 @@ it('uses the host-provided default-surface command without knowing its ID or URL
 it('opts into official Material controls only when the mobile composition root provides the design system', async () => {
   const mobile = await mountSurface('mobile', true);
   expect(mobile.get('.proactive-companion').attributes('data-design-system')).toBe('material3');
-  expect(mobile.findAll('md-icon-button.pc-quiet-btn')).toHaveLength(2);
+  expect(mobile.findAll('md-icon-button[aria-label="打开设置"]')).toHaveLength(1);
   expect(mobile.findAll('.pc-choice md-ripple')).toHaveLength(2);
-  expect(mobile.find('md-filled-tonal-button.pc-whisper-pill').exists()).toBe(true);
+  expect(mobile.find('.pc-whisper-input textarea').exists()).toBe(true);
+  expect(mobile.find('[aria-label="回到完整工作台"]').exists()).toBe(false);
   const desktop = await mountSurface('desktop');
   expect(desktop.get('.proactive-companion').attributes('data-design-system')).toBeUndefined();
   expect(desktop.findAll('button.pc-quiet-btn')).toHaveLength(2);
@@ -537,8 +541,8 @@ it('opts into official Material controls only when the mobile composition root p
 
 it('retains native input IME, its persistent label and real submission in the Material surface', async () => {
   const wrapper = await mountSurface('mobile', true);
-  await wrapper.get('md-filled-tonal-button.pc-whisper-pill').trigger('click');
-  const input = wrapper.get('.pc-whisper-input input');
+  const input = wrapper.get('.pc-whisper-input textarea');
+  await input.trigger('focus');
   expect(wrapper.get('label.pc-whisper-label').attributes('for')).toBe(input.attributes('id'));
   await input.setValue('学习事务回滚');
   await input.trigger('keydown', { key: 'Enter', isComposing: true });
@@ -547,7 +551,7 @@ it('retains native input IME, its persistent label and real submission in the Ma
   await flushPromises();
   expect(streamTurn).toHaveBeenCalledOnce();
   expect(streamTurn.mock.calls[0]![1]).toBe('学习事务回滚');
-  expect(wrapper.find('.pc-whisper-input').exists()).toBe(false);
+  expect(wrapper.find('.pc-whisper-input textarea').exists()).toBe(true);
 });
 
 it('keeps persistent cancellation before observer abort through a Material stop control', async () => {
@@ -587,4 +591,271 @@ it('selects the first available settings category when the host does not provide
     stubs: { AervoxDialog: { template: '<section><slot /></section>' } } } });
   expect(wrapper.get('[role="tabpanel"]').text()).toBe('语音设置');
   expect(wrapper.get('[role="tabpanel"]').attributes('aria-labelledby')).toBe('mobile-settings-tab-voice');
+});
+
+
+it('keeps mobile Enter as a newline action and saves/restores its session draft', async () => {
+  const wrapper = await mountSurface('mobile', true);
+  const input = wrapper.get('.pc-whisper-input textarea');
+  await input.setValue('第一行\n第二行');
+  await input.trigger('keydown', { key: 'Enter' });
+  expect(streamTurn).not.toHaveBeenCalled();
+  expect(localStorage.getItem('aervox-mobile-draft:ses_recent')).toBe('第一行\n第二行');
+  wrapper.unmount();
+  const reopened = await mountSurface('mobile', true);
+  expect((reopened.get('.pc-whisper-input textarea').element as HTMLTextAreaElement).value).toBe('第一行\n第二行');
+});
+
+it('keeps a newer mobile draft after an earlier accepted reply completes', async () => {
+  const pending = pendingStream();
+  const wrapper = await mountSurface('mobile', true);
+  const input = wrapper.get('.pc-whisper-input textarea');
+  await input.setValue('第一条消息');
+  await wrapper.get('.pc-whisper-input md-filled-button').trigger('click');
+  await flushPromises();
+  await pending.options.onAccepted!('turn_mobile_draft');
+  await flushPromises();
+  expect((input.element as HTMLTextAreaElement).value).toBe('');
+  await input.setValue('接着要发的新草稿');
+  pending.callbacks.onDelta('第一条的回复'); pending.complete();
+  await flushPromises();
+  expect((input.element as HTMLTextAreaElement).value).toBe('接着要发的新草稿');
+  expect(localStorage.getItem('aervox-mobile-draft:ses_recent')).toBe('接着要发的新草稿');
+});
+
+it('allows browsing mobile sessions and stored history without cancelling or losing a live owner', async () => {
+  const pending = pendingStream();
+  const wrapper = await mountSurface('mobile', true);
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click'); await flushPromises();
+  await pending.options.onAccepted!('turn_keep_owner');
+  await wrapper.get('[aria-label="会话列表"]').trigger('click');
+  const list = wrapper.getComponent(MobileSessionsDialog);
+  expect(list.props('modelValue')).toBe(true); expect(list.props('switchLocked')).toBe(true);
+  list.vm.$emit('select', 'ses_recent'); list.vm.$emit('new');
+  list.vm.$emit('history', { ...recentSession, id: 'read_only_other', title: '只读另一段' });
+  await flushPromises();
+  expect(wrapper.getComponent(MobileHistoryDialog).props('sessionId')).toBe('read_only_other');
+  expect(request.mock.calls.some(call => call[0] === 'POST' && (call[1].includes('/cancel') || call[1] === '/v1/sessions'))).toBe(false);
+  pending.callbacks.onDelta('仍在原会话接收');
+  await flushPromises(); expect(wrapper.get('.pc-dialogue-text').text()).toContain('仍在原会话接收');
+});
+
+it('restores drafts when explicitly switching mobile sessions and does not pretend a greeting is stored history', async () => {
+  const second = { ...recentSession, id: 'second', title: '另一段对话' };
+  request.mockImplementation(async (method, path) => method === 'GET' && path === '/v1/sessions' ? { items: [recentSession, second] } : requestImplementation(method, path));
+  const wrapper = await mountSurface('mobile', true);
+  await wrapper.get('.pc-whisper-input textarea').setValue('留在第一段的草稿');
+  localStorage.setItem('aervox-mobile-draft:second', '第二段原来的草稿');
+  wrapper.getComponent(MobileSessionsDialog).vm.$emit('select', 'second'); await flushPromises();
+  expect(wrapper.get('.pc-current-session').text()).toBe('另一段对话');
+  expect((wrapper.get('.pc-whisper-input textarea').element as HTMLTextAreaElement).value).toBe('第二段原来的草稿');
+  expect(localStorage.getItem('aervox-mobile-draft:ses_recent')).toBe('留在第一段的草稿');
+  expect(streamTurn).not.toHaveBeenCalled();
+});
+
+it('does not create a replacement mobile conversation when reading the saved list fails', async () => {
+  request.mockImplementation(async (method, path) => {
+    if (method === 'GET' && path === '/v1/sessions') throw new Error('offline');
+    return requestImplementation(method, path);
+  });
+  const wrapper = await mountSurface('mobile', true, 'web_default');
+  await wrapper.get('.pc-whisper-input textarea').setValue('不能丢掉的草稿');
+  await wrapper.get('.pc-whisper-input md-filled-button').trigger('click'); await flushPromises();
+  expect(wrapper.getComponent(MobileSessionsDialog).props('modelValue')).toBe(true);
+  expect(wrapper.get('.pc-mobile-session-feedback').text()).toContain('先读取会话列表');
+  expect(request.mock.calls.some(call => call[0] === 'POST' && call[1] === '/v1/sessions')).toBe(false);
+  expect(streamTurn).not.toHaveBeenCalled();
+  expect(localStorage.getItem('aervox-mobile-draft:web_default')).toBe('不能丢掉的草稿');
+});
+
+it('allows sending after explicit mobile session creation recovers from a failed list read', async () => {
+  request.mockImplementation(async (method, path) => {
+    if (method === 'GET' && path === '/v1/sessions') throw new Error('list unavailable');
+    return requestImplementation(method, path);
+  });
+  const wrapper = await mountSurface('mobile', true, 'web_default');
+  await wrapper.get('.pc-whisper-input textarea').setValue('明确新建后的消息');
+  await wrapper.get('.pc-whisper-input md-filled-button').trigger('click'); await flushPromises();
+  const panel = wrapper.getComponent(MobileSessionsDialog);
+  expect(panel.props('error')).toBe('list unavailable');
+  expect(request.mock.calls.some(call => call[0] === 'POST')).toBe(false);
+  expect(streamTurn).not.toHaveBeenCalled();
+
+  panel.vm.$emit('new'); await flushPromises();
+  expect(panel.props('error')).toBeNull();
+  expect(panel.props('notice')).toBe('');
+  expect(panel.props('modelValue')).toBe(false);
+  expect(wrapper.get('.pc-current-session').text()).toBe('新对话');
+  expect((wrapper.get('.pc-whisper-input textarea').element as HTMLTextAreaElement).value).toBe('明确新建后的消息');
+  await wrapper.get('.pc-whisper-input md-filled-button').trigger('click'); await flushPromises();
+  expect(streamTurn).toHaveBeenCalledOnce();
+  expect(streamTurn.mock.calls[0]!.slice(0, 2)).toEqual(['ses_new', '明确新建后的消息']);
+  expect(request.mock.calls.filter(call => call[0] === 'POST' && call[1] === '/v1/sessions')).toHaveLength(1);
+});
+
+it('requires the original reservation to be recovered before switching an uncertain mobile submission', async () => {
+  streamTurn.mockRejectedValueOnce(new TypeError('connection lost before receipt'));
+  const wrapper = await mountSurface('mobile', true);
+  await wrapper.get('.pc-whisper-input textarea').setValue('结果未确认');
+  await wrapper.get('.pc-whisper-input md-filled-button').trigger('click'); await flushPromises();
+  expect(wrapper.getComponent(MobileSessionsDialog).props('switchLocked')).toBe(true);
+  expect(wrapper.getComponent(MobileSessionsDialog).props('lockReason')).toContain('提交结果尚未确认');
+  wrapper.getComponent(MobileSessionsDialog).vm.$emit('new'); await flushPromises();
+  expect(request.mock.calls.some(call => call[0] === 'POST' && call[1] === '/v1/sessions')).toBe(false);
+  expect(localStorage.getItem('aervox-mobile-draft:ses_recent')).toBe('结果未确认');
+});
+
+
+it('can retry an uncertain original mobile request even after the editor is cleared', async () => {
+  streamTurn.mockRejectedValueOnce(new TypeError('receipt lost')).mockImplementationOnce(async (_id, _text, cb, options) => { await options!.onAccepted!('recovered'); cb.onDone(); });
+  const wrapper = await mountSurface('mobile', true);
+  await wrapper.get('.pc-whisper-input textarea').setValue('原始请求');
+  await wrapper.get('.pc-whisper-input md-filled-button').trigger('click'); await flushPromises();
+  const firstKey = streamTurn.mock.calls[0]![3]!.idempotencyKey;
+  await wrapper.get('.pc-whisper-input textarea').setValue('');
+  const retry = wrapper.get('.pc-retry'); expect(retry.attributes('disabled')).not.toBe('true');
+  await retry.trigger('click'); await flushPromises();
+  expect(streamTurn).toHaveBeenCalledTimes(2);
+  expect(streamTurn.mock.calls[1]![1]).toBe('原始请求');
+  expect(streamTurn.mock.calls[1]![3]!.idempotencyKey).toBe(firstKey);
+});
+
+it('allows an explicit mobile session choice after the server has refused an unaccepted request', async () => {
+  streamTurn.mockRejectedValueOnce(new AervoxHttpError(404, 'POST /turns'));
+  const wrapper = await mountSurface('mobile', true);
+  await wrapper.get('.pc-whisper-input textarea').setValue('会话刚被删除');
+  await wrapper.get('.pc-whisper-input md-filled-button').trigger('click'); await flushPromises();
+  expect(wrapper.getComponent(MobileSessionsDialog).props('switchLocked')).toBe(false);
+  wrapper.getComponent(MobileSessionsDialog).vm.$emit('new'); await flushPromises();
+  expect(request.mock.calls.some(call => call[0] === 'POST' && call[1] === '/v1/sessions')).toBe(true);
+  expect(localStorage.getItem('aervox-mobile-draft:ses_recent')).toBe('会话刚被删除');
+});
+
+it('keeps the placeholder draft read-only only while preparing a new mobile session', async () => {
+  let release!: (value: unknown) => void;
+  request.mockImplementation(async (method, path) => {
+    if (method === 'POST' && path === '/v1/sessions') return new Promise(resolve => { release = resolve; });
+    return requestImplementation(method, path);
+  });
+  const pending = pendingStream();
+  const wrapper = await mountSurface('mobile', true, 'web_default');
+  const input = wrapper.get('.pc-whisper-input textarea'); await input.setValue('创建前的草稿');
+  await wrapper.get('.pc-whisper-input md-filled-button').trigger('click'); await flushPromises();
+  expect(input.attributes('readonly')).toBeDefined();
+  release({ id: 'created_for_draft', title: '新对话', createdAt: '', updatedAt: '' }); await flushPromises();
+  expect(input.attributes('readonly')).toBeUndefined();
+  expect(localStorage.getItem('aervox-mobile-draft:created_for_draft')).toBe('创建前的草稿');
+  expect(localStorage.getItem('aervox-mobile-draft:web_default')).toBeNull();
+  await input.setValue('建好后继续输入');
+  await pending.options.onAccepted!('accepted_after_create'); await flushPromises();
+  expect((input.element as HTMLTextAreaElement).value).toBe('建好后继续输入');
+});
+
+
+it.each([false, true])('acknowledges an accepted mobile draft when a pre-receipt stop fails (new draft: %s)', async newer => {
+  let receipt!: () => void;
+  request.mockImplementation(async (method, path) => {
+    if (method === 'POST' && path.endsWith('/cancel')) throw new Error('cancel reply lost');
+    return requestImplementation(method, path);
+  });
+  streamTurn.mockImplementation((_id, _text, _cb, options) => new Promise<void>((resolve, reject) => {
+    receipt = () => { Promise.resolve(options!.onAccepted!('turn_cancel_receipt')).then(() => resolve(), reject); };
+  }));
+  observeTurn.mockImplementation(async (_id, cb) => { cb.onDelta('恢复同一轮'); cb.onDone(); });
+  const wrapper = await mountSurface('mobile', true);
+  const input = wrapper.get('.pc-whisper-input textarea'); await input.setValue('已经接单的原文');
+  await wrapper.get('.pc-whisper-input md-filled-button').trigger('click'); await flushPromises();
+  await wrapper.get('.pc-stop').trigger('click');
+  if (newer) await input.setValue('仍待发送的新草稿');
+  receipt(); await flushPromises();
+  expect((input.element as HTMLTextAreaElement).value).toBe(newer ? '仍待发送的新草稿' : '');
+  await wrapper.get('.pc-resume').trigger('click'); await flushPromises();
+  expect(observeTurn).toHaveBeenCalledWith('turn_cancel_receipt', expect.anything(), expect.anything());
+  expect((input.element as HTMLTextAreaElement).value).toBe(newer ? '仍待发送的新草稿' : '');
+});
+
+it('finishes a newly accepted retry after a definite refusal without erasing a newer draft', async () => {
+  streamTurn.mockRejectedValueOnce(new AervoxHttpError(400, 'POST /turns'))
+    .mockImplementationOnce(async (_id, _text, cb, options) => { await options!.onAccepted!('turn_retry_accepted'); cb.onDone(); });
+  const wrapper = await mountSurface('mobile', true);
+  await wrapper.get('.pc-whisper-input textarea').setValue('要重试的原始请求');
+  await wrapper.get('.pc-whisper-input md-filled-button').trigger('click'); await flushPromises();
+  await wrapper.get('.pc-retry').trigger('click'); await flushPromises();
+  expect((wrapper.get('.pc-whisper-input textarea').element as HTMLTextAreaElement).value).toBe('');
+  expect(localStorage.getItem('aervox-mobile-draft:ses_recent')).toBeNull();
+});
+
+it('resumes the identified turn after a saved answer when the first question stream has ended', async () => {
+  const submitAnswers = vi.fn().mockResolvedValue(undefined);
+  configureAervoxClient({ sessionId: recentSession.id, transport: { request: request as never, streamTurn: streamTurn as never,
+    observeTurn: observeTurn as never, submitQuestionAnswers: submitAnswers, decideToolApproval: vi.fn() } });
+  streamTurn.mockImplementation(async (_id, _text, cb, options) => {
+    await options!.onAccepted!('turn_mobile_questions');
+    cb.onUserQuestion!({ turnId: 'turn_mobile_questions', step: 1, questions: [{ id: 'q1', question: '第一题' }] }); cb.onDone();
+  });
+  observeTurn.mockImplementation((_id, cb, options) => new Promise<void>(resolve => {
+    cb.onUserQuestion!({ turnId: 'turn_mobile_questions', step: 2, questions: [{ id: 'q2', question: '第二题' }] });
+    options!.signal!.addEventListener('abort', () => resolve(), { once: true });
+  }));
+  const wrapper = await mountSurface('mobile', true);
+  await wrapper.findAll('.pc-choice')[1]!.trigger('click'); await flushPromises();
+  const question = wrapper.getComponent({ name: 'UserQuestionComposer' });
+  question.vm.$emit('submit', [{ id: 'q1', selected: [], custom: '第一答' }]); await flushPromises();
+  expect(observeTurn).toHaveBeenCalledTimes(1);
+  expect(observeTurn.mock.calls[0]![0]).toBe('turn_mobile_questions');
+  expect(wrapper.getComponent({ name: 'UserQuestionComposer' }).props('submitting')).toBe(false);
+  expect(wrapper.find('.pc-stop').exists()).toBe(true);
+  wrapper.getComponent({ name: 'UserQuestionComposer' }).vm.$emit('submit', [{ id: 'q2', selected: [], custom: '第二答' }]); await flushPromises();
+  expect(submitAnswers).toHaveBeenCalledTimes(2); expect(observeTurn).toHaveBeenCalledTimes(1);
+});
+
+it('does not push a hidden input layer above an open mobile modal when a draft is restored', async () => {
+  const layers: { onBack(): void }[] = [];
+  const back = { registerLayer: (options: { onBack(): void }) => {
+    layers.push(options); const remove = () => { const i = layers.indexOf(options); if (i >= 0) layers.splice(i, 1); };
+    return { close: remove, dispose: remove };
+  } };
+  let fail!: (error: Error) => void;
+  streamTurn.mockImplementation(() => new Promise((_resolve, reject) => { fail = reject; }));
+  const wrapper = await mountSurface('mobile', true, recentSession.id, back);
+  await wrapper.get('.pc-whisper-input textarea').setValue('等待回执时保留');
+  await wrapper.get('.pc-whisper-input textarea').trigger('focus');
+  await wrapper.get('.pc-whisper-input md-filled-button').trigger('click'); await flushPromises();
+  await wrapper.get('.pc-whisper-close').trigger('click'); await flushPromises();
+  await wrapper.get('[aria-label="会话列表"]').trigger('click'); await flushPromises();
+  expect(layers).toHaveLength(1);
+  fail(new TypeError('offline')); await flushPromises();
+  expect(layers).toHaveLength(1);
+  layers[0]!.onBack(); await flushPromises();
+  expect(wrapper.getComponent(MobileSessionsDialog).props('modelValue')).toBe(false);
+  expect((wrapper.get('.pc-whisper-input textarea').element as HTMLTextAreaElement).value).toBe('等待回执时保留');
+});
+
+
+it('shows creation failure inside the mobile list and keeps the old conversation usable', async () => {
+  request.mockImplementation(async (method, path) => {
+    if (method === 'POST' && path === '/v1/sessions') throw new Error('create failed');
+    return requestImplementation(method, path);
+  });
+  const wrapper = await mountSurface('mobile', true);
+  await wrapper.get('.pc-whisper-input textarea').setValue('旧会话的草稿');
+  await wrapper.get('[aria-label="会话列表"]').trigger('click');
+  const panel = wrapper.getComponent(MobileSessionsDialog);
+  panel.vm.$emit('new'); await flushPromises();
+  expect(panel.props('modelValue')).toBe(true);
+  expect(panel.props('notice')).toContain('新对话没有创建成功');
+  expect(panel.props('error')).toBeNull();
+  expect(wrapper.get('.pc-current-session').text()).toBe('死锁复习');
+  panel.vm.$emit('update:modelValue', false); await flushPromises();
+  expect(wrapper.get('.pc-whisper-input md-filled-button').attributes('disabled')).not.toBe('true');
+  expect((wrapper.get('.pc-whisper-input textarea').element as HTMLTextAreaElement).value).toBe('旧会话的草稿');
+});
+
+it('does not label a missing stored mobile identity as a newly created conversation', async () => {
+  const wrapper = await mountSurface('mobile', true, 'deleted_stored_session');
+  expect(wrapper.get('.pc-current-session').text()).toBe('当前会话不可用');
+  await wrapper.get('.pc-whisper-input textarea').setValue('先不要新建');
+  await wrapper.get('.pc-whisper-input md-filled-button').trigger('click'); await flushPromises();
+  expect(wrapper.getComponent(MobileSessionsDialog).props('notice')).toContain('当前会话已不可用');
+  expect(request.mock.calls.some(call => call[0] === 'POST' && call[1] === '/v1/sessions')).toBe(false);
 });

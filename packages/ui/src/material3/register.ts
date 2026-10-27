@@ -12,6 +12,7 @@ import '@material/web/progress/linear-progress.js';
 import type { App } from 'vue';
 import { material3ContextKey } from './context';
 import { material3Palette } from './palette';
+import { createMobileBackNavigation, mobileBackNavigationKey } from './mobile-back-navigation';
 import './theme.css';
 
 /** Loads only for the configured Android/mobile build, before Vue mounts. */
@@ -25,6 +26,8 @@ export function installMaterial3(app: App, root: HTMLElement = document.document
   };
   root.dataset.designSystem = 'material3';
   app.provide(material3ContextKey, true);
+  const backNavigation = createMobileBackNavigation();
+  app.provide(mobileBackNavigationKey, backNavigation);
   update();
   const observer = new MutationObserver(update);
   observer.observe(root, { attributes: true, attributeFilter: ['data-theme'] });
@@ -35,7 +38,7 @@ export function installMaterial3(app: App, root: HTMLElement = document.document
     update();
   };
   system.addEventListener('change', systemChanged);
-  const dispose = () => { observer.disconnect(); system.removeEventListener('change', systemChanged); };
+  const dispose = () => { backNavigation.dispose(); observer.disconnect(); system.removeEventListener('change', systemChanged); };
   app.onUnmount(dispose);
   return dispose;
 }

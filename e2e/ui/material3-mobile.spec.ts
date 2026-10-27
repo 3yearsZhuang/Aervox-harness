@@ -8,21 +8,47 @@ test.setTimeout(60_000);
     await page.goto(servers.webUrl, { timeout: 90_000 });
     await expect(page.locator('html')).toHaveAttribute('data-design-system', 'material3');
     await expect(page.locator('.proactive-companion')).toHaveAttribute('data-design-system', 'material3');
-    await expect.poll(() => page.locator('.pc-whisper-pill').evaluate(el => el.matches(':defined') && Boolean(el.shadowRoot?.querySelector('button')))).toBe(true);
-    await expect(page.locator('.pc-quiet-btn').first()).toHaveCSS('height', '48px');
+    await expect.poll(() => page.locator('.pc-whisper-input md-filled-button').evaluate(el => el.matches(':defined') && Boolean(el.shadowRoot?.querySelector('button')))).toBe(true);
+    await expect(page.locator('.pc-mobile-actions md-icon-button').first()).toHaveCSS('height', '48px');
     const lightSurface = await page.locator('html').evaluate(el => getComputedStyle(el).getPropertyValue('--md-sys-color-surface').trim());
     await expect(page.locator('.pc-dialogue-text')).toContainText('专注一会儿');
+    const character = (await page.locator('.pc-pet-wrap').boundingBox())!;
+    const dialogue = (await page.locator('.pc-dialogue').boundingBox())!;
+    expect(character.height).toBeGreaterThanOrEqual(500);
+    expect(dialogue.y).toBeLessThan(character.y + character.height);
+    expect(dialogue.y).toBeGreaterThan(character.y + character.height * .55);
+    expect(await page.locator('.pc-dialogue').evaluate(el => {
+      const box = el.getBoundingClientRect();
+      return el.contains(document.elementFromPoint(box.x + box.width / 2, box.y + 40));
+    })).toBe(true);
     await page.screenshot({ path: '/tmp/aervox-material3-light.png', fullPage: true });
-    await page.locator('.pc-whisper-pill').click();
-    const input = page.locator('.pc-whisper-input input');
+    await page.locator('.pc-whisper-input textarea').click();
+    const input = page.locator('.pc-whisper-input textarea');
     await expect(input).toBeFocused();
     await input.fill('中文输入草稿');
     await input.dispatchEvent('keydown', { key: 'Enter', isComposing: true, keyCode: 229 });
     await expect(input).toHaveValue('中文输入草稿');
     await page.setViewportSize({ width: 320, height: 360 });
+    await expect(page.locator('.pc-stage')).toBeHidden();
+    await expect(page.locator('.pc-dialogue')).toHaveCSS('margin-block-start', '0px');
+    expect((await page.locator('.pc-dialogue').boundingBox())!.y).toBeGreaterThanOrEqual((await page.locator('.pc-content').boundingBox())!.y);
     await expect.poll(async () => { const bounds = await page.locator('.pc-whisper-input').boundingBox(); return bounds!.y + bounds!.height; }).toBeLessThanOrEqual(361);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
     await page.screenshot({ path: '/tmp/aervox-material3-short.png', fullPage: true });
+    // A software keyboard may shrink visualViewport without changing CSS height.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => {
+      Object.defineProperty(window.visualViewport!, 'height', { configurable: true, value: 400 });
+      window.visualViewport!.dispatchEvent(new Event('resize'));
+    });
+    await expect(page.locator('.proactive-companion')).toHaveClass(/pc-viewport--short/);
+    await expect(page.locator('.pc-stage')).toBeHidden();
+    await expect(page.locator('.pc-dialogue')).toHaveCSS('margin-block-start', '0px');
+    expect((await page.locator('.pc-dialogue').boundingBox())!.y).toBeGreaterThanOrEqual((await page.locator('.pc-content').boundingBox())!.y);
+    await page.evaluate(() => {
+      Reflect.deleteProperty(window.visualViewport!, 'height');
+      window.visualViewport!.dispatchEvent(new Event('resize'));
+    });
     await page.keyboard.press('Escape');
     await page.setViewportSize({ width: 390, height: 844 });
     const settings = page.getByRole('button', { name: '打开设置', exact: true });
@@ -112,18 +138,22 @@ test('renders readable dark questions and sends the chosen answer', async ({ pag
   await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(() => localStorage.setItem('aervox-theme', 'dark'));
   const cors = { 'Access-Control-Allow-Origin': '*' };
+  let answered = false;
   await page.route('**/v1/sessions/*/turns', route => route.fulfill({ contentType: 'application/json', headers: cors, body: JSON.stringify({ turnId: 'turn_material_question' }) }));
   await page.route('**/v1/turns/turn_material_question/events', route => route.fulfill({ contentType: 'text/event-stream', headers: cors,
-    body: [
+    body: (answered ? [
+      { turnId: 'turn_material_question', sequence: 3, eventType: 'delta', data: { text: '收到回答，继续学习。' } },
+      { turnId: 'turn_material_question', sequence: 4, eventType: 'done', data: {} },
+    ] : [
       { turnId: 'turn_material_question', sequence: 1, eventType: 'user_question_required', data: { turnId: 'turn_material_question', step: 1, questions: [{ id: 'topic', header: '学习主题', question: '接下来学习什么？', detail: '选择一个主题，也可以补充说明。', options: [{ label: '变量与类型', description: '从简单例子开始' }, { label: '函数', description: '学习组合与复用' }] }] } },
       { turnId: 'turn_material_question', sequence: 2, eventType: 'done', data: {} },
-    ].map(event => `data: ${JSON.stringify(event)}\n\n`).join(''),
+    ]).map(event => `data: ${JSON.stringify(event)}\n\n`).join(''),
   }));
   let saved: unknown;
-  await page.route('**/v1/turns/turn_material_question/questions/answers', async route => { saved = route.request().postDataJSON(); await route.fulfill({ status: 204, headers: cors }); });
+  await page.route('**/v1/turns/turn_material_question/questions/answers', async route => { saved = route.request().postDataJSON(); answered = true; await route.fulfill({ status: 204, headers: cors }); });
   await page.goto(servers.webUrl);
-  await page.locator('.pc-whisper-pill').click();
-  await page.locator('.pc-whisper-input input').fill('帮我选择一个主题');
+  await page.locator('.pc-whisper-input textarea').click();
+  await page.locator('.pc-whisper-input textarea').fill('帮我选择一个主题');
   await page.getByRole('button', { name: '发送', exact: true }).click();
   const option = page.getByRole('button', { name: '变量与类型 从简单例子开始' });
   await expect(option).toBeVisible();
@@ -140,6 +170,9 @@ test('renders readable dark questions and sends the chosen answer', async ({ pag
   await page.screenshot({ path: '/tmp/aervox-material3-question-dark.png', fullPage: true, animations: 'disabled' });
   await page.getByRole('button', { name: '确认并继续' }).click();
   await expect.poll(() => saved).toMatchObject({ answers: [{ id: 'topic', selected: ['变量与类型'] }] });
+  await expect(page.locator('.pc-dialogue-text')).toContainText('收到回答，继续学习。');
+  await expect(page.locator('.pc-interaction')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '发送', exact: true })).toBeDisabled();
 });
 
 

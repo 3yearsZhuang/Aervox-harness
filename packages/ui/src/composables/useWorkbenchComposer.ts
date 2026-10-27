@@ -1,4 +1,5 @@
-import { getCurrentScope, nextTick, onScopeDispose, ref, watch, type Ref } from 'vue';
+import { getCurrentScope, nextTick, onScopeDispose, ref, type Ref } from 'vue';
+import { useSessionDraft } from './session-draft';
 import { useAervoxVoiceInput, uploadAervoxAttachment, getClientTransport } from '@aervox/api-client';
 import {
   allowedMediaTypesSchema,
@@ -39,8 +40,6 @@ const EXTENSION_MEDIA_TYPES: Record<string, string> = {
 
 const ALLOWED_MEDIA_TYPES = allowedMediaTypesSchema.options as readonly string[];
 export const attachmentAccept = [...ALLOWED_MEDIA_TYPES, ...Object.keys(EXTENSION_MEDIA_TYPES).map((ext) => `.${ext}`)].join(',');
-
-const MOBILE_DRAFT_STORAGE_PREFIX = 'aervox-mobile-draft:';
 
 export function resolveMediaType(file: File): string | null {
   const type = file.type || EXTENSION_MEDIA_TYPES[file.name.split('.').pop()?.toLowerCase() ?? ''] || '';
@@ -98,83 +97,12 @@ export function useWorkbenchComposer(options: {
   }
   // The voice composable owns disposal of recordings and transcriptions.
   if (getCurrentScope()) onScopeDispose(cancelVoiceStart);
-  const draftSessionId = options.draftSessionId ?? ref('');
-  const draftsEnabled = options.draftsEnabled ?? ref(false);
-  let restoringDraft = false;
-  let pendingSubmittedDraft: { sessionId: string; text: string; hasNewerDraft: boolean } | null = null;
-
-  function draftStorageKey(sessionId: string): string {
-    return `${MOBILE_DRAFT_STORAGE_PREFIX}${encodeURIComponent(sessionId)}`;
-  }
-
-  function saveDraft(text = input.value, sessionId = draftSessionId.value): void {
-    if (!draftsEnabled.value || !sessionId || typeof localStorage === 'undefined') return;
-    try {
-      const value = text.trim();
-      if (value) localStorage.setItem(draftStorageKey(sessionId), text);
-      else if (!pendingSubmittedDraft || pendingSubmittedDraft.sessionId !== sessionId || pendingSubmittedDraft.hasNewerDraft) {
-        localStorage.removeItem(draftStorageKey(sessionId));
-      }
-    } catch {
-      // Ignore storage quota or private-mode failures; sending must remain usable.
-    }
-  }
-
-  function restoreDraft(sessionId = draftSessionId.value): void {
-    if (!draftsEnabled.value || !sessionId || typeof localStorage === 'undefined') return;
-    restoringDraft = true;
-    try {
-      input.value = localStorage.getItem(draftStorageKey(sessionId)) ?? '';
-      if (input.value.trim()) composerOpen.value = true;
-    } catch {
-      input.value = '';
-    } finally {
-      queueMicrotask(() => {
-        restoringDraft = false;
-      });
-    }
-  }
-
-  function beginDraftSubmission(text: string, sessionId = draftSessionId.value): void {
-    if (!draftsEnabled.value || !sessionId || !text.trim()) return;
-    pendingSubmittedDraft = { sessionId, text, hasNewerDraft: false };
-    saveDraft(text, sessionId);
-  }
-
-  function completeDraftSubmission(sessionId = draftSessionId.value): void {
-    if (typeof localStorage !== 'undefined' && sessionId) {
-      try {
-        // A newer draft may already be stored for a conversation the user left.
-        if (pendingSubmittedDraft?.sessionId !== sessionId || !pendingSubmittedDraft.hasNewerDraft) {
-          localStorage.removeItem(draftStorageKey(sessionId));
-        }
-      } catch {
-        // Ignore storage failures after a successful send.
-      }
-    }
-    if (pendingSubmittedDraft?.sessionId === sessionId) pendingSubmittedDraft = null;
-    // A reply may finish after the user has already started their next draft.
-    if (sessionId === draftSessionId.value) saveDraft();
-  }
-
-  function restoreFailedDraft(): void {
-    if (!pendingSubmittedDraft || pendingSubmittedDraft.sessionId !== draftSessionId.value) return;
-    if (!input.value.trim()) input.value = pendingSubmittedDraft.text;
-    composerOpen.value = true;
-  }
-
-  watch([draftSessionId, draftsEnabled], ([sessionId, enabled]) => {
-    if (enabled && sessionId) restoreDraft(sessionId);
-  }, { immediate: true });
-
-  watch(input, (value) => {
-    if (!restoringDraft) {
-      if (value.trim() && pendingSubmittedDraft?.sessionId === draftSessionId.value) {
-        pendingSubmittedDraft.hasNewerDraft = true;
-      }
-      saveDraft(value);
-    }
-  }, { flush: 'post' });
+  const { saveDraft, beginDraftSubmission, completeDraftSubmission, restoreFailedDraft } = useSessionDraft({
+    input,
+    sessionId: options.draftSessionId ?? ref(''),
+    enabled: options.draftsEnabled ?? ref(false),
+    onRestore: () => { composerOpen.value = true; },
+  });
 
   function expandComposer() {
     composerOpen.value = true;

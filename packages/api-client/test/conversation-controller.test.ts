@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createConversationController } from '../src/conversation-controller';
-import { createFetchTransport } from '../src/transport';
+import { AervoxHttpError, createFetchTransport } from '../src/transport';
 import type { AervoxTransport, TurnCallbacks, StreamTurnOptions } from '../src/transport';
 
 const callbacks = (): TurnCallbacks => ({onDelta: vi.fn(), onDone: vi.fn()});
@@ -488,4 +488,36 @@ describe('structured terminal state through Fetch and the stream projector', () 
     await controller.submit('next-session', 'two', callbacks());
     expect(controller.state.status).toBe('completed');
   });
+});
+
+
+it.each([400, 401, 403, 404, 409, 413, 422])('does not retain an uncertain reservation after an explicit unaccepted HTTP %i refusal', async status => {
+  const f = fixture(); f.streamTurn.mockRejectedValueOnce(new AervoxHttpError(status, 'POST /v1/sessions/s/turns'));
+  await expect(f.controller.submit('s', 'invalid', callbacks())).rejects.toBeInstanceOf(AervoxHttpError);
+  expect(f.controller.state).toMatchObject({ status: 'failed', turnId: undefined, retryAvailable: false });
+  await expect(f.controller.retry(callbacks())).rejects.toThrow('submission_not_retryable');
+  f.controller.reset(); f.streamTurn.mockResolvedValueOnce(undefined);
+  await f.controller.submit('other', 'new explicit intent', callbacks());
+  expect(f.streamTurn).toHaveBeenCalledTimes(2);
+});
+
+it.each([408, 425, 429, 500, 503])('retains the same reservation when unaccepted HTTP %i does not prove rejection', async status => {
+  const f = fixture(); f.streamTurn.mockRejectedValueOnce(new AervoxHttpError(status, 'POST /v1/sessions/s/turns')).mockResolvedValueOnce(undefined);
+  await expect(f.controller.submit('s', 'uncertain', callbacks())).rejects.toBeInstanceOf(AervoxHttpError);
+  const original = f.streamTurn.mock.calls[0]![3]!.idempotencyKey;
+  expect(f.controller.state.retryAvailable).toBe(true);
+  await f.controller.retry(callbacks());
+  expect(f.streamTurn.mock.calls[1]![3]!.idempotencyKey).toBe(original);
+});
+
+
+it('recovers an already identified turn after an observation HTTP refusal without resubmitting', async () => {
+  const f = fixture(); f.streamTurn.mockImplementationOnce(async (_id, _content, _callbacks, options) => {
+    await options!.onAccepted!('already_accepted'); throw new AervoxHttpError(404, 'SSE');
+  });
+  f.observeTurn.mockImplementationOnce(async (_id, cb) => { cb.onDone(); });
+  await expect(f.controller.submit('s', 'accepted', callbacks())).rejects.toBeInstanceOf(AervoxHttpError);
+  expect(f.controller.state).toMatchObject({ status: 'observer-error', turnId: 'already_accepted', retryAvailable: true });
+  await f.controller.retry(callbacks());
+  expect(f.observeTurn.mock.calls[0]![0]).toBe('already_accepted'); expect(f.streamTurn).toHaveBeenCalledTimes(1);
 });

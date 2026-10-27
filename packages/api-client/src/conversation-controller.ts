@@ -1,4 +1,5 @@
 import type { AskUserQuestionAnswerItem, ToolApprovalRequiredEventData, UserQuestionRequiredEventData } from '@aervox/contracts';
+import { AervoxHttpError } from './http-error.js';
 import type { AervoxTransport, ObserveTurnOptions, StreamTurnOptions, TurnCallbacks } from './transport.js';
 
 export type ConversationStatus = 'idle' | 'submitting' | 'observing' | 'awaiting-input' | 'awaiting-approval' | 'completed' | 'stopped' | 'failed' | 'observer-error';
@@ -187,6 +188,12 @@ export function createConversationController(transport: AervoxTransport, lifetim
       if (doneRequested) finishDone();
     } catch (error) {
       if (current()) {
+        // These API refusal responses reject this submission before acceptance.
+        // Timeout/rate-limit/server/network failures remain uncertain and retain
+        // their original reservation; an identified turn is always observed.
+        const rejected = !state.turnId && error instanceof AervoxHttpError
+          && [400, 401, 403, 404, 405, 409, 410, 413, 415, 422].includes(error.status);
+        if (rejected) retryable = undefined;
         update({status: !terminalError && state.turnId ? 'observer-error' : 'failed', error, retryAvailable: !terminalError && (state.turnId ? !!transport.observeTurn : !!retryable)});
         // An accepted submission is observed again, never resubmitted as a new Turn.
         if (terminalError || state.turnId) retryable = undefined;

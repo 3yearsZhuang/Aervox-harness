@@ -8,15 +8,17 @@
  * - 输入框淡化为一枚药丸，展开时建议卡让位（mode-whisper），发送后收回；
  * - 对话盒为思隅唯一声音出口：问候、流式回复、动作确认都经打字机呈现。
  */
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, type Component } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue';
 import { useUISurfaceContext } from '@aervox/ui-host';
-import { useMaterial3 } from '@aervox/ui/material3';
-import { AervoxBrandMark, PetWithFallback, UserQuestionComposer, readCompanionIdentity } from '@aervox/ui/companion';
+import { useMaterial3, useMobileBackNavigation } from '@aervox/ui/material3';
+import { AervoxBrandMark, PetWithFallback, UserQuestionComposer, readCompanionIdentity, useSessionDraft } from '@aervox/ui/companion';
 import { createConversationController, getClientTransport, useAervoxSessions } from '@aervox/api-client';
-import { ArrowUpRight, MessageSquare, RotateCcw, Settings, Square, X } from 'lucide-vue-next';
+import { ArrowUpRight, History, MessagesSquare, MessageSquare, RotateCcw, Settings, Square, X } from 'lucide-vue-next';
 import type { AskUserQuestionAnswerItem } from '@aervox/contracts';
 import { useDialogueTyper } from './dialogue-typer';
 import MobileSettingsDialog from './MobileSettingsDialog.vue';
+import MobileSessionsDialog from './MobileSessionsDialog.vue';
+import MobileHistoryDialog from './MobileHistoryDialog.vue';
 import '@aervox/ui/theme/companion';
 import type { SurfaceNavigation } from '@aervox/ui/companion';
 
@@ -28,10 +30,23 @@ const settingsOpen = ref(false);
 
 const surface = useUISurfaceContext();
 const material3 = useMaterial3();
+const mobileBack = useMobileBackNavigation();
+const mobileScreen = ref<HTMLElement>();
 // The Android composition root registers the official Material Web elements.
 // Other hosts keep their existing native controls and visual language.
 const buttonTag = (materialTag: string) => material3 ? materialTag : 'button';
 const sessions = useAervoxSessions();
+const sessionsOpen = ref(false);
+const historyOpen = ref(false);
+const historySessionId = ref('');
+const historyTitle = ref('');
+const sessionsReady = ref(false);
+const sessionChanging = ref(false);
+const preparingSession = ref(false);
+const sessionFeedback = ref('');
+const sessionCreationError = ref('');
+const sessionListError = ref<string | null>(null);
+const mobileSessionTitle = computed(() => sessions.activeSession.value?.title ?? (!sessionsReady.value ? '正在读取会话…' : sessionListError.value ? '会话读取失败' : sessions.activeSessionId.value && sessions.activeSessionId.value !== 'web_default' ? '当前会话不可用' : '新对话'));
 
 /* ---------- 对话盒 ---------- */
 const identity = readCompanionIdentity();
@@ -76,8 +91,16 @@ const unsubscribeConversation = turnController.subscribe(state => { conversation
 const interactionBusy = ref(false);
 let stopPreparing = false;
 let hasTurnReply = false;
+const sessionSwitchLocked = computed(() => sending.value || stopping.value || interactionBusy.value || sessionChanging.value
+  || ['submitting', 'observing', 'awaiting-input', 'awaiting-approval', 'observer-error'].includes(conversationState.value.status)
+  || conversationState.value.retryAvailable === true);
+const switchLockReason = computed(() => conversationState.value.retryAvailable && !conversationState.value.turnId
+  ? '上一条消息的提交结果尚未确认，请先重试。回看记录不会再次发送消息。'
+  : conversationState.value.question ? '请先回答当前问题，或明确停止当前回复，再切换会话。'
+  : conversationState.value.approval ? '请先处理当前工具授权，或明确停止当前回复，再切换会话。'
+  : '回复尚未结束。可以回看记录，结束当前回复后再切换或新建。');
 const observationFailed = () => turnController.state.status === 'observer-error';
-const canStop = computed(() => sending.value || ['awaiting-input', 'awaiting-approval', 'observer-error'].includes(conversationState.value.status));
+const canStop = computed(() => sending.value || ['observing', 'awaiting-input', 'awaiting-approval', 'observer-error'].includes(conversationState.value.status));
 
 async function stopTurn() {
   if (!canStop.value || stopping.value) return;
@@ -118,8 +141,15 @@ function dialogueCallbacks(previousContext: string, preserveReply = false) {
   };
 }
 
-async function sendTurn(content: string, source: 'suggestion' | 'whisper' = 'suggestion') {
-  if (sending.value || surface.signal.aborted) return false;
+async function sendTurn(content: string, source: 'suggestion' | 'whisper' = 'suggestion', draftText?: string) {
+  if (sending.value || surface.signal.aborted || material3 && sessionSwitchLocked.value) return false;
+  if (material3 && (!sessionsReady.value || sessionListError.value)) {
+    sessionFeedback.value = '请先读取会话列表，再发送消息。你的草稿会保留。'; sessionsOpen.value = true; return false;
+  }
+  if (material3 && sessions.activeSessionId.value && sessions.activeSessionId.value !== 'web_default'
+    && !sessions.sessions.value.some(session => session.id === sessions.activeSessionId.value)) {
+    sessionFeedback.value = '当前会话已不可用，请选择其他会话或新建。草稿仍保留在原会话。'; sessionsOpen.value = true; return false;
+  }
   sending.value = true; waitingForReply.value = true; stopPreparing = false;
   turnFeedback.value = undefined; failedTurn.value = undefined; finish();
   const previousContext = dialogueCtx.value;
@@ -127,21 +157,35 @@ async function sendTurn(content: string, source: 'suggestion' | 'whisper' = 'sug
   hasTurnReply = false;
   const callbacks = dialogueCallbacks(previousContext);
   try {
-    if (!sessions.sessions.value.some(session => session.id === sessions.activeSessionId.value)) await sessions.createNewSession();
+    if (!sessions.sessions.value.some(session => session.id === sessions.activeSessionId.value)) {
+      const previousId = sessions.activeSessionId.value;
+      preparingSession.value = material3;
+      try { await sessions.createNewSession(); } finally { preparingSession.value = false; }
+      if (material3 && draftText !== undefined) drafts.transferUnsubmittedDraft(previousId, sessions.activeSessionId.value, draftText);
+    }
     surface.signal.throwIfAborted();
     if (stopPreparing) { turnFeedback.value = {kind: 'stopped', message: '已停止回复。'}; return false; }
     const sessionId = sessions.activeSessionId.value;
     submission = {content, source, sessionId};
+    if (material3 && draftText !== undefined) drafts.beginDraftSubmission(draftText, sessionId);
     dialogueCtx.value = '正在回复';
     await turnController.submit(sessionId, content, callbacks, {
       signal: surface.signal,
       metadata: {...identity},
+      onAccepted: material3 && source === 'whisper' ? () => {
+        if (surface.signal.aborted) return;
+        drafts.acceptDraftSubmission(sessionId);
+      } : undefined,
     });
     if (turnController.state.status === 'stopped') turnFeedback.value = {kind: 'stopped', message: '已停止回复。'};
     return turnController.state.status !== 'stopped';
   } catch {
     if (!surface.signal.aborted) {
       finish(); waitingForReply.value = false;
+      if (material3 && source === 'whisper') {
+        if (turnController.state.turnId) drafts.acceptDraftSubmission(submission.sessionId);
+        else if (draftText !== undefined) drafts.restoreFailedDraft();
+      }
       if (observationFailed()) {
         turnFeedback.value = {kind: 'observer-error', message: '连接中断，已保留收到的回复。可恢复接收。'};
       } else {
@@ -157,12 +201,28 @@ async function sendTurn(content: string, source: 'suggestion' | 'whisper' = 'sug
   } finally { sending.value = false; stopping.value = false; waitingForReply.value = false; }
 }
 
+async function resumeAfterSavedAnswer() {
+  if (!material3 || sending.value || turnController.state.status !== 'observing' || !turnController.state.turnId) return;
+  sending.value = true; waitingForReply.value = true;
+  try { await turnController.observe(turnController.state.turnId, dialogueCallbacks(dialogueCtx.value, hasTurnReply), {
+    afterEventId: turnController.state.afterEventId, signal: surface.signal,
+  }); } catch {
+    if (!surface.signal.aborted) turnFeedback.value = {kind: 'observer-error', message: '回答已保存，接收回复失败。可以恢复接收。'};
+  } finally { sending.value = false; waitingForReply.value = false; }
+}
 async function answerQuestion(answers: AskUserQuestionAnswerItem[]) {
   if (interactionBusy.value) return;
   interactionBusy.value = true;
-  try { await turnController.answer(answers); }
-  catch { turnFeedback.value = {kind: 'connection-error', message: '回答没有保存，请重试。'}; }
+  let saved = false;
+  try {
+    await turnController.answer(answers); saved = true;
+    dialogueCtx.value = '正在继续回复';
+    await nextTick();
+  } catch { turnFeedback.value = {kind: 'connection-error', message: '回答没有保存，请重试。'}; }
   finally { interactionBusy.value = false; }
+  // A transport can finish its first stream while awaiting a question. Observe
+  // the same turn without holding the answer control busy through its next question.
+  if (saved) void resumeAfterSavedAnswer();
 }
 async function decideApproval(decision: 'granted' | 'denied') {
   if (interactionBusy.value || sending.value) return;
@@ -186,6 +246,7 @@ const suggestions = computed<Suggestion[]>(() => {
       reply: `好，我们回到「${recent.title}」。接着上次的地方继续——你还记得到哪里了吗？`,
       ctx: '接续最近会话',
       action: () => {
+        if (material3) { selectMobileSession(recent.id); return; }
         // Keep the actual reply and its recovery cursor together when reselecting
         // the current conversation; a canned greeting must never replace it.
         if (sessions.activeSessionId.value === recent.id && turnController.state.turnId) return;
@@ -222,8 +283,22 @@ const suggestions = computed<Suggestion[]>(() => {
 /* ---------- 悄悄话输入（淡化） ---------- */
 const whisperOpen = ref(false);
 const whisperText = ref('');
-const whisperInput = ref<HTMLInputElement>();
+const whisperInput = ref<HTMLInputElement | HTMLTextAreaElement>();
 const whisperPill = ref<HTMLButtonElement>();
+const drafts = useSessionDraft({ input: whisperText, sessionId: sessions.activeSessionId,
+  enabled: computed(() => material3), onRestore: () => { if (!sessionsOpen.value && !historyOpen.value && !settingsOpen.value) whisperOpen.value = true; } });
+let inputLayer: ReturnType<NonNullable<typeof mobileBack>['registerLayer']> | undefined;
+watch(whisperOpen, open => {
+  if (open && material3) inputLayer ??= mobileBack?.registerLayer({ onBack: () => { void closeWhisper(); } });
+  else { inputLayer?.close(); inputLayer = undefined; }
+}, { immediate: true });
+function resizeWhisper() {
+  if (!material3 || !(whisperInput.value instanceof HTMLTextAreaElement)) return;
+  const input = whisperInput.value;
+  input.style.height = 'auto';
+  input.style.height = `${Math.min(input.scrollHeight, 120)}px`;
+}
+watch(whisperText, () => { void nextTick(resizeWhisper); }, { immediate: true });
 async function openWhisper() {
   whisperOpen.value = true;
   await nextTick();
@@ -232,19 +307,22 @@ async function openWhisper() {
 async function closeWhisper() {
   whisperOpen.value = false;
   await nextTick();
-  whisperPill.value?.focus({ preventScroll: true });
+  if (material3) { whisperInput.value?.blur(); mobileScreen.value?.focus({ preventScroll: true }); }
+  else whisperPill.value?.focus({ preventScroll: true });
 }
 function onWhisperKeydown(event: KeyboardEvent) {
   if (event.isComposing || event.keyCode === 229) return;
-  if (event.key === 'Enter') {
+  if (event.key === 'Enter' && (!material3 || event.ctrlKey || event.metaKey)) {
     event.preventDefault();
     void sendWhisper();
   } else if (event.key === 'Escape') void closeWhisper();
 }
 async function sendWhisper() {
-  const text = whisperText.value.trim();
+  const raw = whisperText.value;
+  const text = raw.trim();
   if (!text || sending.value) return;
-  if (await sendTurn(text, 'whisper') && whisperText.value.trim() === text) {
+  const sent = await sendTurn(text, 'whisper', material3 ? raw : undefined);
+  if (!material3 && sent && whisperText.value.trim() === text) {
     whisperText.value = '';
     closeWhisper();
   }
@@ -261,7 +339,7 @@ async function retryTurn() {
   }
   const failed = failedTurn.value;
   if (!failed || sending.value) return;
-  const content = failed.source === 'whisper' ? whisperText.value.trim() : failed.content;
+  const content = material3 ? failed.content : failed.source === 'whisper' ? whisperText.value.trim() : failed.content;
   if (content !== failed.content || failed.sessionId !== sessions.activeSessionId.value) {
     if (failed.source === 'whisper') await sendWhisper();
     else await sendTurn(content, failed.source);
@@ -271,17 +349,55 @@ async function retryTurn() {
   try {
     await turnController.retry(dialogueCallbacks(dialogueCtx.value));
     failedTurn.value = undefined;
-    if (failed.source === 'whisper' && whisperText.value.trim() === failed.content) { whisperText.value = ''; closeWhisper(); }
+    if (!material3 && failed.source === 'whisper' && whisperText.value.trim() === failed.content) { whisperText.value = ''; closeWhisper(); }
   } catch (error) {
     if (error instanceof Error && error.message === 'submission_not_retryable') {
       sending.value = false;
-      if (failed.source === 'whisper') await sendWhisper();
+      if (material3) await sendTurn(failed.content, failed.source);
+      else if (failed.source === 'whisper') await sendWhisper();
       else await sendTurn(failed.content, failed.source);
     } else if (!surface.signal.aborted) {
       turnFeedback.value = {kind: observationFailed() ? 'observer-error' : 'connection-error', message: '连接失败，请稍后重试。'};
       if (observationFailed()) failedTurn.value = undefined;
     }
   } finally { sending.value = false; waitingForReply.value = false; }
+}
+
+async function refreshMobileSessions() {
+  sessionCreationError.value = '';
+  await sessions.fetchSessions({ preserveSelection: true });
+  sessionsReady.value = true; sessionListError.value = sessions.error.value;
+}
+function openMobileHistory(id = sessions.activeSessionId.value, title = sessions.activeSession.value?.title ?? '当前会话') {
+  historySessionId.value = id; historyTitle.value = title; historyOpen.value = true;
+}
+function resetMobilePresentation() {
+  turnController.reset(); failedTurn.value = undefined; turnFeedback.value = undefined;
+  hasTurnReply = false; waitingForReply.value = false; sessionFeedback.value = ''; whisperOpen.value = false;
+}
+function selectMobileSession(id: string) {
+  if (sessionSwitchLocked.value || !sessions.sessions.value.some(item => item.id === id)) return;
+  if (id !== sessions.activeSessionId.value) {
+    resetMobilePresentation(); sessions.switchSession(id);
+    say('已切换会话。可以回看已保存的记录，或继续发送消息。', '继续对话');
+  }
+  sessionsOpen.value = false;
+}
+async function createMobileSession() {
+  if (sessionSwitchLocked.value || sessions.loading.value) return;
+  sessionChanging.value = true; sessionFeedback.value = ''; sessionCreationError.value = '';
+  const previous = sessions.activeSessionId.value, draft = whisperText.value;
+  try {
+    await sessions.createNewSession();
+    if (surface.signal.aborted) return;
+    // Explicit creation supplies an authoritative selected session even if the
+    // earlier list read failed. Do not keep that stale read error blocking it.
+    sessionsReady.value = true; sessionListError.value = null;
+    if (previous === 'web_default' && draft.trim()) drafts.transferUnsubmittedDraft(previous, sessions.activeSessionId.value, draft);
+    resetMobilePresentation(); sessionsOpen.value = false;
+    say('新的对话准备好了。想聊什么，直接告诉我。', '新对话');
+  } catch { sessionCreationError.value = '新对话没有创建成功，草稿已保留。可以再次点击“新对话”。'; }
+  finally { sessionChanging.value = false; }
 }
 
 /* ---------- 回到默认工作台（逃生口） ---------- */
@@ -305,13 +421,14 @@ onMounted(() => {
     document.documentElement.dataset.theme = savedTheme === 'dark' || savedTheme === 'light'
       ? savedTheme : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
-  void sessions.fetchSessions();
+  if (material3) void refreshMobileSessions(); else void sessions.fetchSessions();
   syncViewport();
   window.addEventListener('resize', syncViewport);
   window.visualViewport?.addEventListener('resize', syncViewport);
   window.visualViewport?.addEventListener('scroll', syncViewport);
 });
 onBeforeUnmount(() => {
+  inputLayer?.dispose(); inputLayer = undefined;
   unsubscribeConversation(); turnController.dispose();
   finish();
   window.removeEventListener('resize', syncViewport);
@@ -322,6 +439,8 @@ onBeforeUnmount(() => {
 
 <template>
   <div
+    ref="mobileScreen"
+    :tabindex="material3 ? -1 : undefined"
     class="proactive-companion"
     :class="{ 'pc-viewport--short': viewportHeight !== undefined && viewportHeight < 500 }"
     :data-platform="surface.platform"
@@ -331,11 +450,12 @@ onBeforeUnmount(() => {
     <header class="pc-header">
       <div class="pc-brand"><AervoxBrandMark class="pc-brand-mark" :size="28" aria-hidden="true" /><span>思隅</span></div>
       <div class="pc-top-right">
-        <component :is="buttonTag('md-icon-button')" class="pc-quiet-btn" type="button" title="设置" aria-label="打开设置" @click="settingsOpen = true"><Settings :size="material3 ? 24 : 18" aria-hidden="true" /></component>
-        <component :is="buttonTag('md-icon-button')" v-if="surfaceNavigation" class="pc-quiet-btn" type="button" title="回到完整工作台" aria-label="回到完整工作台" @click="backToDefaultSurface"><ArrowUpRight :size="material3 ? 24 : 19" aria-hidden="true" /></component>
+        <component :is="buttonTag('md-icon-button')" v-if="!material3" class="pc-quiet-btn" type="button" title="设置" aria-label="打开设置" @click="settingsOpen = true"><Settings :size="material3 ? 24 : 18" aria-hidden="true" /></component>
+        <component :is="buttonTag('md-icon-button')" v-if="surfaceNavigation && !material3" class="pc-quiet-btn" type="button" title="回到完整工作台" aria-label="回到完整工作台" @click="backToDefaultSurface"><ArrowUpRight :size="material3 ? 24 : 19" aria-hidden="true" /></component>
       </div>
     </header>
 
+    <p v-if="material3" class="pc-current-session">{{ mobileSessionTitle }}</p>
     <main class="pc-content">
     <div class="pc-stage">
       <div class="pc-pet-wrap">
@@ -363,7 +483,7 @@ onBeforeUnmount(() => {
           v-if="failedTurn"
           type="button"
           class="pc-retry pc-feedback-action"
-          :disabled="sending || (failedTurn.source === 'whisper' && !whisperText.trim())"
+          :disabled="sending || (!material3 && failedTurn.source === 'whisper' && !whisperText.trim())"
           @click="retryTurn"
         ><RotateCcw :slot="material3 ? 'icon' : undefined" :size="material3 ? 18 : 14" aria-hidden="true" />重试发送</component>
         <component :is="buttonTag('md-text-button')" v-else-if="conversationState.status === 'observer-error' && conversationState.retryAvailable" type="button" class="pc-resume pc-feedback-action" :disabled="sending" @click="retryTurn"><RotateCcw :slot="material3 ? 'icon' : undefined" :size="material3 ? 18 : 14" aria-hidden="true" />恢复接收回复</component>
@@ -387,7 +507,7 @@ onBeforeUnmount(() => {
         type="button"
         class="pc-choice"
         :class="{ 'pc-choice--primary': card.primary && (!material3 || index === 0) }"
-        :disabled="sending"
+        :disabled="sending || material3 && (sessionSwitchLocked || !sessionsReady)"
         @click="card.action"
       >
         <component v-if="material3" :is="'md-ripple'" aria-hidden="true" />
@@ -397,27 +517,34 @@ onBeforeUnmount(() => {
     </section>
     </main>
 
+    <p v-if="preparingSession || sessionChanging" class="pc-mobile-preparing" role="status">正在准备新对话，草稿会保留…</p>
+    <p v-if="material3 && sessionFeedback" class="pc-mobile-session-feedback" role="alert">{{ sessionFeedback }}</p>
+    <nav v-if="material3" class="pc-mobile-actions" aria-label="移动端操作">
+      <component :is="'md-text-button'" type="button" aria-label="会话列表" @click="sessionsOpen = true"><MessagesSquare slot="icon" :size="20" />会话</component>
+      <component :is="'md-text-button'" type="button" aria-label="回看当前会话" :disabled="!sessions.activeSession.value" @click="openMobileHistory()"><History slot="icon" :size="20" />回看</component>
+      <component :is="'md-icon-button'" type="button" aria-label="打开设置" @click="settingsOpen = true"><Settings :size="24" /></component>
+    </nav>
     <aside class="pc-whisper" :class="{ 'pc-whisper--open': whisperOpen }" aria-label="对话输入">
-      <template v-if="!whisperOpen">
+      <template v-if="!whisperOpen && !material3">
         <component :is="buttonTag('md-filled-tonal-button')" ref="whisperPill" type="button" class="pc-whisper-pill" @click="openWhisper"><MessageSquare :slot="material3 ? 'icon' : undefined" :size="material3 ? 20 : 15" aria-hidden="true" /><span>悄悄对{{ companionName }}说…</span></component>
         <component :is="buttonTag('md-filled-tonal-button')" v-if="canStop" type="button" class="pc-stop" :disabled="stopping" @click="stopTurn"><Square :slot="material3 ? 'icon' : undefined" :size="material3 ? 18 : 12" aria-hidden="true" />{{ stopping ? '停止中' : '停止' }}</component>
       </template>
       <div v-else class="pc-whisper-input">
         <label v-if="material3" class="pc-whisper-label" for="pc-material-whisper">悄悄对{{ companionName }}说</label>
-        <input
-          :id="material3 ? 'pc-material-whisper' : undefined"
-          ref="whisperInput"
-          v-model="whisperText"
-          :aria-label="'悄悄对' + companionName + '说'"
-          :placeholder="'想到什么，直接告诉' + companionName"
-          enterkeyhint="send"
-          @keydown="onWhisperKeydown"
-        />
+        <textarea v-if="material3" :readonly="preparingSession || sessionChanging" id="pc-material-whisper" ref="whisperInput" v-model="whisperText" rows="1"
+          :aria-label="'悄悄对' + companionName + '说'" :placeholder="'想到什么，直接告诉' + companionName" enterkeyhint="enter"
+          @focus="openWhisper()" @input="resizeWhisper" @keydown="onWhisperKeydown" />
+        <input v-else ref="whisperInput" v-model="whisperText" :aria-label="'悄悄对' + companionName + '说'"
+          :placeholder="'想到什么，直接告诉' + companionName" enterkeyhint="send" @keydown="onWhisperKeydown" />
         <component :is="buttonTag('md-filled-tonal-button')" v-if="canStop" type="button" class="pc-stop" :disabled="stopping" @click="stopTurn"><Square :slot="material3 ? 'icon' : undefined" :size="material3 ? 18 : 12" aria-hidden="true" />{{ stopping ? '停止中' : '停止' }}</component>
-        <component :is="buttonTag('md-filled-button')" v-else type="button" :disabled="!whisperText.trim()" @click="sendWhisper()">发送</component>
-        <component :is="buttonTag('md-icon-button')" type="button" class="pc-whisper-close" title="收起" aria-label="收起输入" @click="closeWhisper"><X :size="material3 ? 24 : 18" aria-hidden="true" /></component>
+        <component :is="buttonTag('md-filled-button')" v-else type="button" :disabled="!whisperText.trim() || material3 && (sessionSwitchLocked || !sessionsReady)" @click="sendWhisper()">发送</component>
+        <component :is="buttonTag('md-icon-button')" type="button" v-if="!material3 || whisperOpen" class="pc-whisper-close" title="收起" aria-label="收起输入" @click="closeWhisper"><X :size="material3 ? 24 : 18" aria-hidden="true" /></component>
       </div>
     </aside>
+    <MobileSessionsDialog v-if="material3" v-model="sessionsOpen" :sessions="sessions.sessions.value" :active-session-id="sessions.activeSessionId.value"
+      :loading="sessions.loading.value" :error="sessionListError" :notice="sessionCreationError || sessionFeedback" :changing="sessionChanging" :switch-locked="sessionSwitchLocked" :lock-reason="switchLockReason"
+      @refresh="refreshMobileSessions" @new="createMobileSession" @select="selectMobileSession" @history="session => openMobileHistory(session.id, session.title)" />
+    <MobileHistoryDialog v-if="material3" v-model="historyOpen" :session-id="historySessionId" :title="historyTitle" />
     <MobileSettingsDialog v-model="settingsOpen" :panels="props.settingsPanels" />
   </div>
 </template>
@@ -506,7 +633,7 @@ onBeforeUnmount(() => {
 }
 .pc-content > * { min-width: 0; }
 
-/* 舞台跟随内容流，不覆盖对话和输入。 */
+/* 舞台跟随内容流；手机的对话层可覆盖角色下半身。 */
 .pc-stage {
   display: grid; place-items: center;
   min-width: 0;
@@ -519,6 +646,28 @@ onBeforeUnmount(() => {
   height: clamp(180px, 29dvh, 300px);
   max-width: 100%;
   pointer-events: auto;
+}
+/* Explicit phone hosts let dialogue overlap the larger character's lower body.
+ * Short viewports still yield the stage to dialogue and the software keyboard. */
+@media (max-width: 899px) {
+  .proactive-companion[data-platform="mobile"] .pc-stage {
+    position: relative;
+    z-index: 0;
+  }
+  .proactive-companion[data-platform="mobile"] .pc-pet-wrap {
+    width: min(400px, 94vw);
+    height: clamp(360px, 64dvh, 600px);
+  }
+  /* Pixi sets an inline touch-action:none. Keep vertical page gestures while
+   * retaining taps on the character in the larger phone stage. */
+  .proactive-companion[data-platform="mobile"] .pc-pet-wrap :deep(canvas) {
+    touch-action: pan-y pinch-zoom !important;
+  }
+  .proactive-companion[data-platform="mobile"] .pc-dialogue {
+    position: relative;
+    z-index: 1;
+    margin-block-start: clamp(-200px, -22dvh, -120px);
+  }
 }
 .pc-pet-wrap :deep(.aervox-live2d-pet) { min-height: 0; }
 .pc-pet-wrap :deep(.aervox-live2d-pet__canvas) { inset: 0; }
@@ -698,6 +847,7 @@ onBeforeUnmount(() => {
 .proactive-companion.pc-viewport--short .pc-choices,
 .pc-viewport--short .pc-dialogue,
 .pc-viewport--short .pc-choices { grid-column: auto; grid-row: auto; }
+.proactive-companion[data-platform="mobile"].pc-viewport--short .pc-dialogue { margin-block-start: 0; }
 @media (max-height: 520px) {
   .pc-stage { display: none; }
   .pc-content {
@@ -705,6 +855,7 @@ onBeforeUnmount(() => {
     grid-auto-rows: max-content; align-content: start; gap: 12px; padding-block: 8px 12px;
   }
   .pc-dialogue, .pc-choices { grid-column: auto; grid-row: auto; }
+  .proactive-companion[data-platform="mobile"] .pc-dialogue { margin-block-start: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .pc-caret, .pc-waiting-dots i { animation: none; }
@@ -811,4 +962,18 @@ onBeforeUnmount(() => {
   .proactive-companion[data-design-system="material3"] .pc-whisper-input { padding-inline-start: 12px; }
   .proactive-companion[data-design-system="material3"] .pc-whisper-input > :is(md-filled-button, md-filled-tonal-button) { min-width: 48px; }
 }
+</style>
+
+<style scoped>
+.proactive-companion[data-design-system="material3"] { display: flex; flex-direction: column; }
+.proactive-companion[data-design-system="material3"] > .pc-header,
+.proactive-companion[data-design-system="material3"] > .pc-whisper { flex: 0 0 auto; }
+.proactive-companion[data-design-system="material3"] > .pc-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.pc-mobile-preparing { flex: 0 0 auto; margin: 8px 16px; color: var(--md-sys-color-on-surface-variant); font-size: 14px; line-height: 20px; }
+.pc-current-session { flex: 0 0 auto; margin: -4px 24px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--md-sys-color-on-surface-variant); font-size: 14px; line-height: 20px; }
+.pc-mobile-actions { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 8px; padding: 0 16px; background: var(--md-sys-color-surface); }
+.pc-mobile-actions > md-text-button { flex: 1; }
+.pc-mobile-actions > md-icon-button { width: 48px; height: 48px; }
+.pc-mobile-session-feedback { flex: 0 0 auto; margin: 8px 16px; font-size: 14px; line-height: 20px; color: var(--md-sys-color-error); }
+.proactive-companion[data-design-system="material3"] .pc-whisper-input textarea { grid-column: 1; grid-row: 2; width: 100%; min-width: 0; min-height: 32px; max-height: 120px; border: 0; padding: 0; resize: none; outline: none; background: transparent; color: var(--md-sys-color-on-surface); font: inherit; font-size: 16px; line-height: 24px; overflow-y: auto; }
 </style>

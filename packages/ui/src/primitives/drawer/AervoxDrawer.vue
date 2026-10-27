@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AervoxButton from '../button/AervoxButton.vue';
-import { onUnmounted, watch, type Component } from 'vue';
+import { onBeforeUnmount, onUnmounted, watch, type Component } from 'vue';
+import { useMobileBackNavigation, type MobileBackLayer } from '../../material3/mobile-back-navigation';
 import { X } from 'lucide-vue-next';
 
 const props = withDefaults(
@@ -45,6 +46,14 @@ function handleKeydown(e: KeyboardEvent) {
     close();
   }
 }
+
+const backNavigation = useMobileBackNavigation();
+let backLayer: MobileBackLayer | undefined;
+watch(() => props.modelValue, open => {
+  if (open && !backLayer) backLayer = backNavigation?.registerLayer({ onBack: close });
+  else if (!open) { backLayer?.close(); backLayer = undefined; }
+}, { immediate: true });
+onBeforeUnmount(() => { backLayer?.dispose(); backLayer = undefined; });
 
 let prevOverflow = '';
 let isLocked = false;
