@@ -23,7 +23,7 @@ export interface UseAervoxSessionsReturn {
   activeSession: ComputedRef<SessionItem | null>;
   loading: Ref<boolean>;
   error: Ref<string | null>;
-  fetchSessions: (options?: { projectId?: string | null }) => Promise<SessionItem[]>;
+  fetchSessions: (options?: { projectId?: string | null; preserveSelection?: boolean }) => Promise<SessionItem[]>;
   createNewSession: (title?: string, id?: string, projectId?: string | null) => Promise<SessionItem>;
   switchSession: (sessionId: string) => void;
   renameSession: (
@@ -44,16 +44,16 @@ export function useAervoxSessions(client: AervoxClient = useAervoxClient()): Use
   const activeSession = computed(() => sessions.value.find(session => session.id === activeSessionId.value) ?? null);
   const mutationError = ref<string | null>(null);
   const writes = ref(0);
-  const resource = createResource(async (options?: {projectId?: string | null}) => {
+  const resource = createResource(async (options?: {projectId?: string | null; preserveSelection?: boolean}) => {
     const selection = selectionVersion;
     const filtered = Boolean(options?.projectId);
     const path = filtered ? `/v1/sessions?projectId=${encodeURIComponent(options!.projectId!)}` : '/v1/sessions';
     const response = await transport.request<ListSessionsResponse>('GET', path);
-    return {items: response.items ?? [], filtered, selection};
+    return {items: response.items ?? [], filtered, selection, preserveSelection: options?.preserveSelection === true};
   }, result => {
     sessions.value = result.items;
     // Filtering changes the list projection, not the user's selected conversation.
-    if (!result.filtered && result.selection === selectionVersion && result.items.length && !result.items.some(row => row.id === activeSessionId.value)) {
+    if (!result.preserveSelection && !result.filtered && result.selection === selectionVersion && result.items.length && !result.items.some(row => row.id === activeSessionId.value)) {
       client.setSessionId(result.items[0]!.id);
     }
   });
@@ -68,7 +68,7 @@ export function useAervoxSessions(client: AervoxClient = useAervoxClient()): Use
     catch (cause) { mutationError.value = cause instanceof Error ? cause.message : String(cause); throw cause; }
     finally { writes.value--; }
   };
-  const fetchSessions = async (options?: {projectId?: string | null}) => {
+  const fetchSessions = async (options?: {projectId?: string | null; preserveSelection?: boolean}) => {
     mutationError.value = null;
     try { await resource.load(options); } catch { /* Keep the previous authoritative projection and observable error. */ }
     return sessions.value;

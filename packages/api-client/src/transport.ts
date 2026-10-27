@@ -17,6 +17,7 @@ import type {
 } from '@aervox/contracts';
 import type { ProactiveDesktopBridge } from '@aervox/contracts/proactive';
 import { TurnStreamProjector } from './projector.js';
+import { AervoxHttpError } from './http-error.js';
 
 export interface TurnCallbacks {
   /** Identity from an accepted, ordered stream event; shared by HTTP and IPC. */
@@ -216,20 +217,8 @@ export interface FetchTransportOptions {
   redirect?: RequestRedirect;
 }
 
-export class AervoxHttpError extends Error {
-  readonly code?: string;
-  readonly requestId?: string;
-  readonly details?: unknown;
-  constructor(public readonly status: number, path: string, public readonly problem?: Partial<ApiProblem>) {
-    super(problem?.message ?? problem?.detail ?? `API ${path} → HTTP ${status}`);
-    this.name = 'AervoxHttpError';
-    this.code = problem?.code;
-    this.requestId = problem?.requestId;
-    this.details = problem?.details;
-  }
-}
+export { AervoxHttpError } from './http-error.js';
 
-/** Only structured JSON errors are exposed; arbitrary proxy/HTML bodies stay private. */
 async function httpError(response: Response, path: string): Promise<AervoxHttpError> {
   if (!/^application\/(?:json|problem\+json)(?:;|$)/i.test(response.headers.get('content-type') ?? '')) {
     await response.body?.cancel().catch(() => undefined);

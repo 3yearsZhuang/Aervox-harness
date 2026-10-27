@@ -72,6 +72,15 @@ describe('useAervoxSessions', () => {
     expect(store[ACTIVE_SESSION_STORAGE_KEY]).toBe('ses_1');
   });
 
+  it('can refresh a mobile list without silently changing the live conversation owner', async () => {
+    (mockTransport.request as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ items: [{ id: 'other', title: '另一个会话' }] });
+    const sessions = useAervoxSessions();
+    await sessions.fetchSessions({ preserveSelection: true });
+    expect(sessions.sessions.value[0]?.id).toBe('other');
+    expect(sessions.activeSessionId.value).toBe('ses_initial');
+    expect(getSessionId()).toBe('ses_initial');
+  });
+
   it('createNewSession sends POST and activates newly created session', async () => {
     const newSession = {
       id: 'ses_new',

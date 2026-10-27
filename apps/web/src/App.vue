@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { onBeforeUnmount } from 'vue'
+import { ElMessage } from 'element-plus/es/components/message/index.mjs'
+import { useMaterial3, useMobileBackNavigation } from '@aervox/ui/material3'
+import { createMobileSurfaceLocation } from './mobile-surface-location'
 import {createSurfaceNavigation, resolveSurfaceChoice, resolveWebPlatform, UISurfaceHost} from '@aervox/ui-host'
 import defaultSurface, {compactSurface} from '@aervox/plugin-workbench-ui'
 import proactiveSurface from '@aervox/plugin-proactive-ui'
@@ -7,7 +11,7 @@ import * as firstPartyPlugin from '@aervox/plugin-focus-mode/ui'
 // CR-065 切片四：内置设置面板同为受信构建输入，由组合根显式注入
 import { settingsPanels } from '@aervox/plugin-panels-ui'
 
-const reloadSurface = () => window.location.reload()
+const reloadSurface = () => { if (mobileLocation) mobileLocation.reload(); else window.location.reload() }
 const firstPartyPlugins = [firstPartyPlugin.default]
 
 const platform = resolveWebPlatform({
@@ -24,9 +28,18 @@ const mainSurface = resolveSurfaceChoice(availableSurfaces, surfaceStorage, {
   defaultSurfaceId: platform === 'mobile' ? proactiveSurface.id : defaultSurface.id,
   queryValue: new URLSearchParams(window.location.search).get('surface'),
 })
+// Surface selection can be requested by any registered settings panel. Keep the
+// barrier at the composition root so every mobile replace shares the same policy.
+const mobileBack = useMobileBackNavigation()
+const mobileLocation = useMaterial3() && mobileBack ? createMobileSurfaceLocation(
+  window.location,
+  () => mobileBack.whenSettled(),
+  () => { ElMessage.error('暂时无法更新界面，请重试。') },
+) : undefined
+onBeforeUnmount(() => mobileLocation?.dispose())
 const surfaceNavigation = createSurfaceNavigation(availableSurfaces, {
   currentSurfaceId: mainSurface.id, defaultSurfaceId: defaultSurface.id, storageKey: 'aervox.surface.main',
-  storage: surfaceStorage, location: window.location,
+  storage: surfaceStorage, location: mobileLocation?.location ?? window.location,
 })
 </script>
 
