@@ -20,15 +20,16 @@
 
 <a id="core-repository-migration"></a>
 
-### ITER-035 接续 · 已实施，交付核验中：Core 独立仓库与必需子模块
+### ITER-035 接续 · 已移交：Core 独立仓库与必需子模块
 
 维护者已授权将 `packages/core` 迁至 `Aervox-agent` 组织下的公开 [Aervox-core](https://github.com/Aervox-agent/Aervox-core)，再以固定提交的 Git submodule 接回原路径。沿用 [ADR-021](docs/reference/adr/ADR-021-aervox-core-standalone-package.md#仓库分离与主仓集成) 和 ITER-035/037，不分配并行编号；主仓工作分支 `feat/core-submodule` 从已合并 `9e4f047a` 隔离接续，保留 Android 和其他并行工作。
 
 - **范围：** 保留 Core 路径过滤历史、真人提交者及 Apache-2.0；生产源码与公共 API 保持兼容，补齐独立配置和 CI；主仓继续通过 workspace 消费，业务 Schema 类型兼容证明留在宿主。主仓产品与文档许可保持原有边界。
 - **安装与门禁：** 首次安装和 CI 精确初始化必需 Core，缺失或版本失配明确失败；受跟踪源码继续参与安全与架构扫描。`reference/` 保持可选，仅完整门禁按需初始化 DSH 夹具。独立和主仓锁文件分别验证，不在子包重复安装主仓依赖。
-- **完成条件：** 独立仓库与主仓分别有冷检出、冻结安装、构建/类型/测试证据；主仓新的 `./aervox ci all`、公开远端可获取的 gitlink、精确提交 CI 和两仓 PR 分别核对。当前记录不宣称已合并、公开 npm 发行或产品发布；验证结果随实际提交补充。
+- **验收与交付：** 独立仓库与主仓分别核对冷检出、冻结安装、构建/类型/测试、公开远端可获取的 gitlink 及新的全量门禁。主仓 [PR #348](https://github.com/3yearsZhuang/Aervox-harness/pull/348) 保存精确提交远端检查与合入状态；本批源码迁移不代表公开 npm 发行或产品发布。
 - **独立仓库：** [Core PR #1](https://github.com/Aervox-agent/Aervox-core/pull/1) 保留过滤历史合入，[PR #2](https://github.com/Aervox-agent/Aervox-core/pull/2) 补齐宿主缓存忽略；主仓固定公开 `main` 的 `208d28ce26de4651a258ef208d21479e22ab315f`。真正公开远端冷克隆的冻结安装、构建、类型检查和 62 文件 498 项测试全部通过，源码树与许可证和拆分前完全一致，工作区干净。独立锁文件审计无已知命中。
-- **主仓本地验证：** 新的 `./aervox ci all` 退出 0，构建 32、类型 56、测试 57 个任务通过；API 983、仓储 893、Worker 161、Host Runtime 306、Core 498 项通过，Host Agent 128 项通过、2 项条件跳过保留。116 项守卫、HLS、删除故障、Native Search/Runtime 和 64 份文档门禁通过；依赖审计 0 未审阅、2 既有审阅、0 过时例外。首次全量捕获旧启动/增量夹具未复制新增脚本，补齐后重新全量通过。独立复审发现并修正 Turbo 下游过滤方向及缺 Core 时直接命令的准入检查，真实任务图与残留旧产物反例通过；宿主兼容证明实际编译通过，人为类型漂移被编译器拒绝。主仓冷检出与精确提交远端验证继续随交付核对。
+- **主仓本地验证：** 新的 `./aervox ci all` 退出 0，构建 32、类型 56、测试 57 个任务通过；API 983、仓储 893、Worker 161、Host Runtime 306、Core 498 项通过，Host Agent 128 项通过、2 项条件跳过保留。116 项守卫、HLS、删除故障、Native Search/Runtime 和 64 份文档门禁通过；依赖审计 0 未审阅、2 既有审阅、0 过时例外。首次全量捕获旧启动/增量夹具未复制新增脚本，补齐后重新全量通过。独立复审发现并修正 Turbo 下游过滤方向及缺 Core 时直接命令的准入检查，真实任务图与残留旧产物反例通过；宿主兼容证明实际编译通过，人为类型漂移被编译器拒绝。
+- **主仓公开冷检出：** 公开分支的代码提交 `1c2fe7c5` 在独立临时克隆中先验证缺 Core 明确拒绝，再经 `mise tasks run install` 自动只初始化 Core 并冻结安装根依赖；8 个参考子模块均保持未初始化。冷构建 32、类型 56 个任务及 Core 498、Host Runtime 306 项测试通过，父仓与 Core 工作区均干净。后续只补本条交付记录并复验文档，精确提交远端结果仍由 PR 保存。
 
 ## 2. 立即整改：ITER-071
 
