@@ -49,3 +49,11 @@ mise exec -- pnpm --filter @aervox/mobile android:check:device
 官方 AAR 的默认 Manifest 允许备份，本应用显式覆盖为 false，明文网络继续关闭；合并 Manifest 和设备断言分别取证。制品包含 arm64-v8a、armeabi-v7a、x86、x86_64 四 ABI；静态 ELF 检查中两个 64 位库的 LOAD 对齐为 16 KiB，两个 32 位库为 4 KiB。APK zip 对齐和 ELF 静态属性不替代设备加载或 SQL 合同执行，实际 16 KiB 设备仍待验收。当前 UI 仍使用 API Transport，探针及制品编译均不等于手机业务持久化或独立运行完成。
 
 主库 Schema 资产由根命令 `mise exec -- pnpm mobile:schema` 从唯一仓储声明生成，包含现有版本/发布指纹、空库 DDL、参数化 journal 和可重建 FTS；不复制业务数据，不生成手机恢复账本。资产仅作构建输入，Git 忽略；生成回执的 SHA256 是字节证据，不是认证。原生消费者仍须证明空库、原子初始化与物理结构校验后才能写版本回执，未知旧库继续拒绝写入。本切片未将资产应用于手机业务库。
+
+## 原生凭据存储前置
+
+`NativeCredentialStore` 仅供受信原生调用者使用，固定 `PRIMARY_MODEL` 槽位，不接受外部路径或任意 Keystore alias；没有注册 JS Bridge、模型请求或 UI 配置入口。它用 Android Keystore 的不可导出 AES-256 包装密钥加密最多 8192 字节凭据，AES-GCM 的 AAD 绑定用途、槽位和版本；密文保存在应用 no-backup 私有目录。调用者负责及时擦除拿到的明文 byte[]，这不构成已经接通“WebView 从不接触配置输入”的产品证明。
+
+进程锁与固定文件锁串行化读写，替换前必须认证既有密文；丢失密钥、认证失败或未知版本保留文件并返回固定错误码。base/backup/stage 都算已有证据，不会因主文件缺失创建替代密钥；中断文件返回 `RECOVERY_REQUIRED`，不自动猜测恢复。显式 clear 只删除该槽的三类密文并保留包装密钥，覆盖旧 Android AtomicFile 对 staging 文件的版本差异。写入失败先恢复旧版；全部断电/目录元数据持久性与设备 Keystore 行为仍待实际验证。
+
+设备测试为每项创建随机隔离目录和测试专用 alias，覆盖非导出密钥、随机 nonce、丢密钥、篡改、AAD、版本/大小、提交前失败和 backup/stage；清理不触及真实槽。`:app:assembleDebugAndroidTest` 只编译这些测试，实际执行与原生模型桥接续验收。
