@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, type Component } from 'vue';
-import { AervoxDialog } from '@aervox/ui/primitives';
+import { AervoxDialog, AervoxDialogHeader } from '@aervox/ui/primitives';
 import { useMaterial3 } from '@aervox/ui/material3';
 
 const props = defineProps<{
@@ -15,6 +15,8 @@ const categories = [
 ];
 const material3 = useMaterial3();
 const selected = ref('model');
+const panelScroll = ref<HTMLElement>();
+watch(selected, () => { if (panelScroll.value) panelScroll.value.scrollTop = 0; }, { flush: 'post' });
 const available = computed(() => categories.filter(item => props.panels.some(panel => panel.category === item.id)));
 watch(available, items => {
   if (items.length && !items.some(item => item.id === selected.value)) selected.value = items[0]!.id;
@@ -36,29 +38,35 @@ function selectMaterialTab(event: Event) {
     size="md"
     body-max-height="calc(100dvh - 160px)"
     custom-class="mobile-settings-dialog"
+    mobile-fullscreen
     @update:model-value="emit('update:modelValue', $event)"
   >
-    <component
-      v-if="material3 && available.length"
-      :is="'md-tabs'"
-      class="mobile-settings-material-tabs"
-      role="tablist"
-      aria-label="设置分类"
-      :activeTabIndex.prop="activeTabIndex"
-      @change="selectMaterialTab"
-    >
-      <component
-        v-for="item in available"
-        :is="'md-primary-tab'"
-        :key="item.id"
-        :id="'mobile-settings-tab-' + item.id"
-        role="tab"
-        :aria-selected="selected === item.id"
-        :aria-controls="'mobile-settings-panel-' + item.id"
-        @click="selected = item.id"
-      >{{ item.label }}</component>
-    </component>
-    <nav v-else class="mobile-settings-tabs" aria-label="设置分类">
+    <template v-if="material3" #header>
+      <div class="mobile-settings-chrome">
+        <AervoxDialogHeader title="设置" @close="emit('update:modelValue', false)" />
+        <component
+          v-if="available.length"
+          :is="'md-tabs'"
+          class="mobile-settings-material-tabs"
+          role="tablist"
+          aria-label="设置分类"
+          :activeTabIndex.prop="activeTabIndex"
+          @change="selectMaterialTab"
+        >
+          <component
+            v-for="item in available"
+            :is="'md-primary-tab'"
+            :key="item.id"
+            :id="'mobile-settings-tab-' + item.id"
+            role="tab"
+            :aria-selected="selected === item.id"
+            :aria-controls="'mobile-settings-panel-' + item.id"
+            @click="selected = item.id"
+          >{{ item.label }}</component>
+        </component>
+      </div>
+    </template>
+    <nav v-if="!material3" class="mobile-settings-tabs" aria-label="设置分类">
       <button
         v-for="item in available"
         :key="item.id"
@@ -67,12 +75,12 @@ function selectMaterialTab(event: Event) {
         @click="selected = item.id"
       >{{ item.label }}</button>
     </nav>
-    <div :id="'mobile-settings-panel-' + selected" :role="material3 ? 'tabpanel' : undefined" :aria-labelledby="material3 ? 'mobile-settings-tab-' + selected : undefined" class="mobile-settings-panel">
+    <div ref="panelScroll" :id="'mobile-settings-panel-' + selected" :role="material3 ? 'tabpanel' : undefined" :aria-labelledby="material3 ? 'mobile-settings-tab-' + selected : undefined" class="mobile-settings-panel">
       <KeepAlive>
         <component :is="activePanel" v-if="activePanel" :key="selected" />
       </KeepAlive>
+      <p v-if="!activePanel">当前宿主未提供此设置面板。</p>
     </div>
-    <p v-if="!activePanel">当前宿主未提供此设置面板，可返回完整工作台进行配置。</p>
   </AervoxDialog>
 </template>
 
@@ -85,11 +93,13 @@ function selectMaterialTab(event: Event) {
 .mobile-settings-tabs button[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
 .mobile-settings-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .mobile-settings-material-tabs {
-  --md-tabs-container-color: var(--md-sys-color-surface-container-high);
-  display: block; margin: -4px -4px 24px;
+  --md-tabs-container-color: var(--md-sys-color-surface);
+  display: block; width: 100%; margin: 0;
 }
 .mobile-settings-material-tabs md-primary-tab { min-height: 48px; }
 .mobile-settings-panel { min-width: 0; }
+.mobile-settings-chrome { width: 100%; min-width: 0; }
+.mobile-settings-chrome :deep(.aervox-dialog-header) { min-height: 64px; padding-inline: 16px 8px; box-sizing: border-box; }
 </style>
 
 <style>

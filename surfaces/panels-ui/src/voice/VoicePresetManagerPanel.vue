@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { useDialogPrompts } from '@aervox/ui/material3';
-import { AervoxCard, AervoxButton, AervoxSegmentedControl } from '@aervox/ui/primitives';
+import { useSettingsNotice } from '../settings/useSettingsNotice';
+import SettingsNotice from '../settings/SettingsNotice.vue';
+import { AervoxCard, AervoxButton, AervoxSegmentedControl, AervoxSettingsHeading } from '@aervox/ui/primitives';
+import { useMaterial3, useDialogPrompts } from '@aervox/ui/material3';
 import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from '@aervox/ui/utils/element'
 import { Mic, Plus, Sparkles, Trash2, Volume2 } from 'lucide-vue-next'
@@ -11,8 +13,9 @@ import {
 import LocalVoiceConfigPanel from './LocalVoiceConfigPanel.vue'
 import RemoteVoiceConfigPanel from './RemoteVoiceConfigPanel.vue'
 
-const dialogPrompts = useDialogPrompts(ElMessageBox);
-
+const dialogPrompts = useDialogPrompts(ElMessageBox)
+const material3 = useMaterial3()
+const { notice, notify } = useSettingsNotice(ElMessage)
 const api = useAervoxVoice()
 
 const presets = ref<VoicePresetDto[]>([])
@@ -50,7 +53,7 @@ async function handleCreatePreset(): Promise<void> {
       inputValue: `语音配置 ${presets.value.length + 1}`,
     })
     await api.createPreset(value.trim())
-    ElMessage.success('语音预设已创建')
+    notify.success('语音预设已创建')
     await loadPresets()
   } catch {
     // cancelled
@@ -63,10 +66,10 @@ async function handleActivatePreset(preset: VoicePresetDto): Promise<void> {
   busyPresetId.value = preset.id
   try {
     await api.activatePreset(preset.id)
-    ElMessage.success(`已切换当前语音为「${preset.name}」`)
+    notify.success(`已切换当前语音为「${preset.name}」`)
     await loadPresets()
   } catch (e) {
-    ElMessage.error(e instanceof Error ? e.message : '激活语音预设失败')
+    notify.error(e instanceof Error ? e.message : '激活语音预设失败')
   } finally {
     busyPresetId.value = null
   }
@@ -81,7 +84,7 @@ async function handleDeletePreset(preset: VoicePresetDto): Promise<void> {
       type: 'warning',
     })
     await api.deletePreset(preset.id)
-    ElMessage.success('语音预设已删除')
+    notify.success('语音预设已删除')
     await loadPresets()
   } catch {
     // cancelled
@@ -100,6 +103,8 @@ function presetMeta(preset: VoicePresetDto): string {
 
 <template>
   <div class="voice-preset-panel">
+    <SettingsNotice :notice="notice" />
+    <AervoxSettingsHeading v-if="material3" title="语音服务" description="选择语音预设，配置输入与输出" />
     <!-- 多预设：卡片列表（对齐人格设定同款交互） -->
     <div v-if="loading" class="pcfg-loading">加载语音预设…</div>
     <template v-else>
@@ -131,9 +136,9 @@ function presetMeta(preset: VoicePresetDto): string {
               :disabled="busyPresetId === preset.id"
               @click="handleActivatePreset(preset)"
             >设为当前</AervoxButton>
-            <AervoxButton variant="danger"
+            <AervoxButton :variant="material3 ? 'ghost' : 'danger'"
               type="button"
-              class="voice-preset-action danger"
+              class="voice-preset-action danger" :class="{ 'settings-record-delete': material3 }"
               :disabled="busyPresetId === preset.id"
               @click="handleDeletePreset(preset)"
             >

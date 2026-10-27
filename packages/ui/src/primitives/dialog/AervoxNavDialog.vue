@@ -25,6 +25,7 @@ const props = withDefaults(
     contentCentered?: boolean;
     showClose?: boolean;
     customClass?: string;
+    mobileFullscreen?: boolean;
   }>(),
   {
     title: '',
@@ -37,6 +38,7 @@ const props = withDefaults(
     contentCentered: false,
     showClose: true,
     customClass: '',
+    mobileFullscreen: false,
   },
 );
 
@@ -70,6 +72,7 @@ function selectItem(id: string) {
     :custom-class="[customClass, 'aervox-nav-dialog'].filter(Boolean).join(' ')"
     body-max-height="none"
     no-padding
+    :mobile-fullscreen="mobileFullscreen"
     @update:model-value="emit('update:modelValue', $event)"
     @close="emit('close')"
     @closed="emit('closed')"

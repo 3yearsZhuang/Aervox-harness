@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { useDialogPrompts } from '@aervox/ui/material3';
+import { useSettingsNotice } from '../settings/useSettingsNotice';
+import SettingsNotice from '../settings/SettingsNotice.vue';
 import { AervoxCard, AervoxSettingsHeading, AervoxButton } from '@aervox/ui/primitives';
+import { useDialogPrompts, useMaterial3 } from '@aervox/ui/material3';
 import {computed, onMounted, ref} from 'vue'
 import {ElMessage, ElMessageBox} from '@aervox/ui/utils/element'
 import {
@@ -23,8 +25,9 @@ import {
 } from '@aervox/api-client'
 import PersonaEditDialog from './PersonaEditDialog.vue'
 
-const dialogPrompts = useDialogPrompts(ElMessageBox);
-
+const dialogPrompts = useDialogPrompts(ElMessageBox)
+const material3 = useMaterial3()
+const { notice, notify } = useSettingsNotice(ElMessage)
 const api = useAervoxPersonas()
 const {personas, activePersona, loading, error, loadPersonas, deletePersona, activatePersona, exportPersona, importPersona} = api
 
@@ -69,7 +72,7 @@ async function handleFileSelected(event: Event) {
     }
     const base64 = btoa(binary)
     await importPersona(base64, 'error')
-    ElMessage.success('人格包已导入')
+    notify.success('人格包已导入')
     await loadPersonas()
   } catch (e) {
     const msg = e instanceof Error ? e.message : '导入人格包失败'
@@ -89,13 +92,13 @@ async function handleFileSelected(event: Event) {
         }
         const base64 = btoa(binary)
         await importPersona(base64, 'replace')
-        ElMessage.success('已覆盖并成功导入人格')
+        notify.success('已覆盖并成功导入人格')
         await loadPersonas()
       } catch {
         // cancel
       }
     } else {
-      ElMessage.error(msg)
+      notify.error(msg)
     }
   } finally {
     importing.value = false
@@ -121,9 +124,9 @@ async function handleExport(persona: PersonaDto) {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-    ElMessage.success('已导出人格包')
+    notify.success('已导出人格包')
   } catch (e) {
-    ElMessage.error(e instanceof Error ? e.message : '导出失败')
+    notify.error(e instanceof Error ? e.message : '导出失败')
   } finally {
     exportingId.value = null
   }
@@ -132,10 +135,10 @@ async function handleExport(persona: PersonaDto) {
 async function handleActivate(persona: PersonaDto) {
   try {
     await activatePersona(persona.id)
-    ElMessage.success(`已切换当前人格为「${persona.name}」`)
+    notify.success(`已切换当前人格为「${persona.name}」`)
     await loadPersonas()
   } catch (e) {
-    ElMessage.error(e instanceof Error ? e.message : '激活人格失败')
+    notify.error(e instanceof Error ? e.message : '激活人格失败')
   }
 }
 
@@ -147,7 +150,7 @@ async function handleDelete(persona: PersonaDto) {
       type: 'warning',
     })
     await deletePersona(persona.id)
-    ElMessage.success('人格已删除')
+    notify.success('人格已删除')
     await loadPersonas()
   } catch {
     // cancelled or error handled
@@ -168,6 +171,7 @@ function formatDate(isoString: string): string {
 
 <template>
   <div class="persona-manager">
+    <SettingsNotice :notice="notice" />
     <!-- 顶部标题与操作栏（对齐全局标题设计） -->
     <AervoxSettingsHeading title="人格设定" description="选择角色，调整交流风格">
         <input
@@ -178,7 +182,11 @@ function formatDate(isoString: string): string {
           @change="handleFileSelected"
         />
 
-        <el-dropdown trigger="click" @command="(cmd: string) => cmd === 'create' ? openCreate() : triggerImport()">
+        <template v-if="material3">
+          <AervoxButton variant="primary" type="button" @click="openCreate"><Plus :size="18" />创建人格</AervoxButton>
+          <AervoxButton variant="secondary" type="button" :disabled="importing" @click="triggerImport"><Upload :size="18" />导入人格</AervoxButton>
+        </template>
+        <el-dropdown v-else trigger="click" @command="(cmd: string) => cmd === 'create' ? openCreate() : triggerImport()">
           <AervoxButton variant="primary" type="button" class="btn-create-persona">
             <Plus :size="16" />
             <span>创建人格</span>
@@ -221,7 +229,7 @@ function formatDate(isoString: string): string {
           </div>
 
           <!-- 更多操作下拉菜单（对齐图 2） -->
-          <el-dropdown trigger="click" :teleported="true">
+          <el-dropdown v-if="!material3" trigger="click" :teleported="true">
             <AervoxButton variant="ghost" icon-only type="button" class="card-more-btn" aria-label="更多操作">
               <MoreVertical :size="16" />
             </AervoxButton>
@@ -275,6 +283,12 @@ function formatDate(isoString: string): string {
         <div class="card-footer">
           <small>创建时间: {{ formatDate(persona.createdAt) }}</small>
         </div>
+        <div v-if="material3" class="persona-phone-actions">
+          <AervoxButton v-if="persona.id !== activePersonaId" variant="primary" type="button" @click="handleActivate(persona)"><Sparkles :size="18" />设为当前</AervoxButton>
+          <AervoxButton variant="secondary" type="button" @click="openEdit(persona)"><Edit3 :size="18" />编辑</AervoxButton>
+          <AervoxButton variant="ghost" type="button" :disabled="exportingId === persona.id" @click="handleExport(persona)"><Download :size="18" />导出</AervoxButton>
+          <AervoxButton variant="ghost" class="settings-record-delete" type="button" @click="handleDelete(persona)"><Trash2 :size="18" />删除</AervoxButton>
+        </div>
       </AervoxCard>
     </div>
 
@@ -287,6 +301,11 @@ function formatDate(isoString: string): string {
     />
   </div>
 </template>
+
+<style scoped>
+.persona-phone-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.persona-phone-actions > :deep(*) { flex: 1 1 120px; }
+</style>
 
 <style scoped>
 .persona-manager {

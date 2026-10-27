@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { useDialogPrompts } from '@aervox/ui/material3';
+import { useSettingsNotice } from '../settings/useSettingsNotice';
+import SettingsNotice from '../settings/SettingsNotice.vue';
 import { AervoxCard, AervoxSwitch, AervoxSettingsHeading, AervoxButton } from '@aervox/ui/primitives';
+import { useMaterial3, useDialogPrompts } from '@aervox/ui/material3';
 import { computed, onActivated, onMounted, ref, unref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from '@aervox/ui/utils/element'
 import {
@@ -24,8 +26,9 @@ import {
   type LLMTestConnectionResultDto,
 } from '@aervox/api-client'
 
-const dialogPrompts = useDialogPrompts(ElMessageBox);
-
+const dialogPrompts = useDialogPrompts(ElMessageBox)
+const material3 = useMaterial3()
+const { notice, notify } = useSettingsNotice(ElMessage)
 const api = useAervoxLLM()
 
 const config = ref<LLMConfigDto | null>(null)
@@ -164,7 +167,7 @@ async function handleCreatePreset(): Promise<void> {
       inputValue: `配置 ${presets.value.length + 1}`,
     })
     const created = await api.createPreset(value.trim(), draft.value)
-    ElMessage.success(`已创建预设「${created.name}」并设为当前`)
+    notify.success(`已创建预设「${created.name}」并设为当前`)
     await Promise.all([loadPresets(), loadConfig()])
   } catch {
     // cancelled
@@ -179,10 +182,10 @@ async function handleActivatePreset(preset: LLMPresetDto): Promise<void> {
   busyPresetId.value = preset.id
   try {
     await api.activatePreset(preset.id)
-    ElMessage.success(`已切换当前模型为「${preset.name}」`)
+    notify.success(`已切换当前模型为「${preset.name}」`)
     await Promise.all([loadPresets(), loadConfig()])
   } catch (e) {
-    ElMessage.error(e instanceof Error ? e.message : '激活预设失败')
+    notify.error(e instanceof Error ? e.message : '激活预设失败')
   } finally {
     busyPresetId.value = null
   }
@@ -199,7 +202,7 @@ async function handleDeletePreset(preset: LLMPresetDto): Promise<void> {
       type: 'warning',
     })
     await api.deletePreset(preset.id)
-    ElMessage.success('模型预设已删除')
+    notify.success('模型预设已删除')
     await Promise.all([loadPresets(), loadConfig()])
   } catch {
     // cancelled
@@ -311,6 +314,7 @@ async function handleSave(): Promise<void> {
 
 <template>
   <div class="llm-config-panel">
+    <SettingsNotice :notice="notice" />
     <AervoxSettingsHeading title="模型与服务" description="配置大语言模型供应商与运行时调用参数" />
 
     <!-- 多预设：卡片列表（对齐人格设定同款交互） -->
@@ -345,9 +349,9 @@ async function handleSave(): Promise<void> {
             :disabled="saving || Boolean(busyPresetId)"
             @click="handleActivatePreset(preset)"
           >设为当前</AervoxButton>
-          <AervoxButton variant="danger"
+          <AervoxButton :variant="material3 ? 'ghost' : 'danger'"
             type="button"
-            class="llm-preset-action danger"
+            class="llm-preset-action danger" :class="{ 'settings-record-delete': material3 }"
             :disabled="saving || Boolean(busyPresetId)"
             @click="handleDeletePreset(preset)"
           >

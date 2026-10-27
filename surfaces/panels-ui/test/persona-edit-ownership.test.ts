@@ -23,6 +23,17 @@ const payload = (id: string) => ({expectedRevision: 1, name: id, description: id
 const mount = () => shallowMount(PersonaEditDialog, {props: {open: false, personaId: 'A'}, global: {renderStubDefaultSlot: true}});
 const save = (wrapper: ReturnType<typeof mount>) => (wrapper.vm as unknown as {save(): Promise<void>}).save();
 
+it('closes through the shared dialog model event and ignores a late closed model event', async () => {
+  const wrapper = mount(); await wrapper.setProps({open: true}); await flushPromises();
+  const dialog = wrapper.getComponent({name: 'AervoxDialog'});
+  dialog.vm.$emit('update:modelValue', false); await flushPromises();
+  expect(wrapper.emitted('close')).toEqual([[]]);
+  await wrapper.setProps({open: false});
+  dialog.vm.$emit('update:modelValue', false); await flushPromises();
+  expect(wrapper.emitted('close')).toEqual([[]]);
+  expect(api.update).not.toHaveBeenCalled(); expect(api.create).not.toHaveBeenCalled();
+});
+
 it('keeps B draft and capabilities when an older A detail arrives after B', async () => {
   const wrapper = mount(); await wrapper.setProps({open: true}); await flushPromises();
   await wrapper.setProps({open: false}); await wrapper.setProps({open: true, personaId: 'B'}); await flushPromises();

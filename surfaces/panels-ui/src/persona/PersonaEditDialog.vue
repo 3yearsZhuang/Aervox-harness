@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useSettingsNotice } from '../settings/useSettingsNotice';
+import SettingsNotice from '../settings/SettingsNotice.vue';
 import { AervoxCard, AervoxDialog, AervoxButton } from '@aervox/ui/primitives';
 import {computed, ref, watch} from 'vue'
 import {ElMessage} from '@aervox/ui/utils/element'
@@ -20,6 +22,7 @@ const emit = defineEmits<{
   (e: 'saved'): void
 }>()
 
+const { notice, notify, clearNotice } = useSettingsNotice(ElMessage)
 const api = useAervoxPersonas()
 
 const name = ref('')
@@ -56,6 +59,7 @@ const selectedSkillsCount = computed(() => {
 })
 
 function clearDraft() {
+  clearNotice()
   name.value = ''; description.value = ''; systemPromptAppend.value = ''; expectedRevision.value = 1
   availableTools.value = []; availableSkills.value = []
   useAllTools.value = true; selectedToolIds.value = []
@@ -96,7 +100,7 @@ watch(
       loadedOwner = owner; ready.value = true
     } catch (cause) {
       if (isCurrent(owner)) {
-        ElMessage.error(cause instanceof Error ? cause.message : '加载人格配置失败')
+        notify.error(cause instanceof Error ? cause.message : '加载人格配置失败')
         emit('close')
       }
     } finally { if (isCurrent(owner)) loading.value = false }
@@ -173,11 +177,11 @@ async function save() {
   const trimmedPrompt = systemPromptAppend.value.trim()
 
   if (!trimmedName) {
-    ElMessage.warning('请输入人格名称')
+    notify.warning('请输入人格名称')
     return
   }
   if (!trimmedPrompt) {
-    ElMessage.warning('请输入系统提示词')
+    notify.warning('请输入系统提示词')
     return
   }
 
@@ -198,7 +202,7 @@ async function save() {
         config,
       })
       if (!isCurrent(owner)) return
-      ElMessage.success('人格已更新')
+      notify.success('人格已更新')
     } else {
       await api.createPersona({
         name: trimmedName,
@@ -206,7 +210,7 @@ async function save() {
         config,
       })
       if (!isCurrent(owner)) return
-      ElMessage.success('人格已创建')
+      notify.success('人格已创建')
     }
     emit('saved')
     emit('close')
@@ -214,9 +218,9 @@ async function save() {
     if (!isCurrent(owner)) return
     const message = e instanceof Error ? e.message : '保存失败'
     if (message.includes('409') || message.includes('REVISION_CONFLICT')) {
-      ElMessage.error('人格版本发生冲突，请重新打开后重试')
+      notify.error('人格版本发生冲突，请重新打开后重试')
     } else {
-      ElMessage.error(message)
+      notify.error(message)
     }
   } finally {
     if (isCurrent(owner)) saving.value = false
@@ -231,9 +235,12 @@ async function save() {
     :subtitle="isEdit ? '更新人格提示词、能力与工具配置' : '配置新人格的核心设定与可用能力'"
     :icon="Heart"
     size="lg"
-    @close="emit('close')"
+    custom-class="persona-edit-dialog"
+    mobile-fullscreen
+    @update:model-value="value => { if (!value && open) emit('close') }"
   >
 
+    <SettingsNotice :notice="notice" />
     <div v-if="loading" class="dialog-loading">正在加载人格配置…</div>
     <div v-else class="persona-form-grid">
       <!-- 左侧：基础信息与系统提示词 -->

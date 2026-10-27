@@ -574,7 +574,7 @@ it('uses Material tabs to select the existing settings panels through keyboard c
     { category: 'model', component: panel('模型设置') },
     { category: 'voice', component: panel('语音设置') },
   ] }, global: { provide: { [material3ContextKey as symbol]: true },
-    stubs: { AervoxDialog: { template: '<section><slot /></section>' } } } });
+    stubs: { AervoxDialog: { template: '<section><header><slot name="header" /></header><slot /></section>' } } } });
   const tabs = wrapper.get('md-tabs');
   expect(wrapper.findAll('md-primary-tab').map(tab => tab.text())).toEqual(['模型服务', '语音']);
   Object.assign(tabs.element, { activeTabIndex: 1 });
@@ -588,7 +588,7 @@ it('selects the first available settings category when the host does not provide
   const wrapper = mount(MobileSettingsDialog, { props: { modelValue: true, panels: [
     { category: 'voice', component: defineComponent({ template: '<p>语音设置</p>' }) },
   ] }, global: { provide: { [material3ContextKey as symbol]: true },
-    stubs: { AervoxDialog: { template: '<section><slot /></section>' } } } });
+    stubs: { AervoxDialog: { template: '<section><header><slot name="header" /></header><slot /></section>' } } } });
   expect(wrapper.get('[role="tabpanel"]').text()).toBe('语音设置');
   expect(wrapper.get('[role="tabpanel"]').attributes('aria-labelledby')).toBe('mobile-settings-tab-voice');
 });
