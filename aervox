@@ -220,6 +220,7 @@ ensure_deps() {
     return 0
   fi
   ensure_mise
+  run node scripts/core-submodule.mjs --init
   info "按锁文件检查依赖…"
   run pnpm install --frozen-lockfile --prefer-offline
   _AERVOX_DEPS_ENSURED=1
@@ -230,6 +231,7 @@ cmd_setup() {
   ensure_mise
   info "mise install(幂等)…"
   mise install
+  run node scripts/core-submodule.mjs --init
   info "重新解析依赖…"
   run pnpm install --no-frozen-lockfile
   ok "setup 完成"

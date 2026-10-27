@@ -5,6 +5,8 @@ on:
     paths:
       - "docs/**"
       - "*.md"
+      - "packages/core"
+      - ".gitmodules"
       - "scripts/docs-*.mjs"
       - ".markdownlint-cli2.jsonc"
       - ".lycheeignore"
@@ -17,6 +19,8 @@ on:
     paths:
       - "docs/**"
       - "*.md"
+      - "packages/core"
+      - ".gitmodules"
       - "scripts/docs-*.mjs"
       - ".markdownlint-cli2.jsonc"
       - ".lycheeignore"
@@ -35,6 +39,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Local documentation links include the required product dependency.
+      - name: Initialize required Core
+        run: git submodule update --init -- packages/core
 
       - name: Install mise
         run: |

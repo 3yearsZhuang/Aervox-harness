@@ -15,6 +15,8 @@ on:
       - "scripts/native-runtime*"
       - "scripts/benchmark-native-runtime.mjs"
       - "mise.toml"
+      - "packages/core"
+      - ".gitmodules"
       - "pnpm-lock.yaml"
       - ".github/workflows/native-runtime.yml"
   push:
@@ -33,6 +35,8 @@ on:
       - "scripts/native-runtime*"
       - "scripts/benchmark-native-runtime.mjs"
       - "mise.toml"
+      - "packages/core"
+      - ".gitmodules"
       - "pnpm-lock.yaml"
       - ".github/workflows/native-runtime.yml"
 permissions:
@@ -50,6 +54,8 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
+      - name: Initialize required Core
+        run: git submodule update --init -- packages/core
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:

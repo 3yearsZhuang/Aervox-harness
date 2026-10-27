@@ -44,7 +44,7 @@ function withTestWorkspaces(check) {
   try {
     copyFileSync(new URL("aervox", root), join(dir, "aervox"));
     mkdirSync(join(dir, "scripts"));
-    for (const file of ["test-package.mjs", "workspaces.mjs", "project-env.sh"]) {
+    for (const file of ["test-package.mjs", "workspaces.mjs", "core-submodule.mjs", "project-env.sh"]) {
       copyFileSync(new URL(`scripts/${file}`, root), join(dir, "scripts", file));
     }
     writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "test-root", private: true, scripts: { test: "node test.mjs" } }));
