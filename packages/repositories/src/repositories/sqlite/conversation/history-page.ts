@@ -5,6 +5,7 @@ import type { SessionHistoryPage, SessionHistoryTurn } from "@aervox/contracts";
 import type { AervoxDatabase } from "../../../client.js";
 import { assertConversationExecutionPolicy, conversationDispatchTarget } from "../../../conversation-execution-policy.js";
 import { disclosableTurn } from "./source-visibility.js";
+import { decodeCanonicalUtf8Base64Url, encodeUtf8Base64Url, utf8ByteLength } from "../../../encoding/utf8-base64url.js";
 
 export type SessionHistoryReadCode = "INVALID_HISTORY_QUERY" | "SESSION_NOT_FOUND" | "HISTORY_CURSOR_EXPIRED" | "HISTORY_ITEM_TOO_LARGE";
 export class SessionHistoryReadError extends Error {
@@ -16,16 +17,15 @@ const MAX_TURN_BYTES = 256 * 1024;
 const MAX_PAGE_BYTES = 512 * 1024;
 const ID_BYTES = 4096;
 type Cursor = { v: 1; sessionId: string; beforeTurnId: string };
-const encode = (cursor: Cursor) => Buffer.from(JSON.stringify(cursor)).toString("base64url");
+const encode = (cursor: Cursor) => encodeUtf8Base64Url(JSON.stringify(cursor));
 function decode(token: string, sessionId: string): Cursor {
   try {
     if (token.length > 16_384 || !/^[A-Za-z0-9_-]+$/.test(token)) return fail("INVALID_HISTORY_QUERY");
-    const text = Buffer.from(token, "base64url").toString("utf8");
-    if (Buffer.from(text).toString("base64url") !== token) return fail("INVALID_HISTORY_QUERY");
+    const text = decodeCanonicalUtf8Base64Url(token);
     const parsed = JSON.parse(text) as Cursor;
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || Object.keys(parsed).sort().join(",") !== "beforeTurnId,sessionId,v"
       || parsed.v !== 1 || parsed.sessionId !== sessionId || typeof parsed.beforeTurnId !== "string"
-      || !parsed.beforeTurnId || Buffer.byteLength(parsed.beforeTurnId) > ID_BYTES || encode(parsed) !== token) return fail("INVALID_HISTORY_QUERY");
+      || !parsed.beforeTurnId || utf8ByteLength(parsed.beforeTurnId) > ID_BYTES || encode(parsed) !== token) return fail("INVALID_HISTORY_QUERY");
     return parsed;
   } catch { return fail("INVALID_HISTORY_QUERY"); }
 }
@@ -90,7 +90,7 @@ export async function readSessionHistoryPage(db: AervoxDatabase, input: {
   sessionId: string; limit?: number; cursor?: string;
 }): Promise<SessionHistoryPage> {
   const limit = input.limit ?? 20;
-  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50 || !input.sessionId || Buffer.byteLength(input.sessionId) > ID_BYTES) fail("INVALID_HISTORY_QUERY");
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50 || !input.sessionId || utf8ByteLength(input.sessionId) > ID_BYTES) fail("INVALID_HISTORY_QUERY");
   const cursor = input.cursor === undefined ? undefined : decode(input.cursor, input.sessionId);
   return db.transaction(async tx => {
     const [session] = await tx.select({ policy: sql<string>`json_quote(${sessions.executionPolicy})`.mapWith(parse<string>) })
@@ -121,7 +121,7 @@ export async function readSessionHistoryPage(db: AervoxDatabase, input: {
       ? encode({ v: 1, sessionId: input.sessionId, beforeTurnId: last.id }) : null;
     if (nextCursor !== null && nextCursor.length > 16_384) return fail("HISTORY_ITEM_TOO_LARGE");
     const items: SessionHistoryTurn[] = [];
-    let pageBytes = Buffer.byteLength(JSON.stringify({ sessionId: input.sessionId, items: [], nextCursor }));
+    let pageBytes = utf8ByteLength(JSON.stringify({ sessionId: input.sessionId, items: [], nextCursor }));
     for (const candidate of scanned) {
       if (candidate.id === null || candidate.status === null || candidate.createdAt === null) return fail("HISTORY_ITEM_TOO_LARGE");
       const [source] = await tx.select({ present: sql<number>`1` }).from(turns).where(and(
@@ -139,7 +139,7 @@ export async function readSessionHistoryPage(db: AervoxDatabase, input: {
       const [projected] = await tx.select({ bytes: sql<number>`coalesce(sum(length(cast(${messageProjection} as blob))), 0)` })
         .from(messageVersions).innerJoin(turns, eq(turns.id, messageVersions.turnId)).where(and(eq(turns.id, candidate.id), eligibleVersion));
       const metadata = { turnId: candidate.id, status: candidate.status, isComplete: candidate.status === "Completed", createdAt: candidate.createdAt };
-      const turnBytes = Buffer.byteLength(JSON.stringify({ ...metadata, messages: [] })) + (projected?.bytes ?? 0) + Math.max(0, size.count - 1);
+      const turnBytes = utf8ByteLength(JSON.stringify({ ...metadata, messages: [] })) + (projected?.bytes ?? 0) + Math.max(0, size.count - 1);
       if (turnBytes > MAX_TURN_BYTES) return fail("HISTORY_ITEM_TOO_LARGE");
       pageBytes += turnBytes + (items.length ? 1 : 0);
       if (pageBytes > MAX_PAGE_BYTES) return fail("HISTORY_ITEM_TOO_LARGE");
@@ -153,7 +153,7 @@ export async function readSessionHistoryPage(db: AervoxDatabase, input: {
         createdAt: candidate.createdAt, messages: messageRows.map(row => row.value) });
     }
     const result = { sessionId: input.sessionId, items: items.reverse(), nextCursor };
-    if (Buffer.byteLength(JSON.stringify(result)) > MAX_PAGE_BYTES) return fail("HISTORY_ITEM_TOO_LARGE");
+    if (utf8ByteLength(JSON.stringify(result)) > MAX_PAGE_BYTES) return fail("HISTORY_ITEM_TOO_LARGE");
     return result;
   });
 }
