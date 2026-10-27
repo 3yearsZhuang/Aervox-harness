@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useDialogPrompts } from '@aervox/ui/material3';
 import { AervoxCard, AervoxSwitch, AervoxButton, AervoxSegmentedControl } from '@aervox/ui/primitives';
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from '@aervox/ui/utils/element'
@@ -16,6 +17,8 @@ import { useAervoxTools, type ToolRegistrationDto } from '@aervox/api-client'
 import ToolCallDialog from './ToolCallDialog.vue'
 import McpRegisterDialog from './McpRegisterDialog.vue'
 import McpPresetServers from './McpPresetServers.vue'
+
+const dialogPrompts = useDialogPrompts(ElMessageBox);
 
 const emit = defineEmits<{
   'change': []
@@ -94,7 +97,7 @@ function openCallDialog(tool: ToolRegistrationDto): void {
 
 async function handleDelete(tool: ToolRegistrationDto): Promise<void> {
   try {
-    await ElMessageBox.confirm(
+    await dialogPrompts.confirm(
       `确定注销工具「${tool.name}」(${tool.id}) 吗？`,
       '注销工具确认',
       {

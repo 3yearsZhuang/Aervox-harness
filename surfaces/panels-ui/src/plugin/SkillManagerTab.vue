@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useDialogPrompts } from '@aervox/ui/material3';
 import { AervoxCard, AervoxSwitch, AervoxButton, AervoxSegmentedControl } from '@aervox/ui/primitives';
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from '@aervox/ui/utils/element'
@@ -13,6 +14,8 @@ import {
 } from 'lucide-vue-next'
 import { useAervoxSkills, type SkillDto } from '@aervox/api-client'
 import SkillContentDialog from './SkillContentDialog.vue'
+
+const dialogPrompts = useDialogPrompts(ElMessageBox);
 
 const emit = defineEmits<{
   'change': []
@@ -93,7 +96,7 @@ function openContent(skill: SkillDto): void {
 
 async function handleDelete(skill: SkillDto): Promise<void> {
   try {
-    await ElMessageBox.confirm(
+    await dialogPrompts.confirm(
       `确定要删除技能「${skill.name}」吗？删除后不可恢复。`,
       '删除技能确认',
       {
@@ -140,7 +143,7 @@ async function handleFileSelected(event: Event): Promise<void> {
     const msg = e instanceof Error ? e.message : '安装技能失败'
     if (msg.includes('409') || msg.includes('exists') || msg.includes('冲突')) {
       try {
-        await ElMessageBox.confirm(
+        await dialogPrompts.confirm(
           '存在同名技能，是否覆盖已有技能并继续安装？',
           '技能冲突',
           {

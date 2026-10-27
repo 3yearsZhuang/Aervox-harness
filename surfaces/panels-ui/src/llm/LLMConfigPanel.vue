@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useDialogPrompts } from '@aervox/ui/material3';
 import { AervoxCard, AervoxSwitch, AervoxSettingsHeading, AervoxButton } from '@aervox/ui/primitives';
 import { computed, onActivated, onMounted, ref, unref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from '@aervox/ui/utils/element'
@@ -22,6 +23,8 @@ import {
   type LLMProviderType,
   type LLMTestConnectionResultDto,
 } from '@aervox/api-client'
+
+const dialogPrompts = useDialogPrompts(ElMessageBox);
 
 const api = useAervoxLLM()
 
@@ -82,7 +85,7 @@ watch(() => JSON.stringify(draft.value), () => {
 async function confirmReplaceDraft(): Promise<boolean> {
   if (!hasUnsavedChanges.value) return true
   try {
-    await ElMessageBox.confirm('当前配置有未保存的修改，继续会放弃这些修改。', '切换模型预设', {
+    await dialogPrompts.confirm('当前配置有未保存的修改，继续会放弃这些修改。', '切换模型预设', {
       confirmButtonText: '放弃修改并继续',
       cancelButtonText: '返回编辑',
       type: 'warning',
@@ -153,7 +156,7 @@ async function loadPresets(): Promise<void> {
 /** 新建预设：输入名称后创建并自动激活 */
 async function handleCreatePreset(): Promise<void> {
   try {
-    const { value } = await ElMessageBox.prompt('为新的模型配置预设起个名字（例如「本地 Ollama」「DeepSeek Chat」）', '新建模型预设', {
+    const { value } = await dialogPrompts.prompt('为新的模型配置预设起个名字（例如「本地 Ollama」「DeepSeek Chat」）', '新建模型预设', {
       confirmButtonText: '创建',
       cancelButtonText: '取消',
       inputPattern: /\S+/,
@@ -190,7 +193,7 @@ async function handleDeletePreset(preset: LLMPresetDto): Promise<void> {
   if (saving.value || busyPresetId.value) return
   if (!(await confirmReplaceDraft())) return
   try {
-    await ElMessageBox.confirm(`确定删除模型预设「${preset.name}」吗？`, '删除确认', {
+    await dialogPrompts.confirm(`确定删除模型预设「${preset.name}」吗？`, '删除确认', {
       confirmButtonText: '删除',
       cancelButtonText: '取消',
       type: 'warning',

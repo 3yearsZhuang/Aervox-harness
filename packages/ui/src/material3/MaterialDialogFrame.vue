@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue';
+import { materialDialogOpenKey } from './dialog-owner';
 import { useMobileBackNavigation, type MobileBackLayer } from './mobile-back-navigation';
 defineOptions({ inheritAttrs: false });
 
@@ -10,6 +11,7 @@ const props = withDefaults(defineProps<{
 }>(), { appendToBody: true, destroyOnClose: false, closeOnClickModal: true, closeOnPressEscape: true });
 const emit = defineEmits<{ 'update:modelValue': [value: boolean]; open: []; opened: []; close: []; closed: [] }>();
 const dialog = ref<HTMLElement & { open: boolean }>();
+provide(materialDialogOpenKey, computed(() => props.modelValue));
 const keepContent = ref(props.modelValue);
 let backdropClick = false;
 let backdropTimer: ReturnType<typeof setTimeout> | undefined;

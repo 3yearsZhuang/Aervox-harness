@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useDialogPrompts } from '@aervox/ui/material3';
 import { AervoxCard, AervoxButton, AervoxSegmentedControl } from '@aervox/ui/primitives';
 import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from '@aervox/ui/utils/element'
@@ -9,6 +10,8 @@ import {
 } from '@aervox/api-client'
 import LocalVoiceConfigPanel from './LocalVoiceConfigPanel.vue'
 import RemoteVoiceConfigPanel from './RemoteVoiceConfigPanel.vue'
+
+const dialogPrompts = useDialogPrompts(ElMessageBox);
 
 const api = useAervoxVoice()
 
@@ -39,7 +42,7 @@ async function loadPresets(): Promise<void> {
 /** 新建预设：输入名称后创建（同步三表占位行并激活，若为首个） */
 async function handleCreatePreset(): Promise<void> {
   try {
-    const { value } = await ElMessageBox.prompt('为新的语音配置预设起个名字（例如「日常对话」「外语学习」）', '新建语音预设', {
+    const { value } = await dialogPrompts.prompt('为新的语音配置预设起个名字（例如「日常对话」「外语学习」）', '新建语音预设', {
       confirmButtonText: '创建',
       cancelButtonText: '取消',
       inputPattern: /\S+/,
@@ -72,7 +75,7 @@ async function handleActivatePreset(preset: VoicePresetDto): Promise<void> {
 /** 删除预设 */
 async function handleDeletePreset(preset: VoicePresetDto): Promise<void> {
   try {
-    await ElMessageBox.confirm(`确定删除语音预设「${preset.name}」吗？`, '删除确认', {
+    await dialogPrompts.confirm(`确定删除语音预设「${preset.name}」吗？`, '删除确认', {
       confirmButtonText: '删除',
       cancelButtonText: '取消',
       type: 'warning',
