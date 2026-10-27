@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useDialogPrompts } from '@aervox/ui/material3';
 import { AervoxCard, AervoxDialog, AervoxButton } from '@aervox/ui/primitives';
 import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from '@aervox/ui/utils/element'
@@ -11,6 +12,8 @@ import {
   Zap,
 } from 'lucide-vue-next';
 import { useAervoxMcp, type McpPresetDto } from '@aervox/api-client';
+
+const dialogPrompts = useDialogPrompts(ElMessageBox);
 
 const emit = defineEmits<{
   (e: 'changed'): void
@@ -97,7 +100,7 @@ async function handleSync(preset: McpPresetDto): Promise<void> {
 
 async function handleDisconnect(preset: McpPresetDto): Promise<void> {
   try {
-    await ElMessageBox.confirm(
+    await dialogPrompts.confirm(
       `断开后将停用并注销「${preset.name}」同步的全部工具（Token 会保留在本地，重新接入无需重填）。`,
       '断开 MCP 服务器',
       { confirmButtonText: '断开', cancelButtonText: '取消', type: 'warning' },

@@ -1,6 +1,7 @@
-import { onScopeDispose, ref, watch } from 'vue';
+import { computed, onScopeDispose, ref, watch } from 'vue';
 import type { PluginConfigField, PluginConfigSnapshot } from '@aervox/contracts';
 import { aervoxConfirm } from '@aervox/ui/primitives';
+import { useDialogPrompts, useMaterial3 } from '@aervox/ui/material3';
 import type { useAervoxPlugins } from '@aervox/api-client';
 
 /** Configuration drafts, revisions and secrets belong to one open plugin generation. */
@@ -10,6 +11,8 @@ export function usePluginConfigEditor(options: {
   onSaved: (reset: boolean) => void;
   onError: (message: string, loading: boolean) => void;
 }) {
+  const material3 = useMaterial3();
+  const dialogPrompts = useDialogPrompts(undefined, computed(() => options.owner().open));
   const fields = ref<PluginConfigField[]>([]);
   const values = ref<Record<string, unknown>>({});
   const secretFields = ref<Record<string, { configured: boolean }>>({});
@@ -81,7 +84,11 @@ export function usePluginConfigEditor(options: {
   }
   async function reset(): Promise<void> {
     const owner = capture(); if (!owner) return;
-    const confirmed = await aervoxConfirm({title: '恢复默认配置？', message: '恢复默认值将清空全部插件配置（含密钥），确定继续吗？', variant: 'danger', confirmText: '恢复默认'});
+    const title = '恢复默认配置？';
+    const message = '恢复默认值将清空全部插件配置（含密钥），确定继续吗？';
+    const confirmed = material3
+      ? await dialogPrompts.confirm(message, title, {type: 'warning', confirmButtonText: '恢复默认', closeOnClickModal: false}).then(() => true, () => false)
+      : await aervoxConfirm({title, message, variant: 'danger', confirmText: '恢复默认'});
     if (!confirmed || !current(owner) || saving.value) return;
     saving.value = true; error.value = null;
     try {

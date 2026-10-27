@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AervoxCard, AervoxSegmentedControl, AervoxSwitch, AervoxButton, AervoxDialog, aervoxConfirm } from '@aervox/ui/primitives';
+import { AervoxCard, AervoxSegmentedControl, AervoxSwitch, AervoxButton, AervoxDialog } from '@aervox/ui/primitives';
 import { computed, ref, watch } from 'vue'
 import {
   BookOpen,

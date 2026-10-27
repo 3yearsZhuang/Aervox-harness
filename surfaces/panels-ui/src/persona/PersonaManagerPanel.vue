@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useDialogPrompts } from '@aervox/ui/material3';
 import { AervoxCard, AervoxSettingsHeading, AervoxButton } from '@aervox/ui/primitives';
 import {computed, onMounted, ref} from 'vue'
 import {ElMessage, ElMessageBox} from '@aervox/ui/utils/element'
@@ -21,6 +22,8 @@ import {
   type PersonaDto,
 } from '@aervox/api-client'
 import PersonaEditDialog from './PersonaEditDialog.vue'
+
+const dialogPrompts = useDialogPrompts(ElMessageBox);
 
 const api = useAervoxPersonas()
 const {personas, activePersona, loading, error, loadPersonas, deletePersona, activatePersona, exportPersona, importPersona} = api
@@ -72,7 +75,7 @@ async function handleFileSelected(event: Event) {
     const msg = e instanceof Error ? e.message : '导入人格包失败'
     if (msg.includes('409') || msg.includes('SKILL_CONFLICT')) {
       try {
-        await ElMessageBox.confirm('部分技能已存在，是否覆盖既有技能并继续导入？', '导入冲突', {
+        await dialogPrompts.confirm('部分技能已存在，是否覆盖既有技能并继续导入？', '导入冲突', {
           confirmButtonText: '覆盖并导入',
           cancelButtonText: '取消',
           type: 'warning',
@@ -138,7 +141,7 @@ async function handleActivate(persona: PersonaDto) {
 
 async function handleDelete(persona: PersonaDto) {
   try {
-    await ElMessageBox.confirm(`确定删除人格「${persona.name}」吗？删除后将无法恢复。`, '删除确认', {
+    await dialogPrompts.confirm(`确定删除人格「${persona.name}」吗？删除后将无法恢复。`, '删除确认', {
       confirmButtonText: '删除',
       cancelButtonText: '取消',
       type: 'warning',

@@ -16,7 +16,10 @@ vi.mock('@aervox/api-client', async importOriginal => ({
   useAervoxSkills: () => ({ skills: ref([]), loadSkills: async () => {} }),
   useAervoxTools: () => ({ tools: ref([]), loadTools: async () => {} }),
 }));
-vi.mock('@aervox/ui/utils/element', () => ({ ElMessage: { error: calls.error, success: vi.fn() } }));
+vi.mock('@aervox/ui/utils/element', async importOriginal => ({
+  ...await importOriginal<typeof import('@aervox/ui/utils/element')>(),
+  ElMessage: { error: calls.error, success: vi.fn() },
+}));
 vi.mock('@aervox/ui/plugin-api', async importOriginal => ({
   ...await importOriginal<typeof import('@aervox/ui/plugin-api')>(), useUIPluginContext: () => undefined,
 }));
