@@ -317,7 +317,7 @@ const editorTitle = computed(() => `${editingExisting.value ? '编辑' : '新增
                 <template v-if="activeView === 'routes'">
                   <label>起点<select v-model="routeDraft.originId" class="aervox-field" required :disabled="loading || saving"><option value="" disabled>选择起点</option><option v-for="item in state.places" :key="item.id" :value="item.id">{{ item.name }}</option></select></label>
                   <label>终点<select v-model="routeDraft.destinationId" class="aervox-field" required :disabled="loading || saving"><option value="" disabled>选择终点</option><option v-for="item in state.places" :key="item.id" :value="item.id">{{ item.name }}</option></select></label>
-                  <label>预计耗时（分钟）<input v-model.number="routeDraft.minutes" class="aervox-field" type="number" min="0" max="1440" step="0.1" required :disabled="loading || saving" /></label>
+                  <label>预计耗时（分钟）<input v-model.number="routeDraft.minutes" class="aervox-field" type="number" min="0" max="1440" step="any" required :disabled="loading || saving" /></label>
                   <p class="campus-note">保存为手工估算，不调用地图服务。反向路线需另建。</p>
                 </template>
                 <p v-if="formError" class="campus-error" role="alert">{{ formError }}</p>

@@ -1,6 +1,15 @@
+import type { Locator } from "@playwright/test";
 import { test, expect, openWorkbench } from "./fixtures";
 
 test.use({ platform: "web" });
+
+async function expectCenterClickable(action: Locator) {
+  await expect.poll(() => action.evaluate(el => {
+    const box = el.getBoundingClientRect();
+    const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+    return hit === el || el.contains(hit);
+  })).toBe(true);
+}
 
 test("classic desktop keeps the last tool action clickable above the expanded dialogue on short screens", async ({ page, servers }) => {
   await page.addInitScript(() => {
@@ -15,13 +24,14 @@ test("classic desktop keeps the last tool action clickable above the expanded di
 
   for (const viewport of [{ width: 390, height: 360 }, { width: 560, height: 440 }]) {
     await page.setViewportSize(viewport);
-    await page.locator(".side-cards").evaluate(el => { el.scrollTop = el.scrollHeight; });
+    const sideCards = page.locator(".side-cards");
+    await sideCards.evaluate(el => { el.scrollTop = el.scrollHeight; });
+    // Plugins can append cards after the timer. Check the actual final action
+    // at the bottom, then scroll back to exercise the retained timer action.
+    await expectCenterClickable(sideCards.getByRole("button").last());
     const reset = page.getByRole("button", { name: "重置", exact: true });
-    await expect.poll(() => reset.evaluate(el => {
-      const box = el.getBoundingClientRect();
-      const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
-      return hit === el || el.contains(hit);
-    })).toBe(true);
+    await reset.scrollIntoViewIfNeeded();
+    await expectCenterClickable(reset);
     await reset.click();
     const cards = await page.locator(".side-cards").boundingBox();
     const dialogue = await page.locator(".immersive-console").boundingBox();

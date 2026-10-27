@@ -126,6 +126,29 @@ test('mobile manages a durable campus plan and shares its budget across tasks', 
   await expect(page.getByRole('dialog', { name: '统一任务中心', exact: true })).not.toBeVisible();
 });
 
+test('editing a route preserves whole seconds through native form validation', async ({ page, request, servers }) => {
+  const snapshot = await read(request, servers.apiUrl);
+  snapshot.state.places = [
+    { id: 'dorm', name: '宿舍', address: '' },
+    { id: 'classroom', name: '教学楼', address: '' },
+  ];
+  snapshot.state.routes = [{ originId: 'dorm', destinationId: 'classroom', durationSeconds: 841,
+    source: 'manual', observedAt: '2026-10-27T00:00:00Z' }];
+  await write(request, servers.apiUrl, snapshot);
+  const dialog = await openCampus(page, servers.webUrl);
+  await category(dialog, '路线耗时');
+  await dialog.getByRole('button', { name: '编辑', exact: true }).click();
+  const minutes = dialog.getByLabel('预计耗时（分钟）', { exact: true });
+  expect(await minutes.evaluate((input: HTMLInputElement) => input.checkValidity())).toBe(true);
+  await saveItem(page, dialog);
+  expect((await read(request, servers.apiUrl)).state.routes[0]!.durationSeconds).toBe(841);
+  await dialog.getByRole('button', { name: '编辑', exact: true }).click();
+  await minutes.fill('14.05');
+  expect(await minutes.evaluate((input: HTMLInputElement) => input.checkValidity())).toBe(true);
+  await saveItem(page, dialog);
+  expect((await read(request, servers.apiUrl)).state.routes[0]!.durationSeconds).toBe(843);
+});
+
 test('an independent HTTP writer triggers a real CAS conflict while the editor keeps its draft', async ({ page, request, servers }) => {
   const dialog = await openCampus(page, servers.webUrl);
   await addPlace(page, dialog, '原地点');
