@@ -20,6 +20,10 @@
     "./conversation": {
       "types": "./dist/conversation.d.ts",
       "default": "./dist/conversation.js"
+    },
+    "./native-sqlite-values": {
+      "types": "./dist/driver/native-sqlite-values.d.ts",
+      "default": "./dist/driver/native-sqlite-values.js"
     }
   },
   "scripts": {
