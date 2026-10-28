@@ -1,0 +1,361 @@
+/* Shared settings panels opt into the phone layout with their dialog shell.
+ * Ordinary Web/desktop panels retain their existing sizing and density. */
+@media (max-width: 899px) {
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen {
+    --control-card-padding: 16px;
+    --control-card-radius: 16px;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen :is(.settings-section, .llm-config-panel, .persona-manager, .voice-preset-panel, .local-voice-panel, .remote-voice-panel, .form-column, .field-block) {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .settings-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .settings-heading-actions {
+    flex-wrap: wrap;
+    width: 100%;
+    gap: 12px;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen :is(.settings-heading h2, .ability-heading strong) {
+    font-size: 20px;
+    line-height: 28px;
+    font-weight: 500;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .settings-field {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 8px;
+    min-height: 0;
+    padding-block: 16px;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .settings-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-height: 64px;
+    padding-block: 16px;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .settings-row > span {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .settings-row:has(.aervox-segmented) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .settings-field > :is(input, select, textarea, .api-key-input-wrapper, .voice-key-wrapper, .voice-picker, .voice-slider-row, .slider-field-row),
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen :is(.voice-select, .persona-input, .persona-textarea) {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .aervox-field {
+    min-height: 48px;
+    max-width: 100%;
+    box-sizing: border-box;
+    font-size: 16px;
+    line-height: 24px;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen textarea.aervox-field {
+    min-height: 96px;
+    resize: vertical;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen input.aervox-range { min-height: 48px; }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen :is(.api-key-input-wrapper, .voice-key-wrapper) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen :is(.api-key-input-wrapper, .voice-key-wrapper) .key-input {
+    flex: 1 1 0;
+    min-width: 0;
+    width: 0;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .voice-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .voice-picker > input {
+    flex: 1 1 120px;
+    min-width: 0;
+    width: 0;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .voice-picker-btn {
+    flex-basis: 100%;
+    width: 100%;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen :is(.llm-preset-header, .voice-preset-header) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    min-height: 48px;
+    margin: 0 0 8px;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen :is(.llm-preset-title, .voice-preset-title, .field-label, .voice-field-label) {
+    color: var(--md-sys-color-on-surface);
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 500;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .settings-list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    margin: 0 0 24px;
+    min-width: 0;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .settings-list:empty { display: none; }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen :is(.llm-preset-card, .voice-preset-card, .persona-card) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    min-width: 0;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen :is(.llm-preset-card-head, .voice-preset-card-head, .card-title-group) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .card-title-group { flex: 1 1 auto; }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen :is(.llm-preset-name, .voice-preset-name, .persona-name) {
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 500;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen :is(.llm-preset-meta, .voice-preset-meta, .persona-description, .card-footer small, .ability-heading small, .voice-hint) {
+    margin: 0;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: 14px;
+    line-height: 20px;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen :is(.llm-preset-active-badge, .voice-preset-active-badge, .active-badge, .voice-card-badge) {
+    max-width: 100%;
+    padding: 4px 8px;
+    border: 0;
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 16px;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen :is(.llm-preset-actions, .voice-preset-actions) {
+    display: flex;
+    flex-wrap: wrap;
+    grid-column: 1;
+    grid-row: auto;
+    gap: 8px;
+    margin-top: 8px;
+    width: 100%;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen :is(.llm-preset-actions, .voice-preset-actions) > .avx-material-button {
+    flex: 1 1 120px;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .avx-material-button {
+    min-width: 0;
+    min-height: 48px;
+    max-width: 100%;
+  }
+
+  /* Save/test groups stay in the same scroll flow as their fields. */
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen :is(.llm-actions, .voice-actions) {
+    position: static;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    margin-top: 24px;
+    padding: 16px 0 0;
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+    background: transparent;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen :is(.llm-actions, .voice-actions) > .avx-material-button,
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .voice-audio {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .voice-audio { height: 48px; }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen :is(.llm-save-status, .llm-save-status strong, .llm-save-status small, .voice-test-result, .test-result-badge, .voice-error, .llm-error, .persona-error, .llm-catalog-feedback) {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 14px;
+    line-height: 20px;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .test-result-badge {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px;
+    border: 0;
+    border-radius: 12px;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen :is(.voice-error, .llm-error, .persona-error, .voice-test-result.fail) { color: var(--md-sys-color-error); }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .test-result-badge.failure {
+    color: var(--md-sys-color-on-error-container);
+    background: var(--md-sys-color-error-container);
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .test-result-badge.success {
+    color: var(--md-sys-color-on-tertiary-container);
+    background: var(--md-sys-color-tertiary-container);
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .detected-models-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .detected-model-select { width: 100%; }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .advanced-toggle {
+    gap: 12px;
+    min-height: 48px;
+    text-align: start;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen :is(.voice-preset-panel > .aervox-segmented, .voice-divider) { margin-block: 24px; }
+
+  /* Persona editing uses the same single scroll surface, without tiny nested
+   * tool/skill scrollers or side-by-side fields. */
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .persona-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .form-column { gap: 20px; }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .field-block { gap: 8px; }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .ability-card { padding: 0; }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .ability-card-header {
+    gap: 12px;
+    min-height: 64px;
+    padding: 8px 16px;
+    box-sizing: border-box;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .ability-card-body {
+    max-height: none;
+    overflow: visible;
+    padding: 8px;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen :is(.checkbox-label, .ability-item-row) {
+    gap: 12px;
+    min-height: 48px;
+    box-sizing: border-box;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .ability-item-row {
+    align-items: center;
+    padding: 12px 8px;
+    border-radius: 12px;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen :is(.item-info strong, .item-info small) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    font-size: 14px;
+    line-height: 20px;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .item-info small {
+    display: block;
+    overflow: visible;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen :is(.voice-field, .voice-preview-actions) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    min-width: 0;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .model-status-box {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .aervox-dialog-footer {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen .aervox-dialog-footer > .avx-material-button { flex: 1 1 120px; }
+}
+
+/* Destructive record actions retain their meaning on wider mobile hosts too. */
+html:root[data-design-system="material3"] .avx-material-dialog .settings-record-delete {
+  --md-text-button-label-text-color: var(--md-sys-color-error);
+  --md-text-button-hover-label-text-color: var(--md-sys-color-error);
+  --md-text-button-focus-label-text-color: var(--md-sys-color-error);
+  --md-text-button-pressed-label-text-color: var(--md-sys-color-error);
+  --md-text-button-icon-color: var(--md-sys-color-error);
+  --md-text-button-hover-icon-color: var(--md-sys-color-error);
+  --md-text-button-focus-icon-color: var(--md-sys-color-error);
+  --md-text-button-pressed-icon-color: var(--md-sys-color-error);
+  color: var(--md-sys-color-error);
+  background: transparent;
+}

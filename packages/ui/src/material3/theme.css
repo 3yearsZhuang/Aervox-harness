@@ -222,22 +222,25 @@ html:root[data-design-system="material3"] :is(.standard-message.user .standard-m
 }
 
 /* Native controls retain keyboard, IME and form behavior during the migration. */
+html:root[data-design-system="material3"] { --avx-field-radius: 16px; }
 html:root[data-design-system="material3"] :is(input, textarea, select).aervox-field.aervox-field {
   min-height: 56px;
   padding: 14px 16px;
   color: var(--md-sys-color-on-surface);
   background: var(--md-sys-color-surface-container-highest, var(--md-sys-color-surface-variant));
-  border: 0;
-  border-bottom: 1px solid var(--md-sys-color-on-surface-variant);
-  border-radius: 12px 12px 0 0;
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--avx-field-radius);
   font-family: var(--avx-font-family-sans);
   font-size: 1rem;
   line-height: 1.5rem;
 }
 html:root[data-design-system="material3"] :is(input, textarea, select).aervox-field.aervox-field:focus-visible {
-  border-bottom: 2px solid var(--md-sys-color-primary);
+  border-color: var(--md-sys-color-primary);
   outline: 2px solid var(--md-sys-color-primary);
   outline-offset: 2px;
+}
+html:root[data-design-system="material3"] :is(.el-input__wrapper, .el-textarea__inner, .el-select__wrapper) {
+  border-radius: var(--avx-field-radius);
 }
 html:root[data-design-system="material3"] :is(input, textarea).aervox-field::placeholder {
   color: var(--md-sys-color-on-surface-variant);

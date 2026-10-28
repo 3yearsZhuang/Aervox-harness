@@ -1,0 +1,62 @@
+/* Settings opt into a full screen phone surface. Other dialogs retain their
+ * Material sizing, and ordinary Web/desktop never install these overrides. */
+@media (max-width: 899px) {
+  html:root[data-design-system="material3"] .avx-material-dialog.is-mobile-fullscreen {
+    --md-dialog-container-shape: 0;
+    --md-dialog-container-color: var(--md-sys-color-surface);
+    width: 100vw !important;
+    max-width: 100vw;
+    min-width: 0;
+    height: var(--avx-dialog-viewport-height, 100dvh) !important;
+    max-height: var(--avx-dialog-viewport-height, 100dvh);
+    min-height: 0;
+    margin: var(--avx-dialog-viewport-top, 0px) 0 0;
+  }
+  html:root[data-design-system="material3"] .is-mobile-fullscreen .avx-material-dialog-headline {
+    display: block;
+    padding: env(safe-area-inset-top, 0px) max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px));
+    background: var(--md-sys-color-surface);
+  }
+  html:root[data-design-system="material3"] .is-mobile-fullscreen .avx-material-dialog-headline > .aervox-dialog-header { min-height: 64px; }
+  html:root[data-design-system="material3"] .mobile-settings-dialog.is-mobile-fullscreen .avx-material-dialog-headline { padding-inline: env(safe-area-inset-left, 0px) env(safe-area-inset-right, 0px); }
+  html:root[data-design-system="material3"] .is-mobile-fullscreen .avx-material-dialog-content {
+    display: flex;
+    flex-direction: column;
+    height: max(0px, calc(var(--avx-dialog-viewport-height, 100dvh) - var(--avx-dialog-headline-height, 64px) - var(--avx-dialog-actions-height, 0px)));
+    padding: 0;
+    overflow: hidden;
+  }
+  html:root[data-design-system="material3"] .is-mobile-fullscreen .aervox-dialog-body {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior-y: contain;
+    scroll-padding-block: 16px;
+  }
+  html:root[data-design-system="material3"] .mobile-settings-dialog.is-mobile-fullscreen .aervox-dialog-body { overflow: hidden; }
+  html:root[data-design-system="material3"] .is-mobile-fullscreen .mobile-settings-panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 16px max(16px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior-y: contain;
+    scroll-padding-block: 16px;
+  }
+  html:root[data-design-system="material3"] .settings-dialog.is-mobile-fullscreen .aervox-nav-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  html:root[data-design-system="material3"] .settings-dialog.is-mobile-fullscreen .aervox-nav-sidebar {
+    flex-direction: row; height: auto; padding: 0 8px; gap: 4px;
+    overflow-x: auto; overflow-y: hidden; background: var(--md-sys-color-surface);
+    border: 0; border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  }
+  html:root[data-design-system="material3"] .settings-dialog.is-mobile-fullscreen .nav-sidebar-group { display: none; }
+  html:root[data-design-system="material3"] .settings-dialog.is-mobile-fullscreen .nav-sidebar-item { width: auto; min-height: 56px; flex: 0 0 auto; padding: 0 16px; border-radius: 0; white-space: nowrap; }
+  html:root[data-design-system="material3"] .settings-dialog.is-mobile-fullscreen .nav-sidebar-item.active { color: var(--md-sys-color-primary); background: var(--md-sys-color-secondary-container); }
+  html:root[data-design-system="material3"] .settings-dialog.is-mobile-fullscreen .aervox-nav-detail { padding: 16px max(16px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); background: var(--md-sys-color-surface); }
+  html:root[data-design-system="material3"] .settings-dialog.is-mobile-fullscreen .settings-page-switcher { position: sticky; top: -16px; z-index: 1; padding-block: 8px; margin-block: -8px 16px; background: var(--md-sys-color-surface); }
+  html:root[data-design-system="material3"] .is-mobile-fullscreen .avx-material-dialog-actions { padding: 12px 16px max(16px, env(safe-area-inset-bottom, 0px)); background: var(--md-sys-color-surface); }
+  html:root[data-design-system="material3"] .is-mobile-fullscreen .aervox-dialog-footer { flex-wrap: wrap; gap: 8px; }
+}

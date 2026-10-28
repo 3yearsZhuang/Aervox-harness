@@ -14,6 +14,8 @@ import { material3ContextKey } from './context';
 import { material3Palette } from './palette';
 import { createMobileBackNavigation, mobileBackNavigationKey } from './mobile-back-navigation';
 import './theme.css';
+import './settings-layout.css';
+import './settings-panels.css';
 
 /** Loads only for the configured Android/mobile build, before Vue mounts. */
 export function installMaterial3(app: App, root: HTMLElement = document.documentElement): () => void {

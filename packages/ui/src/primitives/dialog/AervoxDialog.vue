@@ -27,6 +27,7 @@ const props = withDefaults(
     customClass?: string;
     bodyMaxHeight?: string;
     noPadding?: boolean;
+    mobileFullscreen?: boolean;
   }>(),
   {
     title: '',
@@ -45,6 +46,7 @@ const props = withDefaults(
     customClass: '',
     bodyMaxHeight: '66vh',
     noPadding: false,
+    mobileFullscreen: false,
   },
 );
 
@@ -105,6 +107,7 @@ function handleClose() {
     :model-value="modelValue" :title="title" :width="resolvedWidth" :height="height"
     :class="dialogClasses" :append-to-body="appendToBody" :destroy-on-close="destroyOnClose"
     :close-on-click-modal="closeOnClickModal" :close-on-press-escape="closeOnPressEscape"
+    :mobile-fullscreen="mobileFullscreen"
     @update:model-value="emit('update:modelValue', $event)"
     @open="emit('open')" @opened="emit('opened')" @close="emit('close')" @closed="emit('closed')"
   >
