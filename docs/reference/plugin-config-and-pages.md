@@ -29,7 +29,7 @@ id: AVX-PLUG-001
 
 ### 0.3 插件与宿主分工
 
-决定见 [ADR-016](adr/ADR-016-base-boundaries.md#cr-060)（原 CR-060）。第一方声明与源码可同置 `plugins/<id>/`，分发包只含显式允许的声明和资源，不含源码、依赖及构建产物。API/Web/Desktop 各自的组合根显式注入插件，宿主包不内建插件实现或领域分支。
+决定见 [ADR-016](adr/ADR-016-base-boundaries.md#cr-060)（原 CR-060）。按 [ADR-031](adr/ADR-031-first-party-plugin-repositories.md)，第一方声明与源码在 `Aervox-agent/Aervox-plugins` 集合仓维护，整体以固定提交的必需子模块挂回主仓 `plugins/`，继续同置 `plugins/<id>/` 并随宿主构建；包名、接口与默认产品组成保留。分发包只含显式允许的声明和资源，不含源码、依赖及构建产物。API/Web/Desktop 各自的组合根显式注入插件，宿主包不内建插件实现或领域分支。
 
 插件拥有自身提示词、状态机、组件、样式、工具与事件语义；宿主提供通用注册表、`pluginState`、`pluginEvents`、`metadata` 和窄端口。学习事实、仓储与复习排期保持主仓所有权，插件不能另建数据真源；这不把核心学习闭环改为可选能力。
 
@@ -349,7 +349,7 @@ Manifest 根可声明宿主兼容区间：
 
 [出厂同步](../../packages/host-runtime/src/modules/ecosystem/plugins/index.ts)扫描 `plugins/*`，同步主记录、根 Skill、Config 与主动声明；没有执行任意包内代码，也不等同完整包导入（工具/Page 贡献需走分发安装验证）。API 启动发现缺失、无效或不可读的 `installSource=builtin` 插件时，仅更新可用性状态，保留用户开关、配置、Secret 与授权记录；恢复包不会恢复已撤销授权（见[缺包回归](../../apps/api/test/builtin-plugin-absence.test.ts)）。
 
-集市 `GET /v1/plugins/market` 当前来自本地出厂目录，不是远程公共插件商店；`POST /v1/plugins/market/:id/install` 走该目录打包安装，内部固定 `overwrite: true`；对已安装插件执行集市安装/更新时使用 §8.3 的代际准备与原子激活，保留状态并检查并发冲突。就地打包与构建期导出共用同一份**允许清单**（只收 Manifest、Config、Skill 与 `skills/`、`pages/` 资源；排除 `src/`、`dist/`、`node_modules/`、`test/`、构建配置），两份清单的一致性由 `apps/api/test/plugin-bundle-allowlist.test.ts` 机器断言。更新提示采用版本字符串是否不同，不是 SemVer 新旧判断。根 `mise tasks run package-plugins` 批量生成 `dist/plugins/<id>-<version>.aervox-plugin`（等价 `mise exec -- pnpm package:plugins`）；脚本先运行共享作者校验，再打包；不执行功能或签名安全认证。产物字节可重现（ZIP 条目时间戳固化、目录与条目排序），同源码重复打包的 SHA-256 稳定；`dist/plugins/` 是 gitignore 产物，冷检出后按上述任务恢复，测试不得依赖手工保留的生成物。
+集市 `GET /v1/plugins/market` 当前来自本地出厂目录，不是远程公共插件商店；`POST /v1/plugins/market/:id/install` 走该目录打包安装，内部固定 `overwrite: true`；对已安装插件执行集市安装/更新时使用 §8.3 的代际准备与原子激活，保留状态并检查并发冲突。内置 HTTP 导出、集市就地安装与构建期导出采用同一声明资源边界（只收 Manifest、Config、Skill 与 `skills/`、`pages/` 资源；排除 `src/`、`dist/`、`node_modules/`、`test/`、构建配置），未知条目和符号链接拒绝，已安装 generation 仍原包导出。允许清单的一致性由 `apps/api/test/plugin-bundle-allowlist.test.ts` 机器断言。更新提示采用版本字符串是否不同，不是 SemVer 新旧判断。根 `mise tasks run package-plugins` 批量生成 `dist/plugins/<id>-<version>.aervox-plugin`（等价 `mise exec -- pnpm package:plugins`）；脚本先运行共享作者校验，再打包；不执行功能或签名安全认证。产物字节可重现（ZIP 条目时间戳固化、目录与条目排序），同源码重复打包的 SHA-256 稳定；`dist/plugins/` 是 gitignore 产物，冷检出后按上述任务恢复，测试不得依赖手工保留的生成物。
 
 ### 8.5 主动规则、MCP 与授权
 

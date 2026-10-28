@@ -15,7 +15,13 @@ const PLUGINS_SOURCE_ROOT = path.resolve(__dirname, "../../../plugins");
 describe("出厂官方插件集市与全量插件打包验证 (Market & Builtin Plugins Packaging)", () => {
   it("可分发插件的 Manifest 全部通过契约校验，根界面源码不伪装为分发包", async () => {
     const entries = await fs.readdir(PLUGINS_SOURCE_ROOT, { withFileTypes: true });
-    const dirNames = entries.filter((e) => e.isDirectory()).map((e) => e.name);
+    const dirNames: string[] = [];
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      try { await fs.access(path.join(PLUGINS_SOURCE_ROOT, entry.name, "plugin.manifest.json")); }
+      catch { continue; } // 集合仓 .git/.github 等治理目录不属于声明插件。
+      dirNames.push(entry.name);
+    }
 
     expect(dirNames).toContain("home-assistant");
     expect(dirNames).toContain("xiaomi-health");
@@ -29,13 +35,6 @@ describe("出厂官方插件集市与全量插件打包验证 (Market & Builtin 
 
     for (const dirName of dirNames) {
       const manifestPath = path.join(PLUGINS_SOURCE_ROOT, dirName, "plugin.manifest.json");
-      // CR-065: these mandatory UI implementations are bundled by the app,
-      // not installed/enabled via the declaration marketplace. Unknown directories
-      // still require a valid manifest; a missing existing manifest must fail.
-      if (["workbench-ui", "companion-ui", "panels-ui", "proactive-ui"].includes(dirName)) {
-        await expect(fs.access(manifestPath)).rejects.toMatchObject({ code: "ENOENT" });
-        continue;
-      }
       const raw = await fs.readFile(manifestPath, "utf8");
       const parsed = pluginManifestSchema.safeParse(JSON.parse(raw));
       expect(

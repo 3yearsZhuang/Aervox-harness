@@ -20,5 +20,18 @@
     "expiresOn": "2026-11-13",
     "owner": "maintainers",
     "reason": "Xcode project tooling uses random UUIDs for local project identifiers, not authorization or untrusted buffer writes. The installed CLI retains uuid 7 through xcode; forcing uuid 11 changes the dependency contract. Recheck upstream xcode support before mobile distribution."
+  },
+  {
+    "advisory": "GHSA-gcqx-w48m-w2h4",
+    "package": "deepmerge",
+    "version": "4.3.1",
+    "paths": [
+      "research__deletion-fault-testing>@langchain/community>@browserbasehq/stagehand>deepmerge",
+      "research__deletion-fault-testing>@langchain/community>html-to-text>deepmerge",
+      "research__deletion-fault-testing>llamaindex>@llamaindex/node-parser>html-to-text>deepmerge"
+    ],
+    "expiresOn": "2026-11-13",
+    "owner": "maintainers",
+    "reason": "No upstream fixed release exists. The exact 4.3.1 installation is locally fixed by patches/deepmerge@4.3.1.patch in index.js and the CJS/UMD distributions; writes of __proto__ from both target and source use own data properties. check:dependency-audit first verifies the patch registration and actual research dependency resolutions against poisoning regressions, including ESM consumption. Registry audit still reports the unchanged 4.3.1 version. This review covers only these three research paths and must be removed when an upstream fix is adopted."
   }
 ]

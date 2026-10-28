@@ -575,32 +575,24 @@ export async function exportPluginBundle(
   }
   const zipFiles: Record<string, Uint8Array> = {};
 
-  // 优先尝试从出厂源目录拷贝完整静态文件
+  // 出厂源与集市安装、构建期导出使用相同的声明资源边界。
   const sourceDir = path.join(deps.builtinPluginsSourceRoot, pluginId);
   let hasSourceDir = false;
   try {
-    const stat = await fs.stat(sourceDir);
+    const stat = await fs.lstat(sourceDir);
+    if (stat.isSymbolicLink()) throw new Error(`Unsupported plugin source directory: ${sourceDir}`);
     hasSourceDir = stat.isDirectory();
-  } catch {
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     hasSourceDir = false;
   }
 
   if (hasSourceDir) {
-    // 递归读取内置源码目录
-    async function readDirRecursive(dir: string, base: string) {
-      const entries = await fs.readdir(dir, { withFileTypes: true });
-      for (const entry of entries) {
-        const full = path.join(dir, entry.name);
-        const rel = path.join(base, entry.name).replace(/\\/g, "/");
-        if (entry.isDirectory()) {
-          await readDirRecursive(full, rel);
-        } else {
-          const data = await fs.readFile(full);
-          zipFiles[rel] = new Uint8Array(data);
-        }
-      }
+    Object.assign(zipFiles, await collectMarketBundleFiles(sourceDir));
+    const validation = validatePluginBundleFiles(zipFiles);
+    if (validation.issues.length) {
+      throw new Error(`Invalid plugin package: ${validation.issues.map(issue => `${issue.path}: ${issue.message}`).join("; ")}`);
     }
-    await readDirRecursive(sourceDir, "");
   }
 
   // 若无内置源码目录或动态已安装插件，从仓储和文件系统聚合
@@ -841,7 +833,7 @@ export function classifyPluginBundleEntry(rel: string, isDirectory = false): "di
   const asDir = isDirectory ? `${rel}/` : rel;
   if (!isDirectory && PLUGIN_BUNDLE_FILENAMES.includes(rel)) return "dist";
   if (PLUGIN_BUNDLE_DIR_PREFIXES.some((prefix) => asDir.startsWith(prefix))) return "dist";
-  if (PLUGIN_BUNDLE_LOCAL_FILENAMES.includes(rel)) return "local";
+  if (!isDirectory && PLUGIN_BUNDLE_LOCAL_FILENAMES.includes(rel)) return "local";
   if (PLUGIN_BUNDLE_LOCAL_DIR_PREFIXES.some((prefix) => asDir.startsWith(prefix))) return "local";
   return "unknown";
 }
@@ -850,6 +842,9 @@ export function classifyPluginBundleEntry(rel: string, isDirectory = false): "di
 export async function collectMarketBundleFiles(
   pluginDir: string,
 ): Promise<Record<string, Uint8Array>> {
+  if (!(await fs.lstat(pluginDir)).isDirectory()) {
+    throw new Error(`Unsupported plugin source directory: ${pluginDir}`);
+  }
   const files: Record<string, Uint8Array> = {};
 
   const readAllowedRecursive = async (dir: string, base: string): Promise<void> => {
@@ -857,6 +852,9 @@ export async function collectMarketBundleFiles(
     for (const entry of entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
       const full = path.join(dir, entry.name);
       const rel = `${base}${entry.name}`;
+      if (entry.isSymbolicLink() || (!entry.isDirectory() && !entry.isFile())) {
+        throw new Error(`Unsupported plugin resource: ${rel}`);
+      }
       const role = classifyPluginBundleEntry(rel, entry.isDirectory());
       if (role === "local") continue;
       // 未知角色属于**契约缺陷**（既可能是漏发资源，也可能是泄露实现），fail-closed 拒绝而非静默跳过

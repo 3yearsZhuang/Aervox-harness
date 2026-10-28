@@ -67,7 +67,7 @@ API 组合根显式装配第一方 Bot 传输贡献，共用会话受理与完�
 | `packages/contracts` / `schema` / `repositories` | 公共协议、数据库 Schema 与事务仓储；业务写入不能绕过仓储 |
 | `packages/host-runtime` | API 与 Worker 共用产品装配、执行与权限；API 监听，Worker 调度，见 [ADR-021](adr/ADR-021-aervox-core-standalone-package.md) |
 | `packages/core` | [独立 Core 仓库](https://github.com/Aervox-agent/Aervox-core)的必需 Git submodule，固定提交并作为 `@aervox/core` workspace 包消费；零运行时依赖，宿主注入持久化、Provider 与业务工具 |
-| `packages/host-plugin-api` / `plugins/` | 窄接口与插件自有实现；领域逻辑不回流到宿主或内核 |
+| `packages/host-plugin-api` / `plugins/` | 窄接口与插件自有实现；`plugins/` 是 [Aervox-plugins](https://github.com/Aervox-agent/Aervox-plugins) 集合仓的必需固定提交子模块，保留原 workspace 包和默认产品组成；领域逻辑不回流到宿主或内核 |
 | `packages/ui` / `ui-host` / `api-client` | 跨端组件、主题和传输；不依赖平台壳或数据库 |
 | `native/` / `packages/native-runtime` | Rust 计算与受控进程，TypeScript 负责业务、授权、写入与生命周期 |
 
@@ -75,7 +75,7 @@ API 组合根显式装配第一方 Bot 传输贡献，共用会话受理与完�
 
 实际包与依赖以 workspace 清单、各包清单和[导入边界守卫](../../scripts/import-boundary.mjs)为准；本表说明架构职责，不逐项镜像磁盘目录。
 
-Core 的仓库分离不改变运行时或数据所有权：API/Worker、仓储与产品装配继续由主仓维护。必需 Core 的源码和受跟踪文件参与主仓门禁，`reference/` 仍为可选参考输入；独立工具链、兼容验证与引用更新规则见 [ADR-021](adr/ADR-021-aervox-core-standalone-package.md#仓库分离与主仓集成)。
+Core 与插件的仓库分离不改变运行时或数据所有权：API/Worker、仓储与产品装配继续由主仓维护。两个必需产品子模块的源码和受跟踪文件参与主仓门禁，`reference/` 仍为可选参考输入；Core 独立工具链与引用更新见 [ADR-021](adr/ADR-021-aervox-core-standalone-package.md#仓库分离与主仓集成)，插件在固定宿主内开发及两仓兼容规则见 [ADR-031](adr/ADR-031-first-party-plugin-repositories.md)。
 
 原生源码由顶层 Cargo 工作区统一管理；TypeScript 接入包不拥有 Rust 源码，原生制品仍归集到 `packages/native-runtime/dist/bin/<platform>-<arch>/`。精确工具版本由 `mise.toml` 管理，Cargo 工作区继承依赖、最低版本与许可证。
 

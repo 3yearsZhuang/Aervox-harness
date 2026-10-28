@@ -13,7 +13,7 @@ const GENERATED = /(?:^|\/)(?:dist|out|\.turbo|node_modules|\.cache|coverage)(?:
 const LOCAL_FILE = /(?:\.(?:db|sqlite|sqlite3)(?:-(?:wal|shm|journal))?|\.(?:log|tmp|bak|swp|tsbuildinfo)|~)$/i;
 const CREDENTIAL_FILE = /(?:^|\/)(?:\.env(?:\..+)?|id_rsa|id_ed25519|credentials\.json)$/;
 
-/** Inspect product tracked files, including required Core; ignore data and reference gitlinks. */
+/** Inspect product tracked files, including required submodules; ignore data and reference gitlinks. */
 export function inspectTrackedFiles({ cwd = process.cwd(), sizeLimit = 1_048_576, exceptions = SIZE_EXCEPTIONS } = {}) {
   const entries = productTrackedEntries(cwd);
   const violations = [];
