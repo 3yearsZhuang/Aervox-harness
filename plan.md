@@ -83,14 +83,15 @@
 
 <a id="iter-075"></a>
 
-### ITER-075 · 执行中：插件生态规范与两仓实现
+### ITER-075 · 已实施：插件生态规范与两仓实现
 
 维护者已要求按集合仓原 PR #2 完成命名、七分类目录、版本、Registry 与发布门禁的实际实现，决定见 [ADR-032](docs/reference/adr/ADR-032-plugin-ecosystem-standard.md)。依赖已移交的 ITER-073/074；不捎带仍待重组的主仓 #346/#347。
 
 - 集合仓恢复目标规范并迁移九个插件源码和标识，保留现有包名与受信 surfaces；宿主同步 Contracts、发现、工作区、打包、市场与消费者。
 - Registry 只登记校验过的真实发布，发布与破坏性检查复用共享合同和根锁；没有发布时保持空索引。
 - 维护者已选择显式离线身份迁移工具：停写、备份、staging、校验、原子换目录和回滚包；本次只实现和测试工具，不操作用户业务数据。不可变历史和撤权证据不重写为新授权。
-- 两仓实现与本地 `./aervox ci all` 已通过；集合作者门禁验证九个身份和可重现分发包，迁移 CLI 30 项及真实完整 Schema 用例通过。配对分支均为 `feat/plugin-ecosystem-standard`；远端冷安装、精确组合检查、PR 审查及最终合并 gitlink 仍待确认。没有执行业务库迁移或首次真实发布。
+- [集合 PR #4](https://github.com/Aervox-agent/Aervox-plugins/pull/4) 已保留历史合入 `85f002f4223cba5e0b3d9eccdd89ff7c10621525`，文件树与已验证候选一致；[主仓 PR #352](https://github.com/3yearsZhuang/Aervox-harness/pull/352) 固定该实际合并提交并交付宿主实现。维护者已授权两仓合并，主仓按最终 gitlink 复验及当前提交远端检查通过后合入。
+- 两仓本地全量与远端冷检出检查已通过；主仓 8/8，包括 API E2E 45/45、Chromium UI E2E 37/37 和三平台原生合同。集合作者门禁验证九个身份和可重现分发包，迁移 CLI 30 项及真实完整 Schema 用例通过。没有执行业务库迁移或首次真实发布，相关实际操作继续单独验收。
 
 <a id="iter-071"></a>
 
