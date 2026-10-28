@@ -1,8 +1,8 @@
 import { lstatSync, realpathSync, rmSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { discoverWorkspaces } from './workspaces.mjs';
+import { productTrackedEntries } from './core-submodule.mjs';
 
 export function generatedPaths(cwd = process.cwd()) {
   return ['dist', '.turbo', 'node_modules/.turbo', ...discoverWorkspaces(cwd).flatMap(({ relDir }) =>
@@ -12,7 +12,7 @@ export function generatedPaths(cwd = process.cwd()) {
 /** Validate the entire deletion set before touching anything. Never follow links. */
 export function cleanGenerated({ cwd = process.cwd(), dryRun = false } = {}) {
   const root = realpathSync(cwd);
-  const tracked = execFileSync('git', ['ls-files', '-z'], { cwd, encoding: 'utf8' }).split('\0').filter(Boolean);
+  const tracked = productTrackedEntries(cwd).map(entry => entry.file);
   const paths = generatedPaths(cwd);
   for (const rel of paths) {
     if (tracked.some(file => file === rel || file.startsWith(`${rel}/`))) throw new Error(`Refusing tracked output: ${rel}`);

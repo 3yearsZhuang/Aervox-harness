@@ -1,3 +1,4 @@
+import { pluginSkillNameFromDirectoryName } from "@aervox/contracts";
 /**
  * Aervox｜思隅 @aervox/api — 插件打包、分发包预检与集市引擎（CAP-020）
  *
@@ -10,6 +11,7 @@
  * 4. 插件打包导出（exportPluginBundle）：生成标准的 .aervox-plugin 单文件分发包；
  * 5. 官方与出厂插件集市（listMarketPlugins / installFromMarket）。
  */
+import { discoverBuiltinPluginDirectories, findBuiltinPluginDirectory } from "./plugin-sources.js";
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -119,7 +121,7 @@ function resolveBundleSkills(
   // Stable ordering also makes SKILL.md win over skill.md if both are present.
   for (const entry of Object.keys(files).sort()) {
     if (claimedEntries.has(entry) || !entry.startsWith("skills/") || (!entry.endsWith("/SKILL.md") && !entry.endsWith("/skill.md"))) continue;
-    const name = entry.split("/")[1];
+    const name = pluginSkillNameFromDirectoryName(entry.split("/")[1] ?? "");
     if (!name || names.has(name)) continue;
     const content = readEntry(entry);
     if (content !== undefined) add(name, content);
@@ -570,37 +572,29 @@ export async function exportPluginBundle(
   if (plugin?.bundleGeneration) {
     signal?.throwIfAborted();
     const bytes = await deps.bundleStore.readOriginalBundle(pluginId, plugin.bundleGeneration);
-    return { filename: `${pluginId}-${plugin.version}.aervox-plugin`, bytes,
+    return { filename: `${pluginId}-v${plugin.version}.aervox-plugin`, bytes,
       checksum: createHash("sha256").update(bytes).digest("hex") };
   }
   const zipFiles: Record<string, Uint8Array> = {};
 
-  // 优先尝试从出厂源目录拷贝完整静态文件
-  const sourceDir = path.join(deps.builtinPluginsSourceRoot, pluginId);
+  // 出厂源与集市安装、构建期导出使用相同的声明资源边界。
+  const sourceDir = await findBuiltinPluginDirectory(deps.builtinPluginsSourceRoot, pluginId);
   let hasSourceDir = false;
   try {
-    const stat = await fs.stat(sourceDir);
-    hasSourceDir = stat.isDirectory();
-  } catch {
+    const stat = sourceDir ? await fs.lstat(sourceDir) : undefined;
+    if (stat?.isSymbolicLink()) throw new Error(`Unsupported plugin source directory: ${sourceDir}`);
+    hasSourceDir = Boolean(stat?.isDirectory());
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     hasSourceDir = false;
   }
 
-  if (hasSourceDir) {
-    // 递归读取内置源码目录
-    async function readDirRecursive(dir: string, base: string) {
-      const entries = await fs.readdir(dir, { withFileTypes: true });
-      for (const entry of entries) {
-        const full = path.join(dir, entry.name);
-        const rel = path.join(base, entry.name).replace(/\\/g, "/");
-        if (entry.isDirectory()) {
-          await readDirRecursive(full, rel);
-        } else {
-          const data = await fs.readFile(full);
-          zipFiles[rel] = new Uint8Array(data);
-        }
-      }
+  if (hasSourceDir && sourceDir) {
+    Object.assign(zipFiles, await collectMarketBundleFiles(sourceDir));
+    const validation = validatePluginBundleFiles(zipFiles);
+    if (validation.issues.length) {
+      throw new Error(`Invalid plugin package: ${validation.issues.map(issue => `${issue.path}: ${issue.message}`).join("; ")}`);
     }
-    await readDirRecursive(sourceDir, "");
   }
 
   // 若无内置源码目录或动态已安装插件，从仓储和文件系统聚合
@@ -701,7 +695,7 @@ export async function exportPluginBundle(
   const version = plugin?.version ?? "1.0.0";
   const bytes = await executeArchive<Uint8Array>({ kind: "pack", input: zipFiles, limits: PLUGIN_ARCHIVE_LIMITS, isSafePath: isSafeZipEntryPath, signal });
   const checksum = createHash("sha256").update(bytes).digest("hex");
-  const filename = `${pluginId}-${version}.aervox-plugin`;
+  const filename = `${pluginId}-v${version}.aervox-plugin`;
 
   return { filename, bytes, checksum };
 }
@@ -720,12 +714,9 @@ export async function listMarketPlugins(
   }
 
   try {
-    const entries = await fs.readdir(deps.builtinPluginsSourceRoot, {
-      withFileTypes: true,
-    });
+    const entries = await discoverBuiltinPluginDirectories(deps.builtinPluginsSourceRoot);
     for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const pluginDir = path.join(deps.builtinPluginsSourceRoot, entry.name);
+      const pluginDir = entry;
       const manifestPath = path.join(pluginDir, "plugin.manifest.json");
       const schemaPath = path.join(pluginDir, "config.schema.json");
 
@@ -808,6 +799,7 @@ export const PLUGIN_BUNDLE_FILENAMES: readonly string[] = [
   "config.schema.json",
   "SKILL.md",
   "skill.md",
+  "icon.svg", "icon.png", "LICENSE", "NOTICE", "CHANGELOG.md",
 ];
 
 export const PLUGIN_BUNDLE_DIR_PREFIXES: readonly string[] = ["skills/", "pages/"];
@@ -841,7 +833,7 @@ export function classifyPluginBundleEntry(rel: string, isDirectory = false): "di
   const asDir = isDirectory ? `${rel}/` : rel;
   if (!isDirectory && PLUGIN_BUNDLE_FILENAMES.includes(rel)) return "dist";
   if (PLUGIN_BUNDLE_DIR_PREFIXES.some((prefix) => asDir.startsWith(prefix))) return "dist";
-  if (PLUGIN_BUNDLE_LOCAL_FILENAMES.includes(rel)) return "local";
+  if (!isDirectory && PLUGIN_BUNDLE_LOCAL_FILENAMES.includes(rel)) return "local";
   if (PLUGIN_BUNDLE_LOCAL_DIR_PREFIXES.some((prefix) => asDir.startsWith(prefix))) return "local";
   return "unknown";
 }
@@ -850,6 +842,9 @@ export function classifyPluginBundleEntry(rel: string, isDirectory = false): "di
 export async function collectMarketBundleFiles(
   pluginDir: string,
 ): Promise<Record<string, Uint8Array>> {
+  if (!(await fs.lstat(pluginDir)).isDirectory()) {
+    throw new Error(`Unsupported plugin source directory: ${pluginDir}`);
+  }
   const files: Record<string, Uint8Array> = {};
 
   const readAllowedRecursive = async (dir: string, base: string): Promise<void> => {
@@ -857,6 +852,9 @@ export async function collectMarketBundleFiles(
     for (const entry of entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
       const full = path.join(dir, entry.name);
       const rel = `${base}${entry.name}`;
+      if (entry.isSymbolicLink() || (!entry.isDirectory() && !entry.isFile())) {
+        throw new Error(`Unsupported plugin resource: ${rel}`);
+      }
       const role = classifyPluginBundleEntry(rel, entry.isDirectory());
       if (role === "local") continue;
       // 未知角色属于**契约缺陷**（既可能是漏发资源，也可能是泄露实现），fail-closed 拒绝而非静默跳过
@@ -869,6 +867,7 @@ export async function collectMarketBundleFiles(
         await readAllowedRecursive(full, `${rel}/`);
         continue;
       }
+      if ((await fs.lstat(full)).nlink > 1) throw new Error(`Hard-linked plugin resource: ${rel}`);
       const data = await fs.readFile(full);
       files[rel] = new Uint8Array(data);
     }
@@ -886,7 +885,8 @@ export async function installFromMarket(
   deps: BundleEngineDeps,
   signal?: AbortSignal,
 ): Promise<PluginModel> {
-  const pluginDir = path.join(deps.builtinPluginsSourceRoot, pluginId);
+  const pluginDir = await findBuiltinPluginDirectory(deps.builtinPluginsSourceRoot, pluginId);
+  if (!pluginDir) throw new Error(`Market plugin not found: ${pluginId}`);
   const manifestPath = path.join(pluginDir, "plugin.manifest.json");
 
   try {

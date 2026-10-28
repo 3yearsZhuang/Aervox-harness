@@ -62,6 +62,7 @@ test('launcher preserves frozen-install error and never falls back to lockfile r
   const { cwd, put } = fixture(t);
   copyFileSync(new URL('../aervox', import.meta.url), path.join(cwd, 'aervox'));
   put('scripts/project-env.sh', readFileSync(new URL('./project-env.sh', import.meta.url)));
+  put('scripts/core-submodule.mjs', readFileSync(new URL('./core-submodule.mjs', import.meta.url)));
   put('pnpm-lock.yaml', 'locked');
   put('bin/mise', '#!/bin/sh\nshift\nshift\nexec "$@"\n');
   put('bin/lsof', '#!/bin/sh\nexit 1\n');

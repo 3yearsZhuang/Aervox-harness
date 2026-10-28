@@ -55,7 +55,7 @@ test("check-type-boundary: 插件实现目录纳入扫描根", () => {
   const dirs = discoverPluginSourceDirs();
   assert.ok(dirs.length > 0, "应至少发现一个 plugins/<id>/src 目录");
   assert.ok(dirs.every((d) => d.startsWith("plugins/") && d.endsWith("/src")));
-  assert.ok(dirs.includes("plugins/focus-mode/src"), `未发现 focus-mode 插件目录：${dirs.join(", ")}`);
+  assert.ok(dirs.includes("plugins/plugins/ui/focus-mode/src"), `未发现 focus-mode 插件目录：${dirs.join(", ")}`);
 });
 
 test("check-type-boundary: 插件目录内的重复类型声明同样被判定为违规", () => {
@@ -65,7 +65,7 @@ test("check-type-boundary: 插件目录内的重复类型声明同样被判定�
     }
   `;
   const duplicates = inspectFileForDuplicateTypes(
-    "plugins/focus-mode/src/ui/foo.ts",
+    "plugins/plugins/ui/focus-mode/src/ui/foo.ts",
     code,
     new Set(["CreateTurnRequest"]),
   );

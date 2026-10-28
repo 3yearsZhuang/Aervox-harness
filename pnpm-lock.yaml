@@ -17,8 +17,10 @@ overrides:
   brace-expansion@5.0.9: 5.0.12
   http-cache-semantics@4.2.0: 4.3.0
   shell-quote@1.10.0: 1.11.0
+  qs@6.16.0: 6.16.1
 
 patchedDependencies:
+  deepmerge@4.3.1: b0c9a3616f8f0430752c2dca0e58de9a47f1154e3a0cb6e8bc83e5e53ef0f9d2
   drizzle-orm@0.45.4: d2196ee4232c80292f42bc6b643c4da62ae2be73cf61d94cbf129a0a9a26ecd9
 
 importers:
@@ -122,7 +124,7 @@ importers:
         version: link:../../packages/observability
       '@aervox/plugin-focus-mode':
         specifier: workspace:*
-        version: link:../../plugins/focus-mode
+        version: link:../../plugins/plugins/ui/focus-mode
       '@aervox/process-coordination':
         specifier: workspace:*
         version: link:../../packages/process-coordination
@@ -167,19 +169,19 @@ importers:
         version: link:../../packages/native-runtime
       '@aervox/plugin-companion-ui':
         specifier: workspace:*
-        version: link:../../surfaces/companion-ui
+        version: link:../../plugins/surfaces/companion-ui
       '@aervox/plugin-focus-mode':
         specifier: workspace:*
-        version: link:../../plugins/focus-mode
+        version: link:../../plugins/plugins/ui/focus-mode
       '@aervox/plugin-panels-ui':
         specifier: workspace:*
-        version: link:../../surfaces/panels-ui
+        version: link:../../plugins/surfaces/panels-ui
       '@aervox/plugin-proactive-ui':
         specifier: workspace:*
-        version: link:../../surfaces/proactive-ui
+        version: link:../../plugins/surfaces/proactive-ui
       '@aervox/plugin-workbench-ui':
         specifier: workspace:*
-        version: link:../../surfaces/workbench-ui
+        version: link:../../plugins/surfaces/workbench-ui
       '@aervox/public':
         specifier: workspace:*
         version: link:../../packages/public
@@ -256,16 +258,16 @@ importers:
         version: link:../../packages/live2d
       '@aervox/plugin-focus-mode':
         specifier: workspace:*
-        version: link:../../plugins/focus-mode
+        version: link:../../plugins/plugins/ui/focus-mode
       '@aervox/plugin-panels-ui':
         specifier: workspace:*
-        version: link:../../surfaces/panels-ui
+        version: link:../../plugins/surfaces/panels-ui
       '@aervox/plugin-proactive-ui':
         specifier: workspace:*
-        version: link:../../surfaces/proactive-ui
+        version: link:../../plugins/surfaces/proactive-ui
       '@aervox/plugin-workbench-ui':
         specifier: workspace:*
-        version: link:../../surfaces/workbench-ui
+        version: link:../../plugins/surfaces/workbench-ui
       '@aervox/public':
         specifier: workspace:*
         version: link:../../packages/public
@@ -389,12 +391,18 @@ importers:
 
   packages/core:
     devDependencies:
-      '@aervox/contracts':
-        specifier: workspace:*
-        version: link:../contracts
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.1
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: 4.1.12
+        version: 4.1.12(@types/node@22.20.1)(happy-dom@21.0.4)(vite@7.3.7(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1))
 
   packages/diary:
     dependencies:
@@ -465,13 +473,13 @@ importers:
         version: link:../observability
       '@aervox/plugin-bot-onebot':
         specifier: workspace:*
-        version: link:../../plugins/bot-onebot
+        version: link:../../plugins/plugins/bot/onebot
       '@aervox/plugin-bot-weixin':
         specifier: workspace:*
-        version: link:../../plugins/bot-weixin
+        version: link:../../plugins/plugins/bot/weixin
       '@aervox/plugin-focus-mode':
         specifier: workspace:*
-        version: link:../../plugins/focus-mode
+        version: link:../../plugins/plugins/ui/focus-mode
       '@aervox/practice-review':
         specifier: workspace:*
         version: link:../practice-review
@@ -625,43 +633,43 @@ importers:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.9.3)
 
-  plugins/bot-onebot:
+  plugins/plugins/bot/onebot:
     dependencies:
       '@aervox/host-plugin-api':
         specifier: workspace:*
-        version: link:../../packages/host-plugin-api
+        version: link:../../../../packages/host-plugin-api
     devDependencies:
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.1
 
-  plugins/bot-weixin:
+  plugins/plugins/bot/weixin:
     dependencies:
       '@aervox/host-plugin-api':
         specifier: workspace:*
-        version: link:../../packages/host-plugin-api
+        version: link:../../../../packages/host-plugin-api
     devDependencies:
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.1
 
-  plugins/focus-mode:
+  plugins/plugins/ui/focus-mode:
     dependencies:
       '@aervox/api-client':
         specifier: workspace:*
-        version: link:../../packages/api-client
+        version: link:../../../../packages/api-client
       '@aervox/contracts':
         specifier: workspace:*
-        version: link:../../packages/contracts
+        version: link:../../../../packages/contracts
       '@aervox/core':
         specifier: workspace:*
-        version: link:../../packages/core
+        version: link:../../../../packages/core
       '@aervox/host-plugin-api':
         specifier: workspace:*
-        version: link:../../packages/host-plugin-api
+        version: link:../../../../packages/host-plugin-api
       '@aervox/ui':
         specifier: workspace:*
-        version: link:../../packages/ui
+        version: link:../../../../packages/ui
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -673,42 +681,24 @@ importers:
         specifier: ^3.5.43
         version: 3.5.43(typescript@7.0.2)
 
-  research/deletion-fault-testing:
-    dependencies:
-      '@langchain/community':
-        specifier: 1.1.29
-        version: 1.1.29(@aws-crypto/sha256-js@5.2.0)(@browserbasehq/sdk@2.22.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.62.1)(deepmerge@4.3.1)(dotenv@16.6.1)(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(zod@4.6.7))(@ibm-cloud/watsonx-ai@1.7.16(supports-color@7.2.0))(@langchain/core@1.2.18(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))(@libsql/client@0.17.0)(html-to-text@9.0.5)(ibm-cloud-sdk-core@5.9.1(supports-color@7.2.0))(jsonwebtoken@9.0.3)(lodash@4.18.1)(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(playwright@1.62.1)(undici@6.29.1)(ws@8.21.3)
-      '@langchain/core':
-        specifier: 1.2.18
-        version: 1.2.18(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3)
-      '@libsql/client':
-        specifier: 0.17.0
-        version: 0.17.0
-      '@llamaindex/core':
-        specifier: 0.6.22
-        version: 0.6.22
-      llamaindex:
-        specifier: 0.12.1
-        version: 0.12.1(tree-sitter@0.22.4)(web-tree-sitter@0.24.7)(zod@4.6.7)
-
-  surfaces/companion-ui:
+  plugins/surfaces/companion-ui:
     dependencies:
       '@aervox/api-client':
         specifier: workspace:*
-        version: link:../../packages/api-client
+        version: link:../../../packages/api-client
       '@aervox/contracts':
         specifier: workspace:*
-        version: link:../../packages/contracts
+        version: link:../../../packages/contracts
       '@aervox/ui':
         specifier: workspace:*
-        version: link:../../packages/ui
+        version: link:../../../packages/ui
       '@aervox/ui-host':
         specifier: workspace:*
-        version: link:../../packages/ui-host
+        version: link:../../../packages/ui-host
     devDependencies:
       '@aervox/live2d':
         specifier: workspace:*
-        version: link:../../packages/live2d
+        version: link:../../../packages/live2d
       lucide-vue-next:
         specifier: ^0.468.0
         version: 0.468.0(vue@3.5.43(typescript@5.9.3))
@@ -722,17 +712,17 @@ importers:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.9.3)
 
-  surfaces/panels-ui:
+  plugins/surfaces/panels-ui:
     dependencies:
       '@aervox/api-client':
         specifier: workspace:*
-        version: link:../../packages/api-client
+        version: link:../../../packages/api-client
       '@aervox/contracts':
         specifier: workspace:*
-        version: link:../../packages/contracts
+        version: link:../../../packages/contracts
       '@aervox/ui':
         specifier: workspace:*
-        version: link:../../packages/ui
+        version: link:../../../packages/ui
     devDependencies:
       element-plus:
         specifier: ^2.11.5
@@ -750,24 +740,24 @@ importers:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.9.3)
 
-  surfaces/proactive-ui:
+  plugins/surfaces/proactive-ui:
     dependencies:
       '@aervox/api-client':
         specifier: workspace:*
-        version: link:../../packages/api-client
+        version: link:../../../packages/api-client
       '@aervox/contracts':
         specifier: workspace:*
-        version: link:../../packages/contracts
+        version: link:../../../packages/contracts
       '@aervox/ui':
         specifier: workspace:*
-        version: link:../../packages/ui
+        version: link:../../../packages/ui
       '@aervox/ui-host':
         specifier: workspace:*
-        version: link:../../packages/ui-host
+        version: link:../../../packages/ui-host
     devDependencies:
       '@aervox/live2d':
         specifier: workspace:*
-        version: link:../../packages/live2d
+        version: link:../../../packages/live2d
       lucide-vue-next:
         specifier: ^0.468.0
         version: 0.468.0(vue@3.5.43(typescript@5.9.3))
@@ -781,20 +771,20 @@ importers:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.9.3)
 
-  surfaces/workbench-ui:
+  plugins/surfaces/workbench-ui:
     dependencies:
       '@aervox/api-client':
         specifier: workspace:*
-        version: link:../../packages/api-client
+        version: link:../../../packages/api-client
       '@aervox/contracts':
         specifier: workspace:*
-        version: link:../../packages/contracts
+        version: link:../../../packages/contracts
       '@aervox/ui':
         specifier: workspace:*
-        version: link:../../packages/ui
+        version: link:../../../packages/ui
       '@aervox/ui-host':
         specifier: workspace:*
-        version: link:../../packages/ui-host
+        version: link:../../../packages/ui-host
     devDependencies:
       lucide-vue-next:
         specifier: ^0.468.0
@@ -808,6 +798,24 @@ importers:
       vue-tsc:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.9.3)
+
+  research/deletion-fault-testing:
+    dependencies:
+      '@langchain/community':
+        specifier: 1.1.29
+        version: 1.1.29(@aws-crypto/sha256-js@5.2.0)(@browserbasehq/sdk@2.22.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.62.1)(deepmerge@4.3.1(patch_hash=b0c9a3616f8f0430752c2dca0e58de9a47f1154e3a0cb6e8bc83e5e53ef0f9d2))(dotenv@16.6.1)(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(zod@4.6.7))(@ibm-cloud/watsonx-ai@1.7.16(supports-color@7.2.0))(@langchain/core@1.2.18(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))(@libsql/client@0.17.0)(html-to-text@9.0.5)(ibm-cloud-sdk-core@5.9.1(supports-color@7.2.0))(jsonwebtoken@9.0.3)(lodash@4.18.1)(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(playwright@1.62.1)(undici@6.29.1)(ws@8.21.3)
+      '@langchain/core':
+        specifier: 1.2.18
+        version: 1.2.18(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3)
+      '@libsql/client':
+        specifier: 0.17.0
+        version: 0.17.0
+      '@llamaindex/core':
+        specifier: 0.6.22
+        version: 0.6.22
+      llamaindex:
+        specifier: 0.12.1
+        version: 0.12.1(tree-sitter@0.22.4)(web-tree-sitter@0.24.7)(zod@4.6.7)
 
 packages:
 
@@ -4741,8 +4749,8 @@ packages:
     engines: {node: '>=10.13.0'}
     hasBin: true
 
-  qs@6.16.0:
-    resolution: {integrity: sha512-h6fhOIaRrID2CbEY2fqs+7t+UXZo+MLAnU5gRIq85uFtdiUPCdsApMlHhXogKVM4HM2DVbIjGNTTYH2OcmP1vA==}
+  qs@6.16.1:
+    resolution: {integrity: sha512-5Px6J7rfHBAGUhNQ3es4YzcOdBBw0SDcVtThJml4RdnKw4tKs2epA0kPZ+K8X+WiHktT93RHVcQ/3ym5aTCgtg==}
     engines: {node: '>=0.6'}
 
   quick-format-unescaped@4.0.4:
@@ -5700,12 +5708,12 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  '@browserbasehq/stagehand@1.14.0(@playwright/test@1.62.1)(deepmerge@4.3.1)(dotenv@16.6.1)(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(zod@4.6.7)':
+  '@browserbasehq/stagehand@1.14.0(@playwright/test@1.62.1)(deepmerge@4.3.1(patch_hash=b0c9a3616f8f0430752c2dca0e58de9a47f1154e3a0cb6e8bc83e5e53ef0f9d2))(dotenv@16.6.1)(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(zod@4.6.7)':
     dependencies:
       '@anthropic-ai/sdk': 0.27.3
       '@browserbasehq/sdk': 2.22.0
       '@playwright/test': 1.62.1
-      deepmerge: 4.3.1
+      deepmerge: 4.3.1(patch_hash=b0c9a3616f8f0430752c2dca0e58de9a47f1154e3a0cb6e8bc83e5e53ef0f9d2)
       dotenv: 16.6.1
       openai: 7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7)
       ws: 8.21.3
@@ -6383,9 +6391,9 @@ snapshots:
       - undici
       - ws
 
-  '@langchain/community@1.1.29(@aws-crypto/sha256-js@5.2.0)(@browserbasehq/sdk@2.22.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.62.1)(deepmerge@4.3.1)(dotenv@16.6.1)(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(zod@4.6.7))(@ibm-cloud/watsonx-ai@1.7.16(supports-color@7.2.0))(@langchain/core@1.2.18(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))(@libsql/client@0.17.0)(html-to-text@9.0.5)(ibm-cloud-sdk-core@5.9.1(supports-color@7.2.0))(jsonwebtoken@9.0.3)(lodash@4.18.1)(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(playwright@1.62.1)(undici@6.29.1)(ws@8.21.3)':
+  '@langchain/community@1.1.29(@aws-crypto/sha256-js@5.2.0)(@browserbasehq/sdk@2.22.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.62.1)(deepmerge@4.3.1(patch_hash=b0c9a3616f8f0430752c2dca0e58de9a47f1154e3a0cb6e8bc83e5e53ef0f9d2))(dotenv@16.6.1)(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(zod@4.6.7))(@ibm-cloud/watsonx-ai@1.7.16(supports-color@7.2.0))(@langchain/core@1.2.18(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))(@libsql/client@0.17.0)(html-to-text@9.0.5)(ibm-cloud-sdk-core@5.9.1(supports-color@7.2.0))(jsonwebtoken@9.0.3)(lodash@4.18.1)(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(playwright@1.62.1)(undici@6.29.1)(ws@8.21.3)':
     dependencies:
-      '@browserbasehq/stagehand': 1.14.0(@playwright/test@1.62.1)(deepmerge@4.3.1)(dotenv@16.6.1)(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(zod@4.6.7)
+      '@browserbasehq/stagehand': 1.14.0(@playwright/test@1.62.1)(deepmerge@4.3.1(patch_hash=b0c9a3616f8f0430752c2dca0e58de9a47f1154e3a0cb6e8bc83e5e53ef0f9d2))(dotenv@16.6.1)(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(zod@4.6.7)
       '@ibm-cloud/watsonx-ai': 1.7.16(supports-color@7.2.0)
       '@langchain/classic': 1.0.53(@langchain/core@1.2.18(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(undici@6.29.1)(ws@8.21.3)
       '@langchain/core': 1.2.18(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3)
@@ -7176,6 +7184,14 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.1
 
+  '@vitest/mocker@4.1.12(vite@7.3.7(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1))':
+    dependencies:
+      '@vitest/spy': 4.1.12
+      estree-walker: 3.0.3
+      magic-string: 0.30.21
+    optionalDependencies:
+      vite: 7.3.7(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1)
+
   '@vitest/mocker@4.1.12(vite@7.3.7(@types/node@24.13.3)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1))':
     dependencies:
       '@vitest/spy': 4.1.12
@@ -7742,7 +7758,7 @@ snapshots:
     dependencies:
       mimic-response: 3.1.0
 
-  deepmerge@4.3.1: {}
+  deepmerge@4.3.1(patch_hash=b0c9a3616f8f0430752c2dca0e58de9a47f1154e3a0cb6e8bc83e5e53ef0f9d2): {}
 
   defer-to-connect@2.0.1: {}
 
@@ -8373,7 +8389,7 @@ snapshots:
   html-to-text@9.0.5:
     dependencies:
       '@selderee/plugin-htmlparser2': 0.11.0
-      deepmerge: 4.3.1
+      deepmerge: 4.3.1(patch_hash=b0c9a3616f8f0430752c2dca0e58de9a47f1154e3a0cb6e8bc83e5e53ef0f9d2)
       dom-serializer: 2.0.0
       htmlparser2: 8.0.2
       selderee: 0.11.0
@@ -9080,7 +9096,7 @@ snapshots:
       pngjs: 5.0.0
       yargs: 15.4.1
 
-  qs@6.16.0:
+  qs@6.16.1:
     dependencies:
       es-define-property: 1.0.1
       side-channel: 1.1.1
@@ -9607,7 +9623,7 @@ snapshots:
   url@0.11.4:
     dependencies:
       punycode: 1.4.1
-      qs: 6.16.0
+      qs: 6.16.1
 
   utf8-byte-length@1.0.5: {}
 
@@ -9664,6 +9680,34 @@ snapshots:
       terser: 5.50.0
       tsx: 4.23.12
       yaml: 2.9.1
+
+  vitest@4.1.12(@types/node@22.20.1)(happy-dom@21.0.4)(vite@7.3.7(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1)):
+    dependencies:
+      '@vitest/expect': 4.1.12
+      '@vitest/mocker': 4.1.12(vite@7.3.7(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1))
+      '@vitest/pretty-format': 4.1.12
+      '@vitest/runner': 4.1.12
+      '@vitest/snapshot': 4.1.12
+      '@vitest/spy': 4.1.12
+      '@vitest/utils': 4.1.12
+      es-module-lexer: 2.3.2
+      expect-type: 1.4.0
+      magic-string: 0.30.21
+      obug: 2.1.4
+      pathe: 2.0.3
+      picomatch: 4.0.5
+      std-env: 4.3.0
+      tinybench: 2.9.0
+      tinyexec: 1.3.0
+      tinyglobby: 0.2.17
+      tinyrainbow: 3.1.1
+      vite: 7.3.7(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1)
+      why-is-node-running: 2.3.0
+    optionalDependencies:
+      '@types/node': 22.20.1
+      happy-dom: 21.0.4
+    transitivePeerDependencies:
+      - msw
 
   vitest@4.1.12(@types/node@24.13.3)(happy-dom@21.0.4)(vite@7.3.7(@types/node@24.13.3)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1)):
     dependencies:

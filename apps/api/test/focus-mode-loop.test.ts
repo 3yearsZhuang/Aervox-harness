@@ -125,7 +125,7 @@ describe("CR-060 第一方插件端到端接线", () => {
   it("停用插件后模型工具面不再持有该工具，且不产生学习事实", async () => {
     const disableRes = await app.inject({
       method: "PATCH",
-      url: "/v1/plugins/focus-mode",
+      url: "/v1/plugins/ap-ui-focus-mode",
       headers,
       payload: { enabled: false },
     });
@@ -209,7 +209,7 @@ describe("CR-060 第一方插件端到端接线", () => {
 
     const disableRes = await app.inject({
       method: "PATCH",
-      url: "/v1/plugins/focus-mode",
+      url: "/v1/plugins/ap-ui-focus-mode",
       headers,
       payload: { enabled: false },
     });
@@ -248,7 +248,7 @@ describe("CR-060 第一方插件端到端接线", () => {
       userAnswer: "4",
       correctAnswer: "4",
       judgement: "correct",
-      source: "focus-mode",
+      source: "ap-ui-focus-mode",
     });
 
     expect(receipt.enteredMistakeNotebook).toBe(false);

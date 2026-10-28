@@ -1,15 +1,15 @@
 /** Version policy for the declarative bundle host; independent of UI surface versions. */
-export const PLUGIN_HOST_API_VERSION = "1.0.0";
+export const PLUGIN_HOST_API_VERSION = "1.1.0";
 export const STABLE_PLUGIN_VERSION_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
-const VERSION_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
+export const PLUGIN_VERSION_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 
 export interface PluginHostRequirement { min: string; maxExclusive?: string }
 export interface PluginCompatibilitySubject { requires?: { hostApiVersion: PluginHostRequirement } }
 
 /** Null means an existing legacy version cannot be ordered; never guess its age. */
 export function comparePluginVersions(left: string, right: string): -1 | 0 | 1 | null {
-  const a = VERSION_PATTERN.exec(left);
-  const b = VERSION_PATTERN.exec(right);
+  const a = PLUGIN_VERSION_PATTERN.exec(left);
+  const b = PLUGIN_VERSION_PATTERN.exec(right);
   if (!a || !b) return null;
   const compare = (x: string, y: string): -1 | 0 | 1 => {
     const numeric = /^\d+$/.test(x) && /^\d+$/.test(y);

@@ -449,7 +449,7 @@ describe('Workbench Composables Logic', () => {
       registry: createUIRegistry(),
     });
 
-    // 这些状态与编排已物理迁入 plugins/focus-mode/src/ui/useFocusLearning.ts
+    // 这些状态与编排已物理迁入 plugins/plugins/ui/focus-mode/src/ui/useFocusLearning.ts
     const movedToPlugin = [
       'practiceSession', 'practiceIndex', 'practiceReadyToComplete', 'practiceAnswer',
       'practiceFeedback', 'practiceReport', 'practiceBusy', 'practiceError',

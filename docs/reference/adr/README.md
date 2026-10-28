@@ -31,7 +31,7 @@ ADR 中带日期的背景、实施进展和验收差距是对应时点的记录�
 - [ADR-017](ADR-017-context-manifest-modelrun-step.md)：冻结 ContextManifest / ModelRun / AgentStep 关联与 Inbox 数据模型。
 - [ADR-018](ADR-018-proactive-local-privacy-host.md)：CAP-033 本地私密存储与主动智能 Host。
 - [ADR-019](ADR-019-proactive-integrations-local-gateway.md)：主动智能外部连接采用本地网关与受控工具。
-- [ADR-021](ADR-021-aervox-core-standalone-package.md)：Aervox Core 独立内核包与最小发行边界。
+- [ADR-021](ADR-021-aervox-core-standalone-package.md)：Aervox Core 独立内核、仓库分离与最小发行边界。
 - [ADR-022](ADR-022-mobile-runtime-access.md)：移动端运行与跨设备访问边界。
 - [ADR-023](ADR-023-hls-research-execution.md)：隔离 HLS 研究执行边界。
 - [ADR-024](ADR-024-native-runtime-boundaries.md)：原生计算、活动采集与进程边界。
@@ -41,6 +41,8 @@ ADR 中带日期的背景、实施进展和验收差距是对应时点的记录�
 - [ADR-028](ADR-028-plugin-atomic-activation.md)：声明式插件资源准备与原子激活。
 - [ADR-029](ADR-029-bot-platform-adapters.md)：Bot 平台适配器与外部会话边界。
 - [ADR-030](ADR-030-behavior-ownership.md)：共享行为所有权与可替换接口。
+- [ADR-031](ADR-031-first-party-plugin-repositories.md)：第一方插件组织仓库、受信构建与跨仓兼容。
+- [ADR-032](ADR-032-plugin-ecosystem-standard.md)：插件生态标识、分类、Registry、发布与显式身份迁移。
 
 ## 原 CR 编号迁移索引
 

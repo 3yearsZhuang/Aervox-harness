@@ -33,10 +33,12 @@ const TARGET_DIRS = [
  */
 export function discoverPluginSourceDirs(pluginsRoot = "plugins") {
   if (!existsSync(pluginsRoot)) return [];
-  return readdirSync(pluginsRoot, { withFileTypes: true })
+  const direct = readdirSync(pluginsRoot, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => join(pluginsRoot, entry.name, "src"))
     .filter((dir) => existsSync(dir));
+  const categories = ["tool", "bot", "ui", "proactive", "sync", "workflow", "theme"];
+  return [...direct, ...categories.flatMap(category => discoverPluginSourceDirs(join(pluginsRoot, "plugins", category)))];
 }
 
 const SOURCE_EXT_RE = /\.(ts|tsx|vue)$/;
@@ -121,7 +123,7 @@ export function inspectFileForDuplicateTypes(filePath, content, exportedNames) {
 }
 
 export function runInspection(
-  targetDirs = [...TARGET_DIRS, ...discoverPluginSourceDirs("plugins"), ...discoverPluginSourceDirs("surfaces")],
+  targetDirs = [...TARGET_DIRS, ...discoverPluginSourceDirs("plugins"), ...discoverPluginSourceDirs("plugins/surfaces")],
   contractsDir = CONTRACTS_SRC_DIR,
 ) {
   const exportedNames = collectContractExports(contractsDir);
@@ -181,7 +183,7 @@ export const SCHEMA_TYPE_CONTRACTS = new Map([
     PersonaMutationResponse: ["output", "personaMutationResponseSchema"], PersonaImportResponse: ["output", "personaImportResponseSchema"],
     PersonaBundleResponse: ["output", "personaBundleResponseSchema"],
   }],
-  ["plugins/focus-mode/src/contracts/terms.ts", {
+  ["plugins/plugins/ui/focus-mode/src/contracts/terms.ts", {
     ExtractedTerm: ["infer", "extractedTermSchema"], TermsExtractedEventData: ["infer", "termsExtractedEventDataSchema"],
     TermExploreKind: ["infer", "termExploreKindSchema"], TermExploreRequest: ["infer", "termExploreRequestSchema"],
     TermExploreResponse: ["infer", "termExploreResponseSchema"],

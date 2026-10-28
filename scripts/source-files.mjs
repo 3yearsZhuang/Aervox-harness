@@ -1,7 +1,9 @@
 import { readdirSync, lstatSync } from "node:fs";
 import { join, resolve, relative, sep } from "node:path";
+import { assertCoreSubmodule } from './core-submodule.mjs';
 
 export function collectFiles(roots, { extensions, ignoreDirectories, sorted = false, cwd = process.cwd() }) {
+  assertCoreSubmodule(cwd);
   const out = [];
   const walk = dir => {
     for (const entry of readdirSync(dir)) {

@@ -18,7 +18,80 @@
 
 **本轮接续验证：** `fix/plan-safety-contract-continuation` 的新 `./aervox ci all` 退出 0，构建 32、类型 56 个任务及守卫、OpenAPI 兼容、HLS、删除故障、Native Search/Runtime 与 64 份文档门禁通过；API 947、仓储 742、Worker 161、Host Runtime 306、Core 501、Host Agent 121、客户端 218、Panels 157、工作台 11 项通过，1 项既有真实模型跳过保留、不计通过。相关 Chromium 3 项和依赖审计另验通过（0 未审阅、2 既有审阅路径、0 过时例外）。全量先捕获 OpenAPI 预算，再捕获工作台旧简化插件夹具造成的 8 项失败；分别通过组件复用和完整响应夹具修复，重新全量通过。随后仅补验证记录并复验文档，新提交远端结果由接续 PR 保存；负载演练的 NOT CLEAN、真实环境及全计划未闭合项仍按各条保留。
 
+<a id="core-repository-migration"></a>
+
+### ITER-035 接续 · 已移交：Core 独立仓库与必需子模块
+
+维护者已授权将 `packages/core` 迁至 `Aervox-agent` 组织下的公开 [Aervox-core](https://github.com/Aervox-agent/Aervox-core)，再以固定提交的 Git submodule 接回原路径。沿用 [ADR-021](docs/reference/adr/ADR-021-aervox-core-standalone-package.md#仓库分离与主仓集成) 和 ITER-035/037，不分配并行编号；主仓工作分支 `feat/core-submodule` 从已合并 `9e4f047a` 隔离接续，保留 Android 和其他并行工作。
+
+- **范围：** 保留 Core 路径过滤历史、真人提交者及 Apache-2.0；生产源码与公共 API 保持兼容，补齐独立配置和 CI；主仓继续通过 workspace 消费，业务 Schema 类型兼容证明留在宿主。主仓产品与文档许可保持原有边界。
+- **安装与门禁：** 首次安装和 CI 精确初始化必需 Core，缺失或版本失配明确失败；受跟踪源码继续参与安全与架构扫描。`reference/` 保持可选，仅完整门禁按需初始化 DSH 夹具。独立和主仓锁文件分别验证，不在子包重复安装主仓依赖。
+- **验收与交付：** 独立仓库与主仓分别核对冷检出、冻结安装、构建/类型/测试、公开远端可获取的 gitlink 及新的全量门禁。主仓 [PR #348](https://github.com/3yearsZhuang/Aervox-harness/pull/348) 保存精确提交远端检查与合入状态；本批源码迁移不代表公开 npm 发行或产品发布。
+- **独立仓库：** [Core PR #1](https://github.com/Aervox-agent/Aervox-core/pull/1) 保留过滤历史合入，[PR #2](https://github.com/Aervox-agent/Aervox-core/pull/2) 补齐宿主缓存忽略；主仓固定公开 `main` 的 `208d28ce26de4651a258ef208d21479e22ab315f`。真正公开远端冷克隆的冻结安装、构建、类型检查和 62 文件 498 项测试全部通过，源码树与许可证和拆分前完全一致，工作区干净。独立锁文件审计无已知命中。
+- **主仓本地验证：** 新的 `./aervox ci all` 退出 0，构建 32、类型 56、测试 57 个任务通过；API 983、仓储 893、Worker 161、Host Runtime 306、Core 498 项通过，Host Agent 128 项通过、2 项条件跳过保留。116 项守卫、HLS、删除故障、Native Search/Runtime 和 64 份文档门禁通过；依赖审计 0 未审阅、2 既有审阅、0 过时例外。首次全量捕获旧启动/增量夹具未复制新增脚本，补齐后重新全量通过。独立复审发现并修正 Turbo 下游过滤方向及缺 Core 时直接命令的准入检查，真实任务图与残留旧产物反例通过；宿主兼容证明实际编译通过，人为类型漂移被编译器拒绝。
+- **主仓公开冷检出：** 公开分支的代码提交 `1c2fe7c5` 在独立临时克隆中先验证缺 Core 明确拒绝，再经 `mise tasks run install` 自动只初始化 Core 并冻结安装根依赖；8 个参考子模块均保持未初始化。冷构建 32、类型 56 个任务及 Core 498、Host Runtime 306 项测试通过，父仓与 Core 工作区均干净。后续只补本条交付记录并复验文档，精确提交远端结果仍由 PR 保存。
+
+<a id="iter-073"></a>
+
+### ITER-073 · 已移交：第一方插件组织集合仓与固定接入
+
+维护者已接受在 `Aervox-agent` 组织建立 `Aervox-plugins` 集合仓，整体以固定提交的 Git submodule 挂载到 `plugins/`，保留现有包名、接口与默认产品组成。决定见已接受 [ADR-031](docs/reference/adr/ADR-031-first-party-plugin-repositories.md)，原规划由 [PR #349](https://github.com/3yearsZhuang/Aervox-harness/pull/349) 保存；本批从主线 `119dbf2067337153724830094fc304e096bfdf28` 隔离实施，同步修订 ADR-016 和 ITER-026 的源码托管限制。
+
+冻结提取输入为该主线的 3 个有代码插件和 6 个声明式插件，共 71 个受跟踪文件。保留目录过滤历史、真人作者与原许可，集合仓仍需在固定宿主内由根工具链和根锁编排。FlowCampus 的 [PR #347](https://github.com/3yearsZhuang/Aervox-harness/pull/347)（ITER-072）尚未合入，本批不等待或捎带其并行业务；该 PR 后续须重基到集合仓与主仓集成边界，不从开发分支或未提交工作树提取。
+
+| 范围 | 本批交付 | 验收证据 |
+|---|---|---|
+| 仓库与默认组成 | 提取到 `Aervox-agent/Aervox-plugins`，主仓只记录一个 `plugins` gitlink；保留三包公共出口、九份 Manifest、默认 P0 和显式装配 | 九目录及 71 个原文件的模式/blob 校验一致，原许可和真人过滤历史保留；公开候选与最终提交均可获取 |
+| 工程准入 | 多产品源码登记、精确初始化、扫描/清理保护和增量覆盖；统一批量打包与内置 HTTP 导出安全边界 | 缺失/错 SHA/缺 gitlink/旧缓存拒绝与真实 Turbo 输入回归通过；九插件声明检查和可重现打包通过，未知条目、源码/凭据及符号链接边界另有回归 |
+| 两仓开发 | 集合仓 CI 固定兼容宿主 SHA，在宿主根冻结安装、构建、类型与测试；主仓配对 gitlink 与根锁 | 集合候选完整 CI 通过后保留历史合入，主仓固定最终合并 SHA 并比树/冻结安装复验；精确提交结果由两仓 PR 保存 |
+
+本批已将产品子模块准入、受跟踪扫描与清理保护扩展到集合仓，内置 HTTP 导出复用声明资源允许清单；已安装 generation 仍原包导出。真实 Git 回归覆盖缺失、错 SHA、冲突索引、包名漂移、嵌套 gitlink、凭据漏扫与忽略子模块配置；真实 Turbo 输入覆盖九份 Manifest 及插件源码。
+
+**首批本地验证：** 九个插件目录树与冻结主线逐一相同，71 个原有文件、包名、公共入口及默认组合根保持。根冻结安装、`./aervox ci all`（构建 32、类型 56、测试 57 个任务及 Native、HLS、删除故障和 65 份文档门禁）、九插件检查与可重现打包均通过。独立审计发现既有锁文件的新增公告，以单独提交将 `qs@6.16.0` 精确修至 `6.16.1`，桌面构建、类型和 156 项测试通过。当时审计从 103 降至 3 条未审阅路径，均为研究依赖 `deepmerge@4.3.1` 的 [GHSA-gcqx-w48m-w2h4](https://github.com/advisories/GHSA-gcqx-w48m-w2h4)，审计退出 1；后续本地补丁与精确限期审阅见下文，保留原失败证据。
+
+**公开冷检出与回退：** 公开 `586eb8b5` 在独立克隆中验证缺 Core/Plugins 明确拒绝，标准安装只初始化两个产品子模块，8 个参考库保持未初始化；冷构建 32（零缓存）、类型 56 个任务以及三插件 105、Host Runtime 58、API 39 项定向测试通过。`119dbf20` 普通目录与迁出 gitlink 往返恢复后父子仓干净，临时业务数据哨兵保持。上一轮代码 `5e9c98ab` 固定集合 `ffb7058b`，再次公开获取、冻结安装和 71 文件模式/blob 核对通过；仅 qs 补丁及集合 CI/README 元数据变化，前述冷测与最终提交复验分开记录。
+
+**第二轮全量复验：** qs 补丁与集合引用接入后的第二次 `./aervox ci all` 退出 0；构建 32、类型 56、测试 57 个任务及 Native、HLS、删除故障和 65 份文档门禁再次通过。当时依赖审计的 3 条研究路径仍失败，后续按下述本地补丁流程闭合。
+
+**上轮交付边界：** [集合仓 PR #1](https://github.com/Aervox-agent/Aervox-plugins/pull/1) 与 [主仓 PR #350](https://github.com/3yearsZhuang/Aervox-harness/pull/350) 保存两仓评审和精确提交远端检查。上一轮集合 CI 固定宿主 `c6094603`，完整宿主门禁成功但独立依赖审计失败；当时两仓尚未合入。该失败历史保留，不作为当前通过证据。
+
+**审计接续：** 上游 `deepmerge` 仍未发行修复，本轮以根 `patchedDependencies` 覆盖 `index.js`、CJS/UMD 发布物的三个原型写入位置，版本、许可和正常合并接口保持。原安装包已复现返回对象原型污染；补丁登记、锁定哈希、三个实际依赖路径和漏洞回归是审计前置，通用公告评估未放宽。三条研究路径按本地修复精确审阅至 2026-11-13，注册表仍报告原版本，不等于上游已经修复。
+
+**本轮验证：** 兼容宿主 `21400c8a` 的新 `./aervox ci all` 退出 0，补丁守卫 6 项、研究集成 10 项、根冻结 `--ignore-scripts` 安装及独立复审通过；审计为 0 未审阅、5 已审阅、0 过时。公开独立克隆中的 `21400c8a` + 集合 `8fe5743` 配对再次冻结安装、审计和研究集成通过，71 文件模式/blob、三包清单保持，临时数据哨兵保留。当前集合 CI 固定该兼容宿主 SHA；默认基线不追逐最终宿主合并提交，避免双方元数据引用循环。
+
+**最终交付：** [集合仓 PR #1](https://github.com/Aervox-agent/Aervox-plugins/pull/1) 的候选 `8fe5743` 在固定宿主 `21400c8a` 上完整门禁与审计全部通过后，以保留历史的合并提交 `695c60be0a6a10229146a1f72aeadbc6e4cfd560` 合入。该提交与已测候选整树一致；主仓 [PR #350](https://github.com/3yearsZhuang/Aervox-harness/pull/350) 固定此最终 SHA，并保存冻结安装、声明/分发和精确提交检查。规划 PR #349 的文档已由本批吸收，本条交付随主仓 PR 审查合入生效，不代表产品发布。
+
+本条验收只针对源码治理和集成；ITER-005 的运行期升级、ITER-006 的资源与撤权、ITER-019/056 的第三方开放及 ITER-026 的学习数据权利按原责任继续。SDK/npm 发行和个别插件独仓不在本批范围；Bot 真实账号、原生移动接线和正式发布分别验收。
+
+<a id="iter-074"></a>
+
+### ITER-074 · 已移交：UI Surfaces 第一方根界面表面包迁入 Aervox-plugins
+
+根据 [ADR-025](docs/reference/adr/ADR-025-ui-surface-hosts.md) 与 [ADR-031](docs/reference/adr/ADR-031-first-party-plugin-repositories.md)，将 Aervox 主宿主仓的 4 个第一方 UI 根界面表面包（`surfaces/*`）整体迁入 `Aervox-agent/Aervox-plugins` 集合仓，复用既有 `plugins` 子模块挂载，物理路径映射为 `plugins/surfaces/*`。
+
+| 范围 | 本批交付 | 验收证据 |
+|---|---|---|
+| 仓库拓扑与历史 | 提取到 `Aervox-agent/Aervox-plugins` 根目录 `surfaces/`；主仓移除根目录 `surfaces/`，复用 `plugins` gitlink 接回 `plugins/surfaces/*` | 从主干 `d38f92a6` 提取并保留 31 次历史提交（含完整作者与时间戳）；包名 `@aervox/plugin-*-ui` 保持不变，上层 `apps/web` 与 `apps/desktop` 代码 0 修改 |
+| 工作区与治理门禁 | `pnpm-workspace.yaml` 将 `surfaces/*` 切换为 `plugins/surfaces/*`；更新依赖提升、类型边界、导入边界、工作区发现及 CI 触发测试 | `check:boundary` 26 项、`check:guards` 129 项全部通过；32 个包 Turbo 构建成功；56 个包 Turbo 类型检查通过；4 个表面包 258 项单元测试全部通过 |
+| 配对交付 | 集合仓 [PR #3](https://github.com/Aervox-agent/Aervox-plugins/pull/3) 保存源码与历史合并，主仓更新锁定 gitlink | 主仓在独立分支隔离实施，完全保护未提交的移动端分支 `feat/android-mobile-runtime`；锁文件本地工作区路径已对齐 |
+
+**评审补修：** 单元测试入口已改用 `plugins/surfaces/*`，真实入口任务图覆盖四个 UI 包；Turbo 同时跟踪根共享 Vitest 配置与插件转发配置，任一变化均使四包测试缓存失效。集合 CI 固定包含嵌套工作区的公开兼容宿主 `c3203ddb`，从集合受跟踪清单独立核对宿主工作区与实际任务路径，拒绝旧宿主同名副本及漏选嵌套包。六项新增回归先复现原缺陷后通过，真实集合覆盖七包、21 项任务；新配对 `./aervox ci all` 退出 0，构建 32、类型 56、测试 57 个任务及 65 份文档门禁通过，既有条件跳过保留。独立依赖审计为 0 未审阅、5 已审阅、0 过期或过时例外。两仓精确提交远端结果由 PR 保存；集合先审查合入，主仓再固定最终合并 SHA 并复验，不代表已经合入或产品发布。
+
+**合并接续：** 集合 [PR #3](https://github.com/Aervox-agent/Aervox-plugins/pull/3) 已以保留历史的提交 `75f16fd8796b28be6df1d67be88bab2cfbf8f2d4` 合入，其代码树与通过验证的候选 `e7eb969` 完全相同。主仓固定该最终 SHA 后，新的 `./aervox ci all` 再次退出 0；只补本条证据后复验文档，最终精确提交检查与主仓合入状态由 [PR #351](https://github.com/3yearsZhuang/Aervox-harness/pull/351) 保存。本批不代表产品发布。
+
 ## 2. 立即整改：ITER-071
+
+<a id="iter-075"></a>
+
+### ITER-075 · 已实施：插件生态规范与两仓实现
+
+维护者已要求按集合仓原 PR #2 完成命名、七分类目录、版本、Registry 与发布门禁的实际实现，决定见 [ADR-032](docs/reference/adr/ADR-032-plugin-ecosystem-standard.md)。依赖已移交的 ITER-073/074；不捎带仍待重组的主仓 #346/#347。
+
+- 集合仓恢复目标规范并迁移九个插件源码和标识，保留现有包名与受信 surfaces；宿主同步 Contracts、发现、工作区、打包、市场与消费者。
+- Registry 只登记校验过的真实发布，发布与破坏性检查复用共享合同和根锁；没有发布时保持空索引。
+- 维护者已选择显式离线身份迁移工具：停写、备份、staging、校验、原子换目录和回滚包；本次只实现和测试工具，不操作用户业务数据。不可变历史和撤权证据不重写为新授权。
+- [集合 PR #4](https://github.com/Aervox-agent/Aervox-plugins/pull/4) 已保留历史合入 `85f002f4223cba5e0b3d9eccdd89ff7c10621525`，文件树与已验证候选一致；[主仓 PR #352](https://github.com/3yearsZhuang/Aervox-harness/pull/352) 固定该实际合并提交并交付宿主实现。维护者已授权两仓合并，主仓按最终 gitlink 复验及当前提交远端检查通过后合入。
+- 两仓本地全量与远端冷检出检查已通过；主仓 8/8，包括 API E2E 45/45、Chromium UI E2E 37/37 和三平台原生合同。集合作者门禁验证九个身份和可重现分发包，迁移 CLI 30 项及真实完整 Schema 用例通过。没有执行业务库迁移或首次真实发布，相关实际操作继续单独验收。
 
 <a id="iter-071"></a>
 
@@ -136,14 +209,14 @@
 | 缺口与证据 | 实施及验收要求 |
 |---|---|
 | 已实施：工具 revision 与持久审批绑定。[tool-providers](packages/host-runtime/src/modules/companion/conversation/tool-providers.ts)统一编码声明/实现及安全身份；[运行时](packages/core/src/host-tool-runtime.ts)默认含进程实例和注册代际，不再以 updatedAt 代替实现版本 | 默认替换 handler/重启需新审批；受信宿主只有显式稳定实现版本才跨重启复用，语义变更必须递增版本；插件审批仍绑定 generation。旧无元数据批准不授权新声明，pending 按版本去重；参数哈希保持兼容。替换/重新声明/重启/跨代回归已通过定向验证 |
-| 已实施：分支请求键贯通[HTTP](packages/host-runtime/src/modules/companion/branch/routes.ts)、[插件](plugins/focus-mode/src/server/terms-routes.ts)和领域命令；旧 `createConversationBranch` 已删除，分支路由消费最小 Port | 同键同参复用、异参 409，子会话/分支/Outbox 同事务；软删重试不复活，硬删结果但回执留存时 409。保留 opaque fork 标记与父策略继承，既有子会话不覆盖；无键仍可创建独立重复边。并发及 Outbox 故障回归已通过定向验证 |
+| 已实施：分支请求键贯通[HTTP](packages/host-runtime/src/modules/companion/branch/routes.ts)、[插件](plugins/plugins/ui/focus-mode/src/server/terms-routes.ts)和领域命令；旧 `createConversationBranch` 已删除，分支路由消费最小 Port | 同键同参复用、异参 409，子会话/分支/Outbox 同事务；软删重试不复活，硬删结果但回执留存时 409。保留 opaque fork 标记与父策略继承，既有子会话不覆盖；无键仍可创建独立重复边。并发及 Outbox 故障回归已通过定向验证 |
 | 已实施：工作台与桌宠直接订阅 Controller 的待答问题/审批，不再在旧回答返回后清空本地副本；工作台标准模式和经典卡片、主动陪伴、桌宠复用完整 UserQuestionComposer | 真实组件回归覆盖新问题先于旧回答返回、多问题/多选/自由文本、显式提交、审批与取消；桌宠失败持续可见、未知受理保留输入。各 surface 保留布局，Controller reset 只解除本地观察 |
 | 已实施：Controller 保存 Turn 和最后已消费事件游标，三个 surface 均有恢复观察入口；结构化终态判定先于完成回调 | 未知受理重试复用业务键；已受理只 observe，追加到原回复；真正中断失败保留正文且不观察重试，等待审批与取消分别表达。reset/dispose/成功取消释放静默回答或审批的等待；取消请求独立跟踪，本地等待上限 30 秒，超时保留观察并允许重试，reset/dispose 释放静默取消，旧响应不影响新 owner；主动陪伴同会话重选保留正文，切会话解除旧观察 |
 | 已实施：[模型配置入口](packages/host-runtime/src/modules/ecosystem/llm/provider-config.ts)统一普通/路由 Loop 和领域生成的协议、可用性、contextWindow、输出预算与原始 SSE 空闲超时；真实插件 callable 已委托同一单次消费器 | 模型源 57 项、API 5 文件 26 项、Worker 2 文件 9 项定向通过，覆盖 EOF/异常终态/空输出/静默取消/UTF-8 及上下文预算、90 秒心跳；保留路由本机证明、更严格的单次本地准入与 Anthropic 日记模板，不据夹具宣称真实模型已验收 |
 | 已实施：实例级 [ToolCatalog](packages/host-runtime/src/modules/companion/conversation/plugin-tool-catalog.ts)整批拥有定义、handler、guidance 和投影；[可变 API 注册表](packages/host-runtime/src/plugin-api-registry.ts)迁入宿主，Contracts 只保留 Port；旧单条投影登记已删除 | 批量预检失败内容与 revision 不变；Turn lease 绑定各自服务，结束释放执行资源，代际撤销同时释放四项与全部 lease；安全投影按代际保留供回放。Host Runtime 2 文件 52 项、API 3 文件 16 项通过，含真实 focus factory 并行 Turn、多 Host、突变、旧 disposer、挂起声明关闭及异步门禁期间取消 |
 | 已实施：HTTP Turn 创建、取消、作答、审批与观察仅消费命令/查询 Port，应用独占执行跟踪和取消；[会话子路径出口](packages/host-runtime/src/modules/companion/conversation/index.ts)已移除旧装配重导出。受理身份与审批模式从回执恢复，委托核对原始 Outbox owner；准备、Native/Adapter 共用终态裁决和显式配置快照 | 无 SQLite 的 Fastify + 最小 fake Port、完整审批续跑、重复审批只派发一次、委托身份及 Native/Adapter 控制合同已补；本次另覆盖准备删除、DSH 交接取消、丢租约/CAS/终态写失败后禁止虚假终态摘要。历史 `error` 后双事件 `done` 的迁移仍按[流式协议](docs/reference/STREAMING_PROTOCOL.md#44-error)保留，跨进程恢复、全部主动写者及生产验收归原条目，未知副作用不自动重放 |
 | 已实施：独立 canonical SQLite + PRAGMA 与保守 DDL token 比对，覆盖表选项、列属性/顺序/hidden、复合 FK、CHECK、collation、逐约束冲突策略、AUTOINCREMENT、FK 延期及完整索引语义 | 7 文件 87 项定向通过；CHECK/STRICT/WITHOUT ROWID 在无版本及已登记库均拒绝，检查仅 SELECT/PRAGMA 且源 bytes/rows/version 不变；两个历史 release fingerprint 保持。保守比较不推断表达式代数等价，完整版本迁移与生产编排归 ITER-011 |
-| 已实施：[术语契约](plugins/focus-mode/src/contracts/terms.ts)由浏览器与服务端共享 Schema 派生，删除 UI/抽取器重复 DTO；旧 `useAervoxTurn` 及其无消费者的流/审批/通用请求包装已删除 | 响应和事件都从同一 Schema 解析，CI typecheck 显式编译双向类型兼容证明；focus 插件 7 文件 44 项及 typecheck 通过。重复扫描仍只作线索；历史路由例外归 ITER-064，不扩大豁免 |
+| 已实施：[术语契约](plugins/plugins/ui/focus-mode/src/contracts/terms.ts)由浏览器与服务端共享 Schema 派生，删除 UI/抽取器重复 DTO；旧 `useAervoxTurn` 及其无消费者的流/审批/通用请求包装已删除 | 响应和事件都从同一 Schema 解析，CI typecheck 显式编译双向类型兼容证明；focus 插件 7 文件 44 项及 typecheck 通过。重复扫描仍只作线索；历史路由例外归 ITER-064，不扩大豁免 |
 | 已实施：[共享传输合同](apps/desktop/test/turn-protocol.test.ts)同时跑 Fetch 和完整 preload/main IPC，补审批 POST→continuation→observe、受理未知→同业务键重试与真正中断 | 16 项共同合同通过，覆盖认证、独立 IPC requestId、游标、ACK 背压、断线去重、提前 EOF及终态失败；JSON 主进程转发提为同一可测入口并拒绝重定向。真实 Electron 及后续全量结果单独记录，不以 mock 替代实机 |
 
 #### 本轮接续：会话长期消息真源
@@ -337,7 +410,7 @@ ARC-08、CAP-005/026。依赖 ITER-003 删除/召回资格，错误 SQL 可独�
 
 ### ITER-026 · 已有实现待评审：第一方学习插件边界
 
-S1～S7 及评审修正由 [PR #250](https://github.com/3yearsZhuang/Aervox-harness/pull/250)实施，决定见 [ADR-016](docs/reference/adr/ADR-016-base-boundaries.md#cr-060)，CAP-002/007/016；本条做有限验收，不启动新一轮全宿主改写。学习闭环保留主仓事实真源，`plugins/focus-mode` 不转自选模块或 submodule，不改 CAP-003/004/006 端点。
+S1～S7 及评审修正由 [PR #250](https://github.com/3yearsZhuang/Aervox-harness/pull/250)实施，决定见 [ADR-016](docs/reference/adr/ADR-016-base-boundaries.md#cr-060)，CAP-002/007/016；本条做有限验收，不启动新一轮全宿主改写。学习闭环保留主仓事实真源，`plugins/focus-mode` 不转自选模块，不改 CAP-003/004/006 端点。[ITER-073](#iter-073) 与已接受 [ADR-031](docs/reference/adr/ADR-031-first-party-plugin-repositories.md) 允许 `plugins/` 集合仓整体以固定提交 submodule 挂回原路径，修订原源码托管限制；P0、默认构建与宿主数据责任保持。
 
 - **复核：** 宿主纯净性零违规/零豁免，删除插件实现后三相移除演练与 Web/桌面组合根 typecheck 通过；组合根注入补独立渲染证据。插件禁用无专属请求/工具，旧配置一次迁入 pluginState 不丢失；安装记录/配置/数据管理保留，插件 id 唯一、历史别名全删。
 - **兼容与产物：** 通用状态/metadata/流事件/槽位/设置/Composer/工具/路由接缝保留，Core 不含产品提示词/刷题工具；分发只含 manifest/config Schema/SKILL 且 SHA-256 可重现，协议或公开类型破坏性差量按 ADR-016 维护。ITER-071 的端口/DTO/事务剩余由其修复，本条不重复登记。
@@ -510,7 +583,7 @@ ITER-009 先形成可审阅结论，以下建议不替用户选定产品或批�
 | <a id="iter-030"></a>ITER-030 | DSH、pi、AstrBot 固定版本更新与差异复评；CAP-007/020/027/033。 | [原交付登记](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记) |
 | <a id="iter-031"></a>ITER-031 | 标准工作台连续对话与雾蓝视觉重构；CAP-001/002/018。 | [PR #233](https://github.com/3yearsZhuang/Aervox-harness/pull/233) |
 | <a id="iter-034"></a>ITER-034 | ControlContext、abortable 与 ApprovalPolicyPort 内核构件及 executor 接线；ITER-007/013。 | [PR #241](https://github.com/3yearsZhuang/Aervox-harness/pull/241) |
-| <a id="iter-035"></a>ITER-035 | 建立独立 @aervox/core、内存 HostToolRuntime、轻量出口与分层许可证；ADR-021。 | [PR #244](https://github.com/3yearsZhuang/Aervox-harness/pull/244) |
+| <a id="iter-035"></a>ITER-035 | 建立独立 @aervox/core、内存 HostToolRuntime、轻量出口与分层许可证；ADR-021。独立仓库与必需子模块迁移继续在[接续条目](#core-repository-migration)验收。 | [PR #244](https://github.com/3yearsZhuang/Aervox-harness/pull/244) |
 | <a id="iter-036"></a>ITER-036 | 伴学 Prompt、工具契约与宿主 guidance 迁出内核，收窄内核导出面；ADR-021。 | [PR #245](https://github.com/3yearsZhuang/Aervox-harness/pull/245) |
 | <a id="iter-037"></a>ITER-037 | 移除 agent-loop/cli-approval 过渡壳，下游直连 core，内核类型自持与边界守卫；ADR-021。 | [PR #248](https://github.com/3yearsZhuang/Aervox-harness/pull/248) |
 | <a id="iter-038"></a>ITER-038 | Provider stopReason 归一与输入/输出 usage 分账；ITER-033 拆分切片。 | [PR #247](https://github.com/3yearsZhuang/Aervox-harness/pull/247) |
