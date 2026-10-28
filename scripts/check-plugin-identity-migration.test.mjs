@@ -247,6 +247,7 @@ test('separate main and Vault roots migrate as one declared cluster and both kee
   await fs.mkdir(vault);
   const db = new DatabaseSync(path.join(vault, 'vault.sqlite'));
   db.exec("CREATE TABLE proactive_trigger_rules(id TEXT PRIMARY KEY,plugin_id TEXT,enabled INTEGER,action_json TEXT); INSERT INTO proactive_trigger_rules VALUES('vault-rule','focus-mode',0,'{}')");
+  db.prepare('UPDATE proactive_trigger_rules SET action_json=?').run(JSON.stringify({ allowedSkillNames: [oldId, 'anki-sync'] }));
   db.close();
   await fs.writeFile(path.join(vault, 'vault.key'), 'key-material-do-not-print');
   const original = await fs.readFile(file);
@@ -254,7 +255,11 @@ test('separate main and Vault roots migrate as one declared cluster and both kee
   assert.equal(report.units.length, 2);
   assert.ok(!JSON.stringify(report).includes('key-material-do-not-print'));
   const opened = new DatabaseSync(path.join(vault, 'vault.sqlite'));
-  try { assert.equal(opened.prepare('SELECT plugin_id FROM proactive_trigger_rules').get().plugin_id, nextId); }
+  try {
+    const rule = opened.prepare('SELECT plugin_id, action_json FROM proactive_trigger_rules').get();
+    assert.equal(rule.plugin_id, nextId);
+    assert.deepEqual(JSON.parse(rule.action_json), { allowedSkillNames: [nextId, 'anki-sync'] });
+  }
   finally { opened.close(); }
   assert.deepEqual(await fs.readFile(path.join(options.rollback, 'main.sqlite')), original);
   const vaultUnit = report.units.find(unit => unit.rollback.startsWith(vault));
@@ -371,6 +376,86 @@ test('unknown JSON ownership references fail closed rather than silently acquiri
   const before = await fs.readFile(file);
   await assert.rejects(migratePluginIdentities(options), /Unreviewed JSON identity references/);
   assert.deepEqual(await fs.readFile(file), before);
+});
+
+test('emitted plugin notification payloads remain historical snapshots in every delivery state', async t => {
+  const { options, file } = await fixture(t);
+  let db = new DatabaseSync(file);
+  db.exec('CREATE TABLE notifications(id TEXT PRIMARY KEY,status TEXT,payload_json TEXT)');
+  for (const status of ['scheduled', 'sent', 'dismissed']) {
+    db.prepare('INSERT INTO notifications VALUES(?,?,?)').run(status, status, JSON.stringify({
+      kind: 'plugin_dispatch', pluginId: oldId, ruleId: 'rule_profile_plugin_focus-mode_pulse',
+      title: 'Take a break', triggerType: 'system_state', message: 'Time to stand up',
+      source: 'plugin', occurredAt: '2026-10-28T12:00:00Z',
+    }));
+  }
+  const original = db.prepare('SELECT * FROM notifications ORDER BY id').all();
+  db.close();
+  await migratePluginIdentities(options);
+  db = new DatabaseSync(file);
+  try {
+    assert.deepEqual(db.prepare('SELECT * FROM notifications ORDER BY id').all(), original);
+    assert.equal(db.prepare('SELECT id FROM plugins').get().id, nextId);
+    await assertPluginIdentityMigrationReady(client(db));
+  } finally { db.close(); }
+});
+
+test('skill references follow proven plugin ownership and preserve local, third-party and missing names', async t => {
+  const { options, file } = await fixture(t);
+  let db = new DatabaseSync(file);
+  for (const [name, owner] of [['anki-sync', null], ['bot-onebot', 'third-party']]) {
+    const contentPath = path.join(options.source, 'skills', ...(owner ? [owner, name] : [name]), 'SKILL.md');
+    await fs.mkdir(path.dirname(contentPath), { recursive: true });
+    await fs.writeFile(contentPath, `---\nname: ${name}\ndescription: Existing skill\n---\nRetain ownership\n`);
+    db.prepare('INSERT INTO skill_registrations VALUES(?,?,?,?,?)').run(name, name, owner, contentPath, 1);
+  }
+  const configs = {
+    mixed: { systemPromptAppend: 'Mixed skills', allowedSkillNames: [oldId, 'anki-sync', 'bot-onebot', 'home-assistant'] },
+    local: { systemPromptAppend: 'Local skills', allowedSkillNames: ['anki-sync', 'bot-onebot', 'home-assistant'] },
+  };
+  db.exec(`CREATE TABLE personas(id TEXT PRIMARY KEY,current_revision_id TEXT);
+    CREATE TABLE persona_revisions(id TEXT PRIMARY KEY,persona_id TEXT,revision INTEGER,config TEXT,checksum TEXT,created_at TEXT);
+    CREATE TABLE persona_selections(id TEXT PRIMARY KEY,revision_id TEXT);
+    ALTER TABLE tool_registrations ADD COLUMN gating_conditions_json TEXT;`);
+  for (const [id, value] of Object.entries(configs)) {
+    const config = JSON.stringify(value);
+    db.prepare('INSERT INTO personas VALUES(?,?)').run(id, id);
+    db.prepare('INSERT INTO persona_revisions VALUES(?,?,?,?,?,?)').run(id, id, 1, config, sha(config), 'original-date');
+  }
+  db.prepare('INSERT INTO persona_selections VALUES(?,?)').run('selection', 'local');
+  db.prepare('UPDATE tool_registrations SET gating_conditions_json=?').run(JSON.stringify({
+    allowedSkillNames: configs.mixed.allowedSkillNames, disabledSkillIds: [oldId, 'anki-sync'],
+  }));
+  db.close();
+  const report = await migratePluginIdentities(options);
+  db = new DatabaseSync(file);
+  try {
+    const config = id => JSON.parse(db.prepare('SELECT config FROM persona_revisions r JOIN personas p ON r.id=p.current_revision_id WHERE p.id=?').get(id).config);
+    assert.deepEqual(config('mixed').allowedSkillNames, [nextId, 'anki-sync', 'bot-onebot', 'home-assistant']);
+    assert.deepEqual(config('local'), configs.local);
+    assert.equal(db.prepare("SELECT current_revision_id FROM personas WHERE id='local'").get().current_revision_id, 'local');
+    assert.equal(db.prepare('SELECT revision_id FROM persona_selections').get().revision_id, 'local');
+    assert.equal(report.databases['main.sqlite'].newPersonaRevisions.length, 1);
+    assert.deepEqual(JSON.parse(db.prepare('SELECT gating_conditions_json FROM tool_registrations').get().gating_conditions_json), {
+      allowedSkillNames: [nextId, 'anki-sync', 'bot-onebot', 'home-assistant'], disabledSkillIds: [nextId, 'anki-sync'],
+    });
+  } finally { db.close(); }
+});
+
+test('ambiguous skill names cannot transfer an existing selection to another owner', async t => {
+  for (const name of [oldId, nextId]) await t.test(name, async t => {
+    const { options, file } = await fixture(t);
+    const contentPath = path.join(options.source, 'skills', 'local-notes', 'SKILL.md');
+    await fs.mkdir(path.dirname(contentPath), { recursive: true });
+    await fs.writeFile(contentPath, `---\nname: ${name}\ndescription: Local notes\n---\nUnrelated skill\n`);
+    const db = new DatabaseSync(file);
+    db.prepare('INSERT INTO skill_registrations VALUES(?,?,?,?,?)').run('local-notes', name, null, contentPath, 1);
+    db.close();
+    const before = await fs.readFile(file);
+    await assert.rejects(migratePluginIdentities(options), /Ambiguous skill name migration/);
+    assert.deepEqual(await fs.readFile(file), before);
+    await assertPluginIdentityMigrationUnlocked(options.source);
+  });
 });
 
 test('installed ZIP CRC mismatch is rejected before copying its content into a new identity', async t => {

@@ -28,8 +28,13 @@ const HISTORICAL_TABLES = new Set(['recovery_control_ledger', 'audit_records', '
   'persona_revisions', 'persona_turn_contexts', 'persona_switch_logs', 'proactive_intervention_receipts', 'proactive_budget_feedback_events']);
 const JSON_REFERENCE_COLUMNS = new Set(['proactive_trigger_rules.action_json', 'proactive_trigger_rules.condition_json',
   'plugins.proactive_spec_json', 'tool_registrations.gating_conditions_json', 'skill_registrations.gating_conditions_json']);
+// Notification payloads describe the original dispatch. Delivery/dismissal may change later,
+// but the embedded plugin/rule identity is historical evidence, not an executable owner pointer.
+const HISTORICAL_REFERENCE_COLUMNS = new Set(['notifications.payload_json']);
 const JSON_REFERENCE_KEYS = new Set(['pluginId', 'plugin_id', 'ownerPluginId', 'pluginIds', 'enabledPluginIds',
-  'disabledPluginIds', 'allowedPluginIds', 'allowedSkills', 'allowedSkillNames', 'disabledSkillIds', 'skillName', 'skillId', 'toolId', 'disabledToolIds']);
+  'disabledPluginIds', 'allowedPluginIds', 'toolId', 'disabledToolIds']);
+const SKILL_NAME_REFERENCE_KEYS = new Set(['allowedSkills', 'allowedSkillNames', 'skillName']);
+const SKILL_ID_REFERENCE_KEYS = new Set(['disabledSkillIds', 'skillId']);
 const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const safeRelative = name => name && name.length <= 512 && !name.includes('\\') && !name.includes('\0')
   && !name.startsWith('/') && !/^[A-Za-z]:/.test(name) && name.split('/').every(part => part && part !== '.' && part !== '..');
@@ -59,11 +64,35 @@ function ownedSkillPath(value, pluginId, roots) {
   return { unit, parts, next, source: path.join(unit.source, ...next), stage: path.join(unit.staging, ...next) };
 }
 
-function rewriteReferenceJson(value, context = '') {
-  if (typeof value === 'string') return JSON_REFERENCE_KEYS.has(context) ? movedIdentity(value) : value;
-  if (Array.isArray(value)) return value.map(entry => rewriteReferenceJson(entry, context));
+function skillReferenceMigrations(skills) {
+  const references = {};
+  for (const field of ['id', 'name']) {
+    const changes = new Map();
+    const targets = new Map();
+    for (const skill of skills) {
+      const before = skill[field];
+      const after = Object.hasOwn(PLUGIN_IDENTITY_MIGRATIONS, skill.plugin_id) ? movedIdentity(before) : before;
+      // Both a shared old name and a collision with an existing new name are ambiguous.
+      // Keeping the source untouched is safer than changing which owner's skill is selected.
+      if ((changes.has(before) && changes.get(before) !== after)
+        || (targets.has(after) && targets.get(after) !== before)) throw new Error('Ambiguous skill ' + field + ' migration');
+      changes.set(before, after);
+      targets.set(after, before);
+    }
+    references[field] = changes;
+  }
+  return references;
+}
+
+function rewriteReferenceJson(value, skillReferences, context = '') {
+  if (typeof value === 'string') {
+    if (SKILL_NAME_REFERENCE_KEYS.has(context)) return skillReferences.name.get(value) ?? value;
+    if (SKILL_ID_REFERENCE_KEYS.has(context)) return skillReferences.id.get(value) ?? value;
+    return JSON_REFERENCE_KEYS.has(context) ? movedIdentity(value) : value;
+  }
+  if (Array.isArray(value)) return value.map(entry => rewriteReferenceJson(entry, skillReferences, context));
   if (!value || typeof value !== 'object') return value;
-  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, rewriteReferenceJson(entry, key)]));
+  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, rewriteReferenceJson(entry, skillReferences, key)]));
 }
 
 async function hashFile(filename) {
@@ -122,7 +151,7 @@ function dbSnapshot(db) {
   return counts;
 }
 
-function transformRow(table, row, roots, resourceChecksums, vaultCipher) {
+function transformRow(table, row, roots, resourceChecksums, vaultCipher, skillReferences) {
   const next = { ...row };
   if (HISTORICAL_TABLES.has(table)) return next;
   if (table === 'proactive_actions') {
@@ -139,7 +168,7 @@ function transformRow(table, row, roots, resourceChecksums, vaultCipher) {
     if (typeof request === 'string') {
       let parsed;
       try { parsed = JSON.parse(request); } catch { throw new Error('Invalid active action request document'); }
-      hasLegacyReference ||= JSON.stringify(parsed) !== JSON.stringify(rewriteReferenceJson(parsed));
+      hasLegacyReference ||= JSON.stringify(parsed) !== JSON.stringify(rewriteReferenceJson(parsed, skillReferences));
     }
     hasLegacyReference ||= typeof row.requested_by === 'string' && mappings.some(([oldId]) => row.requested_by === `plugin:${oldId}`);
     if (hasLegacyReference) {
@@ -188,13 +217,14 @@ function transformRow(table, row, roots, resourceChecksums, vaultCipher) {
       if (column !== 'name') {
         let parsed;
         try { parsed = JSON.parse(plaintext); } catch { throw new Error('Invalid plugin trigger rule document'); }
-        plaintext = JSON.stringify(rewriteReferenceJson(parsed));
+        plaintext = JSON.stringify(rewriteReferenceJson(parsed, skillReferences));
       }
       next[column] = encrypted ? vaultCipher.encrypt(plaintext, `trigger-rule:${next.id}`) : plaintext;
     }
   }
   for (const [column, value] of Object.entries(row)) {
     if (typeof value !== 'string') continue;
+    if (HISTORICAL_REFERENCE_COLUMNS.has(table + '.' + column)) continue;
     if (table === 'proactive_trigger_rules' && next.plugin_id !== row.plugin_id && ['name', 'condition_json', 'action_json'].includes(column)) continue;
     if (column === 'content_path' && table === 'skill_registrations') {
       const absolute = path.resolve(value);
@@ -212,7 +242,7 @@ function transformRow(table, row, roots, resourceChecksums, vaultCipher) {
     } else if ((column.endsWith('_json') || column === 'permissions') && table !== 'plugin_config_secrets' && table !== 'plugin_configs') {
       let parsed;
       try { parsed = JSON.parse(value); } catch { continue; }
-      const rewritten = rewriteReferenceJson(parsed);
+      const rewritten = rewriteReferenceJson(parsed, skillReferences);
       if (JSON.stringify(parsed) !== JSON.stringify(rewritten)) {
         if (!JSON_REFERENCE_COLUMNS.has(table + '.' + column)) throw new Error('Unreviewed JSON identity references: ' + table + '.' + column);
         next[column] = JSON.stringify(rewritten);
@@ -223,7 +253,7 @@ function transformRow(table, row, roots, resourceChecksums, vaultCipher) {
 }
 
 /** Mutates staging only. FK checks and unchanged row counts are mandatory after all updates. */
-function migrateDatabase(filename, roots, resourceChecksums, options) {
+function migrateDatabase(filename, roots, resourceChecksums, options, skillReferences) {
   let vaultCipher;
   if (options.vaultKeyFile) {
     const keyPath = options.vaultKeyFile;
@@ -252,7 +282,7 @@ function migrateDatabase(filename, roots, resourceChecksums, options) {
       const query = db.prepare(`SELECT ${primary.length ? '' : 'rowid AS __migration_rowid,'}* FROM ${q(table.name)}`);
       query.setReadBigInts(true);
       for (const row of query.all()) {
-        const next = transformRow(table.name, row, roots, resourceChecksums, vaultCipher);
+        const next = transformRow(table.name, row, roots, resourceChecksums, vaultCipher, skillReferences);
         const changed = columns.filter(column => !Object.is(row[column], next[column]));
         if (!changed.length) continue;
         const update = db.prepare(`UPDATE ${q(table.name)} SET ${changed.map(column => q(column) + '=?').join(',')} WHERE ${keys.map(column => (column === '__migration_rowid' ? 'rowid' : q(column)) + ' IS ?').join(' AND ')}`);
@@ -260,7 +290,7 @@ function migrateDatabase(filename, roots, resourceChecksums, options) {
         changes[table.name] = (changes[table.name] ?? 0) + 1;
       }
     }
-    const personaRevisions = migratePersonaRevisions(db, new Set(tables.map(table => table.name)));
+    const personaRevisions = migratePersonaRevisions(db, new Set(tables.map(table => table.name)), skillReferences);
     const expected = { ...before };
     if (personaRevisions.length) expected.persona_revisions += personaRevisions.length;
     const after = dbSnapshot(db);
@@ -276,7 +306,7 @@ function migrateDatabase(filename, roots, resourceChecksums, options) {
 }
 
 /** Preserve immutable revisions and turn evidence; only live selection pointers move to new revisions. */
-function migratePersonaRevisions(db, tables) {
+function migratePersonaRevisions(db, tables, skillReferences) {
   if (!tables.has('persona_revisions')) return [];
   if (!tables.has('personas') || !tables.has('persona_selections')) throw new Error('Incomplete persona revision schema');
   const targets = new Set([
@@ -289,7 +319,7 @@ function migratePersonaRevisions(db, tables) {
     const row = db.prepare('SELECT * FROM persona_revisions WHERE id=?').get(id);
     if (!row) throw new Error('Missing selected persona revision');
     const config = JSON.parse(row.config);
-    const next = rewriteReferenceJson(config);
+    const next = rewriteReferenceJson(config, skillReferences);
     if (JSON.stringify(config) === JSON.stringify(next)) continue;
     if (digest(JSON.stringify(config)) !== row.checksum) throw new Error('Selected persona revision checksum mismatch');
     const revision = db.prepare('SELECT MAX(revision) AS n FROM persona_revisions WHERE persona_id=?').get(row.persona_id).n + 1;
@@ -390,7 +420,8 @@ async function migrateResources(stage, validatePluginBundleFiles, registeredSkil
   }
   // Only database-proven plugin ownership can rename a Skill. Local skills and nested assets
   // can coincidentally share an old plugin name, and must retain their names and bytes.
-  const selections = registeredSkills.map(row => ownedSkillPath(row.content_path, row.plugin_id, roots))
+  const selections = registeredSkills.filter(row => Object.hasOwn(PLUGIN_IDENTITY_MIGRATIONS, row.plugin_id))
+    .map(row => ownedSkillPath(row.content_path, row.plugin_id, roots))
     .filter(selected => selected.unit.staging === stage);
   const movedOwners = new Set();
   for (const selected of selections) {
@@ -416,7 +447,7 @@ async function migrateResources(stage, validatePluginBundleFiles, registeredSkil
   return checksums;
 }
 
-async function registeredPluginSkills(roots, databaseFiles) {
+async function registeredSkills(roots, databaseFiles) {
   const rows = [];
   const paths = new Set();
   for (const root of roots) {
@@ -425,10 +456,12 @@ async function registeredPluginSkills(roots, databaseFiles) {
       try {
         if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='skill_registrations'").get()) continue;
         for (const row of db.prepare('SELECT id, name, plugin_id, content_path FROM skill_registrations').all()) {
-          if (!Object.hasOwn(PLUGIN_IDENTITY_MIGRATIONS, row.plugin_id)) continue;
-          if (!row.content_path) throw new Error('Plugin skill has no explicit content path');
-          if (paths.has(row.content_path)) throw new Error('Plugin skill content has duplicate database ownership');
-          paths.add(row.content_path); rows.push(row);
+          if (Object.hasOwn(PLUGIN_IDENTITY_MIGRATIONS, row.plugin_id)) {
+            if (!row.content_path) throw new Error('Plugin skill has no explicit content path');
+            if (paths.has(row.content_path)) throw new Error('Plugin skill content has duplicate database ownership');
+            paths.add(row.content_path);
+          }
+          rows.push(row);
         }
       } finally { db.close(); }
     }
@@ -553,7 +586,11 @@ export async function migratePluginIdentities(options) {
     await durableCopy(backup, staging);
     await checkpoint('staging-prepared');
     const { validatePluginBundleFiles } = await import('../packages/contracts/dist/plugin-validation.js');
-    const localChecksums = await migrateResources(staging, validatePluginBundleFiles, await registeredPluginSkills(roots, databaseFiles), roots);
+    // Read every selected database before any root mutates rows, including the main registry
+    // when a separate Vault contains current references to its skills.
+    const skills = await registeredSkills(roots, databaseFiles);
+    const skillReferences = skillReferenceMigrations(skills);
+    const localChecksums = await migrateResources(staging, validatePluginBundleFiles, skills, roots);
     const checksums = options.resourceChecksums ?? localChecksums;
     if (options.resourceChecksums) for (const [key, value] of localChecksums) {
       if (checksums.has(key)) throw new Error('Duplicate installed generation ownership across data roots');
@@ -561,7 +598,7 @@ export async function migratePluginIdentities(options) {
     }
     await checkpoint('resources-prepared');
     const report = { format: 1, migrationId, mapping: PLUGIN_IDENTITY_MIGRATIONS, sourceDigest: digest(JSON.stringify(frozen)), databases: {}, retiredSignatures: checksums.size };
-    for (const file of databases) report.databases[file] = migrateDatabase(path.join(staging, file), roots, checksums, options);
+    for (const file of databases) report.databases[file] = migrateDatabase(path.join(staging, file), roots, checksums, options, skillReferences);
     await checkpoint('validated');
     // Source handles keep SQLite write locks through the directory swap; the sibling lock is
     // checked by every new host before opening a database. A crash keeps the recovery state.
