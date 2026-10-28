@@ -61,7 +61,19 @@
 
 **最终交付：** [集合仓 PR #1](https://github.com/Aervox-agent/Aervox-plugins/pull/1) 的候选 `8fe5743` 在固定宿主 `21400c8a` 上完整门禁与审计全部通过后，以保留历史的合并提交 `695c60be0a6a10229146a1f72aeadbc6e4cfd560` 合入。该提交与已测候选整树一致；主仓 [PR #350](https://github.com/3yearsZhuang/Aervox-harness/pull/350) 固定此最终 SHA，并保存冻结安装、声明/分发和精确提交检查。规划 PR #349 的文档已由本批吸收，本条交付随主仓 PR 审查合入生效，不代表产品发布。
 
-本条验收只针对源码治理和集成；ITER-005 的运行期升级、ITER-006 的资源与撤权、ITER-019/056 的第三方开放及 ITER-026 的学习数据权利按原责任继续。`surfaces/*`、SDK/npm 发行和个别插件独仓不在本批范围；Bot 真实账号、原生移动接线和正式发布分别验收。
+本条验收只针对源码治理和集成；ITER-005 的运行期升级、ITER-006 的资源与撤权、ITER-019/056 的第三方开放及 ITER-026 的学习数据权利按原责任继续。SDK/npm 发行和个别插件独仓不在本批范围；Bot 真实账号、原生移动接线和正式发布分别验收。
+
+<a id="iter-074"></a>
+
+### ITER-074 · 已移交：UI Surfaces 第一方根界面表面包迁入 Aervox-plugins
+
+根据 [ADR-025](docs/reference/adr/ADR-025-ui-surface-hosts.md) 与 [ADR-031](docs/reference/adr/ADR-031-first-party-plugin-repositories.md)，将 Aervox 主宿主仓的 4 个第一方 UI 根界面表面包（`surfaces/*`）整体迁入 `Aervox-agent/Aervox-plugins` 集合仓，复用既有 `plugins` 子模块挂载，物理路径映射为 `plugins/surfaces/*`。
+
+| 范围 | 本批交付 | 验收证据 |
+|---|---|---|
+| 仓库拓扑与历史 | 提取到 `Aervox-agent/Aervox-plugins` 根目录 `surfaces/`；主仓移除根目录 `surfaces/`，复用 `plugins` gitlink 接回 `plugins/surfaces/*` | 从主干 `d38f92a6` 提取并保留 31 次历史提交（含完整作者与时间戳）；包名 `@aervox/plugin-*-ui` 保持不变，上层 `apps/web` 与 `apps/desktop` 代码 0 修改 |
+| 工作区与治理门禁 | `pnpm-workspace.yaml` 将 `surfaces/*` 切换为 `plugins/surfaces/*`；更新依赖提升、类型边界、导入边界、工作区发现及 CI 触发测试 | `check:boundary` 26 项、`check:guards` 129 项全部通过；32 个包 Turbo 构建成功；56 个包 Turbo 类型检查通过；4 个表面包 258 项单元测试全部通过 |
+| 配对交付 | 集合仓 [PR #3](https://github.com/Aervox-agent/Aervox-plugins/pull/3) 保存源码与历史合并，主仓更新锁定 gitlink | 主仓在独立分支隔离实施，完全保护未提交的移动端分支 `feat/android-mobile-runtime`；锁文件本地工作区路径已对齐 |
 
 ## 2. 立即整改：ITER-071
 

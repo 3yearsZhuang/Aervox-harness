@@ -169,19 +169,19 @@ importers:
         version: link:../../packages/native-runtime
       '@aervox/plugin-companion-ui':
         specifier: workspace:*
-        version: link:../../surfaces/companion-ui
+        version: link:../../plugins/surfaces/companion-ui
       '@aervox/plugin-focus-mode':
         specifier: workspace:*
         version: link:../../plugins/focus-mode
       '@aervox/plugin-panels-ui':
         specifier: workspace:*
-        version: link:../../surfaces/panels-ui
+        version: link:../../plugins/surfaces/panels-ui
       '@aervox/plugin-proactive-ui':
         specifier: workspace:*
-        version: link:../../surfaces/proactive-ui
+        version: link:../../plugins/surfaces/proactive-ui
       '@aervox/plugin-workbench-ui':
         specifier: workspace:*
-        version: link:../../surfaces/workbench-ui
+        version: link:../../plugins/surfaces/workbench-ui
       '@aervox/public':
         specifier: workspace:*
         version: link:../../packages/public
@@ -261,13 +261,13 @@ importers:
         version: link:../../plugins/focus-mode
       '@aervox/plugin-panels-ui':
         specifier: workspace:*
-        version: link:../../surfaces/panels-ui
+        version: link:../../plugins/surfaces/panels-ui
       '@aervox/plugin-proactive-ui':
         specifier: workspace:*
-        version: link:../../surfaces/proactive-ui
+        version: link:../../plugins/surfaces/proactive-ui
       '@aervox/plugin-workbench-ui':
         specifier: workspace:*
-        version: link:../../surfaces/workbench-ui
+        version: link:../../plugins/surfaces/workbench-ui
       '@aervox/public':
         specifier: workspace:*
         version: link:../../packages/public
@@ -681,42 +681,24 @@ importers:
         specifier: ^3.5.43
         version: 3.5.43(typescript@7.0.2)
 
-  research/deletion-fault-testing:
-    dependencies:
-      '@langchain/community':
-        specifier: 1.1.29
-        version: 1.1.29(@aws-crypto/sha256-js@5.2.0)(@browserbasehq/sdk@2.22.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.62.1)(deepmerge@4.3.1(patch_hash=b0c9a3616f8f0430752c2dca0e58de9a47f1154e3a0cb6e8bc83e5e53ef0f9d2))(dotenv@16.6.1)(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(zod@4.6.7))(@ibm-cloud/watsonx-ai@1.7.16(supports-color@7.2.0))(@langchain/core@1.2.18(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))(@libsql/client@0.17.0)(html-to-text@9.0.5)(ibm-cloud-sdk-core@5.9.1(supports-color@7.2.0))(jsonwebtoken@9.0.3)(lodash@4.18.1)(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(playwright@1.62.1)(undici@6.29.1)(ws@8.21.3)
-      '@langchain/core':
-        specifier: 1.2.18
-        version: 1.2.18(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3)
-      '@libsql/client':
-        specifier: 0.17.0
-        version: 0.17.0
-      '@llamaindex/core':
-        specifier: 0.6.22
-        version: 0.6.22
-      llamaindex:
-        specifier: 0.12.1
-        version: 0.12.1(tree-sitter@0.22.4)(web-tree-sitter@0.24.7)(zod@4.6.7)
-
-  surfaces/companion-ui:
+  plugins/surfaces/companion-ui:
     dependencies:
       '@aervox/api-client':
         specifier: workspace:*
-        version: link:../../packages/api-client
+        version: link:../../../packages/api-client
       '@aervox/contracts':
         specifier: workspace:*
-        version: link:../../packages/contracts
+        version: link:../../../packages/contracts
       '@aervox/ui':
         specifier: workspace:*
-        version: link:../../packages/ui
+        version: link:../../../packages/ui
       '@aervox/ui-host':
         specifier: workspace:*
-        version: link:../../packages/ui-host
+        version: link:../../../packages/ui-host
     devDependencies:
       '@aervox/live2d':
         specifier: workspace:*
-        version: link:../../packages/live2d
+        version: link:../../../packages/live2d
       lucide-vue-next:
         specifier: ^0.468.0
         version: 0.468.0(vue@3.5.43(typescript@5.9.3))
@@ -730,17 +712,17 @@ importers:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.9.3)
 
-  surfaces/panels-ui:
+  plugins/surfaces/panels-ui:
     dependencies:
       '@aervox/api-client':
         specifier: workspace:*
-        version: link:../../packages/api-client
+        version: link:../../../packages/api-client
       '@aervox/contracts':
         specifier: workspace:*
-        version: link:../../packages/contracts
+        version: link:../../../packages/contracts
       '@aervox/ui':
         specifier: workspace:*
-        version: link:../../packages/ui
+        version: link:../../../packages/ui
     devDependencies:
       element-plus:
         specifier: ^2.11.5
@@ -758,24 +740,24 @@ importers:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.9.3)
 
-  surfaces/proactive-ui:
+  plugins/surfaces/proactive-ui:
     dependencies:
       '@aervox/api-client':
         specifier: workspace:*
-        version: link:../../packages/api-client
+        version: link:../../../packages/api-client
       '@aervox/contracts':
         specifier: workspace:*
-        version: link:../../packages/contracts
+        version: link:../../../packages/contracts
       '@aervox/ui':
         specifier: workspace:*
-        version: link:../../packages/ui
+        version: link:../../../packages/ui
       '@aervox/ui-host':
         specifier: workspace:*
-        version: link:../../packages/ui-host
+        version: link:../../../packages/ui-host
     devDependencies:
       '@aervox/live2d':
         specifier: workspace:*
-        version: link:../../packages/live2d
+        version: link:../../../packages/live2d
       lucide-vue-next:
         specifier: ^0.468.0
         version: 0.468.0(vue@3.5.43(typescript@5.9.3))
@@ -789,20 +771,20 @@ importers:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.9.3)
 
-  surfaces/workbench-ui:
+  plugins/surfaces/workbench-ui:
     dependencies:
       '@aervox/api-client':
         specifier: workspace:*
-        version: link:../../packages/api-client
+        version: link:../../../packages/api-client
       '@aervox/contracts':
         specifier: workspace:*
-        version: link:../../packages/contracts
+        version: link:../../../packages/contracts
       '@aervox/ui':
         specifier: workspace:*
-        version: link:../../packages/ui
+        version: link:../../../packages/ui
       '@aervox/ui-host':
         specifier: workspace:*
-        version: link:../../packages/ui-host
+        version: link:../../../packages/ui-host
     devDependencies:
       lucide-vue-next:
         specifier: ^0.468.0
@@ -816,6 +798,24 @@ importers:
       vue-tsc:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.9.3)
+
+  research/deletion-fault-testing:
+    dependencies:
+      '@langchain/community':
+        specifier: 1.1.29
+        version: 1.1.29(@aws-crypto/sha256-js@5.2.0)(@browserbasehq/sdk@2.22.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.62.1)(deepmerge@4.3.1(patch_hash=b0c9a3616f8f0430752c2dca0e58de9a47f1154e3a0cb6e8bc83e5e53ef0f9d2))(dotenv@16.6.1)(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(zod@4.6.7))(@ibm-cloud/watsonx-ai@1.7.16(supports-color@7.2.0))(@langchain/core@1.2.18(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3))(@libsql/client@0.17.0)(html-to-text@9.0.5)(ibm-cloud-sdk-core@5.9.1(supports-color@7.2.0))(jsonwebtoken@9.0.3)(lodash@4.18.1)(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(playwright@1.62.1)(undici@6.29.1)(ws@8.21.3)
+      '@langchain/core':
+        specifier: 1.2.18
+        version: 1.2.18(openai@7.35.0(undici@6.29.1)(ws@8.21.3)(zod@4.6.7))(ws@8.21.3)
+      '@libsql/client':
+        specifier: 0.17.0
+        version: 0.17.0
+      '@llamaindex/core':
+        specifier: 0.6.22
+        version: 0.6.22
+      llamaindex:
+        specifier: 0.12.1
+        version: 0.12.1(tree-sitter@0.22.4)(web-tree-sitter@0.24.7)(zod@4.6.7)
 
 packages:
 

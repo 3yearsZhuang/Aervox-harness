@@ -41,7 +41,7 @@ decision_status: accepted
 
 1. 第一阶段只改变源码托管位置。保留插件 ID、包名、公开 exports、HTTP 路径、Manifest 版本和默认 Profile；`plugins/*` 仍由主仓构建，组合根继续显式注入。源码不在启动时从浮动分支下载。
 2. Core、Contracts、Host Plugin API、UI Host、API Client、共享 UI、Schema、Repositories、API/Worker 与平台 Shell 本轮继续由现有所有者维护。不能为独立仓构建复制 DTO、端口或宿主业务实现。
-3. `surfaces/*` 暂不迁入插件集合仓。后续若独立演进有价值，可评估候选 `Aervox-surfaces` 并继续以 `surfaces/` 固定挂载；其受信构建属性和默认界面责任保持，不能混入声明式插件市场。
+3. `surfaces/*` 最初暂缓独立分仓。随插件规范（AVX-PLUG-002）确立，第二阶段已正式整体迁入 `Aervox-plugins` 集合仓根下的 `surfaces/*`（含 `companion-ui`、`panels-ui`、`proactive-ui`、`workbench-ui`），复用主仓既有 `plugins` 子模块挂载于 `plugins/surfaces/*`，保留既有 31 次历史提交；其受信构建属性和 `UISurfaceManifest` 第一方界面责任保持，不作为 `.aervox-plugin` 声明式包分发。
 4. 保持源码现有 AGPL-3.0-or-later、文档既有许可及第三方版权；提取时补齐相应 LICENSE/NOTICE 和来源说明，不将插件改用 Core 的 Apache-2.0。按 `plugins/` 过滤保留历史和真人作者；过滤不能完整追踪更早从其他目录移动而来的历史，需记录原仓入口和基线，不宣称保留了所有跨路径历史。
 
 ### 已接受的合同差量
