@@ -150,4 +150,27 @@ describe("declared release compatibility gate", () => {
     const author = manifest("1.1.0"); author.metadata.breaking = true;
     expect(compare(author).validVersionBump).toBe(false);
   });
+  it.each([undefined, true, {}])("requires a major release when unrestricted array items (%j) become strings", previousItems => {
+    const before = manifest();
+    before.spec.tools[0]!.inputSchema.properties.query = { type: "array", items: previousItems } as never;
+    const after = structuredClone(before);
+    after.metadata.version = "1.0.1";
+    after.spec.tools[0]!.inputSchema.properties.query = { type: "array", items: { type: "string" } } as never;
+    expect(comparePluginReleaseChanges({ previousManifest: before, nextManifest: after, previousConfig: config(), nextConfig: config() }))
+      .toMatchObject({ breaking: true, requiredBump: "major", validVersionBump: false });
+    after.metadata.version = "2.0.0";
+    after.metadata.breaking = true;
+    expect(comparePluginReleaseChanges({ previousManifest: before, nextManifest: after, previousConfig: config(), nextConfig: config() }).validVersionBump).toBe(true);
+  });
+  it("accepts unconstrained array items but detects a false items schema", () => {
+    const before = manifest();
+    before.spec.tools[0]!.inputSchema.properties.query = { type: "array" } as never;
+    const after = structuredClone(before);
+    after.metadata.version = "1.0.1";
+    after.spec.tools[0]!.inputSchema.properties.query = { type: "array", items: {} } as never;
+    const comparison = () => comparePluginReleaseChanges({ previousManifest: before, nextManifest: after, previousConfig: config(), nextConfig: config() });
+    expect(comparison()).toMatchObject({ breaking: false, validVersionBump: true });
+    after.spec.tools[0]!.inputSchema.properties.query = { type: "array", items: false } as never;
+    expect(comparison()).toMatchObject({ breaking: true, validVersionBump: false });
+  });
 });

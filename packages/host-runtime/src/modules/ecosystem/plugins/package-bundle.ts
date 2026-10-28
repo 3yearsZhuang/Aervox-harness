@@ -18,6 +18,7 @@ import path from "node:path";
 import { strFromU8, strToU8 } from "fflate";
 import { executeArchive, ARCHIVE_LIMITS, isSafeArchivePath } from "../../../shared/archive-worker.js";
 import {
+  comparePluginVersions,
   pluginManifestSchema,
   validatePluginBundleFiles,
   type PluginConfigField,
@@ -26,7 +27,9 @@ import {
   type PluginMarketItem,
   type PluginDeclaredTool,
   type PluginDeclaredSkill,
+  type PluginMarketInstallRequest,
 } from "@aervox/contracts";
+import { ApiError } from "../../../shared/errors.js";
 import type {
   SqliteExtensionRepository,
   SqlitePluginConfigRepository,
@@ -446,7 +449,7 @@ export async function inspectPluginBundle(
  */
 export async function installPluginFromBundle(
   bytes: Uint8Array,
-  options: { overwrite?: boolean; signal?: AbortSignal } = {},
+  options: { overwrite?: boolean; signal?: AbortSignal; market?: PluginMarketInstallRequest & { minimumVersion?: string } } = {},
   deps: BundleEngineDeps,
 ): Promise<PluginModel> {
   const inspection = await inspectPluginBundle(bytes, {
@@ -500,6 +503,26 @@ export async function installPluginFromBundle(
     // Recheck after acquiring the lock; another install may have completed during preparation.
     const existing = await deps.extensionRepo.getPlugin(pluginId);
     if (existing && !options.overwrite) throw new PluginAlreadyExistsError(`Plugin "${pluginId}" is already installed.`);
+    // Market policy applies to the current locked installation; activation's CAS
+    // also rejects a different process changing it after this read.
+    if (options.market) {
+      const selection = options.market;
+      if ((selection.expectedVersion !== undefined && selection.expectedVersion !== inspection.version)
+        || (selection.expectedSha256 !== undefined && selection.expectedSha256 !== inspection.checksum)) {
+        throw new ApiError("CONFLICT", 409, "Plugin release changed; refresh the market before installing");
+      }
+      const minimum = selection.minimumVersion === undefined ? 0 : comparePluginVersions(inspection.version, selection.minimumVersion);
+      const comparison = existing ? comparePluginVersions(inspection.version, existing.version) : 1;
+      if (minimum === null || minimum < 0 || comparison === null || comparison < 0) {
+        throw new ApiError("CONFLICT", 409, "Market downgrade or incomparable version refused");
+      }
+      if (existing?.bundleGeneration && comparison === 0 && existing.checksum.replace(/^sha256:/, "") !== inspection.checksum) {
+        throw new ApiError("CONFLICT", 409, "Published plugin release changed its checksum");
+      }
+      if (existing && comparison > 0 && manifest.metadata.breaking && !selection.allowBreaking) {
+        throw new ApiError("CONFLICT", 409, "Breaking plugin update requires explicit confirmation");
+      }
+    }
     options.signal?.throwIfAborted();
     const schemaBytes = files[manifest.spec.config?.entry ?? "config.schema.json"];
     const fields = schemaBytes ? parseConfigSchema(JSON.parse(strFromU8(schemaBytes))) : undefined;
@@ -763,9 +786,12 @@ export async function listMarketPlugins(
         description: manifest.metadata.description ?? "",
         license: manifest.metadata.license ?? "AGPL-3.0-or-later",
         source: "builtin",
+        category: manifest.metadata.category,
+        tags: manifest.metadata.tags,
+        breaking: manifest.metadata.breaking ?? false,
         installed: Boolean(installed),
         installedVersion: installed?.version ?? null,
-        hasUpdate: Boolean(installed && installed.version !== manifest.metadata.version),
+        hasUpdate: Boolean(installed && comparePluginVersions(manifest.metadata.version, installed.version) === 1),
         capabilities: {
           hasConfig,
           sensorsCount,
@@ -884,6 +910,7 @@ export async function installFromMarket(
   pluginId: string,
   deps: BundleEngineDeps,
   signal?: AbortSignal,
+  confirmation: PluginMarketInstallRequest = {},
 ): Promise<PluginModel> {
   const pluginDir = await findBuiltinPluginDirectory(deps.builtinPluginsSourceRoot, pluginId);
   if (!pluginDir) throw new Error(`Market plugin not found: ${pluginId}`);
@@ -897,5 +924,5 @@ export async function installFromMarket(
 
   const zipFiles = await collectMarketBundleFiles(pluginDir);
   const bytes = await executeArchive<Uint8Array>({ kind: "pack", input: zipFiles, limits: PLUGIN_ARCHIVE_LIMITS, isSafePath: isSafeZipEntryPath, signal });
-  return installPluginFromBundle(bytes, { overwrite: true, signal }, deps);
+  return installPluginFromBundle(bytes, { overwrite: true, signal, market: confirmation }, deps);
 }
