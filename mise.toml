@@ -20,7 +20,7 @@ _.source = "scripts/project-env.sh"
 
 [tasks]
 # 安装依赖（锁定版本，保证可复现）
-install = "pnpm install --frozen-lockfile"
+install = "node scripts/core-submodule.mjs --init && pnpm install --frozen-lockfile"
 
 # 本地增量门禁；纯项目文档改动跳过代码守卫、业务构建与原生编译。
 ci-fast = "node --test scripts/ci-scope.test.mjs && node scripts/check-affected.mjs && node scripts/docs-lint-affected.mjs"
@@ -30,7 +30,7 @@ ci-affected = "mise tasks run ci-fast"
 ci-code = "pnpm check:guards && pnpm check:boundary && pnpm check:ci-config && pnpm check:artifacts && pnpm build && pnpm check:standards && pnpm typecheck && pnpm test && pnpm check:hls && pnpm check:memory-deletion && pnpm check:deletion-fault-testing && pnpm check:deletion-fault-integration && mise tasks run native-search-check && mise tasks run native-runtime-check"
 
 # 全量冷启动代码门禁（对齐 GitHub Actions CI，含 frozen-lockfile install）
-ci-code-full = "pnpm install --frozen-lockfile && pnpm check:guards && pnpm check:boundary && pnpm check:ci-config && pnpm check:artifacts && pnpm build && pnpm check:standards && pnpm typecheck && pnpm test && pnpm check:hls && pnpm check:memory-deletion && pnpm check:deletion-fault-testing && pnpm check:deletion-fault-integration && mise tasks run native-search-check && mise tasks run native-runtime-check"
+ci-code-full = "node scripts/core-submodule.mjs --init && pnpm install --frozen-lockfile && pnpm check:guards && pnpm check:boundary && pnpm check:ci-config && pnpm check:artifacts && pnpm build && pnpm check:standards && pnpm typecheck && pnpm test && pnpm check:hls && pnpm check:memory-deletion && pnpm check:deletion-fault-testing && pnpm check:deletion-fault-integration && mise tasks run native-search-check && mise tasks run native-runtime-check"
 
 # 代码守卫（禁用标识符 + 宿主领域纯度 + 类型边界 + 依赖提升 + 可移除实现）
 check-guards = "pnpm check:guards"

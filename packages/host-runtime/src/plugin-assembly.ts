@@ -45,10 +45,10 @@ interface PluginLoader {
  * 每个条目单行书写：可移除性演练按行剥离条目以验证"删除实现后宿主仍可构建运行"。
  */
 const FIRST_PARTY_PLUGIN_LOADERS: PluginLoader[] = [
-  { pluginId: "bot-weixin", load: () => import("@aervox/plugin-bot-weixin/server") },
-  { pluginId: "bot-onebot", load: () => import("@aervox/plugin-bot-onebot/server") },
-  { pluginId: "focus-mode", load: () => import("@aervox/plugin-focus-mode/server") },
-  { pluginId: "flowcampus", load: () => import("@aervox/plugin-flowcampus/server") },
+  { pluginId: "ap-bot-weixin", load: () => import("@aervox/plugin-bot-weixin/server") },
+  { pluginId: "ap-bot-onebot", load: () => import("@aervox/plugin-bot-onebot/server") },
+  { pluginId: "ap-ui-focus-mode", load: () => import("@aervox/plugin-focus-mode/server") },
+  { pluginId: "ap-tool-flowcampus", load: () => import("@aervox/plugin-flowcampus/server") },
 ];
 
 export interface PluginAssemblyTargets {

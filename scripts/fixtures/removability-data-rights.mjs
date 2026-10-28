@@ -23,9 +23,9 @@ const campus = { version: 1, places: [{ id: "kept-place", name: "保留校园地
 try {
   if (phase === "seed") {
     await initDatabaseSchema(client);
-    const schema = JSON.parse(await fs.readFile("plugins/flowcampus/config.schema.json", "utf8"));
+    const schema = JSON.parse(await fs.readFile("plugins/plugins/tool/flowcampus/config.schema.json", "utf8"));
     const extension = new SqliteExtensionRepository(db);
-    const plugin = await extension.createPlugin({ id: "flowcampus", publisher: "drill", version: "1.0.0", checksum: "fixture", enabled: 1,
+    const plugin = await extension.createPlugin({ id: "ap-tool-flowcampus", publisher: "drill", version: "1.0.0", checksum: "fixture", enabled: 1,
       configSchemaJson: schema.fields, configSchemaVersion: schema.schemaVersion });
     const saved = await new SqlitePluginConfigRepository(db).saveConfig(local, { pluginId: plugin.id,
       schemaVersion: schema.schemaVersion, expectedRevision: 0, expectedSchema: schema.fields,
@@ -49,7 +49,7 @@ try {
     await repo.createNode(local, { id: "projection", label: "retained projection" });
     await fs.writeFile(path.join(root, "memory-id"), memoryId);
   } else {
-    const retainedCampus = await new SqlitePluginConfigRepository(db).getConfig(local, "flowcampus");
+    const retainedCampus = await new SqlitePluginConfigRepository(db).getConfig(local, "ap-tool-flowcampus");
     assert.deepEqual(retainedCampus.valuesJson.state, campus);
     await fs.writeFile(path.join(root, `${phase}-campus-retained.json`), JSON.stringify(retainedCampus.valuesJson));
     const id = await fs.readFile(path.join(root, "memory-id"), "utf8");

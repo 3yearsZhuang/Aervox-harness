@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { test, expect, openWorkbench } from './fixtures';
 
 test.use({ platform: 'mobile', loopProvider: 'replay' });
-const statePath = '/v1/plugins/flowcampus/state';
+const statePath = '/v1/plugins/ap-tool-flowcampus/state';
 interface CampusSnapshot {
   revision: number;
   lifecycleGeneration: string;
@@ -28,7 +28,7 @@ async function write(request: APIRequestContext, apiUrl: string, snapshot: Campu
   return response.json() as Promise<CampusSnapshot>;
 }
 test.beforeEach(async ({ request, servers }) => {
-  const enabled = await request.patch(`${servers.apiUrl}/v1/plugins/flowcampus`, { data: { enabled: true } });
+  const enabled = await request.patch(`${servers.apiUrl}/v1/plugins/ap-tool-flowcampus`, { data: { enabled: true } });
   expect(enabled.status(), await enabled.text()).toBe(200);
   const snapshot = await read(request, servers.apiUrl);
   snapshot.state = { version: 1, places: [], events: [], tasks: [], routes: [],
@@ -99,7 +99,7 @@ test('mobile manages a durable campus plan and shares its budget across tasks', 
     await dialog.getByRole('combobox', { name: '优先程度', exact: true }).selectOption(priority!);
     await saveItem(page, dialog);
   }
-  const response = await request.get(`${servers.apiUrl}/v1/plugins/flowcampus/plan`, { params: { at: `${tomorrow}T07:55:00+08:00` } });
+  const response = await request.get(`${servers.apiUrl}/v1/plugins/ap-tool-flowcampus/plan`, { params: { at: `${tomorrow}T07:55:00+08:00` } });
   expect(response.status()).toBe(200);
   const { plan } = await response.json();
   expect(Date.parse(plan.departureAt)).toBe(Date.parse(`${tomorrow}T08:11:00+08:00`));
@@ -228,7 +228,7 @@ test('short mobile view preserves back layers and disabling removes the plugin w
   await expect(dialog).not.toBeVisible();
   await expect(page.locator('.campus-home-card').getByRole('button', { name: '查看与管理', exact: true })).toBeFocused();
   const old = await read(request, servers.apiUrl);
-  const disabled = await request.patch(`${servers.apiUrl}/v1/plugins/flowcampus`, { data: { enabled: false } });
+  const disabled = await request.patch(`${servers.apiUrl}/v1/plugins/ap-tool-flowcampus`, { data: { enabled: false } });
   expect(disabled.status()).toBe(200);
   await page.reload();
   await expect(page.locator('.proactive-companion')).toBeVisible();
@@ -236,7 +236,7 @@ test('short mobile view preserves back layers and disabling removes the plugin w
   const stale = await request.put(servers.apiUrl + statePath, { data: { state: old.state,
     expectedRevision: old.revision, expectedLifecycleGeneration: old.lifecycleGeneration } });
   expect(stale.ok()).toBe(false);
-  const enabled = await request.patch(`${servers.apiUrl}/v1/plugins/flowcampus`, { data: { enabled: true } });
+  const enabled = await request.patch(`${servers.apiUrl}/v1/plugins/ap-tool-flowcampus`, { data: { enabled: true } });
   expect(enabled.status()).toBe(200);
   const restored = await read(request, servers.apiUrl);
   expect(restored.lifecycleGeneration).not.toBe(old.lifecycleGeneration);

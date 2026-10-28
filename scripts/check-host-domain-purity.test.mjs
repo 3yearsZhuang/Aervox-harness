@@ -37,6 +37,7 @@ test("规则矩阵：10 条宿主领域纯度不变量齐备", () => {
 
 test("插件 id 与领域驼峰命中", () => {
   assert.deepEqual(rules("packages/ui/src/a.ts", 'const id = "focus-mode";'), ["plugin-id"]);
+  assert.deepEqual(rules("packages/ui/src/a.ts", 'const id = "ap-ui-focus-mode";'), ["plugin-id"]);
   assert.deepEqual(rules("packages/ui/src/a.ts", 'registry.register(focusModeTurnPlugin);'), ["camel-ident"]);
   assert.deepEqual(rules("packages/ui/src/a.ts", "const studyModeEnabled = ref(false);"), ["camel-ident"]);
 });
@@ -63,7 +64,7 @@ test("学习工具 / 卡片 id 字面量命中", () => {
 });
 
 test("已迁入插件的样式类不得回流宿主主题", () => {
-  // 这些类名随样式物理迁入 plugins/focus-mode/src/ui/styles.css，宿主侧引用数须保持 0
+  // 这些类名随样式物理迁入 plugins/plugins/ui/focus-mode/src/ui/styles.css，宿主侧引用数须保持 0
   for (const cls of [
     ".practice-panel",
     ".practice-guidance",
@@ -149,7 +150,7 @@ test(".css 纳入扫描；插件实现目录不在宿主扫描根内", () => {
   const files = collectHostFiles();
   assert.ok(files.includes("packages/ui/src/theme/workbench.css"), "应扫描宿主主题 CSS");
   assert.ok(
-    !files.some((f) => f.startsWith("packages/ui/src/plugins/focus-mode/")),
+    !files.some((f) => f.startsWith("plugins/plugins/") || f.startsWith("plugins/surfaces/")),
     "迁移期插件自有目录不应被宿主纯净性守卫扫描",
   );
   // 插件 UI 已物理迁出宿主包，迁移期前缀豁免退役；
@@ -159,7 +160,7 @@ test(".css 纳入扫描；插件实现目录不在宿主扫描根内", () => {
     "插件 UI 必须已迁出宿主包（迁移期豁免不得复活）",
   );
   assert.ok(
-    existsSync("plugins/focus-mode/src/ui/index.ts"),
+    existsSync("plugins/plugins/ui/focus-mode/src/ui/index.ts"),
     "插件 UI 必须位于插件包内",
   );
 });

@@ -151,21 +151,21 @@ describe("CAP-020 插件分发与打包集成测试", () => {
   });
 
   it("market directory conflicts return 409 and preserve the local skill", async () => {
-    const removed = await app.inject({ method: "DELETE", url: "/v1/plugins/home-assistant" });
+    const removed = await app.inject({ method: "DELETE", url: "/v1/plugins/ap-tool-home-assistant" });
     expect([204, 404]).toContain(removed.statusCode);
     const content = "# Local home assistant";
     const zip = zipSync({ "SKILL.md": strToU8(content) });
     const installed = await app.inject({ method: "POST", url: "/v1/skills", payload: {
-      name: "home-assistant", zipBase64: Buffer.from(zip).toString("base64"),
+      name: "ap-tool-home-assistant", zipBase64: Buffer.from(zip).toString("base64"),
     } });
     expect(installed.statusCode).toBe(201);
     const before = (await app.inject({ method: "GET", url: "/v1/skills" })).json();
-    const response = await app.inject({ method: "POST", url: "/v1/plugins/market/home-assistant/install" });
+    const response = await app.inject({ method: "POST", url: "/v1/plugins/market/ap-tool-home-assistant/install" });
     expect(response.statusCode).toBe(409);
     expect((await app.inject({ method: "GET", url: "/v1/skills" })).json()).toEqual(before);
-    expect(await fs.readFile(path.join(filesRoot, "skills/home-assistant/SKILL.md"), "utf8")).toBe(content);
+    expect(await fs.readFile(path.join(filesRoot, "skills/ap-tool-home-assistant/SKILL.md"), "utf8")).toBe(content);
     const plugins = (await app.inject({ method: "GET", url: "/v1/plugins" })).json().items;
-    expect(plugins.some((plugin: { id: string }) => plugin.id === "home-assistant")).toBe(false);
+    expect(plugins.some((plugin: { id: string }) => plugin.id === "ap-tool-home-assistant")).toBe(false);
   });
 
   it("POST /v1/plugins/inspect-package: 预检合法安装包并提取 PRD CAP-020 安全元数据", async () => {
@@ -376,7 +376,7 @@ describe("CAP-020 插件分发与打包集成测试", () => {
     expect(exportRes.statusCode).toBe(200);
     const expData = exportRes.json();
     expect(expData.pluginId).toBe("pkg.exportable");
-    expect(expData.filename).toBe("pkg.exportable-3.0.0.aervox-plugin");
+    expect(expData.filename).toBe("pkg.exportable-v3.0.0.aervox-plugin");
     expect(expData.packageBase64).toBeTruthy();
     expect(expData.checksum).toHaveLength(64);
 

@@ -40,8 +40,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      - name: Initialize required product submodules
+        run: git submodule update --init -- packages/core plugins
 
       # mise 在 Windows runner 支持有限，打包链路统一 setup-node + pnpm/action-setup
       # （node 24 / pnpm 11.22.0 与 mise.toml 锁定一致，pnpm 版本读 packageManager 字段）

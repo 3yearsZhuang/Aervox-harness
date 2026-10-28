@@ -3,9 +3,9 @@ packages:
   - "packages/*"
   # CR-060：第一方插件的实现与声明同置于 plugins/<id>/，实现以 workspace 包消费
   # （AVX-CAP-001「消费一律走 workspace 包」，禁止路径 hack、禁止复制代码引用）。
-  - "plugins/*"
-  # CR-065：根界面与设置面板实现位于 surfaces/<id>/，作为编译期第一方界面表面装配
-  - "surfaces/*"
+  - "plugins/plugins/*/*"
+  # CR-065 / ADR-031：根界面与设置面板由 Aervox-plugins 提供，位于 plugins/surfaces/<id>/
+  - "plugins/surfaces/*"
   - "research/*"
 
 # pnpm 11 reads installer settings here. Preserve the resolved lockfile policy.
@@ -37,6 +37,9 @@ overrides:
   "brace-expansion@5.0.9": "5.0.12"
   "http-cache-semantics@4.2.0": "4.3.0"
   "shell-quote@1.10.0": "1.11.0"
+  # GHSA-6pq8-jhm2-2vcw: keep the fix within the installed qs minor line.
+  "qs@6.16.0": "6.16.1"
 
 patchedDependencies:
+  deepmerge@4.3.1: patches/deepmerge@4.3.1.patch
   drizzle-orm@0.45.4: patches/drizzle-orm@0.45.4.patch

@@ -49,7 +49,7 @@ API `src/modules/<domain>/<module>` 的跨模块引用仅允许公开 `index.ts`
 
 本决定不把学习闭环变为可选模块：`CAP-001～013` 继续进入标准 Profile 与默认构建，学习事实表、仓储、复习排期及其服务留在主仓。插件经 `learningFacts` 访问，不能自建第二真源；本次无表结构或数据迁移。内核产品提纯及 Apache-2.0/AGPL 分层由 [ADR-021](ADR-021-aervox-core-standalone-package.md#amendment) 承接。
 
-第一方源码随主仓编译；`.aervox-plugin` 只打包明确允许的声明和资源，不含源码、依赖或构建产物。通用分发器不因目录内有实现而执行第三方代码。
+按 [ADR-031](ADR-031-first-party-plugin-repositories.md)，第一方声明与源码迁至 `Aervox-agent/Aervox-plugins` 集合仓，并整体以固定提交的必需子模块挂回 `plugins/`。保留包名、接口和默认产品组成，第一方源码继续随主仓编译；源码托管分离不把学习闭环转为自选能力。`.aervox-plugin` 只打包明确允许的声明和资源，不含源码、依赖或构建产物。通用分发器不因目录内有实现而执行第三方代码。
 
 ## Consequences and verification
 

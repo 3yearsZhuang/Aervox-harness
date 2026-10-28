@@ -38,9 +38,9 @@ mkdir -p "$PLUGIN_EXAMPLE_DIR/bundle/pages/dashboard"
 
 ```bash
 PLUGIN_STARTER_DIR="$(mktemp -d)"
-mise exec -- pnpm plugin init "$PLUGIN_STARTER_DIR/example" example
+mise exec -- pnpm plugin init "$PLUGIN_STARTER_DIR/example" ap-ui-example
 mise exec -- pnpm plugin check "$PLUGIN_STARTER_DIR/example"
-mise exec -- pnpm plugin pack "$PLUGIN_STARTER_DIR/example" "$PLUGIN_STARTER_DIR/example-1.0.0.aervox-plugin"
+mise exec -- pnpm plugin pack "$PLUGIN_STARTER_DIR/example" "$PLUGIN_STARTER_DIR/ap-ui-example-v1.0.0.aervox-plugin"
 ```
 
 命令构建并复用共享契约，验证 Manifest、宿主兼容要求、Config 作者规则、Page/Skill 入口、声明权限和允许的资源路径。`pack` 输出包路径及完整 SHA-256，同源码生成的字节稳定。它不会执行插件服务端代码，也不代替签名、真实安装和页面验收。以下 §2.1～2.5 使用前面 `PLUGIN_EXAMPLE_DIR` 下的手写示例，便于逐项理解接口。
@@ -52,14 +52,17 @@ cat > "$PLUGIN_EXAMPLE_DIR/bundle/plugin.manifest.json" <<'JSON'
 {
   "apiVersion": "aervox.dev/v1",
   "kind": "PluginManifest",
-  "requires": { "hostApiVersion": { "min": "1.0.0", "maxExclusive": "2.0.0" } },
+  "requires": { "hostApiVersion": { "min": "1.1.0", "maxExclusive": "2.0.0" } },
   "metadata": {
-    "id": "acme-focus-card",
+    "id": "ap-ui-acme-focus-card",
     "displayName": "专注提示卡",
     "publisher": "acme",
     "version": "0.1.0",
     "description": "读取并保存一条专注提示",
-    "license": "AGPL-3.0-or-later"
+    "license": "AGPL-3.0-or-later",
+    "category": "ui",
+    "tags": ["focus"],
+    "breaking": false
   },
   "spec": {
     "config": { "schemaVersion": 1, "entry": "config.schema.json" },
@@ -150,7 +153,7 @@ HTML
 
 这里显式加载 SDK、等待 `ready()`，再读取和保存本插件配置；用户文字通过 `textContent/value` 展示。可用 `bridge.onContext(handler)` 接收主题变化并在页面释放时取消订阅；`notify/close` 也返回 Promise，调用前分别声明 `host.notify/host.close` 并处理拒绝。不要直接用 `fetch` 调本地 API，也不要访问父 DOM、宿主存储或网络 CDN。独立双击 HTML 时没有宿主 init，不会进入可编辑状态，这是预期行为。
 
-若只需提供模型技能，在 Bundle 根增加 `SKILL.md`（front matter 含 `name: acme-focus-card` 与 `description`）；正文写适用条件、使用步骤和退出条件。也可用 `spec.skill` 指向自定义入口，优先于根文件回退，仍按 pluginId 登记；`spec.skills[]` 的显式 `entry` 优先于 inline `content`。被显式引用的文件不会再扫描登记一次，传统入口按确定顺序发现，预检和安装使用同一技能集合。Skill 不执行脚本，不为模型授予工具或 OS 权限；多技能布局见[分发包规范](../reference/plugin-config-and-pages.md#81-单文件分发包规范aervox-plugin)。
+若只需提供模型技能，在 Bundle 根增加 `SKILL.md`（front matter 含 `name: ap-ui-acme-focus-card` 与 `description`）；正文写适用条件、使用步骤和退出条件。也可用 `spec.skill` 指向自定义入口，优先于根文件回退，仍按 pluginId 登记；`spec.skills[]` 的显式 `entry` 优先于 inline `content`。被显式引用的文件不会再扫描登记一次，传统入口按确定顺序发现，预检和安装使用同一技能集合。Skill 不执行脚本，不为模型授予工具或 OS 权限；多技能布局见[分发包规范](../reference/plugin-config-and-pages.md#81-单文件分发包规范aervox-plugin)。
 
 ### 2.3 校验并打包
 
@@ -158,12 +161,12 @@ HTML
 
 ```bash
 mise exec -- pnpm plugin check "$PLUGIN_EXAMPLE_DIR/bundle"
-mise exec -- pnpm plugin pack "$PLUGIN_EXAMPLE_DIR/bundle" "$PLUGIN_EXAMPLE_DIR/acme-focus-card-0.1.0.aervox-plugin"
+mise exec -- pnpm plugin pack "$PLUGIN_EXAMPLE_DIR/bundle" "$PLUGIN_EXAMPLE_DIR/ap-ui-acme-focus-card-v0.1.0.aervox-plugin"
 ```
 
 预期：检查报告没有 issues，打包输出完整路径及 64 位 SHA-256，ZIP 根直接包含 Manifest。修改包后使用新输出文件名或明确移走旧产物；命令不会悄悄覆盖已有包。配置注册、API 分发预检和 CLI 使用同一作者校验器，仍需额外验证资源依赖、功能及权限实际执行。
 
-准备出厂声明包时，可将已评审资源放入 `plugins/<id>/` 后运行 `mise tasks run package-plugins`；批量入口也执行共享校验、排除第一方实现源码并生成字节可重现的 `dist/plugins/` 产物。该目录是 gitignore 生成物，测试不依赖其中的既有文件。运行 `mise tasks run check-standards` 可检查内置声明包、作者工具及历史 OpenAPI 结构兼容；该检查不代表签名或产品发布验收。
+准备出厂声明包时，可将已评审资源放入 集合仓 `plugins/<category>/<slug>/`（宿主 `plugins/plugins/<category>/<slug>/`） 后运行 `mise tasks run package-plugins`；批量入口也执行共享校验、排除第一方实现源码并生成字节可重现的 `dist/plugins/` 产物。该目录是 gitignore 生成物，测试不依赖其中的既有文件。运行 `mise tasks run check-standards` 可检查内置声明包、作者工具及历史 OpenAPI 结构兼容；该检查不代表签名或产品发布验收。
 
 ### 2.4 在临时数据库验证安装闭环
 
@@ -189,13 +192,13 @@ const { app } = await buildApp({
 });
 try {
   await app.ready();
-  const packageBase64 = (await fs.readFile(path.join(root, 'acme-focus-card-0.1.0.aervox-plugin'))).toString('base64');
+  const packageBase64 = (await fs.readFile(path.join(root, 'ap-ui-acme-focus-card-v0.1.0.aervox-plugin'))).toString('base64');
   const inspect = await app.inject({ method: 'POST', url: '/v1/plugins/inspect-package', payload: { packageBase64 } });
   assert.equal(inspect.statusCode, 200);
   assert.equal(inspect.json().isValid, true);
   const install = await app.inject({ method: 'POST', url: '/v1/plugins/install-package', payload: { packageBase64, overwrite: false } });
   assert.equal(install.statusCode, 201);
-  const base = '/v1/plugins/acme-focus-card';
+  const base = '/v1/plugins/ap-ui-acme-focus-card';
   const config = await app.inject({ method: 'GET', url: base + '/config' });
   assert.equal(config.json().values.message, '一次专注一件事');
   const revision = config.json().revision;
@@ -235,7 +238,7 @@ JS
 
 ### 3.1 定义组件与可回收注册
 
-以下示例位于 `plugins/acme-focus-card/src/ui/`，由主仓第一方代码评审并通过插件包的公开入口导出；它不属于 §2 ZIP 的动态入口。创建 `FocusDraftButton.vue`：
+以下示例位于 `plugins/ap-ui-acme-focus-card/src/ui/`，由主仓第一方代码评审并通过插件包的公开入口导出；它不属于 §2 ZIP 的动态入口。创建 `FocusDraftButton.vue`：
 
 ```vue
 <script setup lang="ts">
@@ -260,10 +263,10 @@ import type { BuiltinUIPlugin } from '@aervox/ui/plugin-api';
 import FocusDraftButton from './FocusDraftButton.vue';
 
 export const focusDraftPlugin: BuiltinUIPlugin = {
-  id: 'acme-focus-card',
+  id: 'ap-ui-acme-focus-card',
   setup(registry) {
     const remove = registry.registerSlotItem('composer:toolbar-actions', {
-      id: 'acme-focus-card:draft-button',
+      id: 'ap-ui-acme-focus-card:draft-button',
       component: FocusDraftButton,
       priority: 10,
     });
@@ -276,7 +279,7 @@ export const focusDraftPlugin: BuiltinUIPlugin = {
 
 经评审后，在 Web/桌面组合根的插件定义清单中加入该定义，由工作台的 `plugins` 参数注入 [plugin-runtime.ts](../../packages/ui/src/plugins/plugin-runtime.ts)。使用 setup 参数中的作用域注册表，避免依赖全局单例造成多窗口串扰。新增插件不会因 ZIP 里多了这个文件就被自动发现。
 
-预期：工具栏出现“起草下一步”，空输入时填入草稿；已有输入不被覆盖；停用时按钮注销，再启用仅出现一次。参照 [plugin-registration.test.ts](../../plugins/focus-mode/test/plugin-registration.test.ts)验证重复同步与清理。真实功能应复用宿主按钮样式与无障碍规则。
+预期：工具栏出现“起草下一步”，空输入时填入草稿；已有输入不被覆盖；停用时按钮注销，再启用仅出现一次。参照 [plugin-registration.test.ts](../../plugins/plugins/ui/focus-mode/test/plugin-registration.test.ts)验证重复同步与清理。真实功能应复用宿主按钮样式与无障碍规则。
 
 卡片、其他槽位和组件替换的完整接口见[规范 §5–§7](../reference/plugin-config-and-pages.md#5-前端-ui-插槽扩展规范ui-extension-slots)。运行时自动收集通过作用域注册表登记的贡献，setup 返回 `void` 也只激活一次；组件替换可通过返回的注销函数撤销，停用时自动恢复仍存活的前一个替换或默认组件。替换 `ComposerDock` 仍须验证输入法、附件、语音与单次发送。
 
@@ -304,22 +307,22 @@ setup(registry, context, lifecycle) {
 - 记录卡片使用 `AervoxCard`；图标、名称和操作并列时设置 `layout="record"`，正文、操作和附加内容分别使用 `record-main`、`record-actions`、`record-detail`。共享布局负责窄窗口折行。
 - 表单沿用原生 `input`、`select`、`textarea` 与 `aervox-field`，滑块使用 `aervox-range`；页面标题使用 `AervoxSettingsHeading`，互斥选项和页面切换使用 `AervoxSegmentedControl`（页面切换设置 `variant="tabs"`）。
 
-局部样式只补充内容布局，不覆盖共享控件的颜色、圆角、尺寸和焦点状态。提交前检查明暗主题、窄窗口，以及禁用、加载和失败后的状态；插件启停仍按既有生命周期验证。可参考[插件开关与导航用例](../../plugins/focus-mode/test/ui-components.test.ts)。
+局部样式只补充内容布局，不覆盖共享控件的颜色、圆角、尺寸和焦点状态。提交前检查明暗主题、窄窗口，以及禁用、加载和失败后的状态；插件启停仍按既有生命周期验证。可参考[插件开关与导航用例](../../plugins/plugins/ui/focus-mode/test/ui-components.test.ts)。
 
 ## 4. 接入第一方 Server Turn Hook
 
 ### 4.1 定义 Hook 并显式注册
 
-在 `plugins/acme-focus-card/src/server/turn-plugin.ts` 定义，从公开宿主契约导入类型：
+在 `plugins/ap-ui-acme-focus-card/src/server/turn-plugin.ts` 定义，从公开宿主契约导入类型：
 
 ```ts
 import type { ServerTurnPlugin } from '@aervox/host-plugin-api';
 
 export const focusCardTurnPlugin: ServerTurnPlugin = {
-  id: 'acme-focus-card',
+  id: 'ap-ui-acme-focus-card',
   beforeTurn(ctx, config) {
     ctx.signal.throwIfAborted();
-    if (ctx.metadata?.mode !== 'acme-focus-card') return;
+    if (ctx.metadata?.mode !== 'ap-ui-acme-focus-card') return;
     const message = typeof config?.message === 'string'
       ? config.message
       : '一次专注一件事';
@@ -378,7 +381,7 @@ mise tasks run ci-docs
 
 ## 6. 添加 Agent 工具
 
-工具通过第一方插件的 `toolContributions` 暴露给宿主。可运行参考为 [focus-mode 注册单元](../../plugins/focus-mode/src/server/index.ts)与[工具贡献](../../plugins/focus-mode/src/server/focus-tools.ts)，契约为 [PluginToolContribution](../../packages/host-plugin-api/src/index.ts)。不要照搬已删除教程中向宿主私有注册表直接注入的示意代码。
+工具通过第一方插件的 `toolContributions` 暴露给宿主。可运行参考为 [focus-mode 注册单元](../../plugins/plugins/ui/focus-mode/src/server/index.ts)与[工具贡献](../../plugins/plugins/ui/focus-mode/src/server/focus-tools.ts)，契约为 [PluginToolContribution](../../packages/host-plugin-api/src/index.ts)。不要照搬已删除教程中向宿主私有注册表直接注入的示意代码。
 
 1. 在插件中定义 `ToolSpec` 的名称、描述、参数 Schema 与安全等级，写清真实副作用；`readOnly` 影响逐次审批，不能用于规避写入授权。
 2. 在工具 Provider 中验证参数，通过宿主窄接口完成实际操作，不直接导入仓储。检查调用者取消、截止及授权修订，耗时 I/O 保持有界，失败明确返回错误。
@@ -386,3 +389,40 @@ mise tasks run ci-docs
 4. 工具列表可见性与执行时资格分别验证：停用、缺包、撤权或旧实例不能继续执行。声明和提示词不能替代运行时检查。
 5. 回归覆盖合法输入、非法参数、拒绝审批、停用后调用、取消/超时及结果投影；有写入时断言实际数据副作用和失败后的状态。跨进程工具同时检查子进程回收。
 6. 按 §5 运行定向与边界检查，在 PR 中记录覆盖范围。涉及新权限、隔离模型或数据责任时先修订对应 ADR。
+
+## 7. 显式迁移现有九个插件身份
+
+新源码使用统一生态标识，已有旧身份的库会在插件同步前拒绝启动。先停止所有 API、Worker、桌面宿主及数据库查看器；按自己实际配置选择完整数据目录。默认主库和 Vault 均位于仓库 `data/`，外置 Vault、资源或密钥目录必须通过重复的 `--include-data-root` 显式纳入。工具只处理所选目录，不发现或自动迁移用户数据。
+
+以下命令包含实际目录切换，只应在核对停写与数据范围后由维护者执行；本轮开发验证只使用临时夹具：
+
+```bash
+mise exec -- node scripts/migrate-plugin-identities.mjs \
+  --source /absolute/project/data \
+  --staging /absolute/project/data.identity-stage \
+  --backup /absolute/project/data.identity-backup \
+  --rollback /absolute/project/data.identity-rollback \
+  --stopped --confirm-plugin-id-migration
+```
+
+四个主目录必须是同磁盘的不同兄弟目录，目标目录尚不存在。外置目录通过 `--include-data-root /absolute/external/vault` 增加，每个目录都有独立的备份、staging、回滚副本和锁；工具先验证整组再切换。检查工具给出的迁移清单、各库行数、归档和技能校验和，以及配置、Secret 状态、停用与撤权结果后再启动。保留备份和回滚目录，不能用源码回退覆盖新数据。
+
+含加密主动规则时，还需显式传入 `--vault-key-file /absolute/project/data/proactive-vault.key`；密钥文件必须在已选择的数据目录内。使用自定义密钥 ID 时通过 `--vault-key-id` 指定原 ID。工具只在 staging 中解密、转换当前身份引用并按新规则身份重新加密，保留冷却、触发和启停状态；缺密钥或解密失败拒绝迁移，不把旧密文当成已更新。命令输出不含密钥或明文。
+
+受身份变化影响的待执行、已批准或运行中主动动作会撤销，旧请求和审批证据保留；迁移后需要重新提交并确认，旧审批不会授予新身份执行资格。
+
+中断后保持所有宿主停止，使用主数据目录恢复整组原始目录：
+
+```bash
+mise exec -- node scripts/migrate-plugin-identities.mjs \
+  --source /absolute/project/data --recover \
+  --stopped --confirm-plugin-id-migration
+```
+
+恢复会验证原目录与新目录未被外部改动；校验失败保持锁，不能手工删除锁后继续。不可变执行历史、签名账本及审批回执仍使用原身份，迁移清单用于追溯，不重放旧 Attempt 或扩大新身份权限。新生态标准与风险边界见 [ADR-032](../reference/adr/ADR-032-plugin-ecosystem-standard.md)。
+
+## 8. 发布插件与生成市场索引
+
+在集合仓从受审主线创建 `<plugin-id>@v<version>` Tag，发布工作流检查 Tag 归属、规范、版本及可重现性，再生成 `<plugin-id>-v<version>.aervox-plugin` 与 SHA-256 附件。破坏性变化必须递增 MAJOR 并在当前版本变更记录中标明；可识别的声明差异由机器校验，源码语义仍由作者与审查负责。
+
+Registry 工作流只从真实 Release 重验内容生成索引，通过 PR 交付并显式触发该分支的集成验证。尚未发布时索引为空。构建和测试工作流本身不构成首次发布；发布步骤与用户数据迁移均需各自实际执行与验收。

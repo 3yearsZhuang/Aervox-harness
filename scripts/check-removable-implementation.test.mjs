@@ -92,7 +92,7 @@ test("check-removable-implementation: 第一方插件可移除目标（BTD-11）
 test("check-removable-implementation: 移除计划（删除整包 + 剥离组合根与包清单）不得退化", () => {
   const target = REMOVABLE_TARGETS.find((t) => t.id === PLUGIN_TARGET_ID);
   assert.ok(target?.removalPlan, "必须声明 removalPlan");
-  assert.deepEqual(target.removalPlan.removeDirectories, ["plugins/focus-mode"]);
+  assert.deepEqual(target.removalPlan.removeDirectories, ["plugins/plugins/ui/focus-mode"]);
 
   const stripped = target.removalPlan.strips.map((s) => s.file);
   for (const file of [...COMPOSITION_ROOTS, ...PLUGIN_PACKAGE_MANIFESTS]) {
@@ -119,7 +119,7 @@ test("check-removable-implementation: 插件实现文件清单与实际源码逐
       else onDisk.push(full);
     }
   };
-  walk("plugins/focus-mode/src");
+  walk("plugins/plugins/ui/focus-mode/src");
 
   const missing = onDisk.filter((f) => !declared.has(f));
   assert.deepEqual(missing, [], `以下插件源文件未登记进 implementationFiles：${missing.join(", ")}`);
@@ -132,13 +132,13 @@ test("check-removable-implementation: 校园插件源码、内聚测试与唯一
   const target = REMOVABLE_TARGETS.find((t) => t.id === CAMPUS_TARGET_ID);
   assert.ok(target, `必须声明 ${CAMPUS_TARGET_ID} 移除目标`);
   assert.equal(target.pilot, "BTD-12");
-  assert.deepEqual([...target.implementationFiles].sort(), directoryFiles("plugins/flowcampus/src"));
+  assert.deepEqual([...target.implementationFiles].sort(), directoryFiles("plugins/plugins/tool/flowcampus/src"));
   assert.deepEqual([...target.allowedAssemblyFiles].sort(), [
     ...COMPOSITION_ROOTS,
-    ...directoryFiles("plugins/flowcampus/test"),
+    ...directoryFiles("plugins/plugins/tool/flowcampus/test"),
     "e2e/ui/flowcampus.spec.ts",
   ].sort());
-  assert.deepEqual(target.removalPlan.removeDirectories, ["plugins/flowcampus"]);
+  assert.deepEqual(target.removalPlan.removeDirectories, ["plugins/plugins/tool/flowcampus"]);
   assert.deepEqual(target.removalPlan.strips.map((strip) => strip.file).sort(), [
     ...COMPOSITION_ROOTS, ...CAMPUS_PACKAGE_MANIFESTS,
   ].sort());
@@ -153,8 +153,8 @@ test("check-removable-implementation: 校园插件公开包入口及私有实现
       'import plugin from "@aervox/plugin-flowcampus/server";',
       'export * from "@aervox/plugin-flowcampus/domain";',
       'const plugin = import("@aervox/plugin-flowcampus/ui");',
-      'type Planner = import("../../../../plugins/flowcampus/src/domain/planner.js");',
-      'import Card from "../../../../plugins/flowcampus/src/ui/CampusCard.vue";',
+      'type Planner = import("../../../../plugins/plugins/tool/flowcampus/src/domain/planner.js");',
+      'import Card from "../../../../plugins/plugins/tool/flowcampus/src/ui/CampusCard.vue";',
     ]) {
       writeFileSync(file, statement);
       assert.equal(auditTarget(target, [file]).length, 1, statement);

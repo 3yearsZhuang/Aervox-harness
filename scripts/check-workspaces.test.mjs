@@ -11,8 +11,8 @@ import { getSubpackageJsonPaths } from './check-dep-hoisting.mjs';
 test('default boundary and dependency scans cover every declared workspace, including surfaces', () => {
   const packages = discoverWorkspaces();
   assert.deepEqual(getSubpackageJsonPaths().map(p => p.relDir), packages.map(p => p.relDir));
-  assert.ok(collectSourceFiles().some(file => file.startsWith('surfaces/workbench-ui/src/')));
-  assert.equal(workspaceOwner('surfaces/workbench-ui/src/index.ts', packages).name, '@aervox/plugin-workbench-ui');
+  assert.ok(collectSourceFiles().some(file => file.startsWith('plugins/surfaces/workbench-ui/src/')));
+  assert.equal(workspaceOwner('plugins/surfaces/workbench-ui/src/index.ts', packages).name, '@aervox/plugin-workbench-ui');
 });
 
 test('new workspace roots, real names and default CLI violations need no root-list edits', () => {

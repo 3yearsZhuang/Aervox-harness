@@ -49,6 +49,14 @@ export function registerPluginConfigRoutes(app: FastifyInstance, service: Plugin
   });
 
   // ── 配置 ──────────────────────────────────────────
+  registerContractRoute(app, pluginConfigApi.exportData, async (req, reply) => {
+    const { pluginId } = req.params as { pluginId: string };
+    try {
+      reply.header("Cache-Control", "no-store");
+      return await service.exportStoredData(resolveLocalContext(req), pluginId);
+    } catch (error) { return sendError(reply, error); }
+  });
+
   registerContractRoute(app, pluginConfigApi.get, async (req, reply) => {
     const { pluginId } = req.params as { pluginId: string };
     const { expectedLifecycleGeneration, expectedPageId, expectedPageGeneration } = req.query as PluginConfigAccessQuery;

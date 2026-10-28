@@ -178,6 +178,24 @@ export class PluginConfigService {
 
   // ── 配置 ──────────────────────────────────────────────
 
+  /** User data management remains available without activating missing/disabled code. */
+  async exportStoredData(tenant: LocalContext, pluginId: string): Promise<import("@aervox/contracts").PluginDataExport> {
+    const found = await this.findPlugin(pluginId);
+    if (!found) throw new PluginConfigError(404, "PLUGIN_NOT_FOUND", `plugin not found: ${pluginId}`);
+    const fields = (found.plugin.configSchemaJson ?? []) as PluginConfigSchemaResponse["fields"];
+    const stored = await this.deps.configRepo.getConfig(tenant, found.resolvedId);
+    // Filter with both schema snapshots: old Secrets and newly classified Secrets
+    // cannot escape. Defaults and unknown/orphaned data never participate.
+    const initial = validateValues(fields, (stored?.valuesJson as Record<string, unknown>) ?? {}).values;
+    const current = await this.deps.extensionRepo.getPlugin(found.resolvedId);
+    if (!current || current.lifecycleGeneration !== found.plugin.lifecycleGeneration) {
+      throw new PluginConfigError(409, "PLUGIN_CONFIG_REVISION_CONFLICT", "plugin lifecycle changed; retry the export");
+    }
+    const values = validateValues((current.configSchemaJson ?? []) as PluginConfigSchemaResponse["fields"], initial).values;
+    return { format: "aervox-plugin-data/v1", pluginId: found.resolvedId,
+      revision: stored?.revision ?? 0, schemaVersion: stored?.schemaVersion ?? current.configSchemaVersion ?? 1, values };
+  }
+
   private configAccess(expectedLifecycleGeneration?: string, pageIdentity?: Pick<PluginConfigAccessQuery, "expectedPageId" | "expectedPageGeneration">): PluginConfigAccessQuery {
     const parsed = pluginConfigAccessQuerySchema.safeParse({ ...pageIdentity, expectedLifecycleGeneration });
     if (!parsed.success) throw new PluginConfigError(400, "INVALID_CONFIG", "Invalid captured Page or plugin identity");

@@ -6,6 +6,9 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
+import { RemotePluginRegistry } from "./remote-registry.js";
+export { OFFICIAL_PLUGIN_REGISTRY, type PluginRegistryOptions } from "./remote-registry.js";
+import { discoverBuiltinPluginDirectories } from "./plugin-sources.js";
 import { pluginManifestSchema } from "@aervox/contracts";
 import { assembleFirstPartyPlugins, createHttpEndpointSink } from "../../../plugin-assembly.js";
 import { isPluginEnabled } from "./turn-plugins/index.js";
@@ -70,11 +73,10 @@ async function syncBuiltinPlugins(
   const diskPluginIds = new Set<string>();
   let failure: "missing" | "invalid" | "unreadable" = "missing";
   try {
-    const entries = await fs.readdir(sourceRoot, { withFileTypes: true });
+    const entries = await discoverBuiltinPluginDirectories(sourceRoot);
 
     for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const pluginDir = path.join(sourceRoot, entry.name);
+      const pluginDir = entry;
       const manifestPath = path.join(pluginDir, "plugin.manifest.json");
       const schemaPath = path.join(pluginDir, "config.schema.json");
       const skillPath = path.join(pluginDir, "SKILL.md");
@@ -92,7 +94,7 @@ async function syncBuiltinPlugins(
       const parsedManifest = pluginManifestSchema.safeParse(manifestValue);
       if (!parsedManifest.success) {
         failure = "invalid";
-        console.warn(`[plugins] builtin manifest rejected (fail-closed): ${entry.name}`);
+        console.warn(`[plugins] builtin manifest rejected (fail-closed): ${entry}`);
         continue;
       }
       const manifest = parsedManifest.data;
@@ -121,7 +123,7 @@ async function syncBuiltinPlugins(
         skills: skillContent
           ? [
               {
-                name: entry.name,
+                name: pluginId,
                 description: manifest.metadata.description,
                 content: skillContent,
               },
@@ -152,7 +154,7 @@ async function syncBuiltinPlugins(
   }
 }
 
-export async function registerPluginsModule(ctx: ModuleDependencies<"apiRegistry" | "app" | "builtinPluginsSourceRoot" | "db" | "pluginHostServices" | "pluginRegistry" | "pluginsRoot" | "proactiveIntelligenceRepository" | "skillsRoot">, beforeDeactivate?: (pluginId: string, uninstall: boolean) => Promise<void>, onConfigService?: (service: PluginConfigService) => void): Promise<import("@aervox/host-plugin-api").ServerPluginRegistration[]> {
+export async function registerPluginsModule(ctx: ModuleDependencies<"apiRegistry" | "app" | "builtinPluginsSourceRoot" | "db" | "pluginHostServices" | "pluginRegistry" | "pluginRegistryOptions" | "pluginsRoot" | "proactiveIntelligenceRepository" | "skillsRoot">, beforeDeactivate?: (pluginId: string, uninstall: boolean) => Promise<void>, onConfigService?: (service: PluginConfigService) => void): Promise<import("@aervox/host-plugin-api").ServerPluginRegistration[]> {
   const pluginRegistry = ctx.pluginRegistry ?? createServerPluginRegistry();
   const { app, db, skillsRoot, pluginsRoot } = ctx;
   const extensionRepo = new SqliteExtensionRepository(db);
@@ -196,6 +198,7 @@ export async function registerPluginsModule(ctx: ModuleDependencies<"apiRegistry
   const builtinRoot = ctx.builtinPluginsSourceRoot ?? defaultBuiltinPluginsSourceRoot();
 
   const service = new PluginService({
+    remoteRegistry: ctx.pluginRegistryOptions ? new RemotePluginRegistry(ctx.pluginRegistryOptions) : undefined,
     beforeDeactivate,
     installationRepo: new SqlitePluginInstallationRepository(db),
     extensionRepo,

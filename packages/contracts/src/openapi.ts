@@ -129,6 +129,8 @@ import {
   pluginPackageInstallRequestSchema,
   pluginPackageExportResponseSchema,
   pluginMarketItemSchema,
+  pluginMarketInstallRequestSchema,
+  pluginMarketReportSchema,
 } from "./plugin-config-schemas.js";
 import {
   createAttemptRequestSchema,
@@ -1101,18 +1103,20 @@ registry.registerPath({
   tags: ["Plugins"],
   request: { headers: commonHeaders },
   responses: {
-    200: { description: "Market items", content: { "application/json": { schema: z.object({ items: z.array(pluginMarketItemSchema) }) } } },
+    200: { description: "Market items and explicit remote registry availability", content: { "application/json": { schema: pluginMarketReportSchema } } },
   },
 });
 
 registry.registerPath({
   method: "post",
   path: "/v1/plugins/market/{pluginId}/install",
-  summary: "从集市一键安装出厂插件",
+  summary: "从集市安装已选定的插件发布",
   tags: ["Plugins"],
-  request: { params: pluginIdParam, headers: commonHeaders },
+  request: { params: pluginIdParam, headers: commonHeaders,
+    body: { required: false, content: { "application/json": { schema: pluginMarketInstallRequestSchema } } } },
   responses: {
     201: { description: "Installed plugin", content: { "application/json": { schema: pluginMetadataSchema } } },
+    400: { description: "Invalid market installation confirmation" },
     404: { description: "Market plugin not found" },
     409: { description: "PLUGIN_INSTALL_CONFLICT when plugin or config state changes during preparation, or skill ownership conflict. Existing state is preserved." },
   },

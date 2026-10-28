@@ -1,5 +1,6 @@
 import { globSync, lstatSync, readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
+import { assertCoreSubmodule } from './core-submodule.mjs';
 
 /** Read the block-list workspace syntax used by pnpm. Reject unsupported syntax. */
 export function workspacePatterns(cwd = process.cwd()) {
@@ -21,6 +22,7 @@ export function workspacePatterns(cwd = process.cwd()) {
 }
 
 export function discoverWorkspaces(cwd = process.cwd()) {
+  assertCoreSubmodule(cwd);
   const root = realpathSync(cwd);
   const files = globSync(workspacePatterns(cwd).map(p => `${p}/package.json`), {
     cwd, exclude: ['**/node_modules/**', '**/.git/**'],
@@ -40,5 +42,5 @@ export function discoverWorkspaces(cwd = process.cwd()) {
 }
 
 export function workspaceOwner(file, workspaces) {
-  return workspaces.find(pkg => file.startsWith(`${pkg.relDir}/`)) ?? null;
+  return workspaces.find(pkg => file === pkg.relDir || file.startsWith(`${pkg.relDir}/`)) ?? null;
 }

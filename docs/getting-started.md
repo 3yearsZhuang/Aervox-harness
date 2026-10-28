@@ -20,7 +20,7 @@ cd Aervox-harness
 ./aervox setup
 ```
 
-工具版本由 [mise.toml](../mise.toml) 锁定。`./aervox setup` 先执行 `mise install`，再以 `pnpm install --no-frozen-lockfile` 重新解析和安装依赖，因此可能更新 `pnpm-lock.yaml`。
+工具版本由 [mise.toml](../mise.toml) 锁定。`./aervox setup` 先执行 `mise install` 并初始化必需的 `packages/core` 与 `plugins` 子模块，再以 `pnpm install --no-frozen-lockfile` 重新解析和安装依赖，因此可能更新 `pnpm-lock.yaml`。
 
 日常按已有锁文件安装依赖，在仓库根运行：
 
@@ -28,7 +28,15 @@ cd Aervox-harness
 mise tasks run install
 ```
 
-该任务使用 `--frozen-lockfile`；`./aervox dev` 各目标也会先按锁文件检查和安装依赖，失败时保留原错误并退出。需要重新解析依赖时再显式运行 `./aervox setup`，不要在子包重复安装。
+该任务先初始化主仓固定提交的 Core 和插件集合仓，再使用 `--frozen-lockfile`；`./aervox dev` 各目标也会先检查这两个产品子模块并按锁文件安装依赖，失败时保留原错误并退出。需要重新解析依赖时再显式运行 `./aervox setup`，不要在子包重复安装。
+
+Core 源码维护于 [Aervox-agent/Aervox-core](https://github.com/Aervox-agent/Aervox-core)，插件源码与声明维护于 [Aervox-agent/Aervox-plugins](https://github.com/Aervox-agent/Aervox-plugins)。主仓分别以 `packages/core` 和 `plugins/` 子模块固定提交，继续通过原有 workspace 包使用；插件包名、接口与默认产品组成保持。直接运行 `pnpm` 前或切换分支后，可先显式同步必需子模块：
+
+```bash
+git submodule update --init -- packages/core plugins
+```
+
+不要在子模块有未提交改动时强制切换版本。贡献和更新子模块引用的流程见[贡献指南](../CONTRIBUTING.md#验证与交付)。
 
 外部 `reference/` 子模块是设计输入，默认构建无需全部拉取；阅读参考代码或运行要求真实适配库的专项测试时再按需初始化。安装依赖和启动服务都不会自动下载或安装大语言模型。
 

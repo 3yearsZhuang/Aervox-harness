@@ -1,7 +1,7 @@
-import { execFileSync } from 'node:child_process';
 import { lstatSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { productTrackedEntries } from './core-submodule.mjs';
 
 export const SIZE_EXCEPTIONS = {
   'packages/live2d/mizuki/model/20mizuki_normal_3.0_t04.2048/texture_00.png': { maxBytes: 2_000_000, reason: 'Original bundled Live2D texture' },
@@ -13,16 +13,12 @@ const GENERATED = /(?:^|\/)(?:dist|out|\.turbo|node_modules|\.cache|coverage)(?:
 const LOCAL_FILE = /(?:\.(?:db|sqlite|sqlite3)(?:-(?:wal|shm|journal))?|\.(?:log|tmp|bak|swp|tsbuildinfo)|~)$/i;
 const CREDENTIAL_FILE = /(?:^|\/)(?:\.env(?:\..+)?|id_rsa|id_ed25519|credentials\.json)$/;
 
-/** Inspect tracked ordinary files only. Ignored user data and gitlink contents are never read. */
+/** Inspect product tracked files, including required submodules; ignore data and reference gitlinks. */
 export function inspectTrackedFiles({ cwd = process.cwd(), sizeLimit = 1_048_576, exceptions = SIZE_EXCEPTIONS } = {}) {
-  const entries = execFileSync('git', ['ls-files', '--stage', '-z'], { cwd, encoding: 'utf8' }).split('\0').filter(Boolean);
+  const entries = productTrackedEntries(cwd);
   const violations = [];
   let files = 0;
-  for (const entry of entries) {
-    const tab = entry.indexOf('\t');
-    const [mode] = entry.slice(0, tab).split(' ');
-    const file = entry.slice(tab + 1);
-    if (mode === '160000') continue;
+  for (const { file } of entries) {
     const stat = lstatSync(path.join(cwd, file), { throwIfNoEntry: false });
     if (!stat) continue; // A tracked removal is checked by Git/PR review.
     files++;
