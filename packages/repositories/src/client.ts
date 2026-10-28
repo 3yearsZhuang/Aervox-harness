@@ -1,3 +1,4 @@
+import { assertPluginIdentityMigrationUnlockedForPath } from "./migration/plugin-identities.js";
 /**
  * Aervox｜思隅 @aervox/repositories — 客户端与连接管理
  *
@@ -440,6 +441,7 @@ export async function createDatabase(
   // 先确保文件父目录存在（libsql createClient 构造时即打开文件，必须在其之前创建 <repo>/data）
   if (isLocalSqlite && !isMemory) {
     const filePath = fileURLToPath(url);
+    await assertPluginIdentityMigrationUnlockedForPath(filePath);
     try {
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
     } catch {

@@ -1,3 +1,4 @@
+import { pluginSkillDirectoryName, pluginSkillNameFromDirectoryName } from "@aervox/contracts";
 /**
  * Aervox｜思隅 @aervox/api — Skill 管理服务（CAP-020）
  *
@@ -116,7 +117,8 @@ export class SkillManager {
     } else {
       for (const rawTopDir of topDirs) {
         const topDir = rawTopDir ?? "";
-        const name = normalizeSkillName(topDir);
+        const name = pluginSkillNameFromDirectoryName(topDir);
+        if (!name) continue;
         if (!isValidSkillName(name)) continue;
         const subFiles = files.filter(file => file.name.startsWith(`${topDir}/`));
         if (subFiles.some(file => file.name === `${topDir}/SKILL.md` || file.name === `${topDir}/skill.md`)) {
@@ -130,7 +132,7 @@ export class SkillManager {
       for (const folder of folders) {
         await assertSkillDirectoryOwner(this.registry, this.skillsRoot, { kind: "local", id: folder.name });
         if (!opts.overwrite && (await this.registry.getSkill(folder.name)
-          || await fs.lstat(path.join(this.skillsRoot, folder.name)).then(() => true, () => false))) {
+          || await fs.lstat(path.join(this.skillsRoot, pluginSkillDirectoryName(folder.name))).then(() => true, () => false))) {
           throw new FileExistsError(`Skill ${folder.name} already exists.`);
         }
       }
@@ -152,7 +154,7 @@ export class SkillManager {
       throw new FileExistsError(`Skill ${name} already exists or belongs to a plugin.`);
     }
     await fs.mkdir(this.skillsRoot, { recursive: true });
-    const destDir = path.join(this.skillsRoot, name);
+    const destDir = path.join(this.skillsRoot, pluginSkillDirectoryName(name));
     const exists = await fs
       .access(destDir)
       .then(() => true)
@@ -216,7 +218,7 @@ export class SkillManager {
   async readSkillMarkdown(name: string): Promise<SkillContent | null> {
     const skill = await this.registry.getSkill(name);
     if (!skill) return null;
-    const contentPath = skill.contentPath ?? path.join(this.skillsRoot, name, "SKILL.md");
+    const contentPath = skill.contentPath ?? path.join(this.skillsRoot, pluginSkillDirectoryName(name), "SKILL.md");
     const content = await fs.readFile(contentPath, "utf8");
     return { name: skill.name, description: skill.description, content };
   }
@@ -232,7 +234,7 @@ export class SkillManager {
      const skill = await this.registry.getSkill(name);
      if (!skill || skill.readonly === 1 || skill.pluginId) return false;
      await assertSkillDirectoryOwner(this.registry, this.skillsRoot, { kind: "local", id: name });
-     await fs.rm(path.join(this.skillsRoot, name), { recursive: true, force: true });
+     await fs.rm(path.join(this.skillsRoot, pluginSkillDirectoryName(name)), { recursive: true, force: true });
      return this.registry.unregisterSkill(name);
    });
  }
@@ -241,7 +243,7 @@ export class SkillManager {
   async readSkillFolderFiles(name: string): Promise<Array<{ relativePath: string; data: Buffer }> | null> {
     const skill = await this.registry.getSkill(name);
     if (!skill) return null;
-    const dir = path.join(this.skillsRoot, name);
+    const dir = skill.contentPath ? path.dirname(skill.contentPath) : path.join(this.skillsRoot, pluginSkillDirectoryName(name));
     try {
       const entries = await fs.readdir(dir, { recursive: true, withFileTypes: true });
       const files: Array<{ relativePath: string; data: Buffer }> = [];

@@ -1,3 +1,4 @@
+import { ApiError } from "../../../shared/errors.js";
 import { PluginInstallationConflictError } from "@aervox/repositories";
 import { withRequestSignal } from "../../../shared/request-signal.js";
 /**
@@ -15,6 +16,7 @@ import type { FastifyInstance } from "fastify";
 import {
   PLUGIN_SENSOR_PERMISSION,
   pluginProactiveSpecSchema,
+  pluginMarketInstallRequestSchema,
   validateDslExpression,
   pluginsApi,
 } from "@aervox/contracts";
@@ -223,17 +225,19 @@ export function registerPluginRoutes(app: FastifyInstance, service: PluginServic
 
   // 列出官方与出厂插件集市条目
   app.get("/v1/plugins/market", async () => {
-    const items = await service.listMarket();
-    return { items };
+    return service.listMarketReport();
   });
 
   // 从出厂集市一键安装插件
   app.post("/v1/plugins/market/:id/install", async (req, reply) => {
     const { id: pluginId } = req.params as { id: string };
     try {
-      const plugin = await withRequestSignal(req, reply, signal => service.installFromMarket(pluginId, signal));
+      const body = pluginMarketInstallRequestSchema.safeParse(req.body ?? {});
+      if (!body.success) return reply.code(400).send({ error: "Invalid market installation confirmation" });
+      const plugin = await withRequestSignal(req, reply, signal => service.installFromMarket(pluginId, signal, body.data));
       return reply.code(201).send(plugin);
     } catch (e) {
+      if (e instanceof ApiError) throw e;
       if (e instanceof PluginInstallationConflictError) return reply.code(409).send({error: e.message, code: e.code});
         if (e instanceof FileExistsError) return reply.code(409).send({ error: e.message });
       return reply.code(404).send({

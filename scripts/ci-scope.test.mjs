@@ -34,6 +34,7 @@ const MISE_CONFIG = path.join(ROOT_DIR, "mise.toml");
 test("CI covers every package root declared in pnpm-workspace.yaml", () => {
   const roots = workspacePatterns(ROOT_DIR).map(pattern => pattern.replace(/\/\*$/, ''));
   assert.ok(roots.includes("plugins/surfaces"));
+  assert.ok(roots.includes("plugins/plugins/*"), "classified business workspaces must participate in CI triggers");
   const paths = readWorkflowPaths(CI_WORKFLOW);
   for (const trigger of [paths.pullRequest, paths.push]) {
     for (const root of roots) {
@@ -52,7 +53,7 @@ function syntheticScope() {
 }
 
 test("glob 语义：`*` 不跨目录，`**` 跨目录且允许零层", () => {
-  assert.equal(matchesGlob("plugins/anki-sync/plugin.manifest.json", "plugins/**"), true);
+  assert.equal(matchesGlob("plugins/plugins/tool/anki-sync/plugin.manifest.json", "plugins/**"), true);
   assert.equal(matchesGlob("plugins/readme.md", "plugins/**"), true);
   assert.equal(matchesGlob("dist/plugins/x.aervox-plugin", "plugins/**"), false);
   assert.equal(matchesGlob("apps/api/src/app.ts", "packages/**"), false);
@@ -98,7 +99,7 @@ test("loadTurboScope 只提取包目录之外的声明", () => {
 });
 
 test("仅插件目录变更时命中声明它的包（而非选中 0 个任务）", () => {
-  const changeScope = resolveChangeScope(["plugins/anki-sync/plugin.manifest.json"], syntheticScope());
+  const changeScope = resolveChangeScope(["plugins/plugins/tool/anki-sync/plugin.manifest.json"], syntheticScope());
   assert.equal(changeScope.mode, "scoped");
   assert.deepEqual(changeScope.packages, ["@aervox/api"]);
   assert.deepEqual(

@@ -18,7 +18,7 @@ id: AVX-DOC-001
 | 开发或演进 HTTP API | [API 约定](reference/API_CONVENTIONS.md) |
 | 执行、取消、恢复与事件流 | [Agent Harness Loop](reference/agent-harness-loop.md)、[流式协议](reference/STREAMING_PROTOCOL.md) |
 | 开发插件、Page、Tool 或 UI 扩展 | [扩展指南](how-to/develop-plugin-ui-extension.md)、[插件契约](reference/plugin-config-and-pages.md) |
-| 开发插件集合仓与更新主仓引用 | [仓库与兼容边界](reference/adr/ADR-031-first-party-plugin-repositories.md)、[当前迁移](../plan.md#iter-073) |
+| 开发插件集合仓与更新主仓引用 | [仓库与兼容边界](reference/adr/ADR-031-first-party-plugin-repositories.md)、[生态标准与身份迁移](reference/adr/ADR-032-plugin-ecosystem-standard.md)、[当前实施](../plan.md#iter-075) |
 | 接入微信私聊、QQ 群及运行常驻 Bot | [连接机器人](how-to/connect-bots.md)、[Bot 架构决定](reference/adr/ADR-029-bot-platform-adapters.md) |
 | AI 质量、安全威胁、隐私责任 | [AI 质量与安全](reference/AI_QUALITY_SAFETY.md)、[威胁模型](reference/THREAT_MODEL.md)、[数据隐私](reference/DATA_PRIVACY.md) |
 | 设计、测试与运行维护 | [交互设计](reference/DESIGN.md)、[测试策略](reference/TEST_STRATEGY.md)、[运行手册](reference/operations.md) |

@@ -68,7 +68,7 @@ describe('builtin plugin export resource boundary', () => {
     expect(Object.keys(unzipSync(exported.bytes)).sort()).toEqual(['SKILL.md', 'pages/main/index.html', 'plugin.manifest.json']);
   });
 
-  it.each(['.env', '.git', 'credentials.json', 'unknown.asset', 'LICENSE'])('rejects an unclassified source entry: %s', async file => {
+  it.each(['.env', '.git', 'credentials.json', 'unknown.asset', 'PRIVATE_KEY'])('rejects an unclassified source entry: %s', async file => {
     await put(file, 'unclassified local content');
     await expect(exportPluginBundle('example', deps)).rejects.toThrow(/未登记角色/);
   });
@@ -86,8 +86,8 @@ describe('builtin plugin export resource boundary', () => {
     const actual = path.join(root, 'actual-source');
     await fs.rename(source, actual);
     await fs.symlink(actual, source);
-    await expect(exportPluginBundle('example', deps)).rejects.toThrow(/Unsupported plugin source directory/);
-    await expect(collectMarketBundleFiles(source)).rejects.toThrow(/Unsupported plugin source directory/);
+    await expect(exportPluginBundle('example', deps)).rejects.toThrow(/Unsupported plugin source directory|Linked builtin source/);
+    await expect(collectMarketBundleFiles(source)).rejects.toThrow(/Unsupported plugin source directory|Linked builtin source/);
   });
 
   it('rejects invalid source declarations before producing an uninstallable archive', async () => {
@@ -104,7 +104,7 @@ describe('builtin plugin export resource boundary', () => {
     const result = await exportPluginBundle('example', deps);
     expect(readOriginalBundle).toHaveBeenCalledExactlyOnceWith('example', 'stored-generation');
     expect(result.bytes).toBe(original);
-    expect(result.filename).toBe('example-2.0.0.aervox-plugin');
+    expect(result.filename).toBe('example-v2.0.0.aervox-plugin');
     expect(result.checksum).toBe(createHash('sha256').update(original).digest('hex'));
   });
 });

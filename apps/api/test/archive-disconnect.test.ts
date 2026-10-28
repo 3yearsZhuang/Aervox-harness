@@ -92,7 +92,9 @@ it.each([
     }
     return pending;
   });
-  const payload = JSON.stringify({ name: "archive-owned", overwrite: true, zipBase64: Buffer.from(zipSync({ "SKILL.md": strToU8("# Replacement") })).toString("base64"), packageBase64, bundleBase64, conflictResolution: "replace" });
+  // Market requests have their own strict confirmation schema; reach the archive
+  // boundary with a valid body instead of being rejected before worker creation.
+  const payload = JSON.stringify(url.startsWith("/v1/plugins/market/") ? {} : { name: "archive-owned", overwrite: true, zipBase64: Buffer.from(zipSync({ "SKILL.md": strToU8("# Replacement") })).toString("base64"), packageBase64, bundleBase64, conflictResolution: "replace" });
   const target = url === "persona-export" ? `/v1/personas/${personaId}/export` : url;
   client = request(baseUrl + target, { method: target === legacyExportUrl ? "GET" : "POST", headers: { "content-type": "application/json", "content-length": Buffer.byteLength(payload) } });
   client.on("error", () => {});

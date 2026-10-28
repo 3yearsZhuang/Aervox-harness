@@ -49,12 +49,12 @@ function withTestWorkspaces(check) {
     }
     writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "test-root", private: true, scripts: { test: "node test.mjs" } }));
     writeFileSync(join(dir, "test.mjs"), "import { writeFileSync } from 'node:fs';\nwriteFileSync(new URL('./ran', import.meta.url), 'ran');\n");
-    writeFileSync(join(dir, "pnpm-workspace.yaml"), 'packages:\n  - "apps/*"\n  - "packages/*"\n  - "plugins/*"\n  - "surfaces/*"\n');
+    writeFileSync(join(dir, "pnpm-workspace.yaml"), 'packages:\n  - "apps/*"\n  - "packages/*"\n  - "plugins/plugins/*/*"\n  - "plugins/surfaces/*"\n');
     for (const [relDir, name, exitCode] of [
       ["apps/api", "@aervox/api", 0],
       ["packages/repositories", "@aervox/repositories", 0],
-      ["surfaces/companion-ui", "@aervox/plugin-companion-ui", 0],
-      ["plugins/focus-mode", "@aervox/plugin-focus-mode", 0],
+      ["plugins/surfaces/companion-ui", "@aervox/plugin-companion-ui", 0],
+      ["plugins/plugins/ui/focus-mode", "@aervox/plugin-focus-mode", 0],
       ["apps/mobile", "@aervox/mobile", null],
       ["apps/failing", "@aervox/failing", 23],
     ]) {
@@ -80,10 +80,11 @@ test("aervox test resolves manifest names for application, surface and plugin sh
     for (const [target, relDir] of [
       ["api", "apps/api"],
       ["repos", "packages/repositories"],
-      ["companion-ui", "surfaces/companion-ui"],
-      ["focus-mode", "plugins/focus-mode"],
-      ["@aervox/plugin-companion-ui", "surfaces/companion-ui"],
-      ["./surfaces/companion-ui", "surfaces/companion-ui"],
+      ["companion-ui", "plugins/surfaces/companion-ui"],
+      ["focus-mode", "plugins/plugins/ui/focus-mode"],
+      ["@aervox/plugin-companion-ui", "plugins/surfaces/companion-ui"],
+      ["./plugins/surfaces/companion-ui", "plugins/surfaces/companion-ui"],
+      ["./plugins/plugins/ui/focus-mode", "plugins/plugins/ui/focus-mode"],
     ]) {
       const result = run(target);
       assert.equal(result.status, 0, `${target}: ${result.stdout}\n${result.stderr}`);
@@ -97,9 +98,24 @@ test("aervox test preserves pnpm selectors and runs every selected test", () => 
   withTestWorkspaces(({ dir, run }) => {
     const result = run("@aervox/plugin-*");
     assert.equal(result.status, 0, result.stdout + result.stderr);
-    assert.ok(existsSync(join(dir, "surfaces/companion-ui/ran")));
-    assert.ok(existsSync(join(dir, "plugins/focus-mode/ran")));
+    assert.ok(existsSync(join(dir, "plugins/surfaces/companion-ui/ran")));
+    assert.ok(existsSync(join(dir, "plugins/plugins/ui/focus-mode/ran")));
     assert.equal(existsSync(join(dir, "apps/api/ran")), false);
+  });
+});
+
+test("aervox test never selects a stale plugin package outside the classified workspace", () => {
+  withTestWorkspaces(({ dir, run }) => {
+    mkdirSync(join(dir, "plugins/stale-plugin"), { recursive: true });
+    writeFileSync(join(dir, "plugins/stale-plugin/package.json"), JSON.stringify({
+      name: "@aervox/plugin-stale", private: true, scripts: { test: "node test.mjs" },
+    }));
+    writeFileSync(join(dir, "plugins/stale-plugin/test.mjs"), "throw new Error('stale workspace must not run');");
+    assert.notEqual(run("@aervox/plugin-stale").status, 0);
+    const selected = run("@aervox/plugin-*");
+    assert.equal(selected.status, 0, selected.stdout + selected.stderr);
+    assert.ok(existsSync(join(dir, "plugins/plugins/ui/focus-mode/ran")));
+    assert.ok(existsSync(join(dir, "plugins/surfaces/companion-ui/ran")));
   });
 });
 

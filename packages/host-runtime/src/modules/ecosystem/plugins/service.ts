@@ -1,3 +1,4 @@
+import { pluginSkillDirectoryName } from "@aervox/contracts";
 /**
  * Aervox｜思隅 @aervox/api — CAP-020 插件运行时（生命周期 + 权限 + 工具/技能联动）
  *
@@ -15,11 +16,14 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
+import { comparePluginVersions, checkPluginHostCompatibility } from "@aervox/contracts";
+import { RemotePluginRegistry } from "./remote-registry.js";
 import { ApiError } from "../../../shared/errors.js";
 import {
   SqliteExtensionRepository,
   SqliteSkillRegistryRepository,
   SqliteToolRegistryRepository,
+  PLUGIN_IDENTITY_MIGRATIONS,
   type PluginModel,
   type SqlitePluginInstallationRepository,
   type PluginInstallation,
@@ -41,6 +45,7 @@ import {
 import type {
   PluginPackageInspection,
   PluginMarketItem,
+  PluginMarketInstallRequest,
   PluginDeclaredTool,
   PluginDeclaredSkill,
 } from "@aervox/contracts";
@@ -85,6 +90,7 @@ export interface PluginServiceDeps {
   configRepo?: SqlitePluginConfigRepository;
   pageRepo?: SqlitePluginPageRepository;
   builtinPluginsSourceRoot?: string;
+  remoteRegistry?: RemotePluginRegistry;
 }
 
 export class PluginService {
@@ -155,16 +161,66 @@ export class PluginService {
   }
 
   /** 获取官方与出厂插件集市条目 */
+  async listMarketReport(): Promise<{ items: PluginMarketItem[]; registryError: string | null }> {
+    try { return { items: await this.listMarket(), registryError: null }; }
+    catch {
+      const items = await listMarketPlugins({ extensionRepo: this.deps.extensionRepo,
+        builtinPluginsSourceRoot: this.deps.builtinPluginsSourceRoot ?? "" });
+      return { items, registryError: "在线插件索引暂不可用，当前显示出厂插件。" };
+    }
+  }
+
   async listMarket(): Promise<PluginMarketItem[]> {
-    return listMarketPlugins({
+    const local = await listMarketPlugins({
       extensionRepo: this.deps.extensionRepo,
       builtinPluginsSourceRoot: this.deps.builtinPluginsSourceRoot ?? "",
     });
+    if (!this.deps.remoteRegistry) return local;
+    const catalog = await this.deps.remoteRegistry.catalog();
+    const installed = new Map((await this.deps.extensionRepo.listPlugins()).map(plugin => [plugin.id, plugin]));
+    const items = new Map(local.map(item => [item.id, item]));
+    for (const entry of catalog.plugins) {
+      if (!checkPluginHostCompatibility(entry).compatible) continue;
+      const previous = installed.get(entry.id);
+      const builtin = items.get(entry.id);
+      // A remote catalog never downgrades a newer bundled or installed release.
+      const bundledComparison = builtin ? comparePluginVersions(entry.latestVersion, builtin.version) : null;
+      if (bundledComparison !== null && bundledComparison < 0) continue;
+      const comparison = previous ? comparePluginVersions(entry.latestVersion, previous.version) : null;
+      if (previous && comparison !== 0 && comparison !== 1) continue;
+      items.set(entry.id, { id: entry.id, displayName: entry.displayName, publisher: entry.publisher,
+        version: entry.latestVersion, description: entry.description, license: entry.license ?? "",
+        source: "market", category: entry.category, tags: entry.tags, breaking: entry.breaking,
+        downloadUrl: entry.downloadUrl, sha256: entry.sha256, size: entry.size,
+        installed: Boolean(previous), installedVersion: previous?.version ?? null,
+        hasUpdate: comparison !== null && comparison > 0,
+        capabilities: entry.capabilities ?? builtin?.capabilities ?? { hasConfig: false, sensorsCount: 0, triggersCount: 0, toolsCount: 0, skillsCount: 0, pagesCount: 0 } });
+    }
+    return [...items.values()];
   }
 
   /** 从出厂集市一键安装插件 */
-  async installFromMarket(pluginId: string, signal?: AbortSignal): Promise<PluginModel> {
-    return installFromMarket(pluginId, this.getBundleEngineDeps(), signal);
+  async installFromMarket(pluginId: string, signal?: AbortSignal, options: PluginMarketInstallRequest = {}): Promise<PluginModel> {
+    if (this.deps.remoteRegistry) {
+      const catalog = await this.deps.remoteRegistry.catalog(signal).catch(error => {
+        if (options.expectedSha256 || signal?.aborted) throw error;
+        return { plugins: [] };
+      });
+      if (catalog.plugins.some(item => item.id === pluginId)) {
+        const { entry, bytes } = await this.deps.remoteRegistry.download(pluginId, signal);
+        if (options.expectedVersion !== entry.latestVersion || options.expectedSha256 !== entry.sha256) {
+          throw new ApiError("CONFLICT", 409, "Plugin release changed or was not selected; refresh the market before installing");
+        }
+        const builtin = (await listMarketPlugins({ extensionRepo: this.deps.extensionRepo,
+          builtinPluginsSourceRoot: this.deps.builtinPluginsSourceRoot ?? "" })).find(item => item.id === pluginId);
+        return installPluginFromBundle(bytes, { overwrite: true, signal,
+          market: { ...options, minimumVersion: builtin?.version } }, this.getBundleEngineDeps());
+      }
+    }
+    if (options.expectedSha256) {
+      throw new ApiError("CONFLICT", 409, "Plugin source changed; refresh the market before installing");
+    }
+    return installFromMarket(pluginId, this.getBundleEngineDeps(), signal, options);
   }
 
   /** 列出全部插件 */
@@ -228,7 +284,7 @@ export class PluginService {
         if (!isValidSkillName(skill.name)) continue;
         const content = skill.content ?? "";
         const frontmatter = parseFrontmatter(content);
-        const skillDir = path.join(this.deps.skillsRoot, plugin.id, skill.name);
+        const skillDir = path.join(this.deps.skillsRoot, plugin.id, pluginSkillDirectoryName(skill.name));
         await fs.mkdir(skillDir, { recursive: true });
         await fs.writeFile(path.join(skillDir, "SKILL.md"), content, "utf8");
         await this.deps.skillRegistry.registerSkill({
@@ -249,11 +305,15 @@ export class PluginService {
 
   /** Preflight the full declaration before creating plugin/tool rows or removing an old version. */
   async checkSkillOwnership(id: string, skills: PluginDeclaredSkill[], writesLegacyDirectory = true): Promise<void> {
-    if (!isValidSkillName(id)) throw new FileExistsError("Invalid plugin directory name.");
+    if (Object.hasOwn(PLUGIN_IDENTITY_MIGRATIONS, id)) {
+      throw new ApiError("CONFLICT", 409, "Legacy first-party plugin identity is retired; use the current package or migrate existing data offline");
+    }
+    if (!isValidSkillName(id) || id.includes(":")) throw new FileExistsError("Invalid plugin directory name.");
     if (writesLegacyDirectory && skills.length) await assertSkillDirectoryOwner(this.deps.skillRegistry, this.deps.skillsRoot, { kind: "plugin", id });
     const names = new Set<string>();
     for (const skill of skills) {
-      if (!isValidSkillName(skill.name) || names.has(skill.name)) throw new FileExistsError("Invalid or duplicate plugin skill name.");
+      if (!isValidSkillName(skill.name) || names.has(skill.name)
+        || (skill.name.includes(":") && !skill.name.startsWith(`${id}:`))) throw new FileExistsError("Invalid or duplicate plugin skill name.");
       names.add(skill.name);
       const existing = await this.deps.skillRegistry.getSkill(skill.name);
       if (existing && existing.pluginId !== id) throw new FileExistsError(`Skill ${skill.name} belongs to another owner.`);

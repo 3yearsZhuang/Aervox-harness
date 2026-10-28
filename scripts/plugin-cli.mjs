@@ -4,8 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
-import { zipSync } from 'fflate';
-import { classifyDistEntry } from './export-plugins.mjs';
+import { classifyDistEntry, discoverPluginDirectories, exportPluginDirectory } from './export-plugins.mjs';
 import { assertCoreSubmodule } from './core-submodule.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -36,7 +35,7 @@ export async function readPluginDirectory(directory) {
       else {
         const absolute = path.join(directory, name);
         const stat = await fs.stat(absolute);
-        if (!stat.isFile() || stat.size > MAX_ENTRY_BYTES || total + stat.size > MAX_TOTAL_BYTES) throw new Error(`Plugin exceeds resource quota: ${name}`);
+        if (!stat.isFile() || stat.nlink > 1 || stat.size > MAX_ENTRY_BYTES || total + stat.size > MAX_TOTAL_BYTES) throw new Error(`Plugin exceeds resource quota: ${name}`);
         const bytes = new Uint8Array(await fs.readFile(absolute));
         total += bytes.length;
         if (bytes.length > MAX_ENTRY_BYTES || total > MAX_TOTAL_BYTES) throw new Error(`Plugin exceeds resource quota: ${name}`);
@@ -59,25 +58,25 @@ export async function packPlugin(directory, output, options = {}) {
   const result = await checkPlugin(directory, options);
   if (result.issues.length) throw new Error(result.issues.map((issue) => `${issue.path}: ${issue.message}`).join('\n'));
   const manifest = result.manifest;
-  const archive = {};
-  for (const name of Object.keys(result.files).sort()) archive[name] = [result.files[name], { mtime: REPRODUCIBLE_MTIME }];
-  const bytes = zipSync(archive, { level: 9 });
-  if (bytes.length > 20 * 1024 * 1024) throw new Error('Packed plugin exceeds compressed quota');
-  const target = output ?? path.join(directory, '..', `${manifest.metadata.id}-${manifest.metadata.version.replace(/[^A-Za-z0-9.+_-]/g, '_')}.aervox-plugin`);
+  const packed = await exportPluginDirectory(directory, { write: false });
+  const bytes = packed.bytes;
+  const target = output ?? path.join(directory, '..', packed.filename);
   await fs.mkdir(path.dirname(target), { recursive: true });
   await fs.writeFile(target, bytes, { flag: 'wx' });
   return { path: path.resolve(target), checksum: createHash('sha256').update(bytes).digest('hex'), permissions: result.permissions };
 }
 
-export async function initPlugin(directory, id = path.basename(path.resolve(directory))) {
-  if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(id)) throw new Error('Plugin id must use lowercase letters, numbers and hyphens');
+export async function initPlugin(directory, id = `ap-tool-${path.basename(path.resolve(directory))}`) {
+  const { isStandardPluginId } = await import('../packages/contracts/dist/plugin-identity.js');
+  if (!isStandardPluginId(id)) throw new Error('Plugin id must be ap-<category>-<kebab-case-slug>');
+  const category = id.split('-')[1];
   // mkdir is exclusive at the root: never overwrite an existing project.
   await fs.mkdir(directory);
   await fs.mkdir(path.join(directory, 'pages', 'settings'), { recursive: true });
   const manifest = {
     apiVersion: 'aervox.dev/v1', kind: 'PluginManifest',
-    metadata: { id, displayName: id, publisher: 'local-author', version: '1.0.0', license: 'UNLICENSED' },
-    requires: { hostApiVersion: { min: '1.0.0', maxExclusive: '2.0.0' } },
+    metadata: { id, displayName: id, publisher: 'local-author', version: '1.0.0', license: 'UNLICENSED', category, tags: [], breaking: false },
+    requires: { hostApiVersion: { min: '1.1.0', maxExclusive: '2.0.0' } },
     spec: { config: { schemaVersion: 1, entry: 'config.schema.json' }, pages: [{ id: 'settings', title: '设置', entry: 'pages/settings/index.html', capabilities: ['config.read', 'config.write'] }] },
   };
   const config = { apiVersion: 'aervox.dev/v1', kind: 'PluginConfigSchema', schemaVersion: 1, fields: [{ key: 'message', type: 'string', label: '消息', default: '你好', validation: { maxLength: 500 } }] };
@@ -114,13 +113,11 @@ export async function main(args = process.argv.slice(2)) {
   if (command === 'init' && rest[0]) return initPlugin(path.resolve(rest[0]), rest[1]);
   if (command === 'check' && rest[0] === '--all') {
     assertCoreSubmodule(ROOT);
-    const entries = await fs.readdir(path.join(ROOT, 'plugins'), { withFileTypes: true });
+    const entries = await discoverPluginDirectories(path.join(ROOT, 'plugins'));
     const reports = [];
-    for (const entry of entries.filter((item) => item.isDirectory()).sort((a, b) => a.name.localeCompare(b.name))) {
-      const directory = path.join(ROOT, 'plugins', entry.name);
-      try { await fs.access(path.join(directory, 'plugin.manifest.json')); } catch { continue; }
+    for (const directory of entries) {
       const { files: _files, ...report } = await checkPlugin(directory);
-      reports.push({ directory: entry.name, id: report.manifest?.metadata.id, issues: report.issues, permissions: report.permissions });
+      reports.push({ directory: path.relative(ROOT, directory), id: report.manifest?.metadata.id, issues: report.issues, permissions: report.permissions });
     }
     if (!reports.length) throw new Error('No plugin manifests found');
     if (reports.some((report) => report.issues.length)) process.exitCode = 1;

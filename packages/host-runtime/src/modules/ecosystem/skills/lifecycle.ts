@@ -1,3 +1,4 @@
+import { pluginSkillDirectoryName } from "@aervox/contracts";
 import { assertSkillDirectoryOwner, withSkillMutation } from "./ownership.js";
 /**
  * Aervox｜思隅 @aervox/api — Skill Neo 生命周期服务（CAP-020）
@@ -227,7 +228,7 @@ export class SkillLifecycleService {
 
     return withSkillMutation(this.deps.skillsRoot, async () => {
       await assertSkillDirectoryOwner(this.deps.registry, this.deps.skillsRoot, { kind: "local", id: skillKey });
-      const skillDir = path.join(this.deps.skillsRoot, skillKey);
+      const skillDir = path.join(this.deps.skillsRoot, pluginSkillDirectoryName(skillKey));
       await fs.mkdir(skillDir, { recursive: true });
       const skillMd = path.join(skillDir, "SKILL.md");
       await fs.writeFile(skillMd, markdown, "utf8");

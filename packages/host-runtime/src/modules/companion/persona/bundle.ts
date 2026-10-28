@@ -1,3 +1,4 @@
+import { pluginSkillDirectoryName } from "@aervox/contracts";
 /**
  * Aervox｜思隅 @aervox/api — 系统级 Persona Bundle 导入导出
  */
@@ -50,13 +51,13 @@ export async function exportPersonaBundle(input: {
     const folderFiles = await input.skillManager.readSkillFolderFiles(skill.name);
     if (folderFiles && folderFiles.length > 0) {
       for (const file of folderFiles) {
-        skillZipFiles[`${skill.name}/${file.relativePath}`] = new Uint8Array(file.data);
+        skillZipFiles[`${pluginSkillDirectoryName(skill.name)}/${file.relativePath}`] = new Uint8Array(file.data);
       }
     } else {
       // 如果文件夹未找到，尝试使用 content
       const content = await input.skillManager.readSkillMarkdown(skill.name);
       if (content) {
-        skillZipFiles[`${skill.name}/SKILL.md`] = strToU8(content.content);
+        skillZipFiles[`${pluginSkillDirectoryName(skill.name)}/SKILL.md`] = strToU8(content.content);
       }
     }
     manifestSkills.push({

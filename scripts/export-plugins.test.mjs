@@ -63,19 +63,16 @@ test("分发包字节只由源码决定：重复运行与跨时区一致", () =>
 });
 
 test("打包覆盖 plugins/ 下全部含清单的插件目录，不静默漏包", () => {
-  const expected = fs
-    .readdirSync(path.join(ROOT_DIR, "plugins"), { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .filter((entry) => fs.existsSync(path.join(ROOT_DIR, "plugins", entry.name, MANIFEST)))
-    .map((entry) => entry.name)
-    .sort();
+  const expected = fs.globSync('plugins/*/*/plugin.manifest.json', { cwd: path.join(ROOT_DIR, 'plugins') })
+    .map(file => JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'plugins', file), 'utf8')).metadata.id).sort();
+  assert.equal(expected.length, 9, 'All nine first-party sources must be included');
 
   withTempDirs(["aervox-plugins-c-"], ([dir]) => {
     runExport(dir);
     const produced = fs
       .readdirSync(dir)
       .filter((file) => file.endsWith(".aervox-plugin"))
-      .map((file) => file.replace(/-\d+\.\d+\.\d+\.aervox-plugin$/, ""))
+      .map((file) => file.replace(/-v\d+\.\d+\.\d+\.aervox-plugin$/, ""))
       .sort();
 
     assert.deepEqual(produced, expected, `插件目录与分发包不一致：期望 ${expected.join(", ")}`);

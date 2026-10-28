@@ -12,6 +12,7 @@ import { cleanGenerated } from './clean-generated.mjs';
 import { getChangedFiles, resolveChangeScope, buildTurboFilterArgs } from './ci-scope.mjs';
 
 const PLUGINS = ['focus-mode', 'bot-onebot', 'bot-weixin'];
+const sourcePath = name => ({'focus-mode':'plugins/ui/focus-mode','bot-onebot':'plugins/bot/onebot','bot-weixin':'plugins/bot/weixin'})[name];
 
 function fixture(t) {
   const home = mkdtempSync(path.join(tmpdir(), 'aervox-plugins-submodule-'));
@@ -29,12 +30,12 @@ function fixture(t) {
     git(dir, 'config', 'user.email', 'fixture@example.invalid');
   }
   for (const name of PLUGINS) {
-    put(source, `${name}/package.json`, JSON.stringify({ name: `@aervox/plugin-${name}` }));
-    put(source, `${name}/src/index.ts`, 'export {};');
+    put(source, `${sourcePath(name)}/package.json`, JSON.stringify({ name: `@aervox/plugin-${name}` }));
+    put(source, `${sourcePath(name)}/src/index.ts`, 'export {};');
   }
   git(source, 'add', '.');
   git(source, 'commit', '-qm', 'fixture collection');
-  put(root, 'pnpm-workspace.yaml', 'packages:\n  - "plugins/*"\n');
+  put(root, 'pnpm-workspace.yaml', 'packages:\n  - "plugins/plugins/*/*"\n');
   put(root, 'package.json', '{"private":true}');
   git(root, '-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', source, 'plugins');
   git(root, 'add', '.');
@@ -49,16 +50,16 @@ test('plugin collection retains workspace ownership and tracked safety scans wit
   const { root, plugins, put, git } = fixture(t);
   git(root, 'update-index', '--add', '--cacheinfo', '160000,1111111111111111111111111111111111111111,reference/unused');
   assert.deepEqual(discoverWorkspaces(root).map(pkg => pkg.name).sort(), PLUGINS.map(name => `@aervox/plugin-${name}`).sort());
-  assert.ok(collectFiles(['plugins'], { cwd: root, extensions: /\.ts$/, ignoreDirectories: /(?:^|\/)(?:\.git|node_modules)(?:\/|$)/ }).includes('plugins/focus-mode/src/index.ts'));
+  assert.ok(collectFiles(['plugins'], { cwd: root, extensions: /\.ts$/, ignoreDirectories: /(?:^|\/)(?:\.git|node_modules)(?:\/|$)/ }).includes('plugins/plugins/ui/focus-mode/src/index.ts'));
   put(plugins, 'local/business.db', 'untracked business data');
   assert.equal(productTrackedEntries(root).some(entry => entry.file.includes('business.db') || entry.file.startsWith('reference/')), false);
   put(plugins, '.env', 'EXAMPLE=secret');
   git(plugins, 'add', '-f', '.env');
   assert.ok(inspectTrackedFiles({ cwd: root }).violations.some(v => v.file === 'plugins/.env' && v.rule === 'credential-file'));
-  put(plugins, 'focus-mode/dist/owned.js', 'tracked output must survive');
-  git(plugins, 'add', '-f', 'focus-mode/dist/owned.js');
-  assert.throws(() => cleanGenerated({ cwd: root }), /Refusing tracked output: plugins\/focus-mode\/dist/);
-  assert.equal(readFileSync(path.join(plugins, 'focus-mode/dist/owned.js'), 'utf8'), 'tracked output must survive');
+  put(plugins, 'plugins/ui/focus-mode/dist/owned.js', 'tracked output must survive');
+  git(plugins, 'add', '-f', 'plugins/ui/focus-mode/dist/owned.js');
+  assert.throws(() => cleanGenerated({ cwd: root }), /Refusing tracked output: plugins\/plugins\/ui\/focus-mode\/dist/);
+  assert.equal(readFileSync(path.join(plugins, 'plugins/ui/focus-mode/dist/owned.js'), 'utf8'), 'tracked output must survive');
 });
 
 test('missing collection blocks product scans and initialization restores the pinned checkout', t => {
@@ -78,7 +79,7 @@ test('missing collection blocks product scans and initialization restores the pi
 test('each required plugin workspace manifest is checked before accepting the collection', t => {
   const { root, plugins, put, git } = fixture(t);
   for (const name of PLUGINS) {
-    const file = `${name}/package.json`;
+    const file = `${sourcePath(name)}/package.json`;
     rmSync(path.join(plugins, file));
     assert.throws(() => discoverWorkspaces(root), /Required Plugins submodule is not initialized/, file);
     git(plugins, 'restore', '--', file);
@@ -94,7 +95,7 @@ test('collection revision and dirty worktree changes cannot disappear behind Git
   const { root, plugins, put, git } = fixture(t);
   git(root, 'config', 'diff.ignoreSubmodules', 'all');
   git(root, 'config', 'submodule.plugins.ignore', 'all');
-  put(plugins, 'focus-mode/src/index.ts', 'export const changed = true;');
+  put(plugins, 'plugins/ui/focus-mode/src/index.ts', 'export const changed = true;');
   assert.ok(getChangedFiles(null, root).includes('plugins'));
   git(plugins, 'add', '.');
   git(plugins, 'commit', '-qm', 'fixture updated plugin');
@@ -125,7 +126,7 @@ test('linked, invalid, removed and nested plugin checkouts fail closed', t => {
   symlinkSync(source, plugins);
   assert.throws(() => assertCoreSubmodule(root), /Required Plugins submodule is not initialized/);
   rmSync(plugins);
-  for (const name of PLUGINS) put(plugins, `${name}/package.json`, '{}');
+  for (const name of PLUGINS) put(plugins, `${sourcePath(name)}/package.json`, '{}');
   put(plugins, '.git', 'gitdir: /does/not/exist\n');
   assert.throws(() => assertCoreSubmodule(root), /Required Plugins submodule is not a valid checkout/);
   rmSync(plugins, { recursive: true, force: true });

@@ -3,7 +3,7 @@ packages:
   - "packages/*"
   # CR-060：第一方插件的实现与声明同置于 plugins/<id>/，实现以 workspace 包消费
   # （AVX-CAP-001「消费一律走 workspace 包」，禁止路径 hack、禁止复制代码引用）。
-  - "plugins/*"
+  - "plugins/plugins/*/*"
   # CR-065 / ADR-031：根界面与设置面板由 Aervox-plugins 提供，位于 plugins/surfaces/<id>/
   - "plugins/surfaces/*"
   - "research/*"

@@ -10,9 +10,9 @@ export const PLUGINS_SUBMODULE = 'plugins';
 export const PRODUCT_SUBMODULES = [
   { path: CORE_SUBMODULE, label: 'Core', manifests: { 'package.json': '@aervox/core' } },
   { path: PLUGINS_SUBMODULE, label: 'Plugins', manifests: {
-    'focus-mode/package.json': '@aervox/plugin-focus-mode',
-    'bot-onebot/package.json': '@aervox/plugin-bot-onebot',
-    'bot-weixin/package.json': '@aervox/plugin-bot-weixin',
+    'plugins/ui/focus-mode/package.json': '@aervox/plugin-focus-mode',
+    'plugins/bot/onebot/package.json': '@aervox/plugin-bot-onebot',
+    'plugins/bot/weixin/package.json': '@aervox/plugin-bot-weixin',
   } },
 ];
 
