@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { checkDocumentation, parsePorcelainStatus } from "./docs-governance.mjs";
 import { selectDocumentationChecks } from "./docs-lint-affected.mjs";
@@ -206,7 +206,7 @@ test("增量检查保留删除和文档工具输入，普通源码变动快退",
   const exists = () => false;
   assert.deepEqual(selectDocumentationChecks(["docs/deleted.md"], exists), { markdownFiles: [], runGovernance: true, lintAll: false });
   assert.deepEqual(selectDocumentationChecks(["docs/deleted.png"], exists), { markdownFiles: [], runGovernance: true, lintAll: false });
-  for (const file of ["scripts/docs-governance.test.mjs", "scripts/docs-lint-affected.mjs", "mise.toml", ".github/workflows/docs.yml"]) {
+  for (const file of ["scripts/docs-governance.test.mjs", "scripts/docs-lint-affected.mjs", "mise.toml", ".github/workflows/docs.yml", "packages/core", "plugins", ".gitmodules"]) {
     assert.equal(selectDocumentationChecks([file], exists).runGovernance, true, file);
   }
   assert.deepEqual(selectDocumentationChecks(["apps/api/src/app.ts"], exists), { markdownFiles: [], runGovernance: false, lintAll: false });
@@ -282,4 +282,51 @@ test("增量 CLI 保留已提交重命名的旧路径并检查悬空引用", { s
   assert.equal(result.status, 1, result.stdout + result.stderr);
   assert.match(result.stdout, /无现存 Markdown 待 lint/);
   assert.match(result.stderr, /本地链接目标不存在：docs\/deleted.md/);
+});
+
+test("真实 Git 忽略子模块时，dirty 与已提交 gitlink 删除仍触发文档入链检查", (t) => {
+  const root = fixture(t);
+  const source = fs.mkdtempSync(path.join(os.tmpdir(), "aervox-docs-plugin-source-"));
+  t.after(() => fs.rmSync(source, { recursive: true, force: true }));
+  const git = (cwd, ...args) => execFileSync("git", args, {
+    cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"],
+  }).trim();
+  for (const cwd of [root, source]) {
+    git(cwd, "init", "-q", "-b", "main");
+    git(cwd, "config", "user.name", "Test Fixture");
+    git(cwd, "config", "user.email", "fixture@example.invalid");
+  }
+  write(source, "example/resource.txt", "declared plugin resource\n");
+  git(source, "add", ".");
+  git(source, "commit", "-qm", "fixture collection");
+  git(root, "-c", "protocol.file.allow=always", "submodule", "add", "-q", source, "plugins");
+  fs.appendFileSync(path.join(root, "README.md"), "\n[插件资源](plugins/example/resource.txt)\n");
+  git(root, "add", ".");
+  git(root, "commit", "-qm", "fixture host");
+  git(root, "update-ref", "refs/remotes/origin/main", "HEAD");
+  git(root, "config", "diff.ignoreSubmodules", "all");
+  git(root, "config", "submodule.plugins.ignore", "all");
+  assert.deepEqual(checkDocumentation(root).errors, []);
+
+  const plugins = path.join(root, "plugins");
+  fs.rmSync(path.join(plugins, "example/resource.txt"));
+  assert.equal(git(root, "status", "--porcelain=v1"), "", "fixture must hide the dirty submodule by default");
+  const assertBrokenLinkDetected = () => {
+    const result = spawnSync(process.execPath, ["scripts/docs-lint-affected.mjs"], { cwd: root, encoding: "utf8" });
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, /检查文档 ID、ADR 状态与本地链接/);
+    assert.match(result.stderr, /本地链接目标不存在：plugins\/example\/resource.txt/);
+    assert.doesNotMatch(result.stdout, /无文档或治理输入变更/);
+  };
+  assertBrokenLinkDetected();
+
+  git(plugins, "config", "user.name", "Test Fixture");
+  git(plugins, "config", "user.email", "fixture@example.invalid");
+  git(plugins, "add", "-u");
+  git(plugins, "commit", "-qm", "remove linked resource");
+  git(root, "add", "plugins");
+  git(root, "commit", "-qm", "update collection revision");
+  assert.equal(git(root, "status", "--porcelain=v1"), "");
+  assert.equal(git(root, "diff", "--name-only", "origin/main...HEAD"), "", "fixture must hide committed gitlink differences by default");
+  assertBrokenLinkDetected();
 });

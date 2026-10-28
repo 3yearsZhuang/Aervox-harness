@@ -14,6 +14,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { zipSync } from "fflate";
+import { assertCoreSubmodule } from './core-submodule.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, "..");
@@ -113,6 +114,7 @@ async function collectDistFiles(dir, base = "") {
 }
 
 async function main() {
+  assertCoreSubmodule(ROOT_DIR);
   const { validatePluginBundleFiles } = await import("../packages/contracts/dist/plugin-validation.js");
   await fs.mkdir(DIST_DIR, { recursive: true });
   const entries = [...(await fs.readdir(PLUGINS_DIR, { withFileTypes: true }))].sort(byName);

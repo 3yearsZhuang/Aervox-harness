@@ -6,6 +6,7 @@ on:
       - "docs/**"
       - "*.md"
       - "packages/core"
+      - "plugins"
       - ".gitmodules"
       - "scripts/docs-*.mjs"
       - ".markdownlint-cli2.jsonc"
@@ -20,6 +21,7 @@ on:
       - "docs/**"
       - "*.md"
       - "packages/core"
+      - "plugins"
       - ".gitmodules"
       - "scripts/docs-*.mjs"
       - ".markdownlint-cli2.jsonc"
@@ -41,8 +43,8 @@ jobs:
         uses: actions/checkout@v4
 
       # Local documentation links include the required product dependency.
-      - name: Initialize required Core
-        run: git submodule update --init -- packages/core
+      - name: Initialize required product submodules
+        run: git submodule update --init -- packages/core plugins
 
       - name: Install mise
         run: |

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { zipSync } from 'fflate';
 import { classifyDistEntry } from './export-plugins.mjs';
+import { assertCoreSubmodule } from './core-submodule.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MAX_ENTRIES = 2048;
@@ -112,6 +113,7 @@ export async function main(args = process.argv.slice(2)) {
   const [command, ...rest] = args;
   if (command === 'init' && rest[0]) return initPlugin(path.resolve(rest[0]), rest[1]);
   if (command === 'check' && rest[0] === '--all') {
+    assertCoreSubmodule(ROOT);
     const entries = await fs.readdir(path.join(ROOT, 'plugins'), { withFileTypes: true });
     const reports = [];
     for (const entry of entries.filter((item) => item.isDirectory()).sort((a, b) => a.name.localeCompare(b.name))) {

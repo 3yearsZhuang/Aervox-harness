@@ -1,24 +1,24 @@
 ---
 id: ADR-031
-decision_status: proposed
+decision_status: accepted
 ---
 
 # ADR-031 第一方插件组织仓库与受信构建
 
-本文是待接受提案。维护者本轮要求规划插件迁入 `Aervox-agent`，尚未批准实际建仓、移动源码或更改默认产品组成。实施顺序与验收只在 [ITER-073](../../../plan.md#iter-073) 维护；本文定义候选仓库边界和取舍，不创建第二份执行队列。
+维护者已接受在 `Aervox-agent` 组织建立 `Aervox-plugins` 集合仓，整体以固定提交的 Git submodule 挂载到主仓 `plugins/`，保留现有包名、接口和默认产品组成。实施状态与验收证据只在 [ITER-073](../../../plan.md#iter-073) 维护。
 
 ## 背景与当前证据
 
-本提案以 Core 迁移已合入的主线 `119dbf2067337153724830094fc304e096bfdf28` 为基线。Core 已由 [PR #348](https://github.com/3yearsZhuang/Aervox-harness/pull/348) 接入必需子模块，但插件依赖和生命周期不同，不能直接复制其独立安装结论。
+本决定以 Core 迁移已合入的主线 `119dbf2067337153724830094fc304e096bfdf28` 为基线。Core 已由 [PR #348](https://github.com/3yearsZhuang/Aervox-harness/pull/348) 接入必需子模块，但插件依赖和生命周期不同，不能直接复制其独立安装结论。
 
 | 当前范围 | 实际载体与依赖 | 迁仓判断 |
 |---|---|---|
-| `plugins/bot-onebot` | 服务端适配器，只经 `@aervox/host-plugin-api` 类型契约消费宿主；7 个受跟踪文件，约 30 KB | 首先验证流程，真实 QQ 账号验收另计 |
-| `plugins/bot-weixin` | 同类 Bot 适配器；7 个文件，约 42 KB | 复验相同流程，不能用 fake transport 宣称真实登录完成 |
-| `plugins/focus-mode` | 服务端、Vue UI、术语 Schema、声明与测试；40 个文件，约 167 KB；消费 Core、Contracts、Host Plugin API、API Client、UI 公共出口 | 可规划源码托管分离，须先解决现行决定差量与双端兼容 |
+| `plugins/bot-onebot` | 服务端适配器，只经 `@aervox/host-plugin-api` 类型契约消费宿主；7 个受跟踪文件，约 30 KB | 随集合仓保留，真实 QQ 账号验收另计 |
+| `plugins/bot-weixin` | 同类 Bot 适配器；7 个文件，约 42 KB | 随集合仓保留，不能用 fake transport 宣称真实登录完成 |
+| `plugins/focus-mode` | 服务端、Vue UI、术语 Schema、声明与测试；40 个文件，约 167 KB；消费 Core、Contracts、Host Plugin API、API Client、UI 公共出口 | 按本决定整体迁出，保留双端接口与默认学习组成 |
 | 其余 6 个 `plugins/*` | `anki-sync`、`diary-distillers`、`health-guard`、`home-assistant`、`multimodal-ocr`、`xiaomi-health` 的声明、配置和技能；合计 17 个文件，约 26 KB | 随集合仓保留；声明存在不能证明其外部连接或业务能力已经实现 |
 | `surfaces/*` | workbench、companion、proactive、panels，共 4 个受信根界面或设置包 | 属 [ADR-025](ADR-025-ui-surface-hosts.md)，留待后续独立决定 |
-| FlowCampus | [PR #347](https://github.com/3yearsZhuang/Aervox-harness/pull/347) 的并行业务交付，尚未进入上述主线 | 以最终合入提交为迁移输入；开发分支及未提交内容不作为提取来源 |
+| FlowCampus | [PR #347](https://github.com/3yearsZhuang/Aervox-harness/pull/347) 的并行业务交付，尚未进入上述主线 | 本批冻结提取不包含该 PR；后续交付须重基到集合仓与主仓集成 PR，不从并行分支或未提交内容提取 |
 
 当前 `plugins/` 受跟踪内容合计约 265 KB，分仓的主要价值是组织所有权、审查与版本边界。主仓保留既有 Git 历史，因此不能承诺迁仓会显著降低完整克隆大小。
 
@@ -29,13 +29,13 @@ decision_status: proposed
 | 方案 | 收益 | 成本与结论 |
 |---|---|---|
 | 继续同仓 | 原子修改和本地开发最简单 | 不满足本轮组织仓库目标，保留为失败回退 |
-| 一个 `Aervox-plugins` 集合仓，整体挂载 `plugins/` | 一次固定提交保留现有 `plugins/<id>`、workspace 发现、组合根与声明路径；共享契约变动较易协调 | 推荐第一阶段采用；仓库统一版本引用不等于各 Manifest 共用一个版本 |
+| 一个 `Aervox-plugins` 集合仓，整体挂载 `plugins/` | 一次固定提交保留现有 `plugins/<id>`、workspace 发现、组合根与声明路径；共享契约变动较易协调 | 第一阶段采用；仓库统一版本引用不等于各 Manifest 共用一个版本 |
 | 每个插件单独一个仓库，挂载原插件目录 | 可独立维护、授权团队和发行节奏 | 当前规模下增加多份 gitlink、CI 与兼容配对；待出现独立团队或发行需求后再拆，不先建立九个仓库 |
 | 先发行 SDK/npm 插件或建立动态代码市场 | 可进一步解耦开发与分发 | 涉及 SDK 版本政策、供应链、信任和运行边界，超出本轮源码迁仓；不是迁仓前置 |
 
-集合仓的候选名称为 `Aervox-agent/Aervox-plugins`，仓根直接包含 `bot-onebot/`、`bot-weixin/`、`focus-mode/` 等现有插件目录，主仓用一个 `plugins` gitlink 引用确定提交。仓根的 README、CI、许可和 Git 元数据位于单插件目录之外。名称须在实施前确认可用，不在提案中声明仓库已经存在。
+集合仓为 [Aervox-agent/Aervox-plugins](https://github.com/Aervox-agent/Aervox-plugins)，仓根直接包含 `bot-onebot/`、`bot-weixin/`、`focus-mode/` 等现有插件目录，主仓用一个 `plugins` gitlink 引用确定提交。仓根的 README、CI、许可和 Git 元数据位于单插件目录之外。建仓、切换和验证状态以 ITER-073 与对应 PR 为准。
 
-## 拟议决定
+## 决定
 
 ### 源码托管与产品组成
 
@@ -44,17 +44,15 @@ decision_status: proposed
 3. `surfaces/*` 暂不迁入插件集合仓。后续若独立演进有价值，可评估候选 `Aervox-surfaces` 并继续以 `surfaces/` 固定挂载；其受信构建属性和默认界面责任保持，不能混入声明式插件市场。
 4. 保持源码现有 AGPL-3.0-or-later、文档既有许可及第三方版权；提取时补齐相应 LICENSE/NOTICE 和来源说明，不将插件改用 Core 的 Apache-2.0。按 `plugins/` 过滤保留历史和真人作者；过滤不能完整追踪更早从其他目录移动而来的历史，需记录原仓入口和基线，不宣称保留了所有跨路径历史。
 
-### 需要接受的合同差量
+### 已接受的合同差量
 
-[ITER-026](../../../plan.md#iter-026) 目前明确 `focus-mode` 不转自选模块或 submodule，[ADR-016](ADR-016-base-boundaries.md#cr-060) 要求第一方源码随主仓编译、P0 进入默认构建。建议仅修订前者的源码托管限制：允许独立仓库在原路径固定挂载，仍随主仓构建；P0、学习事实、仓储和复习排期继续由宿主负责。
-
-接受前，原限制继续有效，不能先迁出专注模式再补决定。正式整体切换 `plugins/` 必须在该差量获接受之后；Bot 试点在隔离的本地或临时双仓中验证，不先发布一个之后要废弃的 Bot 独立权威仓。接受时在同一批次修订 ADR-016 和 ITER-026 的相应表述并回链本决定；不整体替代 ADR-016 的数据与依赖合同。
+本决定修订 [ITER-026](../../../plan.md#iter-026) 原先不允许 `focus-mode` 成为 submodule 的源码托管限制：允许 `plugins/` 集合仓在原路径固定挂载，仍随主仓构建。[ADR-016](ADR-016-base-boundaries.md#cr-060) 的 P0、默认构建、依赖方向及宿主数据责任继续有效；学习事实、仓储和复习排期保持主仓所有权。
 
 [能力组合合同](../capability-composition.md) 中 `modules/*` 指向已裁决为自选交付的非核心模块。本轮保留 `plugins/<id>`，不把源码迁仓等同于能力转为自选，也不宣称 `modules/*` Resolver 已经实现。第三方执行、Page Token、运行期升级与独立 UI 开放仍分别由既有 ITER-019/006/005/056 验收。
 
 ### 子模块与构建准入
 
-[现有产品子模块脚本](../../../scripts/core-submodule.mjs) 只认识 `packages/core`。正式迁出前，须将其泛化为受审查的产品源码依赖登记，绑定路径、固定远端、预期包集合和构建用途；Git 索引中的 gitlink 仍是代码提交真源，不能再建立一份手工 SHA 锁。`reference/` 不自动成为产品依赖。
+[产品子模块脚本](../../../scripts/core-submodule.mjs) 登记受审查的产品源码依赖，绑定路径、固定远端、预期包集合和构建用途；Git 索引中的 gitlink 是代码提交真源，不另建手工 SHA 锁。`reference/` 不自动成为产品依赖。
 
 标准构建需要登记的 `packages/core` 和 `plugins`，缺失、冲突、错误版本或无效 checkout 必须明确失败，不能用 warm cache 或旧 `dist` 掩盖。workspace 发现、架构扫描、依赖审计、受跟踪文件卫生检查、清理保护和文档链接检查都覆盖集合仓真实内容。嵌套子模块保持拒绝；未声明的其他目录不能因通用递归而取得产品身份。
 
@@ -76,7 +74,7 @@ decision_status: proposed
 
 ### 分发、生命周期与数据
 
-当前批量[分发脚本](../../../scripts/export-plugins.mjs)只收集允许的声明与资源，但[内置插件 HTTP 导出](../../../packages/host-runtime/src/modules/ecosystem/plugins/package-bundle.ts)仍递归读取出厂插件源目录。这是迁仓前必须闭合的现有差异：先统一内容角色与安全收集规则，验证源码、依赖、仓库元数据、构建产物与凭据不进入分发包；未知条目、符号链接和越界资源按合同拒绝。已安装 generation 的原始归档原样导出分支保持原义，不能重打包改变历史 checksum。
+批量[分发脚本](../../../scripts/export-plugins.mjs)、[内置插件 HTTP 导出](../../../packages/host-runtime/src/modules/ecosystem/plugins/package-bundle.ts)与集市就地安装统一声明资源边界，修正内置 HTTP 导出原先递归读取全部出厂插件源码的差异。验证源码、依赖、仓库元数据、构建产物与凭据不进入分发包；未知条目、符号链接和越界资源按合同拒绝。已安装 generation 的原始归档原样导出分支保持原义，不能重打包改变历史 checksum。
 
 集合仓根元数据不应被误认作插件，单插件目录新增资源必须继续显式分类。LICENSE/NOTICE 等许可材料哪些应随声明资源分发，须与包校验合同一起决定；不能为通过打包而一概忽略许可文件。比较迁移前后分发内容及字节差异，现有 HTTP 导出多打内容的修复应记录为批准的差异，不要求继续产出错误归档。
 
@@ -92,7 +90,7 @@ decision_status: proposed
 
 集合仓增加一次跨仓审查和固定版本更新，但当前不承担九套独立仓库的治理成本；各插件 Manifest 仍可独立演进。单仓内方便的跨包原子变更变为配对 PR，宿主仍是接口和集成裁决者。
 
-迁移应先保留并验证公开可获取的历史，再通过主仓 PR 将普通目录替换为 gitlink。冻结提取输入时核对并行 PR：FlowCampus 若尚未合并，先完成其业务交付，或明确延期迁仓；若在冻结后合入，必须重新提取最终树并复验，不能遗漏新代码或将活跃工作树纳入提取。
+迁移先保留并验证公开可获取的历史，再通过主仓 PR 将普通目录替换为 gitlink。本批冻结提取 `119dbf2067337153724830094fc304e096bfdf28` 的 9 个插件，不等待或捎带尚未合入的 FlowCampus PR #347；其后续交付须重基到新的集合仓边界，分别提交插件源码与主仓集成。切换前再次核对主线及并行 PR，禁止让旧目录分支合并覆盖 gitlink，也不将活跃工作树纳入提取。
 
 源代码缺席演练应在隔离克隆中显式构造不装配该插件的测试组成，移除其包依赖和组合根；默认登记产品不能靠删除目录绕过准入。演练后验证 gitlink、HEAD 与文件恢复，保留默认产品 P0 的独立验收，不把测试裁剪当成正式裁剪 Profile。
 
@@ -100,6 +98,6 @@ decision_status: proposed
 
 ## 验证与证据
 
-架构提案通过不等于迁移已实施。必须分别取得迁移前树与许可清单、候选仓历史来源、真实公共接口编译、插件与宿主测试、分发包安全和可重现性、缺失/错 SHA/旧缓存拒绝、缺席与恢复的数据权利、取消撤权、两仓公开冷检出、根冻结安装、全量与精确提交远端 CI，以及 Git 回退的证据。Bot 真实账号、原生移动接线、Page Token 与正式发布继续单列。
+决定已接受，迁移完成仍须由验证证据确认。必须分别取得迁移前树与许可清单、候选仓历史来源、真实公共接口编译、插件与宿主测试、分发包安全和可重现性、缺失/错 SHA/旧缓存拒绝、缺席与恢复的数据权利、取消撤权、两仓公开冷检出、根冻结安装、全量与精确提交远端 CI，以及 Git 回退的证据。Bot 真实账号、原生移动接线、Page Token 与正式发布继续单列。
 
-本轮仅完成源码/合同盘点与规划。尚未创建插件组织仓库、移动插件文件、改变现有 gitlink 或运行期启停配置；后续实施须先接受本提案及受影响决定的差量。
+本轮按已接受范围实施，建仓、gitlink、两仓兼容与冷检出验证分别记录在 ITER-073 及对应 PR；未取得的验证不计为通过。

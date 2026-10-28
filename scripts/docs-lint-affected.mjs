@@ -25,13 +25,13 @@ function getBaseRef() {
 
 function getChangedFiles() {
   const baseRef = getBaseRef();
-  const status = execFileSync("git", ["status", "--porcelain=v1", "-z", "--untracked-files=all"], {
+  const status = execFileSync("git", ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--ignore-submodules=none"], {
     encoding: "utf8",
   });
   const changedFiles = new Set(parsePorcelainStatus(status));
   if (baseRef) {
     // 已提交的重命名也保留旧路径，避免文档/治理脚本改名后只剩非治理后缀。
-    const diff = execFileSync("git", ["diff", "--no-renames", "--name-only", "-z", `${baseRef}...HEAD`], {
+    const diff = execFileSync("git", ["diff", "--no-renames", "--name-only", "-z", "--ignore-submodules=none", `${baseRef}...HEAD`], {
       encoding: "utf8",
     });
     for (const file of diff.split("\0")) {
@@ -43,6 +43,7 @@ function getChangedFiles() {
 
 export function isGovernanceInput(file) {
   return file.startsWith("docs/") || file.endsWith(".md") ||
+    file === 'packages/core' || file === 'plugins' || file === '.gitmodules' ||
     (file.startsWith("scripts/docs-") && file.endsWith(".mjs")) ||
     file === "mise.toml" ||
     file === ".github/workflows/docs.yml" ||

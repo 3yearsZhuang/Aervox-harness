@@ -10,6 +10,7 @@ on:
       - "apps/**"
       - "packages/**"
       - "packages/core"
+      - "plugins"
       - "native/**"
       - "plugins/**"
       - "surfaces/**"
@@ -39,6 +40,7 @@ on:
       - "apps/**"
       - "packages/**"
       - "packages/core"
+      - "plugins"
       - "native/**"
       - "plugins/**"
       - "surfaces/**"
@@ -74,8 +76,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Initialize required Core and DSH test fixture
-        run: git submodule update --init -- packages/core reference/deepseek-harness
+      - name: Initialize required product submodules and DSH test fixture
+        run: git submodule update --init -- packages/core plugins reference/deepseek-harness
 
       - name: Install mise
         run: |
@@ -188,8 +190,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Initialize required Core
-        run: git submodule update --init -- packages/core
+      - name: Initialize required product submodules
+        run: git submodule update --init -- packages/core plugins
 
       - name: Install mise
         run: |
@@ -247,8 +249,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Initialize required Core
-        run: git submodule update --init -- packages/core
+      - name: Initialize required product submodules
+        run: git submodule update --init -- packages/core plugins
       - name: Install mise
         run: |
           curl https://mise.run | sh
@@ -270,8 +272,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Initialize required Core
-        run: git submodule update --init -- packages/core
+      - name: Initialize required product submodules
+        run: git submodule update --init -- packages/core plugins
       - name: Install mise
         run: |
           curl https://mise.run | sh

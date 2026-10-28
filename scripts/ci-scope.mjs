@@ -20,7 +20,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CORE_SUBMODULE } from './core-submodule.mjs';
+import { CORE_SUBMODULE, PLUGINS_SUBMODULE } from './core-submodule.mjs';
 
 export const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -180,6 +180,11 @@ export function resolveChangeScope(changedFiles, scope) {
     packages.add('@aervox/core');
     reasons.push({ kind: 'required-submodule', label: '@aervox/core and its consumers', hits: [CORE_SUBMODULE] });
   }
+  // One gitlink contains several workspaces and shared manifest/resource inputs.
+  if (changedFiles.includes(PLUGINS_SUBMODULE)) {
+    affectsAll = true;
+    reasons.push({ kind: 'required-submodule', label: 'first-party plugin collection and its consumers', hits: [PLUGINS_SUBMODULE] });
+  }
   if (changedFiles.includes('.gitmodules')) {
     affectsAll = true;
     reasons.push({ kind: 'submodule-config', label: '.gitmodules', hits: ['.gitmodules'] });
@@ -293,7 +298,7 @@ export function findUncoveredPaths(workflowPaths, requiredPaths) {
 export function collectRequiredCodePaths(scope) {
   return [
     ...new Set([
-      '.npmrc', '.gitmodules', CORE_SUBMODULE, 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml',
+      '.npmrc', '.gitmodules', CORE_SUBMODULE, PLUGINS_SUBMODULE, 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml',
       ...scope.globalDependencies,
       ...scope.packageInputs.map((decl) => decl.glob),
       ...scope.sharedInputs.map((decl) => decl.glob),

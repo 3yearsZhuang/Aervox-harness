@@ -33,3 +33,6 @@
 [submodule "packages/core"]
 	path = packages/core
 	url = https://github.com/Aervox-agent/Aervox-core.git
+[submodule "plugins"]
+	path = plugins
+	url = https://github.com/Aervox-agent/Aervox-plugins.git
