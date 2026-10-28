@@ -33,6 +33,14 @@ export const pluginConfigSchemaResponseOpenApi = z.object({
 
 const params = z.object({ pluginId: z.string().min(1) });
 const lifecycleQuery = z.object({ expectedLifecycleGeneration: z.string().min(1).max(128).optional() });
+/** User-owned persisted ordinary data; never defaults, Secrets, or orphaned fields. */
+export const pluginDataExportSchema = z.object({
+  format: z.literal("aervox-plugin-data/v1"),
+  pluginId: z.string().min(1),
+  revision: z.number().int().nonnegative(),
+  schemaVersion: z.number().int().nonnegative(),
+  values: z.record(z.string(), z.unknown()),
+}).strict();
 /** Stored Pages preserve the legacy nullable description and checksum fields. */
 export const pluginPageResponseSchema = pluginPageSchema.extend({
   pageGeneration: pluginPageGenerationSchema.openapi({ description: "Host-owned Page declaration identity; rotates when the Page changes or is recreated." }),
@@ -40,6 +48,12 @@ export const pluginPageResponseSchema = pluginPageSchema.extend({
   checksum: pluginPageSchema.shape.checksum.nullable(),
 });
 export const pluginConfigApi = {
+  exportData: {
+    method: "get", path: "/v1/plugins/{pluginId}/data-export", operationId: "get_v1_plugins_pluginId_data_export",
+    summary: "导出已保存的普通插件数据（停用或缺包时仍可用）", tags: ["Plugins"], params,
+    response: pluginDataExportSchema,
+    errors: { 400: "Invalid plugin id", 404: "PLUGIN_NOT_FOUND", 409: "PLUGIN_CONFIG_REVISION_CONFLICT" },
+  },
   getSchema: {
     method: "get", path: "/v1/plugins/{pluginId}/config/schema", operationId: "get_v1_plugins_pluginId_config_schema",
     summary: "读取插件配置 Schema", tags: ["Plugins"], params,
@@ -84,3 +98,4 @@ export type RegisterPluginConfigSchemaRequest = z.input<typeof pluginConfigSchem
 export type SavePluginConfigRequest = z.input<typeof pluginConfigUpdateRequestSchema>;
 export type PluginConfigAccessQuery = z.input<typeof pluginConfigAccessQuerySchema>;
 export type PluginPageResponse = z.output<typeof pluginPageResponseSchema>;
+export type PluginDataExport = z.output<typeof pluginDataExportSchema>;

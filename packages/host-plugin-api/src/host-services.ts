@@ -94,6 +94,23 @@ export interface PluginLearningFactPort {
   resetInference(sessionId: string): Promise<HostRecord>;
 }
 
+/** Configuration is owned by the host and bound to one plugin lifecycle. Secrets are excluded. */
+export interface PluginConfigurationSnapshot {
+  revision: number;
+  values: Record<string, unknown>;
+  lifecycleGeneration: string;
+}
+
+export interface PluginConfigurationPort {
+  read(): Promise<PluginConfigurationSnapshot>;
+  /** Revision and lifecycle expectations are required; the host never retries a committed write. */
+  save(input: {
+    values: Record<string, unknown>;
+    expectedRevision: number;
+    expectedLifecycleGeneration: string;
+  }): Promise<PluginConfigurationSnapshot>;
+}
+
 /**
  * 插件装配时由宿主注入的服务集合，**按当前本地上下文绑定**。
  * 宿主按 request / turn 粒度构造；插件不得缓存跨上下文的实例。
@@ -101,4 +118,6 @@ export interface PluginLearningFactPort {
 export interface PluginHostServices {
   sessions: PluginSessionPort;
   learningFacts: PluginLearningFactPort;
+  /** Absent in legacy hosts or invocations without a captured plugin identity. */
+  configuration?: PluginConfigurationPort;
 }

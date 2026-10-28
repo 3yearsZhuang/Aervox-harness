@@ -65,7 +65,7 @@ test("分发包字节只由源码决定：重复运行与跨时区一致", () =>
 test("打包覆盖 plugins/ 下全部含清单的插件目录，不静默漏包", () => {
   const expected = fs.globSync('plugins/*/*/plugin.manifest.json', { cwd: path.join(ROOT_DIR, 'plugins') })
     .map(file => JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'plugins', file), 'utf8')).metadata.id).sort();
-  assert.equal(expected.length, 9, 'All nine first-party sources must be included');
+  assert.equal(expected.length, 10, 'All ten first-party sources must be included');
 
   withTempDirs(["aervox-plugins-c-"], ([dir]) => {
     runExport(dir);

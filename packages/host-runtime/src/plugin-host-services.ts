@@ -16,16 +16,87 @@ import { awaitWithSignal, stableSerialize } from "@aervox/core";
 import { createLearningAnswerService } from "./modules/learning/learning/index.js";
 import type {
   HostRecord,
+  PluginConfigurationPort,
   PluginHostServices,
   PluginLearningFactPort,
   PluginSessionPort,
 } from "@aervox/host-plugin-api";
+import type { PluginConfigService } from "./modules/ecosystem/plugins/index.js";
+import { PluginConfigError } from "./shared/errors.js";
 import {
   SqliteConversationRepository,
   SqliteLearningRepository,
   type AervoxDatabase,
   type LocalContext,
 } from "@aervox/repositories";
+
+/** Public configuration failures contain stable codes and safe messages, never repository diagnostics. */
+export class PluginConfigurationError extends Error {
+  constructor(readonly status: number, readonly code: string, message: string) { super(message); }
+}
+export class PluginConfigurationConflictError extends PluginConfigurationError {
+  constructor() { super(409, "plugin_configuration_conflict", "Plugin configuration or lifecycle changed; reload before saving"); }
+}
+
+type ConfigurationService = Pick<PluginConfigService, "getOrdinaryConfig" | "saveConfig" | "getOrdinaryConfigValues">;
+
+function configurationFailure(error: unknown): never {
+  if (error instanceof Error && error.message === "plugin_generation_changed") throw new PluginConfigurationConflictError();
+  if (error instanceof PluginConfigError) {
+    if (error.status === 400) throw new PluginConfigurationError(400, "plugin_configuration_invalid", "Invalid plugin configuration");
+    if (error.status === 404 || error.status === 409) throw new PluginConfigurationConflictError();
+  }
+  throw error;
+}
+
+function createConfigurationPort(
+  ctx: LocalContext,
+  control: PluginHostServiceControl,
+  getService: () => ConfigurationService | undefined,
+): PluginConfigurationPort {
+  // Copy the host-authored identity so callers cannot retarget a previously issued port.
+  const { pluginId, generation } = control.pluginGeneration!;
+  const active = async () => { await control.checkActive(); control.signal?.throwIfAborted(); };
+  const service = () => {
+    const current = getService();
+    if (!current) throw new PluginConfigurationError(503, "plugin_configuration_unavailable", "Plugin configuration service unavailable");
+    return current;
+  };
+  return {
+    async read() {
+      try {
+        await active();
+        const current = service();
+        const snapshot = await current.getOrdinaryConfig(ctx, pluginId, generation);
+        await active();
+        // Admission can await or reenter schema registration. Filter afterwards against a
+        // single current plugin row that also rechecks the captured lifecycle identity.
+        const values = await current.getOrdinaryConfigValues(pluginId, snapshot.values, generation);
+        control.signal?.throwIfAborted();
+        return { revision: snapshot.revision, values, lifecycleGeneration: generation };
+      } catch (error) { return configurationFailure(error); }
+    },
+    async save(input) {
+      if (!input || typeof input.values !== "object" || input.values === null || Array.isArray(input.values)
+        || !Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0
+        || typeof input.expectedLifecycleGeneration !== "string" || !input.expectedLifecycleGeneration) {
+        throw new PluginConfigurationError(400, "plugin_configuration_invalid", "Invalid plugin configuration expectations");
+      }
+      if (input.expectedLifecycleGeneration !== generation) throw new PluginConfigurationConflictError();
+      try {
+        await active();
+        const current = service();
+        const snapshot = await current.saveConfig(ctx, pluginId, {
+          revision: input.expectedRevision, values: input.values, expectedLifecycleGeneration: generation,
+        });
+        // The writer's receipt already contains only the ordinary values validated against
+        // its committed schema. Do not refilter it with a different schema or recheck
+        // admission after commit: either could misrepresent a successful write as lost data.
+        return { revision: snapshot.revision, values: snapshot.values, lifecycleGeneration: generation };
+      } catch (error) { return configurationFailure(error); }
+    },
+  };
+}
 
 let seq = 0;
 const nextId = (prefix: string): string =>
@@ -105,6 +176,7 @@ export interface PluginHostServiceControl {
 }
 export function createPluginHostServicesFactory(
   db: AervoxDatabase,
+  getConfigurationService?: () => ConfigurationService | undefined,
 ): (ctx: LocalContext, control?: PluginHostServiceControl) => PluginHostServices {
   const conversationRepo = new SqliteConversationRepository(db);
   const learningRepo = new SqliteLearningRepository(db);
@@ -112,5 +184,7 @@ export function createPluginHostServicesFactory(
   return (ctx, control) => ({
     sessions: createSessionPort(conversationRepo, ctx, control),
     learningFacts: createLearningFactPort(learningRepo, ctx, control),
+    configuration: control?.pluginGeneration && getConfigurationService
+      ? createConfigurationPort(ctx, control, getConfigurationService) : undefined,
   });
 }

@@ -5,7 +5,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 const Fastify = createRequire(new URL("../../apps/api/package.json", import.meta.url))("fastify");
 import { exportSnapshot } from "../../packages/repositories/dist/sync/index.js";
-import { createDatabase, initDatabaseSchema, SqliteMemoryRepository, SqliteToolRegistryRepository } from "../../packages/repositories/dist/index.js";
+import { createDatabase, initDatabaseSchema, SqliteMemoryRepository, SqliteToolRegistryRepository, SqliteExtensionRepository, SqlitePluginConfigRepository } from "../../packages/repositories/dist/index.js";
 import { ToolRuntime } from "../../packages/host-runtime/dist/modules/ecosystem/tools/index.js";
 import { registerMemoryModule } from "../../packages/host-runtime/dist/modules/companion/memory/index.js";
 import { registerModelRuntimeModule } from "../../packages/host-runtime/dist/modules/ecosystem/model-runtime/index.js";
@@ -18,9 +18,19 @@ const app = Fastify();
 const runtime = new ToolRuntime({ registry: new SqliteToolRegistryRepository(db) });
 const ctx = { app, db, client, toolRuntime: runtime };
 const modelsDir = path.join(root, "models");
+const campus = { version: 1, places: [{ id: "kept-place", name: "保留校园地点", address: "" }],
+  events: [], tasks: [], routes: [], settings: { originId: "kept-place", bufferMinutes: 5, timezone: "Asia/Shanghai" } };
 try {
   if (phase === "seed") {
     await initDatabaseSchema(client);
+    const schema = JSON.parse(await fs.readFile("plugins/plugins/tool/flowcampus/config.schema.json", "utf8"));
+    const extension = new SqliteExtensionRepository(db);
+    const plugin = await extension.createPlugin({ id: "ap-tool-flowcampus", publisher: "drill", version: "1.0.0", checksum: "fixture", enabled: 1,
+      configSchemaJson: schema.fields, configSchemaVersion: schema.schemaVersion });
+    const saved = await new SqlitePluginConfigRepository(db).saveConfig(local, { pluginId: plugin.id,
+      schemaVersion: schema.schemaVersion, expectedRevision: 0, expectedSchema: schema.fields,
+      expectedLifecycleGeneration: plugin.lifecycleGeneration, values: { state: campus }, secretKeys: [] });
+    assert.equal(saved.conflict, false);
     await fs.mkdir(modelsDir);
     for (const name of ["keep", "delete"]) {
       await fs.writeFile(path.join(modelsDir, `${name}.gguf`), `fixture-${name}`);
@@ -39,6 +49,9 @@ try {
     await repo.createNode(local, { id: "projection", label: "retained projection" });
     await fs.writeFile(path.join(root, "memory-id"), memoryId);
   } else {
+    const retainedCampus = await new SqlitePluginConfigRepository(db).getConfig(local, "ap-tool-flowcampus");
+    assert.deepEqual(retainedCampus.valuesJson.state, campus);
+    await fs.writeFile(path.join(root, `${phase}-campus-retained.json`), JSON.stringify(retainedCampus.valuesJson));
     const id = await fs.readFile(path.join(root, "memory-id"), "utf8");
     assert.equal((await repo.getRecord(local, id)).content, "retained user memory");
     assert.ok((await app.inject({ url: "/v1/memory/nodes" })).json().items.some((n) => n.id === "projection"));
@@ -63,5 +76,5 @@ try {
     assert.equal(await fs.readFile(path.join(modelsDir, "keep.gguf"), "utf8"), "fixture-keep");
     assert.equal(await fs.readFile(path.join(modelsDir, "keep.json"), "utf8"), '{"url":"https://example.com/model.gguf"}');
   }
-  console.log(`${phase}: real SQLite read/export/soft-delete and model-file ownership PASS`);
+  console.log(`${phase}: real SQLite read/export/soft-delete, retained campus config and model-file ownership PASS`);
 } finally { runtime.dispose(); await app.close(); client.close(); }

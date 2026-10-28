@@ -59,6 +59,12 @@ id: AVX-PLUG-001
 
 首批实现为 `plugins/bot-weixin` 与 `plugins/bot-onebot`；它们仍随宿主构建，`.aervox-plugin` 不分发可执行实现。微信与 QQ 的权限差异、持久策略和恢复不变量以 [ADR-029](adr/ADR-029-bot-platform-adapters.md) 与 [SRS](SRS.md#fr-plg-005-bot-平台文字接入) 为准，接入步骤见[连接机器人](../how-to/connect-bots.md)。新的第三方平台代码不能借此获得动态安装执行权限。
 
+### 0.6 受信插件的配置窄端口与校园文档
+
+`PluginHostServices.configuration` 是可选的宿主绑定端口：读取非 Secret 值、配置 revision 与捕获的插件生命周期代际；保存携带这两项预期版本，不接受插件 ID 或访问其它插件的配置。未提供端口、缺失身份或旧代际时明确拒绝。HTTP 与工具消费同一配置服务；宿主在读取前后及保存事务中复验当前启用、可用性、代际和 Schema。读取只返回原快照与当前 Schema 普通字段的交集，保存回执返回提交时 Schema 校验后的普通值；提交后的变更不把成功回执改写为失败。成功写回执不自动重放，未知结果由客户端重新读取核对。
+
+第一方 `flowcampus` 插件把用户维护的地点、具体日期事件、短任务、手工路程和偏好保存在有界 `state` 配置文档。文档语义、引用校验和确定性规划属于插件；SQLite、CAS、生命周期及数据管理属于宿主。浏览器只持有编辑草稿与派生结果。首版不新增物理表，不把演示种子或 CAP-033 私密观察数据写入该文档；更大数据集、关联仓储或文档版本转换须另行定义迁移。用法与当前限制见[校园插件](../../plugins/plugins/tool/flowcampus/README.md)。
+
 ## 1. Config Schema v1
 
 Config 是 Aervox 自有 DSL，不是任意 JSON Schema，也不兼容 AstrBot 配置文件直接导入。[契约](../../packages/contracts/src/plugin-config-schemas.ts)与[共享作者校验器](../../packages/contracts/src/plugin-validation.ts)定义行为；配置注册、分发预检和作者 CLI 复用同一校验器。
@@ -97,6 +103,7 @@ Config 是 Aervox 自有 DSL，不是任意 JSON Schema，也不兼容 AstrBot �
 | `GET /v1/plugins/:id/config` | 返回 `revision/schemaVersion/values/secretFields/orphanedValues/issues`，响应 `no-store`；可选 query 绑定打开时的插件和 Page 代际 |
 | `PUT /v1/plugins/:id/config` | 输入 `revision`、`values`、`secretValues`；Page 携带打开时的 `expectedLifecycleGeneration` 、`expectedPageId` 和 `expectedPageGeneration`；校验失败 400，版本、代际或 Page 能力冲突 409 |
 | `POST /v1/plugins/:id/config/reset` | 恢复默认值并清除该插件 Secret；可选 query 绑定插件和 Page 代际，在写事务要求当前 `config.write` |
+| `GET /v1/plugins/:id/data-export` | 用户数据管理导出，停用、缺包、无效或不可读源码时仍可用；返回 `aervox-plugin-data/v1`、插件 ID、持久 revision/Schema 版本与已保存普通字段，响应 `no-store` |
 
 **机器强制**：普通值保存按已有顶层对象合并；省略字段保留旧值。Secret 输入位于 `secretValues`，省略保留、字符串写入、`null` 清除；API 只返回 `{configured: boolean}`。禁用插件的配置读写返回 `409 PLUGIN_DISABLED`。保存和重置还拒绝不可用插件，返回 `409 PLUGIN_UNAVAILABLE`；在同一写事务中复验 enabled、availability、lifecycleGeneration、Schema 内容/版本及配置 revision，首次保存也检查 revision。检查后停用、缺包、换代、升级或并行修改使旧请求返回 `409 PLUGIN_CONFIG_REVISION_CONFLICT`，不会写入旧值或删除 Secret。成功保存递增 revision，保存/重置写审计。
 
@@ -104,7 +111,9 @@ Page Bridge 的配置读取和保存由宿主从当前会话注入 `expectedLife
 
 Page 配置读取在同一 SQL 快照查询同插件的当前 Page、启用、可用性、插件/Page 代际与配置，严格校验 capability 数组并要求 `config.read`；资格失败不得回落历史别名或默认配置。读取 Secret 状态后、返回前再次复验身份与能力，期间停用、缺包、重登记或撤权再授权均返回 `409 PLUGIN_CONFIG_REVISION_CONFLICT`，不释放配置正文。保存与重置在任何配置或 Secret 变更前，由同一写事务核对当前插件/Page 代际与 `config.write`；Page 缺失、重登记、能力移除或畸形声明均返回 409，配置、Secret 和写审计不变。已提交的保存或重置保留真实 HTTP 回执，Bridge 在返回旧文档前继续复验并屏蔽迟到结果。
 
-五个 JSON 接口由[共享端点声明](../../packages/contracts/src/plugin-config-api.ts)生成宿主路由、OpenAPI 和客户端调用，并校验成功响应。Schema 注册与配置保存要求请求体，缺少或格式错误分别返回 `400 INVALID_CONFIG_SCHEMA`、`400 INVALID_CONFIG`；revision 为非负整数，`values` 为对象，`secretValues` 仅接受字符串或 `null`。Schema 读取仍可管理停用插件的声明；停用插件的配置读取、保存和重置保持 409。未分类服务端异常只返回通用 500，不回显内部路径或 SQL。
+JSON 接口由[共享端点声明](../../packages/contracts/src/plugin-config-api.ts)生成宿主路由、OpenAPI 和客户端调用，并校验成功响应。Schema 注册与配置保存要求请求体，缺少或格式错误分别返回 `400 INVALID_CONFIG_SCHEMA`、`400 INVALID_CONFIG`；revision 为非负整数，`values` 为对象，`secretValues` 仅接受字符串或 `null`。Schema 读取仍可管理停用插件的声明；停用插件的配置读取、保存和重置保持 409。未分类服务端异常只返回通用 500，不回显内部路径或 SQL。
+
+宿主插件列表的“更多操作”提供“导出已保存数据”和明确确认的“卸载插件与数据”，不依赖插件界面或源码。数据导出只包含存储快照与读取前后 Schema 普通字段的交集，排除 Secret、orphaned、未知字段及未写入的默认值；插件卸载或生命周期变化使在途导出返回 409。此接口不新增 Page Bridge 能力、不启用插件，不放宽业务端点、工具或配置写入门禁。卸载沿用既有删除配置、Secret 与授权的合同；包资源清理保留既有文件边界限制。新接口不导出任意插件外置数据，也不提供自动导入或跨身份合并。回归见[缺包数据管理测试](../../apps/api/test/plugin-data-management.test.ts)。
 
 **边界**：当前 SQLite 组合根把配置与同库 Secret 的保存、重置放入同一短事务；旧 revision 返回 409 前不修改 Secret，事务失败保留完整旧版。[当前 Secret Repository](../../packages/repositories/src/repositories/sqlite/plugin-config-repository.ts)在本地 SQLite 保存原值，不具备默认静态加密或 OS Keychain 保证。此保证不覆盖外部 SecretStore；审计仍在事务后写入，不宣称“配置 + Secret + 审计”整体原子提交。回归见[配置 API 测试](../../apps/api/test/plugin-config.test.ts)。
 
@@ -224,6 +233,7 @@ OpenAPI 片段使用独立贡献注册表，惰性生成公共文档；非法路
 | 侧栏与消息流 | `sidecards:widgets`、`conversation:top`、`conversation:bottom`、`message:bubble-actions` |
 | 输入区 | `composer:toolbar-actions`、`composer:bottom-bar`、`composer:indicator` |
 | 设置、抽屉、任务中心 | `settings:tabs`、`settings:conversation-rows`、`workbench:drawers`、`taskcenter:cards` |
+| 主动陪伴摘要与详情 | `companion:cards`、`companion:drawers` |
 
 插件实现（`plugins/<id>/src/ui`）只能经下列**公共子路径**接入宿主展示基座，禁止深链 `packages/ui/src/**`：
 

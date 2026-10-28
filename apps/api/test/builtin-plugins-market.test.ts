@@ -67,7 +67,7 @@ describe("出厂官方插件集市与全量插件打包验证 (Market & Builtin 
 
     expect(res.statusCode).toBe(200);
     const items = res.json().items;
-    expect(items.length).toBe(9);
+    expect(items.length).toBe(10);
 
     const itemIds = items.map((i: any) => i.id);
     expect(itemIds).not.toContain("workbench-ui");
@@ -77,6 +77,10 @@ describe("出厂官方插件集市与全量插件打包验证 (Market & Builtin 
     expect(itemIds).toContain("ap-tool-anki-sync");
     expect(itemIds).toContain("ap-workflow-diary-distillers");
     expect(itemIds).toContain("ap-tool-multimodal-ocr");
+    const campus = items.find((item: { id: string }) => item.id === "ap-tool-flowcampus");
+    expect(campus).toBeDefined();
+    expect(campus.displayName).toBe("只争朝夕 · 校园规划");
+    expect(campus.capabilities.hasConfig).toBe(true);
     for (const id of ["ap-bot-weixin", "ap-bot-onebot"]) {
       const bot = items.find((item: { id: string }) => item.id === id);
       expect(bot).toBeDefined();

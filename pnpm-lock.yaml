@@ -158,6 +158,9 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@aervox/plugin-flowcampus':
+        specifier: workspace:*
+        version: link:../../plugins/plugins/tool/flowcampus
       '@aervox/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
@@ -250,6 +253,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@aervox/plugin-flowcampus':
+        specifier: workspace:*
+        version: link:../../plugins/plugins/tool/flowcampus
       '@aervox/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
@@ -447,6 +453,9 @@ importers:
 
   packages/host-runtime:
     dependencies:
+      '@aervox/plugin-flowcampus':
+        specifier: workspace:*
+        version: link:../../plugins/plugins/tool/flowcampus
       '@aervox/config':
         specifier: workspace:*
         version: link:../config
@@ -652,6 +661,43 @@ importers:
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.1
+
+  plugins/plugins/tool/flowcampus:
+    dependencies:
+      '@aervox/api-client':
+        specifier: workspace:*
+        version: link:../../../../packages/api-client
+      '@aervox/contracts':
+        specifier: workspace:*
+        version: link:../../../../packages/contracts
+      '@aervox/core':
+        specifier: workspace:*
+        version: link:../../../../packages/core
+      '@aervox/host-plugin-api':
+        specifier: workspace:*
+        version: link:../../../../packages/host-plugin-api
+      '@aervox/ui':
+        specifier: workspace:*
+        version: link:../../../../packages/ui
+      '@asteasolutions/zod-to-openapi':
+        specifier: 9.1.0
+        version: 9.1.0(zod@4.6.7)
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      lucide-vue-next:
+        specifier: ^0.468.0
+        version: 0.468.0(vue@3.5.43(typescript@5.9.3))
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vue:
+        specifier: ^3.5.43
+        version: 3.5.43(typescript@5.9.3)
+      vue-tsc:
+        specifier: ^2.2.12
+        version: 2.2.12(typescript@5.9.3)
 
   plugins/plugins/ui/focus-mode:
     dependencies:

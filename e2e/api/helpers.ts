@@ -28,9 +28,28 @@ export function startServer(
   port: number,
   dbPath: string,
   extraEnv: Record<string, string> = {},
+  roots?: { skillsRoot: string; pluginsRoot: string },
 ): Promise<{ server: ChildProcess; url: string }> {
   return new Promise((resolve, reject) => {
-    const server = spawn("node", ["dist/index.js"], {
+    // UI workers need matching temporary database and filesystem ownership.
+    // Use the public app factory rather than writing test data to the user's defaults.
+    const args = roots ? ["--input-type=module", "--eval", `
+      import { buildApp } from './dist/app.js';
+      import { loadApiConfig } from '@aervox/config';
+      import { assertSafeApiListenHost, loadAuthConfig } from '@aervox/host-runtime/shared/auth';
+      const config = loadApiConfig();
+      const roots = JSON.parse(process.argv[1]);
+      const { app } = await buildApp({ config, ...roots });
+      assertSafeApiListenHost(config.host, loadAuthConfig().mode);
+      await app.listen({ port: config.port, host: config.host });
+      let closing = false;
+      for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
+        if (closing) return;
+        closing = true;
+        void app.close().catch(() => { process.exitCode = 1; });
+      });
+    `, JSON.stringify(roots)] : ["dist/index.js"];
+    const server = spawn("node", args, {
       cwd: path.join(repoRoot, "apps", "api"),
       stdio: ["ignore", "pipe", "pipe"],
       env: {

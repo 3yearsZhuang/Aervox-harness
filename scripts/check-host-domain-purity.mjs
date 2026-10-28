@@ -53,7 +53,7 @@ export const DOMAIN_PATTERNS = [
   {
     id: "plugin-id",
     label: "插件 id 字面量",
-    pattern: /\bfocus-mode\b|\bstudy-mode\b|\bquiz-mode\b/,
+    pattern: /\bfocus-mode\b|\bstudy-mode\b|\bquiz-mode\b|\bflowcampus\b/,
   },
   {
     id: "camel-ident",

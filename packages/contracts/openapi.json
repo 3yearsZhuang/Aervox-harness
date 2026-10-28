@@ -26144,6 +26144,120 @@
         "operationId": "post_v1_memory_nodes"
       }
     },
+    "/v1/plugins/{pluginId}/data-export": {
+      "get": {
+        "operationId": "get_v1_plugins_pluginId_data_export",
+        "summary": "导出已保存的普通插件数据（停用或缺包时仍可用）",
+        "tags": [
+          "Plugins"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "pluginId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "format": {
+                      "type": "string",
+                      "enum": [
+                        "aervox-plugin-data/v1"
+                      ]
+                    },
+                    "pluginId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "schemaVersion": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "values": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "format",
+                    "pluginId",
+                    "revision",
+                    "schemaVersion",
+                    "values"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid plugin id",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PLUGIN_NOT_FOUND",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "PLUGIN_CONFIG_REVISION_CONFLICT",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/plugins/{pluginId}/config/schema": {
       "get": {
         "operationId": "get_v1_plugins_pluginId_config_schema",

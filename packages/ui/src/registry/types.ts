@@ -20,6 +20,8 @@ export type ExtensionSlotName =
   | 'settings:panel:bots'
   | 'settings:panel:plugins'
   | 'workbench:drawers'
+  | 'companion:cards'
+  | 'companion:drawers'
   | 'taskcenter:cards';
 
 export interface ExtensionComponentRegistration {

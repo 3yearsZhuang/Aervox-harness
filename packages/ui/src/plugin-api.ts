@@ -6,7 +6,7 @@
  *
  * 这里只导出**通用**契约——不含任何具体插件的字段、组件或配置键。
  */
-export { useUIPluginContext, UI_PLUGIN_CONTEXT_KEY } from './composables/ui-plugin-context';
+export { provideUIPluginContext, useUIPluginContext, UI_PLUGIN_CONTEXT_KEY } from './composables/ui-plugin-context';
 export type { UIPluginContext } from './composables/ui-plugin-context';
 
 export { createPluginEventBus } from './composables/plugin-events';

@@ -45,6 +45,8 @@ export const ALLOWED_DUPLICATES = new Map([
       "plugins/surfaces/companion-ui",
       "plugins/surfaces/proactive-ui",
       "plugins/surfaces/panels-ui",
+      // Campus SFCs share the Vue compiler API boundary.
+      "plugins/plugins/tool/flowcampus",
       "apps/web",
       "apps/desktop",
     ]),

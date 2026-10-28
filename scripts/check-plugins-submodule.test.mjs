@@ -11,8 +11,8 @@ import { inspectTrackedFiles } from './check-tracked-files.mjs';
 import { cleanGenerated } from './clean-generated.mjs';
 import { getChangedFiles, resolveChangeScope, buildTurboFilterArgs } from './ci-scope.mjs';
 
-const PLUGINS = ['focus-mode', 'bot-onebot', 'bot-weixin'];
-const sourcePath = name => ({'focus-mode':'plugins/ui/focus-mode','bot-onebot':'plugins/bot/onebot','bot-weixin':'plugins/bot/weixin'})[name];
+const PLUGINS = ['focus-mode', 'bot-onebot', 'bot-weixin', 'flowcampus'];
+const sourcePath = name => ({'flowcampus':'plugins/tool/flowcampus','focus-mode':'plugins/ui/focus-mode','bot-onebot':'plugins/bot/onebot','bot-weixin':'plugins/bot/weixin'})[name];
 
 function fixture(t) {
   const home = mkdtempSync(path.join(tmpdir(), 'aervox-plugins-submodule-'));

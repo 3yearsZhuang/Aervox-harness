@@ -19,6 +19,7 @@ import type {
   PluginPackageExportResponse,
   PluginSummaryResponse,
   PluginGrantResponse,
+  PluginDataExport,
 } from '@aervox/contracts';
 import { PLUGIN_SENSOR_PERMISSION, pluginConfigApi, pluginsApi } from '@aervox/contracts';
 
@@ -99,6 +100,26 @@ export function useAervoxPlugins() {
     requestEndpoint(transport, pluginConfigApi.reset, undefined, { pluginId }, {
       expectedLifecycleGeneration, expectedPageId: pageIdentity?.expectedPageId, expectedPageGeneration: pageIdentity?.expectedPageGeneration,
     });
+
+  const exportData = async (pluginId: string): Promise<PluginDataExport> =>
+    requestEndpoint(transport, pluginConfigApi.exportData, undefined, { pluginId });
+
+  const downloadData = async (pluginId: string): Promise<void> => {
+    const data = await exportData(pluginId);
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a');
+    try {
+      link.href = url;
+      link.download = `${pluginId.replace(/[^A-Za-z0-9_-]/g, '_')}-data.json`;
+      document.body.appendChild(link);
+      link.click();
+    } finally { link.remove(); URL.revokeObjectURL(url); }
+  };
+
+  const uninstallPlugin = async (pluginId: string): Promise<void> => {
+    await requestEndpoint(transport, pluginsApi.delete, undefined, { pluginId });
+    await loadPlugins();
+  };
 
   const listPages = async (pluginId: string, expectedLifecycleGeneration?: string, signal?: AbortSignal): Promise<PluginPageDto[]> => {
     const res = await requestEndpoint(transport, pluginConfigApi.listPages, undefined, { pluginId }, { expectedLifecycleGeneration },
@@ -223,6 +244,9 @@ export function useAervoxPlugins() {
     getConfig,
     saveConfig,
     resetConfig,
+    exportData,
+    downloadData,
+    uninstallPlugin,
     listPages,
     setPluginEnabled,
     installPlugin,

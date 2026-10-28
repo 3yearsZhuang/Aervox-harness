@@ -20,6 +20,15 @@ const PLUGIN_PACKAGE_MANIFESTS = [
   "apps/web/package.json",
   "apps/desktop/package.json",
 ];
+const CAMPUS_TARGET_ID = "flowcampus-plugin";
+const CAMPUS_PACKAGE_MANIFESTS = PLUGIN_PACKAGE_MANIFESTS.filter((file) => file !== "apps/api/package.json");
+
+function directoryFiles(dir) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = join(dir, entry.name);
+    return entry.isDirectory() ? directoryFiles(full) : [full];
+  }).sort();
+}
 
 test("check-removable-implementation: targets 声明完整性", () => {
   assert.ok(REMOVABLE_TARGETS.length >= 2, "应至少包含 Memory 与模型驱动 2 个试点");
@@ -92,8 +101,7 @@ test("check-removable-implementation: 移除计划（删除整包 + 剥离组合
 });
 
 test("check-removable-implementation: 剥离正则必须在当前源码命中（防空跑通过）", () => {
-  const target = REMOVABLE_TARGETS.find((t) => t.id === PLUGIN_TARGET_ID);
-  for (const strip of target.removalPlan.strips) {
+  for (const strip of REMOVABLE_TARGETS.flatMap((target) => target.removalPlan?.strips ?? [])) {
     const before = readFileSync(strip.file, "utf8");
     const after = before.replace(new RegExp(strip.pattern, strip.flags), "");
     assert.notEqual(after, before, `剥离正则未命中 ${strip.file}，移除演练会退化为空跑`);
@@ -118,4 +126,38 @@ test("check-removable-implementation: 插件实现文件清单与实际源码逐
   for (const f of declared) {
     assert.ok(existsSync(f), `implementationFiles 声明的文件不存在：${f}`);
   }
+});
+
+test("check-removable-implementation: 校园插件源码、内聚测试与唯一宿主装配入口精确登记", () => {
+  const target = REMOVABLE_TARGETS.find((t) => t.id === CAMPUS_TARGET_ID);
+  assert.ok(target, `必须声明 ${CAMPUS_TARGET_ID} 移除目标`);
+  assert.equal(target.pilot, "BTD-12");
+  assert.deepEqual([...target.implementationFiles].sort(), directoryFiles("plugins/plugins/tool/flowcampus/src"));
+  assert.deepEqual([...target.allowedAssemblyFiles].sort(), [
+    ...COMPOSITION_ROOTS,
+    ...directoryFiles("plugins/plugins/tool/flowcampus/test"),
+    "e2e/ui/flowcampus.spec.ts",
+  ].sort());
+  assert.deepEqual(target.removalPlan.removeDirectories, ["plugins/plugins/tool/flowcampus"]);
+  assert.deepEqual(target.removalPlan.strips.map((strip) => strip.file).sort(), [
+    ...COMPOSITION_ROOTS, ...CAMPUS_PACKAGE_MANIFESTS,
+  ].sort());
+});
+
+test("check-removable-implementation: 校园插件公开包入口及私有实现仅允许在装配根直接引用", () => {
+  const target = REMOVABLE_TARGETS.find((t) => t.id === CAMPUS_TARGET_ID);
+  const dir = mkdtempSync("apps/worker/src/removability-fixture-");
+  const file = `${dir}/consumer.ts`;
+  try {
+    for (const statement of [
+      'import plugin from "@aervox/plugin-flowcampus/server";',
+      'export * from "@aervox/plugin-flowcampus/domain";',
+      'const plugin = import("@aervox/plugin-flowcampus/ui");',
+      'type Planner = import("../../../../plugins/plugins/tool/flowcampus/src/domain/planner.js");',
+      'import Card from "../../../../plugins/plugins/tool/flowcampus/src/ui/CampusCard.vue";',
+    ]) {
+      writeFileSync(file, statement);
+      assert.equal(auditTarget(target, [file]).length, 1, statement);
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
