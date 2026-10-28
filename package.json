@@ -38,7 +38,7 @@
     "test:cli:integration": "node scripts/core-submodule.mjs && turbo run build --filter=@aervox/cli --filter=@aervox/api && node --test scripts/cli-smoke.test.mjs",
     "check:hls": "node scripts/core-submodule.mjs && turbo run build --filter=@aervox/core... && node --test scripts/hls-agent.test.mjs",
     "check:memory-deletion": "node scripts/core-submodule.mjs && turbo run build --filter=@aervox/worker... && node --test scripts/memory-deletion-research/runner.test.mjs scripts/memory-deletion-research/supplement.test.mjs scripts/memory-deletion-research/cost-test.mjs",
-    "check:dependency-audit": "node scripts/check-dependency-audit.mjs",
+    "check:dependency-audit": "node --test scripts/check-deepmerge-patch.test.mjs && node scripts/check-dependency-audit.mjs",
     "plugin": "pnpm --filter @aervox/contracts build && node scripts/plugin-cli.mjs",
     "check:standards": "node --test scripts/plugin-cli.test.mjs scripts/openapi-compat.test.mjs && node scripts/plugin-cli.mjs check --all && node scripts/openapi-compat.mjs",
     "update:api-baseline": "node scripts/openapi-compat.mjs --update",

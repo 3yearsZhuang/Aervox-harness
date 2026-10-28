@@ -84,6 +84,8 @@ Markdownlint 必须使用 mise 注入的固定版本，不用 `npx` 临时下载
 
 依赖审计在独立 CI job 执行，扫描包含开发依赖与桌面运行时的完整锁文件；新增命中、错误响应或过期豁免均失败。临时豁免只匹配 `scripts/dependency-audit-exceptions.json` 中的公告、版本和依赖路径，必须有原因、负责方与到期日；修复后删除过时豁免。
 
+上游尚未发行修复时，可在根 `patchedDependencies` 登记受审查的最小本地补丁，保留来源、许可和漏洞回归。注册表仍会报告原版本；相应限期审阅须明确本地修复，审计命令先验证补丁登记、锁文件及实际依赖路径的行为，补丁缺失或回归失败即阻断。`deepmerge@4.3.1` 的三个研究依赖路径采用该流程，不表示上游已修复或全锁文件无公告。
+
 `packages/core` 和 `plugins/` 分别固定到 [Aervox-agent/Aervox-core](https://github.com/Aervox-agent/Aervox-core) 与 [Aervox-agent/Aervox-plugins](https://github.com/Aervox-agent/Aervox-plugins) 的确定提交；首次安装由 `./aervox setup` 或 `mise tasks run install` 初始化，也可显式运行 `git submodule update --init -- packages/core plugins`。外部参考子模块不属于默认构建前置条件；完整代码门禁中的 DSH 适配测试要求先运行 `git submodule update --init -- reference/deepseek-harness`。其他参考代码按需初始化。工具版本、测试选择及脚本入口以配置为准，不在本文手工维护用例数量和耗时。
 
 修改 Core 时在子仓的 `feat/`、`fix/` 或 `docs/` 分支提交 PR，先完成子仓构建、类型检查和测试，再在主仓 PR 更新 gitlink 并验证实际消费者；不要直接提交子仓 `main`。主仓使用根工具链与锁文件编排 workspace，Core 的独立锁文件与 CI 服务于独立检出；更新任一工具依赖时同时核对这两种安装。回退使用主仓先前固定的 Core 提交，不在主仓复制一份实现；相关边界见 [ADR-021](docs/reference/adr/ADR-021-aervox-core-standalone-package.md#仓库分离与主仓集成)。
