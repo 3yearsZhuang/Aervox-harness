@@ -148,7 +148,8 @@
         "package.json",
         "tsconfig.json",
         "vitest.config.*",
-        "../../vitest.shared.ts"
+        "../../vitest.shared.ts",
+        "$TURBO_ROOT$/vitest.shared.ts"
       ]
     },
     "@aervox/worker#test": {
