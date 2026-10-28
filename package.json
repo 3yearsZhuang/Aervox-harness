@@ -18,7 +18,7 @@
     "test": "node scripts/core-submodule.mjs && turbo run test --concurrency=2",
     "test:all": "pnpm test",
     "test:affected": "node scripts/test-affected.mjs",
-    "test:unit": "node scripts/core-submodule.mjs && turbo run test --filter=@aervox/core --filter=@aervox/practice-review --filter=@aervox/config --filter=@aervox/observability --filter=@aervox/contracts --filter=@aervox/api-client --filter=@aervox/diary --filter=@aervox/ui --filter=@aervox/ui-host --filter=@aervox/desktop --filter=./surfaces/* --filter=./plugins/*",
+    "test:unit": "node scripts/core-submodule.mjs && turbo run test --filter=@aervox/core --filter=@aervox/practice-review --filter=@aervox/config --filter=@aervox/observability --filter=@aervox/contracts --filter=@aervox/api-client --filter=@aervox/diary --filter=@aervox/ui --filter=@aervox/ui-host --filter=@aervox/desktop --filter=./plugins/surfaces/* --filter=./plugins/*",
     "test:guards": "node --test scripts/*.test.mjs",
     "test:desktop:ipc": "node scripts/desktop-window-ipc-smoke.mjs",
     "test:e2e": "playwright test",

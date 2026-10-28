@@ -33,7 +33,7 @@ const MISE_CONFIG = path.join(ROOT_DIR, "mise.toml");
 
 test("CI covers every package root declared in pnpm-workspace.yaml", () => {
   const roots = workspacePatterns(ROOT_DIR).map(pattern => pattern.replace(/\/\*$/, ''));
-  assert.ok(roots.includes("surfaces"));
+  assert.ok(roots.includes("plugins/surfaces"));
   const paths = readWorkflowPaths(CI_WORKFLOW);
   for (const trigger of [paths.pullRequest, paths.push]) {
     for (const root of roots) {
