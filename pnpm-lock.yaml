@@ -17,6 +17,7 @@ overrides:
   brace-expansion@5.0.9: 5.0.12
   http-cache-semantics@4.2.0: 4.3.0
   shell-quote@1.10.0: 1.11.0
+  qs@6.16.0: 6.16.1
 
 patchedDependencies:
   drizzle-orm@0.45.4: d2196ee4232c80292f42bc6b643c4da62ae2be73cf61d94cbf129a0a9a26ecd9
@@ -4747,8 +4748,8 @@ packages:
     engines: {node: '>=10.13.0'}
     hasBin: true
 
-  qs@6.16.0:
-    resolution: {integrity: sha512-h6fhOIaRrID2CbEY2fqs+7t+UXZo+MLAnU5gRIq85uFtdiUPCdsApMlHhXogKVM4HM2DVbIjGNTTYH2OcmP1vA==}
+  qs@6.16.1:
+    resolution: {integrity: sha512-5Px6J7rfHBAGUhNQ3es4YzcOdBBw0SDcVtThJml4RdnKw4tKs2epA0kPZ+K8X+WiHktT93RHVcQ/3ym5aTCgtg==}
     engines: {node: '>=0.6'}
 
   quick-format-unescaped@4.0.4:
@@ -9094,7 +9095,7 @@ snapshots:
       pngjs: 5.0.0
       yargs: 15.4.1
 
-  qs@6.16.0:
+  qs@6.16.1:
     dependencies:
       es-define-property: 1.0.1
       side-channel: 1.1.1
@@ -9621,7 +9622,7 @@ snapshots:
   url@0.11.4:
     dependencies:
       punycode: 1.4.1
-      qs: 6.16.0
+      qs: 6.16.1
 
   utf8-byte-length@1.0.5: {}
 
