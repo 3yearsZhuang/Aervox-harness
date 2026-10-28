@@ -7,6 +7,8 @@ decision_status: accepted
 
 维护者已接受在 `Aervox-agent` 组织建立 `Aervox-plugins` 集合仓，整体以固定提交的 Git submodule 挂载到主仓 `plugins/`，保留现有包名、接口和默认产品组成。实施状态与验收证据只在 [ITER-073](../../../plan.md#iter-073) 维护。
 
+后续 [ADR-032](ADR-032-plugin-ecosystem-standard.md) 已接受分类源码布局、新生态标识及显式身份迁移，修订本文第一阶段平铺目录和保留旧 ID 的限制；实现与迁移验收归 ITER-075。下文保留迁仓决定与证据，宿主数据责任、受信构建和两仓固定提交准入继续适用。
+
 ## 背景与当前证据
 
 本决定以 Core 迁移已合入的主线 `119dbf2067337153724830094fc304e096bfdf28` 为基线。Core 已由 [PR #348](https://github.com/3yearsZhuang/Aervox-harness/pull/348) 接入必需子模块，但插件依赖和生命周期不同，不能直接复制其独立安装结论。

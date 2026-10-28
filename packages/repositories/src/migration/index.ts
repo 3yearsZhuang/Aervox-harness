@@ -6,3 +6,4 @@ export * from "./backup-manifest.js";
 export * from "./staging-migration.js";
 
 export * from "./schema-staging.js";
+export * from "./plugin-identities.js";

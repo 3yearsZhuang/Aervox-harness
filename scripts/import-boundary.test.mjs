@@ -78,13 +78,13 @@ test("插件实现层禁触库、禁反向依赖宿主 Shell", () => {
   const libsql = `import { createClient } from "@libsql/client";`;
   const host = `import { registerPluginsModule } from "@aervox/api";`;
   for (const src of [db, libsql, host]) {
-    assert.deepEqual(v("plugins/focus-mode/src/server/index.ts", src), ["plugins-domain-no-db-no-host"]);
+    assert.deepEqual(v("plugins/plugins/ui/focus-mode/src/server/index.ts", src), ["plugins-domain-no-db-no-host"]);
   }
   // 共享包（宿主扩展 API 与展示基座）仍可依赖：插件必须能拿到 UIRegistry/WorkbenchContext/primitives
-  assert.deepEqual(v("plugins/focus-mode/src/ui/index.ts", `import { defaultUIRegistry } from "@aervox/ui";`), []);
-  assert.deepEqual(v("plugins/focus-mode/src/server/index.ts", `import { extractTerms } from "@aervox/practice-review";`), []);
+  assert.deepEqual(v("plugins/plugins/ui/focus-mode/src/ui/index.ts", `import { defaultUIRegistry } from "@aervox/ui";`), []);
+  assert.deepEqual(v("plugins/plugins/ui/focus-mode/src/server/index.ts", `import { extractTerms } from "@aervox/practice-review";`), []);
   // 插件自有相对导入合法
-  assert.deepEqual(v("plugins/focus-mode/src/ui/index.ts", `import { useFocusModeState } from "./useFocusModeState.js";`), []);
+  assert.deepEqual(v("plugins/plugins/ui/focus-mode/src/ui/index.ts", `import { useFocusModeState } from "./useFocusModeState.js";`), []);
 });
 
 test("宿主 Shell 允许消费底座（不违规）", () => {
@@ -186,10 +186,10 @@ test("共享包和能力层不得反向导入 CLI 宿主", () => {
 });
 
 test('宿主子路径与相对插件引用不能绕过边界', () => {
-  for (const file of ['packages/ui/src/example.ts', 'plugins/focus-mode/src/example.ts', 'modules/example/src/index.ts']) {
+  for (const file of ['packages/ui/src/example.ts', 'plugins/plugins/ui/focus-mode/src/example.ts', 'modules/example/src/index.ts']) {
     assert.equal(v(file, 'import type { App } from "@aervox/api/src/app.js";').length, 1);
   }
-  assert.deepEqual(v('packages/ui/src/example.ts', 'import "../../../plugins/focus-mode/src/ui/index.ts";'), ['host-no-plugin-implementation']);
+  assert.deepEqual(v('packages/ui/src/example.ts', 'import "../../../plugins/plugins/ui/focus-mode/src/ui/index.ts";'), ['host-no-plugin-implementation']);
 });
 
 test('合法 TypeScript 断言不会导致整文件导入被跳过', () => {
@@ -200,7 +200,7 @@ test('合法 TypeScript 断言不会导致整文件导入被跳过', () => {
 });
 
 test('所有扫描范围的解析失败均阻断，而非静默放行', () => {
-  for (const file of ['packages/core/src/broken.ts', 'apps/desktop/src/broken.ts', 'plugins/focus-mode/src/broken.ts']) {
+  for (const file of ['packages/core/src/broken.ts', 'apps/desktop/src/broken.ts', 'plugins/plugins/ui/focus-mode/src/broken.ts']) {
     assert.deepEqual(v(file, 'export const broken = ;'), ['module-parse-error']);
   }
 });

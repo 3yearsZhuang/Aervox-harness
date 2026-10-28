@@ -96,6 +96,8 @@ export * from "./mcp-schemas.js";
 export * from "./plugin-config-schemas.js";
 export * from "./plugin-compatibility.js";
 export * from "./plugin-validation.js";
+export * from "./plugin-identity.js";
+export * from "./plugin-ecosystem.js";
 export * from "./practice-schemas.js";
 export * from "./llm-schemas.js";
 export * from "./inbox-schemas.js";

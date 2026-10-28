@@ -68,7 +68,8 @@ export async function executeArchive<T>(request: {
             expanded+=bytes.byteLength;
             if(bytes.byteLength>limits.entryBytes || expanded>limits.expandedBytes) throw Error('Archive exceeds expansion limits');
           }
-          result=zipSync(input,{level:6});
+          const ordered=Object.fromEntries(entries.sort(([a],[b])=>a<b?-1:a>b?1:0).map(([name,entry])=>[name,[Array.isArray(entry)?entry[0]:entry,{mtime:new Date(1980,0,1,0,0,0)}]]));
+          result=zipSync(ordered,{level:9});
           if(result.byteLength>limits.compressedBytes) throw Error('Archive exceeds compressed size limit');
         }
         parentPort.postMessage({result});

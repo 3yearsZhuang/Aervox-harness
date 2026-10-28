@@ -148,7 +148,8 @@ describe('plugin skill entry resolution through the API', () => {
       : packagePayload({}, { 'skills/bad name/SKILL.md': '# Example' });
     const inspection = await app.inject({ method: 'POST', url: '/v1/plugins/inspect-package', payload });
     expect(inspection.json().isValid).toBe(false);
-    expect(inspection.json().issues).toEqual(expect.arrayContaining([expect.stringContaining('Invalid skill name')]));
+    const issue = source === 'named' ? 'Invalid skill name' : 'Invalid or noncanonical skill directory name';
+    expect(inspection.json().issues).toEqual(expect.arrayContaining([expect.stringContaining(issue)]));
     const installed = await app.inject({ method: 'POST', url: '/v1/plugins/install-package', payload });
     expect(installed.statusCode).toBe(400);
     expect((await app.inject({ method: 'GET', url: '/v1/skills?source=plugin' })).json().items).toEqual([]);

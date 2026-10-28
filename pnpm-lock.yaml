@@ -124,7 +124,7 @@ importers:
         version: link:../../packages/observability
       '@aervox/plugin-focus-mode':
         specifier: workspace:*
-        version: link:../../plugins/focus-mode
+        version: link:../../plugins/plugins/ui/focus-mode
       '@aervox/process-coordination':
         specifier: workspace:*
         version: link:../../packages/process-coordination
@@ -172,7 +172,7 @@ importers:
         version: link:../../plugins/surfaces/companion-ui
       '@aervox/plugin-focus-mode':
         specifier: workspace:*
-        version: link:../../plugins/focus-mode
+        version: link:../../plugins/plugins/ui/focus-mode
       '@aervox/plugin-panels-ui':
         specifier: workspace:*
         version: link:../../plugins/surfaces/panels-ui
@@ -258,7 +258,7 @@ importers:
         version: link:../../packages/live2d
       '@aervox/plugin-focus-mode':
         specifier: workspace:*
-        version: link:../../plugins/focus-mode
+        version: link:../../plugins/plugins/ui/focus-mode
       '@aervox/plugin-panels-ui':
         specifier: workspace:*
         version: link:../../plugins/surfaces/panels-ui
@@ -473,13 +473,13 @@ importers:
         version: link:../observability
       '@aervox/plugin-bot-onebot':
         specifier: workspace:*
-        version: link:../../plugins/bot-onebot
+        version: link:../../plugins/plugins/bot/onebot
       '@aervox/plugin-bot-weixin':
         specifier: workspace:*
-        version: link:../../plugins/bot-weixin
+        version: link:../../plugins/plugins/bot/weixin
       '@aervox/plugin-focus-mode':
         specifier: workspace:*
-        version: link:../../plugins/focus-mode
+        version: link:../../plugins/plugins/ui/focus-mode
       '@aervox/practice-review':
         specifier: workspace:*
         version: link:../practice-review
@@ -633,43 +633,43 @@ importers:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.9.3)
 
-  plugins/bot-onebot:
+  plugins/plugins/bot/onebot:
     dependencies:
       '@aervox/host-plugin-api':
         specifier: workspace:*
-        version: link:../../packages/host-plugin-api
+        version: link:../../../../packages/host-plugin-api
     devDependencies:
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.1
 
-  plugins/bot-weixin:
+  plugins/plugins/bot/weixin:
     dependencies:
       '@aervox/host-plugin-api':
         specifier: workspace:*
-        version: link:../../packages/host-plugin-api
+        version: link:../../../../packages/host-plugin-api
     devDependencies:
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.1
 
-  plugins/focus-mode:
+  plugins/plugins/ui/focus-mode:
     dependencies:
       '@aervox/api-client':
         specifier: workspace:*
-        version: link:../../packages/api-client
+        version: link:../../../../packages/api-client
       '@aervox/contracts':
         specifier: workspace:*
-        version: link:../../packages/contracts
+        version: link:../../../../packages/contracts
       '@aervox/core':
         specifier: workspace:*
-        version: link:../../packages/core
+        version: link:../../../../packages/core
       '@aervox/host-plugin-api':
         specifier: workspace:*
-        version: link:../../packages/host-plugin-api
+        version: link:../../../../packages/host-plugin-api
       '@aervox/ui':
         specifier: workspace:*
-        version: link:../../packages/ui
+        version: link:../../../../packages/ui
       zod:
         specifier: 4.6.7
         version: 4.6.7

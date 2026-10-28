@@ -81,6 +81,17 @@
 
 ## 2. 立即整改：ITER-071
 
+<a id="iter-075"></a>
+
+### ITER-075 · 执行中：插件生态规范与两仓实现
+
+维护者已要求按集合仓原 PR #2 完成命名、七分类目录、版本、Registry 与发布门禁的实际实现，决定见 [ADR-032](docs/reference/adr/ADR-032-plugin-ecosystem-standard.md)。依赖已移交的 ITER-073/074；不捎带仍待重组的主仓 #346/#347。
+
+- 集合仓恢复目标规范并迁移九个插件源码和标识，保留现有包名与受信 surfaces；宿主同步 Contracts、发现、工作区、打包、市场与消费者。
+- Registry 只登记校验过的真实发布，发布与破坏性检查复用共享合同和根锁；没有发布时保持空索引。
+- 维护者已选择显式离线身份迁移工具：停写、备份、staging、校验、原子换目录和回滚包；本次只实现和测试工具，不操作用户业务数据。不可变历史和撤权证据不重写为新授权。
+- 两仓实现与本地 `./aervox ci all` 已通过；集合作者门禁验证九个身份和可重现分发包，迁移 CLI 30 项及真实完整 Schema 用例通过。配对分支均为 `feat/plugin-ecosystem-standard`；远端冷安装、精确组合检查、PR 审查及最终合并 gitlink 仍待确认。没有执行业务库迁移或首次真实发布。
+
 <a id="iter-071"></a>
 
 ### ITER-071 · 执行中，部分实施：共享行为所有权与重复实现整改
@@ -197,14 +208,14 @@
 | 缺口与证据 | 实施及验收要求 |
 |---|---|
 | 已实施：工具 revision 与持久审批绑定。[tool-providers](packages/host-runtime/src/modules/companion/conversation/tool-providers.ts)统一编码声明/实现及安全身份；[运行时](packages/core/src/host-tool-runtime.ts)默认含进程实例和注册代际，不再以 updatedAt 代替实现版本 | 默认替换 handler/重启需新审批；受信宿主只有显式稳定实现版本才跨重启复用，语义变更必须递增版本；插件审批仍绑定 generation。旧无元数据批准不授权新声明，pending 按版本去重；参数哈希保持兼容。替换/重新声明/重启/跨代回归已通过定向验证 |
-| 已实施：分支请求键贯通[HTTP](packages/host-runtime/src/modules/companion/branch/routes.ts)、[插件](plugins/focus-mode/src/server/terms-routes.ts)和领域命令；旧 `createConversationBranch` 已删除，分支路由消费最小 Port | 同键同参复用、异参 409，子会话/分支/Outbox 同事务；软删重试不复活，硬删结果但回执留存时 409。保留 opaque fork 标记与父策略继承，既有子会话不覆盖；无键仍可创建独立重复边。并发及 Outbox 故障回归已通过定向验证 |
+| 已实施：分支请求键贯通[HTTP](packages/host-runtime/src/modules/companion/branch/routes.ts)、[插件](plugins/plugins/ui/focus-mode/src/server/terms-routes.ts)和领域命令；旧 `createConversationBranch` 已删除，分支路由消费最小 Port | 同键同参复用、异参 409，子会话/分支/Outbox 同事务；软删重试不复活，硬删结果但回执留存时 409。保留 opaque fork 标记与父策略继承，既有子会话不覆盖；无键仍可创建独立重复边。并发及 Outbox 故障回归已通过定向验证 |
 | 已实施：工作台与桌宠直接订阅 Controller 的待答问题/审批，不再在旧回答返回后清空本地副本；工作台标准模式和经典卡片、主动陪伴、桌宠复用完整 UserQuestionComposer | 真实组件回归覆盖新问题先于旧回答返回、多问题/多选/自由文本、显式提交、审批与取消；桌宠失败持续可见、未知受理保留输入。各 surface 保留布局，Controller reset 只解除本地观察 |
 | 已实施：Controller 保存 Turn 和最后已消费事件游标，三个 surface 均有恢复观察入口；结构化终态判定先于完成回调 | 未知受理重试复用业务键；已受理只 observe，追加到原回复；真正中断失败保留正文且不观察重试，等待审批与取消分别表达。reset/dispose/成功取消释放静默回答或审批的等待；取消请求独立跟踪，本地等待上限 30 秒，超时保留观察并允许重试，reset/dispose 释放静默取消，旧响应不影响新 owner；主动陪伴同会话重选保留正文，切会话解除旧观察 |
 | 已实施：[模型配置入口](packages/host-runtime/src/modules/ecosystem/llm/provider-config.ts)统一普通/路由 Loop 和领域生成的协议、可用性、contextWindow、输出预算与原始 SSE 空闲超时；真实插件 callable 已委托同一单次消费器 | 模型源 57 项、API 5 文件 26 项、Worker 2 文件 9 项定向通过，覆盖 EOF/异常终态/空输出/静默取消/UTF-8 及上下文预算、90 秒心跳；保留路由本机证明、更严格的单次本地准入与 Anthropic 日记模板，不据夹具宣称真实模型已验收 |
 | 已实施：实例级 [ToolCatalog](packages/host-runtime/src/modules/companion/conversation/plugin-tool-catalog.ts)整批拥有定义、handler、guidance 和投影；[可变 API 注册表](packages/host-runtime/src/plugin-api-registry.ts)迁入宿主，Contracts 只保留 Port；旧单条投影登记已删除 | 批量预检失败内容与 revision 不变；Turn lease 绑定各自服务，结束释放执行资源，代际撤销同时释放四项与全部 lease；安全投影按代际保留供回放。Host Runtime 2 文件 52 项、API 3 文件 16 项通过，含真实 focus factory 并行 Turn、多 Host、突变、旧 disposer、挂起声明关闭及异步门禁期间取消 |
 | 已实施：HTTP Turn 创建、取消、作答、审批与观察仅消费命令/查询 Port，应用独占执行跟踪和取消；[会话子路径出口](packages/host-runtime/src/modules/companion/conversation/index.ts)已移除旧装配重导出。受理身份与审批模式从回执恢复，委托核对原始 Outbox owner；准备、Native/Adapter 共用终态裁决和显式配置快照 | 无 SQLite 的 Fastify + 最小 fake Port、完整审批续跑、重复审批只派发一次、委托身份及 Native/Adapter 控制合同已补；本次另覆盖准备删除、DSH 交接取消、丢租约/CAS/终态写失败后禁止虚假终态摘要。历史 `error` 后双事件 `done` 的迁移仍按[流式协议](docs/reference/STREAMING_PROTOCOL.md#44-error)保留，跨进程恢复、全部主动写者及生产验收归原条目，未知副作用不自动重放 |
 | 已实施：独立 canonical SQLite + PRAGMA 与保守 DDL token 比对，覆盖表选项、列属性/顺序/hidden、复合 FK、CHECK、collation、逐约束冲突策略、AUTOINCREMENT、FK 延期及完整索引语义 | 7 文件 87 项定向通过；CHECK/STRICT/WITHOUT ROWID 在无版本及已登记库均拒绝，检查仅 SELECT/PRAGMA 且源 bytes/rows/version 不变；两个历史 release fingerprint 保持。保守比较不推断表达式代数等价，完整版本迁移与生产编排归 ITER-011 |
-| 已实施：[术语契约](plugins/focus-mode/src/contracts/terms.ts)由浏览器与服务端共享 Schema 派生，删除 UI/抽取器重复 DTO；旧 `useAervoxTurn` 及其无消费者的流/审批/通用请求包装已删除 | 响应和事件都从同一 Schema 解析，CI typecheck 显式编译双向类型兼容证明；focus 插件 7 文件 44 项及 typecheck 通过。重复扫描仍只作线索；历史路由例外归 ITER-064，不扩大豁免 |
+| 已实施：[术语契约](plugins/plugins/ui/focus-mode/src/contracts/terms.ts)由浏览器与服务端共享 Schema 派生，删除 UI/抽取器重复 DTO；旧 `useAervoxTurn` 及其无消费者的流/审批/通用请求包装已删除 | 响应和事件都从同一 Schema 解析，CI typecheck 显式编译双向类型兼容证明；focus 插件 7 文件 44 项及 typecheck 通过。重复扫描仍只作线索；历史路由例外归 ITER-064，不扩大豁免 |
 | 已实施：[共享传输合同](apps/desktop/test/turn-protocol.test.ts)同时跑 Fetch 和完整 preload/main IPC，补审批 POST→continuation→observe、受理未知→同业务键重试与真正中断 | 16 项共同合同通过，覆盖认证、独立 IPC requestId、游标、ACK 背压、断线去重、提前 EOF及终态失败；JSON 主进程转发提为同一可测入口并拒绝重定向。真实 Electron 及后续全量结果单独记录，不以 mock 替代实机 |
 
 #### 本轮接续：会话长期消息真源

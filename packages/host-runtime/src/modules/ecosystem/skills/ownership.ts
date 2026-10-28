@@ -1,3 +1,4 @@
+import { pluginSkillDirectoryName } from "@aervox/contracts";
 import { AsyncLocalStorage } from "node:async_hooks";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -52,14 +53,15 @@ export async function assertSkillDirectoryOwner(
   root: string,
   owner: { kind: "local" | "plugin"; id: string },
 ): Promise<void> {
-  if (!/^(?!\.{1,2}$)[\w.-]+$/.test(owner.id)) throw new FileExistsError("Invalid skill directory owner.");
-  const directory = path.resolve(root, owner.id);
+  if (owner.kind === "plugin" && owner.id.includes(":")) throw new FileExistsError("Invalid plugin directory owner.");
+  try { pluginSkillDirectoryName(owner.id); } catch { throw new FileExistsError("Invalid skill directory owner."); }
+  const directory = path.resolve(root, pluginSkillDirectoryName(owner.id));
   const rows = await registry.listSkills();
   let hasOwner = false;
   for (const row of rows) {
     const contentDir = row.contentPath
       ? path.dirname(path.resolve(row.contentPath))
-      : path.resolve(root, ...(row.pluginId ? [row.pluginId, row.id] : [row.id]));
+      : path.resolve(root, ...(row.pluginId ? [row.pluginId, pluginSkillDirectoryName(row.id)] : [pluginSkillDirectoryName(row.id)]));
     const belongs = owner.kind === "local"
       ? row.id === owner.id && !row.pluginId && row.readonly !== 1 && contentDir === directory
       : row.pluginId === owner.id;

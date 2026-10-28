@@ -14,6 +14,8 @@ import type {
   PluginPageResponse,
   PluginPackageInspection,
   PluginMarketItem,
+  PluginMarketInstallRequest,
+  PluginMarketReport,
   PluginPackageExportResponse,
   PluginSummaryResponse,
   PluginGrantResponse,
@@ -49,6 +51,7 @@ export interface PluginInstallInputDto {
 }
 
 export function useAervoxPlugins() {
+  const marketRegistryError = ref<string | null>(null);
   const transport = getClientTransport();
   const plugins = ref<PluginSummaryDto[]>([]);
   const loading = ref(false);
@@ -191,18 +194,20 @@ export function useAervoxPlugins() {
 
   /** 获取官方与出厂插件集市条目 */
   const listMarket = async (): Promise<PluginMarketItemDto[]> => {
-    const res = await transport.request<{ items: PluginMarketItemDto[] }>(
+    const res = await transport.request<PluginMarketReport>(
       'GET',
       '/v1/plugins/market',
     );
+    marketRegistryError.value = res.registryError ?? null;
     return res.items ?? [];
   };
 
   /** 从集市一键安装插件 */
-  const installFromMarket = async (pluginId: string): Promise<PluginSummaryDto> => {
+  const installFromMarket = async (pluginId: string, options?: PluginMarketInstallRequest): Promise<PluginSummaryDto> => {
     const res = await transport.request<PluginSummaryDto>(
       'POST',
       `/v1/plugins/market/${encodeURIComponent(pluginId)}/install`,
+      options,
     );
     await loadPlugins();
     return res;
@@ -226,6 +231,7 @@ export function useAervoxPlugins() {
     exportPackage,
     downloadPackage,
     listMarket,
+    marketRegistryError,
     installFromMarket,
     grantSensor,
     revokeSensorGrant,

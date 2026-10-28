@@ -6,6 +6,7 @@
  */
 import { z } from "zod";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import { isPluginSkillName } from "./plugin-identity.js";
 
 // 必须在任何 schema 创建前调用：zod 4 的 .openapi 只对 extend 之后创建的 schema 生效
 extendZodWithOpenApi(z);
@@ -623,11 +624,11 @@ export const skillSourceSchema = z.enum([
   "ai_authored", // Neo 生命周期晋升后落盘的 AI 自主技能，可启停/删除
 ]);
 
-/** Skill 名称合法字符集（对应 Anthropic Skills 目录名规范：英文/数字/点/下划线/短横线）；`.` 与 `..` 会被 path.join 解析为层级，显式排除防目录穿越 */
+/** Skill logical identity; use pluginSkillDirectoryName before accessing filesystem paths. */
 export const skillNameSchema = z
   .string()
   .min(1)
-  .regex(/^(?!\.{1,2}$)[\w.-]+$/, "skill name must match [\\w.-]+ and must not be . or ..");
+  .refine(isPluginSkillName, "Invalid skill name or namespaced skill identity");
 
 /** Neo 生命周期发布阶段 */
 export const skillStageSchema = z.enum(["canary", "stable"]);

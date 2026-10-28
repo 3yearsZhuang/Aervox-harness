@@ -1,3 +1,4 @@
+import { pluginSkillDirectoryName } from "@aervox/contracts";
 /**
  * Aervox｜思隅 @aervox/api — 插件 Page 静态资源存储（CAP-020 扩展 · CR-006）
  *
@@ -99,8 +100,8 @@ export class PluginBundleStore {
       await write("owner.json", Buffer.from(JSON.stringify({pluginId, generation, format: 1})));
       const skillPaths = new Map<string, string>();
       for (const skill of skills) {
-        if (!/^(?!\.{1,2}$)[\w.-]+$/.test(skill.name)) throw new Error("invalid skill name");
-        const relative = `skills/${skill.name}/SKILL.md`;
+        pluginSkillDirectoryName(skill.name);
+        const relative = `skills/${pluginSkillDirectoryName(skill.name)}/SKILL.md`;
         await write(relative, Buffer.from(skill.content ?? ""));
         skillPaths.set(skill.name, path.join(root, relative));
       }

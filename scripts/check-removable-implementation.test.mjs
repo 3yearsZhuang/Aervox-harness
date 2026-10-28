@@ -83,7 +83,7 @@ test("check-removable-implementation: 第一方插件可移除目标（BTD-11）
 test("check-removable-implementation: 移除计划（删除整包 + 剥离组合根与包清单）不得退化", () => {
   const target = REMOVABLE_TARGETS.find((t) => t.id === PLUGIN_TARGET_ID);
   assert.ok(target?.removalPlan, "必须声明 removalPlan");
-  assert.deepEqual(target.removalPlan.removeDirectories, ["plugins/focus-mode"]);
+  assert.deepEqual(target.removalPlan.removeDirectories, ["plugins/plugins/ui/focus-mode"]);
 
   const stripped = target.removalPlan.strips.map((s) => s.file);
   for (const file of [...COMPOSITION_ROOTS, ...PLUGIN_PACKAGE_MANIFESTS]) {
@@ -111,7 +111,7 @@ test("check-removable-implementation: 插件实现文件清单与实际源码逐
       else onDisk.push(full);
     }
   };
-  walk("plugins/focus-mode/src");
+  walk("plugins/plugins/ui/focus-mode/src");
 
   const missing = onDisk.filter((f) => !declared.has(f));
   assert.deepEqual(missing, [], `以下插件源文件未登记进 implementationFiles：${missing.join(", ")}`);
