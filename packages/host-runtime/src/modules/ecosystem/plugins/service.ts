@@ -211,30 +211,16 @@ export class PluginService {
         if (options.expectedVersion !== entry.latestVersion || options.expectedSha256 !== entry.sha256) {
           throw new ApiError("CONFLICT", 409, "Plugin release changed or was not selected; refresh the market before installing");
         }
-        const installed = await this.deps.extensionRepo.getPlugin(pluginId);
         const builtin = (await listMarketPlugins({ extensionRepo: this.deps.extensionRepo,
           builtinPluginsSourceRoot: this.deps.builtinPluginsSourceRoot ?? "" })).find(item => item.id === pluginId);
-        if (builtin && comparePluginVersions(entry.latestVersion, builtin.version) !== 0
-          && comparePluginVersions(entry.latestVersion, builtin.version) !== 1) throw new Error("Registry downgrade refused");
-        if (installed && comparePluginVersions(entry.latestVersion, installed.version) !== 0
-          && comparePluginVersions(entry.latestVersion, installed.version) !== 1) throw new Error("Registry downgrade or incomparable version refused");
-        if (installed?.bundleGeneration && installed.version === entry.latestVersion && installed.checksum.replace(/^sha256:/, "") !== entry.sha256) {
-          throw new Error("Published plugin release changed its checksum");
-        }
-        if (installed && installed.version !== entry.latestVersion && entry.breaking && !options.allowBreaking) {
-          throw new ApiError("CONFLICT", 409, "Breaking plugin update requires explicit confirmation");
-        }
-        return installPluginFromBundle(bytes, { overwrite: true, signal }, this.getBundleEngineDeps());
+        return installPluginFromBundle(bytes, { overwrite: true, signal,
+          market: { ...options, minimumVersion: builtin?.version } }, this.getBundleEngineDeps());
       }
     }
-    if (options.expectedVersion) {
-      const selected = (await listMarketPlugins({ extensionRepo: this.deps.extensionRepo,
-        builtinPluginsSourceRoot: this.deps.builtinPluginsSourceRoot ?? "" })).find(item => item.id === pluginId);
-      if (selected?.version !== options.expectedVersion || options.expectedSha256) {
-        throw new ApiError("CONFLICT", 409, "Plugin source changed; refresh the market before installing");
-      }
+    if (options.expectedSha256) {
+      throw new ApiError("CONFLICT", 409, "Plugin source changed; refresh the market before installing");
     }
-    return installFromMarket(pluginId, this.getBundleEngineDeps(), signal);
+    return installFromMarket(pluginId, this.getBundleEngineDeps(), signal, options);
   }
 
   /** 列出全部插件 */

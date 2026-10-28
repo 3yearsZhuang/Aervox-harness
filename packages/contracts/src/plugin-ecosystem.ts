@@ -270,7 +270,12 @@ function compareInputSchema(before: Record<string, unknown>, after: Record<strin
       compareInputSchema(previous as Record<string, unknown>, next as Record<string, unknown>, `${at}.${key}`, add);
     }
   }
-  if (before.items && after.items && typeof before.items === "object" && typeof after.items === "object") {
-    compareInputSchema(before.items as Record<string, unknown>, after.items as Record<string, unknown>, `${at}[]`, add);
+  // Omitted/true items accept every element; a newly declared schema can narrow that set.
+  if (before.items !== false && after.items !== undefined && after.items !== true && stableJson(before.items) !== stableJson(after.items)) {
+    if (after.items === false) add(`${at} disallows array items`);
+    else if (after.items && typeof after.items === "object" && !Array.isArray(after.items)) {
+      const previous = before.items && typeof before.items === "object" && !Array.isArray(before.items) ? before.items : {};
+      compareInputSchema(previous as Record<string, unknown>, after.items as Record<string, unknown>, `${at}[]`, add);
+    } else add(`${at} changed array item constraints`);
   }
 }

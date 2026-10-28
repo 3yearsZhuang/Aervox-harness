@@ -368,6 +368,8 @@ Manifest 根可声明宿主兼容区间：
 
 `POST /v1/plugins/market/:id/install` 对远程条目要求 `expectedVersion` 与 `expectedSha256`，绑定列表和破坏性确认时看到的发布；索引变动返回 409。已安装插件的破坏性更新还要求 `allowBreaking: true`。下载流限体积与时间，跳转先验证目的地，再复验 SHA-256、大小、Manifest 身份/发布者/版本、breaking、兼容区间及共享安装门禁。拒绝降级、不可比较版本和同版本内容篡改；安装不授予新权限。出厂条目可携带 `expectedVersion` 固定选择，继续兼容现有本地管理调用。
 
+出厂条目与离线回退同样遵守版本、内容及破坏性确认规则；较旧的出厂版本不显示为更新。并发安装按实际激活前的当前版本重新校验，冲突返回 409，不能用先前读取的旧版本覆盖已完成的更新。出厂与在线条目均保留分类、标签和 breaking 信息。
+
 HTTP 导出、集市就地安装、作者 CLI 与构建期导出使用同一允许清单：Manifest、Config、Skill、`skills/`、`pages/`、图标及显式许可/变更材料，排除源码、依赖、测试和构建产物。未知条目、符号链接及声明资源硬链接拒绝。已安装 generation 仍返回原包字节。批量入口 `mise tasks run package-plugins` 生成 `dist/plugins/<id>-v<version>.aervox-plugin`，排序、固定 DOS 纪元时间戳及相同压缩参数保证可重现；冷检出按任务恢复生成物。
 
 Tag、真实 Release 附件、校验和、版本历史与 Registry 生成流程见[集合规范](../../plugins/SPECIFICATION.md)。未实际发布时索引为空；实现流水线与通过临时下载夹具不能替代真实发布验收。
