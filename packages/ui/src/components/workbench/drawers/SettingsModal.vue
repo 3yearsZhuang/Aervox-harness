@@ -163,6 +163,7 @@ async function onPluginChange(): Promise<void> {
     :active-key="activeSettingsGroup.id"
     nav-aria-label="设置分类"
     custom-class="settings-dialog"
+    mobile-fullscreen
     @update:active-key="selectSettingsPage"
   >
     <template #nav-footer>

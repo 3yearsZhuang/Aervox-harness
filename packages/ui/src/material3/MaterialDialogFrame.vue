@@ -8,10 +8,35 @@ const props = withDefaults(defineProps<{
   modelValue: boolean; title: string; width: string; height?: string;
   appendToBody?: boolean; destroyOnClose?: boolean;
   closeOnClickModal?: boolean; closeOnPressEscape?: boolean;
-}>(), { appendToBody: true, destroyOnClose: false, closeOnClickModal: true, closeOnPressEscape: true });
+  mobileFullscreen?: boolean;
+}>(), { appendToBody: true, destroyOnClose: false, closeOnClickModal: true, closeOnPressEscape: true, mobileFullscreen: false });
 const emit = defineEmits<{ 'update:modelValue': [value: boolean]; open: []; opened: []; close: []; closed: [] }>();
 const dialog = ref<HTMLElement & { open: boolean }>();
 provide(materialDialogOpenKey, computed(() => props.modelValue));
+const headline = ref<HTMLElement>();
+const actions = ref<HTMLElement>();
+const viewportHeight = ref<number>();
+const viewportTop = ref(0);
+const headlineHeight = ref<number>();
+const actionsHeight = ref(0);
+let layoutObserver: ResizeObserver | undefined;
+function measureSlots() {
+  headlineHeight.value = headline.value?.getBoundingClientRect().height;
+  actionsHeight.value = actions.value?.getBoundingClientRect().height ?? 0;
+}
+function syncViewport() {
+  if (!props.mobileFullscreen || window.visualViewport && window.visualViewport.scale !== 1) return;
+  viewportHeight.value = window.visualViewport?.height ?? window.innerHeight;
+  viewportTop.value = window.visualViewport?.offsetTop ?? 0;
+  measureSlots();
+}
+function observeLayout() {
+  if (!props.mobileFullscreen) return;
+  layoutObserver?.disconnect();
+  if (headline.value) layoutObserver?.observe(headline.value);
+  if (actions.value) layoutObserver?.observe(actions.value);
+  syncViewport();
+}
 const keepContent = ref(props.modelValue);
 let backdropClick = false;
 let backdropTimer: ReturnType<typeof setTimeout> | undefined;
@@ -33,11 +58,19 @@ onMounted(() => {
   motion = window.matchMedia('(prefers-reduced-motion: reduce)');
   updateMotion();
   motion.addEventListener('change', updateMotion);
+  if (props.mobileFullscreen) {
+    if (typeof ResizeObserver !== 'undefined') layoutObserver = new ResizeObserver(measureSlots);
+    window.visualViewport?.addEventListener('resize', syncViewport);
+    window.visualViewport?.addEventListener('scroll', syncViewport);
+    window.addEventListener('resize', syncViewport);
+    observeLayout();
+  }
 });
 watch(() => props.modelValue, async open => {
   if (open) keepContent.value = true;
   await nextTick();
   if (!disposed && dialog.value && !nativeClosing) dialog.value.open = props.modelValue;
+  if (!disposed) observeLayout();
 }, { immediate: true });
 function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape' && !props.closeOnPressEscape) event.preventDefault();
@@ -63,19 +96,31 @@ function onClosed() {
   if (props.destroyOnClose && !props.modelValue) keepContent.value = false;
   emit('closed');
 }
-onBeforeUnmount(() => { backLayer?.dispose(); backLayer = undefined; disposed = true; motion?.removeEventListener('change', updateMotion); if (backdropTimer) clearTimeout(backdropTimer); });
+onBeforeUnmount(() => {
+  backLayer?.dispose(); backLayer = undefined; disposed = true;
+  motion?.removeEventListener('change', updateMotion);
+  window.visualViewport?.removeEventListener('resize', syncViewport);
+  window.visualViewport?.removeEventListener('scroll', syncViewport);
+  window.removeEventListener('resize', syncViewport);
+  layoutObserver?.disconnect();
+  if (backdropTimer) clearTimeout(backdropTimer);
+});
 </script>
 
 <template>
   <Teleport to="body" :disabled="!appendToBody">
-    <component :is="'md-dialog'" ref="dialog" :quick="reducedMotion" v-bind="$attrs" class="avx-material-dialog" :aria-label="title"
-      :style="{ width, height: height || undefined }"
+    <component :is="'md-dialog'" ref="dialog" :quick="reducedMotion" v-bind="$attrs" class="avx-material-dialog" :class="{ 'is-mobile-fullscreen': mobileFullscreen }" :aria-label="title"
+      :style="{ width, height: height || undefined,
+        '--avx-dialog-viewport-height': viewportHeight !== undefined ? viewportHeight + 'px' : undefined,
+        '--avx-dialog-viewport-top': viewportTop + 'px',
+        '--avx-dialog-headline-height': headlineHeight !== undefined ? headlineHeight + 'px' : undefined,
+        '--avx-dialog-actions-height': actionsHeight + 'px' }"
       @keydown.capture="onKeydown" @click.capture="onClick" @cancel="onCancel" @open="emit('open')" @opened="emit('opened')"
       @close="onClose" @closed="onClosed"
     >
-      <div v-if="keepContent" slot="headline" class="avx-material-dialog-headline" :aria-label="title"><slot name="header" /></div>
+      <div v-if="keepContent" ref="headline" slot="headline" class="avx-material-dialog-headline" :aria-label="title"><slot name="header" /></div>
       <div v-if="keepContent" slot="content" class="avx-material-dialog-content"><slot /></div>
-      <div v-if="keepContent && $slots.footer" slot="actions" class="avx-material-dialog-actions"><slot name="footer" /></div>
+      <div v-if="keepContent && $slots.footer" ref="actions" slot="actions" class="avx-material-dialog-actions"><slot name="footer" /></div>
     </component>
   </Teleport>
 </template>
