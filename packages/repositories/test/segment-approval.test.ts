@@ -155,8 +155,8 @@ describe("E2 安全片段原子化（safe_segments）", () => {
     expect(claim.ok).toBe(true);
     if (!claim.ok) return;
 
-    // 32 行会落在首个受控语句中，第 33 行故意复用 sequence=2，
-    // 触发第二个语句的唯一键冲突。外层事务必须连首个分块一起回滚。
+    // 前 32 行跨过多个受控语句，第 33 行故意复用 sequence=2，
+    // 触发后续语句的唯一键冲突。外层事务必须连先前分块一起回滚。
     const inputs = Array.from({length: 33}, (_, index) => {
       const sequence = index === 32 ? 2 : index + 2;
       return {

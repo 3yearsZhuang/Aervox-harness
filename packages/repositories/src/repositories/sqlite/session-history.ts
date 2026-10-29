@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, lt, notLike, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, notLike, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import type { AervoxDatabase } from "../../client.js";
 import { messages, messageVersions, sessions, turns, turnStreamEvents } from "@aervox/schema";
@@ -15,6 +15,8 @@ type Version = { id: string; turnId: string; messageId: string | null; role: str
 type Event = { turnId: string; attemptId: string | null; sequence: number; eventType: string; safetyDecision: string | null; data: unknown };
 type Identity = { id: string; role: string; currentVersionId: string | null; deleted: number };
 type Source = { turnId: string; versionId: string; messageId: string | null; requestHash: string | null; isRedacted: number };
+const durableSource = (source: Source): boolean => source.messageId === source.versionId
+  && !!source.requestHash && /^turn-intent-v1:[a-f0-9]{64}$/.test(source.requestHash);
 const versionOrder = alias(messageVersions, "history_version_order");
 const parse = <T>(value: string): T => JSON.parse(value) as T;
 function payload(value: unknown): Record<string, unknown> {
@@ -61,59 +63,69 @@ async function readHistorySnapshot(db: Reader, input: { sessionId: string; befor
     .innerJoin(messageVersions, and(eq(messageVersions.turnId, turns.id), eq(messageVersions.role, "user"), eq(messageVersions.version, 1)))
     .where(and(inArray(turns.id, turnIds), derivableConversationTurn(turns.id)));
   const sourceByTurn = new Map(sources.map(({ source }) => [source.turnId, source]));
-  // Select the latest rows before applying visibility. A removed/redacted current
-  // version must not cause a fallback to an older version or a transport copy.
-  const versions = (await db.select({ version: sql<string>`json_object(
-    'id', ${messageVersions.id}, 'turnId', ${messageVersions.turnId}, 'messageId', ${messageVersions.messageId},
-    'role', ${messageVersions.role}, 'version', ${messageVersions.version}, 'content', ${messageVersions.content}, 'isRedacted', ${messageVersions.isRedacted},
-    'firstVersion', (select min(${versionOrder.version}) from ${messageVersions} as history_version_order
-      where ${versionOrder.turnId} = ${messageVersions.turnId} and ${versionOrder.messageId} = ${messageVersions.messageId})
-  )`.mapWith(parse<Version>) }).from(messageVersions).where(and(inArray(messageVersions.turnId, turnIds),
-    inArray(messageVersions.role, ["user", "assistant"]), isNull(messageVersions.supersededAt)))
-    .orderBy(desc(messageVersions.version))).map(row => row.version);
-  const events = (await db.select({ event: sql<string>`json_object(
+  const durableTurnIds = sources.filter(({ source }) => durableSource(source)).map(({ source }) => source.turnId);
+  const legacyTurnIds = sources.filter(({ source }) => !durableSource(source)).map(({ source }) => source.turnId);
+  // Durable bodies no longer depend on replay rows. Keep the same event-level
+  // withdrawal gate, but project at most one unsafe identity per candidate Turn
+  // instead of copying every streaming delta through a bounded native cursor.
+  const unsafeDurableTurnIds = new Set(durableTurnIds.length ? (await db.select({
+    turnId: sql<string>`json_quote(${turnStreamEvents.turnId})`.mapWith(parse<string>),
+  }).from(turnStreamEvents).where(and(inArray(turnStreamEvents.turnId, durableTurnIds),
+    inArray(turnStreamEvents.eventType, ["message", "delta", "done", "redacted"]),
+    or(eq(turnStreamEvents.eventType, "redacted"), inArray(turnStreamEvents.safetyDecision, ["blocked", "redacted"])),
+  )).groupBy(turnStreamEvents.turnId).limit(MAX_HISTORY_TURNS)).map(row => row.turnId) : []);
+  // Legacy, unlinked sources still need their approved final-attempt event
+  // projection. Do not change their qualification or substitute a durable body.
+  const events = legacyTurnIds.length ? (await db.select({ event: sql<string>`json_object(
     'turnId', ${turnStreamEvents.turnId}, 'attemptId', ${turnStreamEvents.attemptId}, 'sequence', ${turnStreamEvents.sequence},
     'eventType', ${turnStreamEvents.eventType}, 'safetyDecision', ${turnStreamEvents.safetyDecision}, 'data', json(${turnStreamEvents.data})
-  )`.mapWith(parse<Event>) }).from(turnStreamEvents).where(and(inArray(turnStreamEvents.turnId, turnIds),
-    inArray(turnStreamEvents.eventType, ["message", "delta", "done", "redacted"]))).orderBy(turnStreamEvents.sequence)).map(row => row.event);
-  const userByTurn = new Map<string, Version>();
-  const assistantsByTurn = new Map<string, Version[]>();
-  for (const version of versions) {
-    if (version.role === "user" && !userByTurn.has(version.turnId)) userByTurn.set(version.turnId, version);
-    if (version.role === "assistant") {
-      const rows = assistantsByTurn.get(version.turnId) ?? [];
-      rows.push(version); assistantsByTurn.set(version.turnId, rows);
-    }
-  }
+  )`.mapWith(parse<Event>) }).from(turnStreamEvents).where(and(inArray(turnStreamEvents.turnId, legacyTurnIds),
+    inArray(turnStreamEvents.eventType, ["message", "delta", "done", "redacted"]))).orderBy(turnStreamEvents.sequence)).map(row => row.event) : [];
   const eventsByTurn = new Map<string, Event[]>();
-  const identityIds = new Set(versions.map(version => version.messageId ?? version.id));
   for (const event of events) {
     const rows = eventsByTurn.get(event.turnId) ?? []; rows.push(event); eventsByTurn.set(event.turnId, rows);
-    const messageId = payload(event.data).messageId;
-    if (typeof messageId === "string") identityIds.add(messageId);
   }
-  const identities = identityIds.size ? (await db.select({ identity: sql<string>`json_object(
-    'id', ${messages.id}, 'role', ${messages.role}, 'currentVersionId', ${messages.currentVersionId}, 'deleted', ${messages.deletedAt} is not null
-  )`.mapWith(parse<Identity>) }).from(messages).where(and(eq(messages.sessionId, input.sessionId), inArray(messages.id, [...identityIds])))).map(row => row.identity) : [];
-  const identityById = new Map(identities.map(identity => [identity.id, identity]));
-  const currentVersion = (version: Version): boolean => {
-    const identity = identityById.get(version.messageId ?? version.id);
-    return version.isRedacted === 0 && !identity?.deleted && (!version.messageId || !!identity)
-      && (!identity || (identity.role === version.role && (version.messageId
-        ? identity.currentVersionId === version.id : !identity.currentVersionId || identity.currentVersionId === version.id)));
-  };
   const result: SessionHistoryMessage[][] = [];
   let remaining = MAX_HISTORY_CHARACTERS;
   for (const turn of previous) {
     const source = sourceByTurn.get(turn.id);
-    const user = userByTurn.get(turn.id);
-    if (!source || source.isRedacted !== 0 || !user || !currentVersion(user) || !user.content.trim()) continue;
+    if (!source || source.isRedacted !== 0) continue;
     const turnEvents = eventsByTurn.get(turn.id) ?? [];
-    if (turnEvents.some(event => event.eventType === "redacted" || event.safetyDecision === "blocked" || event.safetyDecision === "redacted")) continue;
-    const durable = source.messageId === source.versionId && !!source.requestHash && /^turn-intent-v1:[a-f0-9]{64}$/.test(source.requestHash);
+    if (unsafeDurableTurnIds.has(turn.id)
+      || turnEvents.some(event => event.eventType === "redacted" || event.safetyDecision === "blocked" || event.safetyDecision === "redacted")) continue;
+    // Read bodies one Turn at a time in the same snapshot. Individually legal
+    // native Turns can exceed a CursorWindow when twenty are copied together.
+    // Select latest rows before visibility; never fall back from a missing or
+    // redacted current identity to an older version or transport copy.
+    const versions = (await db.select({ version: sql<string>`json_object(
+      'id', ${messageVersions.id}, 'turnId', ${messageVersions.turnId}, 'messageId', ${messageVersions.messageId},
+      'role', ${messageVersions.role}, 'version', ${messageVersions.version}, 'content', ${messageVersions.content}, 'isRedacted', ${messageVersions.isRedacted},
+      'firstVersion', (select min(${versionOrder.version}) from ${messageVersions} as history_version_order
+        where ${versionOrder.turnId} = ${messageVersions.turnId} and ${versionOrder.messageId} = ${messageVersions.messageId})
+    )`.mapWith(parse<Version>) }).from(messageVersions).where(and(eq(messageVersions.turnId, turn.id),
+      inArray(messageVersions.role, ["user", "assistant"]), isNull(messageVersions.supersededAt)))
+      .orderBy(desc(messageVersions.version))).map(row => row.version);
+    const identityIds = new Set(versions.map(version => version.messageId ?? version.id));
+    for (const event of turnEvents) {
+      const messageId = payload(event.data).messageId;
+      if (typeof messageId === "string") identityIds.add(messageId);
+    }
+    const identities = identityIds.size ? (await db.select({ identity: sql<string>`json_object(
+      'id', ${messages.id}, 'role', ${messages.role}, 'currentVersionId', ${messages.currentVersionId}, 'deleted', ${messages.deletedAt} is not null
+    )`.mapWith(parse<Identity>) }).from(messages).where(and(eq(messages.sessionId, input.sessionId), inArray(messages.id, [...identityIds])))).map(row => row.identity) : [];
+    const identityById = new Map(identities.map(identity => [identity.id, identity]));
+    const currentVersion = (version: Version): boolean => {
+      const identity = identityById.get(version.messageId ?? version.id);
+      return version.isRedacted === 0 && !identity?.deleted && (!version.messageId || !!identity)
+        && (!identity || (identity.role === version.role && (version.messageId
+          ? identity.currentVersionId === version.id : !identity.currentVersionId || identity.currentVersionId === version.id)));
+    };
+    const user = versions.find(version => version.role === "user");
+    if (!user || !currentVersion(user) || !user.content.trim()) continue;
+    const durable = durableSource(source);
     let assistantBodies: string[];
     if (durable) {
-      const assistants = assistantsByTurn.get(turn.id) ?? [];
+      const assistants = versions.filter(version => version.role === "assistant");
       // Keep multiple assistant identities in their original creation order,
       // independent of later user edits advancing one identity's version number.
       if (!assistants.length || assistants.some(version => !version.messageId || !currentVersion(version))) continue;

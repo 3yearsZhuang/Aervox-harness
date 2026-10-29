@@ -13,7 +13,7 @@ vi.mock('pixi.js', () => ({
   },
 }));
 vi.mock('../src/live2d/model', () => ({ fetchModel3Json: mock.assets }));
-vi.mock('@sekai-world/pixi-live2d-display-mulmotion', () => ({ Live2DModel: { from: mock.model } }));
+vi.mock('@sekai-world/pixi-live2d-display-mulmotion/cubism4', () => ({ Live2DModel: { from: mock.model } }));
 import { AervoxLive2DController } from '../src/live2d/controller';
 import type { AervoxLive2DModel } from '../src/live2d/model';
 const assets = { manifest: { FileReferences: {} }, manifestUrl: 'http://localhost/model.json' };
