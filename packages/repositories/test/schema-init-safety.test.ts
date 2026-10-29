@@ -8,7 +8,7 @@ import { addColumnIfMissing } from "./fixtures/legacy-ddl/common.js";
 
 describe("Schema 初始化与列迁移安全 (Issue 4 & 5)", () => {
   it("does not certify a conflicting version receipt written after its empty-file inspection", async () => {
-    const database = await createInMemoryDatabase();
+    const database = await createInMemoryDatabase({ empty: true });
     const concurrent = new Proxy(database.client, {
       get(target, property) {
         if (property === "batch") return async (...args: Parameters<Client["batch"]>) => {
