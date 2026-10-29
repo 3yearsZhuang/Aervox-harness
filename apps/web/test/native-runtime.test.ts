@@ -1,14 +1,17 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createClient, type Client, type InStatement, type ResultSet, type Transaction } from '@libsql/client';
+import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { AervoxTransport, TurnCallbacks } from '@aervox/api-client';
 import type { ModelRequest } from '@aervox/core/browser';
 import type { SessionHistoryPage } from '@aervox/contracts';
-import type { NativeSqliteRequest } from '@aervox/repositories/native-sqlite-client';
+import { NativeSqliteClient, type NativeSqliteRequest } from '@aervox/repositories/native-sqlite-client';
 import { decodeNativeSqliteValue, encodeNativeSqliteValue } from '@aervox/repositories/native-sqlite-values';
+import { ConversationRepository } from '@aervox/repositories/conversation';
+import { createInjectedDatabase } from '@aervox/repositories/database';
 import { initializeCanonicalSchema } from '../../../packages/repositories/src/schema/manifest';
 import { initializeNativeRuntime } from '../src/mobile/native-runtime';
 
@@ -57,15 +60,26 @@ async function fixture() {
   await initializeCanonicalSchema(database, 'main');
   let transaction: Transaction | undefined;
   let owner: string | null = null, counter = 0, configured = true, loseCommit = false;
-  let commits = 0;
+  let commits = 0, sqliteRequests = 0;
+  let paused: { point: 'runtime' | 'summary' | 'committed'; entered: () => void; resume: Promise<void> } | undefined;
+  const checkpoint = async (point: 'runtime' | 'summary' | 'committed') => {
+    if (paused?.point !== point) return;
+    const gate = paused; paused = undefined; gate.entered(); await gate.resume;
+  };
   const resultRows: number[] = [];
   const argumentCounts: number[] = [], windowSizes: number[] = [];
   let modelEvents: { sequence: number; type: string; data?: string; code?: string }[] = [], modelStatus = 'completed', nativeCancels = 0;
   const byteLength = (value: string) => new TextEncoder().encode(value).byteLength;
   const dispatch = async (body: Record<string, unknown>) => {
     if (byteLength(JSON.stringify({ version: 1, id: crypto.randomUUID(), body })) > 1024 * 1024) throw new Error('NATIVE_REQUEST_BYTE_LIMIT');
-    if (body.op === 'runtime') return { kind: 'runtime', sqlite: 'ready', connectionEpoch: epoch, mode: 'foreground' };
-    if (body.op === 'model' && body.operation === 'summary') return { kind: 'summary', hasCredential: configured };
+    if (body.op === 'runtime') {
+      await checkpoint('runtime');
+      return { kind: 'runtime', sqlite: 'ready', connectionEpoch: epoch, mode: 'foreground' };
+    }
+    if (body.op === 'model' && body.operation === 'summary') {
+      await checkpoint('summary');
+      return { kind: 'summary', hasCredential: configured };
+    }
     if (body.op === 'model' && body.operation === 'start') {
       mocks.modelCalls++; mocks.entered = true;
       return { kind: 'started', requestId: body.requestId };
@@ -84,6 +98,7 @@ async function fixture() {
       return { kind: 'disposed', connectionEpoch: epoch };
     }
     if (body.op !== 'sqlite') throw new Error('UNEXPECTED_NATIVE_OPERATION');
+    sqliteRequests++;
     const request = body as unknown as NativeSqliteRequest;
     expect(request.connectionEpoch).toBe(epoch);
     if (request.operation === 'begin') {
@@ -124,6 +139,9 @@ async function fixture() {
     if (request.operation === 'commit') {
       commits++;
       if (loseCommit) { loseCommit = false; throw new Error('LOST_NATIVE_COMMIT_RECEIPT'); }
+      // The real transaction has committed; only its bridge receipt is held.
+      // Lifecycle signals here must not turn that accepted work into a new run.
+      await checkpoint('committed');
     }
     return { kind: 'terminal', connectionEpoch: epoch, transactionId: request.transactionId,
       outcome: request.operation === 'commit' ? 'committed' : 'rolledBack' };
@@ -132,6 +150,12 @@ async function fixture() {
   const start = () => initializeNativeRuntime();
   const count = async (table: string) => Number((await database.execute(`SELECT count(*) AS n FROM ${table}`)).rows[0]?.n);
   return { database, start, count, directory, resultRows, argumentCounts, windowSizes,
+    pauseNext(point: 'runtime' | 'summary' | 'committed') {
+      let entered!: () => void, release!: () => void;
+      const reached = new Promise<void>(resolve => { entered = resolve; });
+      const resume = new Promise<void>(resolve => { release = resolve; });
+      paused = { point, entered, resume }; return { reached, release };
+    },
     setModel(pieces: string[], status = 'completed') {
       mocks.realProvider = true; modelStatus = status;
       modelEvents = pieces.map((content, index) => ({ sequence: index + 1, type: 'data',
@@ -142,6 +166,7 @@ async function fixture() {
         { sequence: modelEvents.length + 2, type: 'done' });
     },
     get nativeCancels() { return nativeCancels; },
+    get sqliteRequests() { return sqliteRequests; },
     setConfigured(value: boolean) { configured = value; },
     loseNextCommit() { loseCommit = true; }, get commits() { return commits; },
     async close() {
@@ -166,9 +191,138 @@ beforeEach(async () => {
   mocks.modelCalls = 0; mocks.holding = false; mocks.entered = false; mocks.contexts = []; mocks.chunks = 1; mocks.realProvider = false; mocks.native.mockReset();
   current = await fixture();
 });
-afterEach(async () => { await current?.close(); current = undefined; });
+afterEach(async () => { await current?.close(); current = undefined; vi.restoreAllMocks(); });
 
 describe('Android local conversation composition over actual SQLite', () => {
+  it('does not bootstrap SQL from a readiness receipt that arrives after page retirement', async () => {
+    const fixture = current!, gate = fixture.pauseNext('runtime');
+    const result = fixture.start().then(() => undefined, error => error);
+    await gate.reached;
+    window.dispatchEvent(new Event('pagehide')); gate.release();
+    expect(await result).toMatchObject({ code: 'HOST_CLOSED' });
+    expect(fixture.sqliteRequests).toBe(0); expect(mocks.modelCalls).toBe(0);
+  });
+
+  it('rejects retired transport reads and sends before native admission', async () => {
+    const fixture = current!, transport = await fixture.start(); await session(transport);
+    window.dispatchEvent(new Event('pagehide')); await new Promise(resolve => setTimeout(resolve, 0));
+    await expect(transport.request('GET', '/v1/sessions')).rejects.toMatchObject({ code: 'HOST_CLOSED' });
+    await expect(transport.streamTurn('phone_session', '旧页面迟到发送', callbacks().value))
+      .rejects.toMatchObject({ code: 'HOST_CLOSED' });
+    expect(await fixture.count('turns')).toBe(0); expect(mocks.modelCalls).toBe(0);
+  });
+
+  it('does not accept a delayed model readiness receipt after its page retires', async () => {
+    const fixture = current!, transport = await fixture.start(); await session(transport);
+    const gate = fixture.pauseNext('summary');
+    const result = transport.streamTurn('phone_session', '准备期间关闭', callbacks().value)
+      .then(() => undefined, error => error);
+    await gate.reached;
+    window.dispatchEvent(new Event('pagehide')); gate.release();
+    expect(await result).toMatchObject({ code: 'HOST_CLOSED' });
+    expect(await fixture.count('turns')).toBe(0); expect(mocks.modelCalls).toBe(0);
+  });
+
+  it('refuses pre-admission work after a background interval while model readiness was pending', async () => {
+    const fixture = current!, transport = await fixture.start(); await session(transport);
+    const gate = fixture.pauseNext('summary');
+    const result = transport.streamTurn('phone_session', '准备期间切换应用', callbacks().value)
+      .then(() => undefined, error => error);
+    await gate.reached;
+    const visibility = vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
+    document.dispatchEvent(new Event('visibilitychange'));
+    visibility.mockReturnValue(false); document.dispatchEvent(new Event('visibilitychange'));
+    gate.release();
+    expect(await result).toMatchObject({ status: 422, code: 'HOST_NOT_FOREGROUND' });
+    expect(await fixture.count('turns')).toBe(0); expect(mocks.modelCalls).toBe(0);
+  });
+
+  it('does not start a retired execution after its acceptance commit receipt arrives', async () => {
+    const fixture = current!, transport = await fixture.start(); await session(transport);
+    const gate = fixture.pauseNext('committed');
+    const result = transport.streamTurn('phone_session', '提交期间关闭', callbacks().value, { idempotencyKey: 'retired_acceptance' })
+      .then(() => undefined, error => error);
+    await gate.reached;
+    expect(await fixture.count('turns')).toBe(1);
+    window.dispatchEvent(new Event('pagehide')); gate.release();
+    expect(await result).toMatchObject({ code: 'HOST_CLOSED' });
+    expect(mocks.modelCalls).toBe(0);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    const reopened = await fixture.start();
+    await reopened.streamTurn('phone_session', '提交期间关闭', callbacks().value, { idempotencyKey: 'retired_acceptance' });
+    expect(await fixture.count('turns')).toBe(1); expect(mocks.modelCalls).toBe(0);
+    expect((await fixture.database.execute('SELECT status FROM turns')).rows[0]?.status).toBe('Interrupted');
+  });
+
+  it('durably cancels accepted work when the app hides before its commit receipt arrives', async () => {
+    const fixture = current!, transport = await fixture.start(); await session(transport);
+    const gate = fixture.pauseNext('committed');
+    let accepted = '';
+    const running = transport.streamTurn('phone_session', '提交期间进入后台', callbacks().value, { onAccepted: id => { accepted = id; } });
+    await gate.reached;
+    vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
+    document.dispatchEvent(new Event('visibilitychange')); gate.release();
+    await running;
+    expect(accepted).not.toBe(''); expect(mocks.modelCalls).toBe(0);
+    expect((await fixture.database.execute('SELECT status FROM turns')).rows[0]?.status).toBe('Cancelled');
+    expect((await fixture.database.execute('SELECT status FROM turn_attempts')).rows[0]?.status).toBe('Cancelled');
+  });
+
+  it.each(['Running', 'CancelRequested'] as const)('preserves a recent %s lease on restart and retires it once expired without rerunning the model', async status => {
+    const fixture = current!, ctx = { workspaceId: 'local', subjectUserId: 'local' };
+    // This durable state is the boundary left by a terminated process. Seed it
+    // through the product's actual acceptance, claim and safe-segment commands.
+    const client = new NativeSqliteClient({ request: request => mocks.native({ op: 'sqlite', ...request }),
+      dispose: connectionEpoch => mocks.native({ op: 'dispose', connectionEpoch }) }, { connectionEpoch: epoch });
+    const repo = new ConversationRepository(createInjectedDatabase(client), {
+      randomUUID: () => crypto.randomUUID(), sha256Utf8: value => createHash('sha256').update(value).digest('hex'),
+      wakeOutbox: () => false,
+    });
+    await repo.getOrCreateSession(ctx, 'phone_session');
+    await repo.acceptTurn(ctx, { turnId: 'terminated_turn', attemptId: 'terminated_attempt',
+      sessionId: 'phone_session', idempotencyKey: 'terminated_intent', consumeInbox: false,
+      message: { id: 'terminated_user', content: '进程终止前的问题' } });
+    const lease = await repo.claimTurnAttempt(ctx, { turnId: 'terminated_turn', attemptId: 'terminated_attempt',
+      expectedFencingToken: 0, leaseId: 'terminated_owner', ttlMs: 60_000 });
+    expect(lease.ok).toBe(true);
+    await repo.appendStreamEvent(ctx, { id: 'terminated_message', turnId: 'terminated_turn', attemptId: 'terminated_attempt',
+      expectedFencingToken: lease.fencingToken, sequence: 1, eventType: 'message', safetyDecision: 'approved',
+      data: { messageId: 'terminated_assistant', role: 'assistant' } });
+    await repo.recordSafeSegmentAtomically(ctx, { turnId: 'terminated_turn', attemptId: 'terminated_attempt',
+      expectedFencingToken: lease.fencingToken, sequence: 2, text: '终止前已提交的安全前缀', safetyDecision: 'approved',
+      eventData: { messageId: 'terminated_assistant', text: '终止前已提交的安全前缀' } });
+    if (status === 'CancelRequested') await repo.requestCancelTurnAttempt(ctx, { turnId: 'terminated_turn', attemptId: 'terminated_attempt' });
+
+    const timer = vi.spyOn(globalThis, 'setInterval');
+    const reopened = await fixture.start();
+    expect((await repo.listTurnAttempts(ctx, 'terminated_turn'))[0]).toMatchObject({ status, fencingToken: 1, finishedAt: null });
+    expect((await repo.getStreamEvents(ctx, 'terminated_turn')).filter(event => event.eventType === 'done')).toHaveLength(0);
+    const recoveryTick = timer.mock.calls.find(([, interval]) => interval === 5000)?.[0];
+    expect(recoveryTick).toBeTypeOf('function');
+    const trigger = recoveryTick as () => void;
+    // Expire only this fixture lease, then invoke the composition's periodic
+    // recovery callback; do not call the repository recovery helper directly.
+    await fixture.database.execute({ sql: 'UPDATE turn_attempts SET lease_expires_at=? WHERE id=?',
+      args: [new Date(Date.now() - 1000).toISOString(), 'terminated_attempt'] });
+    const before = fixture.commits; trigger();
+    await vi.waitFor(() => expect(fixture.commits).toBeGreaterThan(before));
+    const terminal = status === 'Running' ? 'Interrupted' : 'Cancelled';
+    expect((await repo.listTurnAttempts(ctx, 'terminated_turn'))[0]).toMatchObject({ status: terminal, fencingToken: 2, finishedAt: expect.any(String) });
+    const events = await repo.getStreamEvents(ctx, 'terminated_turn');
+    expect(events.filter(event => event.eventType === 'done')).toMatchObject([{ data: { status: terminal, isComplete: false, reason: 'execution_recovered' } }]);
+    const history = await reopened.request<SessionHistoryPage>('GET', '/v1/sessions/phone_session/history');
+    expect(history.items[0]).toMatchObject({ status: terminal, isComplete: false });
+    expect(history.items[0]?.messages.at(-1)?.content).toBe('终止前已提交的安全前缀');
+    await expect(repo.recordSafeSegmentAtomically(ctx, { turnId: 'terminated_turn', attemptId: 'terminated_attempt',
+      expectedFencingToken: lease.fencingToken, sequence: 4, text: '旧所有者迟到写', safetyDecision: 'approved',
+      eventData: { messageId: 'terminated_assistant', text: '旧所有者迟到写' } })).rejects.toThrow();
+    const recoveredCommits = fixture.commits; trigger();
+    await vi.waitFor(() => expect(fixture.commits).toBeGreaterThan(recoveredCommits));
+    expect(await repo.getStreamEvents(ctx, 'terminated_turn')).toEqual(events);
+    expect(await reopened.request('GET', '/v1/sessions/phone_session/history')).toEqual(history);
+    expect(mocks.modelCalls).toBe(0);
+  });
+
   it('commits one accepted execution, persists its answer, reopens history, and deletes the local session', async () => {
     const fixture = current!, transport = await fixture.start();
     const created = await session(transport), first = callbacks();

@@ -19,10 +19,35 @@ const encoder = new TextEncoder();
 const fail = (status: number, code: string): never => { throw new AervoxHttpError(status, 'native', { code, message: code }); };
 const identifier = (value: string) => { if (!value || value.length > 128 || value.includes('\0')) fail(400, 'INVALID_IDENTIFIER'); return value; };
 export async function initializeNativeRuntime(): Promise<AervoxTransport> {
-  const ready = await nativeRequest({ op: 'runtime' });
+  let active: { turnId: string; attemptId: string; sessionId: string; control: ControlContext; done: Promise<unknown> } | undefined;
+  let nativeClient: NativeSqliteClient | undefined;
+  let recoveryTimer: ReturnType<typeof setInterval> | undefined;
+  let accepting = false;
+  let retired = false;
+  let foregroundRevision = 0;
+  let cancelActive = async () => {};
+  const checkOpen = () => { if (retired) fail(503, 'HOST_CLOSED'); };
+  const visibilityChanged = () => {
+    if (document.hidden) { foregroundRevision++; void cancelActive().catch(() => undefined); }
+  };
+  const retire = () => {
+    retired = true;
+    clearInterval(recoveryTimer);
+    window.removeEventListener('pagehide', retire);
+    document.removeEventListener('visibilitychange', visibilityChanged);
+    active?.control.abort();
+    nativeClient?.close();
+  };
+  // Capture retirement before the first native receipt, including bootstrap.
+  window.addEventListener('pagehide', retire, { once: true });
+  document.addEventListener('visibilitychange', visibilityChanged);
+  const ready = await nativeRequest({ op: 'runtime' }).catch(error => { retire(); throw error; });
+  checkOpen();
   if (ready?.kind !== 'runtime' || ready.sqlite !== 'ready' || ready.mode !== 'foreground'
-    || typeof ready.connectionEpoch !== 'string' || !ready.connectionEpoch) throw new Error('NATIVE_DATABASE_UNAVAILABLE');
-  const client = new NativeSqliteClient({
+    || typeof ready.connectionEpoch !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(ready.connectionEpoch)) {
+    retire(); throw new Error('NATIVE_DATABASE_UNAVAILABLE');
+  }
+  const client = nativeClient = new NativeSqliteClient({
     request: request => nativeRequest({ op: 'sqlite', ...request }),
     dispose: connectionEpoch => nativeRequest({ op: 'dispose', connectionEpoch }),
   }, { connectionEpoch: ready.connectionEpoch });
@@ -35,22 +60,18 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
   const nativeModelProvider = createNativeModelProvider(nativeRequest, async request => {
     await store.requestCancelAttempt({ turnId: request.turnId, attemptId: request.attemptId });
   });
-  let active: { turnId: string; attemptId: string; sessionId: string; control: ControlContext; done: Promise<unknown> } | undefined;
-  let accepting = false;
-  let retired = false;
   const recovery = () => repo.recoverExpiredAttempts(client, { dispatchTarget: 'default', unclaimedTimeoutMs: 0 });
-  await recovery();
+  await recovery().catch(error => { retire(); throw error; });
+  checkOpen();
   // Expired executions are retired by the repository; never replay model work.
   // A recent lease stays visible until expiry instead of stealing its identity.
-  const recoveryTimer = setInterval(() => { if (!active && !accepting) void recovery().catch(() => undefined); }, 5000);
-  window.addEventListener('pagehide', () => { retired = true; clearInterval(recoveryTimer); active?.control.abort(); client.close(); }, { once: true });
-  const cancelActive = async () => {
+  recoveryTimer = setInterval(() => { if (!active && !accepting) void recovery().catch(() => undefined); }, 5000);
+  cancelActive = async () => {
     const owner = active;
     if (!owner) return;
     await store.requestCancelAttempt({ turnId: owner.turnId, attemptId: owner.attemptId });
     owner.control.abort();
   };
-  document.addEventListener('visibilitychange', () => { if (document.hidden) void cancelActive().catch(() => undefined); });
 
   const observe = async (turnId: string, callbacks: TurnCallbacks, options: ObserveTurnOptions = {}) => {
     const checkOpen = () => {
@@ -98,6 +119,7 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
   };
   return {
     async request<T>(method: string, path: string, body?: unknown, options?: { signal?: AbortSignal }): Promise<T> {
+      checkOpen();
       options?.signal?.throwIfAborted();
       const url = new URL(path, 'https://localhost');
       if (!path.startsWith('/v1/') || url.origin !== 'https://localhost') fail(400, 'INVALID_NATIVE_PATH');
@@ -141,10 +163,14 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
           result = { ok: true };
         } else fail(501, 'FEATURE_NOT_CONNECTED');
       }
+      checkOpen();
       return result as T;
     },
     async streamTurn(sessionId, content, callbacks, options = {}) {
+      checkOpen();
       options.signal?.throwIfAborted();
+      if (document.hidden) fail(422, 'HOST_NOT_FOREGROUND');
+      const admissionRevision = foregroundRevision;
       identifier(sessionId);
       // Admission's Outbox payload contains two JSON copies of the input.
       // Reserve 16 KiB in its 256 KiB native bind for the remaining envelope.
@@ -156,6 +182,9 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       let turnId: string;
       try {
         const model = await nativeRequest({ op: 'model', operation: 'summary' });
+        checkOpen();
+        // A background/foreground round trip cannot revive a pending send.
+        if (document.hidden || admissionRevision !== foregroundRevision) fail(422, 'HOST_NOT_FOREGROUND');
         if (model?.kind !== 'summary' || typeof model.hasCredential !== 'boolean') fail(503, 'MODEL_STATE_UNAVAILABLE');
         // This check runs before acceptance: missing configuration is a definite
         // refusal, unlike a 409 whose earlier acceptance may still be unknown.
@@ -164,8 +193,14 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
           idempotencyKey: options.idempotencyKey ?? crypto.randomUUID(), message: { id: `msg_${crypto.randomUUID()}`, content, contentType: 'text' },
           consumeInbox: false, toolApprovalMode: 'ask', metadata: options.metadata,
         });
+        checkOpen();
         turnId = accepted.turn.id;
-        if (accepted.created) {
+        if (accepted.created && (document.hidden || admissionRevision !== foregroundRevision)) {
+          // The commit is authoritative even if its receipt crossed onStop.
+          // Retire this unclaimed Attempt through the shared cancellation
+          // transaction; never start model work to manufacture a terminal.
+          await store.requestCancelAttempt({ turnId, attemptId: accepted.attempt.id });
+        } else if (accepted.created) {
           const control = new ControlContext({ turnId, sessionId, attemptId: accepted.attempt.id, deadlineEpochMs: Date.now() + 180_000 });
           const owner = { turnId, sessionId, attemptId: accepted.attempt.id, control, done: Promise.resolve() as Promise<unknown> };
           active = owner;
@@ -183,6 +218,7 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
           void owner.done.catch(() => undefined);
         }
       } finally { accepting = false; }
+      checkOpen();
       await options.onAccepted?.(turnId!);
       await observe(turnId!, callbacks, { signal: options.signal });
     },
