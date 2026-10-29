@@ -21,6 +21,7 @@ vi.mock('@aervox/ui/material3', () => ({ useMaterial3: () => true, useMobileBack
 vi.mock('@aervox/plugin-workbench-ui', () => ({ default: { id: 'desktop' }, compactSurface: { id: 'compact' } }));
 vi.mock('@aervox/plugin-proactive-ui', () => ({ default: { id: 'proactive' } }));
 vi.mock('@aervox/plugin-focus-mode/ui', () => ({ default: { id: 'focus' } }));
+vi.mock('@aervox/plugin-flowcampus/ui', () => ({ default: { id: 'campus' } }));
 vi.mock('@aervox/plugin-panels-ui', () => ({ settingsPanels: [{ category: 'voice', component: { name: 'WebSettings' } }] }));
 vi.mock('../src/mobile/NativeRuntimePanel.vue', () => ({ default: { name: 'NativeRuntimePanel', render: () => null } }));
 vi.mock('element-plus/es/components/message/index.mjs', () => ({ ElMessage: { error: vi.fn() } }));
@@ -43,7 +44,7 @@ it('preserves the existing web surfaces, first-party plugin and settings when no
   const wrapper = mount(App);
   const props = wrapper.getComponent(UISurfaceHost).props();
   expect(props.plugin.id).toBe('desktop');
-  expect(props.plugins).toEqual([{ id: 'focus' }]);
+  expect(props.plugins).toEqual([{ id: 'focus' }, { id: 'campus' }]);
   expect(props.settingsPanels).toEqual([{ category: 'voice', component: { name: 'WebSettings' } }]);
   expect(props.viewProps.nativeRuntime).toBe(false);
   expect(props.viewProps.draftStorage).toBeUndefined();

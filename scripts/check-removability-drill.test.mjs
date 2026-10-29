@@ -30,7 +30,7 @@ function assertRemovedPlugins(removed) {
       assert.equal(imports.some((specifier) => specifier.startsWith(`${plugin.package}/`)), !absent, file);
       if (file.endsWith(".vue")) {
         assert.equal(source.includes(`${plugin.variable}.default`), !absent, file);
-        assert.match(source, /const pluginDefinitions: BuiltinUIPlugin\[\] = \[/, file);
+        assert.match(source, /const pluginDefinitions: BuiltinUIPlugin\[\] = (?:nativeRuntime \? \[\] : )?\[/, file);
         assert.match(source, /:plugins="pluginDefinitions"/, file);
       }
     }
