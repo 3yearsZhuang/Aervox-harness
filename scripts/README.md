@@ -1,5 +1,7 @@
 # Aervox 仓库脚本工具集 (scripts/)
 
+> 项目文档入口：[文档导航](../docs/README.md) · 开发规范：[贡献指南](../CONTRIBUTING.md)
+
 本目录包含 Aervox 项目的架构守卫、门禁分析、契约验证、领域专项研究套件及基准测试工具。
 
 所有脚本均遵循统一工具链锁定规范。优先使用 `./aervox` 或 `mise tasks run <task>`；下表中的 `pnpm`、`node` 指令需加 `mise exec --` 前缀，或在已激活 mise 的终端中执行。

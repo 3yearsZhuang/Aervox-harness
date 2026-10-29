@@ -6,6 +6,15 @@ id: AVX-DOC-001
 
 按当前任务选入口。需要安装和首次运行时，从[从哪开始](getting-started.md)开始；开发与写作规则见[贡献指南](../CONTRIBUTING.md)，迭代排序见[当前计划](../plan.md)。
 
+## 快速入口
+
+| 分类 | 描述 | 入口 |
+|---|---|---|
+| 📖 教程 | 安装与首次对话 | [从哪开始](getting-started.md) |
+| 🔧 操作指南 | 具体工程操作步骤 | [操作指南](how-to/README.md) |
+| 📋 参考文档 | 契约、规范与决策 | [参考文档索引](reference/README.md) |
+| 💡 解释与研究 | 机制背景与设计取舍 | [解释与研究](explanation/README.md) |
+
 ## 按任务查阅
 
 | 要解决的问题 | 入口 |
@@ -36,3 +45,19 @@ id: AVX-DOC-001
 已完成的卫生审计及整理前的计划、架构详细证据见[归档包](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation)；旧 CR-030 D2 目标 ERD 另见[历史图](https://github.com/3yearsZhuang/Aervox-docs-archive/blob/397d4b4bc924d1315205577ed4fb88a4df2c0619/archive/database-sqlite-erd-cr030-target.md)，现行表结构以 Schema 源码为准。活动计划保留原编号、剩余验收和交付链接，归档不改变需求或发布状态。
 
 第一方根界面与平台装配见 [ADR-025](reference/adr/ADR-025-ui-surface-hosts.md)，第三方界面开放的未决提案见 [ADR-026](reference/adr/ADR-026-ui-surface-open-ecosystem.md)。
+
+## 文档地图
+
+除 `docs/` 外，以下位置也包含面向开发者的文档：
+
+| 位置 | 内容 |
+|---|---|
+| [apps/desktop/README](../apps/desktop/README.md) | 桌面端（Electron）架构与开发 |
+| [apps/web/README](../apps/web/README.md) | Web 工作台开发与技术栈 |
+| [apps/api/README](../apps/api/README.md) | API 服务配置与启动 |
+| [apps/cli/README](../apps/cli/README.md) | CLI 终端入口使用说明 |
+| [apps/mobile/README](../apps/mobile/README.md) | Android 工程构建指引 |
+| [packages/core/README](../packages/core/README.md) | Agent 内核独立开发 |
+| [plugins/README](../plugins/README.md) | 插件生态入口 |
+| [plugins/SPECIFICATION](../plugins/SPECIFICATION.md) | 插件构成规范与文件标准 |
+| [scripts/README](../scripts/README.md) | 仓库脚本工具集索引 |
