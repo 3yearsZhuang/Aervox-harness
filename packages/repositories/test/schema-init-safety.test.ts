@@ -1,8 +1,76 @@
 import { describe, it, expect } from "vitest";
-import { createInMemoryDatabase, initDatabaseSchema } from "../src/index.js";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import type { Client } from "@libsql/client";
+import { createDatabase, createInMemoryDatabase, initDatabaseSchema, inspectSchemaParity } from "../src/index.js";
 import { addColumnIfMissing } from "./fixtures/legacy-ddl/common.js";
 
 describe("Schema 初始化与列迁移安全 (Issue 4 & 5)", () => {
+  it("does not certify a conflicting version receipt written after its empty-file inspection", async () => {
+    const database = await createInMemoryDatabase();
+    const concurrent = new Proxy(database.client, {
+      get(target, property) {
+        if (property === "batch") return async (...args: Parameters<Client["batch"]>) => {
+          const result = await target.batch(...args);
+          await target.execute("INSERT INTO _aervox_schema_versions (scope, version, fingerprint, applied_at) VALUES ('main', '999', 'conflicting-release', '2026-10-29')");
+          return result;
+        };
+        const value = Reflect.get(target, property);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    });
+    try {
+      await expect(initDatabaseSchema(concurrent)).rejects.toThrow("version/fingerprint mismatch");
+      const receipt = await database.client.execute("SELECT version, fingerprint FROM _aervox_schema_versions WHERE scope = 'main'");
+      expect(receipt.rows[0]?.version).toBe("999");
+      expect(receipt.rows[0]?.fingerprint).toBe("conflicting-release");
+    } finally {
+      await database.cleanup();
+    }
+  });
+
+  it("API and Worker may both observe the same empty file before initializing it", async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), "aervox-schema-race-"));
+    const url = `file:${path.join(directory, "shared.db")}`;
+    const first = await createDatabase({ url });
+    const second = await createDatabase({ url });
+    let arrivals = 0;
+    let release!: () => void;
+    const ready = new Promise<void>((resolve) => { release = resolve; });
+    const synchronized = (client: Client): Client => {
+      let initial = true;
+      return new Proxy(client, {
+        get(target, property) {
+          if (property === "execute") return async (...args: Parameters<Client["execute"]>) => {
+            const result = await target.execute(...args);
+            if (initial && args[0] === "PRAGMA table_list") {
+              initial = false;
+              arrivals++;
+              if (arrivals === 2) release();
+              await ready;
+            }
+            return result;
+          };
+          const value = Reflect.get(target, property);
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      });
+    };
+    try {
+      await expect(Promise.all([
+        initDatabaseSchema(synchronized(first.client)),
+        initDatabaseSchema(synchronized(second.client)),
+      ])).resolves.toEqual([undefined, undefined]);
+      expect(await inspectSchemaParity(first.client, "main")).toEqual([]);
+      expect((await first.client.execute("SELECT * FROM _aervox_schema_versions")).rows).toHaveLength(1);
+    } finally {
+      first.client.close();
+      second.client.close();
+      await fs.rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it("addColumnIfMissing: 正常添加列并幂等处理已存在的 duplicate column", async () => {
     const { client, cleanup } = await createInMemoryDatabase();
     try {

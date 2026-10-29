@@ -273,7 +273,9 @@ export async function inspectSchemaParity(client: Client, scope: SchemaScope, op
 
 export class SchemaMigrationRequiredError extends Error {
   readonly code = "SCHEMA_STAGING_MIGRATION_REQUIRED";
-  constructor(readonly issues: readonly string[]) { super(`Database requires explicit staging migration; source was not modified:\n${issues.join("\n")}`); }
+  constructor(readonly issues: readonly string[], sourceUnmodified = true) {
+    super(`Database requires explicit staging migration; ${sourceUnmodified ? "source was not modified" : "concurrent initialization failed verification; retain database files for inspection"}:\n${issues.join("\n")}`);
+  }
 }
 
 export async function initializeCanonicalSchema(client: Client, scope: SchemaScope): Promise<void> {
@@ -304,9 +306,21 @@ export async function initializeCanonicalSchema(client: Client, scope: SchemaSco
     const issues = await inspectSchemaParity(client, scope, { allowUnversioned: !versionTableExists });
     if (issues.length) throw new SchemaMigrationRequiredError(issues);
   } else {
-    const statements = schemaManifest(scope).flatMap((table) => [table.sql.replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS "), ...table.indexes.map((index) => index.sql)]);
+    // API and Worker can both inspect a fresh file before either commits its DDL.
+    // Both tables and indexes must tolerate the other initializer winning the batch.
+    const statements = schemaManifest(scope).flatMap((table) => [
+      table.sql.replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS "),
+      ...table.indexes.map((index) => index.sql.replace(/^(CREATE (?:UNIQUE )?INDEX) /, "$1 IF NOT EXISTS ")),
+    ]);
     await client.batch(statements, "write");
+    // IF NOT EXISTS alone cannot certify an object created by a concurrent writer.
+    const issues = await inspectSchemaParity(client, scope);
+    if (issues.length) throw new SchemaMigrationRequiredError(issues, false);
   }
   if (!versionTableExists) await client.execute(schemaManifest(scope).find((table) => table.name === VERSION_TABLE)!.sql.replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS "));
   await client.execute({ sql: SCHEMA_VERSION_JOURNAL_SQL, args: { scope, version: String(CURRENT_SCHEMA_VERSION), fingerprint, applied_at: new Date().toISOString() } });
+  const receipt = await client.execute({ sql: `SELECT version, fingerprint FROM ${quoteSqlIdentifier(VERSION_TABLE)} WHERE scope = ?`, args: [scope] });
+  if (String(receipt.rows[0]?.version) !== String(CURRENT_SCHEMA_VERSION) || receipt.rows[0]?.fingerprint !== fingerprint) {
+    throw new SchemaMigrationRequiredError([`${scope}: migration version/fingerprint mismatch`], false);
+  }
 }
