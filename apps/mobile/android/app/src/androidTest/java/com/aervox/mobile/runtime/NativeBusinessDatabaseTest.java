@@ -32,8 +32,14 @@ public final class NativeBusinessDatabaseTest {
                     "persisted", "手机会话\0尾", "2026-10-27T00:00:00Z", "2026-10-27T00:00:00Z");
                 assertEquals("1", first.scalar("SELECT count(*) FROM _aervox_schema_versions"));
                 assertEquals("1", first.scalar("SELECT count(*) FROM sessions"));
-                assertEquals("0", first.scalar("SELECT count(*) FROM sqlite_master WHERE name='android_metadata'"));
-                assertEquals("2", first.scalar("SELECT count(*) FROM sqlite_master WHERE name IN ('messages_fts','memories_fts')"));
+            }
+            // Schema inspection belongs to the trusted native initializer.
+            // The ordinary SQL bridge deliberately rejects sqlite_* metadata.
+            try (SQLiteDatabase inspected = direct(fixture.file(), false);
+                 Cursor metadata = inspected.rawQuery("SELECT count(*) FROM sqlite_master WHERE name='android_metadata'", null);
+                 Cursor fts = inspected.rawQuery("SELECT count(*) FROM sqlite_master WHERE name IN ('messages_fts','memories_fts')", null)) {
+                assertTrue(metadata.moveToFirst()); assertEquals(0, metadata.getInt(0));
+                assertTrue(fts.moveToFirst()); assertEquals(2, fts.getInt(0));
             }
             try (Owner second = fixture.open()) {
                 assertEquals("1", second.scalar("SELECT count(*) FROM sessions WHERE id='persisted'"));
