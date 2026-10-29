@@ -73,6 +73,19 @@ public final class NativeModelServiceTest {
         try { NativeModelService.filterChunk("{\"x\":".repeat(40) + "0" + "}".repeat(40), finished); fail(); }
         catch (NativeModelService.ServiceException error) { assertEquals("INVALID_RESPONSE", error.code); }
     }
+    @Test public void filterRejectsUnpairedSurrogatesAndPreservesEmojiAndNul() throws Exception {
+        for (String field : new String[]{"content", "reasoning_content"}) {
+            for (String surrogate : new String[]{"\\ud800", "\\udc00"}) {
+                String source = "{\"choices\":[{\"index\":0,\"delta\":{\"" + field + "\":\"" + surrogate + "\"}}]}";
+                try { NativeModelService.filterChunk(source, new boolean[]{false}); fail("Invalid Unicode scalar accepted"); }
+                catch (NativeModelService.ServiceException error) { assertEquals("INVALID_RESPONSE", error.code); }
+            }
+        }
+        String source = "{\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\\ud83d\\ude00\\u0000\"}}]}";
+        JSONObject filtered = new JSONObject(NativeModelService.filterChunk(source, new boolean[]{false}));
+        assertEquals("😀\0", filtered.getJSONArray("choices").getJSONObject(0).getJSONObject("delta").getString("content"));
+    }
+
     private static NativeCredentialStore isolated(Context context) throws Exception { return NativeCredentialStore.isolatedForTest(context, UUID.randomUUID().toString(), () -> {}); }
     private static JSONObject config() throws Exception { return new JSONObject().put("version", 1).put("endpoint", "https://api.example.com/v1").put("model", "test-model").put("key", "secret-native-only"); }
     private static JSONObject start() throws Exception {

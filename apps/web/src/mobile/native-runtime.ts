@@ -15,6 +15,7 @@ import { delay, createNativeModelProvider } from './native-model-provider';
 import { nativeContextBuilder } from './native-context';
 
 const ctx = { workspaceId: 'local', subjectUserId: 'local' };
+const encoder = new TextEncoder();
 const fail = (status: number, code: string): never => { throw new AervoxHttpError(status, 'native', { code, message: code }); };
 const identifier = (value: string) => { if (!value || value.length > 128 || value.includes('\0')) fail(400, 'INVALID_IDENTIFIER'); return value; };
 export async function initializeNativeRuntime(): Promise<AervoxTransport> {
@@ -145,7 +146,11 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
     async streamTurn(sessionId, content, callbacks, options = {}) {
       options.signal?.throwIfAborted();
       identifier(sessionId);
-      if (!content.trim() || new TextEncoder().encode(content).byteLength > 32_768 || options.attachments?.length) fail(400, 'INVALID_MOBILE_MESSAGE');
+      // Admission's Outbox payload contains two JSON copies of the input.
+      // Reserve 16 KiB in its 256 KiB native bind for the remaining envelope.
+      if (!content.trim() || /[\uD800-\uDFFF]/u.test(content) || encoder.encode(content).byteLength > 32_768
+        || encoder.encode(JSON.stringify(content)).byteLength - 2 > 120 * 1024
+        || options.attachments?.length) fail(400, 'INVALID_MOBILE_MESSAGE');
       if (active || accepting) fail(409, 'REPLY_IN_PROGRESS');
       accepting = true;
       let turnId: string;

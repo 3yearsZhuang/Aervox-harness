@@ -15,9 +15,11 @@ import { initializeNativeRuntime } from '../src/mobile/native-runtime';
 const mocks = vi.hoisted(() => ({
   native: vi.fn(), modelCalls: 0, holding: false, entered: false,
   contexts: [] as { role: string; content: string }[][], chunks: 1,
+  realProvider: false,
 }));
 vi.mock('../src/mobile/native-channel', () => ({ nativeRequest: (body: Record<string, unknown>) => mocks.native(body) }));
 vi.mock('../src/mobile/native-model-provider', async importOriginal => {
+  const actual = await importOriginal<typeof import('../src/mobile/native-model-provider')>();
   const provider = {
     id: 'deterministic-text-model',
     async *stream(request: ModelRequest) {
@@ -31,8 +33,11 @@ vi.mock('../src/mobile/native-model-provider', async importOriginal => {
       yield { text: '', isFinal: true, stopReason: 'stop' };
     },
   };
-  return { ...await importOriginal<typeof import('../src/mobile/native-model-provider')>(),
-    nativeModelProvider: provider, createNativeModelProvider: () => provider };
+  return { ...actual, nativeModelProvider: provider,
+    createNativeModelProvider: (...args: Parameters<typeof actual.createNativeModelProvider>) => ({
+      id: 'fixture-native-provider',
+      stream(request: ModelRequest) { return (mocks.realProvider ? actual.createNativeModelProvider(...args) : provider).stream(request); },
+    }) };
 });
 
 type Fixture = Awaited<ReturnType<typeof fixture>>;
@@ -55,9 +60,24 @@ async function fixture() {
   let commits = 0;
   const resultRows: number[] = [];
   const argumentCounts: number[] = [], windowSizes: number[] = [];
+  let modelEvents: { sequence: number; type: string; data?: string; code?: string }[] = [], modelStatus = 'completed', nativeCancels = 0;
+  const byteLength = (value: string) => new TextEncoder().encode(value).byteLength;
   const dispatch = async (body: Record<string, unknown>) => {
+    if (byteLength(JSON.stringify({ version: 1, id: crypto.randomUUID(), body })) > 1024 * 1024) throw new Error('NATIVE_REQUEST_BYTE_LIMIT');
     if (body.op === 'runtime') return { kind: 'runtime', sqlite: 'ready', connectionEpoch: epoch, mode: 'foreground' };
     if (body.op === 'model' && body.operation === 'summary') return { kind: 'summary', hasCredential: configured };
+    if (body.op === 'model' && body.operation === 'start') {
+      mocks.modelCalls++; mocks.entered = true;
+      return { kind: 'started', requestId: body.requestId };
+    }
+    if (body.op === 'model' && body.operation === 'poll') {
+      const events = modelEvents.filter(event => event.sequence > Number(body.afterSequence)).slice(0, 64);
+      return { kind: 'chunks', requestId: body.requestId, events, status: modelStatus,
+        nextSequence: events.at(-1)?.sequence ?? body.afterSequence };
+    }
+    if (body.op === 'model' && body.operation === 'cancel') {
+      nativeCancels++; return { kind: 'cancelled', requestId: body.requestId };
+    }
     if (body.op === 'dispose') {
       if (transaction && !transaction.closed) await transaction.rollback();
       transaction = undefined; owner = null;
@@ -79,6 +99,9 @@ async function fixture() {
       if (argumentCount > 256) throw new Error('NATIVE_ARGUMENT_LIMIT');
       const decoded = Array.isArray(args) ? args.map(value => decodeNativeSqliteValue(value, 'bigint'))
         : Object.fromEntries(Object.entries(args).map(([key, value]) => [key, decodeNativeSqliteValue(value, 'bigint')]));
+      const sizes = Object.values(decoded).map(value => typeof value === 'string' ? byteLength(value)
+        : value instanceof ArrayBuffer ? value.byteLength : ArrayBuffer.isView(value) ? value.byteLength : 8);
+      if (sizes.some(size => size > 256 * 1024) || sizes.reduce((sum, size) => sum + size, 0) > 1024 * 1024) throw new Error('NATIVE_BIND_BYTE_LIMIT');
       try {
         const result = await (transaction ?? database).execute({ sql, args: decoded } as InStatement);
         resultRows.push(result.rows.length);
@@ -109,6 +132,16 @@ async function fixture() {
   const start = () => initializeNativeRuntime();
   const count = async (table: string) => Number((await database.execute(`SELECT count(*) AS n FROM ${table}`)).rows[0]?.n);
   return { database, start, count, directory, resultRows, argumentCounts, windowSizes,
+    setModel(pieces: string[], status = 'completed') {
+      mocks.realProvider = true; modelStatus = status;
+      modelEvents = pieces.map((content, index) => ({ sequence: index + 1, type: 'data',
+        data: JSON.stringify({ choices: [{ index: 0, delta: { content }, finish_reason: null }] }) }));
+      if (status === 'completed') modelEvents.push({ sequence: modelEvents.length + 1, type: 'data',
+        data: JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] }) }, { sequence: modelEvents.length + 2, type: 'done' });
+      if (status === 'failed') modelEvents.push({ sequence: modelEvents.length + 1, type: 'error', code: 'PROVIDER_REQUEST_FAILED' },
+        { sequence: modelEvents.length + 2, type: 'done' });
+    },
+    get nativeCancels() { return nativeCancels; },
     setConfigured(value: boolean) { configured = value; },
     loseNextCommit() { loseCommit = true; }, get commits() { return commits; },
     async close() {
@@ -130,7 +163,7 @@ async function session(transport: AervoxTransport) {
   return transport.request<{ id: string }>('POST', '/v1/sessions', { id: 'phone_session', title: '手机会话' });
 }
 beforeEach(async () => {
-  mocks.modelCalls = 0; mocks.holding = false; mocks.entered = false; mocks.contexts = []; mocks.chunks = 1; mocks.native.mockReset();
+  mocks.modelCalls = 0; mocks.holding = false; mocks.entered = false; mocks.contexts = []; mocks.chunks = 1; mocks.realProvider = false; mocks.native.mockReset();
   current = await fixture();
 });
 afterEach(async () => { await current?.close(); current = undefined; });
@@ -179,6 +212,18 @@ describe('Android local conversation composition over actual SQLite', () => {
       .rejects.toMatchObject({ status: 503, code: 'MODEL_STATE_UNAVAILABLE' });
     for (const table of ['turns', 'turn_attempts', 'messages', 'outbox_events']) expect(await fixture.count(table), table).toBe(0);
     expect(mocks.modelCalls).toBe(0);
+  });
+
+  it('rejects JSON-expanded input before native admission and keeps the writer usable', async () => {
+    const fixture = current!, transport = await fixture.start(); await session(transport);
+    const expanded = '问题' + '\0'.repeat((120 * 1024 - 6) / 6 + 1);
+    await expect(transport.streamTurn('phone_session', expanded, callbacks().value))
+      .rejects.toMatchObject({ status: 400, code: 'INVALID_MOBILE_MESSAGE' });
+    await expect(transport.streamTurn('phone_session', '问题\ud800', callbacks().value))
+      .rejects.toMatchObject({ status: 400, code: 'INVALID_MOBILE_MESSAGE' });
+    expect(await fixture.count('turns')).toBe(0); expect(mocks.modelCalls).toBe(0);
+    await transport.streamTurn('phone_session', 'x'.repeat(32_768), callbacks().value);
+    expect(await fixture.count('turns')).toBe(1); expect(mocks.modelCalls).toBe(1);
   });
 
   it('refuses replay when the original input was already deleted without exposing persisted text', async () => {
@@ -310,6 +355,72 @@ describe('Android local conversation composition over actual SQLite', () => {
     expect(Math.max(...fixture.argumentCounts)).toBeLessThanOrEqual(256);
     expect(Math.max(...fixture.resultRows)).toBeLessThanOrEqual(512);
     expect(Math.max(...fixture.windowSizes)).toBeLessThanOrEqual(1024 * 1024);
+  });
+
+  it.each(['x', '中', '😀', '\0'])('persists and reopens bounded native output for %j, including the unflushed tail', async unit => {
+    const fixture = current!, transport = await fixture.start(); await session(transport);
+    const unitBytes = new TextEncoder().encode(JSON.stringify(unit)).byteLength - 2;
+    const body = unit.repeat(Math.floor((48 * 1024 - 6) / unitBytes));
+    const pieces = Array.from({ length: Math.ceil(body.length / 1024) }, (_, index) => body.slice(index * 1024, (index + 1) * 1024));
+    // This last delta cannot fit. The preceding short tail must be flushed by
+    // the real Core length-stop path before it atomically publishes history.
+    fixture.setModel([...pieces, unit.repeat(10)]);
+    const input = '问题' + '\0'.repeat((120 * 1024 - 6) / 6), output = callbacks();
+    await transport.streamTurn('phone_session', input, output.value);
+    expect(output.texts.join('')).toBe(body); expect(output.done).toHaveBeenCalledOnce();
+    const history = await transport.request<SessionHistoryPage>('GET', '/v1/sessions/phone_session/history');
+    expect(history.items[0]).toMatchObject({ status: 'Interrupted', isComplete: false });
+    expect(history.items[0]?.messages.map(message => message.content)).toEqual([input, body]);
+    expect(new TextEncoder().encode(JSON.stringify(history.items[0])).byteLength).toBeLessThan(256 * 1024);
+    expect(fixture.nativeCancels).toBe(1);
+    window.dispatchEvent(new Event('pagehide')); await new Promise(resolve => setTimeout(resolve, 0));
+    const reopened = await fixture.start();
+    expect(await reopened.request('GET', '/v1/sessions/phone_session/history')).toEqual(history);
+    mocks.realProvider = false;
+    await reopened.streamTurn('phone_session', '下一轮继续', callbacks().value);
+    expect(mocks.modelCalls).toBe(2);
+    expect(mocks.contexts[0]?.some(message => message.content === body)).toBe(false);
+  });
+
+  it('completes an answer exactly at the native body budget', async () => {
+    const fixture = current!, transport = await fixture.start(); await session(transport);
+    const body = 'x'.repeat(48 * 1024);
+    fixture.setModel(Array.from({ length: 12 }, () => 'x'.repeat(4096)));
+    await transport.streamTurn('phone_session', '完整回复', callbacks().value);
+    const history = await transport.request<SessionHistoryPage>('GET', '/v1/sessions/phone_session/history');
+    expect(history.items[0]).toMatchObject({ status: 'Completed', isComplete: true });
+    expect(history.items[0]?.messages.at(-1)?.content).toBe(body);
+    expect(fixture.nativeCancels).toBe(0);
+  });
+
+  it('cancels a bounded real native stream and reopens its committed safe prefix', async () => {
+    const fixture = current!, transport = await fixture.start(); await session(transport);
+    fixture.setModel(Array.from({ length: 12 }, () => 'x'.repeat(4096)), 'running');
+    let turnId = '';
+    const output = callbacks();
+    await transport.streamTurn('phone_session', '取消长回复', { ...output.value, async onEvent(event) {
+      if (event.eventType === 'delta' && !fixture.nativeCancels) await transport.request('POST', `/v1/turns/${turnId}/cancel`, {});
+    } }, { onAccepted: id => { turnId = id; } });
+    const history = await transport.request<SessionHistoryPage>('GET', '/v1/sessions/phone_session/history');
+    expect(history.items[0]).toMatchObject({ status: 'Cancelled', isComplete: false });
+    const persisted = history.items[0]?.messages.at(-1)?.content;
+    expect(typeof persisted).toBe('string'); expect(persisted!.length).toBeGreaterThan(0);
+    expect('x'.repeat(48 * 1024).startsWith(persisted!)).toBe(true);
+    expect(fixture.nativeCancels).toBe(1);
+    window.dispatchEvent(new Event('pagehide')); await new Promise(resolve => setTimeout(resolve, 0));
+    expect(await (await fixture.start()).request('GET', '/v1/sessions/phone_session/history')).toEqual(history);
+  });
+
+  it('persists a failed native stream at the body limit and keeps its committed prefix readable', async () => {
+    const fixture = current!, transport = await fixture.start(); await session(transport);
+    fixture.setModel(Array.from({ length: 12 }, () => 'x'.repeat(4096)), 'failed');
+    await expect(transport.streamTurn('phone_session', '失败后的历史', callbacks().value)).rejects.toThrow('PROVIDER_REQUEST_FAILED');
+    const history = await transport.request<SessionHistoryPage>('GET', '/v1/sessions/phone_session/history');
+    expect(history.items[0]).toMatchObject({ status: 'Failed', isComplete: false });
+    expect(history.items[0]?.messages.at(-1)?.content).toBe('x'.repeat(48 * 1024));
+    expect(fixture.nativeCancels).toBe(1);
+    window.dispatchEvent(new Event('pagehide')); await new Promise(resolve => setTimeout(resolve, 0));
+    expect(await (await fixture.start()).request('GET', '/v1/sessions/phone_session/history')).toEqual(history);
   });
 
   it('records cancellation before stopping the provider, blocks active deletion, and leaves a durable cancelled result', async () => {

@@ -119,6 +119,80 @@ public final class NativeModelConnectionTest {
         }
     }
 
+    @Test public void bodyLimitPreservesTheAcceptedPrefixAndPublishesLengthBeforeUnreadInvalidFrames() throws Exception {
+        // Reasoning remains progress and does not consume the durable body budget.
+        assertBodyLimit("界".repeat(4096), 4, "推理".repeat(2048));
+    }
+
+    @Test public void bodyLimitCountsNulAsSixJsonBytesInsteadOfOneRawByte() throws Exception {
+        assertBodyLimit("\0".repeat(4096), 2, null);
+    }
+
+    @Test public void diagnosticBodyLimitNeverAcceptsOnlyWhitespaceAsProviderHealth() throws Exception {
+        String response = frame(new JSONObject().put("content", " ".repeat(4096))).repeat(13)
+            + "data: provider-private-unread-tail\n\n";
+        try (Fixture fixture = new Fixture(true, 200, response, false)) {
+            rejected(fixture.service.request(test()), "EMPTY_MODEL_RESPONSE");
+            assertEquals(1, fixture.connections.size());
+            assertTrue(fixture.connections.get(0).disconnected);
+        }
+    }
+
+    @Test public void cancellationOwnsTheTerminalBeforeBodyLimitFramesCanArrive() throws Exception {
+        String response = frame(new JSONObject().put("content", "界".repeat(4096))).repeat(5);
+        try (Fixture fixture = new Fixture(true, 200, response, true)) {
+            await(fixture.service.request(start("cancel-before-limit")));
+            assertTrue(fixture.opened.await(5, TimeUnit.SECONDS));
+            fixture.service.cancelCurrent().get(5, TimeUnit.SECONDS);
+            JSONObject result = pollUntilDone(fixture.service, "cancel-before-limit");
+            assertEquals("cancelled", result.getString("status"));
+            assertEquals(1, result.getJSONArray("events").length());
+            assertEquals("done", result.getJSONArray("events").getJSONObject(0).getString("type"));
+            fixture.service.close().get(5, TimeUnit.SECONDS);
+            assertEquals(1, fixture.connections.size());
+            assertTrue(fixture.connections.get(0).disconnected);
+        }
+    }
+
+    private static void assertBodyLimit(String content, int accepted, String reasoning) throws Exception {
+        StringBuilder response = new StringBuilder();
+        if (reasoning != null) response.append(frame(new JSONObject().put("reasoning_content", reasoning)));
+        for (int index = 0; index <= accepted; index++) response.append(frame(new JSONObject().put("content", content)));
+        // This is deliberately not valid JSON. A capped producer must not inspect it.
+        response.append("data: provider-private-unread-tail\n\n");
+        try (Fixture fixture = new Fixture(true, 200, response.toString(), false)) {
+            JSONObject request = start("bounded-body");
+            await(fixture.service.request(request));
+            JSONObject result = pollUntilDone(fixture.service, "bounded-body");
+            assertEquals("completed", result.getString("status"));
+            JSONArray events = result.getJSONArray("events");
+            int prefix = reasoning == null ? 0 : 1;
+            assertEquals(prefix + accepted + 2, events.length());
+            if (reasoning != null) assertEquals(reasoning, chunk(events, 0).getJSONObject("delta").getString("reasoning_content"));
+            for (int index = 0; index < accepted; index++) {
+                assertEquals(content, chunk(events, prefix + index).getJSONObject("delta").getString("content"));
+            }
+            JSONObject terminal = chunk(events, prefix + accepted);
+            assertEquals("length", terminal.getString("finish_reason"));
+            assertEquals(0, terminal.getJSONObject("delta").length());
+            assertEquals("done", events.getJSONObject(events.length() - 1).getString("type"));
+            assertEquals(events.length(), result.getInt("nextSequence"));
+            assertEquals("started", await(fixture.service.request(request)).getString("kind"));
+            fixture.service.close().get(5, TimeUnit.SECONDS);
+            assertEquals(1, fixture.connections.size());
+            assertTrue(fixture.connections.get(0).disconnected);
+        }
+    }
+    private static String frame(JSONObject delta) throws Exception {
+        return "data: " + new JSONObject().put("choices", new JSONArray().put(new JSONObject()
+            .put("index", 0).put("delta", delta).put("finish_reason", JSONObject.NULL))).toString() + "\n\n";
+    }
+    private static JSONObject chunk(JSONArray events, int index) throws Exception {
+        JSONObject event = events.getJSONObject(index);
+        assertEquals("data", event.getString("type"));
+        return new JSONObject(event.getString("data")).getJSONArray("choices").getJSONObject(0);
+    }
+
     private static JSONObject test() throws Exception { return new JSONObject().put("op", "test"); }
     private static JSONObject start(String id) throws Exception {
         return new JSONObject().put("op", "start").put("requestId", id)

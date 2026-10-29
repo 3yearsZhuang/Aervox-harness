@@ -13,6 +13,9 @@ import java.nio.charset.StandardCharsets;
 final class NativeModelServicePolicy {
     static final int MAX_INPUT_BYTES = 256 * 1024;
     static final int MAX_STREAM_BYTES = 2 * 1024 * 1024;
+    // JSON string content only, excluding its quotes. This durable body budget
+    // leaves room for the accepted input and metadata in a history Turn.
+    static final int MAX_BODY_JSON_BYTES = 48 * 1024;
     static final int MAX_EVENT_BYTES = 32 * 1024;
     static final int MAX_EVENTS = 8192;
     static final int CONNECT_TIMEOUT_MS = 15_000, IDLE_TIMEOUT_MS = 45_000;
@@ -23,6 +26,36 @@ final class NativeModelServicePolicy {
         Rejected(String value) { super(value); code = value; }
     }
     interface Consumer { boolean data(String value) throws Exception; }
+
+    /** Mirrors JSON.stringify's string-content UTF-8 cost without allocating a
+     * serialized body. A refused chunk consumes no budget, so the caller can
+     * publish a length terminal without exposing part of that chunk.
+     */
+    static final class BodyBudget {
+        private int usedBytes;
+        int usedBytes() { return usedBytes; }
+        boolean accept(String content) throws Rejected {
+            if (content == null) throw new Rejected("INVALID_RESPONSE");
+            int next = usedBytes;
+            for (int index = 0; index < content.length(); index++) {
+                char value = content.charAt(index);
+                if (value == '"' || value == '\\' || value == '\b' || value == '\f'
+                        || value == '\n' || value == '\r' || value == '\t') next += 2;
+                else if (value < 0x20) next += 6;
+                else if (value < 0x80) next++;
+                else if (value < 0x800) next += 2;
+                else if (Character.isHighSurrogate(value)) {
+                    if (index + 1 < content.length() && Character.isLowSurrogate(content.charAt(index + 1))) {
+                        next += 4; index++;
+                    } else next += 6; // JSON.stringify escapes an unpaired surrogate.
+                } else if (Character.isLowSurrogate(value)) next += 6;
+                else next += 3;
+                if (next > MAX_BODY_JSON_BYTES) return false;
+            }
+            usedBytes = next;
+            return true;
+        }
+    }
 
     static String endpoint(String value) throws Rejected {
         if (value == null || value.length() > 2048 || !value.equals(value.trim())) throw new Rejected("INVALID_ENDPOINT");

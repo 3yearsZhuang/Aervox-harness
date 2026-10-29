@@ -310,6 +310,7 @@ public final class NativeModelService {
     private static final class Run {
         final String id, digest;
         final ArrayList<Event> events = new ArrayList<>();
+        final NativeModelServicePolicy.BodyBudget bodyBudget = new NativeModelServicePolicy.BodyBudget();
         String status = "running";
         volatile HttpsURLConnection connection;
         final CompletableFuture<JSONObject> diagnosticResult;
@@ -436,7 +437,14 @@ public final class NativeModelService {
                         done[0] = true; synchronized (gate) { terminal(run, "completed", null); } return false;
                     }
                     String filtered = filterChunk(data, finished);
-                    if (filtered != null) synchronized (gate) { append(run, "data", filtered, null); }
+                    if (filtered != null) synchronized (gate) {
+                        if (!run.running()) return false;
+                        if (!append(run, "data", filtered, null)) {
+                            // A local body limit is a model-length stop, not a
+                            // transport failure: Core must flush its accepted tail.
+                            finished[0] = true; done[0] = true; return false;
+                        }
+                    }
                     return true;
                 });
             }
@@ -481,6 +489,10 @@ public final class NativeModelService {
         for (String field : new String[]{"content", "reasoning_content"}) {
             if (!delta.has(field) || delta.isNull(field)) continue;
             Object value = delta.get(field); if (!(value instanceof String)) throw failure("INVALID_RESPONSE");
+            // Escaped JSON surrogates can decode to invalid UTF-16 even when
+            // the incoming SSE bytes were valid. SQLite and bridge replies
+            // require real Unicode scalars, never UTF-8 replacement characters.
+            if (!NativeMessagePolicy.withinUtf8Budget((String) value, Integer.MAX_VALUE)) throw failure("INVALID_RESPONSE");
             cleanDelta.put(field, value);
         }
         JSONObject clean = new JSONObject().put("index", 0).put("delta", cleanDelta);
@@ -496,19 +508,33 @@ public final class NativeModelService {
         if (cleanDelta.length() == 0 && !finished[0]) return null;
         return new JSONObject().put("choices", new JSONArray().put(clean)).toString();
     }
-    private void append(Run run, String type, String data, String code) throws Exception {
-        if (!run.running()) return;
+    private boolean append(Run run, String type, String data, String code) throws Exception {
+        if (!run.running()) return false;
+        JSONObject delta = data == null ? null : new JSONObject(data).getJSONArray("choices").getJSONObject(0).getJSONObject("delta");
+        if (delta != null && delta.has("content") && !run.bodyBudget.accept(delta.getString("content"))) {
+            // The fixed terminal uses the two reserved slots. No portion of the
+            // oversized chunk enters the queue, and an earlier cancellation or
+            // deadline already owns the terminal when the run is not running.
+            // Diagnostics require actual accepted text at either termination
+            // path; whitespace reaching the body cap is not provider health.
+            if (run.diagnosticResult != null && !run.observedContent) throw failure("EMPTY_MODEL_RESPONSE");
+            if (run.diagnosticResult == null) {
+                String length = new JSONObject().put("choices", new JSONArray().put(new JSONObject()
+                    .put("index", 0).put("delta", new JSONObject()).put("finish_reason", "length"))).toString();
+                run.events.add(new Event(run.events.size() + 1, "data", length, null));
+            }
+            terminal(run, "completed", null);
+            return false;
+        }
         int count = data == null ? 0 : bytes(data);
         // Reserve two terminal slots; terminal errors always remain observable.
         if (run.events.size() >= NativeModelServicePolicy.MAX_EVENTS - 2
             || run.eventBytes + count > NativeModelServicePolicy.MAX_STREAM_BYTES) throw failure("RESPONSE_LIMIT");
         run.eventBytes += count;
         if (run.diagnosticResult != null) {
-            if (data != null) {
-                JSONObject delta = new JSONObject(data).getJSONArray("choices").getJSONObject(0).getJSONObject("delta");
-                if (!delta.optString("content").trim().isEmpty()) run.observedContent = true;
-            }
+            if (delta != null && !delta.optString("content").trim().isEmpty()) run.observedContent = true;
         } else run.events.add(new Event(run.events.size() + 1, type, data, code));
+        return true;
     }
     private void terminal(Run run, String status, String code) {
         if (!run.running()) return;

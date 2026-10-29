@@ -56,6 +56,36 @@ public final class NativeModelServicePolicyTest {
         rejectedStream(bytes(("data: x\n\n").repeat(NativeModelServicePolicy.MAX_EVENTS + 1)), "RESPONSE_LIMIT");
         rejectedStream(bytes((":" + "x".repeat(16384) + "\n\n").repeat(129)), "RESPONSE_LIMIT");
     }
+    @Test public void bodyBudgetCountsJsonEscapesAndUtf8Scalars() throws Exception {
+        NativeModelServicePolicy.BodyBudget budget = new NativeModelServicePolicy.BodyBudget();
+        assertTrue(budget.accept("\"\\\b\f\n\r\t\0\u001f"));
+        assertEquals(26, budget.usedBytes()); // Seven short escapes, two six-byte escapes.
+        assertTrue(budget.accept("é界😀"));
+        assertEquals(35, budget.usedBytes());
+        assertTrue(budget.accept("\ud800x\udc00"));
+        assertEquals(48, budget.usedBytes()); // Unpaired surrogates are escaped separately.
+    }
+    @Test public void bodyBudgetAdmitsTheExactLimitAndRefusesTheNextChunkAtomically() throws Exception {
+        NativeModelServicePolicy.BodyBudget budget = new NativeModelServicePolicy.BodyBudget();
+        assertTrue(budget.accept("a".repeat(48 * 1024 - 1)));
+        assertFalse(budget.accept("xy"));
+        assertEquals(48 * 1024 - 1, budget.usedBytes());
+        assertTrue(budget.accept("z"));
+        assertEquals(48 * 1024, budget.usedBytes());
+        assertTrue(budget.accept(""));
+        assertFalse(budget.accept("\0"));
+    }
+    @Test public void bodyBudgetAccumulatesAcrossChunksAndKeepsNewRunsIndependent() throws Exception {
+        NativeModelServicePolicy.BodyBudget budget = new NativeModelServicePolicy.BodyBudget();
+        assertTrue(budget.accept("\0".repeat(4096)));
+        assertTrue(budget.accept("\0".repeat(4096)));
+        assertEquals(48 * 1024, budget.usedBytes());
+        assertFalse(budget.accept("界"));
+        NativeModelServicePolicy.BodyBudget next = new NativeModelServicePolicy.BodyBudget();
+        assertTrue(next.accept("界".repeat(16 * 1024)));
+        assertEquals(48 * 1024, next.usedBytes());
+        assertFalse(next.accept("😀"));
+    }
     private static InputStream bytes(String value) { return new ByteArrayInputStream(value.getBytes(StandardCharsets.UTF_8)); }
     private static void rejectedEndpoint(String value) throws Exception {
         try { NativeModelServicePolicy.endpoint(value); fail(value); }

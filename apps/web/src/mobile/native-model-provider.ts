@@ -7,6 +7,10 @@ const fixedErrors = new Set(['PROVIDER_AUTH_REJECTED', 'PROVIDER_RATE_LIMITED', 
   'REDIRECT_REJECTED', 'INVALID_RESPONSE', 'TRUNCATED_RESPONSE', 'RESPONSE_LIMIT', 'NETWORK_TIMEOUT',
   'NETWORK_UNAVAILABLE', 'DEADLINE_EXCEEDED', 'UNSUPPORTED_MODEL_TOOL']);
 const encoder = new TextEncoder();
+// A 32 KiB input can occupy 192 KiB after JSON escaping. Keep the answer
+// within 48 KiB and reserve 16 KiB for the 256 KiB history Turn envelope.
+// This also fits native text bindings and the SQL channel/window budgets.
+const MAX_BODY_JSON_BYTES = 48 * 1024;
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw invalid();
   return value as Record<string, unknown>;
@@ -37,7 +41,7 @@ export function createNativeModelProvider(send: NativeRequest = nativeRequest, o
     id: 'android-native',
     async *stream(request) {
       const requestId = crypto.randomUUID();
-      let sequence = 0, completed = false, cancelSent = false, bytes = 0, polls = 0;
+      let sequence = 0, completed = false, cancelSent = false, bytes = 0, polls = 0, bodyBytes = 0;
       let stopReason: string | undefined;
       const cancel = () => {
         if (cancelSent) return;
@@ -63,6 +67,7 @@ export function createNativeModelProvider(send: NativeRequest = nativeRequest, o
             || !['running', 'completed', 'cancelled', 'failed'].includes(String(result.status))) throw invalid();
           let terminal = false;
           for (let index = 0; index < result.events.length; index++) {
+            checkAbort(request.signal);
             const event = object(result.events[index]);
             if (!Number.isSafeInteger(event.sequence) || event.sequence !== sequence + 1 || sequence >= 8192) throw new Error('INVALID_NATIVE_MODEL_SEQUENCE');
             sequence++;
@@ -80,11 +85,23 @@ export function createNativeModelProvider(send: NativeRequest = nativeRequest, o
               const choice = object(chunk.choices[0]), delta = object(choice.delta);
               if (choice.index !== 0 || delta.content !== undefined && typeof delta.content !== 'string'
                 || delta.reasoning_content !== undefined && typeof delta.reasoning_content !== 'string') throw invalid();
+              const text = delta.content as string | undefined ?? '';
+              if (/[\uD800-\uDFFF]/u.test(text) || /[\uD800-\uDFFF]/u.test(delta.reasoning_content as string | undefined ?? '')) throw invalid();
               if (choice.finish_reason !== null && choice.finish_reason !== undefined) {
                 if (stopReason || !['stop', 'length', 'content_filter'].includes(String(choice.finish_reason))) throw invalid();
                 stopReason = String(choice.finish_reason);
               }
-              yield { text: delta.content as string | undefined ?? '', reasoning: delta.reasoning_content as string | undefined, isFinal: false };
+              const nextBodyBytes = bodyBytes + encoder.encode(JSON.stringify(text)).byteLength - 2;
+              if (nextBodyBytes > MAX_BODY_JSON_BYTES) {
+                // A normal length stop lets Core flush its last safe window and
+                // publish Interrupted(model_length). Throwing discards that window.
+                cancel();
+                if (result.status === 'cancelled') { await onNativeCancelled?.(request); throw abortError(); }
+                checkAbort(request.signal);
+                yield { text: '', isFinal: true, stopReason: 'length' }; return;
+              }
+              bodyBytes = nextBodyBytes;
+              yield { text, reasoning: delta.reasoning_content as string | undefined, isFinal: false };
             } else throw invalid();
           }
           if (result.nextSequence !== sequence) throw new Error('INVALID_NATIVE_MODEL_SEQUENCE');

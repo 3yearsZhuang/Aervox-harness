@@ -49,6 +49,8 @@ mise exec -- pnpm --filter @aervox/mobile android:check:device
 
 原型只运行一条前台文本请求，提供截止、大小与事件数量限制。离开前台会请求取消原生网络；不承诺后台续跑或定时常驻。无处理器的接口明确拒绝，不回退到电脑 API、浏览器数据库或模拟成功。当前能力与后续系统授权、Shizuku、root 边界见 [ADR-022 的分级](../../docs/reference/adr/ADR-022-mobile-runtime-access.md#能力交付与授权分级)。
 
+每条输入最多 32 KiB UTF-8，JSON 字符串正文编码后最多 120 KiB，超限在接单前拒绝。每次回复正文的累计 JSON 编码最多 48 KiB（均不含字符串两端引号），中文、emoji、引号和控制字符按实际编码计量；思考字段另受现有流总量预算约束。越界分片不提交，已接收的安全前缀保存为带 `model_length` 原因的 `Interrupted` 回合，界面显示未完成，重开后仍可回看。此预算同时给原生 SQL 绑定、接单 Outbox 和单轮历史回执保留空间，不依赖模型服务遵守请求的 token 参数。
+
 ## 固定原生资产
 
 默认独立入口只加载 APK 内第一方脚本，禁止外部脚本、网络页面和 Service Worker。Live2D 使用本地固定 Cubism Core 制品，不依赖运行时 CDN；缺失或摘要不符时准备步骤失败。开发者须先将官方制品恢复到忽略的 `apps/mobile/android/vendor/live2dcubismcore.min.js`，固定官方地址、207155 字节与 SHA-256 `25ae938cb4fe282ce189b357bcc97e603d1e1f7ec78bf04150d401c23cdc792f` 由 [准备脚本](scripts/prepare-native-assets.mjs)核验。脚本只处理生成资产，不下载或改写业务库。

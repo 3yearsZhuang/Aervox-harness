@@ -102,3 +102,67 @@ it('records native foreground cancellation before surfacing the terminal result'
   await expect(run()).rejects.toThrow('MODEL_CANCELLED');
   expect(cancelled).toHaveBeenCalledExactlyOnceWith(request);
 });
+
+it.each(['x', '中', '😀', '\0', '\n', '"', '\\'])('bounds durable JSON body bytes for %j and closes overflow as length', async unit => {
+  const unitBytes = new TextEncoder().encode(JSON.stringify(unit)).byteLength - 2;
+  const body = unit.repeat(48 * 1024 / unitBytes);
+  const pieces = Array.from({ length: 8 }, (_, index) => body.slice(index * body.length / 8, (index + 1) * body.length / 8));
+  for (const overflow of [false, true]) {
+    const events = pieces.map((piece, index) => data(index + 1, piece));
+    if (overflow) events.push(data(events.length + 1, unit));
+    events.push(data(events.length + 1, '', 'stop'), done(events.length + 2));
+    const send = fake([{ events, status: 'completed', nextSequence: events.length }]);
+    const chunks = await collect(send);
+    expect(chunks.map(chunk => chunk.text).join('')).toBe(body);
+    expect(chunks.at(-1)).toEqual({ text: '', isFinal: true, stopReason: overflow ? 'length' : 'stop' });
+    expect(send.mock.calls.filter(([message]) => message.operation === 'cancel')).toHaveLength(overflow ? 1 : 0);
+  }
+});
+
+it('stops an older native producer before its 266240-byte body defeats terminal persistence', async () => {
+  const events = Array.from({ length: 65 }, (_, index) => data(index + 1, 'x'.repeat(4096)));
+  events.push(data(66, '', 'stop'), done(67));
+  const send = fake([{ events: events.slice(0, 64), status: 'completed', nextSequence: 64 },
+    { events: events.slice(64), status: 'completed', nextSequence: 67 }]);
+  const chunks = await collect(send);
+  expect(chunks.map(chunk => chunk.text).join('')).toBe('x'.repeat(48 * 1024));
+  expect(chunks.at(-1)?.stopReason).toBe('length');
+  expect(send.mock.calls.filter(([body]) => body.operation === 'poll')).toHaveLength(1);
+  expect(send.mock.calls.filter(([body]) => body.operation === 'cancel')).toHaveLength(1);
+});
+
+it('keeps cancellation authoritative at the body limit and gives reasoning a separate stream budget', async () => {
+  const reasoning = JSON.stringify({ choices: [{ index: 0, delta: { reasoning_content: '思'.repeat(6000) }, finish_reason: null }] });
+  const events = Array.from({ length: 12 }, (_, index) => data(index + 1, 'x'.repeat(4096)));
+  events.unshift({ sequence: 0, type: 'data', data: reasoning });
+  events.forEach((event, index) => { event.sequence = index + 1; });
+  events.push(data(14, 'overflow'), done(15));
+  const send = fake([{ events, status: 'completed', nextSequence: 15 }]);
+  const abort = new AbortController(), chunks = [];
+  const run = async () => {
+    for await (const chunk of createNativeModelProvider(send).stream({ ...request, signal: abort.signal })) {
+      chunks.push(chunk);
+      if (chunks.length === 13) abort.abort();
+    }
+  };
+  await expect(run()).rejects.toThrow('MODEL_CANCELLED');
+  expect(chunks.map(chunk => chunk.text).join('')).toBe('x'.repeat(48 * 1024));
+  expect(chunks[0]?.reasoning).toBe('思'.repeat(6000));
+  expect(chunks.some(chunk => chunk.isFinal)).toBe(false);
+  expect(send.mock.calls.filter(([body]) => body.operation === 'cancel')).toHaveLength(1);
+});
+
+it.each(['\ud800', '\udc00', 'ok\ud800tail'])('rejects malformed UTF-16 %j before native SQL can replace or reject it', async text => {
+  await expect(collect(fake([{ events: [data(1, text, 'stop'), done(2)], status: 'completed', nextSequence: 2 }])))
+    .rejects.toThrow('INVALID_NATIVE_MODEL_RECEIPT');
+});
+
+it('preserves a native foreground cancellation that already won over an older producer body overflow', async () => {
+  const events = Array.from({ length: 13 }, (_, index) => data(index + 1, 'x'.repeat(4096)));
+  const send = fake([{ events: [...events, done(14)], status: 'cancelled', nextSequence: 14 }]);
+  const cancelled = vi.fn(async () => {});
+  const run = async () => { for await (const _chunk of createNativeModelProvider(send, cancelled).stream(request)) { /* consume */ } };
+  await expect(run()).rejects.toThrow('MODEL_CANCELLED');
+  expect(cancelled).toHaveBeenCalledExactlyOnceWith(request);
+  expect(send.mock.calls.filter(([body]) => body.operation === 'cancel')).toHaveLength(1);
+});

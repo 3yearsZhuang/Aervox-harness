@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { Client, InStatement, Transaction } from "@libsql/client";
 import { createInMemoryDatabase, initDatabaseSchema } from "../src/index.js";
 import { SqliteConversationRepository } from "../src/repositories/sqlite/conversation-repository.js";
 import { createInjectedDatabase } from "../src/database.js";
 import { readSessionHistory } from "../src/repositories/sqlite/session-history.js";
+import { nativeSqliteBoundary } from "./helpers/native-sqlite-boundary.js";
 
 const ctx = { workspaceId: "ws_history", subjectUserId: "usr_history" };
 
@@ -161,20 +161,27 @@ describe("安全会话历史读取", () => {
   }
 
   function boundedHistory() {
-    // Match native's per-result row limit at the actual SQLite transaction
-    // boundary; this must fail if the reader copies the 600 replay delta rows.
-    const cap = <T extends Client | Transaction>(target: T): T => new Proxy(target, { get(owner, property) {
-      if (property === "execute") return async (input: InStatement) => {
-        const result = await owner.execute(input);
-        if (result.rows.length > 512) throw new Error("NATIVE_RESULT_ROW_LIMIT");
-        return result;
-      };
-      if (property === "transaction" && "transaction" in owner) return async (...input: Parameters<Client["transaction"]>) => cap(await owner.transaction(...input));
-      const value: unknown = Reflect.get(owner, property, owner);
-      return typeof value === "function" ? value.bind(owner) : value;
-    } });
-    return readSessionHistory(createInjectedDatabase(cap(database.client)), ctx, { sessionId: "session", beforeTurnId: "current" });
+    return readSessionHistory(createInjectedDatabase(nativeSqliteBoundary(database.client).client), ctx, { sessionId: "session", beforeTurnId: "current" });
   }
+
+  it("reads model context across twenty individually legal wide Turns within one native cursor window", async () => {
+    // Each Turn obeys native's input and escaped response budgets; copying all
+    // twenty current-version bodies before pruning exceeds the native window.
+    for (let index = 0; index < 19; index += 1) await accepted(`wide_${index}`, "session", "u".repeat(32_000), "\0".repeat(8_000));
+    const assistantId = await accepted("recent", "session", "recent question", "original answer");
+    const identity = await repo.getMessage(ctx, assistantId);
+    const version = (await repo.listMessageVersions(ctx, assistantId)).find(row => row.id === identity!.currentVersionId)!;
+    await repo.editMessage(ctx, assistantId, "corrected recent answer", version.version);
+    await seed("current");
+    const boundary = nativeSqliteBoundary(database.client);
+    const read = () => readSessionHistory(createInjectedDatabase(boundary.client), ctx, { sessionId: "session", beforeTurnId: "current" });
+    expect(await read()).toEqual([
+      { role: "user", content: "recent question" }, { role: "assistant", content: "corrected recent answer" },
+    ]);
+    expect(boundary.measurements.largestWindowBytes).toBeLessThan(128 * 1024);
+    await repo.editMessage(ctx, "user_recent", "u".repeat(32_000), 1);
+    expect(await read()).toEqual([]);
+  });
 
   it("reads durable bodies beyond the native replay row limit while preserving mixed legacy history", async () => {
     await accepted(); await manyReplayEvents(); await seed("legacy"); await seed("current");
@@ -209,6 +216,26 @@ describe("安全会话历史读取", () => {
     await seed("current");
     expect(await history()).toEqual([
       { role: "user", content: "persistent question" }, { role: "assistant", content: "user corrected durable answer" },
+    ]);
+  });
+
+  it("keeps assistant identities in creation order after editing the older assistant", async () => {
+    const firstId = await accepted();
+    const secondId = "second_assistant";
+    await repo.createTurnAttempt(ctx, "durable", { id: "continuation", attempt: 2 });
+    await repo.appendStreamEvent(ctx, { id: "second_message", turnId: "durable", attemptId: "continuation", expectedFencingToken: 0,
+      sequence: 4, eventType: "message", safetyDecision: "approved", data: { messageId: secondId, role: "assistant" } });
+    await repo.recordSafeSegmentAtomically(ctx, { turnId: "durable", attemptId: "continuation", expectedFencingToken: 0,
+      sequence: 5, text: "second answer", eventData: { messageId: secondId, text: "second answer" }, safetyDecision: "approved" });
+    await repo.finalizeAttemptWithEventAtomically(ctx, { turnId: "durable", attemptId: "continuation", expectedFencingToken: 0,
+      sequence: 6, status: "Completed", eventType: "done", eventData: { status: "Completed", isComplete: true }, safetyDecision: "approved" });
+    const first = await repo.getMessage(ctx, firstId);
+    const version = (await repo.listMessageVersions(ctx, firstId)).find(row => row.id === first!.currentVersionId)!;
+    await repo.editMessage(ctx, firstId, "corrected first answer", version.version);
+    await seed("current");
+    expect(await boundedHistory()).toEqual([
+      { role: "user", content: "persistent question" },
+      { role: "assistant", content: "corrected first answer" }, { role: "assistant", content: "second answer" },
     ]);
   });
 
