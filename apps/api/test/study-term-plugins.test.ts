@@ -38,9 +38,9 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
 
   it("专注模式综合插件 (focus-mode)：整合启发式教学与概念下钻，Bundle 结构完整且可成功安装并注册 Config Schema", async () => {
     const root = path.resolve(__dirname, "../../..");
-    const manifestPath = path.resolve(root, "plugins/focus-mode/plugin.manifest.json");
-    const schemaPath = path.resolve(root, "plugins/focus-mode/config.schema.json");
-    const skillPath = path.resolve(root, "plugins/focus-mode/SKILL.md");
+    const manifestPath = path.resolve(root, "plugins/plugins/ui/focus-mode/plugin.manifest.json");
+    const schemaPath = path.resolve(root, "plugins/plugins/ui/focus-mode/config.schema.json");
+    const skillPath = path.resolve(root, "plugins/plugins/ui/focus-mode/SKILL.md");
 
     const manifest = JSON.parse(await fs.readFile(manifestPath, "utf-8"));
     const schema = JSON.parse(await fs.readFile(schemaPath, "utf-8"));
@@ -48,7 +48,7 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
 
     // 1. 验证 Manifest 符合 Zod 契约
     const parsedManifest = pluginManifestSchema.parse(manifest);
-    expect(parsedManifest.metadata.id).toBe("focus-mode");
+    expect(parsedManifest.metadata.id).toBe("ap-ui-focus-mode");
 
     // 2. 验证 Config Schema 符合 Zod 契约，整合启发式教学与概念下钻全部 6 项字段
     const parsedSchema = pluginConfigSchema.parse(schema);
@@ -61,7 +61,7 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
     });
     expect(listRes.statusCode).toBe(200);
     const list = listRes.json<{ items: Array<{ id: string }> }>();
-    expect(list.items.some((p) => p.id === "focus-mode")).toBe(true);
+    expect(list.items.some((p) => p.id === "ap-ui-focus-mode")).toBe(true);
 
     // 4. 注册/更新 Config Schema
     const schemaRes = await app.inject({
@@ -121,7 +121,7 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
     // 7. 主 id 重置生效，回到 Schema 规范默认值
     const resetCfg = await app.inject({
       method: "POST",
-      url: "/v1/plugins/focus-mode/config/reset",
+      url: "/v1/plugins/ap-ui-focus-mode/config/reset",
       headers,
     });
     expect(resetCfg.statusCode).toBe(200);
@@ -130,7 +130,7 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
 
     const getAfterReset = await app.inject({
       method: "GET",
-      url: "/v1/plugins/focus-mode/config",
+      url: "/v1/plugins/ap-ui-focus-mode/config",
       headers,
     });
     expect(getAfterReset.statusCode).toBe(200);
@@ -168,7 +168,7 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
     // 2. 停用 focus-mode 插件（CR-060 后仅存在主 id，无历史别名）
     const disableRes = await app.inject({
       method: "PATCH",
-      url: "/v1/plugins/focus-mode",
+      url: "/v1/plugins/ap-ui-focus-mode",
       headers,
       payload: { enabled: false },
     });
@@ -200,7 +200,7 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
   });
 
   it("配置与提示词默认值对齐：插件自带默认值解析与严格防剧透提示词", async () => {
-    // CR-060：实现已内聚于 plugins/focus-mode；宿主不再提供配置加载辅助函数，
+    // CR-060：实现已内聚于 plugins/plugins/ui/focus-mode；宿主不再提供配置加载辅助函数，
     // 插件由 Runner 注入已保存配置并用自带默认值兜底。
     const { parseFocusConfig, DEFAULT_FOCUS_MODE_CONFIG } = await import("@aervox/plugin-focus-mode/server");
 
@@ -275,7 +275,7 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
 
     expect(isFocusModeMessage({ mode: "focus" })).toBe(true);
     // CR-060：唯一判据是 mode='focus'；历史值 focus-mode/study 与文本前缀旁路均已移除
-    expect(isFocusModeMessage({ mode: "focus-mode" })).toBe(false);
+    expect(isFocusModeMessage({ mode: "ap-ui-focus-mode" })).toBe(false);
     expect(isFocusModeMessage({ mode: "study" })).toBe(false);
     expect(isFocusModeMessage({})).toBe(false);
     expect(isFocusModeMessage(undefined)).toBe(false);
@@ -342,18 +342,18 @@ describe("CAP-002 / CAP-007 插件规范化验证（AVX-PLUG-001）", () => {
     const { ServerTurnPluginRegistry } = await import("@aervox/host-runtime-test/modules/ecosystem/plugins/turn-plugins/registry");
     const reg = new ServerTurnPluginRegistry();
 
-    reg.register({ id: "focus-mode" });
+    reg.register({ id: "ap-ui-focus-mode" });
     expect(reg.getAll()).toHaveLength(1);
-    expect(reg.get("focus-mode")?.id).toBe("focus-mode");
+    expect(reg.get("ap-ui-focus-mode")?.id).toBe("ap-ui-focus-mode");
 
     // CR-060：别名不再被解析——历史 id 既查不到，也不会与主 id 互斥去重
     expect(reg.get("study-mode")).toBeUndefined();
     expect(reg.get("quiz-mode")).toBeUndefined();
-    expect(reg.getAllAliases("focus-mode")).toEqual(["focus-mode"]);
+    expect(reg.getAllAliases("ap-ui-focus-mode")).toEqual(["ap-ui-focus-mode"]);
     expect(reg.resolvePluginId("study-mode")).toBe("study-mode");
 
     // 同一 id 重复注册替换旧实例，不产生翻倍
-    const replacement = { id: "focus-mode" };
+    const replacement = { id: "ap-ui-focus-mode" };
     reg.register(replacement);
     expect(reg.getAll()).toHaveLength(1);
     expect(reg.getAll()[0]).toBe(replacement);

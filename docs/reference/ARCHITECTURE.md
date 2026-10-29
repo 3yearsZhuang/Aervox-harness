@@ -66,14 +66,16 @@ API 组合根显式装配第一方 Bot 传输贡献，共用会话受理与完�
 | `apps/` | API、Worker、桌面、Web、CLI 与移动壳；宿主组合根负责装配，平台桥留在各端 |
 | `packages/contracts` / `schema` / `repositories` | 公共协议、数据库 Schema 与事务仓储；业务写入不能绕过仓储 |
 | `packages/host-runtime` | API 与 Worker 共用产品装配、执行与权限；API 监听，Worker 调度，见 [ADR-021](adr/ADR-021-aervox-core-standalone-package.md) |
-| `packages/core` | 零运行时依赖的内核；宿主注入持久化、Provider 与业务工具 |
-| `packages/host-plugin-api` / `plugins/` | 窄接口与插件自有实现；领域逻辑不回流到宿主或内核 |
+| `packages/core` | [独立 Core 仓库](https://github.com/Aervox-agent/Aervox-core)的必需 Git submodule，固定提交并作为 `@aervox/core` workspace 包消费；零运行时依赖，宿主注入持久化、Provider 与业务工具 |
+| `packages/host-plugin-api` / `plugins/` | 窄接口与插件自有实现；`plugins/` 是 [Aervox-plugins](https://github.com/Aervox-agent/Aervox-plugins) 集合仓的必需固定提交子模块，保留原 workspace 包和默认产品组成；领域逻辑不回流到宿主或内核 |
 | `packages/ui` / `ui-host` / `api-client` | 跨端组件、主题和传输；不依赖平台壳或数据库 |
 | `native/` / `packages/native-runtime` | Rust 计算与受控进程，TypeScript 负责业务、授权、写入与生命周期 |
 
 根界面由平台组合根选择受信第一方 UI 包，`@aervox/ui-host` 负责清单校验、加载和实例释放。工作台、桌宠、主动陪伴界面与设置面板的实现各归所属插件，`@aervox/ui` 保留跨界面构件和主题；详见 [ADR-025](adr/ADR-025-ui-surface-hosts.md)。第三方界面开放仍为 [ADR-026](adr/ADR-026-ui-surface-open-ecosystem.md) 提案。
 
 实际包与依赖以 workspace 清单、各包清单和[导入边界守卫](../../scripts/import-boundary.mjs)为准；本表说明架构职责，不逐项镜像磁盘目录。
+
+Core 与插件的仓库分离不改变运行时或数据所有权：API/Worker、仓储与产品装配继续由主仓维护。两个必需产品子模块的源码和受跟踪文件参与主仓门禁，`reference/` 仍为可选参考输入；Core 独立工具链与引用更新见 [ADR-021](adr/ADR-021-aervox-core-standalone-package.md#仓库分离与主仓集成)，插件在固定宿主内开发及两仓兼容规则见 [ADR-031](adr/ADR-031-first-party-plugin-repositories.md)。
 
 原生源码由顶层 Cargo 工作区统一管理；TypeScript 接入包不拥有 Rust 源码，原生制品仍归集到 `packages/native-runtime/dist/bin/<platform>-<arch>/`。精确工具版本由 `mise.toml` 管理，Cargo 工作区继承依赖、最低版本与许可证。
 
@@ -551,7 +553,7 @@ UTC/IANA 时区、首次窗口、迟到素材、补写、CAS/fencing 与跨时�
 
 #### 13.4.6 Petra：学习语音顺序的验收场景，保留对实现的质疑
 
-`aac255b` 把并发预取和 FIFO 播放分开：后一句先合成完成，也要等待队首；静音通过音量处理，使结束回调和气泡收尾继续运行。对伴学解释很重要，否则“因此……”可能先于推导被读出。思隅已有[合成入口](../../packages/host-runtime/src/modules/platform/voice/service.ts)和[语音试听](../../surfaces/panels-ui/src/persona/VoiceAbilityCard.vue)，应基于这些入口测试分段顺序、打断、静音和迟到结果。
+`aac255b` 把并发预取和 FIFO 播放分开：后一句先合成完成，也要等待队首；静音通过音量处理，使结束回调和气泡收尾继续运行。对伴学解释很重要，否则“因此……”可能先于推导被读出。思隅已有[合成入口](../../packages/host-runtime/src/modules/platform/voice/service.ts)和[语音试听](../../plugins/surfaces/panels-ui/src/persona/VoiceAbilityCard.vue)，应基于这些入口测试分段顺序、打断、静音和迟到结果。
 
 但该实现仍有缺口：`preload()` 的失败分支只标记 ready，没有唤醒播放队列；本次以原源码和隔离的合成替身复现了唯一队首失败后不推进、idle 回调不触发。创建的 blob URL 也未见对应释放，`stop()` 未取消在途合成。现有“中间段失败”测试不能覆盖全部时序。适合借鉴测试设计并补反例，不宜直接复制播放器。
 

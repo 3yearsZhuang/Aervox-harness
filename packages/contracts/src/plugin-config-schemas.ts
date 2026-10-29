@@ -15,6 +15,7 @@ import {
 } from "./proactive-dsl-schemas.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { comparePluginVersions, STABLE_PLUGIN_VERSION_PATTERN } from "./plugin-compatibility.js";
+import { pluginCategorySchema } from "./plugin-identity.js";
 
 // 必须在任何 schema 创建前调用（与 schemas.ts 保持相同约定）
 extendZodWithOpenApi(z);
@@ -294,6 +295,11 @@ export const pluginManifestSchema = z.object({
     version: z.string().min(1).max(64),
     description: z.string().max(2000).optional(),
     license: z.string().max(128).optional(),
+    /** Optional for legacy v1 bundles; official ecosystem authoring requires these metadata. */
+    category: pluginCategorySchema.optional(),
+    tags: z.array(z.string().min(1).max(64)).max(32).refine(tags => new Set(tags).size === tags.length,
+      { message: "Duplicate plugin tags" }).optional(),
+    breaking: z.boolean().optional(),
   }),
   spec: z
     .object({
@@ -481,6 +487,12 @@ export const pluginMarketItemSchema = z.object({
   description: z.string().default(""),
   license: z.string().default(""),
   source: z.enum(["builtin", "market"]).default("builtin"),
+  category: pluginCategorySchema.optional(),
+  tags: z.array(z.string()).optional(),
+  breaking: z.boolean().optional(),
+  downloadUrl: z.string().url().optional(),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+  size: z.number().int().positive().max(20 * 1024 * 1024).optional(),
   installed: z.boolean().default(false),
   installedVersion: z.string().nullable().default(null),
   hasUpdate: z.boolean().default(false),
@@ -500,4 +512,18 @@ export type PluginPackageInspection = z.infer<typeof pluginPackageInspectionSche
 export type PluginPackageInstallRequest = z.infer<typeof pluginPackageInstallRequestSchema>;
 export type PluginPackageExportResponse = z.infer<typeof pluginPackageExportResponseSchema>;
 export type PluginMarketItem = z.infer<typeof pluginMarketItemSchema>;
+
+/** Installation confirmation is bound to the release shown to the user. */
+export const pluginMarketInstallRequestSchema = z.object({
+  allowBreaking: z.boolean().optional(),
+  expectedVersion: z.string().min(1).max(64).optional(),
+  expectedSha256: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+}).strict();
+export type PluginMarketInstallRequest = z.infer<typeof pluginMarketInstallRequestSchema>;
+
+export const pluginMarketReportSchema = z.object({
+  items: z.array(pluginMarketItemSchema),
+  registryError: z.string().nullable().optional(),
+});
+export type PluginMarketReport = z.infer<typeof pluginMarketReportSchema>;
 

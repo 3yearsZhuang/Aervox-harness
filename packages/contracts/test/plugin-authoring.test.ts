@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkPluginHostCompatibility, comparePluginVersions } from "../src/plugin-compatibility.js";
+import { checkPluginHostCompatibility, comparePluginVersions, PLUGIN_HOST_API_VERSION } from "../src/plugin-compatibility.js";
 import { validatePluginBundleFiles, validatePluginConfigDefinition } from "../src/plugin-validation.js";
 import { pluginManifestSchema } from "../src/plugin-config-schemas.js";
 
@@ -11,6 +11,10 @@ describe("plugin author compatibility", () => {
   it("keeps old release labels valid while enforcing explicit host intervals", () => {
     expect(pluginManifestSchema.safeParse(manifest).success).toBe(true);
     expect(checkPluginHostCompatibility({}).compatible).toBe(true);
+    expect(PLUGIN_HOST_API_VERSION).toBe("1.1.0");
+    const ecosystemRange = { requires: { hostApiVersion: { min: "1.1.0", maxExclusive: "2.0.0" } } };
+    expect(checkPluginHostCompatibility(ecosystemRange).compatible).toBe(true);
+    expect(checkPluginHostCompatibility(ecosystemRange, "1.0.0").compatible).toBe(false);
     expect(checkPluginHostCompatibility({}, "2.0.0").compatible).toBe(false);
     const requires = { hostApiVersion: { min: "1.2.0", maxExclusive: "2.0.0" } };
     expect(checkPluginHostCompatibility({ requires }, "1.2.0").compatible).toBe(true);

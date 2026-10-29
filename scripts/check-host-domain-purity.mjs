@@ -53,7 +53,7 @@ export const DOMAIN_PATTERNS = [
   {
     id: "plugin-id",
     label: "插件 id 字面量",
-    pattern: /\bfocus-mode\b|\bstudy-mode\b|\bquiz-mode\b/,
+    pattern: /\bfocus-mode\b|\bstudy-mode\b|\bquiz-mode\b|\bflowcampus\b/,
   },
   {
     id: "camel-ident",
@@ -96,7 +96,7 @@ export const DOMAIN_PATTERNS = [
     id: "domain-css",
     label: "插件专属样式类",
     // 第二组：学习抽屉 / 错题本 / 目标状态等**仅由插件组件产出**的类名，
-    // 已随样式物理迁入 `plugins/focus-mode/src/ui/styles.css`，宿主不得再定义或引用。
+    // 已随样式物理迁入 `plugins/plugins/ui/focus-mode/src/ui/styles.css`，宿主不得再定义或引用。
     // 这里用精确类名而非 `goal-`/`mistake-` 前缀——宿主自身 CAP-017 学习规划仍有
     // `.goal-actions`、`.mistake-filters` 等合法类，前缀匹配会误伤。
     pattern:
@@ -269,7 +269,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
             pattern: hit.rule,
             count: 1,
             owner: "platform/ecosystem",
-            removeWhen: `随插件实现内聚迁入 plugins/focus-mode 一并移除（${hit.label}）`,
+            removeWhen: `随插件实现内聚迁入 plugins/plugins/ui/focus-mode 一并移除（${hit.label}）`,
           });
         }
       }

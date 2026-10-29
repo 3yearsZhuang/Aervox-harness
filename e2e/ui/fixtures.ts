@@ -9,6 +9,8 @@
 import { test as base, expect, type Page } from "@playwright/test";
 import { spawn, type ChildProcess } from "child_process";
 import path from "path";
+import fs from "node:fs/promises";
+import os from "node:os";
 import {
   startServer,
   stopServer,
@@ -153,13 +155,15 @@ export const test = base.extend<{}, { servers: UiServers; loopProvider: "replay"
       const dbPath = getDbPath("ui-w" + workerIndex);
 
       cleanupDb(dbPath);
-      const { server: apiServer, url: apiUrl } = await startServer(
-        apiPort,
-        dbPath,
-        loopProvider ? { AERVOX_LOOP_PROVIDER: loopProvider } : {},
-      );
+      const ownedRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'aervox-ui-worker-'));
+      let apiServer: ChildProcess | undefined;
       let webServer: ChildProcess | undefined;
       try {
+        const started = await startServer(apiPort, dbPath,
+          loopProvider ? { AERVOX_LOOP_PROVIDER: loopProvider } : {},
+          { skillsRoot: path.join(ownedRoot, 'skills'), pluginsRoot: path.join(ownedRoot, 'plugins') });
+        apiServer = started.server;
+        const apiUrl = started.url;
         webServer = await startWebServer(apiUrl, webPort, platform);
         await use({
           apiUrl,
@@ -167,8 +171,9 @@ export const test = base.extend<{}, { servers: UiServers; loopProvider: "replay"
         });
       } finally {
         stopWebServer(webServer);
-        stopServer(apiServer);
+        if (apiServer) stopServer(apiServer);
         cleanupDb(dbPath);
+        await fs.rm(ownedRoot, { recursive: true, force: true });
       }
     },
     { scope: "worker" },

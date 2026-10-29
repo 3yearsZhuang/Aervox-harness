@@ -1,21 +1,18 @@
 /** Shared, side-effect-free author and installation checks for declarative bundles. */
 import { pluginConfigSchema, pluginManifestSchema, type PluginConfigField } from "./plugin-config-schemas.js";
 import { checkPluginHostCompatibility } from "./plugin-compatibility.js";
+import { isPluginSkillName, isStandardPluginId, pluginSkillNameFromDirectoryName } from "./plugin-identity.js";
+export { isPluginSkillName, pluginSkillDirectoryName } from "./plugin-identity.js";
 import type { z } from "zod";
 
 export interface PluginValidationIssue { path: string; code: string; message: string }
 export const PLUGIN_CONFIG_MAX_DEPTH = 5;
-export const PLUGIN_BUNDLE_ROOT_FILES = ["plugin.manifest.json", "manifest.json", "config.schema.json", "SKILL.md", "skill.md"] as const;
+export const PLUGIN_BUNDLE_ROOT_FILES = ["plugin.manifest.json", "manifest.json", "config.schema.json", "SKILL.md", "skill.md", "icon.svg", "icon.png", "LICENSE", "NOTICE", "CHANGELOG.md"] as const;
 export const PLUGIN_BUNDLE_RESOURCE_PREFIXES = ["pages/", "skills/"] as const;
 const RESERVED_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 
-/** Shared by author validation and host filesystem ownership checks. */
-export function isPluginSkillName(name: string): boolean {
-  return /^(?!\.{1,2}$)[\w.-]+$/.test(name);
-}
-
 export function isPluginBundleResourcePath(entry: string): boolean {
-  if (!entry || entry.length > 512 || entry.startsWith("/") || entry.includes("\\") || /^[A-Za-z]:/.test(entry)) return false;
+  if (!entry || entry.length > 512 || entry.startsWith("/") || /[\\:\x00-\x1f]/.test(entry)) return false;
   if (entry.split("/").some((part) => !part || part === "." || part === "..")) return false;
   return PLUGIN_BUNDLE_ROOT_FILES.some((file) => file === entry)
     || PLUGIN_BUNDLE_RESOURCE_PREFIXES.some((prefix) => entry.startsWith(prefix));
@@ -124,7 +121,7 @@ export function validatePluginBundleFiles(
   };
   const root = raw as Record<string, unknown>;
   allowedKeys(root, ["apiVersion", "kind", "metadata", "requires", "spec"], "manifest");
-  allowedKeys(root.metadata, ["id", "displayName", "publisher", "version", "description", "license"], "metadata");
+  allowedKeys(root.metadata, ["id", "displayName", "publisher", "version", "description", "license", "category", "tags", "breaking"], "metadata");
   allowedKeys(root.spec, ["config", "pages", "mcpServers", "skill", "tools", "skills", "proactive"], "spec");
   const rawSpec = (root.spec ?? {}) as Record<string, unknown>;
   allowedKeys(rawSpec.config, ["schemaVersion", "entry"], "spec.config");
@@ -132,6 +129,10 @@ export function validatePluginBundleFiles(
   for (const [index, tool] of (Array.isArray(rawSpec.tools) ? rawSpec.tools : []).entries()) allowedKeys(tool, ["id", "name", "description", "category", "safetyLevel", "requiredPermissions", "inputSchema", "gatingConditions", "priority"], `spec.tools.${index}`);
   for (const [index, skill] of (Array.isArray(rawSpec.skills) ? rawSpec.skills : []).entries()) allowedKeys(skill, ["name", "description", "content", "entry"], `spec.skills.${index}`);
   if (!/^[a-z0-9][a-z0-9._-]*$/.test(manifest.metadata.id) || RESERVED_KEYS.has(manifest.metadata.id)) add("metadata.id", "PLUGIN_ID", "Plugin id must be a safe lowercase identifier");
+  if (manifest.metadata.category !== undefined && manifest.metadata.id.startsWith("ap-") && (!isStandardPluginId(manifest.metadata.id)
+    || (manifest.metadata.category !== undefined && !manifest.metadata.id.startsWith(`ap-${manifest.metadata.category}-`)))) {
+    add("metadata.id", "PLUGIN_ID", "Standard ecosystem id and primary category must agree");
+  }
   if (/[\\/\x00-\x1f]/.test(manifest.metadata.version)) add("metadata.version", "PLUGIN_VERSION", "Release labels cannot contain path separators or control characters");
   const compatibility = checkPluginHostCompatibility(manifest, options.hostVersion);
   if (!compatibility.compatible) add("requires.hostApiVersion", "HOST_INCOMPATIBLE", compatibility.reason!);
@@ -166,6 +167,7 @@ export function validatePluginBundleFiles(
   };
   for (const skill of manifest.spec.skills ?? []) {
     if (!isPluginSkillName(skill.name)) add(`skills.${skill.name}`, "SKILL_NAME", "Invalid skill name");
+    else if (skill.name.includes(":") && !skill.name.startsWith(`${manifest.metadata.id}:`)) add(`skills.${skill.name}`, "SKILL_NAMESPACE", "Namespaced skill must belong to this plugin id");
     if (skillNames.has(skill.name)) add(`skills.${skill.name}`, "SKILL_DUPLICATE", "Duplicate skill name");
     skillNames.add(skill.name);
     if (skill.entry) {
@@ -185,9 +187,11 @@ export function validatePluginBundleFiles(
   }
   for (const entry of Object.keys(files).sort()) {
     if (claimedSkillEntries.has(entry) || !entry.startsWith("skills/") || (!entry.endsWith("/SKILL.md") && !entry.endsWith("/skill.md"))) continue;
-    const name = entry.split("/")[1];
-    if (!name || skillNames.has(name)) continue;
-    if (!isPluginSkillName(name)) add(entry, "SKILL_NAME", "Invalid skill name");
+    const directory = entry.split("/")[1];
+    const name = directory ? pluginSkillNameFromDirectoryName(directory) : null;
+    if (!name) { add(entry, "SKILL_NAME", "Invalid or noncanonical skill directory name"); continue; }
+    if (skillNames.has(name)) continue;
+    if (name.includes(":") && !name.startsWith(`${manifest.metadata.id}:`)) add(entry, "SKILL_NAMESPACE", "Namespaced skill must belong to this plugin id");
     checkSkillUtf8(entry);
     skillNames.add(name);
   }

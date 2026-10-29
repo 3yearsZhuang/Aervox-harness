@@ -79,8 +79,10 @@ test("workspace source resolution follows exact exports and plugin UI/server sub
   const from = "apps/web/src/App.vue";
   for (const [specifier, target] of [
     ["@aervox/core", "packages/core/src/index.ts"],
-    ["@aervox/plugin-focus-mode/ui", "plugins/focus-mode/src/ui/index.ts"],
-    ["@aervox/plugin-focus-mode/server", "plugins/focus-mode/src/server/index.ts"],
+    ["@aervox/plugin-focus-mode/ui", "plugins/plugins/ui/focus-mode/src/ui/index.ts"],
+    ["@aervox/plugin-focus-mode/server", "plugins/plugins/ui/focus-mode/src/server/index.ts"],
+    ["@aervox/plugin-bot-onebot/server", "plugins/plugins/bot/onebot/src/server/index.ts"],
+    ["@aervox/plugin-bot-weixin/server", "plugins/plugins/bot/weixin/src/server/index.ts"],
     ["@aervox/contracts/proactive", "packages/contracts/src/proactive.ts"],
     ["@aervox/ui/env", "packages/ui/src/env.d.ts"],
   ]) assert.equal(resolveRepoRelative(from, specifier), target);

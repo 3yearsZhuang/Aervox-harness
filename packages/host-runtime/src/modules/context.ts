@@ -25,6 +25,7 @@ import type { Observability } from "@aervox/observability";
 import type { SafetyPort } from "./platform/safety/index.js";
 
 export interface ModuleContext {
+  pluginRegistryOptions?: import("./ecosystem/plugins/index.js").PluginRegistryOptions;
   apiRegistry?: import("@aervox/contracts").PluginApiRegistry;
   executionConfig?: import("@aervox/config").ExecutionConfig;
   app: FastifyInstance;

@@ -7,7 +7,7 @@
  * - 严格防止依赖版本分裂与幽灵依赖。
  *
  * 规则：
- * 1. 核心构建/测试工具必须且仅在根 package.json 中声明，子包一律不得重复声明。
+ * 1. 构建/测试工具在主仓根统一声明；独立 Core 仓根仅自行声明 typescript/vitest/esbuild 开发依赖。
  * 2. 根 devDependencies 中的工具若在子包重复声明，必须在 ALLOWLIST 中显式说明原因（如 typescript@5 for vue-tsc）。
  *
  * 用法：
@@ -41,10 +41,12 @@ export const ALLOWED_DUPLICATES = new Map([
       "packages/ui",
       "packages/ui-host",
       // Vue SFC imported-type resolution requires the TS 5 compiler API; root TS 7 has no sys.
-      "surfaces/workbench-ui",
-      "surfaces/companion-ui",
-      "surfaces/proactive-ui",
-      "surfaces/panels-ui",
+      "plugins/surfaces/workbench-ui",
+      "plugins/surfaces/companion-ui",
+      "plugins/surfaces/proactive-ui",
+      "plugins/surfaces/panels-ui",
+      // Campus SFCs share the Vue compiler API boundary.
+      "plugins/plugins/tool/flowcampus",
       "apps/web",
       "apps/desktop",
     ]),
@@ -77,6 +79,10 @@ export function inspectSubpackage(relDir, pkgJson, rootDevDeps) {
   const violations = [];
   const devDeps = Object.keys(pkgJson.devDependencies || {});
   const deps = Object.keys(pkgJson.dependencies || {});
+  // The independently runnable Core repository is a root project at this exact mount.
+  // Its tool declarations do not relax hoisting for ordinary packages or runtime dependencies.
+  const independentCoreTool = dep => relDir === 'packages/core' && pkgJson.name === '@aervox/core' &&
+    ['typescript', 'vitest', 'esbuild'].includes(dep) && devDeps.includes(dep) && !deps.includes(dep);
   if (!relDir.startsWith('research/')) {
     for (const dep of [...devDeps, ...deps]) {
       if (dep.startsWith('@aervox/research-')) violations.push({ pkg: pkgJson.name || relDir, dep, reason: '产品 workspace 不得依赖研究实现' });
@@ -85,7 +91,7 @@ export function inspectSubpackage(relDir, pkgJson, rootDevDeps) {
 
   // 1. 绝对禁止的工具
   for (const d of [...devDeps, ...deps]) {
-    if (FORBIDDEN_IN_SUBPACKAGES.has(d)) {
+    if (FORBIDDEN_IN_SUBPACKAGES.has(d) && !independentCoreTool(d)) {
       violations.push({
         pkg: pkgJson.name || relDir,
         dep: d,
@@ -96,7 +102,7 @@ export function inspectSubpackage(relDir, pkgJson, rootDevDeps) {
 
   // 2. 根 devDependencies 重复声明检查（除白名单外）
   for (const d of devDeps) {
-    if (rootDevDeps.has(d) && !FORBIDDEN_IN_SUBPACKAGES.has(d)) {
+    if (rootDevDeps.has(d) && !FORBIDDEN_IN_SUBPACKAGES.has(d) && !independentCoreTool(d)) {
       const allowedDirs = ALLOWED_DUPLICATES.get(d);
       if (!allowedDirs || !allowedDirs.has(relDir)) {
         violations.push({

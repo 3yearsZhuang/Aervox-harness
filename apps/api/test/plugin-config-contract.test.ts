@@ -136,7 +136,7 @@ describe('ITER-064 plugin configuration contracts over HTTP', () => {
   });
 
   it('conceals unexpected service failures on all configuration and Page endpoints', async () => {
-    const methods = ['getConfigSchema', 'registerConfigSchema', 'getConfig', 'saveConfig', 'resetConfig', 'listPages'] as const;
+    const methods = ['getConfigSchema', 'registerConfigSchema', 'getConfig', 'saveConfig', 'resetConfig', 'listPages', 'exportStoredData'] as const;
     for (const method of methods) vi.spyOn(PluginConfigService.prototype, method).mockRejectedValue(new Error('SELECT secret FROM /private/internal.sqlite'));
     for (const endpoint of Object.values(pluginConfigApi)) {
       const body = endpoint === pluginConfigApi.registerSchema ? schema : endpoint === pluginConfigApi.save ? { revision: 0 } : undefined;
@@ -151,8 +151,9 @@ describe('ITER-064 plugin configuration contracts over HTTP', () => {
   it('rejects malformed successful service output through the response contract', async () => {
     vi.spyOn(PluginConfigService.prototype, 'getConfigSchema').mockResolvedValue({ schemaVersion: 1, fields: [{ key: 'unsafe', type: 'unknown', label: 'Unsafe' }] });
     vi.spyOn(PluginConfigService.prototype, 'getConfig').mockResolvedValue({ pluginId, revision: -1 } as never);
+    vi.spyOn(PluginConfigService.prototype, 'exportStoredData').mockResolvedValue({ pluginId, revision: -1, format: 'unsafe' } as never);
     vi.spyOn(PluginConfigService.prototype, 'listPages').mockResolvedValue([{ id: 'settings', pageGeneration: 'current-page', title: 'Settings', entry: 'pages/settings/index.html', capabilities: ['unsafe'] }]);
-    for (const endpoint of [pluginConfigApi.getSchema, pluginConfigApi.get, pluginConfigApi.listPages]) {
+    for (const endpoint of [pluginConfigApi.getSchema, pluginConfigApi.get, pluginConfigApi.listPages, pluginConfigApi.exportData]) {
       const response = await request('GET', url(endpoint));
       expect(response.status).toBe(500);
       expect(apiProblemSchema.parse(response.body).message).toBe('Internal Server Error');

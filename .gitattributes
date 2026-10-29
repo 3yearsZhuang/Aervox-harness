@@ -2,6 +2,9 @@
 # 所有文本文件以 LF 入库/检出（覆盖 autocrlf），docs front matter 解析不再被 CRLF 破坏。
 * text=auto eol=lf
 
+# Unified-diff context uses a leading space before tabs and on empty lines.
+patches/*.patch whitespace=-blank-at-eol,-space-before-tab
+
 # 二进制与不可安全转换类型：禁止换行规范化
 *.png binary
 *.jpg binary

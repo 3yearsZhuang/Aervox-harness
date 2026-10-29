@@ -17,7 +17,7 @@ decision_status: accepted
 2. CLI TTY 审批和纯内存组合入口归 Core；SQLite 注册表、业务持久化、进程生命周期和产品装配归宿主。Core 是库，不能以独立发行替代 API/Worker 的所有权或恢复责任。
 3. Core 使用 Apache-2.0，产品代码仍按 AGPLv3 分层；公开出口不包含伴学提示词、作答落库工具或产品域类型。
 4. 统一模型调用面在 Core 内形成公共 API，经 Provider Port 消费；不为统一模型再建立第二套执行循环。
-5. 公共出口为 `@aervox/core` 与 `@aervox/core/core`，内部收集、终态、工具账本及序列化实现不自动成为稳定 API。公开 npm 发布、包名/版本策略和发行文档另行决定；当前保持 private workspace 包。
+5. 公共出口为 `@aervox/core`、`@aervox/core/core` 与平台中性的 `@aervox/core/browser`，内部收集、终态、工具账本及序列化实现不自动成为稳定 API。公开 npm 发布、包名/版本策略和发行文档另行决定；当前保持 private workspace 包。
 
 ## Alternatives
 
@@ -33,6 +33,20 @@ decision_status: accepted
 内核提纯修订将专注模式提示词、`PracticeAttemptPort` 与作答工具迁回产品；宿主工具 guidance 经 `customGuidance` 注入。通用用户提问与子任务贡献仍属内核。第一方插件最终归属见 [ADR-016](ADR-016-base-boundaries.md#cr-060)。
 
 渐进迁移的 `packages/agent-loop` re-export 壳和 Host CLI 审批壳已移除，下游直接消费 Core；Core 本地定义通用负载，类型兼容由测试锁定，不再依赖 Contracts 类型。旧壳不作为长期兼容入口。
+
+## 仓库分离与主仓集成
+
+维护者已接受将内核迁至 `Aervox-agent` 组织下的公开 [Aervox-core](https://github.com/Aervox-agent/Aervox-core) 仓库，并以 Git submodule 接回主仓。该修订沿用 ITER-035/037 的内核与类型边界，不扩大产品拆分范围，也不改变已有宿主责任。
+
+1. 独立仓库保留 `packages/core` 路径的过滤提交历史、原始提交者、版权和 Apache-2.0 许可。迁移将该目录提升为仓库根，过滤后的提交哈希随路径变化；主仓原历史继续保留。生产源码与三个公共入口保持兼容，只补齐独立构建、类型检查、测试及 CI 配置。
+2. 主仓在原 `packages/core` 路径记录 gitlink，固定确定提交，仍按 `@aervox/core` workspace 包消费。仓库分离不引入网络运行时依赖、远程执行、数据库迁移或新的业务权限；产品持久化、授权与删除门禁仍由受信宿主和仓储拥有。
+3. 子仓具备独立 mise、包管理器、锁文件和构建配置，保留零运行时依赖，不导入主仓 Contracts。与主仓业务 Schema 的类型兼容证明留在宿主测试中，独立成功不能替代主仓消费者验收。主仓安装依赖仍从根执行并使用根锁文件；独立开发工具依赖的包内声明例外仅限 `packages/core` 路径和 `@aervox/core` 包名。
+4. Core 属于必需产品依赖；冷检出、安装、文档链接与代码扫描都必须准备主仓固定的提交，缺失或检出失配时明确失败。主仓安全和依赖门禁覆盖其受跟踪源码；`reference/` 仍是可选设计输入，不能因为 Core 必需就全量初始化参考仓库。
+5. Core 变更在子仓 feature / fix / docs 分支审查；主仓另用 PR 更新 gitlink，验证锁文件和实际下游。两仓的 `main` 不直接提交或推送。公开仓库与 `private: true` workspace 包可以并存，公开 npm 发行、版本治理和签名发布仍另行决定。
+
+继续同仓维护能减少跨仓更新步骤，但不能满足独立仓库所有权；复制源码会产生双重真源；直接改用已发布包则要求本轮尚未建立的 npm 发行流程。因此本轮选择固定提交的 submodule，并承担首次初始化与跨仓兼容验证成本。分离只改变后续源码管理边界，不压缩或重写主仓已有历史；本地存储节省需另行测量，不能由本次迁移推定。
+
+迁移验收覆盖独立冷检出安装、构建、类型检查与测试，以及主仓冷检出后的必需初始化、冻结安装、消费者测试、源码扫描和全量门禁；引用的精确提交必须可从公开远端获取。回退时通过主仓 PR 恢复此前固定的 gitlink；首次接入前的代码仍可从主仓历史恢复，保留许可、公共 API 与类型兼容证明。两仓的精确提交 CI 和 PR 记录分别保存，不能将独立仓库成功表述成主仓已合并或产品已发布。
 
 <a id="cr-061"></a>
 

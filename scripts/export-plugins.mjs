@@ -2,7 +2,7 @@
  * Aervox｜思隅 — 插件打包导出脚本
  *
  * 扫描 plugins/ 目录下的所有内置插件，读取 plugin.manifest.json，
- * 并使用 fflate 压缩生成 dist/plugins/<id>-<version>.aervox-plugin 分发包。
+ * 并使用 fflate 压缩生成 dist/plugins/<id>-v<version>.aervox-plugin 分发包。
  *
  * **构建可重现性**：分发包是校验和载体（预检会展示 SHA-256），字节必须
  * 只由源码内容决定。fflate 的 ZIP 条目时间戳默认取**当前时间**、且 `fs.readdir`
@@ -14,6 +14,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { zipSync } from "fflate";
+import { assertCoreSubmodule } from './core-submodule.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, "..");
@@ -50,6 +51,11 @@ export const DIST_FILENAMES = new Set([
   "config.schema.json",
   "SKILL.md",
   "skill.md",
+  "icon.svg",
+  "icon.png",
+  "LICENSE",
+  "NOTICE",
+  "CHANGELOG.md",
 ]);
 
 export const DIST_DIR_PREFIXES = ["skills/", "pages/"];
@@ -80,7 +86,7 @@ export function classifyDistEntry(rel, isDirectory = false) {
 }
 
 /** 按允许清单收集待打包文件；返回 { files, unexpected, skipped } */
-async function collectDistFiles(dir, base = "") {
+async function collectDistFiles(dir, base = "", budget = { bytes: 0, entries: 0 }) {
   const entries = await fs.readdir(dir, { withFileTypes: true });
   const files = {};
   const unexpected = [];
@@ -101,10 +107,15 @@ async function collectDistFiles(dir, base = "") {
       continue;
     }
     if (entry.isDirectory()) {
-      const nested = await collectDistFiles(full, rel);
+      const nested = await collectDistFiles(full, rel, budget);
       Object.assign(files, nested.files);
       unexpected.push(...nested.unexpected);
     } else {
+      const stat = await fs.lstat(full);
+      if (stat.nlink > 1) throw new Error(`Hard-linked plugin resource: ${rel}`);
+      budget.bytes += stat.size;
+      budget.entries++;
+      if (stat.size > 5 * 1024 * 1024 || budget.bytes > 50 * 1024 * 1024 || budget.entries > 2048) throw new Error("Plugin resources exceed archive limits");
       const data = await fs.readFile(full);
       files[rel] = [new Uint8Array(data), { mtime: REPRODUCIBLE_MTIME }];
     }
@@ -112,78 +123,80 @@ async function collectDistFiles(dir, base = "") {
   return { files, unexpected, skipped };
 }
 
-async function main() {
-  const { validatePluginBundleFiles } = await import("../packages/contracts/dist/plugin-validation.js");
-  await fs.mkdir(DIST_DIR, { recursive: true });
-  const entries = [...(await fs.readdir(PLUGINS_DIR, { withFileTypes: true }))].sort(byName);
-  const exported = [];
-  const problems = [];
-
-  console.log(`[export-plugins] 开始打包 plugins/ 目录下的插件包...`);
-
-  for (const entry of entries) {
+/** Bounded discovery supports legacy roots and the seven ecosystem categories. */
+export async function discoverPluginDirectories(root) {
+  const directories = [];
+  const categories = new Set(["tool", "bot", "ui", "proactive", "sync", "workflow", "theme"]);
+  const children = async directory => {
+    try { return (await fs.readdir(directory, { withFileTypes: true })).sort(byName); }
+    catch (error) { if (error.code === "ENOENT") return []; throw error; }
+  };
+  for (const entry of await children(root)) {
+    if (entry.isSymbolicLink()) throw new Error(`Linked plugin source: ${entry.name}`);
     if (!entry.isDirectory()) continue;
-    const pluginDir = path.join(PLUGINS_DIR, entry.name);
-    const manifestPath = path.join(pluginDir, "plugin.manifest.json");
-
-    try {
-      await fs.access(manifestPath);
-    } catch {
-      continue;
-    }
-
-    const manifestRaw = await fs.readFile(manifestPath, "utf8");
-    const manifest = JSON.parse(manifestRaw);
-    const { id, version, displayName } = manifest.metadata;
-
-    const { files, unexpected, skipped } = await collectDistFiles(pluginDir);
-
-    // fail-closed：出现无法归类为「声明/资源」或「本地开发载体」的条目时拒绝打包，
-    // 强制作者显式决定该文件的去向，避免实现源码或未知文件静默进入校验和载体。
-    if (unexpected.length > 0) {
-      problems.push({ id, unexpected });
-      continue;
-    }
-    if (skipped.length > 0) {
-      console.log(`[export-plugins] ${id}: 已排除本地开发载体 ${skipped.join(", ")}`);
-    }
-
-    const validation = validatePluginBundleFiles(Object.fromEntries(Object.entries(files).map(([name, [bytes]]) => [name, bytes])));
-    if (validation.issues.length) {
-      throw new Error(`${id}: ${validation.issues.map((issue) => `${issue.path}: ${issue.message}`).join("; ")}`);
-    }
-    const zipped = zipSync(files, { level: 9 });
-    const checksum = createHash("sha256").update(zipped).digest("hex");
-    const filename = `${id}-${version}.aervox-plugin`;
-    const outputPath = path.join(DIST_DIR, filename);
-
-    await fs.writeFile(outputPath, zipped);
-
-    const stats = await fs.stat(outputPath);
-    exported.push({
-      id,
-      displayName,
-      version,
-      filename,
-      size: `${(stats.size / 1024).toFixed(2)} KB`,
-      checksum: checksum.slice(0, 16) + "...",
-      filesCount: Object.keys(files).length,
-    });
+    const directory = path.join(root, entry.name);
+    try { await fs.access(path.join(directory, "plugin.manifest.json")); directories.push(directory); }
+    catch (error) { if (error.code !== "ENOENT") throw error; }
   }
-
-  if (problems.length > 0) {
-    for (const problem of problems) {
-      console.error(
-        `[export-plugins] ${problem.id}: 存在未归类条目，拒绝打包 —— ${problem.unexpected.join(", ")}\n` +
-          `  请将其归入声明与资源（${[...DIST_FILENAMES].join(", ")}、${DIST_DIR_PREFIXES.join("")}），` +
-          `或在 scripts/export-plugins.mjs 的 LOCAL_ONLY_* 中登记为本地开发载体。`,
-      );
+  for (const category of await children(path.join(root, "plugins"))) {
+    if (category.isSymbolicLink()) throw new Error(`Linked category: ${category.name}`);
+    if (!category.isDirectory()) continue;
+    if (!categories.has(category.name)) throw new Error(`Unknown plugin category: ${category.name}`);
+    for (const entry of await children(path.join(root, "plugins", category.name))) {
+      if (entry.isSymbolicLink()) throw new Error(`Linked plugin source: ${entry.name}`);
+      if (!entry.isDirectory()) continue;
+      const directory = path.join(root, "plugins", category.name, entry.name);
+      await fs.access(path.join(directory, "plugin.manifest.json"));
+      directories.push(directory);
     }
-    throw new Error(`${problems.length} 个插件包因未归类条目被拒绝`);
   }
+  return directories.sort();
+}
 
+/** Shared packaging authority for host exports, release assets and reproducibility gates. */
+export async function exportPluginDirectory(pluginDir, { distDir = DIST_DIR, write = true } = {}) {
+  const { validatePluginBundleFiles } = await import("../packages/contracts/dist/plugin-validation.js");
+  const manifest = JSON.parse(await fs.readFile(path.join(pluginDir, "plugin.manifest.json"), "utf8"));
+  const { files, unexpected, skipped } = await collectDistFiles(pluginDir);
+  if (unexpected.length) throw new Error(`${manifest.metadata.id}: unclassified entries: ${unexpected.join(", ")}`);
+  const resources = Object.values(files);
+  if (resources.length > 2048 || resources.some(([bytes]) => bytes.byteLength > 5 * 1024 * 1024)
+    || resources.reduce((sum, [bytes]) => sum + bytes.byteLength, 0) > 50 * 1024 * 1024) throw new Error("Plugin resources exceed archive limits");
+  const validation = validatePluginBundleFiles(Object.fromEntries(Object.entries(files).map(([name, [bytes]]) => [name, bytes])));
+  if (validation.issues.length) throw new Error(`${manifest.metadata.id}: ${validation.issues.map(issue => `${issue.path}: ${issue.message}`).join("; ")}`);
+  const bytes = zipSync(files, { level: 9 });
+  if (bytes.byteLength > 20 * 1024 * 1024) throw new Error("Plugin archive exceeds compressed size limit");
+  const checksum = createHash("sha256").update(bytes).digest("hex");
+  const { id, version } = manifest.metadata;
+  if (!/^[a-z0-9._-]+$/.test(id) || !/^[a-zA-Z0-9.+_-]+$/.test(version)) throw new Error("Unsafe distribution filename");
+  const filename = `${id}-v${version}.aervox-plugin`;
+  if (write) {
+    await fs.mkdir(distDir, { recursive: true });
+    await fs.writeFile(path.join(distDir, filename), bytes);
+  }
+  return { id, version, filename, bytes, checksum, size: bytes.length, manifest, filesCount: Object.keys(files).length, skipped };
+}
+
+async function main() {
+  assertCoreSubmodule(ROOT_DIR);
+  const entries = await discoverPluginDirectories(PLUGINS_DIR);
+  const filterIndex = process.argv.indexOf("--plugin-id");
+  const filter = filterIndex < 0 ? undefined : process.argv[filterIndex + 1];
+  if (filterIndex >= 0 && !filter) throw new Error("--plugin-id requires an ID");
+  const exported = [];
+  const ids = new Set();
+  for (const directory of entries) {
+    const manifest = JSON.parse(await fs.readFile(path.join(directory, "plugin.manifest.json"), "utf8"));
+    if (ids.has(manifest.metadata.id)) throw new Error(`Duplicate plugin identity: ${manifest.metadata.id}`);
+    ids.add(manifest.metadata.id);
+    if (filter && manifest.metadata.id !== filter) continue;
+    const result = await exportPluginDirectory(directory);
+    exported.push({ id: result.id, version: result.version, filename: result.filename, size: result.size,
+      checksum: result.checksum, filesCount: result.filesCount });
+  }
+  if (filter && !exported.length) throw new Error(`Plugin not found: ${filter}`);
   console.table(exported);
-  console.log(`[export-plugins] 成功打包 ${exported.length} 个插件至 ${DIST_DIR}`);
+  console.log(`[export-plugins] Exported ${exported.length} packages to ${DIST_DIR}`);
 }
 
 // 仅在作为脚本直接执行时打包；被测试 import 时不得产生副作用（避免污染工作区产物）。

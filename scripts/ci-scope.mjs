@@ -20,6 +20,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { CORE_SUBMODULE, PLUGINS_SUBMODULE } from './core-submodule.mjs';
 
 export const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -43,7 +44,7 @@ export function getBaseRef(cwd = ROOT_DIR) {
 export function getChangedFiles(baseRef = getBaseRef(), cwd = ROOT_DIR) {
   const changed = new Set();
 
-  const status = execFileSync("git", ["status", "--porcelain=v1", "-z", "--untracked-files=all"], {
+  const status = execFileSync("git", ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--ignore-submodules=none"], {
     encoding: "utf8",
     cwd,
   });
@@ -64,7 +65,7 @@ export function getChangedFiles(baseRef = getBaseRef(), cwd = ROOT_DIR) {
   }
 
   if (baseRef) {
-    const diff = execFileSync("git", ["diff", "--no-renames", "--name-only", "-z", `${baseRef}...HEAD`], {
+    const diff = execFileSync("git", ["diff", "--no-renames", "--name-only", "-z", "--ignore-submodules=none", `${baseRef}...HEAD`], {
       encoding: "utf8",
       cwd,
     });
@@ -174,6 +175,21 @@ export function resolveChangeScope(changedFiles, scope) {
   const packages = new Set();
   let affectsAll = false;
 
+  // Git reports a revision update as the mount path, without a trailing slash or files.
+  if (changedFiles.includes(CORE_SUBMODULE)) {
+    packages.add('@aervox/core');
+    reasons.push({ kind: 'required-submodule', label: '@aervox/core and its consumers', hits: [CORE_SUBMODULE] });
+  }
+  // One gitlink contains several workspaces and shared manifest/resource inputs.
+  if (changedFiles.includes(PLUGINS_SUBMODULE)) {
+    affectsAll = true;
+    reasons.push({ kind: 'required-submodule', label: 'first-party plugin collection and its consumers', hits: [PLUGINS_SUBMODULE] });
+  }
+  if (changedFiles.includes('.gitmodules')) {
+    affectsAll = true;
+    reasons.push({ kind: 'submodule-config', label: '.gitmodules', hits: ['.gitmodules'] });
+  }
+
   for (const decl of scope.packageInputs) {
     const hits = changedFiles.filter((file) => matchesGlob(file, decl.glob));
     if (hits.length > 0) {
@@ -207,7 +223,8 @@ export function resolveChangeScope(changedFiles, scope) {
 export function buildTurboFilterArgs(baseRef, changeScope) {
   if (!baseRef || changeScope.mode === "full") return [];
   const args = [`--filter=...[${baseRef}]`];
-  for (const pkg of changeScope.packages) args.push(`--filter=${pkg}...`);
+  // Leading ... selects consumers; trailing ... includes their build prerequisites.
+  for (const pkg of changeScope.packages) args.push(`--filter=...${pkg}...`);
   return args;
 }
 
@@ -281,7 +298,7 @@ export function findUncoveredPaths(workflowPaths, requiredPaths) {
 export function collectRequiredCodePaths(scope) {
   return [
     ...new Set([
-      '.npmrc', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml',
+      '.npmrc', '.gitmodules', CORE_SUBMODULE, PLUGINS_SUBMODULE, 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml',
       ...scope.globalDependencies,
       ...scope.packageInputs.map((decl) => decl.glob),
       ...scope.sharedInputs.map((decl) => decl.glob),

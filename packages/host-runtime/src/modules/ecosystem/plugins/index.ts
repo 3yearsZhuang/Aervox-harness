@@ -6,6 +6,9 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
+import { RemotePluginRegistry } from "./remote-registry.js";
+export { OFFICIAL_PLUGIN_REGISTRY, type PluginRegistryOptions } from "./remote-registry.js";
+import { discoverBuiltinPluginDirectories } from "./plugin-sources.js";
 import { pluginManifestSchema } from "@aervox/contracts";
 import { assembleFirstPartyPlugins, createHttpEndpointSink } from "../../../plugin-assembly.js";
 import { isPluginEnabled } from "./turn-plugins/index.js";
@@ -24,6 +27,7 @@ import {
 import { registerPluginRoutes } from "./routes.js";
 import { PluginService } from "./service.js";
 import { PluginConfigService } from "./config-service.js";
+export { PluginConfigService, PluginConfigError } from "./config-service.js";
 import { registerPluginConfigRoutes } from "./config-routes.js";
 import { PluginBundleStore } from "./bundle-store.js";
 import { DEFAULT_SKILLS_ROOT } from "../skills/index.js";
@@ -69,11 +73,10 @@ async function syncBuiltinPlugins(
   const diskPluginIds = new Set<string>();
   let failure: "missing" | "invalid" | "unreadable" = "missing";
   try {
-    const entries = await fs.readdir(sourceRoot, { withFileTypes: true });
+    const entries = await discoverBuiltinPluginDirectories(sourceRoot);
 
     for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const pluginDir = path.join(sourceRoot, entry.name);
+      const pluginDir = entry;
       const manifestPath = path.join(pluginDir, "plugin.manifest.json");
       const schemaPath = path.join(pluginDir, "config.schema.json");
       const skillPath = path.join(pluginDir, "SKILL.md");
@@ -91,7 +94,7 @@ async function syncBuiltinPlugins(
       const parsedManifest = pluginManifestSchema.safeParse(manifestValue);
       if (!parsedManifest.success) {
         failure = "invalid";
-        console.warn(`[plugins] builtin manifest rejected (fail-closed): ${entry.name}`);
+        console.warn(`[plugins] builtin manifest rejected (fail-closed): ${entry}`);
         continue;
       }
       const manifest = parsedManifest.data;
@@ -120,7 +123,7 @@ async function syncBuiltinPlugins(
         skills: skillContent
           ? [
               {
-                name: entry.name,
+                name: pluginId,
                 description: manifest.metadata.description,
                 content: skillContent,
               },
@@ -151,7 +154,7 @@ async function syncBuiltinPlugins(
   }
 }
 
-export async function registerPluginsModule(ctx: ModuleDependencies<"apiRegistry" | "app" | "builtinPluginsSourceRoot" | "db" | "pluginHostServices" | "pluginRegistry" | "pluginsRoot" | "proactiveIntelligenceRepository" | "skillsRoot">, beforeDeactivate?: (pluginId: string, uninstall: boolean) => Promise<void>): Promise<import("@aervox/host-plugin-api").ServerPluginRegistration[]> {
+export async function registerPluginsModule(ctx: ModuleDependencies<"apiRegistry" | "app" | "builtinPluginsSourceRoot" | "db" | "pluginHostServices" | "pluginRegistry" | "pluginRegistryOptions" | "pluginsRoot" | "proactiveIntelligenceRepository" | "skillsRoot">, beforeDeactivate?: (pluginId: string, uninstall: boolean) => Promise<void>, onConfigService?: (service: PluginConfigService) => void): Promise<import("@aervox/host-plugin-api").ServerPluginRegistration[]> {
   const pluginRegistry = ctx.pluginRegistry ?? createServerPluginRegistry();
   const { app, db, skillsRoot, pluginsRoot } = ctx;
   const extensionRepo = new SqliteExtensionRepository(db);
@@ -174,6 +177,7 @@ export async function registerPluginsModule(ctx: ModuleDependencies<"apiRegistry
     bundleStore,
     pluginRegistry: ctx.pluginRegistry,
   });
+  onConfigService?.(configService);
 
   // CR-032：proactive 模块先于本模块注册并填充 ctx.proactiveIntelligenceRepository，
   // 据此构建插件 → vault 物化规则的级联口（未装配时为 undefined，Worker 物化器兜底）。
@@ -194,6 +198,7 @@ export async function registerPluginsModule(ctx: ModuleDependencies<"apiRegistry
   const builtinRoot = ctx.builtinPluginsSourceRoot ?? defaultBuiltinPluginsSourceRoot();
 
   const service = new PluginService({
+    remoteRegistry: ctx.pluginRegistryOptions ? new RemotePluginRegistry(ctx.pluginRegistryOptions) : undefined,
     beforeDeactivate,
     installationRepo: new SqlitePluginInstallationRepository(db),
     extensionRepo,
@@ -219,7 +224,7 @@ export async function registerPluginsModule(ctx: ModuleDependencies<"apiRegistry
   // CR-060：装配第一方插件贡献。缺包或装配失败只记录诊断、不中断宿主启动，
   // 插件是否生效仍由 Runner 按仓储启停记录门控（CR-056 代码缺席语义）。
   const warn = (message: string, error?: unknown) => console.warn(message, error);
-  const hostServices = ctx.pluginHostServices ?? createPluginHostServicesFactory(db);
+  const hostServices = ctx.pluginHostServices ?? createPluginHostServicesFactory(db, () => configService);
   const assembly = await assembleFirstPartyPlugins({
     turnRegistry: pluginRegistry,
     apiRegistry: ctx.apiRegistry,
@@ -229,6 +234,11 @@ export async function registerPluginsModule(ctx: ModuleDependencies<"apiRegistry
       hostServices,
       (pluginId) => isPluginEnabled(pluginId, extensionRepo),
       warn,
+      async (pluginId) => {
+        const plugin = await extensionRepo.getPlugin(pluginId);
+        return plugin?.enabled === 1 && (plugin.availability ?? "available") === "available"
+          ? plugin.lifecycleGeneration ?? undefined : undefined;
+      },
     ),
     warn,
   });

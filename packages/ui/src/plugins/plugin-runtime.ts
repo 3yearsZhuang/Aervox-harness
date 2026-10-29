@@ -7,6 +7,8 @@ export type { UIPluginLifecycle } from './plugin-scope';
 
 export interface BuiltinUIPlugin {
   id: string;
+  /** Older definitions require the workbench's resources. Hosts declare their surface. */
+  surfaces?: readonly ('workbench' | 'companion')[];
   setup: (registry: UIRegistry, context?: UIPluginContext, lifecycle?: UIPluginLifecycle) => (() => void) | void;
   onConfig?: (values: Record<string, unknown>, context: UIPluginContext, lifecycle?: UIPluginLifecycle) => void | Promise<void>;
   onDisable?: (context: UIPluginContext) => void;
@@ -32,6 +34,7 @@ export function createWorkbenchPluginRuntime(
   registry: UIRegistry,
   getContext: () => UIPluginContext,
   pluginDefinitions: BuiltinUIPlugin[] = [],
+  options: { surfaceKind?: 'workbench' | 'companion' } = {},
 ): WorkbenchPluginRuntime {
   const ids = new Set<string>();
   for (const def of pluginDefinitions) {
@@ -105,7 +108,8 @@ export function createWorkbenchPluginRuntime(
     await Promise.all(pluginDefinitions.map(async (def) => {
       if (destroyed || seq !== currentSyncSeq) return;
       const record = plugins.find((plugin) => plugin.id === def.id);
-      const enabled = record?.enabled === 1 && (record.availability ?? 'available') === 'available';
+      const supported = (def.surfaces ?? ['workbench']).includes(options.surfaceKind ?? 'workbench');
+      const enabled = supported && record?.enabled === 1 && (record.availability ?? 'available') === 'available';
       if (!enabled) { deactivate(def); return; }
       const instance = instances.get(def.id) ?? activate(def);
       if (!instance || !def.onConfig) return;

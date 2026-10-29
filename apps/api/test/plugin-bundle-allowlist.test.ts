@@ -139,6 +139,8 @@ describe("CR-060 分发包允许清单单一事实源", () => {
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
       const dir = path.join(pluginsRoot, entry.name);
+      // 集合仓根的 .github 等治理目录不属于插件；按生产发现规则识别声明。
+      try { await fs.access(path.join(dir, "plugin.manifest.json")); } catch { continue; }
       await expect(collectMarketBundleFiles(dir)).resolves.toBeTypeOf("object");
     }
   });

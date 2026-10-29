@@ -25,7 +25,7 @@ describe("Worker uses the complete product host", () => {
     let release!: () => void;
     const gate = new Promise<void>(resolve => { release = resolve; });
     const beforeTurn = vi.fn(async () => { await gate; });
-    fixture.pluginRegistry.register({ id: "focus-mode", beforeTurn });
+    fixture.pluginRegistry.register({ id: "ap-ui-focus-mode", beforeTurn });
     const fetch = vi.fn(async () => llmSse("只执行一次")); vi.stubGlobal("fetch", fetch);
     const id = await fixture.accept();
     const first = fixture.consume();

@@ -2781,8 +2781,7 @@
         "properties": {
           "name": {
             "type": "string",
-            "minLength": 1,
-            "pattern": "^(?!\\.{1,2}$)[\\w.-]+$"
+            "minLength": 1
           },
           "description": {
             "type": "string",
@@ -2859,8 +2858,7 @@
         "properties": {
           "name": {
             "type": "string",
-            "minLength": 1,
-            "pattern": "^(?!\\.{1,2}$)[\\w.-]+$"
+            "minLength": 1
           },
           "overwrite": {
             "type": "boolean",
@@ -3425,6 +3423,30 @@
               "license": {
                 "type": "string",
                 "maxLength": 128
+              },
+              "category": {
+                "type": "string",
+                "enum": [
+                  "tool",
+                  "bot",
+                  "ui",
+                  "proactive",
+                  "sync",
+                  "workflow",
+                  "theme"
+                ]
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "maxItems": 32
+              },
+              "breaking": {
+                "type": "boolean"
               }
             },
             "required": [
@@ -26122,6 +26144,120 @@
         "operationId": "post_v1_memory_nodes"
       }
     },
+    "/v1/plugins/{pluginId}/data-export": {
+      "get": {
+        "operationId": "get_v1_plugins_pluginId_data_export",
+        "summary": "导出已保存的普通插件数据（停用或缺包时仍可用）",
+        "tags": [
+          "Plugins"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "pluginId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "format": {
+                      "type": "string",
+                      "enum": [
+                        "aervox-plugin-data/v1"
+                      ]
+                    },
+                    "pluginId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "schemaVersion": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "values": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "format",
+                    "pluginId",
+                    "revision",
+                    "schemaVersion",
+                    "values"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid plugin id",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PLUGIN_NOT_FOUND",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "PLUGIN_CONFIG_REVISION_CONFLICT",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/plugins/{pluginId}/config/schema": {
       "get": {
         "operationId": "get_v1_plugins_pluginId_config_schema",
@@ -28543,7 +28679,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Market items",
+            "description": "Market items and explicit remote registry availability",
             "content": {
               "application/json": {
                 "schema": {
@@ -28589,6 +28725,40 @@
                               "market"
                             ],
                             "default": "builtin"
+                          },
+                          "category": {
+                            "type": "string",
+                            "enum": [
+                              "tool",
+                              "bot",
+                              "ui",
+                              "proactive",
+                              "sync",
+                              "workflow",
+                              "theme"
+                            ]
+                          },
+                          "tags": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "breaking": {
+                            "type": "boolean"
+                          },
+                          "downloadUrl": {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          "sha256": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          },
+                          "size": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 20971520
                           },
                           "installed": {
                             "type": "boolean",
@@ -28643,6 +28813,12 @@
                           "capabilities"
                         ]
                       }
+                    },
+                    "registryError": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -28678,7 +28854,7 @@
     },
     "/v1/plugins/market/{pluginId}/install": {
       "post": {
-        "summary": "从集市一键安装出厂插件",
+        "summary": "从集市安装已选定的插件发布",
         "tags": [
           "Plugins"
         ],
@@ -28693,6 +28869,31 @@
             "in": "path"
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "allowBreaking": {
+                    "type": "boolean"
+                  },
+                  "expectedVersion": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "expectedSha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Installed plugin",
@@ -28760,6 +28961,16 @@
                     "author",
                     "version"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid market installation confirmation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
                 }
               }
             }

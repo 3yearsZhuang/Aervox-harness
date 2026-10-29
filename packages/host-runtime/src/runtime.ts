@@ -8,6 +8,7 @@
  */
 import Fastify from "fastify";
 import path from "node:path";
+import { OFFICIAL_PLUGIN_REGISTRY, type PluginRegistryOptions } from "./modules/ecosystem/plugins/index.js";
 import cors from "@fastify/cors";
 import { buildOpenApiDocument } from "@aervox/contracts";
 import { createPluginApiRegistry } from "./plugin-api-registry.js";
@@ -21,6 +22,8 @@ import {
   type ProactiveVaultCipher,
   Cr030MigrationStateStore,
   assertSafeStartup,
+  assertPluginIdentityMigrationReady,
+  assertPluginIdentityMigrationUnlocked,
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 import type { WorkflowDefinition } from "@aervox/core";
@@ -79,6 +82,8 @@ import { loadHostRuntimeConfig, type HostRuntimeConfig } from "@aervox/config";
 import { registerBotsModule, type BotModuleOptions, type BotManager } from "./modules/ecosystem/bots/index.js";
 
 export interface BuildAppOptions {
+  /** null explicitly selects offline builtin-only browsing. Injected test DBs default to offline. */
+  pluginRegistryOptions?: PluginRegistryOptions | null;
   config?: HostRuntimeConfig;
   apiRegistry?: import("@aervox/contracts").PluginApiRegistry;
   botOptions?: BotModuleOptions;
@@ -177,6 +182,7 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
   const migrationStatePath = options.migrationStatePath ?? process.env.AERVOX_CR030_STATE_PATH ??
     path.join(process.cwd(), "data", "aervox.cr030.migration.json");
   assertSafeStartup(await new Cr030MigrationStateStore(migrationStatePath).read());
+  await assertPluginIdentityMigrationUnlocked(path.resolve(process.cwd(), "data"));
   const injectedMainDatabase = Boolean(options.db && options.client);
   const { db, client } =
     injectedMainDatabase ? { db: options.db!, client: options.client! } : await createDatabase();
@@ -184,6 +190,9 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
   if (shouldInitSchema) {
     await initDatabaseSchema(client);
   }
+
+  try { await assertPluginIdentityMigrationReady(client); }
+  catch (error) { if (!injectedMainDatabase) client.close(); throw error; }
 
   // CAP-033：默认启动时使用独立本地 Vault；集成测试显式注入主库时复用该连接，
   // 避免每个测试创建用户目录文件。生产可通过 options 注入已初始化的加密 Vault。
@@ -206,6 +215,12 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
     }
   } else if (shouldInitSchema) {
     await initDatabaseSchema(proactiveClient);
+  }
+  try { await assertPluginIdentityMigrationReady(proactiveClient); }
+  catch (error) {
+    if (ownsProactiveClient) proactiveClient.close();
+    if (!injectedMainDatabase) client.close();
+    throw error;
   }
   const testDatabaseFallback = injectedMainDatabase && !options.proactiveDb && !options.proactiveClient;
   if (proactiveAccessToken === undefined && !testDatabaseFallback) {
@@ -330,6 +345,7 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
     return metricsRegistry ? metricsRegistry.toPrometheusText() : "";
   });
 
+  let pluginConfigService: import("./modules/ecosystem/plugins/index.js").PluginConfigService | undefined;
 // 模块装配上下文：基础设施 + 构建期配置；共享服务按注册顺序填充
   const ctx = {
     apiRegistry,
@@ -346,10 +362,12 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
     skillsRoot: options.skillsRoot,
     pluginsRoot: options.pluginsRoot,
     builtinPluginsSourceRoot: options.builtinPluginsSourceRoot,
+    pluginRegistryOptions: options.pluginRegistryOptions === null ? undefined : options.pluginRegistryOptions
+      ?? (injectedMainDatabase ? undefined : { url: process.env.AERVOX_PLUGIN_REGISTRY_URL ?? OFFICIAL_PLUGIN_REGISTRY }),
     attachmentsRoot: options.attachmentsRoot,
     pluginRegistry: options.pluginRegistry ?? createServerPluginRegistry(),
-    // CR-060：插件宿主服务工厂只依赖 db，构建期即确定，供插件端点与回合工具贡献共用
-    pluginHostServices: options.pluginHostServices ?? createPluginHostServicesFactory(db),
+    // Endpoints and turn tools share the module-owned configuration service after late assembly.
+    pluginHostServices: options.pluginHostServices ?? createPluginHostServicesFactory(db, () => pluginConfigService),
   };
 
   // 组合根显式构造依赖；模块只能接收其声明的只读输入。
@@ -398,7 +416,8 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
   registerKnowledgeModule(services);
   registerBranchModule(services);
   registerProjectModule(services);
-  pluginRegistrations = await registerPluginsModule(services, (id, uninstall) => botManager?.stopPlugin(id, uninstall) ?? Promise.resolve());
+  pluginRegistrations = await registerPluginsModule(services, (id, uninstall) => botManager?.stopPlugin(id, uninstall) ?? Promise.resolve(),
+    service => { pluginConfigService = service; });
   const voiceService = registerVoiceModule(services, { config: apiConfig, ...options.voiceOptions });
   const skillManager = await registerSkillsModule(services);
   registerPreferencesModule(services);

@@ -90,8 +90,8 @@ describe('useAervoxPlugins distribution methods', () => {
       request: async <T>(method: string, path: string): Promise<T> => {
         calls.push({ method, path });
         return {
-          pluginId: 'health-guard',
-          filename: 'health-guard-1.0.0.aervox-plugin',
+          pluginId: 'ap-proactive-health-guard',
+          filename: 'ap-proactive-health-guard-v1.0.0.aervox-plugin',
           packageBase64: 'UEtHREFUQ...',
           checksum: 'hash123',
         } as T;
@@ -102,23 +102,23 @@ describe('useAervoxPlugins distribution methods', () => {
     configureAervoxClient({ transport });
 
     const api = useAervoxPlugins();
-    const res = await api.exportPackage('health-guard');
+    const res = await api.exportPackage('ap-proactive-health-guard');
 
     expect(calls[0]?.method).toBe('GET');
-    expect(calls[0]?.path).toBe('/v1/plugins/health-guard/export');
-    expect(res.filename).toBe('health-guard-1.0.0.aervox-plugin');
+    expect(calls[0]?.path).toBe('/v1/plugins/ap-proactive-health-guard/export');
+    expect(res.filename).toBe('ap-proactive-health-guard-v1.0.0.aervox-plugin');
   });
 
   it('listMarket 与 installFromMarket 正确调用集市端点', async () => {
-    const calls: Array<{ method: string; path: string }> = [];
+    const calls: Array<{ method: string; path: string; body?: unknown }> = [];
     const transport: AervoxTransport = {
-      request: async <T>(method: string, path: string): Promise<T> => {
-        calls.push({ method, path });
+      request: async <T>(method: string, path: string, body?: unknown): Promise<T> => {
+        calls.push({ method, path, body });
         if (path === '/v1/plugins/market') {
           return {
             items: [
               {
-                id: 'focus-mode',
+                id: 'ap-ui-focus-mode',
                 displayName: '专注模式',
                 version: '1.0.0',
                 installed: false,
@@ -127,7 +127,7 @@ describe('useAervoxPlugins distribution methods', () => {
             ],
           } as T;
         }
-        return { id: 'focus-mode', enabled: 1 } as T;
+        return { id: 'ap-ui-focus-mode', enabled: 1 } as T;
       },
       streamTurn: async () => undefined,
       submitQuestionAnswers: async () => undefined,
@@ -137,9 +137,13 @@ describe('useAervoxPlugins distribution methods', () => {
     const api = useAervoxPlugins();
     const market = await api.listMarket();
     expect(market.length).toBe(1);
-    expect(market[0]?.id).toBe('focus-mode');
+    expect(market[0]?.id).toBe('ap-ui-focus-mode');
 
-    const installed = await api.installFromMarket('focus-mode');
-    expect(installed.id).toBe('focus-mode');
+    const confirmed = { allowBreaking: true, expectedVersion: '2.0.0', expectedSha256: 'a'.repeat(64) };
+    const installed = await api.installFromMarket('ap-ui-focus-mode', confirmed);
+    expect(installed.id).toBe('ap-ui-focus-mode');
+    expect(calls.find(call => call.method === 'POST')).toEqual({
+      method: 'POST', path: '/v1/plugins/market/ap-ui-focus-mode/install', body: confirmed,
+    });
   });
 });

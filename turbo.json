@@ -74,6 +74,7 @@
         "AERVOX_AUTH_MODE",
         "AERVOX_AUTH_TOKEN",
         "AERVOX_API_ALLOWED_ORIGINS",
+        "AERVOX_PLUGIN_REGISTRY_URL",
         "AERVOX_ADMIN_IDS",
         "AERVOX_LOG_LEVEL",
         "AERVOX_LOG_FORMAT",
@@ -148,7 +149,8 @@
         "package.json",
         "tsconfig.json",
         "vitest.config.*",
-        "../../vitest.shared.ts"
+        "../../vitest.shared.ts",
+        "$TURBO_ROOT$/vitest.shared.ts"
       ]
     },
     "@aervox/worker#test": {

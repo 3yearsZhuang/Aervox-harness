@@ -7,10 +7,16 @@ import { executeArchive } from "@aervox/host-runtime/shared/archive-worker";
 import { isSafeZipEntryPath, PLUGIN_ARCHIVE_LIMITS } from "@aervox/host-runtime-test/modules/ecosystem/plugins/package-bundle";
 
 describe("bounded plugin archive CPU isolation", () => {
-  it("preserves bytes and path/expansion checks through the Worker", async () => {
+  it("preserves resource bytes while normalizing archive timestamps and enforcing path/expansion checks", async () => {
     const files = { "a.txt": [new Uint8Array([1, 2, 3]), { mtime: new Date("2026-01-01T00:00:00Z") }] } as const;
     const packed = await executeArchive<Uint8Array>({ kind: "pack", input: files, limits: PLUGIN_ARCHIVE_LIMITS, isSafePath: isSafeZipEntryPath });
-    expect(packed).toEqual(zipSync(files, { level: 6 }));
+    const canonical = { "a.txt": [files["a.txt"][0], { mtime: new Date(1980, 0, 1, 0, 0, 0) }] } as const;
+    expect(packed).toEqual(zipSync(canonical, { level: 9 }));
+    expect(unzipSync(packed)["a.txt"]).toEqual(files["a.txt"][0]);
+    const repacked = await executeArchive<Uint8Array>({ kind: "pack", input: {
+      "a.txt": [files["a.txt"][0], { mtime: new Date("2027-01-01T00:00:00Z") }],
+    }, limits: PLUGIN_ARCHIVE_LIMITS, isSafePath: isSafeZipEntryPath });
+    expect(repacked).toEqual(packed);
     expect(await executeArchive({ kind: "unpack", input: packed, limits: PLUGIN_ARCHIVE_LIMITS, isSafePath: isSafeZipEntryPath })).toEqual(unzipSync(packed));
     await expect(executeArchive({ kind: "unpack", input: zipSync({ "../escape": new Uint8Array([1]) }), limits: PLUGIN_ARCHIVE_LIMITS, isSafePath: isSafeZipEntryPath })).rejects.toThrow("Unsafe");
     await expect(executeArchive({ kind: "unpack", input: packed, limits: { ...PLUGIN_ARCHIVE_LIMITS, entryBytes: 1 }, isSafePath: isSafeZipEntryPath })).rejects.toThrow("limit");

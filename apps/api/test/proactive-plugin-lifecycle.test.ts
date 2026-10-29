@@ -110,7 +110,7 @@ describe("CR-032 主动智能插件生命周期", () => {
       url: "/v1/plugins",
       headers,
       payload: {
-        id: "health-guard",
+        id: "ap-proactive-health-guard",
         publisher: "aervox-official",
         version: "1.0.0",
         proactiveSpec: VALID_SPEC,
@@ -123,14 +123,14 @@ describe("CR-032 主动智能插件生命周期", () => {
     // 两个感知源授权可共存（scope 粒度唯一索引）
     const grantA = await app.inject({
       method: "POST",
-      url: "/v1/plugins/health-guard/grants",
+      url: "/v1/plugins/ap-proactive-health-guard/grants",
       headers,
       payload: {permission: "proactive.sensor", scope: "system.idle_state"},
     });
     expect(grantA.statusCode).toBe(201);
     const grantB = await app.inject({
       method: "POST",
-      url: "/v1/plugins/health-guard/grants",
+      url: "/v1/plugins/ap-proactive-health-guard/grants",
       headers,
       payload: {permission: "proactive.sensor", scope: "device.clipboard"},
     });
@@ -138,27 +138,27 @@ describe("CR-032 主动智能插件生命周期", () => {
 
     const grants = await app.inject({
       method: "GET",
-      url: "/v1/plugins/health-guard/grants",
+      url: "/v1/plugins/ap-proactive-health-guard/grants",
       headers,
     });
     expect(grants.json().items).toHaveLength(2);
 
     const scoped = await app.inject({
       method: "GET",
-      url: "/v1/plugins/health-guard/permissions/proactive.sensor?scope=system.idle_state",
+      url: "/v1/plugins/ap-proactive-health-guard/permissions/proactive.sensor?scope=system.idle_state",
       headers,
     });
     expect(scoped.json().granted).toBe(true);
 
     const revoked = await app.inject({
       method: "DELETE",
-      url: `/v1/plugins/health-guard/grants/${grantA.json().id}`,
+      url: `/v1/plugins/ap-proactive-health-guard/grants/${grantA.json().id}`,
       headers,
     });
     expect(revoked.statusCode).toBe(200);
     const afterRevoke = await app.inject({
       method: "GET",
-      url: "/v1/plugins/health-guard/permissions/proactive.sensor?scope=system.idle_state",
+      url: "/v1/plugins/ap-proactive-health-guard/permissions/proactive.sensor?scope=system.idle_state",
       headers,
     });
     expect(afterRevoke.json().granted).toBe(false);
@@ -171,7 +171,7 @@ describe("CR-032 主动智能插件生命周期", () => {
       url: "/v1/plugins",
       headers,
       payload: {
-        id: "health-guard",
+        id: "ap-proactive-health-guard",
         publisher: "aervox-official",
         version: "1.0.0",
         proactiveSpec: VALID_SPEC,
@@ -186,7 +186,7 @@ describe("CR-032 主动智能插件生命周期", () => {
     await repo.upsertTriggerRule(tenant, {
       id: "rule_rev_plugin_health-guard_sedentary_alert",
       revisionId: "rev_test",
-      pluginId: "health-guard",
+      pluginId: "ap-proactive-health-guard",
       name: "连续久坐健康提醒",
       triggerType: "system_state",
       condition: {},
@@ -198,14 +198,14 @@ describe("CR-032 主动智能插件生命周期", () => {
     });
 
     // 停用插件 → 级联禁用规则
-    await app.inject({method: "PATCH", url: "/v1/plugins/health-guard", headers, payload: {enabled: false}});
-    const disabled = await repo.listTriggerRulesByPlugin(tenant, "health-guard");
+    await app.inject({method: "PATCH", url: "/v1/plugins/ap-proactive-health-guard", headers, payload: {enabled: false}});
+    const disabled = await repo.listTriggerRulesByPlugin(tenant, "ap-proactive-health-guard");
     expect(disabled).toHaveLength(1);
     expect(disabled[0]!.enabled).toBe(false);
 
     // 卸载插件 → 规则清零（幽灵规则零残留）
-    await app.inject({method: "DELETE", url: "/v1/plugins/health-guard", headers});
-    expect(await repo.listTriggerRulesByPlugin(tenant, "health-guard")).toHaveLength(0);
+    await app.inject({method: "DELETE", url: "/v1/plugins/ap-proactive-health-guard", headers});
+    expect(await repo.listTriggerRulesByPlugin(tenant, "ap-proactive-health-guard")).toHaveLength(0);
   });
 
   it("安装期拒绝引用 SituationModel 白名单外字段的 DSL", async () => {
@@ -239,7 +239,7 @@ describe("CR-032 主动智能插件生命周期", () => {
 
 describe("CR-032 清单契约 fail-closed", () => {
   it("parses the bundled health-guard manifest and rejects unknown trigger types", async () => {
-    const manifestPath = path.resolve(import.meta.dirname, "../../../plugins/health-guard/plugin.manifest.json");
+    const manifestPath = path.resolve(import.meta.dirname, "../../../plugins/plugins/proactive/health-guard/plugin.manifest.json");
     const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
     const parsed = pluginManifestSchema.parse(manifest);
     expect(parsed.spec.proactive?.triggers[0]?.ruleId).toBe("sedentary_alert");
