@@ -10,6 +10,7 @@ import MobileSessionsDialog from '../src/MobileSessionsDialog.vue';
 import MobileHistoryDialog from '../src/MobileHistoryDialog.vue';
 
 enableAutoUnmount(afterEach);
+afterEach(() => { vi.unstubAllGlobals(); });
 
 // Compile the actual lazy Vue module before measuring host readiness.
 beforeAll(async () => { await definition.load(); });
@@ -53,10 +54,10 @@ beforeEach(() => {
   });
 });
 
-async function mountSurface(platform: 'web' | 'desktop' | 'mobile' = 'web', material3 = false, sessionId = material3 ? recentSession.id : undefined, back?: unknown) {
+async function mountSurface(platform: 'web' | 'desktop' | 'mobile' = 'web', material3 = false, sessionId = material3 ? recentSession.id : undefined, back?: unknown, nativeRuntime = false, draftStorage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>) {
   if (sessionId) setSessionId(sessionId);
   const wrapper = mount(UISurfaceHost, {
-    props: { plugin: definition, surface: 'main', platform, viewProps: {surfaceNavigation: {currentId: definition.id, options: [], select: vi.fn(), openDefault: vi.fn()}} },
+    props: { plugin: definition, surface: 'main', platform, viewProps: {nativeRuntime, draftStorage, surfaceNavigation: {currentId: definition.id, options: [], select: vi.fn(), openDefault: vi.fn()}} },
     global: { provide: { [material3ContextKey as symbol]: material3, ...(back ? { [Symbol.for('aervox.material3.mobileBack')]: back } : {}) } },
   });
   await vi.waitFor(() => expect(wrapper.find('.proactive-companion').exists()).toBe(true), { timeout: 5000 });
@@ -554,6 +555,167 @@ it('retains native input IME, its persistent label and real submission in the Ma
   expect(wrapper.find('.pc-whisper-input textarea').exists()).toBe(true);
 });
 
+it('keeps independent mobile suggestions within its registered conversation capability', async () => {
+  const wrapper = await mountSurface('mobile', true, recentSession.id, undefined, true);
+  expect(wrapper.findAll('.pc-choice')).toHaveLength(1);
+  expect(wrapper.get('.pc-choice').text()).toContain('继续「死锁复习」');
+  expect(wrapper.text()).not.toContain('先专注 25 分钟');
+  expect(wrapper.get('.pc-dialogue-ctx').text()).toBe('本机对话');
+  expect(wrapper.get('.pc-pet-status').text()).toBe('对话');
+});
+
+it('does not invent a plugin action when the independent mobile host has no recent conversations', async () => {
+  request.mockImplementation(async () => ({ items: [] }));
+  const wrapper = await mountSurface('mobile', true, 'web_default', undefined, true);
+  expect(wrapper.find('.pc-choices').exists()).toBe(false);
+  expect(wrapper.find('.pc-whisper-input textarea').exists()).toBe(true);
+});
+
+it('opens model settings after a definite native refusal and lets the preserved draft be edited and sent', async () => {
+  streamTurn.mockRejectedValueOnce(new AervoxHttpError(422, 'native', {
+    code: 'MODEL_NOT_CONFIGURED', message: 'private native diagnostic',
+  })).mockImplementationOnce(async (_id, _text, callbacks, options) => {
+    await options.onAccepted('configured_turn'); callbacks.onDelta('配置后可以继续对话。'); callbacks.onDone();
+  });
+  const wrapper = await mountSurface('mobile', true, recentSession.id, undefined, true);
+  const input = wrapper.get('.pc-whisper-input textarea');
+  await input.setValue('尚未配置时的草稿');
+  await wrapper.get('.pc-whisper-input md-filled-button').trigger('click'); await flushPromises();
+  const firstKey = streamTurn.mock.calls[0]![3].idempotencyKey;
+  expect(wrapper.get('.pc-feedback').text()).toContain('请先配置模型服务。消息尚未发送，草稿已保留。');
+  expect(wrapper.text()).not.toContain('private native diagnostic');
+  expect(wrapper.find('.pc-retry').exists()).toBe(false);
+  expect(wrapper.getComponent(MobileSessionsDialog).props('switchLocked')).toBe(false);
+  expect((input.element as HTMLTextAreaElement).value).toBe('尚未配置时的草稿');
+  expect(localStorage.getItem('aervox-mobile-draft:ses_recent')).toBe('尚未配置时的草稿');
+
+  await wrapper.get('.pc-configure-model').trigger('click');
+  const settings = wrapper.getComponent(MobileSettingsDialog);
+  expect(settings.props('modelValue')).toBe(true);
+  settings.vm.$emit('update:modelValue', false); await flushPromises();
+  await input.setValue('配置完成后修改的消息');
+  expect(wrapper.get('.pc-whisper-input md-filled-button').attributes('disabled')).not.toBe('true');
+  await wrapper.get('.pc-whisper-input md-filled-button').trigger('click'); await flushPromises();
+  expect(streamTurn).toHaveBeenCalledTimes(2);
+  expect(streamTurn.mock.calls[1]![1]).toBe('配置完成后修改的消息');
+  expect(streamTurn.mock.calls[1]![3].idempotencyKey).not.toBe(firstKey);
+  expect(wrapper.get('.pc-dialogue-text').text()).toContain('配置后可以继续对话');
+  expect((input.element as HTMLTextAreaElement).value).toBe('');
+  expect(wrapper.find('.pc-feedback').exists()).toBe(false);
+});
+
+it('keeps mobile session switching and creation available after missing model configuration', async () => {
+  const second = { ...recentSession, id: 'second', title: '另一段对话' };
+  request.mockImplementation(async (method, path) => method === 'GET' && path === '/v1/sessions'
+    ? { items: [recentSession, second] } : requestImplementation(method, path));
+  streamTurn.mockRejectedValueOnce(new AervoxHttpError(422, 'native', { code: 'MODEL_NOT_CONFIGURED' }));
+  const wrapper = await mountSurface('mobile', true, recentSession.id, undefined, true);
+  await wrapper.get('.pc-whisper-input textarea').setValue('保留在原会话的草稿');
+  await wrapper.get('.pc-whisper-input md-filled-button').trigger('click'); await flushPromises();
+  const sessions = wrapper.getComponent(MobileSessionsDialog);
+  sessions.vm.$emit('select', second.id); await flushPromises();
+  expect(wrapper.get('.pc-current-session').text()).toBe(second.title);
+  expect(localStorage.getItem('aervox-mobile-draft:ses_recent')).toBe('保留在原会话的草稿');
+  sessions.vm.$emit('new'); await flushPromises();
+  expect(wrapper.get('.pc-current-session').text()).toBe('新对话');
+  expect(request.mock.calls.filter(([method, path]) => method === 'POST' && path === '/v1/sessions')).toHaveLength(1);
+  expect(streamTurn).toHaveBeenCalledOnce();
+});
+
+it('lets a deliberately cleared native draft stay cleared after a definite configuration refusal', async () => {
+  streamTurn.mockRejectedValueOnce(new AervoxHttpError(422, 'native', { code: 'MODEL_NOT_CONFIGURED' }));
+  const wrapper = await mountSurface('mobile', true, recentSession.id, undefined, true);
+  const input = wrapper.get('.pc-whisper-input textarea');
+  await input.setValue('没有受理的原草稿');
+  await wrapper.get('.pc-whisper-input md-filled-button').trigger('click'); await flushPromises();
+  expect((input.element as HTMLTextAreaElement).value).toBe('没有受理的原草稿');
+  await input.setValue('');
+  expect(localStorage.getItem('aervox-mobile-draft:ses_recent')).toBeNull();
+  wrapper.unmount();
+  const reopened = await mountSurface('mobile', true, recentSession.id, undefined, true);
+  expect((reopened.get('.pc-whisper-input textarea').element as HTMLTextAreaElement).value).toBe('');
+});
+
+it('does not reinterpret a later native configuration refusal as proof that an earlier unknown submission was never accepted', async () => {
+  streamTurn.mockRejectedValueOnce(new Error('lost receipt'))
+    .mockRejectedValueOnce(new AervoxHttpError(422, 'native', { code: 'MODEL_NOT_CONFIGURED' }));
+  const wrapper = await mountSurface('mobile', true, recentSession.id, undefined, true);
+  await wrapper.get('.pc-whisper-input textarea').setValue('提交结果未知的原文');
+  await wrapper.get('.pc-whisper-input md-filled-button').trigger('click'); await flushPromises();
+  await wrapper.get('.pc-retry').trigger('click'); await flushPromises();
+  expect(streamTurn.mock.calls[1]![3].idempotencyKey).toBe(streamTurn.mock.calls[0]![3].idempotencyKey);
+  expect(wrapper.getComponent(MobileSessionsDialog).props('switchLocked')).toBe(true);
+  expect(wrapper.find('.pc-configure-model').exists()).toBe(false);
+  expect(wrapper.get('.pc-feedback').text()).not.toContain('消息尚未发送');
+  expect(wrapper.find('.pc-retry').exists()).toBe(true);
+});
+
+it('shows a failed mobile session read instead of a permanent active companion badge', async () => {
+  request.mockRejectedValue(new Error('unavailable'));
+  const wrapper = await mountSurface('mobile', true);
+  expect(wrapper.get('.pc-pet-status').text()).toBe('会话读取失败');
+});
+
+it('remeasures an unchanged mobile draft after wrapping width changes without observing its own height writes', async () => {
+  const observers: { notify: ResizeObserverCallback; observe: ReturnType<typeof vi.fn>; disconnect: ReturnType<typeof vi.fn> }[] = [];
+  vi.stubGlobal('ResizeObserver', vi.fn(function (callback: ResizeObserverCallback) {
+    const observer = { notify: callback, observe: vi.fn(), disconnect: vi.fn(), unobserve: vi.fn() };
+    observers.push(observer);
+    return observer;
+  }));
+  const wrapper = await mountSurface('mobile', true);
+  const textarea = wrapper.get('.pc-whisper-input textarea').element as HTMLTextAreaElement;
+  const observer = observers.find(item => item.observe.mock.calls.some(([target]) => target === textarea))!;
+  let contentHeight = 168;
+  const readHeight = vi.fn(() => contentHeight);
+  Object.defineProperty(textarea, 'scrollHeight', { configurable: true, get: readHeight });
+  const resized = (width: number) => observer.notify([
+    { target: textarea, contentRect: { width } } as ResizeObserverEntry,
+  ], {} as ResizeObserver);
+  expect(observer.observe).toHaveBeenCalledWith(textarea);
+  resized(180);
+  await flushPromises();
+  expect(textarea.style.height).toBe('120px');
+  contentHeight = 48;
+  resized(320);
+  await flushPromises();
+  expect(textarea.style.height).toBe('48px');
+  readHeight.mockClear();
+  resized(320);
+  await flushPromises();
+  expect(readHeight).not.toHaveBeenCalled();
+  wrapper.unmount();
+  expect(observer.disconnect).toHaveBeenCalledOnce();
+  resized(180);
+  await flushPromises();
+  expect(readHeight).not.toHaveBeenCalled();
+});
+
+it('remeasures a mobile draft when reopening input and resizing even without ResizeObserver', async () => {
+  vi.stubGlobal('ResizeObserver', undefined);
+  const wrapper = await mountSurface('mobile', true);
+  const input = wrapper.get('.pc-whisper-input textarea');
+  const textarea = input.element as HTMLTextAreaElement;
+  let contentHeight = 72;
+  Object.defineProperty(textarea, 'scrollHeight', { configurable: true, get: () => contentHeight });
+  await input.setValue('保持不变的草稿');
+  await flushPromises();
+  expect(textarea.style.height).toBe('72px');
+  await input.trigger('focus');
+  await wrapper.get('.pc-whisper-close').trigger('click');
+  await flushPromises();
+  contentHeight = 96;
+  await input.trigger('focus');
+  await flushPromises();
+  expect(textarea.style.height).toBe('96px');
+  contentHeight = 48;
+  window.dispatchEvent(new Event('resize'));
+  await flushPromises();
+  expect(textarea.style.height).toBe('48px');
+  expect(textarea.value).toBe('保持不变的草稿');
+  expect(input.attributes('placeholder')).toBe('输入消息…');
+});
+
 it('keeps persistent cancellation before observer abort through a Material stop control', async () => {
   const pending = pendingStream();
   const wrapper = await mountSurface('mobile', true);
@@ -604,6 +766,26 @@ it('keeps mobile Enter as a newline action and saves/restores its session draft'
   wrapper.unmount();
   const reopened = await mountSurface('mobile', true);
   expect((reopened.get('.pc-whisper-input textarea').element as HTMLTextAreaElement).value).toBe('第一行\n第二行');
+});
+
+it('uses the host draft cache for native restore, edits and remount while leaving browser drafts intact', async () => {
+  const key = 'aervox-mobile-draft:ses_recent';
+  const values = new Map([[key, '原生缓存草稿']]);
+  const storage = {
+    getItem: (name: string) => values.get(name) ?? null,
+    setItem: (name: string, value: string) => { values.set(name, value); },
+    removeItem: (name: string) => { values.delete(name); },
+  };
+  localStorage.setItem(key, '旧浏览器草稿');
+  const wrapper = await mountSurface('mobile', true, recentSession.id, undefined, true, storage);
+  const input = wrapper.get('.pc-whisper-input textarea');
+  expect((input.element as HTMLTextAreaElement).value).toBe('原生缓存草稿');
+  await input.setValue('原生缓存更新');
+  expect(values.get(key)).toBe('原生缓存更新');
+  wrapper.unmount();
+  const reopened = await mountSurface('mobile', true, recentSession.id, undefined, true, storage);
+  expect((reopened.get('.pc-whisper-input textarea').element as HTMLTextAreaElement).value).toBe('原生缓存更新');
+  expect(localStorage.getItem(key)).toBe('旧浏览器草稿');
 });
 
 it('keeps a newer mobile draft after an earlier accepted reply completes', async () => {

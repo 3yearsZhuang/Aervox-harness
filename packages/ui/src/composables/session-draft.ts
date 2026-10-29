@@ -9,6 +9,8 @@ export function useSessionDraft(options: {
   input: Ref<string>;
   sessionId: Ref<string>;
   enabled: Ref<boolean>;
+  /** Prepared synchronous host cache; native hosts hydrate it before mounting. */
+  storage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
   onRestore?: () => void;
 }) {
   const pending = new Map<string, Submission>();
@@ -18,7 +20,8 @@ export function useSessionDraft(options: {
   let restoring = false;
   let disposed = false;
 
-  function storage(): Storage | undefined {
+  function storage(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | undefined {
+    if (options.storage) return options.storage;
     try { return typeof localStorage === 'undefined' ? undefined : localStorage; }
     catch { return undefined; }
   }

@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { Client, InStatement, Transaction } from "@libsql/client";
 import { createInMemoryDatabase, initDatabaseSchema } from "../src/index.js";
 import { SqliteConversationRepository } from "../src/repositories/sqlite/conversation-repository.js";
+import { createInjectedDatabase } from "../src/database.js";
+import { readSessionHistory } from "../src/repositories/sqlite/session-history.js";
 
 const ctx = { workspaceId: "ws_history", subjectUserId: "usr_history" };
 
@@ -149,6 +152,52 @@ describe("安全会话历史读取", () => {
       sequence: 3, status: "Completed", eventType: "done", eventData: { messageId, status: "Completed", isComplete: true }, safetyDecision: "approved" });
     return messageId;
   }
+
+  async function manyReplayEvents(turnId = "durable") {
+    await database.client.batch(Array.from({ length: 600 }, (_, index) => ({
+      sql: "INSERT INTO turn_stream_events(id,turn_id,sequence,event_type,data,occurred_at,attempt_id,safety_decision) VALUES (?,?,?,?,?,?,?,?)",
+      args: [`bulk_${turnId}_${index}`, turnId, index + 4, "delta", JSON.stringify({ messageId: `assistant_${turnId}`, text: "raw replay body" }), "now", `attempt_${turnId}`, "approved"],
+    })), "write");
+  }
+
+  function boundedHistory() {
+    // Match native's per-result row limit at the actual SQLite transaction
+    // boundary; this must fail if the reader copies the 600 replay delta rows.
+    const cap = <T extends Client | Transaction>(target: T): T => new Proxy(target, { get(owner, property) {
+      if (property === "execute") return async (input: InStatement) => {
+        const result = await owner.execute(input);
+        if (result.rows.length > 512) throw new Error("NATIVE_RESULT_ROW_LIMIT");
+        return result;
+      };
+      if (property === "transaction" && "transaction" in owner) return async (...input: Parameters<Client["transaction"]>) => cap(await owner.transaction(...input));
+      const value: unknown = Reflect.get(owner, property, owner);
+      return typeof value === "function" ? value.bind(owner) : value;
+    } });
+    return readSessionHistory(createInjectedDatabase(cap(database.client)), ctx, { sessionId: "session", beforeTurnId: "current" });
+  }
+
+  it("reads durable bodies beyond the native replay row limit while preserving mixed legacy history", async () => {
+    await accepted(); await manyReplayEvents(); await seed("legacy"); await seed("current");
+    expect(await boundedHistory()).toEqual([
+      { role: "user", content: "persistent question" }, { role: "assistant", content: "persistent answer" },
+      { role: "user", content: "question_legacy" }, { role: "assistant", content: "answer_legacy" },
+    ]);
+  });
+
+  it.each([
+    ["message", "blocked"], ["delta", "redacted"], ["done", "blocked"], ["redacted", "approved"],
+  ])("keeps the durable withdrawal gate for %s/%s after more than 512 replay rows", async (eventType, safetyDecision) => {
+    await accepted(); await manyReplayEvents(); await seed("current");
+    await repo.appendStreamEvent(ctx, { id: "withdrawal", turnId: "durable", sequence: 604,
+      eventType, safetyDecision, data: {} });
+    expect(await boundedHistory()).toEqual([]);
+  });
+
+  it("never uses the bounded durable projection after its input identity is withdrawn", async () => {
+    await accepted(); await manyReplayEvents(); await seed("current");
+    await repo.softDeleteMessage(ctx, "user_durable");
+    expect(await boundedHistory()).toEqual([]);
+  });
 
   it("uses the current durable assistant version after online events and safe segments are cleaned", async () => {
     const messageId = await accepted();

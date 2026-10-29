@@ -12,7 +12,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Compon
 import { useUISurfaceContext } from '@aervox/ui-host';
 import { useMaterial3, useMobileBackNavigation } from '@aervox/ui/material3';
 import { AervoxBrandMark, PetWithFallback, UserQuestionComposer, readCompanionIdentity, useSessionDraft } from '@aervox/ui/companion';
-import { createConversationController, getClientTransport, useAervoxSessions } from '@aervox/api-client';
+import { AervoxHttpError, createConversationController, getClientTransport, useAervoxSessions } from '@aervox/api-client';
 import { ArrowUpRight, History, MessagesSquare, MessageSquare, RotateCcw, Settings, Square, X } from 'lucide-vue-next';
 import type { AskUserQuestionAnswerItem } from '@aervox/contracts';
 import { useDialogueTyper } from './dialogue-typer';
@@ -25,6 +25,8 @@ import type { SurfaceNavigation } from '@aervox/ui/companion';
 const props = withDefaults(defineProps<{
   surfaceNavigation?: SurfaceNavigation;
   settingsPanels?: readonly { category: string; component: Component }[];
+  nativeRuntime?: boolean;
+  draftStorage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 }>(), { settingsPanels: () => [] });
 const settingsOpen = ref(false);
 
@@ -51,8 +53,9 @@ const mobileSessionTitle = computed(() => sessions.activeSession.value?.title ??
 /* ---------- 对话盒 ---------- */
 const identity = readCompanionIdentity();
 const companionName = ref(identity.companionName);
-const greeting = '你好' + (identity.userAddress === '你' ? '' : '，' + identity.userAddress) + '，我是' + identity.companionName + '。今天想继续昨天的进度，还是先安静专注一会儿？';
-const dialogueCtx = ref('主动陪伴 · 每日开场');
+const greeting = '你好' + (identity.userAddress === '你' ? '' : '，' + identity.userAddress) + '，我是' + identity.companionName
+  + (props.nativeRuntime ? '。想聊什么，直接告诉我。首次使用请在设置中配置模型服务。' : '。今天想继续昨天的进度，还是先安静专注一会儿？');
+const dialogueCtx = ref(props.nativeRuntime ? '本机对话' : '主动陪伴 · 每日开场');
 const { shown: dialogueText, streaming: dialogueTyping, say, appendDelta, finish } = useDialogueTyper(greeting);
 
 /* ---------- 建议卡（主动建议，附理由） ---------- */
@@ -78,7 +81,7 @@ function relativeDay(iso: string): string {
 const sending = ref(false);
 const stopping = ref(false);
 const waitingForReply = ref(false);
-const turnFeedback = ref<{ kind: 'connection-error' | 'observer-error' | 'turn-error' | 'cancel-error' | 'stopped' | 'completed'; message: string }>();
+const turnFeedback = ref<{ kind: 'connection-error' | 'observer-error' | 'turn-error' | 'cancel-error' | 'stopped' | 'completed'; message: string; action?: 'configure-model' }>();
 interface FailedTurn {
   content: string;
   source: 'suggestion' | 'whisper';
@@ -101,6 +104,18 @@ const switchLockReason = computed(() => conversationState.value.retryAvailable &
   : '回复尚未结束。可以回看记录，结束当前回复后再切换或新建。');
 const observationFailed = () => turnController.state.status === 'observer-error';
 const canStop = computed(() => sending.value || ['observing', 'awaiting-input', 'awaiting-approval', 'observer-error'].includes(conversationState.value.status));
+const companionStatus = computed(() => {
+  if (!material3) return '伴学中';
+  if (stopping.value) return '正在停止';
+  if (preparingSession.value || sessionChanging.value) return '正在准备会话';
+  if (conversationState.value.question) return '等待你的回答';
+  if (conversationState.value.approval) return '等待工具授权';
+  if (conversationState.value.status === 'observer-error') return '接收已中断';
+  if (sending.value || ['submitting', 'observing'].includes(conversationState.value.status)) return '正在回复';
+  if (!sessionsReady.value) return '正在读取会话';
+  if (sessionListError.value) return '会话读取失败';
+  return '对话';
+});
 
 async function stopTurn() {
   if (!canStop.value || stopping.value) return;
@@ -179,14 +194,22 @@ async function sendTurn(content: string, source: 'suggestion' | 'whisper' = 'sug
     });
     if (turnController.state.status === 'stopped') turnFeedback.value = {kind: 'stopped', message: '已停止回复。'};
     return turnController.state.status !== 'stopped';
-  } catch {
+  } catch (error) {
     if (!surface.signal.aborted) {
       finish(); waitingForReply.value = false;
       if (material3 && source === 'whisper') {
         if (turnController.state.turnId) drafts.acceptDraftSubmission(submission.sessionId);
         else if (draftText !== undefined) drafts.restoreFailedDraft();
       }
-      if (observationFailed()) {
+      if (props.nativeRuntime && error instanceof AervoxHttpError && error.status === 422 && error.code === 'MODEL_NOT_CONFIGURED'
+        && !turnController.state.turnId && !turnController.state.retryAvailable) {
+        // Only a definite refusal can release the draft as a new action. An
+        // earlier unknown acceptance still belongs to the controller's retry.
+        drafts.completeDraftSubmission(submission.sessionId);
+        failedTurn.value = undefined;
+        turnFeedback.value = {kind: 'connection-error', message: '请先配置模型服务。消息尚未发送，草稿已保留。', action: 'configure-model'};
+        dialogueCtx.value = previousContext;
+      } else if (observationFailed()) {
         turnFeedback.value = {kind: 'observer-error', message: '连接中断，已保留收到的回复。可恢复接收。'};
       } else {
         // Controller.retry owns uncertain submissions and their idempotency reservation.
@@ -257,6 +280,9 @@ const suggestions = computed<Suggestion[]>(() => {
       },
     });
   }
+  // The independent host currently exposes conversation commands only. Do not
+  // advertise desktop plugin actions whose handlers are not registered here.
+  if (props.nativeRuntime) return list;
   list.push({
     key: 'focus',
     label: '先专注 25 分钟',
@@ -285,7 +311,7 @@ const whisperOpen = ref(false);
 const whisperText = ref('');
 const whisperInput = ref<HTMLInputElement | HTMLTextAreaElement>();
 const whisperPill = ref<HTMLButtonElement>();
-const drafts = useSessionDraft({ input: whisperText, sessionId: sessions.activeSessionId,
+const drafts = useSessionDraft({ input: whisperText, sessionId: sessions.activeSessionId, storage: props.draftStorage,
   enabled: computed(() => material3), onRestore: () => { if (!sessionsOpen.value && !historyOpen.value && !settingsOpen.value) whisperOpen.value = true; } });
 let inputLayer: ReturnType<NonNullable<typeof mobileBack>['registerLayer']> | undefined;
 watch(whisperOpen, open => {
@@ -298,7 +324,36 @@ function resizeWhisper() {
   input.style.height = 'auto';
   input.style.height = `${Math.min(input.scrollHeight, 120)}px`;
 }
-watch(whisperText, () => { void nextTick(resizeWhisper); }, { immediate: true });
+let whisperResizeObserver: ResizeObserver | undefined;
+let whisperResizePending = false;
+let whisperDisposed = false;
+function scheduleWhisperResize() {
+  if (!material3 || whisperResizePending || whisperDisposed) return;
+  whisperResizePending = true;
+  void nextTick(() => {
+    whisperResizePending = false;
+    if (!whisperDisposed) resizeWhisper();
+  });
+}
+watch(whisperInput, input => {
+  whisperResizeObserver?.disconnect();
+  whisperResizeObserver = undefined;
+  if (!material3 || !(input instanceof HTMLTextAreaElement)) return;
+  scheduleWhisperResize();
+  if (typeof ResizeObserver === 'undefined') return;
+  let previousWidth: number | undefined;
+  whisperResizeObserver = new ResizeObserver(entries => {
+    if (whisperDisposed || whisperInput.value !== input) return;
+    const width = entries.find(entry => entry.target === input)?.contentRect.width;
+    // Growing the textarea changes its height too. Only width changes alter
+    // wrapping, so our own height write must not trigger another measurement.
+    if (width === undefined || width === previousWidth) return;
+    previousWidth = width;
+    scheduleWhisperResize();
+  });
+  whisperResizeObserver.observe(input);
+}, { flush: 'post' });
+watch([whisperText, whisperOpen, settingsOpen, sessionsOpen, historyOpen], scheduleWhisperResize, { immediate: true, flush: 'post' });
 async function openWhisper() {
   whisperOpen.value = true;
   await nextTick();
@@ -426,14 +481,19 @@ onMounted(() => {
   window.addEventListener('resize', syncViewport);
   window.visualViewport?.addEventListener('resize', syncViewport);
   window.visualViewport?.addEventListener('scroll', syncViewport);
+  window.addEventListener('resize', scheduleWhisperResize);
 });
 onBeforeUnmount(() => {
+  whisperDisposed = true;
+  whisperResizeObserver?.disconnect();
+  whisperResizeObserver = undefined;
   inputLayer?.dispose(); inputLayer = undefined;
   unsubscribeConversation(); turnController.dispose();
   finish();
   window.removeEventListener('resize', syncViewport);
   window.visualViewport?.removeEventListener('resize', syncViewport);
   window.visualViewport?.removeEventListener('scroll', syncViewport);
+  window.removeEventListener('resize', scheduleWhisperResize);
 });
 </script>
 
@@ -459,7 +519,7 @@ onBeforeUnmount(() => {
     <main class="pc-content">
     <div class="pc-stage">
       <div class="pc-pet-wrap">
-        <div class="pc-pet-status">伴学中</div>
+        <div class="pc-pet-status">{{ companionStatus }}</div>
         <PetWithFallback :show-fallback-while-loading="material3" />
       </div>
     </div>
@@ -480,7 +540,13 @@ onBeforeUnmount(() => {
       <div v-if="turnFeedback" class="pc-feedback" :data-kind="turnFeedback.kind" role="status">
         <span>{{ turnFeedback.message }}</span>
         <component :is="buttonTag('md-text-button')"
-          v-if="failedTurn"
+          v-if="turnFeedback.action === 'configure-model'"
+          type="button"
+          class="pc-configure-model pc-feedback-action"
+          @click="settingsOpen = true"
+        ><Settings :slot="material3 ? 'icon' : undefined" :size="material3 ? 18 : 14" aria-hidden="true" />配置模型服务</component>
+        <component :is="buttonTag('md-text-button')"
+          v-else-if="failedTurn"
           type="button"
           class="pc-retry pc-feedback-action"
           :disabled="sending || (!material3 && failedTurn.source === 'whisper' && !whisperText.trim())"
@@ -500,7 +566,7 @@ onBeforeUnmount(() => {
       <component :is="buttonTag('md-text-button')" type="button" :disabled="interactionBusy || sending" @click="decideApproval('denied')">拒绝</component>
     </section>
 
-    <section v-if="!whisperOpen" class="pc-choices" aria-label="今日建议">
+    <section v-if="!whisperOpen && suggestions.length" class="pc-choices" aria-label="今日建议">
       <component :is="buttonTag('button')"
         v-for="(card, index) in suggestions"
         :key="card.key"
@@ -532,8 +598,8 @@ onBeforeUnmount(() => {
       <div v-else class="pc-whisper-input">
         <label v-if="material3" class="pc-whisper-label" for="pc-material-whisper">悄悄对{{ companionName }}说</label>
         <textarea v-if="material3" :readonly="preparingSession || sessionChanging" id="pc-material-whisper" ref="whisperInput" v-model="whisperText" rows="1"
-          :aria-label="'悄悄对' + companionName + '说'" :placeholder="'想到什么，直接告诉' + companionName" enterkeyhint="enter"
-          @focus="openWhisper()" @input="resizeWhisper" @keydown="onWhisperKeydown" />
+          :aria-label="'悄悄对' + companionName + '说'" placeholder="输入消息…" enterkeyhint="enter"
+          @focus="openWhisper()" @input="scheduleWhisperResize" @keydown="onWhisperKeydown" />
         <input v-else ref="whisperInput" v-model="whisperText" :aria-label="'悄悄对' + companionName + '说'"
           :placeholder="'想到什么，直接告诉' + companionName" enterkeyhint="send" @keydown="onWhisperKeydown" />
         <component :is="buttonTag('md-filled-tonal-button')" v-if="canStop" type="button" class="pc-stop" :disabled="stopping" @click="stopTurn"><Square :slot="material3 ? 'icon' : undefined" :size="material3 ? 18 : 12" aria-hidden="true" />{{ stopping ? '停止中' : '停止' }}</component>
@@ -898,7 +964,7 @@ onBeforeUnmount(() => {
 .proactive-companion[data-design-system="material3"] .pc-content { gap: 24px; padding-block: 20px 24px; }
 .proactive-companion[data-design-system="material3"] .pc-stage { padding-top: 24px; }
 .proactive-companion[data-design-system="material3"] .pc-pet-status { font-size: 12px; line-height: 16px; font-weight: 500; letter-spacing: .5px; }
-.proactive-companion[data-design-system="material3"] .pc-pet-status::before { background: var(--md-sys-color-tertiary); }
+.proactive-companion[data-design-system="material3"] .pc-pet-status::before { background: var(--md-sys-color-outline); }
 .proactive-companion[data-design-system="material3"] .pc-dialogue-name { margin: 0 16px 8px; font-size: 14px; line-height: 20px; font-weight: 500; letter-spacing: .1px; }
 .proactive-companion[data-design-system="material3"] .pc-dialogue-name::after { display: none; }
 .proactive-companion[data-design-system="material3"] .pc-dialogue-box { padding: 20px 24px; border: 0; border-radius: 24px; box-shadow: none; }

@@ -6,6 +6,9 @@ import { unverifiedDeletionRequest } from "../privacy-repository.js";
 import { disclosableTurn } from "./source-visibility.js";
 
 type Writer = Parameters<Parameters<AervoxDatabase["transaction"]>[0]>[0];
+// Core emits text windows of at most 4 KiB. A small page also leaves room for
+// JSON quoting and native cursor metadata inside a constrained result window.
+const HISTORY_SEGMENT_PAGE_SIZE = 16;
 
 async function bodySource(tx: Writer, turnId: string) {
   const [row] = await tx.select({ source: sql<string>`json_object(
@@ -101,15 +104,25 @@ export async function publishAssistantHistory(tx: Writer, turnId: string, before
     // A user edit has its own version and must not be overwritten by late execution.
     const checkpoint = /^mv_history_([0-9]+)_[0-9a-f-]{36}$/.exec(currentVersionId);
     if (!checkpoint || !Number.isSafeInteger(Number(checkpoint[1]))) continue;
-    const segments = await tx.select({ text: sql<string>`json_quote(${safeSegments.text})`.mapWith(value => JSON.parse(value) as string) }).from(safeSegments).innerJoin(turnStreamEvents, and(
-      eq(turnStreamEvents.id, safeSegments.streamEventId), eq(turnStreamEvents.turnId, safeSegments.turnId),
-      eq(turnStreamEvents.sequence, safeSegments.sequence), eq(turnStreamEvents.attemptId, safeSegments.attemptId),
-    )).where(and(eq(safeSegments.turnId, turnId), eq(safeSegments.committed, 1), gt(safeSegments.sequence, Number(checkpoint[1])), lt(safeSegments.sequence, beforeSequence),
-      eq(turnStreamEvents.eventType, "delta"), eq(turnStreamEvents.safetyDecision, "approved"),
-      sql`json_extract(${turnStreamEvents.data}, '$.messageId') = ${identityId}`,
-      sql`json_extract(${turnStreamEvents.data}, '$.text') = ${safeSegments.text}`,
-    )).orderBy(safeSegments.sequence);
-    const content = currentContent + segments.map(segment => segment.text).join("");
+    let cursor = Number(checkpoint[1]), content = currentContent;
+    // Keep the same writer snapshot, eligibility predicates and ordering across
+    // pages. No fragment is aggregated into an unbounded SQL cursor cell.
+    for (;;) {
+      const segments = await tx.select({ sequence: safeSegments.sequence,
+        text: sql<string>`json_quote(${safeSegments.text})`.mapWith(value => JSON.parse(value) as string),
+      }).from(safeSegments).innerJoin(turnStreamEvents, and(
+        eq(turnStreamEvents.id, safeSegments.streamEventId), eq(turnStreamEvents.turnId, safeSegments.turnId),
+        eq(turnStreamEvents.sequence, safeSegments.sequence), eq(turnStreamEvents.attemptId, safeSegments.attemptId),
+      )).where(and(eq(safeSegments.turnId, turnId), eq(safeSegments.committed, 1), gt(safeSegments.sequence, cursor), lt(safeSegments.sequence, beforeSequence),
+        eq(turnStreamEvents.eventType, "delta"), eq(turnStreamEvents.safetyDecision, "approved"),
+        sql`json_extract(${turnStreamEvents.data}, '$.messageId') = ${identityId}`,
+        sql`json_extract(${turnStreamEvents.data}, '$.text') = ${safeSegments.text}`,
+      )).orderBy(safeSegments.sequence).limit(HISTORY_SEGMENT_PAGE_SIZE);
+      if (!segments.length) break;
+      content += segments.map(segment => segment.text).join("");
+      cursor = segments.at(-1)!.sequence;
+      if (segments.length < HISTORY_SEGMENT_PAGE_SIZE) break;
+    }
     if (content === currentContent) continue;
     const now = new Date().toISOString();
     const versionId = `mv_history_${beforeSequence}_${crypto.randomUUID()}`;
