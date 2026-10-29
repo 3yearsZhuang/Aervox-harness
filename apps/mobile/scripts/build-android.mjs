@@ -16,8 +16,9 @@ export function buildAndroid({ inspect = inspectAndroidEnvironment, report = pri
   const pnpm = platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
   const steps = [
     { command: pnpm, args: ['run', 'mobile:schema'], cwd: path.resolve(root, '../..') },
-    { command: pnpm, args: ['run', 'build:web'], cwd: root },
+    { command: pnpm, args: ['run', 'build:web:native'], cwd: root },
     { command: pnpm, args: ['exec', 'cap', 'sync', 'android'], cwd: root },
+    { command: pnpm, args: ['run', 'prepare:native'], cwd: root },
     { command: platform === 'win32' ? 'gradlew.bat' : './gradlew', args: ['assembleDebug'], cwd: path.join(root, 'android') },
   ];
   for (const step of steps) {

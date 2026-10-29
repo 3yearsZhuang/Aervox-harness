@@ -4,10 +4,12 @@
   "license": "AGPL-3.0-or-later",
   "private": true,
   "type": "module",
-  "description": "Aervox Android project and shared mobile Web UI (ADR-022; local runtime pending).",
+  "description": "Aervox Android foreground runtime prototype and shared mobile Web UI (ADR-022).",
   "scripts": {
     "build": "pnpm run build:web",
     "build:web": "VITE_AERVOX_PLATFORM=mobile pnpm --filter @aervox/web build",
+    "build:web:native": "VITE_AERVOX_PLATFORM=mobile pnpm --filter @aervox/web build --base /m0/",
+    "prepare:native": "node scripts/prepare-native-assets.mjs",
     "dev": "VITE_AERVOX_PLATFORM=mobile pnpm --filter @aervox/web dev",
     "preview": "pnpm --filter @aervox/web start",
     "cap:sync": "cap sync",

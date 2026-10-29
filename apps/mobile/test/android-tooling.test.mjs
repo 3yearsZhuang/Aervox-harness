@@ -259,7 +259,7 @@ test('native build supplies the discovered SDK to child processes without changi
 });
 
 test('native build stops on schema generation, Web, sync or Gradle failure and preserves the failing exit status', () => {
-  for (const failAt of [0, 1, 2, 3]) {
+  for (const failAt of [0, 1, 2, 3, 4]) {
     const calls = [];
     const code = buildAndroid({ verifySqlite: () => {}, root: mobileRoot, inspect: () => ({ ok: true, checks: [] }), report: () => {},
       platform: 'linux', run: (command, args, options) => {
@@ -269,7 +269,7 @@ test('native build stops on schema generation, Web, sync or Gradle failure and p
     assert.equal(code, 7);
     assert.equal(calls.length, failAt + 1);
     assert.deepEqual(calls[0], { command: 'pnpm', args: ['run', 'mobile:schema'], cwd: path.resolve(mobileRoot, '../..') });
-    if (failAt === 3) assert.deepEqual(calls[3], { command: './gradlew', args: ['assembleDebug'], cwd: path.join(mobileRoot, 'android') });
+    if (failAt === 4) assert.deepEqual(calls[4], { command: './gradlew', args: ['assembleDebug'], cwd: path.join(mobileRoot, 'android') });
   }
 });
 

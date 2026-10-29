@@ -15,6 +15,18 @@ test("runtime and type cycles both remain visible", () => {
   assert.deepEqual(findCycles(edges), [["a","b"]]);
   assert.deepEqual(findCycles(edges,"runtime"), []);
 });
+test('Android composition permits exact neutral exports without granting ordinary Web views database access', () => {
+  const file = 'apps/web/src/mobile/native-runtime.ts';
+  for (const target of ['@aervox/core/browser', '@aervox/host-agent/browser', '@aervox/repositories/conversation', '@aervox/repositories/database', '@aervox/repositories/native-sqlite-client']) {
+    assert.deepEqual(auditArchitecture({ sources: new Map([[file, `import '${target}'`]]) }).violations, []);
+    assert.ok(auditArchitecture({ sources: new Map([['apps/web/src/components/view.ts', `import '${target}'`]]) }).violations.some(value => value.includes('not allowed')));
+  }
+  for (const target of ['@aervox/core', '@aervox/repositories', '@aervox/host-agent', '../../../../packages/repositories/src/database.ts']) {
+    assert.ok(auditArchitecture({ sources: new Map([[file, `import '${target}'`]]) }).violations.length > 0);
+  }
+  assert.deepEqual(auditArchitecture({ sources: new Map([['apps/web/src/mobile/native-context.ts', "import '@aervox/core/browser'"]]) }).violations, []);
+  assert.ok(auditArchitecture({ sources: new Map([['apps/web/src/mobile/native-context.ts', "import '@aervox/core'"]]) }).violations.length > 0);
+});
 test("shared parser classifies imports and exports including Vue, TSImportType and dynamic literal", () => {
   const source = `<script lang="ts">import type { X } from "a"; import { type Y } from "b"; export type { Z } from "c"; type P = import("d").P; const p = import("e");</script>`;
   assert.deepEqual(extractImports(source, "x.vue"), [

@@ -30,6 +30,15 @@ export function inspectDependency(from, to) {
   return null;
 }
 
+// ADR-022: the fixed APK composition consumes only the neutral public ports.
+// Ordinary Web views still cannot import Core/repositories or any Node entry.
+const MOBILE_COMPOSITION_IMPORTS = new Map([
+  ['apps/web/src/mobile/native-runtime.ts', new Set(['@aervox/core/browser', '@aervox/host-agent/browser',
+    '@aervox/repositories/conversation', '@aervox/repositories/database', '@aervox/repositories/native-sqlite-client'])],
+  ['apps/web/src/mobile/native-model-provider.ts', new Set(['@aervox/core/browser'])],
+  ['apps/web/src/mobile/native-context.ts', new Set(['@aervox/core/browser'])],
+]);
+
 export function findCycles(edges, kind) {
   const graph = new Map();
   for (const edge of edges) {
@@ -128,7 +137,7 @@ export function auditArchitecture({ sources = null } = {}) {
       const to = target ? workspaceOwner(target, workspaces)?.name : targetWorkspace?.name;
       if (to && owner?.name !== to) {
         edges.push({ from: owner?.name, to, kind });
-        const error = inspectDependency(owner?.name, to);
+        const error = MOBILE_COMPOSITION_IMPORTS.get(file)?.has(specifier) ? null : inspectDependency(owner?.name, to);
         if (error) violations.push(`${file}: ${error}`);
       }
       if (target && fileSet.has(target)) fileEdges.push({ from: file, to: target, kind });

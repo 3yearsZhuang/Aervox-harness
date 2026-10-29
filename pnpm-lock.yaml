@@ -34,6 +34,9 @@ importers:
       '@material/web':
         specifier: 2.5.0
         version: 2.5.0
+      '@pixi/unsafe-eval':
+        specifier: 7.4.3
+        version: 7.4.3(@pixi/core@7.4.3)
       '@vscode/ripgrep':
         specifier: 1.18.0
         version: 1.18.0
@@ -251,6 +254,15 @@ importers:
       '@aervox/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@aervox/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@aervox/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@aervox/host-agent':
+        specifier: workspace:*
+        version: link:../../packages/host-agent
       '@aervox/live2d':
         specifier: workspace:*
         version: link:../../packages/live2d
@@ -269,6 +281,9 @@ importers:
       '@aervox/public':
         specifier: workspace:*
         version: link:../../packages/public
+      '@aervox/repositories':
+        specifier: workspace:*
+        version: link:../../packages/repositories
       '@aervox/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -281,6 +296,12 @@ importers:
       '@material/web':
         specifier: 2.5.0
         version: 2.5.0
+      '@noble/hashes':
+        specifier: 2.4.0
+        version: 2.4.0
+      '@pixi/unsafe-eval':
+        specifier: 7.4.3
+        version: 7.4.3(@pixi/core@7.4.3)
       '@sekai-world/pixi-live2d-display-mulmotion':
         specifier: ^0.5.1
         version: 0.5.1(pixi.js@7.4.3)
@@ -297,6 +318,9 @@ importers:
         specifier: ^3.5.43
         version: 3.5.43(typescript@5.9.3)
     devDependencies:
+      '@libsql/client':
+        specifier: ^0.14.0
+        version: 0.14.0
       '@types/node':
         specifier: ^22.15.3
         version: 22.20.1
@@ -2548,6 +2572,11 @@ packages:
 
   '@pixi/ticker@7.4.3':
     resolution: {integrity: sha512-tHsAD0iOUb6QSGGw+c8cyRBvxsq/NlfzIFBZLEHhWZ+Bx4a0MmXup6I/yJDGmyPCYE+ctCcAfY13wKAzdiVFgQ==}
+
+  '@pixi/unsafe-eval@7.4.3':
+    resolution: {integrity: sha512-iR2iLcMculCSmn3x446ICCL5iokmFuLZDgNo7k1Q5rzNiULELIixfpSJwvlJqrJPY1kda0oqGHgVGRQ2vGfaLg==}
+    peerDependencies:
+      '@pixi/core': 7.4.3
 
   '@pixi/utils@7.4.3':
     resolution: {integrity: sha512-NO3Y9HAn2UKS1YdxffqsPp+kDpVm8XWvkZcS/E+rBzY9VTLnNOI7cawSRm+dacdET3a8Jad3aDKEDZ0HmAqAFA==}
@@ -6847,6 +6876,10 @@ snapshots:
       '@pixi/extensions': 7.4.3
       '@pixi/settings': 7.4.3
       '@pixi/utils': 7.4.3
+
+  '@pixi/unsafe-eval@7.4.3(@pixi/core@7.4.3)':
+    dependencies:
+      '@pixi/core': 7.4.3
 
   '@pixi/utils@7.4.3':
     dependencies:

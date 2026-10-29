@@ -78,7 +78,9 @@ final class NativeSqliteSession implements AutoCloseable {
                 initialized.complete(epoch);
             } catch (Throwable rejected) {
                 poisoned = true;
-                initialized.completeExceptionally(rejected instanceof SessionException ? rejected : failure(Failure.INITIALIZATION_FAILED));
+                SessionException bounded = rejected instanceof SessionException ? (SessionException) rejected : failure(Failure.INITIALIZATION_FAILED);
+                if (bounded != rejected) bounded.initCause(rejected);
+                initialized.completeExceptionally(bounded);
             }
         });
     }
@@ -150,6 +152,7 @@ final class NativeSqliteSession implements AutoCloseable {
         }
     }
     @Override public void close() { dispose(epoch).exceptionally(ignored -> null); }
+    CompletableFuture<JSONObject> drain() { return dispose(epoch); }
 
     private JSONObject perform(Command command) throws Exception {
         if (!epoch.equals(command.epoch)) throw failure(Failure.INVALID_IDENTITY);
