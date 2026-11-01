@@ -28,7 +28,7 @@ mise exec -- pnpm --filter @aervox/mobile sqlite:check
 mise exec -- pnpm --filter @aervox/mobile android:build
 ```
 
-`sqlite:restore` 是显式网络恢复步骤，仅从固定的 SQLite 官方 HTTPS 地址读取 3.54.1 AAR，按固定长度及 SHA3-256 验证后发布到忽略的 `android/vendor/`；既有无效文件保留并报错，不自动覆盖。`sqlite:check` 只做本地校验。`android:build` 先预检与校验 SQLite 制品，再生成唯一 Schema 资产、按 `/m0/` 基址构建移动 Web、同步 Android、验证并准备固定原生资产，最后运行 `assembleDebug`；任一步失败均停止，缺失或篡改的制品不会触发隐式下载。直接运行 Gradle 也会在 preBuild 校验固定长度与摘要。首次 Gradle 构建需要网络获取已声明的 Gradle/Maven 依赖。debug APK 输出在 `apps/mobile/android/app/build/outputs/apk/debug/`。它使用调试签名，不是发布包。
+`sqlite:restore` 是显式网络恢复步骤，仅从固定的 SQLite 官方 HTTPS 地址读取 3.54.1 AAR，按固定长度及 SHA3-256 验证后发布到忽略的 `android/vendor/`；既有无效文件保留并报错，不自动覆盖。`sqlite:check` 只做本地校验。`android:build` 先预检与校验 SQLite 制品，在仓库根校验产品子模块并按依赖图构建 Web 上游包，再生成唯一 Schema 资产、按 `/m0/` 基址构建移动 Web、同步 Android、验证并准备固定原生资产，最后运行 `assembleDebug`；任一步失败均停止，缺失或篡改的制品不会触发隐式下载。直接运行 Gradle 也会在 preBuild 校验固定长度与摘要。首次 Gradle 构建需要网络获取已声明的 Gradle/Maven 依赖。debug APK 输出在 `apps/mobile/android/app/build/outputs/apk/debug/`。它使用调试签名，不是发布包。
 
 设备检查需要一个已开启 USB 调试并授权的目标，多个目标时通过 `ANDROID_SERIAL` 选择：
 
