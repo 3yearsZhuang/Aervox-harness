@@ -2,6 +2,74 @@ import { test, expect, openWorkbench } from './fixtures';
 
 test.use({ platform: 'mobile' });
 test.setTimeout(60_000);
+
+test('keeps rejected-message feedback and its action fully visible without scrolling the mobile conversation', async ({ page, servers }, testInfo) => {
+  await page.setViewportSize({ width: 411, height: 838 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const cors = { 'Access-Control-Allow-Origin': '*' };
+  let submissions = 0;
+  await page.route('**/v1/sessions/*/turns', async route => {
+    submissions++;
+    await route.fulfill(submissions === 1
+      ? { status: 503, headers: cors, contentType: 'application/problem+json', body: JSON.stringify({ status: 503, title: '暂时无法接收消息' }) }
+      : { headers: cors, contentType: 'application/json', body: JSON.stringify({ turnId: 'turn_visible_retry' }) });
+  });
+  await page.route('**/v1/turns/turn_visible_retry/events', route => route.fulfill({ contentType: 'text/event-stream', headers: cors,
+    body: [
+      { turnId: 'turn_visible_retry', sequence: 1, eventType: 'delta', data: { text: '已收到保留的草稿。' } },
+      { turnId: 'turn_visible_retry', sequence: 2, eventType: 'done', data: {} },
+    ].map(event => `data: ${JSON.stringify(event)}\n\n`).join(''),
+  }));
+  await page.goto(servers.webUrl);
+  const draft = '保留这段未提交的多行草稿。\n连接恢复后再继续发送。\n第三行仍然属于原草稿。\n第四行也不能丢失。\n第五行需要在编辑框内滚动。\n最后一行保持完整。';
+  const input = page.locator('.pc-whisper-input textarea');
+  await input.fill(draft);
+  await page.getByRole('button', { name: '发送', exact: true }).click();
+  const feedback = page.locator('.pc-feedback');
+  const retry = feedback.locator('.pc-retry');
+  await expect(feedback).toContainText('未能收到回复，请重试。');
+  await expect(input).toHaveValue(draft);
+  const expectControlsInView = async () => {
+    await expect(feedback).toBeInViewport({ ratio: 1, timeout: 5000 });
+    await expect(retry).toBeInViewport({ ratio: 1 });
+    await expect(input).toBeInViewport({ ratio: 1 });
+    await expect(page.getByRole('button', { name: '发送', exact: true })).toBeInViewport({ ratio: 1 });
+    const visible = await page.evaluate(() => ({
+      top: window.visualViewport?.offsetTop ?? 0,
+      bottom: (window.visualViewport?.offsetTop ?? 0) + (window.visualViewport?.height ?? window.innerHeight),
+    }));
+    for (const control of [feedback, retry, input, page.getByRole('button', { name: '发送', exact: true })]) {
+      const bounds = (await control.boundingBox())!;
+      expect(bounds.y).toBeGreaterThanOrEqual(visible.top - 1);
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(visible.bottom + 1);
+    }
+    expect(await page.locator('.pc-content').evaluate(el => el.scrollTop)).toBe(0);
+    expect(await retry.evaluate(el => {
+      const box = el.getBoundingClientRect();
+      return el.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+    })).toBe(true);
+  };
+  for (const viewport of [{ width: 411, height: 838 }, { width: 320, height: 568 }, { width: 320, height: 360 }]) {
+    await page.setViewportSize(viewport);
+    await expectControlsInView();
+    await page.screenshot({ path: testInfo.outputPath(`feedback-${viewport.width}-${viewport.height}.png`) });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => {
+    Object.defineProperty(window.visualViewport!, 'height', { configurable: true, value: 400 });
+    window.visualViewport!.dispatchEvent(new Event('resize'));
+  });
+  await expect(page.locator('.proactive-companion')).toHaveClass(/pc-viewport--short/);
+  await expectControlsInView();
+  await page.screenshot({ path: testInfo.outputPath('mobile-feedback-visible.png') });
+  await retry.click();
+  await expect.poll(() => submissions).toBe(2);
+  await expect(page.locator('.pc-dialogue-text')).toContainText('已收到保留的草稿。');
+  await expect(feedback).toHaveCount(0);
+  expect((await page.locator('.pc-mobile-feedback').boundingBox())!.height).toBe(0);
+  await expect(input).toHaveValue('');
+});
+
   test('uses the actual Material components in both themes and keeps short-screen IME input and dialog focus usable', async ({ page, servers }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.emulateMedia({ reducedMotion: 'reduce' });

@@ -63,7 +63,7 @@ Cubism Core 保留 Live2D 原始版权和许可头，适用 [Live2D Proprietary 
 
 `SQLiteCapabilityProbe` 仅建立应用 no-backup 目录下的唯一临时库，验证实际引擎版本、RETURNING、JSON/NUL、FTS5、外键、事务回滚与关闭重开，最后清理库文件；不接收外部路径、SQL 或业务 Schema，不注册 Capacitor Bridge，也未由 MainActivity 调用。设备测试入口为 `:app:connectedDebugAndroidTest`，先运行 `android:check:device` 并明确选择已授权目标。仅编译 `:app:assembleDebugAndroidTest` 不代表探针执行成功。
 
-官方 AAR 的默认 Manifest 允许备份，本应用显式覆盖为 false，明文网络继续关闭；合并 Manifest 和设备断言分别取证。制品包含 arm64-v8a、armeabi-v7a、x86、x86_64 四 ABI；静态 ELF 检查中两个 64 位库的 LOAD 对齐为 16 KiB，两个 32 位库为 4 KiB。APK zip 对齐和 ELF 静态属性不替代设备加载或 SQL 合同执行，实际 16 KiB 设备仍待验收。隔离探针及制品编译只证明各自覆盖的行为，业务持久化和独立运行由默认原生入口单独验收。
+官方 AAR 的默认 Manifest 允许备份，本应用显式覆盖为 false，明文网络继续关闭；合并 Manifest 和设备断言分别取证。制品包含 arm64-v8a、armeabi-v7a、x86、x86_64 四 ABI；静态 ELF 检查中两个 64 位库的 LOAD 对齐为 16 KiB，两个 32 位库为 4 KiB。Android 17/API 37、arm64、16 KiB 隔离模拟器已实际通过完整原生仪器测试，默认入口冷启动、本机存储与 Live2D 渲染另有验证，证据见 [ITER-009](../../plan.md#iter-009)。APK ZIP 对齐、单一模拟器和隔离探针不代表物理手机、其他 ABI/版本或正式平台矩阵通过。
 
 主库 Schema 资产由根命令 `mise exec -- pnpm mobile:schema` 从唯一仓储声明生成，包含现有版本/发布指纹、空库 DDL、参数化 journal 和可重建 FTS；不复制业务数据，不生成手机恢复账本。资产仅作构建输入，Git 忽略；生成回执的 SHA256 是字节证据，不是认证。`NativeBusinessDatabase` 只对独占新建文件执行该资产的 DDL、FTS 和版本回执事务；既有库必须通过归属、版本和完整物理结构检查，未知旧库继续拒绝写入，不自动采用或迁移。
 
