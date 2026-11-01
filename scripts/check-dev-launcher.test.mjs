@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, copyFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { buildSync } from 'esbuild';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -53,13 +53,15 @@ fs.appendFileSync('calls', JSON.stringify({ cli: true, args: process.argv.slice(
 process.exit(Number(process.env.FIXTURE_CLI_EXIT_CODE || 0));
 `);
   writeFileSync(join(dir, 'bash-env'), 'kill() { printf "%s\\n" "$*" >> kill-calls; if [ "$1" = -0 ]; then [ "${FIXTURE_EARLY_EXIT:-0}" != 1 ]; else touch stopped; fi; }\nsleep() { SECONDS=$((SECONDS + 1)); }\n');
-  const run = (args, env = {}) => spawnSync('bash', [join(dir, 'aervox'), 'dev', ...args], {
-    cwd: tmpdir(), encoding: 'utf8',
+  const options = (env = {}) => ({
+    cwd: tmpdir(),
     env: { ...process.env, DATABASE_URL: '', PORT: '3000', AERVOX_WEB_PORT: '5173', AERVOX_DESKTOP_PORT: '5174', ...env,
       PATH: `${join(dir, 'bin')}:${process.env.PATH}`, BASH_ENV: env.BASH_ENV ?? join(dir, 'bash-env') },
   });
+  const run = (args, env) => spawnSync('bash', [join(dir, 'aervox'), 'dev', ...args], { ...options(env), encoding: 'utf8' });
+  const start = (args, env) => spawn('bash', [join(dir, 'aervox'), 'dev', ...args], { ...options(env), detached: true });
   const calls = () => readFileSync(join(dir, 'calls'), 'utf8').trim().split('\n').map(JSON.parse);
-  return { dir, run, calls };
+  return { dir, run, start, calls };
 }
 
 test('dev dispatches selected services and TUI flags, installs dependencies once', t => {
@@ -225,31 +227,48 @@ test('dev cli validates local root URLs before sending a token or probing', t =>
   }
 });
 
-test('dev cli EXIT trap reaches a real service and its descendant process', async t => {
-  const { dir, run } = fixture(t);
+test('dev cli EXIT trap reaches a real service and its descendant process', { timeout: 30_000 }, async t => {
+  const { dir, start } = fixture(t);
   writeFileSync(join(dir, 'bin/pnpm'), `#!${process.execPath}
 import fs from 'node:fs';
 import { spawn } from 'node:child_process';
 const args = process.argv.slice(2);
 fs.appendFileSync('calls', JSON.stringify({ args }) + '\\n');
 if (args.includes('--filter=@aervox/api')) {
-  const child = spawn(process.execPath, ['-e', "process.on('SIGTERM', () => { require('fs').writeFileSync('descendant-stopped', 'yes'); process.exit(0); }); setInterval(() => {}, 1000); require('fs').writeFileSync('descendant-pid', String(process.pid));"], { stdio: 'inherit' });
+  let signaled = false;
+  let childExited = false;
+  const finish = () => {
+    if (signaled && childExited && fs.existsSync('release-shutdown')) {
+      fs.writeFileSync('service-stopped', 'yes');
+      process.exit(0);
+    }
+  };
+  process.on('SIGTERM', () => {
+    signaled = true;
+    fs.writeFileSync('service-signaled', 'yes');
+    finish();
+  });
   fs.writeFileSync('service-pid', String(process.pid));
-  process.on('SIGTERM', () => { fs.writeFileSync('service-stopped', 'yes'); });
-  child.on('exit', () => process.exit(0));
+  const child = spawn(process.execPath, ['-e', "process.on('SIGTERM', () => { require('fs').writeFileSync('descendant-stopped', 'yes'); process.exit(0); }); setInterval(() => {}, 1000); require('fs').writeFileSync('descendant-pid', String(process.pid)); require('fs').writeFileSync('descendant-ready', 'yes');"], { stdio: 'inherit' });
+  child.on('exit', () => {
+    childExited = true;
+    fs.writeFileSync('child-exited', 'yes');
+    finish();
+  });
+  // A test-controlled gate makes child-exit-before-service-stop deterministic.
+  // Poll the gate instead of relying on a fixed sleep or OS signal ordering.
+  setInterval(finish, 10);
+  fs.writeFileSync('service-ready', 'yes');
 }
 `, { mode: 0o755 });
-  // Probe readiness only after both processes have registered signal handlers.
+  // Each process publishes readiness after registering its own signal handler.
   writeFileSync(join(dir, 'bin/curl'), `#!/bin/sh
-[ -f descendant-pid ] || exit 22
+[ -f service-ready ] && [ -f descendant-ready ] || exit 22
 `, { mode: 0o755 });
   const pids = () => ['service-pid', 'descendant-pid'].filter(name => existsSync(join(dir, name)))
-    .map(name => Number(readFileSync(join(dir, name), 'utf8')));
-  t.after(() => { for (const pid of pids()) { try { process.kill(pid, 'SIGTERM'); } catch {} } });
-  const result = run(['cli'], { BASH_ENV: '/dev/null' });
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(existsSync(join(dir, 'service-stopped')), true);
-  assert.equal(existsSync(join(dir, 'descendant-stopped')), true);
+    .map(name => Number(readFileSync(join(dir, name), 'utf8')))
+    .filter(pid => Number.isInteger(pid) && pid > 0);
+  const has = name => existsSync(join(dir, name));
   const isRunning = pid => {
     try { process.kill(pid, 0); }
     catch (error) { if (error.code === 'ESRCH') return false; throw error; }
@@ -262,10 +281,51 @@ if (args.includes('--filter=@aervox/api')) {
     }
     return true;
   };
-  const deadline = Date.now() + 3_000;
-  while (pids().some(isRunning) && Date.now() < deadline) await delay(25);
-  for (const pid of pids()) {
-    assert.equal(isRunning(pid), false, `service process ${pid} must stop after CLI exit`);
+  const launcher = start(['cli'], { BASH_ENV: '/dev/null' });
+  let result;
+  let stderr = '';
+  launcher.stdout.resume();
+  launcher.stderr.on('data', chunk => { stderr += chunk; });
+  launcher.once('error', error => { result = { error }; });
+  launcher.once('close', (status, signal) => { result = { ...result, status, signal }; });
+  const waitFor = async (predicate, message, timeout = 3_000) => {
+    const deadline = Date.now() + timeout;
+    while (!predicate() && Date.now() < deadline) await delay(10);
+    assert.ok(predicate(), `${message}; launcher=${JSON.stringify(result)}, stderr=${stderr}`);
+  };
+  try {
+    await waitFor(() => has('service-signaled') && has('descendant-stopped') && has('child-exited'),
+      'EXIT trap must signal both the service and its descendant', 22_000);
+    assert.equal(pids().length, 2, 'both fixture process identities must be recorded');
+    assert.equal(has('service-stopped'), false, 'the service must wait for its shutdown gate');
+    assert.equal(isRunning(Number(readFileSync(join(dir, 'service-pid'), 'utf8'))), true,
+      'a child exit must not preempt the service shutdown acknowledgement');
+    writeFileSync(join(dir, 'release-shutdown'), 'yes');
+    // Waiting for the launcher's background job does not synchronously drain
+    // all descendant signal callbacks. Wait for both acknowledgements and exit.
+    await waitFor(() => result && has('service-stopped') && has('descendant-stopped') && !pids().some(isRunning),
+      'both signaled processes must acknowledge shutdown and stop');
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, 0, stderr);
+    assert.equal(result.signal, null);
+    assert.equal(readFileSync(join(dir, 'service-stopped'), 'utf8'), 'yes');
+    assert.equal(readFileSync(join(dir, 'descendant-stopped'), 'utf8'), 'yes');
+  } finally {
+    // Kill only this fixture's recorded processes and its isolated launcher
+    // group on failure, before fixture(t) removes their working directory.
+    for (const pid of pids()) {
+      if (isRunning(pid)) {
+        try { process.kill(pid, 'SIGKILL'); } catch (error) { if (error.code !== 'ESRCH') throw error; }
+      }
+    }
+    if (!result && launcher.pid) {
+      // An exiting group can reject signals before the close callback arrives.
+      // The bounded check below must still confirm that it actually stopped.
+      try { process.kill(-launcher.pid, 'SIGKILL'); } catch (error) {
+        if (error.code !== 'ESRCH' && error.code !== 'EPERM') throw error;
+      }
+    }
+    await waitFor(() => result && !pids().some(isRunning), 'fixture processes must be reaped', 1_000);
   }
 });
 
