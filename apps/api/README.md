@@ -10,5 +10,5 @@ Aervox 本机 API 服务（Fastify 5），承载会话、Agent 执行、插件�
 
 ```bash
 ./aervox dev api    # 仅启动 API
-./aervox dev        # 启动完整开发环境（API + Worker + 桌面端）
+./aervox dev        # 启动完整开发环境（API + Web + 桌面端 + Worker）
 ```

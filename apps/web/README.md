@@ -12,4 +12,4 @@ Aervox Web 前端，基于 Vue 3 + Vite。桌面浏览器默认工作台布局�
 
 ## 与桌面端的关系
 
-Web 端与桌面端共享 renderer 核心（composables、主题、组件），均依赖本机 API 运行。详见 [ADR-015](../../docs/reference/adr/ADR-015-vue-full-stack.md)。
+Web 与桌面端均从 `@aervox/ui` 复用组件与主题，由 `@aervox/ui-host` 装配 `plugins/surfaces/*` 的根界面，并通过 `@aervox/api-client` 连接本机 API。两端各自维护平台入口，详见 [ADR-015](../../docs/reference/adr/ADR-015-vue-full-stack.md)。

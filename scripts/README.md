@@ -17,7 +17,7 @@
 | `check-banned-identifiers.mjs` | `check-banned-identifiers.test.mjs` | 本地单用户架构守卫，严禁引入多租户隔离概念 | `node scripts/check-banned-identifiers.mjs` |
 | `check-host-domain-purity.mjs` | `check-host-domain-purity.test.mjs` | 宿主去领域化守卫，确保宿主不含特定插件领域概念 | `node scripts/check-host-domain-purity.mjs` |
 | `check-type-boundary.mjs` | `check-type-boundary.test.mjs` | 类型边界守卫，强制复用 `@aervox/contracts` DTO | `node scripts/check-type-boundary.mjs` |
-| `check-dep-hoisting.mjs` | `check-dep-hoisting.test.mjs` | 依赖提升守卫，各包依赖严格在各自 `package.json` 声明 | `node scripts/check-dep-hoisting.mjs` |
+| `check-dep-hoisting.mjs` | `check-dep-hoisting.test.mjs` | 开发工具集中在根目录声明，独立 Core 与明确白名单例外见[贡献指南](../CONTRIBUTING.md#development-constraints) | `node scripts/check-dep-hoisting.mjs` |
 | `check-removable-implementation.mjs` | `check-removable-implementation.test.mjs` | 可移除插件实现守卫，防止外部代码直接引用可移除私有模块 | `node scripts/check-removable-implementation.mjs` |
 | `check-tracked-files.mjs` | `check-tracked-files.test.mjs` | 追踪文件卫生守卫，防止大文件、密钥或本地临时文件被提交 | `node scripts/check-tracked-files.mjs` |
 | `import-boundary.mjs` | `import-boundary.test.mjs` | AST 依赖边界分析器，严格保护分层单向依赖架构 | `node scripts/import-boundary.mjs` |
