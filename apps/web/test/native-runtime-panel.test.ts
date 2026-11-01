@@ -7,9 +7,14 @@ const { request } = vi.hoisted(() => ({ request: vi.fn() }));
 vi.mock('../src/mobile/native-channel', () => ({ nativeRequest: request }));
 enableAutoUnmount(afterEach);
 const runtime = { kind: 'runtime', connectionEpoch: 'owned-connection', sqlite: 'ready', mode: 'foreground' };
+const deviceStatus = { kind: 'device_status', root: true, capabilities: { control: false, apps: false }, sdk: 36, device: 'Pixel 9' };
 beforeEach(() => {
   request.mockReset();
-  request.mockImplementation(async body => body.op === 'runtime' ? runtime : { kind: 'summary', hasCredential: false });
+  request.mockImplementation(async body => {
+    if (body.op === 'runtime') return runtime;
+    if (body.op === 'device') return deviceStatus;
+    return { kind: 'summary', hasCredential: false };
+  });
 });
 
 it('shows native readiness and provides a real configuration action without exposing credential inputs', async () => {
@@ -76,11 +81,11 @@ it('ignores a native configuration receipt that arrives after its settings page 
   await flushPromises();
   request.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   await wrapper.get('md-filled-tonal-button').trigger('click');
-  expect(request).toHaveBeenCalledTimes(3);
+  expect(request).toHaveBeenCalledTimes(4);
   wrapper.unmount();
   finish({ kind: 'summary', hasCredential: false });
   await flushPromises();
-  expect(request).toHaveBeenCalledTimes(3);
+  expect(request).toHaveBeenCalledTimes(4);
 });
 
 it('keeps unknown model state distinct from missing configuration and waits before exposing actions', async () => {
@@ -115,7 +120,7 @@ it('tests only saved configuration, prevents duplicate actions, and reports the 
   await wrapper.get('md-filled-tonal-button').trigger('click');
   await wrapper.get('md-icon-button').trigger('click');
   expect(request.mock.calls.filter(([body]) => body.operation === 'test')).toEqual([[{ op: 'model', operation: 'test' }]]);
-  expect(request).toHaveBeenCalledTimes(3);
+  expect(request).toHaveBeenCalledTimes(4);
   finish({ kind: 'connection_test', ok: true, latencyMs: 1234 });
   await flushPromises();
   expect(wrapper.get('.runtime-test-feedback').text()).toBe('测试连接成功 · 1,234 ms');
@@ -157,4 +162,83 @@ it('does not turn an invalid connection receipt into a successful test', async (
   await flushPromises();
   expect(wrapper.get('.runtime-test-feedback').text()).toContain('未收到有效的模型回复');
   expect(wrapper.text()).not.toContain('测试连接成功');
+});
+
+it('shows root availability and grants a device capability through the native channel', async () => {
+  request.mockImplementation(async body => {
+    if (body.op === 'runtime') return runtime;
+    if (body.op === 'device') {
+      if (body.operation === 'grant') {
+        if (body.capability === 'apps') throw new Error('ROOT_UNAVAILABLE');
+        return { ...deviceStatus, capabilities: { control: body.enabled === true, apps: false } };
+      }
+      return deviceStatus;
+    }
+    return { kind: 'summary', hasCredential: false };
+  });
+  const wrapper = mount(NativeRuntimePanel);
+  await flushPromises();
+  expect(wrapper.text()).toContain('Root 可用');
+  const control = wrapper.get('md-switch[aria-label="控制手机"]');
+  expect(control.attributes('disabled')).toBeUndefined();
+  await control.trigger('change');
+  await flushPromises();
+  expect(request).toHaveBeenCalledWith({ op: 'device', operation: 'grant', capability: 'control', enabled: true });
+  expect(wrapper.get('md-switch[aria-label="控制手机"]').attributes('selected')).toBe('true');
+  await wrapper.get('md-switch[aria-label="打开应用"]').trigger('change');
+  await flushPromises();
+  expect(wrapper.get('.runtime-feedback').text()).toContain('没有可用的 root 授权');
+});
+
+it('keeps device switches disabled and honest when there is no root grant', async () => {
+  request.mockImplementation(async body => {
+    if (body.op === 'runtime') return runtime;
+    if (body.op === 'device') return { ...deviceStatus, root: false, device: undefined };
+    return { kind: 'summary', hasCredential: false };
+  });
+  const wrapper = mount(NativeRuntimePanel);
+  await flushPromises();
+  expect(wrapper.text()).toContain('没有可用的 root 授权');
+  expect(wrapper.get('md-switch[aria-label="控制手机"]').attributes('disabled')).toBe('true');
+  expect(wrapper.get('md-switch[aria-label="打开应用"]').attributes('disabled')).toBe('true');
+  expect(wrapper.text()).not.toContain('Root 可用');
+});
+
+it('clears a saved model configuration only after an explicit confirmation', async () => {
+  let saved = true;
+  request.mockImplementation(async body => {
+    if (body.op === 'runtime') return runtime;
+    if (body.op === 'device') return deviceStatus;
+    if (body.operation === 'clear') { saved = false; return { kind: 'summary', hasCredential: false }; }
+    return saved ? { kind: 'summary', hasCredential: true, endpoint: 'https://model.example/v1', model: 'model-a' }
+      : { kind: 'summary', hasCredential: false };
+  });
+  const wrapper = mount(NativeRuntimePanel);
+  await flushPromises();
+  await wrapper.get('.runtime-clear-model').trigger('click');
+  expect(request.mock.calls.filter(([body]) => body.operation === 'clear')).toHaveLength(0);
+  expect(wrapper.text()).toContain('清除后，这台手机不再保存密钥');
+  await wrapper.get('.runtime-clear-confirm').trigger('click');
+  await flushPromises();
+  expect(request.mock.calls.filter(([body]) => body.operation === 'clear')).toHaveLength(1);
+  expect(wrapper.text()).toContain('已清除模型配置');
+  expect(wrapper.text()).toContain('未配置');
+  expect(wrapper.find('.runtime-clear-model').exists()).toBe(false);
+});
+
+it('keeps the saved configuration when clearing is refused', async () => {
+  request.mockImplementation(async body => {
+    if (body.op === 'runtime') return runtime;
+    if (body.op === 'device') return deviceStatus;
+    if (body.operation === 'clear') throw new Error('BUSY');
+    return { kind: 'summary', hasCredential: true, endpoint: 'https://model.example/v1', model: 'model-a' };
+  });
+  const wrapper = mount(NativeRuntimePanel);
+  await flushPromises();
+  await wrapper.get('.runtime-clear-model').trigger('click');
+  await wrapper.get('.runtime-clear-confirm').trigger('click');
+  await flushPromises();
+  expect(wrapper.text()).toContain('清除没有完成，原有配置保持不变');
+  expect(wrapper.text()).toContain('已保存配置');
+  expect(wrapper.text()).not.toContain('已清除模型配置');
 });

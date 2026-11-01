@@ -13,6 +13,7 @@ import { createSessionRequestSchema, renameSessionRequestSchema, type TurnStream
 import { nativeRequest } from './native-channel';
 import { delay, createNativeModelProvider } from './native-model-provider';
 import { nativeContextBuilder } from './native-context';
+import { createDeviceTooling } from './native-tools';
 
 const ctx = { workspaceId: 'local', subjectUserId: 'local' };
 const encoder = new TextEncoder();
@@ -57,6 +58,10 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
     wakeOutbox: () => false,
   });
   const store = new ConversationExecutionStore(repo, ctx);
+  // Device tools stay unavailable until the user grants a capability in
+  // settings; the provider re-reads that native grant on every listing and the
+  // approval policy re-checks it before any side effect.
+  const deviceTooling = createDeviceTooling();
   const nativeModelProvider = createNativeModelProvider(nativeRequest, async request => {
     await store.requestCancelAttempt({ turnId: request.turnId, attemptId: request.attemptId });
   });
@@ -205,13 +210,15 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
           const owner = { turnId, sessionId, attemptId: accepted.attempt.id, control, done: Promise.resolve() as Promise<unknown> };
           active = owner;
           owner.done = executeTurn({ execution: store, provider: nativeModelProvider, controlContext: control,
+            tools: deviceTooling.provider, approvalPolicy: deviceTooling.approval,
             contextBuilder: { async build(input) {
               const history = await repo.getSessionHistory(ctx, { sessionId, beforeTurnId: turnId });
               return nativeContextBuilder.build({ ...input, messages: [
-                { role: 'system', content: '你是思隅 Aervox，一位主动智能的个人助手。请如实回答；本次手机会话只能交流文本，没有设备操作工具。' },
+                { role: 'system', content: '你是思隅 Aervox，一位主动智能的个人助手。请如实回答。手机上只有用户已在设置中授权的设备工具可用；没有对应工具时，说明这项操作在当前版本不可用，不要编造已执行。' },
                 ...history, ...input.messages,
               ] });
-            } }, options: { maxSteps: 1, maxModelRetries: 0, maxTurnDurationMs: 180_000, leaseTtlMs: 30_000, leaseHeartbeatIntervalMs: 10_000 },
+            } }, options: { maxSteps: 4, maxConsecutiveSameTool: 3, toolTimeoutMs: 12_000, maxModelRetries: 0,
+              maxTurnDurationMs: 180_000, leaseTtlMs: 30_000, leaseHeartbeatIntervalMs: 10_000 },
           }, { turnId, sessionId, attemptId: accepted.attempt.id, userMessage: content }).finally(() => {
             control.dispose(); if (active === owner) active = undefined;
           });

@@ -43,6 +43,9 @@ export function createNativeModelProvider(send: NativeRequest = nativeRequest, o
       const requestId = crypto.randomUUID();
       let sequence = 0, completed = false, cancelSent = false, bytes = 0, polls = 0, bodyBytes = 0;
       let stopReason: string | undefined;
+      // Tool calls arrive as index-keyed fragments; only a complete set at the
+      // terminal choice may be executed.
+      const toolCalls = new Map<number, { id: string; name: string; arguments: string }>();
       const cancel = () => {
         if (cancelSent) return;
         cancelSent = true;
@@ -54,7 +57,14 @@ export function createNativeModelProvider(send: NativeRequest = nativeRequest, o
         request.signal?.addEventListener('abort', cancel, { once: true });
         checkAbort(request.signal);
         const started = object(await receipt(send({ op: 'model', operation: 'start', requestId,
-          messages: request.context.messages.map(({ role, content }) => ({ role, content })),
+          messages: request.context.messages.map(({ role, content, toolCalls: calls, toolCallId }) => ({
+            role, content,
+            ...(role === 'tool' ? { toolCallId } : {}),
+            ...(calls?.length ? { toolCalls: calls.map(call => ({ id: call.id, name: call.name,
+              arguments: typeof call.arguments === 'string' ? call.arguments : JSON.stringify(call.arguments ?? {}) })) } : {}),
+          })),
+          ...(request.tools?.length ? { tools: request.tools.map(tool => ({ name: tool.name, description: tool.description,
+            ...(tool.parameters && tool.parameters !== true ? { parameters: tool.parameters } : {}) })) } : {}),
           ...(request.temperature === undefined ? {} : { temperature: request.temperature }),
           maxTokens: Math.min(request.maxOutputTokens ?? 2048, 4096),
         }), request.signal));
@@ -87,9 +97,11 @@ export function createNativeModelProvider(send: NativeRequest = nativeRequest, o
                 || delta.reasoning_content !== undefined && typeof delta.reasoning_content !== 'string') throw invalid();
               const text = delta.content as string | undefined ?? '';
               if (/[\uD800-\uDFFF]/u.test(text) || /[\uD800-\uDFFF]/u.test(delta.reasoning_content as string | undefined ?? '')) throw invalid();
+              if (delta.tool_calls !== undefined) collectToolCalls(delta.tool_calls, toolCalls);
               if (choice.finish_reason !== null && choice.finish_reason !== undefined) {
-                if (stopReason || !['stop', 'length', 'content_filter'].includes(String(choice.finish_reason))) throw invalid();
-                stopReason = String(choice.finish_reason);
+                const reason = String(choice.finish_reason);
+                if (stopReason || !['stop', 'length', 'content_filter', 'tool_calls'].includes(reason)) throw invalid();
+                stopReason = reason;
               }
               const nextBodyBytes = bodyBytes + encoder.encode(JSON.stringify(text)).byteLength - 2;
               if (nextBodyBytes > MAX_BODY_JSON_BYTES) {
@@ -111,7 +123,15 @@ export function createNativeModelProvider(send: NativeRequest = nativeRequest, o
             if (result.status === 'cancelled') await onNativeCancelled?.(request);
             if (result.status !== 'completed') throw new Error(result.status === 'cancelled' ? 'MODEL_CANCELLED' : 'MODEL_FAILED');
             if (!stopReason) throw invalid();
-            completed = true; yield { text: '', isFinal: true, stopReason }; return;
+            completed = true;
+            if (stopReason === 'tool_calls') {
+              const calls = completeToolCalls(toolCalls);
+              yield calls.length
+                ? { text: '', isFinal: true, stopReason, toolCalls: calls }
+                : { text: '', isFinal: true, stopReason: 'invalid_tool_arguments' };
+              return;
+            }
+            yield { text: '', isFinal: true, stopReason }; return;
           }
           if (result.status !== 'running' && result.events.length === 0) throw invalid();
           if (result.status === 'running') await delay(80, request.signal);
@@ -122,5 +142,41 @@ export function createNativeModelProvider(send: NativeRequest = nativeRequest, o
       }
     },
   };
+}
+function collectToolCalls(value: unknown, into: Map<number, { id: string; name: string; arguments: string }>) {
+  if (!Array.isArray(value) || value.length > 8) throw invalid();
+  for (const raw of value) {
+    const call = object(raw);
+    if (!Number.isSafeInteger(call.index) || (call.index as number) < 0 || (call.index as number) > 7) throw invalid();
+    const entry = into.get(call.index as number) ?? { id: '', name: '', arguments: '' };
+    if (call.id !== undefined) {
+      if (typeof call.id !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(call.id)) throw invalid();
+      entry.id = call.id;
+    }
+    if (call.function !== undefined) {
+      const fn = object(call.function);
+      if (fn.name !== undefined) {
+        if (typeof fn.name !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(fn.name)) throw invalid();
+        entry.name += fn.name;
+      }
+      if (fn.arguments !== undefined) {
+        if (typeof fn.arguments !== 'string') throw invalid();
+        entry.arguments += fn.arguments;
+        if (encoder.encode(entry.arguments).byteLength > 4096) throw new Error('RESPONSE_LIMIT');
+      }
+    }
+    into.set(call.index as number, entry);
+  }
+}
+function completeToolCalls(accumulated: Map<number, { id: string; name: string; arguments: string }>) {
+  const calls: { id: string; name: string; arguments: unknown }[] = [];
+  for (const entry of [...accumulated.entries()].sort((left, right) => left[0] - right[0]).map(([, value]) => value)) {
+    if (!entry.id || !entry.name || !entry.arguments) return [];
+    let parsed: unknown;
+    try { parsed = JSON.parse(entry.arguments); } catch { return []; }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return [];
+    calls.push({ id: entry.id, name: entry.name, arguments: parsed });
+  }
+  return calls;
 }
 export const nativeModelProvider = createNativeModelProvider();

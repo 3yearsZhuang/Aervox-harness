@@ -59,6 +59,11 @@ public final class NativeModelService {
         ServiceException(String value) { super(value); code = value; }
     }
     private static final int MAX_REQUESTS = 8, MAX_MESSAGES = 128;
+    // Tool declarations and replayed calls share the request budget; the counts
+    // stay far below what a foreground phone turn can use.
+    private static final int MAX_TOOLS = 16, MAX_TOOL_CALLS_PER_MESSAGE = 4;
+    private static final int MAX_TOOL_ARGUMENT_BYTES = 4 * 1024, MAX_TOOL_DESCRIPTION_BYTES = 1024,
+        MAX_TOOL_PARAMETERS_BYTES = 4 * 1024;
     private static final int MAX_OWNED_IDS = 128, MAX_POLL_BYTES = 512 * 1024;
     private static final int CONNECTION_TEST_TIMEOUT_MS = 10_000;
     interface ConnectionFactory { HttpsURLConnection open(URL endpoint) throws IOException; }
@@ -116,6 +121,7 @@ public final class NativeModelService {
                 switch (op) {
                     case "summary": exact(request, "op"); result.complete(summary()); break;
                     case "configure": exact(request, "op"); configure(result); break;
+                    case "clear": exact(request, "op"); clear(result); break;
                     case "start": result.complete(start(request)); break;
                     case "test": exact(request, "op"); testConnection(result); break;
                     case "poll": result.complete(poll(request)); break;
@@ -164,6 +170,14 @@ public final class NativeModelService {
             if (config != null) value.put("endpoint", config.endpoint).put("model", config.model);
             return value;
         } finally { if (config != null) config.close(); }
+    }
+
+    /** Explicit credential removal. The wrapping key stays, so the next save is
+     * still wrapped by the same non-exportable Keystore entry. */
+    private void clear(CompletableFuture<JSONObject> result) throws Exception {
+        synchronized (gate) { if (configuring || networkBusy) throw failure("BUSY"); }
+        store().clear(NativeCredentialStore.Slot.PRIMARY_MODEL);
+        result.complete(summary());
     }
 
     private void configure(CompletableFuture<JSONObject> result) throws Exception {
@@ -323,10 +337,11 @@ public final class NativeModelService {
         boolean running() { return status.equals("running"); }
     }
     private JSONObject start(JSONObject request) throws Exception {
-        exactOptional(request, new String[]{"op", "requestId", "messages"}, "temperature", "maxTokens");
+        exactOptional(request, new String[]{"op", "requestId", "messages"}, "temperature", "maxTokens", "tools");
         String id = identity(request);
         JSONArray messages = messages(request.get("messages"));
         JSONObject payload = new JSONObject().put("messages", messages).put("stream", true);
+        if (request.has("tools")) payload.put("tools", tools(request.get("tools")));
         if (request.has("temperature")) {
             Object number = request.get("temperature");
             if (!(number instanceof Number) || !Double.isFinite(((Number) number).doubleValue())
@@ -626,13 +641,70 @@ public final class NativeModelService {
         if (!(value instanceof JSONArray)) throw failure("INVALID_REQUEST"); JSONArray input = (JSONArray) value, output = new JSONArray();
         if (input.length() == 0 || input.length() > MAX_MESSAGES) throw failure("INVALID_REQUEST");
         for (int i = 0; i < input.length(); i++) {
-            JSONObject item = input.optJSONObject(i); if (item == null) throw failure("INVALID_REQUEST"); exact(item, "role", "content");
-            String role = string(item, "role"), content = string(item, "content");
+            JSONObject item = input.optJSONObject(i); if (item == null) throw failure("INVALID_REQUEST");
+            String role = string(item, "role");
+            if (role.equals("tool")) {
+                exact(item, "role", "content", "toolCallId");
+                output.put(new JSONObject().put("role", "tool").put("content", string(item, "content"))
+                    .put("tool_call_id", toolId(string(item, "toolCallId"))));
+                continue;
+            }
+            exactOptional(item, new String[]{"role", "content"}, "toolCalls");
+            String content = string(item, "content");
             if (!role.equals("system") && !role.equals("user") && !role.equals("assistant")) throw failure("INVALID_REQUEST");
-            if (content.isEmpty()) throw failure("INVALID_REQUEST");
-            output.put(new JSONObject().put("role", role).put("content", content));
+            boolean requestedTools = item.has("toolCalls");
+            // An assistant step that only requests tools carries no text body.
+            if (content.isEmpty() && !(role.equals("assistant") && requestedTools)) throw failure("INVALID_REQUEST");
+            JSONObject wire = new JSONObject().put("role", role).put("content", content);
+            if (requestedTools) wire.put("tool_calls", toolCalls(item.get("toolCalls")));
+            output.put(wire);
         }
         return output;
+    }
+    /** Assistant tool requests are replayed verbatim so a later Step keeps the protocol intact. */
+    private static JSONArray toolCalls(Object value) throws Exception {
+        if (!(value instanceof JSONArray)) throw failure("INVALID_REQUEST");
+        JSONArray input = (JSONArray) value, output = new JSONArray();
+        if (input.length() == 0 || input.length() > MAX_TOOL_CALLS_PER_MESSAGE) throw failure("INVALID_REQUEST");
+        for (int i = 0; i < input.length(); i++) {
+            JSONObject item = input.optJSONObject(i); if (item == null) throw failure("INVALID_REQUEST");
+            exact(item, "id", "name", "arguments");
+            String arguments = string(item, "arguments");
+            if (arguments.isEmpty() || bytes(arguments) > MAX_TOOL_ARGUMENT_BYTES) throw failure("INVALID_REQUEST");
+            output.put(new JSONObject().put("id", toolId(string(item, "id"))).put("type", "function")
+                .put("function", new JSONObject().put("name", toolName(string(item, "name"))).put("arguments", arguments)));
+        }
+        return output;
+    }
+    /** Tool declarations are schema-shaped data, never executable strings. */
+    private static JSONArray tools(Object value) throws Exception {
+        if (!(value instanceof JSONArray)) throw failure("INVALID_REQUEST");
+        JSONArray input = (JSONArray) value, output = new JSONArray();
+        if (input.length() == 0 || input.length() > MAX_TOOLS) throw failure("INVALID_REQUEST");
+        for (int i = 0; i < input.length(); i++) {
+            JSONObject item = input.optJSONObject(i); if (item == null) throw failure("INVALID_REQUEST");
+            exactOptional(item, new String[]{"name", "description"}, "parameters");
+            String description = string(item, "description");
+            if (bytes(description) > MAX_TOOL_DESCRIPTION_BYTES) throw failure("INVALID_REQUEST");
+            JSONObject parameters = new JSONObject().put("type", "object");
+            if (item.has("parameters")) {
+                Object raw = item.get("parameters");
+                if (!(raw instanceof JSONObject) || bytes(((JSONObject) raw).toString()) > MAX_TOOL_PARAMETERS_BYTES
+                    || !NativeMessagePolicy.withinJsonDepth(((JSONObject) raw).toString())) throw failure("INVALID_REQUEST");
+                parameters = (JSONObject) raw;
+            }
+            output.put(new JSONObject().put("type", "function").put("function", new JSONObject()
+                .put("name", toolName(string(item, "name"))).put("description", description).put("parameters", parameters)));
+        }
+        return output;
+    }
+    private static String toolName(String value) throws Exception {
+        if (value == null || !value.matches("[A-Za-z0-9_-]{1,64}")) throw failure("INVALID_REQUEST");
+        return value;
+    }
+    private static String toolId(String value) throws Exception {
+        if (value == null || !value.matches("[A-Za-z0-9_-]{1,128}")) throw failure("INVALID_REQUEST");
+        return value;
     }
     private static void exact(JSONObject object, String... fields) throws Exception { exactOptional(object, fields); }
     private static void exactOptional(JSONObject object, String[] required, String... optional) throws Exception {

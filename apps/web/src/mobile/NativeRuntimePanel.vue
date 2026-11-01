@@ -2,11 +2,19 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { Database, KeyRound, RefreshCw, Smartphone } from 'lucide-vue-next';
 import { nativeRequest } from './native-channel';
+import { deviceError, grantDeviceCapability, readDeviceStatus, type DeviceCapability, type DeviceStatus } from './native-device';
 
 interface RuntimeSummary { kind: 'runtime'; connectionEpoch: string; sqlite: 'ready'; mode: 'foreground' }
 interface ModelSummary { kind: 'summary'; hasCredential: boolean; endpoint?: string; model?: string }
 const runtime = ref<RuntimeSummary>();
 const model = ref<ModelSummary>();
+const device = ref<DeviceStatus>();
+const deviceFailed = ref(false);
+const deviceBusy = ref(false);
+const deviceFeedback = ref('');
+const confirmingClear = ref(false);
+const clearing = ref(false);
+const clearFeedback = ref('');
 const loading = ref(true);
 const configuring = ref(false);
 const testing = ref(false);
@@ -19,6 +27,11 @@ let disposed = false;
 let readGeneration = 0;
 const modelStatus = computed(() => loading.value ? '正在读取…' : modelFailed.value ? '读取失败' : model.value?.hasCredential ? '已保存配置' : '未配置');
 const modelHeading = computed(() => loading.value ? '正在读取模型配置' : modelFailed.value ? '检查你的模型服务' : model.value?.hasCredential ? model.value.model : '连接模型，开始对话');
+const rootText = computed(() => deviceFailed.value ? '无法读取 root 状态。可以刷新后重试。'
+  : !device.value ? '正在检查 root 授权…'
+  : device.value.root ? `Root 可用${device.value.device ? ` · ${device.value.device}` : ''}，设备操作由你逐项开启。`
+    : '没有可用的 root 授权，设备操作暂不可用。基础对话不受影响。');
+const rootValue = computed(() => deviceFailed.value ? '未知' : !device.value ? '读取中' : device.value.root ? '可用' : '不可用');
 
 function isRuntime(value: unknown): value is RuntimeSummary {
   if (typeof value !== 'object' || value === null) return false;
@@ -31,6 +44,40 @@ function isModel(value: unknown): value is ModelSummary {
   const item = value as Partial<ModelSummary>;
   return item.kind === 'summary' && typeof item.hasCredential === 'boolean'
     && (!item.hasCredential || typeof item.endpoint === 'string' && typeof item.model === 'string');
+}
+async function readDevice() {
+  try {
+    const next = await readDeviceStatus();
+    if (disposed) return;
+    device.value = next; deviceFailed.value = false;
+  } catch {
+    if (disposed) return;
+    device.value = undefined; deviceFailed.value = true;
+  }
+}
+async function toggleDevice(capability: DeviceCapability, enabled: boolean) {
+  if (deviceBusy.value) return;
+  deviceBusy.value = true; deviceFeedback.value = '';
+  try {
+    const next = await grantDeviceCapability(capability, enabled);
+    if (disposed) return;
+    device.value = next; deviceFailed.value = false;
+  } catch (error) {
+    if (!disposed) deviceFeedback.value = deviceError(error);
+  } finally { if (!disposed) deviceBusy.value = false; }
+}
+async function clearModel() {
+  if (clearing.value || loading.value || configuring.value || testing.value) return;
+  clearing.value = true; clearFeedback.value = '';
+  try {
+    await nativeRequest({ op: 'model', operation: 'clear' });
+    if (disposed) return;
+    confirmingClear.value = false;
+    await readStatus();
+    if (!disposed) clearFeedback.value = '已清除模型配置。这台手机不再保存密钥，已有对话不受影响。';
+  } catch {
+    if (!disposed) clearFeedback.value = '清除没有完成，原有配置保持不变。可以稍后重试。';
+  } finally { if (!disposed) clearing.value = false; }
 }
 async function readStatus() {
   if (testing.value) return;
@@ -47,6 +94,7 @@ async function readStatus() {
   runtimeFailed.value = !runtime.value;
   modelFailed.value = !model.value;
   loading.value = false;
+  await readDevice();
 }
 async function configureModel() {
   if (loading.value || configuring.value || testing.value) return;
@@ -104,7 +152,7 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
 </script>
 
 <template>
-  <div class="native-runtime-panel" :aria-busy="loading || configuring || testing">
+  <div class="native-runtime-panel" :aria-busy="loading || configuring || testing || deviceBusy">
     <header class="runtime-heading">
       <div><h2>本机运行</h2><p>管理手机上的对话与连接。</p></div>
       <component :is="'md-icon-button'" type="button" aria-label="刷新运行状态" :disabled="loading || configuring || testing" @click="readStatus">
@@ -136,6 +184,20 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
       <p v-if="testFeedback" class="runtime-test-feedback" :class="{ 'runtime-error': testFailed }" :role="testFailed ? 'alert' : 'status'">{{ testFeedback }}</p>
       <p v-if="!loading && model?.hasCredential && !testFeedback" class="runtime-model-note">配置已保存。服务连接和模型响应会在发送消息时验证。</p>
       <p v-else-if="!loading && !modelFailed && !model?.hasCredential" class="runtime-model-note">密钥由安卓端保存，基础对话无需额外系统授权。</p>
+      <div v-if="model?.hasCredential" class="runtime-model-clear">
+        <template v-if="confirmingClear">
+          <p role="alert">清除后，这台手机不再保存密钥；已保存的对话不受影响。</p>
+          <div class="runtime-model-actions">
+            <component :is="'md-filled-button'" class="runtime-clear-confirm" type="button" :disabled="clearing" @click="clearModel">
+              {{ clearing ? '正在清除…' : '确认清除' }}
+            </component>
+            <component :is="'md-text-button'" type="button" :disabled="clearing" @click="confirmingClear = false">取消</component>
+          </div>
+        </template>
+        <component v-else :is="'md-text-button'" class="runtime-clear-model" type="button"
+          :disabled="loading || configuring || testing || clearing" @click="confirmingClear = true">清除模型配置</component>
+      </div>
+      <p v-if="clearFeedback" class="runtime-model-note" role="status">{{ clearFeedback }}</p>
       <p v-if="feedback" class="runtime-error runtime-feedback" role="alert">{{ feedback }}</p>
     </section>
 
@@ -153,6 +215,29 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
           <dd class="runtime-value">{{ loading ? '正在读取…' : runtime?.mode === 'foreground' ? '前台' : '未知' }}</dd>
         </div>
       </dl>
+    </section>
+
+    <section aria-labelledby="runtime-device-title">
+      <h3 id="runtime-device-title">设备操作</h3>
+      <dl class="runtime-group">
+        <div class="runtime-row">
+          <span class="runtime-tier" aria-hidden="true">R</span>
+          <div class="runtime-row-copy"><dt>Root 授权</dt><dd>{{ rootText }}</dd></div>
+          <dd class="runtime-value" :class="{ 'runtime-error': deviceFailed }">{{ rootValue }}</dd>
+        </div>
+      </dl>
+      <label class="runtime-device-toggle">
+        <span class="runtime-device-label"><strong>控制手机</strong><small>点击、滑动、按键与输入文本</small></span>
+        <component :is="'md-switch'" aria-label="控制手机" :selected="device?.capabilities.control ? 'true' : undefined"
+          :disabled="deviceBusy || !device?.root ? 'true' : undefined" @change="toggleDevice('control', !device?.capabilities.control)" />
+      </label>
+      <label class="runtime-device-toggle">
+        <span class="runtime-device-label"><strong>打开应用</strong><small>按包名启动已安装应用的首页</small></span>
+        <component :is="'md-switch'" aria-label="打开应用" :selected="device?.capabilities.apps ? 'true' : undefined"
+          :disabled="deviceBusy || !device?.root ? 'true' : undefined" @change="toggleDevice('apps', !device?.capabilities.apps)" />
+      </label>
+      <p class="runtime-capability-note">设备操作只在应用位于前台时执行，且只包含固定动作；root 不会解锁任意命令、文件路径或系统设置修改。授权后，对话中的助手可在你要求时执行这些动作。</p>
+      <p v-if="deviceFeedback" class="runtime-error runtime-feedback" role="alert">{{ deviceFeedback }}</p>
     </section>
 
     <section aria-labelledby="runtime-capabilities-title">
@@ -191,6 +276,9 @@ h3 { margin: 0 0 8px; padding-inline: 16px; color: var(--md-sys-color-primary); 
 .runtime-test-feedback { margin: 12px 0 0; font-size: 14px; line-height: 22px; overflow-wrap: anywhere; }
 .runtime-model md-linear-progress { margin-top: 12px; }
 .runtime-model-note { margin: 12px 0 0; font-size: 12px; line-height: 18px; }
+.runtime-model-clear { display: grid; gap: 8px; margin-top: 12px; }
+.runtime-model-clear p { margin: 0; font-size: 13px; line-height: 20px; }
+.runtime-clear-model, .runtime-clear-confirm { min-height: 48px; --md-filled-button-container-height: 48px; --md-text-button-container-height: 48px; --md-text-button-label-text-color: var(--md-sys-color-on-primary-container); }
 .runtime-group { margin: 0; border-radius: 24px; background: var(--md-sys-color-surface-container); overflow: hidden; }
 .runtime-row { display: flex; align-items: center; gap: 12px; min-height: 76px; padding: 16px; box-sizing: border-box; }
 .runtime-row + .runtime-row { border-top: 1px solid var(--md-sys-color-outline-variant); }
@@ -201,6 +289,10 @@ dd { margin: 4px 0 0; color: var(--md-sys-color-on-surface-variant); font-size: 
 .runtime-value { flex: 0 0 auto; max-width: 72px; margin: 0; text-align: end; color: var(--md-sys-color-on-surface-variant); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
 .runtime-tier { display: grid; place-items: center; flex: 0 0 32px; min-height: 32px; border-radius: 10px; color: var(--md-sys-color-on-surface-variant); background: var(--md-sys-color-surface-container-highest); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .runtime-capability-note { margin: 12px 16px 0; font-size: 12px; line-height: 18px; color: var(--md-sys-color-on-surface-variant); }
+.runtime-device-toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 64px; margin-top: 8px; padding: 12px 16px; border-radius: 20px; background: var(--md-sys-color-surface-container); }
+.runtime-device-label { display: grid; gap: 2px; min-width: 0; }
+.runtime-device-label strong { font-size: 16px; font-weight: 500; line-height: 24px; }
+.runtime-device-label small { color: var(--md-sys-color-on-surface-variant); font-size: 13px; line-height: 18px; }
 .runtime-error { color: var(--md-sys-color-error) !important; }
 .runtime-feedback { margin: 12px 0 0; font-size: 14px; line-height: 20px; }
 @media (max-width: 360px) { .runtime-model { padding: 16px; } .runtime-row { gap: 10px; padding: 14px 12px; } .runtime-icon, .runtime-tier { display: none; } .runtime-value { max-width: 60px; } }

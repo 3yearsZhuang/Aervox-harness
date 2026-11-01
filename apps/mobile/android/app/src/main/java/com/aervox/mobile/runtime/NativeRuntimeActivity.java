@@ -22,6 +22,7 @@ public class NativeRuntimeActivity extends AppCompatActivity {
     private NativeBusinessDatabase owner;
     private NativeSqliteSession sqlite;
     private NativeModelService model;
+    private NativeDeviceService device;
     private NativePreferences preferences;
     private NativeAssetWebViewHost host;
     private String epoch;
@@ -36,6 +37,7 @@ public class NativeRuntimeActivity extends AppCompatActivity {
         loading.setGravity(android.view.Gravity.CENTER);
         setContentView(loading);
         model = new NativeModelService(this);
+        device = new NativeDeviceService(this);
         preferences = new NativePreferences(this);
         owner = new NativeBusinessDatabase(this);
         sqlite = new NativeSqliteSession(owner::open);
@@ -110,6 +112,13 @@ public class NativeRuntimeActivity extends AppCompatActivity {
                         if ("started".equals(receipt.optString("kind")) && !foreground) model.cancelCurrent();
                         return receipt;
                     }); break;
+                case "device":
+                    // Device actions are foreground-only: a background tap has no
+                    // visible owner and no way for the user to interrupt it.
+                    if ("perform".equals(command.optString("operation")) && !foreground) {
+                        throw new IllegalStateException("NOT_FOREGROUND");
+                    }
+                    result = device == null ? failed(new NativeDeviceService.DeviceException("CLOSED")) : device.request(command); break;
                 default: throw new IllegalArgumentException();
             }
             return result.handle((value, error) -> error == null ? value.toString() : failure(code(error)).toString());
@@ -118,8 +127,14 @@ public class NativeRuntimeActivity extends AppCompatActivity {
     private static String code(Throwable error) {
         while ((error instanceof CompletionException || error instanceof java.util.concurrent.ExecutionException) && error.getCause() != null) error = error.getCause();
         if (error instanceof NativeModelService.ServiceException) return ((NativeModelService.ServiceException) error).code;
+        if (error instanceof NativeDeviceService.DeviceException) return ((NativeDeviceService.DeviceException) error).code;
         if (error instanceof NativeSqliteSession.SessionException) return ((NativeSqliteSession.SessionException) error).code.name();
         return "NATIVE_FAILURE";
+    }
+    private static CompletableFuture<JSONObject> failed(Throwable error) {
+        CompletableFuture<JSONObject> result = new CompletableFuture<>();
+        result.completeExceptionally(error);
+        return result;
     }
     private static JSONObject failure(String code) {
         JSONObject result = new JSONObject();
@@ -145,6 +160,7 @@ public class NativeRuntimeActivity extends AppCompatActivity {
     private void shutdownNative() {
         if (!closing.compareAndSet(false, true)) return;
         if (host != null) host.close();
+        if (device != null) device.close();
         if (preferences != null) preferences.close();
         CompletableFuture<Void> modelDrain = model == null ? CompletableFuture.completedFuture(null) : model.close();
         if (sqlite != null) {

@@ -29,7 +29,7 @@ export function nativeRequest(body: Record<string, unknown>): Promise<any> {
   return new Promise((resolve, reject) => {
     // Native configure waits for the human; an absent SQL receipt is unknown,
     // never retried here. NativeSqliteClient fences itself after rejection.
-    const timer = setTimeout(() => { pending.delete(id); reject(new Error('NATIVE_RECEIPT_UNKNOWN')); }, body.op === 'model' && body.operation === 'configure' ? 300_000 : 15_000);
+    const timer = setTimeout(() => { pending.delete(id); reject(new Error('NATIVE_RECEIPT_UNKNOWN')); }, body.op === 'model' && body.operation === 'configure' ? 300_000 : body.op === 'device' ? 20_000 : 15_000);
     pending.set(id, { resolve, reject, timer });
     try { channel.postMessage(JSON.stringify({ version: 1, id, body })); }
     catch { pending.delete(id); clearTimeout(timer); reject(new Error('NATIVE_RECEIPT_UNKNOWN')); }
