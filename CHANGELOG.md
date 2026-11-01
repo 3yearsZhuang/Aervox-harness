@@ -2,6 +2,7 @@
 
 版本变更与验证证据通过 [Pull Requests](https://github.com/3yearsZhuang/Aervox-harness/pulls) 和 Git 历史追溯。
 
+- [文档导航](docs/README.md)
 - [能力状态、已交付切片和剩余发布门槛](docs/reference/REQUIREMENTS_TRACEABILITY.md)
 - [当前迭代与依赖](plan.md)
 - [架构决定](docs/reference/adr/README.md)

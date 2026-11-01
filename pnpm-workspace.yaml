@@ -39,7 +39,11 @@ overrides:
   "shell-quote@1.10.0": "1.11.0"
   # GHSA-6pq8-jhm2-2vcw: keep the fix within the installed qs minor line.
   "qs@6.16.0": "6.16.1"
+  "follow-redirects@1.16.1": "1.16.2"
 
 patchedDependencies:
   deepmerge@4.3.1: patches/deepmerge@4.3.1.patch
   drizzle-orm@0.45.4: patches/drizzle-orm@0.45.4.patch
+  minimatch@9.0.9: patches/minimatch@9.0.9.patch
+  minimatch@10.2.6: patches/minimatch@10.2.6.patch
+  glob@13.0.6: patches/glob@13.0.6.patch
