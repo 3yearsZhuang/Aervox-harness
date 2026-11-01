@@ -33,5 +33,91 @@
     "expiresOn": "2026-11-13",
     "owner": "maintainers",
     "reason": "No upstream fixed release exists. The exact 4.3.1 installation is locally fixed by patches/deepmerge@4.3.1.patch in index.js and the CJS/UMD distributions; writes of __proto__ from both target and source use own data properties. check:dependency-audit first verifies the patch registration and actual research dependency resolutions against poisoning regressions, including ESM consumption. Registry audit still reports the unchanged 4.3.1 version. This review covers only these three research paths and must be removed when an upstream fix is adopted."
+  },
+  {
+    "advisory": "GHSA-g3hv-75wg-m249",
+    "package": "minimatch",
+    "version": "10.2.6",
+    "paths": [
+      ".>@vue/test-utils>js-beautify>editorconfig>minimatch",
+      ".>@vue/test-utils>js-beautify>glob>minimatch",
+      ".>electron-builder>app-builder-lib>minimatch",
+      ".>electron-builder>dmg-builder>app-builder-lib>minimatch",
+      "apps__mobile>@capacitor/cli>rimraf>glob>minimatch"
+    ],
+    "expiresOn": "2026-11-13",
+    "owner": "maintainers",
+    "reason": "No compatible fixed 10.x release exists. patches/minimatch@10.2.6.patch backports upstream commit 77a0f5c4b80bdc641c3c930a1d9edf5ad2db57f8: cap preprocessing expansion and bound pairwise deduplication. The existing v10 API is retained. check-minimatch-patches.test.mjs verifies the exact registered patch and installed CJS/ESM consumer paths, including the unbundled glob consumers, bounded amplification and ordinary matching before the audit. Registry still reports the original version; replace this local fix and remove these exact paths when a compatible upstream update is adopted."
+  },
+  {
+    "advisory": "GHSA-g3hv-75wg-m249",
+    "package": "minimatch",
+    "version": "3.1.5",
+    "paths": [
+      ".>electron-builder>app-builder-lib>@electron/asar>glob>minimatch",
+      ".>electron-builder>app-builder-lib>@electron/asar>minimatch",
+      ".>electron-builder>app-builder-lib>@electron/universal>@electron/asar>glob>minimatch",
+      ".>electron-builder>app-builder-lib>@electron/universal>@electron/asar>minimatch",
+      ".>electron-builder>app-builder-lib>@electron/universal>dir-compare>minimatch",
+      ".>electron-builder>app-builder-lib>electron-builder-squirrel-windows>electron-winstaller>@electron/asar>glob>minimatch",
+      ".>electron-builder>app-builder-lib>electron-builder-squirrel-windows>electron-winstaller>@electron/asar>minimatch",
+      ".>electron-builder>app-builder-lib>electron-builder-squirrel-windows>electron-winstaller>temp>rimraf>glob>minimatch",
+      ".>electron-builder>dmg-builder>app-builder-lib>@electron/asar>glob>minimatch",
+      ".>electron-builder>dmg-builder>app-builder-lib>@electron/asar>minimatch",
+      ".>electron-builder>dmg-builder>app-builder-lib>@electron/universal>@electron/asar>glob>minimatch",
+      ".>electron-builder>dmg-builder>app-builder-lib>@electron/universal>@electron/asar>minimatch",
+      ".>electron-builder>dmg-builder>app-builder-lib>@electron/universal>dir-compare>minimatch",
+      ".>electron-builder>dmg-builder>app-builder-lib>electron-builder-squirrel-windows>electron-winstaller>@electron/asar>glob>minimatch",
+      ".>electron-builder>dmg-builder>app-builder-lib>electron-builder-squirrel-windows>electron-winstaller>@electron/asar>minimatch",
+      ".>electron-builder>dmg-builder>app-builder-lib>electron-builder-squirrel-windows>electron-winstaller>temp>rimraf>glob>minimatch"
+    ],
+    "expiresOn": "2026-11-13",
+    "owner": "maintainers",
+    "reason": "GHSA-g3hv-75wg-m249 describes firstPhasePreProcess globparts amplification at optimizationLevel >= 2. This exact legacy major has neither preprocessing phase nor optimizationLevel (introduced in v7); its callable CommonJS API cannot be replaced with v11 without migrating consumers. check-minimatch-patches.test.mjs verifies every reviewed installed path lacks that implementation and exercises matching through the legacy API. This is an applicability review for this advisory only, not a general ReDoS exemption; reassess these paths by expiry."
+  },
+  {
+    "advisory": "GHSA-g3hv-75wg-m249",
+    "package": "minimatch",
+    "version": "9.0.9",
+    "paths": [
+      ".>electron-builder>app-builder-lib>@electron/universal>minimatch",
+      ".>electron-builder>dmg-builder>app-builder-lib>@electron/universal>minimatch",
+      "apps__desktop>vue-tsc>@vue/language-core>minimatch",
+      "apps__web>vue-tsc>@vue/language-core>minimatch",
+      "packages__ui>vue-tsc>@vue/language-core>minimatch",
+      "packages__ui-host>vue-tsc>@vue/language-core>minimatch",
+      "plugins__plugins__tool__flowcampus>vue-tsc>@vue/language-core>minimatch",
+      "plugins__surfaces__companion-ui>vue-tsc>@vue/language-core>minimatch",
+      "plugins__surfaces__panels-ui>vue-tsc>@vue/language-core>minimatch",
+      "plugins__surfaces__proactive-ui>vue-tsc>@vue/language-core>minimatch",
+      "plugins__surfaces__workbench-ui>vue-tsc>@vue/language-core>minimatch"
+    ],
+    "expiresOn": "2026-11-13",
+    "owner": "maintainers",
+    "reason": "No compatible fixed 9.x release exists. patches/minimatch@9.0.9.patch backports upstream commit 77a0f5c4b80bdc641c3c930a1d9edf5ad2db57f8: cap preprocessing expansion and bound pairwise deduplication. The existing v9 API is retained. check-minimatch-patches.test.mjs verifies the exact registered patch and installed CJS/ESM consumer paths, bounded amplification and ordinary matching before the audit. Registry still reports the original version; replace this local fix and remove these exact paths when a compatible upstream update is adopted."
+  },
+  {
+    "advisory": "GHSA-g3hv-75wg-m249",
+    "package": "minimatch",
+    "version": "5.1.9",
+    "paths": [
+      ".>electron-builder>app-builder-lib>ejs>jake>filelist>minimatch",
+      ".>electron-builder>dmg-builder>app-builder-lib>ejs>jake>filelist>minimatch"
+    ],
+    "expiresOn": "2026-11-13",
+    "owner": "maintainers",
+    "reason": "GHSA-g3hv-75wg-m249 describes firstPhasePreProcess globparts amplification at optimizationLevel >= 2. This exact legacy major has neither preprocessing phase nor optimizationLevel (introduced in v7); its callable CommonJS API cannot be replaced with v11 without migrating consumers. check-minimatch-patches.test.mjs verifies every reviewed installed path lacks that implementation and exercises matching through the legacy API. This is an applicability review for this advisory only, not a general ReDoS exemption; reassess these paths by expiry."
+  },
+  {
+    "advisory": "GHSA-3g3m-2fjr-6pw4",
+    "package": "glob",
+    "version": "13.0.6",
+    "paths": [
+      ".>@vue/test-utils>js-beautify>glob",
+      "apps__mobile>@capacitor/cli>rimraf>glob"
+    ],
+    "expiresOn": "2026-11-13",
+    "owner": "maintainers",
+    "reason": "No compatible fixed 13.x release exists. patches/glob@13.0.6.patch backports upstream commit 4682e8c9babee1b385202ede36389634e12076d7 to both walker formats, including paused-stream resume. Default CJS/ESM entries use the existing raw modules so they consume the separately patched minimatch rather than the vulnerable embedded copy. check-glob-patch.test.mjs verifies registered patch hashes, actual js-beautify/rimraf consumer resolution, abort traversal bounds, paused-stream completion and normal matching before audit. Registry still reports the original version; remove these exact paths when a compatible upstream fix is adopted."
   }
 ]

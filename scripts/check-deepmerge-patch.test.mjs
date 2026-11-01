@@ -126,7 +126,7 @@ test("deepmerge's exact patch is registered, locked and required before dependen
     assert.ok(patch.includes(Buffer.from(`+++ b/${entry}`)), `${entry} is patched`);
   }
   const scripts = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")).scripts;
-  assert.match(scripts["check:dependency-audit"], /^node --test scripts\/check-deepmerge-patch\.test\.mjs && node scripts\/check-dependency-audit\.mjs$/);
+  assert.match(scripts["check:dependency-audit"], /^node --test scripts\/check-deepmerge-patch\.test\.mjs scripts\/check-minimatch-patches\.test\.mjs scripts\/check-glob-patch\.test\.mjs && node scripts\/check-dependency-audit\.mjs$/);
   assert.match(scripts["check:guards"], /node --test scripts\/check-\*\.test\.mjs/);
 });
 

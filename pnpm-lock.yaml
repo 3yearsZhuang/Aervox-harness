@@ -18,10 +18,14 @@ overrides:
   http-cache-semantics@4.2.0: 4.3.0
   shell-quote@1.10.0: 1.11.0
   qs@6.16.0: 6.16.1
+  follow-redirects@1.16.1: 1.16.2
 
 patchedDependencies:
   deepmerge@4.3.1: b0c9a3616f8f0430752c2dca0e58de9a47f1154e3a0cb6e8bc83e5e53ef0f9d2
   drizzle-orm@0.45.4: d2196ee4232c80292f42bc6b643c4da62ae2be73cf61d94cbf129a0a9a26ecd9
+  glob@13.0.6: 0df88358ed4fd495c0461f78e29ed10ce1919b6745eeee6b2a8502e2f3a4219d
+  minimatch@10.2.6: 7fa89bc8ddebb8acd57f1c22416ca512e3c24e70ced4feb2fcd8042c1aa33218
+  minimatch@9.0.9: 807f32f224140c1e302e49ba751b7bfb1f928db981cd2e452313b3fecf1b935f
 
 importers:
 
@@ -158,9 +162,6 @@ importers:
 
   apps/desktop:
     dependencies:
-      '@aervox/plugin-flowcampus':
-        specifier: workspace:*
-        version: link:../../plugins/plugins/tool/flowcampus
       '@aervox/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
@@ -173,6 +174,9 @@ importers:
       '@aervox/plugin-companion-ui':
         specifier: workspace:*
         version: link:../../plugins/surfaces/companion-ui
+      '@aervox/plugin-flowcampus':
+        specifier: workspace:*
+        version: link:../../plugins/plugins/tool/flowcampus
       '@aervox/plugin-focus-mode':
         specifier: workspace:*
         version: link:../../plugins/plugins/ui/focus-mode
@@ -218,19 +222,19 @@ importers:
         version: 22.20.1
       '@vitejs/plugin-vue':
         specifier: ^6.0.1
-        version: 6.0.8(vite@6.4.4(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1))(vue@3.5.43(typescript@5.9.3))
+        version: 6.0.8(vite@6.4.5(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1))(vue@3.5.43(typescript@5.9.3))
       electron:
         specifier: ^43.8.1
         version: 43.8.3(supports-color@7.2.0)
       electron-vite:
         specifier: ^3.1.0
-        version: 3.1.0(supports-color@7.2.0)(vite@6.4.4(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1))
+        version: 3.1.0(supports-color@7.2.0)(vite@6.4.5(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1))
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
       vite:
-        specifier: 6.4.4
-        version: 6.4.4(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1)
+        specifier: 6.4.5
+        version: 6.4.5(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1)
       vue-tsc:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.9.3)
@@ -253,15 +257,15 @@ importers:
 
   apps/web:
     dependencies:
-      '@aervox/plugin-flowcampus':
-        specifier: workspace:*
-        version: link:../../plugins/plugins/tool/flowcampus
       '@aervox/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
       '@aervox/live2d':
         specifier: workspace:*
         version: link:../../packages/live2d
+      '@aervox/plugin-flowcampus':
+        specifier: workspace:*
+        version: link:../../plugins/plugins/tool/flowcampus
       '@aervox/plugin-focus-mode':
         specifier: workspace:*
         version: link:../../plugins/plugins/ui/focus-mode
@@ -453,9 +457,6 @@ importers:
 
   packages/host-runtime:
     dependencies:
-      '@aervox/plugin-flowcampus':
-        specifier: workspace:*
-        version: link:../../plugins/plugins/tool/flowcampus
       '@aervox/config':
         specifier: workspace:*
         version: link:../config
@@ -486,6 +487,9 @@ importers:
       '@aervox/plugin-bot-weixin':
         specifier: workspace:*
         version: link:../../plugins/plugins/bot/weixin
+      '@aervox/plugin-flowcampus':
+        specifier: workspace:*
+        version: link:../../plugins/plugins/tool/flowcampus
       '@aervox/plugin-focus-mode':
         specifier: workspace:*
         version: link:../../plugins/plugins/ui/focus-mode
@@ -3952,8 +3956,8 @@ packages:
     resolution: {integrity: sha512-b6suED+5/3rTpUBdG1gupIl8MPFCAMA0QXwmljLhvCUKcUvdE4gWky9zpuGCcXHOsz4J9wPGNWq6OKpmIzz3hQ==}
     hasBin: true
 
-  follow-redirects@1.16.1:
-    resolution: {integrity: sha512-FNvFGzoMLWmE6Yj9spb/zjd7yiNCHiAW9/Tg9CXrQ8wuu32HtlJOwWO11OJafl5FfY3DxTdQ0vj42zU1kvv5jg==}
+  follow-redirects@1.16.2:
+    resolution: {integrity: sha512-/kVP2U8z596Ia0gwFrwyIeo74ta5aVmSeU1FfAUMAmcEP5EP7zydmag3SLiN64NaRKef3lxsq7i/g7ltJQDGow==}
     engines: {node: '>=4.0'}
     peerDependencies:
       debug: '*'
@@ -5296,8 +5300,8 @@ packages:
     deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
     hasBin: true
 
-  vite@6.4.4:
-    resolution: {integrity: sha512-xGjU/SyjeNyb0E4KxXBvYz/1C+3JXuujvf2hXNOtnlcE+58o5ajd9N2/n2VhkiJvpCP2qQasnUpx5PXNeI+p1Q==}
+  vite@6.4.5:
+    resolution: {integrity: sha512-4enwjFfi4IwtEh0w+jPzpLVOFQiPHmmzPxcHXQOyEur47o6u0jE573DmGpjA+7irXoMLYRZD5ZaFUEneS3abPg==}
     engines: {node: ^18.0.0 || ^20.0.0 || >=22.0.0}
     hasBin: true
     peerDependencies:
@@ -5885,7 +5889,7 @@ snapshots:
       debug: 4.4.3(supports-color@7.2.0)
       dir-compare: 4.2.0
       fs-extra: 11.4.0
-      minimatch: 9.0.9
+      minimatch: 9.0.9(patch_hash=807f32f224140c1e302e49ba751b7bfb1f928db981cd2e452313b3fecf1b935f)
       plist: 3.1.1
     transitivePeerDependencies:
       - supports-color
@@ -7203,10 +7207,10 @@ snapshots:
   '@typescript/typescript-win32-x64@7.0.2':
     optional: true
 
-  '@vitejs/plugin-vue@6.0.8(vite@6.4.4(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1))(vue@3.5.43(typescript@5.9.3))':
+  '@vitejs/plugin-vue@6.0.8(vite@6.4.5(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1))(vue@3.5.43(typescript@5.9.3))':
     dependencies:
       '@rolldown/pluginutils': 1.0.1
-      vite: 6.4.4(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1)
+      vite: 6.4.5(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1)
       vue: 3.5.43(typescript@5.9.3)
 
   '@vitejs/plugin-vue@6.0.8(vite@7.3.7(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1))(vue@3.5.43(typescript@5.9.3))':
@@ -7390,7 +7394,7 @@ snapshots:
       '@vue/compiler-vue2': 2.7.16
       '@vue/shared': 3.5.41
       alien-signals: 1.0.3
-      minimatch: 9.0.9
+      minimatch: 9.0.9(patch_hash=807f32f224140c1e302e49ba751b7bfb1f928db981cd2e452313b3fecf1b935f)
       muggle-string: 0.4.1
       path-browserify: 1.0.1
     optionalDependencies:
@@ -7526,7 +7530,7 @@ snapshots:
       js-yaml: 4.3.2
       json5: 2.2.3
       lazy-val: 1.0.5
-      minimatch: 10.2.6
+      minimatch: 10.2.6(patch_hash=7fa89bc8ddebb8acd57f1c22416ca512e3c24e70ced4feb2fcd8042c1aa33218)
       pkijs: 3.4.0
       plist: 3.1.0
       proper-lockfile: 4.1.2
@@ -7575,7 +7579,7 @@ snapshots:
 
   axios@1.20.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0):
     dependencies:
-      follow-redirects: 1.16.1(debug@4.4.3(supports-color@7.2.0))
+      follow-redirects: 1.16.2(debug@4.4.3(supports-color@7.2.0))
       form-data: 4.0.6
       https-proxy-agent: 5.0.1(supports-color@7.2.0)
       proxy-from-env: 2.1.0
@@ -7907,7 +7911,7 @@ snapshots:
     dependencies:
       '@one-ini/wasm': 0.2.1
       commander: 14.0.3
-      minimatch: 10.2.6
+      minimatch: 10.2.6(patch_hash=7fa89bc8ddebb8acd57f1c22416ca512e3c24e70ced4feb2fcd8042c1aa33218)
       semver: 7.8.5
 
   ejs@3.1.10:
@@ -7955,7 +7959,7 @@ snapshots:
 
   electron-to-chromium@1.5.412: {}
 
-  electron-vite@3.1.0(supports-color@7.2.0)(vite@6.4.4(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1)):
+  electron-vite@3.1.0(supports-color@7.2.0)(vite@6.4.5(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1)):
     dependencies:
       '@babel/core': 7.29.7(supports-color@7.2.0)
       '@babel/plugin-transform-arrow-functions': 7.29.7(@babel/core@7.29.7(supports-color@7.2.0))
@@ -7963,7 +7967,7 @@ snapshots:
       esbuild: 0.25.12
       magic-string: 0.30.17
       picocolors: 1.1.1
-      vite: 6.4.4(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1)
+      vite: 6.4.5(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -8238,7 +8242,7 @@ snapshots:
 
   flat@5.0.2: {}
 
-  follow-redirects@1.16.1(debug@4.4.3(supports-color@7.2.0)):
+  follow-redirects@1.16.2(debug@4.4.3(supports-color@7.2.0)):
     optionalDependencies:
       debug: 4.4.3(supports-color@7.2.0)
 
@@ -8338,9 +8342,9 @@ snapshots:
     dependencies:
       resolve-pkg-maps: 1.0.0
 
-  glob@13.0.6:
+  glob@13.0.6(patch_hash=0df88358ed4fd495c0461f78e29ed10ce1919b6745eeee6b2a8502e2f3a4219d):
     dependencies:
-      minimatch: 10.2.6
+      minimatch: 10.2.6(patch_hash=7fa89bc8ddebb8acd57f1c22416ca512e3c24e70ced4feb2fcd8042c1aa33218)
       minipass: 7.1.3
       path-scurry: 2.0.2
 
@@ -8552,7 +8556,7 @@ snapshots:
     dependencies:
       config-chain: 1.1.13
       editorconfig: 3.0.2
-      glob: 13.0.6
+      glob: 13.0.6(patch_hash=0df88358ed4fd495c0461f78e29ed10ce1919b6745eeee6b2a8502e2f3a4219d)
       js-cookie: 3.0.8
       nopt: 10.0.1
 
@@ -8797,7 +8801,7 @@ snapshots:
 
   mimic-response@3.1.0: {}
 
-  minimatch@10.2.6:
+  minimatch@10.2.6(patch_hash=7fa89bc8ddebb8acd57f1c22416ca512e3c24e70ced4feb2fcd8042c1aa33218):
     dependencies:
       brace-expansion: 5.0.12
 
@@ -8809,7 +8813,7 @@ snapshots:
     dependencies:
       brace-expansion: 2.1.7
 
-  minimatch@9.0.9:
+  minimatch@9.0.9(patch_hash=807f32f224140c1e302e49ba751b7bfb1f928db981cd2e452313b3fecf1b935f):
     dependencies:
       brace-expansion: 2.1.7
 
@@ -9213,7 +9217,7 @@ snapshots:
 
   rimraf@6.1.3:
     dependencies:
-      glob: 13.0.6
+      glob: 13.0.6(patch_hash=0df88358ed4fd495c0461f78e29ed10ce1919b6745eeee6b2a8502e2f3a4219d)
       package-json-from-dist: 1.0.1
 
   roarr@2.15.4:
@@ -9679,7 +9683,7 @@ snapshots:
 
   uuid@7.0.3: {}
 
-  vite@6.4.4(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1):
+  vite@6.4.5(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1):
     dependencies:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.5)
