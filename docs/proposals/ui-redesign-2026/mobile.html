@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>思隅 · 手机端 — 静室方案</title>
+<link rel="stylesheet" href="assets/tokens.css" />
+<style>
+  html, body { height: 100%; }
+  body {
+    display: grid; place-items: center;
+    background:
+      radial-gradient(900px 520px at 50% 0%, color-mix(in oklab, var(--accent) 12%, transparent), transparent 72%),
+      var(--canvas-deep);
+    padding: 22px 26px 88px;
+  }
+
+  /* ---------- 机身 ---------- */
+  .phone {
+    position: relative;
+    width: 390px; height: min(844px, calc(100dvh - 118px));
+    border-radius: 46px;
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    box-shadow: 0 2px 4px rgba(0,0,0,.4), 0 60px 120px -50px rgba(0,0,0,.8), inset 0 0 0 7px #0a0d13;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  [data-theme="light"] .phone {
+    box-shadow: 0 2px 4px rgba(15,23,42,.14), 0 50px 100px -46px rgba(15,23,42,.4), inset 0 0 0 7px #e7ebf2;
+  }
+  .screen { position: absolute; inset: 0; display: grid; grid-template-rows: auto auto 1fr; }
+
+  /* 状态栏 */
+  .statusbar {
+    display: flex; align-items: center; justify-content: space-between;
+    height: 44px; padding: 0 26px 0 30px;
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: .02em;
+    color: var(--ink);
+    position: relative; z-index: 30;
+  }
+  .statusbar .icons { display: flex; align-items: center; gap: 5px; }
+  .island {
+    position: absolute; top: 9px; left: 50%; transform: translateX(-50%);
+    width: 104px; height: 26px; border-radius: 99px; background: #05070b;
+    z-index: 100;
+  }
+
+  /* 顶部应用栏 */
+  .appbar {
+    display: flex; align-items: center; gap: 10px;
+    height: 56px; padding: 0 10px 0 18px;
+    position: relative; z-index: 30;
+  }
+  .appbar .name { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+  .appbar .name svg { color: var(--accent); }
+  .appbar .spacer { flex: 1; }
+  .m3-icon {
+    width: 44px; height: 44px; border-radius: 999px;
+    display: grid; place-items: center; color: var(--ink-2);
+    transition: background var(--dur-2) var(--ease), transform var(--dur-1) var(--ease);
+  }
+  .m3-icon:active { background: color-mix(in oklab, var(--ink) 12%, transparent); transform: scale(.94); }
+
+  .streak-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    height: 28px; padding: 0 11px; border-radius: 8px;
+    background: var(--accent-soft); color: var(--accent);
+    font-size: 11.5px; font-weight: 600;
+  }
+
+  /* ---------- 角色区 ---------- */
+  .hero {
+    position: relative; min-height: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    padding-top: 4px;
+    overflow: hidden;
+  }
+  .hero-bg {
+    position: absolute; left: 50%; top: -90px; transform: translateX(-50%);
+    width: 460px; height: 460px; border-radius: 50%;
+    background: radial-gradient(circle, color-mix(in oklab, var(--accent) 18%, transparent), transparent 66%);
+    filter: blur(6px);
+  }
+  .aura-ring {
+    position: absolute; left: 50%; top: -14px; transform: translateX(-50%);
+    width: 236px; height: 236px; border-radius: 50%;
+    opacity: .75;
+    border: 1px solid var(--accent-line);
+    mask-image: conic-gradient(from 20deg, #000 0 72%, transparent 72% 100%);
+    animation: spin 52s linear infinite;
+  }
+  @keyframes spin { to { transform: translateX(-50%) rotate(360deg); } }
+
+  .pet-wrap { position: relative; width: 200px; height: 178px; display: grid; place-items: center; margin-top: 4px; }
+  .pet { width: 166px; animation: float 6.4s var(--ease) infinite; }
+  @keyframes float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-6px) } }
+  .pet .eye { fill: var(--pet-eye); transform-origin: center; animation: blink 7.6s infinite; }
+  .pet .eye.b { animation-delay: .05s; }
+  @keyframes blink { 0%,92%,100% { transform: scaleY(1) } 95% { transform: scaleY(.1) } }
+  :root { --pet-hi:#fbfdff; --pet-body:#e6ecf7; --pet-lo:#ccd7e9; --pet-rim:rgba(30,37,50,.14); --pet-eye:#1e2532; }
+  [data-theme="dark"] { --pet-hi:#33405a; --pet-body:#212a3b; --pet-lo:#151c28; --pet-rim:rgba(230,235,245,.13); --pet-eye:#e8eefb; }
+
+  .hero-copy { position: relative; z-index: 2; text-align: center; padding: 0 30px; margin-top: -2px; }
+  .hero-copy h1 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 21px; line-height: 1.5; font-weight: 600;
+    letter-spacing: .01em;
+    color: var(--ink);
+    text-wrap: balance;
+  }
+  .hero-copy p { margin: 8px 0 0; font-size: 13px; line-height: 1.6; color: var(--muted); }
+
+  /* ---------- 底部对话框（M3 bottom sheet） ---------- */
+  .sheet {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 52%;
+    display: grid; grid-template-rows: auto auto 1fr auto;
+    background: var(--surface-2);
+    border-top: 1px solid var(--line);
+    border-radius: 28px 28px 0 0;
+    box-shadow: 0 -18px 48px -30px rgba(0,0,0,.7);
+    transition: height var(--dur-3) var(--ease);
+    z-index: 25;
+  }
+  .sheet.full { height: 88%; }
+  .sheet-grip { display: grid; place-items: center; height: 22px; cursor: grab; }
+  .sheet-grip i { width: 30px; height: 4px; border-radius: 99px; background: var(--line-strong); }
+
+  .sheet-body {
+    overflow: auto; padding: 0 18px 10px; scrollbar-width: none;
+    mask-image: linear-gradient(to bottom, transparent 0, #000 10px);
+  }
+  .sheet-body::-webkit-scrollbar { display: none; }
+
+  .sheet-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 18px 10px; margin-top: -2px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .sheet-head h2 { margin: 0; font-size: 13px; font-weight: 600; }
+  .sheet-head .m { font-family: var(--font-mono); font-size: 10px; color: var(--faint); }
+  .sheet-head .spacer { flex: 1; }
+
+  .msg { padding: 9px 0; }
+  .msg .who { display: flex; align-items: center; gap: 6px; font-size: 10.5px; color: var(--muted); margin-bottom: 5px; }
+  .msg .who b { color: var(--ink-2); font-weight: 600; }
+  .msg p { margin: 0; font-size: 13.5px; line-height: 1.7; color: var(--ink); }
+  .msg p + p { margin-top: 7px; }
+  .msg em { font-style: normal; color: var(--accent); font-weight: 550; }
+  .msg .dim { color: var(--ink-2); }
+  .msg.user { display: flex; flex-direction: column; align-items: flex-end; }
+  .msg.user p {
+    background: var(--surface-3); border-radius: 16px 16px 4px 16px;
+    padding: 9px 13px; max-width: 88%; font-size: 13px;
+  }
+
+  /* 代码块 */
+  .sheet:not(.full) .code,
+  .sheet:not(.full) .approval { display: none; }
+  .code {
+    margin-top: 9px; border-radius: 12px; overflow: hidden;
+    background: var(--surface); border: 1px solid var(--line);
+  }
+  .code header { display: flex; align-items: center; justify-content: space-between; padding: 7px 11px; border-bottom: 1px solid var(--line-soft); font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+  .code pre { margin: 0; padding: 10px 12px; font-family: var(--font-mono); font-size: 11px; line-height: 1.85; color: var(--ink-2); overflow-x: auto; }
+  .code .kw { color: var(--accent); }
+  .code .cm { color: var(--faint); }
+
+  /* 提示 chip */
+  .hint-row { display: flex; align-items: center; gap: 7px; margin-top: 10px; flex-wrap: wrap; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 32px; padding: 0 13px; border-radius: 8px;
+    border: 1px solid var(--line); background: transparent;
+    font-size: 12px; color: var(--ink-2);
+    transition: background var(--dur-2) var(--ease), transform var(--dur-1) var(--ease);
+  }
+  .chip:active { transform: scale(.97); background: color-mix(in oklab, var(--ink) 10%, transparent); }
+  .chip.tonal { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
+  .chip .n { font-family: var(--font-mono); font-size: 9.5px; opacity: .7; }
+
+  .hint-out {
+    display: none; margin-top: 9px; padding: 11px 12px;
+    border-radius: 12px; background: var(--surface);
+    border: 1px solid var(--line); font-size: 12.5px; line-height: 1.7; color: var(--ink-2);
+    animation: riseIn var(--dur-2) var(--ease) both;
+  }
+  .hint-out.show { display: block; }
+  .hint-out .lvl { font-family: var(--font-mono); font-size: 9.5px; color: var(--accent); letter-spacing: .06em; }
+
+  /* 审批 */
+  .approval {
+    margin-top: 10px; padding: 12px; border-radius: 16px;
+    background: color-mix(in oklab, var(--accent) 6%, var(--surface));
+    border: 1px solid var(--accent-line);
+  }
+  .approval .t { font-size: 12.5px; font-weight: 600; margin: 0; }
+  .approval .d { margin: 4px 0 0; font-size: 11.5px; line-height: 1.6; color: var(--ink-2); }
+  .approval .a { display: flex; gap: 8px; margin-top: 10px; }
+  .m3-btn {
+    height: 40px; padding: 0 16px; border-radius: 999px;
+    font-size: 12.5px; font-weight: 600;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    transition: transform var(--dur-1) var(--ease), background var(--dur-2);
+  }
+  .m3-btn:active { transform: scale(.97); }
+  .m3-filled { background: var(--accent); color: var(--on-accent); }
+  .m3-text { color: var(--accent); }
+
+  /* 输入区 */
+  .composer {
+    padding: 6px 14px calc(15px + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(to top, var(--surface-2) 72%, transparent);
+  }
+  .quick-row { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 8px; scrollbar-width: none; }
+  .quick-row::-webkit-scrollbar { display: none; }
+  .quick-row .chip { height: 28px; font-size: 11.5px; white-space: nowrap; flex: none; }
+
+  .input-shell {
+    display: flex; align-items: flex-end; gap: 8px;
+    border-radius: 24px; border: 1px solid var(--line);
+    background: var(--surface);
+    padding: 5px 5px 5px 16px;
+    transition: border-color var(--dur-1) var(--ease), box-shadow var(--dur-2) var(--ease);
+  }
+  .input-shell:focus-within { border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .input-shell textarea {
+    flex: 1; min-height: 36px; max-height: 96px; padding: 9px 0 7px;
+    border: 0; outline: 0; background: transparent; resize: none;
+    font-size: 13.5px; line-height: 1.5;
+  }
+  .input-shell textarea::placeholder { color: var(--muted); }
+  .send {
+    width: 40px; height: 40px; border-radius: 999px; flex: none;
+    display: grid; place-items: center;
+    background: var(--accent); color: var(--on-accent);
+    transition: transform var(--dur-1) var(--ease), background var(--dur-2);
+  }
+  .send:active { transform: scale(.92); }
+  .send:disabled { background: var(--surface-3); color: var(--muted); }
+
+  .home-indicator {
+    position: absolute; bottom: 7px; left: 50%; transform: translateX(-50%);
+    width: 128px; height: 4px; border-radius: 99px; background: var(--ink); opacity: .25;
+    z-index: 35;
+  }
+
+  /* ---------- 设置（全屏容器） ---------- */
+  .settings {
+    position: absolute; inset: 0; z-index: 60;
+    padding-top: 44px;
+    background: var(--surface);
+    display: grid; grid-template-rows: auto 1fr;
+    transform: translateY(100%);
+    transition: transform var(--dur-3) var(--ease);
+  }
+  .settings.open { transform: none; }
+  .set-head {
+    display: flex; align-items: center; gap: 4px;
+    padding: 10px 12px 10px 10px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .set-head h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -.01em; }
+  .set-scroll { overflow: auto; padding: 4px 0 40px; }
+  .set-group { padding: 10px 20px 0; }
+  .set-group > h2 {
+    margin: 12px 0 8px; font-size: 11px; font-weight: 600;
+    letter-spacing: .04em; color: var(--accent); text-transform: uppercase;
+    font-family: var(--font-mono);
+  }
+  .set-row {
+    display: flex; align-items: center; gap: 12px;
+    width: 100%; min-height: 56px; padding: 10px 0; text-align: left;
+    border-bottom: 1px solid var(--line-soft);
+    transition: background var(--dur-1) var(--ease);
+  }
+  .set-row:active { background: var(--surface-2); }
+  .set-row .ic { width: 26px; height: 26px; display: grid; place-items: center; color: var(--ink-2); flex: none; }
+  .set-row .tt { flex: 1; min-width: 0; }
+  .set-row .tt b { display: block; font-size: 14px; font-weight: 500; }
+  .set-row .tt span { display: block; margin-top: 2px; font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+  .set-row .val { font-size: 12.5px; color: var(--muted); }
+  .set-row .chev { color: var(--faint); }
+
+  .switch { width: 42px; height: 24px; border-radius: 99px; background: var(--line-strong); position: relative; flex: none; transition: background var(--dur-2) var(--ease); }
+  .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--surface); transition: transform var(--dur-2) var(--ease), width var(--dur-2); }
+  .switch.on { background: var(--accent); }
+  .switch.on::after { transform: translateX(18px); background: var(--on-accent); }
+
+  .set-note { margin: 16px 20px 0; font-size: 11.5px; line-height: 1.7; color: var(--muted); }
+
+  /* ---------- 演示控制 ---------- */
+  .demo-dock {
+    position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 2px; padding: 5px 6px;
+    border-radius: 999px; border: 1px solid var(--line);
+    background: color-mix(in oklab, var(--surface) 90%, transparent);
+    backdrop-filter: blur(18px); box-shadow: var(--shadow-1); z-index: 80;
+  }
+  .demo-dock .tag { font-family: var(--font-mono); font-size: 9px; letter-spacing: .1em; color: var(--muted); padding: 0 8px 0 4px; border-right: 1px solid var(--line); margin-right: 4px; }
+  .demo-dock a, .demo-dock button { height: 25px; padding: 0 10px; border-radius: 999px; font-size: 11px; color: var(--muted); display: inline-flex; align-items: center; }
+  .demo-dock a:hover, .demo-dock button:hover { background: var(--surface-3); color: var(--ink); }
+  .demo-dock .cur { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .demo-dock .sep { width: 1px; height: 13px; background: var(--line); margin: 0 4px; }
+
+  @media (max-width: 820px) {
+    body { padding: 0; }
+    .phone { width: 100%; height: 100dvh; border-radius: 0; border: 0; box-shadow: none; }
+    .phone { --frame: 0; }
+    .demo-dock { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="island" aria-hidden="true"></div>
+
+  <div class="screen">
+    <div class="statusbar">
+      <span>9:41</span>
+      <span class="icons" aria-hidden="true">
+        <svg width="15" height="11" viewBox="0 0 16 12" fill="none"><rect x="0" y="7" width="2.4" height="4" rx="1" fill="currentColor"/><rect x="3.6" y="5" width="2.4" height="6" rx="1" fill="currentColor"/><rect x="7.2" y="2.6" width="2.4" height="8.4" rx="1" fill="currentColor"/><rect x="10.8" y="0" width="2.4" height="11" rx="1" fill="currentColor" opacity=".4"/></svg>
+        <svg width="15" height="11" viewBox="0 0 16 12" fill="none"><path d="M1 4.2A10 10 0 0 1 15 4.2M3.4 6.9a6.4 6.4 0 0 1 9.2 0M6 9.6a2.8 2.8 0 0 1 4 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        <svg width="19" height="10" viewBox="0 0 20 10" fill="none"><rect x="0.5" y="0.5" width="16" height="9" rx="2.4" stroke="currentColor" opacity=".5"/><rect x="2" y="2" width="12" height="6" rx="1.4" fill="currentColor"/><path d="M18 3.4v3.2a2 2 0 0 0 0-3.2Z" fill="currentColor" opacity=".5"/></svg>
+      </span>
+    </div>
+
+    <div class="appbar">
+      <div class="name">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M8 1.6 14 4.6v6.8L8 14.4 2 11.4V4.6L8 1.6Z" stroke="currentColor" stroke-width="1.2"/>
+          <circle cx="8" cy="8" r="1.9" fill="currentColor"/>
+        </svg>
+        思隅
+      </div>
+      <div class="spacer"></div>
+      <span class="streak-chip"><span class="num">27</span> 天</span>
+      <button class="m3-icon" id="openSettings" aria-label="设置">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="8" cy="8" r="2.1" stroke="currentColor" stroke-width="1.3"/>
+          <path d="M8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6M3.6 3.6l1.1 1.1M11.3 11.3l1.1 1.1M12.4 3.6l-1.1 1.1M4.7 11.3l-1.1 1.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="hero">
+      <div class="hero-bg" aria-hidden="true"></div>
+      <div class="aura-ring" aria-hidden="true"></div>
+
+      <div class="pet-wrap">
+        <svg class="pet" viewBox="0 0 160 150" fill="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="pb" x1="34" y1="18" x2="118" y2="126" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="var(--pet-hi)"/><stop offset=".55" stop-color="var(--pet-body)"/><stop offset="1" stop-color="var(--pet-lo)"/>
+            </linearGradient>
+          </defs>
+          <ellipse cx="80" cy="138" rx="26" ry="3.2" fill="var(--ink)" opacity=".07"/>
+          <path d="M82.4 13.4c28.6-1.6 46.4 19.4 45 50.6-1.4 33.2-21.6 58.6-48.2 58.6-26.5 0-46.6-24.4-46.6-57.8 0-31.2 21.2-49.7 49.8-51.4Z" fill="url(#pb)" stroke="var(--pet-rim)" stroke-width="1"/>
+          <path d="M49 45c6.4-15.4 20.8-23.4 35.8-24" stroke="var(--pet-rim)" stroke-width="1.6" stroke-linecap="round" opacity=".55"/>
+          <rect class="eye" x="61.6" y="60" width="8.6" height="17.6" rx="4.3"/>
+          <rect class="eye b" x="88.4" y="60" width="8.6" height="17.6" rx="4.3"/>
+          <circle cx="80" cy="101" r="9.5" stroke="var(--accent)" stroke-width=".9" opacity=".24"/>
+          <circle cx="80" cy="101" r="2.8" fill="var(--accent)" opacity=".9"/>
+        </svg>
+      </div>
+
+      <div class="hero-copy">
+        <h1>先看出口，<br/>再想往下走。</h1>
+        <p>今天还剩 12 分钟 · 复习 2 张卡</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部对话面板 -->
+  <section class="sheet" id="sheet" aria-label="对话">
+    <div class="sheet-grip" id="grip" role="button" tabindex="0" aria-label="展开或收起对话">
+      <i></i>
+    </div>
+
+    <div class="sheet-head">
+      <h2>理解递归</h2>
+      <span class="m">21:04</span>
+      <span class="spacer"></span>
+      <button class="chip" style="height:26px;font-size:10.5px" id="collapseBtn">收起</button>
+    </div>
+
+    <div class="sheet-body scroll" id="sheetBody">
+      <div class="msg user">
+        <p>我还是不太懂递归，写了能跑但不知道为什么停。</p>
+      </div>
+
+      <div class="msg">
+        <div class="who"><span class="dot is-accent"></span><b>隅</b></div>
+        <p>「能跑」和「知道为什么停」差一件事：你有没有看见<em>出口</em>。</p>
+        <p class="dim">看下面三行，告诉我哪一行让函数不再调用自己。</p>
+
+        <div class="code">
+          <header><span>countdown.py</span><span>只读</span></header>
+<pre><span class="cm"># 从 3 倒数到 0</span>
+<span class="kw">def</span> countdown(n):
+    <span class="kw">if</span> n == 0:
+        <span class="kw">return</span>
+    print(n)
+    countdown(n - 1)</pre>
+        </div>
+
+        <div class="hint-row">
+          <button class="chip tonal" id="hintBtn"><span class="n">1</span> 再给一层提示</button>
+          <button class="chip">直接看解法</button>
+        </div>
+        <div class="hint-out" id="hintOut">
+          <span class="lvl">提示 01 / 观察</span>
+          <p style="margin:6px 0 0">把 <span class="mono">countdown(3)</span> 的参数写在纸上，每调用一次换一行。你会发现参数在变小。</p>
+        </div>
+
+        <div class="approval" id="approval">
+          <p class="t">读取你的错题本</p>
+          <p class="d">查看「错题/递归*.md」4 条，避免重复讲你已会的部分。仅读取。</p>
+          <div class="a">
+            <button class="m3-btn m3-filled" data-approve="allow">允许一次</button>
+            <button class="m3-btn m3-text" data-approve="deny">不授权</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="composer">
+      <div class="quick-row">
+        <button class="chip" data-quick>复习 2 张卡</button>
+        <button class="chip" data-quick>接着做题</button>
+        <button class="chip" data-quick>说说今天</button>
+      </div>
+      <form class="input-shell" id="composer">
+        <textarea id="input" rows="1" placeholder="和隅说一句…" aria-label="输入消息"></textarea>
+        <button class="send" id="sendBtn" type="submit" aria-label="发送" disabled>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 13V3.4M4 7.2 8 3.2l4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <!-- 设置（全屏容器） -->
+  <section class="settings" id="settings" aria-label="设置">
+    <div class="set-head">
+      <button class="m3-icon" id="closeSettings" aria-label="返回">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M9.8 3.4 5.2 8l4.6 4.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <h1>设置</h1>
+    </div>
+
+    <div class="set-scroll scroll">
+      <div class="set-group">
+        <h2>模型与对话</h2>
+        <button class="set-row">
+          <span class="ic">
+            <svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2.4 13 5v6l-5 2.6L3 11V5l5-2.6Z" stroke="currentColor" stroke-width="1.2"/><circle cx="8" cy="8" r="1.8" stroke="currentColor" stroke-width="1.2"/></svg>
+          </span>
+          <span class="tt"><b>对话模型</b><span>用于日常问答与学习引导</span></span>
+          <span class="val">DeepSeek · 本机</span>
+          <span class="chev">›</span>
+        </button>
+        <button class="set-row">
+          <span class="ic">
+            <svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h2M11 8h2M6.4 5.4h3.2v5.2H6.4z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="8" cy="8" r="1" fill="currentColor"/></svg>
+          </span>
+          <span class="tt"><b>引导强度</b><span>决定隅直接给答案还是先给提示</span></span>
+          <span class="val">分层提示</span>
+          <span class="chev">›</span>
+        </button>
+      </div>
+
+      <div class="set-group">
+        <h2>陪伴</h2>
+        <div class="set-row">
+          <span class="ic">
+            <svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 13.4S2.6 10 2.6 6.2A2.8 2.8 0 0 1 8 5a2.8 2.8 0 0 1 5.4 1.2c0 3.8-5.4 7.2-5.4 7.2Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+          </span>
+          <span class="tt"><b>主动关心</b><span>卡住超过 10 分钟时递纸条</span></span>
+          <span class="switch on" data-switch role="switch" aria-checked="true" tabindex="0"></span>
+        </div>
+        <div class="set-row">
+          <span class="ic">
+            <svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 9.6V6.4A5 5 0 0 1 13 6.4v3.2M5.4 9.6h5.2v2.8H5.4z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+          </span>
+          <span class="tt"><b>声音</b><span>只在主动提醒时轻声说话</span></span>
+          <span class="switch" data-switch role="switch" aria-checked="false" tabindex="0"></span>
+        </div>
+        <button class="set-row">
+          <span class="ic">
+            <svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="5.6" r="2.4" stroke="currentColor" stroke-width="1.2"/><path d="M3.4 13c.6-2.4 2.4-3.6 4.6-3.6S12 10.6 12.6 13" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+          </span>
+          <span class="tt"><b>角色</b><span>隅 · 安静型</span></span>
+          <span class="chev">›</span>
+        </button>
+      </div>
+
+      <div class="set-group">
+        <h2>数据</h2>
+        <button class="set-row">
+          <span class="ic">
+            <svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true"><ellipse cx="8" cy="4.4" rx="4.6" ry="1.8" stroke="currentColor" stroke-width="1.2"/><path d="M3.4 4.4v7.2c0 1 2 1.8 4.6 1.8s4.6-.8 4.6-1.8V4.4" stroke="currentColor" stroke-width="1.2"/></svg>
+          </span>
+          <span class="tt"><b>记忆</b><span>27 条 · 全部保存在本机</span></span>
+          <span class="chev">›</span>
+        </button>
+        <button class="set-row">
+          <span class="ic">
+            <svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3.2" y="6.6" width="9.6" height="6.6" rx="1.8" stroke="currentColor" stroke-width="1.2"/><path d="M5.6 6.6V5.2a2.4 2.4 0 0 1 4.8 0v1.4" stroke="currentColor" stroke-width="1.2"/></svg>
+          </span>
+          <span class="tt"><b>导出与备份</b><span>导出为 JSON，或备份到本机目录</span></span>
+          <span class="chev">›</span>
+        </button>
+        <button class="set-row" style="border-bottom:0">
+          <span class="ic" style="color:var(--danger)">
+            <svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.6 4.8h8.8M6.4 4.8V3.4h3.2v1.4M5 4.8l.5 8h5l.5-8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          <span class="tt"><b style="color:var(--danger)">清除今天的草稿</b><span>不影响已保存的对话</span></span>
+        </button>
+      </div>
+
+      <p class="set-note">思隅不会在未授权时读取文件或发送任何内容。所有数据默认只存在这台设备上。</p>
+    </div>
+  </section>
+
+  <div class="home-indicator" aria-hidden="true"></div>
+</div>
+
+<nav class="demo-dock" aria-label="演示控制">
+  <span class="tag">DEMO</span>
+  <a href="index.html">总览</a>
+  <a href="desktop.html">桌面</a>
+  <a href="workbench.html">工作台</a>
+  <a href="mobile.html" class="cur">手机</a>
+  <span class="sep"></span>
+  <button id="stateBtn">展开对话</button>
+  <button id="settingsBtn">设置</button>
+  <button id="themeBtn">明暗</button>
+</nav>
+
+<script>
+  const root = document.documentElement;
+  const saved = localStorage.getItem('aervox.demo.theme');
+  if (saved) root.dataset.theme = saved;
+  document.getElementById('themeBtn').onclick = () => {
+    root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('aervox.demo.theme', root.dataset.theme);
+  };
+
+  const sheet = document.getElementById('sheet');
+  const stateBtn = document.getElementById('stateBtn');
+  function setSheet(full) {
+    sheet.classList.toggle('full', full);
+    stateBtn.textContent = full ? '收回对话' : '展开对话';
+  }
+  document.getElementById('grip').onclick = () => setSheet(!sheet.classList.contains('full'));
+  document.getElementById('grip').onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSheet(!sheet.classList.contains('full')); } };
+  document.getElementById('collapseBtn').onclick = () => setSheet(false);
+  stateBtn.onclick = () => setSheet(!sheet.classList.contains('full'));
+
+  // 设置
+  const settings = document.getElementById('settings');
+  document.getElementById('openSettings').onclick = () => settings.classList.add('open');
+  document.getElementById('closeSettings').onclick = () => settings.classList.remove('open');
+  document.getElementById('settingsBtn').onclick = () => settings.classList.toggle('open');
+
+  // 开关
+  document.querySelectorAll('[data-switch]').forEach((sw) => {
+    const toggle = () => {
+      const on = sw.classList.toggle('on');
+      sw.setAttribute('aria-checked', String(on));
+    };
+    sw.onclick = toggle;
+    sw.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } };
+  });
+
+  // 分层提示
+  let level = 1;
+  const hintBtn = document.getElementById('hintBtn');
+  const hintOut = document.getElementById('hintOut');
+  const hintCopy = [
+    ['提示 02 / 条件', '<strong>n == 0</strong> 是唯一不再调用自己的分支。任何递归至少要有这样一个分支。'],
+    ['提示 03 / 结构', '把「出口」和「向出口靠近的一步」分开写：出口是 <code class="mono">n == 0</code>，靠近出口的是 <code class="mono">n - 1</code>。']
+  ];
+  hintBtn.onclick = () => {
+    if (level >= 3) return;
+    const [lvl, body] = hintCopy[level - 1];
+    hintOut.classList.add('show');
+    hintOut.innerHTML = '<span class="lvl">' + lvl + '</span><p style="margin:6px 0 0">' + body + '</p>';
+    level += 1;
+    hintBtn.innerHTML = '<span class="n">' + level + '</span> ' + (level >= 3 ? '已到最后一层' : '再给一层提示');
+    if (level >= 3) hintBtn.classList.remove('tonal');
+    document.getElementById('sheetBody').scrollTop = 9999;
+  };
+
+  // 审批
+  document.querySelectorAll('[data-approve]').forEach((btn) => {
+    btn.onclick = () => {
+      const allow = btn.dataset.approve === 'allow';
+      const card = document.getElementById('approval');
+      card.innerHTML = '<p class="t" style="color:var(--' + (allow ? 'ok' : 'muted') + ')">' +
+        (allow ? '已授权一次 · 21:07 读取 4 条' : '已拒绝，不会读取该文件') + '</p>';
+    };
+  });
+
+  // 输入
+  const input = document.getElementById('input');
+  const send = document.getElementById('sendBtn');
+  const body = document.getElementById('sheetBody');
+  input.addEventListener('input', () => {
+    send.disabled = !input.value.trim();
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 96) + 'px';
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.getElementById('composer').requestSubmit(); }
+  });
+  const replies = [
+    '因为出口写的是 <em>n == 1</em>，参数从 3 跳到 1 之后又跳到 0，0 没有出口，就继续往下减。把出口改成 <em>n == 0</em> 试试。',
+    '一次只改一件事：先只改出口，再跑一遍。如果还溢出，我们再一起看栈。'
+  ];
+  let ri = 0;
+  document.getElementById('composer').onsubmit = (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    const el = document.createElement('div');
+    el.className = 'msg user rise';
+    el.innerHTML = '<p></p>';
+    el.querySelector('p').textContent = text;
+    body.appendChild(el);
+    input.value = ''; input.style.height = 'auto'; send.disabled = true;
+    setSheet(true);
+    body.scrollTop = 9999;
+    setTimeout(() => {
+      const r = document.createElement('div');
+      r.className = 'msg rise';
+      r.innerHTML = '<div class="who"><span class="dot is-accent"></span><b>隅</b></div><p>' + replies[ri++ % replies.length] + '</p>';
+      body.appendChild(r);
+      body.scrollTop = 9999;
+    }, 800);
+  };
+
+  // 首屏保持自然起点；展开时再滚到最新
+  stateBtn.addEventListener('click', () => {
+    if (sheet.classList.contains('full')) requestAnimationFrame(() => { body.scrollTop = body.scrollHeight; });
+  });
+
+  // 快捷 chip
+  document.querySelectorAll('[data-quick]').forEach((c) => {
+    c.onclick = () => {
+      input.value = c.textContent;
+      input.dispatchEvent(new Event('input'));
+      input.focus();
+    };
+  });
+</script>
+</body>
+</html>

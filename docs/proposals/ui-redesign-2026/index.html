@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>静室 · Aervox 三端界面设计方案</title>
+<link rel="stylesheet" href="assets/tokens.css" />
+<style>
+  body { background: var(--canvas); }
+  .paper {
+    max-width: 1180px; margin: 0 auto; padding: 0 40px 120px;
+    position: relative;
+  }
+
+  /* ---------- 顶部 ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    display: flex; align-items: center; gap: 14px;
+    height: 52px; margin: 0 -40px; padding: 0 40px;
+    background: color-mix(in oklab, var(--canvas) 84%, transparent);
+    backdrop-filter: blur(16px) saturate(1.2);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar .brand { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; letter-spacing: -.01em; }
+  .topbar .brand svg { color: var(--accent); }
+  .topbar .doc { font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; color: var(--muted); padding-left: 12px; border-left: 1px solid var(--line); }
+  .topbar .spacer { flex: 1; }
+  .topbar a, .topbar button {
+    display: inline-flex; align-items: center; gap: 5px;
+    height: 26px; padding: 0 10px; border-radius: var(--r-pill);
+    font-size: 11.5px; color: var(--muted);
+    transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+  }
+  .topbar a:hover, .topbar button:hover { background: var(--surface-3); color: var(--ink); }
+  .topbar .demo-link { color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+
+  /* ---------- 封面 ---------- */
+  .cover {
+    display: grid; grid-template-columns: 1.15fr .85fr; gap: 48px;
+    align-items: center;
+    padding: 76px 0 64px;
+    border-bottom: 1px solid var(--line);
+  }
+  .kicker {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--accent);
+    padding: 4px 9px; border: 1px solid var(--accent-line); border-radius: 4px;
+    background: var(--accent-soft);
+  }
+  .cover h1 {
+    margin: 22px 0 0;
+    font-family: var(--font-display);
+    font-size: clamp(46px, 6.2vw, 72px);
+    line-height: 1.12; font-weight: 600; letter-spacing: .02em;
+  }
+  .cover h1 small {
+    display: block; margin-top: 14px;
+    font-family: var(--font-ui); font-size: 15px; font-weight: 400;
+    letter-spacing: .04em; color: var(--muted);
+  }
+  .cover .lead {
+    margin: 24px 0 0; max-width: 44ch;
+    font-size: 15px; line-height: 1.9; color: var(--ink-2);
+  }
+  .cover .lead b { color: var(--ink); font-weight: 600; }
+  .meta-row {
+    display: flex; flex-wrap: wrap; gap: 26px;
+    margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--line);
+  }
+  .meta-row div { display: grid; gap: 3px; }
+  .meta-row dt { font-family: var(--font-mono); font-size: 9px; letter-spacing: .1em; color: var(--faint); text-transform: uppercase; }
+  .meta-row dd { margin: 0; font-size: 12px; color: var(--ink-2); }
+
+  .cover-art { position: relative; }
+  .cover-art svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .cover-art .lbl { font-family: var(--font-mono); font-size: 8.5px; letter-spacing: .06em; fill: var(--muted); }
+  .cover-art .stroke { stroke: var(--line-strong); }
+  .cover-art .accent { stroke: var(--accent); }
+  .cover-art .soft { stroke: var(--accent-line); }
+  .cover-art .pulse { animation: pulse 5s var(--ease) infinite; }
+  @keyframes pulse { 0%,100% { opacity: .35 } 50% { opacity: 1 } }
+
+  /* ---------- 目录 ---------- */
+  .toc {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .toc a {
+    display: grid; gap: 5px; padding: 18px 18px 18px 0;
+    border-right: 1px solid var(--line-soft);
+    text-decoration: none;
+    transition: background var(--dur-2) var(--ease);
+  }
+  .toc a:last-child { border-right: 0; }
+  .toc a:nth-child(4n) { border-right: 0; }
+  .toc a:hover { background: var(--surface-2); }
+  .toc .n { font-family: var(--font-mono); font-size: 9px; letter-spacing: .1em; color: var(--faint); }
+  .toc .t { font-size: 12.5px; color: var(--ink-2); }
+
+  /* ---------- 章节 ---------- */
+  .sec {
+    display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 40px;
+    padding: 56px 0; border-bottom: 1px solid var(--line);
+    scroll-margin-top: 68px;
+  }
+  .sec-rail { display: grid; align-content: start; gap: 8px; padding-top: 6px; }
+  .sec-rail .num { font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; color: var(--accent); }
+  .sec-rail .name { font-size: 10.5px; color: var(--muted); letter-spacing: .02em; }
+  .sec-main { min-width: 0; }
+  .sec h2 {
+    margin: 0; font-family: var(--font-display);
+    font-size: clamp(24px, 2.6vw, 30px); font-weight: 600; line-height: 1.4; letter-spacing: .015em;
+  }
+  .sec .intro { margin: 14px 0 0; max-width: 60ch; font-size: 14.5px; line-height: 1.95; color: var(--ink-2); }
+  .sec h3 {
+    margin: 40px 0 0; font-size: 13px; font-weight: 600; letter-spacing: .01em;
+    display: flex; align-items: center; gap: 9px;
+  }
+  .sec h3::before { content: ""; width: 12px; height: 1px; background: var(--accent); }
+  .sec p { font-size: 14px; line-height: 1.95; color: var(--ink-2); }
+
+  /* 判断条目 */
+  .judge { display: grid; gap: 0; margin-top: 26px; border-top: 1px solid var(--line-soft); }
+  .judge-item { display: grid; grid-template-columns: 40px 1fr; gap: 16px; padding: 20px 0; border-bottom: 1px solid var(--line-soft); }
+  .judge-item .idx { font-family: var(--font-mono); font-size: 10px; color: var(--faint); padding-top: 3px; }
+  .judge-item h4 { margin: 0; font-size: 13.5px; font-weight: 600; }
+  .judge-item p { margin: 7px 0 0; font-size: 13.2px; line-height: 1.85; }
+  .judge-item .then { display: block; margin-top: 8px; color: var(--muted); font-size: 12px; }
+  .judge-item .then b { color: var(--warn); font-weight: 550; }
+
+  /* 原则卡 */
+  .principles { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; margin-top: 28px; background: var(--line-soft); border: 1px solid var(--line-soft); }
+  .pr { background: var(--surface); padding: 20px 20px 22px; display: grid; gap: 9px; align-content: start; }
+  .pr .ic { color: var(--accent); height: 20px; }
+  .pr h4 { margin: 0; font-size: 13.5px; font-weight: 600; }
+  .pr p { margin: 0; font-size: 12.8px; line-height: 1.85; color: var(--ink-2); }
+  .pr .why { color: var(--muted); font-size: 11.5px; border-top: 1px dashed var(--line); padding-top: 9px; margin-top: 3px; }
+
+  /* 表格 */
+  .table { width: 100%; border-collapse: collapse; margin-top: 22px; font-size: 12.5px; }
+  .table th {
+    text-align: left; font-weight: 600; font-size: 10.5px; letter-spacing: .04em;
+    color: var(--muted); padding: 0 12px 9px 0; border-bottom: 1px solid var(--line-strong);
+    white-space: nowrap;
+  }
+  .table td { padding: 11px 12px 11px 0; border-bottom: 1px solid var(--line-soft); color: var(--ink-2); vertical-align: top; line-height: 1.7; }
+  .table td:first-child { color: var(--ink); font-weight: 550; white-space: nowrap; }
+  .table .mono { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); }
+  .table .yes { color: var(--ok); }
+
+  /* 色板 */
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 10px; margin-top: 22px; }
+  .sw { border: 1px solid var(--line); border-radius: var(--r-ctl); overflow: hidden; background: var(--surface); text-align: left; transition: transform var(--dur-2) var(--ease), box-shadow var(--dur-2) var(--ease); }
+  .sw:hover { transform: translateY(-2px); box-shadow: var(--shadow-1); }
+  .sw .chip-c { height: 52px; border-bottom: 1px solid var(--line); }
+  .sw .info { padding: 8px 10px 9px; display: grid; gap: 2px; }
+  .sw .info b { font-size: 11px; font-weight: 550; }
+  .sw .info span { font-family: var(--font-mono); font-size: 9.5px; color: var(--muted); letter-spacing: .02em; }
+
+  /* 字阶 */
+  .scale { margin-top: 20px; border-top: 1px solid var(--line-soft); }
+  .scale-row { display: grid; grid-template-columns: 88px 1fr 96px; gap: 18px; align-items: baseline; padding: 14px 0; border-bottom: 1px solid var(--line-soft); }
+  .scale-row .tag { font-family: var(--font-mono); font-size: 9.5px; color: var(--muted); letter-spacing: .04em; }
+  .scale-row .spec { font-family: var(--font-mono); font-size: 9.5px; color: var(--faint); text-align: right; }
+  .scale-row .s1 { font-family: var(--font-display); font-size: 30px; font-weight: 600; letter-spacing: .02em; }
+  .scale-row .s2 { font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+  .scale-row .s3 { font-size: 13.5px; }
+  .scale-row .s4 { font-size: 11.5px; color: var(--ink-2); }
+  .scale-row .s5 { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+
+  /* 规则块 */
+  .rule { margin-top: 26px; border: 1px solid var(--line); border-radius: var(--r-card); background: var(--surface); overflow: hidden; }
+  .rule header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); background: var(--surface-2); }
+  .rule header b { font-size: 12.5px; font-weight: 600; }
+  .rule header .tag { margin-left: auto; font-family: var(--font-mono); font-size: 9px; letter-spacing: .06em; color: var(--muted); }
+  .rule .body { padding: 16px; display: grid; gap: 12px; }
+  .rule .body p { margin: 0; font-size: 12.5px; }
+  .rule .body ul { margin: 0; padding-left: 16px; display: grid; gap: 6px; font-size: 12.3px; line-height: 1.75; color: var(--ink-2); }
+  .rule .body li::marker { color: var(--accent); }
+
+  .levels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line-soft); border: 1px solid var(--line-soft); border-radius: var(--r-ctl); overflow: hidden; }
+  .levels > div { background: var(--surface); padding: 12px; }
+  .levels .lv { font-family: var(--font-mono); font-size: 9px; color: var(--accent); letter-spacing: .08em; }
+  .levels b { display: block; margin: 5px 0 4px; font-size: 12px; font-weight: 600; }
+  .levels span { font-size: 11.5px; line-height: 1.65; color: var(--muted); }
+
+  /* 三端 */
+  .ends { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 28px; }
+  .end {
+    display: grid; gap: 12px; align-content: start;
+    padding: 18px; text-decoration: none;
+    border: 1px solid var(--line); border-radius: var(--r-card);
+    background: var(--surface);
+    transition: transform var(--dur-2) var(--ease), box-shadow var(--dur-2) var(--ease), border-color var(--dur-2);
+  }
+  .end:hover { transform: translateY(-3px); box-shadow: var(--shadow-1); border-color: var(--accent-line); }
+  .end .head { display: flex; align-items: center; justify-content: space-between; }
+  .end .head .k { font-family: var(--font-mono); font-size: 9px; letter-spacing: .1em; color: var(--muted); }
+  .end .head .arrow { color: var(--accent); }
+  .end h3 { margin: 0; font-family: var(--font-display); font-size: 20px; font-weight: 600; }
+  .end p { margin: 0; font-size: 12px; line-height: 1.75; color: var(--ink-2); }
+  .end ul { margin: 2px 0 0; padding-left: 15px; font-size: 11.5px; line-height: 1.85; color: var(--muted); }
+  .end .shot {
+    height: 96px; border-radius: var(--r-ctl); border: 1px solid var(--line-soft);
+    background: var(--surface-2); position: relative; overflow: hidden;
+  }
+  .end .shot i { position: absolute; display: block; background: var(--line-strong); border-radius: 2px; opacity: .55; }
+  .end .shot i.acc { background: var(--accent); opacity: .55; }
+
+  /* 无障碍表 */
+  .aa { display: grid; grid-template-columns: 1.4fr .6fr .5fr; gap: 0; margin-top: 20px; border-top: 1px solid var(--line-soft); font-size: 12px; }
+  .aa > div { padding: 9px 8px 9px 0; border-bottom: 1px solid var(--line-soft); }
+  .aa .h { font-size: 9.5px; font-family: var(--font-mono); letter-spacing: .08em; color: var(--faint); text-transform: uppercase; }
+  .aa .r { font-family: var(--font-mono); font-size: 11px; color: var(--ink-2); }
+  .aa .ok { color: var(--ok); font-size: 10.5px; }
+  .aa .aaa { color: var(--ok); font-size: 10.5px; }
+
+  /* 决策 */
+  .decisions { display: grid; gap: 0; margin-top: 24px; border-top: 1px solid var(--line-soft); }
+  .dec { display: grid; grid-template-columns: 26px 1fr auto; gap: 12px; padding: 15px 0; border-bottom: 1px solid var(--line-soft); align-items: start; }
+  .dec .box { width: 15px; height: 15px; border: 1px solid var(--line-strong); border-radius: 4px; margin-top: 2px; }
+  .dec h4 { margin: 0; font-size: 12.8px; font-weight: 600; }
+  .dec p { margin: 4px 0 0; font-size: 12px; }
+  .dec .stat { font-family: var(--font-mono); font-size: 9px; letter-spacing: .06em; color: var(--warn); border: 1px solid var(--warn-soft); background: var(--warn-soft); padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
+
+  .files { display: grid; gap: 0; margin-top: 18px; border-top: 1px solid var(--line-soft); }
+  .file { display: grid; grid-template-columns: 210px 1fr; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line-soft); font-size: 12px; }
+  .file code { font-family: var(--font-mono); font-size: 11px; color: var(--ink); }
+  .file span { color: var(--muted); }
+
+  footer { padding-top: 40px; display: flex; align-items: center; justify-content: space-between; gap: 20px; color: var(--muted); font-size: 11.5px; }
+
+
+  /* 引语 */
+  .pullquote {
+    margin: 38px 0 0; padding: 4px 0 4px 22px;
+    border-left: 2px solid var(--accent);
+    font-family: var(--font-display);
+    font-size: clamp(19px, 2vw, 23px); line-height: 1.7; color: var(--ink);
+  }
+
+  /* 到达顺序 */
+  .orders { display: grid; gap: 0; margin-top: 18px; border-top: 1px solid var(--line-soft); }
+  .order {
+    display: grid; grid-template-columns: 62px 1fr 180px; gap: 16px; align-items: center;
+    padding: 13px 0; border-bottom: 1px solid var(--line-soft);
+  }
+  .order .dev { font-size: 11.5px; font-weight: 600; color: var(--ink); }
+  .order .chain { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+  .order .chain b {
+    font-weight: 550; color: var(--accent);
+    background: var(--accent-soft); border-radius: var(--r-pill); padding: 2px 9px;
+  }
+  .order .chain i { color: var(--faint); font-style: normal; font-size: 10px; }
+  .order .note { font-size: 11.5px; color: var(--muted); text-align: right; }
+
+  /* 纸条实物 */
+  .specimen { display: grid; grid-template-columns: 1fr 190px; gap: 18px; align-items: center; margin-top: 4px; }
+  .slip-card {
+    border: 1px solid var(--line); border-left: 2px solid var(--accent);
+    border-radius: 2px var(--r-card) var(--r-card) 2px;
+    background: var(--surface); padding: 12px 14px 13px;
+    box-shadow: var(--shadow-1);
+    transition: transform var(--dur-2) var(--ease);
+    max-width: 340px;
+  }
+  .slip-card:hover { transform: translateY(-2px) rotate(-.4deg); }
+  .slip-card h5 { margin: 0 0 5px; font-size: 12.5px; font-weight: 600; }
+  .slip-card p { margin: 0; font-size: 11.8px; line-height: 1.7; font-size: 11.8px; }
+  .slip-card .acts { display: flex; gap: 6px; margin-top: 10px; }
+  .slip-card .acts button {
+    font-size: 11px; padding: 4px 10px; border-radius: 6px;
+    background: var(--accent-soft); color: var(--accent); font-weight: 550;
+  }
+  .slip-card .acts button.ghost { background: transparent; color: var(--muted); }
+  .slip-card .acts button.ghost:hover { background: var(--surface-3); color: var(--ink); }
+  .specimen-cap { margin: 0; font-size: 11px; line-height: 1.8; color: var(--muted); }
+
+  @media (max-width: 720px) {
+    .order { grid-template-columns: 1fr; gap: 6px; }
+    .order .note { text-align: left; }
+    .specimen { grid-template-columns: 1fr; }
+  }
+
+  /* 复制提示 */
+  .toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 12px);
+    padding: 7px 13px; border-radius: var(--r-pill);
+    background: var(--surface); border: 1px solid var(--line-strong);
+    box-shadow: var(--shadow-1); font-size: 11.5px; color: var(--ink);
+    opacity: 0; pointer-events: none; transition: opacity var(--dur-2) var(--ease), transform var(--dur-2) var(--ease);
+    z-index: 90;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  @media (max-width: 1000px) {
+    .cover { grid-template-columns: 1fr; gap: 34px; padding-top: 52px; }
+    .cover-art { max-width: 520px; }
+    .toc { grid-template-columns: 1fr 1fr; }
+    .toc a:nth-child(2n) { border-right: 0; }
+    .toc a { border-bottom: 1px solid var(--line-soft); }
+    .sec { grid-template-columns: 1fr; gap: 14px; padding: 42px 0; }
+    .sec-rail { grid-auto-flow: column; justify-content: start; gap: 12px; align-items: baseline; }
+    .principles, .ends { grid-template-columns: 1fr; }
+    .levels { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 720px) {
+    .paper { padding: 0 20px 80px; }
+    .topbar { margin: 0 -20px; padding: 0 20px; }
+    .topbar .doc, .topbar .hide-sm { display: none; }
+    .scale-row { grid-template-columns: 70px 1fr; }
+    .scale-row .spec { display: none; }
+    .file { grid-template-columns: 1fr; gap: 3px; }
+    .aa { grid-template-columns: 1.5fr .5fr; }
+    .aa > div:nth-child(3n) { display: none; }
+    .cover h1 { font-size: 40px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="paper">
+  <header class="topbar">
+    <div class="brand">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M8 1.6 14 4.6v6.8L8 14.4 2 11.4V4.6L8 1.6Z" stroke="currentColor" stroke-width="1.2"/>
+        <circle cx="8" cy="8" r="1.9" fill="currentColor"/>
+      </svg>
+      思隅
+    </div>
+    <span class="doc">UI PROPOSAL / 2026-11 / V1</span>
+    <span class="spacer"></span>
+    <a href="desktop.html" class="hide-sm">桌面</a>
+    <a href="workbench.html" class="hide-sm">工作台</a>
+    <a href="mobile.html" class="hide-sm">手机</a>
+    <a href="desktop.html" class="demo-link">打开 demo →</a>
+    <button id="themeBtn" aria-label="切换明暗主题" title="切换主题">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M13.2 9.4A5.6 5.6 0 0 1 6.6 2.8 5.6 5.6 0 1 0 13.2 9.4Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </header>
+
+  <!-- 封面 -->
+  <section class="cover">
+    <div>
+      <span class="kicker">Design proposal · 三端界面</span>
+      <h1>
+        静室
+        <small>一张安静的书桌，和一个坐在旁边的同伴。</small>
+      </h1>
+      <p class="lead">
+        这不是换一套配色，而是重新决定<b>什么该被看见</b>。思隅的核心能力是「陪你把一件事学明白」——
+        目标、提示层级、记忆和复习，目前都藏在输入框后面。本方案把它们放到桌面上，
+        并用一种更克制的方式处理主动帮助。
+      </p>
+      <dl class="meta-row">
+        <div><dt>范围</dt><dd>桌面 / Web 工作台 / Android</dd></div>
+        <div><dt>依据</dt><dd>AVX-DS-001 · PRD · ADR-025</dd></div>
+        <div><dt>性质</dt><dd>概念与高保真 demo，不改现有 UI</dd></div>
+      </dl>
+    </div>
+
+    <div class="cover-art" aria-hidden="true">
+      <svg viewBox="0 0 440 400" fill="none">
+        <!-- 桌面窗口 -->
+        <rect x="6" y="8" width="282" height="176" rx="12" class="stroke" stroke-width="1"/>
+        <path d="M6 34h282" class="stroke" stroke-width=".8"/>
+        <circle cx="21" cy="21" r="2.4" class="stroke"/>
+        <circle cx="30" cy="21" r="2.4" class="stroke"/>
+        <circle cx="39" cy="21" r="2.4" class="stroke"/>
+        <rect x="112" y="15" width="62" height="11" rx="5.5" class="stroke" stroke-width=".8" opacity=".6"/>
+        <path d="M118 34v150" class="stroke" stroke-width=".8" opacity=".45"/>
+        <circle cx="63" cy="92" r="24" class="accent" stroke-width="1"/>
+        <circle cx="63" cy="92" r="9" class="soft" stroke-width=".9"/>
+        <rect x="36" y="128" width="54" height="5" rx="2.5" fill="currentColor" class="pulse" style="color:var(--accent)" opacity=".45"/>
+        <rect x="42" y="140" width="42" height="4" rx="2" fill="currentColor" style="color:var(--muted)" opacity=".22"/>
+        <path d="M136 54h118M136 66h92M136 84h132M136 96h104M136 108h128M136 126h78" class="stroke" stroke-width="1" opacity=".5"/>
+        <rect x="136" y="140" width="132" height="32" rx="6" class="stroke" stroke-width=".8" opacity=".55"/>
+
+        <!-- 手机 -->
+        <rect x="306" y="8" width="96" height="186" rx="16" class="stroke" stroke-width="1"/>
+        <rect x="342" y="16" width="24" height="4" rx="2" class="stroke" stroke-width=".8"/>
+        <circle cx="354" cy="70" r="21" class="soft" stroke-width=".9"/>
+        <circle cx="354" cy="70" r="7.5" fill="currentColor" style="color:var(--accent)" opacity=".4"/>
+        <path d="M332 102h44M338 112h32" class="stroke" stroke-width="1" opacity=".45"/>
+        <rect x="318" y="126" width="72" height="54" rx="10" class="stroke" stroke-width=".8" opacity=".5"/>
+        <path d="M326 140h56M326 151h40" class="stroke" stroke-width=".9" opacity=".35"/>
+        <circle cx="382" cy="170" r="3" fill="currentColor" class="pulse" style="color:var(--accent)"/>
+
+        <!-- Web 工作台 -->
+        <rect x="120" y="248" width="314" height="112" rx="10" class="stroke" stroke-width="1"/>
+        <path d="M120 268h314" class="stroke" stroke-width=".8"/>
+        <path d="M172 268v92M362 268v92" class="stroke" stroke-width=".8" opacity=".45"/>
+        <path d="M130 280h32M130 291h26M130 302h30M130 313h22M130 324h28M130 335h24" class="stroke" stroke-width=".9" opacity=".45"/>
+        <rect x="182" y="276" width="44" height="8" rx="4" fill="currentColor" style="color:var(--accent)" opacity=".28"/>
+        <path d="M182 296h152M182 307h124M182 318h140M182 329h96" class="stroke" stroke-width=".9" opacity=".45"/>
+        <rect x="182" y="340" width="152" height="12" rx="5" class="stroke" stroke-width=".8" opacity=".4"/>
+        <rect x="372" y="276" width="18" height="4" rx="2" fill="currentColor" style="color:var(--accent)" opacity=".4"/>
+        <path d="M372 290h52M372 301h38M372 312h46M372 323h30" class="stroke" stroke-width=".9" opacity=".4"/>
+
+        <text x="6" y="205" class="lbl">DESKTOP · 陪伴</text>
+        <text x="306" y="215" class="lbl">MOBILE · 此刻</text>
+        <text x="120" y="381" class="lbl">WEB · 工作台</text>
+      </svg>
+      <p style="margin:14px 0 0;font-size:11px;line-height:1.7;color:var(--muted);text-align:right">
+        同一套空间，三种到达顺序
+      </p>
+    </div>
+  </section>
+
+  <!-- 目录 -->
+  <nav class="toc" aria-label="目录">
+    <a href="#judge"><span class="n">01</span><span class="t">为什么改：三处摩擦</span></a>
+    <a href="#idea"><span class="n">02</span><span class="t">概念：静室四条规则</span></a>
+    <a href="#structure"><span class="n">03</span><span class="t">结构：五个空间</span></a>
+    <a href="#visual"><span class="n">04</span><span class="t">视觉：令牌与排版</span></a>
+    <a href="#behavior"><span class="n">05</span><span class="t">交互：提示、纸条、审批</span></a>
+    <a href="#ends"><span class="n">06</span><span class="t">三端：各自的优先项</span></a>
+    <a href="#a11y"><span class="n">07</span><span class="t">无障碍与实测</span></a>
+    <a href="#scope"><span class="n">08</span><span class="t">边界与待决事项</span></a>
+  </nav>
+
+  <!-- 01 -->
+  <section class="sec" id="judge">
+    <div class="sec-rail"><span class="num">01</span><span class="name">判断</span></div>
+    <div class="sec-main">
+      <h2>三端各自成立，合在一起却不成立</h2>
+      <p class="intro">
+        现在的桌面、Web 和 Android 分别有一套自洽的界面，但同一个能力在三个地方长成三种样子。
+        对用户来说这不是"三端适配"，而是"三个产品"。下面三处摩擦，是本方案要解决的起点。
+      </p>
+
+      <div class="judge">
+        <div class="judge-item">
+          <span class="idx">01</span>
+          <div>
+            <h4>同一个「目标」，出现在三个位置</h4>
+            <p>桌面放在左栏卡片，Web 放在右栏侧卡，手机藏在设置里。用户换端之后要重新找一遍。</p>
+            <span class="then">后果：<b>跨端连续性断在导航上</b>，而这恰好是"连续帮助"承诺的前提。</span>
+          </div>
+        </div>
+        <div class="judge-item">
+          <span class="idx">02</span>
+          <div>
+            <h4>学习闭环被压缩成一次问答</h4>
+            <p>分层提示、错题、复习队列是产品的差异化能力，但界面上只有一个输入框。卡住时用户能做的只有"再问一遍"。</p>
+            <span class="then">后果：<b>核心机制不可见</b>，用户无法预期"再给一层提示"会发生什么。</span>
+          </div>
+        </div>
+        <div class="judge-item">
+          <span class="idx">03</span>
+          <div>
+            <h4>主动帮助退化成 3 秒 toast</h4>
+            <p>产品承诺"可解释、可暂停、可撤销"，而主动建议以浮层出现、自动消失，既不解释触发原因，也没有地方回看。</p>
+            <span class="then">后果：<b>打扰大于帮助</b>，用户学会了一律忽略。</span>
+          </div>
+        </div>
+      </div>
+      <p class="pullquote">界面不该要求用户先学会产品，<br/>也不该把最重要的能力藏进输入框。</p>
+    </div>
+  </section>
+
+  <!-- 02 -->
+  <section class="sec" id="idea">
+    <div class="sec-rail"><span class="num">02</span><span class="name">概念</span></div>
+    <div class="sec-main">
+      <h2>静室：把界面做成一张书桌，而不是一个聊天窗</h2>
+      <p class="intro">
+        "思隅"本意是思维的一角。方案把这个名字变成空间隐喻：一张冷灰纸面的书桌，一个安静的同伴坐在旁边，
+        帮助以纸条的形式递过来，而不是弹出来。四条规则决定了后面所有的取舍。
+      </p>
+
+      <div class="principles">
+        <article class="pr">
+          <span class="ic">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M5 4.5h14v15H5z" stroke="currentColor" stroke-width="1.2"/>
+              <path d="M9 8h6M9 11.5h6M9 15h4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+              <path d="M2.5 8V4.5H24" stroke="currentColor" stroke-width="1.2" opacity="0"/>
+            </svg>
+          </span>
+          <h4>书页，而不是气泡</h4>
+          <p>对话按阅读顺序排版：时间码退到页边，代码与卡片作为"插图"嵌入正文，而不是缩成一条气泡。</p>
+          <p class="why">原因：学习内容要回看。气泡流适合短句闲聊，不适合需要重读的解释与代码。</p>
+        </article>
+
+        <article class="pr">
+          <span class="ic">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M6 3.5h9l4 4v13H6z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+              <path d="M15 3.5v4h4" stroke="currentColor" stroke-width="1.2"/>
+              <path d="M9 12h6M9 15.5h4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <h4>页边，而不是弹窗</h4>
+          <p>主动帮助以"纸条"出现在内容页边：不遮挡正文、不抢焦点、不自动消失，直到你处理或明确说"晚点"。</p>
+          <p class="why">原因：3 秒浮层无法承载"为什么现在说这句话"。纸条可以停留、可以回溯。</p>
+        </article>
+
+        <article class="pr">
+          <span class="ic">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 19h4v-5H4zM10 19h4v-9h-4zM16 19h4V5h-4z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <h4>层级，而不是答案</h4>
+          <p>任何"卡住"的地方都给 1→2→3 层提示：观察、条件、结构。第三层之后才出现"看解法"，且被如实记录。</p>
+          <p class="why">原因：直接给答案会让"掌握度"失真，也会让用户失去一次自己想通的机会。</p>
+        </article>
+
+        <article class="pr">
+          <span class="ic">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="4.5" y="9.5" width="15" height="10" rx="2.5" stroke="currentColor" stroke-width="1.2"/>
+              <path d="M8 9.5V7a4 4 0 0 1 8 0v2.5" stroke="currentColor" stroke-width="1.2"/>
+              <circle cx="12" cy="14.5" r="1.4" fill="currentColor"/>
+            </svg>
+          </span>
+          <h4>本机，而不是云端</h4>
+          <p>数据默认只存在这台设备上。界面用"已备份 / 已同步"这类可验证的说法，不使用"云端已保存"。</p>
+          <p class="why">原因：本地 SQLite 是真源。文案不该暗示一个并不存在的服务端账户。</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 -->
+  <section class="sec" id="structure">
+    <div class="sec-rail"><span class="num">03</span><span class="name">结构</span></div>
+    <div class="sec-main">
+      <h2>五个空间，三种到达顺序</h2>
+      <p class="intro">
+        导航不再按"页面"切分，而按用户此刻的意图切分：我在被陪着（此刻）、我在解决一件事（对话）、
+        我留下了什么（台面）、它记住了什么（记忆）、我能扩展什么（广场）。三端共用这五个空间，只是到达顺序不同。
+      </p>
+
+      <table class="table">
+        <thead>
+          <tr><th>空间</th><th>回答的问题</th><th>桌面</th><th>Web</th><th>手机</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>此刻</td><td>现在该做什么</td><td>左栏（角色 + 今日）</td><td>顶栏胶囊 → 抽屉</td><td>首屏主视图</td></tr>
+          <tr><td>对话</td><td>这件事怎么解决</td><td>右侧主区</td><td>中列主视图</td><td>底部面板（可展开）</td></tr>
+          <tr><td>台面</td><td>留下了什么</td><td>工作台模式</td><td>一级标签</td><td>二级页（从对话进入）</td></tr>
+          <tr><td>记忆</td><td>它记住了什么</td><td>侧栏抽屉</td><td>一级标签</td><td>设置 → 记忆</td></tr>
+          <tr><td>广场</td><td>还能扩展什么</td><td>侧栏入口</td><td>侧栏入口</td><td>设置 → 插件</td></tr>
+        </tbody>
+      </table>
+
+      <h3>到达顺序</h3>
+      <div class="orders">
+        <div class="order">
+          <span class="dev">桌面</span>
+          <span class="chain"><b>此刻</b><i>→</i>对话<i>→</i>台面<i>→</i>记忆<i>→</i>广场</span>
+          <span class="note">角色常驻，对话是默认焦点</span>
+        </div>
+        <div class="order">
+          <span class="dev">Web</span>
+          <span class="chain"><b>对话</b><i>→</i>台面<i>→</i>记忆<i>→</i>此刻<i>→</i>广场</span>
+          <span class="note">坐下就为完成一件事，先给正文</span>
+        </div>
+        <div class="order">
+          <span class="dev">手机</span>
+          <span class="chain"><b>此刻</b><i>→</i>对话<i>→</i>台面<i>→</i>记忆<i>→</i>广场</span>
+          <span class="note">一屏之内先看见"现在做什么"</span>
+        </div>
+      </div>
+
+      <h3>排列原则</h3>
+      <p>
+        桌面是"陪伴优先"：角色常驻、工作台可选，因为桌面端最长的会话往往发生在旁边有人的时候。
+        Web 是"工作台优先"：三栏并列、陪伴退为浮层，因为浏览器里的用户通常是坐下来完成一件具体的事。
+        手机是"此刻优先"：角色占据上半屏，对话叠在下半身，任何时刻都能单手回到输入。
+      </p>
+    </div>
+  </section>
+
+  <!-- 04 -->
+  <section class="sec" id="visual">
+    <div class="sec-rail"><span class="num">04</span><span class="name">视觉</span></div>
+    <div class="sec-main">
+      <h2>一套冷灰纸面，一种钴蓝，两枚状态色</h2>
+      <p class="intro">
+        沿用 AVX-DS-001 的色域与禁止项，不引入第二种主色。新增的两枚语义色只表达学习状态，
+        不参与装饰；层级靠字号、字重与留白建立，而不是靠更多颜色。
+      </p>
+
+      <h3>颜色</h3>
+      <div class="swatches" id="swatches">
+        <button class="sw" data-hex="#0c1017"><span class="chip-c" style="background:#0c1017"></span><span class="info"><b>画布 · 暗</b><span>#0c1017</span></span></button>
+        <button class="sw" data-hex="#141923"><span class="chip-c" style="background:#141923"></span><span class="info"><b>表面 · 暗</b><span>#141923</span></span></button>
+        <button class="sw" data-hex="#e6ebf5"><span class="chip-c" style="background:#e6ebf5"></span><span class="info"><b>主文本 · 暗</b><span>#e6ebf5</span></span></button>
+        <button class="sw" data-hex="#7899f8"><span class="chip-c" style="background:#7899f8"></span><span class="info"><b>强调 · 暗</b><span>#7899f8</span></span></button>
+        <button class="sw" data-hex="#f4f6fa"><span class="chip-c" style="background:#f4f6fa"></span><span class="info"><b>画布 · 亮</b><span>#f4f6fa</span></span></button>
+        <button class="sw" data-hex="#1e2532"><span class="chip-c" style="background:#1e2532"></span><span class="info"><b>主文本 · 亮</b><span>#1e2532</span></span></button>
+        <button class="sw" data-hex="#3b66db"><span class="chip-c" style="background:#3b66db"></span><span class="info"><b>强调 · 亮</b><span>#3b66db</span></span></button>
+        <button class="sw" data-hex="#2f7d6b"><span class="chip-c" style="background:#2f7d6b"></span><span class="info"><b>掌握 (新)</b><span>#2f7d6b</span></span></button>
+        <button class="sw" data-hex="#a8672f"><span class="chip-c" style="background:#a8672f"></span><span class="info"><b>待回看 (新)</b><span>#a8672f</span></span></button>
+      </div>
+      <p style="margin-top:10px;font-size:11.5px;color:var(--muted)">点击色块可复制色值。两枚状态色饱和度均低于 45%，只用于状态点、标签与进度，不用于按钮或大面积背景。</p>
+
+      <h3>字阶</h3>
+      <div class="scale">
+        <div class="scale-row"><span class="tag">Display</span><span class="s1">先看出口，再想往下走</span><span class="spec">30 / 1.3 · serif</span></div>
+        <div class="scale-row"><span class="tag">Title</span><span class="s2">理解递归 · 第 3 次对话</span><span class="spec">17 / 1.35 · 600</span></div>
+        <div class="scale-row"><span class="tag">Body</span><span class="s3">把「出口」和「向出口靠近的一步」分开写。</span><span class="spec">13.5 / 1.7</span></div>
+        <div class="scale-row"><span class="tag">Caption</span><span class="s4">21:04 · 学习模式 · 只读</span><span class="spec">11.5 / 1.5</span></div>
+        <div class="scale-row"><span class="tag">Eyebrow</span><span class="s5">今日目标 · 03 / 05</span><span class="spec">10.5 · +0.1em</span></div>
+      </div>
+      <p style="margin-top:12px">
+        衬线只用在两处：章节标题与角色台词。它们是"人"的部分。所有操作性文字保持系统无衬线，
+        避免把中文衬线用于小字号（在 Windows 上回退不可控）。等宽只用于时间、路径、代码与计数。
+      </p>
+
+      <h3>几何与动效</h3>
+      <table class="table">
+        <thead><tr><th>层级</th><th>半径</th><th>用途</th></tr></thead>
+        <tbody>
+          <tr><td>外壳</td><td class="mono">16px</td><td>桌面窗口、命令面板</td></tr>
+          <tr><td>卡片</td><td class="mono">12px</td><td>目标、纸条、对话中的插图</td></tr>
+          <tr><td>控件</td><td class="mono">8px</td><td>输入框、按钮、列表项</td></tr>
+          <tr><td>胶囊</td><td class="mono">9999px</td><td>标签、状态、导航</td></tr>
+          <tr><td>面板</td><td class="mono">28px</td><td>手机底部对话框（仅 M3）</td></tr>
+        </tbody>
+      </table>
+      <p>
+        动效只有一条曲线：<code class="mono">cubic-bezier(.16,1,.3,1)</code>，三档时长 120 / 220 / 420ms。
+        角色呼吸是唯一的长周期动画（6–7s），其余动画都在状态变化时发生，不做装饰性循环。
+      </p>
+    </div>
+  </section>
+
+  <!-- 05 -->
+  <section class="sec" id="behavior">
+    <div class="sec-rail"><span class="num">05</span><span class="name">交互</span></div>
+    <div class="sec-main">
+      <h2>三条规则决定界面是否可信</h2>
+      <p class="intro">
+        视觉决定第一眼，交互决定第三天还用不用。以下三条是本方案里最需要被实现约束的部分，
+        也是 demo 中可以直接操作验证的部分。
+      </p>
+
+      <div class="rule">
+        <header><b>分层提示</b><span class="tag">HINT LEVELS</span></header>
+        <div class="body">
+          <div class="levels">
+            <div><span class="lv">LEVEL 01</span><b>观察</b><span>把问题变成可观察的一步，不出现代码。</span></div>
+            <div><span class="lv">LEVEL 02</span><b>条件</b><span>指出关键判断或边界，仍不给完整结构。</span></div>
+            <div><span class="lv">LEVEL 03</span><b>结构</b><span>给出结构与顺序，把最后一步留给用户。</span></div>
+          </div>
+          <ul>
+            <li>每层之间至少间隔一次用户输入，不允许连点三层。按钮在请求中显示"正在想…"并禁用。</li>
+            <li>第三层之后按钮变为"看解法"，且这是一个<b>显式</b>动作：点击后记录为「直接看解法」，不计入掌握度。</li>
+            <li>提示内容不重复用户已经说过的信息；每层最多 2 句，超出部分折叠为"展开更多"。</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="rule">
+        <header><b>纸条 · 主动帮助</b><span class="tag">PROACTIVE SLIP</span></header>
+        <div class="body">
+          <ul>
+            <li><b>触发：</b>同一处停留 ≥10 分钟、复习到期、连续天数即将中断。三条互斥，不同时出现。</li>
+            <li><b>位置：</b>内容页边，最多 3 张；始终不覆盖正文与输入区，窄屏时收进"纸条 (2)"按钮。</li>
+            <li><b>动作：</b>接受（写入台面 / 开始复习）、晚点（冷却 30 分钟）、不用（当日同类不再出现）。</li>
+            <li><b>消失：</b>只有用户操作才会消失。状态变化后原位替换为一行结果，不弹 toast 二次确认。</li>
+            <li><b>可解释：</b>每张纸条都带触发原因（"这里卡了 12 分钟"），不接受无理由的主动建议。</li>
+          </ul>
+          <div class="specimen">
+            <div class="slip-card">
+              <h5>这里卡了 12 分钟</h5>
+              <p>要不要把刚才那句「n == 0 那行」加进递归笔记？下次会先想起来。</p>
+              <div class="acts"><button>加入笔记</button><button class="ghost">先不用</button></div>
+            </div>
+            <p class="specimen-cap">这是真实组件：左侧 2px 强调色边界，2px→12px 的圆角过渡，悬停时轻微抬起。它不会自己消失。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="rule">
+        <header><b>工具审批</b><span class="tag">APPROVAL</span></header>
+        <div class="body">
+          <ul>
+            <li>范围写清：路径、条数、读或写。例如"读取 <code class="mono">错题/递归*.md</code>（4 条），仅读取"。</li>
+            <li>三档授权：允许一次 / 本次会话 / 拒绝。默认焦点在"允许一次"，危险操作默认在"拒绝"。</li>
+            <li>结果留痕：审批完成后卡片原地变成一行结果，并写入「记忆」，可撤销。</li>
+            <li>拒绝不解释、不追问、不重复请求；下一次需要时重新提问。</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>三态与键盘</h3>
+      <p>
+        列表为空、加载中、读取失败必须可区分：加载中显示骨架（≥300ms 才出现，避免闪烁），
+        失败显示原因与重试，只有"成功且确实没有数据"才显示空态。空态由图标、标题、一行说明和一个主动作组成，
+        不接受只有一行灰字。
+      </p>
+      <p>
+        键盘：<code class="mono">⌘K</code> 命令面板，<code class="mono">Enter</code> 发送、<code class="mono">⇧Enter</code> 换行，
+        <code class="mono">Esc</code> 关闭最上层。所有图标按钮提供 26px（桌面）/ 44–48px（移动）命中区与
+        <code class="mono">:focus-visible</code> 外环；输入框的焦点反馈由容器承担，textarea 自身不画轮廓。
+      </p>
+    </div>
+  </section>
+
+  <!-- 06 -->
+  <section class="sec" id="ends">
+    <div class="sec-rail"><span class="num">06</span><span class="name">三端</span></div>
+    <div class="sec-main">
+      <h2>同一套语言，三种坐姿</h2>
+      <p class="intro">
+        三个 demo 都是可交互的：切换明暗、发送消息、逐层要提示、处理纸条与审批、在 Web 端切换标签与命令面板、
+        在手机端展开对话框与打开设置。建议按下面的顺序看。
+      </p>
+
+      <div class="ends">
+        <a class="end" href="desktop.html">
+          <span class="shot" aria-hidden="true">
+            <i style="left:8%;top:12%;width:26%;height:76%"></i>
+            <i class="acc" style="left:38%;top:16%;width:22%;height:5px"></i>
+            <i style="left:38%;top:28%;width:52%;height:5px"></i>
+            <i style="left:38%;top:38%;width:44%;height:5px"></i>
+            <i style="left:38%;top:50%;width:50%;height:30%;border-radius:6px"></i>
+            <i style="left:92%;top:10%;width:3%;height:80%"></i>
+          </span>
+          <span class="head"><span class="k">01 / DESKTOP</span><span class="arrow">→</span></span>
+          <h3>陪伴为主</h3>
+          <p>角色、今日目标、待复习与书页式对话同屏。工作台模式可切换，角色收起为头像。</p>
+          <ul><li>左栏：角色 + 今日 + 本周节奏</li><li>右页边：纸条与审批</li><li>底部：多行输入与模式开关</li></ul>
+        </a>
+
+        <a class="end" href="workbench.html">
+          <span class="shot" aria-hidden="true">
+            <i style="left:0;top:8%;width:22%;height:84%"></i>
+            <i class="acc" style="left:30%;top:14%;width:34%;height:5px"></i>
+            <i style="left:30%;top:26%;width:40%;height:5px"></i>
+            <i style="left:30%;top:36%;width:36%;height:5px"></i>
+            <i style="left:30%;top:48%;width:40%;height:26%;border-radius:6px"></i>
+            <i style="left:74%;top:8%;width:26%;height:84%"></i>
+          </span>
+          <span class="head"><span class="k">02 / WEB</span><span class="arrow">→</span></span>
+          <h3>工作台为主</h3>
+          <p>三栏：会话、正文、上下文。台面与记忆升为一级标签，命令面板覆盖全部动作。</p>
+          <ul><li>中列：对话 / 台面 / 记忆</li><li>右栏：目标、记忆命中、复习</li><li>⌘K：搜索与命令</li></ul>
+        </a>
+
+        <a class="end" href="mobile.html">
+          <span class="shot" aria-hidden="true">
+            <i style="left:38%;top:6%;width:24%;height:88%;border-radius:12px"></i>
+            <i class="acc" style="left:44%;top:22%;width:12%;height:12%;border-radius:50%"></i>
+            <i style="left:44%;top:40%;width:12%;height:4px"></i>
+            <i style="left:42%;top:52%;width:16%;height:34%;border-radius:8px"></i>
+          </span>
+          <span class="head"><span class="k">03 / MOBILE</span><span class="arrow">→</span></span>
+          <h3>此刻为主</h3>
+          <p>上半屏是角色与一句话，下半屏是可展开的对话面板；设置是全屏容器，分组条目固定。</p>
+          <ul><li>底部面板：52% ↔ 88%</li><li>全屏设置：分类 + 单列表单</li><li>48dp 触控与 M3 形状</li></ul>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 07 -->
+  <section class="sec" id="a11y">
+    <div class="sec-rail"><span class="num">07</span><span class="name">无障碍</span></div>
+    <div class="sec-main">
+      <h2>可读性是可测量的，不是形容词</h2>
+      <p class="intro">
+        下表是按 WCAG 2.2 相对亮度公式对本方案令牌实测的结果。正文与承载信息的弱化文本均达到 AA；
+        若沿用旧的弱化色（亮色 #8592a6 / 暗色 #6a778e），分别为 3.15:1 与 3.89:1，不达标——这是本方案调整令牌的原因。
+      </p>
+
+      <div class="aa">
+        <div class="h">组合</div><div class="h">对比度</div><div class="h">结论</div>
+
+        <div>暗色 · 正文 <span class="mono">#e6ebf5 / #141923</span></div><div class="r">14.72:1</div><div class="aaa">AAA</div>
+        <div>暗色 · 次级 <span class="mono">#a4b0c6 / #141923</span></div><div class="r">8.05:1</div><div class="aaa">AAA</div>
+        <div>暗色 · 弱化 <span class="mono">#7d8a9e / #141923</span></div><div class="r">5.03:1</div><div class="ok">AA</div>
+        <div>暗色 · 强调 <span class="mono">#7899f8 / #141923</span></div><div class="r">6.46:1</div><div class="ok">AA</div>
+        <div>亮色 · 正文 <span class="mono">#1e2532 / #ffffff</span></div><div class="r">15.37:1</div><div class="aaa">AAA</div>
+        <div>亮色 · 次级 <span class="mono">#4f5b70 / #ffffff</span></div><div class="r">6.86:1</div><div class="ok">AA</div>
+        <div>亮色 · 弱化 <span class="mono">#636f85 / #ffffff</span></div><div class="r">5.07:1</div><div class="ok">AA</div>
+        <div>亮色 · 强调 <span class="mono">#3b66db / #ffffff</span></div><div class="r">5.11:1</div><div class="ok">AA</div>
+        <div>主按钮文字 <span class="mono">#ffffff / #3b66db</span></div><div class="r">5.11:1</div><div class="ok">AA</div>
+      </div>
+
+      <h3>其余约束</h3>
+      <table class="table">
+        <tbody>
+          <tr><td>触控</td><td>桌面图标按钮 26×26px；移动所有可点区域 ≥44px，主控件 48px（M3）</td></tr>
+          <tr><td>动效</td><td><code class="mono">prefers-reduced-motion</code> 下停用呼吸、浮动与逐层展开，仅保留状态切换</td></tr>
+          <tr><td>焦点</td><td>2px 强调色外环 + 2px 偏移；打开面板时焦点进入面板，关闭后回到触发元素</td></tr>
+          <tr><td>数字</td><td>所有时间、进度、计数使用 <code class="mono">tabular-nums</code>，避免跳字</td></tr>
+          <tr><td>语义</td><td>状态不只靠颜色：纸条同时有标题与触发原因，状态点旁始终有文字</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 08 -->
+  <section class="sec" id="scope" style="border-bottom:0">
+    <div class="sec-rail"><span class="num">08</span><span class="name">边界</span></div>
+    <div class="sec-main">
+      <h2>这次只到"可评审"，不到"可发布"</h2>
+      <p class="intro">
+        本提案不修改任何现有界面代码，也不代表任何能力已经交付。它提供的是一个可以被讨论、
+        被拆成实现任务的设计基线。以下三件事需要先定，否则实现会走两次。
+      </p>
+
+      <div class="decisions">
+        <div class="dec">
+          <span class="box"></span>
+          <div><h4>「台面」是否升为一级导航</h4><p>升为一级会让学习产出更可见，但也会让手机端多一个主入口。当前 demo 在 Web 升为标签、手机降为二级页，属于折中。</p></div>
+          <span class="stat">待定</span>
+        </div>
+        <div class="dec">
+          <span class="box"></span>
+          <div><h4>纸条的每日上限</h4><p>方案先取 3 张/天、冷却 30 分钟。上限过低会失去"主动"，过高会重新变成噪音，需要真实使用数据。</p></div>
+          <span class="stat">待定</span>
+        </div>
+        <div class="dec">
+          <span class="box"></span>
+          <div><h4>「直接看解法」是否计入掌握度</h4><p>不计入更诚实，但会让进度显得慢。建议先不计入，并在复习队列中提高该知识点的优先级。</p></div>
+          <span class="stat">待定</span>
+        </div>
+      </div>
+
+      <h3>与现有规范的关系</h3>
+      <p>
+        色域、单主色、动效曲线、圆角阶梯与禁止项均沿用 <b>AVX-DS-001</b>；本方案新增"书页式排版"、
+        "纸条"与两枚语义色，若采纳需要在 <code class="mono">docs/reference/DESIGN.md</code> 增补一节，
+        而不是在组件里各自定义。Android 仍使用 Material 3 的角色与组件，本方案的品牌层只影响颜色与文案。
+      </p>
+
+      <h3>文件清单</h3>
+      <div class="files">
+        <div class="file"><code>index.html</code><span>本页：判断、概念、结构、令牌与交互规范</span></div>
+        <div class="file"><code>desktop.html</code><span>桌面端：陪伴布局、纸条、分层提示、工具审批、紧凑模式</span></div>
+        <div class="file"><code>workbench.html</code><span>Web 工作台：三栏、对话 / 台面 / 记忆、命令面板、空态</span></div>
+        <div class="file"><code>mobile.html</code><span>手机端：此刻、可展开对话面板、全屏设置、M3 开关</span></div>
+        <div class="file"><code>assets/tokens.css</code><span>共享令牌：颜色、字阶、圆角、动效、原子组件</span></div>
+      </div>
+
+      <p style="margin-top:14px;font-size:11.5px;line-height:1.8;color:var(--muted)">
+        这些页面不需要构建，也没有任何外部依赖或字体请求，双击即可打开。使用了
+        <code class="mono">color-mix()</code>、<code class="mono">:has()</code> 与 <code class="mono">dvh</code>，
+        需要 Chrome 111+ / Safari 16.4+ / Firefox 121+。所有数据都是演示用的静态内容。
+      </p>
+
+      <h3>如何验证这个方案</h3>
+      <p>
+        一次 5 人可用性测试，三个任务：① 从"看不懂递归"到拿到第 2 层提示，步数 ≤2；
+        ② 说出当前目标和今天要复习的内容；③ 在纸条出现后判断它为什么出现。
+        记录完成率、步数与"是否忽略纸条"。如果超过一半的人忽略纸条，说明主动帮助的时机错了，而不是样式错了。
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    <span>思隅 · 静室方案 · v1 · 2026-11</span>
+    <span class="mono">所有 demo 为静态 HTML，可直接用浏览器打开</span>
+  </footer>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite">已复制</div>
+
+<script>
+  const root = document.documentElement;
+  const saved = localStorage.getItem('aervox.demo.theme');
+  if (saved) root.dataset.theme = saved;
+  document.getElementById('themeBtn').onclick = () => {
+    root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('aervox.demo.theme', root.dataset.theme);
+  };
+
+  const toast = document.getElementById('toast');
+  let t;
+  document.querySelectorAll('.sw').forEach((sw) => {
+    sw.onclick = async () => {
+      const hex = sw.dataset.hex;
+      try { await navigator.clipboard.writeText(hex); toast.textContent = '已复制 ' + hex; }
+      catch { toast.textContent = hex; }
+      toast.classList.add('show');
+      clearTimeout(t);
+      t = setTimeout(() => toast.classList.remove('show'), 1600);
+    };
+  });
+
+  // 章节轻微上浮
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      if (e.isIntersecting) { e.target.classList.add('rise'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.08 });
+  document.querySelectorAll('.sec').forEach((s) => io.observe(s));
+</script>
+</body>
+</html>
