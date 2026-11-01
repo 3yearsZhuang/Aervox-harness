@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createInMemoryDatabase, SqliteConversationRepository, SessionHistoryReadError } from '../src/index.js';
+import { createInjectedDatabase } from '../src/database.js';
+import { nativeSqliteBoundary } from './helpers/native-sqlite-boundary.js';
 
 const ctx = { workspaceId: 'local', subjectUserId: 'local' };
 const cursor = (sessionId: string, beforeTurnId: string) => Buffer.from(JSON.stringify({ v: 1, sessionId, beforeTurnId })).toString('base64url');
@@ -8,9 +10,9 @@ describe('owner history pages use current durable versions only', () => {
   let repo: SqliteConversationRepository;
   beforeEach(async () => { database = await createInMemoryDatabase(); repo = new SqliteConversationRepository(database.db); await repo.getOrCreateSession(ctx, 'session'); });
   afterEach(async () => { await database.cleanup(); });
-  async function accepted(id: string, status = 'Completed', sessionId = 'session', text = `answer ${id}`) {
+  async function accepted(id: string, status = 'Completed', sessionId = 'session', text = `answer ${id}`, input = `input ${id}`) {
     await repo.acceptTurn(ctx, { turnId: id, sessionId, idempotencyKey: id, attemptId: `attempt-${id}`,
-      message: { id: `user-${id}`, content: `input ${id}` }, consumeInbox: false });
+      message: { id: `user-${id}`, content: input }, consumeInbox: false });
     await repo.appendStreamEvent(ctx, { id: `message-${id}`, turnId: id, attemptId: `attempt-${id}`, expectedFencingToken: 0,
       sequence: 1, eventType: 'message', data: { role: 'assistant', messageId: `assistant-${id}` }, safetyDecision: 'approved' });
     await repo.recordSafeSegmentAtomically(ctx, { turnId: id, attemptId: `attempt-${id}`, expectedFencingToken: 0, sequence: 2,
@@ -131,15 +133,58 @@ describe('owner history pages use current durable versions only', () => {
     const imported = await repo.importSession(ctx, { messages: [{ role: 'user', content: 'count' }, ...Array.from({ length: 100 }, () => ({ role: 'assistant' as const, content: 'message' }))] });
     await expect(page({}, imported.session.id)).rejects.toMatchObject({ code: 'HISTORY_ITEM_TOO_LARGE' });
   });
-  it('applies the complete-page byte budget and lets the caller explicitly reduce limit', async () => {
+  it('shrinks a complete page to its byte budget and keeps the excluded Turn on the next page', async () => {
     for (const id of ['first', 'second', 'third']) await accepted(id, 'Completed', 'session', '中'.repeat(62_000));
-    await expect(page({ limit: 3 })).rejects.toMatchObject({ code: 'HISTORY_ITEM_TOO_LARGE' });
-    const smaller = await page({ limit: 2 });
-    expect(smaller.items).toHaveLength(2); expect(smaller.nextCursor).not.toBeNull();
+    const smaller = await page({ limit: 3 });
+    expect(smaller.items.map(item => item.turnId)).toEqual(['second', 'third']);
+    expect(smaller.nextCursor).toBe(cursor('session', 'second'));
     expect(Buffer.byteLength(JSON.stringify(smaller))).toBeLessThanOrEqual(512 * 1024);
+    expect((await page({ limit: 3, cursor: smaller.nextCursor! })).items.map(item => item.turnId)).toEqual(['first']);
     await database.client.execute("UPDATE turns SET dispatch_target = 'api' WHERE id = 'second'");
     await expect(page({ cursor: cursor('session', 'second') })).rejects.toMatchObject({ code: 'HISTORY_CURSOR_EXPIRED' });
     expect((await page()).items.map(turn => turn.turnId)).toEqual(['first', 'third']);
+  });
+  it('reads every wide Turn exactly once across byte-limited pages under the native cursor boundary', async () => {
+    const ids = Array.from({ length: 7 }, (_, index) => `wide-${index}`);
+    const text = '\0'.repeat(8_192);
+    // Worst escaping still respects the native 120 KiB JSON input and 48 KiB JSON
+    // response quotas while producing individually legal, nearly full Turns.
+    const input = '问题' + '\0'.repeat((120 * 1024 - 6) / 6);
+    for (const id of ids) await accepted(id, 'Completed', 'session', text, input);
+    const boundary = nativeSqliteBoundary(database.client);
+    repo = new SqliteConversationRepository(createInjectedDatabase(boundary.client));
+    const pages: string[][] = [];
+    let next: string | undefined;
+    do {
+      const result = await page({ limit: 20, cursor: next });
+      expect(Buffer.byteLength(JSON.stringify(result))).toBeLessThanOrEqual(512 * 1024);
+      expect(result.items.every(item => item.messages[1]?.content === text)).toBe(true);
+      pages.push(result.items.map(item => item.turnId));
+      next = result.nextCursor ?? undefined;
+    } while (next && pages.length < 8);
+    expect(next).toBeUndefined();
+    expect(pages).toEqual([['wide-4', 'wide-5', 'wide-6'], ['wide-1', 'wide-2', 'wide-3'], ['wide-0']]);
+    expect(pages.flat().sort()).toEqual(ids);
+    expect(boundary.measurements.largestWindowBytes).toBeLessThan(256 * 1024);
+  });
+  it('backs up before a hidden long cursor that would overflow an otherwise full page', async () => {
+    await accepted('older');
+    const hidden = 'hidden-' + '\0'.repeat(1000);
+    await accepted(hidden); await repo.softDeleteMessage(ctx, `user-${hidden}`);
+    for (const id of ['second', 'third']) await accepted(id, 'Completed', 'session', 'x'.repeat(259_000));
+    const first = await page({ limit: 3 });
+    expect(first.items.map(item => item.turnId)).toEqual(['second', 'third']);
+    expect(first.nextCursor).toBe(cursor('session', 'second'));
+    expect(Buffer.byteLength(JSON.stringify(first))).toBeLessThanOrEqual(512 * 1024);
+    const last = await page({ limit: 3, cursor: first.nextCursor! });
+    expect(last.items.map(item => item.turnId)).toEqual(['older']); expect(last.nextCursor).toBeNull();
+  });
+  it('does not require an intermediate cursor when all candidates fit and the final cursor is null', async () => {
+    await accepted('older');
+    const id = 'turn-' + '\0'.repeat(3000);
+    await repo.createTurnWithOutbox(ctx, { id, sessionId: 'session', idempotencyKey: id, status: 'Completed' }, { id: 'long-cursor-user', content: 'body' });
+    const result = await page({ limit: 2 });
+    expect(result.items.map(item => item.turnId)).toEqual(['older', id]); expect(result.nextCursor).toBeNull();
   });
   it('includes IDs and metadata in the Turn budget without truncating unknown legacy identities', async () => {
     const id = 'long-' + 'x'.repeat(4096);

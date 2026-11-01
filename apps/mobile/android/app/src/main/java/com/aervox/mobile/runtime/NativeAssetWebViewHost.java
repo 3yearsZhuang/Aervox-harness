@@ -64,6 +64,8 @@ final class NativeAssetWebViewHost implements AutoCloseable {
     private WebView view;
     private NativeMessageChannel channel;
     private boolean documentStarted;
+    private Runnable retirementListener;
+    void onRetired(Runnable listener) { requireUi(); retirementListener = listener; }
 
     static NativeAssetWebViewHost create(Context context, NativeMessageChannel.RequestHandler handler) {
         requireUi();
@@ -223,6 +225,8 @@ final class NativeAssetWebViewHost implements AutoCloseable {
             } catch (RuntimeException failed) { status = Status.RETIRED_DESTROY_FAILURE; }
         }
         cleanupProfile();
+        Runnable listener = retirementListener; retirementListener = null;
+        if (listener != null) listener.run();
     }
     private void cleanupProfile() {
         if (profileName == null || store == null) return;

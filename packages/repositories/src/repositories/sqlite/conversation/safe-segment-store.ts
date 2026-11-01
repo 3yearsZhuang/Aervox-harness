@@ -18,7 +18,9 @@ export const MAX_RESUME_CANDIDATE_LIMIT = 100;
  * limits. A model step normally produces far fewer rows; the cap is a guard
  * for providers that emit unusually fine-grained chunks.
  */
-const SAFE_SEGMENT_BATCH_SIZE = 32;
+// Both inserts must also fit the constrained native writer's 256 parameters;
+// safe_segments currently binds ten values per row.
+const SAFE_SEGMENT_BATCH_SIZE = 16;
 
 const safeSegmentId = (turnId: string, sequence: number): string => `sseg_${turnId}_${sequence}`;
 

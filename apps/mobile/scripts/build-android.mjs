@@ -14,10 +14,15 @@ export function buildAndroid({ inspect = inspectAndroidEnvironment, report = pri
   const buildEnv = { ...env, ...(prerequisites.sdkRoot
     ? { ANDROID_HOME: prerequisites.sdkRoot, ANDROID_SDK_ROOT: prerequisites.sdkRoot } : {}) };
   const pnpm = platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+  const workspaceRoot = path.resolve(root, '../..');
   const steps = [
-    { command: pnpm, args: ['run', 'mobile:schema'], cwd: path.resolve(root, '../..') },
-    { command: pnpm, args: ['run', 'build:web'], cwd: root },
+    // Restore the Web dependency graph through the root submodule guard.
+    // Excluding Web keeps its native base separate; two filters avoid cmd.exe's ^ escaping.
+    { command: pnpm, args: ['run', 'build', '--filter=@aervox/web...', '--filter=!@aervox/web'], cwd: workspaceRoot },
+    { command: pnpm, args: ['run', 'mobile:schema'], cwd: workspaceRoot },
+    { command: pnpm, args: ['run', 'build:web:native'], cwd: root },
     { command: pnpm, args: ['exec', 'cap', 'sync', 'android'], cwd: root },
+    { command: pnpm, args: ['run', 'prepare:native'], cwd: root },
     { command: platform === 'win32' ? 'gradlew.bat' : './gradlew', args: ['assembleDebug'], cwd: path.join(root, 'android') },
   ];
   for (const step of steps) {

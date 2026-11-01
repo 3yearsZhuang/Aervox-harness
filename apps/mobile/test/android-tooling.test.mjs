@@ -242,24 +242,36 @@ test('ANDROID_SERIAL chooses an authorized target explicitly and binds the API q
 
 test('native build fails before touching assets or running Gradle when prerequisites are missing', () => {
   const calls = [];
-  const code = buildAndroid({ verifySqlite: () => {}, inspect: () => ({ ok: false, checks: [] }), report: () => {}, run: (...args) => calls.push(args) });
+  const code = buildAndroid({ verifySqlite: () => calls.push('sqlite'), inspect: () => ({ ok: false, checks: [] }), report: () => {}, run: (...args) => calls.push(args) });
   assert.equal(code, 1);
   assert.deepEqual(calls, []);
 });
 
-test('native build supplies the discovered SDK to child processes without changing the caller environment', () => {
-  const env = { PATH: '/tools' };
-  const calls = [];
-  const code = buildAndroid({ verifySqlite: () => {}, env, inspect: () => ({ ok: true, checks: [], sdkRoot: '/android-sdk' }), report: () => {},
-    platform: 'linux', run: (command, args, options) => { calls.push(options); return { status: 0 }; } });
-  assert.equal(code, 0);
-  assert.equal(calls.at(-1).env.ANDROID_HOME, '/android-sdk');
-  assert.equal(calls.at(-1).env.ANDROID_SDK_ROOT, '/android-sdk');
-  assert.deepEqual(env, { PATH: '/tools' });
+test('native build restores Web upstream packages before generating assets and preserves SDK and Windows dispatch', () => {
+  for (const platform of ['linux', 'win32']) {
+    const env = { PATH: '/tools' };
+    const calls = [];
+    let verified = false;
+    const code = buildAndroid({ verifySqlite: () => { verified = true; }, env,
+      inspect: () => ({ ok: true, checks: [], sdkRoot: '/android-sdk' }), report: () => {}, platform,
+      run: (command, args, options) => { assert.equal(verified, true); calls.push({ command, args, ...options }); return { status: 0 }; } });
+    assert.equal(code, 0);
+    assert.deepEqual(calls[0].args, ['run', 'build', '--filter=@aervox/web...', '--filter=!@aervox/web']);
+    assert.equal(calls[0].cwd, path.resolve(mobileRoot, '../..'));
+    assert.deepEqual(calls[1].args, ['run', 'mobile:schema']);
+    assert.deepEqual(calls[2].args, ['run', 'build:web:native']);
+    assert.equal(calls[2].cwd, mobileRoot);
+    assert.ok(calls.slice(0, -1).every(call => call.command === (platform === 'win32' ? 'pnpm.cmd' : 'pnpm')));
+    assert.equal(calls.at(-1).command, platform === 'win32' ? 'gradlew.bat' : './gradlew');
+    assert.ok(calls.every(call => call.shell === (platform === 'win32')));
+    assert.equal(calls.at(-1).env.ANDROID_HOME, '/android-sdk');
+    assert.equal(calls.at(-1).env.ANDROID_SDK_ROOT, '/android-sdk');
+    assert.deepEqual(env, { PATH: '/tools' });
+  }
 });
 
-test('native build stops on schema generation, Web, sync or Gradle failure and preserves the failing exit status', () => {
-  for (const failAt of [0, 1, 2, 3]) {
+test('native build stops on upstream, schema, Web, sync or Gradle failure and preserves the failing exit status', () => {
+  for (const failAt of [0, 1, 2, 3, 4, 5]) {
     const calls = [];
     const code = buildAndroid({ verifySqlite: () => {}, root: mobileRoot, inspect: () => ({ ok: true, checks: [] }), report: () => {},
       platform: 'linux', run: (command, args, options) => {
@@ -268,8 +280,8 @@ test('native build stops on schema generation, Web, sync or Gradle failure and p
       } });
     assert.equal(code, 7);
     assert.equal(calls.length, failAt + 1);
-    assert.deepEqual(calls[0], { command: 'pnpm', args: ['run', 'mobile:schema'], cwd: path.resolve(mobileRoot, '../..') });
-    if (failAt === 3) assert.deepEqual(calls[3], { command: './gradlew', args: ['assembleDebug'], cwd: path.join(mobileRoot, 'android') });
+    assert.deepEqual(calls[0], { command: 'pnpm', args: ['run', 'build', '--filter=@aervox/web...', '--filter=!@aervox/web'], cwd: path.resolve(mobileRoot, '../..') });
+    if (failAt === 5) assert.deepEqual(calls[5], { command: './gradlew', args: ['assembleDebug'], cwd: path.join(mobileRoot, 'android') });
   }
 });
 

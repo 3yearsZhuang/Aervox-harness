@@ -8,7 +8,7 @@ import java.util.Locale;
 final class NativeAssetPolicy {
     static final String ENTRY = "https://localhost/m0/index.html";
     static final String CSP = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-        + "img-src 'self' data:; font-src 'self'; connect-src 'none'; frame-src 'none'; "
+        + "img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-src 'none'; "
         + "worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
     private NativeAssetPolicy() {}
 
@@ -21,6 +21,10 @@ final class NativeAssetPolicy {
                 || uri.getRawQuery() != null || uri.getRawFragment() != null
                 || uri.getRawPath() == null || !uri.getRawPath().equals(uri.getPath())) return null;
             String path = uri.getRawPath();
+            // Existing shared Live2D code uses root-relative immutable assets.
+            // These aliases still resolve exclusively to the packaged m0 tree.
+            if (path.startsWith("/live2d/")) path = "/m0" + path;
+            if (path.equals("/aervox-mark.svg")) path = "/m0/aervox-mark.svg";
             if (!path.matches("/m0/(?:[A-Za-z0-9_-][A-Za-z0-9_.-]*/)*[A-Za-z0-9_-][A-Za-z0-9_.-]*")) return null;
             return mime(path) == null ? null : path.substring(1);
         } catch (URISyntaxException ignored) { return null; }
@@ -44,6 +48,7 @@ final class NativeAssetPolicy {
             case "woff2": return "font/woff2";
             case "ttf": return "font/ttf";
             case "otf": return "font/otf";
+            case "moc3": return "application/octet-stream";
             default: return null;
         }
     }

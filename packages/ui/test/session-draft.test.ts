@@ -16,9 +16,9 @@ beforeEach(() => {
   vi.stubGlobal('localStorage', store);
 });
 afterEach(() => { for (const binding of bindings.splice(0)) binding.dispose(); vi.unstubAllGlobals(); });
-function fixture(id = 'a', enabled = true) {
+function fixture(id = 'a', enabled = true, storage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>) {
   const input = ref(''), sessionId = ref(id), active = ref(enabled), onRestore = vi.fn();
-  const draft = useSessionDraft({ input, sessionId, enabled: active, onRestore });
+  const draft = useSessionDraft({ input, sessionId, enabled: active, onRestore, storage });
   bindings.push(draft);
   return { input, sessionId, enabled: active, onRestore, ...draft };
 }
@@ -199,6 +199,70 @@ describe('shared session draft ownership', () => {
     store.setItem.mockImplementation(() => { throw new Error('quota'); });
     expect(() => { draft.input.value = '仍可输入'; draft.beginDraftSubmission('仍可输入'); draft.input.value = ''; draft.restoreFailedDraft(); }).not.toThrow();
     expect(draft.input.value).toBe('仍可输入');
+  });
+});
+
+describe('host-injected session draft storage', () => {
+  function hostStorage() {
+    const saved = new Map<string, string>();
+    const storage = {
+      getItem: (name: string) => saved.get(name) ?? null,
+      setItem: (name: string, value: string) => { saved.set(name, value); },
+      removeItem: (name: string) => { saved.delete(name); },
+    };
+    return { saved, storage };
+  }
+
+  it('restores and switches owners using only the prepared host cache', () => {
+    const { saved, storage } = hostStorage();
+    saved.set(key('a'), '本机甲草稿');
+    saved.set(key('b'), '本机乙草稿');
+    values.set(key('a'), '旧浏览器草稿');
+    const draft = fixture('a', true, storage);
+    expect(draft.input.value).toBe('本机甲草稿');
+    draft.input.value = '甲的更新';
+    draft.sessionId.value = 'b';
+    expect(draft.input.value).toBe('本机乙草稿');
+    expect(saved.get(key('a'))).toBe('甲的更新');
+    draft.input.value = '乙的更新';
+    draft.dispose();
+    const reopened = fixture('b', true, storage);
+    expect(reopened.input.value).toBe('乙的更新');
+    expect(values.get(key('a'))).toBe('旧浏览器草稿');
+    expect(store.getItem).not.toHaveBeenCalled();
+    expect(store.setItem).not.toHaveBeenCalled();
+    expect(store.removeItem).not.toHaveBeenCalled();
+  });
+
+  it('cleans an accepted submission in the host cache while preserving its newer draft', () => {
+    const { saved, storage } = hostStorage();
+    const draft = fixture('a', true, storage);
+    draft.input.value = '第一条';
+    draft.beginDraftSubmission('第一条');
+    draft.acceptDraftSubmission();
+    expect(draft.input.value).toBe('');
+    expect(saved.has(key('a'))).toBe(false);
+    draft.input.value = '第二条';
+    draft.beginDraftSubmission('第二条');
+    draft.input.value = '下一条草稿';
+    draft.acceptDraftSubmission();
+    expect(draft.input.value).toBe('下一条草稿');
+    expect(saved.get(key('a'))).toBe('下一条草稿');
+    expect(store.removeItem).not.toHaveBeenCalled();
+  });
+
+  it('moves unsubmitted text between host-owned session keys without accessing browser storage', () => {
+    const { saved, storage } = hostStorage();
+    const draft = fixture('web_default', true, storage);
+    draft.input.value = '  本机待发送  ';
+    draft.sessionId.value = 'created';
+    expect(draft.transferUnsubmittedDraft('web_default', 'created', '  本机待发送  ')).toBe(true);
+    expect(saved.has(key('web_default'))).toBe(false);
+    expect(saved.get(key('created'))).toBe('  本机待发送  ');
+    expect(draft.input.value).toBe('  本机待发送  ');
+    expect(store.getItem).not.toHaveBeenCalled();
+    expect(store.setItem).not.toHaveBeenCalled();
+    expect(store.removeItem).not.toHaveBeenCalled();
   });
 });
 

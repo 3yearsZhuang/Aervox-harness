@@ -46,7 +46,7 @@ id: AVX-DB-001
 
 Android 隔离库需以 `NO_LOCALIZED_COLLATORS` 开启：固定 Java 绑定的默认 opener 会创建 `android_metadata`，不能把该默认文件当成唯一 Schema 所要求的空库，也不能放宽为空或忽略任意额外表。使用与 canonical Schema 一致的显式 SQLite collation，不依赖 Android locale 元数据；已有未知结构仍拒绝，本规则不迁移用户库。
 
-原生消费者只能对已证明为空的隔离目标，在一个事务执行结构、校验物理语义及完整性后绑定版本回执；旧库、未知库、错误指纹/版本与未验证结构继续拒绝，不能通过重放目标 DDL 或写 journal 绕过迁移门槛。当前 Android 测试入口只验证临时库，不接业务库或恢复账本。
+原生消费者只能对已证明为空的隔离目标，在一个事务执行结构、校验物理语义及完整性后绑定版本回执；旧库、未知库、错误指纹/版本与未验证结构继续拒绝，不能通过重放目标 DDL 或写 journal 绕过迁移门槛。Android 临时探针继续只验证测试库；默认前台原型由 `NativeBusinessDatabase` 独占创建应用 no-backup 目录下的固定主库，既有本方文件复验完成标记、文件身份、版本及完整物理结构。所有权保持到 SQL drain，未知文件及不匹配证据保留拒绝；不导入桌面库或装配恢复控制账本，具体边界见 [ADR-022](adr/ADR-022-mobile-runtime-access.md#当前前台文本接线)。
 
 `@aervox/repositories/database` 的 `createInjectedDatabase(client)` 只装配已由受信宿主准备的 Client，不创建本地或远程连接、不初始化 Schema。它复用锁定 Drizzle 0.45.4 的 LibSQLSession、方言和关系装配；类的部分构造签名标记为 internal，升级时必须重验，不能当跨版本稳定 factory。现有 Node `createDatabase` 的路径、准备、重连和默认行为保持。
 
@@ -56,15 +56,17 @@ Android 隔离库需以 `NO_LOCALIZED_COLLATORS` 开启：固定 Java 绑定的�
 
 `@aervox/repositories/native-sqlite-client` 是 M0 受限 Client 适配器，只消费原生宿主已准备的固定 connectionEpoch，不负责开库或 Schema。根操作串行，事务独占同一写者直至明确提交/回滚回执，事务内另有有界顺序队列；默认 transaction 与 batch 均为 write/BEGIN IMMEDIATE，read/deferred、migrate、sync 和多语句脚本显式拒绝。未知、错代际/持有者或畸形结果停止准入，不自动重放事务或交出写者；close 只关闭准入，只有 dispose/drained 的原生精确回执才证明清理完成，也不能证明先前未知 commit 未发生。关闭期间终态拒绝不得使旧句柄复活；batch 无法确认回滚时同样隔离。原生 Transport 仍须独立执行事务身份、单语句、禁止控制/ATTACH/扩展及资源门禁，本步骤未提供该原生执行器。
 
-Android 原生候选 `NativeSqliteSession` 在专属线程维护同一写者与原生 epoch/事务身份，拒绝根请求混入活动事务。原生终态异常一律隔离，Java 事务栈不能证明 SQLite 已回到 autocommit；dispose 的实际连接池关闭回执才允许认定清理完成，仍不裁定先前未知提交。结果只取一次有界首窗，超窗的根语句整体回滚，活动事务超窗则保留隔离直到清理。它保守支持受信仓储的 positional 数据语句，声明列类型为未知；没有生产开库/Schema 初始化、完整 SQL authorizer 或硬取消保证。
+Android 原生候选 `NativeSqliteSession` 在专属线程维护同一写者与原生 epoch/事务身份，拒绝根请求混入活动事务。原生终态异常一律隔离，Java 事务栈不能证明 SQLite 已回到 autocommit；dispose 的实际连接池关闭回执才允许认定清理完成，仍不裁定先前未知提交。结果只取一次有界首窗，超窗的根语句整体回滚，活动事务超窗则保留隔离直到清理。它保守支持受信仓储的 positional 数据语句，声明列类型为未知；固定主库初始化由受信 `NativeBusinessDatabase` 回调承担，不提供通用开库、完整 SQL authorizer 或硬取消保证。
 
 `@aervox/repositories/conversation` 提供同一会话命令的共享实现，要求受信 Host 显式提供同步 SHA-256/UUID 和提交后 Outbox 唤醒 Port；没有内存持久化或散列/唤醒默认。旧 `SqliteConversationRepository`、SessionStore、TurnStore 与意图函数保留 Node 默认包装，SQL、事务、fencing、删除资格和错误身份仍共用唯一实现。宿主摘要必须按原 UTF-8/canonical JSON 算法计算，错误类型/格式与异步误接直接拒绝；通知失败不能把已提交接单回执误报为未受理，持久 Outbox 始终保留。
 
-该公开入口在无 Node 全局的运行时复用注入数据库完成原子接单与历史读取；实际手机 Client、同步散列实现及问答/内部 Transport 尚须单独装配。声明消费者延续现行 skipLibCheck 限制，不将运行时边界提升为上游声明或整个移动端已验收。
+该公开入口在无 Node 全局的运行时复用注入数据库完成原子接单与历史读取。Android 前台文本组合根现已注入手机 Client、同步散列和内部 Transport，继续共用仓储的事务、删除与终态命令；终态片段和历史按原生绑定/结果配额分页，逐帧披露重新读取来源资格。工具问答、完整故障矩阵及真实设备/模型仍须单独验收。声明消费者延续现行 skipLibCheck 限制，不将运行时边界提升为上游声明或整个移动端已验收。
 
 ### 2.1 结构升级与逻辑恢复
 
 新库由 `initDatabaseSchema` / `initLedgerSchema` 初始化对应故障域，并记录版本指纹。已有库在任何结构写入前检查完整等价性；缺失列、NULL 主键、默认值或索引条件等不一致返回 `SCHEMA_STAGING_MIGRATION_REQUIRED`。无版本但完全等价的库可登记当前版本；已登记版本或指纹不符必须显式迁移。不能通过刷新指纹绕过历史数据检查。
+
+API 与 Worker 可同时观察到同一个空库；新建表和索引均容忍同版本初始化者先完成，随后复验实际物理结构和最终版本回执。并发后结构或回执不符仍拒绝，不用 `IF NOT EXISTS` 自证一致；此时 DDL 可能已提交，错误明确要求保留检查材料，不宣称并发失败时源文件未改。
 
 结构检查从独立空库读取同一份目标声明的物理语义，对照 STRICT、WITHOUT ROWID、完整列属性与列序、隐藏/生成列、复合外键分组及列配对；有界 SQL token 读取补充 CHECK、未索引列 collation、各约束的非默认冲突策略、AUTOINCREMENT 和各外键的延期行为。CHECK 比较保留字符串字面量，允许空白、引用和约束名称差异，不猜测表达式代数等价；无法检查的表定义直接阻断。检查增强不更新目标指纹、历史发布账本或迁移身份。检查及漂移拒绝不写被检查库，生产迁移仍须独立完成 [ITER-011](../../plan.md#iter-011)停写和恢复编排验收。
 

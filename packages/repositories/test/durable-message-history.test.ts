@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { Client, InStatement, Transaction } from "@libsql/client";
 import { MEMORY_DELETION_VERIFIER } from "../src/memory-deletion-protocol.js";
 import { createInMemoryDatabase, SqliteConversationRepository, collectDiaryMaterial } from "../src/index.js";
+import { createInjectedDatabase } from "../src/database.js";
 
 const ctx = { workspaceId: "local", subjectUserId: "local" };
 const assistantId = "msg_turn_assistant";
@@ -26,6 +28,22 @@ describe("accepted conversation message history", () => {
     const identity = await repo.getMessage(ctx, assistantId);
     return (await repo.listMessageVersions(ctx, assistantId)).find(version => version.id === identity?.currentVersionId);
   };
+  function constrainNativeSqlite<T extends Client | Transaction>(target: T): T {
+    // Enforce native host admission/results at the real SQLite boundary so this
+    // catches both oversized INSERT batches and unpaged history reads.
+    return new Proxy(target, { get(owner, property) {
+      if (property === "execute") return async (input: InStatement) => {
+        const args = typeof input === "string" ? [] : input.args ?? [];
+        if (Object.keys(args).length > 256) throw new Error("NATIVE_BIND_PARAMETER_LIMIT");
+        const result = await owner.execute(input);
+        if (result.rows.length > 512) throw new Error("NATIVE_RESULT_ROW_LIMIT");
+        return result;
+      };
+      if (property === "transaction" && "transaction" in owner) return async (...input: Parameters<Client["transaction"]>) => constrainNativeSqlite(await owner.transaction(...input));
+      const value: unknown = Reflect.get(owner, property, owner);
+      return typeof value === "function" ? value.bind(owner) : value;
+    } });
+  }
 
   it("acceptance creates the real user identity without changing its version id", async () => {
     expect(await repo.getMessage(ctx, "user")).toMatchObject({ id: "user", sessionId: "session", role: "user", currentVersionId: "user" });
@@ -45,6 +63,32 @@ describe("accepted conversation message history", () => {
     }
     await finish("Completed", 6);
     expect((await currentAssistant())?.content).toBe("safe prefix");
+  });
+  it("publishes all 600 committed fragments in sequence across bounded history pages", async () => {
+    repo = new SqliteConversationRepository(createInjectedDatabase(constrainNativeSqlite(database.client)));
+    await start();
+    const fragments = Array.from({ length: 600 }, (_, index) => `片段${index}\0尾|`);
+    await repo.recordSafeSegmentsAtomically(ctx, fragments.map((text, index) => ({
+      turnId: "turn", attemptId: "attempt", expectedFencingToken: 0, sequence: index + 2,
+      text, eventData: { messageId: assistantId, text }, safetyDecision: "approved",
+    })));
+    await finish("Completed", 602);
+    const result = await database.client.execute({ sql: "SELECT json_quote(content) AS body FROM message_versions WHERE id = (SELECT current_version_id FROM messages WHERE id = ?)", args: [assistantId] });
+    expect(JSON.parse(String(result.rows[0]?.body))).toBe(fragments.join(""));
+    expect((await repo.getTurn(ctx, "turn"))?.status).toBe("Completed");
+  });
+  it("keeps fragment eligibility when an entire first history page is withdrawn", async () => {
+    await start();
+    const fragments = Array.from({ length: 40 }, (_, index) => `fragment_${index}|`);
+    await repo.recordSafeSegmentsAtomically(ctx, fragments.map((text, index) => ({
+      turnId: "turn", attemptId: "attempt", expectedFencingToken: 0, sequence: index + 2,
+      text, eventData: { messageId: assistantId, text }, safetyDecision: "approved",
+    })));
+    await database.client.execute("UPDATE turn_stream_events SET safety_decision='pending' WHERE sequence BETWEEN 2 AND 17");
+    await database.client.execute("UPDATE safe_segments SET committed=0 WHERE sequence=18");
+    await database.client.execute("UPDATE turn_stream_events SET data='{}' WHERE sequence=19");
+    await finish("Completed", 42);
+    expect((await currentAssistant())?.content).toBe(fragments.slice(18).join(""));
   });
   it("approval continuation preserves the prefix and publishes a new immutable current version", async () => {
     await start(); await segment(); await finish("Interrupted");

@@ -15,6 +15,18 @@ public final class NativeAssetPolicyTest {
             "file:///m0/index.html", "content://localhost/m0/index.html", "data:text/html,hello", "about:blank",
             "https://localhost/m0/index.html?q=x", "https://localhost/m0/index.html#x"}) assertNull(value, NativeAssetPolicy.assetPath(value));
     }
+    @Test public void resolvesOnlyPackagedCharacterAndBrandAliases() {
+        assertEquals("m0/live2d/mizuki/mizuki.model3.json",
+            NativeAssetPolicy.assetPath("https://localhost/live2d/mizuki/mizuki.model3.json"));
+        assertEquals("m0/live2d/mizuki/model.moc3",
+            NativeAssetPolicy.assetPath("https://localhost/live2d/mizuki/model.moc3"));
+        assertEquals("application/octet-stream", NativeAssetPolicy.mime("m0/live2d/mizuki/model.moc3"));
+        assertEquals("m0/aervox-mark.svg", NativeAssetPolicy.assetPath("https://localhost/aervox-mark.svg"));
+        for (String path : new String[]{"/live2d/../index.html", "/live2d/%2e%2e/index.html", "/live2d//model.moc3",
+            "/aervox-mark.svg/extra.js", "/vendor/live2dcubismcore.min.js"}) {
+            assertNull(path, NativeAssetPolicy.assetPath("https://localhost" + path));
+        }
+    }
     @Test public void rejectsTraversalEncodingAndNonAssetRoots() {
         for (String value : new String[]{"/public/index.html", "/m0/../index.html", "/m0/./index.html", "/m0/a/../../x.js",
             "/m0/%2e%2e/index.html", "/m0/%69ndex.html", "/m0/a%2fb.js", "/m0/a%5cb.js", "/m0/a\\b.js",

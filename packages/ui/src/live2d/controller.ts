@@ -1,5 +1,5 @@
 import { Application, Container } from 'pixi.js'
-import type { Live2DModel as Live2DModelType } from '@sekai-world/pixi-live2d-display-mulmotion'
+import type { Live2DModel as Live2DModelType } from '@sekai-world/pixi-live2d-display-mulmotion/cubism4'
 import { fetchModel3Json, type AervoxLive2DModel, type Live2DPose, type ResolvedCubismAsset } from './model'
 import { fitLive2DModelToViewport } from './layout'
 
@@ -75,9 +75,9 @@ export class AervoxLive2DController {
       // Idle 组常只有一个动作，库的动作结束自动循环会永远重复它（僵硬）；
       // 替换成多样待机池后，库的 idle 随机循环本身就足够自然。
       this.diversifyIdleGroup()
-      // Load the renderer lazily so a missing optional browser runtime cannot
-      // crash the host application before the PetHero fallback can render.
-      const { Live2DModel } = await import('@sekai-world/pixi-live2d-display-mulmotion')
+      // The validated model3 contract needs only Cubism Core, not the aggregate
+      // entry's Cubism 2 runtime. Keep loading lazy so failures reach the fallback.
+      const { Live2DModel } = await import('@sekai-world/pixi-live2d-display-mulmotion/cubism4')
       if (this.destroyed) throw new DOMException('Live2D disposed', 'AbortError')
       // Pass the validated JSON so external motion metadata reaches the runtime.
       const loadedModel = await Live2DModel.from({ ...this.assets.manifest, url: this.assets.manifestUrl }, {

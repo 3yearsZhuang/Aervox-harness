@@ -116,18 +116,19 @@ export async function readSessionHistoryPage(db: AervoxDatabase, input: {
       before === undefined ? undefined : lt(sql`rowid`, before),
     )).orderBy(desc(sql`rowid`)).limit(limit + 1)).map(row => row.value);
     const scanned = candidates.slice(0, limit);
-    const last = scanned.at(-1);
-    const nextCursor = candidates.length > limit && last?.id
-      ? encode({ v: 1, sessionId: input.sessionId, beforeTurnId: last.id }) : null;
-    if (nextCursor !== null && nextCursor.length > 16_384) return fail("HISTORY_ITEM_TOO_LARGE");
     const items: SessionHistoryTurn[] = [];
-    let pageBytes = utf8ByteLength(JSON.stringify({ sessionId: input.sessionId, items: [], nextCursor }));
-    for (const candidate of scanned) {
+    const checkpoints: { id: string; index: number; itemCount: number }[] = [];
+    const envelopeBytes = utf8ByteLength(JSON.stringify({ sessionId: input.sessionId, items: [], nextCursor: null }));
+    let itemBytes = 0;
+    for (const [index, candidate] of scanned.entries()) {
       if (candidate.id === null || candidate.status === null || candidate.createdAt === null) return fail("HISTORY_ITEM_TOO_LARGE");
       const [source] = await tx.select({ present: sql<number>`1` }).from(turns).where(and(
         eq(turns.id, candidate.id), disclosableTurn(candidate.id), validInputPointer,
       )).limit(1);
-      if (!source) continue;
+      if (!source) {
+        checkpoints.push({ id: candidate.id, index, itemCount: items.length });
+        continue;
+      }
       const bytes = sql<number>`coalesce(sum(
         case when not ${withheld} then ${bodyBytes(sql`${messageVersions.content}`)} else 0 end
         + ${bodyBytes(sql`${messageVersions.id}`)} + ${bodyBytes(sql`${messageVersions.messageId}`)}
@@ -141,19 +142,36 @@ export async function readSessionHistoryPage(db: AervoxDatabase, input: {
       const metadata = { turnId: candidate.id, status: candidate.status, isComplete: candidate.status === "Completed", createdAt: candidate.createdAt };
       const turnBytes = utf8ByteLength(JSON.stringify({ ...metadata, messages: [] })) + (projected?.bytes ?? 0) + Math.max(0, size.count - 1);
       if (turnBytes > MAX_TURN_BYTES) return fail("HISTORY_ITEM_TOO_LARGE");
-      pageBytes += turnBytes + (items.length ? 1 : 0);
-      if (pageBytes > MAX_PAGE_BYTES) return fail("HISTORY_ITEM_TOO_LARGE");
+      const addedBytes = size.count ? turnBytes + (items.length ? 1 : 0) : 0;
+      if (envelopeBytes + itemBytes + addedBytes > MAX_PAGE_BYTES) {
+        if (items.length) break;
+        return fail("HISTORY_ITEM_TOO_LARGE");
+      }
       const messageRows = await tx.select({ value: messageProjection.mapWith(parse<SessionHistoryTurn["messages"][number]>) }).from(messageVersions)
         .innerJoin(turns, eq(turns.id, messageVersions.turnId)).where(and(eq(turns.id, candidate.id), eligibleVersion))
         .orderBy(sql`(select min(sort_version.version) from message_versions sort_version
           where sort_version.turn_id = ${messageVersions.turnId} and (sort_version.message_id = ${messageVersions.messageId}
             or (${messageVersions.messageId} is null and sort_version.id = ${messageVersions.id})))`)
         .limit(MAX_MESSAGES);
-      if (messageRows.length) items.push({ turnId: candidate.id, status: candidate.status, isComplete: candidate.status === "Completed",
-        createdAt: candidate.createdAt, messages: messageRows.map(row => row.value) });
+      if (messageRows.length) {
+        items.push({ turnId: candidate.id, status: candidate.status, isComplete: candidate.status === "Completed",
+          createdAt: candidate.createdAt, messages: messageRows.map(row => row.value) });
+        itemBytes += addedBytes;
+      }
+      checkpoints.push({ id: candidate.id, index, itemCount: items.length });
     }
-    const result = { sessionId: input.sessionId, items: items.reverse(), nextCursor };
-    if (utf8ByteLength(JSON.stringify(result)) > MAX_PAGE_BYTES) return fail("HISTORY_ITEM_TOO_LARGE");
-    return result;
+    // The real cursor can grow after hidden candidates. Return the longest
+    // scanned prefix whose cursor and complete JSON fit; any backed-up Turn is
+    // read again next page, including the candidate that exceeded the body cap.
+    // Intermediate oversized cursors do not matter when the final cursor is null.
+    for (const checkpoint of checkpoints.reverse()) {
+      const nextCursor = checkpoint.index + 1 < candidates.length
+        ? encode({ v: 1, sessionId: input.sessionId, beforeTurnId: checkpoint.id }) : null;
+      if (nextCursor !== null && nextCursor.length > 16_384) continue;
+      const result = { sessionId: input.sessionId, items: items.slice(0, checkpoint.itemCount).reverse(), nextCursor };
+      if (utf8ByteLength(JSON.stringify(result)) <= MAX_PAGE_BYTES) return result;
+    }
+    if (scanned.length) return fail("HISTORY_ITEM_TOO_LARGE");
+    return { sessionId: input.sessionId, items: [], nextCursor: null };
   });
 }
