@@ -221,7 +221,6 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
       <h3 id="runtime-device-title">设备操作</h3>
       <dl class="runtime-group">
         <div class="runtime-row">
-          <span class="runtime-tier" aria-hidden="true">R</span>
           <div class="runtime-row-copy"><dt>Root 授权</dt><dd>{{ rootText }}</dd></div>
           <dd class="runtime-value" :class="{ 'runtime-error': deviceFailed }">{{ rootValue }}</dd>
         </div>
@@ -241,15 +240,30 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
     </section>
 
     <section aria-labelledby="runtime-capabilities-title">
-      <h3 id="runtime-capabilities-title">功能与授权</h3>
+      <h3 id="runtime-capabilities-title">更多能力</h3>
       <dl class="runtime-group runtime-capabilities">
-        <div class="runtime-row"><span class="runtime-tier" aria-hidden="true">P0</span><div class="runtime-row-copy"><dt>基础对话 · 普通权限</dt><dd>会话、历史、停止与删除，需配置模型。</dd></div><dd class="runtime-value">前台原型</dd></div>
-        <div class="runtime-row"><span class="runtime-tier" aria-hidden="true">P1</span><div class="runtime-row-copy"><dt>语音输入与朗读</dt><dd>系统识别器一次性听写、系统 TTS 朗读回复，麦克风按用途请求。</dd></div><dd class="runtime-value">前台原型</dd></div>
-        <div class="runtime-row"><span class="runtime-tier" aria-hidden="true">P1</span><div class="runtime-row-copy"><dt>通知、文件与屏幕采集</dt><dd>通知提醒、用户文件和屏幕采集。</dd></div><dd class="runtime-value">未接入</dd></div>
-        <div class="runtime-row"><span class="runtime-tier" aria-hidden="true">P2</span><div class="runtime-row-copy"><dt>Shizuku 扩展</dt><dd>按具体功能授权的系统诊断与操作。</dd></div><dd class="runtime-value">未接入</dd></div>
-        <div class="runtime-row"><span class="runtime-tier" aria-hidden="true">P3</span><div class="runtime-row-copy"><dt>Root 扩展</dt><dd>需要更高权限的特定功能，单独授权。</dd></div><dd class="runtime-value">未接入</dd></div>
+        <div class="runtime-row">
+          <div class="runtime-row-copy"><dt>对话与学习</dt><dd>会话历史、学习计划、练习与复习，数据都保存在这台手机。</dd></div>
+          <dd class="runtime-value"><span class="runtime-badge runtime-badge--beta">试用中</span></dd>
+        </div>
+        <div class="runtime-row">
+          <div class="runtime-row-copy"><dt>语音输入与朗读</dt><dd>按住麦克风听写消息，朗读当前回复。</dd></div>
+          <dd class="runtime-value"><span class="runtime-badge runtime-badge--beta">试用中</span></dd>
+        </div>
+        <div class="runtime-row">
+          <div class="runtime-row-copy"><dt>通知、文件与屏幕采集</dt><dd>需要时按项申请系统权限，不会一次索取全部权限。</dd></div>
+          <dd class="runtime-value"><span class="runtime-badge runtime-badge--off">未开放</span></dd>
+        </div>
+        <div class="runtime-row">
+          <div class="runtime-row-copy"><dt>Shizuku 扩展</dt><dd>免 root 的系统诊断与操作通道。</dd></div>
+          <dd class="runtime-value"><span class="runtime-badge runtime-badge--off">未开放</span></dd>
+        </div>
+        <div class="runtime-row">
+          <div class="runtime-row-copy"><dt>Root 高级实验</dt><dd>任意命令等高风险研究项，不会进入日常使用。</dd></div>
+          <dd class="runtime-value"><span class="runtime-badge runtime-badge--off">未开放</span></dd>
+        </div>
       </dl>
-      <p class="runtime-capability-note">增强能力按需接入。安装 Shizuku 或取得 root 权限，不会自动开启尚未接入的功能。</p>
+      <p class="runtime-capability-note">「未开放」表示还没有写进这个版本。即使取得 root 或安装 Shizuku 也不会自动开启，能力按需逐项接入。</p>
     </section>
   </div>
 </template>
@@ -287,8 +301,14 @@ h3 { margin: 0 0 8px; padding-inline: 16px; color: var(--md-sys-color-primary); 
 .runtime-row-copy { flex: 1; min-width: 0; }
 dt { margin: 0; font-size: 16px; font-weight: 500; line-height: 24px; overflow-wrap: anywhere; }
 dd { margin: 4px 0 0; color: var(--md-sys-color-on-surface-variant); font-size: 14px; line-height: 20px; overflow-wrap: anywhere; }
-.runtime-value { flex: 0 0 auto; max-width: 72px; margin: 0; text-align: end; color: var(--md-sys-color-on-surface-variant); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
-.runtime-tier { display: grid; place-items: center; flex: 0 0 32px; min-height: 32px; border-radius: 10px; color: var(--md-sys-color-on-surface-variant); background: var(--md-sys-color-surface-container-highest); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.runtime-value { flex: 0 0 auto; max-width: 96px; margin: 0; text-align: end; color: var(--md-sys-color-on-surface-variant); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
+.runtime-capabilities .runtime-value { max-width: none; }
+.runtime-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; line-height: 18px; letter-spacing: .2px; white-space: nowrap; }
+.runtime-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.runtime-badge--beta { color: var(--md-sys-color-primary); background: color-mix(in srgb, var(--md-sys-color-primary) 14%, transparent); }
+.runtime-badge--ready { color: var(--md-sys-color-tertiary); background: color-mix(in srgb, var(--md-sys-color-tertiary) 16%, transparent); }
+.runtime-badge--off { color: var(--md-sys-color-on-surface-variant); background: var(--md-sys-color-surface-container-highest); }
+.runtime-badge--error { color: var(--md-sys-color-error); background: color-mix(in srgb, var(--md-sys-color-error) 14%, transparent); }
 .runtime-capability-note { margin: 12px 16px 0; font-size: 12px; line-height: 18px; color: var(--md-sys-color-on-surface-variant); }
 .runtime-device-toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 64px; margin-top: 8px; padding: 12px 16px; border-radius: 20px; background: var(--md-sys-color-surface-container); }
 .runtime-device-label { display: grid; gap: 2px; min-width: 0; }
@@ -296,5 +316,5 @@ dd { margin: 4px 0 0; color: var(--md-sys-color-on-surface-variant); font-size: 
 .runtime-device-label small { color: var(--md-sys-color-on-surface-variant); font-size: 13px; line-height: 18px; }
 .runtime-error { color: var(--md-sys-color-error) !important; }
 .runtime-feedback { margin: 12px 0 0; font-size: 14px; line-height: 20px; }
-@media (max-width: 360px) { .runtime-model { padding: 16px; } .runtime-row { gap: 10px; padding: 14px 12px; } .runtime-icon, .runtime-tier { display: none; } .runtime-value { max-width: 60px; } }
+@media (max-width: 360px) { .runtime-model { padding: 16px; } .runtime-row { gap: 10px; padding: 14px 12px; } .runtime-icon { display: none; } .runtime-value { max-width: 60px; } }
 </style>
