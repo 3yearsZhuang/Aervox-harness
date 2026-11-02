@@ -69,6 +69,10 @@ async function fixture() {
   const resultRows: number[] = [];
   const argumentCounts: number[] = [], windowSizes: number[] = [];
   let modelEvents: { sequence: number; type: string; data?: string; code?: string }[] = [], modelStatus = 'completed', nativeCancels = 0;
+  // Multi-step turns consume one script per model call.
+  const modelScript: { sequence: number; type: string; data?: string; code?: string }[][] = [];
+  // Native model payloads as the Kotlin boundary would receive them.
+  const modelRequests: { messages: { role: string; content: string; toolCallId?: string; toolCalls?: unknown[] }[]; tools?: unknown[] }[] = [];
   const byteLength = (value: string) => new TextEncoder().encode(value).byteLength;
   const dispatch = async (body: Record<string, unknown>) => {
     if (byteLength(JSON.stringify({ version: 1, id: crypto.randomUUID(), body })) > 1024 * 1024) throw new Error('NATIVE_REQUEST_BYTE_LIMIT');
@@ -82,6 +86,8 @@ async function fixture() {
     }
     if (body.op === 'model' && body.operation === 'start') {
       mocks.modelCalls++; mocks.entered = true;
+      modelRequests.push(body as never);
+      if (modelScript.length) modelEvents = modelScript.shift()!;
       return { kind: 'started', requestId: body.requestId };
     }
     if (body.op === 'model' && body.operation === 'poll') {
@@ -165,6 +171,21 @@ async function fixture() {
       if (status === 'failed') modelEvents.push({ sequence: modelEvents.length + 1, type: 'error', code: 'PROVIDER_REQUEST_FAILED' },
         { sequence: modelEvents.length + 2, type: 'done' });
     },
+    setModelScript(scripts: { delta: Record<string, unknown>; finish?: string }[][]) {
+      mocks.realProvider = true; modelStatus = 'completed';
+      modelScript.length = 0;
+      for (const steps of scripts) {
+        const events: { sequence: number; type: string; data?: string; code?: string }[] = steps.map((step, index) => ({
+          sequence: index + 1, type: 'data',
+          data: JSON.stringify({ choices: [{ index: 0, delta: step.delta, finish_reason: step.finish ?? null }] }),
+        }));
+        if (!steps.some(step => step.finish)) events.push({ sequence: events.length + 1, type: 'data',
+          data: JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] }) });
+        events.push({ sequence: events.length + 1, type: 'done' });
+        modelScript.push(events);
+      }
+    },
+    get modelRequests() { return modelRequests; },
     get nativeCancels() { return nativeCancels; },
     get sqliteRequests() { return sqliteRequests; },
     setConfigured(value: boolean) { configured = value; },
@@ -612,4 +633,62 @@ describe('Android local conversation composition over actual SQLite', () => {
     expect(await fixture.count('turns')).toBe(1); expect(mocks.modelCalls).toBe(0);
     expect((await fixture.database.execute('SELECT status FROM turns')).rows[0]?.status).toBe('Interrupted');
   });
+});
+
+describe('on-phone question flow over actual SQLite', () => {
+  it('suspends the turn for a question and finishes it with the submitted answer', async () => {
+    const fixture = current!;
+    fixture.setModelScript([
+      [{ delta: { tool_calls: [{ index: 0, id: 'call_q1', function: { name: 'ask_user_question',
+        arguments: JSON.stringify({ questions: [{ id: 'q1', question: '打开哪个应用？', options: [{ label: '设置' }, { label: '相机' }] }] }) } }] },
+        finish: 'tool_calls' }],
+      [{ delta: { content: '已打开设置。' }, finish: 'stop' }],
+    ]);
+    const transport = await fixture.start();
+    const created = await session(transport);
+    const state = callbacks();
+    const asked = vi.fn();
+    const running = transport.streamTurn(created.id, '帮我打开设置', { ...state.value, onUserQuestion: asked });
+    await vi.waitFor(() => expect(asked).toHaveBeenCalledTimes(1), { timeout: 8000 });
+    const question = asked.mock.calls[0]![0] as { turnId: string; questions: { id: string; question: string }[] };
+    expect(question.questions[0]!.question).toBe('打开哪个应用？');
+    // Only the asking turn can be answered, and only while its question is pending.
+    await expect(transport.submitQuestionAnswers('other_turn', [{ id: 'q1', selected: ['设置'] }]))
+      .rejects.toThrow('QUESTION_NOT_PENDING');
+    await transport.submitQuestionAnswers(question.turnId, [{ id: 'q1', selected: ['设置'] }]);
+    await expect(transport.submitQuestionAnswers(question.turnId, [{ id: 'q1', selected: ['设置'] }]))
+      .rejects.toThrow('QUESTION_NOT_PENDING');
+    await running;
+    expect(state.done).toHaveBeenCalledOnce();
+    expect(state.texts.join('')).toContain('已打开设置');
+    // The answered turn replayed the tool protocol in the native payload.
+    expect(fixture.modelRequests).toHaveLength(2);
+    const payload = fixture.modelRequests[1]!;
+    expect((payload.tools ?? []).map(tool => (tool as { name: string }).name)).toContain('ask_user_question');
+    const toolMessage = payload.messages.find(message => message.role === 'tool');
+    expect(toolMessage?.toolCallId).toBe('call_q1');
+    expect(toolMessage?.content).toContain('设置');
+    const assistant = payload.messages.find(message => message.toolCalls?.length);
+    expect(assistant?.toolCalls).toEqual([expect.objectContaining({ id: 'call_q1', name: 'ask_user_question' })]);
+  }, 20_000);
+
+  it('releases a suspended question when the user stops the turn', async () => {
+    const fixture = current!;
+    fixture.setModelScript([
+      [{ delta: { tool_calls: [{ index: 0, id: 'call_q2', function: { name: 'ask_user_question',
+        arguments: JSON.stringify({ questions: [{ id: 'q1', question: '继续吗？' }] }) } }] }, finish: 'tool_calls' }],
+    ]);
+    const transport = await fixture.start();
+    const created = await session(transport);
+    const state = callbacks();
+    const asked = vi.fn();
+    const running = transport.streamTurn(created.id, '开始', { ...state.value, onUserQuestion: asked });
+    await vi.waitFor(() => expect(asked).toHaveBeenCalledTimes(1), { timeout: 8000 });
+    await transport.request('POST', `/v1/turns/${encodeURIComponent((asked.mock.calls[0]![0] as { turnId: string }).turnId)}/cancel`);
+    await expect(running).resolves.toBeUndefined();
+    expect(state.done).toHaveBeenCalled();
+    // A released question cannot be answered after the stop.
+    await expect(transport.submitQuestionAnswers((asked.mock.calls[0]![0] as { turnId: string }).turnId, [{ id: 'q1', selected: [] }]))
+      .rejects.toThrow('QUESTION_NOT_PENDING');
+  }, 20_000);
 });
