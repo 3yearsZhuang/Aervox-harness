@@ -73,8 +73,23 @@ public class NativeRuntimeActivity extends AppCompatActivity {
             ViewCompat.setOnApplyWindowInsetsListener(surface, (target, insets) -> {
                 androidx.core.graphics.Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
                 androidx.core.graphics.Insets keyboard = insets.getInsets(WindowInsetsCompat.Type.ime());
-                target.setPadding(bars.left, bars.top, bars.right, Math.max(bars.bottom, keyboard.bottom));
+                // Rounded corners need explicit clearance: system bar insets do
+                // not include the display radius at the left/right in landscape.
+                int cornerPadding = roundedCornerPadding(insets);
+                target.setPadding(
+                    Math.max(bars.left, cornerPadding),
+                    Math.max(bars.top, cornerPadding),
+                    Math.max(bars.right, cornerPadding),
+                    Math.max(Math.max(bars.bottom, keyboard.bottom), cornerPadding));
                 return WindowInsetsCompat.CONSUMED;
+            });
+            // Window resizes (split screen, freeform, rotation) must re-dispatch
+            // insets; relying on the listener alone leaves stale padding after
+            // some resize paths.
+            surface.addOnLayoutChangeListener((changed, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+                if (changed.getWidth() != oldRight - oldLeft || changed.getHeight() != oldBottom - oldTop) {
+                    ViewCompat.requestApplyInsets(changed);
+                }
             });
             setContentView(surface, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
             ViewCompat.requestApplyInsets(surface);
@@ -198,6 +213,23 @@ public class NativeRuntimeActivity extends AppCompatActivity {
         shutdownNative();
         super.onDestroy();
     }
+    /** Largest display corner radius; content clears it so it never clips. */
+    private static int roundedCornerPadding(androidx.core.view.WindowInsetsCompat insets) {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) return 0;
+        android.view.WindowInsets platform = insets.toWindowInsets();
+        if (platform == null) return 0;
+        int radius = 0;
+        for (int position : new int[] {
+                android.view.RoundedCorner.POSITION_TOP_LEFT,
+                android.view.RoundedCorner.POSITION_TOP_RIGHT,
+                android.view.RoundedCorner.POSITION_BOTTOM_LEFT,
+                android.view.RoundedCorner.POSITION_BOTTOM_RIGHT }) {
+            android.view.RoundedCorner corner = platform.getRoundedCorner(position);
+            if (corner != null) radius = Math.max(radius, corner.getRadius());
+        }
+        return radius;
+    }
+
     private void shutdownNative() {
         if (!closing.compareAndSet(false, true)) return;
         if (host != null) host.close();
