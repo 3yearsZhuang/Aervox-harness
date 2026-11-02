@@ -69,6 +69,9 @@ async function fixture() {
   const resultRows: number[] = [];
   const argumentCounts: number[] = [], windowSizes: number[] = [];
   let modelEvents: { sequence: number; type: string; data?: string; code?: string }[] = [], modelStatus = 'completed', nativeCancels = 0;
+  // Device surface: grants come from settings; every perform is recorded so the
+  // approval test can prove nothing runs before a decision.
+  const devicePerforms: { verb: string }[] = [];
   // Multi-step turns consume one script per model call.
   const modelScript: { sequence: number; type: string; data?: string; code?: string }[][] = [];
   // Native model payloads as the Kotlin boundary would receive them.
@@ -97,6 +100,18 @@ async function fixture() {
     }
     if (body.op === 'model' && body.operation === 'cancel') {
       nativeCancels++; return { kind: 'cancelled', requestId: body.requestId };
+    }
+    if (body.op === 'device') {
+      if (body.operation === 'status') {
+        return { kind: 'device_status', root: true, capabilities: { control: true, apps: true } };
+      }
+      if (body.operation === 'grant') {
+        return { kind: 'device_grant', ok: true };
+      }
+      if (body.operation === 'perform') {
+        devicePerforms.push({ verb: String(body.verb ?? body.action ?? 'unknown') });
+        return { kind: 'device_result', ok: true, action: String(body.verb ?? 'tap'), output: 'ok' };
+      }
     }
     if (body.op === 'dispose') {
       if (transaction && !transaction.closed) await transaction.rollback();
@@ -188,6 +203,7 @@ async function fixture() {
     get modelRequests() { return modelRequests; },
     get nativeCancels() { return nativeCancels; },
     get sqliteRequests() { return sqliteRequests; },
+    get devicePerforms() { return devicePerforms; },
     get database() { return database; },
     setConfigured(value: boolean) { configured = value; },
     loseNextCommit() { loseCommit = true; }, get commits() { return commits; },
@@ -831,5 +847,50 @@ describe('Android question bank import over actual SQLite', () => {
     expect(imported).toMatchObject({ providerId: 'json-question-bank', importedCount: 3 });
     const started = await transport.request<{ items: { prompt: string }[] }>('POST', '/v1/practice/sessions', { count: 3 });
     expect(started.items.map(item => item.prompt).sort()).toEqual(['1+1=?', '2+2=?', '3+3=?']);
+  }, 20_000);
+});
+
+describe('Android per-call tool approval over actual SQLite', () => {
+  it('interrupts a new device action, resumes after approval and reuses the grant', async () => {
+    const fixture = current!;
+    fixture.setModelScript([
+      [{ delta: { tool_calls: [{ index: 0, id: 'call_t1', function: { name: 'device_tap',
+        arguments: JSON.stringify({ x: 10, y: 20 }) } }] }, finish: 'tool_calls' }],
+      [{ delta: { content: '已点击屏幕。' } }],
+    ]);
+    const transport = await fixture.start();
+    const created = await session(transport);
+    const approvalSeen = vi.fn();
+    const first = callbacks();
+    const running = transport.streamTurn(created.id, '点一下屏幕', { ...first.value, onToolApproval: approvalSeen });
+
+    // The tool must not run before the user decides: the turn ends pending_approval.
+    await vi.waitFor(() => expect(approvalSeen).toHaveBeenCalledTimes(1), { timeout: 8000 });
+    const approval = approvalSeen.mock.calls[0]![0] as { turnId: string; approvalId: string; toolName: string };
+    expect(approval.toolName).toBe('device_tap');
+    await expect(running).resolves.toBeUndefined();
+    expect(fixture.devicePerforms).toHaveLength(0);
+
+    // Grant once: the continuation executes the tap and the model finishes.
+    const decided = await transport.decideToolApproval(approval.turnId, approval.approvalId, 'granted');
+    expect(decided).toMatchObject({ state: 'granted' });
+    expect(decided!.continuation).toBeTruthy();
+    const followUp = callbacks();
+    await transport.observeTurn(approval.turnId, followUp.value, { afterEventId: decided!.continuation!.afterEventId });
+    expect(followUp.texts.join('')).toContain('已点击');
+    expect(fixture.devicePerforms).toHaveLength(1);
+
+    // The identical action reuses the recorded grant: no new question asked.
+    fixture.setModelScript([
+      [{ delta: { tool_calls: [{ index: 0, id: 'call_t2', function: { name: 'device_tap',
+        arguments: JSON.stringify({ x: 10, y: 20 }) } }] }, finish: 'tool_calls' }],
+      [{ delta: { content: '再次点击完成。' } }],
+    ]);
+    const secondApproval = vi.fn();
+    const again = callbacks();
+    await transport.streamTurn(created.id, '再点一次', { ...again.value, onToolApproval: secondApproval });
+    expect(secondApproval).not.toHaveBeenCalled();
+    expect(again.texts.join('')).toContain('再次点击');
+    expect(fixture.devicePerforms).toHaveLength(2);
   }, 20_000);
 });
