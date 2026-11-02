@@ -33,11 +33,16 @@ export function inspectDependency(from, to) {
 
 // ADR-022: the fixed APK composition consumes only the neutral public ports.
 // Ordinary Web views still cannot import Core/repositories or any Node entry.
+// Every trusted composition file is declared individually here (including the
+// question bridge and device tooling, reachable only through native-runtime.ts);
+// undeclared siblings keep failing, so the grant never widens to the directory.
 const MOBILE_COMPOSITION_IMPORTS = new Map([
   ['apps/web/src/mobile/native-runtime.ts', new Set(['@aervox/core/browser', '@aervox/host-agent/browser',
     '@aervox/repositories/conversation', '@aervox/repositories/database', '@aervox/repositories/native-sqlite-client'])],
   ['apps/web/src/mobile/native-model-provider.ts', new Set(['@aervox/core/browser'])],
   ['apps/web/src/mobile/native-context.ts', new Set(['@aervox/core/browser'])],
+  ['apps/web/src/mobile/native-question.ts', new Set(['@aervox/core/browser'])],
+  ['apps/web/src/mobile/native-tools.ts', new Set(['@aervox/core/browser'])],
 ]);
 
 export function findCycles(edges, kind) {

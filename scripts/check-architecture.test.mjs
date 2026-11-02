@@ -26,6 +26,14 @@ test('Android composition permits exact neutral exports without granting ordinar
   }
   assert.deepEqual(auditArchitecture({ sources: new Map([['apps/web/src/mobile/native-context.ts', "import '@aervox/core/browser'"]]) }).violations, []);
   assert.ok(auditArchitecture({ sources: new Map([['apps/web/src/mobile/native-context.ts', "import '@aervox/core'"]]) }).violations.length > 0);
+  // The question bridge and device tooling are declared composition files; undeclared siblings stay blocked.
+  for (const file of ['apps/web/src/mobile/native-question.ts', 'apps/web/src/mobile/native-tools.ts']) {
+    assert.deepEqual(auditArchitecture({ sources: new Map([[file, "import '@aervox/core/browser'"]]) }).violations, []);
+    assert.ok(auditArchitecture({ sources: new Map([[file, "import '@aervox/core'"]]) }).violations.length > 0);
+  }
+  for (const file of ['apps/web/src/mobile/native-channel.ts', 'apps/web/src/mobile/native-device.ts', 'apps/web/src/mobile/native-storage.ts']) {
+    assert.ok(auditArchitecture({ sources: new Map([[file, "import '@aervox/core/browser'"]]) }).violations.some(value => value.includes('not allowed')));
+  }
 });
 test("shared parser classifies imports and exports including Vue, TSImportType and dynamic literal", () => {
   const source = `<script lang="ts">import type { X } from "a"; import { type Y } from "b"; export type { Z } from "c"; type P = import("d").P; const p = import("e");</script>`;
