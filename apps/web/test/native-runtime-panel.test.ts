@@ -24,13 +24,13 @@ it('shows native readiness and provides a real configuration action without expo
   expect(request).toHaveBeenCalledWith({ op: 'model', operation: 'summary' });
   expect(wrapper.text()).toContain('就绪');
   expect(wrapper.text()).toContain('未配置');
-  expect(wrapper.findAll('.runtime-capabilities .runtime-value').map(item => item.text())).toEqual(['试用中', '试用中', '未开放', '未开放', '未开放']);
+  expect(wrapper.findAll('.runtime-capabilities .runtime-value').map(item => item.text())).toEqual(['试用中', '试用中', '试用中', '未开放', '未开放', '未开放']);
   expect(wrapper.findAll('input, textarea')).toHaveLength(0);
-  expect(wrapper.findAll('md-filled-tonal-button')).toHaveLength(1);
-  await wrapper.get('md-filled-tonal-button').trigger('click');
+  const configure = wrapper.findAll('md-filled-tonal-button').find(item => item.text() === '配置模型服务');
+  expect(configure).toBeTruthy();
+  await configure!.trigger('click');
   await flushPromises();
   expect(request).toHaveBeenCalledWith({ op: 'model', operation: 'configure' });
-  expect(wrapper.get('md-filled-tonal-button').text()).toBe('配置模型服务');
 });
 
 it('distinguishes a saved model configuration from tested connectivity and never renders returned secrets', async () => {

@@ -72,6 +72,7 @@ async function fixture() {
   // Device surface: grants come from settings; every perform is recorded so the
   // approval test can prove nothing runs before a decision.
   const devicePerforms: { verb: string }[] = [];
+  let notifyOn = false;
   // Multi-step turns consume one script per model call.
   const modelScript: { sequence: number; type: string; data?: string; code?: string }[][] = [];
   // Native model payloads as the Kotlin boundary would receive them.
@@ -112,6 +113,14 @@ async function fixture() {
         devicePerforms.push({ verb: String(body.verb ?? body.action ?? 'unknown') });
         return { kind: 'device_result', ok: true, action: String(body.verb ?? 'tap'), output: 'ok' };
       }
+    }
+    if (body.op === 'file' && body.operation === 'pickText') {
+      return { kind: 'file_result', name: '题库.csv', text: '1+1,2\n2+2,4' };
+    }
+    if (body.op === 'notification') {
+      if (body.operation === 'status') return { kind: 'notify_status', enabled: notifyOn, permission: 'granted' };
+      notifyOn = body.operation === 'enable';
+      return { kind: 'notify_result', ok: true, enabled: notifyOn };
     }
     if (body.op === 'dispose') {
       if (transaction && !transaction.closed) await transaction.rollback();
@@ -924,5 +933,21 @@ describe('Android backup export and restore over actual SQLite', () => {
     await expect(transport.importBackup!(JSON.stringify(tampered))).rejects.toMatchObject({ code: 'BACKUP_CORRUPTED' });
     await expect(transport.importBackup!('not json at all')).rejects.toMatchObject({ code: 'BACKUP_MALFORMED' });
     expect((await transport.request<{ concept: string }>('GET', '/v1/knowledge-items/k_bak')).concept).toBe('备份概念');
+  }, 20_000);
+});
+
+describe('Android file import and review reminder', () => {
+  it('imports a picked question file and toggles the daily reminder', async () => {
+    const fixture = current!;
+    const transport = await fixture.start();
+    const picked = await transport.pickTextFile!();
+    expect(picked).toMatchObject({ name: '题库.csv', text: '1+1,2\n2+2,4' });
+    const imported = await transport.request<{ importedCount: number }>('POST', '/v1/questions/import', { content: picked.text, format: 'csv' });
+    expect(imported.importedCount).toBe(2);
+
+    expect(await transport.reviewReminderStatus!()).toMatchObject({ enabled: false, permission: 'granted' });
+    expect(await transport.configureReviewReminder!({ enabled: true })).toEqual({ enabled: true });
+    expect(await transport.reviewReminderStatus!()).toMatchObject({ enabled: true });
+    expect(await transport.configureReviewReminder!({ enabled: false })).toEqual({ enabled: false });
   }, 20_000);
 });

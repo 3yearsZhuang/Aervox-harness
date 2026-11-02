@@ -25,6 +25,10 @@ public class NativeRuntimeActivity extends AppCompatActivity {
     private NativeDeviceService device;
     private NativeSpeechService speech;
     private NativeSpeechInputService speechInput;
+    private NativeNotifyService notify;
+    private final java.util.concurrent.CompletableFuture<org.json.JSONObject>[] pendingPick =
+        new java.util.concurrent.CompletableFuture[1];
+    private androidx.activity.result.ActivityResultLauncher<String[]> pickLauncher;
     private NativePreferences preferences;
     private NativeAssetWebViewHost host;
     private String epoch;
@@ -42,6 +46,22 @@ public class NativeRuntimeActivity extends AppCompatActivity {
         device = new NativeDeviceService(this);
         speech = new NativeSpeechService(this);
         speechInput = new NativeSpeechInputService(this);
+        notify = new NativeNotifyService(this);
+        pickLauncher = registerForActivityResult(new androidx.activity.result.contract.ActivityResultContracts.OpenDocument(), uri -> {
+            java.util.concurrent.CompletableFuture<org.json.JSONObject> pending = pendingPick[0];
+            pendingPick[0] = null;
+            if (pending == null) return;
+            if (uri == null) {
+                pending.completeExceptionally(new NativeFileService.FileException("FILE_PICK_CANCELLED"));
+                return;
+            }
+            try {
+                pending.complete(NativeFileService.readPickedText(this, uri));
+            } catch (Exception error) {
+                pending.completeExceptionally(error instanceof NativeFileService.FileException
+                    ? error : new NativeFileService.FileException("FILE_READ_FAILED"));
+            }
+        });
         preferences = new NativePreferences(this);
         owner = new NativeBusinessDatabase(this);
         sqlite = new NativeSqliteSession(owner::open);
@@ -160,6 +180,26 @@ public class NativeRuntimeActivity extends AppCompatActivity {
                     }
                     break;
                 }
+                case "file": {
+                    if (!"pickText".equals(command.optString("operation")) || !foreground) {
+                        throw new IllegalArgumentException();
+                    }
+                    java.util.concurrent.CompletableFuture<org.json.JSONObject> pick = new java.util.concurrent.CompletableFuture<>();
+                    pendingPick[0] = pick;
+                    try {
+                        pickLauncher.launch(new String[] { "text/*", "application/json", "text/csv", "application/csv" });
+                    } catch (Exception error) {
+                        pendingPick[0] = null;
+                        pick.completeExceptionally(new NativeFileService.FileException("FILE_PICK_UNAVAILABLE"));
+                    }
+                    result = pick;
+                    break;
+                }
+                case "notification":
+                    result = notify == null
+                        ? failed(new NativeNotifyService.NotifyException("CLOSED"))
+                        : notify.request(command);
+                    break;
                 case "share": {
                     // Handing text to the OS share sheet is user-visible and needs
                     // the foreground activity; nothing is written to app storage.

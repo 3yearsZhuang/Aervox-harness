@@ -469,6 +469,28 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
         throw error;
       }
     },
+    async pickTextFile(signal?: AbortSignal) {
+      checkOpen();
+      signal?.throwIfAborted();
+      // SAF grants exactly the chosen document; the native side caps the read.
+      const receipt = await nativeRequest({ op: 'file', operation: 'pickText' });
+      const name = receipt?.kind === 'file_result' && typeof receipt.name === 'string' ? receipt.name : 'picked.txt';
+      const text = receipt?.kind === 'file_result' && typeof receipt.text === 'string' ? receipt.text : '';
+      if (!text) return fail(502, 'FILE_READ_FAILED');
+      return { name, text };
+    },
+    async configureReviewReminder(input: { enabled: boolean }, signal?: AbortSignal) {
+      checkOpen();
+      signal?.throwIfAborted();
+      const receipt = await nativeRequest({ op: 'notification', operation: input.enabled ? 'enable' : 'disable' });
+      return { enabled: receipt?.enabled === true };
+    },
+    async reviewReminderStatus(signal?: AbortSignal) {
+      checkOpen();
+      signal?.throwIfAborted();
+      const receipt = await nativeRequest({ op: 'notification', operation: 'status' });
+      return { enabled: receipt?.enabled === true, permission: receipt?.permission === 'granted' ? 'granted' : 'denied' };
+    },
     async shareText({ title, text }: { title: string; text: string }, signal?: AbortSignal) {
       checkOpen();
       signal?.throwIfAborted();

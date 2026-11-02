@@ -24,6 +24,11 @@ const testFailed = ref(false);
 const runtimeFailed = ref(false);
 const modelFailed = ref(false);
 const feedback = ref('');
+const importBusy = ref(false);
+const importFeedback = ref('');
+const importError = ref('');
+const reminderOn = ref(false);
+const reminderFeedback = ref('');
 const backupBusy = ref(false);
 const backupFeedback = ref('');
 const backupError = ref('');
@@ -154,6 +159,37 @@ async function testConnection() {
     if (!disposed) { testFailed.value = true; testFeedback.value = connectionError(error); }
   } finally { if (!disposed) testing.value = false; }
 }
+async function importQuestionFile() {
+  if (importBusy.value) return;
+  importBusy.value = true; importFeedback.value = ''; importError.value = '';
+  try {
+    const transport = getClientTransport();
+    if (!transport.pickTextFile) throw new Error('FILE_PICK_NOT_SUPPORTED');
+    const picked = await transport.pickTextFile();
+    const result = await transport.request<{ importedCount: number }>('POST', '/v1/questions/import', { content: picked.text });
+    importFeedback.value = `已从「${picked.name}」导入 ${result.importedCount} 道题。`;
+  } catch (error) {
+    const code = error instanceof Error ? error.message : '';
+    importError.value = code === 'FILE_PICK_CANCELLED' ? '已取消选择。'
+      : code === 'FILE_TOO_LARGE' ? '文件超过 2 MiB 上限，未导入。'
+      : code === 'NO_VALID_QUESTIONS' ? '文件里没有可识别的题目，未导入。'
+      : '导入没有完成，数据未受影响。';
+  } finally { importBusy.value = false; }
+}
+
+async function toggleReminder() {
+  const next = !reminderOn.value;
+  try {
+    const transport = getClientTransport();
+    if (!transport.configureReviewReminder) throw new Error('NOTIFY_NOT_SUPPORTED');
+    const result = await transport.configureReviewReminder({ enabled: next });
+    reminderOn.value = result.enabled;
+    reminderFeedback.value = next ? '已开启：每天 9 点提醒今日复习。' : '已关闭复习提醒。';
+  } catch {
+    reminderFeedback.value = '提醒设置没有成功，保持原状。';
+  }
+}
+
 async function exportBackup() {
   if (backupBusy.value) return;
   backupBusy.value = true; backupFeedback.value = ''; backupError.value = ''; confirmingRestore.value = false;
@@ -190,7 +226,13 @@ async function importBackup() {
   } finally { backupBusy.value = false; confirmingRestore.value = false; }
 }
 
-onMounted(() => { void readStatus(); });
+onMounted(() => {
+  try {
+    const transport = getClientTransport();
+    void transport.reviewReminderStatus?.().then(status => {
+      reminderOn.value = status.enabled;
+    }).catch(() => undefined);
+  } catch { /* The panel still works without reminder state. */ } void readStatus(); });
 onBeforeUnmount(() => { disposed = true; readGeneration++; });
 </script>
 
@@ -294,7 +336,11 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
           <dd class="runtime-value"><span class="runtime-badge runtime-badge--beta">试用中</span></dd>
         </div>
         <div class="runtime-row">
-          <div class="runtime-row-copy"><dt>通知、文件与屏幕采集</dt><dd>需要时按项申请系统权限，不会一次索取全部权限。</dd></div>
+          <div class="runtime-row-copy"><dt>通知与用户文件</dt><dd>复习提醒、单文件题库导入；需要时按项申请系统权限。</dd></div>
+          <dd class="runtime-value"><span class="runtime-badge runtime-badge--beta">试用中</span></dd>
+        </div>
+        <div class="runtime-row">
+          <div class="runtime-row-copy"><dt>屏幕采集</dt><dd>让助手看到屏幕内容，需要专门的隐私设计。</dd></div>
           <dd class="runtime-value"><span class="runtime-badge runtime-badge--off">未开放</span></dd>
         </div>
         <div class="runtime-row">
@@ -330,6 +376,23 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
       </div>
       <p v-if="backupFeedback" class="runtime-model-note" role="status">{{ backupFeedback }}</p>
       <p v-if="backupError" class="runtime-error runtime-feedback" role="alert">{{ backupError }}</p>
+    </section>
+
+    <section aria-labelledby="runtime-learn-title">
+      <h3 id="runtime-learn-title">题库与提醒</h3>
+      <div class="runtime-group">
+        <div class="runtime-row">
+          <div class="runtime-row-copy"><dt>从文件导入题库</dt><dd>选择一份 JSON 或 CSV 题库文件（2 MiB 内），只读取这一份文件。</dd></div>
+          <component :is="'md-filled-tonal-button'" :disabled="importBusy ? 'true' : undefined" @click="importQuestionFile">选择文件</component>
+        </div>
+        <label class="runtime-device-toggle">
+          <span class="runtime-device-label"><strong>复习提醒</strong><small>每天 9 点提醒今日复习，随时可关</small></span>
+          <component :is="'md-switch'" aria-label="复习提醒" :selected="reminderOn ? 'true' : undefined" @change="toggleReminder()" />
+        </label>
+      </div>
+      <p v-if="importFeedback" class="runtime-model-note" role="status">{{ importFeedback }}</p>
+      <p v-if="importError" class="runtime-error runtime-feedback" role="alert">{{ importError }}</p>
+      <p v-if="reminderFeedback" class="runtime-model-note" role="status">{{ reminderFeedback }}</p>
     </section>
   </div>
 </template>

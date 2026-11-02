@@ -116,6 +116,11 @@ export interface AervoxTransport {
   exportBackup?(signal?: AbortSignal): Promise<{ text: string; createdAt: string; tableCounts: Record<string, number> }>;
   /** 从备份文本恢复（严格校验后在一个事务内覆盖本地数据）；缺省表示该宿主不支持。 */
   importBackup?(text: string, signal?: AbortSignal): Promise<{ imported: Record<string, number> }>;
+  /** 选择一份本机文档并读取为有界文本（SAF 单文件授权）；缺省表示该宿主不支持。 */
+  pickTextFile?(signal?: AbortSignal): Promise<{ name: string; text: string }>;
+  /** 本地复习提醒开关（通知权限按用途请求）；缺省表示该宿主不支持。 */
+  configureReviewReminder?(input: { enabled: boolean }, signal?: AbortSignal): Promise<{ enabled: boolean }>;
+  reviewReminderStatus?(signal?: AbortSignal): Promise<{ enabled: boolean; permission: 'granted' | 'denied' }>;
 }
 
 // ── 运行时配置（由宿主端在入口注入 import.meta.env 等信息） ──────────────
