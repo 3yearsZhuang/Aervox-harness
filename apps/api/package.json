@@ -13,7 +13,8 @@
   },
   "dependencies": {
     "@aervox/config": "workspace:*",
-    "@aervox/host-runtime": "workspace:*"
+    "@aervox/host-runtime": "workspace:*",
+    "@aervox/practice-review": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
