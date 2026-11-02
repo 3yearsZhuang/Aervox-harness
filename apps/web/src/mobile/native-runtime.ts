@@ -8,13 +8,13 @@ import { LearningRepository } from '@aervox/repositories/learning';
 import { createInjectedDatabase } from '@aervox/repositories/database';
 import { NativeSqliteClient } from '@aervox/repositories/native-sqlite-client';
 import { ConversationExecutionStore } from '@aervox/host-agent/browser';
-import { ControlContext, ASK_USER_QUESTION_SPEC, ASK_USER_QUESTION_TOOL, createAskUserQuestionToolProvider, executeTurn, stableSerialize, type ToolProviderPort, type ToolSpec } from '@aervox/core/browser';
+import { buildResumeHistory, ControlContext, ASK_USER_QUESTION_SPEC, ASK_USER_QUESTION_TOOL, createAskUserQuestionToolProvider, executeTurn, stableSerialize, type ToolProviderPort, type ToolSpec } from '@aervox/core/browser';
 import { AervoxHttpError, TurnStreamProjector, type AervoxTransport, type TurnCallbacks, type ObserveTurnOptions } from '@aervox/api-client';
 import { createSessionRequestSchema, renameSessionRequestSchema, type AskUserQuestionAnswerItem, type TurnStreamEvent } from '@aervox/contracts';
 import { nativeRequest } from './native-channel';
 import { delay, createNativeModelProvider } from './native-model-provider';
 import { nativeContextBuilder } from './native-context';
-import { createDeviceTooling } from './native-tools';
+import { createDeviceTooling, DEVICE_TOOL_NAMES } from './native-tools';
 import { createQuestionBridge } from './native-question';
 import { createLearningRouteHandler } from './native-learning';
 
@@ -87,10 +87,23 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
     generateText,
   });
   const store = new ConversationExecutionStore(repo, ctx);
+  // Per-call approvals land in the shared ledger: an identical action reuses a
+  // prior grant, a new one ends the turn as Interrupted(pending_approval) and
+  // waits for decideToolApproval before any side effect runs.
+  const requestApproval = async (input: { turnId: string; attemptId: string; toolName: string; argumentsHash: string }) => {
+    const granted = await repo.findGrantedToolApproval(ctx,
+      { toolName: input.toolName, argumentsHash: input.argumentsHash });
+    if (granted) return { action: 'allow' as const, reason: 'device_action_previously_approved' };
+    const approval = await repo.recordToolApproval(ctx, {
+      turnId: input.turnId, attemptId: input.attemptId, toolName: input.toolName,
+      argumentsHash: input.argumentsHash, requester: 'local', state: 'pending',
+    });
+    return { action: 'ask_user' as const, approvalId: approval.id, argumentsHash: input.argumentsHash };
+  };
   // Device tools stay unavailable until the user grants a capability in
   // settings; the provider re-reads that native grant on every listing and the
   // approval policy re-checks it before any side effect.
-  const deviceTooling = createDeviceTooling();
+  const deviceTooling = createDeviceTooling({ requestApproval });
   // One tool surface for the turn: the question tool is always available (it
   // needs no privilege), device verbs only when the phone grant allows them.
   const questionTool = createAskUserQuestionToolProvider({ userQuestionPort: questionBridge.port, defaultTimeoutMs: 120_000 });
@@ -301,7 +314,55 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
         fail(code === 'QUESTION_ANSWERS_REQUIRED' ? 400 : 409, code);
       }
     },
-    async decideToolApproval() { fail(501, 'DEVICE_TOOLS_NOT_CONNECTED'); },
+    async decideToolApproval(turnId: string, approvalId: string, decision: 'granted' | 'denied', signal?: AbortSignal) {
+      checkOpen();
+      signal?.throwIfAborted();
+      identifier(turnId);
+      identifier(approvalId);
+      if (decision !== 'granted' && decision !== 'denied') return fail(400, 'INVALID_APPROVAL_DECISION');
+      const approval = await repo.getToolApproval(ctx, approvalId);
+      if (!approval || approval.turnId !== turnId) return fail(404, 'APPROVAL_NOT_FOUND');
+      if (approval.state !== 'pending' && approval.state !== decision) return fail(409, 'APPROVAL_ALREADY_DECIDED');
+      // First-party device tools only: no plugin tool bindings exist here.
+      if (decision === 'granted' && approval.state === 'pending'
+        && approval.toolName !== ASK_USER_QUESTION_TOOL && !DEVICE_TOOL_NAMES().has(approval.toolName)) {
+        return fail(409, 'APPROVAL_BINDING_UNAVAILABLE');
+      }
+      const decided = await repo.decideToolApprovalAndResume(ctx,
+        { turnId, approvalId, decision, decidedBy: 'user' });
+      if (!decided) return fail(404, 'APPROVAL_NOT_FOUND');
+      if (!decided.ready) return fail(409, 'APPROVAL_NOT_RESUMABLE');
+      if (decided.continuation) {
+        const { attempt, pending, turn, toolCallId, step } = decided.continuation;
+        const userMessage = (await repo.getTurnUserMessage(ctx, turnId)) ?? '';
+        const events = await repo.getStreamEvents(ctx, turnId, 0);
+        const resumed = buildResumeHistory({ userMessage, events: events as never });
+        const control = new ControlContext({ turnId, sessionId: turn.sessionId, attemptId: attempt.id, deadlineEpochMs: Date.now() + 300_000 });
+        const owner = { turnId, sessionId: turn.sessionId, attemptId: attempt.id, control, done: Promise.resolve() as Promise<unknown> };
+        active = owner;
+        owner.done = executeTurn({ execution: store, provider: nativeModelProvider, controlContext: control,
+          tools, approvalPolicy: deviceTooling.approval,
+          contextBuilder: { async build(input) {
+            const history = await repo.getSessionHistory(ctx, { sessionId: turn.sessionId, beforeTurnId: turnId });
+            return nativeContextBuilder.build({ ...input, messages: [
+              { role: 'system', content: '你是思隅 Aervox，一位主动智能的个人助手。请如实回答。缺少信息或需要确认时，用 ask_user_question 向用户提问，不要猜测后直接执行。手机上只有用户已在设置中授权的设备工具可用；没有对应工具时，说明这项操作在当前版本不可用，不要编造已执行。' },
+              ...history, ...input.messages,
+            ] });
+          } }, options: { maxSteps: 6, maxConsecutiveSameTool: 3, toolTimeoutMs: 12_000, maxModelRetries: 0,
+            maxTurnDurationMs: 300_000, leaseTtlMs: 30_000, leaseHeartbeatIntervalMs: 10_000,
+            resume: { expectedFencingToken: 0, lastSequence: decided.event!.sequence, lastStep: step,
+              history: resumed.history, messageId: resumed.messageId,
+              pendingApprovalResolution: { approvalId: decided.approval.id, decision, invocationId: pending.invocationId,
+                toolCall: { id: toolCallId, name: pending.name, arguments: pending.argumentsJson ?? {} } } },
+          },
+        }, { turnId, sessionId: turn.sessionId, attemptId: attempt.id, userMessage },
+        ).finally(() => { control.dispose(); if (active === owner) active = undefined; });
+        void owner.done.catch(() => undefined);
+      }
+      const attemptId = (decided.event?.data as { continuationAttemptId?: string } | undefined)?.continuationAttemptId;
+      return { approvalId: decided.approval.id, state: decision,
+        ...(attemptId && decided.event ? { continuation: { attemptId, afterEventId: decided.event.id } } : {}) };
+    },
     async speakText({ text }: { text: string }, signal?: AbortSignal) {
       checkOpen();
       signal?.throwIfAborted();

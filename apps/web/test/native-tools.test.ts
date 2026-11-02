@@ -102,3 +102,22 @@ it('allows the read-only device info tool only while root is available', async (
   expect(await tooling.approval.evaluate({ turnId: 'turn', attemptId: 'attempt', invocationId: 'invocation', toolName: 'device_info', arguments: {} }))
     .toEqual({ action: 'deny', reason: 'root_unavailable' });
 });
+
+it('asks the ledger before every new granted action and reuses prior grants', async () => {
+  request.mockResolvedValue(status(true, false));
+  const requestApproval = vi.fn(async () => ({ action: 'ask_user' as const, approvalId: 'tapp_1', argumentsHash: 'hash' }));
+  const tooling = createDeviceTooling({ requestApproval });
+  const decision = await tooling.approval.evaluate({
+    turnId: 'turn_1', attemptId: 'attempt_1', invocationId: 'inv_1',
+    toolName: 'device_tap', arguments: { x: 10, y: 20 }, safetyLevel: 'privileged',
+  });
+  expect(decision).toEqual({ action: 'ask_user', approvalId: 'tapp_1', argumentsHash: 'hash' });
+  expect(requestApproval).toHaveBeenCalledWith(expect.objectContaining({ toolName: 'device_tap' }));
+
+  requestApproval.mockResolvedValueOnce({ action: 'allow', reason: 'device_action_previously_approved' });
+  const reused = await tooling.approval.evaluate({
+    turnId: 'turn_1', attemptId: 'attempt_1', invocationId: 'inv_2',
+    toolName: 'device_tap', arguments: { x: 10, y: 20 }, safetyLevel: 'privileged',
+  });
+  expect(reused).toMatchObject({ action: 'allow', reason: 'device_action_previously_approved' });
+});

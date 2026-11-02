@@ -7,7 +7,7 @@
  * call becomes a refusal instead of an argument.
  */
 import type { ApprovalPolicyPort, ToolProviderPort, ToolSpec, ToolExecutionResult } from '@aervox/core/browser';
-import { ASK_USER_QUESTION_TOOL } from '@aervox/core/browser';
+import { ASK_USER_QUESTION_TOOL, stableSerialize } from '@aervox/core/browser';
 import { performDeviceAction, readDeviceStatus, type DeviceAction, type DeviceCapability, type DeviceKey, type DeviceStatus } from './native-device';
 
 const KEY_NAMES: readonly DeviceKey[] = ['BACK', 'HOME', 'RECENTS', 'ENTER', 'DEL', 'TAB', 'VOLUME_UP', 'VOLUME_DOWN'];
@@ -20,6 +20,8 @@ const record = (value: unknown): Record<string, unknown> => value && typeof valu
   ? value as Record<string, unknown> : {};
 
 interface DeviceTool { spec: ToolSpec; capability: DeviceCapability; build(args: Record<string, unknown>): DeviceAction | undefined }
+
+export const DEVICE_TOOL_NAMES = (): Set<string> => new Set(TOOLS.map(item => item.spec.name));
 
 const TOOLS: DeviceTool[] = [
   {
@@ -104,7 +106,18 @@ export interface DeviceTooling {
   status(): Promise<DeviceStatus>;
 }
 
-export function createDeviceTooling(): DeviceTooling {
+export type DeviceApprovalDecision =
+  | { action: 'allow'; reason: string }
+  | { action: 'ask_user'; approvalId: string; argumentsHash: string };
+
+export interface DeviceToolingOptions {
+  /** Turn ask mode: identical actions reuse a prior grant; new ones ask through
+   * the shared approval ledger and end as Interrupted(pending_approval). */
+  requestApproval?: (request: { turnId: string; attemptId: string; toolName: string; argumentsHash: string })
+    => Promise<DeviceApprovalDecision>;
+}
+
+export function createDeviceTooling(options: DeviceToolingOptions = {}): DeviceTooling {
   const enabled = (status: DeviceStatus, capability: DeviceCapability) => status.root && status.capabilities[capability];
   const provider: ToolProviderPort = {
     tools: [],
@@ -152,10 +165,20 @@ export function createDeviceTooling(): DeviceTooling {
       if (!action) return { action: 'deny', reason: 'invalid_arguments' };
       try {
         const status = await readDeviceStatus();
-        return enabled(status, tool.capability)
-          ? { action: 'allow', reason: 'device_capability_granted', metadata: { capability: tool.capability } }
-          : { action: 'deny', reason: 'device_capability_disabled' };
+        if (!enabled(status, tool.capability)) return { action: 'deny', reason: 'device_capability_disabled' };
       } catch { return { action: 'deny', reason: 'device_unavailable' }; }
+      // The grant is the precondition; the ask mode still confirms every new
+      // action once, and the ledger reuses an identical prior grant.
+      if (options.requestApproval) {
+        const decision = await options.requestApproval({
+          turnId: request.turnId, attemptId: request.attemptId,
+          toolName: request.toolName, argumentsHash: stableSerialize(request.arguments),
+        });
+        return decision.action === 'allow'
+          ? { action: 'allow', reason: decision.reason, metadata: { capability: tool.capability } }
+          : { action: 'ask_user', approvalId: decision.approvalId, argumentsHash: decision.argumentsHash };
+      }
+      return { action: 'allow', reason: 'device_capability_granted', metadata: { capability: tool.capability } };
     },
   };
   return { provider, approval, status: readDeviceStatus };
