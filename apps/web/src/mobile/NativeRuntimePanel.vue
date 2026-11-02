@@ -244,7 +244,8 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
       <h3 id="runtime-capabilities-title">功能与授权</h3>
       <dl class="runtime-group runtime-capabilities">
         <div class="runtime-row"><span class="runtime-tier" aria-hidden="true">P0</span><div class="runtime-row-copy"><dt>基础对话 · 普通权限</dt><dd>会话、历史、停止与删除，需配置模型。</dd></div><dd class="runtime-value">前台原型</dd></div>
-        <div class="runtime-row"><span class="runtime-tier" aria-hidden="true">P1</span><div class="runtime-row-copy"><dt>系统授权功能</dt><dd>语音、通知、文件和屏幕采集。</dd></div><dd class="runtime-value">未接入</dd></div>
+        <div class="runtime-row"><span class="runtime-tier" aria-hidden="true">P1</span><div class="runtime-row-copy"><dt>语音输入与朗读</dt><dd>系统识别器一次性听写、系统 TTS 朗读回复，麦克风按用途请求。</dd></div><dd class="runtime-value">前台原型</dd></div>
+        <div class="runtime-row"><span class="runtime-tier" aria-hidden="true">P1</span><div class="runtime-row-copy"><dt>通知、文件与屏幕采集</dt><dd>通知提醒、用户文件和屏幕采集。</dd></div><dd class="runtime-value">未接入</dd></div>
         <div class="runtime-row"><span class="runtime-tier" aria-hidden="true">P2</span><div class="runtime-row-copy"><dt>Shizuku 扩展</dt><dd>按具体功能授权的系统诊断与操作。</dd></div><dd class="runtime-value">未接入</dd></div>
         <div class="runtime-row"><span class="runtime-tier" aria-hidden="true">P3</span><div class="runtime-row-copy"><dt>Root 扩展</dt><dd>需要更高权限的特定功能，单独授权。</dd></div><dd class="runtime-value">未接入</dd></div>
       </dl>
