@@ -894,3 +894,35 @@ describe('Android per-call tool approval over actual SQLite', () => {
     expect(fixture.devicePerforms).toHaveLength(2);
   }, 20_000);
 });
+
+describe('Android backup export and restore over actual SQLite', () => {
+  it('exports a hash-verified snapshot and restores it after a wipe', async () => {
+    const fixture = current!;
+    const transport = await fixture.start();
+    await fixture.database.execute(`INSERT INTO knowledge_items (id, concept, source_status, mastery_state, correct_count, wrong_count, correct_streak, mastery, mastery_basis, created_at, updated_at)
+      VALUES ('k_bak', '备份概念', 'inferred', 'learning', 0, 0, 0, 0, NULL, '2026-11-01T00:00:00.000Z', '2026-11-01T00:00:00.000Z')`);
+    await transport.request('POST', '/v1/questions', { prompt: '备份题？', answerSpec: { answer: '是' } });
+
+    const exported = await transport.exportBackup!();
+    expect(exported.tableCounts.knowledge_items).toBe(1);
+    const file = JSON.parse(exported.text) as { format: string; sha256: string; tables: { name: string; rows: unknown[] }[] };
+    expect(file.format).toBe('aervox-mobile-backup');
+    expect(file.sha256).toMatch(/^[a-f0-9]{64}$|^h_/);
+    expect(file.tables.some(table => table.name === 'knowledge_items' && table.rows.length === 1)).toBe(true);
+
+    // Wipe the business table, then restore from the exported text.
+    await fixture.database.execute("DELETE FROM knowledge_items");
+    expect((await transport.request<{ items: unknown[] }>('GET', '/v1/knowledge-items/k_bak').catch(() => ({ items: [] }))).items ?? []).toEqual([]);
+    const restored = await transport.importBackup!(exported.text);
+    expect(restored.imported.knowledge_items).toBe(1);
+    const knowledge = await transport.request<{ id: string; concept: string }>('GET', '/v1/knowledge-items/k_bak');
+    expect(knowledge).toMatchObject({ id: 'k_bak', concept: '备份概念' });
+
+    // Tampered payloads and schema drift never write.
+    const tampered = JSON.parse(exported.text) as { tables: { rows: { concept?: string }[] }[] };
+    tampered.tables.find(table => (table as { name?: string }).name === 'knowledge_items')!.rows[0]!.concept = '被篡改';
+    await expect(transport.importBackup!(JSON.stringify(tampered))).rejects.toMatchObject({ code: 'BACKUP_CORRUPTED' });
+    await expect(transport.importBackup!('not json at all')).rejects.toMatchObject({ code: 'BACKUP_MALFORMED' });
+    expect((await transport.request<{ concept: string }>('GET', '/v1/knowledge-items/k_bak')).concept).toBe('备份概念');
+  }, 20_000);
+});

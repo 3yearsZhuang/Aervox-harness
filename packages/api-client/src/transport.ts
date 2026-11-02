@@ -112,6 +112,10 @@ export interface AervoxTransport {
   speakText?(input: { text: string }, signal?: AbortSignal): Promise<void>;
   /** 宿主提供的一次性语音输入（手机系统识别器）；缺省表示该宿主不支持。 */
   speechInput?(signal?: AbortSignal): Promise<{ text: string }>;
+  /** 全量本机数据备份导出（自描述格式、带摘要）；缺省表示该宿主不支持。 */
+  exportBackup?(signal?: AbortSignal): Promise<{ text: string; createdAt: string; tableCounts: Record<string, number> }>;
+  /** 从备份文本恢复（严格校验后在一个事务内覆盖本地数据）；缺省表示该宿主不支持。 */
+  importBackup?(text: string, signal?: AbortSignal): Promise<{ imported: Record<string, number> }>;
 }
 
 // ── 运行时配置（由宿主端在入口注入 import.meta.env 等信息） ──────────────

@@ -16,6 +16,7 @@ import { delay, createNativeModelProvider } from './native-model-provider';
 import { nativeContextBuilder } from './native-context';
 import { createDeviceTooling, DEVICE_TOOL_NAMES } from './native-tools';
 import { createQuestionBridge } from './native-question';
+import { buildBackupFile, denormalizeBackupValue, normalizeBackupValue, parseBackupFile, verifyBackupShape, BackupParseError, type BackupTable } from './native-backup';
 import { createLearningRouteHandler } from './native-learning';
 
 const ctx = { workspaceId: 'local', subjectUserId: 'local' };
@@ -380,6 +381,93 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       const text = receipt?.kind === 'speech_input_result' && typeof receipt.text === 'string' ? receipt.text.trim() : '';
       if (!text) fail(503, 'SPEECH_INPUT_UNAVAILABLE');
       return { text };
+    },
+    // ---- 备份与恢复：自描述格式、摘要校验、严格模式对齐 ----
+    async exportBackup(signal?: AbortSignal) {
+      checkOpen();
+      signal?.throwIfAborted();
+      const quote = (name: string) => {
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) throw new Error('BACKUP_TABLE_UNEXPECTED');
+        return `"${name}"`;
+      };
+      const tx = await client.transaction('write');
+      try {
+        const names = await tx.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != '_aervox_schema_versions' ORDER BY rowid");
+        const tables: BackupTable[] = [];
+        for (const row of names.rows) {
+          const name = String(row.name ?? row[0]);
+          const probe = await tx.execute(`SELECT * FROM ${quote(name)} LIMIT 0`);
+          const columns = [...probe.columns];
+          const data = await tx.execute(`SELECT * FROM ${quote(name)}`);
+          const rows = data.rows.map(item => Object.fromEntries(
+            columns.map((column, index) => [column, normalizeBackupValue(item[index])])));
+          tables.push({ name, columns, rows });
+        }
+        await tx.commit();
+        const file = buildBackupFile(tables, value => hostCrypto.sha256Utf8(stableSerialize(value)));
+        return { text: JSON.stringify(file), createdAt: file.createdAt, tableCounts: file.tableCounts };
+      } catch (error) {
+        await tx.rollback().catch(() => undefined);
+        throw error;
+      }
+    },
+    async importBackup(text: string, signal?: AbortSignal) {
+      checkOpen();
+      signal?.throwIfAborted();
+      const file = parseBackupFile(text, value => hostCrypto.sha256Utf8(stableSerialize(value)));
+      const quote = (name: string) => {
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) throw new Error('BACKUP_TABLE_UNEXPECTED');
+        return `"${name}"`;
+      };
+      const tx = await client.transaction('write');
+      try {
+        const liveColumns = new Map<string, string[]>();
+        const names = await tx.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != '_aervox_schema_versions'");
+        for (const row of names.rows) {
+          const name = String(row.name ?? row[0]);
+          const probe = await tx.execute(`SELECT * FROM ${quote(name)} LIMIT 0`);
+          liveColumns.set(name, [...probe.columns]);
+        }
+        try { verifyBackupShape(file, liveColumns); }
+        catch (error) {
+          await tx.rollback().catch(() => undefined);
+          if (error instanceof BackupParseError) return fail(409, error.code);
+          throw error;
+        }
+        // Foreign keys are enforced; clear and refill in dependency-tolerant
+        // passes (the statement policy forbids PRAGMA defer_foreign_keys).
+        let pendingDeletes = [...file.tables].reverse();
+        while (pendingDeletes.length) {
+          const failed: typeof pendingDeletes = [];
+          for (const table of pendingDeletes) {
+            try { await tx.execute(`DELETE FROM ${quote(table.name)}`); }
+            catch { failed.push(table); }
+          }
+          if (failed.length === pendingDeletes.length) throw new Error('BACKUP_RESTORE_BLOCKED');
+          pendingDeletes = failed;
+        }
+        let pendingInserts = file.tables;
+        while (pendingInserts.length) {
+          const failed: typeof pendingInserts = [];
+          for (const table of pendingInserts) {
+            try {
+              const columns = table.columns.map(quote).join(', ');
+              const placeholders = table.columns.map(() => '?').join(', ');
+              for (const row of table.rows) {
+                const values = table.columns.map(column => denormalizeBackupValue(row[column]) as never);
+                await tx.execute({ sql: `INSERT INTO ${quote(table.name)} (${columns}) VALUES (${placeholders})`, args: values });
+              }
+            } catch { failed.push(table); }
+          }
+          if (failed.length === pendingInserts.length) throw new Error('BACKUP_RESTORE_BLOCKED');
+          pendingInserts = failed;
+        }
+        await tx.commit();
+        return { imported: file.tableCounts };
+      } catch (error) {
+        await tx.rollback().catch(() => undefined);
+        throw error;
+      }
     },
     async shareText({ title, text }: { title: string; text: string }, signal?: AbortSignal) {
       checkOpen();

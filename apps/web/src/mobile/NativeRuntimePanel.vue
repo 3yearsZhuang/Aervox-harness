@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { Database, KeyRound, RefreshCw, Smartphone } from 'lucide-vue-next';
+import { getClientTransport } from '@aervox/api-client';
 import { nativeRequest } from './native-channel';
 import { deviceError, grantDeviceCapability, readDeviceStatus, type DeviceCapability, type DeviceStatus } from './native-device';
 
@@ -23,6 +24,12 @@ const testFailed = ref(false);
 const runtimeFailed = ref(false);
 const modelFailed = ref(false);
 const feedback = ref('');
+const backupBusy = ref(false);
+const backupFeedback = ref('');
+const backupError = ref('');
+const restoreOpen = ref(false);
+const confirmingRestore = ref(false);
+const restoreText = ref('');
 let disposed = false;
 let readGeneration = 0;
 const modelStatus = computed(() => loading.value ? '正在读取…' : modelFailed.value ? '读取失败' : model.value?.hasCredential ? '已保存配置' : '未配置');
@@ -147,6 +154,42 @@ async function testConnection() {
     if (!disposed) { testFailed.value = true; testFeedback.value = connectionError(error); }
   } finally { if (!disposed) testing.value = false; }
 }
+async function exportBackup() {
+  if (backupBusy.value) return;
+  backupBusy.value = true; backupFeedback.value = ''; backupError.value = ''; confirmingRestore.value = false;
+  try {
+    const transport = getClientTransport();
+    if (!transport.exportBackup) throw new Error('BACKUP_NOT_SUPPORTED');
+    const file = await transport.exportBackup();
+    if (transport.shareText) await transport.shareText({ title: 'Aervox 备份', text: file.text });
+    const records = Object.values(file.tableCounts).reduce((total, count) => total + count, 0);
+    backupFeedback.value = `备份已生成并交给系统分享（${records} 条记录，${file.createdAt.slice(0, 10)}）。`;
+  } catch {
+    backupError.value = '备份没有导出，数据未受影响。';
+  } finally { backupBusy.value = false; }
+}
+
+async function importBackup() {
+  if (backupBusy.value) return;
+  if (!confirmingRestore.value) { confirmingRestore.value = true; return; }
+  backupBusy.value = true; backupFeedback.value = ''; backupError.value = '';
+  try {
+    const transport = getClientTransport();
+    if (!transport.importBackup) throw new Error('BACKUP_NOT_SUPPORTED');
+    const result = await transport.importBackup(restoreText.value);
+    const records = Object.values(result.imported).reduce((total, count) => total + count, 0);
+    backupFeedback.value = `恢复完成（${records} 条记录已写入）。`;
+    restoreText.value = ''; restoreOpen.value = false;
+  } catch (error) {
+    const code = error instanceof Error ? error.message : '';
+    backupError.value = code === 'BACKUP_CORRUPTED' ? '备份校验不通过，未写入任何数据。'
+      : code === 'BACKUP_SCHEMA_MISMATCH' ? '备份与当前版本的数据结构不一致，未写入任何数据。'
+      : code === 'BACKUP_FORMAT_UNKNOWN' ? '无法识别这个备份格式，未写入任何数据。'
+      : code === 'BACKUP_MALFORMED' ? '备份内容无法解析，未写入任何数据。'
+      : '恢复没有完成，数据未受影响。';
+  } finally { backupBusy.value = false; confirmingRestore.value = false; }
+}
+
 onMounted(() => { void readStatus(); });
 onBeforeUnmount(() => { disposed = true; readGeneration++; });
 </script>
@@ -265,6 +308,29 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
       </dl>
       <p class="runtime-capability-note">「未开放」表示还没有写进这个版本。即使取得 root 或安装 Shizuku 也不会自动开启，能力按需逐项接入。</p>
     </section>
+
+    <section aria-labelledby="runtime-backup-title">
+      <h3 id="runtime-backup-title">备份与恢复</h3>
+      <div class="runtime-group">
+        <div class="runtime-row">
+          <div class="runtime-row-copy"><dt>导出备份</dt><dd>把会话与学习数据打包为带校验的备份文本，交给系统分享保存。</dd></div>
+          <component :is="'md-filled-tonal-button'" :disabled="backupBusy ? 'true' : undefined" @click="exportBackup">导出</component>
+        </div>
+        <div class="runtime-row">
+          <div class="runtime-row-copy"><dt>恢复备份</dt><dd>粘贴备份文本，校验通过后覆盖这台手机上的当前数据。</dd></div>
+          <component :is="'md-filled-tonal-button'" :disabled="backupBusy ? 'true' : undefined" @click="restoreOpen = !restoreOpen; confirmingRestore = false">恢复</component>
+        </div>
+      </div>
+      <div v-if="restoreOpen" class="runtime-model-clear">
+        <p>恢复会覆盖当前全部数据，且只接受与本版本结构一致的备份。</p>
+        <textarea v-model="restoreText" rows="4" class="runtime-backup-text" aria-label="备份文本" placeholder="把备份文本粘贴到这里"></textarea>
+        <component :is="'md-filled-button'" :disabled="backupBusy || !restoreText.trim() ? 'true' : undefined" @click="importBackup">
+          {{ confirmingRestore ? '确认覆盖当前数据' : '校验并恢复' }}
+        </component>
+      </div>
+      <p v-if="backupFeedback" class="runtime-model-note" role="status">{{ backupFeedback }}</p>
+      <p v-if="backupError" class="runtime-error runtime-feedback" role="alert">{{ backupError }}</p>
+    </section>
   </div>
 </template>
 
@@ -316,5 +382,6 @@ dd { margin: 4px 0 0; color: var(--md-sys-color-on-surface-variant); font-size: 
 .runtime-device-label small { color: var(--md-sys-color-on-surface-variant); font-size: 13px; line-height: 18px; }
 .runtime-error { color: var(--md-sys-color-error) !important; }
 .runtime-feedback { margin: 12px 0 0; font-size: 14px; line-height: 20px; }
+.runtime-backup-text { width: 100%; box-sizing: border-box; min-height: 88px; padding: 12px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 16px; background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface); font: inherit; font-size: 13px; line-height: 18px; resize: vertical; }
 @media (max-width: 360px) { .runtime-model { padding: 16px; } .runtime-row { gap: 10px; padding: 14px 12px; } .runtime-icon { display: none; } .runtime-value { max-width: 60px; } }
 </style>
