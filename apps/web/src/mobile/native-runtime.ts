@@ -479,6 +479,16 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       if (!text) return fail(502, 'FILE_READ_FAILED');
       return { name, text };
     },
+    async fetchUrlText(url: string, signal?: AbortSignal) {
+      checkOpen();
+      signal?.throwIfAborted();
+      if (typeof url !== 'string' || !/^https:\/\//.test(url) || url.length > 2048) return fail(400, 'FILE_URL_INVALID');
+      const receipt = await nativeRequest({ op: 'file', operation: 'fetchText', url });
+      const name = receipt?.kind === 'file_result' && typeof receipt.name === 'string' ? receipt.name : 'downloaded.txt';
+      const text = receipt?.kind === 'file_result' && typeof receipt.text === 'string' ? receipt.text : '';
+      if (!text) return fail(502, 'FILE_FETCH_FAILED');
+      return { name, text };
+    },
     async configureReviewReminder(input: { enabled: boolean }, signal?: AbortSignal) {
       checkOpen();
       signal?.throwIfAborted();

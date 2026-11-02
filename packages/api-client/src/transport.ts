@@ -118,6 +118,8 @@ export interface AervoxTransport {
   importBackup?(text: string, signal?: AbortSignal): Promise<{ imported: Record<string, number> }>;
   /** 选择一份本机文档并读取为有界文本（SAF 单文件授权）；缺省表示该宿主不支持。 */
   pickTextFile?(signal?: AbortSignal): Promise<{ name: string; text: string }>;
+  /** 从 https 链接读取有界文本（用户提供的 URL）；缺省表示该宿主不支持。 */
+  fetchUrlText?(url: string, signal?: AbortSignal): Promise<{ name: string; text: string }>;
   /** 本地复习提醒开关（通知权限按用途请求）；缺省表示该宿主不支持。 */
   configureReviewReminder?(input: { enabled: boolean }, signal?: AbortSignal): Promise<{ enabled: boolean }>;
   reviewReminderStatus?(signal?: AbortSignal): Promise<{ enabled: boolean; permission: 'granted' | 'denied' }>;

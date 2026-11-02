@@ -181,7 +181,15 @@ public class NativeRuntimeActivity extends AppCompatActivity {
                     break;
                 }
                 case "file": {
-                    if (!"pickText".equals(command.optString("operation")) || !foreground) {
+                    if (!foreground) {
+                        throw new IllegalArgumentException();
+                    }
+                    if ("fetchText".equals(command.optString("operation"))) {
+                        String url = command.optString("url", "");
+                        result = java.util.concurrent.CompletableFuture.completedFuture(NativeFileService.fetchText(url));
+                        break;
+                    }
+                    if (!"pickText".equals(command.optString("operation"))) {
                         throw new IllegalArgumentException();
                     }
                     java.util.concurrent.CompletableFuture<org.json.JSONObject> pick = new java.util.concurrent.CompletableFuture<>();

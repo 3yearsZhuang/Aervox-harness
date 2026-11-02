@@ -25,7 +25,9 @@ it('shows native readiness and provides a real configuration action without expo
   expect(wrapper.text()).toContain('就绪');
   expect(wrapper.text()).toContain('未配置');
   expect(wrapper.findAll('.runtime-capabilities .runtime-value').map(item => item.text())).toEqual(['试用中', '试用中', '试用中', '未开放', '未开放', '未开放']);
-  expect(wrapper.findAll('input, textarea')).toHaveLength(0);
+  // The panel never exposes raw credential fields; the only free-text field is
+  // the user-supplied question-bank URL.
+  expect(wrapper.findAll('input, textarea').every(item => item.attributes('aria-label') === '题库链接')).toBe(true);
   const configure = wrapper.findAll('md-filled-tonal-button').find(item => item.text() === '配置模型服务');
   expect(configure).toBeTruthy();
   await configure!.trigger('click');

@@ -117,6 +117,9 @@ async function fixture() {
     if (body.op === 'file' && body.operation === 'pickText') {
       return { kind: 'file_result', name: '题库.csv', text: '1+1,2\n2+2,4' };
     }
+    if (body.op === 'file' && body.operation === 'fetchText') {
+      return { kind: 'file_result', name: 'online.csv', text: '3+3,6\n4+4,8' };
+    }
     if (body.op === 'notification') {
       if (body.operation === 'status') return { kind: 'notify_status', enabled: notifyOn, permission: 'granted' };
       notifyOn = body.operation === 'enable';
@@ -949,5 +952,9 @@ describe('Android file import and review reminder', () => {
     expect(await transport.configureReviewReminder!({ enabled: true })).toEqual({ enabled: true });
     expect(await transport.reviewReminderStatus!()).toMatchObject({ enabled: true });
     expect(await transport.configureReviewReminder!({ enabled: false })).toEqual({ enabled: false });
+
+    const fetched = await transport.fetchUrlText!('https://example.com/online.csv');
+    expect(fetched).toMatchObject({ name: 'online.csv', text: '3+3,6\n4+4,8' });
+    await expect(transport.fetchUrlText!('http://example.com/x')).rejects.toMatchObject({ code: 'FILE_URL_INVALID' });
   }, 20_000);
 });

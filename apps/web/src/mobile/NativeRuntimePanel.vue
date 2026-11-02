@@ -27,6 +27,7 @@ const feedback = ref('');
 const importBusy = ref(false);
 const importFeedback = ref('');
 const importError = ref('');
+const importUrl = ref('');
 const reminderOn = ref(false);
 const reminderFeedback = ref('');
 const backupBusy = ref(false);
@@ -174,6 +175,25 @@ async function importQuestionFile() {
       : code === 'FILE_TOO_LARGE' ? '文件超过 2 MiB 上限，未导入。'
       : code === 'NO_VALID_QUESTIONS' ? '文件里没有可识别的题目，未导入。'
       : '导入没有完成，数据未受影响。';
+  } finally { importBusy.value = false; }
+}
+
+async function importFromUrl() {
+  if (importBusy.value || !importUrl.value.trim()) return;
+  importBusy.value = true; importFeedback.value = ''; importError.value = '';
+  try {
+    const transport = getClientTransport();
+    if (!transport.fetchUrlText) throw new Error('URL_IMPORT_NOT_SUPPORTED');
+    const picked = await transport.fetchUrlText(importUrl.value.trim());
+    const result = await transport.request<{ importedCount: number }>('POST', '/v1/questions/import', { content: picked.text });
+    importFeedback.value = `已从「${picked.name}」导入 ${result.importedCount} 道题。`;
+    importUrl.value = '';
+  } catch (error) {
+    const code = error instanceof Error ? error.message : '';
+    importError.value = code === 'FILE_URL_INVALID' ? '只支持 https 链接。'
+      : code === 'FILE_TOO_LARGE' ? '内容超过 2 MiB 上限，未导入。'
+      : code === 'NO_VALID_QUESTIONS' ? '链接内容里没有可识别的题目，未导入。'
+      : '链接读取失败，未导入。';
   } finally { importBusy.value = false; }
 }
 
@@ -384,6 +404,11 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
         <div class="runtime-row">
           <div class="runtime-row-copy"><dt>从文件导入题库</dt><dd>选择一份 JSON 或 CSV 题库文件（2 MiB 内），只读取这一份文件。</dd></div>
           <component :is="'md-filled-tonal-button'" :disabled="importBusy ? 'true' : undefined" @click="importQuestionFile">选择文件</component>
+        </div>
+        <div class="runtime-row">
+          <div class="runtime-row-copy"><dt>从链接导入题库</dt><dd>粘贴 https 链接的 JSON/CSV 题库（2 MiB 内）。</dd></div>
+          <input v-model="importUrl" class="runtime-backup-text" aria-label="题库链接" placeholder="https://…" />
+          <component :is="'md-filled-tonal-button'" :disabled="importBusy || !importUrl.trim() ? 'true' : undefined" @click="importFromUrl">导入</component>
         </div>
         <label class="runtime-device-toggle">
           <span class="runtime-device-label"><strong>复习提醒</strong><small>每天 9 点提醒今日复习，随时可关</small></span>
