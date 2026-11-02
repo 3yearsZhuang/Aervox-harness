@@ -11,3 +11,8 @@ export type { PracticeGuidance, PracticeGuidanceInput } from "./guidance.js";
 export type { KnowledgeItem, ReviewItem } from "./types.js";
 
 export { deriveMilestoneStatuses } from "./learning-plan-policy.js";
+export {
+  buildPlanSystemPrompt, buildPlanUserPrompt, extractJsonObject, validatePlanOutput,
+  hydratePlan, renderTemplatePlan, runPlanGeneration,
+} from "./plan-generation.js";
+export type { PlanLLMOutput, PlanModelCall } from "./plan-generation.js";
