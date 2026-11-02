@@ -213,7 +213,11 @@ public class NativeRuntimeActivity extends AppCompatActivity {
         shutdownNative();
         super.onDestroy();
     }
-    /** Largest display corner radius; content clears it so it never clips. */
+    /**
+     * Corner safety is a nudge, not a bar: the full display radius applied to
+     * every side shrank the usable width by ~70px and broke the layout. Cap it
+     * at a token few pixels so corners stay clear without reflowing the page.
+     */
     private static int roundedCornerPadding(androidx.core.view.WindowInsetsCompat insets) {
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) return 0;
         android.view.WindowInsets platform = insets.toWindowInsets();
@@ -227,7 +231,7 @@ public class NativeRuntimeActivity extends AppCompatActivity {
             android.view.RoundedCorner corner = platform.getRoundedCorner(position);
             if (corner != null) radius = Math.max(radius, corner.getRadius());
         }
-        return radius;
+        return Math.min(radius, 24);
     }
 
     private void shutdownNative() {
