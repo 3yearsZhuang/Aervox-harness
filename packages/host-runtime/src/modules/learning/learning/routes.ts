@@ -18,7 +18,7 @@ import {
   QuestionBankRegistry,
   JsonQuestionBankProvider,
   CsvQuestionBankProvider,
-} from "./question-bank/index.js";
+} from "@aervox/practice-review";
 
 let seq = 0;
 const estimatedMinutesPerReview = 2;

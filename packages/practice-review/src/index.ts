@@ -16,3 +16,7 @@ export {
   hydratePlan, renderTemplatePlan, runPlanGeneration,
 } from "./plan-generation.js";
 export type { PlanLLMOutput, PlanModelCall } from "./plan-generation.js";
+export {
+  QuestionBankRegistry, JsonQuestionBankProvider, CsvQuestionBankProvider,
+} from "./question-bank.js";
+export type { QuestionBankItem, QuestionBankProviderPort } from "./question-bank.js";
