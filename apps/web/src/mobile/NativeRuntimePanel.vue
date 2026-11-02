@@ -405,10 +405,12 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
           <div class="runtime-row-copy"><dt>从文件导入题库</dt><dd>选择一份 JSON 或 CSV 题库文件（2 MiB 内），只读取这一份文件。</dd></div>
           <component :is="'md-filled-tonal-button'" :disabled="importBusy ? 'true' : undefined" @click="importQuestionFile">选择文件</component>
         </div>
-        <div class="runtime-row">
+        <div class="runtime-row runtime-row--stack">
           <div class="runtime-row-copy"><dt>从链接导入题库</dt><dd>粘贴 https 链接的 JSON/CSV 题库（2 MiB 内）。</dd></div>
-          <input v-model="importUrl" class="runtime-backup-text" aria-label="题库链接" placeholder="https://…" />
-          <component :is="'md-filled-tonal-button'" :disabled="importBusy || !importUrl.trim() ? 'true' : undefined" @click="importFromUrl">导入</component>
+          <div class="runtime-url-import">
+            <input v-model="importUrl" class="runtime-backup-text" aria-label="题库链接" placeholder="https://…" />
+            <component :is="'md-filled-tonal-button'" :disabled="importBusy || !importUrl.trim() ? 'true' : undefined" @click="importFromUrl">导入</component>
+          </div>
         </div>
         <label class="runtime-device-toggle">
           <span class="runtime-device-label"><strong>复习提醒</strong><small>每天 9 点提醒今日复习，随时可关</small></span>
@@ -470,6 +472,9 @@ dd { margin: 4px 0 0; color: var(--md-sys-color-on-surface-variant); font-size: 
 .runtime-device-label small { color: var(--md-sys-color-on-surface-variant); font-size: 13px; line-height: 18px; }
 .runtime-error { color: var(--md-sys-color-error) !important; }
 .runtime-feedback { margin: 12px 0 0; font-size: 14px; line-height: 20px; }
+.runtime-row--stack { flex-wrap: wrap; }
+.runtime-url-import { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 4px; }
+.runtime-url-import .runtime-backup-text { flex: 1 1 auto; width: auto; min-height: 44px; }
 .runtime-backup-text { width: 100%; box-sizing: border-box; min-height: 88px; padding: 12px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 16px; background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface); font: inherit; font-size: 13px; line-height: 18px; resize: vertical; }
 @media (max-width: 360px) { .runtime-model { padding: 16px; } .runtime-row { gap: 10px; padding: 14px 12px; } .runtime-icon { display: none; } .runtime-value { max-width: 60px; } }
 </style>
