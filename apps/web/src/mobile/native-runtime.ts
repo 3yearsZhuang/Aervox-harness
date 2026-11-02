@@ -311,6 +311,15 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       const receipt = await nativeRequest({ op: 'speech', operation: 'speak', text });
       if (receipt?.kind !== 'speech_result' || receipt.ok !== true) fail(503, 'SPEECH_UNAVAILABLE');
     },
+    async speechInput(signal?: AbortSignal) {
+      checkOpen();
+      signal?.throwIfAborted();
+      // One bounded foreground recognition; the native side owns permission UX.
+      const receipt = await nativeRequest({ op: 'speech', operation: 'listen' });
+      const text = receipt?.kind === 'speech_input_result' && typeof receipt.text === 'string' ? receipt.text.trim() : '';
+      if (!text) fail(503, 'SPEECH_INPUT_UNAVAILABLE');
+      return { text };
+    },
     async shareText({ title, text }: { title: string; text: string }, signal?: AbortSignal) {
       checkOpen();
       signal?.throwIfAborted();

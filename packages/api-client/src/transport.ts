@@ -110,6 +110,8 @@ export interface AervoxTransport {
   shareText?(input: { title: string; text: string }, signal?: AbortSignal): Promise<void>;
   /** 宿主提供的朗读（手机系统 TTS）；缺省表示该宿主不支持。 */
   speakText?(input: { text: string }, signal?: AbortSignal): Promise<void>;
+  /** 宿主提供的一次性语音输入（手机系统识别器）；缺省表示该宿主不支持。 */
+  speechInput?(signal?: AbortSignal): Promise<{ text: string }>;
 }
 
 // ── 运行时配置（由宿主端在入口注入 import.meta.env 等信息） ──────────────

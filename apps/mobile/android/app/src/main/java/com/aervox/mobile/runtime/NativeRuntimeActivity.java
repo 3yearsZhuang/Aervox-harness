@@ -24,6 +24,7 @@ public class NativeRuntimeActivity extends AppCompatActivity {
     private NativeModelService model;
     private NativeDeviceService device;
     private NativeSpeechService speech;
+    private NativeSpeechInputService speechInput;
     private NativePreferences preferences;
     private NativeAssetWebViewHost host;
     private String epoch;
@@ -40,6 +41,7 @@ public class NativeRuntimeActivity extends AppCompatActivity {
         model = new NativeModelService(this);
         device = new NativeDeviceService(this);
         speech = new NativeSpeechService(this);
+        speechInput = new NativeSpeechInputService(this);
         preferences = new NativePreferences(this);
         owner = new NativeBusinessDatabase(this);
         sqlite = new NativeSqliteSession(owner::open);
@@ -121,13 +123,22 @@ public class NativeRuntimeActivity extends AppCompatActivity {
                         throw new IllegalStateException("NOT_FOREGROUND");
                     }
                     result = device == null ? failed(new NativeDeviceService.DeviceException("CLOSED")) : device.request(command); break;
-                case "speech":
-                    // Read-aloud is audible to anyone nearby, so it stays foreground-only.
-                    if ("speak".equals(command.optString("operation")) && !foreground) {
+                case "speech": {
+                    String speechOperation = command.optString("operation");
+                    // Speaking is audible nearby and dictation has no visible owner in
+                    // the background; both stay foreground-only.
+                    if (("speak".equals(speechOperation) || "listen".equals(speechOperation)) && !foreground) {
                         throw new IllegalStateException("NOT_FOREGROUND");
                     }
-                    result = speech == null ? failed(new NativeSpeechService.SpeechException("CLOSED")) : speech.request(command);
+                    if ("listen".equals(speechOperation) || "cancel".equals(speechOperation)) {
+                        result = speechInput == null
+                            ? failed(new NativeSpeechInputService.SpeechInputException("CLOSED"))
+                            : speechInput.request(command);
+                    } else {
+                        result = speech == null ? failed(new NativeSpeechService.SpeechException("CLOSED")) : speech.request(command);
+                    }
                     break;
+                }
                 case "share": {
                     // Handing text to the OS share sheet is user-visible and needs
                     // the foreground activity; nothing is written to app storage.
@@ -186,6 +197,7 @@ public class NativeRuntimeActivity extends AppCompatActivity {
         if (host != null) host.close();
         if (device != null) device.close();
         if (speech != null) speech.close();
+        if (speechInput != null) speechInput.close();
         if (preferences != null) preferences.close();
         CompletableFuture<Void> modelDrain = model == null ? CompletableFuture.completedFuture(null) : model.close();
         if (sqlite != null) {
