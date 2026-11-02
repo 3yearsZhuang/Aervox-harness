@@ -4,6 +4,7 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { ConversationRepository } from '@aervox/repositories/conversation';
+import { LearningRepository } from '@aervox/repositories/learning';
 import { createInjectedDatabase } from '@aervox/repositories/database';
 import { NativeSqliteClient } from '@aervox/repositories/native-sqlite-client';
 import { ConversationExecutionStore } from '@aervox/host-agent/browser';
@@ -15,6 +16,7 @@ import { delay, createNativeModelProvider } from './native-model-provider';
 import { nativeContextBuilder } from './native-context';
 import { createDeviceTooling } from './native-tools';
 import { createQuestionBridge } from './native-question';
+import { createLearningRouteHandler } from './native-learning';
 
 const ctx = { workspaceId: 'local', subjectUserId: 'local' };
 const encoder = new TextEncoder();
@@ -56,11 +58,16 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
     request: request => nativeRequest({ op: 'sqlite', ...request }),
     dispose: connectionEpoch => nativeRequest({ op: 'dispose', connectionEpoch }),
   }, { connectionEpoch: ready.connectionEpoch });
-  const repo = new ConversationRepository(createInjectedDatabase(client), {
+  const db = createInjectedDatabase(client);
+  // One trusted host primitive set feeds every repository in this composition.
+  const hostCrypto = {
     randomUUID: () => crypto.randomUUID(),
-    sha256Utf8: value => bytesToHex(sha256(new TextEncoder().encode(value))),
+    sha256Utf8: (value: string) => bytesToHex(sha256(new TextEncoder().encode(value))),
     wakeOutbox: () => false,
-  });
+  };
+  const repo = new ConversationRepository(db, hostCrypto);
+  const learningRepo = new LearningRepository(db, hostCrypto);
+  const handleLearningRoute = createLearningRouteHandler({ repo: learningRepo, ctx });
   const store = new ConversationExecutionStore(repo, ctx);
   // Device tools stay unavailable until the user grants a capability in
   // settings; the provider re-reads that native grant on every listing and the
@@ -196,7 +203,11 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
             else if (!await repo.getTurn(ctx, turnId)) fail(404, 'TURN_NOT_FOUND');
           }
           result = { ok: true };
-        } else fail(501, 'FEATURE_NOT_CONNECTED');
+        } else {
+          const learning = await handleLearningRoute(method, url, body);
+          if (learning.handled) result = learning.result;
+          else fail(501, 'FEATURE_NOT_CONNECTED');
+        }
       }
       checkOpen();
       return result as T;

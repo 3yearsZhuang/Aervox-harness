@@ -34,6 +34,12 @@ test('Android composition permits exact neutral exports without granting ordinar
   for (const file of ['apps/web/src/mobile/native-channel.ts', 'apps/web/src/mobile/native-device.ts', 'apps/web/src/mobile/native-storage.ts']) {
     assert.ok(auditArchitecture({ sources: new Map([[file, "import '@aervox/core/browser'"]]) }).violations.some(value => value.includes('not allowed')));
   }
+  // The learning routes may consume the pure review scheduler and the neutral
+  // learning store; ordinary web views still cannot reach either surface.
+  const learning = 'apps/web/src/mobile/native-learning.ts';
+  assert.deepEqual(auditArchitecture({ sources: new Map([[learning, "import '@aervox/practice-review'; import '@aervox/repositories/learning'"]]) }).violations, []);
+  assert.ok(auditArchitecture({ sources: new Map([[learning, "import '@aervox/repositories/database'"]]) }).violations.some(value => value.includes('not allowed')));
+  assert.ok(auditArchitecture({ sources: new Map([['apps/web/src/components/view.ts', "import '@aervox/practice-review'"]]) }).violations.some(value => value.includes('not allowed')));
 });
 test("shared parser classifies imports and exports including Vue, TSImportType and dynamic literal", () => {
   const source = `<script lang="ts">import type { X } from "a"; import { type Y } from "b"; export type { Z } from "c"; type P = import("d").P; const p = import("e");</script>`;

@@ -22,6 +22,7 @@
     "@aervox/plugin-panels-ui": "workspace:*",
     "@aervox/plugin-proactive-ui": "workspace:*",
     "@aervox/plugin-workbench-ui": "workspace:*",
+    "@aervox/practice-review": "workspace:*",
     "@aervox/public": "workspace:*",
     "@aervox/repositories": "workspace:*",
     "@aervox/ui": "workspace:*",

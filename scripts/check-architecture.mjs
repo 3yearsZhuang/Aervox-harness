@@ -38,11 +38,13 @@ export function inspectDependency(from, to) {
 // undeclared siblings keep failing, so the grant never widens to the directory.
 const MOBILE_COMPOSITION_IMPORTS = new Map([
   ['apps/web/src/mobile/native-runtime.ts', new Set(['@aervox/core/browser', '@aervox/host-agent/browser',
-    '@aervox/repositories/conversation', '@aervox/repositories/database', '@aervox/repositories/native-sqlite-client'])],
+    '@aervox/repositories/conversation', '@aervox/repositories/database', '@aervox/repositories/learning',
+    '@aervox/repositories/native-sqlite-client'])],
   ['apps/web/src/mobile/native-model-provider.ts', new Set(['@aervox/core/browser'])],
   ['apps/web/src/mobile/native-context.ts', new Set(['@aervox/core/browser'])],
   ['apps/web/src/mobile/native-question.ts', new Set(['@aervox/core/browser'])],
   ['apps/web/src/mobile/native-tools.ts', new Set(['@aervox/core/browser'])],
+  ['apps/web/src/mobile/native-learning.ts', new Set(['@aervox/practice-review', '@aervox/repositories/learning'])],
 ]);
 
 export function findCycles(edges, kind) {

@@ -188,6 +188,7 @@ async function fixture() {
     get modelRequests() { return modelRequests; },
     get nativeCancels() { return nativeCancels; },
     get sqliteRequests() { return sqliteRequests; },
+    get database() { return database; },
     setConfigured(value: boolean) { configured = value; },
     loseNextCommit() { loseCommit = true; }, get commits() { return commits; },
     async close() {
@@ -690,5 +691,45 @@ describe('on-phone question flow over actual SQLite', () => {
     // A released question cannot be answered after the stop.
     await expect(transport.submitQuestionAnswers((asked.mock.calls[0]![0] as { turnId: string }).turnId, [{ id: 'q1', selected: [] }]))
       .rejects.toThrow('QUESTION_NOT_PENDING');
+  }, 20_000);
+});
+
+describe('Android local review loop over actual SQLite', () => {
+  it('lists, summarizes, completes and replays review items through the native transport', async () => {
+    const fixture = current!;
+    const transport = await fixture.start();
+    await fixture.database.execute(`INSERT INTO knowledge_items (id, concept, source_status, mastery_state, correct_count, wrong_count, correct_streak, mastery, mastery_basis, created_at, updated_at)
+      VALUES ('k_seed', '导数', 'inferred', 'learning', 0, 0, 0, 0, NULL, '2026-11-01T00:00:00.000Z', '2026-11-01T00:00:00.000Z')`);
+    await fixture.database.execute(`INSERT INTO review_items (id, knowledge_id, due_at, interval_days, scheduler_version, timezone_snapshot, status, completion_is_correct, next_review_id, created_at, updated_at)
+      VALUES ('review_seed', 'k_seed', '2026-11-01T00:00:00.000Z', 1, 2, 'UTC', 'active', NULL, NULL, '2026-11-01T00:00:00.000Z', '2026-11-01T00:00:00.000Z')`);
+
+    const due = await transport.request<{ items: { id: string; knowledgeId: string }[] }>('GET', '/v1/review-items');
+    expect(due.items.map(item => item.id)).toEqual(['review_seed']);
+
+    const summary = await transport.request<{ dueCount: number; estimatedMinutes: number; timeZone: string }>('GET', '/v1/review-items/summary');
+    expect(summary).toMatchObject({ dueCount: 1, overdueCount: 1, estimatedMinutes: 2, timeZone: 'UTC' });
+
+    const completed = await transport.request<{
+      completed: { id: string; status: string; nextReviewId: string };
+      nextReview: { id: string; status: string; intervalDays: number };
+      knowledge: { id: string; correctStreak: number; mastery: number; masteryState: string };
+    }>('POST', '/v1/review-items/review_seed/complete', { isCorrect: true, timeZone: 'UTC' });
+    expect(completed.completed).toMatchObject({ id: 'review_seed', status: 'completed' });
+    // One correct answer advances mastery and schedules the next review (streak 1 → 2 days).
+    expect(completed.nextReview).toMatchObject({ id: completed.completed.nextReviewId, status: 'active', intervalDays: 2 });
+    expect(completed.knowledge).toMatchObject({ id: 'k_seed', correctStreak: 1, masteryState: 'learning' });
+
+    const history = await transport.request<{ items: { id: string }[] }>('GET', '/v1/review-items/history?limit=5');
+    expect(history.items.map(item => item.id)).toEqual(['review_seed']);
+
+    // A replay with the same payload returns the durable receipt; a different one is 409.
+    const replay = await transport.request<{ nextReview: { id: string } }>('POST', '/v1/review-items/review_seed/complete', { isCorrect: true, timeZone: 'UTC' });
+    expect(replay.nextReview.id).toBe(completed.nextReview.id);
+    await expect(transport.request('POST', '/v1/review-items/review_seed/complete', { isCorrect: false, timeZone: 'UTC' }))
+      .rejects.toMatchObject({ code: 'REVIEW_COMPLETION_PAYLOAD_MISMATCH' });
+
+    await expect(transport.request('POST', '/v1/review-items/review_missing/complete', { isCorrect: true }))
+      .rejects.toMatchObject({ code: 'REVIEW_NOT_FOUND' });
+    await expect(transport.request('GET', '/v1/sessions/x/unknown')).rejects.toMatchObject({ code: 'FEATURE_NOT_CONNECTED' });
   }, 20_000);
 });

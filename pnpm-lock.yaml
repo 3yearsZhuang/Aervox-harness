@@ -290,6 +290,9 @@ importers:
       '@aervox/plugin-workbench-ui':
         specifier: workspace:*
         version: link:../../plugins/surfaces/workbench-ui
+      '@aervox/practice-review':
+        specifier: workspace:*
+        version: link:../../packages/practice-review
       '@aervox/public':
         specifier: workspace:*
         version: link:../../packages/public
