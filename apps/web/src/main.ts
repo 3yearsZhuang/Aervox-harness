@@ -17,7 +17,16 @@ async function bootstrap() {
   const { nativeStorage, hydrateNativeStorage } = await import('./mobile/native-storage');
   if (native) await hydrateNativeStorage();
   const nativeTransport = native
-    ? await import('./mobile/native-runtime').then(module => module.initializeNativeRuntime())
+    ? await import('./mobile/native-runtime').then(async module => {
+        try {
+          return await module.initializeNativeRuntime();
+        } catch {
+          // Post-install races can leave the native DB briefly unopenable;
+          // one delayed retry covers them without masking real failures.
+          await new Promise(resolve => setTimeout(resolve, 500));
+          return await module.initializeNativeRuntime();
+        }
+      })
     : undefined;
   const client = createAervoxClient({
     ...(nativeTransport ? { transport: nativeTransport } : {}),
