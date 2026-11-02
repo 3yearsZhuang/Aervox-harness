@@ -121,7 +121,7 @@ export function validatePluginBundleFiles(
   };
   const root = raw as Record<string, unknown>;
   allowedKeys(root, ["apiVersion", "kind", "metadata", "requires", "spec"], "manifest");
-  allowedKeys(root.metadata, ["id", "displayName", "publisher", "version", "description", "license", "category", "tags", "breaking"], "metadata");
+  allowedKeys(root.metadata, ["id", "displayName", "publisher", "version", "description", "license", "category", "tags", "targets", "breaking"], "metadata");
   allowedKeys(root.spec, ["config", "pages", "mcpServers", "skill", "tools", "skills", "proactive"], "spec");
   const rawSpec = (root.spec ?? {}) as Record<string, unknown>;
   allowedKeys(rawSpec.config, ["schemaVersion", "entry"], "spec.config");
