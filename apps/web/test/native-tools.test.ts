@@ -85,3 +85,20 @@ it('denies unknown tools and malformed arguments before any native call', async 
     .toEqual({ action: 'deny', reason: 'invalid_arguments' });
   expect(request).not.toHaveBeenCalled();
 });
+
+it('never blocks the question tool, which has no side effect', async () => {
+  const tooling = createDeviceTooling();
+  expect(await tooling.approval.evaluate({ turnId: 'turn', attemptId: 'attempt', invocationId: 'invocation', toolName: 'ask_user_question', arguments: { questions: [] } }))
+    .toEqual({ action: 'allow', reason: 'question_tool_read_only' });
+  expect(request).not.toHaveBeenCalled();
+});
+
+it('allows the read-only device info tool only while root is available', async () => {
+  const tooling = createDeviceTooling();
+  request.mockResolvedValue(status(true, true));
+  expect(await tooling.approval.evaluate({ turnId: 'turn', attemptId: 'attempt', invocationId: 'invocation', toolName: 'device_info', arguments: {} }))
+    .toEqual({ action: 'allow', reason: 'device_info_read_only' });
+  request.mockResolvedValue(status(true, true, false));
+  expect(await tooling.approval.evaluate({ turnId: 'turn', attemptId: 'attempt', invocationId: 'invocation', toolName: 'device_info', arguments: {} }))
+    .toEqual({ action: 'deny', reason: 'root_unavailable' });
+});

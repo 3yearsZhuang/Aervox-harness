@@ -7,13 +7,14 @@ import { ConversationRepository } from '@aervox/repositories/conversation';
 import { createInjectedDatabase } from '@aervox/repositories/database';
 import { NativeSqliteClient } from '@aervox/repositories/native-sqlite-client';
 import { ConversationExecutionStore } from '@aervox/host-agent/browser';
-import { ControlContext, executeTurn } from '@aervox/core/browser';
+import { ControlContext, ASK_USER_QUESTION_SPEC, ASK_USER_QUESTION_TOOL, createAskUserQuestionToolProvider, executeTurn, type ToolProviderPort, type ToolSpec } from '@aervox/core/browser';
 import { AervoxHttpError, TurnStreamProjector, type AervoxTransport, type TurnCallbacks, type ObserveTurnOptions } from '@aervox/api-client';
-import { createSessionRequestSchema, renameSessionRequestSchema, type TurnStreamEvent } from '@aervox/contracts';
+import { createSessionRequestSchema, renameSessionRequestSchema, type AskUserQuestionAnswerItem, type TurnStreamEvent } from '@aervox/contracts';
 import { nativeRequest } from './native-channel';
 import { delay, createNativeModelProvider } from './native-model-provider';
 import { nativeContextBuilder } from './native-context';
 import { createDeviceTooling } from './native-tools';
+import { createQuestionBridge } from './native-question';
 
 const ctx = { workspaceId: 'local', subjectUserId: 'local' };
 const encoder = new TextEncoder();
@@ -25,6 +26,8 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
   let recoveryTimer: ReturnType<typeof setInterval> | undefined;
   let accepting = false;
   let retired = false;
+  // The bridge owns the suspended ask_user_question promise for this host.
+  const questionBridge = createQuestionBridge();
   let foregroundRevision = 0;
   let cancelActive = async () => {};
   const checkOpen = () => { if (retired) fail(503, 'HOST_CLOSED'); };
@@ -36,6 +39,7 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
     clearInterval(recoveryTimer);
     window.removeEventListener('pagehide', retire);
     document.removeEventListener('visibilitychange', visibilityChanged);
+    questionBridge.cancel('QUESTION_CANCELLED');
     active?.control.abort();
     nativeClient?.close();
   };
@@ -62,6 +66,23 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
   // settings; the provider re-reads that native grant on every listing and the
   // approval policy re-checks it before any side effect.
   const deviceTooling = createDeviceTooling();
+  // One tool surface for the turn: the question tool is always available (it
+  // needs no privilege), device verbs only when the phone grant allows them.
+  const questionTool = createAskUserQuestionToolProvider({ userQuestionPort: questionBridge.port, defaultTimeoutMs: 120_000 });
+  // A human answer is not a 12-second tool call: the spec carries its own budget.
+  const questionSpec: ToolSpec = { ...ASK_USER_QUESTION_SPEC, budget: { timeoutMs: 120_000 } };
+  const tools: ToolProviderPort = {
+    tools: [],
+    async listTools() {
+      const device = await deviceTooling.provider.listTools?.() ?? [];
+      return [...device, questionSpec];
+    },
+    execute(input) {
+      return input.name === ASK_USER_QUESTION_TOOL
+        ? questionTool.execute(input)
+        : deviceTooling.provider.execute(input);
+    },
+  };
   const nativeModelProvider = createNativeModelProvider(nativeRequest, async request => {
     await store.requestCancelAttempt({ turnId: request.turnId, attemptId: request.attemptId });
   });
@@ -74,6 +95,8 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
   cancelActive = async () => {
     const owner = active;
     if (!owner) return;
+    // Release a suspended question first: stopping must not leave the loop waiting.
+    questionBridge.cancel('QUESTION_CANCELLED');
     await store.requestCancelAttempt({ turnId: owner.turnId, attemptId: owner.attemptId });
     owner.control.abort();
   };
@@ -96,31 +119,38 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       sequence = cursor.sequence;
     }
     const projector = new TurnStreamProjector({ expectedTurnId: turnId, initialSequence: sequence });
-    for (;;) {
-      checkOpen();
-      const page = await repo.getStreamEventsPage(ctx, turnId, {
-        afterSequence: projector.currentSequence, throughSequence: Number.MAX_SAFE_INTEGER, limit: 128,
-      });
-      checkOpen();
-      for (const event of page.events) {
+    // A suspended question has no persisted event of its own: deliver it to the
+    // observing surface, and keep polling so the resumed answer flows through.
+    const stopQuestions = questionBridge.observe(turnId, question => {
+      if (!retired) callbacks.onUserQuestion?.(question);
+    });
+    try {
+      for (;;) {
         checkOpen();
-        // A prior consumer callback can wait across deletion or host retirement.
-        // Only the shared atomic visibility/payload read authorizes this frame;
-        // a previously fetched replay page never supplies disclosed content.
-        const current = await repo.getStreamEventForDisclosure(ctx, turnId, event.id);
+        const page = await repo.getStreamEventsPage(ctx, turnId, {
+          afterSequence: projector.currentSequence, throughSequence: Number.MAX_SAFE_INTEGER, limit: 128,
+        });
         checkOpen();
-        if (!current) return fail(410, 'STREAM_SOURCE_UNAVAILABLE');
-        if (current.sequence !== event.sequence) fail(409, 'STREAM_REPLAY_SEQUENCE_CHANGED');
-        const wire = { ...current, eventId: current.id, attemptId: current.attemptId || null } as TurnStreamEvent;
-        if (projector.project(wire, callbacks)) await callbacks.onEvent?.(wire);
+        for (const event of page.events) {
+          checkOpen();
+          // A prior consumer callback can wait across deletion or host retirement.
+          // Only the shared atomic visibility/payload read authorizes this frame;
+          // a previously fetched replay page never supplies disclosed content.
+          const current = await repo.getStreamEventForDisclosure(ctx, turnId, event.id);
+          checkOpen();
+          if (!current) return fail(410, 'STREAM_SOURCE_UNAVAILABLE');
+          if (current.sequence !== event.sequence) fail(409, 'STREAM_REPLAY_SEQUENCE_CHANGED');
+          const wire = { ...current, eventId: current.id, attemptId: current.attemptId || null } as TurnStreamEvent;
+          if (projector.project(wire, callbacks)) await callbacks.onEvent?.(wire);
+        }
+        if (projector.finalized) { if (projector.failure) throw projector.failure; return; }
+        const current = await repo.isTurnStreamDisclosable(ctx, turnId);
+        checkOpen();
+        if (!current) fail(410, 'STREAM_SOURCE_UNAVAILABLE');
+        callbacks.onHeartbeat?.();
+        await delay(100, options.signal);
       }
-      if (projector.finalized) { if (projector.failure) throw projector.failure; return; }
-      const current = await repo.isTurnStreamDisclosable(ctx, turnId);
-      checkOpen();
-      if (!current) fail(410, 'STREAM_SOURCE_UNAVAILABLE');
-      callbacks.onHeartbeat?.();
-      await delay(100, options.signal);
-    }
+    } finally { stopQuestions(); }
   };
   return {
     async request<T>(method: string, path: string, body?: unknown, options?: { signal?: AbortSignal }): Promise<T> {
@@ -206,19 +236,19 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
           // transaction; never start model work to manufacture a terminal.
           await store.requestCancelAttempt({ turnId, attemptId: accepted.attempt.id });
         } else if (accepted.created) {
-          const control = new ControlContext({ turnId, sessionId, attemptId: accepted.attempt.id, deadlineEpochMs: Date.now() + 180_000 });
+          const control = new ControlContext({ turnId, sessionId, attemptId: accepted.attempt.id, deadlineEpochMs: Date.now() + 300_000 });
           const owner = { turnId, sessionId, attemptId: accepted.attempt.id, control, done: Promise.resolve() as Promise<unknown> };
           active = owner;
           owner.done = executeTurn({ execution: store, provider: nativeModelProvider, controlContext: control,
-            tools: deviceTooling.provider, approvalPolicy: deviceTooling.approval,
+            tools, approvalPolicy: deviceTooling.approval,
             contextBuilder: { async build(input) {
               const history = await repo.getSessionHistory(ctx, { sessionId, beforeTurnId: turnId });
               return nativeContextBuilder.build({ ...input, messages: [
-                { role: 'system', content: '你是思隅 Aervox，一位主动智能的个人助手。请如实回答。手机上只有用户已在设置中授权的设备工具可用；没有对应工具时，说明这项操作在当前版本不可用，不要编造已执行。' },
+                { role: 'system', content: '你是思隅 Aervox，一位主动智能的个人助手。请如实回答。缺少信息或需要确认时，用 ask_user_question 向用户提问，不要猜测后直接执行。手机上只有用户已在设置中授权的设备工具可用；没有对应工具时，说明这项操作在当前版本不可用，不要编造已执行。' },
                 ...history, ...input.messages,
               ] });
-            } }, options: { maxSteps: 4, maxConsecutiveSameTool: 3, toolTimeoutMs: 12_000, maxModelRetries: 0,
-              maxTurnDurationMs: 180_000, leaseTtlMs: 30_000, leaseHeartbeatIntervalMs: 10_000 },
+            } }, options: { maxSteps: 6, maxConsecutiveSameTool: 3, toolTimeoutMs: 12_000, maxModelRetries: 0,
+              maxTurnDurationMs: 300_000, leaseTtlMs: 30_000, leaseHeartbeatIntervalMs: 10_000 },
           }, { turnId, sessionId, attemptId: accepted.attempt.id, userMessage: content }).finally(() => {
             control.dispose(); if (active === owner) active = undefined;
           });
@@ -230,7 +260,18 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       await observe(turnId!, callbacks, { signal: options.signal });
     },
     observeTurn: observe,
-    async submitQuestionAnswers() { fail(501, 'QUESTION_TOOLS_NOT_CONNECTED'); },
+    async submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[], signal?: AbortSignal) {
+      checkOpen();
+      signal?.throwIfAborted();
+      identifier(turnId);
+      try {
+        await questionBridge.submit(turnId, answers);
+      } catch (error) {
+        const code = error instanceof Error ? error.message : 'QUESTION_NOT_PENDING';
+        // Only the answer body is the caller's fault; everything else is state.
+        fail(code === 'QUESTION_ANSWERS_REQUIRED' ? 400 : 409, code);
+      }
+    },
     async decideToolApproval() { fail(501, 'DEVICE_TOOLS_NOT_CONNECTED'); },
   };
 }

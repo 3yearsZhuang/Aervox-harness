@@ -7,6 +7,7 @@
  * call becomes a refusal instead of an argument.
  */
 import type { ApprovalPolicyPort, ToolProviderPort, ToolSpec, ToolExecutionResult } from '@aervox/core/browser';
+import { ASK_USER_QUESTION_TOOL } from '@aervox/core/browser';
 import { performDeviceAction, readDeviceStatus, type DeviceAction, type DeviceCapability, type DeviceKey, type DeviceStatus } from './native-device';
 
 const KEY_NAMES: readonly DeviceKey[] = ['BACK', 'HOME', 'RECENTS', 'ENTER', 'DEL', 'TAB', 'VOLUME_UP', 'VOLUME_DOWN'];
@@ -135,6 +136,16 @@ export function createDeviceTooling(): DeviceTooling {
   };
   const approval: ApprovalPolicyPort = {
     async evaluate(request) {
+      // Core consults the policy for every tool, including read-only ones.
+      // Asking the user a question has no side effect and must never be denied.
+      if (request.toolName === ASK_USER_QUESTION_TOOL) return { action: 'allow', reason: 'question_tool_read_only' };
+      if (request.toolName === infoTool.name) {
+        try {
+          const status = await readDeviceStatus();
+          return status.root ? { action: 'allow', reason: 'device_info_read_only' }
+            : { action: 'deny', reason: 'root_unavailable' };
+        } catch { return { action: 'deny', reason: 'device_unavailable' }; }
+      }
       const tool = TOOLS.find(item => item.spec.name === request.toolName);
       if (!tool) return { action: 'deny', reason: 'device_tool_unknown' };
       const action = tool.build(record(request.arguments));
