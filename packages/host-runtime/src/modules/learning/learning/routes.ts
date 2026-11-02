@@ -9,8 +9,8 @@ import type { SqliteLearningRepository } from "@aervox/repositories";
 import { resolveLocalContext } from "../../../shared/local-context.js";
 import { createLearningAnswerService, createLearningReviewService } from "./answer-service.js";
 import {
+  buildPracticeReport,
   getLocalDayBounds,
-  getPracticeGuidance,
   getPracticeSessionProgress,
   normalizeMistakeNote,
 } from "@aervox/practice-review";
@@ -34,33 +34,7 @@ function validTimeZone(value: string): boolean {
   }
 }
 
-function practiceReport(sessionId: string, attempted: Array<{ judgement: string; hintCount?: number | null; timeSpentSec?: number | null; nextStep: "continue" | "review_scheduled" | "await_review" }>, questionCount: number) {
-  const correctCount = attempted.filter((attempt) => attempt.judgement === "correct").length;
-  const incorrectCount = attempted.filter((attempt) => attempt.judgement === "incorrect").length;
-  const unverifiableCount = attempted.filter((attempt) => attempt.judgement === "unverifiable").length;
-  const judgedCount = correctCount + incorrectCount;
-  const timedAttempts = attempted.filter((attempt) => attempt.timeSpentSec !== undefined && attempt.timeSpentSec !== null);
-  const avgTimeSpentSec = timedAttempts.length === 0
-    ? null
-    : Math.round(timedAttempts.reduce((total, attempt) => total + (attempt.timeSpentSec ?? 0), 0) / timedAttempts.length);
-  const totalHintsUsed = attempted.reduce((total, attempt) => total + (attempt.hintCount ?? 0), 0);
-  return {
-    sessionId,
-    questionCount,
-    answeredCount: attempted.length,
-    remainingCount: Math.max(questionCount - attempted.length, 0),
-    correctCount,
-    incorrectCount,
-    unverifiableCount,
-    accuracy: judgedCount === 0 ? null : correctCount / judgedCount,
-    avgTimeSpentSec,
-    totalHintsUsed,
-    guidance: getPracticeGuidance({ correctCount, incorrectCount, unverifiableCount, avgTimeSpentSec, totalHintsUsed }),
-    nextStep:
-      attempted.some(attempt => attempt.nextStep === "await_review") ? "await_review"
-        : attempted.some(attempt => attempt.nextStep === "review_scheduled") ? "review_scheduled" : "continue",
-  };
-}
+const practiceReport = buildPracticeReport;
 
 async function practiceSessionResumePayload(
   learningRepo: SqliteLearningRepository,

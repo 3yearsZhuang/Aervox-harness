@@ -6,6 +6,7 @@
  * 包装类取得 node:crypto 默认值；本入口的依赖闭包不得引入 node: 内置模块。
  */
 export { LearningRepository } from "./repositories/sqlite/learning-repository-neutral.js";
+export { canonicalAnswerRequest } from "./repositories/sqlite/learning-answer-store.js";
 export type { ConversationCryptoPort } from "./conversation-host-port.js";
 export type { LocalContext } from "./local-context.js";
 export type {

@@ -8,6 +8,24 @@ import { assertPluginGeneration } from "../../plugin-generation-guard.js";
 import type { LocalContext } from "../../local-context.js";
 import type { AnswerNextStep, LearningAnswerCommand, LearningAnswerPolicy, LearningAnswerResult, QuestionAttemptModel } from "../types/index.js";
 
+/** Hash effective defaults, not incidental omitted properties or JSON key order.
+ * Every host (desktop API, mobile composition) canonicalizes identically so
+ * answer digests stay comparable; serialization and hashing stay at the edges. */
+export function canonicalAnswerRequest(input: LearningAnswerCommand): Record<string, unknown> {
+  const common = {
+    kind: input.kind,
+    timeZone: input.timeZone ?? "UTC",
+    hintCount: input.hintCount ?? 0,
+    timeSpentSec: input.timeSpentSec ?? null,
+    pluginGeneration: input.pluginGeneration ?? null,
+  };
+  return input.kind === "existing-question"
+    ? { ...common, questionId: input.questionId, sessionId: input.sessionId ?? "ses_unknown", answer: input.answer, evidence: input.evidence ?? null }
+    : { ...common, turnId: input.turnId, prompt: input.prompt, questionType: input.questionType ?? null, userAnswer: input.userAnswer,
+      correctAnswer: input.correctAnswer, judgement: input.judgement, explanation: input.explanation ?? null,
+      knowledgeConcept: input.knowledgeConcept ?? null, source: input.source ?? "plugin" };
+}
+
 interface AnswerReceipt {
   payloadVersion: 1;
   requestDigest: string;

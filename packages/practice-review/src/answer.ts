@@ -195,3 +195,14 @@ export function deriveAnswerOutcome(
     },
   };
 }
+
+export type AnswerJudgement = "correct" | "incorrect" | "partial" | "unverifiable";
+
+/** Shared answer judgement: trim/case-insensitive equality against the stored
+ * spec answer; anything shape-incompatible is honestly unverifiable. */
+export function judgeAnswer(answerSpec: unknown, answer: string): AnswerJudgement {
+  if (!answerSpec || typeof answerSpec !== "object" || !("answer" in answerSpec)
+    || typeof (answerSpec as { answer?: unknown }).answer !== "string") return "unverifiable";
+  return answer.trim().toLocaleLowerCase() === (answerSpec as { answer: string }).answer.trim().toLocaleLowerCase()
+    ? "correct" : "incorrect";
+}

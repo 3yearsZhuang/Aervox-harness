@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createReviewItem, deriveAnswerOutcome, getLocalDayBounds, updateAfterAnswer } from "../src/answer.js";
+import { createReviewItem, deriveAnswerOutcome, getLocalDayBounds, judgeAnswer, updateAfterAnswer } from "../src/answer.js";
 import type { KnowledgeItem } from "../src/types.js";
 
 afterEach(() => {
@@ -212,5 +212,19 @@ describe("deriveAnswerOutcome", () => {
     expect(state.masteryState).toBe("learning");
     expect(state.correctStreak).toBe(0);
     expect(review.intervalDays).toBe(1);
+  });
+});
+
+describe("judgeAnswer", () => {
+  it("对已存答案做去空白不区分大小写判分", () => {
+    expect(judgeAnswer({ answer: "  A " }, "a")).toBe("correct");
+    expect(judgeAnswer({ answer: "B" }, "A")).toBe("incorrect");
+    expect(judgeAnswer({ answer: "12" }, " 12 ")).toBe("correct");
+  });
+
+  it("规格缺失或形状不符时如实不可判", () => {
+    expect(judgeAnswer(null, "x")).toBe("unverifiable");
+    expect(judgeAnswer({}, "x")).toBe("unverifiable");
+    expect(judgeAnswer({ answer: 42 }, "42")).toBe("unverifiable");
   });
 });

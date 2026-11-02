@@ -27,6 +27,7 @@ export * from "./repositories/sqlite/plugin-installation-repository.js";
 export * from "./schema/ddl/index.js";
 
 export { collectDiaryMaterial, createSqliteDiaryMaterialPort } from "./repositories/sqlite/diary-material.js";
+export { canonicalAnswerRequest } from "./repositories/sqlite/learning-answer-store.js";
 export { NativeMemoryVectorSearchAdapter } from "./search/native-memory-vector-port.js";
 export { CachedMemoryVectorSearchAdapter } from "./search/cached-memory-vector-port.js";
 
