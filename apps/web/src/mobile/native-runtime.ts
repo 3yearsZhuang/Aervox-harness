@@ -273,6 +273,15 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       }
     },
     async decideToolApproval() { fail(501, 'DEVICE_TOOLS_NOT_CONNECTED'); },
+    async speakText({ text }: { text: string }, signal?: AbortSignal) {
+      checkOpen();
+      signal?.throwIfAborted();
+      if (!text.trim()) fail(400, 'EMPTY_SPEECH_TEXT');
+      // Native TTS rejects longer input; refuse here so the UI gets a real reason.
+      if (text.length > 4_000) fail(413, 'SPEECH_TEXT_TOO_LARGE');
+      const receipt = await nativeRequest({ op: 'speech', operation: 'speak', text });
+      if (receipt?.kind !== 'speech_result' || receipt.ok !== true) fail(503, 'SPEECH_UNAVAILABLE');
+    },
     async shareText({ title, text }: { title: string; text: string }, signal?: AbortSignal) {
       checkOpen();
       signal?.throwIfAborted();

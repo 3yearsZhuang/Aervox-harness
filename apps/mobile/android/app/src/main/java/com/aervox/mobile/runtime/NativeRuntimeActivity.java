@@ -23,6 +23,7 @@ public class NativeRuntimeActivity extends AppCompatActivity {
     private NativeSqliteSession sqlite;
     private NativeModelService model;
     private NativeDeviceService device;
+    private NativeSpeechService speech;
     private NativePreferences preferences;
     private NativeAssetWebViewHost host;
     private String epoch;
@@ -38,6 +39,7 @@ public class NativeRuntimeActivity extends AppCompatActivity {
         setContentView(loading);
         model = new NativeModelService(this);
         device = new NativeDeviceService(this);
+        speech = new NativeSpeechService(this);
         preferences = new NativePreferences(this);
         owner = new NativeBusinessDatabase(this);
         sqlite = new NativeSqliteSession(owner::open);
@@ -119,6 +121,13 @@ public class NativeRuntimeActivity extends AppCompatActivity {
                         throw new IllegalStateException("NOT_FOREGROUND");
                     }
                     result = device == null ? failed(new NativeDeviceService.DeviceException("CLOSED")) : device.request(command); break;
+                case "speech":
+                    // Read-aloud is audible to anyone nearby, so it stays foreground-only.
+                    if ("speak".equals(command.optString("operation")) && !foreground) {
+                        throw new IllegalStateException("NOT_FOREGROUND");
+                    }
+                    result = speech == null ? failed(new NativeSpeechService.SpeechException("CLOSED")) : speech.request(command);
+                    break;
                 case "share": {
                     // Handing text to the OS share sheet is user-visible and needs
                     // the foreground activity; nothing is written to app storage.
@@ -142,6 +151,7 @@ public class NativeRuntimeActivity extends AppCompatActivity {
         while ((error instanceof CompletionException || error instanceof java.util.concurrent.ExecutionException) && error.getCause() != null) error = error.getCause();
         if (error instanceof NativeModelService.ServiceException) return ((NativeModelService.ServiceException) error).code;
         if (error instanceof NativeDeviceService.DeviceException) return ((NativeDeviceService.DeviceException) error).code;
+        if (error instanceof NativeSpeechService.SpeechException) return ((NativeSpeechService.SpeechException) error).code;
         if (error instanceof NativeSqliteSession.SessionException) return ((NativeSqliteSession.SessionException) error).code.name();
         return "NATIVE_FAILURE";
     }
@@ -175,6 +185,7 @@ public class NativeRuntimeActivity extends AppCompatActivity {
         if (!closing.compareAndSet(false, true)) return;
         if (host != null) host.close();
         if (device != null) device.close();
+        if (speech != null) speech.close();
         if (preferences != null) preferences.close();
         CompletableFuture<Void> modelDrain = model == null ? CompletableFuture.completedFuture(null) : model.close();
         if (sqlite != null) {
