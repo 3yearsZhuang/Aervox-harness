@@ -63,6 +63,12 @@ public class NativeRuntimeActivity extends AppCompatActivity {
             // WebView padding does not resize the CSS viewport. Inset its
             // container so fixed-position UI and 100dvh also stay inside bars/IME.
             FrameLayout surface = new FrameLayout(this);
+            // Full-screen adaptation: the inset padding would otherwise expose the
+            // window background at the edges; paint it with the theme's page color.
+            boolean night = (getResources().getConfiguration().uiMode
+                & android.content.res.Configuration.UI_MODE_NIGHT_MASK)
+                == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+            surface.setBackgroundColor(night ? 0xFF101318 : 0xFFFBFBFA);
             surface.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
             ViewCompat.setOnApplyWindowInsetsListener(surface, (target, insets) -> {
                 androidx.core.graphics.Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
