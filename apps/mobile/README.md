@@ -57,7 +57,7 @@ mise exec -- pnpm --filter @aervox/mobile android:check:device
 
 ## 固定原生资产
 
-默认独立入口只加载 APK 内第一方脚本，禁止外部脚本、网络页面和 Service Worker。Live2D 使用本地固定 Cubism Core 制品，不依赖运行时 CDN；缺失或摘要不符时准备步骤失败。开发者须先将官方制品恢复到忽略的 `apps/mobile/android/vendor/live2dcubismcore.min.js`，固定官方地址、207155 字节与 SHA-256 `25ae938cb4fe282ce189b357bcc97e603d1e1f7ec78bf04150d401c23cdc792f` 由 [准备脚本](scripts/prepare-native-assets.mjs)核验。脚本只处理生成资产，不下载或改写业务库。
+默认独立入口只加载 APK 内第一方脚本，禁止外部脚本、网络页面和 Service Worker。Live2D 使用本地固定 Cubism Core 制品，不依赖运行时 CDN；缺失或摘要不符时准备步骤失败。冷检出用 `pnpm --filter @aervox/mobile prepare:native:restore` 显式恢复：脚本只接受固定官方地址、207155 字节与 SHA-256 `25ae938cb4fe282ce189b357bcc97e603d1e1f7ec78bf04150d401c23cdc792f` 的字节，已存在但不匹配的文件会被拒绝而不是覆盖。构建本身仍只核验、不隐式下载或改写业务库；CI 的 [Android 工作流](../../.github/workflows/android.yml) 与 `sqlite:restore` 按同样顺序恢复固定制品。
 
 Cubism Core 保留 Live2D 原始版权和许可头，适用 [Live2D Proprietary Software License Agreement](https://www.live2d.com/eula/live2d-proprietary-software-license-agreement_en.html)。本分支调试和设备验证不等于正式分发许可、签名发布或商店验收；发布前另核对 Live2D 与角色资产的适用条款。
 

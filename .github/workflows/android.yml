@@ -1,0 +1,191 @@
+# Android 专用门禁：固定制品 → JVM/构建 → APK → 模拟器仪器测试。
+#
+# 与 ci.yml 的分工：ci.yml 验证共享 TypeScript 代码；本工作流验证手机壳与原生层
+# （WebView 装配、原生 SQLite 桥、模型通道、设备动作、权限与生命周期）。
+# 触发路径刻意收窄到手机壳、原生层和它们在 Web 侧的组合根，避免每个 PR 都拉模拟器。
+#
+# 冷检出不能依赖被 gitignore 的 vendor/（SQLite AAR、Cubism Core）：
+# 两者都由声明脚本现场恢复并校验固定哈希，构建过程本身永不隐式下载。
+name: Android
+
+on:
+  pull_request:
+    paths:
+      - "apps/mobile/**"
+      - "apps/web/src/mobile/**"
+      - "apps/web/test/native-*.test.ts"
+      - "packages/api-client/**"
+      - "packages/repositories/**"
+      - "packages/schema/**"
+      - "packages/core"
+      - "plugins"
+      - "plugins/**"
+      - ".gitmodules"
+      - "pnpm-lock.yaml"
+      - "mise.toml"
+      - ".github/workflows/android.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/mobile/**"
+      - "apps/web/src/mobile/**"
+      - "apps/web/test/native-*.test.ts"
+      - "packages/api-client/**"
+      - "packages/repositories/**"
+      - "packages/schema/**"
+      - "packages/core"
+      - "plugins"
+      - "plugins/**"
+      - ".gitmodules"
+      - "pnpm-lock.yaml"
+      - "mise.toml"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  jvm:
+    name: Android JVM tests & debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize required product submodules
+        run: git submodule update --init -- packages/core plugins
+
+      - name: Install mise
+        run: |
+          curl https://mise.run | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Restore mise cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/mise/installs
+            ~/.local/share/mise/cache
+          key: mise-${{ runner.os }}-${{ hashFiles('mise.toml') }}
+
+      # mise.toml 固定 JDK 21，与本地工具链一致；不依赖 runner 的默认 JDK。
+      - name: Install tools (node + pnpm + JDK from mise.toml)
+        run: mise install
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install dependencies (frozen lockfile)
+        run: mise exec -- pnpm install --frozen-lockfile
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$sdkmanager" || { echo "::error::sdkmanager not found at $sdkmanager"; exit 1; }
+          yes | "$sdkmanager" --licenses > /dev/null
+          "$sdkmanager" "platform-tools" "platforms;android-36" "build-tools;35.0.0"
+
+      - name: Restore pinned native artifacts
+        run: |
+          mise exec -- pnpm --filter @aervox/mobile sqlite:restore
+          mise exec -- pnpm --filter @aervox/mobile prepare:native:restore
+
+      - name: Preflight (JDK, SDK platform/build-tools, project)
+        run: mise exec -- pnpm --filter @aervox/mobile android:check
+
+      - name: Build web assets and debug APK
+        run: mise exec -- pnpm --filter @aervox/mobile android:build
+
+      - name: Native JVM unit tests
+        working-directory: apps/mobile/android
+        run: mise exec -- ./gradlew :app:testDebugUnitTest --console=plain
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: aervox-mobile-debug-apk
+          path: apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
+
+  instrumented:
+    name: Android instrumented tests (emulator)
+    runs-on: ubuntu-latest
+    needs: jvm
+    timeout-minutes: 75
+    # 观察期（非阻塞）：模拟器仪器测试初入 CI，先收集稳定性数据，失败只标注而不拦 PR。
+    # 连续稳定后再改为强制门禁。
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize required product submodules
+        run: git submodule update --init -- packages/core plugins
+
+      - name: Install mise
+        run: |
+          curl https://mise.run | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Restore mise cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/mise/installs
+            ~/.local/share/mise/cache
+          key: mise-${{ runner.os }}-${{ hashFiles('mise.toml') }}
+
+      - name: Install tools (node + pnpm + JDK from mise.toml)
+        run: mise install
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install dependencies (frozen lockfile)
+        run: mise exec -- pnpm install --frozen-lockfile
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdkmanager" --licenses > /dev/null
+          "$sdkmanager" "platform-tools" "platforms;android-36" "build-tools;35.0.0"
+
+      - name: Restore pinned native artifacts
+        run: |
+          mise exec -- pnpm --filter @aervox/mobile sqlite:restore
+          mise exec -- pnpm --filter @aervox/mobile prepare:native:restore
+
+      - name: Build web assets and debug APK
+        run: mise exec -- pnpm --filter @aervox/mobile android:build
+
+      # KVM 由 runner 提供；软件渲染避免依赖宿主机 GPU。
+      - name: Run instrumented tests on API 36 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: |
+            cd apps/mobile/android
+            mise exec -- ./gradlew :app:connectedDebugAndroidTest --console=plain
+
+      - name: Upload instrumented test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-instrumented-reports
+          path: apps/mobile/android/app/build/reports/androidTests/
+          if-no-files-found: ignore
+          retention-days: 7
