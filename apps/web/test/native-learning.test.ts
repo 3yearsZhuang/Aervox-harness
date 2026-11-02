@@ -364,6 +364,36 @@ describe('native learning routes', () => {
       .rejects.toMatchObject({ code: 'PLAN_MODEL_CALL_FAILED' });
   });
 
+  it('imports question banks from inline JSON or CSV content', async () => {
+    const repo = stubRepo({ createQuestion: vi.fn(async (_ctx: unknown, q: { id: string }) => q) });
+    const handle = createLearningRouteHandler({ repo, ctx, digestRequest, generateText });
+
+    expect(await handle('GET', route('/v1/questions/import/providers'), undefined)).toMatchObject({
+      handled: true,
+      result: { providers: [{ id: 'json-question-bank' }, { id: 'csv-question-bank' }] },
+    });
+
+    const imported = await handle('POST', route('/v1/questions/import'),
+      { content: JSON.stringify([{ prompt: '1+1', answer: '2', explanation: '加法', tags: ['math'] }]), knowledgeId: 'k_1' });
+    expect(imported).toMatchObject({ handled: true, result: {
+      providerId: 'json-question-bank', importedCount: 1,
+      questions: [expect.objectContaining({
+        prompt: '1+1', knowledgeId: 'k_1',
+        answerSpec: { answer: '2', explanation: '加法', tags: ['math'] },
+      })],
+    } });
+
+    const csv = await handle('POST', route('/v1/questions/import'), { content: 'Q1,A1\nQ2,A2', format: 'csv' });
+    expect(csv).toMatchObject({ handled: true, result: { providerId: 'csv-question-bank', importedCount: 2 } });
+
+    await expect(handle('POST', route('/v1/questions/import'), {}))
+      .rejects.toMatchObject({ code: 'IMPORT_CONTENT_REQUIRED' });
+    await expect(handle('POST', route('/v1/questions/import'), { content: '# 只有注释' }))
+      .rejects.toMatchObject({ code: 'NO_VALID_QUESTIONS' });
+    await expect(handle('POST', route('/v1/questions/import'), { content: 'x'.repeat(1024 * 1024 + 1) }))
+      .rejects.toMatchObject({ code: 'QUESTION_BANK_TOO_LARGE' });
+  });
+
   it('leaves unrelated paths to the host dispatch', async () => {
     const handle = makeHandler();
     expect(await handle('GET', route('/v1/sessions'), undefined)).toEqual({ handled: false });

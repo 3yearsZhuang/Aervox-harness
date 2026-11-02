@@ -18,12 +18,15 @@ import {
 } from '@aervox/contracts';
 import {
   buildPracticeReport,
+  CsvQuestionBankProvider,
   deriveAnswerOutcome,
   deriveMilestoneStatuses,
   getLocalDayBounds,
   getPracticeSessionProgress,
+  JsonQuestionBankProvider,
   judgeAnswer,
   normalizeMistakeNote,
+  QuestionBankRegistry,
   runPlanGeneration,
 } from '@aervox/practice-review';
 import {
@@ -76,7 +79,13 @@ const identifier = (value: string) => {
   return value;
 };
 
+const MAX_IMPORT_CONTENT_BYTES = 1024 * 1024;
+
 export function createLearningRouteHandler({ repo, ctx, digestRequest, generateText }: LearningRouteDeps) {
+  // Same built-in import SPI as the desktop routes; plugins may register more.
+  const qbRegistry = new QuestionBankRegistry();
+  qbRegistry.register(new JsonQuestionBankProvider());
+  qbRegistry.register(new CsvQuestionBankProvider());
   const practiceSessionResumePayload = async (session: { id: string; questionIds: string[]; startedAt: string }) => {
     const items = await Promise.all(session.questionIds.map(questionId => repo.getQuestion(ctx, questionId)));
     if (items.some(item => !item)) return null;
@@ -141,6 +150,46 @@ export function createLearningRouteHandler({ repo, ctx, digestRequest, generateT
         sourceArtifactId: payload.sourceArtifactId as string | null | undefined,
         knowledgeId: payload.knowledgeId as string | null | undefined,
       }) };
+    }
+    if (path === '/v1/questions/import/providers' && method === 'GET') {
+      return { handled: true, result: { providers: qbRegistry.list() } };
+    }
+    if (path === '/v1/questions/import' && method === 'POST') {
+      const content = payload.content;
+      if (typeof content !== 'string' || !content) return fail(400, 'IMPORT_CONTENT_REQUIRED');
+      if (content.length > MAX_IMPORT_CONTENT_BYTES) return fail(413, 'QUESTION_BANK_TOO_LARGE');
+      let provider = typeof payload.providerId === 'string' ? qbRegistry.get(payload.providerId) : undefined;
+      if (!provider && typeof payload.format === 'string' && payload.format) {
+        provider = qbRegistry.resolveByExtension(payload.format.startsWith('.') ? payload.format : `.${payload.format}`);
+      }
+      if (!provider) {
+        try {
+          JSON.parse(content);
+          provider = qbRegistry.get('json-question-bank');
+        } catch {
+          provider = qbRegistry.get('csv-question-bank');
+        }
+      }
+      if (!provider) return fail(400, 'NO_MATCHING_PROVIDER');
+      const items = await provider.parse(content);
+      if (items.length === 0) return fail(400, 'NO_VALID_QUESTIONS');
+      const questions = [];
+      for (const item of items) {
+        questions.push(await repo.createQuestion(ctx, {
+          id: id('q'),
+          prompt: item.prompt,
+          answerSpec: {
+            answer: item.answer,
+            ...(item.explanation ? { explanation: item.explanation } : {}),
+            ...(item.options ? { options: item.options } : {}),
+            ...(item.difficulty ? { difficulty: item.difficulty } : {}),
+            ...(item.tags ? { tags: item.tags } : {}),
+          },
+          sourceArtifactId: payload.sourceArtifactId as string | null | undefined,
+          knowledgeId: payload.knowledgeId as string | null | undefined,
+        }));
+      }
+      return { handled: true, result: { providerId: provider.id, importedCount: questions.length, questions } };
     }
     const questionAttempts = /^\/v1\/questions\/([^/]+)\/attempts$/.exec(path);
     const question = /^\/v1\/questions\/([^/]+)$/.exec(path);

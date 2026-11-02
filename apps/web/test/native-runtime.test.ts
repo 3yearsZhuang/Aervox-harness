@@ -815,3 +815,21 @@ describe('Android plan generation over the native model bridge', () => {
     expect(archived.id).toBe(plan.id);
   }, 20_000);
 });
+
+describe('Android question bank import over actual SQLite', () => {
+  it('imports inline content and feeds the practice session', async () => {
+    const fixture = current!;
+    const transport = await fixture.start();
+    const imported = await transport.request<{ providerId: string; importedCount: number; questions: { id: string }[] }>(
+      'POST', '/v1/questions/import', {
+        content: JSON.stringify([
+          { prompt: '1+1=?', answer: '2' },
+          { prompt: '2+2=?', answer: '4' },
+          { prompt: '3+3=?', answer: '6' },
+        ]),
+      });
+    expect(imported).toMatchObject({ providerId: 'json-question-bank', importedCount: 3 });
+    const started = await transport.request<{ items: { prompt: string }[] }>('POST', '/v1/practice/sessions', { count: 3 });
+    expect(started.items.map(item => item.prompt).sort()).toEqual(['1+1=?', '2+2=?', '3+3=?']);
+  }, 20_000);
+});
