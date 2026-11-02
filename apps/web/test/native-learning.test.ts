@@ -36,13 +36,25 @@ function stubRepo(overrides: Record<string, unknown> = {}) {
     getLearningPlan: vi.fn(async () => null),
     transitionPlanTask: vi.fn(async () => null),
     archiveLearningPlan: vi.fn(async () => null),
+    createLearningPlan: vi.fn(async () => ({ id: 'plan_1', milestones: [] })),
     ...overrides,
   } as unknown as LearningRouteDeps['repo'];
 }
 
 const digestRequest = vi.fn(() => 'a'.repeat(64));
-const makeHandler = (repo: Record<string, unknown> = {}) =>
-  createLearningRouteHandler({ repo: stubRepo(repo), ctx, digestRequest });
+const planOutput = {
+  title: '高数项目式学习', description: '围绕高数的项目式学习路线', learningObjective: '建立高数框架',
+  gains: ['收获一', '收获二', '收获三'],
+  milestones: [
+    { title: '阶段一', description: '准备', briefing: 'b', completionCriteria: 'c', debrief: 'd',
+      tasks: [{ title: '任务一', description: 'x', hints: ['h'] }, { title: '任务二' }] },
+    { title: '阶段二：整合收尾', description: '整合', briefing: 'b', completionCriteria: 'c', debrief: 'd',
+      tasks: [{ title: '任务三' }, { title: '任务四' }] },
+  ],
+};
+const generateText = vi.fn(async () => JSON.stringify(planOutput));
+const makeHandler = (repo: Record<string, unknown> = {}, model = generateText) =>
+  createLearningRouteHandler({ repo: stubRepo(repo), ctx, digestRequest, generateText: model });
 const route = (path: string) => new URL(path, 'https://localhost');
 
 afterEach(() => { vi.useRealTimers(); vi.clearAllMocks(); });
@@ -50,7 +62,7 @@ afterEach(() => { vi.useRealTimers(); vi.clearAllMocks(); });
 describe('native learning routes', () => {
   it('returns due items and forwards an explicit dueBefore', async () => {
     const repo = stubRepo({ listDueReviewItems: vi.fn(async () => [{ id: 'review_1' }]) });
-    const handle = createLearningRouteHandler({ repo, ctx, digestRequest });
+    const handle = createLearningRouteHandler({ repo, ctx, digestRequest, generateText });
     const result = await handle('GET', route('/v1/review-items?dueBefore=2026-11-02T00:00:00.000Z'), undefined);
     expect(result).toEqual({ handled: true, result: { items: [{ id: 'review_1' }] } });
     expect(repo.listDueReviewItems).toHaveBeenCalledWith(ctx, '2026-11-02T00:00:00.000Z');
@@ -84,7 +96,7 @@ describe('native learning routes', () => {
 
   it('caps history limits between 1 and 50 and defaults to 10', async () => {
     const repo = stubRepo({ listCompletedReviewItems: vi.fn(async () => []) });
-    const handle = createLearningRouteHandler({ repo, ctx, digestRequest });
+    const handle = createLearningRouteHandler({ repo, ctx, digestRequest, generateText });
     await handle('GET', route('/v1/review-items/history'), undefined);
     expect(repo.listCompletedReviewItems).toHaveBeenCalledWith(ctx, 10);
     await handle('GET', route('/v1/review-items/history?limit=50'), undefined);
@@ -102,7 +114,7 @@ describe('native learning routes', () => {
       knowledge: { id: 'k_1', correctStreak: 1 },
     };
     const repo = stubRepo({ completeReviewAndSchedule: vi.fn(async () => result) });
-    const handle = createLearningRouteHandler({ repo, ctx, digestRequest });
+    const handle = createLearningRouteHandler({ repo, ctx, digestRequest, generateText });
     const response = await handle('POST', route('/v1/review-items/review_1/complete'), { isCorrect: true, timeZone: 'UTC' });
     expect(response).toEqual({ handled: true, result });
     expect(repo.completeReviewAndSchedule).toHaveBeenCalledWith(ctx, { reviewId: 'review_1', isCorrect: true, timeZone: 'UTC' }, deriveAnswerOutcome);
@@ -110,7 +122,7 @@ describe('native learning routes', () => {
 
   it('validates the completion body before touching the repository', async () => {
     const repo = stubRepo();
-    const handle = createLearningRouteHandler({ repo, ctx, digestRequest });
+    const handle = createLearningRouteHandler({ repo, ctx, digestRequest, generateText });
     await expect(handle('POST', route('/v1/review-items/review_1/complete'), { isCorrect: 'yes' }))
       .rejects.toMatchObject({ code: 'INVALID_REVIEW_COMPLETION' });
     await expect(handle('POST', route('/v1/review-items/review_1/complete'), { isCorrect: true, timeZone: 'Mars/Olympus' }))
@@ -140,7 +152,7 @@ describe('native learning routes', () => {
       listLearningGoals: vi.fn(async () => [{ id: 'goal_1' }]),
       getLearningGoal: vi.fn(async (_ctx: unknown, goalId: string) => goalId === 'goal_1' ? { id: 'goal_1', status: 'active' } : null),
     });
-    const handle = createLearningRouteHandler({ repo, ctx, digestRequest });
+    const handle = createLearningRouteHandler({ repo, ctx, digestRequest, generateText });
     expect(await handle('GET', route('/v1/learning/goals?includeArchived=true'), undefined))
       .toEqual({ handled: true, result: { items: [{ id: 'goal_1' }] } });
     expect(repo.listLearningGoals).toHaveBeenCalledWith(ctx, true);
@@ -166,7 +178,7 @@ describe('native learning routes', () => {
       getQuestion: vi.fn(async (_ctx: unknown, questionId: string) =>
         questionId === 'q_1' ? { id: 'q_1', answerSpec: { answer: '4' } } : null),
     });
-    const handle = createLearningRouteHandler({ repo, ctx, digestRequest });
+    const handle = createLearningRouteHandler({ repo, ctx, digestRequest, generateText });
     await expect(handle('POST', route('/v1/questions'), {}))
       .rejects.toMatchObject({ code: 'QUESTION_PROMPT_REQUIRED' });
     await expect(handle('POST', route('/v1/questions'), { prompt: '1+1=?', knowledgeId: 'k_missing' }))
@@ -183,7 +195,7 @@ describe('native learning routes', () => {
     const repo = stubRepo({
       recordAnswer: vi.fn(async () => ({ attempt: { id: 'att_1', judgement: 'correct' }, nextStep: 'continue', created: true })),
     });
-    const handle = createLearningRouteHandler({ repo, ctx, digestRequest });
+    const handle = createLearningRouteHandler({ repo, ctx, digestRequest, generateText });
     const response = await handle('POST', route('/v1/questions/q_1/attempts'),
       { sessionId: 'practice_1', answer: '2', timeZone: 'UTC' }, { headers: { 'Idempotency-Key': 'key_2' } });
     expect(response).toEqual({ handled: true, result: { id: 'att_1', judgement: 'correct', nextStep: 'continue' } });
@@ -227,7 +239,7 @@ describe('native learning routes', () => {
       getLatestActivePracticeSession: vi.fn(async () => session),
       listAttemptsBySession: vi.fn(async () => [{ questionId: 'q_1' }]),
     });
-    const resuming = createLearningRouteHandler({ repo, ctx, digestRequest });
+    const resuming = createLearningRouteHandler({ repo, ctx, digestRequest, generateText });
     expect(await resuming('GET', route('/v1/practice/sessions/active'), undefined)).toEqual({ handled: true, result: {
       sessionId: 'practice_9', items: [{ id: 'q_1', answerSpec: { answer: '4' } }], startedAt: '2026-11-01T00:00:00.000Z',
       answeredQuestionIds: ['q_1'], nextQuestionIndex: 1,
@@ -249,7 +261,7 @@ describe('native learning routes', () => {
       completePracticeSession: vi.fn(async () => ({ id: 'practice_1', questionCount: 3 })),
       listPracticeAnswerOutcomes: vi.fn(async () => outcomes),
     });
-    const handle = createLearningRouteHandler({ repo, ctx, digestRequest });
+    const handle = createLearningRouteHandler({ repo, ctx, digestRequest, generateText });
     const report = await handle('POST', route('/v1/practice/sessions/practice_1/complete'), undefined);
     expect(report).toMatchObject({ handled: true, result: {
       sessionId: 'practice_1', questionCount: 3, answeredCount: 2, remainingCount: 1,
@@ -266,7 +278,7 @@ describe('native learning routes', () => {
       { questionId: 'q_2', knowledgeId: 'k_2', status: 'dismissed', wrongCount: 1, reasonCode: 'careless' },
     ];
     const repo = stubRepo({ listMistakes: vi.fn(async () => mistakes) });
-    const handle = createLearningRouteHandler({ repo, ctx, digestRequest });
+    const handle = createLearningRouteHandler({ repo, ctx, digestRequest, generateText });
     expect(await handle('GET', route('/v1/mistakes?status=all&sortBy=frequent'), undefined))
       .toMatchObject({ handled: true, result: { items: [{ questionId: 'q_1' }, { questionId: 'q_2' }] } });
     await expect(handle('GET', route('/v1/mistakes?status=weird'), undefined))
@@ -292,7 +304,7 @@ describe('native learning routes', () => {
   it('re-practices mistakes within 1 to 5 questions', async () => {
     const mistakes = [{ questionId: 'q_1', knowledgeId: 'k_1', status: 'active', wrongCount: 1 }];
     const repo = stubRepo({ listMistakes: vi.fn(async () => mistakes) });
-    const handle = createLearningRouteHandler({ repo, ctx, digestRequest });
+    const handle = createLearningRouteHandler({ repo, ctx, digestRequest, generateText });
     expect(await handle('POST', route('/v1/mistakes/repractice'), {})).toMatchObject({
       handled: true, result: { sessionId: 'practice_1', items: [{ id: 'q_1' }] },
     });
@@ -304,17 +316,21 @@ describe('native learning routes', () => {
       .rejects.toMatchObject({ code: 'INVALID_QUESTION_IDS' });
   });
 
-  it('serves plans and tasks but keeps generation honestly disconnected', async () => {
+  it('generates plans through the shared pipeline and serves task updates', async () => {
     const repo = stubRepo({
       transitionPlanTask: vi.fn(async (_ctx: unknown, taskId: string) => taskId === 'task_1' ? { id: 'plan_1' } : null),
+      createLearningPlan: vi.fn(async (_ctx: unknown, draft: { id: string; title: string }) => ({ ...draft, milestones: [] })),
     });
-    const handle = createLearningRouteHandler({ repo, ctx, digestRequest });
+    const handle = createLearningRouteHandler({ repo, ctx, digestRequest, generateText });
     expect(await handle('GET', route('/v1/learning-plans'), undefined))
       .toEqual({ handled: true, result: { items: [] } });
-    await expect(handle('POST', route('/v1/learning-plans/generate'), { topic: '高数' }))
-      .rejects.toMatchObject({ code: 'PLAN_GENERATION_NOT_CONNECTED' });
+
+    const generated = await handle('POST', route('/v1/learning-plans/generate'), { topic: '高数' });
+    expect(generated).toMatchObject({ handled: true, result: { generatedBy: 'llm', title: '高数项目式学习' } });
+    expect(repo.createLearningPlan).toHaveBeenCalledWith(ctx, expect.objectContaining({ topic: '高数' }));
     await expect(handle('POST', route('/v1/learning-plans/generate'), {}))
       .rejects.toMatchObject({ code: 'INVALID_PLAN_REQUEST' });
+
     expect(await handle('PATCH', route('/v1/plan-tasks/task_1'), { status: 'done' }))
       .toEqual({ handled: true, result: { id: 'plan_1' } });
     expect(repo.transitionPlanTask).toHaveBeenCalledWith(ctx, 'task_1', 'done', deriveMilestoneStatuses);
@@ -324,6 +340,28 @@ describe('native learning routes', () => {
       .rejects.toMatchObject({ code: 'INVALID_PLAN_TASK' });
     await expect(handle('POST', route('/v1/learning-plans/plan_x/archive'), undefined))
       .rejects.toMatchObject({ code: 'PLAN_NOT_FOUND' });
+  });
+
+  it('retries once with gaps, then fails or surfaces model errors', async () => {
+    const retryModel = vi.fn(async () => '')
+      .mockResolvedValueOnce('{"title":""}')
+      .mockResolvedValueOnce(JSON.stringify(planOutput));
+    const retried = makeHandler({}, retryModel);
+    expect(await retried('POST', route('/v1/learning-plans/generate'), { topic: '高数' }))
+      .toMatchObject({ handled: true, result: { generatedBy: 'llm' } });
+    expect(retryModel).toHaveBeenCalledTimes(2);
+    expect(retryModel.mock.calls[1]![1]).toContain('你上一次的输出存在以下问题');
+
+    const alwaysBad = makeHandler({}, vi.fn(async () => '{}'));
+    await expect(alwaysBad('POST', route('/v1/learning-plans/generate'), { topic: '高数' }))
+      .rejects.toMatchObject({ code: 'PLAN_GENERATION_FAILED' });
+
+    const providerDown = makeHandler({}, vi.fn(async () => { throw new Error('PROVIDER_REQUEST_FAILED'); }));
+    await expect(providerDown('POST', route('/v1/learning-plans/generate'), { topic: '高数' }))
+      .rejects.toMatchObject({ code: 'PROVIDER_REQUEST_FAILED' });
+    const unknown = makeHandler({}, vi.fn(async () => { throw new Error('boom'); }));
+    await expect(unknown('POST', route('/v1/learning-plans/generate'), { topic: '高数' }))
+      .rejects.toMatchObject({ code: 'PLAN_MODEL_CALL_FAILED' });
   });
 
   it('leaves unrelated paths to the host dispatch', async () => {

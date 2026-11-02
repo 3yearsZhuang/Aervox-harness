@@ -24,6 +24,7 @@ import {
   getPracticeSessionProgress,
   judgeAnswer,
   normalizeMistakeNote,
+  runPlanGeneration,
 } from '@aervox/practice-review';
 import {
   canonicalAnswerRequest,
@@ -50,13 +51,15 @@ type LearningRepoPort = Pick<ILearningRepository,
   | 'listPracticeAnswerOutcomes' | 'recordAnswer'
   | 'listMistakes' | 'setMistakeDisposition' | 'setMistakeInsight' | 'clearMistakeInsight' | 'updateMastery'
   | 'getKnowledgeItem'
-  | 'listLearningPlans' | 'getLearningPlan' | 'transitionPlanTask' | 'archiveLearningPlan'>;
+  | 'listLearningPlans' | 'getLearningPlan' | 'transitionPlanTask' | 'archiveLearningPlan' | 'createLearningPlan'>;
 
 export interface LearningRouteDeps {
   repo: LearningRepoPort;
   ctx: LocalContext;
   /** SHA-256 hex over the stable JSON of a canonical answer request. */
   digestRequest: (value: unknown) => string;
+  /** One text completion over the native model bridge (plan generation). */
+  generateText: (system: string, user: string) => Promise<string>;
 }
 
 export type LearningRouteResult = { handled: true; result: unknown } | { handled: false };
@@ -73,7 +76,7 @@ const identifier = (value: string) => {
   return value;
 };
 
-export function createLearningRouteHandler({ repo, ctx, digestRequest }: LearningRouteDeps) {
+export function createLearningRouteHandler({ repo, ctx, digestRequest, generateText }: LearningRouteDeps) {
   const practiceSessionResumePayload = async (session: { id: string; questionIds: string[]; startedAt: string }) => {
     const items = await Promise.all(session.questionIds.map(questionId => repo.getQuestion(ctx, questionId)));
     if (items.some(item => !item)) return null;
@@ -362,7 +365,18 @@ export function createLearningRouteHandler({ repo, ctx, digestRequest }: Learnin
     if (path === '/v1/learning-plans/generate' && method === 'POST') {
       const parsed = generateLearningPlanSchema.safeParse(body);
       if (!parsed.success) return fail(400, 'INVALID_PLAN_REQUEST');
-      return fail(501, 'PLAN_GENERATION_NOT_CONNECTED');
+      try {
+        const { draft, generatedBy } = await runPlanGeneration(
+          { topic: parsed.data.topic, level: parsed.data.level, dailyMinutes: parsed.data.dailyMinutes },
+          generateText);
+        return { handled: true, result: { ...await repo.createLearningPlan(ctx, draft), generatedBy } };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '';
+        if (message.startsWith('plan_generation_failed:')) return fail(502, 'PLAN_GENERATION_FAILED');
+        // The model bridge reports fixed UPPER_SNAKE provider codes; surface them.
+        if (/^[A-Z][A-Z_]+$/.test(message)) return fail(502, message);
+        return fail(502, 'PLAN_MODEL_CALL_FAILED');
+      }
     }
     if (path === '/v1/learning-plans' && method === 'GET') {
       const includeArchived = url.searchParams.get('includeArchived') === 'true';

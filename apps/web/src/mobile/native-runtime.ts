@@ -67,9 +67,24 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
   };
   const repo = new ConversationRepository(db, hostCrypto);
   const learningRepo = new LearningRepository(db, hostCrypto);
+  // Plan generation is one structured completion over the same native model
+  // bridge; the shared pipeline retries once with gaps like every host does.
+  const generateText = async (system: string, user: string): Promise<string> => {
+    const turnId = `plan_${crypto.randomUUID()}`;
+    let raw = '';
+    for await (const chunk of nativeModelProvider.stream({
+      turnId, attemptId: `attempt_${crypto.randomUUID()}`, step: 1,
+      context: { turnId, sessionId: `plan_session_${turnId}`, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] },
+    })) {
+      if (chunk.text) raw += chunk.text;
+      if (chunk.isFinal) return raw;
+    }
+    return raw;
+  };
   const handleLearningRoute = createLearningRouteHandler({
     repo: learningRepo, ctx,
     digestRequest: value => hostCrypto.sha256Utf8(stableSerialize(value)),
+    generateText,
   });
   const store = new ConversationExecutionStore(repo, ctx);
   // Device tools stay unavailable until the user grants a capability in

@@ -785,3 +785,33 @@ describe('Android local practice loop over actual SQLite', () => {
     );
   }, 20_000);
 });
+
+describe('Android plan generation over the native model bridge', () => {
+  it('generates, lists and archives a plan from one structured completion', async () => {
+    const fixture = current!;
+    const planOutput = {
+      title: '高数项目式学习', description: '围绕高数的项目式学习路线', learningObjective: '建立高数框架',
+      gains: ['收获一', '收获二', '收获三'],
+      milestones: [
+        { title: '阶段一', description: '准备', briefing: 'b', completionCriteria: 'c', debrief: 'd',
+          tasks: [{ title: '任务一', description: 'x', hints: ['h'] }, { title: '任务二' }] },
+        { title: '阶段二：整合收尾', description: '整合', briefing: 'b', completionCriteria: 'c', debrief: 'd',
+          tasks: [{ title: '任务三' }, { title: '任务四' }] },
+      ],
+    };
+    fixture.setModel([JSON.stringify(planOutput)]);
+    const transport = await fixture.start();
+    const plan = await transport.request<{ id: string; title: string; generatedBy: string; milestones: { id: string; tasks: unknown[] }[] }>(
+      'POST', '/v1/learning-plans/generate', { topic: '高数', level: 'beginner', dailyMinutes: 25 });
+    expect(plan).toMatchObject({ generatedBy: 'llm', title: '高数项目式学习' });
+    expect(plan.milestones).toHaveLength(2);
+    expect(plan.milestones[0]!.tasks).toHaveLength(2);
+
+    const list = await transport.request<{ items: { id: string }[] }>('GET', '/v1/learning-plans');
+    expect(list.items.map(item => item.id)).toContain(plan.id);
+
+    const archived = await transport.request<{ id: string; status?: string }>(
+      'POST', `/v1/learning-plans/${plan.id}/archive`, undefined);
+    expect(archived.id).toBe(plan.id);
+  }, 20_000);
+});
