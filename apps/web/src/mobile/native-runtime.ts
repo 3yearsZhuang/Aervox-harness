@@ -8,7 +8,7 @@ import { LearningRepository } from '@aervox/repositories/learning';
 import { createInjectedDatabase } from '@aervox/repositories/database';
 import { NativeSqliteClient } from '@aervox/repositories/native-sqlite-client';
 import { ConversationExecutionStore } from '@aervox/host-agent/browser';
-import { ControlContext, ASK_USER_QUESTION_SPEC, ASK_USER_QUESTION_TOOL, createAskUserQuestionToolProvider, executeTurn, type ToolProviderPort, type ToolSpec } from '@aervox/core/browser';
+import { ControlContext, ASK_USER_QUESTION_SPEC, ASK_USER_QUESTION_TOOL, createAskUserQuestionToolProvider, executeTurn, stableSerialize, type ToolProviderPort, type ToolSpec } from '@aervox/core/browser';
 import { AervoxHttpError, TurnStreamProjector, type AervoxTransport, type TurnCallbacks, type ObserveTurnOptions } from '@aervox/api-client';
 import { createSessionRequestSchema, renameSessionRequestSchema, type AskUserQuestionAnswerItem, type TurnStreamEvent } from '@aervox/contracts';
 import { nativeRequest } from './native-channel';
@@ -67,7 +67,10 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
   };
   const repo = new ConversationRepository(db, hostCrypto);
   const learningRepo = new LearningRepository(db, hostCrypto);
-  const handleLearningRoute = createLearningRouteHandler({ repo: learningRepo, ctx });
+  const handleLearningRoute = createLearningRouteHandler({
+    repo: learningRepo, ctx,
+    digestRequest: value => hostCrypto.sha256Utf8(stableSerialize(value)),
+  });
   const store = new ConversationExecutionStore(repo, ctx);
   // Device tools stay unavailable until the user grants a capability in
   // settings; the provider re-reads that native grant on every listing and the
@@ -160,7 +163,7 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
     } finally { stopQuestions(); }
   };
   return {
-    async request<T>(method: string, path: string, body?: unknown, options?: { signal?: AbortSignal }): Promise<T> {
+    async request<T>(method: string, path: string, body?: unknown, options?: { headers?: Record<string, string>; signal?: AbortSignal }): Promise<T> {
       checkOpen();
       options?.signal?.throwIfAborted();
       const url = new URL(path, 'https://localhost');
@@ -204,7 +207,7 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
           }
           result = { ok: true };
         } else {
-          const learning = await handleLearningRoute(method, url, body);
+          const learning = await handleLearningRoute(method, url, body, { headers: options?.headers });
           if (learning.handled) result = learning.result;
           else fail(501, 'FEATURE_NOT_CONNECTED');
         }

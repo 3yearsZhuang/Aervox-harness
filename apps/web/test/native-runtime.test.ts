@@ -733,3 +733,55 @@ describe('Android local review loop over actual SQLite', () => {
     await expect(transport.request('GET', '/v1/sessions/x/unknown')).rejects.toMatchObject({ code: 'FEATURE_NOT_CONNECTED' });
   }, 20_000);
 });
+
+describe('Android local practice loop over actual SQLite', () => {
+  it('creates questions, runs a practice session, records answers and derives mistakes', async () => {
+    const fixture = current!;
+    const transport = await fixture.start();
+    const ask = async (prompt: string, answer: string) =>
+      (await transport.request<{ id: string }>('POST', '/v1/questions', { prompt, answerSpec: { answer } })).id;
+    const [q1, q2, q3] = await Promise.all([ask('1+1=?', '2'), ask('2+2=?', '4'), ask('3+3=?', '6')]);
+
+    const goals = await transport.request<{ items: { id: string }[] }>('GET', '/v1/learning/goals');
+    expect(goals.items).toEqual([]);
+    const goal = await transport.request<{ id: string }>('POST', '/v1/learning/goals', { topic: '高数' },
+      { headers: { 'Idempotency-Key': 'goal_key' } });
+    expect((await transport.request<{ items: { id: string }[] }>('GET', '/v1/learning/goals')).items.map(item => item.id)).toEqual([goal.id]);
+
+    const started = await transport.request<{ sessionId: string; items: { id: string }[]; nextQuestionIndex: number }>(
+      'POST', '/v1/practice/sessions', { count: 3 });
+    expect(started.items.map(item => item.id).sort()).toEqual([q1, q2, q3].sort());
+    expect(started.nextQuestionIndex).toBe(0);
+
+    const first = await transport.request<{ id: string; judgement: string; nextStep: string }>(
+      'POST', `/v1/questions/${q1}/attempts`, { sessionId: started.sessionId, answer: '2' },
+      { headers: { 'Idempotency-Key': 'att_key_1' } });
+    expect(first.judgement).toBe('correct');
+    // Same key replays the same immutable attempt instead of a second fact.
+    const replay = await transport.request<{ id: string }>(
+      'POST', `/v1/questions/${q1}/attempts`, { sessionId: started.sessionId, answer: '2' },
+      { headers: { 'Idempotency-Key': 'att_key_1' } });
+    expect(replay.id).toBe(first.id);
+
+    await transport.request('POST', `/v1/questions/${q2}/attempts`, { sessionId: started.sessionId, answer: '999' });
+    await transport.request('POST', `/v1/questions/${q3}/attempts`, { sessionId: started.sessionId, answer: '6' });
+
+    const resumed = await transport.request<{ answeredQuestionIds: string[]; nextQuestionIndex: number }>(
+      'GET', '/v1/practice/sessions/active');
+    expect(resumed.answeredQuestionIds.sort()).toEqual([q1, q2, q3].sort());
+    expect(resumed.nextQuestionIndex).toBe(3);
+
+    const report = await transport.request<{ answeredCount: number; correctCount: number; incorrectCount: number; accuracy: number }>(
+      'POST', `/v1/practice/sessions/${started.sessionId}/complete`);
+    expect(report).toMatchObject({ answeredCount: 3, correctCount: 2, incorrectCount: 1, accuracy: 2 / 3 });
+
+    const mistakes = await transport.request<{ items: { questionId: string; wrongCount: number }[] }>('GET', '/v1/mistakes?status=all');
+    expect(mistakes.items.map(item => item.questionId)).toEqual([q2]);
+    expect(mistakes.items[0]).toMatchObject({ wrongCount: 1 });
+
+    // The wrong question schedules review work once its knowledge is tracked.
+    await transport.request('POST', '/v1/mistakes/repractice', { questionIds: [q2] }).then(
+      (session: { sessionId: string }) => session.sessionId,
+    );
+  }, 20_000);
+});
