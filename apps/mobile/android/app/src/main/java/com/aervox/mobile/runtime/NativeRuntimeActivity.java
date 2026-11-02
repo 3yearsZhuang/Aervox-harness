@@ -194,12 +194,16 @@ public class NativeRuntimeActivity extends AppCompatActivity {
                     }
                     java.util.concurrent.CompletableFuture<org.json.JSONObject> pick = new java.util.concurrent.CompletableFuture<>();
                     pendingPick[0] = pick;
-                    try {
-                        pickLauncher.launch(new String[] { "text/*", "application/json", "text/csv", "application/csv" });
-                    } catch (Exception error) {
-                        pendingPick[0] = null;
-                        pick.completeExceptionally(new NativeFileService.FileException("FILE_PICK_UNAVAILABLE"));
-                    }
+                    // The WebView bridge calls back off the main thread; launching
+                    // the SAF picker requires the UI thread or it throws silently.
+                    runOnUiThread(() -> {
+                        try {
+                            pickLauncher.launch(new String[] { "text/*", "application/json", "text/csv", "application/csv" });
+                        } catch (Exception error) {
+                            pendingPick[0] = null;
+                            pick.completeExceptionally(new NativeFileService.FileException("FILE_PICK_UNAVAILABLE"));
+                        }
+                    });
                     result = pick;
                     break;
                 }
