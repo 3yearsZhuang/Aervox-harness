@@ -15,7 +15,7 @@ import {
 } from "./proactive-dsl-schemas.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { comparePluginVersions, STABLE_PLUGIN_VERSION_PATTERN } from "./plugin-compatibility.js";
-import { pluginCategorySchema } from "./plugin-identity.js";
+import { pluginCategorySchema, pluginTargetSchema } from "./plugin-identity.js";
 
 // 必须在任何 schema 创建前调用（与 schemas.ts 保持相同约定）
 extendZodWithOpenApi(z);
@@ -299,6 +299,8 @@ export const pluginManifestSchema = z.object({
     category: pluginCategorySchema.optional(),
     tags: z.array(z.string().min(1).max(64)).max(32).refine(tags => new Set(tags).size === tags.length,
       { message: "Duplicate plugin tags" }).optional(),
+    /** 宿主端适配声明（可变元数据，与冻结的 category 正交）：缺省 = 全端可用。 */
+    targets: pluginTargetSchema,
     breaking: z.boolean().optional(),
   }),
   spec: z
@@ -489,6 +491,7 @@ export const pluginMarketItemSchema = z.object({
   source: z.enum(["builtin", "market"]).default("builtin"),
   category: pluginCategorySchema.optional(),
   tags: z.array(z.string()).optional(),
+  targets: pluginTargetSchema,
   breaking: z.boolean().optional(),
   downloadUrl: z.string().url().optional(),
   sha256: z.string().regex(/^[a-f0-9]{64}$/).optional(),
