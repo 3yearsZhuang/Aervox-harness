@@ -106,6 +106,8 @@ export interface AervoxTransport {
   uploadAttachment?(input: AttachmentUploadInput): Promise<UploadedAttachment>;
   /** PET-05: 写工具授权审批提交 */
   decideToolApproval(turnId: string, approvalId: string, decision: 'granted' | 'denied', signal?: AbortSignal): Promise<ToolApprovalDecisionResponse | void>;
+  /** 宿主提供的文本分享（手机分享面板）；缺省表示该宿主不支持。 */
+  shareText?(input: { title: string; text: string }, signal?: AbortSignal): Promise<void>;
 }
 
 // ── 运行时配置（由宿主端在入口注入 import.meta.env 等信息） ──────────────

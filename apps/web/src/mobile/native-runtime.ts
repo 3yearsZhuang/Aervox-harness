@@ -273,5 +273,14 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       }
     },
     async decideToolApproval() { fail(501, 'DEVICE_TOOLS_NOT_CONNECTED'); },
+    async shareText({ title, text }: { title: string; text: string }, signal?: AbortSignal) {
+      checkOpen();
+      signal?.throwIfAborted();
+      if (!text.trim()) fail(400, 'EMPTY_SHARE_TEXT');
+      // The channel request budget is 1 MiB; keep the payload well below it.
+      if (encoder.encode(text).byteLength > 256 * 1024) fail(413, 'SHARE_TEXT_TOO_LARGE');
+      const receipt = await nativeRequest({ op: 'share', operation: 'text', subject: title.slice(0, 120), text });
+      if (receipt?.kind !== 'share_result' || receipt.ok !== true) fail(503, 'SHARE_UNAVAILABLE');
+    },
   };
 }

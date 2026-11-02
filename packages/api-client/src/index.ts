@@ -151,3 +151,5 @@ export type { LearningStorePort, GoalStorePort, ReviewStorePort, PracticeStorePo
 export { createGoalStore, createReviewStore, createPracticeStore, createPlanStore, createMistakeStore } from './learning-stores.js';
 
 export { createSessionHistoryClient } from './session-history-client.js';
+export { buildSessionTranscript } from './session-export.js';
+export type { SessionTranscript, SessionTranscriptInput } from './session-export.js';

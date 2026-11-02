@@ -119,6 +119,20 @@ public class NativeRuntimeActivity extends AppCompatActivity {
                         throw new IllegalStateException("NOT_FOREGROUND");
                     }
                     result = device == null ? failed(new NativeDeviceService.DeviceException("CLOSED")) : device.request(command); break;
+                case "share": {
+                    // Handing text to the OS share sheet is user-visible and needs
+                    // the foreground activity; nothing is written to app storage.
+                    if (!"text".equals(command.optString("operation")) || !foreground) throw new IllegalArgumentException();
+                    String text = command.getString("text");
+                    String subject = command.optString("subject", "");
+                    if (text.isEmpty() || text.length() > 300_000 || subject.length() > 120) throw new IllegalArgumentException();
+                    android.content.Intent send = new android.content.Intent(android.content.Intent.ACTION_SEND)
+                        .setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, text);
+                    if (!subject.isEmpty()) send.putExtra(android.content.Intent.EXTRA_SUBJECT, subject);
+                    startActivity(android.content.Intent.createChooser(send, "分享会话"));
+                    result = CompletableFuture.completedFuture(new JSONObject().put("kind", "share_result").put("ok", true));
+                    break;
+                }
                 default: throw new IllegalArgumentException();
             }
             return result.handle((value, error) -> error == null ? value.toString() : failure(code(error)).toString());
