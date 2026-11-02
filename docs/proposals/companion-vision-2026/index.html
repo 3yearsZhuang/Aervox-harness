@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>思隅 · 一日 — 助手愿景 demo</title>
+<link rel="stylesheet" href="assets/vision.css" />
+</head>
+<body data-moment="morning">
+
+<div class="app">
+  <div class="motes" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M8 1.6 14 4.6v6.8L8 14.4 2 11.4V4.6L8 1.6Z" stroke="currentColor" stroke-width="1.2"/>
+        <circle cx="8" cy="8" r="1.9" fill="currentColor"/>
+      </svg>
+      思隅
+      <small>本地 · 不上传</small>
+    </div>
+
+    <div class="top-mid">
+      <span class="dot" aria-hidden="true"></span>
+      11 月 2 日 周三 · 只会用你授权的来源
+    </div>
+
+    <div class="top-right">
+      <span class="chip" id="acceptedChip"><span class="n">0</span> 件已接住</span>
+      <span class="chip is-accent">主动度 · 中</span>
+      <button class="icon-btn" id="themeBtn" title="切换明暗" aria-label="切换明暗">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M13.2 9.4A5.6 5.6 0 0 1 6.6 2.8 5.6 5.6 0 1 0 13.2 9.4Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <button class="icon-btn" title="设置" aria-label="设置">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="8" cy="8" r="2.1" stroke="currentColor" stroke-width="1.2"/>
+          <path d="M8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6M3.6 3.6l1.1 1.1M11.3 11.3l1.1 1.1M12.4 3.6l-1.1 1.1M4.7 11.3l-1.1 1.1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="room">
+    <aside class="companion">
+      <div class="window" aria-hidden="true"></div>
+
+      <div class="clock-block">
+        <div class="clock"><span class="visually-hidden">当前时刻</span><b id="clockText">07:40</b><span id="clockZone">本地</span></div>
+        <div class="clock-label" id="clockLabel">出门前 · 还有 20 分钟</div>
+      </div>
+
+      <div class="pet-wrap">
+        <div class="aura" aria-hidden="true"></div>
+        <svg class="pet pet-float" viewBox="0 0 160 150" fill="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="bodyGrad" x1="34" y1="18" x2="118" y2="126" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="var(--pet-1)"/>
+              <stop offset=".55" stop-color="var(--pet-2)"/>
+              <stop offset="1" stop-color="var(--pet-3)"/>
+            </linearGradient>
+          </defs>
+          <ellipse cx="80" cy="138" rx="27" ry="3.4" fill="var(--ink)" opacity=".12"/>
+          <path d="M82.4 13.4c28.6-1.6 46.4 19.4 45 50.6-1.4 33.2-21.6 58.6-48.2 58.6-26.5 0-46.6-24.4-46.6-57.8 0-31.2 21.2-49.7 49.8-51.4Z"
+                class="body" stroke="var(--pet-rim)" stroke-width="1"/>
+          <path d="M49 45c6.4-15.4 20.8-23.4 35.8-24" stroke="var(--pet-rim)" stroke-width="1.6" stroke-linecap="round"/>
+          <rect class="eye" x="61.6" y="60" width="8.6" height="17.6" rx="4.3"/>
+          <rect class="eye" x="88.4" y="60" width="8.6" height="17.6" rx="4.3"/>
+          <circle cx="80" cy="101" r="9.5" stroke="var(--accent)" stroke-width=".9" opacity=".26"/>
+          <circle cx="80" cy="101" r="2.8" fill="var(--accent)" opacity=".9"/>
+        </svg>
+        <p class="pet-line" id="petLine">早。昨晚那页我没有动，留着等你。</p>
+      </div>
+
+      <div>
+        <div class="presence">
+          <span class="l"><span class="dot" style="width:5px;height:5px;border-radius:50%;background:var(--ok)"></span><span id="presenceText">安静陪伴 · 不主动弹窗</span></span>
+          <span id="presenceRight">在听</span>
+        </div>
+      </div>
+    </aside>
+
+    <section class="scene" aria-live="polite">
+      <!-- ============ 早上 ============ -->
+      <article class="moment is-active" data-m="morning" aria-label="早上 出门前">
+        <div class="moment-body">
+          <div class="moment-head">
+            <span class="eyebrow">早上 · 出门前</span>
+            <h1>今天只有三件事，<br/>值得你先看一眼。</h1>
+            <p class="sub">其余 7 条我压到明天了。想全看的话，点下面。</p>
+          </div>
+
+          <div class="brief">
+            <button class="brief-row" data-go="继续昨晚那段">
+              <span class="idx">01</span>
+              <span class="b"><b>昨晚 23:10 没写完的那段访谈结论</b><span>停在「第二种解释」，前面已经有两段草稿</span></span>
+              <span class="tag">接着写</span>
+            </button>
+            <button class="brief-row" data-go="起草给阿哲的报价">
+              <span class="idx">02</span>
+              <span class="b"><b>15:00 前给阿哲回一份报价</b><span>你上周答应过；材料在「访谈/阿哲」里</span></span>
+              <span class="tag warn">今天截止</span>
+            </button>
+            <button class="brief-row" data-go="晚上的复习">
+              <span class="idx">03</span>
+              <span class="b"><b>2 张复习卡到期</b><span>预计 4 分钟；不着急，晚上也可以</span></span>
+              <span class="tag ok">学习域 · 可选</span>
+            </button>
+          </div>
+
+          <div class="rest">
+            <button class="rest-toggle" id="restToggle">
+              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m4 6 4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              其余 7 条 <span class="c">已压到明天</span>
+            </button>
+            <div class="rest-list" id="restList">
+              <div class="rest-row"><span class="dot"></span><span class="t">交这个月的房租</span><span class="when">明天到期</span></div>
+              <div class="rest-row"><span class="dot"></span><span class="t">回两封没看完的邮件</span><span class="when">不紧急</span></div>
+              <div class="rest-row"><span class="dot"></span><span class="t">约牙医，你说过想换一家</span><span class="when">本周</span></div>
+              <div class="rest-row"><span class="dot"></span><span class="t">下载文件夹里 42 个文件没整理</span><span class="when">随手</span></div>
+            </div>
+          </div>
+
+          <div class="slips">
+            <div class="slip" data-slip>
+              <button class="why" data-why>
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2"/><path d="M8 7.4v3.2M8 5.4v.6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                为什么现在出现
+              </button>
+              <h3>你昨天说，想把「采访整理成三条结论」练熟</h3>
+              <p>要不要现在拿昨晚那段试一遍？我会先问你两个问题，不直接给答案。</p>
+              <div class="acts">
+                <button data-act="yes">好，试试</button>
+                <button data-act="later" class="ghost">晚点</button>
+                <button data-act="no" class="ghost">今天不用</button>
+              </div>
+              <div class="result" aria-live="polite"></div>
+              <div class="explain">
+                触发：你昨天在两次会话里提到这件事；现在是 07:40，距你平时开始工作还有 20 分钟，正好够一轮。
+                这个建议只读取了你授权的会话与本地文件，没有读取其它应用。
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="scene-foot">
+          <span class="k">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3" y="7" width="10" height="6.5" rx="1.8" stroke="currentColor" stroke-width="1.2"/><path d="M5.6 7V5.4a2.4 2.4 0 0 1 4.8 0V7" stroke="currentColor" stroke-width="1.2"/></svg>
+            只用了你授权的来源：会话、本地文件、手动输入的日程
+          </span>
+          <span>·</span>
+          <span>没有屏幕捕获，没有后台监听</span>
+        </div>
+      </article>
+
+      <!-- ============ 下午 ============ -->
+      <article class="moment" data-m="work" aria-label="下午 手头的事">
+        <div class="moment-body">
+          <div class="moment-head">
+            <span class="eyebrow">下午 · 手头的事</span>
+            <h1>把三份访谈，<br/>收成一页结论。</h1>
+            <p class="sub">目标：给阿哲的报价提供依据。约束：不超过一页，保留原话出处。</p>
+          </div>
+
+          <div class="task">
+            <div class="steps" id="steps">
+              <div class="step is-done"><span class="mark">✓</span><span>读取 3 份访谈记录</span><span class="time">14:20</span></div>
+              <div class="step" id="step2"><span class="mark">2</span><span>归纳主题并去掉重复说法</span><span class="time" id="t2">—</span></div>
+              <div class="step" id="step3"><span class="mark">3</span><span>生成一页摘要，标注来源</span><span class="time" id="t3">—</span></div>
+            </div>
+
+            <div class="approval" id="approval">
+              <div class="hd">
+                <span class="ic">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3.2" y="2" width="9.6" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M5.8 5.8h4.4M5.8 8.6h3.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                </span>
+                <div>
+                  <h3>读取「访谈」里的 3 个文件</h3>
+                  <p><code>~/Documents/访谈/*.md</code> · 共 18 KB · 仅读取，不改动。读完不会自动写进记忆。</p>
+                </div>
+              </div>
+              <div class="acts">
+                <button class="btn primary sm" data-approve="once">允许一次</button>
+                <button class="btn sm" data-approve="session">本次会话都可以</button>
+                <button class="btn ghost sm" data-approve="deny">拒绝</button>
+                <span class="note">所有读取都会留下记录</span>
+              </div>
+            </div>
+
+            <div class="artifact" id="artifact">
+              <header>
+                <span class="kind">产出 · 一页</span>
+                <span class="ttl">访谈结论：三个人都在说同一件事</span>
+                <span class="r">
+                  <button class="icon-btn" title="打开" aria-label="打开">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 3.5h6.5V10M12.5 3.5 4 12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </button>
+                </span>
+              </header>
+              <ol>
+                <li><b>他们不缺工具，缺的是「谁来决定下一步」。</b> 三位受访者都提到，真正卡住的地方是判断而不是操作。</li>
+                <li><b>愿意为「少做一次判断」付费。</b> 阿哲的报价区间可以参考 3.5–4.2 万，依据是两次提到的预算上限。</li>
+                <li><b>不需要培训，需要能随时问。</b> 三个人都拒绝了课程形式，但接受“卡住时有人接一下”。</li>
+              </ol>
+              <div class="src">
+                <span class="s">↳ 访谈/林.md · 第 12 行</span>
+                <span class="s">↳ 访谈/周.md · 第 7 行</span>
+                <span class="s">↳ 访谈/阿哲.md · 第 21 行</span>
+              </div>
+            </div>
+
+            <div class="slips" id="workSlip" hidden>
+              <div class="slip is-warn" data-slip>
+                <button class="why" data-why>
+                  <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2"/><path d="M8 7.4v3.2M8 5.4v.6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                  为什么现在出现
+                </button>
+                <h3>「阿哲」出现了 9 次，另外两个人各 3 次</h3>
+                <p>要不要把他单独建成一个「人物」条目？以后报价、承诺和分歧都挂在他下面。</p>
+                <div class="acts">
+                  <button data-act="yes">建一个</button>
+                  <button data-act="later" class="ghost">晚点</button>
+                  <button data-act="no" class="ghost">不用</button>
+                </div>
+                <div class="result" aria-live="polite"></div>
+                <div class="explain">
+                  触发：你在这次任务里连续三次问到他；频率显著高于其他人。这里只比较本次会话内的提及次数，不建画像。
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="scene-foot">
+          <span class="k">每一步都可以停</span>
+          <span>·</span>
+          <span>产出可编辑，来源逐条可回溯</span>
+          <span>·</span>
+          <span id="runState">等待授权</span>
+        </div>
+      </article>
+
+      <!-- ============ 晚上 ============ -->
+      <article class="moment" data-m="night" aria-label="晚上 收尾">
+        <div class="moment-body">
+          <div class="moment-head">
+            <span class="eyebrow">晚上 · 收尾</span>
+            <h1>今天的记录，<br/>你看一眼就好。</h1>
+            <p class="sub">我按你授权的范围写了一遍；不对的地方直接改，改完我就按新的记。</p>
+          </div>
+
+          <div class="diary">
+            <div class="d-head">
+              <h3>11 月 2 日 · 周三</h3>
+              <span class="mono">22:10 生成</span>
+            </div>
+            <p>上午你把昨天没写完的那段收尾了，用的是「先写结论、再补细节」的顺序，比前天快了大约 12 分钟。</p>
+            <p>下午整理了三份访谈，最后落在三个判断上：他们不缺工具，缺的是谁来决定下一步。报价你还没发出去。</p>
+            <p>晚上没有安排复习。你没有提这件事，我也没有催。</p>
+            <div class="d-acts">
+              <button class="btn ghost sm" data-diary="edit">编辑</button>
+              <button class="btn ghost sm" data-diary="rewrite">重写</button>
+              <button class="btn ghost sm" data-diary="delete">删除</button>
+              <span class="src-count">来源 5 条 · 可逐条查看</span>
+            </div>
+          </div>
+
+          <div class="mem">
+            <div class="mem-row" data-mem>
+              <span class="q"><b>你更习惯先写结论，再补细节。</b> <span class="mono">来自今天 3 次编辑</span></span>
+              <span class="ops"><button class="yes" data-mem-act="ok">对</button><button class="no" data-mem-act="no">不对</button></span>
+            </div>
+            <div class="mem-row" data-mem>
+              <span class="q"><b>晚上 21:00 之后，你更容易接受长任务。</b> <span class="mono">来自近两周 6 次记录</span></span>
+              <span class="ops"><button class="yes" data-mem-act="ok">对</button><button class="no" data-mem-act="no">不对</button></span>
+            </div>
+          </div>
+
+          <div class="promise" id="promise">
+            <span class="tag">承诺</span>
+            <span>你下午说「下周三前把报价发给阿哲」。</span>
+            <button class="btn sm" data-promise>变成待办</button>
+          </div>
+
+          <div class="slips">
+            <div class="slip" data-slip>
+              <button class="why" data-why>
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2"/><path d="M8 7.4v3.2M8 5.4v.6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                为什么现在出现
+              </button>
+              <h3>明天 9:00 有一个你自己设的提醒</h3>
+              <p>要现在把报价材料放到台面吗？明早打开就能直接用。</p>
+              <div class="acts">
+                <button data-act="yes">放到台面</button>
+                <button data-act="later" class="ghost">明早再说</button>
+                <button data-act="no" class="ghost">不用</button>
+              </div>
+              <div class="result" aria-live="polite"></div>
+              <div class="explain">
+                触发：你在日历里手动加过这条提醒；材料散在三个地方，明早现找大约要 6 分钟。只整理文件位置，不发送任何内容。
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="scene-foot">
+          <span class="k">日记只用今天被授权的记录</span>
+          <span>·</span>
+          <span>纠错会立刻生效，并写进来源链</span>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <footer class="dayrail" role="tablist" aria-label="一天中的三个时刻">
+    <button class="stop" data-m="morning" role="tab" aria-selected="true">
+      <span class="row"><span class="t">07:40</span><span class="n">出门前</span></span>
+      <span class="bar"><i></i></span>
+    </button>
+    <button class="stop" data-m="work" role="tab" aria-selected="false">
+      <span class="row"><span class="t">14:20</span><span class="n">手头的事</span></span>
+      <span class="bar"><i></i></span>
+    </button>
+    <button class="stop" data-m="night" role="tab" aria-selected="false">
+      <span class="row"><span class="t">22:10</span><span class="n">收尾</span></span>
+      <span class="bar"><i></i></span>
+    </button>
+  </footer>
+</div>
+
+<nav class="demo-bar" aria-label="演示控制">
+  <span class="tag">DEMO</span>
+  <button id="replay">重新看一遍</button>
+  <span class="sep"></span>
+  <a href="../ui-redesign-2026/index.html">界面方案</a>
+  <a href="../ui-redesign-2026/desktop.html">三端 demo</a>
+  <span class="sep"></span>
+  <button id="themeToggle">明暗</button>
+</nav>
+
+<script>
+  const root = document.documentElement;
+
+  // 主题
+  const saved = localStorage.getItem('aervox.demo.theme');
+  if (saved) root.dataset.theme = saved;
+  const toggleTheme = () => {
+    root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('aervox.demo.theme', root.dataset.theme);
+  };
+  document.getElementById('themeBtn').onclick = toggleTheme;
+  document.getElementById('themeToggle').onclick = toggleTheme;
+
+  // 内容超出时：底部渐隐 + 明确的滚动提示
+  const refreshers = new Map();
+  document.querySelectorAll('.moment-body').forEach((el) => {
+    const moment = el.closest('.moment');
+    const hint = document.createElement('button');
+    hint.type = 'button';
+    hint.className = 'more-hint';
+    hint.textContent = '还有内容 ↓';
+    hint.addEventListener('click', () => {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    });
+    moment.appendChild(hint);
+
+    const refresh = () => {
+      const more = el.scrollHeight - el.scrollTop - el.clientHeight > 16;
+      el.classList.toggle('has-more', more);
+      hint.classList.toggle('show', more);
+    };
+    el.addEventListener('scroll', refresh, { passive: true });
+    window.addEventListener('resize', refresh);
+    refresh();
+    refreshers.set(el, refresh);
+  });
+  const updateFade = (el) => { const fn = refreshers.get(el); if (fn) fn(); };
+
+  // 时刻切换
+  const meta = {
+    morning: {
+      clock: '07:40',
+      label: '出门前 · 还有 20 分钟',
+      line: '早。昨晚那页我没有动，留着等你。',
+      presence: '安静陪伴 · 不主动弹窗',
+      right: '在听'
+    },
+    work: {
+      clock: '14:20',
+      label: '手头的事 · 专注中',
+      line: '你说一声，我就开始。中途随时可以停。',
+      presence: '专注中 · 不打扰',
+      right: '可停止'
+    },
+    night: {
+      clock: '22:10',
+      label: '收尾 · 只提醒一次',
+      line: '今天到这儿了。记录我写好了，你看一眼。',
+      presence: '收尾 · 只提醒一次',
+      right: '不催'
+    }
+  };
+
+  function setMoment(name, focus) {
+    document.body.dataset.moment = name;
+    document.querySelectorAll('.moment').forEach((m) => {
+      m.classList.toggle('is-active', m.dataset.m === name);
+    });
+    document.querySelectorAll('.stop').forEach((s) => {
+      s.setAttribute('aria-selected', String(s.dataset.m === name));
+      if (s.dataset.m === name && focus) s.focus();
+    });
+    const target = document.querySelector('.moment[data-m="' + name + '"] .moment-body');
+    if (target) { target.scrollTop = 0; updateFade(target); }
+    const m = meta[name];
+    document.getElementById('clockText').textContent = m.clock;
+    document.getElementById('clockLabel').textContent = m.label;
+    document.getElementById('petLine').textContent = m.line;
+    document.getElementById('presenceText').textContent = m.presence;
+    document.getElementById('presenceRight').textContent = m.right;
+  }
+
+  document.querySelectorAll('.stop').forEach((stop) => {
+    stop.onclick = () => setMoment(stop.dataset.m);
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.target.matches('input, textarea')) return;
+    const order = ['morning', 'work', 'night'];
+    const idx = order.indexOf(document.body.dataset.moment);
+    if (e.key === 'ArrowRight' || e.key === '2') { e.preventDefault(); setMoment(order[Math.min(idx + 1, 2)]); }
+    if (e.key === 'ArrowLeft' || e.key === '1') { e.preventDefault(); setMoment(order[Math.max(idx - 1, 0)]); }
+    if (e.key === '3') { e.preventDefault(); setMoment('night'); }
+  });
+
+  // 接住的件数
+  let accepted = 0;
+  function bumpAccepted() {
+    accepted += 1;
+    document.getElementById('acceptedChip').innerHTML = '<span class="n">' + accepted + '</span> 件已接住';
+  }
+
+  // 纸条
+  document.querySelectorAll('[data-slip]').forEach((slip) => {
+    const why = slip.querySelector('[data-why]');
+    if (why) why.onclick = () => slip.classList.toggle('show-explain');
+    slip.querySelectorAll('[data-act]').forEach((btn) => {
+      btn.onclick = () => {
+        const act = btn.dataset.act;
+        const out = slip.querySelector('.result');
+        slip.classList.add('is-resolved');
+        if (act === 'yes') {
+          out.textContent = '好，已经放进今天。';
+          bumpAccepted();
+        } else if (act === 'later') {
+          out.textContent = '好，30 分钟后再提一次；这中间不打扰。';
+          out.style.color = 'var(--muted)';
+        } else {
+          out.textContent = '今天不再提这件事。';
+          out.style.color = 'var(--muted)';
+        }
+      };
+    });
+  });
+
+  // 审批与执行
+  const approval = document.getElementById('approval');
+  const artifact = document.getElementById('artifact');
+  const workSlip = document.getElementById('workSlip');
+  const runState = document.getElementById('runState');
+  let timers = [];
+
+  function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+  // 场景时钟：与 demo 的虚构时刻一致，避免出现真实系统时间
+  let sceneMin = 14 * 60 + 20;
+  const clock = () => {
+    const h = String(Math.floor(sceneMin / 60) % 24).padStart(2, '0');
+    const m = String(sceneMin % 60).padStart(2, '0');
+    sceneMin += 1;
+    return h + ':' + m;
+  };
+
+  function runTask() {
+    const s2 = document.getElementById('step2');
+    const s3 = document.getElementById('step3');
+    s2.classList.add('is-run');
+    runState.textContent = '正在归纳 · 可停止';
+    document.getElementById('t2').textContent = clock();
+
+    timers.push(setTimeout(() => {
+      s2.classList.remove('is-run');
+      s2.classList.add('is-done');
+      s2.querySelector('.mark').textContent = '✓';
+      s3.classList.add('is-run');
+      document.getElementById('t3').textContent = clock();
+      runState.textContent = '正在生成摘要 · 可停止';
+    }, 1500));
+
+    timers.push(setTimeout(() => {
+      s3.classList.remove('is-run');
+      s3.classList.add('is-done');
+      s3.querySelector('.mark').textContent = '✓';
+      artifact.classList.add('show');
+      workSlip.hidden = false;
+      runState.textContent = '已完成 · 3 步';
+      const body = document.querySelector('.moment[data-m="work"] .moment-body');
+      if (body) timers.push(setTimeout(() => body.scrollTo({ top: body.scrollHeight, behavior: 'smooth' }), 350));
+    }, 3000));
+  }
+
+  approval.querySelectorAll('[data-approve]').forEach((btn) => {
+    btn.onclick = () => {
+      const kind = btn.dataset.approve;
+      approval.classList.add('is-done');
+      const acts = approval.querySelector('.acts');
+      if (kind === 'deny') {
+        acts.innerHTML = '<span class="note" style="margin-left:0;color:var(--muted)">已拒绝。任务停在第一步，没有读取任何文件。</span>';
+        runState.textContent = '已停止 · 未读取';
+      } else {
+        acts.innerHTML = '<span class="note" style="margin-left:0;color:var(--ok)">' +
+          (kind === 'once' ? '已授权一次 · ' : '本次会话内有效 · ') + clock() + ' 读取了 3 个文件</span>';
+        runTask();
+      }
+    };
+  });
+
+  // 日记
+  document.querySelectorAll('[data-diary]').forEach((btn) => {
+    btn.onclick = () => {
+      const kind = btn.dataset.diary;
+      const diary = btn.closest('.diary');
+      if (kind === 'delete') {
+        diary.style.opacity = '.45';
+        diary.querySelectorAll('p').forEach((p) => { p.style.textDecoration = 'line-through'; });
+        diary.querySelector('.d-acts').innerHTML = '<span class="src-count" style="margin-left:0;color:var(--muted)">已删除 · 明天不会再出现这一篇</span>';
+      } else if (kind === 'rewrite') {
+        diary.querySelectorAll('p')[2].textContent = '晚上没有安排复习。你把这件事留到了明天，我记下了，但不会替你决定。';
+        btn.textContent = '已重写';
+        btn.disabled = true;
+        btn.style.opacity = '.5';
+      } else {
+        diary.querySelectorAll('p').forEach((p) => { p.contentEditable = 'true'; p.style.outline = '1px dashed var(--line-strong)'; p.style.padding = '4px 6px'; p.style.borderRadius = '4px'; });
+        btn.textContent = '完成编辑';
+        btn.onclick = () => {
+          diary.querySelectorAll('p').forEach((p) => { p.contentEditable = 'false'; p.style.outline = 'none'; p.style.padding = '0'; });
+          btn.textContent = '已保存';
+          btn.disabled = true;
+          btn.style.opacity = '.5';
+        };
+      }
+    };
+  });
+
+  document.querySelectorAll('[data-mem]').forEach((row) => {
+    row.querySelectorAll('[data-mem-act]').forEach((btn) => {
+      btn.onclick = () => {
+        const ok = btn.dataset.memAct === 'ok';
+        const q = row.querySelector('.q');
+        q.style.color = ok ? 'var(--ok)' : 'var(--muted)';
+        q.querySelector('.mono').textContent = ok ? '已确认 · 会继续用' : '已标记不对 · 不再采用';
+        row.querySelector('.ops').innerHTML = '<span class="mono" style="color:var(--muted);font-size:9.5px">已记录</span>';
+      };
+    });
+  });
+
+  const promise = document.getElementById('promise');
+  promise.querySelector('[data-promise]').onclick = (e) => {
+    e.currentTarget.outerHTML = '<span class="mono" style="margin-left:auto;color:var(--ok);font-size:10px">已加入今天 · 下周三 09:00 提醒</span>';
+    bumpAccepted();
+  };
+
+  const restToggle = document.getElementById('restToggle');
+  if (restToggle) {
+    restToggle.onclick = () => {
+      const list = document.getElementById('restList');
+      const open = list.classList.toggle('show');
+      restToggle.setAttribute('aria-expanded', String(open));
+      restToggle.querySelector('.c').textContent = open ? '今天先不动' : '已压到明天';
+    };
+  }
+
+  document.getElementById('replay').onclick = () => location.reload();
+
+  // 首屏：进入时轻微错峰
+  setMoment('morning');
+</script>
+</body>
+</html>
