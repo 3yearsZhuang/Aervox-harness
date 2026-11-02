@@ -21,6 +21,10 @@
       "types": "./dist/conversation.d.ts",
       "default": "./dist/conversation.js"
     },
+    "./learning": {
+      "types": "./dist/learning.d.ts",
+      "default": "./dist/learning.js"
+    },
     "./native-sqlite-values": {
       "types": "./dist/driver/native-sqlite-values.d.ts",
       "default": "./dist/driver/native-sqlite-values.js"

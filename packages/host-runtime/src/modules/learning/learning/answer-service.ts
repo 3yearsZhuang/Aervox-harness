@@ -1,7 +1,7 @@
 /** Shared application command for HTTP answers and host-adapted judged answers. */
 import { createHash } from "node:crypto";
 import { stableSerialize } from "@aervox/core";
-import { createReviewItem, updateAfterAnswer } from "@aervox/practice-review";
+import { deriveAnswerOutcome } from "@aervox/practice-review";
 import type { LearningAnswerCommand, LearningAnswerCommandPort, LearningAnswerPolicy, ReviewSchedulePort, LocalContext } from "@aervox/repositories";
 
 const answerPolicy: LearningAnswerPolicy = {
@@ -9,19 +9,9 @@ const answerPolicy: LearningAnswerPolicy = {
     if (!answerSpec || typeof answerSpec !== "object" || !("answer" in answerSpec) || typeof answerSpec.answer !== "string") return "unverifiable";
     return answer.trim().toLocaleLowerCase() === answerSpec.answer.trim().toLocaleLowerCase() ? "correct" : "incorrect";
   },
-  derive(stored, isCorrect, now, timeZone) {
-    const item = { id: stored.id, name: stored.concept, correctCount: stored.correctCount, wrongCount: stored.wrongCount, correctStreak: stored.correctStreak, mastery: stored.mastery };
-    updateAfterAnswer(item, isCorrect);
-    const review = createReviewItem(item, isCorrect, { now, timeZone });
-    return {
-      state: {
-        correctCount: item.correctCount, wrongCount: item.wrongCount, correctStreak: item.correctStreak, mastery: item.mastery,
-        masteryState: item.mastery >= 0.8 ? "mastered" : "learning",
-        masteryBasis: { correctCount: item.correctCount, wrongCount: item.wrongCount, correctStreak: item.correctStreak, schedulerVersion: review.schedulerVersion },
-      },
-      review: { dueAt: review.dueAt.toISOString(), intervalDays: review.intervalDays, schedulerVersion: review.schedulerVersion, timezoneSnapshot: timeZone },
-    };
-  },
+  // Mastery thresholds and review scheduling live in @aervox/practice-review so
+  // every host (desktop API, mobile composition) derives identical outcomes.
+  derive: deriveAnswerOutcome,
 };
 
 export function createLearningAnswerService(port: LearningAnswerCommandPort) {
