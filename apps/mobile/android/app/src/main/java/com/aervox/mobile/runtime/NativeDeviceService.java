@@ -158,7 +158,8 @@ final class NativeDeviceService {
     private JSONObject capabilities() throws Exception {
         return new JSONObject()
             .put(NativeDevicePolicy.CAPABILITY_CONTROL, grants.getBoolean(NativeDevicePolicy.CAPABILITY_CONTROL, false))
-            .put(NativeDevicePolicy.CAPABILITY_APPS, grants.getBoolean(NativeDevicePolicy.CAPABILITY_APPS, false));
+            .put(NativeDevicePolicy.CAPABILITY_APPS, grants.getBoolean(NativeDevicePolicy.CAPABILITY_APPS, false))
+            .put(NativeDevicePolicy.CAPABILITY_ADVANCED, grants.getBoolean(NativeDevicePolicy.CAPABILITY_ADVANCED, false));
     }
 
     private boolean rootAvailable() {

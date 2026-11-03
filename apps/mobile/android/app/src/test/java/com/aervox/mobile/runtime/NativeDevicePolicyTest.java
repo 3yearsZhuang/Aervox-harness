@@ -72,10 +72,26 @@ public final class NativeDevicePolicyTest {
         assertFalse(NativeDevicePolicy.rootUid(null));
     }
 
-    @Test public void acceptsOnlyTheTwoSupportedCapabilities() {
+    @Test public void acceptsOnlyTheThreeSupportedCapabilities() {
         assertTrue(NativeDevicePolicy.capability(NativeDevicePolicy.CAPABILITY_CONTROL));
         assertTrue(NativeDevicePolicy.capability(NativeDevicePolicy.CAPABILITY_APPS));
+        assertTrue(NativeDevicePolicy.capability(NativeDevicePolicy.CAPABILITY_ADVANCED));
         assertFalse(NativeDevicePolicy.capability("shell"));
         assertFalse(NativeDevicePolicy.capability(""));
+    }
+
+    @Test public void gatesRawCommandsOnTheAdvancedCapability() throws Exception {
+        NativeDevicePolicy.Command command = NativeDevicePolicy.command("dumpsys battery");
+        assertEquals(NativeDevicePolicy.CAPABILITY_ADVANCED, command.capability);
+        assertEquals("dumpsys battery", command.line);
+    }
+
+    @Test public void refusesEmptyOrOversizedRawCommands() {
+        try { NativeDevicePolicy.command("   "); org.junit.Assert.fail("expected rejection"); }
+        catch (NativeDevicePolicy.Rejected expected) { assertEquals("INVALID_ARGUMENT", expected.code); }
+        StringBuilder huge = new StringBuilder();
+        for (int index = 0; index < NativeDevicePolicy.MAX_COMMAND_CHARS + 1; index++) huge.append('x');
+        try { NativeDevicePolicy.command(huge.toString()); org.junit.Assert.fail("expected rejection"); }
+        catch (NativeDevicePolicy.Rejected expected) { assertEquals("INVALID_ARGUMENT", expected.code); }
     }
 }

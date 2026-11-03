@@ -368,8 +368,9 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
           <dd class="runtime-value"><span class="runtime-badge" :class="device?.shizuku ? 'runtime-badge--beta' : 'runtime-badge--off'">{{ device?.shizuku ? '已就绪' : '未就绪' }}</span></dd>
         </div>
         <div class="runtime-row">
-          <div class="runtime-row-copy"><dt>Root 高级实验</dt><dd>任意命令等高风险研究项，不会进入日常使用。</dd></div>
-          <dd class="runtime-value"><span class="runtime-badge runtime-badge--off">未开放</span></dd>
+          <div class="runtime-row-copy"><dt>Root 高级实验</dt><dd>允许助手执行自定义 shell 命令。高风险研究项，仅在你显式开启时可用；命令有长度与输出上限，且只在应用前台执行。</dd></div>
+          <dd class="runtime-value"><component :is="'md-switch'" aria-label="Root 高级实验" :selected="device?.capabilities.advanced ? 'true' : undefined"
+            :disabled="deviceBusy || !(device?.root || device?.shizuku) ? 'true' : undefined" @change="toggleDevice('advanced', !device?.capabilities.advanced)" /></dd>
         </div>
       </dl>
       <p class="runtime-capability-note">「未开放」表示还没有写进这个版本。即使取得 root 或安装 Shizuku 也不会自动开启，能力按需逐项接入。</p>

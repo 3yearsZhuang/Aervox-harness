@@ -3,11 +3,12 @@
  * a path or a verb the settings have not enabled. */
 import { nativeRequest } from './native-channel';
 
-export type DeviceCapability = 'control' | 'apps';
+export type DeviceCapability = 'control' | 'apps' | 'advanced';
 export type DeviceKey = 'BACK' | 'HOME' | 'RECENTS' | 'ENTER' | 'DEL' | 'TAB' | 'VOLUME_UP' | 'VOLUME_DOWN';
 export interface DeviceStatus { root: boolean; shizuku?: boolean; capabilities: Record<DeviceCapability, boolean>; busy?: boolean; sdk?: number; device?: string }
 export type DeviceAction =
   | { action: 'info' }
+  | { action: 'command'; line: string }
   | { action: 'tap'; x: number; y: number }
   | { action: 'swipe'; x1: number; y1: number; x2: number; y2: number; durationMs?: number }
   | { action: 'key'; key: DeviceKey }
@@ -19,8 +20,9 @@ function status(value: unknown): DeviceStatus {
   if (!value || typeof value !== 'object') throw invalid();
   const item = value as Partial<DeviceStatus> & { kind?: string };
   if (item.kind !== 'device_status' || typeof item.root !== 'boolean' || !item.capabilities
-    || typeof item.capabilities.control !== 'boolean' || typeof item.capabilities.apps !== 'boolean') throw invalid();
-  return { root: item.root, ...(typeof item.shizuku === 'boolean' ? { shizuku: item.shizuku } : {}), capabilities: { control: item.capabilities.control, apps: item.capabilities.apps },
+    || typeof item.capabilities.control !== 'boolean' || typeof item.capabilities.apps !== 'boolean'
+    || typeof item.capabilities.advanced !== 'boolean') throw invalid();
+  return { root: item.root, ...(typeof item.shizuku === 'boolean' ? { shizuku: item.shizuku } : {}), capabilities: { control: item.capabilities.control, apps: item.capabilities.apps, advanced: item.capabilities.advanced },
     ...(typeof item.busy === 'boolean' ? { busy: item.busy } : {}),
     ...(typeof item.sdk === 'number' ? { sdk: item.sdk } : {}),
     ...(typeof item.device === 'string' ? { device: item.device } : {}) };

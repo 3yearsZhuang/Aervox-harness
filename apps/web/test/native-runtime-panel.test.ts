@@ -7,7 +7,7 @@ const { request } = vi.hoisted(() => ({ request: vi.fn() }));
 vi.mock('../src/mobile/native-channel', () => ({ nativeRequest: request }));
 enableAutoUnmount(afterEach);
 const runtime = { kind: 'runtime', connectionEpoch: 'owned-connection', sqlite: 'ready', mode: 'foreground' };
-const deviceStatus = { kind: 'device_status', root: true, capabilities: { control: false, apps: false }, sdk: 36, device: 'Pixel 9' };
+const deviceStatus = { kind: 'device_status', root: true, capabilities: { control: false, apps: false, advanced: false }, sdk: 36, device: 'Pixel 9' };
 beforeEach(() => {
   request.mockReset();
   request.mockImplementation(async body => {
@@ -24,7 +24,7 @@ it('shows native readiness and provides a real configuration action without expo
   expect(request).toHaveBeenCalledWith({ op: 'model', operation: 'summary' });
   expect(wrapper.text()).toContain('就绪');
   expect(wrapper.text()).toContain('未配置');
-  expect(wrapper.findAll('.runtime-capabilities .runtime-value').map(item => item.text())).toEqual(['试用中', '试用中', '试用中', '未开放', '未就绪', '未开放']);
+  expect(wrapper.findAll('.runtime-capabilities .runtime-value').map(item => item.text())).toEqual(['试用中', '试用中', '试用中', '未开放', '未就绪', '']);
   // The panel never exposes raw credential fields; the only free-text field is
   // the user-supplied question-bank URL.
   expect(wrapper.findAll('input, textarea').every(item => item.attributes('aria-label') === '题库链接')).toBe(true);
@@ -172,7 +172,7 @@ it('shows root availability and grants a device capability through the native ch
     if (body.op === 'device') {
       if (body.operation === 'grant') {
         if (body.capability === 'apps') throw new Error('ROOT_UNAVAILABLE');
-        return { ...deviceStatus, capabilities: { control: body.enabled === true, apps: false } };
+        return { ...deviceStatus, capabilities: { control: body.enabled === true, apps: false, advanced: false } };
       }
       return deviceStatus;
     }

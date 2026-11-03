@@ -16,7 +16,10 @@ final class NativeDevicePolicy {
     static final int MAX_TEXT_CHARS = 200;
     static final int MAX_COORDINATE = 20_000;
     static final int MIN_SWIPE_MS = 50, MAX_SWIPE_MS = 10_000, DEFAULT_SWIPE_MS = 300;
-    static final String CAPABILITY_CONTROL = "control", CAPABILITY_APPS = "apps";
+    // advanced: the user-granted research escape hatch. Raw shell lines are
+    // only reachable through this capability, which stays off by default.
+    static final String CAPABILITY_CONTROL = "control", CAPABILITY_APPS = "apps", CAPABILITY_ADVANCED = "advanced";
+    static final int MAX_COMMAND_CHARS = 2_048;
 
     static final class Rejected extends Exception {
         final String code;
@@ -66,6 +69,10 @@ final class NativeDevicePolicy {
                 exact(input, "action", "package");
                 return launch(input.optString("package", ""));
             }
+            case "command": {
+                exact(input, "action", "line");
+                return command(input.optString("line", ""));
+            }
             default:
                 throw new Rejected("UNSUPPORTED_DEVICE_ACTION");
         }
@@ -103,6 +110,13 @@ final class NativeDevicePolicy {
         return new Command(CAPABILITY_CONTROL, "input text '" + value + "'", "text " + value.length() + " chars");
     }
 
+    /** Raw research command: the one intentional exception to the fixed verb
+     * list. Length-bounded, capability-gated, never auto-issued. */
+    static Command command(String line) throws Rejected {
+        if (line == null || line.trim().isEmpty() || line.length() > MAX_COMMAND_CHARS) throw new Rejected("INVALID_ARGUMENT");
+        return new Command(CAPABILITY_ADVANCED, line, "command " + line.length() + " chars");
+    }
+
     static Command launch(String name) throws Rejected {
         if (!packageName(name)) throw new Rejected("INVALID_ARGUMENT");
         return new Command(CAPABILITY_APPS, "monkey -p " + name + " -c android.intent.category.LAUNCHER 1", "launch " + name);
@@ -114,7 +128,7 @@ final class NativeDevicePolicy {
     }
 
     static boolean capability(String value) {
-        return CAPABILITY_CONTROL.equals(value) || CAPABILITY_APPS.equals(value);
+        return CAPABILITY_CONTROL.equals(value) || CAPABILITY_APPS.equals(value) || CAPABILITY_ADVANCED.equals(value);
     }
 
     static boolean rootUid(String output) {
