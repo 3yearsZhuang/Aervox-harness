@@ -136,6 +136,7 @@ final class NativeSpeechInputService {
             @Override public void onPartialResults(Bundle partialResults) { }
             @Override public void onEvent(int eventType, Bundle params) { }
             @Override public void onError(int error) {
+                android.util.Log.w("AervoxSpeech", "recognizer error " + error);
                 String code = codeForError(error);
                 stopListening();
                 settleExceptionally(code);

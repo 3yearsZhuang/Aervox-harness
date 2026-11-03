@@ -236,6 +236,9 @@ public class NativeRuntimeActivity extends AppCompatActivity {
         if (error instanceof NativeModelService.ServiceException) return ((NativeModelService.ServiceException) error).code;
         if (error instanceof NativeDeviceService.DeviceException) return ((NativeDeviceService.DeviceException) error).code;
         if (error instanceof NativeSpeechService.SpeechException) return ((NativeSpeechService.SpeechException) error).code;
+        if (error instanceof NativeSpeechInputService.SpeechInputException) return ((NativeSpeechInputService.SpeechInputException) error).code;
+        if (error instanceof NativeFileService.FileException) return ((NativeFileService.FileException) error).code;
+        if (error instanceof NativeNotifyService.NotifyException) return ((NativeNotifyService.NotifyException) error).code;
         if (error instanceof NativeSqliteSession.SessionException) return ((NativeSqliteSession.SessionException) error).code.name();
         return "NATIVE_FAILURE";
     }
