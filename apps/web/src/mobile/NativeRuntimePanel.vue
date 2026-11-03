@@ -43,7 +43,7 @@ const modelHeading = computed(() => loading.value ? '正在读取模型配置' :
 const rootText = computed(() => deviceFailed.value ? '无法读取 root 状态。可以刷新后重试。'
   : !device.value ? '正在检查 root 授权…'
   : device.value.root ? `Root 可用${device.value.device ? ` · ${device.value.device}` : ''}，设备操作由你逐项开启。`
-    : '没有可用的 root 授权，设备操作暂不可用。基础对话不受影响。');
+    : '没有 root 授权时，可安装并授权 Shizuku 作为免 root 通道。基础对话不受影响。');
 const rootValue = computed(() => deviceFailed.value ? '未知' : !device.value ? '读取中' : device.value.root ? '可用' : '不可用');
 
 function isRuntime(value: unknown): value is RuntimeSummary {

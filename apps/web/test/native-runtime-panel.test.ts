@@ -24,7 +24,7 @@ it('shows native readiness and provides a real configuration action without expo
   expect(request).toHaveBeenCalledWith({ op: 'model', operation: 'summary' });
   expect(wrapper.text()).toContain('就绪');
   expect(wrapper.text()).toContain('未配置');
-  expect(wrapper.findAll('.runtime-capabilities .runtime-value').map(item => item.text())).toEqual(['试用中', '试用中', '试用中', '未开放', '未开放', '未开放']);
+  expect(wrapper.findAll('.runtime-capabilities .runtime-value').map(item => item.text())).toEqual(['试用中', '试用中', '试用中', '未开放', '未就绪', '未开放']);
   // The panel never exposes raw credential fields; the only free-text field is
   // the user-supplied question-bank URL.
   expect(wrapper.findAll('input, textarea').every(item => item.attributes('aria-label') === '题库链接')).toBe(true);
@@ -189,7 +189,7 @@ it('shows root availability and grants a device capability through the native ch
   expect(wrapper.get('md-switch[aria-label="控制手机"]').attributes('selected')).toBe('true');
   await wrapper.get('md-switch[aria-label="打开应用"]').trigger('change');
   await flushPromises();
-  expect(wrapper.get('.runtime-feedback').text()).toContain('没有可用的 root 授权');
+  expect(wrapper.get('.runtime-feedback').text()).toContain('设备操作需要 root 或已授权的 Shizuku');
 });
 
 it('keeps device switches disabled and honest when there is no root grant', async () => {
@@ -200,7 +200,7 @@ it('keeps device switches disabled and honest when there is no root grant', asyn
   });
   const wrapper = mount(NativeRuntimePanel);
   await flushPromises();
-  expect(wrapper.text()).toContain('没有可用的 root 授权');
+  expect(wrapper.text()).toContain('设备操作需要 root 或已授权的 Shizuku');
   expect(wrapper.get('md-switch[aria-label="控制手机"]').attributes('disabled')).toBe('true');
   expect(wrapper.get('md-switch[aria-label="打开应用"]').attributes('disabled')).toBe('true');
   expect(wrapper.text()).not.toContain('Root 可用');
