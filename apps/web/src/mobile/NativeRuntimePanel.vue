@@ -7,7 +7,7 @@ import { deviceError, grantDeviceCapability, readDeviceStatus, type DeviceCapabi
 // inject() only resolves during setup; handlers must reuse this capture.
 const clientTransport = getClientTransport();
 
-type PageId = 'model' | 'device' | 'data' | 'reminder';
+type PageId = 'model' | 'device' | 'data' | 'reminder' | 'persona';
 const page = ref<PageId>('model');
 /** 一级菜单收进左侧抽屉：页面上不再有「分类首页」这一层。 */
 const drawerOpen = ref(false);
@@ -16,13 +16,106 @@ const pageMeta: Record<PageId, { title: string; subtitle: string }> = {
   device: { title: '设备与能力', subtitle: '执行通道、设备操作与能力状态。' },
   data: { title: '数据管理', subtitle: '备份恢复与题库导入。' },
   reminder: { title: '提醒', subtitle: '复习提醒与通知。' },
+  persona: { title: '人格', subtitle: '陪伴者的身份、设定与切换。' },
 };
-function openPage(target: PageId) { page.value = target; drawerOpen.value = false; }
+function openPage(target: PageId) { page.value = target; drawerOpen.value = false; if (target === 'persona') void loadPersonas(); }
 function menuSummary(target: PageId): string {
   if (target === 'model') return modelStatus.value || (loading.value ? '读取中' : '未配置');
   if (target === 'device') return device.value ? (device.value.root ? 'Root 可用' : device.value.shizuku ? 'Shizuku 就绪' : '需授权') : '未检测';
   if (target === 'data') return '导出 / 恢复 / 题库';
+  if (target === 'persona') return personaBusy.value ? '读取中' : `${personas.value.length} 个`;
   return reminderOn.value ? '已开启' : '未开启';
+}
+
+/* ---------- 人格：陪伴者的身份与设定 ---------- */
+interface PersonaRow { id: string; name: string; description: string; currentRevisionId: string }
+const personas = ref<PersonaRow[]>([]);
+const activePersonaId = ref('');
+const personaBusy = ref(false);
+const personaFeedback = ref('');
+const personaError = ref('');
+const draftName = ref('');
+const draftDescription = ref('');
+const draftPrompt = ref('');
+const draftRevision = ref(1);
+let personaLoaded = false;
+
+async function loadPersonaDetail() {
+  const id = activePersonaId.value;
+  if (!id) return;
+  const detail = await clientTransport.request<{
+    persona: PersonaRow;
+    revision: { revision: number; config: { systemPromptAppend: string } } | null;
+  }>('GET', `/v1/personas/${encodeURIComponent(id)}`);
+  draftName.value = detail.persona.name;
+  draftDescription.value = detail.persona.description ?? '';
+  draftPrompt.value = detail.revision?.config.systemPromptAppend ?? '';
+  draftRevision.value = detail.revision?.revision ?? 1;
+}
+
+async function loadPersonas(force = false) {
+  if (personaLoaded && !force) return;
+  // 保存后的强制刷新不能顺手清掉刚写下的回执，否则用户看不到「已保存」。
+  if (!force) { personaError.value = ''; personaFeedback.value = ''; }
+  personaBusy.value = true;
+  try {
+    const list = await clientTransport.request<{ personas: PersonaRow[]; active: { personaId: string } | null }>('GET', '/v1/personas');
+    personas.value = list.personas ?? [];
+    activePersonaId.value = list.active?.personaId ?? personas.value[0]?.id ?? '';
+    personaLoaded = true;
+    await loadPersonaDetail();
+  } catch {
+    personaError.value = '人格列表读取失败，可以下拉刷新重试。';
+  } finally { personaBusy.value = false; }
+}
+
+async function switchPersona(id: string) {
+  if (personaBusy.value || id === activePersonaId.value) return;
+  personaBusy.value = true; personaError.value = ''; personaFeedback.value = '';
+  try {
+    await clientTransport.request('POST', `/v1/personas/${encodeURIComponent(id)}/activate`, {});
+    activePersonaId.value = id;
+    await loadPersonaDetail();
+    personaFeedback.value = `已切换到「${draftName.value}」。`;
+  } catch {
+    personaError.value = '切换没有完成，当前人格保持不变。';
+  } finally { personaBusy.value = false; }
+}
+
+async function savePersona() {
+  // 没有 activePersonaId 不是「不能保存」，而是「第一份」：走新建。
+  if (personaBusy.value) return;
+  const name = draftName.value.trim();
+  if (!name) { personaError.value = '名字不能为空。'; return; }
+  const prompt = draftPrompt.value.trim();
+  if (!prompt) { personaError.value = '设定不能为空，它是陪伴者说话的依据。'; return; }
+  personaBusy.value = true; personaError.value = ''; personaFeedback.value = '';
+  const description = draftDescription.value.trim();
+  const config = { systemPromptAppend: prompt };
+  try {
+    if (!activePersonaId.value) {
+      // 还没有任何人格：第一份设定即新建并立即启用，而不是把「保存」按成空动作。
+      const created = await clientTransport.request<{ persona: PersonaRow; revision: { revision: number } }>(
+        'POST', '/v1/personas', { name, description, config },
+      );
+      await clientTransport.request('POST', `/v1/personas/${encodeURIComponent(created.persona.id)}/activate`, {});
+      personaFeedback.value = '已建立并启用这个人格。';
+    } else {
+      const saved = await clientTransport.request<{ persona: PersonaRow; revision: { revision: number } }>(
+        'PATCH', `/v1/personas/${encodeURIComponent(activePersonaId.value)}`,
+        { expectedRevision: draftRevision.value, name, description, config },
+      );
+      draftRevision.value = saved.revision.revision;
+      personaFeedback.value = '已保存，下一次对话就会用上新设定。';
+    }
+    personaLoaded = false;
+    await loadPersonas(true);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    personaError.value = message === 'PERSONA_REVISION_CONFLICT'
+      ? '这份人格在别处被改过，请刷新后再保存。'
+      : '保存没有完成，设定未变。';
+  } finally { personaBusy.value = false; }
 }
 
 interface RuntimeSummary { kind: 'runtime'; connectionEpoch: string; sqlite: 'ready'; mode: 'foreground' }
@@ -299,9 +392,9 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
     <div class="runtime-drawer-scrim" :class="{ 'is-open': drawerOpen }" @click="drawerOpen = false" />
     <nav class="runtime-drawer" :class="{ 'is-open': drawerOpen }" aria-label="设置分区" :aria-hidden="drawerOpen ? 'false' : 'true'">
       <p class="runtime-drawer-title">本机运行</p>
-      <button v-for="target in (['model', 'device', 'data', 'reminder'] as const)" :key="target" type="button"
+      <button v-for="target in (['model', 'device', 'data', 'reminder', 'persona'] as const)" :key="target" type="button"
         class="runtime-menu-card" :class="{ 'is-active': page === target }" @click="openPage(target)">
-        <component :is="target === 'model' ? KeyRound : target === 'device' ? Smartphone : target === 'data' ? FolderDown : Bell" :size="22" aria-hidden="true" />
+        <component :is="target === 'model' ? KeyRound : target === 'device' ? Smartphone : target === 'data' ? FolderDown : target === 'reminder' ? Bell : Sparkles" :size="22" aria-hidden="true" />
         <span class="runtime-menu-copy"><strong>{{ pageMeta[target].title }}</strong><small>{{ pageMeta[target].subtitle }}</small></span>
         <span class="runtime-menu-badge">{{ menuSummary(target) }}</span>
       </button>
@@ -480,6 +573,41 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
       </div>
       <p v-if="reminderFeedback" class="runtime-model-note" role="status">{{ reminderFeedback }}</p>
     </section>
+
+    <section v-if="page === 'persona'" aria-labelledby="runtime-persona-title">
+      <h3 id="runtime-persona-title"><Sparkles :size="20" aria-hidden="true" />人格</h3>
+      <p v-if="loading || personaBusy" class="runtime-model-description">正在读取人格…</p>
+      <p v-else-if="!personas.length" class="runtime-model-description">还没有保存过人格。填写下面的名字与设定，保存后会直接生效。</p>
+      <div v-else class="runtime-group">
+        <button v-for="item in personas" :key="item.id" type="button" class="runtime-row runtime-persona-row"
+          :class="{ 'is-active': item.id === activePersonaId }" @click="switchPersona(item.id)">
+          <span class="runtime-row-copy">
+            <strong>{{ item.name }}</strong>
+            <small>{{ item.description || '还没有写简介。' }}</small>
+          </span>
+          <span v-if="item.id === activePersonaId" class="runtime-persona-current">当前</span>
+        </button>
+      </div>
+      <h4 class="runtime-subtitle">编辑设定</h4>
+      <div class="runtime-persona-form">
+        <label class="runtime-persona-field">
+          <span>名字</span>
+          <input v-model="draftName" aria-label="人格名字" :disabled="personaBusy" placeholder="小隅" />
+        </label>
+        <label class="runtime-persona-field">
+          <span>简介</span>
+          <input v-model="draftDescription" aria-label="人格简介" :disabled="personaBusy" placeholder="一句话说明这个人格是谁" />
+        </label>
+        <label class="runtime-persona-field">
+          <span>人格设定</span>
+          <textarea v-model="draftPrompt" aria-label="人格设定" rows="6" :disabled="personaBusy"
+            placeholder="她怎么称呼你、说话的语气、在意什么、不会做什么…" />
+        </label>
+        <component :is="'md-filled-tonal-button'" class="runtime-configure" type="button" :disabled="personaBusy" @click="savePersona">保存设定</component>
+      </div>
+      <p v-if="personaFeedback" class="runtime-model-note" role="status">{{ personaFeedback }}</p>
+      <p v-if="personaError" class="runtime-error runtime-feedback" role="alert">{{ personaError }}</p>
+    </section>
   </div>
 </template>
 
@@ -552,6 +680,21 @@ dd { margin: 4px 0 0; color: var(--md-sys-color-on-surface-variant); font-size: 
 .runtime-drawer-scrim.is-open { opacity: 1; pointer-events: auto; }
 .runtime-drawer-title { margin: 0 0 6px; padding-inline: 8px; font-size: 13px; font-weight: 600; letter-spacing: .1em; color: var(--md-sys-color-on-surface-variant); }
 .runtime-menu-card.is-active { border-color: var(--md-sys-color-primary); background: color-mix(in srgb, var(--md-sys-color-primary) 16%, transparent); }
+.runtime-persona-row { width: 100%; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.runtime-persona-row.is-active { background: color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent); }
+.runtime-persona-row .runtime-row-copy { display: grid; gap: 4px; }
+.runtime-persona-row strong { font-size: 16px; font-weight: 500; line-height: 24px; }
+.runtime-persona-row small { color: var(--md-sys-color-on-surface-variant); font-size: 13px; line-height: 19px; }
+.runtime-persona-current { flex: 0 0 auto; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  color: var(--md-sys-color-primary); background: color-mix(in srgb, var(--md-sys-color-primary) 16%, transparent); }
+.runtime-persona-form { display: grid; gap: 12px; }
+.runtime-persona-field { display: grid; gap: 6px; font-size: 13px; color: var(--md-sys-color-on-surface-variant); }
+.runtime-persona-field :is(input, textarea) {
+  width: 100%; box-sizing: border-box; padding: 10px 14px; border-radius: 14px; font: inherit; font-size: 15px;
+  color: var(--md-sys-color-on-surface); background: var(--md-sys-color-surface-container-high);
+  border: 1px solid var(--md-sys-color-outline-variant); resize: vertical;
+}
+.runtime-persona-field textarea { line-height: 22px; min-height: 120px; }
 .runtime-menu-card { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; cursor: pointer;
   padding: 16px; border-radius: 18px; border: 1px solid var(--pc-line, rgba(255,255,255,.12));
   background: var(--pc-card, rgba(255,255,255,.05)); color: var(--pc-ink, #fff); font-family: inherit; }

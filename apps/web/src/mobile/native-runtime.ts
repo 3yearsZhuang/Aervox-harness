@@ -5,6 +5,8 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { ConversationRepository } from '@aervox/repositories/conversation';
 import { LearningRepository } from '@aervox/repositories/learning';
+import { SqlitePersonaRepository } from '@aervox/repositories/persona';
+import { SqliteDiaryRepository, createSqliteDiaryMaterialPort } from '@aervox/repositories/diary';
 import { createInjectedDatabase } from '@aervox/repositories/database';
 import { NativeSqliteClient } from '@aervox/repositories/native-sqlite-client';
 import { ConversationExecutionStore } from '@aervox/host-agent/browser';
@@ -18,6 +20,8 @@ import { createDeviceTooling, DEVICE_TOOL_NAMES } from './native-tools';
 import { createQuestionBridge } from './native-question';
 import { buildBackupFile, denormalizeBackupValue, normalizeBackupValue, parseBackupFile, verifyBackupShape, BackupParseError, type BackupTable } from './native-backup';
 import { createLearningRouteHandler } from './native-learning';
+import { createPersonaRouteHandler } from './native-persona';
+import { createDiaryRouteHandler } from './native-diary';
 
 const ctx = { workspaceId: 'local', subjectUserId: 'local' };
 const encoder = new TextEncoder();
@@ -86,6 +90,27 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
     repo: learningRepo, ctx,
     digestRequest: value => hostCrypto.sha256Utf8(stableSerialize(value)),
     generateText,
+  });
+  // 人格与日记都落在同一份本机业务真源上：人格的修订校验和与桌面端同算法，
+  // 日记的提示词/模板来自 @aervox/diary，未配置模型时降级为模板并如实标注。
+  const personaRepo = new SqlitePersonaRepository(db);
+  const handlePersonaRoute = createPersonaRouteHandler({
+    repo: personaRepo,
+    ctx,
+    checksum: config => hostCrypto.sha256Utf8(JSON.stringify(config)),
+  });
+  const diaryRepo = new SqliteDiaryRepository(db);
+  const handleDiaryRoute = createDiaryRouteHandler({
+    repo: diaryRepo,
+    materials: createSqliteDiaryMaterialPort(db),
+    ctx,
+    model: {
+      generate: async ({ system, user }) => {
+        const summary = await nativeRequest({ op: 'model', operation: 'summary' }).catch(() => null);
+        if (summary?.hasCredential !== true) throw new Error('llm_disabled: 未配置模型，改由模板生成');
+        return generateText(system, user);
+      },
+    },
   });
   const store = new ConversationExecutionStore(repo, ctx);
   // Per-call approvals land in the shared ledger: an identical action reuses a
@@ -240,8 +265,18 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
           result = { ok: true };
         } else {
           const learning = await handleLearningRoute(method, url, body, { headers: options?.headers });
-          if (learning.handled) result = learning.result;
-          else fail(501, 'FEATURE_NOT_CONNECTED');
+          if (learning.handled) {
+            result = learning.result;
+          } else {
+            const persona = await handlePersonaRoute(method, url, body);
+            if (persona.handled) {
+              result = persona.result;
+            } else {
+              const diary = await handleDiaryRoute(method, url, body);
+              if (diary.handled) result = diary.result;
+              else fail(501, 'FEATURE_NOT_CONNECTED');
+            }
+          }
         }
       }
       checkOpen();

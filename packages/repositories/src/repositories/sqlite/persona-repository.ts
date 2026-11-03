@@ -5,7 +5,6 @@
  * 修订采用乐观锁 CAS（expectedRevision）；激活按本地实例 upsert；删除为归档。
  */
 import { eq, and, desc, sql } from "drizzle-orm";
-import { randomUUID } from "node:crypto";
 import type { AervoxDatabase } from "../../client.js";
 import {
   personas,
@@ -25,6 +24,10 @@ import type {
   PersonaSwitchLogModel,
   PersonaMemoryScopeModel,
 } from "../types/index.js";
+
+/** Web Crypto 在浏览器与 Node 18+ 都存在：这里不引 node:crypto，
+ * 否则手机 WebView 的依赖闭包里会混进 node: 内置模块。 */
+const randomUUID = (): string => globalThis.crypto.randomUUID();
 
 export class SqlitePersonaRepository implements IPersonaRepository {
   constructor(private readonly db: AervoxDatabase) {}

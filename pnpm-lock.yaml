@@ -272,6 +272,9 @@ importers:
       '@aervox/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@aervox/diary':
+        specifier: workspace:*
+        version: link:../../packages/diary
       '@aervox/host-agent':
         specifier: workspace:*
         version: link:../../packages/host-agent
