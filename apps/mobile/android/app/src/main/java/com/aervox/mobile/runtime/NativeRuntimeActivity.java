@@ -143,7 +143,21 @@ public class NativeRuntimeActivity extends AppCompatActivity {
                         ? failure("DATABASE_UNAVAILABLE") : new JSONObject().put("kind", "runtime")
                         .put("connectionEpoch", epoch).put("sqlite", "ready").put("mode", "foreground"));
                     break;
-                case "sqlite": result = sqlite.request(command); break;
+                case "sqlite": {
+                    final String requestTx = command.has("transactionId") && !command.isNull("transactionId")
+                        ? command.optString("transactionId", null) : null;
+                    result = sqlite.request(command).handle((value, error) -> {
+                        if (error == null) return value;
+                        Throwable cause = error;
+                        while ((cause instanceof java.util.concurrent.CompletionException
+                            || cause instanceof java.util.concurrent.ExecutionException) && cause.getCause() != null) cause = cause.getCause();
+                        if (cause instanceof NativeSqliteSession.SessionException) {
+                            return sqlite.rejection((NativeSqliteSession.SessionException) cause, requestTx);
+                        }
+                        throw new java.util.concurrent.CompletionException(cause);
+                    });
+                    break;
+                }
                 case "preferences": result = preferences.request(command); break;
                 case "dispose":
                     if (input.length() != 2) throw new IllegalArgumentException();

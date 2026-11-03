@@ -389,11 +389,15 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
     async exportBackup(signal?: AbortSignal) {
       checkOpen();
       signal?.throwIfAborted();
+      console.warn('[Aervox] backup export start', { closed: (nativeClient as { closed?: boolean } | undefined)?.closed,
+        cleanup: (nativeClient as { cleanupState?: string } | undefined)?.cleanupState });
       const quote = (name: string) => {
         if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) throw new Error('BACKUP_TABLE_UNEXPECTED');
         return `"${name}"`;
       };
+      console.warn('[Aervox] backup export: opening write transaction');
       const tx = await client.transaction('write');
+      console.warn('[Aervox] backup export: transaction open');
       try {
         const names = await tx.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != '_aervox_schema_versions' ORDER BY rowid");
         const tables: BackupTable[] = [];

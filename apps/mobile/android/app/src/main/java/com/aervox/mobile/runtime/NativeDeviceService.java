@@ -24,7 +24,7 @@ import org.json.JSONObject;
  * interleave, and every process is bounded by a timeout and an output budget.
  */
 final class NativeDeviceService {
-    static final int ROOT_TIMEOUT_MS = 4_000, COMMAND_TIMEOUT_MS = 8_000;
+    static final int ROOT_TIMEOUT_MS = 8_000, COMMAND_TIMEOUT_MS = 8_000;
     private static final String STORE = "aervox-device";
 
     static final class DeviceException extends Exception {
@@ -164,11 +164,14 @@ final class NativeDeviceService {
 
     private boolean rootAvailable() {
         Boolean cached = rootCached;
-        if (cached != null) return cached;
+        if (cached != null && cached) return true;
+        // A negative result is never cached: the first `su` call may time out
+        // while the root manager's grant dialog is still on screen, and the
+        // user must be able to retry without restarting the app.
         boolean available;
         try { available = NativeDevicePolicy.rootUid(shell.run("id -u", ROOT_TIMEOUT_MS)); }
         catch (Exception error) { available = false; }
-        rootCached = available;
+        if (available) rootCached = true;
         return available;
     }
 
