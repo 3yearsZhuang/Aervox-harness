@@ -4,6 +4,8 @@ import { Database, KeyRound, RefreshCw, Smartphone } from 'lucide-vue-next';
 import { getClientTransport } from '@aervox/api-client';
 import { nativeRequest } from './native-channel';
 import { deviceError, grantDeviceCapability, readDeviceStatus, type DeviceCapability, type DeviceStatus } from './native-device';
+// inject() only resolves during setup; handlers must reuse this capture.
+const clientTransport = getClientTransport();
 
 interface RuntimeSummary { kind: 'runtime'; connectionEpoch: string; sqlite: 'ready'; mode: 'foreground' }
 interface ModelSummary { kind: 'summary'; hasCredential: boolean; endpoint?: string; model?: string }
@@ -164,7 +166,7 @@ async function importQuestionFile() {
   if (importBusy.value) return;
   importBusy.value = true; importFeedback.value = ''; importError.value = '';
   try {
-    const transport = getClientTransport();
+    const transport = clientTransport;
     if (!transport.pickTextFile) throw new Error('FILE_PICK_NOT_SUPPORTED');
     const picked = await transport.pickTextFile();
     const result = await transport.request<{ importedCount: number }>('POST', '/v1/questions/import', { content: picked.text });
@@ -182,7 +184,7 @@ async function importFromUrl() {
   if (importBusy.value || !importUrl.value.trim()) return;
   importBusy.value = true; importFeedback.value = ''; importError.value = '';
   try {
-    const transport = getClientTransport();
+    const transport = clientTransport;
     if (!transport.fetchUrlText) throw new Error('URL_IMPORT_NOT_SUPPORTED');
     const picked = await transport.fetchUrlText(importUrl.value.trim());
     const result = await transport.request<{ importedCount: number }>('POST', '/v1/questions/import', { content: picked.text });
@@ -200,7 +202,7 @@ async function importFromUrl() {
 async function toggleReminder() {
   const next = !reminderOn.value;
   try {
-    const transport = getClientTransport();
+    const transport = clientTransport;
     if (!transport.configureReviewReminder) throw new Error('NOTIFY_NOT_SUPPORTED');
     const result = await transport.configureReviewReminder({ enabled: next });
     reminderOn.value = result.enabled;
@@ -214,15 +216,33 @@ async function exportBackup() {
   if (backupBusy.value) return;
   backupBusy.value = true; backupFeedback.value = ''; backupError.value = ''; confirmingRestore.value = false;
   try {
-    const transport = getClientTransport();
+    const transport = clientTransport;
     if (!transport.exportBackup) throw new Error('BACKUP_NOT_SUPPORTED');
     const file = await transport.exportBackup();
     if (transport.shareText) await transport.shareText({ title: 'Aervox 备份', text: file.text });
     const records = Object.values(file.tableCounts).reduce((total, count) => total + count, 0);
     backupFeedback.value = `备份已生成并交给系统分享（${records} 条记录，${file.createdAt.slice(0, 10)}）。`;
-  } catch {
-    backupError.value = '备份没有导出，数据未受影响。';
+  } catch (error) {
+    console.warn('[Aervox] backup export failed', error);
+    const code = error instanceof Error ? error.message : '';
+    backupError.value = code === 'SHARE_UNAVAILABLE' ? '备份已生成，但系统分享没有打开。'
+      : code === 'BACKUP_TABLE_UNEXPECTED' ? '备份没有导出：数据表名不符合备份结构。'
+      : '备份没有导出，数据未受影响。';
   } finally { backupBusy.value = false; }
+}
+
+async function importBackupFile() {
+  backupFeedback.value = ''; backupError.value = '';
+  try {
+    const transport = clientTransport;
+    if (!transport.pickTextFile) throw new Error('FILE_PICK_NOT_SUPPORTED');
+    const picked = await transport.pickTextFile();
+    restoreText.value = picked.text;
+    restoreOpen.value = true;
+  } catch (error) {
+    const code = error instanceof Error ? error.message : '';
+    if (code !== 'FILE_PICK_CANCELLED' && code !== 'NATIVE_RECEIPT_UNKNOWN') backupError.value = '没有读到文件内容，请重试或粘贴备份文本。';
+  }
 }
 
 async function importBackup() {
@@ -230,7 +250,7 @@ async function importBackup() {
   if (!confirmingRestore.value) { confirmingRestore.value = true; return; }
   backupBusy.value = true; backupFeedback.value = ''; backupError.value = '';
   try {
-    const transport = getClientTransport();
+    const transport = clientTransport;
     if (!transport.importBackup) throw new Error('BACKUP_NOT_SUPPORTED');
     const result = await transport.importBackup(restoreText.value);
     const records = Object.values(result.imported).reduce((total, count) => total + count, 0);
@@ -248,7 +268,7 @@ async function importBackup() {
 
 onMounted(() => {
   try {
-    const transport = getClientTransport();
+    const transport = clientTransport;
     void transport.reviewReminderStatus?.().then(status => {
       reminderOn.value = status.enabled;
     }).catch(() => undefined);
@@ -323,13 +343,18 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
     </section>
 
     <section aria-labelledby="runtime-device-title">
-      <h3 id="runtime-device-title">设备操作</h3>
+      <h3 id="runtime-device-title">设备能力</h3>
       <dl class="runtime-group">
         <div class="runtime-row">
           <div class="runtime-row-copy"><dt>Root 授权</dt><dd>{{ rootText }}</dd></div>
           <dd class="runtime-value" :class="{ 'runtime-error': deviceFailed }">{{ rootValue }}</dd>
         </div>
+        <div class="runtime-row">
+          <div class="runtime-row-copy"><dt>Shizuku 扩展</dt><dd>免 root 的执行通道：安装并授权 Shizuku 后，设备动作无需 su 也可执行。</dd></div>
+          <dd class="runtime-value"><span class="runtime-badge" :class="device?.shizuku ? 'runtime-badge--beta' : 'runtime-badge--off'">{{ device?.shizuku ? '已就绪' : '未就绪' }}</span></dd>
+        </div>
       </dl>
+      <h4 class="runtime-subtitle">设备操作开关</h4>
       <label class="runtime-device-toggle">
         <span class="runtime-device-label"><strong>控制手机</strong><small>点击、滑动、按键与输入文本</small></span>
         <component :is="'md-switch'" aria-label="控制手机" :selected="device?.capabilities.control ? 'true' : undefined"
@@ -340,12 +365,17 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
         <component :is="'md-switch'" aria-label="打开应用" :selected="device?.capabilities.apps ? 'true' : undefined"
           :disabled="deviceBusy || !(device?.root || device?.shizuku) ? 'true' : undefined" @change="toggleDevice('apps', !device?.capabilities.apps)" />
       </label>
-      <p class="runtime-capability-note">设备操作只在应用位于前台时执行，且只包含固定动作；root 不会解锁任意命令、文件路径或系统设置修改。授权后，对话中的助手可在你要求时执行这些动作。</p>
+      <label class="runtime-device-toggle">
+        <span class="runtime-device-label"><strong>Root 高级实验</strong><small>允许助手执行自定义 shell 命令（高风险研究项，有长度与输出上限）</small></span>
+        <component :is="'md-switch'" aria-label="Root 高级实验" :selected="device?.capabilities.advanced ? 'true' : undefined"
+          :disabled="deviceBusy || !(device?.root || device?.shizuku) ? 'true' : undefined" @change="toggleDevice('advanced', !device?.capabilities.advanced)" />
+      </label>
+      <p class="runtime-capability-note">设备操作只在应用位于前台时执行，且只包含固定动作；「Root 高级实验」是唯一的命令例外，需你逐项开启。授权后，对话中的助手可在你要求时执行这些动作。</p>
       <p v-if="deviceFeedback" class="runtime-error runtime-feedback" role="alert">{{ deviceFeedback }}</p>
     </section>
 
     <section aria-labelledby="runtime-capabilities-title">
-      <h3 id="runtime-capabilities-title">更多能力</h3>
+      <h3 id="runtime-capabilities-title">能力状态</h3>
       <dl class="runtime-group runtime-capabilities">
         <div class="runtime-row">
           <div class="runtime-row-copy"><dt>对话与学习</dt><dd>会话历史、学习计划、练习与复习，数据都保存在这台手机。</dd></div>
@@ -363,21 +393,12 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
           <div class="runtime-row-copy"><dt>屏幕采集</dt><dd>让助手看到屏幕内容，需要专门的隐私设计。</dd></div>
           <dd class="runtime-value"><span class="runtime-badge runtime-badge--off">未开放</span></dd>
         </div>
-        <div class="runtime-row">
-          <div class="runtime-row-copy"><dt>Shizuku 扩展</dt><dd>免 root 的设备操作通道：安装并授权 Shizuku 后，固定动作列表无需 su 也可执行。</dd></div>
-          <dd class="runtime-value"><span class="runtime-badge" :class="device?.shizuku ? 'runtime-badge--beta' : 'runtime-badge--off'">{{ device?.shizuku ? '已就绪' : '未就绪' }}</span></dd>
-        </div>
-        <div class="runtime-row">
-          <div class="runtime-row-copy"><dt>Root 高级实验</dt><dd>允许助手执行自定义 shell 命令。高风险研究项，仅在你显式开启时可用；命令有长度与输出上限，且只在应用前台执行。</dd></div>
-          <dd class="runtime-value"><component :is="'md-switch'" aria-label="Root 高级实验" :selected="device?.capabilities.advanced ? 'true' : undefined"
-            :disabled="deviceBusy || !(device?.root || device?.shizuku) ? 'true' : undefined" @change="toggleDevice('advanced', !device?.capabilities.advanced)" /></dd>
-        </div>
       </dl>
-      <p class="runtime-capability-note">「未开放」表示还没有写进这个版本。即使取得 root 或安装 Shizuku 也不会自动开启，能力按需逐项接入。</p>
+      <p class="runtime-capability-note">「未开放」表示还没有写进这个版本，能力按需逐项接入。带开关的项在「设备能力」中。</p>
     </section>
 
     <section aria-labelledby="runtime-backup-title">
-      <h3 id="runtime-backup-title">备份与恢复</h3>
+      <h3 id="runtime-backup-title">数据管理</h3>
       <div class="runtime-group">
         <div class="runtime-row">
           <div class="runtime-row-copy"><dt>导出备份</dt><dd>把会话与学习数据打包为带校验的备份文本，交给系统分享保存。</dd></div>
@@ -390,17 +411,7 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
       </div>
       <div v-if="restoreOpen" class="runtime-model-clear">
         <p>恢复会覆盖当前全部数据，且只接受与本版本结构一致的备份。</p>
-        <textarea v-model="restoreText" rows="4" class="runtime-backup-text" aria-label="备份文本" placeholder="把备份文本粘贴到这里"></textarea>
-        <component :is="'md-filled-button'" :disabled="backupBusy || !restoreText.trim() ? 'true' : undefined" @click="importBackup">
-          {{ confirmingRestore ? '确认覆盖当前数据' : '校验并恢复' }}
-        </component>
-      </div>
-      <p v-if="backupFeedback" class="runtime-model-note" role="status">{{ backupFeedback }}</p>
-      <p v-if="backupError" class="runtime-error runtime-feedback" role="alert">{{ backupError }}</p>
-    </section>
-
-    <section aria-labelledby="runtime-learn-title">
-      <h3 id="runtime-learn-title">题库与提醒</h3>
+      <h4 class="runtime-subtitle">题库导入</h4>
       <div class="runtime-group">
         <div class="runtime-row">
           <div class="runtime-row-copy"><dt>从文件导入题库</dt><dd>选择一份 JSON 或 CSV 题库文件（2 MiB 内），只读取这一份文件。</dd></div>
@@ -413,13 +424,29 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
             <component :is="'md-filled-tonal-button'" :disabled="importBusy || !importUrl.trim() ? 'true' : undefined" @click="importFromUrl">导入</component>
           </div>
         </div>
+      </div>
+      <p v-if="importFeedback" class="runtime-model-note" role="status">{{ importFeedback }}</p>
+      <p v-if="importError" class="runtime-error runtime-feedback" role="alert">{{ importError }}</p>
+        <div class="runtime-url-import">
+          <textarea v-model="restoreText" rows="4" class="runtime-backup-text" aria-label="备份文本" placeholder="把备份文本粘贴到这里"></textarea>
+          <component :is="'md-filled-tonal-button'" class="runtime-pick-file" @click="importBackupFile">从文件选择</component>
+        </div>
+        <component :is="'md-filled-button'" :disabled="backupBusy || !restoreText.trim() ? 'true' : undefined" @click="importBackup">
+          {{ confirmingRestore ? '确认覆盖当前数据' : '校验并恢复' }}
+        </component>
+      </div>
+      <p v-if="backupFeedback" class="runtime-model-note" role="status">{{ backupFeedback }}</p>
+      <p v-if="backupError" class="runtime-error runtime-feedback" role="alert">{{ backupError }}</p>
+    </section>
+
+    <section aria-labelledby="runtime-learn-title">
+      <h3 id="runtime-learn-title">提醒</h3>
+      <div class="runtime-group">
         <label class="runtime-device-toggle">
           <span class="runtime-device-label"><strong>复习提醒</strong><small>每天 9 点提醒今日复习，随时可关</small></span>
           <component :is="'md-switch'" aria-label="复习提醒" :selected="reminderOn ? 'true' : undefined" @change="toggleReminder()" />
         </label>
       </div>
-      <p v-if="importFeedback" class="runtime-model-note" role="status">{{ importFeedback }}</p>
-      <p v-if="importError" class="runtime-error runtime-feedback" role="alert">{{ importError }}</p>
       <p v-if="reminderFeedback" class="runtime-model-note" role="status">{{ reminderFeedback }}</p>
     </section>
   </div>
@@ -474,6 +501,8 @@ dd { margin: 4px 0 0; color: var(--md-sys-color-on-surface-variant); font-size: 
 .runtime-error { color: var(--md-sys-color-error) !important; }
 .runtime-feedback { margin: 12px 0 0; font-size: 14px; line-height: 20px; }
 .runtime-row--stack { flex-wrap: wrap; }
+.runtime-subtitle { margin: 14px 0 6px; font-size: 13px; font-weight: 600; color: var(--pc-ink-2); }
+.runtime-pick-file { align-self: flex-start; }
 .runtime-url-import { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 4px; }
 .runtime-url-import .runtime-backup-text { flex: 1 1 auto; width: auto; min-height: 44px; }
 .runtime-backup-text { width: 100%; box-sizing: border-box; min-height: 88px; padding: 12px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 16px; background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface); font: inherit; font-size: 13px; line-height: 18px; resize: vertical; }
