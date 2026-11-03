@@ -19,7 +19,7 @@ function openPage(target: Exclude<PageId, 'menu'>) { page.value = target; }
 function backToMenu() { page.value = 'menu'; }
 function menuSummary(target: PageId): string {
   if (target === 'model') return modelStatus.value || (loading.value ? '读取中' : '未配置');
-  if (target === 'device') return device.value ? (device.value.root ? 'root ready' : device.value.shizuku ? 'Shizuku 就绪' : '需授权') : '未检测';
+  if (target === 'device') return device.value ? (device.value.root ? 'Root 可用' : device.value.shizuku ? 'Shizuku 就绪' : '需授权') : '未检测';
   if (target === 'data') return '导出 / 恢复 / 题库';
   return reminderOn.value ? '已开启' : '未开启';
 }
@@ -425,7 +425,7 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
     </section>
 
     <section v-if="page === 'data'" aria-labelledby="runtime-backup-title">
-      <h3 id="runtime-backup-title"><FolderDown :size="20" aria-hidden="true" />数据管理</h3>
+      <h3 id="runtime-backup-title"><FolderDown :size="20" aria-hidden="true" />备份与恢复</h3>
       <div class="runtime-group">
         <div class="runtime-row">
           <div class="runtime-row-copy"><dt>导出备份</dt><dd>把会话与学习数据打包为带校验的备份文本，交给系统分享保存。</dd></div>
@@ -438,6 +438,16 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
       </div>
       <div v-if="restoreOpen" class="runtime-model-clear">
         <p>恢复会覆盖当前全部数据，且只接受与本版本结构一致的备份。</p>
+        <div class="runtime-url-import">
+          <textarea v-model="restoreText" rows="4" class="runtime-backup-text" aria-label="备份文本" placeholder="把备份文本粘贴到这里"></textarea>
+          <component :is="'md-filled-tonal-button'" class="runtime-pick-file" @click="importBackupFile">从文件选择</component>
+        </div>
+        <component :is="'md-filled-button'" :disabled="backupBusy || !restoreText.trim() ? 'true' : undefined" @click="importBackup">
+          {{ confirmingRestore ? '确认覆盖当前数据' : '校验并恢复' }}
+        </component>
+      </div>
+      <p v-if="backupFeedback" class="runtime-model-note" role="status">{{ backupFeedback }}</p>
+      <p v-if="backupError" class="runtime-error runtime-feedback" role="alert">{{ backupError }}</p>
       <h4 class="runtime-subtitle">题库导入</h4>
       <div class="runtime-group">
         <div class="runtime-row">
@@ -454,16 +464,6 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
       </div>
       <p v-if="importFeedback" class="runtime-model-note" role="status">{{ importFeedback }}</p>
       <p v-if="importError" class="runtime-error runtime-feedback" role="alert">{{ importError }}</p>
-        <div class="runtime-url-import">
-          <textarea v-model="restoreText" rows="4" class="runtime-backup-text" aria-label="备份文本" placeholder="把备份文本粘贴到这里"></textarea>
-          <component :is="'md-filled-tonal-button'" class="runtime-pick-file" @click="importBackupFile">从文件选择</component>
-        </div>
-        <component :is="'md-filled-button'" :disabled="backupBusy || !restoreText.trim() ? 'true' : undefined" @click="importBackup">
-          {{ confirmingRestore ? '确认覆盖当前数据' : '校验并恢复' }}
-        </component>
-      </div>
-      <p v-if="backupFeedback" class="runtime-model-note" role="status">{{ backupFeedback }}</p>
-      <p v-if="backupError" class="runtime-error runtime-feedback" role="alert">{{ backupError }}</p>
     </section>
 
     <section v-if="page === 'reminder'" aria-labelledby="runtime-learn-title">
@@ -546,4 +546,6 @@ dd { margin: 4px 0 0; color: var(--md-sys-color-on-surface-variant); font-size: 
 .runtime-url-import .runtime-backup-text { flex: 1 1 auto; width: auto; min-height: 44px; }
 .runtime-backup-text { width: 100%; box-sizing: border-box; min-height: 88px; padding: 12px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 16px; background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface); font: inherit; font-size: 13px; line-height: 18px; resize: vertical; }
 @media (max-width: 360px) { .runtime-model { padding: 16px; } .runtime-row { gap: 10px; padding: 14px 12px; } .runtime-icon { display: none; } .runtime-value { max-width: 60px; } }
+/* 窄列换行时避免单字孤行（如「态。」「存。」）；不支持的 WebView 静默降级为普通换行。 */
+.native-runtime-panel :where(p, dd, small) { text-wrap: pretty; }
 </style>
