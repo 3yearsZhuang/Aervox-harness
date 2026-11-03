@@ -8,6 +8,16 @@ vi.mock('../src/mobile/native-channel', () => ({ nativeRequest: request }));
 enableAutoUnmount(afterEach);
 const runtime = { kind: 'runtime', connectionEpoch: 'owned-connection', sqlite: 'ready', mode: 'foreground' };
 const deviceStatus = { kind: 'device_status', root: true, capabilities: { control: false, apps: false, advanced: false }, sdk: 36, device: 'Pixel 9' };
+async function mountPanel(page?: 'model' | 'device' | 'data' | 'reminder') {
+  const wrapper = mount(NativeRuntimePanel);
+  await flushPromises();
+  if (page) {
+    const index = { model: 0, device: 1, data: 2, reminder: 3 }[page];
+    await wrapper.findAll('.runtime-menu-card')[index].trigger('click');
+    await flushPromises();
+  }
+  return wrapper;
+}
 beforeEach(() => {
   request.mockReset();
   request.mockImplementation(async body => {
@@ -22,12 +32,27 @@ it('shows native readiness and provides a real configuration action without expo
   await flushPromises();
   expect(request).toHaveBeenCalledWith({ op: 'runtime' });
   expect(request).toHaveBeenCalledWith({ op: 'model', operation: 'summary' });
+  expect(wrapper.text()).toContain('模型与状态');
+  await wrapper.findAll('.runtime-menu-card')[0].trigger('click');
+  await flushPromises();
   expect(wrapper.text()).toContain('就绪');
   expect(wrapper.text()).toContain('未配置');
+  await wrapper.findAll('.runtime-heading md-icon-button')[0].trigger('click');
+  await flushPromises();
+  await wrapper.findAll('.runtime-menu-card')[1].trigger('click');
+  await flushPromises();
   expect(wrapper.findAll('.runtime-capabilities .runtime-value').map(item => item.text())).toEqual(['试用中', '试用中', '试用中', '未开放']);
   // The panel never exposes raw credential fields; the only free-text field is
   // the user-supplied question-bank URL.
+  await wrapper.findAll('.runtime-heading md-icon-button')[0].trigger('click');
+  await flushPromises();
+  await wrapper.findAll('.runtime-menu-card')[2].trigger('click');
+  await flushPromises();
   expect(wrapper.findAll('input, textarea').every(item => item.attributes('aria-label') === '题库链接')).toBe(true);
+  await wrapper.findAll('.runtime-heading md-icon-button')[0].trigger('click');
+  await flushPromises();
+  await wrapper.findAll('.runtime-menu-card')[0].trigger('click');
+  await flushPromises();
   const configure = wrapper.findAll('md-filled-tonal-button').find(item => item.text() === '配置模型服务');
   expect(configure).toBeTruthy();
   await configure!.trigger('click');
@@ -39,8 +64,7 @@ it('distinguishes a saved model configuration from tested connectivity and never
   request.mockImplementation(async body => body.op === 'runtime' ? runtime : {
     kind: 'summary', hasCredential: true, endpoint: 'https://model.example/v1', model: 'model-a', apiKey: 'must-never-render',
   });
-  const wrapper = mount(NativeRuntimePanel);
-  await flushPromises();
+  const wrapper = await mountPanel('model');
   expect(wrapper.text()).toContain('已保存配置');
   expect(wrapper.text()).toContain('发送消息时验证');
   expect(wrapper.text()).toContain('https://model.example/v1');
@@ -54,8 +78,7 @@ it('keeps native model setup available when the independent storage check fails'
     if (body.op === 'runtime') throw new Error('private native error');
     return { kind: 'summary', hasCredential: false };
   });
-  const wrapper = mount(NativeRuntimePanel);
-  await flushPromises();
+  const wrapper = await mountPanel('model');
   expect(wrapper.get('.runtime-row .runtime-value').text()).toBe('不可用');
   expect(wrapper.text()).not.toContain('private native error');
   expect(wrapper.get('md-filled-tonal-button').attributes('disabled')).toBe('false');
@@ -66,8 +89,7 @@ it('treats malformed readiness receipts as unknown and reports setup failures wi
     if (body.operation === 'configure') throw new Error('sensitive native diagnostic');
     return body.op === 'runtime' ? { ...runtime, connectionEpoch: '' } : { kind: 'summary', hasCredential: true };
   });
-  const wrapper = mount(NativeRuntimePanel);
-  await flushPromises();
+  const wrapper = await mountPanel('model');
   expect(wrapper.text()).toContain('不可用');
   expect(wrapper.text()).toContain('读取失败');
   expect(wrapper.text()).not.toContain('已保存配置');
@@ -79,8 +101,7 @@ it('treats malformed readiness receipts as unknown and reports setup failures wi
 
 it('ignores a native configuration receipt that arrives after its settings page is destroyed', async () => {
   let finish!: (value: unknown) => void;
-  const wrapper = mount(NativeRuntimePanel);
-  await flushPromises();
+  const wrapper = await mountPanel('model');
   request.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   await wrapper.get('md-filled-tonal-button').trigger('click');
   expect(request).toHaveBeenCalledTimes(4);
@@ -93,8 +114,7 @@ it('ignores a native configuration receipt that arrives after its settings page 
 it('keeps unknown model state distinct from missing configuration and waits before exposing actions', async () => {
   let finish!: (value: unknown) => void;
   request.mockImplementation(async body => body.op === 'runtime' ? runtime : new Promise(resolve => { finish = resolve; }));
-  const wrapper = mount(NativeRuntimePanel);
-  await flushPromises();
+  const wrapper = await mountPanel('model');
   expect(wrapper.text()).toContain('正在读取模型配置');
   expect(wrapper.text()).not.toContain('未配置');
   await wrapper.get('md-filled-tonal-button').trigger('click');
@@ -113,14 +133,13 @@ it('tests only saved configuration, prevents duplicate actions, and reports the 
     if (body.operation === 'test') return new Promise(resolve => { finish = resolve; });
     return { kind: 'summary', hasCredential: true, endpoint: 'https://model.example/v1', model: 'model-a' };
   });
-  const wrapper = mount(NativeRuntimePanel);
-  await flushPromises();
+  const wrapper = await mountPanel('model');
   expect(wrapper.text()).toContain('测试会向已配置服务发送一条简短请求');
   await wrapper.get('md-outlined-button').trigger('click');
   expect(wrapper.get('md-outlined-button').text()).toBe('正在测试…');
   await wrapper.get('md-outlined-button').trigger('click');
   await wrapper.get('md-filled-tonal-button').trigger('click');
-  await wrapper.get('md-icon-button').trigger('click');
+  await wrapper.get('[aria-label="刷新运行状态"]').trigger('click');
   expect(request.mock.calls.filter(([body]) => body.operation === 'test')).toEqual([[{ op: 'model', operation: 'test' }]]);
   expect(request).toHaveBeenCalledTimes(4);
   finish({ kind: 'connection_test', ok: true, latencyMs: 1234 });
@@ -143,8 +162,7 @@ it.each([
     if (body.operation === 'test') throw new Error(code);
     return { kind: 'summary', hasCredential: true, endpoint: 'https://model.example/v1', model: 'model-a' };
   });
-  const wrapper = mount(NativeRuntimePanel);
-  await flushPromises();
+  const wrapper = await mountPanel('model');
   await wrapper.get('md-outlined-button').trigger('click');
   await flushPromises();
   expect(wrapper.get('.runtime-test-feedback').text()).toContain(expected);
@@ -158,8 +176,7 @@ it('does not turn an invalid connection receipt into a successful test', async (
     if (body.operation === 'test') return { kind: 'connection_test', ok: true, latencyMs: -1 };
     return { kind: 'summary', hasCredential: true, endpoint: 'https://model.example/v1', model: 'model-a' };
   });
-  const wrapper = mount(NativeRuntimePanel);
-  await flushPromises();
+  const wrapper = await mountPanel('model');
   await wrapper.get('md-outlined-button').trigger('click');
   await flushPromises();
   expect(wrapper.get('.runtime-test-feedback').text()).toContain('未收到有效的模型回复');
@@ -178,8 +195,7 @@ it('shows root availability and grants a device capability through the native ch
     }
     return { kind: 'summary', hasCredential: false };
   });
-  const wrapper = mount(NativeRuntimePanel);
-  await flushPromises();
+  const wrapper = await mountPanel('device');
   expect(wrapper.text()).toContain('Root 可用');
   const control = wrapper.get('md-switch[aria-label="控制手机"]');
   expect(control.attributes('disabled')).toBeUndefined();
@@ -198,8 +214,7 @@ it('keeps device switches disabled and honest when there is no root grant', asyn
     if (body.op === 'device') return { ...deviceStatus, root: false, device: undefined };
     return { kind: 'summary', hasCredential: false };
   });
-  const wrapper = mount(NativeRuntimePanel);
-  await flushPromises();
+  const wrapper = await mountPanel('device');
   expect(wrapper.text()).toContain('可安装并授权 Shizuku');
   expect(wrapper.get('md-switch[aria-label="控制手机"]').attributes('disabled')).toBe('true');
   expect(wrapper.get('md-switch[aria-label="打开应用"]').attributes('disabled')).toBe('true');
@@ -215,8 +230,7 @@ it('clears a saved model configuration only after an explicit confirmation', asy
     return saved ? { kind: 'summary', hasCredential: true, endpoint: 'https://model.example/v1', model: 'model-a' }
       : { kind: 'summary', hasCredential: false };
   });
-  const wrapper = mount(NativeRuntimePanel);
-  await flushPromises();
+  const wrapper = await mountPanel('model');
   await wrapper.get('.runtime-clear-model').trigger('click');
   expect(request.mock.calls.filter(([body]) => body.operation === 'clear')).toHaveLength(0);
   expect(wrapper.text()).toContain('清除后，这台手机不再保存密钥');
@@ -235,8 +249,7 @@ it('keeps the saved configuration when clearing is refused', async () => {
     if (body.operation === 'clear') throw new Error('BUSY');
     return { kind: 'summary', hasCredential: true, endpoint: 'https://model.example/v1', model: 'model-a' };
   });
-  const wrapper = mount(NativeRuntimePanel);
-  await flushPromises();
+  const wrapper = await mountPanel('model');
   await wrapper.get('.runtime-clear-model').trigger('click');
   await wrapper.get('.runtime-clear-confirm').trigger('click');
   await flushPromises();

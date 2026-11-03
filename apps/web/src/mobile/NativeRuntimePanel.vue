@@ -1,22 +1,27 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { Activity, Bell, Database, FolderDown, KeyRound, RefreshCw, Smartphone, Sparkles } from 'lucide-vue-next';
+import { Activity, ArrowLeft, Bell, Database, FolderDown, KeyRound, RefreshCw, Smartphone, Sparkles } from 'lucide-vue-next';
 import { getClientTransport } from '@aervox/api-client';
 import { nativeRequest } from './native-channel';
 import { deviceError, grantDeviceCapability, readDeviceStatus, type DeviceCapability, type DeviceStatus } from './native-device';
 // inject() only resolves during setup; handlers must reuse this capture.
 const clientTransport = getClientTransport();
 
-const sectionLinks = [
-  { id: 'runtime-model-title', label: '模型' },
-  { id: 'runtime-storage-title', label: '状态' },
-  { id: 'runtime-device-title', label: '设备' },
-  { id: 'runtime-capabilities-title', label: '能力' },
-  { id: 'runtime-backup-title', label: '数据' },
-  { id: 'runtime-learn-title', label: '提醒' },
-] as const;
-function scrollToSection(id: string) {
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+type PageId = 'menu' | 'model' | 'device' | 'data' | 'reminder';
+const page = ref<PageId>('menu');
+const pageMeta: Record<Exclude<PageId, 'menu'>, { title: string; subtitle: string }> = {
+  model: { title: '模型与状态', subtitle: '连接配置与本机运行状态。' },
+  device: { title: '设备与能力', subtitle: '执行通道、设备操作与能力状态。' },
+  data: { title: '数据管理', subtitle: '备份恢复与题库导入。' },
+  reminder: { title: '提醒', subtitle: '复习提醒与通知。' },
+};
+function openPage(target: Exclude<PageId, 'menu'>) { page.value = target; }
+function backToMenu() { page.value = 'menu'; }
+function menuSummary(target: PageId): string {
+  if (target === 'model') return modelStatus.value || (loading.value ? '读取中' : '未配置');
+  if (target === 'device') return device.value ? (device.value.root ? 'root ready' : device.value.shizuku ? 'Shizuku 就绪' : '需授权') : '未检测';
+  if (target === 'data') return '导出 / 恢复 / 题库';
+  return reminderOn.value ? '已开启' : '未开启';
 }
 
 interface RuntimeSummary { kind: 'runtime'; connectionEpoch: string; sqlite: 'ready'; mode: 'foreground' }
@@ -291,17 +296,24 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
 <template>
   <div class="native-runtime-panel" :aria-busy="loading || configuring || testing || deviceBusy">
     <header class="runtime-heading">
-      <div><h2>本机运行</h2><p>管理手机上的对话与连接。</p></div>
+      <component v-if="page !== 'menu'" :is="'md-icon-button'" type="button" aria-label="返回设置首页" @click="backToMenu()">
+        <ArrowLeft :size="24" aria-hidden="true" />
+      </component>
+      <div class="runtime-heading-copy"><h2>{{ page === 'menu' ? '本机运行' : pageMeta[page].title }}</h2><p>{{ page === 'menu' ? '管理手机上的对话与连接。' : pageMeta[page].subtitle }}</p></div>
       <component :is="'md-icon-button'" type="button" aria-label="刷新运行状态" :disabled="loading || configuring || testing" @click="readStatus">
         <RefreshCw :size="24" aria-hidden="true" />
       </component>
     </header>
     <component v-if="loading" :is="'md-linear-progress'" indeterminate aria-label="正在读取本机状态" />
-    <nav class="runtime-nav" aria-label="设置分区">
-      <button v-for="link in sectionLinks" :key="link.id" type="button" class="runtime-nav-chip" @click="scrollToSection(link.id)">{{ link.label }}</button>
+    <nav v-if="page === 'menu'" class="runtime-menu" aria-label="设置分区">
+      <button v-for="target in (['model', 'device', 'data', 'reminder'] as const)" :key="target" type="button" class="runtime-menu-card" @click="openPage(target)">
+        <component :is="target === 'model' ? KeyRound : target === 'device' ? Smartphone : target === 'data' ? FolderDown : Bell" :size="22" aria-hidden="true" />
+        <span class="runtime-menu-copy"><strong>{{ pageMeta[target].title }}</strong><small>{{ pageMeta[target].subtitle }}</small></span>
+        <span class="runtime-menu-badge">{{ menuSummary(target) }}</span>
+      </button>
     </nav>
 
-    <section class="runtime-model" aria-labelledby="runtime-model-title">
+    <section v-if="page === 'model'" class="runtime-model" aria-labelledby="runtime-model-title">
       <div class="runtime-model-label">
         <h3 id="runtime-model-title"><KeyRound :size="20" aria-hidden="true" />模型服务</h3>
         <span class="runtime-model-status" :class="{ 'runtime-error': modelFailed }" role="status">{{ modelStatus }}</span>
@@ -341,7 +353,7 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
       <p v-if="feedback" class="runtime-error runtime-feedback" role="alert">{{ feedback }}</p>
     </section>
 
-    <section aria-labelledby="runtime-storage-title">
+    <section v-if="page === 'model'" aria-labelledby="runtime-storage-title">
       <h3 id="runtime-storage-title"><Activity :size="20" aria-hidden="true" />运行状态</h3>
       <dl class="runtime-group">
         <div class="runtime-row">
@@ -357,7 +369,7 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
       </dl>
     </section>
 
-    <section aria-labelledby="runtime-device-title">
+    <section v-if="page === 'device'" aria-labelledby="runtime-device-title">
       <h3 id="runtime-device-title"><Smartphone :size="20" aria-hidden="true" />设备能力</h3>
       <dl class="runtime-group">
         <div class="runtime-row">
@@ -389,7 +401,7 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
       <p v-if="deviceFeedback" class="runtime-error runtime-feedback" role="alert">{{ deviceFeedback }}</p>
     </section>
 
-    <section aria-labelledby="runtime-capabilities-title">
+    <section v-if="page === 'device'" aria-labelledby="runtime-capabilities-title">
       <h3 id="runtime-capabilities-title"><Sparkles :size="20" aria-hidden="true" />能力状态</h3>
       <dl class="runtime-group runtime-capabilities">
         <div class="runtime-row">
@@ -412,7 +424,7 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
       <p class="runtime-capability-note">「未开放」表示还没有写进这个版本，能力按需逐项接入。带开关的项在「设备能力」中。</p>
     </section>
 
-    <section aria-labelledby="runtime-backup-title">
+    <section v-if="page === 'data'" aria-labelledby="runtime-backup-title">
       <h3 id="runtime-backup-title"><FolderDown :size="20" aria-hidden="true" />数据管理</h3>
       <div class="runtime-group">
         <div class="runtime-row">
@@ -454,7 +466,7 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
       <p v-if="backupError" class="runtime-error runtime-feedback" role="alert">{{ backupError }}</p>
     </section>
 
-    <section aria-labelledby="runtime-learn-title">
+    <section v-if="page === 'reminder'" aria-labelledby="runtime-learn-title">
       <h3 id="runtime-learn-title"><Bell :size="20" aria-hidden="true" />提醒</h3>
       <div class="runtime-group">
         <label class="runtime-device-toggle">
@@ -516,12 +528,17 @@ dd { margin: 4px 0 0; color: var(--md-sys-color-on-surface-variant); font-size: 
 .runtime-error { color: var(--md-sys-color-error) !important; }
 .runtime-feedback { margin: 12px 0 0; font-size: 14px; line-height: 20px; }
 .runtime-row--stack { flex-wrap: wrap; }
-.runtime-nav { position: sticky; top: 0; z-index: 5; display: flex; gap: 8px; overflow-x: auto; padding: 10px 0 12px; margin: 4px 0 2px;
-  background: color-mix(in srgb, var(--pc-bg, #141018) 88%, transparent); backdrop-filter: blur(8px); scrollbar-width: none; }
-.runtime-nav::-webkit-scrollbar { display: none; }
-.runtime-nav-chip { flex: 0 0 auto; padding: 7px 16px; border-radius: 999px; border: 1px solid var(--pc-line, rgba(255,255,255,.14));
-  background: transparent; color: var(--pc-ink-2, rgba(255,255,255,.72)); font-size: 13px; cursor: pointer; }
-.runtime-nav-chip:active { background: rgba(155,122,255,.18); }
+.runtime-heading-copy { flex: 1 1 auto; min-width: 0; }
+.runtime-menu { display: grid; gap: 10px; padding: 6px 0 4px; }
+.runtime-menu-card { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; cursor: pointer;
+  padding: 16px; border-radius: 18px; border: 1px solid var(--pc-line, rgba(255,255,255,.12));
+  background: var(--pc-card, rgba(255,255,255,.05)); color: var(--pc-ink, #fff); font-family: inherit; }
+.runtime-menu-card:active { background: rgba(155,122,255,.14); }
+.runtime-menu-copy { flex: 1 1 auto; min-width: 0; display: grid; gap: 3px; }
+.runtime-menu-copy strong { font-size: 15px; }
+.runtime-menu-copy small { color: var(--pc-ink-3, rgba(255,255,255,.55)); font-size: 12px; line-height: 1.5; }
+.runtime-menu-badge { flex: 0 0 auto; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 11px; padding: 4px 10px; border-radius: 999px; background: rgba(155,122,255,.16); color: var(--pc-accent, #9b7aff); }
 .native-runtime-panel h3 { display: flex; align-items: center; gap: 8px; }
 .runtime-subtitle { margin: 14px 0 6px; font-size: 13px; font-weight: 600; color: var(--pc-ink-2); }
 .runtime-pick-file { align-self: flex-start; }
