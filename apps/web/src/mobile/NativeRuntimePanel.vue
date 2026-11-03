@@ -1,11 +1,23 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { Database, KeyRound, RefreshCw, Smartphone } from 'lucide-vue-next';
+import { Activity, Bell, Database, FolderDown, KeyRound, RefreshCw, Smartphone, Sparkles } from 'lucide-vue-next';
 import { getClientTransport } from '@aervox/api-client';
 import { nativeRequest } from './native-channel';
 import { deviceError, grantDeviceCapability, readDeviceStatus, type DeviceCapability, type DeviceStatus } from './native-device';
 // inject() only resolves during setup; handlers must reuse this capture.
 const clientTransport = getClientTransport();
+
+const sectionLinks = [
+  { id: 'runtime-model-title', label: '模型' },
+  { id: 'runtime-storage-title', label: '状态' },
+  { id: 'runtime-device-title', label: '设备' },
+  { id: 'runtime-capabilities-title', label: '能力' },
+  { id: 'runtime-backup-title', label: '数据' },
+  { id: 'runtime-learn-title', label: '提醒' },
+] as const;
+function scrollToSection(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 
 interface RuntimeSummary { kind: 'runtime'; connectionEpoch: string; sqlite: 'ready'; mode: 'foreground' }
 interface ModelSummary { kind: 'summary'; hasCredential: boolean; endpoint?: string; model?: string }
@@ -285,6 +297,9 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
       </component>
     </header>
     <component v-if="loading" :is="'md-linear-progress'" indeterminate aria-label="正在读取本机状态" />
+    <nav class="runtime-nav" aria-label="设置分区">
+      <button v-for="link in sectionLinks" :key="link.id" type="button" class="runtime-nav-chip" @click="scrollToSection(link.id)">{{ link.label }}</button>
+    </nav>
 
     <section class="runtime-model" aria-labelledby="runtime-model-title">
       <div class="runtime-model-label">
@@ -327,7 +342,7 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
     </section>
 
     <section aria-labelledby="runtime-storage-title">
-      <h3 id="runtime-storage-title">运行状态</h3>
+      <h3 id="runtime-storage-title"><Activity :size="20" aria-hidden="true" />运行状态</h3>
       <dl class="runtime-group">
         <div class="runtime-row">
           <Database class="runtime-icon" :size="24" aria-hidden="true" />
@@ -343,7 +358,7 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
     </section>
 
     <section aria-labelledby="runtime-device-title">
-      <h3 id="runtime-device-title">设备能力</h3>
+      <h3 id="runtime-device-title"><Smartphone :size="20" aria-hidden="true" />设备能力</h3>
       <dl class="runtime-group">
         <div class="runtime-row">
           <div class="runtime-row-copy"><dt>Root 授权</dt><dd>{{ rootText }}</dd></div>
@@ -375,7 +390,7 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
     </section>
 
     <section aria-labelledby="runtime-capabilities-title">
-      <h3 id="runtime-capabilities-title">能力状态</h3>
+      <h3 id="runtime-capabilities-title"><Sparkles :size="20" aria-hidden="true" />能力状态</h3>
       <dl class="runtime-group runtime-capabilities">
         <div class="runtime-row">
           <div class="runtime-row-copy"><dt>对话与学习</dt><dd>会话历史、学习计划、练习与复习，数据都保存在这台手机。</dd></div>
@@ -398,7 +413,7 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
     </section>
 
     <section aria-labelledby="runtime-backup-title">
-      <h3 id="runtime-backup-title">数据管理</h3>
+      <h3 id="runtime-backup-title"><FolderDown :size="20" aria-hidden="true" />数据管理</h3>
       <div class="runtime-group">
         <div class="runtime-row">
           <div class="runtime-row-copy"><dt>导出备份</dt><dd>把会话与学习数据打包为带校验的备份文本，交给系统分享保存。</dd></div>
@@ -440,7 +455,7 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
     </section>
 
     <section aria-labelledby="runtime-learn-title">
-      <h3 id="runtime-learn-title">提醒</h3>
+      <h3 id="runtime-learn-title"><Bell :size="20" aria-hidden="true" />提醒</h3>
       <div class="runtime-group">
         <label class="runtime-device-toggle">
           <span class="runtime-device-label"><strong>复习提醒</strong><small>每天 9 点提醒今日复习，随时可关</small></span>
@@ -501,6 +516,13 @@ dd { margin: 4px 0 0; color: var(--md-sys-color-on-surface-variant); font-size: 
 .runtime-error { color: var(--md-sys-color-error) !important; }
 .runtime-feedback { margin: 12px 0 0; font-size: 14px; line-height: 20px; }
 .runtime-row--stack { flex-wrap: wrap; }
+.runtime-nav { position: sticky; top: 0; z-index: 5; display: flex; gap: 8px; overflow-x: auto; padding: 10px 0 12px; margin: 4px 0 2px;
+  background: color-mix(in srgb, var(--pc-bg, #141018) 88%, transparent); backdrop-filter: blur(8px); scrollbar-width: none; }
+.runtime-nav::-webkit-scrollbar { display: none; }
+.runtime-nav-chip { flex: 0 0 auto; padding: 7px 16px; border-radius: 999px; border: 1px solid var(--pc-line, rgba(255,255,255,.14));
+  background: transparent; color: var(--pc-ink-2, rgba(255,255,255,.72)); font-size: 13px; cursor: pointer; }
+.runtime-nav-chip:active { background: rgba(155,122,255,.18); }
+.native-runtime-panel h3 { display: flex; align-items: center; gap: 8px; }
 .runtime-subtitle { margin: 14px 0 6px; font-size: 13px; font-weight: 600; color: var(--pc-ink-2); }
 .runtime-pick-file { align-self: flex-start; }
 .runtime-url-import { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 4px; }
