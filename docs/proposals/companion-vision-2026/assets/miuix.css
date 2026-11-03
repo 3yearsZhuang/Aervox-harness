@@ -7,12 +7,11 @@
 :root {
   color-scheme: light;
 
-  /* 底：柔和彩色光斑 */
-  --bg: #eef1f6;
-  --blob-1: rgba(255, 168, 92, 0.55);
-  --blob-2: rgba(255, 112, 60, 0.32);
-  --blob-3: rgba(150, 190, 255, 0.42);
-  --blob-4: rgba(255, 214, 140, 0.5);
+  /* 房间：冷白纸面 + 一角的灯 */
+  --bg: #eef1f7;
+  --blob-lamp: rgba(255, 198, 138, 0.55);
+  --blob-cool: rgba(122, 152, 255, 0.2);
+  --blob-deep: rgba(72, 104, 214, 0.12);
 
   /* 玻璃 */
   --glass: rgba(255, 255, 255, 0.62);
@@ -22,32 +21,41 @@
   --sheet: rgba(250, 251, 254, 0.93);
 
   /* 文本 */
-  --ink: #17181c;
-  --ink-2: #565e6c;
-  --muted: #8b94a3;
-  --faint: #a3abb8;
+  --ink: #1c2330;
+  --ink-2: #4b566b;
+  --muted: #636f85;
+  --faint: #66728a;
 
-  /* 主色：小米橙 */
-  --accent: #ff6a00;
-  --accent-2: #ff9126;
-  --accent-deep: #f24e00;
-  --accent-soft: rgba(255, 106, 0, 0.12);
-  --accent-line: rgba(255, 106, 0, 0.28);
+  /* 主色：钴蓝（单主色秩序，沿 AVX-DS-001） */
+  --accent: #3b66db;
+  --accent-2: #5b80e8;
+  --accent-deep: #2a4fb8;
+  --accent-soft: rgba(59, 102, 219, 0.1);
+  --accent-line: rgba(59, 102, 219, 0.26);
   --on-accent: #ffffff;
 
-  --ok: #2fb344;
-  --ok-soft: rgba(47, 179, 68, 0.12);
-  --warn: #ff9500;
-  --warn-soft: rgba(255, 149, 0, 0.14);
-  --danger: #ff453a;
-  --danger-soft: rgba(255, 69, 58, 0.12);
+  /* 暖光：陪伴的一角 */
+  --lamp: #e8a05c;
+  --lamp-glow: rgba(240, 176, 112, 0.5);
+  --lamp-ink: #a2611f;
+  --lamp-paper: #fdf3e2;
+  --lamp-paper-ink: #4a3520;
+  --lamp-btn-bg: rgba(226, 160, 92, 0.32);
+  --lamp-btn-ink: #8a5316;
 
-  --line: rgba(23, 24, 28, 0.07);
-  --line-soft: rgba(23, 24, 28, 0.045);
+  --ok: #2f7d6b;
+  --ok-soft: rgba(47, 125, 107, 0.1);
+  --warn: #a8672f;
+  --warn-soft: rgba(168, 103, 47, 0.1);
+  --danger: #c0392b;
+  --danger-soft: rgba(192, 57, 43, 0.09);
 
-  --shadow-1: 0 1px 2px rgba(31, 38, 46, 0.04), 0 10px 30px -12px rgba(31, 38, 46, 0.16);
-  --shadow-2: 0 2px 6px rgba(31, 38, 46, 0.05), 0 36px 80px -36px rgba(31, 38, 46, 0.32);
-  --shadow-fab: 0 10px 26px -10px rgba(255, 106, 0, 0.55);
+  --line: rgba(15, 23, 42, 0.08);
+  --line-soft: rgba(15, 23, 42, 0.045);
+
+  --shadow-1: 0 1px 2px rgba(15, 23, 42, 0.05), 0 14px 34px -20px rgba(15, 23, 42, 0.22);
+  --shadow-2: 0 3px 8px rgba(15, 23, 42, 0.06), 0 42px 88px -42px rgba(15, 23, 42, 0.3);
+  --shadow-fab: 0 10px 26px -12px rgba(59, 102, 219, 0.45);
 
   --r-widget: 26px;
   --r-card: 18px;
@@ -56,6 +64,8 @@
 
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
+  /* 字体：衬线是思隅的声音，等宽留给时间与数字 */
+  --font-display: "Songti SC", "Noto Serif SC", "Source Han Serif SC", ui-serif, Georgia, serif;
   --font-ui: "MiSans", "HarmonyOS Sans SC", "SF Pro Rounded", ui-rounded,
     "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
   --font-num: "MiSans", "SF Pro Rounded", ui-rounded, "DIN Alternate",
@@ -65,43 +75,51 @@
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --bg: #0b0d12;
-  --blob-1: rgba(255, 138, 61, 0.34);
-  --blob-2: rgba(255, 92, 0, 0.2);
-  --blob-3: rgba(66, 110, 255, 0.24);
-  --blob-4: rgba(255, 180, 100, 0.18);
+  /* 夜里的房间：深蓝黑，只有一角是暖的 */
+  --bg: #0d1120;
+  --blob-lamp: rgba(255, 180, 116, 0.3);
+  --blob-cool: rgba(96, 132, 255, 0.14);
+  --blob-deep: rgba(40, 66, 150, 0.2);
 
   --glass: rgba(255, 255, 255, 0.055);
   --glass-strong: rgba(255, 255, 255, 0.1);
   --glass-edge: rgba(255, 255, 255, 0.1);
   --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.07);
-  --sheet: rgba(19, 22, 29, 0.93);
+  --sheet: rgba(17, 21, 32, 0.94);
 
-  --ink: #f4f5f7;
-  --ink-2: #aab2be;
-  --muted: #7c8492;
-  --faint: #5d6572;
+  --ink: #e9edf7;
+  --ink-2: #a9b3c8;
+  --muted: #78849c;
+  --faint: #5b6780;
 
-  --accent: #ff8a3d;
-  --accent-2: #ffb168;
-  --accent-deep: #ff6a00;
-  --accent-soft: rgba(255, 138, 61, 0.16);
-  --accent-line: rgba(255, 138, 61, 0.32);
-  --on-accent: #2a1400;
+  --accent: #7d9cf8;
+  --accent-2: #9db6ff;
+  --accent-deep: #4d70e0;
+  --accent-soft: rgba(125, 156, 248, 0.13);
+  --accent-line: rgba(125, 156, 248, 0.3);
+  --on-accent: #0a1226;
 
-  --ok: #4cd07c;
-  --ok-soft: rgba(76, 208, 124, 0.16);
-  --warn: #ffb04d;
-  --warn-soft: rgba(255, 176, 77, 0.16);
-  --danger: #ff6b61;
-  --danger-soft: rgba(255, 107, 97, 0.16);
+  --lamp: #f7c188;
+  --lamp-glow: rgba(247, 193, 136, 0.34);
+  --lamp-ink: #f0b578;
+  --lamp-paper: #f7ecd9;
+  --lamp-paper-ink: #4a3520;
+  --lamp-btn-bg: rgba(226, 160, 92, 0.34);
+  --lamp-btn-ink: #7d4a12;
+
+  --ok: #6fbfa8;
+  --ok-soft: rgba(111, 191, 168, 0.13);
+  --warn: #e0a86c;
+  --warn-soft: rgba(224, 168, 108, 0.14);
+  --danger: #ef8a7f;
+  --danger-soft: rgba(239, 138, 127, 0.13);
 
   --line: rgba(255, 255, 255, 0.08);
   --line-soft: rgba(255, 255, 255, 0.05);
 
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35), 0 14px 36px -18px rgba(0, 0, 0, 0.8);
-  --shadow-2: 0 4px 12px rgba(0, 0, 0, 0.4), 0 48px 96px -44px rgba(0, 0, 0, 0.9);
-  --shadow-fab: 0 12px 30px -10px rgba(255, 106, 0, 0.5);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 40px -22px rgba(0, 0, 0, 0.85);
+  --shadow-2: 0 5px 14px rgba(0, 0, 0, 0.45), 0 52px 104px -48px rgba(0, 0, 0, 0.92);
+  --shadow-fab: 0 12px 30px -12px rgba(77, 112, 224, 0.5);
 }
 
 * { box-sizing: border-box; }
@@ -147,10 +165,10 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   position: absolute;
   inset: -20%;
   background:
-    radial-gradient(46% 38% at 12% 8%, var(--blob-1), transparent 70%),
-    radial-gradient(38% 34% at 88% 4%, var(--blob-3), transparent 70%),
-    radial-gradient(52% 46% at 82% 96%, var(--blob-2), transparent 72%),
-    radial-gradient(40% 40% at 18% 88%, var(--blob-4), transparent 72%);
+    radial-gradient(40% 34% at 14% 10%, var(--blob-lamp), transparent 70%),
+    radial-gradient(34% 30% at 92% 6%, var(--blob-cool), transparent 70%),
+    radial-gradient(52% 46% at 86% 96%, var(--blob-deep), transparent 72%),
+    radial-gradient(34% 34% at 22% 92%, var(--blob-cool), transparent 72%);
   filter: blur(8px);
   animation: drift 26s var(--ease) infinite alternate;
 }
@@ -200,6 +218,17 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   box-shadow: var(--shadow-1), var(--glass-inset);
   font-weight: 650;
   font-size: 14.5px;
+}
+.brand-pill .tagline {
+  font-family: var(--font-display);
+  font-style: normal;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--lamp-ink);
+  padding-left: 9px;
+  margin-left: 3px;
+  border-left: 1px solid var(--line);
 }
 .brand-pill .mark {
   width: 24px;
@@ -288,16 +317,24 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .clock-card {
   padding: 20px 20px 18px;
   background:
-    linear-gradient(155deg, var(--accent-2), var(--accent-deep) 62%, var(--accent));
-  border-color: transparent;
+    radial-gradient(120% 100% at 8% 0%, var(--lamp-glow), transparent 58%),
+    linear-gradient(155deg, #27375c, #18223c 58%, #121a2e);
+  border-color: rgba(255, 255, 255, 0.1);
   color: #fff;
+}
+[data-theme="light"] .clock-card {
+  background:
+    radial-gradient(120% 100% at 8% 0%, var(--lamp-glow), transparent 58%),
+    linear-gradient(155deg, #3d5490, #2b3f72 58%, #22325c);
 }
 .clock-card .weekday {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 13px;
+  font-family: var(--font-display);
+  font-size: 13.5px;
   font-weight: 600;
+  letter-spacing: 0.04em;
   opacity: 0.92;
 }
 .clock-card .time {
@@ -313,6 +350,8 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   line-height: 1;
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
+  color: var(--lamp);
+  text-shadow: 0 0 28px var(--lamp-glow);
 }
 .clock-card .time span { font-size: 13px; font-weight: 600; opacity: 0.85; }
 .clock-card .state {
@@ -333,6 +372,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   min-height: 0;
 }
 .pet-wrap {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -340,9 +380,28 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   gap: 6px;
   min-height: 0;
 }
+/* 灯：小隅所在的那一角是暖的 */
+.pet-wrap::before {
+  content: "";
+  position: absolute;
+  top: -6%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--lamp-glow), transparent 66%);
+  opacity: 0.85;
+  pointer-events: none;
+  animation: breathe 8s var(--ease) infinite;
+}
+@keyframes breathe {
+  0%, 100% { opacity: 0.55; transform: translateX(-50%) scale(0.94); }
+  50% { opacity: 1; transform: translateX(-50%) scale(1.05); }
+}
 .pet {
-  width: 156px;
-  filter: drop-shadow(0 18px 30px rgba(255, 106, 0, 0.18));
+  width: 168px;
+  filter: drop-shadow(0 18px 34px var(--lamp-glow));
 }
 .pet .eye { fill: var(--ink); transform-origin: center; animation: blink 7.2s var(--ease) infinite; }
 .pet .eye.b { animation-delay: 0.05s; }
@@ -361,14 +420,18 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   50% { transform: translateY(-6px); }
 }
 .pet-line {
-  margin: 2px 0 0;
+  margin: 4px 0 0;
   text-align: center;
-  font-size: 13px;
-  font-weight: 550;
-  line-height: 1.7;
-  color: var(--ink-2);
-  max-width: 232px;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.85;
+  letter-spacing: 0.015em;
+  color: var(--ink);
+  max-width: 236px;
 }
+.pet-line::before { content: "「"; color: var(--lamp); }
+.pet-line::after { content: "」"; color: var(--lamp); }
 
 .gaps-strip {
   display: grid;
@@ -408,10 +471,10 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   font-variant-numeric: tabular-nums;
 }
 .gap-cell.is-on .bar i {
-  background: linear-gradient(180deg, var(--accent-2), var(--accent-deep));
-  box-shadow: 0 4px 10px -4px rgba(255, 106, 0, 0.6);
+  background: linear-gradient(180deg, var(--lamp), var(--lamp-ink));
+  box-shadow: 0 4px 12px -4px var(--lamp-glow);
 }
-.gap-cell.is-on span { color: var(--accent); }
+.gap-cell.is-on span { color: var(--lamp-ink); }
 .gap-cell.is-used .bar i { background: color-mix(in oklab, var(--ok) 55%, transparent); }
 .gap-cell.is-used span { color: var(--ok); }
 
@@ -435,15 +498,19 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .hero {
   padding: 22px;
   border-radius: var(--r-widget);
-  background: linear-gradient(150deg, #ffd9a8, #ff8a3d 45%, #ff5c00);
+  background:
+    radial-gradient(110% 120% at 0% 0%, var(--lamp-glow), transparent 52%),
+    linear-gradient(150deg, #2b3c63, #1a2440 52%, #131c30);
   color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  box-shadow: 0 18px 40px -18px rgba(255, 92, 0, 0.55), var(--glass-inset);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 18px 44px -20px rgba(30, 52, 110, 0.55), var(--glass-inset);
 }
-[data-theme="dark"] .hero {
-  background: linear-gradient(150deg, #4b2c14, #7a3c10 42%, #2c1708);
-  border-color: rgba(255, 170, 90, 0.28);
-  box-shadow: 0 18px 44px -18px rgba(255, 122, 26, 0.35), var(--glass-inset);
+[data-theme="light"] .hero {
+  background:
+    radial-gradient(110% 120% at 0% 0%, var(--lamp-glow), transparent 52%),
+    linear-gradient(150deg, #43598f, #2e4274 52%, #263760);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 18px 40px -20px rgba(52, 76, 140, 0.4), var(--glass-inset);
 }
 .hero .tag {
   display: inline-flex;
@@ -465,6 +532,8 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   line-height: 0.94;
   letter-spacing: -0.035em;
   font-variant-numeric: tabular-nums;
+  color: var(--lamp);
+  text-shadow: 0 0 32px var(--lamp-glow);
 }
 .hero .unit {
   font-size: 15px;
@@ -474,10 +543,11 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 }
 .hero h1 {
   margin: 12px 0 0;
+  font-family: var(--font-display);
   font-size: 21px;
-  font-weight: 700;
-  line-height: 1.5;
-  letter-spacing: -0.01em;
+  font-weight: 600;
+  line-height: 1.55;
+  letter-spacing: 0.01em;
 }
 .hero .sub {
   margin: 8px 0 0;
@@ -675,15 +745,16 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .slip {
   display: grid;
   gap: 8px;
-  padding: 16px 18px;
-  border-radius: var(--r-card);
-  background: var(--glass-strong);
+  padding: 16px 18px 16px 20px;
+  border-radius: 3px var(--r-card) var(--r-card) 3px;
+  background: var(--lamp-paper);
   border: 1px solid var(--glass-edge);
-  box-shadow: var(--shadow-1), var(--glass-inset);
+  border-left: 3px solid var(--lamp);
+  color: var(--lamp-paper-ink);
+  box-shadow: var(--shadow-1);
 }
 .slip.is-warn {
-  background: var(--warn-soft);
-  border-color: color-mix(in oklab, var(--warn) 30%, transparent);
+  border-left-color: var(--warn);
 }
 .slip .why {
   display: inline-flex;
@@ -691,13 +762,21 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   gap: 6px;
   justify-self: start;
   padding: 0;
-  font-size: 11px;
+  font-family: var(--font-mono, var(--font-ui));
+  font-size: 10px;
   font-weight: 650;
-  color: var(--muted);
+  letter-spacing: 0.06em;
+  color: var(--lamp-paper-ink);
+  opacity: 0.62;
 }
-.slip .why:hover { color: var(--accent); }
-.slip h3 { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: -0.005em; }
-.slip p { margin: 0; font-size: 12.5px; line-height: 1.72; color: var(--ink-2); }
+.slip .why:hover { opacity: 1; }
+.slip h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15px; font-weight: 600; letter-spacing: 0.01em;
+  color: var(--lamp-paper-ink);
+}
+.slip p { margin: 0; font-size: 12.5px; line-height: 1.72; color: var(--lamp-paper-ink); opacity: 0.84; }
 .slip .acts { display: flex; gap: 8px; flex-wrap: wrap; }
 .slip .acts button {
   height: 32px;
@@ -705,13 +784,14 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   border-radius: var(--r-pill);
   font-size: 12px;
   font-weight: 650;
-  background: var(--accent-soft);
-  color: var(--accent-deep);
+  background: var(--lamp-btn-bg);
+  color: var(--lamp-btn-ink);
 }
 .slip .acts button.ghost {
-  background: var(--glass);
-  color: var(--ink-2);
-  border: 1px solid var(--line-soft);
+  background: transparent;
+  color: var(--lamp-paper-ink);
+  opacity: 0.72;
+  border: 1px solid color-mix(in oklab, var(--lamp-paper-ink) 18%, transparent);
 }
 .slip .result { display: none; font-size: 12px; font-weight: 600; color: var(--ok); }
 .slip.is-resolved .acts { display: none; }
@@ -720,12 +800,13 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   display: none;
   margin-top: 2px;
   padding: 10px 12px;
-  border-radius: 12px;
-  background: var(--glass);
-  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--lamp-paper-ink) 8%, transparent);
+  border: 1px solid color-mix(in oklab, var(--lamp-paper-ink) 12%, transparent);
   font-size: 11.5px;
   line-height: 1.72;
-  color: var(--muted);
+  color: var(--lamp-paper-ink);
+  opacity: 0.82;
 }
 .slip.show-explain .explain { display: block; }
 
@@ -753,8 +834,10 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   display: flex;
   align-items: baseline;
   gap: 8px;
+  font-family: var(--font-display);
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 .diary h3 .mono { margin-left: auto; font-size: 11px; color: var(--muted); font-weight: 600; }
 .diary p { margin: 10px 0 0; font-size: 13px; line-height: 1.85; color: var(--ink-2); }
@@ -803,7 +886,10 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   padding-bottom: 12px;
   border-bottom: 1px solid var(--line-soft);
 }
-.thread-head b { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+.thread-head b {
+  font-family: var(--font-display);
+  font-size: 16px; font-weight: 600; letter-spacing: 0.02em;
+}
 .thread-head .n {
   font-family: var(--font-num);
   font-size: 11px;
@@ -1139,27 +1225,33 @@ button.set-row:active { background: var(--accent-soft); }
 
 .slip-item {
   display: grid; gap: 6px;
-  padding: 13px 15px; margin-bottom: 9px;
-  border-radius: var(--r-card);
-  background: var(--glass);
+  padding: 13px 15px 13px 17px; margin-bottom: 9px;
+  border-radius: 3px var(--r-card) var(--r-card) 3px;
+  background: var(--lamp-paper);
   border: 1px solid var(--glass-edge);
+  border-left: 3px solid var(--lamp);
 }
 .slip-item .top { display: flex; align-items: center; gap: 8px; }
 .slip-item .when {
   font-family: var(--font-num); font-size: 10.5px; font-weight: 650;
-  color: var(--faint); font-variant-numeric: tabular-nums;
+  color: var(--lamp-paper-ink); opacity: 0.55; font-variant-numeric: tabular-nums;
 }
 .slip-item .st {
   margin-left: auto;
   font-size: 10px; font-weight: 700;
   padding: 3px 9px; border-radius: 999px;
 }
-.st.pending { background: var(--accent-soft); color: var(--accent-deep); }
-.st.done { background: var(--ok-soft); color: var(--ok); }
-.st.later { background: var(--warn-soft); color: var(--warn); }
-.st.skip { background: var(--line-soft); color: var(--muted); }
-.slip-item h4 { margin: 0; font-size: 13px; font-weight: 650; line-height: 1.5; }
-.slip-item p { margin: 0; font-size: 11.5px; line-height: 1.65; color: var(--muted); }
+.st.pending { background: rgba(59, 102, 219, 0.16); color: #2c4aa8; }
+.st.done { background: rgba(47, 125, 107, 0.18); color: #245f51; }
+.st.later { background: rgba(168, 103, 47, 0.2); color: #8a5316; }
+.st.skip { background: rgba(74, 53, 32, 0.1); color: rgba(74, 53, 32, 0.6); }
+.slip-item h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 13.5px; font-weight: 600; line-height: 1.5;
+  color: var(--lamp-paper-ink);
+}
+.slip-item p { margin: 0; font-size: 11.5px; line-height: 1.65; color: var(--lamp-paper-ink); opacity: 0.76; }
 
 .slip-empty {
   display: grid; gap: 8px; justify-items: center;
@@ -1190,7 +1282,11 @@ button.set-row:active { background: var(--accent-soft); }
   background: var(--accent-soft); color: var(--accent);
 }
 .plan-state.warn .icon { background: var(--warn-soft); color: var(--warn); }
-.plan-state h2 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+.plan-state h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 23px; font-weight: 600; letter-spacing: 0.01em;
+}
 .plan-state p { margin: 0; font-size: 13.5px; line-height: 1.8; color: var(--ink-2); max-width: 44ch; }
 .plan-state .tip {
   margin: 0; font-size: 11.5px; color: var(--muted);

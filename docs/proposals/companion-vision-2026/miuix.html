@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>思隅 · 朝夕 — MIUI X 风格</title>
+<title>思隅 · 朝夕 — 留一隅给陪伴</title>
 <link rel="stylesheet" href="assets/miuix.css" />
 </head>
 <body data-moment="morning">
@@ -20,6 +20,7 @@
           </svg>
         </span>
         思隅
+        <em class="tagline">留一隅给陪伴</em>
       </div>
 
       <div class="date-pill"><span class="dot"></span>11 月 2 日 周三 · 4 门课 · 3 段空档</div>
@@ -54,21 +55,22 @@
             <svg class="pet pet-float" viewBox="0 0 160 150" fill="none" aria-hidden="true">
               <defs>
                 <linearGradient id="mPet" x1="34" y1="18" x2="118" y2="126" gradientUnits="userSpaceOnUse">
-                  <stop offset="0" stop-color="#ffffff"/>
-                  <stop offset=".55" stop-color="var(--glass-strong)"/>
-                  <stop offset="1" stop-color="var(--glass)"/>
+                  <stop offset="0" stop-color="#fffaf2"/>
+                  <stop offset=".55" stop-color="#f3e2c9"/>
+                  <stop offset="1" stop-color="#dcc2a0"/>
                 </linearGradient>
               </defs>
               <ellipse cx="80" cy="138" rx="27" ry="3.6" fill="var(--accent)" opacity=".16"/>
               <path d="M82.4 13.4c28.6-1.6 46.4 19.4 45 50.6-1.4 33.2-21.6 58.6-48.2 58.6-26.5 0-46.6-24.4-46.6-57.8 0-31.2 21.2-49.7 49.8-51.4Z"
-                    fill="url(#mPet)" stroke="var(--accent-line)" stroke-width="1.2"/>
+                    fill="url(#mPet)" stroke="var(--lamp)" stroke-width="1.2"/>
               <path d="M49 45c6.4-15.4 20.8-23.4 35.8-24" stroke="var(--glass-edge)" stroke-width="1.8" stroke-linecap="round"/>
-              <rect class="eye" x="61.6" y="60" width="8.6" height="17.6" rx="4.3"/>
-              <rect class="eye b" x="88.4" y="60" width="8.6" height="17.6" rx="4.3"/>
-              <circle cx="80" cy="101" r="10" stroke="var(--accent)" stroke-width="1.1" opacity=".35"/>
-              <circle cx="80" cy="101" r="3.4" fill="var(--accent)"/>
+              <path d="M36 74c4 26 18 42 44 42s40-16 44-42c-8 30-22 44-44 44s-36-14-44-44Z" fill="var(--lamp)" opacity=".22"/>
+              <rect class="eye" x="60.4" y="57" width="10" height="20.5" rx="5"/>
+              <rect class="eye b" x="88.4" y="57" width="10" height="20.5" rx="5"/>
+              <circle cx="80" cy="101" r="10" stroke="var(--accent)" stroke-width="1.1" opacity=".38"/>
+              <circle cx="80" cy="101" r="3.6" fill="var(--accent)"/>
             </svg>
-            <p class="pet-line" id="petLine">早。今天第一程在 07:43，别赶。</p>
+            <p class="pet-line" id="petLine">昨晚那页，我留着等你。</p>
 
             <div class="gaps-strip" id="gapStrip" role="img" aria-label="今天的三段空档：23、97、20 分钟">
               <div class="gap-cell is-on"><div class="bar"><i style="--h:14%"></i></div><span>23′</span></div>
@@ -159,8 +161,8 @@
               <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.4v3.2M8 5.4v.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
               为什么现在出现
             </button>
-            <h3>07:38 提醒你带校园卡</h3>
-            <p>你上周忘带过一次，从教三折回宿舍再回去，多走了 24 分钟。</p>
+            <h3>带上校园卡</h3>
+            <p>你上周忘带，折回去多走了 24 分钟。这次我提前说一声。</p>
             <div class="acts">
               <button data-act="yes">好，提醒我</button>
               <button data-act="later" class="ghost">晚点</button>
@@ -180,7 +182,7 @@
           <section class="hero" id="hero-noon">
             <span class="tag">现在 · 午间空档</span>
             <div class="row"><div class="big">97</div><div class="unit">分钟可用</div></div>
-            <h1>先吃饭，<br/>再做一件四十五分钟的。</h1>
+            <h1>先吃饭。<br/>四十五分钟的事，饭后再来。</h1>
             <p class="sub">14:00 数据结构。食堂到教三 8 分钟，13:47 走，正好赶上课前十分钟。</p>
             <div class="trip" id="m2Trip">
               <div class="t">14:00</div>
@@ -245,8 +247,8 @@
               <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.4v3.2M8 5.4v.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
               为什么现在出现
             </button>
-            <h3>上周同样的空档，你只做了 20 分钟</h3>
-            <p>要不要这次拆成两段：先 25 分钟整理，吃饭回来再 20 分钟？</p>
+            <h3>要拆成两段吗</h3>
+            <p>上次这个空档你只坐了 20 分钟。先做 25 分钟，吃完饭再回来？</p>
             <div class="acts">
               <button data-act="yes">拆成两段</button>
               <button data-act="later" class="ghost">这次不用</button>
@@ -266,7 +268,7 @@
           <section class="hero" id="hero-eve">
             <span class="tag">现在 · 傍晚空档</span>
             <div class="row"><div class="big">20</div><div class="unit">分钟可用</div></div>
-            <h1>只够把报价发出去，<br/>不够再改一版。</h1>
+            <h1>发出去，<br/>比改好更要紧。</h1>
             <p class="sub">19:00 社团例会。图书馆到活动中心 15 分钟，18:40 必须走。</p>
             <div class="trip" id="m3Trip">
               <div class="t">19:00</div>
@@ -325,8 +327,8 @@
               <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.4v3.2M8 5.4v.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
               为什么现在出现
             </button>
-            <h3>这段只够一件事</h3>
-            <p>发出去比改好更重要。剩下的修改可以放到例会之后，那时你有 40 分钟。</p>
+            <h3>只够一件事</h3>
+            <p>发出去比改好更要紧。改，留给会后那 40 分钟。</p>
             <div class="acts">
               <button data-act="yes">就先发出去</button>
               <button data-act="later" class="ghost">开完会再说</button>
@@ -346,7 +348,7 @@
           <section class="hero" id="hero-night">
             <span class="tag">现在 · 收尾</span>
             <div class="row"><div class="big" style="font-size:46px;letter-spacing:-0.02em">今天结束</div><div class="unit">明天 08:00 起</div></div>
-            <h1>三件事做完两件半，<br/>够了。</h1>
+            <h1>两件半，<br/>够了。</h1>
             <p class="sub">明天第一程 07:43 出发。今天用掉的空档，我记在下面了。</p>
             <div class="trip" id="m4Trip">
               <div class="t">08:00</div>
@@ -379,8 +381,8 @@
               <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.4v3.2M8 5.4v.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
               为什么现在出现
             </button>
-            <h3>明天早八，今晚把课件放到台面？</h3>
-            <p>你上周有两次早八在找课件。现在放好，明早只要拿电脑。</p>
+            <h3>明早的课件</h3>
+            <p>上次早八你找了两次。今晚放到台面，明早只拿电脑。</p>
             <div class="acts">
               <button data-act="yes">放到台面</button>
               <button data-act="later" class="ghost">明早再说</button>
@@ -564,7 +566,7 @@
           </div>
         </section>
 
-        <p class="set-note">思隅不会在未授权时读取文件。校园规划为只读计算，不含实时路况、GPS 与后台通知；手工路线始终标明估算来源。</p>
+        <p class="set-note">留一隅给陪伴。思隅不会在未授权时读取文件；校园规划为只读计算，不含实时路况、GPS 与后台通知，手工路线始终标明估算来源。</p>
       </div>
     </div>
   </div>
@@ -616,22 +618,22 @@
   const meta = {
     morning: {
       time: '07:20', ampm: '上午', state: '距第一节课 40 分钟',
-      line: '早。今天第一程在 07:43，别赶。',
+      line: '昨晚那页，我留着等你。',
       gap: 'g0', anchors: []
     },
     noon: {
       time: '12:10', ampm: '中午', state: '午间空档 · 97 分钟',
-      line: '九十七分钟，够做一件事，不用够做三件。',
+      line: '够做一件事，不用做三件。',
       gap: 'g2', anchors: ['a1', 'a2', 'a3']
     },
     eve: {
       time: '18:20', ampm: '傍晚', state: '傍晚空档 · 20 分钟',
-      line: '只够一件事。发出去比改好重要。',
+      line: '发出去，比改好更要紧。',
       gap: 'g3', anchors: ['a1', 'a2', 'a3', 'a4']
     },
     night: {
       time: '21:40', ampm: '夜里', state: '收尾 · 明天 08:00',
-      line: '今天到这儿了。明天先走，再看课表。',
+      line: '剩下那半件，明早我陪你收。',
       gap: null, anchors: ['a1', 'a2', 'a3', 'a4', 'a5']
     }
   };
@@ -836,10 +838,10 @@
 
   // ===== 纸条中心 =====
   const slipStore = [
-    { id: 's1', when: '今天 07:20', title: '07:38 提醒你带校园卡', note: '你上周忘带过一次，折回来多走了 24 分钟。', status: 'pending' },
-    { id: 's2', when: '今天 12:10', title: '上周同样的空档，你只做了 20 分钟', note: '要不要这次拆成两段：先 25 分钟整理，吃饭回来再 20 分钟？', status: 'pending' },
-    { id: 's3', when: '今天 18:20', title: '这段只够一件事', note: '发出去比改好更重要。剩下的可以放到例会之后。', status: 'pending' },
-    { id: 's4', when: '今天 21:40', title: '明天早八，今晚把课件放到台面？', note: '你上周有两次早八在找课件。', status: 'pending' },
+    { id: 's1', when: '今天 07:20', title: '带上校园卡', note: '你上周忘带，折回去多走了 24 分钟。这次我提前说一声。', status: 'pending' },
+    { id: 's2', when: '今天 12:10', title: '要拆成两段吗', note: '上次这个空档你只坐了 20 分钟。先做 25 分钟，吃完饭再回来？', status: 'pending' },
+    { id: 's3', when: '今天 18:20', title: '只够一件事', note: '发出去比改好更要紧。改，留给会后那 40 分钟。', status: 'pending' },
+    { id: 's4', when: '今天 21:40', title: '明早的课件', note: '上次早八你找了两次。今晚放到台面，明早只拿电脑。', status: 'pending' },
     { id: 's0a', when: '昨天 22:10', title: '明天第一程预排好了', note: '08:00 高数，建议 07:43 出发。', status: 'done' },
     { id: 's0b', when: '昨天 12:40', title: '午餐前看一眼课表', note: '当时你说晚点，之后没有再提。', status: 'skip' }
   ];
