@@ -31,7 +31,7 @@ id: AVX-DOC-001
 | 接入微信私聊、QQ 群及运行常驻 Bot | [连接机器人](how-to/connect-bots.md)、[Bot 架构决定](reference/adr/ADR-029-bot-platform-adapters.md) |
 | AI 质量、安全威胁、隐私责任 | [AI 质量与安全](reference/AI_QUALITY_SAFETY.md)、[威胁模型](reference/THREAT_MODEL.md)、[数据隐私](reference/DATA_PRIVACY.md) |
 | 设计、测试与运行维护 | [交互设计](reference/DESIGN.md)、[测试策略](reference/TEST_STRATEGY.md)、[运行手册](reference/operations.md) |
-| 看界面方向与可交互 demo | [「一日」demo](proposals/companion-vision-2026/index.html)（助手形态）、[「朝夕」v2](proposals/companion-vision-2026/campus.html)（校园空档规划）、[学习域三端方案](proposals/ui-redesign-2026/index.html)、[定位决定 ADR-033](reference/adr/ADR-033-assistant-positioning.md) |
+| 看界面方向与可交互 demo | [「一日」demo](proposals/companion-vision-2026/index.html)（助手形态）、[「朝夕」v2](proposals/companion-vision-2026/campus.html)（校园空档规划）、[MIUI X 风格版](proposals/companion-vision-2026/miuix.html)、[学习域三端方案](proposals/ui-redesign-2026/index.html)、[定位决定 ADR-033](reference/adr/ADR-033-assistant-positioning.md) |
 | 执行具体工程操作 | [操作指南](how-to/README.md) |
 | 理解研究背景与未来方案 | [解释与研究](explanation/README.md) |
 

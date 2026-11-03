@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>思隅 · 朝夕 — MIUI X 风格</title>
+<link rel="stylesheet" href="assets/miuix.css" />
+</head>
+<body data-moment="morning">
+
+<div class="stage">
+  <div class="app">
+
+    <header class="topbar">
+      <div class="brand-pill">
+        <span class="mark" aria-hidden="true">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+            <path d="M8 1.6 14 4.6v6.8L8 14.4 2 11.4V4.6L8 1.6Z" stroke="currentColor" stroke-width="1.4"/>
+            <circle cx="8" cy="8" r="1.9" fill="currentColor"/>
+          </svg>
+        </span>
+        思隅
+      </div>
+
+      <div class="date-pill"><span class="dot"></span>11 月 2 日 周三 · 4 门课 · 3 段空档</div>
+
+      <div class="right">
+        <span class="stat-chip"><span class="n" id="acceptedCount">0</span> 件已接住</span>
+        <span class="stat-chip hot">主动度 · 中</span>
+        <button class="round-btn" id="themeBtn" title="切换明暗" aria-label="切换明暗">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M13.2 9.4A5.6 5.6 0 0 1 6.6 2.8 5.6 5.6 0 1 0 13.2 9.4Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button class="round-btn" title="设置" aria-label="设置">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <circle cx="8" cy="8" r="2.1" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6M3.6 3.6l1.1 1.1M11.3 11.3l1.1 1.1M12.4 3.6l-1.1 1.1M4.7 11.3l-1.1 1.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="grid">
+      <aside class="left">
+        <section class="widget clock-card" aria-label="当前时刻">
+          <div class="weekday"><span id="clockWeek">周三 · 11月2日</span><span id="clockZone">本地</span></div>
+          <div class="time"><b id="clockText">07:20</b><span id="clockAmpm">上午</span></div>
+          <div class="state" id="clockState">距第一节课 40 分钟</div>
+        </section>
+
+        <section class="widget pet-card" aria-label="陪伴">
+          <div class="pet-wrap">
+            <svg class="pet pet-float" viewBox="0 0 160 150" fill="none" aria-hidden="true">
+              <defs>
+                <linearGradient id="mPet" x1="34" y1="18" x2="118" y2="126" gradientUnits="userSpaceOnUse">
+                  <stop offset="0" stop-color="#ffffff"/>
+                  <stop offset=".55" stop-color="var(--glass-strong)"/>
+                  <stop offset="1" stop-color="var(--glass)"/>
+                </linearGradient>
+              </defs>
+              <ellipse cx="80" cy="138" rx="27" ry="3.6" fill="var(--accent)" opacity=".16"/>
+              <path d="M82.4 13.4c28.6-1.6 46.4 19.4 45 50.6-1.4 33.2-21.6 58.6-48.2 58.6-26.5 0-46.6-24.4-46.6-57.8 0-31.2 21.2-49.7 49.8-51.4Z"
+                    fill="url(#mPet)" stroke="var(--accent-line)" stroke-width="1.2"/>
+              <path d="M49 45c6.4-15.4 20.8-23.4 35.8-24" stroke="var(--glass-edge)" stroke-width="1.8" stroke-linecap="round"/>
+              <rect class="eye" x="61.6" y="60" width="8.6" height="17.6" rx="4.3"/>
+              <rect class="eye b" x="88.4" y="60" width="8.6" height="17.6" rx="4.3"/>
+              <circle cx="80" cy="101" r="10" stroke="var(--accent)" stroke-width="1.1" opacity=".35"/>
+              <circle cx="80" cy="101" r="3.4" fill="var(--accent)"/>
+            </svg>
+            <p class="pet-line" id="petLine">早。今天第一程在 07:43，别赶。</p>
+
+            <div class="gaps-strip" id="gapStrip" role="img" aria-label="今天的三段空档：23、97、20 分钟">
+              <div class="gap-cell is-on"><div class="bar"><i style="--h:14%"></i></div><span>23′</span></div>
+              <div class="gap-cell"><div class="bar"><i style="--h:92%"></i></div><span>97′</span></div>
+              <div class="gap-cell"><div class="bar"><i style="--h:12%"></i></div><span>20′</span></div>
+            </div>
+          </div>
+        </section>
+      </aside>
+
+      <section class="center" id="center">
+
+        <!-- ========== 07:20 出门前 ========== -->
+        <article class="moment is-active" data-m="morning">
+          <section class="hero" id="hero-morning">
+            <span class="tag">现在 · 出门前</span>
+            <div class="row"><div class="big">23</div><div class="unit">分钟可用</div></div>
+            <h1>够看一眼昨天那道题，<br/>不够再刷一集。</h1>
+            <p class="sub">08:00 高等数学。宿舍到教三 12 分钟，加上你的 5 分钟缓冲，07:43 走。</p>
+            <div class="trip" id="m1Trip">
+              <div class="t">08:00</div>
+              <div class="m">
+                <b>高等数学 · 教三-201</b>
+                <span>宿舍 → 教三 · 步行 12 分钟（你记的估算）</span>
+              </div>
+              <div class="d"><small>建议出发</small><b>07:43</b></div>
+            </div>
+          </section>
+
+          <section class="widget">
+            <div class="eyebrow">这段空档怎么用</div>
+            <div class="budget-bar">
+              <i style="width:43%"></i>
+              <i class="meal" style="width:35%"></i>
+              <i class="rest" style="width:22%"></i>
+            </div>
+            <div class="legend">
+              <span><i></i>做一道错题 10 分钟</span>
+              <span><i class="meal"></i>洗漱出门 8 分钟</span>
+              <span><i class="rest"></i>余量 5 分钟</span>
+            </div>
+          </section>
+
+          <section class="widget">
+            <div class="eyebrow" style="margin-bottom:10px">可以顺手做</div>
+            <div class="task">
+              <button class="task-row is-picked" data-task="错题">
+                <span class="tick high"></span>
+                <span class="n">温习昨天那道错题<small>二分查找的边界，你标了「再看一次」</small></span>
+                <span class="min">10 分钟</span>
+              </button>
+              <button class="task-row" data-task="带卡">
+                <span class="tick high"></span>
+                <span class="n">带校园卡和充电宝<small>上周忘带，折回来多走了 24 分钟</small></span>
+                <span class="min">1 分钟</span>
+              </button>
+              <button class="task-row" data-task="群通知">
+                <span class="tick mid"></span>
+                <span class="n">看一眼班级群<small>昨晚 11 点后有 3 条未读</small></span>
+                <span class="min">5 分钟</span>
+              </button>
+            </div>
+            <div class="actions" style="margin-top:12px">
+              <button class="btn primary" data-start="m1">开始 10 分钟</button>
+              <button class="btn" data-leave="m1">现在出发</button>
+              <span class="btn ghost" style="cursor:default" aria-hidden="true">出发前 5 分钟提醒</span>
+            </div>
+            <div class="running" id="run-m1">
+              <span class="pulse"></span>
+              <div class="grow">
+                <b>专注中 · 温习二分边界</b>
+                <p>07:30 结束，留 13 分钟洗漱出门。这段时间不推送新纸条。</p>
+              </div>
+              <button class="btn sm" data-end="m1">结束</button>
+            </div>
+          </section>
+
+          <section class="slip" data-slip>
+            <button class="why" data-why>
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.4v3.2M8 5.4v.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+              为什么现在出现
+            </button>
+            <h3>07:38 提醒你带校园卡</h3>
+            <p>你上周忘带过一次，从教三折回宿舍再回去，多走了 24 分钟。</p>
+            <div class="acts">
+              <button data-act="yes">好，提醒我</button>
+              <button data-act="later" class="ghost">晚点</button>
+              <button data-act="no" class="ghost">不用</button>
+            </div>
+            <div class="result" aria-live="polite"></div>
+            <div class="explain">触发：你上周在这条路线上迟到过一次；今天的出发时间只比建议晚 11 分钟。提醒只使用你记录的地点、路线与上课时间，不读取位置。</div>
+          </section>
+
+          <div class="foot-note">
+            <span class="k">空档 = 建议出发时刻 − 现在</span>
+          </div>
+        </article>
+
+        <!-- ========== 12:10 午间 ========== -->
+        <article class="moment" data-m="noon">
+          <section class="hero" id="hero-noon">
+            <span class="tag">现在 · 午间空档</span>
+            <div class="row"><div class="big">97</div><div class="unit">分钟可用</div></div>
+            <h1>先吃饭，<br/>再做一件四十五分钟的。</h1>
+            <p class="sub">14:00 数据结构。食堂到教三 8 分钟，13:47 走，正好赶上课前十分钟。</p>
+            <div class="trip" id="m2Trip">
+              <div class="t">14:00</div>
+              <div class="m">
+                <b>数据结构 · 教三-108</b>
+                <span>食堂 → 教三 · 步行 8 分钟（你记的估算）</span>
+              </div>
+              <div class="d"><small>建议出发</small><b>13:47</b></div>
+            </div>
+          </section>
+
+          <section class="widget">
+            <div class="eyebrow">这段空档怎么用</div>
+            <div class="budget-bar">
+              <i class="meal" style="width:28%"></i>
+              <i style="width:46%"></i>
+              <i class="rest" style="width:26%"></i>
+            </div>
+            <div class="legend">
+              <span><i class="meal"></i>吃饭与走回教室 27 分钟</span>
+              <span><i></i>整理访谈结论 45 分钟</span>
+              <span><i class="rest"></i>复习卡 25 分钟</span>
+            </div>
+          </section>
+
+          <section class="widget">
+            <div class="eyebrow" style="margin-bottom:10px">这段空档可以做</div>
+            <div class="task" id="m2Tasks">
+              <button class="task-row is-picked" data-task="整理访谈结论">
+                <span class="tick high"></span>
+                <span class="n">整理访谈结论<small>高优先级 · 下午要给阿哲报价用</small></span>
+                <span class="min">45 分钟</span>
+              </button>
+              <button class="task-row" data-task="复习 2 张卡">
+                <span class="tick mid"></span>
+                <span class="n">复习 2 张到期卡<small>二分边界、链表反转</small></span>
+                <span class="min">25 分钟</span>
+              </button>
+              <button class="task-row" data-task="打印课件">
+                <span class="tick"></span>
+                <span class="n">打印明天的课件<small>教三一楼自助打印机</small></span>
+                <span class="min">10 分钟</span>
+              </button>
+            </div>
+            <div class="actions" style="margin-top:12px">
+              <button class="btn primary" data-start="m2" id="m2Start">开始 45 分钟</button>
+              <button class="btn" data-swap="m2">换成 25 分钟的</button>
+              <button class="btn ghost" data-leave="m2">现在出发</button>
+            </div>
+            <div class="running" id="run-m2">
+              <span class="pulse"></span>
+              <div class="grow">
+                <b id="m2RunTitle">专注中 · 整理访谈结论</b>
+                <p id="m2RunNote">预计 12:55 结束，留 27 分钟吃饭和走回教室。</p>
+              </div>
+              <button class="btn sm" data-end="m2">结束</button>
+            </div>
+          </section>
+
+          <section class="slip" data-slip>
+            <button class="why" data-why>
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.4v3.2M8 5.4v.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+              为什么现在出现
+            </button>
+            <h3>上周同样的空档，你只做了 20 分钟</h3>
+            <p>要不要这次拆成两段：先 25 分钟整理，吃饭回来再 20 分钟？</p>
+            <div class="acts">
+              <button data-act="yes">拆成两段</button>
+              <button data-act="later" class="ghost">这次不用</button>
+              <button data-act="no" class="ghost">别再提</button>
+            </div>
+            <div class="result" aria-live="polite"></div>
+            <div class="explain">触发：过去三次午间空档，你在 30 分钟内主动停下的有两次。数据只来自本机的任务完成记录，不涉及其它应用。</div>
+          </section>
+
+          <div class="foot-note">
+            <span class="k">任务来自「只争朝夕」，结束时间不越过出发时刻</span>
+          </div>
+        </article>
+
+        <!-- ========== 18:20 傍晚 ========== -->
+        <article class="moment" data-m="eve">
+          <section class="hero" id="hero-eve">
+            <span class="tag">现在 · 傍晚空档</span>
+            <div class="row"><div class="big">20</div><div class="unit">分钟可用</div></div>
+            <h1>只够把报价发出去，<br/>不够再改一版。</h1>
+            <p class="sub">19:00 社团例会。图书馆到活动中心 15 分钟，18:40 必须走。</p>
+            <div class="trip" id="m3Trip">
+              <div class="t">19:00</div>
+              <div class="m">
+                <b>社团例会 · 活动中心 302</b>
+                <span>图书馆 → 活动中心 · 步行 15 分钟（你记的估算）</span>
+              </div>
+              <div class="d"><small>建议出发</small><b>18:40</b></div>
+            </div>
+          </section>
+
+          <section class="widget">
+            <div class="eyebrow">这段空档怎么用</div>
+            <div class="budget-bar">
+              <i style="width:75%"></i>
+              <i class="rest" style="width:25%"></i>
+            </div>
+            <div class="legend">
+              <span><i></i>发出报价 15 分钟</span>
+              <span><i class="rest"></i>余量 5 分钟</span>
+            </div>
+          </section>
+
+          <section class="widget">
+            <div class="eyebrow" style="margin-bottom:10px">这段空档可以做</div>
+            <div class="task">
+              <button class="task-row is-picked" data-task="把报价发给阿哲">
+                <span class="tick high"></span>
+                <span class="n">把报价发给阿哲<small>草稿已在台面，只差按发送</small></span>
+                <span class="min">15 分钟</span>
+              </button>
+              <button class="task-row" data-task="记一句今天结论">
+                <span class="tick mid"></span>
+                <span class="n">记一句今天的结论<small>“不缺工具，缺的是谁来决定下一步”</small></span>
+                <span class="min">5 分钟</span>
+              </button>
+            </div>
+            <div class="actions" style="margin-top:12px">
+              <button class="btn primary" data-start="m3">开始 15 分钟</button>
+              <button class="btn" data-leave="m3">现在出发</button>
+              <span class="btn ghost" style="cursor:default" aria-hidden="true">18:35 会提醒一次</span>
+            </div>
+            <div class="running" id="run-m3">
+              <span class="pulse"></span>
+              <div class="grow">
+                <b>专注中 · 把报价发给阿哲</b>
+                <p id="m3RunNote">18:35 结束，正好留 5 分钟走到活动中心。</p>
+              </div>
+              <button class="btn sm" id="snooze">再 5 分钟</button>
+              <button class="btn sm" data-end="m3">结束</button>
+            </div>
+          </section>
+
+          <section class="slip is-warn" data-slip>
+            <button class="why" data-why>
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.4v3.2M8 5.4v.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+              为什么现在出现
+            </button>
+            <h3>这段只够一件事</h3>
+            <p>发出去比改好更重要。剩下的修改可以放到例会之后，那时你有 40 分钟。</p>
+            <div class="acts">
+              <button data-act="yes">就先发出去</button>
+              <button data-act="later" class="ghost">开完会再说</button>
+              <button data-act="no" class="ghost">不用提醒</button>
+            </div>
+            <div class="result" aria-live="polite"></div>
+            <div class="explain">触发：任务预估 15 分钟，空档 20 分钟，其中 5 分钟必须留给出发。建议来自你记录的路线耗时与缓冲设置，不预测你会不会迟到。</div>
+          </section>
+
+          <div class="foot-note">
+            <span class="k">空档不足时不推荐长任务；超时会立即重算出发时刻</span>
+          </div>
+        </article>
+
+        <!-- ========== 21:40 收尾 ========== -->
+        <article class="moment" data-m="night">
+          <section class="hero" id="hero-night">
+            <span class="tag">现在 · 收尾</span>
+            <div class="row"><div class="big" style="font-size:46px;letter-spacing:-0.02em">今天结束</div><div class="unit">明天 08:00 起</div></div>
+            <h1>三件事做完两件半，<br/>够了。</h1>
+            <p class="sub">明天第一程 07:43 出发。今天用掉的空档，我记在下面了。</p>
+            <div class="trip" id="m4Trip">
+              <div class="t">08:00</div>
+              <div class="m">
+                <b>明天 · 高等数学 · 教三-201</b>
+                <span>宿舍 → 教三 · 步行 12 分钟</span>
+              </div>
+              <div class="d"><small>建议出发</small><b>07:43</b></div>
+            </div>
+          </section>
+
+          <section class="widget diary">
+            <h3>11 月 2 日 · 周三<span class="mono">21:40 生成</span></h3>
+            <p>今天 3 段空档共 140 分钟，你用了 70 分钟：整理访谈、发出报价、复习 2 张卡。午间那段比计划多花了 12 分钟吃饭，所以复习挪到了晚上。</p>
+            <p>报价发出去了，阿哲还没回。明天的第一程是 08:00 高数，07:43 出发。</p>
+            <div class="d-acts">
+              <button class="btn sm" data-diary="edit">编辑</button>
+              <button class="btn sm ghost" data-diary="rewrite">重写</button>
+            </div>
+          </section>
+
+          <section class="tomorrow">
+            <span class="t">07:43</span>
+            <div><b>明天先走，再看课表</b><small>第一节课 08:00 · 教三-201</small></div>
+            <span class="d">已排好</span>
+          </section>
+
+          <section class="slip" data-slip>
+            <button class="why" data-why>
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.4v3.2M8 5.4v.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+              为什么现在出现
+            </button>
+            <h3>明天早八，今晚把课件放到台面？</h3>
+            <p>你上周有两次早八在找课件。现在放好，明早只要拿电脑。</p>
+            <div class="acts">
+              <button data-act="yes">放到台面</button>
+              <button data-act="later" class="ghost">明早再说</button>
+              <button data-act="no" class="ghost">不用</button>
+            </div>
+            <div class="result" aria-live="polite"></div>
+            <div class="explain">触发：明天 08:00 有课，且这门课的课件在过去两周被临时找过两次。只整理本地文件的位置，不复制内容、不上传。</div>
+          </section>
+
+          <div class="foot-note">
+            <span class="k">日记只使用今天被授权的记录</span>
+          </div>
+        </article>
+
+      </section>
+
+      <aside class="right">
+        <section class="widget thread-card" aria-label="今天的线索">
+          <div class="thread-head">
+            <b>今天的线索</b>
+            <span class="n">4 门课 · 3 段空档</span>
+          </div>
+
+          <div class="thread">
+            <div class="th-gap is-now" data-gap="g0"><time>07:20</time><span class="g">07:20–07:43<i></i></span></div>
+
+            <div class="th-row" data-anchor="a1">
+              <time>07:43</time>
+              <div class="c"><b>出发去教三</b><span>宿舍 → 教三 · 12 分钟</span></div>
+            </div>
+            <div class="th-row" data-anchor="a2">
+              <time>08:00</time>
+              <div class="c"><b>高等数学</b><span>教三-201 · 09:35 下课</span></div>
+            </div>
+
+            <div class="th-gap" data-gap="g1"><time>09:35</time><span class="g">09:35–10:00<i></i></span></div>
+
+            <div class="th-row" data-anchor="a3">
+              <time>10:00</time>
+              <div class="c"><b>大学英语</b><span>外语楼-305 · 11:35 下课</span></div>
+            </div>
+
+            <div class="th-gap" data-gap="g2"><time>11:35</time><span class="g">11:35–14:00<i></i></span></div>
+
+            <div class="th-row" data-anchor="a4">
+              <time>14:00</time>
+              <div class="c"><b>数据结构</b><span>教三-108 · 15:35 下课</span></div>
+            </div>
+
+            <div class="th-gap" data-gap="g3"><time>15:35</time><span class="g">15:35–19:00<i></i></span></div>
+
+            <div class="th-row" data-anchor="a5">
+              <time>19:00</time>
+              <div class="c"><b>社团例会</b><span>活动中心 302 · 20:30 结束</span></div>
+            </div>
+            <div class="th-row" data-anchor="a6">
+              <time>21:40</time>
+              <div class="c"><b>收尾</b><span>日记 · 明天的第一程</span></div>
+            </div>
+          </div>
+
+          <div class="thread-foot">
+            线索只含你录入的课程、地点与路线；没有 GPS、后台定位或学校系统对接。
+          </div>
+        </section>
+      </aside>
+    </main>
+
+    <footer class="dock" role="tablist" aria-label="一天中的四个时刻">
+      <button class="stop" data-m="morning" role="tab" aria-selected="true">
+        <span class="t">07:20</span><span class="n">出门前</span>
+      </button>
+      <button class="stop" data-m="noon" role="tab" aria-selected="false">
+        <span class="t">12:10</span><span class="n">午间空档</span>
+      </button>
+      <button class="stop" data-m="eve" role="tab" aria-selected="false">
+        <span class="t">18:20</span><span class="n">傍晚空档</span>
+      </button>
+      <button class="stop" data-m="night" role="tab" aria-selected="false">
+        <span class="t">21:40</span><span class="n">收尾</span>
+      </button>
+    </footer>
+
+  </div>
+</div>
+
+<nav class="demo-bar" aria-label="演示控制">
+  <span class="tag">MIUI X</span>
+  <a href="campus.html">朝夕 v2</a>
+  <a href="index.html">一日 v1</a>
+  <span class="sep"></span>
+  <button id="themeToggle">明暗</button>
+  <button id="resetBtn">重置</button>
+</nav>
+
+<script>
+  const root = document.documentElement;
+
+  const saved = localStorage.getItem('aervox.demo.theme');
+  if (saved) root.dataset.theme = saved;
+  const toggleTheme = () => {
+    root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('aervox.demo.theme', root.dataset.theme);
+  };
+  document.getElementById('themeBtn').onclick = toggleTheme;
+  document.getElementById('themeToggle').onclick = toggleTheme;
+
+  const meta = {
+    morning: {
+      time: '07:20', ampm: '上午', state: '距第一节课 40 分钟',
+      line: '早。今天第一程在 07:43，别赶。',
+      gap: 'g0', anchors: []
+    },
+    noon: {
+      time: '12:10', ampm: '中午', state: '午间空档 · 97 分钟',
+      line: '九十七分钟，够做一件事，不用够做三件。',
+      gap: 'g2', anchors: ['a1', 'a2', 'a3']
+    },
+    eve: {
+      time: '18:20', ampm: '傍晚', state: '傍晚空档 · 20 分钟',
+      line: '只够一件事。发出去比改好重要。',
+      gap: 'g3', anchors: ['a1', 'a2', 'a3', 'a4']
+    },
+    night: {
+      time: '21:40', ampm: '夜里', state: '收尾 · 明天 08:00',
+      line: '今天到这儿了。明天先走，再看课表。',
+      gap: null, anchors: ['a1', 'a2', 'a3', 'a4', 'a5']
+    }
+  };
+
+  function setMoment(name) {
+    document.body.dataset.moment = name;
+    document.querySelectorAll('.moment').forEach((m) => m.classList.toggle('is-active', m.dataset.m === name));
+    document.querySelectorAll('.stop').forEach((s) => s.setAttribute('aria-selected', String(s.dataset.m === name)));
+
+    const m = meta[name];
+    document.getElementById('clockText').textContent = m.time;
+    document.getElementById('clockAmpm').textContent = m.ampm;
+    document.getElementById('clockState').textContent = m.state;
+    document.getElementById('petLine').textContent = m.line;
+
+    document.querySelectorAll('.th-gap').forEach((g) => g.classList.toggle('is-now', g.dataset.gap === m.gap));
+    document.querySelectorAll('.th-row').forEach((row) => row.classList.toggle('is-done', m.anchors.includes(row.dataset.anchor)));
+
+    const idx = { morning: 0, noon: 1, eve: 2 }[name];
+    document.querySelectorAll('#gapStrip .gap-cell').forEach((cell, i) => {
+      cell.classList.toggle('is-on', i === idx);
+      cell.classList.toggle('is-used', idx !== undefined && i < idx);
+    });
+
+    document.getElementById('center').scrollTop = 0;
+  }
+
+  document.querySelectorAll('.stop').forEach((stop) => {
+    stop.onclick = () => setMoment(stop.dataset.m);
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.target.matches('input, textarea')) return;
+    const order = ['morning', 'noon', 'eve', 'night'];
+    const idx = order.indexOf(document.body.dataset.moment);
+    if (e.key === 'ArrowRight') { e.preventDefault(); setMoment(order[Math.min(idx + 1, 3)]); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); setMoment(order[Math.max(idx - 1, 0)]); }
+    if (['1', '2', '3', '4'].includes(e.key)) { e.preventDefault(); setMoment(order[Number(e.key) - 1]); }
+  });
+
+  // 已接住
+  let accepted = 0;
+  function bump() {
+    accepted += 1;
+    document.getElementById('acceptedCount').textContent = String(accepted);
+  }
+
+  // 纸条
+  document.querySelectorAll('[data-slip]').forEach((slip) => {
+    const why = slip.querySelector('[data-why]');
+    if (why) why.onclick = () => slip.classList.toggle('show-explain');
+    slip.querySelectorAll('[data-act]').forEach((btn) => {
+      btn.onclick = () => {
+        if (btn.dataset.act === 'noop') return;
+        const act = btn.dataset.act;
+        const out = slip.querySelector('.result');
+        slip.classList.add('is-resolved');
+        if (act === 'yes') { out.textContent = '好，已经放进今天。'; bump(); }
+        else if (act === 'later') { out.textContent = '好，30 分钟后再提一次。'; out.style.color = 'var(--muted)'; }
+        else { out.textContent = '今天不再提这件事。'; out.style.color = 'var(--muted)'; }
+      };
+    });
+  });
+
+  // 专注
+  const keyToMoment = { m1: 'morning', m2: 'noon', m3: 'eve' };
+  const runLabels = {
+    m1: { done: '还剩 13 分钟', note: '07:30，出门正好。' },
+    m2: { done: '还剩 27 分钟', note: '吃饭 27 分钟，13:47 出发。' },
+    m3: { done: '还剩 5 分钟', note: '18:35，可以慢慢走到活动中心。' }
+  };
+
+  document.querySelectorAll('[data-start]').forEach((btn) => {
+    btn.onclick = () => {
+      const key = btn.dataset.start;
+      const run = document.getElementById('run-' + key);
+      const moment = document.querySelector('.moment[data-m="' + keyToMoment[key] + '"]');
+      run.classList.add('show');
+      btn.disabled = true;
+      moment.querySelector('.task-row.is-picked')?.classList.add('is-running');
+      run.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    };
+  });
+
+  document.querySelectorAll('[data-end]').forEach((btn) => {
+    btn.onclick = () => {
+      const key = btn.dataset.end;
+      const run = document.getElementById('run-' + key);
+      const moment = document.querySelector('.moment[data-m="' + keyToMoment[key] + '"]');
+      const info = runLabels[key];
+      run.innerHTML = '<span class="pulse" style="animation:none;background:var(--ok)"></span>' +
+        '<div class="grow"><b>已完成</b><p>' + info.note + '</p></div>' +
+        '<span class="mono" style="font-size:12px;font-weight:700;color:var(--ok)">' + info.done + '</span>';
+      moment.querySelector('[data-start]')?.removeAttribute('disabled');
+      moment.querySelector('.task-row.is-picked')?.classList.add('is-done');
+    };
+  });
+
+  // 现在出发
+  document.querySelectorAll('[data-leave]').forEach((btn) => {
+    btn.onclick = () => {
+      const key = btn.dataset.leave;
+      const trip = document.getElementById(key + 'Trip');
+      const hero = trip.closest('.hero');
+      hero.classList.add('is-left');
+      trip.querySelector('.d small').textContent = '已出发';
+      trip.querySelector('.d b').textContent = key === 'm1' ? '07:32' : key === 'm2' ? '13:47' : '18:40';
+      trip.querySelector('.m span').textContent = '在路上 · ' + (key === 'm3' ? '15' : key === 'm2' ? '8' : '12') + ' 分钟后到';
+      btn.disabled = true;
+      const big = hero.querySelector('.big');
+      if (big) { big.textContent = '在路上'; big.style.fontSize = '42px'; }
+    };
+  });
+
+  // 换成 25 分钟
+  document.querySelector('[data-swap]')?.addEventListener('click', (e) => {
+    const list = document.getElementById('m2Tasks');
+    const rows = [...list.querySelectorAll('.task-row')];
+    rows[0].classList.remove('is-picked');
+    rows[1].classList.add('is-picked');
+    const startBtn = document.getElementById('m2Start');
+    const short = startBtn.textContent.includes('45');
+    startBtn.textContent = short ? '开始 25 分钟' : '开始 45 分钟';
+    e.currentTarget.textContent = short ? '换成 45 分钟的' : '换成 25 分钟的';
+    document.getElementById('m2RunTitle').textContent = '专注中 · ' + (short ? '复习 2 张卡' : '整理访谈结论');
+    document.getElementById('m2RunNote').textContent = '预计 12:35 结束，离出发还有 72 分钟。';
+  });
+
+  // 再 5 分钟 → 迟到
+  document.getElementById('snooze')?.addEventListener('click', (e) => {
+    const trip = document.getElementById('m3Trip');
+    trip.closest('.hero').classList.add('is-late');
+    trip.querySelector('.d small').textContent = '可能迟到';
+    trip.querySelector('.d b').textContent = '18:45';
+    trip.querySelector('.m span').textContent = '图书馆 → 活动中心 · 15 分钟，已晚 5 分钟';
+    const note = document.getElementById('m3RunNote');
+    note.textContent = '再 5 分钟会晚到 5 分钟。例会前 10 分钟通常点名。';
+    note.style.color = 'var(--danger)';
+    e.currentTarget.disabled = true;
+  });
+
+  // 日记
+  document.querySelectorAll('[data-diary]').forEach((btn) => {
+    btn.onclick = () => {
+      const diary = btn.closest('.diary');
+      if (btn.dataset.diary === 'rewrite') {
+        diary.querySelectorAll('p')[0].textContent = '今天 3 段空档共 140 分钟，你用了 70 分钟。午间那段被吃饭占掉一半，但报价还是发出去了。';
+        btn.textContent = '已重写';
+      } else {
+        diary.querySelectorAll('p').forEach((p) => {
+          p.contentEditable = 'true';
+          p.style.outline = '2px dashed var(--accent-line)';
+          p.style.padding = '3px 6px';
+          p.style.borderRadius = '8px';
+        });
+        btn.textContent = '完成编辑';
+        btn.onclick = () => {
+          diary.querySelectorAll('p').forEach((p) => {
+            p.contentEditable = 'false';
+            p.style.outline = 'none';
+            p.style.padding = '0';
+          });
+          btn.textContent = '已保存';
+        };
+      }
+    };
+  });
+
+  document.getElementById('resetBtn').onclick = () => location.reload();
+
+  setMoment('morning');
+</script>
+</body>
+</html>
