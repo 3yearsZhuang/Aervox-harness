@@ -1,22 +1,23 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { Activity, ArrowLeft, Bell, Database, FolderDown, KeyRound, RefreshCw, Smartphone, Sparkles } from 'lucide-vue-next';
+import { Activity, Bell, Database, FolderDown, KeyRound, Menu, RefreshCw, Smartphone, Sparkles } from 'lucide-vue-next';
 import { getClientTransport } from '@aervox/api-client';
 import { nativeRequest } from './native-channel';
 import { deviceError, grantDeviceCapability, readDeviceStatus, type DeviceCapability, type DeviceStatus } from './native-device';
 // inject() only resolves during setup; handlers must reuse this capture.
 const clientTransport = getClientTransport();
 
-type PageId = 'menu' | 'model' | 'device' | 'data' | 'reminder';
-const page = ref<PageId>('menu');
-const pageMeta: Record<Exclude<PageId, 'menu'>, { title: string; subtitle: string }> = {
+type PageId = 'model' | 'device' | 'data' | 'reminder';
+const page = ref<PageId>('model');
+/** 一级菜单收进左侧抽屉：页面上不再有「分类首页」这一层。 */
+const drawerOpen = ref(false);
+const pageMeta: Record<PageId, { title: string; subtitle: string }> = {
   model: { title: '模型与状态', subtitle: '连接配置与本机运行状态。' },
   device: { title: '设备与能力', subtitle: '执行通道、设备操作与能力状态。' },
   data: { title: '数据管理', subtitle: '备份恢复与题库导入。' },
   reminder: { title: '提醒', subtitle: '复习提醒与通知。' },
 };
-function openPage(target: Exclude<PageId, 'menu'>) { page.value = target; }
-function backToMenu() { page.value = 'menu'; }
+function openPage(target: PageId) { page.value = target; drawerOpen.value = false; }
 function menuSummary(target: PageId): string {
   if (target === 'model') return modelStatus.value || (loading.value ? '读取中' : '未配置');
   if (target === 'device') return device.value ? (device.value.root ? 'Root 可用' : device.value.shizuku ? 'Shizuku 就绪' : '需授权') : '未检测';
@@ -295,23 +296,26 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
 
 <template>
   <div class="native-runtime-panel" :aria-busy="loading || configuring || testing || deviceBusy">
-    <header class="runtime-heading">
-      <component v-if="page !== 'menu'" :is="'md-icon-button'" type="button" aria-label="返回设置首页" @click="backToMenu()">
-        <ArrowLeft :size="24" aria-hidden="true" />
-      </component>
-      <div class="runtime-heading-copy"><h2>{{ page === 'menu' ? '本机运行' : pageMeta[page].title }}</h2><p>{{ page === 'menu' ? '管理手机上的对话与连接。' : pageMeta[page].subtitle }}</p></div>
-      <component :is="'md-icon-button'" type="button" aria-label="刷新运行状态" :disabled="loading || configuring || testing" @click="readStatus">
-        <RefreshCw :size="24" aria-hidden="true" />
-      </component>
-    </header>
-    <component v-if="loading" :is="'md-linear-progress'" indeterminate aria-label="正在读取本机状态" />
-    <nav v-if="page === 'menu'" class="runtime-menu" aria-label="设置分区">
-      <button v-for="target in (['model', 'device', 'data', 'reminder'] as const)" :key="target" type="button" class="runtime-menu-card" @click="openPage(target)">
+    <div class="runtime-drawer-scrim" :class="{ 'is-open': drawerOpen }" @click="drawerOpen = false" />
+    <nav class="runtime-drawer" :class="{ 'is-open': drawerOpen }" aria-label="设置分区" :aria-hidden="drawerOpen ? 'false' : 'true'">
+      <p class="runtime-drawer-title">本机运行</p>
+      <button v-for="target in (['model', 'device', 'data', 'reminder'] as const)" :key="target" type="button"
+        class="runtime-menu-card" :class="{ 'is-active': page === target }" @click="openPage(target)">
         <component :is="target === 'model' ? KeyRound : target === 'device' ? Smartphone : target === 'data' ? FolderDown : Bell" :size="22" aria-hidden="true" />
         <span class="runtime-menu-copy"><strong>{{ pageMeta[target].title }}</strong><small>{{ pageMeta[target].subtitle }}</small></span>
         <span class="runtime-menu-badge">{{ menuSummary(target) }}</span>
       </button>
     </nav>
+    <header class="runtime-heading">
+      <component :is="'md-icon-button'" type="button" :aria-label="drawerOpen ? '收起设置分区' : '展开设置分区'" :aria-expanded="drawerOpen ? 'true' : 'false'" @click="drawerOpen = !drawerOpen">
+        <Menu :size="24" aria-hidden="true" />
+      </component>
+      <div class="runtime-heading-copy"><h2>{{ pageMeta[page].title }}</h2><p>{{ pageMeta[page].subtitle }}</p></div>
+      <component :is="'md-icon-button'" type="button" aria-label="刷新运行状态" :disabled="loading || configuring || testing" @click="readStatus">
+        <RefreshCw :size="24" aria-hidden="true" />
+      </component>
+    </header>
+    <component v-if="loading" :is="'md-linear-progress'" indeterminate aria-label="正在读取本机状态" />
 
     <section v-if="page === 'model'" class="runtime-model" aria-labelledby="runtime-model-title">
       <div class="runtime-model-label">
@@ -529,7 +533,25 @@ dd { margin: 4px 0 0; color: var(--md-sys-color-on-surface-variant); font-size: 
 .runtime-feedback { margin: 12px 0 0; font-size: 14px; line-height: 20px; }
 .runtime-row--stack { flex-wrap: wrap; }
 .runtime-heading-copy { flex: 1 1 auto; min-width: 0; }
-.runtime-menu { display: grid; gap: 10px; padding: 6px 0 4px; }
+.runtime-drawer {
+  position: fixed; inset-block: 0; inset-inline-start: 0; z-index: 40;
+  width: min(292px, 84vw); box-sizing: border-box;
+  padding: 24px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; gap: 10px; overflow-y: auto;
+  background: var(--md-sys-color-surface-container-low, #1b1d22);
+  border-inline-end: 1px solid var(--md-sys-color-outline-variant, rgba(255,255,255,.12));
+  transform: translateX(-104%); visibility: hidden;
+  transition: transform .26s cubic-bezier(.2,.8,.2,1), visibility .26s;
+}
+.runtime-drawer.is-open { transform: none; visibility: visible; }
+.runtime-drawer-scrim {
+  position: fixed; inset: 0; z-index: 39;
+  background: rgba(0,0,0,.52); opacity: 0; pointer-events: none;
+  transition: opacity .26s ease;
+}
+.runtime-drawer-scrim.is-open { opacity: 1; pointer-events: auto; }
+.runtime-drawer-title { margin: 0 0 6px; padding-inline: 8px; font-size: 13px; font-weight: 600; letter-spacing: .1em; color: var(--md-sys-color-on-surface-variant); }
+.runtime-menu-card.is-active { border-color: var(--md-sys-color-primary); background: color-mix(in srgb, var(--md-sys-color-primary) 16%, transparent); }
 .runtime-menu-card { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; cursor: pointer;
   padding: 16px; border-radius: 18px; border: 1px solid var(--pc-line, rgba(255,255,255,.12));
   background: var(--pc-card, rgba(255,255,255,.05)); color: var(--pc-ink, #fff); font-family: inherit; }
