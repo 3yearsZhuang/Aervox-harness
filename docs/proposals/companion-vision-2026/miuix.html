@@ -25,7 +25,7 @@
       <div class="date-pill"><span class="dot"></span>11 月 2 日 周三 · 4 门课 · 3 段空档</div>
 
       <div class="right">
-        <span class="stat-chip"><span class="n" id="acceptedCount">0</span> 件已接住</span>
+        <button class="stat-chip" id="openSlips"><span class="n" id="acceptedCount">0</span> 件已接住</button>
         <span class="stat-chip hot">主动度 · 中</span>
         <button class="round-btn" id="themeBtn" title="切换明暗" aria-label="切换明暗">
           <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -80,6 +80,14 @@
       </aside>
 
       <section class="center" id="center">
+        <div class="plan-state" id="planState" hidden>
+          <div class="icon" id="planIcon"></div>
+          <h2 id="planTitle">暂无待出发行程</h2>
+          <p id="planText">添加课程或日程，再根据地点与耗时安排出发。</p>
+          <button class="btn primary" id="planCta">录入课程与地点</button>
+          <p class="tip" id="planTip">规划只读，不改动课表；路线为手工估算，不含实时路况。</p>
+        </div>
+
 
         <!-- ========== 07:20 出门前 ========== -->
         <article class="moment is-active" data-m="morning">
@@ -457,12 +465,137 @@
     </footer>
 
   </div>
+
+  <!-- 设置 -->
+  <div class="overlay" id="setOverlay" role="dialog" aria-modal="true" aria-label="设置">
+    <div class="scrim" data-close></div>
+    <div class="set-sheet">
+      <div class="set-head">
+        <div>
+          <h2>设置</h2>
+          <div class="sub">思隅 · 本地 · 只用你授权的来源</div>
+        </div>
+        <button class="round-btn close" data-close aria-label="关闭设置">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4.4 4.4l7.2 7.2M11.6 4.4l-7.2 7.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <div class="set-scroll">
+        <section class="set-group">
+          <h3>模型与对话</h3>
+          <div class="set-rows">
+            <button class="set-row">
+              <span class="set-ic"><svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2.4 13 5v6l-5 2.6L3 11V5l5-2.6Z" stroke="currentColor" stroke-width="1.2"/><circle cx="8" cy="8" r="1.8" stroke="currentColor" stroke-width="1.2"/></svg></span>
+              <span class="set-t"><b>对话模型</b><small>用于日常问答与任务推进</small></span>
+              <span class="set-v">DeepSeek · 本机</span><span class="chev">›</span>
+            </button>
+            <button class="set-row">
+              <span class="set-ic"><svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.6 10.6h10.8M2.6 6.2h10.8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><rect x="5" y="8.2" width="6" height="4.8" rx="1.6" stroke="currentColor" stroke-width="1.2"/></svg></span>
+              <span class="set-t"><b>引导强度</b><small>决定先给提示还是先给答案</small></span>
+              <span class="set-v">分层提示</span><span class="chev">›</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="set-group">
+          <h3>陪伴</h3>
+          <div class="set-rows">
+            <div class="set-row">
+              <span class="set-ic"><svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2.2a3.6 3.6 0 0 0-3.6 3.6v2.6L3 10.4h10l-1.4-2V5.8A3.6 3.6 0 0 0 8 2.2Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M6.6 12.2a1.5 1.5 0 0 0 2.8 0" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
+              <span class="set-t"><b>主动关心</b><small>卡住 10 分钟、到期或临出发时递纸条</small></span>
+              <span class="switch on" data-switch role="switch" aria-checked="true" tabindex="0" aria-label="主动关心"></span>
+            </div>
+            <div class="set-row">
+              <span class="set-ic green"><svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.2 6.2h2L8.6 3.4v9.2L5.2 9.8H3.2z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M10.6 6.4a2.6 2.6 0 0 1 0 3.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
+              <span class="set-t"><b>声音</b><small>只在主动提醒时轻声说话</small></span>
+              <span class="switch" data-switch role="switch" aria-checked="false" tabindex="0" aria-label="声音"></span>
+            </div>
+            <button class="set-row">
+              <span class="set-ic amber"><svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="5.8" r="2.5" stroke="currentColor" stroke-width="1.2"/><path d="M3.4 13c.6-2.4 2.4-3.6 4.6-3.6S12 10.6 12.6 13" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
+              <span class="set-t"><b>角色</b><small>名字与对你的称呼</small></span>
+              <span class="set-v">小隅</span><span class="chev">›</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="set-group">
+          <h3>校园规划 · 只争朝夕</h3>
+          <div class="set-rows">
+            <button class="set-row">
+              <span class="set-ic"><svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 13.6s-4.4-3.4-4.4-6.6a4.4 4.4 0 0 1 8.8 0c0 3.2-4.4 6.6-4.4 6.6Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><circle cx="8" cy="6.8" r="1.6" stroke="currentColor" stroke-width="1.2"/></svg></span>
+              <span class="set-t"><b>当前出发地点</b><small>用于计算建议出发时刻</small></span>
+              <span class="set-v">宿舍</span><span class="chev">›</span>
+            </button>
+            <button class="set-row">
+              <span class="set-ic"><svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="5.6" stroke="currentColor" stroke-width="1.2"/><path d="M8 4.8V8l2.2 1.6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+              <span class="set-t"><b>出发缓冲</b><small>出发时刻额外留出的时间</small></span>
+              <span class="set-v">5 分钟</span><span class="chev">›</span>
+            </button>
+            <button class="set-row">
+              <span class="set-ic gray"><svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 12.2 6.2 3.8h1.4L11 12.2M4.4 9.2h5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.6 3.8v8.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
+              <span class="set-t"><b>路线耗时来源</b><small>手工估算，不含实时路况</small></span>
+              <span class="set-v">手工 · 12 分钟</span><span class="chev">›</span>
+            </button>
+            <div class="set-row">
+              <span class="set-ic gray"><svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2.2a3.6 3.6 0 0 0-3.6 3.6v2.6L3 10.4h10l-1.4-2V5.8A3.6 3.6 0 0 0 8 2.2Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" opacity=".55"/><path d="M2.6 2.6l10.8 10.8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></span>
+              <span class="set-t"><b>后台通知</b><small>未接入；提醒只在打开界面时出现</small></span>
+              <span class="set-v">未接入</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="set-group">
+          <h3>数据</h3>
+          <div class="set-rows">
+            <button class="set-row">
+              <span class="set-ic green"><svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true"><ellipse cx="8" cy="4.4" rx="4.6" ry="1.8" stroke="currentColor" stroke-width="1.2"/><path d="M3.4 4.4v7.2c0 1 2 1.8 4.6 1.8s4.6-.8 4.6-1.8V4.4" stroke="currentColor" stroke-width="1.2"/></svg></span>
+              <span class="set-t"><b>记忆</b><small>全部保存在本机 SQLite</small></span>
+              <span class="set-v">27 条</span><span class="chev">›</span>
+            </button>
+            <button class="set-row">
+              <span class="set-ic"><svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2.6v7M5.2 7l2.8 2.8L10.8 7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 12.4h10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
+              <span class="set-t"><b>导出与备份</b><small>导出为 JSON，或备份到本机目录</small></span>
+              <span class="chev">›</span>
+            </button>
+            <button class="set-row danger">
+              <span class="set-ic" style="background:var(--danger-soft);color:var(--danger)"><svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.6 4.8h8.8M6.4 4.8V3.4h3.2v1.4M5 4.8l.5 8h5l.5-8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+              <span class="set-t"><b>清除今天的草稿</b><small>不影响已保存的对话</small></span>
+            </button>
+          </div>
+        </section>
+
+        <p class="set-note">思隅不会在未授权时读取文件。校园规划为只读计算，不含实时路况、GPS 与后台通知；手工路线始终标明估算来源。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 纸条中心 -->
+  <div class="overlay" id="slipsOverlay" role="dialog" aria-modal="true" aria-label="纸条中心">
+    <div class="scrim" data-close></div>
+    <aside class="side-sheet">
+      <div class="slips-head">
+        <h2>纸条 · 今天</h2>
+        <button class="round-btn close" data-close aria-label="关闭纸条中心">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4.4 4.4l7.2 7.2M11.6 4.4l-7.2 7.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="seg" id="moodSeg" role="tablist" aria-label="主动度">
+        <button role="tab" data-mood="low">低</button>
+        <button role="tab" data-mood="mid" aria-selected="true">中</button>
+        <button role="tab" data-mood="high">高</button>
+      </div>
+      <div class="slip-list" id="slipList"></div>
+    </aside>
+  </div>
 </div>
 
 <nav class="demo-bar" aria-label="演示控制">
   <span class="tag">MIUI X</span>
-  <a href="campus.html">朝夕 v2</a>
-  <a href="index.html">一日 v1</a>
+  <a href="../ui-redesign-2026/index.html">界面方案</a>
+  <span class="sep"></span>
+  <button data-plan="normal" class="cur">正常</button>
+  <button data-plan="empty">无行程</button>
+  <button data-plan="noroute">缺路线</button>
   <span class="sep"></span>
   <button id="themeToggle">明暗</button>
   <button id="resetBtn">重置</button>
@@ -519,8 +652,9 @@
 
     const idx = { morning: 0, noon: 1, eve: 2 }[name];
     document.querySelectorAll('#gapStrip .gap-cell').forEach((cell, i) => {
-      cell.classList.toggle('is-on', i === idx);
-      cell.classList.toggle('is-used', idx !== undefined && i < idx);
+      const inState = document.getElementById('center').classList.contains('is-state');
+      cell.classList.toggle('is-on', !inState && i === idx);
+      cell.classList.toggle('is-used', !inState && idx !== undefined && i < idx);
     });
 
     document.getElementById('center').scrollTop = 0;
@@ -666,6 +800,134 @@
       }
     };
   });
+
+  // ===== 覆盖层：设置 / 纸条中心 =====
+  const setOverlay = document.getElementById('setOverlay');
+  const slipsOverlay = document.getElementById('slipsOverlay');
+  const openOverlay = (el) => el.classList.add('show');
+  const closeOverlay = (el) => el.classList.remove('show');
+
+  document.querySelector('[title="设置"]').onclick = () => openOverlay(setOverlay);
+  document.getElementById('openSlips').onclick = () => { renderSlips(); openOverlay(slipsOverlay); };
+  document.querySelectorAll('[data-close]').forEach((el) => {
+    el.onclick = () => closeOverlay(el.closest('.overlay'));
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { closeOverlay(setOverlay); closeOverlay(slipsOverlay); }
+  });
+
+  // 开关
+  document.querySelectorAll('[data-switch]').forEach((sw) => {
+    const toggle = () => {
+      const on = sw.classList.toggle('on');
+      sw.setAttribute('aria-checked', String(on));
+    };
+    sw.onclick = toggle;
+    sw.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } };
+  });
+
+  // 主动度
+  document.querySelectorAll('#moodSeg button').forEach((b) => {
+    b.onclick = () => {
+      document.querySelectorAll('#moodSeg button').forEach((x) => x.removeAttribute('aria-selected'));
+      b.setAttribute('aria-selected', 'true');
+    };
+  });
+
+  // ===== 纸条中心 =====
+  const slipStore = [
+    { id: 's1', when: '今天 07:20', title: '07:38 提醒你带校园卡', note: '你上周忘带过一次，折回来多走了 24 分钟。', status: 'pending' },
+    { id: 's2', when: '今天 12:10', title: '上周同样的空档，你只做了 20 分钟', note: '要不要这次拆成两段：先 25 分钟整理，吃饭回来再 20 分钟？', status: 'pending' },
+    { id: 's3', when: '今天 18:20', title: '这段只够一件事', note: '发出去比改好更重要。剩下的可以放到例会之后。', status: 'pending' },
+    { id: 's4', when: '今天 21:40', title: '明天早八，今晚把课件放到台面？', note: '你上周有两次早八在找课件。', status: 'pending' },
+    { id: 's0a', when: '昨天 22:10', title: '明天第一程预排好了', note: '08:00 高数，建议 07:43 出发。', status: 'done' },
+    { id: 's0b', when: '昨天 12:40', title: '午餐前看一眼课表', note: '当时你说晚点，之后没有再提。', status: 'skip' }
+  ];
+  const statusLabel = { pending: '待处理', done: '已接住', later: '晚点', skip: '不用' };
+  const slipCard = (s) => `
+    <article class="slip-item">
+      <div class="top"><span class="when">${s.when}</span><span class="st ${s.status}">${statusLabel[s.status]}</span></div>
+      <h4>${s.title}</h4>
+      <p>${s.note}</p>
+    </article>`;
+
+  function renderSlips() {
+    const list = document.getElementById('slipList');
+    const pending = slipStore.filter((s) => s.status === 'pending');
+    const handled = slipStore.filter((s) => s.status !== 'pending');
+    if (pending.length === 0) {
+      list.innerHTML = `
+        <div class="slip-empty">
+          <div class="ic">
+            <svg width="22" height="22" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m3.6 8.4 3 3 5.8-6.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <b>今天没有待处理的纸条</b>
+          <p>有新情况时我会出现在页边；已处理的都在下面，随时可回看。</p>
+        </div>` + handled.map(slipCard).join('');
+      return;
+    }
+    list.innerHTML = pending.map(slipCard).join('')
+      + `<div style="margin:14px 4px 8px;font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--faint)">已处理</div>`
+      + handled.map(slipCard).join('');
+  }
+
+  // 时刻里的纸条动作写回纸条中心
+  document.querySelectorAll('[data-slip]').forEach((slip, i) => {
+    slip.dataset.slipId = 's' + (i + 1);
+    slip.querySelectorAll('[data-act]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const rec = slipStore.find((x) => x.id === slip.dataset.slipId);
+        if (rec) rec.status = btn.dataset.act === 'yes' ? 'done' : btn.dataset.act === 'later' ? 'later' : 'skip';
+      });
+    });
+  });
+  renderSlips();
+
+  // ===== 边界状态：无行程 / 缺路线 =====
+  const planStates = {
+    empty: {
+      title: '暂无待出发行程',
+      text: '添加课程或日程，再根据地点与耗时安排出发。',
+      cta: '录入课程与地点',
+      tip: '规划只读，不改动课表；示例时间不会写进你的数据。',
+      warn: false,
+      icon: '<svg width="24" height="24" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="2.6" y="3.4" width="10.8" height="10" rx="2.2" stroke="currentColor" stroke-width="1.3"/><path d="M5.4 1.8v2M10.6 1.8v2M2.6 6.6h10.8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>'
+    },
+    noroute: {
+      title: '需要补充路线',
+      text: '「宿舍」到「教三」之间还没有路线耗时。补充后才会计算出发时间。',
+      cta: '补充路线耗时',
+      tip: '手工估算即可，不需要打开地图或定位。',
+      warn: true,
+      icon: '<svg width="24" height="24" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="4.2" cy="11.8" r="1.7" stroke="currentColor" stroke-width="1.3"/><circle cx="11.8" cy="4.2" r="1.7" stroke="currentColor" stroke-width="1.3"/><path d="M4.2 10.1V7.4a2 2 0 0 1 2-2h3.9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M2.6 2.6l10.8 10.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>'
+    }
+  };
+
+  function setPlan(state) {
+    const center = document.getElementById('center');
+    const box = document.getElementById('planState');
+    document.querySelectorAll('[data-plan]').forEach((b) => b.classList.toggle('cur', b.dataset.plan === state));
+    if (state === 'normal') {
+      center.classList.remove('is-state');
+      box.hidden = true;
+      setMoment(document.body.dataset.moment);
+      return;
+    }
+    const cfg = planStates[state];
+    center.classList.add('is-state');
+    box.hidden = false;
+    box.classList.toggle('warn', cfg.warn);
+    document.getElementById('planIcon').innerHTML = cfg.icon;
+    document.getElementById('planTitle').textContent = cfg.title;
+    document.getElementById('planText').textContent = cfg.text;
+    document.getElementById('planCta').textContent = cfg.cta;
+    document.getElementById('planTip').textContent = cfg.tip;
+    document.querySelectorAll('#gapStrip .gap-cell').forEach((c) => c.classList.remove('is-on', 'is-used'));
+  }
+  document.querySelectorAll('[data-plan]').forEach((b) => {
+    b.onclick = () => setPlan(b.dataset.plan);
+  });
+  document.getElementById('planCta').onclick = () => setPlan('normal');
 
   document.getElementById('resetBtn').onclick = () => location.reload();
 

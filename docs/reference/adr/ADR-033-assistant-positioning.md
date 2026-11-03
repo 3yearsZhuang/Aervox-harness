@@ -44,5 +44,5 @@ decision_status: accepted
 
 - 文档门禁：`docs-governance`、Markdownlint 与 Vale 通过；修改范围仅限本节列出的文件。
 - 一致性检查：全局检索确认不再出现“首发用户是学习编程的初学者”“北极星 WELS”“P1 学习深化”等把学习当作产品本体的陈述；学习相关表述均落在场景、域指标或 `CAP-*` 能力描述中。
-- 设计验证：同期交付的助手形态 demo（[一日 demo](../../proposals/companion-vision-2026/index.html)）按“一天三个时刻”呈现主动帮助、任务推进与日记，用于可用性讨论，不代表任何能力已交付。
+- 设计验证：同期交付的助手形态 demo（[朝夕 demo](../../proposals/companion-vision-2026/miuix.html)）按“一天四个时刻”呈现空档规划、主动帮助与日记，用于可用性讨论，不代表任何能力已交付。
 - 真实实现与发布状态仍以[需求追踪](../REQUIREMENTS_TRACEABILITY.md)与 PR 证据为准；本文不新增交付承诺。
