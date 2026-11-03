@@ -38,6 +38,7 @@ final class NativeDeviceService {
     }
 
     private final Context context;
+    private final NativeDeviceService.Shell shizukuShell = new NativeShizukuShell();
     private final SharedPreferences grants;
     private final ExecutorService work = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "aervox-device");
@@ -75,6 +76,7 @@ final class NativeDeviceService {
             try {
                 boolean root = rootAvailable();
                 result.complete(new JSONObject().put("kind", "device_status").put("root", root)
+                    .put("shizuku", NativeShizukuShell.available())
                     .put("capabilities", capabilities()).put("busy", busy.get())
                     .put("sdk", Build.VERSION.SDK_INT).put("device", bounded(Build.MODEL)));
             } catch (Exception error) { result.completeExceptionally(new DeviceException("DEVICE_UNAVAILABLE")); }
@@ -93,9 +95,11 @@ final class NativeDeviceService {
             // otherwise the toggle would claim a capability that cannot run.
             work.execute(() -> {
                 try { boolean root = rootAvailable();
-                    if (!root) { result.completeExceptionally(new DeviceException("ROOT_UNAVAILABLE")); return; }
+                    boolean shizuku = NativeShizukuShell.available();
+                    if (!root && !shizuku) { result.completeExceptionally(new DeviceException("ROOT_UNAVAILABLE")); return; }
                     grants.edit().putBoolean(capability, true).commit();
-                    result.complete(new JSONObject().put("kind", "device_status").put("root", true).put("capabilities", capabilities()));
+                    result.complete(new JSONObject().put("kind", "device_status").put("root", root)
+                        .put("shizuku", shizuku).put("capabilities", capabilities()));
                 } catch (Exception error) { result.completeExceptionally(new DeviceException("DEVICE_UNAVAILABLE")); }
             });
             return;
@@ -117,10 +121,21 @@ final class NativeDeviceService {
         if (!busy.compareAndSet(false, true)) throw new DeviceException("DEVICE_BUSY");
         work.execute(() -> {
             try {
-                if (!rootAvailable()) throw new DeviceException("ROOT_UNAVAILABLE");
-                String output = bounded(shell.run(action.line, COMMAND_TIMEOUT_MS));
+                // Root first; Shizuku (user-authorized adb-level service) is the
+                // honest no-root path for the same fixed verb list.
+                String output;
+                String transport;
+                if (rootAvailable()) {
+                    output = bounded(shell.run(action.line, COMMAND_TIMEOUT_MS));
+                    transport = "root";
+                } else if (NativeShizukuShell.available()) {
+                    output = bounded(shizukuShell.run(action.line, COMMAND_TIMEOUT_MS));
+                    transport = "shizuku";
+                } else {
+                    throw new DeviceException("ROOT_UNAVAILABLE");
+                }
                 result.complete(new JSONObject().put("kind", "device_result").put("ok", true)
-                    .put("action", action.description).put("output", output));
+                    .put("action", action.description).put("output", output).put("transport", transport));
             } catch (DeviceException error) {
                 result.completeExceptionally(error);
             } catch (Exception error) {
@@ -130,9 +145,14 @@ final class NativeDeviceService {
     }
 
     private JSONObject info() throws Exception {
+        boolean shizuku = NativeShizukuShell.available();
+        String executor = rootCached != null && rootCached ? "root ready"
+            : shizuku ? "shizuku ready"
+            : "unavailable (no root, no Shizuku)";
         return new JSONObject().put("kind", "device_result").put("ok", true).put("action", "device info")
+            .put("shizuku", shizuku)
             .put("output", "Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + "), "
-                + bounded(Build.MANUFACTURER) + " " + bounded(Build.MODEL) + ", root " + (rootCached == null ? "unknown" : rootCached ? "ready" : "unavailable"));
+                + bounded(Build.MANUFACTURER) + " " + bounded(Build.MODEL) + ", executor " + executor);
     }
 
     private JSONObject capabilities() throws Exception {

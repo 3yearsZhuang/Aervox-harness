@@ -198,7 +198,10 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       const url = new URL(path, 'https://localhost');
       if (!path.startsWith('/v1/') || url.origin !== 'https://localhost') fail(400, 'INVALID_NATIVE_PATH');
       let result: unknown;
-      if (url.pathname === '/v1/sessions' && method === 'GET') {
+      if (url.pathname === '/v1/models/summary' && method === 'GET') {
+        const summary = await nativeRequest({ op: 'model', operation: 'summary' });
+        result = { configured: summary?.hasCredential === true };
+      } else if (url.pathname === '/v1/sessions' && method === 'GET') {
         if (url.search && !url.searchParams.has('projectId')) fail(400, 'INVALID_QUERY');
         result = { items: await repo.listSessions(ctx, { limit: 100, ...(url.searchParams.get('projectId') ? { projectId: url.searchParams.get('projectId')! } : {}) }) };
       } else if (url.pathname === '/v1/sessions' && method === 'POST') {

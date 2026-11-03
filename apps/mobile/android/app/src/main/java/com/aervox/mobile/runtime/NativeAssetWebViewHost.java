@@ -119,6 +119,12 @@ final class NativeAssetWebViewHost implements AutoCloseable {
             settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
             if (Build.VERSION.SDK_INT >= 26) view.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
             view.setWebChromeClient(new WebChromeClient() {
+                // Surface page console (model/renderer failures) to logcat so
+                // fallback chains are diagnosable without a desktop browser.
+                @Override public boolean onConsoleMessage(android.webkit.ConsoleMessage message) {
+                    android.util.Log.w("AervoxWeb", message.message() + " @" + message.sourceId() + ":" + message.lineNumber());
+                    return true;
+                }
                 @Override public void onPermissionRequest(PermissionRequest request) { request.deny(); }
                 @Override public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
                     callback.invoke(origin, false, false);

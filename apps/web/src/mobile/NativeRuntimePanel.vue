@@ -333,12 +333,12 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
       <label class="runtime-device-toggle">
         <span class="runtime-device-label"><strong>控制手机</strong><small>点击、滑动、按键与输入文本</small></span>
         <component :is="'md-switch'" aria-label="控制手机" :selected="device?.capabilities.control ? 'true' : undefined"
-          :disabled="deviceBusy || !device?.root ? 'true' : undefined" @change="toggleDevice('control', !device?.capabilities.control)" />
+          :disabled="deviceBusy || !(device?.root || device?.shizuku) ? 'true' : undefined" @change="toggleDevice('control', !device?.capabilities.control)" />
       </label>
       <label class="runtime-device-toggle">
         <span class="runtime-device-label"><strong>打开应用</strong><small>按包名启动已安装应用的首页</small></span>
         <component :is="'md-switch'" aria-label="打开应用" :selected="device?.capabilities.apps ? 'true' : undefined"
-          :disabled="deviceBusy || !device?.root ? 'true' : undefined" @change="toggleDevice('apps', !device?.capabilities.apps)" />
+          :disabled="deviceBusy || !(device?.root || device?.shizuku) ? 'true' : undefined" @change="toggleDevice('apps', !device?.capabilities.apps)" />
       </label>
       <p class="runtime-capability-note">设备操作只在应用位于前台时执行，且只包含固定动作；root 不会解锁任意命令、文件路径或系统设置修改。授权后，对话中的助手可在你要求时执行这些动作。</p>
       <p v-if="deviceFeedback" class="runtime-error runtime-feedback" role="alert">{{ deviceFeedback }}</p>
@@ -364,8 +364,8 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
           <dd class="runtime-value"><span class="runtime-badge runtime-badge--off">未开放</span></dd>
         </div>
         <div class="runtime-row">
-          <div class="runtime-row-copy"><dt>Shizuku 扩展</dt><dd>免 root 的系统诊断与操作通道。</dd></div>
-          <dd class="runtime-value"><span class="runtime-badge runtime-badge--off">未开放</span></dd>
+          <div class="runtime-row-copy"><dt>Shizuku 扩展</dt><dd>免 root 的设备操作通道：安装并授权 Shizuku 后，固定动作列表无需 su 也可执行。</dd></div>
+          <dd class="runtime-value"><span class="runtime-badge" :class="device?.shizuku ? 'runtime-badge--beta' : 'runtime-badge--off'">{{ device?.shizuku ? '已就绪' : '未就绪' }}</span></dd>
         </div>
         <div class="runtime-row">
           <div class="runtime-row-copy"><dt>Root 高级实验</dt><dd>任意命令等高风险研究项，不会进入日常使用。</dd></div>

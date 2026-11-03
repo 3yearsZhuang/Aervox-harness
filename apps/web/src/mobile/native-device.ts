@@ -5,7 +5,7 @@ import { nativeRequest } from './native-channel';
 
 export type DeviceCapability = 'control' | 'apps';
 export type DeviceKey = 'BACK' | 'HOME' | 'RECENTS' | 'ENTER' | 'DEL' | 'TAB' | 'VOLUME_UP' | 'VOLUME_DOWN';
-export interface DeviceStatus { root: boolean; capabilities: Record<DeviceCapability, boolean>; busy?: boolean; sdk?: number; device?: string }
+export interface DeviceStatus { root: boolean; shizuku?: boolean; capabilities: Record<DeviceCapability, boolean>; busy?: boolean; sdk?: number; device?: string }
 export type DeviceAction =
   | { action: 'info' }
   | { action: 'tap'; x: number; y: number }
@@ -20,7 +20,7 @@ function status(value: unknown): DeviceStatus {
   const item = value as Partial<DeviceStatus> & { kind?: string };
   if (item.kind !== 'device_status' || typeof item.root !== 'boolean' || !item.capabilities
     || typeof item.capabilities.control !== 'boolean' || typeof item.capabilities.apps !== 'boolean') throw invalid();
-  return { root: item.root, capabilities: { control: item.capabilities.control, apps: item.capabilities.apps },
+  return { root: item.root, ...(typeof item.shizuku === 'boolean' ? { shizuku: item.shizuku } : {}), capabilities: { control: item.capabilities.control, apps: item.capabilities.apps },
     ...(typeof item.busy === 'boolean' ? { busy: item.busy } : {}),
     ...(typeof item.sdk === 'number' ? { sdk: item.sdk } : {}),
     ...(typeof item.device === 'string' ? { device: item.device } : {}) };
@@ -42,7 +42,7 @@ export async function performDeviceAction(action: DeviceAction): Promise<DeviceR
 export function deviceError(error: unknown): string {
   const code = error instanceof Error ? error.message : '';
   switch (code) {
-    case 'ROOT_UNAVAILABLE': return '这台手机没有可用的 root 授权。请先确认 su 可用，或关闭设备操作。';
+    case 'ROOT_UNAVAILABLE': return '设备操作需要 root 或已授权的 Shizuku。请确认 su 可用、或安装并授权 Shizuku 后重试。';
     case 'DEVICE_CAPABILITY_DISABLED': return '这项设备操作没有在设置中开启。';
     case 'DEVICE_BUSY': return '上一条设备操作还没结束，请稍后再试。';
     case 'COMMAND_TIMEOUT': return '设备操作超时，系统没有确认结果。';
