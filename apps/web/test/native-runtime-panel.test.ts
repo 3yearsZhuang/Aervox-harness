@@ -200,7 +200,7 @@ it('keeps device switches disabled and honest when there is no root grant', asyn
   });
   const wrapper = mount(NativeRuntimePanel);
   await flushPromises();
-  expect(wrapper.text()).toContain('设备操作需要 root 或已授权的 Shizuku');
+  expect(wrapper.text()).toContain('可安装并授权 Shizuku');
   expect(wrapper.get('md-switch[aria-label="控制手机"]').attributes('disabled')).toBe('true');
   expect(wrapper.get('md-switch[aria-label="打开应用"]').attributes('disabled')).toBe('true');
   expect(wrapper.text()).not.toContain('Root 可用');
