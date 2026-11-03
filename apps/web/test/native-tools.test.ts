@@ -4,7 +4,7 @@ const { request } = vi.hoisted(() => ({ request: vi.fn() }));
 vi.mock('../src/mobile/native-channel', () => ({ nativeRequest: request }));
 import { createDeviceTooling } from '../src/mobile/native-tools';
 
-const status = (control: boolean, apps: boolean, root = true) => ({ kind: 'device_status', root, capabilities: { control, apps } });
+const status = (control: boolean, apps: boolean, root = true, advanced = false, shizuku?: boolean) => ({ kind: 'device_status', root, ...(shizuku === undefined ? {} : { shizuku }), capabilities: { control, apps, advanced } });
 const call = (name: string, args: unknown) => ({ turnId: 'turn', attemptId: 'attempt', invocationId: 'invocation', name, arguments: args });
 beforeEach(() => { request.mockReset(); });
 
@@ -18,6 +18,23 @@ it('lists device tools only for capability grants the user actually made', async
   request.mockResolvedValue(status(true, true));
   expect((await tooling.provider.listTools!()).map(tool => tool.name))
     .toEqual(['device_info', 'device_tap', 'device_swipe', 'device_key', 'device_text', 'device_launch_app']);
+  request.mockResolvedValue(status(true, true, true, true));
+  expect((await tooling.provider.listTools!()).map(tool => tool.name))
+    .toEqual(['device_info', 'device_tap', 'device_swipe', 'device_key', 'device_text', 'device_launch_app', 'device_command']);
+});
+
+it('offers device tools over an authorized Shizuku channel without root', async () => {
+  request.mockResolvedValue({ kind: 'device_status', root: false, shizuku: true, capabilities: { control: true, apps: false, advanced: false } });
+  const tooling = createDeviceTooling();
+  expect((await tooling.provider.listTools!()).map(tool => tool.name))
+    .toEqual(['device_info', 'device_tap', 'device_swipe', 'device_key', 'device_text']);
+});
+
+it('rejects device_command arguments without a shell line', async () => {
+  const tooling = createDeviceTooling();
+  expect(await tooling.provider.execute(call('device_command', { line: '   ' }))).toEqual({ ok: false, error: 'invalid_arguments' });
+  expect(await tooling.provider.execute(call('device_command', {}))).toEqual({ ok: false, error: 'invalid_arguments' });
+  expect(request).not.toHaveBeenCalled();
 });
 
 it('declares no device tools at all when root is unavailable', async () => {
@@ -38,6 +55,7 @@ it('refuses model-supplied arguments that do not match the fixed shape', async (
     ['device_text', { value: '中文' }],
     ['device_launch_app', { package: 'com.example; reboot' }],
     ['device_launch_app', { package: 'https://example.com' }],
+    ['device_command', { line: 42 }],
   ] as const) {
     expect(await tooling.provider.execute(call(name, args))).toEqual({ ok: false, error: 'invalid_arguments' });
   }

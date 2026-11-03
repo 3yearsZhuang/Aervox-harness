@@ -104,7 +104,7 @@ async function fixture() {
     }
     if (body.op === 'device') {
       if (body.operation === 'status') {
-        return { kind: 'device_status', root: true, capabilities: { control: true, apps: true } };
+        return { kind: 'device_status', root: true, capabilities: { control: true, apps: true, advanced: false } };
       }
       if (body.operation === 'grant') {
         return { kind: 'device_grant', ok: true };

@@ -91,6 +91,20 @@ const TOOLS: DeviceTool[] = [
     },
     build: args => packageName(args.package) ? { action: 'launch', package: args.package } : undefined,
   },
+  {
+    capability: 'advanced',
+    spec: {
+      name: 'device_command', readOnly: false, safetyLevel: 'privileged',
+      description: '在已取得 root 或 Shizuku 授权的手机上执行一条 shell 命令（高风险研究用途）。仅当用户明确要求执行系统命令、且已在设置中开启「Root 高级实验」时使用。',
+      parameters: { type: 'object', additionalProperties: false, required: ['line'],
+        properties: { line: { type: 'string', minLength: 1, maxLength: 2048 } } },
+    },
+    build: args => {
+      const line = args.line;
+      return typeof line === 'string' && line.trim().length > 0 ? { action: 'command', line } : undefined;
+    },
+  },
+
 ];
 
 const infoTool: ToolSpec = {
@@ -118,7 +132,8 @@ export interface DeviceToolingOptions {
 }
 
 export function createDeviceTooling(options: DeviceToolingOptions = {}): DeviceTooling {
-  const enabled = (status: DeviceStatus, capability: DeviceCapability) => status.root && status.capabilities[capability];
+  const executorReady = (status: DeviceStatus) => status.root || status.shizuku === true;
+  const enabled = (status: DeviceStatus, capability: DeviceCapability) => executorReady(status) && status.capabilities[capability];
   const provider: ToolProviderPort = {
     tools: [],
     async listTools() {
@@ -126,7 +141,7 @@ export function createDeviceTooling(options: DeviceToolingOptions = {}): DeviceT
       try { status = await readDeviceStatus(); } catch { return []; }
       // Declaring any tool changes the provider request shape, so nothing is
       // offered unless this phone can actually execute a device action.
-      if (!status.root) return [];
+      if (!executorReady(status)) return [];
       const available = TOOLS.filter(tool => status.capabilities[tool.capability]).map(tool => tool.spec);
       return [infoTool, ...available];
     },
