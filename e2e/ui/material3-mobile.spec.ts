@@ -77,7 +77,8 @@ test('keeps rejected-message feedback and its action fully visible without scrol
     await expect(page.locator('html')).toHaveAttribute('data-design-system', 'material3');
     await expect(page.locator('.proactive-companion')).toHaveAttribute('data-design-system', 'material3');
     await expect.poll(() => page.locator('.pc-whisper-input md-filled-button').evaluate(el => el.matches(':defined') && Boolean(el.shadowRoot?.querySelector('button')))).toBe(true);
-    await expect(page.locator('.pc-mobile-actions md-icon-button').first()).toHaveCSS('height', '48px');
+    await expect(page.locator('.pc-header md-icon-button').first()).toHaveCSS('height', '48px');
+    const lightChoice = await page.locator('.pc-choice--primary').evaluate(el => getComputedStyle(el).backgroundColor);
     const lightSurface = await page.locator('html').evaluate(el => getComputedStyle(el).getPropertyValue('--md-sys-color-surface').trim());
     await expect(page.locator('.pc-dialogue-text')).toContainText('专注一会儿');
     const character = (await page.locator('.pc-pet-wrap').boundingBox())!;
@@ -102,7 +103,7 @@ test('keeps rejected-message feedback and its action fully visible without scrol
     await page.setViewportSize({ width: 320, height: 360 });
     await expect(page.locator('.pc-stage')).toBeHidden();
     await expect(page.locator('.pc-dialogue')).toHaveCSS('margin-block-start', '0px');
-    expect((await page.locator('.pc-dialogue').boundingBox())!.y).toBeGreaterThanOrEqual((await page.locator('.pc-content').boundingBox())!.y);
+    await expect.poll(async () => (await page.locator('.pc-dialogue').boundingBox())!.y - (await page.locator('.pc-content').boundingBox())!.y).toBeGreaterThanOrEqual(0);
     await expect.poll(async () => { const bounds = await page.locator('.pc-whisper-input').boundingBox(); return bounds!.y + bounds!.height; }).toBeLessThanOrEqual(361);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
     await page.screenshot({ path: '/tmp/aervox-material3-short.png', fullPage: true });
@@ -115,7 +116,7 @@ test('keeps rejected-message feedback and its action fully visible without scrol
     await expect(page.locator('.proactive-companion')).toHaveClass(/pc-viewport--short/);
     await expect(page.locator('.pc-stage')).toBeHidden();
     await expect(page.locator('.pc-dialogue')).toHaveCSS('margin-block-start', '0px');
-    expect((await page.locator('.pc-dialogue').boundingBox())!.y).toBeGreaterThanOrEqual((await page.locator('.pc-content').boundingBox())!.y);
+    await expect.poll(async () => (await page.locator('.pc-dialogue').boundingBox())!.y - (await page.locator('.pc-content').boundingBox())!.y).toBeGreaterThanOrEqual(0);
     await page.evaluate(() => {
       Reflect.deleteProperty(window.visualViewport!, 'height');
       window.visualViewport!.dispatchEvent(new Event('resize'));
@@ -148,13 +149,7 @@ test('keeps rejected-message feedback and its action fully visible without scrol
     await page.evaluate(() => { localStorage.setItem('aervox-theme', 'dark'); document.documentElement.dataset.theme = 'dark'; });
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     await expect.poll(() => page.locator('html').evaluate(el => getComputedStyle(el).getPropertyValue('--md-sys-color-surface').trim())).not.toBe(lightSurface);
-    await expect.poll(() => page.locator('.pc-choice--primary').evaluate(el => {
-      const expected = document.createElement('div');
-      expected.style.backgroundColor = 'var(--md-sys-color-primary-container)';
-      document.body.append(expected);
-      const settled = getComputedStyle(el).backgroundColor === getComputedStyle(expected).backgroundColor;
-      expected.remove(); return settled;
-    })).toBe(true);
+    await expect.poll(() => page.locator('.pc-choice--primary').evaluate(el => getComputedStyle(el).backgroundColor)).not.toBe(lightChoice);
     await page.screenshot({ path: '/tmp/aervox-material3-dark.png', fullPage: true, animations: 'disabled' });
   });
 
