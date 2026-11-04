@@ -38,7 +38,7 @@ decision_status: accepted
 
 ## 当前前台文本接线
 
-当前分支由 `MainActivity → NativeRuntimeActivity` 装配固定资产 WebView、私有 SQLite actor、原生模型服务与 UI 偏好适配。共享界面经内部 Transport 调用中性仓储和 Core，普通浏览器预览继续使用 API Transport。受信组合模块只能导入已声明的中性公开出口，普通 Web 视图和第三方 Page 不因本接线获得仓储或 SQL 权限。学习设置页复用本机 Transport 完成练习与复习；备份恢复须独占业务操作、按当前外键规划后整体提交，成功后旧页面停止数据库准入，要求重开应用。备份 JSON 文件只写应用生成的私有缓存路径，经 FileProvider 授予接收方临时读取，不开放任意路径或额外存储权限。
+当前分支由 `MainActivity → NativeRuntimeActivity` 装配固定资产 WebView、私有 SQLite actor、原生模型服务与 UI 偏好适配。共享界面经内部 Transport 调用中性仓储和 Core，普通浏览器预览继续使用 API Transport。受信组合模块只能导入已声明的中性公开出口，普通 Web 视图和第三方 Page 不因本接线获得仓储或 SQL 权限。学习设置页复用本机 Transport 完成练习与复习；备份恢复须独占业务操作、按当前外键规划后整体提交，成功后旧页面停止数据库准入，要求重开应用。备份只覆盖权威业务事实：派生 FTS 投影由权威来源重建而不进包，模型密钥、插件 Secret、Bot/外部连接与删除账本均不导出也不被恢复覆盖——因此只要库中存在删除事实，恢复即 fail-closed 拒绝（`BACKUP_DELETION_CONFLICT`），在 ITER-003/010 的 deny 账本与水位重放落地前不冒充可恢复。备份 JSON 文件只写应用生成的私有缓存路径，经 FileProvider 授予接收方临时读取，不开放任意路径或额外存储权限。
 
 固定 APK 的人格与日记处理器属于同一受信组合：`native-persona.ts` 仅使用中性人格仓储出口，`native-diary.ts` 仅使用中性日记仓储和共享 `@aervox/diary` 生成服务，由 `native-runtime.ts` 注入私有数据库与模型端口。普通 Web 视图不获得这些依赖；人格设定不提升工具权限，日记素材只取本安装业务库，不开放跨设备来源。
 
