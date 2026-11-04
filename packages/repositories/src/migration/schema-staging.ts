@@ -8,7 +8,7 @@ import { inspectSchemaParity, schemaFingerprint, type SchemaScope } from "../sch
 import { exportSnapshot, restoreSnapshotToEmptyStaging, type DatabaseSnapshot } from "../sync/git-snapshot.js";
 import { createVerifiedBackup, assertVerifiedBackup } from "./backup-manifest.js";
 import { atomicSwapCr030Database } from "./staging-migration.js";
-import { rebuildMessageFts } from "../search/fts.js";
+import { rebuildSearchProjections } from "../search/fts.js";
 
 export interface QuiescedDatabaseLease {
   /** Called after every writer, reader and SQLite connection to source has stopped. */
@@ -76,10 +76,7 @@ export async function migrateDatabaseViaStaging(input: {
     const integrity = await staging.client.execute("PRAGMA integrity_check");
     if (String(integrity.rows[0]?.integrity_check) !== "ok") throw new Error("staging integrity check failed");
     // Search indexes are derived and rebuilt locally, never imported as FTS shadow tables.
-    if (scope === "main") {
-      await rebuildMessageFts(staging.client);
-      await staging.client.execute("INSERT INTO memories_fts(id, content) SELECT id, content FROM memory_records WHERE is_deleted = 0");
-    }
+    if (scope === "main") await rebuildSearchProjections(staging.client);
     await staging.client.execute("PRAGMA wal_checkpoint(TRUNCATE)");
     staging.client.close(); staging = undefined;
     // Recheck source backup immediately before replacement; validation failures never change the source.

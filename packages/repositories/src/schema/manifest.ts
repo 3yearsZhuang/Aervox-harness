@@ -4,6 +4,7 @@ import { createClient, type Client } from "@libsql/client";
 import { SQL, is } from "drizzle-orm";
 import { getTableConfig, SQLiteSyncDialect, type SQLiteColumn } from "drizzle-orm/sqlite-core";
 import * as schema from "@aervox/schema";
+import { isDerivedSearchTable } from "../backup-scope.js";
 import { tableDefinitionSemantics } from "./table-semantics.js";
 
 export type SchemaScope = "main" | "ledger";
@@ -16,7 +17,6 @@ const VERSION_TABLE = "_aervox_schema_versions";
 /** Shared parameterized receipt. applied_at is supplied only after initialization verification. */
 export const SCHEMA_VERSION_JOURNAL_SQL = `INSERT INTO "${VERSION_TABLE}" (scope, version, fingerprint, applied_at) VALUES (:scope, :version, :fingerprint, :applied_at) ON CONFLICT(scope) DO NOTHING`;
 const LEDGER_TABLE = "recovery_control_ledger";
-const isDerivedSearchTable = (name: string): boolean => /^(messages|memories)_fts(?:_(?:data|idx|content|docsize|config))?$/.test(name);
 export const quoteSqlIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
 const dialect = new SQLiteSyncDialect();
 

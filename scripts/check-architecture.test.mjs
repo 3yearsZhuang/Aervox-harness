@@ -17,7 +17,7 @@ test("runtime and type cycles both remain visible", () => {
 });
 test('Android composition permits exact neutral exports without granting ordinary Web views database access', () => {
   const file = 'apps/web/src/mobile/native-runtime.ts';
-  for (const target of ['@aervox/core/browser', '@aervox/host-agent/browser', '@aervox/repositories/conversation', '@aervox/repositories/database', '@aervox/repositories/native-sqlite-client', '@aervox/repositories/persona', '@aervox/repositories/diary']) {
+  for (const target of ['@aervox/core/browser', '@aervox/host-agent/browser', '@aervox/repositories/backup', '@aervox/repositories/conversation', '@aervox/repositories/database', '@aervox/repositories/native-sqlite-client', '@aervox/repositories/persona', '@aervox/repositories/diary']) {
     assert.deepEqual(auditArchitecture({ sources: new Map([[file, `import '${target}'`]]) }).violations, []);
     assert.ok(auditArchitecture({ sources: new Map([['apps/web/src/components/view.ts', `import '${target}'`]]) }).violations.some(value => value.includes('not allowed')));
   }

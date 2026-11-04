@@ -3,10 +3,10 @@
  *
  * 为会话消息与记忆提供无外置搜索引擎依赖的本地全文检索能力。
  */
-import type { Client, InValue } from "@libsql/client";
+import type { Client, InStatement, InValue, Transaction } from "@libsql/client";
 import { sql, type SQL } from "drizzle-orm";
 import { SQLiteSyncDialect } from "drizzle-orm/sqlite-core";
-import { messages, messageVersions, turns } from "@aervox/schema";
+import { messages, messageVersions, memoryRecords, turns } from "@aervox/schema";
 import { derivableConversationTurn } from "../repositories/sqlite/conversation/source-visibility.js";
 import { assertLocalContext, type LocalContext } from "../local-context.js";
 import { FTS_SCHEMA_STATEMENTS } from "../schema/fts-definition.js";
@@ -116,6 +116,34 @@ export async function searchMessagesFts(
     id: JSON.parse(String(row.encoded_id)) as string,
     score: Number(row.score),
   }));
+}
+
+/** Only the single call a projection rebuild needs; a Client, a libsql Transaction
+ * or any host-owned writer adapter satisfies it. Narrow on purpose so the mobile
+ * restore path can rebuild inside its own transaction. */
+export interface ProjectionWriter {
+  execute(input: InStatement): Promise<unknown>;
+}
+export type ProjectionClient = Client | Transaction | ProjectionWriter;
+
+/**
+ * Rebuild every search projection from its authoritative rows.
+ *
+ * Used by snapshot restore passthrough (the FTS tables are deliberately outside
+ * the logical-backup scope) and by schema staging. The caller owns the write
+ * transaction or staging lifecycle; both deletes are bounded table-wide resets,
+ * so an empty projection still ends in a well-formed FTS5 state.
+ */
+export async function rebuildSearchProjections(client: ProjectionClient): Promise<void> {
+  // Statement order matters: clear, re-index messages, clear, re-index memories.
+  for (const entry of [
+    statement(sql`delete from messages_fts`),
+    statement(sql`insert into messages_fts(id, content)
+      select ${messageIdentity}, ${messageVersions.content} from ${messageSources} where ${eligibleMessage}`),
+    statement(sql`delete from memories_fts`),
+    statement(sql`insert into memories_fts(id, content)
+      select ${memoryRecords.id}, ${memoryRecords.content} from ${memoryRecords} where ${memoryRecords.isDeleted} = 0`),
+  ]) await (client as ProjectionWriter).execute(entry);
 }
 
 /**

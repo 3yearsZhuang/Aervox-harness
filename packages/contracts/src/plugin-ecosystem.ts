@@ -149,6 +149,27 @@ export function comparePluginReleaseChanges(input: {
     || stableJson(before) !== stableJson(after) || stableJson(input.previousConfig) !== stableJson(input.nextConfig))) {
     add("Author declared a breaking change");
   }
+  // `targets` (SPECIFICATION §2.5) is a release contract once declared:
+  // dropping a host removes a capability users already had (MAJOR), and adding
+  // one is a compatible addition (MINOR).
+  //
+  // The first declaration is deliberately *not* compared against the implied
+  // "all hosts" default. Nothing consumed targets before this contract existed,
+  // so an undeclared plugin never actually ran on the hosts it now omits;
+  // treating the pure documentation step as a MAJOR removal would invent a
+  // break for users who never had that capability. Backfilling targets is a
+  // patch-level metadata statement, and every later narrowing is enforced.
+  const allTargets = ["desktop", "mobile", "web", "cli"] as const;
+  if (before.metadata.targets) {
+    const afterTargets = after.metadata.targets ?? allTargets;
+    const droppedTargets = before.metadata.targets.filter(target => !afterTargets.includes(target));
+    const addedTargets = afterTargets.filter(target => !before.metadata.targets!.includes(target));
+    if (droppedTargets.length) add(`Host targets removed: ${droppedTargets.join(", ")}`);
+    if (addedTargets.length) featureAdded = true;
+  } else if (after.metadata.targets) {
+    // First declaration: documentation of reality, never a removal. A later
+    // narrowing from this set is what the MAJOR rule above protects.
+  }
   const oldRange = before.requires?.hostApiVersion ?? { min: "1.0.0", maxExclusive: "2.0.0" };
   const newRange = after.requires?.hostApiVersion ?? { min: "1.0.0", maxExclusive: "2.0.0" };
   if (comparePluginVersions(newRange.min, oldRange.min) === 1

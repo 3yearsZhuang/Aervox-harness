@@ -15,6 +15,7 @@ export * from "./conversation-turn-intent.js";
 export * from "./conversation-branch-tree.js";
 export * from "./memory-eligibility.js";
 export * from "./memory-deletion-protocol.js";
+export * from "./backup-scope.js";
 export * from "./search/index.js";
 export * from "./write-retry.js";
 export * from "./session-lock.js";
