@@ -12,7 +12,13 @@ const advisory = "GHSA-g3hv-75wg-m249";
 // Backport: https://github.com/isaacs/minimatch/commit/77a0f5c4b80bdc641c3c930a1d9edf5ad2db57f8
 // v9 has no braceExpandMax option; keep its API and use the upstream default cap.
 const patchedVersions = ["9.0.9", "10.2.6"];
-const legacyVersions = ["3.1.5", "5.1.9"];
+// Legacy majors are reviewed only while the advisory's affected range still
+// covers them. Upstream narrowed GHSA-g3hv-75wg-m249 to `>=7.0.0 <11.0.1`
+// (v7 introduced firstPhasePreProcess), so the 3.x/5.x routes are no longer
+// reported and their exceptions were removed as stale. Nothing here grants a
+// lasting exemption: if the advisory widens again, `pnpm audit` reports those
+// versions, no exception matches, and check-dependency-audit fails loud.
+const legacyVersions = [];
 const reviews = JSON.parse(readFileSync(path.join(root, "scripts/dependency-audit-exceptions.json"), "utf8"))
   .filter(entry => entry.advisory === advisory && entry.package === "minimatch");
 const consumers = reviews.flatMap(entry => entry.paths.map(route => ({ version: entry.version, route })));
