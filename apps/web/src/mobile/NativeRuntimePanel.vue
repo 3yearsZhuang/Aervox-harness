@@ -31,6 +31,8 @@ function menuSummary(target: PageId): string {
 interface PersonaRow { id: string; name: string; description: string; currentRevisionId: string }
 const personas = ref<PersonaRow[]>([]);
 const activePersonaId = ref('');
+const editingPersonaId = ref('');
+const draftConfig = ref<Record<string, unknown>>({});
 const personaBusy = ref(false);
 const personaFeedback = ref('');
 const personaError = ref('');
@@ -45,8 +47,10 @@ async function loadPersonaDetail() {
   if (!id) return;
   const detail = await clientTransport.request<{
     persona: PersonaRow;
-    revision: { revision: number; config: { systemPromptAppend: string } } | null;
+    revision: { revision: number; config: { systemPromptAppend: string; [key: string]: unknown } } | null;
   }>('GET', `/v1/personas/${encodeURIComponent(id)}`);
+  editingPersonaId.value = id;
+  draftConfig.value = detail.revision?.config ?? {};
   draftName.value = detail.persona.name;
   draftDescription.value = detail.persona.description ?? '';
   draftPrompt.value = detail.revision?.config.systemPromptAppend ?? '';
@@ -56,21 +60,23 @@ async function loadPersonaDetail() {
 async function loadPersonas(force = false) {
   if (personaLoaded && !force) return;
   // 保存后的强制刷新不能顺手清掉刚写下的回执，否则用户看不到「已保存」。
-  if (!force) { personaError.value = ''; personaFeedback.value = ''; }
+  personaError.value = '';
+  if (!force) personaFeedback.value = '';
   personaBusy.value = true;
   try {
     const list = await clientTransport.request<{ personas: PersonaRow[]; active: { personaId: string } | null }>('GET', '/v1/personas');
     personas.value = list.personas ?? [];
-    activePersonaId.value = list.active?.personaId ?? personas.value[0]?.id ?? '';
-    personaLoaded = true;
+    activePersonaId.value = list.active?.personaId ?? '';
+    editingPersonaId.value = activePersonaId.value;
     await loadPersonaDetail();
+    personaLoaded = true;
   } catch {
     personaError.value = '人格列表读取失败，可以下拉刷新重试。';
   } finally { personaBusy.value = false; }
 }
 
 async function switchPersona(id: string) {
-  if (personaBusy.value || id === activePersonaId.value) return;
+  if (personaBusy.value || id === activePersonaId.value && id === editingPersonaId.value) return;
   personaBusy.value = true; personaError.value = ''; personaFeedback.value = '';
   try {
     await clientTransport.request('POST', `/v1/personas/${encodeURIComponent(id)}/activate`, {});
@@ -82,8 +88,21 @@ async function switchPersona(id: string) {
   } finally { personaBusy.value = false; }
 }
 
+function newPersona() {
+  editingPersonaId.value = '';
+  draftConfig.value = {};
+  draftName.value = ''; draftDescription.value = ''; draftPrompt.value = '';
+  draftRevision.value = 1; personaFeedback.value = ''; personaError.value = '';
+}
+
+async function refreshPage() {
+  if (personaBusy.value) return;
+  if (page.value === 'persona') await loadPersonas(true);
+  else await readStatus();
+}
+
 async function savePersona() {
-  // 没有 activePersonaId 不是「不能保存」，而是「第一份」：走新建。
+  // 新建草稿独立于当前激活选择，保存前不切换正在使用的人格。
   if (personaBusy.value) return;
   const name = draftName.value.trim();
   if (!name) { personaError.value = '名字不能为空。'; return; }
@@ -91,10 +110,10 @@ async function savePersona() {
   if (!prompt) { personaError.value = '设定不能为空，它是陪伴者说话的依据。'; return; }
   personaBusy.value = true; personaError.value = ''; personaFeedback.value = '';
   const description = draftDescription.value.trim();
-  const config = { systemPromptAppend: prompt };
+  const config = { ...draftConfig.value, systemPromptAppend: prompt };
   try {
-    if (!activePersonaId.value) {
-      // 还没有任何人格：第一份设定即新建并立即启用，而不是把「保存」按成空动作。
+    if (!editingPersonaId.value) {
+      // 新建完成后明确启用，新旧人格保留各自的修订。
       const created = await clientTransport.request<{ persona: PersonaRow; revision: { revision: number } }>(
         'POST', '/v1/personas', { name, description, config },
       );
@@ -102,9 +121,10 @@ async function savePersona() {
       personaFeedback.value = '已建立并启用这个人格。';
     } else {
       const saved = await clientTransport.request<{ persona: PersonaRow; revision: { revision: number } }>(
-        'PATCH', `/v1/personas/${encodeURIComponent(activePersonaId.value)}`,
+        'PATCH', `/v1/personas/${encodeURIComponent(editingPersonaId.value)}`,
         { expectedRevision: draftRevision.value, name, description, config },
       );
+      await clientTransport.request('POST', `/v1/personas/${encodeURIComponent(editingPersonaId.value)}/activate`, {});
       draftRevision.value = saved.revision.revision;
       personaFeedback.value = '已保存，下一次对话就会用上新设定。';
     }
@@ -404,7 +424,7 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
         <Menu :size="24" aria-hidden="true" />
       </component>
       <div class="runtime-heading-copy"><h2>{{ pageMeta[page].title }}</h2><p>{{ pageMeta[page].subtitle }}</p></div>
-      <component :is="'md-icon-button'" type="button" aria-label="刷新运行状态" :disabled="loading || configuring || testing" @click="readStatus">
+      <component :is="'md-icon-button'" type="button" aria-label="刷新运行状态" :disabled="loading || configuring || testing" @click="refreshPage">
         <RefreshCw :size="24" aria-hidden="true" />
       </component>
     </header>
@@ -588,7 +608,8 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
           <span v-if="item.id === activePersonaId" class="runtime-persona-current">当前</span>
         </button>
       </div>
-      <h4 class="runtime-subtitle">编辑设定</h4>
+      <component :is="'md-text-button'" type="button" :disabled="personaBusy" @click="newPersona">新建人格</component>
+      <h4 class="runtime-subtitle">{{ editingPersonaId ? '编辑设定' : '新建人格' }}</h4>
       <div class="runtime-persona-form">
         <label class="runtime-persona-field">
           <span>名字</span>

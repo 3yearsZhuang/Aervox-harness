@@ -34,6 +34,20 @@ export interface PersonaRouteDeps {
 
 export type PersonaRouteResult = { handled: true; result: unknown } | { handled: false };
 
+/** Resolve the selected revision, including an explicitly selected historical revision. */
+export async function activePersonaPrompt(repo: PersonaRepoPort, ctx: LocalContext): Promise<string> {
+  const active = await repo.getActivePersona(ctx);
+  if (!active) return '';
+  const [persona, revision] = await Promise.all([
+    repo.getPersona(ctx, active.personaId),
+    repo.getPersonaRevision(ctx, active.personaId, active.revisionId),
+  ]);
+  if (!persona || persona.status !== 'active' || !revision) return '';
+  const config = revision.config as { systemPromptAppend?: unknown };
+  const prompt = typeof config?.systemPromptAppend === 'string' ? config.systemPromptAppend.trim() : '';
+  return [`当前人格：${persona.name}`, prompt].filter(Boolean).join('\n');
+}
+
 const identifier = (value: string) => {
   if (!value || value.length > 128 || value.includes('\0')) return fail(400, 'INVALID_IDENTIFIER');
   return value;

@@ -54,16 +54,16 @@ export function createDiaryRouteHandler({ repo, materials, ctx, model, now = () 
   const generation = new DiaryGenerationService({ materials, useModel: model !== null, model });
 
   /** 新建：草稿在事务外生成，发布时周期/版本/outbox 一次性落库（与桌面端同协议）。 */
-  const createTodayDiary = async (localDate: string, focus?: string, styleId?: string) => {
-    const draft = await generation.generate(ctx, { localDate, window: todayWindow(now()), focus, styleId });
+  const createTodayDiary = async (localDate: string, window: ReturnType<typeof todayWindow>, focus?: string, styleId?: string) => {
+    const draft = await generation.generate(ctx, { localDate, window, focus, styleId });
     const cycleId = generateDiaryId('cyc');
     const { diary } = await repo.publishGeneratedDiary(ctx, {
       cycle: {
         id: cycleId,
         scheduleEpochId: `on_demand:${localDate}`,
         localDate,
-        previousCutoffAt: todayWindow(now()).startIso,
-        cutoffAt: todayWindow(now()).endIso,
+        previousCutoffAt: window.startIso,
+        cutoffAt: window.endIso,
       },
       diary: {
         id: generateDiaryId('diary'),
@@ -85,8 +85,8 @@ export function createDiaryRouteHandler({ repo, materials, ctx, model, now = () 
   };
 
   /** 改写：新版本入账并推进主行，历史版本不覆盖。 */
-  const rewriteTodayDiary = async (diaryId: string, localDate: string, focus?: string, styleId?: string) => {
-    const draft = await generation.generate(ctx, { localDate, window: todayWindow(now()), focus, styleId });
+  const rewriteTodayDiary = async (diaryId: string, localDate: string, window: ReturnType<typeof todayWindow>, focus?: string, styleId?: string) => {
+    const draft = await generation.generate(ctx, { localDate, window, focus, styleId });
     const versionId = generateDiaryId('dv');
     await repo.publishDiaryRevision(ctx, {
       diaryId,
@@ -115,8 +115,17 @@ export function createDiaryRouteHandler({ repo, materials, ctx, model, now = () 
     }
 
     if (path === '/v1/diaries/generate-today' && method === 'POST') {
-      const payload = (body ?? {}) as { rewrite?: boolean; focus?: string; styleId?: string };
-      const localDate = localDateToday(now());
+      const candidate = body ?? {};
+      if (typeof candidate !== 'object' || Array.isArray(candidate)) return fail(400, 'INVALID_DIARY_REQUEST');
+      const payload = candidate as { rewrite?: boolean; focus?: string; styleId?: string };
+      if (payload.rewrite !== undefined && typeof payload.rewrite !== 'boolean'
+        || payload.focus !== undefined && (typeof payload.focus !== 'string' || payload.focus.length > 500)
+        || payload.styleId !== undefined && (typeof payload.styleId !== 'string' || payload.styleId.length > 128)) {
+        return fail(400, 'INVALID_DIARY_REQUEST');
+      }
+      const instant = now();
+      const localDate = localDateToday(instant);
+      const window = todayWindow(instant);
       const existing = await repo.getDiaryByDate(ctx, localDate);
       if (existing) {
         if (!payload.rewrite) {
@@ -124,9 +133,9 @@ export function createDiaryRouteHandler({ repo, materials, ctx, model, now = () 
             content: existing.content, mode: 'existing', generatedBy: detectGeneratedBy(existing.content),
             materialCount: 0 } satisfies TodayDiaryResult };
         }
-        return { handled: true, result: await rewriteTodayDiary(existing.id, localDate, payload.focus, payload.styleId) };
+        return { handled: true, result: await rewriteTodayDiary(existing.id, localDate, window, payload.focus, payload.styleId) };
       }
-      return { handled: true, result: await createTodayDiary(localDate, payload.focus, payload.styleId) };
+      return { handled: true, result: await createTodayDiary(localDate, window, payload.focus, payload.styleId) };
     }
 
     return { handled: false };

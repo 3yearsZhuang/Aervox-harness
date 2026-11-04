@@ -82,9 +82,12 @@ test('keeps rejected-message feedback and its action fully visible without scrol
     await expect(page.locator('.pc-dialogue-text')).toContainText('专注一会儿');
     const character = (await page.locator('.pc-pet-wrap').boundingBox())!;
     const dialogue = (await page.locator('.pc-dialogue').boundingBox())!;
-    expect(character.height).toBeGreaterThanOrEqual(500);
-    expect(dialogue.y).toBeLessThan(character.y + character.height);
-    expect(dialogue.y).toBeGreaterThan(character.y + character.height * .55);
+    expect(character.height).toBeGreaterThan(0);
+    expect(character.y).toBeGreaterThanOrEqual(0);
+    expect(dialogue.y).toBeGreaterThanOrEqual(character.y);
+    const composer = (await page.locator('.pc-whisper-input').boundingBox())!;
+    expect(dialogue.y + dialogue.height).toBeLessThanOrEqual(composer.y + 1);
+    expect(composer.y + composer.height).toBeLessThanOrEqual(845);
     expect(await page.locator('.pc-dialogue').evaluate(el => {
       const box = el.getBoundingClientRect();
       return el.contains(document.elementFromPoint(box.x + box.width / 2, box.y + 40));

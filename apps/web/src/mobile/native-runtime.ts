@@ -20,7 +20,7 @@ import { createDeviceTooling, DEVICE_TOOL_NAMES } from './native-tools';
 import { createQuestionBridge } from './native-question';
 import { buildBackupFile, denormalizeBackupValue, normalizeBackupValue, parseBackupFile, verifyBackupShape, BackupParseError, type BackupTable } from './native-backup';
 import { createLearningRouteHandler } from './native-learning';
-import { createPersonaRouteHandler } from './native-persona';
+import { activePersonaPrompt, createPersonaRouteHandler } from './native-persona';
 import { createDiaryRouteHandler } from './native-diary';
 
 const ctx = { workspaceId: 'local', subjectUserId: 'local' };
@@ -82,9 +82,12 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       context: { turnId, sessionId: `plan_session_${turnId}`, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] },
     })) {
       if (chunk.text) raw += chunk.text;
-      if (chunk.isFinal) return raw;
+      if (chunk.isFinal) {
+        if (chunk.stopReason !== 'stop') throw new Error('MODEL_COMPLETION_INCOMPLETE');
+        return raw;
+      }
     }
-    return raw;
+    throw new Error('MODEL_COMPLETION_INCOMPLETE');
   };
   const handleLearningRoute = createLearningRouteHandler({
     repo: learningRepo, ctx,
@@ -99,6 +102,22 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
     ctx,
     checksum: config => hostCrypto.sha256Utf8(JSON.stringify(config)),
   });
+  const createConversationContext = (sessionId: string, turnId: string) => {
+    let prompt: Promise<string> | undefined;
+    return { async build(input: Parameters<typeof nativeContextBuilder.build>[0]) {
+      prompt ??= activePersonaPrompt(personaRepo, ctx);
+      const [persona, history] = await Promise.all([
+        prompt, repo.getSessionHistory(ctx, { sessionId, beforeTurnId: turnId }),
+      ]);
+      return nativeContextBuilder.build({ ...input, messages: [
+        { role: 'system', content: [
+          '你是思隅 Aervox，一位主动智能的个人助手。请如实回答。缺少信息或需要确认时，用 ask_user_question 向用户提问，不要猜测后直接执行。手机上只有用户已在设置中授权的设备工具可用；没有对应工具时，说明这项操作在当前版本不可用，不要编造已执行。',
+          persona,
+        ].filter(Boolean).join('\n\n') },
+        ...history, ...input.messages,
+      ] });
+    } };
+  };
   const diaryRepo = new SqliteDiaryRepository(db);
   const handleDiaryRoute = createDiaryRouteHandler({
     repo: diaryRepo,
@@ -322,13 +341,7 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
           active = owner;
           owner.done = executeTurn({ execution: store, provider: nativeModelProvider, controlContext: control,
             tools, approvalPolicy: deviceTooling.approval,
-            contextBuilder: { async build(input) {
-              const history = await repo.getSessionHistory(ctx, { sessionId, beforeTurnId: turnId });
-              return nativeContextBuilder.build({ ...input, messages: [
-                { role: 'system', content: '你是思隅 Aervox，一位主动智能的个人助手。请如实回答。缺少信息或需要确认时，用 ask_user_question 向用户提问，不要猜测后直接执行。手机上只有用户已在设置中授权的设备工具可用；没有对应工具时，说明这项操作在当前版本不可用，不要编造已执行。' },
-                ...history, ...input.messages,
-              ] });
-            } }, options: { maxSteps: 6, maxConsecutiveSameTool: 3, toolTimeoutMs: 12_000, maxModelRetries: 0,
+            contextBuilder: createConversationContext(sessionId, turnId), options: { maxSteps: 6, maxConsecutiveSameTool: 3, toolTimeoutMs: 12_000, maxModelRetries: 0,
               maxTurnDurationMs: 300_000, leaseTtlMs: 30_000, leaseHeartbeatIntervalMs: 10_000 },
           }, { turnId, sessionId, attemptId: accepted.attempt.id, userMessage: content }).finally(() => {
             control.dispose(); if (active === owner) active = undefined;
@@ -381,13 +394,7 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
         active = owner;
         owner.done = executeTurn({ execution: store, provider: nativeModelProvider, controlContext: control,
           tools, approvalPolicy: deviceTooling.approval,
-          contextBuilder: { async build(input) {
-            const history = await repo.getSessionHistory(ctx, { sessionId: turn.sessionId, beforeTurnId: turnId });
-            return nativeContextBuilder.build({ ...input, messages: [
-              { role: 'system', content: '你是思隅 Aervox，一位主动智能的个人助手。请如实回答。缺少信息或需要确认时，用 ask_user_question 向用户提问，不要猜测后直接执行。手机上只有用户已在设置中授权的设备工具可用；没有对应工具时，说明这项操作在当前版本不可用，不要编造已执行。' },
-              ...history, ...input.messages,
-            ] });
-          } }, options: { maxSteps: 6, maxConsecutiveSameTool: 3, toolTimeoutMs: 12_000, maxModelRetries: 0,
+          contextBuilder: createConversationContext(turn.sessionId, turnId), options: { maxSteps: 6, maxConsecutiveSameTool: 3, toolTimeoutMs: 12_000, maxModelRetries: 0,
             maxTurnDurationMs: 300_000, leaseTtlMs: 30_000, leaseHeartbeatIntervalMs: 10_000,
             resume: { expectedFencingToken: 0, lastSequence: decided.event!.sequence, lastStep: step,
               history: resumed.history, messageId: resumed.messageId,
@@ -488,18 +495,17 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
           if (failed.length === pendingDeletes.length) throw new Error('BACKUP_RESTORE_BLOCKED');
           pendingDeletes = failed;
         }
-        let pendingInserts = file.tables;
+        let pendingInserts = file.tables.flatMap(table => table.rows.map(row => ({ table, row })));
         while (pendingInserts.length) {
           const failed: typeof pendingInserts = [];
-          for (const table of pendingInserts) {
+          for (const entry of pendingInserts) {
+            const { table, row } = entry;
             try {
               const columns = table.columns.map(quote).join(', ');
               const placeholders = table.columns.map(() => '?').join(', ');
-              for (const row of table.rows) {
-                const values = table.columns.map(column => denormalizeBackupValue(row[column]) as never);
-                await tx.execute({ sql: `INSERT INTO ${quote(table.name)} (${columns}) VALUES (${placeholders})`, args: values });
-              }
-            } catch { failed.push(table); }
+              const values = table.columns.map(column => denormalizeBackupValue(row[column]) as never);
+              await tx.execute({ sql: `INSERT INTO ${quote(table.name)} (${columns}) VALUES (${placeholders})`, args: values });
+            } catch { failed.push(entry); }
           }
           if (failed.length === pendingInserts.length) throw new Error('BACKUP_RESTORE_BLOCKED');
           pendingInserts = failed;

@@ -40,6 +40,8 @@ decision_status: accepted
 
 当前分支由 `MainActivity → NativeRuntimeActivity` 装配固定资产 WebView、私有 SQLite actor、原生模型服务与 UI 偏好适配。共享界面经内部 Transport 调用中性仓储和 Core，普通浏览器预览继续使用 API Transport。受信组合模块只能导入已声明的中性公开出口，普通 Web 视图和第三方 Page 不因本接线获得仓储或 SQL 权限。
 
+固定 APK 的人格与日记处理器属于同一受信组合：`native-persona.ts` 仅使用中性人格仓储出口，`native-diary.ts` 仅使用中性日记仓储和共享 `@aervox/diary` 生成服务，由 `native-runtime.ts` 注入私有数据库与模型端口。普通 Web 视图不获得这些依赖；人格设定不提升工具权限，日记素材只取本安装业务库，不开放跨设备来源。
+
 固定业务库只在独占新建文件时初始化唯一 Schema、FTS 和版本回执；已有库须通过本方完成标记、文件身份、版本及完整物理结构验证。不自动导入、迁移或重建未知库。所有权锁仅在原生 SQL 确认 drain 后释放；有效本方归属内的 rollback journal 交 SQLite 恢复，外来 WAL/SHM 和不匹配证据保留并拒绝。外部标记用于应用私有目录内的生命周期归属，不能证明对抗 root 或任意同 UID 篡改。
 
 原生模型配置一次保存端点、模型与密钥，不拆成可能错配的多次提交；配置输入不经过 WebView。网络只使用该保存配置，固定 OpenAI 兼容文本 SSE，拒绝重定向、任意 header、IP 字面量和 localhost 端点。原生控制与网络线程有队列、字节、事件和截止限制，前台退出请求取消；JavaScript 读完分页终态后才提交完成，不能用“生产者已结束”替代“所有分片已消费”。密钥摘要只能表示配置已保存，真实服务成功须由实际请求证明。

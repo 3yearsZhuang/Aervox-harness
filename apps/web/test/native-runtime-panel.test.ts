@@ -3,7 +3,11 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils';
 import NativeRuntimePanel from '../src/mobile/NativeRuntimePanel.vue';
 
-const { request } = vi.hoisted(() => ({ request: vi.fn() }));
+const { request, routes } = vi.hoisted(() => ({ request: vi.fn(), routes: vi.fn() }));
+vi.mock('@aervox/api-client', async importOriginal => ({
+  ...await importOriginal<typeof import('@aervox/api-client')>(),
+  getClientTransport: () => ({ request: routes }),
+}));
 vi.mock('../src/mobile/native-channel', () => ({ nativeRequest: request }));
 enableAutoUnmount(afterEach);
 const runtime = { kind: 'runtime', connectionEpoch: 'owned-connection', sqlite: 'ready', mode: 'foreground' };
@@ -20,6 +24,7 @@ async function mountPanel(page?: 'model' | 'device' | 'data' | 'reminder') {
 }
 beforeEach(() => {
   request.mockReset();
+  routes.mockReset();
   request.mockImplementation(async body => {
     if (body.op === 'runtime') return runtime;
     if (body.op === 'device') return deviceStatus;
@@ -256,4 +261,57 @@ it('keeps the saved configuration when clearing is refused', async () => {
   expect(wrapper.text()).toContain('清除没有完成，原有配置保持不变');
   expect(wrapper.text()).toContain('已保存配置');
   expect(wrapper.text()).not.toContain('已清除模型配置');
+});
+
+it('creates another persona, preserves revision settings, and activates a saved revision', async () => {
+  const config = { systemPromptAppend: '温和', allowedSkillNames: ['review'], metadata: { note: '保留' } };
+  routes.mockImplementation(async (method, path, body) => {
+    if (method === 'GET' && path === '/v1/personas') return {
+      personas: [{ id: 'p1', name: '小隅', description: '', currentRevisionId: 'r1' }], active: { personaId: 'p1' },
+    };
+    if (method === 'GET') return { persona: { id: 'p1', name: '小隅', description: '' }, revision: { revision: 1, config } };
+    if (method === 'PATCH') return { persona: { id: 'p1' }, revision: { revision: 2 } };
+    if (method === 'POST' && path === '/v1/personas') return { persona: { id: 'p2' }, revision: { revision: 1 } };
+    return {};
+  });
+  const wrapper = mount(NativeRuntimePanel);
+  await flushPromises();
+  await wrapper.findAll('.runtime-menu-card')[4].trigger('click');
+  await flushPromises();
+  await wrapper.find('textarea[aria-label="人格设定"]').setValue('更简短');
+  const save = () => wrapper.findAll('md-filled-tonal-button').find(item => item.text() === '保存设定')!;
+  await save().trigger('click');
+  await flushPromises();
+  expect(routes).toHaveBeenCalledWith('PATCH', '/v1/personas/p1', expect.objectContaining({
+    config: { ...config, systemPromptAppend: '更简短' },
+  }));
+  expect(routes).toHaveBeenCalledWith('POST', '/v1/personas/p1/activate', {});
+  await wrapper.findAll('md-text-button').find(item => item.text() === '新建人格')!.trigger('click');
+  await wrapper.find('input[aria-label="人格名字"]').setValue('小林');
+  await wrapper.find('textarea[aria-label="人格设定"]').setValue('活泼');
+  await save().trigger('click');
+  await flushPromises();
+  expect(routes).toHaveBeenCalledWith('POST', '/v1/personas', {
+    name: '小林', description: '', config: { systemPromptAppend: '活泼' },
+  });
+  expect(routes).toHaveBeenCalledWith('POST', '/v1/personas/p2/activate', {});
+});
+
+it('retries persona details through the page refresh action after a failed read', async () => {
+  let fail = true;
+  routes.mockImplementation(async (_method, path) => {
+    if (path === '/v1/personas') return { personas: [{ id: 'p1', name: '小隅' }], active: { personaId: 'p1' } };
+    if (fail) throw new Error('READ_FAILED');
+    return { persona: { id: 'p1', name: '小隅' }, revision: { revision: 1, config: { systemPromptAppend: '温和' } } };
+  });
+  const wrapper = mount(NativeRuntimePanel);
+  await flushPromises();
+  await wrapper.findAll('.runtime-menu-card')[4].trigger('click');
+  await flushPromises();
+  expect(wrapper.text()).toContain('人格列表读取失败');
+  fail = false;
+  await wrapper.find('[aria-label="刷新运行状态"]').trigger('click');
+  await flushPromises();
+  expect(wrapper.find('textarea[aria-label="人格设定"]').element.value).toBe('温和');
+  expect(wrapper.text()).not.toContain('人格列表读取失败');
 });

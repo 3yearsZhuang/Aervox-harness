@@ -70,6 +70,16 @@ const materials = {
 } as never;
 
 describe('mobile diary routes', () => {
+  it('rejects malformed rewrite requests before generating or mutating a diary', async () => {
+    const repo = diaryRepo({ id: 'd1', title: '旧标题', content: '旧正文' });
+    const handle = createDiaryRouteHandler({ repo, materials, ctx, model: null });
+    for (const body of [{ rewrite: 'false' }, { focus: 1 }, { styleId: [] }, [], 'rewrite']) {
+      await expect(handle('POST', new URL('https://localhost/v1/diaries/generate-today'), body))
+        .rejects.toMatchObject({ status: 400 });
+    }
+    expect(repo.publishDiaryRevision).not.toHaveBeenCalled();
+  });
+
   it('reads a missing day as 404 rather than an empty diary', async () => {
     const handle = createDiaryRouteHandler({ repo: diaryRepo(null), materials, ctx, model: null });
     await expect(handle('GET', new URL('https://localhost/v1/diaries?localDate=2026-11-01'), undefined))

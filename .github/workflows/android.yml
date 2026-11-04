@@ -167,6 +167,12 @@ jobs:
       - name: Build web assets and debug APK
         run: mise exec -- pnpm --filter @aervox/mobile android:build
 
+      - name: Enable runner KVM access
+        run: |
+          test -e /dev/kvm
+          sudo chmod a+rw /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm
+
       # KVM 由 runner 提供；软件渲染避免依赖宿主机 GPU。
       - name: Run instrumented tests on API 36 emulator
         uses: reactivecircus/android-emulator-runner@v2

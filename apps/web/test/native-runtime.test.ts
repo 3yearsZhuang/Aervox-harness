@@ -6,6 +6,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { AervoxTransport, TurnCallbacks } from '@aervox/api-client';
+import { stableSerialize } from '@aervox/core/browser';
 import type { ModelRequest } from '@aervox/core/browser';
 import type { SessionHistoryPage } from '@aervox/contracts';
 import { NativeSqliteClient, type NativeSqliteRequest } from '@aervox/repositories/native-sqlite-client';
@@ -216,7 +217,6 @@ async function fixture() {
     get nativeCancels() { return nativeCancels; },
     get sqliteRequests() { return sqliteRequests; },
     get devicePerforms() { return devicePerforms; },
-    get database() { return database; },
     setConfigured(value: boolean) { configured = value; },
     loseNextCommit() { loseCommit = true; }, get commits() { return commits; },
     async close() {
@@ -907,7 +907,71 @@ describe('Android per-call tool approval over actual SQLite', () => {
   }, 20_000);
 });
 
+describe('Android diary publication over actual SQLite', () => {
+  it('publishes and rewrites a template diary with durable versions', async () => {
+    current!.setConfigured(false);
+    const transport = await current!.start();
+    const created = await transport.request<{ diaryId: string; mode: string; generatedBy: string }>(
+      'POST', '/v1/diaries/generate-today', {},
+    );
+    expect(created).toMatchObject({ mode: 'created', generatedBy: 'template' });
+    expect(await current!.count('diaries')).toBe(1);
+    expect(await current!.count('diary_versions')).toBe(1);
+    const existing = await transport.request('POST', '/v1/diaries/generate-today', {});
+    expect(existing).toMatchObject({ diaryId: created.diaryId, mode: 'existing' });
+    const rewritten = await transport.request('POST', '/v1/diaries/generate-today', { rewrite: true });
+    expect(rewritten).toMatchObject({ diaryId: created.diaryId, mode: 'rewritten' });
+    expect(await current!.count('diary_versions')).toBe(2);
+  });
+
+  it('never publishes a truncated model completion as a finished diary', async () => {
+    const transport = await current!.start();
+    current!.setModelScript([[{ delta: { content: '未完成的日记' }, finish: 'length' }]]);
+    await expect(transport.request('POST', '/v1/diaries/generate-today', {})).rejects.toThrow('MODEL_COMPLETION_INCOMPLETE');
+    expect(await current!.count('diaries')).toBe(0);
+  });
+});
+
+describe('Android active persona in model context', () => {
+  it('uses the selected revision and applies a saved revision after activation', async () => {
+    const transport = await current!.start();
+    await session(transport);
+    const created = await transport.request<{ persona: { id: string }; revision: { revision: number } }>(
+      'POST', '/v1/personas', { name: '小隅', config: { systemPromptAppend: '说话简短，称呼我为小林。' } },
+    );
+    const path = `/v1/personas/${created.persona.id}`;
+    await transport.request('POST', `${path}/activate`, {});
+    await transport.streamTurn('phone_session', '你好', callbacks().value);
+    expect(mocks.contexts.at(-1)![0]!.content).toContain('称呼我为小林');
+    await transport.request('PATCH', path, {
+      expectedRevision: 1, config: { systemPromptAppend: '称呼我为阿林。' },
+    });
+    // Editing does not silently move a selected immutable revision.
+    await transport.streamTurn('phone_session', '旧修订', callbacks().value);
+    expect(mocks.contexts.at(-1)![0]!.content).toContain('称呼我为小林');
+    await transport.request('POST', `${path}/activate`, {});
+    await transport.streamTurn('phone_session', '新修订', callbacks().value);
+    expect(mocks.contexts.at(-1)![0]!.content).toContain('称呼我为阿林');
+    expect(mocks.contexts.at(-1)![0]!.content).not.toContain('称呼我为小林');
+  });
+});
+
 describe('Android backup export and restore over actual SQLite', () => {
+  it('restores rows whose dependencies appear after a successfully inserted prefix', async () => {
+    const transport = await current!.start();
+    await current!.database.execute(`INSERT INTO knowledge_items (id, concept, created_at, updated_at) VALUES ('k_dependency', '依赖', '2026-11-04T00:00:00Z', '2026-11-04T00:00:00Z')`);
+    await transport.request('POST', '/v1/questions', { prompt: '独立题', answerSpec: { answer: '1' } });
+    await transport.request('POST', '/v1/questions', { prompt: '依赖题', answerSpec: { answer: '2' }, knowledgeId: 'k_dependency' });
+    const exported = await transport.exportBackup!();
+    const file = JSON.parse(exported.text);
+    // Deliberately place child rows before their parent table.
+    file.tables.sort((a: { name: string }, b: { name: string }) => Number(b.name === 'questions') - Number(a.name === 'questions'));
+    file.sha256 = createHash('sha256').update(stableSerialize({ tables: file.tables })).digest('hex');
+    await transport.importBackup!(JSON.stringify(file));
+    expect(await current!.count('questions')).toBe(2);
+    expect((await current!.database.execute("SELECT knowledge_id FROM questions WHERE prompt = '依赖题'")).rows[0]!.knowledge_id).toBe('k_dependency');
+  });
+
   it('exports a hash-verified snapshot and restores it after a wipe', async () => {
     const fixture = current!;
     const transport = await fixture.start();

@@ -47,6 +47,18 @@ describe('backup envelope', () => {
       expect.objectContaining({ code: 'BACKUP_MALFORMED' }));
   });
 
+  it('rejects duplicate tables, duplicate columns and extra row fields before restore', () => {
+    for (const tables of [
+      [sampleTables[0]!, sampleTables[0]!],
+      [{ name: 'sessions', columns: ['id', 'id'], rows: [{ id: 's' }] }],
+      [{ name: 'sessions', columns: ['id'], rows: [{ id: 's', extra: 'hidden' }] }],
+    ]) {
+      const file = buildBackupFile(tables, digest);
+      expect(() => parseBackupFile(JSON.stringify(file), digest)).toThrowError(
+        expect.objectContaining({ code: 'BACKUP_MALFORMED' }));
+    }
+  });
+
   it('refuses schema drift in either direction', () => {
     const file = buildBackupFile(sampleTables, digest);
     const live = new Map([['sessions', ['id', 'title']], ['turns', ['id', 'sessionId']]]);

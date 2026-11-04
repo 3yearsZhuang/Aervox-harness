@@ -39,6 +39,7 @@ export function createQuestionBridge(options: { timeoutMs?: number } = {}): Ques
   const settle = () => {
     const current = pending;
     pending = undefined;
+    queued = undefined;
     if (current?.timer) clearTimeout(current.timer);
     current?.detach?.();
     return current;

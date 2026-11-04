@@ -86,15 +86,20 @@ export function parseBackupFile(text: string, digest: (value: unknown) => string
   if (file.format !== BACKUP_FORMAT || typeof file.formatVersion !== 'number') throw new BackupParseError('BACKUP_FORMAT_UNKNOWN');
   if (file.formatVersion !== BACKUP_FORMAT_VERSION) throw new BackupParseError('BACKUP_FORMAT_UNKNOWN');
   if (!Array.isArray(file.tables)) throw new BackupParseError('BACKUP_MALFORMED');
+  const names = new Set<string>();
   for (const table of file.tables) {
     if (!table || typeof table.name !== 'string' || !Array.isArray(table.columns) || !Array.isArray(table.rows)) {
       throw new BackupParseError('BACKUP_MALFORMED');
     }
-    if (table.columns.some(column => typeof column !== 'string')) throw new BackupParseError('BACKUP_MALFORMED');
+    if (names.has(table.name)) throw new BackupParseError('BACKUP_MALFORMED');
+    names.add(table.name);
+    if (!table.columns.length || table.columns.some(column => typeof column !== 'string')
+      || new Set(table.columns).size !== table.columns.length) throw new BackupParseError('BACKUP_MALFORMED');
     for (const row of table.rows) {
       if (!row || typeof row !== 'object' || Array.isArray(row)) throw new BackupParseError('BACKUP_MALFORMED');
+      if (Object.keys(row).length !== table.columns.length) throw new BackupParseError('BACKUP_MALFORMED');
       for (const column of table.columns) {
-        if (!(column in row)) throw new BackupParseError('BACKUP_MALFORMED');
+        if (!Object.hasOwn(row, column)) throw new BackupParseError('BACKUP_MALFORMED');
       }
     }
   }

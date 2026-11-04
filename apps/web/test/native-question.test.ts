@@ -80,3 +80,18 @@ it('stops delivering to a turn whose observation ended', async () => {
   await bridge.submit('turn_1', [{ id: 'q1', selected: [] }]);
   await pending;
 });
+
+it('does not replay an expired, cancelled or already answered queued question on reconnect', async () => {
+  vi.useFakeTimers();
+  for (const ending of ['timeout', 'cancel', 'answer'] as const) {
+    const bridge = createQuestionBridge({ timeoutMs: 1_000 });
+    const pending = bridge.port.ask(request).catch(error => error);
+    if (ending === 'timeout') vi.advanceTimersByTime(1_001);
+    else if (ending === 'cancel') bridge.cancel();
+    else await bridge.submit('turn_1', [{ id: 'q1', selected: ['ok'] }]);
+    await pending;
+    const delivered = vi.fn();
+    bridge.observe('turn_1', delivered);
+    expect(delivered).not.toHaveBeenCalled();
+  }
+});
