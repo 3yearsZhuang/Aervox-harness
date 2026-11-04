@@ -99,7 +99,9 @@ test('back dismisses only the top mobile layer while live observation and draft 
     await page.evaluate(() => window.history.back());
     await expect(sessions).toBeHidden();
     await expect(input).toHaveValue('下一条消息的草稿');
-    // The composer is permanently visible; only the sessions dialog adds a history layer.
+    // The composer is permanently visible, so it registers no back layer: the
+    // sessions dialog was the only layer and this Back consumed the whole guard.
+    expect(await page.evaluate(() => Boolean((history.state as { __aervoxMobileBack?: unknown } | null)?.__aervoxMobileBack))).toBe(false);
     await expect(page.locator('.proactive-companion')).toBeVisible();
     expect(calls.some(path => path.endsWith('/cancel'))).toBe(false);
     finish();
@@ -160,4 +162,7 @@ test('reloading the permanent mobile composer preserves drafts without adding in
   await expect(dialog).toBeHidden();
   await expect(input).toHaveValue('返回也要保留的草稿');
   expect(await page.evaluate(() => Boolean(history.state?.__aervoxMobileBack))).toBe(false);
+  // The composer registered no guard of its own; the only guards seen above came
+  // from the sessions dialog, and Back consumed exactly that one.
+  await expect(input).toBeVisible();
 });

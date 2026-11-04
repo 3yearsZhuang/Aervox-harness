@@ -78,14 +78,18 @@ test('keeps rejected-message feedback and its action fully visible without scrol
     await expect(page.locator('.proactive-companion')).toHaveAttribute('data-design-system', 'material3');
     await expect.poll(() => page.locator('.pc-whisper-input md-filled-button').evaluate(el => el.matches(':defined') && Boolean(el.shadowRoot?.querySelector('button')))).toBe(true);
     await expect(page.locator('.pc-header md-icon-button').first()).toHaveCSS('height', '48px');
-    const lightChoice = await page.locator('.pc-choice--primary').evaluate(el => getComputedStyle(el).backgroundColor);
     const lightSurface = await page.locator('html').evaluate(el => getComputedStyle(el).getPropertyValue('--md-sys-color-surface').trim());
     await expect(page.locator('.pc-dialogue-text')).toContainText('专注一会儿');
     const character = (await page.locator('.pc-pet-wrap').boundingBox())!;
     const dialogue = (await page.locator('.pc-dialogue').boundingBox())!;
-    expect(character.height).toBeGreaterThan(0);
-    expect(character.y).toBeGreaterThanOrEqual(0);
-    expect(dialogue.y).toBeGreaterThanOrEqual(character.y);
+    // ADR-022 mobile contract: the character is enlarged past its visible window
+    // (the stage clips it), and the dialogue sits in the lower part of that stage,
+    // deliberately overlapping the character's lower body instead of below it.
+    const stage = (await page.locator('.pc-stage').boundingBox())!;
+    expect(character.height).toBeGreaterThanOrEqual(500);
+    expect(dialogue.y).toBeLessThan(character.y + character.height);
+    expect(dialogue.y).toBeGreaterThan(stage.y + stage.height * .55);
+    expect(dialogue.y).toBeGreaterThan(character.y + character.height * .4);
     const composer = (await page.locator('.pc-whisper-input').boundingBox())!;
     expect(dialogue.y + dialogue.height).toBeLessThanOrEqual(composer.y + 1);
     expect(composer.y + composer.height).toBeLessThanOrEqual(845);
@@ -149,7 +153,14 @@ test('keeps rejected-message feedback and its action fully visible without scrol
     await page.evaluate(() => { localStorage.setItem('aervox-theme', 'dark'); document.documentElement.dataset.theme = 'dark'; });
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     await expect.poll(() => page.locator('html').evaluate(el => getComputedStyle(el).getPropertyValue('--md-sys-color-surface').trim())).not.toBe(lightSurface);
-    await expect.poll(() => page.locator('.pc-choice--primary').evaluate(el => getComputedStyle(el).backgroundColor)).not.toBe(lightChoice);
+    await expect.poll(() => page.locator('.pc-choice--primary').evaluate(el => {
+      // Compare against the computed token instead of merely "different from light".
+      const expected = document.createElement('div');
+      expected.style.backgroundColor = 'var(--md-sys-color-primary-container)';
+      document.body.append(expected);
+      const settled = getComputedStyle(el).backgroundColor === getComputedStyle(expected).backgroundColor;
+      expected.remove(); return settled;
+    })).toBe(true);
     await page.screenshot({ path: '/tmp/aervox-material3-dark.png', fullPage: true, animations: 'disabled' });
   });
 
