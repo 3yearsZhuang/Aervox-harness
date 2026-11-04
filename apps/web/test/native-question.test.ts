@@ -95,3 +95,21 @@ it('does not replay an expired, cancelled or already answered queued question on
     expect(delivered).not.toHaveBeenCalled();
   }
 });
+
+it('redelivers a still-pending question after observation reconnects without extending its deadline', async () => {
+  vi.useFakeTimers();
+  const bridge = createQuestionBridge({ timeoutMs: 1_000 });
+  const first = vi.fn(), reconnected = vi.fn();
+  const stop = bridge.observe('turn_1', first);
+  const pending = bridge.port.ask(request);
+  expect(first).toHaveBeenCalledTimes(1);
+  stop();
+  vi.advanceTimersByTime(400);
+  bridge.observe('turn_1', reconnected);
+  expect(reconnected).toHaveBeenCalledWith(expect.objectContaining({ turnId: 'turn_1', timeoutMs: 600 }));
+  const timeout = expect(pending).rejects.toThrow('QUESTION_TIMEOUT');
+  vi.advanceTimersByTime(601);
+  await timeout;
+  const retired = vi.fn(); bridge.observe('turn_1', retired);
+  expect(retired).not.toHaveBeenCalled();
+});

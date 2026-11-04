@@ -18,7 +18,7 @@ import { delay, createNativeModelProvider } from './native-model-provider';
 import { nativeContextBuilder } from './native-context';
 import { createDeviceTooling, DEVICE_TOOL_NAMES } from './native-tools';
 import { createQuestionBridge } from './native-question';
-import { buildBackupFile, denormalizeBackupValue, normalizeBackupValue, parseBackupFile, verifyBackupShape, BackupParseError, type BackupTable } from './native-backup';
+import { buildBackupFile, denormalizeBackupValue, normalizeBackupValue, parseBackupFile, verifyBackupShape, BackupParseError, MAX_BACKUP_BYTES, planBackupRestore, type BackupTable } from './native-backup';
 import { createLearningRouteHandler } from './native-learning';
 import { activePersonaPrompt, createPersonaRouteHandler } from './native-persona';
 import { createDiaryRouteHandler } from './native-diary';
@@ -32,12 +32,21 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
   let nativeClient: NativeSqliteClient | undefined;
   let recoveryTimer: ReturnType<typeof setInterval> | undefined;
   let accepting = false;
+  let restoring = false;
+  let restored = false;
+  let databaseUsers = 0;
   let retired = false;
   // The bridge owns the suspended ask_user_question promise for this host.
   const questionBridge = createQuestionBridge();
   let foregroundRevision = 0;
   let cancelActive = async () => {};
   const checkOpen = () => { if (retired) fail(503, 'HOST_CLOSED'); };
+  const checkDatabaseAvailable = () => { checkOpen(); if (restored) fail(409, 'HOST_RESTART_REQUIRED'); if (restoring) fail(409, 'BACKUP_RESTORE_IN_PROGRESS'); };
+  const withDatabase = async <T>(operation: () => Promise<T>): Promise<T> => {
+    checkDatabaseAvailable();
+    databaseUsers++;
+    try { return await operation(); } finally { databaseUsers--; }
+  };
   const visibilityChanged = () => {
     if (document.hidden) { foregroundRevision++; void cancelActive().catch(() => undefined); }
   };
@@ -169,12 +178,12 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
   const nativeModelProvider = createNativeModelProvider(nativeRequest, async request => {
     await store.requestCancelAttempt({ turnId: request.turnId, attemptId: request.attemptId });
   });
-  const recovery = () => repo.recoverExpiredAttempts(client, { dispatchTarget: 'default', unclaimedTimeoutMs: 0 });
+  const recovery = () => withDatabase(() => repo.recoverExpiredAttempts(client, { dispatchTarget: 'default', unclaimedTimeoutMs: 0 }));
   await recovery().catch(error => { retire(); throw error; });
   checkOpen();
   // Expired executions are retired by the repository; never replay model work.
   // A recent lease stays visible until expiry instead of stealing its identity.
-  recoveryTimer = setInterval(() => { if (!active && !accepting) void recovery().catch(() => undefined); }, 5000);
+  recoveryTimer = setInterval(() => { if (!active && !accepting && !restoring) void recovery().catch(() => undefined); }, 5000);
   cancelActive = async () => {
     const owner = active;
     if (!owner) return;
@@ -184,7 +193,7 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
     owner.control.abort();
   };
 
-  const observe = async (turnId: string, callbacks: TurnCallbacks, options: ObserveTurnOptions = {}) => {
+  const observeUnlocked = async (turnId: string, callbacks: TurnCallbacks, options: ObserveTurnOptions = {}) => {
     const checkOpen = () => {
       if (retired) fail(503, 'HOST_CLOSED');
       options.signal?.throwIfAborted();
@@ -235,8 +244,11 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       }
     } finally { stopQuestions(); }
   };
+  const observe = (turnId: string, callbacks: TurnCallbacks, options: ObserveTurnOptions = {}) =>
+    withDatabase(() => observeUnlocked(turnId, callbacks, options));
   return {
     async request<T>(method: string, path: string, body?: unknown, options?: { headers?: Record<string, string>; signal?: AbortSignal }): Promise<T> {
+      return withDatabase(async () => {
       checkOpen();
       options?.signal?.throwIfAborted();
       const url = new URL(path, 'https://localhost');
@@ -300,9 +312,10 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       }
       checkOpen();
       return result as T;
+      });
     },
     async streamTurn(sessionId, content, callbacks, options = {}) {
-      checkOpen();
+      checkDatabaseAvailable();
       options.signal?.throwIfAborted();
       if (document.hidden) fail(422, 'HOST_NOT_FOREGROUND');
       const admissionRevision = foregroundRevision;
@@ -367,8 +380,13 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       }
     },
     async decideToolApproval(turnId: string, approvalId: string, decision: 'granted' | 'denied', signal?: AbortSignal) {
-      checkOpen();
+      checkDatabaseAvailable();
       signal?.throwIfAborted();
+      if (document.hidden) fail(422, 'HOST_NOT_FOREGROUND');
+      if (active || accepting) fail(409, 'REPLY_IN_PROGRESS');
+      const admissionRevision = foregroundRevision;
+      accepting = true;
+      try {
       identifier(turnId);
       identifier(approvalId);
       if (decision !== 'granted' && decision !== 'denied') return fail(400, 'INVALID_APPROVAL_DECISION');
@@ -380,15 +398,27 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
         && approval.toolName !== ASK_USER_QUESTION_TOOL && !DEVICE_TOOL_NAMES().has(approval.toolName)) {
         return fail(409, 'APPROVAL_BINDING_UNAVAILABLE');
       }
+      checkOpen();
+      signal?.throwIfAborted();
+      if (document.hidden || admissionRevision !== foregroundRevision) fail(422, 'HOST_NOT_FOREGROUND');
       const decided = await repo.decideToolApprovalAndResume(ctx,
         { turnId, approvalId, decision, decidedBy: 'user' });
       if (!decided) return fail(404, 'APPROVAL_NOT_FOUND');
       if (!decided.ready) return fail(409, 'APPROVAL_NOT_RESUMABLE');
-      if (decided.continuation) {
+      checkOpen();
+      if (decided.continuation && (document.hidden || admissionRevision !== foregroundRevision || signal?.aborted)) {
+        await store.requestCancelAttempt({ turnId, attemptId: decided.continuation.attempt.id });
+        signal?.throwIfAborted();
+      } else if (decided.continuation) {
         const { attempt, pending, turn, toolCallId, step } = decided.continuation;
         const userMessage = (await repo.getTurnUserMessage(ctx, turnId)) ?? '';
         const events = await repo.getStreamEvents(ctx, turnId, 0);
         const resumed = buildResumeHistory({ userMessage, events: events as never });
+        checkOpen();
+        if (document.hidden || admissionRevision !== foregroundRevision || signal?.aborted) {
+          await store.requestCancelAttempt({ turnId, attemptId: attempt.id });
+          signal?.throwIfAborted();
+        } else {
         const control = new ControlContext({ turnId, sessionId: turn.sessionId, attemptId: attempt.id, deadlineEpochMs: Date.now() + 300_000 });
         const owner = { turnId, sessionId: turn.sessionId, attemptId: attempt.id, control, done: Promise.resolve() as Promise<unknown> };
         active = owner;
@@ -404,10 +434,12 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
         }, { turnId, sessionId: turn.sessionId, attemptId: attempt.id, userMessage },
         ).finally(() => { control.dispose(); if (active === owner) active = undefined; });
         void owner.done.catch(() => undefined);
+        }
       }
       const attemptId = (decided.event?.data as { continuationAttemptId?: string } | undefined)?.continuationAttemptId;
       return { approvalId: decided.approval.id, state: decision,
         ...(attemptId && decided.event ? { continuation: { attemptId, afterEventId: decided.event.id } } : {}) };
+      } finally { accepting = false; }
     },
     async speakText({ text }: { text: string }, signal?: AbortSignal) {
       checkOpen();
@@ -429,6 +461,7 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
     },
     // ---- 备份与恢复：自描述格式、摘要校验、严格模式对齐 ----
     async exportBackup(signal?: AbortSignal) {
+      return withDatabase(async () => {
       checkOpen();
       signal?.throwIfAborted();
       console.warn('[Aervox] backup export start', { closed: (nativeClient as { closed?: boolean } | undefined)?.closed,
@@ -447,22 +480,55 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
           const name = String(row.name ?? row[0]);
           const probe = await tx.execute(`SELECT * FROM ${quote(name)} LIMIT 0`);
           const columns = [...probe.columns];
-          const data = await tx.execute(`SELECT * FROM ${quote(name)}`);
-          const rows = data.rows.map(item => Object.fromEntries(
-            columns.map((column, index) => [column, normalizeBackupValue(item[index])])));
+          const rows: Record<string, unknown>[] = [];
+          const order = columns.map(quote).join(', ');
+          const lengths = columns.map((column, index) => `length(CAST(${quote(column)} AS BLOB)) AS "size_${index}"`).join(', ');
+          let offset = 0;
+          for (;;) {
+            signal?.throwIfAborted(); checkOpen();
+            // Probe only integer lengths: a failed statement inside the native
+            // transaction quarantines the writer, so never discover limits by
+            // overshooting a CursorWindow and retrying.
+            const sizes = await tx.execute(`SELECT ${lengths} FROM ${quote(name)} ORDER BY ${order} LIMIT 64 OFFSET ${offset}`);
+            if (!sizes.rows.length) break;
+            let count = 0, bytes = 0;
+            for (const row of sizes.rows) {
+              const cells = columns.map((_, index) => Number(row[index] ?? 0));
+              const size = cells.reduce((total, value) => total + value, 32 + columns.length * 32);
+              if (cells.some(value => !Number.isSafeInteger(value) || value < 0 || value > 256 * 1024) || size > 384 * 1024) {
+                throw new Error('BACKUP_ROW_TOO_LARGE');
+              }
+              if (bytes + size > 384 * 1024) break;
+              bytes += size; count++;
+            }
+            const data = await tx.execute(`SELECT * FROM ${quote(name)} ORDER BY ${order} LIMIT ${count} OFFSET ${offset}`);
+            if (data.rows.length !== count) throw new Error('BACKUP_SNAPSHOT_CHANGED');
+            for (const item of data.rows) {
+              const row = Object.fromEntries(columns.map((column, index) => [column, normalizeBackupValue(item[index])]));
+              if (encoder.encode(JSON.stringify(row)).byteLength > 512 * 1024) throw new Error('BACKUP_ROW_TOO_LARGE');
+              rows.push(row);
+            }
+            offset += count;
+          }
           tables.push({ name, columns, rows });
         }
         await tx.commit();
         const file = buildBackupFile(tables, value => hostCrypto.sha256Utf8(stableSerialize(value)));
-        return { text: JSON.stringify(file), createdAt: file.createdAt, tableCounts: file.tableCounts };
+        const text = JSON.stringify(file);
+        if (encoder.encode(text).byteLength > MAX_BACKUP_BYTES) throw new Error('BACKUP_TOO_LARGE');
+        return { text, createdAt: file.createdAt, tableCounts: file.tableCounts };
       } catch (error) {
         await tx.rollback().catch(() => undefined);
         throw error;
       }
+      });
     },
     async importBackup(text: string, signal?: AbortSignal) {
-      checkOpen();
+      checkDatabaseAvailable();
       signal?.throwIfAborted();
+      if (active || accepting || databaseUsers) fail(409, 'BACKUP_RESTORE_BUSY');
+      restoring = true;
+      try {
       const file = parseBackupFile(text, value => hostCrypto.sha256Utf8(stableSerialize(value)));
       const quote = (name: string) => {
         if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) throw new Error('BACKUP_TABLE_UNEXPECTED');
@@ -471,11 +537,13 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       const tx = await client.transaction('write');
       try {
         const liveColumns = new Map<string, string[]>();
-        const names = await tx.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != '_aervox_schema_versions'");
+        const definitions = new Map<string, string>();
+        const names = await tx.execute("SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != '_aervox_schema_versions'");
         for (const row of names.rows) {
           const name = String(row.name ?? row[0]);
           const probe = await tx.execute(`SELECT * FROM ${quote(name)} LIMIT 0`);
           liveColumns.set(name, [...probe.columns]);
+          definitions.set(name, String(row.sql ?? row[1] ?? ''));
         }
         try { verifyBackupShape(file, liveColumns); }
         catch (error) {
@@ -483,39 +551,30 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
           if (error instanceof BackupParseError) return fail(409, error.code);
           throw error;
         }
-        // Foreign keys are enforced; clear and refill in dependency-tolerant
-        // passes (the statement policy forbids PRAGMA defer_foreign_keys).
-        let pendingDeletes = [...file.tables].reverse();
-        while (pendingDeletes.length) {
-          const failed: typeof pendingDeletes = [];
-          for (const table of pendingDeletes) {
-            try { await tx.execute(`DELETE FROM ${quote(table.name)}`); }
-            catch { failed.push(table); }
-          }
-          if (failed.length === pendingDeletes.length) throw new Error('BACKUP_RESTORE_BLOCKED');
-          pendingDeletes = failed;
+        // Pre-plan using the live canonical FKs. In native transactions even a
+        // constraint failure quarantines the connection; no failed-write probes.
+        const ordered = planBackupRestore(file, definitions);
+        for (const table of [...ordered].reverse()) {
+          signal?.throwIfAborted(); checkOpen();
+          await tx.execute(`DELETE FROM ${quote(table.name)}`);
         }
-        let pendingInserts = file.tables.flatMap(table => table.rows.map(row => ({ table, row })));
-        while (pendingInserts.length) {
-          const failed: typeof pendingInserts = [];
-          for (const entry of pendingInserts) {
-            const { table, row } = entry;
-            try {
-              const columns = table.columns.map(quote).join(', ');
-              const placeholders = table.columns.map(() => '?').join(', ');
-              const values = table.columns.map(column => denormalizeBackupValue(row[column]) as never);
-              await tx.execute({ sql: `INSERT INTO ${quote(table.name)} (${columns}) VALUES (${placeholders})`, args: values });
-            } catch { failed.push(entry); }
+        for (const table of ordered) {
+          const columns = table.columns.map(quote).join(', ');
+          const placeholders = table.columns.map(() => '?').join(', ');
+          for (const row of table.rows) {
+            signal?.throwIfAborted(); checkOpen();
+            const values = table.columns.map(column => denormalizeBackupValue(row[column]) as never);
+            await tx.execute({ sql: `INSERT INTO ${quote(table.name)} (${columns}) VALUES (${placeholders})`, args: values });
           }
-          if (failed.length === pendingInserts.length) throw new Error('BACKUP_RESTORE_BLOCKED');
-          pendingInserts = failed;
         }
         await tx.commit();
+        restored = true;
         return { imported: file.tableCounts };
       } catch (error) {
         await tx.rollback().catch(() => undefined);
         throw error;
       }
+      } finally { restoring = false; }
     },
     async pickTextFile(signal?: AbortSignal) {
       checkOpen();
@@ -548,6 +607,40 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       signal?.throwIfAborted();
       const receipt = await nativeRequest({ op: 'notification', operation: 'status' });
       return { enabled: receipt?.enabled === true, permission: receipt?.permission === 'granted' ? 'granted' : 'denied' };
+    },
+    async shareTextFile({ title, text }: { title: string; text: string }, signal?: AbortSignal) {
+      checkOpen(); signal?.throwIfAborted();
+      if (!text.trim()) fail(400, 'EMPTY_SHARE_TEXT');
+      if (/[\uD800-\uDFFF]/u.test(text) || encoder.encode(text).byteLength > MAX_BACKUP_BYTES) fail(413, 'BACKUP_TOO_LARGE');
+      let exportId: string | undefined;
+      let abortSent = false;
+      const abort = async () => {
+        if (abortSent || !exportId) return;
+        abortSent = true;
+        await nativeRequest({ op: 'backup_file', operation: 'abort', exportId }).catch(() => undefined);
+      };
+      const onAbort = () => { void abort(); };
+      signal?.addEventListener('abort', onAbort, { once: true });
+      try {
+        const started = await nativeRequest({ op: 'backup_file', operation: 'begin', title: title.slice(0, 120) });
+        if (started?.kind !== 'backup_file' || typeof started.exportId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(started.exportId)) fail(503, 'BACKUP_SHARE_UNAVAILABLE');
+        exportId = started.exportId;
+        checkOpen(); signal?.throwIfAborted();
+        let sequence = 0;
+        for (let offset = 0; offset < text.length;) {
+          checkOpen(); signal?.throwIfAborted();
+          let end = Math.min(offset + 32 * 1024, text.length);
+          if (end < text.length && /[\uD800-\uDBFF]/.test(text[end - 1]!)) end--;
+          const receipt = await nativeRequest({ op: 'backup_file', operation: 'append', exportId,
+            sequence: ++sequence, text: text.slice(offset, end) });
+          if (receipt?.kind !== 'backup_file' || receipt.exportId !== exportId || receipt.sequence !== sequence) fail(503, 'BACKUP_SHARE_UNAVAILABLE');
+          offset = end;
+        }
+        checkOpen(); signal?.throwIfAborted();
+        const receipt = await nativeRequest({ op: 'backup_file', operation: 'finish', exportId, sequence });
+        if (receipt?.kind !== 'backup_file_shared' || receipt.ok !== true) fail(503, 'BACKUP_SHARE_UNAVAILABLE');
+      } catch (error) { await abort(); throw error; }
+      finally { signal?.removeEventListener('abort', onAbort); }
     },
     async shareText({ title, text }: { title: string; text: string }, signal?: AbortSignal) {
       checkOpen();

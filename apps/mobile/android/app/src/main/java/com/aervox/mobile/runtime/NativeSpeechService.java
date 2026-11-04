@@ -66,8 +66,7 @@ final class NativeSpeechService {
             } else if ("speak".equals(operation)) {
                 speak(command, result);
             } else if ("stop".equals(operation)) {
-                if (engine != null && ready) engine.stop();
-                speaking = false;
+                stop();
                 result.complete(new JSONObject().put("kind", "speech_result").put("ok", true));
             } else {
                 result.completeExceptionally(new SpeechException("INVALID_REQUEST"));
@@ -90,6 +89,13 @@ final class NativeSpeechService {
             if (status != TextToSpeech.SUCCESS) { result.completeExceptionally(new SpeechException("SPEECH_FAILED")); return; }
             try { result.complete(new JSONObject().put("kind", "speech_result").put("ok", true)); }
             catch (Exception ignored) { result.completeExceptionally(new SpeechException("SPEECH_FAILED")); }
+        });
+    }
+
+    void stop() {
+        main.post(() -> {
+            if (engine != null && ready) engine.stop();
+            speaking = false;
         });
     }
 

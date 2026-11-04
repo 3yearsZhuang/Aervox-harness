@@ -38,6 +38,7 @@ final class NativeDeviceService {
     }
 
     private final Context context;
+    private final java.util.function.BooleanSupplier foreground;
     private final NativeDeviceService.Shell shizukuShell = new NativeShizukuShell();
     private final SharedPreferences grants;
     private final ExecutorService work = Executors.newSingleThreadExecutor(runnable -> {
@@ -50,9 +51,12 @@ final class NativeDeviceService {
     private volatile boolean closed;
     private volatile Boolean rootCached;
 
-    NativeDeviceService(Context owner) { this(owner, NativeDeviceService::runRoot); }
+    NativeDeviceService(Context owner, java.util.function.BooleanSupplier foreground) { this(owner, NativeDeviceService::runRoot, foreground); }
 
-    NativeDeviceService(Context owner, Shell runner) {
+    NativeDeviceService(Context owner, Shell runner) { this(owner, runner, () -> true); }
+
+    NativeDeviceService(Context owner, Shell runner, java.util.function.BooleanSupplier isForeground) {
+        foreground = isForeground;
         context = owner.getApplicationContext();
         grants = context.getSharedPreferences(STORE, Context.MODE_PRIVATE);
         shell = runner;
@@ -61,6 +65,7 @@ final class NativeDeviceService {
     CompletableFuture<JSONObject> request(JSONObject command) {
         CompletableFuture<JSONObject> result = new CompletableFuture<>();
         try {
+            if (closed) throw new DeviceException("CLOSED");
             String op = command.optString("operation", "");
             if (op.equals("status")) { status(result); return result; }
             if (op.equals("grant")) { grant(command, result); return result; }
@@ -126,9 +131,11 @@ final class NativeDeviceService {
                 String output;
                 String transport;
                 if (rootAvailable()) {
+                    checkExecution(action.capability);
                     output = bounded(shell.run(action.line, COMMAND_TIMEOUT_MS));
                     transport = "root";
                 } else if (NativeShizukuShell.available()) {
+                    checkExecution(action.capability);
                     output = bounded(shizukuShell.run(action.line, COMMAND_TIMEOUT_MS));
                     transport = "shizuku";
                 } else {
@@ -142,6 +149,12 @@ final class NativeDeviceService {
                 result.completeExceptionally(new DeviceException("COMMAND_FAILED"));
             } finally { busy.set(false); }
         });
+    }
+
+    private void checkExecution(String capability) throws DeviceException {
+        if (closed) throw new DeviceException("CLOSED");
+        if (!foreground.getAsBoolean()) throw new DeviceException("NOT_FOREGROUND");
+        if (!grants.getBoolean(capability, false)) throw new DeviceException("DEVICE_CAPABILITY_DISABLED");
     }
 
     private JSONObject info() throws Exception {
@@ -159,7 +172,7 @@ final class NativeDeviceService {
         return new JSONObject()
             .put(NativeDevicePolicy.CAPABILITY_CONTROL, grants.getBoolean(NativeDevicePolicy.CAPABILITY_CONTROL, false))
             .put(NativeDevicePolicy.CAPABILITY_APPS, grants.getBoolean(NativeDevicePolicy.CAPABILITY_APPS, false))
-            .put(NativeDevicePolicy.CAPABILITY_ADVANCED, grants.getBoolean(NativeDevicePolicy.CAPABILITY_ADVANCED, false));
+            .put(NativeDevicePolicy.CAPABILITY_ADVANCED, false);
     }
 
     private boolean rootAvailable() {

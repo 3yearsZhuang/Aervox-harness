@@ -3,12 +3,13 @@
  * The export carries each table's column shape alongside its rows so the
  * importer can verify the file against the live database without trusting the
  * sender: exact column match or a hard refusal, never a silent partial write.
- * The digest covers the payload only, so transport metadata cannot be swapped
- * without detection.
+ * The digest covers table data. Transport metadata is checked separately and
+ * counts must agree with the verified rows.
  */
 
 export const BACKUP_FORMAT = 'aervox-mobile-backup';
 export const BACKUP_FORMAT_VERSION = 1;
+export const MAX_BACKUP_BYTES = 16 * 1024 * 1024;
 
 export interface BackupTable {
   name: string;
@@ -71,7 +72,9 @@ export type BackupParseFailure =
   | 'BACKUP_MALFORMED'
   | 'BACKUP_FORMAT_UNKNOWN'
   | 'BACKUP_CORRUPTED'
-  | 'BACKUP_SCHEMA_MISMATCH';
+  | 'BACKUP_SCHEMA_MISMATCH'
+  | 'BACKUP_TOO_LARGE'
+  | 'BACKUP_RESTORE_BLOCKED';
 
 export class BackupParseError extends Error {
   constructor(readonly code: BackupParseFailure, message?: string) { super(message ?? code); }
@@ -79,6 +82,7 @@ export class BackupParseError extends Error {
 
 /** Parse and verify a backup text; throws a fixed code on any doubt. */
 export function parseBackupFile(text: string, digest: (value: unknown) => string): BackupFile {
+  if (new TextEncoder().encode(text).byteLength > MAX_BACKUP_BYTES) throw new BackupParseError('BACKUP_TOO_LARGE');
   let parsed: unknown;
   try { parsed = JSON.parse(text); } catch { throw new BackupParseError('BACKUP_MALFORMED'); }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new BackupParseError('BACKUP_MALFORMED');
@@ -104,6 +108,11 @@ export function parseBackupFile(text: string, digest: (value: unknown) => string
     }
   }
   if (digest({ tables: file.tables }) !== file.sha256) throw new BackupParseError('BACKUP_CORRUPTED');
+  if (typeof file.createdAt !== 'string' || !Number.isFinite(Date.parse(file.createdAt))
+    || !file.tableCounts || typeof file.tableCounts !== 'object' || Array.isArray(file.tableCounts)
+    || Object.keys(file.tableCounts).length !== file.tables.length
+    || file.tables.some(table => !Object.hasOwn(file.tableCounts!, table.name)
+      || file.tableCounts![table.name] !== table.rows.length)) throw new BackupParseError('BACKUP_MALFORMED');
   return file as BackupFile;
 }
 
@@ -129,4 +138,97 @@ export function verifyBackupShape(
       throw new BackupParseError('BACKUP_SCHEMA_MISMATCH', `column mismatch: ${table.name}`);
     }
   }
+}
+
+interface ForeignKey { columns: string[]; target: string; targetColumns: string[] }
+const restoreBlocked = (): never => { throw new BackupParseError('BACKUP_RESTORE_BLOCKED'); };
+
+/** Parse only the canonical, trusted sqlite_master definitions, never backup DDL. */
+function foreignKeys(definition: string): ForeignKey[] {
+  const keys: ForeignKey[] = [];
+  const identifier = (value: string) => {
+    const name = value.trim().replace(/^"(.*)"$/, '$1');
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) return restoreBlocked();
+    return name;
+  };
+  const pattern = /FOREIGN\s+KEY\s*\(([^)]+)\)\s+REFERENCES\s+("[^"]+"|[A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]+)\)/gi;
+  for (const match of definition.matchAll(pattern)) {
+    const columns = match[1]!.split(',').map(identifier);
+    const targetColumns = match[3]!.split(',').map(identifier);
+    if (!columns.length || columns.length !== targetColumns.length) return restoreBlocked();
+    keys.push({ columns, target: identifier(match[2]!), targetColumns });
+  }
+  if ((definition.match(/\bREFERENCES\b/gi) ?? []).length !== keys.length) return restoreBlocked();
+  return keys;
+}
+
+/** Plan dependency order before the first write. Native transaction failures
+ * quarantine the connection, so rejected INSERTs must never be used as probes.
+ * Cyclic dependencies which cannot be inserted with immediate FKs are refused.
+ */
+export function planBackupRestore(file: BackupFile, definitions: Map<string, string>): BackupTable[] {
+  const tables = new Map(file.tables.map(table => [table.name, table]));
+  const keys = new Map([...definitions].map(([name, ddl]) => [name, foreignKeys(ddl)]));
+  const ordered: BackupTable[] = [], visiting = new Set<string>(), visited = new Set<string>();
+  const key = (row: Record<string, unknown>, columns: string[]) => {
+    const values = columns.map(column => {
+      if (!Object.hasOwn(row, column)) return restoreBlocked();
+      const value = row[column];
+      if (value === null) return null;
+      if (typeof value === 'string' || typeof value === 'number') return String(value);
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        const record = value as Record<string, unknown>;
+        if (typeof record.__bigint === 'string') return BigInt(record.__bigint).toString();
+        if (typeof record.__blob === 'string') return `blob:${record.__blob}`;
+      }
+      return restoreBlocked();
+    });
+    return values.some(value => value === null) ? null : JSON.stringify(values);
+  };
+  const indexes = new Map<string, Map<string, number>>();
+  const indexFor = (table: BackupTable, columns: string[]) => {
+    const name = JSON.stringify([table.name, columns]);
+    let index = indexes.get(name);
+    if (!index) {
+      index = new Map();
+      table.rows.forEach((row, position) => {
+        const value = key(row, columns);
+        if (value !== null) {
+          if (index!.has(value)) return restoreBlocked();
+          index!.set(value, position);
+        }
+      });
+      indexes.set(name, index);
+    }
+    return index;
+  };
+  const visit = (name: string) => {
+    if (visited.has(name)) return;
+    if (visiting.has(name)) return restoreBlocked();
+    const table = tables.get(name);
+    if (!table || !definitions.has(name)) return restoreBlocked();
+    visiting.add(name);
+    for (const foreign of keys.get(name) ?? []) if (foreign.target !== name) visit(foreign.target);
+    const rowOrder: number[] = [], rowVisiting = new Set<number>(), rowVisited = new Set<number>();
+    const visitRow = (position: number) => {
+      if (rowVisited.has(position)) return;
+      if (rowVisiting.has(position)) return restoreBlocked();
+      rowVisiting.add(position);
+      for (const foreign of keys.get(name) ?? []) {
+        const value = key(table.rows[position]!, foreign.columns);
+        if (value === null) continue;
+        const parent = tables.get(foreign.target);
+        if (!parent) return restoreBlocked();
+        const targetPosition = indexFor(parent, foreign.targetColumns).get(value);
+        if (targetPosition === undefined) return restoreBlocked();
+        if (foreign.target === name && targetPosition !== position) visitRow(targetPosition);
+      }
+      rowVisiting.delete(position); rowVisited.add(position); rowOrder.push(position);
+    };
+    table.rows.forEach((_, position) => visitRow(position));
+    ordered.push({ ...table, rows: rowOrder.map(position => table.rows[position]!) });
+    visiting.delete(name); visited.add(name);
+  };
+  for (const name of tables.keys()) visit(name);
+  return ordered;
 }

@@ -426,3 +426,14 @@ test("API and plugin standards run after build in full and incremental gates", (
   const incremental = fs.readFileSync(path.join(ROOT_DIR, "scripts/check-affected.mjs"), "utf8");
   assert.ok(incremental.indexOf('["check:standards"]') > incremental.indexOf('const buildRes ='));
 });
+
+test('Android emulator commands resolve Gradle from the repository root without a persistent cd', () => {
+  const source = fs.readFileSync(path.join(ROOT_DIR, '.github/workflows/android.yml'), 'utf8');
+  const script = source.split('          script: |')[1]?.split(/\n      - /)[0];
+  assert.ok(script, 'emulator script must be declared');
+  const command = script.split('\n').map(line => line.trim()).find(line => line.includes('connectedDebugAndroidTest'));
+  assert.ok(command);
+  assert.match(command, /^mise exec -- \.\/apps\/mobile\/android\/gradlew -p apps\/mobile\/android /);
+  assert.ok(fs.existsSync(path.join(ROOT_DIR, 'apps/mobile/android/gradlew')));
+  assert.ok(fs.existsSync(path.join(ROOT_DIR, 'apps/mobile/android/settings.gradle')));
+});

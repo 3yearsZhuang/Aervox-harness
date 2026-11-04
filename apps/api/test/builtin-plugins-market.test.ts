@@ -11,6 +11,9 @@ import { buildApp } from "./app-fixture.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PLUGINS_SOURCE_ROOT = path.resolve(__dirname, "../../../plugins");
+const homeAssistantVersion = async () => pluginManifestSchema.parse(JSON.parse(await fs.readFile(
+  path.join(PLUGINS_SOURCE_ROOT, "plugins/tool/home-assistant/plugin.manifest.json"), "utf8",
+))).metadata.version;
 
 describe("出厂官方插件集市与全量插件打包验证 (Market & Builtin Plugins Packaging)", () => {
   it("可分发插件的 Manifest 全部通过契约校验，根界面源码不伪装为分发包", async () => {
@@ -123,7 +126,7 @@ describe("出厂官方插件集市与全量插件打包验证 (Market & Builtin 
     });
     expect(resHa.statusCode).toBe(201);
     expect(resHa.json().id).toBe("ap-tool-home-assistant");
-    expect(resHa.json().version).toBe("1.0.0");
+    expect(resHa.json().version).toBe(await homeAssistantVersion());
 
     // 验证配置 Schema 是否就绪
     const configRes = await app.inject({
@@ -165,7 +168,7 @@ describe("出厂官方插件集市与全量插件打包验证 (Market & Builtin 
     });
     expect(exportRes.statusCode).toBe(200);
     const exported = exportRes.json();
-    expect(exported.filename).toBe("ap-tool-home-assistant-v1.0.0.aervox-plugin");
+    expect(exported.filename).toBe(`ap-tool-home-assistant-v${await homeAssistantVersion()}.aervox-plugin`);
     expect(exported.checksum).toMatch(/^[a-f0-9]{64}$/);
 
     const bundleBytes = Buffer.from(exported.packageBase64, "base64");

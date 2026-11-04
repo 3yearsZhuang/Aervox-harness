@@ -107,6 +107,8 @@ export interface AervoxTransport {
   /** PET-05: 写工具授权审批提交 */
   decideToolApproval(turnId: string, approvalId: string, decision: 'granted' | 'denied', signal?: AbortSignal): Promise<ToolApprovalDecisionResponse | void>;
   /** 宿主提供的文本分享（手机分享面板）；缺省表示该宿主不支持。 */
+  /** File export for larger text artifacts; host owns the file and temporary read grant. */
+  shareTextFile?(input: { title: string; text: string }, signal?: AbortSignal): Promise<void>;
   shareText?(input: { title: string; text: string }, signal?: AbortSignal): Promise<void>;
   /** 宿主提供的朗读（手机系统 TTS）；缺省表示该宿主不支持。 */
   speakText?(input: { text: string }, signal?: AbortSignal): Promise<void>;

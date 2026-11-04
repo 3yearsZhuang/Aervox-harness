@@ -10,6 +10,7 @@ import {
   activatePersonaRequestSchema,
   createPersonaRequestSchema,
   updatePersonaRequestSchema,
+  type PersonaRevisionConfig,
 } from '@aervox/contracts';
 import type { IPersonaRepository, LocalContext } from '@aervox/repositories/persona';
 
@@ -33,6 +34,23 @@ export interface PersonaRouteDeps {
 }
 
 export type PersonaRouteResult = { handled: true; result: unknown } | { handled: false };
+
+/** Keep the same normalized shape and key order as the desktop persona contract. */
+function normalizeConfig(config: PersonaRevisionConfig): PersonaRevisionConfig {
+  const nonEmpty = (value: string) => {
+    const normalized = value.trim();
+    if (!normalized) return fail(400, 'INVALID_PERSONA');
+    return normalized;
+  };
+  return {
+    systemPromptAppend: nonEmpty(config.systemPromptAppend),
+    ...(config.allowedSkillNames !== undefined
+      ? { allowedSkillNames: [...new Set(config.allowedSkillNames.map(nonEmpty))] } : {}),
+    ...(config.allowedMcpToolIds !== undefined
+      ? { allowedMcpToolIds: [...new Set(config.allowedMcpToolIds.map(nonEmpty))] } : {}),
+    ...(config.voice ? { voice: { ...config.voice } } : {}),
+  };
+}
 
 /** Resolve the selected revision, including an explicitly selected historical revision. */
 export async function activePersonaPrompt(repo: PersonaRepoPort, ctx: LocalContext): Promise<string> {
@@ -70,13 +88,16 @@ export function createPersonaRouteHandler({ repo, ctx, checksum }: PersonaRouteD
     if (path === '/v1/personas' && method === 'POST') {
       const parsed = createPersonaRequestSchema.safeParse(body);
       if (!parsed.success) return fail(400, 'INVALID_PERSONA');
+      const name = parsed.data.name.trim();
+      if (!name) return fail(400, 'INVALID_PERSONA');
+      const config = normalizeConfig(parsed.data.config);
       const created = await repo.createPersona(ctx, {
         id: id('persona'),
-        name: parsed.data.name.trim(),
+        name,
         description: parsed.data.description?.trim() ?? '',
         source: 'user_created',
-        config: parsed.data.config,
-        checksum: checksum(parsed.data.config),
+        config,
+        checksum: checksum(config),
       });
       return { handled: true, result: created };
     }
@@ -97,21 +118,25 @@ export function createPersonaRouteHandler({ repo, ctx, checksum }: PersonaRouteD
       const personaId = identifier(decodeURIComponent(detail[1]!));
       const parsed = updatePersonaRequestSchema.safeParse(body);
       if (!parsed.success) return fail(400, 'INVALID_PERSONA');
+      const name = parsed.data.name?.trim();
+      if (name !== undefined && !name) return fail(400, 'INVALID_PERSONA');
+      const config = normalizeConfig(parsed.data.config);
+      let updated: Awaited<ReturnType<PersonaRepoPort['updatePersona']>>;
       try {
-        const updated = await repo.updatePersona(ctx, {
+        updated = await repo.updatePersona(ctx, {
           personaId,
           expectedRevision: parsed.data.expectedRevision,
-          ...(parsed.data.name !== undefined ? { name: parsed.data.name.trim() } : {}),
+          ...(name !== undefined ? { name } : {}),
           ...(parsed.data.description !== undefined ? { description: parsed.data.description.trim() } : {}),
-          config: parsed.data.config,
-          checksum: checksum(parsed.data.config),
+          config,
+          checksum: checksum(config),
         });
-        if (!updated) return fail(404, 'PERSONA_NOT_FOUND');
-        return { handled: true, result: updated };
       } catch (error) {
         const message = error instanceof Error ? error.message : 'INVALID_PERSONA';
         return fail(message === 'PERSONA_REVISION_CONFLICT' ? 409 : 400, message);
       }
+      if (!updated) return fail(404, 'PERSONA_NOT_FOUND');
+      return { handled: true, result: updated };
     }
 
     const activate = /^\/v1\/personas\/([^/]+)\/activate$/.exec(path);

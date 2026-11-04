@@ -14,6 +14,8 @@ import type { AskUserQuestionPortRequest, AskUserQuestionPortResult, UserQuestio
 
 interface Pending {
   turnId: string;
+  data: UserQuestionRequiredEventData;
+  expiresAt: number;
   resolve: (result: AskUserQuestionPortResult) => void;
   reject: (error: Error) => void;
   timer?: ReturnType<typeof setTimeout>;
@@ -34,28 +36,26 @@ export function createQuestionBridge(options: { timeoutMs?: number } = {}): Ques
   const fallbackTimeout = options.timeoutMs ?? DEFAULT_QUESTION_TIMEOUT_MS;
   let pending: Pending | undefined;
   let sink: { turnId: string; deliver: (question: UserQuestionRequiredEventData) => void } | undefined;
-  let queued: UserQuestionRequiredEventData | undefined;
 
   const settle = () => {
     const current = pending;
     pending = undefined;
-    queued = undefined;
     if (current?.timer) clearTimeout(current.timer);
     current?.detach?.();
     return current;
   };
   const deliver = (data: UserQuestionRequiredEventData) => {
-    if (sink && sink.turnId === data.turnId) { sink.deliver(data); queued = undefined; }
-    else queued = data;
+    if (sink && sink.turnId === data.turnId) sink.deliver(data);
   };
 
   const port: UserQuestionPort = {
     ask(request: AskUserQuestionPortRequest): Promise<AskUserQuestionPortResult> {
       if (pending) return Promise.reject(new Error('QUESTION_PENDING'));
       return new Promise<AskUserQuestionPortResult>((resolve, reject) => {
-        const entry: Pending = { turnId: request.turnId, resolve, reject };
-        pending = entry;
         const timeout = request.timeoutMs ?? fallbackTimeout;
+        const data = { turnId: request.turnId, questions: request.questions, ...(request.step ? { step: request.step } : {}), timeoutMs: timeout };
+        const entry: Pending = { turnId: request.turnId, data, expiresAt: Date.now() + timeout, resolve, reject };
+        pending = entry;
         entry.timer = setTimeout(() => {
           if (pending !== entry) return;
           settle();
@@ -71,7 +71,7 @@ export function createQuestionBridge(options: { timeoutMs?: number } = {}): Ques
           request.signal.addEventListener('abort', abort, { once: true });
           entry.detach = () => request.signal?.removeEventListener('abort', abort);
         }
-        deliver({ turnId: request.turnId, questions: request.questions, ...(request.step ? { step: request.step } : {}), timeoutMs: timeout });
+        deliver(data);
       });
     },
   };
@@ -80,7 +80,7 @@ export function createQuestionBridge(options: { timeoutMs?: number } = {}): Ques
     port,
     observe(turnId, nextSink) {
       sink = { turnId, deliver: nextSink };
-      if (queued && queued.turnId === turnId) { const data = queued; queued = undefined; nextSink(data); }
+      if (pending?.turnId === turnId) nextSink({ ...pending.data, timeoutMs: Math.max(0, pending.expiresAt - Date.now()) });
       return () => { if (sink?.deliver === nextSink) { sink = undefined; } };
     },
     async submit(turnId, answers) {

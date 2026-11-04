@@ -20,7 +20,7 @@ it('lists device tools only for capability grants the user actually made', async
     .toEqual(['device_info', 'device_tap', 'device_swipe', 'device_key', 'device_text', 'device_launch_app']);
   request.mockResolvedValue(status(true, true, true, true));
   expect((await tooling.provider.listTools!()).map(tool => tool.name))
-    .toEqual(['device_info', 'device_tap', 'device_swipe', 'device_key', 'device_text', 'device_launch_app', 'device_command']);
+    .toEqual(['device_info', 'device_tap', 'device_swipe', 'device_key', 'device_text', 'device_launch_app']);
 });
 
 it('offers device tools over an authorized Shizuku channel without root', async () => {
@@ -30,10 +30,12 @@ it('offers device tools over an authorized Shizuku channel without root', async 
     .toEqual(['device_info', 'device_tap', 'device_swipe', 'device_key', 'device_text']);
 });
 
-it('rejects device_command arguments without a shell line', async () => {
+it('rejects raw commands even when an old advanced grant is present', async () => {
   const tooling = createDeviceTooling();
-  expect(await tooling.provider.execute(call('device_command', { line: '   ' }))).toEqual({ ok: false, error: 'invalid_arguments' });
-  expect(await tooling.provider.execute(call('device_command', {}))).toEqual({ ok: false, error: 'invalid_arguments' });
+  request.mockResolvedValue(status(true, true, true, true));
+  expect(await tooling.provider.execute(call('device_command', { line: 'id' }))).toEqual({ ok: false, error: 'tool_not_registered' });
+  expect(await tooling.approval.evaluate({ turnId: 't', attemptId: 'a', invocationId: 'i', toolName: 'device_command', arguments: { line: 'id' } }))
+    .toEqual({ action: 'deny', reason: 'device_tool_unknown' });
   expect(request).not.toHaveBeenCalled();
 });
 
@@ -55,7 +57,6 @@ it('refuses model-supplied arguments that do not match the fixed shape', async (
     ['device_text', { value: '中文' }],
     ['device_launch_app', { package: 'com.example; reboot' }],
     ['device_launch_app', { package: 'https://example.com' }],
-    ['device_command', { line: 42 }],
   ] as const) {
     expect(await tooling.provider.execute(call(name, args))).toEqual({ ok: false, error: 'invalid_arguments' });
   }
@@ -138,4 +139,11 @@ it('asks the ledger before every new granted action and reuses prior grants', as
     toolName: 'device_tap', arguments: { x: 10, y: 20 }, safetyLevel: 'privileged',
   });
   expect(reused).toMatchObject({ action: 'allow', reason: 'device_action_previously_approved' });
+});
+
+it('permits listed read-only info when a Shizuku executor is available', async () => {
+  const tooling = createDeviceTooling();
+  request.mockResolvedValue(status(false, false, false, false, true));
+  expect(await tooling.approval.evaluate({ turnId: 't', attemptId: 'a', invocationId: 'i', toolName: 'device_info', arguments: {} }))
+    .toEqual({ action: 'allow', reason: 'device_info_read_only' });
 });

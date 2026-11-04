@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { Activity, Bell, Database, FolderDown, KeyRound, Menu, RefreshCw, Smartphone, Sparkles } from 'lucide-vue-next';
+import { Activity, Bell, BookOpen, Database, FolderDown, KeyRound, Menu, RefreshCw, Smartphone, Sparkles } from 'lucide-vue-next';
 import { getClientTransport } from '@aervox/api-client';
+import NativeLearningPanel from './NativeLearningPanel.vue';
 import { nativeRequest } from './native-channel';
 import { deviceError, grantDeviceCapability, readDeviceStatus, type DeviceCapability, type DeviceStatus } from './native-device';
 // inject() only resolves during setup; handlers must reuse this capture.
 const clientTransport = getClientTransport();
 
-type PageId = 'model' | 'device' | 'data' | 'reminder' | 'persona';
+type PageId = 'model' | 'device' | 'data' | 'reminder' | 'persona' | 'learning';
 const page = ref<PageId>('model');
 /** 一级菜单收进左侧抽屉：页面上不再有「分类首页」这一层。 */
 const drawerOpen = ref(false);
@@ -17,12 +18,14 @@ const pageMeta: Record<PageId, { title: string; subtitle: string }> = {
   data: { title: '数据管理', subtitle: '备份恢复与题库导入。' },
   reminder: { title: '提醒', subtitle: '复习提醒与通知。' },
   persona: { title: '人格', subtitle: '陪伴者的身份、设定与切换。' },
+  learning: { title: '学习与复习', subtitle: '开始练习、查看报告和完成今日复习。' },
 };
 function openPage(target: PageId) { page.value = target; drawerOpen.value = false; if (target === 'persona') void loadPersonas(); }
 function menuSummary(target: PageId): string {
   if (target === 'model') return modelStatus.value || (loading.value ? '读取中' : '未配置');
   if (target === 'device') return device.value ? (device.value.root ? 'Root 可用' : device.value.shizuku ? 'Shizuku 就绪' : '需授权') : '未检测';
   if (target === 'data') return '导出 / 恢复 / 题库';
+  if (target === 'learning') return '练习 / 今日复习';
   if (target === 'persona') return personaBusy.value ? '读取中' : `${personas.value.length} 个`;
   return reminderOn.value ? '已开启' : '未开启';
 }
@@ -176,7 +179,7 @@ const modelHeading = computed(() => loading.value ? '正在读取模型配置' :
 const rootText = computed(() => deviceFailed.value ? '无法读取 root 状态。可以刷新后重试。'
   : !device.value ? '正在检查 root 授权…'
   : device.value.root ? `Root 可用${device.value.device ? ` · ${device.value.device}` : ''}，设备操作由你逐项开启。`
-    : '检测到 root 授权时请在弹窗中允许本应用；没有 root 可安装并授权 Shizuku 作为免 root 通道。基础对话不受影响。');
+    : '设备操作需要 root。检测到授权请求时请允许本应用；普通对话和学习无需 root。');
 const rootValue = computed(() => deviceFailed.value ? '未知' : !device.value ? '读取中' : device.value.root ? '可用' : '不可用');
 
 function isRuntime(value: unknown): value is RuntimeSummary {
@@ -307,7 +310,7 @@ async function importQuestionFile() {
     importError.value = code === 'FILE_PICK_CANCELLED' ? '已取消选择。'
       : code === 'FILE_TOO_LARGE' ? '文件超过 2 MiB 上限，未导入。'
       : code === 'NO_VALID_QUESTIONS' ? '文件里没有可识别的题目，未导入。'
-      : '导入没有完成，数据未受影响。';
+      : '导入尚未完成，请刷新学习页检查已保存的题目，再决定是否重试。';
   } finally { importBusy.value = false; }
 }
 
@@ -350,13 +353,17 @@ async function exportBackup() {
     const transport = clientTransport;
     if (!transport.exportBackup) throw new Error('BACKUP_NOT_SUPPORTED');
     const file = await transport.exportBackup();
-    if (transport.shareText) await transport.shareText({ title: 'Aervox 备份', text: file.text });
+    if (transport.shareTextFile) await transport.shareTextFile({ title: 'Aervox 备份', text: file.text });
+    else if (transport.shareText) await transport.shareText({ title: 'Aervox 备份', text: file.text });
+    else throw new Error('SHARE_UNAVAILABLE');
     const records = Object.values(file.tableCounts).reduce((total, count) => total + count, 0);
     backupFeedback.value = `备份已生成并交给系统分享（${records} 条记录，${file.createdAt.slice(0, 10)}）。`;
   } catch (error) {
     console.warn('[Aervox] backup export failed', error);
     const code = error instanceof Error ? error.message : '';
-    backupError.value = code === 'SHARE_UNAVAILABLE' ? '备份已生成，但系统分享没有打开。'
+    backupError.value = code === 'BACKUP_FILE_TOO_LARGE' || code === 'BACKUP_TOO_LARGE' ? '备份超过 16 MiB 文件上限，未导出。'
+      : code === 'SHARE_UNAVAILABLE' ? '备份已生成，但系统分享没有打开。'
+      : code === 'BACKUP_ROW_TOO_LARGE' ? '有记录超过当前版本的单条备份上限，未导出；原数据保留。'
       : code === 'BACKUP_TABLE_UNEXPECTED' ? '备份没有导出：数据表名不符合备份结构。'
       : '备份没有导出，数据未受影响。';
   } finally { backupBusy.value = false; }
@@ -385,15 +392,17 @@ async function importBackup() {
     if (!transport.importBackup) throw new Error('BACKUP_NOT_SUPPORTED');
     const result = await transport.importBackup(restoreText.value);
     const records = Object.values(result.imported).reduce((total, count) => total + count, 0);
-    backupFeedback.value = `恢复完成（${records} 条记录已写入）。`;
+    backupFeedback.value = `恢复完成（${records} 条记录已写入）。请关闭并重新打开应用，载入已恢复的数据。`;
     restoreText.value = ''; restoreOpen.value = false;
   } catch (error) {
     const code = error instanceof Error ? error.message : '';
     backupError.value = code === 'BACKUP_CORRUPTED' ? '备份校验不通过，未写入任何数据。'
       : code === 'BACKUP_SCHEMA_MISMATCH' ? '备份与当前版本的数据结构不一致，未写入任何数据。'
       : code === 'BACKUP_FORMAT_UNKNOWN' ? '无法识别这个备份格式，未写入任何数据。'
+      : code === 'BACKUP_RESTORE_BLOCKED' ? '备份依赖不完整或当前版本无法恢复，未写入任何数据。'
       : code === 'BACKUP_MALFORMED' ? '备份内容无法解析，未写入任何数据。'
-      : '恢复没有完成，数据未受影响。';
+      : code === 'HOST_BUSY' || code === 'BACKUP_RESTORE_BUSY' || code === 'BACKUP_RESTORE_IN_PROGRESS' ? '请先停止当前对话或等待操作结束，再恢复备份。'
+      : '恢复结果尚未确认，请关闭并重新打开应用检查数据，勿重复恢复。';
   } finally { backupBusy.value = false; confirmingRestore.value = false; }
 }
 
@@ -412,9 +421,9 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
     <div class="runtime-drawer-scrim" :class="{ 'is-open': drawerOpen }" @click="drawerOpen = false" />
     <nav class="runtime-drawer" :class="{ 'is-open': drawerOpen }" aria-label="设置分区" :aria-hidden="drawerOpen ? 'false' : 'true'">
       <p class="runtime-drawer-title">本机运行</p>
-      <button v-for="target in (['model', 'device', 'data', 'reminder', 'persona'] as const)" :key="target" type="button"
+      <button v-for="target in (['model', 'device', 'data', 'reminder', 'persona', 'learning'] as const)" :key="target" type="button"
         class="runtime-menu-card" :class="{ 'is-active': page === target }" @click="openPage(target)">
-        <component :is="target === 'model' ? KeyRound : target === 'device' ? Smartphone : target === 'data' ? FolderDown : target === 'reminder' ? Bell : Sparkles" :size="22" aria-hidden="true" />
+        <component :is="target === 'model' ? KeyRound : target === 'device' ? Smartphone : target === 'data' ? FolderDown : target === 'reminder' ? Bell : target === 'learning' ? BookOpen : Sparkles" :size="22" aria-hidden="true" />
         <span class="runtime-menu-copy"><strong>{{ pageMeta[target].title }}</strong><small>{{ pageMeta[target].subtitle }}</small></span>
         <span class="runtime-menu-badge">{{ menuSummary(target) }}</span>
       </button>
@@ -424,7 +433,7 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
         <Menu :size="24" aria-hidden="true" />
       </component>
       <div class="runtime-heading-copy"><h2>{{ pageMeta[page].title }}</h2><p>{{ pageMeta[page].subtitle }}</p></div>
-      <component :is="'md-icon-button'" type="button" aria-label="刷新运行状态" :disabled="loading || configuring || testing" @click="refreshPage">
+      <component :is="'md-icon-button'" v-if="page !== 'learning'" type="button" aria-label="刷新运行状态" :disabled="loading || configuring || testing" @click="refreshPage">
         <RefreshCw :size="24" aria-hidden="true" />
       </component>
     </header>
@@ -494,8 +503,8 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
           <dd class="runtime-value" :class="{ 'runtime-error': deviceFailed }">{{ rootValue }}</dd>
         </div>
         <div class="runtime-row">
-          <div class="runtime-row-copy"><dt>Shizuku 扩展</dt><dd>免 root 的执行通道：安装并授权 Shizuku 后，设备动作无需 su 也可执行。</dd></div>
-          <dd class="runtime-value"><span class="runtime-badge" :class="device?.shizuku ? 'runtime-badge--beta' : 'runtime-badge--off'">{{ device?.shizuku ? '已就绪' : '未就绪' }}</span></dd>
+          <div class="runtime-row-copy"><dt>Shizuku 扩展</dt><dd>当前安装包尚未集成 Shizuku，安装服务不会自动开放设备操作。</dd></div>
+          <dd class="runtime-value"><span class="runtime-badge runtime-badge--off">未开放</span></dd>
         </div>
       </dl>
       <h4 class="runtime-subtitle">设备操作开关</h4>
@@ -509,12 +518,11 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
         <component :is="'md-switch'" aria-label="打开应用" :selected="device?.capabilities.apps ? 'true' : undefined"
           :disabled="deviceBusy || !(device?.root || device?.shizuku) ? 'true' : undefined" @change="toggleDevice('apps', !device?.capabilities.apps)" />
       </label>
-      <label class="runtime-device-toggle">
-        <span class="runtime-device-label"><strong>Root 高级实验</strong><small>允许助手执行自定义 shell 命令（高风险研究项，有长度与输出上限）</small></span>
-        <component :is="'md-switch'" aria-label="Root 高级实验" :selected="device?.capabilities.advanced ? 'true' : undefined"
-          :disabled="deviceBusy || !(device?.root || device?.shizuku) ? 'true' : undefined" @change="toggleDevice('advanced', !device?.capabilities.advanced)" />
-      </label>
-      <p class="runtime-capability-note">设备操作只在应用位于前台时执行，且只包含固定动作；「Root 高级实验」是唯一的命令例外，需你逐项开启。授权后，对话中的助手可在你要求时执行这些动作。</p>
+      <div class="runtime-device-toggle">
+        <span class="runtime-device-label"><strong>Root 高级实验</strong><small>尚未开放，不接受自定义命令</small></span>
+        <span class="runtime-badge runtime-badge--off">未开放</span>
+      </div>
+      <p class="runtime-capability-note">设备操作只在应用位于前台时执行，且只包含固定动作。设置授权后，每个新动作仍需你在对话中批准；不接受自定义命令。</p>
       <p v-if="deviceFeedback" class="runtime-error runtime-feedback" role="alert">{{ deviceFeedback }}</p>
     </section>
 
@@ -593,6 +601,8 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
       </div>
       <p v-if="reminderFeedback" class="runtime-model-note" role="status">{{ reminderFeedback }}</p>
     </section>
+
+    <NativeLearningPanel v-if="page === 'learning'" />
 
     <section v-if="page === 'persona'" aria-labelledby="runtime-persona-title">
       <h3 id="runtime-persona-title"><Sparkles :size="20" aria-hidden="true" />人格</h3>

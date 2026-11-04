@@ -186,8 +186,7 @@ jobs:
           script: |
             adb wait-for-device
             adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 2; done'
-            cd apps/mobile/android
-            mise exec -- ./gradlew :app:connectedDebugAndroidTest --console=plain
+            mise exec -- ./apps/mobile/android/gradlew -p apps/mobile/android :app:connectedDebugAndroidTest --console=plain
 
       - name: Upload instrumented test reports
         if: always()

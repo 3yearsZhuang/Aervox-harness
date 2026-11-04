@@ -390,7 +390,7 @@ describe('native learning routes', () => {
       .rejects.toMatchObject({ code: 'IMPORT_CONTENT_REQUIRED' });
     await expect(handle('POST', route('/v1/questions/import'), { content: '# 只有注释' }))
       .rejects.toMatchObject({ code: 'NO_VALID_QUESTIONS' });
-    await expect(handle('POST', route('/v1/questions/import'), { content: 'x'.repeat(1024 * 1024 + 1) }))
+    await expect(handle('POST', route('/v1/questions/import'), { content: '中'.repeat(Math.ceil(1024 * 1024 / 3)) }))
       .rejects.toMatchObject({ code: 'QUESTION_BANK_TOO_LARGE' });
   });
 

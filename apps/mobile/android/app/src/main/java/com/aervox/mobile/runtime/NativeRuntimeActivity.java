@@ -26,6 +26,8 @@ public class NativeRuntimeActivity extends AppCompatActivity {
     private NativeSpeechService speech;
     private NativeSpeechInputService speechInput;
     private NativeNotifyService notify;
+    private NativeFileService files;
+    private NativeBackupFileService backupFiles;
     private final java.util.concurrent.CompletableFuture<org.json.JSONObject>[] pendingPick =
         new java.util.concurrent.CompletableFuture[1];
     private androidx.activity.result.ActivityResultLauncher<String[]> pickLauncher;
@@ -43,10 +45,12 @@ public class NativeRuntimeActivity extends AppCompatActivity {
         loading.setGravity(android.view.Gravity.CENTER);
         setContentView(loading);
         model = new NativeModelService(this);
-        device = new NativeDeviceService(this);
+        device = new NativeDeviceService(this, () -> foreground);
         speech = new NativeSpeechService(this);
         speechInput = new NativeSpeechInputService(this);
         notify = new NativeNotifyService(this);
+        files = new NativeFileService();
+        backupFiles = new NativeBackupFileService(this, () -> foreground);
         pickLauncher = registerForActivityResult(new androidx.activity.result.contract.ActivityResultContracts.OpenDocument(), uri -> {
             java.util.concurrent.CompletableFuture<org.json.JSONObject> pending = pendingPick[0];
             pendingPick[0] = null;
@@ -55,12 +59,10 @@ public class NativeRuntimeActivity extends AppCompatActivity {
                 pending.completeExceptionally(new NativeFileService.FileException("FILE_PICK_CANCELLED"));
                 return;
             }
-            try {
-                pending.complete(NativeFileService.readPickedText(this, uri));
-            } catch (Exception error) {
-                pending.completeExceptionally(error instanceof NativeFileService.FileException
-                    ? error : new NativeFileService.FileException("FILE_READ_FAILED"));
-            }
+            files.readPicked(this, uri).whenComplete((value, error) -> {
+                if (error == null) pending.complete(value);
+                else pending.completeExceptionally(error);
+            });
         });
         preferences = new NativePreferences(this);
         owner = new NativeBusinessDatabase(this);
@@ -200,16 +202,20 @@ public class NativeRuntimeActivity extends AppCompatActivity {
                     }
                     if ("fetchText".equals(command.optString("operation"))) {
                         String url = command.optString("url", "");
-                        result = java.util.concurrent.CompletableFuture.completedFuture(NativeFileService.fetchText(url));
+                        result = files.fetch(url);
                         break;
                     }
                     if (!"pickText".equals(command.optString("operation"))) {
                         throw new IllegalArgumentException();
                     }
+                    if (pendingPick[0] != null) {
+                        result = failed(new NativeFileService.FileException("FILE_BUSY"));
+                        break;
+                    }
                     java.util.concurrent.CompletableFuture<org.json.JSONObject> pick = new java.util.concurrent.CompletableFuture<>();
                     pendingPick[0] = pick;
-                    // The WebView bridge calls back off the main thread; launching
-                    // the SAF picker requires the UI thread or it throws silently.
+                    // Launch the picker on the Activity thread; document I/O is
+                    // handled separately by the owned file worker.
                     runOnUiThread(() -> {
                         try {
                             pickLauncher.launch(new String[] { "text/*", "application/json", "text/csv", "application/csv" });
@@ -221,6 +227,11 @@ public class NativeRuntimeActivity extends AppCompatActivity {
                     result = pick;
                     break;
                 }
+                case "backup_file":
+                    // Retiring pages may still need to delete an unfinished export.
+                    if (!foreground && !"abort".equals(command.optString("operation"))) throw new IllegalStateException("NOT_FOREGROUND");
+                    result = backupFiles.request(command);
+                    break;
                 case "notification":
                     result = notify == null
                         ? failed(new NativeNotifyService.NotifyException("CLOSED"))
@@ -276,6 +287,8 @@ public class NativeRuntimeActivity extends AppCompatActivity {
         // M0 is foreground-only. Native cancellation also applies if JavaScript
         // is suspended before receiving visibilitychange; no background service.
         if (model != null) model.cancelCurrent();
+        if (speechInput != null) speechInput.stop();
+        if (speech != null) speech.stop();
         super.onStop();
     }
     @Override protected void onDestroy() {
@@ -309,6 +322,11 @@ public class NativeRuntimeActivity extends AppCompatActivity {
         if (device != null) device.close();
         if (speech != null) speech.close();
         if (speechInput != null) speechInput.close();
+        if (files != null) files.close();
+        if (backupFiles != null) backupFiles.close();
+        CompletableFuture<JSONObject> pick = pendingPick[0];
+        pendingPick[0] = null;
+        if (pick != null) pick.completeExceptionally(new NativeFileService.FileException("CLOSED"));
         if (preferences != null) preferences.close();
         CompletableFuture<Void> modelDrain = model == null ? CompletableFuture.completedFuture(null) : model.close();
         if (sqlite != null) {

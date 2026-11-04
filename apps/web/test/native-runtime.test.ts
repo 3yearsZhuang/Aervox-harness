@@ -61,7 +61,8 @@ async function fixture() {
   await initializeCanonicalSchema(database, 'main');
   let transaction: Transaction | undefined;
   let owner: string | null = null, counter = 0, configured = true, loseCommit = false;
-  let commits = 0, sqliteRequests = 0;
+  let commits = 0, sqliteRequests = 0, strictSqlite = false, rejectedStatements = 0;
+  const writes: string[] = [];
   let paused: { point: 'runtime' | 'summary' | 'committed'; entered: () => void; resume: Promise<void> } | undefined;
   const checkpoint = async (point: 'runtime' | 'summary' | 'committed') => {
     if (paused?.point !== point) return;
@@ -143,6 +144,7 @@ async function fixture() {
     expect(request.transactionId).toBe(owner);
     if (request.operation === 'execute') {
       const { sql, args } = request.statement;
+      if (/^\s*(INSERT|UPDATE|DELETE)\b/i.test(sql)) writes.push(sql);
       const argumentCount = Object.keys(args).length;
       argumentCounts.push(argumentCount);
       if (argumentCount > 256) throw new Error('NATIVE_ARGUMENT_LIMIT');
@@ -166,6 +168,8 @@ async function fixture() {
         if (new TextEncoder().encode(response).byteLength > 3 * 1024 * 1024) throw new Error('NATIVE_RESULT_BYTE_LIMIT');
         return JSON.parse(response);
       } catch {
+        rejectedStatements++;
+        if (strictSqlite && transaction) throw new Error('NATIVE_TRANSACTION_QUARANTINED');
         return { kind: 'rejected', connectionEpoch: epoch, transactionId: owner, state: owner ? 'active' : 'none', code: 'SQLITE_ERROR' };
       }
     }
@@ -213,6 +217,9 @@ async function fixture() {
         modelScript.push(events);
       }
     },
+    strictNativeFailures() { strictSqlite = true; },
+    get rejectedStatements() { return rejectedStatements; },
+    get writes() { return writes; },
     get modelRequests() { return modelRequests; },
     get nativeCancels() { return nativeCancels; },
     get sqliteRequests() { return sqliteRequests; },
@@ -907,6 +914,57 @@ describe('Android per-call tool approval over actual SQLite', () => {
   }, 20_000);
 });
 
+describe('Android approval admission', () => {
+  const pendingApproval = async (transport: AervoxTransport) => {
+    current!.setModelScript([[{ delta: { tool_calls: [{ index: 0, id: 'call_guard', function: {
+      name: 'device_tap', arguments: JSON.stringify({ x: 30, y: 40 }),
+    } }] }, finish: 'tool_calls' }]]);
+    await session(transport);
+    const seen = vi.fn();
+    await transport.streamTurn('phone_session', '审批动作', { ...callbacks().value, onToolApproval: seen });
+    return seen.mock.calls[0]![0] as { turnId: string; approvalId: string };
+  };
+
+  it('admits only one concurrent decision and replays the same receipt without executing twice', async () => {
+    const transport = await current!.start(), approval = await pendingApproval(transport);
+    current!.setModelScript([[{ delta: { content: '完成' } }]]);
+    const first = transport.decideToolApproval(approval.turnId, approval.approvalId, 'granted');
+    await expect(transport.decideToolApproval(approval.turnId, approval.approvalId, 'granted')).rejects.toMatchObject({ code: 'REPLY_IN_PROGRESS' });
+    const decided = await first;
+    await transport.observeTurn(approval.turnId, callbacks().value, { afterEventId: decided!.continuation!.afterEventId });
+    const repeated = await transport.decideToolApproval(approval.turnId, approval.approvalId, 'granted');
+    expect(repeated).toEqual(decided);
+    expect(current!.devicePerforms).toHaveLength(1);
+  });
+
+  it('rejects a pending decision in the background and never starts after a hide during commit', async () => {
+    const transport = await current!.start(), approval = await pendingApproval(transport);
+    const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
+    await expect(transport.decideToolApproval(approval.turnId, approval.approvalId, 'granted')).rejects.toMatchObject({ code: 'HOST_NOT_FOREGROUND' });
+    hidden.mockReturnValue(false);
+    const gate = current!.pauseNext('committed');
+    const deciding = transport.decideToolApproval(approval.turnId, approval.approvalId, 'granted');
+    await gate.reached;
+    hidden.mockReturnValue(true); document.dispatchEvent(new Event('visibilitychange'));
+    gate.release(); await deciding;
+    expect(current!.devicePerforms).toHaveLength(0);
+    expect((await current!.database.execute('SELECT status FROM turns')).rows[0]!.status).toBe('Cancelled');
+  });
+
+  it('does not replace a different active turn when an older approval is decided', async () => {
+    const transport = await current!.start(), approval = await pendingApproval(transport);
+    await transport.request('POST', '/v1/sessions', { id: 'other_session' });
+    mocks.realProvider = false; mocks.holding = true; mocks.entered = false;
+    const running = transport.streamTurn('other_session', '另一轮执行', callbacks().value);
+    await vi.waitFor(() => expect(mocks.entered).toBe(true));
+    await expect(transport.decideToolApproval(approval.turnId, approval.approvalId, 'granted')).rejects.toMatchObject({ code: 'REPLY_IN_PROGRESS' });
+    const turnId = String((await current!.database.execute("SELECT id FROM turns WHERE session_id='other_session'")).rows[0]!.id);
+    await transport.request('POST', `/v1/turns/${turnId}/cancel`);
+    await running;
+    expect(current!.devicePerforms).toHaveLength(0);
+  });
+});
+
 describe('Android diary publication over actual SQLite', () => {
   it('publishes and rewrites a template diary with durable versions', async () => {
     current!.setConfigured(false);
@@ -957,7 +1015,83 @@ describe('Android active persona in model context', () => {
 });
 
 describe('Android backup export and restore over actual SQLite', () => {
+  it('pages more than 512 records within native row/window budgets and restores without failed probes', async () => {
+    current!.strictNativeFailures();
+    const transport = await current!.start();
+    await current!.database.batch(Array.from({ length: 600 }, (_, index) => ({
+      sql: 'INSERT INTO knowledge_items (id, concept, created_at, updated_at) VALUES (?, ?, ?, ?)',
+      args: [`k_${index}`, '长'.repeat(1000), '2026-11-04T00:00:00Z', '2026-11-04T00:00:00Z'],
+    })), 'write');
+    const exported = await transport.exportBackup!();
+    expect(exported.tableCounts.knowledge_items).toBe(600);
+    await transport.importBackup!(exported.text);
+    expect(await current!.count('knowledge_items')).toBe(600);
+    expect(current!.rejectedStatements).toBe(0);
+    expect(Math.max(...current!.resultRows)).toBeLessThanOrEqual(512);
+    expect(Math.max(...current!.windowSizes)).toBeLessThanOrEqual(1024 * 1024);
+  }, 20_000);
+
+  it('refuses a row beyond the restorable bind budget without overshooting a native window', async () => {
+    current!.strictNativeFailures();
+    const transport = await current!.start();
+    await current!.database.execute({
+      sql: 'INSERT INTO knowledge_items (id, concept, created_at, updated_at) VALUES (?, ?, ?, ?)',
+      args: ['huge', 'x'.repeat(300 * 1024), '2026-11-04T00:00:00Z', '2026-11-04T00:00:00Z'],
+    });
+    await expect(transport.exportBackup!()).rejects.toThrow('BACKUP_ROW_TOO_LARGE');
+    expect(current!.rejectedStatements).toBe(0);
+    expect(await transport.request('GET', '/v1/sessions')).toEqual({ items: [] });
+  });
+
+  it('rejects invalid metadata and missing parent rows before the first restore write', async () => {
+    current!.strictNativeFailures();
+    const transport = await current!.start();
+    await transport.request('POST', '/v1/questions', { prompt: '保留题', answerSpec: { answer: '是' } });
+    const exported = await transport.exportBackup!();
+    const malformed = JSON.parse(exported.text);
+    delete malformed.tableCounts;
+    const before = current!.writes.length;
+    await expect(transport.importBackup!(JSON.stringify(malformed))).rejects.toMatchObject({ code: 'BACKUP_MALFORMED' });
+    const missing = JSON.parse(exported.text);
+    missing.tables.find((table: { name: string }) => table.name === 'questions').rows[0].knowledge_id = 'missing';
+    missing.sha256 = createHash('sha256').update(stableSerialize({ tables: missing.tables })).digest('hex');
+    await expect(transport.importBackup!(JSON.stringify(missing))).rejects.toMatchObject({ code: 'BACKUP_RESTORE_BLOCKED' });
+    expect(current!.writes).toHaveLength(before);
+    expect(current!.rejectedStatements).toBe(0);
+    expect(await current!.count('questions')).toBe(1);
+  });
+
+  it('holds an exclusive restore admission until commit returns and releases it on failure', async () => {
+    const transport = await current!.start();
+    await session(transport);
+    const exported = await transport.exportBackup!();
+    const gate = current!.pauseNext('committed');
+    const restoring = transport.importBackup!(exported.text);
+    await gate.reached;
+    await expect(transport.streamTurn('phone_session', '恢复时发送', callbacks().value)).rejects.toMatchObject({ code: 'BACKUP_RESTORE_IN_PROGRESS' });
+    await expect(transport.request('POST', '/v1/sessions', { title: '恢复时新建' })).rejects.toMatchObject({ code: 'BACKUP_RESTORE_IN_PROGRESS' });
+    await expect(transport.importBackup!(exported.text)).rejects.toMatchObject({ code: 'BACKUP_RESTORE_IN_PROGRESS' });
+    gate.release(); await restoring;
+    await expect(transport.request('GET', '/v1/sessions')).rejects.toMatchObject({ code: 'HOST_RESTART_REQUIRED' });
+    await expect(transport.streamTurn('phone_session', '恢复后旧会话发送', callbacks().value)).rejects.toMatchObject({ code: 'HOST_RESTART_REQUIRED' });
+    expect(mocks.modelCalls).toBe(0);
+  });
+
+  it('never replaces the database while a turn or its question is active', async () => {
+    const transport = await current!.start(); await session(transport);
+    const backup = await transport.exportBackup!();
+    mocks.holding = true;
+    const running = transport.streamTurn('phone_session', '执行中', callbacks().value);
+    await vi.waitFor(() => expect(mocks.entered).toBe(true));
+    await expect(transport.importBackup!(backup.text)).rejects.toMatchObject({ code: 'BACKUP_RESTORE_BUSY' });
+    expect(await current!.count('turns')).toBe(1);
+    const turnId = String((await current!.database.execute('SELECT id FROM turns')).rows[0]!.id);
+    await transport.request('POST', `/v1/turns/${turnId}/cancel`);
+    await running;
+  });
+
   it('restores rows whose dependencies appear after a successfully inserted prefix', async () => {
+    current!.strictNativeFailures();
     const transport = await current!.start();
     await current!.database.execute(`INSERT INTO knowledge_items (id, concept, created_at, updated_at) VALUES ('k_dependency', '依赖', '2026-11-04T00:00:00Z', '2026-11-04T00:00:00Z')`);
     await transport.request('POST', '/v1/questions', { prompt: '独立题', answerSpec: { answer: '1' } });
@@ -969,6 +1103,7 @@ describe('Android backup export and restore over actual SQLite', () => {
     file.sha256 = createHash('sha256').update(stableSerialize({ tables: file.tables })).digest('hex');
     await transport.importBackup!(JSON.stringify(file));
     expect(await current!.count('questions')).toBe(2);
+    expect(current!.rejectedStatements).toBe(0);
     expect((await current!.database.execute("SELECT knowledge_id FROM questions WHERE prompt = '依赖题'")).rows[0]!.knowledge_id).toBe('k_dependency');
   });
 
@@ -989,17 +1124,16 @@ describe('Android backup export and restore over actual SQLite', () => {
     // Wipe the business table, then restore from the exported text.
     await fixture.database.execute("DELETE FROM knowledge_items");
     expect((await transport.request<{ items: unknown[] }>('GET', '/v1/knowledge-items/k_bak').catch(() => ({ items: [] }))).items ?? []).toEqual([]);
-    const restored = await transport.importBackup!(exported.text);
-    expect(restored.imported.knowledge_items).toBe(1);
-    const knowledge = await transport.request<{ id: string; concept: string }>('GET', '/v1/knowledge-items/k_bak');
-    expect(knowledge).toMatchObject({ id: 'k_bak', concept: '备份概念' });
-
-    // Tampered payloads and schema drift never write.
+    // Invalid payloads are refused before a successful restore retires the cached UI.
     const tampered = JSON.parse(exported.text) as { tables: { rows: { concept?: string }[] }[] };
     tampered.tables.find(table => (table as { name?: string }).name === 'knowledge_items')!.rows[0]!.concept = '被篡改';
     await expect(transport.importBackup!(JSON.stringify(tampered))).rejects.toMatchObject({ code: 'BACKUP_CORRUPTED' });
     await expect(transport.importBackup!('not json at all')).rejects.toMatchObject({ code: 'BACKUP_MALFORMED' });
-    expect((await transport.request<{ concept: string }>('GET', '/v1/knowledge-items/k_bak')).concept).toBe('备份概念');
+    const restored = await transport.importBackup!(exported.text);
+    expect(restored.imported.knowledge_items).toBe(1);
+    expect((await fixture.database.execute("SELECT concept FROM knowledge_items WHERE id = 'k_bak'")).rows[0]!.concept).toBe('备份概念');
+    await expect(transport.request('GET', '/v1/knowledge-items/k_bak')).rejects.toMatchObject({ code: 'HOST_RESTART_REQUIRED' });
+
   }, 20_000);
 });
 
@@ -1021,4 +1155,39 @@ describe('Android file import and review reminder', () => {
     expect(fetched).toMatchObject({ name: 'online.csv', text: '3+3,6\n4+4,8' });
     await expect(transport.fetchUrlText!('http://example.com/x')).rejects.toMatchObject({ code: 'FILE_URL_INVALID' });
   }, 20_000);
+});
+
+describe('Android bounded backup file sharing', () => {
+  it('shares a backup larger than 256 KiB in ordered chunks without splitting Unicode pairs', async () => {
+    const transport = await current!.start();
+    const operations: Record<string, unknown>[] = [];
+    const original = mocks.native.getMockImplementation()!;
+    mocks.native.mockImplementation(async body => {
+      if (body.op !== 'backup_file') return original(body);
+      operations.push(body);
+      return body.operation === 'finish' ? { kind: 'backup_file_shared', ok: true }
+        : { kind: 'backup_file', exportId: body.operation === 'begin' ? 'native_export_1' : body.exportId, ...(body.operation === 'append' ? { sequence: body.sequence } : {}) };
+    });
+    const text = ('x'.repeat(32 * 1024 - 1) + '😀').repeat(10);
+    await transport.shareTextFile!({ title: '备份', text });
+    const chunks = operations.filter(operation => operation.operation === 'append');
+    expect(chunks.map(operation => operation.text).join('')).toBe(text);
+    expect(chunks.map(operation => operation.sequence)).toEqual(chunks.map((_, index) => index + 1));
+    expect(chunks.every(operation => String(operation.text).length <= 32 * 1024 && !/[\uD800-\uDFFF]/u.test(String(operation.text)))).toBe(true);
+    expect(operations.at(-1)).toMatchObject({ operation: 'finish', sequence: chunks.length });
+  });
+
+  it('aborts a partial export on cancellation without finishing or sharing', async () => {
+    const transport = await current!.start(), controller = new AbortController();
+    const operations: string[] = [];
+    const original = mocks.native.getMockImplementation()!;
+    mocks.native.mockImplementation(async body => {
+      if (body.op !== 'backup_file') return original(body);
+      operations.push(body.operation);
+      if (body.operation === 'append') controller.abort();
+      return { kind: 'backup_file', exportId: body.operation === 'begin' ? 'native_export_1' : body.exportId, sequence: body.sequence };
+    });
+    await expect(transport.shareTextFile!({ title: '备份', text: 'x'.repeat(100_000) }, controller.signal)).rejects.toThrow();
+    expect(operations).toEqual(['begin', 'append', 'abort']);
+  });
 });

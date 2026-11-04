@@ -157,7 +157,7 @@ export function createLearningRouteHandler({ repo, ctx, digestRequest, generateT
     if (path === '/v1/questions/import' && method === 'POST') {
       const content = payload.content;
       if (typeof content !== 'string' || !content) return fail(400, 'IMPORT_CONTENT_REQUIRED');
-      if (content.length > MAX_IMPORT_CONTENT_BYTES) return fail(413, 'QUESTION_BANK_TOO_LARGE');
+      if (new TextEncoder().encode(content).byteLength > MAX_IMPORT_CONTENT_BYTES) return fail(413, 'QUESTION_BANK_TOO_LARGE');
       let provider = typeof payload.providerId === 'string' ? qbRegistry.get(payload.providerId) : undefined;
       if (!provider && typeof payload.format === 'string' && payload.format) {
         provider = qbRegistry.resolveByExtension(payload.format.startsWith('.') ? payload.format : `.${payload.format}`);

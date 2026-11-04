@@ -8,7 +8,6 @@ export type DeviceKey = 'BACK' | 'HOME' | 'RECENTS' | 'ENTER' | 'DEL' | 'TAB' | 
 export interface DeviceStatus { root: boolean; shizuku?: boolean; capabilities: Record<DeviceCapability, boolean>; busy?: boolean; sdk?: number; device?: string }
 export type DeviceAction =
   | { action: 'info' }
-  | { action: 'command'; line: string }
   | { action: 'tap'; x: number; y: number }
   | { action: 'swipe'; x1: number; y1: number; x2: number; y2: number; durationMs?: number }
   | { action: 'key'; key: DeviceKey }
@@ -44,7 +43,7 @@ export async function performDeviceAction(action: DeviceAction): Promise<DeviceR
 export function deviceError(error: unknown): string {
   const code = error instanceof Error ? error.message : '';
   switch (code) {
-    case 'ROOT_UNAVAILABLE': return '设备操作需要 root 或已授权的 Shizuku。请确认 su 可用、或安装并授权 Shizuku 后重试。';
+    case 'ROOT_UNAVAILABLE': return '当前版本的设备操作需要 root。请确认 su 可用并已授权；普通对话和学习无需 root。';
     case 'DEVICE_CAPABILITY_DISABLED': return '这项设备操作没有在设置中开启。';
     case 'DEVICE_BUSY': return '上一条设备操作还没结束，请稍后再试。';
     case 'COMMAND_TIMEOUT': return '设备操作超时，系统没有确认结果。';

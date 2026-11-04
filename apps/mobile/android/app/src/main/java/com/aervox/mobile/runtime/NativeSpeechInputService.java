@@ -29,7 +29,8 @@ final class NativeSpeechInputService {
     private final Handler main = new Handler(Looper.getMainLooper());
     private SpeechRecognizer recognizer;
     private CompletableFuture<JSONObject> pending;
-    private boolean closed, listening;
+    private volatile boolean closed;
+    private boolean listening;
     // One stable Runnable identity: method references cannot be removed from the queue.
     private final Runnable budgetExpired = this::onBudgetExpired;
 
@@ -62,6 +63,7 @@ final class NativeSpeechInputService {
                 listen(result);
             } else if ("cancel".equals(operation)) {
                 main.post(() -> {
+                    settleExceptionally("SPEECH_INPUT_CANCELLED");
                     stopListening();
                     try {
                         result.complete(new JSONObject().put("kind", "speech_input_result").put("ok", true));
@@ -97,7 +99,7 @@ final class NativeSpeechInputService {
             pending = result;
             try {
                 if (recognizer == null) recognizer = SpeechRecognizer.createSpeechRecognizer(owner);
-                recognizer.setRecognitionListener(listener());
+                recognizer.setRecognitionListener(listener(result));
                 android.content.Intent intent = new android.content.Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
                 intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
                 intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
@@ -114,11 +116,11 @@ final class NativeSpeechInputService {
     /** The recognizer can return nothing well before the budget; never hang the bridge. */
     private void onBudgetExpired() {
         if (!listening || pending == null) return;
-        stopListening();
         settleExceptionally("SPEECH_INPUT_TIMEOUT");
+        stopListening();
     }
 
-    private RecognitionListener listener() {
+    private RecognitionListener listener(CompletableFuture<JSONObject> expected) {
         return new RecognitionListener() {
             @Override public void onReadyForSpeech(Bundle params) { }
             @Override public void onBeginningOfSpeech() { }
@@ -126,20 +128,22 @@ final class NativeSpeechInputService {
             @Override public void onBufferReceived(byte[] buffer) { }
             @Override public void onEndOfSpeech() { }
             @Override public void onResults(Bundle results) {
+                if (pending != expected) return;
                 java.util.ArrayList<String> matches =
                     results == null ? null : results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                 String text = matches == null || matches.isEmpty() ? "" : String.valueOf(matches.get(0)).trim();
-                stopListening();
                 if (text.isEmpty()) settleExceptionally("NO_SPEECH");
                 else settleResult(text);
+                stopListening();
             }
             @Override public void onPartialResults(Bundle partialResults) { }
             @Override public void onEvent(int eventType, Bundle params) { }
             @Override public void onError(int error) {
+                if (pending != expected) return;
                 android.util.Log.w("AervoxSpeech", "recognizer error " + error);
                 String code = codeForError(error);
-                stopListening();
                 settleExceptionally(code);
+                stopListening();
             }
         };
     }
@@ -169,6 +173,13 @@ final class NativeSpeechInputService {
             try { recognizer.destroy(); } catch (Exception ignored) { /* Teardown is best effort. */ }
             recognizer = null;
         }
+    }
+
+    void stop() {
+        main.post(() -> {
+            settleExceptionally("SPEECH_INPUT_CANCELLED");
+            stopListening();
+        });
     }
 
     void close() {

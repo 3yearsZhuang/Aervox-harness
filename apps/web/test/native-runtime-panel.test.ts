@@ -1,12 +1,13 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils';
+import { AervoxHttpError } from '@aervox/api-client';
 import NativeRuntimePanel from '../src/mobile/NativeRuntimePanel.vue';
 
-const { request, routes } = vi.hoisted(() => ({ request: vi.fn(), routes: vi.fn() }));
+const { request, routes, extraTransport } = vi.hoisted(() => ({ request: vi.fn(), routes: vi.fn(), extraTransport: {} as Record<string, unknown> }));
 vi.mock('@aervox/api-client', async importOriginal => ({
   ...await importOriginal<typeof import('@aervox/api-client')>(),
-  getClientTransport: () => ({ request: routes }),
+  getClientTransport: () => ({ ...extraTransport, request: routes }),
 }));
 vi.mock('../src/mobile/native-channel', () => ({ nativeRequest: request }));
 enableAutoUnmount(afterEach);
@@ -25,6 +26,7 @@ async function mountPanel(page?: 'model' | 'device' | 'data' | 'reminder') {
 beforeEach(() => {
   request.mockReset();
   routes.mockReset();
+  for (const key of Object.keys(extraTransport)) delete extraTransport[key];
   request.mockImplementation(async body => {
     if (body.op === 'runtime') return runtime;
     if (body.op === 'device') return deviceStatus;
@@ -210,7 +212,7 @@ it('shows root availability and grants a device capability through the native ch
   expect(wrapper.get('md-switch[aria-label="控制手机"]').attributes('selected')).toBe('true');
   await wrapper.get('md-switch[aria-label="打开应用"]').trigger('change');
   await flushPromises();
-  expect(wrapper.get('.runtime-feedback').text()).toContain('设备操作需要 root 或已授权的 Shizuku');
+  expect(wrapper.get('.runtime-feedback').text()).toContain('设备操作需要 root');
 });
 
 it('keeps device switches disabled and honest when there is no root grant', async () => {
@@ -220,7 +222,8 @@ it('keeps device switches disabled and honest when there is no root grant', asyn
     return { kind: 'summary', hasCredential: false };
   });
   const wrapper = await mountPanel('device');
-  expect(wrapper.text()).toContain('可安装并授权 Shizuku');
+  expect(wrapper.text()).toContain('当前安装包尚未集成 Shizuku');
+  expect(wrapper.find('md-switch[aria-label="Root 高级实验"]').exists()).toBe(false);
   expect(wrapper.get('md-switch[aria-label="控制手机"]').attributes('disabled')).toBe('true');
   expect(wrapper.get('md-switch[aria-label="打开应用"]').attributes('disabled')).toBe('true');
   expect(wrapper.text()).not.toContain('Root 可用');
@@ -314,4 +317,44 @@ it('retries persona details through the page refresh action after a failed read'
   await flushPromises();
   expect(wrapper.find('textarea[aria-label="人格设定"]').element.value).toBe('温和');
   expect(wrapper.text()).not.toContain('人格列表读取失败');
+});
+
+it('opens the native learning surface from settings using the captured local transport', async () => {
+  routes.mockImplementation(async (_method, path) => {
+    if (path === '/v1/practice/sessions/active') throw new AervoxHttpError(404, path, { code: 'PRACTICE_SESSION_NOT_FOUND' });
+    return { items: [] };
+  });
+  const wrapper = await mountPanel();
+  await wrapper.findAll('.runtime-menu-card')[5].trigger('click');
+  await flushPromises();
+  expect(wrapper.find('.native-learning-panel').exists()).toBe(true);
+  expect(wrapper.text()).toContain('题库不足 3 题');
+  expect(wrapper.text()).toContain('当前没有到期复习');
+  expect(routes).toHaveBeenCalledWith('GET', '/v1/practice/sessions/active');
+});
+
+it('exports large backups through the file sharing port instead of the bounded text share', async () => {
+  const text = 'x'.repeat(300 * 1024);
+  extraTransport.exportBackup = vi.fn(async () => ({ text, createdAt: '2026-11-04T00:00:00Z', tableCounts: { records: 600 } }));
+  const shareFile = extraTransport.shareTextFile = vi.fn(async () => undefined);
+  const shareText = extraTransport.shareText = vi.fn(async () => undefined);
+  const wrapper = await mountPanel('data');
+  await wrapper.findAll('md-filled-tonal-button').find(button => button.text() === '导出')!.trigger('click');
+  await flushPromises();
+  expect(shareFile).toHaveBeenCalledWith({ title: 'Aervox 备份', text });
+  expect(shareText).not.toHaveBeenCalled();
+  expect(wrapper.text()).toContain('600 条记录');
+});
+
+it('requires two restore actions and tells the user to reopen the app after success', async () => {
+  const restore = extraTransport.importBackup = vi.fn(async () => ({ imported: { records: 600 } }));
+  const wrapper = await mountPanel('data');
+  await wrapper.findAll('md-filled-tonal-button').find(button => button.text() === '恢复')!.trigger('click');
+  await wrapper.find('textarea[aria-label="备份文本"]').setValue('backup');
+  await wrapper.findAll('md-filled-button').find(button => button.text() === '校验并恢复')!.trigger('click');
+  expect(restore).not.toHaveBeenCalled();
+  await wrapper.findAll('md-filled-button').find(button => button.text() === '确认覆盖当前数据')!.trigger('click');
+  await flushPromises();
+  expect(restore).toHaveBeenCalledWith('backup');
+  expect(wrapper.text()).toContain('请关闭并重新打开应用');
 });
