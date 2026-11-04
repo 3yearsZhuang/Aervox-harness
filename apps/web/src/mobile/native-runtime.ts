@@ -9,6 +9,7 @@ import { SqlitePersonaRepository } from '@aervox/repositories/persona';
 import { SqliteDiaryRepository, createSqliteDiaryMaterialPort } from '@aervox/repositories/diary';
 import { createInjectedDatabase } from '@aervox/repositories/database';
 import { NativeSqliteClient } from '@aervox/repositories/native-sqlite-client';
+import { isBackupScopedTable, rebuildSearchProjections } from '@aervox/repositories/backup';
 import { ConversationExecutionStore } from '@aervox/host-agent/browser';
 import { buildResumeHistory, ControlContext, ASK_USER_QUESTION_SPEC, ASK_USER_QUESTION_TOOL, createAskUserQuestionToolProvider, executeTurn, stableSerialize, type ToolProviderPort, type ToolSpec } from '@aervox/core/browser';
 import { AervoxHttpError, TurnStreamProjector, type AervoxTransport, type TurnCallbacks, type ObserveTurnOptions } from '@aervox/api-client';
@@ -464,20 +465,20 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       return withDatabase(async () => {
       checkOpen();
       signal?.throwIfAborted();
-      console.warn('[Aervox] backup export start', { closed: (nativeClient as { closed?: boolean } | undefined)?.closed,
-        cleanup: (nativeClient as { cleanupState?: string } | undefined)?.cleanupState });
       const quote = (name: string) => {
         if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) throw new Error('BACKUP_TABLE_UNEXPECTED');
         return `"${name}"`;
       };
-      console.warn('[Aervox] backup export: opening write transaction');
       const tx = await client.transaction('write');
-      console.warn('[Aervox] backup export: transaction open');
       try {
-        const names = await tx.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != '_aervox_schema_versions' ORDER BY rowid");
+        // Only authoritative business facts leave the device. Derived FTS
+        // projections are rebuilt after a restore, and credential/device-scope
+        // tables stay local (see @aervox/repositories backup-scope).
+        const names = await tx.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY rowid");
         const tables: BackupTable[] = [];
         for (const row of names.rows) {
           const name = String(row.name ?? row[0]);
+          if (!isBackupScopedTable(name)) continue;
           const probe = await tx.execute(`SELECT * FROM ${quote(name)} LIMIT 0`);
           const columns = [...probe.columns];
           const rows: Record<string, unknown>[] = [];
@@ -536,11 +537,23 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       };
       const tx = await client.transaction('write');
       try {
+        // Deletion and revocation facts never travel in a backup envelope, so a
+        // restore cannot replay them over the live database. Any recorded
+        // deletion means the backup may predate it: refuse instead of silently
+        // resurrecting content the user deleted after taking the snapshot.
+        // Fail-closed until the deny ledger/watermark replay exists (ITER-003/010).
+        const deletion = await tx.execute("SELECT id FROM deletion_requests LIMIT 1");
+        if (deletion.rows.length) {
+          await tx.rollback().catch(() => undefined);
+          return fail(409, 'BACKUP_DELETION_CONFLICT');
+        }
         const liveColumns = new Map<string, string[]>();
         const definitions = new Map<string, string>();
-        const names = await tx.execute("SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != '_aervox_schema_versions'");
+        const names = await tx.execute("SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'");
         for (const row of names.rows) {
           const name = String(row.name ?? row[0]);
+          // Credential/device scope and derived projections stay as they are.
+          if (!isBackupScopedTable(name)) continue;
           const probe = await tx.execute(`SELECT * FROM ${quote(name)} LIMIT 0`);
           liveColumns.set(name, [...probe.columns]);
           definitions.set(name, String(row.sql ?? row[1] ?? ''));
@@ -567,6 +580,9 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
             await tx.execute({ sql: `INSERT INTO ${quote(table.name)} (${columns}) VALUES (${placeholders})`, args: values });
           }
         }
+        // Projections are derived, so rebuild them from the restored facts in
+        // the same transaction instead of carrying FTS shadow tables in the envelope.
+        await rebuildSearchProjections(tx);
         await tx.commit();
         restored = true;
         return { imported: file.tableCounts };

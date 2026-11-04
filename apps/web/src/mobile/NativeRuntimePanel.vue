@@ -400,6 +400,7 @@ async function importBackup() {
       : code === 'BACKUP_SCHEMA_MISMATCH' ? '备份与当前版本的数据结构不一致，未写入任何数据。'
       : code === 'BACKUP_FORMAT_UNKNOWN' ? '无法识别这个备份格式，未写入任何数据。'
       : code === 'BACKUP_RESTORE_BLOCKED' ? '备份依赖不完整或当前版本无法恢复，未写入任何数据。'
+      : code === 'BACKUP_DELETION_CONFLICT' ? '这台手机已有删除记录，恢复旧备份可能带回已删除的内容，已拒绝且未写入任何数据。'
       : code === 'BACKUP_MALFORMED' ? '备份内容无法解析，未写入任何数据。'
       : code === 'HOST_BUSY' || code === 'BACKUP_RESTORE_BUSY' || code === 'BACKUP_RESTORE_IN_PROGRESS' ? '请先停止当前对话或等待操作结束，再恢复备份。'
       : '恢复结果尚未确认，请关闭并重新打开应用检查数据，勿重复恢复。';
@@ -553,7 +554,7 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
       <h3 id="runtime-backup-title"><FolderDown :size="20" aria-hidden="true" />备份与恢复</h3>
       <div class="runtime-group">
         <div class="runtime-row">
-          <div class="runtime-row-copy"><dt>导出备份</dt><dd>把会话与学习数据打包为带校验的备份文本，交给系统分享保存。</dd></div>
+          <div class="runtime-row-copy"><dt>导出备份</dt><dd>把会话、学习、人格与日记等业务数据打包为带校验的备份文本，交给系统分享保存。模型密钥、插件凭据和设备连接不进入备份，换机后需重新配置。</dd></div>
           <component :is="'md-filled-tonal-button'" :disabled="backupBusy ? 'true' : undefined" @click="exportBackup">导出</component>
         </div>
         <div class="runtime-row">

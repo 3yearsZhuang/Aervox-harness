@@ -14,6 +14,7 @@ import { decodeNativeSqliteValue, encodeNativeSqliteValue } from '@aervox/reposi
 import { ConversationRepository } from '@aervox/repositories/conversation';
 import { createInjectedDatabase } from '@aervox/repositories/database';
 import { initializeCanonicalSchema } from '../../../packages/repositories/src/schema/manifest';
+import { FTS_SCHEMA_STATEMENTS } from '../../../packages/repositories/src/schema/fts-definition';
 import { initializeNativeRuntime } from '../src/mobile/native-runtime';
 
 const mocks = vi.hoisted(() => ({
@@ -59,6 +60,9 @@ async function fixture() {
   const database = createClient({ url: `file:${join(directory, 'main.db')}`, intMode: 'bigint' });
   await database.execute('PRAGMA foreign_keys=ON');
   await initializeCanonicalSchema(database, 'main');
+  // Mirror the packaged Android artifact: the device database also carries the
+  // derived FTS projections (NativeBusinessDatabase applies `projections`).
+  for (const sql of FTS_SCHEMA_STATEMENTS) await database.execute(sql);
   let transaction: Transaction | undefined;
   let owner: string | null = null, counter = 0, configured = true, loseCommit = false;
   let commits = 0, sqliteRequests = 0, strictSqlite = false, rejectedStatements = 0;
@@ -1134,6 +1138,54 @@ describe('Android backup export and restore over actual SQLite', () => {
     expect((await fixture.database.execute("SELECT concept FROM knowledge_items WHERE id = 'k_bak'")).rows[0]!.concept).toBe('备份概念');
     await expect(transport.request('GET', '/v1/knowledge-items/k_bak')).rejects.toMatchObject({ code: 'HOST_RESTART_REQUIRED' });
 
+  }, 20_000);
+
+  it('keeps FTS shadow tables and credential scope out of the envelope and rebuilds projections after a restore', async () => {
+    const fixture = current!;
+    const transport = await fixture.start();
+    // Credential rows and a populated search index both exist on the device.
+    await fixture.database.execute(`INSERT INTO llm_configs (id, name, is_active, enabled, provider_type, base_url, api_key, model_id, temperature, max_tokens, settings_json, created_at, updated_at)
+      VALUES ('cfg_local', '本地模型', 1, 1, 'openai', 'https://example.invalid', 'sk-local-secret', 'm1', 0.2, 4096, '{}', '2026-11-01T00:00:00Z', '2026-11-01T00:00:00Z')`);
+    await fixture.database.execute("INSERT INTO messages_fts (id, content) VALUES ('m_fts', '可索引正文')");
+    await transport.request('POST', '/v1/questions', { prompt: '备份题', answerSpec: { answer: '是' } });
+
+    const exported = await transport.exportBackup!();
+    const file = JSON.parse(exported.text) as { tables: { name: string }[] };
+    const names = file.tables.map(table => table.name);
+    // Derived projections and credential scope never leave the device.
+    expect(names.filter(name => /_fts|_fts_/.test(name))).toEqual([]);
+    expect(names).not.toContain('llm_configs');
+    expect(names).not.toContain('plugin_config_secrets');
+    expect(names).not.toContain('mcp_servers');
+    expect(names).not.toContain('_aervox_schema_versions');
+    expect(names).toContain('questions');
+
+    await fixture.database.execute("DELETE FROM questions");
+    await fixture.database.execute("DELETE FROM messages_fts");
+    const restored = await transport.importBackup!(exported.text);
+    expect(restored.imported.questions).toBe(1);
+    // The projection was rebuilt from authoritative rows, not raw shadow rows.
+    expect(Number((await fixture.database.execute("SELECT count(*) AS n FROM messages_fts")).rows[0]!.n)).toBe(0);
+    expect(Number((await fixture.database.execute("SELECT count(*) AS n FROM llm_configs")).rows[0]!.n)).toBe(1);
+    expect(current!.rejectedStatements).toBe(0);
+    // The rebuilt index is writable: shadow-table raw writes would have left it corrupt.
+    await fixture.database.execute("INSERT INTO messages_fts (id, content) VALUES ('m_after', '恢复后可写')");
+    expect((await fixture.database.execute("SELECT id FROM messages_fts WHERE messages_fts MATCH '恢复后可写'")).rows.map(row => row.id)).toEqual(['m_after']);
+  }, 20_000);
+
+  it('refuses a restore once a deletion fact exists so deleted content cannot return', async () => {
+    const fixture = current!;
+    const transport = await fixture.start();
+    await transport.request('POST', '/v1/questions', { prompt: '删除前题', answerSpec: { answer: '是' } });
+    const exported = await transport.exportBackup!();
+    // Deletion facts are never part of an envelope, so their presence (at any
+    // age) blocks the overwrite until the deny-ledger replay exists.
+    await fixture.database.execute(`INSERT INTO deletion_requests (id, scope, idempotency_key, requested_at, status, owner_module, created_at, updated_at)
+      VALUES ('dr_local', 'source', 'del_key_1', '2026-11-04T00:00:00Z', 'in_progress', 'conversation', '2026-11-04T00:00:00Z', '2026-11-04T00:00:00Z')`);
+    await expect(transport.importBackup!(exported.text)).rejects.toMatchObject({ code: 'BACKUP_DELETION_CONFLICT' });
+    // Nothing was written.
+    expect(await fixture.count('questions')).toBe(1);
+    expect(await fixture.count('deletion_requests')).toBe(1);
   }, 20_000);
 });
 

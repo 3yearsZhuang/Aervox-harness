@@ -358,3 +358,20 @@ it('requires two restore actions and tells the user to reopen the app after succ
   expect(restore).toHaveBeenCalledWith('backup');
   expect(wrapper.text()).toContain('请关闭并重新打开应用');
 });
+
+it('states the real backup scope and explains a refused restore after deletion', async () => {
+  extraTransport.importBackup = vi.fn(async () => {
+    // Native transport raises codes as the problem message (see `fail` in native-runtime).
+    throw new AervoxHttpError(409, 'native', { code: 'BACKUP_DELETION_CONFLICT', message: 'BACKUP_DELETION_CONFLICT' });
+  });
+  const wrapper = await mountPanel('data');
+  // Copy must name what actually leaves the device, not "everything".
+  expect(wrapper.text()).toContain('模型密钥、插件凭据和设备连接不进入备份');
+  await wrapper.findAll('md-filled-tonal-button').find(button => button.text() === '恢复')!.trigger('click');
+  await wrapper.find('textarea[aria-label="备份文本"]').setValue('backup');
+  await wrapper.findAll('md-filled-button').find(button => button.text() === '校验并恢复')!.trigger('click');
+  await wrapper.findAll('md-filled-button').find(button => button.text() === '确认覆盖当前数据')!.trigger('click');
+  await flushPromises();
+  expect(wrapper.text()).toContain('这台手机已有删除记录');
+  expect(wrapper.text()).toContain('未写入任何数据');
+});
