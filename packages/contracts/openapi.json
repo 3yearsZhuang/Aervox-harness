@@ -4069,12 +4069,6 @@
           "id": {
             "type": "string"
           },
-          "workspaceId": {
-            "type": "string"
-          },
-          "subjectUserId": {
-            "type": "string"
-          },
           "sourceArtifactId": {
             "type": [
               "string",
@@ -4103,8 +4097,6 @@
         },
         "required": [
           "id",
-          "workspaceId",
-          "subjectUserId",
           "prompt",
           "status",
           "createdAt",
@@ -4135,12 +4127,6 @@
                 "id": {
                   "type": "string"
                 },
-                "workspaceId": {
-                  "type": "string"
-                },
-                "subjectUserId": {
-                  "type": "string"
-                },
                 "sourceArtifactId": {
                   "type": [
                     "string",
@@ -4169,8 +4155,6 @@
               },
               "required": [
                 "id",
-                "workspaceId",
-                "subjectUserId",
                 "prompt",
                 "status",
                 "createdAt",
@@ -4198,12 +4182,6 @@
                 "id": {
                   "type": "string"
                 },
-                "workspaceId": {
-                  "type": "string"
-                },
-                "subjectUserId": {
-                  "type": "string"
-                },
                 "sourceArtifactId": {
                   "type": [
                     "string",
@@ -4232,8 +4210,6 @@
               },
               "required": [
                 "id",
-                "workspaceId",
-                "subjectUserId",
                 "prompt",
                 "status",
                 "createdAt",
@@ -29226,12 +29202,6 @@
                           "id": {
                             "type": "string"
                           },
-                          "workspaceId": {
-                            "type": "string"
-                          },
-                          "subjectUserId": {
-                            "type": "string"
-                          },
                           "sourceArtifactId": {
                             "type": [
                               "string",
@@ -29260,8 +29230,6 @@
                         },
                         "required": [
                           "id",
-                          "workspaceId",
-                          "subjectUserId",
                           "prompt",
                           "status",
                           "createdAt",
@@ -29312,12 +29280,6 @@
                           "id": {
                             "type": "string"
                           },
-                          "workspaceId": {
-                            "type": "string"
-                          },
-                          "subjectUserId": {
-                            "type": "string"
-                          },
                           "sourceArtifactId": {
                             "type": [
                               "string",
@@ -29346,8 +29308,6 @@
                         },
                         "required": [
                           "id",
-                          "workspaceId",
-                          "subjectUserId",
                           "prompt",
                           "status",
                           "createdAt",
@@ -30750,12 +30710,6 @@
                           "id": {
                             "type": "string"
                           },
-                          "workspaceId": {
-                            "type": "string"
-                          },
-                          "subjectUserId": {
-                            "type": "string"
-                          },
                           "sourceArtifactId": {
                             "type": [
                               "string",
@@ -30784,8 +30738,6 @@
                         },
                         "required": [
                           "id",
-                          "workspaceId",
-                          "subjectUserId",
                           "prompt",
                           "status",
                           "createdAt",
@@ -31549,12 +31501,6 @@
                           "id": {
                             "type": "string"
                           },
-                          "workspaceId": {
-                            "type": "string"
-                          },
-                          "subjectUserId": {
-                            "type": "string"
-                          },
                           "sourceArtifactId": {
                             "type": [
                               "string",
@@ -31583,8 +31529,6 @@
                         },
                         "required": [
                           "id",
-                          "workspaceId",
-                          "subjectUserId",
                           "prompt",
                           "status",
                           "createdAt",
@@ -31635,12 +31579,6 @@
                           "id": {
                             "type": "string"
                           },
-                          "workspaceId": {
-                            "type": "string"
-                          },
-                          "subjectUserId": {
-                            "type": "string"
-                          },
                           "sourceArtifactId": {
                             "type": [
                               "string",
@@ -31669,8 +31607,6 @@
                         },
                         "required": [
                           "id",
-                          "workspaceId",
-                          "subjectUserId",
                           "prompt",
                           "status",
                           "createdAt",
