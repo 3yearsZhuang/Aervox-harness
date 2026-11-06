@@ -22,6 +22,15 @@ public class NativeRuntimeActivity extends AppCompatActivity {
     private NativeBusinessDatabase owner;
     private NativeSqliteSession sqlite;
     private NativeModelService model;
+    private NativeDeviceService device;
+    private NativeSpeechService speech;
+    private NativeSpeechInputService speechInput;
+    private NativeNotifyService notify;
+    private NativeFileService files;
+    private NativeBackupFileService backupFiles;
+    private final java.util.concurrent.CompletableFuture<org.json.JSONObject>[] pendingPick =
+        new java.util.concurrent.CompletableFuture[1];
+    private androidx.activity.result.ActivityResultLauncher<String[]> pickLauncher;
     private NativePreferences preferences;
     private NativeAssetWebViewHost host;
     private String epoch;
@@ -36,6 +45,25 @@ public class NativeRuntimeActivity extends AppCompatActivity {
         loading.setGravity(android.view.Gravity.CENTER);
         setContentView(loading);
         model = new NativeModelService(this);
+        device = new NativeDeviceService(this, () -> foreground);
+        speech = new NativeSpeechService(this);
+        speechInput = new NativeSpeechInputService(this);
+        notify = new NativeNotifyService(this);
+        files = new NativeFileService();
+        backupFiles = new NativeBackupFileService(this, () -> foreground);
+        pickLauncher = registerForActivityResult(new androidx.activity.result.contract.ActivityResultContracts.OpenDocument(), uri -> {
+            java.util.concurrent.CompletableFuture<org.json.JSONObject> pending = pendingPick[0];
+            pendingPick[0] = null;
+            if (pending == null) return;
+            if (uri == null) {
+                pending.completeExceptionally(new NativeFileService.FileException("FILE_PICK_CANCELLED"));
+                return;
+            }
+            files.readPicked(this, uri).whenComplete((value, error) -> {
+                if (error == null) pending.complete(value);
+                else pending.completeExceptionally(error);
+            });
+        });
         preferences = new NativePreferences(this);
         owner = new NativeBusinessDatabase(this);
         sqlite = new NativeSqliteSession(owner::open);
@@ -57,12 +85,33 @@ public class NativeRuntimeActivity extends AppCompatActivity {
             // WebView padding does not resize the CSS viewport. Inset its
             // container so fixed-position UI and 100dvh also stay inside bars/IME.
             FrameLayout surface = new FrameLayout(this);
+            // Full-screen adaptation: the inset padding would otherwise expose the
+            // window background at the edges; paint it with the theme's page color.
+            boolean night = (getResources().getConfiguration().uiMode
+                & android.content.res.Configuration.UI_MODE_NIGHT_MASK)
+                == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+            surface.setBackgroundColor(night ? 0xFF101318 : 0xFFFBFBFA);
             surface.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
             ViewCompat.setOnApplyWindowInsetsListener(surface, (target, insets) -> {
                 androidx.core.graphics.Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
                 androidx.core.graphics.Insets keyboard = insets.getInsets(WindowInsetsCompat.Type.ime());
-                target.setPadding(bars.left, bars.top, bars.right, Math.max(bars.bottom, keyboard.bottom));
+                // Rounded corners need explicit clearance: system bar insets do
+                // not include the display radius at the left/right in landscape.
+                int cornerPadding = roundedCornerPadding(insets);
+                target.setPadding(
+                    Math.max(bars.left, cornerPadding),
+                    Math.max(bars.top, cornerPadding),
+                    Math.max(bars.right, cornerPadding),
+                    Math.max(Math.max(bars.bottom, keyboard.bottom), cornerPadding));
                 return WindowInsetsCompat.CONSUMED;
+            });
+            // Window resizes (split screen, freeform, rotation) must re-dispatch
+            // insets; relying on the listener alone leaves stale padding after
+            // some resize paths.
+            surface.addOnLayoutChangeListener((changed, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+                if (changed.getWidth() != oldRight - oldLeft || changed.getHeight() != oldBottom - oldTop) {
+                    ViewCompat.requestApplyInsets(changed);
+                }
             });
             setContentView(surface, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
             ViewCompat.requestApplyInsets(surface);
@@ -96,7 +145,21 @@ public class NativeRuntimeActivity extends AppCompatActivity {
                         ? failure("DATABASE_UNAVAILABLE") : new JSONObject().put("kind", "runtime")
                         .put("connectionEpoch", epoch).put("sqlite", "ready").put("mode", "foreground"));
                     break;
-                case "sqlite": result = sqlite.request(command); break;
+                case "sqlite": {
+                    final String requestTx = command.has("transactionId") && !command.isNull("transactionId")
+                        ? command.optString("transactionId", null) : null;
+                    result = sqlite.request(command).handle((value, error) -> {
+                        if (error == null) return value;
+                        Throwable cause = error;
+                        while ((cause instanceof java.util.concurrent.CompletionException
+                            || cause instanceof java.util.concurrent.ExecutionException) && cause.getCause() != null) cause = cause.getCause();
+                        if (cause instanceof NativeSqliteSession.SessionException) {
+                            return sqlite.rejection((NativeSqliteSession.SessionException) cause, requestTx);
+                        }
+                        throw new java.util.concurrent.CompletionException(cause);
+                    });
+                    break;
+                }
                 case "preferences": result = preferences.request(command); break;
                 case "dispose":
                     if (input.length() != 2) throw new IllegalArgumentException();
@@ -110,6 +173,84 @@ public class NativeRuntimeActivity extends AppCompatActivity {
                         if ("started".equals(receipt.optString("kind")) && !foreground) model.cancelCurrent();
                         return receipt;
                     }); break;
+                case "device":
+                    // Device actions are foreground-only: a background tap has no
+                    // visible owner and no way for the user to interrupt it.
+                    if ("perform".equals(command.optString("operation")) && !foreground) {
+                        throw new IllegalStateException("NOT_FOREGROUND");
+                    }
+                    result = device == null ? failed(new NativeDeviceService.DeviceException("CLOSED")) : device.request(command); break;
+                case "speech": {
+                    String speechOperation = command.optString("operation");
+                    // Speaking is audible nearby and dictation has no visible owner in
+                    // the background; both stay foreground-only.
+                    if (("speak".equals(speechOperation) || "listen".equals(speechOperation)) && !foreground) {
+                        throw new IllegalStateException("NOT_FOREGROUND");
+                    }
+                    if ("listen".equals(speechOperation) || "cancel".equals(speechOperation)) {
+                        result = speechInput == null
+                            ? failed(new NativeSpeechInputService.SpeechInputException("CLOSED"))
+                            : speechInput.request(command);
+                    } else {
+                        result = speech == null ? failed(new NativeSpeechService.SpeechException("CLOSED")) : speech.request(command);
+                    }
+                    break;
+                }
+                case "file": {
+                    if (!foreground) {
+                        throw new IllegalArgumentException();
+                    }
+                    if ("fetchText".equals(command.optString("operation"))) {
+                        String url = command.optString("url", "");
+                        result = files.fetch(url);
+                        break;
+                    }
+                    if (!"pickText".equals(command.optString("operation"))) {
+                        throw new IllegalArgumentException();
+                    }
+                    if (pendingPick[0] != null) {
+                        result = failed(new NativeFileService.FileException("FILE_BUSY"));
+                        break;
+                    }
+                    java.util.concurrent.CompletableFuture<org.json.JSONObject> pick = new java.util.concurrent.CompletableFuture<>();
+                    pendingPick[0] = pick;
+                    // Launch the picker on the Activity thread; document I/O is
+                    // handled separately by the owned file worker.
+                    runOnUiThread(() -> {
+                        try {
+                            pickLauncher.launch(new String[] { "text/*", "application/json", "text/csv", "application/csv" });
+                        } catch (Exception error) {
+                            pendingPick[0] = null;
+                            pick.completeExceptionally(new NativeFileService.FileException("FILE_PICK_UNAVAILABLE"));
+                        }
+                    });
+                    result = pick;
+                    break;
+                }
+                case "backup_file":
+                    // Retiring pages may still need to delete an unfinished export.
+                    if (!foreground && !"abort".equals(command.optString("operation"))) throw new IllegalStateException("NOT_FOREGROUND");
+                    result = backupFiles.request(command);
+                    break;
+                case "notification":
+                    result = notify == null
+                        ? failed(new NativeNotifyService.NotifyException("CLOSED"))
+                        : notify.request(command);
+                    break;
+                case "share": {
+                    // Handing text to the OS share sheet is user-visible and needs
+                    // the foreground activity; nothing is written to app storage.
+                    if (!"text".equals(command.optString("operation")) || !foreground) throw new IllegalArgumentException();
+                    String text = command.getString("text");
+                    String subject = command.optString("subject", "");
+                    if (text.isEmpty() || text.length() > 300_000 || subject.length() > 120) throw new IllegalArgumentException();
+                    android.content.Intent send = new android.content.Intent(android.content.Intent.ACTION_SEND)
+                        .setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, text);
+                    if (!subject.isEmpty()) send.putExtra(android.content.Intent.EXTRA_SUBJECT, subject);
+                    startActivity(android.content.Intent.createChooser(send, "分享会话"));
+                    result = CompletableFuture.completedFuture(new JSONObject().put("kind", "share_result").put("ok", true));
+                    break;
+                }
                 default: throw new IllegalArgumentException();
             }
             return result.handle((value, error) -> error == null ? value.toString() : failure(code(error)).toString());
@@ -118,8 +259,18 @@ public class NativeRuntimeActivity extends AppCompatActivity {
     private static String code(Throwable error) {
         while ((error instanceof CompletionException || error instanceof java.util.concurrent.ExecutionException) && error.getCause() != null) error = error.getCause();
         if (error instanceof NativeModelService.ServiceException) return ((NativeModelService.ServiceException) error).code;
+        if (error instanceof NativeDeviceService.DeviceException) return ((NativeDeviceService.DeviceException) error).code;
+        if (error instanceof NativeSpeechService.SpeechException) return ((NativeSpeechService.SpeechException) error).code;
+        if (error instanceof NativeSpeechInputService.SpeechInputException) return ((NativeSpeechInputService.SpeechInputException) error).code;
+        if (error instanceof NativeFileService.FileException) return ((NativeFileService.FileException) error).code;
+        if (error instanceof NativeNotifyService.NotifyException) return ((NativeNotifyService.NotifyException) error).code;
         if (error instanceof NativeSqliteSession.SessionException) return ((NativeSqliteSession.SessionException) error).code.name();
         return "NATIVE_FAILURE";
+    }
+    private static CompletableFuture<JSONObject> failed(Throwable error) {
+        CompletableFuture<JSONObject> result = new CompletableFuture<>();
+        result.completeExceptionally(error);
+        return result;
     }
     private static JSONObject failure(String code) {
         JSONObject result = new JSONObject();
@@ -136,15 +287,46 @@ public class NativeRuntimeActivity extends AppCompatActivity {
         // M0 is foreground-only. Native cancellation also applies if JavaScript
         // is suspended before receiving visibilitychange; no background service.
         if (model != null) model.cancelCurrent();
+        if (speechInput != null) speechInput.stop();
+        if (speech != null) speech.stop();
         super.onStop();
     }
     @Override protected void onDestroy() {
         shutdownNative();
         super.onDestroy();
     }
+    /**
+     * Corner safety is a nudge, not a bar: the full display radius applied to
+     * every side shrank the usable width by ~70px and broke the layout. Cap it
+     * at a token few pixels so corners stay clear without reflowing the page.
+     */
+    private static int roundedCornerPadding(androidx.core.view.WindowInsetsCompat insets) {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) return 0;
+        android.view.WindowInsets platform = insets.toWindowInsets();
+        if (platform == null) return 0;
+        int radius = 0;
+        for (int position : new int[] {
+                android.view.RoundedCorner.POSITION_TOP_LEFT,
+                android.view.RoundedCorner.POSITION_TOP_RIGHT,
+                android.view.RoundedCorner.POSITION_BOTTOM_LEFT,
+                android.view.RoundedCorner.POSITION_BOTTOM_RIGHT }) {
+            android.view.RoundedCorner corner = platform.getRoundedCorner(position);
+            if (corner != null) radius = Math.max(radius, corner.getRadius());
+        }
+        return Math.min(radius, 24);
+    }
+
     private void shutdownNative() {
         if (!closing.compareAndSet(false, true)) return;
         if (host != null) host.close();
+        if (device != null) device.close();
+        if (speech != null) speech.close();
+        if (speechInput != null) speechInput.close();
+        if (files != null) files.close();
+        if (backupFiles != null) backupFiles.close();
+        CompletableFuture<JSONObject> pick = pendingPick[0];
+        pendingPick[0] = null;
+        if (pick != null) pick.completeExceptionally(new NativeFileService.FileException("CLOSED"));
         if (preferences != null) preferences.close();
         CompletableFuture<Void> modelDrain = model == null ? CompletableFuture.completedFuture(null) : model.close();
         if (sqlite != null) {

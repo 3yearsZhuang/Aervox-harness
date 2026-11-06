@@ -6,6 +6,8 @@ const request: ModelRequest = { turnId: 'turn', attemptId: 'attempt', step: 1,
   context: { turnId: 'turn', sessionId: 'session', messages: [{ role: 'user', content: '你好' }] } };
 const data = (sequence: number, text: string, finish: string | null = null) => ({ sequence, type: 'data',
   data: JSON.stringify({ choices: [{ index: 0, delta: { content: text }, finish_reason: finish }] }) });
+const tools = (sequence: number, calls: unknown[], finish: string | null = null) => ({ sequence, type: 'data',
+  data: JSON.stringify({ choices: [{ index: 0, delta: { tool_calls: calls }, finish_reason: finish }] }) });
 const done = (sequence: number) => ({ sequence, type: 'done' });
 function fake(pages: Array<{ events: unknown[]; status: string; nextSequence: number }>) {
   return vi.fn(async (body: Record<string, unknown>) => {
@@ -165,4 +167,45 @@ it('preserves a native foreground cancellation that already won over an older pr
   await expect(run()).rejects.toThrow('MODEL_CANCELLED');
   expect(cancelled).toHaveBeenCalledExactlyOnceWith(request);
   expect(send.mock.calls.filter(([body]) => body.operation === 'cancel')).toHaveLength(1);
+});
+
+it('sends declared tools and replays the assistant/tool protocol in the native request', async () => {
+  const send = fake([{ events: [data(1, 'ok', 'stop'), done(2)], status: 'completed', nextSequence: 2 }]);
+  await collect(send, { ...request,
+    tools: [{ name: 'device_tap', description: 'tap the screen', readOnly: false, parameters: { type: 'object' } }],
+    context: { ...request.context, messages: [
+      { role: 'user', content: '打开设置' },
+      { role: 'assistant', content: '', toolCalls: [{ id: 'call_1', name: 'device_tap', arguments: { x: 1, y: 2 } }] },
+      { role: 'tool', content: 'ok', toolCallId: 'call_1' },
+    ] } });
+  const start = send.mock.calls.find(([body]) => body.operation === 'start')![0];
+  expect(start.tools).toEqual([{ name: 'device_tap', description: 'tap the screen', parameters: { type: 'object' } }]);
+  expect(start.messages).toEqual([
+    { role: 'user', content: '打开设置' },
+    { role: 'assistant', content: '', toolCalls: [{ id: 'call_1', name: 'device_tap', arguments: '{"x":1,"y":2}' }] },
+    { role: 'tool', content: 'ok', toolCallId: 'call_1' },
+  ]);
+});
+
+it('accumulates fragmented tool calls and yields them only with the terminal chunk', async () => {
+  const send = fake([{ events: [
+    tools(1, [{ index: 0, id: 'call_a', function: { name: 'device_tap', arguments: '{"x":' } }]),
+    tools(2, [{ index: 0, function: { arguments: '10,"y":20}' } }], 'tool_calls'),
+    done(3),
+  ], status: 'completed', nextSequence: 3 }]);
+  const chunks = await collect(send);
+  expect(chunks.filter(chunk => !chunk.isFinal).every(chunk => chunk.text === '')).toBe(true);
+  expect(chunks.at(-1)).toEqual({ text: '', isFinal: true, stopReason: 'tool_calls',
+    toolCalls: [{ id: 'call_a', name: 'device_tap', arguments: { x: 10, y: 20 } }] });
+  expect(send.mock.calls.some(([body]) => body.operation === 'cancel')).toBe(false);
+});
+
+it.each([
+  [tools(1, [{ index: 0, id: 'call_b', function: { name: 'device_tap', arguments: '{"x":1' } }], 'tool_calls')],
+  [tools(1, [{ index: 0, function: { name: 'device_tap', arguments: '{}' } }], 'tool_calls')],
+  [tools(1, [{ index: 0, id: 'call_c', function: { name: 'device_tap', arguments: '[1,2]' } }], 'tool_calls')],
+])('refuses an incomplete or malformed tool call at the terminal chunk', async chunk => {
+  const send = fake([{ events: [chunk, done(2)], status: 'completed', nextSequence: 2 }]);
+  const chunks = await collect(send);
+  expect(chunks.at(-1)).toEqual({ text: '', isFinal: true, stopReason: 'invalid_tool_arguments' });
 });

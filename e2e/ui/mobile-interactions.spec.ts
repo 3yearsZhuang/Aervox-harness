@@ -99,8 +99,10 @@ test('back dismisses only the top mobile layer while live observation and draft 
     await page.evaluate(() => window.history.back());
     await expect(sessions).toBeHidden();
     await expect(input).toHaveValue('下一条消息的草稿');
-    await page.evaluate(() => window.history.back());
-    await expect(page.locator('.proactive-companion')).toBeFocused();
+    // The composer is permanently visible, so it registers no back layer: the
+    // sessions dialog was the only layer and this Back consumed the whole guard.
+    expect(await page.evaluate(() => Boolean((history.state as { __aervoxMobileBack?: unknown } | null)?.__aervoxMobileBack))).toBe(false);
+    await expect(page.locator('.proactive-companion')).toBeVisible();
     expect(calls.some(path => path.endsWith('/cancel'))).toBe(false);
     finish();
     await expect(page.locator('.pc-dialogue-text')).toContainText('原会话的回复继续抵达');
@@ -138,23 +140,29 @@ test('retrying an uncertain mobile submission uses the original request and pres
 });
 
 
-test('reloading an owned mobile input retires the prior history guard before restoring a new one', async ({ page, request, servers }) => {
+test('reloading the permanent mobile composer preserves drafts without adding input history guards', async ({ page, request, servers }) => {
   const session = await createSession(request, servers.apiUrl, '重载后的返回');
   await selectInitial(page, session.id);
   await page.goto(servers.webUrl);
   const input = page.locator('.pc-whisper-input textarea');
   await input.fill('返回也要保留的草稿'); await input.focus();
-  await expect.poll(() => page.evaluate(() => Boolean(history.state?.__aervoxMobileBack))).toBe(true);
+  expect(await page.evaluate(() => Boolean(history.state?.__aervoxMobileBack))).toBe(false);
   const length = await page.evaluate(() => history.length);
   for (let index = 0; index < 2; index++) {
     await page.reload();
     await expect(input).toHaveValue('返回也要保留的草稿');
-    await expect.poll(() => page.evaluate(() => history.state?.__aervoxMobileBack?.kind)).toBe('guard');
+    expect(await page.evaluate(() => Boolean(history.state?.__aervoxMobileBack))).toBe(false);
     expect(await page.evaluate(() => history.length)).toBe(length);
-    expect(await page.evaluate(() => Boolean(history.state.__aervoxMobileBack.original?.__aervoxMobileBack))).toBe(false);
+    expect(await page.evaluate(() => Boolean(history.state?.__aervoxMobileBack?.original?.__aervoxMobileBack))).toBe(false);
   }
+  await page.getByRole('button', { name: '会话列表', exact: true }).click();
+  const dialog = page.locator('md-dialog.mobile-sessions-dialog');
+  await expect(dialog).toBeVisible();
   await page.evaluate(() => history.back());
-  await expect(page.locator('.proactive-companion')).toBeFocused();
+  await expect(dialog).toBeHidden();
   await expect(input).toHaveValue('返回也要保留的草稿');
   expect(await page.evaluate(() => Boolean(history.state?.__aervoxMobileBack))).toBe(false);
+  // The composer registered no guard of its own; the only guards seen above came
+  // from the sessions dialog, and Back consumed exactly that one.
+  await expect(input).toBeVisible();
 });

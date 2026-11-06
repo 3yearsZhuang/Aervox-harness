@@ -19,7 +19,7 @@ public final class NativeSqliteStatementPolicyTest {
         for (String value : new String[]{"WITH a AS (SELECT 1) REPLACE INTO record VALUES(1)", "WITH a AS (DELETE FROM record) SELECT 1", "WITH a AS (SELECT 1) PRAGMA foreign_keys", "WITH a SELECT 1", "WITH a AS SELECT 1", "WITH a AS (SELECT 1), SELECT 1"}) bad(value);
     }
     @Test public void rejectsAuthorityAndConflictTransitionsEvenThroughQuotedNames() {
-        for (String value : new String[]{"ATTACH ? AS extra", "PRAGMA writable_schema=1", "SELECT load_extension(?)", "SELECT 'load_extension' /*comment*/ (?)", "SELECT \"load_extension\"(?)", "SELECT [load_extension](?)", "SELECT `load_extension`(?)", "SELECT readfile(?)", "SELECT * FROM pragma_table_info(?)", "UPDATE sqlite_schema SET sql=?", "SELECT * FROM \"sqlite_master\"", "INSERT OR ROLLBACK INTO record VALUES(?)", "INSERT OR FAIL INTO record VALUES(?)", "WITH a AS (SELECT 1) SELECT load_extension(?)", "BEGIN IMMEDIATE", "COMMIT", "ROLLBACK", "CREATE TABLE x(id)", "EXPLAIN SELECT 1"}) bad(value);
+        for (String value : new String[]{"ATTACH ? AS extra", "PRAGMA writable_schema=1", "SELECT load_extension(?)", "SELECT 'load_extension' /*comment*/ (?)", "SELECT \"load_extension\"(?)", "SELECT [load_extension](?)", "SELECT `load_extension`(?)", "SELECT readfile(?)", "SELECT * FROM pragma_table_info(?)", "UPDATE sqlite_schema SET sql=?", "INSERT OR ROLLBACK INTO record VALUES(?)", "INSERT OR FAIL INTO record VALUES(?)", "WITH a AS (SELECT 1) SELECT load_extension(?)", "BEGIN IMMEDIATE", "COMMIT", "ROLLBACK", "CREATE TABLE x(id)", "EXPLAIN SELECT 1"}) bad(value);
     }
     @Test public void refusesScriptsNamedOrNumberedBindingsAndMalformedQuoting() {
         for (String value : new String[]{"SELECT ?; DELETE FROM record", "SELECT 1;;", "SELECT :id", "SELECT @id", "SELECT $id", "SELECT ?1", "SELECT ?01", "SELECT ?alias", "SELECT 'unterminated", "SELECT \"unterminated", "SELECT [unterminated", "SELECT `unterminated", "SELECT 1 /* unclosed", "SELECT (1", "SELECT 1)", "'SELECT' 1", "SELECTED 1", "-- only comment", "/* only comment */", "SELECT 1; /*comment*/ SELECT 2", "SELECT 1\0; DELETE FROM x"}) bad(value);
@@ -45,4 +45,11 @@ public final class NativeSqliteStatementPolicyTest {
         catch (IllegalArgumentException error) { assertEquals("UNSUPPORTED_SQL", error.getMessage()); assertNull(error.getCause()); }
     }
     private static String repeat(String value, int count) { StringBuilder out = new StringBuilder(); for (int i=0;i<count;i++) out.append(value); return out.toString(); }
+
+    @Test public void allowsReadOnlySchemaTablesButNotOtherSqliteNames() {
+        assertEquals(0, valid("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY rowid"));
+        assertEquals(0, valid("SELECT * FROM sqlite_schema"));
+        bad("SELECT * FROM sqlite_sequence");
+        bad("SELECT * FROM sqlite_stat1");
+    }
 }

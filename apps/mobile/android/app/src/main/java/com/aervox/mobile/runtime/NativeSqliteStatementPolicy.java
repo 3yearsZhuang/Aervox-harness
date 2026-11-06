@@ -15,6 +15,8 @@ import java.util.Set;
 final class NativeSqliteStatementPolicy {
     static final int MAX_SQL_BYTES = 32768, MAX_ARGUMENTS = 256, MAX_DEPTH = 64;
     private static final Set<String> ROOTS = words("SELECT", "INSERT", "UPDATE", "DELETE");
+    /** Read-only schema introspection the backup export relies on. */
+    private static final Set<String> SCHEMA_READS = words("SQLITE_VERSION", "SQLITE_MASTER", "SQLITE_SCHEMA");
     private static final Set<String> BLOCKED = words("ATTACH", "DETACH", "PRAGMA", "CREATE", "ALTER", "DROP",
         "VACUUM", "ANALYZE", "REINDEX", "BEGIN", "COMMIT", "ROLLBACK", "SAVEPOINT", "RELEASE", "EXPLAIN",
         "REPLACE", "FAIL", "RAISE", "LOAD_EXTENSION", "READFILE", "WRITEFILE", "EDIT", "EVAL", "FTS3_TOKENIZER");
@@ -51,7 +53,7 @@ final class NativeSqliteStatementPolicy {
                     } else value.append(part);
                 }
                 if (!closed) throw invalid();
-                if (identifier) { forbidden(value.toString()); tokens.add(new Token('I', value.toString())); }
+                if (identifier) { tokens.add(new Token('I', value.toString())); }
                 else tokens.add(new Token('S', value.toString()));
                 i = next; continue;
             }
@@ -63,7 +65,7 @@ final class NativeSqliteStatementPolicy {
             if (identifierStart(c)) {
                 int end = i + 1; while (end < sql.length() && identifierPart(sql.charAt(end))) end++;
                 String value = sql.substring(i, end).toUpperCase(Locale.ROOT);
-                forbidden(value); tokens.add(new Token('W', value)); i = end; continue;
+                tokens.add(new Token('W', value)); i = end; continue;
             }
             if (c == '(') { if (++depth > MAX_DEPTH) throw invalid(); }
             else if (c == ')') { if (--depth < 0) throw invalid(); }
@@ -71,12 +73,15 @@ final class NativeSqliteStatementPolicy {
         }
         if (depth != 0 || tokens.isEmpty()) throw invalid();
         for (int i = 0; i + 1 < tokens.size(); i++) {
-            if (tokens.get(i).kind == 'S' && tokens.get(i + 1).kind == '(') forbidden(tokens.get(i).value);
+            if (tokens.get(i).kind == 'S' && tokens.get(i + 1).kind == '(') forbidden(tokens.get(i).value, null);
         }
         Token first = tokens.get(0);
         if (first.kind != 'W') throw invalid();
         if (first.value.equals("WITH")) validateWith(tokens);
         else if (!ROOTS.contains(first.value)) throw invalid();
+        // Identifiers are checked with the root in hand: read-only schema tables
+        // (sqlite_master/sqlite_schema) pass for SELECT and stay closed to writes.
+        for (Token token : tokens) if (token.kind == 'I' || token.kind == 'W') forbidden(token.value, first.value);
         return arguments;
     }
 
@@ -108,9 +113,10 @@ final class NativeSqliteStatementPolicy {
     }
     private static boolean kind(List<Token> tokens, int index, char kind) { return index < tokens.size() && tokens.get(index).kind == kind; }
     private static boolean word(List<Token> tokens, int index, String value) { return index < tokens.size() && tokens.get(index).kind == 'W' && tokens.get(index).value.equals(value); }
-    private static void forbidden(String name) {
+    private static void forbidden(String name, String root) {
         String upper = name.toUpperCase(Locale.ROOT);
-        if (BLOCKED.contains(upper) || upper.startsWith("PRAGMA_") || upper.startsWith("SQLITE_") && !upper.equals("SQLITE_VERSION")) throw invalid();
+        if (BLOCKED.contains(upper) || upper.startsWith("PRAGMA_")
+            || upper.startsWith("SQLITE_") && !(root != null && root.equals("SELECT") && SCHEMA_READS.contains(upper))) throw invalid();
     }
     private static void bytes(String value) {
         if (value == null || value.isEmpty() || value.length() > MAX_SQL_BYTES) throw invalid();

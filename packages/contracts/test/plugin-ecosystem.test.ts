@@ -173,4 +173,32 @@ describe("declared release compatibility gate", () => {
     after.spec.tools[0]!.inputSchema.properties.query = { type: "array", items: false } as never;
     expect(comparison()).toMatchObject({ breaking: true, validVersionBump: false });
   });
+  it("treats host targets as a release contract: dropping a host is MAJOR, adding one is MINOR", () => {
+    const declared = (version: string, targets?: string[]) => {
+      const value = manifest(version);
+      if (targets) (value.metadata as Record<string, unknown>).targets = targets;
+      return value;
+    };
+    // The first declaration only records reality; no host ever consumed an
+    // undeclared target list, so backfilling it is a patch-level statement.
+    expect(comparePluginReleaseChanges({ previousManifest: declared("1.0.0"), nextManifest: declared("1.0.1", ["desktop", "web"]), previousConfig: config(), nextConfig: config() })
+      .validVersionBump).toBe(true);
+    // Once declared, narrowing is a real removal of a host users already had.
+    const narrowed = declared("1.0.1", ["desktop"]);
+    expect(comparePluginReleaseChanges({ previousManifest: declared("1.0.0", ["desktop", "web"]), nextManifest: narrowed, previousConfig: config(), nextConfig: config() }))
+      .toMatchObject({ breaking: true, requiredBump: "major", validVersionBump: false });
+    expect(comparePluginReleaseChanges({ previousManifest: declared("1.0.0", ["desktop", "web"]), nextManifest: narrowed, previousConfig: config(), nextConfig: config() }).reasons)
+      .toContain("Host targets removed: web");
+    // A MAJOR with the explicit marker is accepted.
+    const major = declared("2.0.0", ["desktop"]);
+    (major.metadata as Record<string, unknown>).breaking = true;
+    expect(comparePluginReleaseChanges({ previousManifest: declared("1.0.0", ["desktop", "web"]), nextManifest: major, previousConfig: config(), nextConfig: config() })
+      .validVersionBump).toBe(true);
+    // Adding a host is a compatible feature addition and only needs MINOR.
+    const wider = declared("1.1.0", ["desktop", "web", "mobile"]);
+    expect(comparePluginReleaseChanges({ previousManifest: declared("1.0.0", ["desktop", "web"]), nextManifest: wider, previousConfig: config(), nextConfig: config() })
+      .validVersionBump).toBe(true);
+    expect(comparePluginReleaseChanges({ previousManifest: declared("1.0.0", ["desktop", "web"]), nextManifest: declared("1.0.1", ["desktop", "web", "mobile"]), previousConfig: config(), nextConfig: config() }))
+      .toMatchObject({ requiredBump: "minor", validVersionBump: false });
+  });
 });

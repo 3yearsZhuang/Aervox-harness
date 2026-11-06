@@ -34,7 +34,7 @@ describe("remote registry API integration", () => {
       expect.objectContaining({ id: "ap-tool-flowcampus", source: "builtin", category: "tool" }),
     ]));
     const install = await app.inject({ method: "POST", url: "/v1/plugins/market/ap-tool-home-assistant/install",
-      payload: { expectedVersion: "1.0.0" } });
+      payload: { expectedVersion: market.json().items.find((item: { id: string }) => item.id === "ap-tool-home-assistant").version } });
     expect(install.statusCode, install.body).toBe(201);
   });
   it("browses a published entry, verifies and installs it, then keeps its namespaced skill readable", async () => {

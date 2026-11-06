@@ -6,6 +6,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { AervoxTransport, TurnCallbacks } from '@aervox/api-client';
+import { stableSerialize } from '@aervox/core/browser';
 import type { ModelRequest } from '@aervox/core/browser';
 import type { SessionHistoryPage } from '@aervox/contracts';
 import { NativeSqliteClient, type NativeSqliteRequest } from '@aervox/repositories/native-sqlite-client';
@@ -13,6 +14,7 @@ import { decodeNativeSqliteValue, encodeNativeSqliteValue } from '@aervox/reposi
 import { ConversationRepository } from '@aervox/repositories/conversation';
 import { createInjectedDatabase } from '@aervox/repositories/database';
 import { initializeCanonicalSchema } from '../../../packages/repositories/src/schema/manifest';
+import { FTS_SCHEMA_STATEMENTS } from '../../../packages/repositories/src/schema/fts-definition';
 import { initializeNativeRuntime } from '../src/mobile/native-runtime';
 
 const mocks = vi.hoisted(() => ({
@@ -58,9 +60,13 @@ async function fixture() {
   const database = createClient({ url: `file:${join(directory, 'main.db')}`, intMode: 'bigint' });
   await database.execute('PRAGMA foreign_keys=ON');
   await initializeCanonicalSchema(database, 'main');
+  // Mirror the packaged Android artifact: the device database also carries the
+  // derived FTS projections (NativeBusinessDatabase applies `projections`).
+  for (const sql of FTS_SCHEMA_STATEMENTS) await database.execute(sql);
   let transaction: Transaction | undefined;
   let owner: string | null = null, counter = 0, configured = true, loseCommit = false;
-  let commits = 0, sqliteRequests = 0;
+  let commits = 0, sqliteRequests = 0, strictSqlite = false, rejectedStatements = 0;
+  const writes: string[] = [];
   let paused: { point: 'runtime' | 'summary' | 'committed'; entered: () => void; resume: Promise<void> } | undefined;
   const checkpoint = async (point: 'runtime' | 'summary' | 'committed') => {
     if (paused?.point !== point) return;
@@ -69,6 +75,14 @@ async function fixture() {
   const resultRows: number[] = [];
   const argumentCounts: number[] = [], windowSizes: number[] = [];
   let modelEvents: { sequence: number; type: string; data?: string; code?: string }[] = [], modelStatus = 'completed', nativeCancels = 0;
+  // Device surface: grants come from settings; every perform is recorded so the
+  // approval test can prove nothing runs before a decision.
+  const devicePerforms: { verb: string }[] = [];
+  let notifyOn = false;
+  // Multi-step turns consume one script per model call.
+  const modelScript: { sequence: number; type: string; data?: string; code?: string }[][] = [];
+  // Native model payloads as the Kotlin boundary would receive them.
+  const modelRequests: { messages: { role: string; content: string; toolCallId?: string; toolCalls?: unknown[] }[]; tools?: unknown[] }[] = [];
   const byteLength = (value: string) => new TextEncoder().encode(value).byteLength;
   const dispatch = async (body: Record<string, unknown>) => {
     if (byteLength(JSON.stringify({ version: 1, id: crypto.randomUUID(), body })) > 1024 * 1024) throw new Error('NATIVE_REQUEST_BYTE_LIMIT');
@@ -82,6 +96,8 @@ async function fixture() {
     }
     if (body.op === 'model' && body.operation === 'start') {
       mocks.modelCalls++; mocks.entered = true;
+      modelRequests.push(body as never);
+      if (modelScript.length) modelEvents = modelScript.shift()!;
       return { kind: 'started', requestId: body.requestId };
     }
     if (body.op === 'model' && body.operation === 'poll') {
@@ -91,6 +107,29 @@ async function fixture() {
     }
     if (body.op === 'model' && body.operation === 'cancel') {
       nativeCancels++; return { kind: 'cancelled', requestId: body.requestId };
+    }
+    if (body.op === 'device') {
+      if (body.operation === 'status') {
+        return { kind: 'device_status', root: true, capabilities: { control: true, apps: true, advanced: false } };
+      }
+      if (body.operation === 'grant') {
+        return { kind: 'device_grant', ok: true };
+      }
+      if (body.operation === 'perform') {
+        devicePerforms.push({ verb: String(body.verb ?? body.action ?? 'unknown') });
+        return { kind: 'device_result', ok: true, action: String(body.verb ?? 'tap'), output: 'ok' };
+      }
+    }
+    if (body.op === 'file' && body.operation === 'pickText') {
+      return { kind: 'file_result', name: '题库.csv', text: '1+1,2\n2+2,4' };
+    }
+    if (body.op === 'file' && body.operation === 'fetchText') {
+      return { kind: 'file_result', name: 'online.csv', text: '3+3,6\n4+4,8' };
+    }
+    if (body.op === 'notification') {
+      if (body.operation === 'status') return { kind: 'notify_status', enabled: notifyOn, permission: 'granted' };
+      notifyOn = body.operation === 'enable';
+      return { kind: 'notify_result', ok: true, enabled: notifyOn };
     }
     if (body.op === 'dispose') {
       if (transaction && !transaction.closed) await transaction.rollback();
@@ -109,6 +148,7 @@ async function fixture() {
     expect(request.transactionId).toBe(owner);
     if (request.operation === 'execute') {
       const { sql, args } = request.statement;
+      if (/^\s*(INSERT|UPDATE|DELETE)\b/i.test(sql)) writes.push(sql);
       const argumentCount = Object.keys(args).length;
       argumentCounts.push(argumentCount);
       if (argumentCount > 256) throw new Error('NATIVE_ARGUMENT_LIMIT');
@@ -132,6 +172,8 @@ async function fixture() {
         if (new TextEncoder().encode(response).byteLength > 3 * 1024 * 1024) throw new Error('NATIVE_RESULT_BYTE_LIMIT');
         return JSON.parse(response);
       } catch {
+        rejectedStatements++;
+        if (strictSqlite && transaction) throw new Error('NATIVE_TRANSACTION_QUARANTINED');
         return { kind: 'rejected', connectionEpoch: epoch, transactionId: owner, state: owner ? 'active' : 'none', code: 'SQLITE_ERROR' };
       }
     }
@@ -165,8 +207,27 @@ async function fixture() {
       if (status === 'failed') modelEvents.push({ sequence: modelEvents.length + 1, type: 'error', code: 'PROVIDER_REQUEST_FAILED' },
         { sequence: modelEvents.length + 2, type: 'done' });
     },
+    setModelScript(scripts: { delta: Record<string, unknown>; finish?: string }[][]) {
+      mocks.realProvider = true; modelStatus = 'completed';
+      modelScript.length = 0;
+      for (const steps of scripts) {
+        const events: { sequence: number; type: string; data?: string; code?: string }[] = steps.map((step, index) => ({
+          sequence: index + 1, type: 'data',
+          data: JSON.stringify({ choices: [{ index: 0, delta: step.delta, finish_reason: step.finish ?? null }] }),
+        }));
+        if (!steps.some(step => step.finish)) events.push({ sequence: events.length + 1, type: 'data',
+          data: JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] }) });
+        events.push({ sequence: events.length + 1, type: 'done' });
+        modelScript.push(events);
+      }
+    },
+    strictNativeFailures() { strictSqlite = true; },
+    get rejectedStatements() { return rejectedStatements; },
+    get writes() { return writes; },
+    get modelRequests() { return modelRequests; },
     get nativeCancels() { return nativeCancels; },
     get sqliteRequests() { return sqliteRequests; },
+    get devicePerforms() { return devicePerforms; },
     setConfigured(value: boolean) { configured = value; },
     loseNextCommit() { loseCommit = true; }, get commits() { return commits; },
     async close() {
@@ -611,5 +672,574 @@ describe('Android local conversation composition over actual SQLite', () => {
     await reopened.streamTurn('phone_session', '受理结果未知', callbacks().value, { idempotencyKey: 'lost_intent' });
     expect(await fixture.count('turns')).toBe(1); expect(mocks.modelCalls).toBe(0);
     expect((await fixture.database.execute('SELECT status FROM turns')).rows[0]?.status).toBe('Interrupted');
+  });
+});
+
+describe('on-phone question flow over actual SQLite', () => {
+  it('suspends the turn for a question and finishes it with the submitted answer', async () => {
+    const fixture = current!;
+    fixture.setModelScript([
+      [{ delta: { tool_calls: [{ index: 0, id: 'call_q1', function: { name: 'ask_user_question',
+        arguments: JSON.stringify({ questions: [{ id: 'q1', question: '打开哪个应用？', options: [{ label: '设置' }, { label: '相机' }] }] }) } }] },
+        finish: 'tool_calls' }],
+      [{ delta: { content: '已打开设置。' }, finish: 'stop' }],
+    ]);
+    const transport = await fixture.start();
+    const created = await session(transport);
+    const state = callbacks();
+    const asked = vi.fn();
+    const running = transport.streamTurn(created.id, '帮我打开设置', { ...state.value, onUserQuestion: asked });
+    await vi.waitFor(() => expect(asked).toHaveBeenCalledTimes(1), { timeout: 8000 });
+    const question = asked.mock.calls[0]![0] as { turnId: string; questions: { id: string; question: string }[] };
+    expect(question.questions[0]!.question).toBe('打开哪个应用？');
+    // Only the asking turn can be answered, and only while its question is pending.
+    await expect(transport.submitQuestionAnswers('other_turn', [{ id: 'q1', selected: ['设置'] }]))
+      .rejects.toThrow('QUESTION_NOT_PENDING');
+    await transport.submitQuestionAnswers(question.turnId, [{ id: 'q1', selected: ['设置'] }]);
+    await expect(transport.submitQuestionAnswers(question.turnId, [{ id: 'q1', selected: ['设置'] }]))
+      .rejects.toThrow('QUESTION_NOT_PENDING');
+    await running;
+    expect(state.done).toHaveBeenCalledOnce();
+    expect(state.texts.join('')).toContain('已打开设置');
+    // The answered turn replayed the tool protocol in the native payload.
+    expect(fixture.modelRequests).toHaveLength(2);
+    const payload = fixture.modelRequests[1]!;
+    expect((payload.tools ?? []).map(tool => (tool as { name: string }).name)).toContain('ask_user_question');
+    const toolMessage = payload.messages.find(message => message.role === 'tool');
+    expect(toolMessage?.toolCallId).toBe('call_q1');
+    expect(toolMessage?.content).toContain('设置');
+    const assistant = payload.messages.find(message => message.toolCalls?.length);
+    expect(assistant?.toolCalls).toEqual([expect.objectContaining({ id: 'call_q1', name: 'ask_user_question' })]);
+  }, 20_000);
+
+  it('releases a suspended question when the user stops the turn', async () => {
+    const fixture = current!;
+    fixture.setModelScript([
+      [{ delta: { tool_calls: [{ index: 0, id: 'call_q2', function: { name: 'ask_user_question',
+        arguments: JSON.stringify({ questions: [{ id: 'q1', question: '继续吗？' }] }) } }] }, finish: 'tool_calls' }],
+    ]);
+    const transport = await fixture.start();
+    const created = await session(transport);
+    const state = callbacks();
+    const asked = vi.fn();
+    const running = transport.streamTurn(created.id, '开始', { ...state.value, onUserQuestion: asked });
+    await vi.waitFor(() => expect(asked).toHaveBeenCalledTimes(1), { timeout: 8000 });
+    await transport.request('POST', `/v1/turns/${encodeURIComponent((asked.mock.calls[0]![0] as { turnId: string }).turnId)}/cancel`);
+    await expect(running).resolves.toBeUndefined();
+    expect(state.done).toHaveBeenCalled();
+    // A released question cannot be answered after the stop.
+    await expect(transport.submitQuestionAnswers((asked.mock.calls[0]![0] as { turnId: string }).turnId, [{ id: 'q1', selected: [] }]))
+      .rejects.toThrow('QUESTION_NOT_PENDING');
+  }, 20_000);
+});
+
+describe('Android local review loop over actual SQLite', () => {
+  it('lists, summarizes, completes and replays review items through the native transport', async () => {
+    const fixture = current!;
+    const transport = await fixture.start();
+    await fixture.database.execute(`INSERT INTO knowledge_items (id, concept, source_status, mastery_state, correct_count, wrong_count, correct_streak, mastery, mastery_basis, created_at, updated_at)
+      VALUES ('k_seed', '导数', 'inferred', 'learning', 0, 0, 0, 0, NULL, '2026-11-01T00:00:00.000Z', '2026-11-01T00:00:00.000Z')`);
+    await fixture.database.execute(`INSERT INTO review_items (id, knowledge_id, due_at, interval_days, scheduler_version, timezone_snapshot, status, completion_is_correct, next_review_id, created_at, updated_at)
+      VALUES ('review_seed', 'k_seed', '2026-11-01T00:00:00.000Z', 1, 2, 'UTC', 'active', NULL, NULL, '2026-11-01T00:00:00.000Z', '2026-11-01T00:00:00.000Z')`);
+
+    const due = await transport.request<{ items: { id: string; knowledgeId: string }[] }>('GET', '/v1/review-items');
+    expect(due.items.map(item => item.id)).toEqual(['review_seed']);
+
+    const summary = await transport.request<{ dueCount: number; estimatedMinutes: number; timeZone: string }>('GET', '/v1/review-items/summary');
+    expect(summary).toMatchObject({ dueCount: 1, overdueCount: 1, estimatedMinutes: 2, timeZone: 'UTC' });
+
+    const completed = await transport.request<{
+      completed: { id: string; status: string; nextReviewId: string };
+      nextReview: { id: string; status: string; intervalDays: number };
+      knowledge: { id: string; correctStreak: number; mastery: number; masteryState: string };
+    }>('POST', '/v1/review-items/review_seed/complete', { isCorrect: true, timeZone: 'UTC' });
+    expect(completed.completed).toMatchObject({ id: 'review_seed', status: 'completed' });
+    // One correct answer advances mastery and schedules the next review (streak 1 → 2 days).
+    expect(completed.nextReview).toMatchObject({ id: completed.completed.nextReviewId, status: 'active', intervalDays: 2 });
+    expect(completed.knowledge).toMatchObject({ id: 'k_seed', correctStreak: 1, masteryState: 'learning' });
+
+    const history = await transport.request<{ items: { id: string }[] }>('GET', '/v1/review-items/history?limit=5');
+    expect(history.items.map(item => item.id)).toEqual(['review_seed']);
+
+    // A replay with the same payload returns the durable receipt; a different one is 409.
+    const replay = await transport.request<{ nextReview: { id: string } }>('POST', '/v1/review-items/review_seed/complete', { isCorrect: true, timeZone: 'UTC' });
+    expect(replay.nextReview.id).toBe(completed.nextReview.id);
+    await expect(transport.request('POST', '/v1/review-items/review_seed/complete', { isCorrect: false, timeZone: 'UTC' }))
+      .rejects.toMatchObject({ code: 'REVIEW_COMPLETION_PAYLOAD_MISMATCH' });
+
+    await expect(transport.request('POST', '/v1/review-items/review_missing/complete', { isCorrect: true }))
+      .rejects.toMatchObject({ code: 'REVIEW_NOT_FOUND' });
+    await expect(transport.request('GET', '/v1/sessions/x/unknown')).rejects.toMatchObject({ code: 'FEATURE_NOT_CONNECTED' });
+  }, 20_000);
+});
+
+describe('Android local practice loop over actual SQLite', () => {
+  it('creates questions, runs a practice session, records answers and derives mistakes', async () => {
+    const fixture = current!;
+    const transport = await fixture.start();
+    const ask = async (prompt: string, answer: string) =>
+      (await transport.request<{ id: string }>('POST', '/v1/questions', { prompt, answerSpec: { answer } })).id;
+    const [q1, q2, q3] = await Promise.all([ask('1+1=?', '2'), ask('2+2=?', '4'), ask('3+3=?', '6')]);
+
+    const goals = await transport.request<{ items: { id: string }[] }>('GET', '/v1/learning/goals');
+    expect(goals.items).toEqual([]);
+    const goal = await transport.request<{ id: string }>('POST', '/v1/learning/goals', { topic: '高数' },
+      { headers: { 'Idempotency-Key': 'goal_key' } });
+    expect((await transport.request<{ items: { id: string }[] }>('GET', '/v1/learning/goals')).items.map(item => item.id)).toEqual([goal.id]);
+
+    const started = await transport.request<{ sessionId: string; items: { id: string }[]; nextQuestionIndex: number }>(
+      'POST', '/v1/practice/sessions', { count: 3 });
+    expect(started.items.map(item => item.id).sort()).toEqual([q1, q2, q3].sort());
+    expect(started.nextQuestionIndex).toBe(0);
+
+    const first = await transport.request<{ id: string; judgement: string; nextStep: string }>(
+      'POST', `/v1/questions/${q1}/attempts`, { sessionId: started.sessionId, answer: '2' },
+      { headers: { 'Idempotency-Key': 'att_key_1' } });
+    expect(first.judgement).toBe('correct');
+    // Same key replays the same immutable attempt instead of a second fact.
+    const replay = await transport.request<{ id: string }>(
+      'POST', `/v1/questions/${q1}/attempts`, { sessionId: started.sessionId, answer: '2' },
+      { headers: { 'Idempotency-Key': 'att_key_1' } });
+    expect(replay.id).toBe(first.id);
+
+    await transport.request('POST', `/v1/questions/${q2}/attempts`, { sessionId: started.sessionId, answer: '999' });
+    await transport.request('POST', `/v1/questions/${q3}/attempts`, { sessionId: started.sessionId, answer: '6' });
+
+    const resumed = await transport.request<{ answeredQuestionIds: string[]; nextQuestionIndex: number }>(
+      'GET', '/v1/practice/sessions/active');
+    expect(resumed.answeredQuestionIds.sort()).toEqual([q1, q2, q3].sort());
+    expect(resumed.nextQuestionIndex).toBe(3);
+
+    const report = await transport.request<{ answeredCount: number; correctCount: number; incorrectCount: number; accuracy: number }>(
+      'POST', `/v1/practice/sessions/${started.sessionId}/complete`);
+    expect(report).toMatchObject({ answeredCount: 3, correctCount: 2, incorrectCount: 1, accuracy: 2 / 3 });
+
+    const mistakes = await transport.request<{ items: { questionId: string; wrongCount: number }[] }>('GET', '/v1/mistakes?status=all');
+    expect(mistakes.items.map(item => item.questionId)).toEqual([q2]);
+    expect(mistakes.items[0]).toMatchObject({ wrongCount: 1 });
+
+    // The wrong question schedules review work once its knowledge is tracked.
+    await transport.request('POST', '/v1/mistakes/repractice', { questionIds: [q2] }).then(
+      (session: { sessionId: string }) => session.sessionId,
+    );
+  }, 20_000);
+});
+
+describe('Android plan generation over the native model bridge', () => {
+  it('generates, lists and archives a plan from one structured completion', async () => {
+    const fixture = current!;
+    const planOutput = {
+      title: '高数项目式学习', description: '围绕高数的项目式学习路线', learningObjective: '建立高数框架',
+      gains: ['收获一', '收获二', '收获三'],
+      milestones: [
+        { title: '阶段一', description: '准备', briefing: 'b', completionCriteria: 'c', debrief: 'd',
+          tasks: [{ title: '任务一', description: 'x', hints: ['h'] }, { title: '任务二' }] },
+        { title: '阶段二：整合收尾', description: '整合', briefing: 'b', completionCriteria: 'c', debrief: 'd',
+          tasks: [{ title: '任务三' }, { title: '任务四' }] },
+      ],
+    };
+    fixture.setModel([JSON.stringify(planOutput)]);
+    const transport = await fixture.start();
+    const plan = await transport.request<{ id: string; title: string; generatedBy: string; milestones: { id: string; tasks: unknown[] }[] }>(
+      'POST', '/v1/learning-plans/generate', { topic: '高数', level: 'beginner', dailyMinutes: 25 });
+    expect(plan).toMatchObject({ generatedBy: 'llm', title: '高数项目式学习' });
+    expect(plan.milestones).toHaveLength(2);
+    expect(plan.milestones[0]!.tasks).toHaveLength(2);
+
+    const list = await transport.request<{ items: { id: string }[] }>('GET', '/v1/learning-plans');
+    expect(list.items.map(item => item.id)).toContain(plan.id);
+
+    const archived = await transport.request<{ id: string; status?: string }>(
+      'POST', `/v1/learning-plans/${plan.id}/archive`, undefined);
+    expect(archived.id).toBe(plan.id);
+  }, 20_000);
+});
+
+describe('Android question bank import over actual SQLite', () => {
+  it('imports inline content and feeds the practice session', async () => {
+    const fixture = current!;
+    const transport = await fixture.start();
+    const imported = await transport.request<{ providerId: string; importedCount: number; questions: { id: string }[] }>(
+      'POST', '/v1/questions/import', {
+        content: JSON.stringify([
+          { prompt: '1+1=?', answer: '2' },
+          { prompt: '2+2=?', answer: '4' },
+          { prompt: '3+3=?', answer: '6' },
+        ]),
+      });
+    expect(imported).toMatchObject({ providerId: 'json-question-bank', importedCount: 3 });
+    const started = await transport.request<{ items: { prompt: string }[] }>('POST', '/v1/practice/sessions', { count: 3 });
+    expect(started.items.map(item => item.prompt).sort()).toEqual(['1+1=?', '2+2=?', '3+3=?']);
+  }, 20_000);
+});
+
+describe('Android per-call tool approval over actual SQLite', () => {
+  it('interrupts a new device action, resumes after approval and reuses the grant', async () => {
+    const fixture = current!;
+    fixture.setModelScript([
+      [{ delta: { tool_calls: [{ index: 0, id: 'call_t1', function: { name: 'device_tap',
+        arguments: JSON.stringify({ x: 10, y: 20 }) } }] }, finish: 'tool_calls' }],
+      [{ delta: { content: '已点击屏幕。' } }],
+    ]);
+    const transport = await fixture.start();
+    const created = await session(transport);
+    const approvalSeen = vi.fn();
+    const first = callbacks();
+    const running = transport.streamTurn(created.id, '点一下屏幕', { ...first.value, onToolApproval: approvalSeen });
+
+    // The tool must not run before the user decides: the turn ends pending_approval.
+    await vi.waitFor(() => expect(approvalSeen).toHaveBeenCalledTimes(1), { timeout: 8000 });
+    const approval = approvalSeen.mock.calls[0]![0] as { turnId: string; approvalId: string; toolName: string };
+    expect(approval.toolName).toBe('device_tap');
+    await expect(running).resolves.toBeUndefined();
+    expect(fixture.devicePerforms).toHaveLength(0);
+
+    // Grant once: the continuation executes the tap and the model finishes.
+    const decided = await transport.decideToolApproval(approval.turnId, approval.approvalId, 'granted');
+    expect(decided).toMatchObject({ state: 'granted' });
+    expect(decided!.continuation).toBeTruthy();
+    const followUp = callbacks();
+    await transport.observeTurn(approval.turnId, followUp.value, { afterEventId: decided!.continuation!.afterEventId });
+    expect(followUp.texts.join('')).toContain('已点击');
+    expect(fixture.devicePerforms).toHaveLength(1);
+
+    // The identical action reuses the recorded grant: no new question asked.
+    fixture.setModelScript([
+      [{ delta: { tool_calls: [{ index: 0, id: 'call_t2', function: { name: 'device_tap',
+        arguments: JSON.stringify({ x: 10, y: 20 }) } }] }, finish: 'tool_calls' }],
+      [{ delta: { content: '再次点击完成。' } }],
+    ]);
+    const secondApproval = vi.fn();
+    const again = callbacks();
+    await transport.streamTurn(created.id, '再点一次', { ...again.value, onToolApproval: secondApproval });
+    expect(secondApproval).not.toHaveBeenCalled();
+    expect(again.texts.join('')).toContain('再次点击');
+    expect(fixture.devicePerforms).toHaveLength(2);
+  }, 20_000);
+});
+
+describe('Android approval admission', () => {
+  const pendingApproval = async (transport: AervoxTransport) => {
+    current!.setModelScript([[{ delta: { tool_calls: [{ index: 0, id: 'call_guard', function: {
+      name: 'device_tap', arguments: JSON.stringify({ x: 30, y: 40 }),
+    } }] }, finish: 'tool_calls' }]]);
+    await session(transport);
+    const seen = vi.fn();
+    await transport.streamTurn('phone_session', '审批动作', { ...callbacks().value, onToolApproval: seen });
+    return seen.mock.calls[0]![0] as { turnId: string; approvalId: string };
+  };
+
+  it('admits only one concurrent decision and replays the same receipt without executing twice', async () => {
+    const transport = await current!.start(), approval = await pendingApproval(transport);
+    current!.setModelScript([[{ delta: { content: '完成' } }]]);
+    const first = transport.decideToolApproval(approval.turnId, approval.approvalId, 'granted');
+    await expect(transport.decideToolApproval(approval.turnId, approval.approvalId, 'granted')).rejects.toMatchObject({ code: 'REPLY_IN_PROGRESS' });
+    const decided = await first;
+    await transport.observeTurn(approval.turnId, callbacks().value, { afterEventId: decided!.continuation!.afterEventId });
+    const repeated = await transport.decideToolApproval(approval.turnId, approval.approvalId, 'granted');
+    expect(repeated).toEqual(decided);
+    expect(current!.devicePerforms).toHaveLength(1);
+  });
+
+  it('rejects a pending decision in the background and never starts after a hide during commit', async () => {
+    const transport = await current!.start(), approval = await pendingApproval(transport);
+    const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
+    await expect(transport.decideToolApproval(approval.turnId, approval.approvalId, 'granted')).rejects.toMatchObject({ code: 'HOST_NOT_FOREGROUND' });
+    hidden.mockReturnValue(false);
+    const gate = current!.pauseNext('committed');
+    const deciding = transport.decideToolApproval(approval.turnId, approval.approvalId, 'granted');
+    await gate.reached;
+    hidden.mockReturnValue(true); document.dispatchEvent(new Event('visibilitychange'));
+    gate.release(); await deciding;
+    expect(current!.devicePerforms).toHaveLength(0);
+    expect((await current!.database.execute('SELECT status FROM turns')).rows[0]!.status).toBe('Cancelled');
+  });
+
+  it('does not replace a different active turn when an older approval is decided', async () => {
+    const transport = await current!.start(), approval = await pendingApproval(transport);
+    await transport.request('POST', '/v1/sessions', { id: 'other_session' });
+    mocks.realProvider = false; mocks.holding = true; mocks.entered = false;
+    const running = transport.streamTurn('other_session', '另一轮执行', callbacks().value);
+    await vi.waitFor(() => expect(mocks.entered).toBe(true));
+    await expect(transport.decideToolApproval(approval.turnId, approval.approvalId, 'granted')).rejects.toMatchObject({ code: 'REPLY_IN_PROGRESS' });
+    const turnId = String((await current!.database.execute("SELECT id FROM turns WHERE session_id='other_session'")).rows[0]!.id);
+    await transport.request('POST', `/v1/turns/${turnId}/cancel`);
+    await running;
+    expect(current!.devicePerforms).toHaveLength(0);
+  });
+});
+
+describe('Android diary publication over actual SQLite', () => {
+  it('publishes and rewrites a template diary with durable versions', async () => {
+    current!.setConfigured(false);
+    const transport = await current!.start();
+    const created = await transport.request<{ diaryId: string; mode: string; generatedBy: string }>(
+      'POST', '/v1/diaries/generate-today', {},
+    );
+    expect(created).toMatchObject({ mode: 'created', generatedBy: 'template' });
+    expect(await current!.count('diaries')).toBe(1);
+    expect(await current!.count('diary_versions')).toBe(1);
+    const existing = await transport.request('POST', '/v1/diaries/generate-today', {});
+    expect(existing).toMatchObject({ diaryId: created.diaryId, mode: 'existing' });
+    const rewritten = await transport.request('POST', '/v1/diaries/generate-today', { rewrite: true });
+    expect(rewritten).toMatchObject({ diaryId: created.diaryId, mode: 'rewritten' });
+    expect(await current!.count('diary_versions')).toBe(2);
+  });
+
+  it('never publishes a truncated model completion as a finished diary', async () => {
+    const transport = await current!.start();
+    current!.setModelScript([[{ delta: { content: '未完成的日记' }, finish: 'length' }]]);
+    await expect(transport.request('POST', '/v1/diaries/generate-today', {})).rejects.toThrow('MODEL_COMPLETION_INCOMPLETE');
+    expect(await current!.count('diaries')).toBe(0);
+  });
+});
+
+describe('Android active persona in model context', () => {
+  it('uses the selected revision and applies a saved revision after activation', async () => {
+    const transport = await current!.start();
+    await session(transport);
+    const created = await transport.request<{ persona: { id: string }; revision: { revision: number } }>(
+      'POST', '/v1/personas', { name: '小隅', config: { systemPromptAppend: '说话简短，称呼我为小林。' } },
+    );
+    const path = `/v1/personas/${created.persona.id}`;
+    await transport.request('POST', `${path}/activate`, {});
+    await transport.streamTurn('phone_session', '你好', callbacks().value);
+    expect(mocks.contexts.at(-1)![0]!.content).toContain('称呼我为小林');
+    await transport.request('PATCH', path, {
+      expectedRevision: 1, config: { systemPromptAppend: '称呼我为阿林。' },
+    });
+    // Editing does not silently move a selected immutable revision.
+    await transport.streamTurn('phone_session', '旧修订', callbacks().value);
+    expect(mocks.contexts.at(-1)![0]!.content).toContain('称呼我为小林');
+    await transport.request('POST', `${path}/activate`, {});
+    await transport.streamTurn('phone_session', '新修订', callbacks().value);
+    expect(mocks.contexts.at(-1)![0]!.content).toContain('称呼我为阿林');
+    expect(mocks.contexts.at(-1)![0]!.content).not.toContain('称呼我为小林');
+  });
+});
+
+describe('Android backup export and restore over actual SQLite', () => {
+  it('pages more than 512 records within native row/window budgets and restores without failed probes', async () => {
+    current!.strictNativeFailures();
+    const transport = await current!.start();
+    await current!.database.batch(Array.from({ length: 600 }, (_, index) => ({
+      sql: 'INSERT INTO knowledge_items (id, concept, created_at, updated_at) VALUES (?, ?, ?, ?)',
+      args: [`k_${index}`, '长'.repeat(1000), '2026-11-04T00:00:00Z', '2026-11-04T00:00:00Z'],
+    })), 'write');
+    const exported = await transport.exportBackup!();
+    expect(exported.tableCounts.knowledge_items).toBe(600);
+    await transport.importBackup!(exported.text);
+    expect(await current!.count('knowledge_items')).toBe(600);
+    expect(current!.rejectedStatements).toBe(0);
+    expect(Math.max(...current!.resultRows)).toBeLessThanOrEqual(512);
+    expect(Math.max(...current!.windowSizes)).toBeLessThanOrEqual(1024 * 1024);
+  }, 20_000);
+
+  it('refuses a row beyond the restorable bind budget without overshooting a native window', async () => {
+    current!.strictNativeFailures();
+    const transport = await current!.start();
+    await current!.database.execute({
+      sql: 'INSERT INTO knowledge_items (id, concept, created_at, updated_at) VALUES (?, ?, ?, ?)',
+      args: ['huge', 'x'.repeat(300 * 1024), '2026-11-04T00:00:00Z', '2026-11-04T00:00:00Z'],
+    });
+    await expect(transport.exportBackup!()).rejects.toThrow('BACKUP_ROW_TOO_LARGE');
+    expect(current!.rejectedStatements).toBe(0);
+    expect(await transport.request('GET', '/v1/sessions')).toEqual({ items: [] });
+  });
+
+  it('rejects invalid metadata and missing parent rows before the first restore write', async () => {
+    current!.strictNativeFailures();
+    const transport = await current!.start();
+    await transport.request('POST', '/v1/questions', { prompt: '保留题', answerSpec: { answer: '是' } });
+    const exported = await transport.exportBackup!();
+    const malformed = JSON.parse(exported.text);
+    delete malformed.tableCounts;
+    const before = current!.writes.length;
+    await expect(transport.importBackup!(JSON.stringify(malformed))).rejects.toMatchObject({ code: 'BACKUP_MALFORMED' });
+    const missing = JSON.parse(exported.text);
+    missing.tables.find((table: { name: string }) => table.name === 'questions').rows[0].knowledge_id = 'missing';
+    missing.sha256 = createHash('sha256').update(stableSerialize({ tables: missing.tables })).digest('hex');
+    await expect(transport.importBackup!(JSON.stringify(missing))).rejects.toMatchObject({ code: 'BACKUP_RESTORE_BLOCKED' });
+    expect(current!.writes).toHaveLength(before);
+    expect(current!.rejectedStatements).toBe(0);
+    expect(await current!.count('questions')).toBe(1);
+  });
+
+  it('holds an exclusive restore admission until commit returns and releases it on failure', async () => {
+    const transport = await current!.start();
+    await session(transport);
+    const exported = await transport.exportBackup!();
+    const gate = current!.pauseNext('committed');
+    const restoring = transport.importBackup!(exported.text);
+    await gate.reached;
+    await expect(transport.streamTurn('phone_session', '恢复时发送', callbacks().value)).rejects.toMatchObject({ code: 'BACKUP_RESTORE_IN_PROGRESS' });
+    await expect(transport.request('POST', '/v1/sessions', { title: '恢复时新建' })).rejects.toMatchObject({ code: 'BACKUP_RESTORE_IN_PROGRESS' });
+    await expect(transport.importBackup!(exported.text)).rejects.toMatchObject({ code: 'BACKUP_RESTORE_IN_PROGRESS' });
+    gate.release(); await restoring;
+    await expect(transport.request('GET', '/v1/sessions')).rejects.toMatchObject({ code: 'HOST_RESTART_REQUIRED' });
+    await expect(transport.streamTurn('phone_session', '恢复后旧会话发送', callbacks().value)).rejects.toMatchObject({ code: 'HOST_RESTART_REQUIRED' });
+    expect(mocks.modelCalls).toBe(0);
+  });
+
+  it('never replaces the database while a turn or its question is active', async () => {
+    const transport = await current!.start(); await session(transport);
+    const backup = await transport.exportBackup!();
+    mocks.holding = true;
+    const running = transport.streamTurn('phone_session', '执行中', callbacks().value);
+    await vi.waitFor(() => expect(mocks.entered).toBe(true));
+    await expect(transport.importBackup!(backup.text)).rejects.toMatchObject({ code: 'BACKUP_RESTORE_BUSY' });
+    expect(await current!.count('turns')).toBe(1);
+    const turnId = String((await current!.database.execute('SELECT id FROM turns')).rows[0]!.id);
+    await transport.request('POST', `/v1/turns/${turnId}/cancel`);
+    await running;
+  });
+
+  it('restores rows whose dependencies appear after a successfully inserted prefix', async () => {
+    current!.strictNativeFailures();
+    const transport = await current!.start();
+    await current!.database.execute(`INSERT INTO knowledge_items (id, concept, created_at, updated_at) VALUES ('k_dependency', '依赖', '2026-11-04T00:00:00Z', '2026-11-04T00:00:00Z')`);
+    await transport.request('POST', '/v1/questions', { prompt: '独立题', answerSpec: { answer: '1' } });
+    await transport.request('POST', '/v1/questions', { prompt: '依赖题', answerSpec: { answer: '2' }, knowledgeId: 'k_dependency' });
+    const exported = await transport.exportBackup!();
+    const file = JSON.parse(exported.text);
+    // Deliberately place child rows before their parent table.
+    file.tables.sort((a: { name: string }, b: { name: string }) => Number(b.name === 'questions') - Number(a.name === 'questions'));
+    file.sha256 = createHash('sha256').update(stableSerialize({ tables: file.tables })).digest('hex');
+    await transport.importBackup!(JSON.stringify(file));
+    expect(await current!.count('questions')).toBe(2);
+    expect(current!.rejectedStatements).toBe(0);
+    expect((await current!.database.execute("SELECT knowledge_id FROM questions WHERE prompt = '依赖题'")).rows[0]!.knowledge_id).toBe('k_dependency');
+  });
+
+  it('exports a hash-verified snapshot and restores it after a wipe', async () => {
+    const fixture = current!;
+    const transport = await fixture.start();
+    await fixture.database.execute(`INSERT INTO knowledge_items (id, concept, source_status, mastery_state, correct_count, wrong_count, correct_streak, mastery, mastery_basis, created_at, updated_at)
+      VALUES ('k_bak', '备份概念', 'inferred', 'learning', 0, 0, 0, 0, NULL, '2026-11-01T00:00:00.000Z', '2026-11-01T00:00:00.000Z')`);
+    await transport.request('POST', '/v1/questions', { prompt: '备份题？', answerSpec: { answer: '是' } });
+
+    const exported = await transport.exportBackup!();
+    expect(exported.tableCounts.knowledge_items).toBe(1);
+    const file = JSON.parse(exported.text) as { format: string; sha256: string; tables: { name: string; rows: unknown[] }[] };
+    expect(file.format).toBe('aervox-mobile-backup');
+    expect(file.sha256).toMatch(/^[a-f0-9]{64}$|^h_/);
+    expect(file.tables.some(table => table.name === 'knowledge_items' && table.rows.length === 1)).toBe(true);
+
+    // Wipe the business table, then restore from the exported text.
+    await fixture.database.execute("DELETE FROM knowledge_items");
+    expect((await transport.request<{ items: unknown[] }>('GET', '/v1/knowledge-items/k_bak').catch(() => ({ items: [] }))).items ?? []).toEqual([]);
+    // Invalid payloads are refused before a successful restore retires the cached UI.
+    const tampered = JSON.parse(exported.text) as { tables: { rows: { concept?: string }[] }[] };
+    tampered.tables.find(table => (table as { name?: string }).name === 'knowledge_items')!.rows[0]!.concept = '被篡改';
+    await expect(transport.importBackup!(JSON.stringify(tampered))).rejects.toMatchObject({ code: 'BACKUP_CORRUPTED' });
+    await expect(transport.importBackup!('not json at all')).rejects.toMatchObject({ code: 'BACKUP_MALFORMED' });
+    const restored = await transport.importBackup!(exported.text);
+    expect(restored.imported.knowledge_items).toBe(1);
+    expect((await fixture.database.execute("SELECT concept FROM knowledge_items WHERE id = 'k_bak'")).rows[0]!.concept).toBe('备份概念');
+    await expect(transport.request('GET', '/v1/knowledge-items/k_bak')).rejects.toMatchObject({ code: 'HOST_RESTART_REQUIRED' });
+
+  }, 20_000);
+
+  it('keeps FTS shadow tables and credential scope out of the envelope and rebuilds projections after a restore', async () => {
+    const fixture = current!;
+    const transport = await fixture.start();
+    // Credential rows and a populated search index both exist on the device.
+    await fixture.database.execute(`INSERT INTO llm_configs (id, name, is_active, enabled, provider_type, base_url, api_key, model_id, temperature, max_tokens, settings_json, created_at, updated_at)
+      VALUES ('cfg_local', '本地模型', 1, 1, 'openai', 'https://example.invalid', 'sk-local-secret', 'm1', 0.2, 4096, '{}', '2026-11-01T00:00:00Z', '2026-11-01T00:00:00Z')`);
+    await fixture.database.execute("INSERT INTO messages_fts (id, content) VALUES ('m_fts', '可索引正文')");
+    await transport.request('POST', '/v1/questions', { prompt: '备份题', answerSpec: { answer: '是' } });
+
+    const exported = await transport.exportBackup!();
+    const file = JSON.parse(exported.text) as { tables: { name: string }[] };
+    const names = file.tables.map(table => table.name);
+    // Derived projections and credential scope never leave the device.
+    expect(names.filter(name => /_fts|_fts_/.test(name))).toEqual([]);
+    expect(names).not.toContain('llm_configs');
+    expect(names).not.toContain('plugin_config_secrets');
+    expect(names).not.toContain('mcp_servers');
+    expect(names).not.toContain('_aervox_schema_versions');
+    expect(names).toContain('questions');
+
+    await fixture.database.execute("DELETE FROM questions");
+    await fixture.database.execute("DELETE FROM messages_fts");
+    const restored = await transport.importBackup!(exported.text);
+    expect(restored.imported.questions).toBe(1);
+    // The projection was rebuilt from authoritative rows, not raw shadow rows.
+    expect(Number((await fixture.database.execute("SELECT count(*) AS n FROM messages_fts")).rows[0]!.n)).toBe(0);
+    expect(Number((await fixture.database.execute("SELECT count(*) AS n FROM llm_configs")).rows[0]!.n)).toBe(1);
+    expect(current!.rejectedStatements).toBe(0);
+    // The rebuilt index is writable: shadow-table raw writes would have left it corrupt.
+    await fixture.database.execute("INSERT INTO messages_fts (id, content) VALUES ('m_after', '恢复后可写')");
+    expect((await fixture.database.execute("SELECT id FROM messages_fts WHERE messages_fts MATCH '恢复后可写'")).rows.map(row => row.id)).toEqual(['m_after']);
+  }, 20_000);
+
+  it('refuses a restore once a deletion fact exists so deleted content cannot return', async () => {
+    const fixture = current!;
+    const transport = await fixture.start();
+    await transport.request('POST', '/v1/questions', { prompt: '删除前题', answerSpec: { answer: '是' } });
+    const exported = await transport.exportBackup!();
+    // Deletion facts are never part of an envelope, so their presence (at any
+    // age) blocks the overwrite until the deny-ledger replay exists.
+    await fixture.database.execute(`INSERT INTO deletion_requests (id, scope, idempotency_key, requested_at, status, owner_module, created_at, updated_at)
+      VALUES ('dr_local', 'source', 'del_key_1', '2026-11-04T00:00:00Z', 'in_progress', 'conversation', '2026-11-04T00:00:00Z', '2026-11-04T00:00:00Z')`);
+    await expect(transport.importBackup!(exported.text)).rejects.toMatchObject({ code: 'BACKUP_DELETION_CONFLICT' });
+    // Nothing was written.
+    expect(await fixture.count('questions')).toBe(1);
+    expect(await fixture.count('deletion_requests')).toBe(1);
+  }, 20_000);
+});
+
+describe('Android file import and review reminder', () => {
+  it('imports a picked question file and toggles the daily reminder', async () => {
+    const fixture = current!;
+    const transport = await fixture.start();
+    const picked = await transport.pickTextFile!();
+    expect(picked).toMatchObject({ name: '题库.csv', text: '1+1,2\n2+2,4' });
+    const imported = await transport.request<{ importedCount: number }>('POST', '/v1/questions/import', { content: picked.text, format: 'csv' });
+    expect(imported.importedCount).toBe(2);
+
+    expect(await transport.reviewReminderStatus!()).toMatchObject({ enabled: false, permission: 'granted' });
+    expect(await transport.configureReviewReminder!({ enabled: true })).toEqual({ enabled: true });
+    expect(await transport.reviewReminderStatus!()).toMatchObject({ enabled: true });
+    expect(await transport.configureReviewReminder!({ enabled: false })).toEqual({ enabled: false });
+
+    const fetched = await transport.fetchUrlText!('https://example.com/online.csv');
+    expect(fetched).toMatchObject({ name: 'online.csv', text: '3+3,6\n4+4,8' });
+    await expect(transport.fetchUrlText!('http://example.com/x')).rejects.toMatchObject({ code: 'FILE_URL_INVALID' });
+  }, 20_000);
+});
+
+describe('Android bounded backup file sharing', () => {
+  it('shares a backup larger than 256 KiB in ordered chunks without splitting Unicode pairs', async () => {
+    const transport = await current!.start();
+    const operations: Record<string, unknown>[] = [];
+    const original = mocks.native.getMockImplementation()!;
+    mocks.native.mockImplementation(async body => {
+      if (body.op !== 'backup_file') return original(body);
+      operations.push(body);
+      return body.operation === 'finish' ? { kind: 'backup_file_shared', ok: true }
+        : { kind: 'backup_file', exportId: body.operation === 'begin' ? 'native_export_1' : body.exportId, ...(body.operation === 'append' ? { sequence: body.sequence } : {}) };
+    });
+    const text = ('x'.repeat(32 * 1024 - 1) + '😀').repeat(10);
+    await transport.shareTextFile!({ title: '备份', text });
+    const chunks = operations.filter(operation => operation.operation === 'append');
+    expect(chunks.map(operation => operation.text).join('')).toBe(text);
+    expect(chunks.map(operation => operation.sequence)).toEqual(chunks.map((_, index) => index + 1));
+    expect(chunks.every(operation => String(operation.text).length <= 32 * 1024 && !/[\uD800-\uDFFF]/u.test(String(operation.text)))).toBe(true);
+    expect(operations.at(-1)).toMatchObject({ operation: 'finish', sequence: chunks.length });
+  });
+
+  it('aborts a partial export on cancellation without finishing or sharing', async () => {
+    const transport = await current!.start(), controller = new AbortController();
+    const operations: string[] = [];
+    const original = mocks.native.getMockImplementation()!;
+    mocks.native.mockImplementation(async body => {
+      if (body.op !== 'backup_file') return original(body);
+      operations.push(body.operation);
+      if (body.operation === 'append') controller.abort();
+      return { kind: 'backup_file', exportId: body.operation === 'begin' ? 'native_export_1' : body.exportId, sequence: body.sequence };
+    });
+    await expect(transport.shareTextFile!({ title: '备份', text: 'x'.repeat(100_000) }, controller.signal)).rejects.toThrow();
+    expect(operations).toEqual(['begin', 'append', 'abort']);
   });
 });

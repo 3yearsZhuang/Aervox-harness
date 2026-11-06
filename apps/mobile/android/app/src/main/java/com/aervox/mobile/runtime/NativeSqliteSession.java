@@ -313,6 +313,20 @@ final class NativeSqliteSession implements AutoCloseable {
         if (!(value instanceof String) || !((String) value).matches("[A-Za-z0-9_-]{1,128}")) throw failure(Failure.INVALID_REQUEST);
         return (String) value;
     }
+    /** Wire-contract rejection envelope: five keys the client validates exactly.
+     * `transactionId` mirrors the request (JSON null for begin) and `state`
+     * mirrors what the client expects for that request class. */
+    JSONObject rejection(SessionException error, String requestTransactionId) {
+        JSONObject receipt = new JSONObject();
+        try {
+            receipt.put("kind", "rejected").put("connectionEpoch", epoch)
+                .put("transactionId", requestTransactionId == null ? JSONObject.NULL : requestTransactionId)
+                .put("state", requestTransactionId == null ? "none" : "active")
+                .put("code", error.code.name());
+        } catch (Exception ignored) { }
+        return receipt;
+    }
+
     private static JSONObject json(Object... pairs) throws JSONException {
         JSONObject value = new JSONObject();
         for (int index = 0; index < pairs.length; index += 2) value.put((String) pairs[index], pairs[index + 1]);

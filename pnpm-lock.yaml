@@ -113,6 +113,9 @@ importers:
       '@aervox/host-runtime':
         specifier: workspace:*
         version: link:../../packages/host-runtime
+      '@aervox/practice-review':
+        specifier: workspace:*
+        version: link:../../packages/practice-review
     devDependencies:
       '@aervox/contracts':
         specifier: workspace:*
@@ -269,6 +272,9 @@ importers:
       '@aervox/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@aervox/diary':
+        specifier: workspace:*
+        version: link:../../packages/diary
       '@aervox/host-agent':
         specifier: workspace:*
         version: link:../../packages/host-agent
@@ -290,6 +296,9 @@ importers:
       '@aervox/plugin-workbench-ui':
         specifier: workspace:*
         version: link:../../plugins/surfaces/workbench-ui
+      '@aervox/practice-review':
+        specifier: workspace:*
+        version: link:../../packages/practice-review
       '@aervox/public':
         specifier: workspace:*
         version: link:../../packages/public
@@ -3904,9 +3913,6 @@ packages:
     resolution: {integrity: sha512-i/2XbnSz/uxRCU6+NdVJgKWDTM427+MqYbkQzD321DuCQJUqOuJKIA0IM2+W2xtYHdKOmZ4dR6fExsd4SXL+WQ==}
     engines: {node: '>=6'}
 
-  eventemitter3@4.0.0:
-    resolution: {integrity: sha512-qerSRB0p+UDEssxTtm6EDKcE7W4OaoisfIMl4CngyEhjpYglocpNg6UEqCvemdGhosAsg4sO2dXJOdyBifPGCg==}
-
   eventemitter3@4.0.7:
     resolution: {integrity: sha512-8guHBZCwKnFhYdHr2ysuRWErTwhoN2X8XELRlrRwpmfeY2jjuUN4taQMsULKUVo1K4DvZl+0pgfyoysHxvmvEw==}
 
@@ -6946,7 +6952,7 @@ snapshots:
       '@pixi/settings': 7.4.3
       '@types/earcut': 2.1.4
       earcut: 2.2.4
-      eventemitter3: 4.0.0
+      eventemitter3: 4.0.7
       url: 0.11.4
 
   '@playwright/test@1.62.1':
@@ -8178,8 +8184,6 @@ snapshots:
       '@types/estree': 1.0.9
 
   event-target-shim@5.0.1: {}
-
-  eventemitter3@4.0.0: {}
 
   eventemitter3@4.0.7: {}
 

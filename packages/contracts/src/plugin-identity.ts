@@ -2,6 +2,12 @@
 import { z } from "zod";
 
 export const PLUGIN_CATEGORIES = ["tool", "bot", "ui", "proactive", "sync", "workflow", "theme"] as const;
+/** 宿主端适配（AVX-PLUG-002 §2.4）：desktop=桌面壳、mobile=Android APK、web=浏览器工作台、cli=命令行宿主。 */
+export const pluginTargetSchema = z
+  .array(z.enum(["desktop", "mobile", "web", "cli"])).min(1).max(4)
+  .refine(targets => new Set(targets).size === targets.length, { message: "Duplicate plugin targets" })
+  .optional();
+
 export const pluginCategorySchema = z.enum(PLUGIN_CATEGORIES);
 export type PluginCategory = z.infer<typeof pluginCategorySchema>;
 export const PLUGIN_ECOSYSTEM_ID_PATTERN = /^ap-(tool|bot|ui|proactive|sync|workflow|theme)-[a-z0-9]+(?:-[a-z0-9]+)*$/;

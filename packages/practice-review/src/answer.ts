@@ -123,3 +123,86 @@ function addCalendarDays(now: Date, intervalDays: number, timeZone: string): Dat
 
   return zonedDateTimeToUtc(target, timeZone);
 }
+
+export type AnswerKnowledgeInput = {
+  id: string;
+  concept: string;
+  correctCount: number;
+  wrongCount: number;
+  correctStreak: number;
+  mastery: number;
+};
+
+export type AnswerStateUpdate = {
+  correctCount: number;
+  wrongCount: number;
+  correctStreak: number;
+  mastery: number;
+  masteryState: string;
+  masteryBasis: {
+    correctCount: number;
+    wrongCount: number;
+    correctStreak: number;
+    schedulerVersion: number;
+  };
+};
+
+export type AnswerReviewSchedule = {
+  dueAt: string;
+  intervalDays: number;
+  schedulerVersion: number;
+  timezoneSnapshot: string;
+};
+
+/** Shared answer derivation for every host: mastery updates, the mastery
+ * threshold and the next review schedule are one policy on desktop and mobile,
+ * so scheduled intervals cannot drift between compositions. */
+export function deriveAnswerOutcome(
+  stored: AnswerKnowledgeInput,
+  isCorrect: boolean,
+  now: Date,
+  timeZone: string,
+): { state: AnswerStateUpdate; review: AnswerReviewSchedule } {
+  const item: KnowledgeItem = {
+    id: stored.id,
+    name: stored.concept,
+    correctCount: stored.correctCount,
+    wrongCount: stored.wrongCount,
+    correctStreak: stored.correctStreak,
+    mastery: stored.mastery,
+  };
+  updateAfterAnswer(item, isCorrect);
+  const review = createReviewItem(item, isCorrect, { now, timeZone });
+  return {
+    state: {
+      correctCount: item.correctCount,
+      wrongCount: item.wrongCount,
+      correctStreak: item.correctStreak,
+      mastery: item.mastery,
+      masteryState: item.mastery >= 0.8 ? "mastered" : "learning",
+      masteryBasis: {
+        correctCount: item.correctCount,
+        wrongCount: item.wrongCount,
+        correctStreak: item.correctStreak,
+        schedulerVersion: review.schedulerVersion,
+      },
+    },
+    review: {
+      dueAt: review.dueAt.toISOString(),
+      intervalDays: review.intervalDays,
+      schedulerVersion: review.schedulerVersion,
+      timezoneSnapshot: timeZone,
+    },
+  };
+}
+
+export type AnswerJudgement = "correct" | "incorrect" | "partial" | "unverifiable";
+
+/** Shared answer judgement: trim/case-insensitive equality against the stored
+ * spec answer; anything shape-incompatible is honestly unverifiable. */
+export function judgeAnswer(answerSpec: unknown, answer: string): AnswerJudgement {
+  if (!answerSpec || typeof answerSpec !== "object" || !("answer" in answerSpec)
+    || typeof (answerSpec as { answer?: unknown }).answer !== "string") return "unverifiable";
+  return answer.trim().toLocaleLowerCase() === (answerSpec as { answer: string }).answer.trim().toLocaleLowerCase()
+    ? "correct" : "incorrect";
+}

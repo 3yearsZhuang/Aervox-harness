@@ -1,5 +1,5 @@
 /** One writer transaction owns answer facts, derived state, scheduling and the durable receipt. */
-import { createHash, randomUUID } from "node:crypto";
+import { conversationSha256, conversationUUID, type ConversationCryptoPort } from "../../conversation-host-port.js";
 import { and, eq } from "drizzle-orm";
 import { knowledgeItems, outboxEvents, practiceSessions, questionAttempts, questions, reviewItems, turns } from "@aervox/schema";
 import type { AervoxDatabase } from "../../client.js";
@@ -7,6 +7,24 @@ import { assertPersonalDerivedDataSource } from "../../conversation-execution-po
 import { assertPluginGeneration } from "../../plugin-generation-guard.js";
 import type { LocalContext } from "../../local-context.js";
 import type { AnswerNextStep, LearningAnswerCommand, LearningAnswerPolicy, LearningAnswerResult, QuestionAttemptModel } from "../types/index.js";
+
+/** Hash effective defaults, not incidental omitted properties or JSON key order.
+ * Every host (desktop API, mobile composition) canonicalizes identically so
+ * answer digests stay comparable; serialization and hashing stay at the edges. */
+export function canonicalAnswerRequest(input: LearningAnswerCommand): Record<string, unknown> {
+  const common = {
+    kind: input.kind,
+    timeZone: input.timeZone ?? "UTC",
+    hintCount: input.hintCount ?? 0,
+    timeSpentSec: input.timeSpentSec ?? null,
+    pluginGeneration: input.pluginGeneration ?? null,
+  };
+  return input.kind === "existing-question"
+    ? { ...common, questionId: input.questionId, sessionId: input.sessionId ?? "ses_unknown", answer: input.answer, evidence: input.evidence ?? null }
+    : { ...common, turnId: input.turnId, prompt: input.prompt, questionType: input.questionType ?? null, userAnswer: input.userAnswer,
+      correctAnswer: input.correctAnswer, judgement: input.judgement, explanation: input.explanation ?? null,
+      knowledgeConcept: input.knowledgeConcept ?? null, source: input.source ?? "plugin" };
+}
 
 interface AnswerReceipt {
   payloadVersion: 1;
@@ -21,16 +39,17 @@ interface AnswerReceipt {
 
 export async function recordLearningAnswer(
   db: AervoxDatabase,
+  crypto: ConversationCryptoPort,
   _ctx: LocalContext,
   input: LearningAnswerCommand & { requestDigest: string },
   policy: LearningAnswerPolicy,
 ): Promise<LearningAnswerResult> {
   if (input.idempotencyKey !== undefined && !input.idempotencyKey.trim()) throw new Error("answer_idempotency_key_required");
   if (!/^[a-f0-9]{64}$/.test(input.requestDigest)) throw new Error("answer_request_digest_required");
-  const scope = input.kind === "existing-question" ? [input.kind, input.questionId, input.idempotencyKey ?? randomUUID()] : [input.kind, input.idempotencyKey];
-  const digest = createHash("sha256").update(JSON.stringify(scope)).digest("hex");
+  const scope = input.kind === "existing-question" ? [input.kind, input.questionId, input.idempotencyKey ?? conversationUUID(crypto)] : [input.kind, input.idempotencyKey];
+  const digest = conversationSha256(crypto, JSON.stringify(scope));
   // Keep the existing generated question identity so legacy facts are detected, never recreated.
-  const judgedDigest = input.kind === "judged-question" ? createHash("sha256").update(input.idempotencyKey).digest("hex") : null;
+  const judgedDigest = input.kind === "judged-question" ? conversationSha256(crypto, input.idempotencyKey) : null;
   const questionId = input.kind === "existing-question" ? input.questionId : `q_judged_${judgedDigest}`;
   const attemptId = input.kind === "judged-question" ? `att_judged_${judgedDigest}` : `att_answer_${digest}`;
   const eventKey = `learning-answer:${digest}`;
@@ -58,7 +77,7 @@ export async function recordLearningAnswer(
       }
     }
     if (input.kind === "judged-question" && input.legacyIdempotencyKey && input.legacyIdempotencyKey !== input.idempotencyKey) {
-      const legacyDigest = createHash("sha256").update(input.legacyIdempotencyKey).digest("hex");
+      const legacyDigest = conversationSha256(crypto, input.legacyIdempotencyKey);
       const [legacy] = await tx.select({ id: questionAttempts.id }).from(questionAttempts).where(and(eq(questionAttempts.questionId, `q_judged_${legacyDigest}`), eq(questionAttempts.idempotencyKey, input.legacyIdempotencyKey)));
       if (legacy) throw new Error("answer_receipt_unavailable");
     }

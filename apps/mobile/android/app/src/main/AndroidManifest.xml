@@ -2,6 +2,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Read-aloud binds the system TTS service; voice input binds the system
+         recognizer (Android 11 package visibility). -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="false"
         tools:replace="android:allowBackup"
@@ -36,9 +47,16 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+        <receiver
+            android:name=".runtime.DailyReviewReceiver"
+            android:exported="false" />
     </application>
 
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Voice input only; requested per feature use at runtime, never at install. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Local review reminder only; requested when the user enables it. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

@@ -426,3 +426,36 @@ test("API and plugin standards run after build in full and incremental gates", (
   const incremental = fs.readFileSync(path.join(ROOT_DIR, "scripts/check-affected.mjs"), "utf8");
   assert.ok(incremental.indexOf('["check:standards"]') > incremental.indexOf('const buildRes ='));
 });
+
+test("full local gates run the same dependency audit the CI job runs", () => {
+  // A stale exemption once turned the local full gate green while CI's
+  // dependency-audit job failed: the audit only ran remotely. Keep the two in
+  // step so `./aervox ci all` cannot pass on an out-of-date review ledger.
+  const config = fs.readFileSync(MISE_CONFIG, "utf8");
+  for (const gate of ["ci-code", "ci-code-full"]) {
+    const command = config.split(/\r?\n/).find((line) => line.startsWith(`${gate} =`));
+    assert.match(command ?? "", /pnpm check:dependency-audit/, `${gate} must run the dependency audit`);
+  }
+  // The audit queries the registry, so the offline-capable incremental fast path
+  // must stay free of it; a network hiccup cannot make `./aervox ci` fail.
+  const fast = config.split(/\r?\n/).find((line) => line.startsWith("ci-fast ="));
+  assert.doesNotMatch(fast ?? "", /check:dependency-audit/);
+  const incremental = fs.readFileSync(path.join(ROOT_DIR, "scripts/check-affected.mjs"), "utf8");
+  assert.doesNotMatch(incremental, /check:dependency-audit/);
+  // The CI job and the local gate must call the identical script entry.
+  const workflow = fs.readFileSync(CI_WORKFLOW, "utf8");
+  assert.match(workflow, /pnpm check:dependency-audit/);
+  const scripts = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, "package.json"), "utf8")).scripts;
+  assert.match(scripts["check:dependency-audit"], /node scripts\/check-dependency-audit\.mjs$/);
+});
+
+test('Android emulator commands resolve Gradle from the repository root without a persistent cd', () => {
+  const source = fs.readFileSync(path.join(ROOT_DIR, '.github/workflows/android.yml'), 'utf8');
+  const script = source.split('          script: |')[1]?.split(/\n      - /)[0];
+  assert.ok(script, 'emulator script must be declared');
+  const command = script.split('\n').map(line => line.trim()).find(line => line.includes('connectedDebugAndroidTest'));
+  assert.ok(command);
+  assert.match(command, /^mise exec -- \.\/apps\/mobile\/android\/gradlew -p apps\/mobile\/android /);
+  assert.ok(fs.existsSync(path.join(ROOT_DIR, 'apps/mobile/android/gradlew')));
+  assert.ok(fs.existsSync(path.join(ROOT_DIR, 'apps/mobile/android/settings.gradle')));
+});

@@ -74,7 +74,7 @@ API 与 Worker 可同时观察到同一个空库；新建表和索引均容忍�
 
 旧 journal/ALTER helper 的公共入口已移除，不提供绕过 staging 的通用原地 DDL。结构检查使用独立空库编译预期表与索引语义，不在被检查库创建临时结构或修复漂移；版本迁移与整体中断恢复仍按 ITER-011 验收。
 
-逻辑导出通过 `@aervox/repositories/sync` 显式消费；不导出 FTS 虚表、shadow 表及结构版本元数据。`restoreSnapshot` 的原地删表写回接口已撤下，`restoreSnapshotToEmptyStaging` 只接受空目标，在同一事务导入并检查关系与行数。不可将它用于活动库或取代停写、备份和换库编排；派生索引由已保留的权威来源重建。
+逻辑导出通过 `@aervox/repositories/sync` 显式消费；不导出 FTS 虚表、shadow 表及结构版本元数据。`restoreSnapshot` 的原地删表写回接口已撤下，`restoreSnapshotToEmptyStaging` 只接受空目标，在同一事务导入并检查关系与行数。不可将它用于活动库或取代停写、备份和换库编排；派生索引由已保留的权威来源重建。移动端一致性备份沿用同一范围声明（`@aervox/repositories/backup`）：派生 FTS 投影与凭据/设备作用域表既不出域也不被恢复覆盖，恢复在同一事务内重建投影；存在删除事实时拒绝恢复，直到 ITER-003/010 的账本与水位重放可用。
 
 ## 3. 本地存储拓扑
 

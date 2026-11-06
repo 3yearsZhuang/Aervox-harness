@@ -18,6 +18,7 @@ const canvasHost = ref<HTMLDivElement | null>(null)
 const status = ref<'loading' | 'ready' | 'error'>('loading')
 let controller: AervoxLive2DController | null = null
 let disposed = false
+let loadError = ''
 let exposedApi: Window['aervoxLive2D']
 let removePetCommandListener: (() => void) | null = null
 
@@ -81,13 +82,17 @@ const handlePetReact = (event: Event) => {
 }
 
 onMounted(async () => {
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || !canvasHost.value) {
+  // Reduced motion must not block the model from loading: it only skips the
+  // idle diversification below. A hard fail here silently pinned every
+  // animation-off device to the static fallback.
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (!canvasHost.value) {
     status.value = 'error'
     return
   }
   try {
     controller = new AervoxLive2DController(canvasHost.value)
-    await controller.load(DEFAULT_AERVOX_MODEL)
+    await controller.load(DEFAULT_AERVOX_MODEL, { diversifyIdle: !reducedMotion })
     if (disposed) return
     exposeApi()
     removePetCommandListener = platformServices.onPetCommand?.((value: unknown) => onCommand(value as PetCommand)) ?? null
@@ -95,6 +100,7 @@ onMounted(async () => {
   } catch (error) {
     if (disposed) return
     console.warn('[Aervox] Live2D unavailable; using fallback', error)
+    loadError = error instanceof Error ? error.message : String(error)
     status.value = 'error'
   }
   window.addEventListener(PET_REACT_EVENT, handlePetReact)
@@ -112,7 +118,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="aervox-live2d-pet" :class="{ 'is-loading-fallback': showFallbackWhileLoading && status === 'loading' }" :data-status="status" role="img" aria-label="Aervox Live2D 桌宠">
+  <div class="aervox-live2d-pet" :class="{ 'is-loading-fallback': showFallbackWhileLoading && status === 'loading' }" :data-status="status" role="img" aria-label="Aervox Live2D 桌宠" :data-error="status === 'error' ? loadError : undefined">
     <div ref="canvasHost" class="aervox-live2d-pet__canvas" aria-hidden="true" />
     <slot v-if="status === 'error' || (showFallbackWhileLoading && status === 'loading')" name="fallback" />
     <span v-if="status === 'loading' && !showFallbackWhileLoading" class="aervox-live2d-pet__status">正在加载桌宠…</span>

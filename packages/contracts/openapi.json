@@ -3445,6 +3445,20 @@
                 },
                 "maxItems": 32
               },
+              "targets": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "desktop",
+                    "mobile",
+                    "web",
+                    "cli"
+                  ]
+                },
+                "minItems": 1,
+                "maxItems": 4
+              },
               "breaking": {
                 "type": "boolean"
               }
@@ -28743,6 +28757,20 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "targets": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "desktop",
+                                "mobile",
+                                "web",
+                                "cli"
+                              ]
+                            },
+                            "minItems": 1,
+                            "maxItems": 4
                           },
                           "breaking": {
                             "type": "boolean"

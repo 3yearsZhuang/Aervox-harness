@@ -52,32 +52,6 @@
   {
     "advisory": "GHSA-g3hv-75wg-m249",
     "package": "minimatch",
-    "version": "3.1.5",
-    "paths": [
-      ".>electron-builder>app-builder-lib>@electron/asar>glob>minimatch",
-      ".>electron-builder>app-builder-lib>@electron/asar>minimatch",
-      ".>electron-builder>app-builder-lib>@electron/universal>@electron/asar>glob>minimatch",
-      ".>electron-builder>app-builder-lib>@electron/universal>@electron/asar>minimatch",
-      ".>electron-builder>app-builder-lib>@electron/universal>dir-compare>minimatch",
-      ".>electron-builder>app-builder-lib>electron-builder-squirrel-windows>electron-winstaller>@electron/asar>glob>minimatch",
-      ".>electron-builder>app-builder-lib>electron-builder-squirrel-windows>electron-winstaller>@electron/asar>minimatch",
-      ".>electron-builder>app-builder-lib>electron-builder-squirrel-windows>electron-winstaller>temp>rimraf>glob>minimatch",
-      ".>electron-builder>dmg-builder>app-builder-lib>@electron/asar>glob>minimatch",
-      ".>electron-builder>dmg-builder>app-builder-lib>@electron/asar>minimatch",
-      ".>electron-builder>dmg-builder>app-builder-lib>@electron/universal>@electron/asar>glob>minimatch",
-      ".>electron-builder>dmg-builder>app-builder-lib>@electron/universal>@electron/asar>minimatch",
-      ".>electron-builder>dmg-builder>app-builder-lib>@electron/universal>dir-compare>minimatch",
-      ".>electron-builder>dmg-builder>app-builder-lib>electron-builder-squirrel-windows>electron-winstaller>@electron/asar>glob>minimatch",
-      ".>electron-builder>dmg-builder>app-builder-lib>electron-builder-squirrel-windows>electron-winstaller>@electron/asar>minimatch",
-      ".>electron-builder>dmg-builder>app-builder-lib>electron-builder-squirrel-windows>electron-winstaller>temp>rimraf>glob>minimatch"
-    ],
-    "expiresOn": "2026-11-13",
-    "owner": "maintainers",
-    "reason": "GHSA-g3hv-75wg-m249 describes firstPhasePreProcess globparts amplification at optimizationLevel >= 2. This exact legacy major has neither preprocessing phase nor optimizationLevel (introduced in v7); its callable CommonJS API cannot be replaced with v11 without migrating consumers. check-minimatch-patches.test.mjs verifies every reviewed installed path lacks that implementation and exercises matching through the legacy API. This is an applicability review for this advisory only, not a general ReDoS exemption; reassess these paths by expiry."
-  },
-  {
-    "advisory": "GHSA-g3hv-75wg-m249",
-    "package": "minimatch",
     "version": "9.0.9",
     "paths": [
       ".>electron-builder>app-builder-lib>@electron/universal>minimatch",
@@ -95,18 +69,6 @@
     "expiresOn": "2026-11-13",
     "owner": "maintainers",
     "reason": "No compatible fixed 9.x release exists. patches/minimatch@9.0.9.patch backports upstream commit 77a0f5c4b80bdc641c3c930a1d9edf5ad2db57f8: cap preprocessing expansion and bound pairwise deduplication. The existing v9 API is retained. check-minimatch-patches.test.mjs verifies the exact registered patch and installed CJS/ESM consumer paths, bounded amplification and ordinary matching before the audit. Registry still reports the original version; replace this local fix and remove these exact paths when a compatible upstream update is adopted."
-  },
-  {
-    "advisory": "GHSA-g3hv-75wg-m249",
-    "package": "minimatch",
-    "version": "5.1.9",
-    "paths": [
-      ".>electron-builder>app-builder-lib>ejs>jake>filelist>minimatch",
-      ".>electron-builder>dmg-builder>app-builder-lib>ejs>jake>filelist>minimatch"
-    ],
-    "expiresOn": "2026-11-13",
-    "owner": "maintainers",
-    "reason": "GHSA-g3hv-75wg-m249 describes firstPhasePreProcess globparts amplification at optimizationLevel >= 2. This exact legacy major has neither preprocessing phase nor optimizationLevel (introduced in v7); its callable CommonJS API cannot be replaced with v11 without migrating consumers. check-minimatch-patches.test.mjs verifies every reviewed installed path lacks that implementation and exercises matching through the legacy API. This is an applicability review for this advisory only, not a general ReDoS exemption; reassess these paths by expiry."
   },
   {
     "advisory": "GHSA-3g3m-2fjr-6pw4",

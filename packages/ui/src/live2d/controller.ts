@@ -65,7 +65,7 @@ export class AervoxLive2DController {
     this.stage = this.app.stage as Container
   }
 
-  async load(modelDefinition: AervoxLive2DModel): Promise<void> {
+  async load(modelDefinition: AervoxLive2DModel, options?: { diversifyIdle?: boolean }): Promise<void> {
     if (this.destroyed) throw new DOMException('Live2D disposed', 'AbortError')
     this.status = 'loading'
     try {
@@ -74,7 +74,7 @@ export class AervoxLive2DController {
       this.assets = assets
       // Idle 组常只有一个动作，库的动作结束自动循环会永远重复它（僵硬）；
       // 替换成多样待机池后，库的 idle 随机循环本身就足够自然。
-      this.diversifyIdleGroup()
+      if (options?.diversifyIdle !== false) this.diversifyIdleGroup()
       // The validated model3 contract needs only Cubism Core, not the aggregate
       // entry's Cubism 2 runtime. Keep loading lazy so failures reach the fallback.
       const { Live2DModel } = await import('@sekai-world/pixi-live2d-display-mulmotion/cubism4')

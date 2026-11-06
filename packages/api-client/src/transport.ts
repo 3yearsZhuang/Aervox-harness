@@ -106,6 +106,25 @@ export interface AervoxTransport {
   uploadAttachment?(input: AttachmentUploadInput): Promise<UploadedAttachment>;
   /** PET-05: 写工具授权审批提交 */
   decideToolApproval(turnId: string, approvalId: string, decision: 'granted' | 'denied', signal?: AbortSignal): Promise<ToolApprovalDecisionResponse | void>;
+  /** 宿主提供的文本分享（手机分享面板）；缺省表示该宿主不支持。 */
+  /** File export for larger text artifacts; host owns the file and temporary read grant. */
+  shareTextFile?(input: { title: string; text: string }, signal?: AbortSignal): Promise<void>;
+  shareText?(input: { title: string; text: string }, signal?: AbortSignal): Promise<void>;
+  /** 宿主提供的朗读（手机系统 TTS）；缺省表示该宿主不支持。 */
+  speakText?(input: { text: string }, signal?: AbortSignal): Promise<void>;
+  /** 宿主提供的一次性语音输入（手机系统识别器）；缺省表示该宿主不支持。 */
+  speechInput?(signal?: AbortSignal): Promise<{ text: string }>;
+  /** 全量本机数据备份导出（自描述格式、带摘要）；缺省表示该宿主不支持。 */
+  exportBackup?(signal?: AbortSignal): Promise<{ text: string; createdAt: string; tableCounts: Record<string, number> }>;
+  /** 从备份文本恢复（严格校验后在一个事务内覆盖本地数据）；缺省表示该宿主不支持。 */
+  importBackup?(text: string, signal?: AbortSignal): Promise<{ imported: Record<string, number> }>;
+  /** 选择一份本机文档并读取为有界文本（SAF 单文件授权）；缺省表示该宿主不支持。 */
+  pickTextFile?(signal?: AbortSignal): Promise<{ name: string; text: string }>;
+  /** 从 https 链接读取有界文本（用户提供的 URL）；缺省表示该宿主不支持。 */
+  fetchUrlText?(url: string, signal?: AbortSignal): Promise<{ name: string; text: string }>;
+  /** 本地复习提醒开关（通知权限按用途请求）；缺省表示该宿主不支持。 */
+  configureReviewReminder?(input: { enabled: boolean }, signal?: AbortSignal): Promise<{ enabled: boolean }>;
+  reviewReminderStatus?(signal?: AbortSignal): Promise<{ enabled: boolean; permission: 'granted' | 'denied' }>;
 }
 
 // ── 运行时配置（由宿主端在入口注入 import.meta.env 等信息） ──────────────

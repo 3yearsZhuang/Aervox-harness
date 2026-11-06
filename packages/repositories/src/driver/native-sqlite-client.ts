@@ -15,7 +15,11 @@ export type NativeSqliteRequest =
   | { operation: "execute"; connectionEpoch: string; transactionId: string | null; statement: NativeSqliteStatement }
   | { operation: "begin"; connectionEpoch: string; mode: "write" }
   | { operation: "commit" | "rollback"; connectionEpoch: string; transactionId: string };
-export type NativeSqliteRejectionCode = "SQLITE_BUSY" | "SQLITE_CONSTRAINT" | "SQLITE_ERROR" | "SQLITE_ABORT";
+export type NativeSqliteRejectionCode = "SQLITE_BUSY" | "SQLITE_CONSTRAINT" | "SQLITE_ERROR" | "SQLITE_ABORT"
+  // Session-level rejections (NativeSqliteSession.Failure). These used to fall
+  // outside the accepted set and were masked as OUTCOME_UNKNOWN.
+  | "INVALID_REQUEST" | "INVALID_IDENTITY" | "OWNER_MISMATCH" | "QUEUE_FULL" | "CLOSED"
+  | "INITIALIZATION_FAILED" | "WINDOW_API_UNAVAILABLE" | "OUTCOME_UNKNOWN" | "CLEANUP_UNCONFIRMED";
 export type NativeSqliteResponse =
   | { kind: "result"; connectionEpoch: string; transactionId: string | null; result: NativeSqliteResult }
   | { kind: "begun"; connectionEpoch: string; transactionId: string }
@@ -41,7 +45,9 @@ export class NativeSqliteClientError extends Error {
   constructor(readonly code: NativeSqliteClientErrorCode) { super(code); this.name = "NativeSqliteClientError"; }
 }
 const error = (code: NativeSqliteClientErrorCode) => new NativeSqliteClientError(code);
-const failureCodes = new Set(["SQLITE_BUSY", "SQLITE_CONSTRAINT", "SQLITE_ERROR", "SQLITE_ABORT"]);
+const failureCodes = new Set<string>(["SQLITE_BUSY", "SQLITE_CONSTRAINT", "SQLITE_ERROR", "SQLITE_ABORT",
+  "INVALID_REQUEST", "INVALID_IDENTITY", "OWNER_MISMATCH", "QUEUE_FULL", "CLOSED",
+  "INITIALIZATION_FAILED", "WINDOW_API_UNAVAILABLE", "OUTCOME_UNKNOWN", "CLEANUP_UNCONFIRMED"]);
 const object = (value: unknown): Record<string, unknown> => {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw error("OUTCOME_UNKNOWN");
   return value as Record<string, unknown>;

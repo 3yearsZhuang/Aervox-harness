@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createReviewItem, getLocalDayBounds, updateAfterAnswer } from "../src/answer.js";
+import { createReviewItem, deriveAnswerOutcome, getLocalDayBounds, judgeAnswer, updateAfterAnswer } from "../src/answer.js";
 import type { KnowledgeItem } from "../src/types.js";
 
 afterEach(() => {
@@ -179,5 +179,52 @@ describe("getLocalDayBounds", () => {
     const bounds = getLocalDayBounds(new Date("2026-07-10T15:30:00.000Z"), "UTC");
     expect(bounds.start.toISOString()).toBe("2026-07-10T00:00:00.000Z");
     expect(bounds.end.toISOString()).toBe("2026-07-11T00:00:00.000Z");
+  });
+});
+
+describe("deriveAnswerOutcome", () => {
+  it("把 mastery 更新、阈值判定与下一次排期收敛为一个策略", () => {
+    const { state, review } = deriveAnswerOutcome(
+      { id: "k_tn_002", concept: "导数", correctCount: 7, wrongCount: 1, correctStreak: 3, mastery: 0.75 },
+      true,
+      new Date("2026-11-02T01:00:00.000Z"),
+      "Asia/Shanghai",
+    );
+    expect(state.correctCount).toBe(8);
+    expect(state.correctStreak).toBe(4);
+    expect(state.mastery).toBeCloseTo(0.85);
+    expect(state.masteryState).toBe("mastered");
+    expect(state.masteryBasis).toEqual({ correctCount: 8, wrongCount: 1, correctStreak: 4, schedulerVersion: 2 });
+    expect(review.intervalDays).toBe(15);
+    expect(review.schedulerVersion).toBe(2);
+    expect(review.timezoneSnapshot).toBe("Asia/Shanghai");
+    expect(review.dueAt).toBe(new Date("2026-11-17T01:00:00.000Z").toISOString());
+  });
+
+  it("答错不触发 mastered，间隔回落到 1 天", () => {
+    const { state, review } = deriveAnswerOutcome(
+      { id: "k_tn_003", concept: "极限", correctCount: 2, wrongCount: 0, correctStreak: 2, mastery: 0.5 },
+      false,
+      new Date("2026-11-02T00:00:00.000Z"),
+      "UTC",
+    );
+    expect(state.mastery).toBeCloseTo(0.4);
+    expect(state.masteryState).toBe("learning");
+    expect(state.correctStreak).toBe(0);
+    expect(review.intervalDays).toBe(1);
+  });
+});
+
+describe("judgeAnswer", () => {
+  it("对已存答案做去空白不区分大小写判分", () => {
+    expect(judgeAnswer({ answer: "  A " }, "a")).toBe("correct");
+    expect(judgeAnswer({ answer: "B" }, "A")).toBe("incorrect");
+    expect(judgeAnswer({ answer: "12" }, " 12 ")).toBe("correct");
+  });
+
+  it("规格缺失或形状不符时如实不可判", () => {
+    expect(judgeAnswer(null, "x")).toBe("unverifiable");
+    expect(judgeAnswer({}, "x")).toBe("unverifiable");
+    expect(judgeAnswer({ answer: 42 }, "42")).toBe("unverifiable");
   });
 });

@@ -9,25 +9,41 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./sync": {
-      "types": "./dist/sync/index.d.ts",
-      "default": "./dist/sync/index.js"
-    },
-    "./database": {
-      "types": "./dist/database.d.ts",
-      "default": "./dist/database.js"
+    "./backup": {
+      "types": "./dist/backup.d.ts",
+      "default": "./dist/backup.js"
     },
     "./conversation": {
       "types": "./dist/conversation.d.ts",
       "default": "./dist/conversation.js"
     },
-    "./native-sqlite-values": {
-      "types": "./dist/driver/native-sqlite-values.d.ts",
-      "default": "./dist/driver/native-sqlite-values.js"
+    "./database": {
+      "types": "./dist/database.d.ts",
+      "default": "./dist/database.js"
+    },
+    "./diary": {
+      "types": "./dist/diary.d.ts",
+      "default": "./dist/diary.js"
+    },
+    "./learning": {
+      "types": "./dist/learning.d.ts",
+      "default": "./dist/learning.js"
     },
     "./native-sqlite-client": {
       "types": "./dist/driver/native-sqlite-client.d.ts",
       "default": "./dist/driver/native-sqlite-client.js"
+    },
+    "./native-sqlite-values": {
+      "types": "./dist/driver/native-sqlite-values.d.ts",
+      "default": "./dist/driver/native-sqlite-values.js"
+    },
+    "./persona": {
+      "types": "./dist/persona.d.ts",
+      "default": "./dist/persona.js"
+    },
+    "./sync": {
+      "types": "./dist/sync/index.d.ts",
+      "default": "./dist/sync/index.js"
     }
   },
   "scripts": {

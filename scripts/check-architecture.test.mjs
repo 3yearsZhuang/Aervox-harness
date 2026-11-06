@@ -17,7 +17,7 @@ test("runtime and type cycles both remain visible", () => {
 });
 test('Android composition permits exact neutral exports without granting ordinary Web views database access', () => {
   const file = 'apps/web/src/mobile/native-runtime.ts';
-  for (const target of ['@aervox/core/browser', '@aervox/host-agent/browser', '@aervox/repositories/conversation', '@aervox/repositories/database', '@aervox/repositories/native-sqlite-client']) {
+  for (const target of ['@aervox/core/browser', '@aervox/host-agent/browser', '@aervox/repositories/backup', '@aervox/repositories/conversation', '@aervox/repositories/database', '@aervox/repositories/native-sqlite-client', '@aervox/repositories/persona', '@aervox/repositories/diary']) {
     assert.deepEqual(auditArchitecture({ sources: new Map([[file, `import '${target}'`]]) }).violations, []);
     assert.ok(auditArchitecture({ sources: new Map([['apps/web/src/components/view.ts', `import '${target}'`]]) }).violations.some(value => value.includes('not allowed')));
   }
@@ -26,6 +26,33 @@ test('Android composition permits exact neutral exports without granting ordinar
   }
   assert.deepEqual(auditArchitecture({ sources: new Map([['apps/web/src/mobile/native-context.ts', "import '@aervox/core/browser'"]]) }).violations, []);
   assert.ok(auditArchitecture({ sources: new Map([['apps/web/src/mobile/native-context.ts', "import '@aervox/core'"]]) }).violations.length > 0);
+  // The question bridge and device tooling are declared composition files; undeclared siblings stay blocked.
+  for (const file of ['apps/web/src/mobile/native-question.ts', 'apps/web/src/mobile/native-tools.ts']) {
+    assert.deepEqual(auditArchitecture({ sources: new Map([[file, "import '@aervox/core/browser'"]]) }).violations, []);
+    assert.ok(auditArchitecture({ sources: new Map([[file, "import '@aervox/core'"]]) }).violations.length > 0);
+  }
+  for (const file of ['apps/web/src/mobile/native-channel.ts', 'apps/web/src/mobile/native-device.ts', 'apps/web/src/mobile/native-storage.ts']) {
+    assert.ok(auditArchitecture({ sources: new Map([[file, "import '@aervox/core/browser'"]]) }).violations.some(value => value.includes('not allowed')));
+  }
+  // The learning routes may consume the pure review scheduler and the neutral
+  // learning store; ordinary web views still cannot reach either surface.
+  const learning = 'apps/web/src/mobile/native-learning.ts';
+  assert.deepEqual(auditArchitecture({ sources: new Map([[learning, "import '@aervox/practice-review'; import '@aervox/repositories/learning'"]]) }).violations, []);
+  assert.ok(auditArchitecture({ sources: new Map([[learning, "import '@aervox/repositories/database'"]]) }).violations.some(value => value.includes('not allowed')));
+  assert.ok(auditArchitecture({ sources: new Map([['apps/web/src/components/view.ts', "import '@aervox/practice-review'"]]) }).violations.some(value => value.includes('not allowed')));
+});
+test('mobile persona and diary routes keep their exact neutral dependency boundaries', () => {
+  for (const [file, allowed] of [
+    ['apps/web/src/mobile/native-persona.ts', ['@aervox/repositories/persona']],
+    ['apps/web/src/mobile/native-diary.ts', ['@aervox/diary', '@aervox/repositories/diary']],
+  ]) {
+    for (const target of allowed) {
+      assert.deepEqual(auditArchitecture({ sources: new Map([[file, `import '${target}'`]]) }).violations, []);
+      assert.ok(auditArchitecture({ sources: new Map([['apps/web/src/components/view.ts', `import '${target}'`]]) }).violations.length > 0);
+    }
+    assert.ok(auditArchitecture({ sources: new Map([[file, "import '@aervox/repositories/database'"]]) }).violations.length > 0);
+    assert.ok(auditArchitecture({ sources: new Map([[file, "import '@aervox/repositories'"]]) }).violations.length > 0);
+  }
 });
 test("shared parser classifies imports and exports including Vue, TSImportType and dynamic literal", () => {
   const source = `<script lang="ts">import type { X } from "a"; import { type Y } from "b"; export type { Z } from "c"; type P = import("d").P; const p = import("e");</script>`;
