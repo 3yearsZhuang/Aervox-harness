@@ -123,7 +123,7 @@ id: AVX-TRC-001
 | `CAP-024` | 文献阅读与发散 | `P2 · R4` | `Mapped` | 自选候选 · 运行时选择 | [P2 验收原则](SRS.md#prd-cap-020-027)；尚无实现登记 | 补解析格式、引用定位、长文分段、版权、模型上下文和失败恢复 |
 | `CAP-025` | 线下试卷扫描 | `P2 · R4` | `Mapped` | 自选候选 · 运行时选择 | [P2 验收原则](SRS.md#prd-cap-020-027)；已有局部实现；验证范围见 PR | 补图像质量、分题/批改识别、人工校正、置信度和附件删除 |
 | `CAP-026` | 收藏空间与知识库 | `P2 · R4` | `Mapped` | 自选候选 · 构建 + 运行 | [P2 验收原则](SRS.md#prd-cap-020-027)；已有局部实现；验证范围见 PR | 补收藏状态、去重、检索、标签、来源失效、导入导出和容量限制 |
-| `CAP-027` | 本地数据主权与可移植性 | `P2 · R4` | `Specified` | 强制系统责任 · 不可关闭 | [P2 验收原则](SRS.md#prd-cap-020-027)、`CR-030`（已归档）；CR-030 D1～D3 实现；生产演练未闭合 | CR-030 D1～D3 的迁移基础能力、去租户数据库边界和安全入口已实现；完整运行编排、rollback 演练和发布环境证据完成前保持 Not Ready |
+| `CAP-027` | 本地数据主权与可移植性 | `P2 · R4` | `Specified` | 强制系统责任 · 不可关闭 | [P2 验收原则](SRS.md#prd-cap-020-027)、[FR-DATA-002](SRS.md#fr-data-002)、[ADR-034](adr/ADR-034-postgresql-database-plugin.md)、[ITER-078](../../plan.md#iter-078)；`CR-030`（已归档）D1～D3 实现；生产演练未闭合 | 默认 SQLite；可选 PostgreSQL 主库与离线迁移按 ITER-078 验证和交付，保留本地保护。完整运行编排、rollback 演练和发布环境证据完成前保持 Not Ready |
 | `CAP-028` | 社区互助 | `P3 · R5` | `Mapped` | 后续可选插件 · 运行时选择 · 默认禁用 | [可选插件边界](SRS.md#optional-ecosystem-plugins)、[ITER-077](../../plan.md#iter-077)；范围已裁决，尚无实现登记 | 补角色、发布/回答状态机、信誉、举报申诉、服务主体、审核 SLA 和未成年保护 |
 | `CAP-029` | 名词解释网页 | `P3 · R5` | `Mapped` | 后续可选插件 · 运行时选择 · 默认禁用 | [可选插件边界](SRS.md#optional-ecosystem-plugins)、[ITER-077](../../plan.md#iter-077)；范围已裁决，尚无实现登记 | 补真实发布服务、账号、来源失效、SEO/分享、隐私预览、版权和撤回 SLA |
 | `CAP-030` | 主动提醒深化 | `P3 · R5` | `Mapped` | 远期 · 运行时选择 | [P3 验收原则](SRS.md#prd-cap-028-033)；已有局部实现；验证范围见 PR | 补触发优先级、频控、去重、解释、免打扰、跨端和退订验收 |
@@ -133,7 +133,7 @@ id: AVX-TRC-001
 | `CAP-034` | Home Assistant 家庭环境连接 | `P3 · R5` | `Specified` | 运行时连接 · 依赖 CAP-033 / `device.sensors` | [SRS CAP-034](SRS.md#prd-cap-034)、`CR-024`（已归档）、[ADR-019](adr/ADR-019-proactive-integrations-local-gateway.md)；本地集成验证；真实平台与发布证据未闭合 | REST/WS Client、私网校验、实体/service 白名单、Agent 工具、动作审计与撤销删除已验证；生产重连、OAuth 和 HA 版本矩阵仍待门禁 |
 | `CAP-035` | 运动健康信号连接 | `P3 · R5` | `Specified` | 运行时连接 · 依赖 CAP-033 / `restricted.profile` | [SRS CAP-035](SRS.md#prd-cap-035)、`CR-024`（已归档）、[ADR-019](adr/ADR-019-proactive-integrations-local-gateway.md)；本地集成验证；真实平台与发布证据未闭合 | 小米官方开放平台通用适配、Token 刷新、每日指标、只读工具与撤销删除已验证；厂商账号审批、真实沙箱契约和长期兼容测试仍待完成 |
 
-CAP-027 的 SQLite 本地真源、保留、导出、删除和恢复责任不可关闭；完整实现与演练仍须验收。CAP-033 保持 `Specified`、未通过 Ready、未 Released；签名 Privacy Host、OS Broker、本地出网证明、撤权删除和恢复证据闭合前不得生产启用。关联能力不会因 CAP-033 的局部实现自动升级。
+CAP-027 默认使用 SQLite；用户可按 FR-DATA-002 自主安装 PostgreSQL 插件并显式迁移主库。本地保护、保留、导出、删除和恢复责任不可关闭，完整实现与演练仍须验收。CAP-033 保持 `Specified`、未通过 Ready、未 Released；签名 Privacy Host、OS Broker、本地出网证明、撤权删除和恢复证据闭合前不得生产启用。关联能力不会因 CAP-033 的局部实现自动升级。
 
 <a id="capability-delivery"></a>
 
@@ -307,6 +307,7 @@ PR、自动化测试和目标环境验证是交付证据，不抄写终端日志
 | 数据与同意 | 发布内实体用途/分类/责任/保留规则；同意界面、撤权、历史影响与默认值；导出独立可读且保留来源/缺失状态；分析字段最小化 | [数据隐私](DATA_PRIVACY.md) |
 | 删除与恢复 | 消息、摘要、记忆、日记、索引、缓存、附件与外部处理者的全链 E2E；全局 deny 下校验独立恢复账本签名/连续 sequence/最老备份覆盖/业务水位并按序重放；零召回/零越权后恢复 | [删除 SLA](DATA_PRIVACY.md#privacy-deletion-sla)、[恢复账本](SRS.md#srs-br-ctrl) |
 | SQLite 破坏性迁移 | 停写、一致性可读备份、显式数据范围、冲突拒绝、staging 完整性、原子换库、可用 rollback 包与恢复演练 | [迁移演练](../how-to/run-database-migration-drill.md) |
+| 可选 PostgreSQL 主库 | 显式安装和激活、整库内容与引用核对、源库封存、API/Worker 共用选择、后端故障与未知提交拒绝、远端受保护历史准入 | [FR-DATA-002](SRS.md#fr-data-002)、[数据库操作](DATABASE.md#postgresql-operations)、[ITER-078](../../plan.md#iter-078) |
 | 安全/供应链 | Critical/High 威胁的自动化测试、告警与残余风险批准；ASVS L2、依赖/Secret/SBOM/许可证；loopback/Token、文件 ACL、插件/附件/Prompt injection、Electron IPC 与供应商故障演练 | [威胁模型](THREAT_MODEL.md) |
 | CAP-033 | 签名 Host/OS Broker、全来源/授权修订、本地 Provider/存储/出网故障注入、七天+提炼、后台恢复通知、全动作快照、撤权零召回/零动作、可读导出；控制面、原文、确认记忆、触发与 ContextManifest 均证明不出本机 | [主动智能阻断项](#proactive-blockers) |
 | CAP-034/035 | HA SSRF/私网白名单/重连与版本矩阵、凭据零回显、真实小米厂商沙箱/账号资格、健康连接级删除；本地集成测试不能代替厂商审批和生产安全评审 | [ADR-019](adr/ADR-019-proactive-integrations-local-gateway.md) |
