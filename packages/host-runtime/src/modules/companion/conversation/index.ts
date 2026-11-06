@@ -39,7 +39,7 @@ import { createPluginApiRegistry } from "../../../plugin-api-registry.js";
 import { createDshTurnAdapterResolver } from "./dsh-adapter.js";
 import { PluginToolCatalog } from "./plugin-tool-catalog.js";
 
-export function registerConversationModule(ctx: ModuleDependencies<"apiRegistry" | "executionConfig" | "app" | "client" | "db" | "getPersona" | "getPluginRegistrations" | "llmConfigService" | "memoryRecall" | "modelRoutingService" | "observability" | "pluginHostServices" | "pluginRegistry" | "proactiveActionAuthorizer" | "proactiveRepository" | "safetyService" | "toolRuntime" | "workflows">, options: { startupRecovery?: boolean; prepareExecution?: () => Promise<void>; isMcpToolAllowed?: ConversationRouteDeps["isMcpToolAllowed"] } = {}): ConversationHost {
+export function registerConversationModule(ctx: ModuleDependencies<"apiRegistry" | "executionConfig" | "app" | "client" | "db" | "getPersona" | "getPluginRegistrations" | "llmConfigService" | "modelProviderFactory" | "memoryRecall" | "modelRoutingService" | "observability" | "pluginHostServices" | "pluginRegistry" | "proactiveActionAuthorizer" | "proactiveRepository" | "safetyService" | "toolRuntime" | "workflows">, options: { startupRecovery?: boolean; prepareExecution?: () => Promise<void>; isMcpToolAllowed?: ConversationRouteDeps["isMcpToolAllowed"] } = {}): ConversationHost {
   const {
     app,
     db,
@@ -83,7 +83,7 @@ export function registerConversationModule(ctx: ModuleDependencies<"apiRegistry"
         source: createSqliteResumeSource({ repo: conversationRepo, client: ctx.client }),
         createStore: () => createBroadcastingStore(new SqliteExecutionStore(conversationRepo, local)),
         createProvider: (turn, control) => buildLoopProvider(local, llmConfigService, {
-          executionConfig, requireLocalOnly: control.localProcessingOnly, sessionId: turn.sessionId, turnId: turn.turnId,
+          executionConfig, modelProviderFactory: ctx.modelProviderFactory, requireLocalOnly: control.localProcessingOnly, sessionId: turn.sessionId, turnId: turn.turnId,
           modelRoutingService: ctx.modelRoutingService,
         }),
         deletionGate: { isBlocked: () => privacyRepo.hasPendingDeletionRequest(local) },
@@ -111,6 +111,7 @@ export function registerConversationModule(ctx: ModuleDependencies<"apiRegistry"
     isMcpToolAllowed: options.isMcpToolAllowed,
     toolRuntime,
     llmConfigService,
+    modelProviderFactory: ctx.modelProviderFactory,
     modelRoutingService: ctx.modelRoutingService,
     safetyService,
     privacyRepo,
@@ -140,7 +141,7 @@ export function registerConversationModule(ctx: ModuleDependencies<"apiRegistry"
         store: new SqliteExecutionStore(conversationRepo, tenant),
         runRepo: subagentRunRepo,
         providerBuilder: (input) => buildLoopProvider(tenant, llmConfigService, {
-          executionConfig, requireLocalOnly: input.controlContext?.localProcessingOnly,
+          executionConfig, modelProviderFactory: ctx.modelProviderFactory, requireLocalOnly: input.controlContext?.localProcessingOnly,
           sessionId: input.sessionId, turnId: input.turnId, modelRoutingService: ctx.modelRoutingService,
         }),
       }),

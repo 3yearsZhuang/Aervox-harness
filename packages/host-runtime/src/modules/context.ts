@@ -47,6 +47,8 @@ export interface ModuleContext {
   memoryRecall?: MemoryRecallPort;
   /** LLM 配置服务（llm 模块填充；conversation 读取） */
   llmConfigService?: LLMConfigPort;
+  modelStreamResources?: import("./ecosystem/llm/model-resources.js").ModelStreamResourcePort;
+  modelProviderFactory?: import("./ecosystem/llm/provider-factory.js").ConfiguredProviderFactoryPort;
   modelGeneration?: import("./ecosystem/llm/index.js").ModelGenerationPort;
   /** 本地模型运行时服务（model-runtime 模块填充；对话工具/UI 读取） */
   modelRuntimeService?: ModelRuntimePort;

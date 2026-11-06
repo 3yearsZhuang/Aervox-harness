@@ -115,6 +115,7 @@ export async function runLoopTurnOnce(
     isMcpToolAllowed?: (tool: { id: string; name: string; pluginId?: string | null }) => Promise<boolean>;
     toolRuntime?: ToolRuntime;
     llmConfigService?: LLMConfigPort;
+    modelProviderFactory?: import("../../ecosystem/llm/index.js").ConfiguredProviderFactoryPort;
     /** CR-034 模型降级与健康路由决策服务 */
     modelRoutingService?: ModelRoutingPort;
     /** CAP-008：安全与危机干预服务（危急阻断/资源注入/中度困扰支持） */
@@ -177,7 +178,7 @@ export async function runLoopTurnOnce(
   const group = persisted.executionPolicy === "bot-group-member-v1";
   const bot = persisted.executionPolicy !== "local-v1";
   if (group) {
-    deps = { executionConfig: deps.executionConfig, apiRegistry: deps.apiRegistry, llmConfigService: deps.llmConfigService, modelRoutingService: deps.modelRoutingService,
+    deps = { executionConfig: deps.executionConfig, apiRegistry: deps.apiRegistry, llmConfigService: deps.llmConfigService, modelProviderFactory: deps.modelProviderFactory, modelRoutingService: deps.modelRoutingService,
       signal: deps.signal, claimTurnAttempt: deps.claimTurnAttempt, preparationFencingToken: deps.preparationFencingToken,
       preparationTerminator: deps.preparationTerminator,
       safetyService: deps.safetyService, deletionGate: deps.deletionGate,
@@ -446,7 +447,7 @@ export async function runLoopTurnOnce(
     let dshLlm: TurnLlmPort | undefined;
     if (deps.llmConfigService && apiConfig.loopProvider === "llm") {
       try {
-        const p = await buildLoopProvider(tenant, deps.llmConfigService, { executionConfig: apiConfig });
+        const p = await buildLoopProvider(tenant, deps.llmConfigService, { executionConfig: apiConfig, modelProviderFactory: deps.modelProviderFactory });
         dshLlm = createLLMCallable(p);
       } catch {
         // ignore
@@ -472,7 +473,7 @@ export async function runLoopTurnOnce(
   let proactiveProfilePrompt = "";
   try {
     const loopProvider = await buildLoopProvider(tenant, deps.llmConfigService, {
-      executionConfig: apiConfig, requireLocalOnly: proactiveActive,
+      executionConfig: apiConfig, modelProviderFactory: deps.modelProviderFactory, requireLocalOnly: proactiveActive,
       sessionId: input.sessionId,
       turnId: input.turnId,
       modelRoutingService: deps.modelRoutingService,

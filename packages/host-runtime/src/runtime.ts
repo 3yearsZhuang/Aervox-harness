@@ -48,7 +48,7 @@ import { registerMcpModule, type McpModuleOptions } from "./modules/ecosystem/mc
 import { registerPluginsModule, createServerPluginRegistry, type ServerPluginRegistry } from "./modules/ecosystem/plugins/index.js";
 import { createPluginHostServicesFactory } from "./plugin-host-services.js";
 import { registerSkillsModule } from "./modules/ecosystem/skills/index.js";
-import { registerLLMModule, type LLMServiceOptions } from "./modules/ecosystem/llm/index.js";
+import { registerLLMModule, createModelStreamResources, type LLMServiceOptions } from "./modules/ecosystem/llm/index.js";
 import {
   registerModelRuntimeModule,
   type ModelRuntimeModuleOptions,
@@ -165,6 +165,7 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
   });
   registerProblemDetails(app);
   const apiConfig = options.config ?? loadHostRuntimeConfig();
+  const modelStreamResources = createModelStreamResources(apiConfig.modelStreamConcurrency);
   const metricsRegistry =
     options.observability?.metrics && "toPrometheusText" in options.observability.metrics
       ? (options.observability.metrics as InMemoryMetricsRegistry)
@@ -350,6 +351,7 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
   const ctx = {
     apiRegistry,
     executionConfig: apiConfig,
+    modelStreamResources,
     app,
     db,
     client,
@@ -379,7 +381,7 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
   const memoryRecall = await registerMemoryModule(withTools, { embeddingProvider: options.embeddingProvider });
   const mcp = registerMcpModule(withTools, options.mcpOptions);
   const llm = registerLLMModule(withTools, options.llmOptions);
-  const withModel = { ...withTools, memoryRecall, llmConfigService: llm.config, modelGeneration: llm.generation, modelRoutingService: llm.routing };
+  const withModel = { ...withTools, memoryRecall, llmConfigService: llm.config, modelProviderFactory: llm.factory, modelGeneration: llm.generation, modelRoutingService: llm.routing };
   const modelRuntimeService = registerModelRuntimeModule(withModel, options.modelRuntimeOptions);
   const safetyService = registerSafetyModule(withModel);
   const proactive = await registerProactiveModule(withModel, {
@@ -429,11 +431,22 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
     registrations: () => pluginRegistrations ?? [],
   }, { ...options.botOptions, start: options.role !== "worker" });
 
+  // Abort product ControlContexts before cancelling their upstream resources.
+  // preClose runs before Fastify waits for active HTTP generation responses.
+  app.addHook("preClose", async () => {
+    conversation.abort();
+    modelStreamResources.beginClose();
+  });
   if (ownsProactiveClient) {
     app.addHook("onClose", async () => {
+      // A failed upstream drain must not be mistaken for a safe database close.
+      await modelStreamResources.close();
       proactiveClient?.close();
     });
   }
+  // Fastify runs onClose in reverse registration order. Drain the one owner
+  // before its dependent module/database release hooks; retry is idempotent.
+  app.addHook("onClose", () => modelStreamResources.close());
 
   return {
     modelGeneration: llm.generation,
