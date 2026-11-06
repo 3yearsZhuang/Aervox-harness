@@ -242,10 +242,10 @@ describe('连接版命令合同', () => {
 
   it('TTY 用户问题提交后继续消费权威终态', async () => {
     const input = Object.assign(new PassThrough(), { isTTY: true });
-    handler = (req, res) => req.url?.endsWith('/events') ? res.end(event(1, 'user_question_required', { questions: [{ id: 'q1', question: '语言？' }] }) + done()) : normal(req, res);
+    handler = (req, res) => req.url?.endsWith('/events') ? res.end(event(1, 'user_question_required', { turnId: 'turn_1', attemptId: 'attempt_1', invocationId: 'attempt_1:1:1', step: 1, identityStatus: 'available', questions: [{ id: 'q1', question: '语言？' }] }) + done()) : normal(req, res);
     const r = await invoke(['ask', 'hello', '--json'], { input, onErrorText(text) { if (text.includes('回答 >')) setImmediate(() => input.write('TypeScript\n')); } });
     expect(r.code).toBe(0);
-    expect(JSON.parse(requests.find(r => r.url?.endsWith('/questions/answers'))!.body)).toEqual({ answers: [{ id: 'q1', selected: [], custom: 'TypeScript' }] });
+    expect(JSON.parse(requests.find(r => r.url?.endsWith('/questions/answers'))!.body)).toEqual({ attemptId: 'attempt_1', invocationId: 'attempt_1:1:1', step: 1, answers: [{ id: 'q1', selected: [], custom: 'TypeScript' }] });
     input.destroy();
   });
 

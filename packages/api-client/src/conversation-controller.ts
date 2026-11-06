@@ -175,9 +175,18 @@ export function createConversationController(transport: AervoxTransport, lifetim
         },
         async onEvent(event) {
           if (!current()) return;
+          const question = event.eventType === 'user_question_answered' ? state.question : undefined;
           await callbacks.onEvent?.(event);
           if (!current()) return;
-          if (event.eventType === 'user_question_answered') update({question: undefined});
+          if (question && state.question === question && event.data && typeof event.data === 'object') {
+            const answered = event.data as {turnId?: unknown; attemptId?: unknown; invocationId?: unknown; step?: unknown};
+            // Receipts without a complete original identity are acknowledged
+            // below, but cannot prove that the current question was answered.
+            const sameIdentity = typeof question.attemptId === 'string' && typeof question.invocationId === 'string'
+              && typeof question.step === 'number'
+              && answered.attemptId === question.attemptId && answered.invocationId === question.invocationId && answered.step === question.step;
+            if (answered.turnId === question.turnId && sameIdentity) update({question: undefined});
+          }
           if ((event.eventType === 'tool_approval_granted' || event.eventType === 'tool_approval_denied') &&
               event.data && typeof event.data === 'object' && (event.data as {approvalId?: string}).approvalId === state.approval?.approvalId) update({approval: undefined});
           if (event.eventType === 'done') finishDone(event.data);
@@ -269,7 +278,7 @@ export function createConversationController(transport: AervoxTransport, lifetim
       const {turnId, question} = state;
       const owner = beginInteraction();
       try {
-        await interactionRequest(owner, signal => transport.submitQuestionAnswers(turnId, answers, signal));
+        await interactionRequest(owner, signal => transport.submitQuestionAnswers(turnId, answers, signal, { attemptId: question.attemptId, invocationId: question.invocationId, step: question.step }));
         // A stop or a newer question may win while the write is in flight.
         if (generation === owner.generation && state.turnId === turnId && state.question === question) update({question: undefined,
           status: state.status === 'observer-error' ? 'observer-error' : 'observing', error: undefined});

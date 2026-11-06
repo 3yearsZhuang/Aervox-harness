@@ -31,6 +31,7 @@ export interface ISubagentRunRepository {
 export interface PendingUserQuestionModel {
   turnId: string;
   attemptId: string;
+  invocationId: string | null;
   step: number;
   /** 模型提出的问题清单（AskUserQuestionItem[]） */
   questions: unknown;
@@ -43,6 +44,7 @@ export interface PendingUserQuestionModel {
 export interface PendingUserQuestionUpsertInput {
   turnId: string;
   attemptId: string;
+  invocationId?: string | null;
   step: number;
   questions: unknown;
   timeoutMs: number;

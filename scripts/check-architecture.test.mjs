@@ -39,6 +39,14 @@ test('Android composition permits exact neutral exports without granting ordinar
     assert.deepEqual(auditArchitecture({ sources: new Map([[file, "import '@aervox/core/browser'"]]) }).violations, []);
     assert.ok(auditArchitecture({ sources: new Map([[file, "import '@aervox/core'"]]) }).violations.length > 0);
   }
+  assert.deepEqual(auditArchitecture({ sources: new Map([['apps/web/src/mobile/native-question.ts', "import '@aervox/host-agent/browser'"]]) }).violations, []);
+  for (const [file, target] of [
+    ['apps/web/src/mobile/native-question.ts', '@aervox/host-agent'],
+    ['apps/web/src/mobile/native-tools.ts', '@aervox/host-agent/browser'],
+    ['apps/web/src/mobile/native-channel.ts', '@aervox/host-agent/browser'],
+  ]) {
+    assert.ok(auditArchitecture({ sources: new Map([[file, `import '${target}'`]]) }).violations.some(value => value.includes('not allowed')));
+  }
   for (const file of ['apps/web/src/mobile/native-channel.ts', 'apps/web/src/mobile/native-device.ts', 'apps/web/src/mobile/native-storage.ts']) {
     assert.ok(auditArchitecture({ sources: new Map([[file, "import '@aervox/core/browser'"]]) }).violations.some(value => value.includes('not allowed')));
   }

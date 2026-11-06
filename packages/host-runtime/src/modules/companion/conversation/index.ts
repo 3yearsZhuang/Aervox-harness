@@ -19,7 +19,6 @@ import {
   SqlitePrivacyRepository,
   SqliteSkillRegistryRepository,
   SqliteSubagentRunRepository,
-  SqliteUserQuestionRepository,
 } from "@aervox/repositories";
 import { createSqliteSubagentPort, createSqliteResumeSource, resumeCommittedTurns, SqliteExecutionStore } from "@aervox/host-agent";
 import { buildLoopProvider } from "./llm-adapter.js";
@@ -64,11 +63,7 @@ export function registerConversationModule(ctx: ModuleDependencies<"apiRegistry"
   const apiRegistry = ctx.apiRegistry ?? createPluginApiRegistry();
   const pluginToolCatalog = new PluginToolCatalog(extensionRepo, apiRegistry);
   const pluginConfigRepo = new SqlitePluginConfigRepository(db);
-  const userQuestionCoordinator = new UserQuestionCoordinator(
-    conversationRepo,
-    // 缺陷 C：挂起提问持久化到 pending_user_questions，进程重启后仍可作答/查询
-    new SqliteUserQuestionRepository(db),
-  );
+  const userQuestionCoordinator = new UserQuestionCoordinator(conversationRepo);
   const executionAbort = new AbortController();
   let closeApplication: (() => Promise<void>) | undefined;
   const running = new Set<Promise<unknown>>();

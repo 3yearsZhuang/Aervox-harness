@@ -8,3 +8,5 @@ export type { TurnIntentInput, NormalizedTurnIntent, AcceptedTurnParameters } fr
 export { SessionHistoryReadError } from "./repositories/sqlite/conversation/history-page.js";
 export { FencingMismatchError, DomainConflictError, RepositoryNotFoundError, RepositoryAccessViolationError } from "./errors.js";
 export type { LocalContext } from "./local-context.js";
+export type { UserQuestionIdentity, UserQuestionExecutionProof, RequireUserQuestionInput,
+  RequireUserQuestionResult, PendingUserQuestionState, UserQuestionAnswerReceipt, CancelUserQuestionInput } from "./repositories/types/user-question.js";
