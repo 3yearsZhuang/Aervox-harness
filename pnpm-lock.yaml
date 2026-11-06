@@ -520,12 +520,18 @@ importers:
       '@aervox/observability':
         specifier: workspace:*
         version: link:../observability
+      '@aervox/plugin-anki-sync':
+        specifier: workspace:*
+        version: link:../../plugins/plugins/tool/anki-sync
       '@aervox/plugin-bot-onebot':
         specifier: workspace:*
         version: link:../../plugins/plugins/bot/onebot
       '@aervox/plugin-bot-weixin':
         specifier: workspace:*
         version: link:../../plugins/plugins/bot/weixin
+      '@aervox/plugin-diary-distillers':
+        specifier: workspace:*
+        version: link:../../plugins/plugins/workflow/diary-distillers
       '@aervox/plugin-flowcampus':
         specifier: workspace:*
         version: link:../../plugins/plugins/tool/flowcampus
@@ -708,6 +714,18 @@ importers:
         specifier: ^22.10.0
         version: 22.20.1
 
+  plugins/plugins/tool/anki-sync:
+    dependencies:
+      '@aervox/core':
+        specifier: workspace:*
+        version: link:../../../../packages/core
+      '@aervox/host-plugin-api':
+        specifier: workspace:*
+        version: link:../../../../packages/host-plugin-api
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+
   plugins/plugins/tool/flowcampus:
     dependencies:
       '@aervox/api-client':
@@ -772,6 +790,18 @@ importers:
       vue:
         specifier: ^3.5.43
         version: 3.5.43(typescript@7.0.2)
+
+  plugins/plugins/workflow/diary-distillers:
+    dependencies:
+      '@aervox/core':
+        specifier: workspace:*
+        version: link:../../../../packages/core
+      '@aervox/host-plugin-api':
+        specifier: workspace:*
+        version: link:../../../../packages/host-plugin-api
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
 
   plugins/surfaces/companion-ui:
     dependencies:

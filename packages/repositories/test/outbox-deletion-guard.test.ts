@@ -7,7 +7,9 @@ import {
   SqliteMemoryDeletionStore,
   SqliteMemoryRepository,
   SqliteOutboxRepository,
+  SqliteConversationRepository,
 } from "../src/index.js";
+import { corruptReceipt } from "./helpers/receipt-corruption.js";
 
 const local = { workspaceId: "local", subjectUserId: "local" };
 const compactionType = "memory.compaction.requested";
@@ -43,6 +45,29 @@ describe("Outbox failure writes respect Memory deletion", () => {
     await outbox.markDeadLetter(eventId, reason);
     return undefined;
   }
+
+  it.each(["retry", "dead_letter"] as const)("denies a late %s error copy after canonical receipt digest drift", async kind => {
+    const conversations = new SqliteConversationRepository(database.db);
+    const memories = new SqliteMemoryRepository(database.db, database.client);
+    await conversations.getOrCreateSession(local, "source-session");
+    await conversations.acceptTurn(local, { turnId: "source-turn", sessionId: "source-session", idempotencyKey: "source-turn", attemptId: "source-attempt",
+      message: { id: "source-input", content: "private source" }, consumeInbox: false });
+    await memories.createRecord(local, { id: "sourced-memory", layer: "long_term", type: "user_fact", content: "private source", sourceTurnId: "source-turn" });
+    await outbox.insertEvent(local, { id: "source-event", idempotencyKey: "source-event", eventType: compactionType,
+      payload: { memoryId: "sourced-memory", snapshotId: "source-snapshot", summaryText: "fetched private summary" } });
+    const [fetched] = await outbox.fetchPendingEvents({ eventType: compactionType });
+    const lateError = `provider rejected ${(fetched!.payload as { summaryText: string }).summaryText}`;
+    await corruptReceipt(database.client, "source-turn", { name: "historical attachment removed", historicalAttachmentRemoved: true });
+    const before = await outbox.getEventById("source-event");
+    const result = await reportFailure(kind, lateError, "source-event");
+    if (kind === "retry") expect(result).toBeNull();
+    expect(await outbox.getEventById("source-event")).toEqual(before);
+    expect((await memories.getRecord(local, "sourced-memory"))?.content).toBe("private source");
+    await outbox.insertEvent(local, { id: "generic-event", idempotencyKey: "generic-event", eventType: "turn.created",
+      payload: { memoryId: "sourced-memory" } });
+    await reportFailure(kind, "generic retained error", "generic-event");
+    expect((await outbox.getEventById("generic-event"))?.lastError).toBe("generic retained error");
+  });
 
   it.each(["retry", "dead_letter"] as const)("late %s after clean and verify cannot restore error content or retry state", async (kind) => {
     await queue();

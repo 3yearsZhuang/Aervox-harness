@@ -61,7 +61,7 @@ describe("多模态输入：原始二进制上传（CAP-012 扩展）", () => {
     expect(body.id).toMatch(/^att_/);
     expect(body.mediaType).toBe("image/png");
     expect(body.size).toBe(payload.byteLength);
-    expect(body.scanStatus).toBe("clean");
+    expect(body.scanStatus).toBe("pending");
     expect(body.purpose).toBe("question");
   });
 

@@ -7,6 +7,8 @@ import { derivableConversationTurn } from "./conversation/source-visibility.js";
 import type { LocalContext } from "../../local-context.js";
 import type { SessionHistoryMessage } from "../types/index.js";
 import { jsonObject, jsonQuote, jsonValue, rowPosition, textLike } from "../../sql-dialect.js";
+import type { ConversationCryptoPort } from "../../conversation-host-port.js";
+import { admitsSourceTurn } from "../../attachment-source-admission.js";
 
 const MAX_HISTORY_TURNS = 20;
 const MAX_HISTORY_CHARACTERS = 32_000;
@@ -34,11 +36,12 @@ export async function readSessionHistory(
   db: AervoxDatabase,
   _ctx: LocalContext,
   input: { sessionId: string; beforeTurnId: string },
+  crypto?: Pick<ConversationCryptoPort, "sha256Utf8">,
 ): Promise<SessionHistoryMessage[]> {
-  return db.transaction(tx => readHistorySnapshot(tx, input));
+  return db.transaction(tx => readHistorySnapshot(tx, input, crypto));
 }
 
-async function readHistorySnapshot(db: Reader, input: { sessionId: string; beforeTurnId: string }): Promise<SessionHistoryMessage[]> {
+async function readHistorySnapshot(db: Reader, input: { sessionId: string; beforeTurnId: string }, crypto?: Pick<ConversationCryptoPort, "sha256Utf8">): Promise<SessionHistoryMessage[]> {
   const [current] = await db.select({
     position: rowPosition(db).mapWith(Number),
     idempotencyKey: jsonQuote(db, turns.idempotencyKey).mapWith(parse<string>),
@@ -62,7 +65,7 @@ async function readHistorySnapshot(db: Reader, input: { sessionId: string; befor
     ['messageId', messageVersions.messageId], ['isRedacted', messageVersions.isRedacted],
   ]).mapWith(parse<Source>) }).from(turns)
     .innerJoin(messageVersions, and(eq(messageVersions.turnId, turns.id), eq(messageVersions.role, "user"), eq(messageVersions.version, 1)))
-    .where(and(inArray(turns.id, turnIds), derivableConversationTurn(turns.id)));
+    .where(and(inArray(turns.id, turnIds), derivableConversationTurn(db, turns.id)));
   const sourceByTurn = new Map(sources.map(({ source }) => [source.turnId, source]));
   const durableTurnIds = sources.filter(({ source }) => durableSource(source)).map(({ source }) => source.turnId);
   const legacyTurnIds = sources.filter(({ source }) => !durableSource(source)).map(({ source }) => source.turnId);
@@ -90,7 +93,7 @@ async function readHistorySnapshot(db: Reader, input: { sessionId: string; befor
   let remaining = MAX_HISTORY_CHARACTERS;
   for (const turn of previous) {
     const source = sourceByTurn.get(turn.id);
-    if (!source || source.isRedacted !== 0) continue;
+    if (!source || source.isRedacted !== 0 || !await admitsSourceTurn(db, turn.id, crypto)) continue;
     const turnEvents = eventsByTurn.get(turn.id) ?? [];
     if (unsafeDurableTurnIds.has(turn.id)
       || turnEvents.some(event => event.eventType === "redacted" || event.safetyDecision === "blocked" || event.safetyDecision === "redacted")) continue;

@@ -13,4 +13,4 @@ export {
   isBackupScopedTable,
   isDerivedSearchTable,
 } from "./backup-scope.js";
-export { rebuildSearchProjections } from "./search/fts.js";
+export { rebuildSearchProjections } from "./search/fts-neutral.js";

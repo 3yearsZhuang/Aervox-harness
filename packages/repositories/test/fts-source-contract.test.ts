@@ -8,8 +8,12 @@ import type { AervoxDatabase } from "../src/database.js";
 import { createPostgresQueryRuntime } from "../src/driver/postgres-session.js";
 import { createPostgresRepositoryConnection } from "../src/driver/repository-connection.js";
 import { initializePostgresqlSchema } from "../src/schema/postgresql.js";
+import { SqliteConversationRepository } from "../src/repositories/sqlite/conversation-repository.js";
+import { registerDatabaseBackend } from "../src/database-backend.js";
+import { nodeConversationHost } from "../src/conversation-host-node.js";
+import { renderTurnIntentMessage, turnIntentHashWithHost, type NormalizedTurnIntent } from "../src/conversation-turn-intent-neutral.js";
 import {
-  indexMemoryFts, indexMessageFts, searchMemoriesFts, searchMessagesFts, rebuildSearchProjections,
+  indexMemoryFts, indexMessageFts, searchMemoriesFts, searchMessagesFts, rebuildSearchProjections, rebuildMessageFts,
   type FtsConnection, type ProjectionWriter,
 } from "../src/search/fts.js";
 
@@ -66,6 +70,19 @@ for (const backend of ["sqlite", "postgresql"] as const) {
       await database.db.insert(turns).values({ id: "turn", sessionId: "session", idempotencyKey: "turn", status: "Completed" });
       await database.db.insert(messages).values({ id: "message", sessionId: "session", role: "user", currentVersionId: "message" });
       await database.db.insert(messageVersions).values({ id: "message", messageId: "message", turnId: "turn", role: "user", version: 1, content });
+    }
+    async function acceptedSources() {
+      const conversations = new SqliteConversationRepository(database.db);
+      await conversations.getOrCreateSession(local, "session");
+      for (const id of ["historical", "text"]) {
+        await conversations.acceptTurn(local, { turnId: id, sessionId: "session", idempotencyKey: id, attemptId: `${id}-attempt`,
+          message: { id: `${id}-input`, content: `${id} canary` }, consumeInbox: false });
+        await conversations.finalizeAttemptWithEventAtomically(local, { turnId: id, attemptId: `${id}-attempt`, expectedFencingToken: 0,
+          sequence: 1, status: "Completed", eventType: "done", eventData: { status: "Completed", isComplete: true }, safetyDecision: "approved" });
+        await database.db.insert(memoryRecords).values({ id: `${id}-memory`, layer: "long_term", type: "user_fact",
+          content: `${id} canary`, sourceTurnId: id });
+      }
+      await rebuildSearchProjections(database.client);
     }
 
     it("rejects nonexistent and forged memory bodies even if stale index rows exist", async () => {
@@ -125,6 +142,84 @@ for (const backend of ["sqlite", "postgresql"] as const) {
       expect((await database.client.execute("SELECT id FROM messages_fts")).rows.map(row => row.id)).toEqual(["message"]);
       expect(await memorySearch("deletedcanary")).toEqual([]);
       expect(await searchMessagesFts(database.client, local, "messagecanary")).toMatchObject([{ id: "message" }]);
+    });
+
+    it("rejects canonical attachment sources and receipt drift in live reads, delayed indexes and both rebuilds", async () => {
+      await acceptedSources();
+      const original = JSON.parse(String((await database.client.execute(
+        "SELECT payload FROM outbox_events WHERE id='outbox_historical'",
+      )).rows[0]!.payload)) as { intent: NormalizedTurnIntent; requestHash: string; userMessage: string };
+      const attachmentIntent: NormalizedTurnIntent = { ...original.intent, message: { ...original.intent.message,
+        attachments: [{ attachmentId: "unverified-history", name: null, mediaType: "image/png" }] } };
+      const attachmentHash = turnIntentHashWithHost(attachmentIntent, nodeConversationHost);
+      const attachmentMessage = renderTurnIntentMessage(attachmentIntent);
+      const cases = [
+        { hash: attachmentHash, content: attachmentMessage,
+          payload: JSON.stringify({ ...original, intent: attachmentIntent, requestHash: attachmentHash, userMessage: attachmentMessage }) },
+        { hash: attachmentHash, content: attachmentMessage,
+          payload: JSON.stringify({ ...original, intent: { ...attachmentIntent, message: { ...attachmentIntent.message, attachments: [] } },
+            requestHash: attachmentHash, userMessage: attachmentMessage }) },
+        { hash: original.requestHash, content: original.userMessage,
+          payload: JSON.stringify({ ...original, intent: { ...original.intent, metadata: { changed: true } } }) },
+        { hash: original.requestHash, content: original.userMessage, payload: "{" },
+      ];
+      for (const changed of cases) {
+        await database.client.execute({ sql: "UPDATE turns SET request_hash=? WHERE id='historical'", args: [original.requestHash] });
+        await database.client.execute({ sql: "UPDATE message_versions SET content=? WHERE id='historical-input'", args: [original.userMessage] });
+        await database.client.execute({ sql: "UPDATE outbox_events SET payload=? WHERE id='outbox_historical'", args: [JSON.stringify(original)] });
+        await rebuildSearchProjections(database.client);
+        expect(await searchMessagesFts(database.client, local, "canary")).toHaveLength(2);
+        expect(await memorySearch("canary")).toHaveLength(2);
+        await database.client.execute({ sql: "UPDATE turns SET request_hash=? WHERE id='historical'", args: [changed.hash] });
+        await database.client.execute({ sql: "UPDATE message_versions SET content=? WHERE id='historical-input'", args: [changed.content] });
+        await database.client.execute({ sql: "UPDATE outbox_events SET payload=? WHERE id='outbox_historical'", args: [changed.payload] });
+        expect((await searchMessagesFts(database.client, local, "canary")).map(row => row.id)).toEqual(["text-input"]);
+        expect((await memorySearch("canary")).map(row => row.id)).toEqual(["text-memory"]);
+        await indexMessageFts(database.client, local, { id: "historical-input", content: changed.content });
+        await indexMemoryFts(database.client, local, { id: "historical-memory", content: "historical canary" });
+        await rebuildMessageFts(database.client);
+        expect((await database.client.execute("SELECT id FROM messages_fts ORDER BY id")).rows.map(row => row.id)).toEqual(["text-input"]);
+        await rebuildSearchProjections(database.client);
+        expect((await database.client.execute("SELECT id FROM messages_fts ORDER BY id")).rows.map(row => row.id)).toEqual(["text-input"]);
+        expect((await database.client.execute("SELECT id FROM memories_fts ORDER BY id")).rows.map(row => row.id)).toEqual(["text-memory"]);
+      }
+    });
+
+    it("does not index a different receipt after its digest was checked in the writer", async () => {
+      await acceptedSources();
+      const original = String((await database.client.execute("SELECT payload FROM outbox_events WHERE id='outbox_historical'")).rows[0]!.payload);
+      const payload = JSON.parse(original) as { intent: NormalizedTurnIntent };
+      const changed = JSON.stringify({ ...payload, intent: { ...payload.intent, metadata: { writerDrift: true } } });
+      type Transaction = Awaited<ReturnType<FtsConnection["transaction"]>>;
+      const afterReceiptRead: FtsConnection = {
+        execute: database.client.execute.bind(database.client),
+        async transaction(mode) {
+          const writer = await database.client.transaction(mode);
+          let changedOnce = false;
+          const guarded: Transaction = {
+            async execute(input) {
+              const result = await writer.execute(input);
+              if (!changedOnce && result.rows[0]?.evidence != null) {
+                changedOnce = true;
+                await writer.execute({ sql: "UPDATE outbox_events SET payload=? WHERE id='outbox_historical'", args: [changed] });
+              }
+              return result;
+            },
+            commit: writer.commit.bind(writer), rollback: writer.rollback.bind(writer), close: writer.close.bind(writer),
+            get closed() { return writer.closed; },
+          };
+          registerDatabaseBackend(guarded, backend);
+          return guarded;
+        },
+      };
+      registerDatabaseBackend(afterReceiptRead, backend);
+      await indexMessageFts(afterReceiptRead, local, { id: "historical-input", content: "historical canary" });
+      expect((await database.client.execute("SELECT id FROM messages_fts WHERE id='historical-input'")).rows).toEqual([]);
+      await database.client.execute({ sql: "UPDATE outbox_events SET payload=? WHERE id='outbox_historical'", args: [original] });
+      await indexMemoryFts(afterReceiptRead, local, { id: "historical-memory", content: "historical canary" });
+      expect((await database.client.execute("SELECT id FROM memories_fts WHERE id='historical-memory'")).rows).toEqual([]);
+      expect(await searchMessagesFts(database.client, local, "text")).toMatchObject([{ id: "text-input" }]);
+      expect(await memorySearch("text")).toMatchObject([{ id: "text-memory" }]);
     });
   });
 }

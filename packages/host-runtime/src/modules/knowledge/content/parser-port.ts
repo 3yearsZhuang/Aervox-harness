@@ -27,7 +27,7 @@ export interface ContentParserPort {
   parse(tenant: LocalContext, request: ParseContentRequest): Promise<ParseContentResult>;
 }
 
-/** 默认离线 Mock OCR 解析器（基准与集成测试兜底） */
+/** Explicit test/demo provider; never installed by the production registry. */
 export class MockOcrParserProvider implements ContentParserPort {
   readonly id = "ocr.mock";
   readonly name = "Mock OCR Parser";
@@ -59,19 +59,14 @@ export class MockOcrParserProvider implements ContentParserPort {
 /** 注册与解析调度器 */
 export class ContentParserRegistry {
   private readonly parsers = new Map<string, ContentParserPort>();
-  private defaultParserId?: string;
-
-  constructor(initialParsers: ContentParserPort[] = [new MockOcrParserProvider()]) {
+  constructor(initialParsers: ContentParserPort[] = []) {
     for (const parser of initialParsers) {
       this.register(parser);
     }
   }
 
-  register(parser: ContentParserPort, isDefault = false): void {
+  register(parser: ContentParserPort, _isDefault = false): void {
     this.parsers.set(parser.id, parser);
-    if (isDefault || !this.defaultParserId) {
-      this.defaultParserId = parser.id;
-    }
   }
 
   getParser(id: string): ContentParserPort | undefined {
@@ -84,7 +79,7 @@ export class ContentParserRegistry {
         return parser;
       }
     }
-    return this.defaultParserId ? this.parsers.get(this.defaultParserId) : undefined;
+    return undefined;
   }
 
   listParsers(): ContentParserPort[] {

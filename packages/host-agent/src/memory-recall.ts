@@ -66,6 +66,9 @@ export interface SqliteMemoryRecallOptions {
   client: FtsConnection;
   embeddingProvider: MemoryEmbeddingProvider | null;
   consentCheck?: (purpose: string, scope: string) => Promise<boolean>;
+  /** Fixed purpose/scope for a consent owner in this same local database.
+   * External callback results alone cannot prove its state during a body read. */
+  requiredConsent?: { purpose: string; scope: string };
 }
 
 /** SQLite 记忆召回：本地 FTS + 同模型向量通道，经 RRF 排序后回读权威记录并逐条做资格判定。 */
@@ -110,7 +113,10 @@ export function createSqliteMemoryRecall(deps: SqliteMemoryRecallOptions): Memor
         vectorWeight,
       });
       if (hits.length === 0) return [];
-      const records = await memoryRepo.getRecordsByIds(ctx, hits.map((h) => h.id));
+      if (deps.consentCheck && !await deps.consentCheck(AUTO_RECALL_CONSENT_PURPOSE, AUTO_RECALL_CONSENT_SCOPE).catch(() => false)) return [];
+      // This is the final asynchronous source read. Its writer snapshot binds
+      // receipt digests, bodies and (when configured) the actual local grant.
+      const records = await memoryRepo.getRecordsByIds(ctx, hits.map((h) => h.id), deps.requiredConsent);
       const recordMap = new Map(records.map((r) => [r.id, r]));
       const recalled: RecalledMemory[] = [];
       for (const hit of hits) {
@@ -124,7 +130,6 @@ export function createSqliteMemoryRecall(deps: SqliteMemoryRecallOptions): Memor
         });
         if (recalled.length === AUTO_RECALL_LIMIT) break;
       }
-      if (deps.consentCheck && !await deps.consentCheck(AUTO_RECALL_CONSENT_PURPOSE, AUTO_RECALL_CONSENT_SCOPE).catch(() => false)) return [];
       return recalled;
     },
   };

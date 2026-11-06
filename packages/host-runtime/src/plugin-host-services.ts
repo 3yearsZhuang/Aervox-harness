@@ -17,6 +17,7 @@ import { createLearningAnswerService } from "./modules/learning/learning/index.j
 import type {
   HostRecord,
   PluginConfigurationPort,
+  PluginCatalogPort,
   PluginHostServices,
   PluginLearningFactPort,
   PluginSessionPort,
@@ -29,6 +30,8 @@ import {
   type AervoxDatabase,
   type LocalContext,
 } from "@aervox/repositories";
+import type { QuestionBankRegistry } from "@aervox/practice-review";
+import type { DiaryStyleRegistry } from "@aervox/diary";
 
 /** Public configuration failures contain stable codes and safe messages, never repository diagnostics. */
 export class PluginConfigurationError extends Error {
@@ -174,9 +177,32 @@ export interface PluginHostServiceControl {
   checkActive(): Promise<void>;
   pluginGeneration?: { pluginId: string; generation: string };
 }
+export interface PluginCatalogSources {
+  questionBanks: Pick<QuestionBankRegistry, "list">;
+  diaryStyles: Pick<DiaryStyleRegistry, "list">;
+}
+
+function createCatalogPort(sources: PluginCatalogSources, control?: PluginHostServiceControl): PluginCatalogPort {
+  const read = async <T>(operation: () => T): Promise<T> => {
+    await control?.checkActive(); control?.signal?.throwIfAborted();
+    const result = operation();
+    await control?.checkActive(); control?.signal?.throwIfAborted();
+    return result;
+  };
+  return {
+    listQuestionBankProviders: () => read(() => sources.questionBanks.list().map(provider => ({
+      id: provider.id, name: provider.name, description: provider.description,
+      supportedExtensions: [...provider.supportedExtensions],
+    }))),
+    listDiaryStyles: () => read(() => sources.diaryStyles.list().map(style => ({
+      id: style.id, name: style.name, description: style.description, targetScene: style.targetScene,
+    }))),
+  };
+}
 export function createPluginHostServicesFactory(
   db: AervoxDatabase,
   getConfigurationService?: () => ConfigurationService | undefined,
+  catalogs?: PluginCatalogSources,
 ): (ctx: LocalContext, control?: PluginHostServiceControl) => PluginHostServices {
   const conversationRepo = new SqliteConversationRepository(db);
   const learningRepo = new SqliteLearningRepository(db);
@@ -186,5 +212,6 @@ export function createPluginHostServicesFactory(
     learningFacts: createLearningFactPort(learningRepo, ctx, control),
     configuration: control?.pluginGeneration && getConfigurationService
       ? createConfigurationPort(ctx, control, getConfigurationService) : undefined,
+    catalogs: catalogs ? createCatalogPort(catalogs, control) : undefined,
   });
 }

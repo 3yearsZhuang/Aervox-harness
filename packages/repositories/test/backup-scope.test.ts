@@ -11,6 +11,7 @@ import {
   rebuildSearchProjections,
 } from "../src/backup.js";
 import { createDatabase, initDatabaseSchema, SqliteConversationRepository } from "../src/index.js";
+import { nodeConversationHost } from "../src/conversation-host-node.js";
 
 describe("logical backup scope", () => {
  it("keeps derived projections, credential scope and schema metadata out of an envelope", () => {
@@ -60,7 +61,7 @@ describe("search projection rebuild", () => {
     await database.client.execute({ sql: "INSERT INTO memory_records (id, layer, type, content, created_at, updated_at) VALUES (?,?,?,?,?,?)",
       args: ["mem_live", "short_term", "user_fact", "记忆正文", "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"] });
 
-    await rebuildSearchProjections(database.client);
+    await rebuildSearchProjections(database.client, nodeConversationHost);
     const messages = await database.client.execute("SELECT id FROM messages_fts ORDER BY id");
     expect(messages.rows.map(row => row.id)).toEqual(["assistant", "user"].sort((a, b) => a < b ? -1 : 1));
     expect((await database.client.execute("SELECT id FROM messages_fts WHERE messages_fts MATCH '可召回正文'")).rows.length).toBeGreaterThan(0);
@@ -69,7 +70,7 @@ describe("search projection rebuild", () => {
 
     // Deleted Memories stay out, matching deleteMemoryFts.
     await database.client.execute("UPDATE memory_records SET is_deleted = 1 WHERE id = 'mem_live'");
-    await rebuildSearchProjections(database.client);
+    await rebuildSearchProjections(database.client, nodeConversationHost);
     expect((await database.client.execute("SELECT id FROM memories_fts")).rows).toEqual([]);
 
     // The rebuilt index accepts further writes; a corrupted shadow table would fail here.

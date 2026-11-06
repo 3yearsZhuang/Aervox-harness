@@ -51,6 +51,11 @@ export function jsonValue(db: object, value: Expression): SQL {
   return postgres(db) ? sql`cast(${value} as json)` : sql`json(${value})`;
 }
 
+export function jsonArrayLength(db: object, value: Expression, path: string): SQL<number> {
+  return postgres(db) ? sql`json_array_length(${jsonPath(value, path)})`
+    : sql`json_array_length(${value}, ${literal(path)})`;
+}
+
 /** Keys are developer declarations; values retain native numeric/JSON/null types. */
 export function jsonObject(db: object, entries: readonly (readonly [string, Expression])[]): SQL<string> {
   const args = sql.join(entries.flatMap(([key, value]) => [literal(key), value]), sql`, `);
@@ -63,6 +68,12 @@ export function jsonQuote(db: object, value: Expression): SQL<string> {
 
 export function byteLength(db: object, value: Expression): SQL<number> {
   return postgres(db) ? sql`octet_length(${value})` : sql`length(cast(${value} as blob))`;
+}
+
+/** Hex transport retains every UTF-8 byte, including SQLite's embedded NUL. */
+export function textHex(db: object, value: Expression): SQL<string | null> {
+  return postgres(db) ? sql`encode(convert_to(${value}, 'UTF8'), 'hex')`
+    : sql`case when ${value} is null then null else hex(cast(${value} as blob)) end`;
 }
 
 export function rowPosition(db: object, tableAlias?: string): SQL<number> {

@@ -16,8 +16,7 @@ import {
 } from "@aervox/practice-review";
 import {
   QuestionBankRegistry,
-  JsonQuestionBankProvider,
-  CsvQuestionBankProvider,
+  createDefaultQuestionBankRegistry,
 } from "@aervox/practice-review";
 
 let seq = 0;
@@ -62,11 +61,7 @@ export function registerLearningRoutes(
 ): void {
   const answers = createLearningAnswerService(learningRepo);
   const reviews = createLearningReviewService(learningRepo);
-  const qbRegistry = questionBankRegistry ?? new QuestionBankRegistry();
-  if (!questionBankRegistry) {
-    qbRegistry.register(new JsonQuestionBankProvider());
-    qbRegistry.register(new CsvQuestionBankProvider());
-  }
+  const qbRegistry = questionBankRegistry ?? createDefaultQuestionBankRegistry();
 
   // 学习目标
   app.post("/v1/learning/goals", async (req, reply) => {

@@ -9,6 +9,7 @@ import { createPostgresRepositoryConnection, type RepositoryConnection } from ".
 import { databaseStoragePolicyFor } from "../src/storage-policy.js";
 import { SqliteConversationRepository } from "../src/repositories/sqlite/conversation-repository.js";
 import { collectDiaryMaterial } from "../src/repositories/sqlite/diary-material.js";
+import { SqliteExtensionRepository } from "../src/repositories/sqlite/extension-repository.js";
 
 const databaseUrl = process.env.AERVOX_TEST_POSTGRES_URL;
 const quote = (name: string): string => `"${name.replaceAll('"', '""')}"`;
@@ -110,6 +111,28 @@ describe.skipIf(!databaseUrl)("PostgreSQL opener and raw client real server cont
     expect(JSON.stringify(error)).not.toContain("PRIVATE_PASSWORD_SECRET");
     expect(String(error)).not.toContain("not_a_database");
   });
+  it("reads an exact plugin permission snapshot with string and scoped requirements", async () => {
+    const schema = await freshSchema();
+    const opened = await createPostgresqlDatabase({ connectionString: databaseUrl!, schema, instanceId: "permit-owner", initializeEmpty: true }); owned.push(opened);
+    const repo = new SqliteExtensionRepository(opened.db);
+    const ctx = { workspaceId: "local", subjectUserId: "local" };
+    const pluginId = 'plugin-"🌙';
+    await repo.createPlugin({ id: pluginId, publisher: "fixture", version: "1", checksum: "fixture" });
+    await opened.client.execute({ sql: "INSERT INTO tool_registrations(id,name,description,category,safety_level,replay,plugin_id,required_permissions_json,input_schema_json,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+      args: ["permit-tool", "read_catalog", "Exact 中文 metadata", "meta", "read_only", "safe", pluginId,
+        JSON.stringify(["catalog.read", { permission: "record.read", scope: "quoted-🌙" }]), "{}", "now", "now"] });
+    for (const grant of [
+      { id: "catalog", permission: "catalog.read", scope: "*" },
+      { id: "scoped", permission: "record.read", scope: "quoted-🌙" },
+      { id: "other", permission: "record.read", scope: "other" },
+    ]) await repo.grantPlugin(ctx, { ...grant, pluginId });
+    const permit = await repo.readPluginToolPermit(ctx, pluginId, "permit-tool");
+    expect(permit.plugin).toMatchObject({ id: pluginId, version: "1", enabled: 1 });
+    expect(permit.tool).toMatchObject({ id: "permit-tool", pluginId, description: "Exact 中文 metadata" });
+    expect(permit.grants.map(grant => grant.id).sort()).toEqual(["catalog", "scoped"]);
+    await repo.revokePluginGrant(ctx, "scoped", pluginId);
+    expect((await repo.readPluginToolPermit(ctx, pluginId, "permit-tool")).grants.map(grant => grant.id)).toEqual(["catalog"]);
+  }, 30_000);
   it("preserves session read and write receipts across creation, concurrent reuse, rename and reopen", async () => {
     const schema = await freshSchema();
     const config = { connectionString: databaseUrl!, schema, instanceId: "session-owner" };
