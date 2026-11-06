@@ -14849,6 +14849,21 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "attemptId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "invocationId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "minLength": 1
+                  },
+                  "step": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  },
                   "answers": {
                     "type": "array",
                     "items": {
@@ -14894,6 +14909,18 @@
                     "turnId": {
                       "type": "string",
                       "minLength": 1
+                    },
+                    "attemptId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "invocationId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "step": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
                     },
                     "accepted": {
                       "type": "boolean"

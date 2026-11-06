@@ -236,6 +236,26 @@ describe("CAP-033/034/035 proactive integrations", () => {
     });
   });
 
+  it("accepts and audits consecutive source changes within one clock tick", async () => {
+    const status = (await app.inject({method: "GET", url: "/v1/proactive/status", headers})).json();
+    const source = status.sources.find((item: {sourceKey: string}) => item.sourceKey === "device.sensors");
+    expect(source).toBeDefined();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(Date.now());
+    try {
+      for (const state of ["revoked", "granted"]) {
+        const changed = await app.inject({method: "PATCH", url: `/v1/proactive/sources/${source.id}`, headers, payload: {state}});
+        expect(changed.statusCode).toBe(200);
+        expect(changed.json()).toMatchObject({id: source.id, state});
+      }
+    } finally { clock.mockRestore(); }
+    const audit = await app.inject({method: "GET", url: "/v1/proactive/audit", headers});
+    expect(audit.statusCode).toBe(200);
+    const events = audit.json().items.filter((event: {resourceId: string}) => event.resourceId === source.id);
+    expect(events).toHaveLength(2);
+    expect(new Set(events.map((event: {id: string}) => event.id)).size).toBe(2);
+    expect(events.map((event: {eventType: string}) => event.eventType).sort()).toEqual(["source.granted", "source.revoked"]);
+  });
+
   it("does not reuse an old read after another mandatory source is revoked and re-granted", async () => {
     await atOneTimestamp(async () => {
       await connectHome(); const pending = suspendHomeRead(); await pending.received;

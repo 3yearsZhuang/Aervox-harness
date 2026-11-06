@@ -4,7 +4,7 @@
  * 验证宿主适配在真实 SQLite 上的最小回路：claim → append/list → finalize / CAS 失败跳过。
  * 深度行为（租约、fencing、工具预留）由 @aervox/repositories conversation-* 测试覆盖，此处只做宿主侧桥接验证。
  */
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SqliteExecutionStore } from "../src/index.js";
 import {
   createInMemoryDatabase,
@@ -106,6 +106,50 @@ describe("SqliteExecutionStore（SQLite 适配冒烟）", () => {
     // 已终态 → 不可再领、不可再提交
     expect((await store.claimTurnAttempt({ turnId, attemptId, expectedFencingToken: 1 })).ok).toBe(false);
     expect((await store.finalizeAttempt({ turnId, attemptId, status: "Completed" })).ok).toBe(false);
+  });
+
+  it("releases original question claims across repeated executions and cancellation in one long-lived store", async () => {
+    const ended: Array<{ turnId: string; attemptId: string }> = [];
+    for (let index = 0; index < 20; index += 1) {
+      const identity = await nextTurn();
+      const claim = await store.claimTurnAttempt({ ...identity, expectedFencingToken: 0 });
+      expect(claim.ok).toBe(true);
+      if (!claim.ok) throw new Error("claim failed");
+      const proof = { turnId: identity.turnId, attemptId: identity.attemptId, expectedFencingToken: claim.fencingToken, leaseId: claim.leaseId };
+      expect(store.getQuestionExecutionOwner(identity.turnId, identity.attemptId)).toEqual(proof);
+      await store.claimTurnAttempt({ ...identity, expectedFencingToken: 0 });
+      expect(store.getQuestionExecutionOwner(identity.turnId, identity.attemptId)).toEqual(proof);
+      store.releaseQuestionExecutionOwner("wrong-turn", identity.attemptId);
+      expect(store.getQuestionExecutionOwner(identity.turnId, identity.attemptId)).toEqual(proof);
+      if (index % 2 === 0) {
+        await store.finalizeAttempt({ ...identity, status: "Completed", expectedFencingToken: claim.fencingToken });
+      } else {
+        await store.finalizeAttemptWithEvent({ ...identity, status: "Completed", expectedFencingToken: claim.fencingToken,
+          sequence: await store.nextSequence(identity.turnId), eventType: "done", eventData: { status: "Completed" } });
+      }
+      ended.push(identity);
+      for (const previous of ended) expect(store.getQuestionExecutionOwner(previous.turnId, previous.attemptId)).toBeUndefined();
+    }
+    const cancelled = await nextTurn();
+    await store.claimTurnAttempt({ ...cancelled, expectedFencingToken: 0 });
+    await store.requestCancelAttempt(cancelled);
+    expect(store.getQuestionExecutionOwner(cancelled.turnId, cancelled.attemptId)).toBeUndefined();
+  });
+
+  it("releases an exited execution proof on terminal failure and explicit lease-loss exit", async () => {
+    const identity = await nextTurn();
+    const claim = await store.claimTurnAttempt({ ...identity, expectedFencingToken: 0 });
+    expect(claim.ok).toBe(true);
+    if (!claim.ok) throw new Error("claim failed");
+    vi.spyOn(repo, "finalizeAttemptWithEventAtomically").mockRejectedValueOnce(new Error("terminal commit failed"));
+    await expect(store.finalizeAttemptWithEvent({ ...identity, status: "Completed", expectedFencingToken: claim.fencingToken,
+      sequence: 1, eventType: "done", eventData: {} })).rejects.toThrow("terminal commit failed");
+    expect(store.getQuestionExecutionOwner(identity.turnId, identity.attemptId)).toBeUndefined();
+    expect(await repo.getTurnAttemptStatus(ctx, identity)).toBe("Running");
+    const lost = await nextTurn();
+    await store.claimTurnAttempt({ ...lost, expectedFencingToken: 0 });
+    store.releaseQuestionExecutionOwner(lost.turnId, lost.attemptId);
+    expect(store.getQuestionExecutionOwner(lost.turnId, lost.attemptId)).toBeUndefined();
   });
 
   it("取消请求位与检查点；工具执行账本冒烟", async () => {
