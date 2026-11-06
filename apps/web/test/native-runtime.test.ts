@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import type { AervoxTransport, TurnCallbacks } from '@aervox/api-client';
 import { stableSerialize } from '@aervox/core/browser';
 import type { ModelRequest } from '@aervox/core/browser';
-import type { SessionHistoryPage } from '@aervox/contracts';
+import type { SessionHistoryPage, SessionItem } from '@aervox/contracts';
 import { NativeSqliteClient, type NativeSqliteRequest } from '@aervox/repositories/native-sqlite-client';
 import { decodeNativeSqliteValue, encodeNativeSqliteValue } from '@aervox/repositories/native-sqlite-values';
 import { ConversationRepository } from '@aervox/repositories/conversation';
@@ -255,6 +255,95 @@ beforeEach(async () => {
 afterEach(async () => { await current?.close(); current = undefined; vi.restoreAllMocks(); });
 
 describe('Android local conversation composition over actual SQLite', () => {
+  it('pages saved sessions and reads an old selected identity without creating sessions or turns', async () => {
+    const fixture = current!, transport = await fixture.start();
+    fixture.strictNativeFailures();
+    const saved = Array.from({ length: 103 }, (_, index) => ({
+      id: index === 0 ? 'saved_selected' : `saved_${index}`,
+      title: index === 0 ? '旧会话：中文\0JSON "正文"' : `会话 ${index}`,
+      projectId: index % 2 === 0 ? 'project_chapter' : null,
+      createdAt: new Date(Date.UTC(2026, 10, 6, 0, 0, index)).toISOString(),
+      updatedAt: new Date(Date.UTC(2026, 10, 6, 0, 0, index)).toISOString(),
+    }));
+    await fixture.database.batch(saved.map(item => ({
+      sql: 'INSERT INTO sessions (id, title, project_id, execution_policy, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+      args: [item.id, item.title, item.projectId, 'local-v1', item.createdAt, item.updatedAt],
+    })), 'write');
+    const writes = fixture.writes.length;
+    const first = await transport.request<{ items: SessionItem[] }>('GET', '/v1/sessions');
+    const second = await transport.request<{ items: SessionItem[] }>('GET', '/v1/sessions?limit=2&offset=100');
+    const third = await transport.request<{ items: SessionItem[] }>('GET', '/v1/sessions?limit=100&offset=102');
+    expect(first.items).toHaveLength(100);
+    expect(first.items).toEqual([...saved].reverse().slice(0, 100));
+    expect(first.items.some(item => item.id === 'saved_selected')).toBe(false);
+    expect(second.items.map(item => item.id)).toEqual(['saved_2', 'saved_1']);
+    expect(third.items.map(item => item.id)).toEqual(['saved_selected']);
+    expect(new Set([...first.items, ...second.items, ...third.items].map(item => item.id)).size).toBe(103);
+    expect(await transport.request('GET', '/v1/sessions?limit=1&offset=103')).toEqual({ items: [] });
+    expect(await transport.request('GET', '/v1/sessions?limit=1&offset=9007199254740991')).toEqual({ items: [] });
+    const filtered = await transport.request<{ items: SessionItem[] }>('GET', '/v1/sessions?limit=2&offset=1&projectId=project_chapter');
+    expect(filtered.items.map(item => item.id)).toEqual(['saved_100', 'saved_98']);
+    const selected = await transport.request<SessionItem>('GET', '/v1/sessions/saved_selected');
+    expect(selected).toEqual(saved[0]);
+    expect(selected).not.toHaveProperty('executionPolicy');
+    await expect(transport.request('GET', '/v1/sessions/missing_selected')).rejects.toMatchObject({ status: 404, code: 'SESSION_NOT_FOUND' });
+    expect(await fixture.count('sessions')).toBe(103);
+    expect(await fixture.count('turns')).toBe(0);
+    expect(fixture.writes).toHaveLength(writes);
+    expect(fixture.rejectedStatements).toBe(0);
+    expect(Math.max(...fixture.resultRows)).toBeLessThanOrEqual(100);
+    window.dispatchEvent(new Event('pagehide'));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    const reopened = await fixture.start();
+    expect(await reopened.request('GET', '/v1/sessions/saved_selected')).toEqual(saved[0]);
+    expect(await fixture.count('sessions')).toBe(103);
+    expect(await fixture.count('turns')).toBe(0);
+    expect(mocks.modelCalls).toBe(0);
+  });
+
+  it('rejects malformed session queries and identities before native SQL admission', async () => {
+    const fixture = current!, transport = await fixture.start();
+    const before = fixture.sqliteRequests;
+    for (const query of [
+      'limit=', 'limit=0', 'limit=101', 'limit=-1', 'limit=1.5', 'limit=01', 'limit=1e2',
+      'offset=', 'offset=-1', 'offset=1.5', 'offset=01', 'offset=9007199254740992', 'offset=%2B1',
+      'projectId=', `projectId=${'p'.repeat(129)}`, 'unknown=1',
+      'limit=1&limit=2', 'offset=0&offset=1', 'projectId=p&projectId=q',
+    ]) {
+      await expect(transport.request('GET', `/v1/sessions?${query}`), query)
+        .rejects.toMatchObject({ status: 400, code: 'INVALID_SESSION_QUERY' });
+    }
+    await expect(transport.request('GET', '/v1/sessions/saved_selected?limit=1'))
+      .rejects.toMatchObject({ status: 400, code: 'INVALID_SESSION_QUERY' });
+    await expect(transport.request('GET', '/v1/sessions/invalid%00identity'))
+      .rejects.toMatchObject({ status: 400, code: 'INVALID_IDENTIFIER' });
+    await expect(transport.request('GET', `/v1/sessions/${'s'.repeat(129)}`))
+      .rejects.toMatchObject({ status: 400, code: 'INVALID_IDENTIFIER' });
+    expect(fixture.sqliteRequests).toBe(before);
+    expect(await fixture.count('sessions')).toBe(0);
+    expect(await fixture.count('turns')).toBe(0);
+  });
+
+  it('retains complete session titles in native create and rename receipts', async () => {
+    const fixture = current!, transport = await fixture.start();
+    const title = '创建\0JSON "标题"', renamedTitle = '更新\0JSON "标题"';
+    const created = await transport.request<SessionItem>('POST', '/v1/sessions', { id: 'title_receipt', title });
+    expect(created).toMatchObject({ id: 'title_receipt', title, projectId: null });
+    const createdBytes = await fixture.database.execute('SELECT hex(title) AS title FROM sessions');
+    expect(createdBytes.rows[0]?.title).toBe(Buffer.from(title, 'utf8').toString('hex').toUpperCase());
+    const renamed = await transport.request<SessionItem>('PATCH', '/v1/sessions/title_receipt', { title: renamedTitle });
+    expect(renamed).toMatchObject({ id: 'title_receipt', title: renamedTitle, projectId: null });
+    const renamedBytes = await fixture.database.execute('SELECT hex(title) AS title FROM sessions');
+    expect(renamedBytes.rows[0]?.title).toBe(Buffer.from(renamedTitle, 'utf8').toString('hex').toUpperCase());
+    expect(await transport.request('GET', '/v1/sessions/title_receipt')).toEqual({
+      id: renamed.id, title: renamed.title, projectId: renamed.projectId,
+      createdAt: renamed.createdAt, updatedAt: renamed.updatedAt,
+    });
+    expect(await fixture.count('sessions')).toBe(1);
+    expect(await fixture.count('turns')).toBe(0);
+    expect(mocks.modelCalls).toBe(0);
+  });
+
   it('does not bootstrap SQL from a readiness receipt that arrives after page retirement', async () => {
     const fixture = current!, gate = fixture.pauseNext('runtime');
     const result = fixture.start().then(() => undefined, error => error);
@@ -268,6 +357,7 @@ describe('Android local conversation composition over actual SQLite', () => {
     const fixture = current!, transport = await fixture.start(); await session(transport);
     window.dispatchEvent(new Event('pagehide')); await new Promise(resolve => setTimeout(resolve, 0));
     await expect(transport.request('GET', '/v1/sessions')).rejects.toMatchObject({ code: 'HOST_CLOSED' });
+    await expect(transport.request('GET', '/v1/sessions/phone_session')).rejects.toMatchObject({ code: 'HOST_CLOSED' });
     await expect(transport.streamTurn('phone_session', '旧页面迟到发送', callbacks().value))
       .rejects.toMatchObject({ code: 'HOST_CLOSED' });
     expect(await fixture.count('turns')).toBe(0); expect(mocks.modelCalls).toBe(0);

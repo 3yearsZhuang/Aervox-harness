@@ -8,11 +8,11 @@ export interface UIPluginContext {
   navigation: {
     openTool(tool: 'timer' | 'todo' | 'history' | 'diary'): void;
     runMenuAction(action: () => void): void;
-    closeTaskCenter(): void;
-    setQuietStartup(value: boolean): void;
+    closeTaskCenter?(): void;
+    setQuietStartup?(value: boolean): void;
   };
   cards: {
-    acquireSlotPreset(owner: string, slots: Array<string | null>): () => void;
+    acquireSlotPreset?(owner: string, slots: Array<string | null>): () => void;
     reviewCount: Readonly<Ref<number>>;
   };
   conversation: { streaming: Readonly<Ref<boolean>>; latestAssistantText: Readonly<Ref<string>> };
