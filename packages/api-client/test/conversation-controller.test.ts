@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createConversationController } from '../src/conversation-controller';
 import { AervoxHttpError, createFetchTransport } from '../src/transport';
 import type { AervoxTransport, TurnCallbacks, StreamTurnOptions } from '../src/transport';
+import type { UserQuestionRequiredEventData } from '@aervox/contracts';
 
 const callbacks = (): TurnCallbacks => ({onDelta: vi.fn(), onDone: vi.fn()});
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
@@ -178,6 +179,53 @@ describe('ConversationController', () => {
     expect(controller.state.question).toBe(nextQuestion);
     expect(controller.state.status).toBe('awaiting-input');
     expect(submitQuestionAnswers).toHaveBeenCalledOnce();
+  });
+
+  it.each(['available', 'legacy'])('preserves a newer %s question when an earlier answer event consumer finishes late', async identity => {
+    const {controller, streamTurn} = fixture();
+    const firstIdentity = identity === 'available' ? {attemptId: 'attempt', invocationId: 'attempt:1:1'} : {};
+    const nextIdentity = identity === 'available' ? {attemptId: 'attempt', invocationId: 'attempt:2:1'} : {};
+    const first: UserQuestionRequiredEventData = {turnId: 'turn', ...firstIdentity,
+      step: 1, questions: [{id: 'first', question: 'First?'}]};
+    const next: UserQuestionRequiredEventData = {turnId: 'turn', ...nextIdentity,
+      step: 2, questions: [{id: 'next', question: 'Next?'}]};
+    let forward!: TurnCallbacks;
+    let finishStream!: () => void;
+    let releaseReceipt!: () => void;
+    const consumer = new Promise<void>(resolve => { releaseReceipt = resolve; });
+    streamTurn.mockImplementation(async (_s, _c, cb, options) => {
+      forward = cb;
+      await options!.onAccepted!('turn');
+      cb.onUserQuestion!(first);
+      await new Promise<void>(resolve => { finishStream = resolve; });
+      cb.onDone();
+    });
+    const running = controller.submit('s', 'hello', {...callbacks(), onEvent: async value => {
+      if (value.eventId === 'old-answer') await consumer;
+    }});
+    try {
+      await vi.waitFor(() => expect(controller.state.question).toBe(first));
+      const delivered = forward.onEvent!({eventId: 'old-answer', turnId: 'turn', sequence: 2,
+        eventType: 'user_question_answered', payloadVersion: 1, occurredAt: '2026-11-07T00:00:00.000Z',
+        data: {turnId: 'turn', ...firstIdentity, step: 1, answers: []}});
+      // Native's durable-question listener can forward the next question while
+      // the earlier stream event is still awaiting its asynchronous consumer.
+      forward.onUserQuestion!(next);
+      releaseReceipt(); await delivered;
+      expect(controller.state.question).toBe(next);
+      expect(controller.state.status).toBe('awaiting-input');
+      expect(controller.state.afterEventId).toBe('old-answer');
+      if (identity === 'available') {
+        await forward.onEvent!({eventId: 'old-answer-again', turnId: 'turn', sequence: 3,
+          eventType: 'user_question_answered', payloadVersion: 1, occurredAt: '2026-11-07T00:00:00.500Z',
+          data: {turnId: 'turn', ...firstIdentity, step: 1, answers: []}});
+        expect(controller.state.question).toBe(next);
+      }
+      await forward.onEvent!({eventId: 'next-answer', turnId: 'turn', sequence: 4,
+        eventType: 'user_question_answered', payloadVersion: 1, occurredAt: '2026-11-07T00:00:01.000Z',
+        data: {turnId: 'turn', ...nextIdentity, ...(identity === 'available' ? {step: 2} : {}), answers: []}});
+      expect(controller.state.question).toBeUndefined();
+    } finally { releaseReceipt(); finishStream(); await running; controller.dispose(); }
   });
 
   it('does not resume a Turn when cancellation wins an in-flight approval decision', async () => {
