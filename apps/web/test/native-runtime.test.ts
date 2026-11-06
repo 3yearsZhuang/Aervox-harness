@@ -1019,7 +1019,7 @@ describe('Android active persona in model context', () => {
 });
 
 describe('Android backup export and restore over actual SQLite', () => {
-  it('pages more than 512 records within native row/window budgets and restores without failed probes', async () => {
+  it('pages more than 512 records within native row/window budgets while restore stays unavailable', async () => {
     current!.strictNativeFailures();
     const transport = await current!.start();
     await current!.database.batch(Array.from({ length: 600 }, (_, index) => ({
@@ -1028,14 +1028,16 @@ describe('Android backup export and restore over actual SQLite', () => {
     })), 'write');
     const exported = await transport.exportBackup!();
     expect(exported.tableCounts.knowledge_items).toBe(600);
-    await transport.importBackup!(exported.text);
+    const before = current!.sqliteRequests;
+    await expect(transport.importBackup!(exported.text)).rejects.toMatchObject({ status: 409, code: 'BACKUP_RESTORE_HISTORY_UNVERIFIED' });
+    expect(current!.sqliteRequests).toBe(before);
     expect(await current!.count('knowledge_items')).toBe(600);
     expect(current!.rejectedStatements).toBe(0);
     expect(Math.max(...current!.resultRows)).toBeLessThanOrEqual(512);
     expect(Math.max(...current!.windowSizes)).toBeLessThanOrEqual(1024 * 1024);
   }, 20_000);
 
-  it('refuses a row beyond the restorable bind budget without overshooting a native window', async () => {
+  it('refuses an export row beyond the native bind budget without overshooting a native window', async () => {
     current!.strictNativeFailures();
     const transport = await current!.start();
     await current!.database.execute({
@@ -1047,54 +1049,60 @@ describe('Android backup export and restore over actual SQLite', () => {
     expect(await transport.request('GET', '/v1/sessions')).toEqual({ items: [] });
   });
 
-  it('rejects invalid metadata and missing parent rows before the first restore write', async () => {
+  it('refuses every payload before parsing or touching the native writer', async () => {
     current!.strictNativeFailures();
     const transport = await current!.start();
     await transport.request('POST', '/v1/questions', { prompt: '保留题', answerSpec: { answer: '是' } });
     const exported = await transport.exportBackup!();
     const malformed = JSON.parse(exported.text);
     delete malformed.tableCounts;
-    const before = current!.writes.length;
-    await expect(transport.importBackup!(JSON.stringify(malformed))).rejects.toMatchObject({ code: 'BACKUP_MALFORMED' });
     const missing = JSON.parse(exported.text);
     missing.tables.find((table: { name: string }) => table.name === 'questions').rows[0].knowledge_id = 'missing';
     missing.sha256 = createHash('sha256').update(stableSerialize({ tables: missing.tables })).digest('hex');
-    await expect(transport.importBackup!(JSON.stringify(missing))).rejects.toMatchObject({ code: 'BACKUP_RESTORE_BLOCKED' });
-    expect(current!.writes).toHaveLength(before);
+    const tampered = JSON.parse(exported.text);
+    tampered.tables.find((table: { name: string }) => table.name === 'questions').rows[0].prompt = '被篡改';
+    const before = current!.sqliteRequests;
+    for (const text of ['not json at all', JSON.stringify(malformed), JSON.stringify(missing), JSON.stringify(tampered), exported.text]) {
+      await expect(transport.importBackup!(text)).rejects.toMatchObject({ status: 409, code: 'BACKUP_RESTORE_HISTORY_UNVERIFIED' });
+    }
+    await expect(transport.importBackup!(exported.text, AbortSignal.abort())).rejects.toMatchObject({ status: 409, code: 'BACKUP_RESTORE_HISTORY_UNVERIFIED' });
+    expect(current!.sqliteRequests).toBe(before);
     expect(current!.rejectedStatements).toBe(0);
     expect(await current!.count('questions')).toBe(1);
   });
 
-  it('holds an exclusive restore admission until commit returns and releases it on failure', async () => {
+  it('refuses restore without taking admission or disturbing an ordinary pending commit', async () => {
     const transport = await current!.start();
     await session(transport);
     const exported = await transport.exportBackup!();
     const gate = current!.pauseNext('committed');
-    const restoring = transport.importBackup!(exported.text);
+    const creating = transport.request('POST', '/v1/sessions', { id: 'pending_session', title: '提交中的会话' });
     await gate.reached;
-    await expect(transport.streamTurn('phone_session', '恢复时发送', callbacks().value)).rejects.toMatchObject({ code: 'BACKUP_RESTORE_IN_PROGRESS' });
-    await expect(transport.request('POST', '/v1/sessions', { title: '恢复时新建' })).rejects.toMatchObject({ code: 'BACKUP_RESTORE_IN_PROGRESS' });
-    await expect(transport.importBackup!(exported.text)).rejects.toMatchObject({ code: 'BACKUP_RESTORE_IN_PROGRESS' });
-    gate.release(); await restoring;
-    await expect(transport.request('GET', '/v1/sessions')).rejects.toMatchObject({ code: 'HOST_RESTART_REQUIRED' });
-    await expect(transport.streamTurn('phone_session', '恢复后旧会话发送', callbacks().value)).rejects.toMatchObject({ code: 'HOST_RESTART_REQUIRED' });
-    expect(mocks.modelCalls).toBe(0);
+    const before = current!.sqliteRequests;
+    await expect(transport.importBackup!(exported.text)).rejects.toMatchObject({ status: 409, code: 'BACKUP_RESTORE_HISTORY_UNVERIFIED' });
+    expect(current!.sqliteRequests).toBe(before);
+    gate.release(); await creating;
+    expect(await transport.request('GET', '/v1/sessions')).toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ id: 'pending_session' })]) });
+    await transport.streamTurn('phone_session', '拒绝恢复后继续发送', callbacks().value);
+    expect(mocks.modelCalls).toBe(1);
   });
 
-  it('never replaces the database while a turn or its question is active', async () => {
+  it('refuses restore without cancelling an active accepted turn', async () => {
     const transport = await current!.start(); await session(transport);
     const backup = await transport.exportBackup!();
     mocks.holding = true;
     const running = transport.streamTurn('phone_session', '执行中', callbacks().value);
     await vi.waitFor(() => expect(mocks.entered).toBe(true));
-    await expect(transport.importBackup!(backup.text)).rejects.toMatchObject({ code: 'BACKUP_RESTORE_BUSY' });
+    const before = current!.sqliteRequests;
+    await expect(transport.importBackup!(backup.text)).rejects.toMatchObject({ status: 409, code: 'BACKUP_RESTORE_HISTORY_UNVERIFIED' });
+    expect(current!.sqliteRequests).toBe(before);
     expect(await current!.count('turns')).toBe(1);
     const turnId = String((await current!.database.execute('SELECT id FROM turns')).rows[0]!.id);
     await transport.request('POST', `/v1/turns/${turnId}/cancel`);
     await running;
   });
 
-  it('restores rows whose dependencies appear after a successfully inserted prefix', async () => {
+  it('does not admit a valid backup even when its child table precedes its parent', async () => {
     current!.strictNativeFailures();
     const transport = await current!.start();
     await current!.database.execute(`INSERT INTO knowledge_items (id, concept, created_at, updated_at) VALUES ('k_dependency', '依赖', '2026-11-04T00:00:00Z', '2026-11-04T00:00:00Z')`);
@@ -1105,13 +1113,15 @@ describe('Android backup export and restore over actual SQLite', () => {
     // Deliberately place child rows before their parent table.
     file.tables.sort((a: { name: string }, b: { name: string }) => Number(b.name === 'questions') - Number(a.name === 'questions'));
     file.sha256 = createHash('sha256').update(stableSerialize({ tables: file.tables })).digest('hex');
-    await transport.importBackup!(JSON.stringify(file));
+    const before = current!.sqliteRequests;
+    await expect(transport.importBackup!(JSON.stringify(file))).rejects.toMatchObject({ status: 409, code: 'BACKUP_RESTORE_HISTORY_UNVERIFIED' });
+    expect(current!.sqliteRequests).toBe(before);
     expect(await current!.count('questions')).toBe(2);
     expect(current!.rejectedStatements).toBe(0);
     expect((await current!.database.execute("SELECT knowledge_id FROM questions WHERE prompt = '依赖题'")).rows[0]!.knowledge_id).toBe('k_dependency');
   });
 
-  it('exports a hash-verified snapshot and restores it after a wipe', async () => {
+  it('exports a hash-verified snapshot and never uses it to replace current data', async () => {
     const fixture = current!;
     const transport = await fixture.start();
     await fixture.database.execute(`INSERT INTO knowledge_items (id, concept, source_status, mastery_state, correct_count, wrong_count, correct_streak, mastery, mastery_basis, created_at, updated_at)
@@ -1122,25 +1132,24 @@ describe('Android backup export and restore over actual SQLite', () => {
     expect(exported.tableCounts.knowledge_items).toBe(1);
     const file = JSON.parse(exported.text) as { format: string; sha256: string; tables: { name: string; rows: unknown[] }[] };
     expect(file.format).toBe('aervox-mobile-backup');
-    expect(file.sha256).toMatch(/^[a-f0-9]{64}$|^h_/);
+    expect(file.sha256).toBe(createHash('sha256').update(stableSerialize({ tables: file.tables })).digest('hex'));
     expect(file.tables.some(table => table.name === 'knowledge_items' && table.rows.length === 1)).toBe(true);
 
-    // Wipe the business table, then restore from the exported text.
-    await fixture.database.execute("DELETE FROM knowledge_items");
-    expect((await transport.request<{ items: unknown[] }>('GET', '/v1/knowledge-items/k_bak').catch(() => ({ items: [] }))).items ?? []).toEqual([]);
-    // Invalid payloads are refused before a successful restore retires the cached UI.
+    // A snapshot cannot overwrite later edits, even if its hash is valid.
+    await fixture.database.execute("UPDATE knowledge_items SET concept = '备份后的修改' WHERE id = 'k_bak'");
     const tampered = JSON.parse(exported.text) as { tables: { rows: { concept?: string }[] }[] };
     tampered.tables.find(table => (table as { name?: string }).name === 'knowledge_items')!.rows[0]!.concept = '被篡改';
-    await expect(transport.importBackup!(JSON.stringify(tampered))).rejects.toMatchObject({ code: 'BACKUP_CORRUPTED' });
-    await expect(transport.importBackup!('not json at all')).rejects.toMatchObject({ code: 'BACKUP_MALFORMED' });
-    const restored = await transport.importBackup!(exported.text);
-    expect(restored.imported.knowledge_items).toBe(1);
-    expect((await fixture.database.execute("SELECT concept FROM knowledge_items WHERE id = 'k_bak'")).rows[0]!.concept).toBe('备份概念');
-    await expect(transport.request('GET', '/v1/knowledge-items/k_bak')).rejects.toMatchObject({ code: 'HOST_RESTART_REQUIRED' });
+    const before = fixture.sqliteRequests;
+    for (const text of [JSON.stringify(tampered), 'not json at all', exported.text]) {
+      await expect(transport.importBackup!(text)).rejects.toMatchObject({ status: 409, code: 'BACKUP_RESTORE_HISTORY_UNVERIFIED' });
+    }
+    expect(fixture.sqliteRequests).toBe(before);
+    expect((await fixture.database.execute("SELECT concept FROM knowledge_items WHERE id = 'k_bak'")).rows[0]!.concept).toBe('备份后的修改');
+    expect(await transport.request('GET', '/v1/knowledge-items/k_bak')).toMatchObject({ concept: '备份后的修改' });
 
   }, 20_000);
 
-  it('keeps FTS shadow tables and credential scope out of the envelope and rebuilds projections after a restore', async () => {
+  it('keeps FTS and credentials out of the envelope and preserves them after refused restore', async () => {
     const fixture = current!;
     const transport = await fixture.start();
     // Credential rows and a populated search index both exist on the device.
@@ -1160,32 +1169,67 @@ describe('Android backup export and restore over actual SQLite', () => {
     expect(names).not.toContain('_aervox_schema_versions');
     expect(names).toContain('questions');
 
-    await fixture.database.execute("DELETE FROM questions");
-    await fixture.database.execute("DELETE FROM messages_fts");
-    const restored = await transport.importBackup!(exported.text);
-    expect(restored.imported.questions).toBe(1);
-    // The projection was rebuilt from authoritative rows, not raw shadow rows.
-    expect(Number((await fixture.database.execute("SELECT count(*) AS n FROM messages_fts")).rows[0]!.n)).toBe(0);
+    const before = fixture.sqliteRequests;
+    await expect(transport.importBackup!(exported.text)).rejects.toMatchObject({ status: 409, code: 'BACKUP_RESTORE_HISTORY_UNVERIFIED' });
+    expect(fixture.sqliteRequests).toBe(before);
+    expect(await fixture.count('questions')).toBe(1);
+    expect(Number((await fixture.database.execute("SELECT count(*) AS n FROM messages_fts")).rows[0]!.n)).toBe(1);
     expect(Number((await fixture.database.execute("SELECT count(*) AS n FROM llm_configs")).rows[0]!.n)).toBe(1);
     expect(current!.rejectedStatements).toBe(0);
-    // The rebuilt index is writable: shadow-table raw writes would have left it corrupt.
-    await fixture.database.execute("INSERT INTO messages_fts (id, content) VALUES ('m_after', '恢复后可写')");
-    expect((await fixture.database.execute("SELECT id FROM messages_fts WHERE messages_fts MATCH '恢复后可写'")).rows.map(row => row.id)).toEqual(['m_after']);
+    await fixture.database.execute("INSERT INTO messages_fts (id, content) VALUES ('m_after', '拒绝后可写')");
+    expect((await fixture.database.execute("SELECT id FROM messages_fts WHERE messages_fts MATCH '拒绝后可写'")).rows.map(row => row.id)).toEqual(['m_after']);
   }, 20_000);
 
-  it('refuses a restore once a deletion fact exists so deleted content cannot return', async () => {
+  it('also refuses restore when a deletion fact already exists without changing that fact', async () => {
     const fixture = current!;
     const transport = await fixture.start();
     await transport.request('POST', '/v1/questions', { prompt: '删除前题', answerSpec: { answer: '是' } });
     const exported = await transport.exportBackup!();
-    // Deletion facts are never part of an envelope, so their presence (at any
-    // age) blocks the overwrite until the deny-ledger replay exists.
     await fixture.database.execute(`INSERT INTO deletion_requests (id, scope, idempotency_key, requested_at, status, owner_module, created_at, updated_at)
       VALUES ('dr_local', 'source', 'del_key_1', '2026-11-04T00:00:00Z', 'in_progress', 'conversation', '2026-11-04T00:00:00Z', '2026-11-04T00:00:00Z')`);
-    await expect(transport.importBackup!(exported.text)).rejects.toMatchObject({ code: 'BACKUP_DELETION_CONFLICT' });
+    const before = fixture.sqliteRequests;
+    await expect(transport.importBackup!(exported.text)).rejects.toMatchObject({ status: 409, code: 'BACKUP_RESTORE_HISTORY_UNVERIFIED' });
+    expect(fixture.sqliteRequests).toBe(before);
     // Nothing was written.
     expect(await fixture.count('questions')).toBe(1);
     expect(await fixture.count('deletion_requests')).toBe(1);
+  }, 20_000);
+
+  it('cannot resurrect an actually deleted session from an older export, including after reopen', async () => {
+    const fixture = current!;
+    fixture.strictNativeFailures();
+    const transport = await fixture.start();
+    await transport.request('POST', '/v1/sessions', { id: 'deleted_session', title: '将删除的会话' });
+    await transport.request('POST', '/v1/sessions', { id: 'retained_session', title: '保留的会话' });
+    const deletedText = '删除后不得返回的正文';
+    await transport.streamTurn('deleted_session', deletedText, callbacks().value);
+    await transport.streamTurn('retained_session', '另一会话的正文', callbacks().value);
+    const retainedHistory = await transport.request<SessionHistoryPage>('GET', '/v1/sessions/retained_session/history');
+    const exported = await transport.exportBackup!();
+    expect(exported.text).toContain(deletedText);
+
+    // Use the real public DELETE, with no manually seeded deletion record.
+    await transport.request('DELETE', '/v1/sessions/deleted_session');
+    expect(await fixture.count('deletion_requests')).toBe(0);
+    await expect(transport.request('GET', '/v1/sessions/deleted_session/history')).rejects.toMatchObject({ code: 'SESSION_NOT_FOUND' });
+    const before = fixture.sqliteRequests;
+    await expect(transport.importBackup!(exported.text)).rejects.toMatchObject({ status: 409, code: 'BACKUP_RESTORE_HISTORY_UNVERIFIED' });
+    expect(fixture.sqliteRequests).toBe(before);
+    expect(await transport.request('GET', '/v1/sessions/retained_session/history')).toEqual(retainedHistory);
+    await transport.request('PATCH', '/v1/sessions/retained_session', { title: '拒绝恢复后仍可修改' });
+
+    window.dispatchEvent(new Event('pagehide'));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    const reopened = await fixture.start();
+    await expect(reopened.request('GET', '/v1/sessions/deleted_session/history')).rejects.toMatchObject({ code: 'SESSION_NOT_FOUND' });
+    expect(await reopened.request('GET', '/v1/sessions/retained_session/history')).toEqual(retainedHistory);
+    expect(await reopened.request('GET', '/v1/sessions')).toMatchObject({ items: [expect.objectContaining({ id: 'retained_session', title: '拒绝恢复后仍可修改' })] });
+    expect(JSON.stringify((await fixture.database.execute('SELECT content FROM message_versions')).rows)).not.toContain(deletedText);
+    await reopened.request('POST', '/v1/sessions', { id: 'new_session', title: '重开后新建' });
+    await reopened.streamTurn('new_session', '重开后正常发送', callbacks().value);
+    expect(mocks.contexts.at(-1)?.map(message => message.content)).not.toContain(deletedText);
+    expect(await reopened.request<SessionHistoryPage>('GET', '/v1/sessions/new_session/history')).toMatchObject({ items: [expect.objectContaining({ isComplete: true })] });
+    expect(fixture.rejectedStatements).toBe(0);
   }, 20_000);
 });
 

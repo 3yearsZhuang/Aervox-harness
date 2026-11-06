@@ -346,32 +346,43 @@ it('exports large backups through the file sharing port instead of the bounded t
   expect(wrapper.text()).toContain('600 条记录');
 });
 
-it('requires two restore actions and tells the user to reopen the app after success', async () => {
+it('explains why restore is unavailable and exposes no restore action even when a transport supports it', async () => {
   const restore = extraTransport.importBackup = vi.fn(async () => ({ imported: { records: 600 } }));
+  const pickFile = extraTransport.pickTextFile = vi.fn(async () => ({ name: 'old-backup.json', text: 'backup' }));
   const wrapper = await mountPanel('data');
-  await wrapper.findAll('md-filled-tonal-button').find(button => button.text() === '恢复')!.trigger('click');
-  await wrapper.find('textarea[aria-label="备份文本"]').setValue('backup');
-  await wrapper.findAll('md-filled-button').find(button => button.text() === '校验并恢复')!.trigger('click');
-  expect(restore).not.toHaveBeenCalled();
-  await wrapper.findAll('md-filled-button').find(button => button.text() === '确认覆盖当前数据')!.trigger('click');
+  const restoreButton = wrapper.findAll('md-filled-tonal-button').find(button => button.text() === '恢复')!;
+  expect(restoreButton.attributes('disabled')).toBe('true');
+  expect(restoreButton.attributes('aria-describedby')).toBe('runtime-restore-unavailable');
+  expect(wrapper.text()).toContain('恢复暂不可用');
+  expect(wrapper.text()).toContain('无法确认完整的历史删除记录');
+  expect(wrapper.text()).toContain('旧备份可能带回已删除的内容');
+  expect(wrapper.text()).toContain('现有数据保留，仍可导出备份');
+  expect(wrapper.text()).toContain('模型密钥、插件凭据和设备连接不进入备份');
+  await restoreButton.trigger('click');
   await flushPromises();
-  expect(restore).toHaveBeenCalledWith('backup');
-  expect(wrapper.text()).toContain('请关闭并重新打开应用');
+  expect(restore).not.toHaveBeenCalled();
+  expect(pickFile).not.toHaveBeenCalled();
+  expect(wrapper.find('textarea[aria-label="备份文本"]').exists()).toBe(false);
+  expect(wrapper.text()).not.toContain('确认覆盖当前数据');
+  expect(wrapper.text()).not.toContain('校验并恢复');
 });
 
-it('states the real backup scope and explains a refused restore after deletion', async () => {
-  extraTransport.importBackup = vi.fn(async () => {
-    // Native transport raises codes as the problem message (see `fail` in native-runtime).
-    throw new AervoxHttpError(409, 'native', { code: 'BACKUP_DELETION_CONFLICT', message: 'BACKUP_DELETION_CONFLICT' });
-  });
+it('keeps file and URL question imports available while backup restore is disabled', async () => {
+  const restore = extraTransport.importBackup = vi.fn(async () => { throw new Error('BACKUP_RESTORE_HISTORY_UNVERIFIED'); });
+  const pickFile = extraTransport.pickTextFile = vi.fn(async () => ({ name: 'questions.csv', text: '1+1,2' }));
+  const fetchUrl = extraTransport.fetchUrlText = vi.fn(async () => ({ name: 'online.csv', text: '2+2,4' }));
+  routes.mockResolvedValue({ importedCount: 1 });
   const wrapper = await mountPanel('data');
-  // Copy must name what actually leaves the device, not "everything".
-  expect(wrapper.text()).toContain('模型密钥、插件凭据和设备连接不进入备份');
-  await wrapper.findAll('md-filled-tonal-button').find(button => button.text() === '恢复')!.trigger('click');
-  await wrapper.find('textarea[aria-label="备份文本"]').setValue('backup');
-  await wrapper.findAll('md-filled-button').find(button => button.text() === '校验并恢复')!.trigger('click');
-  await wrapper.findAll('md-filled-button').find(button => button.text() === '确认覆盖当前数据')!.trigger('click');
+  await wrapper.findAll('md-filled-tonal-button').find(button => button.text() === '选择文件')!.trigger('click');
   await flushPromises();
-  expect(wrapper.text()).toContain('这台手机已有删除记录');
-  expect(wrapper.text()).toContain('未写入任何数据');
+  expect(pickFile).toHaveBeenCalledOnce();
+  expect(routes).toHaveBeenCalledWith('POST', '/v1/questions/import', { content: '1+1,2' });
+  expect(wrapper.text()).toContain('已从「questions.csv」导入 1 道题');
+  await wrapper.get('input[aria-label="题库链接"]').setValue('https://example.test/questions.csv');
+  await wrapper.findAll('md-filled-tonal-button').find(button => button.text() === '导入')!.trigger('click');
+  await flushPromises();
+  expect(fetchUrl).toHaveBeenCalledWith('https://example.test/questions.csv');
+  expect(routes).toHaveBeenCalledWith('POST', '/v1/questions/import', { content: '2+2,4' });
+  expect(wrapper.text()).toContain('已从「online.csv」导入 1 道题');
+  expect(restore).not.toHaveBeenCalled();
 });

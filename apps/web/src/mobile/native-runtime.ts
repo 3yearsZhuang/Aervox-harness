@@ -9,7 +9,7 @@ import { SqlitePersonaRepository } from '@aervox/repositories/persona';
 import { SqliteDiaryRepository, createSqliteDiaryMaterialPort } from '@aervox/repositories/diary';
 import { createInjectedDatabase } from '@aervox/repositories/database';
 import { NativeSqliteClient } from '@aervox/repositories/native-sqlite-client';
-import { isBackupScopedTable, rebuildSearchProjections } from '@aervox/repositories/backup';
+import { isBackupScopedTable } from '@aervox/repositories/backup';
 import { ConversationExecutionStore } from '@aervox/host-agent/browser';
 import { buildResumeHistory, ControlContext, ASK_USER_QUESTION_SPEC, ASK_USER_QUESTION_TOOL, createAskUserQuestionToolProvider, executeTurn, stableSerialize, type ToolProviderPort, type ToolSpec } from '@aervox/core/browser';
 import { AervoxHttpError, TurnStreamProjector, type AervoxTransport, type TurnCallbacks, type ObserveTurnOptions } from '@aervox/api-client';
@@ -19,7 +19,7 @@ import { delay, createNativeModelProvider } from './native-model-provider';
 import { nativeContextBuilder } from './native-context';
 import { createDeviceTooling, DEVICE_TOOL_NAMES } from './native-tools';
 import { createQuestionBridge } from './native-question';
-import { buildBackupFile, denormalizeBackupValue, normalizeBackupValue, parseBackupFile, verifyBackupShape, BackupParseError, MAX_BACKUP_BYTES, planBackupRestore, type BackupTable } from './native-backup';
+import { buildBackupFile, normalizeBackupValue, MAX_BACKUP_BYTES, type BackupTable } from './native-backup';
 import { createLearningRouteHandler } from './native-learning';
 import { activePersonaPrompt, createPersonaRouteHandler } from './native-persona';
 import { createDiaryRouteHandler } from './native-diary';
@@ -33,20 +33,15 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
   let nativeClient: NativeSqliteClient | undefined;
   let recoveryTimer: ReturnType<typeof setInterval> | undefined;
   let accepting = false;
-  let restoring = false;
-  let restored = false;
-  let databaseUsers = 0;
   let retired = false;
   // The bridge owns the suspended ask_user_question promise for this host.
   const questionBridge = createQuestionBridge();
   let foregroundRevision = 0;
   let cancelActive = async () => {};
   const checkOpen = () => { if (retired) fail(503, 'HOST_CLOSED'); };
-  const checkDatabaseAvailable = () => { checkOpen(); if (restored) fail(409, 'HOST_RESTART_REQUIRED'); if (restoring) fail(409, 'BACKUP_RESTORE_IN_PROGRESS'); };
   const withDatabase = async <T>(operation: () => Promise<T>): Promise<T> => {
-    checkDatabaseAvailable();
-    databaseUsers++;
-    try { return await operation(); } finally { databaseUsers--; }
+    checkOpen();
+    return operation();
   };
   const visibilityChanged = () => {
     if (document.hidden) { foregroundRevision++; void cancelActive().catch(() => undefined); }
@@ -184,7 +179,7 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
   checkOpen();
   // Expired executions are retired by the repository; never replay model work.
   // A recent lease stays visible until expiry instead of stealing its identity.
-  recoveryTimer = setInterval(() => { if (!active && !accepting && !restoring) void recovery().catch(() => undefined); }, 5000);
+  recoveryTimer = setInterval(() => { if (!active && !accepting) void recovery().catch(() => undefined); }, 5000);
   cancelActive = async () => {
     const owner = active;
     if (!owner) return;
@@ -316,7 +311,7 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       });
     },
     async streamTurn(sessionId, content, callbacks, options = {}) {
-      checkDatabaseAvailable();
+      checkOpen();
       options.signal?.throwIfAborted();
       if (document.hidden) fail(422, 'HOST_NOT_FOREGROUND');
       const admissionRevision = foregroundRevision;
@@ -381,7 +376,7 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       }
     },
     async decideToolApproval(turnId: string, approvalId: string, decision: 'granted' | 'denied', signal?: AbortSignal) {
-      checkDatabaseAvailable();
+      checkOpen();
       signal?.throwIfAborted();
       if (document.hidden) fail(422, 'HOST_NOT_FOREGROUND');
       if (active || accepting) fail(409, 'REPLY_IN_PROGRESS');
@@ -460,7 +455,7 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       if (!text) fail(503, 'SPEECH_INPUT_UNAVAILABLE');
       return { text };
     },
-    // ---- 备份与恢复：自描述格式、摘要校验、严格模式对齐 ----
+    // ---- 备份导出：自描述格式、摘要校验、原生窗口预算 ----
     async exportBackup(signal?: AbortSignal) {
       return withDatabase(async () => {
       checkOpen();
@@ -472,8 +467,8 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       const tx = await client.transaction('write');
       try {
         // Only authoritative business facts leave the device. Derived FTS
-        // projections are rebuilt after a restore, and credential/device-scope
-        // tables stay local (see @aervox/repositories backup-scope).
+        // projections and credential/device-scope tables stay local
+        // (see @aervox/repositories backup-scope).
         const names = await tx.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY rowid");
         const tables: BackupTable[] = [];
         for (const row of names.rows) {
@@ -524,73 +519,13 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       }
       });
     },
-    async importBackup(text: string, signal?: AbortSignal) {
-      checkDatabaseAvailable();
-      signal?.throwIfAborted();
-      if (active || accepting || databaseUsers) fail(409, 'BACKUP_RESTORE_BUSY');
-      restoring = true;
-      try {
-      const file = parseBackupFile(text, value => hostCrypto.sha256Utf8(stableSerialize(value)));
-      const quote = (name: string) => {
-        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) throw new Error('BACKUP_TABLE_UNEXPECTED');
-        return `"${name}"`;
-      };
-      const tx = await client.transaction('write');
-      try {
-        // Deletion and revocation facts never travel in a backup envelope, so a
-        // restore cannot replay them over the live database. Any recorded
-        // deletion means the backup may predate it: refuse instead of silently
-        // resurrecting content the user deleted after taking the snapshot.
-        // Fail-closed until the deny ledger/watermark replay exists (ITER-003/010).
-        const deletion = await tx.execute("SELECT id FROM deletion_requests LIMIT 1");
-        if (deletion.rows.length) {
-          await tx.rollback().catch(() => undefined);
-          return fail(409, 'BACKUP_DELETION_CONFLICT');
-        }
-        const liveColumns = new Map<string, string[]>();
-        const definitions = new Map<string, string>();
-        const names = await tx.execute("SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'");
-        for (const row of names.rows) {
-          const name = String(row.name ?? row[0]);
-          // Credential/device scope and derived projections stay as they are.
-          if (!isBackupScopedTable(name)) continue;
-          const probe = await tx.execute(`SELECT * FROM ${quote(name)} LIMIT 0`);
-          liveColumns.set(name, [...probe.columns]);
-          definitions.set(name, String(row.sql ?? row[1] ?? ''));
-        }
-        try { verifyBackupShape(file, liveColumns); }
-        catch (error) {
-          await tx.rollback().catch(() => undefined);
-          if (error instanceof BackupParseError) return fail(409, error.code);
-          throw error;
-        }
-        // Pre-plan using the live canonical FKs. In native transactions even a
-        // constraint failure quarantines the connection; no failed-write probes.
-        const ordered = planBackupRestore(file, definitions);
-        for (const table of [...ordered].reverse()) {
-          signal?.throwIfAborted(); checkOpen();
-          await tx.execute(`DELETE FROM ${quote(table.name)}`);
-        }
-        for (const table of ordered) {
-          const columns = table.columns.map(quote).join(', ');
-          const placeholders = table.columns.map(() => '?').join(', ');
-          for (const row of table.rows) {
-            signal?.throwIfAborted(); checkOpen();
-            const values = table.columns.map(column => denormalizeBackupValue(row[column]) as never);
-            await tx.execute({ sql: `INSERT INTO ${quote(table.name)} (${columns}) VALUES (${placeholders})`, args: values });
-          }
-        }
-        // Projections are derived, so rebuild them from the restored facts in
-        // the same transaction instead of carrying FTS shadow tables in the envelope.
-        await rebuildSearchProjections(tx);
-        await tx.commit();
-        restored = true;
-        return { imported: file.tableCounts };
-      } catch (error) {
-        await tx.rollback().catch(() => undefined);
-        throw error;
-      }
-      } finally { restoring = false; }
+    async importBackup() {
+      // Old session deletions hard-deleted content without durable deletion
+      // facts. An empty deletion_requests table cannot prove a complete history,
+      // so every installation refuses before parsing, admission or native SQL.
+      // Reopening restore requires a trusted history boundary and durable
+      // deletion/deny replay ownership (ITER-003/010/011).
+      return fail(409, 'BACKUP_RESTORE_HISTORY_UNVERIFIED');
     },
     async pickTextFile(signal?: AbortSignal) {
       checkOpen();
