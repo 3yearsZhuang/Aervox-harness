@@ -9,7 +9,7 @@ import { assertPluginGeneration, type PluginGenerationIdentity } from "../../../
 import { unverifiedDeletionRequest } from "../privacy-repository.js";
 import { FencingMismatchError } from "../../../errors.js";
 import { disclosableTurn } from "./source-visibility.js";
-import { initializeAssistantHistory, publishAssistantHistory, assertConversationBodyWritable } from "./message-history.js";
+import { initializeAssistantHistory, publishAssistantHistory, assertConversationBodyWritable, terminalEventDataForCurrentSource } from "./message-history.js";
 import type { TurnStreamEventModel, TurnStreamEventPageOptions, TurnStreamEventPage, TurnStreamReplayState } from "../../types/index.js";
 
 export const MAX_STREAM_EVENT_PAGE_ROWS = 256;
@@ -82,6 +82,7 @@ export class StreamEventStore {
     return this.db.transaction(
       async (tx) => {
         await assertPluginGeneration(tx, eventData.pluginGeneration);
+        let attemptStatus: string | undefined;
         if (fenced) {
           const [attempt] = await tx
             .select({ status: turnAttempts.status, fencingToken: turnAttempts.fencingToken })
@@ -106,6 +107,7 @@ export class StreamEventStore {
               `attempt ${eventData.attemptId} fencing=${attempt?.fencingToken ?? "?"} status=${attempt?.status ?? "?"} cannot append ${eventData.eventType}`,
             );
           }
+          attemptStatus = attempt.status;
         }
         if (fenced && ["delta", "reasoning_delta"].includes(eventData.eventType)) {
           await assertConversationBodyWritable(tx, eventData.turnId);
@@ -113,6 +115,10 @@ export class StreamEventStore {
         if (fenced && eventData.eventType === "message") {
           await initializeAssistantHistory(tx, eventData.turnId, eventData.data, eventData.sequence);
         }
+        const data = fenced && (eventData.eventType === "done" || eventData.eventType === "error")
+          ? await terminalEventDataForCurrentSource(tx, { turnId: eventData.turnId, eventType: eventData.eventType,
+            status: attemptStatus!, sequence: eventData.sequence, data: eventData.data })
+          : eventData.data;
         const [created] = await tx
           .insert(turnStreamEvents)
           .values({
@@ -121,7 +127,7 @@ export class StreamEventStore {
             sequence: eventData.sequence,
             eventType: eventData.eventType,
             payloadVersion: eventData.payloadVersion ?? 1,
-            data: eventData.data,
+            data,
             occurredAt: eventData.occurredAt ?? new Date().toISOString(),
             attemptId: eventData.attemptId ?? null,
             safetyDecision: eventData.safetyDecision ?? null,

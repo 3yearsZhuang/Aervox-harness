@@ -181,6 +181,8 @@ Created -> InputChecking -> Running -> Finalizing -> Completed
 
 当前兼容路径仍由 Core 原子提交 `Failed` Attempt 与 `error`，不保证再发送 `done`；`TurnStreamProjector` 收到 `error` 即终结，迟到消息被丢弃，投影 Schema 也兼容历史可选字段。客户端不能在该路径无限等待第二个终态，统一负载与双事件目标仍需明确迁移及兼容验证。
 
+带 fencing 的 `done/error` 写者及原子终态写者在同一事务复验当前会话来源与删除闸门。来源不再可写时，仍提交控制终态和水位，但不保存调用方的错误正文、输出或附加字段：`error` 仅保存固定 `PERMISSION_REVOKED`、通用消息、`retryable=false` 和实际序号；`done` 仅保存实际 Attempt 状态、`isComplete=false`、固定 `source_unavailable` 及实际序号。数据库读取失败仍回滚，不能当作成功的通用终止；原 fencing/CAS 拒绝不被替代。该投影不清洗历史事件或覆盖未带 fencing 的兼容路径，进程内广播仍可能携带原调用载荷；现行 SSE 只将通知用作唤醒并重新读取持久事件，披露资格仍按第 5 节复验。
+
 ### 4.5 `redacted`
 
 表示某个已持久事件或正文因来源删除、同意撤销或权限变化而不再可见。`data` 至少包含 `targetEventId`、`visibilityRevision`、`reasonCode` 和不含原文的替代状态；原事件不可改写，客户端收到后必须停止展示和使用被撤回正文。
