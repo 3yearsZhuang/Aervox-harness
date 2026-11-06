@@ -65,6 +65,12 @@ id: AVX-PLUG-001
 
 第一方 `flowcampus` 插件把用户维护的地点、具体日期事件、短任务、手工路程和偏好保存在有界 `state` 配置文档。文档语义、引用校验和确定性规划属于插件；SQLite、CAS、生命周期及数据管理属于宿主。浏览器只持有编辑草稿与派生结果。首版不新增物理表，不把演示种子或 CAP-033 私密观察数据写入该文档；更大数据集、关联仓储或文档版本转换须另行定义迁移。用法与当前限制见[校园插件](../../plugins/plugins/tool/flowcampus/README.md)。
 
+### 0.7 后续 P3 可选插件
+
+CAP-028 社区、CAP-029 公开名词页、CAP-031 内容与技能市场、CAP-032 机构与监护的可选承载范围已裁决，具体执行机制仍未实现。未来插件默认禁用并显式装配；安装、市场取得或登录外部账号不自动获得本地事实权限。它们只经宿主公开 Port 消费用户获准的数据，沿用 Manifest 版本、权限、生命周期、取消和数据管理边界；Host 保持本地单用户，不把机构角色变成本地租户。
+
+四项的行为与服务前置条件以 [SRS](SRS.md#optional-ecosystem-plugins) 为准，源码与兼容准入见 [ADR-031](adr/ADR-031-first-party-plugin-repositories.md#后续-p3-可选插件的适用范围)。现有 `/v1/plugins/market` 的已发布 Registry 浏览与声明包安装不是 CAP-031 的商品、结算或退款闭环。停用、缺包或卸载不等于撤回公开内容、退款或退出机构，代码缺席后个人数据管理及未决外部回执仍须可用；真实服务、结算和机构账号验收不由声明包检查替代。
+
 ## 1. Config Schema v1
 
 Config 是 Aervox 自有 DSL，不是任意 JSON Schema，也不兼容 AstrBot 配置文件直接导入。[契约](../../packages/contracts/src/plugin-config-schemas.ts)与[共享作者校验器](../../packages/contracts/src/plugin-validation.ts)定义行为；配置注册、分发预检和作者 CLI 复用同一校验器。
