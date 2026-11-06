@@ -46,6 +46,35 @@ it('reopens the original durable question without extending its persisted deadli
   expect((await repo.getStreamEvents(ctx, 'turn')).filter(event => event.eventType === 'user_question_answered')).toHaveLength(1);
 });
 
+it('creates no orphan timers when the answer commits before the registration receipt returns', async () => {
+  let registered!: () => void, releaseReceipt!: () => void;
+  const committed = new Promise<void>(resolve => { registered = resolve; });
+  const receiptGate = new Promise<void>(resolve => { releaseReceipt = resolve; });
+  const require = options.commands.require;
+  bridge = createQuestionBridge({ ...options, commands: { ...options.commands,
+    require: async (owner, input) => {
+      const result = await require(owner, input);
+      registered();
+      await receiptGate;
+      return result;
+    },
+  } });
+  const pending = bridge.port.ask(request);
+  await committed;
+  await bridge.submit('turn', answers, identity);
+  await expect(pending).resolves.toEqual({ answers });
+  vi.useFakeTimers();
+  try {
+    releaseReceipt();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(vi.getTimerCount()).toBe(0);
+    expect((await repo.getStreamEvents(ctx, 'turn')).filter(event => event.eventType === 'user_question_answered')).toHaveLength(1);
+  } finally {
+    vi.clearAllTimers();
+    vi.useRealTimers();
+  }
+});
+
 it('refuses missing or different identity and invalid options while retaining the original pending question', async () => {
   const pending = bridge.port.ask(request); pending.catch(() => undefined);
   await waitPending();

@@ -94,6 +94,8 @@ export class UserQuestionWaiter<Context> {
     if (entry.cancellation) { this.settle(entry, undefined, entry.cancellation); return; }
     const required = await this.commands.require(entry.ctx, { ...entry.identity, expectedFencingToken: entry.owner.expectedFencingToken,
       leaseId: entry.owner.leaseId, questions: request.questions, timeoutMs: request.timeoutMs ?? this.options.defaultTimeoutMs ?? 60000 });
+    // An answer can settle this waiter while the committed registration receipt is still in flight.
+    if (this.waiters.get(entry.identity.turnId) !== entry) return;
     entry.registered = true;
     if (entry.cancellation) { await this.end(entry, "cancelled", entry.cancellation); return; }
     if (required.receipt) { this.settle(entry, { answers: required.receipt.answers }); return; }
