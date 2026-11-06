@@ -101,6 +101,17 @@ export interface ServerPluginRegistration {
    * 并仅在插件启用时把结果合入模型工具面与提示词指南。
    */
   toolContributions?: (services: PluginHostServices) => PluginToolContribution[];
+  /**
+   * Read-only metadata tools bound to existing declarations and HostToolRuntime.
+   * The host recreates context-bound providers at dispatch and rechecks the exact
+   * declaration, installation identity, lifecycle and required grants. Do not
+   * also publish the same names through toolContributions.
+   * Admission observes coherent SQL snapshots; it does not promise wall-clock
+   * revocation after the final snapshot and before delivery.
+   */
+  runtimeToolContributions?: (services: PluginHostServices) => PluginToolContribution[];
+  /** Required with runtimeToolContributions: version of the compiled Manifest. */
+  runtimeToolVersion?: string;
   /** HTTP 端点：与上下文无关，装配期挂载，上下文由宿主按请求注入 handler */
   httpEndpoints?: PluginHttpEndpoint[];
   /**

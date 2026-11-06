@@ -27,6 +27,8 @@ import {
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 import type { WorkflowDefinition } from "@aervox/core";
+import { createDefaultQuestionBankRegistry } from "@aervox/practice-review";
+import { defaultDiaryStyleRegistry } from "@aervox/diary";
 // 业务模块（按 ADR-014 0.3.0 六域分组；CR-052）
 // ── companion（陪伴与对话） ──
 import { registerConversationModule, type ConversationHost } from "./modules/companion/conversation/index.js";
@@ -346,6 +348,7 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
   });
 
   let pluginConfigService: import("./modules/ecosystem/plugins/index.js").PluginConfigService | undefined;
+  const questionBankRegistry = createDefaultQuestionBankRegistry();
 // 模块装配上下文：基础设施 + 构建期配置；共享服务按注册顺序填充
   const ctx = {
     apiRegistry,
@@ -366,8 +369,11 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
       ?? (injectedMainDatabase ? undefined : { url: process.env.AERVOX_PLUGIN_REGISTRY_URL ?? OFFICIAL_PLUGIN_REGISTRY }),
     attachmentsRoot: options.attachmentsRoot,
     pluginRegistry: options.pluginRegistry ?? createServerPluginRegistry(),
+    questionBankRegistry,
     // Endpoints and turn tools share the module-owned configuration service after late assembly.
-    pluginHostServices: options.pluginHostServices ?? createPluginHostServicesFactory(db, () => pluginConfigService),
+    pluginHostServices: options.pluginHostServices ?? createPluginHostServicesFactory(db, () => pluginConfigService, {
+      questionBanks: questionBankRegistry, diaryStyles: defaultDiaryStyleRegistry,
+    }),
   };
 
   // 组合根显式构造依赖；模块只能接收其声明的只读输入。

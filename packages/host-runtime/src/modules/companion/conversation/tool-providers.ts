@@ -5,7 +5,7 @@
  * 静态 Contribution 工具的通用写授权门（PET-05 / 阶段 3a / CR-022 full_access
  * 预授权）与动态 tool_registrations 运行时适配（CAP-033 主动动作授权）逐字节迁移。
  */
-import { inspectToolInput, resolveToolSafetyLevel, validateJsonSchema } from "@aervox/core";
+import { awaitWithSignal, inspectToolInput, resolveToolSafetyLevel, validateJsonSchema } from "@aervox/core";
 import type {
   ToolExecutionInput,
   ToolExecutionResult,
@@ -14,6 +14,7 @@ import type {
 } from "@aervox/core";
 import type {
   LocalContext,
+  PluginToolPermitReaderPort,
 } from "@aervox/repositories";
 import type { Observability } from "@aervox/observability";
 import {
@@ -28,14 +29,10 @@ import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index
 import { stableSerialize as stableStringify } from "@aervox/core";
 import { FULL_PROFILE_SOURCE_MANIFEST } from "@aervox/repositories";
 import { encodeToolApprovalIdentity } from "./tool-approval-identity.js";
+import { createPluginToolPermitValidator, pluginToolDeclarationFingerprint, PLUGIN_METADATA_RUNTIME_REVISION_PREFIX } from "../../../plugin-tool-permit.js";
 
-const contributionRevisions = new WeakMap<object, string>();
-/** Stable only for the same injected implementation object in this process; never infer code identity from function text. */
-export function processToolImplementationRevision(implementation: object): string {
-  let revision = contributionRevisions.get(implementation);
-  if (!revision) { revision = `process:${globalThis.crypto.randomUUID()}`; contributionRevisions.set(implementation, revision); }
-  return revision;
-}
+import { processToolImplementationRevision } from "../../../plugin-tool-bindings.js";
+export { processToolImplementationRevision } from "../../../plugin-tool-bindings.js";
 
 const profilePermissions = new Set<string>(FULL_PROFILE_SOURCE_MANIFEST.map(source => source.sourceKey));
 
@@ -344,34 +341,60 @@ export function createRuntimeToolProvider(
     generationFor?: (tool: Awaited<ReturnType<ToolRuntime["listTools"]>>[number]) => string | undefined;
     signalFor?: (tool: Awaited<ReturnType<ToolRuntime["listTools"]>>[number]) => AbortSignal | undefined;
     isToolAllowed?: (tool: Awaited<ReturnType<ToolRuntime["listTools"]>>[number]) => Promise<boolean>;
+    /** Atomic admission for trusted metadata runtime handlers; absent hosts fail closed for that binding. */
+    pluginPermitReader?: PluginToolPermitReaderPort;
   },
 ): ToolProviderPort {
   type RuntimeRow = Awaited<ReturnType<ToolRuntime["listTools"]>>[number];
-  const bind = (tool: RuntimeRow): ToolBinding => ({
-    id: tool.id, owner: tool.pluginId ?? "host", revision: tool.runtimeRevision,
-    generation: deps.generationFor?.(tool),
-    toolVersion: encodeToolApprovalIdentity({ kind: "runtime", id: tool.id, owner: tool.pluginId ?? "host",
-      generation: deps.generationFor?.(tool) ?? null, revision: tool.approvalRevision ?? tool.runtimeRevision!,
-      safetyLevel: tool.safetyLevel ?? "write_with_approval" }),
-    category: tool.category, requiredPermissions: tool.requiredPermissionsJson,
-    spec: {
-      name: tool.name, description: tool.description, readOnly: tool.safetyLevel === "read_only",
-      safetyLevel: tool.safetyLevel ?? "write_with_approval", budget: tool.budget,
-      parameters: typeof tool.inputSchemaJson === "boolean" ? tool.inputSchemaJson
-        : tool.inputSchemaJson && typeof tool.inputSchemaJson === "object" && !Array.isArray(tool.inputSchemaJson) ? tool.inputSchemaJson as Record<string, unknown> : undefined,
-    },
-    checkActive: () => deps.isToolAllowed ? deps.isToolAllowed(tool) : Promise.resolve(true),
-    async dispatch(input, authorization) {
-      try {
-        return { ok: true, output: await runtime.callTool(tenant, tool.id, input.arguments, {
-          ...authorization, signal: deps.signalFor?.(tool)
-            ? AbortSignal.any([deps.signalFor(tool)!, ...(input.signal ? [input.signal] : [])]) : input.signal,
-          controlContext: input.controlContext,
-          expectedRevision: tool.runtimeRevision, authorize: () => deps.isToolAllowed ? deps.isToolAllowed(tool) : Promise.resolve(true),
-        }) };
-      } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "tool_execution_error" }; }
-    },
-  });
+  const bind = (tool: RuntimeRow): ToolBinding => {
+    const generation = deps.generationFor?.(tool);
+    return {
+      id: tool.id, owner: tool.pluginId ?? "host", revision: tool.runtimeRevision,
+      generation,
+      toolVersion: encodeToolApprovalIdentity({ kind: "runtime", id: tool.id, owner: tool.pluginId ?? "host",
+        generation: generation ?? null, revision: tool.approvalRevision ?? tool.runtimeRevision!,
+        safetyLevel: tool.safetyLevel ?? "write_with_approval" }),
+      category: tool.category, requiredPermissions: tool.requiredPermissionsJson,
+      spec: {
+        name: tool.name, description: tool.description, readOnly: tool.safetyLevel === "read_only",
+        safetyLevel: tool.safetyLevel ?? "write_with_approval", budget: tool.budget,
+        parameters: typeof tool.inputSchemaJson === "boolean" ? tool.inputSchemaJson
+          : tool.inputSchemaJson && typeof tool.inputSchemaJson === "object" && !Array.isArray(tool.inputSchemaJson) ? tool.inputSchemaJson as Record<string, unknown> : undefined,
+      },
+      checkActive: () => deps.isToolAllowed ? deps.isToolAllowed(tool) : Promise.resolve(true),
+      async dispatch(input, authorization) {
+        try {
+          const scopeSignal = deps.signalFor?.(tool);
+          const metadataBinding = tool.safetyLevel === "read_only"
+            && tool.approvalRevision?.startsWith(`durable:${PLUGIN_METADATA_RUNTIME_REVISION_PREFIX}`) === true;
+          const dispatchSignal = AbortSignal.any([scopeSignal, input.signal, input.controlContext?.abortSignal]
+            .filter((signal): signal is AbortSignal => Boolean(signal)));
+          const validatePermit = metadataBinding ? createPluginToolPermitValidator({ pluginId: tool.pluginId ?? "",
+            fingerprint: pluginToolDeclarationFingerprint(tool), generation }) : undefined;
+          const readPermit = async () => {
+            if (!deps.pluginPermitReader || !tool.pluginId || !validatePermit) throw new Error("plugin_metadata_permit_unavailable");
+            validatePermit(await awaitWithSignal(deps.pluginPermitReader.readPluginToolPermit(tenant, tool.pluginId, tool.id), dispatchSignal));
+            dispatchSignal.throwIfAborted();
+          };
+          if (metadataBinding) await readPermit();
+          const output = await runtime.callTool(tenant, tool.id, input.arguments, {
+            ...authorization, signal: scopeSignal
+              ? AbortSignal.any([scopeSignal, ...(input.signal ? [input.signal] : [])]) : input.signal,
+            controlContext: input.controlContext,
+            expectedRevision: tool.runtimeRevision, authorize: () => deps.isToolAllowed ? deps.isToolAllowed(tool) : Promise.resolve(true),
+          });
+          if (metadataBinding) {
+            // Same coherent predicate as direct dispatch. No asynchronous permission
+            // or registry read follows this final SQL observation.
+            await readPermit();
+            if (deps.generationFor?.(tool) !== generation) return { ok: false, error: "tool_permission_denied" };
+            dispatchSignal.throwIfAborted();
+          }
+          return { ok: true, output };
+        } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "tool_execution_error" }; }
+      },
+    };
+  };
   return createCatalogToolProvider({
     tools: [], invalidInputCode: "schema_validation_failed", restricted: deps.capabilityTier === "restricted",
     async list() {

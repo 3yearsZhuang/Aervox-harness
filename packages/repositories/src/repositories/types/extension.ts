@@ -3,8 +3,19 @@
  */
 import type { CommunityContentModel, ExternalSourceModel, OrganizationModel, PluginGrantModel, PluginModel } from "./recovery-ledger.js";
 import type { LocalContext } from "../../local-context.js";
+import type { ToolRegistrationModel } from "./voice-input-config.js";
 
-export interface IExtensionRepository {
+/** One SQLite statement observes existing installation, declaration and active grants. */
+export interface PluginToolPermitSnapshot {
+  plugin: Pick<PluginModel, "id" | "enabled" | "availability" | "lifecycleGeneration" | "version" | "checksum"> | null;
+  tool: Omit<ToolRegistrationModel, "createdAt" | "updatedAt"> | null;
+  grants: Array<Pick<PluginGrantModel, "id" | "pluginId" | "permission" | "scope">>;
+}
+export interface PluginToolPermitReaderPort {
+  readPluginToolPermit(ctx: LocalContext, pluginId: string, toolId: string): Promise<PluginToolPermitSnapshot>;
+}
+
+export interface IExtensionRepository extends Partial<PluginToolPermitReaderPort> {
   createExternalSource(
     ctx: LocalContext,
     source: { id: string; provider: string; externalId: string; permissionScope: string; syncState?: string },

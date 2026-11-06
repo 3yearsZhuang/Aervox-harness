@@ -13,6 +13,7 @@ import { pluginManifestSchema } from "@aervox/contracts";
 import { assembleFirstPartyPlugins, createHttpEndpointSink } from "../../../plugin-assembly.js";
 import { isPluginEnabled } from "./turn-plugins/index.js";
 import { createPluginHostServicesFactory } from "../../../plugin-host-services.js";
+import { createRuntimeToolSink } from "../../../plugin-runtime-tools.js";
 import type { ModuleDependencies } from "../../context.js";
 import {
   SqliteExtensionRepository,
@@ -120,6 +121,7 @@ async function syncBuiltinPlugins(
         publisher: manifest.metadata.publisher,
         version: manifest.metadata.version,
         installSource: "builtin",
+        tools: manifest.spec.tools,
         skills: skillContent
           ? [
               {
@@ -154,7 +156,7 @@ async function syncBuiltinPlugins(
   }
 }
 
-export async function registerPluginsModule(ctx: ModuleDependencies<"apiRegistry" | "app" | "builtinPluginsSourceRoot" | "db" | "pluginHostServices" | "pluginRegistry" | "pluginRegistryOptions" | "pluginsRoot" | "proactiveIntelligenceRepository" | "skillsRoot">, beforeDeactivate?: (pluginId: string, uninstall: boolean) => Promise<void>, onConfigService?: (service: PluginConfigService) => void): Promise<import("@aervox/host-plugin-api").ServerPluginRegistration[]> {
+export async function registerPluginsModule(ctx: ModuleDependencies<"apiRegistry" | "app" | "builtinPluginsSourceRoot" | "db" | "pluginHostServices" | "pluginRegistry" | "pluginRegistryOptions" | "pluginsRoot" | "proactiveIntelligenceRepository" | "skillsRoot" | "toolRuntime">, beforeDeactivate?: (pluginId: string, uninstall: boolean) => Promise<void>, onConfigService?: (service: PluginConfigService) => void): Promise<import("@aervox/host-plugin-api").ServerPluginRegistration[]> {
   const pluginRegistry = ctx.pluginRegistry ?? createServerPluginRegistry();
   const { app, db, skillsRoot, pluginsRoot } = ctx;
   const extensionRepo = new SqliteExtensionRepository(db);
@@ -228,6 +230,9 @@ export async function registerPluginsModule(ctx: ModuleDependencies<"apiRegistry
   const assembly = await assembleFirstPartyPlugins({
     turnRegistry: pluginRegistry,
     apiRegistry: ctx.apiRegistry,
+    onRuntimeTools: ctx.toolRuntime && ctx.apiRegistry ? createRuntimeToolSink({
+      runtime: ctx.toolRuntime, plugins: extensionRepo, services: hostServices, api: ctx.apiRegistry,
+    }) : undefined,
     // 端点与面向模型的贡献同一判据：停用、缺记录或不可用的插件一律 404
     onHttpEndpoints: createHttpEndpointSink(
       app,
