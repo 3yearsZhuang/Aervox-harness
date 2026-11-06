@@ -31,6 +31,9 @@ export function fitLive2DModelToViewport(
 ): void {
   const width = app.renderer.screen.width
   const height = app.renderer.screen.height
+  // Keep the last valid transform while a host is hidden or unmeasurable.
+  // Scaling to zero would make subsequent world-to-model focus singular.
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return
   const scaleFactor = options.scaleFactor ?? 1
   // 沉浸式工作台：模型可见高度撑满视口（仅按高度驱动，横向居中，超宽部分裁剪）。
   const heightRatio = options.heightRatio ?? 1
