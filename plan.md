@@ -420,7 +420,9 @@ FND-02/04、CAP-020，依赖 ITER-004/063，遵循 [ADR-028](docs/reference/adr/
 
 **练习恢复的身份前置候选：** 沿 ITER-053/059/064 修复现有 Question、PracticeSession、QuestionAttempt 的 SQLite SELECT/RETURNING：JSON 投影保留完整 NUL 身份、题干、答案、关联与原有 nullable/难度字段。答案事务只额外保护实际源 Session、目标知识 ID 和既有 review ID，错题列表保留现有分组/计数逻辑并按完整题目身份分组。
 
-原实现真实仓储 9 项、HTTP 2 项均先失败，包含同前缀知识误写、错题合并、原键重放失败及损坏前缀 receipt 被错误认可的反例；候选定向仓储 24 项、HTTP 55 项、仓储构建与类型检查通过，真实文件 SQLite 关闭重开仍恢复原题组和首个未答题，complete 后原意图重放不重复写入，新键仍拒绝。回归见[仓储身份往返](packages/repositories/test/practice-identity-roundtrip.test.ts)与[HTTP 恢复](apps/api/test/practice-identity-roundtrip.test.ts)。未改 Schema、迁移、事实或幂等键；全量、独立审查及 PR 待安排。
+原实现真实仓储 9 项、HTTP 2 项均先失败，包含同前缀知识误写、错题合并、原键重放失败及损坏前缀 receipt 被错误认可的反例；候选定向仓储 24 项、HTTP 55 项、仓储构建与类型检查通过，真实文件 SQLite 关闭重开仍恢复原题组和首个未答题，complete 后原意图重放不重复写入，新键仍拒绝。回归见[仓储身份往返](packages/repositories/test/practice-identity-roundtrip.test.ts)与[HTTP 恢复](apps/api/test/practice-identity-roundtrip.test.ts)。未改 Schema、迁移、事实或幂等键；全量与 PR 待安排。
+
+冻结源码 `0a25213bd9acd9221c9d20cc5f121f5199c3d1d7` 已通过独立审查：直接源码仓储 9 项、真实 API 4 文件 59 项和 JSON 值/NUL 投影、complete 后原键重放及损坏前缀 receipt 探针均通过。与学习/复习候选 `775eb97380e5f95673e6ea2cdf50ab2c72b9b8e3` 的只读三方合并检查无冲突；此证据不代替实际主仓/集合仓整合、最终全量或发布验收。
 
 Native 已有活跃练习恢复；Focus 重开、完成报告发现/读取入口和跨崩溃未知意图仍按第三批继续，真实模型/手机/发布不据此关闭。
 
