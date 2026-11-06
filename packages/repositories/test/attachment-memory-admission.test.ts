@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { createInMemoryDatabase, SqliteConversationRepository, SqliteMemoryRepository, SqliteMemoryEmbeddingRepository,
   SqliteMemoryCompactionRepository, collectDiaryMaterial, indexMemoryFts, searchMemoriesFts, rebuildSearchProjections } from "../src/index.js";
+import { turnIntentHash } from "../src/conversation-turn-intent.js";
 import { corruptReceipt, receiptCorruptions } from "./helpers/receipt-corruption.js";
+import { nativeSqliteBoundary } from "./helpers/native-sqlite-boundary.js";
+import { createInjectedDatabase } from "../src/database.js";
 
 const ctx = { workspaceId: "local", subjectUserId: "local" };
 let database: Awaited<ReturnType<typeof createInMemoryDatabase>>;
@@ -80,4 +83,55 @@ it("preserves missing receipts and unlinked memory as the separate legacy proven
   expect(await conversations.getTurnUserMessage(ctx, "attachment-source")).toBe("attachment-source question");
   expect((await memories.getRecordsByIds(ctx, ["attachment-source-memory", "text-source-memory", "unlinked-memory"]))).toHaveLength(3);
   expect((await embeddings.retrieve(ctx, [1, 0]))).toHaveLength(2);
+});
+
+it("retains canonical text receipts after equivalent JSON object reordering", async () => {
+  const reverseObjects = (value: unknown): unknown => Array.isArray(value) ? value.map(reverseObjects)
+    : value && typeof value === "object" ? Object.fromEntries(Object.entries(value).reverse().map(([key, item]) => [key, reverseObjects(item)])) : value;
+  const result = await database.client.execute("SELECT payload FROM outbox_events WHERE id='outbox_text-source'");
+  await database.client.execute({ sql: "UPDATE outbox_events SET payload=? WHERE id='outbox_text-source'", args: [JSON.stringify(reverseObjects(JSON.parse(String(result.rows[0]!.payload))))] });
+  expect(await conversations.getTurnUserMessage(ctx, "text-source")).toBe("text-source question");
+  expect((await memories.getRecordsByIds(ctx, ["text-source-memory"]))).toHaveLength(1);
+  expect((await embeddings.retrieve(ctx, [1, 0])).map(row => row.memoryId)).toContain("text-source-memory");
+});
+
+it("validates the complete source identity through native NUL text decoding", async () => {
+  const sourceTurnId = "prefix\0historical";
+  for (const id of ["prefix", sourceTurnId]) await conversations.acceptTurn(ctx, { turnId: id, sessionId: "session", idempotencyKey: id,
+    attemptId: `${id}-attempt`, message: { id: `${id}-input`, content: "native text" }, consumeInbox: false });
+  await memories.createRecord(ctx, { id: "native-memory", layer: "long_term", type: "user_fact", content: "native canary", sourceTurnId });
+  await embeddings.insertBatch(ctx, [{ id: "native-vector", memoryId: "native-memory", vector: [1, 0], modelId: "fixture" }]);
+  await corruptReceipt(database.client, sourceTurnId, receiptCorruptions.find(item => "historicalAttachmentRemoved" in item)!);
+  const boundary = nativeSqliteBoundary(database.client, { truncateNul: true });
+  const db = createInjectedDatabase(boundary.client);
+  const nativeMemories = new SqliteMemoryRepository(db, boundary.client);
+  const nativeEmbeddings = new SqliteMemoryEmbeddingRepository(db);
+  expect(await nativeMemories.getRecordsByIds(ctx, ["native-memory"])).toEqual([]);
+  expect((await nativeMemories.listRecordsByLayer(ctx, "long_term")).map(row => row.id)).not.toContain("native-memory");
+  expect((await nativeEmbeddings.retrieve(ctx, [1, 0])).map(row => row.memoryId)).not.toContain("native-memory");
+  expect((await memories.getRecord(ctx, "native-memory"))?.content).toBe("native canary");
+});
+
+it("denies an oversized present receipt without copying it through the native cursor", async () => {
+  const result = await database.client.execute("SELECT payload FROM outbox_events WHERE id='outbox_attachment-source'");
+  const original = JSON.parse(String(result.rows[0]!.payload));
+  const intent = { ...original.intent, metadata: { padding: "x".repeat(300_000) } };
+  const requestHash = turnIntentHash(intent);
+  await database.client.execute({ sql: "UPDATE turns SET request_hash=? WHERE id='attachment-source'", args: [requestHash] });
+  await database.client.execute({ sql: "UPDATE outbox_events SET payload=? WHERE id='outbox_attachment-source'", args: [JSON.stringify({ ...original, intent, requestHash })] });
+  const boundary = nativeSqliteBoundary(database.client);
+  const db = createInjectedDatabase(boundary.client);
+  const nativeConversations = new SqliteConversationRepository(db);
+  const nativeMemories = new SqliteMemoryRepository(db, boundary.client);
+  expect(await nativeConversations.getTurnUserMessage(ctx, "attachment-source")).toBeNull();
+  expect(await nativeConversations.isTurnInputPresent(ctx, "attachment-source")).toBe(false);
+  expect((await nativeMemories.getRecordsByIds(ctx, ["attachment-source-memory", "text-source-memory"])).map(row => row.id)).toEqual(["text-source-memory"]);
+  expect(await nativeConversations.getTurnUserMessage(ctx, "text-source")).toBe("text-source question");
+  expect(boundary.measurements.largestWindowBytes).toBeLessThan(1024 * 1024);
+});
+
+it("rejects a current Memory tombstone even while its stored embedding remains", async () => {
+  await database.client.execute("UPDATE memory_records SET is_deleted=1 WHERE id='text-source-memory'");
+  expect((await database.client.execute("SELECT count(*) AS total FROM memory_embeddings")).rows[0]?.total).toBe(2);
+  expect((await embeddings.retrieve(ctx, [1, 0])).map(row => row.memoryId)).toEqual(["attachment-source-memory"]);
 });

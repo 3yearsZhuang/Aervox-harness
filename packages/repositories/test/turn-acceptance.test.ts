@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createInMemoryDatabase, initDatabaseSchema, SqliteConversationRepository, SqliteAgentInboxRepository } from "../src/index.js";
 import { turnIntentHash } from "../src/conversation-turn-intent.js";
+import { createInjectedDatabase } from "../src/database.js";
+import { nativeSqliteBoundary } from "./helpers/native-sqlite-boundary.js";
 const ctx = { workspaceId: "local", subjectUserId: "local" };
 describe("atomic Turn acceptance", () => {
   let database: Awaited<ReturnType<typeof createInMemoryDatabase>>;
@@ -14,6 +16,30 @@ describe("atomic Turn acceptance", () => {
   });
   afterEach(async () => { await database.cleanup(); });
   const accept = (id = "t") => repo.acceptTurn(ctx, { turnId: id, sessionId: "s", idempotencyKey: "same", attemptId: `a_${id}`, message: { id: `m_${id}`, content: "current" }, consumeInbox: true });
+  it("restores the complete NUL Turn/session association through the native text boundary", async () => {
+    const sessionId = "session\0full";
+    const turnId = "turn\0full";
+    await repo.getOrCreateSession(ctx, "session");
+    await repo.getOrCreateSession(ctx, sessionId);
+    await repo.acceptTurn({ ...ctx, actorId: "actor\0full" }, { turnId, sessionId, idempotencyKey: turnId, attemptId: `${turnId}-attempt`,
+      message: { id: `${turnId}-input`, content: "question\0full" }, metadata: { note: "metadata\0full" }, toolApprovalMode: "full_access", consumeInbox: false });
+    const boundary = nativeSqliteBoundary(database.client, { truncateNul: true });
+    const nativeRepo = new SqliteConversationRepository(createInjectedDatabase(boundary.client));
+    await expect(nativeRepo.getAcceptedTurnParameters(ctx, turnId)).resolves.toEqual({
+      userMessage: "question\0full", metadata: { note: "metadata\0full" }, toolApprovalMode: "full_access", actorId: "actor\0full",
+    });
+  });
+
+  it("keeps NUL legacy inputs readable while refusing to invent an acceptance receipt", async () => {
+    await repo.getOrCreateSession(ctx, "session");
+    await repo.getOrCreateSession(ctx, "session\0legacy");
+    await repo.createTurnWithOutbox(ctx, { id: "legacy\0turn", sessionId: "session\0legacy", idempotencyKey: "legacy\0turn", status: "Completed" },
+      { id: "legacy\0input", content: "legacy\0question" });
+    const boundary = nativeSqliteBoundary(database.client, { truncateNul: true });
+    const nativeRepo = new SqliteConversationRepository(createInjectedDatabase(boundary.client));
+    expect(await nativeRepo.getTurnUserMessage(ctx, "legacy\0turn")).toBe("legacy\0question");
+    await expect(nativeRepo.getAcceptedTurnParameters(ctx, "legacy\0turn")).rejects.toMatchObject({ reason: "intent_unavailable" });
+  });
   it.each(["BEFORE INSERT ON turns", "BEFORE INSERT ON message_versions", "BEFORE INSERT ON outbox_events", "BEFORE INSERT ON turn_attempts", "BEFORE UPDATE ON agent_inbox_items"])("%s failure leaves input replayable and no partial Turn", async (point) => {
     await database.client.execute(`CREATE TRIGGER fail_accept ${point} BEGIN SELECT RAISE(ABORT, 'injected'); END`);
     await expect(accept()).rejects.toMatchObject({ cause: expect.objectContaining({ message: expect.stringContaining("injected") }) });

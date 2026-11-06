@@ -6,6 +6,8 @@ import { assertConversationExecutionPolicy } from "../../conversation-execution-
 import { derivableConversationTurn } from "./conversation/source-visibility.js";
 import type { LocalContext } from "../../local-context.js";
 import type { SessionHistoryMessage } from "../types/index.js";
+import type { ConversationCryptoPort } from "../../conversation-host-port.js";
+import { admitsSourceTurn } from "../../attachment-source-admission.js";
 
 const MAX_HISTORY_TURNS = 20;
 const MAX_HISTORY_CHARACTERS = 32_000;
@@ -33,11 +35,12 @@ export async function readSessionHistory(
   db: AervoxDatabase,
   _ctx: LocalContext,
   input: { sessionId: string; beforeTurnId: string },
+  crypto?: Pick<ConversationCryptoPort, "sha256Utf8">,
 ): Promise<SessionHistoryMessage[]> {
-  return db.transaction(tx => readHistorySnapshot(tx, input));
+  return db.transaction(tx => readHistorySnapshot(tx, input, crypto));
 }
 
-async function readHistorySnapshot(db: Reader, input: { sessionId: string; beforeTurnId: string }): Promise<SessionHistoryMessage[]> {
+async function readHistorySnapshot(db: Reader, input: { sessionId: string; beforeTurnId: string }, crypto?: Pick<ConversationCryptoPort, "sha256Utf8">): Promise<SessionHistoryMessage[]> {
   const [current] = await db.select({
     position: sql<number>`rowid`,
     idempotencyKey: sql<string>`json_quote(${turns.idempotencyKey})`.mapWith(parse<string>),
@@ -89,7 +92,7 @@ async function readHistorySnapshot(db: Reader, input: { sessionId: string; befor
   let remaining = MAX_HISTORY_CHARACTERS;
   for (const turn of previous) {
     const source = sourceByTurn.get(turn.id);
-    if (!source || source.isRedacted !== 0) continue;
+    if (!source || source.isRedacted !== 0 || !await admitsSourceTurn(db, turn.id, crypto)) continue;
     const turnEvents = eventsByTurn.get(turn.id) ?? [];
     if (unsafeDurableTurnIds.has(turn.id)
       || turnEvents.some(event => event.eventType === "redacted" || event.safetyDecision === "blocked" || event.safetyDecision === "redacted")) continue;

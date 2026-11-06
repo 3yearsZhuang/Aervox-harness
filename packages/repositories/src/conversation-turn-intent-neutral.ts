@@ -64,6 +64,32 @@ export function turnIntentHashWithHost(intent: NormalizedTurnIntent, crypto: Pic
   return `turn-intent-v1:${conversationSha256(crypto, JSON.stringify(json(intent)))}`;
 }
 
+export interface AcceptedTurnReceiptSource {
+  turnId: string;
+  sessionId: string;
+  executionPolicy: string;
+  requestHash: string | null;
+}
+
+/** Validate the exact persisted receipt, with the same versioned identity used at
+ * acceptance. Callers own the source/body snapshot and structural admission; no
+ * cached verdict or transport parameters substitute for this raw receipt. */
+export function readAcceptedTurnIntent(
+  rawReceipt: string,
+  source: AcceptedTurnReceiptSource,
+  crypto: Pick<ConversationCryptoPort, "sha256Utf8">,
+): NormalizedTurnIntent {
+  const payload = JSON.parse(rawReceipt) as { turnId?: unknown; sessionId?: unknown; intent?: NormalizedTurnIntent; requestHash?: unknown } | null;
+  if (!source.requestHash || !/^turn-intent-v1:[a-f0-9]{64}$/.test(source.requestHash)
+    || !payload?.intent || payload.turnId !== source.turnId || payload.sessionId !== source.sessionId
+    || payload.requestHash !== source.requestHash || payload.intent.version !== 1
+    || payload.intent.sessionId !== source.sessionId || payload.intent.executionPolicy !== source.executionPolicy
+    || turnIntentHashWithHost(payload.intent, crypto) !== source.requestHash) {
+    throw new Error("invalid_acceptance_receipt");
+  }
+  return payload.intent;
+}
+
 /** Rendering is separate from identity: Inbox messages are merged only after hashing. */
 export function renderTurnIntentMessage(intent: NormalizedTurnIntent): string {
   if (!intent.message.attachments.length) return intent.message.content;

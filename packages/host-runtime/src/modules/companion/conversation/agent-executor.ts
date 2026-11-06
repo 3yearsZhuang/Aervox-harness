@@ -621,17 +621,17 @@ export async function runLoopTurnOnce(
     personaAllowedSkills && deps.skills
       ? deps.skills.filter((s) => personaAllowedSkills.includes(s.name))
       : deps.skills;
-  let history: ReturnType<SqliteConversationRepository["getSessionHistory"]> | undefined;
-  let memoryContext: Promise<string | null> | undefined;
   let contextBuilder = createComposedContextBuilder({
     inbox: !bot,
     base: {
       async build(context) {
-        history ??= repo.getSessionHistory(tenant, {
+        // Tool/model awaits can change source admission. Read current receipt
+        // proofs and bodies on every model-context build, not once per Turn.
+        const history = repo.getSessionHistory(tenant, {
           sessionId: input.sessionId,
           beforeTurnId: input.turnId,
         });
-        memoryContext ??= deps.memoryRecall
+        const memoryContext = deps.memoryRecall
           ? deps.memoryRecall.recall(tenant, input.userMessage)
               .then(buildMemoryContext)
               .catch(() => null)

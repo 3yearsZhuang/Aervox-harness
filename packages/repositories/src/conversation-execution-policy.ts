@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import { sessions, turns, type ConversationExecutionPolicy, type TurnDispatchTarget } from "@aervox/schema";
 import type { AervoxDatabase } from "./client.js";
-import { unverifiedAttachmentTurn } from "./attachment-source-admission.js";
+import { admitsSourceTurn, unverifiedAttachmentTurn } from "./attachment-source-admission.js";
+import type { ConversationCryptoPort } from "./conversation-host-port.js";
 
 /** A missing or future persisted policy is never interpreted as a local conversation. */
 export function assertConversationExecutionPolicy(value: unknown): asserts value is ConversationExecutionPolicy {
@@ -24,6 +25,7 @@ export function canUsePersonalDerivedData(policy: ConversationExecutionPolicy): 
 export async function assertPersonalDerivedDataSource(
   db: Pick<AervoxDatabase, "select">,
   sourceTurnId: string | null | undefined,
+  crypto?: Pick<ConversationCryptoPort, "sha256Utf8">,
 ): Promise<void> {
   if (!sourceTurnId) return;
   const [source] = await db.select({
@@ -34,7 +36,8 @@ export async function assertPersonalDerivedDataSource(
   if (!source) throw new Error("personal_derived_data_source_unavailable");
   assertConversationExecutionPolicy(source.turnPolicy);
   assertConversationExecutionPolicy(source.sessionPolicy);
-  if (source.turnPolicy !== source.sessionPolicy || !canUsePersonalDerivedData(source.turnPolicy) || source.unverifiedAttachments !== 0) {
+  if (source.turnPolicy !== source.sessionPolicy || !canUsePersonalDerivedData(source.turnPolicy) || source.unverifiedAttachments !== 0
+    || !await admitsSourceTurn(db, sourceTurnId, crypto)) {
     throw new Error("personal_derived_data_source_forbidden");
   }
 }
