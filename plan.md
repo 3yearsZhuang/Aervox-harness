@@ -105,15 +105,16 @@
 
 | 插件声明 | 尚缺执行接线的精确工具名 | 已有能力与保留边界 |
 |---|---|---|
-| [Anki](plugins/plugins/tool/anki-sync/plugin.manifest.json) | `anki_import_deck` | `anki_list_providers` 已接到真实题库注册表与 HostToolRuntime（本地验证，待配对 PR）；CSV/TSV/JSON 已有宿主导入入口，本地导入不等于 OAuth、增量同步、冲突及撤权闭环 |
+| [Anki](plugins/plugins/tool/anki-sync/plugin.manifest.json) | `anki_import_deck` | `anki_list_providers` 已接到真实题库注册表与 HostToolRuntime（配对 PR #14/#368 候选）；CSV/TSV/JSON 已有宿主导入入口，本地导入不等于 OAuth、增量同步、冲突及撤权闭环 |
 | [OCR](plugins/plugins/tool/multimodal-ocr/plugin.manifest.json) | `ocr_parse_attachment` | 实际附件解析由 ITER-076 闭合，不能接到 Mock 后宣称完成 |
-| [日记风格](plugins/plugins/workflow/diary-distillers/plugin.manifest.json) | `diary_generate_styled` | `diary_list_styles` 已接到真实风格注册表与 HostToolRuntime（本地验证，待配对 PR）；生成继续使用已有 `styleId` 入口，不另写日记事实 |
+| [日记风格](plugins/plugins/workflow/diary-distillers/plugin.manifest.json) | `diary_generate_styled` | `diary_list_styles` 已接到真实风格注册表与 HostToolRuntime（配对 PR #14/#368 候选）；生成继续使用已有 `styleId` 入口，不另写日记事实 |
 | [Home Assistant](plugins/plugins/tool/home-assistant/plugin.manifest.json) | `homeassistant_call_service`、`homeassistant_get_state` | 已有另名 `ha_*` 内置工具，明确受信映射与参数差异，真实平台验收仍保留 |
 | [小米健康](plugins/plugins/sync/xiaomi-health/plugin.manifest.json) | `xiaomi_health_sync_daily` | 已有 `health_get_*` 只读工具；同步写入、厂商账号资格和副本删除须分别取证 |
 
 - **首个工具切片（2026-11-06，本地实施）：** 两个插件的受信 `/server` 包与 Manifest/SKILL/README 统一为 `1.1.0`，通过可选 catalog 窄口读取真实元数据；宿主出厂发现同步登记 Manifest 工具，按同版 Manifest 与安装 version/checksum 绑定精确 ID，只读 handler 复用 Core HostToolRuntime。直接调用和模型入口共用纯判定与一次组合 SELECT，入场固定生命周期及授权 ID，返回快照按原身份复验；相关有效授权最多 256 行，超预算拒绝，NUL 文本与整数身份精确往返。权限按 SQL 快照读取时点观察，取得快照至调用方收到结果之间仍有并发窗口，不承诺墙钟即时强撤权。缺端口不贡献工具，缺配置仍可读，不创建 Turn、审批、业务事实或外部网络请求。
 - **本地证据：** Node `24.21.0` 子进程下，[直接/模型组合快照回归](packages/host-runtime/test/plugin-runtime-catalogs.test.ts) 33 项及既有绑定/审批合计 84 项通过，两插件 8 项通过；[真实 API 同源调用](apps/api/test/plugin-runtime-catalogs.test.ts) 与相关 API 36 项通过，最终精确调用复验通过。Repositories、Host Plugin API、Host Runtime、API 构建/类型检查、20 项分发/子模块/可移除回归、边界/纯净/工作区覆盖、插件作者可重现打包、文档与 frozen install 均通过。独立源码复审、33 项回归及最后模型快照前改权限的反例单独复验通过。配对 PR、最终 gitlink、远端冷检出和正式发布验收仍待完成，本条未关闭。
 - **联合终审（2026-11-06 至 2026-11-07）：** 最终组合为宿主 `255e671c` 与插件 gitlink `b06e9720`，已合入宿主主线 `7886042f` 和插件主线 `86ea6995`；可选插件合同、资源探针、冷检出守卫与删除账本诊断均进入组合。`./aervox ci all` 全部通过，覆盖 Host Runtime 365、API 1027、Repositories 962、Worker 177 项测试，以及删除故障、Rust 原生和 68 份文档门禁；DSH 真实模型与未构建参考库产物的两个条件分支跳过，不作为本切片验收证据。首次联合门禁在 `07863b0b` 发现新插件缺架构归属、会话总出口形成运行时依赖环，未通过；已有声明准备、scope 与进程修订函数原样抽到共享叶文件，精确登记两插件对 Core/Host Plugin API 的依赖，未增加环豁免或执行器，`0539bdd8` 独立差量复审和此前完整门禁通过。配对 PR、公开宿主 SHA 对应的插件 CI pin 和远端冷检出仍待验证。
+- **首页组合复验（2026-11-07）：** [主仓 PR #362](https://github.com/3yearsZhuang/Aervox-harness/pull/362) 已按精确提交 `85e1d8ae` 的 10 项远端成功检查合入 `4ae535c7`，固定首页集合 `bad07ef7`。只读工具候选吸收这组已审主线，宿主 `585c791b` 与集合 `fcfc4aa4` 的 frozen install、`./aervox ci all`、10 个插件分发包和全部插件预检通过，覆盖 API 1029、Repositories 964、Host Runtime 365、Worker 177 项；手机/Web 两个 Chromium 首页回归通过，DSH 两个既有条件跳过保留。[集合 PR #14](https://github.com/Aervox-agent/Aervox-plugins/pull/14) 与 [主仓 PR #368](https://github.com/3yearsZhuang/Aervox-harness/pull/368) 继续按公开兼容 Host、集合先合入、主仓固定最终 gitlink 的顺序交付；旧候选 `bdce8a8c` 的 10 项远端检查不能替代新组合检查。
 - **余下声明：** 本切片后保留 6 个未接线工具；按个人助手场景逐个补写，不关闭整项。插件目前的 desktop/web/cli 声明不等于 mobile 可用，新增 mobile 目标须有实际组合根接线和兼容版本决定。
 - **实施与依赖：** 逐个确定声明到现有领域/受信 handler 的映射，统一 Manifest、SKILL、配置、参数和结果；未接通时显示实际不可用并纠正支持说明。依赖 ITER-071 工具身份与审批代际、ITER-006/013 权限和撤权、ITER-003 数据删除；不靠开放任意第三方代码补齐第一方工具。
 - **退出条件：** 8 个声明分别提供真实调用结果或明确的暂缓/取消决定；实现缺席不得虚报可用。已接通项验证实际结果与持久副作用、失败/取消、重复请求，以及停用/换代/撤权后旧调用拒绝。以宿主内置入口可用替代精确声明兑现时，须同步清单与兼容决定，不能静默重命名或重复注册。
