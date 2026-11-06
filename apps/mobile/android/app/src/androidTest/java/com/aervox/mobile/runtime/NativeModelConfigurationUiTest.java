@@ -308,7 +308,15 @@ public final class NativeModelConfigurationUiTest {
                 directForm.dialog.getWindow().getAttributes().softInputMode & WindowManager.LayoutParams.SOFT_INPUT_MASK_ADJUST);
             directForm.fieldError(directForm.keyLayout, directForm.key, R.string.native_model_error_key);
         });
-        awaitCondition(() -> onMain(() -> directForm.scroll.getScrollY() > 0));
+        // A positive offset is only the first frame of a smooth scroll. Wait for
+        // the focused input to actually enter the resized visible viewport.
+        awaitCondition(() -> onMain(() -> {
+            Rect viewport = new Rect(), input = new Rect();
+            return directForm.scroll.getScrollY() > 0
+                && directForm.scroll.getGlobalVisibleRect(viewport)
+                && directForm.key.getGlobalVisibleRect(input)
+                && Rect.intersects(viewport, input);
+        }));
         main(() -> {
             assertTrue(directForm.key.isFocused());
             Rect scroll = new Rect(), key = new Rect();
