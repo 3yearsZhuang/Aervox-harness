@@ -21,6 +21,7 @@ type PendingRow = typeof pendingUserQuestions.$inferSelect;
 const toModel = (row: PendingRow): PendingUserQuestionModel => ({
   turnId: row.turnId,
   attemptId: row.attemptId,
+  invocationId: row.invocationId,
   step: row.step,
   questions: row.questionsJson,
   timeoutMs: row.timeoutMs,
@@ -37,6 +38,7 @@ export class SqliteUserQuestionRepository implements IUserQuestionRepository {
       .values({
         turnId: input.turnId,
         attemptId: input.attemptId,
+        invocationId: input.invocationId ?? null,
         step: input.step,
         questionsJson: input.questions,
         timeoutMs: input.timeoutMs,
@@ -47,6 +49,7 @@ export class SqliteUserQuestionRepository implements IUserQuestionRepository {
         target: pendingUserQuestions.turnId,
         set: {
           attemptId: input.attemptId,
+          invocationId: input.invocationId ?? null,
           step: input.step,
           questionsJson: input.questions,
           timeoutMs: input.timeoutMs,

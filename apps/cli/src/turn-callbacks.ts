@@ -90,7 +90,11 @@ export function createTurnCallbacks(options: TurnCallbackOptions): TurnCallbacks
           const answer = await prompter.prompt(`${question.question}${optionsList ? `（${optionsList}）` : ''}\n回答 > `, currentSignal);
           answers.push({ id: question.id, selected: [], custom: answer });
         }
-        await transport.submitQuestionAnswers(turnId, answers, currentSignal);
+        await transport.submitQuestionAnswers(turnId, answers, currentSignal, {
+          attemptId: typeof data.attemptId === 'string' ? data.attemptId : undefined,
+          invocationId: typeof data.invocationId === 'string' ? data.invocationId : undefined,
+          step: typeof data.step === 'number' ? data.step : undefined,
+        });
         await view?.wait();
       }
     },

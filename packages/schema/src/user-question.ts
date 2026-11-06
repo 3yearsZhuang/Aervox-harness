@@ -22,6 +22,8 @@ export const pendingUserQuestions = sqliteTable(
     /** 超时语义唯一真源：createdAt + timeoutMs */
     expiresAt: text("expires_at").notNull(),
     createdAt: text("created_at").notNull(),
+    /** Original tool invocation; legacy rows retain NULL without guessed backfill. */
+    invocationId: text("invocation_id"),
   },
   (table) => ({
     localExpiresIdx: index("pending_user_questions_local_expires_idx").on(table.expiresAt),
