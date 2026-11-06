@@ -7,6 +7,8 @@ id: AVX-DB-001
 本文规定 Aervox 持久化层的目标契约、机器事实源、关键不变量、破坏性迁移协议和发布门禁。
 表结构与字段的唯一目标真源是 `packages/schema/src/*.ts`，由仓储的 Schema manifest 编译实际 SQLite 建库语句；本文不复制每张表的完整定义。历史手写 DDL 仅保留为旧库升级测试夹具，不能继续维护第二套目标结构。
 
+维护者已要求新增可选 PostgreSQL 主库插件，包含现有 SQLite 数据迁移及自管本机/远程连接；[ADR-034](adr/ADR-034-postgresql-database-plugin.md)记录拟议合同差量，[ITER-078](../../plan.md#iter-078)协调实施。当前未提供 PostgreSQL 后端或跨引擎迁移，主动数据去向仍待裁定；本页继续定义现行 SQLite 行为。
+
 > [!IMPORTANT]
 > `CR-030`（已归档） 的决策为 Accepted、交付状态为
 > Implemented。最终 Schema/DDL 和数据库消费者已完成去租户化；`LocalContext` 仅作为不参与持久化的

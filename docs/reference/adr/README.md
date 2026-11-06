@@ -44,6 +44,7 @@ ADR 中带日期的背景、实施进展和验收差距是对应时点的记录�
 - [ADR-031](ADR-031-first-party-plugin-repositories.md)：第一方插件组织仓库、受信构建与跨仓兼容。
 - [ADR-032](ADR-032-plugin-ecosystem-standard.md)：插件生态标识、分类、Registry、发布与显式身份迁移。
 - [ADR-033](ADR-033-assistant-positioning.md)：产品定位为主动个人助手，学习域为首批验证切片。
+- [ADR-034](ADR-034-postgresql-database-plugin.md)：PostgreSQL 主库配置插件、SQLite 迁移及待裁定的隐私数据去向。
 
 ## 原 CR 编号迁移索引
 

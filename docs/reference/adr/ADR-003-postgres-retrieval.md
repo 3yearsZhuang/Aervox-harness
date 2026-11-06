@@ -5,6 +5,8 @@ decision_status: accepted
 
 # ADR-003 仓储抽象架构：SQLite 业务真源与 FTS5/Vector Port
 
+维护者已要求重新引入可选 PostgreSQL 主库、现有 SQLite 迁移与自管本机/远程连接；拟议差量见 [ADR-034](ADR-034-postgresql-database-plugin.md)，由 [ITER-078](../../../plan.md#iter-078) 协调。该后端尚未实现，主动数据去向待裁定；下文保留现行实现与原决定，不能据提案认为数据库切换已经可用。
+
 - 状态：Accepted（经 `CR-030`（已归档） 修订）
 - 日期：2026-08-24
 - 关联：`CAP-005/015/026/027`、`DATA-MEM-001`、`NFR-SCALE-001`、`ADR-008`、`CR-030`
