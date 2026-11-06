@@ -255,7 +255,7 @@ describe('Real SFC Component Mounting', () => {
     ]);
 
     const mockContext = {
-      conversation: { activeQuestion: ref(null), questionSubmitting: ref(false), handleQuestionSubmit: vi.fn() },
+      conversation: { activeQuestion: ref(null), questionSubmitting: ref(false), questionSubmissionIssue: ref(undefined), handleQuestionSubmit: vi.fn() },
       layout: {
         companionDisplayName: ref('思隅'),
       },
