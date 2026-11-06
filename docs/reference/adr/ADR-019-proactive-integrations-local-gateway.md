@@ -27,6 +27,8 @@ decision_status: accepted
 
 API 本地进程承载 `ProactiveIntegrationManager`。Home Assistant 使用 REST 执行同步/读取/服务调用，使用 WebSocket 订阅 `state_changed`；只接受私网、回环或 `.local` 地址，拒绝 redirect。实体目录默认禁用，用户逐实体启用并设置允许的 service；`ha_call_service` 还必须通过 `ProactiveActionAuthorizer` 的 `action.external` 校验。
 
+Home Assistant 单实体状态读取在发起 HTTP 前捕获一次进程内许可，绑定原连接、实体策略、来源与必需来源的授权版本，以及原激活租约的 ID/epoch。响应到达后，以一个条件 SQLite UPDATE 同时复验当前资格与原许可，再只更新状态缓存；不插入实体或覆盖启用、服务白名单和敏感标记。来源变更、画像暂停/恢复、租约结束/复用及就绪或完全访问状态变化使既有许可失效。连接重建、状态变更和实体策略变更在各自写者边界更换连接拥有的内部随机代际；调用方设置不能复用该值，公开 DTO 与业务导出不包含它。网络请求位于事务外；该条件写入是结果准入点，写入提交至 HTTP 送达仍有观察窗口。
+
 小米运动健康使用可配置的 HTTPS OAuth2/Token 适配器，支持 Access Token、Refresh Token 和用户自己的 Client 配置。只保存按日规范化的步数、睡眠分钟和静息心率，不保存完整供应商响应；不采用逆向协议，也不声称厂商审批。
 
 两类连接统一存入 `proactive_external_connections`，凭据和私密设置使用 CAP-033 Vault cipher。连接撤销采用先停用运行时、再删除凭据与缓存的顺序。Worker 只消费规范化本地投影，生成十二项能力结果；外部调用失败按连接隔离并记录无凭据错误摘要。
@@ -34,7 +36,7 @@ API 本地进程承载 `ProactiveIntegrationManager`。Home Assistant 使用 RES
 ## Positive consequences
 
 - 模型只看到授权后的结构化工具和结果，不接触 Token；
-- HA 的感知面和执行面复用同一实体白名单，撤销立即收敛；
+- HA 的感知面和执行面复用同一实体白名单，状态读取在缓存写入处复验原授权；
 - 健康信号能进入注意力、触发和回顾，但不复制原始云响应；
 - 外部连接可独立失败、同步和删除。
 
@@ -51,8 +53,8 @@ API 本地进程承载 `ProactiveIntegrationManager`。Home Assistant 使用 RES
 
 ## Verification evidence
 
-- `apps/api/test/proactive-integrations.test.ts`：凭据不回显、HA 白名单与动作审计、小米健康同步、工具注册和撤销删除；
+- `apps/api/test/proactive-integrations.test.ts`：凭据不回显、HA 白名单与动作审计、小米健康同步、工具注册和撤销删除，以及真实本地 HTTP/SQLite 的迟到读取与同时间戳撤销后恢复回归；
 - `apps/api/test/proactive-integration-spi.test.ts`：验证 `ProactiveIntegrationProvider` SPI 扩展性与第三方 Provider 动态注册/同步分发；
 - `apps/worker/test/proactive-intelligence-worker.test.ts`：十二项能力及日/周回顾；
-- `packages/repositories/test/proactive-intelligence.test.ts`：字段加密、HA/健康仓储和导出；
+- `packages/repositories/test/proactive-intelligence.test.ts`：字段加密、HA/健康仓储和导出、内部代际不回显与设置重放拒绝、读取许可单次准入；
 - Contracts OpenAPI 生成与 Database/API/Worker/UI/Desktop typecheck。

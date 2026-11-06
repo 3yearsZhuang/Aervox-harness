@@ -356,6 +356,12 @@ CAP-033 的后台主动动作仍复用本管线，但授权来源改为用户确
 
 预算可以按 token、费用、时间、工具调用次数和并发分别限制。任何限额触发都必须写入 Attempt/Step 终止原因和审计，不得只输出一条自然语言提示。
 
+Node Host 在组合根创建一个共享上游模型流 owner，通过同一配置 Provider factory 覆盖主对话、审批续跑、子任务、恢复、插件 `TurnLlmPort` 及日记/学习/主动领域生成。`AERVOX_MODEL_STREAM_CONCURRENCY` 默认 4，启动时只接受 1～32 的十进制安全整数；该默认值是保护值，尚无真实设备吞吐基线。实际第一次拉取流时取得名额，超额以 `ModelStreamAdmissionError` 立即拒绝，不维护等待队列；稳定错误消息为 `model_stream_limit`，关闭后的请求为 `model_stream_closed`。原生 Loop 沿现有原子失败入口更新 Turn/Attempt 的 Failed 状态并持久化一个 `error` 终态事件，ModelRun 标记失败且不补造 usage；此入口不另写 `Turn.error` 或追加 `done`。Core 对通用 Provider 失败的结果 reason 仍为 `execution error`，事件 code 沿用 `MODEL_UNAVAILABLE`，类上的专用 code 尚未贯通 Core 终态。调用方可依据持久错误提示稍后重试，不把本次受理视为排队等待。
+
+取消调用者不等于上游资源已退出。名额在底层 iterator 确认 EOF，或在取消/消费者退出后其实际 `next` 与 `return` 均结束且清理确认时释放；清理拒绝、未确认终止或无法结束的流继续占用名额。确认点依赖 Provider 的 iterator 合同，不承诺其内部 reader/socket 释放与该点原子重合；真实 HTTP 回归另行观察服务端连接排空。Host 关闭先中止会话控制上下文，再撤销模型准入并取消已持有的流；owner 默认等待 20 秒，未确认排空返回 `model_stream_drain_unconfirmed`，不以调用者已中止报告成功。已取消流的迟到完成可以释放旧名额，但关闭后不恢复准入。资源生命周期与真实回环 HTTP 证据见[资源回归](../../packages/host-runtime/test/model-stream-resources.test.ts)和[共享 Host 回归](../../packages/host-runtime/test/model-stream-host.test.ts)。
+
+这个 owner 只限制一个 Node Host 中经配置 factory 实际消费的上游模型流，API 与 Worker 各自持有独立总量。回放/脚本/规则回应不占上游名额；Turn 受理与准备、SSE 观察连接、Embedding、连接探针、DSH 进程外 Agent 模型和 Core headless 宿主不受此计数约束。`WORKER_TURN_CONCURRENCY` 继续限制委托批次，不与模型名额嵌套取锁；全机资源优先级、跨进程总量和全部写者排空沿 ITER-013 继续验收。
+
 原生执行路径使用 `ControlContext`（BTD-05 统一控制）：模型请求（含重试）与工具派发共享调用预算；子任务继承父截止、本地处理限制和剩余额度，子任务消耗回记父级，额外取消信号与父信号合并。Token 执行预算是保守准入/消费限额：输入消息和工具定义、输出正文/思考/工具请求先按 UTF-8 字节计量，Provider 累计 `totalTokens` 只可向上补记；它不等同供应商账单。OpenAI 兼容 Provider 同时收到剩余 `max_tokens`。零额或不足以容纳输入时不派发，流式超额中断并写明原因。没有设置预算时沿用原行为；费用、模型窗口和动态授权修订的全量验收仍在原队列。
 
 `SessionLedgerPort` 仅选取状态/事件方法，工具副作用和模型遥测仍属执行 Port。API 组合根选择 SQLite；Core 的 headless/内存示例证明库可以独立运行，连接版 `apps/cli` 则消费本机 API，两者不是同一宿主形态。原生 Loop 及 Adapter 的执行终态通过带 fencing 的原子提交更新 Turn、Attempt 和终止事件；CAS 失败不由 API 补写覆盖。当前 Adapter 尚无预算/本地策略协商能力，对这些约束明确拒绝派发，不能静默忽略。

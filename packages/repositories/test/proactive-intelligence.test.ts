@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Client } from "@libsql/client";
+import { FULL_PROFILE_SOURCE_MANIFEST } from "@aervox/schema";
 import {
   createInMemoryDatabase,
   createProactiveVaultCipher,
   initDatabaseSchema,
   SqliteProactiveIntelligenceRepository,
+  SqliteProactiveProfileRepository,
   type AervoxDatabase,
 } from "../src/index.js";
 
@@ -157,6 +159,68 @@ describe("proactive intelligence repository", () => {
     expect(String(raw.rows[0]?.credential_json)).toMatch(/^avxenc:v1:/);
     expect(String(raw.rows[0]?.credential_json)).not.toContain("mi-secret-token");
     expect((await repo.listConnections(ctx))[0]).not.toHaveProperty("credential");
+  });
+
+  it("keeps the writer's connection generation out of DTOs and exports and replaces replayed settings", async () => {
+    const cipher = createProactiveVaultCipher(new Uint8Array(32).fill(6), "intelligence-test");
+    const input = {id: "conn_nonce", revisionId: "profile_1", provider: "home_assistant",
+      displayName: "Home", endpoint: "http://127.0.0.1:8123", authType: "llat",
+      credential: {accessToken: "test-token"}, settings: {subscriptionEnabled: false}};
+    const first = await repo.upsertConnection(ctx, input);
+    async function storedGeneration() {
+      const raw = (await client.execute("SELECT settings_json FROM proactive_external_connections WHERE id = 'conn_nonce'")).rows[0]!;
+      return JSON.parse(cipher.decrypt(String(raw.settings_json), "connection:conn_nonce"))["__aervox_connection_generation"];
+    }
+    const generation = await storedGeneration();
+    expect(generation).toEqual(expect.any(String));
+    expect(first.settings).toEqual(input.settings);
+    expect((await repo.getConnectionSecret(ctx, first.id))?.settings).toEqual(input.settings);
+    expect((await repo.exportSnapshot(ctx)).connections[0]?.settings).toEqual(input.settings);
+    const reconnected = await repo.upsertConnection(ctx, {...input,
+      settings: {...first.settings, __aervox_connection_generation: generation}});
+    expect(reconnected.settings).toEqual(input.settings);
+    expect(await storedGeneration()).not.toBe(generation);
+    const secondGeneration = await storedGeneration();
+    const exported = (await repo.exportSnapshot(ctx)).connections[0]!;
+    await repo.upsertConnection(ctx, {...input, settings: exported.settings});
+    expect(await storedGeneration()).not.toBe(secondGeneration);
+    let currentGeneration = await storedGeneration();
+    for (const state of ["revoked", "active"]) {
+      const changed = await repo.updateConnectionState(ctx, input.id, state);
+      expect(changed?.settings).toEqual(input.settings);
+      expect(await storedGeneration()).not.toBe(currentGeneration);
+      currentGeneration = await storedGeneration();
+    }
+  });
+
+  it("publishes concurrent authorized reads and rejects forged or reused Home Assistant permits", async () => {
+    const profiles = new SqliteProactiveProfileRepository(db);
+    const {revision, sources} = await profiles.confirmProfile(ctx, {
+      id: "profile_read", deviceId: "device_read", actorId: "local",
+      sources: FULL_PROFILE_SOURCE_MANIFEST.map((source, index) => ({...source,
+        id: `source_read_${index}`, scope: "all", state: "granted" as const, mandatory: true})),
+    });
+    await profiles.createActivationLease(ctx, {id: "lease_read", revisionId: revision.id,
+      deviceId: "device_read", epoch: "epoch_read", localReady: true, fullAccessSnapshot: true, actorId: "local"});
+    await repo.upsertConnection(ctx, {id: "conn_read", revisionId: revision.id,
+      provider: "home_assistant", displayName: "Home", authType: "llat", credential: {accessToken: "test-token"}});
+    await repo.upsertHomeEntity(ctx, {id: "entity_read", connectionId: "conn_read", entityId: "light.study",
+      domain: "light", enabled: true, allowedOps: ["turn_on"], state: {state: "off"}});
+    await client.execute("UPDATE proactive_home_entities SET updated_at = '2026-01-01T00:00:00.000Z' WHERE id = 'entity_read'");
+    const read = {connectionId: "conn_read", entityId: "light.study",
+      revisionId: revision.id, sourceGrantId: sources.find(source => source.sourceKey === "device.sensors")!.id};
+    const permit = await repo.beginHomeStateRead(ctx, read);
+    const peerPermit = await repo.beginHomeStateRead(ctx, read);
+    expect(permit).not.toBeNull();
+    expect(peerPermit).not.toBeNull();
+    const publication = {state: {state: "on"}, lastSeenAt: new Date().toISOString()};
+    expect(await repo.publishHomeStateRead(ctx, {...permit!}, publication)).toBe(false);
+    expect(await repo.publishHomeStateRead(ctx, permit!, publication)).toBe(true);
+    expect(await repo.publishHomeStateRead(ctx, peerPermit!, publication)).toBe(true);
+    expect(await repo.publishHomeStateRead(ctx, permit!, {state: {state: "off"}, lastSeenAt: publication.lastSeenAt})).toBe(false);
+    expect(await repo.getHomeEntity(ctx, "conn_read", "light.study")).toMatchObject({
+      state: {state: "on"}, enabled: true, allowedOps: ["turn_on"],
+    });
   });
 
   it("批量时间线写入按 checksum 幂等，并准确返回新增行", async () => {

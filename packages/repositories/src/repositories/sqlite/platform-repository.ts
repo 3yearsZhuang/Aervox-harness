@@ -313,8 +313,10 @@ export class SqlitePlatformRepository implements IPlatformRepository {
         purpose: manifestData.purpose,
         sourceArtifactId: manifestData.sourceArtifactId,
         sourceRevisionId: manifestData.sourceRevisionId,
-        selectionReason: manifestData.selectionReason ?? null,
-        permissionSnapshot: manifestData.permissionSnapshot ?? null,
+        // The conversation sentinel has no per-source permission proof. Its
+        // free-form annotations must not become another copy of prompt bodies.
+        selectionReason: manifestData.sourceArtifactId === "turn:history" ? null : manifestData.selectionReason ?? null,
+        permissionSnapshot: manifestData.sourceArtifactId === "turn:history" ? null : manifestData.permissionSnapshot ?? null,
         snapshotJson: contextRequestMetadata(manifestData.snapshot),
         tokenBudget: manifestData.tokenBudget ?? null,
         createdAt: new Date().toISOString(),

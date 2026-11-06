@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { abortableStream, awaitWithSignal, defaultModelProviderRegistry, type ModelProviderPort, type ModelProviderRegistryPort } from "@aervox/core";
+import { abortableStream, awaitWithSignal, type ModelProviderPort } from "@aervox/core";
 import type { LocalContext } from "@aervox/repositories";
 import type { LLMConfigPort } from "./index.js";
-import { createConfiguredModelProvider } from "./provider-config.js";
+import type { ConfiguredProviderFactoryPort } from "./provider-factory.js";
 
 export interface ModelGenerationInput {
   context: LocalContext;
@@ -62,13 +62,13 @@ export async function generateModelText(provider: ModelProviderPort, input: Omit
 /** One owner for provider selection and one-shot generation; domains only supply prompts. */
 export function createModelGenerationPort(
   source: Pick<LLMConfigPort, "getConfig">,
-  registry: ModelProviderRegistryPort = defaultModelProviderRegistry,
+  factory: ConfiguredProviderFactoryPort,
 ): ModelGenerationPort {
   return {
     async generate(input) {
       input.signal?.throwIfAborted();
       const config = await awaitWithSignal(source.getConfig(input.context), input.signal);
-      const provider = createConfiguredModelProvider(config, { localOnly: input.localOnly, requireLocalProvider: true }, registry);
+      const provider = factory.create(config, { localOnly: input.localOnly, requireLocalProvider: true });
       return generateModelText(provider, input);
     },
   };

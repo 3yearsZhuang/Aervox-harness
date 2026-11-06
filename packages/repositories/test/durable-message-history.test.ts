@@ -160,6 +160,41 @@ describe("accepted conversation message history", () => {
       pluginGeneration: { pluginId: "hook", generation: "g" }, phase: "beforeTurn", eventType: "plugin.hook", data: {} });
     expect(event.sequence).toBe(highWater + 1);
   });
+  const installHook = () => database.client.execute("INSERT INTO plugins(id,publisher,version,checksum,enabled,availability,lifecycle_generation,created_at,updated_at) VALUES ('hook','fixture','1','fixture',1,'available','g','now','now')");
+  const hook = (phase: "beforeTurn" | "afterTurn", turnId = "turn", attemptId = "attempt") => repo.appendPluginHookEvent(ctx, {
+    turnId, attemptId, expectedFencingToken: 0, pluginGeneration: { pluginId: "hook", generation: "g" },
+    phase, eventType: "delta", data: { text: "late private hook body" },
+  });
+  it.each([
+    ["beforeTurn", "user"], ["afterTurn", "user"],
+    ["beforeTurn", "assistant"], ["afterTurn", "assistant"],
+    ["beforeTurn", "first-version"], ["afterTurn", "first-version"],
+  ] as const)("rejects %s Hook body after %s source deletion without allocating a sequence", async (phase, target) => {
+    await start(); await segment(); await installHook();
+    if (target === "first-version") await repo.deleteMessage(ctx, "user");
+    else await repo.softDeleteMessage(ctx, target === "user" ? "user" : assistantId);
+    const events = await repo.getStreamEvents(ctx, "turn");
+    const turn = await repo.getTurn(ctx, "turn");
+    await expect(hook(phase)).rejects.toThrow("conversation_source_unavailable");
+    expect(await repo.getStreamEvents(ctx, "turn")).toEqual(events);
+    expect(await repo.getTurn(ctx, "turn")).toEqual(turn);
+    expect((await repo.listTurnAttempts(ctx, "turn"))[0]?.status).toBe("Running");
+  });
+  it("keeps another Turn writable with the same plugin generation when a source is deleted", async () => {
+    await start(); await segment(); await installHook();
+    await repo.acceptTurn(ctx, { turnId: "other", sessionId: "session", idempotencyKey: "other", attemptId: "other-attempt",
+      message: { id: "other-user", content: "independent input" }, consumeInbox: false });
+    await repo.softDeleteMessage(ctx, "user");
+    await expect(hook("afterTurn")).rejects.toThrow("conversation_source_unavailable");
+    await expect(hook("afterTurn", "other", "other-attempt")).resolves.toMatchObject({ turnId: "other", sequence: 1 });
+  });
+  it("a rolled back source deletion does not revoke a Hook's current source", async () => {
+    await start(); await segment(); await installHook();
+    await database.client.execute("CREATE TRIGGER reject_source_delete BEFORE UPDATE ON messages WHEN OLD.id = 'user' BEGIN SELECT RAISE(ABORT, 'injected deletion failure'); END");
+    await expect(repo.softDeleteMessage(ctx, "user")).rejects.toThrow();
+    expect((await repo.getMessage(ctx, "user"))?.deletedAt).toBeNull();
+    await expect(hook("afterTurn")).resolves.toMatchObject({ sequence: 3, data: { text: "late private hook body" } });
+  });
   it("expired process recovery publishes the committed prefix in its terminal transaction", async () => {
     await start(); await segment();
     await database.client.execute("UPDATE turn_attempts SET started_at = '2000-01-01T00:00:00.000Z' WHERE id = 'attempt'");

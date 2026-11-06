@@ -318,9 +318,11 @@ export class ProfileLifecycleStore {
     const revision = await this.getRevision(ctx, revisionId);
     if (!revision) return null;
     const now = new Date().toISOString();
-    const [updated] = await this.db
-      .update(proactiveProfileRevisions)
-      .set({
+    const updated = await this.db.transaction(async tx => {
+      const [current] = await tx.select({desiredState: proactiveProfileRevisions.desiredState})
+        .from(proactiveProfileRevisions).where(eq(proactiveProfileRevisions.id, revision.id)).limit(1);
+      if (!current) return undefined;
+      const [row] = await tx.update(proactiveProfileRevisions).set({
         desiredState: state,
         status: state === "revoked" ? "revoked" : revision.status,
         revokedAt: state === "revoked" ? now : revision.revokedAt ?? null,
@@ -332,6 +334,15 @@ export class ProfileLifecycleStore {
         ),
       )
       .returning();
+      if (row && current.desiredState !== state) {
+        // Resuming cannot authorize operations captured before a pause/revoke,
+        // even if the profile ID and all wall-clock timestamps are unchanged.
+        await tx.update(proactiveSourceGrants).set({
+          grantVersion: sql`${proactiveSourceGrants.grantVersion} + 1`, updatedAt: now,
+        }).where(eq(proactiveSourceGrants.revisionId, revision.id));
+      }
+      return row;
+    }, {behavior: "immediate"});
     if (!updated) return null;
     if (state === "revoked") {
       await this.db

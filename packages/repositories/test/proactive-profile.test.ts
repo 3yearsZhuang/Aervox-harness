@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 import {
   createInMemoryDatabase,
   initDatabaseSchema,
@@ -77,6 +77,47 @@ describe("CAP-033 proactive profile repository", () => {
       actorId: "usr_pro",
     });
     expect((await repository.getEffectiveStatus(ctx)).effectiveState).toBe("limited");
+  });
+
+  it("audits every source update within one clock tick without losing grant versions", async () => {
+    const repository = new SqliteProactiveProfileRepository(db);
+    const profile = await repository.confirmProfile(ctx, {
+      id: "profile_source_audit",
+      deviceId: "device-a",
+      actorId: "usr_pro",
+      sources: allGrantedSources("profile_source_audit"),
+    });
+    const source = profile.sources[0]!;
+    const clock = vi.spyOn(Date, "now").mockReturnValue(Date.now());
+    try {
+      const revoked = await repository.updateSourceGrant(ctx, source.id, {
+        state: "revoked", actorId: "usr_pro",
+      });
+      const granted = await repository.updateSourceGrant(ctx, source.id, {
+        state: "granted", actorId: "usr_pro",
+      });
+      const unchanged = await repository.updateSourceGrant(ctx, source.id, {
+        state: "granted", actorId: "usr_pro",
+      });
+      expect(revoked).toMatchObject({ state: "revoked", grantVersion: source.grantVersion + 1 });
+      expect(granted).toMatchObject({ state: "granted", grantVersion: source.grantVersion + 2 });
+      expect(unchanged).toMatchObject({ state: "granted", grantVersion: source.grantVersion + 2 });
+
+      const events = (await repository.listAuditEvents(ctx)).filter(event => event.resourceId === source.id);
+      expect(events).toHaveLength(3);
+      expect(new Set(events.map(event => event.id)).size).toBe(3);
+      expect(events.map(event => event.eventType).sort()).toEqual(["source.granted", "source.granted", "source.revoked"]);
+      for (const event of events) {
+        expect(event).toMatchObject({
+          revisionId: profile.revision.id,
+          actorId: "usr_pro",
+          resourceType: "source_grant",
+          processingBoundary: "local_only",
+          payload: { sourceKey: source.sourceKey, state: event.eventType.slice("source.".length) },
+        });
+      }
+      expect((await repository.listProactiveConsents(ctx)).find(consent => consent.scope === source.sourceKey)?.revokedAt).toBeTruthy();
+    } finally { clock.mockRestore(); }
   });
 
   it("derives active once mandatory sources are granted even when platform-pending sources wait", async () => {

@@ -1,9 +1,9 @@
 /**
  * Aervox｜思隅 @aervox/repositories — 主动画像激活租约生命周期 Store
  */
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
-import { proactiveActivationLeases } from "@aervox/schema";
+import { proactiveActivationLeases, proactiveSourceGrants } from "@aervox/schema";
 import { sqliteErrorDetails } from "../../../sqlite-errors.js";
 import { RepositoryNotFoundError } from "../../../errors.js";
 import type { LocalContext } from "../../../local-context.js";
@@ -117,23 +117,31 @@ export class ActivationLeaseStore {
   ): Promise<ProactiveActivationLeaseModel> {
     const revision = await this.lifecycle.getRevision(ctx, input.revisionId);
     if (!revision) throw new RepositoryNotFoundError("proactive profile revision not found");
-    const [reactivated] = await this.db
-      .update(proactiveActivationLeases)
-      .set({
-        revisionId: revision.id,
-        status: "active",
-        localReady: input.localReady,
-        fullAccessSnapshot: input.fullAccessSnapshot,
-        issuedAt: now,
-        expiresAt,
-        heartbeatAt: now,
-        endedAt: null,
-        endReason: null,
-        metadataJson: stringify(input.metadata),
-        updatedAt: now,
-      })
-      .where(eq(proactiveActivationLeases.id, leaseId))
-      .returning();
+    const reactivated = await this.db.transaction(async tx => {
+      const [row] = await tx.update(proactiveActivationLeases)
+        .set({
+          revisionId: revision.id,
+          status: "active",
+          localReady: input.localReady,
+          fullAccessSnapshot: input.fullAccessSnapshot,
+          issuedAt: now,
+          expiresAt,
+          heartbeatAt: now,
+          endedAt: null,
+          endReason: null,
+          metadataJson: stringify(input.metadata),
+          updatedAt: now,
+        })
+        .where(eq(proactiveActivationLeases.id, leaseId))
+        .returning();
+      if (row) {
+        // The row/epoch stays idempotent, but a reactivation is a new admission.
+        await tx.update(proactiveSourceGrants).set({
+          grantVersion: sql`${proactiveSourceGrants.grantVersion} + 1`, updatedAt: now,
+        }).where(eq(proactiveSourceGrants.revisionId, row.revisionId));
+      }
+      return row;
+    }, {behavior: "immediate"});
     if (!reactivated) throw new Error("failed to reactivate proactive activation lease");
     await this.audit.recordAudit(ctx, {
       id: `${input.id}_audit_activated`,
@@ -152,58 +160,77 @@ export class ActivationLeaseStore {
     leaseId: string,
     input: Parameters<IProactiveProfileRepository["heartbeatActivationLease"]>[2],
   ): Promise<ProactiveActivationLeaseModel | null> {
-    const [existing] = await this.db
-      .select()
-      .from(proactiveActivationLeases)
-      .where(
-        and(
-          eq(proactiveActivationLeases.id, leaseId),
-        ),
-      )
-      .limit(1);
-    if (!existing) return null;
-    const now = new Date().toISOString();
-    if (existing.status !== "active" || Date.parse(existing.expiresAt) <= Date.parse(now)) {
-      if (existing.status === "active") {
-        await this.db
-          .update(proactiveActivationLeases)
-          .set({ status: "expired", endedAt: now, endReason: "lease_expired", updatedAt: now })
-          .where(eq(proactiveActivationLeases.id, leaseId));
+    return this.db.transaction(async tx => {
+      const [existing] = await tx
+        .select()
+        .from(proactiveActivationLeases)
+        .where(
+          and(
+            eq(proactiveActivationLeases.id, leaseId),
+          ),
+        )
+        .limit(1);
+      if (!existing) return null;
+      const now = new Date().toISOString();
+      if (existing.status !== "active" || Date.parse(existing.expiresAt) <= Date.parse(now)) {
+        if (existing.status === "active") {
+          await tx
+            .update(proactiveActivationLeases)
+            .set({ status: "expired", endedAt: now, endReason: "lease_expired", updatedAt: now })
+            .where(eq(proactiveActivationLeases.id, leaseId));
+          await tx.update(proactiveSourceGrants).set({
+            grantVersion: sql`${proactiveSourceGrants.grantVersion} + 1`, updatedAt: now,
+          }).where(eq(proactiveSourceGrants.revisionId, existing.revisionId));
+        }
+        return toLease(existing.status === "active"
+          ? {...existing, status: "expired", endedAt: now, endReason: "lease_expired", updatedAt: now}
+          : existing);
       }
-      return this.getLease(ctx, leaseId);
-    }
-    const [updated] = await this.db
-      .update(proactiveActivationLeases)
-      .set({
-        heartbeatAt: now,
-        expiresAt: datePlusMs(now, input.ttlMs ?? DEFAULT_LEASE_TTL_MS),
-        localReady: input.localReady ?? bool(existing.localReady),
-        fullAccessSnapshot: input.fullAccessSnapshot ?? bool(existing.fullAccessSnapshot),
-        metadataJson: input.metadata === undefined ? existing.metadataJson : stringify(input.metadata),
-        updatedAt: now,
-      })
-      .where(
-        and(
-          eq(proactiveActivationLeases.id, leaseId),
-          eq(proactiveActivationLeases.status, "active"),
-        ),
-      )
-      .returning();
-    return updated ? toLease(updated) : null;
+      const [updated] = await tx
+        .update(proactiveActivationLeases)
+        .set({
+          heartbeatAt: now,
+          expiresAt: datePlusMs(now, input.ttlMs ?? DEFAULT_LEASE_TTL_MS),
+          localReady: input.localReady ?? bool(existing.localReady),
+          fullAccessSnapshot: input.fullAccessSnapshot ?? bool(existing.fullAccessSnapshot),
+          metadataJson: input.metadata === undefined ? existing.metadataJson : stringify(input.metadata),
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(proactiveActivationLeases.id, leaseId),
+            eq(proactiveActivationLeases.status, "active"),
+          ),
+        )
+        .returning();
+      if (updated && (updated.localReady !== existing.localReady || updated.fullAccessSnapshot !== existing.fullAccessSnapshot)) {
+        await tx.update(proactiveSourceGrants).set({
+          grantVersion: sql`${proactiveSourceGrants.grantVersion} + 1`, updatedAt: now,
+        }).where(eq(proactiveSourceGrants.revisionId, updated.revisionId));
+      }
+      return updated ? toLease(updated) : null;
+    }, {behavior: "immediate"});
   }
 
   async endActivationLease(ctx: LocalContext, leaseId: string, reason: string, actorId: string): Promise<ProactiveActivationLeaseModel | null> {
     const now = new Date().toISOString();
-    const [updated] = await this.db
-      .update(proactiveActivationLeases)
-      .set({ status: "ended", endedAt: now, endReason: reason, updatedAt: now })
-      .where(
-        and(
-          eq(proactiveActivationLeases.id, leaseId),
-          eq(proactiveActivationLeases.status, "active"),
-        ),
-      )
-      .returning();
+    const updated = await this.db.transaction(async tx => {
+      const [row] = await tx.update(proactiveActivationLeases)
+        .set({ status: "ended", endedAt: now, endReason: reason, updatedAt: now })
+        .where(
+          and(
+            eq(proactiveActivationLeases.id, leaseId),
+            eq(proactiveActivationLeases.status, "active"),
+          ),
+        )
+        .returning();
+      if (row) {
+        await tx.update(proactiveSourceGrants).set({
+          grantVersion: sql`${proactiveSourceGrants.grantVersion} + 1`, updatedAt: now,
+        }).where(eq(proactiveSourceGrants.revisionId, row.revisionId));
+      }
+      return row;
+    }, {behavior: "immediate"});
     if (!updated) return null;
     await this.audit.recordAudit(ctx, {
       id: `${leaseId}_audit_ended_${Date.now().toString(36)}`,

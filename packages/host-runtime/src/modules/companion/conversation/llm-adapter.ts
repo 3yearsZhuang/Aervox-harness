@@ -18,7 +18,7 @@ import type { ModelRoutingSnapshot } from "@aervox/contracts";
 import type { LLMConfigPort } from "../../ecosystem/llm/index.js";
 import type { ModelRoutingPort } from "../../ecosystem/llm/index.js";
 import { createRuleResponseProvider } from "./rule-response-provider.js";
-import { createConfiguredModelProvider, generateModelText } from "../../ecosystem/llm/index.js";
+import { generateModelText, type ConfiguredProviderFactoryPort } from "../../ecosystem/llm/index.js";
 import { API_TOOL_SCRIPT, API_WRITE_SCRIPT, API_PRIVILEGED_SCRIPT } from "./replay-scripts.js";
 
 /** 将 ModelProviderPort 适配为插件契约的 TurnLlmPort 窄端口 */
@@ -46,6 +46,7 @@ export async function buildLoopProvider(
   llmConfigService: LLMConfigPort | undefined,
   options: {
     executionConfig: ExecutionConfig;
+    modelProviderFactory?: ConfiguredProviderFactoryPort;
     requireLocalOnly?: boolean;
     sessionId?: string;
     turnId?: string;
@@ -102,7 +103,8 @@ export async function buildLoopProvider(
       const isL1Tier = snapshot.tier === "L1";
       const isCapabilityTiering = apiConfig.modelRoutingFeatureFlags.has("capability_tiering");
       const defaultMaxTokens = isL1Tier && isCapabilityTiering ? 2048 : 4096;
-      const provider = createConfiguredModelProvider({
+      if (!options.modelProviderFactory) throw new Error("llm_resource_factory_unavailable");
+      const provider = options.modelProviderFactory.create({
         enabled: matchedPreset?.enabled ?? true,
         providerType: snapshot.providerType ?? "custom_openai",
         baseUrl: snapshot.baseUrl,
@@ -123,7 +125,8 @@ export async function buildLoopProvider(
       throw new Error("llm_provider_unavailable: LLMConfigPort 未接线");
     }
     const cfg = await llmConfigService.getConfig(ctx);
-    return createConfiguredModelProvider(cfg, { localOnly: options.requireLocalOnly });
+    if (!options.modelProviderFactory) throw new Error("llm_resource_factory_unavailable");
+    return options.modelProviderFactory.create(cfg, { localOnly: options.requireLocalOnly });
   }
   return createReplayProvider();
 }

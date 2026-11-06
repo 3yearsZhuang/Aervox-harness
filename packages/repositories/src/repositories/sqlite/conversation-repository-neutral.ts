@@ -40,6 +40,9 @@ import { ToolExecutionStore } from "./conversation/tool-execution-store.js";
 import { ConversationTurnStore as TurnStore } from "./conversation/turn-store-neutral.js";
 import { hasWorkerDelegation } from "./conversation/delegation-store.js";
 import { ApiRecoveryStore } from "./conversation/api-recovery-store.js";
+import { UserQuestionStore } from "./conversation/user-question-store.js";
+import type { RequireUserQuestionInput, UserQuestionIdentity, CancelUserQuestionInput } from "../types/user-question.js";
+import type { AskUserQuestionAnswerItem } from "@aervox/contracts";
 
 export { MAX_RESUME_CANDIDATE_LIMIT } from "./conversation/safe-segment-store.js";
 export { MAX_STREAM_EVENT_PAGE_ROWS, MAX_STREAM_EVENT_PAGE_DATA_BYTES } from "./conversation/stream-event-store.js";
@@ -54,6 +57,7 @@ export class ConversationRepository implements IConversationRepository {
   private readonly safeSegmentStore: SafeSegmentStore;
   private readonly approvalStore: ApprovalStore;
   private readonly apiRecoveryStore: ApiRecoveryStore;
+  private readonly userQuestionStore: UserQuestionStore;
 
   constructor(private readonly db: AervoxDatabase, host: ConversationHostPort) {
     requireConversationHost(host);
@@ -66,7 +70,14 @@ export class ConversationRepository implements IConversationRepository {
     this.safeSegmentStore = new SafeSegmentStore(db);
     this.approvalStore = new ApprovalStore(db);
     this.apiRecoveryStore = new ApiRecoveryStore(db);
+    this.userQuestionStore = new UserQuestionStore(db);
   }
+
+  requireUserQuestion(ctx: LocalContext, input: RequireUserQuestionInput) { return this.userQuestionStore.require(ctx, input); }
+  getPendingUserQuestion(ctx: LocalContext, turnId: string) { return this.userQuestionStore.getPending(ctx, turnId); }
+  getUserQuestionAnswerReceipt(ctx: LocalContext, identity: UserQuestionIdentity) { return this.userQuestionStore.getReceipt(ctx, identity); }
+  answerUserQuestion(ctx: LocalContext, identity: UserQuestionIdentity, answers: AskUserQuestionAnswerItem[]) { return this.userQuestionStore.answer(ctx, identity, answers); }
+  cancelUserQuestion(ctx: LocalContext, input: CancelUserQuestionInput) { return this.userQuestionStore.cancel(ctx, input); }
 
   hasWorkerDelegation(turnId: string, eventId?: string) { return hasWorkerDelegation(this.db, turnId, eventId); }
 

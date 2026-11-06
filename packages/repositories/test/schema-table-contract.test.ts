@@ -3,14 +3,16 @@ import os from "node:os";
 import path from "node:path";
 import { createClient } from "@libsql/client";
 import { describe, expect, it, vi } from "vitest";
-import { initDatabaseSchema, inspectSchemaParity, schemaFingerprint, schemaManifest, SchemaMigrationRequiredError, SCHEMA_RELEASES } from "../src/index.js";
+import { initDatabaseSchema, inspectSchemaParity, schemaFingerprint, schemaManifest, SchemaMigrationRequiredError, SCHEMA_RELEASES, CURRENT_SCHEMA_VERSION } from "../src/index.js";
 
 describe("table semantics before schema registration", () => {
-  it("keeps the released schema fingerprints when inspection is strengthened", () => {
-    expect(schemaFingerprint("main")).toBe("c749a41cf2155d0b070c08746bd353e77479d6766b113d8e4f78bcaeda5961b4");
-    expect(schemaFingerprint("ledger")).toBe("a14fd3df3feaf5a736b112f3d65c731a26e0689b90583c3ae9030840f308d8eb");
-    expect(schemaFingerprint("main")).toBe(SCHEMA_RELEASES[1]?.main);
-    expect(schemaFingerprint("ledger")).toBe(SCHEMA_RELEASES[1]?.ledger);
+  it("keeps the v1 release fingerprints and binds current declarations to their registered release", () => {
+    expect(SCHEMA_RELEASES[1]).toEqual({
+      main: "c749a41cf2155d0b070c08746bd353e77479d6766b113d8e4f78bcaeda5961b4",
+      ledger: "a14fd3df3feaf5a736b112f3d65c731a26e0689b90583c3ae9030840f308d8eb",
+    });
+    expect(schemaFingerprint("main")).toBe(SCHEMA_RELEASES[CURRENT_SCHEMA_VERSION]?.main);
+    expect(schemaFingerprint("ledger")).toBe(SCHEMA_RELEASES[CURRENT_SCHEMA_VERSION]?.ledger);
   });
 
   it.each(["CHECK", "STRICT", "WITHOUT ROWID"].flatMap(variant => [
@@ -27,8 +29,8 @@ describe("table semantics before schema registration", () => {
         return [sql, ...table.indexes.map(index => index.sql)];
       }), "write");
       if (versioned) await creator.execute({
-        sql: "INSERT INTO _aervox_schema_versions(scope,version,fingerprint,applied_at) VALUES('main','1',?,'retained-version-time')",
-        args: [schemaFingerprint("main")],
+        sql: "INSERT INTO _aervox_schema_versions(scope,version,fingerprint,applied_at) VALUES('main',?,?,'retained-version-time')",
+        args: [String(CURRENT_SCHEMA_VERSION), schemaFingerprint("main")],
       });
       await creator.execute("INSERT INTO learning_goals(id,topic,created_at,updated_at) VALUES('retained','keep','t','t')");
       if (variant === "CHECK") {
@@ -56,7 +58,7 @@ describe("table semantics before schema registration", () => {
         expect((await inspected.execute("SELECT name FROM sqlite_master WHERE name='_aervox_schema_versions'")).rows)
           .toEqual(versioned ? [{ name: "_aervox_schema_versions" }] : []);
         if (versioned) expect((await inspected.execute("SELECT * FROM _aervox_schema_versions")).rows).toEqual([
-          { scope: "main", version: "1", fingerprint: schemaFingerprint("main"), applied_at: "retained-version-time" },
+          { scope: "main", version: String(CURRENT_SCHEMA_VERSION), fingerprint: schemaFingerprint("main"), applied_at: "retained-version-time" },
         ]);
       } finally { inspected.close(); }
       expect(await fs.readFile(databasePath)).toEqual(originalBytes);

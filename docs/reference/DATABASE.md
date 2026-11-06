@@ -64,6 +64,10 @@ Android 原生候选 `NativeSqliteSession` 在专属线程维护同一写者与�
 
 ### 2.1 结构升级与逻辑恢复
 
+Schema v2 对 `pending_user_questions` 仅追加 nullable `invocation_id`。v1 发布指纹保持不可变，旧行不猜回填；问题列表仍为原 `questions_json` 数组。普通库与原生制品绑定新的 main 指纹，ledger 物理结构指纹保持原值，现行版本回执仍要求显式 staging 升级。启动器不自动升级已有安装，不通过改 journal 或 owner 标记接纳旧库。
+
+Conversation 的 require/get/answer/cancel 命令是实时问题的事务入口：登记同时写 required 事件和问题行，回答同时写 answered 回执和删除原身份行；事件插入复用已经持有的写者，不嵌套事务。旧低层问题仓储只保留兼容和迁移访问，实时 Host/Native 不再用按 Turn 覆盖或删除的写法。问题披露与回答登记复验来源及删除传播资格；旧 NULL 身份明确拒答，可保留至取消或过期。
+
 新库由 `initDatabaseSchema` / `initLedgerSchema` 初始化对应故障域，并记录版本指纹。已有库在任何结构写入前检查完整等价性；缺失列、NULL 主键、默认值或索引条件等不一致返回 `SCHEMA_STAGING_MIGRATION_REQUIRED`。无版本但完全等价的库可登记当前版本；已登记版本或指纹不符必须显式迁移。不能通过刷新指纹绕过历史数据检查。
 
 API 与 Worker 可同时观察到同一个空库；新建表和索引均容忍同版本初始化者先完成，随后复验实际物理结构和最终版本回执。并发后结构或回执不符仍拒绝，不用 `IF NOT EXISTS` 自证一致；此时 DDL 可能已提交，错误明确要求保留检查材料，不宣称并发失败时源文件未改。

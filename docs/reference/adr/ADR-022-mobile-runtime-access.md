@@ -109,6 +109,8 @@ Android 工程现已纳入版本控制，Web 构建和原生编译使用显式�
 
 现执行适配接续提供 `@aervox/host-agent/browser`：中性 `ConversationExecutionStore` 依赖明确的仓储 Port，原 `SqliteExecutionStore` 以兼容包装复用同一方法和真实错误身份。新入口的整包 VM 与构建声明闭包不依赖 Node、libsql、Drizzle 或 Vue；持久命令仍由宿主仓储实现。该边界只移除装配耦合，不能作为手机持久化、接单、问答或删除能力的替代证据。
 
+持久补问继续使用原 Turn/Attempt 与 Core 工具的原 `invocationId`。问题登记、required 事件、答案幂等和同身份清理由共享 Conversation 写事务负责；Host 与 Native 只装配同一平台中性等待器。Native 重开可查询原问题并登记原答案，原生 JSON/文件 SQLite 回归验证不创建新身份或启动模型。跨进程自动模型续跑保持关闭，物理手机问答中止/重开仍需独立验收。Schema v2 的 additive 变更走既有 staging 门槛，旧 NULL 问题身份不猜回填；本批不自动升级现有测试手机或业务库。
+
 独立运行不等于离线推理。模型调用仍经 Provider、安全检查和持久化，不由 WebView 持有模型密钥；本机推理另验内存、许可、温升、耗电和中断，`local_only` 不降级给远程模型。导入桌面资料显式选范围、备份和校验；同步不得复制活动 SQLite/WAL 或直接最后写入覆盖，另定冲突、墓碑、撤权与密钥协议。安装成功不能替代运行闭环证据。
 
 ## 验收、后果与回退

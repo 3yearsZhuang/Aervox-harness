@@ -176,6 +176,7 @@ CAP-033 的本地导出还必须能够按用户选择包含原始捕获副本、
 - 静态与传输加密，Restricted 内容采用 envelope encryption；密钥由受控密钥存储管理，不以明文进入业务库、模型或导出。实际本地密钥与备份边界按 [ADR-018](adr/ADR-018-proactive-local-privacy-host.md)冻结。
 - 日志、错误监控与分析按字段脱敏，ModelRun 使用 ContextManifest，不默认复制完整 Prompt。供应商须评审用途、保留、训练、地区、删除、通知与子处理者。
 - ContextManifest 的新写入由仓储白名单投影为请求元数据：消息数量及角色计数、工具数量和合法生成参数。消息、推理、工具参数/结果、工具描述/Schema、额外字段及正文 hash 均不持久化；未知快照写为 null。Core 的调用边界快照仅供进程内执行诊断，此投影不自动清洗历史正文，也不代替来源删除传播或授权账本。
+- 会话来源使用 `turn:history` 占位引用，不构成逐来源权限证明；该引用的新写入另将自由文本 selection reason 和 permission snapshot 置空，避免迟到模型遥测把正文藏进注释字段。删除会话、消息身份或消息版本时，在同一写事务内、来源身份消失前，以 Session→Turn→Attempt→ModelRun 的持久关系清空该会话全部已关联 ContextManifest 的快照和这两个注释字段；后续 Turn 可能选取早期来源，故按整个会话传播。保留最小来源引用与运行元数据，撤销软删不重建旧诊断正文。未关联 Attempt 的旧行和跨会话缺失来源关系的副本仍无完整传播证明，不能由本切片解除恢复拒绝或宣布全链清除完成。
 - CAP-033 的独立来源/动作授权、本地存储与控制面凭据限制以 [SRS §8](SRS.md#8-cap-033-全域感知与个人画像主动智能模式) 为准；确认推断不解除 `local_only`。
 
 <a id="privacy-gates"></a>

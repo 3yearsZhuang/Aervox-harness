@@ -1,8 +1,11 @@
+import { createConfiguredProviderFactory } from "../src/modules/ecosystem/llm/provider-factory.js";
+import { createModelStreamResources } from "../src/modules/ecosystem/llm/model-resources.js";
 import { describe, expect, it, vi } from "vitest";
 import { ModelProviderRegistry, type ModelChunk } from "@aervox/core";
 import { LLMConfigService } from "../src/modules/ecosystem/llm/service.js";
 import { createModelGenerationPort } from "../src/modules/ecosystem/llm/generation.js";
 
+const configured = (registry?: ModelProviderRegistry) => createConfiguredProviderFactory(createModelStreamResources(4), registry);
 const tenant = { workspaceId: "local", subjectUserId: "local" };
 const input = { context: tenant, system: "system", user: "user" };
 const config = { enabled: 1, providerType: "ollama", baseUrl: "http://127.0.0.1:11434/v1", modelId: "test", temperature: .7, maxTokens: 1024, settingsJson: {} };
@@ -13,7 +16,7 @@ function fixture(found: typeof config | null, chunks: ModelChunk[] = [{ text: "o
   for (const descriptor of registry.listDescriptors()) {
     if (descriptor.protocol === "openai-compat") registry.register(descriptor, () => ({ id: descriptor.id, stream }));
   }
-  return { generation: createModelGenerationPort(service, registry), stream };
+  return { generation: createModelGenerationPort(service, configured(registry)), stream };
 }
 describe("shared generation provider selection", () => {
   it.each(["ollama", "custom_openai", "openai"])("both triggers use the supported %s protocol", async providerType => {
@@ -51,7 +54,7 @@ describe("shared generation provider selection", () => {
     expect(stream).not.toHaveBeenCalled();
   });
   it("cancellation stops waiting for an uncooperative configuration query", async () => {
-    const generation = createModelGenerationPort({ getConfig: () => new Promise(() => {}) });
+    const generation = createModelGenerationPort({ getConfig: () => new Promise(() => {}) }, configured());
     const controller = new AbortController();
     const result = generation.generate({ ...input, signal: controller.signal });
     controller.abort(new Error("cancelled_configuration"));
@@ -63,7 +66,7 @@ describe("shared generation provider selection", () => {
     const next = vi.fn(() => new Promise<IteratorResult<ModelChunk>>(() => {}));
     const close = vi.fn(async () => ({ done: true as const, value: undefined }));
     registry.register(descriptor, () => ({ id: "ollama", stream: () => ({ [Symbol.asyncIterator]: () => ({ next, return: close }) }) }));
-    const generation = createModelGenerationPort({ getConfig: async () => config } as never, registry);
+    const generation = createModelGenerationPort({ getConfig: async () => config } as never, configured(registry));
     const controller = new AbortController();
     const result = generation.generate({ ...input, signal: controller.signal });
     const rejected = expect(result).rejects.toThrow("cancelled_stream");

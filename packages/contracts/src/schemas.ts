@@ -182,6 +182,10 @@ export const askUserQuestionItemSchema = z.object({
 /** user_question_required: SSE 下发问题交互请求 */
 export const userQuestionRequiredEventDataSchema = z.object({
   turnId: z.string().min(1),
+  attemptId: z.string().min(1).optional(),
+  invocationId: z.string().min(1).nullable().optional(),
+  identityStatus: z.enum(["available", "identity_unavailable"]).optional(),
+  expiresAt: z.string().optional(),
   step: z.number().int().positive().optional(),
   questions: z.array(askUserQuestionItemSchema).min(1),
   timeoutMs: z.number().int().positive().optional(),
@@ -197,17 +201,26 @@ export const askUserQuestionAnswerItemSchema = z.object({
 /** user_question_answered: SSE 回复或状态同步 */
 export const userQuestionAnsweredEventDataSchema = z.object({
   turnId: z.string().min(1),
+  attemptId: z.string().min(1).optional(),
+  invocationId: z.string().min(1).optional(),
+  step: z.number().int().positive().optional(),
   answers: z.array(askUserQuestionAnswerItemSchema),
 });
 
 /** 用户提交回答的请求体 (POST /v1/turns/:turnId/questions/answers) */
 export const submitQuestionAnswersRequestSchema = z.object({
+  attemptId: z.string().min(1).optional(),
+  invocationId: z.string().min(1).nullable().optional(),
+  step: z.number().int().positive().optional(),
   answers: z.array(askUserQuestionAnswerItemSchema).min(1),
 });
 
 /** 用户提交回答的响应体 */
 export const submitQuestionAnswersResponseSchema = z.object({
   turnId: z.string().min(1),
+  attemptId: z.string().min(1).optional(),
+  invocationId: z.string().min(1).optional(),
+  step: z.number().int().positive().optional(),
   accepted: z.boolean(),
   answers: z.array(askUserQuestionAnswerItemSchema),
 });
