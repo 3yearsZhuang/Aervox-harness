@@ -6,7 +6,8 @@ import { inspectAndroidEnvironment, mobileRoot, printAndroidChecks } from './che
 
 /** Explicit native build: missing prerequisites fail before asset generation or downloads. */
 export function buildAndroid({ inspect = inspectAndroidEnvironment, report = printAndroidChecks,
-  run = spawnSync, verifySqlite = verifySqliteArtifact, root = mobileRoot, platform = process.platform, env = process.env } = {}) {
+  run = spawnSync, verifySqlite = verifySqliteArtifact, root = mobileRoot, platform = process.platform, env = process.env,
+  terminationProbe = false } = {}) {
   const prerequisites = inspect({ env, root });
   report(prerequisites);
   if (!prerequisites.ok) return 1;
@@ -23,15 +24,20 @@ export function buildAndroid({ inspect = inspectAndroidEnvironment, report = pri
     { command: pnpm, args: ['run', 'build:web:native'], cwd: root },
     { command: pnpm, args: ['exec', 'cap', 'sync', 'android'], cwd: root },
     { command: pnpm, args: ['run', 'prepare:native'], cwd: root },
-    { command: platform === 'win32' ? 'gradlew.bat' : './gradlew', args: ['assembleDebug'], cwd: path.join(root, 'android') },
+    ...(terminationProbe ? [
+      { command: pnpm, args: ['exec', 'vite', 'build', '--config', 'test/fixtures/termination-probe.vite.config.ts', '--base', '/m0/'],
+        cwd: path.resolve(root, '../web'), env: { ...buildEnv, VITE_AERVOX_PLATFORM: 'mobile' } },
+      { command: pnpm, args: ['run', 'prepare:native:termination-probe'], cwd: root },
+    ] : []),
+    { command: platform === 'win32' ? 'gradlew.bat' : './gradlew', args: [terminationProbe ? 'assembleDeterministicProbe' : 'assembleDebug'], cwd: path.join(root, 'android') },
   ];
   for (const step of steps) {
-    const result = run(step.command, step.args, { cwd: step.cwd, env: buildEnv, stdio: 'inherit', shell: platform === 'win32' });
+    const result = run(step.command, step.args, { cwd: step.cwd, env: step.env ?? buildEnv, stdio: 'inherit', shell: platform === 'win32' });
     if (result.error || result.status !== 0) return result.status || 1;
   }
   return 0;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  process.exitCode = buildAndroid();
+  process.exitCode = buildAndroid({ terminationProbe: process.argv.includes('--termination-probe') });
 }

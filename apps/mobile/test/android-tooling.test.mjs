@@ -285,6 +285,29 @@ test('native build stops on upstream, schema, Web, sync or Gradle failure and pr
   }
 });
 
+test('termination probe requires an explicit separate recipe and stops before APK assembly on fixture failure', () => {
+  for (const failAt of [5, 6, -1]) {
+    const calls = [];
+    const env = { PATH: '/tools' };
+    const result = buildAndroid({ terminationProbe: true, verifySqlite: () => {}, env,
+      inspect: () => ({ ok: true, checks: [] }), report: () => {}, platform: 'linux',
+      run: (command, args, options) => {
+        calls.push({ command, args, ...options });
+        return { status: calls.length - 1 === failAt ? 7 : 0 };
+      } });
+    assert.equal(result, failAt < 0 ? 0 : 7);
+    assert.equal(calls.length, failAt < 0 ? 8 : failAt + 1);
+    assert.deepEqual(calls[4].args, ['run', 'prepare:native']);
+    assert.equal(calls[5].cwd, path.resolve(mobileRoot, '../web'));
+    assert.equal(calls[5].env.VITE_AERVOX_PLATFORM, 'mobile');
+    assert.deepEqual(env, { PATH: '/tools' });
+    if (failAt < 0) {
+      assert.deepEqual(calls[6].args, ['run', 'prepare:native:termination-probe']);
+      assert.deepEqual(calls[7].args, ['assembleDeterministicProbe']);
+    }
+  }
+});
+
 test('native source is tracked while generated assets, build files and credentials are ignored', () => {
   const gitRoot = path.resolve(mobileRoot, '../..');
   const ignored = file => {
@@ -292,7 +315,7 @@ test('native source is tracked while generated assets, build files and credentia
     catch (error) { if (error.status === 1) return false; throw error; }
   };
   for (const file of ['app/src/main/java/com/aervox/mobile/MainActivity.java', 'gradle/wrapper/gradle-wrapper.jar']) assert.equal(ignored(file), false, file);
-  for (const file of ['local.properties', 'app/build/outputs/app.apk', 'app/src/main/assets/public/index.html', 'app/src/main/assets/capacitor.config.json', 'capacitor.settings.gradle', 'app/capacitor.build.gradle', 'release.keystore', 'signing.jks', 'app/google-services.json']) assert.equal(ignored(file), true, file);
+  for (const file of ['local.properties', 'app/build/outputs/app.apk', 'app/src/main/assets/public/index.html', 'app/src/deterministicProbe/assets/m0/index.html', 'app/src/main/assets/capacitor.config.json', 'capacitor.settings.gradle', 'app/capacitor.build.gradle', 'release.keystore', 'signing.jks', 'app/google-services.json']) assert.equal(ignored(file), true, file);
   const config = JSON.parse(readFileSync(path.join(mobileRoot, 'capacitor.config.json'), 'utf8'));
   const gradle = readFileSync(path.join(mobileRoot, 'android/app/build.gradle'), 'utf8');
   assert.ok(gradle.includes(`namespace = "${config.appId}"`));

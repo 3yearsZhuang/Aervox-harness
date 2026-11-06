@@ -32,11 +32,30 @@ android {
         }
     }
     buildTypes {
+        deterministicProbe {
+            initWith debug
+            applicationIdSuffix ".terminationprobe"
+            matchingFallbacks = ['debug']
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+}
+
+// Only this explicit test variant may package the deterministic model trace.
+// Ordinary debug/release assets do not use the test Vite configuration.
+def verifyDeterministicProbeAssets = tasks.register('verifyDeterministicProbeAssets') {
+    doLast {
+        def index = file('src/deterministicProbe/assets/m0/index.html')
+        if (!index.isFile() || !index.text.contains('data-termination-probe="v1"')) {
+            throw new GradleException('Build the isolated termination probe assets explicitly before assembling this variant.')
+        }
+    }
+}
+tasks.configureEach {
+    if (name == 'preDeterministicProbeBuild') dependsOn(verifyDeterministicProbeAssets)
 }
 
 repositories {
