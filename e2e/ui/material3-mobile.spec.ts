@@ -94,13 +94,14 @@ test('keeps rejected-message recovery inside the dialogue and the mobile compose
       return el.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
     })).toBe(true);
   };
-  for (const viewport of [{ width: 411, height: 838 }, { width: 320, height: 568 }, { width: 320, height: 360 }, { width: 731, height: 360 }, { width: 1069, height: 400 }]) {
+  for (const viewport of [{ width: 411, height: 838 }, { width: 320, height: 568 }, { width: 320, height: 360 }, { width: 731, height: 360 }, { width: 1069, height: 400 }, { width: 1052, height: 300 }]) {
     await page.setViewportSize(viewport);
     await expectControlsInView();
     if (viewport.width >= 600) {
       const stage = (await page.locator('.pc-stage').boundingBox())!;
       expect(stage.width).toBeCloseTo(viewport.width / 3, 0);
       expect((await retry.boundingBox())!.x).toBeGreaterThanOrEqual(stage.x + stage.width);
+      expect((await page.locator('.pc-feedback-copy').boundingBox())!.height).toBeGreaterThanOrEqual(24);
     }
     await page.screenshot({ path: testInfo.outputPath(`feedback-${viewport.width}-${viewport.height}.png`) });
   }
