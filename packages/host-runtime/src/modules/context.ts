@@ -47,6 +47,8 @@ export interface ModuleContext {
   memoryRecall?: MemoryRecallPort;
   /** LLM 配置服务（llm 模块填充；conversation 读取） */
   llmConfigService?: LLMConfigPort;
+  modelStreamResources?: import("./ecosystem/llm/index.js").ModelStreamResourcePort;
+  modelProviderFactory?: import("./ecosystem/llm/index.js").ConfiguredProviderFactoryPort;
   modelGeneration?: import("./ecosystem/llm/index.js").ModelGenerationPort;
   /** The same metadata and parser registry serves imports and trusted plugin reads. */
   questionBankRegistry?: import("@aervox/practice-review").QuestionBankRegistry;
