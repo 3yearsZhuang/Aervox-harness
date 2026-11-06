@@ -257,8 +257,11 @@ public final class NativeBusinessDatabaseTest {
         Owner open() throws Exception { return new Owner(context); }
         void rejected(NativeBusinessDatabase.Failure expected) throws Exception {
             NativeBusinessDatabase database = new NativeBusinessDatabase(context);
-            NativeSqliteSession actor = new NativeSqliteSession(database::open);
-            database.bindSession(actor);
+            NativeSqliteSession actor;
+            synchronized (database) {
+                actor = new NativeSqliteSession(database::open);
+                database.bindSession(actor);
+            }
             try { actor.ready().get(15, TimeUnit.SECONDS); fail("Expected rejected database"); }
             catch (ExecutionException rejected) {
                 // The actor intentionally does not expose initializer errors to
@@ -285,8 +288,10 @@ public final class NativeBusinessDatabaseTest {
         final String epoch;
         Owner(Context context) throws Exception {
             database = new NativeBusinessDatabase(context);
-            actor = new NativeSqliteSession(database::open);
-            database.bindSession(actor);
+            synchronized (database) {
+                actor = new NativeSqliteSession(database::open);
+                database.bindSession(actor);
+            }
             String opened;
             try { opened = actor.ready().get(15, TimeUnit.SECONDS); }
             catch (Exception rejected) { actor.close(); awaitDrain(actor); database.close(); throw rejected; }
