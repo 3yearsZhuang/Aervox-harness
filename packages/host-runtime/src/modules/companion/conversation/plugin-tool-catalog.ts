@@ -3,54 +3,10 @@ import { awaitWithSignal, stableSerialize, type ToolGuidance, type ToolSpec } fr
 import type { PluginApiRegistry, ToolResultProjectionSchema } from "@aervox/contracts";
 import type { PluginToolContribution } from "@aervox/host-plugin-api";
 import type { IExtensionRepository } from "@aervox/repositories";
-import { createPluginToolScope } from "./plugin-tool-scope.js";
-import { processToolImplementationRevision, type ContributionToolSource } from "./tool-providers.js";
+import { createPluginToolScope, preparePluginToolContributions } from "../../../plugin-tool-bindings.js";
+import type { ContributionToolSource } from "./tool-providers.js";
 
-interface PreparedContribution extends PluginToolContribution { projectionRevision: string | null }
-
-/** Resolve and capture the complete declaration before publishing any of its parts. */
-export async function preparePluginToolContributions(
-  candidates: PluginToolContribution[],
-  scope: { signal?: AbortSignal; checkActive(): Promise<void> },
-  reservedNames: ReadonlySet<string> = new Set(),
-): Promise<PreparedContribution[]> {
-  const ids = new Set<string>();
-  const names = new Set<string>(reservedNames);
-  const prepared: PreparedContribution[] = [];
-  for (const candidate of candidates) {
-    await scope.checkActive();
-    if (ids.has(candidate.id)) throw new Error(`duplicate_plugin_contribution: ${candidate.id}`);
-    ids.add(candidate.id);
-    const execute = candidate.provider.execute.bind(candidate.provider);
-    const declared = candidate.provider.listTools
-      ? await awaitWithSignal(Promise.resolve(candidate.provider.listTools({ signal: scope.signal })), scope.signal) : candidate.provider.tools;
-    const tools = structuredClone(declared);
-    for (const tool of tools) {
-      if (names.has(tool.name)) throw new Error(`duplicate_tool_binding: ${tool.name}`);
-      names.add(tool.name);
-    }
-    const guidance = candidate.guidance ? structuredClone(candidate.guidance) : undefined;
-    for (const item of guidance ?? []) {
-      if (!tools.some(tool => tool.name === item.name)) throw new Error(`undeclared_tool_guidance: ${item.name}`);
-    }
-    // Capture the declared method as well as the provider handler. Reassigning either
-    // property after preflight cannot change an already published declaration.
-    const projectionMethod = candidate.resultProjection?.safeParse;
-    if (candidate.resultProjection && typeof projectionMethod !== "function") throw new Error(`invalid_tool_projection: ${candidate.id}`);
-    const resultProjection = candidate.resultProjection && projectionMethod
-      ? Object.freeze({ safeParse: projectionMethod.bind(candidate.resultProjection) }) : undefined;
-    prepared.push({ id: candidate.id, guidance, resultProjection,
-      // A prototype method alone does not identify the schema receiver it reads.
-      // Reuse a context-free schema declaration across Turns; replacements fail closed.
-      projectionRevision: candidate.resultProjection && projectionMethod ? stableSerialize([
-        processToolImplementationRevision(candidate.resultProjection), processToolImplementationRevision(projectionMethod),
-      ]) : null, provider: {
-      tools, listTools: async () => structuredClone(tools), execute,
-    } });
-  }
-  await scope.checkActive();
-  return prepared;
-}
+export { preparePluginToolContributions } from "../../../plugin-tool-bindings.js";
 
 type ToolScope = ReturnType<typeof createPluginToolScope>;
 export interface PluginToolLease {

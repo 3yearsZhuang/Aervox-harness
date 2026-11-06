@@ -11,10 +11,10 @@ import { LearningPlanGenerationService } from "./plan-generation.js";
 
 export { createLearningAnswerService, createLearningReviewService } from "./answer-service.js";
 
-export function registerLearningModule(ctx: ModuleDependencies<"app" | "db" | "modelGeneration" | "executionConfig">): void {
+export function registerLearningModule(ctx: ModuleDependencies<"app" | "db" | "modelGeneration" | "executionConfig" | "questionBankRegistry">): void {
   const { app, db } = ctx;
   const learningRepo = new SqliteLearningRepository(db);
-  registerLearningRoutes(app, learningRepo);
+  registerLearningRoutes(app, learningRepo, ctx.questionBankRegistry);
   // CR-060：CAP-016 报告路由已由第一方插件以 PluginHttpEndpoint 贡献（见 apps/api/src/plugin-assembly.ts）
 
   // 学习规划生成：llm 模式走 LLM 端口；llm 模块未接线或非 llm 模式由服务内模板降级/抛错

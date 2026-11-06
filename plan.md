@@ -105,13 +105,18 @@
 
 | 插件声明 | 尚缺执行接线的精确工具名 | 已有能力与保留边界 |
 |---|---|---|
-| [Anki](plugins/plugins/tool/anki-sync/plugin.manifest.json) | `anki_import_deck`、`anki_list_providers` | CSV/TSV/JSON 导入已实现；本地导入不等于 OAuth、增量同步、冲突及撤权闭环 |
+| [Anki](plugins/plugins/tool/anki-sync/plugin.manifest.json) | `anki_import_deck` | `anki_list_providers` 已接到真实题库注册表与 HostToolRuntime（集合 PR #14 已合入、主仓 PR #368 最终配对）；CSV/TSV/JSON 已有宿主导入入口，本地导入不等于 OAuth、增量同步、冲突及撤权闭环 |
 | [OCR](plugins/plugins/tool/multimodal-ocr/plugin.manifest.json) | `ocr_parse_attachment` | 实际附件解析由 ITER-076 闭合，不能接到 Mock 后宣称完成 |
-| [日记风格](plugins/plugins/workflow/diary-distillers/plugin.manifest.json) | `diary_generate_styled`、`diary_list_styles` | 已有 `styleId` 路径；补工具到该领域入口的真实接线，不另写日记事实 |
+| [日记风格](plugins/plugins/workflow/diary-distillers/plugin.manifest.json) | `diary_generate_styled` | `diary_list_styles` 已接到真实风格注册表与 HostToolRuntime（集合 PR #14 已合入、主仓 PR #368 最终配对）；生成继续使用已有 `styleId` 入口，不另写日记事实 |
 | [Home Assistant](plugins/plugins/tool/home-assistant/plugin.manifest.json) | `homeassistant_call_service`、`homeassistant_get_state` | 已有另名 `ha_*` 内置工具，明确受信映射与参数差异，真实平台验收仍保留 |
 | [小米健康](plugins/plugins/sync/xiaomi-health/plugin.manifest.json) | `xiaomi_health_sync_daily` | 已有 `health_get_*` 只读工具；同步写入、厂商账号资格和副本删除须分别取证 |
 
-- **首个工具切片：** 先把 `anki_list_providers`、`diary_list_styles` 接到现有真实注册表与 HostToolRuntime，验证缺配置、停用、换代和撤权；随后按个人助手场景逐个补写工具。插件目前的 desktop/web/cli 声明不等于 mobile 可用，新增 mobile 目标须有实际组合根接线和兼容版本决定。
+- **首个工具切片（2026-11-06，本地实施）：** 两个插件的受信 `/server` 包与 Manifest/SKILL/README 统一为 `1.1.0`，通过可选 catalog 窄口读取真实元数据；宿主出厂发现同步登记 Manifest 工具，按同版 Manifest 与安装 version/checksum 绑定精确 ID，只读 handler 复用 Core HostToolRuntime。直接调用和模型入口共用纯判定与一次组合 SELECT，入场固定生命周期及授权 ID，返回快照按原身份复验；相关有效授权最多 256 行，超预算拒绝，NUL 文本与整数身份精确往返。权限按 SQL 快照读取时点观察，取得快照至调用方收到结果之间仍有并发窗口，不承诺墙钟即时强撤权。缺端口不贡献工具，缺配置仍可读，不创建 Turn、审批、业务事实或外部网络请求。
+- **本地证据：** Node `24.21.0` 子进程下，[直接/模型组合快照回归](packages/host-runtime/test/plugin-runtime-catalogs.test.ts) 33 项及既有绑定/审批合计 84 项通过，两插件 8 项通过；[真实 API 同源调用](apps/api/test/plugin-runtime-catalogs.test.ts) 与相关 API 36 项通过，最终精确调用复验通过。Repositories、Host Plugin API、Host Runtime、API 构建/类型检查、20 项分发/子模块/可移除回归、边界/纯净/工作区覆盖、插件作者可重现打包、文档与 frozen install 均通过。独立源码复审、33 项回归及最后模型快照前改权限的反例单独复验通过。配对 PR、最终 gitlink、远端冷检出和正式发布验收仍待完成，本条未关闭。
+- **联合终审（2026-11-06 至 2026-11-07）：** 最终组合为宿主 `255e671c` 与插件 gitlink `b06e9720`，已合入宿主主线 `7886042f` 和插件主线 `86ea6995`；可选插件合同、资源探针、冷检出守卫与删除账本诊断均进入组合。`./aervox ci all` 全部通过，覆盖 Host Runtime 365、API 1027、Repositories 962、Worker 177 项测试，以及删除故障、Rust 原生和 68 份文档门禁；DSH 真实模型与未构建参考库产物的两个条件分支跳过，不作为本切片验收证据。首次联合门禁在 `07863b0b` 发现新插件缺架构归属、会话总出口形成运行时依赖环，未通过；已有声明准备、scope 与进程修订函数原样抽到共享叶文件，精确登记两插件对 Core/Host Plugin API 的依赖，未增加环豁免或执行器，`0539bdd8` 独立差量复审和此前完整门禁通过。配对 PR、公开宿主 SHA 对应的插件 CI pin 和远端冷检出仍待验证。
+- **首页组合复验（2026-11-07）：** [主仓 PR #362](https://github.com/3yearsZhuang/Aervox-harness/pull/362) 已按精确提交 `85e1d8ae` 的 10 项远端成功检查合入 `4ae535c7`，固定首页集合 `bad07ef7`。只读工具候选吸收这组已审主线，宿主 `585c791b` 与集合 `fcfc4aa4` 的 frozen install、`./aervox ci all`、10 个插件分发包和全部插件预检通过，覆盖 API 1029、Repositories 964、Host Runtime 365、Worker 177 项；手机/Web 两个 Chromium 首页回归通过，DSH 两个既有条件跳过保留。[集合 PR #14](https://github.com/Aervox-agent/Aervox-plugins/pull/14) 与 [主仓 PR #368](https://github.com/3yearsZhuang/Aervox-harness/pull/368) 继续按公开兼容 Host、集合先合入、主仓固定最终 gitlink 的顺序交付；旧候选 `bdce8a8c` 的 10 项远端检查不能替代新组合检查。
+- **最终配对（2026-11-07）：** 集合 PR #14 的精确 head `5e024d89` 在公开兼容 Host `529fac9c` 完成冷检出全量门禁、文档/工作区及依赖审计后合入 `b494c421edb97764e6397fb2d0f6e03a67fcc9b7`，与已审候选文件树相同；主仓 `529fac9c` 的 10 项远端检查通过。主仓固定该实际集合合并 SHA，frozen install、33 项直接/模型消费者与 10 个分发包复验通过；首次并行复验被构建产物重建与未登记最终 gitlink 拒绝，未执行产品测试，登记 gitlink 并串行后通过。最终主仓 head 远端检查继续取证；两个只读工具交付不关闭余下 6 项声明或正式发布。
+- **余下声明：** 本切片后保留 6 个未接线工具；按个人助手场景逐个补写，不关闭整项。插件目前的 desktop/web/cli 声明不等于 mobile 可用，新增 mobile 目标须有实际组合根接线和兼容版本决定。
 - **实施与依赖：** 逐个确定声明到现有领域/受信 handler 的映射，统一 Manifest、SKILL、配置、参数和结果；未接通时显示实际不可用并纠正支持说明。依赖 ITER-071 工具身份与审批代际、ITER-006/013 权限和撤权、ITER-003 数据删除；不靠开放任意第三方代码补齐第一方工具。
 - **退出条件：** 8 个声明分别提供真实调用结果或明确的暂缓/取消决定；实现缺席不得虚报可用。已接通项验证实际结果与持久副作用、失败/取消、重复请求，以及停用/换代/撤权后旧调用拒绝。以宿主内置入口可用替代精确声明兑现时，须同步清单与兼容决定，不能静默重命名或重复注册。
 
@@ -265,11 +270,13 @@
 
 <a id="iter-076"></a>
 
-### ITER-076 · 待实施：真实附件扫描与 OCR 解析
+### ITER-076 · 拒绝防线已实现，真实附件扫描与 OCR 仍待接线
 
 CAP-012/025、FR-EXT-001/002。`c1af1099` 的[内容模块装配](packages/host-runtime/src/modules/knowledge/content/index.ts)未注入真实解析器；[默认 OCR](packages/host-runtime/src/modules/knowledge/content/parser-port.ts)忽略附件，返回固定数学题与随机置信度；[附件路由](packages/host-runtime/src/modules/knowledge/content/routes.ts)的元数据/二进制上传直接写 `scanStatus=clean`，解析再把 Mock 结果持久为 `completed` 或 `low_confidence`。此为实现缺口，不能以现有上传、解析记录和纠正接口的测试视为真实扫描或 OCR 完成。
 
 - **先闭合扫描准入：** 首个切片先移除上传直接写 `clean` 和生产默认 Mock 回退，不等待真实 Provider 选型。按 [AC-FR-EXT-001-02](docs/reference/SRS.md#fr-ext-001-附件上传与用途声明) 接入真实扫描结果和状态转换；扫描未完成、失败、不可用或未知时阻断解析与模型使用，只有实际通过结果可写 `clean`。两个上传入口复用同一准入，不在重试或恢复时绕过；先拒绝虚假通过，再验证扫描能力。
+- **首个拒绝切片：** `fix/iter-076-attachment-admission` 的上传保持 `pending`，生产 ParserRegistry 不装配 Mock 或不支持格式回退；模型附件引用统一返回 `ATTACHMENT_SCAN_UNVERIFIED`，在接单和会话创建前拒绝，输入框保留草稿并提示纯文本继续。解析/删除在写者事务内核对来源，迟到结果不复活已删附件。已知附件回执及损坏回执关联的消息、Memory、FTS、Embedding 与日记来源拒绝模型使用；用户历史保留，未关联/缺失历史来源不补造证明。原语法拒绝候选 `4fd48d49` 的 Node 24 仓储 48、API 45、输入框 1 项最终回归、独立复审及 `./aervox ci all`（退出 0）已通过，后续同步主线仅更新提交元数据。有效 JSON 的损坏意图/消息结构拒绝修复已独立审查并提交为 `d2e0ce9d`；追加摘要差量须重新独立复审和完整门禁，不沿用旧代码的通过证据。
+- **回执摘要追加候选：** 实际 SQLite 反例确认，把规范历史附件回执的附件数组改为空但保留旧哈希会开放来源；当前差量在模型来源读取和派生写者快照内，以宿主同步 SHA-256 重算选中回执原文的规范意图摘要。每条原文有界读取 256 KiB，超限拒绝；原生来源标识经 JSON 引用保留完整 NUL 身份。FTS 写入/重建在写者快照逐条验收，排序命中仍回读当前来源；每次模型上下文构建重新读取历史与记忆。生产自动召回的最后正文快照同时核对本机 `memory_long/auto_recall` 未撤销授权，迟到授权回调不能代替真实授权表。旧哈希、工具步骤间缓存、授权检查期间来源变更和本机授权撤销反例已有红/绿证据，API 42 与原生上下文/日记 12 项综合回归通过。SQL 到模型请求/投递仍有观察窗口；泛化外部授权、遗失/未链接历史来源仍独立待验。真实扫描、持久扫描证明、兼容迁移、OCR 和未知来源责任按本条接续，不以拒绝防线关闭整个能力。
 - **再接真实解析：** 评审允许格式、扫描/解析 Provider、本地与出网边界、许可和预算；生产装配读取实际附件，未配置或失败明确不可用，Mock 只用于显式测试/演示。保留来源、解析版本、置信度、人工纠正与幂等；低置信识别不得自动计分或更新掌握度。公式/实体抽取的支持声明须逐项有真实输出，不随普通 OCR 自动兑现。
 - **依赖：** 与 ITER-075 协同确定 OCR 工具合同；真实扫描/解析独立通过后，由 ITER-075 接线并验收调用。对应共享 API/Schema 由 ITER-064 承接，原图及派生删除依赖 ITER-003，资源/取消门槛依赖 ITER-013。Provider 或出网责任差量先更新对应合同，重大决定进入 ADR。CAP-024 的完整文献阅读另由 ITER-077 裁决，不由 OCR 替代。
 - **退出条件：** 不同真实附件产生对应解析结果；待扫描、恶意/失败样本、缺 Provider、超限/超时、取消、重试/回执丢失、低置信纠正与来源删除有可复现证据。未通过扫描的附件不进入模型，迟到扫描/解析结果不得复活已删除内容；夹具与真实 Provider、代码门禁与目标环境验收分别记录。

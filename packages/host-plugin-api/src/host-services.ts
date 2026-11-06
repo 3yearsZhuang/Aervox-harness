@@ -111,6 +111,16 @@ export interface PluginConfigurationPort {
   }): Promise<PluginConfigurationSnapshot>;
 }
 
+/** Read-only metadata from the registries used by the host's existing domain paths. */
+export interface PluginCatalogPort {
+  listQuestionBankProviders(): Promise<Array<{
+    id: string; name: string; description?: string; supportedExtensions: string[];
+  }>>;
+  listDiaryStyles(): Promise<Array<{
+    id: string; name: string; description: string; targetScene: string;
+  }>>;
+}
+
 /**
  * 插件装配时由宿主注入的服务集合，**按当前本地上下文绑定**。
  * 宿主按 request / turn 粒度构造；插件不得缓存跨上下文的实例。
@@ -120,4 +130,6 @@ export interface PluginHostServices {
   learningFacts: PluginLearningFactPort;
   /** Absent in legacy hosts or invocations without a captured plugin identity. */
   configuration?: PluginConfigurationPort;
+  /** Absent when the host has not assembled these registry capabilities. */
+  catalogs?: PluginCatalogPort;
 }

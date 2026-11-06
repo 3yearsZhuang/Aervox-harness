@@ -5,7 +5,7 @@
  * 手机端与 API / Worker 共用同一份仓储实现，避免两套写入协议。
  */
 export { SqliteDiaryRepository } from "./repositories/sqlite/diary-repository.js";
-export { collectDiaryMaterial, createSqliteDiaryMaterialPort } from "./repositories/sqlite/diary-material.js";
+export { collectDiaryMaterial, createSqliteDiaryMaterialPort } from "./repositories/sqlite/diary-material-neutral.js";
 export type { LocalContext } from "./local-context.js";
 export type {
   DiaryCycleModel,

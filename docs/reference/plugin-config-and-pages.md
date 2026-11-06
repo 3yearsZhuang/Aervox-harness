@@ -252,6 +252,14 @@ Hook 必须由 API 组合根 import 并注册到 [ServerPluginRegistry](../../pa
 
 `ServerPluginRegistration` 经 `@aervox/host-plugin-api` 声明 `turnPlugins`、`toolContributions(services)`、`httpEndpoints`、`replayScripts` 和可选 `registerApiContract()`。后者返回本次契约贡献的注销函数，由装配器持有；模块导入本身不得登记全局契约。宿主服务由 [plugin-host-services.ts](../../packages/host-runtime/src/plugin-host-services.ts) 将仓储封装为 `sessions`/`learningFacts` 意图级端口；插件不导入 Schema、Repositories、LibSQL 或宿主实时总线，报告载荷按不透明数据转发。
 
+受信 `/server` 包可通过 `runtimeToolContributions(services)` 与 `runtimeToolVersion`，把只读元数据工具绑定到同版 Manifest 已持久登记的精确工具 ID。宿主 [plugin-runtime-tools.ts](../../packages/host-runtime/src/plugin-runtime-tools.ts) 核对归属、说明、参数和只读安全级别，复用 Core HostToolRuntime 派发；同名工具不再通过 `toolContributions` 双重发布。绑定捕获安装 version/checksum，每次调用按当前生命周期创建独立 scope，在执行前后复验启用、可用性与 required grants；新授权不能释放撤权前旧调用的迟到结果。缺声明、版本不符或整批预检失败不绑定 handler，宿主关闭释放登记。
+
+安装、工具声明与相关有效授权来自 [SqliteExtensionRepository](../../packages/repositories/src/repositories/sqlite/extension-repository.ts) 一次组合 SELECT，不分散读取权限真源。入场快照固定本次代际和 grant ID，返回前快照同步核对完整声明与原授权；相关 grant 行最多 256 条，超限拒绝，身份文本按精确字节读取，异常文本或不能安全往返的整数拒绝。最终快照返回后只同步检查已观察到的取消信号。并发状态以 SQL 读取快照的时点为准：快照取得后至调用方收到结果之间仍有观察窗口，此时发生的声明或撤权变化不保证收回已获准的元数据结果；本切片不承诺墙钟即时强撤权。
+
+直接入口和模型运行时适配器复用 [plugin-tool-permit.ts](../../packages/host-runtime/src/plugin-tool-permit.ts) 的纯快照判定。模型适配器凭受信 handler 的运行时修订标识识别此类绑定，按原声明、原 scope 代际及入场授权验证最终组合快照；缺窄读口时拒绝执行，不按工具名字猜测身份。最终组合快照之后不再串读旧声明的权限或注册表。其它已有 native/MCP 工具继续各自领域路径，本口不形成第二执行器。
+
+可选 `catalogs` 端口只提供真实题库格式和日记风格的有界字段投影，HTTP 导入和工具共用题库注册表，日记入口共用风格注册表。它不暴露配置、Secret、正文或模板提示词，也不访问外部网络。旧宿主缺该端口时不贡献工具。直接元数据查询不创建 Turn、审批或业务事实；实际调用仍需对应 Manifest 读权限。首批精确接线为 `anki_list_providers`、`diary_list_styles`；对应导入和生成写声明仍未绑定，不能把安装、清单或配置校验当作写入、同步、移动端可用或发布验收。
+
 HTTP 适配负责鉴权、限流、本地上下文、出参包装、每请求生效检查及异常日志；门控和诊断出口都是必填。未生效返回 404 且不进入 handler，缺包不挂载端点。插件回放只在 `scripted-plugin` 等受信装配中提供，不能覆盖宿主内建模式。
 
 OpenAPI 片段使用独立贡献注册表，惰性生成公共文档；非法路径和内核端点冲突忽略并告警，同一方法与路径的插件片段使用最后仍存活的登记，注销/重建须清理旧贡献。工具结果投影随 `PluginToolContribution.resultProjection` 声明，宿主只为该插件自有工具登记，跨插件同名抢注及对内核工具登记投影均拒绝。

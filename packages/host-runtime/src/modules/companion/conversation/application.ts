@@ -1,7 +1,7 @@
 import { recoverApiOwnedTurn } from "./api-owned-recovery.js";
 import { snapshotExecutionConfig } from "@aervox/config";
 import type { IConversationRepository, LocalContext, SqliteConversationRepository } from "@aervox/repositories";
-import { assertConversationExecutionPolicy, normalizeTurnIntent, TurnIntentConflictError } from "@aervox/repositories";
+import { assertConversationExecutionPolicy, normalizeTurnIntent, RepositoryAccessViolationError, TurnIntentConflictError } from "@aervox/repositories";
 import { decideConversationApproval, ConversationCommandError } from "./approval-command.js";
 import { turnStreamHub } from "./stream-hub.js";
 import { executeConversationTurn, type ConversationRouteDeps, type ConversationTurnInput } from "./execution.js";
@@ -72,6 +72,10 @@ export function createConversationApplication(
     },
     async createTurn(ctx: LocalContext, input: Omit<Parameters<IConversationRepository["acceptTurn"]>[1], "consumeInbox" | "execution">) {
       assertOpen();
+      const attachments = input.message.attachments;
+      if (attachments !== undefined && (!Array.isArray(attachments) || attachments.length > 0)) {
+        throw new RepositoryAccessViolationError("ATTACHMENT_SCAN_UNVERIFIED");
+      }
       await repo.getOrCreateSession(ctx, input.sessionId, "Aervox 会话");
       const execution = executionConfig.turnExecution === "inline" ? "api" : executionConfig.loopDispatch;
       const accepted = await acceptConversationTurn(repo, ctx, { ...input, execution, consumeInbox: Boolean(deps.inboxRepo) });

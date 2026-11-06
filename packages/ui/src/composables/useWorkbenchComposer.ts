@@ -1,6 +1,6 @@
 import { getCurrentScope, nextTick, onScopeDispose, ref, type Ref } from 'vue';
 import { useSessionDraft } from './session-draft';
-import { useAervoxVoiceInput, uploadAervoxAttachment, getClientTransport } from '@aervox/api-client';
+import { useAervoxVoiceInput } from '@aervox/api-client';
 import {
   allowedMediaTypesSchema,
   MAX_ATTACHMENT_SIZE,
@@ -80,7 +80,6 @@ export function useWorkbenchComposer(options: {
   const attachmentUploading = ref(false);
 
   const voiceInput = useAervoxVoiceInput();
-  const attachmentTransport = getClientTransport();
   const voiceInputError = ref<string | null>(null);
   const voiceInputStarting = ref(false);
   let voiceStartGeneration = 0;
@@ -184,17 +183,12 @@ export function useWorkbenchComposer(options: {
   }
 
   async function uploadPendingAttachments(): Promise<TurnAttachmentRef[]> {
-    const refs: TurnAttachmentRef[] = [];
-    for (const item of pendingAttachments.value) {
-      const uploaded = await uploadAervoxAttachment({
-        file: item.file,
-        name: item.name,
-        mediaType: item.mediaType,
-        purpose: purposeForMediaType(item.mediaType),
-      }, attachmentTransport);
-      refs.push({ attachmentId: uploaded.id, name: item.name, mediaType: item.mediaType });
+    if (pendingAttachments.value.length) {
+      const message = '附件扫描尚未就绪，暂时无法发送附件。请移除附件后发送文字。';
+      attachmentError.value = message;
+      throw new Error(message);
     }
-    return refs;
+    return [];
   }
 
   function clearPendingAttachments() {

@@ -52,6 +52,7 @@ export async function registerMemoryModule(ctx: ModuleDependencies<"app" | "clie
     embeddingProvider,
     // 用途闸门（fail-closed）：无有效 memory_long 授权时不自动召回；历史保留/导出不受影响
     consentCheck: (purpose, scope) => privacyRepo.hasActiveConsent(local, purpose, scope),
+    requiredConsent: { purpose: "memory_long", scope: "auto_recall" },
   });
   registerMemoryRoutes(app, repo);
   if (ctx.toolRuntime && options.contributeTool !== false) {
