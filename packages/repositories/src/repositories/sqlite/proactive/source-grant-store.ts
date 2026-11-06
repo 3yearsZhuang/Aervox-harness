@@ -1,6 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/repositories — 逐来源授权状态与来源数据删除 Store
  */
+import { randomUUID } from "node:crypto";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
 import {
@@ -93,7 +94,7 @@ export class SourceGrantStore {
         );
     }
     await this.audit.recordAudit(ctx, {
-      id: `${sourceGrantId}_audit_${Date.now().toString(36)}`,
+      id: `${sourceGrantId}_audit_${randomUUID()}`,
       revisionId: existing.revisionId,
       eventType: `source.${input.state}`,
       actorId: input.actorId,
