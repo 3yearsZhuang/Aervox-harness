@@ -701,8 +701,11 @@ Web 60 项、主动界面/弹窗 76 项、移动浏览器 13 项、Android JVM 3
 
 2026-11-01 分支收尾同步已审主线及 [PR #356](https://github.com/3yearsZhuang/Aervox-harness/pull/356) 的开发服务退出测试修复，补齐 Android 冷构建的 Web 上游依赖；根级 frozen install、全量门禁、Android 构建、34 项 JVM、App lint 和测试 APK 编译通过。使用新的隔离 Android 17/API 37、arm64、16 KiB 模拟器实际运行完整仪器测试，76 项全部通过、无跳过；SELinux Enforcing、WebView 145，默认入口本机存储与 Mizuki 渲染成功。缺模型发送明确拒绝、草稿保留且历史为空；实际 force-stop 后旧进程消失，新进程恢复较早选中会话及完整草稿。模拟器发现缺模型反馈被滚动角色区裁切，配套 [集合 PR #8](https://github.com/Aervox-agent/Aervox-plugins/pull/8) 将手机反馈及动作移到独立布局行，短屏反馈期间收拢可滚动输入框；浏览器回归覆盖完整可见性、六行草稿、320×360 和键盘压缩可见区，并保留首次失败证据。新 APK 更新安装后，默认零滚动的完整反馈、真实原生模型配置入口、真实软键盘及约 358px 短视口均复验通过；再次实际 force-stop 后，较早会话和 1799 字符长草稿完整恢复，缺模型拒绝后的历史仍为空。该结果补充真实进程停止证据，仅覆盖尚未接单的场景；真实 Provider、物理手机复验、执行中终止完整矩阵、工具问答及正式发布继续开放，M0/ITER-009 不关闭。
 
-
 2026-11-06 确定性真机接续在 `feat/mobile-plan-acceptance` 使用独立 `com.aervox.mobile.planprobe` 调试包，保留原 `com.aervox.mobile` 安装与数据。原生 owner 的 actor 创建与绑定现置于同一短同步区，避免 worker 长初始化先占 owner monitor、把调用线程阻塞在 ready 截止前；生产入口与两个业务库夹具同步修复，独立静态审查 PASS，Java/仪器测试编译及 58 项 JVM 通过。首轮完整运行在数据库测试停顿，后续标准/诊断 runner 与数据库类复验也有停顿/超时；同 UID 读取实际线程 `wchan` 为 `do_freezer_trap`，Android 进程报告仍为 `cached=false/isFrozen=false`，不能靠该报告排除设备后台冻结。SIGQUIT 与测试 Activity 前台化均能推进；标准 AndroidX 1.7.0 runner 的 ActivityFinisher 会逐项关闭 Activity，前台条件用 `waitForActivitiesToComplete=false` 并打开隔离包 MainActivity 维持，各夹具仍自行释放资源。Android 17/API 37、PMA110、arm64、4 KiB 物理设备的数据库类 12/12、完整 78/78 通过；唯一固定生产包名的 AppIdentityTest 因隔离后缀未纳入本轮，测试没有放宽行为断言。通过套件的 APK SHA-256 为 app `adede3a47a0c296d06aaef62ace597debf89d8e8babe0d7567135e99535cdf0b`、test `f11f7fc1e8a837e266388b7200a4ebd291847c94e52c5600683f542734febab7`。临时诊断 runner 已从源码移除，首轮失败和人为停止记录保留；该结果仅证明确定性前台夹具，不证明后台可持续运行、真实模型、执行中终止完整矩阵、16 KiB 物理设备或正式发布。维护者明确先完成确定性真机验收，真实模型资源稍后补；全量代码门禁和 PR 精确提交结果接续记录。
+
+默认入口的后续物理复验在同一隔离安装完成：给现存会话输入 `planprobe_restart_20261107`，核对原生偏好中的会话身份与草稿后实际 force-stop/restart，界面恢复相同草稿；缺模型发送明确提示“消息尚未发送，草稿已保留”，再次强停重开仍恢复。只复制该测试包自有主库，SQLite 计数为 Turn、Attempt、Message、Outbox 均 0；已有四个测试会话和旧草稿保留，没有调用真实模型。此前空输入截图未绑定原草稿的会话身份，不能作为原会话草稿恢复失败或成功证据；本次新草稿以原生偏好、现存 SQLite 身份和重启截图共同确认。全量门禁首轮捕获跨入口比较不同 Turn 的终态 `lastSequence`（3 与 2），周期 flush 允许各自前缀事件数不同；回归现在分别强制 `done.data.lastSequence = done.sequence = Turn.last_sequence = MAX(stream sequence)`，跨入口仍比终态状态、原因、完整性及精确用量，独立审查与定向 3/3 通过。该断言修订不改变生产终态语义；新全量结果及 PR 合入随后记录。
+
+最终代码点 `58b8aeae` 的新 `./aervox ci all` 退出 0，API 1026、仓储 962、Worker 177 项及全仓构建、类型、守卫、原生、删除故障、依赖审计和 68 份文档门禁通过，既有 DSH 条件跳过仍不计通过。记录阶段捕获并修正本段多余空行，文档门禁重新通过；生产 Java 的绑定修复和测试断言已经独立复核，精确 PR/主线组合继续按审查流程交付。
 
 <a id="iter-016"></a>
 
