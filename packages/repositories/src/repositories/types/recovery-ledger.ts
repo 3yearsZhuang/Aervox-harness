@@ -4,6 +4,7 @@
 import type { RecoveryLedgerEventModel } from "./privacy.js";
 
 export interface IRecoveryLedgerPort {
+  /** A new event requires a valid contiguous sequence history and space for the next safe integer. */
   appendEvent(event: {
     eventId: string;
     idempotencyKey: string;
@@ -14,8 +15,11 @@ export interface IRecoveryLedgerPort {
     occurredAt?: string;
     tamperEvidence?: unknown;
   }): Promise<RecoveryLedgerEventModel>;
+  /** Empty returns 0; any invalid persisted sequence rejects instead of hiding behind MAX. */
   getMaxSequence(): Promise<number>;
+  /** Positive safe-integer lookup only; multiple events at a sequence reject as ambiguous. */
   getBySequence(sequence: number): Promise<RecoveryLedgerEventModel | null>;
+  /** Returned receipts (including retries) require a positive safe-integer sequence. */
   getByIdempotencyKey(idempotencyKey: string): Promise<RecoveryLedgerEventModel | null>;
   /**
    * 只读一致性检查：重复序列 / 序列缺口 / 总量（缺口或重复即账本不可信）。
