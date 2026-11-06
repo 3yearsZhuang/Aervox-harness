@@ -295,6 +295,7 @@ Memory 清理、独立验证、迟到写拒绝、召回资格及用途闸门已�
 - **身份完整性补修：** 独立复核发现 HTTP 的 NUL 分隔元组可碰撞，原生驱动又截断文本的 NUL 后缀，未知删除身份可能被当成受支持前缀。现去重归仓储单一命令所有，JSON 转义覆盖删除请求/目标的全部读取和 RETURNING，以及账本回执；不截短、清洗或收窄合法字符串。新增仓储 2、真实 API 4、Worker 5 项反例先红；修复后控制意图 23、真实 API 4 文件 25、Worker 删除 20 项通过，后续完整集成另验。
 - **下一步：** 先固化 `scope→targets`、来源→派生传播及 grant 修订绑定；显式覆盖消息/工具结果、事件、摘要、Memory、日记、附件、缓存和错误副本。历史 ContextManifest 正文清理及来源删除传播仍须闭合，不能以新写入最小化或诊断 UI 不显示正文代替全链验证。
 - **依赖与验收：** 联动 ITER-071 写者门禁、ITER-013 逐帧撤权及 ITER-010 deny 账本；数据库级唯一 sequence 约束经 ITER-011 演练。撤权/删除立即阻断用途，迟到写、重试、备份恢复均不复活；独立验证无召回、无越权动作，失败/未知 owner 不返回完成。权威边界见[隐私合同](docs/reference/DATA_PRIVACY.md#privacy-deletion-sla)及[当前限制](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-证据与适用限制)。
+- **Hook 写者准入候选：** 临时 SQLite 审计确认，有效插件代际与 Running Attempt 可在来源软删后继续写入核心 delta，而安全片段写者已拒绝。`fix/deletion-hook-body-admission` 在现有 Hook 写者事务内复用来源检查，校验通过前不分配序号或插入正文；不改原插件代际、全局删除和 fencing 判断。七个删除后可写反例先失败，修复后历史/流式仓储 2 文件 67 项与真实 Hook 生命周期/取消 API 2 文件 19 项通过，其他 Turn 和回滚失败的删除仍保持原写入资格。尚未全量或 PR 交付；普通错误载荷、旧事件/片段清理、非首版本物理删除的披露证明及 Outbox 副本继续开放。
 - **审计定位：** `c1af1099` 的[删除 Worker](apps/worker/src/deletion-worker.ts)仍只接受 Memory 范围；通用来源→派生、grant 修订及历史诊断正文清理沿本条接续，以逐 owner/派生类别的删除与迟到写反例关闭，不扩大有限 Memory 测试的完成声明。
 
 <a id="iter-006"></a>
