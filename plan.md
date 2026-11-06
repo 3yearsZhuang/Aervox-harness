@@ -719,6 +719,10 @@ Web 60 项、主动界面/弹窗 76 项、移动浏览器 13 项、Android JVM 3
 
 2026-11-01 分支收尾同步已审主线及 [PR #356](https://github.com/3yearsZhuang/Aervox-harness/pull/356) 的开发服务退出测试修复，补齐 Android 冷构建的 Web 上游依赖；根级 frozen install、全量门禁、Android 构建、34 项 JVM、App lint 和测试 APK 编译通过。使用新的隔离 Android 17/API 37、arm64、16 KiB 模拟器实际运行完整仪器测试，76 项全部通过、无跳过；SELinux Enforcing、WebView 145，默认入口本机存储与 Mizuki 渲染成功。缺模型发送明确拒绝、草稿保留且历史为空；实际 force-stop 后旧进程消失，新进程恢复较早选中会话及完整草稿。模拟器发现缺模型反馈被滚动角色区裁切，配套 [集合 PR #8](https://github.com/Aervox-agent/Aervox-plugins/pull/8) 将手机反馈及动作移到独立布局行，短屏反馈期间收拢可滚动输入框；浏览器回归覆盖完整可见性、六行草稿、320×360 和键盘压缩可见区，并保留首次失败证据。新 APK 更新安装后，默认零滚动的完整反馈、真实原生模型配置入口、真实软键盘及约 358px 短视口均复验通过；再次实际 force-stop 后，较早会话和 1799 字符长草稿完整恢复，缺模型拒绝后的历史仍为空。该结果补充真实进程停止证据，仅覆盖尚未接单的场景；真实 Provider、物理手机复验、执行中终止完整矩阵、工具问答及正式发布继续开放，M0/ITER-009 不关闭。
 
+2026-11-07 的[统一 UI 候选 PR #372](https://github.com/3yearsZhuang/Aervox-harness/pull/372)与[集合 PR #15](https://github.com/Aervox-agent/Aervox-plugins/pull/15)接续统一启动、原生配置与不可用页，完全删除 `PetHero` 并使用真实 Mizuki。陪伴气泡、输入栏与名牌保留玻璃质感；输入栏只放输入、紧邻发送/停止的语音键，不再添加上方标签、附件摘要或状态行。配置提醒与失败恢复放进角色气泡，附件在工具卡查看和移除，替代此前气泡外独立反馈行的候选布局。短屏/IME 浏览器六项及原生 UI 定向验证通过，最终精确提交、配对全量与 APK 证据由两仓 PR 保存；候选待审，不等同已发布。
+
+安卓故障工具的独立提交 `b4f049e9` 已交接到同一候选分支：专用 `deterministicProbe` variant 与 `.terminationprobe` 包名隔离，假模型提交 37 字节安全前缀后等待取消，实际 SQLite、Core 与原生通道不替换，普通包不载入夹具。工具链 34 项、夹具两项通过。交接的 PMA110/API 37 物理样例观察到实际强停后旧进程消失，重开不启动第二次模型，原身份与前缀保留，过期 Running Attempt 收敛 Interrupted，fencing 从 1 到 2，唯一 done 序号 3；强停前 Turn 实际为 Created、Attempt 为 Running。首轮脚本误读字段与状态的失败保留，第二轮最终快照已晚于租约过期，不能声称有效租约内不抢占已实测。完整近期租约、CancelRequested/取消终态、持久补问、renderer 退出、真实 Provider、后台、物理 16 KiB、升级/恢复与签名仍开放；本次不关闭 M0/ITER-009。
+
 <a id="iter-016"></a>
 
 ### ITER-016 · 建议：所选单设备 PoC

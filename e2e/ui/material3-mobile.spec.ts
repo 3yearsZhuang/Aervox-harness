@@ -3,7 +3,7 @@ import { test, expect, openWorkbench } from './fixtures';
 test.use({ platform: 'mobile' });
 test.setTimeout(60_000);
 
-test('keeps rejected-message feedback and its action fully visible without scrolling the mobile conversation', async ({ page, servers }, testInfo) => {
+test('keeps rejected-message recovery inside the dialogue and the mobile composer clear', async ({ page, servers }, testInfo) => {
   await page.setViewportSize({ width: 411, height: 838 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const cors = { 'Access-Control-Allow-Origin': '*' };
@@ -28,6 +28,9 @@ test('keeps rejected-message feedback and its action fully visible without scrol
   const feedback = page.locator('.pc-feedback');
   const retry = feedback.locator('.pc-retry');
   await expect(feedback).toContainText('未能收到回复，请重试。');
+  await expect(page.locator('.pc-dialogue-box .pc-feedback')).toHaveCount(1);
+  await expect(page.locator('.proactive-companion > .pc-mobile-feedback')).toHaveCount(0);
+  await expect(page.locator('.pc-whisper-input .pc-whisper-label, .pc-whisper-input .pc-attachment-chip')).toHaveCount(0);
   await expect(input).toHaveValue(draft);
   const expectControlsInView = async () => {
     await expect(feedback).toBeInViewport({ ratio: 1, timeout: 5000 });
@@ -66,7 +69,7 @@ test('keeps rejected-message feedback and its action fully visible without scrol
   await expect.poll(() => submissions).toBe(2);
   await expect(page.locator('.pc-dialogue-text')).toContainText('已收到保留的草稿。');
   await expect(feedback).toHaveCount(0);
-  expect((await page.locator('.pc-mobile-feedback').boundingBox())!.height).toBe(0);
+  await expect(page.locator('.proactive-companion > .pc-mobile-feedback')).toHaveCount(0);
   await expect(input).toHaveValue('');
 });
 

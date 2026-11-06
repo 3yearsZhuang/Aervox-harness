@@ -30,6 +30,8 @@ mise exec -- pnpm --filter @aervox/mobile android:build
 
 `sqlite:restore` 是显式网络恢复步骤，仅从固定的 SQLite 官方 HTTPS 地址读取 3.54.1 AAR，按固定长度及 SHA3-256 验证后发布到忽略的 `android/vendor/`；既有无效文件保留并报错，不自动覆盖。`sqlite:check` 只做本地校验。`android:build` 先预检与校验 SQLite 制品，在仓库根校验产品子模块并按依赖图构建 Web 上游包，再生成唯一 Schema 资产、按 `/m0/` 基址构建移动 Web、同步 Android、验证并准备固定原生资产，最后运行 `assembleDebug`；任一步失败均停止，缺失或篡改的制品不会触发隐式下载。直接运行 Gradle 也会在 preBuild 校验固定长度与摘要。首次 Gradle 构建需要网络获取已声明的 Gradle/Maven 依赖。debug APK 输出在 `apps/mobile/android/app/build/outputs/apk/debug/`。它使用调试签名，不是发布包。
 
+执行中强停的确定性测试使用独立包名 `com.aervox.mobile.terminationprobe`，在根运行 `mise exec -- pnpm --filter @aervox/mobile android:build:termination-probe`，APK 输出到 `android/app/build/outputs/apk/deterministicProbe/`。专用模型只提交一个固定安全前缀后等待取消，其他模型操作拒绝；SQLite、Core、租约与原生消息通道仍走实际实现。测试资产仅进入该 variant，普通 debug/release 使用生产资产。探针与日常安装的库、凭据槽及进程隔离；其结果只证明确定性场景，不能代替真实 Provider 或完整终止矩阵。
+
 设备检查需要一个已开启 USB 调试并授权的目标，多个目标时通过 `ANDROID_SERIAL` 选择：
 
 ```sh
@@ -120,6 +122,8 @@ Cubism Core 保留 Live2D 原始版权和许可头，适用 [Live2D Proprietary 
 默认原生入口展示已接入的会话、学习、记录、日记及本机运行设置，保留输入/IME 和取消/观察。角色区域加载时显示状态，Mizuki 就绪后显示真实模型；加载失败提供重试入口。既有表单与抽屉使用语义令牌适配；视觉统一与原生独立业务接线分别验收。
 
 未配置模型服务时，发送前的明确拒绝在角色对话框中提示，并提供配置入口；待发送草稿保留。完成配置后由用户再次发送，不自动重放。
+
+输入和语音、发送/停止操作位于同一个玻璃输入栏，语音键紧邻发送/停止键，不叠加上方标签或提示行。配置提醒、接收失败与恢复操作、语音状态留在角色气泡内；文本附件在工具卡查看和移除。
 
 手机常规竖屏放大角色，对话框可覆盖下半身，输入区保持在前景；软键盘或短视口出现时收起角色并解除叠放，优先保留对话和输入空间。
 
