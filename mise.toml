@@ -10,6 +10,11 @@ vale = "3.18.0"
 # 固定版本后 `mise x` 会把它放进 PATH，脚本可直接 spawnSync 调用，不再依赖 npx 缓存。
 "npm:markdownlint-cli2" = "0.23.3"
 
+[settings]
+# Nested mise/pnpm tasks must retain the project runtime even if an activated
+# caller later prepended a global Node installation to PATH.
+activate_aggressive = true
+
 [env]
 # ── 配置优先级声明（缺陷6）──────────────────────────────
 # 进程环境变量 > .env > 项目默认 > 代码内置默认。

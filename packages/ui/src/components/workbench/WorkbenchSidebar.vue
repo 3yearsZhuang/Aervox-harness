@@ -31,6 +31,7 @@ import type { SessionItem } from '@aervox/contracts';
 const {
   layout,
   sessions,
+  conversation,
   projects,
   openProjectManager,
   openImportSession,
@@ -44,6 +45,7 @@ const editInputRef = ref<HTMLInputElement | null>(null);
 const sidebar = ref<HTMLElement | null>(null);
 const sessionError = ref('');
 const narrowSidebar = computed(() => layout.narrowSidebar?.value ?? false);
+const sessionLocked = computed(() => conversation?.historyBlocked?.value ?? false);
 let returnFocus: HTMLElement | null = null;
 
 watch(() => narrowSidebar.value && !layout.standardSidebarCollapsed.value, async (open) => {
@@ -251,6 +253,7 @@ function toggleTheme() {
         type="button"
         class="new-chat-btn"
         title="新建对话 (⌘N)"
+        :disabled="sessionLocked"
         @click="handleCreateSession"
       >
         <Plus :size="16" />
@@ -341,6 +344,7 @@ function toggleTheme() {
 
     <!-- 会话列表 -->
     <div class="sidebar-sessions-scroll" role="navigation" aria-label="会话历史" :aria-busy="sessions.loading.value ? 'true' : undefined">
+      <p v-if="sessionLocked" class="sidebar-error" role="status">当前请求仍属于这段对话，处理后可切换；回看记录不会改变执行。</p>
       <p v-if="sessionError || sessions.error.value" class="sidebar-error" role="alert">{{ sessionError || '会话列表加载失败，请稍后重试。' }}</p>
       <div v-if="sessions.loading.value && sessions.sessions.value.length === 0" class="sidebar-sessions-skeleton" aria-hidden="true">
         <span v-for="row in 3" :key="row" class="sidebar-sessions-skeleton-row" />
@@ -353,6 +357,7 @@ function toggleTheme() {
           v-if="!searchQuery"
           type="button"
           class="empty-sessions-action"
+          :disabled="sessionLocked"
           @click="handleCreateSession"
         >
           <Plus :size="14" />新建对话
@@ -402,6 +407,7 @@ function toggleTheme() {
                 class="session-select"
                 :aria-current="s.id === sessions.activeSessionId.value ? 'page' : undefined"
                 :title="s.title"
+                :disabled="sessionLocked && s.id !== sessions.activeSessionId.value"
                 @click="handleSelectSession(s.id)"
               >
                 <span class="session-leading-icon">

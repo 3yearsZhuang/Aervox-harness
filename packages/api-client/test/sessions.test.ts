@@ -104,6 +104,27 @@ describe('useAervoxSessions', () => {
     expect(getSessionId()).toBe('ses_new');
   });
 
+  it('can create a session without replacing the current execution selection', async () => {
+    const newSession = { id: 'ses_new', title: '新对话', createdAt: 'now', updatedAt: 'now' };
+    (mockTransport.request as ReturnType<typeof vi.fn>).mockResolvedValueOnce(newSession);
+    const sessions = useAervoxSessions();
+    await expect(sessions.createNewSession('新对话', undefined, undefined, { select: false })).resolves.toEqual(newSession);
+    expect(sessions.sessions.value).toEqual([newSession]);
+    expect(sessions.activeSessionId.value).toBe('ses_initial');
+    expect(getSessionId()).toBe('ses_initial');
+  });
+
+  it('can commit deletion while leaving replacement selection to the surface', async () => {
+    (mockTransport.request as ReturnType<typeof vi.fn>).mockResolvedValueOnce(undefined);
+    const sessions = useAervoxSessions();
+    sessions.sessions.value = [{ id: 'ses_initial', title: '原会话', createdAt: 'now', updatedAt: 'now' }];
+    await expect(sessions.deleteSession('ses_initial', { select: false })).resolves.toBe(true);
+    expect(sessions.sessions.value).toEqual([]);
+    expect(sessions.activeSessionId.value).toBe('ses_initial');
+    expect(getSessionId()).toBe('ses_initial');
+    expect(mockTransport.request).toHaveBeenCalledExactlyOnceWith('DELETE', '/v1/sessions/ses_initial');
+  });
+
   it('renameSession sends PATCH and updates local session state', async () => {
     const original = { id: 'ses_1', title: '旧标题', createdAt: '2026-09-14T10:00:00.000Z', updatedAt: '2026-09-14T10:00:00.000Z' };
     const updated = { ...original, title: '重命名的标题', updatedAt: '2026-09-14T11:00:00.000Z' };

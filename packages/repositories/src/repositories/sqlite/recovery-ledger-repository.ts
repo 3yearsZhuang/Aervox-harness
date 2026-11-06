@@ -24,6 +24,12 @@ const ledgerEventProjection = { value: sql<string>`json_object(
   'tamperEvidence', json(${recoveryControlLedger.tamperEvidence})
 )`.mapWith((value: string): RecoveryLedgerEventModel => JSON.parse(value)) };
 
+// Refuse an incomplete report rather than allocating in proportion to a
+// damaged sequence value. These bound materialized rows and diagnostics, not
+// the storage engine's scan time or the production recovery protocol.
+const CONSISTENCY_ROW_LIMIT = 100_000;
+const CONSISTENCY_DIAGNOSTIC_LIMIT = 10_000;
+
 export class SqliteRecoveryLedgerRepository implements IRecoveryLedgerPort {
   private readonly db: LibSQLDatabase<{ recoveryControlLedger: typeof recoveryControlLedger }>;
 
@@ -94,19 +100,39 @@ export class SqliteRecoveryLedgerRepository implements IRecoveryLedgerPort {
     duplicatedSequences: number[];
     missingSequences: number[];
   }> {
+    // One read statement supplies a single snapshot. Invalid/unsafe SQLite
+    // values never cross the driver as integers that JavaScript could round.
     const rows = await this.db
-      .select({ sequence: recoveryControlLedger.sequence })
-      .from(recoveryControlLedger);
+      .select({ sequence: sql<string | null>`CASE
+        WHEN typeof(${recoveryControlLedger.sequence}) = 'integer'
+          AND ${recoveryControlLedger.sequence} BETWEEN 1 AND 9007199254740991
+        THEN CAST(${recoveryControlLedger.sequence} AS TEXT) ELSE NULL END`
+        .mapWith((value: string | null) => value === null ? null : Number(value)) })
+      .from(recoveryControlLedger)
+      .limit(CONSISTENCY_ROW_LIMIT + 1);
+    const budgetExceeded = () => new DomainConflictError("recovery_ledger_consistency_budget_exceeded");
+    if (rows.length > CONSISTENCY_ROW_LIMIT) throw budgetExceeded();
     const counts = new Map<number, number>();
-    for (const row of rows) counts.set(row.sequence, (counts.get(row.sequence) ?? 0) + 1);
-    const duplicatedSequences = [...counts.entries()]
-      .filter(([, count]) => count > 1)
-      .map(([sequence]) => sequence)
-      .sort((a, b) => a - b);
-    const maxSequence = counts.size > 0 ? Math.max(...counts.keys()) : 0;
+    for (const row of rows) {
+      if (!Number.isSafeInteger(row.sequence) || row.sequence === null || row.sequence < 1) {
+        throw new DomainConflictError("recovery_ledger_sequence_invalid");
+      }
+      counts.set(row.sequence, (counts.get(row.sequence) ?? 0) + 1);
+    }
+    const sequences = [...counts.keys()].sort((a, b) => a - b);
+    const maxSequence = sequences.at(-1) ?? 0;
+    const duplicatedSequences: number[] = [];
     const missingSequences: number[] = [];
-    for (let sequence = 1; sequence <= maxSequence; sequence += 1) {
-      if (!counts.has(sequence)) missingSequences.push(sequence);
+    let previous = 0;
+    for (const sequence of sequences) {
+      if (counts.get(sequence)! > 1) {
+        if (duplicatedSequences.length === CONSISTENCY_DIAGNOSTIC_LIMIT) throw budgetExceeded();
+        duplicatedSequences.push(sequence);
+      }
+      const gap = sequence - previous - 1;
+      if (gap > CONSISTENCY_DIAGNOSTIC_LIMIT - missingSequences.length) throw budgetExceeded();
+      for (let missing = previous + 1; missing < sequence; missing += 1) missingSequences.push(missing);
+      previous = sequence;
     }
     return { eventCount: rows.length, maxSequence, duplicatedSequences, missingSequences };
   }
