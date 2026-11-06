@@ -17,6 +17,7 @@ import { assertPluginGeneration, type PluginGenerationIdentity } from "../../../
 import { assertConversationExecutionPolicy } from "../../../conversation-execution-policy.js";
 import { BRANCH_TREE_MAX_BRANCHES, BRANCH_TREE_MAX_SESSIONS, BranchTreeLimitError, type BranchTreeReadOptions } from "../../../conversation-branch-tree.js";
 import { deleteBotConversationData } from "./bot-data-deletion.js";
+import { clearConversationContextBodies } from "./context-data-deletion.js";
 import type { LocalContext } from "../../../local-context.js";
 import { readSessionHistory } from "../session-history.js";
 import type { SessionModel, ConversationBranchModel, CreateExplorationBranchInput } from "../../types/index.js";
@@ -162,6 +163,7 @@ export class ConversationSessionStore {
     sessionId: string,
   ): Promise<boolean> {
     return this.db.transaction(async (tx) => {
+      await clearConversationContextBodies(tx, { sessionId });
       await deleteBotConversationData(tx, { sessionId });
       const result = await tx
         .delete(sessions)
