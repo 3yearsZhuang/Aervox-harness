@@ -41,7 +41,7 @@ import { createStandardLogger } from "@aervox/observability";
 import { resolveEmbeddingProvider } from "@aervox/host-agent";
 import { buildHostRuntime } from "@aervox/host-runtime";
 import { runOutboxCycle } from "./outbox-worker.js";
-import { createTurnConsumerHandler } from "./turn-consumer.js";
+import { runDelegatedTurnCycle } from "./turn-consumer.js";
 import { runReviewNotificationCycle } from "./review-notifier.js";
 import { runDiaryGenerationCycle } from "./diary-generator.js";
 import { runDeletionCycle } from "./deletion-worker.js";
@@ -98,7 +98,7 @@ const runtime = await buildHostRuntime({
   role: "worker", config: hostConfig, db, client, proactiveDb, proactiveClient, proactiveCipher, embeddingProvider,
 });
 await runtime.app.ready();
-const turnConsumer = createTurnConsumerHandler(runtime.conversation);
+const turnDispatchAbort = new AbortController();
 const diaryRepo = new SqliteDiaryRepository(db);
 const diaryGeneration = new DiaryGenerationService({
   materials: createSqliteDiaryMaterialPort(db),
@@ -137,10 +137,12 @@ host
         outboxRepo,
         platformRepo,
         workerId,
-        handlers: {
-          "agent.turn.requested": turnConsumer,
-        },
       }),
+  })
+  .registerJob({
+    name: "delegated-turns",
+    run: () => runDelegatedTurnCycle({ outboxRepo, host: runtime.conversation,
+      workerId, concurrency: config.turnConcurrency, signal: turnDispatchAbort.signal }),
   })
   .registerJob({
     name: "review",
@@ -233,4 +235,7 @@ if (healthServer) {
   });
 }
 
-registerWorkerShutdown({ host, abortExecution: () => runtime.conversation.abort(), disposeRuntime: () => runtime.app.close(), clients: [client, proactiveClient], healthServer, logger });
+registerWorkerShutdown({ host, abortExecution: () => {
+  turnDispatchAbort.abort();
+  runtime.conversation.abort();
+}, disposeRuntime: () => runtime.app.close(), clients: [client, proactiveClient], healthServer, logger });

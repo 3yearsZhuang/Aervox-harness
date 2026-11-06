@@ -199,6 +199,8 @@ export interface WorkerConfig {
   workerId: string;
   /** 任务默认节拍（WORKER_TICK_MS，默认 5000） */
   tickMs: number;
+  /** 显式委托 Turn 的并发上限（WORKER_TURN_CONCURRENCY，默认 2，范围 1～8） */
+  turnConcurrency: number;
   /** 日志级别（AERVOX_LOG_LEVEL，默认 info） */
   logLevel: LogLevel;
   /** 日志格式（AERVOX_LOG_FORMAT，默认开发 pretty、生产 json） */
@@ -225,6 +227,15 @@ function requirePositiveInt(name: string, raw: string | undefined, fallback: num
   if (Number.isInteger(parsed) && parsed > 0) return parsed;
   if (fatal) throw new Error(`[config] ${name}=${raw} is not a valid positive integer`);
   return fallback;
+}
+
+/** 启动期校验：并发上限必须为范围内的安全整数。 */
+function requireTurnConcurrency(raw: string | undefined): number {
+  if (raw === undefined) return 2;
+  const value = raw.trim();
+  const parsed = Number(value);
+  if (/^[0-9]+$/.test(value) && Number.isSafeInteger(parsed) && parsed >= 1 && parsed <= 8) return parsed;
+  throw new Error(`[config] WORKER_TURN_CONCURRENCY=${raw} is invalid; expected a safe integer between 1 and 8`);
 }
 
 /** 启动期校验：枚举 */
@@ -314,6 +325,7 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
 /** 加载 @aervox/worker 配置（可注入 env 便于测试；默认读取进程环境变量） */
 export function loadWorkerConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
   const tickMs = requirePositiveInt("WORKER_TICK_MS", env.WORKER_TICK_MS, 5000);
+  const turnConcurrency = requireTurnConcurrency(env.WORKER_TURN_CONCURRENCY);
   const intervalOverrides: Record<string, number> = {};
   for (const [key, value] of Object.entries(env)) {
     const match = /^WORKER_INTERVAL_([A-Z0-9_-]+)_MS$/.exec(key);
@@ -330,6 +342,7 @@ export function loadWorkerConfig(env: NodeJS.ProcessEnv = process.env): WorkerCo
   return {
     workerId: env.WORKER_ID?.trim() || `worker_${Date.now().toString(36)}`,
     tickMs,
+    turnConcurrency,
     ...loadLoggingConfig(env),
     intervalOverrides,
     proactiveFeatureFlags: loadProactiveFeatureFlags(env),

@@ -322,6 +322,8 @@ export class WorkerHost {
    */
   wakeJob(name: string): boolean {
     if (!this.running) return false;
+    // Existing committed Outbox notifications wake both independent consumers.
+    if (name === "outbox") this.wakeJob("delegated-turns");
     const state = this.jobStates.find((s) => s.job.name === name);
     if (!state) return false;
 

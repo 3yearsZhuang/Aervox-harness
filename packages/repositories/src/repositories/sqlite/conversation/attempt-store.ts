@@ -1,12 +1,13 @@
 /**
  * Aervox｜思隅 @aervox/repositories — TurnAttempt（领取/租约/终态/恢复）Store
  */
-import { eq, and, or, lt, isNull, inArray, notInArray, desc, sql } from "drizzle-orm";
+import { eq, and, or, not, lt, isNull, inArray, notInArray, desc, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
-import { turnAttempts, turns, turnStreamEvents, toolExecutions } from "@aervox/schema";
+import { turnAttempts, turns, turnStreamEvents, toolExecutions, outboxEvents } from "@aervox/schema";
 import type { LocalContext } from "../../../local-context.js";
 import { publishAssistantHistory } from "./message-history.js";
 import type { TurnAttemptModel } from "../../types/index.js";
+import { workerDelegationBinding } from "./delegation-store.js";
 
 export class AttemptStore {
   constructor(private readonly db: AervoxDatabase) {}
@@ -200,7 +201,8 @@ export class AttemptStore {
   /**
    * 3b-B / ARC-01：恢复过期与未认领孤儿 Attempt，并同步 turns 状态。
    * - 已 claim 且租约过期：lease_expires_at IS NOT NULL AND lease_expires_at < now
-   * - 未 claim 孤儿 Attempt：lease_expires_at IS NULL AND started_at < unclaimedThreshold
+   * - 未 claim 孤儿 Attempt：lease_expires_at IS NULL AND started_at < unclaimedThreshold；
+   *   原始回执仍可投递的初始 Worker 队列项不属于孤儿
    * - 同步推进 turns：将无在跑 Attempt 且状态仍为 Created/Running 的 Turn 推进至 Interrupted
    */
   async recoverExpiredAttempts(
@@ -213,6 +215,16 @@ export class AttemptStore {
     const unclaimedThresholdIso = new Date(now.getTime() - unclaimedTimeoutMs).toISOString();
 
     return this.db.transaction(async (tx) => {
+      // Queue wait is not lease loss. Only a never-claimed initial Attempt with
+      // its original, still-deliverable worker receipt is protected. Claimed
+      // work, cancellation and exhausted/invalid receipts keep existing recovery.
+      const queuedWorkerTurns = tx.select({ id: turns.id }).from(turns)
+        .innerJoin(outboxEvents, workerDelegationBinding())
+        .where(and(
+          eq(turns.executionPolicy, "local-v1"), eq(turns.dispatchTarget, "default"),
+          inArray(turns.status, ["Created", "Running"]),
+          or(eq(outboxEvents.status, "pending"), and(eq(outboxEvents.status, "failed"), lt(outboxEvents.retryCount, 3))),
+        ));
       const recovered = await tx.update(turnAttempts).set({
         status: sql`CASE WHEN ${turnAttempts.status} = 'CancelRequested' THEN 'Cancelled' ELSE 'Interrupted' END`,
         fencingToken: sql`${turnAttempts.fencingToken} + 1`, finishedAt: nowIso,
@@ -222,7 +234,14 @@ export class AttemptStore {
           eq(turns.dispatchTarget, options.dispatchTarget),
           options.dispatchTarget === "default" ? eq(turns.executionPolicy, "local-v1") : undefined,
         ))) : undefined,
-        or(lt(turnAttempts.leaseExpiresAt, nowIso), and(isNull(turnAttempts.leaseExpiresAt), lt(turnAttempts.startedAt, unclaimedThresholdIso))),
+        or(lt(turnAttempts.leaseExpiresAt, nowIso), and(
+          isNull(turnAttempts.leaseExpiresAt), lt(turnAttempts.startedAt, unclaimedThresholdIso),
+          not(and(
+            eq(turnAttempts.status, "Running"), eq(turnAttempts.attempt, 1),
+            eq(turnAttempts.fencingToken, 0), isNull(turnAttempts.leaseId),
+            inArray(turnAttempts.turnId, queuedWorkerTurns),
+          )!),
+        )),
       )).returning({
         id: sql<string>`json_quote(${turnAttempts.id})`.mapWith(value => JSON.parse(value) as string),
         turnId: sql<string>`json_quote(${turnAttempts.turnId})`.mapWith(value => JSON.parse(value) as string),

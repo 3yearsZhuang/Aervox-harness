@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SqlitePrivacyRepository, SqliteSkillRegistryRepository, SqliteMemoryRepository, indexMemoryFts } from "@aervox/repositories";
 import { ProactiveIntegrationManager } from "@aervox/host-runtime-test/modules/proactive/proactive/integration-manager";
 import { createHostFixture, llmSse, toolSse, local } from "./host-fixture.js";
+import { runDelegatedTurnCycle } from "../src/turn-consumer.js";
 
 interface ModelRequest { messages: Array<{ role: string; content: string }>; tools?: Array<{ function: { name: string } }> }
 
@@ -19,6 +20,93 @@ describe("Worker uses the complete product host", () => {
 
   it("starts background integrations only in the API role", () => {
     expect(ProactiveIntegrationManager.prototype.start).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not acknowledge or penalize a real CAS loser while another owner keeps the initial Attempt live", async () => {
+    const fetch = vi.fn(async () => llmSse("不应执行")); vi.stubGlobal("fetch", fetch);
+    const turnId = await fixture.accept();
+    const execute = fixture.worker.conversation.commands.execute.bind(fixture.worker.conversation.commands);
+    vi.spyOn(fixture.worker.conversation.commands, "execute").mockImplementationOnce(async (ctx, input) => {
+      expect(await fixture.repo.claimTurnAttempt(local, { turnId, attemptId: input.attemptId!, expectedFencingToken: 0, leaseId: "other-live-owner" })).toMatchObject({ ok: true });
+      await execute(ctx, input);
+    });
+    await runDelegatedTurnCycle({ outboxRepo: fixture.outboxRepo, workerId: "cas-loser", host: fixture.worker.conversation, concurrency: 2 });
+    expect(fetch).not.toHaveBeenCalled();
+    expect((await fixture.repo.listTurnAttempts(local, turnId))[0]).toMatchObject({ status: "Running", fencingToken: 1, leaseId: "other-live-owner" });
+    expect(await fixture.outboxRepo.getEventById(`outbox_${turnId}`)).toMatchObject({ status: "pending", retryCount: 0 });
+  });
+
+  it("keeps a delivery retryable when observing the result fails without spending execution retries", async () => {
+    const fetch = vi.fn(async () => llmSse("持久结果")); vi.stubGlobal("fetch", fetch);
+    const turnId = await fixture.accept();
+    const inspect = fixture.worker.conversation.queries.inspectDelegatedTurn.bind(fixture.worker.conversation.queries);
+    const fault = vi.spyOn(fixture.worker.conversation.queries, "inspectDelegatedTurn")
+      .mockImplementationOnce(inspect).mockRejectedValueOnce(new Error("result_observation_unavailable"));
+    const markFailed = vi.spyOn(fixture.outboxRepo, "markFailed");
+    await expect(runDelegatedTurnCycle({ outboxRepo: fixture.outboxRepo, workerId: "observe-failure", host: fixture.worker.conversation, concurrency: 2 }))
+      .rejects.toThrow("result_observation_unavailable");
+    expect((await fixture.repo.listTurnAttempts(local, turnId))[0].status).toBe("Completed");
+    expect(await fixture.outboxRepo.getEventById(`outbox_${turnId}`)).toMatchObject({ status: "pending", retryCount: 0 });
+    expect(markFailed).not.toHaveBeenCalled();
+    fault.mockRestore();
+    await runDelegatedTurnCycle({ outboxRepo: fixture.outboxRepo, workerId: "observe-retry", host: fixture.worker.conversation, concurrency: 2 });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(await fixture.outboxRepo.getEventById(`outbox_${turnId}`)).toMatchObject({ status: "published", retryCount: 0 });
+  });
+
+  it.each([new Error("admission_failed_before_claim"), undefined])("allows an execution retry only after re-observing an admission failure as never claimed (%s)", async failure => {
+    const fetch = vi.fn(async () => llmSse("恢复后完成")); vi.stubGlobal("fetch", fetch);
+    const turnId = await fixture.accept();
+    const failedAdmission = vi.spyOn(fixture.worker.conversation.commands, "execute").mockRejectedValueOnce(failure);
+    await runDelegatedTurnCycle({ outboxRepo: fixture.outboxRepo, workerId: "admission-failure", host: fixture.worker.conversation, concurrency: 2 });
+    expect(fetch).not.toHaveBeenCalled();
+    expect((await fixture.repo.listTurnAttempts(local, turnId))[0]).toMatchObject({ status: "Running", fencingToken: 0, leaseId: null });
+    expect(await fixture.outboxRepo.getEventById(`outbox_${turnId}`)).toMatchObject({ status: "failed", retryCount: 1 });
+    failedAdmission.mockRestore();
+    await runDelegatedTurnCycle({ outboxRepo: fixture.outboxRepo, workerId: "admission-retry", host: fixture.worker.conversation, concurrency: 2 });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(await fixture.outboxRepo.getEventById(`outbox_${turnId}`)).toMatchObject({ status: "published", retryCount: 1 });
+  });
+
+  it("dead-letters a receipt that disappears during admission instead of acknowledging or retrying it", async () => {
+    const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
+    const turnId = await fixture.accept();
+    vi.spyOn(fixture.worker.conversation.commands, "execute").mockImplementationOnce(async () => {
+      await fixture.client.execute({ sql: "UPDATE turns SET request_hash = NULL WHERE id = ?", args: [turnId] });
+    });
+    const published = vi.spyOn(fixture.outboxRepo, "markPublished");
+    const failed = vi.spyOn(fixture.outboxRepo, "markFailed");
+    await runDelegatedTurnCycle({ outboxRepo: fixture.outboxRepo, workerId: "lost-receipt", host: fixture.worker.conversation, concurrency: 2 });
+    expect(await fixture.outboxRepo.getEventById(`outbox_${turnId}`)).toMatchObject({ status: "dead_letter", retryCount: 0 });
+    expect(published).not.toHaveBeenCalled(); expect(failed).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("acknowledges the settled initial Attempt while a real approval continuation is still awaiting execution", async () => {
+    const fetch = vi.fn(async () => toolSse("aervox_skill_create_payload", { payloadRef: "continuation-dispatch", payload: { skill_markdown: "# Continuation" } }));
+    vi.stubGlobal("fetch", fetch);
+    const turnId = await fixture.accept();
+    const ackFault = vi.spyOn(fixture.outboxRepo, "markPublished").mockRejectedValueOnce(new Error("ack_before_continuation_failed"));
+    await expect(runDelegatedTurnCycle({ outboxRepo: fixture.outboxRepo, workerId: "initial-attempt", host: fixture.worker.conversation, concurrency: 2 }))
+      .rejects.toThrow("ack_before_continuation_failed");
+    ackFault.mockRestore();
+    const [initialAttempt] = await fixture.repo.listTurnAttempts(local, turnId);
+    expect(initialAttempt).toMatchObject({ attempt: 1, status: "Interrupted" });
+    const [approval] = await fixture.repo.listToolApprovalsByTurn(local, turnId);
+    expect(approval).toMatchObject({ state: "pending" });
+    const resumed = await fixture.repo.decideToolApprovalAndResume(local, {
+      turnId, approvalId: approval.id, decision: "granted", decidedBy: "local", toolVersion: approval.toolVersion ?? undefined,
+    });
+    expect(resumed?.ready).toBe(true);
+    expect(resumed?.continuation?.attempt).toMatchObject({ attempt: 2, status: "Running" });
+    const execute = vi.spyOn(fixture.worker.conversation.commands, "execute");
+    await runDelegatedTurnCycle({ outboxRepo: fixture.outboxRepo, workerId: "initial-receipt-replay", host: fixture.worker.conversation, concurrency: 2 });
+    expect(execute).not.toHaveBeenCalled(); expect(fetch).toHaveBeenCalledTimes(1);
+    expect(await fixture.outboxRepo.getEventById(`outbox_${turnId}`)).toMatchObject({ status: "published", retryCount: 0 });
+    const attempts = await fixture.repo.listTurnAttempts(local, turnId);
+    expect(attempts).toHaveLength(2);
+    expect(attempts.find(attempt => attempt.id === initialAttempt.id)).toMatchObject({ attempt: 1, status: "Interrupted" });
+    expect(attempts.find(attempt => attempt.id === resumed?.continuation?.attempt.id)).toMatchObject({ attempt: 2, status: "Running" });
   });
 
   it("claims before product hooks so concurrent delivery cannot repeat preparatory side effects", async () => {

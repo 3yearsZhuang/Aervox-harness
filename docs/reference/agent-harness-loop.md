@@ -92,7 +92,7 @@ Agent Harness Loop 是驱动一次 Agent Turn 的执行能力：它领取已持�
 | 模型调用记录 | [executor 写入](../../packages/core/src/executor.ts)、[API sink](../../packages/host-runtime/src/modules/companion/conversation/agent-executor.ts) | 每次实际模型调用记录 ModelRun 与输入快照，覆盖多 Step、重试和失败；写入仍为可选、尽力而为，不是可靠恢复或完整来源 Manifest 证明 |
 | Inbox 与扩展 | [Inbox API](../../packages/host-runtime/src/modules/companion/inbox/routes.ts)、[ContextBuilder](../../packages/core/src/context-builder.ts) | 已有持久 inbox、claim/ack、followup/steer/inject 消费、Skill 与压缩接缝、Subagent/Workflow Contribution；唤醒和恢复的端到端语义仍按下文验收 |
 | 可复用 Host/Profile | [Agent Host](../../packages/host-agent/src/agent-host.ts)、[Profile](../../packages/host-agent/src/profile.ts)、[恢复源](../../packages/host-agent/src/sqlite-resume-source.ts) | 已有轮询、claim、容量限制、健康检查、排空和最小 Provider/Adapter 选择；API/Worker 通过 `@aervox/host-runtime` 共用产品装配，Worker 继续使用自己的任务调度器 |
-| Worker 恢复 | [attempt-recovery](../../apps/worker/src/attempt-recovery.ts) | 默认把过期 Attempt 收敛为 Interrupted；显式 local-results 通过共享宿主的本机模型补完已提交结果 |
+| Worker 委托与恢复 | [专用委托消费](../../apps/worker/src/turn-consumer.ts)、[attempt-recovery](../../apps/worker/src/attempt-recovery.ts) | 显式委托按单 Worker 批次有界执行；未领取且原始回执仍可投递的初始 Attempt 保留排队，过期已领取 Attempt 仍收敛；显式 local-results 通过共享宿主的本机模型补完已提交结果 |
 
 <a id="22-当前缺口"></a>
 
@@ -424,7 +424,17 @@ agent.attempt.lease-expired
 
 接单事务保存执行归属、metadata、独立的工具审批模式和认证审计身份。metadata 不能覆盖审批模式；每个 Turn 创建独立授权上下文，避免并发串用。默认 API 后台执行与 inline 执行写入 `turn.created`，Worker 只作普通事件审计；显式 `AERVOX_LOOP_DISPATCH=worker` 的后台接单写入 `agent.turn.requested`。Worker 只消费后者且复验 `execution=worker`，从数据库读取已接受的用户输入，进入 `@aervox/host-runtime` 的完整会话装配。两类事件不能兼容映射为同一执行任务，否则会抢跑 API Turn。发布时先更新 Worker，再开启委托开关；开关回退不改变已有事件归属。
 
+显式委托由 [delegated-turns 专用 Job](../../apps/worker/src/turn-consumer.ts)消费，通用 Outbox 默认排除 `agent.turn.requested`；现有事务提交后的 Outbox 唤醒同时通知两个消费者。投递内容只定位原始受理回执，宿主复验回执 ID、Turn、Session、请求哈希和本地执行政策，再读取已接受的输入。投递不能扩大工具授权，也不能把 API 或 Bot 持有的 Turn 转交 Worker。
+
+`WORKER_TURN_CONCURRENCY` 默认 2，必须为 1～8 的安全整数，非法值在启动期拒绝；它限制一个 Worker 进程中 `delegated-turns` 每批获取和等待的初始委托数量。WorkerHost 防止该 Job 自重叠，整批执行与回执处理结束后再取下一批；批次中的空位不会提前补入后续任务。该值不限制 API、审批续跑、子任务或其他 Worker 进程。`WORKER_INTERVAL_DELEGATED_TURNS_MS` 的任务级默认值为 3000 毫秒，继续使用现有单任务覆盖和全局 tick 优先级。
+
+发布委托回执前必须复读原始首个 Attempt 的持久终态；执行 Promise 返回、领取失败或其他 owner 仍在执行均不能作为完成依据。观测失败或发布回执失败保留投递重试，后续轮询先复读状态，已经完成的执行不重跑；原始 Attempt 已终结时，即使审批续跑创建了后续 Attempt，也只确认原始投递。超过孤儿等待阈值但仍未领取、fencing 为初始值且原始回执处于 pending 或未耗尽重试的初始委托继续排队；已领取过期、取消、无有效回执及耗尽重试的工作仍遵守现有恢复规则，不因此授权重放工具副作用。
+
+无效投递、损坏的原始接单凭据或已删除的接受输入归入死信，后续合法委托继续消费；SQLite 中的坏 JSON 委托回执逐项隔离，不中断整批读取。只有执行准入失败后复验仍未领取的工作消耗执行重试，最多 3 次；数据库观测或回执确认失败不消耗该重试，也不允许重放已经提交的副作用。
+
 独立 Worker 收到首个 `SIGINT` 或 `SIGTERM` 时，关闭协调器从取消执行开始使用同一个 20 秒默认总等待预算，依次等待任务排空、共享宿主释放和健康服务关闭，最后显式关闭主库与 Vault。重复信号不重新释放或重置预算。WorkerHost 默认 5 秒仅限制自身排空，模型释放默认 10 秒仅限制该模块；它们不能替代整个关闭链的截止。任一阶段失败或总预算耗尽时记录 `worker.shutdown.failed` 并退出 1；总截止的原因固定为 `worker_shutdown_deadline_exceeded`，记录当前阶段和预算。任务、宿主或健康服务关闭失败时不提前显式关闭数据库，也不推定未完成的副作用成功或允许自动重放。数据库关闭自身抛错或同步超时时可能已部分关闭，仍以失败退出。
+
+关闭信号同时取消委托批次的后续准入和活动会话；WorkerHost 持有并等待整批执行及回执处理，尚未领取的候选保留持久投递。该接线复用上述关闭预算，不证明所有 Provider 的外部操作都已停止，也不扩大为全部后台写者排空保证。
 
 该截止覆盖事件循环仍可运行时的异步等待，不能打断阻塞的同步关闭函数，也不证明每个后台写者都已排空。原生主管的进程回收时限另由 [Unix/Windows 实现](../../native/crates/runtime/src/supervisor/mod.rs)决定；较短的外层强制终止可能先于 Worker 截止，因此此默认值不作为原生部署优雅退出保证。
 

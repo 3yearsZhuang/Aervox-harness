@@ -21,6 +21,68 @@ describe("WorkerHost (模块化后台任务调度器)", () => {
     fatal: vi.fn(),
   });
 
+  it("an existing Outbox wake runs both consumers and respects write pressure and shutdown", async () => {
+    const outbox = vi.fn().mockResolvedValue(0);
+    const delegated = vi.fn().mockResolvedValue(0);
+    const host = new WorkerHost({ workerId: "shared-outbox-wake", logger: createMockLogger(), initialStaggerMs: 0 });
+    host.registerJob({ name: "outbox", run: outbox });
+    host.registerJob({ name: "delegated-turns", run: delegated });
+    host.start();
+    try {
+      await vi.advanceTimersByTimeAsync(10);
+      expect(outbox).toHaveBeenCalledTimes(1); expect(delegated).toHaveBeenCalledTimes(1);
+      expect(host.wakeJob("outbox")).toBe(true);
+      await vi.advanceTimersByTimeAsync(10);
+      expect(outbox).toHaveBeenCalledTimes(2); expect(delegated).toHaveBeenCalledTimes(2);
+      host.setPressureMode(true, 10_000);
+      expect(host.wakeJob("outbox")).toBe(true);
+      await vi.advanceTimersByTimeAsync(100);
+      expect(outbox).toHaveBeenCalledTimes(2); expect(delegated).toHaveBeenCalledTimes(2);
+      expect(host.getJobState("outbox")?.hasPendingWakeup).toBe(true);
+      expect(host.getJobState("delegated-turns")?.hasPendingWakeup).toBe(true);
+      host.setPressureMode(false);
+      await vi.advanceTimersByTimeAsync(10);
+      expect(outbox).toHaveBeenCalledTimes(3); expect(delegated).toHaveBeenCalledTimes(3);
+    } finally { await host.stop(); }
+    expect(host.wakeJob("outbox")).toBe(false);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(outbox).toHaveBeenCalledTimes(3); expect(delegated).toHaveBeenCalledTimes(3);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("coalesces Outbox wakes behind an active delegated batch and drains before admitting another batch", async () => {
+    let finish!: (count: number) => void;
+    const outbox = vi.fn().mockResolvedValue(0);
+    const delegated = vi.fn(() => new Promise<number>(resolve => { finish = resolve; }));
+    const host = new WorkerHost({ workerId: "active-delegated-wake", logger: createMockLogger(), initialStaggerMs: 0 });
+    host.registerJob({ name: "outbox", run: outbox });
+    host.registerJob({ name: "delegated-turns", run: delegated });
+    host.start();
+    try {
+      await vi.advanceTimersByTimeAsync(10);
+      for (let wake = 0; wake < 3; wake++) {
+        expect(host.wakeJob("outbox")).toBe(true);
+        await vi.advanceTimersByTimeAsync(1);
+      }
+      expect(delegated).toHaveBeenCalledTimes(1);
+      expect(host.getJobState("delegated-turns")?.hasPendingWakeup).toBe(true);
+      expect(outbox).toHaveBeenCalledTimes(4);
+      const stopped = host.stop();
+      void stopped.catch(() => undefined);
+      expect(host.wakeJob("outbox")).toBe(false);
+      finish(1);
+      await stopped;
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(delegated).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      const stopped = host.stop();
+      void stopped.catch(() => undefined);
+      finish?.(1);
+      await stopped;
+    }
+  });
+
   it("stop drains an active job, shares the drain and prevents rescheduling", async () => {
     let finish!: (count: number) => void;
     const run = vi.fn(() => new Promise<number>(resolve => { finish = resolve; }));
