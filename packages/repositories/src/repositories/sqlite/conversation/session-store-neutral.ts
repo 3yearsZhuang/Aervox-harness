@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/repositories — 会话生命周期、分支地图（CAP-014）与会话导入 Store
  */
 import { conversationSha256, conversationUUID, requireConversationCrypto, type ConversationCryptoPort } from "../../../conversation-host-port.js";
-import { eq, and, desc, isNull } from "drizzle-orm";
+import { eq, and, desc, isNull, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
 import {
   sessions,
@@ -20,6 +20,15 @@ import { deleteBotConversationData } from "./bot-data-deletion.js";
 import type { LocalContext } from "../../../local-context.js";
 import { readSessionHistory } from "../session-history.js";
 import type { SessionModel, ConversationBranchModel, CreateExplorationBranchInput } from "../../types/index.js";
+
+// SQLite JSON escapes NUL before the native text decoder sees a row. Use the
+// same projection for reads and write receipts so identities and titles retain
+// their complete persisted value instead of becoming a prefix.
+const sessionProjection = { value: sql<string>`json_object(
+  'id', ${sessions.id}, 'title', ${sessions.title}, 'projectId', ${sessions.projectId},
+  'executionPolicy', ${sessions.executionPolicy},
+  'createdAt', ${sessions.createdAt}, 'updatedAt', ${sessions.updatedAt}
+)`.mapWith((value: string): SessionModel => JSON.parse(value)) };
 
 export class ConversationSessionStore {
   constructor(private readonly db: AervoxDatabase, private readonly crypto: ConversationCryptoPort) { requireConversationCrypto(crypto); }
@@ -49,22 +58,22 @@ export class ConversationSessionStore {
         createdAt: now,
         updatedAt: now,
       })
-      .returning();
-    return created as SessionModel;
+      .returning(sessionProjection);
+    return created!.value;
     });
   }
 
   async getSession(ctx: LocalContext, sessionId: string): Promise<SessionModel | null> {
     const [found] = await this.db
-      .select()
+      .select(sessionProjection)
       .from(sessions)
       .where(
         and(
           eq(sessions.id, sessionId),
         ),
       );
-    if (found) assertConversationExecutionPolicy(found.executionPolicy);
-    return (found as SessionModel) ?? null;
+    if (found) assertConversationExecutionPolicy(found.value.executionPolicy);
+    return found?.value ?? null;
   }
 
   /**
@@ -99,8 +108,8 @@ export class ConversationSessionStore {
         updatedAt: now,
       })
       .onConflictDoNothing()
-      .returning();
-    if (created) return created as SessionModel;
+      .returning(sessionProjection);
+    if (created) return created.value;
     const concurrent = await this.getSession(ctx, sessionId);
     if (!concurrent) throw new Error("conversation_session_unavailable");
     if (executionPolicy !== undefined && executionPolicy !== concurrent.executionPolicy) throw new Error("conversation_execution_policy_mismatch");
@@ -111,7 +120,7 @@ export class ConversationSessionStore {
     _tenant: LocalContext,
     options?: { limit?: number; offset?: number; projectId?: string },
   ): Promise<SessionModel[]> {
-    const query = this.db.select().from(sessions);
+    const query = this.db.select(sessionProjection).from(sessions);
     const rows = options?.projectId
       ? await query
           .where(eq(sessions.projectId, options.projectId))
@@ -122,7 +131,7 @@ export class ConversationSessionStore {
           .orderBy(desc(sessions.updatedAt))
           .limit(options?.limit ?? 100)
           .offset(options?.offset ?? 0);
-    return rows as SessionModel[];
+    return rows.map(row => row.value);
   }
 
   async renameSession(
@@ -144,8 +153,8 @@ export class ConversationSessionStore {
       .update(sessions)
       .set(patch)
       .where(eq(sessions.id, sessionId))
-      .returning();
-    return (updated as SessionModel) ?? null;
+      .returning(sessionProjection);
+    return updated?.value ?? null;
   }
 
   async deleteSession(
