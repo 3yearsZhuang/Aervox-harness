@@ -180,13 +180,12 @@ export function createConversationController(transport: AervoxTransport, lifetim
           if (!current()) return;
           if (question && state.question === question && event.data && typeof event.data === 'object') {
             const answered = event.data as {turnId?: unknown; attemptId?: unknown; invocationId?: unknown; step?: unknown};
-            // Legacy receipt replay may clear its unchanged legacy prompt, but
-            // must never infer an identity or clear a newly delivered question.
-            const legacy = question.attemptId === undefined && question.invocationId === undefined
-              && answered.attemptId === undefined && answered.invocationId === undefined;
+            // Receipts without a complete original identity are acknowledged
+            // below, but cannot prove that the current question was answered.
             const sameIdentity = typeof question.attemptId === 'string' && typeof question.invocationId === 'string'
+              && typeof question.step === 'number'
               && answered.attemptId === question.attemptId && answered.invocationId === question.invocationId && answered.step === question.step;
-            if (answered.turnId === question.turnId && (sameIdentity || legacy)) update({question: undefined});
+            if (answered.turnId === question.turnId && sameIdentity) update({question: undefined});
           }
           if ((event.eventType === 'tool_approval_granted' || event.eventType === 'tool_approval_denied') &&
               event.data && typeof event.data === 'object' && (event.data as {approvalId?: string}).approvalId === state.approval?.approvalId) update({approval: undefined});

@@ -215,16 +215,20 @@ describe('ConversationController', () => {
       expect(controller.state.question).toBe(next);
       expect(controller.state.status).toBe('awaiting-input');
       expect(controller.state.afterEventId).toBe('old-answer');
-      if (identity === 'available') {
-        await forward.onEvent!({eventId: 'old-answer-again', turnId: 'turn', sequence: 3,
-          eventType: 'user_question_answered', payloadVersion: 1, occurredAt: '2026-11-07T00:00:00.500Z',
-          data: {turnId: 'turn', ...firstIdentity, step: 1, answers: []}});
-        expect(controller.state.question).toBe(next);
-      }
-      await forward.onEvent!({eventId: 'next-answer', turnId: 'turn', sequence: 4,
+      await forward.onEvent!({eventId: 'old-answer-again', turnId: 'turn', sequence: 3,
+        eventType: 'user_question_answered', payloadVersion: 1, occurredAt: '2026-11-07T00:00:00.500Z',
+        data: {turnId: 'turn', ...firstIdentity, step: 1, answers: []}});
+      expect(controller.state.question).toBe(next);
+      await forward.onEvent!({eventId: 'next-answer-without-step', turnId: 'turn', sequence: 4,
+        eventType: 'user_question_answered', payloadVersion: 1, occurredAt: '2026-11-07T00:00:00.750Z',
+        data: {turnId: 'turn', ...nextIdentity, answers: []}});
+      expect(controller.state.question).toBe(next);
+      expect(controller.state.afterEventId).toBe('next-answer-without-step');
+      await forward.onEvent!({eventId: 'next-answer', turnId: 'turn', sequence: 5,
         eventType: 'user_question_answered', payloadVersion: 1, occurredAt: '2026-11-07T00:00:01.000Z',
-        data: {turnId: 'turn', ...nextIdentity, ...(identity === 'available' ? {step: 2} : {}), answers: []}});
-      expect(controller.state.question).toBeUndefined();
+        data: {turnId: 'turn', ...nextIdentity, step: 2, answers: []}});
+      expect(controller.state.question).toBe(identity === 'available' ? undefined : next);
+      expect(controller.state.afterEventId).toBe('next-answer');
     } finally { releaseReceipt(); finishStream(); await running; controller.dispose(); }
   });
 
