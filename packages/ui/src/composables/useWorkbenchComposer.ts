@@ -97,7 +97,7 @@ export function useWorkbenchComposer(options: {
   }
   // The voice composable owns disposal of recordings and transcriptions.
   if (getCurrentScope()) onScopeDispose(cancelVoiceStart);
-  const { saveDraft, beginDraftSubmission, completeDraftSubmission, restoreFailedDraft } = useSessionDraft({
+  const { saveDraft, beginDraftSubmission, acceptDraftSubmission, completeDraftSubmission, restoreFailedDraft } = useSessionDraft({
     input,
     sessionId: options.draftSessionId ?? ref(''),
     enabled: options.draftsEnabled ?? ref(false),
@@ -298,6 +298,7 @@ export function useWorkbenchComposer(options: {
     voiceInputStarting,
     saveDraft,
     beginDraftSubmission,
+    acceptDraftSubmission,
     completeDraftSubmission,
     restoreFailedDraft,
     expandComposer,
