@@ -5,6 +5,55 @@ import { test, expect, openWorkbench } from './fixtures';
 test.use({ loopProvider: 'replay', platform: 'web' });
 
 for (const width of [390, 1280]) {
+  test(`selected conversations refill saved text without submitting after reload: ${width}px`, async ({ page, request, servers }, testInfo) => {
+    const saved: Array<{ id: string; title: string; content: string }> = [];
+    for (const suffix of ['A', 'B']) {
+      const title = `接着上次 ${suffix} ${width}`;
+      const session = await request.post(`${servers.apiUrl}/v1/sessions`, { data: { title } });
+      expect(session.status()).toBe(201);
+      const { id } = await session.json() as { id: string };
+      const content = `整理这份材料 ${suffix} ${width}`;
+      const accepted = await request.post(`${servers.apiUrl}/v1/sessions/${id}/turns`, {
+        headers: { 'Idempotency-Key': `continuity-${id}` },
+        data: { message: { content, contentType: 'text' }, clientVersion: 'continuity-browser-e2e' },
+      });
+      expect(accepted.status()).toBe(201);
+      await expect.poll(async () => {
+        const response = await request.get(`${servers.apiUrl}/v1/sessions/${id}/history`);
+        const value = await response.json() as SessionHistoryPage;
+        return value.items.some(turn => turn.status === 'Completed' && turn.isComplete);
+      }).toBe(true);
+      saved.push({ id, title, content });
+    }
+    await page.setViewportSize({ width, height: 844 });
+    await page.addInitScript((id: string) => {
+      // Initial selection is seeded once so reload also exercises the user's
+      // persisted selection after choosing the other conversation.
+      if (!localStorage.getItem('aervox_active_session_id')) localStorage.setItem('aervox_active_session_id', id);
+      localStorage.setItem('aervox-workbench-mode', 'standard');
+    }, saved[0]!.id);
+    const browserTurns: string[] = [];
+    page.on('request', value => {
+      if (value.method() === 'POST' && /\/turns(?:\?|$)/.test(value.url())) browserTurns.push(value.url());
+    });
+    await openWorkbench(page, servers.webUrl);
+    const conversation = page.locator('.standard-conversation');
+    await expect(conversation).toContainText(saved[0]!.content);
+    await expect(conversation).not.toContainText(saved[1]!.content);
+    await expect(conversation.locator('.standard-message.assistant')).not.toHaveCount(0);
+    const expand = page.getByRole('button', { name: '展开侧边栏', exact: true });
+    if (await expand.isVisible()) await expand.click();
+    await page.locator('.session-select').filter({ hasText: saved[1]!.title }).click();
+    await expect(conversation).toContainText(saved[1]!.content);
+    await expect(conversation).not.toContainText(saved[0]!.content);
+    await page.reload();
+    await expect(conversation).toContainText(saved[1]!.content);
+    await expect(conversation).not.toContainText(saved[0]!.content);
+    expect(browserTurns).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+    await page.screenshot({ path: testInfo.outputPath(`session-continuity-${width}.png`), animations: 'disabled' });
+  });
+
   test(`saved history survives a fresh workbench, pages and clears deletion: ${width}px`, async ({ page, request, servers }, testInfo) => {
     const session = await request.post(`${servers.apiUrl}/v1/sessions`, { data: { title: `持久回看 ${width}` } });
     expect(session.status()).toBe(201);

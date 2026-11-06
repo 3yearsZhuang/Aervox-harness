@@ -1,4 +1,4 @@
-import { createApp } from 'vue';
+import { createApp, effectScope, watch } from 'vue';
 import { expect, it, vi } from 'vitest';
 import { createAervoxClient, configureAervoxClient, provideAervoxClient, useAervoxSessions, useAervoxProjects, useAervoxBots, type AervoxTransport } from '../src/index.js';
 
@@ -38,4 +38,40 @@ it('does not restore main-window selection into an explicitly independent pet cl
   const pet = createAervoxClient({sessionId: 'web_default', sessionStorage: null});
   useAervoxSessions(main); useAervoxSessions(pet);
   expect(main.sessionId).toBe('main-selected'); expect(pet.sessionId).toBe('web_default');
+});
+
+it('keeps all session stores on the retained selection when a subscriber rejects a change', () => {
+  const saved = storage();
+  const client = createAervoxClient({ sessionId: 'owner-A', sessionStorage: saved });
+  const scope = effectScope();
+  scope.run(() => {
+    const owner = useAervoxSessions(client);
+    watch(owner.activeSessionId, id => {
+      if (id !== 'owner-A') owner.switchSession('owner-A');
+    }, { flush: 'sync' });
+    const later = useAervoxSessions(client);
+    later.switchSession('requested-B');
+    expect(client.sessionId).toBe('owner-A');
+    expect(saved.getItem('aervox_active_session_id')).toBe('owner-A');
+    expect(owner.activeSessionId.value).toBe('owner-A');
+    expect(later.activeSessionId.value).toBe('owner-A');
+  });
+  scope.stop();
+});
+
+it('discards superseded notifications even when nested selections return to the same id', () => {
+  const client = createAervoxClient({ sessionId: 'initial' });
+  let nested = false;
+  client.subscribeSession(() => {
+    if (!nested) {
+      nested = true;
+      client.setSessionId('intermediate');
+      client.setSessionId('final');
+    }
+  });
+  const selections: string[] = [];
+  client.subscribeSession(id => selections.push(id));
+  client.setSessionId('final');
+  expect(client.sessionId).toBe('final');
+  expect(selections).toEqual(['intermediate', 'final']);
 });

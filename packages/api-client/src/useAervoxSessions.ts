@@ -24,13 +24,13 @@ export interface UseAervoxSessionsReturn {
   loading: Ref<boolean>;
   error: Ref<string | null>;
   fetchSessions: (options?: { projectId?: string | null; preserveSelection?: boolean }) => Promise<SessionItem[]>;
-  createNewSession: (title?: string, id?: string, projectId?: string | null) => Promise<SessionItem>;
+  createNewSession: (title?: string, id?: string, projectId?: string | null, options?: {select?: boolean}) => Promise<SessionItem>;
   switchSession: (sessionId: string) => void;
   renameSession: (
     sessionId: string,
     updates: string | { title?: string; projectId?: string | null },
   ) => Promise<SessionItem | null>;
-  deleteSession: (sessionId: string) => Promise<boolean>;
+  deleteSession: (sessionId: string, options?: {select?: boolean}) => Promise<boolean>;
 }
 
 export function useAervoxSessions(client: AervoxClient = useAervoxClient()): UseAervoxSessionsReturn {
@@ -73,11 +73,13 @@ export function useAervoxSessions(client: AervoxClient = useAervoxClient()): Use
     try { await resource.load(options); } catch { /* Keep the previous authoritative projection and observable error. */ }
     return sessions.value;
   };
-  const createNewSession = (title = '新对话', id?: string, projectId?: string | null): Promise<SessionItem> => write(async () => {
+  const createNewSession = (title = '新对话', id?: string, projectId?: string | null, options?: {select?: boolean}): Promise<SessionItem> => write(async () => {
     const body: CreateSessionRequest = {title: title || '新对话', ...(id ? {id} : {}), ...(projectId !== undefined ? {projectId} : {})};
     const created = await transport.request<SessionItem>('POST', '/v1/sessions', body);
     replace([created, ...sessions.value.filter(session => session.id !== created.id)]);
-    client.setSessionId(created.id);
+    // A surface coordinating an in-flight selection can apply this committed
+    // identity after releasing its own operation lock.
+    if (options?.select !== false) client.setSessionId(created.id);
     return created;
   });
   const switchSession = (id: string) => { if (id && id !== activeSessionId.value) client.setSessionId(id); };
@@ -90,11 +92,11 @@ export function useAervoxSessions(client: AervoxClient = useAervoxClient()): Use
       return updated;
     });
   };
-  const deleteSession = async (id: string): Promise<boolean> => {
+  const deleteSession = async (id: string, options?: {select?: boolean}): Promise<boolean> => {
     if (!id) return false;
     await write(() => transport.request<void>('DELETE', `/v1/sessions/${encodeURIComponent(id)}`));
     replace(sessions.value.filter(session => session.id !== id));
-    if (activeSessionId.value === id) {
+    if (activeSessionId.value === id && options?.select !== false) {
       client.setSessionId(sessions.value[0]?.id ?? '');
       // Deletion is committed; replacement failure cannot revive it.
       if (!sessions.value.length) await createNewSession().catch(() => undefined);
