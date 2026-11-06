@@ -4,12 +4,13 @@
  * 规则依据：docs/reference/PRD.md §8（ExternalSource/Plugin/PluginGrant/CommunityContent/Organization）
  * P2/P3 扩展实体：先落表为后续生态/社区功能预留。
  */
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, type SQLWrapper } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import {
   externalSources,
   plugins,
   pluginGrants,
+  toolRegistrations,
   communityContents,
   organizations,
 } from "@aervox/schema";
@@ -21,10 +22,66 @@ import type {
   PluginGrantModel,
   CommunityContentModel,
   OrganizationModel,
+  PluginToolPermitReaderPort,
+  PluginToolPermitSnapshot,
 } from "../types/index.js";
 
-export class SqliteExtensionRepository implements IExtensionRepository {
+const MAX_PERMIT_GRANTS = 256;
+const textBytes = (column: SQLWrapper) => sql<string | null>`CASE WHEN ${column} IS NULL THEN NULL ELSE hex(CAST(${column} AS BLOB)) END`;
+const integerText = (column: SQLWrapper) => sql<string | null>`CAST(${column} AS TEXT)`;
+function permitText(hex: string | null, nullable = false): string | null {
+  if (hex === null && nullable) return null;
+  if (typeof hex !== "string" || hex.length > 131072 || !/^(?:[0-9a-f]{2})*$/i.test(hex)) throw new Error("plugin_tool_permit_text_invalid");
+  const bytes = Buffer.from(hex, "hex");
+  const value = bytes.toString("utf8");
+  if (!Buffer.from(value, "utf8").equals(bytes)) throw new Error("plugin_tool_permit_text_invalid");
+  return value; // Hex preserves embedded NUL; invalid UTF-8 never collapses identities.
+}
+function permitInteger(value: string | null): number {
+  if (typeof value !== "string" || !/^-?(?:0|[1-9][0-9]*)$/.test(value)) throw new Error("plugin_tool_permit_integer_invalid");
+  const number = Number(value);
+  if (!Number.isSafeInteger(number) || String(number) !== value) throw new Error("plugin_tool_permit_integer_invalid");
+  return number;
+}
+
+export class SqliteExtensionRepository implements IExtensionRepository, PluginToolPermitReaderPort {
   constructor(private readonly db: AervoxDatabase) {}
+
+  async readPluginToolPermit(_ctx: LocalContext, pluginId: string, toolId: string): Promise<PluginToolPermitSnapshot> {
+    // One read statement, no new policy state or transaction. Only matching required
+    // permissions are materialized, with one sentinel row to reject over-budget data.
+    const rows = await this.db.select({
+      pluginId: textBytes(plugins.id), version: textBytes(plugins.version), checksum: textBytes(plugins.checksum),
+      generation: textBytes(plugins.lifecycleGeneration), availability: textBytes(plugins.availability), pluginEnabled: integerText(plugins.enabled),
+      toolId: textBytes(toolRegistrations.id), name: textBytes(toolRegistrations.name), description: textBytes(toolRegistrations.description),
+      category: textBytes(toolRegistrations.category), safetyLevel: textBytes(toolRegistrations.safetyLevel), replay: textBytes(toolRegistrations.replay),
+      owner: textBytes(toolRegistrations.pluginId), toolEnabled: integerText(toolRegistrations.enabled), builtin: integerText(toolRegistrations.builtin),
+      priority: integerText(toolRegistrations.priority), inputSchemaJson: toolRegistrations.inputSchemaJson,
+      requiredPermissionsJson: toolRegistrations.requiredPermissionsJson, gatingConditionsJson: toolRegistrations.gatingConditionsJson,
+      grantId: textBytes(pluginGrants.id), grantOwner: textBytes(pluginGrants.pluginId), permission: textBytes(pluginGrants.permission), scope: textBytes(pluginGrants.scope),
+    }).from(plugins).leftJoin(toolRegistrations, and(eq(toolRegistrations.id, toolId), eq(toolRegistrations.pluginId, plugins.id)))
+      .leftJoin(pluginGrants, and(eq(pluginGrants.pluginId, plugins.id), sql`${pluginGrants.revokedAt} IS NULL`, sql`EXISTS (
+        SELECT 1 FROM json_each(${toolRegistrations.requiredPermissionsJson}) AS requirement
+        WHERE CASE WHEN requirement.type = 'text' THEN requirement.value
+          WHEN requirement.type = 'object' THEN json_extract(requirement.value, '$.permission') ELSE NULL END = ${pluginGrants.permission}
+        AND CASE WHEN requirement.type = 'text' THEN '*'
+          WHEN requirement.type = 'object' THEN json_extract(requirement.value, '$.scope') ELSE NULL END = ${pluginGrants.scope}
+      )`)).where(eq(plugins.id, pluginId)).limit(MAX_PERMIT_GRANTS + 1);
+    if (rows.length > MAX_PERMIT_GRANTS) throw new Error("plugin_tool_permit_budget_exceeded");
+    const row = rows[0];
+    if (!row) return { plugin: null, tool: null, grants: [] };
+    const requiredText = (hex: string | null) => permitText(hex)!;
+    return {
+      plugin: { id: requiredText(row.pluginId), version: requiredText(row.version), checksum: requiredText(row.checksum),
+        lifecycleGeneration: requiredText(row.generation), availability: requiredText(row.availability), enabled: permitInteger(row.pluginEnabled) },
+      tool: row.toolId === null ? null : { id: requiredText(row.toolId), name: requiredText(row.name), description: requiredText(row.description),
+        category: requiredText(row.category), safetyLevel: requiredText(row.safetyLevel), replay: permitText(row.replay, true),
+        pluginId: permitText(row.owner, true), enabled: permitInteger(row.toolEnabled), builtin: permitInteger(row.builtin), priority: permitInteger(row.priority),
+        inputSchemaJson: row.inputSchemaJson, requiredPermissionsJson: row.requiredPermissionsJson, gatingConditionsJson: row.gatingConditionsJson },
+      grants: rows.filter(item => item.grantId !== null).map(item => ({ id: requiredText(item.grantId), pluginId: requiredText(item.grantOwner),
+        permission: requiredText(item.permission), scope: requiredText(item.scope) })),
+    };
+  }
 
   async createExternalSource(
     ctx: LocalContext,

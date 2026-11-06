@@ -34,7 +34,7 @@ export class ConversationSessionStore {
   constructor(private readonly db: AervoxDatabase, private readonly crypto: ConversationCryptoPort) { requireConversationCrypto(crypto); }
 
   getSessionHistory(ctx: LocalContext, input: { sessionId: string; beforeTurnId: string }) {
-    return readSessionHistory(this.db, ctx, input);
+    return readSessionHistory(this.db, ctx, input, this.crypto);
   }
 
   async createSession(

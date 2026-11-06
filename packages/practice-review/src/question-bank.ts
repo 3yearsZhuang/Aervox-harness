@@ -160,3 +160,11 @@ export class CsvQuestionBankProvider implements QuestionBankProviderPort {
     return result;
   }
 }
+
+/** One composition-root instance is shared by import and metadata readers. */
+export function createDefaultQuestionBankRegistry(): QuestionBankRegistry {
+  const registry = new QuestionBankRegistry();
+  registry.register(new JsonQuestionBankProvider());
+  registry.register(new CsvQuestionBankProvider());
+  return registry;
+}

@@ -4,6 +4,8 @@ import { SqliteConversationRepository } from "../src/repositories/sqlite/convers
 import { createInjectedDatabase } from "../src/database.js";
 import { readSessionHistory } from "../src/repositories/sqlite/session-history.js";
 import { nativeSqliteBoundary } from "./helpers/native-sqlite-boundary.js";
+import { corruptReceipt, receiptCorruptions } from "./helpers/receipt-corruption.js";
+import { nodeConversationCrypto } from "../src/conversation-crypto-node.js";
 
 const ctx = { workspaceId: "ws_history", subjectUserId: "usr_history" };
 
@@ -160,8 +162,17 @@ describe("安全会话历史读取", () => {
     })), "write");
   }
 
+  it.each(receiptCorruptions)("does not turn a malformed present receipt ($name) into text model history", async corruption => {
+    await accepted("affected", "session", "affected question", "affected answer");
+    await accepted("text", "session", "text question", "text answer");
+    await seed("current");
+    expect(await history()).toHaveLength(4);
+    await corruptReceipt(database.client, "affected", corruption);
+    expect(await history()).toEqual([{ role: "user", content: "text question" }, { role: "assistant", content: "text answer" }]);
+  });
+
   function boundedHistory() {
-    return readSessionHistory(createInjectedDatabase(nativeSqliteBoundary(database.client).client), ctx, { sessionId: "session", beforeTurnId: "current" });
+    return readSessionHistory(createInjectedDatabase(nativeSqliteBoundary(database.client).client), ctx, { sessionId: "session", beforeTurnId: "current" }, nodeConversationCrypto);
   }
 
   it("reads model context across twenty individually legal wide Turns within one native cursor window", async () => {
@@ -174,7 +185,7 @@ describe("安全会话历史读取", () => {
     await repo.editMessage(ctx, assistantId, "corrected recent answer", version.version);
     await seed("current");
     const boundary = nativeSqliteBoundary(database.client);
-    const read = () => readSessionHistory(createInjectedDatabase(boundary.client), ctx, { sessionId: "session", beforeTurnId: "current" });
+    const read = () => readSessionHistory(createInjectedDatabase(boundary.client), ctx, { sessionId: "session", beforeTurnId: "current" }, nodeConversationCrypto);
     expect(await read()).toEqual([
       { role: "user", content: "recent question" }, { role: "assistant", content: "corrected recent answer" },
     ]);

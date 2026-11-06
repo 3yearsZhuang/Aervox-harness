@@ -11,9 +11,11 @@ describe("Content Parser SPI (CAP-012/025)", () => {
   it("routes parsing to custom registered parser based on supported media types", async () => {
     const registry = new ContentParserRegistry();
 
-    // Default mock parser is present
-    expect(registry.getParser("ocr.mock")).toBeDefined();
-    expect(registry.findParserForMediaType("image/png")?.id).toBe("ocr.mock");
+    expect(registry.listParsers()).toEqual([]);
+    expect(registry.getParser("ocr.mock")).toBeUndefined();
+    expect(registry.findParserForMediaType("image/png")).toBeUndefined();
+    // Mock use is an explicit isolated test input, never a production fallback.
+    registry.register(new MockOcrParserProvider());
 
     // Register a custom parser (e.g., custom formula/LaTeX parser)
     let customParseInvoked = false;
@@ -65,5 +67,6 @@ describe("Content Parser SPI (CAP-012/025)", () => {
     // Standard image/jpeg still routes to default mock parser
     const standardResolved = registry.findParserForMediaType("image/jpeg");
     expect(standardResolved?.id).toBe("ocr.mock");
+    expect(registry.findParserForMediaType("text/plain")).toBeUndefined();
   });
 });

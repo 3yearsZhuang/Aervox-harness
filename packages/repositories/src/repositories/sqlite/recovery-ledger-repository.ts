@@ -15,6 +15,12 @@ import { initLedgerSchema } from "../../schema/ddl/index.js";
 import type { IRecoveryLedgerPort, RecoveryLedgerEventModel } from "../types/index.js";
 import { DomainConflictError } from "../../errors.js";
 
+function assertSequence(value: unknown): asserts value is number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1) {
+    throw new DomainConflictError("recovery_ledger_sequence_invalid");
+  }
+}
+
 /** Escape text before the native driver can truncate a control reference at NUL. */
 const ledgerEventProjection = { value: sql<string>`json_object(
   'eventId', ${recoveryControlLedger.eventId}, 'idempotencyKey', ${recoveryControlLedger.idempotencyKey},
@@ -22,7 +28,11 @@ const ledgerEventProjection = { value: sql<string>`json_object(
   'subjectRef', ${recoveryControlLedger.subjectRef}, 'targetRef', ${recoveryControlLedger.targetRef},
   'occurredAt', ${recoveryControlLedger.occurredAt}, 'sequence', ${recoveryControlLedger.sequence},
   'tamperEvidence', json(${recoveryControlLedger.tamperEvidence})
-)`.mapWith((value: string): RecoveryLedgerEventModel => JSON.parse(value)) };
+)`.mapWith((value: string): RecoveryLedgerEventModel => {
+  const event = JSON.parse(value) as RecoveryLedgerEventModel;
+  assertSequence(event.sequence);
+  return event;
+}) };
 
 // Refuse an incomplete report rather than allocating in proportion to a
 // damaged sequence value. These bound materialized rows and diagnostics, not
@@ -81,10 +91,16 @@ export class SqliteRecoveryLedgerRepository implements IRecoveryLedgerPort {
         ${proof === null ? null : JSON.stringify(proof)}
       FROM ${recoveryControlLedger}
       WHERE true
+      HAVING count(*) = count(distinct ${recoveryControlLedger.sequence})
+        and count(*) = coalesce(max(${recoveryControlLedger.sequence}), 0)
+        and coalesce(max(${recoveryControlLedger.sequence}), 0) < 9007199254740991
+        and coalesce(min(case when typeof(${recoveryControlLedger.sequence}) = 'integer'
+          and ${recoveryControlLedger.sequence} between 1 and 9007199254740991
+          then 1 else 0 end), 1) = 1
       ON CONFLICT (idempotency_key) DO NOTHING
     `);
     const created = await this.getByIdempotencyKey(event.idempotencyKey);
-    if (!created) throw new Error("recovery_ledger_append_failed");
+    if (!created) throw new DomainConflictError("recovery_ledger_append_untrusted_sequence");
     // Another caller can win after our first read. It is an idempotent receipt
     // only if its complete intent still matches this command.
     return assertIntent(created);
@@ -139,17 +155,32 @@ export class SqliteRecoveryLedgerRepository implements IRecoveryLedgerPort {
 
   async getMaxSequence(): Promise<number> {
     const [row] = await this.db
-      .select({ max: sql<number>`max(${recoveryControlLedger.sequence})` })
+      // Validate every persisted value in the same snapshot as MAX. A higher
+      // valid value cannot hide an invalid predecessor, and text casting keeps
+      // an unsafe int64 from being rounded at the driver boundary.
+      .select({ max: sql<string | null>`case when exists (
+        select 1 from recovery_control_ledger invalid_ledger_sequence
+        where typeof(invalid_ledger_sequence.sequence) != 'integer'
+          or invalid_ledger_sequence.sequence < 1
+          or invalid_ledger_sequence.sequence > 9007199254740991
+        limit 1
+      ) then null else cast(coalesce(max(${recoveryControlLedger.sequence}), 0) as text) end` })
       .from(recoveryControlLedger);
-    return row?.max ?? 0;
+    if (!row || row.max === null) throw new DomainConflictError("recovery_ledger_sequence_invalid");
+    const maximum = Number(row.max);
+    if (maximum !== 0) assertSequence(maximum);
+    return maximum;
   }
 
   async getBySequence(sequence: number): Promise<RecoveryLedgerEventModel | null> {
-    const [found] = await this.db
+    assertSequence(sequence);
+    const found = await this.db
       .select(ledgerEventProjection)
       .from(recoveryControlLedger)
-      .where(eq(recoveryControlLedger.sequence, sequence));
-    return found?.value ?? null;
+      .where(eq(recoveryControlLedger.sequence, sequence))
+      .limit(2);
+    if (found.length > 1) throw new DomainConflictError("recovery_ledger_sequence_ambiguous");
+    return found[0]?.value ?? null;
   }
 
   async getByIdempotencyKey(idempotencyKey: string): Promise<RecoveryLedgerEventModel | null> {

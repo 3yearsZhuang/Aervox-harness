@@ -42,7 +42,6 @@ describe("HTTP Turn intent acceptance", () => {
   it.each([
     { message: { content: "changed", contentType: "text" } },
     { message: { content: "original", contentType: "markdown" } },
-    { message: { content: "original", contentType: "text", attachments: [{ attachmentId: "a" }] } },
     { references: [{ sourceId: "source", sourceVersion: "v1" }] }, { metadata: { mode: "focus" } }, { toolApprovalMode: "full_access" },
   ])("rejects changed same-key intent without extra work: %j", async patch => {
     const first = await post(); const conflict = await post({ ...body, ...patch });
@@ -63,11 +62,24 @@ describe("HTTP Turn intent acceptance", () => {
     expect(conflict.json()).toMatchObject({ code: "IDEMPOTENCY_KEY_REUSED", reason: "intent_unavailable" });
     expect(execute).not.toHaveBeenCalled(); expect((await repo.getTurn(local, "legacy"))?.requestHash).toBeNull();
   });
-  it("keeps structured attachments distinct from a colliding rendered text", async () => {
-    await post({ ...body, message: { ...body.message, attachments: [{ attachmentId: "a", name: "paper" }] } });
+  it("refuses unverified attachments before creating a session, then accepts plain rendered text with the same key", async () => {
+    const refused = await post({ ...body, message: { ...body.message, attachments: [{ attachmentId: "a", name: "paper" }] } });
+    expect(refused.statusCode, refused.body).toBe(403);
+    expect(refused.json()).toMatchObject({ code: "ATTACHMENT_SCAN_UNVERIFIED", retryable: false });
+    expect(await repo.getSession(local, "session")).toBeNull();
+    expect(execute).not.toHaveBeenCalled();
+    const text = await post({ ...body, message: { ...body.message, content: "original\n\n[附件清单]\n- paper [id: a]" } });
+    expect(text.statusCode, text.body).toBe(201);
     expect(execute.mock.calls[0]?.[0]).toMatchObject({ userMessage: "original\n\n[附件清单]\n- paper [id: a]" });
-    const conflict = await post({ ...body, message: { ...body.message, content: "original\n\n[附件清单]\n- paper [id: a]" } });
-    expect(conflict.statusCode, conflict.body).toBe(409);
+  });
+  it("refuses same-key attachment replay without changing an already accepted text Turn", async () => {
+    const first = await post();
+    const session = await repo.getSession(local, "session");
+    const refused = await post({ ...body, message: { ...body.message, attachments: [{ attachmentId: "a" }] } });
+    expect(refused.statusCode).toBe(403); expect(refused.json().code).toBe("ATTACHMENT_SCAN_UNVERIFIED");
+    expect(await repo.getSession(local, "session")).toEqual(session);
+    expect(await repo.listTurnAttempts(local, first.json().turnId)).toHaveLength(1);
+    expect(execute).toHaveBeenCalledOnce();
   });
   it("maps cross-session concurrent reuse to one acceptance and one conflict", async () => {
     await repo.getOrCreateSession(local, "session"); await repo.getOrCreateSession(local, "other");

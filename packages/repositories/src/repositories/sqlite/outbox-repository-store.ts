@@ -1,0 +1,212 @@
+/**
+ * Aervox｜思隅 @aervox/repositories — 事务 Outbox SQLite 仓储实现
+ *
+ * 规则依据：ADR-004 + ADR-013
+ */
+import { eq, and, or, lt, sql, notInArray, getTableColumns } from "drizzle-orm";
+import type { AervoxDatabase } from "../../client.js";
+import { memoryRecords, outboxEvents } from "@aervox/schema";
+import type { LocalContext } from "../../local-context.js";
+import type { ConversationCryptoPort } from "../../conversation-host-port.js";
+import type { FetchPendingEventsOptions, IOutboxRepository, OutboxEventModel } from "../types/index.js";
+import { notifyWorkerWakeup } from "@aervox/process-coordination";
+import { assertMemoryCompactionAvailable, MEMORY_COMPACTION_EVENT_TYPE, MemoryCompactionUnavailableError } from "./memory-compaction-guard.js";
+
+// Error text can contain a fetched summary. Keep this deletion predicate in the
+// UPDATE after the receipt proof below, within the same writer transaction.
+// A payload flag alone cannot establish that its source still exists or is live.
+const errorWriteAllowed = sql`CASE
+  WHEN ${outboxEvents.eventType} != ${MEMORY_COMPACTION_EVENT_TYPE} THEN 1
+  WHEN json_valid(${outboxEvents.payload}) THEN (
+    json_extract(${outboxEvents.payload}, '$.deleted') IS NOT 1
+    AND EXISTS (
+      SELECT 1 FROM ${memoryRecords}
+      WHERE ${memoryRecords.id} = json_extract(${outboxEvents.payload}, '$.memoryId')
+        AND ${memoryRecords.isDeleted} = 0
+    )
+  ) ELSE 0 END`;
+
+async function sourceAllowsErrorWrite(
+  db: Pick<AervoxDatabase, "select">,
+  eventId: string,
+  crypto: Pick<ConversationCryptoPort, "sha256Utf8">,
+): Promise<boolean> {
+  // Read only classification and the exact source identity. Do not materialize
+  // a fetched summary or depend on the JSON mapper accepting a malformed payload.
+  const [event] = await db.select({
+    isCompaction: sql<number>`CASE WHEN ${outboxEvents.eventType} = ${MEMORY_COMPACTION_EVENT_TYPE} THEN 1 ELSE 0 END`,
+    memoryId: sql<string | null>`CASE WHEN json_valid(${outboxEvents.payload}) THEN
+      CASE WHEN json_type(${outboxEvents.payload}, '$.memoryId') = 'text'
+        THEN json_quote(json_extract(${outboxEvents.payload}, '$.memoryId')) ELSE NULL END
+      ELSE NULL END`.mapWith(value => typeof value === "string" ? JSON.parse(value) as string : null),
+  }).from(outboxEvents).where(eq(outboxEvents.id, eventId)).limit(1);
+  if (!event) return false;
+  if (event.isCompaction !== 1) return true;
+  if (event.memoryId === null) return false;
+  try {
+    await assertMemoryCompactionAvailable(db, event.memoryId, crypto);
+    return true;
+  } catch (error) {
+    if (error instanceof MemoryCompactionUnavailableError) return false;
+    throw error;
+  }
+}
+
+// Read raw text before the JSON column mapper can reject the whole batch.
+// Only malformed worker deliveries retain text for per-item rejection; valid
+// payloads and every other event preserve the existing decoded JSON contract.
+const rawOutboxFields = {
+  ...getTableColumns(outboxEvents),
+  payload: sql<string>`${outboxEvents.payload}`.mapWith(String),
+};
+type RawOutboxEvent = Omit<OutboxEventModel, "payload"> & { payload: string };
+function decodeOutboxEvent(row: RawOutboxEvent): OutboxEventModel {
+  let payload: unknown;
+  try { payload = JSON.parse(row.payload); }
+  catch (error) {
+    if (row.eventType !== "agent.turn.requested") throw error;
+    payload = row.payload;
+  }
+  return { ...row, payload };
+}
+
+export class OutboxRepository implements IOutboxRepository {
+  constructor(private readonly db: AervoxDatabase, private readonly crypto: Pick<ConversationCryptoPort, "sha256Utf8">) {}
+
+  async insertEvent(
+    ctx: LocalContext,
+    eventData: {
+      id: string;
+      idempotencyKey: string;
+      eventType: string;
+      payload: unknown;
+      controlEventId?: string | null;
+    },
+  ): Promise<OutboxEventModel> {
+    const now = new Date().toISOString();
+    const insert = async (db: Pick<AervoxDatabase, "insert">) => db
+      .insert(outboxEvents)
+      .values({
+        id: eventData.id,
+        controlEventId: eventData.controlEventId ?? null,
+        idempotencyKey: eventData.idempotencyKey,
+        eventType: eventData.eventType,
+        payload: eventData.payload,
+        status: "pending",
+        retryCount: 0,
+        createdAt: now,
+      })
+      .returning();
+    const [created] = eventData.eventType === MEMORY_COMPACTION_EVENT_TYPE
+      ? await this.db.transaction(async (tx) => {
+          const memoryId = (eventData.payload as { memoryId?: unknown } | null)?.memoryId;
+          if (typeof memoryId !== "string") throw new MemoryCompactionUnavailableError();
+          await assertMemoryCompactionAvailable(tx, memoryId, this.crypto);
+          return insert(tx);
+        })
+      : await insert(this.db);
+
+    // 事务提交后触发跨进程 Worker IPC 秒级唤醒（尽力而为：不 await、不抛出，Worker 未启动
+    // 或 socket 不可达时返回 false，由 Worker 的轮询兜底，不阻塞本写入路径）。
+    void notifyWorkerWakeup("outbox");
+
+    return created as OutboxEventModel;
+  }
+
+  async fetchPendingEvents(
+    optionsOrLimit?: number | FetchPendingEventsOptions,
+  ): Promise<OutboxEventModel[]> {
+    const opts: FetchPendingEventsOptions =
+      typeof optionsOrLimit === "number"
+        ? { limit: optionsOrLimit }
+        : (optionsOrLimit ?? {});
+    const limit = opts.limit ?? 50;
+    const maxRetries = opts.maxRetries ?? 3;
+
+    const conditions = [];
+
+    if (opts.includeRetriable) {
+      conditions.push(
+        or(
+          eq(outboxEvents.status, "pending"),
+          and(
+            eq(outboxEvents.status, "failed"),
+            lt(outboxEvents.retryCount, maxRetries),
+          ),
+        ),
+      );
+    } else {
+      conditions.push(eq(outboxEvents.status, "pending"));
+    }
+
+    if (opts.eventType) {
+      conditions.push(eq(outboxEvents.eventType, opts.eventType));
+    }
+
+    if (opts.excludeEventTypes && opts.excludeEventTypes.length > 0) {
+      conditions.push(notInArray(outboxEvents.eventType, opts.excludeEventTypes));
+    }
+
+    const rows = await this.db
+      .select(rawOutboxFields)
+      .from(outboxEvents)
+      .where(and(...conditions))
+      .orderBy(outboxEvents.createdAt)
+      .limit(limit);
+    return rows.map(decodeOutboxEvent);
+  }
+
+  async markPublished(eventId: string): Promise<void> {
+    const now = new Date().toISOString();
+    await this.db
+      .update(outboxEvents)
+      .set({
+        status: "published",
+        publishedAt: now,
+      })
+      .where(eq(outboxEvents.id, eventId));
+  }
+
+  async markFailed(
+    eventId: string,
+    error: string,
+    options?: { maxRetries?: number },
+  ): Promise<{ status: "failed" | "dead_letter"; retryCount: number } | null> {
+    const maxRetries = options?.maxRetries ?? 3;
+    return this.db.transaction(async tx => {
+      if (!await sourceAllowsErrorWrite(tx, eventId, this.crypto)) return null;
+      const [updated] = await tx
+        .update(outboxEvents)
+        .set({
+          retryCount: sql`${outboxEvents.retryCount} + 1`,
+          status: sql`CASE WHEN ${outboxEvents.retryCount} + 1 >= ${maxRetries} THEN 'dead_letter' ELSE 'failed' END`,
+          lastError: error,
+        })
+        .where(and(eq(outboxEvents.id, eventId), errorWriteAllowed))
+        .returning({ status: outboxEvents.status, retryCount: outboxEvents.retryCount });
+      return (updated as { status: "failed" | "dead_letter"; retryCount: number }) ?? null;
+    });
+  }
+
+  async markDeadLetter(eventId: string, reason: string): Promise<void> {
+    await this.db.transaction(async tx => {
+      if (!await sourceAllowsErrorWrite(tx, eventId, this.crypto)) return;
+      await tx
+        .update(outboxEvents)
+        .set({
+          status: "dead_letter",
+          lastError: reason,
+        })
+        .where(and(eq(outboxEvents.id, eventId), errorWriteAllowed));
+    });
+  }
+
+  async getEventById(eventId: string): Promise<OutboxEventModel | null> {
+    const [found] = await this.db
+      .select(rawOutboxFields)
+      .from(outboxEvents)
+      .where(eq(outboxEvents.id, eventId))
+      .limit(1);
+    return found ? decodeOutboxEvent(found) : null;
+  }
+}

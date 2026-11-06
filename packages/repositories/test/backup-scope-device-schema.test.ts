@@ -72,7 +72,16 @@ describe("backup scope against the shipped Android schema artifact", () => {
    }
    // A projection rebuild on the shipped schema does not fail and leaves FTS writable.
    const { rebuildSearchProjections } = await import("../src/backup.js");
-   await rebuildSearchProjections(client);
+   // libsql transaction() detaches a bare :memory: connection. Exercise the
+   // portable caller-owned writer on the very same database instead.
+   await client.execute("BEGIN IMMEDIATE");
+   try {
+    await rebuildSearchProjections({ execute: client.execute.bind(client) });
+    await client.execute("COMMIT");
+   } catch (error) {
+    await client.execute("ROLLBACK");
+    throw error;
+   }
    await client.execute("INSERT INTO messages_fts(id, content) VALUES ('device_probe', '验收正文')");
    expect((await client.execute("SELECT id FROM messages_fts WHERE messages_fts MATCH '验收正文'")).rows.map(row => String(row.id)))
     .toEqual(["device_probe"]);

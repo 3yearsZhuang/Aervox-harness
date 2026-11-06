@@ -126,7 +126,7 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
   const diaryRepo = new SqliteDiaryRepository(db);
   const handleDiaryRoute = createDiaryRouteHandler({
     repo: diaryRepo,
-    materials: createSqliteDiaryMaterialPort(db),
+    materials: createSqliteDiaryMaterialPort(db, hostCrypto),
     ctx,
     model: {
       generate: async ({ system, user }) => {

@@ -57,7 +57,7 @@ export async function recordLearningAnswer(
     await assertPluginGeneration(tx, input.pluginGeneration);
     let sessionId = input.kind === "existing-question" ? input.sessionId ?? "ses_unknown" : "";
     if (input.kind === "judged-question") {
-      await assertPersonalDerivedDataSource(tx, input.turnId);
+      await assertPersonalDerivedDataSource(tx, input.turnId, crypto);
       const [turn] = await tx.select({ sessionId: turns.sessionId }).from(turns).where(eq(turns.id, input.turnId));
       if (!turn) throw new Error("judged_answer_source_turn_unavailable");
       sessionId = turn.sessionId;
