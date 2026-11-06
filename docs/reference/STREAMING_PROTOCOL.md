@@ -192,6 +192,8 @@ Created -> InputChecking -> Running -> Finalizing -> Completed
 
 Host 与 Native 共用 Conversation 问题命令；进程内等待器只在提交后发布通知或完成 Promise。超时不选择默认选项，也不代表用户回答或授权。旧 `invocation_id IS NULL` 行保持原样，查询标识 `identity_unavailable`，禁止猜测回填或登记答案，允许按原行身份取消或过期清理。`GET /v1/turns/:turnId/questions/pending` 返回原身份与截止时间；读取不能延长等待期限。
 
+客户端仅在异步事件消费期间待答问题未被替换，且回执的原 Turn、Attempt、invocation 和 step 完整匹配时清理问题。缺少完整原身份或 step 的旧回执只能推进已消费事件游标，不能推定当前问题已答。
+
 仍存活的原执行者只消费同一次提问的答案。重开查询与答案登记不创建 Turn/Attempt，不自动恢复跨进程模型执行；旧结果回执和持久化不构成续跑授权。
 
 ### 4.7 `tool_approval_required` (PET-05 / CAP-009)
