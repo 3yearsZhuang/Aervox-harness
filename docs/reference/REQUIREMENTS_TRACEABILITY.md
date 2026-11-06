@@ -124,11 +124,11 @@ id: AVX-TRC-001
 | `CAP-025` | 线下试卷扫描 | `P2 · R4` | `Mapped` | 自选候选 · 运行时选择 | [P2 验收原则](SRS.md#prd-cap-020-027)；已有局部实现；验证范围见 PR | 补图像质量、分题/批改识别、人工校正、置信度和附件删除 |
 | `CAP-026` | 收藏空间与知识库 | `P2 · R4` | `Mapped` | 自选候选 · 构建 + 运行 | [P2 验收原则](SRS.md#prd-cap-020-027)；已有局部实现；验证范围见 PR | 补收藏状态、去重、检索、标签、来源失效、导入导出和容量限制 |
 | `CAP-027` | 本地数据主权与可移植性 | `P2 · R4` | `Specified` | 强制系统责任 · 不可关闭 | [P2 验收原则](SRS.md#prd-cap-020-027)、`CR-030`（已归档）；CR-030 D1～D3 实现；生产演练未闭合 | CR-030 D1～D3 的迁移基础能力、去租户数据库边界和安全入口已实现；完整运行编排、rollback 演练和发布环境证据完成前保持 Not Ready |
-| `CAP-028` | 社区互助 | `P3 · R5` | `Mapped` | 远期 · 运行时选择 | [P3 验收原则](SRS.md#prd-cap-028-033)；尚无实现登记 | 补角色、发布/回答状态机、信誉、举报申诉、审核 SLA 和未成年保护 |
-| `CAP-029` | 名词解释网页 | `P3 · R5` | `Mapped` | 远期 · 运行时选择 | [P3 验收原则](SRS.md#prd-cap-028-033)；尚无实现登记 | 补发布、更新、撤回、来源失效、SEO/分享、隐私预览和版权规则 |
+| `CAP-028` | 社区互助 | `P3 · R5` | `Mapped` | 后续可选插件 · 运行时选择 · 默认禁用 | [可选插件边界](SRS.md#optional-ecosystem-plugins)、[ITER-077](../../plan.md#iter-077)；范围已裁决，尚无实现登记 | 补角色、发布/回答状态机、信誉、举报申诉、服务主体、审核 SLA 和未成年保护 |
+| `CAP-029` | 名词解释网页 | `P3 · R5` | `Mapped` | 后续可选插件 · 运行时选择 · 默认禁用 | [可选插件边界](SRS.md#optional-ecosystem-plugins)、[ITER-077](../../plan.md#iter-077)；范围已裁决，尚无实现登记 | 补真实发布服务、账号、来源失效、SEO/分享、隐私预览、版权和撤回 SLA |
 | `CAP-030` | 主动提醒深化 | `P3 · R5` | `Mapped` | 远期 · 运行时选择 | [P3 验收原则](SRS.md#prd-cap-028-033)；已有局部实现；验证范围见 PR | 补触发优先级、频控、去重、解释、免打扰、跨端和退订验收 |
-| `CAP-031` | 内容与技能市场 | `P3 · R5` | `Mapped` | 远期 · 构建 + 运行 | [P3 验收原则](SRS.md#prd-cap-028-033)；尚无实现登记 | 补商品、版本、审核、结算、退款、下架、许可证和供应链治理 |
-| `CAP-032` | 机构与监护模式 | `P3 · R5` | `Mapped` | 远期 · 运行时选择 | [P3 验收原则](SRS.md#prd-cap-028-033)；尚无实现登记 | 补组织角色、邀请/移除、授权报表、最小可见、审计和监护同意 |
+| `CAP-031` | 内容与技能市场 | `P3 · R5` | `Mapped` | 后续可选插件 · 构建 + 运行 · 默认禁用 | [可选插件边界](SRS.md#optional-ecosystem-plugins)、[ITER-077](../../plan.md#iter-077)；范围已裁决，尚无实现登记 | 补商品、版本、审核、结算主体/渠道、退款、下架、许可证和供应链治理；第三方执行另验 |
+| `CAP-032` | 机构与监护模式 | `P3 · R5` | `Mapped` | 后续可选插件 · 运行时选择 · 默认禁用 | [可选插件边界](SRS.md#optional-ecosystem-plugins)、[ITER-077](../../plan.md#iter-077)；Host 本地单用户，尚无实现登记 | 补机构账号、角色/关系证据、邀请/移除、授权报表、最小可见、审计、监护同意与数据责任 |
 | `CAP-033` | 全域感知与个人画像（主动智能模式） | `P3 · R5` | `Specified` | 构建 Privacy Host + 运行时独立授权 | [SRS CAP-033](SRS.md#prd-cap-033)、`CR-023`（已归档）、`CR-024`（已归档）、[ADR-018](adr/ADR-018-proactive-local-privacy-host.md)；本地 Vault、十二项派生、部分来源与导出切片；未生产启用 | 十二项本地派生、日/周回顾和仪表盘已验证；应用活动正文、通信、音视频、位置等平台 Provider、生产 OS Broker 和全链本地证明仍未闭合，保持 `Not Ready` |
 | `CAP-034` | Home Assistant 家庭环境连接 | `P3 · R5` | `Specified` | 运行时连接 · 依赖 CAP-033 / `device.sensors` | [SRS CAP-034](SRS.md#prd-cap-034)、`CR-024`（已归档）、[ADR-019](adr/ADR-019-proactive-integrations-local-gateway.md)；本地集成验证；真实平台与发布证据未闭合 | REST/WS Client、私网校验、实体/service 白名单、Agent 工具、动作审计与撤销删除已验证；生产重连、OAuth 和 HA 版本矩阵仍待门禁 |
 | `CAP-035` | 运动健康信号连接 | `P3 · R5` | `Specified` | 运行时连接 · 依赖 CAP-033 / `restricted.profile` | [SRS CAP-035](SRS.md#prd-cap-035)、`CR-024`（已归档）、[ADR-019](adr/ADR-019-proactive-integrations-local-gateway.md)；本地集成验证；真实平台与发布证据未闭合 | 小米官方开放平台通用适配、Token 刷新、每日指标、只读工具与撤销删除已验证；厂商账号审批、真实沙箱契约和长期兼容测试仍待完成 |
