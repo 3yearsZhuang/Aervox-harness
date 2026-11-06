@@ -13,6 +13,7 @@ import * as campusPlugin from '@aervox/plugin-flowcampus/ui'
 // CR-065 切片四：内置设置面板同为受信构建输入，由组合根显式注入
 import { settingsPanels } from '@aervox/plugin-panels-ui'
 import NativeRuntimePanel from './mobile/NativeRuntimePanel.vue'
+import NativeLearningPanel from './mobile/NativeLearningPanel.vue'
 import { nativeStorage, nativeStorageFailed } from './mobile/native-storage'
 
 const reloadSurface = () => { if (mobileLocation) mobileLocation.reload(); else window.location.reload() }
@@ -60,7 +61,7 @@ const surfaceNavigation = createSurfaceNavigation(availableSurfaces, {
     :request-reload="reloadSurface"
     surface="main"
     :platform="platform"
-    :view-props="{ showCompanion: platform === 'web', surfaceNavigation, nativeRuntime, draftStorage: nativeRuntime ? nativeStorage : undefined }"
+    :view-props="{ showCompanion: platform === 'web', surfaceNavigation, nativeRuntime, draftStorage: nativeRuntime ? nativeStorage : undefined, learningPanel: nativeRuntime ? NativeLearningPanel : undefined }"
     :plugins="pluginDefinitions"
     :settings-panels="hostSettingsPanels"
   />

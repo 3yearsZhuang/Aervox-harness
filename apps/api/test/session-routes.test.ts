@@ -37,6 +37,38 @@ describe("Session Management Routes (CR-035 / W1)", () => {
     expect(body).toEqual({ items: [] });
   });
 
+  it("reads a restored session beyond the first page without changing stored sessions or creating a Turn", async () => {
+    for (let index = 0; index < 103; index++) {
+      const created = await app.inject({ method: 'POST', url: '/v1/sessions', payload: { id: `page-${index}`, title: `会话 ${index}` } });
+      expect(created.statusCode).toBe(201);
+      await client.execute({ sql: 'UPDATE sessions SET updated_at = ? WHERE id = ?', args: [String(index).padStart(3, '0'), `page-${index}`] });
+    }
+    const first = await app.inject({ method: 'GET', url: '/v1/sessions?limit=100&offset=0' });
+    expect(first.statusCode).toBe(200);
+    expect(first.json().items).toHaveLength(100);
+    expect(first.json().items.some((row: { id: string }) => row.id === 'page-0')).toBe(false);
+    const old = await app.inject({ method: 'GET', url: '/v1/sessions/page-0' });
+    expect(old.statusCode).toBe(200);
+    expect(old.json().id).toBe('page-0');
+    expect(old.json().executionPolicy).toBeUndefined();
+    const next = await app.inject({ method: 'GET', url: '/v1/sessions?limit=100&offset=100' });
+    expect(next.statusCode).toBe(200);
+    expect(next.json().items.map((row: { id: string }) => row.id)).toEqual(['page-2', 'page-1', 'page-0']);
+    expect((await app.inject({ method: 'GET', url: '/v1/sessions/missing' })).statusCode).toBe(404);
+    expect((await client.execute('SELECT count(*) AS n FROM sessions')).rows[0]?.n).toBe(103);
+    expect((await client.execute('SELECT count(*) AS n FROM turns')).rows[0]?.n).toBe(0);
+  });
+
+  it("rejects malformed and duplicate paging parameters with the shared contract", async () => {
+    for (const query of ['limit=0', 'limit=101', 'limit=01', 'limit=1.5', 'limit=1&limit=2',
+      'offset=-1', 'offset=1e2', 'offset=9007199254740992', 'offset=1&offset=2', 'projectId=', 'unknown=true']) {
+      const response = await app.inject({ method: 'GET', url: '/v1/sessions?' + query });
+      expect(response.statusCode, query).toBe(400);
+      expect(response.json().code).toBe('INVALID_SESSION_QUERY');
+    }
+    expect((await client.execute('SELECT count(*) AS n FROM sessions')).rows[0]?.n).toBe(0);
+  });
+
   it("POST /v1/sessions creates a new session", async () => {
     const res = await app.inject({
       method: "POST",
