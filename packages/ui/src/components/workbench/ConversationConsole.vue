@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import TurnRetryAction from './TurnRetryAction.vue';
+import ConversationHistoryStatus from './ConversationHistoryStatus.vue';
 import { AervoxButton, AervoxCard } from '../../primitives';
 import { computed } from 'vue';
 import { ChevronDown, ChevronRight, ChevronUp, History } from 'lucide-vue-next';
@@ -25,12 +26,13 @@ const {
   showNextSentence,
 } = conversation;
 const isGreeting = computed(() => conversation.story.value.length === 1
-  && latestAssistantLine.value?.state !== 'streaming');
+  && latestAssistantLine.value?.state !== 'streaming' && !latestAssistantLine.value?.readOnly);
 </script>
 
 <template>
   <AervoxCard as="section" class="message-panel companion-panel" :class="{ collapsed: consoleCollapsed }" aria-label="助手对话">
     <ExtensionSlot name="conversation:top" />
+    <ConversationHistoryStatus />
 
     <header class="companion-panel-head dialogue-heading">
       <span class="message-speaker">{{ companionDisplayName }}</span>
@@ -54,6 +56,7 @@ const isGreeting = computed(() => conversation.story.value.length === 1
         class="message-line"
         :class="latestAssistantLine.state"
       >
+        <small v-if="latestAssistantLine.savedLabel" class="saved-message-label">{{ latestAssistantLine.savedLabel }}</small>
         <span v-if="latestAssistantLine.state === 'streaming'" class="message-text">
           <span class="markdown-body" v-html="renderMarkdown(novelStreamingText)" />
           <i class="stream-cursor" aria-hidden="true" />
@@ -80,6 +83,7 @@ const isGreeting = computed(() => conversation.story.value.length === 1
               <ChevronRight :size="13" />
             </AervoxButton>
             <ExtensionSlot
+              v-if="!latestAssistantLine.readOnly"
               name="message:bubble-actions"
               :context="{
                 message: latestAssistantLine,

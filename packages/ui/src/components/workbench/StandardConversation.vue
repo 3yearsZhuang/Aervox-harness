@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import TurnRetryAction from './TurnRetryAction.vue';
+import ConversationHistoryStatus from './ConversationHistoryStatus.vue';
 import { AervoxButton } from '../../primitives';
 import { nextTick, onMounted, ref, watch } from 'vue';
 import { ArrowDown, Check, Copy, FileText } from 'lucide-vue-next';
@@ -64,9 +65,11 @@ async function copyMessage(id: number, text: string) {
     <div ref="viewport" class="standard-message-scroll" @scroll="trackScroll">
       <div class="standard-message-list">
         <ExtensionSlot name="conversation:top" />
-        <article v-for="line in story" :key="line.id" class="standard-message" :class="[line.speaker, line.state]" :aria-label="line.speaker === 'assistant' ? layout.companionDisplayName.value : '你'">
+        <ConversationHistoryStatus />
+        <article v-for="line in story" :key="line.id" class="standard-message" :class="[line.speaker, line.state]" :aria-label="line.speaker === 'assistant' ? layout.companionDisplayName.value : line.speaker === 'system' ? '系统记录' : '你'">
           <span v-if="line.speaker === 'assistant'" class="standard-message-speaker">{{ layout.companionDisplayName.value }}</span>
           <div class="standard-message-content">
+            <small v-if="line.savedLabel" class="standard-saved-label">{{ line.savedLabel }}</small>
             <div v-if="line.speaker === 'assistant'" class="markdown-body" v-html="renderMarkdown(line.text || (line.state === 'streaming' ? '正在思考…' : '这次没有收到回答'))" />
             <div v-else class="standard-user-text">{{ line.text }}</div>
             <span v-if="line.state === 'streaming'" class="standard-stream-indicator" aria-label="正在生成" />
@@ -79,7 +82,7 @@ async function copyMessage(id: number, text: string) {
               <Check v-if="copiedId === line.id" :size="15" /><Copy v-else :size="15" />
             </AervoxButton>
             <TurnDiagnostics v-if="line.turnId" :turn-id="line.turnId" />
-            <ExtensionSlot name="message:bubble-actions" :context="{ message: line, text: line.text, speaker: line.speaker }" />
+            <ExtensionSlot v-if="!line.readOnly" name="message:bubble-actions" :context="{ message: line, text: line.text, speaker: line.speaker }" />
           </div>
         </article>
         <p v-if="story.length === 0" class="standard-empty">发送消息，开始新的对话</p>

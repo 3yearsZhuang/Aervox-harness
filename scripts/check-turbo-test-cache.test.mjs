@@ -23,7 +23,8 @@ function fixture(t) {
   put('pnpm-workspace.yaml', 'packages:\n  - "plugins/surfaces/*"\n');
   put('pnpm-lock.yaml', `lockfileVersion: '9.0'\nsettings:\n  autoInstallPeers: true\n  excludeLinksFromLockfile: false\nimporters:\n  .: {}\n${SURFACES.map(name => `  plugins/surfaces/${name}: {}`).join('\n')}\n`);
   // Exercise the repository's real inputs with Turbo; no build or test command runs.
-  put('turbo.json', JSON.stringify({ tasks: { test: { inputs: turbo.tasks.test.inputs } } }));
+  put('turbo.json', JSON.stringify({ globalDependencies: turbo.globalDependencies, tasks: { test: { inputs: turbo.tasks.test.inputs } } }));
+  put('mise.toml', '[tools]\nnode = "24"\n');
   put('vitest.shared.ts', readFileSync(path.join(ROOT, 'vitest.shared.ts'), 'utf8'));
   put('plugins/vitest.shared.ts', readFileSync(path.join(ROOT, 'plugins/vitest.shared.ts'), 'utf8'));
   for (const name of SURFACES) {
@@ -63,4 +64,11 @@ test('plugin Vitest forwarding changes invalidate all nested surface test caches
   const before = hashes();
   put('plugins/vitest.shared.ts', `${readFileSync(path.join(cwd, 'plugins/vitest.shared.ts'), 'utf8')}\nexport const forwardingCacheProbe = true;\n`);
   assertHashesChanged(before, hashes(), 'plugins/vitest.shared.ts');
+});
+
+test('changing the locked toolchain invalidates all nested surface test caches', t => {
+  const { put, hashes } = fixture(t);
+  const before = hashes();
+  put('mise.toml', '[tools]\nnode = "25"\n');
+  assertHashesChanged(before, hashes(), 'mise.toml');
 });
