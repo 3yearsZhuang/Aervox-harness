@@ -15,7 +15,7 @@ const drawerOpen = ref(false);
 const pageMeta: Record<PageId, { title: string; subtitle: string }> = {
   model: { title: '模型与状态', subtitle: '连接配置与本机运行状态。' },
   device: { title: '设备与能力', subtitle: '执行通道、设备操作与能力状态。' },
-  data: { title: '数据管理', subtitle: '备份恢复与题库导入。' },
+  data: { title: '数据管理', subtitle: '备份导出与题库导入。' },
   reminder: { title: '提醒', subtitle: '复习提醒与通知。' },
   persona: { title: '人格', subtitle: '陪伴者的身份、设定与切换。' },
   learning: { title: '学习与复习', subtitle: '开始练习、查看报告和完成今日复习。' },
@@ -24,7 +24,7 @@ function openPage(target: PageId) { page.value = target; drawerOpen.value = fals
 function menuSummary(target: PageId): string {
   if (target === 'model') return modelStatus.value || (loading.value ? '读取中' : '未配置');
   if (target === 'device') return device.value ? (device.value.root ? 'Root 可用' : device.value.shizuku ? 'Shizuku 就绪' : '需授权') : '未检测';
-  if (target === 'data') return '导出 / 恢复 / 题库';
+  if (target === 'data') return '导出 / 题库';
   if (target === 'learning') return '练习 / 今日复习';
   if (target === 'persona') return personaBusy.value ? '读取中' : `${personas.value.length} 个`;
   return reminderOn.value ? '已开启' : '未开启';
@@ -169,9 +169,6 @@ const reminderFeedback = ref('');
 const backupBusy = ref(false);
 const backupFeedback = ref('');
 const backupError = ref('');
-const restoreOpen = ref(false);
-const confirmingRestore = ref(false);
-const restoreText = ref('');
 let disposed = false;
 let readGeneration = 0;
 const modelStatus = computed(() => loading.value ? '正在读取…' : modelFailed.value ? '读取失败' : model.value?.hasCredential ? '已保存配置' : '未配置');
@@ -348,7 +345,7 @@ async function toggleReminder() {
 
 async function exportBackup() {
   if (backupBusy.value) return;
-  backupBusy.value = true; backupFeedback.value = ''; backupError.value = ''; confirmingRestore.value = false;
+  backupBusy.value = true; backupFeedback.value = ''; backupError.value = '';
   try {
     const transport = clientTransport;
     if (!transport.exportBackup) throw new Error('BACKUP_NOT_SUPPORTED');
@@ -367,44 +364,6 @@ async function exportBackup() {
       : code === 'BACKUP_TABLE_UNEXPECTED' ? '备份没有导出：数据表名不符合备份结构。'
       : '备份没有导出，数据未受影响。';
   } finally { backupBusy.value = false; }
-}
-
-async function importBackupFile() {
-  backupFeedback.value = ''; backupError.value = '';
-  try {
-    const transport = clientTransport;
-    if (!transport.pickTextFile) throw new Error('FILE_PICK_NOT_SUPPORTED');
-    const picked = await transport.pickTextFile();
-    restoreText.value = picked.text;
-    restoreOpen.value = true;
-  } catch (error) {
-    const code = error instanceof Error ? error.message : '';
-    if (code !== 'FILE_PICK_CANCELLED' && code !== 'NATIVE_RECEIPT_UNKNOWN') backupError.value = '没有读到文件内容，请重试或粘贴备份文本。';
-  }
-}
-
-async function importBackup() {
-  if (backupBusy.value) return;
-  if (!confirmingRestore.value) { confirmingRestore.value = true; return; }
-  backupBusy.value = true; backupFeedback.value = ''; backupError.value = '';
-  try {
-    const transport = clientTransport;
-    if (!transport.importBackup) throw new Error('BACKUP_NOT_SUPPORTED');
-    const result = await transport.importBackup(restoreText.value);
-    const records = Object.values(result.imported).reduce((total, count) => total + count, 0);
-    backupFeedback.value = `恢复完成（${records} 条记录已写入）。请关闭并重新打开应用，载入已恢复的数据。`;
-    restoreText.value = ''; restoreOpen.value = false;
-  } catch (error) {
-    const code = error instanceof Error ? error.message : '';
-    backupError.value = code === 'BACKUP_CORRUPTED' ? '备份校验不通过，未写入任何数据。'
-      : code === 'BACKUP_SCHEMA_MISMATCH' ? '备份与当前版本的数据结构不一致，未写入任何数据。'
-      : code === 'BACKUP_FORMAT_UNKNOWN' ? '无法识别这个备份格式，未写入任何数据。'
-      : code === 'BACKUP_RESTORE_BLOCKED' ? '备份依赖不完整或当前版本无法恢复，未写入任何数据。'
-      : code === 'BACKUP_DELETION_CONFLICT' ? '这台手机已有删除记录，恢复旧备份可能带回已删除的内容，已拒绝且未写入任何数据。'
-      : code === 'BACKUP_MALFORMED' ? '备份内容无法解析，未写入任何数据。'
-      : code === 'HOST_BUSY' || code === 'BACKUP_RESTORE_BUSY' || code === 'BACKUP_RESTORE_IN_PROGRESS' ? '请先停止当前对话或等待操作结束，再恢复备份。'
-      : '恢复结果尚未确认，请关闭并重新打开应用检查数据，勿重复恢复。';
-  } finally { backupBusy.value = false; confirmingRestore.value = false; }
 }
 
 onMounted(() => {
@@ -558,19 +517,9 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
           <component :is="'md-filled-tonal-button'" :disabled="backupBusy ? 'true' : undefined" @click="exportBackup">导出</component>
         </div>
         <div class="runtime-row">
-          <div class="runtime-row-copy"><dt>恢复备份</dt><dd>粘贴备份文本，校验通过后覆盖这台手机上的当前数据。</dd></div>
-          <component :is="'md-filled-tonal-button'" :disabled="backupBusy ? 'true' : undefined" @click="restoreOpen = !restoreOpen; confirmingRestore = false">恢复</component>
+          <div class="runtime-row-copy"><dt>恢复备份</dt><dd id="runtime-restore-unavailable">恢复暂不可用：当前版本无法确认完整的历史删除记录，旧备份可能带回已删除的内容。现有数据保留，仍可导出备份。</dd></div>
+          <component :is="'md-filled-tonal-button'" disabled="true" aria-describedby="runtime-restore-unavailable">恢复</component>
         </div>
-      </div>
-      <div v-if="restoreOpen" class="runtime-model-clear">
-        <p>恢复会覆盖当前全部数据，且只接受与本版本结构一致的备份。</p>
-        <div class="runtime-url-import">
-          <textarea v-model="restoreText" rows="4" class="runtime-backup-text" aria-label="备份文本" placeholder="把备份文本粘贴到这里"></textarea>
-          <component :is="'md-filled-tonal-button'" class="runtime-pick-file" @click="importBackupFile">从文件选择</component>
-        </div>
-        <component :is="'md-filled-button'" :disabled="backupBusy || !restoreText.trim() ? 'true' : undefined" @click="importBackup">
-          {{ confirmingRestore ? '确认覆盖当前数据' : '校验并恢复' }}
-        </component>
       </div>
       <p v-if="backupFeedback" class="runtime-model-note" role="status">{{ backupFeedback }}</p>
       <p v-if="backupError" class="runtime-error runtime-feedback" role="alert">{{ backupError }}</p>

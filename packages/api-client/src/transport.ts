@@ -116,7 +116,7 @@ export interface AervoxTransport {
   speechInput?(signal?: AbortSignal): Promise<{ text: string }>;
   /** 全量本机数据备份导出（自描述格式、带摘要）；缺省表示该宿主不支持。 */
   exportBackup?(signal?: AbortSignal): Promise<{ text: string; createdAt: string; tableCounts: Record<string, number> }>;
-  /** 从备份文本恢复（严格校验后在一个事务内覆盖本地数据）；缺省表示该宿主不支持。 */
+  /** 宿主允许恢复时须严格校验并原子覆盖；方法存在不保证当前可用，删除历史未证实的宿主可固定拒绝；缺省表示不支持。 */
   importBackup?(text: string, signal?: AbortSignal): Promise<{ imported: Record<string, number> }>;
   /** 选择一份本机文档并读取为有界文本（SAF 单文件授权）；缺省表示该宿主不支持。 */
   pickTextFile?(signal?: AbortSignal): Promise<{ name: string; text: string }>;
