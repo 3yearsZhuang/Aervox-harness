@@ -5,7 +5,7 @@ import type { ServerPluginRegistration } from "@aervox/host-plugin-api";
 import type { IExtensionRepository, PluginToolPermitReaderPort } from "@aervox/repositories";
 import type { PluginHostServicesFactory } from "./plugin-assembly.js";
 import type { ToolRuntimePort } from "./modules/ecosystem/tools/index.js";
-import { preparePluginToolContributions, createPluginToolScope } from "./modules/companion/conversation/index.js";
+import { preparePluginToolContributions, createPluginToolScope } from "./plugin-tool-bindings.js";
 import { createPluginToolPermitValidator, pluginToolDeclarationFingerprint, PLUGIN_METADATA_RUNTIME_REVISION_PREFIX } from "./plugin-tool-permit.js";
 
 /** Bind trusted code to existing declarations; the Core runtime remains the only dispatcher. */

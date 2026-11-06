@@ -31,13 +31,8 @@ import { FULL_PROFILE_SOURCE_MANIFEST } from "@aervox/repositories";
 import { encodeToolApprovalIdentity } from "./tool-approval-identity.js";
 import { createPluginToolPermitValidator, pluginToolDeclarationFingerprint, PLUGIN_METADATA_RUNTIME_REVISION_PREFIX } from "../../../plugin-tool-permit.js";
 
-const contributionRevisions = new WeakMap<object, string>();
-/** Stable only for the same injected implementation object in this process; never infer code identity from function text. */
-export function processToolImplementationRevision(implementation: object): string {
-  let revision = contributionRevisions.get(implementation);
-  if (!revision) { revision = `process:${globalThis.crypto.randomUUID()}`; contributionRevisions.set(implementation, revision); }
-  return revision;
-}
+import { processToolImplementationRevision } from "../../../plugin-tool-bindings.js";
+export { processToolImplementationRevision } from "../../../plugin-tool-bindings.js";
 
 const profilePermissions = new Set<string>(FULL_PROFILE_SOURCE_MANIFEST.map(source => source.sourceKey));
 

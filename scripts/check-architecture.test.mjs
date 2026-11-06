@@ -9,6 +9,14 @@ test("architecture rejects inverted dependencies even when old blacklist permits
   }
   assert.equal(inspectDependency("@aervox/host-runtime", "@aervox/core"), null);
   assert.equal(inspectDependency("@aervox/repositories", "@aervox/sync-runtime"), null);
+  for (const plugin of ["@aervox/plugin-anki-sync", "@aervox/plugin-diary-distillers"]) {
+    assert.equal(inspectDependency("@aervox/host-runtime", plugin), null);
+    for (const port of ["@aervox/core", "@aervox/host-plugin-api"]) assert.equal(inspectDependency(plugin, port), null);
+    for (const dataOwner of ["@aervox/repositories", "@aervox/schema", "@aervox/host-runtime"]) {
+      assert.match(inspectDependency(plugin, dataOwner), /not allowed/);
+    }
+    assert.match(inspectDependency("@aervox/web", plugin), /not allowed/);
+  }
 });
 test("runtime and type cycles both remain visible", () => {
   const edges = [{from:"a",to:"b",kind:"runtime"},{from:"b",to:"a",kind:"type"}];
