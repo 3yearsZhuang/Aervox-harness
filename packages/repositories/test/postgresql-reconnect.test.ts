@@ -25,6 +25,7 @@ const connectionString = process.env.AERVOX_PG_TEST_URL ?? process.env.AERVOX_TE
 const quote = (value: string) => `"${value.replaceAll('"', '""')}"`;
 describe.skipIf(!connectionString)("PostgreSQL physical connection admission", () => {
   let admin: Pool, schema: string;
+  const extraSchemas: string[] = [];
   let opened: OpenedPostgresqlDatabase | undefined;
   beforeEach(async () => {
     observed.pools.length = 0; observed.denyLocality = false;
@@ -36,7 +37,11 @@ describe.skipIf(!connectionString)("PostgreSQL physical connection admission", (
     try { await opened?.closeAsync(); }
     finally {
       opened = undefined; observed.denyLocality = false;
-      if (admin) { await admin.query(`DROP SCHEMA IF EXISTS ${quote(schema)} CASCADE`); await admin.end(); }
+      if (admin) {
+        await admin.query(`DROP SCHEMA IF EXISTS ${quote(schema)} CASCADE`);
+        for (const outside of extraSchemas.splice(0)) await admin.query(`DROP SCHEMA IF EXISTS ${quote(outside)} CASCADE`);
+        await admin.end();
+      }
     }
   });
   const retireAdmittedConnection = async () => {
@@ -72,6 +77,15 @@ describe.skipIf(!connectionString)("PostgreSQL physical connection admission", (
   it("rejects canonical structure drift on a new physical connection before business writes", async () => {
     await retireAdmittedConnection();
     await admin.query(`ALTER TABLE ${quote(schema)}.sessions ALTER COLUMN title DROP NOT NULL`);
+    await expect(opened!.client.execute(blockedInsert)).rejects.toMatchObject({ code: "POSTGRESQL_SCHEMA_MIGRATION_REQUIRED" });
+    await expectNoBlockedWrite();
+  }, 60_000);
+
+  it("rejects an external inheritance child on a new physical connection before business writes", async () => {
+    await retireAdmittedConnection();
+    const outside = `aervox_reconnect_external_${randomUUID().replaceAll("-", "")}`; extraSchemas.push(outside);
+    await admin.query(`CREATE SCHEMA ${quote(outside)}`);
+    await admin.query(`CREATE TABLE ${quote(outside)}.child () INHERITS (${quote(schema)}.sessions)`);
     await expect(opened!.client.execute(blockedInsert)).rejects.toMatchObject({ code: "POSTGRESQL_SCHEMA_MIGRATION_REQUIRED" });
     await expectNoBlockedWrite();
   }, 60_000);

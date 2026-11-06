@@ -1,4 +1,7 @@
 import { randomUUID } from "node:crypto";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { Pool, type PoolClient } from "pg";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
@@ -49,12 +52,19 @@ const connectionString = process.env.AERVOX_PG_TEST_URL;
 describe.skipIf(!connectionString)("PostgreSQL physical schema and startup ownership", () => {
   let pool: Pool;
   const opened: Array<{ schema: string; client: PoolClient }> = [];
+  const extraSchemas: string[] = [];
+  const tablespaces: Array<{ name: string; directory: string }> = [];
   beforeAll(() => { pool = new Pool({ connectionString, max: 4 }); });
   afterEach(async () => {
     for (const item of opened.splice(0)) {
       await item.client.query("ROLLBACK");
       await item.client.query(`DROP SCHEMA ${quote(item.schema)} CASCADE`);
       item.client.release();
+    }
+    for (const schema of extraSchemas.splice(0)) await pool.query(`DROP SCHEMA IF EXISTS ${quote(schema)} CASCADE`);
+    for (const tablespace of tablespaces.splice(0)) {
+      await pool.query(`DROP TABLESPACE IF EXISTS ${quote(tablespace.name)}`);
+      await fs.rm(tablespace.directory, { recursive: true, force: true });
     }
   });
   afterAll(async () => { await pool.end(); });
@@ -143,6 +153,52 @@ describe.skipIf(!connectionString)("PostgreSQL physical schema and startup owner
     expect(issues).toContain("sessions.extra_trigger: undeclared trigger");
     expect(issues).toContain("extra_trigger_function: undeclared function");
   }, 30_000);
+
+  it("rejects external storage for standalone, primary-key and unique indexes", async () => {
+    const target = await fresh();
+    await initializePostgresqlSchema(target);
+    const name = `aervox_index_space_${randomUUID().replaceAll("-", "")}`;
+    const directory = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "aervox-pg-index-space-")));
+    tablespaces.push({ name, directory });
+    await target.client.query(`CREATE TABLESPACE ${quote(name)} LOCATION '${directory.replaceAll("'", "''")}'`);
+    const indexes = (await target.client.query(`SELECT i.relname AS name,k.contype AS constraint_kind
+      FROM pg_catalog.pg_index x JOIN pg_catalog.pg_class c ON c.oid=x.indrelid
+      JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace JOIN pg_catalog.pg_class i ON i.oid=x.indexrelid
+      LEFT JOIN pg_catalog.pg_constraint k ON k.conindid=i.oid AND k.contype IN ('p','u')
+      WHERE n.nspname=$1 ORDER BY i.relname`, [target.schema])).rows;
+    for (const kind of [null, "p", "u"]) {
+      const index = indexes.find(row => row.constraint_kind === kind)!;
+      expect(index).toBeDefined();
+      await target.client.query(`ALTER INDEX ${quote(target.schema)}.${quote(String(index.name))} SET TABLESPACE ${quote(name)}`);
+      expect(await inspectPostgresqlSchema(target)).toContain(`${index.name}: index storage differs`);
+      await expect(initializePostgresqlSchema(target)).rejects.toThrow("index storage differs");
+      await target.client.query(`ALTER INDEX ${quote(target.schema)}.${quote(String(index.name))} SET TABLESPACE pg_default`);
+      expect(await inspectPostgresqlSchema(target)).toEqual([]);
+    }
+    expect(postgresqlSchemaFingerprint()).toBe(POSTGRESQL_SCHEMA_RELEASES[POSTGRESQL_SCHEMA_VERSION]);
+  }, 60_000);
+
+  it.each(["inheritance parent", "inheritance child", "partition child"])("rejects a canonical table used as an external %s", async relationship => {
+    const target = await fresh();
+    await initializePostgresqlSchema(target);
+    const outside = `aervox_external_${randomUUID().replaceAll("-", "")}`; extraSchemas.push(outside);
+    await target.client.query(`CREATE SCHEMA ${quote(outside)}`);
+    if (relationship === "inheritance parent") {
+      await target.client.query(`CREATE TABLE ${quote(outside)}.child () INHERITS (${quote(target.schema)}.sessions)`);
+      await target.client.query(`INSERT INTO ${quote(target.schema)}.sessions(id,title,created_at,updated_at) VALUES ('same-id','canonical','now','now')`);
+      await target.client.query(`INSERT INTO ${quote(outside)}.child(id,title,created_at,updated_at) VALUES ('same-id','external','now','now')`);
+      expect((await target.client.query(`SELECT id FROM ${quote(target.schema)}.sessions WHERE id='same-id'`)).rows).toHaveLength(2);
+    } else if (relationship === "inheritance child") {
+      await target.client.query(`CREATE TABLE ${quote(outside)}.parent (id text COLLATE "C" NOT NULL)`);
+      await target.client.query(`ALTER TABLE ${quote(target.schema)}.sessions INHERIT ${quote(outside)}.parent`);
+    } else {
+      await target.client.query(`CREATE TABLE ${quote(outside)}.parent (LIKE ${quote(target.schema)}.sessions INCLUDING DEFAULTS) PARTITION BY RANGE (id)`);
+      await target.client.query(`ALTER TABLE ${quote(outside)}.parent ATTACH PARTITION ${quote(target.schema)}.sessions DEFAULT`);
+    }
+    expect(await inspectPostgresqlSchema(target)).toContain("sessions: undeclared inheritance or partition relationship");
+    await expect(initializePostgresqlSchema(target)).rejects.toThrow("inheritance or partition relationship");
+    expect(postgresqlSchemaFingerprint()).toBe(POSTGRESQL_SCHEMA_RELEASES[POSTGRESQL_SCHEMA_VERSION]);
+  }, 60_000);
 
   it("preserves imported insertion positions and reseeds subsequent identities", async () => {
     const target = await fresh();

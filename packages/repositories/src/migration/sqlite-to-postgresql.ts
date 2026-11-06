@@ -71,6 +71,7 @@ async function fileEvidence(filename: string): Promise<PostgresqlMigrationFileEv
   try { stat = await fs.lstat(resolved); }
   catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return { path: resolved, present: false, sha256: null, size: null, device: null, inode: null }; throw error; }
   if (!stat.isFile()) throw new Error(`migration input must be a regular file: ${resolved}`);
+  if (stat.nlink !== 1) throw new Error(`migration input has multiple hard links: ${resolved}`);
   const handle = await fs.open(resolved, "r");
   const digest = createHash("sha256");
   try { for await (const chunk of handle.readableWebStream()) digest.update(Buffer.from(chunk)); }

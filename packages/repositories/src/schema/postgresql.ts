@@ -275,7 +275,7 @@ const sortedJson = (values: unknown[]): string => JSON.stringify(values.map(valu
 const actionNames: Record<string, string> = { a: "no action", r: "restrict", c: "cascade", n: "set null", d: "set default" };
 
 async function schemaRelations(client: PostgresqlQueryPort, schema: string) {
-  return (await client.query(`SELECT c.relname AS name,c.relkind AS kind,c.relpersistence AS persistence,
+  return (await client.query(`SELECT c.oid::text AS oid,c.relname AS name,c.relkind AS kind,c.relpersistence AS persistence,
     c.relrowsecurity AS row_security,c.relforcerowsecurity AS force_row_security,c.relhasrules AS has_rules,
     c.reltablespace AS tablespace,am.amname AS access_method FROM pg_catalog.pg_class c
     JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace LEFT JOIN pg_catalog.pg_am am ON am.oid=c.relam
@@ -291,11 +291,30 @@ export async function inspectPostgresqlSchema(target: PostgresqlSchemaTarget): P
   const relations = await schemaRelations(client, schema);
   const actualTables = relations.filter(row => row.kind === "r").map(row => String(row.name));
   for (const row of relations) {
-    if (row.kind === "S" || row.kind === "i") continue; // Sequences/indexes are checked below.
+    if (row.kind === "S") continue; // Sequence ownership and parameters are checked below.
+    if (row.kind === "i") {
+      // Includes the physical indexes backing PRIMARY KEY/UNIQUE constraints.
+      if (String(row.tablespace) !== "0") issues.push(`${row.name}: index storage differs`);
+      continue;
+    }
     if (row.kind !== "r" || !expected.some(table => table.name === row.name)) issues.push(`${row.name}: undeclared relation`);
     if (row.kind === "r" && (row.persistence !== "p" || row.row_security || row.force_row_security || row.has_rules
       || row.access_method !== "heap" || String(row.tablespace) !== "0")) issues.push(`${row.name}: table storage or access semantics differ`);
-    if (row.kind === "i" && String(row.tablespace) !== "0") issues.push(`${row.name}: index storage differs`);
+  }
+  // A child outside this namespace is still returned by SELECT on its parent,
+  // and does not inherit the parent's keys/FKs. Bind both ends by actual OID so
+  // cross-schema inheritance and attached partitions cannot escape inspection.
+  const canonicalOids = new Set(relations.filter(row => row.kind === "r" && expected.some(table => table.name === row.name))
+    .map(row => String(row.oid)));
+  if (canonicalOids.size) {
+    const inheritance = (await client.query(`SELECT child.oid::text AS child_oid,child.relname AS child_name,
+      parent.oid::text AS parent_oid,parent.relname AS parent_name FROM pg_catalog.pg_inherits h
+      JOIN pg_catalog.pg_class child ON child.oid=h.inhrelid JOIN pg_catalog.pg_class parent ON parent.oid=h.inhparent
+      WHERE h.inhrelid=ANY($1::oid[]) OR h.inhparent=ANY($1::oid[]) ORDER BY parent.oid,child.oid`, [[...canonicalOids]])).rows;
+    for (const relation of inheritance) {
+      if (canonicalOids.has(String(relation.parent_oid))) issues.push(`${relation.parent_name}: undeclared inheritance or partition relationship`);
+      if (canonicalOids.has(String(relation.child_oid))) issues.push(`${relation.child_name}: undeclared inheritance or partition relationship`);
+    }
   }
   const columns = (await client.query(`SELECT c.relname AS table_name,a.attname AS name,a.attnum AS position,
     pg_catalog.format_type(a.atttypid,a.atttypmod) AS type,a.attnotnull AS not_null,

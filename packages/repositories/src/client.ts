@@ -437,14 +437,22 @@ export async function createDatabase(
   reconnectCount: () => number;
 }> {
   const rawUrl = config.url ?? process.env.DATABASE_URL ?? defaultDbUrl;
-  const url = resolveDatabaseUrl(rawUrl);
+  let url = resolveDatabaseUrl(rawUrl);
   const isMemory = url === ":memory:" || /^file::memory:(?:[?#]|$)/i.test(url);
   const isLocalSqlite = /^file:/i.test(url) || isMemory;
 
+  const admitLocalSource = (): void => {
+    if (!isLocalSqlite || isMemory) return;
+    const admittedPath = assertSqliteMigrationUnlocked(fileURLToPath(url));
+    const admittedUrl = new URL(url);
+    admittedUrl.pathname = pathToFileURL(admittedPath).pathname;
+    url = admittedUrl.toString();
+  };
+
   // 先确保文件父目录存在（libsql createClient 构造时即打开文件，必须在其之前创建 <repo>/data）
   if (isLocalSqlite && !isMemory) {
+    admitLocalSource();
     const filePath = fileURLToPath(url);
-    assertSqliteMigrationUnlocked(filePath);
     await assertPluginIdentityMigrationUnlockedForPath(filePath);
     try {
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -455,7 +463,7 @@ export async function createDatabase(
 
   /** 建立一条已完成 PRAGMA 配置的新连接（首次与重连共用，保证自愈后配置一致） */
   const createAndPrepare = async (): Promise<Client> => {
-    if (isLocalSqlite && !isMemory) assertSqliteMigrationUnlocked(fileURLToPath(url));
+    admitLocalSource();
     const created = createClient({
       url,
       authToken: config.authToken ?? process.env.DATABASE_AUTH_TOKEN,
@@ -473,6 +481,8 @@ export async function createDatabase(
         // 特殊环境忽略 WAL
       }
     }
+    try { admitLocalSource(); }
+    catch (error) { created.close(); throw error; }
     return created;
   };
 
