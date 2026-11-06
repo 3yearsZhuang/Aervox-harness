@@ -187,8 +187,14 @@ Created -> InputChecking -> Running -> Finalizing -> Completed
 
 ### 4.6 `user_question_required` 与 `user_question_answered` (UQ-01)
 
-- `user_question_required`：表示模型在执行过程中调用 `ask_user_question` 发起向用户提问与决策确认，Step 挂起等待。`data` 包含 `turnId`、`step`、`questions` 数组（含 `id`、`question`、`header`、`detail`、`options`、`multiSelect`、`intent`）以及 `timeoutMs`。
-- `user_question_answered`：表示用户已提交对该问题的回答（通过 `POST /v1/turns/:turnId/questions/answers`），Loop 被唤醒继续执行。`data` 包含 `turnId` 与 `answers` 数组。
+- `user_question_required`：模型调用 `ask_user_question` 后，原 Step 挂起等待。`data` 包含原 `turnId`、`attemptId`、`invocationId`、`step`、`questions` 数组（含 `id`、`question`、`header`、`detail`、`options`、`multiSelect`、`intent`）、`timeoutMs` 与持久 `expiresAt`。登记使用执行者原有租约与 fencing 证明，问题行和事件在同一 SQLite 写事务提交。
+- `user_question_answered`：用户通过 `POST /v1/turns/:turnId/questions/answers` 提交原 `attemptId`、`invocationId`、`step` 与 `answers`。回答事件与同身份挂起行清理在同一事务提交，事件保留原身份；同答案重试返回已存回执，异答案、身份不符、过期、来源不可读或删除传播未完成均拒绝。用户取消已受理或终结时拒绝新答案，已提交回执仍可幂等查询。答案 ID、选项与单选/多选规则按原问题校验。
+
+Host 与 Native 共用 Conversation 问题命令；进程内等待器只在提交后发布通知或完成 Promise。超时不选择默认选项，也不代表用户回答或授权。旧 `invocation_id IS NULL` 行保持原样，查询标识 `identity_unavailable`，禁止猜测回填或登记答案，允许按原行身份取消或过期清理。`GET /v1/turns/:turnId/questions/pending` 返回原身份与截止时间；读取不能延长等待期限。
+
+客户端仅在异步事件消费期间待答问题未被替换，且回执的原 Turn、Attempt、invocation 和 step 完整匹配时清理问题。缺少完整原身份或 step 的旧回执只能推进已消费事件游标，不能推定当前问题已答。
+
+仍存活的原执行者只消费同一次提问的答案。重开查询与答案登记不创建 Turn/Attempt，不自动恢复跨进程模型执行；旧结果回执和持久化不构成续跑授权。
 
 ### 4.7 `tool_approval_required` (PET-05 / CAP-009)
 

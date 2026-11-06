@@ -1,8 +1,9 @@
 import { isLiteralLoopbackUrl, type LLMConfigResponse } from "@aervox/contracts";
 import { defaultModelProviderRegistry, type ModelProviderPort, type ModelProviderRegistryPort } from "@aervox/core";
 
-type ProviderConfig = Pick<LLMConfigResponse, "enabled" | "providerType" | "baseUrl" | "modelId"> &
+export type ConfiguredModelProviderConfig = Pick<LLMConfigResponse, "enabled" | "providerType" | "baseUrl" | "modelId"> &
   Partial<Pick<LLMConfigResponse, "apiKey" | "temperature" | "maxTokens" | "settings">>;
+export interface ConfiguredModelProviderOptions { localOnly?: boolean; requireLocalProvider?: boolean; maxOutputTokens?: number }
 
 function positiveInteger(value: unknown, label: string, maximum = Number.MAX_SAFE_INTEGER): number | undefined {
   if (value === undefined || value === null || value === "") return undefined;
@@ -11,12 +12,12 @@ function positiveInteger(value: unknown, label: string, maximum = Number.MAX_SAF
   return parsed;
 }
 
-/** All product execution paths create configured providers through this boundary.
- * Routing chooses a preset and optional tighter output cap; it does not reinterpret settings.
+/** Normalize configured providers for the Host-owned factory. Routing chooses a
+ * preset and optional tighter output cap; it does not reinterpret settings.
  */
 export function createConfiguredModelProvider(
-  config: ProviderConfig,
-  options: { localOnly?: boolean; requireLocalProvider?: boolean; maxOutputTokens?: number } = {},
+  config: ConfiguredModelProviderConfig,
+  options: ConfiguredModelProviderOptions = {},
   registry: ModelProviderRegistryPort = defaultModelProviderRegistry,
 ): ModelProviderPort {
   const descriptor = registry.getDescriptor(config.providerType);

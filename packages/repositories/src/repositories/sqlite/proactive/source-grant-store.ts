@@ -1,6 +1,7 @@
 /**
  * Aervox｜思隅 @aervox/repositories — 逐来源授权状态与来源数据删除 Store
  */
+import { randomUUID } from "node:crypto";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
 import {
@@ -61,6 +62,10 @@ export class SourceGrantStore {
       .update(proactiveSourceGrants)
       .set({
         state: input.state,
+        grantVersion: input.metadata === undefined
+          ? sql`case when ${proactiveSourceGrants.state} != ${input.state}
+              then ${proactiveSourceGrants.grantVersion} + 1 else ${proactiveSourceGrants.grantVersion} end`
+          : sql`${proactiveSourceGrants.grantVersion} + 1`,
         metadataJson: input.metadata === undefined
           ? existing.metadataJson
           : encrypt(stringify(input.metadata), "source", sourceGrantId, this.cipher) ?? "{}",
@@ -89,7 +94,7 @@ export class SourceGrantStore {
         );
     }
     await this.audit.recordAudit(ctx, {
-      id: `${sourceGrantId}_audit_${Date.now().toString(36)}`,
+      id: `${sourceGrantId}_audit_${randomUUID()}`,
       revisionId: existing.revisionId,
       eventType: `source.${input.state}`,
       actorId: input.actorId,
@@ -199,7 +204,7 @@ export class SourceGrantStore {
 
       await tx
         .update(proactiveSourceGrants)
-        .set({ state: "revoked", revokedAt: now, updatedAt: now })
+        .set({ state: "revoked", grantVersion: sql`${proactiveSourceGrants.grantVersion} + 1`, revokedAt: now, updatedAt: now })
         .where(
           and(
             eq(proactiveSourceGrants.id, sourceGrantId),

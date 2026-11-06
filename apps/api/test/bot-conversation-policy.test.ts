@@ -15,6 +15,7 @@ import { runLoopTurnOnce } from "@aervox/host-runtime-test/modules/companion/con
 import { ToolRuntime } from "@aervox/host-runtime-test/modules/ecosystem/tools/runtime";
 import { ServerPluginRegistry } from "@aervox/host-runtime-test/modules/ecosystem/plugins/turn-plugins/registry";
 import { contributeMemoryTool, type MemoryWritePort } from "@aervox/host-runtime/modules/companion/memory/index";
+import { createConfiguredProviderFactory, createModelStreamResources } from "@aervox/host-runtime/modules/ecosystem/llm/index";
 import { createToolApprovalPolicyHook, setRequestToolApprovalMode } from "@aervox/host-runtime/shared/tool-approval-policy";
 
 const local = { workspaceId: "local", subjectUserId: "local" };
@@ -33,6 +34,7 @@ describe("API Bot execution audience enforcement", () => {
   let cleanup: () => Promise<void>;
   let repo: SqliteConversationRepository;
   let runtime: ToolRuntime;
+  let modelResources: ReturnType<typeof createModelStreamResources>;
   let dependencies: ConversationRouteDeps;
   let requests: ModelRequest[];
   let replyFor: (request: ModelRequest) => string;
@@ -46,6 +48,7 @@ describe("API Bot execution audience enforcement", () => {
     ({ db, client, cleanup } = await createInMemoryDatabase());
     repo = new SqliteConversationRepository(db);
     runtime = new ToolRuntime({ registry: new SqliteToolRegistryRepository(db) });
+    modelResources = createModelStreamResources(4);
     requests = [];
     replyFor = () => textSse();
     vi.stubGlobal("fetch", vi.fn(async (_url: unknown, init: RequestInit) => {
@@ -55,6 +58,7 @@ describe("API Bot execution audience enforcement", () => {
     }));
     dependencies = {
       executionConfig: loadExecutionConfig(),
+      modelProviderFactory: createConfiguredProviderFactory(modelResources),
       llmConfigService: {
         getConfig: async () => ({ enabled: true, providerType: "custom_openai", baseUrl: "http://127.0.0.1:9999/v1", modelId: "test", temperature: 0, maxTokens: 512, settings: {} }),
         listPresets: async () => ({ presets: [], activePresetId: null }),
@@ -65,7 +69,7 @@ describe("API Bot execution audience enforcement", () => {
     app.addHook("preValidation", createToolApprovalPolicyHook());
     registerConversationRoutes(app, repo, dependencies);
   });
-  afterEach(async () => { await app.close(); await runtime.dispose(); await cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
+  afterEach(async () => { await app.close(); await modelResources.close(); await runtime.dispose(); await cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
   async function session(id: string, policy: ConversationExecutionPolicy) {
     await repo.createSession(local, id, { id, executionPolicy: policy });
@@ -203,6 +207,7 @@ describe("API Bot execution audience enforcement", () => {
     const recall = vi.fn(async () => [{ id: "private", content: "PRIVATE_MEMORY_SECRET", source: "fts" as const }]);
     setRequestToolApprovalMode(local, "full_access");
     await runLoopTurnOnce(repo, local, input, { executionConfig: dependencies.executionConfig, llmConfigService: dependencies.llmConfigService, toolRuntime: runtime,
+      modelProviderFactory: dependencies.modelProviderFactory,
       memoryRecall: { recall }, persona: { prompt: "PRIVATE_PERSONA_SECRET" },
     });
     expect(JSON.stringify(requests)).toContain("已受理正文");

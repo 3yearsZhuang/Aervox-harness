@@ -23,6 +23,7 @@ export {
   createFetchTransport,
   AervoxHttpError,
   type AervoxTransport,
+  type QuestionAnswerIdentity,
   type AervoxClientConfig,
   type StreamTurnOptions,
   type TurnCallbacks,

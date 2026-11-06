@@ -3,6 +3,52 @@
  */
 import type { PendingUserQuestionModel, PendingUserQuestionUpsertInput } from "./subagent-run.js";
 import type { LocalContext } from "../../local-context.js";
+import type { AskUserQuestionItem, AskUserQuestionAnswerItem } from "@aervox/contracts";
+import type { TurnStreamEventModel } from "./conversation.js";
+
+export interface UserQuestionIdentity {
+  turnId: string;
+  attemptId: string;
+  invocationId: string;
+  step: number;
+}
+
+export interface UserQuestionExecutionProof {
+  expectedFencingToken: number;
+  leaseId: string;
+}
+
+export interface RequireUserQuestionInput extends UserQuestionIdentity, UserQuestionExecutionProof {
+  questions: AskUserQuestionItem[];
+  timeoutMs: number;
+}
+
+export interface PendingUserQuestionState extends PendingUserQuestionModel {
+  questions: AskUserQuestionItem[];
+  identityStatus: "available" | "identity_unavailable";
+}
+
+export interface UserQuestionAnswerReceipt extends UserQuestionIdentity {
+  accepted: true;
+  answers: AskUserQuestionAnswerItem[];
+  event: TurnStreamEventModel;
+}
+
+export interface RequireUserQuestionResult {
+  event: TurnStreamEventModel;
+  pending: PendingUserQuestionState | null;
+  receipt: UserQuestionAnswerReceipt | null;
+}
+
+export interface CancelUserQuestionInput {
+  turnId: string;
+  attemptId: string;
+  invocationId: string | null;
+  step: number;
+  reason: "cancelled" | "expired";
+  /** An execution owner supplies its original proof. Human cancellation need not impersonate an owner. */
+  proof?: UserQuestionExecutionProof;
+}
 
 export interface IUserQuestionRepository {
   /** 幂等写入挂起会话（同 turnId 覆盖）；供提问时调用 */

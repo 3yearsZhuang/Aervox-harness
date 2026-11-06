@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createClient, type Client } from "@libsql/client";
 import {
-  createInMemoryDatabase, DomainConflictError, SqlitePrivacyRepository, SqliteRecoveryLedgerRepository,
+  createInMemoryDatabase, DomainConflictError, MEMORY_DELETION_VERIFIER, SqlitePrivacyRepository, SqliteRecoveryLedgerRepository,
 } from "../src/index.js";
 
 const local = { workspaceId: "local", subjectUserId: "local" };
@@ -82,6 +82,33 @@ describe("deletion request intent is immutable for a business key", () => {
     await privacy.createDeletionRequest(local, { ...deletion, targets: undefined });
     await expect(privacy.createDeletionRequest(local, deletion)).rejects.toBeInstanceOf(DomainConflictError);
     expect((await privacy.createDeletionRequest(local, { ...deletion, id: "retry", targets: [] })).id).toBe("original");
+  });
+});
+
+describe("deletion completion requires a supported owner and dispatch set", () => {
+  it.each([
+    { scope: "account" }, { scope: "memory\0other" },
+    { ownerModule: "other" }, { ownerModule: "memory\0other" },
+    { targets: [{ ...target("a"), targetType: "attachment" }] },
+    { targets: [{ ...target("a"), targetType: "memory\0other" }] },
+    { targets: [target("a", "other")] }, { targets: [target("a", "memory\0other")] },
+    { targets: [target("")] },
+    { targets: [target("a"), { ...target("b"), targetType: "attachment" }] },
+  ])("keeps unsupported completed intent %j denied and retryable despite a current verifier", async change => {
+    const input = { ...deletion, targets: [target("a")], ...change };
+    await privacy.createDeletionRequest(local, input);
+    for (const item of input.targets) {
+      await privacy.updateDeletionTargetStatus({ requestId: input.id, targetType: item.targetType, targetId: item.targetId },
+        "completed", JSON.stringify({ verifier: MEMORY_DELETION_VERIFIER, verifiedAt: "2026-11-07T00:00:00.000Z", contentRows: 0, ftsRows: 0, vectorRows: 0 }));
+    }
+    await privacy.updateDeletionRequestStatus(local, input.id, "completed", { lastVerifiedAt: "2026-11-07T00:00:00.000Z" });
+    const original = await privacy.getDeletionRequest(local, input.id);
+    const targets = await privacy.listDeletionTargets(input.id);
+    expect(await privacy.hasPendingDeletionRequest(local)).toBe(true);
+    expect((await privacy.listUnverifiedDeletionRequests()).map(request => request.id)).toEqual([input.id]);
+    expect(await privacy.getDeletionRequest(local, input.id)).toEqual(original);
+    expect(await privacy.listDeletionTargets(input.id)).toEqual(targets);
+    expect(await privacy.beginDeletionRequestAttempt(input.id)).toMatchObject({ id: input.id, status: "in_progress", attemptCount: 1 });
   });
 });
 

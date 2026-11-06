@@ -162,6 +162,8 @@ export function loadModelRoutingFeatureFlags(
 
 /** @aervox/api 启动与运行时配置 */
 export interface ApiConfig {
+  /** Shared in-process upstream model streams (default 4, range 1–32). */
+  modelStreamConcurrency: number;
   /** HTTP 监听端口（PORT，默认 3000） */
   port: number;
   /** HTTP 监听地址（AERVOX_API_HOST，默认 loopback） */
@@ -252,7 +254,17 @@ export type ExecutionConfig = Pick<ApiConfig,
   "loopProvider" | "loopDriver" | "dshRepoRoot" | "dshWorkingDirectory" | "turnExecution" | "loopDispatch" | "loopCompaction" | "loopResume" | "adminIds" |
   "proactiveFeatureFlags" | "modelRoutingFeatureFlags">;
 export type VoiceConfig = Pick<ApiConfig, "gptSovits" | "asr"> & { audioPreprocessor: "off" | "rust" };
-export type HostRuntimeConfig = LoggingConfig & ExecutionConfig & VoiceConfig;
+export type ModelResourceConfig = Pick<ApiConfig, "modelStreamConcurrency">;
+export type HostRuntimeConfig = LoggingConfig & ExecutionConfig & VoiceConfig & ModelResourceConfig;
+
+export function loadModelResourceConfig(env: NodeJS.ProcessEnv = process.env): ModelResourceConfig {
+  const raw = env.AERVOX_MODEL_STREAM_CONCURRENCY;
+  if (raw === undefined) return { modelStreamConcurrency: 4 };
+  const value = raw.trim();
+  const parsed = Number(value);
+  if (/^[0-9]+$/.test(value) && Number.isSafeInteger(parsed) && parsed >= 1 && parsed <= 32) return { modelStreamConcurrency: parsed };
+  throw new Error(`[config] AERVOX_MODEL_STREAM_CONCURRENCY=${raw} is invalid; expected a safe integer between 1 and 32`);
+}
 
 export function loadLoggingConfig(env: NodeJS.ProcessEnv = process.env): LoggingConfig {
   return {
@@ -315,7 +327,7 @@ export function loadVoiceConfig(env: NodeJS.ProcessEnv = process.env): VoiceConf
 
 /** Shared product configuration excludes HTTP listener settings. Read once at the composition root. */
 export function loadHostRuntimeConfig(env: NodeJS.ProcessEnv = process.env): HostRuntimeConfig {
-  return { ...loadLoggingConfig(env), ...loadExecutionConfig(env), ...loadVoiceConfig(env) };
+  return { ...loadLoggingConfig(env), ...loadExecutionConfig(env), ...loadVoiceConfig(env), ...loadModelResourceConfig(env) };
 }
 
 export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
