@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import { createInMemoryDatabase, SqliteConversationRepository, SqliteMemoryRepository, indexMemoryFts } from "@aervox/repositories";
 import { createSqliteMemoryRecall } from "@aervox/host-runtime-test/modules/companion/memory/recall";
 
-it.each(["attachment", "invalid-json"] as const)("rechecks %s receipts after asynchronous vector scoring before exposing memory content to the model", async receipt => {
+it.each(["attachment", "invalid-json", "empty-intent", "array-message"] as const)("rechecks %s receipts after asynchronous vector scoring before exposing memory content to the model", async receipt => {
   const database = await createInMemoryDatabase();
   const local = { workspaceId: "local", subjectUserId: "local" };
   try {
@@ -19,9 +19,11 @@ it.each(["attachment", "invalid-json"] as const)("rechecks %s receipts after asy
       embeddingProvider: { modelId: "fixture", embed: async () => [1, 0] }, vectorPort: {
         upsert: async () => {}, delete: async () => {}, clearAll: async () => {},
         search: async () => {
-          await database.client.execute(receipt === "attachment"
-            ? "UPDATE outbox_events SET payload=json_set(payload,'$.intent.message.attachments',json('[{\"attachmentId\":\"historical-clean\"}]')) WHERE id='outbox_attachment'"
-            : "UPDATE outbox_events SET payload='{' WHERE id='outbox_attachment'");
+          const sql = receipt === "attachment" ? "UPDATE outbox_events SET payload=json_set(payload,'$.intent.message.attachments',json('[{\"attachmentId\":\"historical-clean\"}]')) WHERE id='outbox_attachment'"
+            : receipt === "empty-intent" ? "UPDATE outbox_events SET payload=json_set(payload,'$.intent',json('{}')) WHERE id='outbox_attachment'"
+            : receipt === "array-message" ? "UPDATE outbox_events SET payload=json_set(payload,'$.intent.message',json('[]')) WHERE id='outbox_attachment'"
+            : "UPDATE outbox_events SET payload='{' WHERE id='outbox_attachment'";
+          await database.client.execute(sql);
           return [{ id: "attachment-memory", score: 1 }, { id: "text-memory", score: 0.95 }];
         },
       },

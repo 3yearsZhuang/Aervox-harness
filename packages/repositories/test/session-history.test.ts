@@ -4,6 +4,7 @@ import { SqliteConversationRepository } from "../src/repositories/sqlite/convers
 import { createInjectedDatabase } from "../src/database.js";
 import { readSessionHistory } from "../src/repositories/sqlite/session-history.js";
 import { nativeSqliteBoundary } from "./helpers/native-sqlite-boundary.js";
+import { corruptReceipt, receiptCorruptions } from "./helpers/receipt-corruption.js";
 
 const ctx = { workspaceId: "ws_history", subjectUserId: "usr_history" };
 
@@ -159,6 +160,15 @@ describe("安全会话历史读取", () => {
       args: [`bulk_${turnId}_${index}`, turnId, index + 4, "delta", JSON.stringify({ messageId: `assistant_${turnId}`, text: "raw replay body" }), "now", `attempt_${turnId}`, "approved"],
     })), "write");
   }
+
+  it.each(receiptCorruptions)("does not turn a malformed present receipt ($name) into text model history", async corruption => {
+    await accepted("affected", "session", "affected question", "affected answer");
+    await accepted("text", "session", "text question", "text answer");
+    await seed("current");
+    expect(await history()).toHaveLength(4);
+    await corruptReceipt(database.client, "affected", corruption);
+    expect(await history()).toEqual([{ role: "user", content: "text question" }, { role: "assistant", content: "text answer" }]);
+  });
 
   function boundedHistory() {
     return readSessionHistory(createInjectedDatabase(nativeSqliteBoundary(database.client).client), ctx, { sessionId: "session", beforeTurnId: "current" });
