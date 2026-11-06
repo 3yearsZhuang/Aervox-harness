@@ -103,27 +103,21 @@ export class HomeAssistantIntegrationProvider implements DeviceSensorIntegration
     entityId: string,
     ctx: ProactiveIntegrationContext,
   ): Promise<Record<string, unknown>> {
-    await ctx.assertSourceActive(tenant, "device.sensors");
-    const entity = await ctx.intelligenceRepo.getHomeEntity(tenant, connectionId, entityId);
-    if (!entity?.enabled) throw new Error("home_assistant_entity_not_authorized");
-    const connection = await ctx.requiredConnection(tenant, connectionId, this.providerId);
+    const {revision, grant} = await ctx.assertSourceActive(tenant, "device.sensors");
+    const permit = await ctx.intelligenceRepo.beginHomeStateRead(tenant, {
+      connectionId, entityId, revisionId: revision.id, sourceGrantId: grant.id,
+    });
+    if (!permit) throw new Error("home_assistant_read_not_authorized");
+    const {connection, entity} = permit;
     if (!connection.endpoint) throw new Error("home_assistant_endpoint_missing");
     const client = new HomeAssistantClient({ endpoint: connection.endpoint, accessToken: homeCredential(connection) });
     const state = await client.getState(entityId);
     const safeState = safeHomeState(state);
-    await ctx.intelligenceRepo.upsertHomeEntity(tenant, {
-      id: entity.id,
-      connectionId,
-      entityId,
-      domain: entity.domain,
-      displayName: entity.displayName,
-      deviceClass: entity.deviceClass,
-      allowedOps: entity.allowedOps,
-      enabled: true,
-      sensitive: entity.sensitive,
+    const admitted = await ctx.intelligenceRepo.publishHomeStateRead(tenant, permit, {
       state: safeState,
       lastSeenAt: state.last_updated ?? new Date().toISOString(),
     });
+    if (!admitted) throw new Error("home_assistant_read_not_authorized");
     return { entityId, domain: entity.domain, ...safeState };
   }
 
