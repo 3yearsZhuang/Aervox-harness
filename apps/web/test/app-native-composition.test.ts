@@ -24,10 +24,11 @@ vi.mock('@aervox/plugin-focus-mode/ui', () => ({ default: { id: 'focus' } }));
 vi.mock('@aervox/plugin-flowcampus/ui', () => ({ default: { id: 'campus' } }));
 vi.mock('@aervox/plugin-panels-ui', () => ({ settingsPanels: [{ category: 'voice', component: { name: 'WebSettings' } }] }));
 vi.mock('../src/mobile/NativeRuntimePanel.vue', () => ({ default: { name: 'NativeRuntimePanel', render: () => null } }));
+vi.mock('../src/mobile/NativeLearningPanel.vue', () => ({ default: { name: 'NativeLearningPanel', render: () => null } }));
 vi.mock('element-plus/es/components/message/index.mjs', () => ({ ElMessage: { error: vi.fn() } }));
 afterEach(() => { delete window.AervoxM0Native; });
 
-it('registers only the independent conversation surface and native settings in the fixed asset host', () => {
+it('injects the native learning panel while retaining only the independent surface and native settings', () => {
   window.AervoxM0Native = { postMessage: vi.fn(), onmessage: null };
   const wrapper = mount(App);
   const props = wrapper.getComponent(UISurfaceHost).props();
@@ -36,6 +37,7 @@ it('registers only the independent conversation surface and native settings in t
   expect(props.settingsPanels).toEqual([{ category: 'model', component: expect.objectContaining({ name: 'NativeRuntimePanel' }) }]);
   expect(props.viewProps.nativeRuntime).toBe(true);
   expect(props.viewProps.draftStorage).toBe(nativeStorage);
+  expect(props.viewProps.learningPanel).toEqual(expect.objectContaining({ name: 'NativeLearningPanel' }));
   expect(props.viewProps.surfaceNavigation.options.map((item: { value: string }) => item.value)).toEqual(['proactive']);
   wrapper.unmount();
 });
@@ -48,6 +50,7 @@ it('preserves the existing web surfaces, first-party plugin and settings when no
   expect(props.settingsPanels).toEqual([{ category: 'voice', component: { name: 'WebSettings' } }]);
   expect(props.viewProps.nativeRuntime).toBe(false);
   expect(props.viewProps.draftStorage).toBeUndefined();
+  expect(props.viewProps.learningPanel).toBeUndefined();
   expect(props.viewProps.surfaceNavigation.options.map((item: { value: string }) => item.value)).toEqual(['desktop', 'compact', 'proactive']);
   wrapper.unmount();
 });

@@ -3,7 +3,7 @@ import { expect, it, vi } from "vitest";
 import { registerConversationRoutes, type ConversationHttpPort } from "../src/modules/companion/conversation/routes.js";
 
 it("adapts every HTTP conversation use case with only a fake application Port", async () => {
-  const session = { id: "session", title: "Session" };
+  const session = { id: "session", title: "Session", createdAt: "2026-11-06", updatedAt: "2026-11-06" };
   const message = { id: "message", sessionId: "session", role: "user" };
   const commands = {
     ensureSession: vi.fn(async () => session), createSession: vi.fn(async () => session), renameSession: vi.fn(async () => session),
@@ -14,7 +14,7 @@ it("adapts every HTTP conversation use case with only a fake application Port", 
     deleteMessage: vi.fn(async () => ({ ...message, deletedAt: "2026-10-24" })), restoreMessage: vi.fn(async () => message),
   };
   const queries = {
-    getTurnDiagnostics: vi.fn(async () => null), listSessions: vi.fn(async () => [session]),
+    getTurnDiagnostics: vi.fn(async () => null), listSessions: vi.fn(async () => [session]), getSession: vi.fn(async () => session),
     pendingQuestions: vi.fn(async () => null), subagents: vi.fn(async () => []), workflows: vi.fn(() => []),
     messageDeleteImpact: vi.fn(async () => ({ messageId: "message", impacts: [], totalAffected: 0 })),
     listMessageVersions: vi.fn(async () => []), getTurn: vi.fn(async () => ({ id: "turn" })),
@@ -31,6 +31,7 @@ it("adapts every HTTP conversation use case with only a fake application Port", 
     const cases: Array<{ method: "GET" | "POST" | "PATCH" | "DELETE"; url: string; payload?: unknown; status: number }> = [
       { method: "GET", url: "/v1/turns/turn/diagnostics", status: 404 },
       { method: "GET", url: "/v1/sessions", status: 200 },
+      { method: "GET", url: "/v1/sessions/session", status: 200 },
       { method: "POST", url: "/v1/sessions", payload: { title: "Session" }, status: 201 },
       { method: "POST", url: "/v1/sessions", payload: { id: "session", title: "Session" }, status: 201 },
       { method: "PATCH", url: "/v1/sessions/session", payload: { title: "Renamed" }, status: 200 },

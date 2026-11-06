@@ -79,7 +79,7 @@ test('keeps rejected-message feedback and its action fully visible without scrol
     await expect.poll(() => page.locator('.pc-whisper-input md-filled-button').evaluate(el => el.matches(':defined') && Boolean(el.shadowRoot?.querySelector('button')))).toBe(true);
     await expect(page.locator('.pc-header md-icon-button').first()).toHaveCSS('height', '48px');
     const lightSurface = await page.locator('html').evaluate(el => getComputedStyle(el).getPropertyValue('--md-sys-color-surface').trim());
-    await expect(page.locator('.pc-dialogue-text')).toContainText('专注一会儿');
+    await expect(page.locator('.pc-dialogue-text')).toContainText('想聊什么，直接告诉我。');
     const character = (await page.locator('.pc-pet-wrap').boundingBox())!;
     const dialogue = (await page.locator('.pc-dialogue').boundingBox())!;
     // ADR-022 mobile contract: the character is enlarged past its visible window
@@ -153,10 +153,10 @@ test('keeps rejected-message feedback and its action fully visible without scrol
     await page.evaluate(() => { localStorage.setItem('aervox-theme', 'dark'); document.documentElement.dataset.theme = 'dark'; });
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     await expect.poll(() => page.locator('html').evaluate(el => getComputedStyle(el).getPropertyValue('--md-sys-color-surface').trim())).not.toBe(lightSurface);
-    await expect.poll(() => page.locator('.pc-choice--primary').evaluate(el => {
+    await expect.poll(() => page.locator('.pc-home-nav .pc-home-entry').nth(1).evaluate(el => {
       // Compare against the computed token instead of merely "different from light".
       const expected = document.createElement('div');
-      expected.style.backgroundColor = 'var(--md-sys-color-primary-container)';
+      expected.style.backgroundColor = 'var(--md-sys-color-surface-container)';
       document.body.append(expected);
       const settled = getComputedStyle(el).backgroundColor === getComputedStyle(expected).backgroundColor;
       expected.remove(); return settled;
