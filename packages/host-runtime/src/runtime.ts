@@ -230,6 +230,16 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
     proactiveAccessToken = await loadProactiveAccessToken();
   }
 
+  // Fastify closes hooks in reverse order. Register owned database release
+  // before modules so their final durable writes finish while connections live.
+  if (ownsProactiveClient || !injectedMainDatabase) {
+    app.addHook("onClose", async () => {
+      await modelStreamResources.close();
+      if (ownsProactiveClient) await proactiveClient?.close();
+      if (!injectedMainDatabase) await client.close();
+    });
+  }
+
   // Map domain errors to HTTP; the onSend hook supplies the shared Problem Details envelope.
   // DatabaseError 携带领域语义（NOT_FOUND/FORBIDDEN/CONFLICT），在此映射为 HTTP 状态码，
   // 避免数据层裸 Error 被当作 500（资源访问拒绝应 403、资源缺失应 404、领域冲突应 409）。
@@ -452,14 +462,6 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
     conversation.abort();
     modelStreamResources.beginClose();
   });
-  if (ownsProactiveClient || !injectedMainDatabase) {
-    app.addHook("onClose", async () => {
-      // A failed upstream drain must not be mistaken for a safe database close.
-      await modelStreamResources.close();
-      if (ownsProactiveClient) await proactiveClient?.close();
-      if (!injectedMainDatabase) await client.close();
-    });
-  }
   // Fastify runs onClose in reverse registration order. Drain the one owner
   // before its dependent module/database release hooks; retry is idempotent.
   app.addHook("onClose", () => modelStreamResources.close());
