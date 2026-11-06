@@ -1,12 +1,13 @@
 /**
  * Aervox｜思隅 @aervox/repositories — 工具授权账本（待决/裁决/复用）Store
  */
-import { eq, and, or, isNull, desc, notLike } from "drizzle-orm";
+import { eq, and, or, isNull, desc, not } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
 import { toolApprovals, turns, turnAttempts, toolExecutions, turnStreamEvents } from "@aervox/schema";
 import type { LocalContext } from "../../../local-context.js";
 import type { ToolApprovalModel } from "../../types/index.js";
 import { assertPluginGeneration, type PluginGenerationIdentity } from "../../../plugin-generation-guard.js";
+import { textLike } from "../../../sql-dialect.js";
 
 export class ApprovalStore {
   constructor(private readonly db: AervoxDatabase) {}
@@ -215,7 +216,7 @@ export class ApprovalStore {
           excludedPrefixes.length > 0
             ? or(
                 isNull(toolApprovals.decidedBy),
-                and(...excludedPrefixes.map((prefix) => notLike(toolApprovals.decidedBy, `${prefix}%`))),
+                and(...excludedPrefixes.map((prefix) => not(textLike(this.db, toolApprovals.decidedBy, `${prefix}%`)))),
               )
             : undefined,
         ),

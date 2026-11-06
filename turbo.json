@@ -161,7 +161,7 @@
       "inputs": ["src/**", "test/**", "package.json", "tsconfig.json", "vitest.config.*", "../../vitest.shared.ts", "../../plugins/**"]
     },
     "@aervox/api#test": {
-      "dependsOn": ["^build", "@aervox/native-runtime#native:build"],
+      "dependsOn": ["build", "^build", "@aervox/worker#build", "@aervox/native-runtime#native:build"],
       "env": ["AERVOX_PG_TEST_URL", "AERVOX_TEST_POSTGRES_URL"],
       "inputs": [
         "src/**",
@@ -172,6 +172,7 @@
         "../../vitest.shared.ts",
         "../../apps/desktop/src/main/turn-bridge.ts",
         "../../apps/desktop/src/main/runtime-config.ts",
+        "../../scripts/database.mjs",
         "../../plugins/**"
       ]
     },

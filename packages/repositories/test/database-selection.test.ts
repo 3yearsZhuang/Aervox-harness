@@ -52,6 +52,18 @@ it("rejects missing plugin before creating migration target or source claim", as
   expect(await fs.stat(`${source}.aervox-migration.lock`).catch(() => null)).toBeNull();
 });
 
+it("rejects an installed but disabled plugin before preparing a migration", async () => {
+  fixture();
+  const db = new DatabaseSync(source);
+  try { db.exec("UPDATE plugins SET enabled=0 WHERE id='ap-tool-postgresql'"); }
+  finally { db.close(); }
+  const backupDirectory = path.join(root, "backup");
+  await expect(preparePostgresqlDatabaseMigration({ sourcePath: source, connectionString: "postgresql://invalid@localhost/missing", targetSchema: "unused", instanceId: "test", backupDirectory, selectionPath })).rejects.toMatchObject({ code: "POSTGRESQL_PLUGIN_NOT_INSTALLED_OR_ENABLED" });
+  expect(await fs.stat(`${source}.aervox-migration.lock`).catch(() => null)).toBeNull();
+  expect(await fs.stat(backupDirectory).catch(() => null)).toBeNull();
+  expect((await getDatabaseSelectionStatus(selectionPath)).backend).toBe("sqlite");
+});
+
 it("abort preserves staging evidence and refuses a live owner", async () => {
   new DatabaseSync(source).close();
   const lockPath = `${source}.aervox-migration.lock`;
@@ -61,6 +73,18 @@ it("abort preserves staging evidence and refuses a live owner", async () => {
   const result = await abortSqliteToPostgresqlMigration({ sourcePath: source, selectionPath });
   expect(JSON.parse(await fs.readFile(result.archivedLockPath, "utf8")).phase).toBe("outcome-unknown");
   expect(await fs.stat(lockPath).catch(() => null)).toBeNull();
+  const opened = await createDatabase({ url: `file:${source}` }); opened.client.close();
+});
+
+it("repairs interrupted unpublished claim writes while retaining the fenced source", async () => {
+  new DatabaseSync(source).close();
+  const sourceLock = `${source}.aervox-migration.lock`;
+  await fs.writeFile(sourceLock, "", { mode: 0o600 });
+  await fs.writeFile(`${selectionPath}.activation.lock`, '{"processId":', { mode: 0o600 });
+  expect(await recoverDatabaseActivation(selectionPath)).toMatchObject({ backend: "sqlite", repairRequired: false });
+  await expect(createDatabase({ url: `file:${source}` })).rejects.toMatchObject({ code: "DATABASE_MIGRATION_SOURCE_FENCED" });
+  const result = await abortSqliteToPostgresqlMigration({ sourcePath: source, selectionPath });
+  expect(await fs.readFile(result.archivedLockPath, "utf8")).toBe("");
   const opened = await createDatabase({ url: `file:${source}` }); opened.client.close();
 });
 
@@ -89,6 +113,47 @@ describe.skipIf(!connectionString)("verified PostgreSQL activation", () => {
     await fs.chmod(`${selectionPath}.key`, 0o644);
     await expect(createDefaultDatabase({ selectionPath })).rejects.toMatchObject({ code: "DATABASE_SELECTION_CREDENTIALS_UNAVAILABLE" });
     expect(await fs.stat(`${source}.aervox-migration.lock`)).toBeTruthy();
+  }, 60_000);
+
+  it.each(["disabled", "removed"] as const)("keeps activated PostgreSQL and new facts when the provider is %s and its declaration is unavailable", async state => {
+    fixture(); const receipt = await migrate();
+    const active = await activatePostgresqlMigration({ receiptPath: receipt.receiptPath, connectionString: connectionString!, selectionPath });
+    const selectionBytes = await fs.readFile(selectionPath);
+    const keyBytes = await fs.readFile(`${selectionPath}.key`);
+    const opened = await createDefaultDatabase({ selectionPath });
+    try {
+      await opened.client.execute("INSERT INTO memory_records(id,layer,type,content,created_at,updated_at) VALUES ('after-switch','long_term','user_fact','Created after switching to PostgreSQL','now','now')");
+      await opened.client.execute(state === "disabled"
+        ? "UPDATE plugins SET enabled=0 WHERE id='ap-tool-postgresql'"
+        : "DELETE FROM plugins WHERE id='ap-tool-postgresql'");
+    } finally { await opened.client.close(); }
+
+    // Model a missing declaration without removing the shared collection's
+    // files. Selection, credentials and all other filesystem reads stay real.
+    const readFile = fs.readFile.bind(fs);
+    const unavailableDeclaration = vi.spyOn(fs, "readFile").mockImplementation(async (filename, options) => {
+      if (String(filename).endsWith("/plugin.manifest.json")) {
+        throw Object.assign(new Error("plugin declaration is unavailable"), { code: "ENOENT" });
+      }
+      return readFile(filename, options);
+    });
+    try {
+      await expect(fs.readFile(path.join(root, "plugins/tool/postgresql/plugin.manifest.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+      const reopened = await createDefaultDatabase({ selectionPath });
+      try {
+        expect(reopened).toMatchObject({ backend: "postgresql", generation: active.generation });
+        expect((await reopened.client.execute("SELECT content FROM memory_records WHERE id='after-switch'")).rows[0]?.content).toBe("Created after switching to PostgreSQL");
+        const provider = await reopened.client.execute("SELECT enabled FROM plugins WHERE id='ap-tool-postgresql'");
+        if (state === "disabled") expect(provider.rows[0]?.enabled).toBe(0);
+        else expect(provider.rows).toEqual([]);
+      } finally { await reopened.client.close(); }
+    } finally { unavailableDeclaration.mockRestore(); }
+
+    await expect(abortSqliteToPostgresqlMigration({ sourcePath: source, selectionPath })).rejects.toMatchObject({ code: "DATABASE_SELECTION_ALREADY_ACTIVE" });
+    expect((await fs.readFile(selectionPath)).equals(selectionBytes)).toBe(true);
+    expect((await fs.readFile(`${selectionPath}.key`)).equals(keyBytes)).toBe(true);
+    await expect(createDatabase({ url: `file:${source}` })).rejects.toMatchObject({ code: "DATABASE_MIGRATION_SOURCE_FENCED" });
+    expect(await getDatabaseSelectionStatus(selectionPath)).toMatchObject({ backend: "postgresql", generation: active.generation, repairRequired: false });
   }, 60_000);
 
   it("recovers a published selection only after the owner exits and the receipt revalidates", async () => {

@@ -1,4 +1,4 @@
-import { and, desc, eq, lt, notLike, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, lt, not, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { messages, messageVersions, sessions, turns, turnStreamEvents } from "@aervox/schema";
 import type { SessionHistoryPage, SessionHistoryTurn } from "@aervox/contracts";
@@ -6,7 +6,7 @@ import type { AervoxDatabase } from "../../../client.js";
 import { assertConversationExecutionPolicy, conversationDispatchTarget } from "../../../conversation-execution-policy.js";
 import { disclosableTurn } from "./source-visibility.js";
 import { decodeCanonicalUtf8Base64Url, encodeUtf8Base64Url, utf8ByteLength } from "../../../encoding/utf8-base64url.js";
-import { asciiCharactersOnly, byteLength, jsonObject, jsonQuote, jsonValue, rowPosition } from "../../../sql-dialect.js";
+import { asciiCharactersOnly, byteLength, jsonObject, jsonQuote, jsonValue, rowPosition, textLike } from "../../../sql-dialect.js";
 
 export type SessionHistoryReadCode = "INVALID_HISTORY_QUERY" | "SESSION_NOT_FOUND" | "HISTORY_CURSOR_EXPIRED" | "HISTORY_ITEM_TOO_LARGE";
 export class SessionHistoryReadError extends Error {
@@ -103,7 +103,7 @@ export async function readSessionHistoryPage(db: AervoxDatabase, input: {
     if (cursor) {
       const [anchor] = await tx.select({ position: rowPosition(tx).mapWith(Number) }).from(turns).where(and(
         eq(turns.id, cursor.beforeTurnId), eq(turns.sessionId, input.sessionId), eq(turns.executionPolicy, session.policy),
-        eq(turns.dispatchTarget, conversationDispatchTarget(session.policy)), notLike(turns.idempotencyKey, "subagent:%"),
+        eq(turns.dispatchTarget, conversationDispatchTarget(session.policy)), not(textLike(tx, turns.idempotencyKey, "subagent:%")),
       ));
       if (!anchor || !Number.isSafeInteger(anchor.position)) return fail("HISTORY_CURSOR_EXPIRED");
       before = anchor.position;
@@ -114,7 +114,7 @@ export async function readSessionHistoryPage(db: AervoxDatabase, input: {
       ['createdAt', sql`case when ${byteLength(tx, turns.createdAt)} <= 128 then ${turns.createdAt} else null end`],
     ]).mapWith(parse<Candidate>) }).from(turns).where(and(
       eq(turns.sessionId, input.sessionId), eq(turns.executionPolicy, session.policy),
-      eq(turns.dispatchTarget, conversationDispatchTarget(session.policy)), notLike(turns.idempotencyKey, "subagent:%"),
+      eq(turns.dispatchTarget, conversationDispatchTarget(session.policy)), not(textLike(tx, turns.idempotencyKey, "subagent:%")),
       before === undefined ? undefined : lt(rowPosition(tx), before),
     )).orderBy(desc(rowPosition(tx))).limit(limit + 1)).map(row => row.value);
     const scanned = candidates.slice(0, limit);

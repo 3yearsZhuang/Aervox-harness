@@ -104,7 +104,7 @@ POSIX 权限目标为目录 `0700`、数据库/状态清单/token `0600`；Windo
 
 先在插件市场安装并启用 `ap-tool-postgresql`；首次迁移和激活会检查源库/已验证备份中的安装与启用记录。声明包本身不连接或迁移，不向插件提供裸 SQL。激活后主库和连接凭据归宿主所有，停用、卸载或移除声明包仍保持所选 PostgreSQL，宿主继续访问和管理数据；实际连接、凭据或目标身份/结构故障才阻断该访问，不回退旧 SQLite，状态/修复入口保留。
 
-`AERVOX_POSTGRESQL_URL` 为迁移和激活命令提供连接串，不接受连接地址的 CLI 参数，不把密码写入输出或普通插件配置。远端使用证书验证的 TLS；不支持的 URL 参数、禁用验证或无界连接策略拒绝。支持 PostgreSQL 16 及以上且编码为 UTF8；`public`、系统或共享 Schema 不得作为目标。
+`AERVOX_POSTGRESQL_URL` 为迁移和激活命令提供连接串，不接受连接地址的 CLI 参数，不把密码写入输出或普通插件配置。远端使用证书验证的 TLS；不支持的 URL 参数、禁用验证或无界连接策略拒绝。支持 PostgreSQL 16 及以上且编码为 UTF8；`public`、系统或共享 Schema 不得作为目标。每个新物理连接在业务事务前重新校验专用结构、实例与本机存储资格，失败时丢弃连接，不重放业务。
 
 生效配置默认在 `<repo>/data/database-selection.json`，可用 `AERVOX_DATABASE_SELECTION_PATH` 显式指定；配套密钥为该路径加 `.key`，以 `0600` 保存。配置使用宿主加密密文，不是 OS Keychain。API、Worker 和 CLI 必须使用相同选择路径；修改 `DATABASE_URL` 或只提供 PostgreSQL 环境 URL 不能替代激活。
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { eq, sql } from "drizzle-orm";
 import { plugins, sessions, personaPreferences } from "@aervox/schema";
 import { backendFor } from "../src/database-backend.js";
@@ -22,6 +22,49 @@ function fixture(reply?: (text: string, values: unknown[]) => Promise<PostgresAr
 }
 
 describe("native PostgreSQL query Session", () => {
+  it("admits each physical connection before business and reuses only successful admission", async () => {
+    const commands: string[] = [];
+    const makeConnection = (id: string): PostgresConnection => ({
+      async query(config) { commands.push(`${id}:${config.text}`); return empty(); },
+      release() {},
+    });
+    const first = makeConnection("first"), second = makeConnection("second");
+    const clients = [first, first, second];
+    const admitConnection = vi.fn(async (connection: PostgresConnection) => {
+      commands.push(connection === first ? "first:ADMITTED" : "second:ADMITTED");
+    });
+    const runtime = createPostgresQueryRuntime({ async connect() { return clients.shift()!; }, async end() {} },
+      { schema: "host-data", instanceId: "instance-1", admitConnection });
+    try {
+      await runtime.query("SELECT 1"); await runtime.query("SELECT 2");
+      await runtime.readTransaction(async tx => { await tx.run(sql`SELECT 3`); });
+      expect(admitConnection.mock.calls.map(([connection]) => connection)).toEqual([first, second]);
+      expect(commands[0]).toBe("first:ADMITTED");
+      const secondAdmission = commands.indexOf("second:ADMITTED");
+      expect(commands[secondAdmission + 1]).toBe("second:BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY");
+    } finally { await runtime.closeAsync(); }
+  });
+
+  it("discards failed admission without starting, replaying or caching business work", async () => {
+    const query = vi.fn(async () => empty());
+    const release = vi.fn();
+    const connection: PostgresConnection = { query, release };
+    const connect = vi.fn(async () => connection);
+    const denied = new Error("target admission denied");
+    const admitConnection = vi.fn(async () => { throw denied; });
+    const runtime = createPostgresQueryRuntime({ connect, async end() {} },
+      { schema: "host-data", instanceId: "instance-1", admitConnection });
+    try {
+      await expect(runtime.query("INSERT INTO sessions(id) VALUES ('blocked')")).rejects.toBe(denied);
+      expect(connect).toHaveBeenCalledTimes(1);
+      expect(query).not.toHaveBeenCalled();
+      expect(release).toHaveBeenCalledWith(expect.any(Error));
+      await expect(runtime.query("SELECT 1")).rejects.toBe(denied);
+      expect(admitConnection).toHaveBeenCalledTimes(2);
+      expect(query).not.toHaveBeenCalled();
+    } finally { await runtime.closeAsync(); }
+  });
+
   it("uses PostgreSQL index inference for conflict targets while retaining qualified update expressions", async () => {
     const f = fixture();
     const upsert = f.runtime.db.insert(personaPreferences).values({ id: "pref_local" })

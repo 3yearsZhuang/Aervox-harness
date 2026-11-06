@@ -28,17 +28,20 @@ export interface PostgresConnection {
   query(config: { text: string; values: unknown[]; rowMode: "array" }): Promise<PostgresArrayResult>;
   release(error?: Error | boolean): void;
 }
-export interface PostgresPool {
-  connect(): Promise<PostgresConnection>;
+export interface PostgresPool<Connection extends PostgresConnection = PostgresConnection> {
+  connect(): Promise<Connection>;
   end(): Promise<void>;
 }
-export interface PostgresRuntimeOptions {
+export interface PostgresRuntimeOptions<Connection extends PostgresConnection = PostgresConnection> {
   schema: string;
   instanceId: string;
   logger?: Logger;
   /** Host opener's checked same-device proof; direct runtime assembly defaults
    * to unverified, including pools addressed through TCP loopback. */
   storageLocality?: PostgresqlStorageLocality;
+  /** Native opener admission for each new physical connection, before any
+   * business transaction. Success is cached only for that exact PoolClient. */
+  admitConnection?: (connection: Connection) => Promise<void>;
 }
 export interface PostgresObjectResult {
   rows: Record<string, unknown>[];
@@ -367,7 +370,7 @@ class PostgresTransaction extends SQLiteTransaction<"async", RepositoryCommandRe
 
 /** The caller must have initialized and verified this target's canonical Schema
  * and instance identity before transferring its dedicated Pool to the runtime. */
-export function createPostgresQueryRuntime(pool: PostgresPool, options: PostgresRuntimeOptions): PostgresQueryRuntime {
+export function createPostgresQueryRuntime<Connection extends PostgresConnection>(pool: PostgresPool<Connection>, options: PostgresRuntimeOptions<Connection>): PostgresQueryRuntime {
   const qualifiedSchema = identifier(options.schema);
   if (!options.instanceId || options.instanceId.includes("\0")) throw new Error("POSTGRES_INVALID_INSTANCE_IDENTITY");
   const dialect = new PostgresQueryDialect();
@@ -376,6 +379,7 @@ export function createPostgresQueryRuntime(pool: PostgresPool, options: Postgres
   let admitting = true;
   let operationTail = Promise.resolve();
   let closing: Promise<void> | undefined;
+  const admittedConnections = new WeakSet<Connection>();
 
   const control = (connection: PostgresConnection, text: string, values: unknown[] = []) => connection.query({ text, values, rowMode: "array" });
   const withSlot = <T>(operation: () => Promise<T>): Promise<T> => {
@@ -391,6 +395,10 @@ export function createPostgresQueryRuntime(pool: PostgresPool, options: Postgres
     let commitStarted = false;
     let discard: Error | undefined;
     try {
+      if (options.admitConnection && !admittedConnections.has(connection)) {
+        await options.admitConnection(connection);
+        admittedConnections.add(connection);
+      }
       await control(connection, `BEGIN ISOLATION LEVEL READ COMMITTED${readOnly ? " READ ONLY" : ""}`);
       began = true;
       await control(connection, `SET LOCAL search_path TO ${qualifiedSchema}, pg_catalog`);

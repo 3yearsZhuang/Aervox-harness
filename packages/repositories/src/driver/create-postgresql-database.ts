@@ -1,6 +1,6 @@
 /** Node-only PostgreSQL bootstrap. Startup verifies an existing, dedicated
  * target; creating empty canonical structure requires an explicit setup call. */
-import { Pool, type PoolConfig } from "pg";
+import { Pool, type PoolClient, type PoolConfig } from "pg";
 import type { AervoxDatabase } from "../database.js";
 import { assertPostgresqlSchemaName, initializePostgresqlSchema, inspectPostgresqlSchema, PostgresqlSchemaError } from "../schema/postgresql.js";
 import { createPostgresQueryRuntime } from "./postgres-session.js";
@@ -84,7 +84,32 @@ function safeReason(error: unknown): string {
   return "TARGET_UNAVAILABLE";
 }
 
+async function connectionLocality(connection: PoolClient, connectionString: string): Promise<PostgresqlStorageLocality> {
+  const version = Number((await connection.query("SHOW server_version_num")).rows[0]?.server_version_num);
+  const encoding = (await connection.query("SHOW server_encoding")).rows[0]?.server_encoding;
+  if (!Number.isFinite(version) || version < 160000 || encoding !== "UTF8") {
+    throw new PostgresqlDatabaseOpenError("POSTGRESQL_16_UTF8_REQUIRED");
+  }
+  return await proveLocalPostgresqlStorage(connection, connectionString) ? "verified-local" : "remote-or-unverified";
+}
+
+async function verifyConnectionTarget(connection: PoolClient, config: PostgresqlDatabaseConfig): Promise<void> {
+  await connection.query("BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY");
+  try {
+    await connection.query("SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtext($1),pg_catalog.hashtext($2))", [config.schema, config.instanceId]);
+    const issues = await inspectPostgresqlSchema({ client: connection, schema: config.schema, instanceId: config.instanceId });
+    if (issues.length) throw new PostgresqlSchemaError(issues);
+    await connection.query("COMMIT");
+  } catch (error) {
+    // Both callers discard failed admission, including an unacknowledged
+    // rollback. No business transaction has been started on this connection.
+    await connection.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  }
+}
+
 export async function createPostgresqlDatabase(config: PostgresqlDatabaseConfig): Promise<OpenedPostgresqlDatabase> {
+  config = { ...config };
   assertPostgresqlSchemaName(config.schema);
   if (!config.instanceId.trim() || config.instanceId.length > 256 || config.instanceId.includes("\0")) {
     throw new PostgresqlDatabaseOpenError("APPLICATION_INSTANCE_INVALID");
@@ -99,33 +124,32 @@ export async function createPostgresqlDatabase(config: PostgresqlDatabaseConfig)
     const connection = await pool.connect();
     let discard: Error | undefined;
     try {
-      const version = Number((await connection.query("SHOW server_version_num")).rows[0]?.server_version_num);
-      const encoding = (await connection.query("SHOW server_encoding")).rows[0]?.server_encoding;
-      if (!Number.isFinite(version) || version < 160000 || encoding !== "UTF8") {
-        throw new PostgresqlDatabaseOpenError("POSTGRESQL_16_UTF8_REQUIRED");
-      }
-      if (await proveLocalPostgresqlStorage(connection, config.connectionString)) storageLocality = "verified-local";
+      storageLocality = await connectionLocality(connection, config.connectionString);
       const target = { client: connection, schema: config.schema, instanceId: config.instanceId };
       if (config.initializeEmpty === true) {
         await initializePostgresqlSchema(target);
       } else {
-        await connection.query("BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY");
-        try {
-          await connection.query("SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtext($1),pg_catalog.hashtext($2))", [config.schema, config.instanceId]);
-          const issues = await inspectPostgresqlSchema(target);
-          if (issues.length) throw new PostgresqlSchemaError(issues);
-          await connection.query("COMMIT");
-        } catch (error) {
-          try { await connection.query("ROLLBACK"); }
-          catch { discard = new Error("POSTGRESQL_BOOTSTRAP_ROLLBACK_UNCONFIRMED"); }
-          throw error;
-        }
+        await verifyConnectionTarget(connection, config);
       }
     } catch (error) {
       discard ??= new Error("POSTGRESQL_DISCARD_FAILED_BOOTSTRAP_CONNECTION");
       throw error;
     } finally { connection.release(discard); }
-    const runtime = createPostgresQueryRuntime(pool, { schema: config.schema, instanceId: config.instanceId, storageLocality });
+    const runtime = createPostgresQueryRuntime(pool, {
+      schema: config.schema, instanceId: config.instanceId, storageLocality,
+      admitConnection: async (connection: PoolClient) => {
+        try {
+          const currentLocality = await connectionLocality(connection, config.connectionString);
+          if (storageLocality === "verified-local" && currentLocality !== "verified-local") {
+            throw new PostgresqlDatabaseOpenError("POSTGRESQL_STORAGE_LOCALITY_CHANGED");
+          }
+          await verifyConnectionTarget(connection, config);
+        } catch (error) {
+          if (error instanceof PostgresqlSchemaError || error instanceof PostgresqlDatabaseOpenError) throw error;
+          throw new PostgresqlDatabaseOpenError(safeReason(error));
+        }
+      },
+    });
     const client = createPostgresRepositoryConnection(runtime);
     return { db: runtime.db, client, backend: "postgresql", closeAsync: async () => { await client.close(); } };
   } catch (error) {

@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, lt, notLike, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, not, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import type { AervoxDatabase } from "../../client.js";
 import { messages, messageVersions, sessions, turns, turnStreamEvents } from "@aervox/schema";
@@ -6,7 +6,7 @@ import { assertConversationExecutionPolicy } from "../../conversation-execution-
 import { derivableConversationTurn } from "./conversation/source-visibility.js";
 import type { LocalContext } from "../../local-context.js";
 import type { SessionHistoryMessage } from "../types/index.js";
-import { jsonObject, jsonQuote, jsonValue, rowPosition } from "../../sql-dialect.js";
+import { jsonObject, jsonQuote, jsonValue, rowPosition, textLike } from "../../sql-dialect.js";
 
 const MAX_HISTORY_TURNS = 20;
 const MAX_HISTORY_CHARACTERS = 32_000;
@@ -53,7 +53,7 @@ async function readHistorySnapshot(db: Reader, input: { sessionId: string; befor
   // Preserve insertion order and the existing 20-completed-Turn candidate window.
   const previous = await db.select({ id: jsonQuote(db, turns.id).mapWith(parse<string>) }).from(turns).where(and(
     eq(turns.sessionId, input.sessionId), eq(turns.executionPolicy, current.executionPolicy), eq(turns.status, "Completed"),
-    notLike(turns.idempotencyKey, "subagent:%"), lt(rowPosition(db), current.position),
+    not(textLike(db, turns.idempotencyKey, "subagent:%")), lt(rowPosition(db), current.position),
   )).orderBy(desc(rowPosition(db))).limit(MAX_HISTORY_TURNS);
   if (!previous.length) return [];
   const turnIds = previous.map(turn => turn.id);

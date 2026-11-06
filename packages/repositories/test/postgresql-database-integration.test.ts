@@ -110,6 +110,44 @@ describe.skipIf(!databaseUrl)("PostgreSQL opener and raw client real server cont
     expect(JSON.stringify(error)).not.toContain("PRIVATE_PASSWORD_SECRET");
     expect(String(error)).not.toContain("not_a_database");
   });
+  it("preserves session read and write receipts across creation, concurrent reuse, rename and reopen", async () => {
+    const schema = await freshSchema();
+    const config = { connectionString: databaseUrl!, schema, instanceId: "session-owner" };
+    const opened = await createPostgresqlDatabase({ ...config, initializeEmpty: true }); owned.push(opened);
+    const repo = new SqliteConversationRepository(opened.db);
+    const ctx = { workspaceId: "local", subjectUserId: "local" };
+    const id = 'session-"🌙';
+    const title = '原生会话 "quoted" \\ line\n🌙';
+    const created = await repo.createSession(ctx, title, { id, executionPolicy: "bot-owner-v1" });
+    expect(created).toMatchObject({ id, title, projectId: null, executionPolicy: "bot-owner-v1" });
+    expect(created.createdAt).toMatch(/^\d{4}-/);
+    expect(await repo.getSession(ctx, id)).toEqual(created);
+    expect(await repo.listSessions(ctx)).toEqual([created]);
+    expect(await repo.getOrCreateSession(ctx, id, "must not replace", null, "bot-owner-v1")).toEqual(created);
+    await expect(repo.getOrCreateSession(ctx, id, title, null, "local-v1"))
+      .rejects.toThrow("conversation_execution_policy_mismatch");
+    const concurrent = await Promise.all([
+      repo.getOrCreateSession(ctx, "shared-session", "first title"),
+      repo.getOrCreateSession(ctx, "shared-session", "second title"),
+    ]);
+    expect(concurrent[1]).toEqual(concurrent[0]);
+    expect(concurrent[0]).toMatchObject({ id: "shared-session", projectId: null, executionPolicy: "local-v1" });
+    expect(await repo.listSessions(ctx)).toHaveLength(2);
+    const renamedTitle = '重命名 "quoted" \\ line\n🌅';
+    const renamed = await repo.renameSession(ctx, id, { title: renamedTitle, projectId: null });
+    expect(renamed).toMatchObject({ id, title: renamedTitle, projectId: null, executionPolicy: "bot-owner-v1", createdAt: created.createdAt });
+    expect(await repo.renameSession(ctx, "missing-session", "missing")).toBeNull();
+    expect(await repo.getSession(ctx, id)).toEqual(renamed);
+    expect((await repo.listSessions(ctx)).find(session => session.id === id)).toEqual(renamed);
+    await opened.closeAsync();
+    const reopened = await createPostgresqlDatabase(config); owned.push(reopened);
+    const reread = new SqliteConversationRepository(reopened.db);
+    expect(await reread.getSession(ctx, id)).toEqual(renamed);
+    expect(await reread.getSession(ctx, "missing-session")).toBeNull();
+    expect(await reread.deleteSession(ctx, id)).toBe(true);
+    expect(await reread.getSession(ctx, id)).toBeNull();
+    expect((await reread.listSessions(ctx)).map(session => session.id)).toEqual(["shared-session"]);
+  }, 30_000);
   it("recovers fenced attempts and escaped identities with durable terminal receipts", async () => {
     const schema = await freshSchema();
     const opened = await createPostgresqlDatabase({ connectionString: databaseUrl!, schema, instanceId: "recovery-owner", initializeEmpty: true }); owned.push(opened);

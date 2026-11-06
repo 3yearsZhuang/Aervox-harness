@@ -212,16 +212,20 @@ export async function recoverDatabaseActivation(filename = databaseSelectionPath
   filename = path.resolve(filename);
   return withDatabaseMaintenance(filename, async () => {
     const activationLock = `${filename}.activation.lock`;
-    const claim = JSON.parse((await readPrivateFile(activationLock)).toString("utf8")) as { processId?: unknown; receiptPath?: unknown };
-    assertClaimOwnerStopped(claim);
+    const rawClaim = await readPrivateFile(activationLock);
     const selection = await readSelection(filename);
     if (selection) {
+      const claim = JSON.parse(rawClaim.toString("utf8")) as { processId?: unknown; receiptPath?: unknown };
+      assertClaimOwnerStopped(claim);
       if (selection.migrationReceiptPath !== claim.receiptPath) throw new DatabaseSelectionError("DATABASE_ACTIVATION_EVIDENCE_DIFFERS");
       const receipt = await verifySqliteToPostgresqlMigrationReceipt(selection.migrationReceiptPath, { connectionString: await unsealConnection(selection, filename) });
       if (receipt.source.path !== selection.sourcePath || receipt.target.schema !== selection.schema || receipt.target.instanceId !== selection.instanceId
         || receipt.target.schemaFingerprint !== selection.schemaFingerprint) throw new DatabaseSelectionError("DATABASE_ACTIVATION_EVIDENCE_DIFFERS");
       assertPostgresqlProviderInstalled(receipt.backupPath);
     }
+    // Before publication a killed writer may leave an empty or torn claim.
+    // The held OS mutex proves no control operation is active. Clear only this
+    // claim; keep the independently fenced source and all migration evidence.
     await fs.unlink(activationLock);
     return await getDatabaseSelectionStatus(filename);
   });
@@ -233,6 +237,7 @@ export async function recoverDatabaseActivation(filename = databaseSelectionPath
 export async function abortSqliteToPostgresqlMigration(input: { sourcePath: string; selectionPath?: string }): Promise<{ archivedLockPath: string }> {
   const filename = path.resolve(input.selectionPath ?? databaseSelectionPath());
   return withDatabaseMaintenance(filename, async () => {
+  if (await readSelection(filename)) throw new DatabaseSelectionError("DATABASE_SELECTION_ALREADY_ACTIVE");
   await fs.mkdir(path.dirname(filename), { recursive: true, mode: 0o700 });
   const activationLock = `${filename}.activation.lock`;
   const claim = await fs.open(activationLock, "wx", 0o600);
@@ -240,10 +245,15 @@ export async function abortSqliteToPostgresqlMigration(input: { sourcePath: stri
     await claim.writeFile(JSON.stringify({ processId: process.pid, operation: "abort" })); await claim.sync();
     if (await readSelection(filename)) throw new DatabaseSelectionError("DATABASE_SELECTION_ALREADY_ACTIVE");
     const sourcePath = path.resolve(input.sourcePath), lockPath = `${sourcePath}.aervox-migration.lock`;
-    const lock = JSON.parse((await readPrivateFile(lockPath)).toString("utf8")) as { format?: string; sourcePath?: string; migrationId?: string; processId?: unknown };
-    if (lock.format !== "aervox-database-migration-lock" || lock.sourcePath !== sourcePath || !/^[a-f0-9-]{36}$/.test(lock.migrationId ?? "")) throw new DatabaseSelectionError("DATABASE_MIGRATION_CLAIM_INVALID");
-    assertClaimOwnerStopped(lock);
-    await assertMigrationFilesQuiescent([sourcePath]);
+    const rawLock = await readPrivateFile(lockPath);
+    if (rawLock.length) {
+      const lock = JSON.parse(rawLock.toString("utf8")) as { format?: string; sourcePath?: string; migrationId?: string; processId?: unknown };
+      if (lock.format !== "aervox-database-migration-lock" || lock.sourcePath !== sourcePath || !/^[a-f0-9-]{36}$/.test(lock.migrationId ?? "")) throw new DatabaseSelectionError("DATABASE_MIGRATION_CLAIM_INVALID");
+      assertClaimOwnerStopped(lock);
+    }
+    // An empty source claim can only precede the first metadata write. A live
+    // creator still holds that claim's file descriptor and is rejected by lsof.
+    await assertMigrationFilesQuiescent([sourcePath, lockPath]);
     const archivedLockPath = `${lockPath}.aborted-${randomUUID()}`;
     await fs.rename(lockPath, archivedLockPath);
     return { archivedLockPath };
@@ -263,6 +273,7 @@ export function assertPostgresqlProviderInstalled(filename: string): void {
 export async function preparePostgresqlDatabaseMigration(input: Omit<SqliteToPostgresqlMigrationInput, "assertSourceQuiescent" | "rebuildSearchProjections"> & { selectionPath?: string }): Promise<SqliteToPostgresqlMigrationReceipt> {
   const filename = path.resolve(input.selectionPath ?? databaseSelectionPath());
   return withDatabaseMaintenance(filename, async () => {
+  if (await readSelection(filename)) throw new DatabaseSelectionError("DATABASE_SELECTION_ALREADY_ACTIVE");
   await fs.mkdir(path.dirname(filename), { recursive: true, mode: 0o700 });
   const activationLock = `${filename}.activation.lock`;
   const claim = await fs.open(activationLock, "wx", 0o600);
