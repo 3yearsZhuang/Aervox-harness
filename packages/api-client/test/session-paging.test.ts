@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { effectScope, watch } from 'vue';
 import { AervoxHttpError, createAervoxClient, useAervoxSessions } from '../src/index.js';
 import type { AervoxTransport } from '../src/transport.js';
 
@@ -136,5 +137,44 @@ describe('bounded session paging', () => {
     await api.fetchSessions({ pageSize });
     expect(api.error.value).toBe('INVALID_SESSION_PAGE_SIZE');
     expect(request).not.toHaveBeenCalled();
+  });
+
+  it.each([null, 404, 503])('retains the original owner projection after a synchronous rejected selection (status=%s)', async status => {
+    const request = vi.fn().mockResolvedValueOnce({ items: [item('b')] });
+    if (status === null) request.mockResolvedValueOnce(item('a'));
+    else request.mockRejectedValueOnce(new AervoxHttpError(status, '/v1/sessions/a', { code: 'SESSION_UNAVAILABLE' }));
+    const scope = effectScope();
+    try {
+      const { api, client } = scope.run(() => fixture(request, 'a'))!;
+      await api.fetchSessions({ pageSize: 100, preserveSelection: true, includeActive: true });
+      const error = api.activeSessionError.value;
+      scope.run(() => watch(api.activeSessionId, id => {
+        if (id !== 'a') client.setSessionId('a');
+      }, { flush: 'sync' }));
+      client.setSessionId('b');
+      expect(client.sessionId).toBe('a');
+      expect(api.activeSessionId.value).toBe('a');
+      expect(api.activeSession.value?.id ?? null).toBe(status === null ? 'a' : null);
+      expect(api.activeSessionError.value).toBe(error);
+      expect(request).toHaveBeenCalledTimes(2);
+    } finally { scope.stop(); }
+  });
+
+  it('defers selection while committed writes adjust the next page offset', async () => {
+    const request = vi.fn().mockResolvedValueOnce({ items: [item('a'), item('b')] })
+      .mockResolvedValueOnce(item('new')).mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({ items: [item('c')] });
+    const { api, client } = fixture(request, 'a');
+    await api.fetchSessions({ pageSize: 2, preserveSelection: true });
+    await api.createNewSession('new', undefined, undefined, { select: false });
+    expect(client.sessionId).toBe('a');
+    await api.deleteSession('a', { select: false });
+    expect(client.sessionId).toBe('a');
+    expect(api.activeSession.value).toBeNull();
+    await api.loadMoreSessions();
+    expect(request.mock.calls.at(-1)?.[1]).toBe('/v1/sessions?limit=2&offset=2');
+    expect(api.sessions.value.map(row => row.id)).toEqual(['new', 'b', 'c']);
+    api.switchSession('new');
+    expect(client.sessionId).toBe('new');
   });
 });

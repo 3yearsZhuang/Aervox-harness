@@ -60,8 +60,13 @@ export function useAervoxSessions(client: AervoxClient = useAervoxClient()): Use
   const activeSessionId = ref(client.sessionId);
   let selectionVersion = 0;
   const unsubscribe = client.subscribeSession(id => {
-    activeSessionId.value = id; selectionVersion++;
+    const selection = ++selectionVersion;
+    activeSessionId.value = id;
+    // A synchronous surface watcher can retain the original request owner.
+    // Its nested selection owns the metadata, even when it returns to this ID.
+    if (selection !== selectionVersion || client.sessionId !== id) return;
     if (selectedSession.value?.id !== id) selectedSession.value = null;
+    if (selection !== selectionVersion || client.sessionId !== id) return;
     activeSessionError.value = selectionErrors.get(id) ?? null;
   });
   if (getCurrentScope()) onScopeDispose(unsubscribe);
