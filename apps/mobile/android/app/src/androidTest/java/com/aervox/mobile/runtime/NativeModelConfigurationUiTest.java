@@ -126,7 +126,7 @@ public final class NativeModelConfigurationUiTest {
                 if (Build.VERSION.SDK_INT >= 26) {
                     assertEquals(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS, view.getImportantForAutofill());
                 }
-                if (Build.VERSION.SDK_INT >= 29) {
+                if (Build.VERSION.SDK_INT >= 30) {
                     assertEquals(View.IMPORTANT_FOR_CONTENT_CAPTURE_NO_EXCLUDE_DESCENDANTS, view.getImportantForContentCapture());
                 }
             }
