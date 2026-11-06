@@ -13,7 +13,7 @@ import { isBackupScopedTable } from '@aervox/repositories/backup';
 import { ConversationExecutionStore } from '@aervox/host-agent/browser';
 import { buildResumeHistory, ControlContext, ASK_USER_QUESTION_SPEC, ASK_USER_QUESTION_TOOL, createAskUserQuestionToolProvider, executeTurn, stableSerialize, type ToolProviderPort, type ToolSpec } from '@aervox/core/browser';
 import { AervoxHttpError, TurnStreamProjector, type AervoxTransport, type TurnCallbacks, type ObserveTurnOptions } from '@aervox/api-client';
-import { createSessionRequestSchema, renameSessionRequestSchema, type AskUserQuestionAnswerItem, type TurnStreamEvent } from '@aervox/contracts';
+import { createSessionRequestSchema, listSessionsResponseSchema, renameSessionRequestSchema, sessionItemSchema, sessionListQuerySchema, type AskUserQuestionAnswerItem, type TurnStreamEvent } from '@aervox/contracts';
 import { nativeRequest } from './native-channel';
 import { delay, createNativeModelProvider } from './native-model-provider';
 import { nativeContextBuilder } from './native-context';
@@ -254,8 +254,18 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
         const summary = await nativeRequest({ op: 'model', operation: 'summary' });
         result = { configured: summary?.hasCredential === true };
       } else if (url.pathname === '/v1/sessions' && method === 'GET') {
-        if (url.search && !url.searchParams.has('projectId')) fail(400, 'INVALID_QUERY');
-        result = { items: await repo.listSessions(ctx, { limit: 100, ...(url.searchParams.get('projectId') ? { projectId: url.searchParams.get('projectId')! } : {}) }) };
+        const query = Object.fromEntries(url.searchParams);
+        // Repeated parameters become arrays at the HTTP boundary. Reject them
+        // here too, before Object.fromEntries could conceal an invalid query.
+        if ([...url.searchParams].length !== Object.keys(query).length) fail(400, 'INVALID_SESSION_QUERY');
+        const parsed = sessionListQuerySchema.safeParse(query);
+        if (!parsed.success) return fail(400, 'INVALID_SESSION_QUERY');
+        const response = listSessionsResponseSchema.safeParse({ items: await repo.listSessions(ctx, {
+          limit: Number(parsed.data.limit ?? '100'), offset: Number(parsed.data.offset ?? '0'),
+          ...(parsed.data.projectId === undefined ? {} : { projectId: parsed.data.projectId }),
+        }) });
+        if (!response.success) return fail(500, 'INTERNAL_ERROR');
+        result = response.data;
       } else if (url.pathname === '/v1/sessions' && method === 'POST') {
         const parsed = createSessionRequestSchema.safeParse(body);
         if (!parsed.success) return fail(400, 'INVALID_SESSION');
@@ -270,7 +280,14 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
             ...(url.searchParams.has('limit') ? { limit: Number(url.searchParams.get('limit')) } : {}),
             ...(url.searchParams.has('cursor') ? { cursor: url.searchParams.get('cursor')! } : {}),
           });
-          else if (!session[2] && method === 'PATCH') {
+          else if (!session[2] && method === 'GET') {
+            if (url.search) fail(400, 'INVALID_SESSION_QUERY');
+            const item = await repo.getSession(ctx, id);
+            if (!item) return fail(404, 'SESSION_NOT_FOUND');
+            const parsed = sessionItemSchema.safeParse(item);
+            if (!parsed.success) return fail(500, 'INTERNAL_ERROR');
+            result = parsed.data;
+          } else if (!session[2] && method === 'PATCH') {
             const parsed = renameSessionRequestSchema.safeParse(body);
             if (!parsed.success) return fail(400, 'INVALID_SESSION');
             if (parsed.data.projectId || parsed.data.isPinned !== undefined) return fail(400, 'INVALID_SESSION');

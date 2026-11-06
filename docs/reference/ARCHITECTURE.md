@@ -206,7 +206,7 @@ Web 与桌面组合根按平台装配第一方根界面，并复用 `@aervox/ui`
 - **Safety**：输入/输出分类、固定危机响应、人工升级和安全审计。
 - **Content/Ingestion**：附件、OCR、引用、许可和不可信输入隔离。
 - **Integrations/Plugins**：OAuth、外部同步、适配器、沙箱和权限代理；P2 才启用。
-- **Community/Organization**：P3 独立模块，不能提前污染单用户数据权限模型。
+- **Community/Public Content/Marketplace/Organization**：CAP-028/029/031/032 为后续独立阶段的可选插件，默认禁用、显式装配；Host 保持本地单用户，外部身份不成为本地租户。插件通过公开 Port 消费获准事实，具体公开服务、结算与机构账号机制另行评审，见 [SRS](SRS.md#optional-ecosystem-plugins) 与 [ADR-030](adr/ADR-030-behavior-ownership.md)。
 
 跨模块只能调用公开服务接口或发布领域事件。会话和日记只能提交“记忆候选”；只有 Memory 模块能写 `MemoryRecord`/`MemoryRevision`。画布是可重建投影，不复制会话正文。
 

@@ -38,7 +38,9 @@ HTTP 数据与操作的事实源是 `@aervox/contracts`；[流式协议](STREAMI
 
 配置 HTTP 响应为兼容现有设置页仍包含已保存的 apiKey。CLI 的 `models` 命令只输出白名单摘要和 `apiKeyConfigured`，丢弃密钥、settings、供应商消息与 URL 凭据、query、fragment；输入来自显式 JSON 文件，可由 `SIYU_MODEL_API_KEY` 覆盖，不写入 CLI 连接配置或运行回执。使用说明见[CLI](../../apps/cli/README.md)。本次以三个精确指针补正配置保存、连通性测试及预设创建的请求体必填标记，历史基线不变；未将局部接口校验扩大为真实模型、会话历史或发布验收。
 
-会话列表返回 `{ items }`，按最近更新时间排序，使用 `limit/offset` 单页读取，不提供总数或快照游标。CLI 的 `sessions list` 在客户端限制每页 1～100 条并校验非负安全整数 offset；这不是所有 HTTP 调用共有的新增 Schema 上限，也不表示 CLI 提供会话详情或历史读取。列表变动时 offset 分页可能重复或遗漏，不能作为完整导出，使用方式见[CLI](../../apps/cli/README.md)。
+会话概要读取使用共享 [sessionsApi](../../packages/contracts/src/sessions-api.ts)。列表返回 `{ items }`，按最近更新时间排序，HTTP 与本机 Transport 均校验 `limit` 为 1～100 的十进制整数字符串（默认 100）、`offset` 为非负安全整数（默认 0），可按非空 `projectId` 筛选；重复、未知或非法查询返回 `400 INVALID_SESSION_QUERY`。`GET /v1/sessions/{sessionId}` 只读取已有概要，不存在返回 `404 SESSION_NOT_FOUND`，不会创建替代会话；它用于验证不在当前分页中的已选身份，不读取正文或恢复执行。概要响应排除内部执行策略，合法字符串经仓储 JSON 编码完整往返。
+
+共享 Client 可显式分页、合并已加载条目并保留选中会话；搜索入口仅筛选已加载标题，未提供全库搜索。列表不提供总数或快照游标，变动时 offset 分页可能重复或遗漏，不能作为完整导出；CLI 的单页读取方式见[CLI](../../apps/cli/README.md)。新增概要详情尚未提供 CLI 命令；持久正文及已有 `sessions history` 继续使用独立历史合同。
 
 实际注册路由的覆盖测试以 Fastify `onRoute` 为依据，包括共享声明生成的路由。已有未描述路径以精确例外记录，新增缺口和已补齐却残留的例外都会失败。该棘轮约束增量，不表示全部历史端点已经完成迁移。
 

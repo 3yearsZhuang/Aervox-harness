@@ -257,6 +257,48 @@ describe("M0 native SQLite writer adapter", () => {
     expect(history.items[0]?.messages[0]?.content).toBe("body\0尾"); await client.dispose();
   });
 
+  it.each(["libsql", "native"] as const)("preserves complete session text on reads and write receipts over %s", async driver => {
+    const { client, backend } = await fileFixture(); await initializeCanonicalSchema(backend, "main");
+    const repository = new ConversationRepository(createInjectedDatabase(driver === "native" ? client : backend), {
+      sha256Utf8: value => createHash("sha256").update(value).digest("hex"), randomUUID, wakeOutbox: () => true,
+    });
+    const context = { workspaceId: "local", subjectUserId: "local" };
+    const prefix = await repository.createSession(context, "prefix sentinel", { id: "会话", projectId: null });
+    const id = '会话\0JSON "身份"', title = '中文\0JSON "正文"\n尾', projectId = "项目\0尾";
+    const created = await repository.createSession(context, title, { id, projectId });
+    expect(created).toMatchObject({ id, title, projectId, executionPolicy: "local-v1" });
+    expect(await repository.getSession(context, id)).toEqual(created);
+    expect(await repository.getSession(context, prefix.id)).toEqual(prefix);
+    expect(await repository.listSessions(context, { projectId, limit: 1, offset: 0 })).toEqual([created]);
+    expect(await repository.listSessions(context, { projectId, limit: 1, offset: 1 })).toEqual([]);
+    const all = await repository.listSessions(context);
+    expect(all).toHaveLength(2); expect(all).toEqual(expect.arrayContaining([prefix, created]));
+    const renamedTitle = '新标题\0JSON "正文"', renamedProject = "另一项目\0尾";
+    const renamed = await repository.renameSession(context, id, { title: renamedTitle, projectId: renamedProject });
+    expect(renamed).toMatchObject({ id, title: renamedTitle, projectId: renamedProject, executionPolicy: "local-v1" });
+    expect(await repository.getSession(context, id)).toEqual(renamed);
+    expect(await repository.getSession(context, prefix.id)).toEqual(prefix);
+    expect(await repository.listSessions(context, { projectId: renamedProject })).toEqual([renamed]);
+    const upsertId = "upsert\0尾", upsertTitle = "幂等标题\0尾";
+    const upserted = await repository.getOrCreateSession(context, upsertId, upsertTitle, projectId);
+    expect(upserted).toMatchObject({ id: upsertId, title: upsertTitle, projectId });
+    expect(await repository.getOrCreateSession(context, upsertId, "不得覆盖", null)).toEqual(upserted);
+    const hex = (value: string) => Buffer.from(value, "utf8").toString("hex").toUpperCase();
+    const stored = await backend.execute({
+      sql: "SELECT hex(id) AS id, hex(title) AS title, hex(project_id) AS projectId FROM sessions WHERE id = ?", args: [id],
+    });
+    expect(stored.rows[0]).toMatchObject({ id: hex(id), title: hex(renamedTitle), projectId: hex(renamedProject) });
+    const storedUpsert = await backend.execute({
+      sql: "SELECT hex(id) AS id, hex(title) AS title, hex(project_id) AS projectId FROM sessions WHERE id = ?", args: [upsertId],
+    });
+    expect(storedUpsert.rows[0]).toMatchObject({ id: hex(upsertId), title: hex(upsertTitle), projectId: hex(projectId) });
+    expect(await repository.getSession(context, "missing\0尾")).toBeNull();
+    expect(await repository.renameSession(context, "missing\0尾", "unused")).toBeNull();
+    expect((await backend.execute("SELECT count(*) AS n FROM sessions")).rows[0]?.n).toBe(3n);
+    expect((await backend.execute("SELECT count(*) AS n FROM turns")).rows[0]?.n).toBe(0n);
+    await client.dispose();
+  });
+
   it("never replays a real commit after ack loss, preserving committed receipt", async () => {
     const { client, backend, transport } = await fileFixture(); await client.execute("CREATE TABLE receipt(id TEXT PRIMARY KEY)");
     const request = transport.request.bind(transport); transport.request = async value => { const result = await request(value); if (value.operation === "commit") throw new Error("lost"); return result; };

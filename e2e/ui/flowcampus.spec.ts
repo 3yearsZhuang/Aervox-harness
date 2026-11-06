@@ -35,11 +35,21 @@ test.beforeEach(async ({ request, servers }) => {
     settings: { originId: null, bufferMinutes: 5, timezone: 'Asia/Shanghai' } };
   await write(request, servers.apiUrl, snapshot);
 });
+async function openToday(page: Page) {
+  await page.getByRole('navigation', { name: '首页入口' }).getByRole('button', { name: /^今日/ }).click();
+  await expect(page.getByRole('dialog', { name: '今日', exact: true })).toBeVisible();
+  return page.locator('md-dialog[data-aria-label="今日"]');
+}
+async function openTodayCampusCard(page: Page) {
+  const today = await openToday(page);
+  const card = today.locator('.campus-home-card');
+  await expect(card).toBeVisible({ timeout: 90_000 });
+  return card;
+}
 async function openCampus(page: Page, webUrl: string) {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${webUrl}/?surface=proactive-ui`, { timeout: 90_000 });
-  const card = page.locator('.campus-home-card');
-  await expect(card).toBeVisible({ timeout: 90_000 });
+  const card = await openTodayCampusCard(page);
   await card.getByRole('button', { name: '查看与管理', exact: true }).click();
   const dialog = page.locator('.campus-dialog');
   await expect(dialog).toBeVisible();
@@ -109,8 +119,9 @@ test('mobile manages a durable campus plan and shares its budget across tasks', 
   await expect(dialog.locator('.campus-departure')).toContainText('08:11');
   await page.screenshot({ path: testInfo.outputPath('campus-mobile-plan.png'), fullPage: true });
   await page.reload();
-  await expect(page.locator('.campus-home-card')).toContainText('线性代数');
-  await page.locator('.campus-home-card').getByRole('button', { name: '查看与管理', exact: true }).click();
+  const restoredCard = await openTodayCampusCard(page);
+  await expect(restoredCard).toContainText('线性代数');
+  await restoredCard.getByRole('button', { name: '查看与管理', exact: true }).click();
   await category(dialog, '课表与日程');
   await dialog.locator('.campus-list li').filter({ hasText: '线性代数' }).getByRole('button', { name: '已到达', exact: true }).click();
   await expect(dialog).toContainText('已到达');
@@ -120,8 +131,9 @@ test('mobile manages a durable campus plan and shares its budget across tasks', 
   await openWorkbench(page, servers.webUrl);
   await page.getByRole('button', { name: '展开侧边栏', exact: true }).click();
   await page.getByRole('button', { name: '任务中心', exact: true }).click();
-  await expect(page.locator('.campus-home-card')).toBeVisible();
-  await page.locator('.campus-home-card').getByRole('button', { name: '查看与管理', exact: true }).click();
+  const taskCenter = page.locator('md-dialog[data-aria-label="统一任务中心"]');
+  await expect(taskCenter.locator('.campus-home-card')).toBeVisible();
+  await taskCenter.locator('.campus-home-card').getByRole('button', { name: '查看与管理', exact: true }).click();
   await expect(dialog).toBeVisible();
   await expect(page.getByRole('dialog', { name: '统一任务中心', exact: true })).not.toBeVisible();
 });
@@ -232,7 +244,8 @@ test('short mobile view preserves back layers and disabling removes the plugin w
   expect(disabled.status()).toBe(200);
   await page.reload();
   await expect(page.locator('.proactive-companion')).toBeVisible();
-  await expect(page.locator('.campus-home-card')).toHaveCount(0);
+  const disabledToday = await openToday(page);
+  await expect(disabledToday.locator('.campus-home-card')).toHaveCount(0);
   const stale = await request.put(servers.apiUrl + statePath, { data: { state: old.state,
     expectedRevision: old.revision, expectedLifecycleGeneration: old.lifecycleGeneration } });
   expect(stale.ok()).toBe(false);
@@ -242,5 +255,5 @@ test('short mobile view preserves back layers and disabling removes the plugin w
   expect(restored.lifecycleGeneration).not.toBe(old.lifecycleGeneration);
   expect(restored.state.places.map(p => p.name)).toEqual(['保留地点']);
   await page.reload();
-  await expect(page.locator('.campus-home-card')).toBeVisible();
+  await openTodayCampusCard(page);
 });
