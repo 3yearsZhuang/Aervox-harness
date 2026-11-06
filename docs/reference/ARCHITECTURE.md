@@ -267,7 +267,7 @@ Electron Shell
       -> user-visible notification / export / revoke
 ```
 
-该路径不把原始捕获、画像、动作或控制面送入 API、远程 Provider、普通 Outbox、分析或自动云备份；控制面仅接受私密目录 `0600` 的 owner-only `proactive-access.token`、字面 loopback 请求并拒绝 redirect。Host 崩溃、租约过期、OS grant 撤销或本地证明失效时进入 `suspended`，核心学习流程继续可用。
+该路径不把原始捕获、画像、动作或控制面送入 API、远程 Provider、普通 Outbox、分析或自动云备份；控制面仅接受私密目录 `0600` 的 owner-only `proactive-access.token`、字面 loopback 请求并拒绝 redirect。Host 崩溃、租约过期、OS grant 撤销或本地证明失效时进入 `suspended`，核心流程（含学习域）继续可用。
 
 用户消息、答题和权限变更先在 SQLite 事务中落库，同时写 Outbox；API 再流式请求模型。记忆、日记、附件、嵌入和通知异步执行。客户端不能直接调用模型服务；附件通过 `POST /v1/attachments` 直传并落盘本地附件目录，API 在提交前检查授权和扫描状态。
 
@@ -401,7 +401,7 @@ UTC/IANA 时区、首次窗口、迟到素材、补写、CAS/fencing 与跨时�
 - `BaiShou-Next` 的 TypeScript monorepo、AI SDK、Drizzle、Electron/Expo、SQLite/Markdown 导出和日记/记忆设计用于模式验证；其 AGPLv3 代码不进入核心服务，除非完成许可证评审。
 - `dsh-synapse` 的会话分支和“内容真源/画布投影分离”用于 P1 设计；画布只保存节点位置、折叠、锚点和真实 ID，不复制会话内容。
 - `deepseek-harness`、`pi`、DSH、ACP/RPC 和 MCP 通过 `adapter-dsh`、`adapter-pi`、`adapter-mcp` 可选接入；版本精确锁定、契约测试和全局 kill switch 必须存在。
-- 参考仓库不是运行时依赖。MVP 核心学习、记忆、日记、删除和导出流程必须在不安装这些仓库的情况下可用。
+- 参考仓库不是运行时依赖。MVP 核心流程（会话、学习、记忆、日记、删除与导出）必须在不安装这些仓库的情况下可用。
 
 ## 11. 首批 ADR
 
@@ -463,7 +463,7 @@ UTC/IANA 时区、首次窗口、迟到素材、补写、CAS/fencing 与跨时�
 - BaiShou-Next 与 AstrBot 当前均采用 AGPLv3。除非完成许可证评审并接受网络服务开源义务，否则只借鉴公开设计和数据模型，不直接复制其代码或形成链接依赖；
 - dsh-synapse 当前采用 MIT，可作为较低风险的交互和插件实现参考，但仍需独立检查其对 DSH 版本、Node.js 版本和 Web profile 的依赖；
 - Petra 当前采用 MIT，可作为较低风险的表现与交互实现参考，但仍需独立检查其对 Tauri、pixi.js 版本与 Windows 平台的依赖；
-- 参考项目不是本产品的运行时依赖。MVP 的核心学习流程必须在不安装 BaiShou-Next、AstrBot 或 dsh-synapse 的情况下正常运行。
+- 参考项目不是本产品的运行时依赖。MVP 的核心流程（含学习域）必须在不安装 BaiShou-Next、AstrBot 或 dsh-synapse 的情况下正常运行。
 
 <a id="upstream-20261014"></a>
 
