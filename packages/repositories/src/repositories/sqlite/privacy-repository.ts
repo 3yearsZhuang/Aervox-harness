@@ -19,9 +19,11 @@ import type {
 
 /** Shared retry/gate predicate: legacy completion without supported verification stays denied. */
 export const unverifiedDeletionRequest = sql`${deletionRequests.status} != 'completed' OR ${deletionRequests.lastVerifiedAt} IS NULL
+            OR ${deletionRequests.scope} IS NOT 'memory' OR ${deletionRequests.ownerModule} IS NOT 'memory'
             OR NOT EXISTS (SELECT 1 FROM deletion_targets t WHERE t.request_id = ${deletionRequests.id})
             OR EXISTS (SELECT 1 FROM deletion_targets t WHERE t.request_id = ${deletionRequests.id}
-              AND (t.status != 'completed' OR t.verified_at IS NULL OR
+              AND (t.target_type IS NOT 'memory' OR t.owner_module IS NOT 'memory' OR t.target_id IS NULL OR t.target_id = ''
+                OR t.status != 'completed' OR t.verified_at IS NULL OR
                 CASE WHEN json_valid(t.evidence_ref) THEN json_extract(t.evidence_ref, '$.verifier') ELSE NULL END IS NOT ${MEMORY_DELETION_VERIFIER}))`;
 
 type DeletionTargetIntent = { targetType: string; targetId: string; ownerModule: string };
