@@ -173,12 +173,19 @@ export function createAervoxClient(config: AervoxClientConfig = {}): AervoxClien
   const storage = config.sessionStorage;
   const key = config.sessionStorageKey ?? 'aervox_active_session_id';
   let sessionId = config.sessionId ?? 'web_default';
+  let selectionRevision = 0;
   let restored = false;
   const listeners = new Set<(id: string) => void>();
   const setSessionId = (id: string) => {
+    const revision = ++selectionRevision;
     sessionId = id;
     try { storage?.setItem(key, id); } catch { /* Selection still works without persistence. */ }
-    for (const listener of listeners) listener(id);
+    for (const listener of listeners) {
+      // A subscriber may synchronously retain an execution's original session.
+      // Do not send the superseded selection to later stores, including A→B→A.
+      if (revision !== selectionRevision) break;
+      listener(id);
+    }
   };
   return Object.freeze({
     apiBase, transport, platform, timeZone,
