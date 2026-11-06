@@ -1,4 +1,5 @@
 /** CAP-033/034/035 local proactive intelligence repository. */
+import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { assertProactiveVaultStorage } from "../../storage-policy.js";
@@ -13,6 +14,9 @@ import {
   proactiveExternalConnections,
   proactiveHealthSamples,
   proactiveHomeEntities,
+  proactiveActivationLeases,
+  proactiveProfileRevisions,
+  proactiveSourceGrants,
   proactivePreparationBundles,
   proactiveProjects,
   proactiveRelationships,
@@ -26,6 +30,46 @@ import {
 import type { LocalContext } from "../../local-context.js";
 
 const MAX_LIMIT = 500;
+const CONNECTION_GENERATION_KEY = "__aervox_connection_generation";
+
+type HomeReadSnapshot = {
+  connection: typeof proactiveExternalConnections.$inferSelect;
+  entity: typeof proactiveHomeEntities.$inferSelect;
+  source: typeof proactiveSourceGrants.$inferSelect;
+  lease: typeof proactiveActivationLeases.$inferSelect;
+  mandatoryGrantVersions: string;
+};
+
+/** Process-local, single-use permit; its authoritative snapshot stays private. */
+export interface HomeStateReadPermit {
+  readonly connection: IntelligenceConnectionSecret;
+  readonly entity: Readonly<{ id: string; entityId: string; domain: string }>;
+}
+
+function homeMandatoryGrantVersions(revisionId: string) {
+  return sql<string>`(select json_group_array(json_array(id, grant_version)) from
+    (select id, grant_version from ${proactiveSourceGrants}
+      where revision_id = ${revisionId} and mandatory = 1 order by id))`;
+}
+
+function homeSourceAvailable(revisionId: string, sourceGrantId: string, now: string, lease?: {id: string; epoch: string}) {
+  return sql`exists (select 1 from ${proactiveProfileRevisions}
+    where ${proactiveProfileRevisions.id} = ${revisionId}
+      and ${proactiveProfileRevisions.status} = 'active' and ${proactiveProfileRevisions.desiredState} = 'enabled'
+      and ${proactiveProfileRevisions.id} = (select id from ${proactiveProfileRevisions} order by revision desc limit 1)
+      and exists (select 1 from ${proactiveSourceGrants} where ${proactiveSourceGrants.id} = ${sourceGrantId}
+        and ${proactiveSourceGrants.revisionId} = ${revisionId} and ${proactiveSourceGrants.sourceKey} = 'device.sensors'
+        and ${proactiveSourceGrants.state} not in ('revoked', 'denied', 'expired'))
+      and not exists (select 1 from ${proactiveSourceGrants} where ${proactiveSourceGrants.revisionId} = ${revisionId}
+        and ${proactiveSourceGrants.mandatory} = 1 and ${proactiveSourceGrants.state} != 'granted')
+      and exists (select 1 from ${proactiveActivationLeases} where ${proactiveActivationLeases.revisionId} = ${revisionId}
+        and ${lease ? sql`${proactiveActivationLeases.id} = ${lease.id} and ${proactiveActivationLeases.epoch} = ${lease.epoch}` : sql`1`}
+        and ${proactiveActivationLeases.id} = (select id from ${proactiveActivationLeases}
+          where revision_id = ${revisionId} and status = 'active' order by heartbeat_at desc limit 1)
+        and ${proactiveActivationLeases.status} = 'active' and ${proactiveActivationLeases.localReady} = 1
+        and ${proactiveActivationLeases.fullAccessSnapshot} = 1
+        and julianday(${proactiveActivationLeases.expiresAt}) > julianday(${now})))`;
+}
 const limitOf = (value: number | undefined, fallback = 100): number =>
   Math.max(1, Math.min(MAX_LIMIT, Math.floor(value ?? fallback)));
 
@@ -176,6 +220,7 @@ export interface IntelligenceSnapshot {
 }
 
 export class SqliteProactiveIntelligenceRepository {
+  private readonly homeStateReads = new WeakMap<HomeStateReadPermit, HomeReadSnapshot>();
   constructor(
     private readonly db: AervoxDatabase,
     private readonly cipher?: ProactiveVaultCipher,
@@ -752,10 +797,13 @@ export class SqliteProactiveIntelligenceRepository {
         ? existing.credentialJson
         : this.encrypt(stringify(input.credential), "connection", input.id) ?? "{}",
       scopesJson: JSON.stringify(input.scopes ?? parseJson(existing?.scopesJson, [])),
-      settingsJson: this.encrypt(stringify(input.settings ?? parseJson(
-        existing ? this.decrypt(existing.settingsJson, "connection", input.id) : null,
-        {},
-      )), "connection", input.id) ?? "{}",
+      settingsJson: this.encrypt(stringify({
+        ...(input.settings ?? parseJson<Record<string, unknown>>(
+          existing ? this.decrypt(existing.settingsJson, "connection", input.id) : null, {})),
+        // Explicit configuration/reconnection always replaces this owner, even
+        // at the same clock tick with otherwise identical settings and secrets.
+        ...(input.provider === "home_assistant" ? {[CONNECTION_GENERATION_KEY]: randomUUID()} : {}),
+      }), "connection", input.id) ?? "{}",
       state: input.state ?? existing?.state ?? "active", lastSyncAt: input.lastSyncAt ?? existing?.lastSyncAt ?? null,
       lastError: this.encrypt(input.lastError, "connection", input.id), processingBoundary: "local_only", updatedAt: now,
     };
@@ -787,10 +835,18 @@ export class SqliteProactiveIntelligenceRepository {
   }
 
   async updateConnectionState(ctx: LocalContext, id: string, state: string, patch: {lastSyncAt?: string | null; lastError?: string | null} = {}) {
-    const [row] = await this.db.update(proactiveExternalConnections).set({
-      state, lastSyncAt: patch.lastSyncAt, lastError: this.encrypt(patch.lastError, "connection", id), updatedAt: new Date().toISOString(),
-    }).where(and(eq(proactiveExternalConnections.id, id), )).returning();
-    return row ? this.connectionModel(row) : null;
+    return this.db.transaction(async tx => {
+      const [existing] = await tx.select().from(proactiveExternalConnections).where(eq(proactiveExternalConnections.id, id)).limit(1);
+      if (!existing) return null;
+      const settings = parseJson<Record<string, unknown>>(this.decrypt(existing.settingsJson, "connection", id), {});
+      const authorizationChanged = existing.provider === "home_assistant" && existing.state !== state;
+      if (authorizationChanged) settings[CONNECTION_GENERATION_KEY] = randomUUID();
+      const [row] = await tx.update(proactiveExternalConnections).set({
+        state, lastSyncAt: patch.lastSyncAt, lastError: this.encrypt(patch.lastError, "connection", id), updatedAt: new Date().toISOString(),
+        ...(authorizationChanged ? {settingsJson: this.encrypt(stringify(settings), "connection", id) ?? "{}"} : {}),
+      }).where(eq(proactiveExternalConnections.id, id)).returning();
+      return row ? this.connectionModel(row) : null;
+    }, {behavior: "immediate"});
   }
 
   async deleteConnection(ctx: LocalContext, id: string): Promise<boolean> {
@@ -811,29 +867,113 @@ export class SqliteProactiveIntelligenceRepository {
     return true;
   }
 
+  async beginHomeStateRead(ctx: LocalContext, input: {
+    connectionId: string; entityId: string; revisionId: string; sourceGrantId: string;
+  }): Promise<HomeStateReadPermit | null> {
+    const [snapshot] = await this.db.select({connection: proactiveExternalConnections, entity: proactiveHomeEntities,
+      source: proactiveSourceGrants, lease: proactiveActivationLeases, mandatoryGrantVersions: homeMandatoryGrantVersions(input.revisionId)})
+      .from(proactiveHomeEntities)
+      .innerJoin(proactiveExternalConnections, eq(proactiveExternalConnections.id, proactiveHomeEntities.connectionId))
+      .innerJoin(proactiveSourceGrants, eq(proactiveSourceGrants.id, input.sourceGrantId))
+      .innerJoin(proactiveActivationLeases, eq(proactiveActivationLeases.revisionId, input.revisionId))
+      .where(and(
+        eq(proactiveExternalConnections.id, input.connectionId), eq(proactiveExternalConnections.provider, "home_assistant"),
+        eq(proactiveExternalConnections.revisionId, input.revisionId),
+        sql`${proactiveExternalConnections.state} != 'revoked'`,
+        eq(proactiveHomeEntities.entityId, input.entityId), eq(proactiveHomeEntities.enabled, true),
+        sql`${proactiveActivationLeases.id} = (select id from ${proactiveActivationLeases}
+          where revision_id = ${input.revisionId} and status = 'active' order by heartbeat_at desc limit 1)`,
+        homeSourceAvailable(input.revisionId, input.sourceGrantId, new Date().toISOString()),
+      )).limit(1);
+    if (!snapshot) return null;
+    const connection = {...this.connectionModel(snapshot.connection),
+      credential: parseJson<Record<string, unknown>>(this.decrypt(snapshot.connection.credentialJson, "connection", snapshot.connection.id), {})};
+    const permit = Object.freeze({connection,
+      entity: Object.freeze({id: snapshot.entity.id, entityId: snapshot.entity.entityId, domain: snapshot.entity.domain})});
+    this.homeStateReads.set(permit, snapshot);
+    return permit;
+  }
+
+  /** One conditional SQLite write owns the final admission and cache update.
+   * A failed permit never inserts an entity or edits access/connection metadata.
+   */
+  async publishHomeStateRead(ctx: LocalContext, permit: HomeStateReadPermit, input: {
+    state: Record<string, unknown>; lastSeenAt: string;
+  }): Promise<boolean> {
+    const snapshot = this.homeStateReads.get(permit);
+    this.homeStateReads.delete(permit);
+    if (!snapshot) return false;
+    const {connection, entity, source} = snapshot;
+    const [updated] = await this.db.update(proactiveHomeEntities).set({
+      stateJson: this.encrypt(stringify(input.state), "home-entity", entity.id) ?? "{}",
+      lastSeenAt: input.lastSeenAt, updatedAt: new Date().toISOString(),
+    }).where(and(
+      eq(proactiveHomeEntities.id, entity.id), eq(proactiveHomeEntities.connectionId, connection.id),
+      eq(proactiveHomeEntities.entityId, entity.entityId), eq(proactiveHomeEntities.domain, entity.domain),
+      eq(proactiveHomeEntities.enabled, true), eq(proactiveHomeEntities.sensitive, entity.sensitive),
+      eq(proactiveHomeEntities.allowedOpsJson, entity.allowedOpsJson),
+      eq(proactiveHomeEntities.createdAt, entity.createdAt),
+      sql`exists (select 1 from ${proactiveExternalConnections} where ${proactiveExternalConnections.id} = ${connection.id}
+        and ${proactiveExternalConnections.revisionId} = ${connection.revisionId}
+        and ${proactiveExternalConnections.provider} = ${connection.provider}
+        and ${proactiveExternalConnections.state} = ${connection.state}
+        and ${proactiveExternalConnections.endpoint} is ${connection.endpoint}
+        and ${proactiveExternalConnections.authType} = ${connection.authType}
+        and ${proactiveExternalConnections.credentialJson} = ${connection.credentialJson}
+        and ${proactiveExternalConnections.settingsJson} = ${connection.settingsJson}
+        and ${proactiveExternalConnections.scopesJson} = ${connection.scopesJson}
+        and ${proactiveExternalConnections.createdAt} = ${connection.createdAt})`,
+      sql`exists (select 1 from ${proactiveSourceGrants} where ${proactiveSourceGrants.id} = ${source.id}
+        and ${proactiveSourceGrants.grantVersion} = ${source.grantVersion}
+        and ${proactiveSourceGrants.updatedAt} = ${source.updatedAt})`,
+      sql`${homeMandatoryGrantVersions(connection.revisionId)} = ${snapshot.mandatoryGrantVersions}`,
+      homeSourceAvailable(connection.revisionId, source.id, new Date().toISOString(), snapshot.lease),
+    )).returning({id: proactiveHomeEntities.id});
+    return updated !== undefined;
+  }
+
   async upsertHomeEntity(ctx: LocalContext, input: {
     id: string; connectionId: string; entityId: string; domain: string; displayName?: string | null;
     deviceClass?: string | null; allowedOps?: string[]; state?: unknown; enabled?: boolean; sensitive?: boolean; lastSeenAt?: string;
   }) {
     const now = new Date().toISOString();
-    const [existing] = await this.db.select().from(proactiveHomeEntities).where(and(
-      eq(proactiveHomeEntities.connectionId, input.connectionId), eq(proactiveHomeEntities.entityId, input.entityId),
-    )).limit(1);
-    const id = existing?.id ?? input.id;
-    const values = {
-      domain: input.domain, displayName: this.encrypt(input.displayName, "home-entity", id), deviceClass: input.deviceClass ?? null,
-      allowedOpsJson: JSON.stringify(input.allowedOps ?? parseJson(existing?.allowedOpsJson, [])),
-      stateJson: this.encrypt(stringify(input.state ?? parseJson(
-        existing ? this.decrypt(existing.stateJson, "home-entity", id) : null,
-        {},
-      )), "home-entity", id) ?? "{}",
-      enabled: input.enabled ?? bool(existing?.enabled), sensitive: input.sensitive ?? bool(existing?.sensitive),
-      lastSeenAt: input.lastSeenAt ?? now, updatedAt: now,
-    };
-    const [row] = existing
-      ? await this.db.update(proactiveHomeEntities).set(values).where(eq(proactiveHomeEntities.id, id)).returning()
-      : await this.db.insert(proactiveHomeEntities).values({id, connectionId: input.connectionId, entityId: input.entityId, createdAt: now, ...values}).returning();
-    return row ? this.homeEntityModel(row) : null;
+    return this.db.transaction(async tx => {
+      const [existing] = await tx.select().from(proactiveHomeEntities).where(and(
+        eq(proactiveHomeEntities.connectionId, input.connectionId), eq(proactiveHomeEntities.entityId, input.entityId),
+      )).limit(1);
+      const id = existing?.id ?? input.id;
+      const values = {
+        domain: input.domain, displayName: this.encrypt(input.displayName, "home-entity", id), deviceClass: input.deviceClass ?? null,
+        allowedOpsJson: JSON.stringify(input.allowedOps ?? parseJson(existing?.allowedOpsJson, [])),
+        stateJson: this.encrypt(stringify(input.state ?? parseJson(
+          existing ? this.decrypt(existing.stateJson, "home-entity", id) : null,
+          {},
+        )), "home-entity", id) ?? "{}",
+        enabled: input.enabled ?? bool(existing?.enabled), sensitive: input.sensitive ?? bool(existing?.sensitive),
+        lastSeenAt: input.lastSeenAt ?? now, updatedAt: now,
+      };
+      const policyChanged = !existing || existing.domain !== values.domain
+        || existing.allowedOpsJson !== values.allowedOpsJson || existing.enabled !== values.enabled
+        || existing.sensitive !== values.sensitive;
+      if (policyChanged) {
+        const [connection] = await tx.select().from(proactiveExternalConnections)
+          .where(eq(proactiveExternalConnections.id, input.connectionId)).limit(1);
+        if (!connection || connection.provider !== "home_assistant" || connection.state === "revoked") {
+          throw new Error("home_assistant_connection_not_found");
+        }
+        const settings = parseJson<Record<string, unknown>>(this.decrypt(connection.settingsJson, "connection", connection.id), {});
+        settings[CONNECTION_GENERATION_KEY] = randomUUID();
+        // The connection owns its entity access policy. Rotate all pending reads
+        // with that policy change; single-entity reads publish state separately.
+        await tx.update(proactiveExternalConnections).set({
+          settingsJson: this.encrypt(stringify(settings), "connection", connection.id) ?? "{}", updatedAt: now,
+        }).where(eq(proactiveExternalConnections.id, connection.id));
+      }
+      const [row] = existing
+        ? await tx.update(proactiveHomeEntities).set(values).where(eq(proactiveHomeEntities.id, id)).returning()
+        : await tx.insert(proactiveHomeEntities).values({id, connectionId: input.connectionId, entityId: input.entityId, createdAt: now, ...values}).returning();
+      return row ? this.homeEntityModel(row) : null;
+    }, {behavior: "immediate"});
   }
 
   async listHomeEntities(ctx: LocalContext, connectionId?: string, enabled?: boolean, limit?: number) {
@@ -1003,9 +1143,11 @@ export class SqliteProactiveIntelligenceRepository {
 
   private connectionModel(row: typeof proactiveExternalConnections.$inferSelect): IntelligenceConnection {
     const credential = this.decrypt(row.credentialJson, "connection", row.id);
+    const settings = parseJson<Record<string, unknown>>(this.decrypt(row.settingsJson, "connection", row.id), {});
+    delete settings[CONNECTION_GENERATION_KEY];
     return {id: row.id, revisionId: row.revisionId,
       provider: row.provider, displayName: this.decrypt(row.displayName, "connection", row.id) ?? "", endpoint: row.endpoint,
-      authType: row.authType, scopes: parseJson(row.scopesJson, []), settings: parseJson(this.decrypt(row.settingsJson, "connection", row.id), {}),
+      authType: row.authType, scopes: parseJson(row.scopesJson, []), settings,
       state: row.state, lastSyncAt: row.lastSyncAt, lastError: this.decrypt(row.lastError, "connection", row.id),
       hasCredential: Boolean(credential && credential !== "{}"), createdAt: row.createdAt, updatedAt: row.updatedAt};
   }

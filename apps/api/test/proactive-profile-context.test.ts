@@ -2,6 +2,7 @@ import { loadExecutionConfig } from "@aervox/config";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ProactiveProfileClaimModel } from "@aervox/repositories";
 import { buildLoopProvider } from "@aervox/host-runtime-test/modules/companion/conversation/llm-adapter";
+import { createConfiguredProviderFactory, createModelStreamResources } from "@aervox/host-runtime/modules/ecosystem/llm/index";
 import {
   buildProactiveProfilePrompt,
   isLiteralLoopbackUrl,
@@ -87,7 +88,7 @@ describe("CAP-033 proactive profile context", () => {
     await expect(buildLoopProvider(
       { workspaceId: "ws_1", subjectUserId: "usr_1" },
       llmConfigService as never,
-      { executionConfig: loadExecutionConfig(), requireLocalOnly: true },
+      { executionConfig: loadExecutionConfig(), modelProviderFactory: createConfiguredProviderFactory(createModelStreamResources(4)), requireLocalOnly: true },
     )).rejects.toThrow("proactive_local_provider_required");
   });
 });

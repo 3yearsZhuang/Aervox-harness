@@ -61,6 +61,10 @@ export class SourceGrantStore {
       .update(proactiveSourceGrants)
       .set({
         state: input.state,
+        grantVersion: input.metadata === undefined
+          ? sql`case when ${proactiveSourceGrants.state} != ${input.state}
+              then ${proactiveSourceGrants.grantVersion} + 1 else ${proactiveSourceGrants.grantVersion} end`
+          : sql`${proactiveSourceGrants.grantVersion} + 1`,
         metadataJson: input.metadata === undefined
           ? existing.metadataJson
           : encrypt(stringify(input.metadata), "source", sourceGrantId, this.cipher) ?? "{}",
@@ -199,7 +203,7 @@ export class SourceGrantStore {
 
       await tx
         .update(proactiveSourceGrants)
-        .set({ state: "revoked", revokedAt: now, updatedAt: now })
+        .set({ state: "revoked", grantVersion: sql`${proactiveSourceGrants.grantVersion} + 1`, revokedAt: now, updatedAt: now })
         .where(
           and(
             eq(proactiveSourceGrants.id, sourceGrantId),

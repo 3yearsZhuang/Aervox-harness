@@ -8,12 +8,14 @@ import { messages, messageVersions, sessions } from "@aervox/schema";
 import type { LocalContext } from "../../../local-context.js";
 import type { MessageModel, MessageVersionModel } from "../../types/index.js";
 import { deleteBotConversationData } from "./bot-data-deletion.js";
+import { clearConversationContextBodies } from "./context-data-deletion.js";
 
 export class MessageStore {
   constructor(private readonly db: AervoxDatabase) {}
 
   async deleteMessage(ctx: LocalContext, messageId: string): Promise<boolean> {
     return this.db.transaction(async (tx) => {
+      await clearConversationContextBodies(tx, { versionId: messageId });
       const res = await tx
         .delete(messageVersions)
         .where(
@@ -83,7 +85,12 @@ export class MessageStore {
     return this.db.transaction(async (tx) => {
       const now = new Date().toISOString();
       const [message] = await tx.select().from(messages).where(eq(messages.id, messageId));
-      if (!message || message.deletedAt) return null;
+      if (!message) return null;
+
+      await clearConversationContextBodies(tx, { messageId });
+      // An identity soft-deleted by an older build still owns its linked
+      // snapshots. A repeated deletion can clean them without claiming a new act.
+      if (message.deletedAt) return null;
 
       const [updated] = await tx
         .update(messages)

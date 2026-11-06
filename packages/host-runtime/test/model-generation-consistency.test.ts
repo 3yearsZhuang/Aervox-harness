@@ -1,3 +1,5 @@
+import { createConfiguredProviderFactory } from "../src/modules/ecosystem/llm/provider-factory.js";
+import { createModelStreamResources } from "../src/modules/ecosystem/llm/model-resources.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { defaultModelProviderRegistry, ModelProviderRegistry, type ModelChunk, type ModelProviderPort } from "@aervox/core";
 import type { ExecutionConfig } from "@aervox/config";
@@ -6,6 +8,7 @@ import { buildLoopProvider, createLLMCallable } from "../src/modules/companion/c
 import { createModelGenerationPort } from "../src/modules/ecosystem/llm/generation.js";
 import { createConfiguredModelProvider } from "../src/modules/ecosystem/llm/provider-config.js";
 
+const configured = (registry?: ModelProviderRegistry) => createConfiguredProviderFactory(createModelStreamResources(4), registry);
 const context = { workspaceId: "local", subjectUserId: "local" };
 const config: LLMConfigResponse = { enabled: true, providerType: "ollama", baseUrl: "http://127.0.0.1:11434/v1", modelId: "test", temperature: .7, maxTokens: 4096, settings: {} };
 const executionConfig = { loopProvider: "llm", modelRoutingFeatureFlags: new Set() } as ExecutionConfig;
@@ -18,7 +21,7 @@ function consumer(kind: "domain" | "plugin", provider: ModelProviderPort) {
   }
   const registry = new ModelProviderRegistry(true);
   registry.register(registry.getDescriptor("ollama")!, () => provider);
-  const generation = createModelGenerationPort({ getConfig: async () => config }, registry);
+  const generation = createModelGenerationPort({ getConfig: async () => config }, configured(registry));
   return (user = "user", signal?: AbortSignal) => generation.generate({ context, system: "system", user, signal });
 }
 
@@ -83,15 +86,15 @@ describe("shared provider configuration for Loop and single-shot generation", ()
     { ...config, providerType: "unregistered_provider" },
   ])("refuses unavailable configurations before provider creation on both paths: $providerType $enabled", async found => {
     const create = vi.spyOn(defaultModelProviderRegistry, "createProvider");
-    await expect(buildLoopProvider(context, { getConfig: async () => found } as never, { executionConfig })).rejects.toThrow("llm_disabled");
-    await expect(createModelGenerationPort({ getConfig: async () => found }).generate({ context, system: "system", user: "user" })).rejects.toThrow("llm_disabled");
+    await expect(buildLoopProvider(context, { getConfig: async () => found } as never, { executionConfig, modelProviderFactory: configured() })).rejects.toThrow("llm_disabled");
+    await expect(createModelGenerationPort({ getConfig: async () => found }, configured()).generate({ context, system: "system", user: "user" })).rejects.toThrow("llm_disabled");
     expect(create).not.toHaveBeenCalled();
   });
   it("uses identical discovered context, output reserve and idle timeout for ordinary Loop and domain calls", async () => {
     const found = { ...config, settings: { contextWindow: 2048, requestTimeoutMs: 90_000 } };
     const create = vi.spyOn(defaultModelProviderRegistry, "createProvider").mockImplementation(() => ({ id: "fixture", async *stream() { yield { text: "answer", isFinal: true }; } }));
-    await buildLoopProvider(context, { getConfig: async () => found } as never, { executionConfig });
-    await createModelGenerationPort({ getConfig: async () => found }).generate({ context, system: "system", user: "user" });
+    await buildLoopProvider(context, { getConfig: async () => found } as never, { executionConfig, modelProviderFactory: configured() });
+    await createModelGenerationPort({ getConfig: async () => found }, configured()).generate({ context, system: "system", user: "user" });
     expect(create).toHaveBeenCalledTimes(2);
     expect(create.mock.calls[0]).toEqual(create.mock.calls[1]);
     expect(create.mock.calls[0]?.[1]).toMatchObject({ contextWindowTokens: 2048, maxTokens: 1024, timeoutMs: 90_000 });
@@ -101,6 +104,7 @@ describe("shared provider configuration for Loop and single-shot generation", ()
     const preset = { ...config, id: "preset", name: "preset", isActive: true, settings: { contextWindow: 8192, requestTimeoutMs: 90_000 } };
     const create = vi.spyOn(defaultModelProviderRegistry, "createProvider").mockImplementation(() => ({ id: "fixture", async *stream() {} }));
     const provider = await buildLoopProvider(context, { listPresets: async () => ({ presets: [preset], activeId: preset.id }) } as never, {
+      modelProviderFactory: configured(),
       executionConfig: { ...executionConfig, modelRoutingFeatureFlags: new Set(["model_routing", "capability_tiering"]) },
       modelRoutingService: { getRoutingSnapshot: async () => snapshot } as never, requireLocalOnly: true,
     });
@@ -116,6 +120,7 @@ describe("shared provider configuration for Loop and single-shot generation", ()
     const preset = { ...config, enabled: failure !== "disabled preset", id: "preset", name: "preset", isActive: true };
     const create = vi.spyOn(defaultModelProviderRegistry, "createProvider");
     await expect(buildLoopProvider(context, { listPresets: async () => ({ presets: [preset], activeId: preset.id }) } as never, {
+      modelProviderFactory: configured(),
       executionConfig: { ...executionConfig, modelRoutingFeatureFlags: new Set(["model_routing", "capability_tiering"]) },
       modelRoutingService: { getRoutingSnapshot: async () => snapshot } as never, requireLocalOnly: true,
     })).rejects.toThrow(failure === "missing attestation" || failure === "remote endpoint" ? "proactive_local_provider_required" : "llm_disabled");
@@ -133,7 +138,7 @@ describe("shared provider configuration for Loop and single-shot generation", ()
   });
   it("preserves stricter local-provider classification for domain generation and endpoint attestation for Loop", async () => {
     const found = { ...config, providerType: "openai" };
-    await expect(createModelGenerationPort({ getConfig: async () => found }).generate({ context, system: "system", user: "user", localOnly: true })).rejects.toThrow("llm_disabled");
+    await expect(createModelGenerationPort({ getConfig: async () => found }, configured()).generate({ context, system: "system", user: "user", localOnly: true })).rejects.toThrow("llm_disabled");
     expect(createConfiguredModelProvider(found, { localOnly: true }).id).toBe("openai-compat");
     expect(() => createConfiguredModelProvider({ ...found, baseUrl: "https://example.com" }, { localOnly: true })).toThrow("proactive_local_provider_required");
   });
@@ -143,7 +148,7 @@ describe("shared provider configuration for Loop and single-shot generation", ()
     const found = { ...config, settings: { contextWindow: 2048 } };
     const provider = createConfiguredModelProvider(found);
     await expect(createLLMCallable(provider).generate("x".repeat(1600))).rejects.toThrow("context_window_exceeded");
-    await expect(createModelGenerationPort({ getConfig: async () => found }).generate({ context, system: "system", user: "x".repeat(1600) })).rejects.toThrow("context_window_exceeded");
+    await expect(createModelGenerationPort({ getConfig: async () => found }, configured()).generate({ context, system: "system", user: "x".repeat(1600) })).rejects.toThrow("context_window_exceeded");
     expect(fetch).not.toHaveBeenCalled();
   });
   it("applies the configured Core idle timeout to both one-shot adapters", async () => {
@@ -154,7 +159,7 @@ describe("shared provider configuration for Loop and single-shot generation", ()
     vi.stubGlobal("fetch", fetch);
     const found = { ...config, settings: { requestTimeoutMs: 90_000 } };
     const plugin = createLLMCallable(createConfiguredModelProvider(found)).generate("user");
-    const domain = createModelGenerationPort({ getConfig: async () => found }).generate({ context, system: "system", user: "user" });
+    const domain = createModelGenerationPort({ getConfig: async () => found }, configured()).generate({ context, system: "system", user: "user" });
     const rejections = [expect(plugin).rejects.toThrow("llm_timeout"), expect(domain).rejects.toThrow("llm_timeout")];
     await vi.advanceTimersByTimeAsync(89_999);
     expect(fetch).toHaveBeenCalledTimes(2);
@@ -173,7 +178,7 @@ describe("shared provider configuration for Loop and single-shot generation", ()
     const provider = createConfiguredModelProvider(found);
     const promise = kind === "plugin"
       ? createLLMCallable(provider).generate("user")
-      : createModelGenerationPort({ getConfig: async () => found }).generate({ context, system: "system", user: "user" });
+      : createModelGenerationPort({ getConfig: async () => found }, configured()).generate({ context, system: "system", user: "user" });
     let settled = false;
     void promise.then(() => { settled = true; }, () => { settled = true; });
     const heartbeat = setInterval(() => controller.enqueue(encoder.encode(": alive\n\n")), 80_000);
