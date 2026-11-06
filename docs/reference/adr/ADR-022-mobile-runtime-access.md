@@ -38,7 +38,7 @@ decision_status: accepted
 
 ## 当前前台文本接线
 
-当前分支由 `MainActivity → NativeRuntimeActivity` 装配固定资产 WebView、私有 SQLite actor、原生模型服务与 UI 偏好适配。共享界面经内部 Transport 调用中性仓储和 Core，普通浏览器预览继续使用 API Transport。受信组合模块只能导入已声明的中性公开出口，普通 Web 视图和第三方 Page 不因本接线获得仓储或 SQL 权限。学习设置页复用本机 Transport 完成练习与复习；备份恢复须独占业务操作、按当前外键规划后整体提交，成功后旧页面停止数据库准入，要求重开应用。备份只覆盖权威业务事实：派生 FTS 投影由权威来源重建而不进包，模型密钥、插件 Secret、Bot/外部连接与删除账本均不导出也不被恢复覆盖——当前恢复仅查询 `deletion_requests`，查到记录时拒绝（`BACKUP_DELETION_CONFLICT`）；2026-11-06 复核确认实际会话硬删未写入该表，隔离备份→删除→旧备份恢复可复活会话与正文，防线尚未闭合。[ITER-003/010](../../../plan.md#iter-003) 先保守拒绝删除历史不完整的恢复，再补实际删除留痕；旧安装缺失的历史事实不能补造，deny 账本与水位重放继续另验。备份 JSON 文件只写应用生成的私有缓存路径，经 FileProvider 授予接收方临时读取，不开放任意路径或额外存储权限。
+当前分支由 `MainActivity → NativeRuntimeActivity` 装配固定资产 WebView、私有 SQLite actor、原生模型服务与 UI 偏好适配。共享界面经内部 Transport 调用中性仓储和 Core，普通浏览器预览继续使用 API Transport。受信组合模块只能导入已声明的中性公开出口，普通 Web 视图和第三方 Page 不因本接线获得仓储或 SQL 权限。学习设置页复用本机 Transport 完成练习与复习；备份导出只包含权威业务事实，派生 FTS 投影、模型密钥、插件 Secret、Bot/外部连接与删除账本均不进包。备份恢复当前统一拒绝：旧版会话删除没有保留完整的历史删除事实，空的删除记录表不能证明旧备份不会带回已删除内容；所有安装的 `importBackup` 在解析、恢复准入与原生 SQL 前固定返回 `409 BACKUP_RESTORE_HISTORY_UNVERIFIED`，不覆盖数据或退休现有宿主，界面禁用恢复入口，导出与普通业务读写保留。完整历史边界、持久 tombstone/deny 记录、独立恢复账本与连续水位重放仍由 ITER-003/010/011 协调；新增删除记录不能追补旧安装的历史缺口，完成上述责任前不得重新开放恢复。备份 JSON 文件只写应用生成的私有缓存路径，经 FileProvider 授予接收方临时读取，不开放任意路径或额外存储权限。
 
 固定 APK 的人格与日记处理器属于同一受信组合：`native-persona.ts` 仅使用中性人格仓储出口，`native-diary.ts` 仅使用中性日记仓储和共享 `@aervox/diary` 生成服务，由 `native-runtime.ts` 注入私有数据库与模型端口。普通 Web 视图不获得这些依赖；人格设定不提升工具权限，日记素材只取本安装业务库，不开放跨设备来源。
 
