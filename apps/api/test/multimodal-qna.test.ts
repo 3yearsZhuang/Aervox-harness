@@ -12,11 +12,18 @@
  * - CR-030 本地单用户上下文共享
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import Fastify from "fastify";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import {
   createInMemoryDatabase,
+  SqliteContentRepository,
+  DatabaseError,
   type AervoxDatabase,
 } from "@aervox/repositories";
-import { buildApp } from "./app-fixture.js";
+import { registerContentRoutes } from "@aervox/host-runtime-test/modules/knowledge/content/routes";
+import { ContentParserRegistry } from "@aervox/host-runtime-test/modules/knowledge/content/parser-port";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
 
@@ -35,21 +42,37 @@ describe("多模态答疑集成测试（CAP-012）", () => {
   let db: AervoxDatabase;
   let client: Client;
   let cleanup: () => Promise<void>;
+  let attachmentsRoot: string;
 
   beforeEach(async () => {
     const res = await createInMemoryDatabase();
     db = res.db;
     client = res.client;
     cleanup = res.cleanup;
-    const built = await buildApp({ db, client });
-    app = built.app;
+    // Isolated port regressions: synthetic scan eligibility and parser output
+    // are supplied explicitly. They do not prove a production scan/OCR provider.
+    attachmentsRoot = await mkdtemp(path.join(tmpdir(), "aervox-content-port-"));
+    app = Fastify();
+    app.setErrorHandler((error, _req, reply) => reply.code(error instanceof DatabaseError ? error.domainCode === "FORBIDDEN" ? 403 : 409 : 500).send({ code: error.message }));
+    registerContentRoutes(app, new SqliteContentRepository(db), attachmentsRoot, new ContentParserRegistry([{
+      id: "fixture.ocr", name: "Deterministic OCR fixture", supportedMediaTypes: ["image/png"],
+      supports: mediaType => mediaType === "image/png",
+      async parse(_ctx, request) {
+        return request.attachment.objectKey.includes("blurry")
+          ? { text: "[解析置信度低，内容可能不完整]", confidence: 0.4 }
+          : { text: "显式测试题目", confidence: 0.95 };
+      },
+    }]));
     await app.ready();
   });
 
   afterEach(async () => {
     await app.close();
     await cleanup();
+    await rm(attachmentsRoot, { recursive: true, force: true });
   });
+
+  const markFixtureScanClean = (id: string) => client.execute({ sql: "UPDATE attachments SET scan_status = 'clean' WHERE id = ?", args: [id] });
 
   // ============ FR-EXT-001 AC-01 ============
 
@@ -102,7 +125,7 @@ describe("多模态答疑集成测试（CAP-012）", () => {
     expect(ok.statusCode).toBe(201);
     const att = ok.json();
     expect(att.id).toBeTruthy();
-    expect(att.scanStatus).toBe("clean");
+    expect(att.scanStatus).toBe("pending");
     expect(att.purpose).toBe("question");
     expect(att.parseStatus).toBe("pending");
   });
@@ -110,7 +133,7 @@ describe("多模态答疑集成测试（CAP-012）", () => {
   // ============ FR-EXT-001 AC-02 ============
 
   it("FR-EXT-001 AC-02：上传后进入扫描管线，未扫描不得用于答疑", async () => {
-    // 正常上传（scanStatus=clean）
+    // 上传保持pending；下方显式fixture扫描资格仅验证内部管线
     const create = await app.inject({
       method: "POST",
       url: "/v1/attachments",
@@ -124,6 +147,7 @@ describe("多模态答疑集成测试（CAP-012）", () => {
     });
     expect(create.statusCode).toBe(201);
     const attachmentId = create.json().id;
+    await markFixtureScanClean(attachmentId);
 
     // 可以触发解析（scanStatus=clean）
     const parseRes = await app.inject({
@@ -152,6 +176,7 @@ describe("多模态答疑集成测试（CAP-012）", () => {
       },
     });
     const attachmentId = create.json().id;
+    await markFixtureScanClean(attachmentId);
 
     // 触发解析
     const parseRes = await app.inject({
@@ -209,8 +234,9 @@ describe("多模态答疑集成测试（CAP-012）", () => {
       },
     });
     const attachmentId = create.json().id;
+    await markFixtureScanClean(attachmentId);
 
-    // 多次解析直到出现低置信
+    // Deterministic low-confidence fixture; no random success fallback
     let parseBody: { parseStatus: string; confidence: number; id: string };
     let attempts = 0;
     do {
@@ -241,8 +267,9 @@ describe("多模态答疑集成测试（CAP-012）", () => {
       expect(textRes.json().parseStatus).toBe("completed");
     }
 
-    // 无论如何，测试通过（模拟 OCR 随机性）
-    expect(attempts).toBeGreaterThan(0);
+    // The deterministic fixture must actually exercise low confidence
+    expect(attempts).toBe(1);
+    expect(parseBody.parseStatus).toBe("low_confidence");
   });
 
   // ============ BR-EXT-001 AC-02 ============
@@ -262,6 +289,7 @@ describe("多模态答疑集成测试（CAP-012）", () => {
     });
     expect(create.statusCode).toBe(201);
     const attachmentId = create.json().id;
+    await markFixtureScanClean(attachmentId);
 
     // 幂等上传：返回已有记录
     const retryUpload = await app.inject({
@@ -314,6 +342,7 @@ describe("多模态答疑集成测试（CAP-012）", () => {
       },
     });
     const attachmentId = create.json().id;
+    await markFixtureScanClean(attachmentId);
 
     // 产生多个解析结果
     await app.inject({
@@ -381,6 +410,7 @@ describe("多模态答疑集成测试（CAP-012）", () => {
       },
     });
     const attachmentId = create.json().id;
+    await markFixtureScanClean(attachmentId);
 
     // 兼容 Header 不再形成数据库隔离边界
     const otherGet = await app.inject({
@@ -423,6 +453,7 @@ describe("多模态答疑集成测试（CAP-012）", () => {
       },
     });
     const attachmentId = create.json().id;
+    await markFixtureScanClean(attachmentId);
 
     // 初始解析
     await app.inject({

@@ -2,6 +2,7 @@ import { sql, type SQLWrapper } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { turns, sessions, messages, messageVersions, conversationExecutionPolicies } from "@aervox/schema";
 import { conversationDispatchTarget } from "../../../conversation-execution-policy.js";
+import { unverifiedAttachmentTurn } from "../../../attachment-source-admission.js";
 
 const sourceTurn = alias(turns, "visibility_turn");
 const sourceSession = alias(sessions, "visibility_session");
@@ -42,7 +43,7 @@ export const disclosableTurn = (turnId: string | SQLWrapper) => sql`exists (
 
 /** Completed dialogue eligible for model/diary use, independently of user-visible history. */
 export const derivableConversationTurn = (turnId: string | SQLWrapper) => sql`(
-  ${disclosableTurn(turnId)} and exists (
+  ${disclosableTurn(turnId)} and not ${unverifiedAttachmentTurn(turnId)} and exists (
     select 1 from ${turns} as visibility_turn where ${sourceTurn.id} = ${turnId} and ${sourceTurn.status} = 'Completed'
       and exists (select 1 from ${messageVersions} as visibility_current_user where ${currentUser.turnId} = ${sourceTurn.id}
         and ${currentUser.role} = 'user' and ${currentUser.supersededAt} is null and ${currentUser.isRedacted} = 0

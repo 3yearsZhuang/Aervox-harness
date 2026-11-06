@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ModelRequest, PromptMessage } from "@aervox/core";
-import { createInMemoryDatabase } from "@aervox/repositories";
+import { createInMemoryDatabase, indexMemoryFts, SqliteMemoryRepository } from "@aervox/repositories";
 import { buildApp } from "./app-fixture.js";
+import { corruptReceipt, receiptCorruptions } from "../../../packages/repositories/test/helpers/receipt-corruption.js";
 
 const captured = vi.hoisted(() => ({ requests: [] as ModelRequest[], useTool: false }));
 vi.mock("@aervox/core", async (importOriginal) => {
@@ -56,6 +57,7 @@ describe("跨 Turn 会话历史进入模型请求", () => {
       payload: { message: { content, contentType: "text" }, clientVersion: "history-test", references: [] },
     });
     expect(response.statusCode).toBe(201);
+    return response.json().turnId as string;
   }
 
   function dialogue(): PromptMessage[] {
@@ -129,5 +131,36 @@ describe("跨 Turn 会话历史进入模型请求", () => {
     expect(dialogue().filter((message) => message.content === "我叫小庄")).toHaveLength(1);
     expect(dialogue().filter((message) => message.content === "查一下")).toHaveLength(1);
     expect(dialogue().some((message) => message.role === "tool" && message.content.includes('"found":true'))).toBe(true);
+  });
+
+  it("rechecks history and memory receipts after a tool await before the next model request", async () => {
+    const sourceTurnId = await send("ses_history", "historicalcanary");
+    await send("ses_history", "normaltextcanary");
+    const ctx = { workspaceId: "ws_history", subjectUserId: "usr_history" };
+    const memory = new SqliteMemoryRepository(database.db, database.client);
+    await memory.createRecord(ctx, { id: "known-source-memory", layer: "long_term", type: "user_fact",
+      content: "drink memorycanary", sourceTurnId, verificationStatus: "verified" });
+    await indexMemoryFts(database.client, ctx, { id: "known-source-memory", content: "drink memorycanary" });
+    const consent = await built.app.inject({ method: "POST", url: "/v1/consent", headers,
+      payload: { purpose: "memory_long", scope: "auto_recall", policyVersion: "privacy-v1" } });
+    expect(consent.statusCode).toBe(201);
+    await built.toolRuntime.registerTool({ id: "history_lookup", name: "history_lookup", description: "test lookup",
+      category: "memory", safetyLevel: "read_only", requiredPermissions: [], inputSchema: { type: "object", properties: {} },
+      builtin: false, gatingConditions: [], priority: 1 });
+    built.toolRuntime.registerHandler("history_lookup", { call: async () => {
+      await corruptReceipt(database.client, sourceTurnId, receiptCorruptions.find(item => "historicalAttachmentRemoved" in item)!);
+      return { found: true };
+    } });
+    captured.useTool = true;
+    const current = await send("ses_history", "drink");
+    const requests = captured.requests.filter(request => request.turnId === current);
+    expect(requests.map(request => request.step)).toEqual([1, 2]);
+    expect(requests[0]!.context.messages.some(message => message.content.includes("historicalcanary"))).toBe(true);
+    expect(requests[0]!.context.messages.some(message => message.content.includes("memorycanary"))).toBe(true);
+    expect({
+      history: requests[1]!.context.messages.some(message => message.content.includes("historicalcanary")),
+      memory: requests[1]!.context.messages.some(message => message.content.includes("memorycanary")),
+    }).toEqual({ history: false, memory: false });
+    expect(requests[1]!.context.messages.some(message => message.content === "normaltextcanary")).toBe(true);
   });
 });

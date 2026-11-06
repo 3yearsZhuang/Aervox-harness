@@ -8,6 +8,7 @@ import { eq, and, desc, isNull, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { attachments, attachmentParseResults, embeddingIndexes } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
+import { DomainConflictError, RepositoryAccessViolationError } from "../../errors.js";
 import type {
   IContentRepository,
   AttachmentModel,
@@ -68,18 +69,29 @@ export class SqliteContentRepository implements IContentRepository {
   }
 
   async softDeleteAttachment(ctx: LocalContext, id: string): Promise<AttachmentModel | null> {
+    return (await this.deleteAttachmentWithDerivatives(ctx, id))?.attachment ?? null;
+  }
+
+  async deleteAttachmentWithDerivatives(ctx: LocalContext, id: string): Promise<{ attachment: AttachmentModel; invalidatedDerivatives: number } | null> {
     const now = new Date().toISOString();
-    const [updated] = await this.db
-      .update(attachments)
-      .set({ deletedAt: now, updatedAt: now })
-      .where(
-        and(
-          eq(attachments.id, id),
-          isNull(attachments.deletedAt),
-        ),
-      )
-      .returning();
-    return (updated as AttachmentModel) ?? null;
+    return this.db.transaction(async tx => {
+      const [updated] = await tx
+        .update(attachments)
+        .set({ deletedAt: now, updatedAt: now })
+        .where(
+          and(
+            eq(attachments.id, id),
+            isNull(attachments.deletedAt),
+          ),
+        )
+        .returning();
+      if (!updated) return null;
+      const invalidated = await tx.update(attachmentParseResults)
+        .set({ supersededAt: now, updatedAt: now })
+        .where(and(eq(attachmentParseResults.attachmentId, id), isNull(attachmentParseResults.supersededAt)))
+        .returning({ id: attachmentParseResults.id });
+      return { attachment: updated as AttachmentModel, invalidatedDerivatives: invalidated.length };
+    });
   }
 
   async getAttachmentByIdempotencyKey(
@@ -116,31 +128,45 @@ export class SqliteContentRepository implements IContentRepository {
     },
   ): Promise<AttachmentParseResultModel> {
     const now = new Date().toISOString();
-    const [created] = await this.db
-      .insert(attachmentParseResults)
-      .values({
-        id: input.id,
-        attachmentId: input.attachmentId,
-        parseStatus: input.parseStatus ?? "pending",
-        parsedText: input.parsedText ?? null,
-        confidence: input.confidence ?? null,
-        parseError: input.parseError ?? null,
-        cropData: input.cropData ?? null,
-        operation: input.operation ?? "ocr",
-        idempotencyKey: input.idempotencyKey ?? null,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
+    return this.db.transaction(async tx => {
+      const [source] = await tx.select({ id: attachments.id }).from(attachments)
+        .where(and(eq(attachments.id, input.attachmentId), isNull(attachments.deletedAt), eq(attachments.scanStatus, "clean"))).limit(1);
+      if (!source) throw new RepositoryAccessViolationError("ATTACHMENT_SOURCE_UNAVAILABLE");
+      if (input.idempotencyKey) {
+        const [existing] = await tx.select().from(attachmentParseResults).where(eq(attachmentParseResults.idempotencyKey, input.idempotencyKey)).limit(1);
+        if (existing) {
+          if (existing.attachmentId !== input.attachmentId || existing.supersededAt !== null) throw new DomainConflictError("PARSE_INTENT_CONFLICT");
+          return existing as AttachmentParseResultModel;
+        }
+      }
+      await tx.update(attachmentParseResults).set({ supersededAt: now, updatedAt: now })
+        .where(and(eq(attachmentParseResults.attachmentId, input.attachmentId), isNull(attachmentParseResults.supersededAt)));
+      const [created] = await tx
+        .insert(attachmentParseResults)
+        .values({
+          id: input.id,
+          attachmentId: input.attachmentId,
+          parseStatus: input.parseStatus ?? "pending",
+          parsedText: input.parsedText ?? null,
+          confidence: input.confidence ?? null,
+          parseError: input.parseError ?? null,
+          cropData: input.cropData ?? null,
+          operation: input.operation ?? "ocr",
+          idempotencyKey: input.idempotencyKey ?? null,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
 
-    // 同步更新 attachments.parseStatus
-    const status = input.parseStatus ?? "pending";
-    await this.db
-      .update(attachments)
-      .set({ parseStatus: status, updatedAt: now })
-      .where(eq(attachments.id, input.attachmentId));
+      // 同步更新 attachments.parseStatus
+      const status = input.parseStatus ?? "pending";
+      await tx
+        .update(attachments)
+        .set({ parseStatus: status, updatedAt: now })
+        .where(and(eq(attachments.id, input.attachmentId), isNull(attachments.deletedAt), eq(attachments.scanStatus, "clean")));
 
-    return created as AttachmentParseResultModel;
+      return created as AttachmentParseResultModel;
+    });
   }
 
   async getActiveParseResult(
@@ -154,6 +180,7 @@ export class SqliteContentRepository implements IContentRepository {
         and(
           eq(attachmentParseResults.attachmentId, attachmentId),
           isNull(attachmentParseResults.supersededAt),
+          sql`EXISTS (SELECT 1 FROM ${attachments} WHERE ${attachments.id} = ${attachmentParseResults.attachmentId} AND ${attachments.deletedAt} IS NULL AND ${attachments.scanStatus} = 'clean')`,
         ),
       )
       .orderBy(desc(attachmentParseResults.createdAt))
@@ -171,6 +198,8 @@ export class SqliteContentRepository implements IContentRepository {
       .where(
         and(
           eq(attachmentParseResults.idempotencyKey, key),
+          isNull(attachmentParseResults.supersededAt),
+          sql`EXISTS (SELECT 1 FROM ${attachments} WHERE ${attachments.id} = ${attachmentParseResults.attachmentId} AND ${attachments.deletedAt} IS NULL AND ${attachments.scanStatus} = 'clean')`,
         ),
       )
       .limit(1);

@@ -66,6 +66,21 @@ describe("message FTS derives only from current eligible conversation truth", ()
     expect(await search("forgedcanary")).toEqual([]);
   });
 
+  it.each(["attachment", "invalid-json", "empty-intent", "array-message"] as const)("denies stale recall and late reindex for %s receipts without deleting the user's stored answer", async receipt => {
+    const id = await answer();
+    await indexMessageFts(database.client, ctx, { id, content: "approvedcanary" });
+    expect(await search()).toHaveLength(1);
+    const sql = receipt === "attachment" ? "UPDATE outbox_events SET payload=json_set(payload,'$.intent.message.attachments',json('[{\"attachmentId\":\"historical-clean\"}]')) WHERE id='outbox_turn'"
+      : receipt === "empty-intent" ? "UPDATE outbox_events SET payload=json_set(payload,'$.intent',json('{}')) WHERE id='outbox_turn'"
+      : receipt === "array-message" ? "UPDATE outbox_events SET payload=json_set(payload,'$.intent.message',json('[]')) WHERE id='outbox_turn'"
+      : "UPDATE outbox_events SET payload='{' WHERE id='outbox_turn'";
+    await database.client.execute(sql);
+    expect(await search()).toEqual([]);
+    await indexMessageFts(database.client, ctx, { id, content: "approvedcanary" });
+    expect((await database.client.execute("SELECT id FROM messages_fts")).rows).toEqual([]);
+    expect((await repo.getSessionHistoryPage(ctx, { sessionId: "session" })).items[0]?.messages[1]?.content).toBe("approvedcanary");
+  });
+
   it("retains eligible legacy and imported conversations", async () => {
     await repo.createTurnWithOutbox(ctx, { id: "legacy", sessionId: "session", idempotencyKey: "legacy", status: "Completed" },
       { id: "legacy-user", content: "legacycanary" });
