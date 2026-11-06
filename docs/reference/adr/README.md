@@ -43,6 +43,7 @@ ADR 中带日期的背景、实施进展和验收差距是对应时点的记录�
 - [ADR-030](ADR-030-behavior-ownership.md)：共享行为所有权与可替换接口。
 - [ADR-031](ADR-031-first-party-plugin-repositories.md)：第一方插件组织仓库、受信构建与跨仓兼容。
 - [ADR-032](ADR-032-plugin-ecosystem-standard.md)：插件生态标识、分类、Registry、发布与显式身份迁移。
+- [ADR-033](ADR-033-assistant-positioning.md)：产品定位为主动个人助手，学习域为首批验证切片。
 
 ## 原 CR 编号迁移索引
 
