@@ -3,7 +3,7 @@
  *
  * 规则依据：ADR-004 + ADR-013
  */
-import { eq, and, or, lt, sql, notInArray } from "drizzle-orm";
+import { eq, and, or, lt, sql, notInArray, getTableColumns } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { memoryRecords, outboxEvents } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
@@ -14,17 +14,34 @@ import { assertMemoryCompactionAvailable, MEMORY_COMPACTION_EVENT_TYPE, MemoryCo
 // Error text can contain a fetched summary. Check the persisted source in the
 // same writer statement as the error update, so cleanup cannot race the guard.
 // A payload flag alone cannot establish that its source still exists or is live.
-const errorWriteAllowed = sql`(
-  ${outboxEvents.eventType} != ${MEMORY_COMPACTION_EVENT_TYPE}
-  OR (
+const errorWriteAllowed = sql`CASE
+  WHEN ${outboxEvents.eventType} != ${MEMORY_COMPACTION_EVENT_TYPE} THEN 1
+  WHEN json_valid(${outboxEvents.payload}) THEN (
     json_extract(${outboxEvents.payload}, '$.deleted') IS NOT 1
     AND EXISTS (
       SELECT 1 FROM ${memoryRecords}
       WHERE ${memoryRecords.id} = json_extract(${outboxEvents.payload}, '$.memoryId')
         AND ${memoryRecords.isDeleted} = 0
     )
-  )
-)`;
+  ) ELSE 0 END`;
+
+// Read raw text before the JSON column mapper can reject the whole batch.
+// Only malformed worker deliveries retain text for per-item rejection; valid
+// payloads and every other event preserve the existing decoded JSON contract.
+const rawOutboxFields = {
+  ...getTableColumns(outboxEvents),
+  payload: sql<string>`${outboxEvents.payload}`.mapWith(String),
+};
+type RawOutboxEvent = Omit<OutboxEventModel, "payload"> & { payload: string };
+function decodeOutboxEvent(row: RawOutboxEvent): OutboxEventModel {
+  let payload: unknown;
+  try { payload = JSON.parse(row.payload); }
+  catch (error) {
+    if (row.eventType !== "agent.turn.requested") throw error;
+    payload = row.payload;
+  }
+  return { ...row, payload };
+}
 
 export class SqliteOutboxRepository implements IOutboxRepository {
   constructor(private readonly db: AervoxDatabase) {}
@@ -104,12 +121,12 @@ export class SqliteOutboxRepository implements IOutboxRepository {
     }
 
     const rows = await this.db
-      .select()
+      .select(rawOutboxFields)
       .from(outboxEvents)
       .where(and(...conditions))
       .orderBy(outboxEvents.createdAt)
       .limit(limit);
-    return rows as OutboxEventModel[];
+    return rows.map(decodeOutboxEvent);
   }
 
   async markPublished(eventId: string): Promise<void> {
@@ -137,7 +154,7 @@ export class SqliteOutboxRepository implements IOutboxRepository {
         lastError: error,
       })
       .where(and(eq(outboxEvents.id, eventId), errorWriteAllowed))
-      .returning();
+      .returning({ status: outboxEvents.status, retryCount: outboxEvents.retryCount });
     return (updated as { status: "failed" | "dead_letter"; retryCount: number }) ?? null;
   }
 
@@ -153,10 +170,10 @@ export class SqliteOutboxRepository implements IOutboxRepository {
 
   async getEventById(eventId: string): Promise<OutboxEventModel | null> {
     const [found] = await this.db
-      .select()
+      .select(rawOutboxFields)
       .from(outboxEvents)
       .where(eq(outboxEvents.id, eventId))
       .limit(1);
-    return (found as OutboxEventModel) ?? null;
+    return found ? decodeOutboxEvent(found) : null;
   }
 }

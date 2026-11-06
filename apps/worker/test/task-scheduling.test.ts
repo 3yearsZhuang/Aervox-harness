@@ -9,14 +9,18 @@ describe("worker task scheduling", () => {
     expect(resolveWorkerTaskInterval("proactive-intelligence", 5_000, {}))
       .toBe(DEFAULT_WORKER_INTERVALS["proactive-intelligence"]);
     expect(resolveWorkerTaskInterval("outbox", 5_000, {})).toBe(3_000);
+    expect(resolveWorkerTaskInterval("delegated-turns", 5_000, {})).toBe(3_000);
   });
 
   it("keeps an explicit global tick as a global override", () => {
     expect(resolveWorkerTaskInterval("proactive-intelligence", 1_000, {})).toBe(1_000);
+    expect(resolveWorkerTaskInterval("delegated-turns", 1_000, {})).toBe(1_000);
   });
 
   it("accepts both documented underscore and internal hyphen task keys", () => {
     expect(resolveWorkerTaskInterval("attempt-recovery", 5_000, {attempt_recovery: 12_000})).toBe(12_000);
     expect(resolveWorkerTaskInterval("inbox-expiry", 5_000, {"inbox-expiry": 8_000})).toBe(8_000);
+    expect(resolveWorkerTaskInterval("delegated-turns", 1_000, {delegated_turns: 4_500})).toBe(4_500);
+    expect(resolveWorkerTaskInterval("delegated-turns", 5_000, {"delegated-turns": 6_000})).toBe(6_000);
   });
 });
