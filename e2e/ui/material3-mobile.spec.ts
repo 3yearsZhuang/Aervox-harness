@@ -77,8 +77,8 @@ test('keeps rejected-message feedback and its action fully visible without scrol
     await expect(page.locator('html')).toHaveAttribute('data-design-system', 'material3');
     await expect(page.locator('.proactive-companion')).toHaveAttribute('data-design-system', 'material3');
     for (const surface of ['.pc-dialogue-box', '.pc-whisper-input']) {
-      await expect(page.locator(surface).first()).toHaveCSS('background-image', 'none');
-      await expect(page.locator(surface).first()).toHaveCSS('backdrop-filter', 'none');
+      await expect(page.locator(surface).first()).toHaveCSS('background-image', /linear-gradient/);
+      await expect(page.locator(surface).first()).toHaveCSS('backdrop-filter', 'blur(18px)');
     }
     await expect.poll(() => page.locator('.pc-whisper-input md-filled-button').evaluate(el => el.matches(':defined') && Boolean(el.shadowRoot?.querySelector('button')))).toBe(true);
     await expect(page.locator('.pc-header md-icon-button').first()).toHaveCSS('height', '48px');
