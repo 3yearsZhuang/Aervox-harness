@@ -36,6 +36,9 @@ watch(() => [story.value, story.value.length, story.value.at(-1)?.text, story.va
 });
 onMounted(scrollToLatest);
 watch(() => story.value, scrollToLatest);
+watch([conversation.activeQuestion, conversation.questionSubmissionIssue], async () => {
+  if (following.value) await scrollToLatest();
+});
 
 async function copyMessage(id: number, text: string) {
   const attempt = ++copyAttempt;

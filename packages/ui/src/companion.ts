@@ -11,4 +11,4 @@ export { readCompanionIdentity } from './utils/companion-identity';
 export type { SurfaceNavigation } from './surface-navigation';
 export { useSessionHistory } from './composables/useSessionHistory';
 export { useSessionDraft } from './composables/session-draft';
-export { getQuestionSubmissionIssue, isSameOriginalQuestion, type QuestionSubmissionIssue } from './utils/question-feedback';
+export { getQuestionSubmissionIssue, hasOriginalQuestionIdentity, isSameOriginalQuestion, type QuestionSubmissionIssue } from './utils/question-feedback';

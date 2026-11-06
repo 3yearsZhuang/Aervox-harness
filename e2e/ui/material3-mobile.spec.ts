@@ -277,7 +277,7 @@ test('renders readable dark questions and sends the chosen answer', async ({ pag
       { turnId: 'turn_material_question', sequence: 3, eventType: 'delta', data: { text: '收到回答，继续学习。' } },
       { turnId: 'turn_material_question', sequence: 4, eventType: 'done', data: {} },
     ] : [
-      { turnId: 'turn_material_question', sequence: 1, eventType: 'user_question_required', data: { turnId: 'turn_material_question', step: 1, questions: [{ id: 'topic', header: '学习主题', question: '接下来学习什么？', detail: '选择一个主题，也可以补充说明。', options: [{ label: '变量与类型', description: '从简单例子开始' }, { label: '函数', description: '学习组合与复用' }] }] } },
+      { turnId: 'turn_material_question', sequence: 1, eventType: 'user_question_required', data: { turnId: 'turn_material_question', attemptId: 'attempt_material_question', invocationId: 'attempt_material_question:1:1', step: 1, questions: [{ id: 'topic', header: '学习主题', question: '接下来学习什么？', detail: '选择一个主题，也可以补充说明。', options: [{ label: '变量与类型', description: '从简单例子开始' }, { label: '函数', description: '学习组合与复用' }] }] } },
       { turnId: 'turn_material_question', sequence: 2, eventType: 'done', data: {} },
     ]).map(event => `data: ${JSON.stringify(event)}\n\n`).join(''),
   }));
@@ -301,7 +301,7 @@ test('renders readable dark questions and sends the chosen answer', async ({ pag
   expect(contrast).toBeGreaterThanOrEqual(4.5);
   await page.screenshot({ path: '/tmp/aervox-material3-question-dark.png', fullPage: true, animations: 'disabled' });
   await page.getByRole('button', { name: '确认并继续' }).click();
-  await expect.poll(() => saved).toMatchObject({ answers: [{ id: 'topic', selected: ['变量与类型'] }] });
+  await expect.poll(() => saved).toMatchObject({ attemptId: 'attempt_material_question', invocationId: 'attempt_material_question:1:1', step: 1, answers: [{ id: 'topic', selected: ['变量与类型'] }] });
   await expect(page.locator('.pc-dialogue-text')).toContainText('收到回答，继续学习。');
   await expect(page.locator('.pc-interaction')).toHaveCount(0);
   await expect(page.getByRole('button', { name: '发送', exact: true })).toBeDisabled();

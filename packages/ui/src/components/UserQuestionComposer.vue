@@ -3,7 +3,7 @@ import { AervoxButton, AervoxCard } from '../primitives';
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { Check, HelpCircle, Send } from 'lucide-vue-next'
 import type { AskUserQuestionAnswerItem, UserQuestionRequiredEventData } from '@aervox/contracts'
-import { isSameOriginalQuestion, type QuestionSubmissionIssue } from '../utils/question-feedback'
+import { hasOriginalQuestionIdentity, isSameOriginalQuestion, type QuestionSubmissionIssue } from '../utils/question-feedback'
 
 const props = defineProps<{
   questionData: UserQuestionRequiredEventData
@@ -55,7 +55,8 @@ function scheduleExpiry() {
 onBeforeUnmount(() => { if (expiryTimer !== undefined) clearTimeout(expiryTimer) })
 
 const issue = computed<QuestionSubmissionIssue | undefined>(() => {
-  if ('identityStatus' in props.questionData && props.questionData.identityStatus === 'identity_unavailable') {
+  if (!hasOriginalQuestionIdentity(props.questionData)
+    || ('identityStatus' in props.questionData && props.questionData.identityStatus === 'identity_unavailable')) {
     return { kind: 'unavailable', message: '旧问题无法继续作答。' }
   }
   if (deadline.value !== undefined && now.value >= deadline.value) {
