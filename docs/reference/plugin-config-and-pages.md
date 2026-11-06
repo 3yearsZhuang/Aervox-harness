@@ -177,6 +177,42 @@ Page 卸载、generation 丢弃、安装失败回滚与插件资源清理同样�
 
 已实现防护与剩余缺口分别验收，不通过文字变更批准放宽 ADR-009，也不能宣称沙箱与资源配额已完全闭合。
 
+<a id="page-resource-channel-probe"></a>
+
+### 3.3 ITER-006 资源通道设计验证与 ADR 差量草案
+
+本节是待评审方案及隔离浏览器证据，不改变上述生产认证、CSP、Page 合同或第三方准入。[浏览器探针](../../e2e/ui/page-resource-channel.spec.ts)启动两个动态端口的 loopback HTTP 服务，只使用内存中的合成 Page 和临时凭据；它复用生产 Bearer/浏览器来源检查及当前 Page CSP，不装配业务 API 或读取用户数据库。探针关闭 trace、HAR、视频和截图，观察记录仅保留方法、资源路径、destination、Origin、状态及凭据是否存在，不记录 Bearer/Cookie 值。
+
+从仓库根通过锁定工具链运行：
+
+```sh
+mise exec -- "$(mise which node)" node_modules/@playwright/test/cli.js test --project=ui e2e/ui/page-resource-channel.spec.ts
+```
+
+本次开发机验证使用 Node v24.21.0、Playwright 1.62.1、Chromium 151.0.7922.34；这不是 WebView、Electron、跨平台或生产发布证明。Cookie 会话、凭据型资源 CORS 和代际 guard 都仅存在于[探针服务](../../e2e/ui/page-resource-probe.ts)，没有新增生产签发端点。
+
+| 路径 | 真实浏览器观察 | 不能据此承诺的范围 |
+|---|---|---|
+| 现行 Bearer + iframe `src` | 导航不携带 Bearer，返回 401 | 当前 Token Page 通道仍未完成 |
+| HttpOnly + Strict/Lax | 首次 HTML 可加载；opaque 页面后续 classic JS/CSS 读请求没有 Cookie，返回 401 | 首文档加载不证明嵌套资源可用 |
+| HttpOnly + `SameSite=None` | 缺 `Secure` 时浏览器不保存；loopback 中 None/Secure 可用于 classic JS、CSS、图片 | HTTP loopback 的开发行为不替代正式 HTTPS/平台兼容验收 |
+| None/Secure + module | 默认 module credentials 不带 Cookie，返回 401；入口声明 `crossorigin="use-credentials"` 后嵌套模块图可加载，资源响应另需凭据型 CORS | 此 CORS 变化尚未批准；第三方 Cookie 限制仍使资源读失败 |
+| 同 Origin 的两个 opaque Page | B 引用 A 的资源路径，浏览器带 A 的 HttpOnly/path Cookie 并取得 200 | path 绑定的是目标地址；`Origin: null` 和 Fetch Metadata 不证明发起 Page 身份，Cookie-only 不能保证跨插件隔离 |
+| 字体 | 当前 CSP 未声明 `font-src`，按 `default-src 'none'` 阻断，未发起字体读取 | 不以认证成功宣称字体支持；探针未放宽 CSP，字体字节只是网络哨兵，不证明字体解码 |
+| 过期、撤销及四种代际变化 | 服务器逻辑时钟过期、撤销及 lifecycle/Page/Bundle/文档变化均拒绝新资源读；已加载代码仍继续计时，直至 Host 移除 iframe | 不证明浏览器 Cookie 自然到期、生产推送接线、后台墙钟终止或 CPU/内存配额 |
+| Host 原样预载 HTML → `srcdoc` | Host 带 Bearer 读取，Page 保持 opaque；相对资源解析到 Host，原嵌套资源不工作 | 不能把 HTML 预载当作完整资产映射 |
+| Host 预载有限资源图并内联 | 合成模块/CSS/图片图的所有输入经 Host Bearer 读取，Page 无资源 Cookie 或 Bearer，内联后可加载；`import.meta.url` 变为 Host 文档 URL | 相对动态资源、未知 import、通用作者代码、字体及完整制品编译未验证，不能静默改写后宣称通用兼容 |
+
+**建议草案：** 不采用同 Origin 的 Cookie-only 作为 Page 隔离准入。先评审受信 Host 认证预载、只交付有限且自包含第一方制品的路径；制品在受信构建阶段处理明确的模块/CSS/图片图，Host 不运行通用字符串替换器来修复任意 Page。未知依赖和不支持的 URL 语义明确拒绝或报告，不自动降级到 open、URL 凭据、`allow-same-origin`、远程代码或放宽 CSP。通用第三方页面、根界面及可执行插件仍分别受 [ADR-009](adr/ADR-009-electron-plugin-sandbox.md)、[ADR-026](adr/ADR-026-ui-surface-open-ecosystem.md) 和 ITER-019/056 的现行门槛约束。
+
+获批准前应把以下差量写入对应 ADR，再实施生产接线：
+
+- 明确支持的自包含制品及版本/MIME/尺寸/资源配额、编译责任和 URL 语义；不能把本探针的有限图当作通用解析器。
+- Host 读取和挂载都绑定 lifecycle/Page/Bundle/文档身份，完整制品摘要与原子发布共同成立；在途读取、换代、撤销、缺包和迟到响应不能挂载旧字节。现有逐文件上传与 SQL 摘要 CAS 不代替此条件。
+- Bearer 仅由受信 Host 用于原有认证请求，iframe 和插件代码只收到制品字节；Page capability、文档 Nonce 与 scoped sensor grant 仍独立核验。
+- 保留 opaque sandbox 和现行 CSP，明确 Host 失效销毁及生产撤权观察方式，单列代码终止和配额的实际证据；服务端拒绝新读不等于停止已运行代码。
+- 用声明支持的 Web/Electron/WebView 验证重载、并行页面、跨插件、过期/撤销/换代及旧响应；当前探针不提高任何 CAP 或发布状态。
+
 ## 4. 服务端会话回合插件体系（Server Turn Plugin Pipeline）
 
 ### 4.1 核心契约与执行生命周期

@@ -11,6 +11,7 @@ import { registerMcpOpenApiPaths, registerMcpOpenApiSchemas } from './mcp-openap
 import { apiProblemSchema, type ApiEndpoint } from "./http-api.js";
 import { turnDiagnosticsApi } from "./turn-diagnostics-api.js";
 import { sessionHistoryApi } from "./session-history-api.js";
+import { sessionsApi } from "./sessions-api.js";
 import { voiceApi } from "./voice-api.js";
 import { mcpApi } from "./mcp-api.js";
 import { llmApi } from "./llm-api.js";
@@ -437,19 +438,6 @@ const proactiveHeaders = commonHeaders.extend({
 const proactiveSourceGrantIdParam = z.object({ sourceGrantId: z.string().min(1) });
 const proactiveConnectionIdParam = z.object({ id: z.string().min(1) });
 const proactiveHomeEntityParam = z.object({ id: z.string().min(1), entityId: z.string().min(3) });
-
-registry.registerPath({
-  method: "get",
-  path: "/v1/sessions",
-  summary: "枚举会话列表",
-  tags: ["Session"],
-  responses: {
-    200: {
-      description: "会话列表",
-      content: { "application/json": { schema: listSessionsResponseSchema } },
-    },
-  },
-});
 
 registry.registerPath({
   method: "post",
@@ -1010,7 +998,7 @@ function registerJsonEndpoint(endpoint: ApiEndpoint): void {
     },
   });
 }
-for (const endpoint of [...Object.values(turnDiagnosticsApi), ...Object.values(sessionHistoryApi), ...Object.values(modelRuntimeApi), ...Object.values(llmApi), ...Object.values(preferencesApi), ...Object.values(privacyApi), ...Object.values(skillsApi), ...Object.values(branchesApi), ...Object.values(feedbackApi)] as ApiEndpoint[]) {
+for (const endpoint of [...Object.values(turnDiagnosticsApi), ...Object.values(sessionHistoryApi), ...Object.values(sessionsApi), ...Object.values(modelRuntimeApi), ...Object.values(llmApi), ...Object.values(preferencesApi), ...Object.values(privacyApi), ...Object.values(skillsApi), ...Object.values(branchesApi), ...Object.values(feedbackApi)] as ApiEndpoint[]) {
   registerJsonEndpoint(endpoint);
 }
 registry.registerPath({

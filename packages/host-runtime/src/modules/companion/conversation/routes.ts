@@ -9,6 +9,7 @@ import type { FastifyInstance } from "fastify";
 import {
   turnDiagnosticsApi,
   sessionHistoryApi,
+  sessionsApi,
   createTurnRequestSchema,
   editMessageSchema,
   submitQuestionAnswersRequestSchema,
@@ -30,7 +31,7 @@ const nextTurnId = (): string => `turn_${Date.now().toString(36)}_${(++seq).toSt
 export interface ConversationHttpPort {
   commands: Pick<ConversationCommandPort, "ensureSession" | "createSession" | "renameSession" | "deleteSession" | "createTurn" |
     "cancelTurn" | "answerQuestions" | "approve" | "createMessage" | "editMessage" | "deleteMessage" | "restoreMessage">;
-  queries: Pick<ConversationQueryPort, "getTurnDiagnostics" | "getSessionHistoryPage" | "listSessions" | "getStreamEventById" |
+  queries: Pick<ConversationQueryPort, "getTurnDiagnostics" | "getSessionHistoryPage" | "getSession" | "listSessions" | "getStreamEventById" |
     "getStreamEventHighWater" | "getStreamReplayState" | "getStreamEventsPage" | "getStreamEventForDisclosure" |
     "isTurnStreamDisclosable" | "pendingQuestions" | "subagents" |
     "workflows" | "messageDeleteImpact" | "listMessageVersions">;
@@ -74,21 +75,27 @@ export function registerConversationRoutes(
     }
   });
   // GET /v1/sessions — 枚举会话列表（按最近更新时间排序）
-  app.get("/v1/sessions", async (req, reply) => {
+  registerContractRoute(app, sessionsApi.list, async (req, reply) => {
+    reply.header("Cache-Control", "no-store");
     const tenant = resolveLocalContext(req);
     const { limit, offset, projectId } = req.query as {
       limit?: string;
       offset?: string;
       projectId?: string;
     };
-    const parsedLimit = limit ? Number.parseInt(limit, 10) : 100;
-    const parsedOffset = offset ? Number.parseInt(offset, 10) : 0;
     const items = await queries.listSessions(tenant, {
-      limit: Number.isFinite(parsedLimit) && parsedLimit >= 0 ? parsedLimit : 100,
-      offset: Number.isFinite(parsedOffset) && parsedOffset >= 0 ? parsedOffset : 0,
+      limit: limit === undefined ? 100 : Number(limit),
+      offset: offset === undefined ? 0 : Number(offset),
       projectId: projectId || undefined,
     });
-    return reply.send({ items });
+    return { items };
+  });
+  registerContractRoute(app, sessionsApi.get, async (req, reply) => {
+    reply.header("Cache-Control", "no-store");
+    const { sessionId } = req.params as { sessionId: string };
+    const session = await queries.getSession(resolveLocalContext(req), sessionId);
+    if (!session) return reply.code(404).send({ code: "SESSION_NOT_FOUND", message: "Session not found" });
+    return session;
   });
 
   // POST /v1/sessions — 创建新会话
