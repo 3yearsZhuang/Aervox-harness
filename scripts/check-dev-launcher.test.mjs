@@ -347,3 +347,30 @@ test('real mise exec and tasks preserve caller exports, .env, then project defau
     assert.deepEqual(JSON.parse(dotenv.stdout), { port: '5999', database: 'file:dotenv.db', provider: 'scripted', project: 'aervox-harness' });
   }
 });
+
+test('project mise keeps the locked Node ahead of an inherited competing runtime for pnpm children', t => {
+  const { dir } = fixture(t);
+  const config = readFileSync(new URL('../mise.toml', import.meta.url), 'utf8');
+  const pinnedMajor = config.match(/^node = "(\d+)"$/m)[1];
+  writeFileSync(join(dir, 'mise.toml'), `${config}\n[tasks.inspect-runtime]\nrun = "pnpm exec node inspect-runtime.cjs"\n`);
+  writeFileSync(join(dir, 'package.json'), '{"private":true}');
+  writeFileSync(join(dir, 'inspect-runtime.cjs'), "require('node:fs').writeFileSync('runtime.json', JSON.stringify({ version: process.versions.node }));");
+  const env = { ...process.env, MISE_TRUSTED_CONFIG_PATHS: dir, MISE_ACTIVATE_AGGRESSIVE: undefined };
+  // Simulate an already activated shell followed by another installation that
+  // prepends itself. Direct `mise exec node` can hide this child-PATH mismatch.
+  const activated = spawnSync('mise', ['env', '--json'], { cwd: dir, env, encoding: 'utf8' });
+  assert.equal(activated.status, 0, activated.stderr);
+  mkdirSync(join(dir, 'competing-bin'));
+  writeFileSync(join(dir, 'competing-bin/node'), '#!/bin/sh\necho competing-runtime >&2\nexit 91\n', { mode: 0o755 });
+  const inherited = { ...env, ...JSON.parse(activated.stdout) };
+  inherited.PATH = `${join(dir, 'competing-bin')}:${inherited.PATH}`;
+  for (const command of [
+    ['exec', '--', 'bash', '-c', 'pnpm exec node inspect-runtime.cjs'],
+    ['tasks', 'run', 'inspect-runtime'],
+  ]) {
+    rmSync(join(dir, 'runtime.json'), { force: true });
+    const child = spawnSync('mise', command, { cwd: dir, env: inherited, encoding: 'utf8' });
+    assert.equal(child.status, 0, child.stderr || child.stdout);
+    assert.equal(JSON.parse(readFileSync(join(dir, 'runtime.json'), 'utf8')).version.split('.')[0], pinnedMajor);
+  }
+});
