@@ -3,6 +3,7 @@
  */
 import { eq, and, gt, lte, desc, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../../client.js";
+import { byteLength } from "../../../sql-dialect.js";
 import { turnStreamEvents, turnAttempts, deletionRequests, turns, messageVersions } from "@aervox/schema";
 import type { LocalContext } from "../../../local-context.js";
 import { assertPluginGeneration, type PluginGenerationIdentity } from "../../../plugin-generation-guard.js";
@@ -30,7 +31,7 @@ export class StreamEventStore {
   }): Promise<TurnStreamEventModel> {
     return this.db.transaction(async tx => {
       await assertPluginGeneration(tx, input.pluginGeneration);
-      const [deletion] = await tx.select({ id: deletionRequests.id }).from(deletionRequests).where(unverifiedDeletionRequest).limit(1);
+      const [deletion] = await tx.select({ id: deletionRequests.id }).from(deletionRequests).where(unverifiedDeletionRequest(tx)).limit(1);
       if (deletion) throw new Error("deletion_blocked");
       const [attempt] = await tx.select().from(turnAttempts).where(and(
         eq(turnAttempts.id, input.attemptId), eq(turnAttempts.turnId, input.turnId),
@@ -233,7 +234,7 @@ export class StreamEventStore {
     // JSON rows would still materialize an arbitrarily large 256-event page.
     const candidates = await this.db.select({
       sequence: turnStreamEvents.sequence,
-      dataBytes: sql<number>`length(cast(${turnStreamEvents.data} as blob))`,
+      dataBytes: byteLength(this.db, turnStreamEvents.data),
     }).from(turnStreamEvents).where(and(
       eq(turnStreamEvents.turnId, turnId),
       gt(turnStreamEvents.sequence, after),

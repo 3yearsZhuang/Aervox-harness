@@ -3,6 +3,7 @@ import { learningGoals, memoryRecords, messages, messageVersions, questionAttemp
 import type { DiaryMaterial, DiaryMaterialPort, LocalContext } from "@aervox/contracts";
 import type { AervoxDatabase } from "../../client.js";
 import { derivableConversationTurn } from "./conversation/source-visibility.js";
+import { jsonQuote } from "../../sql-dialect.js";
 
 export function createSqliteDiaryMaterialPort(db: AervoxDatabase): DiaryMaterialPort {
   return { collect: (context, window) => collectDiaryMaterial(db, context, window) };
@@ -18,7 +19,7 @@ export async function collectDiaryMaterial(
   const messageRows = await db
     .select({
       role: messageVersions.role,
-      content: sql<string>`json_quote(${messageVersions.content})`.mapWith(value => JSON.parse(value) as string),
+      content: jsonQuote(db, messageVersions.content).mapWith(value => JSON.parse(value) as string),
       createdAt: messageVersions.createdAt,
     })
     .from(messageVersions)

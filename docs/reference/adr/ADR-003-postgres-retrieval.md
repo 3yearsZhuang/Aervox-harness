@@ -5,7 +5,7 @@ decision_status: accepted
 
 # ADR-003 仓储抽象架构：SQLite 业务真源与 FTS5/Vector Port
 
-维护者已要求重新引入可选 PostgreSQL 主库、现有 SQLite 迁移与自管本机/远程连接；拟议差量见 [ADR-034](ADR-034-postgresql-database-plugin.md)，由 [ITER-078](../../../plan.md#iter-078) 协调。该后端尚未实现，主动数据去向待裁定；下文保留现行实现与原决定，不能据提案认为数据库切换已经可用。
+[ADR-034](ADR-034-postgresql-database-plugin.md)已接续本记录的后端选择条款：SQLite 保持默认，用户可安装并启用可选 PostgreSQL Provider，通过离线迁移与激活选择自管主库。单用户、双包仓储、来源与删除责任保留，远端不取得 `local_only` 资格；实施和验证见 [ITER-078](../../../plan.md#iter-078)。下文保留 CR-030 的决定与时点证据，不把历史取消 PostgreSQL 规划解释为禁止该已批准差量。
 
 - 状态：Accepted（经 `CR-030`（已归档） 修订）
 - 日期：2026-08-24
@@ -13,7 +13,7 @@ decision_status: accepted
 
 ## Context
 
-系统需要强事务、来源外键、记忆树递归查询、全文检索和向量召回。Aervox 已确定为本地单用户产品，数据持久层仍需要清晰的 Schema 与 Repository / Port 分层，但不再承担多租户模拟或 PostgreSQL 兼容。
+系统需要强事务、来源外键、记忆树递归查询、全文检索和向量召回。Aervox 已确定为单用户产品，数据持久层需要清晰的 Schema 与 Repository / Port 分层，不承担多租户模拟。CR-030 当时取消的 PostgreSQL 演进由 ADR-034 以可选、单主库方式重新界定。
 
 ## Decision drivers
 
@@ -26,11 +26,11 @@ decision_status: accepted
 
 1. **SQLite WAL + Schema/Repository 分层 + FTS5/Vector Port**：单机零外部依赖、内置 FTS5 与递归 CTE，派生向量可重建（选定）。
 2. **SQLite 单体数据库包**：减少包数量，但会撤销 W-19 已验证的边界并重新形成巨型文件，拒绝。
-3. **PostgreSQL 或双真源**：引入本地产品不需要的部署、身份、RLS、同步与密钥复杂度，终止规划。
+3. **PostgreSQL 或双真源**：CR-030 当时因部署、身份、RLS、同步与密钥复杂度终止规划；现行可选单主库差量见 ADR-034，不恢复双真源或租户隔离。
 
 ## Decision
 
-**终态决策**：以 SQLite（LibSQL）+ Drizzle ORM 作为永久本地业务真源，保留 `@aervox/schema` + `@aervox/repositories` 双包分层；经 `CR-030`（已归档） 移除租户列、`TenantContext` 和 PostgreSQL 演进目标。
+**CR-030 决定**：以 SQLite（LibSQL）+ Drizzle ORM 为本地业务真源，保留 `@aervox/schema` + `@aervox/repositories` 双包分层，移除租户列、`TenantContext` 和当时的 PostgreSQL 演进目标。**现行接续**：SQLite 保持出厂默认，原生 PostgreSQL、加密启动配置、首次声明安装/启用资格与离线整库迁移按 ADR-034 实施；激活后声明停用/卸载不改变宿主持有的主库。业务实例只允许一个生效主库，故障不回退到旧源。
 
 具体实现要点：
 
@@ -71,3 +71,5 @@ decision_status: accepted
 - **已满足**：SQLite 真源、Schema/Repository 双包和 Repository Port 已稳定运行。
 - **已终止**：PostgreSQL 双引擎、组织级 RLS 和长期租户兼容目标由 CR-030 取消。
 - **当前状态**：CR-030 D1～D3 的迁移基础能力、去租户化和安全入口已实现；完整运行编排、故障注入和 rollback 演练仍是发布前门禁，未恢复 PostgreSQL 演进目标。
+
+上述复核为 2026-08-31 时点记录；后续可选 PostgreSQL 由 ADR-034/ITER-078 接续，结构与隔离迁移已有原生 PostgreSQL 测试，目标环境与正式发布仍分别验收。

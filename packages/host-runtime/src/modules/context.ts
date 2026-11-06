@@ -10,7 +10,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
-import type { AervoxDatabase, ProactiveVaultCipher } from "@aervox/repositories";
+import type { AervoxDatabase, ProactiveVaultCipher, RepositoryConnection, DatabaseStoragePolicy } from "@aervox/repositories";
 import type { IProactiveProfileRepository, SqliteProactiveIntelligenceRepository } from "@aervox/repositories";
 import type { WorkflowDefinition } from "@aervox/core";
 import type { ToolRuntimePort } from "./ecosystem/tools/index.js";
@@ -30,7 +30,9 @@ export interface ModuleContext {
   executionConfig?: import("@aervox/config").ExecutionConfig;
   app: FastifyInstance;
   db: AervoxDatabase;
-  client: Client;
+  client: RepositoryConnection;
+  /** Main-database storage proof gates protected data derived from the local Vault. */
+  storagePolicy?: DatabaseStoragePolicy;
   /** 全链路可观测性门面（结构化日志、指标与审计导出） */
   observability?: Observability;
   /** CAP-033：独立本地主动画像 Vault（生产与主业务库分离） */

@@ -9,6 +9,7 @@
 import { and, desc, eq, gte, lt } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import type { AervoxDatabase } from "../../client.js";
+import { assertProactiveVaultStorage } from "../../storage-policy.js";
 import type { ProactiveVaultCipher } from "../../proactive-vault-crypto.js";
 import { proactiveSituationSnapshots } from "@aervox/schema";
 import {
@@ -71,7 +72,7 @@ export class SqliteProactiveSituationRepository {
   constructor(
     private readonly db: AervoxDatabase,
     private readonly cipher?: ProactiveVaultCipher,
-  ) {}
+  ) { assertProactiveVaultStorage(db); }
 
   private encrypt(value: string | null | undefined, type: string, id: string): string | null {
     if (value === null || value === undefined) return null;

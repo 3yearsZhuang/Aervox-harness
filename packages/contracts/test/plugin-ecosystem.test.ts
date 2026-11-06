@@ -106,6 +106,18 @@ describe("registry and immutable release snapshots", () => {
 
 describe("declared release compatibility gate", () => {
   const compare = (nextManifest: unknown, nextConfig = config(), previousConfig = config()) => comparePluginReleaseChanges({ previousManifest: manifest(), nextManifest, previousConfig, nextConfig });
+  it("requires MAJOR for changing automatic provisioning but accepts an explicit legacy default", () => {
+    const explicitDefault = manifest("1.0.1");
+    (explicitDefault.metadata as Record<string, unknown>).installation = "preinstalled";
+    expect(compare(explicitDefault)).toMatchObject({ breaking: false, validVersionBump: true });
+    const optional = manifest("1.1.0");
+    (optional.metadata as Record<string, unknown>).installation = "optional";
+    expect(compare(optional)).toMatchObject({ breaking: true, requiresMajorBump: true, validVersionBump: false });
+    optional.metadata.version = "2.0.0";
+    optional.metadata.breaking = true;
+    expect(compare(optional)).toMatchObject({ breaking: true, validVersionBump: true });
+    expect(comparePluginReleaseChanges({ previousManifest: optional, nextManifest: explicitDefault, previousConfig: config(), nextConfig: config() })).toMatchObject({ breaking: true, validVersionBump: false });
+  });
   it("allows compatible optional additions but forbids a changed contract under the same version", () => {
     const nextConfig = config([{ key: "message", label: "Message", type: "string", default: "hello" }, { key: "optional", label: "Optional", type: "integer" }]);
     expect(compare(manifest("1.1.0"), nextConfig)).toMatchObject({ breaking: false, validVersionBump: true });

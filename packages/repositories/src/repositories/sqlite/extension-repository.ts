@@ -5,6 +5,7 @@
  * P2/P3 扩展实体：先落表为后续生态/社区功能预留。
  */
 import { eq, and, sql } from "drizzle-orm";
+import { randomGeneration } from "../../sql-dialect.js";
 import type { AervoxDatabase } from "../../client.js";
 import {
   externalSources,
@@ -80,7 +81,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
         .update(plugins)
         .set({
           publisher: pluginData.publisher,
-          lifecycleGeneration: sql`lower(hex(randomblob(16)))`,
+          lifecycleGeneration: randomGeneration(this.db),
           version: pluginData.version,
           checksum: pluginData.checksum,
           signature: pluginData.signature ?? null,
@@ -100,7 +101,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
       .insert(plugins)
       .values({
         id: pluginData.id,
-        lifecycleGeneration: sql`lower(hex(randomblob(16)))`,
+        lifecycleGeneration: randomGeneration(this.db),
         publisher: pluginData.publisher,
         version: pluginData.version,
         checksum: pluginData.checksum,
@@ -121,7 +122,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
   async setPluginAvailability(id: string, availability: "available" | "missing" | "invalid" | "unreadable"): Promise<void> {
     await this.db.update(plugins).set({
       availability,
-      lifecycleGeneration: sql`CASE WHEN ${plugins.availability} <> ${availability} THEN lower(hex(randomblob(16))) ELSE ${plugins.lifecycleGeneration} END`,
+      lifecycleGeneration: sql`CASE WHEN ${plugins.availability} <> ${availability} THEN ${randomGeneration(this.db)} ELSE ${plugins.lifecycleGeneration} END`,
     }).where(eq(plugins.id, id));
   }
 
@@ -155,7 +156,7 @@ export class SqliteExtensionRepository implements IExtensionRepository {
       .update(plugins)
       .set({
         enabled: enabled ? 1 : 0,
-        lifecycleGeneration: sql`CASE WHEN ${plugins.enabled} <> ${enabled ? 1 : 0} THEN lower(hex(randomblob(16))) ELSE ${plugins.lifecycleGeneration} END`,
+        lifecycleGeneration: sql`CASE WHEN ${plugins.enabled} <> ${enabled ? 1 : 0} THEN ${randomGeneration(this.db)} ELSE ${plugins.lifecycleGeneration} END`,
         updatedAt: now,
       })
       .where(eq(plugins.id, id))

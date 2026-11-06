@@ -385,7 +385,7 @@ export class ConversationRepository implements IConversationRepository {
   }
 
   async recoverExpiredAttempts(
-    client: import("@libsql/client").Client,
+    client: Pick<import("@libsql/client").Client, "execute">,
     options?: { unclaimedTimeoutMs?: number; dispatchTarget?: "default" | "api" },
   ): Promise<number> {
     return this.attemptStore.recoverExpiredAttempts(client, options);
@@ -518,7 +518,7 @@ export class ConversationRepository implements IConversationRepository {
   }
 
   async findResumeCandidates(
-    client: import("@libsql/client").Client,
+    client: Pick<import("@libsql/client").Client, "execute">,
     limit?: number,
   ): Promise<
     Array<{
@@ -534,7 +534,7 @@ export class ConversationRepository implements IConversationRepository {
     return this.safeSegmentStore.findResumeCandidates(client, limit);
   }
 
-  async markPendingOutcomeUnknown(client: import("@libsql/client").Client): Promise<number> {
+  async markPendingOutcomeUnknown(client: Pick<import("@libsql/client").Client, "execute">): Promise<number> {
     return this.safeSegmentStore.markPendingOutcomeUnknown(client);
   }
 

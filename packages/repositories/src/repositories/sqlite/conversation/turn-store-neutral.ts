@@ -171,14 +171,14 @@ export class ConversationTurnStore {
       .from(messageVersions)
       .where(and(eq(messageVersions.turnId, turnId), eq(messageVersions.role, "user"), eq(messageVersions.version, 1)))
       .limit(1);
-    return found && found.isRedacted === 0 && found.deleted === 0 ? found.content : null;
+    return found && Number(found.isRedacted) === 0 && Number(found.deleted) === 0 ? found.content : null;
   }
 
   /** Source presence only: crisis redaction still permits a context-free safety response. */
   async isTurnInputPresent(ctx: LocalContext, turnId: string): Promise<boolean> {
     const [found] = await this.db.select({ id: messageVersions.id }).from(messageVersions).where(and(
       eq(messageVersions.turnId, turnId), eq(messageVersions.role, "user"), eq(messageVersions.version, 1),
-      sql`${deletedInputIdentity} = 0`,
+      sql`not ${deletedInputIdentity}`,
     )).limit(1);
     return Boolean(found);
   }

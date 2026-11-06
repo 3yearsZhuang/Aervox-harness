@@ -1,4 +1,5 @@
 import { assertPluginIdentityMigrationUnlockedForPath } from "./migration/plugin-identities.js";
+import { assertSqliteMigrationUnlocked } from "./storage-admission.js";
 /**
  * Aervox｜思隅 @aervox/repositories — 客户端与连接管理
  *
@@ -56,6 +57,7 @@ export interface ReconnectableClient extends Client {
 export function createReconnectableClient(options: {
   readonly createAndPrepare: () => Promise<Client>;
   readonly initial: Client;
+  readonly assertAdmission?: () => void;
 }): ReconnectableClient {
   let current = options.initial;
   let reconnects = 0;
@@ -69,6 +71,7 @@ export function createReconnectableClient(options: {
 
   const assertOpen = (): void => {
     if (closed) throw new LibsqlError("The client is closed", "CLIENT_CLOSED");
+    options.assertAdmission?.();
   };
 
   // libsql 的本地 SQLite 写锁等待会阻塞 JS：另一事务将无法恢复执行并提交。
@@ -441,6 +444,7 @@ export async function createDatabase(
   // 先确保文件父目录存在（libsql createClient 构造时即打开文件，必须在其之前创建 <repo>/data）
   if (isLocalSqlite && !isMemory) {
     const filePath = fileURLToPath(url);
+    assertSqliteMigrationUnlocked(filePath);
     await assertPluginIdentityMigrationUnlockedForPath(filePath);
     try {
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -451,6 +455,7 @@ export async function createDatabase(
 
   /** 建立一条已完成 PRAGMA 配置的新连接（首次与重连共用，保证自愈后配置一致） */
   const createAndPrepare = async (): Promise<Client> => {
+    if (isLocalSqlite && !isMemory) assertSqliteMigrationUnlocked(fileURLToPath(url));
     const created = createClient({
       url,
       authToken: config.authToken ?? process.env.DATABASE_AUTH_TOKEN,
@@ -472,7 +477,8 @@ export async function createDatabase(
   };
 
   const initial = await createAndPrepare();
-  const reconnectable = createReconnectableClient({ createAndPrepare, initial });
+  const reconnectable = createReconnectableClient({ createAndPrepare, initial,
+    assertAdmission: isLocalSqlite && !isMemory ? () => assertSqliteMigrationUnlocked(fileURLToPath(url)) : undefined });
 
   // T-01：写路径统一 busy 退避重试（仅影响写入口，调用方零侵入）。
   // 顺序：内层负责“换连接自愈”，外层负责“同一连接内的退避重试”。

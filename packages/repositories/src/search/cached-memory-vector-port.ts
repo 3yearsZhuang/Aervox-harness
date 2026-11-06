@@ -10,7 +10,7 @@ export class CachedMemoryVectorSearchAdapter implements IVectorSearchPort {
   private chain: Promise<unknown> = Promise.resolve();
   private queued = 0;
   private closed = false;
-  constructor(private readonly fallback: IVectorSearchPort, private readonly options: { client: Client; modelId: string; databasePath?: string }) {}
+  constructor(private readonly fallback: IVectorSearchPort, private readonly options: { client: Pick<Client, "execute">; modelId: string; databasePath?: string }) {}
   upsert(ctx: LocalContext, items: VectorItem[]): Promise<void> { return this.fallback.upsert(ctx, items); }
   delete(ctx: LocalContext, id: string): Promise<void> { return this.fallback.delete(ctx, id); }
   clearAll(ctx: LocalContext): Promise<void> { return this.fallback.clearAll(ctx); }

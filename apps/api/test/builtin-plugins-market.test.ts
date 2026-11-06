@@ -70,11 +70,14 @@ describe("出厂官方插件集市与全量插件打包验证 (Market & Builtin 
 
     expect(res.statusCode).toBe(200);
     const items = res.json().items;
-    expect(items.length).toBe(10);
+    expect(items.length).toBe(11);
 
     const itemIds = items.map((i: any) => i.id);
     expect(itemIds).not.toContain("workbench-ui");
     expect(itemIds).not.toContain("companion-ui");
+    expect(items.find((item: { id: string }) => item.id === "ap-tool-postgresql")).toMatchObject({
+      displayName: "PostgreSQL 数据库", installed: false,
+    });
     expect(itemIds).toContain("ap-tool-home-assistant");
     expect(itemIds).toContain("ap-sync-xiaomi-health");
     expect(itemIds).toContain("ap-tool-anki-sync");

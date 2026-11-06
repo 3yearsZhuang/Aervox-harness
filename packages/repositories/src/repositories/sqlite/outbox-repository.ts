@@ -10,20 +10,21 @@ import type { LocalContext } from "../../local-context.js";
 import type { FetchPendingEventsOptions, IOutboxRepository, OutboxEventModel } from "../types/index.js";
 import { notifyWorkerWakeup } from "@aervox/process-coordination";
 import { assertMemoryCompactionAvailable, MEMORY_COMPACTION_EVENT_TYPE, MemoryCompactionUnavailableError } from "./memory-compaction-guard.js";
+import { jsonNumber, jsonText, nullSafeDifferent, validJson } from "../../sql-dialect.js";
 
 // Error text can contain a fetched summary. Check the persisted source in the
 // same writer statement as the error update, so cleanup cannot race the guard.
 // A payload flag alone cannot establish that its source still exists or is live.
-const errorWriteAllowed = sql`CASE
-  WHEN ${outboxEvents.eventType} != ${MEMORY_COMPACTION_EVENT_TYPE} THEN 1
-  WHEN json_valid(${outboxEvents.payload}) THEN (
-    json_extract(${outboxEvents.payload}, '$.deleted') IS NOT 1
+const errorWriteAllowed = (db: object) => sql`CASE
+  WHEN ${outboxEvents.eventType} != ${MEMORY_COMPACTION_EVENT_TYPE} THEN true
+  WHEN ${validJson(db, outboxEvents.payload)} THEN (
+    ${nullSafeDifferent(db, jsonNumber(db, outboxEvents.payload, '$.deleted'), 1)}
     AND EXISTS (
       SELECT 1 FROM ${memoryRecords}
-      WHERE ${memoryRecords.id} = json_extract(${outboxEvents.payload}, '$.memoryId')
+      WHERE ${memoryRecords.id} = ${jsonText(db, outboxEvents.payload, '$.memoryId')}
         AND ${memoryRecords.isDeleted} = 0
     )
-  ) ELSE 0 END`;
+  ) ELSE false END`;
 
 // Read raw text before the JSON column mapper can reject the whole batch.
 // Only malformed worker deliveries retain text for per-item rejection; valid
@@ -153,7 +154,7 @@ export class SqliteOutboxRepository implements IOutboxRepository {
         status: sql`CASE WHEN ${outboxEvents.retryCount} + 1 >= ${maxRetries} THEN 'dead_letter' ELSE 'failed' END`,
         lastError: error,
       })
-      .where(and(eq(outboxEvents.id, eventId), errorWriteAllowed))
+      .where(and(eq(outboxEvents.id, eventId), errorWriteAllowed(this.db)))
       .returning({ status: outboxEvents.status, retryCount: outboxEvents.retryCount });
     return (updated as { status: "failed" | "dead_letter"; retryCount: number }) ?? null;
   }
@@ -165,7 +166,7 @@ export class SqliteOutboxRepository implements IOutboxRepository {
         status: "dead_letter",
         lastError: reason,
       })
-      .where(and(eq(outboxEvents.id, eventId), errorWriteAllowed));
+      .where(and(eq(outboxEvents.id, eventId), errorWriteAllowed(this.db)));
   }
 
   async getEventById(eventId: string): Promise<OutboxEventModel | null> {

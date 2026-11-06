@@ -58,6 +58,7 @@ export interface ConversationRouteDeps {
   proactiveActionAuthorizer?: ProactiveActionPort;
   /** CAP-033：本地画像上下文来源。 */
   proactiveRepository?: import("@aervox/repositories").IProactiveProfileRepository;
+  storagePolicy?: import("@aervox/repositories").DatabaseStoragePolicy;
   /** CAP-005：普通长期记忆混合召回，按 request tenant 绑定。 */
   memoryRecall?: MemoryRecallPort;
   /** 插件仓储：用于检查插件启用状态 */
@@ -203,6 +204,7 @@ export async function executeConversationTurn(
         pluginHostServices: deps.pluginHostServices,
         proactiveActionAuthorizer: deps.proactiveActionAuthorizer,
         proactiveRepository: deps.proactiveRepository,
+        storagePolicy: deps.storagePolicy,
         memoryRecall: deps.memoryRecall,
         extensionRepo: deps.extensionRepo,
         pluginConfigRepo: deps.pluginConfigRepo,

@@ -29,7 +29,7 @@ describe("remote registry API integration", () => {
     const market = await app.inject({ method: "GET", url: "/v1/plugins/market" });
     expect(market.statusCode).toBe(200);
     expect(market.json().registryError).toContain("出厂插件");
-    expect(market.json().items).toHaveLength(10);
+    expect(market.json().items).toHaveLength(11);
     expect(market.json().items).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: "ap-tool-flowcampus", source: "builtin", category: "tool" }),
     ]));

@@ -9,6 +9,7 @@
  */
 import { and, desc, eq, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
+import { assertLocalOnlyStorage } from "../../storage-policy.js";
 import {
   proactiveAttentionBudgets,
   proactiveBudgetFeedbackEvents,
@@ -80,7 +81,7 @@ function stateToRowPatch(state: ProactiveBudgetState) {
 }
 
 export class SqliteProactiveBudgetRepository {
-  constructor(private readonly db: AervoxDatabase) {}
+  constructor(private readonly db: AervoxDatabase) { assertLocalOnlyStorage(db); }
 
   /** 读取或初始化预算行（幂等；不存在时按初始状态创建）。 */
   async getOrInitBudget(

@@ -3,7 +3,9 @@ import type {
   IProactiveProfileRepository,
   ProactiveProfileClaimModel,
   LocalContext,
+  DatabaseStoragePolicy,
 } from "@aervox/repositories";
+import { LocalOnlyStorageRequiredError } from "@aervox/repositories";
 
 export function isLiteralLoopbackUrl(value: string): boolean {
   try {
@@ -42,7 +44,9 @@ export function buildProactiveProfilePrompt(claims: ProactiveProfileClaimModel[]
 export async function loadProactiveProfilePrompt(
   repository: IProactiveProfileRepository,
   tenant: LocalContext,
+  storagePolicy?: DatabaseStoragePolicy,
 ): Promise<string> {
+  if (storagePolicy?.localOnlyAllowed !== true) throw new LocalOnlyStorageRequiredError();
   const status = await repository.getEffectiveStatus(tenant);
   if (status.effectiveState !== "active" || !status.revision) return "";
   const claims = await repository.listClaims(tenant, {

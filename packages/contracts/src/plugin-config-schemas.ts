@@ -301,6 +301,8 @@ export const pluginManifestSchema = z.object({
       { message: "Duplicate plugin tags" }).optional(),
     /** 宿主端适配声明（可变元数据，与冻结的 category 正交）：缺省 = 全端可用。 */
     targets: pluginTargetSchema,
+    /** Only source provisioning consumes this policy; explicit package installation remains user initiated. */
+    installation: z.enum(["preinstalled", "optional"]).optional(),
     breaking: z.boolean().optional(),
   }),
   spec: z

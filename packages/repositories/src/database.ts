@@ -6,18 +6,24 @@ import type { Client } from "@libsql/client";
 import type { Logger } from "drizzle-orm/logger";
 import { createTableRelationsHelpers, extractTablesRelationalConfig, type ExtractTablesWithRelations, type RelationalSchemaConfig } from "drizzle-orm/relations";
 import { SQLiteAsyncDialect } from "drizzle-orm/sqlite-core/dialect";
+import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core/db";
 import { LibSQLDatabase } from "drizzle-orm/libsql/driver-core";
 import { LibSQLSession } from "drizzle-orm/libsql/session";
 import * as schema from "@aervox/schema";
 
-export type AervoxDatabase = LibSQLDatabase<typeof schema>;
+/** Domain repositories use the shared, typed asynchronous query frontend. The
+ * actual Session owns native execution and transaction outcomes. SQLite keeps
+ * its LibSQL implementation; PostgreSQL uses a separate Node-only Session. */
+export interface RepositoryCommandResult { readonly rowsAffected: number; }
+export type AervoxDatabase = BaseSQLiteDatabase<"async", RepositoryCommandResult, typeof schema>;
+export type SqliteAervoxDatabase = LibSQLDatabase<typeof schema>;
 export type InjectedDatabaseClient = Client;
 
 /** The exported Drizzle classes expose internal constructor seams. Keep this
  * adaptation local to the locked version and exercise its real transaction and
  * declaration contracts when upgrading; do not copy LibSQLSession transactions.
  */
-export function createInjectedDatabase(client: InjectedDatabaseClient, options: { logger?: Logger } = {}): AervoxDatabase {
+export function createInjectedDatabase(client: InjectedDatabaseClient, options: { logger?: Logger } = {}): SqliteAervoxDatabase {
   const tables = extractTablesRelationalConfig(schema, createTableRelationsHelpers);
   const relationConfig: RelationalSchemaConfig<ExtractTablesWithRelations<typeof schema>> = {
     fullSchema: schema, schema: tables.tables as ExtractTablesWithRelations<typeof schema>, tableNamesMap: tables.tableNamesMap,

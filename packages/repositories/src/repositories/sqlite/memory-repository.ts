@@ -4,7 +4,8 @@
  * 使用 SQLite 3.8.3+ 原生 WITH RECURSIVE CTE 实现记忆树递归遍历与投影。
  */
 import { eq, and, inArray } from "drizzle-orm";
-import type { Client, InValue } from "@libsql/client";
+import type { InValue } from "@libsql/client";
+import type { FtsConnection } from "../../search/fts.js";
 import type { AervoxDatabase } from "../../client.js";
 import {
   memoryRecords,
@@ -30,7 +31,7 @@ import type {
 export class SqliteMemoryRepository implements IMemoryRepository {
   constructor(
     private readonly db: AervoxDatabase,
-    private readonly client: Client,
+    private readonly client: Pick<FtsConnection, "execute">,
   ) {}
 
   async createRecord(

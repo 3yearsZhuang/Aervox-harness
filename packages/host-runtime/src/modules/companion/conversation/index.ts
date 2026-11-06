@@ -10,6 +10,7 @@ import { createBroadcastingStore } from "./broadcasting-store.js";
  */
 import type { ModuleDependencies } from "../../context.js";
 import {
+  databaseStoragePolicyFor,
   SqliteAgentInboxRepository,
   SqliteConversationRepository,
   SqliteExtensionRepository,
@@ -155,6 +156,7 @@ export function registerConversationModule(ctx: ModuleDependencies<"apiRegistry"
     proactiveActionAuthorizer,
     proactiveRepository,
     memoryRecall: ctx.memoryRecall,
+    storagePolicy: databaseStoragePolicyFor(db),
     observability: ctx.observability,
   };
   const application = createConversationApplication(conversationRepo, deps);

@@ -230,7 +230,7 @@ export class ToolExecutionStore {
         // Keep the durable Turn aligned with its latest terminal Attempt in the same transaction.
         const [latest] = await tx.select({ isCurrent: sql<number>`${turnAttempts.id} = ${input.attemptId}` }).from(turnAttempts)
           .where(eq(turnAttempts.turnId, input.turnId)).orderBy(desc(turnAttempts.attempt)).limit(1);
-        if (latest?.isCurrent === 1) {
+        if (Number(latest?.isCurrent) === 1) {
           await tx.update(turns).set({ status: input.status, updatedAt: new Date().toISOString() })
             .where(and(eq(turns.id, input.turnId), inArray(turns.status, ["Created", "Running"])));
         }

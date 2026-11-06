@@ -180,7 +180,7 @@ export class HybridSearchService {
  */
 export function createHybridSearchStorage(opts: {
   domain: HybridSearchDomain;
-  client: import("@libsql/client").Client;
+  client: import("./fts.js").FtsConnection;
   vectorPort: import("./vector-port.js").IVectorSearchPort;
 }): HybridSearchStorage {
   const { domain, client, vectorPort } = opts;

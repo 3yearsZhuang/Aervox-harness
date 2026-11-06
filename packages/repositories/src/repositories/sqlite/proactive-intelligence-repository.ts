@@ -1,6 +1,8 @@
 /** CAP-033/034/035 local proactive intelligence repository. */
 import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
+import { assertProactiveVaultStorage } from "../../storage-policy.js";
+import { ascendingNullsFirst, descendingNullsLast } from "../../sql-dialect.js";
 import type { ProactiveVaultCipher } from "../../proactive-vault-crypto.js";
 import {
   proactiveActionVerifications,
@@ -177,7 +179,7 @@ export class SqliteProactiveIntelligenceRepository {
   constructor(
     private readonly db: AervoxDatabase,
     private readonly cipher?: ProactiveVaultCipher,
-  ) {}
+  ) { assertProactiveVaultStorage(db); }
 
   private encrypt(value: string | null | undefined, type: string, id: string): string | null {
     if (value === null || value === undefined) return null;
@@ -310,7 +312,7 @@ export class SqliteProactiveIntelligenceRepository {
     const conditions = [];
     if (status) conditions.push(eq(proactiveProjects.status, status));
     const rows = await this.db.select().from(proactiveProjects).where(and(...conditions))
-      .orderBy(desc(proactiveProjects.lastActivityAt)).limit(limitOf(limit));
+      .orderBy(descendingNullsLast(this.db, proactiveProjects.lastActivityAt)).limit(limitOf(limit));
     return rows.map((row) => this.projectModel(row));
   }
 
@@ -340,7 +342,7 @@ export class SqliteProactiveIntelligenceRepository {
   }
 
   async listRelationships(ctx: LocalContext, limit?: number) {
-    const rows = await this.db.select().from(proactiveRelationships).orderBy(desc(proactiveRelationships.lastInteractionAt)).limit(limitOf(limit));
+    const rows = await this.db.select().from(proactiveRelationships).orderBy(descendingNullsLast(this.db, proactiveRelationships.lastInteractionAt)).limit(limitOf(limit));
     return rows.map((row) => this.relationshipModel(row));
   }
 
@@ -367,7 +369,7 @@ export class SqliteProactiveIntelligenceRepository {
     if (options.status) conditions.push(eq(proactiveCommitments.status, options.status));
     if (options.dueBefore) conditions.push(lte(proactiveCommitments.dueAt, options.dueBefore));
     const rows = await this.db.select().from(proactiveCommitments).where(and(...conditions))
-      .orderBy(asc(proactiveCommitments.dueAt)).limit(limitOf(options.limit));
+      .orderBy(ascendingNullsFirst(this.db, proactiveCommitments.dueAt)).limit(limitOf(options.limit));
     return rows.map((row) => this.commitmentModel(row));
   }
 

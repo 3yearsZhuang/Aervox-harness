@@ -6,6 +6,7 @@ import { assertConversationExecutionPolicy } from "../../conversation-execution-
 import { derivableConversationTurn } from "./conversation/source-visibility.js";
 import type { LocalContext } from "../../local-context.js";
 import type { SessionHistoryMessage } from "../types/index.js";
+import { jsonObject, jsonQuote, jsonValue, rowPosition } from "../../sql-dialect.js";
 
 const MAX_HISTORY_TURNS = 20;
 const MAX_HISTORY_CHARACTERS = 32_000;
@@ -13,7 +14,7 @@ const MAX_HISTORY_CHARACTERS = 32_000;
 type Reader = Pick<AervoxDatabase, "select">;
 type Version = { id: string; turnId: string; messageId: string | null; role: string; version: number; content: string; isRedacted: number; firstVersion: number };
 type Event = { turnId: string; attemptId: string | null; sequence: number; eventType: string; safetyDecision: string | null; data: unknown };
-type Identity = { id: string; role: string; currentVersionId: string | null; deleted: number };
+type Identity = { id: string; role: string; currentVersionId: string | null; deleted: number | boolean };
 type Source = { turnId: string; versionId: string; messageId: string | null; requestHash: string | null; isRedacted: number };
 const durableSource = (source: Source): boolean => source.messageId === source.versionId
   && !!source.requestHash && /^turn-intent-v1:[a-f0-9]{64}$/.test(source.requestHash);
@@ -39,27 +40,27 @@ export async function readSessionHistory(
 
 async function readHistorySnapshot(db: Reader, input: { sessionId: string; beforeTurnId: string }): Promise<SessionHistoryMessage[]> {
   const [current] = await db.select({
-    position: sql<number>`rowid`,
-    idempotencyKey: sql<string>`json_quote(${turns.idempotencyKey})`.mapWith(parse<string>),
-    executionPolicy: sql<string>`json_quote(${turns.executionPolicy})`.mapWith(parse<string>),
+    position: rowPosition(db).mapWith(Number),
+    idempotencyKey: jsonQuote(db, turns.idempotencyKey).mapWith(parse<string>),
+    executionPolicy: jsonQuote(db, turns.executionPolicy).mapWith(parse<string>),
   }).from(turns).where(and(eq(turns.id, input.beforeTurnId), eq(turns.sessionId, input.sessionId)));
   if (!current || current.idempotencyKey.startsWith("subagent:")) return [];
   assertConversationExecutionPolicy(current.executionPolicy);
-  const [session] = await db.select({ policy: sql<string>`json_quote(${sessions.executionPolicy})`.mapWith(parse<string>) })
+  const [session] = await db.select({ policy: jsonQuote(db, sessions.executionPolicy).mapWith(parse<string>) })
     .from(sessions).where(eq(sessions.id, input.sessionId));
   if (!session || session.policy !== current.executionPolicy) throw new Error("conversation_execution_policy_mismatch");
 
   // Preserve insertion order and the existing 20-completed-Turn candidate window.
-  const previous = await db.select({ id: sql<string>`json_quote(${turns.id})`.mapWith(parse<string>) }).from(turns).where(and(
+  const previous = await db.select({ id: jsonQuote(db, turns.id).mapWith(parse<string>) }).from(turns).where(and(
     eq(turns.sessionId, input.sessionId), eq(turns.executionPolicy, current.executionPolicy), eq(turns.status, "Completed"),
-    notLike(turns.idempotencyKey, "subagent:%"), lt(sql`rowid`, current.position),
-  )).orderBy(desc(sql`rowid`)).limit(MAX_HISTORY_TURNS);
+    notLike(turns.idempotencyKey, "subagent:%"), lt(rowPosition(db), current.position),
+  )).orderBy(desc(rowPosition(db))).limit(MAX_HISTORY_TURNS);
   if (!previous.length) return [];
   const turnIds = previous.map(turn => turn.id);
-  const sources = await db.select({ source: sql<string>`json_object(
-    'turnId', ${turns.id}, 'requestHash', ${turns.requestHash}, 'versionId', ${messageVersions.id},
-    'messageId', ${messageVersions.messageId}, 'isRedacted', ${messageVersions.isRedacted}
-  )`.mapWith(parse<Source>) }).from(turns)
+  const sources = await db.select({ source: jsonObject(db, [
+    ['turnId', turns.id], ['requestHash', turns.requestHash], ['versionId', messageVersions.id],
+    ['messageId', messageVersions.messageId], ['isRedacted', messageVersions.isRedacted],
+  ]).mapWith(parse<Source>) }).from(turns)
     .innerJoin(messageVersions, and(eq(messageVersions.turnId, turns.id), eq(messageVersions.role, "user"), eq(messageVersions.version, 1)))
     .where(and(inArray(turns.id, turnIds), derivableConversationTurn(turns.id)));
   const sourceByTurn = new Map(sources.map(({ source }) => [source.turnId, source]));
@@ -69,17 +70,17 @@ async function readHistorySnapshot(db: Reader, input: { sessionId: string; befor
   // withdrawal gate, but project at most one unsafe identity per candidate Turn
   // instead of copying every streaming delta through a bounded native cursor.
   const unsafeDurableTurnIds = new Set(durableTurnIds.length ? (await db.select({
-    turnId: sql<string>`json_quote(${turnStreamEvents.turnId})`.mapWith(parse<string>),
+    turnId: jsonQuote(db, turnStreamEvents.turnId).mapWith(parse<string>),
   }).from(turnStreamEvents).where(and(inArray(turnStreamEvents.turnId, durableTurnIds),
     inArray(turnStreamEvents.eventType, ["message", "delta", "done", "redacted"]),
     or(eq(turnStreamEvents.eventType, "redacted"), inArray(turnStreamEvents.safetyDecision, ["blocked", "redacted"])),
   )).groupBy(turnStreamEvents.turnId).limit(MAX_HISTORY_TURNS)).map(row => row.turnId) : []);
   // Legacy, unlinked sources still need their approved final-attempt event
   // projection. Do not change their qualification or substitute a durable body.
-  const events = legacyTurnIds.length ? (await db.select({ event: sql<string>`json_object(
-    'turnId', ${turnStreamEvents.turnId}, 'attemptId', ${turnStreamEvents.attemptId}, 'sequence', ${turnStreamEvents.sequence},
-    'eventType', ${turnStreamEvents.eventType}, 'safetyDecision', ${turnStreamEvents.safetyDecision}, 'data', json(${turnStreamEvents.data})
-  )`.mapWith(parse<Event>) }).from(turnStreamEvents).where(and(inArray(turnStreamEvents.turnId, legacyTurnIds),
+  const events = legacyTurnIds.length ? (await db.select({ event: jsonObject(db, [
+    ['turnId', turnStreamEvents.turnId], ['attemptId', turnStreamEvents.attemptId], ['sequence', turnStreamEvents.sequence],
+    ['eventType', turnStreamEvents.eventType], ['safetyDecision', turnStreamEvents.safetyDecision], ['data', jsonValue(db, turnStreamEvents.data)],
+  ]).mapWith(parse<Event>) }).from(turnStreamEvents).where(and(inArray(turnStreamEvents.turnId, legacyTurnIds),
     inArray(turnStreamEvents.eventType, ["message", "delta", "done", "redacted"]))).orderBy(turnStreamEvents.sequence)).map(row => row.event) : [];
   const eventsByTurn = new Map<string, Event[]>();
   for (const event of events) {
@@ -97,12 +98,12 @@ async function readHistorySnapshot(db: Reader, input: { sessionId: string; befor
     // native Turns can exceed a CursorWindow when twenty are copied together.
     // Select latest rows before visibility; never fall back from a missing or
     // redacted current identity to an older version or transport copy.
-    const versions = (await db.select({ version: sql<string>`json_object(
-      'id', ${messageVersions.id}, 'turnId', ${messageVersions.turnId}, 'messageId', ${messageVersions.messageId},
-      'role', ${messageVersions.role}, 'version', ${messageVersions.version}, 'content', ${messageVersions.content}, 'isRedacted', ${messageVersions.isRedacted},
-      'firstVersion', (select min(${versionOrder.version}) from ${messageVersions} as history_version_order
-        where ${versionOrder.turnId} = ${messageVersions.turnId} and ${versionOrder.messageId} = ${messageVersions.messageId})
-    )`.mapWith(parse<Version>) }).from(messageVersions).where(and(eq(messageVersions.turnId, turn.id),
+    const versions = (await db.select({ version: jsonObject(db, [
+      ['id', messageVersions.id], ['turnId', messageVersions.turnId], ['messageId', messageVersions.messageId],
+      ['role', messageVersions.role], ['version', messageVersions.version], ['content', messageVersions.content], ['isRedacted', messageVersions.isRedacted],
+      ['firstVersion', sql`(select min(${versionOrder.version}) from ${messageVersions} as history_version_order
+        where ${versionOrder.turnId} = ${messageVersions.turnId} and ${versionOrder.messageId} = ${messageVersions.messageId})`],
+    ]).mapWith(parse<Version>) }).from(messageVersions).where(and(eq(messageVersions.turnId, turn.id),
       inArray(messageVersions.role, ["user", "assistant"]), isNull(messageVersions.supersededAt)))
       .orderBy(desc(messageVersions.version))).map(row => row.version);
     const identityIds = new Set(versions.map(version => version.messageId ?? version.id));
@@ -110,9 +111,9 @@ async function readHistorySnapshot(db: Reader, input: { sessionId: string; befor
       const messageId = payload(event.data).messageId;
       if (typeof messageId === "string") identityIds.add(messageId);
     }
-    const identities = identityIds.size ? (await db.select({ identity: sql<string>`json_object(
-      'id', ${messages.id}, 'role', ${messages.role}, 'currentVersionId', ${messages.currentVersionId}, 'deleted', ${messages.deletedAt} is not null
-    )`.mapWith(parse<Identity>) }).from(messages).where(and(eq(messages.sessionId, input.sessionId), inArray(messages.id, [...identityIds])))).map(row => row.identity) : [];
+    const identities = identityIds.size ? (await db.select({ identity: jsonObject(db, [
+      ['id', messages.id], ['role', messages.role], ['currentVersionId', messages.currentVersionId], ['deleted', sql`${messages.deletedAt} is not null`],
+    ]).mapWith(parse<Identity>) }).from(messages).where(and(eq(messages.sessionId, input.sessionId), inArray(messages.id, [...identityIds])))).map(row => row.identity) : [];
     const identityById = new Map(identities.map(identity => [identity.id, identity]));
     const currentVersion = (version: Version): boolean => {
       const identity = identityById.get(version.messageId ?? version.id);

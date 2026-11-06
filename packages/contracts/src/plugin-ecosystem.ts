@@ -170,6 +170,9 @@ export function comparePluginReleaseChanges(input: {
     // First declaration: documentation of reality, never a removal. A later
     // narrowing from this set is what the MAJOR rule above protects.
   }
+  if ((before.metadata.installation ?? "preinstalled") !== (after.metadata.installation ?? "preinstalled")) {
+    add("Default installation policy changed");
+  }
   const oldRange = before.requires?.hostApiVersion ?? { min: "1.0.0", maxExclusive: "2.0.0" };
   const newRange = after.requires?.hostApiVersion ?? { min: "1.0.0", maxExclusive: "2.0.0" };
   if (comparePluginVersions(newRange.min, oldRange.min) === 1

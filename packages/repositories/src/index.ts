@@ -6,6 +6,14 @@
  */
 export * from "@aervox/schema";
 export * from "./client.js";
+export * from "./database-selection.js";
+export { backendFor } from "./database-backend.js";
+export { databaseStoragePolicyFor, assertLocalOnlyStorage, LocalOnlyStorageRequiredError } from "./storage-policy.js";
+export type { DatabaseStoragePolicy } from "./storage-policy.js";
+export { createPostgresqlDatabase, postgresqlPoolConfig } from "./driver/create-postgresql-database.js";
+export type { RepositoryConnection, RepositoryTransaction } from "./driver/repository-connection.js";
+export { prepareSqliteToPostgresqlMigration, verifySqliteToPostgresqlMigrationReceipt } from "./migration/sqlite-to-postgresql.js";
+export type { SqliteToPostgresqlMigrationReceipt } from "./migration/sqlite-to-postgresql.js";
 export * from "./proactive-vault-crypto.js";
 export * from "./proactive-vault-auth.js";
 export * from "./errors.js";

@@ -10,7 +10,9 @@ import { createSqliteDiaryMaterialPort } from "@aervox/repositories";
  * - 不重叠：上一轮未结束则跳过本轮（防任务自重叠/堆积），而非排队串行；
  * - 隔离失败：单任务抛错只记录自身日志，不拖垮其它任务与后续轮次。
  */
-import { createDatabase,
+import { createDefaultDatabase,
+  backendFor,
+  databaseStoragePolicyFor,
   initDatabaseSchema,
   SqliteAgentInboxRepository,
   SqliteConversationRepository,
@@ -33,7 +35,9 @@ import { createDatabase,
   SqliteSkillRegistryRepository,
   createProactiveVaultDatabase,
   loadProactiveVaultCipher,
+  type RepositoryConnection,
 } from "@aervox/repositories";
+import type { Client } from "@libsql/client";
 import { loadWorkerConfig, loadHostRuntimeConfig } from "@aervox/config";
 import { registerWorkerShutdown } from "./shutdown.js";
 import { createServer } from "node:http";
@@ -79,11 +83,10 @@ const logger = createStandardLogger({
   defaultFields: { service: "worker", workerId: config.workerId },
 });
 
-const { db, client } = await createDatabase();
-await initDatabaseSchema(client);
-const { db: proactiveDb, client: proactiveClient } = await createProactiveVaultDatabase();
-await initDatabaseSchema(proactiveClient);
-const proactiveCipher = await loadProactiveVaultCipher();
+const { main, proactive, proactiveCipher } = await openWorkerDatabases();
+const { db, client } = main;
+const storagePolicy = databaseStoragePolicyFor(db);
+const { db: proactiveDb, client: proactiveClient } = proactive;
 
 const workerId = config.workerId;
 const defaultTickMs = config.tickMs;
@@ -94,10 +97,20 @@ const privacyRepo = new SqlitePrivacyRepository(db);
 const memoryDeletion = new SqliteMemoryDeletionStore(db);
 const embeddingRepo = new SqliteMemoryEmbeddingRepository(db);
 const embeddingProvider = resolveEmbeddingProvider(process.env);
-const runtime = await buildHostRuntime({
-  role: "worker", config: hostConfig, db, client, proactiveDb, proactiveClient, proactiveCipher, embeddingProvider,
-});
-await runtime.app.ready();
+const runtime = await (async () => {
+  let built: Awaited<ReturnType<typeof buildHostRuntime>> | undefined;
+  try {
+    built = await buildHostRuntime({
+      role: "worker", config: hostConfig, db, client, proactiveDb, proactiveClient, proactiveCipher, embeddingProvider,
+    });
+    await built.app.ready();
+    return built;
+  } catch (error) {
+    if (built) await built.app.close().catch(() => undefined);
+    await Promise.allSettled([Promise.resolve().then(() => client.close()), Promise.resolve().then(() => proactiveClient.close())]);
+    throw error;
+  }
+})();
 const turnDispatchAbort = new AbortController();
 const diaryRepo = new SqliteDiaryRepository(db);
 const diaryGeneration = new DiaryGenerationService({
@@ -146,7 +159,7 @@ host
   })
   .registerJob({
     name: "review",
-    run: () => runReviewNotificationCycle({ platformRepo, learningRepo, workerId }),
+    run: () => storagePolicy.localOnlyAllowed ? runReviewNotificationCycle({ platformRepo, learningRepo, workerId }) : Promise.resolve(0),
   })
   .registerJob({
     name: "diary",
@@ -177,6 +190,7 @@ host
   .registerJob({
     name: "proactive-profile",
     run: async () => {
+      if (!storagePolicy.localOnlyAllowed) return 0;
       const result = await runProactiveProfileCycle({
         repo: proactiveRepo,
         distiller: proactiveDistiller,
@@ -195,6 +209,7 @@ host
   .registerJob({
     name: "proactive-intelligence",
     run: async () => {
+      if (!storagePolicy.localOnlyAllowed) return 0;
       const result = await runProactiveIntelligenceCycle({
         db: proactiveDb,
         profileRepo: proactiveRepo,
@@ -239,3 +254,20 @@ registerWorkerShutdown({ host, abortExecution: () => {
   turnDispatchAbort.abort();
   runtime.conversation.abort();
 }, disposeRuntime: () => runtime.app.close(), clients: [client, proactiveClient], healthServer, logger });
+
+async function openWorkerDatabases() {
+  const main = await createDefaultDatabase();
+  try {
+    if (isPreparedSqliteClient(main.client)) await initDatabaseSchema(main.client);
+    const proactive = await createProactiveVaultDatabase();
+    try {
+      await initDatabaseSchema(proactive.client);
+      const proactiveCipher = await loadProactiveVaultCipher();
+      return { main, proactive, proactiveCipher };
+    } catch (error) { await proactive.client.close(); throw error; }
+  } catch (error) { await main.client.close(); throw error; }
+}
+
+function isPreparedSqliteClient(client: RepositoryConnection): client is Client {
+  return backendFor(client) === "sqlite" && "executeMultiple" in client && "sync" in client && "protocol" in client;
+}
