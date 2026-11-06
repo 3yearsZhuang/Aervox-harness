@@ -150,13 +150,13 @@ final class NativeModelConfigurationForm {
             layout.setErrorTextColor(ColorStateList.valueOf(error));
             layout.setErrorIconTintList(ColorStateList.valueOf(error));
             layout.setHelperTextColor(hint);
-            layout.setCursorColor(ColorStateList.valueOf(primary));
-            layout.setCursorErrorColor(ColorStateList.valueOf(error));
             TextInputEditText input = (TextInputEditText) layout.getEditText();
             input.setTextColor(text);
             input.setHintTextColor(hint);
             input.setHighlightColor(opacity(primary, 0.4f));
             if (Build.VERSION.SDK_INT >= 29) {
+                layout.setCursorColor(ColorStateList.valueOf(primary));
+                layout.setCursorErrorColor(ColorStateList.valueOf(error));
                 tint(input.getTextSelectHandleLeft(), primary);
                 tint(input.getTextSelectHandleRight(), primary);
                 tint(input.getTextSelectHandle(), primary);
@@ -264,7 +264,7 @@ final class NativeModelConfigurationForm {
         view.setSaveEnabled(false);
         view.setSaveFromParentEnabled(false);
         if (Build.VERSION.SDK_INT >= 26) view.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
-        if (Build.VERSION.SDK_INT >= 29) view.setImportantForContentCapture(View.IMPORTANT_FOR_CONTENT_CAPTURE_NO_EXCLUDE_DESCENDANTS);
+        if (Build.VERSION.SDK_INT >= 30) view.setImportantForContentCapture(View.IMPORTANT_FOR_CONTENT_CAPTURE_NO_EXCLUDE_DESCENDANTS);
     }
     private static int dp(Context context, int value) { return Math.round(value * context.getResources().getDisplayMetrics().density); }
 }
