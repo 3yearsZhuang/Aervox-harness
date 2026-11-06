@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { AervoxButton, AervoxCard } from '../primitives';
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { Check, HelpCircle, Send } from 'lucide-vue-next'
 import type { AskUserQuestionAnswerItem, UserQuestionRequiredEventData } from '@aervox/contracts'
+import { isSameOriginalQuestion, type QuestionSubmissionIssue } from '../utils/question-feedback'
 
 const props = defineProps<{
   questionData: UserQuestionRequiredEventData
   submitting?: boolean
+  submissionIssue?: QuestionSubmissionIssue
 }>()
 
 const emit = defineEmits<{
@@ -16,18 +18,75 @@ const emit = defineEmits<{
 // 用户在当前各个问题上的选择与自由填写
 const selections = ref<Record<string, string[]>>({})
 const customAnswers = ref<Record<string, string>>({})
+const now = ref(Date.now())
+const deadline = ref<number>()
+let expiryTimer: ReturnType<typeof setTimeout> | undefined
+let previousQuestion: UserQuestionRequiredEventData | undefined
+let previousContent: string | undefined
+
+function questionContent(data: UserQuestionRequiredEventData): string {
+  return JSON.stringify(data.questions.map(q => ({
+    id: q.id, question: q.question, header: q.header ?? null, detail: q.detail ?? null,
+    multiSelect: q.multiSelect === true,
+    options: q.options?.map(option => [option.label, option.description ?? null]) ?? [],
+    intent: q.intent ? [q.intent.kind, q.intent.approve ?? null] : null,
+  })))
+}
+
+function questionDeadline(data: UserQuestionRequiredEventData): number | undefined {
+  if ('expiresAt' in data && typeof data.expiresAt === 'string') {
+    const absolute = Date.parse(data.expiresAt)
+    if (Number.isFinite(absolute)) return absolute
+  }
+  if (typeof data.timeoutMs === 'number' && Number.isSafeInteger(data.timeoutMs) && data.timeoutMs > 0) {
+    return now.value + data.timeoutMs
+  }
+}
+
+function scheduleExpiry() {
+  if (expiryTimer !== undefined) clearTimeout(expiryTimer)
+  expiryTimer = undefined
+  if (deadline.value === undefined || deadline.value <= now.value) return
+  expiryTimer = setTimeout(() => {
+    now.value = Date.now()
+    scheduleExpiry()
+  }, Math.min(deadline.value - now.value, 2_147_483_647))
+}
+onBeforeUnmount(() => { if (expiryTimer !== undefined) clearTimeout(expiryTimer) })
+
+const issue = computed<QuestionSubmissionIssue | undefined>(() => {
+  if ('identityStatus' in props.questionData && props.questionData.identityStatus === 'identity_unavailable') {
+    return { kind: 'unavailable', message: '旧问题无法继续作答。' }
+  }
+  if (deadline.value !== undefined && now.value >= deadline.value) {
+    return { kind: 'closed', message: '问题已结束，无法继续作答。' }
+  }
+  return props.submissionIssue
+})
+const disabled = computed(() => props.submitting || issue.value?.kind === 'closed' || issue.value?.kind === 'unavailable')
 
 // 初始化默认选中的 Recommended 选项（如果有）
 watch(() => props.questionData, (questionData) => {
-  selections.value = {}
-  customAnswers.value = {}
-  questionData.questions.forEach((q) => {
-    const recommended = q.options?.find((opt) => opt.label.includes('(Recommended)'))
-    selections.value[q.id] = recommended ? [recommended.label] : []
-  })
+  now.value = Date.now()
+  const content = questionContent(questionData)
+  const replay = isSameOriginalQuestion(previousQuestion, questionData) && content === previousContent
+  if (!replay) {
+    selections.value = {}
+    customAnswers.value = {}
+    questionData.questions.forEach((q) => {
+      const recommended = q.options?.find((opt) => opt.label.includes('(Recommended)'))
+      selections.value[q.id] = recommended ? [recommended.label] : []
+    })
+    deadline.value = questionDeadline(questionData)
+  }
+  previousQuestion = questionData
+  previousContent = content
+  scheduleExpiry()
 }, { immediate: true })
 
 function toggleOption(questionId: string, label: string, multiSelect = false) {
+  now.value = Date.now()
+  if (disabled.value) return
   const current = selections.value[questionId] || []
   if (multiSelect) {
     if (current.includes(label)) {
@@ -53,7 +112,9 @@ const isComplete = computed(() => {
 })
 
 function handleSubmit() {
-  if (!isComplete.value || props.submitting) return
+  // Browser timers can be delayed while hidden; check the real deadline again.
+  now.value = Date.now()
+  if (!isComplete.value || disabled.value) return
   const answers: AskUserQuestionAnswerItem[] = props.questionData.questions.map((q) => {
     const selected = selections.value[q.id] || []
     const custom = (customAnswers.value[q.id] || '').trim()
@@ -97,7 +158,7 @@ function handleSubmit() {
             type="button"
             class="uq-option-btn"
             :class="{ active: isSelected(item.id, opt.label) }"
-            :disabled="submitting"
+            :disabled="disabled"
             :aria-pressed="isSelected(item.id, opt.label)"
             @click="toggleOption(item.id, opt.label, item.multiSelect)"
           >
@@ -118,22 +179,23 @@ function handleSubmit() {
             type="text"
             placeholder="或者输入其他补充说明…"
             :aria-label="`${item.question}：补充说明`"
-            :disabled="submitting"
+            :disabled="disabled"
             @keydown.enter.prevent="handleSubmit"
           />
         </div>
       </div>
+      <p v-if="issue" class="uq-feedback" role="status" aria-live="polite">{{ issue.message }}</p>
     </div>
 
     <div class="uq-actions">
       <AervoxButton variant="primary"
         type="button"
         class="uq-submit-btn"
-        :disabled="!isComplete || submitting"
+        :disabled="!isComplete || disabled"
         @click="handleSubmit"
       >
         <Send :size="16" />
-        <span>{{ submitting ? '正在提交…' : '确认并继续' }}</span>
+        <span>{{ submitting ? '正在提交…' : issue?.kind === 'retryable' ? '重新提交' : '确认并继续' }}</span>
       </AervoxButton>
     </div>
   </AervoxCard>
@@ -268,6 +330,13 @@ function handleSubmit() {
   display: flex;
   justify-content: flex-end;
   margin-top: 0.85rem;
+}
+
+.uq-feedback {
+  margin: 0.85rem 0 0;
+  color: var(--text-secondary, #64748b);
+  font-size: 0.8rem;
+  line-height: 1.5;
 }
 
 .uq-submit-btn {

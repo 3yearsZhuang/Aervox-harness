@@ -1,8 +1,23 @@
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { enableAutoUnmount, mount } from '@vue/test-utils';
+import { AervoxHttpError } from '@aervox/api-client';
+import type { UserQuestionRequiredEventData } from '@aervox/contracts';
 import UserQuestionComposer from '../src/components/UserQuestionComposer.vue';
+import { getQuestionSubmissionIssue, isSameOriginalQuestion } from '../src/utils/question-feedback';
 
 enableAutoUnmount(afterEach);
+beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-11-07T00:00:00.000Z')); });
+afterEach(() => vi.useRealTimers());
+
+type OriginalQuestion = UserQuestionRequiredEventData & {
+  attemptId: string; invocationId: string | null; identityStatus: 'available' | 'identity_unavailable'; expiresAt?: string;
+};
+const originalQuestion = (patch: Partial<OriginalQuestion> = {}): OriginalQuestion => ({
+  turnId: 'turn', attemptId: 'attempt', invocationId: 'attempt:1:1', identityStatus: 'available', step: 1,
+  questions: [{id: 'q', question: '选主题', options: [{label: 'A (Recommended)'}, {label: 'B'}]}],
+  ...patch,
+});
+
 it('submits every question with multiple selections and free text only after explicit confirmation', async () => {
   const wrapper = mount(UserQuestionComposer, {props:{questionData:{turnId:'turn',questions:[
     {id:'topics',question:'选择主题',multiSelect:true,options:[{label:'A (Recommended)'},{label:'B'}]},
@@ -25,4 +40,127 @@ it('clears old answers when the next question reuses an id', async () => {
   expect((wrapper.get('input').element as HTMLInputElement).value).toBe('');
   expect(wrapper.get('.uq-option-btn').attributes('aria-pressed')).toBe('false');
   expect(wrapper.get('.uq-submit-btn').attributes('disabled')).toBeDefined();
+});
+
+it('keeps explicitly unavailable legacy questions read-only even with a recommended answer', async () => {
+  const wrapper = mount(UserQuestionComposer, {props: {questionData: originalQuestion({identityStatus: 'identity_unavailable', invocationId: null})}});
+  expect(wrapper.get('.uq-feedback').text()).toBe('旧问题无法继续作答。');
+  expect(wrapper.get('.uq-feedback').element.closest('.user-question-card')).toBe(wrapper.element);
+  for (const control of wrapper.findAll('input, button')) expect(control.attributes('disabled')).toBeDefined();
+  await wrapper.get('.uq-submit-btn').trigger('click');
+  expect(wrapper.emitted('submit')).toBeUndefined();
+});
+
+it('disables an expired absolute deadline and prefers it over a renewed relative timeout', () => {
+  const wrapper = mount(UserQuestionComposer, {props: {questionData: originalQuestion({
+    expiresAt: '2026-11-06T23:59:59.999Z', timeoutMs: 120000,
+  })}});
+  expect(wrapper.get('.uq-feedback').text()).toBe('问题已结束，无法继续作答。');
+  for (const control of wrapper.findAll('input, button')) expect(control.attributes('disabled')).toBeDefined();
+  expect(wrapper.emitted('submit')).toBeUndefined();
+});
+
+it('ends a timed question in its existing card without dropping the entered answer', async () => {
+  const wrapper = mount(UserQuestionComposer, {props: {questionData: originalQuestion({timeoutMs: 1000})}});
+  await wrapper.get('input').setValue('保留我的说明');
+  expect(wrapper.find('.uq-feedback').exists()).toBe(false);
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(wrapper.get('.uq-feedback').text()).toBe('问题已结束，无法继续作答。');
+  expect((wrapper.get('input').element as HTMLInputElement).value).toBe('保留我的说明');
+  for (const control of wrapper.findAll('input, button')) expect(control.attributes('disabled')).toBeDefined();
+});
+
+it('checks wall-clock expiry during Enter submission even when the browser timer was delayed', async () => {
+  const wrapper = mount(UserQuestionComposer, {props: {questionData: originalQuestion({timeoutMs: 1000})}});
+  vi.setSystemTime(new Date('2026-11-07T00:00:02.000Z'));
+  expect(wrapper.get('.uq-submit-btn').attributes('disabled')).toBeUndefined();
+  await wrapper.get('input').trigger('keydown', {key: 'Enter'});
+  expect(wrapper.emitted('submit')).toBeUndefined();
+  expect(wrapper.get('.uq-feedback').text()).toBe('问题已结束，无法继续作答。');
+});
+
+it('retains answers and the original deadline when the complete original question is replayed', async () => {
+  const data = originalQuestion({timeoutMs: 1000});
+  const wrapper = mount(UserQuestionComposer, {props: {questionData: data}});
+  await wrapper.findAll('.uq-option-btn')[1]!.trigger('click');
+  await wrapper.get('input').setValue('原补充');
+  await vi.advanceTimersByTimeAsync(400);
+  await wrapper.setProps({questionData: originalQuestion({
+    timeoutMs: 120000, expiresAt: '2026-11-07T01:00:00.000Z',
+    questions: [{options: [{label: 'A (Recommended)'}, {label: 'B'}], question: '选主题', id: 'q', multiSelect: false}],
+  })});
+  expect((wrapper.get('input').element as HTMLInputElement).value).toBe('原补充');
+  expect(wrapper.findAll('.uq-option-btn')[1]!.attributes('aria-pressed')).toBe('true');
+  await vi.advanceTimersByTimeAsync(600);
+  expect(wrapper.get('.uq-feedback').text()).toBe('问题已结束，无法继续作答。');
+});
+
+it.each([
+  {turnId: 'new-turn'}, {attemptId: 'new-attempt'}, {invocationId: 'attempt:1:2'}, {step: 2},
+])('clears answers when the original identity changes: %j', async identity => {
+  const wrapper = mount(UserQuestionComposer, {props: {questionData: originalQuestion()}});
+  await wrapper.findAll('.uq-option-btn')[1]!.trigger('click');
+  await wrapper.get('input').setValue('前一个问题的补充');
+  await wrapper.setProps({questionData: originalQuestion(identity)});
+  expect((wrapper.get('input').element as HTMLInputElement).value).toBe('');
+  expect(wrapper.findAll('.uq-option-btn')[0]!.attributes('aria-pressed')).toBe('true');
+  expect(wrapper.findAll('.uq-option-btn')[1]!.attributes('aria-pressed')).toBe('false');
+});
+
+it('clears answers when the same identity carries changed question content', async () => {
+  const wrapper = mount(UserQuestionComposer, {props: {questionData: originalQuestion()}});
+  await wrapper.get('input').setValue('旧补充');
+  await wrapper.setProps({questionData: originalQuestion({questions: [{id: 'q', question: '新的题目'}]})});
+  expect((wrapper.get('input').element as HTMLInputElement).value).toBe('');
+  expect(wrapper.get('.uq-submit-btn').attributes('disabled')).toBeDefined();
+});
+
+it('does not invent identity to retain an answer across separate v1 question objects', async () => {
+  const data: UserQuestionRequiredEventData = {turnId: 'turn', step: 1, questions: [{id: 'q', question: '补充'}]};
+  const wrapper = mount(UserQuestionComposer, {props: {questionData: data}});
+  await wrapper.get('input').setValue('此前答案');
+  await wrapper.setProps({questionData: {...data}});
+  expect((wrapper.get('input').element as HTMLInputElement).value).toBe('');
+  expect(wrapper.get('.uq-submit-btn').attributes('disabled')).toBeDefined();
+});
+
+it('keeps a retryable submission editable and shows closed feedback within the question card', async () => {
+  const wrapper = mount(UserQuestionComposer, {props: {questionData: originalQuestion()}});
+  await wrapper.get('input').setValue('待提交补充');
+  await wrapper.setProps({submissionIssue: getQuestionSubmissionIssue(new Error('private raw details'))});
+  expect(wrapper.get('.uq-feedback').text()).toBe('暂时无法确认提交结果，请再试一次。');
+  expect(wrapper.get('.uq-submit-btn').text()).toContain('重新提交');
+  expect(wrapper.get('input').attributes('disabled')).toBeUndefined();
+  await wrapper.get('.uq-submit-btn').trigger('click');
+  expect(wrapper.emitted('submit')![0]![0]).toEqual([{id: 'q', selected: ['A (Recommended)'], custom: '待提交补充'}]);
+  await wrapper.setProps({submissionIssue: getQuestionSubmissionIssue(new AervoxHttpError(409, '/private', {code: 'QUESTION_NOT_PENDING'}))});
+  expect(wrapper.get('.uq-feedback').text()).toBe('问题已结束，无法继续作答。');
+  expect(wrapper.get('input').attributes('disabled')).toBeDefined();
+});
+
+it.each([
+  ['QUESTION_IDENTITY_UNAVAILABLE', 'unavailable'], ['QUESTION_IDENTITY_REQUIRED', 'unavailable'],
+  ['QUESTION_EXECUTION_IDENTITY_REQUIRED', 'unavailable'], ['QUESTION_IDENTITY_CONFLICT', 'unavailable'],
+  ['QUESTION_EXPIRED', 'closed'], ['QUESTION_NOT_PENDING', 'closed'], ['QUESTION_CANCELLED', 'closed'],
+  ['QUESTION_CLOSED', 'closed'], ['QUESTION_TIMEOUT', 'closed'], ['QUESTION_ANSWER_CONFLICT', 'closed'],
+])('maps only typed transport code %s into fixed feedback', (code, kind) => {
+  const issue = getQuestionSubmissionIssue(new AervoxHttpError(409, '/PRIVATE_PATH', {code, detail: 'PRIVATE_DETAIL'}));
+  expect(issue.kind).toBe(kind);
+  expect(issue.message).not.toContain('PRIVATE');
+});
+
+it('keeps unknown failures retryable without reading deceptive code text or private details', () => {
+  for (const error of [new Error('QUESTION_EXPIRED'), new AervoxHttpError(500, '/PRIVATE_PATH', {code: 'UNKNOWN', detail: 'PRIVATE_DETAIL'}), null]) {
+    expect(getQuestionSubmissionIssue(error)).toEqual({kind: 'retryable', message: '暂时无法确认提交结果，请再试一次。'});
+  }
+});
+
+it('matches full original identities or the exact legacy object without guessing from Turn and step', () => {
+  expect(isSameOriginalQuestion(originalQuestion(), originalQuestion())).toBe(true);
+  expect(isSameOriginalQuestion(originalQuestion(), originalQuestion({invocationId: 'different'}))).toBe(false);
+  expect(isSameOriginalQuestion(originalQuestion(), originalQuestion({attemptId: ''}))).toBe(false);
+  const legacy: UserQuestionRequiredEventData = {turnId: 'turn', step: 1, questions: [{id: 'q', question: '题目'}]};
+  expect(isSameOriginalQuestion(legacy, legacy)).toBe(true);
+  expect(isSameOriginalQuestion(legacy, {...legacy})).toBe(false);
+  expect(isSameOriginalQuestion(undefined, undefined)).toBe(false);
 });
