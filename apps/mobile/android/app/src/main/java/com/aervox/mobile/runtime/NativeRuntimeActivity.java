@@ -66,8 +66,13 @@ public class NativeRuntimeActivity extends AppCompatActivity {
         });
         preferences = new NativePreferences(this);
         owner = new NativeBusinessDatabase(this);
-        sqlite = new NativeSqliteSession(owner::open);
-        try { owner.bindSession(sqlite); }
+        try {
+            // Bind before the worker can enter the owner's synchronized open.
+            synchronized (owner) {
+                sqlite = new NativeSqliteSession(owner::open);
+                owner.bindSession(sqlite);
+            }
+        }
         catch (NativeBusinessDatabase.DatabaseException error) { unavailable("本地运行初始化失败。"); return; }
         sqlite.ready().whenComplete((connection, failure) -> runOnUiThread(() -> {
             if (closing.get()) return;

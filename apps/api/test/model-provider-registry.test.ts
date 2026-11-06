@@ -99,6 +99,12 @@ describe("Registered Provider host configuration and local runtime parity", () =
         const events = streamed.body.split("\n").filter(line => line.startsWith("data: ")).map(line => JSON.parse(line.slice(6)));
         const done = events.find(event => event.eventType === "done");
         expect(done?.data).toMatchObject({ status: "Interrupted", reason: `model_${reason}`, isComplete: false });
+        // Periodic stream flushes can add a visible-prefix event at different
+        // times. Each terminal watermark must bind to its own durable log.
+        expect(done.data.lastSequence).toBe(done.sequence);
+        const watermark = await database.client.execute({ sql: "SELECT last_sequence, (SELECT MAX(sequence) FROM turn_stream_events WHERE turn_id = turns.id) AS high_water FROM turns WHERE id = ?", args: [turnId] });
+        expect(Number(watermark.rows[0]?.last_sequence)).toBe(done.sequence);
+        expect(Number(watermark.rows[0]?.high_water)).toBe(done.sequence);
         const runs = await database.client.execute({ sql: "SELECT r.token_usage, r.status FROM model_runs r JOIN turn_attempts a ON a.id = r.attempt_id WHERE a.turn_id = ?", args: [turnId] });
         expect(runs.rows).toHaveLength(1);
         expect(runs.rows[0]?.status).toBe("failed");
@@ -107,7 +113,7 @@ describe("Registered Provider host configuration and local runtime parity", () =
         expect(fixture.requests).toHaveLength(1);
         expect(fixture.requests[0]?.url).toBe("/v1/chat/completions");
         expect(fixture.requests[0]?.body.tools).toBeUndefined();
-        results.push({ done: done.data, usage: recordedUsage });
+        results.push({ done: { status: done.data.status, reason: done.data.reason, isComplete: done.data.isComplete }, usage: recordedUsage });
       } finally {
         await app.close();
         await fixture.stop();
