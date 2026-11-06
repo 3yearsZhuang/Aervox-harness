@@ -445,7 +445,7 @@ cmd_test() {
       run pnpm test:unit
       ;;
     guards)
-      info "运行架构与门禁脚本守护测试 (scripts/*.test.mjs)…"
+      info "运行架构与门禁脚本守护测试…"
       run pnpm test:guards
       ;;
     all|full)
