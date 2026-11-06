@@ -10,6 +10,7 @@ import { messages, messageVersions, memoryRecords, turns } from "@aervox/schema"
 import { derivableConversationTurn } from "../repositories/sqlite/conversation/source-visibility.js";
 import { assertLocalContext, type LocalContext } from "../local-context.js";
 import { FTS_SCHEMA_STATEMENTS } from "../schema/fts-definition.js";
+import { unverifiedAttachmentMemory, unverifiedAttachmentTurn } from "../attachment-source-admission.js";
 
 /**
  * 初始化 FTS5 全文检索引擎虚表
@@ -142,7 +143,8 @@ export async function rebuildSearchProjections(client: ProjectionClient): Promis
       select ${messageIdentity}, ${messageVersions.content} from ${messageSources} where ${eligibleMessage}`),
     statement(sql`delete from memories_fts`),
     statement(sql`insert into memories_fts(id, content)
-      select ${memoryRecords.id}, ${memoryRecords.content} from ${memoryRecords} where ${memoryRecords.isDeleted} = 0`),
+      select ${memoryRecords.id}, ${memoryRecords.content} from ${memoryRecords}
+      where ${memoryRecords.isDeleted} = 0 and ${unverifiedAttachmentTurn(memoryRecords.sourceTurnId)} = 0`),
   ]) await (client as ProjectionWriter).execute(entry);
 }
 
@@ -155,13 +157,13 @@ export async function indexMemoryFts(
   memory: { id: string; content: string },
 ): Promise<void> {
   assertLocalContext(ctx);
-  await client.execute({ sql: `DELETE FROM memories_fts WHERE id = ?`, args: [memory.id] });
-  await client.execute({
+  await client.batch([
+    { sql: `DELETE FROM memories_fts WHERE id = ?`, args: [memory.id] },
     // A late indexer must not resurrect a scrubbed Memory tombstone.
-    sql: `INSERT INTO memories_fts(id, content) SELECT ?, ?
-          WHERE NOT EXISTS (SELECT 1 FROM memory_records WHERE id = ? AND is_deleted = 1)`,
-    args: [memory.id, memory.content, memory.id],
-  });
+    statement(sql`INSERT INTO memories_fts(id, content) SELECT ${memory.id}, ${memory.content}
+      WHERE NOT EXISTS (SELECT 1 FROM ${memoryRecords} WHERE ${memoryRecords.id} = ${memory.id} AND ${memoryRecords.isDeleted} = 1)
+        AND ${unverifiedAttachmentMemory(memory.id)} = 0`),
+  ], "write");
 }
 
 /**
@@ -189,16 +191,14 @@ export async function searchMemoriesFts(
   const sanitized = query.replace(/[^\p{L}\p{N}\s]/gu, " ").trim();
   if (!sanitized) return [];
 
-  const res = await client.execute({
-    sql: `
+  const res = await client.execute(statement(sql`
       SELECT id, rank AS score
       FROM memories_fts
-      WHERE memories_fts MATCH ?
+      WHERE memories_fts MATCH ${sanitized}
+        AND ${unverifiedAttachmentMemory(sql`memories_fts.id`)} = 0
       ORDER BY rank
-      LIMIT ?;
-    `,
-    args: [sanitized, limit],
-  });
+      LIMIT ${limit}
+  `));
 
   return res.rows.map((row) => ({
     id: String(row.id),

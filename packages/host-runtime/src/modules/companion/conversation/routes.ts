@@ -15,7 +15,7 @@ import {
   createSessionRequestSchema,
   renameSessionRequestSchema,
 } from "@aervox/contracts";
-import { TurnIntentConflictError, SessionHistoryReadError } from "@aervox/repositories";
+import { TurnIntentConflictError, SessionHistoryReadError, RepositoryAccessViolationError } from "@aervox/repositories";
 import type { ConversationCommandPort, ConversationQueryPort } from "./application.js";
 import { ConversationCommandError } from "./approval-command.js";
 import { registerContractRoute } from "../../../shared/contract-route.js";
@@ -167,6 +167,10 @@ export function registerConversationRoutes(
         message: { id: messageId, ...parsed.data.message },
       });
     } catch (error) {
+      if (error instanceof RepositoryAccessViolationError && error.message === "ATTACHMENT_SCAN_UNVERIFIED") return reply.code(403).send({
+        code: "ATTACHMENT_SCAN_UNVERIFIED", retryable: false,
+        message: "Attachments are unavailable for model use until their scan provenance is verified; send text instead",
+      });
       if (error instanceof TurnIntentConflictError) return reply.code(409).send({
         code: "IDEMPOTENCY_KEY_REUSED", reason: error.reason, retryable: false,
         message: error.reason === "intent_unavailable" ? "The original Turn intent cannot be verified" : "Idempotency key belongs to a different Turn intent",

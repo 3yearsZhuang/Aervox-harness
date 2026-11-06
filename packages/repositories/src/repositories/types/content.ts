@@ -21,6 +21,7 @@ export interface IContentRepository {
   getAttachment(ctx: LocalContext, id: string): Promise<AttachmentModel | null>;
   /** CAP-012 BR-EXT-002：软删除附件 */
   softDeleteAttachment(ctx: LocalContext, id: string): Promise<AttachmentModel | null>;
+  deleteAttachmentWithDerivatives(ctx: LocalContext, id: string): Promise<{ attachment: AttachmentModel; invalidatedDerivatives: number } | null>;
   /** CAP-012 BR-EXT-001：幂等键查询 */
   getAttachmentByIdempotencyKey(ctx: LocalContext, key: string): Promise<AttachmentModel | null>;
   /** CAP-012 FR-EXT-002：创建解析结果 */

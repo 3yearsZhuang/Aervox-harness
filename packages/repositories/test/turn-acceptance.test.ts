@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createInMemoryDatabase, initDatabaseSchema, SqliteConversationRepository, SqliteAgentInboxRepository } from "../src/index.js";
+import { turnIntentHash } from "../src/conversation-turn-intent.js";
 const ctx = { workspaceId: "local", subjectUserId: "local" };
 describe("atomic Turn acceptance", () => {
   let database: Awaited<ReturnType<typeof createInMemoryDatabase>>;
@@ -34,10 +35,10 @@ describe("atomic Turn acceptance", () => {
     expect((await inbox.getByIdempotencyKey(ctx, "later"))?.status).toBe("pending");
   });
   it("binds request identity before inbox merging and preserves accepted execution parameters", async () => {
-    const input = { turnId: "bound", sessionId: "s", idempotencyKey: "bound", attemptId: "a_bound", message: { id: "m_bound", content: "current", attachments: [{ attachmentId: "a", name: "paper" }] },
+    const input = { turnId: "bound", sessionId: "s", idempotencyKey: "bound", attemptId: "a_bound", message: { id: "m_bound", content: "current" },
       references: [{ sourceId: "source", sourceVersion: "v1" }], metadata: { nested: { b: 2, a: 1 } }, toolApprovalMode: "full_access" as const, actorId: "forged", consumeInbox: true };
     const accepted = await repo.acceptTurn({ ...ctx, actorId: "trusted" }, input);
-    expect(accepted.created && accepted.message.content).toBe("queued\n\ncurrent\n\n[附件清单]\n- paper [id: a]");
+    expect(accepted.created && accepted.message.content).toBe("queued\n\ncurrent");
     const parameters = await repo.getAcceptedTurnParameters(ctx, "bound");
     expect(parameters).toMatchObject({ actorId: "trusted", toolApprovalMode: "full_access", metadata: { nested: { a: 1, b: 2 } } });
     expect(accepted.turn.requestHash).toMatch(/^turn-intent-v1:[a-f0-9]{64}$/);
@@ -51,6 +52,42 @@ describe("atomic Turn acceptance", () => {
     await expect(repo.acceptTurn({ ...ctx, actorId: "other" }, input)).rejects.toMatchObject({ reason: "intent_mismatch" });
     expect(await repo.listTurnAttempts(ctx, "bound")).toHaveLength(1);
     expect(await repo.getAcceptedTurnParameters(ctx, "bound")).toEqual(parameters);
+  });
+
+  it.each([[{ attachmentId: "unverified" }], null, "unverified", {}].map(attachments => ({ attachments })))("refuses attachment input $attachments without consuming inbox or accepting rows", async ({ attachments }) => {
+    const session = await repo.getSession(ctx, "s");
+    await expect(repo.acceptTurn(ctx, { turnId: "blocked", sessionId: "s", idempotencyKey: "same", attemptId: "blocked-attempt",
+      message: { id: "blocked-input", content: "current", attachments: attachments as never }, consumeInbox: true })).rejects.toThrow("ATTACHMENT_SCAN_UNVERIFIED");
+    for (const table of ["turns", "turn_attempts", "messages", "message_versions", "outbox_events"]) {
+      expect(Number((await database.client.execute(`SELECT count(*) AS n FROM ${table}`)).rows[0]!.n)).toBe(0);
+    }
+    expect(await repo.getSession(ctx, "s")).toEqual(session);
+    expect(await inbox.getByIdempotencyKey(ctx, "i")).toMatchObject({ status: "pending", ackedAt: null });
+    expect((await accept()).created).toBe(true);
+  });
+
+  it.each([[{ attachmentId: "historical-clean", name: "paper" }], null, "malformed-reference", {}].map(attachments => ({ attachments })))("denies model and derivative use of historical attachment intent $attachments while retaining user history", async ({ attachments }) => {
+    const accepted = await accept();
+    expect(accepted.created).toBe(true);
+    if (!accepted.created) return;
+    await repo.appendStreamEvent(ctx, { id: "assistant-message", turnId: "t", attemptId: "a_t", expectedFencingToken: 0, sequence: 1,
+      eventType: "message", data: { role: "assistant", messageId: "assistant" }, safetyDecision: "approved" });
+    await repo.recordSafeSegmentAtomically(ctx, { turnId: "t", attemptId: "a_t", expectedFencingToken: 0, sequence: 2,
+      text: "old answer", eventData: { messageId: "assistant", text: "old answer" }, safetyDecision: "approved" });
+    await repo.finalizeAttemptWithEventAtomically(ctx, { turnId: "t", attemptId: "a_t", expectedFencingToken: 0, sequence: 3,
+      status: "Completed", eventType: "done", eventData: { messageId: "assistant", status: "Completed", isComplete: true }, safetyDecision: "approved" });
+    await repo.acceptTurn(ctx, { turnId: "current", sessionId: "s", idempotencyKey: "current", attemptId: "current-attempt", message: { id: "current-input", content: "text" }, consumeInbox: false });
+    expect(await repo.getSessionHistory(ctx, { sessionId: "s", beforeTurnId: "current" })).toHaveLength(2);
+    const intent = { ...accepted.intent, message: { ...accepted.intent.message, attachments: attachments as never } };
+    const requestHash = turnIntentHash(intent);
+    await database.client.execute({ sql: "UPDATE outbox_events SET payload=json_set(payload,'$.intent',json(?),'$.requestHash',?) WHERE id='outbox_t'", args: [JSON.stringify(intent), requestHash] });
+    await database.client.execute({ sql: "UPDATE turns SET request_hash=? WHERE id='t'", args: [requestHash] });
+    expect(await repo.getTurnUserMessage(ctx, "t")).toBeNull();
+    expect(await repo.isTurnInputPresent(ctx, "t")).toBe(false);
+    await expect(repo.getAcceptedTurnParameters(ctx, "t")).rejects.toMatchObject({ reason: "intent_unavailable" });
+    expect(await repo.getSessionHistory(ctx, { sessionId: "s", beforeTurnId: "current" })).toEqual([]);
+    expect((await repo.getSessionHistoryPage(ctx, { sessionId: "s" })).items.find(item => item.turnId === "t")?.messages[0]?.content).toBe("queued\n\ncurrent");
+    expect(await repo.getTurnUserMessage(ctx, "current")).toBe("text");
   });
 
   it.each([null, "old-hash", "turn-intent-v2:" + "a".repeat(64)])("does not guess or replace an unverifiable existing hash: %s", async requestHash => {

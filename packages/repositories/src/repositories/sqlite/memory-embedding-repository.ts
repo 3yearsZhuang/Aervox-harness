@@ -5,12 +5,13 @@
  * 检索走 JS 行扫描 + 余弦（SQLite 无原生向量扩展的兜底）。
  * 向量存储当前由 SQLite 行扫描 + 余弦距离承载，VectorSearchPort 接口预留替换空间。
  */
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { memoryEmbeddings, memoryRecords } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
 import { cosineSimilarity } from "../../search/vector-port.js";
 import { TopK } from "../../search/top-k.js";
+import { unverifiedAttachmentMemory } from "../../attachment-source-admission.js";
 import type { IMemoryEmbeddingRepository } from "../types/index.js";
 
 /** 把 JSON 字符串还原为 number[]；非法数据视为空向量 */
@@ -58,9 +59,9 @@ export class SqliteMemoryEmbeddingRepository implements IMemoryEmbeddingReposito
           await this.db.transaction(async (tx) => {
             for (const item of chunk) {
               // Recheck under the writer lock after any asynchronous embedding generation.
-              const [source] = await tx.select({ isDeleted: memoryRecords.isDeleted }).from(memoryRecords)
+              const [source] = await tx.select({ isDeleted: memoryRecords.isDeleted, unverifiedAttachments: unverifiedAttachmentMemory(memoryRecords.id) }).from(memoryRecords)
                 .where(eq(memoryRecords.id, item.memoryId));
-              if (source?.isDeleted === 1) continue;
+              if (source?.isDeleted === 1 || source?.unverifiedAttachments === 1) continue;
               await tx
                 .insert(memoryEmbeddings)
                 .values({
@@ -115,6 +116,7 @@ export class SqliteMemoryEmbeddingRepository implements IMemoryEmbeddingReposito
       .where(
         and(
           modelId !== undefined ? eq(memoryEmbeddings.modelId, modelId) : undefined,
+          sql`${unverifiedAttachmentMemory(memoryEmbeddings.memoryId)} = 0`,
         ),
       );
 

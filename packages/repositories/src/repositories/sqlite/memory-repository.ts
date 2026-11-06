@@ -3,7 +3,7 @@
  *
  * 使用 SQLite 3.8.3+ 原生 WITH RECURSIVE CTE 实现记忆树递归遍历与投影。
  */
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import type { Client, InValue } from "@libsql/client";
 import type { AervoxDatabase } from "../../client.js";
 import {
@@ -16,6 +16,7 @@ import {
 } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
 import { assertPersonalDerivedDataSource } from "../../conversation-execution-policy.js";
+import { unverifiedAttachmentTurn } from "../../attachment-source-admission.js";
 import { assertMemoryReferenceNotDeleted, assertMemoryRevisionWriteAvailable } from "./memory-write-guard.js";
 import type {
   IMemoryRepository,
@@ -103,6 +104,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
         and(
           inArray(memoryRecords.id, ids),
           eq(memoryRecords.isDeleted, 0),
+          sql`${unverifiedAttachmentTurn(memoryRecords.sourceTurnId)} = 0`,
         ),
       );
     return rows as MemoryRecordModel[];
@@ -116,6 +118,7 @@ export class SqliteMemoryRepository implements IMemoryRepository {
         and(
           eq(memoryRecords.layer, layer),
           eq(memoryRecords.isDeleted, 0),
+          sql`${unverifiedAttachmentTurn(memoryRecords.sourceTurnId)} = 0`,
         ),
       );
     return rows as MemoryRecordModel[];

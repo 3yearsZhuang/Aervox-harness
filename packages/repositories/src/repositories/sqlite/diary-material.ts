@@ -3,6 +3,7 @@ import { learningGoals, memoryRecords, messages, messageVersions, questionAttemp
 import type { DiaryMaterial, DiaryMaterialPort, LocalContext } from "@aervox/contracts";
 import type { AervoxDatabase } from "../../client.js";
 import { derivableConversationTurn } from "./conversation/source-visibility.js";
+import { unverifiedAttachmentTurn } from "../../attachment-source-admission.js";
 
 export function createSqliteDiaryMaterialPort(db: AervoxDatabase): DiaryMaterialPort {
   return { collect: (context, window) => collectDiaryMaterial(db, context, window) };
@@ -57,6 +58,7 @@ export async function collectDiaryMaterial(
     .where(
       and(
         eq(memoryRecords.isDeleted, 0),
+        sql`${unverifiedAttachmentTurn(memoryRecords.sourceTurnId)} = 0`,
         sql`(${memoryRecords.sourceTurnId} IS NULL OR EXISTS (
           SELECT 1 FROM turns source_turn JOIN sessions source_session ON source_session.id = source_turn.session_id
           WHERE source_turn.id = ${memoryRecords.sourceTurnId}

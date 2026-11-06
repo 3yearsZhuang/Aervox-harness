@@ -10,6 +10,8 @@ import { withSessionLock } from "../../../session-lock.js";
 import { requireConversationHost, wakeCommittedOutbox, type ConversationHostPort } from "../../../conversation-host-port.js";
 import { normalizeTurnIntent, turnIntentHashWithHost, renderTurnIntentMessage, TurnIntentConflictError, type AcceptedTurnParameters, type NormalizedTurnIntent } from "../../../conversation-turn-intent-neutral.js";
 import { assertConversationExecutionPolicy, conversationDispatchTarget } from "../../../conversation-execution-policy.js";
+import { RepositoryAccessViolationError } from "../../../errors.js";
+import { unverifiedAttachmentTurn } from "../../../attachment-source-admission.js";
 
 const deletedInputIdentity = sql<number>`EXISTS (
   SELECT 1 FROM ${messages}
@@ -38,6 +40,12 @@ export class ConversationTurnStore {
     const result = await withSessionLock(`turn-idempotency:${input.idempotencyKey}`, () => withSessionLock(`turn-accept:${input.sessionId}`, () => this.db.transaction(async (tx): Promise<TurnAcceptanceResult> => {
       const [existing] = await tx.select().from(turns).where(eq(turns.idempotencyKey, input.idempotencyKey));
       const policy = await this.readSessionPolicy(tx, input.sessionId, input.executionPolicy);
+      // New and historical "clean" values lack trustworthy scan provenance.
+      // Refuse before accepting/replaying a Turn, consuming Inbox or dispatching.
+      const attachments = input.message.attachments;
+      if (attachments !== undefined && (!Array.isArray(attachments) || attachments.length > 0)) {
+        throw new RepositoryAccessViolationError("ATTACHMENT_SCAN_UNVERIFIED");
+      }
       const intent = normalizeTurnIntent(input, policy, ctx.actorId);
       const requestHash = turnIntentHashWithHost(intent, this.host);
       if (existing) {
@@ -167,11 +175,12 @@ export class ConversationTurnStore {
         content: messageVersions.content,
         isRedacted: messageVersions.isRedacted,
         deleted: deletedInputIdentity,
+        unverifiedAttachments: unverifiedAttachmentTurn(messageVersions.turnId),
       })
       .from(messageVersions)
       .where(and(eq(messageVersions.turnId, turnId), eq(messageVersions.role, "user"), eq(messageVersions.version, 1)))
       .limit(1);
-    return found && found.isRedacted === 0 && found.deleted === 0 ? found.content : null;
+    return found && found.isRedacted === 0 && found.deleted === 0 && found.unverifiedAttachments === 0 ? found.content : null;
   }
 
   /** Source presence only: crisis redaction still permits a context-free safety response. */
@@ -179,6 +188,7 @@ export class ConversationTurnStore {
     const [found] = await this.db.select({ id: messageVersions.id }).from(messageVersions).where(and(
       eq(messageVersions.turnId, turnId), eq(messageVersions.role, "user"), eq(messageVersions.version, 1),
       sql`${deletedInputIdentity} = 0`,
+      sql`${unverifiedAttachmentTurn(messageVersions.turnId)} = 0`,
     )).limit(1);
     return Boolean(found);
   }

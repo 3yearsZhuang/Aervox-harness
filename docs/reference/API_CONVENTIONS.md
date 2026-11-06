@@ -46,6 +46,10 @@ HTTP 数据与操作的事实源是 `@aervox/contracts`；[流式协议](STREAMI
 
 运行详情由 [Turn Diagnostics](../../packages/contracts/src/turn-diagnostics-api.ts) 共享声明定义，为只读 GET。省略 attemptId 读取最新尝试，明确指定时必须属于该 Turn；Turn 或 Attempt 不存在均返回 404。响应设置 `Cache-Control: no-store`，不支持 includeRaw 等扩展参数。返回的是有界的持久记录摘要，截断与未采集信息显式提供；不执行模型、工具、审批决定或新 Turn，也不返回对话正文和工具载荷。界面 JSON 导出复用相同响应校验和数据范围。
 
+附件上传成功只证明已接收文件或元数据，新的 `scanStatus` 保持 `pending`。当前生产装配尚无真实扫描证明和 OCR Provider；旧记录的 `clean` 字符串不构成准入证据。解析、裁剪与转文字写请求返回 403、`ATTACHMENT_SCAN_UNVERIFIED`；创建 Turn 携带附件引用时返回同码且 `retryable: false`，在创建会话、Turn、Attempt、Outbox 或消费 Inbox 前拒绝。共享输入框保留草稿与选中文件，提示移除附件后发送文字；重复发送不会等待或绕过扫描。省略附件或使用空数组的纯文本请求继续可用。已知携带附件的历史接单回执不得恢复模型执行或进入对话上下文、消息检索与日记聊天素材；用户历史查看和删除入口保留。显式解析器仅供隔离的端口测试，测试通过不表示真实扫描或 OCR 已完成。
+
+记忆记录通过 `sourceTurnId` 关联到上述附件回执时，也拒绝新建个人派生与压缩、自动模型召回、主动任务上下文、日记素材和 SQLite 文本/向量检索；延迟索引与向量写入须重新检查来源。存在但 JSON 已损坏的接单回执同样拒绝这些用途。自动召回在异步检索完成后回读当前权威记录，因此缓存或原生向量命中不能直接作为正文。用户仍可查看保留的记录；无 `sourceTurnId`、缺失回执或未关联的历史派生不通过正文猜测来源，这些来源证明与历史清理仍是后续范围。
+
 ## 失败与客户端处理
 
 JSON HTTP 失败使用 RFC 9457 `application/problem+json`，结构由 [ApiProblem](../../packages/contracts/src/http-api.ts) 定义。`type/title/status/detail` 描述失败，`code` 用于程序分支，`requestId` 用于定位；`details` 可携带字段错误。`error/message` 在 `/v1` 迁移期保留供旧客户端使用。
