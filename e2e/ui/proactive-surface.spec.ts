@@ -24,7 +24,6 @@ test("mobile keeps a failed draft, reuses its request key, and shows waiting fee
   await page.goto(`${servers.webUrl}/?surface=proactive-ui`, { timeout: 90_000 });
   await expect(page.locator(".proactive-companion")).toBeVisible();
   const materialInput = await page.locator("html").getAttribute("data-design-system") === "material3";
-  if (!materialInput) await page.locator(".pc-whisper-pill").click();
   const input = page.locator(materialInput ? ".pc-whisper-input textarea" : ".pc-whisper-input input");
   await input.click();
   await input.fill("解释变量类型");
@@ -35,8 +34,7 @@ test("mobile keeps a failed draft, reuses its request key, and shows waiting fee
   await expect(input).toHaveValue("解释变量类型");
   await page.getByRole("button", { name: "重试发送", exact: true }).click();
   await expect(page.locator(".pc-dialogue-text")).toContainText("先用一个例子理解变量类型");
-  if (materialInput) await expect(input).toHaveValue("");
-  else await expect(page.locator(".pc-whisper-input")).toHaveCount(0);
+  await expect(input).toHaveValue("");
   await expect(page.locator(".pc-feedback")).toHaveCount(0);
   expect(keys).toHaveLength(2);
   expect(keys[0]).toMatch(/^[a-f0-9]{32}$/);
@@ -63,7 +61,6 @@ test("mobile model settings preserve an edited draft across pages and input stay
   await page.setViewportSize({ width: 320, height: 360 });
   await expect(page.locator(".proactive-companion")).toBeVisible();
   const materialInput = await page.locator("html").getAttribute("data-design-system") === "material3";
-  if (!materialInput) await page.locator(".pc-whisper-pill").click();
   const input = page.locator(materialInput ? ".pc-whisper-input textarea" : ".pc-whisper-input input");
   await input.click();
   await expect(input).toBeFocused();
@@ -74,7 +71,7 @@ test("mobile model settings preserve an edited draft across pages and input stay
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
   await page.keyboard.press("Escape");
   if (materialInput) await expect(page.locator(".proactive-companion")).toBeFocused();
-  else await expect(page.locator(".pc-whisper-pill")).toBeFocused();
+  else await expect(input).toBeVisible();
 });
 
 test("mobile starts in proactive companion and a manual workbench choice survives a plain reload", async ({ page, servers }) => {
@@ -105,9 +102,9 @@ test("settings can switch away from an explicit workbench URL", async ({ page, s
 test("explicit proactive selection keeps the host navigation and composer across reload", async ({ page, servers }) => {
   await page.goto(`${servers.webUrl}/?surface=proactive-ui`, { timeout: 90_000 });
   await expect(page.locator(".proactive-companion")).toBeVisible({ timeout: 90_000 });
-  await expect(page.locator(".pc-choice")).toHaveCount(2);
+  await expect(page.getByRole('navigation', { name: '首页入口' }).getByRole('button')).toHaveCount(4);
   const material = await page.locator("html").getAttribute("data-design-system") === "material3";
-  await expect(page.locator(".pc-whisper-input")).toHaveCount(material ? 1 : 0);
+  await expect(page.locator(".pc-whisper-input")).toHaveCount(1);
   await page.reload();
   await expect(page.locator(".proactive-companion")).toBeVisible();
   if (material) {

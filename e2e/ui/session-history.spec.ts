@@ -4,6 +4,50 @@ import { test, expect, openWorkbench } from './fixtures';
 // Real SQLite/API/browser reads with a deterministic local model fixture.
 test.use({ loopProvider: 'replay', platform: 'web' });
 
+test('restores a page-external selection with 100 real workbench session menus', async ({ page, servers }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const rows = Array.from({ length: 103 }, (_, index) => ({
+    id: `workbench-page-${index}`, title: `保存会话 ${index}`,
+    createdAt: '2026-11-06', updatedAt: '2026-11-06',
+  }));
+  const selected = rows[102]!;
+  const reads: string[] = [];
+  const writes: string[] = [];
+  await page.route('**/v1/sessions**', async route => {
+    const request = route.request();
+    if (request.method() === 'POST') writes.push(request.url());
+    if (request.method() !== 'GET') { await route.continue(); return; }
+    const url = new URL(request.url());
+    reads.push(url.pathname + url.search);
+    const body = url.pathname === '/v1/sessions'
+      ? { items: rows.slice(Number(url.searchParams.get('offset') ?? 0), Number(url.searchParams.get('offset') ?? 0) + Number(url.searchParams.get('limit') ?? 100)) }
+      : url.pathname.endsWith('/history')
+        ? { sessionId: selected.id, nextCursor: null, items: [{
+          turnId: 'page-external-turn', status: 'Completed', isComplete: true, createdAt: '2026-11-06', messages: [{
+            messageId: 'page-external-message', versionId: 'page-external-version', version: 1,
+            role: 'assistant', contentKind: 'message', content: '这是第一页之外原会话保存的正文。',
+            visibility: 'available', legacy: false, readOnly: false, createdAt: '2026-11-06',
+          }],
+        }] } satisfies SessionHistoryPage
+        : rows.find(row => url.pathname === `/v1/sessions/${row.id}`);
+    await route.fulfill({ headers: { 'Access-Control-Allow-Origin': '*' }, contentType: 'application/json', body: JSON.stringify(body) });
+  });
+  await page.addInitScript(id => {
+    localStorage.setItem('aervox_active_session_id', id);
+    localStorage.setItem('aervox-workbench-mode', 'standard');
+  }, selected.id);
+  await openWorkbench(page, servers.webUrl);
+  await expect(page.locator('.session-select')).toHaveCount(100);
+  await expect(page.locator('.session-select').first()).toBeVisible();
+  await expect(page.locator('.session-active-title')).toHaveText(selected.title);
+  await expect(page.locator('.standard-conversation')).toContainText('这是第一页之外原会话保存的正文。');
+  await expect(page.locator('.session-identity-notice')).toHaveCount(0);
+  expect(reads).toContain('/v1/sessions?limit=100&offset=0');
+  expect(reads).toContain(`/v1/sessions/${selected.id}`);
+  expect(writes).toEqual([]);
+});
+
 for (const width of [390, 1280]) {
   test(`selected conversations refill saved text without submitting after reload: ${width}px`, async ({ page, request, servers }, testInfo) => {
     const saved: Array<{ id: string; title: string; content: string }> = [];

@@ -17,7 +17,10 @@ export interface IRecoveryLedgerPort {
   getMaxSequence(): Promise<number>;
   getBySequence(sequence: number): Promise<RecoveryLedgerEventModel | null>;
   getByIdempotencyKey(idempotencyKey: string): Promise<RecoveryLedgerEventModel | null>;
-  /** 只读一致性检查：重复序列 / 序列缺口 / 总量（缺口或重复即账本不可信，供 fail-closed 判断） */
+  /**
+   * 只读一致性检查：重复序列 / 序列缺口 / 总量（缺口或重复即账本不可信）。
+   * 无效序列或超过实现的行数/诊断预算时冲突拒绝，不返回截断的成功报告。
+   */
   inspectConsistency(): Promise<{
     eventCount: number;
     maxSequence: number;
