@@ -386,6 +386,7 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
             contextBuilder: createConversationContext(sessionId, turnId), options: { maxSteps: 6, maxConsecutiveSameTool: 3, toolTimeoutMs: 12_000, maxModelRetries: 0,
               maxTurnDurationMs: 300_000, leaseTtlMs: 30_000, leaseHeartbeatIntervalMs: 10_000 },
           }, { turnId, sessionId, attemptId: accepted.attempt.id, userMessage: content }).finally(() => {
+            store.releaseQuestionExecutionOwner(turnId, accepted.attempt.id);
             control.dispose(); if (active === owner) active = undefined;
           });
           void owner.done.catch(() => undefined);
@@ -461,7 +462,10 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
                 toolCall: { id: toolCallId, name: pending.name, arguments: pending.argumentsJson ?? {} } } },
           },
         }, { turnId, sessionId: turn.sessionId, attemptId: attempt.id, userMessage },
-        ).finally(() => { control.dispose(); if (active === owner) active = undefined; });
+        ).finally(() => {
+          store.releaseQuestionExecutionOwner(turnId, attempt.id);
+          control.dispose(); if (active === owner) active = undefined;
+        });
         void owner.done.catch(() => undefined);
         }
       }

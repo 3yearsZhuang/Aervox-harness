@@ -115,6 +115,8 @@ export class UserQuestionStore {
   async getPending(_ctx: LocalContext, turnId: string): Promise<PendingUserQuestionState | null> {
     const [row] = await this.db.select().from(pendingUserQuestions).where(and(eq(pendingUserQuestions.turnId, turnId),
       sql`${pendingUserQuestions.expiresAt} > ${new Date().toISOString()}`, disclosableTurn(turnId),
+      sql`not exists (select 1 from ${turnAttempts} where ${turnAttempts.id} = ${pendingUserQuestions.attemptId}
+        and ${turnAttempts.turnId} = ${pendingUserQuestions.turnId} and ${turnAttempts.status} in ('CancelRequested', 'Cancelled'))`,
       sql`not exists (select 1 from ${deletionRequests} where ${unverifiedDeletionRequest})`,
     )).limit(1);
     return row ? toPending(row) : null;
@@ -144,6 +146,11 @@ export class UserQuestionStore {
         if (JSON.stringify((answered.data as { answers: unknown }).answers) !== JSON.stringify(normalized)) throw new Error("QUESTION_ANSWER_CONFLICT");
         return toReceipt(identity, answered);
       }
+      const [attempt] = await tx.select({ status: turnAttempts.status }).from(turnAttempts).where(and(
+        eq(turnAttempts.id, identity.attemptId), eq(turnAttempts.turnId, identity.turnId),
+      )).limit(1);
+      if (!attempt) throw new Error("QUESTION_IDENTITY_UNAVAILABLE");
+      if (attempt.status === "CancelRequested" || attempt.status === "Cancelled") throw new Error("QUESTION_CANCELLED");
       if (!current || current.attemptId !== identity.attemptId || current.invocationId !== identity.invocationId || current.step !== identity.step) throw new Error("QUESTION_NOT_PENDING");
       if (current.expiresAt <= new Date().toISOString()) throw new Error("QUESTION_EXPIRED");
       const event = await appendQuestionEvent(tx, identity, "user_question_answered", {

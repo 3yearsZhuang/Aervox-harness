@@ -56,6 +56,10 @@ export class ConversationExecutionStore<Context> implements ExecutionStorePort {
     const owner = this.questionOwners.get(attemptId);
     return owner?.turnId === turnId ? { ...owner } : undefined;
   }
+  /** The host calls this when execution exits without a durable terminal (for example, lease loss). */
+  releaseQuestionExecutionOwner(turnId: string, attemptId: string) {
+    if (this.questionOwners.get(attemptId)?.turnId === turnId) this.questionOwners.delete(attemptId);
+  }
   constructor(
     private readonly repo: ConversationExecutionRepositoryPort<Context>,
     private readonly ctx: Context,
@@ -155,13 +159,17 @@ export class ConversationExecutionStore<Context> implements ExecutionStorePort {
     status: "Running" | "Completed" | "Failed" | "Interrupted" | "Cancelled";
     expectedFencingToken?: number;
   }): Promise<{ ok: boolean }> {
-    const updated = await this.repo.finalizeTurnAttempt(this.ctx, {
-      turnId: input.turnId,
-      attemptId: input.attemptId,
-      status: input.status,
-      expectedFencingToken: input.expectedFencingToken,
-    });
-    return { ok: Boolean(updated) };
+    try {
+      const updated = await this.repo.finalizeTurnAttempt(this.ctx, {
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        status: input.status,
+        expectedFencingToken: input.expectedFencingToken,
+      });
+      return { ok: Boolean(updated) };
+    } finally {
+      if (input.status !== "Running") this.releaseQuestionExecutionOwner(input.turnId, input.attemptId);
+    }
   }
 
   /** B4-D：原子提交「工具结果账本收口 + tool_result 事件」（§12.2） */
@@ -218,17 +226,21 @@ export class ConversationExecutionStore<Context> implements ExecutionStorePort {
     eventData: unknown;
     safetyDecision?: import("@aervox/core/browser").SafetyDecision;
   }): Promise<{ ok: boolean }> {
-    const done = await this.repo.finalizeAttemptWithEventAtomically(this.ctx, {
-      turnId: input.turnId,
-      attemptId: input.attemptId,
-      status: input.status,
-      expectedFencingToken: input.expectedFencingToken,
-      sequence: input.sequence,
-      eventType: input.eventType,
-      eventData: input.eventData,
-      safetyDecision: input.safetyDecision ?? null,
-    });
-    return { ok: done };
+    try {
+      const done = await this.repo.finalizeAttemptWithEventAtomically(this.ctx, {
+        turnId: input.turnId,
+        attemptId: input.attemptId,
+        status: input.status,
+        expectedFencingToken: input.expectedFencingToken,
+        sequence: input.sequence,
+        eventType: input.eventType,
+        eventData: input.eventData,
+        safetyDecision: input.safetyDecision ?? null,
+      });
+      return { ok: done };
+    } finally {
+      this.releaseQuestionExecutionOwner(input.turnId, input.attemptId);
+    }
   }
 
   /** E2：原子提交「安全片段 + delta 事件」（§12.2；fencing 失配转译 LeaseLostError） */
@@ -292,7 +304,9 @@ export class ConversationExecutionStore<Context> implements ExecutionStorePort {
     turnId: string;
     attemptId: string;
   }): Promise<{ ok: boolean; reason?: "not_found" | "already_finalized" }> {
-    return this.repo.requestCancelTurnAttempt(this.ctx, input);
+    const result = await this.repo.requestCancelTurnAttempt(this.ctx, input);
+    if (result.ok) this.releaseQuestionExecutionOwner(input.turnId, input.attemptId);
+    return result;
   }
 
   /** 2b：executor 取消检查点（轮询仓储状态） */

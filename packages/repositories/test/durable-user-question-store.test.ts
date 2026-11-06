@@ -100,6 +100,37 @@ it("rejects expired answers and cleans only the matching expired question", asyn
   await expect(repo.requireUserQuestion(ctx, request)).rejects.toThrow("QUESTION_CLOSED");
 });
 
+it.each(["CancelRequested", "Cancelled"] as const)("rejects a new answer after user cancellation reaches %s", async status => {
+  const { client, repo, request } = await fixture();
+  await repo.requireUserQuestion(ctx, request);
+  expect(await repo.requestCancelTurnAttempt(ctx, identity)).toEqual({ ok: true });
+  if (status === "Cancelled") {
+    await repo.finalizeTurnAttempt(ctx, { ...identity, status, expectedFencingToken: request.expectedFencingToken });
+  }
+  expect(await repo.getTurnAttemptStatus(ctx, identity)).toBe(status);
+  expect(await repo.getPendingUserQuestion(ctx, "turn")).toBeNull();
+  await expect(repo.answerUserQuestion(ctx, identity, answer)).rejects.toThrow("QUESTION_CANCELLED");
+  expect(await repo.getUserQuestionAnswerReceipt(ctx, identity)).toBeNull();
+  expect((await repo.getStreamEvents(ctx, "turn")).map(event => event.eventType)).toEqual(["user_question_required"]);
+  expect((await client.execute("SELECT count(*) AS count FROM pending_user_questions")).rows[0]!.count).toBe(1);
+});
+
+it("returns an already committed answer after cancellation, and allows original answer registration after process interruption", async () => {
+  const first = await fixture();
+  await first.repo.requireUserQuestion(ctx, first.request);
+  const receipt = await first.repo.answerUserQuestion(ctx, identity, answer);
+  await first.repo.requestCancelTurnAttempt(ctx, identity);
+  expect(await first.repo.answerUserQuestion(ctx, identity, answer)).toEqual(receipt);
+  await expect(first.repo.answerUserQuestion(ctx, identity, [{ id: "choice", selected: ["B"] }])).rejects.toThrow("QUESTION_ANSWER_CONFLICT");
+
+  const reopened = await fixture();
+  await reopened.repo.requireUserQuestion(ctx, reopened.request);
+  await reopened.repo.finalizeTurnAttempt(ctx, { ...identity, status: "Interrupted", expectedFencingToken: reopened.request.expectedFencingToken });
+  expect(await reopened.repo.answerUserQuestion(ctx, identity, answer)).toMatchObject({ accepted: true, ...identity });
+  expect(await reopened.repo.getTurnAttemptStatus(ctx, identity)).toBe("Interrupted");
+  expect((await reopened.repo.listTurnAttempts(ctx, "turn")).length).toBe(1);
+});
+
 it.each([false, true])("blocks question writes and disclosure during deletion propagation (answered=%s)", async answered => {
   const { client, repo, request } = await fixture();
   await repo.requireUserQuestion(ctx, request);

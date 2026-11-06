@@ -850,7 +850,8 @@ describe('on-phone question flow over actual SQLite', () => {
     expect(state.done).toHaveBeenCalled();
     // A released question cannot be answered after the stop.
     await expect(transport.submitQuestionAnswers((asked.mock.calls[0]![0] as { turnId: string }).turnId, [{ id: 'q1', selected: [], custom: 'yes' }], undefined, asked.mock.calls[0]![0] as UserQuestionRequiredEventData))
-      .rejects.toThrow('QUESTION_NOT_PENDING');
+      .rejects.toThrow('QUESTION_CANCELLED');
+    expect(fixture.modelRequests).toHaveLength(1);
   }, 20_000);
 });
 
