@@ -8,8 +8,10 @@ import type { LocalContext } from "../../../local-context.js";
 import type { TurnModel, MessageVersionModel, TurnAcceptanceInput, TurnAcceptanceResult, TurnAttemptModel } from "../../types/index.js";
 import { withSessionLock } from "../../../session-lock.js";
 import { requireConversationHost, wakeCommittedOutbox, type ConversationHostPort } from "../../../conversation-host-port.js";
-import { normalizeTurnIntent, turnIntentHashWithHost, renderTurnIntentMessage, TurnIntentConflictError, type AcceptedTurnParameters, type NormalizedTurnIntent } from "../../../conversation-turn-intent-neutral.js";
+import { normalizeTurnIntent, turnIntentHashWithHost, readAcceptedTurnIntent, renderTurnIntentMessage, TurnIntentConflictError, type AcceptedTurnParameters } from "../../../conversation-turn-intent-neutral.js";
 import { assertConversationExecutionPolicy, conversationDispatchTarget } from "../../../conversation-execution-policy.js";
+import { RepositoryAccessViolationError } from "../../../errors.js";
+import { admitsSourceTurn, unverifiedAttachmentTurn } from "../../../attachment-source-admission.js";
 
 const deletedInputIdentity = sql<number>`EXISTS (
   SELECT 1 FROM ${messages}
@@ -38,6 +40,12 @@ export class ConversationTurnStore {
     const result = await withSessionLock(`turn-idempotency:${input.idempotencyKey}`, () => withSessionLock(`turn-accept:${input.sessionId}`, () => this.db.transaction(async (tx): Promise<TurnAcceptanceResult> => {
       const [existing] = await tx.select().from(turns).where(eq(turns.idempotencyKey, input.idempotencyKey));
       const policy = await this.readSessionPolicy(tx, input.sessionId, input.executionPolicy);
+      // New and historical "clean" values lack trustworthy scan provenance.
+      // Refuse before accepting/replaying a Turn, consuming Inbox or dispatching.
+      const attachments = input.message.attachments;
+      if (attachments !== undefined && (!Array.isArray(attachments) || attachments.length > 0)) {
+        throw new RepositoryAccessViolationError("ATTACHMENT_SCAN_UNVERIFIED");
+      }
       const intent = normalizeTurnIntent(input, policy, ctx.actorId);
       const requestHash = turnIntentHashWithHost(intent, this.host);
       if (existing) {
@@ -159,46 +167,57 @@ export class ConversationTurnStore {
   }
 
   async getTurnUserMessage(ctx: LocalContext, turnId: string): Promise<string | null> {
+    return this.db.transaction(tx => this.readUserMessage(tx, turnId));
+  }
+
+  private async readUserMessage(db: Pick<AervoxDatabase, "select">, turnId: string): Promise<string | null> {
     // Acceptance always writes user version 1. A deleted/redacted first input must
     // not be replaced by a later edit or the duplicate body in its Outbox receipt.
     // Read the body and current identity eligibility in the same SQL snapshot.
-    const [found] = await this.db
+    const [found] = await db
       .select({
-        content: messageVersions.content,
+        content: sql<string>`json_quote(${messageVersions.content})`.mapWith(value => JSON.parse(value) as string),
         isRedacted: messageVersions.isRedacted,
         deleted: deletedInputIdentity,
+        unverifiedAttachments: unverifiedAttachmentTurn(messageVersions.turnId),
       })
       .from(messageVersions)
       .where(and(eq(messageVersions.turnId, turnId), eq(messageVersions.role, "user"), eq(messageVersions.version, 1)))
       .limit(1);
-    return found && found.isRedacted === 0 && found.deleted === 0 ? found.content : null;
+    return found && found.isRedacted === 0 && found.deleted === 0 && found.unverifiedAttachments === 0
+      && await admitsSourceTurn(db, turnId, this.host) ? found.content : null;
   }
 
   /** Source presence only: crisis redaction still permits a context-free safety response. */
   async isTurnInputPresent(ctx: LocalContext, turnId: string): Promise<boolean> {
-    const [found] = await this.db.select({ id: messageVersions.id }).from(messageVersions).where(and(
-      eq(messageVersions.turnId, turnId), eq(messageVersions.role, "user"), eq(messageVersions.version, 1),
-      sql`${deletedInputIdentity} = 0`,
-    )).limit(1);
-    return Boolean(found);
+    return this.db.transaction(async tx => {
+      const [found] = await tx.select({ id: messageVersions.id }).from(messageVersions).where(and(
+        eq(messageVersions.turnId, turnId), eq(messageVersions.role, "user"), eq(messageVersions.version, 1),
+        sql`${deletedInputIdentity} = 0`,
+        sql`${unverifiedAttachmentTurn(messageVersions.turnId)} = 0`,
+      )).limit(1);
+      return Boolean(found) && await admitsSourceTurn(tx, turnId, this.host);
+    });
   }
 
   /** Resume from the accepted receipt only; caller parameters and missing legacy receipts are never substituted. */
   async getAcceptedTurnParameters(ctx: LocalContext, turnId: string): Promise<AcceptedTurnParameters> {
-    const turn = await this.getTurn(ctx, turnId);
-    if (!turn?.requestHash || !/^turn-intent-v1:[a-f0-9]{64}$/.test(turn.requestHash)) throw new TurnIntentConflictError("intent_unavailable");
-    const [receipt] = await this.db.select({ payload: outboxEvents.payload }).from(outboxEvents).where(eq(outboxEvents.id, `outbox_${turnId}`));
-    let intent: NormalizedTurnIntent;
-    try {
-      const payload = receipt?.payload as { intent?: NormalizedTurnIntent; requestHash?: string } | undefined;
-      if (!payload?.intent || payload.requestHash !== turn.requestHash || payload.intent.version !== 1
-        || payload.intent.sessionId !== turn.sessionId || payload.intent.executionPolicy !== turn.executionPolicy
-        || turnIntentHashWithHost(payload.intent, this.host) !== turn.requestHash) throw new Error("invalid_acceptance_receipt");
-      intent = payload.intent;
-    } catch { throw new TurnIntentConflictError("intent_unavailable"); }
-    const userMessage = await this.getTurnUserMessage(ctx, turnId);
-    if (userMessage === null) throw new TurnIntentConflictError("intent_unavailable");
-    return { userMessage, metadata: intent.metadata, toolApprovalMode: intent.toolApprovalMode, actorId: intent.actorId ?? undefined };
+    return this.db.transaction(async tx => {
+      const [row] = await tx.select({ turn: sql<string>`json_object('turnId', ${turns.id}, 'sessionId', ${turns.sessionId},
+        'executionPolicy', ${turns.executionPolicy}, 'dispatchTarget', ${turns.dispatchTarget}, 'requestHash', ${turns.requestHash})`
+        .mapWith(value => JSON.parse(value) as Pick<TurnModel, "sessionId" | "executionPolicy" | "dispatchTarget"> & { turnId: string; requestHash: string | null })
+      }).from(turns).where(eq(turns.id, turnId)).limit(1);
+      const turn = row?.turn;
+      if (!turn) throw new TurnIntentConflictError("intent_unavailable");
+      this.assertTurnPolicy(turn, turn.sessionId, await this.readSessionPolicy(tx, turn.sessionId));
+      const userMessage = await this.readUserMessage(tx, turnId);
+      if (userMessage === null) throw new TurnIntentConflictError("intent_unavailable");
+      const [receipt] = await tx.select({ raw: sql<string>`${outboxEvents.payload}` }).from(outboxEvents).where(eq(outboxEvents.id, `outbox_${turnId}`)).limit(1);
+      try {
+        const intent = readAcceptedTurnIntent(receipt?.raw ?? "", turn, this.host);
+        return { userMessage, metadata: intent.metadata, toolApprovalMode: intent.toolApprovalMode, actorId: intent.actorId ?? undefined };
+      } catch { throw new TurnIntentConflictError("intent_unavailable"); }
+    });
   }
 
   async getTurnByIdempotencyKey(
@@ -223,14 +242,14 @@ export class ConversationTurnStore {
     expected?: ConversationExecutionPolicy,
   ): Promise<ConversationExecutionPolicy> {
     if (expected !== undefined) assertConversationExecutionPolicy(expected);
-    const [session] = await db.select({ policy: sessions.executionPolicy }).from(sessions).where(eq(sessions.id, sessionId));
+    const [session] = await db.select({ policy: sql<string>`json_quote(${sessions.executionPolicy})`.mapWith(value => JSON.parse(value) as string) }).from(sessions).where(eq(sessions.id, sessionId));
     if (!session) throw new Error("conversation_session_unavailable");
     assertConversationExecutionPolicy(session.policy);
     if (expected !== undefined && expected !== session.policy) throw new Error("conversation_execution_policy_mismatch");
     return session.policy;
   }
 
-  private assertTurnPolicy(turn: TurnModel, sessionId: string, policy: ConversationExecutionPolicy): void {
+  private assertTurnPolicy(turn: Pick<TurnModel, "sessionId" | "executionPolicy" | "dispatchTarget">, sessionId: string, policy: ConversationExecutionPolicy): void {
     assertConversationExecutionPolicy(turn.executionPolicy);
     if (turn.sessionId !== sessionId || turn.executionPolicy !== policy || turn.dispatchTarget !== conversationDispatchTarget(policy)) {
       throw new Error("conversation_execution_policy_mismatch");

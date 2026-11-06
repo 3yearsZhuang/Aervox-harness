@@ -9,6 +9,7 @@ import { consentGrants, deletionRequests, deletionTargets } from "@aervox/schema
 import { MEMORY_DELETION_VERIFIER } from "../../memory-deletion-protocol.js";
 import { DomainConflictError } from "../../errors.js";
 import type { LocalContext } from "../../local-context.js";
+import { activeConsentPredicate } from "../../consent-admission.js";
 import type {
   IPrivacyRepository,
   ConsentGrantModel,
@@ -125,11 +126,7 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
       .select()
       .from(consentGrants)
       .where(
-        and(
-          eq(consentGrants.purpose, purpose),
-          eq(consentGrants.scope, scope),
-          sql`${consentGrants.revokedAt} IS NULL`,
-        ),
+        activeConsentPredicate(purpose, scope),
       );
     return !!found;
   }

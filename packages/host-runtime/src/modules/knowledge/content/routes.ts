@@ -54,13 +54,13 @@ function extensionForMediaType(mediaType: string): string {
   return map[mediaType] ?? "";
 }
 
-import { ContentParserRegistry, MockOcrParserProvider } from "./parser-port.js";
+import type { ContentParserRegistry, ParseContentResult } from "./parser-port.js";
 
 export function registerContentRoutes(
   app: FastifyInstance,
   contentRepo: SqliteContentRepository,
   attachmentsRoot: string,
-  parserRegistry: ContentParserRegistry = new ContentParserRegistry(),
+  parserRegistry?: ContentParserRegistry,
 ): void {
   // ============ FR-EXT-001：附件上传与用途声明 ============
 
@@ -94,7 +94,7 @@ export function registerContentRoutes(
       objectKey: parsed.data.objectKey,
       mediaType: parsed.data.mediaType,
       size: parsed.data.size,
-      scanStatus: "clean", // 模拟扫描通过
+      scanStatus: "pending",
       sourceLicense: parsed.data.sourceLicense,
       purpose: parsed.data.purpose,
       idempotencyKey,
@@ -161,7 +161,7 @@ export function registerContentRoutes(
           objectKey,
           mediaType,
           size: body.byteLength,
-          scanStatus: "clean", // 模拟扫描通过
+          scanStatus: "pending",
           purpose,
           idempotencyKey,
         });
@@ -220,26 +220,29 @@ export function registerContentRoutes(
     }
 
     // FR-EXT-001 AC-02：未通过扫描不得用于答疑
-    if (attachment.scanStatus !== "clean") {
-      return reply.status(403).send({ error: "Attachment has not passed scan" });
+    // Production has no verified scanning pipeline yet. Old "clean" metadata
+    // is not proof; explicit parser registries are isolated port-test inputs.
+    if (!parserRegistry || attachment.scanStatus !== "clean") {
+      return reply.status(403).send({ code: "ATTACHMENT_SCAN_UNVERIFIED", retryable: false, error: "Attachment scan has not been verified; send text instead" });
     }
 
     const idempotencyKey = parsed.data.idempotencyKey ?? `parse_${attachmentId}`;
     // BR-EXT-001 AC-02：幂等重试不重复产生解析结果
     const existing = await contentRepo.getParseResultByIdempotencyKey(tenant, idempotencyKey);
     if (existing) {
+      if (existing.attachmentId !== attachmentId) return reply.status(409).send({ code: "PARSE_INTENT_CONFLICT", error: "Parse key belongs to another attachment" });
       return reply.status(200).send(existing);
     }
 
-    // 取代旧解析结果（如果存在）
-    const oldActive = await contentRepo.getActiveParseResult(tenant, attachmentId);
-    if (oldActive) {
-      await contentRepo.supersedeParseResult(tenant, oldActive.id);
-    }
-
     // 多模态 / OCR 解析（经 SPI Provider 执行）
-    const parser = parserRegistry.findParserForMediaType(attachment.mediaType) ?? new MockOcrParserProvider();
-    const ocrResult = await parser.parse(tenant, { attachment });
+    const parser = parserRegistry.findParserForMediaType(attachment.mediaType);
+    if (!parser) return reply.status(503).send({ code: "CONTENT_PARSER_UNAVAILABLE", error: "No approved parser is configured for this media type" });
+    let ocrResult: ParseContentResult;
+    try { ocrResult = await parser.parse(tenant, { attachment }); }
+    catch { return reply.status(502).send({ code: "CONTENT_PARSER_FAILED", error: "Attachment parsing failed; retry or enter text instead" }); }
+    if (typeof ocrResult.text !== "string" || !Number.isFinite(ocrResult.confidence) || ocrResult.confidence < 0 || ocrResult.confidence > 1) {
+      return reply.status(502).send({ code: "CONTENT_PARSER_INVALID_RESULT", error: "Parser returned an invalid result" });
+    }
     const parseStatus = ocrResult.confidence >= OCR_CONFIDENCE_THRESHOLD
       ? "completed"
       : "low_confidence"; // BR-EXT-001 AC-01
@@ -270,12 +273,11 @@ export function registerContentRoutes(
     if (!attachment) {
       return reply.status(404).send({ error: "Attachment not found" });
     }
-
-    // 取代旧解析结果
-    const oldActive = await contentRepo.getActiveParseResult(tenant, attachmentId);
-    if (oldActive) {
-      await contentRepo.supersedeParseResult(tenant, oldActive.id);
+    if (!parserRegistry || attachment.scanStatus !== "clean") {
+      return reply.status(403).send({ code: "ATTACHMENT_SCAN_UNVERIFIED", retryable: false, error: "Attachment scan has not been verified; send text instead" });
     }
+
+    const oldActive = await contentRepo.getActiveParseResult(tenant, attachmentId);
 
     // 创建裁剪后的新解析结果（裁剪覆盖原解析结果）
     const result = await contentRepo.createParseResult(tenant, {
@@ -304,11 +306,8 @@ export function registerContentRoutes(
     if (!attachment) {
       return reply.status(404).send({ error: "Attachment not found" });
     }
-
-    // 取代旧解析结果
-    const oldActive = await contentRepo.getActiveParseResult(tenant, attachmentId);
-    if (oldActive) {
-      await contentRepo.supersedeParseResult(tenant, oldActive.id);
+    if (!parserRegistry || attachment.scanStatus !== "clean") {
+      return reply.status(403).send({ code: "ATTACHMENT_SCAN_UNVERIFIED", retryable: false, error: "Attachment scan has not been verified; send text instead" });
     }
 
     // 创建转文字结果（用户手动输入，置信度满）
@@ -343,11 +342,8 @@ export function registerContentRoutes(
     const tenant = resolveLocalContext(req);
     const { attachmentId } = req.params as { attachmentId: string };
 
-    // 失效所有解析结果（OCR/缩略图/向量等派生物）
-    const invalidatedCount = await contentRepo.invalidateParseResults(tenant, attachmentId);
-
-    // 软删除附件
-    const deleted = await contentRepo.softDeleteAttachment(tenant, attachmentId);
+    const deletion = await contentRepo.deleteAttachmentWithDerivatives(tenant, attachmentId);
+    const deleted = deletion?.attachment;
     if (!deleted) {
       return reply.status(404).send({ error: "Attachment not found or already deleted" });
     }
@@ -355,7 +351,7 @@ export function registerContentRoutes(
     return reply.send({
       id: attachmentId,
       deletedAt: deleted.deletedAt,
-      invalidatedDerivatives: invalidatedCount,
+      invalidatedDerivatives: deletion!.invalidatedDerivatives,
     });
   });
 }
