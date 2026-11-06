@@ -96,9 +96,10 @@ export function createConversationApplication(
       const attempt = (await repo.listTurnAttempts(ctx, turnId)).find(candidate => candidate.id === running.id)!;
       return { turnId, status: attempt.status, cancelled: true };
     },
-    async answerQuestions(ctx: LocalContext, turnId: string, answers: Parameters<NonNullable<ConversationRouteDeps["userQuestionCoordinator"]>["submitAnswers"]>[2]) {
+    async answerQuestions(ctx: LocalContext, turnId: string, answers: Parameters<NonNullable<ConversationRouteDeps["userQuestionCoordinator"]>["submitAnswers"]>[2],
+      identity?: Parameters<NonNullable<ConversationRouteDeps["userQuestionCoordinator"]>["submitAnswers"]>[3]) {
       if (!deps.userQuestionCoordinator) throw new ConversationCommandError(404, { error: "user_questions_disabled" });
-      return deps.userQuestionCoordinator.submitAnswers(ctx, turnId, answers);
+      return deps.userQuestionCoordinator.submitAnswers(ctx, turnId, answers, identity);
     },
     approve: (ctx: LocalContext, turnId: string, input: Parameters<typeof decideConversationApproval>[5]) => {
       assertOpen(); return decideConversationApproval(repo, executionDeps(), run, ctx, turnId, input);

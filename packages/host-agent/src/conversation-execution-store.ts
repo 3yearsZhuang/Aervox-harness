@@ -49,6 +49,13 @@ const toAgentEvent = (row: {
 });
 
 export class ConversationExecutionStore<Context> implements ExecutionStorePort {
+  private readonly questionOwners = new Map<string, { turnId: string; attemptId: string; expectedFencingToken: number; leaseId: string }>();
+
+  /** Original successful claim only; never refresh an owner's authority from the current database. */
+  getQuestionExecutionOwner(turnId: string, attemptId: string) {
+    const owner = this.questionOwners.get(attemptId);
+    return owner?.turnId === turnId ? { ...owner } : undefined;
+  }
   constructor(
     private readonly repo: ConversationExecutionRepositoryPort<Context>,
     private readonly ctx: Context,
@@ -80,6 +87,8 @@ export class ConversationExecutionStore<Context> implements ExecutionStorePort {
       leaseId: `lease_${Date.now().toString(36)}`,
     });
     if (!res.ok) return { ok: false, reason: "already_claimed" };
+    if (!this.questionOwners.has(input.attemptId)) this.questionOwners.set(input.attemptId, { turnId: input.turnId, attemptId: input.attemptId,
+      expectedFencingToken: res.fencingToken, leaseId: res.leaseId });
     return {
       ok: true,
       fencingToken: res.fencingToken,

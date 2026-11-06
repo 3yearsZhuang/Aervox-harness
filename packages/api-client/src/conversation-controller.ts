@@ -269,7 +269,7 @@ export function createConversationController(transport: AervoxTransport, lifetim
       const {turnId, question} = state;
       const owner = beginInteraction();
       try {
-        await interactionRequest(owner, signal => transport.submitQuestionAnswers(turnId, answers, signal));
+        await interactionRequest(owner, signal => transport.submitQuestionAnswers(turnId, answers, signal, { attemptId: question.attemptId, invocationId: question.invocationId, step: question.step }));
         // A stop or a newer question may win while the write is in flight.
         if (generation === owner.generation && state.turnId === turnId && state.question === question) update({question: undefined,
           status: state.status === 'observer-error' ? 'observer-error' : 'observing', error: undefined});

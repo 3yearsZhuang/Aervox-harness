@@ -19,6 +19,14 @@ export const MAX_STREAM_EVENT_PAGE_DATA_BYTES = 256 * 1024;
 export const streamEventId = (turnId: string, sequence: number): string => `tev_${turnId}_${sequence}`;
 
 
+type StreamWriter = Parameters<Parameters<AervoxDatabase["transaction"]>[0]>[0];
+
+/** Shared insertion primitive for commands already holding the SQLite writer. */
+export async function insertStreamEventRow(tx: StreamWriter, values: typeof turnStreamEvents.$inferInsert): Promise<TurnStreamEventModel> {
+  const [created] = await tx.insert(turnStreamEvents).values(values).returning();
+  return created as TurnStreamEventModel;
+}
+
 export class StreamEventStore {
   constructor(private readonly db: AervoxDatabase) {}
 
@@ -113,9 +121,7 @@ export class StreamEventStore {
         if (fenced && eventData.eventType === "message") {
           await initializeAssistantHistory(tx, eventData.turnId, eventData.data, eventData.sequence);
         }
-        const [created] = await tx
-          .insert(turnStreamEvents)
-          .values({
+        const created = await insertStreamEventRow(tx, {
             id: eventData.id,
             turnId: eventData.turnId,
             sequence: eventData.sequence,
@@ -126,8 +132,7 @@ export class StreamEventStore {
             attemptId: eventData.attemptId ?? null,
             safetyDecision: eventData.safetyDecision ?? null,
             committedAt: eventData.committedAt ?? null,
-          })
-          .returning();
+          });
         if (eventData.eventType === "redacted") {
           // Revocation cannot disappear when its short-lived replay row is cleaned.
           await tx.update(messageVersions).set({ isRedacted: 1 }).where(eq(messageVersions.turnId, eventData.turnId));

@@ -151,7 +151,9 @@ export async function executeConversationTurn(
     lifecycle.stopMonitoring();
     return claim;
   };
-  const uqPort = deps.userQuestionCoordinator ? deps.userQuestionCoordinator.createPort(tenant) : undefined;
+  const uqPort = deps.userQuestionCoordinator ? deps.userQuestionCoordinator.createPort(tenant, {
+    turnId, attemptId, expectedFencingToken: claim.fencingToken, leaseId: claim.leaseId ?? "",
+  }) : undefined;
   // ITER-027: 会话流式/多轮密集执行期间下发写入压力信号，协调后台 Worker 降频退避。
   // 以租约（而非裸 true/false）下发：并发会话互不提前解除，长回合按 TTL 续期。
   const pressureLease = acquireWorkerPressureLease();

@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import type { AervoxTransport, TurnCallbacks } from '@aervox/api-client';
 import { stableSerialize } from '@aervox/core/browser';
 import type { ModelRequest } from '@aervox/core/browser';
-import type { SessionHistoryPage, SessionItem } from '@aervox/contracts';
+import type { SessionHistoryPage, SessionItem, UserQuestionRequiredEventData } from '@aervox/contracts';
 import { NativeSqliteClient, type NativeSqliteRequest } from '@aervox/repositories/native-sqlite-client';
 import { decodeNativeSqliteValue, encodeNativeSqliteValue } from '@aervox/repositories/native-sqlite-values';
 import { ConversationRepository } from '@aervox/repositories/conversation';
@@ -766,6 +766,37 @@ describe('Android local conversation composition over actual SQLite', () => {
 });
 
 describe('on-phone question flow over actual SQLite', () => {
+  it('reopens the original committed question and records an answer without starting a model or a new Turn', async () => {
+    const fixture = current!, ctx = { workspaceId: 'local', subjectUserId: 'local' };
+    const client = new NativeSqliteClient({ request: request => mocks.native({ op: 'sqlite', ...request }),
+      dispose: connectionEpoch => mocks.native({ op: 'dispose', connectionEpoch }) }, { connectionEpoch: epoch });
+    const repo = new ConversationRepository(createInjectedDatabase(client), {
+      randomUUID: () => crypto.randomUUID(), sha256Utf8: value => createHash('sha256').update(value).digest('hex'), wakeOutbox: () => false,
+    });
+    await repo.getOrCreateSession(ctx, 'phone_session');
+    await repo.acceptTurn(ctx, { turnId: 'original_turn', attemptId: 'original_attempt', sessionId: 'phone_session',
+      idempotencyKey: 'original_intent', consumeInbox: false, message: { id: 'original_user', content: '已提交的问题' } });
+    const claim = await repo.claimTurnAttempt(ctx, { turnId: 'original_turn', attemptId: 'original_attempt', expectedFencingToken: 0, leaseId: 'original_owner' });
+    const identity = { turnId: 'original_turn', attemptId: 'original_attempt', invocationId: 'original_attempt:1:1', step: 1 };
+    await repo.requireUserQuestion(ctx, { ...identity, expectedFencingToken: claim.fencingToken, leaseId: claim.leaseId,
+      questions: [{ id: 'original_q', question: '原问题？', multiSelect: false, options: [{ label: '原答案' }] }], timeoutMs: 60000 });
+    client.close();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    const reopened = await fixture.start();
+    const pending = await reopened.request<UserQuestionRequiredEventData & { pending: boolean }>('GET', '/v1/turns/original_turn/questions/pending');
+    expect(pending).toMatchObject({ ...identity, pending: true, identityStatus: 'available' });
+    const answers = [{ id: 'original_q', selected: ['原答案'] }];
+    await reopened.submitQuestionAnswers(identity.turnId, answers, undefined, identity);
+    window.dispatchEvent(new Event('pagehide')); await new Promise(resolve => setTimeout(resolve, 0));
+    const again = await fixture.start();
+    expect(await again.request('GET', '/v1/turns/original_turn/questions/pending')).toMatchObject({ pending: false });
+    await again.submitQuestionAnswers(identity.turnId, answers, undefined, identity);
+    expect(mocks.modelCalls).toBe(0);
+    expect(await fixture.count('turns')).toBe(1);
+    expect(await fixture.count('turn_attempts')).toBe(1);
+    expect((await fixture.database.execute("SELECT event_type FROM turn_stream_events ORDER BY sequence")).rows.map(row => row.event_type))
+      .toEqual(['user_question_required', 'user_question_answered']);
+  });
   it('suspends the turn for a question and finishes it with the submitted answer', async () => {
     const fixture = current!;
     fixture.setModelScript([
@@ -780,14 +811,14 @@ describe('on-phone question flow over actual SQLite', () => {
     const asked = vi.fn();
     const running = transport.streamTurn(created.id, '帮我打开设置', { ...state.value, onUserQuestion: asked });
     await vi.waitFor(() => expect(asked).toHaveBeenCalledTimes(1), { timeout: 8000 });
-    const question = asked.mock.calls[0]![0] as { turnId: string; questions: { id: string; question: string }[] };
+    const question = asked.mock.calls[0]![0] as UserQuestionRequiredEventData;
     expect(question.questions[0]!.question).toBe('打开哪个应用？');
     // Only the asking turn can be answered, and only while its question is pending.
     await expect(transport.submitQuestionAnswers('other_turn', [{ id: 'q1', selected: ['设置'] }]))
-      .rejects.toThrow('QUESTION_NOT_PENDING');
-    await transport.submitQuestionAnswers(question.turnId, [{ id: 'q1', selected: ['设置'] }]);
-    await expect(transport.submitQuestionAnswers(question.turnId, [{ id: 'q1', selected: ['设置'] }]))
-      .rejects.toThrow('QUESTION_NOT_PENDING');
+      .rejects.toThrow('conversation_source_unavailable');
+    await transport.submitQuestionAnswers(question.turnId, [{ id: 'q1', selected: ['设置'] }], undefined, question);
+    await expect(transport.submitQuestionAnswers(question.turnId, [{ id: 'q1', selected: ['设置'] }], undefined, question))
+      .resolves.toBeUndefined();
     await running;
     expect(state.done).toHaveBeenCalledOnce();
     expect(state.texts.join('')).toContain('已打开设置');
@@ -818,7 +849,7 @@ describe('on-phone question flow over actual SQLite', () => {
     await expect(running).resolves.toBeUndefined();
     expect(state.done).toHaveBeenCalled();
     // A released question cannot be answered after the stop.
-    await expect(transport.submitQuestionAnswers((asked.mock.calls[0]![0] as { turnId: string }).turnId, [{ id: 'q1', selected: [] }]))
+    await expect(transport.submitQuestionAnswers((asked.mock.calls[0]![0] as { turnId: string }).turnId, [{ id: 'q1', selected: [], custom: 'yes' }], undefined, asked.mock.calls[0]![0] as UserQuestionRequiredEventData))
       .rejects.toThrow('QUESTION_NOT_PENDING');
   }, 20_000);
 });

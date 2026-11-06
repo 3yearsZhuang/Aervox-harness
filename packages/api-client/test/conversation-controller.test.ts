@@ -140,13 +140,14 @@ describe('ConversationController', () => {
     const {controller, streamTurn, submitQuestionAnswers, decideToolApproval, observeTurn} = fixture();
     streamTurn.mockImplementation(async (_s, _c, cb, options) => {
       await options!.onAccepted!('turn');
-      cb.onUserQuestion!({turnId: 'turn', questions: []} as never);
+      cb.onUserQuestion!({turnId: 'turn', attemptId: 'original-attempt', invocationId: 'original-attempt:2:3', step: 2, questions: []} as never);
       await controller.answer([{id: 'q', selected: ['yes']}]);
       cb.onToolApproval!({turnId: 'turn', approvalId: 'approval', toolName: 'write'} as never);
       cb.onDone();
     });
     await controller.submit('s', 'hello', callbacks());
-    expect(submitQuestionAnswers).toHaveBeenCalledWith('turn', [{id: 'q', selected: ['yes']}], expect.any(AbortSignal));
+    expect(submitQuestionAnswers).toHaveBeenCalledWith('turn', [{id: 'q', selected: ['yes']}], expect.any(AbortSignal),
+      {attemptId: 'original-attempt', invocationId: 'original-attempt:2:3', step: 2});
     expect(controller.state.status).toBe('awaiting-approval');
     decideToolApproval.mockResolvedValue({continuation: {afterEventId: 'decision', attemptId: 'attempt'}});
     observeTurn.mockImplementation(async (_turn, cb) => { cb.onDelta('continued'); cb.onDone(); });
@@ -306,7 +307,7 @@ describe.each(['answer', 'approval'] as const)('in-flight %s ownership', kind =>
     const pending = begin();
     const aborted = expect(pending).rejects.toMatchObject({name: 'AbortError'});
     await vi.waitFor(() => expect(send).toHaveBeenCalledOnce());
-    const signal = send.mock.calls[0]!.at(-1) as AbortSignal;
+    const signal = send.mock.calls[0]![kind === 'answer' ? 2 : 3] as AbortSignal;
     controller[action]();
     await aborted;
     expect(signal.aborted).toBe(true);
@@ -345,7 +346,7 @@ describe.each(['answer', 'approval'] as const)('in-flight %s ownership', kind =>
     const pending = begin();
     const aborted = expect(pending).rejects.toMatchObject({name: 'AbortError'});
     await vi.waitFor(() => expect(send).toHaveBeenCalledOnce());
-    const signal = send.mock.calls[0]!.at(-1) as AbortSignal;
+    const signal = send.mock.calls[0]![kind === 'answer' ? 2 : 3] as AbortSignal;
     request.mockRejectedValueOnce(new Error('cancel offline'));
     await expect(controller.stop()).rejects.toThrow('cancel offline');
     expect(signal.aborted).toBe(false);
