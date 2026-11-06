@@ -418,6 +418,12 @@ FND-02/04、CAP-020，依赖 ITER-004/063，遵循 [ADR-028](docs/reference/adr/
 
 **实施依赖与范围：** 维护者已继续授权实施第二批首页与连续会话切片，候选实现与待验收范围如上；后续仍沿现有 ITER/PR 推进。共享 Controller、Client、历史和领域事实继续复用，界面不直接写仓储或复制调度器。第一方 UI 修改走集合仓/主仓配对 PR；声明工具先做 ITER-075 的只读清单接线，附件进入模型前先满足 ITER-076。安全修复与产品设计可并行，恢复拒绝未闭合前不开始真实用户数据验收；后台主动、跨端同步、Shizuku、第三方 UI 和广泛外部连接按各自前置推进，不作为首个首页闭环的无条件前置。
 
+**练习恢复的身份前置候选：** 沿 ITER-053/059/064 修复现有 Question、PracticeSession、QuestionAttempt 的 SQLite SELECT/RETURNING：JSON 投影保留完整 NUL 身份、题干、答案、关联与原有 nullable/难度字段。答案事务只额外保护实际源 Session、目标知识 ID 和既有 review ID，错题列表保留现有分组/计数逻辑并按完整题目身份分组。
+
+原实现真实仓储 9 项、HTTP 2 项均先失败，包含同前缀知识误写、错题合并、原键重放失败及损坏前缀 receipt 被错误认可的反例；候选定向仓储 24 项、HTTP 55 项、仓储构建与类型检查通过，真实文件 SQLite 关闭重开仍恢复原题组和首个未答题，complete 后原意图重放不重复写入，新键仍拒绝。回归见[仓储身份往返](packages/repositories/test/practice-identity-roundtrip.test.ts)与[HTTP 恢复](apps/api/test/practice-identity-roundtrip.test.ts)。未改 Schema、迁移、事实或幂等键；全量、独立审查及 PR 待安排。
+
+Native 已有活跃练习恢复；Focus 重开、完成报告发现/读取入口和跨崩溃未知意图仍按第三批继续，真实模型/手机/发布不据此关闭。
+
 <a id="iter-064"></a>
 
 ### ITER-064 · 进行中：历史 API 契约按用户路径收敛

@@ -25,6 +25,7 @@ import {
 } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
 import { recordLearningAnswer } from "./learning-answer-store.js";
+import { practiceAttemptRow, practiceQuestionRow, practiceSessionRow } from "./learning-practice-rows.js";
 import type {
   ILearningRepository,
   MilestoneTransitionPolicy,
@@ -196,25 +197,25 @@ export class LearningRepository implements ILearningRepository {
         createdAt: now,
         updatedAt: now,
       })
-      .returning();
-    return created as QuestionModel;
+      .returning({ row: practiceQuestionRow });
+    return created!.row;
   }
 
   async getQuestion(ctx: LocalContext, id: string): Promise<QuestionModel | null> {
     const [found] = await this.db
-      .select()
+      .select({ row: practiceQuestionRow })
       .from(questions)
       .where(
         and(
           eq(questions.id, id),
         ),
       );
-    return (found as QuestionModel) ?? null;
+    return found?.row ?? null;
   }
 
   async listActiveQuestions(ctx: LocalContext, limit: number): Promise<QuestionModel[]> {
     const rows = await this.db
-      .select()
+      .select({ row: practiceQuestionRow })
       .from(questions)
       .where(
         and(
@@ -223,7 +224,7 @@ export class LearningRepository implements ILearningRepository {
       )
       .orderBy(questions.createdAt)
       .limit(limit);
-    return rows as QuestionModel[];
+    return rows.map(({ row }) => row);
   }
 
   async createPracticeSession(
@@ -241,25 +242,25 @@ export class LearningRepository implements ILearningRepository {
         startedAt: now,
         endedAt: null,
       })
-      .returning();
-    return created as PracticeSessionModel;
+      .returning({ row: practiceSessionRow });
+    return created!.row as PracticeSessionModel;
   }
 
   async getPracticeSession(ctx: LocalContext, sessionId: string): Promise<PracticeSessionModel | null> {
     const [session] = await this.db
-      .select()
+      .select({ row: practiceSessionRow })
       .from(practiceSessions)
       .where(
         and(
           eq(practiceSessions.id, sessionId),
         ),
       );
-    return (session as PracticeSessionModel) ?? null;
+    return (session?.row as PracticeSessionModel) ?? null;
   }
 
   async getLatestActivePracticeSession(ctx: LocalContext): Promise<PracticeSessionModel | null> {
     const [session] = await this.db
-      .select()
+      .select({ row: practiceSessionRow })
       .from(practiceSessions)
       .where(
         and(
@@ -268,7 +269,7 @@ export class LearningRepository implements ILearningRepository {
       )
       .orderBy(desc(practiceSessions.startedAt))
       .limit(1);
-    return (session as PracticeSessionModel) ?? null;
+    return (session?.row as PracticeSessionModel) ?? null;
   }
 
   async completePracticeSession(ctx: LocalContext, sessionId: string): Promise<PracticeSessionModel | null> {
@@ -281,15 +282,15 @@ export class LearningRepository implements ILearningRepository {
           eq(practiceSessions.status, "active"),
         ),
       )
-      .returning();
-    if (updated) return updated as PracticeSessionModel;
+      .returning({ row: practiceSessionRow });
+    if (updated) return updated.row as PracticeSessionModel;
     const existing = await this.getPracticeSession(ctx, sessionId);
     return existing?.status === "completed" ? existing : null;
   }
 
   async listAttemptsByQuestion(ctx: LocalContext, questionId: string): Promise<QuestionAttemptModel[]> {
     const rows = await this.db
-      .select()
+      .select({ row: practiceAttemptRow })
       .from(questionAttempts)
       .where(
         and(
@@ -297,12 +298,12 @@ export class LearningRepository implements ILearningRepository {
         ),
       )
       .orderBy(questionAttempts.createdAt);
-    return rows as QuestionAttemptModel[];
+    return rows.map(({ row }) => row);
   }
 
   async listAttemptsBySession(ctx: LocalContext, sessionId: string): Promise<QuestionAttemptModel[]> {
     const rows = await this.db
-      .select()
+      .select({ row: practiceAttemptRow })
       .from(questionAttempts)
       .where(
         and(
@@ -310,7 +311,7 @@ export class LearningRepository implements ILearningRepository {
         ),
       )
       .orderBy(questionAttempts.createdAt);
-    return rows as QuestionAttemptModel[];
+    return rows.map(({ row }) => row);
   }
 
   async listMistakes(
@@ -319,10 +320,10 @@ export class LearningRepository implements ILearningRepository {
   ): Promise<MistakeItemModel[]> {
     const rows = await this.db
       .select({
-        questionId: questions.id,
-        knowledgeId: questions.knowledgeId,
-        prompt: questions.prompt,
-        latestAnswer: questionAttempts.answer,
+        questionId: sql<string>`json_quote(${questions.id})`.mapWith(value => JSON.parse(value) as string),
+        knowledgeId: sql<string>`json_quote(${questions.knowledgeId})`.mapWith(value => JSON.parse(value) as string | null),
+        prompt: sql<string>`json_quote(${questions.prompt})`.mapWith(value => JSON.parse(value) as string),
+        latestAnswer: sql<string>`json_quote(${questionAttempts.answer})`.mapWith(value => JSON.parse(value) as string),
         latestAttemptAt: questionAttempts.createdAt,
         masteryState: knowledgeItems.masteryState,
         disposition: mistakeDispositions.status,
@@ -577,7 +578,7 @@ export class LearningRepository implements ILearningRepository {
   }
 
   async listPracticeAnswerOutcomes(ctx: LocalContext, sessionId: string) {
-    const rows = await this.db.select({ attempt: questionAttempts, receipt: outboxEvents.payload })
+    const rows = await this.db.select({ attempt: practiceAttemptRow, receipt: outboxEvents.payload })
       .from(questionAttempts).leftJoin(outboxEvents, and(
         eq(outboxEvents.eventType, "learning.answer.recorded"),
         // Existing-question command IDs share the digest, allowing an indexed lookup.
