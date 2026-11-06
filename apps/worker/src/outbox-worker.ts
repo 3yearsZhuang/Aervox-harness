@@ -10,7 +10,7 @@ import { COMPACTION_EVENT_TYPE } from "./compaction-marker.js";
 export type OutboxEventHandler = (
   event: OutboxEventModel,
   ctx: OutboxCycleContext,
-) => Promise<void>;
+) => Promise<void | "deferred">;
 
 export interface OutboxCycleContext {
   outboxRepo: SqliteOutboxRepository;
@@ -35,7 +35,7 @@ export async function runOutboxCycle(ctx: OutboxCycleContext): Promise<number> {
   // 若未指定 handlers，默认排除已有专用消费轮询的事件类型，杜绝通用循环抢先标记完成（FND-01）
   const excludeEventTypes = ctx.excludeEventTypes !== undefined
     ? ctx.excludeEventTypes
-    : (ctx.handlers?.[COMPACTION_EVENT_TYPE] ? [] : [COMPACTION_EVENT_TYPE]);
+    : [COMPACTION_EVENT_TYPE, "agent.turn.requested"].filter(type => !ctx.handlers?.[type]);
 
   const events = await ctx.outboxRepo.fetchPendingEvents({
     limit,
@@ -51,7 +51,7 @@ export async function runOutboxCycle(ctx: OutboxCycleContext): Promise<number> {
       // 1. 若注册了专用领域处理器，先执行业务消费逻辑（如压缩标记、日记投递等）
       const customHandler = ctx.handlers?.[event.eventType];
       if (customHandler) {
-        await customHandler(event, ctx);
+        if (await customHandler(event, ctx) === "deferred") continue;
       } else {
         // 2. 通用兜底骨架：写入审计记录
         await ctx.platformRepo.createAuditRecord(localCtx, {

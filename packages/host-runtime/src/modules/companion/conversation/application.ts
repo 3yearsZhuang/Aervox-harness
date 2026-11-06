@@ -1,7 +1,7 @@
 import { recoverApiOwnedTurn } from "./api-owned-recovery.js";
 import { snapshotExecutionConfig } from "@aervox/config";
 import type { IConversationRepository, LocalContext, SqliteConversationRepository } from "@aervox/repositories";
-import { assertConversationExecutionPolicy, normalizeTurnIntent, RepositoryAccessViolationError } from "@aervox/repositories";
+import { assertConversationExecutionPolicy, normalizeTurnIntent, RepositoryAccessViolationError, TurnIntentConflictError } from "@aervox/repositories";
 import { decideConversationApproval, ConversationCommandError } from "./approval-command.js";
 import { turnStreamHub } from "./stream-hub.js";
 import { executeConversationTurn, type ConversationRouteDeps, type ConversationTurnInput } from "./execution.js";
@@ -134,14 +134,33 @@ export function createConversationApplication(
     },
     workflows: () => (deps.workflows ?? []).map(workflow => ({ name: workflow.name, description: workflow.description,
       steps: workflow.steps.map(step => step.description) })),
-    async loadDelegatedTurn(turnId: string, eventId?: string): Promise<ConversationTurnInput | null> {
-      if (!(await repo.hasWorkerDelegation(turnId, eventId))) return null;
+    async inspectDelegatedTurn(turnId: string, eventId?: string): Promise<
+      { state: "ready"; input: ConversationTurnInput } | { state: "waiting" | "settled" | "unavailable" }
+    > {
+      if (!(await repo.hasWorkerDelegation(turnId, eventId))) return { state: "unavailable" };
       const ctx = { workspaceId: "local", subjectUserId: "local" };
       const turn = await repo.getTurn(ctx, turnId);
-      if (!turn || !["Created", "Running"].includes(turn.status) || turn.dispatchTarget !== "default" || turn.executionPolicy !== "local-v1") return null;
-      const attempt = (await repo.listTurnAttempts(ctx, turnId)).find(candidate => candidate.attempt === 1 && candidate.status === "Running" && candidate.fencingToken === 0 && !candidate.leaseId);
-      if (!attempt) return null;
-      return { turnId, sessionId: turn.sessionId, attemptId: attempt.id, ...await repo.getAcceptedTurnParameters(ctx, turnId) };
+      if (!turn || turn.dispatchTarget !== "default" || turn.executionPolicy !== "local-v1") return { state: "unavailable" };
+      const attempt = (await repo.listTurnAttempts(ctx, turnId)).find(candidate => candidate.attempt === 1);
+      if (!attempt) return { state: "unavailable" };
+      // The original dispatch is consumed once its original Attempt settles,
+      // even if an approval continuation has already created another Attempt.
+      if (["Completed", "Failed", "Interrupted", "Cancelled"].includes(attempt.status)) return { state: "settled" };
+      if (!["Created", "Running"].includes(turn.status) || attempt.status !== "Running" ||
+        attempt.fencingToken !== 0 || attempt.leaseId || attempt.leaseExpiresAt) return { state: "waiting" };
+      try {
+        return { state: "ready", input: { turnId, sessionId: turn.sessionId, attemptId: attempt.id,
+          ...await repo.getAcceptedTurnParameters(ctx, turnId) } };
+      } catch (error) {
+        // Corrupt or erased acceptance evidence cannot become executable by
+        // polling again. Database observation failures still propagate.
+        if (error instanceof TurnIntentConflictError) return { state: "unavailable" };
+        throw error;
+      }
+    },
+    async loadDelegatedTurn(turnId: string, eventId?: string): Promise<ConversationTurnInput | null> {
+      const state = await queries.inspectDelegatedTurn(turnId, eventId);
+      return state.state === "ready" ? state.input : null;
     },
   };
   return { commands, queries, async close() {

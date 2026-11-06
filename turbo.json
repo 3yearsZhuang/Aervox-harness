@@ -1,7 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalEnv": ["AERVOX_WEB_PORT", "AERVOX_DESKTOP_PORT", "AERVOX_NATIVE_RELEASE_PUBLIC_KEY"],
-  "globalDependencies": ["tsconfig.base.json", "tsconfig.base.node.json", "scripts/vendor-chunks.ts", "scripts/project-env.sh", "patches/**", ".npmrc", "pnpm-workspace.yaml"],
+  "globalDependencies": ["mise.toml", "tsconfig.base.json", "tsconfig.base.node.json", "scripts/vendor-chunks.ts", "scripts/project-env.sh", "patches/**", ".npmrc", "pnpm-workspace.yaml"],
   "globalPassThroughEnv": [
     "XDG_CONFIG_HOME",
     "XDG_DATA_HOME",
@@ -110,7 +110,9 @@
         "AERVOX_WORKER_HEALTH_PORT",
         "WORKER_ID",
         "WORKER_TICK_MS",
+        "WORKER_TURN_CONCURRENCY",
         "WORKER_INTERVAL_OUTBOX_MS",
+        "WORKER_INTERVAL_DELEGATED_TURNS_MS",
         "WORKER_INTERVAL_REVIEW_MS",
         "WORKER_INTERVAL_DIARY_MS",
         "WORKER_INTERVAL_DELETION_MS",
