@@ -71,8 +71,9 @@ export function registerPersonaRoutes(app: FastifyInstance, service: PersonaServ
   // GET /v1/personas/:personaId
   registerContractRoute(app, personaApi.get, async (request, reply) => {
     const { personaId } = request.params as { personaId: string };
+    const { revisionId } = request.query as { revisionId?: string };
     const tenant = resolveLocalContext(request);
-    const result = await service.getPersona(tenant, personaId);
+    const result = await service.getPersona(tenant, personaId, revisionId);
     if (!result) return sendError(reply, 404, "PERSONA_NOT_FOUND", "Persona not found");
     return result;
   });

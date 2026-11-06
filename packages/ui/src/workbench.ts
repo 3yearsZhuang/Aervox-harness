@@ -1,12 +1,14 @@
 /// <reference path="./env.d.ts" />
 /** Public building blocks for trusted workbench surfaces; no root implementation. */
-// 工作台类根界面的完整主题链随出口装配（窄屏抽屉遮罩、设置体验、Hero 均依赖此链）
+// 工作台类根界面的完整主题链随出口装配（窄屏抽屉遮罩、设置体验均依赖此链）
 import './theme/workbench-all.css';
 export { COMPANION_DEFAULT_NAME, USER_DEFAULT_ADDRESS, SPACE_NAME, readCompanionIdentity, saveCompanionIdentity } from './utils/companion-identity';
 export type { CompanionIdentity } from './utils/companion-identity';
 import { defineAsyncComponent } from 'vue';
 export type { Platform } from './composables/useWorkbenchLayout';
-export { default as PetHero } from './components/PetHero.vue';
+export { default as CompanionAvatar } from './components/CompanionAvatar.vue';
+export { getAvailableLive2DModels } from './live2d/available-models';
+export { useCompanionAvatarBinding, type CompanionAvatarBindingState } from './composables/useCompanionAvatarBinding';
 export { createWorkbenchPluginRuntime, type BuiltinUIPlugin } from './plugins';
 export { default as WorkbenchHeader } from './components/workbench/WorkbenchHeader.vue';
 export { default as WorkbenchSidebar } from './components/workbench/WorkbenchSidebar.vue';
@@ -18,7 +20,6 @@ export { default as ConversationConsole } from './components/workbench/Conversat
 export { default as StandardConversation } from './components/workbench/StandardConversation.vue';
 export { default as ComposerDock } from './components/workbench/ComposerDock.vue';
 export { AervoxButton } from './primitives';
-export { default as PetWithFallback } from './components/PetWithFallback.vue';
 export { default as ExtensionSlot } from './components/extension/ExtensionSlot.vue';
 export { useWorkbenchLayout } from './composables/useWorkbenchLayout';
 export { useWorkbenchTimer } from './composables/useWorkbenchTimer';

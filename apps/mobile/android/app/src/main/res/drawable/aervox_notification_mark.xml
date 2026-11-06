@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Monochrome brand silhouette for Android's system notification template. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="72" android:viewportHeight="72">
+    <group android:translateX="-10" android:translateY="-12">
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M24,60H28A6,6 0,0 1,34 66V70A6,6 0,0 1,28 76H24A6,6 0,0 1,18 70V66A6,6 0,0 1,24 60Z M24,40H28A6,6 0,0 1,34 46V50A6,6 0,0 1,28 56H24A6,6 0,0 1,18 50V46A6,6 0,0 1,24 40Z M24,20H28A6,6 0,0 1,34 26V30A6,6 0,0 1,28 36H24A6,6 0,0 1,18 30V26A6,6 0,0 1,24 20Z M44,60H48A6,6 0,0 1,54 66V70A6,6 0,0 1,48 76H44A6,6 0,0 1,38 70V66A6,6 0,0 1,44 60Z M64,60H68A6,6 0,0 1,74 66V70A6,6 0,0 1,68 76H64A6,6 0,0 1,58 70V66A6,6 0,0 1,64 60Z M72,35A10,10 0,1 1,52 35A10,10 0,1 1,72 35Z" />
+    </group>
+</vector>

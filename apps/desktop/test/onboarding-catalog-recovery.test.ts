@@ -20,7 +20,7 @@ it('loads existing configuration independently from catalog failure and retries 
     providers.value = [{id: 'private-provider', name: 'Private provider', defaultBaseUrl: existing.baseUrl, recommendedModels: ['default-model'], requiresApiKey: false, available: true}];
     return providers.value;
   });
-  const wrapper = mount(OnboardingFlow, {global: {stubs: {Live2DPet: true}}}); await flushPromises();
+  const wrapper = mount(OnboardingFlow, {global: {stubs: {CompanionAvatar: true}}}); await flushPromises();
   await wrapper.get('[aria-label="前往第 4 步"]').trigger('click'); await flushPromises();
   expect((wrapper.get('[placeholder="model-name"]').element as HTMLInputElement).value).toBe('existing-model');
   expect(wrapper.get('[role="alert"]').text()).toContain('供应商目录');

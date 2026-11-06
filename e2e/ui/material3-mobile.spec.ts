@@ -3,7 +3,43 @@ import { test, expect, openWorkbench } from './fixtures';
 test.use({ platform: 'mobile' });
 test.setTimeout(60_000);
 
-test('keeps rejected-message feedback and its action fully visible without scrolling the mobile conversation', async ({ page, servers }, testInfo) => {
+test('keeps the tablet character in the left third and the same glass deck and draft on the right', async ({ page, servers }, testInfo) => {
+  await page.setViewportSize({ width: 1069, height: 620 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(servers.webUrl);
+  const input = page.locator('.pc-whisper-input textarea');
+  await input.fill('窗口变化后仍保留的草稿');
+  await page.getByRole('tab', { name: '切换到工具', exact: true }).click();
+  for (const viewport of [{ width: 1069, height: 620 }, { width: 668, height: 1040 }, { width: 731, height: 360 }]) {
+    await page.setViewportSize(viewport);
+    await expect(page.getByRole('tab', { name: '切换到工具', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await expect(input).toHaveValue('窗口变化后仍保留的草稿');
+    const stage = (await page.locator('.pc-stage').boundingBox())!;
+    const deck = (await page.locator('.pc-deck-track').boundingBox())!;
+    const composer = (await page.locator('.pc-whisper-input').boundingBox())!;
+    expect(stage.width).toBeCloseTo(viewport.width / 3, 0);
+    expect(deck.x).toBeGreaterThanOrEqual(stage.x + stage.width);
+    expect(composer.x).toBeGreaterThanOrEqual(stage.x + stage.width);
+    expect(deck.y + deck.height).toBeLessThanOrEqual(composer.y);
+    for (const button of await page.locator('.pc-deck-box--tools .pc-home-nav button').all()) {
+      await button.scrollIntoViewIfNeeded();
+      await expect(button).toBeInViewport({ ratio: 1 });
+      expect(await button.evaluate(el => {
+        const box = el.getBoundingClientRect();
+        return el.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+      })).toBe(true);
+    }
+    await expect(input).toBeInViewport({ ratio: 1 });
+    await expect(page.locator('.pc-deck-box--tools')).toHaveCSS('backdrop-filter', 'blur(18px)');
+    await page.screenshot({ path: testInfo.outputPath(`split-${viewport.width}-${viewport.height}.png`) });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(input).toHaveValue('窗口变化后仍保留的草稿');
+  const stage = (await page.locator('.pc-stage').boundingBox())!;
+  expect(stage.width).toBeGreaterThan(350);
+});
+
+test('keeps rejected-message recovery inside the dialogue and the mobile composer clear', async ({ page, servers }, testInfo) => {
   await page.setViewportSize({ width: 411, height: 838 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const cors = { 'Access-Control-Allow-Origin': '*' };
@@ -21,6 +57,12 @@ test('keeps rejected-message feedback and its action fully visible without scrol
     ].map(event => `data: ${JSON.stringify(event)}\n\n`).join(''),
   }));
   await page.goto(servers.webUrl);
+  await expect(page.locator('.pc-content > .pc-home-nav')).toHaveCount(0);
+  await page.getByRole('tab', { name: '切换到工具', exact: true }).click();
+  const homeActions = page.locator('.pc-deck-box--tools .pc-home-nav');
+  await expect(homeActions.getByRole('button')).toHaveCount(4);
+  for (const button of await homeActions.getByRole('button').all()) await expect(button).toBeInViewport({ ratio: 1 });
+  await page.getByRole('tab', { name: '切换到对话', exact: true }).click();
   const draft = '保留这段未提交的多行草稿。\n连接恢复后再继续发送。\n第三行仍然属于原草稿。\n第四行也不能丢失。\n第五行需要在编辑框内滚动。\n最后一行保持完整。';
   const input = page.locator('.pc-whisper-input textarea');
   await input.fill(draft);
@@ -28,6 +70,9 @@ test('keeps rejected-message feedback and its action fully visible without scrol
   const feedback = page.locator('.pc-feedback');
   const retry = feedback.locator('.pc-retry');
   await expect(feedback).toContainText('未能收到回复，请重试。');
+  await expect(page.locator('.pc-dialogue-box .pc-feedback')).toHaveCount(1);
+  await expect(page.locator('.proactive-companion > .pc-mobile-feedback')).toHaveCount(0);
+  await expect(page.locator('.pc-whisper-input .pc-whisper-label, .pc-whisper-input .pc-attachment-chip')).toHaveCount(0);
   await expect(input).toHaveValue(draft);
   const expectControlsInView = async () => {
     await expect(feedback).toBeInViewport({ ratio: 1, timeout: 5000 });
@@ -49,9 +94,15 @@ test('keeps rejected-message feedback and its action fully visible without scrol
       return el.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
     })).toBe(true);
   };
-  for (const viewport of [{ width: 411, height: 838 }, { width: 320, height: 568 }, { width: 320, height: 360 }]) {
+  for (const viewport of [{ width: 411, height: 838 }, { width: 320, height: 568 }, { width: 320, height: 360 }, { width: 731, height: 360 }, { width: 1069, height: 400 }, { width: 1052, height: 300 }]) {
     await page.setViewportSize(viewport);
     await expectControlsInView();
+    if (viewport.width >= 600) {
+      const stage = (await page.locator('.pc-stage').boundingBox())!;
+      expect(stage.width).toBeCloseTo(viewport.width / 3, 0);
+      expect((await retry.boundingBox())!.x).toBeGreaterThanOrEqual(stage.x + stage.width);
+      expect((await page.locator('.pc-feedback-copy').boundingBox())!.height).toBeGreaterThanOrEqual(24);
+    }
     await page.screenshot({ path: testInfo.outputPath(`feedback-${viewport.width}-${viewport.height}.png`) });
   }
   await page.setViewportSize({ width: 390, height: 844 });
@@ -66,7 +117,7 @@ test('keeps rejected-message feedback and its action fully visible without scrol
   await expect.poll(() => submissions).toBe(2);
   await expect(page.locator('.pc-dialogue-text')).toContainText('已收到保留的草稿。');
   await expect(feedback).toHaveCount(0);
-  expect((await page.locator('.pc-mobile-feedback').boundingBox())!.height).toBe(0);
+  await expect(page.locator('.proactive-companion > .pc-mobile-feedback')).toHaveCount(0);
   await expect(input).toHaveValue('');
 });
 
@@ -76,6 +127,10 @@ test('keeps rejected-message feedback and its action fully visible without scrol
     await page.goto(servers.webUrl, { timeout: 90_000 });
     await expect(page.locator('html')).toHaveAttribute('data-design-system', 'material3');
     await expect(page.locator('.proactive-companion')).toHaveAttribute('data-design-system', 'material3');
+    for (const surface of ['.pc-dialogue-box', '.pc-whisper-input']) {
+      await expect(page.locator(surface).first()).toHaveCSS('background-image', /linear-gradient/);
+      await expect(page.locator(surface).first()).toHaveCSS('backdrop-filter', 'blur(18px)');
+    }
     await expect.poll(() => page.locator('.pc-whisper-input md-filled-button').evaluate(el => el.matches(':defined') && Boolean(el.shadowRoot?.querySelector('button')))).toBe(true);
     await expect(page.locator('.pc-header md-icon-button').first()).toHaveCSS('height', '48px');
     const lightSurface = await page.locator('html').evaluate(el => getComputedStyle(el).getPropertyValue('--md-sys-color-surface').trim());

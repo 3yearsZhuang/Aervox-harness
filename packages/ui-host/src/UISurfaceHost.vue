@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { markRaw, onErrorCaptured, shallowRef, ref, computed, watch, type Component } from 'vue';
+import { markRaw, nextTick, onErrorCaptured, shallowRef, ref, computed, watch, type Component, type VNode } from 'vue';
 import SurfaceInstance from './SurfaceInstance';
 import {
   UI_HOST_API_VERSION,
@@ -11,6 +11,10 @@ import {
 } from './surface-context';
 
 defineOptions({ inheritAttrs: false });
+const emit = defineEmits<{
+  ready: [];
+  failed: [reason: UISurfaceFailureReason];
+}>();
 const props = withDefaults(defineProps<{
   plugin: UISurfacePlugin | null;
   surface: UISurfaceKind;
@@ -58,6 +62,10 @@ const pluginName = computed(() => props.plugin?.displayName ?? props.plugin?.id 
 const autoRetryScheduled = ref(false);
 const autoRetrying = computed(() => state.value === 'failed' && autoRetryScheduled.value);
 
+function onSurfaceMounted(vnode: VNode) {
+  if (state.value === 'ready' && vnode.key === generation.value) emit('ready');
+}
+
 /** 装配前校验清单契约：返回 null 表示可加载，否则为结构化拒绝原因 */
 function validateManifest(plugin: UISurfacePlugin | null): UISurfaceFailureReason | null {
   if (!plugin) return 'missing';
@@ -94,6 +102,10 @@ watch(
       root.value = undefined;
       failureReason.value = reason;
       state.value = 'failed';
+      // The host can hand over its startup surface only after recovery is visible.
+      void nextTick(() => {
+        if (failCurrent === fail && generation.value === epoch && state.value === 'failed') emit('failed', reason);
+      });
       // 瞬时故障按退避表自动重试；手动「重新打开」会递增 retry 并进入新世代
       const delay = TRANSIENT_REASONS.has(reason) ? props.autoRetryDelaysMs[autoRetryAttempt.value] : undefined;
       if (delay !== undefined) {
@@ -156,6 +168,7 @@ onErrorCaptured(() => {
     :context="context"
     :view-props="viewProps"
     v-bind="$attrs"
+    @vue:mounted="onSurfaceMounted"
   />
   <section
     v-else

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="native_model_title">手机模型配置</string>
+    <string name="native_model_description">模型请求由手机直接发送。密钥仅保存在 Android 加密存储中。</string>
+    <string name="native_model_endpoint_label">HTTPS 基础地址</string>
+    <string name="native_model_endpoint_support">填写兼容 OpenAI 的基础地址，例如 https://api.openai.com/v1。</string>
+    <string name="native_model_name_label">模型名称</string>
+    <string name="native_model_key_label">API 密钥</string>
+    <string name="native_model_key_support">密钥只保存在手机的加密存储中。</string>
+    <string name="native_model_key_keep_support">留空沿用当前密钥；更换基础地址需重新输入。</string>
+    <string name="native_model_cancel">取消</string>
+    <string name="native_model_save">保存</string>
+    <string name="native_model_saving">正在保存…</string>
+    <string name="native_model_saving_status">正在保存模型配置…</string>
+    <string name="native_model_error_endpoint">请输入有效的 HTTPS 基础地址</string>
+    <string name="native_model_error_completion_endpoint">这里只填写基础地址，请去掉末尾的 /chat/completions</string>
+    <string name="native_model_error_name">请输入有效的模型名称</string>
+    <string name="native_model_error_key">请输入密钥；更换基础地址时需重新输入</string>
+    <item type="id" name="native_model_scroll" />
+    <item type="id" name="native_model_fields" />
+    <item type="id" name="native_model_endpoint_layout" />
+    <item type="id" name="native_model_endpoint" />
+    <item type="id" name="native_model_name_layout" />
+    <item type="id" name="native_model_name" />
+    <item type="id" name="native_model_key_layout" />
+    <item type="id" name="native_model_key" />
+    <item type="id" name="native_model_saving_status" />
+    <item type="id" name="native_model_saving_progress" />
+</resources>

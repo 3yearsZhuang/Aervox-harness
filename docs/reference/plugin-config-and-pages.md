@@ -43,6 +43,7 @@ id: AVX-PLUG-001
 
 - 组合根：Web/桌面 `App.vue` 从默认工作台、紧凑工作台与主动陪伴界面选择，桌面 `pet-main.ts` 选择独立桌宠；移动端沿用 Web。只有组合根允许引用具体插件包。
 - [`UISurfaceHost`](../../packages/ui-host/src/UISurfaceHost.vue) 校验平台、根类型和版本；默认加载上限 15 秒。加载或 Vue 渲染失败显示宿主恢复界面，可重试；浏览器缓存失败导入时，使用组合根注入的 `requestReload` 重新加载当前窗口。刷新仅由用户点击触发。插件加载结果迟到时丢弃。
+- 组合根可监听 `ready` 与 `failed(reason)`：前者在实际根组件挂载后发出，后者在恢复界面更新后发出；已退休实例不再通知。事件用于平台启动画面的交接，不表示模型、业务数据或 Live2D 资源全部就绪。
 - 每次根实例获得独立的 `UISurfaceContext`，含平台、根类型、取消信号及可选 `requestClose`。取消信号和 Vue 卸载负责结束本实例订阅、事件监听与计时器；工作台注册表也按实例创建。关闭界面不会请求取消已受理的 API 回合。
 - `viewProps` 与事件用于受信界面装配，平台由宿主固定；这些参数不是第三方权限代理。根界面不能通过该接口取得任意 Electron 或数据库访问权。
 - 工作台根组件位于 `plugins/surfaces/workbench-ui/src/AervoxWorkbench.vue`，经 `@aervox/ui/workbench` 使用共享构件；旧 `@aervox/ui` 的 `AervoxWorkbench` 根导出已移除。`@aervox/ui/env` 提供共享资源与 Live2D 浏览器类型。

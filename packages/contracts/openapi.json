@@ -1916,6 +1916,11 @@
                   "providerId",
                   "modelId"
                 ]
+              },
+              "live2dModelId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
               }
             },
             "required": [
@@ -2048,6 +2053,11 @@
                   "providerId",
                   "modelId"
                 ]
+              },
+              "live2dModelId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
               }
             },
             "required": [
@@ -2136,6 +2146,11 @@
                   "providerId",
                   "modelId"
                 ]
+              },
+              "live2dModelId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
               }
             },
             "required": [
@@ -15694,6 +15709,11 @@
                           "providerId",
                           "modelId"
                         ]
+                      },
+                      "live2dModelId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
                       }
                     },
                     "required": [
@@ -15879,6 +15899,11 @@
                                 "providerId",
                                 "modelId"
                               ]
+                            },
+                            "live2dModelId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
                             }
                           },
                           "required": [
@@ -15962,6 +15987,16 @@
             "required": true,
             "name": "personaId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": false,
+            "name": "revisionId",
+            "in": "query"
           }
         ],
         "responses": {
@@ -16137,6 +16172,11 @@
                                 "providerId",
                                 "modelId"
                               ]
+                            },
+                            "live2dModelId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
                             }
                           },
                           "required": [
@@ -16171,6 +16211,16 @@
                     "revision",
                     "active"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_PERSONA",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
                 }
               }
             }
@@ -16303,6 +16353,11 @@
                           "providerId",
                           "modelId"
                         ]
+                      },
+                      "live2dModelId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
                       }
                     },
                     "required": [
@@ -16488,6 +16543,11 @@
                                 "providerId",
                                 "modelId"
                               ]
+                            },
+                            "live2dModelId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
                             }
                           },
                           "required": [
@@ -17059,6 +17119,11 @@
                                 "providerId",
                                 "modelId"
                               ]
+                            },
+                            "live2dModelId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
                             }
                           },
                           "required": [

@@ -2,6 +2,25 @@ import { describe, expect, it, vi } from 'vitest'
 import { fitLive2DModelToViewport } from '../src/live2d/layout.js'
 
 describe('Live2D layout metrics', () => {
+  it.each([[0, 0], [400, 0], [0, 720], [Number.POSITIVE_INFINITY, 720], [400, Number.NaN]])(
+    'keeps the existing model transform when the viewport is unavailable (%s x %s)',
+    (width, height) => {
+      const model = {
+        anchor: { set: vi.fn() },
+        scale: { set: vi.fn() },
+        position: { set: vi.fn() },
+        internalModel: { originalWidth: 100, originalHeight: 200 },
+      }
+      const app = { renderer: { screen: { width, height } } }
+
+      fitLive2DModelToViewport(app as never, model as never)
+
+      expect(model.anchor.set).not.toHaveBeenCalled()
+      expect(model.scale.set).not.toHaveBeenCalled()
+      expect(model.position.set).not.toHaveBeenCalled()
+    },
+  )
+
   it('uses drawable geometry without requiring a framebuffer pixel readback', () => {
     const scale = { set: vi.fn() }
     const position = { set: vi.fn() }

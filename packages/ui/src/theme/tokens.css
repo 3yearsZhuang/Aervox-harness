@@ -56,19 +56,6 @@
   --avx-glass-bg-overlay: rgba(255, 255, 255, 0.92);
   --avx-glass-blur: blur(24px) saturate(1.2);
 
-  /* ---------- 桌宠（Hero）配色 ---------- */
-  --avx-hero-skin: #f6c9b6;
-  --avx-hero-ear: #f1b5a4;
-  --avx-hero-hair: #d99072;
-  --avx-hero-eye: #2f3a4e;
-  --avx-hero-cheek: #ec9c96;
-  --avx-hero-mouth: #ae5e5a;
-  --avx-hero-body: #dbe5f7;
-  --avx-hero-collar: #7d9bd6;
-  --avx-hero-wing: #f7dfae;
-  --avx-hero-wing-border: #efcf91;
-  --avx-hero-foot: #efb28f;
-
   /* ---------- 间距阶梯 ---------- */
   --avx-space-1: 2px;
   --avx-space-2: 4px;

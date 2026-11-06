@@ -1,24 +1,13 @@
 package com.aervox.mobile.runtime;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.Context;
-import android.graphics.Color;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Handler;
-import android.os.Build;
 import android.os.Looper;
-import android.text.InputType;
-import android.util.TypedValue;
 import android.util.JsonReader;
 import android.util.JsonToken;
-import android.view.View;
-import android.view.WindowManager;
-import android.view.inputmethod.EditorInfo;
-import android.widget.EditText;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.TextView;
+import androidx.appcompat.app.AlertDialog;
+import com.aervox.mobile.R;
 import java.io.InputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -82,6 +71,7 @@ public final class NativeModelService {
     private boolean closed, configuring, networkBusy;
     private Run current, diagnostic;
     private AlertDialog dialog;
+    private NativeModelConfigurationForm configurationForm;
     private CompletableFuture<JSONObject> configuration;
     private CompletableFuture<Void> closure;
 
@@ -91,9 +81,18 @@ public final class NativeModelService {
         connections = endpoint -> (HttpsURLConnection) endpoint.openConnection();
         deadlines.setRemoveOnCancelPolicy(true);
     }
-    /** Package-only tests use an isolated credential namespace and no native UI. */
+    /** Package-only tests use an isolated credential namespace. */
     NativeModelService(Context owner, NativeCredentialStore store) {
         this(owner, store, endpoint -> (HttpsURLConnection) endpoint.openConnection());
+    }
+    /** Isolated UI fixtures never construct the production credential store. */
+    NativeModelService(Activity owner, NativeCredentialStore store) {
+        this(testOwner(owner, store), store);
+        activity = owner;
+    }
+    private static Context testOwner(Activity owner, NativeCredentialStore store) {
+        if (owner == null || store == null) throw new IllegalArgumentException("INVALID_TEST_OWNER");
+        return owner;
     }
     /** The connection seam is native-only; the WebView cannot select it. */
     NativeModelService(Context owner, NativeCredentialStore store, ConnectionFactory factory) {
@@ -197,76 +196,85 @@ public final class NativeModelService {
     }
     private void showConfiguration(Config prior, CompletableFuture<JSONObject> result) {
         Activity owner = activity;
+        NativeModelConfigurationForm openedForm = null;
         synchronized (gate) {
             if (closed || owner == null || owner.isFinishing() || owner.isDestroyed()) {
                 finishConfiguration(result, null, failure("UI_UNAVAILABLE")); return;
             }
         }
         try {
-            LinearLayout fields = new LinearLayout(owner); fields.setOrientation(LinearLayout.VERTICAL);
-            int inset = dp(owner, 24); fields.setPadding(inset, dp(owner, 8), inset, dp(owner, 8));
-            TextView description = new TextView(owner);
-            description.setText("模型请求由手机直接发送。密钥仅保存在 Android 加密存储中。\n填写兼容 OpenAI 的 HTTPS 基础地址，例如 https://api.openai.com/v1。");
-            description.setTextSize(14); fields.addView(description);
-            EditText endpoint = field(owner, fields, "HTTPS 基础地址", false);
-            endpoint.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
-            endpoint.setText(prior == null ? "https://api.openai.com/v1" : prior.endpoint);
-            EditText model = field(owner, fields, "模型名称", false);
-            model.setText(prior == null ? "" : prior.model);
-            EditText key = field(owner, fields, prior == null ? "API 密钥" : "API 密钥（留空沿用）", true);
-            ScrollView scroll = new ScrollView(owner); scroll.addView(fields);
-            AlertDialog created = new AlertDialog.Builder(owner).setTitle("手机模型配置").setView(scroll)
-                .setNegativeButton("取消", (ignored, which) -> finishConfiguration(result, cancelledSummary(), null))
-                .setPositiveButton("保存", null).create();
-            created.setOnCancelListener(ignored -> finishConfiguration(result, cancelledSummary(), null));
+            NativeModelConfigurationForm form = new NativeModelConfigurationForm(owner,
+                prior == null ? "https://api.openai.com/v1" : prior.endpoint,
+                prior == null ? "" : prior.model, prior != null,
+                () -> finishConfiguration(result, cancelledSummary(), null));
+            openedForm = form;
+            AlertDialog created = form.dialog;
             created.setOnDismissListener(ignored -> {
                 // System dismissal or owner destruction is cancellation too.
                 if (!result.isDone()) finishConfiguration(result, cancelledSummary(), null);
-                key.setText("");
-                synchronized (gate) { if (dialog == created) dialog = null; }
-            });
-            created.setOnShowListener(ignored -> {
-                created.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
-                GradientDrawable surface = new GradientDrawable(); surface.setColor(themeColor(owner, android.R.attr.colorBackground, Color.WHITE));
-                surface.setCornerRadius(dp(owner, 28)); created.getWindow().setBackgroundDrawable(surface);
-                created.getButton(AlertDialog.BUTTON_POSITIVE).setMinHeight(dp(owner, 48));
-                created.getButton(AlertDialog.BUTTON_NEGATIVE).setMinHeight(dp(owner, 48));
-                created.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
-                    byte[] secret = null;
-                    try {
-                        String address = NativeModelServicePolicy.endpoint(endpoint.getText().toString().trim());
-                        String name = model.getText().toString().trim();
-                        if (!NativeModelServicePolicy.model(name)) { model.setError("请输入有效模型名称"); return; }
-                        char[] entered = new char[key.length()]; key.getText().getChars(0, key.length(), entered, 0);
-                        try {
-                            if (entered.length == 0 && prior != null && address.equals(prior.endpoint)) secret = Arrays.copyOf(prior.key, prior.key.length);
-                            else {
-                                if (!NativeModelServicePolicy.credential(entered)) { key.setError("请输入密钥；更换地址时需重新输入"); return; }
-                                secret = new String(entered).getBytes(StandardCharsets.US_ASCII);
-                            }
-                        } finally { Arrays.fill(entered, '\0'); }
-                        final Config replacement = new Config(address, name, secret); secret = null;
-                        created.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
-                        created.getButton(AlertDialog.BUTTON_NEGATIVE).setEnabled(false);
-                        created.setCancelable(false); key.setText("");
-                        if (!submit(() -> saveConfiguration(replacement, result, created), result)) {
-                            replacement.close(); created.dismiss();
-                        }
-                    } catch (NativeModelServicePolicy.Rejected error) {
-                        endpoint.setError(error.code.equals("ENDPOINT_INCLUDES_COMPLETION_PATH")
-                            ? "这里只填写基础地址，请去掉末尾的 /chat/completions" : "请输入有效的 HTTPS 基础地址");
-                    }
-                    catch (Exception ignoredError) { finishConfiguration(result, null, failure("CONFIGURATION_FAILED")); created.dismiss(); }
-                    finally { if (secret != null) Arrays.fill(secret, (byte) 0); }
-                });
+                form.clearKey();
+                synchronized (gate) {
+                    if (dialog == created) dialog = null;
+                    if (configurationForm == form) configurationForm = null;
+                }
             });
             synchronized (gate) {
                 if (closed) { finishConfiguration(result, null, failure("CLOSED")); return; }
-                dialog = created;
+                dialog = created; configurationForm = form;
             }
-            created.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
-            created.show();
-        } catch (Exception ignored) { finishConfiguration(result, null, failure("UI_UNAVAILABLE")); }
+            form.show(view -> {
+                byte[] secret = null;
+                try {
+                    form.clearErrors();
+                    String address = NativeModelServicePolicy.endpoint(form.endpoint.getText().toString().trim());
+                    String name = form.model.getText().toString().trim();
+                    if (!NativeModelServicePolicy.model(name)) {
+                        form.fieldError(form.modelLayout, form.model, R.string.native_model_error_name); return;
+                    }
+                    char[] entered = new char[form.key.length()]; form.key.getText().getChars(0, form.key.length(), entered, 0);
+                    try {
+                        if (entered.length == 0 && prior != null && address.equals(prior.endpoint)) secret = Arrays.copyOf(prior.key, prior.key.length);
+                        else {
+                            if (!NativeModelServicePolicy.credential(entered)) {
+                                form.fieldError(form.keyLayout, form.key, R.string.native_model_error_key); return;
+                            }
+                            secret = new String(entered).getBytes(StandardCharsets.US_ASCII);
+                        }
+                    } finally { Arrays.fill(entered, '\0'); }
+                    final Config replacement = new Config(address, name, secret); secret = null;
+                    form.beginSaving();
+                    if (!submit(() -> saveConfiguration(replacement, result, created), result)) {
+                        replacement.close(); created.dismiss();
+                    }
+                } catch (NativeModelServicePolicy.Rejected error) {
+                    form.fieldError(form.endpointLayout, form.endpoint, error.code.equals("ENDPOINT_INCLUDES_COMPLETION_PATH")
+                        ? R.string.native_model_error_completion_endpoint : R.string.native_model_error_endpoint);
+                }
+                catch (Exception ignoredError) { finishConfiguration(result, null, failure("CONFIGURATION_FAILED")); created.dismiss(); }
+                finally { if (secret != null) Arrays.fill(secret, (byte) 0); }
+            });
+        } catch (Exception ignored) {
+            finishConfiguration(result, null, failure("UI_UNAVAILABLE"));
+            if (openedForm != null) {
+                openedForm.clearKey();
+                openedForm.dialog.dismiss();
+                synchronized (gate) {
+                    if (dialog == openedForm.dialog) dialog = null;
+                    if (configurationForm == openedForm) configurationForm = null;
+                }
+            }
+        }
+    }
+    /** Native-only appearance update; never recreates a credential form. */
+    public void refreshAppearance() {
+        main.post(() -> {
+            final NativeModelConfigurationForm form;
+            synchronized (gate) {
+                form = configurationForm;
+                if (closed || form == null || dialog != form.dialog || !form.dialog.isShowing()) return;
+            }
+            form.refreshAppearance();
+        });
     }
     private void saveConfiguration(Config replacement, CompletableFuture<JSONObject> result, AlertDialog created) {
         byte[] record = null;
@@ -292,26 +300,6 @@ public final class NativeModelService {
         synchronized (gate) { if (configuration == result) { configuration = null; configuring = false; } }
         if (error != null) result.completeExceptionally(error); else result.complete(value);
     }
-    private static EditText field(Activity owner, LinearLayout parent, String hint, boolean secret) {
-        EditText input = new EditText(owner); input.setSingleLine(true); input.setHint(hint); input.setTextSize(16);
-        input.setMinHeight(dp(owner, 56)); input.setPadding(dp(owner, 16), dp(owner, 12), dp(owner, 16), dp(owner, 12));
-        input.setInputType(InputType.TYPE_CLASS_TEXT | (secret ? InputType.TYPE_TEXT_VARIATION_PASSWORD : InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS));
-        input.setImeOptions(EditorInfo.IME_FLAG_NO_EXTRACT_UI | EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING | EditorInfo.IME_ACTION_NEXT);
-        if (Build.VERSION.SDK_INT >= 26) input.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
-        input.setSaveEnabled(false); input.setLongClickable(!secret);
-        GradientDrawable shape = new GradientDrawable(); shape.setColor(Color.TRANSPARENT); shape.setCornerRadius(dp(owner, 16));
-        shape.setStroke(dp(owner, 1), themeColor(owner, android.R.attr.textColorSecondary, Color.GRAY)); input.setBackground(shape);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2); params.topMargin = dp(owner, 16); parent.addView(input, params);
-        return input;
-    }
-    private static int dp(Context owner, int value) { return Math.round(value * owner.getResources().getDisplayMetrics().density); }
-    private static int themeColor(Context owner, int attribute, int fallback) {
-        TypedValue value = new TypedValue();
-        if (!owner.getTheme().resolveAttribute(attribute, value, true)) return fallback;
-        if (value.type >= TypedValue.TYPE_FIRST_COLOR_INT && value.type <= TypedValue.TYPE_LAST_COLOR_INT) return value.data;
-        try { return owner.getColor(value.resourceId); } catch (Exception ignored) { return fallback; }
-    }
-
     private static final class Event {
         final int sequence;
         final String type, data, code;

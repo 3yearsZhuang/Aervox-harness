@@ -8,6 +8,7 @@ import { createAervoxClient, provideAervoxClient } from '@aervox/api-client';
 import App from './App.vue';
 import './styles.css';
 import '@aervox/ui/theme';
+import { notifyNativeUiReady } from './mobile/native-startup';
 
 async function bootstrap() {
   const native = Boolean(window.AervoxM0Native);
@@ -48,5 +49,6 @@ void bootstrap().catch(() => {
   if (root) {
     root.textContent = '本机运行暂不可用，已有数据已保留。请关闭应用后重试。';
     root.setAttribute('role', 'alert');
+    notifyNativeUiReady();
   }
 });
