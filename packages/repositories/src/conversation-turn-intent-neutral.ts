@@ -3,7 +3,7 @@ import { conversationSha256, type ConversationCryptoPort } from "./conversation-
 import type { CreateTurnRequest } from "@aervox/contracts";
 import type { ConversationExecutionPolicy } from "@aervox/schema";
 import { DomainConflictError } from "./errors.js";
-import { assertConversationExecutionPolicy } from "./conversation-execution-policy.js";
+import { assertConversationExecutionPolicy } from "./conversation-policy.js";
 
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 export type TurnIntentMessage = Omit<CreateTurnRequest["message"], "contentType"> & { contentType?: "text" | "markdown" };
