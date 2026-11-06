@@ -133,6 +133,12 @@ final class NativeDevicePolicy {
         return trimmed.equals("0");
     }
 
+    /** A diagnostic body cannot turn a failed process into a successful action. */
+    static String commandOutput(int exitCode, String output) throws Rejected {
+        if (exitCode != 0) throw new Rejected("COMMAND_FAILED");
+        return output;
+    }
+
     private static void coordinate(int value) throws Rejected {
         if (value < 0 || value > MAX_COORDINATE) throw new Rejected("INVALID_ARGUMENT");
     }

@@ -210,8 +210,8 @@ final class NativeDeviceService {
             }
             reader.join(500);
             String output = new String(collected.toByteArray(), StandardCharsets.UTF_8).trim();
-            if (process.exitValue() != 0 && output.isEmpty()) throw new DeviceException("COMMAND_FAILED");
-            return output;
+            try { return NativeDevicePolicy.commandOutput(process.exitValue(), output); }
+            catch (NativeDevicePolicy.Rejected failed) { throw new DeviceException(failed.code); }
         } finally { if (process.isAlive()) process.destroyForcibly(); }
     }
 

@@ -80,6 +80,24 @@ public final class NativeDevicePolicyTest {
         assertFalse(NativeDevicePolicy.capability(""));
     }
 
+    @Test public void rejectsFailedProcessReceiptsWithoutPublishingTheirDiagnosticBody() {
+        for (String diagnostic : new String[] {"", "** No activities found to run, monkey aborted.", "SecurityException: permission denied"}) {
+            for (int exitCode : new int[] {1, 126, -1}) {
+                try { NativeDevicePolicy.commandOutput(exitCode, diagnostic); fail("expected command failure"); }
+                catch (NativeDevicePolicy.Rejected expected) {
+                    assertEquals("COMMAND_FAILED", expected.code);
+                    assertEquals("COMMAND_FAILED", expected.getMessage());
+                }
+            }
+        }
+    }
+
+    @Test public void preservesSuccessfulProcessOutputIncludingEmptyReceipts() throws Exception {
+        assertEquals("", NativeDevicePolicy.commandOutput(0, ""));
+        String output = "Events injected: 1\nMonkey finished";
+        assertEquals(output, NativeDevicePolicy.commandOutput(0, output));
+    }
+
     @Test public void rejectsRawCommandsEvenForPreviouslyGrantedAdvancedCapability() {
         for (String line : new String[] {"dumpsys battery", "rm -rf /", "", "x".repeat(2049)}) {
             try { NativeDevicePolicy.command(line); fail("expected rejection"); }

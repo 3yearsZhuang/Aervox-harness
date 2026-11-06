@@ -58,8 +58,8 @@ final class NativeShizukuShell implements NativeDeviceService.Shell {
                 }
                 reader.join(500);
                 String output = new String(collected.toByteArray(), StandardCharsets.UTF_8).trim();
-                if (p.exitValue() != 0 && output.isEmpty()) throw new ShizukuException("COMMAND_FAILED");
-                return output;
+                try { return NativeDevicePolicy.commandOutput(p.exitValue(), output); }
+                catch (NativeDevicePolicy.Rejected failed) { throw new ShizukuException(failed.code); }
             } finally { if (p.isAlive()) p.destroyForcibly(); }
         } catch (ShizukuException error) {
             throw error;

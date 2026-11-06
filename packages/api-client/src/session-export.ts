@@ -17,6 +17,8 @@ export interface SessionTranscriptInput {
   now?: () => Date;
   maxPages?: number;
   maxChars?: number;
+  /** UTF-8 budget for the complete artifact, including its header and truncation notice. */
+  maxBytes?: number;
 }
 
 export interface SessionTranscript {
@@ -27,7 +29,10 @@ export interface SessionTranscript {
 
 const DEFAULT_MAX_PAGES = 40;
 const DEFAULT_MAX_CHARS = 200_000;
+const DEFAULT_MAX_BYTES = 256 * 1024;
 const PAGE_LIMIT = 50;
+const TRUNCATION_NOTICE = '（内容过多，导出已截断。）';
+const encoder = new TextEncoder();
 
 const statusLabel = (turn: { status: string; isComplete: boolean }): string =>
   turn.isComplete && turn.status === 'Completed' ? '完整' : turn.status === 'Interrupted' ? '已中断' : turn.status === 'Failed' ? '失败' : '未完成';
@@ -44,37 +49,58 @@ function renderMessage(message: SessionHistoryMessage): string {
   return `**${speaker(message)}**：${content || '（空记录）'}`;
 }
 
-/** Chronological Markdown for one session; bounded in pages and characters. */
+/** Chronological Markdown for one session; bounded in pages, characters and UTF-8 bytes. */
 export async function buildSessionTranscript(input: SessionTranscriptInput): Promise<SessionTranscript> {
   const maxPages = input.maxPages ?? DEFAULT_MAX_PAGES;
   const maxChars = input.maxChars ?? DEFAULT_MAX_CHARS;
+  const maxBytes = input.maxBytes ?? DEFAULT_MAX_BYTES;
   const now = input.now ?? (() => new Date());
+  input.signal?.throwIfAborted();
+  const header = [`# ${input.title || '会话'}`, `会话：${input.sessionId}`, `导出时间：${now().toISOString()}`].join('\n');
+  // The final newline is part of the artifact even when there are no turns.
+  let usedChars = header.length + 1;
+  let usedBytes = encoder.encode(header).byteLength + 1;
+  const withinBudget = (chars: number, bytes: number) => chars <= maxChars && bytes <= maxBytes;
+  if (!withinBudget(usedChars, usedBytes)) throw new Error('SESSION_TRANSCRIPT_HEADER_TOO_LARGE');
   const turns: SessionHistoryPage['items'] = [];
   let cursor: string | undefined;
+  let truncated = false;
   for (let page = 0; page < maxPages; page++) {
     input.signal?.throwIfAborted();
     const result = await input.getPage({ limit: PAGE_LIMIT, ...(cursor ? { cursor } : {}), signal: input.signal });
     turns.push(...result.items);
     const next = result.nextCursor ?? undefined;
+    if (next && (page + 1 === maxPages || next === cursor)) truncated = true;
     // A cursor that never advances would loop forever; stop instead of refetching.
     if (!next || next === cursor) break;
     cursor = next;
   }
   turns.reverse();
-  const header = [`# ${input.title || '会话'}`, `会话：${input.sessionId}`, `导出时间：${now().toISOString()}`, ''].join('\n');
-  const body: string[] = [];
-  let truncated = false;
-  let used = header.length;
+  const body: { text: string; chars: number; bytes: number }[] = [];
+  const noticeChars = TRUNCATION_NOTICE.length + 2;
+  const noticeBytes = encoder.encode(TRUNCATION_NOTICE).byteLength + 2;
   for (const [index, turn] of turns.entries()) {
     const block = [
       `## 第 ${index + 1} 轮 · ${statusLabel(turn)} · ${turn.createdAt}`,
       ...turn.messages.map(renderMessage),
-      '',
     ].join('\n');
-    if (used + block.length > maxChars) { truncated = true; break; }
-    used += block.length;
-    body.push(block);
+    // Keep complete turns and account for the blank line preceding each block.
+    const chars = block.length + 2;
+    const bytes = encoder.encode(block).byteLength + 2;
+    if (!withinBudget(usedChars + chars + (truncated ? noticeChars : 0),
+      usedBytes + bytes + (truncated ? noticeBytes : 0))) { truncated = true; break; }
+    usedChars += chars;
+    usedBytes += bytes;
+    body.push({ text: block, chars, bytes });
   }
-  const tail = truncated ? '\n（内容过多，导出已截断。）\n' : '';
-  return { text: `${header}\n${body.join('\n')}${tail}`.trimEnd() + '\n', truncated, turns: body.length };
+  // A later turn can exhaust the budget after earlier turns fit exactly.
+  // Make room for the required notice by removing complete trailing turns.
+  while (truncated && !withinBudget(usedChars + noticeChars, usedBytes + noticeBytes)) {
+    const removed = body.pop();
+    if (!removed) throw new Error('SESSION_TRANSCRIPT_BUDGET_TOO_SMALL');
+    usedChars -= removed.chars;
+    usedBytes -= removed.bytes;
+  }
+  const text = [header, ...body.map(block => block.text), ...(truncated ? [TRUNCATION_NOTICE] : [])].join('\n\n') + '\n';
+  return { text, truncated, turns: body.length };
 }
