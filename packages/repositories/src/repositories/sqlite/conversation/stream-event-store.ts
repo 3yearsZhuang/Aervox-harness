@@ -39,6 +39,7 @@ export class StreamEventStore {
       if (!attempt || attempt.status !== "Running" || attempt.fencingToken !== input.expectedFencingToken) {
         throw new FencingMismatchError("plugin_hook_execution_expired");
       }
+      await assertConversationBodyWritable(tx, input.turnId);
       const [last] = await tx.select({ sequence: turnStreamEvents.sequence }).from(turnStreamEvents)
         .where(eq(turnStreamEvents.turnId, input.turnId)).orderBy(desc(turnStreamEvents.sequence)).limit(1);
       const [turn] = await tx.select({ lastSequence: turns.lastSequence }).from(turns).where(eq(turns.id, input.turnId));

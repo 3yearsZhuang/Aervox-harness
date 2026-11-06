@@ -4,6 +4,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createPostgresqlDatabase } from "../src/driver/create-postgresql-database.js";
 import { SqliteConversationRepository } from "../src/repositories/sqlite/conversation-repository.js";
 import { SqlitePlatformRepository } from "../src/repositories/sqlite/platform-repository.js";
+import { SqlitePrivacyRepository } from "../src/repositories/sqlite/privacy-repository.js";
+import { MEMORY_DELETION_VERIFIER } from "../src/memory-deletion-protocol.js";
 
 const databaseUrl = process.env.AERVOX_TEST_POSTGRES_URL ?? process.env.AERVOX_PG_TEST_URL;
 const ctx = { workspaceId: "local", subjectUserId: "local" };
@@ -129,5 +131,56 @@ describe.skipIf(!databaseUrl)("PostgreSQL conversation deletion clears historica
     await conversation.deleteSession(ctx, sessionId);
     expect((await rows()).find(item => item.id === id("artifact"))?.selection_reason).toBe("selected_by_user");
     expect(JSON.parse(String((await rows()).find(item => item.id === id("artifact"))?.permission_snapshot))).toEqual(proof);
+  });
+
+  it.each([
+    ["beforeTurn", "user"], ["afterTurn", "user"],
+    ["beforeTurn", "assistant"], ["afterTurn", "assistant"],
+    ["beforeTurn", "first-version"], ["afterTurn", "first-version"],
+  ] as const)("refuses a %s Hook body after %s deletion without publishing or allocating a sequence", async (phase, target) => {
+    const turnId = id("source"), attemptId = id("attempt_source"), assistantId = `msg_${turnId}_assistant`;
+    await conversation.appendStreamEvent(ctx, { id: id("message_event"), turnId, attemptId, expectedFencingToken: 0,
+      sequence: 1, eventType: "message", safetyDecision: "approved", data: { messageId: assistantId, role: "assistant" } });
+    await conversation.recordSafeSegmentAtomically(ctx, { turnId, attemptId, expectedFencingToken: 0, sequence: 2,
+      text: "committed prefix", eventData: { messageId: assistantId, text: "committed prefix" }, safetyDecision: "approved" });
+    await database.client.execute({ sql: "INSERT INTO plugins(id,publisher,version,checksum,enabled,availability,lifecycle_generation,created_at,updated_at) VALUES (?,'fixture','1','fixture',1,'available','g','now','now')", args: [id("hook")] });
+    if (target === "first-version") await conversation.deleteMessage(ctx, id("input_source"));
+    else await conversation.softDeleteMessage(ctx, target === "user" ? id("input_source") : assistantId);
+    const events = await conversation.getStreamEvents(ctx, turnId), turn = await conversation.getTurn(ctx, turnId);
+    await expect(conversation.appendPluginHookEvent(ctx, { turnId, attemptId, expectedFencingToken: 0,
+      pluginGeneration: { pluginId: id("hook"), generation: "g" }, phase, eventType: "delta", data: { text: "PRIVATE_late" } })).rejects.toThrow("conversation_source_unavailable");
+    expect(await conversation.getStreamEvents(ctx, turnId)).toEqual(events);
+    expect(await conversation.getTurn(ctx, turnId)).toEqual(turn);
+    expect((await conversation.listTurnAttempts(ctx, turnId))[0]?.status).toBe("Running");
+  });
+
+  it.each([
+    { scope: "account" }, { ownerModule: "other" }, { targetType: "attachment" },
+    { targetOwner: "other" }, { targetId: "" },
+  ])("keeps unsupported PostgreSQL deletion completion %j denied and retryable with a current verifier", async change => {
+    await database.client.execute("DELETE FROM deletion_targets"); await database.client.execute("DELETE FROM deletion_requests");
+    const privacy = new SqlitePrivacyRepository(database.db), requestId = id("deletion");
+    const target = { targetType: change.targetType ?? "memory", targetId: change.targetId ?? id("target"), ownerModule: change.targetOwner ?? "memory" };
+    await privacy.createDeletionRequest(ctx, { id: requestId, idempotencyKey: requestId, scope: change.scope ?? "memory", ownerModule: change.ownerModule ?? "memory", targets: [target] });
+    await privacy.updateDeletionTargetStatus({ requestId, targetType: target.targetType, targetId: target.targetId }, "completed", JSON.stringify({ verifier: MEMORY_DELETION_VERIFIER }));
+    await privacy.updateDeletionRequestStatus(ctx, requestId, "completed", { lastVerifiedAt: "2026-11-07T00:00:00.000Z" });
+    const original = await privacy.getDeletionRequest(ctx, requestId), targets = await privacy.listDeletionTargets(requestId);
+    expect(await privacy.hasPendingDeletionRequest(ctx)).toBe(true);
+    expect((await privacy.listUnverifiedDeletionRequests()).map(request => request.id)).toEqual([requestId]);
+    expect(await privacy.getDeletionRequest(ctx, requestId)).toEqual(original);
+    expect(await privacy.listDeletionTargets(requestId)).toEqual(targets);
+    expect(await privacy.beginDeletionRequestAttempt(requestId)).toMatchObject({ status: "in_progress", attemptCount: 1 });
+  });
+
+  it("does not reopen a supported memory completion with the current verifier", async () => {
+    await database.client.execute("DELETE FROM deletion_targets"); await database.client.execute("DELETE FROM deletion_requests");
+    const privacy = new SqlitePrivacyRepository(database.db), requestId = id("supported_deletion"), targetId = id("supported_target");
+    await privacy.createDeletionRequest(ctx, { id: requestId, idempotencyKey: requestId, scope: "memory", ownerModule: "memory",
+      targets: [{ targetType: "memory", targetId, ownerModule: "memory" }] });
+    await privacy.updateDeletionTargetStatus({ requestId, targetType: "memory", targetId }, "completed", JSON.stringify({ verifier: MEMORY_DELETION_VERIFIER }));
+    await privacy.updateDeletionRequestStatus(ctx, requestId, "completed", { lastVerifiedAt: "2026-11-07T00:00:00.000Z" });
+    expect(await privacy.hasPendingDeletionRequest(ctx)).toBe(false);
+    expect(await privacy.listUnverifiedDeletionRequests()).toEqual([]);
+    expect(await privacy.beginDeletionRequestAttempt(requestId)).toBeNull();
   });
 });
