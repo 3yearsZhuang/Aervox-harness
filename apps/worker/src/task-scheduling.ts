@@ -8,6 +8,7 @@ export const DEFAULT_WORKER_TICK_MS = 5_000;
  */
 export const DEFAULT_WORKER_INTERVALS: Readonly<Record<string, number>> = Object.freeze({
   outbox: 3_000,
+  "delegated-turns": 3_000,
   review: 10_000,
   diary: 60_000,
   deletion: 30_000,
