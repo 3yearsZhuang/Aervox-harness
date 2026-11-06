@@ -39,10 +39,13 @@ test('opens due knowledge, preserves an uncertain self-assessment and reads its 
     await page.getByRole('navigation', {name: '首页入口'}).getByRole('button', {name: /^今日/}).click();
     const today = platform === 'mobile' ? page.locator('md-dialog[data-aria-label="今日"]')
       : page.getByRole('dialog', {name: '今日', exact: true});
+    await expect(today).toBeVisible();
+    await expect(page.getByRole('dialog', {name: '今日', exact: true})).toBeVisible();
     await today.getByRole('button', {name: '今日复习', exact: true}).click();
     const learning = platform === 'mobile' ? page.locator('md-dialog[data-aria-label="学习能力"]')
       : page.getByRole('dialog', {name: '学习能力', exact: true});
     await expect(learning).toBeVisible();
+    await expect(page.getByRole('dialog', {name: '学习能力', exact: true})).toBeVisible();
     return page.locator('.review-learning-view');
   };
   await page.goto(`${servers.webUrl}/?surface=proactive-ui`);
