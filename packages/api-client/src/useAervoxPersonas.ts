@@ -8,6 +8,7 @@ import { ref } from 'vue';
 import { personaApi } from '@aervox/contracts';
 import { requestEndpoint } from './endpoint.js';
 import { createResource } from './resource.js';
+import { notifyPersonaChanged } from './persona-changes.js';
 
 import type {
   Persona as PersonaDto,
@@ -62,13 +63,21 @@ export function useAervoxPersonas() {
 
   const getPersonaDetail = async (
     personaId: string,
-  ): Promise<PersonaDetailResponse> =>
-    requestEndpoint(transport, personaApi.get, undefined, { personaId });
+    options?: { revisionId?: string },
+  ): Promise<PersonaDetailResponse> => {
+    const detail = await requestEndpoint(transport, personaApi.get, undefined, { personaId }, options);
+    if (detail.persona.id !== personaId || (detail.revision && detail.revision.personaId !== personaId)
+      || (options?.revisionId !== undefined && detail.revision?.id !== options.revisionId)) {
+      throw new Error('PERSONA_REVISION_MISMATCH');
+    }
+    return detail;
+  };
 
   const createPersona = async (
     input: CreatePersonaInputDto,
   ): Promise<PersonaMutationResponse> => {
     const res = await requestEndpoint(transport, personaApi.create, input);
+    notifyPersonaChanged(transport);
     resource.invalidate();
     await loadPersonas();
     return res;
@@ -79,6 +88,7 @@ export function useAervoxPersonas() {
     input: UpdatePersonaInputDto,
   ): Promise<PersonaMutationResponse> => {
     const res = await requestEndpoint(transport, personaApi.update, input, { personaId });
+    notifyPersonaChanged(transport);
     resource.invalidate();
     await loadPersonas();
     return res;
@@ -86,6 +96,7 @@ export function useAervoxPersonas() {
 
   const deletePersona = async (personaId: string): Promise<boolean> => {
     const res = await requestEndpoint(transport, personaApi.delete, undefined, { personaId });
+    if (res.deleted) notifyPersonaChanged(transport);
     resource.invalidate();
     await loadPersonas();
     return res.deleted;
@@ -96,6 +107,7 @@ export function useAervoxPersonas() {
     revisionId?: string,
   ): Promise<ActivePersonaSelectionDto> => {
     const res = await requestEndpoint(transport, personaApi.activate, revisionId ? { revisionId } : {}, { personaId });
+    notifyPersonaChanged(transport);
     resource.invalidate();
     await loadPersonas();
     return res;
@@ -111,6 +123,7 @@ export function useAervoxPersonas() {
     conflictResolution: 'error' | 'replace' = 'error',
   ): Promise<PersonaImportResponse> => {
     const res = await requestEndpoint(transport, personaApi.import, { bundleBase64, conflictResolution });
+    notifyPersonaChanged(transport);
     resource.invalidate();
     await loadPersonas();
     return res;

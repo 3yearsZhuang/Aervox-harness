@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { Activity, Bell, BookOpen, Database, FolderDown, KeyRound, Menu, RefreshCw, Smartphone, Sparkles } from 'lucide-vue-next';
-import { getClientTransport } from '@aervox/api-client';
+import { getClientTransport, notifyPersonaChanged } from '@aervox/api-client';
+import { getAvailableLive2DModels } from '@aervox/ui/companion';
 import NativeLearningPanel from './NativeLearningPanel.vue';
 import { nativeRequest } from './native-channel';
 import { deviceError, grantDeviceCapability, readDeviceStatus, type DeviceCapability, type DeviceStatus } from './native-device';
@@ -32,6 +33,8 @@ function menuSummary(target: PageId): string {
 
 /* ---------- 人格：陪伴者的身份与设定 ---------- */
 interface PersonaRow { id: string; name: string; description: string; currentRevisionId: string }
+interface PersonaSaveReceipt { persona: PersonaRow; revision: { id: string; revision: number } }
+interface SavedPersonaActivation { personaId: string; revisionId: string; feedback: string }
 const personas = ref<PersonaRow[]>([]);
 const activePersonaId = ref('');
 const editingPersonaId = ref('');
@@ -42,12 +45,22 @@ const personaError = ref('');
 const draftName = ref('');
 const draftDescription = ref('');
 const draftPrompt = ref('');
+const draftLive2dModelId = ref('');
+const live2dModels = getAvailableLive2DModels();
+const unavailableLive2dBinding = computed(() => draftLive2dModelId.value !== ''
+  && !live2dModels.some(model => model.id === draftLive2dModelId.value));
 const draftRevision = ref(1);
+const pendingPersonaActivation = ref<SavedPersonaActivation | null>(null);
 let personaLoaded = false;
 
-async function loadPersonaDetail() {
-  const id = activePersonaId.value;
-  if (!id) return;
+async function loadPersonaDetail(id = activePersonaId.value) {
+  if (!id) {
+    editingPersonaId.value = '';
+    draftConfig.value = {};
+    draftName.value = ''; draftDescription.value = ''; draftPrompt.value = '';
+    draftLive2dModelId.value = ''; draftRevision.value = 1;
+    return;
+  }
   const detail = await clientTransport.request<{
     persona: PersonaRow;
     revision: { revision: number; config: { systemPromptAppend: string; [key: string]: unknown } } | null;
@@ -57,6 +70,8 @@ async function loadPersonaDetail() {
   draftName.value = detail.persona.name;
   draftDescription.value = detail.persona.description ?? '';
   draftPrompt.value = detail.revision?.config.systemPromptAppend ?? '';
+  draftLive2dModelId.value = typeof detail.revision?.config.live2dModelId === 'string'
+    ? detail.revision.config.live2dModelId : '';
   draftRevision.value = detail.revision?.revision ?? 1;
 }
 
@@ -67,11 +82,20 @@ async function loadPersonas(force = false) {
   if (!force) personaFeedback.value = '';
   personaBusy.value = true;
   try {
-    const list = await clientTransport.request<{ personas: PersonaRow[]; active: { personaId: string } | null }>('GET', '/v1/personas');
+    const list = await clientTransport.request<{
+      personas: PersonaRow[];
+      active: { personaId: string; revisionId: string } | null;
+    }>('GET', '/v1/personas');
     personas.value = list.personas ?? [];
     activePersonaId.value = list.active?.personaId ?? '';
-    editingPersonaId.value = activePersonaId.value;
-    await loadPersonaDetail();
+    const pending = pendingPersonaActivation.value;
+    if (pending && list.active?.personaId === pending.personaId && list.active.revisionId === pending.revisionId) {
+      pendingPersonaActivation.value = null;
+      personaFeedback.value = pending.feedback;
+    }
+    // Refresh the saved persona while its activation is pending, even if another persona is active.
+    await loadPersonaDetail(pendingPersonaActivation.value?.personaId ?? activePersonaId.value);
+    if (pendingPersonaActivation.value) personaError.value = '设定已保存，但启用没有完成。请重试启用已保存修订。';
     personaLoaded = true;
   } catch {
     personaError.value = '人格列表读取失败，可以下拉刷新重试。';
@@ -83,7 +107,9 @@ async function switchPersona(id: string) {
   personaBusy.value = true; personaError.value = ''; personaFeedback.value = '';
   try {
     await clientTransport.request('POST', `/v1/personas/${encodeURIComponent(id)}/activate`, {});
+    notifyPersonaChanged(clientTransport);
     activePersonaId.value = id;
+    pendingPersonaActivation.value = null;
     await loadPersonaDetail();
     personaFeedback.value = `已切换到「${draftName.value}」。`;
   } catch {
@@ -92,9 +118,11 @@ async function switchPersona(id: string) {
 }
 
 function newPersona() {
+  pendingPersonaActivation.value = null;
   editingPersonaId.value = '';
   draftConfig.value = {};
   draftName.value = ''; draftDescription.value = ''; draftPrompt.value = '';
+  draftLive2dModelId.value = '';
   draftRevision.value = 1; personaFeedback.value = ''; personaError.value = '';
 }
 
@@ -102,6 +130,28 @@ async function refreshPage() {
   if (personaBusy.value) return;
   if (page.value === 'persona') await loadPersonas(true);
   else await readStatus();
+}
+
+async function activateSavedPersona() {
+  const saved = pendingPersonaActivation.value;
+  if (!saved) return;
+  await clientTransport.request('POST', `/v1/personas/${encodeURIComponent(saved.personaId)}/activate`, {
+    revisionId: saved.revisionId,
+  });
+  notifyPersonaChanged(clientTransport);
+  activePersonaId.value = saved.personaId;
+  pendingPersonaActivation.value = null;
+  personaFeedback.value = saved.feedback;
+  personaLoaded = false;
+  await loadPersonas(true);
+}
+
+async function retrySavedPersonaActivation() {
+  if (personaBusy.value || !pendingPersonaActivation.value) return;
+  personaBusy.value = true; personaError.value = ''; personaFeedback.value = '';
+  try { await activateSavedPersona(); }
+  catch { personaError.value = '设定已保存，但启用没有完成。请重试启用已保存修订。'; }
+  finally { personaBusy.value = false; }
 }
 
 async function savePersona() {
@@ -113,29 +163,37 @@ async function savePersona() {
   if (!prompt) { personaError.value = '设定不能为空，它是陪伴者说话的依据。'; return; }
   personaBusy.value = true; personaError.value = ''; personaFeedback.value = '';
   const description = draftDescription.value.trim();
-  const config = { ...draftConfig.value, systemPromptAppend: prompt };
+  const config: Record<string, unknown> = { ...draftConfig.value, systemPromptAppend: prompt };
+  if (draftLive2dModelId.value) config.live2dModelId = draftLive2dModelId.value;
+  else delete config.live2dModelId;
+  let saved = false;
   try {
-    if (!editingPersonaId.value) {
-      // 新建完成后明确启用，新旧人格保留各自的修订。
-      const created = await clientTransport.request<{ persona: PersonaRow; revision: { revision: number } }>(
+    const creating = !editingPersonaId.value;
+    const receipt = creating
+      ? await clientTransport.request<PersonaSaveReceipt>(
         'POST', '/v1/personas', { name, description, config },
-      );
-      await clientTransport.request('POST', `/v1/personas/${encodeURIComponent(created.persona.id)}/activate`, {});
-      personaFeedback.value = '已建立并启用这个人格。';
-    } else {
-      const saved = await clientTransport.request<{ persona: PersonaRow; revision: { revision: number } }>(
+      )
+      : await clientTransport.request<PersonaSaveReceipt>(
         'PATCH', `/v1/personas/${encodeURIComponent(editingPersonaId.value)}`,
         { expectedRevision: draftRevision.value, name, description, config },
       );
-      await clientTransport.request('POST', `/v1/personas/${encodeURIComponent(editingPersonaId.value)}/activate`, {});
-      draftRevision.value = saved.revision.revision;
-      personaFeedback.value = '已保存，下一次对话就会用上新设定。';
-    }
-    personaLoaded = false;
-    await loadPersonas(true);
+    // The save is committed before activation; retain its identity even if activation fails.
+    editingPersonaId.value = receipt.persona.id;
+    draftRevision.value = receipt.revision.revision;
+    draftConfig.value = config;
+    personas.value = [...personas.value.filter(persona => persona.id !== receipt.persona.id), receipt.persona];
+    pendingPersonaActivation.value = {
+      personaId: receipt.persona.id,
+      revisionId: receipt.revision.id,
+      feedback: creating ? '已建立并启用这个人格。' : '已保存，下一次对话就会用上新设定。',
+    };
+    saved = true;
+    notifyPersonaChanged(clientTransport);
+    await activateSavedPersona();
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
-    personaError.value = message === 'PERSONA_REVISION_CONFLICT'
+    personaError.value = saved ? '设定已保存，但启用没有完成。请重试启用已保存修订。'
+      : message === 'PERSONA_REVISION_CONFLICT'
       ? '这份人格在别处被改过，请刷新后再保存。'
       : '保存没有完成，设定未变。';
   } finally { personaBusy.value = false; }
@@ -584,7 +642,18 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
           <textarea v-model="draftPrompt" aria-label="人格设定" rows="6" :disabled="personaBusy"
             placeholder="她怎么称呼你、说话的语气、在意什么、不会做什么…" />
         </label>
+        <label class="runtime-persona-field">
+          <span>Live2D 形象</span>
+          <select v-model="draftLive2dModelId" aria-label="人格 Live2D 形象" :disabled="personaBusy">
+            <option value="">未绑定 · 跟随默认 Mizuki</option>
+            <option v-for="model in live2dModels" :key="model.id" :value="model.id">{{ model.displayName }}</option>
+            <option v-if="unavailableLive2dBinding" :value="draftLive2dModelId">已不可用 · {{ draftLive2dModelId }}</option>
+          </select>
+        </label>
+        <p v-if="unavailableLive2dBinding" class="runtime-model-note">这个形象在本机不可用，将显示 Mizuki。原绑定会保留，直到你更换或解除绑定。</p>
         <component :is="'md-filled-tonal-button'" class="runtime-configure" type="button" :disabled="personaBusy" @click="savePersona">保存设定</component>
+        <component :is="'md-outlined-button'" v-if="pendingPersonaActivation" type="button" :disabled="personaBusy"
+          @click="retrySavedPersonaActivation">启用已保存修订</component>
       </div>
       <p v-if="personaFeedback" class="runtime-model-note" role="status">{{ personaFeedback }}</p>
       <p v-if="personaError" class="runtime-error runtime-feedback" role="alert">{{ personaError }}</p>
@@ -670,7 +739,7 @@ dd { margin: 4px 0 0; color: var(--md-sys-color-on-surface-variant); font-size: 
   color: var(--md-sys-color-primary); background: color-mix(in srgb, var(--md-sys-color-primary) 16%, transparent); }
 .runtime-persona-form { display: grid; gap: 12px; }
 .runtime-persona-field { display: grid; gap: 6px; font-size: 13px; color: var(--md-sys-color-on-surface-variant); }
-.runtime-persona-field :is(input, textarea) {
+.runtime-persona-field :is(input, textarea, select) {
   width: 100%; box-sizing: border-box; padding: 10px 14px; border-radius: 14px; font: inherit; font-size: 15px;
   color: var(--md-sys-color-on-surface); background: var(--md-sys-color-surface-container-high);
   border: 1px solid var(--md-sys-color-outline-variant); resize: vertical;
