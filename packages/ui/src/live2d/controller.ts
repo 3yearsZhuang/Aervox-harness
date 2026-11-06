@@ -76,7 +76,7 @@ export class AervoxLive2DController {
       // 替换成多样待机池后，库的 idle 随机循环本身就足够自然。
       if (options?.diversifyIdle !== false) this.diversifyIdleGroup()
       // The validated model3 contract needs only Cubism Core, not the aggregate
-      // entry's Cubism 2 runtime. Keep loading lazy so failures reach the fallback.
+      // entry's Cubism 2 runtime. Keep loading lazy so failures reach the retry UI.
       const { Live2DModel } = await import('@sekai-world/pixi-live2d-display-mulmotion/cubism4')
       if (this.destroyed) throw new DOMException('Live2D disposed', 'AbortError')
       // Pass the validated JSON so external motion metadata reaches the runtime.

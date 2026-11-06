@@ -1,8 +1,9 @@
 /// <reference path="./env.d.ts" />
 /** Aervox｜思隅 @aervox/ui 入口（源码出口，由消费端 Vite 处理） */
-export { default as PetHero } from './components/PetHero.vue';
+export { default as CompanionAvatar } from './components/CompanionAvatar.vue';
 export { default as SpritePet } from './components/SpritePet.vue';
-export { default as PetWithFallback } from './components/PetWithFallback.vue';
+export { getAvailableLive2DModels } from './live2d/available-models';
+export { useCompanionAvatarBinding, type CompanionAvatarBindingState } from './composables/useCompanionAvatarBinding';
 export { default as MessageBubble } from './components/MessageBubble.vue';
 export { default as UserQuestionComposer } from './components/UserQuestionComposer.vue';
 
@@ -53,7 +54,6 @@ export * from './live2d/petReactions';
 export * from './utils/markdown';
 export * from './proactive/profile-authorization';
 import './theme/index.css';
-import './theme/hero.css';
 import './theme/workbench.css';
 import './theme/standard-workbench.css';
 import './theme/workbench-experience.css';

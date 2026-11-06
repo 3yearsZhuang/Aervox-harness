@@ -1,6 +1,8 @@
 /** Shared companion visuals without the workbench component or global workbench theme. */
-export { default as PetHero } from './components/PetHero.vue';
-export { default as PetWithFallback } from './components/PetWithFallback.vue';
+export { default as CompanionAvatar } from './components/CompanionAvatar.vue';
+export { getAvailableLive2DModels } from './live2d/available-models';
+export { DEFAULT_AERVOX_MODEL, type AervoxLive2DModel } from './live2d/model';
+export { useCompanionAvatarBinding, type CompanionAvatarBindingState } from './composables/useCompanionAvatarBinding';
 export { default as UserQuestionComposer } from './components/UserQuestionComposer.vue';
 export { default as AervoxBrandMark } from './components/AervoxBrandMark.vue';
 export { default as AervoxCompanionMark } from './components/AervoxCompanionMark.vue';
