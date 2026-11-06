@@ -17,6 +17,6 @@ export {
 } from "./plan-generation.js";
 export type { PlanLLMOutput, PlanModelCall } from "./plan-generation.js";
 export {
-  QuestionBankRegistry, JsonQuestionBankProvider, CsvQuestionBankProvider,
+  QuestionBankRegistry, JsonQuestionBankProvider, CsvQuestionBankProvider, createDefaultQuestionBankRegistry,
 } from "./question-bank.js";
 export type { QuestionBankItem, QuestionBankProviderPort } from "./question-bank.js";

@@ -166,6 +166,26 @@ export const REMOVABLE_TARGETS = [
       "移除插件实现不删除安装记录与配置；地点、具体日期日程、任务、手工路程与偏好 state 文档继续由宿主 SQLite 持有；" +
       "启用时插件可导出校园 JSON，恢复默认和显式卸载沿用宿主清除规则；缺包后宿主通用数据导出与确认卸载入口保留，不启用业务代码",
   },
+  ...[
+    { directory: "tool/anki-sync", packageName: "@aervox/plugin-anki-sync", id: "anki-catalog-plugin" },
+    { directory: "workflow/diary-distillers", packageName: "@aervox/plugin-diary-distillers", id: "diary-catalog-plugin" },
+  ].map(({ directory, packageName, id }) => ({
+    id, name: `${packageName} 只读清单实现`, pilot: "ITER-075",
+    implementationFiles: [`plugins/plugins/${directory}/src/server/index.ts`],
+    allowedAssemblyFiles: [
+      "packages/host-runtime/src/plugin-assembly.ts",
+      "packages/host-runtime/test/plugin-runtime-catalogs.test.ts",
+      `plugins/plugins/${directory}/test/catalog-tool.test.ts`,
+    ],
+    removalPlan: {
+      removeDirectories: [`plugins/plugins/${directory}`],
+      strips: [
+        { file: "packages/host-runtime/src/plugin-assembly.ts", pattern: `^.*${packageName}[^\\n]*\\n`, flags: "gm" },
+        { file: "packages/host-runtime/package.json", pattern: `,\\n[ \\t]*"${packageName}": "[^"]*"(?=\\n[ \\t]*})|^[ \\t]*"${packageName}": "[^"]*",?\\n`, flags: "gm" },
+      ],
+    },
+    dataRetentionRule: "移除实现只释放工具绑定，不删除安装、配置、授权、学习或日记事实；缺包不是显式卸载",
+  })),
 ];
 
 export function auditTarget(target, fileList) {

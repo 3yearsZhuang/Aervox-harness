@@ -556,6 +556,8 @@ export async function runLoopTurnOnce(
         conversationRepo: repo,
         proactiveActionAuthorizer: deps.proactiveActionAuthorizer,
         observability: deps.observability,
+        pluginPermitReader: extRepo?.readPluginToolPermit
+          ? { readPluginToolPermit: extRepo.readPluginToolPermit.bind(extRepo) } : undefined,
         generationFor: tool => tool.pluginId ? runtimeScopes.get(tool.pluginId)?.pluginGeneration?.generation : undefined,
         signalFor: tool => tool.pluginId ? runtimeScopes.get(tool.pluginId)?.signal : undefined,
         capabilityTier: isL1Tier && isCapabilityTiering ? "restricted" : undefined,

@@ -49,6 +49,8 @@ const FIRST_PARTY_PLUGIN_LOADERS: PluginLoader[] = [
   { pluginId: "ap-bot-onebot", load: () => import("@aervox/plugin-bot-onebot/server") },
   { pluginId: "ap-ui-focus-mode", load: () => import("@aervox/plugin-focus-mode/server") },
   { pluginId: "ap-tool-flowcampus", load: () => import("@aervox/plugin-flowcampus/server") },
+  { pluginId: "ap-tool-anki-sync", load: () => import("@aervox/plugin-anki-sync/server") },
+  { pluginId: "ap-workflow-diary-distillers", load: () => import("@aervox/plugin-diary-distillers/server") },
 ];
 
 export interface PluginAssemblyTargets {
@@ -57,6 +59,7 @@ export interface PluginAssemblyTargets {
   turnRegistry: TurnPluginRegistryPort;
   /** HTTP 端点接收器（宿主适配为真实路由） */
   onHttpEndpoints?: (pluginId: string, endpoints: ServerPluginRegistration["httpEndpoints"]) => (() => void) | void;
+  onRuntimeTools?: (pluginId: string, create: NonNullable<ServerPluginRegistration["runtimeToolContributions"]>, version: string | undefined) => Promise<() => void>;
   /** 诊断输出；缺省静默，便于测试 */
   warn?: (message: string, error?: unknown) => void;
 }
@@ -123,6 +126,9 @@ export async function assembleFirstPartyPlugins(
         hookIds.add(plugin.id);
       }
       if (registration.registerApiContract) cleanups.push(registration.registerApiContract(apiRegistry));
+      if (registration.runtimeToolContributions && targets.onRuntimeTools) {
+        cleanups.push(await targets.onRuntimeTools(registration.pluginId, registration.runtimeToolContributions, registration.runtimeToolVersion));
+      }
       for (const plugin of registration.turnPlugins ?? []) {
         cleanups.push(targets.turnRegistry.register(plugin));
       }

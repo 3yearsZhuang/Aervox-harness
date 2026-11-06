@@ -38,6 +38,9 @@ import { ApiOwnedTurnRecovery } from "./api-owned-recovery.js";
 import { createPluginApiRegistry } from "../../../plugin-api-registry.js";
 import { createDshTurnAdapterResolver } from "./dsh-adapter.js";
 import { PluginToolCatalog } from "./plugin-tool-catalog.js";
+// Shared plugin dispatch preparation and lifecycle checks used by host assembly.
+export { preparePluginToolContributions } from "./plugin-tool-catalog.js";
+export { createPluginToolScope } from "./plugin-tool-scope.js";
 
 export function registerConversationModule(ctx: ModuleDependencies<"apiRegistry" | "executionConfig" | "app" | "client" | "db" | "getPersona" | "getPluginRegistrations" | "llmConfigService" | "memoryRecall" | "modelRoutingService" | "observability" | "pluginHostServices" | "pluginRegistry" | "proactiveActionAuthorizer" | "proactiveRepository" | "safetyService" | "toolRuntime" | "workflows">, options: { startupRecovery?: boolean; prepareExecution?: () => Promise<void>; isMcpToolAllowed?: ConversationRouteDeps["isMcpToolAllowed"] } = {}): ConversationHost {
   const {
