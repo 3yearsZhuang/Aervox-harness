@@ -3,6 +3,42 @@ import { test, expect, openWorkbench } from './fixtures';
 test.use({ platform: 'mobile' });
 test.setTimeout(60_000);
 
+test('keeps the tablet character in the left third and the same glass deck and draft on the right', async ({ page, servers }, testInfo) => {
+  await page.setViewportSize({ width: 1069, height: 620 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(servers.webUrl);
+  const input = page.locator('.pc-whisper-input textarea');
+  await input.fill('窗口变化后仍保留的草稿');
+  await page.getByRole('tab', { name: '切换到工具', exact: true }).click();
+  for (const viewport of [{ width: 1069, height: 620 }, { width: 668, height: 1040 }, { width: 731, height: 360 }]) {
+    await page.setViewportSize(viewport);
+    await expect(page.getByRole('tab', { name: '切换到工具', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await expect(input).toHaveValue('窗口变化后仍保留的草稿');
+    const stage = (await page.locator('.pc-stage').boundingBox())!;
+    const deck = (await page.locator('.pc-deck-track').boundingBox())!;
+    const composer = (await page.locator('.pc-whisper-input').boundingBox())!;
+    expect(stage.width).toBeCloseTo(viewport.width / 3, 0);
+    expect(deck.x).toBeGreaterThanOrEqual(stage.x + stage.width);
+    expect(composer.x).toBeGreaterThanOrEqual(stage.x + stage.width);
+    expect(deck.y + deck.height).toBeLessThanOrEqual(composer.y);
+    for (const button of await page.locator('.pc-deck-box--tools .pc-home-nav button').all()) {
+      await button.scrollIntoViewIfNeeded();
+      await expect(button).toBeInViewport({ ratio: 1 });
+      expect(await button.evaluate(el => {
+        const box = el.getBoundingClientRect();
+        return el.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+      })).toBe(true);
+    }
+    await expect(input).toBeInViewport({ ratio: 1 });
+    await expect(page.locator('.pc-deck-box--tools')).toHaveCSS('backdrop-filter', 'blur(18px)');
+    await page.screenshot({ path: testInfo.outputPath(`split-${viewport.width}-${viewport.height}.png`) });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(input).toHaveValue('窗口变化后仍保留的草稿');
+  const stage = (await page.locator('.pc-stage').boundingBox())!;
+  expect(stage.width).toBeGreaterThan(350);
+});
+
 test('keeps rejected-message recovery inside the dialogue and the mobile composer clear', async ({ page, servers }, testInfo) => {
   await page.setViewportSize({ width: 411, height: 838 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -21,6 +57,12 @@ test('keeps rejected-message recovery inside the dialogue and the mobile compose
     ].map(event => `data: ${JSON.stringify(event)}\n\n`).join(''),
   }));
   await page.goto(servers.webUrl);
+  await expect(page.locator('.pc-content > .pc-home-nav')).toHaveCount(0);
+  await page.getByRole('tab', { name: '切换到工具', exact: true }).click();
+  const homeActions = page.locator('.pc-deck-box--tools .pc-home-nav');
+  await expect(homeActions.getByRole('button')).toHaveCount(4);
+  for (const button of await homeActions.getByRole('button').all()) await expect(button).toBeInViewport({ ratio: 1 });
+  await page.getByRole('tab', { name: '切换到对话', exact: true }).click();
   const draft = '保留这段未提交的多行草稿。\n连接恢复后再继续发送。\n第三行仍然属于原草稿。\n第四行也不能丢失。\n第五行需要在编辑框内滚动。\n最后一行保持完整。';
   const input = page.locator('.pc-whisper-input textarea');
   await input.fill(draft);
@@ -52,9 +94,14 @@ test('keeps rejected-message recovery inside the dialogue and the mobile compose
       return el.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
     })).toBe(true);
   };
-  for (const viewport of [{ width: 411, height: 838 }, { width: 320, height: 568 }, { width: 320, height: 360 }]) {
+  for (const viewport of [{ width: 411, height: 838 }, { width: 320, height: 568 }, { width: 320, height: 360 }, { width: 731, height: 360 }, { width: 1069, height: 400 }]) {
     await page.setViewportSize(viewport);
     await expectControlsInView();
+    if (viewport.width >= 600) {
+      const stage = (await page.locator('.pc-stage').boundingBox())!;
+      expect(stage.width).toBeCloseTo(viewport.width / 3, 0);
+      expect((await retry.boundingBox())!.x).toBeGreaterThanOrEqual(stage.x + stage.width);
+    }
     await page.screenshot({ path: testInfo.outputPath(`feedback-${viewport.width}-${viewport.height}.png`) });
   }
   await page.setViewportSize({ width: 390, height: 844 });

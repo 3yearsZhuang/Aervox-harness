@@ -31,6 +31,10 @@ test('restores an older selection, pages read-only history, and keeps per-sessio
   await page.addInitScript(() => localStorage.setItem('aervox_active_session_id', 'home_s102'));
   await page.goto(`${servers.webUrl}/?surface=proactive-ui`);
   const nav = page.getByRole('navigation', { name: '首页入口' });
+  const openHomeActions = async () => {
+    if (platform === 'mobile') await page.getByRole('tab', { name: '切换到工具', exact: true }).click();
+  };
+  await openHomeActions();
   await expect(nav.getByRole('button')).toHaveCount(4);
   await expect(nav.getByRole('button', { name: /接着上次/ })).toBeEnabled();
   await expect(page.locator('.pc-current-session')).toHaveText('已保存会话 102');
@@ -39,6 +43,7 @@ test('restores an older selection, pages read-only history, and keeps per-sessio
   await input.fill('原会话未发送的草稿');
   await expect(page.locator('.pc-dialogue-text')).toContainText('想聊什么，直接告诉我。');
   await page.screenshot({ path: `/tmp/aervox-assistant-home-${platform}.png` });
+  await openHomeActions();
   await nav.getByRole('button', { name: /接着上次/ }).click();
   const history = page.locator('.mobile-history-dialog');
   await expect(page.getByRole('dialog', { name: '对话回看', exact: true })).toBeVisible();
@@ -47,6 +52,7 @@ test('restores an older selection, pages read-only history, and keeps per-sessio
   await expect(history).toContainText('这是原会话中已保存的结果。');
   await page.keyboard.press('Escape');
   await expect(input).toHaveValue('原会话未发送的草稿');
+  await openHomeActions();
   await nav.getByRole('button', { name: /今日/ }).click();
   await expect(page.getByRole('dialog', { name: '今日', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '学习规划', exact: true })).toBeVisible();
@@ -59,9 +65,11 @@ test('restores an older selection, pages read-only history, and keeps per-sessio
   await expect(topic).toHaveValue('先保留这份学习主题');
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
+  await openHomeActions();
   await nav.getByRole('button', { name: /日记/ }).click();
   if (platform === 'mobile') await expect(page.locator('.pc-deck-slide').last()).toBeInViewport();
   else { await expect(page.getByRole('dialog', { name: '日记', exact: true })).toBeVisible(); await page.keyboard.press('Escape'); }
+  await openHomeActions();
   await nav.getByRole('button', { name: /记录/ }).click();
   const list = page.locator('.mobile-sessions-dialog');
   await expect(list.locator('.mobile-session-list > li')).toHaveCount(100);
@@ -72,6 +80,7 @@ test('restores an older selection, pages read-only history, and keeps per-sessio
   await list.locator('.mobile-session-select').click();
   await expect(input).toHaveValue('');
   await input.fill('另一会话的草稿');
+  await openHomeActions();
   await nav.getByRole('button', { name: /记录/ }).click();
   await search.fill('已保存会话 102');
   await list.locator('.mobile-session-select').click();
