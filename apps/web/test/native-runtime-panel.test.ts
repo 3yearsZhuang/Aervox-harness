@@ -322,6 +322,10 @@ it('retries persona details through the page refresh action after a failed read'
 it('opens the native learning surface from settings using the captured local transport', async () => {
   routes.mockImplementation(async (_method, path) => {
     if (path === '/v1/practice/sessions/active') throw new AervoxHttpError(404, path, { code: 'PRACTICE_SESSION_NOT_FOUND' });
+    if (path.startsWith('/v1/review-items/summary?')) return {
+      items: [], dueCount: 0, overdueCount: 0, dueTodayCount: 0, estimatedMinutes: 0,
+      timeZone: new URL(path, 'http://native.test').searchParams.get('timeZone'),
+    };
     return { items: [] };
   });
   const wrapper = await mountPanel();
@@ -331,6 +335,7 @@ it('opens the native learning surface from settings using the captured local tra
   expect(wrapper.text()).toContain('题库不足 3 题');
   expect(wrapper.text()).toContain('当前没有到期复习');
   expect(routes).toHaveBeenCalledWith('GET', '/v1/practice/sessions/active');
+  expect(routes).toHaveBeenCalledWith('GET', expect.stringMatching(/^\/v1\/review-items\/summary\?timeZone=/));
 });
 
 it('exports large backups through the file sharing port instead of the bounded text share', async () => {
