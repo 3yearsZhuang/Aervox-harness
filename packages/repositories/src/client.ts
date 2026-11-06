@@ -1,4 +1,5 @@
 import { assertPluginIdentityMigrationUnlockedForPath } from "./migration/plugin-identities.js";
+import { assertSqliteMigrationUnlocked } from "./storage-admission.js";
 /**
  * Aervox｜思隅 @aervox/repositories — 客户端与连接管理
  *
@@ -56,6 +57,7 @@ export interface ReconnectableClient extends Client {
 export function createReconnectableClient(options: {
   readonly createAndPrepare: () => Promise<Client>;
   readonly initial: Client;
+  readonly assertAdmission?: () => void;
 }): ReconnectableClient {
   let current = options.initial;
   let reconnects = 0;
@@ -69,6 +71,7 @@ export function createReconnectableClient(options: {
 
   const assertOpen = (): void => {
     if (closed) throw new LibsqlError("The client is closed", "CLIENT_CLOSED");
+    options.assertAdmission?.();
   };
 
   // libsql 的本地 SQLite 写锁等待会阻塞 JS：另一事务将无法恢复执行并提交。
@@ -434,12 +437,21 @@ export async function createDatabase(
   reconnectCount: () => number;
 }> {
   const rawUrl = config.url ?? process.env.DATABASE_URL ?? defaultDbUrl;
-  const url = resolveDatabaseUrl(rawUrl);
+  let url = resolveDatabaseUrl(rawUrl);
   const isMemory = url === ":memory:" || /^file::memory:(?:[?#]|$)/i.test(url);
   const isLocalSqlite = /^file:/i.test(url) || isMemory;
 
+  const admitLocalSource = (): void => {
+    if (!isLocalSqlite || isMemory) return;
+    const admittedPath = assertSqliteMigrationUnlocked(fileURLToPath(url));
+    const admittedUrl = new URL(url);
+    admittedUrl.pathname = pathToFileURL(admittedPath).pathname;
+    url = admittedUrl.toString();
+  };
+
   // 先确保文件父目录存在（libsql createClient 构造时即打开文件，必须在其之前创建 <repo>/data）
   if (isLocalSqlite && !isMemory) {
+    admitLocalSource();
     const filePath = fileURLToPath(url);
     await assertPluginIdentityMigrationUnlockedForPath(filePath);
     try {
@@ -451,6 +463,7 @@ export async function createDatabase(
 
   /** 建立一条已完成 PRAGMA 配置的新连接（首次与重连共用，保证自愈后配置一致） */
   const createAndPrepare = async (): Promise<Client> => {
+    admitLocalSource();
     const created = createClient({
       url,
       authToken: config.authToken ?? process.env.DATABASE_AUTH_TOKEN,
@@ -468,11 +481,14 @@ export async function createDatabase(
         // 特殊环境忽略 WAL
       }
     }
+    try { admitLocalSource(); }
+    catch (error) { created.close(); throw error; }
     return created;
   };
 
   const initial = await createAndPrepare();
-  const reconnectable = createReconnectableClient({ createAndPrepare, initial });
+  const reconnectable = createReconnectableClient({ createAndPrepare, initial,
+    assertAdmission: isLocalSqlite && !isMemory ? () => assertSqliteMigrationUnlocked(fileURLToPath(url)) : undefined });
 
   // T-01：写路径统一 busy 退避重试（仅影响写入口，调用方零侵入）。
   // 顺序：内层负责“换连接自愈”，外层负责“同一连接内的退避重试”。

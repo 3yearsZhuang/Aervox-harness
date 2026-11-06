@@ -9,7 +9,7 @@ import { loadExecutionConfig } from "@aervox/config";
  *   执行，事件映射既有契约（message → delta → done Completed），SSE 契约零改动；
  * - resolver 进程内缓存语义：禁用态缓存后同进程重复 Turn 快速失败。
  */
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { createInMemoryDatabase, SqliteConversationRepository } from "@aervox/repositories";
 import { buildApp } from "./app-fixture.js";
 import { resolveDshTurnAdapter } from "@aervox/host-runtime-test/modules/companion/conversation/dsh-adapter";
@@ -199,6 +199,24 @@ describe("Agent Loop 阶段 6f：AERVOX_LOOP_DRIVER=dsh API 接线", () => {
     40_000,
   );
 
+  it("拒绝缺少主库存储策略的低层画像注入，不读取画像或启动模型", async () => {
+    const tenant = { workspaceId: "ws_dsh", subjectUserId: "usr_dsh" };
+    const sessionId = "ses_unknown_storage";
+    await repo.getOrCreateSession(tenant, sessionId, "unknown-storage");
+    await repo.createTurnWithOutbox(tenant, { id: "turn_unknown_storage", sessionId, idempotencyKey: "unknown_storage" }, { id: "msg_unknown_storage", content: "hi" });
+    await repo.createTurnAttempt(tenant, "turn_unknown_storage", { id: "attempt_unknown_storage" });
+    const profileRead = vi.fn().mockResolvedValue({ effectiveState: "active" });
+    await runLoopTurnOnce(repo, tenant,
+      { turnId: "turn_unknown_storage", sessionId, attemptId: "attempt_unknown_storage", userMessage: "hi" },
+      { executionConfig: loadExecutionConfig(), proactiveRepository: { getEffectiveStatus: profileRead } as never },
+    );
+    expect(profileRead).not.toHaveBeenCalled();
+    expect((await repo.getTurn(tenant, "turn_unknown_storage"))?.status).toBe("Failed");
+    const events = await repo.getStreamEvents(tenant, "turn_unknown_storage");
+    expect(events.some(event => event.eventType === "delta")).toBe(false);
+    expect((events.find(event => event.eventType === "error")?.data as { message?: string })?.message).toContain("verified local main-database storage");
+  });
+
   it("主动智能 active：DSH 路径 fail-closed（不 spawn、不回退 native）", async () => {
     const tenant = { workspaceId: "ws_dsh", subjectUserId: "usr_dsh" };
     const sessionId = "ses_dsh_proactive";
@@ -210,7 +228,8 @@ describe("Agent Loop 阶段 6f：AERVOX_LOOP_DRIVER=dsh API 接线", () => {
       repo,
       tenant,
       { turnId: "turn_pa", sessionId, attemptId: "attempt_pa", userMessage: "hi" },
-      { executionConfig: loadExecutionConfig(), proactiveRepository: { getEffectiveStatus: async () => ({ effectiveState: "active" }) } as never },
+      { executionConfig: loadExecutionConfig(), proactiveRepository: { getEffectiveStatus: async () => ({ effectiveState: "active" }) } as never,
+        storagePolicy: { backend: "sqlite", locality: "sqlite-local", localOnlyAllowed: true } },
     );
 
     const events = await repo.getStreamEvents(tenant, "turn_pa");

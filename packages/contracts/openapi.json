@@ -3459,6 +3459,13 @@
                 "minItems": 1,
                 "maxItems": 4
               },
+              "installation": {
+                "type": "string",
+                "enum": [
+                  "preinstalled",
+                  "optional"
+                ]
+              },
               "breaking": {
                 "type": "boolean"
               }

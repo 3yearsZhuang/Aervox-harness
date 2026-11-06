@@ -1,8 +1,9 @@
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { memoryRecords } from "@aervox/schema";
 import type { AervoxDatabase } from "../../client.js";
 import { assertPersonalDerivedDataSource } from "../../conversation-execution-policy.js";
 import type { ConversationCryptoPort } from "../../conversation-host-port.js";
+import { jsonQuote } from "../../sql-dialect.js";
 
 export const MEMORY_COMPACTION_EVENT_TYPE = "memory.compaction.requested";
 
@@ -19,7 +20,7 @@ export async function assertMemoryCompactionAvailable(
   memoryId: string,
   crypto?: Pick<ConversationCryptoPort, "sha256Utf8">,
 ): Promise<void> {
-  const [memory] = await db.select({ isDeleted: memoryRecords.isDeleted, sourceTurnId: sql<string | null>`json_quote(${memoryRecords.sourceTurnId})`.mapWith(value => JSON.parse(value) as string | null) })
+  const [memory] = await db.select({ isDeleted: memoryRecords.isDeleted, sourceTurnId: jsonQuote(db, memoryRecords.sourceTurnId).mapWith(value => JSON.parse(value) as string | null) })
     .from(memoryRecords).where(eq(memoryRecords.id, memoryId));
   if (!memory || memory.isDeleted !== 0) throw new MemoryCompactionUnavailableError();
   try {

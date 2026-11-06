@@ -4,7 +4,8 @@ import type { AervoxDatabase } from "../../../client.js";
 
 /** Legacy snapshots can include earlier turns in the same session. Clear the
  * whole linked session's diagnostic bodies before its source identity is lost.
- * Keep ownership comparisons in SQLite so embedded NUL identities are exact.
+ * Keep ownership comparisons in SQL so SQLite's embedded NUL identities remain
+ * exact; PostgreSQL uses the same bound identity queries for supported text.
  */
 export async function clearConversationContextBodies(
   tx: Parameters<Parameters<AervoxDatabase["transaction"]>[0]>[0],

@@ -5,6 +5,7 @@ import type { AervoxDatabase } from "../../client.js";
 import { derivableConversationTurn } from "./conversation/source-visibility.js";
 import { admitsSourceTurn, unverifiedAttachmentTurn } from "../../attachment-source-admission.js";
 import type { ConversationCryptoPort } from "../../conversation-host-port.js";
+import { jsonQuote } from "../../sql-dialect.js";
 
 export function createSqliteDiaryMaterialPort(db: AervoxDatabase, crypto: Pick<ConversationCryptoPort, "sha256Utf8">): DiaryMaterialPort {
   return { collect: (context, window) => collectDiaryMaterial(db, context, window, crypto) };
@@ -30,9 +31,9 @@ async function collectSnapshot(
   const messageRows = await db
     .select({
       role: messageVersions.role,
-      content: sql<string>`json_quote(${messageVersions.content})`.mapWith(value => JSON.parse(value) as string),
+      content: jsonQuote(db, messageVersions.content).mapWith(value => JSON.parse(value) as string),
       createdAt: messageVersions.createdAt,
-      sourceTurnId: sql<string>`json_quote(${messageVersions.turnId})`.mapWith(value => JSON.parse(value) as string),
+      sourceTurnId: jsonQuote(db, messageVersions.turnId).mapWith(value => JSON.parse(value) as string),
     })
     .from(messageVersions)
     .innerJoin(turns, eq(turns.id, messageVersions.turnId))
@@ -42,7 +43,7 @@ async function collectSnapshot(
         inArray(turns.executionPolicy, ["local-v1", "bot-owner-v1"]),
         eq(turns.executionPolicy, sessions.executionPolicy),
         inArray(messageVersions.role, ["user", "assistant"]),
-        derivableConversationTurn(turns.id),
+        derivableConversationTurn(db, turns.id),
         sql`${messageVersions.content} <> ''`,
         sql`(${messageVersions.messageId} IS NULL OR EXISTS (
           SELECT 1 FROM ${messages} WHERE ${messages.id} = ${messageVersions.messageId}
@@ -65,13 +66,13 @@ async function collectSnapshot(
       category: memoryRecords.category,
       content: memoryRecords.content,
       createdAt: memoryRecords.createdAt,
-      sourceTurnId: sql<string | null>`json_quote(${memoryRecords.sourceTurnId})`.mapWith(value => JSON.parse(value) as string | null),
+      sourceTurnId: jsonQuote(db, memoryRecords.sourceTurnId).mapWith(value => JSON.parse(value) as string | null),
     })
     .from(memoryRecords)
     .where(
       and(
         eq(memoryRecords.isDeleted, 0),
-        sql`${unverifiedAttachmentTurn(memoryRecords.sourceTurnId)} = 0`,
+        sql`${unverifiedAttachmentTurn(db, memoryRecords.sourceTurnId)} = 0`,
         sql`(${memoryRecords.sourceTurnId} IS NULL OR EXISTS (
           SELECT 1 FROM turns source_turn JOIN sessions source_session ON source_session.id = source_turn.session_id
           WHERE source_turn.id = ${memoryRecords.sourceTurnId}
@@ -135,4 +136,3 @@ async function collectSnapshot(
     },
   };
 }
-

@@ -8,6 +8,7 @@ import type { LocalContext } from "../../../local-context.js";
 import { publishAssistantHistory } from "./message-history.js";
 import type { TurnAttemptModel } from "../../types/index.js";
 import { workerDelegationBinding } from "./delegation-store.js";
+import { jsonQuote } from "../../../sql-dialect.js";
 
 export class AttemptStore {
   constructor(private readonly db: AervoxDatabase) {}
@@ -206,7 +207,7 @@ export class AttemptStore {
    * - 同步推进 turns：将无在跑 Attempt 且状态仍为 Created/Running 的 Turn 推进至 Interrupted
    */
   async recoverExpiredAttempts(
-    client: import("@libsql/client").Client,
+    client: Pick<import("@libsql/client").Client, "execute">,
     options?: { unclaimedTimeoutMs?: number; dispatchTarget?: "default" | "api" },
   ): Promise<number> {
     const now = new Date();
@@ -219,7 +220,7 @@ export class AttemptStore {
       // its original, still-deliverable worker receipt is protected. Claimed
       // work, cancellation and exhausted/invalid receipts keep existing recovery.
       const queuedWorkerTurns = tx.select({ id: turns.id }).from(turns)
-        .innerJoin(outboxEvents, workerDelegationBinding())
+        .innerJoin(outboxEvents, workerDelegationBinding(tx))
         .where(and(
           eq(turns.executionPolicy, "local-v1"), eq(turns.dispatchTarget, "default"),
           inArray(turns.status, ["Created", "Running"]),
@@ -243,8 +244,8 @@ export class AttemptStore {
           )!),
         )),
       )).returning({
-        id: sql<string>`json_quote(${turnAttempts.id})`.mapWith(value => JSON.parse(value) as string),
-        turnId: sql<string>`json_quote(${turnAttempts.turnId})`.mapWith(value => JSON.parse(value) as string),
+        id: jsonQuote(tx, turnAttempts.id).mapWith(value => JSON.parse(value) as string),
+        turnId: jsonQuote(tx, turnAttempts.turnId).mapWith(value => JSON.parse(value) as string),
         status: turnAttempts.status,
       });
       for (const attempt of recovered) {
@@ -256,10 +257,10 @@ export class AttemptStore {
         const [active] = await tx.select({ id: turnAttempts.id }).from(turnAttempts).where(and(
           eq(turnAttempts.turnId, attempt.turnId), inArray(turnAttempts.status, ["Running", "CancelRequested"]),
         )).limit(1);
-        if (active || latest?.isCurrent !== 1) continue;
+        if (active || Number(latest?.isCurrent) !== 1) continue;
         const [turn] = await tx.update(turns).set({ status: attempt.status, updatedAt: nowIso })
           .where(and(eq(turns.id, attempt.turnId), inArray(turns.status, ["Created", "Running", "Cancelled"]))).returning({
-            id: sql<string>`json_quote(${turns.id})`.mapWith(value => JSON.parse(value) as string), lastSequence: turns.lastSequence,
+            id: jsonQuote(tx, turns.id).mapWith(value => JSON.parse(value) as string), lastSequence: turns.lastSequence,
           });
         if (!turn) continue;
         const [last] = await tx.select({ sequence: turnStreamEvents.sequence }).from(turnStreamEvents)
@@ -290,7 +291,7 @@ export class AttemptStore {
     const thresholdIso = new Date(now.getTime() - orphanTimeoutMs).toISOString();
 
     return this.db.transaction(async (tx) => {
-      const candidates = await tx.select({ id: sql<string>`json_quote(${turns.id})`.mapWith(value => JSON.parse(value) as string) }).from(turns).where(and(
+      const candidates = await tx.select({ id: jsonQuote(tx, turns.id).mapWith(value => JSON.parse(value) as string) }).from(turns).where(and(
         inArray(turns.status, ["Created", "Running"]),
         options?.dispatchTarget ? eq(turns.dispatchTarget, options.dispatchTarget) : undefined,
         options?.dispatchTarget === "default" ? eq(turns.executionPolicy, "local-v1") : undefined,
@@ -303,7 +304,7 @@ export class AttemptStore {
         if (attempt) continue;
         const [turn] = await tx.update(turns).set({ status: "Interrupted", updatedAt: nowIso })
           .where(and(eq(turns.id, candidate.id), inArray(turns.status, ["Created", "Running"]))).returning({
-            id: sql<string>`json_quote(${turns.id})`.mapWith(value => JSON.parse(value) as string), lastSequence: turns.lastSequence,
+            id: jsonQuote(tx, turns.id).mapWith(value => JSON.parse(value) as string), lastSequence: turns.lastSequence,
           });
         if (!turn) continue;
         const [last] = await tx.select({ sequence: turnStreamEvents.sequence }).from(turnStreamEvents)

@@ -10,8 +10,7 @@
  * - 候选写入默认 verificationStatus=unverified，用户确认后才晋升；
  * - 向量生成依赖注入 provider；未注入时降级为仅索引 FTS（embeddingStatus=skipped）。
  */
-import { indexMemoryFts, type LocalContext } from "@aervox/repositories";
-import type { Client } from "@libsql/client";
+import { indexMemoryFts, type LocalContext, type FtsConnection } from "@aervox/repositories";
 import {
   SqliteMemoryRepository,
   SqliteMemoryEmbeddingRepository,
@@ -28,7 +27,7 @@ export interface MemoryStoreToolDeps {
   /** 生成向量的 provider；缺省返回未注入时 undefined */
   embeddingProvider?: MemoryEmbeddingProvider | null;
   /** 底层 client，用于 FTS 索引（保持与既有搜索链路一致） */
-  client: Client;
+  client: FtsConnection;
 }
 
 let seq = 0;

@@ -10,6 +10,7 @@
  * （聚合各 Store 的 list 能力，无直接 SQL），保留在本 Facade。
  */
 import type { AervoxDatabase } from "../../client.js";
+import { assertProactiveVaultStorage } from "../../storage-policy.js";
 import type { LocalContext } from "../../local-context.js";
 import type { ProactiveVaultCipher } from "../../proactive-vault-crypto.js";
 import type {
@@ -45,6 +46,7 @@ export class SqliteProactiveProfileRepository implements IProactiveProfileReposi
   private readonly auditStore: AuditExportStore;
 
   constructor(db: AervoxDatabase, cipher?: ProactiveVaultCipher) {
+    assertProactiveVaultStorage(db);
     this.auditStore = new AuditExportStore(db);
     this.sourceGrantStore = new SourceGrantStore(db, this.auditStore, cipher);
     this.lifecycleStore = new ProfileLifecycleStore(db, this.sourceGrantStore, this.auditStore, cipher);

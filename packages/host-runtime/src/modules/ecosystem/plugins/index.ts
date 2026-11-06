@@ -9,7 +9,7 @@ import path from "node:path";
 import { RemotePluginRegistry } from "./remote-registry.js";
 export { OFFICIAL_PLUGIN_REGISTRY, type PluginRegistryOptions } from "./remote-registry.js";
 import { discoverBuiltinPluginDirectories } from "./plugin-sources.js";
-import { pluginManifestSchema } from "@aervox/contracts";
+import { checkPluginHostCompatibility, pluginManifestSchema } from "@aervox/contracts";
 import { assembleFirstPartyPlugins, createHttpEndpointSink } from "../../../plugin-assembly.js";
 import { isPluginEnabled } from "./turn-plugins/index.js";
 import { createPluginHostServicesFactory } from "../../../plugin-host-services.js";
@@ -93,16 +93,20 @@ async function syncBuiltinPlugins(
       let manifestValue: unknown;
       try { manifestValue = JSON.parse(manifestRaw); } catch { failure = "invalid"; continue; }
       const parsedManifest = pluginManifestSchema.safeParse(manifestValue);
-      if (!parsedManifest.success) {
+      if (!parsedManifest.success || !checkPluginHostCompatibility(parsedManifest.data).compatible) {
         failure = "invalid";
         console.warn(`[plugins] builtin manifest rejected (fail-closed): ${entry}`);
         continue;
       }
       const manifest = parsedManifest.data;
       const pluginId = manifest.metadata.id;
+      const installed = await extensionRepo.getPlugin(pluginId);
+      // Optional sources are offered in the market without creating installation,
+      // configuration or skill records. Uninstalling one must survive restart.
+      if (manifest.metadata.installation === "optional" && !installed) continue;
       // An explicitly installed release is authoritative until the user installs another version.
       // Startup discovery must not pair builtin metadata with a different generation's files.
-      if ((await extensionRepo.getPlugin(pluginId))?.bundleGeneration) {
+      if (installed?.bundleGeneration) {
         diskPluginIds.add(pluginId);
         continue;
       }

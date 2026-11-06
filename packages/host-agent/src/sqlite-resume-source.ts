@@ -17,7 +17,7 @@ import type { Client } from "@libsql/client";
 export interface SqliteResumeSourceDeps {
   repo: SqliteConversationRepository;
   /** 本地候选查询连接（worker/client 语义：一次性 SQL 扫描） */
-  client: Client;
+  client: Pick<Client, "execute">;
 }
 
 const executionIdOf = (event: { data?: unknown }): string | undefined => {

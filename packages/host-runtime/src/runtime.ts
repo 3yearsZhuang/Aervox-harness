@@ -13,7 +13,9 @@ import cors from "@fastify/cors";
 import { buildOpenApiDocument } from "@aervox/contracts";
 import { createPluginApiRegistry } from "./plugin-api-registry.js";
 import {
-  createDatabase,
+  createDefaultDatabase,
+  backendFor,
+  databaseStoragePolicyFor,
   createProactiveVaultDatabase,
   initDatabaseSchema,
   loadProactiveAccessToken,
@@ -24,6 +26,7 @@ import {
   assertSafeStartup,
   assertPluginIdentityMigrationReady,
   assertPluginIdentityMigrationUnlocked,
+  type RepositoryConnection,
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
 import type { WorkflowDefinition } from "@aervox/core";
@@ -91,9 +94,9 @@ export interface BuildAppOptions {
   botOptions?: BotModuleOptions;
   /** Worker owns scheduling; its shared HTTP adapter remains unbound. */
   role?: "api" | "worker";
-  /** 注入既有数据库（如内存库）；缺省时使用 createDatabase() */
+  /** 注入已准备的业务数据库；缺省由宿主独立启动配置选择。 */
   db?: AervoxDatabase;
-  client?: Client;
+  client?: RepositoryConnection;
   /** CAP-033：注入独立本地主动画像 Vault（生产建议显式传入） */
   proactiveDb?: AervoxDatabase;
   proactiveClient?: Client;
@@ -142,7 +145,7 @@ export interface BuildAppResult {
   /** Actual registered HTTP routes, including descriptor-driven and plugin routes. */
   readonly routeInventory: readonly { method: string; path: string }[];
   db: AervoxDatabase;
-  client: Client;
+  client: RepositoryConnection;
   /** Agent Loop 只读工具提供者宿主（测试注入 handler 用；阶段 2d） */
   toolRuntime: ToolRuntime;
   /** 全链路可观测性门面 */
@@ -188,24 +191,26 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
   await assertPluginIdentityMigrationUnlocked(path.resolve(process.cwd(), "data"));
   const injectedMainDatabase = Boolean(options.db && options.client);
   const { db, client } =
-    injectedMainDatabase ? { db: options.db!, client: options.client! } : await createDatabase();
-  const shouldInitSchema = options.initSchema ?? !injectedMainDatabase;
-  if (shouldInitSchema) {
-    await initDatabaseSchema(client);
-  }
-
-  try { await assertPluginIdentityMigrationReady(client); }
-  catch (error) { if (!injectedMainDatabase) client.close(); throw error; }
-
-  // CAP-033：默认启动时使用独立本地 Vault；集成测试显式注入主库时复用该连接，
-  // 避免每个测试创建用户目录文件。生产可通过 options 注入已初始化的加密 Vault。
+    injectedMainDatabase ? { db: options.db!, client: options.client! } : await createDefaultDatabase();
+  const sqliteMain = isPreparedSqliteClient(client);
+  const storagePolicy = databaseStoragePolicyFor(db);
   let proactiveDb = options.proactiveDb;
   let proactiveClient = options.proactiveClient;
   let proactiveCipher = options.proactiveCipher;
   let proactiveAccessToken = options.proactiveAccessToken;
   let ownsProactiveClient = false;
+  try {
+  const shouldInitSchema = options.initSchema ?? !injectedMainDatabase;
+  if (shouldInitSchema && isPreparedSqliteClient(client)) {
+    await initDatabaseSchema(client);
+  }
+
+  await assertPluginIdentityMigrationReady(client);
+
+  // CAP-033：默认启动时使用独立本地 Vault；集成测试显式注入主库时复用该连接，
+  // 避免每个测试创建用户目录文件。生产可通过 options 注入已初始化的加密 Vault。
   if (!proactiveDb || !proactiveClient) {
-    if (injectedMainDatabase) {
+    if (injectedMainDatabase && isPreparedSqliteClient(client)) {
       proactiveDb = db;
       proactiveClient = client;
     } else {
@@ -219,15 +224,20 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
   } else if (shouldInitSchema) {
     await initDatabaseSchema(proactiveClient);
   }
-  try { await assertPluginIdentityMigrationReady(proactiveClient); }
-  catch (error) {
-    if (ownsProactiveClient) proactiveClient.close();
-    if (!injectedMainDatabase) client.close();
-    throw error;
-  }
-  const testDatabaseFallback = injectedMainDatabase && !options.proactiveDb && !options.proactiveClient;
+  await assertPluginIdentityMigrationReady(proactiveClient);
+  const testDatabaseFallback = injectedMainDatabase && sqliteMain && !options.proactiveDb && !options.proactiveClient;
   if (proactiveAccessToken === undefined && !testDatabaseFallback) {
     proactiveAccessToken = await loadProactiveAccessToken();
+  }
+
+  // Fastify closes hooks in reverse order. Register owned database release
+  // before modules so their final durable writes finish while connections live.
+  if (ownsProactiveClient || !injectedMainDatabase) {
+    app.addHook("onClose", async () => {
+      await modelStreamResources.close();
+      if (ownsProactiveClient) await proactiveClient?.close();
+      if (!injectedMainDatabase) await client.close();
+    });
   }
 
   // Map domain errors to HTTP; the onSend hook supplies the shared Problem Details envelope.
@@ -358,6 +368,7 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
     app,
     db,
     client,
+    storagePolicy,
     observability,
     proactiveDb,
     proactiveClient,
@@ -390,20 +401,28 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
   const withModel = { ...withTools, memoryRecall, llmConfigService: llm.config, modelProviderFactory: llm.factory, modelGeneration: llm.generation, modelRoutingService: llm.routing };
   const modelRuntimeService = registerModelRuntimeModule(withModel, options.modelRuntimeOptions);
   const safetyService = registerSafetyModule(withModel);
-  const proactive = await registerProactiveModule(withModel, {
+  const proactive = storagePolicy.localOnlyAllowed ? await registerProactiveModule(withModel, {
     startBackground: options.role !== "worker",
     db: proactiveDb,
     cipher: proactiveCipher,
     accessToken: proactiveAccessToken,
     featureFlags: options.proactiveFeatureFlags ?? apiConfig.proactiveFeatureFlags,
-  });
+  }) : undefined;
+  if (!storagePolicy.localOnlyAllowed) {
+    for (const url of ["/v1/proactive", "/v1/proactive/*"]) {
+      app.all(url, async (_req, reply) => reply.code(503).send({
+        code: "LOCAL_ONLY_STORAGE_REQUIRED", error: "local_only_storage_required",
+        message: "Protected proactive processing requires verified local main-database storage",
+      }));
+    }
+  }
   let personaService: ReturnType<typeof registerPersonaModule> | undefined;
   let pluginRegistrations: Awaited<ReturnType<typeof registerPluginsModule>> | undefined;
   const services = {
     ...withModel, modelRuntimeService, safetyService,
-    proactiveRepository: proactive.repository,
-    proactiveIntelligenceRepository: proactive.intelligenceRepository,
-    proactiveActionAuthorizer: proactive.actionAuthorizer,
+    proactiveRepository: proactive?.repository,
+    proactiveIntelligenceRepository: proactive?.intelligenceRepository,
+    proactiveActionAuthorizer: proactive?.actionAuthorizer,
     getPersona: () => personaService,
     getPluginRegistrations: () => pluginRegistrations,
   };
@@ -443,13 +462,6 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
     conversation.abort();
     modelStreamResources.beginClose();
   });
-  if (ownsProactiveClient) {
-    app.addHook("onClose", async () => {
-      // A failed upstream drain must not be mistaken for a safe database close.
-      await modelStreamResources.close();
-      proactiveClient?.close();
-    });
-  }
   // Fastify runs onClose in reverse registration order. Drain the one owner
   // before its dependent module/database release hooks; retry is idempotent.
   app.addHook("onClose", () => modelStreamResources.close());
@@ -468,4 +480,23 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
     proactiveDb,
     proactiveClient,
   };
+  } catch (error) {
+    const cleanup: PromiseSettledResult<unknown>[] = await Promise.allSettled([app.close()]);
+    const [drain] = await Promise.allSettled([modelStreamResources.close()]);
+    cleanup.push(drain);
+    if (drain.status === "fulfilled" && ownsProactiveClient && !proactiveClient?.closed) {
+      cleanup.push(...await Promise.allSettled([Promise.resolve().then(() => proactiveClient?.close())]));
+    }
+    if (drain.status === "fulfilled" && !injectedMainDatabase && !client.closed) {
+      cleanup.push(...await Promise.allSettled([Promise.resolve().then(() => client.close())]));
+    }
+    const failures = cleanup.flatMap(result => result.status === "rejected" ? [result.reason] : []);
+    if (failures.length) throw new AggregateError([error, ...failures], "Host startup failed and cleanup was not acknowledged");
+    throw error;
+  }
+}
+
+/** SQLite setup and Vault reuse require the actual prepared LibSQL handle. */
+function isPreparedSqliteClient(client: RepositoryConnection): client is Client {
+  return backendFor(client) === "sqlite" && "executeMultiple" in client && "sync" in client && "protocol" in client;
 }

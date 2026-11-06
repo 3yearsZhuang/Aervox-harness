@@ -60,7 +60,7 @@ async function runShutdown(mode: string) {
   }
 }
 
-it.each(["drain", "dispose-write", "duplicate"])("SIGTERM %s drains and disposes before closing both databases", async mode => {
+it.each(["drain", "dispose-write", "duplicate", "database-delay"])("SIGTERM %s drains and disposes before closing both databases", async mode => {
   const run = await runShutdown(mode);
   expect(run.result, run.output).toEqual({ code: 0, signal: null });
   expect(run.externallyKilled).toBe(false);
@@ -69,6 +69,18 @@ it.each(["drain", "dispose-write", "duplicate"])("SIGTERM %s drains and disposes
   expected.push("dispose-done", "health-close", "health-connections-closed", "health-closed", "closed-0", "closed-1");
   expect(run.events).toEqual(expected);
   expect(run.rows).toEqual(Array.from({ length: 2 }, () => mode === "dispose-write" ? ["finished", "disposed"] : ["finished"]));
+});
+
+it.each(["database-hung", "database-reject"])("SIGTERM %s observes asynchronous close before advancing or exiting", async mode => {
+  const run = await runShutdown(mode);
+  expect(run.result, run.output).toEqual({ code: 1, signal: null });
+  expect(run.externallyKilled).toBe(false);
+  expect(run.events).toContain("health-closed");
+  expect(run.events.some(event => event.startsWith("closed-"))).toBe(false);
+  const failure = JSON.parse(run.events.find(event => event.startsWith("{"))!);
+  expect(failure.fields.phase).toBe("database");
+  expect(failure.message).toContain(mode === "database-hung" ? "worker_shutdown_deadline_exceeded" : "database_close_rejected");
+  expect(run.rows).toEqual([["finished"], ["finished"]]);
 });
 
 it("SIGTERM hung job keeps the existing drain timeout without explicitly closing databases", async () => {

@@ -22,13 +22,13 @@ id: AVX-SAD-001
 
 ## 1. 架构结论
 
-采用 **TypeScript-first 模块化单体 + 独立 Worker/Scheduler**。Web、API、后台任务和桌面壳共享契约、领域类型和 UI；SQLite（WAL 模式）是永久本地单用户业务真源，`@aervox/schema` 与 `@aervox/repositories` 分别承载结构和访问边界；AI、记忆、日记和插件通过稳定内部 Port 解耦。API 默认仅监听 loopback，非 loopback 必须显式启用并强制认证。CAP-033 要求由受信本地 Privacy Host/Helper 承担全量观察、画像、后台生命周期和主动动作；当前仍有平台/生产验收缺口，状态见[追踪基线](REQUIREMENTS_TRACEABILITY.md#42-证据与适用限制)，主动数据不得进入普通远程数据面；CAP-034/035 通过同机本地连接网关接入家庭环境和规范化健康信号。
+采用 **TypeScript-first 模块化单体 + 独立 Worker/Scheduler**。Web、API、后台任务和桌面壳共享契约、领域类型和 UI；业务主库默认 SQLite（WAL 模式），可选 PostgreSQL 按 [ADR-034](adr/ADR-034-postgresql-database-plugin.md)由用户安装 Provider 并离线迁移激活，同实例只使用一个主库。`@aervox/schema` 与 `@aervox/repositories` 分别承载结构和访问边界；AI、记忆、日记和插件通过稳定内部 Port 解耦。API 默认仅监听 loopback，非 loopback 必须显式启用并强制认证。CAP-033 要求由受信本地 Privacy Host/Helper 承担全量观察、画像、后台生命周期和主动动作；当前仍有平台/生产验收缺口，状态见[追踪基线](REQUIREMENTS_TRACEABILITY.md#42-证据与适用限制)，主动数据不得进入远端主库或普通远程数据面；CAP-034/035 通过同机本地连接网关接入家庭环境和规范化健康信号。
 
-MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应商成为核心运行时依赖。共享数据库多租户、组织权限和 PostgreSQL 演进由 CR-030 取消；未来若重新需要多人协作或远程服务，必须新建 ADR，不能恢复旧租户字段作为捷径。
+MVP 不采用微服务，也不让 DSH、pi、BaiShou-Next 或任何模型供应商成为核心运行时依赖。CR-030 取消的共享数据库多租户和组织权限保持；可选单用户 PostgreSQL 由 ADR-034 接续，不能恢复旧租户字段作为多人协作或远程服务的捷径。
 
 ## 1.1 插件配置与页面边界（CR-006）
 
-插件配置使用 Aervox Config Schema v1：Schema 随 Bundle 注册并存储在 `plugins` 表，配置值按 `pluginId` 存入本地 `plugin_configs`，secret 走 `plugin_config_secrets`；当前 SQLite SecretStore 未实现静态加密，加密 Port 是生产目标，不能据字段脱敏声称已加密。插件 Page 只加载本地 Bundle 静态资源，运行在受限 iframe 中并通过 Host Bridge 读写本插件配置；不开放插件自有后端路由、文件上传、SSE 或直接数据库访问，这是已实现的 Page 静态隔离范围；第三方代码执行、独立进程沙箱及跨端 Page Token 通道仍按 `ADR-009`、插件契约和 ITER-006/019 验收。
+插件配置使用 Aervox Config Schema v1：Schema 随 Bundle 注册并存储在 `plugins` 表，配置值按 `pluginId` 存入实例 `plugin_configs`，secret 走 `plugin_config_secrets`；当前普通 SecretStore 未实现静态加密，加密 Port 是生产目标，不能据字段脱敏或数据库启动凭据加密声称插件 secret 或整个主库已加密。插件 Page 只加载本地 Bundle 静态资源，运行在受限 iframe 中并通过 Host Bridge 读写本插件配置；不开放插件自有后端路由、文件上传、SSE 或直接数据库访问，这是已实现的 Page 静态隔离范围；第三方代码执行、独立进程沙箱及跨端 Page Token 通道仍按 `ADR-009`、插件契约和 ITER-006/019 验收。
 
 ## 1.2 Bot 平台入口与群会话边界（ADR-029）
 
@@ -36,7 +36,13 @@ API 组合根显式装配第一方 Bot 传输贡献，共用会话受理与完�
 
 微信只接受管理页配对并确认的本人私聊，使用普通人格、记忆与 `ask` 工具审批，不进入 CAP-033。QQ 仅接收白名单群直接 `@bot` 的文字，按连接、平台账号、群与成员接续，模型只获得公开基础身份与本成员历史，不加载个人记忆、学习事实、工具、Skill、Hook、Inbox 或 DSH。来源策略随 HTTP、重试、恢复和分支继承，群来源也不得进入个人日记和记忆派生链。
 
-这属于单用户所有的外部聊天入口：群成员不成为本地账户，也不获得 API 权限。SQLite 持有连接、入站/出站记录与平台会话映射，Bot 凭据使用独立密钥加密。API 可在本机或独立机器常驻，两处不自动复制数据库或登录态；部署、备份与真实平台验收见[连接机器人](../how-to/connect-bots.md)。
+这属于单用户所有的外部聊天入口：群成员不成为本地账户，也不获得 API 权限。生效主库持有连接、入站/出站记录与平台会话映射，Bot 凭据使用独立密钥加密。API 可在本机或独立机器常驻，两处不自动复制数据库或登录态；部署、备份与真实平台验收见[连接机器人](../how-to/connect-bots.md)。
+
+## 1.3 可选数据库 Provider 与启动装配（ADR-034）
+
+`ap-tool-postgresql` 是用户自主安装的可选 Provider；SQLite 保持默认，首次迁移和激活检查其安装/启用记录。宿主拥有原生 `pg` 连接、PostgreSQL Session/方言和物理编译器，既有领域仓储复用查询 AST 与后端表达式，插件不持有裸 SQL/数据库。业务主库之外的 `database-selection.json` 保存生效代际与加密连接，API、Worker 和 CLI 统一装配。激活后声明包停用、卸载或源码缺席不改变已选主库，宿主继续访问和管理 PostgreSQL；实际连接、凭据或目标身份/结构故障拒绝，不回退旧 SQLite。
+
+切换由离线命令完成：全部写者停止，源库独占封存、备份验证、独立 staging 导入、结构与内容/来源/顺序/投影核对、回执复验后原子激活。失败和未知 COMMIT 保留恢复证据；Vault、恢复控制账本、附件和设备身份保持原本机边界。远端或无法证明本机的目标拒绝受保护/未知历史和主动处理；本地 Vault 不能消除主库派生内容风险。实际操作与剩余兼容限制见[数据库契约](DATABASE.md#postgresql-operations)，组合根、CLI 与目标环境验证由 [ITER-078](../../plan.md#iter-078)保存。
 
 ## 2. 技术栈基线
 
@@ -49,9 +55,9 @@ API 组合根显式装配第一方 Bot 传输贡献，共用会话受理与完�
 | Web | Vue 3、Vite 7、Element Plus（Vue 全栈单栈，见 ADR-015） | Web 复用桌面端 renderer 核心（composables/主题），首发是登录后流式应用；不依赖任何框架私有后端能力 |
 | UI/editor | Element Plus + 定制主题（迁移自 desktop styles）、CodeMirror 6 | 组件共享、键盘可用和 WCAG 2.2 AA |
 | API | Fastify 5、Zod 4、OpenAPI 3.1、POST Turn + GET SSE（Fetch 消费） | 客户端和插件通过契约访问；事件 envelope、重连、取消、幂等和安全持久化遵循[流式协议契约](STREAMING_PROTOCOL.md)；不以 tRPC 锁定消费者 |
-| Database | SQLite（WAL 模式）+ Drizzle ORM + `@aervox/schema`/`@aervox/repositories` | 事务、约束、递归 CTE、全文检索；当前操作系统用户和本机 API 是安全边界；禁止跨模块直接写表 |
-| Retrieval | SQLite FTS5 + VectorSearchPort；当前本地 JSON 向量评分，`sqlite-vec`/原生计算为可替换候选 | 记录 embedding 模型/维度/版本，可离线重建；MVP 不引入 Neo4j/独立向量库 |
-| Queue | 本地 SQLite Outbox + Worker 轮询 | 至少一次投递、幂等键、重试、指数退避；SQLite Outbox 是持久化真源（CR-030） |
+| Database | 默认 SQLite（WAL）；可选 PostgreSQL 16+ UTF8；共享 Drizzle AST、Schema 与 Repository Port | 单用户单主库、原生事务与物理结构验证；首次选用检查声明资格，激活后宿主持有主库，连接/凭据/身份失败拒绝；不回读旧源，禁止跨模块直接写表 |
+| Retrieval | SQLite FTS5 或 PostgreSQL 文本投影 + VectorSearchPort；JSON 向量评分，`sqlite-vec`/原生计算为 SQLite 可替换候选 | 记录模型/维度/版本与来源资格；投影可重建，相关性分数不承诺一致；不引入独立向量库 |
+| Queue | 生效业务主库中的 Outbox + Worker 轮询 | 至少一次投递、幂等键、重试、指数退避；领域事实和 Outbox 同事务 |
 | Object | 本地文件系统目录（attachments/exports） | 本地安全存储、上传前后做大小/格式/解压比扫描；删除遵循数据 SLA（CR-030） |
 | AI | 内部 `ProviderPort`：`@aervox/core` 自研 OpenAI 兼容流式 Provider（运行时零外部依赖，ADR-021） | 业务通过内部接口调用模型；本地 llama.cpp 侧车以 OpenAI 兼容端点接入（model-runtime）；模型不能直写业务表 |
 | Desktop/mobile | Electron（P1）、Capacitor（后续，打包 web UI） | `contextIsolation`、关闭 `nodeIntegration`、受限 IPC、签名更新包、逐项设备授权；CAP-033 使用独立签名 Privacy Host/OS Permission Broker 管理后台和设备能力；移动端以 Capacitor 打包 Web UI（WebView 壳 + 受限桥接，不引入 RN，见 ADR-015/022） |
@@ -59,7 +65,7 @@ API 组合根显式装配第一方 Bot 传输贡献，共用会话受理与完�
 
 ## 3. 仓库与领域边界
 
-本地 `dsh_search_code` 经 API 调用受控 `ripgrep` 子进程，平台二进制由锁定的 npm 依赖分发；取消、扫描范围与资源限额见 [CR-062](adr/ADR-024-native-runtime-boundaries.md#cr-062)。向量召回仍由 SQLite 仓储执行 JSON 行扫描与有界 top-K，授权资格仍回读业务真源。`native/tools/vector-pilot` 是只读合成夹具的 Rust 计算试点，不进入默认 API/Worker 运行路径；工具版本统一锁定于 `mise.toml`。`@aervox/native-runtime` 经现有 Port 提供只读 SQLite 向量缓存、受租约控制的应用活动 Helper 与声明进程主管，具体授权、平台和生命周期差量见 [CR-063](adr/ADR-024-native-runtime-boundaries.md#cr-063)。
+本地 `dsh_search_code` 经 API 调用受控 `ripgrep` 子进程，平台二进制由锁定的 npm 依赖分发；取消、扫描范围与资源限额见 [CR-062](adr/ADR-024-native-runtime-boundaries.md#cr-062)。向量召回由当前后端仓储执行 JSON 行扫描与有界 top-K，授权资格仍回读业务真源。`native/tools/vector-pilot` 是只读合成夹具的 Rust 计算试点，不进入默认 API/Worker 运行路径；工具版本统一锁定于 `mise.toml`。`@aervox/native-runtime` 经现有 Port 提供只读 SQLite 向量缓存、受租约控制的应用活动 Helper 与声明进程主管，具体授权、平台和生命周期差量见 [CR-063](adr/ADR-024-native-runtime-boundaries.md#cr-063)。
 
 | 边界 | 职责与所有权 |
 |---|---|
@@ -102,7 +108,7 @@ native/
 
 ### 3.1 共享产品宿主结构（演进式模块化单体）
 
-`packages/host-runtime/src/` 采用**按领域模块组织**的结构（ADR-014 0.3.0 两层分组：25 模块 → 6 域，归属表见 `CR-052 §3.1`（已归档）），每个模块自管路由与仓储实例化。持久异步副作用使用 SQLite Outbox 由 Worker 投递，同步能力经公开 Port/组合根注入，进程内 UI 唤醒不代替持久事件；实际所有权收敛仍由边界守卫与专项验收证明：
+`packages/host-runtime/src/` 采用**按领域模块组织**的结构（ADR-014 0.3.0 两层分组：25 模块 → 6 域，归属表见 `CR-052 §3.1`（已归档）），每个模块自管路由与仓储实例化。持久异步副作用使用生效主库的 Outbox 由 Worker 投递，同步能力经公开 Port/组合根注入，进程内 UI 唤醒不代替持久事件；实际所有权收敛仍由边界守卫与专项验收证明：
 
 ```text
 packages/host-runtime/src/
@@ -157,8 +163,8 @@ apps/api/test/                       # 集成测试
 | 模块自管仓储 | 每个 `modules/<domain>/<module>/index.ts` 内部实例化该模块的仓储，不引用全局容器 |
 | 路由函数签名 | `routes.ts` 导出函数接收**该模块专属的仓储实例**，而非 `RepoContainer` |
 | shared 严格受限 | `shared/` 只放跨 2 个以上模块的通用工具，禁止放业务逻辑 |
-| 跨模块通信 | 同步 Query/Command 使用窄公开 Port；可靠事实和后台工作写入 SQLite Outbox，由 Worker 投递；可丢通知只作唤醒/表现，不作为提交证明；业务原子性由领域命令负责 |
-| 单一数据库 | 一个本地 SQLite 实例；Schema 按领域拆文件，安全边界不依赖表前缀或租户列 |
+| 跨模块通信 | 同步 Query/Command 使用窄公开 Port；可靠事实和后台工作写入当前主库 Outbox，由 Worker 投递；可丢通知只作唤醒/表现，不作为提交证明；业务原子性由领域命令负责 |
+| 单一数据库 | 同实例一个生效主库，默认 SQLite、可选 PostgreSQL；Schema 按领域拆文件，安全边界不依赖表前缀或租户列 |
 | 对外入口唯一 | 每个模块只有 `index.ts` 对外可见，`routes.ts` 内部函数不被其他模块引用；host-runtime 包仅导出根入口、明确列出的 shared 工具和模块 index。私有实现测试通过 Vitest 内部别名访问，该别名禁止用于产品源码 |
 
 **模块与仓储对应关系**：
@@ -238,23 +244,23 @@ Web 与桌面组合根按平台装配第一方根界面，并复用 `@aervox/ui`
 Web (:5173) / Electron Fairy / CLI / Mobile 壳
           │ HTTP/SSE（默认 loopback，非 loopback 强制 Token）
    API（Fastify 5 单实例，模块化单体）
-        ├── SQLite 主库 aervox.db（业务真源 + FTS5，WAL 模式）
-        ├── SQLite Outbox（事务性队列）
+        ├── 生效主库（默认 SQLite WAL/FTS5；可选 PostgreSQL）
+        ├── 主库 Outbox（事务性队列）
         ├── Local Filesystem（attachments/exports/skills）
         ├── proactive Vault（CAP-033 加密独立库）
         ├── RecoveryControlLedger（独立故障域控制事件）
         └── Model Provider Gateway（远程 OpenAI 兼容端点或本地模型侧车）
 
 API ── Domain Socket IPC（wake/pressure/ping）──> Worker（独立进程）
-Worker ──> SQLite Outbox 轮询消费（至少一次投递 + 幂等 + DLQ）
+Worker ──> 生效主库 Outbox 轮询消费（至少一次投递 + 幂等 + DLQ）
         ├── memory / diary / embedding / review
         ├── deletion / inbox-expiry / attempt-recovery
-        └── proactive 派生与画像提炼
+        └── proactive 派生与画像提炼（仅经本机存储证明的主库）
 
 各进程 ──> 结构化日志（stdout）+ GET /v1/metrics（Prometheus 文本/JSON）；OpenTelemetry 为目标基线
 ```
 
-CR-030 后的部署形态为单机本地实例：共享数据库多租户、CDN/WAF 与无状态水平扩展不再是本架构组件，客户端与本机 API 之间的 loopback 加 Token 即信任边界。
+CR-030 后的默认部署形态为单机本地实例；ADR-034 允许用户显式选择自管远端主库，客户端与本机 API 的 loopback 加 Token 边界保持。共享数据库多租户、CDN/WAF 与无状态水平扩展不成为本架构组件。
 
 CAP-033 的主动智能路径与普通本地数据路径分离：
 
@@ -269,19 +275,19 @@ Electron Shell
 
 该路径不把原始捕获、画像、动作或控制面送入 API、远程 Provider、普通 Outbox、分析或自动云备份；控制面仅接受私密目录 `0600` 的 owner-only `proactive-access.token`、字面 loopback 请求并拒绝 redirect。Host 崩溃、租约过期、OS grant 撤销或本地证明失效时进入 `suspended`，核心流程（含学习域）继续可用。
 
-用户消息、答题和权限变更先在 SQLite 事务中落库，同时写 Outbox；API 再流式请求模型。记忆、日记、附件、嵌入和通知异步执行。客户端不能直接调用模型服务；附件通过 `POST /v1/attachments` 直传并落盘本地附件目录，API 在提交前检查授权和扫描状态。
+用户消息、答题和权限变更先在生效主库事务中落库，同时写 Outbox；API 再流式请求模型。记忆、日记、附件、嵌入和通知异步执行。客户端不能直接调用模型服务；附件通过 `POST /v1/attachments` 直传并落盘本地附件目录，API 在提交前检查授权和扫描状态。
 
 ### 4.3 关键组件与信任边界
 
 | 容器 | 关键组件 | 可写数据 | 外部信任边界 |
 |---|---|---|---|
 | Web/Desktop/Mobile | UI、离线草稿、流式渲染、授权界面 | 本地最小草稿/设置 | 浏览器、OS 权限、Electron IPC |
-| API | Local Auth/Consent、Conversation、Learning、Review、Context Builder、Provider Gateway | SQLite 领域表、Outbox；默认仅通过 loopback 提供服务 | AI Provider、本地文件系统 |
+| API | Local Auth/Consent、Conversation、Learning、Review、Context Builder、Provider Gateway | 生效主库领域表、Outbox；默认仅通过 loopback 提供服务 | AI Provider、已配置数据库、本地文件系统 |
 | Worker/Scheduler | Memory、Diary、OCR、Embedding、Notification、Deletion Orchestrator | 各领域模块公开仓储；不得绕过来源、授权和删除状态；Job 以业务实体/来源修订幂等 | 本地队列、本地附件目录、通知供应商 |
 | Plugin Host（P2） | Manifest、Policy Proxy、Adapter、Kill Switch | 插件自有状态；核心数据只经命令/候选 | 第三方代码和远程 Host |
 | CAP-033 Privacy Host（P3） | signed observation/action Host、OS Permission Broker、activation lease、source adapters | `proactive_*` 本地授权/捕获/画像/动作/审计表；全链 `local_only` | 操作系统、文件/浏览器/通信/设备能力、用户导出目标 |
 | CAP-033～035 主动智能与连接网关（P3） | 十二能力 Worker、Home Assistant REST/WS、小米健康 OAuth/每日同步、ToolRuntime handlers | `proactive_timeline_*`、项目/流程/触发/回顾、外部连接、HA 实体和健康样本；连接凭据加密 | 私网 Home Assistant、用户获准的小米开放平台、桌面设置与 Agent 工具 |
-| Recovery Control Ledger | 删除、Consent/Plugin/External Grant 撤销的最小控制事件、单调序列、防篡改证据 | 独立账号/凭据/保留策略的追加写存储；不含用户正文 | 与业务 SQLite 和其备份分离故障域 |
+| Recovery Control Ledger | 删除、Consent/Plugin/External Grant 撤销的最小控制事件、单调序列、防篡改证据 | 独立账号/凭据/保留策略的追加写存储；不含用户正文 | 与生效主库和其备份分离故障域 |
 | Observability | trace/metrics/脱敏日志 | 运行元数据，不得成为用户内容副本 | 监控/错误平台供应商 |
 
 当前分支的 CAP-033 实现覆盖本地 Vault、授权/lease、动作授权器、已接入来源、Worker 提炼、十二项主动智能派生、日/周回顾、导出和后台 heartbeat；CAP-034 已接入 HA 私网 REST/WS、实体/service 白名单和受控工具，CAP-035 已接入可配置的小米官方开放平台每日指标与只读工具。其它平台来源、生产签名 Host/OS Broker、HA OAuth/重连矩阵和小米真实厂商沙箱仍是发布门禁，不能据此宣称全部平台能力已发布。
@@ -305,14 +311,14 @@ Electron Shell
 
 ```text
 Client -> API: POST /turns + idempotency key
-API -> SQLite: Turn + MessageVersion + Outbox (one transaction)
+API -> Main DB: Turn + MessageVersion + Outbox (one transaction)
 API -> Safety: input classify
 API -> Context Builder: consent-filtered ContextManifest
 API -> Provider: stream into bounded segment buffer
 API -> Safety/Validator: per-segment checks
-API -> SQLite: committed segment + TurnStreamEvent + ModelRun + Outbox
+API -> Main DB: committed segment + TurnStreamEvent + ModelRun + Outbox
 Client -> API: GET /v1/turns/{id}/events (Fetch SSE, Last-Event-ID)
-API -> SQLite: finalize Completed/Rejected/Cancelled/Interrupted/Failed Turn + done event
+API -> Main DB: finalize Completed/Rejected/Cancelled/Interrupted/Failed Turn + done event
 Worker -> Memory: create candidate, validate sources, version revision
 Memory -> Tree Projection: rebuild affected nodes/edges
 ```
@@ -322,7 +328,7 @@ Memory -> Tree Projection: rebuild affected nodes/edges
 ```text
 Client -> API: delete source
 API -> RecoveryControlLedger: append immutable deny/revoke event and receive durable ack
-API -> SQLite: idempotent deny projection + DeletionRequest/Targets + Outbox
+API -> Main DB: idempotent deny projection + DeletionRequest/Targets + Outbox
 API -> Retrieval/Context: immediate deny
 Worker -> DB/Outbox/FTS/Vector/Files/Diary/Memory/Suppliers: clear or rebuild
 Worker -> Verification: zero-recall + target evidence
@@ -334,7 +340,7 @@ Restore process -> RecoveryControlLedger: verify signature/sequence/watermark + 
 
 ## 5. 关键数据与一致性
 
-SQLite 是业务真源，仓储负责写事务。会话消息与作答是事实，摘要、记忆树和日记是带来源的派生结果；插件、连接器通过窄接口提交意图。权限撤销与删除先形成可恢复的控制证据，业务投影不能覆盖控制账本事实。
+生效主库是业务真源，默认 SQLite、可选 PostgreSQL，仓储负责其原生写事务。会话消息与作答是事实，摘要、记忆树和日记是带来源的派生结果；插件、连接器通过窄接口提交意图。权限撤销与删除先形成可恢复的控制证据，业务投影不能覆盖独立控制账本事实。
 
 数据字段、投影覆盖、日记 CAS/fencing、账本持久确认与恢复水位见[数据库契约](DATABASE.md)。迁移优先 expand/contract；破坏性换库必须按[迁移演练](../how-to/run-database-migration-drill.md)执行。用户历史保留与 AI 召回期限是两个独立合同。
 
@@ -383,7 +389,7 @@ UTC/IANA 时区、首次窗口、迟到素材、补写、CAS/fencing 与跨时�
 
 ## 9. 非功能、容量与灾备
 
-性能、可用性、日记发布、删除与灾备指标只维护在 [SRS 非功能需求](SRS.md#srs-nfr)。部署容量按本机 CPU、内存、磁盘 I/O 与 SQLite 写入吞吐测量；云端多用户容量基线已取消，不作为本地发布达标依据。云端可用性及 RPO/RTO 的本地适用目标仍待复审，见[未决事项](REQUIREMENTS_TRACEABILITY.md#operational-decisions)。
+性能、可用性、日记发布、删除与灾备指标只维护在 [SRS 非功能需求](SRS.md#srs-nfr)。部署容量按宿主资源、实际主库写入吞吐及必要的网络延迟测量；云端多用户容量基线已取消，不作为本地发布达标依据。云端可用性及 RPO/RTO 的本地适用目标仍待复审，见[未决事项](REQUIREMENTS_TRACEABILITY.md#operational-decisions)。
 
 运维告警目标覆盖 API 错误、TTFT、队列延迟/DLQ、日记迟到、来源验证失败、删除积压、AI 成本和安全分类异常。逐场景恢复操作见[运行手册](operations.md)。
 
@@ -394,7 +400,7 @@ UTC/IANA 时区、首次窗口、迟到素材、补写、CAS/fencing 与跨时�
 - 会话/月度成本预算的待批准数值见[未决事项](REQUIREMENTS_TRACEABILITY.md#operational-decisions)，预算未确定前不以估算冒充已通过成本门槛。
 - 预算达到 70% 触发预测告警，85% 停止非核心高成本任务（自动扩展阅读、批量重写等），100% 只保留已批准的核心模型/固定降级；不得通过降低安全分类或删除能力省钱。
 - Provider 路由记录模型能力、地区、保留、成本、限流和健康状态。超时/5xx/限流达到熔断阈值后切换已评估备用模型；无合格备用时保留输入并显示可重试状态。
-- 队列以 SQLite Outbox/ScheduledJob 为真源；消费者使用幂等键和水位线，重放后执行重复结果检查，崩溃重启后自动从 Outbox 恢复未完成作业。
+- 队列以生效主库的 Outbox/ScheduledJob 为真源；消费者使用幂等键和水位线，重放后执行重复结果检查，崩溃重启后自动从 Outbox 恢复未完成作业。
 
 ## 10. 参考项目适配边界
 
@@ -428,7 +434,7 @@ UTC/IANA 时区、首次窗口、迟到素材、补写、CAS/fencing 与跨时�
 
 ### 12.1 可执行边界检查
 
-代码守卫检查导入方向、禁用租户标识、宿主领域纯净性、DTO 单一来源、依赖提升和实现可移除性；仓储回归检查 Drizzle Schema 与 SQLite DDL 等价。具体任务见 [package.json](../../package.json) 和 [mise.toml](../../mise.toml)，文档不复制守卫数量或包目录清单。
+代码守卫检查导入方向、禁用租户标识、宿主领域纯净性、DTO 单一来源、依赖提升和实现可移除性；仓储回归检查 canonical Schema 与 SQLite/PostgreSQL 物理结构及行为。具体任务见 [package.json](../../package.json) 和 [mise.toml](../../mise.toml)，文档不复制守卫数量或包目录清单。
 
 文档检查覆盖格式、术语、稳定编号、ADR 状态与本地链接；不会要求生成目录、状态镜像或计划队列。修改文档不改变代码守卫的安全边界。
 

@@ -2,10 +2,12 @@
 id: AVX-DB-001
 ---
 
-# Aervox｜思隅 SQLite 本地单用户数据库契约
+# Aervox｜思隅 单用户数据库契约
 
 本文规定 Aervox 持久化层的目标契约、机器事实源、关键不变量、破坏性迁移协议和发布门禁。
-表结构与字段的唯一目标真源是 `packages/schema/src/*.ts`，由仓储的 Schema manifest 编译实际 SQLite 建库语句；本文不复制每张表的完整定义。历史手写 DDL 仅保留为旧库升级测试夹具，不能继续维护第二套目标结构。
+表结构与字段的唯一目标真源是 `packages/schema/src/*.ts`，由仓储分别编译 SQLite 与 PostgreSQL 物理结构；本文不复制每张表的完整定义。历史手写 DDL 仅保留为旧库升级测试夹具，不能继续维护第二套目标结构。
+
+SQLite 保持默认；用户自主安装并启用 `ap-tool-postgresql` 后，可通过离线准备和激活将整个业务主库切换到自管本机或远端 PostgreSQL 16+ UTF8。[ADR-034](adr/ADR-034-postgresql-database-plugin.md)定义后端、首次选用资格、激活后宿主所有权与隐私边界，[ITER-078](../../plan.md#iter-078)记录接线和验证状态。本次未迁移用户业务库，也不代表远端部署或正式发布已验收。
 
 > [!IMPORTANT]
 > `CR-030`（已归档） 的决策为 Accepted、交付状态为
@@ -14,11 +16,10 @@ id: AVX-DB-001
 
 ## 1. 适用范围与不变量
 
-1. **唯一业务真源**：SQLite（LibSQL）WAL 模式是永久本地业务真源，不再规划 PostgreSQL、
-   RLS、pgvector 真源或双数据库切换。
-2. **单用户实例**：一个数据库归属于一个操作系统用户的数据目录；不支持多个不互信用户共享。
+1. **唯一业务真源**：同一应用实例只选择一个业务主库。默认 SQLite（LibSQL）WAL；PostgreSQL 通过可选插件和显式离线激活启用，不同时受写、不静默回退，不自动引入 pgvector。
+2. **单用户实例**：数据归当前用户所有；本机文件使用其私有目录，远端主库由其明确配置和管理。两种后端均不支持多个不互信用户共享，不恢复租户列或 RLS。
 3. **双包边界**：`@aervox/schema` 负责表结构；`@aervox/repositories` 负责连接、DDL、迁移、
-   Repository Port 和 SQLite 实现。禁止恢复 `@aervox/database` 巨型兼容包。
+   Repository Port 和实际后端实现。禁止恢复 `@aervox/database` 巨型兼容包。
 4. **事实与派生分离**：消息、作答、来源修订和授权是事实；摘要、掌握度、记忆树、日记、FTS
    和向量索引是可追溯或可重建的派生数据。
 5. **来源先行**：派生结果必须关联 `SourceArtifact`/`SourceRevision` 或类型化外键；删除或撤权后
@@ -34,9 +35,12 @@ id: AVX-DB-001
 |---|---|---|
 | Drizzle 表和字段 | `packages/schema/src/*.ts` | D2 后不得出现 `workspaceId`、`subjectUserId` 或租户复合索引 |
 | SQLite 目标结构与版本 | `packages/repositories/src/schema/manifest.ts` | 从 Schema 编译新库；比对列、默认、NULL、主键、复合外键、CHECK、表选项、约束行为及索引的列/表达式、排序、collation 和条件，校验版本和 fingerprint。结构不一致先拒绝启动，不在活动旧库自动变更 |
+| PostgreSQL 目标结构与版本 | `packages/repositories/src/schema/postgresql.ts` | 同一声明编译真实原生结构，绑定专用 Schema/实例与 release fingerprint；普通启动只校验，不修补漂移或未知库 |
 | Repository Port | `packages/repositories/src/repositories/types/*.ts` | D2 后公开签名不得要求 `TenantContext` |
-| SQLite Repository | `packages/repositories/src/repositories/sqlite/*.ts` | 不得绕过来源、授权、删除和幂等规则 |
+| 共享领域 Repository | `packages/repositories/src/repositories/sqlite/*.ts`、`packages/repositories/src/sql-dialect.ts` | 既有领域实现通过后端表达式复用；不得绕过来源、授权、删除和幂等规则 |
 | 连接与路径 | `packages/repositories/src/client.ts` | 只接受本地文件或显式内存 URL；禁止远程 LibSQL URL |
+| PostgreSQL 原生连接与 Session | `packages/repositories/src/driver/create-postgresql-database.ts`、`postgres-session.ts` | 原生 `pg`、实际 PostgreSQL 方言/事务和有界连接策略；不用 SQLite SQL 字符串替换实现后端 |
+| 生效主库选择 | `packages/repositories/src/database-selection.ts` | 主库外加密配置与代际；首次迁移/激活检查声明安装/启用，激活后宿主持有后端与凭据，声明停用/卸载不改变选择；连接、凭据或目标身份/结构失败拒绝，无 SQLite 回退 |
 | 迁移器 | `packages/repositories/src/migration/` | CR-030 迁移状态、计划、备份与恢复逻辑的唯一代码入口 |
 
 业务模块只消费 Repository Port，不直接导入 Drizzle 表。需要事务原子性的组合写由仓储层提供明确方法，
@@ -78,20 +82,69 @@ API 与 Worker 可同时观察到同一个空库；新建表和索引均容忍�
 
 ## 3. 本地存储拓扑
 
-默认数据目录位于当前操作系统用户的应用数据目录；仓库开发模式可使用 `<repo>/data/`。路径可以配置，
-但必须是本地文件系统路径。
+默认文件数据目录位于当前操作系统用户的应用数据目录；仓库开发模式可使用 `<repo>/data/`。文件路径可以配置，必须是本地文件系统路径；可选 PostgreSQL 的普通业务主库目标另由受控启动配置选择。
 
 当前仓库运行的主库缺省为 `<repo>/data/aervox.db`。显式 `aervox.db`、`./aervox.db` 及其 `file:` 形式也解析到该默认目录；其它相对文件路径按仓库根解析，与 API、Worker 或子包的启动目录无关。绝对文件路径保持原位置，`file:` URI 的编码、参数和 authority 保持 URI 语义，非法远端 authority 由本地文件校验拒绝。显式 `:memory:` 和 `file::memory:` 保持内存库，不创建持久文件。该解析不搬迁或合并已有数据库；切换已有数据的位置须显式备份并验证。
 
 | 存储 | 用途 | 边界 |
 |---|---|---|
-| `aervox.db` | 普通业务事实、派生数据和 Outbox | SQLite WAL；当前操作系统用户私有 |
+| `aervox.db` | 默认普通业务事实、派生数据和 Outbox；迁移后为封存源 | SQLite WAL；当前操作系统用户私有；切换后保留写入锁 |
+| 可选 PostgreSQL 专用 Schema | 激活后的业务事实、派生数据和 Outbox | 自管 PostgreSQL 16+ UTF8；源/目标只允许一个生效主库，受本机证明与远端隐私准入限制 |
+| `database-selection.json` 及 `.key` | 生效目标、代际与加密连接凭据 | 主库外宿主配置；当前用户专属，不能从普通插件配置或环境 URL 自动选择 |
 | proactive Vault | CAP-033 原始捕获、画像、连接凭据 | 独立加密边界，不进入普通日志/分析/远程模型 |
 | RecoveryControlLedger | 删除、同意撤销、插件/外部授权撤权 | 独立凭据与故障域，只存最小 deny 证明 |
 | attachments/exports | 附件、可读导出和迁移导出包 | manifest + checksum；不与数据库事务假装原子 |
 | backups/ | 一致性备份与 CR-030 rollback 包 | 默认用户私有；清理受保留策略和验证门禁约束 |
 
 POSIX 权限目标为目录 `0700`、数据库/状态清单/token `0600`；Windows 使用当前用户专属 ACL。
+
+<a id="postgresql-operations"></a>
+
+### 3.1 可选 PostgreSQL 的准备与激活
+
+先在插件市场安装并启用 `ap-tool-postgresql`；首次迁移和激活会检查源库/已验证备份中的安装与启用记录。声明包本身不连接或迁移，不向插件提供裸 SQL。激活后主库和连接凭据归宿主所有，停用、卸载或移除声明包仍保持所选 PostgreSQL，宿主继续访问和管理数据；实际连接、凭据或目标身份/结构故障才阻断该访问，不回退旧 SQLite，状态/修复入口保留。
+
+`AERVOX_POSTGRESQL_URL` 为迁移和激活命令提供连接串，不接受连接地址的 CLI 参数，不把密码写入输出或普通插件配置。远端使用证书验证的 TLS；不支持的 URL 参数、禁用验证或无界连接策略拒绝。支持 PostgreSQL 16 及以上且编码为 UTF8；`public`、系统或共享 Schema 不得作为目标。每个新物理连接在业务事务前重新校验专用结构、实例与本机存储资格，失败时丢弃连接，不重放业务。
+
+生效配置默认在 `<repo>/data/database-selection.json`，可用 `AERVOX_DATABASE_SELECTION_PATH` 显式指定；配套密钥为该路径加 `.key`，以 `0600` 保存。配置使用宿主加密密文，不是 OS Keychain。API、Worker 和 CLI 必须使用相同选择路径；修改 `DATABASE_URL` 或只提供 PostgreSQL 环境 URL 不能替代激活。
+
+命令用途如下，具体路径必须指向用户已确认的源库与新备份目录：
+
+```sh
+./aervox database status
+./aervox database migrate --source /absolute/aervox.db --schema aervox_main --backup /absolute/new-backup --ledger /absolute/recovery-ledger.db
+./aervox database activate --receipt /absolute/new-backup/postgresql-migration-receipt.json
+./aervox database recover
+./aervox database abort --source /absolute/aervox.db
+```
+
+`migrate` 还接受 `--instance`、`--vault` 和 `--ledger`。省略 instance 时生成新身份；省略 Vault 时绑定宿主默认本地 Vault。独立恢复账本只在显式提供 `--ledger` 时绑定，命令不自动发现账本；省略时的回执不包含其停写、备份或字节验证证明。使用独立账本的实例应显式提供真实账本路径。Vault、账本和附件保持本机原故障域，不能把主库迁移当作这些数据的搬迁或恢复。
+
+迁移前停止 API、Worker、调度和所有源/Vault/账本连接并 checkpoint。独占 `<source>.aervox-migration.lock` 保留每个阶段；活动句柄、非空 WAL/journal、无法验证的停写、非 canonical 结构或版本均拒绝。只在备份检查副本读取源事实，主源文件及全部备份保留。
+
+SQLite 开库和重连同时检查调用路径与真实路径的封存锁，并将客户端绑定到真实文件路径；符号链接随后改指向不能解除原源封存。悬空文件符号链接及多硬链接文件拒绝准入，迁移也拒绝多硬链接源，不能通过文件别名重新写入已封存源库。
+
+目标必须是未使用的专用空 Schema。导入全部 canonical 主库业务表、全列内容、稳定身份、引用与插入顺序；FTS 不复制 shadow 表，而从当前合格来源重建。逐表行数和规范内容哈希、外键/索引、搜索投影与位置 sequence 校验后生成回执，准备完成仍未切换配置。NUL、非法 UTF8、不安全整数、非有限数、错误 affinity 或无效 JSON 阻断，不清洗或截短数据。
+
+PostgreSQL 结构准入拒绝专用 Schema 关系的显式 tablespace，包括主键和 UNIQUE 约束生成的实际索引。canonical 表参与的继承或分区关系同样拒绝，即使另一端位于其它 Schema，也不能绕过检查。
+
+`activate` 再次核对源/备份/Vault/账本字节、目标身份/结构/内容及回执，原子发布主库外配置后源库仍封存。源或账本在备份后变化必须重新准备或修复，不能覆盖独立 deny 事实，也不能解除现行安全恢复拒绝。普通启动只校验已准备目标；身份或结构漂移不自动修补。
+
+`recover` 处理原操作进程已退出的启动配置发布中断，复验真实发布结果后仍不解除源锁；它不盲重放导入或未知 COMMIT。`abort` 仅放弃未激活尝试，拒绝正在运行的 owner 或已经生效的 PostgreSQL，归档源锁并保留全部备份和目标 staging。激活后的目标新事实不能通过选择旧 SQLite 回退；当前不提供自动反向迁移。
+
+失败与提交结果未知保留源、备份、目标和锁，状态分别报告。后端、CLI、组合根与远端主动拒绝的验证状态见 ITER-078；尚未运行真实用户库迁移。
+
+### 3.2 PostgreSQL 的隐私准入与限制
+
+迁移与运行时使用同一本机存储证明：当前用户私有 UNIX socket，内核确认当前连接对端为同用户本机 PostgreSQL 进程，私有 `postmaster.pid` 绑定主进程、数据目录和连接端口。对端必须是该主进程，或是 OS 确认父进程为该主进程且与当前连接 `pg_backend_pid()` 一致的后端子进程；随后核对私有 PostgreSQL 数据目录与受支持存储结构。对端检查不可用、TCP loopback、转发、用户自管或 TLS 不证明同设备；无法证明时按远端处理。
+
+`local_only` 及混合/无法分类的受保护历史拒绝迁往远端。当前旧会话、记忆、通知和历史快照缺少完整持久分类，因此保守预检可能拒绝普通非配置历史；关闭主动模式不能使历史获得迁出资格，也不通过删除或重标数据放行。仅保留本地 Vault 不足以保护可能已经写入主库的派生内容。
+
+纯配置和插件、工具、技能注册元数据可通过远端预检；空业务库的实际宿主首次启动产物属于这些表。人格和修订正文、技能载荷/候选/发布历史及导入工作区技能仍属于需要分类的内容，原始会话已经不存在或 `source=builtin` 标签均不获得豁免。
+
+远端或未证明本机的主库实例必须拒绝主动激活、画像处理及可能把 `local_only` 派生对话/提醒写入主库的路径。文件 Vault 与恢复账本保持本地，不放宽 [BR-PRO-003](SRS.md#br-pro-003-本地处理边界) 或 [PRIV-PRO-002](SRS.md#priv-pro-002-本地持久化与不出云)。普通远端服务的运营方、地区、访问、备份和删除由用户负责；TLS 不提供静态加密或远端备份删除证明。
+
+SQLite 专用的原生向量缓存、P2P 触发器、文件快照和 CR-030 原子换文件流程不能直接复用于 PostgreSQL。检索投影使用实际后端实现，相关性排序不承诺与 FTS5 相同；跨介质备份及反向迁移须另行验证，不能隐式回读已封存源库。
 
 ## 4. 领域数据模型
 
@@ -156,14 +209,14 @@ POSIX 权限目标为目录 `0700`、数据库/状态清单/token `0600`；Windo
 Repository Port 仍可保留首参 `LocalContext`，由宿主构造；部分实现沿用 `ctx` 或 `tenant` 参数名，但这些值不参与持久化分区或数据归属判定。不得恢复 `TenantContext`、租户列或客户端身份头。以下原则保持不变：
 
 - 读方法明确返回 `null`/空列表或领域错误；不得用租户不匹配模拟 404。
-- 写方法在单个 SQLite 事务内完成事实、Outbox、CAS/fencing 和必要控制投影。
+- 写方法在当前生效后端的单个事务内完成事实、Outbox、CAS/fencing 和必要控制投影。
 - 插件、来源、授权和删除仍由显式业务参数及 Repository 检查，不因移除 `TenantContext` 而跳过。
 - 后台 Job 携带业务实体 ID、来源修订、授权版本和幂等键，不携带伪造的本地租户常量。
 - `actorId` 只用于授权和审计；不能改变事实所属来源或绕过删除水位。
 
 接口调整以当前类型声明和消费者为准；移除兼容参数不能顺带改变授权、审计或删除语义。`LocalContext` 与已移除的 `TenantContext` 不是同一合同。
 
-SSE 传输使用独立的有界分页接口，Resume 等全历史读取保持原语义。关闭订阅时，全部 Attempt 是否终态与事件高水位由同一 SQLite 语句快照读取，防止旧终态截断已开始的审批续接；页大小、超大单事件和快照之后新续接的边界见[流式协议](STREAMING_PROTOCOL.md#22-读取事件流)。
+SSE 传输使用独立的有界分页接口，Resume 等全历史读取保持原语义。关闭订阅时，全部 Attempt 是否终态与事件高水位由同一主库语句快照读取，防止旧终态截断已开始的审批续接；页大小、超大单事件和快照之后新续接的边界见[流式协议](STREAMING_PROTOCOL.md#22-读取事件流)。
 
 ### 6.1 CR-033 F0/F1 主动智能基础设施
 
@@ -214,7 +267,7 @@ F0/F1 存储底座，不改变 CR-032 生产读写路径。其 Repository 必须
 
 ### 7.1 只读向量缓存
 
-[ADR-024](adr/ADR-024-native-runtime-boundaries.md#cr-063) 允许连续数组 Worker/Rust 实现 `VectorSearchPort`，SQLite 仍是唯一真源。只读连接打开写者确认的显式本地数据库，按模型缓存浮点向量，不复制业务正文；每次查询检查 `data_version`，其他连接提交、模型变化或文件替换均使缓存失效，新进程不复用旧缓存。
+[ADR-024](adr/ADR-024-native-runtime-boundaries.md#cr-063) 允许连续数组 Worker/Rust 实现 `VectorSearchPort`，该文件缓存只适用于 SQLite 主库。只读连接打开写者确认的显式本地数据库，按模型缓存浮点向量，不复制业务正文；每次查询检查 `data_version`，其他连接提交、模型变化或文件替换均使缓存失效，新进程不复用旧缓存。PostgreSQL 不复用该本地文件缓存或回读封存源。
 
 查询保持余弦、零向量、维度不匹配、阈值及同分稳定顺序；只在水位改变时重新读入与解码，查询 IPC 传向量及 top-K，不逐行调用。内存、记录数、维度、消息、并发和截止均有限额。读入中失去一致性时有界重试或明确失败，不回写业务库。
 
@@ -222,7 +275,7 @@ F0/F1 存储底座，不改变 CR-032 生产读写路径。其 Repository 必须
 
 ## 8. 删除、撤权与恢复
 
-`RecoveryControlLedger` 是独立凭据、故障域和保留策略下的不可变 deny 事实源，只有最小假名化引用及防篡改证明，不含用户正文，不能与业务 SQLite 假装共享事务。业务投影不得反向覆盖账本。
+`RecoveryControlLedger` 是独立凭据、故障域和保留策略下的不可变 deny 事实源，只有最小假名化引用及防篡改证明，不含用户正文，不能与生效主库假装共享事务。业务投影不得反向覆盖账本。
 
 1. 删除、Consent 撤销、插件及外部授权撤权先用确定性 `eventId/idempotencyKey` 追加账本并取得 durable ack。
 2. 业务库再幂等提交 deny 投影、`DeletionRequest`、Targets 与 Outbox；账本成功而业务失败由 reconciler 按单调 sequence 重放，不制造第二次撤权事实。
@@ -323,12 +376,14 @@ D1～D3 每阶段都必须运行 `mise tasks run ci-code` 与 `mise tasks run ci
 - 普通新增可空列/索引可以采用兼容迁移；删除字段、修改唯一性或改变数据用途须在 PR 中评审迁移；改变数据责任或不可逆边界时记录 ADR。
 - CR-030 的旧二进制回滚必须同时恢复迁移前备份；新库产生写入后不得自动降级旧 Schema。
 - 备份和导出格式必须可读并带 manifest/checksum，不得要求专有云服务才能恢复。
-- 若未来重新引入多人协作、远程同步或 PostgreSQL，必须从身份、冲突、加密、审计和迁移重新设计，
+- 可选 PostgreSQL 按 ADR-034 的单用户与离线切换合同实施；若未来引入多人协作或新的远程同步用途，必须从身份、冲突、加密、审计和迁移重新设计，
   不得恢复 `workspace_id`/`subject_user_id` 即宣称满足安全要求。
 
 ## 13. 当前交付状态
 
 CR-030 的迁移器、无租户 Schema/Repository 和消费者适配已实现，阶段证据统一见[追踪基线](REQUIREMENTS_TRACEABILITY.md)。完整运行编排、停写证明、故障注入及回滚保留仍按发布门禁独立验收；实现完成不等于已迁移真实用户库或正式发布。
+
+可选 PostgreSQL 的原生适配、物理结构与隔离迁移已有真 PostgreSQL 18.6 测试；宿主选择、CLI、首次安装/启用资格、声明移除后主库保持、远端主动拒绝和全量验证继续由 ITER-078 汇总。默认 SQLite 与现行删除/恢复门禁保持，未对用户业务库执行迁移。
 
 ## CR-056 插件实现可用性
 

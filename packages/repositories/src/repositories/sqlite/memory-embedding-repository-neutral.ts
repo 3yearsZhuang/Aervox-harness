@@ -14,6 +14,7 @@ import { TopK } from "../../search/top-k.js";
 import { admitsSourceTurn, unverifiedAttachmentMemory } from "../../attachment-source-admission.js";
 import type { ConversationCryptoPort } from "../../conversation-host-port.js";
 import type { IMemoryEmbeddingRepository } from "../types/index.js";
+import { jsonQuote } from "../../sql-dialect.js";
 
 /** 把 JSON 字符串还原为 number[]；非法数据视为空向量 */
 function parseVector(json: string | null): number[] {
@@ -61,10 +62,10 @@ export class MemoryEmbeddingRepository implements IMemoryEmbeddingRepository {
             for (const item of chunk) {
               // Recheck under the writer lock after any asynchronous embedding generation.
               const [source] = await tx.select({ isDeleted: memoryRecords.isDeleted,
-                sourceTurnId: sql<string | null>`json_quote(${memoryRecords.sourceTurnId})`.mapWith(value => JSON.parse(value) as string | null),
-                unverifiedAttachments: unverifiedAttachmentMemory(memoryRecords.id) }).from(memoryRecords)
+                sourceTurnId: jsonQuote(tx, memoryRecords.sourceTurnId).mapWith(value => JSON.parse(value) as string | null),
+                unverifiedAttachments: unverifiedAttachmentMemory(tx, memoryRecords.id) }).from(memoryRecords)
                 .where(eq(memoryRecords.id, item.memoryId));
-              if (source?.isDeleted === 1 || source?.unverifiedAttachments === 1 || !await admitsSourceTurn(tx, source?.sourceTurnId, this.crypto)) continue;
+              if (source?.isDeleted === 1 || Number(source?.unverifiedAttachments) === 1 || !await admitsSourceTurn(tx, source?.sourceTurnId, this.crypto)) continue;
               await tx
                 .insert(memoryEmbeddings)
                 .values({
@@ -115,18 +116,18 @@ export class MemoryEmbeddingRepository implements IMemoryEmbeddingRepository {
     if (topK === 0) return [];
     return this.db.transaction(async tx => {
       const rows = await tx
-        .select({ ...getTableColumns(memoryEmbeddings), memoryId: sql<string>`json_quote(${memoryEmbeddings.memoryId})`.mapWith(value => JSON.parse(value) as string) })
+        .select({ ...getTableColumns(memoryEmbeddings), memoryId: jsonQuote(tx, memoryEmbeddings.memoryId).mapWith(value => JSON.parse(value) as string) })
         .from(memoryEmbeddings)
         .where(
           and(
             modelId !== undefined ? eq(memoryEmbeddings.modelId, modelId) : undefined,
-            sql`${unverifiedAttachmentMemory(memoryEmbeddings.memoryId)} = 0`,
+            sql`${unverifiedAttachmentMemory(tx, memoryEmbeddings.memoryId)} = 0`,
           ),
         );
 
       for (const row of rows) {
         const [source] = await tx.select({ isDeleted: memoryRecords.isDeleted,
-          sourceTurnId: sql<string | null>`json_quote(${memoryRecords.sourceTurnId})`.mapWith(value => JSON.parse(value) as string | null) }).from(memoryRecords).where(eq(memoryRecords.id, row.memoryId)).limit(1);
+          sourceTurnId: jsonQuote(tx, memoryRecords.sourceTurnId).mapWith(value => JSON.parse(value) as string | null) }).from(memoryRecords).where(eq(memoryRecords.id, row.memoryId)).limit(1);
         if ((source && source.isDeleted !== 0) || !await admitsSourceTurn(tx, source?.sourceTurnId, this.crypto)) continue;
         const vector = parseVector((row as { embeddingJson: string }).embeddingJson);
         const score = cosineSimilarity(queryVector, vector);

@@ -1,11 +1,12 @@
 import { loadExecutionConfig } from "@aervox/config";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ProactiveProfileClaimModel } from "@aervox/repositories";
 import { buildLoopProvider } from "@aervox/host-runtime-test/modules/companion/conversation/llm-adapter";
 import { createConfiguredProviderFactory, createModelStreamResources } from "@aervox/host-runtime/modules/ecosystem/llm/index";
 import {
   buildProactiveProfilePrompt,
   isLiteralLoopbackUrl,
+  loadProactiveProfilePrompt,
 } from "@aervox/host-runtime-test/modules/proactive/proactive/profile-context";
 
 const claim = (overrides: Partial<ProactiveProfileClaimModel> = {}): ProactiveProfileClaimModel => ({
@@ -37,6 +38,21 @@ afterEach(() => {
 });
 
 describe("CAP-033 proactive profile context", () => {
+  it("fails closed when a low-level caller omits the main-storage policy", async () => {
+    const getEffectiveStatus = vi.fn();
+    await expect(loadProactiveProfilePrompt({ getEffectiveStatus } as never,
+      { workspaceId: "local", subjectUserId: "local" },
+    )).rejects.toMatchObject({ code: "LOCAL_ONLY_STORAGE_REQUIRED" });
+    expect(getEffectiveStatus).not.toHaveBeenCalled();
+  });
+  it("rejects profile projection before reading the local vault when the main target is unverified PostgreSQL", async () => {
+    const getEffectiveStatus = vi.fn();
+    await expect(loadProactiveProfilePrompt({ getEffectiveStatus } as never,
+      { workspaceId: "local", subjectUserId: "local" },
+      { backend: "postgresql", locality: "remote-or-unverified", localOnlyAllowed: false },
+    )).rejects.toMatchObject({ code: "LOCAL_ONLY_STORAGE_REQUIRED" });
+    expect(getEffectiveStatus).not.toHaveBeenCalled();
+  });
   it("accepts only literal loopback model endpoints", () => {
     expect(isLiteralLoopbackUrl("http://127.0.0.1:11434/v1")).toBe(true);
     expect(isLiteralLoopbackUrl("http://[::1]:8000/v1")).toBe(true);

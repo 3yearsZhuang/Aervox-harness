@@ -9,6 +9,7 @@ import type { ProactiveFeatureFlag } from "@aervox/config";
 import { safeTimingCompare } from "../../../shared/auth.js";
 import type { ModuleDependencies } from "../../context.js";
 import {
+  assertLocalOnlyStorage,
   SqlitePrivacyRepository,
   SqliteProactiveIntelligenceRepository,
   SqliteProactiveProfileRepository,
@@ -39,6 +40,10 @@ export interface ProactiveModuleServices {
 }
 
 export async function registerProactiveModule(ctx: ModuleDependencies<"app" | "db" | "proactiveAccessToken" | "proactiveCipher" | "proactiveDb" | "toolRuntime">, options: ProactiveModuleOptions = {}): Promise<ProactiveModuleServices> {
+  // A local vault alone is insufficient: profile-influenced replies and
+  // notifications are committed to the main database by other modules.
+  assertLocalOnlyStorage(ctx.db);
+  assertLocalOnlyStorage(options.db ?? ctx.proactiveDb ?? ctx.db);
   const repository = new SqliteProactiveProfileRepository(
     options.db ?? ctx.proactiveDb ?? ctx.db,
     options.cipher ?? ctx.proactiveCipher,

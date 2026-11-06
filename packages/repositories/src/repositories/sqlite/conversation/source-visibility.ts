@@ -42,8 +42,8 @@ export const disclosableTurn = (turnId: string | SQLWrapper) => sql`exists (
 )`;
 
 /** Completed dialogue eligible for model/diary use, independently of user-visible history. */
-export const derivableConversationTurn = (turnId: string | SQLWrapper) => sql`(
-  ${disclosableTurn(turnId)} and not ${unverifiedAttachmentTurn(turnId)} and exists (
+export const derivableConversationTurn = (db: object, turnId: string | SQLWrapper) => sql`(
+  ${disclosableTurn(turnId)} and ${unverifiedAttachmentTurn(db, turnId)} = 0 and exists (
     select 1 from ${turns} as visibility_turn where ${sourceTurn.id} = ${turnId} and ${sourceTurn.status} = 'Completed'
       and exists (select 1 from ${messageVersions} as visibility_current_user where ${currentUser.turnId} = ${sourceTurn.id}
         and ${currentUser.role} = 'user' and ${currentUser.supersededAt} is null and ${currentUser.isRedacted} = 0

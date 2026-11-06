@@ -97,8 +97,8 @@ export class SqliteTemporalFactProjection {
       }
       const factId = decision.kind === "corroborate" ? decision.factId : decision.fact.id;
       await tx.execute({
-        sql: `INSERT OR IGNORE INTO temporal_fact_evidence(fact_id, memory_evidence_id)
-              VALUES (?, ?)`,
+        sql: `INSERT INTO temporal_fact_evidence(fact_id, memory_evidence_id)
+              VALUES (?, ?) ON CONFLICT DO NOTHING`,
         args: [factId, input.memoryEvidenceId],
       });
       await tx.commit();

@@ -2,7 +2,7 @@
 import { nodeConversationHost } from "../conversation-host-node.js";
 import * as portable from "./fts-neutral.js";
 export { initFtsTables, deleteMessageFts, deleteMemoryFts } from "./fts-neutral.js";
-export type { FtsSearchResult, ProjectionWriter, ProjectionClient } from "./fts-neutral.js";
+export type { FtsConnection, FtsSearchResult, ProjectionWriter, ProjectionClient } from "./fts-neutral.js";
 export const rebuildMessageFts = (...args: Parameters<typeof portable.rebuildMessageFts>) =>
   portable.rebuildMessageFts(args[0], args[1] ?? nodeConversationHost);
 export const rebuildSearchProjections = (...args: Parameters<typeof portable.rebuildSearchProjections>) =>

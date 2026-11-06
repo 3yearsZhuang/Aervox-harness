@@ -23,6 +23,20 @@ test('protocol declares every selected public writer and independent cleanup omi
   assert.equal(quantile([1, 2, 3, 4], .5), 2.5);
 });
 
+test('fixtures contain source-qualified FTS seeds for both the target and preserved memory', async () => {
+  const f = await fixture();
+  try {
+    for (const id of ['target', 'keep']) {
+      const [source] = await query(f.client, 'SELECT content FROM memory_records WHERE id=?', [id]);
+      const projection = await query(f.client, 'SELECT id,content FROM memories_fts WHERE id=?', [id]);
+      assert.deepEqual(projection.map(row => ({ id: row.id, content: row.content })), [{ id, content: source.content }]);
+    }
+    await f.store.clean('target'); await f.store.verify('target');
+    assert.equal((await oracle(f)).clean, true);
+    assert.equal((await oracle(f)).keepIntact, true);
+  } finally { await close(f); }
+});
+
 test('retained identity tombstones reject same-ID record recreation and monotone delete preserves cleanup', async () => {
   const f = await fixture();
   try {

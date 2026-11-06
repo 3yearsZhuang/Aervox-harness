@@ -5,6 +5,7 @@
  * P2/P3 扩展实体：先落表为后续生态/社区功能预留。
  */
 import { eq, and, sql, type SQLWrapper } from "drizzle-orm";
+import { jsonEach, jsonText, randomGeneration, textHex } from "../../sql-dialect.js";
 import type { AervoxDatabase } from "../../client.js";
 import {
   externalSources,
@@ -27,7 +28,6 @@ import type {
 } from "../types/index.js";
 
 const MAX_PERMIT_GRANTS = 256;
-const textBytes = (column: SQLWrapper) => sql<string | null>`CASE WHEN ${column} IS NULL THEN NULL ELSE hex(CAST(${column} AS BLOB)) END`;
 const integerText = (column: SQLWrapper) => sql<string | null>`CAST(${column} AS TEXT)`;
 function permitText(hex: string | null, nullable = false): string | null {
   if (hex === null && nullable) return null;
@@ -50,6 +50,7 @@ export class SqliteExtensionRepository implements IExtensionRepository, PluginTo
   async readPluginToolPermit(_ctx: LocalContext, pluginId: string, toolId: string): Promise<PluginToolPermitSnapshot> {
     // One read statement, no new policy state or transaction. Only matching required
     // permissions are materialized, with one sentinel row to reject over-budget data.
+    const textBytes = (column: SQLWrapper) => textHex(this.db, column);
     const rows = await this.db.select({
       pluginId: textBytes(plugins.id), version: textBytes(plugins.version), checksum: textBytes(plugins.checksum),
       generation: textBytes(plugins.lifecycleGeneration), availability: textBytes(plugins.availability), pluginEnabled: integerText(plugins.enabled),
@@ -61,11 +62,11 @@ export class SqliteExtensionRepository implements IExtensionRepository, PluginTo
       grantId: textBytes(pluginGrants.id), grantOwner: textBytes(pluginGrants.pluginId), permission: textBytes(pluginGrants.permission), scope: textBytes(pluginGrants.scope),
     }).from(plugins).leftJoin(toolRegistrations, and(eq(toolRegistrations.id, toolId), eq(toolRegistrations.pluginId, plugins.id)))
       .leftJoin(pluginGrants, and(eq(pluginGrants.pluginId, plugins.id), sql`${pluginGrants.revokedAt} IS NULL`, sql`EXISTS (
-        SELECT 1 FROM json_each(${toolRegistrations.requiredPermissionsJson}) AS requirement
+        SELECT 1 FROM ${jsonEach(this.db, toolRegistrations.requiredPermissionsJson, { alias: 'requirement', kind: 'array' })}
         WHERE CASE WHEN requirement.type = 'text' THEN requirement.value
-          WHEN requirement.type = 'object' THEN json_extract(requirement.value, '$.permission') ELSE NULL END = ${pluginGrants.permission}
+          WHEN requirement.type = 'object' THEN ${jsonText(this.db, sql`requirement.value`, '$.permission')} ELSE NULL END = ${pluginGrants.permission}
         AND CASE WHEN requirement.type = 'text' THEN '*'
-          WHEN requirement.type = 'object' THEN json_extract(requirement.value, '$.scope') ELSE NULL END = ${pluginGrants.scope}
+          WHEN requirement.type = 'object' THEN ${jsonText(this.db, sql`requirement.value`, '$.scope')} ELSE NULL END = ${pluginGrants.scope}
       )`)).where(eq(plugins.id, pluginId)).limit(MAX_PERMIT_GRANTS + 1);
     if (rows.length > MAX_PERMIT_GRANTS) throw new Error("plugin_tool_permit_budget_exceeded");
     const row = rows[0];
@@ -137,7 +138,7 @@ export class SqliteExtensionRepository implements IExtensionRepository, PluginTo
         .update(plugins)
         .set({
           publisher: pluginData.publisher,
-          lifecycleGeneration: sql`lower(hex(randomblob(16)))`,
+          lifecycleGeneration: randomGeneration(this.db),
           version: pluginData.version,
           checksum: pluginData.checksum,
           signature: pluginData.signature ?? null,
@@ -157,7 +158,7 @@ export class SqliteExtensionRepository implements IExtensionRepository, PluginTo
       .insert(plugins)
       .values({
         id: pluginData.id,
-        lifecycleGeneration: sql`lower(hex(randomblob(16)))`,
+        lifecycleGeneration: randomGeneration(this.db),
         publisher: pluginData.publisher,
         version: pluginData.version,
         checksum: pluginData.checksum,
@@ -178,7 +179,7 @@ export class SqliteExtensionRepository implements IExtensionRepository, PluginTo
   async setPluginAvailability(id: string, availability: "available" | "missing" | "invalid" | "unreadable"): Promise<void> {
     await this.db.update(plugins).set({
       availability,
-      lifecycleGeneration: sql`CASE WHEN ${plugins.availability} <> ${availability} THEN lower(hex(randomblob(16))) ELSE ${plugins.lifecycleGeneration} END`,
+      lifecycleGeneration: sql`CASE WHEN ${plugins.availability} <> ${availability} THEN ${randomGeneration(this.db)} ELSE ${plugins.lifecycleGeneration} END`,
     }).where(eq(plugins.id, id));
   }
 
@@ -212,7 +213,7 @@ export class SqliteExtensionRepository implements IExtensionRepository, PluginTo
       .update(plugins)
       .set({
         enabled: enabled ? 1 : 0,
-        lifecycleGeneration: sql`CASE WHEN ${plugins.enabled} <> ${enabled ? 1 : 0} THEN lower(hex(randomblob(16))) ELSE ${plugins.lifecycleGeneration} END`,
+        lifecycleGeneration: sql`CASE WHEN ${plugins.enabled} <> ${enabled ? 1 : 0} THEN ${randomGeneration(this.db)} ELSE ${plugins.lifecycleGeneration} END`,
         updatedAt: now,
       })
       .where(eq(plugins.id, id))

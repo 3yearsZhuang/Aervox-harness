@@ -8,7 +8,7 @@ type ShutdownPhase = "cancel" | "drain" | "runtime" | "health" | "database";
 /** One signal owner and one deadline; database handles outlive async teardown. */
 export function registerWorkerShutdown(deps: {
   host: Pick<WorkerHost, "stop">;
-  clients: Array<{ close(): void }>;
+  clients: Array<{ close(): void | Promise<void> }>;
   healthServer?: Server;
   disposeRuntime?: () => Promise<void>;
   abortExecution?: () => void;
@@ -63,9 +63,7 @@ export function registerWorkerShutdown(deps: {
       }
       phase = "database";
       for (const client of deps.clients) {
-        assertWithinDeadline();
-        client.close();
-        assertWithinDeadline();
+        await runStage("database", () => client.close());
       }
     } catch (err) {
       exitCode = 1;
