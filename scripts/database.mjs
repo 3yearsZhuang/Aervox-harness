@@ -57,7 +57,7 @@ export async function runDatabaseCommand(argv, api, env = process.env, write = c
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   try {
     if (['help', '-h', '--help'].includes(process.argv[2])) console.log(help);
-    else await runDatabaseCommand(process.argv.slice(2), await import('@aervox/repositories'));
+    else await runDatabaseCommand(process.argv.slice(2), await import('../packages/repositories/dist/index.js'));
   } catch (error) {
     // Driver errors can include connection values; emit only a bounded safe code.
     const code = typeof error?.code === 'string' && /^[A-Z0-9_]{3,100}$/.test(error.code) ? error.code : 'DATABASE_OPERATION_FAILED';
