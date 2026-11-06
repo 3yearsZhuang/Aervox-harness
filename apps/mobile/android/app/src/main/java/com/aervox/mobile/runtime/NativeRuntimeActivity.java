@@ -101,7 +101,7 @@ public class NativeRuntimeActivity extends AppCompatActivity {
         catch (NativeBusinessDatabase.DatabaseException error) { unavailable("本地运行初始化失败。"); return; }
         sqlite.ready().whenComplete((connection, failure) -> runOnUiThread(() -> {
             if (closing.get()) return;
-            if (failure != null) { unavailable("本地数据库暂不可用。原有数据已保留，请关闭后重试。"); return; }
+            if (failure != null) { unavailable(NativeDatabaseStartupError.message(failure)); return; }
             epoch = connection;
             host = NativeAssetWebViewHost.create(this, this::handle);
             WebView view = host.view();
