@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils';
-import { defineComponent, h, onUnmounted, type Component } from 'vue';
+import { defineComponent, h, onMounted, onUnmounted, type Component } from 'vue';
 import { defineUISurface, UISurfaceHost, useUISurfaceContext, type UISurfacePlugin, type UISurfaceContext } from '../src';
 
 enableAutoUnmount(afterEach);
@@ -205,4 +205,47 @@ it('only reloads the window after the user explicitly chooses host recovery', as
   const button = wrapper.findAll('button').find((b) => b.text() === '重新加载界面');
   await button!.trigger('click');
   expect(reload).toHaveBeenCalledOnce();
+});
+
+it('announces readiness after a delayed surface has mounted, rather than its loading skeleton', async () => {
+  let resolve!: (root: Component) => void;
+  const order: string[] = [];
+  const mounted = defineComponent({
+    setup() { onMounted(() => order.push('surface')); return () => h('main', '已打开会话'); },
+  });
+  const ready = vi.fn(() => {
+    expect(wrapper.get('main').text()).toBe('已打开会话');
+    order.push('host');
+  });
+  const wrapper = open({ ...plugin(), load: () => new Promise<Component>(r => { resolve = r; }) }, { onReady: ready });
+  await flushPromises();
+  expect(ready).not.toHaveBeenCalled();
+  resolve(mounted);
+  await flushPromises();
+  expect(ready).toHaveBeenCalledOnce();
+  expect(order).toEqual(['surface', 'host']);
+});
+
+it.each(['missing', 'load', 'render'])('announces %s failure only after host recovery is rendered', async kind => {
+  const broken = defineComponent({ setup: () => () => { throw new Error('broken render'); } });
+  const definition = kind === 'missing' ? null : kind === 'load'
+    ? { ...plugin(), load: async () => { throw new Error('broken chunk'); } }
+    : plugin(broken);
+  const ready = vi.fn();
+  const failed = vi.fn(reason => {
+    expect(wrapper.get('[role="alert"]').attributes('data-failure-reason')).toBe(reason);
+  });
+  const wrapper = open(definition, { autoRetryDelaysMs: [], onReady: ready, onFailed: failed });
+  await flushPromises();
+  expect(ready).not.toHaveBeenCalled();
+  expect(failed).toHaveBeenCalledOnce();
+  expect(failed).toHaveBeenCalledWith(kind === 'missing' ? 'missing' : kind === 'load' ? 'load-failed' : 'render-error');
+});
+
+it('does not announce queued recovery after the host is unmounted', async () => {
+  const failed = vi.fn();
+  const wrapper = open(null, { onFailed: failed });
+  wrapper.unmount();
+  await flushPromises();
+  expect(failed).not.toHaveBeenCalled();
 });

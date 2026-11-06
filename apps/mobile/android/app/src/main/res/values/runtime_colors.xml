@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand SchemeTonalSpot roles match packages/ui/src/material3/palette.ts. -->
+    <color name="runtime_primary">#4B5C92</color>
+    <color name="runtime_on_primary">#FFFFFF</color>
+    <color name="runtime_primary_container">#DBE1FF</color>
+    <color name="runtime_on_primary_container">#334479</color>
+    <color name="runtime_secondary">#595E72</color>
+    <color name="runtime_on_secondary">#FFFFFF</color>
+    <color name="runtime_secondary_container">#DDE1F9</color>
+    <color name="runtime_on_secondary_container">#414659</color>
+    <color name="runtime_tertiary">#745470</color>
+    <color name="runtime_on_tertiary">#FFFFFF</color>
+    <color name="runtime_error">#BA1A1A</color>
+    <color name="runtime_on_error">#FFFFFF</color>
+    <color name="runtime_error_container">#FFDAD6</color>
+    <color name="runtime_on_error_container">#93000A</color>
+    <color name="runtime_surface">#FAF8FF</color>
+    <color name="runtime_on_surface">#1A1B21</color>
+    <color name="runtime_on_surface_variant">#45464F</color>
+    <color name="runtime_surface_container">#EEEDF4</color>
+    <color name="runtime_surface_container_low">#F4F3FA</color>
+    <color name="runtime_surface_container_high">#E9E7EF</color>
+    <color name="runtime_surface_container_highest">#E3E2E9</color>
+    <color name="runtime_outline">#767680</color>
+    <color name="runtime_outline_variant">#C6C6D0</color>
+    <color name="runtime_inverse_surface">#2F3036</color>
+    <color name="runtime_inverse_on_surface">#F1F0F7</color>
+    <color name="runtime_inverse_primary">#B5C4FF</color>
+    <color name="runtime_surface_tint">#4B5C92</color>
+    <color name="runtime_scrim">#000000</color>
+    <color name="runtime_surface_variant">#E2E1EC</color>
+    <color name="runtime_surface_bright">#FAF8FF</color>
+    <color name="runtime_surface_dim">#DAD9E0</color>
+    <color name="runtime_tertiary_container">#FFD6F7</color>
+    <color name="runtime_on_tertiary_container">#5B3D58</color>
+    <color name="runtime_surface_container_lowest">#FFFFFF</color>
+    <bool name="runtime_light_system_bars">true</bool>
+</resources>

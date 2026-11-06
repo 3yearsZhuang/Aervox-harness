@@ -1,16 +1,24 @@
 package com.aervox.mobile.runtime;
 
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.content.res.Configuration;
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ValueAnimator;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
-import android.widget.TextView;
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.core.splashscreen.SplashScreen;
+import androidx.core.splashscreen.SplashScreenViewProvider;
+import com.aervox.mobile.R;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -36,14 +44,31 @@ public class NativeRuntimeActivity extends AppCompatActivity {
     private String epoch;
     private final AtomicBoolean closing = new AtomicBoolean();
     private volatile boolean foreground;
+    private boolean startupPending = true;
+    private final Handler startupHandler = new Handler(Looper.getMainLooper());
+    private SplashScreenViewProvider startupView;
+    private View nativeSurface;
+    private String unavailableMessage;
+    private final Runnable startupTimeout = () -> {
+        if (!startupPending || closing.get()) return;
+        shutdownNative();
+        unavailable(getString(R.string.startup_timeout));
+    };
 
     @Override public void onCreate(Bundle state) {
+        SplashScreen splash = SplashScreen.installSplashScreen(this);
         super.onCreate(state);
+        // Keep the platform launch screen until the actual Vue surface can
+        // take over. The condition must not wait for a blocked WebView draw.
+        splash.setKeepOnScreenCondition(() -> startupPending && !closing.get());
+        splash.setOnExitAnimationListener(this::fadeStartup);
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
-        TextView loading = new TextView(this);
-        loading.setText("正在打开本地会话…"); loading.setTextSize(18);
-        loading.setGravity(android.view.Gravity.CENTER);
+        applyNativeAppearance();
+        FrameLayout loading = new FrameLayout(this);
+        loading.setBackgroundColor(getColor(R.color.runtime_surface));
+        nativeSurface = loading;
         setContentView(loading);
+        startupHandler.postDelayed(startupTimeout, 30_000);
         model = new NativeModelService(this);
         device = new NativeDeviceService(this, () -> foreground);
         speech = new NativeSpeechService(this);
@@ -87,10 +112,9 @@ public class NativeRuntimeActivity extends AppCompatActivity {
             FrameLayout surface = new FrameLayout(this);
             // Full-screen adaptation: the inset padding would otherwise expose the
             // window background at the edges; paint it with the theme's page color.
-            boolean night = (getResources().getConfiguration().uiMode
-                & android.content.res.Configuration.UI_MODE_NIGHT_MASK)
-                == android.content.res.Configuration.UI_MODE_NIGHT_YES;
-            surface.setBackgroundColor(night ? 0xFF101318 : 0xFFFBFBFA);
+            surface.setBackgroundColor(getColor(R.color.runtime_surface));
+            view.setBackgroundColor(getColor(R.color.runtime_surface));
+            nativeSurface = surface;
             surface.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
             ViewCompat.setOnApplyWindowInsetsListener(surface, (target, insets) -> {
                 androidx.core.graphics.Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
@@ -140,6 +164,12 @@ public class NativeRuntimeActivity extends AppCompatActivity {
             CompletableFuture<JSONObject> result;
             switch (operation) {
                 case "runtime":
+                    if (input.length() == 2 && "uiReady".equals(input.optString("operation"))) {
+                        if (host == null || host.view() == null) throw new IllegalStateException("HOST_UNAVAILABLE");
+                        finishStartup();
+                        result = CompletableFuture.completedFuture(new JSONObject().put("kind", "ui_ready"));
+                        break;
+                    }
                     if (input.length() != 1 || epoch == null) throw new IllegalArgumentException();
                     result = CompletableFuture.completedFuture(sqlite == null || sqlite.isClosed() || sqlite.isDrained()
                         ? failure("DATABASE_UNAVAILABLE") : new JSONObject().put("kind", "runtime")
@@ -278,8 +308,53 @@ public class NativeRuntimeActivity extends AppCompatActivity {
         return result;
     }
     private void unavailable(String message) {
-        TextView text = new TextView(this); text.setText(message); text.setTextSize(18);
-        text.setPadding(64, 96, 64, 64); setContentView(text);
+        finishStartup();
+        unavailableMessage = message;
+        View recovery = NativeRuntimeUi.unavailable(this, message, this::finishAndRemoveTask);
+        nativeSurface = recovery;
+        setContentView(recovery);
+        WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView()).hide(WindowInsetsCompat.Type.ime());
+        ViewCompat.requestApplyInsets(recovery);
+    }
+    private void applyNativeAppearance() {
+        androidx.core.view.WindowInsetsControllerCompat systemBars = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        boolean lightBars = getResources().getBoolean(R.bool.runtime_light_system_bars);
+        systemBars.setAppearanceLightStatusBars(lightBars);
+        systemBars.setAppearanceLightNavigationBars(lightBars);
+        getWindow().setBackgroundDrawableResource(R.color.runtime_surface);
+        if (nativeSurface != null) nativeSurface.setBackgroundColor(getColor(R.color.runtime_surface));
+        WebView view = host == null ? null : host.view();
+        if (view != null) view.setBackgroundColor(getColor(R.color.runtime_surface));
+    }
+    @Override public void onConfigurationChanged(Configuration configuration) {
+        super.onConfigurationChanged(configuration);
+        applyNativeAppearance();
+        if (model != null) model.refreshAppearance();
+        if (unavailableMessage != null) unavailable(unavailableMessage);
+    }
+    private void finishStartup() {
+        startupPending = false;
+        startupHandler.removeCallbacks(startupTimeout);
+    }
+    private void fadeStartup(SplashScreenViewProvider provider) {
+        startupView = provider;
+        if (closing.get() || isFinishing() || isDestroyed()
+            || android.os.Build.VERSION.SDK_INT >= 26 && !ValueAnimator.areAnimatorsEnabled()) {
+            removeStartup();
+            return;
+        }
+        provider.getView().animate().alpha(0f).setDuration(180)
+            .setListener(new AnimatorListenerAdapter() {
+                @Override public void onAnimationEnd(Animator animation) { removeStartup(); }
+                @Override public void onAnimationCancel(Animator animation) { removeStartup(); }
+            }).start();
+    }
+    private void removeStartup() {
+        SplashScreenViewProvider provider = startupView;
+        startupView = null;
+        if (provider == null) return;
+        provider.getView().animate().setListener(null).cancel();
+        provider.remove();
     }
     @Override protected void onStart() { super.onStart(); foreground = true; }
     @Override protected void onStop() {
@@ -318,6 +393,8 @@ public class NativeRuntimeActivity extends AppCompatActivity {
 
     private void shutdownNative() {
         if (!closing.compareAndSet(false, true)) return;
+        finishStartup();
+        removeStartup();
         if (host != null) host.close();
         if (device != null) device.close();
         if (speech != null) speech.close();

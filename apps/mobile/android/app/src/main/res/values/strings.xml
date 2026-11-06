@@ -4,4 +4,9 @@
     <string name="title_activity_main">Aervox</string>
     <string name="package_name">com.aervox.mobile</string>
     <string name="custom_url_scheme">com.aervox.mobile</string>
+    <string name="startup_timeout">界面准备时间较长。请关闭应用后重试，已有数据已保留。</string>
+    <string name="runtime_unavailable_title">暂时无法打开</string>
+    <string name="runtime_close_app">关闭应用</string>
+    <string name="review_notification_title">今日复习提醒</string>
+    <string name="review_notification_body">今天还有复习任务，打开思隅继续。</string>
 </resources>
