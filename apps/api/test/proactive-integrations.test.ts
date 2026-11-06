@@ -7,9 +7,11 @@ import { afterEach,
   beforeEach,
   describe,
   expect,
-  it } from "vitest";
+  it,
+  vi } from "vitest";
 import {
   createInMemoryDatabase,
+  SqliteProactiveIntelligenceRepository,
   type AervoxDatabase,
 } from "@aervox/repositories";
 import type { Client } from "@libsql/client";
@@ -28,6 +30,8 @@ describe("CAP-033/034/035 proactive integrations", () => {
   let app: Awaited<ReturnType<typeof buildApp>>["app"];
   let server: Server;
   let endpoint: string;
+  let holdState: ((reply: () => void) => void) | undefined;
+  let releaseState: (() => void) | undefined;
   const serviceCalls: Array<Record<string, unknown>> = [];
 
   beforeEach(async () => {
@@ -41,7 +45,9 @@ describe("CAP-033/034/035 proactive integrations", () => {
         ]));
       }
       if (req.url === "/api/states/light.study") {
-        return res.end(JSON.stringify({entity_id: "light.study", state: "on", attributes: {friendly_name: "Study Light"}, last_updated: "2026-08-29T08:01:00.000Z"}));
+        const send = () => res.end(JSON.stringify({entity_id: "light.study", state: "on", attributes: {friendly_name: "Study Light"}, last_updated: "2026-08-29T08:01:00.000Z"}));
+        if (holdState) { const hold = holdState; holdState = undefined; hold(send); return; }
+        return send();
       }
       if (req.url === "/api/services/light/turn_on" && req.method === "POST") {
         let raw = "";
@@ -75,10 +81,247 @@ describe("CAP-033/034/035 proactive integrations", () => {
   });
 
   afterEach(async () => {
+    releaseState?.(); releaseState = undefined; holdState = undefined;
     await app.close();
     await cleanup();
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     serviceCalls.length = 0;
+  });
+
+  async function connectHome(): Promise<void> {
+    const connected = await app.inject({method: "POST", url: "/v1/proactive/integrations/home-assistant", headers,
+      payload: {id: "conn_ha_test", endpoint, accessToken: "ha-secret-token", subscriptionEnabled: false,
+        entities: [{entityId: "light.study", enabled: true, allowedOps: ["turn_on"]}]}});
+    expect(connected.statusCode).toBe(201);
+    expect(connected.json().connection.settings).not.toHaveProperty("__aervox_connection_generation");
+  }
+
+  function suspendHomeRead() {
+    let entered!: () => void;
+    const received = new Promise<void>(resolve => { entered = resolve; });
+    holdState = send => { releaseState = send; entered(); };
+    const read = app.inject({method: "GET", url: "/v1/proactive/integrations/home-assistant/conn_ha_test/entities/light.study/state", headers}).then(response => response);
+    return {received, read, release: () => { releaseState?.(); releaseState = undefined; }};
+  }
+
+  async function atOneTimestamp(action: (now: string) => Promise<void>) {
+    const now = new Date().toISOString();
+    const original = Date.prototype.toISOString;
+    // Freeze write timestamps without collapsing calculated future lease TTLs.
+    const clock = vi.spyOn(Date.prototype, "toISOString").mockImplementation(function (this: Date) {
+      return this.getTime() > Date.now() + 1_000 ? original.call(this) : now;
+    });
+    try {
+      await client.execute({sql: "UPDATE proactive_source_grants SET updated_at = ?", args: [now]});
+      await action(now);
+      expect((await app.inject({method: "GET", url: "/v1/proactive/integrations/home-assistant/conn_ha_test/entities/light.study/state", headers})).statusCode).toBe(200);
+      const rows = await client.execute("SELECT created_at, updated_at FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'");
+      expect(rows.rows.length).toBeGreaterThan(0);
+      for (const row of rows.rows) {
+        expect(row.created_at).toBe(now);
+        expect(row.updated_at).toBe(now);
+      }
+      const sources = await client.execute("SELECT updated_at FROM proactive_source_grants");
+      for (const source of sources.rows) expect(source.updated_at).toBe(now);
+    } finally { clock.mockRestore(); }
+  }
+
+  it("does not reuse the original read after an entity is disabled and re-enabled at one timestamp", async () => {
+    await atOneTimestamp(async () => {
+      await connectHome(); const pending = suspendHomeRead(); await pending.received;
+      for (const enabled of [false, true]) {
+        expect((await app.inject({method: "PATCH", url: "/v1/proactive/integrations/home-assistant/conn_ha_test/entities/light.study", headers, payload: {enabled}})).statusCode).toBe(200);
+      }
+      const before = await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'");
+      pending.release(); expect((await pending.read).statusCode).toBe(403);
+      expect((await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'")).rows).toEqual(before.rows);
+    });
+  });
+
+  it("does not reuse the original read after its source is revoked and re-granted at one timestamp", async () => {
+    await atOneTimestamp(async now => {
+      await connectHome();
+      const status = await app.inject({method: "GET", url: "/v1/proactive/status", headers});
+      const source = status.json().sources.find((item: {sourceKey: string}) => item.sourceKey === "device.sensors");
+      await client.execute({sql: "UPDATE proactive_source_grants SET updated_at = ? WHERE id = ?", args: [now, source.id]});
+      const pending = suspendHomeRead(); await pending.received;
+      for (const state of ["revoked", "granted"]) {
+        expect((await app.inject({method: "PATCH", url: `/v1/proactive/sources/${source.id}`, headers, payload: {state}})).statusCode).toBe(200);
+      }
+      const before = await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'");
+      pending.release(); expect((await pending.read).statusCode).toBe(403);
+      expect((await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'")).rows).toEqual(before.rows);
+    });
+  });
+
+  it("does not reuse the original read after the profile is paused and resumed at one timestamp", async () => {
+    await atOneTimestamp(async () => {
+      await connectHome(); const pending = suspendHomeRead(); await pending.received;
+      for (const desiredState of ["paused", "enabled"]) {
+        expect((await app.inject({method: "POST", url: "/v1/proactive/desired-state", headers, payload: {desiredState}})).statusCode).toBe(200);
+      }
+      const before = await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'");
+      pending.release(); expect((await pending.read).statusCode).toBe(403);
+      expect((await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'")).rows).toEqual(before.rows);
+    });
+  });
+
+  it("does not reuse the original read after an equal entity is recreated at one timestamp", async () => {
+    await atOneTimestamp(async () => {
+      await connectHome(); const pending = suspendHomeRead(); await pending.received;
+      const repo = new SqliteProactiveIntelligenceRepository(db);
+      const ctx = {workspaceId: "local", subjectUserId: "local"};
+      const original = (await repo.getHomeEntity(ctx, "conn_ha_test", "light.study"))!;
+      await client.execute({sql: "DELETE FROM proactive_home_entities WHERE id = ?", args: [original.id]});
+      await repo.upsertHomeEntity(ctx, {...original, lastSeenAt: original.lastSeenAt ?? undefined});
+      const before = await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'");
+      pending.release(); expect((await pending.read).statusCode).toBe(403);
+      expect((await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'")).rows).toEqual(before.rows);
+    });
+  });
+
+  it("does not grant an old read to a new activation lease", async () => {
+    await connectHome(); const pending = suspendHomeRead(); await pending.received;
+    const status = (await app.inject({method: "GET", url: "/v1/proactive/status", headers})).json();
+    expect((await app.inject({method: "POST", url: `/v1/proactive/activation/${status.activationLease.id}/end`, headers, payload: {reason: "replacement_test"}})).statusCode).toBe(200);
+    expect((await app.inject({method: "POST", url: "/v1/proactive/activation", headers, payload: {
+      id: "lease_replacement", revisionId: status.revision.id, deviceId: "device_integrations", epoch: "replacement_epoch",
+      localReady: true, fullAccessSnapshot: true, ttlSeconds: 60,
+    }})).statusCode).toBe(201);
+    const before = await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'");
+    pending.release(); expect((await pending.read).statusCode).toBe(403);
+    expect((await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'")).rows).toEqual(before.rows);
+  });
+
+  it("does not reuse an old read after the same activation epoch is ended and reactivated", async () => {
+    await atOneTimestamp(async () => {
+      await connectHome(); const pending = suspendHomeRead(); await pending.received;
+      const status = (await app.inject({method: "GET", url: "/v1/proactive/status", headers})).json();
+      expect((await app.inject({method: "POST", url: `/v1/proactive/activation/${status.activationLease.id}/end`, headers, payload: {reason: "same_epoch_test"}})).statusCode).toBe(200);
+      const renewed = await app.inject({method: "POST", url: "/v1/proactive/activation", headers, payload: {
+        id: "lease_same_epoch_retry", revisionId: status.revision.id, deviceId: status.activationLease.deviceId,
+        epoch: status.activationLease.epoch, localReady: true, fullAccessSnapshot: true,
+      }});
+      expect(renewed.statusCode).toBe(201);
+      expect(renewed.json().id).toBe(status.activationLease.id);
+      const before = await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'");
+      pending.release(); expect((await pending.read).statusCode).toBe(403);
+      expect((await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'")).rows).toEqual(before.rows);
+    });
+  });
+
+  it.each(["localReady", "fullAccessSnapshot"])("does not reuse an old read after lease %s is lost and restored", async field => {
+    await atOneTimestamp(async () => {
+      await connectHome(); const pending = suspendHomeRead(); await pending.received;
+      const status = (await app.inject({method: "GET", url: "/v1/proactive/status", headers})).json();
+      for (const value of [false, true]) {
+        expect((await app.inject({method: "POST", url: `/v1/proactive/activation/${status.activationLease.id}/heartbeat`, headers, payload: {[field]: value}})).statusCode).toBe(200);
+      }
+      const before = await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'");
+      pending.release(); expect((await pending.read).statusCode).toBe(403);
+      expect((await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'")).rows).toEqual(before.rows);
+    });
+  });
+
+  it("does not reuse an old read after its connection is revoked and restored", async () => {
+    await atOneTimestamp(async () => {
+      await connectHome(); const pending = suspendHomeRead(); await pending.received;
+      const repo = new SqliteProactiveIntelligenceRepository(db);
+      for (const state of ["revoked", "active"]) {
+        await repo.updateConnectionState({workspaceId: "local", subjectUserId: "local"}, "conn_ha_test", state);
+      }
+      const before = await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'");
+      pending.release(); expect((await pending.read).statusCode).toBe(403);
+      expect((await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'")).rows).toEqual(before.rows);
+    });
+  });
+
+  it("does not reuse an old read after another mandatory source is revoked and re-granted", async () => {
+    await atOneTimestamp(async () => {
+      await connectHome(); const pending = suspendHomeRead(); await pending.received;
+      const status = (await app.inject({method: "GET", url: "/v1/proactive/status", headers})).json();
+      const source = status.sources.find((item: {sourceKey: string; mandatory: boolean}) => item.mandatory && item.sourceKey !== "device.sensors");
+      expect(source).toBeDefined();
+      for (const state of ["revoked", "granted"]) {
+        expect((await app.inject({method: "PATCH", url: `/v1/proactive/sources/${source.id}`, headers, payload: {state}})).statusCode).toBe(200);
+      }
+      const before = await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'");
+      pending.release(); expect((await pending.read).statusCode).toBe(403);
+      expect((await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'")).rows).toEqual(before.rows);
+    });
+  });
+
+  it.each([{enabled: false}, {allowedOps: []}])("fences a delayed Home Assistant read after access edit %j", async patch => {
+    await connectHome();
+    const pending = suspendHomeRead();
+    await pending.received;
+    const edited = await app.inject({method: "PATCH", url: "/v1/proactive/integrations/home-assistant/conn_ha_test/entities/light.study", headers, payload: patch});
+    expect(edited.statusCode).toBe(200);
+    const before = await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'");
+    pending.release();
+    expect((await pending.read).statusCode).toBe(403);
+    expect((await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'")).rows).toEqual(before.rows);
+  });
+
+  it("fences a delayed Home Assistant read after its source is revoked", async () => {
+    await connectHome();
+    const pending = suspendHomeRead(); await pending.received;
+    const status = await app.inject({method: "GET", url: "/v1/proactive/status", headers});
+    const source = status.json().sources.find((item: {sourceKey: string}) => item.sourceKey === "device.sensors");
+    const revoked = await app.inject({method: "PATCH", url: `/v1/proactive/sources/${source.id}`, headers, payload: {state: "revoked"}});
+    expect(revoked.statusCode).toBe(200);
+    const before = await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'");
+    pending.release(); expect((await pending.read).statusCode).toBe(403);
+    expect((await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'")).rows).toEqual(before.rows);
+  });
+
+  it("does not recreate an entity after a delayed read outlives connection deletion", async () => {
+    await connectHome(); const pending = suspendHomeRead(); await pending.received;
+    const deleted = await app.inject({method: "DELETE", url: "/v1/proactive/integrations/home-assistant/conn_ha_test", headers});
+    expect(deleted.statusCode).toBe(204);
+    pending.release(); expect((await pending.read).statusCode).toBe(403);
+    expect((await client.execute("SELECT count(*) AS count FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'")).rows[0]?.count).toBe(0);
+  });
+
+  it("does not disclose an old read to a replacement connection with the same local ID", async () => {
+    await connectHome(); const pending = suspendHomeRead(); await pending.received;
+    expect((await app.inject({method: "DELETE", url: "/v1/proactive/integrations/home-assistant/conn_ha_test", headers})).statusCode).toBe(204);
+    await connectHome();
+    const before = await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'");
+    pending.release(); expect((await pending.read).statusCode).toBe(403);
+    expect((await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'")).rows).toEqual(before.rows);
+  });
+
+  it("fences identical connection replacement even when every timestamp has the same value", async () => {
+    const clock = vi.spyOn(Date.prototype, "toISOString").mockReturnValue(new Date().toISOString());
+    try {
+      await connectHome(); const pending = suspendHomeRead(); await pending.received;
+      const original = (await client.execute("SELECT created_at, settings_json FROM proactive_external_connections WHERE id = 'conn_ha_test'")).rows[0]!;
+      expect((await app.inject({method: "DELETE", url: "/v1/proactive/integrations/home-assistant/conn_ha_test", headers})).statusCode).toBe(204);
+      await connectHome();
+      const replacement = (await client.execute("SELECT created_at, settings_json FROM proactive_external_connections WHERE id = 'conn_ha_test'")).rows[0]!;
+      expect(replacement.created_at).toBe(original.created_at);
+      expect(replacement.settings_json).not.toBe(original.settings_json);
+      const before = await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'");
+      pending.release(); expect((await pending.read).statusCode).toBe(403);
+      expect((await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'")).rows).toEqual(before.rows);
+    } finally { clock.mockRestore(); }
+  });
+
+  it("fences a delayed Home Assistant read while the profile is paused", async () => {
+    await connectHome(); const pending = suspendHomeRead(); await pending.received;
+    expect((await app.inject({method: "POST", url: "/v1/proactive/desired-state", headers, payload: {desiredState: "paused"}})).statusCode).toBe(200);
+    const before = await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'");
+    pending.release(); expect((await pending.read).statusCode).toBe(403);
+    expect((await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'")).rows).toEqual(before.rows);
+  });
+
+  it("fences a delayed Home Assistant read after its connection is revoked", async () => {
+    await connectHome(); const pending = suspendHomeRead(); await pending.received;
+    await client.execute("UPDATE proactive_external_connections SET state = 'revoked' WHERE id = 'conn_ha_test'");
+    const before = await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'");
+    pending.release(); expect((await pending.read).statusCode).toBe(403);
+    expect((await client.execute("SELECT * FROM proactive_home_entities WHERE connection_id = 'conn_ha_test'")).rows).toEqual(before.rows);
   });
 
   async function activateProfile(): Promise<void> {
