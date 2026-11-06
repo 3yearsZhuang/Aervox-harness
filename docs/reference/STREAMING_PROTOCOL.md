@@ -173,13 +173,15 @@ Created -> InputChecking -> Running -> Finalizing -> Completed
 
 表示 Turn 终态已提交。`data` 至少包含 `status`、`messageId`（如有）、`isComplete`、`lastSequence` 和 `contextVersion`。只有 `status=Completed` 且 `isComplete=true` 的结果可触发普通下游派生；`Cancelled/Interrupted/Failed/Rejected` 的安全前缀只能作为明确标记的不完整历史保留。
 
-接单准备、Native 和 Adapter 共用取消、删除、预算与失败裁决。准备阶段已被阻断时可以直接提交终态，不创建空 Assistant 身份。取消的 `done.reason=cancelled`，中断保留具体原因；`done/error.lastSequence` 对应原子提交的事件序号。丢失租约或 fencing 后不得发布终态，子任务摘要只能按持久 Attempt 对账，不能把本地失去执行权映射为已完成的失败。
+接单准备、Native 和 Adapter 共用取消、删除、预算与失败裁决。准备阶段已被阻断时可以直接提交终态，不创建空 Assistant 身份。来源仍可写时，取消的 `done.reason=cancelled`，中断保留具体原因；来源不可写时，带 fencing 的终态按第 4.4 节保存固定控制投影。`done/error.lastSequence` 对应原子提交的事件序号。丢失租约或 fencing 后不得发布终态，子任务摘要只能按持久 Attempt 对账，不能把本地失去执行权映射为已完成的失败。
 
 ### 4.4 `error`
 
 表示已持久化的错误诊断。目标负载包含 `code`、`retryable`、`message`（用户可见且不泄露内部细节）和 `lastSequence`；不得包含完整 Prompt、凭据、Restricted 原文或供应商秘密。统一目标是随后用带 `Rejected/Cancelled/Interrupted/Failed` 的 `done` 表示终态。
 
 当前兼容路径仍由 Core 原子提交 `Failed` Attempt 与 `error`，不保证再发送 `done`；`TurnStreamProjector` 收到 `error` 即终结，迟到消息被丢弃，投影 Schema 也兼容历史可选字段。客户端不能在该路径无限等待第二个终态，统一负载与双事件目标仍需明确迁移及兼容验证。
+
+带 fencing 的 `done/error` 写者及原子终态写者在同一事务复验当前会话来源与删除闸门。来源不再可写时，仍提交控制事件和水位；原子终态写者继续按原 CAS 提交 Attempt 状态，普通追加不改变 Attempt 状态。不保存调用方的错误正文、输出或附加字段：`error` 仅保存固定 `PERMISSION_REVOKED`、通用消息、`retryable=false` 和实际序号；`done` 仅保存实际 Attempt 状态、`isComplete=false`、固定 `source_unavailable` 及实际序号。数据库读取失败仍回滚，不能当作成功的通用终止；原 fencing/CAS 拒绝不被替代。该投影不清洗历史事件或覆盖未带 fencing 的兼容路径，进程内广播仍可能携带原调用载荷；现行 SSE 只将通知用作唤醒并重新读取持久事件，披露资格仍按第 5 节复验。
 
 ### 4.5 `redacted`
 

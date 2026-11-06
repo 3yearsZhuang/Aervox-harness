@@ -46,7 +46,7 @@ export async function readTurnDiagnostics(db: AervoxDatabase, turnId: string, at
       inArray(turnStreamEvents.eventType, ["done", "error"]))).orderBy(desc(turnStreamEvents.sequence)).limit(1);
     const reasons = new Set(["completed", "cancelled", "deadline_exceeded", "pending_approval", "max_steps",
       "tool_timeout", "execution_error", "model_error", "empty_response", "length", "content_filter", "max_same_tool",
-      "host_restarted", "lease_expired", "deletion_gate_blocked", "deletion_blocked", "turn_timeout", "lease_lost",
+      "host_restarted", "lease_expired", "deletion_gate_blocked", "deletion_blocked", "source_unavailable", "PERMISSION_REVOKED", "turn_timeout", "lease_lost",
       "tools_disabled", "repeat_tool", "budget_exhausted", "token_budget_exceeded", "token_or_call_budget_exceeded",
       "model_incomplete", "model_length", "model_content_filter", "model_error", "MODEL_UNAVAILABLE"]);
     const reason = terminal?.reason ?? terminal?.code;

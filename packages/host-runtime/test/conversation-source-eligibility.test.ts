@@ -59,7 +59,10 @@ describe("accepted input eligibility across execution checkpoints", () => {
       expect((await repo.listTurnAttempts(local, input.turnId))[0]?.status).toBe("Interrupted");
       const events = await repo.getStreamEvents(local, input.turnId);
       expect(events.filter(event => ["done", "error"].includes(event.eventType))).toHaveLength(1);
-      expect(events.at(-1)).toMatchObject({ eventType: "done", data: { status: "Interrupted", isComplete: false, reason: "deletion_blocked" } });
+      const terminal = events.at(-1)!;
+      expect(terminal.eventType).toBe("done");
+      expect(terminal.data).toEqual({ status: "Interrupted", isComplete: false, reason: "source_unavailable", lastSequence: terminal.sequence });
+      expect((await repo.getTurn(local, input.turnId))?.lastSequence).toBe(terminal.sequence);
     } finally { await toolRuntime.dispose(); await database.cleanup(); }
   });
 });

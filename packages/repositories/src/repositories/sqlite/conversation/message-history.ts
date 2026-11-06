@@ -29,11 +29,26 @@ async function bodySource(tx: Writer, turnId: string) {
   return source;
 }
 
+async function conversationBodyWriteDenial(tx: Writer, turnId: string) {
+  if (!(await bodySource(tx, turnId))) return "conversation_source_unavailable";
+  const [deletion] = await tx.select({ id: deletionRequests.id }).from(deletionRequests).where(unverifiedDeletionRequest).limit(1);
+  return deletion ? "deletion_blocked" : null;
+}
+
 /** A source deleted after a model checkpoint cannot receive another durable body. */
 export async function assertConversationBodyWritable(tx: Writer, turnId: string): Promise<void> {
-  if (!(await bodySource(tx, turnId))) throw new FencingMismatchError("conversation_source_unavailable");
-  const [deletion] = await tx.select({ id: deletionRequests.id }).from(deletionRequests).where(unverifiedDeletionRequest).limit(1);
-  if (deletion) throw new FencingMismatchError("deletion_blocked");
+  const denial = await conversationBodyWriteDenial(tx, turnId);
+  if (denial) throw new FencingMismatchError(denial);
+}
+
+/** Terminal controls still commit after deletion, without copying late error/output text. */
+export async function terminalEventDataForCurrentSource(tx: Writer, input: {
+  turnId: string; eventType: "done" | "error"; status: string; sequence: number; data: unknown;
+}): Promise<unknown> {
+  if (!(await conversationBodyWriteDenial(tx, input.turnId))) return input.data;
+  return input.eventType === "error"
+    ? { code: "PERMISSION_REVOKED", retryable: false, message: "Conversation source is unavailable", lastSequence: input.sequence }
+    : { status: input.status, isComplete: false, reason: "source_unavailable", lastSequence: input.sequence };
 }
 
 async function trackedSource(tx: Writer, turnId: string) {
