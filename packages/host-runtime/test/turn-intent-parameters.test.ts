@@ -50,6 +50,38 @@ describe("accepted Turn parameters remain the execution authority", () => {
     expect(await application.queries.loadDelegatedTurn("turn", "outbox_turn")).not.toBeNull();
     expect((await repo.listTurnAttempts(local, "api"))[0]?.fencingToken).toBe(0);
   });
+  it("settles the original dispatch while a later approval Attempt is still running", async () => {
+    await accept();
+    const claim = await repo.claimTurnAttempt(local, {
+      turnId: "turn", attemptId: "attempt", expectedFencingToken: 0, leaseId: "original-worker",
+    });
+    expect(claim.ok).toBe(true);
+    expect(await repo.finalizeAttemptWithEventAtomically(local, {
+      turnId: "turn", attemptId: "attempt", status: "Interrupted", expectedFencingToken: claim.fencingToken,
+      sequence: 1, eventType: "done", eventData: { status: "Interrupted", reason: "tool_approval_required" },
+    })).toBe(true);
+    await repo.createTurnAttempt(local, "turn", { id: "approval-attempt", attempt: 2 });
+    const application = createConversationApplication(repo, { executionConfig: loadExecutionConfig() });
+    expect((await repo.listTurnAttempts(local, "turn")).find(attempt => attempt.attempt === 2)?.status).toBe("Running");
+    expect(await application.queries.inspectDelegatedTurn("turn", "outbox_turn")).toEqual({ state: "settled" });
+    expect(await application.queries.loadDelegatedTurn("turn", "outbox_turn")).toBeNull();
+  });
+  it.each([false, true])("rejects a receipt without its initial Attempt even when a later Attempt exists (%s)", async laterAttempt => {
+    await accept();
+    await database.client.execute("DELETE FROM turn_attempts WHERE id='attempt'");
+    if (laterAttempt) await repo.createTurnAttempt(local, "turn", { id: "later-attempt", attempt: 2 });
+    const application = createConversationApplication(repo, { executionConfig: loadExecutionConfig() });
+    expect(await repo.hasWorkerDelegation("turn", "outbox_turn")).toBe(true);
+    expect(await application.queries.inspectDelegatedTurn("turn", "outbox_turn")).toEqual({ state: "unavailable" });
+    expect(await application.queries.loadDelegatedTurn("turn", "outbox_turn")).toBeNull();
+  });
+  it.each(["bot-owner-v1", "future-v2"])("rejects a delegation whose current Session policy is %s", async policy => {
+    await accept();
+    await database.client.execute({ sql: "UPDATE sessions SET execution_policy=? WHERE id='session'", args: [policy] });
+    const application = createConversationApplication(repo, { executionConfig: loadExecutionConfig() });
+    expect(await application.queries.inspectDelegatedTurn("turn", "outbox_turn")).toEqual({ state: "unavailable" });
+    expect(await application.queries.loadDelegatedTurn("turn", "outbox_turn")).toBeNull();
+  });
   it("keeps execution snapshots isolated from later environment and caller mutation", async () => {
     const executionConfig = { ...loadExecutionConfig(), turnExecution: "inline" as const, loopDispatch: "api" as const };
     const execute = vi.fn(async () => {});
@@ -73,8 +105,8 @@ describe("accepted Turn parameters remain the execution authority", () => {
     const execute = vi.fn(async () => {});
     const application = createConversationApplication(repo, { executionConfig: loadExecutionConfig() }, execute);
     await expect(application.commands.execute(local, input)).rejects.toMatchObject({ reason: "intent_unavailable" });
-    if (failure === "changed-intent") await expect(application.queries.loadDelegatedTurn("turn")).rejects.toMatchObject({ reason: "intent_unavailable" });
-    else expect(await application.queries.loadDelegatedTurn("turn")).toBeNull();
+    expect(await application.queries.inspectDelegatedTurn("turn", "outbox_turn")).toEqual({ state: "unavailable" });
+    expect(await application.queries.loadDelegatedTurn("turn")).toBeNull();
     expect(execute).not.toHaveBeenCalled(); expect((await repo.listTurnAttempts(local, "turn"))[0]?.fencingToken).toBe(0);
     expect(await repo.getStreamEvents(local, "turn")).toEqual([]);
   });
@@ -86,10 +118,19 @@ describe("accepted Turn parameters remain the execution authority", () => {
     } else await repo.redactTurnMessages(local, "turn");
     const execute = vi.fn(async () => {});
     const application = createConversationApplication(repo, { executionConfig: loadExecutionConfig() }, execute);
-    await expect(application.queries.loadDelegatedTurn("turn")).rejects.toMatchObject({ reason: "intent_unavailable" });
+    expect(await application.queries.inspectDelegatedTurn("turn", "outbox_turn")).toEqual({ state: "unavailable" });
+    expect(await application.queries.loadDelegatedTurn("turn")).toBeNull();
     await expect(application.commands.execute(local, input)).rejects.toMatchObject({ reason: "intent_unavailable" });
     expect(execute).not.toHaveBeenCalled();
     expect((await repo.listTurnAttempts(local, "turn"))[0]?.fencingToken).toBe(0);
     expect(await repo.getStreamEvents(local, "turn")).toEqual([]);
+  });
+  it("propagates temporary observation failures instead of classifying the receipt as corrupt", async () => {
+    await accept();
+    const failure = new Error("database_unavailable");
+    vi.spyOn(repo, "getAcceptedTurnParameters").mockRejectedValueOnce(failure);
+    const application = createConversationApplication(repo, { executionConfig: loadExecutionConfig() });
+    await expect(application.queries.inspectDelegatedTurn("turn", "outbox_turn")).rejects.toBe(failure);
+    expect(await application.queries.inspectDelegatedTurn("turn", "outbox_turn")).toMatchObject({ state: "ready" });
   });
 });

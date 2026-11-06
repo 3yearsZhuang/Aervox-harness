@@ -81,6 +81,7 @@ describe("loadWorkerConfig（缺陷 E）", () => {
     const cfg = loadWorkerConfig({});
     expect(cfg.workerId).toMatch(/^worker_/);
     expect(cfg.tickMs).toBe(5000);
+    expect(cfg.turnConcurrency).toBe(2);
     expect(cfg.logLevel).toBe("info");
     expect(cfg.logFormat).toBe("pretty");
     expect(cfg.intervalOverrides).toEqual({});
@@ -90,17 +91,31 @@ describe("loadWorkerConfig（缺陷 E）", () => {
     const cfg = loadWorkerConfig({
       WORKER_ID: "w_1",
       WORKER_TICK_MS: "1000",
+      WORKER_TURN_CONCURRENCY: "8",
       AERVOX_LOG_LEVEL: "warn",
       AERVOX_LOG_FORMAT: "json",
       WORKER_INTERVAL_OUTBOX_MS: "3000",
       WORKER_INTERVAL_DIARY_MS: "60000",
+      WORKER_INTERVAL_DELEGATED_TURNS_MS: "4500",
     });
     expect(cfg.workerId).toBe("w_1");
     expect(cfg.tickMs).toBe(1000);
+    expect(cfg.turnConcurrency).toBe(8);
     expect(cfg.logLevel).toBe("warn");
     expect(cfg.logFormat).toBe("json");
-    expect(cfg.intervalOverrides).toEqual({ outbox: 3000, diary: 60000 });
+    expect(cfg.intervalOverrides).toEqual({ outbox: 3000, diary: 60000, delegated_turns: 4500 });
   });
+
+  it.each(["1", "3", "8"])("accepts bounded turn concurrency %s", (value) => {
+    expect(loadWorkerConfig({ WORKER_TURN_CONCURRENCY: value }).turnConcurrency).toBe(Number(value));
+  });
+
+  it.each(["", " ", "0", "-1", "1.5", "1.0000000000000001", "NaN", "Infinity", "9", "9007199254740992", "invalid"])(
+    "rejects invalid turn concurrency %j without falling back",
+    (value) => {
+      expect(() => loadWorkerConfig({ WORKER_TURN_CONCURRENCY: value })).toThrow(/WORKER_TURN_CONCURRENCY=.*safe integer between 1 and 8/);
+    },
+  );
 
   it("非法 WORKER_TICK_MS fail-fast；非法任务覆盖回退不阻断", () => {
     expect(() => loadWorkerConfig({ WORKER_TICK_MS: "nope" })).toThrow(/WORKER_TICK_MS=nope/);
