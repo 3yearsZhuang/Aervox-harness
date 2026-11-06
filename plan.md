@@ -387,9 +387,11 @@ FND-02/04、CAP-020，依赖 ITER-004/063，遵循 [ADR-028](docs/reference/adr/
 
 **首页信息架构：** 首页展示角色、当前会话、常驻输入及真实领域入口；会话页承担新建、查询、历史与管理；学习页暴露已实现的练习/错题/复习/报告，目标和计划管理分步接入；日记页先提供实际已有的按需生成和往期读取。第二批候选的“今日”提供已有学习与日记入口，尚未交付第三批有来源的建议。模型、人格、数据与系统能力集中在设置，附件/语音/复制/朗读靠近对应操作。手机保留 Material 3 四卡和大角色，学习已可由“今日”到达；原生 `pluginDefinitions=[]` 保持，学习面板由受信 App 组合根注入。普通 Web 的学习入口由 `focus-mode` 的 companion 扩展提供，两端装配分别验证。
 
-**第二批已修与第三批缺口：** [主动界面](plugins/surfaces/proactive-ui/src/ProactiveCompanion.vue)已移除固定 25 分钟及未读取学习事实的“无学习记录”提示，“今日”改为真实领域入口集合；这不等于到期建议、原因解释和行动回执已交付。[任务卡](plugins/plugins/ui/focus-mode/src/ui/FocusTaskCenterCard.vue)仍把未加载/失败得到的 0 当作“今日全部完成”。已有 [learning stores](packages/api-client/src/learning-stores.ts) 可提供真实 due/history/summary、未完练习和报告，第三批接该来源并区分加载、空和失败。[作答 UI](plugins/plugins/ui/focus-mode/src/ui/useFocusLearning.ts)重试重新计算耗时，而仓储幂等摘要包含该值；仅复用 key 不足以恢复同意图，第三批须冻结含耗时、提示与时区的完整请求快照及原幂等键，按真实回执刷新，不以新的 key 绕过冲突。
+**第二批基线与第三批缺口：** [主动界面](plugins/surfaces/proactive-ui/src/ProactiveCompanion.vue)已移除固定 25 分钟及未读取学习事实的“无学习记录”提示，“今日”改为真实领域入口集合；第三批候选如下补到期来源及自评回执。第二批的[任务卡](plugins/plugins/ui/focus-mode/src/ui/FocusTaskCenterCard.vue)把未加载/失败得到的 0 当作“今日全部完成”，候选改用同一真实汇总并区分加载、空和失败。已有 [learning stores](packages/api-client/src/learning-stores.ts) 提供真实 due/history/summary、未完练习和报告；第二批[作答 UI](plugins/plugins/ui/focus-mode/src/ui/useFocusLearning.ts)重试重新计算耗时，而仓储幂等摘要包含该值，候选冻结含耗时、提示与时区的完整请求快照及原幂等键，按真实回执刷新，不以新的 key 绕过冲突。
 
-到期自评目前在 [工具抽屉](packages/ui/src/components/workbench/drawers/ToolsDrawer.vue)，只展示知识 ID；学习抽屉尚无到期入口。练习虽有持久进度，打开抽屉只加载而未还原作答面板；报告 API 已有，但共享 PracticeStorePort 缺读取方法，界面报告仅在内存。第三批分别补知识内容、完成回执/下次日期、未完练习与报告重开，不把已有后端误写成完整入口。首页首次只做即时只读投影；若引入持久建议，先明确来源、删除/失效与迟到写责任。
+第二批到期自评在 [工具抽屉](packages/ui/src/components/workbench/drawers/ToolsDrawer.vue)只展示知识 ID，第三批候选接到学习抽屉并补正文及下一日期。练习虽有持久进度，打开抽屉只加载而未还原作答面板；报告 API 已有，但共享 PracticeStorePort 缺读取方法，界面报告仅在内存。未完练习与报告重开继续作为第三批剩余，不把已有后端误写成完整入口。首页首次只做即时只读投影；若引入持久建议，先明确来源、删除/失效与迟到写责任。
+
+**第三批真实学习闭环候选：** `feat/assistant-review-loop` 在第二批合入基线上接续本机到期复习：任务中心与学习入口消费同一真实汇总，明确区分尚未读取、失败和空结果；Focus 学习抽屉及 Native 学习面读取完整知识正文，记录用户自评并显示经共享 Schema 与身份核对的完成判定、下一日期、间隔、调度版本和时区。完成历史在同一 SQL 查询中读取当前关联的下一项，重开可回看；下一项后来已完成仍允许旧完成请求重放。界面所有者存续期间，未知结果保留原自评，练习作答冻结正文、幂等键、用时、提示数与时区，刷新不改写原请求；知识删除/不可读或正文身份变化时阻止再提交。本次先不看只隐藏界面项，不改变排期；来源状态不表示外部 Grant，完整 provenance/撤权传播缺口未关闭，自动建议派生保持关闭。libsql 普通文本读取截断 NUL 的失败反例已保留，知识与复习读取改经 SQLite JSON 转义，知识边界复用共享 Schema 校验；真实 socket HTTP、文件 SQLite 关闭重开、回执丢失及后续完成后的重放已验证。最终 Client 303、API 学习/路由 67、Native 学习 25、仓储 NUL/复习 19、Focus 整包 56 项通过；公开生命周期门控覆盖销毁后同 Context 重建，旧读不 POST、旧作答回执不污染新草稿。Chromium 390×844 手机与 1280×800 Web 的确定性 HTTP 夹具均通过正文、自评未知→原请求重试、下一日期及重载历史，首轮弹窗定位失败与 trace 保留；真实服务持久性由独立 socket/SQLite 回归覆盖。独立源码审查通过，最终全量和两仓配对 PR 尚待完成，详细日志待 PR 保存；跨崩溃未知意图、未完练习/报告持久重开、完整跳过流程、用户效果与真实模型仍保留门槛，不关闭整个第三批。
 
 **设计分支的接续：** `docs/assistant-vision` 的产品定位、ADR-033 和指标与主线分别对齐；静态“朝夕”演示的时刻、暖光及建议解释/拒绝交互可作设计参考，尚非独立运行插件。课表空档、群通知、物品提醒、纸条和定时日记须明确样例来源及未实现范围。Android 保持现行 Material 3、大角色、短屏/键盘与返回层级，平台视觉取舍不由静态演示自动改写。设计分支及其工作树继续保留，独立审查不捎带其中未审变更。
 
@@ -415,7 +417,7 @@ FND-02/04、CAP-020，依赖 ITER-004/063，遵循 [ADR-028](docs/reference/adr/
 
 ### ITER-064 · 进行中：历史 API 契约按用户路径收敛
 
-CAP 与合同遵循 [API 约定](docs/reference/API_CONVENTIONS.md)，依赖 ITER-063 的共享声明、认证与兼容门禁。2026-10-15 基线 147 条，现剩 **117 条**；唯一明细是[实际路由例外](apps/api/test/fixtures/openapi-route-baseline.json)，不刷新基线隐藏遗漏。
+CAP 与合同遵循 [API 约定](docs/reference/API_CONVENTIONS.md)，依赖 ITER-063 的共享声明、认证与兼容门禁。2026-10-15 基线 147 条，现剩 **116 条**；唯一明细是[实际路由例外](apps/api/test/fixtures/openapi-route-baseline.json)，不刷新基线隐藏遗漏。第三批学习闭环补齐 `GET /v1/knowledge-items/{knowledgeId}` 的共享响应并移除其精确例外。
 
 - **顺序：** 先隐私/配置/插件及技能写入口，再补当前会话详情/历史、作答/分支入口和 CLI 所需接口，随后内容/学习/主动模块剩余分组。ITER-071 的鉴权与原子性修复不等待全部历史路由清零。
 - **验收：** 精确方法/路径、稳定 operationId、请求与成功/错误 Schema、认证、真实请求和旧客户端行为；新增遗漏/扩大豁免被拒绝，每补一个删除其精确例外。JSON 共享端点不改变 SSE/文件/二进制协议，破坏性变化单列迁移决定。

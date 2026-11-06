@@ -1,9 +1,9 @@
 import type { Ref } from 'vue';
 import type { LearningGoalLevel, UpdateLearningGoal } from '@aervox/contracts';
-import type { GoalDto, LearningPlanDto, MistakeItemDto, MistakeReasonCode, PracticeReportDto, PracticeSessionDto, ReviewItemDto, ReviewSummaryDto } from './learning-types.js';
+import type { GoalDto, KnowledgeItemDto, LearningPlanDto, MistakeItemDto, MistakeReasonCode, PracticeReportDto, PracticeSessionDto, ReviewCompletionDto, ReviewItemDto, ReviewSummaryDto } from './learning-types.js';
 
 type View<T> = Readonly<Ref<T>>;
-export interface ResourceStatePort { readonly loading: View<boolean>; readonly error: View<string | null>; }
+export interface ResourceStatePort { readonly loading: View<boolean>; readonly loaded: View<boolean>; readonly error: View<string | null>; }
 export interface GoalStorePort {
   readonly goals: View<GoalDto[]>;
   loadGoals(includeArchived?: boolean): Promise<void>;
@@ -16,7 +16,8 @@ export interface ReviewStorePort {
   readonly completedReviews: View<ReviewItemDto[]>;
   readonly reviewSummary: View<ReviewSummaryDto | null>;
   loadReviews(): Promise<void>;
-  completeReview(reviewId: string, isCorrect: boolean): Promise<void>;
+  getKnowledgeItem(knowledgeId: string): Promise<KnowledgeItemDto>;
+  completeReview(reviewId: string, isCorrect: boolean): Promise<ReviewCompletionDto>;
 }
 export interface PracticeStorePort {
   readonly activePracticeSession: View<PracticeSessionDto | null>;

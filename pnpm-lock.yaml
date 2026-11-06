@@ -117,6 +117,9 @@ importers:
         specifier: workspace:*
         version: link:../../packages/practice-review
     devDependencies:
+      '@aervox/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@aervox/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts

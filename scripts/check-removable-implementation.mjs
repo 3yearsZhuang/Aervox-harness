@@ -76,6 +76,7 @@ export const REMOVABLE_TARGETS = [
       "plugins/plugins/ui/focus-mode/src/ui/FocusCompanionLearning.vue",
       "plugins/plugins/ui/focus-mode/src/ui/FocusTermsBar.vue",
       "plugins/plugins/ui/focus-mode/src/ui/LearningDrawer.vue",
+      "plugins/plugins/ui/focus-mode/src/ui/ReviewLearningView.vue",
       "plugins/plugins/ui/focus-mode/src/ui/TermExploreDialog.vue",
       "plugins/plugins/ui/focus-mode/src/ui/styles.css",
     ],

@@ -14,11 +14,17 @@ const questions = [1, 2, 3].map(n => ({ id: `q${n}`, prompt: `第 ${n} 道题？
 const session = { sessionId: 'practice_1', items: questions, answeredQuestionIds: [], nextQuestionIndex: 0 };
 const report = { sessionId: 'practice_1', questionCount: 3, answeredCount: 3, correctCount: 2, incorrectCount: 1,
   unverifiableCount: 0, guidance: { message: '保持练习，下次继续。' } };
+const review = {id: 'review_1', knowledgeId: 'k1', dueAt: '2020-01-01T00:00:00.000Z', intervalDays: 1, schedulerVersion: 2, timezoneSnapshot: 'Asia/Shanghai', status: 'active'};
+const knowledge = {id: 'k1', concept: '二次方程的求根公式', sourceStatus: 'observed', masteryState: 'reviewing', correctCount: 0, wrongCount: 0, correctStreak: 0, mastery: 0, createdAt: '2020-01-01T00:00:00.000Z', updatedAt: '2020-01-01T00:00:00.000Z'};
+const reviewReceipt = {completed: {...review, status: 'completed', completionIsCorrect: false, nextReviewId: 'review_2'}, nextReview: {...review, id: 'review_2', dueAt: '2027-01-02T12:00:00.000Z', intervalDays: 2}, knowledge};
+const dueSummary = (items: unknown[]) => ({items, dueCount: items.length, overdueCount: items.length, dueTodayCount: 0, estimatedMinutes: items.length * 2, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone});
 async function defaults(method: string, path: string) {
   if (path === '/v1/practice/questions?count=3') return { items: questions };
   if (path === '/v1/practice/sessions/active') throw new AervoxHttpError(404, path, { code: 'PRACTICE_SESSION_NOT_FOUND' });
   if (path === '/v1/practice/sessions' && method === 'POST') return session;
   if (path.endsWith('/attempts')) return { judgement: 'correct' };
+  if (path.startsWith('/v1/review-items/summary')) return dueSummary([]);
+  if (path.startsWith('/v1/review-items/') && path.endsWith('/complete')) return reviewReceipt;
   if (path.endsWith('/complete')) return report;
   return { items: [] };
 }
@@ -66,23 +72,27 @@ it('keeps one answer and idempotency key across an uncertain submission retry', 
   await button(wrapper, '提交答案').trigger('click'); await flushPromises();
   expect(wrapper.text()).toContain('这次作答尚未确认');
   expect(wrapper.get('textarea').attributes('readonly')).toBeDefined();
+  await button(wrapper, '刷新学习记录').trigger('click'); await flushPromises();
+  expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('第一份答案');
   await button(wrapper, '重试提交答案').trigger('click'); await flushPromises();
   const calls = request.mock.calls.filter(call => call[1].endsWith('/attempts'));
   expect(calls).toHaveLength(2);
   expect(calls[0]).toEqual(calls[1]);
-  expect(calls[0][2]).toMatchObject({ answer: '第一份答案', sessionId: 'practice_1' });
+  expect(calls[0][2]).toMatchObject({ answer: '第一份答案', sessionId: 'practice_1', elapsedSeconds: expect.any(Number), hintsUsed: 0, timeZone: expect.any(String) });
   expect(calls[0][3].headers['Idempotency-Key']).toBeTruthy();
   expect(wrapper.text()).toContain('答对了');
 });
 
-it('shows the knowledge concept and retries the same review choice before advancing', async () => {
+it('keeps an already committed self-assessment after refresh, then replays its original choice', async () => {
   let completions = 0;
   request.mockImplementation(async (method, path) => {
-    if (path.startsWith('/v1/review-items/summary')) return { items: [{ id: 'review_1', knowledgeId: 'k1' }] };
-    if (path === '/v1/knowledge-items/k1') return { concept: '二次方程的求根公式' };
+    if (path === '/v1/review-items') return {items: completions ? [] : [review]};
+    if (path.startsWith('/v1/review-items/summary')) return dueSummary(completions ? [] : [review]);
+    if (path.startsWith('/v1/review-items/history')) return {items: completions ? [{...reviewReceipt.completed, completionIsCorrect: false, nextReviewId: 'review_2', nextReview: reviewReceipt.nextReview, updatedAt: '2026-11-07T00:00:00.000Z'}] : []};
+    if (path === '/v1/knowledge-items/k1') return {...knowledge, wrongCount: completions ? 1 : 0, updatedAt: completions ? '2026-11-07T00:00:00.000Z' : knowledge.updatedAt};
     if (path === '/v1/review-items/review_1/complete') {
       if (++completions === 1) throw new Error('receipt lost');
-      return { completed: { id: 'review_1' } };
+      return reviewReceipt;
     }
     return defaults(method, path);
   });
@@ -90,13 +100,48 @@ it('shows the knowledge concept and retries the same review choice before advanc
   expect(wrapper.text()).toContain('二次方程的求根公式');
   await button(wrapper, '还需复习').trigger('click'); await flushPromises();
   expect(wrapper.text()).toContain('这次复习尚未确认');
-  await button(wrapper, '重试记录复习').trigger('click'); await flushPromises();
+  await button(wrapper, '刷新学习记录').trigger('click'); await flushPromises();
+  expect(wrapper.text()).toContain('本次自评结果尚未确认');
+  expect(wrapper.text()).not.toContain('当前没有到期复习');
+  await button(wrapper, '重试原自评').trigger('click'); await flushPromises();
   const calls = request.mock.calls.filter(call => call[1] === '/v1/review-items/review_1/complete');
   expect(calls).toHaveLength(2);
   expect(calls[0][2]).toEqual(calls[1][2]);
   expect(calls[0][2].isCorrect).toBe(false);
   expect(wrapper.text()).toContain('当前没有到期复习');
-  expect(wrapper.text()).toContain('下次复习已安排');
+  expect(wrapper.text()).toContain('下次复习：');
+  expect(wrapper.text()).toContain('2027');
+  expect(wrapper.text()).toContain('调度 v2');
+});
+
+it('reads the persisted next review date when the learning panel is reopened', async () => {
+  request.mockImplementation(async (method, path) => path.startsWith('/v1/review-items/history')
+    ? {items: [{...reviewReceipt.completed, completionIsCorrect: true, nextReviewId: 'review_2', nextReview: reviewReceipt.nextReview, updatedAt: '2026-11-07T00:00:00.000Z'}]} : defaults(method, path));
+  const wrapper = await mounted();
+  expect(wrapper.text()).toContain('最近复习记录');
+  expect(wrapper.text()).toContain('自评记得');
+  expect(wrapper.text()).toContain('2027');
+  expect(request.mock.calls.some(call => call[0] === 'POST')).toBe(false);
+});
+
+it('hides unavailable knowledge and refuses the self-assessment before writing', async () => {
+  let readable = true;
+  request.mockImplementation(async (method, path) => {
+    if (path === '/v1/review-items') return {items: [review]};
+    if (path.startsWith('/v1/review-items/summary')) return dueSummary([review]);
+    if (path === '/v1/knowledge-items/k1') {
+      if (!readable) throw new AervoxHttpError(404, path, {code: 'KNOWLEDGE_ITEM_NOT_FOUND'});
+      return knowledge;
+    }
+    return defaults(method, path);
+  });
+  const wrapper = await mounted();
+  expect(wrapper.text()).toContain(knowledge.concept);
+  readable = false;
+  await button(wrapper, '记得').trigger('click'); await flushPromises();
+  expect(wrapper.text()).not.toContain(knowledge.concept);
+  expect(wrapper.text()).toContain('知识内容暂时不可用');
+  expect(request.mock.calls.some(call => call[0] === 'POST')).toBe(false);
 });
 
 it('allows a failed record load to be retried without exposing internal errors', async () => {

@@ -6,6 +6,9 @@
 import { conversationSha256, conversationUUID, requireConversationCrypto, type ConversationCryptoPort } from "../../conversation-host-port.js";
 import { assertPluginGeneration, type PluginGenerationIdentity } from "../../plugin-generation-guard.js";
 import { eq, and, lte, desc, ne, isNull, or, asc, inArray, sql } from "drizzle-orm";
+import type { SQLWrapper } from "drizzle-orm";
+import { alias } from "drizzle-orm/sqlite-core";
+import { knowledgeItemSchema } from "@aervox/contracts";
 import type { AervoxDatabase } from "../../client.js";
 import {
   learningGoals,
@@ -45,6 +48,23 @@ import type {
   PlanMilestoneModel,
   PlanTaskModel,
 } from "../types/index.js";
+
+type ReviewColumns = Record<'id' | 'knowledgeId' | 'dueAt' | 'intervalDays' | 'schedulerVersion' | 'timezoneSnapshot' | 'status'
+  | 'completionIsCorrect' | 'nextReviewId' | 'createdAt' | 'updatedAt', SQLWrapper>;
+const reviewJson = (table: ReviewColumns) => sql<string>`json_object(
+  'id', ${table.id}, 'knowledgeId', ${table.knowledgeId}, 'dueAt', ${table.dueAt},
+  'intervalDays', ${table.intervalDays}, 'schedulerVersion', ${table.schedulerVersion},
+  'timezoneSnapshot', ${table.timezoneSnapshot}, 'status', ${table.status},
+  'completionIsCorrect', json(CASE WHEN ${table.completionIsCorrect} = 1 THEN 'true' WHEN ${table.completionIsCorrect} = 0 THEN 'false' ELSE 'null' END),
+  'nextReviewId', ${table.nextReviewId},
+  'createdAt', ${table.createdAt}, 'updatedAt', ${table.updatedAt})`;
+const knowledgeJson = sql<string>`json_object(
+  'id', ${knowledgeItems.id}, 'concept', ${knowledgeItems.concept},
+  'sourceStatus', ${knowledgeItems.sourceStatus}, 'masteryState', ${knowledgeItems.masteryState},
+  'correctCount', ${knowledgeItems.correctCount}, 'wrongCount', ${knowledgeItems.wrongCount},
+  'correctStreak', ${knowledgeItems.correctStreak}, 'mastery', ${knowledgeItems.mastery},
+  'masteryBasis', json(${knowledgeItems.masteryBasis}),
+  'createdAt', ${knowledgeItems.createdAt}, 'updatedAt', ${knowledgeItems.updatedAt})`;
 
 export class LearningRepository implements ILearningRepository {
   constructor(private readonly db: AervoxDatabase, private readonly crypto: ConversationCryptoPort) {
@@ -430,14 +450,15 @@ export class LearningRepository implements ILearningRepository {
 
   async getKnowledgeItem(ctx: LocalContext, id: string): Promise<KnowledgeItemModel | null> {
     const [found] = await this.db
-      .select()
+      .select({payload: knowledgeJson})
       .from(knowledgeItems)
       .where(
         and(
           eq(knowledgeItems.id, id),
         ),
       );
-    return (found as KnowledgeItemModel) ?? null;
+    // libsql's ordinary TEXT result truncates embedded NUL; SQLite JSON escapes it.
+    return found ? knowledgeItemSchema.parse(JSON.parse(found.payload)) : null;
   }
 
   async updateMastery(
@@ -510,20 +531,23 @@ export class LearningRepository implements ILearningRepository {
 
   async getReviewItem(ctx: LocalContext, id: string): Promise<ReviewItemModel | null> {
     const [found] = await this.db
-      .select()
+      .select({payload: reviewJson(reviewItems)})
       .from(reviewItems)
       .where(
         and(
           eq(reviewItems.id, id),
         ),
       );
-    return (found as ReviewItemModel) ?? null;
+    return found ? JSON.parse(found.payload) as ReviewItemModel : null;
   }
 
   async listCompletedReviewItems(ctx: LocalContext, limit = 10): Promise<ReviewItemModel[]> {
+    const next = alias(reviewItems, 'next_review');
     const rows = await this.db
-      .select()
+      .select({payload: sql<string>`json_set(${reviewJson(reviewItems)}, '$.nextReview',
+        json(CASE WHEN ${next.id} IS NULL THEN 'null' ELSE ${reviewJson(next)} END))`})
       .from(reviewItems)
+      .leftJoin(next, eq(reviewItems.nextReviewId, next.id))
       .where(
         and(
           eq(reviewItems.status, "completed"),
@@ -531,7 +555,7 @@ export class LearningRepository implements ILearningRepository {
       )
       .orderBy(desc(reviewItems.updatedAt))
       .limit(limit);
-    return rows as ReviewItemModel[];
+    return rows.map(row => JSON.parse(row.payload) as ReviewItemModel);
   }
 
   async completeReviewAndSchedule(
@@ -540,8 +564,9 @@ export class LearningRepository implements ILearningRepository {
     derive: LearningAnswerPolicy["derive"],
   ): Promise<{ completed: ReviewItemModel; nextReview: ReviewItemModel; knowledge: KnowledgeItemModel } | null> {
     return this.db.transaction(async (tx) => {
-      const [review] = await tx.select().from(reviewItems).where(eq(reviewItems.id, input.reviewId));
-      if (!review) return null;
+      const [reviewRow] = await tx.select({payload: reviewJson(reviewItems)}).from(reviewItems).where(eq(reviewItems.id, input.reviewId));
+      if (!reviewRow) return null;
+      const review = JSON.parse(reviewRow.payload) as ReviewItemModel;
       if (review.status === "completed" && review.nextReviewId) {
         const [event] = await tx.select({ payload: outboxEvents.payload }).from(outboxEvents)
           .where(and(eq(outboxEvents.eventType, "learning.review.completed"), eq(outboxEvents.idempotencyKey, `learning-review:${review.id}`)));
@@ -549,30 +574,33 @@ export class LearningRepository implements ILearningRepository {
         if (receipt?.payloadVersion !== 1 || receipt.reviewId !== review.id || receipt.nextReviewId !== review.nextReviewId
           || receipt.isCorrect !== review.completionIsCorrect || typeof receipt.timeZone !== "string") throw new Error("review_completion_receipt_unavailable");
         if (receipt.isCorrect !== input.isCorrect || (input.timeZone !== undefined && receipt.timeZone !== input.timeZone)) throw new Error("review_completion_payload_mismatch");
-        const [nextReview] = await tx.select().from(reviewItems).where(eq(reviewItems.id, review.nextReviewId));
-        const [knowledge] = await tx.select().from(knowledgeItems).where(eq(knowledgeItems.id, review.knowledgeId));
-        if (!nextReview || nextReview.knowledgeId !== review.knowledgeId || !knowledge) throw new Error("review_completion_receipt_unavailable");
-        return { completed: review as ReviewItemModel, nextReview: nextReview as ReviewItemModel, knowledge: knowledge as KnowledgeItemModel };
+        const [nextRow] = await tx.select({payload: reviewJson(reviewItems)}).from(reviewItems).where(eq(reviewItems.id, review.nextReviewId));
+        const [knowledgeRow] = await tx.select({payload: knowledgeJson}).from(knowledgeItems).where(eq(knowledgeItems.id, review.knowledgeId));
+        if (!nextRow || !knowledgeRow) throw new Error("review_completion_receipt_unavailable");
+        const nextReview = JSON.parse(nextRow.payload) as ReviewItemModel;
+        if (nextReview.knowledgeId !== review.knowledgeId) throw new Error("review_completion_receipt_unavailable");
+        return { completed: review, nextReview, knowledge: knowledgeItemSchema.parse(JSON.parse(knowledgeRow.payload)) };
       }
       if (review.status !== "active") return null;
-      const [stored] = await tx.select().from(knowledgeItems).where(eq(knowledgeItems.id, review.knowledgeId));
-      if (!stored) throw new Error("review completion references a missing knowledge item");
+      const [storedRow] = await tx.select({payload: knowledgeJson}).from(knowledgeItems).where(eq(knowledgeItems.id, review.knowledgeId));
+      if (!storedRow) throw new Error("review completion references a missing knowledge item");
+      const stored = knowledgeItemSchema.parse(JSON.parse(storedRow.payload));
       const now = new Date();
       const timeZone = input.timeZone ?? review.timezoneSnapshot ?? "UTC";
       const derived = derive(stored, input.isCorrect, now, timeZone);
       const nextReviewId = `review_${conversationUUID(this.crypto)}`;
       const [completed] = await tx.update(reviewItems)
         .set({ status: "completed", completionIsCorrect: input.isCorrect, nextReviewId, updatedAt: now.toISOString() })
-        .where(and(eq(reviewItems.id, review.id), eq(reviewItems.status, "active"))).returning();
+        .where(and(eq(reviewItems.id, review.id), eq(reviewItems.status, "active"))).returning({payload: reviewJson(reviewItems)});
       if (!completed) return null;
       const [knowledge] = await tx.update(knowledgeItems).set({ ...derived.state, updatedAt: now.toISOString() })
-        .where(eq(knowledgeItems.id, stored.id)).returning();
+        .where(eq(knowledgeItems.id, stored.id)).returning({payload: knowledgeJson});
       const [nextReview] = await tx.insert(reviewItems).values({ id: nextReviewId, knowledgeId: stored.id,
-        ...derived.review, status: "active", createdAt: now.toISOString(), updatedAt: now.toISOString() }).returning();
+        ...derived.review, status: "active", createdAt: now.toISOString(), updatedAt: now.toISOString() }).returning({payload: reviewJson(reviewItems)});
       await tx.insert(outboxEvents).values({ id: `out_review_${review.id}`, idempotencyKey: `learning-review:${review.id}`,
         eventType: "learning.review.completed", payload: { payloadVersion: 1, reviewId: review.id, nextReviewId,
           isCorrect: input.isCorrect, timeZone }, createdAt: now.toISOString() });
-      return { completed: completed as ReviewItemModel, nextReview: nextReview as ReviewItemModel, knowledge: knowledge as KnowledgeItemModel };
+      return { completed: JSON.parse(completed.payload) as ReviewItemModel, nextReview: JSON.parse(nextReview!.payload) as ReviewItemModel, knowledge: knowledgeItemSchema.parse(JSON.parse(knowledge!.payload)) };
     });
   }
 
@@ -597,7 +625,7 @@ export class LearningRepository implements ILearningRepository {
 
   async listDueReviewItems(ctx: LocalContext, before: string): Promise<ReviewItemModel[]> {
     const rows = await this.db
-      .select()
+      .select({payload: reviewJson(reviewItems)})
       .from(reviewItems)
       .where(
         and(
@@ -606,7 +634,7 @@ export class LearningRepository implements ILearningRepository {
         ),
       )
       .orderBy(reviewItems.dueAt);
-    return rows as ReviewItemModel[];
+    return rows.map(row => JSON.parse(row.payload) as ReviewItemModel);
   }
 
   async completeReviewItem(ctx: LocalContext, id: string): Promise<ReviewItemModel | null> {

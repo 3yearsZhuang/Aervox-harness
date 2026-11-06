@@ -148,6 +148,7 @@ import {
   updateMistakeRequestSchema,
   completeReviewRequestSchema,
   completeReviewResponseSchema,
+  knowledgeItemSchema,
   reviewItemSchema,
   reviewHistoryResponseSchema,
   reviewListResponseSchema,
@@ -336,6 +337,7 @@ registry.register("UpdateMistakeRequest", updateMistakeRequestSchema);
 registry.register("RepracticeRequest", repracticeRequestSchema);
 registry.register("CreateAttemptRequest", createAttemptRequestSchema);
 registry.register("ReviewItem", reviewItemSchema);
+registry.register("KnowledgeItem", knowledgeItemSchema);
 registry.register("ReviewHistoryResponse", reviewHistoryResponseSchema);
 registry.register("ReviewListResponse", reviewListResponseSchema);
 registry.register("ReviewSummaryResponse", reviewSummaryResponseSchema);
@@ -1113,6 +1115,7 @@ registry.registerPath({
 const practiceSessionIdParam = z.object({ sessionId: z.string().min(1) });
 const learningQuestionIdParam = z.object({ questionId: z.string().min(1) });
 const reviewItemIdParam = z.object({ reviewId: z.string().min(1) });
+const knowledgeItemIdParam = z.object({ knowledgeId: z.string().min(1) });
 const learningPlanIdParam = z.object({ planId: z.string().min(1) });
 const planTaskIdParam = z.object({ taskId: z.string().min(1) });
 const mistakeListQuery = z.object({ status: mistakeStatusEnumSchema.optional() });
@@ -1164,6 +1167,11 @@ registry.registerPath({
   responses: { 201: { description: "Attempt created atomically with derived state, review and Outbox" }, 200: { description: "Existing idempotent attempt with its original nextStep" }, 400: { description: "请求或会话信息非法" }, 404: { description: "QUESTION_NOT_FOUND" }, 409: { description: "练习会话未激活、idempotency_key_reused 或旧作答缺少可证明完整提交的回执 answer_receipt_unavailable" } },
 });
 
+registry.registerPath({
+  method: "get", path: "/v1/knowledge-items/{knowledgeId}", summary: "读取本地知识内容", tags: ["Learning"],
+  request: { params: knowledgeItemIdParam, headers: commonHeaders },
+  responses: { 200: { description: "Knowledge content", content: { "application/json": { schema: knowledgeItemSchema } } }, 404: { description: "Knowledge item not found" } },
+});
 registry.registerPath({
   method: "get", path: "/v1/review-items", summary: "列出到期复习项", tags: ["Learning"],
   request: { headers: commonHeaders, query: z.object({ dueBefore: z.string().optional() }) },

@@ -22,6 +22,7 @@
     "@aervox/native-runtime": "workspace:*",
     "@aervox/core": "workspace:*",
     "@aervox/contracts": "workspace:*",
+    "@aervox/api-client": "workspace:*",
     "@aervox/host-plugin-api": "workspace:*",
     "@aervox/observability": "workspace:*",
     "@aervox/plugin-focus-mode": "workspace:*",

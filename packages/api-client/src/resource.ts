@@ -3,6 +3,7 @@ import { readonly, ref } from 'vue';
 /** Latest refresh owns the projection; failures preserve previously loaded data. */
 export function createResource<Args extends unknown[], Value>(query: (...args: Args) => Promise<Value>, commit: (value: Value) => void) {
   const loading = ref(false);
+  const loaded = ref(false);
   const error = ref<string | null>(null);
   let generation = 0;
   const load = async (...args: Args): Promise<void> => {
@@ -11,7 +12,7 @@ export function createResource<Args extends unknown[], Value>(query: (...args: A
     error.value = null;
     try {
       const value = await query(...args);
-      if (current === generation) commit(value);
+      if (current === generation) { commit(value); loaded.value = true; }
     } catch (cause) {
       if (current === generation) error.value = cause instanceof Error ? cause.message : '加载失败';
       throw cause;
@@ -22,7 +23,8 @@ export function createResource<Args extends unknown[], Value>(query: (...args: A
     loading.value = false;
     error.value = null;
     commit(value);
+    loaded.value = true;
   };
-  const invalidate = (): void => { generation++; loading.value = false; error.value = null; };
-  return {loading: readonly(loading), error: readonly(error), load, replace, invalidate};
+  const invalidate = (): void => { generation++; loading.value = false; loaded.value = false; error.value = null; };
+  return {loading: readonly(loading), loaded: readonly(loaded), error: readonly(error), load, replace, invalidate};
 }
