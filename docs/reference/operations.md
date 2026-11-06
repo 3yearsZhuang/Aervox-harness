@@ -38,6 +38,10 @@ id: AVX-OPS-001
 - 不得：跳过输入/输出安全分类、使用未评估模型、把失败输出写入记忆/日记/掌握度。
 - 验证：ModelRun、路由比例、TTFT、事实/安全抽检、成本；恢复需渐进放量。
 
+单个 Node Host 的上游模型流默认最多 4 个，可通过 `AERVOX_MODEL_STREAM_CONCURRENCY` 设置为 1～32 的十进制安全整数；非法值阻断启动。`model_stream_limit` 表示当前共享容量已满，本次模型请求立即失败且未排队；先检查既有模型流、领域生成和取消后仍在清理的请求，再决定重试或调整容量。失败原因保留在原生 Loop 的持久 `error` 终态事件，Turn/Attempt 为 Failed、ModelRun 为 failed，不能把缺失 usage 补作成功计量。该值不限制 SSE 观察连接，也不合并 API/Worker 进程总量；精确范围见[执行合同](agent-harness-loop.md#10-限额与终止策略)。
+
+共享模型 owner 在 Host 关闭时撤销准入，取消流并等待实际 iterator 退出；默认 20 秒仍未确认排空时，关闭以 `model_stream_drain_unconfirmed` 失败。先保留关闭错误、检查未结束的上游与业务状态；调用者取消成功不能替代资源排空证明。此截止不重置 Worker 从首信号开始的总关闭预算，也不证明其它 Provider 或全部写者已退出。
+
 Worker 从首个 `SIGINT` / `SIGTERM` 起共用默认 20 秒关闭预算：取消执行、停止调度并排空、释放共享宿主、关闭健康服务，全部完成后才显式关闭主库与 Vault。`WorkerHost.shutdownTimeoutMs` 默认 5 秒只限制任务排空；重复信号不重置总预算。失败记录 `worker.shutdown.failed` 的阶段、预算与耗时并退出 1，总截止原因是 `worker_shutdown_deadline_exceeded`；失败前置不提前关闭数据库。先保存该日志与退出码，再检查未完成任务的租约与副作用状态，不自动重放未知结果。此预算不能中断同步阻塞，原生主管较短的强制回收可能先发生，边界见[执行合同](agent-harness-loop.md#121-内部领域事件)。
 
 ## 4. Outbox 积压与 Worker 异常

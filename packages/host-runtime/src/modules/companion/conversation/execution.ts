@@ -26,6 +26,7 @@ export interface ConversationRouteDeps {
   toolRuntime?: ToolRuntime;
   /** 阶段 2e：AERVOX_LOOP_PROVIDER=llm 时的模型配置来源（CR-015） */
   llmConfigService?: LLMConfigPort;
+  modelProviderFactory?: import("../../ecosystem/llm/index.js").ConfiguredProviderFactoryPort;
   /** CR-034 模型降级与健康路由决策服务 */
   modelRoutingService?: import("../../ecosystem/llm/index.js").ModelRoutingPort;
   /** CAP-008：安全与危机干预服务（危急阻断/资源注入/中度困扰支持） */
@@ -183,6 +184,7 @@ export async function executeConversationTurn(
         toolRuntime: deps.toolRuntime,
         isMcpToolAllowed: deps.isMcpToolAllowed,
         llmConfigService: deps.llmConfigService,
+        modelProviderFactory: deps.modelProviderFactory,
         modelRoutingService: deps.modelRoutingService,
         safetyService: deps.safetyService,
         // 人格覆盖：激活人格的名称/设定/技能白名单覆盖系统默认（无人格时 undefined 不注入）

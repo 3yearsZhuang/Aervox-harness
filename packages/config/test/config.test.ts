@@ -9,7 +9,7 @@
  * - 优先级声明一致性（注入 env 与默认）。
  */
 import { describe, expect, it } from "vitest";
-import { loadApiConfig, loadWorkerConfig, loadProactiveFeatureFlags, loadHostRuntimeConfig, loadExecutionConfig, loadVoiceConfig } from "../src/index.js";
+import { loadApiConfig, loadWorkerConfig, loadProactiveFeatureFlags, loadHostRuntimeConfig, loadExecutionConfig, loadVoiceConfig, loadModelResourceConfig } from "../src/index.js";
 
 describe("loadApiConfig（缺陷 E）", () => {
   it("缺省值：port 3000 / loopProvider llm / compaction off / 白名单空 / voice 默认", () => {
@@ -171,5 +171,22 @@ describe("configuration responsibility boundaries", () => {
     expect(snapshot.asr.whisperModelId).toBe("first");
     expect(snapshot.dshRepoRoot).toBe("/first");
     expect(snapshot.dshWorkingDirectory).toBe(process.cwd());
+  });
+});
+
+describe("shared model-stream configuration", () => {
+  it("captures the default and override in each Node Host config without changing the Worker batch limit", () => {
+    expect(loadHostRuntimeConfig({}).modelStreamConcurrency).toBe(4);
+    expect(loadApiConfig({ AERVOX_MODEL_STREAM_CONCURRENCY: "2" }).modelStreamConcurrency).toBe(2);
+    expect(loadHostRuntimeConfig({ AERVOX_MODEL_STREAM_CONCURRENCY: "32" }).modelStreamConcurrency).toBe(32);
+    expect(loadWorkerConfig({ AERVOX_MODEL_STREAM_CONCURRENCY: "32" }).turnConcurrency).toBe(2);
+    const env = { AERVOX_MODEL_STREAM_CONCURRENCY: "1" };
+    const config = loadHostRuntimeConfig(env);
+    env.AERVOX_MODEL_STREAM_CONCURRENCY = "9";
+    expect(config.modelStreamConcurrency).toBe(1);
+  });
+  it.each(["", " ", "0", "-1", "1.5", "1.0000000000000001", "NaN", "Infinity", "33", "9007199254740992", "1e1", "0x10", "invalid"])("rejects invalid concurrency %j at Host startup", value => {
+    expect(() => loadModelResourceConfig({ AERVOX_MODEL_STREAM_CONCURRENCY: value })).toThrow(/AERVOX_MODEL_STREAM_CONCURRENCY=.*safe integer between 1 and 32/);
+    expect(() => loadHostRuntimeConfig({ AERVOX_MODEL_STREAM_CONCURRENCY: value })).toThrow(/AERVOX_MODEL_STREAM_CONCURRENCY/);
   });
 });
