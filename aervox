@@ -34,7 +34,8 @@ HELP="$(
   cli [参数...]                启动思隅终端客户端(siyu); 默认启动连续对话(chat)
   mobile                       构建 Web 产物并同步 Capacitor 壳(cap sync web)
   package                      打包桌面端安装包(electron-builder, 产物 apps/desktop/release/)
-  clean [--dry-run]            清理声明的构建产物和缓存；可预览路径
+  clean [--dry-run] [--native] [--references]
+                              清理构建输出，按需清理原生缓存与参考依赖
   test [affected|unit|guards|all|<pkg>]
                                运行测试套件:
                                  affected  = 智能增量测试(默认, 仅变更包及其下游)
@@ -423,12 +424,16 @@ cmd_package() {
 }
 
 cmd_clean() {
-  info "清理构建产物(保留 node_modules)…"
+  info "清理所选构建产物与缓存…"
   run node scripts/clean-generated.mjs "$@"
-  if [ "${1:-}" = "--dry-run" ]; then
+  local dry_run=0 arg
+  for arg in "$@"; do
+    if [ "$arg" = "--dry-run" ]; then dry_run=1; fi
+  done
+  if [ "$dry_run" -eq 1 ]; then
     ok "已预览清理范围，未删除文件"
   else
-    ok "已清理 dist / out / .turbo"
+    ok "已清理所选构建输出与缓存"
   fi
 }
 
