@@ -489,6 +489,42 @@ export async function createDatabase(
 
 let cachedTemplatePath: string | null = null;
 let templateInitPromise: Promise<string> | null = null;
+const temporaryDatabaseCleanupEvent = "aervox:cleanup-temporary-databases";
+const temporaryDatabaseEvents: NodeJS.EventEmitter = process;
+const temporaryDatabaseClients = new Map<string, Client | null>();
+
+function removeTemporaryDatabase(file: string): void {
+  if (!temporaryDatabaseClients.has(file)) return;
+  temporaryDatabaseClients.get(file)?.close();
+  for (const suffix of ["", "-wal", "-shm", "-journal"]) {
+    fs.rmSync(`${file}${suffix}`, { force: true });
+  }
+  temporaryDatabaseClients.delete(file);
+}
+
+function cleanupTemporaryDatabases(): void {
+  cachedTemplatePath = null;
+  templateInitPromise = null;
+  for (const file of temporaryDatabaseClients.keys()) removeTemporaryDatabase(file);
+  temporaryDatabaseEvents.off(temporaryDatabaseCleanupEvent, cleanupTemporaryDatabases);
+  process.off("exit", cleanupTemporaryDatabasesOnExit);
+}
+
+function cleanupTemporaryDatabasesOnExit(): void {
+  try {
+    cleanupTemporaryDatabases();
+  } catch {
+    // Explicit test teardown reports failures; shutdown cleanup is best effort.
+  }
+}
+
+function registerTemporaryDatabase(file: string): void {
+  if (!temporaryDatabaseEvents.listeners(temporaryDatabaseCleanupEvent).includes(cleanupTemporaryDatabases)) {
+    temporaryDatabaseEvents.on(temporaryDatabaseCleanupEvent, cleanupTemporaryDatabases);
+    process.once("exit", cleanupTemporaryDatabasesOnExit);
+  }
+  temporaryDatabaseClients.set(file, null);
+}
 
 export interface InMemoryDatabaseOptions {
   /**
@@ -508,7 +544,9 @@ async function getOrInitTemplateDatabase(): Promise<string> {
         os.tmpdir(),
         `aervox_template_${process.pid}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.db`,
       );
+      registerTemporaryDatabase(templateFile);
       const { client } = await createDatabase({ url: `file:${templateFile}` });
+      temporaryDatabaseClients.set(templateFile, client);
       const { initDatabaseSchema } = await import("./schema/ddl/index.js");
       await initDatabaseSchema(client);
       await client.execute("PRAGMA wal_checkpoint(TRUNCATE);");
@@ -523,22 +561,11 @@ async function getOrInitTemplateDatabase(): Promise<string> {
   return templateInitPromise;
 }
 
-process.once("exit", () => {
-  if (cachedTemplatePath) {
-    try {
-      if (fs.existsSync(cachedTemplatePath)) fs.unlinkSync(cachedTemplatePath);
-      if (fs.existsSync(`${cachedTemplatePath}-wal`)) fs.unlinkSync(`${cachedTemplatePath}-wal`);
-      if (fs.existsSync(`${cachedTemplatePath}-shm`)) fs.unlinkSync(`${cachedTemplatePath}-shm`);
-    } catch {
-      // 忽略退出清理异常
-    }
-  }
-});
-
 /**
  * 创建独立的临时测试数据库（用于单元测试与快速集成测试）。
  * 默认从预初始化 Schema 的模板文件瞬间克隆，亚毫秒级就绪；
  * 如需测试原始 DDL 流程，可传入 `{ empty: true }`。
+ * cleanup 显式释放实例，共享 Vitest 收尾和普通 Node 退出执行后备回收。
  */
 export async function createInMemoryDatabase(
   options: InMemoryDatabaseOptions = {},
@@ -551,6 +578,7 @@ export async function createInMemoryDatabase(
     os.tmpdir(),
     `aervox_test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.db`,
   );
+  registerTemporaryDatabase(tempFile);
 
   if (!options.empty) {
     const templateFile = await getOrInitTemplateDatabase();
@@ -558,13 +586,11 @@ export async function createInMemoryDatabase(
   }
 
   const { db, client } = await createDatabase({ url: `file:${tempFile}` });
+  temporaryDatabaseClients.set(tempFile, client);
 
   const cleanup = async () => {
     try {
-      client.close();
-      if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
-      if (fs.existsSync(`${tempFile}-wal`)) fs.unlinkSync(`${tempFile}-wal`);
-      if (fs.existsSync(`${tempFile}-shm`)) fs.unlinkSync(`${tempFile}-shm`);
+      removeTemporaryDatabase(tempFile);
     } catch {
       // 忽略清理异常
     }

@@ -25,6 +25,7 @@ export default defineConfig({
     replacement: fileURLToPath(new URL('./packages/host-runtime/dist/', import.meta.url)),
   }] },
   test: {
+    setupFiles: [fileURLToPath(new URL('./vitest.setup.ts', import.meta.url))],
     include: ['test/**/*.test.ts'],
     exclude: ['dist/**', 'node_modules/**'],
     testTimeout: 30_000,
