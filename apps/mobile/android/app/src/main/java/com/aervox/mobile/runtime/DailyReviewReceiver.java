@@ -23,9 +23,9 @@ public final class DailyReviewReceiver extends BroadcastReceiver {
             ? new Notification.Builder(context, NativeNotifyService.CHANNEL_ID)
             : new Notification.Builder(context);
         Notification notification = builder
-            .setSmallIcon(android.R.drawable.ic_popup_reminder)
-            .setContentTitle("今日复习提醒")
-            .setContentText("今天还有复习任务，打开思隅继续。")
+            .setSmallIcon(com.aervox.mobile.R.drawable.aervox_notification_mark)
+            .setContentTitle(context.getString(com.aervox.mobile.R.string.review_notification_title))
+            .setContentText(context.getString(com.aervox.mobile.R.string.review_notification_body))
             .setContentIntent(content)
             .setAutoCancel(true)
             .build();

@@ -54,12 +54,18 @@ export class AervoxLive2DController {
   }
 
   constructor(private readonly host: HTMLElement) {
+    const width = host.clientWidth
+    const height = host.clientHeight
     this.app = new Application({
       antialias: true,
+      autoStart: false,
       autoDensity: true,
       backgroundAlpha: 0,
       resolution: Math.min(window.devicePixelRatio || 1, 2),
-      resizeTo: host,
+      // A hidden ancestor has zero client size. Keep a valid framebuffer until
+      // the host becomes measurable; all resizing is owned by our listener.
+      width: Number.isFinite(width) && width > 0 ? width : 1,
+      height: Number.isFinite(height) && height > 0 ? height : 1,
     })
     host.appendChild(this.app.view as HTMLCanvasElement)
     this.stage = this.app.stage as Container
@@ -76,7 +82,7 @@ export class AervoxLive2DController {
       // 替换成多样待机池后，库的 idle 随机循环本身就足够自然。
       if (options?.diversifyIdle !== false) this.diversifyIdleGroup()
       // The validated model3 contract needs only Cubism Core, not the aggregate
-      // entry's Cubism 2 runtime. Keep loading lazy so failures reach the fallback.
+      // entry's Cubism 2 runtime. Keep loading lazy so failures reach the retry UI.
       const { Live2DModel } = await import('@sekai-world/pixi-live2d-display-mulmotion/cubism4')
       if (this.destroyed) throw new DOMException('Live2D disposed', 'AbortError')
       // Pass the validated JSON so external motion metadata reaches the runtime.
@@ -94,11 +100,20 @@ export class AervoxLive2DController {
       this.stage.addChild(loadedModel)
       const scaleFactor = modelDefinition.scale ?? 1
       this.resizeListener = () => {
-        if (!this.model) return
-        // Fit against the current host size, including layout changes that do
-        // not fire window.resize. Pixi's window resize handler is deferred.
-        this.app.resize()
+        if (this.destroyed || !this.model) return
+        const width = this.host.clientWidth
+        const height = this.host.clientHeight
+        // display:none does not change document.hidden. Never fit or render a
+        // zero viewport: a singular model transform can poison Cubism focus.
+        if (document.hidden || !Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+          this.app.stop()
+          return
+        }
+        this.app.renderer.resize(width, height)
         fitLive2DModelToViewport(this.app, this.model, { scaleFactor })
+        this.resetFocusPoint()
+        this.app.render()
+        this.app.start()
       }
       this.resizeListener()
       window.addEventListener('resize', this.resizeListener)
@@ -108,11 +123,7 @@ export class AervoxLive2DController {
       }
       this.visibilityListener = () => {
         if (typeof document === 'undefined') return
-        if (document.hidden) {
-          this.app.stop()
-        } else {
-          this.app.start()
-        }
+        this.resizeListener?.()
       }
       document.addEventListener('visibilitychange', this.visibilityListener)
       this.model.eventMode = 'static'

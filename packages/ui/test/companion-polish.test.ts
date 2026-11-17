@@ -15,7 +15,7 @@ it('closes the tool picker with Escape and restores focus to its opener', async 
     global: {
       stubs: { ExtensionSlot: true },
       provide: { [WORKBENCH_CONTEXT_KEY as symbol]: {
-        conversation: { activeQuestion: ref(null), questionSubmitting: ref(false), handleQuestionSubmit: vi.fn() },
+        conversation: { activeQuestion: ref(null), questionSubmitting: ref(false), questionSubmissionIssue: ref(undefined), handleQuestionSubmit: vi.fn() },
         layout: { companionDisplayName: ref('小隅') },
         timer: { timerRunning: ref(false), timerMinutes: ref(25) },
         cards: {
