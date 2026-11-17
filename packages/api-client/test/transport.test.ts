@@ -6,6 +6,14 @@ afterEach(() => {
 });
 
 describe("createFetchTransport", () => {
+  it("sends the original question identity with the selected answer", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ accepted: true }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const identity = { attemptId: "original-attempt", invocationId: "original-attempt:2:3", step: 2 };
+    const answers = [{ id: "question", selected: ["A"] }];
+    await createFetchTransport("http://api.test").submitQuestionAnswers("turn", answers, undefined, identity);
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toEqual({ ...identity, answers });
+  });
   it.each(['application/problem+json', 'application/json'])('preserves machine errors from %s', async (contentType) => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
       type: 'about:blank', title: 'Conflict', status: 409, code: 'DOWNLOAD_BUSY', message: 'Model already exists',

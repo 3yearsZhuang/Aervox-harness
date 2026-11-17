@@ -44,7 +44,7 @@ const MOBILE_COMPOSITION_IMPORTS = new Map([
     '@aervox/repositories/diary'])],
   ['apps/web/src/mobile/native-model-provider.ts', new Set(['@aervox/core/browser'])],
   ['apps/web/src/mobile/native-context.ts', new Set(['@aervox/core/browser'])],
-  ['apps/web/src/mobile/native-question.ts', new Set(['@aervox/core/browser'])],
+  ['apps/web/src/mobile/native-question.ts', new Set(['@aervox/core/browser', '@aervox/host-agent/browser'])],
   ['apps/web/src/mobile/native-tools.ts', new Set(['@aervox/core/browser'])],
   ['apps/web/src/mobile/native-persona.ts', new Set(['@aervox/repositories/persona'])],
   ['apps/web/src/mobile/native-diary.ts', new Set(['@aervox/diary', '@aervox/repositories/diary'])],

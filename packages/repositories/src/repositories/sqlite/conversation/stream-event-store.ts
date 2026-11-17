@@ -10,7 +10,7 @@ import { assertPluginGeneration, type PluginGenerationIdentity } from "../../../
 import { unverifiedDeletionRequest } from "../privacy-repository.js";
 import { FencingMismatchError } from "../../../errors.js";
 import { disclosableTurn } from "./source-visibility.js";
-import { initializeAssistantHistory, publishAssistantHistory, assertConversationBodyWritable } from "./message-history.js";
+import { initializeAssistantHistory, publishAssistantHistory, assertConversationBodyWritable, terminalEventDataForCurrentSource } from "./message-history.js";
 import type { TurnStreamEventModel, TurnStreamEventPageOptions, TurnStreamEventPage, TurnStreamReplayState } from "../../types/index.js";
 
 export const MAX_STREAM_EVENT_PAGE_ROWS = 256;
@@ -19,6 +19,14 @@ export const MAX_STREAM_EVENT_PAGE_DATA_BYTES = 256 * 1024;
 /** Turn 内 sequence 唯一，因此可构造跨进程稳定、可重连复用的事件标识。 */
 export const streamEventId = (turnId: string, sequence: number): string => `tev_${turnId}_${sequence}`;
 
+
+type StreamWriter = Parameters<Parameters<AervoxDatabase["transaction"]>[0]>[0];
+
+/** Shared insertion primitive for commands already holding the SQLite writer. */
+export async function insertStreamEventRow(tx: StreamWriter, values: typeof turnStreamEvents.$inferInsert): Promise<TurnStreamEventModel> {
+  const [created] = await tx.insert(turnStreamEvents).values(values).returning();
+  return created as TurnStreamEventModel;
+}
 
 export class StreamEventStore {
   constructor(private readonly db: AervoxDatabase) {}
@@ -84,6 +92,7 @@ export class StreamEventStore {
     return this.db.transaction(
       async (tx) => {
         await assertPluginGeneration(tx, eventData.pluginGeneration);
+        let attemptStatus: string | undefined;
         if (fenced) {
           const [attempt] = await tx
             .select({ status: turnAttempts.status, fencingToken: turnAttempts.fencingToken })
@@ -108,6 +117,7 @@ export class StreamEventStore {
               `attempt ${eventData.attemptId} fencing=${attempt?.fencingToken ?? "?"} status=${attempt?.status ?? "?"} cannot append ${eventData.eventType}`,
             );
           }
+          attemptStatus = attempt.status;
         }
         if (fenced && ["delta", "reasoning_delta"].includes(eventData.eventType)) {
           await assertConversationBodyWritable(tx, eventData.turnId);
@@ -115,21 +125,22 @@ export class StreamEventStore {
         if (fenced && eventData.eventType === "message") {
           await initializeAssistantHistory(tx, eventData.turnId, eventData.data, eventData.sequence);
         }
-        const [created] = await tx
-          .insert(turnStreamEvents)
-          .values({
+        const data = fenced && (eventData.eventType === "done" || eventData.eventType === "error")
+          ? await terminalEventDataForCurrentSource(tx, { turnId: eventData.turnId, eventType: eventData.eventType,
+            status: attemptStatus!, sequence: eventData.sequence, data: eventData.data })
+          : eventData.data;
+        const created = await insertStreamEventRow(tx, {
             id: eventData.id,
             turnId: eventData.turnId,
             sequence: eventData.sequence,
             eventType: eventData.eventType,
             payloadVersion: eventData.payloadVersion ?? 1,
-            data: eventData.data,
+            data,
             occurredAt: eventData.occurredAt ?? new Date().toISOString(),
             attemptId: eventData.attemptId ?? null,
             safetyDecision: eventData.safetyDecision ?? null,
             committedAt: eventData.committedAt ?? null,
-          })
-          .returning();
+          });
         if (eventData.eventType === "redacted") {
           // Revocation cannot disappear when its short-lived replay row is cleaned.
           await tx.update(messageVersions).set({ isRedacted: 1 }).where(eq(messageVersions.turnId, eventData.turnId));

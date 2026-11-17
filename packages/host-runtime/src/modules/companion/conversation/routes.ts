@@ -413,12 +413,14 @@ export function registerConversationRoutes(
         tenant,
         turnId,
         parsed.data.answers,
+        { attemptId: parsed.data.attemptId ?? "", invocationId: parsed.data.invocationId ?? "", step: parsed.data.step ?? 0 },
       );
       return reply.send(res);
     } catch (err) {
       if (err instanceof ConversationCommandError) return reply.code(err.statusCode).send(err.body);
       const msg = err instanceof Error ? err.message : String(err);
-      if (msg.startsWith("NO_PENDING_QUESTION")) {
+      if (msg.startsWith("NO_PENDING_QUESTION") || msg.startsWith("QUESTION_") ||
+        msg === "conversation_source_unavailable" || msg === "deletion_blocked") {
         return reply.code(409).send({ error: msg });
       }
       return reply.code(500).send({ error: msg });
@@ -435,7 +437,9 @@ export function registerConversationRoutes(
     if (!pending) {
       return reply.send({ turnId, pending: false, questions: [] });
     }
-    return reply.send({ turnId, pending: true, step: pending.step, questions: pending.questions });
+    return reply.send({ turnId, pending: true, step: pending.step, questions: pending.questions,
+      attemptId: pending.attemptId, invocationId: pending.invocationId, identityStatus: pending.identityStatus,
+      expiresAt: pending.expiresAt, timeoutMs: Math.max(0, Date.parse(pending.expiresAt) - Date.now()) });
   });
 
   // POST /v1/turns/{turnId}/tool-approvals — 写工具授权决定（阶段 3a：grant / deny；3b：privileged 仅管理员可批准）

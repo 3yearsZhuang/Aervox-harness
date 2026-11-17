@@ -2,7 +2,7 @@
  * Aervox｜思隅 @aervox/api — 阶段 2d 删除/撤权 fail-closed 集成测试
  *
  * 覆盖 AVX-HAR-001 §11.3：删除/撤权水位未追平 → Loop fail-closed。
- * - 存在未完成 deletion request 时：Turn 不产出模型片段/工具执行，收敛 Interrupted（deletion_blocked）；
+ * - 存在未完成 deletion request 时：Turn 不产出模型片段/工具执行，收敛 Interrupted，持久事件仅含固定控制投影；
  * - 追平（request completed）后：新 Turn 正常完成。
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -60,7 +60,7 @@ describe("阶段 2d 删除/撤权未追平 → Loop fail-closed", () => {
     await cleanup();
   });
 
-  it("未追平删除请求：Turn 零产出，收敛 Interrupted(deletion_blocked)", async () => {
+  it("未追平删除请求：Turn 零产出，收敛 Interrupted 并保留固定控制投影", async () => {
     await privacyRepo.createDeletionRequest(tenant, {
       id: "delreq_pending",
       scope: "all",
@@ -82,9 +82,8 @@ describe("阶段 2d 删除/撤权未追平 → Loop fail-closed", () => {
     const types = events.map((e) => e.eventType);
     expect(types).toEqual(["done"]); // 准备阶段拒绝，不创建空 Assistant 或输出工具事件。
     const done = events[0];
-    expect(done.data.status).toBe("Interrupted");
-    expect(done.data.reason).toBe("deletion_blocked");
-    expect(done.data.lastSequence).toBe(done.sequence);
+    expect(done.data).toEqual({ status: "Interrupted", isComplete: false, reason: "source_unavailable", lastSequence: done.sequence });
+    expect((await conversationRepo.getTurn(tenant, turnId))?.lastSequence).toBe(done.sequence);
     expect(await conversationRepo.getMessage(tenant, `msg_${turnId}_assistant`)).toBeNull();
 
     const attempts = await conversationRepo.listTurnAttempts(tenant, turnId);

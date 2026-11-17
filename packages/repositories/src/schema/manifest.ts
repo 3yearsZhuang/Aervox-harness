@@ -8,10 +8,11 @@ import { isDerivedSearchTable } from "../backup-scope.js";
 import { tableDefinitionSemantics } from "./table-semantics.js";
 
 export type SchemaScope = "main" | "ledger";
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 /** Immutable release ledger: change target declarations only with a new version and staged upgrade. */
 export const SCHEMA_RELEASES: Readonly<Record<number, Readonly<Record<SchemaScope, string>>>> = {
   1: { main: "c749a41cf2155d0b070c08746bd353e77479d6766b113d8e4f78bcaeda5961b4", ledger: "a14fd3df3feaf5a736b112f3d65c731a26e0689b90583c3ae9030840f308d8eb" },
+  2: { main: "962da1f70468dd789520b2dfcc848c428d5e22e5341d6b4c957540ca73708021", ledger: "a14fd3df3feaf5a736b112f3d65c731a26e0689b90583c3ae9030840f308d8eb" },
 };
 const VERSION_TABLE = "_aervox_schema_versions";
 /** Shared parameterized receipt. applied_at is supplied only after initialization verification. */

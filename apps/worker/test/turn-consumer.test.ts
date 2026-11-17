@@ -278,19 +278,31 @@ describe("Worker uses the complete product host", () => {
       return step <= 2 ? toolSse("ask_user_question", { questions: [{ id: `q${step}`, question: `问题 ${step}`, options: [{ label: "确认" }] }] }) : llmSse("两个答案已收到。");
     }));
     const id = await fixture.accept();
+    const attemptId = (await fixture.repo.listTurnAttempts(local, id))[0]!.id;
+    const identities: Array<{ attemptId: string; invocationId: string; step: number }> = [];
     const work = fixture.consume();
     for (let n = 1; n <= 2; n++) {
+      let identity!: { attemptId: string; invocationId: string; step: number };
       await vi.waitFor(async () => {
         const pending = (await fixture.api.app.inject({ method: "GET", url: `/v1/turns/${id}/questions/pending` })).json();
         expect(pending.pending).toBe(true);
         expect(pending.questions[0].id).toBe(`q${n}`);
+        expect(pending).toMatchObject({ turnId: id, attemptId, step: n, identityStatus: "available" });
+        expect(pending.invocationId).toEqual(expect.any(String));
+        expect(pending.invocationId.length).toBeGreaterThan(0);
+        identity = { attemptId: pending.attemptId, invocationId: pending.invocationId, step: pending.step };
       });
-      const answer = await fixture.api.app.inject({ method: "POST", url: `/v1/turns/${id}/questions/answers`, payload: { answers: [{ id: `q${n}`, selected: ["确认"] }] } });
+      identities.push(identity);
+      const answer = await fixture.api.app.inject({ method: "POST", url: `/v1/turns/${id}/questions/answers`, payload: { ...identity, answers: [{ id: `q${n}`, selected: ["确认"] }] } });
       expect(answer.statusCode).toBe(200);
+      expect(answer.json()).toMatchObject({ turnId: id, ...identity, accepted: true });
     }
     await work;
     expect((await fixture.repo.getTurn(local, id))?.status).toBe("Completed");
-    expect((await fixture.repo.getStreamEvents(local, id)).filter(e => e.eventType === "user_question_answered")).toHaveLength(2);
+    const answered = (await fixture.repo.getStreamEvents(local, id)).filter(e => e.eventType === "user_question_answered");
+    expect(answered).toHaveLength(2);
+    expect(answered.map(e => e.data)).toEqual(identities.map((identity, n) => ({ turnId: id, ...identity, answers: [{ id: `q${n + 1}`, selected: ["确认"] }] })));
+    expect(new Set(identities.map(identity => identity.invocationId)).size).toBe(2);
     expect((await fixture.api.app.inject({ method: "GET", url: `/v1/turns/${id}/questions/pending` })).json().pending).toBe(false);
   });
 

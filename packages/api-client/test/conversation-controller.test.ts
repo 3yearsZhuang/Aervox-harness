@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createConversationController } from '../src/conversation-controller';
 import { AervoxHttpError, createFetchTransport } from '../src/transport';
 import type { AervoxTransport, TurnCallbacks, StreamTurnOptions } from '../src/transport';
+import type { UserQuestionRequiredEventData } from '@aervox/contracts';
 
 const callbacks = (): TurnCallbacks => ({onDelta: vi.fn(), onDone: vi.fn()});
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
@@ -140,13 +141,14 @@ describe('ConversationController', () => {
     const {controller, streamTurn, submitQuestionAnswers, decideToolApproval, observeTurn} = fixture();
     streamTurn.mockImplementation(async (_s, _c, cb, options) => {
       await options!.onAccepted!('turn');
-      cb.onUserQuestion!({turnId: 'turn', questions: []} as never);
+      cb.onUserQuestion!({turnId: 'turn', attemptId: 'original-attempt', invocationId: 'original-attempt:2:3', step: 2, questions: []} as never);
       await controller.answer([{id: 'q', selected: ['yes']}]);
       cb.onToolApproval!({turnId: 'turn', approvalId: 'approval', toolName: 'write'} as never);
       cb.onDone();
     });
     await controller.submit('s', 'hello', callbacks());
-    expect(submitQuestionAnswers).toHaveBeenCalledWith('turn', [{id: 'q', selected: ['yes']}], expect.any(AbortSignal));
+    expect(submitQuestionAnswers).toHaveBeenCalledWith('turn', [{id: 'q', selected: ['yes']}], expect.any(AbortSignal),
+      {attemptId: 'original-attempt', invocationId: 'original-attempt:2:3', step: 2});
     expect(controller.state.status).toBe('awaiting-approval');
     decideToolApproval.mockResolvedValue({continuation: {afterEventId: 'decision', attemptId: 'attempt'}});
     observeTurn.mockImplementation(async (_turn, cb) => { cb.onDelta('continued'); cb.onDone(); });
@@ -177,6 +179,57 @@ describe('ConversationController', () => {
     expect(controller.state.question).toBe(nextQuestion);
     expect(controller.state.status).toBe('awaiting-input');
     expect(submitQuestionAnswers).toHaveBeenCalledOnce();
+  });
+
+  it.each(['available', 'legacy'])('preserves a newer %s question when an earlier answer event consumer finishes late', async identity => {
+    const {controller, streamTurn} = fixture();
+    const firstIdentity = identity === 'available' ? {attemptId: 'attempt', invocationId: 'attempt:1:1'} : {};
+    const nextIdentity = identity === 'available' ? {attemptId: 'attempt', invocationId: 'attempt:2:1'} : {};
+    const first: UserQuestionRequiredEventData = {turnId: 'turn', ...firstIdentity,
+      step: 1, questions: [{id: 'first', question: 'First?'}]};
+    const next: UserQuestionRequiredEventData = {turnId: 'turn', ...nextIdentity,
+      step: 2, questions: [{id: 'next', question: 'Next?'}]};
+    let forward!: TurnCallbacks;
+    let finishStream!: () => void;
+    let releaseReceipt!: () => void;
+    const consumer = new Promise<void>(resolve => { releaseReceipt = resolve; });
+    streamTurn.mockImplementation(async (_s, _c, cb, options) => {
+      forward = cb;
+      await options!.onAccepted!('turn');
+      cb.onUserQuestion!(first);
+      await new Promise<void>(resolve => { finishStream = resolve; });
+      cb.onDone();
+    });
+    const running = controller.submit('s', 'hello', {...callbacks(), onEvent: async value => {
+      if (value.eventId === 'old-answer') await consumer;
+    }});
+    try {
+      await vi.waitFor(() => expect(controller.state.question).toBe(first));
+      const delivered = forward.onEvent!({eventId: 'old-answer', turnId: 'turn', sequence: 2,
+        eventType: 'user_question_answered', payloadVersion: 1, occurredAt: '2026-11-07T00:00:00.000Z',
+        data: {turnId: 'turn', ...firstIdentity, step: 1, answers: []}});
+      // Native's durable-question listener can forward the next question while
+      // the earlier stream event is still awaiting its asynchronous consumer.
+      forward.onUserQuestion!(next);
+      releaseReceipt(); await delivered;
+      expect(controller.state.question).toBe(next);
+      expect(controller.state.status).toBe('awaiting-input');
+      expect(controller.state.afterEventId).toBe('old-answer');
+      await forward.onEvent!({eventId: 'old-answer-again', turnId: 'turn', sequence: 3,
+        eventType: 'user_question_answered', payloadVersion: 1, occurredAt: '2026-11-07T00:00:00.500Z',
+        data: {turnId: 'turn', ...firstIdentity, step: 1, answers: []}});
+      expect(controller.state.question).toBe(next);
+      await forward.onEvent!({eventId: 'next-answer-without-step', turnId: 'turn', sequence: 4,
+        eventType: 'user_question_answered', payloadVersion: 1, occurredAt: '2026-11-07T00:00:00.750Z',
+        data: {turnId: 'turn', ...nextIdentity, answers: []}});
+      expect(controller.state.question).toBe(next);
+      expect(controller.state.afterEventId).toBe('next-answer-without-step');
+      await forward.onEvent!({eventId: 'next-answer', turnId: 'turn', sequence: 5,
+        eventType: 'user_question_answered', payloadVersion: 1, occurredAt: '2026-11-07T00:00:01.000Z',
+        data: {turnId: 'turn', ...nextIdentity, step: 2, answers: []}});
+      expect(controller.state.question).toBe(identity === 'available' ? undefined : next);
+      expect(controller.state.afterEventId).toBe('next-answer');
+    } finally { releaseReceipt(); finishStream(); await running; controller.dispose(); }
   });
 
   it('does not resume a Turn when cancellation wins an in-flight approval decision', async () => {
@@ -306,7 +359,7 @@ describe.each(['answer', 'approval'] as const)('in-flight %s ownership', kind =>
     const pending = begin();
     const aborted = expect(pending).rejects.toMatchObject({name: 'AbortError'});
     await vi.waitFor(() => expect(send).toHaveBeenCalledOnce());
-    const signal = send.mock.calls[0]!.at(-1) as AbortSignal;
+    const signal = send.mock.calls[0]![kind === 'answer' ? 2 : 3] as AbortSignal;
     controller[action]();
     await aborted;
     expect(signal.aborted).toBe(true);
@@ -345,7 +398,7 @@ describe.each(['answer', 'approval'] as const)('in-flight %s ownership', kind =>
     const pending = begin();
     const aborted = expect(pending).rejects.toMatchObject({name: 'AbortError'});
     await vi.waitFor(() => expect(send).toHaveBeenCalledOnce());
-    const signal = send.mock.calls[0]!.at(-1) as AbortSignal;
+    const signal = send.mock.calls[0]![kind === 'answer' ? 2 : 3] as AbortSignal;
     request.mockRejectedValueOnce(new Error('cancel offline'));
     await expect(controller.stop()).rejects.toThrow('cancel offline');
     expect(signal.aborted).toBe(false);

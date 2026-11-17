@@ -80,5 +80,6 @@
 - `source-files.mjs`: 通用源码文件遍历与过滤辅助函数。
 - `workspaces.mjs`: `pnpm-workspace.yaml` 解析与包归属判定辅助函数。
 - `test-package.mjs`: 按真实 workspace 名称解析测试目标，拒绝无匹配或未声明测试的选择（`./aervox test <pkg>`）。
-- `clean-generated.mjs`: 清理构建产物与 `.turbo` 缓存（`./aervox clean` / `pnpm run clean`）；可用 `--dry-run` 预览，pnpm 传参时使用 `pnpm run clean --dry-run`。
+- `clean-generated.mjs` 清理构建产物与 `.turbo` 缓存，由 `./aervox clean` / `pnpm run clean` 调用。`--dry-run` 预览完整路径。`--native` 增加 Cargo 的 deps/build/incremental/.fingerprint、跨平台目标缓存及 Android Gradle 中间目录，bundle、APK outputs 和目标根的可执行文件继续保留。`--references` 清理已初始化参考子仓的 node_modules，重用时按各自锁定版本安装。所有路径先检查受跟踪文件和符号链接，macOS/Linux 执行前用 lsof 检查打开的输出，Windows 需先停止构建与运行进程。组合预览用 `./aervox clean --native --references --dry-run`。
+- `vitest.setup.ts` 随共享 Vitest 配置在测试文件结束时回收 createInMemoryDatabase 注册的临时数据库、模板与 SQLite sidecar，普通 Node 退出另有后备回收。显式 cleanup 会注销对应路径，常规文件数据库由其调用方管理。
 - `vendor-chunks.ts`: Vite 构建 chunk 分块共享策略配置。

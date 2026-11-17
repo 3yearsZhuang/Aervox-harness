@@ -6,6 +6,9 @@ import type { LocalContext } from "../../local-context.js";
 import type { BranchTreeReadOptions } from "../../conversation-branch-tree.js";
 import type { TurnIntentInput, NormalizedTurnIntent, AcceptedTurnParameters } from "../../conversation-turn-intent.js";
 import type { ConversationExecutionPolicy, TurnDispatchTarget } from "@aervox/schema";
+import type { AskUserQuestionAnswerItem } from "@aervox/contracts";
+import type { RequireUserQuestionInput, RequireUserQuestionResult, UserQuestionIdentity,
+  UserQuestionAnswerReceipt, PendingUserQuestionState, CancelUserQuestionInput } from "./user-question.js";
 
 export interface SessionModel {
   id: string;
@@ -113,6 +116,11 @@ export type TurnAcceptanceResult =
   | { created: true; turn: TurnModel; message: MessageVersionModel; attempt: TurnAttemptModel; intent?: NormalizedTurnIntent };
 
 export interface IConversationRepository {
+  requireUserQuestion(ctx: LocalContext, input: RequireUserQuestionInput): Promise<RequireUserQuestionResult>;
+  getPendingUserQuestion(ctx: LocalContext, turnId: string): Promise<PendingUserQuestionState | null>;
+  getUserQuestionAnswerReceipt(ctx: LocalContext, identity: UserQuestionIdentity): Promise<UserQuestionAnswerReceipt | null>;
+  answerUserQuestion(ctx: LocalContext, identity: UserQuestionIdentity, answers: AskUserQuestionAnswerItem[]): Promise<UserQuestionAnswerReceipt>;
+  cancelUserQuestion(ctx: LocalContext, input: CancelUserQuestionInput): Promise<boolean>;
   acceptTurn(ctx: LocalContext, input: TurnAcceptanceInput): Promise<TurnAcceptanceResult>;
   /** 当前轮之前、同租户同会话的有界安全历史；不含当前输入。 */
   getSessionHistory(

@@ -12,7 +12,7 @@ import { NativeSqliteClient } from '@aervox/repositories/native-sqlite-client';
 import { isBackupScopedTable } from '@aervox/repositories/backup';
 import { ConversationExecutionStore } from '@aervox/host-agent/browser';
 import { buildResumeHistory, ControlContext, ASK_USER_QUESTION_SPEC, ASK_USER_QUESTION_TOOL, createAskUserQuestionToolProvider, executeTurn, stableSerialize, type ToolProviderPort, type ToolSpec } from '@aervox/core/browser';
-import { AervoxHttpError, TurnStreamProjector, type AervoxTransport, type TurnCallbacks, type ObserveTurnOptions } from '@aervox/api-client';
+import { AervoxHttpError, TurnStreamProjector, type AervoxTransport, type QuestionAnswerIdentity, type TurnCallbacks, type ObserveTurnOptions } from '@aervox/api-client';
 import { createSessionRequestSchema, listSessionsResponseSchema, renameSessionRequestSchema, sessionItemSchema, sessionListQuerySchema, type AskUserQuestionAnswerItem, type TurnStreamEvent } from '@aervox/contracts';
 import { nativeRequest } from './native-channel';
 import { delay, createNativeModelProvider } from './native-model-provider';
@@ -35,7 +35,7 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
   let accepting = false;
   let retired = false;
   // The bridge owns the suspended ask_user_question promise for this host.
-  const questionBridge = createQuestionBridge();
+  let questionBridge: ReturnType<typeof createQuestionBridge> | undefined;
   let foregroundRevision = 0;
   let cancelActive = async () => {};
   const checkOpen = () => { if (retired) fail(503, 'HOST_CLOSED'); };
@@ -51,9 +51,9 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
     clearInterval(recoveryTimer);
     window.removeEventListener('pagehide', retire);
     document.removeEventListener('visibilitychange', visibilityChanged);
-    questionBridge.cancel('QUESTION_CANCELLED');
     active?.control.abort();
-    nativeClient?.close();
+    void questionBridge?.cancel('QUESTION_CANCELLED').finally(() => nativeClient?.close());
+    if (!questionBridge) nativeClient?.close();
   };
   // Capture retirement before the first native receipt, including bootstrap.
   window.addEventListener('pagehide', retire, { once: true });
@@ -137,6 +137,17 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
     },
   });
   const store = new ConversationExecutionStore(repo, ctx);
+  const questions = createQuestionBridge({ ctx,
+    owner: request => store.getQuestionExecutionOwner(request.turnId, request.attemptId),
+    commands: {
+      require: (owner, input) => repo.requireUserQuestion(owner, input),
+      getPending: (owner, turnId) => repo.getPendingUserQuestion(owner, turnId),
+      getReceipt: (owner, identity) => repo.getUserQuestionAnswerReceipt(owner, identity),
+      answer: (owner, identity, answers) => repo.answerUserQuestion(owner, identity, answers),
+      cancel: (owner, input) => repo.cancelUserQuestion(owner, input),
+    },
+  });
+  questionBridge = questions;
   // Per-call approvals land in the shared ledger: an identical action reuses a
   // prior grant, a new one ends the turn as Interrupted(pending_approval) and
   // waits for decideToolApproval before any side effect runs.
@@ -156,7 +167,7 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
   const deviceTooling = createDeviceTooling({ requestApproval });
   // One tool surface for the turn: the question tool is always available (it
   // needs no privilege), device verbs only when the phone grant allows them.
-  const questionTool = createAskUserQuestionToolProvider({ userQuestionPort: questionBridge.port, defaultTimeoutMs: 120_000 });
+  const questionTool = createAskUserQuestionToolProvider({ userQuestionPort: questions.port, defaultTimeoutMs: 120_000 });
   // A human answer is not a 12-second tool call: the spec carries its own budget.
   const questionSpec: ToolSpec = { ...ASK_USER_QUESTION_SPEC, budget: { timeoutMs: 120_000 } };
   const tools: ToolProviderPort = {
@@ -184,7 +195,7 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
     const owner = active;
     if (!owner) return;
     // Release a suspended question first: stopping must not leave the loop waiting.
-    questionBridge.cancel('QUESTION_CANCELLED');
+    await questions.cancel('QUESTION_CANCELLED');
     await store.requestCancelAttempt({ turnId: owner.turnId, attemptId: owner.attemptId });
     owner.control.abort();
   };
@@ -207,9 +218,9 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       sequence = cursor.sequence;
     }
     const projector = new TurnStreamProjector({ expectedTurnId: turnId, initialSequence: sequence });
-    // A suspended question has no persisted event of its own: deliver it to the
-    // observing surface, and keep polling so the resumed answer flows through.
-    const stopQuestions = questionBridge.observe(turnId, question => {
+    // A cursor can follow the required event while its question is still pending.
+    // Query the original durable question when observation reconnects.
+    const stopQuestions = questions.observe(turnId, question => {
       if (!retired) callbacks.onUserQuestion?.(question);
     });
     try {
@@ -274,6 +285,7 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       } else {
         const session = /^\/v1\/sessions\/([^/]+)(\/history)?$/.exec(url.pathname);
         const cancel = /^\/v1\/turns\/([^/]+)\/cancel$/.exec(url.pathname);
+        const pendingQuestion = /^\/v1\/turns\/([^/]+)\/questions\/pending$/.exec(url.pathname);
         if (session) {
           const id = identifier(decodeURIComponent(session[1]!));
           if (session[2] && method === 'GET') result = await repo.getSessionHistoryPage(ctx, { sessionId: id,
@@ -297,6 +309,10 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
             if (accepting || active?.sessionId === id) fail(409, 'STOP_REPLY_BEFORE_DELETING');
             if (!await repo.deleteSession(ctx, id)) fail(404, 'SESSION_NOT_FOUND');
           } else fail(501, 'FEATURE_NOT_CONNECTED');
+        } else if (pendingQuestion && method === 'GET') {
+          const turnId = identifier(decodeURIComponent(pendingQuestion[1]!));
+          const pending = await repo.getPendingUserQuestion(ctx, turnId);
+          result = pending ? { ...pending, pending: true } : { turnId, pending: false, questions: [] };
         } else if (cancel && method === 'POST') {
           const turnId = identifier(decodeURIComponent(cancel[1]!));
           if (active?.turnId === turnId) await cancelActive();
@@ -370,6 +386,7 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
             contextBuilder: createConversationContext(sessionId, turnId), options: { maxSteps: 6, maxConsecutiveSameTool: 3, toolTimeoutMs: 12_000, maxModelRetries: 0,
               maxTurnDurationMs: 300_000, leaseTtlMs: 30_000, leaseHeartbeatIntervalMs: 10_000 },
           }, { turnId, sessionId, attemptId: accepted.attempt.id, userMessage: content }).finally(() => {
+            store.releaseQuestionExecutionOwner(turnId, accepted.attempt.id);
             control.dispose(); if (active === owner) active = undefined;
           });
           void owner.done.catch(() => undefined);
@@ -380,12 +397,12 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
       await observe(turnId!, callbacks, { signal: options.signal });
     },
     observeTurn: observe,
-    async submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[], signal?: AbortSignal) {
+    async submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[], signal?: AbortSignal, identity?: QuestionAnswerIdentity) {
       checkOpen();
       signal?.throwIfAborted();
       identifier(turnId);
       try {
-        await questionBridge.submit(turnId, answers);
+        await questions.submit(turnId, answers, identity);
       } catch (error) {
         const code = error instanceof Error ? error.message : 'QUESTION_NOT_PENDING';
         // Only the answer body is the caller's fault; everything else is state.
@@ -445,7 +462,10 @@ export async function initializeNativeRuntime(): Promise<AervoxTransport> {
                 toolCall: { id: toolCallId, name: pending.name, arguments: pending.argumentsJson ?? {} } } },
           },
         }, { turnId, sessionId: turn.sessionId, attemptId: attempt.id, userMessage },
-        ).finally(() => { control.dispose(); if (active === owner) active = undefined; });
+        ).finally(() => {
+          store.releaseQuestionExecutionOwner(turnId, attempt.id);
+          control.dispose(); if (active === owner) active = undefined;
+        });
         void owner.done.catch(() => undefined);
         }
       }

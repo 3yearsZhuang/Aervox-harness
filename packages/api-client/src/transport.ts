@@ -94,6 +94,8 @@ export interface ToolApprovalDecisionResponse {
 }
 
 /** 两端能力的最小契约：普通请求 + Turn 流式 + 问答提交 + 附件上传（可选） */
+export type QuestionAnswerIdentity = Pick<UserQuestionRequiredEventData, "attemptId" | "invocationId" | "step">;
+
 export interface AervoxTransport {
   /** 普通 JSON 事件流；地址、认证和平台通道由传输实现负责。 */
   streamEvents?(path: string, callbacks: EventStreamCallbacks, signal?: AbortSignal): Promise<void>;
@@ -101,7 +103,7 @@ export interface AervoxTransport {
   streamTurn(sessionId: string, content: string, callbacks: TurnCallbacks, options?: StreamTurnOptions): Promise<void>;
   /** Observe an existing attempt; never creates or replays a user submission. */
   observeTurn?(turnId: string, callbacks: TurnCallbacks, options?: ObserveTurnOptions): Promise<void>;
-  submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[], signal?: AbortSignal): Promise<void>;
+  submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[], signal?: AbortSignal, identity?: QuestionAnswerIdentity): Promise<void>;
   /** 多模态输入：原始二进制上传（Web 直连；桌面经 IPC 桥） */
   uploadAttachment?(input: AttachmentUploadInput): Promise<UploadedAttachment>;
   /** PET-05: 写工具授权审批提交 */
@@ -495,11 +497,11 @@ export function createFetchTransport(apiBase: string, config: FetchTransportOpti
     throw failure ?? new Error('turn_stream_incomplete: reconnect limit reached before terminal event');
   };
 
-  const submitQuestionAnswers = async (turnId: string, answers: AskUserQuestionAnswerItem[], signal?: AbortSignal): Promise<void> => {
+  const submitQuestionAnswers = async (turnId: string, answers: AskUserQuestionAnswerItem[], signal?: AbortSignal, identity?: QuestionAnswerIdentity): Promise<void> => {
     await request(
       'POST',
       `/v1/turns/${encodeURIComponent(turnId)}/questions/answers`,
-      { answers },
+      { answers, ...identity },
       { signal },
     );
   };

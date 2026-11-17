@@ -173,7 +173,7 @@ Created -> InputChecking -> Running -> Finalizing -> Completed
 
 表示 Turn 终态已提交。`data` 至少包含 `status`、`messageId`（如有）、`isComplete`、`lastSequence` 和 `contextVersion`。只有 `status=Completed` 且 `isComplete=true` 的结果可触发普通下游派生；`Cancelled/Interrupted/Failed/Rejected` 的安全前缀只能作为明确标记的不完整历史保留。
 
-接单准备、Native 和 Adapter 共用取消、删除、预算与失败裁决。准备阶段已被阻断时可以直接提交终态，不创建空 Assistant 身份。取消的 `done.reason=cancelled`，中断保留具体原因；`done/error.lastSequence` 对应原子提交的事件序号。丢失租约或 fencing 后不得发布终态，子任务摘要只能按持久 Attempt 对账，不能把本地失去执行权映射为已完成的失败。
+接单准备、Native 和 Adapter 共用取消、删除、预算与失败裁决。准备阶段已被阻断时可以直接提交终态，不创建空 Assistant 身份。来源仍可写时，取消的 `done.reason=cancelled`，中断保留具体原因；来源不可写时，带 fencing 的终态按第 4.4 节保存固定控制投影。`done/error.lastSequence` 对应原子提交的事件序号。丢失租约或 fencing 后不得发布终态，子任务摘要只能按持久 Attempt 对账，不能把本地失去执行权映射为已完成的失败。
 
 ### 4.4 `error`
 
@@ -181,14 +181,22 @@ Created -> InputChecking -> Running -> Finalizing -> Completed
 
 当前兼容路径仍由 Core 原子提交 `Failed` Attempt 与 `error`，不保证再发送 `done`；`TurnStreamProjector` 收到 `error` 即终结，迟到消息被丢弃，投影 Schema 也兼容历史可选字段。客户端不能在该路径无限等待第二个终态，统一负载与双事件目标仍需明确迁移及兼容验证。
 
+带 fencing 的 `done/error` 写者及原子终态写者在同一事务复验当前会话来源与删除闸门。来源不再可写时，仍提交控制事件和水位；原子终态写者继续按原 CAS 提交 Attempt 状态，普通追加不改变 Attempt 状态。不保存调用方的错误正文、输出或附加字段：`error` 仅保存固定 `PERMISSION_REVOKED`、通用消息、`retryable=false` 和实际序号；`done` 仅保存实际 Attempt 状态、`isComplete=false`、固定 `source_unavailable` 及实际序号。数据库读取失败仍回滚，不能当作成功的通用终止；原 fencing/CAS 拒绝不被替代。该投影不清洗历史事件或覆盖未带 fencing 的兼容路径，进程内广播仍可能携带原调用载荷；现行 SSE 只将通知用作唤醒并重新读取持久事件，披露资格仍按第 5 节复验。
+
 ### 4.5 `redacted`
 
 表示某个已持久事件或正文因来源删除、同意撤销或权限变化而不再可见。`data` 至少包含 `targetEventId`、`visibilityRevision`、`reasonCode` 和不含原文的替代状态；原事件不可改写，客户端收到后必须停止展示和使用被撤回正文。
 
 ### 4.6 `user_question_required` 与 `user_question_answered` (UQ-01)
 
-- `user_question_required`：表示模型在执行过程中调用 `ask_user_question` 发起向用户提问与决策确认，Step 挂起等待。`data` 包含 `turnId`、`step`、`questions` 数组（含 `id`、`question`、`header`、`detail`、`options`、`multiSelect`、`intent`）以及 `timeoutMs`。
-- `user_question_answered`：表示用户已提交对该问题的回答（通过 `POST /v1/turns/:turnId/questions/answers`），Loop 被唤醒继续执行。`data` 包含 `turnId` 与 `answers` 数组。
+- `user_question_required`：模型调用 `ask_user_question` 后，原 Step 挂起等待。`data` 包含原 `turnId`、`attemptId`、`invocationId`、`step`、`questions` 数组（含 `id`、`question`、`header`、`detail`、`options`、`multiSelect`、`intent`）、`timeoutMs` 与持久 `expiresAt`。登记使用执行者原有租约与 fencing 证明，问题行和事件在同一 SQLite 写事务提交。
+- `user_question_answered`：用户通过 `POST /v1/turns/:turnId/questions/answers` 提交原 `attemptId`、`invocationId`、`step` 与 `answers`。回答事件与同身份挂起行清理在同一事务提交，事件保留原身份；同答案重试返回已存回执，异答案、身份不符、过期、来源不可读或删除传播未完成均拒绝。用户取消已受理或终结时拒绝新答案，已提交回执仍可幂等查询。答案 ID、选项与单选/多选规则按原问题校验。
+
+Host 与 Native 共用 Conversation 问题命令；进程内等待器只在提交后发布通知或完成 Promise。超时不选择默认选项，也不代表用户回答或授权。旧 `invocation_id IS NULL` 行保持原样，查询标识 `identity_unavailable`，禁止猜测回填或登记答案，允许按原行身份取消或过期清理。`GET /v1/turns/:turnId/questions/pending` 返回原身份与截止时间；读取不能延长等待期限。
+
+客户端仅在异步事件消费期间待答问题未被替换，且回执的原 Turn、Attempt、invocation 和 step 完整匹配时清理问题。缺少完整原身份或 step 的旧回执只能推进已消费事件游标，不能推定当前问题已答。
+
+仍存活的原执行者只消费同一次提问的答案。重开查询与答案登记不创建 Turn/Attempt，不自动恢复跨进程模型执行；旧结果回执和持久化不构成续跑授权。
 
 ### 4.7 `tool_approval_required` (PET-05 / CAP-009)
 

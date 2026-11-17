@@ -1,115 +1,114 @@
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { createInMemoryDatabase, initDatabaseSchema, SqliteConversationRepository } from '@aervox/repositories';
 import { createQuestionBridge } from '../src/mobile/native-question';
 
-const questions = [{ id: 'q1', question: '要打开哪个应用？' }];
-const request = { turnId: 'turn_1', attemptId: 'attempt_1', step: 1, questions };
-afterEach(() => { vi.useRealTimers(); });
+const ctx = { workspaceId: 'local', subjectUserId: 'local' };
+const request = { turnId: 'turn', attemptId: 'attempt', invocationId: 'attempt:1:1', step: 1,
+  questions: [{ id: 'q1', question: '要打开哪个应用？', multiSelect: false, options: [{ label: '设置' }, { label: '相机' }] }] };
+const identity = { attemptId: request.attemptId, invocationId: request.invocationId, step: request.step };
+const answers = [{ id: 'q1', selected: ['设置'] }];
+let resource: Awaited<ReturnType<typeof createInMemoryDatabase>>;
+let repo: SqliteConversationRepository;
+let options: Parameters<typeof createQuestionBridge<typeof ctx>>[0];
+let bridge: ReturnType<typeof createQuestionBridge>;
+beforeEach(async () => {
+  resource = await createInMemoryDatabase();
+  await initDatabaseSchema(resource.client);
+  repo = new SqliteConversationRepository(resource.db);
+  await repo.getOrCreateSession(ctx, 'session');
+  await repo.acceptTurn(ctx, { turnId: 'turn', attemptId: 'attempt', sessionId: 'session', idempotencyKey: 'key',
+    message: { id: 'user', content: 'Question source' }, consumeInbox: false });
+  const claim = await repo.claimTurnAttempt(ctx, { turnId: 'turn', attemptId: 'attempt', expectedFencingToken: 0, leaseId: 'lease' });
+  options = { ctx, owner: () => ({ turnId: 'turn', attemptId: 'attempt', expectedFencingToken: claim.fencingToken, leaseId: claim.leaseId }),
+    commands: {
+      require: (owner, input) => repo.requireUserQuestion(owner, input),
+      getPending: (owner, turnId) => repo.getPendingUserQuestion(owner, turnId),
+      getReceipt: (owner, input) => repo.getUserQuestionAnswerReceipt(owner, input),
+      answer: (owner, input, selected) => repo.answerUserQuestion(owner, input, selected),
+      cancel: (owner, input) => repo.cancelUserQuestion(owner, input),
+    } };
+  bridge = createQuestionBridge(options);
+});
+afterEach(async () => { await bridge.cancel(); await resource.cleanup(); });
+const waitPending = () => vi.waitFor(async () => expect(await repo.getPendingUserQuestion(ctx, 'turn')).not.toBeNull());
 
-it('delivers a question to the observing turn and resolves it with the submitted answers', async () => {
-  const bridge = createQuestionBridge();
-  const delivered = vi.fn();
-  bridge.observe('turn_1', delivered);
-  const answer = bridge.port.ask(request);
-  await Promise.resolve();
-  expect(delivered).toHaveBeenCalledWith({ turnId: 'turn_1', questions, step: 1, timeoutMs: 120_000 });
-  await bridge.submit('turn_1', [{ id: 'q1', selected: ['设置'], custom: undefined }].map(item => ({ ...item })));
-  await expect(answer).resolves.toEqual({ answers: [{ id: 'q1', selected: ['设置'] }] });
+it('reopens the original durable question without extending its persisted deadline', async () => {
+  const pending = bridge.port.ask(request); pending.catch(() => undefined);
+  await waitPending();
+  const original = await repo.getPendingUserQuestion(ctx, 'turn');
+  const reopened = createQuestionBridge(options), deliver = vi.fn();
+  reopened.observe('turn', deliver);
+  await vi.waitFor(() => expect(deliver).toHaveBeenCalledOnce());
+  expect(deliver.mock.calls[0]![0]).toMatchObject({ ...identity, expiresAt: original!.expiresAt, identityStatus: 'available' });
+  await reopened.submit('turn', answers, identity);
+  await expect(pending).resolves.toEqual({ answers });
+  await reopened.submit('turn', answers, identity);
+  expect((await repo.getStreamEvents(ctx, 'turn')).filter(event => event.eventType === 'user_question_answered')).toHaveLength(1);
 });
 
-it('holds a question until the surface attaches, then delivers it once', async () => {
-  const bridge = createQuestionBridge();
+it('creates no orphan timers when the answer commits before the registration receipt returns', async () => {
+  let registered!: () => void, releaseReceipt!: () => void;
+  const committed = new Promise<void>(resolve => { registered = resolve; });
+  const receiptGate = new Promise<void>(resolve => { releaseReceipt = resolve; });
+  const require = options.commands.require;
+  bridge = createQuestionBridge({ ...options, commands: { ...options.commands,
+    require: async (owner, input) => {
+      const result = await require(owner, input);
+      registered();
+      await receiptGate;
+      return result;
+    },
+  } });
   const pending = bridge.port.ask(request);
-  await Promise.resolve();
-  const delivered = vi.fn();
-  bridge.observe('turn_1', delivered);
-  expect(delivered).toHaveBeenCalledTimes(1);
-  await bridge.submit('turn_1', [{ id: 'q1', selected: [] }]);
-  await pending;
-});
-
-it('refuses answers for another turn, an empty answer list, or when nothing is pending', async () => {
-  const bridge = createQuestionBridge();
-  await expect(bridge.submit('turn_1', [{ id: 'q1', selected: [] }])).rejects.toThrow('QUESTION_NOT_PENDING');
-  const pending = bridge.port.ask(request);
-  await expect(bridge.submit('turn_other', [{ id: 'q1', selected: [] }])).rejects.toThrow('QUESTION_NOT_PENDING');
-  await expect(bridge.submit('turn_1', [])).rejects.toThrow('QUESTION_ANSWERS_REQUIRED');
-  await bridge.submit('turn_1', [{ id: 'q1', selected: [] }]);
-  await pending;
-});
-
-it('rejects a second concurrent question instead of queueing it invisibly', async () => {
-  const bridge = createQuestionBridge();
-  const first = bridge.port.ask(request);
-  await expect(bridge.port.ask({ ...request, turnId: 'turn_2' })).rejects.toThrow('QUESTION_PENDING');
-  await bridge.submit('turn_1', [{ id: 'q1', selected: [] }]);
-  await first;
-});
-
-it('expires an unanswered question with a fixed code', async () => {
+  await committed;
+  await bridge.submit('turn', answers, identity);
+  await expect(pending).resolves.toEqual({ answers });
   vi.useFakeTimers();
-  const bridge = createQuestionBridge({ timeoutMs: 1_000 });
-  const pending = bridge.port.ask(request);
-  vi.advanceTimersByTime(1_001);
-  await expect(pending).rejects.toThrow('QUESTION_TIMEOUT');
-  vi.useRealTimers();
-});
-
-it('releases the turn when the host stops or the tool signal aborts', async () => {
-  const bridge = createQuestionBridge();
-  const controller = new AbortController();
-  const aborted = bridge.port.ask({ ...request, signal: controller.signal });
-  controller.abort();
-  await expect(aborted).rejects.toThrow('QUESTION_CANCELLED');
-  const cancelled = bridge.port.ask(request);
-  bridge.cancel();
-  await expect(cancelled).rejects.toThrow('QUESTION_CANCELLED');
-  // A released bridge accepts the next question.
-  const next = bridge.port.ask(request);
-  await bridge.submit('turn_1', [{ id: 'q1', selected: ['ok'] }]);
-  await expect(next).resolves.toEqual({ answers: [{ id: 'q1', selected: ['ok'] }] });
-});
-
-it('stops delivering to a turn whose observation ended', async () => {
-  const bridge = createQuestionBridge();
-  const delivered = vi.fn();
-  const stop = bridge.observe('turn_1', delivered);
-  stop();
-  const pending = bridge.port.ask(request);
-  await Promise.resolve();
-  expect(delivered).not.toHaveBeenCalled();
-  await bridge.submit('turn_1', [{ id: 'q1', selected: [] }]);
-  await pending;
-});
-
-it('does not replay an expired, cancelled or already answered queued question on reconnect', async () => {
-  vi.useFakeTimers();
-  for (const ending of ['timeout', 'cancel', 'answer'] as const) {
-    const bridge = createQuestionBridge({ timeoutMs: 1_000 });
-    const pending = bridge.port.ask(request).catch(error => error);
-    if (ending === 'timeout') vi.advanceTimersByTime(1_001);
-    else if (ending === 'cancel') bridge.cancel();
-    else await bridge.submit('turn_1', [{ id: 'q1', selected: ['ok'] }]);
-    await pending;
-    const delivered = vi.fn();
-    bridge.observe('turn_1', delivered);
-    expect(delivered).not.toHaveBeenCalled();
+  try {
+    releaseReceipt();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(vi.getTimerCount()).toBe(0);
+    expect((await repo.getStreamEvents(ctx, 'turn')).filter(event => event.eventType === 'user_question_answered')).toHaveLength(1);
+  } finally {
+    vi.clearAllTimers();
+    vi.useRealTimers();
   }
 });
 
-it('redelivers a still-pending question after observation reconnects without extending its deadline', async () => {
-  vi.useFakeTimers();
-  const bridge = createQuestionBridge({ timeoutMs: 1_000 });
-  const first = vi.fn(), reconnected = vi.fn();
-  const stop = bridge.observe('turn_1', first);
-  const pending = bridge.port.ask(request);
-  expect(first).toHaveBeenCalledTimes(1);
+it('refuses missing or different identity and invalid options while retaining the original pending question', async () => {
+  const pending = bridge.port.ask(request); pending.catch(() => undefined);
+  await waitPending();
+  await expect(bridge.port.ask({ ...request, questions: [{ ...request.questions[0]!, question: '替换同身份内容？' }] })).rejects.toThrow('QUESTION_IDENTITY_CONFLICT');
+  await expect(bridge.port.ask({ ...request, step: 2 })).rejects.toThrow('QUESTION_PENDING');
+  await expect(bridge.submit('turn', answers)).rejects.toThrow('QUESTION_IDENTITY_REQUIRED');
+  await expect(bridge.submit('turn', answers, { ...identity, invocationId: 'attempt:1:2' })).rejects.toThrow('QUESTION_NOT_PENDING');
+  await expect(bridge.submit('turn', [{ id: 'q1', selected: ['other'] }], identity)).rejects.toThrow('QUESTION_ANSWER_INVALID');
+  expect(await repo.getPendingUserQuestion(ctx, 'turn')).toMatchObject(identity);
+  await bridge.submit('turn', answers, identity);
+  await pending;
+});
+
+it('does not deliver a durable query result after its observation was removed', async () => {
+  const pending = bridge.port.ask(request); pending.catch(() => undefined);
+  await waitPending();
+  const deliver = vi.fn(), stop = bridge.observe('turn', deliver);
   stop();
-  vi.advanceTimersByTime(400);
-  bridge.observe('turn_1', reconnected);
-  expect(reconnected).toHaveBeenCalledWith(expect.objectContaining({ turnId: 'turn_1', timeoutMs: 600 }));
-  const timeout = expect(pending).rejects.toThrow('QUESTION_TIMEOUT');
-  vi.advanceTimersByTime(601);
-  await timeout;
-  const retired = vi.fn(); bridge.observe('turn_1', retired);
-  expect(retired).not.toHaveBeenCalled();
+  await new Promise(resolve => setTimeout(resolve, 20));
+  expect(deliver).not.toHaveBeenCalled();
+  await bridge.submit('turn', answers, identity);
+  await pending;
+});
+
+it('abort and host retirement cancel the original question without fabricating an answer', async () => {
+  const signal = new AbortController();
+  const pending = bridge.port.ask({ ...request, signal: signal.signal }); pending.catch(() => undefined);
+  await waitPending();
+  signal.abort();
+  await expect(pending).rejects.toThrow('QUESTION_CANCELLED');
+  expect(await repo.getPendingUserQuestion(ctx, 'turn')).toBeNull();
+  const next = bridge.port.ask({ ...request, invocationId: 'attempt:1:2' }); next.catch(() => undefined);
+  await waitPending();
+  await bridge.cancel();
+  await expect(next).rejects.toThrow('QUESTION_CANCELLED');
+  expect((await repo.getStreamEvents(ctx, 'turn')).filter(event => event.eventType === 'user_question_answered')).toHaveLength(0);
 });

@@ -17,6 +17,7 @@ import type {
 } from '@aervox/contracts';
 import type {
   AervoxTransport,
+  QuestionAnswerIdentity,
   EventStreamCallbacks,
   AttachmentUploadInput,
   StreamTurnOptions,
@@ -141,11 +142,11 @@ export const desktopTransport: AervoxTransport = {
     await streamTurnViaBridge(bridge, callbacks, options, (requestId, callback) => bridge.observeTurn!(turnId, {requestId, afterEventId: options.afterEventId}, callback), turnId);
   },
 
-  async submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[], signal?: AbortSignal): Promise<void> {
+  async submitQuestionAnswers(turnId: string, answers: AskUserQuestionAnswerItem[], signal?: AbortSignal, identity?: QuestionAnswerIdentity): Promise<void> {
     await this.request(
       'POST',
       `/v1/turns/${encodeURIComponent(turnId)}/questions/answers`,
-      { answers },
+      { answers, ...identity },
       { signal },
     );
   },

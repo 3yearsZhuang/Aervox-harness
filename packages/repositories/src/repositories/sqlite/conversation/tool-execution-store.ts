@@ -14,7 +14,7 @@ import type { LocalContext } from "../../../local-context.js";
 import { FencingMismatchError } from "../../../errors.js";
 import type { ToolExecutionModel } from "../../types/index.js";
 import { streamEventId } from "./stream-event-store.js";
-import { publishAssistantHistory } from "./message-history.js";
+import { publishAssistantHistory, terminalEventDataForCurrentSource } from "./message-history.js";
 
 export class ToolExecutionStore {
   constructor(private readonly db: AervoxDatabase) {}
@@ -225,7 +225,7 @@ export class ToolExecutionStore {
               eq(turnAttempts.fencingToken, input.expectedFencingToken),
             ),
           )
-          .returning({ id: turnAttempts.id });
+          .returning({ id: turnAttempts.id, status: turnAttempts.status });
         if (!updated) return false;
         // Keep the durable Turn aligned with its latest terminal Attempt in the same transaction.
         const [latest] = await tx.select({ isCurrent: sql<number>`${turnAttempts.id} = ${input.attemptId}` }).from(turnAttempts)
@@ -240,7 +240,10 @@ export class ToolExecutionStore {
           attemptId: input.attemptId,
           sequence: input.sequence,
           eventType: input.eventType,
-          data: input.eventData,
+          data: input.eventType === "done" || input.eventType === "error"
+            ? await terminalEventDataForCurrentSource(tx, { turnId: input.turnId, eventType: input.eventType,
+              status: updated.status, sequence: input.sequence, data: input.eventData })
+            : input.eventData,
           occurredAt: new Date().toISOString(),
           safetyDecision: input.safetyDecision ?? null,
         });
