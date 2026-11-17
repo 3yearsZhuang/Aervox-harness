@@ -12,7 +12,7 @@ import { runCompactionMarkerCycle } from '../../apps/worker/dist/compaction-mark
 import { fixture, query, oracle, close, LOCAL } from './fixture.mjs';
 
 // Instrument only this research process. Production source and transaction
-// boundaries are unchanged; barriers wait after the actual awaited operation.
+// boundaries are unchanged; barriers surround the actual awaited operation.
 async function barrier(name) {
   process.send({ type: 'barrier', name });
   await new Promise(resolve => process.once('message', message => {
@@ -31,7 +31,7 @@ function observedQuery(builder, after) {
 function observedTransactions(db, mode, stage) {
   let mutations = 0, selected = false;
   return new Proxy(db, { get(target, property) {
-    if (property === 'transaction') return callback => target.transaction(tx => callback(new Proxy(tx, { get(writer, key) {
+    if (property === 'transaction') return (callback, ...options) => target.transaction(tx => callback(new Proxy(tx, { get(writer, key) {
       if (key === 'run') return async (...args) => {
         const result = await writer.run(...args);
         if (mode === 'crash' && stage === `clean-mutation-${++mutations}`) await barrier(stage);
@@ -45,7 +45,7 @@ function observedTransactions(db, mode, stage) {
       });
       const value = Reflect.get(writer, key, writer);
       return typeof value === 'function' ? value.bind(writer) : value;
-    } })));
+    } })), ...options);
     const value = Reflect.get(target, property, target);
     return typeof value === 'function' ? value.bind(target) : value;
   } });
@@ -72,17 +72,17 @@ async function crash(url, stage) {
     throw new Error(`unreached crash barrier ${stage}`);
   }
   const privacy = new SqlitePrivacyRepository(db);
-  const targetStatus = privacy.updateDeletionTargetStatus.bind(privacy);
-  privacy.updateDeletionTargetStatus = async (...args) => {
-    if (stage === 'before-target-proof' && args[1] === 'completed') await barrier(stage);
+  const targetStatus = privacy.updateDeletionTargetAttemptStatus.bind(privacy);
+  privacy.updateDeletionTargetAttemptStatus = async (...args) => {
+    if (stage === 'before-target-proof' && args[1].status === 'completed') await barrier(stage);
     const result = await targetStatus(...args);
-    if (stage === 'after-target-proof' && args[1] === 'completed') await barrier(stage);
+    if (stage === 'after-target-proof' && result?.status === 'completed') await barrier(stage);
     return result;
   };
-  const requestStatus = privacy.updateDeletionRequestStatus.bind(privacy);
-  privacy.updateDeletionRequestStatus = async (...args) => {
-    const result = await requestStatus(...args);
-    if (stage === 'after-request-complete' && args[2] === 'completed') await barrier(stage);
+  const finalize = privacy.finalizeDeletionRequestAttempt.bind(privacy);
+  privacy.finalizeDeletionRequestAttempt = async (...args) => {
+    const result = await finalize(...args);
+    if (stage === 'after-request-complete' && result?.status === 'completed') await barrier(stage);
     return result;
   };
   await runDeletionCycle({ memoryDeletion: new SqliteMemoryDeletionStore(db), privacyRepo: privacy, platformRepo: new SqlitePlatformRepository(db), workerId: 'crash-probe' });

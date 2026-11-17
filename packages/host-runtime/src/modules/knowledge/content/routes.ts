@@ -185,6 +185,13 @@ export function registerContentRoutes(
     } catch {
       return reply.status(404).send({ error: "Attachment content missing" });
     }
+    // File I/O may outlive deletion or replacement of the captured resource.
+    const current = await contentRepo.getAttachment(tenant, attachmentId);
+    if (!current || current.id !== attachment.id || current.objectKey !== attachment.objectKey
+      || current.mediaType !== attachment.mediaType || current.size !== attachment.size
+      || current.createdAt !== attachment.createdAt) {
+      return reply.status(404).send({ error: "Attachment not found" });
+    }
     return reply
       .header("Content-Type", attachment.mediaType)
       .header("Content-Length", content.byteLength)

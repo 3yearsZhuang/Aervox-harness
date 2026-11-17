@@ -5,11 +5,12 @@
  * - POST /v1/attachments/binary：原始二进制上传（合法类型/非法类型/空体）
  * - GET /v1/attachments/:id/content：附件回读（Content-Type / 404 / 本地上下文共享）
  */
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import fs from "node:fs/promises";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { createInMemoryDatabase, type AervoxDatabase } from "@aervox/repositories";
+import { createInMemoryDatabase, SqliteContentRepository, type AervoxDatabase } from "@aervox/repositories";
 import { buildApp } from "./app-fixture.js";
 import type { FastifyInstance } from "fastify";
 import type { Client } from "@libsql/client";
@@ -30,6 +31,7 @@ describe("多模态输入：原始二进制上传（CAP-012 扩展）", () => {
   let client: Client;
   let cleanupDb: () => Promise<void>;
   let attachmentsRoot: string;
+  let releaseRead: (() => void) | undefined;
 
   beforeEach(async () => {
     const res = await createInMemoryDatabase();
@@ -43,9 +45,135 @@ describe("多模态输入：原始二进制上传（CAP-012 扩展）", () => {
   });
 
   afterEach(async () => {
+    releaseRead?.(); releaseRead = undefined;
+    vi.restoreAllMocks();
     await app.close();
     await cleanupDb();
     await rm(attachmentsRoot, { recursive: true, force: true });
+  });
+
+  async function uploadOverHttp(base: string) {
+    const payload = Buffer.from("ATTACHMENT_READ_PRIVATE_CANARY");
+    const response = await fetch(`${base}/v1/attachments/binary?fileName=source.png&mediaType=image%2Fpng&purpose=question`, {
+      method: "POST", headers: { ...headers, "content-type": "image/png" }, body: payload,
+    });
+    expect(response.status).toBe(201);
+    return { attachment: await response.json() as { id: string; objectKey: string }, payload };
+  }
+
+  function suspendContentRead(objectKey: string) {
+    const target = path.join(attachmentsRoot, objectKey);
+    const originalRead = fs.readFile;
+    let entered!: () => void;
+    const received = new Promise<void>(resolve => { entered = resolve; });
+    const pending = new Promise<void>(resolve => { releaseRead = resolve; });
+    const reader = vi.spyOn(fs, "readFile").mockImplementation(async (file, options) => {
+      const bytes = await originalRead(file, options);
+      if (file === target) {
+        entered();
+        await pending;
+      }
+      return bytes;
+    });
+    return {
+      received,
+      release: () => { releaseRead?.(); releaseRead = undefined; },
+      restore: () => reader.mockRestore(),
+    };
+  }
+
+  it("does not release bytes read before a committed attachment deletion over real HTTP", async () => {
+    const base = await app.listen({ host: "127.0.0.1", port: 0 });
+    const { attachment, payload } = await uploadOverHttp(base);
+    const held = suspendContentRead(attachment.objectKey);
+    const reading = fetch(`${base}/v1/attachments/${attachment.id}/content`, { headers });
+    try {
+      await held.received;
+      const deletion = await fetch(`${base}/v1/attachments/${attachment.id}`, { method: "DELETE", headers });
+      expect(deletion.status).toBe(200);
+      expect(await deletion.json()).toMatchObject({ id: attachment.id, invalidatedDerivatives: 0 });
+      expect((await client.execute({ sql: "SELECT deleted_at FROM attachments WHERE id = ?", args: [attachment.id] })).rows[0]?.deleted_at).not.toBeNull();
+      held.release();
+      const response = await reading;
+      const body = await response.text();
+      expect(response.status).toBe(404);
+      expect(response.headers.get("content-type")).not.toBe("image/png");
+      expect(body).not.toContain(payload.toString());
+    } finally { held.release(); held.restore(); }
+  });
+
+  it("refuses an initially deleted attachment before reading its retained file", async () => {
+    const base = await app.listen({ host: "127.0.0.1", port: 0 });
+    const { attachment, payload } = await uploadOverHttp(base);
+    const deletion = await fetch(`${base}/v1/attachments/${attachment.id}`, { method: "DELETE", headers });
+    expect(deletion.status).toBe(200); await deletion.json();
+    const reader = vi.spyOn(fs, "readFile");
+    const response = await fetch(`${base}/v1/attachments/${attachment.id}/content`, { headers });
+    expect(response.status).toBe(404);
+    expect(await response.text()).not.toContain(payload.toString());
+    expect(reader).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["object_key", "replacement.png"], ["media_type", "text/plain"],
+    ["size", 999], ["created_at", "2026-01-01T00:00:00.000Z"],
+  ] as const)("refuses an attachment resource changed during its read (%s)", async (column, value) => {
+    const base = await app.listen({ host: "127.0.0.1", port: 0 });
+    const { attachment, payload } = await uploadOverHttp(base);
+    const held = suspendContentRead(attachment.objectKey);
+    const reading = fetch(`${base}/v1/attachments/${attachment.id}/content`, { headers });
+    try {
+      await held.received;
+      await client.execute({ sql: `UPDATE attachments SET ${column} = ? WHERE id = ?`, args: [value, attachment.id] });
+      held.release();
+      const response = await reading;
+      const body = await response.text();
+      expect(response.status).toBe(404);
+      expect(body).not.toContain(payload.toString());
+    } finally { held.release(); held.restore(); }
+  });
+
+  it("does not release read bytes when the final attachment query fails", async () => {
+    const base = await app.listen({ host: "127.0.0.1", port: 0 });
+    const { attachment, payload } = await uploadOverHttp(base);
+    const held = suspendContentRead(attachment.objectKey);
+    const reading = fetch(`${base}/v1/attachments/${attachment.id}/content`, { headers });
+    try {
+      await held.received;
+      // Break only the isolated fixture's final SELECT after the original read.
+      await client.execute("ALTER TABLE attachments RENAME COLUMN deleted_at TO unavailable_deleted_at");
+      held.release();
+      const response = await reading;
+      const body = await response.text();
+      expect(response.status).toBe(500);
+      expect(body).not.toContain(payload.toString());
+      expect(body).not.toContain("unavailable_deleted_at");
+    } finally { held.release(); held.restore(); }
+  });
+
+  it("preserves the original content when attachment deletion rolls back", async () => {
+    const base = await app.listen({ host: "127.0.0.1", port: 0 });
+    const { attachment, payload } = await uploadOverHttp(base);
+    await client.execute({ sql: "UPDATE attachments SET scan_status = 'clean' WHERE id = ?", args: [attachment.id] });
+    await new SqliteContentRepository(db).createParseResult({ workspaceId: "local", subjectUserId: "local" }, {
+      id: "retained-parse", attachmentId: attachment.id, parsedText: "explicit fixture result", parseStatus: "completed",
+    });
+    await client.execute("CREATE TRIGGER fail_invalidate BEFORE UPDATE OF superseded_at ON attachment_parse_results BEGIN SELECT RAISE(ABORT, 'fixture_failure'); END");
+    const held = suspendContentRead(attachment.objectKey);
+    const reading = fetch(`${base}/v1/attachments/${attachment.id}/content`, { headers });
+    try {
+      await held.received;
+      const deletion = await fetch(`${base}/v1/attachments/${attachment.id}`, { method: "DELETE", headers });
+      expect(deletion.status).toBe(500); await deletion.json();
+      expect((await client.execute({ sql: "SELECT deleted_at FROM attachments WHERE id = ?", args: [attachment.id] })).rows[0]?.deleted_at).toBeNull();
+      expect((await client.execute("SELECT superseded_at FROM attachment_parse_results WHERE id = 'retained-parse'")).rows[0]?.superseded_at).toBeNull();
+      held.release();
+      const response = await reading;
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toBe("image/png");
+      expect(response.headers.get("content-length")).toBe(String(payload.byteLength));
+      expect(Buffer.from(await response.arrayBuffer())).toEqual(payload);
+    } finally { held.release(); held.restore(); }
   });
 
   it("上传图片二进制成功并登记附件记录", async () => {

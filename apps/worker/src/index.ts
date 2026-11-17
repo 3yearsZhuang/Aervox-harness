@@ -154,7 +154,7 @@ host
   })
   .registerJob({
     name: "deletion",
-    run: () => runDeletionCycle({ memoryDeletion, privacyRepo, platformRepo, workerId }),
+    run: () => runDeletionCycle({ memoryDeletion, privacyRepo, workerId }),
   })
   .registerJob({
     name: "compaction",

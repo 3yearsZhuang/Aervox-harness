@@ -41,9 +41,13 @@ overrides:
   "qs@6.16.0": "6.16.1"
   "follow-redirects@1.16.1": "1.16.2"
 
+  "@esbuild-kit/core-utils@3.3.2>esbuild": "0.25.12"
+  "xcode@3.0.1>uuid": "11.1.1"
+
 patchedDependencies:
   deepmerge@4.3.1: patches/deepmerge@4.3.1.patch
   drizzle-orm@0.45.4: patches/drizzle-orm@0.45.4.patch
   minimatch@9.0.9: patches/minimatch@9.0.9.patch
   minimatch@10.2.6: patches/minimatch@10.2.6.patch
   glob@13.0.6: patches/glob@13.0.6.patch
+  picomatch@4.0.5: patches/picomatch@4.0.5.patch
