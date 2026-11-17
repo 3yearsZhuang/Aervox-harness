@@ -136,6 +136,7 @@ test("check-removable-implementation: 校园插件源码、内聚测试与唯一
   assert.deepEqual([...target.allowedAssemblyFiles].sort(), [
     ...COMPOSITION_ROOTS,
     ...directoryFiles("plugins/plugins/tool/flowcampus/test"),
+    "e2e/ui/flowcampus-schedule.spec.ts",
     "e2e/ui/flowcampus.spec.ts",
   ].sort());
   assert.deepEqual(target.removalPlan.removeDirectories, ["plugins/plugins/tool/flowcampus"]);
