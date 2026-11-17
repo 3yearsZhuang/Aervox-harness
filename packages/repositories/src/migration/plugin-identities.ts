@@ -1,6 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { Client } from "@libsql/client";
+// Offline guards also load this source directly with Node's type stripping.
+import { backendFor } from "../database-backend.ts";
 
 /** Reviewed, one-time identity change. This is never a runtime alias registry. */
 export const PLUGIN_IDENTITY_MIGRATIONS = Object.freeze({
@@ -52,13 +54,18 @@ export async function assertPluginIdentityMigrationUnlockedForPath(filename: str
 
 /** Query every relational plugin owner, including detached configuration and Vault rows. */
 export async function assertPluginIdentityMigrationReady(client: Pick<Client, "execute">): Promise<void> {
-  const tables = await client.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
+  const postgresql = backendFor(client) === "postgresql";
+  const tables = await client.execute(postgresql
+    ? "SELECT c.relname AS name FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=current_schema() AND c.relkind IN ('r','p')"
+    : "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
   const quote = (value: string): string => `"${value.replaceAll('"', '""')}"`;
   const oldIds = Object.keys(PLUGIN_IDENTITY_MIGRATIONS);
   for (const item of tables.rows) {
     const table = String(item.name);
     if (PLUGIN_IDENTITY_HISTORICAL_OWNER_TABLES.has(table)) continue;
-    const columns = await client.execute(`PRAGMA table_info(${quote(table)})`);
+    const columns = await client.execute(postgresql
+      ? { sql: "SELECT column_name AS name FROM information_schema.columns WHERE table_schema=current_schema() AND table_name=?", args: [table] }
+      : `PRAGMA table_info(${quote(table)})`);
     for (const field of columns.rows) {
       const column = String(field.name);
       if (column !== "plugin_id" && !(table === "plugins" && column === "id")) continue;

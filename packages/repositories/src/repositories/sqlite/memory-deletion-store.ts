@@ -3,6 +3,7 @@ import { eq, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
 import { memoryRecords } from "@aervox/schema";
 import { MEMORY_DELETION_VERIFIER } from "../../memory-deletion-protocol.js";
+import { jsonEach, jsonKind, jsonObject, jsonText, jsonValue, nullSafeDifferent } from "../../sql-dialect.js";
 
 type Writer = Parameters<Parameters<AervoxDatabase["transaction"]>[0]>[0];
 export class SqliteMemoryDeletionStore {
@@ -18,7 +19,8 @@ export class SqliteMemoryDeletionStore {
       UNION ALL SELECT 1 FROM temporal_facts WHERE memory_revision_id IN (SELECT id FROM memory_revisions WHERE memory_id = ${memoryId})
       UNION ALL SELECT 1 FROM temporal_fact_evidence WHERE memory_evidence_id IN (
         SELECT id FROM memory_evidence WHERE memory_revision_id IN (SELECT id FROM memory_revisions WHERE memory_id = ${memoryId}))
-      UNION ALL SELECT 1 FROM skill_candidates, json_each(source_evidence_json, '$.memoryIds') WHERE json_each.value = ${memoryId}
+      UNION ALL SELECT 1 FROM skill_candidates, ${jsonEach(db, sql`source_evidence_json`, {path: '$.memoryIds', kind: 'array'})}
+        WHERE json_each.type = 'text' AND json_each.value = ${memoryId}
       LIMIT 1`);
     if (projection) throw new Error("deletion_memory_projection_requires_owner_cleanup");
   }
@@ -37,11 +39,14 @@ export class SqliteMemoryDeletionStore {
       await tx.run(sql`UPDATE memory_compaction_markers SET summary_text = NULL, status = 'tombstoned' WHERE memory_id = ${memoryId}`);
       await tx.run(sql`UPDATE memory_events SET reason = NULL WHERE memory_id = ${memoryId}`);
       await tx.run(sql`UPDATE outbox_events SET
-        payload = json_object('memoryId', ${memoryId}, 'snapshotId',
-          CASE WHEN json_type(payload, '$.snapshotId') = 'text' THEN json_extract(payload, '$.snapshotId') ELSE NULL END,
-          'deleted', json('true')),
+        payload = ${jsonObject(tx, [
+          ['memoryId', sql`cast(${memoryId} as text)`],
+          ['snapshotId', sql`case when ${jsonKind(tx, sql`payload`, '$.snapshotId')} = 'text'
+            then ${jsonText(tx, sql`payload`, '$.snapshotId')} else null end`],
+          ['deleted', jsonValue(tx, sql`'true'`)],
+        ])},
         status = 'published', last_error = NULL, published_at = ${new Date().toISOString()}
-        WHERE event_type = 'memory.compaction.requested' AND json_extract(payload, '$.memoryId') = ${memoryId}`);
+        WHERE event_type = 'memory.compaction.requested' AND ${jsonText(tx, sql`payload`, '$.memoryId')} = ${memoryId}`);
       await tx.run(sql`DELETE FROM memory_embeddings WHERE memory_id = ${memoryId}`);
       await tx.run(sql`DELETE FROM memories_fts WHERE id = ${memoryId}`);
     });
@@ -60,9 +65,9 @@ export class SqliteMemoryDeletionStore {
         UNION ALL SELECT 1 FROM memory_compaction_markers WHERE memory_id = ${memoryId} AND (summary_text IS NOT NULL OR status != 'tombstoned')
         UNION ALL SELECT 1 FROM memory_events WHERE memory_id = ${memoryId} AND reason IS NOT NULL
         UNION ALL SELECT 1 FROM outbox_events WHERE event_type = 'memory.compaction.requested'
-          AND json_extract(payload, '$.memoryId') = ${memoryId}
-          AND (json_type(payload, '$.deleted') IS NOT 'true' OR status != 'published' OR last_error IS NOT NULL
-            OR EXISTS (SELECT 1 FROM json_each(payload) AS field
+          AND ${jsonText(tx, sql`payload`, '$.memoryId')} = ${memoryId}
+          AND (${nullSafeDifferent(tx, jsonKind(tx, sql`payload`, '$.deleted'), 'true')} OR status != 'published' OR last_error IS NOT NULL
+            OR EXISTS (SELECT 1 FROM ${jsonEach(tx, sql`payload`, {kind: 'object', alias: 'field'})}
               WHERE field.key NOT IN ('memoryId', 'snapshotId', 'deleted')
                 OR (field.key = 'snapshotId' AND field.type NOT IN ('text', 'null'))))
         UNION ALL SELECT 1 FROM memory_embeddings WHERE memory_id = ${memoryId}

@@ -1,5 +1,5 @@
 import type { ModuleDependencies } from "../../context.js";
-import { SqliteMemoryRepository, SqliteMemoryEmbeddingRepository, SqlitePrivacyRepository } from "@aervox/repositories";
+import { SqliteMemoryRepository, SqliteMemoryEmbeddingRepository, SqlitePrivacyRepository, backendFor } from "@aervox/repositories";
 import { registerMemoryRoutes } from "./routes.js";
 import { MemoryStoreTool } from "./memory-store-tool.js";
 import {
@@ -32,7 +32,7 @@ export async function registerMemoryModule(ctx: ModuleDependencies<"app" | "clie
   const privacyRepo = new SqlitePrivacyRepository(db);
   const embeddingProvider = options.embeddingProvider === undefined
     ? resolveEmbeddingProvider() : options.embeddingProvider;
-  const engine = process.env.AERVOX_MEMORY_VECTOR_ENGINE;
+  const engine = backendFor(client) === "sqlite" ? process.env.AERVOX_MEMORY_VECTOR_ENGINE : undefined;
   const artifact = engine === "rust" ? nativeArtifactFromEnvironment() ?? await loadNativeArtifact() : undefined;
   const databasePath = artifact || engine === "typed" ? String((await client.execute("PRAGMA database_list")).rows.find(r => r.name === "main")?.file ?? "") : "";
   const nativeVector = artifact && isAbsolute(databasePath) ? new NativeMemoryVectorSearchAdapter(

@@ -18,8 +18,8 @@ import {
   type LocalContext,
   type AervoxDatabase,
   type IVectorSearchPort,
+  type FtsConnection,
 } from "@aervox/repositories";
-import type { Client } from "@libsql/client";
 import type { MemoryEmbeddingProvider } from "./embedding-provider.js";
 
 export interface RecalledMemory {
@@ -63,7 +63,7 @@ export function buildMemoryContext(memories: RecalledMemory[]): string | null {
 export interface SqliteMemoryRecallOptions {
   vectorPort?: IVectorSearchPort;
   db: AervoxDatabase;
-  client: Client;
+  client: FtsConnection;
   embeddingProvider: MemoryEmbeddingProvider | null;
   consentCheck?: (purpose: string, scope: string) => Promise<boolean>;
   /** Fixed purpose/scope for a consent owner in this same local database.

@@ -29,4 +29,9 @@ export const REQUIRED_SOURCE_FILES = [
   'package.json',
   'scripts/memory-deletion-research/source-manifest.mjs',
   ...['deletion-worker', 'compaction-marker'].flatMap(file => [`apps/worker/src/${file}.ts`, `apps/worker/dist/${file}.js`]),
+  // Older reports retain their frozen validator; changed coverage requires remeasurement.
+  ...['search/fts-neutral', 'sql-dialect', 'attachment-source-admission',
+    'repositories/sqlite/memory-repository-neutral', 'repositories/sqlite/outbox-repository-store',
+    'repositories/sqlite/memory-embedding-repository-neutral']
+    .flatMap(file => [`packages/repositories/src/${file}.ts`, `packages/repositories/dist/${file}.js`]),
 ];

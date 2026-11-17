@@ -36,6 +36,7 @@ HELP="$(
   package                      打包桌面端安装包(electron-builder, 产物 apps/desktop/release/)
   clean [--dry-run] [--native] [--references]
                               清理构建输出，按需清理原生缓存与参考依赖
+  database [操作/参数...]       主库状态、PostgreSQL离线迁移与切换（database help）
   test [affected|unit|guards|all|<pkg>]
                                运行测试套件:
                                  affected  = 智能增量测试(默认, 仅变更包及其下游)
@@ -493,6 +494,15 @@ case "$CMD" in
   mobile)                  cmd_mobile ;;
   package)                 cmd_package ;;
   clean)                   cmd_clean "$@" ;;
+  database)
+    if [ "${1:-}" = "help" ] || [ "${1:-}" = "--help" ]; then
+      run node scripts/database.mjs help
+    else
+      ensure_deps
+      run pnpm exec turbo run build --filter=@aervox/repositories
+      run node scripts/database.mjs "$@"
+    fi
+    ;;
   test)                    cmd_test "${1:-affected}" ;;
   ci)                      cmd_ci "${1:-affected}" ;;
   *)                       fail "未知命令: ${CMD}（运行 aervox help 查看用法）" ;;

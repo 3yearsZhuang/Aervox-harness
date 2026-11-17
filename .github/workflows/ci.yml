@@ -69,7 +69,7 @@ permissions:
 jobs:
   build:
     name: Install, build & typecheck
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -157,6 +157,18 @@ jobs:
             echo "Turbo remote cache not configured; using local cache only."
           fi
 
+      - name: Start isolated PostgreSQL 16 for native integration tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-16
+          pg_test_root=$(mktemp -d "$RUNNER_TEMP/aervox-pg.XXXXXX")
+          printf 'AERVOX_CI_PG_ROOT=%s\n' "$pg_test_root" >> "$GITHUB_ENV"
+          mkdir -m 700 "$pg_test_root/socket"
+          /usr/lib/postgresql/16/bin/initdb -D "$pg_test_root/data" --no-locale --encoding=UTF8 --auth-local=trust --auth-host=reject
+          /usr/lib/postgresql/16/bin/pg_ctl -D "$pg_test_root/data" -l "$pg_test_root/server.log" -o "-k $pg_test_root/socket -p 65439 -h ''" -w start
+          pg_test_url="postgresql://$(id -un)@localhost/postgres?host=$pg_test_root/socket&port=65439"
+          printf 'AERVOX_PG_TEST_URL=%s\nAERVOX_TEST_POSTGRES_URL=%s\n' "$pg_test_url" "$pg_test_url" >> "$GITHUB_ENV"
+
       - name: Run code gate (build + typecheck + test)
         env:
           TURBO_CACHE_DIR: ${{ runner.temp }}/turbo-cache
@@ -164,6 +176,10 @@ jobs:
 
       - name: Verify CLI package and persisted conversation
         run: mise exec -- pnpm test:cli:integration
+
+      - name: Stop isolated PostgreSQL
+        if: always() && env.AERVOX_CI_PG_ROOT != ''
+        run: /usr/lib/postgresql/16/bin/pg_ctl -D "$AERVOX_CI_PG_ROOT/data" -m immediate -w stop
 
       # 失败也保存（if: always()）：已成功任务的缓存条目不应随本次
       # 门禁失败而丢弃；save key 与本次 restore key 一致（run_id 唯一，必然 miss → 必然保存）。

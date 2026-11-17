@@ -15,7 +15,7 @@ import type { Client } from "@libsql/client";
 
 export interface AttemptRecoveryOptions {
   db: AervoxDatabase;
-  client: Client;
+  client: Pick<Client, "execute">;
   workerId: string;
   /** Explicit local-only recovery supplied by the shared product host. */
   resume?: () => Promise<unknown>;

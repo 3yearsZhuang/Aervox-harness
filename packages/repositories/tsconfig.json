@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.base.node.json",
   "compilerOptions": {
     "rootDir": "src",
+    "rewriteRelativeImportExtensions": true,
     "outDir": "dist"
   },
   "include": ["src"]

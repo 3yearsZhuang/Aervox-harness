@@ -16,7 +16,7 @@ export async function assertPersonalDerivedDataSource(
   const [source] = await db.select({
     turnPolicy: turns.executionPolicy,
     sessionPolicy: sessions.executionPolicy,
-    unverifiedAttachments: unverifiedAttachmentTurn(turns.id),
+    unverifiedAttachments: unverifiedAttachmentTurn(db, turns.id),
   }).from(turns).innerJoin(sessions, eq(turns.sessionId, sessions.id)).where(eq(turns.id, sourceTurnId));
   if (!source) throw new Error("personal_derived_data_source_unavailable");
   assertConversationExecutionPolicy(source.turnPolicy);

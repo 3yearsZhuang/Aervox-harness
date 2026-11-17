@@ -52,6 +52,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "pg": "^8.23.1",
     "@aervox/contracts": "workspace:*",
     "@aervox/native-runtime": "workspace:*",
     "@aervox/schema": "workspace:*",

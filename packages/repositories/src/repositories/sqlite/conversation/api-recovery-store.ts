@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { toolExecutions, turnAttempts, turns, turnStreamEvents } from "@aervox/schema";
 import type { AervoxDatabase } from "../../../client.js";
 import { publishAssistantHistory } from "./message-history.js";
+import { jsonQuote } from "../../../sql-dialect.js";
 
 const terminal = ["Completed", "Failed", "Interrupted", "Cancelled"];
 // An inbox row exists before platform Turn acceptance. Match its idempotency key too,
@@ -33,7 +34,7 @@ export class ApiRecoveryStore {
     return this.db.transaction(async tx => {
       const [turn] = await tx.select().from(turns).where(eq(turns.id, turnId));
       if (!turn) return null;
-      const [attempt] = await tx.select({ id: sql<string>`json_quote(${turnAttempts.id})`.mapWith(value => JSON.parse(value) as string), status: turnAttempts.status }).from(turnAttempts).where(eq(turnAttempts.turnId, turnId)).orderBy(desc(turnAttempts.attempt)).limit(1);
+      const [attempt] = await tx.select({ id: jsonQuote(tx, turnAttempts.id).mapWith(value => JSON.parse(value) as string), status: turnAttempts.status }).from(turnAttempts).where(eq(turnAttempts.turnId, turnId)).orderBy(desc(turnAttempts.attempt)).limit(1);
       if (!attempt || !terminal.includes(attempt.status)) return null;
       if (terminal.includes(turn.status) && turn.status !== attempt.status) return null;
       const [last] = await tx.select({ sequence: turnStreamEvents.sequence }).from(turnStreamEvents)
@@ -61,7 +62,7 @@ export class ApiRecoveryStore {
       const [turn] = await tx.select().from(turns).where(and(eq(turns.id, turnId), apiPolicy));
       if (!turn) return false;
       const [latest] = await tx.select({ isCurrent: sql<number>`${turnAttempts.id} = ${attemptId}` }).from(turnAttempts).where(eq(turnAttempts.turnId, turnId)).orderBy(desc(turnAttempts.attempt)).limit(1);
-      if (latest?.isCurrent !== 1) return false;
+      if (Number(latest?.isCurrent) !== 1) return false;
       const [attempt] = await tx.update(turnAttempts).set({
         status: sql`CASE WHEN ${turnAttempts.status} = 'CancelRequested' THEN 'Cancelled' ELSE 'Interrupted' END`,
         fencingToken: expectedFencingToken + 1, finishedAt: now,

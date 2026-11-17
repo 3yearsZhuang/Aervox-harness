@@ -23,7 +23,7 @@ id: AVX-REF-000
 
 - [Agent Harness Loop](agent-harness-loop.md) — 执行循环与控制流
 - [流式协议](STREAMING_PROTOCOL.md) — SSE 事件与持久化
-- [数据库契约](DATABASE.md) — SQLite 事务与迁移规则
+- [数据库契约](DATABASE.md) — 默认 SQLite、可选 PostgreSQL、事务与离线迁移规则
 - [API 约定](API_CONVENTIONS.md) — HTTP 路由与兼容策略
 
 ## 插件与扩展

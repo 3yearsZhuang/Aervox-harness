@@ -66,6 +66,13 @@ registerWorkerShutdown({
     record("dispose-done");
   },
   healthServer, logger,
-  clients: [main, vault].map(({ client }, index) => ({ close() { client.close(); record(`closed-${index}`); } })),
+  clients: [main, vault].map(({ client }, index) => ({ async close() {
+    if (index === 0) {
+      if (mode === "database-delay") await delay(150);
+      if (mode === "database-hung") await new Promise<void>(() => undefined);
+      if (mode === "database-reject") throw new Error("database_close_rejected");
+    }
+    client.close(); record(`closed-${index}`);
+  } })),
 } as Parameters<typeof registerWorkerShutdown>[0] & { shutdownTimeoutMs: number });
 host.start();

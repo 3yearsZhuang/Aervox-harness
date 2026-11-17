@@ -11,20 +11,21 @@ import type { ConversationCryptoPort } from "../../conversation-host-port.js";
 import type { FetchPendingEventsOptions, IOutboxRepository, OutboxEventModel } from "../types/index.js";
 import { notifyWorkerWakeup } from "@aervox/process-coordination";
 import { assertMemoryCompactionAvailable, MEMORY_COMPACTION_EVENT_TYPE, MemoryCompactionUnavailableError } from "./memory-compaction-guard.js";
+import { jsonKind, jsonNumber, jsonQuote, jsonText, nullSafeDifferent, validJson } from "../../sql-dialect.js";
 
 // Error text can contain a fetched summary. Keep this deletion predicate in the
 // UPDATE after the receipt proof below, within the same writer transaction.
 // A payload flag alone cannot establish that its source still exists or is live.
-const errorWriteAllowed = sql`CASE
-  WHEN ${outboxEvents.eventType} != ${MEMORY_COMPACTION_EVENT_TYPE} THEN 1
-  WHEN json_valid(${outboxEvents.payload}) THEN (
-    json_extract(${outboxEvents.payload}, '$.deleted') IS NOT 1
+const errorWriteAllowed = (db: object) => sql`CASE
+  WHEN ${outboxEvents.eventType} != ${MEMORY_COMPACTION_EVENT_TYPE} THEN true
+  WHEN ${validJson(db, outboxEvents.payload)} THEN (
+    ${nullSafeDifferent(db, jsonNumber(db, outboxEvents.payload, '$.deleted'), 1)}
     AND EXISTS (
       SELECT 1 FROM ${memoryRecords}
-      WHERE ${memoryRecords.id} = json_extract(${outboxEvents.payload}, '$.memoryId')
+      WHERE ${memoryRecords.id} = ${jsonText(db, outboxEvents.payload, '$.memoryId')}
         AND ${memoryRecords.isDeleted} = 0
     )
-  ) ELSE 0 END`;
+  ) ELSE false END`;
 
 async function sourceAllowsErrorWrite(
   db: Pick<AervoxDatabase, "select">,
@@ -35,13 +36,13 @@ async function sourceAllowsErrorWrite(
   // a fetched summary or depend on the JSON mapper accepting a malformed payload.
   const [event] = await db.select({
     isCompaction: sql<number>`CASE WHEN ${outboxEvents.eventType} = ${MEMORY_COMPACTION_EVENT_TYPE} THEN 1 ELSE 0 END`,
-    memoryId: sql<string | null>`CASE WHEN json_valid(${outboxEvents.payload}) THEN
-      CASE WHEN json_type(${outboxEvents.payload}, '$.memoryId') = 'text'
-        THEN json_quote(json_extract(${outboxEvents.payload}, '$.memoryId')) ELSE NULL END
+    memoryId: sql<string | null>`CASE WHEN ${validJson(db, outboxEvents.payload)} THEN
+      CASE WHEN ${jsonKind(db, outboxEvents.payload, '$.memoryId')} = 'text'
+        THEN ${jsonQuote(db, jsonText(db, outboxEvents.payload, '$.memoryId'))} ELSE NULL END
       ELSE NULL END`.mapWith(value => typeof value === "string" ? JSON.parse(value) as string : null),
   }).from(outboxEvents).where(eq(outboxEvents.id, eventId)).limit(1);
   if (!event) return false;
-  if (event.isCompaction !== 1) return true;
+  if (Number(event.isCompaction) !== 1) return true;
   if (event.memoryId === null) return false;
   try {
     await assertMemoryCompactionAvailable(db, event.memoryId, crypto);
@@ -182,7 +183,7 @@ export class OutboxRepository implements IOutboxRepository {
           status: sql`CASE WHEN ${outboxEvents.retryCount} + 1 >= ${maxRetries} THEN 'dead_letter' ELSE 'failed' END`,
           lastError: error,
         })
-        .where(and(eq(outboxEvents.id, eventId), errorWriteAllowed))
+        .where(and(eq(outboxEvents.id, eventId), errorWriteAllowed(tx)))
         .returning({ status: outboxEvents.status, retryCount: outboxEvents.retryCount });
       return (updated as { status: "failed" | "dead_letter"; retryCount: number }) ?? null;
     });
@@ -197,7 +198,7 @@ export class OutboxRepository implements IOutboxRepository {
           status: "dead_letter",
           lastError: reason,
         })
-        .where(and(eq(outboxEvents.id, eventId), errorWriteAllowed));
+        .where(and(eq(outboxEvents.id, eventId), errorWriteAllowed(tx)));
     });
   }
 

@@ -4,6 +4,7 @@ import {
   SqliteMemoryCompactionRepository, SqliteOutboxRepository, indexMemoryFts,
   SqliteProvenanceRepository, SqliteMemoryVectorSearchAdapter,
 } from '../../packages/repositories/dist/index.js';
+import assert from 'node:assert/strict';
 import { CHANNELS, WRITERS } from './protocol.mjs';
 export { ARMS, CHANNELS, WRITERS } from './protocol.mjs';
 
@@ -25,6 +26,13 @@ export async function fixture(url) {
     await query(f.client, 'INSERT INTO memory_revisions(id,memory_id,content,created_at) VALUES(?,?,?,?)', [`rev_${id}`, id, `revision ${id}`, NOW]);
     await query(f.client, 'INSERT INTO memory_evidence(id,memory_revision_id,source_artifact_id,source_revision_id,source_range,created_at) VALUES(?,?,?,?,?,?)', [`ev_${id}`, `rev_${id}`, `src_${id}`, `sr_${id}`, `range ${id}`, NOW]);
     for (const channel of CHANNELS) await write(f, channel, id, 'seed', true);
+    // Observe the actual stored rows, independently of the public indexer's
+    // return value. An omitted cleanup must start with a real FTS projection.
+    const [source] = await query(f.client, 'SELECT content FROM memory_records WHERE id=?', [id]);
+    const projection = await query(f.client, 'SELECT id,content FROM memories_fts WHERE id=?', [id]);
+    assert.equal(projection.length, 1, `${id}: fixture must seed an FTS row`);
+    assert.equal(projection[0].id, id, `${id}: fixture FTS identity`);
+    assert.equal(projection[0].content, source.content, `${id}: fixture FTS must match the persistent source`);
   }
   // The simulated worker has fetched these bytes before deletion begins.
   f.fetched = structuredClone((await f.outbox.getEventById('outbox_target_seed')).payload);
@@ -48,7 +56,13 @@ export async function write(f, writer, id, suffix, guarded) {
     ? `${f.fetched.summaryText} derived:${suffix}`
     : `privateword ${id} ${suffix}`;
   if (guarded) {
-    if (writer === 'fts') return indexMemoryFts(f.client, LOCAL, { id, content: text });
+    if (writer === 'fts') {
+      // Seed an eligible projection of the persistent fact. Late payloads keep
+      // their existing derived bytes so the protocol's writer comparison stays fixed.
+      const content = suffix === 'seed'
+        ? (await query(f.client, 'SELECT content FROM memory_records WHERE id=?', [id]))[0].content : text;
+      return indexMemoryFts(f.client, LOCAL, { id, content });
+    }
     if (writer === 'vector') return f.embedding.insertBatch(LOCAL, [{ id: key, memoryId: id, vector: [1, 0], modelId: key }]);
     if (writer === 'summary') return f.compaction.upsertMarker(LOCAL, { id: key, memoryId: id, snapshotId: key, summaryText: text });
     if (writer === 'audit') return f.compaction.recordEvent(LOCAL, { id: key, memoryId: id, action: 'compressed', reason: text });

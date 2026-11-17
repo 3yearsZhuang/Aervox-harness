@@ -47,8 +47,10 @@
     "mobile:schema": "node scripts/core-submodule.mjs && turbo run build --filter=@aervox/repositories && node scripts/generate-mobile-schema.mjs"
   },
   "devDependencies": {
+    "@aervox/research-deletion-fault-testing": "workspace:*",
     "@babel/parser": "^8.0.4",
     "@playwright/test": "1.62.1",
+    "@types/pg": "^8.23.1",
     "@types/qrcode": "1.5.6",
     "@types/ws": "8.18.1",
     "@vitejs/plugin-vue": "^6.0.8",
@@ -62,8 +64,7 @@
     "sqlite-vec": "0.1.7",
     "turbo": "2.10.11",
     "typescript": "7.0.2",
-    "vitest": "4.1.12",
-    "@aervox/research-deletion-fault-testing": "workspace:*"
+    "vitest": "4.1.12"
   },
   "dependencies": {
     "@aervox/native-runtime": "workspace:*",
@@ -71,6 +72,7 @@
     "@material/web": "2.5.0",
     "@pixi/unsafe-eval": "7.4.3",
     "@vscode/ripgrep": "1.18.0",
+    "pg": "^8.23.1",
     "qrcode": "1.5.4",
     "ws": "8.21.3"
   }

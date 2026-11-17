@@ -12,6 +12,7 @@ import { normalizeTurnIntent, turnIntentHashWithHost, readAcceptedTurnIntent, re
 import { assertConversationExecutionPolicy, conversationDispatchTarget } from "../../../conversation-execution-policy.js";
 import { RepositoryAccessViolationError } from "../../../errors.js";
 import { admitsSourceTurn, unverifiedAttachmentTurn } from "../../../attachment-source-admission.js";
+import { jsonObject, jsonQuote } from "../../../sql-dialect.js";
 
 const deletedInputIdentity = sql<number>`EXISTS (
   SELECT 1 FROM ${messages}
@@ -176,15 +177,15 @@ export class ConversationTurnStore {
     // Read the body and current identity eligibility in the same SQL snapshot.
     const [found] = await db
       .select({
-        content: sql<string>`json_quote(${messageVersions.content})`.mapWith(value => JSON.parse(value) as string),
+        content: jsonQuote(db, messageVersions.content).mapWith(value => JSON.parse(value) as string),
         isRedacted: messageVersions.isRedacted,
         deleted: deletedInputIdentity,
-        unverifiedAttachments: unverifiedAttachmentTurn(messageVersions.turnId),
+        unverifiedAttachments: unverifiedAttachmentTurn(db, messageVersions.turnId),
       })
       .from(messageVersions)
       .where(and(eq(messageVersions.turnId, turnId), eq(messageVersions.role, "user"), eq(messageVersions.version, 1)))
       .limit(1);
-    return found && found.isRedacted === 0 && found.deleted === 0 && found.unverifiedAttachments === 0
+    return found && Number(found.isRedacted) === 0 && Number(found.deleted) === 0 && Number(found.unverifiedAttachments) === 0
       && await admitsSourceTurn(db, turnId, this.host) ? found.content : null;
   }
 
@@ -193,8 +194,8 @@ export class ConversationTurnStore {
     return this.db.transaction(async tx => {
       const [found] = await tx.select({ id: messageVersions.id }).from(messageVersions).where(and(
         eq(messageVersions.turnId, turnId), eq(messageVersions.role, "user"), eq(messageVersions.version, 1),
-        sql`${deletedInputIdentity} = 0`,
-        sql`${unverifiedAttachmentTurn(messageVersions.turnId)} = 0`,
+        sql`not ${deletedInputIdentity}`,
+        sql`${unverifiedAttachmentTurn(tx, messageVersions.turnId)} = 0`,
       )).limit(1);
       return Boolean(found) && await admitsSourceTurn(tx, turnId, this.host);
     });
@@ -203,8 +204,10 @@ export class ConversationTurnStore {
   /** Resume from the accepted receipt only; caller parameters and missing legacy receipts are never substituted. */
   async getAcceptedTurnParameters(ctx: LocalContext, turnId: string): Promise<AcceptedTurnParameters> {
     return this.db.transaction(async tx => {
-      const [row] = await tx.select({ turn: sql<string>`json_object('turnId', ${turns.id}, 'sessionId', ${turns.sessionId},
-        'executionPolicy', ${turns.executionPolicy}, 'dispatchTarget', ${turns.dispatchTarget}, 'requestHash', ${turns.requestHash})`
+      const [row] = await tx.select({ turn: jsonObject(tx, [
+        ['turnId', turns.id], ['sessionId', turns.sessionId], ['executionPolicy', turns.executionPolicy],
+        ['dispatchTarget', turns.dispatchTarget], ['requestHash', turns.requestHash],
+      ])
         .mapWith(value => JSON.parse(value) as Pick<TurnModel, "sessionId" | "executionPolicy" | "dispatchTarget"> & { turnId: string; requestHash: string | null })
       }).from(turns).where(eq(turns.id, turnId)).limit(1);
       const turn = row?.turn;
@@ -242,7 +245,7 @@ export class ConversationTurnStore {
     expected?: ConversationExecutionPolicy,
   ): Promise<ConversationExecutionPolicy> {
     if (expected !== undefined) assertConversationExecutionPolicy(expected);
-    const [session] = await db.select({ policy: sql<string>`json_quote(${sessions.executionPolicy})`.mapWith(value => JSON.parse(value) as string) }).from(sessions).where(eq(sessions.id, sessionId));
+    const [session] = await db.select({ policy: jsonQuote(db, sessions.executionPolicy).mapWith(value => JSON.parse(value) as string) }).from(sessions).where(eq(sessions.id, sessionId));
     if (!session) throw new Error("conversation_session_unavailable");
     assertConversationExecutionPolicy(session.policy);
     if (expected !== undefined && expected !== session.policy) throw new Error("conversation_execution_policy_mismatch");

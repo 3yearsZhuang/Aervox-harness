@@ -11,7 +11,7 @@ describe("plugin author compatibility", () => {
   it("keeps old release labels valid while enforcing explicit host intervals", () => {
     expect(pluginManifestSchema.safeParse(manifest).success).toBe(true);
     expect(checkPluginHostCompatibility({}).compatible).toBe(true);
-    expect(PLUGIN_HOST_API_VERSION).toBe("1.1.0");
+    expect(PLUGIN_HOST_API_VERSION).toBe("1.2.0");
     const ecosystemRange = { requires: { hostApiVersion: { min: "1.1.0", maxExclusive: "2.0.0" } } };
     expect(checkPluginHostCompatibility(ecosystemRange).compatible).toBe(true);
     expect(checkPluginHostCompatibility(ecosystemRange, "1.0.0").compatible).toBe(false);
@@ -22,6 +22,17 @@ describe("plugin author compatibility", () => {
     expect(checkPluginHostCompatibility({ requires }, "2.0.0").compatible).toBe(false);
     expect(pluginManifestSchema.safeParse({ ...manifest, requires: { hostApiVersion: { min: "2.0.0", maxExclusive: "1.0.0" } } }).success).toBe(false);
     expect(checkPluginHostCompatibility({ requires }, "1.3.0-beta").compatible).toBe(false);
+  });
+  it("accepts explicit optional provisioning and preserves legacy omission", () => {
+    expect(pluginManifestSchema.parse(manifest).metadata.installation).toBeUndefined();
+    expect(pluginManifestSchema.parse({ ...manifest, metadata: { ...manifest.metadata, installation: "optional" } }).metadata.installation).toBe("optional");
+    expect(pluginManifestSchema.parse({ ...manifest, metadata: { ...manifest.metadata, installation: "preinstalled" } }).metadata.installation).toBe("preinstalled");
+    expect(pluginManifestSchema.safeParse({ ...manifest, metadata: { ...manifest.metadata, installation: "automatic" } }).success).toBe(false);
+    expect(checkPluginHostCompatibility({ requires: { hostApiVersion: { min: "1.2.0", maxExclusive: "2.0.0" } } }, "1.1.0").compatible).toBe(false);
+    expect(validatePluginBundleFiles({ "plugin.manifest.json": bytes({ ...manifest,
+      metadata: { ...manifest.metadata, installation: "optional" },
+      requires: { hostApiVersion: { min: "1.2.0", maxExclusive: "2.0.0" } },
+    }) }).issues).toEqual([]);
   });
   it("orders SemVer numerically including prereleases and never orders legacy labels", () => {
     expect(comparePluginVersions("1.10.0", "1.9.0")).toBe(1);

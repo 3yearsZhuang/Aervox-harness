@@ -1,6 +1,7 @@
 mod activity;
 mod audio;
 mod protocol;
+mod socket_peer;
 mod supervisor;
 mod vector;
 use serde_json::json;
@@ -12,6 +13,14 @@ use std::{
 pub static INPUT_OPEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 
 fn run() -> Result<(), String> {
+    if std::env::args().nth(1).as_deref() == Some("socket-peer") {
+        println!(
+            "{}",
+            serde_json::to_string(&socket_peer::inspect(3)?)
+                .map_err(|_| "socket_peer_output_failed")?
+        );
+        return Ok(());
+    }
     #[cfg(unix)]
     if std::env::args().nth(1).as_deref() == Some("guard") {
         return supervisor::run_guard();

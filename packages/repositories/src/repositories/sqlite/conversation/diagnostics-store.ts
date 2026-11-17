@@ -1,7 +1,8 @@
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { contextManifests, modelRuns, toolApprovals, toolExecutions, turnAttempts, turns, turnStreamEvents } from "@aervox/schema";
 import type { TurnDiagnostics } from "@aervox/contracts";
 import type { AervoxDatabase } from "../../../client.js";
+import { ascendingNullsFirst, jsonText } from "../../../sql-dialect.js";
 
 // Select only summary columns. Never read prompts, arguments, outputs, errors,
 // permission snapshots or token-usage JSON into the HTTP projection.
@@ -30,7 +31,7 @@ export async function readTurnDiagnostics(db: AervoxDatabase, turnId: string, at
       .from(modelRuns).innerJoin(turnAttempts, eq(modelRuns.attemptId, turnAttempts.id))
       .leftJoin(contextManifests, and(eq(contextManifests.id, modelRuns.contextManifestId), eq(contextManifests.modelRunId, modelRuns.id)))
       .where(and(eq(turnAttempts.turnId, turnId), eq(turnAttempts.id, selectedId)))
-      .orderBy(asc(modelRuns.stepId), asc(modelRuns.createdAt), asc(modelRuns.id)).limit(201);
+      .orderBy(ascendingNullsFirst(db, modelRuns.stepId), asc(modelRuns.createdAt), asc(modelRuns.id)).limit(201);
     const tools = await db.select({ invocationId: toolExecutions.invocationId, name: toolExecutions.name,
       status: toolExecutions.status, startedAt: toolExecutions.startedAt, finishedAt: toolExecutions.finishedAt })
       .from(toolExecutions).where(and(eq(toolExecutions.turnId, turnId), eq(toolExecutions.attemptId, selectedId)))
@@ -40,8 +41,8 @@ export async function readTurnDiagnostics(db: AervoxDatabase, turnId: string, at
       .from(toolApprovals).where(and(eq(toolApprovals.turnId, turnId), eq(toolApprovals.attemptId, selectedId)))
       .orderBy(asc(toolApprovals.id)).limit(201);
     const [terminal] = await db.select({
-      reason: sql<unknown>`json_extract(${turnStreamEvents.data}, '$.reason')`,
-      code: sql<unknown>`json_extract(${turnStreamEvents.data}, '$.code')`,
+      reason: jsonText(db, turnStreamEvents.data, '$.reason'),
+      code: jsonText(db, turnStreamEvents.data, '$.code'),
     }).from(turnStreamEvents).where(and(eq(turnStreamEvents.turnId, turnId), eq(turnStreamEvents.attemptId, selectedId),
       inArray(turnStreamEvents.eventType, ["done", "error"]))).orderBy(desc(turnStreamEvents.sequence)).limit(1);
     const reasons = new Set(["completed", "cancelled", "deadline_exceeded", "pending_approval", "max_steps",

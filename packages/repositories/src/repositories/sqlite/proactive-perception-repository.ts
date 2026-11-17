@@ -11,6 +11,7 @@
 import { createHash } from "node:crypto";
 import { and, asc, eq, gt, lte, min, or, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
+import { assertProactiveVaultStorage } from "../../storage-policy.js";
 import { perceptionEvents, perceptionEventConsumers } from "@aervox/schema";
 import type { PerceptionEventEnvelope } from "@aervox/contracts";
 import type { LocalContext } from "../../local-context.js";
@@ -46,7 +47,7 @@ export function perceptionPayloadDigest(payload: unknown): string {
 }
 
 export class SqlitePerceptionEventRepository {
-  constructor(private readonly db: AervoxDatabase) {}
+  constructor(private readonly db: AervoxDatabase) { assertProactiveVaultStorage(db); }
 
   /**
    * 摄入事件：envelope 契约校验（digest 一致 + local_only）→ 幂等去重 → 原子 sequence 分配。

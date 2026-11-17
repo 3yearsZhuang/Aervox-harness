@@ -6,6 +6,7 @@
  */
 import { eq, and, desc, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
+import { rowPosition } from "../../sql-dialect.js";
 import {
   personas,
   personaRevisions,
@@ -416,7 +417,7 @@ export class SqlitePersonaRepository implements IPersonaRepository {
       .from(personaSwitchLogs)
       .where(and(...conditions))
       // 切换日志时间戳为毫秒精度，同一毫秒内多次切换须按插入顺序（rowid）倒序，保证「最新一条」确定
-      .orderBy(desc(personaSwitchLogs.switchedAt), desc(sql`rowid`));
+      .orderBy(desc(personaSwitchLogs.switchedAt), desc(rowPosition(this.db)));
     return rows as PersonaSwitchLogModel[];
   }
 

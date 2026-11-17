@@ -39,7 +39,9 @@ import {
   type IProactiveProfileRepository,
   type SqliteConversationRepository,
   type LocalContext,
+  type DatabaseStoragePolicy,
   assertConversationExecutionPolicy,
+  LocalOnlyStorageRequiredError,
 } from "@aervox/repositories";
 import { type ExecutionConfig } from "@aervox/config";
 import type { Observability } from "@aervox/observability";
@@ -150,6 +152,8 @@ export async function runLoopTurnOnce(
     proactiveActionAuthorizer?: ProactiveActionPort;
     /** CAP-033：本地画像声明来源；仅在有效且本地模型准入时注入。 */
     proactiveRepository?: IProactiveProfileRepository;
+    /** Main write target's attested locality, including derived reply text. */
+    storagePolicy?: DatabaseStoragePolicy;
     /** CAP-005：普通长期记忆 FTS + 向量混合召回。 */
     memoryRecall?: MemoryRecallPort;
     /** 插件仓储：用于检查插件启用状态 */
@@ -164,6 +168,9 @@ export async function runLoopTurnOnce(
 ): Promise<void> {
   const resources: Array<() => void | Promise<void>> = [];
   try {
+  if (deps.storagePolicy?.localOnlyAllowed === false) {
+    deps = { ...deps, proactiveRepository: undefined, proactiveActionAuthorizer: undefined };
+  }
   const apiConfig = deps.executionConfig;
   const apiRegistry = deps.apiRegistry ?? createPluginApiRegistry();
   const persisted = await repo.getTurn(tenant, input.turnId);
@@ -425,6 +432,10 @@ export async function runLoopTurnOnce(
   // CAP-033：主动智能本地处理限制在驱动分支之前求值——进程外 Adapter 同样不得绕过（fail-closed）。
   let proactiveActive = false;
   if (deps.proactiveRepository) {
+    if (deps.storagePolicy?.localOnlyAllowed !== true) {
+      await failPreparation(new LocalOnlyStorageRequiredError());
+      return;
+    }
     try {
       const proactiveStatus = await deps.proactiveRepository.getEffectiveStatus(tenant);
       proactiveActive = proactiveStatus?.effectiveState === "active";
@@ -482,7 +493,7 @@ export async function runLoopTurnOnce(
     });
     provider = loopProvider;
     if (proactiveActive && deps.proactiveRepository) {
-      proactiveProfilePrompt = await loadProactiveProfilePrompt(deps.proactiveRepository, tenant);
+      proactiveProfilePrompt = await loadProactiveProfilePrompt(deps.proactiveRepository, tenant, deps.storagePolicy);
     }
   } catch (err) {
     await failPreparation(err);

@@ -20,7 +20,7 @@ import type { MemoryEmbeddingProvider } from "@aervox/host-agent";
 
 export interface EmbeddingMigrationContext {
   db: AervoxDatabase;
-  client: Client;
+  client: Pick<Client, "execute">;
   embeddingRepo: SqliteMemoryEmbeddingRepository;
   provider?: MemoryEmbeddingProvider | null;
   workerId: string;
@@ -40,7 +40,7 @@ interface MissingMemoryRow {
 
 /** 扫描缺向量记忆：memory_records LEFT JOIN memory_embeddings（按 memory_id 关联） */
 async function findMemoriesMissingEmbeddings(
-  client: Client,
+  client: Pick<Client, "execute">,
   modelId: string,
   limit: number,
 ): Promise<MissingMemoryRow[]> {

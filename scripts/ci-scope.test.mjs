@@ -31,6 +31,26 @@ const CI_WORKFLOW = path.join(ROOT_DIR, ".github/workflows/ci.yml");
 const DOCS_WORKFLOW = path.join(ROOT_DIR, ".github/workflows/docs.yml");
 const MISE_CONFIG = path.join(ROOT_DIR, "mise.toml");
 
+test("CI executes native PostgreSQL tests against private storage and tears the server down", () => {
+  const workflow = fs.readFileSync(CI_WORKFLOW, "utf8");
+  const setup = workflow.indexOf("name: Start isolated PostgreSQL");
+  const gate = workflow.indexOf("name: Run code gate");
+  const teardown = workflow.indexOf("name: Stop isolated PostgreSQL");
+  assert.ok(setup >= 0 && setup < gate && teardown > gate);
+  const preparation = workflow.slice(setup, gate);
+  assert.match(preparation, /initdb.*--encoding=UTF8.*--auth-local=trust.*--auth-host=reject/);
+  assert.match(preparation, /mkdir -m 700.*socket/);
+  assert.match(preparation, /pg_ctl.*-h ''/);
+  for (const name of ["AERVOX_PG_TEST_URL", "AERVOX_TEST_POSTGRES_URL"]) {
+    assert.match(preparation, new RegExp(`${name}=%s`));
+    for (const pkg of ["@aervox/api#test", "@aervox/repositories#test"]) {
+      assert.ok(JSON.parse(fs.readFileSync(path.join(ROOT_DIR, "turbo.json"), "utf8")).tasks[pkg].env.includes(name));
+    }
+  }
+  assert.match(workflow.slice(teardown), /if: always\(\).*AERVOX_CI_PG_ROOT/);
+  assert.match(workflow.slice(teardown), /pg_ctl.*-m immediate -w stop/);
+});
+
 test("CI covers every package root declared in pnpm-workspace.yaml", () => {
   const roots = workspacePatterns(ROOT_DIR).map(pattern => pattern.replace(/\/\*$/, ''));
   assert.ok(roots.includes("plugins/surfaces"));

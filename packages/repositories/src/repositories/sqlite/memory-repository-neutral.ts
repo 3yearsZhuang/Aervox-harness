@@ -4,7 +4,8 @@
  * 使用 SQLite 3.8.3+ 原生 WITH RECURSIVE CTE 实现记忆树递归遍历与投影。
  */
 import { eq, and, getTableColumns, inArray, sql } from "drizzle-orm";
-import type { Client, InValue } from "@libsql/client";
+import type { InValue } from "@libsql/client";
+import type { FtsConnection } from "../../search/fts.js";
 import type { AervoxDatabase } from "../../client.js";
 import {
   memoryRecords,
@@ -20,6 +21,7 @@ import { assertPersonalDerivedDataSource } from "../../conversation-execution-po
 import { admitsSourceTurn, unverifiedAttachmentTurn } from "../../attachment-source-admission.js";
 import type { ConversationCryptoPort } from "../../conversation-host-port.js";
 import { activeConsentPredicate } from "../../consent-admission.js";
+import { jsonQuote } from "../../sql-dialect.js";
 import { assertMemoryReferenceNotDeleted, assertMemoryRevisionWriteAvailable } from "./memory-write-guard.js";
 import type {
   IMemoryRepository,
@@ -34,7 +36,7 @@ import type {
 export class MemoryRepository implements IMemoryRepository {
   constructor(
     private readonly db: AervoxDatabase,
-    private readonly client: Client,
+    private readonly client: Pick<FtsConnection, "execute">,
     private readonly crypto: Pick<ConversationCryptoPort, "sha256Utf8">,
   ) {}
 
@@ -103,13 +105,13 @@ export class MemoryRepository implements IMemoryRepository {
     if (ids.length === 0) return [];
     return this.db.transaction(async tx => {
       const rows = await tx
-        .select({ ...getTableColumns(memoryRecords), sourceTurnId: sql<string | null>`json_quote(${memoryRecords.sourceTurnId})`.mapWith(value => JSON.parse(value) as string | null) })
+        .select({ ...getTableColumns(memoryRecords), sourceTurnId: jsonQuote(tx, memoryRecords.sourceTurnId).mapWith(value => JSON.parse(value) as string | null) })
         .from(memoryRecords)
         .where(
           and(
             inArray(memoryRecords.id, ids),
             eq(memoryRecords.isDeleted, 0),
-            sql`${unverifiedAttachmentTurn(memoryRecords.sourceTurnId)} = 0`,
+            sql`${unverifiedAttachmentTurn(tx, memoryRecords.sourceTurnId)} = 0`,
           requiredConsent ? sql`exists (select 1 from ${consentGrants}
             where ${activeConsentPredicate(requiredConsent.purpose, requiredConsent.scope)})` : undefined,
           ),
@@ -123,13 +125,13 @@ export class MemoryRepository implements IMemoryRepository {
   async listRecordsByLayer(ctx: LocalContext, layer: string): Promise<MemoryRecordModel[]> {
     return this.db.transaction(async tx => {
       const rows = await tx
-        .select({ ...getTableColumns(memoryRecords), sourceTurnId: sql<string | null>`json_quote(${memoryRecords.sourceTurnId})`.mapWith(value => JSON.parse(value) as string | null) })
+        .select({ ...getTableColumns(memoryRecords), sourceTurnId: jsonQuote(tx, memoryRecords.sourceTurnId).mapWith(value => JSON.parse(value) as string | null) })
         .from(memoryRecords)
         .where(
           and(
             eq(memoryRecords.layer, layer),
             eq(memoryRecords.isDeleted, 0),
-            sql`${unverifiedAttachmentTurn(memoryRecords.sourceTurnId)} = 0`,
+            sql`${unverifiedAttachmentTurn(tx, memoryRecords.sourceTurnId)} = 0`,
           ),
         );
       const admitted: MemoryRecordModel[] = [];

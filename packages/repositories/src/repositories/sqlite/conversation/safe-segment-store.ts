@@ -219,7 +219,7 @@ export class SafeSegmentStore {
    * 返回含续跑所需完整数据面：本地上下文、session、用户消息、当前 fencing（续跑 claim 预期）与 lastSequence。
    */
   async findResumeCandidates(
-    client: import("@libsql/client").Client,
+    client: Pick<import("@libsql/client").Client, "execute">,
     limit?: number,
   ): Promise<
     Array<{
@@ -279,7 +279,7 @@ export class SafeSegmentStore {
   }
 
   /** 2c：崩溃释放后将遗留 pending 预留标记为 outcome_unknown（§11.3：结果未知不自动重放） */
-  async markPendingOutcomeUnknown(client: import("@libsql/client").Client): Promise<number> {
+  async markPendingOutcomeUnknown(client: Pick<import("@libsql/client").Client, "execute">): Promise<number> {
     const result = await client.execute(`
       UPDATE tool_executions
       SET status = 'outcome_unknown', finished_at = COALESCE(finished_at, '${new Date().toISOString()}')

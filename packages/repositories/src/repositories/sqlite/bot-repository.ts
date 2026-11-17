@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray, isNull, lte, or, sql, type SQL } from "drizzle-orm";
 import { botConnections, botDeliveries, botInbox, botSessionBindings } from "@aervox/schema";
 import type { AervoxDatabase } from "../../client.js";
+import { jsonText, rowPosition } from "../../sql-dialect.js";
 
 export type BotConnectionRecord = typeof botConnections.$inferSelect;
 export type BotInboxRecord = typeof botInbox.$inferSelect;
@@ -10,7 +11,7 @@ export interface BotLeaseFence { connectionId: string; revision: number; owner: 
 const fenceCondition = (fence?: BotLeaseFence): SQL => fence ? sql`EXISTS (
   SELECT 1 FROM bot_connections WHERE id = ${fence.connectionId} AND revision = ${fence.revision}
     AND enabled = 1 AND lease_owner = ${fence.owner} AND lease_until > ${new Date().toISOString()}
-)` : sql`1`;
+)` : sql`true`;
 
 /** Storage owns atomic CAS; no network calls are made while a writer transaction is open. */
 export class SqliteBotRepository {
@@ -90,14 +91,14 @@ export class SqliteBotRepository {
       WHERE ${fenceCondition(fence)}
         AND (( ${control ? 1 : 0} = 1
           AND (SELECT count(*) FROM bot_inbox WHERE connection_id = ${input.connectionId}
-            AND state IN ('queued', 'processing', 'responding') AND json_extract(message_json, '$.text') = '/cancel') < 100
+            AND state IN ('queued', 'processing', 'responding') AND ${jsonText(this.db, sql`message_json`, '$.text')} = '/cancel') < 100
           AND (SELECT count(*) FROM bot_inbox WHERE session_id = ${input.sessionId}
-            AND state IN ('queued', 'processing', 'responding') AND json_extract(message_json, '$.text') = '/cancel') < 1
+            AND state IN ('queued', 'processing', 'responding') AND ${jsonText(this.db, sql`message_json`, '$.text')} = '/cancel') < 1
         ) OR ( ${control ? 1 : 0} = 0
           AND (SELECT count(*) FROM bot_inbox WHERE connection_id = ${input.connectionId}
-            AND state IN ('queued', 'processing', 'responding') AND coalesce(json_extract(message_json, '$.text'), '') != '/cancel') < 100
+            AND state IN ('queued', 'processing', 'responding') AND coalesce(${jsonText(this.db, sql`message_json`, '$.text')}, '') != '/cancel') < 100
           AND (SELECT count(*) FROM bot_inbox WHERE session_id = ${input.sessionId}
-            AND state IN ('queued', 'processing', 'responding') AND coalesce(json_extract(message_json, '$.text'), '') != '/cancel') < 20
+            AND state IN ('queued', 'processing', 'responding') AND coalesce(${jsonText(this.db, sql`message_json`, '$.text')}, '') != '/cancel') < 20
         ))
       ON CONFLICT DO NOTHING RETURNING id`);
     if (inserted.length) return this.getInbox(input.id);
@@ -108,21 +109,21 @@ export class SqliteBotRepository {
   async getInbox(id: string) { return (await this.db.select().from(botInbox).where(eq(botInbox.id, id)).limit(1))[0] ?? null; }
   listPending(connectionId: string) {
     return this.db.select().from(botInbox).where(and(eq(botInbox.connectionId, connectionId), inArray(botInbox.state, ["queued", "processing", "responding"])))
-      .orderBy(sql`bot_inbox.rowid ASC`).limit(100);
+      .orderBy(sql`${rowPosition(this.db, 'bot_inbox')} ASC`).limit(100);
   }
   listPendingControls(connectionId: string) {
     return this.db.select().from(botInbox).where(and(eq(botInbox.connectionId, connectionId),
-      inArray(botInbox.state, ["queued", "processing"]), sql`json_extract(${botInbox.messageJson}, '$.text') = '/cancel'`))
-      .orderBy(sql`bot_inbox.rowid ASC`).limit(100);
+      inArray(botInbox.state, ["queued", "processing"]), sql`${jsonText(this.db, botInbox.messageJson, '$.text')} = '/cancel'`))
+      .orderBy(sql`${rowPosition(this.db, 'bot_inbox')} ASC`).limit(100);
   }
   async cancelBefore(controlId: string, fence: BotLeaseFence) {
     // The durable command's insertion position is the boundary, not a later wall clock or
     // a snapshot taken after restart. Turn cancellation and inbox tombstones commit together.
     const previous = sql`SELECT p.id FROM bot_inbox p JOIN bot_inbox c ON c.id = ${controlId}
-      WHERE p.connection_id = c.connection_id AND p.session_id = c.session_id AND p.rowid < c.rowid
+      WHERE p.connection_id = c.connection_id AND p.session_id = c.session_id AND ${rowPosition(this.db, 'p')} < ${rowPosition(this.db, 'c')}
         AND c.connection_id = ${fence.connectionId} AND c.connection_revision = ${fence.revision}
-        AND c.state IN ('queued', 'processing') AND json_extract(c.message_json, '$.text') = '/cancel'
-        AND p.state IN ('queued', 'processing', 'responding') AND coalesce(json_extract(p.message_json, '$.text'), '') != '/cancel'
+        AND c.state IN ('queued', 'processing') AND ${jsonText(this.db, sql`c.message_json`, '$.text')} = '/cancel'
+        AND p.state IN ('queued', 'processing', 'responding') AND coalesce(${jsonText(this.db, sql`p.message_json`, '$.text')}, '') != '/cancel'
         AND ${fenceCondition(fence)}`;
     const turnIds = sql`SELECT id FROM turns WHERE idempotency_key IN (SELECT 'bot:' || id FROM bot_inbox WHERE id IN (${previous}))`;
     await this.db.transaction(async tx => {
@@ -136,7 +137,7 @@ export class SqliteBotRepository {
       await tx.run(sql`UPDATE bot_inbox SET state = 'cancelled' WHERE id IN (${previous})`);
       await tx.run(sql`UPDATE bot_inbox SET state = 'responding' WHERE id = ${controlId}
         AND connection_id = ${fence.connectionId} AND connection_revision = ${fence.revision}
-        AND state IN ('queued', 'processing') AND json_extract(message_json, '$.text') = '/cancel'
+        AND state IN ('queued', 'processing') AND ${jsonText(tx, sql`message_json`, '$.text')} = '/cancel'
         AND ${fenceCondition(fence)}`);
     });
   }
@@ -154,7 +155,7 @@ export class SqliteBotRepository {
   }
   listDeliveries(connectionId: string) {
     return this.db.select().from(botDeliveries).where(eq(botDeliveries.connectionId, connectionId))
-      .orderBy(desc(botDeliveries.createdAt), sql`bot_deliveries.rowid DESC`).limit(200);
+      .orderBy(desc(botDeliveries.createdAt), sql`${rowPosition(this.db, 'bot_deliveries')} DESC`).limit(200);
   }
   async getDelivery(connectionId: string, deliveryId: string) {
     return (await this.db.select().from(botDeliveries).where(and(
