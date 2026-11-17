@@ -16,8 +16,6 @@ export const judgementSchema = z.enum(["correct", "incorrect", "unverifiable"]);
 /** 练习/错题 API 暴露的题目项（QuestionModel 的对外视图） */
 export const practiceQuestionSchema = z.object({
   id: z.string(),
-  workspaceId: z.string(),
-  subjectUserId: z.string(),
   sourceArtifactId: z.string().nullable().optional(),
   knowledgeId: z.string().nullable().optional(),
   prompt: z.string(),
