@@ -2,13 +2,12 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Activity, Bell, BookOpen, Database, FolderDown, KeyRound, Menu, RefreshCw, Smartphone, Sparkles } from 'lucide-vue-next';
 import { getClientTransport, notifyPersonaChanged } from '@aervox/api-client';
-import { getAvailableLive2DModels } from '@aervox/ui/companion';
+import { getAvailableLive2DModels, type ModelSetupStatus } from '@aervox/ui/companion';
 import NativeLearningPanel from './NativeLearningPanel.vue';
 import { nativeRequest } from './native-channel';
 import { deviceError, grantDeviceCapability, readDeviceStatus, type DeviceCapability, type DeviceStatus } from './native-device';
-import type { OnboardingModelStatus } from '@aervox/plugin-panels-ui/onboarding/state';
 const props = withDefaults(defineProps<{ modelSetupOnly?: boolean }>(), { modelSetupOnly: false });
-const emit = defineEmits<{ 'model-status': [status: OnboardingModelStatus] }>();
+const emit = defineEmits<{ 'model-status': [status: ModelSetupStatus] }>();
 // inject() only resolves during setup; handlers must reuse this capture.
 const clientTransport = getClientTransport();
 
