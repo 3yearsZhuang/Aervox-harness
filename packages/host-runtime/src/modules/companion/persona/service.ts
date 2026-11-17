@@ -99,6 +99,7 @@ export class PersonaService {
   async getPersona(
     tenant: LocalContext,
     personaId: string,
+    revisionId?: string,
   ): Promise<{ persona: Persona; revision: PersonaRevision | null; active: boolean } | null> {
     const persona = await this.deps.personaRepo.getPersona(tenant, personaId);
     if (!persona) return null;
@@ -106,8 +107,9 @@ export class PersonaService {
     const revision = await this.deps.personaRepo.getPersonaRevision(
       tenant,
       persona.id,
-      persona.currentRevisionId,
+      revisionId ?? persona.currentRevisionId,
     );
+    if (revisionId !== undefined && (!revision || revision.personaId !== persona.id || revision.id !== revisionId)) return null;
     const activeSelection = await this.deps.personaRepo.getActivePersona(tenant);
     const active = activeSelection?.personaId === persona.id;
     return {

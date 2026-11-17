@@ -1,3 +1,2 @@
-/* Base tokens and companion fallback visuals; no workbench global styles. */
+/* Base tokens for companion visuals; no workbench global styles. */
 @import './index.css';
-@import './hero.css';

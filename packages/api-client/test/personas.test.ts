@@ -1,6 +1,7 @@
 import { beforeEach, expect, it, vi } from 'vitest';
-import { configureAervoxClient } from '../src/transport.js';
+import { configureAervoxClient, getTransport } from '../src/transport.js';
 import { useAervoxPersonas } from '../src/useAervoxPersonas.js';
+import { subscribePersonaChanges } from '../src/persona-changes.js';
 
 const now = '2026-10-24T00:00:00.000Z';
 const persona = {id: 'p/one', workspaceId: 'local', subjectUserId: 'local', name: 'Guide', description: '', source: 'user_created', status: 'active', reviewStatus: 'draft', reviewNotes: '', reviewedAt: null, currentRevisionId: 'r1', createdAt: now, updatedAt: now};
@@ -67,4 +68,46 @@ it('a confirmed write invalidates earlier list reads even when its refresh fails
   await oldRead;
   expect(api.personas.value).toEqual([]);
   expect(api.error.value).toBe('refresh failed');
+});
+
+it('requests the selected revision and rejects a valid-shaped response for a different identity', async () => {
+  const api = useAervoxPersonas();
+  const old = {...revision, id: 'r/old', config: {...revision.config, live2dModelId: 'missing-model'}};
+  request.mockResolvedValueOnce({persona, revision: old, active: true});
+  expect((await api.getPersonaDetail(persona.id, {revisionId: old.id})).revision?.config.live2dModelId).toBe('missing-model');
+  expect(request).toHaveBeenLastCalledWith('GET', '/v1/personas/p%2Fone?revisionId=r%2Fold', undefined);
+  for (const response of [
+    {persona, revision, active: true},
+    {persona, revision: {...old, personaId: 'foreign'}, active: true},
+    {persona: {...persona, id: 'foreign'}, revision: old, active: true},
+    {persona, revision: null, active: true},
+  ]) {
+    request.mockResolvedValueOnce(response);
+    await expect(api.getPersonaDetail(persona.id, {revisionId: old.id})).rejects.toThrow('PERSONA_REVISION_MISMATCH');
+  }
+});
+
+it('notifies the captured transport after validated writes even when the default host changes or refresh fails', async () => {
+  const transport = getTransport();
+  const api = useAervoxPersonas();
+  const oldHost = vi.fn();
+  const newHost = vi.fn();
+  const stopOld = subscribePersonaChanges(oldHost, transport);
+  const nextTransport = {...transport, request: vi.fn()};
+  const stopNew = subscribePersonaChanges(newHost, nextTransport);
+  try {
+    configureAervoxClient({transport: nextTransport});
+    request.mockResolvedValueOnce(mutation).mockRejectedValueOnce(new Error('refresh failed'));
+    await api.createPersona({name: persona.name, config: revision.config});
+    expect(oldHost).toHaveBeenCalledTimes(1);
+    expect(newHost).not.toHaveBeenCalled();
+    request.mockRejectedValueOnce(new Error('write failed'));
+    await expect(api.activatePersona(persona.id)).rejects.toThrow('write failed');
+    request.mockResolvedValueOnce({...mutation, revision: {...revision, checksum: 'invalid'}});
+    await expect(api.updatePersona(persona.id, {expectedRevision: 1, config: revision.config})).rejects.toThrow();
+    expect(oldHost).toHaveBeenCalledTimes(1);
+    request.mockResolvedValueOnce({deleted: false, personaId: persona.id}).mockResolvedValueOnce(list);
+    expect(await api.deletePersona(persona.id)).toBe(false);
+    expect(oldHost).toHaveBeenCalledTimes(1);
+  } finally { stopOld(); stopNew(); }
 });

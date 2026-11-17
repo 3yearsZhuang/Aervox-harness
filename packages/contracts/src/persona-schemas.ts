@@ -21,6 +21,8 @@ export const personaRevisionConfigSchema = z.object({
   allowedSkillNames: z.array(z.string().min(1)).optional(),
   allowedMcpToolIds: z.array(z.string().min(1)).optional(),
   voice: voiceSelectionSchema.optional(),
+  /** Presentation asset reference; omitted bindings follow the built-in default. */
+  live2dModelId: z.string().trim().min(1).max(128).optional(),
 });
 export const personaSchema = z.object({
   id: z.string().min(1),

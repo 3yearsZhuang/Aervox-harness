@@ -39,15 +39,15 @@ export async function restoreCoreArtifact(root = fileURLToPath(new URL('../', im
   return core;
 }
 
-export async function prepareNativeAssets(root = fileURLToPath(new URL('../', import.meta.url))) {
+export async function prepareNativeAssets(root = fileURLToPath(new URL('../', import.meta.url)), {
+  source = path.resolve(root, '../web/dist'), target = path.join(root, 'android/app/src/main/assets/m0'),
+} = {}) {
   const core = verifyCore(await readFile(path.join(root, 'android/vendor/live2dcubismcore.min.js')));
-  const source = path.resolve(root, '../web/dist');
   let html = await readFile(path.join(source, 'index.html'), 'utf8');
   if (!html.includes('/m0/assets/')) throw new Error('Native assets require build:web:native base /m0/.');
   html = html.replace(/<script src="https:\/\/cubism\.live2d\.com[^\"]+"><\/script>/, '<script src="/m0/vendor/live2dcubismcore.min.js"></script>')
     .replace(/\s*<script src="https:\/\/cdn\.jsdelivr\.net[^\"]+"><\/script>/, '');
   if (/<script[^>]+src="https?:/.test(html)) throw new Error('Remote native script rejected.');
-  const target = path.join(root, 'android/app/src/main/assets/m0');
   await rm(target, { recursive: true, force: true });
   await cp(source, target, { recursive: true });
   await mkdir(path.join(target, 'vendor'), { recursive: true });
@@ -56,5 +56,9 @@ export async function prepareNativeAssets(root = fileURLToPath(new URL('../', im
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   if (process.argv.includes('--restore')) await restoreCoreArtifact();
-  else await prepareNativeAssets();
+  else if (process.argv.includes('--termination-probe')) {
+    const root = fileURLToPath(new URL('../', import.meta.url));
+    await prepareNativeAssets(root, { source: path.join(root, 'dist/process-termination'),
+      target: path.join(root, 'android/app/src/deterministicProbe/assets/m0') });
+  } else await prepareNativeAssets();
 }

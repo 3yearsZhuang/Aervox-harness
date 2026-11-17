@@ -101,6 +101,7 @@ export {
   type ToolItemDto,
   type SkillItemDto,
 } from './useAervoxPersonas';
+export { subscribePersonaChanges, notifyPersonaChanged } from './persona-changes';
 export { uploadAervoxAttachment } from './attachments';
 export {
   useAervoxVoice,
