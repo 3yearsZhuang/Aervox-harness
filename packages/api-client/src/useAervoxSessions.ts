@@ -11,6 +11,7 @@ import type {
   RenameSessionRequest,
   SessionItem,
 } from '@aervox/contracts';
+import { sessionItemSchema } from '@aervox/contracts';
 import { useAervoxClient } from './client-context.js';
 import type { AervoxClient } from './transport.js';
 import { createResource } from './resource.js';
@@ -25,6 +26,23 @@ export interface FetchSessionsOptions {
   pageSize?: number;
   /** Verify a restored selection independently when it is outside this page. */
   includeActive?: boolean;
+}
+
+export interface SessionDeletionSelection {
+  sessionId: string;
+  /** False after disposal or any later selection, including away-and-back. */
+  isCurrent: () => boolean;
+}
+
+export interface SessionDeletionOptions {
+  select?: boolean;
+  /** Synchronous presentation work for this operation's actual owned transfer. */
+  onSelectionTransfer?: (selection: SessionDeletionSelection) => void;
+}
+
+export interface SessionDeletionCheckOptions extends SessionDeletionOptions {
+  /** Synchronous cleanup while the exact read's local observation still owns the target. */
+  onAbsenceConfirmed?: (isCurrent: () => boolean) => void;
 }
 
 export interface UseAervoxSessionsReturn {
@@ -43,7 +61,9 @@ export interface UseAervoxSessionsReturn {
     sessionId: string,
     updates: string | { title?: string; projectId?: string | null },
   ) => Promise<SessionItem | null>;
-  deleteSession: (sessionId: string, options?: {select?: boolean}) => Promise<boolean>;
+  deleteSession: (sessionId: string, options?: SessionDeletionOptions) => Promise<boolean>;
+  /** Read the exact original target; never repeat DELETE or create a replacement. */
+  checkSessionDeletion: (sessionId: string, options?: SessionDeletionCheckOptions) => Promise<'missing' | 'present'>;
 }
 
 export function useAervoxSessions(client: AervoxClient = useAervoxClient()): UseAervoxSessionsReturn {
@@ -58,6 +78,7 @@ export function useAervoxSessions(client: AervoxClient = useAervoxClient()): Use
   let nextOffset = 0;
   let sourceIds = new Set<string>();
   const activeSessionId = ref(client.sessionId);
+  let disposed = false;
   let selectionVersion = 0;
   const unsubscribe = client.subscribeSession(id => {
     const selection = ++selectionVersion;
@@ -69,7 +90,7 @@ export function useAervoxSessions(client: AervoxClient = useAervoxClient()): Use
     if (selection !== selectionVersion || client.sessionId !== id) return;
     activeSessionError.value = selectionErrors.get(id) ?? null;
   });
-  if (getCurrentScope()) onScopeDispose(unsubscribe);
+  if (getCurrentScope()) onScopeDispose(() => { disposed = true; unsubscribe(); });
   const activeSession = computed(() => activeSessionError.value ? null
     : sessions.value.find(session => session.id === activeSessionId.value)
       ?? (selectedSession.value?.id === activeSessionId.value ? selectedSession.value : null));
@@ -173,20 +194,79 @@ export function useAervoxSessions(client: AervoxClient = useAervoxClient()): Use
       return updated;
     });
   };
-  const deleteSession = async (id: string, options?: {select?: boolean}): Promise<boolean> => {
-    if (!id) return false;
-    await write(() => transport.request<void>('DELETE', `/v1/sessions/${encodeURIComponent(id)}`));
+  const selectionOwner = () => ({ id: client.sessionId, version: selectionVersion });
+  const transferDeletionSelection = (sessionId: string, options?: SessionDeletionOptions): SessionDeletionSelection => {
+    const version = selectionVersion + 1;
+    client.setSessionId(sessionId);
+    const selection = { sessionId, isCurrent: () => !disposed && client.sessionId === sessionId && selectionVersion === version };
+    // Subscribers can select another owner synchronously during setSessionId.
+    if (selection.isCurrent()) {
+      try { options?.onSelectionTransfer?.(selection); }
+      catch { /* Presentation failure cannot change a committed deletion receipt. */ }
+    }
+    return selection;
+  };
+  const confirmLocalDeletion = async (id: string, owner: ReturnType<typeof selectionOwner>, options: SessionDeletionOptions | undefined, createReplacement: boolean) => {
     if (sourceIds.delete(id)) nextOffset = Math.max(0, nextOffset - 1);
     selectionErrors.delete(id);
     if (selectedSession.value?.id === id) selectedSession.value = null;
     replace(sessions.value.filter(session => session.id !== id));
-    if (activeSessionId.value === id && options?.select !== false) {
-      client.setSessionId(sessions.value[0]?.id ?? '');
-      // Deletion is committed; replacement failure cannot revive it.
-      if (!sessions.value.length) await createNewSession().catch(() => undefined);
+    if (!disposed && owner.id === id && client.sessionId === id && owner.version === selectionVersion && options?.select !== false) {
+      const transfer = transferDeletionSelection(sessions.value[0]?.id ?? '', options);
+      const ownsEmptySelection = () => transfer.sessionId === '' && transfer.isCurrent();
+      // A later choice, even one returning to empty, retires this replacement.
+      // A read-only absence check must not issue a POST as a side effect.
+      if (createReplacement && !sessions.value.length && ownsEmptySelection()) {
+        const created = await createNewSession('新对话', undefined, undefined, { select: false }).catch(() => undefined);
+        if (created && ownsEmptySelection()) transferDeletionSelection(created.id, options);
+      }
     }
-    return true;
+  };
+  const deleteSession = async (id: string, options?: SessionDeletionOptions): Promise<boolean> => {
+    if (!id) return false;
+    const owner = selectionOwner();
+    return write(async () => {
+      await transport.request<void>('DELETE', `/v1/sessions/${encodeURIComponent(id)}`);
+      await confirmLocalDeletion(id, owner, options, true);
+      return true;
+    });
+  };
+  const checkSessionDeletion = async (id: string, options?: SessionDeletionCheckOptions): Promise<'missing' | 'present'> => {
+    if (!id) throw new Error('SESSION_DELETE_CHECK_INVALID_ID');
+    const owner = selectionOwner();
+    const listed = sessions.value.find(session => session.id === id);
+    const selected = selectedSession.value?.id === id ? selectedSession.value : null;
+    const ownsSelection = () => !disposed && client.sessionId === owner.id && selectionVersion === owner.version;
+    const isCurrent = () => ownsSelection()
+      && sessions.value.find(session => session.id === id) === listed
+      && (selectedSession.value?.id === id ? selectedSession.value : null) === selected;
+    const requireCurrent = () => { if (!isCurrent()) throw new Error('SESSION_DELETE_CHECK_OBSERVATION_RETIRED'); };
+    return write(async () => {
+      let response: unknown;
+      try { response = await transport.request<unknown>('GET', `/v1/sessions/${encodeURIComponent(id)}`); }
+      catch (cause) {
+        // Only this exact session query's explicit absence class is evidence.
+        // A list omission, generic 404, or failed source read proves nothing.
+        if (!(cause instanceof AervoxHttpError && cause.status === 404 && cause.code === 'SESSION_NOT_FOUND')) throw cause;
+        requireCurrent();
+        // No await may separate guarded surface cleanup from local confirmation.
+        options?.onAbsenceConfirmed?.(isCurrent);
+        requireCurrent();
+        await confirmLocalDeletion(id, owner, options, false);
+        return 'missing';
+      }
+      const parsed = sessionItemSchema.safeParse(response);
+      if (!parsed.success || parsed.data.id !== id) throw new Error('SESSION_DELETE_CHECK_INVALID_RESPONSE');
+      // The ID may have been recreated. Existence never authorizes an old DELETE.
+      // Refresh only an existing observation; a retired read cannot replace a new copy.
+      if (isCurrent()) {
+        if (listed) replace(sessions.value.map(session => session === listed ? parsed.data : session));
+        // A synchronous list observer may have retired this selection or metadata.
+        if (selected && ownsSelection() && selectedSession.value === selected) selectedSession.value = parsed.data;
+      }
+      return 'present';
+    });
   };
   return {sessions, activeSessionId, activeSession, loading, error, fetchSessions, loadMoreSessions, hasMore, activeSessionError,
-    createNewSession, switchSession, renameSession, deleteSession};
+    createNewSession, switchSession, renameSession, deleteSession, checkSessionDeletion};
 }

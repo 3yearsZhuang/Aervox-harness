@@ -177,4 +177,22 @@ describe('bounded session paging', () => {
     api.switchSession('new');
     expect(client.sessionId).toBe('new');
   });
+
+  it.each(['off-page', 'listed'] as const)('preserves the next source offset after a missing check of a %s target', async placement => {
+    const target = placement === 'listed' ? 'b' : 'selected';
+    const request = vi.fn().mockResolvedValueOnce({ items: [item('a'), item('b')] });
+    if (placement === 'off-page') request.mockResolvedValueOnce(item(target));
+    request.mockRejectedValueOnce(new AervoxHttpError(404, `/v1/sessions/${target}`, { code: 'SESSION_NOT_FOUND' }))
+      .mockResolvedValueOnce({ items: [item('c')] })
+      .mockRejectedValueOnce(new AervoxHttpError(404, `/v1/sessions/${target}`, { code: 'SESSION_NOT_FOUND' }));
+    const { api, client } = fixture(request, target);
+    await api.fetchSessions({ pageSize: 2, preserveSelection: true, includeActive: true });
+    await expect(api.checkSessionDeletion(target, { select: false })).resolves.toBe('missing');
+    expect(client.sessionId).toBe(target);
+    expect(api.activeSession.value).toBeNull();
+    await api.loadMoreSessions();
+    expect(request.mock.calls.at(-2)?.[1]).toBe(`/v1/sessions?limit=2&offset=${placement === 'listed' ? 1 : 2}`);
+    expect(api.sessions.value.map(row => row.id)).toEqual(placement === 'listed' ? ['a', 'c'] : ['a', 'b', 'c']);
+    expect(request.mock.calls.every(([method]) => method === 'GET')).toBe(true);
+  });
 });
