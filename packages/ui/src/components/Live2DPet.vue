@@ -6,7 +6,11 @@ import { AervoxLive2DController } from '../live2d/controller'
 import { PET_REACT_EVENT, resolveLookAtElement, type PetReactionDetail } from '../live2d/petReactions'
 import { DEFAULT_AERVOX_MODEL, MIZUKI_EXPRESSIONS, MIZUKI_MOTIONS, type AervoxLive2DModel, type Live2DPose } from '../live2d/model'
 
-const props = withDefaults(defineProps<{ model?: AervoxLive2DModel }>(), { model: () => DEFAULT_AERVOX_MODEL })
+const props = withDefaults(defineProps<{
+  model?: AervoxLive2DModel
+  /** Render-only previews leave the active visual's control ownership intact. */
+  preview?: boolean
+}>(), { model: () => DEFAULT_AERVOX_MODEL, preview: false })
 
 const platformServices = getClientPlatformServices()
 const emit = defineEmits<{ onSpeak: [text: string, preset?: string] }>()
@@ -116,10 +120,12 @@ async function loadModel() {
     controller = new AervoxLive2DController(canvasHost.value)
     await controller.load(props.model, { diversifyIdle: !reducedMotion })
     if (disposed || current !== generation) return
-    exposeApi()
-    removePetCommandListener = platformServices.onPetCommand?.((value: unknown) => onCommand(value as PetCommand)) ?? null
+    if (!props.preview) {
+      exposeApi()
+      removePetCommandListener = platformServices.onPetCommand?.((value: unknown) => onCommand(value as PetCommand)) ?? null
+      window.addEventListener(PET_REACT_EVENT, handlePetReact)
+    }
     status.value = 'ready'
-    window.addEventListener(PET_REACT_EVENT, handlePetReact)
   } catch (error) {
     if (disposed || current !== generation) return
     releaseController()
