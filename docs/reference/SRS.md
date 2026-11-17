@@ -384,6 +384,21 @@ id: AVX-SRS-001
   - `AC-FR-UX-004-03`：Given 会话来源被删除或撤权，When 重连，Then 不显示旧正文（redacted），且不泄露资源存在性。
 - **测试**：`TC-RES-STREAM-001`、`TC-E2E-STREAM-001`、`TC-PRIV-STREAM-001`。
 
+<a id="first-use-setup"></a>
+
+### FR-UX-005 首次配置与回放
+
+- **Parent CAP**：`CAP-001`、`CAP-018`
+- **触发**：尚未完成引导的用户启动主界面，或从设置重新打开引导。
+- **必须**：Electron、Web 与显式 mobile 界面共享相遇、角色名字与用户称呼、模型接入、完成汇总四步。形象沿用实际激活的人格修订与 `FR-PER-004`，未绑定使用 Mizuki；起名遵循 [ADR-027](adr/ADR-027-companion-identity.md)，不代表完成人格问卷或激活新修订。
+- **保存**：现有 `aervox.onboarding.completed.v1` 标记继续有效。首次明确跳过或完成后离开引导；回放退出保留标记；回放只隐藏已挂载的主界面，保留原会话、草稿和未确认请求的界面所有者，首次完成前不提前挂载主界面。名字与模型分别由明确保存操作写入，未确认草稿在返回或退出时不写入。模型配置读取失败时禁止覆盖，供应商目录失败可独立重试；稍后接入不改现有配置。密钥交由现有 Host/API 保存，不进入引导的 localStorage；原生 Android 注入现有模型设置与配置回执，不通过 HTTP LLM 表单保存。
+- **验收**：
+  - `AC-FR-UX-005-01`：Given 首次启动或已有完成标记，When 明确完成、跳过或回放退出，Then 当前窗口正确进入主界面，刷新保留原完成状态，未确认名字和模型草稿不覆盖已保存配置。
+  - `AC-FR-UX-005-02`：Given 正在测试连接，When 服务、端点、模型或密钥改变，Then 旧结果不能把新草稿标为成功；切换供应商不沿用另一供应商的密钥，保存回执与连接验证分别表达。
+  - `AC-FR-UX-005-03`：Given 原生 Android 进入模型步骤，When 配置读取或测试失败，Then 显示原生状态与可重试入口，保留现有配置；首次引导不触发设备授权、提醒启用、消息发送或麦克风开启。
+  - `AC-FR-UX-005-04`：Given 短屏、软键盘、减少动态效果或返回操作，When 编辑与退出引导，Then 输入和操作可达，沿用当前形象加载与重试，回放不会改写人格及绑定修订。
+- **测试**：[共享配置与回放回归](../../plugins/surfaces/panels-ui/test/onboarding-flow.test.ts)、[原生模型步骤](../../apps/web/test/onboarding-native-model.test.ts)、[真实浏览器首次配置](../../e2e/ui/onboarding.spec.ts)。本地 Live2D 模型包导入另行交付；自动化不代替 Android 实机或正式发布验收。
+
 ### BR-UX-001 桌宠状态机
 
 - **Parent CAP**：`CAP-001`

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { AervoxSwitch, AervoxNavDialog, AervoxConfirmDialog, AervoxDialog, AervoxSettingsHeading, AervoxButton, AervoxSegmentedControl } from '../../../primitives';
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 
 import {
   AlertTriangle,
@@ -33,6 +33,7 @@ import { useAervoxPlugins } from '@aervox/api-client';
 import { settingCategories, settingPages, type WorkbenchMode } from '../../../composables/useWorkbenchLayout';
 import type { CardDefinition } from '../../../composables/useWorkbenchCards';
 import { useWorkbenchContext } from '../../../composables/workbench-context';
+import { useMobileBackNavigation } from '../../../material3';
 
 const props = withDefaults(
   defineProps<{
@@ -47,6 +48,7 @@ const emit = defineEmits<{
 }>();
 
 const { layout, timer, cards, conversation, proactive, pluginRuntime, surfaceNavigation } = useWorkbenchContext();
+const mobileBack = useMobileBackNavigation();
 
 const activeQuickCards = cards.activeQuickCards ?? cards.cardCatalog;
 const availableQuickCards = cards.availableQuickCards ?? ref<CardDefinition[]>([]);
@@ -88,6 +90,12 @@ const modeOptions = [{ value: 'companion', label: '桌宠陪伴' }, { value: 'st
 const themeOptions = [{ value: 'light', label: '亮色', icon: Sun }, { value: 'dark', label: '暗色', icon: Moon }];
 function selectSettingsPage(value: string) {
   switchSettingsCategory(value as typeof settingsCategory.value);
+}
+async function replayFirstRun() {
+  settingsOpen.value = false;
+  await nextTick();
+  try { await mobileBack?.whenSettled(); } catch { return; }
+  emit('replay-onboarding');
 }
 
 const { timerMinutes } = timer;
@@ -473,9 +481,9 @@ async function onPluginChange(): Promise<void> {
           </div>
           <label class="settings-row settings-choice-row"><span><strong>紧凑布局</strong><small>减少面板间距，让同一屏容纳更多内容</small></span><AervoxSwitch v-model="compactMode"  @change="saveSettings(timerMinutes)"  /></label>
           <label v-if="!isWeb && showCompanion" class="settings-row settings-choice-row"><span><strong>工作台桌宠</strong><small>控制桌面端主窗口中的桌宠区域</small></span><AervoxSwitch v-model="desktopCompanionEnabled"  @change="saveSettings(timerMinutes)"  /></label>
-          <div v-if="!isWeb" class="settings-row settings-choice-row">
-            <span><strong>重看新手引导</strong><small>重新播放首次启动的相遇序章，回放期间会暂时离开工作台</small></span>
-            <AervoxButton variant="secondary" type="button" class="settings-replay-action" @click="emit('replay-onboarding')"><PlayCircle :size="15" />回放</AervoxButton>
+          <div class="settings-row settings-choice-row">
+            <span><strong>首次设置</strong><small>重新检查名字、称呼和模型服务，保留已有设置</small></span>
+            <AervoxButton variant="secondary" type="button" class="settings-replay-action" @click="replayFirstRun"><PlayCircle :size="15" />打开引导</AervoxButton>
           </div>
           <div v-if="!isWeb" class="settings-row settings-choice-row">
             <span><strong>完整产品介绍</strong><small>内嵌播放 10 页产品叙事（约 8 分钟），随时可以关闭</small></span>

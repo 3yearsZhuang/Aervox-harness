@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount } from 'vue'
+import { defineAsyncComponent, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus/es/components/message/index.mjs'
 import { useMaterial3, useMobileBackNavigation } from '@aervox/ui/material3'
 import type { BuiltinUIPlugin } from '@aervox/ui/plugin-api'
@@ -12,6 +12,7 @@ import * as firstPartyPlugin from '@aervox/plugin-focus-mode/ui'
 import * as campusPlugin from '@aervox/plugin-flowcampus/ui'
 // CR-065 切片四：内置设置面板同为受信构建输入，由组合根显式注入
 import { settingsPanels } from '@aervox/plugin-panels-ui'
+import { hasCompletedOnboarding, markOnboardingCompleted } from '@aervox/plugin-panels-ui/onboarding/state'
 import NativeRuntimePanel from './mobile/NativeRuntimePanel.vue'
 import NativeLearningPanel from './mobile/NativeLearningPanel.vue'
 import { nativeStorage, nativeStorageFailed } from './mobile/native-storage'
@@ -33,6 +34,13 @@ const platform = resolveWebPlatform({
 })
 let surfaceStorage: Storage | undefined
 try { surfaceStorage = window.localStorage } catch { /* 浏览器禁止存储时仍按平台或 URL 打开 */ }
+const OnboardingFlow = defineAsyncComponent(() => import('@aervox/plugin-panels-ui/onboarding').then(module => module.OnboardingFlow))
+const surfaceStarted = ref(hasCompletedOnboarding(surfaceStorage))
+const showOnboarding = ref(!surfaceStarted.value)
+function completeOnboarding() { markOnboardingCompleted(surfaceStorage); surfaceStarted.value = true; showOnboarding.value = false }
+function replayOnboarding() { showOnboarding.value = true }
+onMounted(() => window.addEventListener('aervox:configure-companion', replayOnboarding))
+onBeforeUnmount(() => window.removeEventListener('aervox:configure-companion', replayOnboarding))
 // CR-065 切片六：组合根显式持有受信界面清单，按用户选择（?surface= 或本地存储）装配根界面
 const availableSurfaces = nativeRuntime ? [proactiveSurface] : [defaultSurface, compactSurface, proactiveSurface]
 const mainSurface = resolveSurfaceChoice(availableSurfaces, surfaceStorage, {
@@ -58,14 +66,25 @@ const surfaceNavigation = createSurfaceNavigation(availableSurfaces, {
 <template>
   <p v-if="nativeRuntime && nativeStorageFailed" class="native-storage-warning" role="alert">草稿暂未保存到手机，请保持应用打开并复制待发送内容。</p>
   <!-- CR-060：第一方插件由组合根显式注入 -->
+  <OnboardingFlow
+    v-if="showOnboarding"
+    :replay="hasCompletedOnboarding(surfaceStorage)"
+    :model-setup="nativeRuntime ? NativeRuntimePanel : undefined"
+    @complete="completeOnboarding"
+    @dismiss="showOnboarding = false"
+    v-on="startupEvents"
+  />
   <UISurfaceHost
+    v-if="surfaceStarted"
+    v-show="!showOnboarding"
     :plugin="mainSurface"
     :request-reload="reloadSurface"
     surface="main"
     :platform="platform"
-    :view-props="{ showCompanion: platform === 'web', surfaceNavigation, nativeRuntime, draftStorage: nativeRuntime ? nativeStorage : undefined, learningPanel: nativeRuntime ? NativeLearningPanel : undefined }"
+    :view-props="{ interactionSuspended: showOnboarding, showCompanion: platform === 'web', surfaceNavigation, nativeRuntime, draftStorage: nativeRuntime ? nativeStorage : undefined, learningPanel: nativeRuntime ? NativeLearningPanel : undefined }"
     :plugins="pluginDefinitions"
     :settings-panels="hostSettingsPanels"
+    @replay-onboarding="replayOnboarding"
     v-on="startupEvents"
   />
 </template>

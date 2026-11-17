@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Activity, Bell, BookOpen, Database, FolderDown, KeyRound, Menu, RefreshCw, Smartphone, Sparkles } from 'lucide-vue-next';
 import { getClientTransport, notifyPersonaChanged } from '@aervox/api-client';
 import { getAvailableLive2DModels } from '@aervox/ui/companion';
 import NativeLearningPanel from './NativeLearningPanel.vue';
 import { nativeRequest } from './native-channel';
 import { deviceError, grantDeviceCapability, readDeviceStatus, type DeviceCapability, type DeviceStatus } from './native-device';
+import type { OnboardingModelStatus } from '@aervox/plugin-panels-ui/onboarding/state';
+const props = withDefaults(defineProps<{ modelSetupOnly?: boolean }>(), { modelSetupOnly: false });
+const emit = defineEmits<{ 'model-status': [status: OnboardingModelStatus] }>();
 // inject() only resolves during setup; handlers must reuse this capture.
 const clientTransport = getClientTransport();
 
@@ -230,6 +233,13 @@ const backupError = ref('');
 let disposed = false;
 let readGeneration = 0;
 const modelStatus = computed(() => loading.value ? '正在读取…' : modelFailed.value ? '读取失败' : model.value?.hasCredential ? '已保存配置' : '未配置');
+watch(() => [loading.value, configuring.value, testing.value, clearing.value, modelFailed.value, model.value], () => {
+  emit('model-status', {
+    state: loading.value ? 'loading' : modelFailed.value ? 'error' : model.value?.hasCredential ? 'configured' : 'unconfigured',
+    busy: loading.value || configuring.value || testing.value || clearing.value,
+    ...(model.value?.hasCredential ? { modelId: model.value.model } : {}),
+  });
+}, { immediate: true });
 const modelHeading = computed(() => loading.value ? '正在读取模型配置' : modelFailed.value ? '检查你的模型服务' : model.value?.hasCredential ? model.value.model : '连接模型，开始对话');
 const rootText = computed(() => deviceFailed.value ? '无法读取 root 状态。可以刷新后重试。'
   : !device.value ? '正在检查 root 授权…'
@@ -298,7 +308,7 @@ async function readStatus() {
   runtimeFailed.value = !runtime.value;
   modelFailed.value = !model.value;
   loading.value = false;
-  await readDevice();
+  if (!props.modelSetupOnly) await readDevice();
 }
 async function configureModel() {
   if (loading.value || configuring.value || testing.value) return;
@@ -425,6 +435,7 @@ async function exportBackup() {
 }
 
 onMounted(() => {
+  if (props.modelSetupOnly) { void readStatus(); return; }
   try {
     const transport = clientTransport;
     void transport.reviewReminderStatus?.().then(status => {
@@ -436,8 +447,8 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
 
 <template>
   <div class="native-runtime-panel" :aria-busy="loading || configuring || testing || deviceBusy">
-    <div class="runtime-drawer-scrim" :class="{ 'is-open': drawerOpen }" @click="drawerOpen = false" />
-    <nav class="runtime-drawer" :class="{ 'is-open': drawerOpen }" aria-label="设置分区" :aria-hidden="drawerOpen ? 'false' : 'true'">
+    <div v-if="!modelSetupOnly" class="runtime-drawer-scrim" :class="{ 'is-open': drawerOpen }" @click="drawerOpen = false" />
+    <nav v-if="!modelSetupOnly" class="runtime-drawer" :class="{ 'is-open': drawerOpen }" aria-label="设置分区" :aria-hidden="drawerOpen ? 'false' : 'true'">
       <p class="runtime-drawer-title">本机运行</p>
       <button v-for="target in (['model', 'device', 'data', 'reminder', 'persona', 'learning'] as const)" :key="target" type="button"
         class="runtime-menu-card" :class="{ 'is-active': page === target }" @click="openPage(target)">
@@ -446,7 +457,7 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
         <span class="runtime-menu-badge">{{ menuSummary(target) }}</span>
       </button>
     </nav>
-    <header class="runtime-heading">
+    <header v-if="!modelSetupOnly" class="runtime-heading">
       <component :is="'md-icon-button'" type="button" :aria-label="drawerOpen ? '收起设置分区' : '展开设置分区'" :aria-expanded="drawerOpen ? 'true' : 'false'" @click="drawerOpen = !drawerOpen">
         <Menu :size="24" aria-hidden="true" />
       </component>
@@ -466,8 +477,9 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
       <p v-if="loading" class="runtime-model-description">正在检查已保存的配置，请稍候。</p>
       <p v-else-if="modelFailed" class="runtime-model-description runtime-error" role="alert">模型配置读取失败，可以刷新或打开原生设置检查。</p>
       <p v-else-if="model?.hasCredential" class="runtime-model-description runtime-endpoint">{{ model.endpoint }}</p>
-      <p v-else class="runtime-model-description">填写服务地址、模型和密钥。完成后，返回对话页发送第一条消息。</p>
+      <p v-else class="runtime-model-description">填写服务地址、模型和密钥，之后就可以开始对话。</p>
       <div class="runtime-model-actions">
+        <component v-if="modelSetupOnly && modelFailed" :is="'md-outlined-button'" type="button" :disabled="loading || configuring || testing" @click="readStatus">重新读取配置</component>
         <component :is="'md-filled-tonal-button'" class="runtime-configure" type="button" :disabled="loading || configuring || testing" @click="configureModel">
           {{ configuring ? '正在打开…' : model?.hasCredential ? '管理模型服务' : '配置模型服务' }}
         </component>
@@ -497,7 +509,7 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
       <p v-if="feedback" class="runtime-error runtime-feedback" role="alert">{{ feedback }}</p>
     </section>
 
-    <section v-if="page === 'model'" aria-labelledby="runtime-storage-title">
+    <section v-if="page === 'model' && !modelSetupOnly" aria-labelledby="runtime-storage-title">
       <h3 id="runtime-storage-title"><Activity :size="20" aria-hidden="true" />运行状态</h3>
       <dl class="runtime-group">
         <div class="runtime-row">
