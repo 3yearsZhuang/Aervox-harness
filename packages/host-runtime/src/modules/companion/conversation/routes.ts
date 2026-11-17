@@ -139,7 +139,7 @@ export function registerConversationRoutes(
     const { sessionId } = req.params as { sessionId: string };
     const deleted = await commands.deleteSession(tenant, sessionId);
     if (!deleted) {
-      return reply.code(404).send({ error: "Session not found" });
+      return reply.code(404).send({ error: "Session not found", code: "SESSION_NOT_FOUND" });
     }
     return reply.code(204).send();
   });
