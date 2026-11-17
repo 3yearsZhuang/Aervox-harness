@@ -2502,6 +2502,71 @@
       "pointer": "/paths/~1v1~1llm~1presets/post/requestBody/required",
       "beforeHash": "eb045d78d273107348b0300c01d29b7552d622abbc6faf81b3ec55359aa9950c",
       "value": true
+    },
+    {
+      "id": "local-practice-question-required",
+      "reason": "Correct the historical required list to the existing local single-user question response. Real SQLite HTTP regressions cover creation, listing, active resume and mistake repractice; workspaceId and subjectUserId are not emitted.",
+      "pointer": "/paths/~1v1~1practice~1sessions~1active/get/responses/200/content/application~1json/schema/properties/items/items/required",
+      "beforeHash": "90c13f08d9bfe90dd55e57b1581b068c89f556f1210fbf4158437d26e7583ca1",
+      "value": [
+        "id",
+        "prompt",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    {
+      "id": "local-practice-question-required",
+      "reason": "Correct the historical required list to the existing local single-user question response. Real SQLite HTTP regressions cover creation, listing, active resume and mistake repractice; workspaceId and subjectUserId are not emitted.",
+      "pointer": "/paths/~1v1~1mistakes~1repractice/post/responses/200/content/application~1json/schema/properties/items/items/required",
+      "beforeHash": "90c13f08d9bfe90dd55e57b1581b068c89f556f1210fbf4158437d26e7583ca1",
+      "value": [
+        "id",
+        "prompt",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    {
+      "id": "local-practice-question-required",
+      "reason": "Correct the historical required list to the existing local single-user question response. Real SQLite HTTP regressions cover creation, listing, active resume and mistake repractice; workspaceId and subjectUserId are not emitted.",
+      "pointer": "/paths/~1v1~1mistakes~1repractice/post/responses/201/content/application~1json/schema/properties/items/items/required",
+      "beforeHash": "90c13f08d9bfe90dd55e57b1581b068c89f556f1210fbf4158437d26e7583ca1",
+      "value": [
+        "id",
+        "prompt",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    {
+      "id": "local-practice-question-required",
+      "reason": "Correct the historical required list to the existing local single-user question response. Real SQLite HTTP regressions cover creation, listing, active resume and mistake repractice; workspaceId and subjectUserId are not emitted.",
+      "pointer": "/paths/~1v1~1practice~1sessions/post/responses/200/content/application~1json/schema/properties/items/items/required",
+      "beforeHash": "90c13f08d9bfe90dd55e57b1581b068c89f556f1210fbf4158437d26e7583ca1",
+      "value": [
+        "id",
+        "prompt",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    {
+      "id": "local-practice-question-required",
+      "reason": "Correct the historical required list to the existing local single-user question response. Real SQLite HTTP regressions cover creation, listing, active resume and mistake repractice; workspaceId and subjectUserId are not emitted.",
+      "pointer": "/paths/~1v1~1practice~1sessions/post/responses/201/content/application~1json/schema/properties/items/items/required",
+      "beforeHash": "90c13f08d9bfe90dd55e57b1581b068c89f556f1210fbf4158437d26e7583ca1",
+      "value": [
+        "id",
+        "prompt",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
     }
   ],
   "restoration": {
