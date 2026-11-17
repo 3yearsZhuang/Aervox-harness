@@ -769,6 +769,8 @@ Web 60 项、主动界面/弹窗 76 项、移动浏览器 13 项、Android JVM 3
 
 本轮 Android 兼容修复 `4a2e1c25` 将 root/Shizuku 的 Process 操作接到共用版本保护：API 24/25 使用有界单调时钟等待与退出状态检查，超时或中断请求 destroy（AOSP 发送 SIGTERM，尽力清理）；API 26+ 保留原生 timed wait 并请求 destroyForcibly。清理请求不能证明所有 su 后代停止或进程实际 drain。68 项 JVM 回归与 App lint 通过，lint 为 0 errors、0 NewApi、35 项既有 warnings。最终源码组合宿主 `fa6d07bc` / 集合 `b48794e6` 的新鲜 `./aervox ci all` 退出 0，完整初始化固定 DSH 后通过构建、类型、测试、守卫、依赖审计、原生与文档门禁；前一轮缺失 DSH 的四项失败保留。集合 `e4308866` 仅将 CI 默认宿主改为公开 `fa6d07bc`，实际两仓远端检查与最终合并 gitlink 继续由 PR 保存。API 24/25 实机、真实 root/Shizuku 通道、执行中撤权/取消、所有 su 后代及完整停止矩阵仍待验收，M0/ITER-009 不关闭。
 
+**Android 最终集合配对：** 集合 PR #15 的精确 `e4308866` [PR 集成 CI](https://github.com/Aervox-agent/Aervox-plugins/actions/runs/44158830270)成功，经独立审查正常合入 `356c996c63a4d7fda3c49d454c505627f5c60a0c`，实际树与已验收候选一致。宿主 `854fdbfa` 吸收实际安全主线并固定此 SHA 后，根 frozen install、实际消费者的构建/类型/测试 39 项任务、10 个分发包及全部预检通过。独立 QA 源 `b222297e / e4308866` 的 `.uiqav2` APK 构建及包名、v2 指纹、调试签名校验通过，SHA-256 为 `88d58ee16e25771b17a01ea9764dcdefba7b5b94f61537ff08c697679d835c37`；704 个普通资产与 2503 个既有源码文件前后摘要一致。QA 包未安装或运行，原问题设备提交/重开、after-done 事件重放和完整模型接续没有据此验收。主仓 PR #372 继续完成最终精确提交 CI 与审查，原安装、业务数据与 M0 门槛保留。
+
 安卓故障工具的独立提交 `b4f049e9` 已交接到同一候选分支：专用 `deterministicProbe` variant 与 `.terminationprobe` 包名隔离，假模型提交 37 字节安全前缀后等待取消，实际 SQLite、Core 与原生通道不替换，普通包不载入夹具。工具链 34 项、夹具两项通过。交接的 PMA110/API 37 物理样例观察到实际强停后旧进程消失，重开不启动第二次模型，原身份与前缀保留，过期 Running Attempt 收敛 Interrupted，fencing 从 1 到 2，唯一 done 序号 3；强停前 Turn 实际为 Created、Attempt 为 Running。首轮脚本误读字段与状态的失败保留，第二轮最终快照已晚于租约过期，不能声称有效租约内不抢占已实测。完整近期租约、CancelRequested/取消终态、持久补问、renderer 退出、真实 Provider、后台、物理 16 KiB、升级/恢复与签名仍开放；本次不关闭 M0/ITER-009。
 
 <a id="iter-016"></a>
