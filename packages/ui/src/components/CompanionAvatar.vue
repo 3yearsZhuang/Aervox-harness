@@ -6,7 +6,8 @@ import type { CompanionAvatarBindingState } from '../composables/useCompanionAva
 withDefaults(defineProps<{
   model?: AervoxLive2DModel
   bindingState?: CompanionAvatarBindingState
-}>(), { model: () => DEFAULT_AERVOX_MODEL, bindingState: 'default' })
+  preview?: boolean
+}>(), { model: () => DEFAULT_AERVOX_MODEL, bindingState: 'default', preview: false })
 
 const emit = defineEmits<{
   onSpeak: [text: string, preset?: string]
@@ -16,7 +17,7 @@ const emit = defineEmits<{
 
 <template>
   <div class="aervox-companion-avatar" :class="{ 'has-binding-notice': bindingState === 'missing' || bindingState === 'error' }" :data-model-id="model.id" :data-binding-state="bindingState">
-    <Live2DPet :key="model.id" :model="model" @on-speak="(text, preset) => emit('onSpeak', text, preset)" />
+    <Live2DPet :key="model.id" :model="model" :preview="preview" @on-speak="(text, preset) => emit('onSpeak', text, preset)" />
     <div v-if="bindingState === 'missing' || bindingState === 'error'" class="aervox-companion-avatar__notice" role="status">
       <span v-if="bindingState === 'missing'">绑定的形象不可用，正在使用 Mizuki。</span>
       <template v-else>

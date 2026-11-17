@@ -35,6 +35,10 @@ async function bootstrap() {
     sessionStorage: native ? nativeStorage : (() => { try { return window.localStorage; } catch { return null; } })(),
     sessionId: import.meta.env.VITE_SESSION_ID,
   });
+  let savedTheme: string | null = null;
+  try { savedTheme = localStorage.getItem('aervox-theme'); } catch { /* Follow the system without storage. */ }
+  document.documentElement.dataset.theme = savedTheme === 'dark' || savedTheme === 'light'
+    ? savedTheme : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   const app = createApp(App);
   provideAervoxClient(client, app);
   for (const component of [ElButton, ElDialog, ElDropdown, ElDropdownItem, ElDropdownMenu, ElTooltip]) app.use(component);

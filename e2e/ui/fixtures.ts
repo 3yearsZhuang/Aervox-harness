@@ -144,7 +144,12 @@ function stopWebServer(web: ChildProcess | undefined): void {
   }, 2000);
 }
 
-export const test = base.extend<{}, { servers: UiServers; loopProvider: "replay" | undefined; platform: "mobile" | "web" }>({
+export const test = base.extend<{ onboarding: boolean }, { servers: UiServers; loopProvider: "replay" | undefined; platform: "mobile" | "web" }>({
+  onboarding: [false, { option: true }],
+  page: async ({ page, onboarding }, use) => {
+    if (!onboarding) await page.addInitScript(() => { localStorage.setItem('aervox.onboarding.completed.v1', 'true'); });
+    await use(page);
+  },
   loopProvider: [undefined, { scope: "worker", option: true }],
   platform: [process.env.E2E_PLATFORM === "web" ? "web" : "mobile", { scope: "worker", option: true }],
   servers: [

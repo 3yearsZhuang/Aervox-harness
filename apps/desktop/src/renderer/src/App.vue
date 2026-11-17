@@ -2,8 +2,8 @@
 import {defineAsyncComponent, onBeforeUnmount, onMounted, ref} from 'vue'
 import {X} from 'lucide-vue-next'
 import type { BuiltinUIPlugin } from '@aervox/ui/plugin-api'
-import AppTitlebar from '@/components/AppTitlebar.vue'
-import {hasCompletedOnboarding, markOnboardingCompleted} from '@/onboarding-state'
+import AppTitlebar from './components/AppTitlebar.vue'
+import {hasCompletedOnboarding, markOnboardingCompleted} from '@aervox/plugin-panels-ui/onboarding/state'
 import {createSurfaceNavigation, resolveSurfaceChoice, UISurfaceHost} from '@aervox/ui-host'
 import defaultSurface, {compactSurface} from '@aervox/plugin-workbench-ui'
 import proactiveSurface from '@aervox/plugin-proactive-ui'
@@ -12,10 +12,11 @@ import * as firstPartyPlugin from '@aervox/plugin-focus-mode/ui'
 import * as campusPlugin from '@aervox/plugin-flowcampus/ui'
 import { settingsPanels } from '@aervox/plugin-panels-ui'
 
-const OnboardingFlow = defineAsyncComponent(() => import('@/components/OnboardingFlow.vue'))
+const OnboardingFlow = defineAsyncComponent(() => import('@aervox/plugin-panels-ui/onboarding').then(module => module.OnboardingFlow))
 let surfaceStorage: Storage | undefined
 try { surfaceStorage = window.localStorage } catch { /* 无存储时使用本次窗口的默认值 */ }
-const showOnboarding = ref(!hasCompletedOnboarding(surfaceStorage))
+const surfaceStarted = ref(hasCompletedOnboarding(surfaceStorage))
+const showOnboarding = ref(!surfaceStarted.value)
 const reloadSurface = () => window.location.reload()
 const pluginDefinitions: BuiltinUIPlugin[] = [
   firstPartyPlugin.default,
@@ -36,6 +37,7 @@ const surfaceNavigation = createSurfaceNavigation(availableSurfaces, {
 
 function completeOnboarding() {
   markOnboardingCompleted(surfaceStorage)
+  surfaceStarted.value = true
   showOnboarding.value = false
 }
 
@@ -57,21 +59,22 @@ function onWindowKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape' && showIntroDeck.value) closeIntroDeck()
 }
 
-onMounted(() => window.addEventListener('keydown', onWindowKeydown))
-onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
+onMounted(() => { window.addEventListener('keydown', onWindowKeydown); window.addEventListener('aervox:configure-companion', replayOnboarding) })
+onBeforeUnmount(() => { window.removeEventListener('keydown', onWindowKeydown); window.removeEventListener('aervox:configure-companion', replayOnboarding) })
 </script>
 
 <template>
   <div class="window-shell">
     <AppTitlebar />
-    <OnboardingFlow v-if="showOnboarding" @complete="completeOnboarding" />
+    <OnboardingFlow v-if="showOnboarding" :replay="hasCompletedOnboarding(surfaceStorage)" @complete="completeOnboarding" @dismiss="showOnboarding = false" />
     <UISurfaceHost
+      v-if="surfaceStarted"
+      v-show="!showOnboarding"
       :plugin="mainSurface"
       :request-reload="reloadSurface"
       surface="main"
-      v-else
       platform="desktop"
-      :view-props="{ showCompanion: true, surfaceNavigation }"
+      :view-props="{ interactionSuspended: showOnboarding, showCompanion: true, surfaceNavigation }"
     :plugins="pluginDefinitions"
       :settings-panels="settingsPanels"
       @replay-onboarding="replayOnboarding"

@@ -7,8 +7,9 @@ export { default as UserQuestionComposer } from './components/UserQuestionCompos
 export { default as AervoxBrandMark } from './components/AervoxBrandMark.vue';
 export { default as AervoxCompanionMark } from './components/AervoxCompanionMark.vue';
 export { default as Live2DPet } from './components/Live2DPet.vue';
-export { readCompanionIdentity } from './utils/companion-identity';
+export { readCompanionIdentity, saveCompanionIdentity } from './utils/companion-identity';
 export type { SurfaceNavigation } from './surface-navigation';
+export type { ModelSetupStatus } from './model-setup';
 export { useSessionHistory } from './composables/useSessionHistory';
 export { useSessionDraft } from './composables/session-draft';
 export { getQuestionSubmissionIssue, hasOriginalQuestionIdentity, isSameOriginalQuestion, type QuestionSubmissionIssue } from './utils/question-feedback';
