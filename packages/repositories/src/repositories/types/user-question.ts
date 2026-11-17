@@ -131,6 +131,8 @@ export interface KnowledgeItemModel {
 }
 
 export interface ReviewItemModel {
+  /** Current linked next row in a completed-history read, never another fact. */
+  nextReview?: ReviewItemModel | null;
   id: string;
   knowledgeId: string;
   dueAt: string;
