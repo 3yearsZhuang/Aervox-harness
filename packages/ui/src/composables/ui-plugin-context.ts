@@ -18,7 +18,7 @@ export interface UIPluginContext {
   conversation: { streaming: Readonly<Ref<boolean>>; latestAssistantText: Readonly<Ref<string>> };
   /** Instance-scoped domain resources; plugins request only the resources they display. */
   learning: Pick<LearningStorePort,
-    'mistakes' | 'learningPlans' | 'activePracticeSession' | 'error' | 'loadMistakes' | 'loadPlans' | 'loadPractice' | 'loadReviews' |
+    'mistakes' | 'learningPlans' | 'activePracticeSession' | 'error' | 'resources' | 'dueReviews' | 'completedReviews' | 'reviewSummary' | 'getKnowledgeItem' | 'completeReview' | 'loadMistakes' | 'loadPlans' | 'loadPractice' | 'loadReviews' |
     'archiveLearningPlan' | 'generateLearningPlan' | 'setPlanTaskStatus' | 'setMistakeStatus' | 'setMistakeInsight' |
     'completePracticeSession' | 'submitPracticeAnswer' | 'startMistakePractice'>;
   pluginEvents: PluginEventBus;

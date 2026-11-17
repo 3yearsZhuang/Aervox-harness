@@ -1,4 +1,5 @@
 import { ref } from 'vue';
+import { completeReviewResponseSchema, knowledgeItemSchema, reviewHistoryResponseSchema, reviewListResponseSchema, reviewSummaryResponseSchema } from '@aervox/contracts';
 import type { LearningGoalLevel, UpdateLearningGoal } from '@aervox/contracts';
 import type { AervoxTransport } from './transport.js';
 import { createResource } from './resource.js';
@@ -36,15 +37,37 @@ export function createReviewStore(transport: AervoxTransport, timeZone: string):
   const completedReviews = ref<ReviewItemDto[]>([]);
   const reviewSummary = ref<ReviewSummaryDto | null>(null);
   const resource = createResource(() => Promise.all([
-    transport.request<{items: ReviewItemDto[]}>('GET', '/v1/review-items'),
-    transport.request<ReviewSummaryDto>('GET', `/v1/review-items/summary?timeZone=${encodeURIComponent(timeZone)}`),
-    transport.request<{items: ReviewItemDto[]}>('GET', '/v1/review-items/history?limit=5'),
-  ]), ([due, summary, history]) => { dueReviews.value = due.items; reviewSummary.value = summary; completedReviews.value = history.items; });
+    transport.request('GET', '/v1/review-items').then(value => reviewListResponseSchema.parse(value)),
+    transport.request('GET', `/v1/review-items/summary?timeZone=${encodeURIComponent(timeZone)}`).then(value => reviewSummaryResponseSchema.parse(value)),
+    transport.request('GET', '/v1/review-items/history?limit=5').then(value => reviewHistoryResponseSchema.parse(value)),
+  ]), ([_due, summary, history]) => {
+    if (summary.dueCount !== summary.items.length || summary.overdueCount + summary.dueTodayCount !== summary.dueCount
+      || summary.items.some(item => item.status !== 'active')
+      || history.items.some(item => item.nextReview && (item.nextReview.id !== item.nextReviewId || item.nextReview.knowledgeId !== item.knowledgeId))) {
+      throw new Error('Review projection identity mismatch');
+    }
+    // Count, estimate and due rows come from the same authoritative summary.
+    dueReviews.value = summary.items; reviewSummary.value = summary; completedReviews.value = history.items;
+  });
   return {
     dueReviews, completedReviews, reviewSummary, resource, loadReviews: resource.load,
-    async completeReview(reviewId: string, isCorrect: boolean): Promise<void> {
-      await transport.request('POST', `/v1/review-items/${encodeURIComponent(reviewId)}/complete`, {isCorrect, timeZone});
+    async getKnowledgeItem(knowledgeId: string) {
+      const item = knowledgeItemSchema.parse(await transport.request('GET', `/v1/knowledge-items/${encodeURIComponent(knowledgeId)}`));
+      if (item.id !== knowledgeId) throw new Error('Knowledge identity mismatch');
+      return item;
+    },
+    async completeReview(reviewId: string, isCorrect: boolean) {
+      const receipt = completeReviewResponseSchema.parse(await transport.request('POST', `/v1/review-items/${encodeURIComponent(reviewId)}/complete`, {isCorrect, timeZone}));
+      if (receipt.completed.id !== reviewId || receipt.completed.status !== 'completed'
+        || receipt.completed.completionIsCorrect !== isCorrect || receipt.completed.nextReviewId !== receipt.nextReview.id
+        || receipt.nextReview.id === reviewId
+        || receipt.completed.knowledgeId !== receipt.nextReview.knowledgeId || receipt.knowledge.id !== receipt.completed.knowledgeId) {
+        throw new Error('Review receipt identity mismatch');
+      }
+      resource.invalidate();
+      dueReviews.value = dueReviews.value.filter(item => item.id !== reviewId);
       await refresh(resource.load);
+      return receipt;
     },
   };
 }

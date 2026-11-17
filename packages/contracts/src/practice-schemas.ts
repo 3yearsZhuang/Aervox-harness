@@ -16,8 +16,6 @@ export const judgementSchema = z.enum(["correct", "incorrect", "unverifiable"]);
 /** 练习/错题 API 暴露的题目项（QuestionModel 的对外视图） */
 export const practiceQuestionSchema = z.object({
   id: z.string(),
-  workspaceId: z.string(),
-  subjectUserId: z.string(),
   sourceArtifactId: z.string().nullable().optional(),
   knowledgeId: z.string().nullable().optional(),
   prompt: z.string(),
@@ -121,10 +119,26 @@ export const reviewItemSchema = z.object({
   status: z.enum(["active", "completed", "dismissed", "archived"]),
 });
 
+/** Existing local learning content; sourceStatus describes evidence, not a source grant. */
+export const knowledgeItemSchema = z.object({
+  id: z.string(),
+  concept: z.string(),
+  sourceStatus: z.string(),
+  masteryState: z.string(),
+  correctCount: z.number().int().nonnegative(),
+  wrongCount: z.number().int().nonnegative(),
+  correctStreak: z.number().int().nonnegative(),
+  mastery: z.number().min(0).max(1),
+  masteryBasis: z.unknown().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
 export const reviewListResponseSchema = z.object({ items: z.array(reviewItemSchema) });
 export const reviewHistoryItemSchema = reviewItemSchema.extend({
   completionIsCorrect: z.boolean().nullable(),
   nextReviewId: z.string().nullable(),
+  nextReview: reviewItemSchema.nullable().optional(),
   updatedAt: z.string(),
 });
 export const reviewHistoryResponseSchema = z.object({ items: z.array(reviewHistoryItemSchema) });
@@ -141,7 +155,10 @@ export const completeReviewRequestSchema = z.object({
   timeZone: z.string().min(1).optional(),
 });
 export const completeReviewResponseSchema = z.object({
-  completed: reviewItemSchema,
+  completed: reviewItemSchema.extend({
+    completionIsCorrect: z.boolean(),
+    nextReviewId: z.string(),
+  }),
   nextReview: reviewItemSchema,
   knowledge: z.object({
     id: z.string(),
