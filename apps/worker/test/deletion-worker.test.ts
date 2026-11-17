@@ -6,7 +6,7 @@ import { runCompactionMarkerCycle, COMPACTION_EVENT_TYPE } from "../src/compacti
 const local = { workspaceId: "local", subjectUserId: "local" };
 describe("verified Memory deletion", () => {
   let database: Awaited<ReturnType<typeof createInMemoryDatabase>>;
-  let ctx: DeletionWorkerContext & { privacyRepo: SqlitePrivacyRepository };
+  let ctx: DeletionWorkerContext & { privacyRepo: SqlitePrivacyRepository; platformRepo: SqlitePlatformRepository };
   beforeEach(async () => {
     database = await createInMemoryDatabase(); await initDatabaseSchema(database.client);
     ctx = { memoryDeletion: new SqliteMemoryDeletionStore(database.db), privacyRepo: new SqlitePrivacyRepository(database.db), platformRepo: new SqlitePlatformRepository(database.db), workerId: "test" };

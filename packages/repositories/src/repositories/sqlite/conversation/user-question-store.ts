@@ -117,7 +117,7 @@ export class UserQuestionStore {
       sql`${pendingUserQuestions.expiresAt} > ${new Date().toISOString()}`, disclosableTurn(turnId),
       sql`not exists (select 1 from ${turnAttempts} where ${turnAttempts.id} = ${pendingUserQuestions.attemptId}
         and ${turnAttempts.turnId} = ${pendingUserQuestions.turnId} and ${turnAttempts.status} in ('CancelRequested', 'Cancelled'))`,
-      sql`not exists (select 1 from ${deletionRequests} where ${unverifiedDeletionRequest})`,
+      sql`not exists (select 1 from ${deletionRequests} where ${unverifiedDeletionRequest(this.db)})`,
     )).limit(1);
     return row ? toPending(row) : null;
   }
@@ -126,7 +126,7 @@ export class UserQuestionStore {
     requireIdentity(identity);
     const [row] = await this.db.select().from(turnStreamEvents).where(and(identityWhere(identity),
       eq(turnStreamEvents.eventType, "user_question_answered"), disclosableTurn(identity.turnId),
-      sql`not exists (select 1 from ${deletionRequests} where ${unverifiedDeletionRequest})`,
+      sql`not exists (select 1 from ${deletionRequests} where ${unverifiedDeletionRequest(this.db)})`,
     )).orderBy(desc(turnStreamEvents.sequence)).limit(1);
     return row ? toReceipt(identity, row as TurnStreamEventModel) : null;
   }

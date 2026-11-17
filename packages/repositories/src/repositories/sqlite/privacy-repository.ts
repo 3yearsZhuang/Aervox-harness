@@ -5,7 +5,7 @@
  */
 import { eq, and, sql } from "drizzle-orm";
 import type { AervoxDatabase } from "../../client.js";
-import { consentGrants, deletionRequests, deletionTargets } from "@aervox/schema";
+import { auditRecords, consentGrants, deletionRequests, deletionTargets } from "@aervox/schema";
 import { MEMORY_DELETION_VERIFIER } from "../../memory-deletion-protocol.js";
 import { DomainConflictError } from "../../errors.js";
 import { jsonObject, jsonText, nullSafeDifferent } from "../../sql-dialect.js";
@@ -16,16 +16,34 @@ import type {
   ConsentGrantModel,
   DeletionRequestModel,
   DeletionTargetModel,
+  DeletionQueuePort,
+  DeletionRequestAttemptKey,
+  DeletionTargetAttemptKey,
+  DeletionTargetAttemptResult,
 } from "../types/index.js";
 
-/** Shared retry/gate predicate: legacy completion without supported verification stays denied. */
-export const unverifiedDeletionRequest = (db: object) => sql`${deletionRequests.status} != 'completed' OR ${deletionRequests.lastVerifiedAt} IS NULL
-            OR ${nullSafeDifferent(db, deletionRequests.scope, 'memory')} OR ${nullSafeDifferent(db, deletionRequests.ownerModule, 'memory')}
+/** Target readiness shared by completion, retry selection and use gates. */
+const unverifiedDeletionTargets = (db: object) => sql`${nullSafeDifferent(db, deletionRequests.scope, 'memory')} OR ${nullSafeDifferent(db, deletionRequests.ownerModule, 'memory')}
             OR NOT EXISTS (SELECT 1 FROM deletion_targets t WHERE t.request_id = ${deletionRequests.id})
             OR EXISTS (SELECT 1 FROM deletion_targets t WHERE t.request_id = ${deletionRequests.id}
               AND (${nullSafeDifferent(db, sql`t.target_type`, 'memory')} OR ${nullSafeDifferent(db, sql`t.owner_module`, 'memory')}
                 OR t.target_id IS NULL OR t.target_id = '' OR t.status != 'completed' OR t.verified_at IS NULL OR
                 ${nullSafeDifferent(db, jsonText(db, sql`t.evidence_ref`, '$.verifier'), MEMORY_DELETION_VERIFIER)}))`;
+
+/** Shared retry/gate predicate: legacy completion without supported verification stays denied. */
+// Keep the OR grouped when it is combined with a request identity predicate.
+export const unverifiedDeletionRequest = (db: object) => sql`(${deletionRequests.status} != 'completed' OR ${deletionRequests.lastVerifiedAt} IS NULL
+            OR (${unverifiedDeletionTargets(db)}))`;
+
+const requestAttemptPredicate = (key: DeletionRequestAttemptKey) => and(
+  eq(deletionRequests.id, key.requestId), eq(deletionRequests.attemptCount, key.requestAttemptCount),
+  eq(deletionRequests.status, "in_progress"),
+);
+const targetAttemptPredicate = (key: DeletionTargetAttemptKey) => and(
+  eq(deletionTargets.requestId, key.requestId), eq(deletionTargets.targetType, key.targetType), eq(deletionTargets.targetId, key.targetId),
+  sql`EXISTS (SELECT 1 FROM deletion_requests r WHERE r.id = ${key.requestId}
+    AND r.attempt_count = ${key.requestAttemptCount} AND r.status = 'in_progress')`,
+);
 
 type DeletionTargetIntent = { targetType: string; targetId: string; ownerModule: string };
 function normalizeDeletionTargets(targets: readonly DeletionTargetIntent[] = []): DeletionTargetIntent[] {
@@ -57,7 +75,7 @@ const deletionTargetProjection = (db: object) => ({ value: jsonObject(db, [
   ['verifiedAt', deletionTargets.verifiedAt], ['evidenceRef', deletionTargets.evidenceRef],
 ]).mapWith((value: string): DeletionTargetModel => JSON.parse(value)) });
 
-export class SqlitePrivacyRepository implements IPrivacyRepository {
+export class SqlitePrivacyRepository implements IPrivacyRepository, DeletionQueuePort {
   constructor(private readonly db: AervoxDatabase) {}
 
   async listUnverifiedDeletionRequests(limit = 20): Promise<DeletionRequestModel[]> {
@@ -78,11 +96,41 @@ export class SqlitePrivacyRepository implements IPrivacyRepository {
     return updated?.value ?? null;
   }
 
-  async beginDeletionTargetAttempt(target: { requestId: string; targetType: string; targetId: string }): Promise<DeletionTargetModel | null> {
+  async beginDeletionTargetAttempt(key: DeletionTargetAttemptKey): Promise<DeletionTargetModel | null> {
     const [updated] = await this.db.update(deletionTargets).set({ status: "in_progress", verifiedAt: null, evidenceRef: null,
-      attemptCount: sql`${deletionTargets.attemptCount} + 1` }).where(and(eq(deletionTargets.requestId, target.requestId),
-      eq(deletionTargets.targetType, target.targetType), eq(deletionTargets.targetId, target.targetId))).returning(deletionTargetProjection(this.db));
+      attemptCount: sql`${deletionTargets.attemptCount} + 1` }).where(targetAttemptPredicate(key)).returning(deletionTargetProjection(this.db));
     return updated?.value ?? null;
+  }
+
+  async updateDeletionTargetAttemptStatus(key: DeletionTargetAttemptKey, result: DeletionTargetAttemptResult): Promise<DeletionTargetModel | null> {
+    const [updated] = await this.db.update(deletionTargets).set({
+      status: result.status,
+      verifiedAt: result.status === "completed" ? new Date().toISOString() : null,
+      evidenceRef: result.status === "completed" ? result.evidenceRef : null,
+    }).where(and(targetAttemptPredicate(key), eq(deletionTargets.status, "in_progress"))).returning(deletionTargetProjection(this.db));
+    return updated?.value ?? null;
+  }
+
+  async failDeletionRequestAttempt(key: DeletionRequestAttemptKey, lastError: string): Promise<DeletionRequestModel | null> {
+    const [updated] = await this.db.update(deletionRequests).set({ status: "failed", lastError, updatedAt: new Date().toISOString() })
+      .where(requestAttemptPredicate(key)).returning(deletionRequestProjection(this.db));
+    return updated?.value ?? null;
+  }
+
+  async finalizeDeletionRequestAttempt(key: DeletionRequestAttemptKey, workerId: string): Promise<DeletionRequestModel | null> {
+    return this.db.transaction(async tx => {
+      const now = new Date().toISOString();
+      const [updated] = await tx.update(deletionRequests).set({ status: "completed", lastVerifiedAt: now, lastError: null, updatedAt: now })
+        .where(and(requestAttemptPredicate(key), sql`NOT (${unverifiedDeletionTargets(tx)})`)).returning(deletionRequestProjection(tx));
+      if (!updated) return null;
+      const [targetCount] = await tx.select({ count: sql<number>`count(*)` }).from(deletionTargets).where(eq(deletionTargets.requestId, key.requestId));
+      await tx.insert(auditRecords).values({
+        id: `aud_${crypto.randomUUID()}`, actorType: "system", actorId: `deletion:${workerId}`,
+        action: "deletion.completed", subjectType: "deletion_request", subjectId: key.requestId,
+        metadata: { scope: updated.value.scope, verifier: MEMORY_DELETION_VERIFIER, targetCount: targetCount!.count }, createdAt: now,
+      });
+      return updated.value;
+    }, { behavior: "immediate" });
   }
 
   async grantConsent(
