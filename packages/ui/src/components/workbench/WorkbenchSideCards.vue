@@ -55,6 +55,7 @@ function closePicker() {
             class="side-question-card"
             :question-data="activeQuestion"
             :submitting="questionSubmitting"
+            :submission-issue="conversation.questionSubmissionIssue.value"
             @submit="handleQuestionSubmit"
           />
 

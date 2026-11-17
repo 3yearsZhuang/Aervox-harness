@@ -9,7 +9,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.json.JSONObject;
 
@@ -204,15 +203,14 @@ final class NativeDeviceService {
                 } catch (Exception ignored) { }
             });
             reader.setDaemon(true); reader.start();
-            if (!process.waitFor(timeoutMs, TimeUnit.MILLISECONDS)) {
-                process.destroyForcibly();
+            if (!NativeProcessCompat.waitFor(process, timeoutMs)) {
                 throw new DeviceException("COMMAND_TIMEOUT");
             }
             reader.join(500);
             String output = new String(collected.toByteArray(), StandardCharsets.UTF_8).trim();
             try { return NativeDevicePolicy.commandOutput(process.exitValue(), output); }
             catch (NativeDevicePolicy.Rejected failed) { throw new DeviceException(failed.code); }
-        } finally { if (process.isAlive()) process.destroyForcibly(); }
+        } finally { NativeProcessCompat.destroyIfAlive(process); }
     }
 
     private static String bounded(String value) {

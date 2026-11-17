@@ -5,9 +5,11 @@ import type {
   AskUserQuestionAnswerItem,
   ToolApprovalMode,
   TurnAttachmentRef,
+  UserQuestionRequiredEventData,
 } from '@aervox/contracts';
 import { MizukiExpression } from '../live2d/model';
 import { readCompanionIdentity } from '../utils/companion-identity';
+import { getQuestionSubmissionIssue, isSameOriginalQuestion, type QuestionSubmissionIssue } from '../utils/question-feedback';
 import { petReact, petReactKind } from '../live2d/petReactions';
 
 export type Speaker = 'assistant' | 'user' | 'system';
@@ -298,6 +300,9 @@ export function useWorkbenchConversation(options: {
   // UQ-01: 挂起向用户提问数据与提交状态
   const activeQuestion = computed(() => turnState.value.question ?? null);
   const questionSubmitting = ref(false);
+  const questionFailure = shallowRef<{ question: UserQuestionRequiredEventData; issue: QuestionSubmissionIssue }>();
+  const questionSubmissionIssue = computed(() => isSameOriginalQuestion(questionFailure.value?.question, activeQuestion.value ?? undefined)
+    ? questionFailure.value?.issue : undefined);
   const currentTurnId = computed(() => turnState.value.turnId ?? null);
 
   // PET-05: 写工具审批待决
@@ -428,12 +433,16 @@ export function useWorkbenchConversation(options: {
   }
 
   async function handleQuestionSubmit(answers: AskUserQuestionAnswerItem[]) {
-    if (!currentTurnId.value || questionSubmitting.value) return;
+    const question = activeQuestion.value;
+    if (!currentTurnId.value || !question || questionSubmitting.value) return;
     questionSubmitting.value = true;
     try {
       await options.controller.answer(answers);
+      if (isSameOriginalQuestion(questionFailure.value?.question, question)) questionFailure.value = undefined;
     } catch (err) {
-      console.error('提交回答失败', err);
+      if (isSameOriginalQuestion(question, activeQuestion.value ?? undefined)) {
+        questionFailure.value = { question, issue: getQuestionSubmissionIssue(err) };
+      }
     } finally {
       questionSubmitting.value = false;
     }
@@ -476,6 +485,7 @@ export function useWorkbenchConversation(options: {
     historyViewport,
     activeQuestion,
     questionSubmitting,
+    questionSubmissionIssue,
     currentTurnId,
     pendingApproval,
     approvalBusy,

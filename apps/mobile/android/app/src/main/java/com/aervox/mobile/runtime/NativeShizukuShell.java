@@ -3,7 +3,6 @@ package com.aervox.mobile.runtime;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Shell transport over Shizuku (adb-level service the user has installed and
@@ -52,15 +51,14 @@ final class NativeShizukuShell implements NativeDeviceService.Shell {
                     } catch (Exception ignored) { }
                 });
                 reader.setDaemon(true); reader.start();
-                if (!p.waitFor(timeoutMs, TimeUnit.MILLISECONDS)) {
-                    p.destroyForcibly();
+                if (!NativeProcessCompat.waitFor(p, timeoutMs)) {
                     throw new ShizukuException("COMMAND_TIMEOUT");
                 }
                 reader.join(500);
                 String output = new String(collected.toByteArray(), StandardCharsets.UTF_8).trim();
                 try { return NativeDevicePolicy.commandOutput(p.exitValue(), output); }
                 catch (NativeDevicePolicy.Rejected failed) { throw new ShizukuException(failed.code); }
-            } finally { if (p.isAlive()) p.destroyForcibly(); }
+            } finally { NativeProcessCompat.destroyIfAlive(p); }
         } catch (ShizukuException error) {
             throw error;
         } catch (Throwable error) {

@@ -119,6 +119,7 @@ export function validatePersonaConfig(config: PersonaRevisionConfig): PersonaRev
       ? { allowedMcpToolIds: normalizeList(config.allowedMcpToolIds, "allowedMcpToolIds") }
       : {}),
     ...(config.voice ? { voice: { ...config.voice } } : {}),
+    ...(config.live2dModelId !== undefined ? { live2dModelId: config.live2dModelId } : {}),
   };
 }
 

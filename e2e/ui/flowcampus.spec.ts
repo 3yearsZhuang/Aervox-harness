@@ -36,6 +36,7 @@ test.beforeEach(async ({ request, servers }) => {
   await write(request, servers.apiUrl, snapshot);
 });
 async function openToday(page: Page) {
+  await page.getByRole('tab', { name: '切换到工具', exact: true }).click();
   await page.getByRole('navigation', { name: '首页入口' }).getByRole('button', { name: /^今日/ }).click();
   await expect(page.getByRole('dialog', { name: '今日', exact: true })).toBeVisible();
   return page.locator('md-dialog[data-aria-label="今日"]');

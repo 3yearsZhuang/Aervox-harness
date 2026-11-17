@@ -10,6 +10,7 @@ import {
   activatePersonaRequestSchema,
   createPersonaRequestSchema,
   updatePersonaRequestSchema,
+  personaApi,
   type PersonaRevisionConfig,
 } from '@aervox/contracts';
 import type { IPersonaRepository, LocalContext } from '@aervox/repositories/persona';
@@ -49,6 +50,7 @@ function normalizeConfig(config: PersonaRevisionConfig): PersonaRevisionConfig {
     ...(config.allowedMcpToolIds !== undefined
       ? { allowedMcpToolIds: [...new Set(config.allowedMcpToolIds.map(nonEmpty))] } : {}),
     ...(config.voice ? { voice: { ...config.voice } } : {}),
+    ...(config.live2dModelId !== undefined ? { live2dModelId: config.live2dModelId } : {}),
   };
 }
 
@@ -105,12 +107,16 @@ export function createPersonaRouteHandler({ repo, ctx, checksum }: PersonaRouteD
     const detail = /^\/v1\/personas\/([^/]+)$/.exec(path);
     if (detail && method === 'GET') {
       const personaId = identifier(decodeURIComponent(detail[1]!));
+      const parsed = personaApi.get.query.safeParse(Object.fromEntries(url.searchParams));
+      if (!parsed.success) return fail(400, 'INVALID_PERSONA');
+      const revisionId = parsed.data.revisionId;
       const persona = await repo.getPersona(ctx, personaId);
       if (!persona) return fail(404, 'PERSONA_NOT_FOUND');
       const [revision, active] = await Promise.all([
-        repo.getPersonaRevision(ctx, personaId, persona.currentRevisionId),
+        repo.getPersonaRevision(ctx, personaId, revisionId ?? persona.currentRevisionId),
         repo.getActivePersona(ctx),
       ]);
+      if (revisionId !== undefined && (!revision || revision.personaId !== personaId || revision.id !== revisionId)) return fail(404, 'PERSONA_NOT_FOUND');
       return { handled: true, result: { persona, revision: revision ?? null, active: active?.personaId === personaId } };
     }
 

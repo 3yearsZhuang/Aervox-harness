@@ -15,9 +15,11 @@ import { settingsPanels } from '@aervox/plugin-panels-ui'
 import NativeRuntimePanel from './mobile/NativeRuntimePanel.vue'
 import NativeLearningPanel from './mobile/NativeLearningPanel.vue'
 import { nativeStorage, nativeStorageFailed } from './mobile/native-storage'
+import { notifyNativeUiReady } from './mobile/native-startup'
 
 const reloadSurface = () => { if (mobileLocation) mobileLocation.reload(); else window.location.reload() }
 const nativeRuntime = 'AervoxM0Native' in window && window.AervoxM0Native != null
+const startupEvents = nativeRuntime ? { ready: notifyNativeUiReady, failed: notifyNativeUiReady } : {}
 const hostSettingsPanels = nativeRuntime ? [{ category: 'model', component: NativeRuntimePanel }] : settingsPanels
 const pluginDefinitions: BuiltinUIPlugin[] = nativeRuntime ? [] : [
   firstPartyPlugin.default,
@@ -64,6 +66,7 @@ const surfaceNavigation = createSurfaceNavigation(availableSurfaces, {
     :view-props="{ showCompanion: platform === 'web', surfaceNavigation, nativeRuntime, draftStorage: nativeRuntime ? nativeStorage : undefined, learningPanel: nativeRuntime ? NativeLearningPanel : undefined }"
     :plugins="pluginDefinitions"
     :settings-panels="hostSettingsPanels"
+    v-on="startupEvents"
   />
 </template>
 

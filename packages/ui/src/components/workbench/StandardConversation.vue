@@ -36,6 +36,9 @@ watch(() => [story.value, story.value.length, story.value.at(-1)?.text, story.va
 });
 onMounted(scrollToLatest);
 watch(() => story.value, scrollToLatest);
+watch([conversation.activeQuestion, conversation.questionSubmissionIssue], async () => {
+  if (following.value) await scrollToLatest();
+});
 
 async function copyMessage(id: number, text: string) {
   const attempt = ++copyAttempt;
@@ -88,6 +91,7 @@ async function copyMessage(id: number, text: string) {
         <p v-if="story.length === 0" class="standard-empty">发送消息，开始新的对话</p>
         <UserQuestionComposer v-if="conversation.activeQuestion.value"
           :question-data="conversation.activeQuestion.value" :submitting="conversation.questionSubmitting.value"
+          :submission-issue="conversation.questionSubmissionIssue.value"
           @submit="conversation.handleQuestionSubmit" />
         <ToolApprovalCard />
         <TurnRetryAction />

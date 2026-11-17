@@ -10,6 +10,7 @@
     "build:web": "VITE_AERVOX_PLATFORM=mobile pnpm --filter @aervox/web build",
     "build:web:native": "VITE_AERVOX_PLATFORM=mobile pnpm --filter @aervox/web build --base /m0/",
     "prepare:native": "node scripts/prepare-native-assets.mjs",
+    "prepare:native:termination-probe": "node scripts/prepare-native-assets.mjs --termination-probe",
     "prepare:native:restore": "node scripts/prepare-native-assets.mjs --restore",
     "dev": "VITE_AERVOX_PLATFORM=mobile pnpm --filter @aervox/web dev",
     "preview": "pnpm --filter @aervox/web start",
@@ -20,6 +21,7 @@
     "android:check": "node scripts/check-android-environment.mjs",
     "android:check:device": "node scripts/check-android-environment.mjs --device",
     "android:build": "node scripts/build-android.mjs",
+    "android:build:termination-probe": "node scripts/build-android.mjs --termination-probe",
     "test": "node --test test/*.test.mjs",
     "sqlite:restore": "node scripts/sqlite-artifact.mjs",
     "sqlite:check": "node scripts/sqlite-artifact.mjs --check"
