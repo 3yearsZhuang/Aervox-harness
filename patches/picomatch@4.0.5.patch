@@ -1,0 +1,69 @@
+diff --git a/lib/parse.js b/lib/parse.js
+index a85bb2d441e5c20331181411f67bef7a2d0a0d88..fc681c54c75d08fa94156dbf2c12b77ba792905e 100644
+--- a/lib/parse.js
++++ b/lib/parse.js
+@@ -284,7 +284,15 @@ const repeatedExtglobRecursion = pattern => {
+   return depth;
+ };
+ 
+-const analyzeRepeatedExtglob = (body, options) => {
++// Adapted from micromatch/picomatch#246 (f03bec2c02e46f063fbfdc161aae1d0f854b2565).
++// A literal/star branch can absorb repetitions without an outer quantifier.
++const isSelfRepeatingStarBranch = branch => {
++  return branch.includes('*') &&
++    !branch.includes('**') &&
++    !/[\\/"?()[\]{}|!+@]/.test(branch);
++};
++
++const analyzeRepeatedExtglob = (body, options, hasBareStar) => {
+   if (options.maxExtglobRecursion === false) {
+     return { risky: false };
+   }
+@@ -296,6 +304,16 @@ const analyzeRepeatedExtglob = (body, options) => {
+ 
+   const branches = splitTopLevel(body).map(branch => branch.trim());
+ 
++  if (branches.length === 1 && isSelfRepeatingStarBranch(branches[0])) {
++    // Partial matches and bash stars across line breaks do not preserve the
++    // same match span under collapse; use the existing literal safeguard.
++    return options.capture || options.contains || (options.bash && /[\r\n\u2028\u2029]/.test(body))
++      ? { risky: true } : { risky: false, collapse: true };
++  }
++  if (hasBareStar === true) {
++    return { risky: true };
++  }
++
+   if (branches.length > 1) {
+     if (
+       branches.some(branch => branch === '') ||
+@@ -539,7 +557,18 @@ const parse = (input, options) => {
+   const extglobClose = token => {
+     const literal = input.slice(token.startIndex, state.index + 1);
+     const body = input.slice(token.startIndex + 2, state.index);
+-    const analysis = analyzeRepeatedExtglob(body, opts);
++    // Character classes, quotes and escaped literals are already tokenized.
++    // Only the parser's actual wildcard tokens can nest an unbounded repeat.
++    let hasBareStar = false;
++    for (let i = token.tokensIndex + 2; i < tokens.length; i++) {
++      const current = tokens[i];
++      const next = tokens[i + 1];
++      if (current.value === '' || (current.type !== 'star' && current.type !== 'globstar')) continue;
++      if (next && next.type === 'paren' && next.extglob === true && next.value === '(') continue;
++      hasBareStar = true;
++      break;
++    }
++    const analysis = analyzeRepeatedExtglob(body, opts, hasBareStar);
+ 
+     if ((token.type === 'plus' || token.type === 'star') && analysis.risky) {
+       const safeOutput = analysis.safeOutput
+@@ -565,6 +594,10 @@ const parse = (input, options) => {
+       return;
+     }
+ 
++    if (analysis.collapse === true && (token.type === 'plus' || token.type === 'star')) {
++      token.close = token.type === 'plus' ? ')' : ')?';
++    }
++
+     let output = token.close + (opts.capture ? ')' : '');
+     let rest;
+ 
