@@ -25,7 +25,7 @@ test('weekly lessons and a reviewed CSV import persist without duplicate instanc
   await dialog.getByRole('button', { name: '课表与日程', exact: true }).click();
   await dialog.getByRole('button', { name: '新增周课程', exact: true }).click();
   await dialog.getByLabel('周课程名称', { exact: true }).fill('每周线性代数');
-  await dialog.getByLabel('周课程地点', { exact: true }).selectOption('classroom');
+  await dialog.getByRole('combobox', { name: '周课程地点', exact: true }).selectOption('classroom');
   await dialog.getByLabel('起始日期', { exact: true }).fill('2026-10-26');
   await dialog.getByLabel('截止日期', { exact: true }).fill('2026-11-23');
   const weekdays = dialog.locator('.campus-weekly-editor fieldset input');
