@@ -1,40 +1,5 @@
 [
   {
-    "advisory": "GHSA-67mh-4wv8-2f99",
-    "package": "esbuild",
-    "version": "0.18.20",
-    "paths": [
-      "packages__schema>drizzle-kit>@esbuild-kit/esm-loader>@esbuild-kit/core-utils>esbuild"
-    ],
-    "expiresOn": "2026-11-13",
-    "owner": "maintainers",
-    "reason": "Drizzle Kit legacy loader uses transform, not the vulnerable esbuild development server. No esbuild serve endpoint is exposed. Upstream loader replacement requires a separate compatibility check; a cross-major override is not applied."
-  },
-  {
-    "advisory": "GHSA-w5hq-g745-h8pq",
-    "package": "uuid",
-    "version": "7.0.3",
-    "paths": [
-      "apps__mobile>@capacitor/cli>xcode>uuid"
-    ],
-    "expiresOn": "2026-11-13",
-    "owner": "maintainers",
-    "reason": "Xcode project tooling uses random UUIDs for local project identifiers, not authorization or untrusted buffer writes. The installed CLI retains uuid 7 through xcode; forcing uuid 11 changes the dependency contract. Recheck upstream xcode support before mobile distribution."
-  },
-  {
-    "advisory": "GHSA-gcqx-w48m-w2h4",
-    "package": "deepmerge",
-    "version": "4.3.1",
-    "paths": [
-      "research__deletion-fault-testing>@langchain/community>@browserbasehq/stagehand>deepmerge",
-      "research__deletion-fault-testing>@langchain/community>html-to-text>deepmerge",
-      "research__deletion-fault-testing>llamaindex>@llamaindex/node-parser>html-to-text>deepmerge"
-    ],
-    "expiresOn": "2026-11-13",
-    "owner": "maintainers",
-    "reason": "No upstream fixed release exists. The exact 4.3.1 installation is locally fixed by patches/deepmerge@4.3.1.patch in index.js and the CJS/UMD distributions; writes of __proto__ from both target and source use own data properties. check:dependency-audit first verifies the patch registration and actual research dependency resolutions against poisoning regressions, including ESM consumption. Registry audit still reports the unchanged 4.3.1 version. This review covers only these three research paths and must be removed when an upstream fix is adopted."
-  },
-  {
     "advisory": "GHSA-g3hv-75wg-m249",
     "package": "minimatch",
     "version": "10.2.6",
@@ -45,9 +10,9 @@
       ".>electron-builder>dmg-builder>app-builder-lib>minimatch",
       "apps__mobile>@capacitor/cli>rimraf>glob>minimatch"
     ],
-    "expiresOn": "2026-11-13",
+    "expiresOn": "2026-12-02",
     "owner": "maintainers",
-    "reason": "No compatible fixed 10.x release exists. patches/minimatch@10.2.6.patch backports upstream commit 77a0f5c4b80bdc641c3c930a1d9edf5ad2db57f8: cap preprocessing expansion and bound pairwise deduplication. The existing v10 API is retained. check-minimatch-patches.test.mjs verifies the exact registered patch and installed CJS/ESM consumer paths, including the unbundled glob consumers, bounded amplification and ordinary matching before the audit. Registry still reports the original version; replace this local fix and remove these exact paths when a compatible upstream update is adopted."
+    "reason": "Re-reviewed on 2026-11-18: compatible upstream releases still lack the fix; the registered patch and actual installed consumer regressions pass. No compatible fixed 10.x release exists. patches/minimatch@10.2.6.patch backports upstream commit 77a0f5c4b80bdc641c3c930a1d9edf5ad2db57f8: cap preprocessing expansion and bound pairwise deduplication. The existing v10 API is retained. check-minimatch-patches.test.mjs verifies the exact registered patch and installed CJS/ESM consumer paths, including the unbundled glob consumers, bounded amplification and ordinary matching before the audit. Registry still reports the original version; replace this local fix and remove these exact paths when a compatible upstream update is adopted."
   },
   {
     "advisory": "GHSA-g3hv-75wg-m249",
@@ -66,9 +31,9 @@
       "plugins__surfaces__proactive-ui>vue-tsc>@vue/language-core>minimatch",
       "plugins__surfaces__workbench-ui>vue-tsc>@vue/language-core>minimatch"
     ],
-    "expiresOn": "2026-11-13",
+    "expiresOn": "2026-12-02",
     "owner": "maintainers",
-    "reason": "No compatible fixed 9.x release exists. patches/minimatch@9.0.9.patch backports upstream commit 77a0f5c4b80bdc641c3c930a1d9edf5ad2db57f8: cap preprocessing expansion and bound pairwise deduplication. The existing v9 API is retained. check-minimatch-patches.test.mjs verifies the exact registered patch and installed CJS/ESM consumer paths, bounded amplification and ordinary matching before the audit. Registry still reports the original version; replace this local fix and remove these exact paths when a compatible upstream update is adopted."
+    "reason": "Re-reviewed on 2026-11-18: compatible upstream releases still lack the fix; the registered patch and actual installed consumer regressions pass. No compatible fixed 9.x release exists. patches/minimatch@9.0.9.patch backports upstream commit 77a0f5c4b80bdc641c3c930a1d9edf5ad2db57f8: cap preprocessing expansion and bound pairwise deduplication. The existing v9 API is retained. check-minimatch-patches.test.mjs verifies the exact registered patch and installed CJS/ESM consumer paths, bounded amplification and ordinary matching before the audit. Registry still reports the original version; replace this local fix and remove these exact paths when a compatible upstream update is adopted."
   },
   {
     "advisory": "GHSA-3g3m-2fjr-6pw4",
@@ -78,8 +43,68 @@
       ".>@vue/test-utils>js-beautify>glob",
       "apps__mobile>@capacitor/cli>rimraf>glob"
     ],
-    "expiresOn": "2026-11-13",
+    "expiresOn": "2026-12-02",
     "owner": "maintainers",
-    "reason": "No compatible fixed 13.x release exists. patches/glob@13.0.6.patch backports upstream commit 4682e8c9babee1b385202ede36389634e12076d7 to both walker formats, including paused-stream resume. Default CJS/ESM entries use the existing raw modules so they consume the separately patched minimatch rather than the vulnerable embedded copy. check-glob-patch.test.mjs verifies registered patch hashes, actual js-beautify/rimraf consumer resolution, abort traversal bounds, paused-stream completion and normal matching before audit. Registry still reports the original version; remove these exact paths when a compatible upstream fix is adopted."
+    "reason": "Re-reviewed on 2026-11-18: compatible upstream releases still lack the fix; the registered patch and actual installed consumer regressions pass. No compatible fixed 13.x release exists. patches/glob@13.0.6.patch backports upstream commit 4682e8c9babee1b385202ede36389634e12076d7 to both walker formats, including paused-stream resume. Default CJS/ESM entries use the existing raw modules so they consume the separately patched minimatch rather than the vulnerable embedded copy. check-glob-patch.test.mjs verifies registered patch hashes, actual js-beautify/rimraf consumer resolution, abort traversal bounds, paused-stream completion and normal matching before audit. Registry still reports the original version; remove these exact paths when a compatible upstream fix is adopted."
+  },
+  {
+    "advisory": "GHSA-fc5q-39xc-vjpf",
+    "package": "picomatch",
+    "version": "4.0.5",
+    "paths": [
+      ".>@vitejs/plugin-vue>vite>fdir>picomatch",
+      ".>@vitejs/plugin-vue>vite>picomatch",
+      ".>@vitejs/plugin-vue>vite>tinyglobby>fdir>picomatch",
+      ".>@vitejs/plugin-vue>vite>tinyglobby>picomatch",
+      ".>electron-builder>app-builder-lib>@electron/rebuild>node-gyp>tinyglobby>fdir>picomatch",
+      ".>electron-builder>app-builder-lib>@electron/rebuild>node-gyp>tinyglobby>picomatch",
+      ".>electron-builder>dmg-builder>app-builder-lib>@electron/rebuild>node-gyp>tinyglobby>fdir>picomatch",
+      ".>electron-builder>dmg-builder>app-builder-lib>@electron/rebuild>node-gyp>tinyglobby>picomatch",
+      ".>vitest>@vitest/mocker>vite>fdir>picomatch",
+      ".>vitest>@vitest/mocker>vite>picomatch",
+      ".>vitest>@vitest/mocker>vite>tinyglobby>fdir>picomatch",
+      ".>vitest>@vitest/mocker>vite>tinyglobby>picomatch",
+      ".>vitest>picomatch",
+      ".>vitest>tinyglobby>fdir>picomatch",
+      ".>vitest>tinyglobby>picomatch",
+      ".>vitest>vite>fdir>picomatch",
+      ".>vitest>vite>picomatch",
+      ".>vitest>vite>tinyglobby>fdir>picomatch",
+      ".>vitest>vite>tinyglobby>picomatch",
+      "apps__desktop>@vitejs/plugin-vue>vite>fdir>picomatch",
+      "apps__desktop>@vitejs/plugin-vue>vite>picomatch",
+      "apps__desktop>@vitejs/plugin-vue>vite>tinyglobby>fdir>picomatch",
+      "apps__desktop>@vitejs/plugin-vue>vite>tinyglobby>picomatch",
+      "apps__desktop>electron-vite>vite>fdir>picomatch",
+      "apps__desktop>electron-vite>vite>picomatch",
+      "apps__desktop>electron-vite>vite>tinyglobby>fdir>picomatch",
+      "apps__desktop>electron-vite>vite>tinyglobby>picomatch",
+      "apps__desktop>vite>fdir>picomatch",
+      "apps__desktop>vite>picomatch",
+      "apps__desktop>vite>tinyglobby>fdir>picomatch",
+      "apps__desktop>vite>tinyglobby>picomatch",
+      "apps__web>@vitejs/plugin-vue>vite>fdir>picomatch",
+      "apps__web>@vitejs/plugin-vue>vite>picomatch",
+      "apps__web>@vitejs/plugin-vue>vite>tinyglobby>fdir>picomatch",
+      "apps__web>@vitejs/plugin-vue>vite>tinyglobby>picomatch",
+      "apps__web>vite>fdir>picomatch",
+      "apps__web>vite>picomatch",
+      "apps__web>vite>tinyglobby>fdir>picomatch",
+      "apps__web>vite>tinyglobby>picomatch",
+      "packages__core>vitest>@vitest/mocker>vite>fdir>picomatch",
+      "packages__core>vitest>@vitest/mocker>vite>picomatch",
+      "packages__core>vitest>@vitest/mocker>vite>tinyglobby>fdir>picomatch",
+      "packages__core>vitest>@vitest/mocker>vite>tinyglobby>picomatch",
+      "packages__core>vitest>picomatch",
+      "packages__core>vitest>tinyglobby>fdir>picomatch",
+      "packages__core>vitest>tinyglobby>picomatch",
+      "packages__core>vitest>vite>fdir>picomatch",
+      "packages__core>vitest>vite>picomatch",
+      "packages__core>vitest>vite>tinyglobby>fdir>picomatch",
+      "packages__core>vitest>vite>tinyglobby>picomatch"
+    ],
+    "expiresOn": "2026-12-02",
+    "owner": "maintainers",
+    "reason": "No upstream fixed release exists through 4.0.7. patches/picomatch@4.0.5.patch adapts the single-branch repetition collapse from upstream PR #246 (f03bec2c02e46f063fbfdc161aae1d0f854b2565), uses the existing literal fallback for capture, contains, bash line-break and complex bare-star branches, and preserves ordinary globs. check-picomatch-patch.test.mjs verifies registration, lock hash, every exact installed consumer route, a reversed original negative control and deadline-contained malicious inputs before registry audit. The explicit maxExtglobRecursion=false opt-out retains upstream behavior; no product consumer enables it. The registry still reports the original version. Remove these paths when adopting an upstream fixed release."
   }
 ]
