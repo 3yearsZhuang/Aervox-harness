@@ -1,13 +1,11 @@
 /** Delete only explicitly supported targets; completion requires independent verification. */
-import { MEMORY_DELETION_VERIFIER, type SqliteMemoryDeletionStore, type DeletionQueuePort, type SqlitePlatformRepository } from "@aervox/repositories";
+import type { SqliteMemoryDeletionStore, DeletionQueuePort, DeletionRequestAttemptKey } from "@aervox/repositories";
 
 export interface DeletionWorkerContext {
   memoryDeletion: Pick<SqliteMemoryDeletionStore, "clean" | "verify">;
   privacyRepo: DeletionQueuePort;
-  platformRepo: Pick<SqlitePlatformRepository, "createAuditRecord">;
   workerId: string;
 }
-const local = { workspaceId: "local", subjectUserId: "local" };
 
 /** 删除拒绝原因码（稳定字符串；失败保持解闸关闭，供用户可见与审计） */
 export const DELETION_FAILURE_REASONS = {
@@ -21,43 +19,34 @@ export async function runDeletionCycle(ctx: DeletionWorkerContext): Promise<numb
   const requests = await ctx.privacyRepo.listUnverifiedDeletionRequests();
   const memory = ctx.memoryDeletion;
   let completed = 0;
-  for (const request of requests) {
+  requestLoop: for (const request of requests) {
+    let attempt: DeletionRequestAttemptKey | undefined;
     try {
       const claimed = await ctx.privacyRepo.beginDeletionRequestAttempt(request.id);
       if (!claimed) continue;
-      const targets = await ctx.privacyRepo.listDeletionTargets(request.id);
-      if (request.scope !== "memory" || request.ownerModule !== "memory") throw new Error(DELETION_FAILURE_REASONS.scopeUnsupported);
+      attempt = { requestId: claimed.id, requestAttemptCount: claimed.attemptCount };
+      const targets = await ctx.privacyRepo.listDeletionTargets(claimed.id);
+      if (claimed.scope !== "memory" || claimed.ownerModule !== "memory") throw new Error(DELETION_FAILURE_REASONS.scopeUnsupported);
       if (!targets.length) throw new Error(DELETION_FAILURE_REASONS.targetsEmpty);
       // Validate the whole dispatch set before mutating any target.
       if (targets.some((t) => t.ownerModule !== "memory" || t.targetType !== "memory" || !t.targetId)) {
         throw new Error(DELETION_FAILURE_REASONS.targetUnsupported);
       }
       for (const target of targets) {
-        const key = { requestId: request.id, targetType: target.targetType, targetId: target.targetId };
+        const key = { ...attempt, targetType: target.targetType, targetId: target.targetId };
+        if (!await ctx.privacyRepo.beginDeletionTargetAttempt(key)) continue requestLoop;
         try {
-          await ctx.privacyRepo.beginDeletionTargetAttempt(key);
           await memory.clean(target.targetId);
           const evidence = await memory.verify(target.targetId);
-          await ctx.privacyRepo.updateDeletionTargetStatus(key, "completed", evidence);
+          if (!await ctx.privacyRepo.updateDeletionTargetAttemptStatus(key, { status: "completed", evidenceRef: evidence })) continue requestLoop;
         } catch (error) {
-          await ctx.privacyRepo.updateDeletionTargetStatus(key, "failed");
+          if (!await ctx.privacyRepo.updateDeletionTargetAttemptStatus(key, { status: "failed" })) continue requestLoop;
           throw error;
         }
       }
-      // All explicit targets have fresh proof, including targets completed by a previous retry.
-      await ctx.platformRepo.createAuditRecord(local, {
-        id: `aud_${crypto.randomUUID()}`, actorType: "system", actorId: `deletion:${ctx.workerId}`,
-        action: "deletion.completed", subjectType: "deletion_request", subjectId: request.id,
-        metadata: { scope: request.scope, verifier: MEMORY_DELETION_VERIFIER, targetCount: targets.length },
-      });
-      await ctx.privacyRepo.updateDeletionRequestStatus(local, request.id, "completed", {
-        lastVerifiedAt: new Date().toISOString(), lastError: null,
-      });
-      completed += 1;
+      if (await ctx.privacyRepo.finalizeDeletionRequestAttempt(attempt, ctx.workerId)) completed += 1;
     } catch (error) {
-      await ctx.privacyRepo.updateDeletionRequestStatus(local, request.id, "failed", {
-        lastError: error instanceof Error ? error.message : String(error),
-      });
+      if (attempt) await ctx.privacyRepo.failDeletionRequestAttempt(attempt, error instanceof Error ? error.message : String(error));
     }
   }
   return completed;

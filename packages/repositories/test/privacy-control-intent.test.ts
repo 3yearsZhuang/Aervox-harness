@@ -27,6 +27,15 @@ beforeEach(async () => {
 afterEach(async () => { ledgerClient.close(); await database.cleanup(); });
 
 describe("deletion request intent is immutable for a business key", () => {
+  it.each(["separate", "original\0tail"])("claims only the requested deletion when another unverified request exists (%s)", async otherId => {
+    await privacy.createDeletionRequest(local, deletion);
+    await privacy.createDeletionRequest(local, { ...deletion, id: otherId, idempotencyKey: otherId });
+    expect(await privacy.beginDeletionRequestAttempt(deletion.id)).toMatchObject({ id: deletion.id, attemptCount: 1 });
+    expect(await privacy.getDeletionRequest(local, otherId)).toMatchObject({ status: "pending", attemptCount: 0 });
+    expect(await privacy.beginDeletionRequestAttempt(otherId)).toMatchObject({ id: otherId, attemptCount: 1 });
+    expect(await privacy.getDeletionRequest(local, deletion.id)).toMatchObject({ status: "in_progress", attemptCount: 1 });
+  });
+
   it("preserves exact text identities through every deletion read and write receipt", async () => {
     const input = { ...deletion, id: "request\0tail", idempotencyKey: "key\0tail", scope: "scope\0tail", ownerModule: "owner\0tail",
       targets: [{ targetType: "type\0tail", targetId: "target\0tail", ownerModule: "owner\0tail" }] };
@@ -41,7 +50,8 @@ describe("deletion request intent is immutable for a business key", () => {
     expect(await privacy.createDeletionRequest(local, { ...input, id: "retry" })).toMatchObject(identity);
     const targetIdentity = { requestId: input.id, ...input.targets[0]! };
     expect((await privacy.listDeletionTargets(input.id))[0]).toMatchObject(targetIdentity);
-    expect(await privacy.beginDeletionTargetAttempt(targetIdentity)).toMatchObject(targetIdentity);
+    const retry = await privacy.beginDeletionRequestAttempt(input.id);
+    expect(await privacy.beginDeletionTargetAttempt({ ...targetIdentity, requestAttemptCount: retry!.attemptCount })).toMatchObject(targetIdentity);
     expect(await privacy.updateDeletionTargetStatus(targetIdentity, "failed", "proof\0tail"))
       .toMatchObject({ ...targetIdentity, evidenceRef: "proof\0tail" });
     const extra = { ...targetIdentity, targetId: "extra\0tail" };

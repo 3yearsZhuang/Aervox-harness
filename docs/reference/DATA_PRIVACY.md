@@ -154,6 +154,8 @@ PR #324 的会话切片在受理参数恢复时拒绝缺失、软删或脱敏的
 
 `POST /v1/deletions` 可按[请求模式](../../packages/contracts/src/privacy-schemas.ts)提交显式 targets，并与请求同事务落库。Worker 仅完成 `scope=memory`、请求与目标 `ownerModule=memory`、`targetType=memory` 的既存记录；清理正文、修订正文、摘要、FTS/向量后独立验证，索引、压缩摘要及压缩事件写入端在写者事务内拒绝向已删除记录回填迟到结果；同一清理事务清除压缩 Outbox 的载荷与错误正文，保留不含正文的已消费标记，并独立验证该副本。已取出的旧事件同样受墓碑检查约束。存在共享树、时态事实、技能或子记忆投影时，保留数据并报告需要 owner 清理；空目标、未知范围和失败不解闸，旧 completed 占位记录及未覆盖队列副本的旧版证明也保持阻断，并与失败请求共用重试判据。
 
+Worker 每次领取以返回的 `attemptCount` 绑定执行代际；目标开始、结果及请求失败只接受仍在 `in_progress` 的同代际请求。重领后的旧轮不改写新证明、不报告完成；空回执停止该轮，未开始目标不执行清理。完成命令在同一写者事务内复验全部目标证明、更新请求并写入唯一完成审计，提交成功后才增加完成数；审计失败整体回滚。崩溃遗留的 `in_progress` 仍可重领，这一代际校验不构成进程租约或独立恢复账本。
+
 自动召回仅接受已确认的长期记忆，并排除已删除、召回期限到期/非法及敏感或未知分级的数据；主对话召回与主动回合上下文共用同一资格谓词，候选按过采样读取后逐条判定，防止不合格命中挤占注入名额，见[召回资格测试](../../apps/api/test/memory-recall-eligibility.test.ts)。自动召回另受 `memory_long` 用途闸门约束：宿主接线后无有效授权（或授权读取失败）即不召回，撤权立即生效；历史查看与导出不受该闸门影响。召回到期不删除仍在用户保留期内的历史。
 
 创建面按 `(targetType, targetId)` 去重并拒绝同目标不同 ownerModule；幂等键绑定 scope、请求 owner 及去重、忽略顺序后的完整目标集合。同意图重试返回原请求及进度，不替换请求 ID、时间或状态；同键异意图返回 409，不增删原目标。行为回归见[控制意图测试](../../packages/repositories/test/privacy-control-intent.test.ts)、[真实 HTTP](../../apps/api/test/privacy-deletion-routes.test.ts)及[删除 Worker 测试](../../apps/worker/test/deletion-worker.test.ts)，现行实现范围与尚未闭合的全链删除/恢复限制只在[追踪基线](REQUIREMENTS_TRACEABILITY.md#42-证据与适用限制)维护。

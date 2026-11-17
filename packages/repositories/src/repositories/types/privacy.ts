@@ -60,10 +60,27 @@ export interface RecoveryLedgerEventModel {
   tamperEvidence?: unknown;
 }
 
-/** System scheduler capability: bounded retry projection and atomic attempt commands. */
-export interface DeletionQueuePort extends Pick<IPrivacyRepository, "updateDeletionRequestStatus" | "updateDeletionTargetStatus"> {
+export interface DeletionRequestAttemptKey {
+  requestId: string;
+  requestAttemptCount: number;
+}
+
+export interface DeletionTargetAttemptKey extends DeletionRequestAttemptKey {
+  targetType: string;
+  targetId: string;
+}
+
+export type DeletionTargetAttemptResult =
+  | { status: "completed"; evidenceRef: string }
+  | { status: "failed" };
+
+/** System scheduler capability: bounded retry projection and fenced attempt commands. */
+export interface DeletionQueuePort {
   listUnverifiedDeletionRequests(limit?: number): Promise<DeletionRequestModel[]>;
   listDeletionTargets(requestId: string): Promise<DeletionTargetModel[]>;
   beginDeletionRequestAttempt(id: string): Promise<DeletionRequestModel | null>;
-  beginDeletionTargetAttempt(target: { requestId: string; targetType: string; targetId: string }): Promise<DeletionTargetModel | null>;
+  beginDeletionTargetAttempt(key: DeletionTargetAttemptKey): Promise<DeletionTargetModel | null>;
+  updateDeletionTargetAttemptStatus(key: DeletionTargetAttemptKey, result: DeletionTargetAttemptResult): Promise<DeletionTargetModel | null>;
+  failDeletionRequestAttempt(key: DeletionRequestAttemptKey, lastError: string): Promise<DeletionRequestModel | null>;
+  finalizeDeletionRequestAttempt(key: DeletionRequestAttemptKey, workerId: string): Promise<DeletionRequestModel | null>;
 }
