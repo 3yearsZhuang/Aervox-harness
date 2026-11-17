@@ -158,6 +158,37 @@ describe("出厂官方插件集市与全量插件打包验证 (Market & Builtin 
     expect(installedIds).toContain("ap-tool-anki-sync");
   });
 
+  it("校园配置消费新课表声明，保留旧文档并以同一 CAS 持久化来源与单次调课", async () => {
+    const { db, client, cleanup } = await createInMemoryDatabase();
+    const { app } = await buildApp({ db, client });
+    onTestFinished(async () => { await app.close(); await cleanup(); });
+    expect((await app.inject({ method: "POST", url: "/v1/plugins/market/ap-tool-flowcampus/install" })).statusCode).toBe(201);
+    const url = "/v1/plugins/ap-tool-flowcampus/config";
+    const initial = (await app.inject({ method: "GET", url })).json();
+    const oldState = { version: 1, places: [{ id: "classroom", name: "教室", address: "" }], events: [], tasks: [], routes: [],
+      settings: { bufferMinutes: 5, timezone: "Asia/Shanghai" } };
+    const oldSave = await app.inject({ method: "PUT", url, payload: { revision: initial.revision, values: { state: oldState } } });
+    expect(oldSave.statusCode).toBe(200);
+    expect((await app.inject({ method: "GET", url })).json().values.state).toEqual(oldState);
+    const state = { ...oldState,
+      events: [{ id: "imported", sourceKey: "csv:imported", title: "单次课程", placeId: "classroom", status: "scheduled",
+        startAt: "2026-10-27T00:30:00Z", endAt: "2026-10-27T02:00:00Z" }],
+      recurrences: [{ id: "weekly", sourceKey: "ics:weekly", title: "周课程", placeId: "classroom", timezone: "Asia/Shanghai",
+        startDate: "2026-10-26", untilDate: "2026-11-23", startTime: "08:30:00", endTime: "10:00:00", durationSeconds: 5400,
+        endDayOffset: 0, intervalWeeks: 1, weekdays: [1], status: "scheduled" }],
+      occurrenceOverrides: [{ seriesId: "weekly", originalDate: "2026-10-26", status: "scheduled", title: "仅本次调课",
+        placeId: "classroom", startAt: "2026-10-28T00:30:00Z", endAt: "2026-10-28T02:00:00Z" }],
+    };
+    const saved = await app.inject({ method: "PUT", url, payload: { revision: oldSave.json().revision, values: { state } } });
+    expect(saved.statusCode).toBe(200);
+    const read = (await app.inject({ method: "GET", url })).json();
+    expect(read.values.state).toEqual(state);
+    expect(read.issues).toEqual([]);
+    const stale = await app.inject({ method: "PUT", url, payload: { revision: oldSave.json().revision, values: { state: oldState } } });
+    expect(stale.statusCode).toBe(409);
+    expect((await app.inject({ method: "GET", url })).json().values.state).toEqual(state);
+  });
+
   it("GET /v1/plugins/:id/export 导出的 .aervox-plugin 分发包支持 POST /v1/plugins/inspect-package 安全预检", async () => {
     const { db, client, cleanup } = await createInMemoryDatabase();
     const { app } = await buildApp({ db, client });
