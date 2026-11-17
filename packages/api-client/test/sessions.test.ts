@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { effectScope } from 'vue';
 import {
   ACTIVE_SESSION_STORAGE_KEY,
+  AervoxHttpError,
   configureAervoxClient,
   getSessionId,
   setSessionId,
@@ -186,6 +188,158 @@ describe('useAervoxSessions', () => {
     expect(api.sessions.value).toEqual([]);
     expect(api.activeSessionId.value).toBe('');
     expect(api.error.value).toBe('HTTP 503');
+  });
+
+  it('checks the exact target after a lost DELETE receipt without another DELETE or replacement POST', async () => {
+    const original = { id: 'ses_initial', title: 'original', createdAt: '', updatedAt: '' };
+    const api = useAervoxSessions(); api.sessions.value = [original];
+    vi.mocked(mockTransport.request).mockRejectedValueOnce(new TypeError('receipt lost'))
+      .mockRejectedValueOnce(new AervoxHttpError(404, '/v1/sessions/ses_initial', { code: 'SESSION_NOT_FOUND' }));
+    await expect(api.deleteSession(original.id)).rejects.toThrow('receipt lost');
+    expect(api.sessions.value).toEqual([original]);
+    await expect(api.checkSessionDeletion(original.id)).resolves.toBe('missing');
+    expect(vi.mocked(mockTransport.request).mock.calls).toEqual([
+      ['DELETE', '/v1/sessions/ses_initial'], ['GET', '/v1/sessions/ses_initial'],
+    ]);
+    expect(api.sessions.value).toEqual([]); expect(getSessionId()).toBe('');
+  });
+
+  it.each([
+    new AervoxHttpError(404, '/v1/sessions/ses_initial'),
+    new AervoxHttpError(404, '/v1/sessions/ses_initial', { code: 'SOURCE_RETIRED' }),
+    new TypeError('network failed'),
+  ])('does not confirm deletion from an unclassified or unrelated failed read: %s', async error => {
+    const original = { id: 'ses_initial', title: 'original', createdAt: '', updatedAt: '' };
+    const api = useAervoxSessions(); api.sessions.value = [original];
+    vi.mocked(mockTransport.request).mockRejectedValueOnce(error);
+    await expect(api.checkSessionDeletion(original.id)).rejects.toBe(error);
+    expect(api.sessions.value).toEqual([original]); expect(getSessionId()).toBe(original.id);
+    expect(mockTransport.request).toHaveBeenCalledExactlyOnceWith('GET', '/v1/sessions/ses_initial');
+  });
+
+  it.each([null, {}, { id: 'other', title: 'other', createdAt: '', updatedAt: '' },
+    { id: 'ses_initial', title: 12, createdAt: '', updatedAt: '' }])('keeps deletion unconfirmed for a malformed or mismatched successful response: %j', async response => {
+    const original = { id: 'ses_initial', title: 'original', createdAt: '', updatedAt: '' };
+    const api = useAervoxSessions(); api.sessions.value = [original];
+    vi.mocked(mockTransport.request).mockResolvedValueOnce(response);
+    await expect(api.checkSessionDeletion(original.id)).rejects.toThrow('SESSION_DELETE_CHECK_INVALID_RESPONSE');
+    expect(api.sessions.value).toEqual([original]); expect(getSessionId()).toBe(original.id);
+  });
+
+  it('leaves a recreated same-ID session present and never authorizes the old DELETE again', async () => {
+    const original = { id: 'ses_initial', title: 'original', createdAt: 'old', updatedAt: 'old' };
+    const rebuilt = { ...original, title: 'rebuilt', createdAt: 'new', updatedAt: 'new' };
+    const api = useAervoxSessions(); api.sessions.value = [original];
+    vi.mocked(mockTransport.request).mockResolvedValueOnce(rebuilt);
+    await expect(api.checkSessionDeletion(original.id)).resolves.toBe('present');
+    expect(api.sessions.value).toEqual([rebuilt]); expect(getSessionId()).toBe(original.id);
+    expect(mockTransport.request).toHaveBeenCalledExactlyOnceWith('GET', '/v1/sessions/ses_initial');
+  });
+
+  it.each(['delete', 'check'] as const)('does not transfer a newer selection when a disposed scope receives a late %s result', async action => {
+    const scope = effectScope(); const api = scope.run(() => useAervoxSessions())!;
+    api.sessions.value = [
+      { id: 'ses_initial', title: 'original', createdAt: '', updatedAt: '' },
+      { id: 'next', title: 'next', createdAt: '', updatedAt: '' },
+    ];
+    let finish!: () => void;
+    vi.mocked(mockTransport.request).mockImplementationOnce(() => new Promise((resolve, reject) => {
+      finish = () => action === 'delete' ? resolve(undefined) : reject(new AervoxHttpError(404, '/v1/sessions/ses_initial', { code: 'SESSION_NOT_FOUND' }));
+    }));
+    const onSelectionTransfer = vi.fn();
+    const pending = action === 'delete' ? api.deleteSession('ses_initial', { onSelectionTransfer }) : api.checkSessionDeletion('ses_initial', { onSelectionTransfer });
+    scope.stop(); setSessionId('new_owner'); finish();
+    if (action === 'check') await expect(pending).rejects.toThrow('SESSION_DELETE_CHECK_OBSERVATION_RETIRED');
+    else await pending;
+    expect(getSessionId()).toBe('new_owner'); expect(onSelectionTransfer).not.toHaveBeenCalled();
+    expect(api.sessions.value.map(item => item.id)).toEqual(action === 'check' ? ['ses_initial', 'next'] : ['next']);
+    expect(mockTransport.request).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['selection', 'away-and-back', 'same-ID-list-refresh', 'same-ID-selected-metadata'] as const)(
+    'keeps a late missing check unknown after its observation retires through %s', async retirement => {
+      const original = { id: 'ses_initial', title: 'original', createdAt: 'old', updatedAt: 'old' };
+      const rebuilt = { ...original, title: 'new local object', createdAt: 'new', updatedAt: 'new' };
+      const api = useAervoxSessions();
+      if (retirement === 'same-ID-selected-metadata') {
+        vi.mocked(mockTransport.request).mockResolvedValueOnce({ items: [] }).mockResolvedValueOnce(original);
+        await api.fetchSessions({ preserveSelection: true, includeActive: true });
+      } else api.sessions.value = [original];
+      let finish!: () => void;
+      vi.mocked(mockTransport.request).mockImplementationOnce(() => new Promise((_resolve, reject) => {
+        finish = () => reject(new AervoxHttpError(404, '/v1/sessions/ses_initial', { code: 'SESSION_NOT_FOUND' }));
+      }));
+      const onAbsenceConfirmed = vi.fn(); const onSelectionTransfer = vi.fn();
+      const pending = api.checkSessionDeletion(original.id, { onAbsenceConfirmed, onSelectionTransfer });
+      if (retirement === 'selection' || retirement === 'away-and-back') {
+        setSessionId('new_owner');
+        if (retirement === 'away-and-back') setSessionId(original.id);
+      } else {
+        vi.mocked(mockTransport.request).mockResolvedValueOnce({ items: retirement === 'same-ID-list-refresh' ? [rebuilt] : [] });
+        if (retirement === 'same-ID-selected-metadata') vi.mocked(mockTransport.request).mockResolvedValueOnce(rebuilt);
+        await api.fetchSessions({ preserveSelection: true, includeActive: true });
+      }
+      finish(); await expect(pending).rejects.toThrow('SESSION_DELETE_CHECK_OBSERVATION_RETIRED');
+      expect(onAbsenceConfirmed).not.toHaveBeenCalled(); expect(onSelectionTransfer).not.toHaveBeenCalled();
+      if (retirement === 'same-ID-selected-metadata') expect(api.activeSession.value).toEqual(rebuilt);
+      else expect(api.sessions.value).toEqual([retirement === 'same-ID-list-refresh' ? rebuilt : original]);
+      expect(vi.mocked(mockTransport.request).mock.calls.every(([method]) => method === 'GET')).toBe(true);
+    },
+  );
+
+  it('rechecks observation ownership after synchronous absence cleanup reenters selection', async () => {
+    const original = { id: 'ses_initial', title: 'original', createdAt: '', updatedAt: '' };
+    const api = useAervoxSessions(); api.sessions.value = [original];
+    vi.mocked(mockTransport.request).mockRejectedValueOnce(new AervoxHttpError(404, '/v1/sessions/ses_initial', { code: 'SESSION_NOT_FOUND' }));
+    const onSelectionTransfer = vi.fn();
+    await expect(api.checkSessionDeletion(original.id, { onSelectionTransfer, onAbsenceConfirmed: isCurrent => {
+      expect(isCurrent()).toBe(true); setSessionId('new_owner'); expect(isCurrent()).toBe(false);
+    } })).rejects.toThrow('SESSION_DELETE_CHECK_OBSERVATION_RETIRED');
+    expect(api.sessions.value).toEqual([original]); expect(getSessionId()).toBe('new_owner');
+    expect(onSelectionTransfer).not.toHaveBeenCalled();
+  });
+
+  it('does not reclaim an owner selected away and back while DELETE is pending', async () => {
+    const api = useAervoxSessions();
+    api.sessions.value = [
+      { id: 'ses_initial', title: 'original', createdAt: '', updatedAt: '' },
+      { id: 'next', title: 'next', createdAt: '', updatedAt: '' },
+    ];
+    let finish!: () => void;
+    vi.mocked(mockTransport.request).mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve(undefined); }));
+    const onSelectionTransfer = vi.fn(); const pending = api.deleteSession('ses_initial', { onSelectionTransfer });
+    setSessionId('elsewhere'); setSessionId('ses_initial'); finish(); await pending;
+    expect(getSessionId()).toBe('ses_initial'); expect(onSelectionTransfer).not.toHaveBeenCalled();
+  });
+
+  it.each(['resolve', 'reject'] as const)('retires automatic replacement ownership after leaving and returning to empty when POST will %s', async outcome => {
+    const api = useAervoxSessions();
+    api.sessions.value = [{ id: 'ses_initial', title: 'original', createdAt: '', updatedAt: '' }];
+    let finish!: () => void;
+    vi.mocked(mockTransport.request).mockResolvedValueOnce(undefined).mockImplementationOnce(() => new Promise((resolve, reject) => {
+      finish = () => outcome === 'resolve' ? resolve({ id: 'replacement', title: 'new', createdAt: '', updatedAt: '' }) : reject(new Error('POST failed'));
+    }));
+    const onSelectionTransfer = vi.fn(); const pending = api.deleteSession('ses_initial', { onSelectionTransfer });
+    await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
+    expect(getSessionId()).toBe(''); expect(onSelectionTransfer).toHaveBeenCalledTimes(1);
+    setSessionId('new_owner'); setSessionId(''); finish(); await pending;
+    expect(getSessionId()).toBe(''); expect(onSelectionTransfer).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not notify presentation or create a replacement after reentrant selection inside a transfer', async () => {
+    const { useAervoxClient } = await import('../src/client-context.js');
+    const client = useAervoxClient(); const api = useAervoxSessions(client);
+    api.sessions.value = [{ id: 'ses_initial', title: 'original', createdAt: '', updatedAt: '' }];
+    let reentered = false;
+    const unsubscribe = client.subscribeSession(id => { if (id === '' && !reentered) {
+      reentered = true; client.setSessionId('elsewhere'); client.setSessionId('');
+    } });
+    vi.mocked(mockTransport.request).mockResolvedValueOnce(undefined);
+    const onSelectionTransfer = vi.fn();
+    try { await api.deleteSession('ses_initial', { onSelectionTransfer }); }
+    finally { unsubscribe(); }
+    expect(getSessionId()).toBe(''); expect(onSelectionTransfer).not.toHaveBeenCalled();
+    expect(mockTransport.request).toHaveBeenCalledTimes(1);
   });
 
 });

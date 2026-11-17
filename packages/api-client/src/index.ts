@@ -40,6 +40,9 @@ export {
   useAervoxSessions,
   ACTIVE_SESSION_STORAGE_KEY,
   type UseAervoxSessionsReturn,
+  type SessionDeletionOptions,
+  type SessionDeletionCheckOptions,
+  type SessionDeletionSelection,
 } from './useAervoxSessions';
 export {
   useAervoxProjects,

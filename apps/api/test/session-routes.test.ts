@@ -170,5 +170,20 @@ describe("Session Management Routes (CR-035 / W1)", () => {
       url: `/v1/sessions/${id}`,
     });
     expect(missingDelete.statusCode).toBe(404);
+    expect(missingDelete.json().code).toBe('SESSION_NOT_FOUND');
+  });
+
+  it('reads exact absence and a recreated same-ID session without mutating either result', async () => {
+    const id = 'recreated-session';
+    expect((await app.inject({ method: 'POST', url: '/v1/sessions', payload: { id, title: 'original' } })).statusCode).toBe(201);
+    expect((await app.inject({ method: 'DELETE', url: `/v1/sessions/${id}` })).statusCode).toBe(204);
+    const absent = await app.inject({ method: 'GET', url: `/v1/sessions/${id}` });
+    expect(absent.statusCode).toBe(404); expect(absent.json().code).toBe('SESSION_NOT_FOUND');
+    expect((await client.execute('SELECT count(*) AS n FROM sessions')).rows[0]?.n).toBe(0);
+    expect((await app.inject({ method: 'POST', url: '/v1/sessions', payload: { id, title: 'new object' } })).statusCode).toBe(201);
+    const present = await app.inject({ method: 'GET', url: `/v1/sessions/${id}` });
+    expect(present.statusCode).toBe(200); expect(present.json()).toMatchObject({ id, title: 'new object' });
+    expect((await client.execute('SELECT count(*) AS n FROM sessions')).rows[0]?.n).toBe(1);
+    expect((await client.execute('SELECT count(*) AS n FROM turns')).rows[0]?.n).toBe(0);
   });
 });
