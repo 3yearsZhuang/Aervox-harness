@@ -18,6 +18,10 @@ vi.mock('@aervox/plugin-workbench-ui', () => ({ default: {
 vi.mock('@aervox/plugin-focus-mode/ui', () => ({ default: { id: 'focus' } }));
 vi.mock('@aervox/plugin-flowcampus/ui', () => ({ default: { id: 'campus' } }));
 vi.mock('@aervox/plugin-panels-ui', () => ({ settingsPanels: [] }));
+vi.mock('@aervox/plugin-panels-ui/onboarding', () => ({ OnboardingFlow: defineComponent({
+  name: 'OnboardingFlow', emits: ['ready', 'complete', 'dismiss'],
+  render: () => h('main', { 'data-setup-root': '' }, '首次配置'),
+}) }));
 vi.mock('../src/mobile/NativeRuntimePanel.vue', () => ({ default: { render: () => null } }));
 vi.mock('element-plus/es/components/message/index.mjs', () => ({ ElMessage: { error: vi.fn() } }));
 
@@ -26,10 +30,29 @@ beforeEach(() => {
   fixture.load.mockReset();
   fixture.request.mockReset().mockResolvedValue({ kind: 'uiReady' });
   window.localStorage.clear();
+  // These cases exercise the normal surface handoff after first-run setup.
+  window.localStorage.setItem('aervox.onboarding.completed.v1', 'true');
 });
 afterEach(() => { delete window.AervoxM0Native; });
 const view = () => defineComponent({ render: () => h('main', { 'data-phone-root': '' }, '本地会话') });
 const native = () => { window.AervoxM0Native = { postMessage: vi.fn(), onmessage: null }; };
+
+it('hands Android startup over to the rendered first-run view before starting a surface', async () => {
+  native();
+  localStorage.removeItem('aervox.onboarding.completed.v1');
+  fixture.request.mockImplementation(() => {
+    expect(wrapper.get('[data-setup-root]').text()).toBe('首次配置');
+    return Promise.resolve({ kind: 'uiReady' });
+  });
+  const wrapper = mount(App);
+  await flushPromises();
+  expect(fixture.load).not.toHaveBeenCalled();
+  expect(fixture.request).not.toHaveBeenCalled();
+  wrapper.getComponent({ name: 'OnboardingFlow' }).vm.$emit('ready');
+  expect(fixture.request).toHaveBeenCalledOnce();
+  expect(fixture.request).toHaveBeenCalledWith({ op: 'runtime', operation: 'uiReady' });
+  expect(localStorage.getItem('aervox.onboarding.completed.v1')).toBeNull();
+});
 
 it('keeps Android startup until the actual delayed surface mounts', async () => {
   native();

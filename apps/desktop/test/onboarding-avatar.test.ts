@@ -10,13 +10,14 @@ vi.mock('../../../packages/ui/src/live2d/controller', () => ({
 }))
 vi.mock('@aervox/api-client', async importOriginal => ({
   ...await importOriginal<typeof import('@aervox/api-client')>(),
+  useAervoxPersonas: () => ({ loadPersonas: async () => undefined, error: { value: null }, activePersona: { value: null } }),
   useAervoxLLM: () => ({
     presetProviders: [],
     loadProviders: async () => [],
     getConfig: async () => { throw new Error('First launch') },
   }),
 }))
-import OnboardingFlow from '../src/renderer/src/components/OnboardingFlow.vue'
+import { OnboardingFlow } from '@aervox/plugin-panels-ui/onboarding'
 
 enableAutoUnmount(afterEach)
 afterEach(() => { vi.restoreAllMocks(); delete window.aervoxLive2D })
@@ -27,8 +28,8 @@ it('uses Mizuki in onboarding and offers retry without displaying a companion ma
   const wrapper = mount(OnboardingFlow)
   await flushPromises()
   expect(renderer.load).toHaveBeenCalledWith(DEFAULT_AERVOX_MODEL, { diversifyIdle: true })
-  const character = wrapper.get('.welcome-character')
+  const character = wrapper.get('.onboarding-character')
   expect(character.get('[data-status="error"]').text()).toContain('重试加载')
   expect(character.find('img, svg, .aervox-companion-mark, .character-fallback').exists()).toBe(false)
-  expect(wrapper.get('.brand-mark .aervox-brand-mark').exists()).toBe(true)
+  expect(wrapper.get('.onboarding-brand .aervox-brand-mark').exists()).toBe(true)
 })

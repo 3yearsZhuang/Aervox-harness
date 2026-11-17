@@ -47,3 +47,21 @@ it('unmounting an older visual does not remove a newer visual API', async () => 
   newer.unmount();
   expect(window.aervoxLive2D).toBeUndefined();
 });
+
+it('renders a preview without replacing the existing command and global API owner', async () => {
+  mock.load.mockResolvedValue(undefined);
+  const subscribe = vi.fn(() => vi.fn());
+  configureAervoxClient({ platform: { onPetCommand: subscribe } });
+  const active = mount(Live2DPet);
+  await flushPromises();
+  const current = window.aervoxLive2D;
+  const preview = mount(Live2DPet, { props: { preview: true } });
+  await flushPromises();
+  expect(mock.load).toHaveBeenCalledTimes(2);
+  expect(window.aervoxLive2D).toBe(current);
+  expect(subscribe).toHaveBeenCalledOnce();
+  preview.unmount();
+  expect(window.aervoxLive2D).toBe(current);
+  active.unmount();
+  expect(window.aervoxLive2D).toBeUndefined();
+});
