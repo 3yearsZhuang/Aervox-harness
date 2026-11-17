@@ -4,6 +4,7 @@ import { buildOpenApiDocument } from "@aervox/contracts";
 describe("复习 API 契约", () => {
   it("声明复习列表、汇总与幂等完成接口", () => {
     expect(buildOpenApiDocument().paths).toMatchObject({
+      "/v1/knowledge-items/{knowledgeId}": { get: expect.any(Object) },
       "/v1/review-items": { get: expect.any(Object) },
       "/v1/review-items/summary": { get: expect.any(Object) },
       "/v1/review-items/history": { get: expect.any(Object) },

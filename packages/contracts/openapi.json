@@ -4629,6 +4629,59 @@
           "status"
         ]
       },
+      "KnowledgeItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "concept": {
+            "type": "string"
+          },
+          "sourceStatus": {
+            "type": "string"
+          },
+          "masteryState": {
+            "type": "string"
+          },
+          "correctCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "wrongCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "correctStreak": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "mastery": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "masteryBasis": {},
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "concept",
+          "sourceStatus",
+          "masteryState",
+          "correctCount",
+          "wrongCount",
+          "correctStreak",
+          "mastery",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
       "ReviewHistoryResponse": {
         "type": "object",
         "properties": {
@@ -4676,6 +4729,52 @@
                   "type": [
                     "string",
                     "null"
+                  ]
+                },
+                "nextReview": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "knowledgeId": {
+                      "type": "string"
+                    },
+                    "dueAt": {
+                      "type": "string"
+                    },
+                    "intervalDays": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    },
+                    "schedulerVersion": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    },
+                    "timezoneSnapshot": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "active",
+                        "completed",
+                        "dismissed",
+                        "archived"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "knowledgeId",
+                    "dueAt",
+                    "intervalDays",
+                    "schedulerVersion",
+                    "timezoneSnapshot",
+                    "status"
                   ]
                 },
                 "updatedAt": {
@@ -4882,6 +4981,12 @@
                   "dismissed",
                   "archived"
                 ]
+              },
+              "completionIsCorrect": {
+                "type": "boolean"
+              },
+              "nextReviewId": {
+                "type": "string"
               }
             },
             "required": [
@@ -4891,7 +4996,9 @@
               "intervalDays",
               "schedulerVersion",
               "timezoneSnapshot",
-              "status"
+              "status",
+              "completionIsCorrect",
+              "nextReviewId"
             ]
           },
           "nextReview": {
@@ -31857,6 +31964,118 @@
         "operationId": "post_v1_questions_questionId_attempts"
       }
     },
+    "/v1/knowledge-items/{knowledgeId}": {
+      "get": {
+        "summary": "读取本地知识内容",
+        "tags": [
+          "Learning"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "knowledgeId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Knowledge content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "concept": {
+                      "type": "string"
+                    },
+                    "sourceStatus": {
+                      "type": "string"
+                    },
+                    "masteryState": {
+                      "type": "string"
+                    },
+                    "correctCount": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "wrongCount": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "correctStreak": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "mastery": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "masteryBasis": {},
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "concept",
+                    "sourceStatus",
+                    "masteryState",
+                    "correctCount",
+                    "wrongCount",
+                    "correctStreak",
+                    "mastery",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token (token mode)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Knowledge item not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "get_v1_knowledge_items_knowledgeId"
+      }
+    },
     "/v1/review-items": {
       "get": {
         "summary": "列出到期复习项",
@@ -32165,6 +32384,52 @@
                               "null"
                             ]
                           },
+                          "nextReview": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "knowledgeId": {
+                                "type": "string"
+                              },
+                              "dueAt": {
+                                "type": "string"
+                              },
+                              "intervalDays": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0
+                              },
+                              "schedulerVersion": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0
+                              },
+                              "timezoneSnapshot": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "active",
+                                  "completed",
+                                  "dismissed",
+                                  "archived"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "knowledgeId",
+                              "dueAt",
+                              "intervalDays",
+                              "schedulerVersion",
+                              "timezoneSnapshot",
+                              "status"
+                            ]
+                          },
                           "updatedAt": {
                             "type": "string"
                           }
@@ -32302,6 +32567,12 @@
                             "dismissed",
                             "archived"
                           ]
+                        },
+                        "completionIsCorrect": {
+                          "type": "boolean"
+                        },
+                        "nextReviewId": {
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -32311,7 +32582,9 @@
                         "intervalDays",
                         "schedulerVersion",
                         "timezoneSnapshot",
-                        "status"
+                        "status",
+                        "completionIsCorrect",
+                        "nextReviewId"
                       ]
                     },
                     "nextReview": {
