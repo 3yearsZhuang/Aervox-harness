@@ -66,6 +66,15 @@ export function jsonQuote(db: object, value: Expression): SQL<string> {
   return postgres(db) ? sql`cast(to_json(${value}) as text)` : sql`json_quote(${value})`;
 }
 
+/** Set one declared top-level property with a JSON value, retaining its type.
+ * Nested/array updates are deliberately outside this repository operation. */
+export function jsonSet(db: object, document: Expression, path: string, value: Expression): SQL<string> {
+  if (!/^\$\.[A-Za-z_][A-Za-z0-9_]*$/.test(path)) throw new TypeError("Unsupported repository JSON mutation path");
+  return postgres(db)
+    ? sql`cast(jsonb_set(cast(${document} as jsonb), ARRAY[cast(${path.slice(2)} as text)], coalesce(cast(${value} as jsonb), 'null'::jsonb), true) as text)`
+    : sql`json_set(${document}, ${path}, json(${value}))`;
+}
+
 export function byteLength(db: object, value: Expression): SQL<number> {
   return postgres(db) ? sql`octet_length(${value})` : sql`length(cast(${value} as blob))`;
 }

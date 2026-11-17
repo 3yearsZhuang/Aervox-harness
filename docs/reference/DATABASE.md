@@ -110,6 +110,8 @@ POSIX 权限目标为目录 `0700`、数据库/状态清单/token `0600`；Windo
 
 `AERVOX_POSTGRESQL_URL` 为迁移和激活命令提供连接串，不接受连接地址的 CLI 参数，不把密码写入输出或普通插件配置。远端使用证书验证的 TLS；不支持的 URL 参数、禁用验证或无界连接策略拒绝。支持 PostgreSQL 16 及以上且编码为 UTF8；`public`、系统或共享 Schema 不得作为目标。每个新物理连接在业务事务前重新校验专用结构、实例与本机存储资格，失败时丢弃连接，不重放业务。
 
+当前 PostgreSQL 物理映射为 v2，对应 canonical schema v2，并保留挂起提问的 `invocation_id`；旧 v1 映射与指纹保持冻结。普通启动遇到 v1 目标时明确拒绝并保留数据，不自动加列、改写版本回执或猜测历史调用身份。当前没有 PostgreSQL v1→v2 原地迁移入口；升级现有 PostgreSQL 目标须另行准备并验收离线 staging 方案。SQLite→PostgreSQL 迁移只接收已按现行 SQLite 演练升级、校验的 canonical 源库。
+
 生效配置默认在 `<repo>/data/database-selection.json`，可用 `AERVOX_DATABASE_SELECTION_PATH` 显式指定；配套密钥为该路径加 `.key`，以 `0600` 保存。配置使用宿主加密密文，不是 OS Keychain。API、Worker 和 CLI 必须使用相同选择路径；修改 `DATABASE_URL` 或只提供 PostgreSQL 环境 URL 不能替代激活。
 
 命令用途如下，具体路径必须指向用户已确认的源库与新备份目录：

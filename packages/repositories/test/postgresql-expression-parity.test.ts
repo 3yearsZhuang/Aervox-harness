@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
-import { asc } from "drizzle-orm";
+import { asc, sql } from "drizzle-orm";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createInMemoryDatabase } from "../src/client.js";
 import { createPostgresQueryRuntime, type PostgresQueryRuntime } from "../src/driver/postgres-session.js";
-import { ascendingNullsFirst, descendingNullsLast, textLike } from "../src/sql-dialect.js";
+import { ascendingNullsFirst, descendingNullsLast, jsonSet, textLike } from "../src/sql-dialect.js";
 
 const databaseUrl = process.env.AERVOX_TEST_POSTGRES_URL;
 const entries = sqliteTable("expression_entries", { id: text("id").primaryKey(), title: text("title"), count: integer("count") });
@@ -47,4 +47,16 @@ describe.skipIf(!databaseUrl)("SQLite and PostgreSQL expression parity", () => {
     // own ordering, which remains NULLS LAST for ordinary native ASC.
     expect((await runtime.db.select({ id: entries.id }).from(entries).orderBy(asc(entries.count), asc(entries.id)))[0]?.id).toBe("slash-wildcard");
   });
+  it("sets declared JSON properties without turning objects, booleans or null into strings", async () => {
+    for (const value of [{ id: 'quoted-"🌙', nested: [1, true, null] }, true, false, 0, null, 'quoted-"🌙']) {
+      const query = (db: typeof runtime.db) => db.select({ payload: jsonSet(db,
+        sql`${JSON.stringify({ retained: { key: "original" }, nextReview: "old" })}`, "$.nextReview", sql`${JSON.stringify(value)}`) }).from(entries).limit(1);
+      const expected = { retained: { key: "original" }, nextReview: value };
+      for (const db of [sqlite.db, runtime.db]) expect(JSON.parse((await query(db))[0]!.payload)).toEqual(expected);
+    }
+    for (const path of ["$", "$.nested.key", "$[0]", "$.bad'key"]) {
+      expect(() => jsonSet(runtime.db, sql`'{}'`, path, sql`'null'`)).toThrow("Unsupported repository JSON mutation path");
+    }
+  });
+
 });

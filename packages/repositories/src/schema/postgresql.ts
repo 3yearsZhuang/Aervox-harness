@@ -15,11 +15,12 @@ export interface PostgresqlSchemaTarget {
   schema: string;
   instanceId: string;
 }
-export const POSTGRESQL_SCHEMA_VERSION = 1;
+export const POSTGRESQL_SCHEMA_VERSION = 2;
 export const MIN_POSTGRESQL_VERSION = 16;
 /** A physical mapping change requires a new release and explicit staging plan. */
 export const POSTGRESQL_SCHEMA_RELEASES: Readonly<Record<number, string>> = {
   1: "e4a5ba85f4f62d8fb6afe0af911ef1c2b424e77f1aaedfcd63d36d515aa364b4",
+  2: "e39b1dd33a4a17354f679450abf16a42525b71bf44cd45b55cead538c1714cfd",
 };
 export const POSTGRESQL_INSTANCE_TABLE = "_aervox_postgresql_instance";
 export const POSTGRESQL_POSITION_COLUMN = "_aervox_rowid";

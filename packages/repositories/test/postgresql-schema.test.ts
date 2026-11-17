@@ -10,7 +10,8 @@ import {
   postgresqlSchemaManifest, postgresqlSchemaStatements, reseedPostgresqlPositions,
   type PostgresqlQueryPort, type PostgresqlSchemaTarget,
 } from "../src/schema/postgresql.js";
-import { schemaManifest } from "../src/schema/manifest.js";
+import { createPostgresqlDatabase } from "../src/driver/create-postgresql-database.js";
+import { SCHEMA_RELEASES, schemaManifest } from "../src/schema/manifest.js";
 
 const quote = (name: string): string => `"${name.replaceAll('"', '""')}"`;
 
@@ -86,6 +87,31 @@ describe.skipIf(!connectionString)("PostgreSQL physical schema and startup owner
     const result = await target.client.query(`INSERT INTO ${quote(target.schema)}.plugins(id,publisher,version,checksum,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$5) RETURNING lifecycle_generation`, ["test", "test", "1", "sum", new Date().toISOString()]);
     expect(result.rows[0]?.lifecycle_generation).toMatch(/^[a-f0-9]{32}$/);
   }, 30_000);
+
+  it("preserves an old v1 target and refuses implicit schema or receipt repair", async () => {
+    const target = await fresh();
+    await initializePostgresqlSchema(target);
+    await target.client.query(`ALTER TABLE ${quote(target.schema)}.pending_user_questions DROP COLUMN invocation_id`);
+    await target.client.query(`UPDATE ${quote(target.schema)}._aervox_postgresql_instance SET version=1,fingerprint=$1`, [POSTGRESQL_SCHEMA_RELEASES[1]]);
+    await target.client.query(`UPDATE ${quote(target.schema)}._aervox_schema_versions SET version='1',fingerprint=$1`, [SCHEMA_RELEASES[1]!.main]);
+    await target.client.query(`INSERT INTO ${quote(target.schema)}.pending_user_questions(turn_id,attempt_id,step,questions_json,timeout_ms,expires_at,created_at)
+      VALUES ('legacy-turn','legacy-attempt',1,'[]',30000,'2027-01-01','2026-01-01')`);
+    const snapshot = async () => ({
+      pending: (await target.client.query(`SELECT * FROM ${quote(target.schema)}.pending_user_questions`)).rows,
+      instance: (await target.client.query(`SELECT * FROM ${quote(target.schema)}._aervox_postgresql_instance`)).rows,
+      canonical: (await target.client.query(`SELECT * FROM ${quote(target.schema)}._aervox_schema_versions`)).rows,
+      columns: (await target.client.query("SELECT column_name FROM information_schema.columns WHERE table_schema=$1 AND table_name='pending_user_questions' ORDER BY ordinal_position", [target.schema])).rows,
+    });
+    const before = await snapshot();
+    expect(await inspectPostgresqlSchema(target)).toEqual(expect.arrayContaining([
+      "application instance/version receipt differs", "canonical schema receipt differs",
+    ]));
+    await expect(initializePostgresqlSchema(target)).rejects.toThrow("explicit staging migration");
+    await expect(createPostgresqlDatabase({ connectionString: connectionString!, schema: target.schema, instanceId: target.instanceId })).rejects.toThrow();
+    expect(await snapshot()).toEqual(before);
+    expect(before.columns.map(row => row.column_name)).not.toContain("invocation_id");
+    expect(POSTGRESQL_SCHEMA_RELEASES[1]).toBe("e4a5ba85f4f62d8fb6afe0af911ef1c2b424e77f1aaedfcd63d36d515aa364b4");
+  });
 
   it("refuses nonempty unowned schemas without creating or repairing application objects", async () => {
     const target = await fresh();

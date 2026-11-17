@@ -7,6 +7,7 @@ import { assertPersonalDerivedDataSource } from "../../conversation-execution-po
 import { assertPluginGeneration } from "../../plugin-generation-guard.js";
 import type { LocalContext } from "../../local-context.js";
 import type { AnswerNextStep, LearningAnswerCommand, LearningAnswerPolicy, LearningAnswerResult, QuestionAttemptModel } from "../types/index.js";
+import { jsonQuote } from "../../sql-dialect.js";
 import { practiceAttemptRow, practiceQuestionRow, practiceSessionRow } from "./learning-practice-rows.js";
 
 /** Hash effective defaults, not incidental omitted properties or JSON key order.
@@ -59,12 +60,12 @@ export async function recordLearningAnswer(
     let sessionId = input.kind === "existing-question" ? input.sessionId ?? "ses_unknown" : "";
     if (input.kind === "judged-question") {
       await assertPersonalDerivedDataSource(tx, input.turnId, crypto);
-      const [turn] = await tx.select({ sessionId: sql<string>`json_quote(${turns.sessionId})`.mapWith(value => JSON.parse(value) as string) }).from(turns).where(eq(turns.id, input.turnId));
+      const [turn] = await tx.select({ sessionId: jsonQuote(tx, turns.sessionId).mapWith(value => JSON.parse(value) as string) }).from(turns).where(eq(turns.id, input.turnId));
       if (!turn) throw new Error("judged_answer_source_turn_unavailable");
       sessionId = turn.sessionId;
     }
     if (input.idempotencyKey !== undefined) {
-      const [storedAttempt] = await tx.select({ row: practiceAttemptRow }).from(questionAttempts).where(and(eq(questionAttempts.questionId, questionId), eq(questionAttempts.idempotencyKey, input.idempotencyKey)));
+      const [storedAttempt] = await tx.select({ row: practiceAttemptRow(tx) }).from(questionAttempts).where(and(eq(questionAttempts.questionId, questionId), eq(questionAttempts.idempotencyKey, input.idempotencyKey)));
       const existing = storedAttempt?.row;
       if (existing) {
         const [event] = await tx.select({ payload: outboxEvents.payload }).from(outboxEvents).where(eq(outboxEvents.idempotencyKey, eventKey));
@@ -88,12 +89,12 @@ export async function recordLearningAnswer(
     const timestamp = now.toISOString();
     let question: typeof questions.$inferSelect;
     if (input.kind === "existing-question") {
-      const [stored] = await tx.select({ row: practiceQuestionRow }).from(questions).where(eq(questions.id, questionId));
+      const [stored] = await tx.select({ row: practiceQuestionRow(tx) }).from(questions).where(eq(questions.id, questionId));
       if (!stored) throw new Error("question_not_found");
       question = stored.row;
       // Revalidate inside the writer transaction; a completion cannot race the fact.
       if (sessionId.startsWith("practice_")) {
-        const [storedSession] = await tx.select({ row: practiceSessionRow }).from(practiceSessions).where(eq(practiceSessions.id, sessionId));
+        const [storedSession] = await tx.select({ row: practiceSessionRow(tx) }).from(practiceSessions).where(eq(practiceSessions.id, sessionId));
         const session = storedSession?.row;
         if (!session || session.status !== "active") throw new Error("practice_session_not_active");
         if (!Array.isArray(session.questionIds) || !session.questionIds.includes(questionId)) throw new Error("question_not_in_practice_session");
@@ -107,7 +108,7 @@ export async function recordLearningAnswer(
       }
       const [created] = await tx.insert(questions).values({ id: questionId, knowledgeId, prompt: input.prompt,
         answerSpec: { answer: input.correctAnswer, type: input.questionType ?? null, explanation: input.explanation ?? null },
-        status: "active", createdAt: timestamp, updatedAt: timestamp }).returning({ row: practiceQuestionRow });
+        status: "active", createdAt: timestamp, updatedAt: timestamp }).returning({ row: practiceQuestionRow(tx) });
       question = created!.row;
     }
     const judgement = input.kind === "existing-question" ? policy.judge(question.answerSpec, input.answer) : input.judgement;
@@ -115,18 +116,18 @@ export async function recordLearningAnswer(
       answer: input.kind === "existing-question" ? input.answer : input.userAnswer, judgement,
       idempotencyKey: input.idempotencyKey ?? null,
       evidence: input.kind === "existing-question" ? input.evidence ?? null : { source: input.source ?? "plugin", turnId: input.turnId, explanation: input.explanation ?? null, knowledgeConcept: input.knowledgeConcept ?? null },
-      hintCount: input.hintCount ?? 0, timeSpentSec: input.timeSpentSec ?? null, createdAt: timestamp }).returning({ row: practiceAttemptRow });
+      hintCount: input.hintCount ?? 0, timeSpentSec: input.timeSpentSec ?? null, createdAt: timestamp }).returning({ row: practiceAttemptRow(tx) });
 
     let reviewId: string | null = null;
     if (question.knowledgeId && (judgement === "correct" || judgement === "incorrect")) {
       const [knowledge] = await tx.select({ ...getTableColumns(knowledgeItems),
-        id: sql<string>`json_quote(${knowledgeItems.id})`.mapWith(value => JSON.parse(value) as string),
+        id: jsonQuote(tx, knowledgeItems.id).mapWith(value => JSON.parse(value) as string),
       }).from(knowledgeItems).where(eq(knowledgeItems.id, question.knowledgeId));
       if (!knowledge) throw new Error("answer_knowledge_unavailable");
       const derived = policy.derive(knowledge, judgement === "correct", now, input.timeZone ?? "UTC");
       await tx.update(knowledgeItems).set({ ...derived.state, updatedAt: timestamp }).where(eq(knowledgeItems.id, knowledge.id));
       const [scheduled] = await tx.update(reviewItems).set({ ...derived.review, updatedAt: timestamp })
-        .where(and(eq(reviewItems.knowledgeId, knowledge.id), eq(reviewItems.status, "active"))).returning({ id: sql<string>`json_quote(${reviewItems.id})`.mapWith(value => JSON.parse(value) as string) });
+        .where(and(eq(reviewItems.knowledgeId, knowledge.id), eq(reviewItems.status, "active"))).returning({ id: jsonQuote(tx, reviewItems.id).mapWith(value => JSON.parse(value) as string) });
       reviewId = scheduled?.id ?? `review_answer_${digest}`;
       if (!scheduled) await tx.insert(reviewItems).values({ id: reviewId, knowledgeId: knowledge.id, ...derived.review, status: "active", createdAt: timestamp, updatedAt: timestamp });
     }

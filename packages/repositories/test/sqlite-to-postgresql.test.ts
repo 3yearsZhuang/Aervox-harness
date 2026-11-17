@@ -122,6 +122,7 @@ describe.skipIf(!connectionString)("offline SQLite to PostgreSQL migration", () 
   it("requires current schema, foreign keys, declared projections and a closed checkpoint", async () => {
     const cases = [
       "UPDATE _aervox_schema_versions SET fingerprint='old'",
+      "UPDATE _aervox_schema_versions SET version='1'",
       "CREATE TABLE undeclared_business(id text)",
       "CREATE VIEW unknown_view AS SELECT id FROM sessions",
       "DROP TABLE messages_fts; CREATE TABLE messages_fts(id text,content text); INSERT INTO messages_fts VALUES ('primary','do not lose');",

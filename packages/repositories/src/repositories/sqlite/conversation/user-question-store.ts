@@ -3,6 +3,7 @@ import { askUserQuestionItemSchema, askUserQuestionAnswerItemSchema } from "@aer
 import { pendingUserQuestions, turnAttempts, turns, turnStreamEvents, deletionRequests } from "@aervox/schema";
 import type { AervoxDatabase } from "../../../client.js";
 import type { LocalContext } from "../../../local-context.js";
+import { jsonNumber, jsonText } from "../../../sql-dialect.js";
 import { FencingMismatchError } from "../../../errors.js";
 import { unverifiedDeletionRequest } from "../privacy-repository.js";
 import { assertConversationBodyWritable } from "./message-history.js";
@@ -15,10 +16,10 @@ import type { AskUserQuestionAnswerItem, AskUserQuestionItem } from "@aervox/con
 
 type Writer = Parameters<Parameters<AervoxDatabase["transaction"]>[0]>[0];
 type Reader = Pick<AervoxDatabase, "select">;
-const identityWhere = (identity: UserQuestionIdentity) => and(
+const identityWhere = (db: object, identity: UserQuestionIdentity) => and(
   eq(turnStreamEvents.turnId, identity.turnId), eq(turnStreamEvents.attemptId, identity.attemptId),
-  sql`json_extract(${turnStreamEvents.data}, '$.invocationId') = ${identity.invocationId}`,
-  sql`json_extract(${turnStreamEvents.data}, '$.step') = ${identity.step}`,
+  sql`${jsonText(db, turnStreamEvents.data, '$.invocationId')} = ${identity.invocationId}`,
+  sql`${jsonNumber(db, turnStreamEvents.data, '$.step')} = ${identity.step}`,
 );
 const pendingIdentityWhere = (identity: Omit<CancelUserQuestionInput, "reason" | "proof">) => and(
   eq(pendingUserQuestions.turnId, identity.turnId), eq(pendingUserQuestions.attemptId, identity.attemptId),
@@ -46,7 +47,7 @@ async function assertOwner(tx: Writer, turnId: string, attemptId: string, proof:
   }
 }
 async function findEvent(reader: Reader, identity: UserQuestionIdentity, eventType: string) {
-  const [row] = await reader.select().from(turnStreamEvents).where(and(identityWhere(identity), eq(turnStreamEvents.eventType, eventType)))
+  const [row] = await reader.select().from(turnStreamEvents).where(and(identityWhere(reader, identity), eq(turnStreamEvents.eventType, eventType)))
     .orderBy(desc(turnStreamEvents.sequence)).limit(1);
   return (row as TurnStreamEventModel | undefined) ?? null;
 }
@@ -124,7 +125,7 @@ export class UserQuestionStore {
 
   async getReceipt(_ctx: LocalContext, identity: UserQuestionIdentity): Promise<UserQuestionAnswerReceipt | null> {
     requireIdentity(identity);
-    const [row] = await this.db.select().from(turnStreamEvents).where(and(identityWhere(identity),
+    const [row] = await this.db.select().from(turnStreamEvents).where(and(identityWhere(this.db, identity),
       eq(turnStreamEvents.eventType, "user_question_answered"), disclosableTurn(identity.turnId),
       sql`not exists (select 1 from ${deletionRequests} where ${unverifiedDeletionRequest(this.db)})`,
     )).orderBy(desc(turnStreamEvents.sequence)).limit(1);

@@ -28,6 +28,7 @@ import {
 } from "@aervox/schema";
 import type { LocalContext } from "../../local-context.js";
 import { recordLearningAnswer } from "./learning-answer-store.js";
+import { jsonObject, jsonQuote, jsonSet, jsonValue } from "../../sql-dialect.js";
 import { practiceAttemptRow, practiceQuestionRow, practiceSessionRow } from "./learning-practice-rows.js";
 import type {
   ILearningRepository,
@@ -52,20 +53,21 @@ import type {
 
 type ReviewColumns = Record<'id' | 'knowledgeId' | 'dueAt' | 'intervalDays' | 'schedulerVersion' | 'timezoneSnapshot' | 'status'
   | 'completionIsCorrect' | 'nextReviewId' | 'createdAt' | 'updatedAt', SQLWrapper>;
-const reviewJson = (table: ReviewColumns) => sql<string>`json_object(
-  'id', ${table.id}, 'knowledgeId', ${table.knowledgeId}, 'dueAt', ${table.dueAt},
-  'intervalDays', ${table.intervalDays}, 'schedulerVersion', ${table.schedulerVersion},
-  'timezoneSnapshot', ${table.timezoneSnapshot}, 'status', ${table.status},
-  'completionIsCorrect', json(CASE WHEN ${table.completionIsCorrect} = 1 THEN 'true' WHEN ${table.completionIsCorrect} = 0 THEN 'false' ELSE 'null' END),
-  'nextReviewId', ${table.nextReviewId},
-  'createdAt', ${table.createdAt}, 'updatedAt', ${table.updatedAt})`;
-const knowledgeJson = sql<string>`json_object(
-  'id', ${knowledgeItems.id}, 'concept', ${knowledgeItems.concept},
-  'sourceStatus', ${knowledgeItems.sourceStatus}, 'masteryState', ${knowledgeItems.masteryState},
-  'correctCount', ${knowledgeItems.correctCount}, 'wrongCount', ${knowledgeItems.wrongCount},
-  'correctStreak', ${knowledgeItems.correctStreak}, 'mastery', ${knowledgeItems.mastery},
-  'masteryBasis', json(${knowledgeItems.masteryBasis}),
-  'createdAt', ${knowledgeItems.createdAt}, 'updatedAt', ${knowledgeItems.updatedAt})`;
+const reviewJson = (db: object, table: ReviewColumns) => jsonObject(db, [
+  ["id", table.id], ["knowledgeId", table.knowledgeId], ["dueAt", table.dueAt],
+  ["intervalDays", table.intervalDays], ["schedulerVersion", table.schedulerVersion],
+  ["timezoneSnapshot", table.timezoneSnapshot], ["status", table.status],
+  ["completionIsCorrect", jsonValue(db, sql`CASE WHEN ${table.completionIsCorrect} = 1 THEN 'true' WHEN ${table.completionIsCorrect} = 0 THEN 'false' ELSE 'null' END`)],
+  ["nextReviewId", table.nextReviewId], ["createdAt", table.createdAt], ["updatedAt", table.updatedAt],
+]);
+const knowledgeJson = (db: object) => jsonObject(db, [
+  ["id", knowledgeItems.id], ["concept", knowledgeItems.concept],
+  ["sourceStatus", knowledgeItems.sourceStatus], ["masteryState", knowledgeItems.masteryState],
+  ["correctCount", knowledgeItems.correctCount], ["wrongCount", knowledgeItems.wrongCount],
+  ["correctStreak", knowledgeItems.correctStreak], ["mastery", knowledgeItems.mastery],
+  ["masteryBasis", jsonValue(db, knowledgeItems.masteryBasis)],
+  ["createdAt", knowledgeItems.createdAt], ["updatedAt", knowledgeItems.updatedAt],
+]);
 
 export class LearningRepository implements ILearningRepository {
   constructor(private readonly db: AervoxDatabase, private readonly crypto: ConversationCryptoPort) {
@@ -217,13 +219,13 @@ export class LearningRepository implements ILearningRepository {
         createdAt: now,
         updatedAt: now,
       })
-      .returning({ row: practiceQuestionRow });
+      .returning({ row: practiceQuestionRow(this.db) });
     return created!.row;
   }
 
   async getQuestion(ctx: LocalContext, id: string): Promise<QuestionModel | null> {
     const [found] = await this.db
-      .select({ row: practiceQuestionRow })
+      .select({ row: practiceQuestionRow(this.db) })
       .from(questions)
       .where(
         and(
@@ -235,7 +237,7 @@ export class LearningRepository implements ILearningRepository {
 
   async listActiveQuestions(ctx: LocalContext, limit: number): Promise<QuestionModel[]> {
     const rows = await this.db
-      .select({ row: practiceQuestionRow })
+      .select({ row: practiceQuestionRow(this.db) })
       .from(questions)
       .where(
         and(
@@ -262,13 +264,13 @@ export class LearningRepository implements ILearningRepository {
         startedAt: now,
         endedAt: null,
       })
-      .returning({ row: practiceSessionRow });
+      .returning({ row: practiceSessionRow(this.db) });
     return created!.row as PracticeSessionModel;
   }
 
   async getPracticeSession(ctx: LocalContext, sessionId: string): Promise<PracticeSessionModel | null> {
     const [session] = await this.db
-      .select({ row: practiceSessionRow })
+      .select({ row: practiceSessionRow(this.db) })
       .from(practiceSessions)
       .where(
         and(
@@ -280,7 +282,7 @@ export class LearningRepository implements ILearningRepository {
 
   async getLatestActivePracticeSession(ctx: LocalContext): Promise<PracticeSessionModel | null> {
     const [session] = await this.db
-      .select({ row: practiceSessionRow })
+      .select({ row: practiceSessionRow(this.db) })
       .from(practiceSessions)
       .where(
         and(
@@ -302,7 +304,7 @@ export class LearningRepository implements ILearningRepository {
           eq(practiceSessions.status, "active"),
         ),
       )
-      .returning({ row: practiceSessionRow });
+      .returning({ row: practiceSessionRow(this.db) });
     if (updated) return updated.row as PracticeSessionModel;
     const existing = await this.getPracticeSession(ctx, sessionId);
     return existing?.status === "completed" ? existing : null;
@@ -310,7 +312,7 @@ export class LearningRepository implements ILearningRepository {
 
   async listAttemptsByQuestion(ctx: LocalContext, questionId: string): Promise<QuestionAttemptModel[]> {
     const rows = await this.db
-      .select({ row: practiceAttemptRow })
+      .select({ row: practiceAttemptRow(this.db) })
       .from(questionAttempts)
       .where(
         and(
@@ -323,7 +325,7 @@ export class LearningRepository implements ILearningRepository {
 
   async listAttemptsBySession(ctx: LocalContext, sessionId: string): Promise<QuestionAttemptModel[]> {
     const rows = await this.db
-      .select({ row: practiceAttemptRow })
+      .select({ row: practiceAttemptRow(this.db) })
       .from(questionAttempts)
       .where(
         and(
@@ -340,10 +342,10 @@ export class LearningRepository implements ILearningRepository {
   ): Promise<MistakeItemModel[]> {
     const rows = await this.db
       .select({
-        questionId: sql<string>`json_quote(${questions.id})`.mapWith(value => JSON.parse(value) as string),
-        knowledgeId: sql<string>`json_quote(${questions.knowledgeId})`.mapWith(value => JSON.parse(value) as string | null),
-        prompt: sql<string>`json_quote(${questions.prompt})`.mapWith(value => JSON.parse(value) as string),
-        latestAnswer: sql<string>`json_quote(${questionAttempts.answer})`.mapWith(value => JSON.parse(value) as string),
+        questionId: jsonQuote(this.db, questions.id).mapWith(value => JSON.parse(value) as string),
+        knowledgeId: jsonQuote(this.db, questions.knowledgeId).mapWith(value => JSON.parse(value) as string | null),
+        prompt: jsonQuote(this.db, questions.prompt).mapWith(value => JSON.parse(value) as string),
+        latestAnswer: jsonQuote(this.db, questionAttempts.answer).mapWith(value => JSON.parse(value) as string),
         latestAttemptAt: questionAttempts.createdAt,
         masteryState: knowledgeItems.masteryState,
         disposition: mistakeDispositions.status,
@@ -451,7 +453,7 @@ export class LearningRepository implements ILearningRepository {
 
   async getKnowledgeItem(ctx: LocalContext, id: string): Promise<KnowledgeItemModel | null> {
     const [found] = await this.db
-      .select({payload: knowledgeJson})
+      .select({payload: knowledgeJson(this.db)})
       .from(knowledgeItems)
       .where(
         and(
@@ -532,7 +534,7 @@ export class LearningRepository implements ILearningRepository {
 
   async getReviewItem(ctx: LocalContext, id: string): Promise<ReviewItemModel | null> {
     const [found] = await this.db
-      .select({payload: reviewJson(reviewItems)})
+      .select({payload: reviewJson(this.db, reviewItems)})
       .from(reviewItems)
       .where(
         and(
@@ -545,8 +547,8 @@ export class LearningRepository implements ILearningRepository {
   async listCompletedReviewItems(ctx: LocalContext, limit = 10): Promise<ReviewItemModel[]> {
     const next = alias(reviewItems, 'next_review');
     const rows = await this.db
-      .select({payload: sql<string>`json_set(${reviewJson(reviewItems)}, '$.nextReview',
-        json(CASE WHEN ${next.id} IS NULL THEN 'null' ELSE ${reviewJson(next)} END))`})
+      .select({payload: jsonSet(this.db, reviewJson(this.db, reviewItems), '$.nextReview',
+        sql`CASE WHEN ${next.id} IS NULL THEN 'null' ELSE ${reviewJson(this.db, next)} END`)})
       .from(reviewItems)
       .leftJoin(next, eq(reviewItems.nextReviewId, next.id))
       .where(
@@ -565,7 +567,7 @@ export class LearningRepository implements ILearningRepository {
     derive: LearningAnswerPolicy["derive"],
   ): Promise<{ completed: ReviewItemModel; nextReview: ReviewItemModel; knowledge: KnowledgeItemModel } | null> {
     return this.db.transaction(async (tx) => {
-      const [reviewRow] = await tx.select({payload: reviewJson(reviewItems)}).from(reviewItems).where(eq(reviewItems.id, input.reviewId));
+      const [reviewRow] = await tx.select({payload: reviewJson(tx, reviewItems)}).from(reviewItems).where(eq(reviewItems.id, input.reviewId));
       if (!reviewRow) return null;
       const review = JSON.parse(reviewRow.payload) as ReviewItemModel;
       if (review.status === "completed" && review.nextReviewId) {
@@ -575,15 +577,15 @@ export class LearningRepository implements ILearningRepository {
         if (receipt?.payloadVersion !== 1 || receipt.reviewId !== review.id || receipt.nextReviewId !== review.nextReviewId
           || receipt.isCorrect !== review.completionIsCorrect || typeof receipt.timeZone !== "string") throw new Error("review_completion_receipt_unavailable");
         if (receipt.isCorrect !== input.isCorrect || (input.timeZone !== undefined && receipt.timeZone !== input.timeZone)) throw new Error("review_completion_payload_mismatch");
-        const [nextRow] = await tx.select({payload: reviewJson(reviewItems)}).from(reviewItems).where(eq(reviewItems.id, review.nextReviewId));
-        const [knowledgeRow] = await tx.select({payload: knowledgeJson}).from(knowledgeItems).where(eq(knowledgeItems.id, review.knowledgeId));
+        const [nextRow] = await tx.select({payload: reviewJson(tx, reviewItems)}).from(reviewItems).where(eq(reviewItems.id, review.nextReviewId));
+        const [knowledgeRow] = await tx.select({payload: knowledgeJson(tx)}).from(knowledgeItems).where(eq(knowledgeItems.id, review.knowledgeId));
         if (!nextRow || !knowledgeRow) throw new Error("review_completion_receipt_unavailable");
         const nextReview = JSON.parse(nextRow.payload) as ReviewItemModel;
         if (nextReview.knowledgeId !== review.knowledgeId) throw new Error("review_completion_receipt_unavailable");
         return { completed: review, nextReview, knowledge: knowledgeItemSchema.parse(JSON.parse(knowledgeRow.payload)) };
       }
       if (review.status !== "active") return null;
-      const [storedRow] = await tx.select({payload: knowledgeJson}).from(knowledgeItems).where(eq(knowledgeItems.id, review.knowledgeId));
+      const [storedRow] = await tx.select({payload: knowledgeJson(tx)}).from(knowledgeItems).where(eq(knowledgeItems.id, review.knowledgeId));
       if (!storedRow) throw new Error("review completion references a missing knowledge item");
       const stored = knowledgeItemSchema.parse(JSON.parse(storedRow.payload));
       const now = new Date();
@@ -592,12 +594,12 @@ export class LearningRepository implements ILearningRepository {
       const nextReviewId = `review_${conversationUUID(this.crypto)}`;
       const [completed] = await tx.update(reviewItems)
         .set({ status: "completed", completionIsCorrect: input.isCorrect, nextReviewId, updatedAt: now.toISOString() })
-        .where(and(eq(reviewItems.id, review.id), eq(reviewItems.status, "active"))).returning({payload: reviewJson(reviewItems)});
+        .where(and(eq(reviewItems.id, review.id), eq(reviewItems.status, "active"))).returning({payload: reviewJson(tx, reviewItems)});
       if (!completed) return null;
       const [knowledge] = await tx.update(knowledgeItems).set({ ...derived.state, updatedAt: now.toISOString() })
-        .where(eq(knowledgeItems.id, stored.id)).returning({payload: knowledgeJson});
+        .where(eq(knowledgeItems.id, stored.id)).returning({payload: knowledgeJson(tx)});
       const [nextReview] = await tx.insert(reviewItems).values({ id: nextReviewId, knowledgeId: stored.id,
-        ...derived.review, status: "active", createdAt: now.toISOString(), updatedAt: now.toISOString() }).returning({payload: reviewJson(reviewItems)});
+        ...derived.review, status: "active", createdAt: now.toISOString(), updatedAt: now.toISOString() }).returning({payload: reviewJson(tx, reviewItems)});
       await tx.insert(outboxEvents).values({ id: `out_review_${review.id}`, idempotencyKey: `learning-review:${review.id}`,
         eventType: "learning.review.completed", payload: { payloadVersion: 1, reviewId: review.id, nextReviewId,
           isCorrect: input.isCorrect, timeZone }, createdAt: now.toISOString() });
@@ -606,7 +608,7 @@ export class LearningRepository implements ILearningRepository {
   }
 
   async listPracticeAnswerOutcomes(ctx: LocalContext, sessionId: string) {
-    const rows = await this.db.select({ attempt: practiceAttemptRow, receipt: outboxEvents.payload })
+    const rows = await this.db.select({ attempt: practiceAttemptRow(this.db), receipt: outboxEvents.payload })
       .from(questionAttempts).leftJoin(outboxEvents, and(
         eq(outboxEvents.eventType, "learning.answer.recorded"),
         // Existing-question command IDs share the digest, allowing an indexed lookup.
@@ -626,7 +628,7 @@ export class LearningRepository implements ILearningRepository {
 
   async listDueReviewItems(ctx: LocalContext, before: string): Promise<ReviewItemModel[]> {
     const rows = await this.db
-      .select({payload: reviewJson(reviewItems)})
+      .select({payload: reviewJson(this.db, reviewItems)})
       .from(reviewItems)
       .where(
         and(
