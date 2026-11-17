@@ -217,8 +217,8 @@ export async function buildHostRuntime(options: BuildAppOptions = {}): Promise<B
       const vault = await createProactiveVaultDatabase();
       proactiveDb = vault.db;
       proactiveClient = vault.client;
-      proactiveCipher ??= await loadProactiveVaultCipher();
       ownsProactiveClient = true;
+      proactiveCipher ??= await loadProactiveVaultCipher();
       await initDatabaseSchema(proactiveClient);
     }
   } else if (shouldInitSchema) {
