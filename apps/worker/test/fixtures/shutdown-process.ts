@@ -26,7 +26,9 @@ const logger: LoggerPort = {
   error(entry) { record(JSON.stringify({ event: entry.event, message: entry.message, fields: entry.fields })); },
 };
 const host = new WorkerHost({ workerId: "shutdown-fixture", logger, shutdownTimeoutMs: mode === "hung" ? 1000 : 5000 });
-const stageDelay = mode === "shared-budget" ? 350 : mode === "duplicate" ? 120 : 0;
+// Each shared-budget stage fits a fresh 800 ms budget; together they exceed it.
+// Leave scheduling/SQLite headroom before health so the expected failure phase is stable.
+const stageDelay = mode === "shared-budget" ? 100 : mode === "duplicate" ? 120 : 0;
 host.registerJob({
   name: "write",
   async run() {
@@ -47,7 +49,7 @@ healthServer.close = ((callback?: (error?: Error) => void) => {
   if (mode === "health-reject") {
     queueMicrotask(() => callback?.(new Error("health_close_rejected"))); return healthServer;
   }
-  void delay(stageDelay).then(() => closeHealth(error => { record("health-closed"); callback?.(error); }));
+  void delay(mode === "shared-budget" ? 700 : stageDelay).then(() => closeHealth(error => { record("health-closed"); callback?.(error); }));
   return healthServer;
 }) as typeof healthServer.close;
 const closeConnections = healthServer.closeAllConnections.bind(healthServer);
