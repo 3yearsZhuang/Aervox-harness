@@ -63,7 +63,10 @@ it("preserves the full v1 source, old question identity and rollback bytes throu
       expect((await rollback.execute("SELECT questions_json FROM pending_user_questions")).rows[0]!.questions_json).toBe(questions);
     } finally { rollback.close(); }
   } finally { await fs.rm(directory, { recursive: true, force: true }); }
-});
+  // Measured 10.0s: a full on-disk staging + rollback drill (real files, real
+  // copy, byte-for-byte comparison). Keep the allowance local instead of
+  // raising the shared default for every other test.
+}, 30_000);
 
 it("binds the generated native artifact to v2 while retaining the immutable v1 release", () => {
   const artifact = buildPortableSchemaArtifact("main");
