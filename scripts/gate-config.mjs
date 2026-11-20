@@ -9,11 +9,15 @@
  *
  * 这类断言能防止"测试被悄悄移出门禁"，但同时也把**书写顺序和空白**冻结了：
  * 新增一个补丁测试、或调换两个 `--test` 参数的顺序，断言就会失败，而门禁的
- * 实际覆盖并没有变弱。失败信息也指向"命令文本变了"，而不是"覆盖丢了"，
- * 维护者要先读懂整条正则才知道是不是真问题。
+ * 实际覆盖并没有变弱。失败信息也指向"命令文本变了"，而不是"覆盖丢了"。
  *
  * 本模块改为**语义断言**：解析出命令实际调用了哪些脚本，再判断目标脚本是否
  * 在集合中。新增脚本不会误报，移出脚本仍会立即失败。
+ *
+ * 安全前提（重要）：语义解析只在"这段命令仍然是一条会如实传播失败的命令"时
+ * 才有意义。如果门禁被改写成 `... || true`、`... | cat`、`... ; echo ok`，
+ * 脚本虽仍在文本中，失败却不再阻断，等于覆盖被悄悄废除。因此本模块同时拒绝
+ * 这类改写：一旦检测到它们，直接失败并说明原因，而不是安静地判为通过。
  */
 
 import { readFileSync } from 'node:fs';
@@ -26,8 +30,34 @@ export function readRootScripts(root = fileURLToPath(new URL('..', import.meta.u
 }
 
 /**
- * 从一条 npm script 命令里提取所有被 `node` / `node --test` 调用的脚本路径，
- * 以及末尾被当作入口执行的非 test 脚本。
+ * 会吞掉子命令退出码或改变失败传播的 shell 改写。
+ * 命中任意一条，说明"脚本还在命令里"不等于"脚本还在门禁里"。
+ */
+const WEAKENING_PATTERNS = [
+  { pattern: /\|\|\s*(true\b|:|exit\s+0\b)/, reason: '把失败改写为成功（|| true / || :) ' },
+  { pattern: /(^|[^|])\|(?!\|)\s*(cat|tee|head|tail)\b/, reason: '经管道丢失退出码（| cat 等）' },
+  { pattern: /;\s*(echo|true|:|exit\s+0)\b/, reason: '用分号忽略前段失败（; echo）' },
+  { pattern: /^\s*(?!node\b|mise\b|pnpm\b|turbo\b|cd\b|npm\b|npx\b)[A-Za-z_]+\s*=/, reason: '以前置环境变量包装，绕过直接 node 调用' },
+];
+
+/**
+ * 断言一段门禁命令仍然是"失败会传播"的形态。
+ * 与新增/重排脚本无关，只拦截会废除门禁的改写。
+ */
+export function assertGateNotWeakened(assert, command, hint = '') {
+  if (typeof command !== 'string' || !command) {
+    assert.fail(`${hint || 'gate'} command is missing`);
+  }
+  for (const { pattern, reason } of WEAKENING_PATTERNS) {
+    assert.ok(
+      !pattern.test(command),
+      `${hint || 'gate'} must not ${reason}; command was: ${command}`,
+    );
+  }
+}
+
+/**
+ * 从一条 npm script 命令里提取所有被 `node` / `node --test` 调用的脚本路径。
  *
  * 只做本仓库实际用到的两种形态：
  *   1. `node --test a.test.mjs b.test.mjs`      → 测试集合
@@ -43,8 +73,11 @@ export function referencedScripts(command) {
     const match = segment.match(/^\s*(?:mise\s+exec\s+--\s+)?node\s+(--test\s+)?(.+)$/);
     if (!match) continue;
     for (const token of match[2].trim().split(/\s+/)) {
-      if (!token || token.startsWith('-') || token.startsWith('--')) continue;
-      found.add(token);
+      // 去掉可能存在的引号：`node --test "scripts/a.test.mjs"` 与不带引号等价，
+      // 否则合法路径会被误判为缺失。
+      const cleaned = token.replace(/^['"]|['"]$/g, '');
+      if (!cleaned || cleaned.startsWith('-')) continue;
+      found.add(cleaned);
     }
   }
   return [...found];
@@ -52,9 +85,10 @@ export function referencedScripts(command) {
 
 /**
  * 断言某个门禁脚本确实执行了给定脚本；失败信息直接说明"覆盖丢失"，
- * 而不是"命令文本不匹配"。
+ * 而不是"命令文本不匹配"。同时先确认命令没有被改写成吞错形态。
  */
 export function assertScriptRuns(assert, command, script, hint = '') {
+  assertGateNotWeakened(assert, command, hint);
   const referenced = referencedScripts(command);
   assert.ok(
     referenced.includes(script),
@@ -67,6 +101,7 @@ export function assertScriptRuns(assert, command, script, hint = '') {
  * 顺序无关：新增脚本不会导致失败，移除任意一个都会失败。
  */
 export function assertScriptRunsAll(assert, command, scripts, hint = '') {
+  assertGateNotWeakened(assert, command, hint);
   const referenced = referencedScripts(command);
   const missing = scripts.filter(script => !referenced.includes(script));
   assert.deepEqual(

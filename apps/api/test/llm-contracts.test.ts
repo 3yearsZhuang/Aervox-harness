@@ -178,7 +178,9 @@ describe('ITER-064 LLM shared contracts over HTTP', () => {
         await new Promise<void>(resolve => provider.close(() => resolve()));
       }
     }));
-  });
+    // Measured 8.1s against the shared 10s default: five stalled-stream
+    // probes each waiting out a 6s provider timer. Keep the allowance local.
+  }, 30_000);
 
   it.each([
     ['object', { toString: null }, undefined],
