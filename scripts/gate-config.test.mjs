@@ -83,7 +83,6 @@ test('the real repository gates still satisfy the patch-test coverage contract',
     'scripts/check-deepmerge-patch.test.mjs',
     'scripts/check-minimatch-patches.test.mjs',
     'scripts/check-glob-patch.test.mjs',
-    'scripts/check-picomatch-patch.test.mjs',
     'scripts/check-cli-dependency-fixes.test.mjs',
     'scripts/check-dependency-audit.mjs',
   ], 'check:dependency-audit');

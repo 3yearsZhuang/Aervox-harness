@@ -28,7 +28,6 @@ patchedDependencies:
   glob@13.0.6: 0df88358ed4fd495c0461f78e29ed10ce1919b6745eeee6b2a8502e2f3a4219d
   minimatch@10.2.6: 7fa89bc8ddebb8acd57f1c22416ca512e3c24e70ced4feb2fcd8042c1aa33218
   minimatch@9.0.9: 807f32f224140c1e302e49ba751b7bfb1f928db981cd2e452313b3fecf1b935f
-  picomatch@4.0.5: 2d8f520c43d96208263b7d24fe853170410eab961f3634374efa26734f359d08
 
 importers:
 
@@ -8124,9 +8123,9 @@ snapshots:
     dependencies:
       pend: 1.2.0
 
-  fdir@6.5.0(picomatch@4.0.5(patch_hash=2d8f520c43d96208263b7d24fe853170410eab961f3634374efa26734f359d08)):
+  fdir@6.5.0(picomatch@4.0.5):
     optionalDependencies:
-      picomatch: 4.0.5(patch_hash=2d8f520c43d96208263b7d24fe853170410eab961f3634374efa26734f359d08)
+      picomatch: 4.0.5
 
   fetch-blob@3.2.0:
     dependencies:
@@ -8952,7 +8951,7 @@ snapshots:
 
   picocolors@1.1.1: {}
 
-  picomatch@4.0.5(patch_hash=2d8f520c43d96208263b7d24fe853170410eab961f3634374efa26734f359d08): {}
+  picomatch@4.0.5: {}
 
   pino-abstract-transport@3.0.0:
     dependencies:
@@ -9511,8 +9510,8 @@ snapshots:
 
   tinyglobby@0.2.17:
     dependencies:
-      fdir: 6.5.0(picomatch@4.0.5(patch_hash=2d8f520c43d96208263b7d24fe853170410eab961f3634374efa26734f359d08))
-      picomatch: 4.0.5(patch_hash=2d8f520c43d96208263b7d24fe853170410eab961f3634374efa26734f359d08)
+      fdir: 6.5.0(picomatch@4.0.5)
+      picomatch: 4.0.5
 
   tinyrainbow@3.1.1: {}
 
@@ -9650,8 +9649,8 @@ snapshots:
   vite@6.4.5(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1):
     dependencies:
       esbuild: 0.25.12
-      fdir: 6.5.0(picomatch@4.0.5(patch_hash=2d8f520c43d96208263b7d24fe853170410eab961f3634374efa26734f359d08))
-      picomatch: 4.0.5(patch_hash=2d8f520c43d96208263b7d24fe853170410eab961f3634374efa26734f359d08)
+      fdir: 6.5.0(picomatch@4.0.5)
+      picomatch: 4.0.5
       postcss: 8.5.29
       rollup: 4.62.5
       tinyglobby: 0.2.17
@@ -9666,8 +9665,8 @@ snapshots:
   vite@7.3.7(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1):
     dependencies:
       esbuild: 0.28.2
-      fdir: 6.5.0(picomatch@4.0.5(patch_hash=2d8f520c43d96208263b7d24fe853170410eab961f3634374efa26734f359d08))
-      picomatch: 4.0.5(patch_hash=2d8f520c43d96208263b7d24fe853170410eab961f3634374efa26734f359d08)
+      fdir: 6.5.0(picomatch@4.0.5)
+      picomatch: 4.0.5
       postcss: 8.5.29
       rollup: 4.62.5
       tinyglobby: 0.2.17
@@ -9682,8 +9681,8 @@ snapshots:
   vite@7.3.7(@types/node@24.13.3)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1):
     dependencies:
       esbuild: 0.28.2
-      fdir: 6.5.0(picomatch@4.0.5(patch_hash=2d8f520c43d96208263b7d24fe853170410eab961f3634374efa26734f359d08))
-      picomatch: 4.0.5(patch_hash=2d8f520c43d96208263b7d24fe853170410eab961f3634374efa26734f359d08)
+      fdir: 6.5.0(picomatch@4.0.5)
+      picomatch: 4.0.5
       postcss: 8.5.29
       rollup: 4.62.5
       tinyglobby: 0.2.17
@@ -9709,7 +9708,7 @@ snapshots:
       magic-string: 0.30.21
       obug: 2.1.4
       pathe: 2.0.3
-      picomatch: 4.0.5(patch_hash=2d8f520c43d96208263b7d24fe853170410eab961f3634374efa26734f359d08)
+      picomatch: 4.0.5
       std-env: 4.3.0
       tinybench: 2.9.0
       tinyexec: 1.3.0
@@ -9737,7 +9736,7 @@ snapshots:
       magic-string: 0.30.21
       obug: 2.1.4
       pathe: 2.0.3
-      picomatch: 4.0.5(patch_hash=2d8f520c43d96208263b7d24fe853170410eab961f3634374efa26734f359d08)
+      picomatch: 4.0.5
       std-env: 4.3.0
       tinybench: 2.9.0
       tinyexec: 1.3.0

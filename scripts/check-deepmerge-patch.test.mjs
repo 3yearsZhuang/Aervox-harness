@@ -134,7 +134,6 @@ test("deepmerge's exact patch is registered, locked and required before dependen
     "scripts/check-deepmerge-patch.test.mjs",
     "scripts/check-minimatch-patches.test.mjs",
     "scripts/check-glob-patch.test.mjs",
-    "scripts/check-picomatch-patch.test.mjs",
     "scripts/check-cli-dependency-fixes.test.mjs",
   ], "check:dependency-audit");
   // check:guards intentionally runs the whole check-* glob, so assert the glob
