@@ -97,6 +97,32 @@ export function assertScriptRuns(assert, command, script, hint = '') {
 }
 
 /**
+ * 断言命令里出现某个"动作 token"（构建命令、pnpm 脚本名、mise 任务名等）。
+ * 与整条命令正则相比，只要求该动作存在、不规定其位置与相邻文字，
+ * 因此调整参数顺序、插入新步骤都不会误报，但删除该动作仍会失败。
+ */
+export function assertCommandIncludes(assert, command, token, hint = '') {
+  assertGateNotWeakened(assert, command, hint);
+  assert.ok(
+    typeof command === 'string' && command.includes(token),
+    `${hint || 'gate'} must include \`${token}\`; command was: ${command ?? '(missing)'}`,
+  );
+}
+
+/**
+ * 断言"先构建、后测试"的执行顺序。只看 token 出现位置，不看整条命令文本。
+ * 顺序被反转（测试先于构建）与构建被删除都会失败。
+ */
+export function assertCommandOrder(assert, command, before, after, hint = '') {
+  assertGateNotWeakened(assert, command, hint);
+  const at = token => (typeof command === 'string' ? command.indexOf(token) : -1);
+  const first = at(before), second = at(after);
+  assert.ok(first !== -1, `${hint || 'gate'} must include \`${before}\`; command was: ${command ?? '(missing)'}`);
+  assert.ok(second !== -1, `${hint || 'gate'} must include \`${after}\`; command was: ${command ?? '(missing)'}`);
+  assert.ok(first < second, `${hint || 'gate'} must run \`${before}\` before \`${after}\``);
+}
+
+/**
  * 断言一组脚本全部被某个门禁执行（用于"补丁测试不得被移出门禁"这类回归）。
  * 顺序无关：新增脚本不会导致失败，移除任意一个都会失败。
  */
@@ -112,11 +138,22 @@ export function assertScriptRunsAll(assert, command, scripts, hint = '') {
 }
 
 /**
- * 从 mise.toml 文本中取出某个任务的命令行（`name = "..."`）。
+ * 从 mise.toml 文本中取出某个任务的命令行。支持仓库实际使用的两种写法：
+ *   1. 顶层任务：`ci-code = "pnpm a && pnpm b"`
+ *   2. `[tasks.<name>]` 段内的 `run = "..."`
  * 返回 null 表示该任务不存在——调用方应据此失败，而不是静默跳过。
  */
 export function miseTaskCommand(miseToml, task) {
-  const line = miseToml.split('\n').find(candidate => candidate.startsWith(`${task} =`));
-  if (!line) return null;
-  return line.slice(line.indexOf('=') + 1).trim().replace(/^"|"$/g, '');
+  if (typeof miseToml !== 'string') return null;
+  const lines = miseToml.split('\n');
+  const inline = lines.find(candidate => candidate.startsWith(`${task} =`));
+  if (inline) return inline.slice(inline.indexOf('=') + 1).trim().replace(/^"|"$/g, '');
+  const start = lines.findIndex(candidate => candidate.trim() === `[tasks.${task}]`);
+  if (start === -1) return null;
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.startsWith('[')) return null;           // 下一个段开始，说明本段没有 run
+    if (line.startsWith('run =')) return line.slice(line.indexOf('=') + 1).trim().replace(/^"|"$/g, '');
+  }
+  return null;
 }

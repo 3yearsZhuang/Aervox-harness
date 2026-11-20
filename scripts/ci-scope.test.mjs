@@ -13,6 +13,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { execFileSync } from 'node:child_process';
 import { workspacePatterns } from './workspaces.mjs';
+import { miseTaskCommand, assertCommandIncludes, assertCommandOrder, assertScriptRuns } from './gate-config.mjs';
 import {
   ROOT_DIR,
   buildTurboFilterArgs,
@@ -440,8 +441,9 @@ test("CI covers Playwright test directories, configs and executable root launche
 test("API and plugin standards run after build in full and incremental gates", () => {
   const config = fs.readFileSync(MISE_CONFIG, "utf8");
   for (const gate of ["ci-code", "ci-code-full"]) {
-    const command = config.split(/\r?\n/).find((line) => line.startsWith(`${gate} =`));
-    assert.match(command ?? "", /pnpm build && pnpm check:standards/);
+    const command = miseTaskCommand(config, gate);
+    // Ordering matters (standards must see built artifacts); exact wording does not.
+    assertCommandOrder(assert, command, "pnpm build", "pnpm check:standards", gate);
   }
   const incremental = fs.readFileSync(path.join(ROOT_DIR, "scripts/check-affected.mjs"), "utf8");
   assert.ok(incremental.indexOf('["check:standards"]') > incremental.indexOf('const buildRes ='));
@@ -453,20 +455,20 @@ test("full local gates run the same dependency audit the CI job runs", () => {
   // step so `./aervox ci all` cannot pass on an out-of-date review ledger.
   const config = fs.readFileSync(MISE_CONFIG, "utf8");
   for (const gate of ["ci-code", "ci-code-full"]) {
-    const command = config.split(/\r?\n/).find((line) => line.startsWith(`${gate} =`));
-    assert.match(command ?? "", /pnpm check:dependency-audit/, `${gate} must run the dependency audit`);
+    assertCommandIncludes(assert, miseTaskCommand(config, gate), "pnpm check:dependency-audit", `${gate} must run the dependency audit`);
   }
   // The audit queries the registry, so the offline-capable incremental fast path
   // must stay free of it; a network hiccup cannot make `./aervox ci` fail.
-  const fast = config.split(/\r?\n/).find((line) => line.startsWith("ci-fast ="));
-  assert.doesNotMatch(fast ?? "", /check:dependency-audit/);
+  const fast = miseTaskCommand(config, "ci-fast");
+  assert.ok(fast, "ci-fast task must exist");
+  assert.ok(!fast.includes("check:dependency-audit"), "ci-fast must stay offline-capable");
   const incremental = fs.readFileSync(path.join(ROOT_DIR, "scripts/check-affected.mjs"), "utf8");
   assert.doesNotMatch(incremental, /check:dependency-audit/);
   // The CI job and the local gate must call the identical script entry.
   const workflow = fs.readFileSync(CI_WORKFLOW, "utf8");
-  assert.match(workflow, /pnpm check:dependency-audit/);
+  assertCommandIncludes(assert, workflow, "pnpm check:dependency-audit", "ci.yml");
   const scripts = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, "package.json"), "utf8")).scripts;
-  assert.match(scripts["check:dependency-audit"], /node scripts\/check-dependency-audit\.mjs$/);
+  assertScriptRuns(assert, scripts["check:dependency-audit"], "scripts/check-dependency-audit.mjs", "check:dependency-audit");
 });
 
 test('Android emulator commands resolve Gradle from the repository root without a persistent cd', () => {
@@ -475,7 +477,7 @@ test('Android emulator commands resolve Gradle from the repository root without 
   assert.ok(script, 'emulator script must be declared');
   const command = script.split('\n').map(line => line.trim()).find(line => line.includes('connectedDebugAndroidTest'));
   assert.ok(command);
-  assert.match(command, /^mise exec -- \.\/apps\/mobile\/android\/gradlew -p apps\/mobile\/android /);
+  assertCommandIncludes(assert, command, "mise exec -- ./apps/mobile/android/gradlew -p apps/mobile/android", "emulator run");
   assert.ok(fs.existsSync(path.join(ROOT_DIR, 'apps/mobile/android/gradlew')));
   assert.ok(fs.existsSync(path.join(ROOT_DIR, 'apps/mobile/android/settings.gradle')));
 });

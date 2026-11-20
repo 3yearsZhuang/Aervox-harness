@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   referencedScripts, assertScriptRuns, assertScriptRunsAll,
-  assertGateNotWeakened, miseTaskCommand, readRootScripts,
+  assertGateNotWeakened, assertCommandIncludes, assertCommandOrder,
+  miseTaskCommand, readRootScripts,
 } from './gate-config.mjs';
 
 // 这个助手决定"脚本是否仍在门禁里"。它自身必须被测试，否则一旦解析退化成
@@ -86,4 +87,42 @@ test('the real repository gates still satisfy the patch-test coverage contract',
     'scripts/check-cli-dependency-fixes.test.mjs',
     'scripts/check-dependency-audit.mjs',
   ], 'check:dependency-audit');
+});
+
+// 顺序断言用于"构建必须先于测试"这类真实约束：整条命令正则会把无关步骤的
+// 增删也算作失败，而只比较 token 位置既能放过无关改动，又能抓住顺序反转。
+test('assertCommandOrder enforces ordering without freezing the command text', () => {
+  const build = 'turbo run build';
+  const run = 'node --test scripts/cli-smoke.test.mjs';
+  assert.doesNotThrow(() => assertCommandOrder(assert, `${build} --filter=a && ${run}`, build, run));
+  assert.doesNotThrow(() => assertCommandOrder(assert, `pnpm x && ${build} --filter=a --filter=b && pnpm y && ${run}`, build, run));
+  assert.throws(() => assertCommandOrder(assert, `${run} && ${build}`, build, run), /must run .* before/);
+  assert.throws(() => assertCommandOrder(assert, run, build, run), /must include/);
+  assert.throws(() => assertCommandOrder(assert, build, build, run), /must include/);
+});
+
+test('assertCommandIncludes finds an action token and rejects weakening', () => {
+  assert.doesNotThrow(() => assertCommandIncludes(assert, 'pnpm build && pnpm check:standards', 'pnpm check:standards'));
+  assert.throws(() => assertCommandIncludes(assert, 'pnpm build', 'pnpm check:standards'), /must include/);
+  assert.throws(() => assertCommandIncludes(assert, 'pnpm check:standards || true', 'pnpm check:standards'), /must not/);
+  // A missing command is reported as missing rather than as a missing token.
+  assert.throws(() => assertCommandIncludes(assert, undefined, 'x'), /command is missing/);
+});
+
+test('miseTaskCommand reads both inline tasks and [tasks.*] sections', () => {
+  const toml = [
+    'ci-code = "pnpm a && pnpm b"',
+    '',
+    '[tasks.native-search-check]',
+    'description = "x"',
+    'run = "cargo build && node --test s.mjs"',
+    '',
+    '[tasks.other]',
+    'description = "no run field"',
+  ].join('\n');
+  assert.equal(miseTaskCommand(toml, 'ci-code'), 'pnpm a && pnpm b');
+  assert.equal(miseTaskCommand(toml, 'native-search-check'), 'cargo build && node --test s.mjs');
+  assert.equal(miseTaskCommand(toml, 'other'), null);
+  assert.equal(miseTaskCommand(toml, 'absent'), null);
+  assert.equal(miseTaskCommand(undefined, 'ci-code'), null);
 });
