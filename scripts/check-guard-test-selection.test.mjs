@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { selectGuardTests } from './test-guards.mjs';
+import { readRootScripts, miseTaskCommand, assertScriptRuns, assertCommandIncludes, assertCommandOrder } from './gate-config.mjs';
 
 const dedicated = ['cli-smoke.test.mjs', 'hls-agent.test.mjs', 'native-runtime-smoke.test.mjs', 'native-search.test.mjs'];
 
@@ -15,17 +16,35 @@ test('guard selection excludes only the four dedicated integration suites and re
 });
 
 test('excluded suites retain explicit build prerequisites and full gate coverage', () => {
-  const scripts = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).scripts;
+  // Semantics, not command text: each dedicated suite must still (a) run its own
+  // test script and (b) keep whatever build it needs ahead of that test. Rewording,
+  // reordering unrelated steps or adding flags no longer fails; dropping the build
+  // or inverting the order still does.
+  const scripts = readRootScripts();
   const mise = readFileSync(new URL('../mise.toml', import.meta.url), 'utf8');
   const workflow = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
-  assert.match(scripts['test:cli:integration'], /turbo run build .*--filter=@aervox\/cli .*--filter=@aervox\/api && node --test scripts\/cli-smoke.test.mjs$/);
-  assert.match(workflow, /mise exec -- pnpm test:cli:integration/);
-  assert.match(scripts['check:hls'], /turbo run build --filter=@aervox\/core\.\.\. && node --test scripts\/hls-agent.test.mjs$/);
-  assert.match(mise, /cargo build --locked --manifest-path native\/tools\/vector-pilot\/Cargo.toml .*node --test scripts\/native-search.test.mjs/);
-  assert.match(mise, /turbo run native:build .*turbo run build --filter=@aervox\/api --filter=@aervox\/worker && node --test scripts\/native-runtime-smoke.test.mjs/);
+  const task = name => miseTaskCommand(mise, name);
+
+  const cli = scripts['test:cli:integration'];
+  assertScriptRuns(assert, cli, 'scripts/cli-smoke.test.mjs', 'test:cli:integration');
+  assertCommandOrder(assert, cli, 'turbo run build', 'node --test scripts/cli-smoke.test.mjs', 'test:cli:integration');
+  assertCommandIncludes(assert, workflow, 'pnpm test:cli:integration', 'ci.yml');
+
+  const hls = scripts['check:hls'];
+  assertScriptRuns(assert, hls, 'scripts/hls-agent.test.mjs', 'check:hls');
+  assertCommandOrder(assert, hls, 'turbo run build', 'node --test scripts/hls-agent.test.mjs', 'check:hls');
+
+  const search = task('native-search-check');
+  assertCommandOrder(assert, search, 'cargo build', 'node --test scripts/native-search.test.mjs', 'native-search-check');
+
+  const native = task('native-runtime-check');
+  assertCommandOrder(assert, native, 'turbo run native:build', 'node --test scripts/native-runtime-smoke.test.mjs', 'native-runtime-check');
+
   for (const gate of ['ci-code', 'ci-code-full']) {
-    const command = mise.split('\n').find(line => line.startsWith(`${gate} =`));
-    for (const entry of ['pnpm check:hls', 'mise tasks run native-search-check', 'mise tasks run native-runtime-check']) assert.ok(command?.includes(entry), `${gate}: ${entry}`);
+    const command = task(gate);
+    for (const entry of ['pnpm check:hls', 'mise tasks run native-search-check', 'mise tasks run native-runtime-check']) {
+      assertCommandIncludes(assert, command, entry, gate);
+    }
   }
 });
 

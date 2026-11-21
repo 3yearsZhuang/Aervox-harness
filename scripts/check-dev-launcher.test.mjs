@@ -329,10 +329,23 @@ if (args.includes('--filter=@aervox/api')) {
   }
 });
 
+// These two tests drive the *real* mise binary, so mise needs to record trust for
+// the fixture config. It does that by symlinking into its global state dir
+// (~/.local/state/mise/trusted-configs), which fails when the test runs under a
+// sandbox that cannot write outside the workspace -- and that failure surfaces as
+// "error parsing config file", unrelated to what these tests actually verify.
+// Pointing MISE_STATE_DIR at a scratch dir inside the fixture keeps the real
+// binary and the real trust flow, while confining the writes to the fixture.
+function miseStateEnv(dir, extra = {}) {
+  const state = join(dir, 'mise-state');
+  mkdirSync(state, { recursive: true });
+  return { ...process.env, MISE_STATE_DIR: state, MISE_TRUSTED_CONFIG_PATHS: dir, ...extra };
+}
+
 test('real mise exec and tasks preserve caller exports, .env, then project defaults', t => {
   const { dir } = fixture(t);
-  const env = { ...process.env, MISE_TRUSTED_CONFIG_PATHS: dir, PORT: '4123', DATABASE_URL: 'file:caller.db',
-    AERVOX_LOOP_PROVIDER: 'replay', AERVOX_PROJECT: undefined, AERVOX_NODE_MIN: undefined };
+  const env = miseStateEnv(dir, { PORT: '4123', DATABASE_URL: 'file:caller.db',
+    AERVOX_LOOP_PROVIDER: 'replay', AERVOX_PROJECT: undefined, AERVOX_NODE_MIN: undefined });
   writeFileSync(join(dir, 'mise.toml'), `[tools]\nnode = "24"\n[env]\n_.source = "scripts/project-env.sh"\n[tasks.inspect]\nrun = "node inspect.cjs"\n`);
   writeFileSync(join(dir, 'inspect.cjs'), `process.stdout.write(JSON.stringify({ port: process.env.PORT,
     database: process.env.DATABASE_URL, provider: process.env.AERVOX_LOOP_PROVIDER, project: process.env.AERVOX_PROJECT }));`);
@@ -355,7 +368,7 @@ test('project mise keeps the locked Node ahead of an inherited competing runtime
   writeFileSync(join(dir, 'mise.toml'), `${config}\n[tasks.inspect-runtime]\nrun = "pnpm exec node inspect-runtime.cjs"\n`);
   writeFileSync(join(dir, 'package.json'), '{"private":true}');
   writeFileSync(join(dir, 'inspect-runtime.cjs'), "require('node:fs').writeFileSync('runtime.json', JSON.stringify({ version: process.versions.node }));");
-  const env = { ...process.env, MISE_TRUSTED_CONFIG_PATHS: dir, MISE_ACTIVATE_AGGRESSIVE: undefined };
+  const env = miseStateEnv(dir, { MISE_ACTIVATE_AGGRESSIVE: undefined });
   // Simulate an already activated shell followed by another installation that
   // prepends itself. Direct `mise exec node` can hide this child-PATH mismatch.
   const activated = spawnSync('mise', ['env', '--json'], { cwd: dir, env, encoding: 'utf8' });

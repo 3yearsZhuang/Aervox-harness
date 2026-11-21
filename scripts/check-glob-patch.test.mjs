@@ -7,6 +7,7 @@ import { createRequire, SourceMap } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readRootScripts, assertScriptRunsAll } from './gate-config.mjs';
 
 // Backport of https://github.com/isaacs/node-glob/commit/4682e8c9babee1b385202ede36389634e12076d7
 // glob 13's default minified entries bundle their own minimatch. Route the public
@@ -203,8 +204,11 @@ if (process.argv[2] === '--probe') {
       ['walker.js', 'walker.js.map', 'walker.d.ts.map'].map(name => `dist/${format}/${name}`))]) {
       assert.ok(patch.includes(`+++ b/${file}`), `${file} is patched`);
     }
-    const scripts = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).scripts;
-    assert.match(scripts['check:dependency-audit'], /node --test [^&]*scripts\/check-(?:glob|\*)-patch\.test\.mjs[^&]*&& node scripts\/check-dependency-audit\.mjs/);
+    const scripts = readRootScripts(root);
+    // Coverage, not command text: the glob patch test must stay in the audit gate
+    // and that gate must still finish by running the audit itself.
+    assertScriptRunsAll(assert, scripts['check:dependency-audit'], ['scripts/check-glob-patch.test.mjs'], 'check:dependency-audit');
+    assertScriptRunsAll(assert, scripts['check:dependency-audit'], ['scripts/check-dependency-audit.mjs'], 'check:dependency-audit');
   });
 
   for (const consumer of resolved) {

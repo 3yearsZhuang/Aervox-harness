@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { assertScriptRuns } from "./gate-config.mjs";
 import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync } from "node:fs";
@@ -145,7 +146,8 @@ test("minimatch reviews cover exact legacy and patched versions before registry 
   assert.match(validation, /^node --test /);
   assert.ok(validation.split(" ").includes("scripts/check-minimatch-patches.test.mjs"));
   assert.equal(audit, "node scripts/check-dependency-audit.mjs");
-  assert.match(scripts["check:guards"], /node --test scripts\/check-\*\.test\.mjs/);
+  // The glob itself (not its expanding member list) is what must stay wired.
+  assertScriptRuns(assert, scripts["check:guards"], "scripts/check-*.test.mjs", "check:guards");
 });
 
 test("every reviewed minimatch route resolves to the tested package and preserves its API", async () => {

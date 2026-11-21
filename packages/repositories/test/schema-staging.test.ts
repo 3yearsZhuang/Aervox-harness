@@ -79,7 +79,10 @@ describe("explicit staging replacement", () => {
       expect(await fs.readFile(fixture.sourcePath)).toEqual(sourceBytes);
       expect(release).toHaveBeenCalledOnce();
     } finally { await fs.rm(fixture.directory, {recursive:true,force:true}); }
-  });
+    // Measured 9.4s against the shared 10s default: a full on-disk staging
+    // rebuild plus a swap and an inode-byte comparison. Too little margin to
+    // leave on the default, so keep the allowance explicit and local.
+  }, 30_000);
   it("fails closed when stop-write/quiescence cannot be established", async () => {
     const fixture = await temporary();
     try {

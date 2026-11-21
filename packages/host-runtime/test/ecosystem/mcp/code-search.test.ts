@@ -5,8 +5,8 @@ import { join } from "node:path";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
-import { CODE_SEARCH_LIMITS, RipgrepCodeSearch } from "@aervox/host-runtime-test/modules/ecosystem/mcp/code-search";
-import { DshMcpBridge } from "@aervox/host-runtime-test/modules/ecosystem/mcp/dsh-bridge";
+import { CODE_SEARCH_LIMITS, RipgrepCodeSearch } from "../../../src/modules/ecosystem/mcp/code-search.js";
+import { DshMcpBridge } from "../../../src/modules/ecosystem/mcp/dsh-bridge.js";
 
 let root: string;
 beforeEach(async () => { root = await mkdtemp(join(tmpdir(), "aervox-code-search-")); });

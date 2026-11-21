@@ -50,4 +50,3 @@ patchedDependencies:
   minimatch@9.0.9: patches/minimatch@9.0.9.patch
   minimatch@10.2.6: patches/minimatch@10.2.6.patch
   glob@13.0.6: patches/glob@13.0.6.patch
-  picomatch@4.0.5: patches/picomatch@4.0.5.patch

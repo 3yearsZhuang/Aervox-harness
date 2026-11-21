@@ -75,7 +75,10 @@ describe("native artifact and stream boundaries", () => {
     const assertion = expect(pending).rejects.toThrow(/cancelled|aborted/iu);
     setTimeout(() => controller.abort(), 50); await assertion;
     await aborted.reset(); expect(aborted.running).toBe(false);
-  });
+    // Measured 10.3s: spawns and tears down three real child processes
+    // (malformed / timeout / abort). Local allowance only; the shared default
+    // stays at 10s so genuine hangs still fail fast.
+  }, 30_000);
 });
 
 describe("SQLite native cache", () => {

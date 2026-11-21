@@ -6,6 +6,7 @@ import { readFileSync, realpathSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { readRootScripts, assertScriptRunsAll } from "./gate-config.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const patchPath = "patches/deepmerge@4.3.1.patch";
@@ -125,9 +126,19 @@ test("deepmerge's exact patch is registered, locked and required before dependen
   for (const entry of ["index.js", "dist/cjs.js", "dist/umd.js"]) {
     assert.ok(patch.includes(Buffer.from(`+++ b/${entry}`)), `${entry} is patched`);
   }
-  const scripts = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")).scripts;
-  assert.match(scripts["check:dependency-audit"], /^node --test scripts\/check-deepmerge-patch\.test\.mjs scripts\/check-minimatch-patches\.test\.mjs scripts\/check-glob-patch\.test\.mjs scripts\/check-picomatch-patch\.test\.mjs scripts\/check-cli-dependency-fixes\.test\.mjs && node scripts\/check-dependency-audit\.mjs$/);
-  assert.match(scripts["check:guards"], /node --test scripts\/check-\*\.test\.mjs/);
+  const scripts = readRootScripts(root);
+  // Semantic coverage check: every patched-dependency test must stay wired into the
+  // audit gate. Adding a sixth patch test, or reordering the --test arguments, no
+  // longer fails this assertion; dropping one still does.
+  assertScriptRunsAll(assert, scripts["check:dependency-audit"], [
+    "scripts/check-deepmerge-patch.test.mjs",
+    "scripts/check-minimatch-patches.test.mjs",
+    "scripts/check-glob-patch.test.mjs",
+    "scripts/check-cli-dependency-fixes.test.mjs",
+  ], "check:dependency-audit");
+  // check:guards intentionally runs the whole check-* glob, so assert the glob
+  // itself is still wired rather than its (expanding) member list.
+  assertScriptRunsAll(assert, scripts["check:guards"], ["scripts/check-*.test.mjs"], "check:guards glob");
 });
 
 for (const [index, names] of dependencyPaths.entries()) {
