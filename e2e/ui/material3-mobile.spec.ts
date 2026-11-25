@@ -52,8 +52,8 @@ test('keeps rejected-message recovery inside the dialogue and the mobile compose
   });
   await page.route('**/v1/turns/turn_visible_retry/events', route => route.fulfill({ contentType: 'text/event-stream', headers: cors,
     body: [
-      { turnId: 'turn_visible_retry', sequence: 1, eventType: 'delta', data: { text: '已收到保留的草稿。' } },
-      { turnId: 'turn_visible_retry', sequence: 2, eventType: 'done', data: {} },
+      { turnId: 'turn_visible_retry', sequence: 1, eventType: 'delta', payloadVersion: 1, data: { text: '已收到保留的草稿。' } },
+      { turnId: 'turn_visible_retry', sequence: 2, eventType: 'done', payloadVersion: 1, data: {} },
     ].map(event => `data: ${JSON.stringify(event)}\n\n`).join(''),
   }));
   await page.goto(servers.webUrl);
@@ -274,11 +274,11 @@ test('renders readable dark questions and sends the chosen answer', async ({ pag
   await page.route('**/v1/sessions/*/turns', route => route.fulfill({ contentType: 'application/json', headers: cors, body: JSON.stringify({ turnId: 'turn_material_question' }) }));
   await page.route('**/v1/turns/turn_material_question/events', route => route.fulfill({ contentType: 'text/event-stream', headers: cors,
     body: (answered ? [
-      { turnId: 'turn_material_question', sequence: 3, eventType: 'delta', data: { text: '收到回答，继续学习。' } },
-      { turnId: 'turn_material_question', sequence: 4, eventType: 'done', data: {} },
+      { turnId: 'turn_material_question', sequence: 3, eventType: 'delta', payloadVersion: 1, data: { text: '收到回答，继续学习。' } },
+      { turnId: 'turn_material_question', sequence: 4, eventType: 'done', payloadVersion: 1, data: {} },
     ] : [
-      { turnId: 'turn_material_question', sequence: 1, eventType: 'user_question_required', data: { turnId: 'turn_material_question', attemptId: 'attempt_material_question', invocationId: 'attempt_material_question:1:1', step: 1, questions: [{ id: 'topic', header: '学习主题', question: '接下来学习什么？', detail: '选择一个主题，也可以补充说明。', options: [{ label: '变量与类型', description: '从简单例子开始' }, { label: '函数', description: '学习组合与复用' }] }] } },
-      { turnId: 'turn_material_question', sequence: 2, eventType: 'done', data: {} },
+      { turnId: 'turn_material_question', sequence: 1, eventType: 'user_question_required', payloadVersion: 1, data: { turnId: 'turn_material_question', attemptId: 'attempt_material_question', invocationId: 'attempt_material_question:1:1', step: 1, questions: [{ id: 'topic', header: '学习主题', question: '接下来学习什么？', detail: '选择一个主题，也可以补充说明。', options: [{ label: '变量与类型', description: '从简单例子开始' }, { label: '函数', description: '学习组合与复用' }] }] } },
+      { turnId: 'turn_material_question', sequence: 2, eventType: 'done', payloadVersion: 1, data: {} },
     ]).map(event => `data: ${JSON.stringify(event)}\n\n`).join(''),
   }));
   let saved: unknown;

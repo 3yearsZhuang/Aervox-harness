@@ -14,7 +14,7 @@ let server: ReturnType<typeof createServer>;
 let handler: (req: IncomingMessage, res: ServerResponse) => void;
 let requests: { method?: string; url?: string; auth?: string; key?: string; body: string }[];
 const event = (sequence: number, eventType: string, data: unknown) =>
-  `data: ${JSON.stringify({ eventId: `e${sequence}`, turnId: 'turn_1', sequence, eventType, data })}\n\n`;
+  `data: ${JSON.stringify({ eventId: `e${sequence}`, turnId: 'turn_1', sequence, eventType, payloadVersion: 1, data })}\n\n`;
 const done = (status = 'Completed') => event(3, 'done', { status, isComplete: true, lastSequence: 3 });
 const json = (res: ServerResponse, value: unknown, status = 200) => {
   res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(value));
