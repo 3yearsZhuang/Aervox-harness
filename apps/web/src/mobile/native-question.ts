@@ -1,7 +1,7 @@
 /** Phone adapter to the shared durable commands and process-local waiter. */
 import type { AskUserQuestionAnswerItem, UserQuestionRequiredEventData } from '@aervox/contracts';
 import { UserQuestionWaiter, type UserQuestionCommands, type QuestionExecutionOwner } from '@aervox/host-agent/browser';
-import type { AskUserQuestionPortRequest, UserQuestionPort } from '@aervox/core/browser';
+import type { AskUserQuestionPortRequest, UserQuestionPort } from '@aervox/core/ports';
 import type { QuestionAnswerIdentity } from '@aervox/api-client';
 
 export interface QuestionBridge {

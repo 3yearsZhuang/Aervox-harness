@@ -39,6 +39,13 @@ test('Android composition permits exact neutral exports without granting ordinar
     assert.deepEqual(auditArchitecture({ sources: new Map([[file, "import '@aervox/core/browser'"]]) }).violations, []);
     assert.ok(auditArchitecture({ sources: new Map([[file, "import '@aervox/core'"]]) }).violations.length > 0);
   }
+  // The contract-only entry is reachable from the declared composition files so
+  // they can name a port without loading the implementation; the bare package and
+  // other subpaths stay blocked.
+  for (const file of ['apps/web/src/mobile/native-question.ts', 'apps/web/src/mobile/native-model-provider.ts']) {
+    assert.deepEqual(auditArchitecture({ sources: new Map([[file, "import '@aervox/core/ports'"]]) }).violations, []);
+  }
+  assert.ok(auditArchitecture({ sources: new Map([['apps/web/src/mobile/native-context.ts', "import '@aervox/core/ports'"]]) }).violations.some(value => value.includes('not allowed')));
   assert.deepEqual(auditArchitecture({ sources: new Map([['apps/web/src/mobile/native-question.ts', "import '@aervox/host-agent/browser'"]]) }).violations, []);
   for (const [file, target] of [
     ['apps/web/src/mobile/native-question.ts', '@aervox/host-agent'],

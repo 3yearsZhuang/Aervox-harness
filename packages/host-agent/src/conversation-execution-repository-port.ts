@@ -1,4 +1,4 @@
-import type { AgentStreamEventInput, ExecutionStorePort, ToolExecutionRecord } from "@aervox/core/browser";
+import type { AgentStreamEventInput, ExecutionStorePort, ToolExecutionRecord } from "@aervox/core/ports";
 
 type StoreInput<Key extends keyof ExecutionStorePort> = NonNullable<ExecutionStorePort[Key]> extends
   (input: infer Input) => unknown ? Input : never;

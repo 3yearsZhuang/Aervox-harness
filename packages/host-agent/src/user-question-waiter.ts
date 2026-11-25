@@ -1,4 +1,4 @@
-import type { AskUserQuestionPortRequest, AskUserQuestionPortResult, UserQuestionPort } from "@aervox/core/browser";
+import type { AskUserQuestionPortRequest, AskUserQuestionPortResult, UserQuestionPort } from "@aervox/core/ports";
 import type { ConversationStreamEventRow } from "./conversation-execution-repository-port.js";
 
 export interface QuestionIdentity { turnId: string; attemptId: string; invocationId: string; step: number }

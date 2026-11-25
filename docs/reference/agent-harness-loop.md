@@ -50,7 +50,7 @@ Provider 的 `capabilities` 可报告工具/推理协议支持、已知上下文
 
 `AERVOX_LOOP_RESUME=local-results` 显式启用 API 启动恢复和 Worker 周期恢复，缺省 `off`。单次最多扫描 10 个过期候选，串行重新取得 fencing 租约，只用当前准入的本机模型根据权威结果补完一轮正文，单候选截止 30 秒。恢复不运行回合插件钩子，不派发新工具；需要新动作时由用户发起新回合。恢复先核对完整账本、最新意图和持久事件高水位，再按执行标识关联结果；已终态、缺失/重复配对、未知结果（即使 `replay: safe`）、审批待决、脱敏/删除内容或删除闸门阻断均不自动恢复。Worker 同时恢复时由 CAS 决定唯一执行者，Worker 已终结的 Attempt 不会复活。下一序号来自完整持久事件上界。停用开关回到既有 Worker 中断收敛，无数据迁移。
 
-公共入口仍为 `@aervox/core` 与 `@aervox/core/core`，执行收集器、终态收敛器、工具管线/账本及内部序列化函数不再从根入口暴露。工作区消费者通过公开 Port 与 `executeTurn` 集成，内部单元测试直接引用源码模块；软件包保持 `private: true` 和零运行时依赖。公开发布前仍需独立版本与发布审核。
+公共入口为 `@aervox/core`、平台中性的 `@aervox/core/browser` 与只含契约的 `@aervox/core/ports`（原 `@aervox/core/core` 已移除），执行收集器、终态收敛器、工具管线/账本及内部序列化函数不再从根入口暴露。工作区消费者通过公开 Port 与 `executeTurn` 集成，内部单元测试直接引用源码模块；软件包保持 `private: true` 和零运行时依赖。公开发布前仍需独立版本与发布审核。
 
 性能基线通过 `mise exec -- node scripts/benchmark-core.mjs --samples=5 --out=<path>` 生成 JSON，已记录的[受控基线](../_meta/core-benchmark-baseline.json)带构建产物摘要与环境，记录首段可见、取消延迟、提交批次字节与写入点采样堆内存；先构建 `@aervox/core`。SQLite 跨进程竞争继续使用 `scripts/worker-write-contention-drill.mjs` 的临时库和独立 Socket。基线为受控夹具测量，不能当成真实模型或用户磁盘的服务等级承诺；不把机器负载敏感的延迟阈值放入单元门禁。
 

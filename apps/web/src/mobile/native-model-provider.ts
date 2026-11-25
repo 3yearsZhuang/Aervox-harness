@@ -1,4 +1,4 @@
-import type { ModelProviderPort, ModelRequest } from '@aervox/core/browser';
+import type { ModelProviderPort, ModelRequest } from '@aervox/core/ports';
 import { nativeRequest } from './native-channel';
 
 type NativeRequest = (body: Record<string, unknown>) => Promise<unknown>;
