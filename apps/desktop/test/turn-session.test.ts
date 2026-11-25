@@ -13,7 +13,7 @@ describe('desktop session across transport and preload', () => {
     ipc.send.mockImplementation((_channel, payload) => {
       if (_channel !== 'aervox:turn:start') return;
       const listener = ipc.on.mock.calls.at(-1)![1];
-      listener({}, { requestId: payload.requestId, type: 'event', event: {eventType: 'done', data: {}} });
+      listener({}, { requestId: payload.requestId, type: 'event', event: {eventType: 'done', payloadVersion: 1, data: {}} });
       listener({}, { requestId: payload.requestId, type: 'closed' });
     });
     for (const session of ['ses_A', 'ses_B']) {

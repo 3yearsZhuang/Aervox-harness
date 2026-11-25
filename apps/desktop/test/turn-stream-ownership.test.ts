@@ -76,7 +76,7 @@ describe('Turn renderer ownership', () => {
             .mockResolvedValueOnce(Response.json({turnId: 'turn_A', eventsUrl: '/v1/turns/turn_A/events'}))
             .mockImplementationOnce(async () => {
                 await new Promise<void>(resolve => { release = resolve })
-                return new Response('data: {"eventType":"emote","data":{"secret":true}}\n\ndata: {"eventType":"done","data":{}}\n\n')
+                return new Response('data: {"eventType":"emote","payloadVersion":1,"data":{"secret":true}}\n\ndata: {"eventType":"done","payloadVersion":1,"data":{}}\n\n')
             })
         vi.stubGlobal('fetch', fetch)
         const bridge = createDesktopTurnBridge({apiBaseUrl: 'http://127.0.0.1:3000', isTrustedSender: sender => (sender as Sender).trusted, onEmote})
