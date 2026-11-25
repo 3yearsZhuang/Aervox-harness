@@ -3,10 +3,10 @@ import { createFetchTransport } from "../src/transport";
 import { desktopTransport } from "../src/desktop-transport";
 const response = {approvalId:"approval",state:"granted",continuation:{attemptId:"attempt2",afterEventId:"decision"}};
 const events = [
-  {turnId:"wrong",sequence:10,eventType:"done",data:{}},
-  {turnId:"turn",sequence:11,eventType:"delta",data:{text:"continued"}},
-  {turnId:"turn",sequence:12,eventType:"done",data:{status:"Completed"}},
-  {turnId:"turn",sequence:13,eventType:"delta",data:{text:"late"}},
+  {turnId:"wrong",sequence:10,eventType:"done",payloadVersion:1,data:{}},
+  {turnId:"turn",sequence:11,eventType:"delta",payloadVersion:1,data:{text:"continued"}},
+  {turnId:"turn",sequence:12,eventType:"done",payloadVersion:1,data:{status:"Completed"}},
+  {turnId:"turn",sequence:13,eventType:"delta",payloadVersion:1,data:{text:"late"}},
 ];
 afterEach(()=>{vi.unstubAllGlobals();});
 it("fetch approval returns a cursor and subscribes without creating a second Turn",async()=>{
@@ -37,7 +37,7 @@ it("desktop approval uses typed Turn observation with the same projection",async
   expect(stop).toHaveBeenCalledOnce();expect(streamTurn).not.toHaveBeenCalled();
 });
 it("propagates resumed model failures instead of swallowing the terminal callback error",async()=>{
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(`data: ${JSON.stringify({turnId:"turn",sequence:20,eventType:"error",data:{message:"model_failed"}})}\n\n`)));
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(`data: ${JSON.stringify({turnId:"turn",sequence:20,eventType:"error",payloadVersion:1,data:{message:"model_failed"}})}\n\n`)));
   const transport = createFetchTransport("http://api.test");
   await expect(transport.observeTurn!("turn",{onDelta:vi.fn(),onDone:vi.fn(),onError:error=>{throw error;}},{afterEventId:"decision"})).rejects.toThrow("model_failed");
 });

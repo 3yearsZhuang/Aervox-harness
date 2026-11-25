@@ -264,7 +264,7 @@ describe('ConversationController', () => {
   });
 });
 
-const event = (eventId: string, sequence: number) => ({eventId, turnId: 'turn', sequence, eventType: 'delta', data: {text: eventId}} as const);
+const event = (eventId: string, sequence: number) => ({eventId, turnId: 'turn', sequence, eventType: 'delta', payloadVersion: 1, data: {text: eventId}} as const);
 it('resumes after the last consumed event and preserves pending questions across repeated observation failures', async () => {
   const {controller, streamTurn, observeTurn} = fixture();
   const question = {turnId: 'turn', questions: [{id: 'q'}]} as never;
@@ -425,7 +425,7 @@ function structuredTerminal(data: Record<string, unknown>, pending?: 'question' 
   if (pending === 'question') events.push({eventType: 'user_question_required', data: {turnId: 'turn', step: 1, questions: [{id: 'q', question: 'Confirm?'}]}});
   if (pending === 'approval') events.push({eventType: 'tool_approval_required', data: {approvalId: 'approval', toolName: 'write', argumentsHash: 'hash'}});
   events.push({eventType: 'done', data});
-  const body = events.map((event, index) => `data: ${JSON.stringify({eventId: `event_${index + 1}`, turnId: 'turn', sequence: index + 1, ...event})}\n\n`).join('');
+  const body = events.map((event, index) => `data: ${JSON.stringify({eventId: `event_${index + 1}`, turnId: 'turn', sequence: index + 1, payloadVersion: 1, ...event})}\n\n`).join('');
   const fetch = vi.fn().mockResolvedValueOnce(Response.json({turnId: 'turn'})).mockResolvedValueOnce(new Response(body));
   vi.stubGlobal('fetch', fetch);
   return {controller: createConversationController(createFetchTransport('http://api.test')), fetch};
@@ -505,7 +505,7 @@ describe('structured terminal state through Fetch and the stream projector', () 
     const {controller, fetch} = structuredTerminal({status: 'Completed', isComplete: true});
     await expect(controller.submit('s', 'hello', {onDelta() {}, onDone() { throw new Error('render failed'); }})).rejects.toThrow('render failed');
     expect(controller.state).toMatchObject({status: 'observer-error', afterEventId: 'event_1', retryAvailable: true});
-    fetch.mockResolvedValueOnce(new Response(`data: ${JSON.stringify({eventId: 'event_2', turnId: 'turn', sequence: 2, eventType: 'done', data: {status: 'Completed', isComplete: true}})}\n\n`));
+    fetch.mockResolvedValueOnce(new Response(`data: ${JSON.stringify({eventId: 'event_2', turnId: 'turn', sequence: 2, eventType: 'done', payloadVersion: 1, data: {status: 'Completed', isComplete: true}})}\n\n`));
     const done = vi.fn();
     await controller.retry({onDelta() {}, onDone: done});
     expect(done).toHaveBeenCalledOnce();
@@ -517,7 +517,7 @@ describe('structured terminal state through Fetch and the stream projector', () 
     const encoder = new TextEncoder();
     let body!: ReadableStreamDefaultController<Uint8Array>;
     const response = new Response(new ReadableStream<Uint8Array>({start(value) { body = value; }}));
-    const stream = (eventType: string, data: unknown, sequence: number) => encoder.encode(`data: ${JSON.stringify({eventId: `event_${sequence}`, turnId: 'turn', sequence, eventType, data})}\n\n`);
+    const stream = (eventType: string, data: unknown, sequence: number) => encoder.encode(`data: ${JSON.stringify({eventId: `event_${sequence}`, turnId: 'turn', sequence, eventType, payloadVersion: 1, data})}\n\n`);
     let observations = 0;
     const answerWrite = vi.fn(() => new Promise<Response>(() => {}));
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {

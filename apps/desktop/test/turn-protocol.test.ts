@@ -52,7 +52,7 @@ async function fullIpc(): Promise<AervoxTransport> {
   expect(window.fairyDesktop?.observeTurn).toBeTypeOf('function');
   return desktopTransport;
 }
-const frame = (sequence: number, eventType: string, text?: string) => `data: ${JSON.stringify({eventId: `event_${sequence}`, turnId: 'turn', sequence, eventType, data: {text}})}\n\n`;
+const frame = (sequence: number, eventType: string, text?: string) => `data: ${JSON.stringify({eventId: `event_${sequence}`, turnId: 'turn', sequence, eventType, payloadVersion: 1, data: {text}})}\n\n`;
 
 for (const [name, create] of [
   ['fetch', () => createFetchTransport('http://api.test', {headers: {Authorization: 'Bearer secret'}})],
@@ -118,7 +118,7 @@ for (const [name, create] of [
   });
   it('runs approval POST through continuation observation with the same credentials and cursor', async () => {
     const approval = {approvalId:'approval',toolName:'write',argumentsHash:'hash'};
-    const approvalFrame = `data: ${JSON.stringify({eventId:'pending',turnId:'turn',sequence:1,eventType:'tool_approval_required',data:approval})}\n\n`;
+    const approvalFrame = `data: ${JSON.stringify({eventId:'pending',turnId:'turn',sequence:1,eventType:'tool_approval_required',payloadVersion:1,data:approval})}\n\n`;
     const fetch = vi.fn().mockResolvedValueOnce(Response.json({turnId:'turn'}))
       .mockResolvedValueOnce(new Response(approvalFrame + frame(2,'done')))
       .mockResolvedValueOnce(Response.json({approvalId:'approval',state:'granted',continuation:{attemptId:'next',afterEventId:'decision'}}))
@@ -161,7 +161,7 @@ for (const [name, create] of [
   });
 
   it('classifies a persisted interruption as incomplete through the complete transport', async()=>{
-    const interrupted=`data: ${JSON.stringify({eventId:'terminal',turnId:'turn',sequence:2,eventType:'done',data:{status:'Interrupted',reason:'max_steps',isComplete:false}})}\n\n`;
+    const interrupted=`data: ${JSON.stringify({eventId:'terminal',turnId:'turn',sequence:2,eventType:'done',payloadVersion:1,data:{status:'Interrupted',reason:'max_steps',isComplete:false}})}\n\n`;
     vi.stubGlobal('fetch',vi.fn().mockResolvedValueOnce(Response.json({turnId:'turn'})).mockResolvedValueOnce(new Response(frame(1,'delta','partial')+interrupted)));
     const controller=createConversationController(await create());
     const onDelta=vi.fn(),onDone=vi.fn(),onError=vi.fn();

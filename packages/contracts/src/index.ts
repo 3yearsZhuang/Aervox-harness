@@ -80,6 +80,9 @@ import {
   updateLearningGoalSchema,
   turnStreamEventSchema,
   streamEventTypeNameSchema,
+  EVENT_PAYLOAD_VERSION,
+  SUPPORTED_EVENT_PAYLOAD_VERSIONS,
+  isSupportedEventPayloadVersion,
 } from "./schemas.js";
 import {
   pluginConfigFieldSchema,

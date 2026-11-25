@@ -5,6 +5,7 @@
  * 包装 @aervox/host-agent 的 SqliteExecutionStore，落盘 SQLite 的同时把
  * 事件 / 安全分段 / 工具结果同步广播给 turnStreamHub，方法体逐字节迁移。
  */
+import { EVENT_PAYLOAD_VERSION } from "@aervox/core/ports";
 import type { SqliteExecutionStore } from "@aervox/host-agent";
 import { turnStreamHub } from "./stream-hub.js";
 
@@ -45,7 +46,7 @@ export function createBroadcastingStore(baseStore: SqliteExecutionStore): Sqlite
               turnId: input.turnId,
               sequence: input.sequence,
               eventType: input.eventType,
-              payloadVersion: 1,
+              payloadVersion: EVENT_PAYLOAD_VERSION,
               occurredAt: new Date().toISOString(),
               data: input.eventData,
             });
@@ -63,7 +64,7 @@ export function createBroadcastingStore(baseStore: SqliteExecutionStore): Sqlite
               turnId: input.turnId,
               sequence: input.sequence,
               eventType: "delta",
-              payloadVersion: 1,
+              payloadVersion: EVENT_PAYLOAD_VERSION,
               occurredAt: new Date().toISOString(),
               data: input.eventData,
             });
@@ -100,7 +101,7 @@ export function createBroadcastingStore(baseStore: SqliteExecutionStore): Sqlite
                 turnId: input.turnId,
                 sequence: input.sequence,
                 eventType: "delta",
-                payloadVersion: 1,
+                payloadVersion: EVENT_PAYLOAD_VERSION,
                 occurredAt: new Date().toISOString(),
                 data: input.eventData,
               });
@@ -118,7 +119,7 @@ export function createBroadcastingStore(baseStore: SqliteExecutionStore): Sqlite
               turnId: input.turnId,
               sequence: input.sequence,
               eventType: "tool_result",
-              payloadVersion: 1,
+              payloadVersion: EVENT_PAYLOAD_VERSION,
               occurredAt: new Date().toISOString(),
               data: input.eventData,
             });

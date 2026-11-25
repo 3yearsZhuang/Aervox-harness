@@ -87,6 +87,29 @@ export const streamErrorCodeSchema = z.enum([
   "PERMISSION_REVOKED",
 ]);
 
+/**
+ * 事件信封负载版本（§4/§5）。
+ *
+ * 语义：新增可选字段可保持同版本；删除字段、收窄取值或改变 eventType 语义必须
+ * 提升版本，并保留上一版本客户端的兼容窗口。客户端收到未知版本必须停止渲染并
+ * 请求兼容降级，不得猜测字段含义。
+ *
+ * `@aervox/core` 持有同值源码常量（core 不依赖 contracts）；两者一致性由
+ * host-runtime 的跨包兼容测试锁定，任一侧改动而另一侧未同步都会失败。
+ */
+export const EVENT_PAYLOAD_VERSION = 1;
+
+/** 本版本客户端能安全渲染的信封版本集合，按 `EVENT_PAYLOAD_VERSION` 收敛。 */
+export const SUPPORTED_EVENT_PAYLOAD_VERSIONS: readonly number[] = Object.freeze([EVENT_PAYLOAD_VERSION]);
+
+/** 未知/非整数/非正版本一律拒绝——fail-closed，不按当前版本猜测语义。 */
+export function isSupportedEventPayloadVersion(version: unknown): version is number {
+  return typeof version === "number"
+    && Number.isInteger(version)
+    && version > 0
+    && SUPPORTED_EVENT_PAYLOAD_VERSIONS.includes(version);
+}
+
 /** 业务事件统一 envelope（§4） */
 export const turnStreamEventSchema = z.object({
   /** 全局稳定且不可复用 */
@@ -95,7 +118,9 @@ export const turnStreamEventSchema = z.object({
   /** Turn 内从 1 单调递增且唯一 */
   sequence: z.number().int().positive(),
   eventType: streamEventTypeNameSchema,
-  payloadVersion: z.number().int(),
+  payloadVersion: z.number().int().refine(isSupportedEventPayloadVersion, {
+    message: `unsupported payloadVersion; supported: ${SUPPORTED_EVENT_PAYLOAD_VERSIONS.join(", ")}`,
+  }),
   /** ISO-8601 UTC */
   occurredAt: z.iso.datetime(),
   modelRunId: z.string().optional(),

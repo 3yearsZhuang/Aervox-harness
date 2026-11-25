@@ -17,8 +17,8 @@ test("mobile keeps a failed draft, reuses its request key, and shows waiting fee
   await page.route("**/v1/turns/turn_mobile_retry/events", route => route.fulfill({
     contentType: "text/event-stream", headers: { "Access-Control-Allow-Origin": "*" },
     body: [
-      { turnId: "turn_mobile_retry", sequence: 1, eventType: "delta", data: { text: "先用一个例子理解变量类型。" } },
-      { turnId: "turn_mobile_retry", sequence: 2, eventType: "done", data: {} },
+      { turnId: "turn_mobile_retry", sequence: 1, eventType: "delta", payloadVersion: 1, data: { text: "先用一个例子理解变量类型。" } },
+      { turnId: "turn_mobile_retry", sequence: 2, eventType: "done", payloadVersion: 1, data: {} },
     ].map(event => `data: ${JSON.stringify(event)}\n\n`).join(""),
   }));
   await page.goto(`${servers.webUrl}/?surface=proactive-ui`, { timeout: 90_000 });

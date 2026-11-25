@@ -80,8 +80,8 @@ test('back dismisses only the top mobile layer while live observation and draft 
   await page.route('**/v1/turns/turn_mobile_held/events', async route => {
     await held;
     await route.fulfill({ contentType: 'text/event-stream', headers: { 'Access-Control-Allow-Origin': '*' }, body: [
-      { turnId: 'turn_mobile_held', sequence: 1, eventType: 'delta', data: { text: '原会话的回复继续抵达。' } },
-      { turnId: 'turn_mobile_held', sequence: 2, eventType: 'done', data: {} },
+      { turnId: 'turn_mobile_held', sequence: 1, eventType: 'delta', payloadVersion: 1, data: { text: '原会话的回复继续抵达。' } },
+      { turnId: 'turn_mobile_held', sequence: 2, eventType: 'done', payloadVersion: 1, data: {} },
     ].map(event => `data: ${JSON.stringify(event)}\n\n`).join('') });
   });
   try {
@@ -123,7 +123,7 @@ test('retrying an uncertain mobile submission uses the original request and pres
     if (keys.length === 1) await route.fulfill({ status: 503, headers: { 'Access-Control-Allow-Origin': '*' }, contentType: 'application/json', body: '{}' });
     else { await receipt; await route.fulfill({ headers: { 'Access-Control-Allow-Origin': '*' }, contentType: 'application/json', body: JSON.stringify({ turnId: 'turn_mobile_recovered' }) }); }
   });
-  await page.route('**/v1/turns/turn_mobile_recovered/events', route => route.fulfill({ headers: { 'Access-Control-Allow-Origin': '*' }, contentType: 'text/event-stream', body: `data: ${JSON.stringify({ turnId: 'turn_mobile_recovered', sequence: 1, eventType: 'done', data: {} })}\n\n` }));
+  await page.route('**/v1/turns/turn_mobile_recovered/events', route => route.fulfill({ headers: { 'Access-Control-Allow-Origin': '*' }, contentType: 'text/event-stream', body: `data: ${JSON.stringify({ turnId: 'turn_mobile_recovered', sequence: 1, eventType: 'done', payloadVersion: 1, data: {} })}\n\n` }));
   try {
     await page.goto(servers.webUrl);
     const input = page.locator('.pc-whisper-input textarea');
