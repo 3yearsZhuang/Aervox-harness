@@ -88,7 +88,7 @@ describe("createFetchTransport", () => {
 });
 
 it("SSE 中断仅重连原 Turn，沿用 cursor/投影水位，拒绝重复和终态后事件", async () => {
-  const event = (sequence: number, eventType: string, text = "") => `data: ${JSON.stringify({ eventId: `ev${sequence}`, turnId: "turn_1", sequence, eventType, data: { text } })}\n\n`;
+  const event = (sequence: number, eventType: string, text = "") => `data: ${JSON.stringify({ eventId: `ev${sequence}`, turnId: "turn_1", sequence, eventType, payloadVersion: 1, data: { text } })}\n\n`;
   const fetchMock = vi.fn()
     .mockResolvedValueOnce(new Response(JSON.stringify({ turnId: "turn_1" }), { status: 201 }))
     .mockResolvedValueOnce(new Response(event(1, "delta", "A")))
@@ -113,7 +113,7 @@ it("cursor 失效明确失败，不重新接单或静默丢历史", async () => 
 it('认证覆盖 JSON、SSE 和附件；回合幂等键与受理标识公开', async () => {
   const fetchMock = vi.fn()
     .mockResolvedValueOnce(new Response('{"turnId":"t"}'))
-    .mockResolvedValueOnce(new Response('data: {"turnId":"t","sequence":1,"eventType":"done","data":{}}\n\n'))
+    .mockResolvedValueOnce(new Response('data: {"turnId":"t","sequence":1,"eventType":"done","payloadVersion":1,"data":{}}\n\n'))
     .mockResolvedValueOnce(new Response('{"id":"a"}'));
   vi.stubGlobal('fetch', fetchMock);
   const transport = createFetchTransport('http://api.test', { headers: { Authorization: 'Bearer test' } });
@@ -126,7 +126,7 @@ it('认证覆盖 JSON、SSE 和附件；回合幂等键与受理标识公开', a
 });
 
 it('等待异步事件消费者后才派发下一条，且异常不重放消费者', async () => {
-  const fetchMock = vi.fn().mockResolvedValue(new Response('data: {"turnId":"t","sequence":1,"eventType":"delta","data":{"text":"a"}}\n\ndata: {"turnId":"t","sequence":2,"eventType":"done","data":{}}\n\n'));
+  const fetchMock = vi.fn().mockResolvedValue(new Response('data: {"turnId":"t","sequence":1,"eventType":"delta","payloadVersion":1,"data":{"text":"a"}}\n\ndata: {"turnId":"t","sequence":2,"eventType":"done","payloadVersion":1,"data":{}}\n\n'));
   vi.stubGlobal('fetch', fetchMock);
   const order: string[] = [];
   await createFetchTransport('http://api.test').watchTurn('t', {

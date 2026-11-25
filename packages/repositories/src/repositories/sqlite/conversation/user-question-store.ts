@@ -1,5 +1,5 @@
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
-import { askUserQuestionItemSchema, askUserQuestionAnswerItemSchema } from "@aervox/contracts";
+import { askUserQuestionItemSchema, askUserQuestionAnswerItemSchema, EVENT_PAYLOAD_VERSION } from "@aervox/contracts";
 import { pendingUserQuestions, turnAttempts, turns, turnStreamEvents, deletionRequests } from "@aervox/schema";
 import type { AervoxDatabase } from "../../../client.js";
 import type { LocalContext } from "../../../local-context.js";
@@ -61,7 +61,7 @@ async function appendQuestionEvent(tx: Writer, identity: UserQuestionIdentity, e
   const [turn] = await tx.select({ sequence: turns.lastSequence }).from(turns).where(eq(turns.id, identity.turnId)).limit(1);
   const sequence = Math.max(last?.sequence ?? 0, turn?.sequence ?? 0) + 1;
   return insertStreamEventRow(tx, { id: streamEventId(identity.turnId, sequence), turnId: identity.turnId,
-    attemptId: identity.attemptId, sequence, eventType, payloadVersion: 1, data, occurredAt: new Date().toISOString() });
+    attemptId: identity.attemptId, sequence, eventType, payloadVersion: EVENT_PAYLOAD_VERSION, data, occurredAt: new Date().toISOString() });
 }
 function normalizeAnswers(questions: AskUserQuestionItem[], answers: AskUserQuestionAnswerItem[]) {
   if (!Array.isArray(answers) || answers.length !== questions.length) throw new Error("QUESTION_ANSWERS_REQUIRED");

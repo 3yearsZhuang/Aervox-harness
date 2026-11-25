@@ -154,7 +154,10 @@ export class AttemptStore {
         eq(turnAttempts.id, input.attemptId), eq(turnAttempts.turnId, input.turnId),
       ));
       if (!attempt) return { ok: false, reason: "not_found" as const };
-      if (attempt.status === "Cancelled" || attempt.status === "CancelRequested") return { ok: true };
+      // ports.ts §11.1：仅 Running 可置取消位，已终态一律拒绝。Cancelled 属于已
+      // 终态，此前与 CancelRequested 一起返回 ok，与内核内存实现及契约正文不符，
+      // 由 ExecutionStorePort 共享契约套件发现。
+      if (attempt.status === "CancelRequested") return { ok: true };
       if (attempt.status !== "Running") return { ok: false, reason: "already_finalized" as const };
       const unclaimed = !attempt.leaseId && attempt.fencingToken === 0;
       const status = unclaimed ? "Cancelled" : "CancelRequested";

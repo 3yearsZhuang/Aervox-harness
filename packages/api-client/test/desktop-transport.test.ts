@@ -83,11 +83,11 @@ describe('desktopTransport', () => {
     // 前 4 个「50s 静默 + 1 条消息」循环：每次都刚好在超时前收到消息
     for (let i = 0; i < 4; i += 1) {
       await vi.advanceTimersByTimeAsync(DESKTOP_TURN_TIMEOUT_MS - 1000)
-      callback?.({ type: 'event', event: { eventType: 'reasoning_delta', data: { text: `第${i}步思考` } } })
+      callback?.({ type: 'event', event: { eventType: 'reasoning_delta', payloadVersion: 1, data: { text: `第${i}步思考` } } })
     }
     // 总耗时远超旧 60s 绝对时限仍未超时
     await vi.advanceTimersByTimeAsync(DESKTOP_TURN_TIMEOUT_MS - 1000)
-    callback?.({ type: 'event', event: { eventType: 'done', data: {} } })
+    callback?.({ type: 'event', event: { eventType: 'done', payloadVersion: 1, data: {} } })
     callback?.({ type: 'closed' })
     await expect(result).resolves.toBeUndefined()
   })
@@ -138,7 +138,7 @@ describe('desktopTransport', () => {
 
     callback?.({
       type: 'event',
-      event: { eventType: 'error', data: { message: 'llm_timeout: upstream model did not respond within 45000ms' } },
+      event: { eventType: 'error', payloadVersion: 1, data: { message: 'llm_timeout: upstream model did not respond within 45000ms' } },
     })
 
     await assertion
@@ -163,8 +163,8 @@ describe('desktopTransport', () => {
       onDone: vi.fn(),
       onReasoning,
     })
-    callback?.({ type: 'event', event: { eventType: 'reasoning_delta', data: { text: '思考中' } } })
-    callback?.({ type: 'event', event: { eventType: 'done', data: {} } })
+    callback?.({ type: 'event', event: { eventType: 'reasoning_delta', payloadVersion: 1, data: { text: '思考中' } } })
+    callback?.({ type: 'event', event: { eventType: 'done', payloadVersion: 1, data: {} } })
     callback?.({ type: 'closed' })
 
     await expect(result).resolves.toBeUndefined()
@@ -188,7 +188,7 @@ it('root unmount detaches IPC streaming and ignores late callbacks', async () =>
   const assertion = expect(result).rejects.toMatchObject({ name: 'AbortError' })
   controller.abort()
   await assertion
-  callback({ type: 'event', event: { eventType: 'delta', data: { text: 'late' } } })
+  callback({ type: 'event', event: { eventType: 'delta', payloadVersion: 1, data: { text: 'late' } } })
   await vi.advanceTimersByTimeAsync(DESKTOP_TURN_TIMEOUT_MS)
   expect(stop).toHaveBeenCalledOnce()
   expect(cancelTurn).toHaveBeenCalledOnce()
@@ -209,7 +209,7 @@ it('an already detached surface cannot start an IPC turn', async () => {
 it('synchronous bridge completion still releases the returned subscription', async () => {
   const stop = vi.fn()
   ;(globalThis as { window: unknown }).window = {
-    fairyDesktop: { apiRequest: vi.fn(), streamTurn: vi.fn((_c, _o, cb) => { cb({ type: 'event', event: {eventType: 'done', data: {}} }); cb({ type: 'closed' }); return stop }) },
+    fairyDesktop: { apiRequest: vi.fn(), streamTurn: vi.fn((_c, _o, cb) => { cb({ type: 'event', event: {eventType: 'done', payloadVersion: 1, data: {}} }); cb({ type: 'closed' }); return stop }) },
   }
   await desktopTransport.streamTurn('s', 'hello', { onDelta: vi.fn(), onDone: vi.fn() })
   expect(stop).toHaveBeenCalledOnce()

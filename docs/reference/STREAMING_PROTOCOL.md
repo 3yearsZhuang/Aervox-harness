@@ -253,6 +253,19 @@ TTFT 定义为：Turn POST 被服务端接受，到第一个**通过安全门且
 
 新增字段必须向后兼容；删除或改变事件语义必须提升 `payloadVersion`、更新 OpenAPI/JSON Schema，在 PR 中说明迁移与验证，并保留上一版本客户端的兼容窗口。需要持续协调时按[统一变更编号规则](../../CONTRIBUTING.md#change-numbering)关联 ITER。替换 AI SDK、Provider 或传输实现不得改变 Turn/TurnStreamEvent 状态和幂等语义。
 
+### 8.1 版本的实现归属
+
+`payloadVersion` 是双端可执行的契约，不是描述性字段：
+
+| 侧 | 位置 | 职责 |
+|---|---|---|
+| 内核 | `@aervox/core/ports` 的 `EVENT_PAYLOAD_VERSION` / `SUPPORTED_EVENT_PAYLOAD_VERSIONS` / `isSupportedEventPayloadVersion` | 写入侧以常量补齐信封版本，不写字面量 |
+| 契约 | `@aervox/contracts` 的同名导出与 `turnStreamEventSchema` | Schema 只接受受支持版本；未知版本校验失败 |
+| 客户端 | `@aervox/api-client` 的 `TurnStreamProjector` | 投影前校验版本，未知或缺失一律丢弃并报告 `unsupported_version`，不推进 sequence 水位 |
+| 宿主 | 测试 `event-payload-version-agreement.test.ts` | 锁定内核与契约两侧常量与判定一致，任一侧单方面提升即失败 |
+
+`@aervox/core` 不依赖 `@aervox/contracts`（ADR-021 零运行时依赖），因此两侧各持一份源码常量，一致性由宿主测试证明。提升版本时四处必须同批修改：内核常量、契约常量、受支持集合，以及（若旧版本仍在兼容窗口内）集合中的保留项。缺失字段按不可验证处理并拒绝——它是解释 `data` 的前提，不是可选装饰。
+
 ## 客户端会话与录音生命周期
 
 桌面桥接必须把所选 `sessionId` 从客户端传入主进程并用于 Turn 请求；仅在字段缺省时使用配置默认会话，显式非法值必须拒绝。会话创建、重命名、删除遇到 HTTP 错误时，客户端记录错误并拒绝操作 Promise，保持原会话列表与活跃会话；不能伪造成功记录。删除已提交而后续创建替代会话失败时，保留删除结果和错误状态。

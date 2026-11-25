@@ -16,12 +16,12 @@ describe('diagnostics client and reply identity', () => {
     const onTurnIdentified = vi.fn();
     const callbacks = { onTurnIdentified, onDelta: vi.fn(), onDone: vi.fn() };
     const projector = new TurnStreamProjector({ expectedTurnId: 'turn_actual', initialSequence: 2 });
-    projector.project({ turnId: 'foreign', sequence: 3, eventType: 'delta' }, callbacks);
-    projector.project({ turnId: 'turn_actual', sequence: 1, eventType: 'delta' }, callbacks);
+    projector.project({ turnId: 'foreign', sequence: 3, eventType: 'delta', payloadVersion: 1 }, callbacks);
+    projector.project({ turnId: 'turn_actual', sequence: 1, eventType: 'delta', payloadVersion: 1 }, callbacks);
     expect(onTurnIdentified).not.toHaveBeenCalled();
-    projector.project({ turnId: 'turn_actual', sequence: 3, eventType: 'delta', data: { text: 'hello' } }, callbacks);
-    projector.project({ turnId: 'turn_actual', sequence: 4, eventType: 'done' }, callbacks);
-    projector.project({ turnId: 'turn_actual', sequence: 5, eventType: 'delta' }, callbacks);
+    projector.project({ turnId: 'turn_actual', sequence: 3, eventType: 'delta', payloadVersion: 1, data: { text: 'hello' } }, callbacks);
+    projector.project({ turnId: 'turn_actual', sequence: 4, eventType: 'done', payloadVersion: 1 }, callbacks);
+    projector.project({ turnId: 'turn_actual', sequence: 5, eventType: 'delta', payloadVersion: 1 }, callbacks);
     expect(onTurnIdentified).toHaveBeenCalledExactlyOnceWith('turn_actual');
   });
   it('rejects a different Turn or Attempt even when its response shape is valid and strips undeclared raw fields', async () => {

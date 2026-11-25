@@ -8,15 +8,16 @@
  * 4. 统一投影规则：Web（Fetch/SSE）与 Electron（IPC Bridge）共享完全一致的投影与过滤行为。
  */
 
-import type {
-  PetCommand,
-  ToolApprovalRequiredEventData,
-  TurnStreamEvent,
-  UserQuestionRequiredEventData,
+import {
+  isSupportedEventPayloadVersion,
+  type PetCommand,
+  type ToolApprovalRequiredEventData,
+  type TurnStreamEvent,
+  type UserQuestionRequiredEventData,
 } from '@aervox/contracts';
 import type { TurnCallbacks } from './transport.js';
 
-export type DropReason = 'wrong_turn' | 'out_of_order' | 'duplicate' | 'post_terminal';
+export type DropReason = 'wrong_turn' | 'out_of_order' | 'duplicate' | 'post_terminal' | 'unsupported_version';
 
 /**
  * 内核自有事件类型（CR-060）。
@@ -81,10 +82,20 @@ export class TurnStreamProjector {
    * @returns true 表示事件安全投递，false 表示事件被防御性拦截并丢弃。
    */
   public project(
-    event: TurnStreamEvent | { turnId?: string; sequence?: number; eventType: string; data?: unknown },
+    event:
+      | TurnStreamEvent
+      | { turnId?: string; sequence?: number; eventType: string; payloadVersion?: number; data?: unknown },
     callbacks: TurnCallbacks,
   ): boolean {
     if (!event || typeof event !== 'object') {
+      return false;
+    }
+
+    // 0. 信封版本准入（STREAMING_PROTOCOL §5.5）：未知版本停止渲染并请求兼容降级，
+    //    不猜测字段含义。缺省视为不可验证，同样拒绝——否则旧客户端的静默兼容
+    //    会让版本契约形同虚设。
+    if (!isSupportedEventPayloadVersion(event.payloadVersion)) {
+      this.onDropped?.('unsupported_version', event);
       return false;
     }
 

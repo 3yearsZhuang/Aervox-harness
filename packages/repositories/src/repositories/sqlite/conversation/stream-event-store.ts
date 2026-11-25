@@ -12,6 +12,7 @@ import { FencingMismatchError } from "../../../errors.js";
 import { disclosableTurn } from "./source-visibility.js";
 import { initializeAssistantHistory, publishAssistantHistory, assertConversationBodyWritable, terminalEventDataForCurrentSource } from "./message-history.js";
 import type { TurnStreamEventModel, TurnStreamEventPageOptions, TurnStreamEventPage, TurnStreamReplayState } from "../../types/index.js";
+import { EVENT_PAYLOAD_VERSION } from "@aervox/contracts";
 
 export const MAX_STREAM_EVENT_PAGE_ROWS = 256;
 export const MAX_STREAM_EVENT_PAGE_DATA_BYTES = 256 * 1024;
@@ -54,7 +55,7 @@ export class StreamEventStore {
       const sequence = Math.max(turn?.lastSequence ?? 0, last?.sequence ?? 0) + 1;
       const [created] = await tx.insert(turnStreamEvents).values({
         id: streamEventId(input.turnId, sequence), turnId: input.turnId, attemptId: input.attemptId,
-        sequence, eventType: input.eventType, payloadVersion: input.payloadVersion ?? 1,
+        sequence, eventType: input.eventType, payloadVersion: input.payloadVersion ?? EVENT_PAYLOAD_VERSION,
         data: input.data, occurredAt: new Date().toISOString(),
       }).returning();
       return created as TurnStreamEventModel;
@@ -134,7 +135,7 @@ export class StreamEventStore {
             turnId: eventData.turnId,
             sequence: eventData.sequence,
             eventType: eventData.eventType,
-            payloadVersion: eventData.payloadVersion ?? 1,
+            payloadVersion: eventData.payloadVersion ?? EVENT_PAYLOAD_VERSION,
             data,
             occurredAt: eventData.occurredAt ?? new Date().toISOString(),
             attemptId: eventData.attemptId ?? null,

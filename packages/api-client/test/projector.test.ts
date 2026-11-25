@@ -32,15 +32,15 @@ describe('TurnStreamProjector (BTD-06 客户端安全投影与防乱序/防复�
     const cbs = createMockCallbacks();
 
     const r1 = projector.project(
-      { turnId: 'turn_1', sequence: 1, eventType: 'delta', data: { text: 'Hello ' } },
+      { turnId: 'turn_1', sequence: 1, eventType: 'delta', payloadVersion: 1, data: { text: 'Hello ' } },
       cbs,
     );
     const r2 = projector.project(
-      { turnId: 'turn_1', sequence: 2, eventType: 'delta', data: { text: 'world!' } },
+      { turnId: 'turn_1', sequence: 2, eventType: 'delta', payloadVersion: 1, data: { text: 'world!' } },
       cbs,
     );
     const r3 = projector.project(
-      { turnId: 'turn_1', sequence: 3, eventType: 'done', data: { status: 'Completed' } },
+      { turnId: 'turn_1', sequence: 3, eventType: 'done', payloadVersion: 1, data: { status: 'Completed' } },
       cbs,
     );
 
@@ -61,11 +61,11 @@ describe('TurnStreamProjector (BTD-06 客户端安全投影与防乱序/防复�
     });
     const cbs = createMockCallbacks();
 
-    projector.project({ turnId: 'turn_1', sequence: 1, eventType: 'delta', data: { text: 'A' } }, cbs);
-    projector.project({ turnId: 'turn_1', sequence: 3, eventType: 'delta', data: { text: 'C' } }, cbs);
+    projector.project({ turnId: 'turn_1', sequence: 1, eventType: 'delta', payloadVersion: 1, data: { text: 'A' } }, cbs);
+    projector.project({ turnId: 'turn_1', sequence: 3, eventType: 'delta', payloadVersion: 1, data: { text: 'C' } }, cbs);
     // 迟到的 sequence 2
     const rLate = projector.project(
-      { turnId: 'turn_1', sequence: 2, eventType: 'delta', data: { text: 'B (late)' } },
+      { turnId: 'turn_1', sequence: 2, eventType: 'delta', payloadVersion: 1, data: { text: 'B (late)' } },
       cbs,
     );
 
@@ -83,9 +83,9 @@ describe('TurnStreamProjector (BTD-06 客户端安全投影与防乱序/防复�
     });
     const cbs = createMockCallbacks();
 
-    projector.project({ turnId: 'turn_1', sequence: 1, eventType: 'delta', data: { text: 'First' } }, cbs);
+    projector.project({ turnId: 'turn_1', sequence: 1, eventType: 'delta', payloadVersion: 1, data: { text: 'First' } }, cbs);
     const rDup = projector.project(
-      { turnId: 'turn_1', sequence: 1, eventType: 'delta', data: { text: 'First (dup)' } },
+      { turnId: 'turn_1', sequence: 1, eventType: 'delta', payloadVersion: 1, data: { text: 'First (dup)' } },
       cbs,
     );
 
@@ -103,17 +103,17 @@ describe('TurnStreamProjector (BTD-06 客户端安全投影与防乱序/防复�
     });
     const cbs = createMockCallbacks();
 
-    projector.project({ turnId: 'turn_1', sequence: 1, eventType: 'delta', data: { text: 'Ready' } }, cbs);
-    projector.project({ turnId: 'turn_1', sequence: 2, eventType: 'done', data: {} }, cbs);
+    projector.project({ turnId: 'turn_1', sequence: 1, eventType: 'delta', payloadVersion: 1, data: { text: 'Ready' } }, cbs);
+    projector.project({ turnId: 'turn_1', sequence: 2, eventType: 'done', payloadVersion: 1, data: {} }, cbs);
     expect(projector.finalized).toBe(true);
 
     // 终态后网络抖动迟到推送的暂态事件
     const rPost1 = projector.project(
-      { turnId: 'turn_1', sequence: 3, eventType: 'delta', data: { text: 'Ghost delta' } },
+      { turnId: 'turn_1', sequence: 3, eventType: 'delta', payloadVersion: 1, data: { text: 'Ghost delta' } },
       cbs,
     );
     const rPost2 = projector.project(
-      { turnId: 'turn_1', sequence: 4, eventType: 'reasoning_delta', data: { text: 'Ghost thought' } },
+      { turnId: 'turn_1', sequence: 4, eventType: 'reasoning_delta', payloadVersion: 1, data: { text: 'Ghost thought' } },
       cbs,
     );
 
@@ -135,14 +135,14 @@ describe('TurnStreamProjector (BTD-06 客户端安全投影与防乱序/防复�
     const cbs = createMockCallbacks();
 
     projector.project(
-      { turnId: 'turn_1', sequence: 1, eventType: 'error', data: { message: 'Provider timeout' } },
+      { turnId: 'turn_1', sequence: 1, eventType: 'error', payloadVersion: 1, data: { message: 'Provider timeout' } },
       cbs,
     );
     expect(projector.finalized).toBe(true);
     expect(cbs.calls.onError).toHaveLength(1);
 
     const rLate = projector.project(
-      { turnId: 'turn_1', sequence: 2, eventType: 'delta', data: { text: 'Late text' } },
+      { turnId: 'turn_1', sequence: 2, eventType: 'delta', payloadVersion: 1, data: { text: 'Late text' } },
       cbs,
     );
     expect(rLate).toBe(false);
@@ -160,7 +160,7 @@ describe('TurnStreamProjector (BTD-06 客户端安全投影与防乱序/防复�
 
     // 属于其它 Turn 的事件
     const rForeign = projector.project(
-      { turnId: 'turn_stray', sequence: 1, eventType: 'delta', data: { text: 'Stray' } },
+      { turnId: 'turn_stray', sequence: 1, eventType: 'delta', payloadVersion: 1, data: { text: 'Stray' } },
       cbs,
     );
     expect(rForeign).toBe(false);
@@ -169,7 +169,7 @@ describe('TurnStreamProjector (BTD-06 客户端安全投影与防乱序/防复�
 
     // 属于目标 Turn 的事件
     const rOk = projector.project(
-      { turnId: 'turn_target', sequence: 1, eventType: 'delta', data: { text: 'Correct' } },
+      { turnId: 'turn_target', sequence: 1, eventType: 'delta', payloadVersion: 1, data: { text: 'Correct' } },
       cbs,
     );
     expect(rOk).toBe(true);
@@ -185,11 +185,11 @@ describe('TurnStreamProjector (BTD-06 客户端安全投影与防乱序/防复�
     const cbs = createMockCallbacks();
 
     const r3 = projector.project(
-      { turnId: 'turn_1', sequence: 3, eventType: 'delta', data: { text: 'Already seen' } },
+      { turnId: 'turn_1', sequence: 3, eventType: 'delta', payloadVersion: 1, data: { text: 'Already seen' } },
       cbs,
     );
     const r4 = projector.project(
-      { turnId: 'turn_1', sequence: 4, eventType: 'delta', data: { text: 'New delta' } },
+      { turnId: 'turn_1', sequence: 4, eventType: 'delta', payloadVersion: 1, data: { text: 'New delta' } },
       cbs,
     );
 
@@ -203,23 +203,23 @@ describe('TurnStreamProjector (BTD-06 客户端安全投影与防乱序/防复�
     const cbs = createMockCallbacks();
 
     projector.project(
-      { turnId: 'turn_1', sequence: 1, eventType: 'reasoning_delta', data: { text: 'Thinking...' } },
+      { turnId: 'turn_1', sequence: 1, eventType: 'reasoning_delta', payloadVersion: 1, data: { text: 'Thinking...' } },
       cbs,
     );
     projector.project(
-      { turnId: 'turn_1', sequence: 2, eventType: 'emote', data: { type: 'wave' } },
+      { turnId: 'turn_1', sequence: 2, eventType: 'emote', payloadVersion: 1, data: { type: 'wave' } },
       cbs,
     );
     projector.project(
-      { turnId: 'turn_1', sequence: 3, eventType: 'user_question_required', data: { turnId: 'turn_1', questions: [] } },
+      { turnId: 'turn_1', sequence: 3, eventType: 'user_question_required', payloadVersion: 1, data: { turnId: 'turn_1', questions: [] } },
       cbs,
     );
     projector.project(
-      { turnId: 'turn_1', sequence: 4, eventType: 'tool_approval_required', data: { approvalId: 'app_1', toolName: 'test' } },
+      { turnId: 'turn_1', sequence: 4, eventType: 'tool_approval_required', payloadVersion: 1, data: { approvalId: 'app_1', toolName: 'test' } },
       cbs,
     );
     projector.project(
-      { turnId: 'turn_1', sequence: 5, eventType: 'terms_extracted', data: { terms: [] } },
+      { turnId: 'turn_1', sequence: 5, eventType: 'terms_extracted', payloadVersion: 1, data: { terms: [] } },
       cbs,
     );
 
@@ -249,10 +249,56 @@ describe('TurnStreamProjector (BTD-06 客户端安全投影与防乱序/防复�
 
     // 真正的插件自有事件仍然透传
     projector.project(
-      { turnId: 'turn_1', sequence: 6, eventType: 'plugin_own_event', data: { ok: true } },
+      { turnId: 'turn_1', sequence: 6, eventType: 'plugin_own_event', payloadVersion: 1, data: { ok: true } },
       cbs,
     );
     expect(cbs.calls.onPluginEvent).toHaveLength(1);
     expect(cbs.calls.onPluginEvent[0]?.type).toBe('plugin_own_event');
+  });
+
+  /**
+   * STREAMING_PROTOCOL §5.5：客户端收到未知 payloadVersion 必须停止渲染并请求
+   * 兼容降级，不得猜测字段含义。缺省该字段同样拒绝——它不是可选装饰，而是
+   * 决定能否安全解释 data 的前提。
+   */
+  describe('信封版本准入', () => {
+    const cases: Array<[string, unknown]> = [
+      ['未知更高版本', 2],
+      ['零', 0],
+      ['负数', -1],
+      ['非整数', 1.5],
+      ['字符串', '1'],
+      ['缺省', undefined],
+    ];
+
+    it.each(cases)('拒绝%s的事件，不渲染任何内容', (_label, payloadVersion) => {
+      const projector = new TurnStreamProjector({ expectedTurnId: 'turn_1' });
+      const cbs = createMockCallbacks();
+      const dropped: DropReason[] = [];
+      const gated = new TurnStreamProjector({
+        expectedTurnId: 'turn_1',
+        onDropped: reason => dropped.push(reason),
+      });
+      const accepted = gated.project(
+        { turnId: 'turn_1', sequence: 1, eventType: 'delta', payloadVersion: payloadVersion as number, data: { text: 'x' } },
+        cbs,
+      );
+      expect(accepted).toBe(false);
+      expect(cbs.calls.onDelta).toHaveLength(0);
+      expect(dropped).toEqual(['unsupported_version']);
+      // 被拒绝的事件不得推进水位，否则后续合法事件会被误判为乱序。
+      expect(gated.currentSequence).toBe(0);
+      expect(projector.project({ turnId: 'turn_1', sequence: 1, eventType: 'delta', payloadVersion: 1, data: { text: 'ok' } }, cbs)).toBe(true);
+    });
+
+    it('允许当前支持版本通过，且事件被正常分发', () => {
+      const projector = new TurnStreamProjector({ expectedTurnId: 'turn_1' });
+      const cbs = createMockCallbacks();
+      expect(projector.project(
+        { turnId: 'turn_1', sequence: 1, eventType: 'delta', payloadVersion: 1, data: { text: 'hi' } },
+        cbs,
+      )).toBe(true);
+      expect(cbs.calls.onDelta).toEqual(['hi']);
+    });
   });
 });
