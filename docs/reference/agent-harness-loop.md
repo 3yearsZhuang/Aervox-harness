@@ -86,9 +86,9 @@ Agent Harness Loop 是驱动一次 Agent Turn 的执行能力：它领取已持�
 | 构件 | 实现入口 | 当前边界 |
 |---|---|---|
 | Turn 受理与执行 | [Conversation routes](../../packages/host-runtime/src/modules/companion/conversation/routes.ts) | 同一事务持久化 Turn、Message、首个 Attempt 与接单 Outbox；默认由 API 后台执行，显式 `AERVOX_LOOP_DISPATCH=worker` 通过 `agent.turn.requested` 委托 Worker；inline 始终由 API 执行 |
-| Loop 与 Provider | [executor](../../packages/core/src/executor.ts)、[Provider](../../packages/core/src/openai-compat-provider.ts) | Replay/Scripted/OpenAI 兼容流、多 Step、审批 SPI、取消与预算；API 与 Worker 共用产品宿主注入上下文和权限 |
+| Loop 与 Provider | [executor](../../packages/core/src/executor.ts)、[Provider](../../packages/core/src/provider/openai-compat-provider.ts) | Replay/Scripted/OpenAI 兼容流、多 Step、审批 SPI、取消与预算；API 与 Worker 共用产品宿主注入上下文和权限 |
 | 租约与公开事件 | [SQLite ExecutionStore](../../packages/host-agent/src/sqlite-execution-store.ts)、[心跳](../../packages/core/src/lease-heartbeat.ts) | claim/renew、事件 fencing、安全片段与事件原子提交、工具结果与事件原子提交、终态 CAS 已存在；不能据此推定全部旧写入口均有相同保护 |
-| 工具执行 | [工具管线](../../packages/core/src/tool-pipeline.ts)、[工具账本](../../packages/core/src/tool-ledger.ts)、[API Runtime](../../packages/host-runtime/src/modules/ecosystem/tools/runtime.ts) | 已有输入检查、审批、幂等预留、超时、结果检查与账本；动态权限快照、资源隔离及完整副作用恢复仍需专项验收 |
+| 工具执行 | [工具管线](../../packages/core/src/tool/tool-pipeline.ts)、[工具账本](../../packages/core/src/tool/tool-ledger.ts)、[API Runtime](../../packages/host-runtime/src/modules/ecosystem/tools/runtime.ts) | 已有输入检查、审批、幂等预留、超时、结果检查与账本；动态权限快照、资源隔离及完整副作用恢复仍需专项验收 |
 | 模型调用记录 | [executor 写入](../../packages/core/src/executor.ts)、[API sink](../../packages/host-runtime/src/modules/companion/conversation/agent-executor.ts) | 每次实际模型调用记录 ModelRun 与输入快照，覆盖多 Step、重试和失败；写入仍为可选、尽力而为，不是可靠恢复或完整来源 Manifest 证明 |
 | Inbox 与扩展 | [Inbox API](../../packages/host-runtime/src/modules/companion/inbox/routes.ts)、[ContextBuilder](../../packages/core/src/context-builder.ts) | 已有持久 inbox、claim/ack、followup/steer/inject 消费、Skill 与压缩接缝、Subagent/Workflow Contribution；唤醒和恢复的端到端语义仍按下文验收 |
 | 可复用 Host/Profile | [Agent Host](../../packages/host-agent/src/agent-host.ts)、[Profile](../../packages/host-agent/src/profile.ts)、[恢复源](../../packages/host-agent/src/sqlite-resume-source.ts) | 已有轮询、claim、容量限制、健康检查、排空和最小 Provider/Adapter 选择；API/Worker 通过 `@aervox/host-runtime` 共用产品装配，Worker 继续使用自己的任务调度器 |
@@ -485,7 +485,7 @@ agent.attempt.lease-expired
 - DSH 权限系统替代 Aervox Consent/ToolPolicy；
 - DSH Loop 直接连接 Aervox SQLite。
 
-`adapter-dsh` 必须把 DSH 事件、工具调用和终止原因规范化为本文件的 Port/事件，并使用 Aervox Attempt/fencing 持久化。它可以实现完整 `LoopDriverPort`，也可以只提供 `ModelProviderPort`/受限 Contribution；Manifest 必须声明实际等级，并在收集整批确定结果后通过 [`concludeAdapterBatch`](../../packages/core/src/adapter-contract.ts) 重新判定；无法保证该翻译时必须拒绝激活完整 Driver，不得静默提前结束。
+`adapter-dsh` 必须把 DSH 事件、工具调用和终止原因规范化为本文件的 Port/事件，并使用 Aervox Attempt/fencing 持久化。它可以实现完整 `LoopDriverPort`，也可以只提供 `ModelProviderPort`/受限 Contribution；Manifest 必须声明实际等级，并在收集整批确定结果后通过 [`concludeAdapterBatch`](../../packages/core/src/adapter/adapter-contract.ts) 重新判定；无法保证该翻译时必须拒绝激活完整 Driver，不得静默提前结束。
 
 #### 本地文件与命令边界
 
