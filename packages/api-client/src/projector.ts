@@ -48,6 +48,7 @@ export class TurnStreamProjector {
   private isFinalized = false;
   private identityDelivered = false;
   private terminalFailure?: Error;
+  private unsupportedPayloadVersion?: number;
   private expectedTurnId?: string;
   private onDropped?: (reason: DropReason, event: unknown) => void;
 
@@ -62,6 +63,15 @@ export class TurnStreamProjector {
   }
 
   public get failure(): Error | undefined { return this.terminalFailure; }
+
+  /**
+   * 本 Turn 是否出现过无法渲染的事件信封版本（STREAMING_PROTOCOL §5.5）。
+   *
+   * 协议要求客户端「停止渲染并请求兼容降级」。降级的具体形态（端点、协商头）尚未
+   * 在协议层定义，因此这里不发明一个，只把事实与观测到的版本暴露给调用方，
+   * 使其能自行决定重连、提示升级或上报——而不是静默丢弃后界面无故空白。
+   */
+  public get unsupportedVersion(): number | undefined { return this.unsupportedPayloadVersion; }
 
   public get finalized(): boolean {
     return this.isFinalized;
@@ -95,6 +105,10 @@ export class TurnStreamProjector {
     //    不猜测字段含义。缺省视为不可验证，同样拒绝——否则旧客户端的静默兼容
     //    会让版本契约形同虚设。
     if (!isSupportedEventPayloadVersion(event.payloadVersion)) {
+      // 记录首次观测到的版本，供调用方决定降级动作；后续同类事件不再覆盖。
+      this.unsupportedPayloadVersion ??= typeof event.payloadVersion === 'number'
+        ? event.payloadVersion
+        : Number.NaN;
       this.onDropped?.('unsupported_version', event);
       return false;
     }

@@ -291,6 +291,37 @@ describe('TurnStreamProjector (BTD-06 客户端安全投影与防乱序/防复�
       expect(projector.project({ turnId: 'turn_1', sequence: 1, eventType: 'delta', payloadVersion: 1, data: { text: 'ok' } }, cbs)).toBe(true);
     });
 
+    it('把观测到的未知版本暴露给调用方，供其决定降级动作', () => {
+      // STREAMING_PROTOCOL §5.5 要求"请求兼容降级"，但协议层尚未定义降级形态；
+      // 客户端至少要让调用方看见事实，而不是丢弃后界面无故空白。
+      const projector = new TurnStreamProjector({ expectedTurnId: 'turn_1' });
+      const cbs = createMockCallbacks();
+      expect(projector.unsupportedVersion).toBeUndefined();
+      projector.project(
+        { turnId: 'turn_1', sequence: 1, eventType: 'delta', payloadVersion: 7, data: { text: 'x' } },
+        cbs,
+      );
+      expect(projector.unsupportedVersion).toBe(7);
+      // 后续更低或更高的未知版本不覆盖首次观测值。
+      projector.project(
+        { turnId: 'turn_1', sequence: 2, eventType: 'delta', payloadVersion: 9, data: { text: 'y' } },
+        cbs,
+      );
+      expect(projector.unsupportedVersion).toBe(7);
+      expect(cbs.calls.onDelta).toHaveLength(0);
+    });
+
+    it('支持版本通过后不留下未知版本记录', () => {
+      const projector = new TurnStreamProjector({ expectedTurnId: 'turn_1' });
+      const cbs = createMockCallbacks();
+      projector.project(
+        { turnId: 'turn_1', sequence: 1, eventType: 'delta', payloadVersion: 1, data: { text: 'ok' } },
+        cbs,
+      );
+      expect(projector.unsupportedVersion).toBeUndefined();
+      expect(cbs.calls.onDelta).toEqual(['ok']);
+    });
+
     it('允许当前支持版本通过，且事件被正常分发', () => {
       const projector = new TurnStreamProjector({ expectedTurnId: 'turn_1' });
       const cbs = createMockCallbacks();
