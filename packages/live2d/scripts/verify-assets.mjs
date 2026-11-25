@@ -1,5 +1,6 @@
 import { readFileSync, statSync } from 'node:fs'
 import { join, resolve, relative, isAbsolute, sep } from 'node:path'
+import { verifyCubismCore } from './copy-cubism-core.mjs'
 import { modelAssetSource } from './copy-assets.mjs'
 const model = JSON.parse(readFileSync(join(modelAssetSource, 'mizuki.model3.json'), 'utf8'))
 const references = model.FileReferences
@@ -10,3 +11,6 @@ for (const file of files) {
   const rel = relative(modelAssetSource, resolved)
   if (!rel || isAbsolute(rel) || rel === '..' || rel.startsWith(`..${sep}`) || !statSync(resolved).isFile()) throw new Error(`Invalid model reference: ${file}`)
 }
+// Cubism Core is a runtime dependency of every Live2D surface; verify it here so a
+// tampered or truncated artifact fails the package build, not the first launch.
+verifyCubismCore()

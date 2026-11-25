@@ -90,11 +90,37 @@ export interface ResolvedCubismAsset {
 const MODEL_FILE_PATTERN = /\.model3\.json$/i
 const OPTIONAL_FILE_REFERENCE_KEYS = ['Physics', 'DisplayInfo', 'Pose', 'UserData'] as const
 
+const MODEL_PROTOCOLS = new Set(['https:', 'http:', 'file:'])
+
+function documentBaseUrl(): string {
+  return typeof window === 'undefined' ? 'http://localhost/' : window.location.href
+}
+
+/**
+ * Resolves a model reference to a URL.
+ *
+ * Root-absolute references ("/live2d/...") are app-root-relative, not
+ * manifest-relative: the bundled model description uses them to name the sibling
+ * motion metadata. Relative references stay manifest-relative as the Cubism spec
+ * requires.
+ *
+ * For http(s) pages the app root is the origin root; mobile relies on that and
+ * rewrites `/live2d/...` into its packaged `/m0/...` tree natively
+ * (NativeAssetPolicy). A `file:` page has no app root — only the filesystem root —
+ * so the reference must be anchored to the page URL, or packaged desktop renderers
+ * request `file:///live2d/...` and 404.
+ */
+export function resolveModelReference(reference: string, manifestUrl: string, pageUrl = documentBaseUrl()): URL {
+  if (!reference.startsWith('/')) return new URL(reference, manifestUrl)
+  return new URL(pageUrl).protocol === 'file:'
+    ? new URL(`.${reference}`, pageUrl)
+    : new URL(reference, manifestUrl)
+}
+
 export function assertModelUrl(modelUrl: string): URL {
-  const browserBaseUrl = typeof window === 'undefined' ? 'http://localhost/' : window.location.href
-  const url = new URL(modelUrl, browserBaseUrl)
-  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
-    throw new Error('Live2D model URL must use http(s)')
+  const url = resolveModelReference(modelUrl, documentBaseUrl())
+  if (!MODEL_PROTOCOLS.has(url.protocol)) {
+    throw new Error('Live2D model URL must use http(s) or file protocol')
   }
   if (!MODEL_FILE_PATTERN.test(url.pathname)) {
     throw new Error('Live2D model URL must point to a .model3.json file')
@@ -185,7 +211,7 @@ export async function fetchModel3Json(model: AervoxLive2DModel): Promise<Resolve
 interface ExternalMotionData { motions?: string[]; expressions?: string[] }
 
 export async function mergeExternalMotionData(asset: ResolvedCubismAsset, metadataUrl: string, options: { includeExpressions: boolean }): Promise<void> {
-  const url = new URL(metadataUrl, asset.manifestUrl)
+  const url = resolveModelReference(metadataUrl, asset.manifestUrl)
   if (url.origin !== new URL(asset.manifestUrl).origin || !url.href.startsWith(asset.baseUrl)) {
     throw new Error('Live2D metadata must stay inside the model directory')
   }

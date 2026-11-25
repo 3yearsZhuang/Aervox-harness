@@ -53,3 +53,35 @@ it('rejects a legacy Cubism 2 URL before requesting assets or the lazy renderer'
   await expect(controller.load({ ...DEFAULT_AERVOX_MODEL, modelUrl: '/live2d/legacy/model.json' })).rejects.toThrow('.model3.json');
   expect(fetch).not.toHaveBeenCalled(); expect(factory).not.toHaveBeenCalled();
 });
+
+// 打包桌面端从 file:// 载入渲染层。file: 页面没有「应用根」，根绝对路径会被解析到
+// 文件系统根；必须锚定到页面 URL，否则 "/live2d/..." 在打包态 404。
+// http(s) 页面保持原有「源根」语义，手机由此保留 /m0 别名改写。
+it('anchors root-absolute model references to the page under file://', async () => {
+  const { resolveModelReference } = await import('../src/live2d/model');
+  const page = 'file:///Applications/Aervox.app/Contents/Resources/app.asar/out/renderer/index.html';
+  const manifest = resolveModelReference('/live2d/mizuki/mizuki.model3.json', page, page);
+  expect(manifest.protocol).toBe('file:');
+  expect(manifest.pathname).toContain('/out/renderer/live2d/mizuki/mizuki.model3.json');
+  // 动作元数据同样以应用根书写，且必须解析进模型目录，而不是重复拼接 mizuki/。
+  const metadata = resolveModelReference('/live2d/mizuki/BuildMotionData.json', manifest.toString(), page);
+  expect(metadata.pathname).toContain('/out/renderer/live2d/mizuki/BuildMotionData.json');
+  expect(metadata.href.startsWith(new URL('.', manifest).href)).toBe(true);
+});
+
+it('keeps origin-root semantics for http pages and never rewrites the mobile /m0 root', async () => {
+  const { resolveModelReference } = await import('../src/live2d/model');
+  const httpPage = 'http://localhost:5174/index.html';
+  const httpManifest = resolveModelReference('/live2d/mizuki/mizuki.model3.json', httpPage, httpPage);
+  expect(httpManifest.protocol).toBe('http:');
+  expect(httpManifest.pathname).toBe('/live2d/mizuki/mizuki.model3.json');
+
+  // Cubism 规范要求模型内部引用相对 manifest 目录解析。
+  expect(resolveModelReference('model/x.moc3', httpManifest.toString(), httpPage).pathname)
+    .toBe('/live2d/mizuki/model/x.moc3');
+
+  // 手机 APK 以 https://localhost/m0/ 承载，原生层把 /live2d/... 别名到 /m0。
+  const m0Page = 'https://localhost/m0/index.html';
+  expect(resolveModelReference('/live2d/mizuki/mizuki.model3.json', m0Page, m0Page).pathname)
+    .toBe('/live2d/mizuki/mizuki.model3.json');
+});

@@ -9,13 +9,69 @@ directories:
   output: release
   buildResources: build
 files:
+  # 只装构建产物与主进程真正 require 的生产依赖：
+  # - out/renderer 已由 vite 打成自包含 chunk（Vue/Element Plus/Pixi/Live2D 都在里面），
+  #   渲染层的 node_modules 副本没有任何运行时作用；
+  # - out/main、out/preload 仅外部化 @aervox/api-client/transport、@aervox/contracts
+  #   与 @aervox/native-runtime（见 apps/desktop/package.json 的 dependencies）。
+  # 因此显式排除渲染层依赖与源码/构建期文件，避免同一份代码在 asar 里出现两遍。
   - out/**
+  - "!node_modules/**/{src,test,tests,__tests__,docs,examples}/**"
+  - "!node_modules/**/*.{md,map,ts,tsx,d.ts,cts,mts}"
+  - "!node_modules/**/{.turbo,.git,CHANGELOG.md,README.md,LICENSE.md}/**"
+  - "!node_modules/@aervox/live2d/**"
+  - "!node_modules/@aervox/ui/**"
+  - "!node_modules/@aervox/ui-host/**"
+  - "!node_modules/@aervox/public/**"
+  - "!node_modules/@aervox/plugin-*/**"
+  - "!node_modules/@sekai-world/**"
+  - "!node_modules/pixi.js/**"
+  - "!node_modules/@pixi/**"
+  - "!node_modules/element-plus/**"
+  - "!node_modules/@element-plus/**"
+  - "!node_modules/lucide-vue-next/**"
+  - "!node_modules/vue/**"
+  - "!node_modules/@vue/**"
+  - "!node_modules/@babel/**"
+  - "!node_modules/terser/**"
+  - "!node_modules/electron-vite/**"
+  - "!node_modules/vite/**"
+  - "!node_modules/typescript/**"
+  - "!node_modules/vue-tsc/**"
+  # Contracts 的 OpenAPI 产物只服务 CI 兼容门禁与外部工具，运行期不读取。
+  - "!node_modules/@aervox/contracts/openapi.json"
+  - "!node_modules/@aervox/contracts/compatibility/**"
+  - "!node_modules/@aervox/contracts/test/**"
+  # 打包态从 resources/native 读取签名制品（见 src/main/index.ts 的 loadNativeArtifact），
+  # asar 内的同名副本不会被加载。
+  - "!node_modules/@aervox/native-runtime/dist/bin/**"
 extraResources:
   - from: ../../packages/native-runtime/dist/bin
     to: native
   - from: build/icon.ico
     to: icon.ico
 asar: true
+# @electron/fuses：收紧打包二进制的运行时开关。
+# - runAsNode 关闭后 ELECTRON_RUN_AS_NODE 不再生效，攻击面从"外部环境变量变成 Node 进程"
+#   收敛为"只能跑应用自身"；本仓打包应用不依赖它（仅 smoke 脚本会主动 delete 该变量）。
+# - NODE_OPTIONS / NODE_EXTRA_CA_CERTS 与 --inspect 在生产没有用途，关闭以防外部注入。
+# - cookie 加密对本地单用户没有迁移代价（本应用不持久化登录 Cookie），开启即可。
+# 未启用 enableEmbeddedAsarIntegrityValidation + onlyLoadAppFromAsar：
+# macOS 上 asar 完整性依赖代码签名，当前 identity 为 null（开发期跳过签名）。
+# 正式分发接入 Developer ID 与公证时，应同时打开这两项，见 ADR-009 的发布要求。
+electronFuses:
+  runAsNode: false
+  enableCookieEncryption: true
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  # 渲染层从 file:// 载入（见 src/main/index.ts 的 rendererEntry），
+  # 因此必须保留 file: 协议的基础特权；改为自定义协议后再关闭。
+  grantFileProtocolExtraPrivileges: true
+  # 翻转 fuses 会改二进制，使 macOS 现有 ad-hoc 签名失效，系统随后以
+  # SIGKILL (Code Signature Invalid) 在 IsRunAsNodeEnabled 处杀掉进程。
+  # electron-builder 只在启用正式签名后才会重新签名；当前 identity 为 null，
+  # 因此必须让 @electron/fuses 自己重打 ad-hoc 签名。
+  resetAdHocDarwinSignature: true
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 # 开发/CI 阶段无签名证书：identity null 跳过 macOS codesign，
 # 正式分发前需接入 Developer ID + 公证（届时移除该行）。

@@ -39,6 +39,11 @@ apps/web/public/live2d-test/
 apps/desktop/src/renderer/public/live2d/
 apps/web/public/live2d/
 
+# 构建期拷贝的 Live2D Cubism Core 制品（真源：packages/live2d/cubism，按摘要校验）
+# 运行时从本地加载，不再引用 cubism.live2d.com。
+apps/desktop/src/renderer/public/vendor/
+apps/web/public/vendor/
+
 # Playwright E2E artifacts
 test-results/
 playwright-report/
