@@ -423,6 +423,42 @@ ARC-05/FND-07，依赖 ITER-002 Outbox 归属、ITER-013/017 指标。IPC 唤醒
 
 **剩余边界：** 未做全量测试迁移；`check-dev-launcher` 两项失败归环境，未修改；本修订只覆盖测试执行经济性，不改变任何产品行为或测试判据。
 
+<a id="iter-080"></a>
+
+### ITER-080 · 已实施待评审：桌面壳体积、CSP 与 CAP-018 打包态实测
+
+维护者要求收紧桌面分发面、补齐 asar fuses 与 renderer CSP，并给出 CAP-018 的平台矩阵与资源预算。本批只动打包与安全策略，不改产品行为与业务契约。
+
+| 项 | 改动前 | 改动后 | 依据 |
+|---|---|---|---|
+| `app.asar` | 138 MB | 16 MB | 渲染层依赖已由 vite 打进 `out/renderer`；运行期只有 main/preload 真正 `require` 三个包。原配置把 element-plus / lucide / pixi / vue / compiler-sfc / terser / @babel 整份重复装入，并带上 contracts 的 OpenAPI 产物与 native 制品的 asar 副本 |
+| `Aervox.app`（macOS arm64，dir 包） | 424 MB | 298 MB | 其余为 Electron Framework（277 MB）；该项只能靠换壳或裁减版本降低，不属于本批 |
+| Live2D 运行时依赖 | 两个 CDN 脚本（cubism.live2d.com + jsDelivr） | 1 个随包固定制件 | Cubism 2（`live2d.min.js`）在 cubism4 入口下零引用，已移除；Cubism Core 复用手机端同一 207155 字节 / SHA-256 契约 |
+
+**实测资源预算（macOS arm64 开发机，源码 `out/` 直接加载，主窗口 + 桌宠窗口常驻、无 API 连接）：**
+
+| 指标 | 实测 |
+|---|---|
+| 打包体（dir） | 298 MB；`app.asar` 16 MB；Electron Framework 277 MB |
+| 启动进程树 | 8 个进程（2 主进程世代 + 4 Helper + 2 GPU/网络） |
+| 常驻 RSS | 峰值 749 MB（t≈10s），稳态 625–680 MB，采样 50s |
+| 主进程 RSS | ≈90–105 MB |
+| renderer RSS | ≈120 MB |
+| 空闲 CPU | 0.0%（主进程与 Helper），renderer 8.7% 但为采样瞬时值，未做稳态确认 |
+| 渲染 | 打包态 `file://` 下 Live2D 画布 1208×1094 实际出图，Cubism Core 5.1 完成初始化 |
+
+**打包态缺陷（既有，非本批引入）：** 收紧 CSP 后才暴露——渲染层从 `file://` 载入，而模型 URL 以 `/` 开头，`new URL('/live2d/…', 'file:///…')` 解析到**文件系统根**而非 renderer 目录，因此 `assertModelUrl` 的 http(s) 断言直接拒绝，桌宠与陪伴界面在打包态从未成功加载 Live2D。dev 走 `http://localhost` 所以一直未被发现；已安装的 0.2.0 也同样受损。修复为按页面协议区分根绝对引用的基准（`file:` 锚定页面，http(s) 保留源根以维持手机 `/m0` 别名），并加两项回归；实测该回归在修复前语义下失败。
+
+**Fuses：** 关闭 `runAsNode`、`NODE_OPTIONS`、`NODE_EXTRA_CA_CERTS` 与 `--inspect`，开启 Cookie 加密；保留 `grantFileProtocolExtraPrivileges`，因为渲染层仍用 `file://`。翻转 fuses 会使 ad-hoc 签名失效，系统以 `SIGKILL (Code Signature Invalid)` 在 `IsRunAsNodeEnabled` 处杀进程；必须同时开 `resetAdHocDarwinSignature`。`enableEmbeddedAsarIntegrityValidation` 与 `onlyLoadAppFromAsar` 暂不开——它们依赖正式代码签名，接入 Developer ID 与公证后应一并打开。
+
+**验证：** desktop 150 项、web 229 项、ui 320 项、mobile 38 项通过；`check:guards`、`check:boundary`、`check:ci-config` 通过；打包态真实 Electron 用无违规 CSP 渲染完成，fuses 读数逐项核对，`codesign --deep --strict` 通过。
+
+**生产构建 CSP 的浏览器实测（补此前只验过打包 Electron 的缺口）：** 用 Playwright Chromium 加载真实 `vite build` 产物（非 dev server，dev 不注入策略），实测 `new Function` 被 `script-src` 拦截、`wasm-unsafe-eval` 使 WebAssembly 可用、Cubism Core 正常加载、应用挂载，且外部注入的 `https://cubism.live2d.com/...` 脚本被明确拒绝并报出对应 directive。该验证同时在 `file://` 的打包 Electron 侧完成，两端策略一致。
+
+**移动端资产管线：** Web 自带本地 Core 后，`prepare-native-assets` 里两条 CDN 替换正则成为死代码，已改为「拒绝远端脚本 + 要求引用随包 Core」的实际校验，并补 4 项回归（此前该脚本零覆盖），含远端脚本与缺 Core 的负向反例。`/m0/` 基址构建产物的 `./vendor/` 引用可被 `NativeAssetPolicy` 的白名单解析。
+
+**未覆盖：** Linux/Windows 打包与运行、签名与公证、自动更新、真实 API/模型连接下的资源预算、renderer 稳态 CPU、崩溃恢复与后台生命周期仍待各自取证；本条不提高 CAP-018 的发布状态。
+
 ## 6. 条件性扩展与研究
 
 以下保留原提案或条件授权；进入实施前满足各自前置。设备/移动定位可做轻量决策准备，当前不分配硬件开发、第三方平台或 HLS 真实环境工期。

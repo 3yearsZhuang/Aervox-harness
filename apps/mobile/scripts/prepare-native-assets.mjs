@@ -43,11 +43,17 @@ async function prepareNativeAssets(root = fileURLToPath(new URL('../', import.me
   source = path.resolve(root, '../web/dist'), target = path.join(root, 'android/app/src/main/assets/m0'),
 } = {}) {
   const core = verifyCore(await readFile(path.join(root, 'android/vendor/live2dcubismcore.min.js')));
-  let html = await readFile(path.join(source, 'index.html'), 'utf8');
+  const html = await readFile(path.join(source, 'index.html'), 'utf8');
   if (!html.includes('/m0/assets/')) throw new Error('Native assets require build:web:native base /m0/.');
-  html = html.replace(/<script src="https:\/\/cubism\.live2d\.com[^\"]+"><\/script>/, '<script src="/m0/vendor/live2dcubismcore.min.js"></script>')
-    .replace(/\s*<script src="https:\/\/cdn\.jsdelivr\.net[^\"]+"><\/script>/, '');
+  // The Web build now ships Cubism Core itself (see apps/web/scripts/prepare-assets.mjs),
+  // so the only rewrite left is proving the result is fully local. Any remote script tag
+  // fails the build rather than being silently rewritten against a host we no longer control.
   if (/<script[^>]+src="https?:/.test(html)) throw new Error('Remote native script rejected.');
+  // Root-relative URLs are accepted by NativeAssetPolicy under /m0/; the shipped page must
+  // reference the packaged Core so an offline cold start never reaches a CDN.
+  if (!/<script[^>]+src="[^"]*vendor\/live2dcubismcore\.min\.js"/.test(html)) {
+    throw new Error('Native assets must reference the packaged Cubism Core, not a remote SDK.');
+  }
   await rm(target, { recursive: true, force: true });
   await cp(source, target, { recursive: true });
   await mkdir(path.join(target, 'vendor'), { recursive: true });
