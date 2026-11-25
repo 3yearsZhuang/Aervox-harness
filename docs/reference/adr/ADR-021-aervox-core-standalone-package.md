@@ -17,7 +17,7 @@ decision_status: accepted
 2. CLI TTY 审批和纯内存组合入口归 Core；SQLite 注册表、业务持久化、进程生命周期和产品装配归宿主。Core 是库，不能以独立发行替代 API/Worker 的所有权或恢复责任。
 3. Core 使用 Apache-2.0，产品代码仍按 AGPLv3 分层；公开出口不包含伴学提示词、作答落库工具或产品域类型。
 4. 统一模型调用面在 Core 内形成公共 API，经 Provider Port 消费；不为统一模型再建立第二套执行循环。
-5. 公共出口为 `@aervox/core`、`@aervox/core/core` 与平台中性的 `@aervox/core/browser`，内部收集、终态、工具账本及序列化实现不自动成为稳定 API。公开 npm 发布、包名/版本策略和发行文档另行决定；当前保持 private workspace 包。
+5. 公共出口为 `@aervox/core`、平台中性的 `@aervox/core/browser` 与只含契约的 `@aervox/core/ports`，内部收集、终态、工具账本及序列化实现不自动成为稳定 API。公开 npm 发布、包名/版本策略和发行文档另行决定；当前保持 private workspace 包。
 
 ## Alternatives
 
@@ -33,6 +33,8 @@ decision_status: accepted
 内核提纯修订将专注模式提示词、`PracticeAttemptPort` 与作答工具迁回产品；宿主工具 guidance 经 `customGuidance` 注入。通用用户提问与子任务贡献仍属内核。第一方插件最终归属见 [ADR-016](ADR-016-base-boundaries.md#cr-060)。
 
 渐进迁移的 `packages/agent-loop` re-export 壳和 Host CLI 审批壳已移除，下游直接消费 Core；Core 本地定义通用负载，类型兼容由测试锁定，不再依赖 Contracts 类型。旧壳不作为长期兼容入口。
+
+公共入口按职责收敛：`@aervox/core/core` 已移除。它曾是 `/browser` 加一个 Node 终端审批类的严格子集，全仓非测试代码无导入，且在 `--platform=neutral` 下因 `node:readline/promises` 无法打包，与其「轻量入口」的命名相反。终端审批策略本就在根入口，无需第二个出口。新增的 `@aervox/core/ports` 只导出 Port、负载类型与契约错误（`LeaseLostError`、`CompactionError`），使宿主实现端口时不必连带加载执行器与内存实现；它映射既有的纯契约模块，不新建第二个真源。宿主迁移与架构守卫的导入白名单在同一变更内完成。
 
 ## 仓库分离与主仓集成
 

@@ -10,8 +10,8 @@ import type {
   ModelRunRecord,
   ToolExecutionRecord,
   ToolExecutionStatus,
-} from "@aervox/core/browser";
-import { LeaseLostError } from "@aervox/core/browser";
+} from "@aervox/core/ports";
+import { LeaseLostError } from "@aervox/core/ports";
 import type { ConversationExecutionRepositoryPort, ConversationExecutionStoreOptions } from "./conversation-execution-repository-port.js";
 
 /**
@@ -180,13 +180,13 @@ export class ConversationExecutionStore<Context> implements ExecutionStorePort {
     invocationId: string;
     name: string;
     arguments: unknown;
-    status: import("@aervox/core/browser").ToolExecutionStatus;
+    status: import("@aervox/core/ports").ToolExecutionStatus;
     output?: unknown;
     error?: string;
     startedAt: string;
     finishedAt?: string;
     eventData: unknown;
-    safetyDecision: import("@aervox/core/browser").SafetyDecision;
+    safetyDecision: import("@aervox/core/ports").SafetyDecision;
     expectedFencingToken: number;
   }): Promise<{ ok: boolean }> {
     try {
@@ -224,7 +224,7 @@ export class ConversationExecutionStore<Context> implements ExecutionStorePort {
     sequence: number;
     eventType: "done" | "error";
     eventData: unknown;
-    safetyDecision?: import("@aervox/core/browser").SafetyDecision;
+    safetyDecision?: import("@aervox/core/ports").SafetyDecision;
   }): Promise<{ ok: boolean }> {
     try {
       const done = await this.repo.finalizeAttemptWithEventAtomically(this.ctx, {
@@ -250,7 +250,7 @@ export class ConversationExecutionStore<Context> implements ExecutionStorePort {
     sequence: number;
     text: string;
     eventData: unknown;
-    safetyDecision: import("@aervox/core/browser").SafetyDecision;
+    safetyDecision: import("@aervox/core/ports").SafetyDecision;
     expectedFencingToken: number;
   }): Promise<{ ok: boolean }> {
     try {
@@ -279,7 +279,7 @@ export class ConversationExecutionStore<Context> implements ExecutionStorePort {
     sequence: number;
     text: string;
     eventData: unknown;
-    safetyDecision: import("@aervox/core/browser").SafetyDecision;
+    safetyDecision: import("@aervox/core/ports").SafetyDecision;
     expectedFencingToken: number;
   }>): Promise<{ ok: boolean }> {
     if (inputs.length === 0) return { ok: true };
