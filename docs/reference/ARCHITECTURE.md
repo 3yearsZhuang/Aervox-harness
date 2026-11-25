@@ -498,9 +498,9 @@ UTC/IANA 时区、首次窗口、迟到素材、补写、CAS/fencing 与跨时�
 
 | 历史评估中的判断 | 本次实际检查 | 真正剩余的问题 |
 |---|---|---|
-| ContextManifest 只保存首个 Step | [recording-provider](../../packages/core/src/recording-provider.ts) 已对每次实际请求复制消息、工具和生成参数；[多 Step/重试测试](../../packages/core/test/context-manifest.test.ts)已覆盖 | 诊断写入仍为 best effort，不能当作恢复或授权账本；新建议应聚焦实际使用的策略版本及消费链路 |
+| ContextManifest 只保存首个 Step | [recording-provider](../../packages/core/src/provider/recording-provider.ts) 已对每次实际请求复制消息、工具和生成参数；[多 Step/重试测试](../../packages/core/test/context-manifest.test.ts)已覆盖 | 诊断写入仍为 best effort，不能当作恢复或授权账本；新建议应聚焦实际使用的策略版本及消费链路 |
 | 规则压缩只留首尾并伪称生成摘要 | [context-builder](../../packages/core/src/context-builder.ts) 已保留 system 和完整工具组，并明确提示被省略的消息没有生成摘要；[测试](../../packages/core/test/audit-provider.test.ts)验证配对 | 仍未实现保真摘要；应验证学习目标、错因、承诺和来源的保留，以及摘要失败后的明确降级 |
-| 需要新增缓存 Token 分账字段 | [Provider](../../packages/core/src/openai-compat-provider.ts) 已解析缓存读写用量，[存储工具](../../packages/repositories/src/token-usage.ts)也已有分账 | [ModelRunRecord](../../packages/core/src/types.ts)及 recording-provider 已传递可选 usage，[API 装配](../../packages/host-runtime/src/modules/companion/conversation/agent-executor.ts)写入 tokenUsage；缺失上游用量不伪造为零，实际策略版本、成本估算与诊断消费仍需分别核验 |
+| 需要新增缓存 Token 分账字段 | [Provider](../../packages/core/src/provider/openai-compat-provider.ts) 已解析缓存读写用量，[存储工具](../../packages/repositories/src/token-usage.ts)也已有分账 | [ModelRunRecord](../../packages/core/src/types.ts)及 recording-provider 已传递可选 usage，[API 装配](../../packages/host-runtime/src/modules/companion/conversation/agent-executor.ts)写入 tokenUsage；缺失上游用量不伪造为零，实际策略版本、成本估算与诊断消费仍需分别核验 |
 | 插件注册失败没有 owned lifecycle | PR #277 已合入 owned activation、暂存注册、失败回滚和 scope 失效；声明包 generation 的原子激活切片另由 ADR-028 和 PR #281 交付 | 注册生命周期和分发包升级是不同问题；仍应独立审查安装目录、持久状态、恢复日志和进程崩溃，不能重复建设已有注册层 |
 
 ### 13.4 八个项目的实际增量与迁移取舍
