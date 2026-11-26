@@ -11,6 +11,7 @@ import {
   type DiaryDto,
   type GenerateTodayResultDto,
 } from '@aervox/api-client';
+import { detectDiaryGeneratedBy } from '@aervox/contracts';
 import { MizukiExpression } from '../live2d/model';
 import { petReactKind } from '../live2d/petReactions';
 import type { UIRegistry } from '../registry/ui-registry';
@@ -31,7 +32,7 @@ export interface DiaryView {
   mode: 'created' | 'rewritten' | 'existing';
 }
 
-const TEMPLATE_MARKER = '（本篇为非 LLM 模式的模板日记';
+
 const toDiaryView = (result: GenerateTodayResultDto): DiaryView => ({
   localDate: result.localDate,
   title: result.title,
@@ -44,7 +45,7 @@ const toDiaryViewFromRow = (row: DiaryDto): DiaryView => ({
   localDate: row.localDate,
   title: row.title,
   content: row.content,
-  generatedBy: row.content.includes(TEMPLATE_MARKER) ? 'template' : 'llm',
+  generatedBy: detectDiaryGeneratedBy(row.content),
   materialCount: 0,
   mode: 'existing',
 });

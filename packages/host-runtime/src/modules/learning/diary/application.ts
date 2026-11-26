@@ -1,4 +1,5 @@
 import { publishGeneratedDiary } from "./publication.js";
+import { detectDiaryGeneratedBy } from "@aervox/contracts";
 /**
  * Aervox｜思隅 @aervox/api — 日记应用服务（按需/手动触发共用）
  *
@@ -30,11 +31,8 @@ export interface TodayDiaryResult {
   materialCount: number;
 }
 
-/** 模板日记正文带有诚实标注标记；据此回推历史日记的生成方式（仅展示用） */
-const TEMPLATE_MARKER = "（本篇为非 LLM 模式的模板日记";
-function detectGeneratedBy(content: string): "llm" | "template" {
-  return content.includes(TEMPLATE_MARKER) ? "template" : "llm";
-}
+/** 模板日记正文带有诚实标注标记；判定单点于 @aervox/contracts（仅展示用） */
+const detectGeneratedBy = detectDiaryGeneratedBy;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

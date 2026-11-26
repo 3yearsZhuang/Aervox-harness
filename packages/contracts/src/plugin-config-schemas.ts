@@ -395,12 +395,6 @@ export const pluginPageContextSchema = z.object({
   revision: z.number().int().nonnegative().default(0),
 });
 
-/** Page Bridge 保存配置输入 */
-export const pluginPageSaveConfigSchema = z.object({
-  values: z.record(z.string(), z.unknown()).default({}),
-  secretValues: z.record(z.string(), z.union([z.string(), z.null()])).default({}),
-});
-
 /** 插件分发包安装前预检报告（PRD CAP-020 验收门禁） */
 export const pluginPackageInspectionSchema = z.object({
   id: z.string().min(1).max(128),

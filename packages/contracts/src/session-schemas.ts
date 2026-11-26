@@ -53,5 +53,3 @@ export const renameSessionRequestSchema = z
   .openapi("RenameSessionRequest");
 
 export type RenameSessionRequest = z.infer<typeof renameSessionRequestSchema>;
-export const updateSessionRequestSchema = renameSessionRequestSchema;
-export type UpdateSessionRequest = RenameSessionRequest;

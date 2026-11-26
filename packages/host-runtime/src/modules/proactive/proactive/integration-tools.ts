@@ -5,19 +5,7 @@ import type {
 import type { ToolRuntimePort as ToolRuntime } from "../../ecosystem/tools/index.js";
 import { ProactiveActionAuthorizer } from "./action-authorizer.js";
 import { ProactiveIntegrationManager } from "./integration-manager.js";
-
-function record(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
-}
-
-function requiredText(value: unknown, name: string): string {
-  if (typeof value !== "string" || value.trim().length === 0) throw new Error(`${name}_required`);
-  return value.trim();
-}
-
-function optionalText(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
-}
+import { inputRecord as record, optionalText, requiredText } from "./integration-fields.js";
 
 let invocationSequence = 0;
 

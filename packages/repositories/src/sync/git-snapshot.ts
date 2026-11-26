@@ -43,7 +43,6 @@ export async function exportSnapshot(client: Client, version: number): Promise<D
   } catch (error) { await transaction.rollback(); throw error; } finally { transaction.close(); }
   return { version, exportedAt: new Date().toISOString(), tables };
 }
-export const serializeSnapshot = (snapshot: DatabaseSnapshot): string => JSON.stringify(snapshot, null, 2);
 
 /** No clear/merge option exists. The target must be empty; any failure rolls back the entire import. */
 export async function restoreSnapshotToEmptyStaging(client: Client, snapshot: DatabaseSnapshot): Promise<void> {

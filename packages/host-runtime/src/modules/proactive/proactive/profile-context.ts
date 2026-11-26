@@ -7,16 +7,11 @@ import type {
 } from "@aervox/repositories";
 import { LocalOnlyStorageRequiredError } from "@aervox/repositories";
 
-export function isLiteralLoopbackUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    if (url.protocol !== "http:" && url.protocol !== "https:") return false;
-    const hostname = url.hostname.toLowerCase();
-    return hostname === "127.0.0.1" || hostname === "::1" || hostname === "[::1]";
-  } catch {
-    return false;
-  }
-}
+/**
+ * 回环判定只保留 `@aervox/contracts` 一份实现（ADR-035）；此处仅转出，
+ * 让既有同模块消费方与测试不必改动 import 路径。
+ */
+export { isLiteralLoopbackUrl } from "@aervox/contracts";
 
 export function buildProactiveProfilePrompt(claims: ProactiveProfileClaimModel[]): string {
   const usable = claims

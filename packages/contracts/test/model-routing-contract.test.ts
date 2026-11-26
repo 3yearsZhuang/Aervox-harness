@@ -52,6 +52,10 @@ describe("CR-034 模型路由契约", () => {
     expect(isLiteralLoopbackUrl("http://127.0.0.1:11434/v1")).toBe(true);
     expect(isLiteralLoopbackUrl("http://[::1]:11434/v1")).toBe(true);
 
+    // ADR-035：协议必须为 http(s)，非 HTTP 回环字面不算本机端点
+    expect(isLiteralLoopbackUrl("file://127.0.0.1/etc/passwd")).toBe(false);
+    expect(isLiteralLoopbackUrl("ftp://localhost/model")).toBe(false);
+
     // 非回环地址全部拒绝（fail-closed）
     expect(isLiteralLoopbackUrl("https://api.openai.com/v1")).toBe(false);
     expect(isLiteralLoopbackUrl("http://192.168.1.100:11434/v1")).toBe(false);

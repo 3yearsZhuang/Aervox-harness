@@ -351,9 +351,6 @@ export const cancelTurnResponseSchema = z.object({
   status: z.enum(["CancelRequested", "Cancelled"]),
 });
 
-/** 当前事件 payload 版本 */
-export const STREAM_PAYLOAD_VERSION = 1;
-
 /** 学习目标等级（与 packages/database src/schema/learning.ts 对齐） */
 export const learningGoalLevelSchema = z.enum(["beginner", "intermediate", "advanced"]);
 export const learningGoalStatusSchema = z.enum(["active", "paused", "completed", "archived"]);
@@ -852,44 +849,6 @@ export const editMessageSchema = z.object({
   content: z.string().min(1),
   /** 期望的当前版本号（CAS） */
   expectedVersion: z.number().int().min(1),
-});
-
-/** 消息版本模型 */
-export const messageVersionSchema = z.object({
-  id: z.string().min(1),
-  turnId: z.string().min(1),
-  messageId: z.string().nullable().optional(),
-  role: z.string(),
-  version: z.number().int().min(1),
-  content: z.string(),
-  isRedacted: z.number(),
-  supersededAt: z.string().nullable().optional(),
-  createdAt: z.string(),
-});
-
-/** 消息模型（含版本和删除状态） */
-export const messageSchema = z.object({
-  id: z.string().min(1),
-  sessionId: z.string().min(1),
-  role: z.string(),
-  currentVersionId: z.string().nullable().optional(),
-  label: z.string().nullable().optional(),
-  createdAt: z.string(),
-  deletedAt: z.string().nullable().optional(),
-});
-
-/** 删除影响预览项 */
-export const deleteImpactItemSchema = z.object({
-  type: z.enum(["summary", "mistake", "review", "diary", "memory"]),
-  id: z.string(),
-  description: z.string(),
-});
-
-/** 删除影响预览响应 */
-export const deleteImpactPreviewSchema = z.object({
-  messageId: z.string(),
-  impacts: z.array(deleteImpactItemSchema),
-  totalAffected: z.number().int().min(0),
 });
 
 // ============ CAP-011 学习资料整理（FR-LRN-002/003、BR-LRN-001）============

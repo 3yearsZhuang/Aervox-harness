@@ -18,16 +18,6 @@ export const proactiveClaimStateSchema = z.enum([
   "confirmed",
   "rejected",
 ]);
-export const proactiveActionStateSchema = z.enum([
-  "pending",
-  "approved",
-  "running",
-  "executed",
-  "denied",
-  "failed",
-  "revoked",
-]);
-
 export const proactiveSourceGrantInputSchema = z.object({
   id: z.string().min(1).optional(),
   sourceKey: proactiveSourceIdSchema,

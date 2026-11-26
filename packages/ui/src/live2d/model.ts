@@ -57,11 +57,6 @@ export async function fetchLive2DModelCatalog(url = LIVE2D_MODEL_CATALOG_URL): P
     !!entry && typeof entry === 'object' && typeof entry.modelName === 'string' && typeof entry.modelPath === 'string' && typeof entry.modelFile === 'string')
 }
 
-export async function findLive2DModelCatalogEntry(modelName: string, url = LIVE2D_MODEL_CATALOG_URL): Promise<Live2DModelCatalogEntry | undefined> {
-  const catalog = await fetchLive2DModelCatalog(url)
-  return catalog.find((entry) => entry.modelName === modelName)
-}
-
 export type Live2DPose = {
   motion?: MizukiMotion | string
   expression?: MizukiExpression | string

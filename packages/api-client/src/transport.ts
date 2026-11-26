@@ -18,6 +18,7 @@ import type {
 import type { ProactiveDesktopBridge } from '@aervox/contracts/proactive';
 import { TurnStreamProjector } from './projector.js';
 import { AervoxHttpError } from './http-error.js';
+import { parseSseData } from './sse.js';
 
 export interface TurnCallbacks {
   /** Identity from an accepted, ordered stream event; shared by HTTP and IPC. */
@@ -347,7 +348,7 @@ export function createFetchTransport(apiBase: string, config: FetchTransportOpti
         for (const frame of frames) {
           combined.throwIfAborted();
           if (new TextEncoder().encode(frame).byteLength > 1_048_576) throw new Error('sse_event_too_large');
-          const data = frame.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).replace(/^ /, '')).join('\n');
+          const data = parseSseData(frame);
           if (!data) { callbacks.onHeartbeat?.(); continue; }
           let value: unknown;
           try { value = JSON.parse(data); } catch { continue; }
@@ -474,7 +475,7 @@ export function createFetchTransport(apiBase: string, config: FetchTransportOpti
           if (new TextEncoder().encode(buffer).byteLength > 1_048_576) throw new Error('sse_event_too_large');
           for (const block of blocks) {
             if (new TextEncoder().encode(block).byteLength > 1_048_576) throw new Error('sse_event_too_large');
-            const data = block.split('\n').filter((line) => line.startsWith('data:')).map((line) => line.slice(5).trim()).join('\n');
+            const data = parseSseData(block);
             if (!data) { callbacks.onHeartbeat?.(); continue; }
             let event: TurnStreamEvent;
             try { event = JSON.parse(data) as TurnStreamEvent; } catch { continue; }

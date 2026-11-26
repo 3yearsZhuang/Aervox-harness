@@ -6,6 +6,7 @@ import type {
 import { resolveLocalContext } from "../../../shared/local-context.js";
 import { ForbiddenError, NotFoundError, ValidationError } from "../../../shared/errors.js";
 import { ProactiveActionAuthorizer } from "./action-authorizer.js";
+import { inputRecord, optionalText, requiredText } from "./integration-fields.js";
 import { HomeAssistantClient } from "./home-assistant-client.js";
 import { ProactiveIntegrationManager } from "./integration-manager.js";
 import { XiaomiHealthClient } from "./xiaomi-health-client.js";
@@ -17,23 +18,10 @@ function bodyOf(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
-function requiredText(value: unknown, name: string): string {
-  if (typeof value !== "string" || value.trim().length === 0) throw new ValidationError(`${name} is required`);
-  return value.trim();
-}
-
-function optionalText(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
-}
-
 function stringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? [...new Set(value.filter((item): item is string => typeof item === "string" && item.trim().length > 0).map((item) => item.trim()))]
     : [];
-}
-
-function inputRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
 function mapIntegrationError(error: unknown): never {
