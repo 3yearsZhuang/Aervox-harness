@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { checkDocumentation, checkPlanBudget, parsePorcelainStatus, PLAN_BUDGET } from "./docs-governance.mjs";
+import { checkAdrIndex, checkDocumentation, checkPlanBudget, parsePorcelainStatus, PLAN_BUDGET } from "./docs-governance.mjs";
 import { selectDocumentationChecks } from "./docs-lint-affected.mjs";
 
 const scriptsDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -353,4 +353,27 @@ test("the repository plan stays inside its ratchet", () => {
   const plan = fs.readFileSync(path.join(scriptsDirectory, "..", "plan.md"), "utf8");
   assert.ok(Buffer.byteLength(plan) <= PLAN_BUDGET.maxBytes, `plan.md 已回升到 ${Buffer.byteLength(plan)} 字节`);
   assert.deepEqual(checkPlanBudget(plan), []);
+});
+
+// ADR 索引由人工维护，此前没有门禁检查它是否跟上了新增的 ADR。
+// 「导航静默落后于真源」是本仓库反复出现的漂移模式，因此改为可执行检查。
+test("ADR index must link every ADR file", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "adr-index-"));
+  try {
+    fs.mkdirSync(path.join(root, "docs/reference/adr"), { recursive: true });
+    fs.writeFileSync(path.join(root, "docs/reference/adr/README.md"), "- [ADR-001](ADR-001-a.md)\n");
+    fs.writeFileSync(path.join(root, "docs/reference/adr/ADR-001-a.md"), "---\nid: ADR-001\ndecision_status: accepted\n---\n");
+    assert.deepEqual(checkAdrIndex(root), []);
+    // 新增 ADR 但忘记补索引时必须失败，而不是静默放过。
+    fs.writeFileSync(path.join(root, "docs/reference/adr/ADR-002-b.md"), "---\nid: ADR-002\ndecision_status: proposed\n---\n");
+    const errors = checkAdrIndex(root);
+    assert.equal(errors.length, 1, errors.join("; "));
+    assert.match(errors[0], /ADR-002-b\.md.*未出现在 ADR 索引/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the repository ADR index covers every ADR", () => {
+  assert.deepEqual(checkAdrIndex(path.join(scriptsDirectory, "..")), []);
 });

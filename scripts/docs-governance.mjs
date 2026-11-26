@@ -219,7 +219,31 @@ export function checkDocumentation(root = rootDir) {
   }
   const planFile = path.join(root, "plan.md");
   if (fs.existsSync(planFile)) errors.push(...checkPlanBudget(fs.readFileSync(planFile, "utf8")));
+  errors.push(...checkAdrIndex(root));
   return { files: files.length, errors };
+}
+
+/**
+ * 校验 ADR 索引覆盖全部 ADR 文件。
+ *
+ * 索引由人工维护，此前没有任何门禁检查它是否跟上了新增的 ADR——ADR-035 加入时
+ * 就必须手工记得补索引，漏掉也不会报错。这类"导航静默落后于真源"正是本仓库
+ * 反复出现的漂移模式，因此改为可执行检查：每篇 ADR 都必须在索引里被链接。
+ *
+ * 只查"索引是否覆盖"，不查条目措辞——那仍需人写。
+ */
+export function checkAdrIndex(root = rootDir) {
+  const adrDirectory = path.join(root, "docs/reference/adr");
+  const indexPath = path.join(adrDirectory, "README.md");
+  if (!fs.existsSync(indexPath)) return [];
+  const index = fs.readFileSync(indexPath, "utf8");
+  const errors = [];
+  for (const entry of fs.readdirSync(adrDirectory, { withFileTypes: true })) {
+    if (!entry.isFile() || !/^ADR-\d{3}.*\.md$/.test(entry.name)) continue;
+    // 链接目标可能是裸文件名或带路径，两者都算已索引。
+    if (!index.includes(entry.name)) errors.push(`docs/reference/adr/${entry.name}: 未出现在 ADR 索引（docs/reference/adr/README.md）中`);
+  }
+  return errors;
 }
 
 /**
