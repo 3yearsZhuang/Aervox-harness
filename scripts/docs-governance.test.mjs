@@ -377,3 +377,26 @@ test("ADR index must link every ADR file", () => {
 test("the repository ADR index covers every ADR", () => {
   assert.deepEqual(checkAdrIndex(path.join(scriptsDirectory, "..")), []);
 });
+
+
+// 护栏必须被证明会失败，否则它只是装饰。
+// 本轮审计新增的三道护栏各自都被手动验证过一次会失败。把它们固化成断言，
+// 避免将来有人把阈值调松、把检查改成恒真，而没人发现。
+test("plan budget guard is not vacuous", () => {
+  const over = "# 计划\n\n### ITER-001 · x\n\n" + "填充文本。".repeat(PLAN_BUDGET.maxBytes / 10) + "\n";
+  assert.notDeepEqual(checkPlanBudget(over), [], "超限计划必须报错");
+  assert.deepEqual(checkPlanBudget("# 计划\n\n### ITER-001 · x\n\n简短。\n"), [], "合规计划不应报错");
+});
+
+test("ADR index guard is not vacuous", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "adr-vacuous-"));
+  try {
+    fs.mkdirSync(path.join(root, "docs/reference/adr"), { recursive: true });
+    fs.writeFileSync(path.join(root, "docs/reference/adr/README.md"), "- [ADR-001](ADR-001-x.md)\n");
+    fs.writeFileSync(path.join(root, "docs/reference/adr/ADR-001-x.md"), "---\nid: ADR-001\ndecision_status: accepted\n---\n");
+    fs.writeFileSync(path.join(root, "docs/reference/adr/ADR-099-y.md"), "---\nid: ADR-099\ndecision_status: proposed\n---\n");
+    assert.equal(checkAdrIndex(root).length, 1, "未索引的 ADR 必须报错");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
