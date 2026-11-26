@@ -640,12 +640,6 @@ export const DEFAULT_PET_SHEET_ROW_FRAMES: Record<
   review: 6,
 };
 
-/** Codex Pets 状态 → PET-01 emote/gesture 建议映射（表现层消费时参考） */
-export const petStateToCommandSchema = z.record(
-  petSheetStateSchema,
-  petCommandSchema,
-);
-
 // ============ CAP-020 Skill 能力（基础 + Neo 生命周期） ============
 // 设计依据：reference/AstrBot astrbot/core/skills/skill_manager.py（SkillInfo/渐进式披露、
 // payload→candidate→promote 生命周期）与 astrbot/core/tools/computer_tools/shipyard_neo/neo_skills.py。
@@ -809,21 +803,6 @@ export const addressFormSchema = z.enum(["casual", "formal", "none"]);
 /** 提醒节奏选项 */
 export const reminderCadenceSchema = z.enum(["gentle", "moderate", "frequent"]);
 
-/** 偏好问卷完整模型 */
-export const personaPreferencesSchema = z.object({
-  id: z.string().min(1),
-  workspaceId: z.string().min(1),
-  subjectUserId: z.string().min(1),
-  tone: toneSchema,
-  proactiveness: proactivenessSchema,
-  addressForm: addressFormSchema,
-  reminderCadence: reminderCadenceSchema,
-  version: z.number().int().min(1),
-  skipped: z.boolean(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-});
-
 /** 首次填写问卷请求体 */
 export const savePersonaPreferencesSchema = z.object({
   tone: toneSchema.optional(),
@@ -855,9 +834,6 @@ export const editMessageSchema = z.object({
 
 /** 资料类型 */
 export const materialTypeSchema = z.enum(["explanation", "mindmap", "exercises", "reading", "code"]);
-
-/** 资料状态 */
-export const materialStatusSchema = z.enum(["generating", "ready", "failed", "deleted"]);
 
 /** 来源类型 */
 export const sourceTypeSchema = z.enum(["model", "external"]);
@@ -1043,7 +1019,6 @@ export const practiceReportResponseSchema = z.object({
   masteryPrediction: z.number().nullable().optional(), biasAssessment: z.string().nullable().optional(),
   reportType: z.string(), isReset: z.boolean(), createdAt: z.string(), updatedAt: z.string(),
 });
-export const practiceReportListResponseSchema = z.object({ items: z.array(practiceReportResponseSchema) });
 
 // ============ 学习规划（OpenMAIC planner 单次结构化生成） ============
 
