@@ -10,7 +10,8 @@
     "scripts/copy-assets.mjs"
   ],
   "scripts": {
-    "build": "node scripts/verify-assets.mjs"
+    "build": "node scripts/verify-assets.mjs",
+    "test": "node --test scripts/*.test.mjs"
   },
   "exports": {
     "./build-assets": "./scripts/copy-assets.mjs"

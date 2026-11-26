@@ -4,7 +4,7 @@
 
 ## 1. 当前判断与执行顺序
 
-**当前基线（唯一真源，随 gitlink 更新）：** 主仓 `aa405504`、Core `78510f51`、插件 `3aafc1ef`。历史段落中出现的某个提交是**当时**的验证对象，不代表当前检出版本；需要历史证据时按其中的 PR 与提交号回查。
+**当前基线（唯一真源＝gitlink 本身）：** 主仓与两个产品子模块的实际检出提交以 `git ls-tree HEAD packages/core plugins` 与 `git submodule status` 为准，本文件不复制 SHA。历史段落中出现的某个提交是**当时**的验证对象，不代表当前检出版本；需要历史证据时按其中的 PR 与提交号回查。
 
 2026-11-07 合入基线：主仓 `4ae535c7`（[PR #362](https://github.com/3yearsZhuang/Aervox-harness/pull/362)）、Core `208d28ce26de4651a258ef208d21479e22ab315f`、插件 `bad07ef7305c85101c936a99737f67e7940d1f7d`（[集合 PR #12](https://github.com/Aervox-agent/Aervox-plugins/pull/12)）。手机前台对话、学习、人格/日记、系统输入与备份导出已有代码和自动化证据；设备失败回执、导出预算、分享会话身份与删除草稿竞态已修。维护者选择下一阶段聚焦**主动个人助手产品与界面整合**：沿 ITER-053/059/061 先把首页、连续对话、真实建议与行动结果串成一个日常闭环，Android 真机/M0 与签名按 ITER-009 并行接续。主线同版恢复存在已确认的删除历史缺口；[PR #359](https://github.com/3yearsZhuang/Aervox-harness/pull/359) 的统一恢复拒绝已由 `c7ccc736` 合入；所有安装在解析与 SQL 前拒绝恢复。该拒绝防线先于真实数据验收与内测；完整删除事实与安全恢复仍未完成。
 
@@ -81,7 +81,7 @@
 - **首个工具切片（2026-11-06，本地实施）：** 两个插件的受信 `/server` 包与 Manifest/SKILL/README 统一为 `1.1.0`，通过可选 catalog 窄口读取真实元数据；宿主出厂发现同步登记 Manifest 工具，按同版 Manifest 与安装 version/checksum 绑定精确 ID，只读 handler 复用 Core HostToolRuntime。直接调用和模型入口共用纯判定与一次组合 SELECT，入场固定生命周期及授权 ID，返回快照按原身份复验；相关有效授权最多 256 行，超预算拒绝，NUL 文本与整数身份精确往返。权限按 SQL 快照读取时点观察，取得快照至调用方收到结果之间仍有并发窗口，不承诺墙钟即时强撤权。缺端口不贡献工具，缺配置仍可读，不创建 Turn、审批、业务事实或外部网络请求。
 - **本地证据：** Node `24.21.0` 子进程下，[直接/模型组合快照回归](packages/host-runtime/test/plugin-runtime-catalogs.test.ts) 33 项及既有绑定/审批合计 84 项通过，两插件 8 项通过；[真实 API 同源调用](apps/api/test/plugin-runtime-catalogs.test.ts) 与相关 API 36 项通过，最终精确调用复验通过。Repositories、Host Plugin API、Host Runtime、API 构建/类型检查、20 项分发/子模块/可移除回归、边界/纯净/工作区覆盖、插件作者可重现打包、文档与 frozen install 均通过。独立源码复审、33 项回归及最后模型快照前改权限的反例单独复验通过。配对 PR、最终 gitlink、远端冷检出和正式发布验收仍待完成，本条未关闭。
 - **联合终审（2026-11-06 至 2026-11-07）：** 最终组合为宿主 `255e671c` 与插件 gitlink `b06e9720`，已合入宿主主线 `7886042f` 和插件主线 `86ea6995`；可选插件合同、资源探针、冷检出守卫与删除账本诊断均进入组合。`./aervox ci all` 全部通过，覆盖 Host Runtime 365、API 1027、Repositories 962、Worker 177 项测试，以及删除故障、Rust 原生和 文档门禁；DSH 真实模型与未构建参考库产物的两个条件分支跳过，不作为本切片验收证据。首次联合门禁在 `07863b0b` 发现新插件缺架构归属、会话总出口形成运行时依赖环，未通过；已有声明准备、scope 与进程修订函数原样抽到共享叶文件，精确登记两插件对 Core/Host Plugin API 的依赖，未增加环豁免或执行器，`0539bdd8` 独立差量复审和此前完整门禁通过。配对 PR、公开宿主 SHA 对应的插件 CI pin 和远端冷检出仍待验证。
-- **首页组合复验（2026-11-07）：** [主仓 PR #362](https://github.com/3yearsZhuang/Aervox-harness/pull/362) 已按精确提交 `85e1d8ae` 的 10 项远端成功检查合入 `4ae535c7`，固定首页集合 `bad07ef7`。只读工具候选吸收这组已审主线，宿主 `585c791b` 与集合 `fcfc4aa4` 的 frozen install、`./aervox ci all`、10 个插件分发包和全部插件预检通过，覆盖 API 1029、Repositories 964、Host Runtime 365、Worker 177 项；手机/Web 两个 Chromium 首页回归通过，DSH 两个既有条件跳过保留。[集合 PR #14](https://github.com/Aervox-agent/Aervox-plugins/pull/14) 与 [主仓 PR #368](https://github.com/3yearsZhuang/Aervox-harness/pull/368) 继续按公开兼容 Host、集合先合入、主仓固定最终 gitlink 的顺序交付；旧候选 `bdce8a8c` 的 10 项远端检查不能替代新组合检查。
+- **首页组合复验（2026-11-07）：** [主仓 PR #362](https://github.com/3yearsZhuang/Aervox-harness/pull/362) 已按精确提交 `85e1d8ae` 的 10 项远端成功检查合入 `4ae535c7`，固定首页集合 `bad07ef7`。只读工具候选吸收这组已审主线，宿主 `585c791b` 与集合 `fcfc4aa4` 的 frozen install、`./aervox ci all`、当时 10 个插件分发包和全部插件预检通过，覆盖 API 1029、Repositories 964、Host Runtime 365、Worker 177 项；手机/Web 两个 Chromium 首页回归通过，DSH 两个既有条件跳过保留。[集合 PR #14](https://github.com/Aervox-agent/Aervox-plugins/pull/14) 与 [主仓 PR #368](https://github.com/3yearsZhuang/Aervox-harness/pull/368) 继续按公开兼容 Host、集合先合入、主仓固定最终 gitlink 的顺序交付；旧候选 `bdce8a8c` 的 10 项远端检查不能替代新组合检查。
 - **最终配对（2026-11-07）：** 集合 PR #14 的精确 head `5e024d89` 在公开兼容 Host `529fac9c` 完成冷检出全量门禁、文档/工作区及依赖审计后合入 `b494c421edb97764e6397fb2d0f6e03a67fcc9b7`，与已审候选文件树相同；主仓 `529fac9c` 的 10 项远端检查通过。主仓固定该实际集合合并 SHA，frozen install、33 项直接/模型消费者与 10 个分发包复验通过；首次并行复验被构建产物重建与未登记最终 gitlink 拒绝，未执行产品测试，登记 gitlink 并串行后通过。最终主仓 head 远端检查继续取证；两个只读工具交付不关闭余下 6 项声明或正式发布。
 - **余下声明：** 本切片后保留 6 个未接线工具；按个人助手场景逐个补写，不关闭整项。插件目前的 desktop/web/cli 声明不等于 mobile 可用，新增 mobile 目标须有实际组合根接线和兼容版本决定。
 - **实施与依赖：** 逐个确定声明到现有领域/受信 handler 的映射，统一 Manifest、SKILL、配置、参数和结果；未接通时显示实际不可用并纠正支持说明。依赖 ITER-071 工具身份与审批代际、ITER-006/013 权限和撤权、ITER-003 数据删除；不靠开放任意第三方代码补齐第一方工具。
@@ -566,7 +566,7 @@ ARC-05/FND-07，依赖 ITER-002 Outbox 归属、ITER-013/017 指标。IPC 唤醒
 
 **确定性夹具证据：** Android 17/API 37、arm64、4 KiB 物理设备仪器测试 78/78 通过，原生运行时接线批次 46 项全部通过；同规格 16 KiB 隔离模拟器 76 项通过、无跳过。覆盖 RETURNING、JSON/NUL、FTS5、FK、失败事务回滚与重开、Keystore、严格 JSON/WebMessage、跨源 iframe、零列 DML 取消、事务身份、超窗回滚、队列 drain、默认 Cookie 不被改动。默认入口冷启动显示 Mizuki；缺模型发送明确拒绝并保留草稿；实际 force-stop 后新进程恢复选中会话与完整草稿（含 1799 字符）。**这些不证明** 16 KiB 物理设备、其他 ABI/版本矩阵、后台可持续运行、真实 Provider、执行中终止完整矩阵、工具问答、跨版本覆盖升级或正式签名。
 
-**界面与操作（已交付）：** Material 3 统一（官方 Material Web 控件、品牌生成浅/深色角色、48px 触控、tonal surfaces）；同页会话列表/新建/切换/持久回看、常驻多行输入、按会话草稿、原生 IME→WebView 历史→系统返回的逐层返回；短视口收起角色并解除叠放，常规视口角色区 64dvh；缺模型反馈移入独立布局行以免被裁切。WebView 不接收模型密钥、任意 URL/header 或 shell。
+**界面与操作（已交付）：** Material 3 统一（官方 Material Web 控件、品牌生成浅/深色角色、48px 触控、tonal surfaces）；同页会话列表/新建/切换/持久回看、常驻多行输入、按会话草稿、原生 IME→WebView 历史→系统返回的逐层返回；短视口收起角色并解除叠放，常规视口用舞台裁切（舞台 `clamp(280px, 42dvh, 480px)`、角色盒撑到 `clamp(440px, 72dvh, 720px)` 后被下边界裁切）；缺模型反馈移入独立布局行以免被裁切。WebView 不接收模型密钥、任意 URL/header 或 shell。
 
 **预算与生命周期修复（已交付）：** 文本输入 32 KiB UTF-8 / 120 KiB JSON、回复累计 48 KiB，越界保留安全尾段并提交 `Interrupted(model_length)`。首次就绪前的文档退休观察、后台区间跨过的配置查询拒绝未接单发送、已提交接单的迟到回执经共享取消事务收尾。恢复用例证明有效 Running/CancelRequested 租约不抢占、过期后收敛、拒绝旧 fencing、不重跑模型——但这不是 Android 实际杀进程。
 
@@ -635,7 +635,7 @@ ITER-009 的移动端交付顺序见[接续计划](#mobile-continuation-plan)。
 | 同网连接与认证 | 明确发现、证书、设备凭据和撤销；不把同一 Wi-Fi 当作授权 | 当前 Token 与隐私契约中身份要求的差量及威胁评审 |
 | 跨设备数据范围 | 普通资料与 local_only/混合来源严格分开 | 导出/同步授权、删除传播、离线期限与来源验证 |
 | 首个日常助手场景 | 维护者已选择主动个人助手产品与界面整合，建议先做“交代一件事→必要澄清→可用产出/下一步→用户确认→重开回看”；学习建议从真实复习/错题进入行动 | 首页来源、会话身份、结果确认和成本可核验；学习域保留作答幂等、来源/删除传播及原实验口径；生活/工作新来源与后台主动执行另据价值决定 |
-| 增强权限与跨平台时机 | 系统 API 按用途授权；root 已作为固定设备动作（点击/滑动/按键/ASCII 输入/启动应用）的执行通道，逐项关闭与前台限制先行；Shizuku 仍为待接入的独立提供者，不共享任意命令。Android 真实闭环与移动 Host 契约稳定后，再规划 iOS 与本机推理 | root 真机动作与授权撤销、服务死亡与降级、模型不支持工具声明时的回退；Shizuku 的实际 UID/授权；iOS 独立存储/密钥/生命周期/签名及本机推理资源/许可 |
+| 增强权限与跨平台时机 | 系统 API 按用途授权；root 与 Shizuku 均为固定设备动作（点击/滑动/按键/ASCII 输入/启动应用）的执行通道，Shizuku 作为 root 之外的并行 transport 已接入且不共享任意命令，逐项关闭与前台限制先行。Android 真实闭环与移动 Host 契约稳定后，再规划 iOS 与本机推理 | root 与 Shizuku 的真机动作、授权撤销、服务死亡与降级；Shizuku 的实际 UID 校验；iOS 独立存储/密钥/生命周期/签名及本机推理资源/许可 |
 
 [ADR-022](docs/reference/adr/ADR-022-mobile-runtime-access.md#cr-055) 已接受独立运行、Android 先行及 M0 隔离原型：固定内置 SQLite、复用现有规则、原生持钥模型桥。候选仅准入隔离测试库，正式平台版本范围和工期未裁定，具体取舍在本节维护。
 

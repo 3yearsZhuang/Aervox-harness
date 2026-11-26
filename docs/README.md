@@ -34,8 +34,6 @@ id: AVX-DOC-001
 | 设计、测试与运行维护 | [交互设计](reference/DESIGN.md)、[测试策略](reference/TEST_STRATEGY.md)、[运行手册](reference/operations.md) |
 | 看界面方向与可交互 demo | [「朝夕」demo](proposals/companion-vision-2026/miuix.html)（静态模拟素材 · MIUI X 视觉参考）、[学习域三端方案](proposals/ui-redesign-2026/index.html)、[定位决定 ADR-033](reference/adr/ADR-033-assistant-positioning.md) |
 | 看未采纳的方向、原型与建议稿 | [提案与设计稿](proposals/README.md) |
-| 执行具体工程操作 | [操作指南](how-to/README.md) |
-| 理解研究背景与未来方案 | [解释与研究](explanation/README.md) |
 
 <a id="2-权威顺序与冲突处理"></a>
 
@@ -65,3 +63,6 @@ id: AVX-DOC-001
 | [plugins/README](../plugins/README.md) | 插件生态入口 |
 | [plugins/SPECIFICATION](../plugins/SPECIFICATION.md) | 插件构成规范与文件标准 |
 | [scripts/README](../scripts/README.md) | 仓库脚本工具集索引 |
+| [research/deletion-fault-testing](../research/deletion-fault-testing/README.md) | 异步删除故障注入研究的运行说明与范围 |
+| [packages/public](../packages/public/aervox-intro/README.md) | 共享静态资源与第三方许可、vendor 校验步骤 |
+| [.agents](../.agents/README.md) | 第三方 skill 快照与 `skills-lock.json` 的固定字节关系 |

@@ -7,14 +7,45 @@
  *
  * 消费端显式传入自己的输出目录。
  */
-import { cpSync, mkdirSync, existsSync, mkdtempSync, rmSync, renameSync, lstatSync, realpathSync } from 'node:fs'
+import { cpSync, mkdirSync, existsSync, mkdtempSync, readdirSync, rmSync, renameSync, lstatSync, realpathSync } from 'node:fs'
 import { dirname, join, resolve, relative, sep, isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const pkgDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const source = join(pkgDir, 'mizuki')
 
+/** Staging prefixes this package creates inside consumer directories. */
+const STAGE_PREFIX = '.mizuki-stage-'
+
 export const modelAssetSource = source
+
+/**
+ * Remove staging directories left behind by an interrupted run.
+ *
+ * The `finally` below covers thrown errors but not process kills: a build stopped
+ * with Ctrl-C, a closed terminal or an OOM kill leaves the staged copy in place.
+ * Because the prefix is unique to this package and adjacent models are user-owned,
+ * only entries carrying it are removed. A concurrent build of the same target is
+ * already unsupported (both would rename onto the same final path).
+ */
+export function sweepStaleStages(targetDir) {
+  let removed = 0
+  let entries
+  try {
+    entries = readdirSync(targetDir, { withFileTypes: true })
+  } catch {
+    return removed
+  }
+  for (const entry of entries) {
+    if (!entry.name.startsWith(STAGE_PREFIX)) continue
+    const candidate = join(targetDir, entry.name)
+    // A symlink here was not created by this package; leave it for the caller to inspect.
+    if (!entry.isDirectory()) continue
+    rmSync(candidate, { recursive: true, force: true })
+    removed += 1
+  }
+  return removed
+}
 
 export function copyModelAssets(source, targets) {
   if (!existsSync(source)) throw new Error(`live2d 资源目录不存在: ${source}`)
@@ -40,7 +71,9 @@ export function copyModelAssets(source, targets) {
   }
   for (const targetDir of destinations) {
     mkdirSync(targetDir, { recursive: true })
-    const stage = mkdtempSync(join(targetDir, '.mizuki-stage-'))
+    const swept = sweepStaleStages(targetDir)
+    if (swept > 0) console.log(`✓ 已清理 ${swept} 个中断残留的暂存目录 → ${targetDir}`)
+    const stage = mkdtempSync(join(targetDir, STAGE_PREFIX))
     try {
       cpSync(source, stage, { recursive: true })
       // Only this generated subtree is owned by this package; adjacent models are user-owned.

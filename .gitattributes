@@ -28,3 +28,20 @@ patches/*.patch whitespace=-blank-at-eol,-space-before-tab
 *.db binary
 *.p12 binary
 *.pfx binary
+
+# 归档与原生制品：这些类型从未在仓库内做过行尾转换，声明为二进制避免
+# 将来 text=auto 按内容嗅探失败时被规范化（gradle-wrapper.jar 是唯一曾被
+# 依赖嗅探才保持完好的 tracked 二进制）。
+*.jar binary
+*.aar binary
+*.apk binary
+*.onnx binary
+*.wasm binary
+*.so binary
+*.dylib binary
+*.dll binary
+*.node binary
+*.wav binary
+*.mp3 binary
+*.ogg binary
+*.m4a binary

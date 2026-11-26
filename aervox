@@ -183,7 +183,7 @@ show_dev_banner() {
       printf "${CYAN}│${NC}    • API 服务:      ${CYAN}http://127.0.0.1:%-5s${NC}                      ${CYAN}│${NC}\n" "$api_port"
       printf "${CYAN}│${NC}    • Web 前端:      ${CYAN}http://localhost:%-5s${NC}                      ${CYAN}│${NC}\n" "$web_port"
       printf "${CYAN}│${NC}    • 桌面客户端:    ${CYAN}Electron 调试窗口${NC}                          ${CYAN}│${NC}\n"
-      printf "${CYAN}│${NC}    • 后台 Worker:   ${CYAN}10 项定时后台调度${NC}                          ${CYAN}│${NC}\n"
+      printf "${CYAN}│${NC}    • 后台 Worker:   ${CYAN}定时后台调度（任务以源码注册为准）${NC}        ${CYAN}│${NC}\n"
       ;;
     web)
       printf "${CYAN}│${NC}  服务组件:                                                    ${CYAN}│${NC}\n"
@@ -201,7 +201,7 @@ show_dev_banner() {
       ;;
     worker)
       printf "${CYAN}│${NC}  服务组件:                                                    ${CYAN}│${NC}\n"
-      printf "${CYAN}│${NC}    • 后台 Worker:   ${CYAN}10 项定时后台调度${NC}                          ${CYAN}│${NC}\n"
+      printf "${CYAN}│${NC}    • 后台 Worker:   ${CYAN}定时后台调度（任务以源码注册为准）${NC}        ${CYAN}│${NC}\n"
       ;;
     cli)
       printf "${CYAN}│${NC}  服务组件:                                                    ${CYAN}│${NC}\n"

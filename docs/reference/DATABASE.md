@@ -86,7 +86,9 @@ API 与 Worker 可同时观察到同一个空库；新建表和索引均容忍�
 
 ## 3. 本地存储拓扑
 
-默认文件数据目录位于当前操作系统用户的应用数据目录；仓库开发模式可使用 `<repo>/data/`。文件路径可以配置，必须是本地文件系统路径；可选 PostgreSQL 的普通业务主库目标另由受控启动配置选择。
+默认文件数据目录恒为 `<repo>/data/`，不随启动目录或操作系统用户数据目录变化。文件路径可以配置，必须是本地文件系统路径；可选 PostgreSQL 的普通业务主库目标另由受控启动配置选择。
+
+打包宿主若需要放到操作系统隔离位置，通过 `AERVOX_PROACTIVE_VAULT_URL`、`AERVOX_PROACTIVE_VAULT_KEY_PATH` 或显式 `DATABASE_URL` 注入，不改变默认解析。
 
 当前仓库运行的主库缺省为 `<repo>/data/aervox.db`。显式 `aervox.db`、`./aervox.db` 及其 `file:` 形式也解析到该默认目录；其它相对文件路径按仓库根解析，与 API、Worker 或子包的启动目录无关。绝对文件路径保持原位置，`file:` URI 的编码、参数和 authority 保持 URI 语义，非法远端 authority 由本地文件校验拒绝。显式 `:memory:` 和 `file::memory:` 保持内存库，不创建持久文件。该解析不搬迁或合并已有数据库；切换已有数据的位置须显式备份并验证。
 

@@ -4,7 +4,6 @@ export { default as CompanionAvatar } from './components/CompanionAvatar.vue';
 export { default as SpritePet } from './components/SpritePet.vue';
 export { getAvailableLive2DModels } from './live2d/available-models';
 export { useCompanionAvatarBinding, type CompanionAvatarBindingState } from './composables/useCompanionAvatarBinding';
-export { default as MessageBubble } from './components/MessageBubble.vue';
 export { default as UserQuestionComposer } from './components/UserQuestionComposer.vue';
 
 // 基础 UI 控件基座 (UI Primitives)

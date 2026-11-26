@@ -45,3 +45,28 @@ test('consumer copy rejects linked output directories before replacing assets', 
     assert.equal(readFileSync(join(victim, 'aervox-mark.svg'), 'utf8'), 'user asset')
   } finally { rmSync(root, { recursive: true, force: true }) }
 })
+
+test('a killed run leaves a staging directory that the next build sweeps, without touching user assets', () => {
+  const root = mkdtempSync(join(tmpdir(), 'aervox-public-stage-'))
+  try {
+    const pkg = join(root, 'packages/public')
+    cpSync(source, pkg, { recursive: true, filter: (path) => !path.includes('node_modules') && !path.includes('.turbo') })
+    const destination = join(root, 'apps/web/public')
+    mkdirSync(destination, { recursive: true })
+    // An interrupted copy: the staged tree is complete but the rename never happened.
+    const leftover = join(destination, '.intro-stage-abc123')
+    mkdirSync(leftover)
+    writeFileSync(join(leftover, 'partial.txt'), 'interrupted')
+    // Neighbouring content this module does not own must survive.
+    const neighbour = join(destination, 'user-model')
+    mkdirSync(neighbour)
+    writeFileSync(join(neighbour, 'keep.txt'), 'user owned')
+
+    copyPublicAssets(destination, { includeIntro: true })
+
+    assert.equal(existsSync(leftover), false)
+    assert.deepEqual(files(join(destination, 'aervox-intro')), files(join(source, 'aervox-intro')))
+    assert.equal(readFileSync(join(neighbour, 'keep.txt'), 'utf8'), 'user owned')
+    assert.deepEqual(readdirSync(destination).filter((name) => name.startsWith('.intro-stage-')), [])
+  } finally { rmSync(root, { recursive: true, force: true }) }
+})
