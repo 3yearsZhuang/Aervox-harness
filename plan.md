@@ -431,7 +431,7 @@ ARC-05/FND-07，依赖 ITER-002 Outbox 归属、ITER-013/017 指标。IPC 唤醒
 
 | 项 | 改动前 | 改动后 | 依据 |
 |---|---|---|---|
-| `app.asar` | 138 MB | 16 MB | 渲染层依赖已由 vite 打进 `out/renderer`；运行期只有 main/preload 真正 `require` 三个包。原配置把 element-plus / lucide / pixi / vue / compiler-sfc / terser / @babel 整份重复装入，并带上 contracts 的 OpenAPI 产物与 native 制品的 asar 副本 |
+| `app.asar` | 138 MB | 16 MB | 渲染层依赖已由 Vite 打进 `out/renderer`；运行期只有 main/preload 真正 `require` 三个包。原配置把 element-plus / lucide / pixi / Vue / compiler-sfc / terser / @babel 整份重复装入，并带上 contracts 的 OpenAPI 产物与 native 制品的 asar 副本 |
 | `Aervox.app`（macOS arm64，dir 包） | 424 MB | 298 MB | 其余为 Electron Framework（277 MB）；该项只能靠换壳或裁减版本降低，不属于本批 |
 | Live2D 运行时依赖 | 两个 CDN 脚本（cubism.live2d.com + jsDelivr） | 1 个随包固定制件 | Cubism 2（`live2d.min.js`）在 cubism4 入口下零引用，已移除；Cubism Core 复用手机端同一 207155 字节 / SHA-256 契约 |
 
