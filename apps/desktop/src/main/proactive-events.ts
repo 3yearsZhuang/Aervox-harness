@@ -8,7 +8,7 @@
  * 断线自动重连（指数退避封顶 60s）；连接建立即重放近期事件，由 actionId 去重。
  */
 import type { ProactivePresentationEvent } from '@aervox/contracts/proactive'
-import { parseSseJson } from '@aervox/api-client'
+import { parseSseJson } from '@aervox/api-client/sse'
 
 /** 动画别名表：插件声明的语义动画名 → 桌宠手势/表情指令 */
 export const PET_ANIMATION_ALIASES: Readonly<Record<string, {type: 'gesture' | 'emote'; value: string}>> = {
