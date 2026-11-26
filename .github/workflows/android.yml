@@ -95,6 +95,11 @@ jobs:
           mise exec -- pnpm --filter @aervox/mobile sqlite:restore
           mise exec -- pnpm --filter @aervox/mobile prepare:native:restore
 
+      # The pinned Core is now present, so the asset-pipeline copy assertion runs for
+      # real instead of skipping. `test:unit` never selected this package.
+      - name: Native asset pipeline tests
+        run: mise exec -- pnpm --filter @aervox/mobile test
+
       - name: Preflight (JDK, SDK platform/build-tools, project)
         run: mise exec -- pnpm --filter @aervox/mobile android:check
 

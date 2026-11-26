@@ -42,7 +42,9 @@ export async function restoreCoreArtifact(root = fileURLToPath(new URL('../', im
 export async function prepareNativeAssets(root = fileURLToPath(new URL('../', import.meta.url)), {
   source = path.resolve(root, '../web/dist'), target = path.join(root, 'android/app/src/main/assets/m0'),
 } = {}) {
-  const core = verifyCore(await readFile(path.join(root, 'android/vendor/live2dcubismcore.min.js')));
+  // The page checks run before the pinned artifact is read: a bad build should be
+  // rejected on its own merits, and a cold checkout without the gitignored Core
+  // must not mask the real reason.
   const html = await readFile(path.join(source, 'index.html'), 'utf8');
   if (!html.includes('/m0/assets/')) throw new Error('Native assets require build:web:native base /m0/.');
   // The Web build now ships Cubism Core itself (see apps/web/scripts/prepare-assets.mjs),
@@ -54,6 +56,7 @@ export async function prepareNativeAssets(root = fileURLToPath(new URL('../', im
   if (!/<script[^>]+src="[^"]*vendor\/live2dcubismcore\.min\.js"/.test(html)) {
     throw new Error('Native assets must reference the packaged Cubism Core, not a remote SDK.');
   }
+  const core = verifyCore(await readFile(path.join(root, 'android/vendor/live2dcubismcore.min.js')));
   await rm(target, { recursive: true, force: true });
   await cp(source, target, { recursive: true });
   await mkdir(path.join(target, 'vendor'), { recursive: true });

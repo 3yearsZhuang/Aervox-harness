@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -8,6 +9,13 @@ import { fileURLToPath } from 'node:url';
 import { coreArtifact, prepareNativeAssets } from '../scripts/prepare-native-assets.mjs';
 
 const mobileRoot = path.resolve(fileURLToPath(new URL('../', import.meta.url)));
+
+// The pinned Core lives in `android/vendor/`, which is gitignored: a cold checkout only
+// has it after the explicit `sqlite:restore` / `prepare:native:restore` steps. The copy
+// path needs the real bytes (it hashes them), so skip rather than assert on a fixture that
+// would never match. Rejection paths check the page first and stay unconditional.
+const pinnedCorePresent = existsSync(path.join(mobileRoot, 'android/vendor/live2dcubismcore.min.js'));
+const needsCore = pinnedCorePresent ? false : 'pinned Cubism Core artifact not restored in this checkout';
 
 async function fixture(t, html) {
   const root = await mkdtemp(path.join(tmpdir(), 'aervox-m0-assets-'));
@@ -23,7 +31,7 @@ async function fixture(t, html) {
 const page = script => `<!doctype html><html><head>${script}</head>` +
   '<body><div id="app"></div><script type="module" src="/m0/assets/app.js"></script></body></html>';
 
-test('copies the packaged Cubism Core and keeps the local script reference', async t => {
+test('copies the packaged Cubism Core and keeps the local script reference', { skip: needsCore }, async t => {
   const { source, target } = await fixture(t, page('<script src="./vendor/live2dcubismcore.min.js"></script>'));
   await prepareNativeAssets(mobileRoot, { source, target });
   const html = await readFile(path.join(target, 'index.html'), 'utf8');
