@@ -81,3 +81,16 @@ test('router propagates a selected test failure', t => {
   assert.deepEqual(executed, ['0', '1']);
   assert.match(result.stdout, /selected test failure/);
 });
+
+test('the guard self-test suite runs in both full gates', () => {
+  // 39 root guard tests (gate-config, schema-staging, database, generate-mobile-schema …)
+  // are only reachable through `test:guards`. Until 2026-11-27 that entry was defined but
+  // called from nowhere, so check-host-domain-purity.test.mjs sat asserting a directory
+  // deleted back in ITER-037 and nobody noticed. Keep it wired.
+  const mise = readFileSync(new URL('../mise.toml', import.meta.url), 'utf8');
+  const scripts = readRootScripts();
+  assertScriptRuns(assert, scripts['test:guards'], 'scripts/test-guards.mjs', 'test:guards');
+  for (const gate of ['ci-code', 'ci-code-full']) {
+    assertCommandIncludes(assert, miseTaskCommand(mise, gate), 'pnpm test:guards', gate);
+  }
+});

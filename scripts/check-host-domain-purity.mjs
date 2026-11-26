@@ -39,7 +39,6 @@ export const HOST_ROOTS = [
   "packages/api-client/src",
   "packages/contracts/src",
   "packages/core/src",
-  "packages/agent-loop/src",
   "packages/host-plugin-api/src",
   "packages/practice-review/src",
 ];
