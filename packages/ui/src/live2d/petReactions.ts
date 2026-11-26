@@ -36,7 +36,7 @@ export function resolveLookAtElement(target: string | Element | undefined): Elem
 }
 
 /** Live2D 操作反馈动作池：按语义挑选 Mizuki 动作子集，随机取用避免重复 */
-export const PET_MOTION_POOLS = {
+const PET_MOTION_POOLS = {
   glad: [MizukiMotion.w_cute_glad01, MizukiMotion.w_cute_glad03, MizukiMotion.w_adult_glad01, MizukiMotion.w_happy_glad01, MizukiMotion.w_normal_glad01],
   nod: [MizukiMotion.w_cute_nod01, MizukiMotion.w_normal_nod01, MizukiMotion.w_adult_nod01, MizukiMotion.w_happy_nod01],
   think: [MizukiMotion.w_adult_think01, MizukiMotion.w_adult_think02],

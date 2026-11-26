@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { checkDocumentation, parsePorcelainStatus } from "./docs-governance.mjs";
+import { checkAdrIndex, checkDocumentation, checkPlanBudget, checkReferenceIds, parsePorcelainStatus, PLAN_BUDGET } from "./docs-governance.mjs";
 import { selectDocumentationChecks } from "./docs-lint-affected.mjs";
 
 const scriptsDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -329,4 +329,93 @@ test("真实 Git 忽略子模块时，dirty 与已提交 gitlink 删除仍触发
   assert.equal(git(root, "status", "--porcelain=v1"), "");
   assert.equal(git(root, "diff", "--name-only", "origin/main...HEAD"), "", "fixture must hide committed gitlink differences by default");
   assertBrokenLinkDetected();
+});
+
+// plan.md 曾从 78KB 涨到 255KB，每条 ITER 追加当次运行的测试计数与提交号。
+// 预算必须是可执行的，否则「压缩一次、再涨回去」会重演。
+test("plan budget rejects an over-sized plan", () => {
+  const bulky = `# 计划\n\n### ITER-001 · 测试\n\n${"测试计数与提交号。".repeat(PLAN_BUDGET.maxSectionBytes / 10)}\n`;
+  const errors = checkPlanBudget(bulky);
+  assert.ok(errors.some((error) => error.includes("超出单条预算")), errors.join("; "));
+});
+
+test("plan budget rejects per-PR subsections", () => {
+  const errors = checkPlanBudget("# 计划\n\n### ITER-001 · x\n\n#### PR #324 · 接续实施\n\n正文\n");
+  assert.ok(errors.some((error) => error.includes("不得用 `####` 按 PR 分节")), errors.join("; "));
+});
+
+test("plan budget accepts a compact plan", () => {
+  const compact = "# 计划\n\n### ITER-001 · 已移交\n\n结论与 [PR #1](https://example.invalid/1)。\n";
+  assert.deepEqual(checkPlanBudget(compact), []);
+});
+
+test("the repository plan stays inside its ratchet", () => {
+  const plan = fs.readFileSync(path.join(scriptsDirectory, "..", "plan.md"), "utf8");
+  assert.ok(Buffer.byteLength(plan) <= PLAN_BUDGET.maxBytes, `plan.md 已回升到 ${Buffer.byteLength(plan)} 字节`);
+  assert.deepEqual(checkPlanBudget(plan), []);
+});
+
+// ADR 索引由人工维护，此前没有门禁检查它是否跟上了新增的 ADR。
+// 「导航静默落后于真源」是本仓库反复出现的漂移模式，因此改为可执行检查。
+test("ADR index must link every ADR file", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "adr-index-"));
+  try {
+    fs.mkdirSync(path.join(root, "docs/reference/adr"), { recursive: true });
+    fs.writeFileSync(path.join(root, "docs/reference/adr/README.md"), "- [ADR-001](ADR-001-a.md)\n");
+    fs.writeFileSync(path.join(root, "docs/reference/adr/ADR-001-a.md"), "---\nid: ADR-001\ndecision_status: accepted\n---\n");
+    assert.deepEqual(checkAdrIndex(root), []);
+    // 新增 ADR 但忘记补索引时必须失败，而不是静默放过。
+    fs.writeFileSync(path.join(root, "docs/reference/adr/ADR-002-b.md"), "---\nid: ADR-002\ndecision_status: proposed\n---\n");
+    const errors = checkAdrIndex(root);
+    assert.equal(errors.length, 1, errors.join("; "));
+    assert.match(errors[0], /ADR-002-b\.md.*未出现在 ADR 索引/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the repository ADR index covers every ADR", () => {
+  assert.deepEqual(checkAdrIndex(path.join(scriptsDirectory, "..")), []);
+});
+
+
+// 护栏必须被证明会失败，否则它只是装饰。
+// 本轮审计新增的三道护栏各自都被手动验证过一次会失败。把它们固化成断言，
+// 避免将来有人把阈值调松、把检查改成恒真，而没人发现。
+test("plan budget guard is not vacuous", () => {
+  const over = "# 计划\n\n### ITER-001 · x\n\n" + "填充文本。".repeat(PLAN_BUDGET.maxBytes / 10) + "\n";
+  assert.notDeepEqual(checkPlanBudget(over), [], "超限计划必须报错");
+  assert.deepEqual(checkPlanBudget("# 计划\n\n### ITER-001 · x\n\n简短。\n"), [], "合规计划不应报错");
+});
+
+test("ADR index guard is not vacuous", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "adr-vacuous-"));
+  try {
+    fs.mkdirSync(path.join(root, "docs/reference/adr"), { recursive: true });
+    fs.writeFileSync(path.join(root, "docs/reference/adr/README.md"), "- [ADR-001](ADR-001-x.md)\n");
+    fs.writeFileSync(path.join(root, "docs/reference/adr/ADR-001-x.md"), "---\nid: ADR-001\ndecision_status: accepted\n---\n");
+    fs.writeFileSync(path.join(root, "docs/reference/adr/ADR-099-y.md"), "---\nid: ADR-099\ndecision_status: proposed\n---\n");
+    assert.equal(checkAdrIndex(root).length, 1, "未索引的 ADR 必须报错");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+
+// docs/reference/ 是契约事实源，其余 16 份都有稳定 ID，只有 API_CONVENTIONS.md
+// 长期缺失。缺 ID 不影响阅读，却让「按稳定编号引用契约」对它失效。
+test("reference contracts must declare a stable id", () => {
+  const withId = { relative: "docs/reference/API_CONVENTIONS.md", fields: { id: "AVX-API-001" }, text: "" };
+  const withAnchor = { relative: "docs/reference/adr/README.md", fields: {}, text: '<a id="AVX-GUIDE-005"></a>' };
+  const missing = { relative: "docs/reference/NEW_CONTRACT.md", fields: {}, text: "# 新契约" };
+  const elsewhere = { relative: "docs/how-to/steps.md", fields: {}, text: "# 步骤" };
+  assert.deepEqual(checkReferenceIds([withId, withAnchor, elsewhere]), []);
+  const errors = checkReferenceIds([missing]);
+  assert.equal(errors.length, 1, errors.join("; "));
+  assert.match(errors[0], /NEW_CONTRACT\.md.*必须声明 id/);
+});
+
+test("the repository reference docs all declare ids", () => {
+  const root = path.join(scriptsDirectory, "..");
+  assert.deepEqual(checkDocumentation(root).errors, []);
 });

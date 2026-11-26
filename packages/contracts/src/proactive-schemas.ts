@@ -18,16 +18,6 @@ export const proactiveClaimStateSchema = z.enum([
   "confirmed",
   "rejected",
 ]);
-export const proactiveActionStateSchema = z.enum([
-  "pending",
-  "approved",
-  "running",
-  "executed",
-  "denied",
-  "failed",
-  "revoked",
-]);
-
 export const proactiveSourceGrantInputSchema = z.object({
   id: z.string().min(1).optional(),
   sourceKey: proactiveSourceIdSchema,
@@ -235,16 +225,3 @@ export const xiaomiHealthConnectionRequestSchema = z.object({
 });
 
 export const proactiveSyncDateSchema = z.object({localDate: z.iso.date().optional()});
-
-/** 主动表现事件（CR-032 §4.3）：SSE 直推负载，桌面端映射为 PetCommand */
-export const proactivePresentationEventSchema = z.object({
-  kind: z.literal("proactive.presentation"),
-  actionId: z.string().min(1),
-  pluginId: z.string().min(1),
-  ruleId: z.string().min(1),
-  title: z.string().min(1),
-  message: z.string().min(1),
-  animation: z.string().min(1).optional(),
-  bubblePreset: z.string().min(1).optional(),
-  occurredAt: z.string().min(1),
-});

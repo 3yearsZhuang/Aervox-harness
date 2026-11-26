@@ -43,22 +43,22 @@ export const P2P_DISCOVERY_BEACON_VERSION = 1;
 
 /** 默认多播组（管理范围 239.0.0.0/8，不会外泄到公网）与端口 */
 export const P2P_DISCOVERY_DEFAULT_GROUP = "239.255.42.99";
-export const P2P_DISCOVERY_DEFAULT_PORT = 48201;
+const P2P_DISCOVERY_DEFAULT_PORT = 48201;
 
 /** 默认发送间隔与本地对端存活上限 */
-export const P2P_DISCOVERY_DEFAULT_BEACON_INTERVAL_MS = 2_000;
-export const P2P_DISCOVERY_DEFAULT_PEER_TTL_MS = 8_000;
+const P2P_DISCOVERY_DEFAULT_BEACON_INTERVAL_MS = 2_000;
+const P2P_DISCOVERY_DEFAULT_PEER_TTL_MS = 8_000;
 
 /** 绝对下限：即使本地 TTL 配得再小，也不接受低于该值的存活时间（避免抖动误判掉线） */
-export const P2P_DISCOVERY_MIN_PEER_TTL_MS = 100;
+const P2P_DISCOVERY_MIN_PEER_TTL_MS = 100;
 
 /** 单个信标载荷的硬上限（编码与解码两侧都强制，拒绝超长/畸形报文） */
 export const P2P_DISCOVERY_MAX_BEACON_BYTES = 4_096;
 
 /** 默认 socket 绑定/关闭/发送的兜底超时（毫秒），避免回调不触发时永久悬挂 */
-export const P2P_DISCOVERY_DEFAULT_BIND_TIMEOUT_MS = 3_000;
-export const P2P_DISCOVERY_DEFAULT_SEND_TIMEOUT_MS = 1_000;
-export const P2P_DISCOVERY_DEFAULT_CLOSE_TIMEOUT_MS = 1_000;
+const P2P_DISCOVERY_DEFAULT_BIND_TIMEOUT_MS = 3_000;
+const P2P_DISCOVERY_DEFAULT_SEND_TIMEOUT_MS = 1_000;
+const P2P_DISCOVERY_DEFAULT_CLOSE_TIMEOUT_MS = 1_000;
 
 const MAX_DEVICE_ID_CHARS = 128;
 const MAX_DEVICE_NAME_CHARS = 200;
@@ -220,7 +220,7 @@ function readBoundedString(
 }
 
 /** 校验并重建设备描述符（只保留已知字段，拒绝缺失/超长/非法值） */
-export function parseP2PBeaconDescriptor(value: unknown): P2PDeviceDescriptor {
+function parseP2PBeaconDescriptor(value: unknown): P2PDeviceDescriptor {
   const record = asRecord(value);
   if (!record) {
     throw new P2PDiscoveryError("beacon_invalid_fields", "信标 device 必须是对象");

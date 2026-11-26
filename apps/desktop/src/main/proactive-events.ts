@@ -8,6 +8,7 @@
  * 断线自动重连（指数退避封顶 60s）；连接建立即重放近期事件，由 actionId 去重。
  */
 import type { ProactivePresentationEvent } from '@aervox/contracts/proactive'
+import { parseSseJson } from '@aervox/api-client/sse'
 
 /** 动画别名表：插件声明的语义动画名 → 桌宠手势/表情指令 */
 export const PET_ANIMATION_ALIASES: Readonly<Record<string, {type: 'gesture' | 'emote'; value: string}>> = {
@@ -67,17 +68,9 @@ export function toPetCommands(event: ProactivePresentationEvent): ProactivePetCo
 }
 
 function parseSseFrame(frame: string): ProactivePresentationEvent | null {
-    const data = frame.split(/\r?\n/)
-        .filter((line) => line.startsWith('data:'))
-        .map((line) => line.slice(5).trim())
-        .join('')
-    if (!data) return null
-    try {
-        const parsed = JSON.parse(data) as ProactivePresentationEvent
-        return parsed?.kind === 'proactive.presentation' && parsed.actionId && parsed.message ? parsed : null
-    } catch {
-        return null
-    }
+    // 帧解析复用 @aervox/api-client 的唯一实现（此前本地版本用 join('') 粘连多行 data:）
+    const parsed = parseSseJson(frame) as ProactivePresentationEvent | undefined
+    return parsed?.kind === 'proactive.presentation' && parsed.actionId && parsed.message ? parsed : null
 }
 
 export function startProactiveEventStream(deps: ProactiveEventStreamDeps): {stop: () => void} {

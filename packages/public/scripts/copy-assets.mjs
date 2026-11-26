@@ -4,7 +4,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const source = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-export const publicAssetManifest = Object.freeze({mark: 'aervox-mark.svg', intro: 'aervox-intro'})
+const publicAssetManifest = Object.freeze({mark: 'aervox-mark.svg', intro: 'aervox-intro'})
 
 export function copyPublicAssets(target, { includeIntro = false } = {}) {
   const destination = resolve(target)

@@ -31,6 +31,7 @@ export {
   type UploadedAttachment,
 } from './transport';
 export { desktopTransport } from './desktop-transport';
+export { parseSseData, parseSseJson } from './sse';
 export {
   TurnStreamProjector,
   type TurnProjectorOptions,

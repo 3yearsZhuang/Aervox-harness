@@ -1,3 +1,7 @@
+---
+id: AVX-API-001
+---
+
 # HTTP API 约定
 
 HTTP 数据与操作的事实源是 `@aervox/contracts`；[流式协议](STREAMING_PROTOCOL.md)定义 Turn/SSE 状态、重连、幂等和取消；[插件规范](plugin-config-and-pages.md)定义扩展贡献。本文维护跨模块约定，不复制字段目录。生成文档通过 `/openapi.json` 读取。

@@ -122,10 +122,18 @@ export function mapTierToCapability(tier: ModelRoutingTier): CapabilityTier {
   }
 }
 
-/** 辅助函数：校验 URL 是否为严格本机回环地址（CR-023/ADR-018） */
+/**
+ * 校验 URL 是否字面指向本机回环地址（CR-023/ADR-018/ADR-035）。
+ *
+ * 这是本仓库对该问题的唯一实现；其他模块只消费，不另写副本。判定要求协议为
+ * http/https 且主机名为 localhost、127.0.0.1、::1 或 [::1] 之一，任一条件不满足
+ * 即返回 false。它不发起 DNS 解析，因此回答的是「URL 字面是否指向本机」，
+ * 不是「请求实际是否只到达本机」。
+ */
 export function isLiteralLoopbackUrl(urlString: string): boolean {
   try {
     const parsed = new URL(urlString);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
     const host = parsed.hostname.toLowerCase();
     return (
       host === "localhost" ||

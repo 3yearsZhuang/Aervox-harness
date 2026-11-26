@@ -1,0 +1,18 @@
+{
+  // Vue 单文件组件包的共享编译选项：packages/{ui,ui-host} 与
+  // plugins/surfaces/{companion-ui,workbench-ui} 此前各持一份逐字相同的配置。
+  // 只承载「SFC 需要的编译选项」，include/exclude 由各包自行声明（extends 会整体覆写）。
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "jsx": "preserve",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "noEmit": true
+  }
+}

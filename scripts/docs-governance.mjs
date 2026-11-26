@@ -11,6 +11,28 @@ const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const ROOT_DOCUMENTS = ["README.md", "AGENTS.md", "CONTRIBUTING.md", "CHANGELOG.md", "plan.md"];
 const ADR_STATUSES = new Set(["proposed", "accepted", "rejected", "superseded"]);
 
+/**
+ * plan.md 的体量与结构预算。
+ *
+ * 该文件曾从 78KB 涨到 255KB：每条 ITER 都追加当次运行的测试计数、提交号与
+ * 失败复验过程，导致同一缺口分散在多处、并持续过期。这里用可执行预算阻止回涨，
+ * 规则与 [CONTRIBUTING「当前迭代」](../CONTRIBUTING.md#plan-maintenance) 一致：
+ * 计划只写结论与链接，验证流水留在 PR/CI。
+ */
+export const PLAN_BUDGET = {
+  /**
+   * 整份计划的**棘轮上限**：只允许下降，上升即失败。
+   * 2026-11-26 卫生审计把 255KB 压到 ~150KB（已完成条目塌缩为结论 + PR 链接，
+   * 验证流水移出）。余下体量属于仍在进行的条目，其证据按维护者决定保留；
+   * 本次把上限钉在压缩后的实测值之上，使任何新增都必须先压缩同等体量。
+   */
+  maxBytes: 158 * 1024,
+  /** 单个 `### ITER-` 小节的上限；仍需展开的条目应拆出独立文档并链接。 */
+  maxSectionBytes: 20 * 1024,
+  /** 禁止用 `####` 按 PR 分节——这是流水回写的主要形态。 */
+  forbiddenHeading: /^####\s+(?:PR\s*#|PR\s*\d)/m,
+};
+
 function walk(directory) {
   if (!fs.existsSync(directory)) return [];
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -195,7 +217,89 @@ export function checkDocumentation(root = rootDir) {
     }
     for (const visited of chain) completed.add(visited);
   }
+  const planFile = path.join(root, "plan.md");
+  if (fs.existsSync(planFile)) errors.push(...checkPlanBudget(fs.readFileSync(planFile, "utf8")));
+  errors.push(...checkAdrIndex(root));
+  errors.push(...checkReferenceIds(documents));
   return { files: files.length, errors };
+}
+
+/**
+ * 校验 ADR 索引覆盖全部 ADR 文件。
+ *
+ * 索引由人工维护，此前没有任何门禁检查它是否跟上了新增的 ADR——ADR-035 加入时
+ * 就必须手工记得补索引，漏掉也不会报错。这类"导航静默落后于真源"正是本仓库
+ * 反复出现的漂移模式，因此改为可执行检查：每篇 ADR 都必须在索引里被链接。
+ *
+ * 只查"索引是否覆盖"，不查条目措辞——那仍需人写。
+ */
+export function checkAdrIndex(root = rootDir) {
+  const adrDirectory = path.join(root, "docs/reference/adr");
+  const indexPath = path.join(adrDirectory, "README.md");
+  if (!fs.existsSync(indexPath)) return [];
+  const index = fs.readFileSync(indexPath, "utf8");
+  const errors = [];
+  for (const entry of fs.readdirSync(adrDirectory, { withFileTypes: true })) {
+    if (!entry.isFile() || !/^ADR-\d{3}.*\.md$/.test(entry.name)) continue;
+    // 链接目标可能是裸文件名或带路径，两者都算已索引。
+    if (!index.includes(entry.name)) errors.push(`docs/reference/adr/${entry.name}: 未出现在 ADR 索引（docs/reference/adr/README.md）中`);
+  }
+  return errors;
+}
+
+/**
+ * 校验 plan.md 的体量与结构预算，返回错误说明（空数组表示合规）。
+ *
+ * 导出为独立函数以便测试直接构造超预算文本，而不必改动真实计划文件。
+ */
+export function checkPlanBudget(text) {
+  const errors = [];
+  const bytes = Buffer.byteLength(text, "utf8");
+  if (bytes > PLAN_BUDGET.maxBytes) {
+    errors.push(`plan.md 超出体量预算：${bytes} 字节 > ${PLAN_BUDGET.maxBytes}；已完成条目应塌缩为结论与 PR 链接`);
+  }
+  const lines = text.split("\n");
+  let start = -1;
+  let heading = "";
+  const flush = (end) => {
+    if (start < 0) return;
+    const size = Buffer.byteLength(lines.slice(start, end).join("\n"), "utf8");
+    if (size > PLAN_BUDGET.maxSectionBytes) {
+      errors.push(`plan.md 条目「${heading}」超出单条预算：${size} 字节 > ${PLAN_BUDGET.maxSectionBytes}；验证流水应留在 PR/CI`);
+    }
+  };
+  lines.forEach((line, index) => {
+    if (!/^### /.test(line)) return;
+    flush(index);
+    start = index;
+    heading = line.slice(4).trim();
+  });
+  flush(lines.length);
+  if (PLAN_BUDGET.forbiddenHeading.test(text)) {
+    errors.push("plan.md 不得用 `####` 按 PR 分节；同一变更的记录应合并为一段叙述");
+  }
+  return errors;
+}
+
+/**
+ * `docs/reference/` 下的契约文档必须声明稳定 ID。
+ *
+ * 该目录是产品范围、行为、架构与机器契约的事实源，其余 16 份都有 ID，只有
+ * `API_CONVENTIONS.md` 长期缺失——它是最重要的一份跨模块约定之一。缺 ID 不影响
+ * 阅读，却让「按稳定编号引用契约」这条约定对它失效，也让它与同目录其他文档不一致。
+ *
+ * 只约束 reference 目录：`CONTRIBUTING.md:70` 明确普通文档无需 Front Matter。
+ */
+export function checkReferenceIds(documents) {
+  const errors = [];
+  for (const doc of documents) {
+    if (!doc.relative.startsWith('docs/reference/')) continue;
+    // 兼容历史形式：部分索引文档用 <a id="..."> 锚点而非 front matter。
+    // 两者都算声明了稳定编号，接受其一即可。
+    const hasAnchor = /<a id="[^"]+"\s*><\/a>/.test(doc.text);
+    if (!doc.fields.id && !hasAnchor) errors.push(`${doc.relative}: docs/reference/ 下的契约文档必须声明 id`);
+  }
+  return errors;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

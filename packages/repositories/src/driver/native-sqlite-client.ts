@@ -41,7 +41,7 @@ export interface NativeSqliteTransport {
 }
 export type NativeSqliteClientErrorCode = "CLIENT_CLOSED" | "TRANSACTION_CLOSED" | "UNSUPPORTED_OPERATION"
   | "QUEUE_FULL" | "OUTCOME_UNKNOWN" | NativeSqliteRejectionCode;
-export class NativeSqliteClientError extends Error {
+class NativeSqliteClientError extends Error {
   constructor(readonly code: NativeSqliteClientErrorCode) { super(code); this.name = "NativeSqliteClientError"; }
 }
 const error = (code: NativeSqliteClientErrorCode) => new NativeSqliteClientError(code);

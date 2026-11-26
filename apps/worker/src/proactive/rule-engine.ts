@@ -52,7 +52,7 @@ export interface RuleEvaluation {
 }
 
 /** 判定样本「在场」的空闲上限（秒）：空闲 ≤ 5 分钟视为在场 */
-export const PRESENT_IDLE_SECONDS_MAX = 300;
+const PRESENT_IDLE_SECONDS_MAX = 300;
 
 const conditionNumber = (condition: unknown, key: string): number | null => {
   const raw = (condition as Record<string, unknown> | null)?.[key];
@@ -60,7 +60,7 @@ const conditionNumber = (condition: unknown, key: string): number | null => {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 };
 
-export function pluginRuleId(revisionId: string, pluginId: string, ruleId: string): string {
+function pluginRuleId(revisionId: string, pluginId: string, ruleId: string): string {
   return `rule_${revisionId}_plugin_${pluginId}_${ruleId}`;
 }
 

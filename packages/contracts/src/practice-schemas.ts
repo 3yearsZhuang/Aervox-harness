@@ -10,9 +10,6 @@ import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 // 必须在任何 schema 创建前调用：zod 4 的 .openapi 只对 extend 之后创建的 schema 生效
 extendZodWithOpenApi(z);
 
-/** 作答判定（与服务端判题协议一致） */
-export const judgementSchema = z.enum(["correct", "incorrect", "unverifiable"]);
-
 /** 练习/错题 API 暴露的题目项（QuestionModel 的对外视图） */
 export const practiceQuestionSchema = z.object({
   id: z.string(),

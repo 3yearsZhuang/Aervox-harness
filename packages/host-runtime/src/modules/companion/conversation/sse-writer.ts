@@ -2,7 +2,7 @@ import { projectSafeEventData, type PluginApiRegistry } from "@aervox/contracts"
 import type { TurnStreamEventModel } from "@aervox/repositories";
 
 /** Local connection protection, not a Turn deadline or a payload quota. */
-export const SSE_DRAIN_TIMEOUT_MS = 30_000;
+const SSE_DRAIN_TIMEOUT_MS = 30_000;
 
 export interface SseWritable {
   write(frame: string): boolean;

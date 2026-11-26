@@ -231,3 +231,5 @@ export * from "./voice-api.js";
 export * from "./persona-api.js";
 export * from "./mcp-api.js";
 export * from "./llm-api.js";
+export * from "./redaction.js";
+export * from "./diary-marker.js";

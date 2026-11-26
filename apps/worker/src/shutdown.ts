@@ -2,7 +2,7 @@ import type { Server } from "node:http";
 import type { LoggerPort } from "@aervox/observability";
 import type { WorkerHost } from "./worker-host.js";
 
-export const DEFAULT_WORKER_SHUTDOWN_TIMEOUT_MS = 20_000;
+const DEFAULT_WORKER_SHUTDOWN_TIMEOUT_MS = 20_000;
 type ShutdownPhase = "cancel" | "drain" | "runtime" | "health" | "database";
 
 /** One signal owner and one deadline; database handles outlive async teardown. */

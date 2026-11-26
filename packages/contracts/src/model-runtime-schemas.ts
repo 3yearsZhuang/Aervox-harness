@@ -11,9 +11,6 @@ export const modelRuntimeStatusSchema = z.enum([
   "stopping",
   "error",
 ]);
-/** @deprecated 兼容既有命名，请优先使用 modelRuntimeStatusSchema */
-export const llamaRuntimeStatusSchema = modelRuntimeStatusSchema;
-
 /** 已下载 / 下载中的本地模型条目（以 <models>/<file>.json 侧车元数据为真源） */
 export const localModelSchema = z.object({
   id: z.string().min(1),
@@ -35,18 +32,12 @@ export const modelRuntimeParamsSchema = z.object({
   gpuLayers: z.number().int().min(0).default(99),
   threads: z.number().int().positive().default(4),
 });
-/** @deprecated 兼容既有命名，请优先使用 modelRuntimeParamsSchema */
-export const llamaRuntimeParamsSchema = modelRuntimeParamsSchema;
-
 /** 运行指标采样（非持久化） */
 export const modelRuntimeMetricSampleSchema = z.object({
   at: z.string().datetime(),
   tokensPerSec: z.number().nonnegative().optional(),
   promptTokensPerSec: z.number().nonnegative().optional(),
 });
-/** @deprecated 兼容既有命名，请优先使用 modelRuntimeMetricSampleSchema */
-export const llamaMetricSampleSchema = modelRuntimeMetricSampleSchema;
-
 /** 下载任务（多任务队列；状态机 queued→running→done|error|cancelled|paused，paused 可 resume） */
 export const downloadTaskSchema = z.object({
   id: z.string().min(1),

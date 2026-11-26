@@ -45,6 +45,7 @@ ADR 中带日期的背景、实施进展和验收差距是对应时点的记录�
 - [ADR-032](ADR-032-plugin-ecosystem-standard.md)：插件生态标识、分类、Registry、发布与显式身份迁移。
 - [ADR-033](ADR-033-assistant-positioning.md)：产品定位为主动个人助手，学习域为首批验证切片。
 - [ADR-034](ADR-034-postgresql-database-plugin.md)：可选 PostgreSQL 主库、SQLite 离线迁移、首次选用资格、激活后宿主所有权与远端隐私拒绝。
+- [ADR-035](ADR-035-loopback-endpoint-identity.md)：本机回环端点的唯一判定：接受 `localhost`、强制 http(s)、单点于 `@aervox/contracts`。
 
 ## 原 CR 编号迁移索引
 

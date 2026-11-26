@@ -3,7 +3,9 @@ id: AGO-ADR-001
 decision_status: proposed
 ---
 
-# ADR-001：Android 端引入 PRoot Linux 运行时，数据真源迁入 rootfs
+# AGO-ADR-001：Android 端引入 PRoot Linux 运行时，数据真源迁入 rootfs
+
+> 这是**移植路线的提案**，属 `AGO-ADR-` 命名空间，与本仓库的 [ADR-001](../../../reference/adr/ADR-001-modular-monolith.md)（模块化单体）无关，也不受 [ADR 索引](../../../reference/adr/README.md) 的编号约束。
 
 ## 状态
 

@@ -78,7 +78,7 @@ export function isWithinQuietHours(now: Date, window: QuietHoursWindow | null | 
 }
 
 /** 冷却判定：lastTriggeredAt + cooldownSeconds > now 即仍在冷却 */
-export function isCoolingDown(now: Date, lastTriggeredAt: string | null | undefined, cooldownSeconds: number): boolean {
+function isCoolingDown(now: Date, lastTriggeredAt: string | null | undefined, cooldownSeconds: number): boolean {
   if (!lastTriggeredAt || cooldownSeconds <= 0) return false;
   const last = Date.parse(lastTriggeredAt);
   if (Number.isNaN(last)) return false;

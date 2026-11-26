@@ -17,7 +17,7 @@ export interface AutoRecallEligibilityInput {
 }
 
 /** 自动召回允许的记忆分级（其余一律拒绝：sensitive/restricted/unknown/未分级） */
-export const AUTO_RECALL_SENSITIVITY_ALLOWLIST: readonly string[] = ["public", "normal"];
+const AUTO_RECALL_SENSITIVITY_ALLOWLIST: readonly string[] = ["public", "normal"];
 
 /** 记录级自动召回资格（纯函数；不作为用户主动查看历史的权限判据） */
 export function isAutoRecallEligible(record: AutoRecallEligibilityInput): boolean {

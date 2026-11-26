@@ -50,7 +50,7 @@ API 组合根显式装配第一方 Bot 传输贡献，共用会话受理与完�
 
 | 层 | 选择 | 约束 |
 |---|---|---|
-| Runtime | Node.js 24 LTS | `engines`、容器和 CI 精确锁定；参考仓库最低 Node 22.19，适配器独立兼容 |
+| Runtime | Node.js 24 LTS（[mise.toml](../../mise.toml) 固定精确版本） | 日常开发与 CI 一律经 mise 使用该版本；根 `engines` 声明的是可接受下界 `>=22.19`，不是精确版本。参考仓库最低 Node 22.19，适配器独立兼容 |
 | Language/build | TypeScript strict、pnpm、Turborepo | 工具和依赖版本分别取 [mise.toml](../../mise.toml)、[根包清单](../../package.json)与锁文件，不在架构表另行冻结；升级需通过契约/安全测试 |
 | Web | Vue 3、Vite 7、Element Plus（Vue 全栈单栈，见 ADR-015） | Web 复用桌面端 renderer 核心（composables/主题），首发是登录后流式应用；不依赖任何框架私有后端能力 |
 | UI/editor | Element Plus + 定制主题（迁移自 desktop styles）、CodeMirror 6 | 组件共享、键盘可用和 WCAG 2.2 AA |

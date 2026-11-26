@@ -17,6 +17,7 @@ import {
     toCapabilityProbe,
     type ProactiveWideSourceId,
 } from './proactive-source-adapters'
+import {redactCredentialMaterial} from '@aervox/contracts'
 import {startProactiveEventStream, toPetCommands} from './proactive-events'
 import type {
     ProfileAuthorizationRequest,
@@ -261,20 +262,6 @@ function sourceGrantState(capability: ProfileCapabilityState): 'requested' | 'gr
     if (capability.osStatus === 'granted') return 'granted'
     if (capability.osStatus === 'denied' || capability.osStatus === 'unavailable') return 'denied'
     return 'requested'
-}
-
-function redactCredentialMaterial(value: string): string {
-    return value
-        .replace(
-            /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/gi,
-            '[已排除私钥]',
-        )
-        .replace(/\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g, '[已排除访问密钥]')
-        .replace(/\beyJ[a-zA-Z0-9_-]{8,}\.[a-zA-Z0-9_-]{8,}\.[a-zA-Z0-9_-]{8,}\b/g, '[已排除令牌]')
-        .replace(
-            /\b(password|passwd|passcode|token|api[_-]?key|secret|authorization|bearer)\b\s*[:=]\s*([^\s,;]+)/gi,
-            (_match, key: string) => `${key}=[已排除凭据]`,
-        )
 }
 
 function profileSources(status: ProactiveProfileStatus) {

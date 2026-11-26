@@ -67,24 +67,24 @@ import {
 /** 传输协议版本（独立于 `P2P_PROTOCOL_VERSION` 与 `P2P_PAIRING_PROTOCOL_VERSION`） */
 export const P2P_TRANSPORT_PROTOCOL_VERSION = "v1";
 /** 分帧长度前缀字节数（4 字节大端） */
-export const P2P_FRAME_HEADER_BYTES = 4;
+const P2P_FRAME_HEADER_BYTES = 4;
 /** 单帧硬上限（8 MiB）：编码与解码两侧都强制 */
-export const P2P_MAX_FRAME_BYTES = 8 * 1024 * 1024;
+const P2P_MAX_FRAME_BYTES = 8 * 1024 * 1024;
 /** 同一连接最多缓存的未消费帧数（防止对端刷帧造成无界内存增长） */
-export const P2P_MAX_PENDING_FRAMES = 8;
-export const P2P_DEFAULT_CONNECT_TIMEOUT_MS = 5_000;
-export const P2P_DEFAULT_READ_TIMEOUT_MS = 20_000;
-export const P2P_DEFAULT_WRITE_TIMEOUT_MS = 20_000;
-export const P2P_DEFAULT_HANDSHAKE_TIMEOUT_MS = 20_000;
-export const P2P_DEFAULT_ACK_TIMEOUT_MS = 5_000;
-export const P2P_DEFAULT_VERIFICATION_TIMEOUT_MS = 60_000;
-export const P2P_DEFAULT_CLOSE_GRACE_MS = 500;
+const P2P_MAX_PENDING_FRAMES = 8;
+const P2P_DEFAULT_CONNECT_TIMEOUT_MS = 5_000;
+const P2P_DEFAULT_READ_TIMEOUT_MS = 20_000;
+const P2P_DEFAULT_WRITE_TIMEOUT_MS = 20_000;
+const P2P_DEFAULT_HANDSHAKE_TIMEOUT_MS = 20_000;
+const P2P_DEFAULT_ACK_TIMEOUT_MS = 5_000;
+const P2P_DEFAULT_VERIFICATION_TIMEOUT_MS = 60_000;
+const P2P_DEFAULT_CLOSE_GRACE_MS = 500;
 /**
  * 通道失败后延迟销毁 socket 的兜底时长。
  * 故意不立即 destroy：上层 catch 仍有一次机会把错误帧回执给对端（否则对端只会看到"连接被重置"），
  * 但超时后一定销毁，绝不留下半开连接。
  */
-export const P2P_FAIL_CLOSE_GRACE_MS = 1_000;
+const P2P_FAIL_CLOSE_GRACE_MS = 1_000;
 const VERIFICATION_POLL_INTERVAL_MS = 25;
 const BEST_EFFORT_ERROR_TIMEOUT_MS = 1_000;
 
@@ -144,7 +144,7 @@ export class P2PFrameError extends P2PTransportError {
 }
 
 /** 协议层错误（版本不符、未知 kind、字段非法） */
-export class P2PTransportProtocolError extends P2PTransportError {
+class P2PTransportProtocolError extends P2PTransportError {
   constructor(
     code: Extract<
       P2PTransportErrorCode,
@@ -273,7 +273,7 @@ export type P2PTransportMessage =
 export type P2PTransportMessageKind = P2PTransportMessage["kind"];
 
 /** 已知报文类型白名单（未知 kind 一律拒绝） */
-export const P2P_TRANSPORT_MESSAGE_KINDS: readonly P2PTransportMessageKind[] = [
+const P2P_TRANSPORT_MESSAGE_KINDS: readonly P2PTransportMessageKind[] = [
   "pairing_invitation",
   "pairing_response",
   "pairing_reveal",
@@ -475,7 +475,7 @@ function readCount(record: Record<string, unknown>, field: string, context: stri
  * 校验并重建对端回传的合并报告。
  * 对端数据一律不可信：未知字段被丢弃，取值/结构非法即拒绝整个报文。
  */
-export function parseSyncMergeResult(value: unknown, context = "sync_result.mergeResult"): SyncMergeResult {
+function parseSyncMergeResult(value: unknown, context = "sync_result.mergeResult"): SyncMergeResult {
   const record = requireRecord(value, context);
   const skippedTablesRaw = record.skippedTables;
   const rejectedTablesRaw = record.rejectedTables;

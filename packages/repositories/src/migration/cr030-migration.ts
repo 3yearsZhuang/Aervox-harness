@@ -3,7 +3,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { Client } from "@libsql/client";
 
-export const CR030_PHASES = [
+const CR030_PHASES = [
   "planned",
   "quiesced",
   "backup_verified",
@@ -56,7 +56,7 @@ const transitions: Readonly<Record<Cr030Phase, readonly Cr030Phase[]>> = {
   completed: [],
 };
 
-export function canAdvanceCr030Phase(from: Cr030Phase, to: Cr030Phase): boolean {
+function canAdvanceCr030Phase(from: Cr030Phase, to: Cr030Phase): boolean {
   return transitions[from].includes(to);
 }
 

@@ -33,6 +33,7 @@ id: AVX-DOC-001
 | AI 质量、安全威胁、隐私责任 | [AI 质量与安全](reference/AI_QUALITY_SAFETY.md)、[威胁模型](reference/THREAT_MODEL.md)、[数据隐私](reference/DATA_PRIVACY.md) |
 | 设计、测试与运行维护 | [交互设计](reference/DESIGN.md)、[测试策略](reference/TEST_STRATEGY.md)、[运行手册](reference/operations.md) |
 | 看界面方向与可交互 demo | [「朝夕」demo](proposals/companion-vision-2026/miuix.html)（静态模拟素材 · MIUI X 视觉参考）、[学习域三端方案](proposals/ui-redesign-2026/index.html)、[定位决定 ADR-033](reference/adr/ADR-033-assistant-positioning.md) |
+| 看未采纳的方向、原型与建议稿 | [提案与设计稿](proposals/README.md) |
 | 执行具体工程操作 | [操作指南](how-to/README.md) |
 | 理解研究背景与未来方案 | [解释与研究](explanation/README.md) |
 
@@ -58,6 +59,7 @@ id: AVX-DOC-001
 | [apps/web/README](../apps/web/README.md) | Web 工作台开发与技术栈 |
 | [apps/api/README](../apps/api/README.md) | API 服务配置与启动 |
 | [apps/cli/README](../apps/cli/README.md) | CLI 终端入口使用说明 |
+| [apps/worker/README](../apps/worker/README.md) | 后台任务进程的调度模型、数据边界与启动 |
 | [apps/mobile/README](../apps/mobile/README.md) | Android 工程构建指引 |
 | [packages/core/README](../packages/core/README.md) | Agent 内核独立开发 |
 | [plugins/README](../plugins/README.md) | 插件生态入口 |

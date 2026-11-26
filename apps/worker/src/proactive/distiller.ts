@@ -5,6 +5,11 @@
  * 带来源证据的画像记忆候选，并在持久化前剔除凭据与私钥材料。
  */
 import type { ProactiveCaptureModel } from "@aervox/repositories";
+// 凭据脱敏单点于 @aervox/observability（ADR-035 同类收敛）；此处保留具名转出，
+// 让既有调用方与测试不必改动 import 路径。
+import { redactCredentialMaterial } from "@aervox/contracts";
+
+export { redactCredentialMaterial };
 
 export interface DistilledProfileMemory {
   claimType: string;
@@ -42,21 +47,6 @@ const SOURCE_LABELS: Record<string, { claimType: string; label: string }> = {
 };
 
 const MAX_MEMORY_LENGTH = 4_000;
-
-/** 删除可直接用于认证的材料；画像仍可保留非凭据型私人内容。 */
-export function redactCredentialMaterial(value: string): string {
-  return value
-    .replace(
-      /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/gi,
-      "[已排除私钥]",
-    )
-    .replace(/\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g, "[已排除访问密钥]")
-    .replace(/\beyJ[a-zA-Z0-9_-]{8,}\.[a-zA-Z0-9_-]{8,}\.[a-zA-Z0-9_-]{8,}\b/g, "[已排除令牌]")
-    .replace(
-      /\b(password|passwd|passcode|token|api[_-]?key|secret|authorization|bearer)\b\s*[:=]\s*([^\s,;]+)/gi,
-      (_match, key: string) => `${key}=[已排除凭据]`,
-    );
-}
 
 function stableValue(value: unknown): string {
   if (typeof value === "string") {

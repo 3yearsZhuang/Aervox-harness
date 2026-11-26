@@ -26,7 +26,7 @@ export interface DiaryStyle {
 }
 
 /** 桌宠亲密随笔风格（思思第一人称，默认） */
-export const companionStyle: DiaryStyle = {
+const companionStyle: DiaryStyle = {
   id: "companion",
   name: "桌宠亲密随笔",
   description: "以桌宠第一人称记录当天的互动与陪伴感受，自然温暖，口语化随笔",
@@ -68,7 +68,7 @@ export const companionStyle: DiaryStyle = {
 };
 
 /** 学习与认知复盘风格 */
-export const growthStyle: DiaryStyle = {
+const growthStyle: DiaryStyle = {
   id: "growth",
   name: "认知与学习复盘",
   description: "聚焦当日答题练习、学习目标推进与知识掌握反思，条理清晰的沉淀报告",
@@ -129,7 +129,7 @@ export const growthStyle: DiaryStyle = {
 };
 
 /** 极简量化记录风格 */
-export const conciseStyle: DiaryStyle = {
+const conciseStyle: DiaryStyle = {
   id: "concise",
   name: "极简量化记录",
   description: "以高信息密度、极简要点列表呈现当日关键活动与指标",

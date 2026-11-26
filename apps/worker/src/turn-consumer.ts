@@ -2,7 +2,7 @@ import type { IOutboxRepository, OutboxEventModel } from "@aervox/repositories";
 import type { ConversationHost } from "@aervox/host-runtime";
 import type { OutboxEventHandler } from "./outbox-worker.js";
 
-export const DELEGATED_TURN_EVENT = "agent.turn.requested";
+const DELEGATED_TURN_EVENT = "agent.turn.requested";
 type TurnConsumerHost = {
   queries: Pick<ConversationHost["queries"], "inspectDelegatedTurn">;
   commands: Pick<ConversationHost["commands"], "execute">;

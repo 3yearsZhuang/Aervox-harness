@@ -25,7 +25,7 @@ function privateAddress(address: string): boolean {
   return lower.startsWith("fc") || lower.startsWith("fd") || lower.startsWith("fe80:");
 }
 
-export async function assertPrivateHomeAssistantEndpoint(endpoint: string): Promise<URL> {
+async function assertPrivateHomeAssistantEndpoint(endpoint: string): Promise<URL> {
   const url = new URL(endpoint);
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new Error("home_assistant_endpoint_requires_http_or_https");

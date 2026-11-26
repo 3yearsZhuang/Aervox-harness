@@ -57,14 +57,14 @@ export interface PostgresQueryRuntime {
   closeAsync(): Promise<void>;
 }
 
-export class PostgresCommitOutcomeUnknownError extends Error {
+class PostgresCommitOutcomeUnknownError extends Error {
   readonly code = "POSTGRES_COMMIT_OUTCOME_UNKNOWN";
   constructor(cause: unknown) {
     super("PostgreSQL commit acknowledgement was lost; verify the durable receipt before retrying", { cause });
     this.name = "PostgresCommitOutcomeUnknownError";
   }
 }
-export class PostgresConnectionUncertainError extends Error {
+class PostgresConnectionUncertainError extends Error {
   readonly code = "POSTGRES_CONNECTION_OUTCOME_UNCERTAIN";
   constructor(cause: unknown) {
     super("PostgreSQL connection state is uncertain; this handle cannot admit further work", { cause });

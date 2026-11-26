@@ -4,6 +4,8 @@
 
 ## 1. 当前判断与执行顺序
 
+**当前基线（唯一真源，随 gitlink 更新）：** 主仓 `aa405504`、Core `78510f51`、插件 `3aafc1ef`。历史段落中出现的某个提交是**当时**的验证对象，不代表当前检出版本；需要历史证据时按其中的 PR 与提交号回查。
+
 2026-11-07 合入基线：主仓 `4ae535c7`（[PR #362](https://github.com/3yearsZhuang/Aervox-harness/pull/362)）、Core `208d28ce26de4651a258ef208d21479e22ab315f`、插件 `bad07ef7305c85101c936a99737f67e7940d1f7d`（[集合 PR #12](https://github.com/Aervox-agent/Aervox-plugins/pull/12)）。手机前台对话、学习、人格/日记、系统输入与备份导出已有代码和自动化证据；设备失败回执、导出预算、分享会话身份与删除草稿竞态已修。维护者选择下一阶段聚焦**主动个人助手产品与界面整合**：沿 ITER-053/059/061 先把首页、连续对话、真实建议与行动结果串成一个日常闭环，Android 真机/M0 与签名按 ITER-009 并行接续。主线同版恢复存在已确认的删除历史缺口；[PR #359](https://github.com/3yearsZhuang/Aervox-harness/pull/359) 的统一恢复拒绝已由 `c7ccc736` 合入；所有安装在解析与 SQL 前拒绝恢复。该拒绝防线先于真实数据验收与内测；完整删除事实与安全恢复仍未完成。
 
 共享传输、Attempt、领域事务、Conversation Port、Page 登记代际、LLM/CLI、长期消息及历史分页的既有交付仍保留，但 **ITER-071 尚未完全实现设计**；主线 `f94ebfd6` 及 PR #326/#327/#328/#330/#331/#332/#333 的历史证据由原 PR 保存。下表是接续优先级，规划不代替待决定事项，也不提高 CAP 或发布状态。
@@ -24,70 +26,35 @@
 
 同一缺口只在对应 ITER 维护；上表用于导航。已有切片、未完成设计、外部环境验收和正式发布分别陈述；不设未经确认的日期、平台顺序或采购承诺。
 
-**本轮接续验证：** `fix/plan-safety-contract-continuation` 的新 `./aervox ci all` 退出 0，构建 32、类型 56 个任务及守卫、OpenAPI 兼容、HLS、删除故障、Native Search/Runtime 与 64 份文档门禁通过；API 947、仓储 742、Worker 161、Host Runtime 306、Core 501、Host Agent 121、客户端 218、Panels 157、工作台 11 项通过，1 项既有真实模型跳过保留、不计通过。相关 Chromium 3 项和依赖审计另验通过（0 未审阅、2 既有审阅路径、0 过时例外）。全量先捕获 OpenAPI 预算，再捕获工作台旧简化插件夹具造成的 8 项失败；分别通过组件复用和完整响应夹具修复，重新全量通过。随后仅补验证记录并复验文档，新提交远端结果由接续 PR 保存；负载演练的 NOT CLEAN、真实环境及全计划未闭合项仍按各条保留。
+**本轮接续验证：** `fix/plan-safety-contract-continuation` 的新 `./aervox ci all` 退出 0，构建 32、类型 56 个任务及守卫、OpenAPI 兼容、HLS、删除故障、Native Search/Runtime 与 文档门禁通过；API 947、仓储 742、Worker 161、Host Runtime 306、Core 501、Host Agent 121、客户端 218、Panels 157、工作台 11 项通过，1 项既有真实模型跳过保留、不计通过。相关 Chromium 3 项和依赖审计另验通过（0 未审阅、2 既有审阅路径、0 过时例外）。全量先捕获 OpenAPI 预算，再捕获工作台旧简化插件夹具造成的 8 项失败；分别通过组件复用和完整响应夹具修复，重新全量通过。随后仅补验证记录并复验文档，新提交远端结果由接续 PR 保存；负载演练的 NOT CLEAN、真实环境及全计划未闭合项仍按各条保留。
 
 <a id="core-repository-migration"></a>
 
 ### ITER-035 接续 · 已移交：Core 独立仓库与必需子模块
 
-维护者已授权将 `packages/core` 迁至 `Aervox-agent` 组织下的公开 [Aervox-core](https://github.com/Aervox-agent/Aervox-core)，再以固定提交的 Git submodule 接回原路径。沿用 [ADR-021](docs/reference/adr/ADR-021-aervox-core-standalone-package.md#仓库分离与主仓集成) 和 ITER-035/037，不分配并行编号；主仓工作分支 `feat/core-submodule` 从已合并 `9e4f047a` 隔离接续，保留 Android 和其他并行工作。
+维护者已授权将 `packages/core` 迁至 `Aervox-agent` 组织下的公开 [Aervox-core](https://github.com/Aervox-agent/Aervox-core)，再以固定提交的 Git submodule 接回原路径，沿用 [ADR-021](docs/reference/adr/ADR-021-aervox-core-standalone-package.md#仓库分离与主仓集成) 与 ITER-035/037，不分配并行编号。
 
-- **范围：** 保留 Core 路径过滤历史、真人提交者及 Apache-2.0；生产源码与公共 API 保持兼容，补齐独立配置和 CI；主仓继续通过 workspace 消费，业务 Schema 类型兼容证明留在宿主。主仓产品与文档许可保持原有边界。
-- **安装与门禁：** 首次安装和 CI 精确初始化必需 Core，缺失或版本失配明确失败；受跟踪源码继续参与安全与架构扫描。`reference/` 保持可选，仅完整门禁按需初始化 DSH 夹具。独立和主仓锁文件分别验证，不在子包重复安装主仓依赖。
-- **验收与交付：** 独立仓库与主仓分别核对冷检出、冻结安装、构建/类型/测试、公开远端可获取的 gitlink 及新的全量门禁。主仓 [PR #348](https://github.com/3yearsZhuang/Aervox-harness/pull/348) 保存精确提交远端检查与合入状态；本批源码迁移不代表公开 npm 发行或产品发布。
-- **独立仓库：** [Core PR #1](https://github.com/Aervox-agent/Aervox-core/pull/1) 保留过滤历史合入，[PR #2](https://github.com/Aervox-agent/Aervox-core/pull/2) 补齐宿主缓存忽略；主仓固定公开 `main` 的 `208d28ce26de4651a258ef208d21479e22ab315f`。真正公开远端冷克隆的冻结安装、构建、类型检查和 62 文件 498 项测试全部通过，源码树与许可证和拆分前完全一致，工作区干净。独立锁文件审计无已知命中。
-- **主仓本地验证：** 新的 `./aervox ci all` 退出 0，构建 32、类型 56、测试 57 个任务通过；API 983、仓储 893、Worker 161、Host Runtime 306、Core 498 项通过，Host Agent 128 项通过、2 项条件跳过保留。116 项守卫、HLS、删除故障、Native Search/Runtime 和 64 份文档门禁通过；依赖审计 0 未审阅、2 既有审阅、0 过时例外。首次全量捕获旧启动/增量夹具未复制新增脚本，补齐后重新全量通过。独立复审发现并修正 Turbo 下游过滤方向及缺 Core 时直接命令的准入检查，真实任务图与残留旧产物反例通过；宿主兼容证明实际编译通过，人为类型漂移被编译器拒绝。
-- **主仓公开冷检出：** 公开分支的代码提交 `1c2fe7c5` 在独立临时克隆中先验证缺 Core 明确拒绝，再经 `mise tasks run install` 自动只初始化 Core 并冻结安装根依赖；8 个参考子模块均保持未初始化。冷构建 32、类型 56 个任务及 Core 498、Host Runtime 306 项测试通过，父仓与 Core 工作区均干净。后续只补本条交付记录并复验文档，精确提交远端结果仍由 PR 保存。
+**结果：** Core 保留路径过滤历史、真人提交者与 Apache-2.0；生产源码与公共 API 兼容；主仓经 workspace 消费，业务 Schema 类型兼容证明留在宿主。首次安装与 CI 精确初始化必需 Core，缺失或版本失配明确失败；`reference/` 保持可选，仅完整门禁按需初始化 DSH 夹具。独立仓库与主仓分别核对冷检出、冻结安装、构建/类型/测试与公开远端 gitlink。冷克隆验证了缺 Core 明确拒绝，`mise tasks run install` 只初始化 Core 并冻结安装根依赖，8 个参考子模块保持未初始化。
+
+**边界：** 源码迁移不代表公开 npm 发行或产品发布。精确提交的远端检查与合入状态由 [PR #348](https://github.com/3yearsZhuang/Aervox-harness/pull/348)、[Core PR #1](https://github.com/Aervox-agent/Aervox-core/pull/1)、[PR #2](https://github.com/Aervox-agent/Aervox-core/pull/2) 保存。
 
 <a id="iter-073"></a>
 
 ### ITER-073 · 已移交：第一方插件组织集合仓与固定接入
 
-维护者已接受在 `Aervox-agent` 组织建立 `Aervox-plugins` 集合仓，整体以固定提交的 Git submodule 挂载到 `plugins/`，保留现有包名、接口与默认产品组成。决定见已接受 [ADR-031](docs/reference/adr/ADR-031-first-party-plugin-repositories.md)，原规划由 [PR #349](https://github.com/3yearsZhuang/Aervox-harness/pull/349) 保存；本批从主线 `119dbf2067337153724830094fc304e096bfdf28` 隔离实施，同步修订 ADR-016 和 ITER-026 的源码托管限制。
+维护者已接受在 `Aervox-agent` 建立 `Aervox-plugins` 集合仓，整体以固定提交 submodule 挂载到 `plugins/`，保留包名、接口与默认产品组成。决定见 [ADR-031](docs/reference/adr/ADR-031-first-party-plugin-repositories.md)，同步修订 ADR-016 与 ITER-026 的源码托管限制。
 
-冻结提取输入为该主线的 3 个有代码插件和 6 个声明式插件，共 71 个受跟踪文件。保留目录过滤历史、真人作者与原许可，集合仓仍需在固定宿主内由根工具链和根锁编排。FlowCampus 的 [PR #347](https://github.com/3yearsZhuang/Aervox-harness/pull/347)（ITER-072）尚未合入，本批不等待或捎带其并行业务；该 PR 后续须重基到集合仓与主仓集成边界，不从开发分支或未提交工作树提取。
+**结果：** 3 个有代码插件与 6 个声明式插件（71 个受跟踪文件）保留目录过滤历史、真人作者与原许可；集合仓在固定宿主内由根工具链和根锁编排，不在插件目录单独安装。产品子模块准入、受跟踪扫描与清理保护扩展到集合仓；真实 Git 回归覆盖缺失、错 SHA、冲突索引、包名漂移、嵌套 gitlink、凭据漏扫与忽略子模块配置。
 
-| 范围 | 本批交付 | 验收证据 |
-|---|---|---|
-| 仓库与默认组成 | 提取到 `Aervox-agent/Aervox-plugins`，主仓只记录一个 `plugins` gitlink；保留三包公共出口、九份 Manifest、默认 P0 和显式装配 | 九目录及 71 个原文件的模式/blob 校验一致，原许可和真人过滤历史保留；公开候选与最终提交均可获取 |
-| 工程准入 | 多产品源码登记、精确初始化、扫描/清理保护和增量覆盖；统一批量打包与内置 HTTP 导出安全边界 | 缺失/错 SHA/缺 gitlink/旧缓存拒绝与真实 Turbo 输入回归通过；九插件声明检查和可重现打包通过，未知条目、源码/凭据及符号链接边界另有回归 |
-| 两仓开发 | 集合仓 CI 固定兼容宿主 SHA，在宿主根冻结安装、构建、类型与测试；主仓配对 gitlink 与根锁 | 集合候选完整 CI 通过后保留历史合入，主仓固定最终合并 SHA 并比树/冻结安装复验；精确提交结果由两仓 PR 保存 |
-
-本批已将产品子模块准入、受跟踪扫描与清理保护扩展到集合仓，内置 HTTP 导出复用声明资源允许清单；已安装 generation 仍原包导出。真实 Git 回归覆盖缺失、错 SHA、冲突索引、包名漂移、嵌套 gitlink、凭据漏扫与忽略子模块配置；真实 Turbo 输入覆盖九份 Manifest 及插件源码。
-
-**首批本地验证：** 九个插件目录树与冻结主线逐一相同，71 个原有文件、包名、公共入口及默认组合根保持。根冻结安装、`./aervox ci all`（构建 32、类型 56、测试 57 个任务及 Native、HLS、删除故障和 65 份文档门禁）、九插件检查与可重现打包均通过。独立审计发现既有锁文件的新增公告，以单独提交将 `qs@6.16.0` 精确修至 `6.16.1`，桌面构建、类型和 156 项测试通过。当时审计从 103 降至 3 条未审阅路径，均为研究依赖 `deepmerge@4.3.1` 的 [GHSA-gcqx-w48m-w2h4](https://github.com/advisories/GHSA-gcqx-w48m-w2h4)，审计退出 1；后续本地补丁与精确限期审阅见下文，保留原失败证据。
-
-**公开冷检出与回退：** 公开 `586eb8b5` 在独立克隆中验证缺 Core/Plugins 明确拒绝，标准安装只初始化两个产品子模块，8 个参考库保持未初始化；冷构建 32（零缓存）、类型 56 个任务以及三插件 105、Host Runtime 58、API 39 项定向测试通过。`119dbf20` 普通目录与迁出 gitlink 往返恢复后父子仓干净，临时业务数据哨兵保持。上一轮代码 `5e9c98ab` 固定集合 `ffb7058b`，再次公开获取、冻结安装和 71 文件模式/blob 核对通过；仅 qs 补丁及集合 CI/README 元数据变化，前述冷测与最终提交复验分开记录。
-
-**第二轮全量复验：** qs 补丁与集合引用接入后的第二次 `./aervox ci all` 退出 0；构建 32、类型 56、测试 57 个任务及 Native、HLS、删除故障和 65 份文档门禁再次通过。当时依赖审计的 3 条研究路径仍失败，后续按下述本地补丁流程闭合。
-
-**上轮交付边界：** [集合仓 PR #1](https://github.com/Aervox-agent/Aervox-plugins/pull/1) 与 [主仓 PR #350](https://github.com/3yearsZhuang/Aervox-harness/pull/350) 保存两仓评审和精确提交远端检查。上一轮集合 CI 固定宿主 `c6094603`，完整宿主门禁成功但独立依赖审计失败；当时两仓尚未合入。该失败历史保留，不作为当前通过证据。
-
-**审计接续：** 上游 `deepmerge` 仍未发行修复，本轮以根 `patchedDependencies` 覆盖 `index.js`、CJS/UMD 发布物的三个原型写入位置，版本、许可和正常合并接口保持。原安装包已复现返回对象原型污染；补丁登记、锁定哈希、三个实际依赖路径和漏洞回归是审计前置，通用公告评估未放宽。三条研究路径按本地修复精确审阅至 2026-11-13，注册表仍报告原版本，不等于上游已经修复。
-
-**本轮验证：** 兼容宿主 `21400c8a` 的新 `./aervox ci all` 退出 0，补丁守卫 6 项、研究集成 10 项、根冻结 `--ignore-scripts` 安装及独立复审通过；审计为 0 未审阅、5 已审阅、0 过时。公开独立克隆中的 `21400c8a` + 集合 `8fe5743` 配对再次冻结安装、审计和研究集成通过，71 文件模式/blob、三包清单保持，临时数据哨兵保留。当前集合 CI 固定该兼容宿主 SHA；默认基线不追逐最终宿主合并提交，避免双方元数据引用循环。
-
-**最终交付：** [集合仓 PR #1](https://github.com/Aervox-agent/Aervox-plugins/pull/1) 的候选 `8fe5743` 在固定宿主 `21400c8a` 上完整门禁与审计全部通过后，以保留历史的合并提交 `695c60be0a6a10229146a1f72aeadbc6e4cfd560` 合入。该提交与已测候选整树一致；主仓 [PR #350](https://github.com/3yearsZhuang/Aervox-harness/pull/350) 固定此最终 SHA，并保存冻结安装、声明/分发和精确提交检查。规划 PR #349 的文档已由本批吸收，本条交付随主仓 PR 审查合入生效，不代表产品发布。
-
-本条验收只针对源码治理和集成；ITER-005 的运行期升级、ITER-006 的资源与撤权、ITER-019/056 的第三方开放及 ITER-026 的学习数据权利按原责任继续。SDK/npm 发行和个别插件独仓不在本批范围；Bot 真实账号、原生移动接线和正式发布分别验收。
+**边界：** 本批不等待或捎带 FlowCampus 的并行工作；该工作后续重基到集合仓与主仓集成边界，不从开发分支或未提交工作树提取。交付见 [PR #349](https://github.com/3yearsZhuang/Aervox-harness/pull/349)。
 
 <a id="iter-074"></a>
 
 ### ITER-074 · 已移交：UI Surfaces 第一方根界面表面包迁入 Aervox-plugins
 
-根据 [ADR-025](docs/reference/adr/ADR-025-ui-surface-hosts.md) 与 [ADR-031](docs/reference/adr/ADR-031-first-party-plugin-repositories.md)，将 Aervox 主宿主仓的 4 个第一方 UI 根界面表面包（`surfaces/*`）整体迁入 `Aervox-agent/Aervox-plugins` 集合仓，复用既有 `plugins` 子模块挂载，物理路径映射为 `plugins/surfaces/*`。
+第一方根界面表面包迁入集合仓的 `plugins/surfaces/`，主仓以 workspace 消费，保留包名与受信 surface 装配。迁移后根界面与设置面板的发布随集合仓走，主仓只固定 gitlink。
 
-| 范围 | 本批交付 | 验收证据 |
-|---|---|---|
-| 仓库拓扑与历史 | 提取到 `Aervox-agent/Aervox-plugins` 根目录 `surfaces/`；主仓移除根目录 `surfaces/`，复用 `plugins` gitlink 接回 `plugins/surfaces/*` | 从主干 `d38f92a6` 提取并保留 31 次历史提交（含完整作者与时间戳）；包名 `@aervox/plugin-*-ui` 保持不变，上层 `apps/web` 与 `apps/desktop` 代码 0 修改 |
-| 工作区与治理门禁 | `pnpm-workspace.yaml` 将 `surfaces/*` 切换为 `plugins/surfaces/*`；更新依赖提升、类型边界、导入边界、工作区发现及 CI 触发测试 | `check:boundary` 26 项、`check:guards` 129 项全部通过；32 个包 Turbo 构建成功；56 个包 Turbo 类型检查通过；4 个表面包 258 项单元测试全部通过 |
-| 配对交付 | 集合仓 [PR #3](https://github.com/Aervox-agent/Aervox-plugins/pull/3) 保存源码与历史合并，主仓更新锁定 gitlink | 主仓在独立分支隔离实施，完全保护未提交的移动端分支 `feat/android-mobile-runtime`；锁文件本地工作区路径已对齐 |
-
-**评审补修：** 单元测试入口已改用 `plugins/surfaces/*`，真实入口任务图覆盖四个 UI 包；Turbo 同时跟踪根共享 Vitest 配置与插件转发配置，任一变化均使四包测试缓存失效。集合 CI 固定包含嵌套工作区的公开兼容宿主 `c3203ddb`，从集合受跟踪清单独立核对宿主工作区与实际任务路径，拒绝旧宿主同名副本及漏选嵌套包。六项新增回归先复现原缺陷后通过，真实集合覆盖七包、21 项任务；新配对 `./aervox ci all` 退出 0，构建 32、类型 56、测试 57 个任务及 65 份文档门禁通过，既有条件跳过保留。独立依赖审计为 0 未审阅、5 已审阅、0 过期或过时例外。两仓精确提交远端结果由 PR 保存；集合先审查合入，主仓再固定最终合并 SHA 并复验，不代表已经合入或产品发布。
-
-**合并接续：** 集合 [PR #3](https://github.com/Aervox-agent/Aervox-plugins/pull/3) 已以保留历史的提交 `75f16fd8796b28be6df1d67be88bab2cfbf8f2d4` 合入，其代码树与通过验证的候选 `e7eb969` 完全相同。主仓固定该最终 SHA 后，新的 `./aervox ci all` 再次退出 0；只补本条证据后复验文档，最终精确提交检查与主仓合入状态由 [PR #351](https://github.com/3yearsZhuang/Aervox-harness/pull/351) 保存。本批不代表产品发布。
-
-## 2. 立即整改：ITER-071
+**边界：** 本次迁移不改变界面行为、布局或既有验收结论；表面包的独立构建、分发与装机验证随集合仓 CI 保存。
 
 <a id="iter-075"></a>
 
@@ -113,7 +80,7 @@
 
 - **首个工具切片（2026-11-06，本地实施）：** 两个插件的受信 `/server` 包与 Manifest/SKILL/README 统一为 `1.1.0`，通过可选 catalog 窄口读取真实元数据；宿主出厂发现同步登记 Manifest 工具，按同版 Manifest 与安装 version/checksum 绑定精确 ID，只读 handler 复用 Core HostToolRuntime。直接调用和模型入口共用纯判定与一次组合 SELECT，入场固定生命周期及授权 ID，返回快照按原身份复验；相关有效授权最多 256 行，超预算拒绝，NUL 文本与整数身份精确往返。权限按 SQL 快照读取时点观察，取得快照至调用方收到结果之间仍有并发窗口，不承诺墙钟即时强撤权。缺端口不贡献工具，缺配置仍可读，不创建 Turn、审批、业务事实或外部网络请求。
 - **本地证据：** Node `24.21.0` 子进程下，[直接/模型组合快照回归](packages/host-runtime/test/plugin-runtime-catalogs.test.ts) 33 项及既有绑定/审批合计 84 项通过，两插件 8 项通过；[真实 API 同源调用](apps/api/test/plugin-runtime-catalogs.test.ts) 与相关 API 36 项通过，最终精确调用复验通过。Repositories、Host Plugin API、Host Runtime、API 构建/类型检查、20 项分发/子模块/可移除回归、边界/纯净/工作区覆盖、插件作者可重现打包、文档与 frozen install 均通过。独立源码复审、33 项回归及最后模型快照前改权限的反例单独复验通过。配对 PR、最终 gitlink、远端冷检出和正式发布验收仍待完成，本条未关闭。
-- **联合终审（2026-11-06 至 2026-11-07）：** 最终组合为宿主 `255e671c` 与插件 gitlink `b06e9720`，已合入宿主主线 `7886042f` 和插件主线 `86ea6995`；可选插件合同、资源探针、冷检出守卫与删除账本诊断均进入组合。`./aervox ci all` 全部通过，覆盖 Host Runtime 365、API 1027、Repositories 962、Worker 177 项测试，以及删除故障、Rust 原生和 68 份文档门禁；DSH 真实模型与未构建参考库产物的两个条件分支跳过，不作为本切片验收证据。首次联合门禁在 `07863b0b` 发现新插件缺架构归属、会话总出口形成运行时依赖环，未通过；已有声明准备、scope 与进程修订函数原样抽到共享叶文件，精确登记两插件对 Core/Host Plugin API 的依赖，未增加环豁免或执行器，`0539bdd8` 独立差量复审和此前完整门禁通过。配对 PR、公开宿主 SHA 对应的插件 CI pin 和远端冷检出仍待验证。
+- **联合终审（2026-11-06 至 2026-11-07）：** 最终组合为宿主 `255e671c` 与插件 gitlink `b06e9720`，已合入宿主主线 `7886042f` 和插件主线 `86ea6995`；可选插件合同、资源探针、冷检出守卫与删除账本诊断均进入组合。`./aervox ci all` 全部通过，覆盖 Host Runtime 365、API 1027、Repositories 962、Worker 177 项测试，以及删除故障、Rust 原生和 文档门禁；DSH 真实模型与未构建参考库产物的两个条件分支跳过，不作为本切片验收证据。首次联合门禁在 `07863b0b` 发现新插件缺架构归属、会话总出口形成运行时依赖环，未通过；已有声明准备、scope 与进程修订函数原样抽到共享叶文件，精确登记两插件对 Core/Host Plugin API 的依赖，未增加环豁免或执行器，`0539bdd8` 独立差量复审和此前完整门禁通过。配对 PR、公开宿主 SHA 对应的插件 CI pin 和远端冷检出仍待验证。
 - **首页组合复验（2026-11-07）：** [主仓 PR #362](https://github.com/3yearsZhuang/Aervox-harness/pull/362) 已按精确提交 `85e1d8ae` 的 10 项远端成功检查合入 `4ae535c7`，固定首页集合 `bad07ef7`。只读工具候选吸收这组已审主线，宿主 `585c791b` 与集合 `fcfc4aa4` 的 frozen install、`./aervox ci all`、10 个插件分发包和全部插件预检通过，覆盖 API 1029、Repositories 964、Host Runtime 365、Worker 177 项；手机/Web 两个 Chromium 首页回归通过，DSH 两个既有条件跳过保留。[集合 PR #14](https://github.com/Aervox-agent/Aervox-plugins/pull/14) 与 [主仓 PR #368](https://github.com/3yearsZhuang/Aervox-harness/pull/368) 继续按公开兼容 Host、集合先合入、主仓固定最终 gitlink 的顺序交付；旧候选 `bdce8a8c` 的 10 项远端检查不能替代新组合检查。
 - **最终配对（2026-11-07）：** 集合 PR #14 的精确 head `5e024d89` 在公开兼容 Host `529fac9c` 完成冷检出全量门禁、文档/工作区及依赖审计后合入 `b494c421edb97764e6397fb2d0f6e03a67fcc9b7`，与已审候选文件树相同；主仓 `529fac9c` 的 10 项远端检查通过。主仓固定该实际集合合并 SHA，frozen install、33 项直接/模型消费者与 10 个分发包复验通过；首次并行复验被构建产物重建与未登记最终 gitlink 拒绝，未执行产品测试，登记 gitlink 并串行后通过。最终主仓 head 远端检查继续取证；两个只读工具交付不关闭余下 6 项声明或正式发布。
 - **余下声明：** 本切片后保留 6 个未接线工具；按个人助手场景逐个补写，不关闭整项。插件目前的 desktop/web/cli 声明不等于 mobile 可用，新增 mobile 目标须有实际组合根接线和兼容版本决定。
@@ -124,149 +91,22 @@
 
 ### ITER-071 · 执行中，部分实施：共享行为所有权与重复实现整改
 
-维护者已批准 [ADR-030](docs/reference/adr/ADR-030-behavior-ownership.md) 和六批整改方案。工作分支 `feat/decoupling-implementation`，已交付 [PR #323](https://github.com/3yearsZhuang/Aervox-harness/pull/323)，主线合并提交为 `5ecd8365`。审计基线为 `0ebccd20611aa609b2b7609241d98011109a8982`，首次自查对象为 `7abd4fbb6825e06c4e967ccd72a4ad3f185ec402`，后续修复按精确验证证据追踪。此前“消费者均已迁移、完整统一”的表述撤回，以以下剩余验收为准。
+维护者已批准 [ADR-030](docs/reference/adr/ADR-030-behavior-ownership.md) 与六批整改方案。此前"消费者均已迁移、完整统一"的表述已撤回，本条只记录**仍然有效的范围与剩余验收**；各批的实现细节、失败与补修过程由 PR 与 CI 保存，不回写为结论。
 
-#### 2026-10-24 再审计整改
+**已交付（不重复展开）：** 工具 revision 与持久审批绑定、分支请求键贯通 HTTP/插件/领域命令、工作台与桌宠共用待答问题与审批组件、Controller 保存 Turn 与消费游标、模型配置入口统一、实例级 ToolCatalog、HTTP Turn 全路径只消费命令/查询 Port、canonical SQLite 与保守 DDL 比对、术语契约由共享 Schema 派生、共享传输合同覆盖 Fetch 与 Electron IPC、会话长期消息真源。对应交付见 [PR #323](https://github.com/3yearsZhuang/Aervox-harness/pull/323)、[PR #324](https://github.com/3yearsZhuang/Aervox-harness/pull/324)、[PR #326](https://github.com/3yearsZhuang/Aervox-harness/pull/326)、[PR #331](https://github.com/3yearsZhuang/Aervox-harness/pull/331)。
 
-本轮获维护者授权修复完整审计中的 16 项，工作分支 `fix/decoupling-audit-remediation`，从 `5ecd8365` 隔离实施。沿用本条及 ADR-030，不新增执行队列；迁移、跨重启完整恢复、全链删除与发布仍由原责任条目验收。
+**Page 身份与撤权切片（已合入）：** 配置 GET/save/reset、资源读取与静默观察均绑定 Page 身份与代际，同一 SQL 快照核对插件启用/可用性/生命周期与 capability，返回前复验；失配返回 409 且不改配置、Secret 或审计。静默 Page 按 2 秒串行观察、focus/恢复可见立即复验、本地截止 5 秒，旧文档不因后续授权复活。四种 Bridge 调用逐次复验，不消费观察缓存。
 
-- Hook 写事务代际/Attempt/fencing、`done` 前有界增强、领取前原子取消；HTTP 适配迁为应用命令/查询，执行期配置改为显式快照，委托按原始持久 owner 复验。
-- 复习在事务内复用唯一派生政策，报告按真实回执投影；画像候选与恢复按 capture 精确查询，移除 Worker 对表和全局最新窗口的依赖。
-- 子任务 Turn/Attempt/run 原子受理、同键意图校验和模型初始化失败终态；领取前取消、终态摘要写失败后按权威 Attempt 对账且不重跑模型，Interrupted 不再误报 Failed；旧无摘要孤儿明确拒绝，不猜测恢复。
-- 共享插件配置 editor、client 实例与会话资源 generation、宿主 surface 导航及窄主题出口；保留既有布局与独立桌宠默认会话语义。
-- MCP/Voice 由 Schema 派生类型并校验响应；语音新建/激活使用实际标识回执，列表空白输出为 null，修正两处历史 OpenAPI 文档误报。模型 catalog 取自宿主，目录失败可见且可重试，不丢失既有配置/草稿；分层依赖图与明确 DTO 守卫补强，移除非必要运行时环。
+**收尾后的新增整改（2026-11-26 卫生审计）：** 本轮的重复实现整改由 [ADR-035](docs/reference/adr/ADR-035-loopback-endpoint-identity.md) 与下述单点收敛承接，属审计发现而非新范围：`isLiteralLoopbackUrl` 双源且结论相反已统一到 `@aervox/contracts`；SSE 帧解析、凭据脱敏、日记模板标记、集成入参取值助手、四组预设 CRUD 仓储均已收敛到单一实现。
 
-**本地验证：** 最终产品与脚本的 `./aervox ci all` 退出 0，构建 32、类型检查 56 个任务通过；API 815、仓储 573、Worker 153、Core 494、Host Runtime 273、Host Agent 113 项通过，Host Agent 2 项既有真实模型/参考库构建跳过保留，不计通过。前端、守卫、HLS、删除故障、Native 及 64 份文档门禁通过；额外 CLI 持久化/API 重启与审批集成 2 项通过。随后只补本条记录并复验文档，远端仍以 PR 精确提交为准，不宣称 ITER-071 或发布整体完成。
+**剩余边界（本条未关闭的原因）：**
 
-**剩余边界：** 旧复习缺回执返回 409、旧报告缺可证回执返回 await_review；全部主动写者撤权竞态、来源撤权再授权的代际绑定和跨进程自动接管仍不在本轮完成声明内。完整文件图的类型依赖 SCC 保留并明确报告，仅精确登记且验证惰性的 Schema 外键运行时环获准，不以目录图无环代替行为解耦验收。
+- 旧复习缺回执返回 409、旧报告缺可证回执返回 `await_review`；全部主动写者撤权竞态、来源撤权再授权的代际绑定、跨进程自动接管均未完成。
+- SQL 快照读取至客户端动作、跨窗口实时撤权、资源代际绑定、完整资源原子发布与 Token 资源通道仍归 [ITER-006](#iter-006)。
+- 全链删除与恢复归 [ITER-003](#iter-003)/[010](#iter-010)/[011](#iter-011)。
+- 完整文件图的类型依赖 SCC 保留并明确报告；仅精确登记且验证惰性的 Schema 外键运行时环获准，不以目录图无环代替行为解耦验收。
 
-#### PR #324 接续实施
-
-沿用 `fix/decoupling-audit-remediation`，接续 `6701ac3c` 后中断的实施，交付见 [PR #324](https://github.com/3yearsZhuang/Aervox-harness/pull/324)。
-
-- **共享终态与执行快照：** 接单准备、Native 和 Adapter 的取消、删除、预算及失败由 Core 终态所有者裁决，原子事件携带实际序号；丢租约及 CAS 失配不写终态。子任务收口先复读权威 Attempt，终态提交失败时保持真实 Running，不重跑模型；DSH 领取交接期间取消由原准备 owner 终结。主执行、子任务与恢复共用隔离的配置快照，DSH/stdio 环境必须由组合根显式注入；旧会话装配工厂重导出已移除。
-- **单捕获批次发布：** 全部观察、claim、捕获标记和不含正文的回执在一个写者事务提交，绑定有效输入摘要、处理器版本和输出顺序。同参重试复用、异参冲突；历史无回执部分结果明确拒绝。手工完成验证真实来源关联且不能覆盖已发布批次；失败状态与安全错误码审计同事务，删除、撤权、暂停及完成后的迟到失败不回写。不清洗历史旧版错误正文，不扩大为全主动写者或 deny/lease/代际验收。
-- **人格与项目契约：** 人格路由、客户端和 OpenAPI 共用 Schema；导入的受控嵌套字段在安装技能及创建人格前校验，保留历史 nullable checksum 回执。人格弹窗隔离旧加载/保存结果，并保留同模型的语音 settings；项目列表与写回先验响应再投影，旧读取不覆盖写入。防回退守卫精确覆盖已迁移的人格 alias，MCP/Voice 既有严格规则保持。
-- **验证差异：** 新增子任务丢租约、终态 CAS/提交失败与 DSH 交接取消回归均先红后绿；仓储 604 项通过，浏览器全套 18 项通过。`6701ac3c` 的远端主代码、CLI、API E2E、依赖与 Docs 已成功，Chromium 虽标为取消但日志实际有 1 项旧界面名称断言失败，已对齐宿主清单并复验。新全量先后发现人格导入 nullable checksum 的 OpenAPI 登记滞后、旧客户端隔离夹具使用 `title` 而非 `name`，以及准备删除仍要求空 Assistant 身份的旧事件断言；已按真实契约修正，并加强创建成功及零产出/终态序号验证，未放宽门禁。
-- **最终本地全量：** `./aervox ci all` 退出 0；API 819、仓储 604、Worker 156、Core 494、Host Runtime 287、Host Agent 120、客户端 170、Panels 90 项通过，Host Agent 2 项既有真实模型/参考库构建跳过保留，不计通过。构建、类型、守卫、HLS、删除故障验证、Native Search/Runtime 及 64 份文档门禁通过。依赖审计 0 未审阅、2 既有审阅路径、0 过时例外；浏览器 18 项、打包 CLI 持久化/API 重启与工具审批集成 2 项另验通过。提交前仅补本条记录并复验文档；精确提交远端结果由 PR 保存，不代表 ITER-071 整体完成或正式发布。
-
-#### P1：首批已验证，新发现的接单缺口已修
-
-- **静态 privileged 工具的管理员审批漏检已修。** 原[HTTP 路由](packages/host-runtime/src/modules/companion/conversation/routes.ts)只查动态列表，隔离真实路由探针曾复现无管理员批准并执行。现在审批与派发使用同一 ToolBinding 身份，持久安全等级、owner、generation、revision；静态、动态、插件均执行管理员门禁。插件在审批事务内再次检查代际/启用/可用状态，预检后撤权不写批准、不创建续跑 Attempt；保留参数哈希兼容，不扩大免审批。真实 Core→HTTP→Core 及三种撤权竞态已进入回归。
-- **HTTP/插件作答原子命令已统一。** 原[学习路由](packages/host-runtime/src/modules/learning/learning/routes.ts)分步写入，排期失败后同键重试曾虚报 `review_scheduled` 且无复习。现在一个应用策略和写者事务提交事实、掌握度、复习、Outbox 回执，插件由真实 Turn 解析 session/source；旧独立写入口已删除。同键异参 409，重试返回原 nextStep；无知识关联或不可判定时为 `await_review`，仅实际排期才返回 `review_scheduled`。旧事实无完整事务回执时返回 `answer_receipt_unavailable`，不猜测补造；逐步故障、并发、来源/代际及删除顺序纳入隔离回归。
-
-- **Turn 幂等请求已补意图摘要复验。** 原[HTTP 创建路由](packages/host-runtime/src/modules/companion/conversation/routes.ts)提前按键返回原 Turn，[接单事务](packages/repositories/src/repositories/sqlite/conversation/turn-store.ts)只验证 session/policy；隔离探针确认异正文会误认成重试。现在唯一域函数规范化有效意图，在 Inbox 合并前计算版本化 SHA-256，写者事务原子绑定已有 `request_hash`。同键同参复用、异参或跨 Session 409；旧 NULL 摘要/丢失或不符回执明确拒绝，不猜测回填。Worker/Bot 经 ConversationApplication 的执行入口恢复受理时的 metadata/审批模式/可信 actor，调用方不能覆盖；完整 HTTP 审批续跑随后在本轮迁入应用命令。新增 HTTP/应用及 Bot/Worker 回归已定向通过；不修改 Schema/release；子任务 `createTurnWithAttempt` 与父执行键复用在本轮另补原子受理、意图校验及初始化失败回归。现有首输入软删/redaction执行资格仍归 ITER-003，不能以摘要一致替代删除门禁。
-
-#### PR #324 · 配置代际与诊断最小化接续
-
-按本次接续指令继续在 `fix/decoupling-audit-remediation` 实施既有合同下的正确性修复，跨域行为归本条；剩余隐私和 Page 验收仍分别归 ITER-003/006。
-
-- **配置写入与 Page 代际：** 保存和重置在写事务内联合复验 enabled、availability、lifecycleGeneration、Schema 内容/版本和 revision，阻断预检后停用、缺包、重新启用及并行修改。Page 捕获打开时代际，配置请求携带 `expectedLifecycleGeneration`，读取返回前也复验；同 ID 换代销毁旧 iframe、Nonce 和在途响应。普通客户端省略参数仍兼容，不新增 Token 通道或修改资源认证。
-- **ContextManifest 新写最小化：** 仓储对白名单形态投影，仅持久消息/角色/工具计数和合法生成参数；正文、推理、工具参数/结果/描述/Schema、扩展字段与内容 hash 不落库，未知快照为 null。Core 保留进程内快照及工具安全诊断；ModelRun/Manifest 关联和尽力而为语义不变，不新增 Schema 或控制账本。
-- **范围和反例：** 配置竞态、Page 旧代际和 Manifest 正文复制均先红后修。历史 Manifest 正文不自动清洗，来源传播与授权修订、全主动写者、全 capability 跨窗口推送和 Token 资源通道仍未闭合；真实模型/平台、业务数据迁移和发布单独验收。新提交验证结果由本条及 PR 记录，不沿用上一提交绿测。
-- **本地验证：** 新 `./aervox ci all` 退出 0，构建 32、类型 56 个任务通过；API 837、仓储 633、Host Runtime 290、Worker 156、Core 494、Host Agent 120、客户端 173、Panels 94 项通过，Host Agent 2 项既有真实模型/参考库构建跳过保留，不计通过。守卫、HLS、删除故障、Native Search/Runtime 和 64 份文档门禁通过；依赖审计 0 未审阅、2 既有审阅路径、0 过时例外。浏览器全套 19 项通过，包含新增[真实 Chromium Page 回归](e2e/ui/plugin-page-lifecycle.spec.ts)：旧 iframe 在外部停用再启用后仍连接，但 Bridge 配置读写均 409 且不改变配置，宿主刷新后新代际成功读写并持久化。该测试使用临时 SQLite、真实 API/Bridge 与 Web 设置入口，不证明 Electron、Token 资源或全 capability 撤权；提交前仅补本条记录并复验文档，精确提交的远端结果仍由 PR 保存。
-
-#### PR #324 · 首输入资格与逐帧删除接续
-
-- **受理恢复与执行：** 固定读取 User version 1，并在同一 SQL 快照检查正文及软删/脱敏资格；缺失或不可用时不从后续版本、调用方或 Outbox 正文恢复。准备、模型请求及工具检查点复验首输入存在且未软删，复用现有生命周期和终态提交；资格检查只读取最小身份，不重复物化完整输入。
-- **在线 SSE：** 窄查询在同一 SQL 快照验证 Session/Turn、策略与派发一致、首版输入存在及同 Turn 现存消息身份未软删。建流不可用统一 404；每帧重新读取当前持久事件，删除后丢弃背压页缓存，空闲轮询也关闭观察，不取消 Turn、不造终态。原历史读取接口不改变，来源恢复依当前状态判断，未引入撤权代际。
-- **范围调整：** `isRedacted` 也用于隔离固定危机求助回复的记忆用途，一律当作删除会破坏 CAP-008。受理恢复仍拒绝已脱敏输入；运行中及 SSE 的完整脱敏披露和 grant 修订须与受信固定回复一起验收，本轮不建立新权限例外。全部持久写者、历史正文/Outbox/派生清理、已物理删除的非首输入来源关联仍未闭合；查询完成至网络或后续写入仍有并发窗口，不宣称原子撤权或全链删除完成。
-- **反例与验证：** 已复现首输入删除后仍可执行、后续版本回落和独立 SQLite 进程删除后缓存页继续披露。回归覆盖准备、工具前、下一模型 Step、原子来源/事件读取、空闲轮询、查询中断连、读取失败以及固定求助回复；真实 HTTP 删除后批准返回 409，审批/Attempt/事件/工具/ModelRun 保持原状态。新的 `./aervox ci all` 退出 0，API 840、仓储 655、Host Runtime 306 项通过；构建 32、类型 56 个任务及守卫、HLS、删除故障验证、Native Search/Runtime、64 份文档门禁通过。Host Agent 120 项通过、2 项既有真实模型/参考库构建跳过保留，不计通过。提交前仅补本条记录并复验文档，精确提交远端结果由 PR 保存，不沿用上一提交或宣称整体完成。
-- **依赖门禁差异：** `5bb1e405` 的远端依赖审计新命中 [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5)，Zod 4.4.3 的集合验证可耗尽内存，37 条路径未审阅；本地复现。按公告修复范围将三处直接依赖统一升级至 4.6.7，根安装更新锁文件，研究依赖的 peer 路径同步收敛；未增豁免或降低门禁。升级后依赖审计为 0 未审阅、2 既有审阅路径、0 过时例外；新的 `./aervox ci all` 再次退出 0，构建、类型、OpenAPI 兼容、全量测试和文档均通过，API/仓储/Host Runtime 数量同上，2 项既有跳过保留。打包 CLI 持久化/API 重启与工具审批集成 2 项另验通过。随后仅补验证记录并复验文档，精确提交远端仍由 PR 保存，不将旧提交的文档/API/UI 成功等同新提交全部通过。
-
-#### PR #324 · Page 全方法调用资格接续
-
-- **调用时复验：** 配置读取、保存、通知与关闭均携带打开代际查询当前 Page；同一 SQL 快照读取 enabled、availability、lifecycleGeneration 及 capability，拒绝旧代际、缺失 Page 或能力移除。配置返回前再复验，文档/窗口轮换后丢弃迟到授权结果；沿用已有配置事务，不新增 Token 通道或权限例外。
-- **合同与反例：** Page GET 纳入共享端点声明并校验 query/response，响应 `no-store`；保留实际已有的 nullable description/checksum，仅在历史兼容勘误中逐字段登记，不改兼容基线。新增组件回归先复现 11 项失败；修复后组件 42、仓储 12、客户端 6、API/路由覆盖 36 项定向通过。真实 Chromium Page 回归证明旧 frame 保持连接时四种调用被拒、零配置请求/通知/关闭副作用，宿主刷新后的新代际可操作。
-- **剩余边界：** 调用时复验不等于实时推送、资源代际绑定或代码强制终止；SQL 至客户端动作、Page capability 移除至配置事务仍有并发窗口。全链来源传播、持久写者及恢复控制面保持原责任条目，精确提交全量和远端证据随 PR 更新，不宣称 ITER-071/006 整体完成。
-- **验证差异：** 首次完整 Chromium 为 18 项通过、1 项同 URL 响应体读取失败；改为直接断言真实 HTTP 状态及 SDK 结构化拒绝后，完整 19 项通过，未重试或放宽行为期待。首次全量另捕获旧错误脱敏夹具只注入五个配置方法、却遍历新增 Page 描述符的 1 项失败；补 Page 方法故障注入及畸形 capability 成功响应拒绝，6 项 HTTP 合同通过，再运行新的全量门禁。
-- **最终本地全量：** 新的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务及守卫、OpenAPI 兼容、HLS、删除故障验证、Native Search/Runtime、64 份文档门禁通过。API 845、仓储 661、Host Runtime 306、Worker 156、Core 494、Host Agent 120、客户端 174、Panels 107 项通过；Host Agent 2 项既有真实模型/参考库构建跳过保留，不计通过。独立依赖审计为 0 未审阅、2 既有审阅路径、0 过时例外。提交前仅补本条验证记录并复验文档，精确提交远端证据由 PR 保存。
-
-#### PR #324 · Page 保存事务资格接续
-
-- **提交门禁：** Bridge 从当前会话注入 `expectedPageId` 与打开代际，插件参数不能覆盖；共享请求 Schema 要求 Page ID 有效且伴随显式代际。路由、服务及仓储贯通身份，保存事务在任何配置或 Secret 变更前验证同插件/Page 当前 `config.write`；Page 缺失、能力移除或畸形能力均拒绝。沿用现有物理 Schema 和管理认证，不新增权限通道。
-- **反例与边界：** 旧实现仓储 11 项、API 12 项、组件 5 项、客户端 6 项先红；修复后仓储 31、API 39、相关组件 43、客户端 13 项通过。覆盖预检后撤权、他插件同 Page ID、只读/畸形能力和伪造 Bridge 参数，拒绝时配置、Secret、审计不变。普通 HTTP 管理调用可以省略 Page 身份；已提交保存保留真实回执，旧 Page 仍在返回前复验。GET/reset、同代际 Page 删除再建/撤权再授权的修订、SQL 至客户端动作、实时撤权与资源通道仍待原条目验收。
-- **浏览器验证：** 实际 Chromium 暂停 Bridge 预检后的 PUT，再由独立 API 客户端移除 `config.write`，验证同插件代际不变、旧 iframe 仍连接时保存 409 且配置不变；完整浏览器 19 项通过，无重试。
-- **依赖审计差异：** 本轮新命中高危 [GHSA-jr5w-w6x2-84p9](https://github.com/advisories/GHSA-jr5w-w6x2-84p9)，Electron `43.7.9` 在受影响范围；同主版本修复从 `43.8.1` 起。根工作区更新依赖和锁文件至 `43.8.3`，不新增豁免或放宽门禁；本轮首次审计失败证据保留。完整本地及精确提交远端门禁随本切片继续更新，不沿用上一提交绿测或宣称 ITER-071/006 整体完成。
-- **最终本地全量：** 新 `./aervox ci all` 退出 0，构建 32、类型 56 个任务及守卫、OpenAPI 兼容、HLS、删除故障验证、Native Search/Runtime、64 份文档门禁通过。API 861、仓储 674、Host Runtime 306、Worker 156、Core 494、Host Agent 120、客户端 181、Panels 108、桌面 156 项通过；Host Agent 2 项既有真实模型/参考库构建跳过保留，不计通过。依赖审计为 0 未审阅、2 既有审阅路径、0 过时例外；打包 CLI 持久化/API 重启及工具审批集成 2 项、桌面传输合同 16 项另验通过。提交前仅补验证记录并复验文档；新 Electron 实际 IPC 和精确提交远端结果由 PR 保存，仍不代表完整平台或发布验收。
-
-#### PR #324 · Page 登记代际接续
-
-- **身份与提交：** 每次 Page 登记（包括相同声明）、资源 checksum 更新及删除再建使用新的持久 UUID；复用现有行身份，不修改物理 Schema。响应独有 `pageGeneration`，作者声明不能指定；Bridge 捕获该身份，四种调用及配置返回前逐次核对，宿主观察到 Page 换代时更换 iframe 与 Nonce。保存由宿主注入 `expectedPageGeneration`，与 Page ID 成对并需插件代际，写事务联合比对身份与当前 `config.write`；插件同代际撤权再授权不能复活旧会话。
-- **资源写者：** 原上传先读取旧声明再 upsert，可能覆盖并行撤权。现改为按捕获 Page 身份的单条 checksum CAS，只更新摘要并换代；变化或删除返回 409，不复制旧 capability 或重建已删 Page。文件先于 SQL 更新，已写资源不因 409 回滚，完整资源原子发布仍待验收。
-- **反例与验证：** 仓储 14、资源摘要 CAS 8、组件 12、共享契约 17、客户端 16 项先红；修复后相关定向通过，覆盖同声明登记、撤权再授权、删除再建、并发登记、返回前换代、伪造 Bridge 身份、SQLite 重开及安装进程崩溃。首次仓储全量两项既有 30 秒超时保留，相关与超时文件重验通过，未调阈值；完整本地、实际 Chromium 和精确提交远端证据随本切片更新。
-- **依赖审计差异：** 本轮独立审计新命中 undici、fast-uri 和 happy-dom 共 8 个公告、113 条未审阅路径，首次失败保留。undici 6/7 系分别修至 6.29.1/7.30.1，fast-uri 3/4 系分别修至 3.1.9/4.2.3，沿用精确受影响版本覆写；[happy-dom 公告](https://github.com/advisories/GHSA-834v-8h66-3h79)无 20 系修复，根依赖升至 21.0.4，保持其默认关闭 CSS/iframe 网络加载，不新增开关或审计豁免。根安装后重新验证，不沿用升级前全量结果。
-- **最终本地全量：** 依赖升级后新的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务及守卫、OpenAPI 兼容、HLS、删除故障、Native Search/Runtime 和 64 份文档门禁通过；API 873、仓储 696、Host Runtime 306、Worker 156、Core 494、Host Agent 120、客户端 196、Panels 120、桌面 156 项通过，Host Agent 2 项既有跳过保留、不计通过。独立审计为 0 未审阅、2 既有审阅路径、0 过时例外；打包 CLI 集成 2、实际 Electron IPC 7 项另验通过。真实 Chromium 保持旧 iframe 连接，恢复 capability 后四种调用仍拒绝，预检后撤权再授权的 PUT 返回 409 且配置不变；宿主刷新后新 Page 可操作。随后仅补验证记录并复验文档，完整浏览器及精确提交远端结果由 PR 保存。
-- **剩余边界：** GET/reset 未扩 Page HTTP 身份，SQL 至客户端动作、跨窗口实时撤权、资源代际绑定和 Token 通道继续归 ITER-006；全链删除与恢复归原条目，不宣称 ITER-071/006 整体完成。
-
-#### Page 配置 GET/reset 身份接续
-
-从已合并主线 `29db872c` 在 `fix/page-config-read-reset-identity` 接续，交付见 [PR #326](https://github.com/3yearsZhuang/Aervox-harness/pull/326)；沿用 ADR-030 与本条，不新增执行队列。
-
-- **契约与宿主：** GET/reset 共用 Page 身份 query，Page ID 与 Page 代际必须成对并显式绑定插件代际；Bridge GET 注入打开时捕获身份，插件参数不能覆盖。不新增 Bridge 方法，管理调用省略 Page 身份保持兼容。
-- **读取与提交：** Page GET 同 SQL 快照核对当前插件/Page 身份、`config.read` 与配置，返回前再复验；资格失败不回落别名或默认值。reset 在删除 Secret 或改配置前，于同一写事务核对当前 Page 代际及 `config.write`；拒绝不改配置、Secret 或审计，已提交重置保留真实回执。
-- **定向验证：** 仓储 16 个拒绝反例、共享 query 16 项和 Bridge 身份 4 项先红后绿；仓储 2 文件 82 项、API 3 文件 95 项、Contracts 全套 100 项、客户端配置 32 项、Page 组件 2 文件 56 项及相关类型检查通过。真实 Chromium 在预检后暂停 GET，独立客户端撤权再授权后返回 409 且无配置正文，旧身份 reset 不改配置，新 Page 可成功重置。首次浏览器运行因本机旧 Vault 的 Schema 被拒而未进入测试；显式注入独立临时 Vault、密钥与访问凭据路径后通过，不修改或迁移现有数据。独立源码复核未发现阻断项，整体验证与新提交远端证据继续记录。
-- **迁仓前本地全量：** 当时的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务及守卫、OpenAPI 兼容、HLS、删除故障、Native Search/Runtime 和 64 份文档门禁通过；API 900、仓储 714、Host Runtime 306、Worker 156、Core 494、Host Agent 121、客户端 200、Panels 121 项通过。Host Agent 1 项既有跳过保留，不计通过；参考库构建产物加载本次实际运行通过。独立依赖审计为 0 未审阅、2 既有审阅路径、0 过时例外。随后仅补本条验证记录并复验文档，精确提交远端结果由 PR 保存，不沿用 PR #324 绿测或宣称整体完成。
-- **剩余边界：** SQL 返回至网络/客户端动作、跨窗口实时撤权、资源代际绑定、完整资源原子发布与 Token 通道继续归 ITER-006；全链删除与恢复归原条目。本切片不宣称 ITER-071/006 整体完成。
-
-#### Page 资源读取资格接续
-
-按维护者本次指令在 `fix/page-config-read-reset-identity` 与 PR #326 继续，沿用本条及 ADR-030，不新增执行队列。
-
-- **反例与实现：** 原入口 HTML 和普通资源仅在文件 I/O 前检查插件及 Page，未检查可用性，读取后直接释放字节。现以同一 SQL 快照捕获当前插件启用、可用性、生命周期、Bundle 指针及同插件 Page 的身份/入口；文件读取后再比对，失配返回 `409 PLUGIN_PAGE_REVISION_CONFLICT` 且不释放已读内容。入口别名、嵌套资源路径与链接边界保持，不跨 I/O 持有写事务。
-- **定向验证：** 新增真实文件与 HTTP 资源回归 32 项，旧实现 26 项失败；24 项读后撤权/换代原本返回 200，2 项初始缺包也放行。修复后 API 5 文件 127 项、仓储配置 25 项及 BundleStore 23 项通过；单 SQL 快照验证同插件/Page 归属，入口别名与嵌套 JS 均在实际读出 canary 后改变持久状态，确认 409 且无正文。构建 20 个任务通过，独立依赖审计为 0 未审阅、2 既有审阅路径、0 过时例外；新全量和精确提交远端结果另验。
-- **本地全量：** 本轮新的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务及守卫、OpenAPI 兼容、HLS、删除故障、Native Search/Runtime 和 64 份文档门禁通过；API 932、仓储 717、Host Runtime 306、Worker 156、Core 494、Host Agent 121 项通过，1 项既有真实模型跳过保留、不计通过。独立审查未发现阻断项；随后仅补本条记录并复验文档，原分支新提交及 PR 精确远端检查单独核对，不沿用配置切片绿测。
-- **剩余边界：** 不改变 Token、资源 URL、物理 Schema 或上传发布机制；iframe 打开时代际与后续资源请求的绑定、完整资源原子发布、最终 SQL 至网络发送、静默 Page 的跨窗口实时撤权仍由 ITER-006 验收。旧 `fc30dc3a` 绿测不能覆盖本次修订，定向、全量及新提交远端证据随本切片更新。
-
-#### 静默 Page 资格观察与显式重开接续
-
-按维护者指令继续在 `fix/page-config-read-reset-identity` 与 PR #326 推进；沿用本条、ADR-030 和现有 Page 查询，不新增服务端通道、Token 或物理 Schema。
-
-- **实现与所有权：** 挂载前及每次文档 load 复验捕获的插件/Page 身份、入口与 capability；运行期间每次观察完成后等待 2 秒再串行查询，focus/恢复可见时立即复验，单次本地等待上限 5 秒。错误、超时或失配移除 iframe，取消观察与文档等待、释放 Nonce/监听器/计时器并锁定旧选择；查询迟到、同 ID props 更新及后续恢复授权均不复活旧文档。四种 Bridge 仍逐调用复验，不消费观察缓存。
-- **显式重开：** 插件管理与设置入口共用打开逻辑，每次打开/刷新先关闭旧 owner，再读取插件列表及当前代际的 Page；关闭、切换与旧请求结果均有 owner fencing。共享客户端传递 AbortSignal，取消后的迟到成功不再解析或投影；输送层忽略信号时由宿主本地截止释放等待。
-- **审查反例：** 独立复核发现连续 iframe load 会重建 owner 并重置 5 秒截止，新增永久 pending 查询与反复 load 的回归先红；修复为保留选择级观察和截止，仅轮换文档会话与请求控制器，只有最新 load 可初始化。首次浏览器 3 项均在刷新重开失败，定位为程序隐藏触发 ElDialog close 并取消新查询；补先红回归并忽略已隐藏弹窗的关闭回执后复验通过，未放宽断言。
-- **定向验证：** 客户端全套 209 项、Page/父级 3 文件 92 项及相关类型检查通过；真实 Chromium 3 项验证配置预检后的 GET/PUT 撤权再授权、旧身份 reset、无 Bridge 调用的插件/Page 换代、旧 iframe 移除与新身份刷新成功。64 份文档门禁通过；依赖审计 0 未审阅、2 既有审阅路径、0 过时例外。独立复核确认两处修复未引入新的具体竞态，全量及精确提交远端证据另验。
-- **本地全量：** 本轮新的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务及守卫、OpenAPI 兼容、HLS、删除故障、Native Search/Runtime 和 64 份文档门禁通过；API 932、仓储 717、Host Runtime 306、Worker 156、Core 494、Host Agent 121、客户端 209、Panels 157 项通过，1 项既有真实模型跳过保留、不计通过。随后仅补本条记录并复验文档；新提交远端结果由 PR 保存，不能沿用 `619d26a7` 绿测。
-- **剩余边界：** 本地观察受后台节流、事件循环及网络影响，不是跨窗口实时推送或墙钟终止 SLA；资源代际绑定、原子发布、Token 通道、CPU/内存配额与代码强制终止继续归 ITER-006，ITER-071/006 均未整体完成。
-
-#### 随后补齐设计与行为闭环
-
-审批 revision、分支幂等和索引语义已随首批实施；第二批客户端、模型、Catalog、DTO、表约束与接单摘要已通过本地整体验证。本轮再审计补齐 Conversation Port、完成前增强及显式配置注入，统一验证结果见上方整改记录。源码确认与隔离复现的证据强度在各行区分，不能以结构整改替代入口验收。
-
-| 缺口与证据 | 实施及验收要求 |
-|---|---|
-| 已实施：工具 revision 与持久审批绑定。[tool-providers](packages/host-runtime/src/modules/companion/conversation/tool-providers.ts)统一编码声明/实现及安全身份；[运行时](packages/core/src/host-tool-runtime.ts)默认含进程实例和注册代际，不再以 updatedAt 代替实现版本 | 默认替换 handler/重启需新审批；受信宿主只有显式稳定实现版本才跨重启复用，语义变更必须递增版本；插件审批仍绑定 generation。旧无元数据批准不授权新声明，pending 按版本去重；参数哈希保持兼容。替换/重新声明/重启/跨代回归已通过定向验证 |
-| 已实施：分支请求键贯通[HTTP](packages/host-runtime/src/modules/companion/branch/routes.ts)、[插件](plugins/plugins/ui/focus-mode/src/server/terms-routes.ts)和领域命令；旧 `createConversationBranch` 已删除，分支路由消费最小 Port | 同键同参复用、异参 409，子会话/分支/Outbox 同事务；软删重试不复活，硬删结果但回执留存时 409。保留 opaque fork 标记与父策略继承，既有子会话不覆盖；无键仍可创建独立重复边。并发及 Outbox 故障回归已通过定向验证 |
-| 已实施：工作台与桌宠直接订阅 Controller 的待答问题/审批，不再在旧回答返回后清空本地副本；工作台标准模式和经典卡片、主动陪伴、桌宠复用完整 UserQuestionComposer | 真实组件回归覆盖新问题先于旧回答返回、多问题/多选/自由文本、显式提交、审批与取消；桌宠失败持续可见、未知受理保留输入。各 surface 保留布局，Controller reset 只解除本地观察 |
-| 已实施：Controller 保存 Turn 和最后已消费事件游标，三个 surface 均有恢复观察入口；结构化终态判定先于完成回调 | 未知受理重试复用业务键；已受理只 observe，追加到原回复；真正中断失败保留正文且不观察重试，等待审批与取消分别表达。reset/dispose/成功取消释放静默回答或审批的等待；取消请求独立跟踪，本地等待上限 30 秒，超时保留观察并允许重试，reset/dispose 释放静默取消，旧响应不影响新 owner；主动陪伴同会话重选保留正文，切会话解除旧观察 |
-| 已实施：[模型配置入口](packages/host-runtime/src/modules/ecosystem/llm/provider-config.ts)统一普通/路由 Loop 和领域生成的协议、可用性、contextWindow、输出预算与原始 SSE 空闲超时；真实插件 callable 已委托同一单次消费器 | 模型源 57 项、API 5 文件 26 项、Worker 2 文件 9 项定向通过，覆盖 EOF/异常终态/空输出/静默取消/UTF-8 及上下文预算、90 秒心跳；保留路由本机证明、更严格的单次本地准入与 Anthropic 日记模板，不据夹具宣称真实模型已验收 |
-| 已实施：实例级 [ToolCatalog](packages/host-runtime/src/modules/companion/conversation/plugin-tool-catalog.ts)整批拥有定义、handler、guidance 和投影；[可变 API 注册表](packages/host-runtime/src/plugin-api-registry.ts)迁入宿主，Contracts 只保留 Port；旧单条投影登记已删除 | 批量预检失败内容与 revision 不变；Turn lease 绑定各自服务，结束释放执行资源，代际撤销同时释放四项与全部 lease；安全投影按代际保留供回放。Host Runtime 2 文件 52 项、API 3 文件 16 项通过，含真实 focus factory 并行 Turn、多 Host、突变、旧 disposer、挂起声明关闭及异步门禁期间取消 |
-| 已实施：HTTP Turn 创建、取消、作答、审批与观察仅消费命令/查询 Port，应用独占执行跟踪和取消；[会话子路径出口](packages/host-runtime/src/modules/companion/conversation/index.ts)已移除旧装配重导出。受理身份与审批模式从回执恢复，委托核对原始 Outbox owner；准备、Native/Adapter 共用终态裁决和显式配置快照 | 无 SQLite 的 Fastify + 最小 fake Port、完整审批续跑、重复审批只派发一次、委托身份及 Native/Adapter 控制合同已补；本次另覆盖准备删除、DSH 交接取消、丢租约/CAS/终态写失败后禁止虚假终态摘要。历史 `error` 后双事件 `done` 的迁移仍按[流式协议](docs/reference/STREAMING_PROTOCOL.md#44-error)保留，跨进程恢复、全部主动写者及生产验收归原条目，未知副作用不自动重放 |
-| 已实施：独立 canonical SQLite + PRAGMA 与保守 DDL token 比对，覆盖表选项、列属性/顺序/hidden、复合 FK、CHECK、collation、逐约束冲突策略、AUTOINCREMENT、FK 延期及完整索引语义 | 7 文件 87 项定向通过；CHECK/STRICT/WITHOUT ROWID 在无版本及已登记库均拒绝，检查仅 SELECT/PRAGMA 且源 bytes/rows/version 不变；两个历史 release fingerprint 保持。保守比较不推断表达式代数等价，完整版本迁移与生产编排归 ITER-011 |
-| 已实施：[术语契约](plugins/plugins/ui/focus-mode/src/contracts/terms.ts)由浏览器与服务端共享 Schema 派生，删除 UI/抽取器重复 DTO；旧 `useAervoxTurn` 及其无消费者的流/审批/通用请求包装已删除 | 响应和事件都从同一 Schema 解析，CI typecheck 显式编译双向类型兼容证明；focus 插件 7 文件 44 项及 typecheck 通过。重复扫描仍只作线索；历史路由例外归 ITER-064，不扩大豁免 |
-| 已实施：[共享传输合同](apps/desktop/test/turn-protocol.test.ts)同时跑 Fetch 和完整 preload/main IPC，补审批 POST→continuation→observe、受理未知→同业务键重试与真正中断 | 16 项共同合同通过，覆盖认证、独立 IPC requestId、游标、ACK 背压、断线去重、提前 EOF及终态失败；JSON 主进程转发提为同一可测入口并拒绝重定向。真实 Electron 及后续全量结果单独记录，不以 mock 替代实机 |
-
-#### 本轮接续：会话长期消息真源
-
-原先普通 assistant 只在安全片段和在线事件中，无法承接 24 小时后的历史。现新接单、终态与恢复共用[消息持久化命令](packages/repositories/src/repositories/sqlite/conversation/message-history.ts)；不引入 Schema 或用户库迁移。对 NUL 身份的终态/恢复使用 SQL 比较或 JSON 转义，避免原生文本截断导致同步失败或误用前缀身份。新写链同步修复自动日记、消息 FTS 和模型上下文的现有消费者；不完整/已删正文不能经新持久版本进入自动派生。物理删除首版、审批删流后续接、取消/恢复、人工编辑、故障回滚和身份碰撞有定向反例；整体验证另记。该切片不关闭完整授权传播或生产恢复的原有边界；[PR #331](https://github.com/3yearsZhuang/Aervox-harness/pull/331) 的 `30b11948` 已通过 8 项远端检查。用户历史读取入口由下一切片接续。
-
-本批最终新的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务及守卫、兼容、HLS、删除故障、Native、64 份文档门禁通过；仓储 801、API 960、Host Agent 123、Host Runtime 306、Worker 161、Core 501、客户端 230、CLI 131 项通过，1 项既有真实模型跳过保留。最后代码另跑真实 API E2E 45、打包 CLI/真实 API/文件 SQLite/API 重启与清理在线事件后的历史 2 项通过，审计 0 未审阅、2 既有审阅、0 过时例外。首轮 7 个重复创建身份夹具、次轮 1 个将未完成 Turn 当日记素材的旧夹具失败均保留；改为断言真实身份/明确完成素材，不放宽删除或唯一约束。NUL 恢复和取消/Hook 水位回退反例先红后绿。随后仅补本条并复验文档，精确提交远端结果另记；不将这些切片升级为整个计划完成。
-
-#### 交付次序、已完成范围与证据
-
-首批 P1、审批 revision、作答/分支命令已通过后续精确提交的远端门禁；第二批工具目录、模型、客户端、DTO、表约束与接单摘要已通过本地全量。本轮继续实施 Conversation Port、服务端完成阶段/配置注入、旧装配出口收口及防回退门禁，当前实现与统一验证状态见上方整改记录。沿用原六批交付关系，第三批依赖第二批，第四/第五批可并行，第六批只在消费者迁完后收尾。跨域协调归本条，长期迁移、恢复、运行和历史 API 分别归 ITER-011/010/013/064，不另建队列。
-
-- **已落地但不能外推为整体完成：** 无 Vue TurnClient 及 Electron 主进程复用；Native/Adapter 领取、心跳、取消、删除、fencing 与原子终态主体；插件代际和事务提交前复验；插件作答及分支组合写；API/Worker 日记解析与原子发布；主路径配置快照。安全逻辑导出排除 FTS/shadow、staging 校验及源库保护已实现；同步网络/进程协调移出仓储，Worker 使用受限投影与删除命令，学习政策提纯；学习 store 按需加载及错误状态、主要 DTO、资产消费端输出、记忆纯函数、审批序列化和依赖图/循环守卫已收敛。
-- **精确验证基线：** `7abd4fbb` 的 `./aervox ci all` 退出 0，API 757、仓储 493、Worker 142 项；CLI 打包/认证/文件 SQLite/API 重启及审批集成 2 项通过。真实 Electron IPC 7 项通过，入口 `mise exec -- node apps/desktop/scripts/turn-ipc-smoke.mjs`。依赖审计 0 未审阅、2 既有审阅路径、0 过时例外；额外只读自查 7 文件 69 项通过，但未覆盖上述反例。
-- **远端证据：** 同一提交的[主 CI](https://github.com/3yearsZhuang/Aervox-harness/actions/runs/39923253547)、[三平台 Native](https://github.com/3yearsZhuang/Aervox-harness/actions/runs/39923253363)、[Docs](https://github.com/3yearsZhuang/Aervox-harness/actions/runs/39923253858)共 8 项检查成功；API E2E 45、Chromium UI E2E 18 项，Native 各平台布局 2/Rust 5/TS 42 项。类型、构建入口、Worker 旧消费者、动态工具刷新、分支兼容、OpenAPI 测试及删除研究旧调用者的历次失败与补修保留在 PR/CI；合盖休眠中断的运行不计通过。
-- **本轮首批验证：** 21 个相关包构建通过；授权/运行时 4 文件 60 项、学习 API 7 文件 85 项、仓储数据/迁移/分支 12 文件 87 项定向通过，分支/术语真实入口及 OpenAPI 4 文件 29 项通过，64 份文档门禁通过。首次整体验证捕获插件适配器跨模块私有导入，已改为学习模块公开命令入口，未加豁免；Workflow 版本声明的字段类型及两处旧异参成功断言也已修正。`c397a395` 全量另捕获 3 处旧审批夹具；后续 `ab17564c` 改为批准真实 pending 并新增 handler/声明修订 HTTP 反例，3 文件 25 项通过。该提交的[主 CI](https://github.com/3yearsZhuang/Aervox-harness/actions/runs/39936455133)、[三平台 Native](https://github.com/3yearsZhuang/Aervox-harness/actions/runs/39936455147)、[Docs](https://github.com/3yearsZhuang/Aervox-harness/actions/runs/39936455152)均成功，含持久 CLI 集成；不能据此覆盖第二批源码。
-- **第二批定向验证：** 19 个依赖构建任务通过；客户端 151、共享 UI 143、工作台 10、主动陪伴 29、桌宠 21 项通过，完整 IPC 16 项另已复验；Schema、Catalog、模型及类型证明见上表。接单摘要新增应用 4 项、HTTP 接单 12 项及 Bot 消费者 4 文件 43 项（合计 5 文件 55 项）、Worker 2 文件 16 项、仓储 4 文件 48 项及 Contracts 2 项通过。共享终态原因补真实调用链回归，Core 全套 494 项通过。`b069930d` 的打包 CLI 持久化/审批集成 2 项、真实 Electron IPC 7 项通过；依赖审计 0 未审阅、2 既有审阅路径、0 过时例外。模型消费者首次把 `settings` 写成 `settingsJson` 的测试已修，跨模块私有导入改走公开入口。三次全量分别捕获新 Schema/自带测试未登记可移除清单、类型测试配置未归类，以及运行时集市清单未同步导致的 3 项分发失败；已补精确条目，API 分发 20 项及导出 4 项回归通过，不放宽规则。Catalog 关闭/取消及 Controller 静默交互/终态缺口已补。
-- **第二批本地全量：** `690cc9d5` 的 `./aervox ci all` 退出 0；API 805、仓储 572、Worker 148、Host Runtime 250 项通过，构建、类型、守卫、HLS、删除故障验证、Native Search/Rust/TS 和 64 份文档门禁均通过。Host Agent 的真实模型与参考库构建产物加载共 2 项既有跳过保留，不计通过。随后仅补本条验证记录并复验文档，远端以 PR 的精确提交检查为准，仍不能宣称 ITER-071 整体完成。
-- **第二批远端差异：** `fa709a84` 的 [API/UI/依赖检查](https://github.com/3yearsZhuang/Aervox-harness/actions/runs/39959318731)、[三平台 Native](https://github.com/3yearsZhuang/Aervox-harness/actions/runs/39959318836) 和 [Docs](https://github.com/3yearsZhuang/Aervox-harness/actions/runs/39959318784)共 7 项检查成功，主代码门禁因 Adapter 取消合同 1 项失败，CLI 集成随后跳过，不计通过。隔离探针与固定时钟红测确认：SQLite 已允许 `CancelRequested` 持有者续租，Core 内存实现却仅允许 `Running`，10ms 心跳早于 50ms 取消轮询时误判丢租约。已对齐内存实现，Native/Adapter 固定顺序合同 18 项、SQLite 租约合同 12 项及 Core 全套 494 项通过，同时检查失配 lease/fencing 及终态后续租仍拒绝。修复提交 `d40df6ad` 的 `./aervox ci all` 退出 0，Host Agent 101 项通过、2 项既有跳过；随后仅补本条验证记录并复验文档，远端仍须对新提交核对，不以先前结果覆盖。
-- **合并前审查补修：** 取消等待与审批参数两项反例均先红后绿。Controller 的静默取消可在 reset/dispose 释放，30 秒超时保留观察及未知结果；HTTP 初次接单与审批续跑共用受理回执恢复和活动执行去重，审批前缺失/失配回执返回 409 且无新 Attempt。客户端 45 项、HTTP/应用/SSE 32 项定向通过，原隔离探针复验通过。首次全量捕获 SSE 最小仓储被完整应用构造绑定的 10 项失败，已改为派发时使用公共执行入口，未扩张夹具或豁免。随后 `./aervox ci all` 退出 0，Host Runtime 254、API 805、仓储 572、Worker 148、客户端 154 项通过，2 项既有 Host Agent 跳过保留；打包 CLI 持久化/审批集成 2 项通过。远端仍按 PR 精确提交核对，ITER-071 整体继续保留未完成范围。
-- **关闭条件：** 上述缺口逐项有真实入口或等价隔离故障回归，删除旧消费者后完成定向验证与新的 `./aervox ci all`，再核对精确提交远端检查。已有绿测不覆盖后续修订。未操作用户业务数据库；代码验收不代表生产迁移、真实模型/账号/多设备、移动真机、签名或发布完成。
-
-## 3. 信任、数据安全与运行门槛
+**关闭条件：** 上述缺口逐项有真实入口或等价隔离故障回归，删除旧消费者后完成定向验证与新的 `./aervox ci all`，再核对精确提交远端检查。已有绿测不覆盖后续修订；代码验收不代表生产迁移、真实模型/账号/多设备、移动真机、签名或发布完成。
 
 <a id="iter-076"></a>
 
@@ -294,22 +134,22 @@ Memory 清理、独立验证、迟到写拒绝、召回资格及用途闸门已�
 - **本轮接续：** 在 `fix/plan-safety-contract-continuation` 修复删除请求只按幂等键重放、忽略 scope/owner/targets 的反例；同意图按完整去重目标集合返回原回执，异意图 409 且不改原请求、目标或进度。与 ITER-010 共用 21 项控制意图回归，旧实现 18 项失败；修复后仓储相关 33、真实 API 13 项及类型检查通过，整体验证另验。不扩 Worker 的 Memory owner 范围或宣称全链删除已完成。
 - **身份完整性补修：** 独立复核发现 HTTP 的 NUL 分隔元组可碰撞，原生驱动又截断文本的 NUL 后缀，未知删除身份可能被当成受支持前缀。现去重归仓储单一命令所有，JSON 转义覆盖删除请求/目标的全部读取和 RETURNING，以及账本回执；不截短、清洗或收窄合法字符串。新增仓储 2、真实 API 4、Worker 5 项反例先红；修复后控制意图 23、真实 API 4 文件 25、Worker 删除 20 项通过，后续完整集成另验。
 - **完成判据接续：** 临时 SQLite 反例确认，未知 scope、请求/目标 owner 或目标类型的历史 completed 记录，仅带当前 Memory verifier 就会错误解除阻断且不进入重试。`fix/deletion-completion-owner` 让统一删除阻断与重试 SQL 同时核对实际支持的 `memory` 范围、请求 owner、全部目标 type/owner 及非空身份；比较在 SQL 内完成，NUL 后缀不退化为受支持前缀。十项新反例先全部失败，修复后与控制意图、零召回和 Memory 验证共 53 项、Worker 删除 20 项通过；真实构建产物反例中的四种未知完成记录均恢复阻断并进入重试。`dc60c28c` 获独立审查 PASS，控制意图 33 项独立复验通过。不增加删除 owner、不改变清理证明版本，也不将已存在的完成记录视为独立账本证明。
-- **完成判据验证收口：** 吸收已审主线后的 `9c1dab80` 在 Node 24.21.0 / pnpm 11.22.0 下新鲜 `./aervox ci all` 退出 0：构建 35、类型 62、测试 63 个任务以及守卫、依赖审计、HLS、删除故障、Native 和 68 份文档门禁通过，API 1073、仓储 1089、Host Runtime 389、Worker 177 项通过；Host Agent 128 项通过、2 项既有条件跳过不计通过。首次同版全量因漏初始化固定 DSH 参考子模块而有 4 项失败，补齐原 gitlink 后原文件 7 项通过、2 项既有跳过，再重新全量通过，未改产品或断言。随后吸收上下文传播 PR #376 的实际主线 `9428ff15`，产品与测试 blob 保持独审版本，`c63bfb2d` 重建仓储后 7 文件 96 项、Worker 删除 20 项及仓储类型通过；两组删除切片的精确提交远端组合继续随 PR 验收，恢复仍拒绝，不提高整体删除或发布状态。
+- **完成判据验证收口：** 吸收已审主线后的 `9c1dab80` 在 Node 24.21.0 / pnpm 11.22.0 下新鲜 `./aervox ci all` 退出 0：构建 35、类型 62、测试 63 个任务以及守卫、依赖审计、HLS、删除故障、Native 和 文档门禁通过，API 1073、仓储 1089、Host Runtime 389、Worker 177 项通过；Host Agent 128 项通过、2 项既有条件跳过不计通过。首次同版全量因漏初始化固定 DSH 参考子模块而有 4 项失败，补齐原 gitlink 后原文件 7 项通过、2 项既有跳过，再重新全量通过，未改产品或断言。随后吸收上下文传播 PR #376 的实际主线 `9428ff15`，产品与测试 blob 保持独审版本，`c63bfb2d` 重建仓储后 7 文件 96 项、Worker 删除 20 项及仓储类型通过；两组删除切片的精确提交远端组合继续随 PR 验收，恢复仍拒绝，不提高整体删除或发布状态。
 - **Worker 完成竞态候选：** `fix/deletion-attempt-finalize` 从实际合入主线接续，在两次真实删除 cycle 的四种时序中先复现旧轮虚报完成、重复审计、清空新证明及重做目标；回归 4 项先红。队列 Port 现必填领取回执的 `attemptCount`，目标开始/结果和请求失败均核对当前请求状态及代际，空回执弃轮；仓储在同一写者事务内复验全部证明、CAS 完成并写审计，提交成功才计数。扩展检查另发现领取条件的裸 OR 越过请求身份，两个普通请求及普通/NUL 后缀请求均先红；给共享判据整体加括号后互不污染，不归为驱动截断。最终 Worker 3 文件 35 项、仓储 3 文件 55 项、消费图构建 23 与类型 45 个任务通过，涵盖同代际唯一完成、审计失败整事务回滚、失败重试和精确 NUL 完成。冻结 `6dc643e4` 获独立源码复审 PASS，独立实际复跑 Worker 35 与仓储 55 项通过；同版真实源码的 2 个竞争及 3 个旧回写探针通过，原红证据保留。完整门禁与 PR 仍待接续；重领不建立租约、不扩大清理 owner、证明版本或恢复责任。
-- **完成竞态分支整合（2026-11-18）：** 保留上述反例与首次研究失败证据，`0949b9c3` 修订真实崩溃探针以观察原子 finalize 事务，未放宽 SIGKILL 或顺序断言；独立研究复验 20/20、无跳过，覆盖 12 个 SIGKILL、5 个调度与 3 个规模场景、24 次写入。接入依赖安全修复后的 `08e4c106` 新鲜 `./aervox ci all` 退出 0，包测试、原生、删除故障与 68 份文档门禁通过，Host Agent 两项既有条件跳过保留。源码已独立审查；本条只闭合尝试代际与原子完成切片，最终 PR 检查与合入另取证，恢复与全链删除门槛仍开放。
+- **完成竞态分支整合（2026-11-18）：** 保留上述反例与首次研究失败证据，`0949b9c3` 修订真实崩溃探针以观察原子 finalize 事务，未放宽 SIGKILL 或顺序断言；独立研究复验 20/20、无跳过，覆盖 12 个 SIGKILL、5 个调度与 3 个规模场景、24 次写入。接入依赖安全修复后的 `08e4c106` 新鲜 `./aervox ci all` 退出 0，包测试、原生、删除故障与 文档门禁通过，Host Agent 两项既有条件跳过保留。源码已独立审查；本条只闭合尝试代际与原子完成切片，最终 PR 检查与合入另取证，恢复与全链删除门槛仍开放。
 - **下一步：** 继续闭合其余来源→派生传播及 grant 修订绑定，显式覆盖消息/工具结果、事件、摘要、Memory、日记、附件、缓存和错误副本。已关联历史 ContextManifest 清理见下条；未关联历史行、跨会话关系与其余派生类别仍须逐项验证，不能以新写入最小化或诊断 UI 不显示正文代替全链验证。
-- **上下文删除传播候选：** `fix/deletion-context-propagation` 在会话/消息身份/消息版本删除的原事务内，以持久 Session→Turn→Attempt→ModelRun 关系清空同会话历史 ContextManifest 的快照、自由文本 selection reason 和 permission snapshot；SQL 内完成身份匹配，不将 NUL 后缀经驱动截成另一会话。`turn:history` 占位引用的新写入仅保留白名单请求计数，不保存两个自由文本注释。真实 SQLite 首轮 5 项反例全部失败；独立复核另发现旧版已软删身份的提前返回跳过清理，现重试清理后仍返回原 null 语义、不改旧删除时间。最终连同平台/消息编辑/FTS 4 文件 43 项通过，涵盖所有删除入口清理失败回滚、软删撤销不重建诊断正文、独立来源证明及其他会话保留；仓储类型、静态守卫和独立复审通过。冻结 `b6356695` 的新 `./aervox ci all` 在 Node 24.21.0 / pnpm 11.22.0 下退出 0：构建 35、类型 62、测试 63 个任务及守卫、依赖审计、HLS、删除故障、Native 和 68 份文档门禁通过；API 1055、仓储 1086、Host Runtime 365、Worker 177 项通过，Host Agent 2 项既有条件跳过不计通过。随后只补本条记录并复验文档，精确提交远端结果随 PR 验收。未关联旧行、跨会话无来源关系、其余派生及账本先行仍开放，恢复继续拒绝。
+- **上下文删除传播候选：** `fix/deletion-context-propagation` 在会话/消息身份/消息版本删除的原事务内，以持久 Session→Turn→Attempt→ModelRun 关系清空同会话历史 ContextManifest 的快照、自由文本 selection reason 和 permission snapshot；SQL 内完成身份匹配，不将 NUL 后缀经驱动截成另一会话。`turn:history` 占位引用的新写入仅保留白名单请求计数，不保存两个自由文本注释。真实 SQLite 首轮 5 项反例全部失败；独立复核另发现旧版已软删身份的提前返回跳过清理，现重试清理后仍返回原 null 语义、不改旧删除时间。最终连同平台/消息编辑/FTS 4 文件 43 项通过，涵盖所有删除入口清理失败回滚、软删撤销不重建诊断正文、独立来源证明及其他会话保留；仓储类型、静态守卫和独立复审通过。冻结 `b6356695` 的新 `./aervox ci all` 在 Node 24.21.0 / pnpm 11.22.0 下退出 0：构建 35、类型 62、测试 63 个任务及守卫、依赖审计、HLS、删除故障、Native 和 文档门禁通过；API 1055、仓储 1086、Host Runtime 365、Worker 177 项通过，Host Agent 2 项既有条件跳过不计通过。随后只补本条记录并复验文档，精确提交远端结果随 PR 验收。未关联旧行、跨会话无来源关系、其余派生及账本先行仍开放，恢复继续拒绝。
 - **依赖与验收：** 联动 ITER-071 写者门禁、ITER-013 逐帧撤权及 ITER-010 deny 账本；数据库级唯一 sequence 约束经 ITER-011 演练。撤权/删除立即阻断用途，迟到写、重试、备份恢复均不复活；独立验证无召回、无越权动作，失败/未知 owner 不返回完成。权威边界见[隐私合同](docs/reference/DATA_PRIVACY.md#privacy-deletion-sla)及[当前限制](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-证据与适用限制)。
-- **Hook 写者准入候选：** 临时 SQLite 审计确认，有效插件代际与 Running Attempt 可在来源软删后继续写入核心 delta，而安全片段写者已拒绝。`fix/deletion-hook-body-admission` 在现有 Hook 写者事务内复用来源检查，校验通过前不分配序号或插入正文；不改原插件代际、全局删除和 fencing 判断。七个删除后可写反例先失败，修复后历史/流式仓储 2 文件 67 项与真实 Hook 生命周期/取消 API 2 文件 19 项通过，其他 Turn 和回滚失败的删除仍保持原写入资格。独立源码复审与探针通过；吸收主线 `9428ff15` 后生产/测试源码不变，冻结 `2fcdbf0c` 的新 `./aervox ci all` 退出 0，构建 35、类型 62、测试 63 个任务及守卫、依赖审计、HLS、删除故障、Native 和 68 份文档门禁全部通过，Host Agent 两项既有条件跳过不计通过。随后只补本条并复验文档，精确提交远端结果随 PR 验收；普通错误载荷、旧事件/片段清理、非首版本物理删除的披露证明及 Outbox 副本继续开放。
+- **Hook 写者准入候选：** 临时 SQLite 审计确认，有效插件代际与 Running Attempt 可在来源软删后继续写入核心 delta，而安全片段写者已拒绝。`fix/deletion-hook-body-admission` 在现有 Hook 写者事务内复用来源检查，校验通过前不分配序号或插入正文；不改原插件代际、全局删除和 fencing 判断。七个删除后可写反例先失败，修复后历史/流式仓储 2 文件 67 项与真实 Hook 生命周期/取消 API 2 文件 19 项通过，其他 Turn 和回滚失败的删除仍保持原写入资格。独立源码复审与探针通过；吸收主线 `9428ff15` 后生产/测试源码不变，冻结 `2fcdbf0c` 的新 `./aervox ci all` 退出 0，构建 35、类型 62、测试 63 个任务及守卫、依赖审计、HLS、删除故障、Native 和 文档门禁全部通过，Host Agent 两项既有条件跳过不计通过。随后只补本条并复验文档，精确提交远端结果随 PR 验收；普通错误载荷、旧事件/片段清理、非首版本物理删除的披露证明及 Outbox 副本继续开放。
 - **Worker 轮次组合复验：** 吸收持久问答实际主线 `c20c1be1` 后，`70aae844` 的新 `./aervox ci all` 退出 1；构建 35、类型 62、测试 63 个任务均通过，其中 Worker 190、仓储 1122、API 1076 项通过，Host Agent 两项既有条件跳过保留。失败位于删除研究探针：旧接口拦截未能到达 `before-target-proof`，原研究 20 项中 19 项通过。现仅将故障拦截接到真实轮次结果与原子 finalize 回执，保留事务参数及全部 12 个 SIGKILL、5 个并发时序、3 个独立规模和 24 个写入样本；固定 Node 24.21.0 下原三文件 20 项重新通过、无跳过，产品源码及原验证判据不变。首次全量失败仍保留，不计通过；补修独立审查、新组合全量与精确提交 PR 继续验收。
 - **审计定位：** `c1af1099` 的[删除 Worker](apps/worker/src/deletion-worker.ts)仍只接受 Memory 范围；通用来源→派生、grant 修订及历史诊断正文清理沿本条接续，以逐 owner/派生类别的删除与迟到写反例关闭，不扩大有限 Memory 测试的完成声明。
-- **终态载荷准入候选：** `fix/deleted-source-terminal-payload` 修复来源删除后普通 fenced `done/error` 与原子终态写者仍持久自由正文的反例。沿同一写者来源/删除判据将新终态投影为固定无正文元数据，保留实际 Attempt 状态、终态 CAS 和水位；查询失败仍回滚，未失去资格的其他 Turn 保留原载荷。首轮真实 SQLite 24 项中 20 项因正文仍被持久化而失败；补齐来源读取失败回滚及固定安全回复兼容后，仓储 5 文件 93 项、真实 API 取消/Hook/错误 4 文件 30 项及 23 个构建任务、仓储类型、守卫和 68 份文档检查通过。吸收实际主线 `fa30ddc7` 后同组仓储 101 项通过；冻结 `a5c9c673` 的独立源码复审、另组 108 项及真实 SQLite/执行 Store/广播桥探针通过，普通事件追加仍保持原 Running 状态，原子终态保留实际状态并将不可用载荷标为未完成。全量和 PR 交付仍待验收。旧正文清洗、未 fenced 兼容写者、原始进程内广播、非首版本硬删来源与完整下游派生资格仍开放，恢复拒绝不变。
+- **终态载荷准入候选：** `fix/deleted-source-terminal-payload` 修复来源删除后普通 fenced `done/error` 与原子终态写者仍持久自由正文的反例。沿同一写者来源/删除判据将新终态投影为固定无正文元数据，保留实际 Attempt 状态、终态 CAS 和水位；查询失败仍回滚，未失去资格的其他 Turn 保留原载荷。首轮真实 SQLite 24 项中 20 项因正文仍被持久化而失败；补齐来源读取失败回滚及固定安全回复兼容后，仓储 5 文件 93 项、真实 API 取消/Hook/错误 4 文件 30 项及 23 个构建任务、仓储类型、守卫和 文档检查通过。吸收实际主线 `fa30ddc7` 后同组仓储 101 项通过；冻结 `a5c9c673` 的独立源码复审、另组 108 项及真实 SQLite/执行 Store/广播桥探针通过，普通事件追加仍保持原 Running 状态，原子终态保留实际状态并将不可用载荷标为未完成。全量和 PR 交付仍待验收。旧正文清洗、未 fenced 兼容写者、原始进程内广播、非首版本硬删来源与完整下游派生资格仍开放，恢复拒绝不变。
 
 - **终态候选整合复验：** 完整吸收来源授权审计 ID 修复后，`ea010597` 的首次全量退出 1：Host Runtime 八项仍期待旧持久原因，其他状态与执行次数断言通过。独立复审确认来源失效后的固定投影应为 `source_unavailable`；仅对应删除场景更新为精确四字段载荷与真实 Turn 水位，来源仍可写的 Core 原因和固定求助回复保留，17 项策略回归通过。协议明确此投影例外；诊断白名单仅接纳两个固定安全常量，真实 SQLite 两项原因丢失先红，修后连同未知正文过滤及终态回归 32 项通过，独立复验通过。新全量和精确提交 PR 检查继续验收，原失败证据保留。
 
 - **终态 HTTP 兼容回归：** `6a12e324` 的新全量退出 1，Host Runtime 389 项通过，API 1073 项通过、1 项仍要求全局待处理删除时的旧持久原因。实际数据库删除闸门同样需要固定无正文终态；该 HTTP 回归改为精确控制字段与真实 Turn 水位，保留零模型/工具产出、唯一终态及 Interrupted 状态，Core 裁决和假 gate 回归不变。实际主线 `6b326c67` 已接入，文件树与预整合的来源审计修复一致；新组合全量继续验收，不将失败计作通过。
 
-- **终态最终组合全量：** 此后完整整合已审持久问答候选 `b7b774dc`，固定 Core `93351196`、插件集合 `fa532343` 与 Schema v2；共享插入原语继续接收来源判据计算后的终态载荷，冲突解决经独立审查。冻结 `e35b4a487b5ac07b90d59e605a3962a43a4cd07e` 的新鲜 `./aervox ci all` 实际退出 0，构建 35、类型 62、测试 63 个任务通过，API 1076、Repositories 1152、Host Runtime 389、Worker 177 项及依赖审计、删除故障、Rust 原生和 68 份文档门禁完成；Host Agent 130 项通过、两项既有环境跳过保留。该结果完成本候选的新组合本地全量，前述两次失败不计通过；终态 PR 必须在持久问答实际合入主线后排除其并行变更，再按精确提交远端检查交付，旧正文、未 fenced 路径及完整删除/恢复门槛继续保留。
+- **终态最终组合全量：** 此后完整整合已审持久问答候选 `b7b774dc`，固定 Core `93351196`、插件集合 `fa532343` 与 Schema v2；共享插入原语继续接收来源判据计算后的终态载荷，冲突解决经独立审查。冻结 `e35b4a487b5ac07b90d59e605a3962a43a4cd07e` 的新鲜 `./aervox ci all` 实际退出 0，构建 35、类型 62、测试 63 个任务通过，API 1076、Repositories 1152、Host Runtime 389、Worker 177 项及依赖审计、删除故障、Rust 原生和 文档门禁完成；Host Agent 130 项通过、两项既有环境跳过保留。该结果完成本候选的新组合本地全量，前述两次失败不计通过；终态 PR 必须在持久问答实际合入主线后排除其并行变更，再按精确提交远端检查交付，旧正文、未 fenced 路径及完整删除/恢复门槛继续保留。
 
 <a id="iter-006"></a>
 
@@ -358,12 +198,12 @@ ARC-05/12、FND-05/06/09，CAP-007/018。依赖 ITER-002/008 必要切片，与 
 
 - **已交付：** [PR #316](https://github.com/3yearsZhuang/Aervox-harness/pull/316) 单读取/写入执行者、Hub 唤醒合并、终态/高水位同快照及分页重放；页最多 256 行/256 KiB data 前缀，保留至少一条超预算事件，单事件/元数据/JSON 内存仍可超预算。write=false 等 drain 最多 30 秒，连接总限 10 分钟从重放起计；断连不取消 Turn、不造终态，旧 Attempt 不截断续跑。[PR #317](https://github.com/3yearsZhuang/Aervox-harness/pull/317) 从首信号共享默认 20 秒 Worker 关闭预算，前序释放成功才显式关库；超时/异常非零，数据库关闭可能部分成功。
 - **逐帧删除切片：** PR #324 在建流和逐帧发送前查询当前来源状态与持久事件，删除后不继续发送缓存页，空闲轮询也关闭观察；真实 API/独立 SQLite 进程及背压反例见 ITER-071。只覆盖首输入缺失和现存同 Turn 身份软删，完整授权/脱敏、非首输入物理删除传播及网络原子撤权不在完成声明内。
-- **Home Assistant 读取接续：** [PR #369](https://github.com/3yearsZhuang/Aervox-harness/pull/369) 已实现迟到 HTTP 结果的单次许可与条件缓存写入，绑定原连接/实体策略、来源及必需来源版本和原租约 ID/epoch；实体禁用/白名单调整、连接删除/同 ID 重建、来源撤销后重授、画像暂停后恢复、同 epoch 租约复用和心跳权限失去后恢复均不能重新准入旧读取。连接内部代际由写者生成，策略变更与代际轮换同事务，公开 DTO/业务导出省略该值。固定来源及实体时间戳的真实本地 HTTP/SQLite 回归、恢复授权后的新读取、稳定授权下的并发读取、加密代际重放和单次许可均已验证；API/SPI 24、仓储 16、审批/特权会话 7 项通过，独立再审查通过。吸收 main `4ae535c7` 后的精确组合 `10a75328` 再跑 `./aervox ci all` 退出 0，API 1046、仓储 966、Worker 177 项及原生、删除故障、68 份文档检查通过；DSH 2 项既有条件跳过保留。契约见 [ADR-019](docs/reference/adr/ADR-019-proactive-integrations-local-gateway.md)。本批只覆盖单实体读取，HTTP 送达仍晚于条件写入准入点；同步、事件订阅、外部服务副作用和其它 Provider 的完整撤权继续验收。
+- **Home Assistant 读取接续：** [PR #369](https://github.com/3yearsZhuang/Aervox-harness/pull/369) 已实现迟到 HTTP 结果的单次许可与条件缓存写入，绑定原连接/实体策略、来源及必需来源版本和原租约 ID/epoch；实体禁用/白名单调整、连接删除/同 ID 重建、来源撤销后重授、画像暂停后恢复、同 epoch 租约复用和心跳权限失去后恢复均不能重新准入旧读取。连接内部代际由写者生成，策略变更与代际轮换同事务，公开 DTO/业务导出省略该值。固定来源及实体时间戳的真实本地 HTTP/SQLite 回归、恢复授权后的新读取、稳定授权下的并发读取、加密代际重放和单次许可均已验证；API/SPI 24、仓储 16、审批/特权会话 7 项通过，独立再审查通过。吸收 main `4ae535c7` 后的精确组合 `10a75328` 再跑 `./aervox ci all` 退出 0，API 1046、仓储 966、Worker 177 项及原生、删除故障、文档检查通过；DSH 2 项既有条件跳过保留。契约见 [ADR-019](docs/reference/adr/ADR-019-proactive-integrations-local-gateway.md)。本批只覆盖单实体读取，HTTP 送达仍晚于条件写入准入点；同步、事件订阅、外部服务副作用和其它 Provider 的完整撤权继续验收。
 - **本轮有限实施：** [草稿 PR #360](https://github.com/3yearsZhuang/Aervox-harness/pull/360) 将显式 `AERVOX_LOOP_DISPATCH=worker` 的初始委托移入 [delegated-turns 专用 Job](apps/worker/src/turn-consumer.ts)，通用 Outbox 不抢先确认。每个 Worker 的单批并发默认 2、上限 8，整批结束再取后续任务；以原始回执准入和首个 Attempt 终态确认，领取竞争、活动 owner、观测及确认失败不作为执行完成。仍可投递的未领取初始委托超过孤儿阈值后保留排队，已领取过期、取消和无有效回执继续现有恢复；关闭时取消活动执行并等待批次回执处理。契约见 [Agent Harness Loop §12.1](docs/reference/agent-harness-loop.md#121-内部领域事件)。本批不覆盖全进程并发预算、API/审批续跑/子任务限额、持续补位调度、Task/Router 或完整 SuperAgent；不新增隔离或授权边界。
 - **本轮本地验证：** Node 24.21.0 直接运行 Worker 6 个定向文件 68/68、宿主 4 个文件 47/47、仓储回执与恢复 4 个文件 66/66，以及配置、任务节拍和受影响包构建/类型检查均通过；覆盖长模型并发、普通 Outbox、超额排队、领取竞争、重投、确认失败后重开、原始 Attempt/审批续跑、坏 JSON/接单凭据/会话政策、过期恢复及关闭排空。最终源码 `./aervox ci all` 通过，含依赖审计、全仓构建/类型/测试、恢复研究、原生和全文档门禁；固定 pnpm 11.22.0 的全量子进程实际使用 Node 26.13.0，与上述 Node 24 定向证据分开陈述。独立代码审查和暂存文件卫生通过。本批仍需 PR 审查合入，不据此宣布真实 Provider 验收、强杀副作用矩阵、生产部署、正式发布或 ITER-013 整体完成。
 - **审计定位：** [来源可见查询](packages/repositories/src/repositories/sqlite/conversation/source-visibility.ts)的身份/删除检查尚不覆盖完整同意与授权修订；[事件存储](packages/repositories/src/repositories/sqlite/conversation/stream-event-store.ts)仍允许至少一条历史事件超过单页字节预算。对应补齐授权修订反例、单事件/全局流/累计资源限制和全部写者排空证明，保留已有分页与背压交付。
 - **本轮共享模型流候选：** Node Host 在组合根显式持有一个[上游资源 owner](packages/host-runtime/src/modules/ecosystem/llm/model-resources.ts)，默认 4、配置范围 1～32；主对话/审批续跑/子任务/恢复/插件和领域生成共用 factory，实际拉流取得名额，超额 typed 立即拒绝，不排队。取消仅停止调用者等待，实际 `next` 与清理未结束仍占用容量；关闭撤销准入，默认 20 秒未确认 drain 则失败。最终候选在 Node 24.21.0 / pnpm 11.22.0 下通过宿主 31 文件 356 项（含资源/生成与真实 Host HTTP 回归）、配置 44 项、API Provider 3 项、API/Worker/宿主构建及类型检查、架构/透传/文件卫生与文档检查。真实回环 HTTP 在上限 2 时验证主对话与日记共享、额外主对话/实际子执行/恢复闭包零新请求、插件 afterTurn 生成继续共享名额、取消后主动生成可补位、关闭同时取消会话和无调用者信号的领域生成，服务端峰值 2 且最终连接 0；持久 Failed/error 与 ModelRun failed、不补造 usage。Core 模型失败原子提交一个 error 终态事件，既有返回 reason 为 execution error、event code 为 MODEL_UNAVAILABLE，不另写 Turn.error 或追加 done；独立审查与最终全量证据见下条。仅覆盖单进程配置模型流，不覆盖 SSE 观察连接、受理/prepare、Embedding/探针、DSH/headless、跨进程总量或所有写者；Core 通用失败 reason 保持既有语义，专用终态 code 另行薄片。
-- **共享模型流验证收口：** 首轮全量发现装配上下文两处类型直引 LLM 私有文件，改为已有公开入口后边界 26 项与宿主类型检查通过；下一轮仅 Bot 策略旧夹具缺少共享 factory，8 项无模型请求失败。补真实 owner/factory、直接执行传递及清理，不改原断言，12 项定向先绿。冻结产品源码摘要 `cde7cb78172e91f93aec1c2b0f5d7a87e3b2ba7a30134e5b4fa99a6611d94561` 获独立审查 PASS，`c28c7a87` 在 Node 24.21.0 / pnpm 11.22.0 下新鲜 `./aervox ci all` 退出 0：API 1054、仓储 1059、宿主 356、Worker 177 项通过，构建、类型、守卫、依赖审计、删除故障、Native 与 68 份文档门禁通过；Host Agent 2 项既有真实模型/参考库跳过仍不计通过。随后只补本条验证记录并复验文档；远端结果按 PR 精确提交继续验收，不提高 ITER-013 或发布状态。
+- **共享模型流验证收口：** 首轮全量发现装配上下文两处类型直引 LLM 私有文件，改为已有公开入口后边界 26 项与宿主类型检查通过；下一轮仅 Bot 策略旧夹具缺少共享 factory，8 项无模型请求失败。补真实 owner/factory、直接执行传递及清理，不改原断言，12 项定向先绿。冻结产品源码摘要 `cde7cb78172e91f93aec1c2b0f5d7a87e3b2ba7a30134e5b4fa99a6611d94561` 获独立审查 PASS，`c28c7a87` 在 Node 24.21.0 / pnpm 11.22.0 下新鲜 `./aervox ci all` 退出 0：API 1054、仓储 1059、宿主 356、Worker 177 项通过，构建、类型、守卫、依赖审计、删除故障、Native 与 文档门禁通过；Host Agent 2 项既有真实模型/参考库跳过仍不计通过。随后只补本条验证记录并复验文档；远端结果按 PR 精确提交继续验收，不提高 ITER-013 或发布状态。
 - **下一步：** 优先完整逐帧授权/同意版本及来源传播、全局并发流限额，再覆盖所有 Provider 队列/取消、Host/Worker 全部写者 drain、跨进程终态及累计预算策略。ITER-007 的费用/跨重启计量和一次性授权剩余分别联动 ITER-033/010；不将异步计时器视为同步阻塞或原生强杀时限的保证。
 - **验收与证据：** 慢源/慢客户端/日志洪泛资源有界、停机有截止、已提交窗口可读、失败可定位，复用现有 metrics。真实慢 TCP/临时 SQLite、独立 Worker 子进程回归与精确 PR 门禁已通过；error/done、取消幂等及事件保留遵守[流式协议](docs/reference/STREAMING_PROTOCOL.md)。历史失败与样本值保留在[原计划](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation/reading/plan.md#iter-013)，不能外推生产峰值。
 
@@ -387,68 +227,36 @@ FND-02/04、CAP-020，依赖 ITER-004/063，遵循 [ADR-028](docs/reference/adr/
 
 ### ITER-053/059/061 · 第一方界面切片已交付，产品场景待验收
 
-- **ITER-053：** 前端体验与跨端连续对话已有 [PR #260](https://github.com/3yearsZhuang/Aervox-harness/pull/260)、[PR #275](https://github.com/3yearsZhuang/Aervox-harness/pull/275)；历史抽屉已有 ITER-064 持久分页。第二批首页四个真实入口、常驻输入、按会话身份保留草稿与分页接续已由 PR #362 配对合入，精确提交集成及浏览器证据见下文；其余实时面板接线、真实模型和跨端用户操作闭环继续验收。移动真机按 ITER-009 的平台/运行位置决定后取证。
-- **ITER-059：** 陪伴界面、最近会话和固定入口由 [PR #276](https://github.com/3yearsZhuang/Aervox-harness/pull/276)交付，桌面经典布局/移动陪伴由 [PR #306](https://github.com/3yearsZhuang/Aervox-harness/pull/306)对齐；仍须验证学习记录推荐来源、真实模型及设备行为。
-- **ITER-061：** companionName/userAddress 与旧字段迁移由 [PR #279](https://github.com/3yearsZhuang/Aervox-harness/pull/279)交付，按维护者决定移除素简文档界面；命名与身份分层保留，服务端统一身份、真实模型/实机仍未验收。以上原编号分别承接剩余，ITER-071 先修 Controller/问答/观察缺口，各 surface 保留布局。
+- **ITER-053：** 前端体验与跨端连续对话已有 [PR #260](https://github.com/3yearsZhuang/Aervox-harness/pull/260)、[PR #275](https://github.com/3yearsZhuang/Aervox-harness/pull/275)；历史抽屉已有 ITER-064 持久分页。第二批首页四个真实入口、常驻输入、按会话身份保留草稿与分页接续已由 PR #362 配对合入。其余实时面板接线、真实模型和跨端用户操作闭环继续验收；移动真机按 ITER-009 的平台/运行位置决定后取证。
+- **ITER-059：** 陪伴界面、最近会话和固定入口由 [PR #276](https://github.com/3yearsZhuang/Aervox-harness/pull/276) 交付，桌面经典布局/移动陪伴由 [PR #306](https://github.com/3yearsZhuang/Aervox-harness/pull/306) 对齐；仍须验证学习记录推荐来源、真实模型及设备行为。
+- **ITER-061：** companionName/userAddress 与旧字段迁移由 [PR #279](https://github.com/3yearsZhuang/Aervox-harness/pull/279) 交付，按维护者决定移除素简文档界面；命名与身份分层保留，服务端统一身份、真实模型/实机仍未验收。
+
+以上原编号分别承接剩余，ITER-071 先修 Controller/问答/观察缺口，各 surface 保留布局。
 
 #### 主动个人助手整合：下一阶段主线
 
-**首个闭环建议：** 用户交代一件具体事 → 必要澄清 → 可用产出或明确下一步 → 用户确认采纳/继续修订 → 重开后回到原会话。例如整理用户提供的一段材料或拟一份大纲；复用现有文本、补问、流式结果、复制和持久历史。学习建议作为首个有结构事实的主动切片，不先依赖日程、全域观察、后台运行或新任务引擎。
+**首个闭环建议：** 用户交代一件具体事 → 必要澄清 → 可用产出或明确下一步 → 用户确认采纳/继续修订 → 重开后回到原会话。复用现有文本、补问、流式结果、复制和持久历史；学习建议作为首个有结构事实的主动切片，不先依赖日程、全域观察、后台运行或新任务引擎。
 
 | 批次 | 归属与最小交付 | 退出条件 |
 |---|---|---|
-| 第一批：已合入，文档与静态参考 | ITER-061/053；[PR #358](https://github.com/3yearsZhuang/Aervox-harness/pull/358) 保留 `docs/assistant-vision` 的 6 个提交并完成独立审查，对齐助手身份、首页目标、学习域追踪、指标及实验口径；静态“朝夕”标明模拟来源并在手机/桌面复验。依赖恢复拒绝 PR #359 | PRD/SRS/DESIGN/追踪一致；CAP/FR/AC 不重编号。思隅、角色名、用户称呼与人格边界明确；旧 Web 桌宠描述与现行界面对齐，原学习门槛保留；文档与静态演示不构成第二/三批界面交付 |
-| 第二批：首页与连续会话已配对合入 | ITER-053/061；`proactive-ui` 已补“接着上次”“今日”“记录”“日记”四个真实入口，保留角色、常驻输入及按会话身份的草稿。列表支持逐页读取，首 100 条之外的 selected 由只读 GET 找回；Android 学习面板由组合根注入，普通 Web 由 `focus-mode` companion 扩展提供入口，日记复用已有生成/往期读取并与 chat 互斥。手机接缝归 ITER-009，领域/接口差量归 ITER-064；本地全量及 Chromium 13 项通过，[主仓 PR #362](https://github.com/3yearsZhuang/Aervox-harness/pull/362)与[集合 PR #12](https://github.com/Aervox-agent/Aervox-plugins/pull/12)已配对合入 | 从首页找到原会话、完成澄清/产出并回看；刷新不造新 Turn，执行/待回答/待审批/未知受理状态可区分，切会话保留草稿。空数据、缺模型、失败、取消、短屏/IME/返回及键盘/读屏均可完成核心操作；本批交付不关闭第三批剩余来源与回执、真机/M0 或发布验收 |
-| 第三批：到期复习切片已合入，其余场景接续 | ITER-059/053；首批“今日”只用真实到期复习、未完练习和当前会话状态，每项说明来源与出现原因并可忽略。[PR #387](https://github.com/3yearsZhuang/Aervox-harness/pull/387) 已交付“到期项→知识正文→用户自评→完成回执/下次日期→首页刷新与完成历史重开”，并冻结界面所有者存续期间的未知自评/练习作答请求与原幂等键；继续未完练习恢复、判分报告重开和“报告→错题→再练”。日记先复用按需生成与往期阅读，人格验证实际模型上下文 | 建议进入原领域操作并按持久回执更新结果，自评与题目判分分别表达，不把模型推断当任务事实；加载/失败/未知不显示为已完成。界面存续期已冻结含耗时/提示/时区的完整作答请求快照与原幂等键，未知回执不换键或重复计分；跨崩溃未知意图仍待验收。来源删除/撤权/停用后不可继续显示或执行；缺少传播防线的派生建议保持关闭 |
-| 第四批：可用性与真实帮助验证 | ITER-059/061；固定源码、Provider/权限和界面能力，先用隔离样例验证，再拟定小样本连续使用观察与产品实验。平台真机/M0 由 ITER-009 平行验收，恢复阻断由 ITER-003/010 先关闭 | 核对用户是否得到可用结果、接续入口是否减少卡点；保留失败、修订/拒绝、成本与数据权利证据。可用性记录不能代替受控实验，界面完成不能代替 M0、签名或正式发布 |
+| 第一批：已合入 | ITER-061/053；[PR #358](https://github.com/3yearsZhuang/Aervox-harness/pull/358) 保留 `docs/assistant-vision` 的 6 个提交并完成独立审查，对齐助手身份、首页目标、学习域追踪、指标及实验口径；静态"朝夕"标明模拟来源并在手机/桌面复验 | PRD/SRS/DESIGN/追踪一致；CAP/FR/AC 不重编号；文档与静态演示不构成第二/三批界面交付 |
+| 第二批：首页与连续会话已配对合入 | ITER-053/061；`proactive-ui` 补"接着上次""今日""记录""日记"四个真实入口，保留角色、常驻输入及按会话身份的草稿；列表逐页读取，首 100 条之外的 selected 由只读 GET 找回；Android 学习面板由组合根注入，普通 Web 由 `focus-mode` companion 扩展提供入口。手机接缝归 ITER-009，领域/接口差量归 ITER-064 | 从首页找到原会话、完成澄清/产出并回看；刷新不造新 Turn；执行/待回答/待审批/未知受理状态可区分，切会话保留草稿；空数据、缺模型、失败、取消、短屏/IME/返回及读屏均可完成核心操作 |
+| 第三批：到期复习已合入，其余场景接续 | ITER-059/053；"今日"只用真实到期复习、未完练习和当前会话状态，每项说明来源与出现原因并可忽略。[PR #387](https://github.com/3yearsZhuang/Aervox-harness/pull/387) 交付"到期项→知识正文→用户自评→完成回执/下次日期→首页刷新与完成历史重开"，并冻结界面存续期间的未知自评/作答请求与原幂等键 | 建议进入原领域操作并按持久回执更新结果；自评与题目判分分别表达，不把模型推断当任务事实；加载/失败/未知不显示为已完成；来源删除/撤权/停用后不可继续显示或执行 |
+| 第四批：可用性与真实帮助验证 | ITER-059/061；固定源码、Provider/权限和界面能力，先用隔离样例验证，再拟定小样本连续使用观察。平台真机/M0 由 ITER-009 平行验收，恢复阻断由 ITER-003/010 先关闭 | 核对用户是否得到可用结果、接续入口是否减少卡点；保留失败、修订/拒绝、成本与数据权利证据；可用性记录不能代替受控实验或发布 |
 
-**首页信息架构：** 首页展示角色、当前会话、常驻输入及真实领域入口；会话页承担新建、查询、历史与管理；学习页暴露已实现的练习/错题/复习/报告，目标和计划管理分步接入；日记页先提供实际已有的按需生成和往期读取。第二批“今日”已交付学习与日记入口，第三批已合入到期复习来源、知识正文及自评回执；其余场景与完整来源资格传播继续验收。模型、人格、数据与系统能力集中在设置，附件/语音/复制/朗读靠近对应操作。手机保留 Material 3 四卡和大角色，学习已可由“今日”到达；原生 `pluginDefinitions=[]` 保持，学习面板由受信 App 组合根注入。普通 Web 的学习入口由 `focus-mode` 的 companion 扩展提供，两端装配分别验证。
+**首页信息架构：** 首页展示角色、当前会话、常驻输入及真实领域入口；会话页承担新建、查询、历史与管理；学习页暴露已实现的练习/错题/复习/报告；日记页提供按需生成和往期读取。模型、人格、数据与系统能力集中在设置，附件/语音/复制/朗读靠近对应操作。手机保留 Material 3 四卡和大角色，原生 `pluginDefinitions=[]` 保持，学习面板由受信 App 组合根注入；普通 Web 的学习入口由 `focus-mode` 的 companion 扩展提供，两端装配分别验证。
 
-**第二批基线与第三批缺口：** [主动界面](plugins/surfaces/proactive-ui/src/ProactiveCompanion.vue)已移除固定 25 分钟及未读取学习事实的“无学习记录”提示，“今日”改为真实领域入口集合；PR #387 已补到期来源及自评回执。第二批的[任务卡](plugins/plugins/ui/focus-mode/src/ui/FocusTaskCenterCard.vue)曾把未加载/失败得到的 0 当作“今日全部完成”，本切片改用同一真实汇总并区分加载、空和失败。已有 [learning stores](packages/api-client/src/learning-stores.ts) 提供真实 due/history/summary、未完练习和报告；第二批[作答 UI](plugins/plugins/ui/focus-mode/src/ui/useFocusLearning.ts)曾在重试重新计算耗时，而仓储幂等摘要包含该值；PR #387 已冻结含耗时、提示与时区的完整请求快照及原幂等键，按真实回执刷新，不以新的 key 绕过冲突。
+**第三批剩余（本条未关闭的原因）：** Focus 未完练习恢复与两端报告重开仍未接线（报告 API 已有，但共享 `PracticeStorePort` 缺读取方法，两端报告仅在内存）；跨崩溃未知意图、完整跳过流程、完整 provenance/撤权传播、用户效果与真实模型仍开放。界面存续期已冻结含耗时、提示、时区的完整作答请求快照与原幂等键，未知回执不换键或重复计分；来源状态不等于外部 Grant，自动建议派生保持关闭。
 
-第二批到期自评在 [工具抽屉](packages/ui/src/components/workbench/drawers/ToolsDrawer.vue)曾只展示知识 ID，PR #387 已接到学习抽屉并补知识正文及下一日期。Focus 练习虽有持久进度，打开学习抽屉只加载而未还原作答面板；[Native 学习面](apps/web/src/mobile/NativeLearningPanel.vue)已有挂载和刷新时读取活跃会话、还原首个未答题的能力，普通草稿及迟到读取的保护继续接续。报告 API 已有，但共享 PracticeStorePort 缺读取方法，两端报告仅在内存。Focus 未完练习恢复与两端报告重开继续作为第三批剩余，不把已有后端或 Native 恢复误写成未实现。首页首次只做即时只读投影；若引入持久建议，先明确来源、删除/失效与迟到写责任。
+**指标与实验：** "每周有效帮助会话数"须先在指标字典明确版本与成功判据：真实请求、可用产出/下一步及用户确认采纳，多轮修订去重。模型 Completed、页面打开、复制和未解决的继续对话不自动算成功；WELS 保留为学习域子指标，旧数据不混算。首轮用人工核对的小样本定位卡点，不新建分析数据责任；EXP-004 首轮对照固定 Provider/权限/能力，仅比较接续入口与可解释建议，长期记忆由 EXP-002 单独检验。
 
-**学习前序配对准备：** 学习宿主 `b3bba965` 与集合 `1488e479` 已完整预整合已审问答候选 `b7b774dc`、Core `93351196` 和实际集合主线 `fa532343`，保留原学习切片及新问题身份消费者。[问答主仓 PR #380](https://github.com/3yearsZhuang/Aervox-harness/pull/380) 的精确 `b7b774dc` 十项远端检查通过并合入实际主线 `c20c1be13902123ccd1c60c1a0bc321c339ff94d`；学习宿主 `aba6ed5b` 接入该实际 SHA 仅补祖先关系、文件树未变。完整学习宿主准备提交 `b2465fd3746ac22d143aa0343d3c24643f847a83` 已公开，暂固定实际公开集合 `fa532343`；[集合 PR #16](https://github.com/Aervox-agent/Aervox-plugins/pull/16) 的公开候选 `60631965c6b6a5d625a42f5a31fdb05a3a2debb8` 已直接替换旧 pin，CI 在安装前以该精确插件候选覆盖 gitlink。学习主仓现固定此公开候选供最终组合验证；pin 差量仅 CI 说明与 SHA，工作区 CI 回归三项通过，产品源码和已审问题身份夹具不变。新组合全量及精确提交远端结果仍待验收，集合 PR 保持 draft，合入后再固定实际集合 SHA 复验；本地整合或准备版不计作学习切片的主线交付。
+**人格形象（已合入）：** Mizuki 是当前唯一默认及内置可选形象。共享渲染、三个第一方界面与桌面引导已删除默认占位组件、样式、导出和降级链；人格设置支持可选 Live2D 绑定，运行按实际激活修订解析，失效引用保留并显示 Mizuki。HTTP/native/client 同步字段与确切修订读取，无 SQL 迁移；桌面保存不自动启用，手机按保存回执启用确切修订，失败保留已保存回执并单独重试。
 
-**第三批真实学习闭环的前序实施与验证：** `feat/assistant-review-loop` 在第二批合入基线上接续本机到期复习：任务中心与学习入口消费同一真实汇总，明确区分尚未读取、失败和空结果；Focus 学习抽屉及 Native 学习面读取完整知识正文，记录用户自评并显示经共享 Schema 与身份核对的完成判定、下一日期、间隔、调度版本和时区。完成历史在同一 SQL 查询中读取当前关联的下一项，重开可回看；下一项后来已完成仍允许旧完成请求重放。界面所有者存续期间，未知结果保留原自评，练习作答冻结正文、幂等键、用时、提示数与时区，刷新不改写原请求；知识删除/不可读或正文身份变化时阻止再提交。本次先不看只隐藏界面项，不改变排期；来源状态不表示外部 Grant，完整 provenance/撤权传播缺口未关闭，自动建议派生保持关闭。libsql 普通文本读取截断 NUL 的失败反例已保留，知识与复习读取改经 SQLite JSON 转义，知识边界复用共享 Schema 校验；真实 socket HTTP、文件 SQLite 关闭重开、回执丢失及后续完成后的重放已验证。最终 Client 303、API 学习/路由 67、Native 学习及设置 49、仓储 NUL/复习 19、Focus 整包 56 项通过；公开生命周期门控覆盖销毁后同 Context 重建，旧读不 POST、旧作答回执不污染新草稿。Chromium 390×844 手机与 1280×800 Web 的确定性 HTTP 夹具均通过正文、自评未知→原请求重试、下一日期及重载历史，首轮弹窗定位失败与 trace 保留；真实服务持久性由独立 socket/SQLite 回归覆盖。独立源码审查通过；首轮集合远端全量捕获设置页学习夹具仅返回 items、缺少完整汇总而失败，已补共享空汇总及真实读取断言，Web 15 文件 206 项复验通过，生产源码未改。该候选阶段仍待最终全量和两仓配对，最终合入见下方记录，详细日志由 PR 保存；跨崩溃未知意图、未完练习/报告持久重开、完整跳过流程、用户效果与真实模型仍保留门槛，不关闭整个第三批。
+**首次配置（已配对合入）：** 旧桌面引导重组为共享四步配置，真源迁入 `plugins/surfaces/panels-ui`，Electron、Web 与显式 mobile 由组合根接入。保留实际激活的人格形象、已完成标记、首次明确跳过和回放退出；回放只隐藏已挂载 Surface，保留原会话、草稿和未确认请求所有者。Android 模型步骤注入已有原生设置并消费真实配置回执，不调用未接线 HTTP LLM 配置；原生接缝仍归 ITER-009。
 
-**学习分支整合（2026-11-18）：** 学习与练习响应契约修复共同接入实际安全、附件及删除完成竞态基线，五个练习响应的 OpenAPI 纠正保持精确登记。组合 `eea6d0f6` 的全量通过后，集合 `1e995426` 将学习弹窗测试改用 VTU 标准点击派发，并把默认兼容宿主固定到公开 `803cdeef`；冻结时间对照证实原同步点击会被 Vue 事件防护过滤，生命周期断言与生产代码保持原样。新配对宿主 `69d93a9d` 再次完整 `./aervox ci all` 退出 0，含 68 份文档，Host Agent 两项既有条件跳过保留；源码和最终小差量均独立审查通过。其后吸收实际主线仅新增删除验证记录。本批继续按[集合 PR #16](https://github.com/Aervox-agent/Aervox-plugins/pull/16) 先合入、宿主固定最终集合 SHA 并复验消费者交付，未关闭上述第三批剩余与实机门槛。
+**实施依赖与范围：** 共享 Controller、Client、历史和领域事实继续复用，界面不直接写仓储或复制调度器。第一方 UI 修改走集合仓/主仓配对 PR；声明工具先做 ITER-075 的只读清单接线，附件进入模型前先满足 ITER-076。安全修复与产品设计可并行，恢复拒绝未闭合前不开始真实用户数据验收；后台主动、跨端同步、Shizuku、第三方 UI 和广泛外部连接按各自前置推进。
 
-**学习最终集合配对：** 集合 PR #16 的精确 `1e995426` 自动检查及[显式宿主配对](https://github.com/Aervox-agent/Aervox-plugins/actions/runs/44157363156)均成功，正常合入 `ca551bc7575c0c96ab5f153f705b2c18a70d5c58`，实际合并树与已验收候选完全一致。宿主 `3ceb5fc7` 固定此 SHA 后，根 frozen install、Web/Host Runtime/Focus/Proactive/Panels 实际消费者的构建、类型与测试 39 项任务、10 个插件分发包及全部预检通过，根锁与产品源码未变。[主仓 PR #387](https://github.com/3yearsZhuang/Aervox-harness/pull/387) 的最终精确提交 `1e4f50a3` 经 10/10 远端门禁和审查后，已正常合入实际主线 `24db011e1b3422b639f59dcaa41d280ea692b562`；该批不关闭跨崩溃未知意图、未完练习/报告重开、完整撤权传播或 M0。
-
-**设计分支的接续：** `docs/assistant-vision` 的产品定位、ADR-033 和指标与主线分别对齐；静态“朝夕”演示的时刻、暖光及建议解释/拒绝交互可作设计参考，尚非独立运行插件。课表空档、群通知、物品提醒、纸条和定时日记须明确样例来源及未实现范围。Android 保持现行 Material 3、大角色、短屏/键盘与返回层级，平台视觉取舍不由静态演示自动改写。设计分支及其工作树继续保留，独立审查不捎带其中未审变更。
-
-**第一批合入接续（2026-11-06）：** [PR #358](https://github.com/3yearsZhuang/Aervox-harness/pull/358) 整合设计分支的 6 个提交并保留原历史，校准首页目标与受信角色展示、帮助会话 v1 成功/去重、EXP-004 的固定条件对照，以及“朝夕”的常驻模拟说明；原学习与数据/安全门槛保留。该批只交付文档和静态交互参考，第二批候选实现见下文，第三批真实建议和行动回执仍待实施；用户效果、M0 与发布未据此关闭。PR #358 已合入主线（`29e4fad2`）；原设计分支与工作树仍保留。
-
-**第二批候选接续（2026-11-06）：** `feat/assistant-home` 已实现上述首页与连续会话范围，[主仓 PR #362](https://github.com/3yearsZhuang/Aervox-harness/pull/362)与[集合 PR #12](https://github.com/Aervox-agent/Aervox-plugins/pull/12)待审。Contracts、Client、Host Port、真实会话 API、`proactive-ui`、`focus-mode` 的领域定向检查已通过；Android 组合根与真实 SQLite Transport 2 文件 61 项、仓储 CRUD/NativeSqlite 3 文件 33 项通过，仓储构建与独立源码审查通过。103 条保存会话的分页、首 100 条之外的 selected 按身份读取、Transport 重开均不创建会话或 Turn、不调用模型；不存在或读取失败不创建替代会话、不迁移原草稿。首次定向捕获 libsql 原始文本读取截断 NUL 后标题，保留失败反例，改用 SQLite JSON 转义读取与写入回执；两端回归及入库 hex 确认 id/title/projectId 完整保留。
-
-**第二批验证：** 固定插件 `97ed2ce1aa26644502db12acc6503e2a8a4d8cc6`（运行代码同 `f7489619`，仅追加 CI 固定）的 Node 24 `./aervox ci all` 退出 0，构建 33、类型 58 个任务，API 1028、仓储 916、客户端 291、共享 UI 230、主动界面 130、Host Runtime 326 项及原生、删除故障与 68 份文档门禁通过。Host Agent 的 2 项既有 DSH 真实环境/参考产物跳过保留，不计通过。Chromium 手机 12 项和 Web 首页 1 项通过，核对四入口首屏、103 条分页、首 100 条之外身份、空历史页游标、学习重开、草稿切换/重载、明暗主题、短屏/IME/焦点；只读入口样例零新会话或 Turn。独立复核修复缓存身份失效的切换/迟到读取绕过，以及附件跨会话/首次创建归属和明确拒绝后新草稿被旧重试覆盖的问题。首次全量拒绝漏登记新学习组件及旧消费者直接调用可选呈现能力，已补精确实现归属和消费者适配，保留原失败证据；集合 CI 固定公开宿主 `0c93300075847e196ef415cb9bb35e888e7caf06`，CI 配置 30 项、集合脚本 37 项回归通过；最终 gitlink 已再次通过全量终审。远端检查与最终合入仍以配对 PR 的精确提交为准。
-
-**第二批新基线整合：** 集合 PR #11 已合入 `86ea69959d2724ed9b88954edc4f5bf591b23c14`；主仓 PR #361 的 `91e7fc9b` 已通过远端门禁并合入，首页 PR #362 保留其工作台回填及延迟选择接口。集合候选 `c5d607de8757b4a0eec34c7fb4a8eb80144770fa` 的运行源码同 `de4c5e637e5eb2705ca22e8fdd4d435e44c73b1d`，仅 CI 固定公开兼容宿主 `30147c568a4c88b8d2bfc5b18965ff56232c9f43`；首页固定最终候选 gitlink 的 `60121e11` 全量 `./aervox ci all` 退出 0，构建 33、类型 58 个任务，API 1028、仓储 949、客户端 299、共享 UI 255、主动界面 130、工作台 27、Host Runtime 332、Worker 177、Web 204、Desktop 156 项及原生、删除故障与 68 份文档门禁通过。Host Agent 128 项通过，2 项既有环境跳过保留。客户端组合 33 项、共享历史 25 项、Chromium 18 项及 CI/集合脚本 67 项通过；两个 100 行菜单单测只隔离模拟 DOM 定位，真实 Chromium 另验证 100 个完整菜单和页外会话回填，重叠基线后历史/菜单 5 项再验通过。最终 10 个插件分发包导出成功、全部插件预检无 issue；两仓精确提交远端结果与最终合入继续由配对 PR 保存，第三批和真机验收范围保持。
-
-**第二批合入配对复验（2026-11-07）：** 集合 PR #12 已合入 `bad07ef7305c85101c936a99737f67e7940d1f7d`，源码树与已验收候选 `c5d607de` 一致。主仓固定最终合并 gitlink 后，全量 `./aervox ci all` 再次退出 0，10 个插件分发包与全部预检通过。FlowCampus 浏览器入口同步到“今日”，重新加载、任务中心与禁用/重启后的检查继续验证真实插件卡，原持久化计划、预算、秒数、CAS 冲突和未知回执五项均在该精确配对下通过。旧远端 Chromium 曾未完成；已修正仍寻找原首页卡的测试。主仓 PR #362 的最终 `85e1d8ae272a8c825211cb806f23d002be06ffe7` 经独立审查和 10/10 精确提交远端检查后，已由 `4ae535c7` 合入；第三批、M0 和发布验收保持未关闭。
-
-**第二批接续已合入：** `feat/assistant-session-continuity` 从 PR #358 的产品基线新开分支，交付共享工作台的“选择原会话→自动回填当前持久正文→继续输入”切片，沿用 ITER-053/061。共享 UI 读取最新 20 轮，第一方工作台通过[集合 PR #11](https://github.com/Aervox-agent/Aervox-plugins/pull/11)接线，[主仓 PR #361](https://github.com/3yearsZhuang/Aervox-harness/pull/361)固定已合入集合的 `86ea69959d2724ed9b88954edc4f5bf591b23c14`（与候选 `6afd061d` 源码树一致）；更早历史仍用原回看分页。读取不自动创建或恢复 Turn，保留执行、待补问/审批、未知受理、附件上传与会话写入的原会话和草稿所有者，未完成持久前缀明确标记。共享 Client 的选择重入、旧失败串会话及同文本新草稿的回执竞态已修，保存投影不挂载可执行消息插件动作。
-
-**本批验证：** 固定主仓 `8cd6cac0` 与集合 `6afd061d` 的最终 `./aervox ci all` 退出 0，构建、类型、集成测试、依赖审计、HLS、删除故障、Native Search/Runtime 和 68 份文档门禁通过；真实 SQLite/API/Chromium 回归 4/4、工作台挂载 18/18、新增共享历史 25 项及 Store 14/14 通过，独立复审 PASS。集合工作区/文档与九插件声明检查通过，未改依赖或根锁。集合 CI 固定不含本候选 gitlink 的公开共享接口准备提交 `c6115be82eca8bda839297efc21cebfc07f87953`，避免反向引用；两仓精确提交远端结果由 PR 保存。集合 PR #11 已合入，主仓已更新最终 SHA 并整合当前主线；主仓 PR #361 已在最终 head `91e7fc9b497ec689c9805c629b8035906c6215c8` 的 10/10 远端检查通过并审查后合入主线（merge `e14ad0da26bf388ec5c30a27e5d9b7019614c7b0`）；远端覆盖 Chromium、API E2E、Android 模拟器和三平台 Native。此前完整本地门禁实际通过，但 mise 子进程 PATH 曾优先选择 Node 26，不能作为锁定 Node 24 的证据；项目增加 `activate_aggressive` 与先红后绿的真实 pnpm 子进程回归，并把 `mise.toml` 纳入 Turbo 全局缓存输入。最终 `05eac86e` 的稳定主线组合已实证 Node v24.21.0/pnpm 11.22.0，`./aervox ci all` 退出 0；构建、类型、测试、依赖审计、HLS、删除故障、Native 与 68 份文档通过，既有真实模型跳过保留。真实 SQLite/API/Chromium 历史回归重新 4/4，启动器 33 项与实际 Turbo 缓存差量 3 项通过，Node 配置独立复核 PASS。随后只更新本条交付证据并复验文档，最终远端提交检查由主仓 PR 保存。首页整体、今日真实建议、学习回执、主动陪伴、真实模型和真机验收仍按原批次接续，恢复拒绝继续保留，未据此发布。
-
-**指标与实验：** 设计分支提出的“每周有效帮助会话数”应先在指标字典明确版本与成功判据：真实请求、可用产出/下一步及用户确认采纳；多轮修订去重。模型 Completed、页面打开、复制和未解决的继续对话不自动算成功；WELS 保留为学习域子指标，旧数据不混算。首轮用人工核对的小样本定位卡点，不新建分析数据责任；产品级 EXP-004 的首轮对照建议固定 Provider/权限/能力，仅比较接续入口与可解释建议，长期记忆由 EXP-002 单独检验。任务完成、采纳/拒绝、修订原因、D1/D7 与成本按真实样本报告，不以演示点击或满意度宣称通用助手成立。
-
-**人格形象接续（2026-11-07）：** 沿 ITER-053/059/061 与 FR-PER-004，Mizuki 是当前唯一默认及内置可选形象。共享渲染、三个第一方界面与桌面引导已彻底删除默认占位组件、样式、导出和降级链；人格设置支持可选 Live2D 绑定，运行按实际激活修订解析，失效引用保留并显示 Mizuki。HTTP/native/client 同步字段与确切修订读取，无 SQL 迁移，旧 Bundle 字节校验保持；桌面保存不自动启用，手机按保存回执启用确切修订，失败保留已保存回执并单独重试，刷新不丢失待启用修订。公开宿主 `e0b1154c01ef373e21e4c5b668265c5cb9991d5c` 与集合运行提交 `c7eab02b32c7ccd29f8fb26e7be8d1d2db37b69f` 的 Node 24 全量终审退出 0；最终集合 `3caa21481170de234357d1665c863fc43b8e6807` 只改变 CI 固定宿主，守卫、边界、CI 配置、25 项实际消费者构建、10 个分发包与全部预检通过。Chromium 61 项（含新增形象三项）分批全覆盖，额外 Web 默认形象一项通过，实际模型/纹理与可见像素验证未模拟 GPU；修复失败提示和重试遮挡，短屏恢复后入口可见。人格与渲染独立交叉审查通过，配对 PR 继续按精确提交核对远端门禁；不提高 CAP、真机或发布状态。
-
-**首次配置接续已配对合入（2026-11-18）：** 沿 ITER-053/059/061 将旧桌面引导重组为共享四步配置，真源迁入 `plugins/surfaces/panels-ui`，Electron、Web 与显式 mobile 由组合根接入。保留实际激活的人格形象、Mizuki 默认、已完成标记、首次明确跳过和回放退出；回放只隐藏已挂载 Surface，保留原会话、草稿和未确认请求所有者；引导形象只作预览，不接管运行界面的表现控制。名字与模型分别在明确保存后写入。连接结果绑定当前草稿，模型配置读取失败禁止覆盖。Android 模型步骤注入已有原生设置并消费真实配置回执，不调用未接线 HTTP LLM 配置，也不追加设备或提醒授权；原生接缝仍归 ITER-009。定向回归、Web/mobile Chromium、本地全量终审及独立源码交叉审查已通过；隐藏 Surface 暂停全局快捷键并关闭瞬时弹层，共用模型回执类型归共享 UI 契约。[集合 PR #18](https://github.com/Aervox-agent/Aervox-plugins/pull/18) 与[主仓 PR #389](https://github.com/3yearsZhuang/Aervox-harness/pull/389) 已配对合入，主仓固定实际集合合并 SHA `06188f5ff96cfdeb790f06dbdde99ceb46fb9488`。最终四包消费者类型、工作台 29 项和分发包复验通过，主仓最终 head 的 10 项远端检查全部通过；真实软键盘/设备与正式发布仍继续验收。本地 Live2D ZIP/目录导入原件保留为独立后续切片，须先适配资产引用/人格修订与设备存储边界；不搬入旧草稿已撞号的 ITER-072，也不把已合入的去占位与 Cubism 4 入口重复交付。
-
-**实施依赖与范围：** 维护者已继续授权实施第二批首页与连续会话切片，候选实现与待验收范围如上；后续仍沿现有 ITER/PR 推进。共享 Controller、Client、历史和领域事实继续复用，界面不直接写仓储或复制调度器。第一方 UI 修改走集合仓/主仓配对 PR；声明工具先做 ITER-075 的只读清单接线，附件进入模型前先满足 ITER-076。安全修复与产品设计可并行，恢复拒绝未闭合前不开始真实用户数据验收；后台主动、跨端同步、Shizuku、第三方 UI 和广泛外部连接按各自前置推进，不作为首个首页闭环的无条件前置。
-
-**练习恢复的身份前置候选：** 沿 ITER-053/059/064 修复现有 Question、PracticeSession、QuestionAttempt 的 SQLite SELECT/RETURNING：JSON 投影保留完整 NUL 身份、题干、答案、关联与原有 nullable/难度字段。答案事务只额外保护实际源 Session、目标知识 ID 和既有 review ID，错题列表保留现有分组/计数逻辑并按完整题目身份分组。
-
-原实现真实仓储 9 项、HTTP 2 项均先失败，包含同前缀知识误写、错题合并、原键重放失败及损坏前缀 receipt 被错误认可的反例；候选定向仓储 24 项、HTTP 55 项、仓储构建与类型检查通过，真实文件 SQLite 关闭重开仍恢复原题组和首个未答题，complete 后原意图重放不重复写入，新键仍拒绝。回归见[仓储身份往返](packages/repositories/test/practice-identity-roundtrip.test.ts)与[HTTP 恢复](apps/api/test/practice-identity-roundtrip.test.ts)。未改 Schema、迁移、事实或幂等键；最终 Schema 2 组合全量已通过，候选 PR 待审交付。
-
-冻结源码 `0a25213bd9acd9221c9d20cc5f121f5199c3d1d7` 已通过独立审查：直接源码仓储 9 项、真实 API 4 文件 59 项和 JSON 值/NUL 投影、complete 后原键重放及损坏前缀 receipt 探针均通过。与学习/复习候选 `775eb97380e5f95673e6ea2cdf50ab2c72b9b8e3` 的只读三方合并检查无冲突；此证据不代替实际主仓/集合仓整合、最终全量或发布验收。
-
-最终依赖组合 `2f6d8d5adf05c7d592a285f2f3021fe76ae63eee` 配对 Core `93351196bb1dc50d163e2420a9f6be72c63689c7`、Plugins `fa5323434ed6a411c7513346a4ff01cd9c38f985` 与根锁，fresh `./aervox ci all` 实际退出 0。durable 已经 [PR #380](https://github.com/3yearsZhuang/Aervox-harness/pull/380) 合入实际主线 `c20c1be13902123ccd1c60c1a0bc321c339ff94d`；本分支吸收该主线后的 `a3f4a171724e3c805f9b87447762d0e3dddb7d97` 与全量冻结树零差，相对主线只余原五个 NUL 源码/测试文件和本计划记录。学习/复习候选、DTO 与后续 receipt 修复分别验收。
-
-Native 已有活跃练习恢复；Focus 重开、完成报告发现/读取入口和跨崩溃未知意图仍按第三批继续，真实模型/手机/发布不据此关闭。
+**各批交付索引：** 第一批 [PR #358](https://github.com/3yearsZhuang/Aervox-harness/pull/358)；第二批 [主仓 PR #362](https://github.com/3yearsZhuang/Aervox-harness/pull/362) 与[集合 PR #12](https://github.com/Aervox-agent/Aervox-plugins/pull/12)；第三批 [主仓 PR #387](https://github.com/3yearsZhuang/Aervox-harness/pull/387) 与[集合 PR #16](https://github.com/Aervox-agent/Aervox-plugins/pull/16)；配套 [PR #361](https://github.com/3yearsZhuang/Aervox-harness/pull/361)、[集合 PR #11](https://github.com/Aervox-agent/Aervox-plugins/pull/11)、[PR #389](https://github.com/3yearsZhuang/Aervox-harness/pull/389)、[集合 PR #18](https://github.com/Aervox-agent/Aervox-plugins/pull/18)。冻结提交、配对 SHA、失败与复验过程由这些 PR 与 CI 保存。
 
 <a id="iter-064"></a>
 
@@ -461,7 +269,7 @@ CAP 与合同遵循 [API 约定](docs/reference/API_CONVENTIONS.md)，依赖 ITE
 - **历史真源前置：** 本轮接续普通在线 user 的真实 Message 身份和 assistant 空版绑定，终态/取消/恢复事务发布已提交安全前缀、当前指针及 sequence 水位；审批续接保留已存前缀，人工编辑不被迟到写覆盖。来源/删除资格与日记、FTS 派生同步收口，旧 unlinked/import 不迁移、不从事件猜造正文。模型上下文对新消息改读长期当前版本，清理在线事件后仍能读取；保留 20 轮/32000 字符预算及旧路径边界。用户历史分页 API、CLI 与工作台抽屉由下列切片接续，当前集成与 PR 证据另记。
 - **本轮持久历史读取：** 新增共享 `GET /v1/sessions/{sessionId}/history` 与 headless Client，CLI `sessions history` 和工作台“对话回看”读取同一当前版本投影。单页默认 20/最多 50 个候选，按插入顺序显式向前翻页；隐藏候选不额外扫描填充，空页仍可返回游标。单轮 100 消息/256 KiB、整页 512 KiB，超限含游标转义膨胀返回明确 422，不截断成功正文。未完成状态保留、脱敏正文为 null，旧 unlinked 只读，不从事件补造缺失历史；无首 User 的导入轮仍受保守来源门槛阻断。工作台单页替换，关闭/切会话/改页数清正文并释放旧 GET，不改变实时 Controller；完整授权传播、真实模型与移动独立运行仍分别验收。
 - **首页会话读取候选：** 配合 ITER-053/061，`GET /v1/sessions` 使用共享 `limit`/`offset`/`projectId` 校验，单页默认/最多 100，`GET /v1/sessions/{sessionId}` 只读取已有概要。HTTP 与原生 Transport 使用同一 DTO，移除内部 executionPolicy；未知参数、重复参数及非法分页在 SQL 前拒绝，missing selected 返回 404。103 条真实 SQLite 回归确认分页与直读不创建会话或 Turn，首 100 条之外的已选身份无需改成新会话；NUL 文本读取/回执修复见第二批记录。本地全量与 Chromium 已通过，配对 PR 待审；列表 offset 是即时投影而非固定快照或完整导出。
-- **本轮验证：** 最后代码的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务，API 967、仓储 820、Host Agent 123、Host Runtime 306、Core 501、Worker 161、客户端 234、CLI 148、UI 155 项通过，1 项既有真实模型跳过保留；守卫、OpenAPI 兼容、HLS、删除故障、Native 与 64 份文档门禁通过。打包安装 CLI/真实 Token API/文件 SQLite/重启/清理在线行/分页及隐藏 2 项通过，Chromium 全套 23 项通过，其中 390/1280px 真实浏览器新回看 2 项；依赖审计 0 未审阅、2 既有审阅路径、0 过时例外。独立复核发现合法中文 ID 被旧 CLI 限制，以及 NUL 转义使游标超限，新增反例修复；首次全量因 CLI 直接依赖 Contracts 被架构守卫拒绝，改由 headless Client 暴露共享校验，未放宽依赖规则。随后只补验证记录并复验文档，[PR #332](https://github.com/3yearsZhuang/Aervox-harness/pull/332) 的 `30e75c57` 已通过 5 项远端检查，并已合入主线；完整产品责任仍按下列剩余验收推进。
+- **本轮验证：** 最后代码的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务，API 967、仓储 820、Host Agent 123、Host Runtime 306、Core 501、Worker 161、客户端 234、CLI 148、UI 155 项通过，1 项既有真实模型跳过保留；守卫、OpenAPI 兼容、HLS、删除故障、Native 与 文档门禁通过。打包安装 CLI/真实 Token API/文件 SQLite/重启/清理在线行/分页及隐藏 2 项通过，Chromium 全套 23 项通过，其中 390/1280px 真实浏览器新回看 2 项；依赖审计 0 未审阅、2 既有审阅路径、0 过时例外。独立复核发现合法中文 ID 被旧 CLI 限制，以及 NUL 转义使游标超限，新增反例修复；首次全量因 CLI 直接依赖 Contracts 被架构守卫拒绝，改由 headless Client 暴露共享校验，未放宽依赖规则。随后只补验证记录并复验文档，[PR #332](https://github.com/3yearsZhuang/Aervox-harness/pull/332) 的 `30e75c57` 已通过 5 项远端检查，并已合入主线；完整产品责任仍按下列剩余验收推进。
 - **剩余产品责任：** Neo 生命周期；分支来源、完整删除、布局恢复、大图性能；反馈读取预算、回答版本关联和复核队列。图读取行数预算不证明 SQL 排序时间或单布局字节有界。
 
 | 已合并切片 | 保留行为与数量 | 证据 |
@@ -476,7 +284,7 @@ CAP 与合同遵循 [API 约定](docs/reference/API_CONVENTIONS.md)，依赖 ITE
 
 本轮接续 LLM 配置读取/保存、连接探测和四个 Preset 端点，共 7 个共享声明；保留已有 operationId、默认配置、可空密钥、首个 Preset 自动激活、删除 200 回执及探测失败 200/ok=false。它们原已列入 OpenAPI，精确例外仍为 117；只补三处历史必需请求体的精确文档纠正，不刷新基线。连接错误使用固定消息，不回传凭据 URL、Provider 错误正文或内部异常；新增泄漏反例；连接探测的既有截止原先只覆盖响应头，现贯通正文与能力读取，真实 200 半截流/慢主响应与 500 不结束正文均验证释放。CLI 编码脱敏及最终集成验证与新 PR 证据另记。
 
-本轮 LLM/CLI 最终新的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务及守卫、OpenAPI 兼容、HLS、删除故障、Native 和 64 份文档门禁通过；API 960、仓储 742、Worker 161、Host Runtime 306、Core 501、Host Agent 121、客户端 230、CLI 131 项通过，1 项既有真实模型跳过保留。独立复核捕获编码密钥路径/标签、响应正文无截止和异常能力元数据三处缺口并补回归修复，真实 API 13、CLI 模型 41 项通过；打包安装的 CLI 连接真实 API/临时文件 SQLite，模型配置及 Preset 跨 API 重启保持，2 项集成通过。依赖审计为 0 未审阅、2 既有审阅路径、0 过时例外；随后仅补本条记录并复验文档，精确提交远端结果由新 PR 保存。
+本轮 LLM/CLI 最终新的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务及守卫、OpenAPI 兼容、HLS、删除故障、Native 和 文档门禁通过；API 960、仓储 742、Worker 161、Host Runtime 306、Core 501、Host Agent 121、客户端 230、CLI 131 项通过，1 项既有真实模型跳过保留。独立复核捕获编码密钥路径/标签、响应正文无截止和异常能力元数据三处缺口并补回归修复，真实 API 13、CLI 模型 41 项通过；打包安装的 CLI 连接真实 API/临时文件 SQLite，模型配置及 Preset 跨 API 重启保持，2 项集成通过。依赖审计为 0 未审阅、2 既有审阅路径、0 过时例外；随后仅补本条记录并复验文档，精确提交远端结果由新 PR 保存。
 
 首次旗标构建及客户端 undefined 回归失败与后续修复保留在各 PR/CI 和[原计划](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation/reading/plan.md#iter-064)。
 
@@ -557,7 +365,7 @@ S1～S7 及评审修正由 [PR #250](https://github.com/3yearsZhuang/Aervox-harn
 
 - **本批范围：** `ap-tool-flowcampus` 插件内聚确定性下一站、出发时刻、空档任务预算、具体日期日程/地点/任务与手工路程维护；共享结果供移动陪伴卡片、工作台和只读聊天工具消费。去除固定演示时钟和自动种子数据，不启动第二套 FastAPI 或模型循环。
 - **数据与接缝：** 首版有界校园文档复用现有插件配置 SQLite 存储、Schema 校验、revision CAS 与生命周期代际；插件只消费宿主绑定的配置窄端口，不导入仓储或使用浏览器状态作为业务真源。复杂对象数组补持久化回归；停用/缺包保留数据并撤销 UI/工具/端点；插件内导出校园 JSON，恢复默认及显式卸载沿用宿主清除规则。宿主“更多操作”在停用/缺包后保留普通数据导出与确认卸载入口，排除 Secret、orphaned 和默认值，相关 API/界面测试覆盖这项职责。通用陪伴插槽按定义支持范围装配，旧工作台插件不隐式进入移动陪伴根界面。
-- **本地全量：** 新的 `./aervox ci all` 退出 0，构建 33、类型 58 个任务，以及守卫、插件/OpenAPI 兼容、HLS、删除故障、Native Search/Runtime 和 64 份文档门禁通过；校园插件 67、API 1010、仓储 893、Host Runtime 306、Core 501、Worker 161 项通过，Host Agent 128 项通过、2 项跳过保留，不计通过。首轮集市夹具仍固定期望 9 个内置插件，更新为 10 并增加校园名称/配置声明断言后定向及全量通过。编辑既有日程保留未修改的秒、毫秒和夏令时回拨时刻，两个反例先红后绿。
+- **本地全量：** 新的 `./aervox ci all` 退出 0，构建 33、类型 58 个任务，以及守卫、插件/OpenAPI 兼容、HLS、删除故障、Native Search/Runtime 和 文档门禁通过；校园插件 67、API 1010、仓储 893、Host Runtime 306、Core 501、Worker 161 项通过，Host Agent 128 项通过、2 项跳过保留，不计通过。首轮集市夹具仍固定期望 9 个内置插件，更新为 10 并增加校园名称/配置声明断言后定向及全量通过。编辑既有日程保留未修改的秒、毫秒和夏令时回拨时刻，两个反例先红后绿。
 - **真实浏览器：** 最终串行 Chromium 9/9 通过，含校园完整维护与预算、独立 HTTP 写者触发真实 CAS 409、提交后丢失回执的稳定 ID、320×360 返回层级/停用保留数据及主动陪伴 5 项回归。此前与全量构建并行时有 1 项超时，trace 确认两次 Vite 整页重载使抽屉消失；保留失败记录，随后串行复验通过。CAS 用例先截获浏览器 PUT，再提交独立写者后继续原请求，避免分钟刷新抢先发现冲突，保留 409/草稿/导出/重载断言，未强制点击或扩大超时。
 - **可移除性：** 在独立临时克隆物理移除校园及专注插件代码，API/Worker 冷构建和 Web/桌面类型检查通过；校园 SQLite 配置保留，源码与接线恢复后冷构建及数据断言通过。该演练证明宿主可在缺少实现时运行和保留配置，不替代缺包后的独立数据管理入口验收。
 - **生态集成修订：** 按 ADR-031/032 将校园源码迁到集合 `plugins/tool/flowcampus`，主动陪伴改动在集合 `surfaces/proactive-ui`；包名保持，首次生态身份为 `ap-tool-flowcampus`。旧候选 `flowcampus` 试用数据保持原记录，不自动合并，也不扩展九插件身份迁移表。修复数字坐标输入的类型错误并增加真实表单回归；精确配对提交与新一轮验证由 PR 记录。
@@ -653,9 +461,9 @@ ARC-05/FND-07，依赖 ITER-002 Outbox 归属、ITER-013/017 指标。IPC 唤醒
 - **实现：** PostgreSQL 16+ UTF8 原生连接/方言、结构/实例指纹检查及当前仓储表达式适配；可选市场声明与安装语义；离线整库迁移、源锁和已验证备份、全行内容/引用/插入位置/搜索投影核对。启动选择和 CLI `status/migrate/activate/recover/abort` 接线已加入候选，源库保持封存，未知 COMMIT 不重放；凭据不进入普通插件配置，API/Worker 使用同一生效目标。组合根和远端主动拒绝已取得隔离回归证据。
 - **依赖：** ITER-071 的领域事务/仓储边界；ITER-003/010 的删除与独立恢复账本；ITER-011 的备份保留和迁移；ITER-005/006/026 的首次声明安装/启用资格及声明生命周期；ITER-073/075 的集合仓兼容。激活后可选声明包不成为业务主库的持续运行依赖。已有安全恢复拒绝继续适用，不因新后端解除水位或数据门禁。
 - **验证与证据：** 隔离 PostgreSQL 18.6 已验证物理 Schema/漂移、原生查询/事务、源/备份字节、全表行数与内容哈希、JSON/Unicode/NUL 和非法值拒绝、插入位置、搜索投影、活动源、未知 COMMIT 与 source/Vault/账本绑定。实际 CLI 准备/激活、API 重开与 Worker 持久写入、首次安装/启用拒绝、声明移除后已选主库保持、激活发布中断、连接/凭据/结构故障与远端主动拒绝均已回归。实际空库首次启动只产生结构版本与插件/技能/工具注册行；人格模块不自动写入内置人格，不放宽 `source=builtin` 的正文分类。
-- **整体验证状态：** 早期候选 `6876e59a` 基于 `29e4fad2` 修正市场目录数量 10→11，随后整合 `7886042f` 及主线 `69670c95`。最终根冻结安装和 `./aervox ci all` 退出 0，API 1,068、仓储 1,211、Worker 180、Host Runtime 365 项通过；Host Agent 保留 2 项既有跳过，不计通过。守卫、依赖审计、构建、类型、HLS、删除故障、Native 与 69 份文档门禁通过。前序两项迁移测试 30 秒超时在原预算下全量重验通过；删除研究的种子 FTS 正文与持久源不符已修正，并补独立索引前提及实际实现指纹，14 项研究回归含 175 场景报告通过。源与附件准入、权限快照、数据库/事务传递及研究夹具均经独立静态复审。插件候选见[集合 PR #13](https://github.com/Aervox-agent/Aervox-plugins/pull/13)，精确提交远端结果由配对 PR/CI 保存，不宣称发布或真实用户库迁移通过。
-- **准入补强与前序验证：** SQLite 客户端绑定真实源路径，调用路径与真实路径的封存锁均生效，悬空文件符号链接和多硬链接拒绝；PostgreSQL 校验包含主键/UNIQUE 实际索引的 tablespace，以及 canonical 表跨 Schema 的继承/分区关系。本机资格绑定当前连接内核对端、OS 父进程和私有 postmaster 身份，真实 UNIX socket 直连通过，同目录响应的 Node 转发拒绝，重连不能继承失效资格。补强后的 `./aervox ci all` 退出 0：仓储 1,244、API 1,068、Worker 180、Host Runtime 365、Native Runtime 45 项通过，Host Agent 保留 2 项既有跳过；守卫、依赖审计、构建、类型、HLS、删除故障、Rust/Native 与 69 份文档门禁通过，打包 CLI 的重启和多步审批集成另有 2 项通过。本轮提交的精确两仓配对与远端结果记录在[宿主 PR #374](https://github.com/3yearsZhuang/Aervox-harness/pull/374)和[集合 PR #13](https://github.com/Aervox-agent/Aervox-plugins/pull/13)，前序远端结果不替代本轮验证。
-- **主线合并与最终本地验证：** 候选 `ed16378b` 已整合主线 `fa30ddc7` 的模型流和删除保护。模型流排空、模块清理完成后才释放宿主持有的主库/Vault；启动失败也须确认排空，失败则保留数据库并报告清理错误。三项关闭回归通过；PostgreSQL 删除专项 21 项覆盖历史 Context 清理、事务失败回滚、Hook 来源拒绝及删除完成的 scope/owner/target 限制。主动画像新增 SQLite 表达式继续只在独立本机 Vault 执行，构造器拒绝 PostgreSQL。最终 `./aervox ci all` 退出 0：仓储 1,294、API 1,086、Worker 180、Host Runtime 392、Native Runtime 45 项通过；Host Agent 128 项通过、2 项既有跳过。守卫、依赖审计、构建、类型、HLS、删除故障、Rust/Native 和 69 份文档门禁均通过，最新打包 CLI 的重启与多步审批集成 2 项通过。合并过程一次并行全量运行有 4 项迁移测试达到原 30 秒预算；保留预算与断言，仓储单包及最终全量重验均通过。两仓精确提交的远端结果继续由上述 PR/CI 保存。
+- **整体验证状态：** 早期候选 `6876e59a` 基于 `29e4fad2` 修正市场目录数量 10→11，随后整合 `7886042f` 及主线 `69670c95`。最终根冻结安装和 `./aervox ci all` 退出 0，API 1,068、仓储 1,211、Worker 180、Host Runtime 365 项通过；Host Agent 保留 2 项既有跳过，不计通过。守卫、依赖审计、构建、类型、HLS、删除故障、Native 与 文档门禁通过。前序两项迁移测试 30 秒超时在原预算下全量重验通过；删除研究的种子 FTS 正文与持久源不符已修正，并补独立索引前提及实际实现指纹，14 项研究回归含 175 场景报告通过。源与附件准入、权限快照、数据库/事务传递及研究夹具均经独立静态复审。插件候选见[集合 PR #13](https://github.com/Aervox-agent/Aervox-plugins/pull/13)，精确提交远端结果由配对 PR/CI 保存，不宣称发布或真实用户库迁移通过。
+- **准入补强与前序验证：** SQLite 客户端绑定真实源路径，调用路径与真实路径的封存锁均生效，悬空文件符号链接和多硬链接拒绝；PostgreSQL 校验包含主键/UNIQUE 实际索引的 tablespace，以及 canonical 表跨 Schema 的继承/分区关系。本机资格绑定当前连接内核对端、OS 父进程和私有 postmaster 身份，真实 UNIX socket 直连通过，同目录响应的 Node 转发拒绝，重连不能继承失效资格。补强后的 `./aervox ci all` 退出 0：仓储 1,244、API 1,068、Worker 180、Host Runtime 365、Native Runtime 45 项通过，Host Agent 保留 2 项既有跳过；守卫、依赖审计、构建、类型、HLS、删除故障、Rust/Native 与 文档门禁通过，打包 CLI 的重启和多步审批集成另有 2 项通过。本轮提交的精确两仓配对与远端结果记录在[宿主 PR #374](https://github.com/3yearsZhuang/Aervox-harness/pull/374)和[集合 PR #13](https://github.com/Aervox-agent/Aervox-plugins/pull/13)，前序远端结果不替代本轮验证。
+- **主线合并与最终本地验证：** 候选 `ed16378b` 已整合主线 `fa30ddc7` 的模型流和删除保护。模型流排空、模块清理完成后才释放宿主持有的主库/Vault；启动失败也须确认排空，失败则保留数据库并报告清理错误。三项关闭回归通过；PostgreSQL 删除专项 21 项覆盖历史 Context 清理、事务失败回滚、Hook 来源拒绝及删除完成的 scope/owner/target 限制。主动画像新增 SQLite 表达式继续只在独立本机 Vault 执行，构造器拒绝 PostgreSQL。最终 `./aervox ci all` 退出 0：仓储 1,294、API 1,086、Worker 180、Host Runtime 392、Native Runtime 45 项通过；Host Agent 128 项通过、2 项既有跳过。守卫、依赖审计、构建、类型、HLS、删除故障、Rust/Native 和 文档门禁均通过，最新打包 CLI 的重启与多步审批集成 2 项通过。合并过程一次并行全量运行有 4 项迁移测试达到原 30 秒预算；保留预算与断言，仓储单包及最终全量重验均通过。两仓精确提交的远端结果继续由上述 PR/CI 保存。
 - **前序主线兼容补全：** 在独立候选内整合主线 `2a385a26`、删除 epoch/原子完成交付和学习复习交付；PostgreSQL 物理映射升为 v2 并冻结 v1 指纹，普通启动拒绝旧目标且不改写数据。练习、知识、复习及持久提问查询使用显式后端表达式，完成历史的嵌套 JSON 保留对象、布尔和 null 类型。隔离 PostgreSQL 验证已覆盖 v2 调用身份关库重开、v1 结构/回执拒绝、学习回执和关联复习、删除过期 epoch 拒绝与审计失败回滚。实际 CLI 迁移/激活、API 重启、Worker 共享写入和错误凭据无 SQLite 回退的组合回归通过；本轮只做定向验证，尚待最终主线整合、独立审查与两仓全量门禁，前序全量结果不替代本轮结果。
 - **本轮配对进展（2026-11-18）：** 冻结宿主 `3650c3b8` 与集合 `866ae332` 的新 `./aervox ci all` 退出 0，实际 PostgreSQL 18.6 测试已启用，API 1,102、仓储 1,365、Host Runtime 398、Worker 193 项通过；Host Agent 的 2 项既有 DSH 条件跳过保留，PostgreSQL 测试跳过为 0。CI 补全后的新配对 `b81f67da / 2779b5b2` 全量也退出 0，集合 `ccbedeb` 保留完全相同的树并接入实际集合主线。其[自动检查](https://github.com/Aervox-agent/Aervox-plugins/actions/runs/44163463725)与[显式宿主配对](https://github.com/Aervox-agent/Aervox-plugins/actions/runs/44163565158)均通过，真实 PostgreSQL 16 的仓储 1,365、API 1,102 项运行成功，无 PostgreSQL 条件跳过。[集合 PR #13](https://github.com/Aervox-agent/Aervox-plugins/pull/13) 已正常合入 `27313cf56aafcf8acbfc71c534b67dc729a18384`，实际树与候选一致。宿主 `ea88a76c` 保留学习及 Android 实际主线、固定此 SHA 后，根 frozen install、实际消费者构建/类型/测试 47 项任务、11 个插件分发包及全部预检通过，打包 CLI 的持久会话/重启与多步审批 2 项通过；最终宿主精确提交门禁、审查与实际合入记录由 PR #374 保存。没有操作真实用户库。
 - **最终宿主合入：** 精确宿主 `b2421937` 固定实际集合 SHA 后，10/10 远端检查及独立源码审查通过，[主仓 PR #374](https://github.com/3yearsZhuang/Aervox-harness/pull/374) 正常合入 `dcf8ddceec0de03f1c4d2f7102bdd786e51377ff`。两仓合入、最终 gitlink 和消费者复验已完成；本条只保留真实用户使用与运营的验收。
@@ -692,7 +500,7 @@ ARC-05/FND-07，依赖 ITER-002 Outbox 归属、ITER-013/017 指标。IPC 唤醒
 | 会话与执行 | 前台文本、多轮工具、逐次设备审批、会话改名/删除、历史分页和有界导出；列表分页、首 100 条之外的 selected 只读 GET 与共享问题/答案持久化已合入，问题绑定原 Turn/Attempt/invocationId/step | 标题筛选仍只覆盖已加载列表；手机强停、原问题重开与答案提交矩阵仍待真机验收，跨进程自动续跑未开放 |
 | 学习与人格/日记 | 本机目标、题库、练习、错题、计划的仓储与路由，判分/排期等共用纯模块；人格进入模型上下文，日记保留版本 | 第二批候选已从首页“今日”直接打开组合根注入的学习面板，复用日记入口并与 chat 互斥，待集成验收；面板仍主要是固定三题练习、报告、今日复习及目标/计划标题，错题再练与计划管理的可达性仍需补；真实素材和模型质量未验收 |
 | 数据保全 | 已合入同结构备份导出、凭据/投影排除；[PR #359](https://github.com/3yearsZhuang/Aervox-harness/pull/359) 已禁用恢复入口并在解析/SQL 前统一拒绝，实际删除→旧备份拒绝→Transport 重开回归通过 | 旧恢复的删除历史缺口由保守拒绝封闭，完整删除事实、可信历史边界、独立 deny 重放和跨版本升级仍归 [ITER-003/010/011](#iter-003) |
-| 原生系统与界面 | TTS、一次性识别、SAF 文本选择、HTTPS 题库导入、本地复习通知、有界 root 动作；短屏/IME/安全区已有回归 | 普通权限及 root 的拒绝/撤销/退后台需要真机取证；当前 APK 未集成 Shizuku，无图片 OCR、泛用文件/通知工具或后台生成 |
+| 原生系统与界面 | TTS、一次性识别、SAF 文本选择、HTTPS 题库导入、本地复习通知、有界 root 动作；Shizuku 已接入为 root 之外的第二 transport（同一固定动词表）；短屏/IME/安全区已有回归 | 普通权限、root 与 Shizuku 的拒绝/撤销/退后台需要真机取证；无图片 OCR、泛用文件/通知工具或后台生成 |
 | 工程与设备 | 固定制品与唯一 Schema，Android JVM/debug APK/模拟器仪器测试及主仓 CI 已通过 | API 36 模拟器与此前 API 37/arm64/16 KiB 证据不等于物理设备支持矩阵；目前只生成 debug 包，正式签名、升级/回退与发布未验收 |
 
 源码与合同见 [内部 Transport](apps/web/src/mobile/native-runtime.ts)、[学习面板](apps/web/src/mobile/NativeLearningPanel.vue)、[手机会话列表](plugins/surfaces/proactive-ui/src/MobileSessionsDialog.vue)、[移动工程说明](apps/mobile/README.md)和 [M0 门槛](docs/reference/SRS.md#mobile-proposal-acceptance)。已合入能力不再列为待实现；测试覆盖与真实环境验收分别保留。
@@ -708,11 +516,7 @@ ARC-05/FND-07，依赖 ITER-002 Outbox 归属、ITER-013/017 指标。IPC 唤醒
 | 第四批：产品主线在手机的日常验收 | 在真机验收 [ITER-053/059/061](#iter-053) 已交付的首个闭环、真实首页来源与学习路径；人格/日记验证实际上下文、素材来源、失败和跨日刷新。缺少数据删除与来源传播的派生能力保持关闭 | 电脑关闭仍完成用户交代、产出/下一步、确认和回看；学习记录按真实作答回执更新，重复不重复计分，模型失败不发布假结果。普通权限系统能力按拒绝/撤销/取消实测；[ITER-075](#iter-075) 的 mobile targets 必须有实际装配证据 |
 | 第五批：数据保全与基础签名内测 | M0；数据范围、旧安装/升级责任、签名持有者、包身份、渠道和候选支持矩阵明确。依 ITER-003/010/011 实施必要恢复/迁移切片，签名工程准备可与真机取证并行；不放宽现有阶段门槛 | release 与精确提交绑定，新装、同签名覆盖升级、中断和回退保留数据；许可、隐私、16 KiB、性能/耗电及实际开放能力验收。正式签名若与现有 debug 不同，不能覆盖安装；卸载清数据不能当作升级保全证明 |
 
-持久补问本轮接续已完成 Core 原 invocation 身份透传，[Core PR #3](https://github.com/Aervox-agent/Aervox-core/pull/3)经独立审查和精确 CI 合入 `93351196bb1dc50d163e2420a9f6be72c63689c7`。共享问题原子命令、Host 等待器与 Native 消费正在验证；Schema v2 只追加 nullable `invocation_id`，真实完整 v1 Schema 的发布指纹校验、启动拒绝、staging 旧问题/会话保留及字节回滚已通过，旧 NULL 身份不猜回填。当前手机测试安装和业务库未升级，跨进程自动模型续跑继续关闭；消费者全量、主仓交付和真机问答矩阵继续验收。
-
-消费者全量先后发现旧答案三参数断言、Worker/CLI 缺原问题身份及当前 v2 指纹误按 v1 验收，已保留真实失败并修复相应夹具；表语义与真实 v1 staging/回滚定向 9 项通过，v1 两个发布指纹未变。晚到答案事件的异步消费及旧回执重放反例也已修复，Controller 77 项通过，缺完整身份的回执仅推进消费游标。[集合 PR #17](https://github.com/Aervox-agent/Aervox-plugins/pull/17)的精确 `4f46acbb` / 公开宿主 `c4b853c3` 配对全量、依赖审计与独审通过，实际合入集合 main `fa5323434ed6a411c7513346a4ff01cd9c38f985`。主仓已固定此实际 gitlink 并完整吸收 Host main `fa30ddc7`；该最终配对的主仓全量结果见下文，主仓 PR 与真机问答矩阵继续验收，不将既有配对或定向通过计作整批完成。
-
-最终配对的冻结宿主 `5ba4c4b4` 新鲜全量实际退出 1，63 个测试任务中 62 个成功，API 1074 项通过、1 项失败：连续撤权再授权的审计 ID 仅依赖毫秒时间，真实冻结时钟反例证明 `proactive_audit_events.id` 主键冲突。独立普通修复 [PR #379](https://github.com/3yearsZhuang/Aervox-harness/pull/379) 的精确 `a747cb72` 六项远端检查通过，实际合入 Host main `6b326c67366a64349dab4d950cbe7ff600d4ecf7`；本候选先整组吸收已审修复，再接入该实际合并提交，合并仅补祖先关系、文件树未变。Core `93351196` 与集合 `fa532343` 保持固定。此后冻结宿主 `75d4561c1778832f265a9ab2b7c07fbb2d306f47` 的新鲜 `./aervox ci all` 实际退出 0：63/63 测试任务通过，API 1076、Repositories 1120、Host Runtime 389、Worker 177 项及 Rust 原生、依赖审计、68 份文档门禁完成；Host Agent 130 项通过、两个既有环境条件跳过仍保留，不计作真实 Provider 证据。主仓 PR、精确远端检查和真机问答矩阵仍待验收，原失败证据保留。
+**持久补问（已合入）：** Core 原 invocation 身份透传经 [Core PR #3](https://github.com/Aervox-agent/Aervox-core/pull/3) 合入 `93351196`；Schema v2 只追加 nullable `invocation_id`，v1 发布指纹校验、启动拒绝、staging 旧问题/会话保留及字节回滚已通过，旧 NULL 身份不猜回填。共享问题原子命令、Host 等待器与 Native 消费已接线；晚到答案的异步消费、旧回执重放与缺完整身份的回执（只推进消费游标）均有回归。[集合 PR #17](https://github.com/Aervox-agent/Aervox-plugins/pull/17) 与主仓配对合入实际集合 `fa532343`；随后 [PR #379](https://github.com/3yearsZhuang/Aervox-harness/pull/379) 修复了连续撤权再授权时审计 ID 仅依赖毫秒导致的 `proactive_audit_events.id` 主键冲突。当前手机测试安装与业务库未升级，跨进程自动模型续跑继续关闭。
 
 **并行边界：** 第一批手机交互、第二批中性命令/确定性故障工具与设备准备可并行；第三批真实环境按前置收口。数据控制账本及迁移按 ITER-003/010/011 的独立依赖推进，不要求一次实现全部跨库恢复能力，也不允许据此跳过当前删除防线。Shizuku、后台主动运行、跨端同步、iOS 和本机推理继续各自裁定。
 
@@ -732,12 +536,12 @@ ARC-05/FND-07，依赖 ITER-002 Outbox 归属、ITER-013/017 指标。IPC 唤醒
 
 ##### 依赖与并行安排
 
-- **三条并行工作线：** 原生生命周期/Provider、手机交互、确定性测试/设备验证。按上述新批次进入真机与 M0；控制账本/数据保全和签名准备可并行，内测仍须满足下方已有门槛，不等待全部系统增强或跨端能力。
-- **共享正确性：** 接单、意图与幂等回链 ITER-002/071；工具/补问准入、审批与取消回链 ITER-007/071；删除/来源回链 ITER-003；持久恢复、租约与有界运行回链 ITER-010/013；Provider 与长上下文按实际需求回链 ITER-033/032。只闭合本次开放路径的必要切片，不把这些迭代整体完成设为前台文本的无条件前置。
-- **数据责任：** 手机升级与一致性备份回链 ITER-011，旧备份恢复先满足 ITER-003/010 的删除事实和 deny 水位。主库、Vault、控制账本与密钥按原故障域管理；尚未开放的 Vault/主动能力不因手机接线放行。
-- **界面与插件：** 手机界面回链 ITER-053；第一方插件修改走集合仓与主仓配对 PR、gitlink/根锁验证。受信固定 APK 文本界面不无条件等待 ITER-006 的 Page Token 通道；开放插件 Page 时才接资源、代际与撤权合同，第三方开放仍归 ITER-019/056。
-- **系统与跨端：** 语音/文件/通知按系统用途授权；Shizuku/root 沿 [ADR-022 能力分级](docs/reference/adr/ADR-022-mobile-runtime-access.md#能力交付与授权分级)，不提供任意 shell 或第二执行器。自动跨进程续跑继续归 ITER-010，双向同步归 ITER-028，不复制活动 SQLite/WAL，不引入多租户业务库。
-- **交付验证：** 普通代码修改按影响范围定向验证，代码 PR 推送前通过 `./aervox ci all`；Android JVM/lint/构建/仪器测试、真实 Provider、物理设备与签名发布各自保存精确提交和环境证据。纯计划/契约修改运行文档门禁，不把历史测试计为新提交已验证。
+- **三条并行线：** 原生生命周期/Provider、手机交互、确定性测试/设备验证，按上述批次进入真机与 M0；控制账本/数据保全和签名准备可并行，内测仍须满足下方门槛。
+- **共享正确性：** 接单/意图/幂等回链 ITER-002/071；工具与补问准入、审批取消回链 ITER-007/071；删除/来源回链 ITER-003；持久恢复、租约与有界运行回链 ITER-010/013；Provider 与长上下文按需回链 ITER-033/032。只闭合本次开放路径的必要切片，不把这些迭代整体完成设为前台文本的无条件前置。
+- **数据责任：** 手机升级与一致性备份回链 ITER-011；旧备份恢复先满足 ITER-003/010 的删除事实和 deny 水位。主库、Vault、控制账本与密钥按原故障域管理。
+- **界面与插件：** 手机界面回链 ITER-053；第一方插件修改走集合仓与主仓配对 PR、gitlink/根锁验证。受信固定 APK 文本界面不等待 ITER-006 的 Page Token 通道；开放插件 Page 时才接资源、代际与撤权合同，第三方开放归 ITER-019/056。
+- **系统与跨端：** 语音/文件/通知按系统用途授权；Shizuku/root 沿 [ADR-022 能力分级](docs/reference/adr/ADR-022-mobile-runtime-access.md#能力交付与授权分级)，不提供任意 shell 或第二执行器。跨进程续跑归 ITER-010，双向同步归 ITER-028，不复制活动 SQLite/WAL，不引入多租户业务库。
+- **交付验证：** 代码 PR 推送前通过 `./aervox ci all`；Android JVM/lint/构建/仪器测试、真实 Provider、物理设备与签名发布各自保存精确提交和环境证据。纯计划/契约修改只运行文档门禁。
 
 ##### 阶段门槛与待决定事项
 
@@ -752,73 +556,25 @@ ARC-05/FND-07，依赖 ITER-002 Outbox 归属、ITER-013/017 指标。IPC 唤醒
 
 #### 已有交付与历史证据
 
-比较九个硬件方向、电脑依赖、目标 OS、真实 Provider、成本和数据边界；CAP-001/012/018/025/030/033。只做候选/样本和继续或暂缓结论，选一至两个方向，不默认采购/SKU/固件/顺序/工期。维护者已选择手机独立运行、电脑关闭后仍可使用，并确认 Android 先行；移动 M0 在 Android 路线上接续验证本地执行/存储适配，按已接受的 M0 凭据/普通会话范围实施，再由实际证据裁定平台版本范围，之后细化 M1～M6。本轮接入 Android 原生工程，iOS 工程尚未创建；前次仅见 Command Line Tools 的环境结论已过时，本轮实时可见 Android SDK API 36 和 adb；兼容 JDK 接线、原生构建与设备验收继续另验，不能由工具存在推定通过。具体待决定事项见下一节，关联 ITER-016。
+逐条测试计数、失败与复验过程由 PR/CI 保存；本节只保留能力结论、未覆盖范围与仍开放门槛。
 
-本轮 Android 工程前置提供显式 Web 构建、Android 同步/doctor、只读环境预检和 debug 构建命令，Java 21 固定于 mise，Gradle 分发带校验值。官方模板源码与许可纳入版本控制，资源复制、SDK 路径、签名密钥与构建产物不跟踪；自动备份和明文网络默认关闭。初始 Capacitor 8.5.0 的依赖审计命中严重公告，统一升至 8.5.1 后为 0 未审阅、2 既有审阅、0 过时例外，不新增豁免。工程、Web 构建与原生 APK/设备验收分别记录；本机 SQLite/凭据/模型桥、独立运行及跨设备数据仍未交付。
+**平台选择：** 比较九个硬件方向、电脑依赖、目标 OS、真实 Provider、成本与数据边界后，维护者选择手机独立运行、电脑关闭后仍可使用，并确认 Android 先行；iOS 工程尚未创建。本轮实时可见 Android SDK API 36 与 adb。关联 [ITER-016](#iter-016)。
 
-Android 集成分支新的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务、12 项移动脚本/环境合同及既有包测试、守卫、OpenAPI 兼容、HLS、删除故障、Native 和 64 份文档通过；冻结安装与移动说明排版另验通过。真实 `android:build`、sync、doctor 退出 0，生成约 8.3 MiB debug APK，包名 `com.aervox.mobile`、最低 API 24/目标 API 36，v2 调试签名有效，合并 Manifest 两项禁用均保留。曾因 SDK 路径未传入子进程和缺 Build Tools 35.0.0 失败，修脚本并显式补唯一组件后通过；不将 Web 构建或环境预检计作 APK 成功。临时 AVD 两次启动均遇 HVF/mprotect 权限错误，ADB 未就绪，自有进程已退出；App 身份测试 APK 已编译，未执行设备测试。设备交互、独立运行和发布仍未验收，精确提交远端结果由新 PR 保存。
+**工程与内核前置（已交付）：** 显式 Web 构建、Android 同步/doctor、只读环境预检与 debug 构建命令（Java 21 固定于 mise，Gradle 分发带校验值；模板源码与许可入库，资源复制、SDK 路径、签名密钥与构建产物不跟踪，自动备份与明文网络默认关闭）。独立端内核入口：`@aervox/core/browser`（整包不含 Node/CLI）、`@aervox/host-agent/browser` 的执行 Store 与仓储 Port、`/database` 注入式装配、`/conversation` 共享 SQL 命令、原生候选值协议、未注册的 `NativeMessageChannel` 与 `/native-sqlite-client`。这些入口不导入 Node、SQLite 驱动或 Vue；**严格上游 Drizzle 声明闭包未通过这一限制如实保留**，`skipLibCheck` 消费者检查不算严格声明通过。
 
-维护者已审阅并接受 [ADR-022 的 M0 技术差量](docs/reference/adr/ADR-022-mobile-runtime-access.md#已接受的-m0android-独立隔离原型)：固定官方 SQLite 候选、手机本安装唯一真源、复用仓储原子规则、原生持钥及受限模型请求，先新建隔离会话的前台/重启/取消/问答/删除闭环。真实特性、ABI/16 KiB 页面、设备、真实 Provider 与发布分别验收；不自动操作桌面库或扩入同步/后台常驻/第三方代码插件。
+**原生能力（已交付）：** 固定 SQLite 3.54.1 官方制品（HTTPS 恢复按长度/SHA3 验证，缺失或篡改阻断构建）；原生隔离临时库；Keystore AES-GCM 凭据槽（私有 no-backup 密文、AAD 身份/版本、进程与文件锁、原子替换，丢密钥不补建）；Java 专用写者（epoch/事务持有者、有限语句/参数/结果/队列、单次首窗、终态隔离、关闭后确认 drain）；固定资产 WebView Host（首次加载前全新随机 Profile、按 Profile 阻断 Service Worker/网络、导航/重载销毁旧所有者）。未接生产初始化，未授予 JS SQL 权限。
 
-本轮先交付 `@aervox/core/browser` 中性入口，整包打包不包含 Node/CLI，VM 无 process/require/Buffer 仍能执行 Turn，声明闭包以 DOM、types=[] 编译；现有入口保持。独立复核捕获旧 `./core` 独有的 abortable 导出丢失，新增以旧轻量符号表为基线的回归先红后绿，补回两项后定向 3 文件 13 项和类型检查通过。该前置不等于本机持久 Store、原生 SQLite/密钥/模型桥或手机闭环，后续依次补齐，不把 Node API/Worker 原包直接装入 WebView。
+**确定性夹具证据：** Android 17/API 37、arm64、4 KiB 物理设备仪器测试 78/78 通过，原生运行时接线批次 46 项全部通过；同规格 16 KiB 隔离模拟器 76 项通过、无跳过。覆盖 RETURNING、JSON/NUL、FTS5、FK、失败事务回滚与重开、Keystore、严格 JSON/WebMessage、跨源 iframe、零列 DML 取消、事务身份、超窗回滚、队列 drain、默认 Cookie 不被改动。默认入口冷启动显示 Mizuki；缺模型发送明确拒绝并保留草稿；实际 force-stop 后新进程恢复选中会话与完整草稿（含 1799 字符）。**这些不证明** 16 KiB 物理设备、其他 ABI/版本矩阵、后台可持续运行、真实 Provider、执行中终止完整矩阵、工具问答、跨版本覆盖升级或正式签名。
 
-本轮接续将既有执行适配方法提炼为 `@aervox/host-agent/browser` 的中性 `ConversationExecutionStore` 和明确仓储 Port；原 `SqliteExecutionStore` 保持三参构造及同一委托方法，事务、fencing、来源/删除和幂等仍由原仓储负责。生产包装仅以真实 FencingMismatchError 身份转换租约错误，同名伪造或未知异常原样抛出；中性入口不导入 Node、SQLite/Drizzle 驱动或 Vue。独立整包无 Node VM、实际构建声明的 DOM/types=[] 闭包、真实 SQLite 与 Object.create/Proxy 子任务路径定向 5 文件 37 项通过；仍不包含手机数据库实现或独立运行完成声明。 中性适配最后代码的新 `./aervox ci all` 退出 0，构建 32、类型 56 个任务及全部守卫、兼容、HLS、删除故障、Native 与 64 份文档通过；Host Agent 增至 129 项通过、1 项既有真实模型跳过保留，API 967、仓储 820、Worker 161 等既有包测试通过。随后只补本记录并复验文档，PR #333 的审查修正与精确提交远端门禁通过后已合入主线。
+**界面与操作（已交付）：** Material 3 统一（官方 Material Web 控件、品牌生成浅/深色角色、48px 触控、tonal surfaces）；同页会话列表/新建/切换/持久回看、常驻多行输入、按会话草稿、原生 IME→WebView 历史→系统返回的逐层返回；短视口收起角色并解除叠放，常规视口角色区 64dvh；缺模型反馈移入独立布局行以免被裁切。WebView 不接收模型密钥、任意 URL/header 或 shell。
 
-本轮固定 SQLite 3.54.1 官方 Android 制品，显式 HTTPS 恢复按固定长度/SHA3 验证，缺失/篡改阻断构建，不跟踪 AAR 或隐式下载；合并 Manifest 显式保持备份/明文网络关闭，AOSP/LLVM 许可随 APK 分发。新增原生隔离临时库探针及设备测试，覆盖 RETURNING、JSON/NUL、FTS5、FK、失败事务回滚与重开；没有注册 JS SQL 桥或接入 UI。唯一 Schema 制品保留现版本/指纹，main/ledger 分离，根生成器只产 main 资产；Android 编译期打入主库 DTO，设备测试在临时空库执行 DDL、回滚/结构与版本回执检查，不代替生产初始化或迁移。真实 Android SQL/16 KiB 设备运行仍未执行，现 UI 仍连 API。 本批先在旧基线全量通过，再合入已审查主线 `f94ebfd6`，最后重新 `./aervox ci all` 退出 0：构建 32、类型 56 个任务，API 983、仓储 829、Host Agent 129、Worker 161、客户端 234、CLI 149、UI 156 项通过，1 项既有真实模型跳过保留；守卫、兼容、HLS、删除故障、Native 及 64 文档通过。另有 33 移动脚本、8 生成器测试通过；实际 `android:build` 和 App 测试 APK 编译成功，最终调试 APK SHA256 `004ea67e2b211e18a02a879c32a6897d7c8964da0320dcc0faf1d877cdd06c98`，v2 签名、ZIP 16 KiB 对齐与 Manifest 两禁用核验通过。静态 ELF 仅两个 64 位 ABI 满足 16 KiB LOAD 对齐，不外推全部设备；缺失/篡改 AAR 的 Gradle 反例在隔离工程失败后恢复通过。依赖审计 0 未审阅、2 既有审阅、0 过时例外；随后仅补记录并复验文档，精确提交远端门禁由新 PR 保存。
+**预算与生命周期修复（已交付）：** 文本输入 32 KiB UTF-8 / 120 KiB JSON、回复累计 48 KiB，越界保留安全尾段并提交 `Interrupted(model_length)`。首次就绪前的文档退休观察、后台区间跨过的配置查询拒绝未接单发送、已提交接单的迟到回执经共享取消事务收尾。恢复用例证明有效 Running/CancelRequested 租约不抢占、过期后收敛、拒绝旧 fencing、不重跑模型——但这不是 Android 实际杀进程。
 
-原生凭据前置只提供固定模型槽位的本机 API：Keystore AES-GCM 包装密钥、私有 no-backup 密文、AAD 身份/版本、进程及文件锁和原子替换；旧密文认证前不覆盖，丢密钥及 backup/stage 不补建新密钥，中断保留证据并明确拒绝。显式清除覆盖三类文件、保留包装密钥，不接受外部路径/alias；未接 UI、JS Bridge 或模型网络。隔离设备测试覆盖密钥不可导出、随机 nonce、篡改/丢 key/中断/回滚与定长错误，编译和设备执行分别记录；设备、断电持久性、原生配置入口及真正模型桥仍待验收。 最后代码的 `./aervox ci all` 退出 0，构建 32、类型 56 个任务、API 983、仓储 829、Host Agent 129、Worker 161 及既有客户端/界面测试、所有守卫/兼容/Native/64 文档通过，1 项真实模型跳过保留；App 与包含 11 项凭据用例的设备测试 APK 编译成功。独立复核无新增实质问题，补了 API 24 staging 文件清除的跨版本处理；设备 Keystore 用例未执行，不计为测试通过。随后只补记录并复验文档，新 PR 保存精确提交远端状态。
+**依赖与安全修复（已交付）：** 普通应用 UID 下硬链接归属标记被 SELinux 拒绝，改为独占创建与保守拒绝；同一短同步区完成 actor 创建与绑定；API 24/25 的 root/Shizuku Process 操作改用有界单调时钟等待，API 26+ 保留原生 timed wait 并请求 destroyForcibly。
 
-仓储接续提供 `/database` 的注入式装配，不创建连接、不初始化库，仍复用锁定 Drizzle 的 LibSQLSession 事务与关系；Node 默认准备/重连不变。实际文件 SQLite 代理验证接单/关系查询、CAS 整轮回滚、commit 前后失败都不重跑 callback，完整入口无 Node/远程连接创建器；现行声明消费者无 ambient Node，但上游 Drizzle 严格 DOM 声明闭包未通过，保留失败证据。该步骤不提供原生 Client；历史 Buffer 依赖由下列编码切片移除；crypto、Node 唤醒及问答宿主边界仍需接续，不能直接把整仓装入手机。 最后代码的新 `./aervox ci all` 退出 0，构建 32、类型 56 个任务、API 983、仓储 836、Host Agent 129、Worker 161 等既有包测试与守卫、兼容、HLS、删除故障、Native 和 64 份文档通过，1 项真实模型跳过保留；新 factory 与既有接单/队列/自愈定向 5 文件 47 项通过。严格上游声明失败如实保留，现行 skipLibCheck 消费者检查不是严格声明通过；随后仅补记录并复验文档，新 PR 保存精确提交远端结果。
+**方向约束：** 可为具体增强功能使用系统授权、Shizuku 或 root，基础 P0 不依赖提权；三者各自标注交付/授权状态，不放假按钮或任意提权执行器，边界见 [ADR-022 能力分级](docs/reference/adr/ADR-022-mobile-runtime-access.md#能力交付与授权分级)。手机不复制活动 SQLite/WAL，不引入多租户业务库。
 
-历史读取接续将 UTF-8 字节预算和规范 base64url 游标提为纯 Web 编码工具，移除 Buffer；保留 BOM、NUL、未配对 UTF-16 替换、非法 UTF-8 拒绝、规范尾位及既有 16 KiB/页面预算语义。确定性全量短字节及长字节/字符串对照旧 Buffer 实现，真实 history 21 项与 codec 5 项通过；整读取入口在无 Buffer/process/require 的 VM 实际校验中文 NUL 游标后到达注入数据库。该变化不改变读取资格、游标或内容合同，也不提供手机持久 Client。 最后代码 `./aervox ci all` 退出 0，构建 32、类型 56 任务、仓储 841、API 983 及既有包测试、守卫/兼容/HLS/删除故障/Native/64 文档通过，1 项真实模型跳过保留；两文件 26 项定向及 codec 的严格 DOM/types=[] 检查通过。其严格声明只覆盖编码工具，不扩大为上游 Drizzle 或全部仓储声明已通过；随后仅补记录并复验文档，PR #337 的 `b10eaaeb` 已通过 5 项精确提交远端检查，仍待审查合入。
-
-会话仓储进一步提炼 `/conversation` 的共享 SQL 命令，旧 Node 三个类及意图出口保留默认包装；显式 HostPort 提供同步哈希/UUID和提交后唤醒，没有默认散列或内存存储。原 canonical 意图/分支摘要、Error 身份及现有事务/删除/水位不变；格式错误或异步误接的原语拒绝且零部分接单，通知同步/异步失败不抹去已提交 Outbox。新整包入口不含 Node、Buffer、进程协调或 LibSQL 创建器，在无 Node VM 通过注入文件 SQLite 完成真实接单和历史读取；实际手机 Client/同步散列/问答宿主/内部 Transport 仍待装配。最后代码的 `./aervox ci all` 退出 0，构建 32、类型 56 任务、仓储 857、API 983、Host Agent 129、Worker 161 及既有包测试、守卫/兼容/HLS/删除故障/Native/64 文档通过，1 项真实模型跳过保留；4 文件 62 项定向、实际 dist 整包 VM 和无 ambient Node 的现行声明消费者通过。独立复核新增异步哈希误接的未处理拒绝反例，先红后绿，命令仍明确拒绝且零部分接单；严格上游 Drizzle 声明限制未隐藏。随后只补记录并复验文档，PR #338 的 `e87c6537` 已通过 5 项精确提交远端检查，仍待审查合入，不把宿主 Port 提炼当独立端完成。
-
-原生候选值协议新增 `/native-sqlite-values`：区分 REAL、int64、文本、空值与二进制，以规范字符串保留大整数/字节；负零在 JSON 往返后保持，SQLite 溢出结果的正负 Infinity 与有限输入绑定分开。结果复用锁定 libsql 的位置/命名列描述和 rowid 缺失语义，畸形值与不安全整数明确拒绝。真实文件 SQLite → JSON → 注入 Drizzle 的类型/二进制/NUL 转义读取及负零、极值、重复/保留列对照通过；整个公开 dist 入口无 Node，编码入口的实际声明以严格 DOM/types=[]、无 ambient Node 编译通过，不扩大为 Drizzle 严格声明已通过。最后实现的 `./aervox ci all` 退出 0，构建 32、类型 56 任务、仓储 868、API 983、Host Agent 129、Worker 161 及既有包/守卫/兼容/HLS/删除故障/Native/64 文档通过，1 项真实模型跳过保留；定向两文件 18 项通过，补充规范尾换行拒绝夹具后 11 项协议测试再通过，审计 0 未审阅、2 既有审阅、0 过时例外。随后只补验证记录并复验文档，PR #339 的 `74374f1f` 已通过 5 项精确提交远端检查，仍待审查合入。该步骤尚未提供手机连接、SQL 桥、资源配额或设备结果，不替代原生 Client。
-
-原生侧接续同一值编码和未注册的 `NativeMessageChannel`：固定 origin/主帧/WebView 身份、功能不支持即关闭、请求/响应字节及在途/深度限制；严格流式 JSON 检查先于对象递归解析，关闭后不向旧页回包。它只管理一个 WebView 生命周期，不能证明文档或 APK 资产来源；固定资产宿主及销毁重建接线仍须实现。共享 `/native-sqlite-client` 同时提供受限事务适配，根请求排在事务终态之后，未知回执保留写者并隔离准入，close 与已确认 drain 分开；明确拒绝的关闭竞态、同步清理失败重试和 batch 回滚失败有反例。真实文件 SQLite 代理验证原子接单/幂等、CAS/整批回滚、NUL 历史及 commit 回执丢失不重跑。最后实现的 `./aervox ci all` 退出 0：构建 32、类型 56 任务、仓储 893、API 983、Host Agent 129、Worker 161 及既有包/全部守卫/兼容/HLS/删除故障/Native/64 文档通过，1 项真实模型跳过保留；4 文件 59 项定向及实际公开 dist 的无 Node VM、编码/Client 严格 DOM 声明闭包通过，不能外推上游 Drizzle。Gradle App/设备测试 APK 编译成功，9 项 JVM 策略实际通过；新 17 项 Android 用例已编译。维护者接入 Android 17/API 37、arm64、4 KiB 真机，前置已通过且未发现已有同包应用，首次执行等待系统安装确认超时，0 项执行；之后的实际设备结果见下段，不沿用编译状态。独立复核的 close 终态拒绝两时序反例先红后绿，修复再审无新增问题；依赖审计 0 未审阅、2 既有审阅、0 过时例外。随后只补本记录并复验文档，新 PR 保存精确提交远端结果。该步骤未接手机业务库、实际 SQL/模型命令或 UI，不代表原生独立闭环。
-
-首次实际设备执行补证：维护者授权连接的 Android 17/API 37、arm64、4 KiB 设备，WebView 155.0.8059.46。首次 Gradle 执行等待系统安装确认超时，0 项执行；确认安装后直接 AndroidJUnitRunner 跑 32 项，31 通过、1 个 Schema 空库断言失败。查实默认 Android opener 生成 `android_metadata`，现以 `NO_LOCALIZED_COLLATORS` 开启隔离 Schema 库，保留原空库/319 个物理定义检查，新增默认元数据对照，不靠过滤额外表通过。接续固定 `NativeExecutionProbe` 在单线程临时库证明 typed positional/NUL/浮点位/BLOB/int64、一次 RETURNING、64 KiB 首窗不足时拒绝并回滚全部128行、合作取消/关闭重开/线程 drain；未注册 SQL 服务。复验 AndroidJUnitRunner **35 项全部通过、无跳过**，包含 Keystore、严格 JSON/WebMessage、主帧/同源子帧/异源 iframe、Schema/FTS/FK/回滚和重开。首轮失败/超时均保留，不外推16 KiB、其它ABI/版本矩阵、完整终态故障矩阵、真实模型或手机独立UI；窗口实验要求API28只是探针前置，正式平台下限仍待矩阵。最后实现的 `./aervox ci all` 退出 0，构建 32、类型 56 任务、仓储 893、API 983、Host Agent 129、Worker 161 及既有包/所有守卫/兼容/HLS/删除故障/Native/64 文档通过，1 项真实模型跳过保留；9 项 JVM 策略通过、App/测试 APK 构建成功。随后只补验证记录并复验文档，新 PR 保存精确提交远端结果。
-
-原生运行时接线前置继续提供未注册的 `NativeSqliteSession` 与固定资产 WebView Host：Java 专用写者独立裁定 epoch/事务持有者、有限语句/参数/结果/队列、单次首窗，终态异常隔离并在实际关闭后确认 drain；固定页面在首次加载前使用全新随机 Profile，按该 Profile 阻断 Service Worker/网络，导航/重载销毁旧所有者，清理只涉及本方登记 Profile 并保留失败证据。未接生产初始化/默认 MainActivity 或授予 JS SQL 权限。此批构建与 19 项 JVM 策略通过，同一 Android17/API37 arm64/4KiB/WebView155 真机 **46 项全部通过、无跳过**，实际覆盖零列 DML 受取消游标路径/changes/rowid、事务身份、整根/活动事务超窗、deferred-FK 提交异常隔离/关闭重开、队列满时 drain 等待，以及固定APK首文档/新Profile/默认Cookie设置不变、导航/重载/关闭撤权。原生信号不是硬提交截止，声明列类型/通用authorizer/正式平台版本仍是明确子集限制；最后实现的 `./aervox ci all` 退出 0，构建 32、类型 56 任务、仓储 893、API 983、Host Agent 129、Worker 161 及既有包/全部守卫/兼容/HLS/删除故障/Native/64 文档通过，1 项真实模型跳过保留；独立复核无新增实质问题。随后只补记录并复验文档，PR #342 的 `1ec56641` 已通过5项精确提交远端检查，仍待审查合入。真正仓储/Core 联测、持久初始化、问答/删除和独立UI/模型继续接线。
-
-维护者进一步要求 Android 统一 Google 设计语言，当前显式 mobile 构建接入 Material 3：官方 Material Web 控件、品牌生成浅/深色角色、Roboto/系统中文、48px 触控、tonal surfaces 和统一状态。保留角色与现有业务/导航、IME/取消/重试和设置草稿，普通 Web/桌面不因视口宽度启用；壁纸动态色、独立本地业务与视觉改动不混为验收。首次权限确认共用懒挂载入口已修复；角色加载期间显示本地占位、就绪后换 Live2D，普通宿主加载表现不变。最后代码 `./aervox ci all` 退出0，构建32、类型56任务、UI163、主动界面35、工作台11及其余既有包/守卫/兼容/删除故障/Native/64文档通过，1项真实模型跳过保留；角色降级6项、依赖审计0未审阅/2既有审阅/0过时例外，Android调试APK构建成功。PR #343 的 `6fecb316` 已通过8项精确提交远端检查；29项浏览器串行回归通过，真机初检与冷启动补充的边界由PR保存；视觉实现、独立运行与发布仍分别验收。
-
-维护者接续要求移动端操作逻辑适配：在同一移动界面闭合会话列表/新建/切换/持久回看，复用按会话草稿和明确多行发送，保留运行/待交互/不确定提交的观察与恢复所有者；列表/回看不隐式取消执行。返回键需先核对Android原生传递与IME，再逐层关闭界面；不能仅凭浏览器popstate声称实机返回已完成。此批继续由ITER-009协调，禁止以完整桌面工作台跳转替代手机基本操作。 已在后续分支实现同页会话/回看、常驻多行输入、共享草稿所有权、运行/不确定回执切换保护、问答后的同轮观察续接，以及无新权限的原生IME→WebView历史→系统返回和全组合根导航屏障。准备会话期间只读输入、取消失败后已接单草稿确认、编辑后回到相同原文、弹窗中的草稿恢复层级都有反例；明确4xx拒绝与未知提交分别处理。移动流程及连续重载的定向浏览器检查已通过；最后APK已构建并安装，同一PMA110/Android17/WebView155真机实际验证软键盘优先、会话弹窗与输入逐层返回、进程重启草稿保留及恢复后的单层返回，测试零POST，临时亮屏设置已恢复。49项返回/重载/导航和61项主动界面/面板、70项控制器/会话、23项原生JVM通过；维护者随后明确允许对话框遮住Live2D下半身，手机常规视口的角色区域继续增至64dvh（360～600px），对话层叠在下半身前方；短视口收起角色并解除叠放，普通Web/桌面不变。本次全量门禁退出0，33项浏览器串行回归及最后9项移动复验通过；最终APK构建并安装成功，真机角色区域约481px、对话实际覆盖下半身，角色区域滑动、键盘让位及返回保留草稿通过，零POST且临时亮屏设置恢复。不把草稿恢复等同持久执行断点；独立本地业务和正式发布仍待后续验收。
-
-维护者要求在新设备继续参考实装 FlClash，并对移动功能按实际能力与授权分级；可为具体增强功能使用系统授权、Shizuku 或 root，基础 P0 不依赖提权。当前分支将默认 Android 入口接到固定第一方 APK 资产、独立 WebView Profile、应用私有 SQLite、共享中性仓储/Core 与原生持钥模型服务；只提供前台文本对话、会话管理、分页历史、停止与删除，普通浏览器预览仍用 API。WebView 不接收模型密钥、任意 URL/header 或 shell；原生 UI 偏好只保存选择与未发送草稿，业务回执继续以 SQLite 为准。未知库/Schema/归属证据保留拒绝，合法本方 rollback journal 交 SQLite 恢复，所有权到 SQL drain 后才释放。长流分页必须消费终态才结束，历史/终态持久化须遵守原生行数和绑定预算，不能靠放宽原生限制通过。
-
-界面按实装 FlClash 0.9.2 仪表盘与 AstrBot 运行管理器（`io.astrbot.android`、JunWan666 1.0.0）首页/设置校准：统一标题/说明/右侧状态和 tonal 分组，分别呈现存储、运行方式与模型配置；“已保存”不冒称“已连接”。原生入口关闭未接入业务建议、桌面插件和设置，保留大角色、圆角、多行输入、返回与草稿所有权。借鉴 AstrBot 环境预检、修复、按需启停、日志/脱敏诊断、备份恢复的责任划分；这些增强能力本轮未接入。系统权限、Shizuku、root 均独立标注交付/授权状态，不放假按钮或任意提权执行器，具体边界维护于 [ADR-022](docs/reference/adr/ADR-022-mobile-runtime-access.md#能力交付与授权分级)。参考期间未启动代理/服务或修改参考应用配置，含个人信息的原始截图留在忽略产物。
-
-本轮接线验证仍在进行：新设备首轮原生 16 项中 9 项失败，定位到普通应用 UID 下硬链接发布归属标记被 SELinux 拒绝；已改为不覆盖既有文件的独占创建、持久化和保守拒绝路径，复验与默认入口真机结果随后记录。首次失败保留，不把 Java/测试 APK 编译、确定性模型或旧设备绿测当成本轮通过；真实获准模型、后台终止/重启/迟到写、工具问答、正式设备矩阵、许可和签名发布继续开放，整个 M0/ITER-009 尚未完成。
-
-2026-10-29 接续收尾在 `feat/android-native-runtime-completion` 完成前台文本原型，并接续主线 `024fd79e` 的 Core/插件集合子模块归属。原生上下文复用 Core 的明确省略策略，限制为 128 条消息与 240 KiB JSON；历史和终态片段在原生绑定/结果预算内分页。偏好写入校验实际回执，明确缺模型拒绝释放草稿预留；逐帧重放复用共享来源资格和正文读取，阻断回调等待期间的删除与资产文档退休，不用缓存页继续披露。另修 API/Worker 首次共享建库的索引竞态，保留旧库拒绝与最终版本回执复验。
-
-Web 60 项、主动界面/弹窗 76 项、移动浏览器 13 项、Android JVM 31 项、生态作者工具 21 项及十个插件的资源/可重现包检查通过；最终默认原生调试 APK 和仪器测试 APK 构建、Android lint、v2 调试签名与 ZIP 16 KiB 对齐检查通过。新的 `./aervox ci all` 退出 0，构建 33、类型 58 任务及守卫、HLS、删除故障、原生合同和 66 份文档门禁通过；API 1026、仓储 904、Worker 161、Core 498、Host Runtime 326、UI 227 项通过，Host Agent 129 项通过、1 项既有真实模型跳过保留。依赖审计为 0 未审阅路径、5 条既有审阅路径、0 过时例外。该轮收尾时没有已授权设备或可用 AVD，首轮设备失败当时尚未复验，新增仪器测试只编译；真实模型、工具问答、进程终止故障和正式发布仍未验收。配套界面交付见[集合 PR #7](https://github.com/Aervox-agent/Aervox-plugins/pull/7)，精确提交远端结果由两仓 PR 保存。
-
-预算评审后的接续修复由 [PR #353](https://github.com/3yearsZhuang/Aervox-harness/pull/353) 保存：文本输入在接单前校验 32 KiB UTF-8 和 120 KiB JSON 正文编码，回复限制为累计 48 KiB JSON 编码；越界保留安全尾段并提交 `Interrupted(model_length)`，历史按字节缩页、模型历史在同一快照逐轮读取。本地全量门禁通过，仓储 909、Web 81、Android JVM 34 项通过。随后使用已有镜像建立临时隔离 Android 17/API 37、arm64、16 KiB 模拟器，HVF 实际启动成功；WebView 145、SELinux Enforcing，应用 UID 为普通 UID。首轮原生 38 项中 37 项通过，剩余失败是测试通过受限 SQL 桥读取 `sqlite_master`，与现有明确拒绝策略冲突；仅把两项 Schema 断言移到 actor 完全关闭后的测试专用原生读取，保持产品权限与资源限额。该用例单独复验及完整 38 项复验均通过，覆盖模型连接 10、模型协议 5、业务库 12、SQL actor 7、资产 WebView 4 项。此前物理手机 16 项中 9 项失败的证据继续保留；本次为新模拟器的独立复验，使用隔离测试库与假 HTTPS，不替代真实模型、物理手机、进程终止完整矩阵或正式发布，M0/ITER-009 仍未完成。
-
-同一模拟器的默认 `MainActivity` 冷启动成功，在普通应用 UID 下首次建立业务库与归属回执，固定资产 WebView 加载会话首屏和输入框，未捕获应用崩溃；首次角色使用现有降级图。诊断确认默认 Mizuki 是 Cubism 3 模型，已打包资产与 Cubism Core 完整，但聚合渲染入口在模块求值时额外要求 Cubism 2。控制器改用与严格 `model3` 契约匹配的 `/cubism4` 懒加载入口，真实 SDK 与真实 Mizuki 资产回归先红后绿，保留销毁与失败降级。新 APK 在另一个同规格隔离模拟器冷启动后实际显示 Mizuki，WebView 状态为 `ready`，仅有 Cubism Core、无 Cubism 2 全局对象；约 8 秒录屏及抽帧确认角色动作，启动与渲染日志独立保存。首次 37/38 与后续 38/38 证据均保留，临时设备、AVD 与配置清理后保留测试日志、XML 和启动证据；`47112b96` 的八项精确提交远端检查全部通过。测试及渲染修正后的串行 `./aervox ci all` 退出 0，后续精确提交远端结果由同一 PR 保存。
-
-本轮继续在 PR #353 修复前台接单的生命周期竞态：首次就绪前即观察文档退休，旧 Transport 拒绝读写；模型配置查询跨过后台区间时拒绝未接单发送，已提交接单的迟到回执则通过共享取消事务收尾，不启动模型。三个反例先红后绿，Web 组合根定向 29 项及类型检查通过。新增恢复用例通过真实文件 SQLite、原生 JSON 适配与共享命令构造已提交安全前缀，驱动组合根的恢复计时器，证明有效 Running/CancelRequested 租约不抢占、过期后分别收敛 Interrupted/Cancelled、保留前缀、拒绝旧 fencing 且重复恢复不重跑模型。新的 `./aervox ci all` 退出 0，构建 33、类型 58、测试 59 个任务及 66 份文档门禁通过，Web 89 项通过，Host Agent 1 项既有真实模型跳过保留；独立依赖审计为 0 未审阅、5 既有审阅、0 过期或过时例外。默认 Android 调试 APK 重建成功，最后仅补记录并复验文档，精确提交远端结果由同一 PR 保存。该持久状态重开验证不等于 Android 实际杀进程，真实模型、设备进程终止完整矩阵、工具问答及两仓最终交付继续开放。
-
-2026-11-01 分支收尾同步已审主线及 [PR #356](https://github.com/3yearsZhuang/Aervox-harness/pull/356) 的开发服务退出测试修复，补齐 Android 冷构建的 Web 上游依赖；根级 frozen install、全量门禁、Android 构建、34 项 JVM、App lint 和测试 APK 编译通过。使用新的隔离 Android 17/API 37、arm64、16 KiB 模拟器实际运行完整仪器测试，76 项全部通过、无跳过；SELinux Enforcing、WebView 145，默认入口本机存储与 Mizuki 渲染成功。缺模型发送明确拒绝、草稿保留且历史为空；实际 force-stop 后旧进程消失，新进程恢复较早选中会话及完整草稿。模拟器发现缺模型反馈被滚动角色区裁切，配套 [集合 PR #8](https://github.com/Aervox-agent/Aervox-plugins/pull/8) 将手机反馈及动作移到独立布局行，短屏反馈期间收拢可滚动输入框；浏览器回归覆盖完整可见性、六行草稿、320×360 和键盘压缩可见区，并保留首次失败证据。新 APK 更新安装后，默认零滚动的完整反馈、真实原生模型配置入口、真实软键盘及约 358px 短视口均复验通过；再次实际 force-stop 后，较早会话和 1799 字符长草稿完整恢复，缺模型拒绝后的历史仍为空。该结果补充真实进程停止证据，仅覆盖尚未接单的场景；真实 Provider、物理手机复验、执行中终止完整矩阵、工具问答及正式发布继续开放，M0/ITER-009 不关闭。
-
-2026-11-06 确定性真机接续在 `feat/mobile-plan-acceptance` 使用独立 `com.aervox.mobile.planprobe` 调试包，保留原 `com.aervox.mobile` 安装与数据。原生 owner 的 actor 创建与绑定现置于同一短同步区，避免 worker 长初始化先占 owner monitor、把调用线程阻塞在 ready 截止前；生产入口与两个业务库夹具同步修复，独立静态审查 PASS，Java/仪器测试编译及 58 项 JVM 通过。首轮完整运行在数据库测试停顿，后续标准/诊断 runner 与数据库类复验也有停顿/超时；同 UID 读取实际线程 `wchan` 为 `do_freezer_trap`，Android 进程报告仍为 `cached=false/isFrozen=false`，不能靠该报告排除设备后台冻结。SIGQUIT 与测试 Activity 前台化均能推进；标准 AndroidX 1.7.0 runner 的 ActivityFinisher 会逐项关闭 Activity，前台条件用 `waitForActivitiesToComplete=false` 并打开隔离包 MainActivity 维持，各夹具仍自行释放资源。Android 17/API 37、PMA110、arm64、4 KiB 物理设备的数据库类 12/12、完整 78/78 通过；唯一固定生产包名的 AppIdentityTest 因隔离后缀未纳入本轮，测试没有放宽行为断言。通过套件的 APK SHA-256 为 app `adede3a47a0c296d06aaef62ace597debf89d8e8babe0d7567135e99535cdf0b`、test `f11f7fc1e8a837e266388b7200a4ebd291847c94e52c5600683f542734febab7`。临时诊断 runner 已从源码移除，首轮失败和人为停止记录保留；该结果仅证明确定性前台夹具，不证明后台可持续运行、真实模型、执行中终止完整矩阵、16 KiB 物理设备或正式发布。维护者明确先完成确定性真机验收，真实模型资源稍后补；全量代码门禁和 PR 精确提交结果接续记录。
-
-默认入口的后续物理复验在同一隔离安装完成：给现存会话输入 `planprobe_restart_20261107`，核对原生偏好中的会话身份与草稿后实际 force-stop/restart，界面恢复相同草稿；缺模型发送明确提示“消息尚未发送，草稿已保留”，再次强停重开仍恢复。只复制该测试包自有主库，SQLite 计数为 Turn、Attempt、Message、Outbox 均 0；已有四个测试会话和旧草稿保留，没有调用真实模型。此前空输入截图未绑定原草稿的会话身份，不能作为原会话草稿恢复失败或成功证据；本次新草稿以原生偏好、现存 SQLite 身份和重启截图共同确认。全量门禁首轮捕获跨入口比较不同 Turn 的终态 `lastSequence`（3 与 2），周期 flush 允许各自前缀事件数不同；回归现在分别强制 `done.data.lastSequence = done.sequence = Turn.last_sequence = MAX(stream sequence)`，跨入口仍比终态状态、原因、完整性及精确用量，独立审查与定向 3/3 通过。该断言修订不改变生产终态语义；新全量结果及 PR 合入随后记录。
-
-最终代码点 `58b8aeae` 的新 `./aervox ci all` 退出 0，API 1026、仓储 962、Worker 177 项及全仓构建、类型、守卫、原生、删除故障、依赖审计和 68 份文档门禁通过，既有 DSH 条件跳过仍不计通过。记录阶段捕获并修正本段多余空行，文档门禁重新通过；生产 Java 的绑定修复和测试断言已经独立复核，精确 PR/主线组合继续按审查流程交付。
-
-手机与首页组合 `0ddb0db18e5148133f29ddcd062a9380059ffcf6` 固定插件 `bad07ef7305c85101c936a99737f67e7940d1f7d` 后，新 `./aervox ci all` 退出 0，API 1028、仓储 964、Worker 177 项及构建、类型、守卫、原生、删除故障、依赖审计和 68 份文档全部通过，既有 DSH 条件跳过保留。此前组合全量及整文件复验的同一 staging 用例两次超过 30 秒；单用例、整文件和临时阶段测量随后通过，未复现阻塞，原因尚未确认。临时代码已还原，没有改动迁移实现或超时判据；新全量包含该文件 20/20 通过。四文件最终差量及标准 runner 的 78 项、业务库 12 项和 APK 摘要再次独立核对 PASS；最后仅更新这些记录并复验文档，精确远端交付由本切片 PR 保存。
-
-2026-11-07 的[统一 UI 候选 PR #372](https://github.com/3yearsZhuang/Aervox-harness/pull/372)与[集合 PR #15](https://github.com/Aervox-agent/Aervox-plugins/pull/15)接续统一启动、原生配置与不可用页，完全删除 `PetHero` 并使用真实 Mizuki。陪伴气泡、输入栏与名牌保留玻璃质感；输入栏只放输入、紧邻发送/停止的语音键，不再添加上方标签、附件摘要或状态行。配置提醒、失败恢复、待回答问题和工具授权放进原玻璃对话卡，附件在工具卡查看和移除；完整原问题重放保留回答与原截止时间，缺身份、过期或已结束时禁止作答，迟到失败不影响新问题。必要的完整问答宿主 [PR #380](https://github.com/3yearsZhuang/Aervox-harness/pull/380)已由 `c20c1be1` 合入，本候选完整整合其 Core `93351196`，保留原身份第四参数断言，并吸收学习与练习合同的已审组合。短屏/IME 浏览器及原生 UI 定向验证已通过，后续精确配对全量与 APK 证据由两仓 PR 保存；v2 使用独立 QA 包验收，原 v1 安装与数据保留，跨版本覆盖升级未开放。候选待审，不等同已发布。
-
-本轮 Android 兼容修复 `4a2e1c25` 将 root/Shizuku 的 Process 操作接到共用版本保护：API 24/25 使用有界单调时钟等待与退出状态检查，超时或中断请求 destroy（AOSP 发送 SIGTERM，尽力清理）；API 26+ 保留原生 timed wait 并请求 destroyForcibly。清理请求不能证明所有 su 后代停止或进程实际 drain。68 项 JVM 回归与 App lint 通过，lint 为 0 errors、0 NewApi、35 项既有 warnings。最终源码组合宿主 `fa6d07bc` / 集合 `b48794e6` 的新鲜 `./aervox ci all` 退出 0，完整初始化固定 DSH 后通过构建、类型、测试、守卫、依赖审计、原生与文档门禁；前一轮缺失 DSH 的四项失败保留。集合 `e4308866` 仅将 CI 默认宿主改为公开 `fa6d07bc`，实际两仓远端检查与最终合并 gitlink 继续由 PR 保存。API 24/25 实机、真实 root/Shizuku 通道、执行中撤权/取消、所有 su 后代及完整停止矩阵仍待验收，M0/ITER-009 不关闭。
-
-**Android 最终集合配对：** 集合 PR #15 的精确 `e4308866` [PR 集成 CI](https://github.com/Aervox-agent/Aervox-plugins/actions/runs/44158830270)成功，经独立审查正常合入 `356c996c63a4d7fda3c49d454c505627f5c60a0c`，实际树与已验收候选一致。宿主 `854fdbfa` 吸收实际安全主线并固定此 SHA 后，根 frozen install、实际消费者的构建/类型/测试 39 项任务、10 个分发包及全部预检通过。独立 QA 源 `b222297e / e4308866` 的 `.uiqav2` APK 构建及包名、v2 指纹、调试签名校验通过，SHA-256 为 `88d58ee16e25771b17a01ea9764dcdefba7b5b94f61537ff08c697679d835c37`；704 个普通资产与 2503 个既有源码文件前后摘要一致。QA 包未安装或运行，原问题设备提交/重开、after-done 事件重放和完整模型接续没有据此验收。主仓 PR #372 的精确宿主 `75bf5ba7` 已通过 10/10 远端检查与审查，正常合入 `e04cc1295535e29700615491d285454c557a15c7`；[显式集合配对](https://github.com/Aervox-agent/Aervox-plugins/actions/runs/44159941511)也通过。原安装、业务数据与 M0 门槛保留。
-
-安卓故障工具的独立提交 `b4f049e9` 已交接到同一候选分支：专用 `deterministicProbe` variant 与 `.terminationprobe` 包名隔离，假模型提交 37 字节安全前缀后等待取消，实际 SQLite、Core 与原生通道不替换，普通包不载入夹具。工具链 34 项、夹具两项通过。交接的 PMA110/API 37 物理样例观察到实际强停后旧进程消失，重开不启动第二次模型，原身份与前缀保留，过期 Running Attempt 收敛 Interrupted，fencing 从 1 到 2，唯一 done 序号 3；强停前 Turn 实际为 Created、Attempt 为 Running。首轮脚本误读字段与状态的失败保留，第二轮最终快照已晚于租约过期，不能声称有效租约内不抢占已实测。完整近期租约、CancelRequested/取消终态、持久补问、renderer 退出、真实 Provider、后台、物理 16 KiB、升级/恢复与签名仍开放；本次不关闭 M0/ITER-009。
+**相关 PR：** 主仓 [PR #353](https://github.com/3yearsZhuang/Aervox-harness/pull/353)、[PR #356](https://github.com/3yearsZhuang/Aervox-harness/pull/356)、[PR #372](https://github.com/3yearsZhuang/Aervox-harness/pull/372)；集合仓 [PR #7](https://github.com/Aervox-agent/Aervox-plugins/pull/7)、[PR #8](https://github.com/Aervox-agent/Aervox-plugins/pull/8)、[PR #15](https://github.com/Aervox-agent/Aervox-plugins/pull/15)。
 
 <a id="iter-016"></a>
 
@@ -837,6 +593,8 @@ Web 60 项、主动界面/弹窗 76 项、移动浏览器 13 项、Android JVM 3
 ### ITER-028 · 待评审：纯本地加密同步探索
 
 CAP-018/027，遵守[数据库契约](docs/reference/DATABASE.md)和 ADR-022，不引入中心化多租户库。承诺-揭示配对、Ed25519 设备身份、SAS transcript、分向密钥和 Changeset 原型已有，ITER-071 已隔离 sync-runtime/Changeset Port；真实 mDNS/生产接线/多设备未完成。
+
+**当前性质：原型，零生产消费者。** `packages/sync-runtime`（4 988 行）与 `packages/repositories/src/sync/p2p-changeset.ts` 的唯一 import 方是 `packages/repositories/test/` 下的 5 个测试文件；不在 turbo build、CI 或 mise 任务任一处被引用。引用这些文件不等于它们已可用：本条仍未评审通过，接线与否由后续决定。审计基线（2026-11-26）确认该状态自 2026-10-03 审计以来未变。
 
 - **进入条件与验收：** 显式配对、端到端加密、`local_only`/混合来源范围、删除撤权传播先成立；UDP 多播发现+静态对端兜底，验证重放/乱序/篡改拒绝。以行时间水位+显式墓碑代替 Session Extension，接收白名单/漂移隔离/墓碑四向裁决，不复活已删数据；真实 Capacitor/Electron 同网直连学习进度/错题成功，不能据原型宣布多设备可用。
 
@@ -889,48 +647,49 @@ ITER-009 的移动端交付顺序见[接续计划](#mobile-continuation-plan)。
 
 ### ITER-070 · 已移交：PR 终审与文档现状归档
 
-原授权 #307～#320 已依赖顺序合入并清理分支，保留工作树/归档标签/忽略资源/业务数据。[PR #313](https://github.com/3yearsZhuang/Aervox-harness/pull/313)补 Bundle 祖先 symlink 清理/回滚，[PR #314](https://github.com/3yearsZhuang/Aervox-harness/pull/314)补 ZIP 文件/目录/大小写冲突，[PR #316](https://github.com/3yearsZhuang/Aervox-harness/pull/316)补终态/水位一致快照；集成树 `263cdc99` 全量退出 0，精确提交远端检查分别保留。
+原授权 #307～#320 已按依赖顺序合入并清理分支，保留工作树、归档标签、忽略资源与业务数据。[PR #313](https://github.com/3yearsZhuang/Aervox-harness/pull/313) 补 Bundle 祖先 symlink 清理/回滚，[PR #314](https://github.com/3yearsZhuang/Aervox-harness/pull/314) 补 ZIP 文件/目录/大小写冲突，[PR #316](https://github.com/3yearsZhuang/Aervox-harness/pull/316) 补终态/水位一致快照。[PR #321](https://github.com/3yearsZhuang/Aervox-harness/pull/321) 修 Fastify `GHSA-389g-gv7q-r4x8` 至 5.12.6 并删除已撤回的 sprintf-js 豁免；[PR #322](https://github.com/3yearsZhuang/Aervox-harness/pull/322) 交付现行 Markdown 与文档门禁。
 
-[PR #321](https://github.com/3yearsZhuang/Aervox-harness/pull/321)修 Fastify `GHSA-389g-gv7q-r4x8` 至 5.12.6、删除已撤回 sprintf-js 豁免；最终全量通过，0 未审阅/2 既有审阅路径/0 过时例外，首次失败保留。[PR #322](https://github.com/3yearsZhuang/Aervox-harness/pull/322)交付 32 份现行 Markdown 与 63 文档门禁；归档仓 #2/#3/#4 先合入并清理，再由主仓移除历史材料。原字节哈希、稳定编号、失败及剩余验收见[归档包](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation)，无活动入站的 [CR-030 旧目标 ERD](https://github.com/3yearsZhuang/Aervox-docs-archive/blob/397d4b4bc924d1315205577ed4fb88a4df2c0619/archive/database-sqlite-erd-cr030-target.md)亦按原字节归档。ContextManifest 最小化、Page、恢复及真实环境限制已回到对应活动条目，未提高发布状态。
+历史材料已移出主仓。原字节哈希、稳定编号、失败与剩余验收见[归档包](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation)，无活动入站的 [CR-030 旧目标 ERD](https://github.com/3yearsZhuang/Aervox-docs-archive/blob/397d4b4bc924d1315205577ed4fb88a4df2c0619/archive/database-sqlite-erd-cr030-target.md) 亦按原字节归档。ContextManifest 最小化、Page、恢复及真实环境限制已回到对应活动条目，未提高发布状态。
+
+**已交付条目索引。** 以下编号全部已移交，详细交付、失败与剩余边界由对应 PR 与 CI 保存；保留锚点供历史文档引用。
 
 | 编号 | 结果 | 证据 |
 |---|---|---|
-| <a id="iter-001"></a>ITER-001 | 冷 CI、插件产物恢复与可重现验证；ARC-14/FND-10；CAP-020。 | [PR #221](https://github.com/3yearsZhuang/Aervox-harness/pull/221) |
-| <a id="iter-002"></a>ITER-002 | 可靠接单剩余差量：Inbox 确认、Turn/Outbox 与 Attempt 的原子接单或可重放恢复；ARC-01；CAP-007。本轮意图摘要切片及子任务/完整审批续跑剩余边界见 ITER-071。 | [PR #265](https://github.com/3yearsZhuang/Aervox-harness/pull/265)、[PR #228](https://github.com/3yearsZhuang/Aervox-harness/pull/228)、[PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258) |
-| <a id="iter-004"></a>ITER-004 | 三个独立修复：消息版本短事务/CAS，Config 与同库 Secret 一致提交，会话锁尾链回收；ARC-07、FND-02/07；CAP-013/020 | [PR #259](https://github.com/3yearsZhuang/Aervox-harness/pull/259)、[PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258) |
-| <a id="iter-007"></a>ITER-007 | 三个切片：父子任务/Driver 继承取消、截止、删除/授权修订与 local-only；执行时逐项核对 requiredPermissions/grants 的 scope/revision，由受信宿主映射 guarded/full_access 安全等级；动态工具 Schema 快照进入模型请求并在执行时重验；ARC-02/03、插件规范 §8.1；CAP-007/020/033 | [PR #267](https://github.com/3yearsZhuang/Aervox-harness/pull/267)、[PR #259](https://github.com/3yearsZhuang/Aervox-harness/pull/259)、[PR #257](https://github.com/3yearsZhuang/Aervox-harness/pull/257) |
-| <a id="iter-008"></a>ITER-008 | 模型制品与进程：路径/symlink、响应与续传验证；启动 epoch、有界探针/日志/指标请求；ARC-11/12；本地模型基础设施 | [PR #266](https://github.com/3yearsZhuang/Aervox-harness/pull/266) |
-| <a id="iter-014"></a>ITER-014 | 公开 Port、MemoryStore 试点与实现退出演练；ARC-10；CAP-005/007/020。 | [PR #230](https://github.com/3yearsZhuang/Aervox-harness/pull/230) |
-| <a id="iter-020"></a>ITER-020 | HLS 竞赛验证规划；CAP-007/020/027。 | [PR #229](https://github.com/3yearsZhuang/Aervox-harness/pull/229) |
-| <a id="iter-023"></a>ITER-023 | Build to Delete 与类 pi 架构规划；CR-056 历史材料见归档导航。 | [原交付登记](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记) |
-| <a id="iter-030"></a>ITER-030 | DSH、pi、AstrBot 固定版本更新与差异复评；CAP-007/020/027/033。 | [原交付登记](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记) |
-| <a id="iter-031"></a>ITER-031 | 标准工作台连续对话与雾蓝视觉重构；CAP-001/002/018。 | [PR #233](https://github.com/3yearsZhuang/Aervox-harness/pull/233) |
-| <a id="iter-034"></a>ITER-034 | ControlContext、abortable 与 ApprovalPolicyPort 内核构件及 executor 接线；ITER-007/013。 | [PR #241](https://github.com/3yearsZhuang/Aervox-harness/pull/241) |
-| <a id="iter-035"></a>ITER-035 | 建立独立 @aervox/core、内存 HostToolRuntime、轻量出口与分层许可证；ADR-021。独立仓库与必需子模块迁移继续在[接续条目](#core-repository-migration)验收。 | [PR #244](https://github.com/3yearsZhuang/Aervox-harness/pull/244) |
-| <a id="iter-036"></a>ITER-036 | 伴学 Prompt、工具契约与宿主 guidance 迁出内核，收窄内核导出面；ADR-021。 | [PR #245](https://github.com/3yearsZhuang/Aervox-harness/pull/245) |
-| <a id="iter-037"></a>ITER-037 | 移除 agent-loop/cli-approval 过渡壳，下游直连 core，内核类型自持与边界守卫；ADR-021。 | [PR #248](https://github.com/3yearsZhuang/Aervox-harness/pull/248) |
-| <a id="iter-038"></a>ITER-038 | Provider stopReason 归一与输入/输出 usage 分账；ITER-033 拆分切片。 | [PR #247](https://github.com/3yearsZhuang/Aervox-harness/pull/247) |
-| <a id="iter-039"></a>ITER-039 | 内核对标增强（PI-01 pi-ai 对比结论，2026-10-03 内核自查）：①截断 fail-closed——消费 `ModelStopReason=length` 并整批拒绝截断工具调用（含参数不完整），补 Provider 边界坏响应夹具；②usage 缓存/成本分账——`ModelUsage` 扩展 cacheRead/cacheWrite（透传 OpenAI `cached_tokens`），支撑 ModelRun 埋点与成本治理（T-10） | [PR #259](https://github.com/3yearsZhuang/Aervox-harness/pull/259)、[PR #257](https://github.com/3yearsZhuang/Aervox-harness/pull/257) |
-| <a id="iter-041"></a>ITER-041 | 拆分 executor 流式收集、工具管线与终态收口，统一审批裁决。 | [PR #249](https://github.com/3yearsZhuang/Aervox-harness/pull/249) |
-| <a id="iter-042"></a>ITER-042 | ExecuteResult interrupted 与 AttemptStatus 对齐，保留 reason；持久化枚举不变。 | [PR #251](https://github.com/3yearsZhuang/Aervox-harness/pull/251) |
-| <a id="iter-044"></a>ITER-044 | 2026-10-08 Core 审核整改第 1/5 迭代：执行正确性收口。修复审批等待后的取消/租约竞态、模型截断工具执行、父子控制传播和 next-step Inbox 丢失；结构化工具超时原因；原队列相关范围：ITER-007/ITER-039 | [PR #257](https://github.com/3yearsZhuang/Aervox-harness/pull/257) |
-| <a id="iter-045"></a>ITER-045 | 2026-10-08 Core 审核整改第 2/5 迭代：工具运行时与合同收敛。API 复用 core HostToolRuntime，保留 SQLite 注册表和业务授权；跨内存/API 适配验证门控、撤权与取消；原队列相关范围：ITER-007/ITER-040 | [PR #257](https://github.com/3yearsZhuang/Aervox-harness/pull/257) |
-| <a id="iter-046"></a>ITER-046 | 2026-10-08 Core 审核整改第 3/5 迭代：上下文与有界流式。动态工具受权快照、最终请求容量检查、工具组完整压缩、有界安全正文窗口与静默源取消；原队列相关范围：ITER-032/ITER-013 | [PR #257](https://github.com/3yearsZhuang/Aervox-harness/pull/257) |
-| <a id="iter-047"></a>ITER-047 | 2026-10-08 Core 审核整改第 4/5 迭代：恢复与 Provider 合同。修复 Resume 完整账本/最新意图/事件高水位并验证宿主接线；统一模型能力、终止与用量合同；原队列相关范围：ITER-010/ITER-033 | [PR #257](https://github.com/3yearsZhuang/Aervox-harness/pull/257) |
-| <a id="iter-048"></a>ITER-048 | 2026-10-08 Core 审核整改第 5/5 迭代：性能基线与发行边界。建立首段可见/取消/缓冲内存与 SQLite 写竞争可复跑基线；整理 core 稳定公共出口及兼容说明；原队列相关范围：ITER-017/ITER-027 | [PR #257](https://github.com/3yearsZhuang/Aervox-harness/pull/257) |
-| <a id="iter-049"></a>ITER-049 | 项目代码质量、仓库卫生与文档多源偏移审计；收敛入口规则、当前实现和历史证据，压缩重复叙述。 | [PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258) |
-| <a id="iter-050"></a>ITER-050 | PR #258 审计发现落地：删除效果验证、原子接单/组合写入、动态工具取消、取消恢复、锁回收与资产单源；关联 ITER-002/003/004/007/010/017。 | [PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258) |
-| <a id="iter-051"></a>ITER-051 | 参考审计首批正确性修复：消息/配置原子写入、锁尾链回收、Memory 清理验证与召回资格、模型异常终止与逐调用快照、插件包预检；对应 ITER-003/004/005/007/039。 | [PR #259](https://github.com/3yearsZhuang/Aervox-harness/pull/259)、[PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258)、[PR #257](https://github.com/3yearsZhuang/Aervox-harness/pull/257) |
-| <a id="iter-052"></a>ITER-052 | 框架解耦审计整改：事件传输与平台能力注入、插件实例生命周期、API 窄依赖、日记素材访问、内核提示词策略与边界守卫；CAP-002/007/018/020。 | [PR #262](https://github.com/3yearsZhuang/Aervox-harness/pull/262) |
-
-| <a id="iter-054"></a>ITER-054 | 薄 UI 宿主、工作台/桌宠插件及平台组合根；ADR-025。 | [PR #275](https://github.com/3yearsZhuang/Aervox-harness/pull/275) |
-| <a id="iter-055"></a>ITER-055 | UISurfaceManifest、加载重试/降级、设置插件与设计令牌；第三方开放另见 ITER-056。 | [PR #275](https://github.com/3yearsZhuang/Aervox-harness/pull/275) |
-| <a id="iter-057"></a>ITER-057 | 终态一致、密集正文窗口与准备取消；基准使用假 Provider/内存存储。 | [PR #274](https://github.com/3yearsZhuang/Aervox-harness/pull/274) |
-| <a id="iter-058"></a>ITER-058 | 文档体系精简、事实源与稳定编号收敛；详细旧记录见归档快照。 | [历史记录](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation/reading/plan.md#iter-058) |
-| <a id="iter-060"></a>ITER-060 | HYG-01～14 卫生整改及插件生命周期前置；全量门禁和远端检查已通过。Worker 其余预算留 ITER-013，依赖例外继续审阅。 | [PR #277](https://github.com/3yearsZhuang/Aervox-harness/pull/277)、[原审计](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation/reading/docs/explanation/repository-hygiene-audit-2026-10-13.md) |
-| <a id="iter-063"></a>ITER-063 | 本地认证、Problem Details、共享端点、路由棘轮与插件生命周期；余下历史路由、Page Token、第三方代码/UI开放分别留 ITER-064/006/019/056。 | [PR #281](https://github.com/3yearsZhuang/Aervox-harness/pull/281)、[PR #283](https://github.com/3yearsZhuang/Aervox-harness/pull/283) |
-| <a id="iter-065"></a>ITER-065 | 记忆删除质量研究与两轮实验已归档；按批准方案接续双语论文重构、单因素规模与守卫成本研究消融，原始证据保持封存。有界实验不构成完整生产删除或外部独立复现。 | [研究归档](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/main/memory-deletion-study) |
-| <a id="iter-066"></a>ITER-066 | 异步删除故障测试生成器、输入校验与研究门禁；两次失败尝试和一次清理预算工程修订均保留，方法收益结论仍为 NOT ESTABLISHED。 | [PR #288](https://github.com/3yearsZhuang/Aervox-harness/pull/288)、[归档 PR #2](https://github.com/3yearsZhuang/Aervox-docs-archive/pull/2) |
-| <a id="iter-067"></a>ITER-067 | workspace/清理/数据目录/资源/研究依赖/宿主出口/许可及跟踪卫生整改；Vitest 新公告由 #320 精确升至 4.1.12，未加豁免。 | [PR #289](https://github.com/3yearsZhuang/Aervox-harness/pull/289)、[PR #320](https://github.com/3yearsZhuang/Aervox-harness/pull/320) |
-| <a id="iter-068"></a>ITER-068 | 工具参数合同、开发启动器/URI/终端体验，以及并行 README/经典桌面布局已交付；#307/#308 合并后对应分支清理，#306 既有并行工作树保留。 | [PR #295](https://github.com/3yearsZhuang/Aervox-harness/pull/295)～[PR #308](https://github.com/3yearsZhuang/Aervox-harness/pull/308) |
-| <a id="iter-069"></a>ITER-069 | open Host/Origin 与 Token 预检、DSH 文件/命令取消、Electron IPC/导航及 Page 文件/清理边界；合成浏览器、Electron、临时存储回归与全量门禁通过，主动同 OS 祖先交换及外部副作用撤回不在隔离保证内。 | [PR #309](https://github.com/3yearsZhuang/Aervox-harness/pull/309)、[PR #310](https://github.com/3yearsZhuang/Aervox-harness/pull/310)、[PR #312](https://github.com/3yearsZhuang/Aervox-harness/pull/312)、[PR #313](https://github.com/3yearsZhuang/Aervox-harness/pull/313) |
+| <a id="iter-001"></a>ITER-001 | 冷 CI、插件产物恢复与可重现验证；ARC-14/FND-10；CAP-020 | [PR #221](https://github.com/3yearsZhuang/Aervox-harness/pull/221) |
+| <a id="iter-002"></a>ITER-002 | 可靠接单差量：Inbox 确认、Turn/Outbox 与 Attempt 原子接单或可重放恢复；ARC-01；CAP-007。剩余边界见 ITER-071 | [PR #265](https://github.com/3yearsZhuang/Aervox-harness/pull/265)、[PR #228](https://github.com/3yearsZhuang/Aervox-harness/pull/228)、[PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258) |
+| <a id="iter-004"></a>ITER-004 | 消息版本短事务/CAS、Config 与同库 Secret 一致提交、会话锁尾链回收；ARC-07、FND-02/07；CAP-013/020 | [PR #259](https://github.com/3yearsZhuang/Aervox-harness/pull/259)、[PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258) |
+| <a id="iter-007"></a>ITER-007 | 父子任务/Driver 继承取消、截止、删除与 local-only；执行时逐项核对 requiredPermissions/grants；动态工具 Schema 快照进入模型请求并在执行时重验；ARC-02/03；CAP-007/020/033 | [PR #267](https://github.com/3yearsZhuang/Aervox-harness/pull/267)、[PR #259](https://github.com/3yearsZhuang/Aervox-harness/pull/259)、[PR #257](https://github.com/3yearsZhuang/Aervox-harness/pull/257) |
+| <a id="iter-008"></a>ITER-008 | 模型制品与进程：路径/symlink、响应与续传验证；启动 epoch、有界探针/日志/指标请求；ARC-11/12 | [PR #266](https://github.com/3yearsZhuang/Aervox-harness/pull/266) |
+| <a id="iter-014"></a>ITER-014 | 公开 Port、MemoryStore 试点与实现退出演练；ARC-10；CAP-005/007/020 | [PR #230](https://github.com/3yearsZhuang/Aervox-harness/pull/230) |
+| <a id="iter-020"></a>ITER-020 | HLS 竞赛验证规划；CAP-007/020/027 | [PR #229](https://github.com/3yearsZhuang/Aervox-harness/pull/229) |
+| <a id="iter-023"></a>ITER-023 | Build to Delete 与类 pi 架构规划；CR-056 历史材料见归档导航 | [原交付登记](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记) |
+| <a id="iter-030"></a>ITER-030 | DSH、pi、AstrBot 固定版本更新与差异复评；CAP-007/020/027/033 | [原交付登记](docs/reference/REQUIREMENTS_TRACEABILITY.md#42-落地实现登记) |
+| <a id="iter-031"></a>ITER-031 | 标准工作台连续对话与雾蓝视觉重构；CAP-001/002/018 | [PR #233](https://github.com/3yearsZhuang/Aervox-harness/pull/233) |
+| <a id="iter-034"></a>ITER-034 | ControlContext、abortable 与 ApprovalPolicyPort 内核构件及 executor 接线 | [PR #241](https://github.com/3yearsZhuang/Aervox-harness/pull/241) |
+| <a id="iter-035"></a>ITER-035 | 建立独立 `@aervox/core`、内存 HostToolRuntime、轻量出口与分层许可证；ADR-021。独立仓库迁移见[接续条目](#core-repository-migration) | [PR #244](https://github.com/3yearsZhuang/Aervox-harness/pull/244) |
+| <a id="iter-036"></a>ITER-036 | 伴学 Prompt、工具契约与宿主 guidance 迁出内核，收窄内核导出面；ADR-021 | [PR #245](https://github.com/3yearsZhuang/Aervox-harness/pull/245) |
+| <a id="iter-037"></a>ITER-037 | 移除 agent-loop/cli-approval 过渡壳，下游直连 core，内核类型自持与边界守卫；ADR-021 | [PR #248](https://github.com/3yearsZhuang/Aervox-harness/pull/248) |
+| <a id="iter-038"></a>ITER-038 | Provider stopReason 归一与输入/输出 usage 分账 | [PR #247](https://github.com/3yearsZhuang/Aervox-harness/pull/247) |
+| <a id="iter-039"></a>ITER-039 | 内核截断 fail-closed（整批拒绝截断工具调用）与 usage 缓存/成本分账 | [PR #259](https://github.com/3yearsZhuang/Aervox-harness/pull/259)、[PR #257](https://github.com/3yearsZhuang/Aervox-harness/pull/257) |
+| <a id="iter-041"></a>ITER-041 | 拆分 executor 流式收集、工具管线与终态收口，统一审批裁决 | [PR #249](https://github.com/3yearsZhuang/Aervox-harness/pull/249) |
+| <a id="iter-042"></a>ITER-042 | ExecuteResult interrupted 与 AttemptStatus 对齐，保留 reason；持久化枚举不变 | [PR #251](https://github.com/3yearsZhuang/Aervox-harness/pull/251) |
+| <a id="iter-044"></a>ITER-044 | Core 审核整改第 1/5 迭代：执行正确性收口（审批等待后的取消/租约竞态、模型截断工具执行、父子控制传播、next-step Inbox 丢失） | [PR #257](https://github.com/3yearsZhuang/Aervox-harness/pull/257) |
+| <a id="iter-045"></a>ITER-045 | 审核整改第 2/5：工具运行时与合同收敛，API 复用 core HostToolRuntime | [PR #257](https://github.com/3yearsZhuang/Aervox-harness/pull/257) |
+| <a id="iter-046"></a>ITER-046 | 审核整改第 3/5：上下文与有界流式（动态工具受权快照、最终请求容量检查、工具组压缩、有界安全正文窗口） | [PR #257](https://github.com/3yearsZhuang/Aervox-harness/pull/257) |
+| <a id="iter-047"></a>ITER-047 | 审核整改第 4/5：恢复与 Provider 合同（Resume 账本/最新意图/事件高水位；统一模型能力、终止与用量合同） | [PR #257](https://github.com/3yearsZhuang/Aervox-harness/pull/257) |
+| <a id="iter-048"></a>ITER-048 | 审核整改第 5/5：性能基线与发行边界 | [PR #257](https://github.com/3yearsZhuang/Aervox-harness/pull/257) |
+| <a id="iter-049"></a>ITER-049 | 项目代码质量、仓库卫生与文档多源偏移审计 | [PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258) |
+| <a id="iter-050"></a>ITER-050 | 审计发现落地：删除效果验证、原子接单/组合写入、动态工具取消、取消恢复、锁回收与资产单源 | [PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258) |
+| <a id="iter-051"></a>ITER-051 | 参考审计首批正确性修复：消息/配置原子写入、锁尾链回收、Memory 清理验证与召回资格、模型异常终止与逐调用快照 | [PR #259](https://github.com/3yearsZhuang/Aervox-harness/pull/259)、[PR #258](https://github.com/3yearsZhuang/Aervox-harness/pull/258)、[PR #257](https://github.com/3yearsZhuang/Aervox-harness/pull/257) |
+| <a id="iter-052"></a>ITER-052 | 框架解耦审计整改：事件传输与平台能力注入、插件实例生命周期、API 窄依赖、日记素材访问、内核提示词策略与边界守卫 | [PR #262](https://github.com/3yearsZhuang/Aervox-harness/pull/262) |
+| <a id="iter-054"></a>ITER-054 | 薄 UI 宿主、工作台/桌宠插件及平台组合根；ADR-025 | [PR #275](https://github.com/3yearsZhuang/Aervox-harness/pull/275) |
+| <a id="iter-055"></a>ITER-055 | UISurfaceManifest、加载重试/降级、设置插件与设计令牌；第三方开放另见 ITER-056 | [PR #275](https://github.com/3yearsZhuang/Aervox-harness/pull/275) |
+| <a id="iter-057"></a>ITER-057 | 终态一致、密集正文窗口与准备取消；基准使用假 Provider/内存存储 | [PR #274](https://github.com/3yearsZhuang/Aervox-harness/pull/274) |
+| <a id="iter-058"></a>ITER-058 | 文档体系精简、事实源与稳定编号收敛；详细旧记录见归档快照 | [历史记录](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation/reading/plan.md#iter-058) |
+| <a id="iter-060"></a>ITER-060 | HYG-01～14 卫生整改及插件生命周期前置；Worker 其余预算留 ITER-013 | [PR #277](https://github.com/3yearsZhuang/Aervox-harness/pull/277)、[原审计](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/86d3c85d51fbc22e90cabc26736e17ff9b1dadbc/audits/2026-10-23-document-reconciliation/reading/docs/explanation/repository-hygiene-audit-2026-10-13.md) |
+| <a id="iter-063"></a>ITER-063 | 本地认证、Problem Details、共享端点、路由棘轮与插件生命周期；余下分别留 ITER-064/006/019/056 | [PR #281](https://github.com/3yearsZhuang/Aervox-harness/pull/281)、[PR #283](https://github.com/3yearsZhuang/Aervox-harness/pull/283) |
+| <a id="iter-065"></a>ITER-065 | 记忆删除质量研究与两轮实验已归档；有界实验不构成完整生产删除或外部独立复现 | [研究归档](https://github.com/3yearsZhuang/Aervox-docs-archive/tree/main/memory-deletion-study) |
+| <a id="iter-066"></a>ITER-066 | 异步删除故障测试生成器、输入校验与研究门禁；方法收益结论仍为 NOT ESTABLISHED | [PR #288](https://github.com/3yearsZhuang/Aervox-harness/pull/288)、[归档 PR #2](https://github.com/3yearsZhuang/Aervox-docs-archive/pull/2) |
+| <a id="iter-067"></a>ITER-067 | workspace/清理/数据目录/资源/研究依赖/宿主出口/许可及跟踪卫生整改 | [PR #289](https://github.com/3yearsZhuang/Aervox-harness/pull/289)、[PR #320](https://github.com/3yearsZhuang/Aervox-harness/pull/320) |
+| <a id="iter-068"></a>ITER-068 | 工具参数合同、开发启动器/URI/终端体验，以及并行 README/经典桌面布局 | [PR #295](https://github.com/3yearsZhuang/Aervox-harness/pull/295)～[PR #308](https://github.com/3yearsZhuang/Aervox-harness/pull/308) |
+| <a id="iter-069"></a>ITER-069 | open Host/Origin 与 Token 预检、DSH 文件/命令取消、Electron IPC/导航及 Page 文件/清理边界 | [PR #309](https://github.com/3yearsZhuang/Aervox-harness/pull/309)、[PR #310](https://github.com/3yearsZhuang/Aervox-harness/pull/310)、[PR #312](https://github.com/3yearsZhuang/Aervox-harness/pull/312)、[PR #313](https://github.com/3yearsZhuang/Aervox-harness/pull/313) |

@@ -25,7 +25,7 @@ export type { PetSheetState, PetSheetLayout, PetManifest };
 export { DEFAULT_ROW_FRAMES };
 
 /** 状态 → 行索引（协议固定顺序） */
-export const STATE_ROW_INDEX: Record<PetSheetState, number> = {
+const STATE_ROW_INDEX: Record<PetSheetState, number> = {
   idle: 0,
   'running-right': 1,
   'running-left': 2,
@@ -40,7 +40,7 @@ export const STATE_ROW_INDEX: Record<PetSheetState, number> = {
 /** 工具调用状态 → Codex Pets 状态（AI 活动驱动桌宠姿态） */
 export type PetToolActivity = 'idle' | 'running' | 'waiting' | 'checking' | 'failed';
 
-export const TOOL_ACTIVITY_TO_STATE: Record<PetToolActivity, PetSheetState> = {
+const TOOL_ACTIVITY_TO_STATE: Record<PetToolActivity, PetSheetState> = {
   idle: 'idle',
   running: 'running',
   waiting: 'waiting',

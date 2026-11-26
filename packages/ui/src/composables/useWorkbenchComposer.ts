@@ -4,7 +4,6 @@ import { useAervoxVoiceInput } from '@aervox/api-client';
 import {
   allowedMediaTypesSchema,
   MAX_ATTACHMENT_SIZE,
-  type AttachmentPurpose,
   type TurnAttachmentRef,
 } from '@aervox/contracts';
 import { MizukiExpression } from '../live2d/model';
@@ -44,13 +43,6 @@ export const attachmentAccept = [...ALLOWED_MEDIA_TYPES, ...Object.keys(EXTENSIO
 export function resolveMediaType(file: File): string | null {
   const type = file.type || EXTENSION_MEDIA_TYPES[file.name.split('.').pop()?.toLowerCase() ?? ''] || '';
   return ALLOWED_MEDIA_TYPES.includes(type) ? type : null;
-}
-
-export function purposeForMediaType(mediaType: string): AttachmentPurpose {
-  if (mediaType.startsWith('image/')) return 'question';
-  if (mediaType === 'application/pdf') return 'reading';
-  if (mediaType.startsWith('audio/')) return 'audio';
-  return 'file';
 }
 
 export function formatAttachmentSize(size: number): string {

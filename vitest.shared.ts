@@ -29,7 +29,17 @@ import { fileURLToPath } from 'node:url'
 // 保留原洞察（避免超订）但恢复吞吐：取核数的一半并封顶 4。
 //   10 核开发机 min(4, 5) = 4；GitHub ubuntu-latest 4 核 floor(4/2) = 2。
 // 两者都不超过核数；仍可用 VITEST_MAX_WORKERS 显式覆盖。
-const DEFAULT_MAX_WORKERS = Math.min(4, Math.max(1, Math.floor(availableParallelism() / 2)));
+//
+// **2026-11-26 更正：上面的余量推理漏了一层。** 这里算的是「单包 workers」，
+// 但本地门禁是 `turbo run test --concurrency=2`——两个包同时跑，各自再开 4 个
+// worker，10 核机上实际是 **8 个 vitest worker 同时抢磁盘**，不是注释假设的 4 个。
+// 实测佐证：schema-staging 的「rebuilds the selected logical snapshot」单项
+// 单独跑就要 11.25s（15s 预算的 75%），在 8 worker 争抢下必然顶穿。
+//
+// 因此把上限收到 2：单包 2 × 并发 2 = 4，与当初测量 15s 时的前提一致。
+// 代价是单包串行度下降，换来的是门禁在并发下可稳定通过——门禁的价值是可复现，
+// 不是峰值吞吐。
+const DEFAULT_MAX_WORKERS = Math.min(2, Math.max(1, Math.floor(availableParallelism() / 4)));
 
 const configuredWorkers = process.env.VITEST_MAX_WORKERS
   ? Number.parseInt(process.env.VITEST_MAX_WORKERS, 10)
@@ -45,6 +55,7 @@ export default defineConfig({
     setupFiles: [fileURLToPath(new URL('./vitest.setup.ts', import.meta.url))],
     include: ['test/**/*.test.ts'],
     exclude: ['dist/**', 'node_modules/**'],
+    // 15s 覆盖的是「4 worker 争抢」下的最坏值 11.6s；worker 数已收到与之一致。
     testTimeout: 15_000,
     hookTimeout: 15_000,
     maxWorkers: configuredWorkers,

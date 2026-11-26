@@ -3,17 +3,15 @@
  *
  * - 配置属于本地单用户实例，可保存多个预设，至多一行激活；
  * - 支持 SenseVoice 本地模型 / OpenAI Whisper 兼容端点配置。
+ *
+ * 多预设、至多一行激活、首个预设自动激活、删除后回落等规则由 `preset-repository.ts`
+ * 统一实现；本文件只声明该表的行映射与字段映射。
  */
-import { and, asc, eq } from "drizzle-orm";
-import { activePresetOrder, activatePreset, deletePreset } from "./preset-lifecycle.js";
-import type { AervoxDatabase } from "../../client.js";
 import { voiceInputConfigs } from "@aervox/schema";
+import type { AervoxDatabase } from "../../client.js";
 import type { LocalContext } from "../../local-context.js";
-import type {
-  IVoiceInputConfigRepository,
-  VoiceInputConfigSaveInput,
-  VoiceInputConfigModel,
-} from "../types/index.js";
+import { createPresetCrud } from "./preset-repository.js";
+import type { IVoiceInputConfigRepository, VoiceInputConfigSaveInput, VoiceInputConfigModel } from "../types/index.js";
 
 function rowToModel(row: typeof voiceInputConfigs.$inferSelect): VoiceInputConfigModel {
   return {
@@ -34,112 +32,7 @@ function rowToModel(row: typeof voiceInputConfigs.$inferSelect): VoiceInputConfi
   };
 }
 
-export class SqliteVoiceInputConfigRepository implements IVoiceInputConfigRepository {
-  constructor(private readonly db: AervoxDatabase) {}
-
-  async getConfig(ctx: LocalContext): Promise<VoiceInputConfigModel | null> {
-    const rows = await this.db
-      .select()
-      .from(voiceInputConfigs)
-      .orderBy(...activePresetOrder(voiceInputConfigs))
-      .limit(1);
-    if (rows.length === 0) return null;
-    return rowToModel(rows[0]!);
-  }
-
-  async saveConfig(
-    ctx: LocalContext,
-    input: VoiceInputConfigSaveInput,
-  ): Promise<VoiceInputConfigModel> {
-    const now = new Date().toISOString();
-    const active = await this.getConfig(ctx);
-
-    if (active) {
-      const [updated] = await this.db
-        .update(voiceInputConfigs)
-        .set({ ...valuesFor(input), updatedAt: now })
-        .where(eq(voiceInputConfigs.id, active.id))
-        .returning();
-      return rowToModel(updated!);
-    }
-
-    const [created] = await this.db
-      .insert(voiceInputConfigs)
-      .values({
-        id: `vic_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
-        name: "默认配置",
-        isActive: 1,
-        ...valuesFor(input),
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
-    return rowToModel(created!);
-  }
-
-  async listPresets(ctx: LocalContext): Promise<VoiceInputConfigModel[]> {
-    const rows = await this.db
-      .select()
-      .from(voiceInputConfigs)
-      .orderBy(asc(voiceInputConfigs.createdAt));
-    return rows.map(rowToModel);
-  }
-
-  async createPreset(
-    ctx: LocalContext,
-    name: string,
-    input: VoiceInputConfigSaveInput,
-  ): Promise<VoiceInputConfigModel> {
-    const now = new Date().toISOString();
-    const existing = await this.listPresets(ctx);
-    const firstPreset = existing.length === 0;
-
-    const [created] = await this.db
-      .insert(voiceInputConfigs)
-      .values({
-        id: `vic_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
-        name: name.trim() || "默认配置",
-        isActive: firstPreset ? 1 : 0,
-        ...valuesFor(input),
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
-    return rowToModel(created!);
-  }
-
-  async updatePreset(
-    ctx: LocalContext,
-    presetId: string,
-    input: VoiceInputConfigSaveInput,
-  ): Promise<VoiceInputConfigModel | null> {
-    const [updated] = await this.db
-      .update(voiceInputConfigs)
-      .set({ ...valuesFor(input), updatedAt: new Date().toISOString() })
-      .where(
-        and(
-          eq(voiceInputConfigs.id, presetId),
-        ),
-      )
-      .returning();
-    return updated ? rowToModel(updated!) : null;
-  }
-
-  async activatePreset(
-    ctx: LocalContext,
-    presetId: string,
-  ): Promise<VoiceInputConfigModel | null> {
-    return activatePreset(this.db, voiceInputConfigs, presetId, async tx => {
-      const [row] = await tx.select().from(voiceInputConfigs).where(eq(voiceInputConfigs.id, presetId)).limit(1);
-      return row ? rowToModel(row) : null;
-    });
-  }
-
-  async deletePreset(ctx: LocalContext, presetId: string): Promise<boolean> {
-    return deletePreset(this.db, voiceInputConfigs, presetId);
-  }
-}
-
+/** 该表的字段映射：布尔转 0/1、可选字段落 null、默认值在此补齐。 */
 function valuesFor(input: VoiceInputConfigSaveInput) {
   return {
     enabled: input.enabled ? 1 : 0,
@@ -152,4 +45,26 @@ function valuesFor(input: VoiceInputConfigSaveInput) {
     vadSilenceThresholdMs: input.vadSilenceThresholdMs ?? 700,
     settingsJson: input.settings ?? {},
   };
+}
+
+export class SqliteVoiceInputConfigRepository implements IVoiceInputConfigRepository {
+  private readonly crud;
+
+  constructor(db: AervoxDatabase) {
+    this.crud = createPresetCrud({
+      db,
+      table: voiceInputConfigs,
+      idPrefix: "vic",
+      toModel: rowToModel,
+      toRow: valuesFor,
+    });
+  }
+
+  getConfig(ctx: LocalContext): Promise<VoiceInputConfigModel | null> { return this.crud.getConfig(ctx); }
+  saveConfig(ctx: LocalContext, input: VoiceInputConfigSaveInput): Promise<VoiceInputConfigModel> { return this.crud.saveConfig(ctx, input); }
+  listPresets(ctx: LocalContext): Promise<VoiceInputConfigModel[]> { return this.crud.listPresets(ctx); }
+  createPreset(ctx: LocalContext, name: string, input: VoiceInputConfigSaveInput): Promise<VoiceInputConfigModel> { return this.crud.createPreset(ctx, name, input); }
+  updatePreset(ctx: LocalContext, presetId: string, input: VoiceInputConfigSaveInput): Promise<VoiceInputConfigModel | null> { return this.crud.updatePreset(ctx, presetId, input); }
+  activatePreset(ctx: LocalContext, presetId: string): Promise<VoiceInputConfigModel | null> { return this.crud.activatePreset(ctx, presetId); }
+  deletePreset(ctx: LocalContext, presetId: string): Promise<boolean> { return this.crud.deletePreset(ctx, presetId); }
 }

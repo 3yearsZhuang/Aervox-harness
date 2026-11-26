@@ -13,16 +13,14 @@ import {
   type DiaryModelPort,
 } from '@aervox/diary';
 import type { IDiaryRepository, LocalContext } from '@aervox/repositories/diary';
-import type { DiaryMaterialPort } from '@aervox/contracts';
+import { detectDiaryGeneratedBy, type DiaryMaterialPort } from '@aervox/contracts';
 
 const fail = (status: number, code: string): never => {
   throw new AervoxHttpError(status, 'native', { code, message: code });
 };
 
-/** 手机端没有后台任务：模板与非模型模式都要标明生成方式，展示时据此标注。 */
-const TEMPLATE_MARKER = '（本篇为非 LLM 模式的模板日记';
-const detectGeneratedBy = (content: string): 'llm' | 'template' =>
-  content.includes(TEMPLATE_MARKER) ? 'template' : 'llm';
+/** 手机端没有后台任务：模板与非模型模式都要标明生成方式；判定单点于 @aervox/contracts。 */
+const detectGeneratedBy = detectDiaryGeneratedBy;
 
 type DiaryRepoPort = Pick<
   IDiaryRepository,
