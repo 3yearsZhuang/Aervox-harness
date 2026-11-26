@@ -500,7 +500,7 @@ ARC-05/FND-07，依赖 ITER-002 Outbox 归属、ITER-013/017 指标。IPC 唤醒
 | 会话与执行 | 前台文本、多轮工具、逐次设备审批、会话改名/删除、历史分页和有界导出；列表分页、首 100 条之外的 selected 只读 GET 与共享问题/答案持久化已合入，问题绑定原 Turn/Attempt/invocationId/step | 标题筛选仍只覆盖已加载列表；手机强停、原问题重开与答案提交矩阵仍待真机验收，跨进程自动续跑未开放 |
 | 学习与人格/日记 | 本机目标、题库、练习、错题、计划的仓储与路由，判分/排期等共用纯模块；人格进入模型上下文，日记保留版本 | 第二批候选已从首页“今日”直接打开组合根注入的学习面板，复用日记入口并与 chat 互斥，待集成验收；面板仍主要是固定三题练习、报告、今日复习及目标/计划标题，错题再练与计划管理的可达性仍需补；真实素材和模型质量未验收 |
 | 数据保全 | 已合入同结构备份导出、凭据/投影排除；[PR #359](https://github.com/3yearsZhuang/Aervox-harness/pull/359) 已禁用恢复入口并在解析/SQL 前统一拒绝，实际删除→旧备份拒绝→Transport 重开回归通过 | 旧恢复的删除历史缺口由保守拒绝封闭，完整删除事实、可信历史边界、独立 deny 重放和跨版本升级仍归 [ITER-003/010/011](#iter-003) |
-| 原生系统与界面 | TTS、一次性识别、SAF 文本选择、HTTPS 题库导入、本地复习通知、有界 root 动作；短屏/IME/安全区已有回归 | 普通权限及 root 的拒绝/撤销/退后台需要真机取证；当前 APK 未集成 Shizuku，无图片 OCR、泛用文件/通知工具或后台生成 |
+| 原生系统与界面 | TTS、一次性识别、SAF 文本选择、HTTPS 题库导入、本地复习通知、有界 root 动作；Shizuku 已接入为 root 之外的第二 transport（同一固定动词表）；短屏/IME/安全区已有回归 | 普通权限、root 与 Shizuku 的拒绝/撤销/退后台需要真机取证；无图片 OCR、泛用文件/通知工具或后台生成 |
 | 工程与设备 | 固定制品与唯一 Schema，Android JVM/debug APK/模拟器仪器测试及主仓 CI 已通过 | API 36 模拟器与此前 API 37/arm64/16 KiB 证据不等于物理设备支持矩阵；目前只生成 debug 包，正式签名、升级/回退与发布未验收 |
 
 源码与合同见 [内部 Transport](apps/web/src/mobile/native-runtime.ts)、[学习面板](apps/web/src/mobile/NativeLearningPanel.vue)、[手机会话列表](plugins/surfaces/proactive-ui/src/MobileSessionsDialog.vue)、[移动工程说明](apps/mobile/README.md)和 [M0 门槛](docs/reference/SRS.md#mobile-proposal-acceptance)。已合入能力不再列为待实现；测试覆盖与真实环境验收分别保留。

@@ -224,7 +224,9 @@ it('keeps device switches disabled and honest when there is no root grant', asyn
     return { kind: 'summary', hasCredential: false };
   });
   const wrapper = await mountPanel('device');
-  expect(wrapper.text()).toContain('当前安装包尚未集成 Shizuku');
+  // Shizuku 已实现并会自动探测：没有服务时如实显示“未检测到”，而不是声称安装包未集成。
+  expect(wrapper.text()).toContain('未检测到可用的 Shizuku');
+  expect(wrapper.text()).not.toContain('尚未集成');
   expect(wrapper.find('md-switch[aria-label="Root 高级实验"]').exists()).toBe(false);
   expect(wrapper.get('md-switch[aria-label="控制手机"]').attributes('disabled')).toBe('true');
   expect(wrapper.get('md-switch[aria-label="打开应用"]').attributes('disabled')).toBe('true');

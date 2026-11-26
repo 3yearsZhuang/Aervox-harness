@@ -245,6 +245,13 @@ const rootText = computed(() => deviceFailed.value ? '无法读取 root 状态�
   : device.value.root ? `Root 可用${device.value.device ? ` · ${device.value.device}` : ''}，设备操作由你逐项开启。`
     : '设备操作需要 root。检测到授权请求时请允许本应用；普通对话和学习无需 root。');
 const rootValue = computed(() => deviceFailed.value ? '未知' : !device.value ? '读取中' : device.value.root ? '可用' : '不可用');
+// Shizuku 是 root 之外的第二 transport：已实现并会自动探测，因此这里必须报告实况，
+// 不能写死“尚未集成”——同一面板的开关判据已经用 device.shizuku 解锁设备操作。
+const shizukuText = computed(() => deviceFailed.value ? '无法读取 Shizuku 状态。可以刷新后重试。'
+  : !device.value ? '正在检查 Shizuku 服务…'
+  : device.value.shizuku ? 'Shizuku 已就绪（adb 级授权），可在没有 root 时执行同样的固定设备动作。'
+    : '未检测到可用的 Shizuku。安装并授权 Shizuku 后可使用与 root 相同的固定设备动作；普通对话与学习不需要它。');
+const shizukuValue = computed(() => deviceFailed.value ? '未知' : !device.value ? '读取中' : device.value.shizuku ? '就绪' : '不可用');
 
 function isRuntime(value: unknown): value is RuntimeSummary {
   if (typeof value !== 'object' || value === null) return false;
@@ -532,8 +539,8 @@ onBeforeUnmount(() => { disposed = true; readGeneration++; });
           <dd class="runtime-value" :class="{ 'runtime-error': deviceFailed }">{{ rootValue }}</dd>
         </div>
         <div class="runtime-row">
-          <div class="runtime-row-copy"><dt>Shizuku 扩展</dt><dd>当前安装包尚未集成 Shizuku，安装服务不会自动开放设备操作。</dd></div>
-          <dd class="runtime-value"><span class="runtime-badge runtime-badge--off">未开放</span></dd>
+          <div class="runtime-row-copy"><dt>Shizuku 扩展</dt><dd>{{ shizukuText }}</dd></div>
+          <dd class="runtime-value" :class="{ 'runtime-error': deviceFailed }">{{ shizukuValue }}</dd>
         </div>
       </dl>
       <h4 class="runtime-subtitle">设备操作开关</h4>
