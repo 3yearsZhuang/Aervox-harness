@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { checkAdrIndex, checkDocumentation, checkPlanBudget, parsePorcelainStatus, PLAN_BUDGET } from "./docs-governance.mjs";
+import { checkAdrIndex, checkDocumentation, checkPlanBudget, checkReferenceIds, parsePorcelainStatus, PLAN_BUDGET } from "./docs-governance.mjs";
 import { selectDocumentationChecks } from "./docs-lint-affected.mjs";
 
 const scriptsDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -399,4 +399,23 @@ test("ADR index guard is not vacuous", () => {
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+
+// docs/reference/ 是契约事实源，其余 16 份都有稳定 ID，只有 API_CONVENTIONS.md
+// 长期缺失。缺 ID 不影响阅读，却让「按稳定编号引用契约」对它失效。
+test("reference contracts must declare a stable id", () => {
+  const withId = { relative: "docs/reference/API_CONVENTIONS.md", fields: { id: "AVX-API-001" }, text: "" };
+  const withAnchor = { relative: "docs/reference/adr/README.md", fields: {}, text: '<a id="AVX-GUIDE-005"></a>' };
+  const missing = { relative: "docs/reference/NEW_CONTRACT.md", fields: {}, text: "# 新契约" };
+  const elsewhere = { relative: "docs/how-to/steps.md", fields: {}, text: "# 步骤" };
+  assert.deepEqual(checkReferenceIds([withId, withAnchor, elsewhere]), []);
+  const errors = checkReferenceIds([missing]);
+  assert.equal(errors.length, 1, errors.join("; "));
+  assert.match(errors[0], /NEW_CONTRACT\.md.*必须声明 id/);
+});
+
+test("the repository reference docs all declare ids", () => {
+  const root = path.join(scriptsDirectory, "..");
+  assert.deepEqual(checkDocumentation(root).errors, []);
 });

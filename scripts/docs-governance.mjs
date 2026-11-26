@@ -220,6 +220,7 @@ export function checkDocumentation(root = rootDir) {
   const planFile = path.join(root, "plan.md");
   if (fs.existsSync(planFile)) errors.push(...checkPlanBudget(fs.readFileSync(planFile, "utf8")));
   errors.push(...checkAdrIndex(root));
+  errors.push(...checkReferenceIds(documents));
   return { files: files.length, errors };
 }
 
@@ -276,6 +277,27 @@ export function checkPlanBudget(text) {
   flush(lines.length);
   if (PLAN_BUDGET.forbiddenHeading.test(text)) {
     errors.push("plan.md 不得用 `####` 按 PR 分节；同一变更的记录应合并为一段叙述");
+  }
+  return errors;
+}
+
+/**
+ * `docs/reference/` 下的契约文档必须声明稳定 ID。
+ *
+ * 该目录是产品范围、行为、架构与机器契约的事实源，其余 16 份都有 ID，只有
+ * `API_CONVENTIONS.md` 长期缺失——它是最重要的一份跨模块约定之一。缺 ID 不影响
+ * 阅读，却让「按稳定编号引用契约」这条约定对它失效，也让它与同目录其他文档不一致。
+ *
+ * 只约束 reference 目录：`CONTRIBUTING.md:70` 明确普通文档无需 Front Matter。
+ */
+export function checkReferenceIds(documents) {
+  const errors = [];
+  for (const doc of documents) {
+    if (!doc.relative.startsWith('docs/reference/')) continue;
+    // 兼容历史形式：部分索引文档用 <a id="..."> 锚点而非 front matter。
+    // 两者都算声明了稳定编号，接受其一即可。
+    const hasAnchor = /<a id="[^"]+"\s*><\/a>/.test(doc.text);
+    if (!doc.fields.id && !hasAnchor) errors.push(`${doc.relative}: docs/reference/ 下的契约文档必须声明 id`);
   }
   return errors;
 }
