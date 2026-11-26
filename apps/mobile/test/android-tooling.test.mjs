@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -320,4 +321,16 @@ test('native source is tracked while generated assets, build files and credentia
   const gradle = readFileSync(path.join(mobileRoot, 'android/app/build.gradle'), 'utf8');
   assert.ok(gradle.includes(`namespace = "${config.appId}"`));
   assert.ok(gradle.includes(`applicationId "${config.appId}"`));
+});
+
+
+// gradle-wrapper.jar 被提交进仓库（这是标准做法：wrapper 必须能离线自举），
+// 但此前只断言它"不被忽略"，不校验内容。distributionSha256Sum 保护的是 Gradle
+// 分发包，保护不了这个 jar 本身——它被替换后仍然会正常引导构建。
+// 固定它的哈希，任何替换都必须同时更新这里，从而留下审查痕迹。
+test('gradle-wrapper.jar 的内容哈希与记录一致', () => {
+  const jar = path.join(mobileRoot, 'android/gradle/wrapper/gradle-wrapper.jar');
+  const digest = createHash('sha256').update(readFileSync(jar)).digest('hex');
+  assert.equal(digest, '7d3a4ac4de1c32b59bc6a4eb8ecb8e612ccd0cf1ae1e99f66902da64df296172',
+    'gradle-wrapper.jar 内容已变化：确认来源可信后更新此哈希');
 });
