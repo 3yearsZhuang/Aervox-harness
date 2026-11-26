@@ -594,6 +594,8 @@ ARC-05/FND-07，依赖 ITER-002 Outbox 归属、ITER-013/017 指标。IPC 唤醒
 
 CAP-018/027，遵守[数据库契约](docs/reference/DATABASE.md)和 ADR-022，不引入中心化多租户库。承诺-揭示配对、Ed25519 设备身份、SAS transcript、分向密钥和 Changeset 原型已有，ITER-071 已隔离 sync-runtime/Changeset Port；真实 mDNS/生产接线/多设备未完成。
 
+**当前性质：原型，零生产消费者。** `packages/sync-runtime`（4 988 行）与 `packages/repositories/src/sync/p2p-changeset.ts` 的唯一 import 方是 `packages/repositories/test/` 下的 5 个测试文件；不在 turbo build、CI 或 mise 任务任一处被引用。引用这些文件不等于它们已可用：本条仍未评审通过，接线与否由后续决定。审计基线（2026-11-26）确认该状态自 2026-10-03 审计以来未变。
+
 - **进入条件与验收：** 显式配对、端到端加密、`local_only`/混合来源范围、删除撤权传播先成立；UDP 多播发现+静态对端兜底，验证重放/乱序/篡改拒绝。以行时间水位+显式墓碑代替 Session Extension，接收白名单/漂移隔离/墓碑四向裁决，不复活已删数据；真实 Capacitor/Electron 同网直连学习进度/错题成功，不能据原型宣布多设备可用。
 
 <a id="iter-021"></a>
