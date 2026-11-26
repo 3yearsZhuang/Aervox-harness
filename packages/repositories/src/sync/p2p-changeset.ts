@@ -201,7 +201,7 @@ class SyncTableOrderError extends Error {
 }
 
 /** 合并每批处理的行数：短事务上界，避免长时间持有写锁 */
-export const SYNC_MERGE_CHUNK_SIZE = 500;
+const SYNC_MERGE_CHUNK_SIZE = 500;
 
 /** 内部时间戳哨兵列（仅出现在提取结果里，合并端消费后不会写回业务表） */
 const EFFECTIVE_TS_ALIAS = "__aervox_ts";

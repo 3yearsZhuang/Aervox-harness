@@ -20,7 +20,7 @@ export function parseBrowserOrigin(value: string): URL | null {
   }
 }
 
-export function isLocalBrowserOrigin(value: string): boolean {
+function isLocalBrowserOrigin(value: string): boolean {
   const url = parseBrowserOrigin(value);
   return url !== null && (url.protocol === "http:" || url.protocol === "https:") &&
     isLoopbackHostname(url.hostname);
