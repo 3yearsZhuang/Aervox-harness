@@ -9,7 +9,7 @@ export interface ProactiveAccessTokenConfig {
   readonly tokenPath?: string;
 }
 
-export function defaultProactiveAccessTokenPath(env: NodeJS.ProcessEnv = process.env): string {
+function defaultProactiveAccessTokenPath(env: NodeJS.ProcessEnv = process.env): string {
   return path.join(path.dirname(defaultProactiveVaultKeyPath()), "proactive-access.token");
 }
 

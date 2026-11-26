@@ -7,7 +7,7 @@
  * 信息来源（2026-08-29 核对）：麦当劳 MCP Server 官方仓库 README
  * https://github.com/M-China/mcd-mcp-server 与文档站 https://open.mcd.cn/mcp/doc。
  */
-export const MCP_PRESET_TRANSPORT = {
+const MCP_PRESET_TRANSPORT = {
   /** Streamable HTTP（MCP 2025-06-18 规范；麦当劳官方要求） */
   streamableHttp: "streamable_http",
 } as const;

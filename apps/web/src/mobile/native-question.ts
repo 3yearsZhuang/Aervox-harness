@@ -10,7 +10,7 @@ export interface QuestionBridge {
   submit(turnId: string, answers: AskUserQuestionAnswerItem[], identity?: QuestionAnswerIdentity): Promise<void>;
   cancel(reason?: string): Promise<void>;
 }
-export const DEFAULT_QUESTION_TIMEOUT_MS = 120_000;
+const DEFAULT_QUESTION_TIMEOUT_MS = 120_000;
 export function createQuestionBridge<Context>(options: {
   commands: UserQuestionCommands<Context>; ctx: Context;
   owner(request: AskUserQuestionPortRequest): QuestionExecutionOwner | undefined;

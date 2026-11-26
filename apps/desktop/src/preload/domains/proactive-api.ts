@@ -32,7 +32,7 @@ const profileOsStatuses = new Set(['granted', 'denied', 'prompt', 'unavailable',
  * Runtime validation keeps an untrusted IPC response from becoming a
  * renderer-side permission fact. The host remains the authority.
  */
-export function isProactiveProfileStatus(value: unknown): value is ProactiveProfileStatus {
+function isProactiveProfileStatus(value: unknown): value is ProactiveProfileStatus {
   if (!isObject(value)) return false
   if (value.version !== 'full_profile_v1') return false
   if (!profileDesiredStates.has(String(value.desiredState)) || !profileEffectiveStates.has(String(value.effectiveState))) return false

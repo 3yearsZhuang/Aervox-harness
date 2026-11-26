@@ -8,7 +8,7 @@ export interface DeletionWorkerContext {
 }
 
 /** 删除拒绝原因码（稳定字符串；失败保持解闸关闭，供用户可见与审计） */
-export const DELETION_FAILURE_REASONS = {
+const DELETION_FAILURE_REASONS = {
   scopeUnsupported: "deletion_scope_unsupported",
   targetsEmpty: "deletion_targets_empty",
   targetUnsupported: "deletion_target_unsupported",

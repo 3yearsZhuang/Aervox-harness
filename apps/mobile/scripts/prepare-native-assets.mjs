@@ -3,7 +3,7 @@ import { readFile, rename, rm, cp, mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export const coreArtifact = {
+const coreArtifact = {
   url: 'https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js',
   sha256: '25ae938cb4fe282ce189b357bcc97e603d1e1f7ec78bf04150d401c23cdc792f',
   bytes: 207155,
@@ -21,7 +21,7 @@ function verifyCore(core) {
  * Explicit restoration for cold checkouts (CI and new machines). A present but
  * invalid file is evidence of a bad download and is left untouched.
  */
-export async function restoreCoreArtifact(root = fileURLToPath(new URL('../', import.meta.url)), fetcher = fetch) {
+async function restoreCoreArtifact(root = fileURLToPath(new URL('../', import.meta.url)), fetcher = fetch) {
   const directory = path.join(root, 'android/vendor');
   const file = path.join(directory, 'live2dcubismcore.min.js');
   try { return verifyCore(await readFile(file)); }
@@ -39,7 +39,7 @@ export async function restoreCoreArtifact(root = fileURLToPath(new URL('../', im
   return core;
 }
 
-export async function prepareNativeAssets(root = fileURLToPath(new URL('../', import.meta.url)), {
+async function prepareNativeAssets(root = fileURLToPath(new URL('../', import.meta.url)), {
   source = path.resolve(root, '../web/dist'), target = path.join(root, 'android/app/src/main/assets/m0'),
 } = {}) {
   const core = verifyCore(await readFile(path.join(root, 'android/vendor/live2dcubismcore.min.js')));

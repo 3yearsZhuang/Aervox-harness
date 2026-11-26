@@ -19,7 +19,7 @@ export interface DiaryModelPort {
 }
 
 /** 解析模型输出：「标题：…」首行 + 正文；缺标题时回退默认 */
-export function parseDiaryDraft(raw: string, localDate: string): { title: string; content: string } {
+function parseDiaryDraft(raw: string, localDate: string): { title: string; content: string } {
   const text = raw.trim();
   const titleMatch = text.match(/^标题[：:]\s*(.+)$/m);
   if (titleMatch) {

@@ -16,7 +16,7 @@ import { registerDatabaseBackend } from "./database-backend.js";
 import { rebuildSearchProjections, type ProjectionWriter } from "./search/fts.js";
 import { quoteSqlIdentifier } from "./schema/manifest.js";
 
-export const POSTGRESQL_PROVIDER_PLUGIN_ID = "ap-tool-postgresql";
+const POSTGRESQL_PROVIDER_PLUGIN_ID = "ap-tool-postgresql";
 interface SealedConnection { iv: string; tag: string; ciphertext: string; }
 export interface PostgresqlDatabaseSelection {
   format: "aervox-database-selection";
@@ -39,10 +39,10 @@ export interface DatabaseSelectionStatus {
   migrationReceiptPath: string | null;
   repairRequired: boolean;
 }
-export class DatabaseSelectionError extends Error {
+class DatabaseSelectionError extends Error {
   constructor(readonly code: string) { super(code); this.name = "DatabaseSelectionError"; }
 }
-export function databaseSelectionPath(env: NodeJS.ProcessEnv = process.env): string {
+function databaseSelectionPath(env: NodeJS.ProcessEnv = process.env): string {
   return path.resolve(env.AERVOX_DATABASE_SELECTION_PATH ?? path.join(defaultDataDirectory(), "database-selection.json"));
 }
 const keyPath = (selectionPath: string): string => `${selectionPath}.key`;
@@ -260,7 +260,7 @@ export async function abortSqliteToPostgresqlMigration(input: { sourcePath: stri
   } finally { await claim.close(); await fs.unlink(activationLock); }
   });
 }
-export function assertPostgresqlProviderInstalled(filename: string): void {
+function assertPostgresqlProviderInstalled(filename: string): void {
   const backup = new DatabaseSync(filename, { readOnly: true });
   try {
     const provider = backup.prepare("select enabled from plugins where id = ?").get(POSTGRESQL_PROVIDER_PLUGIN_ID);

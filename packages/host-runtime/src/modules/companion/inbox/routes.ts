@@ -17,7 +17,7 @@ let seq = 0;
 const nextId = (): string => `ibx_${Date.now().toString(36)}_${(++seq).toString(36)}`;
 
 /** 插件提交 inbox command 所需权限（由 hasPluginPermission 检查，ADR-017「受限 inbox command」） */
-export const PLUGIN_INBOX_PERMISSION = "inbox.command";
+const PLUGIN_INBOX_PERMISSION = "inbox.command";
 
 export interface InboxRouteDeps {
   inboxRepo: SqliteAgentInboxRepository;

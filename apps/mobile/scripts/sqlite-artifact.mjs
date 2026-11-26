@@ -5,7 +5,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { mobileRoot } from './check-android-environment.mjs';
 
-export const SQLITE_ANDROID = Object.freeze({
+const SQLITE_ANDROID = Object.freeze({
   version: '3.54.1', file: 'sqlite-android-3540100.aar', bytes: 3_688_530,
   url: 'https://sqlite.org/2026/sqlite-android-3540100.aar',
   sha3: '3afb0568a107d753b640e4d65cdb1d9a2247e9833c25e72ca7d1086b78365de1',

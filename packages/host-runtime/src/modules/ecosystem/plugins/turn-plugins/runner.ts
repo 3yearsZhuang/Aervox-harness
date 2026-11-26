@@ -28,7 +28,7 @@ export type TurnPluginHostContext = Omit<TurnPluginContext, "signal" | "deadline
   };
 };
 
-export const DEFAULT_PLUGIN_HOOK_TIMEOUT_MS = 15_000;
+const DEFAULT_PLUGIN_HOOK_TIMEOUT_MS = 15_000;
 
 export interface PluginExecutionSnapshot {
   isEnabled: boolean;

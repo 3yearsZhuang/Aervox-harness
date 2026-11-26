@@ -385,7 +385,7 @@ export async function loadDeviceIdentity(customPath?: string): Promise<P2PDevice
  * 以免影响同目录下的其他数据文件。私钥机密性由文件级 0600 保证；
  * 目录级收紧与 OS Keychain 托管属于后续工作。
  */
-export async function saveDeviceIdentity(
+async function saveDeviceIdentity(
   identity: P2PDeviceIdentity,
   customPath?: string,
 ): Promise<string> {
@@ -489,7 +489,7 @@ export function verifyPairingCommitment(
 }
 
 /** 由握手 transcript 计算 6 位 SAS（两端独立计算，必须逐位一致） */
-export function computePairingSasFromTranscript(transcript: string): string {
+function computePairingSasFromTranscript(transcript: string): string {
   const hash = crypto
     .createHash("sha256")
     .update(lengthPrefixed([`${TRANSCRIPT_PREFIX}/sas`, transcript]))
@@ -502,7 +502,7 @@ export function computePairingSasFromTranscript(transcript: string): string {
  * @deprecated 遗留 SAS 计算（无承诺，输入为裸字段拼接）。
  * 仅用于兼容既有调用；新代码请使用 `computePairingSasFromTranscript`。
  */
-export function computePairingSas(
+function computePairingSas(
   initiatorPubKey: string,
   responderPubKey: string,
   initiatorEphemeralKey: string,

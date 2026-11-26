@@ -73,7 +73,7 @@ export const unverifiedAttachmentMemory = (db: object, memoryId: string | SQLWra
 
 /** One receipt at a time fits the native cursor budget even after JSON escaping.
  * Oversized present receipts deny admission rather than returning partial JSON. */
-export const MAX_ACCEPTANCE_RECEIPT_BYTES = 256 * 1024;
+const MAX_ACCEPTANCE_RECEIPT_BYTES = 256 * 1024;
 export interface TurnReceiptEvidence extends AcceptedTurnReceiptSource {
   present: number;
   structurallyDenied: number;

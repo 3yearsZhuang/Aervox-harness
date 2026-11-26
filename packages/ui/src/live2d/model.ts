@@ -46,9 +46,9 @@ export interface Live2DModelCatalogEntry {
   modelFile: string
 }
 
-export const LIVE2D_MODEL_CATALOG_URL = 'https://storage.sekai.best/sekai-live2d-assets/live2d/model_list.json'
+const LIVE2D_MODEL_CATALOG_URL = 'https://storage.sekai.best/sekai-live2d-assets/live2d/model_list.json'
 
-export async function fetchLive2DModelCatalog(url = LIVE2D_MODEL_CATALOG_URL): Promise<Live2DModelCatalogEntry[]> {
+async function fetchLive2DModelCatalog(url = LIVE2D_MODEL_CATALOG_URL): Promise<Live2DModelCatalogEntry[]> {
   const response = await fetch(url, { headers: { Accept: 'application/json' } })
   if (!response.ok) throw new Error(`Live2D model catalog request failed (HTTP ${response.status})`)
   const value = await response.json()

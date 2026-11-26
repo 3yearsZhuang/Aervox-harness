@@ -20,7 +20,7 @@ import type { AdapterManifest } from "@aervox/core";
 export const DSH_REFERENCE_SHA = "d743267388641bc76f17c45ce8b4c231aed1d32c";
 
 /** 参考仓库相对父仓库根目录的路径 */
-export const DSH_REFERENCE_RELATIVE_PATH = "reference/deepseek-harness";
+const DSH_REFERENCE_RELATIVE_PATH = "reference/deepseek-harness";
 
 export interface DSHReferenceProbeResult {
   /** true = 子模块目录就绪 且 gitlink SHA 复核通过 且许可证白名单通过 */

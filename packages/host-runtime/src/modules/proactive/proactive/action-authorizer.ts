@@ -46,7 +46,7 @@ function stringPermissions(value: unknown): string[] {
     : [];
 }
 
-export function resolveProactiveActionScopes(
+function resolveProactiveActionScopes(
   descriptor: Pick<
     ProactiveToolActionDescriptor,
     "category" | "safetyLevel" | "requiredPermissions" | "irreversible"

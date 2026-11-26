@@ -27,7 +27,7 @@ export function isAttachmentUploadRequest(value: unknown): value is AttachmentUp
         && (req.idempotencyKey === undefined || typeof req.idempotencyKey === 'string')
 }
 
-export const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024
+const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024
 
 export async function uploadAttachment(_event: IpcMainInvokeEvent | null, payload: unknown) {
     if (!isAttachmentUploadRequest(payload)) throw new Error('invalid upload request')

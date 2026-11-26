@@ -58,7 +58,7 @@ export function mediaToStatus(value: MediaPermission | undefined): ProfileOsStat
   return "unknown";
 }
 
-export function isProfileOsStatus(value: unknown): value is ProfileOsStatus {
+function isProfileOsStatus(value: unknown): value is ProfileOsStatus {
   return value === "granted"
     || value === "denied"
     || value === "prompt"
@@ -125,7 +125,7 @@ export function makeRecord(
   return record;
 }
 
-export function defaultFileSystem(): FileSystemLike {
+function defaultFileSystem(): FileSystemLike {
   return {
     access: async (path) => {
       await fsAccess(path, fsConstants.R_OK);

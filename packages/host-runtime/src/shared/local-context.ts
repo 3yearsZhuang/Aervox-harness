@@ -24,7 +24,7 @@ export function setRequestLocalContext(req: FastifyRequest, actorId?: string): v
 }
 
 /** 读取请求上已缓存的本地上下文（可能未设置）。 */
-export function getRequestLocalContext(req: FastifyRequest): LocalContext | undefined {
+function getRequestLocalContext(req: FastifyRequest): LocalContext | undefined {
   return (req as unknown as Record<PropertyKey, unknown>)[LOCAL_CONTEXT_KEY] as LocalContext | undefined;
 }
 

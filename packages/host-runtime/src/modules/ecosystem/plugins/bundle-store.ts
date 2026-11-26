@@ -31,7 +31,7 @@ const MIME: Record<string, string> = {
   ".md": "text/markdown; charset=utf-8",
 };
 
-export function isSafeRelativePath(relPath: string): boolean {
+function isSafeRelativePath(relPath: string): boolean {
   if (typeof relPath !== "string" || !relPath || relPath.length > 512 || relPath.includes("\0")) return false;
   if (relPath.startsWith("/") || relPath.includes("\\")) return false;
   if (/^[A-Za-z]:/.test(relPath)) return false;

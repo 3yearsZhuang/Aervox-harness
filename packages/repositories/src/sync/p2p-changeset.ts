@@ -146,7 +146,7 @@ export const DEFAULT_SYNC_TABLES: SyncTableDefinition[] = [
 ];
 
 /** 同步元数据表名（墓碑与来源戳） */
-export const SYNC_ROW_STATE_TABLE = "sync_row_state";
+const SYNC_ROW_STATE_TABLE = "sync_row_state";
 
 /** 同步包版本不兼容错误（fail-closed） */
 export class SyncVersionMismatchError extends Error {
@@ -185,7 +185,7 @@ export class SyncMetadataTableMissingError extends Error {
  * 当第一批就失败（无任何已提交内容）时不包装，直接抛出原始错误。
  */
 /** 同步表白名单违反外键拓扑顺序错误 */
-export class SyncTableOrderError extends Error {
+class SyncTableOrderError extends Error {
   readonly code = "SYNC_TABLE_ORDER_VIOLATION";
   readonly violations: Array<{ child: string; parent: string }>;
 
@@ -1193,7 +1193,7 @@ export async function applyP2PSyncBundle(
 }
 
 /** 同步触发器后缀：INSERT / UPDATE / DELETE */
-export const SYNC_TRIGGER_SUFFIXES = ["ai", "au", "ad"] as const;
+const SYNC_TRIGGER_SUFFIXES = ["ai", "au", "ad"] as const;
 
 /** 同步触发器名称 */
 export function triggerName(
@@ -1204,7 +1204,7 @@ export function triggerName(
 }
 
 /** 生成单表同步触发器 SQL */
-export function buildSyncTriggerSql(def: SyncTableDefinition, deviceId: string): string[] {
+function buildSyncTriggerSql(def: SyncTableDefinition, deviceId: string): string[] {
   const tsCol = def.timestampColumn ?? "updated_at";
   const nowExpr = `strftime('%Y-%m-%dT%H:%M:%fZ','now')`;
   const rowTs = `COALESCE(NEW."${tsCol}", ${nowExpr})`;
@@ -1283,7 +1283,7 @@ export async function installSyncTriggers(
 }
 
 /** 卸下同步触发器（幂等，可重复调用） */
-export async function removeSyncTriggers(
+async function removeSyncTriggers(
   client: Client,
   tables: SyncTableDefinition[],
 ): Promise<void> {

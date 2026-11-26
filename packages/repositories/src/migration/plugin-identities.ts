@@ -18,11 +18,11 @@ export const PLUGIN_IDENTITY_MIGRATIONS = Object.freeze({
 } as const);
 
 /** Append-only evidence retains the original owner; it never authorizes the new identity. */
-export const PLUGIN_IDENTITY_HISTORICAL_OWNER_TABLES = new Set([
+const PLUGIN_IDENTITY_HISTORICAL_OWNER_TABLES = new Set([
   "proactive_intervention_receipts", "proactive_budget_feedback_events",
 ]);
 
-export class PluginIdentityMigrationRequiredError extends Error {
+class PluginIdentityMigrationRequiredError extends Error {
   readonly code = "PLUGIN_IDENTITY_MIGRATION_REQUIRED";
   constructor() {
     super("Legacy first-party plugin identities require the explicit offline plugin identity migration. Stop all hosts and run scripts/migrate-plugin-identities.mjs with a backup and rollback directory.");

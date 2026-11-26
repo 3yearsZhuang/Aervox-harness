@@ -54,7 +54,7 @@ async function unpackPluginBundle(bytes: Uint8Array, signal?: AbortSignal): Prom
 /** 单条目路径安全校验（拒绝绝对路径、.. 段、反斜杠穿越、超限路径） */
 export const isSafeZipEntryPath = isSafeArchivePath;
 
-export class PluginAlreadyExistsError extends Error {
+class PluginAlreadyExistsError extends Error {
   readonly code = "PLUGIN_ALREADY_EXISTS";
   constructor(message: string) {
     super(message);

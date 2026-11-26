@@ -8,7 +8,7 @@ import type { RegionalHelpline } from "@aervox/contracts";
 
 export const SAFETY_POLICY_VERSION = "AVX-SAFE-POL-V1.0";
 
-export const CRISIS_HELPLINES: RegionalHelpline[] = [
+const CRISIS_HELPLINES: RegionalHelpline[] = [
   // 中国大陆 (Mainland China)
   {
     name: "全国希望24小时生命危机干预热线",

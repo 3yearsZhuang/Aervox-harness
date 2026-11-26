@@ -769,13 +769,13 @@ export class VoiceService {
 }
 
 /** 允许的 SenseVoice 模型镜像源 host（默认 hf-mirror.com，可通过环境变量覆盖；缺陷 E 经 @aervox/config 解析） */
-export const ALLOWED_SENSEVOICE_MIRROR_HOSTS: readonly string[] = ["hf-mirror.com"];
+const ALLOWED_SENSEVOICE_MIRROR_HOSTS: readonly string[] = ["hf-mirror.com"];
 
 /**
  * 校验模型下载请求：targetDir 位于 allowedRoots 内（允许不存在），
  * mirrorUrl 的 host 命中允许的镜像源。任一不满足返回错误信息，否则返回 undefined。
  */
-export function validateDownloadTarget(
+function validateDownloadTarget(
   allowedRoots: readonly string[],
   options?: { targetDir?: string; mirrorUrl?: string },
   allowedMirrorHosts: readonly string[] = ALLOWED_SENSEVOICE_MIRROR_HOSTS,

@@ -41,7 +41,7 @@ export interface ToolAutoApprovalCandidate {
 }
 
 /** 明确禁止完全访问自动免审的高危工具名称集合（安全红线） */
-export const NON_AUTO_APPROVABLE_TOOL_NAMES = new Set<string>([
+const NON_AUTO_APPROVABLE_TOOL_NAMES = new Set<string>([
   "aervox_skill_promote",
   "aervox_skill_rollback",
   "aervox_skill_sync",
