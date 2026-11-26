@@ -78,3 +78,12 @@ apps/*/src/**/*.d.ts.map
 apps/desktop/src/renderer/public/aervox-intro/
 apps/desktop/src/renderer/public/aervox-mark.svg
 apps/web/public/aervox-mark.svg
+
+# 运行时日志目录（内部 *.log 已被上文忽略，目录本身此前未被忽略）
+.logs/
+
+# Cubism Core 本地副本：页面实际经 CDN 加载，移动端经 apps/mobile 的固定 SHA3 恢复流程取得。
+# 放回 public/vendor 只是离线调试的临时动作，属生成物而非真源（真源见
+# apps/mobile/scripts/prepare-native-assets.mjs 的 coreArtifact 固定字节）。
+apps/desktop/src/renderer/public/vendor/
+apps/web/public/vendor/

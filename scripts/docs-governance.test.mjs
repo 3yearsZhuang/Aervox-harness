@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { checkDocumentation, parsePorcelainStatus } from "./docs-governance.mjs";
+import { checkDocumentation, checkPlanBudget, parsePorcelainStatus, PLAN_BUDGET } from "./docs-governance.mjs";
 import { selectDocumentationChecks } from "./docs-lint-affected.mjs";
 
 const scriptsDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -329,4 +329,28 @@ test("真实 Git 忽略子模块时，dirty 与已提交 gitlink 删除仍触发
   assert.equal(git(root, "status", "--porcelain=v1"), "");
   assert.equal(git(root, "diff", "--name-only", "origin/main...HEAD"), "", "fixture must hide committed gitlink differences by default");
   assertBrokenLinkDetected();
+});
+
+// plan.md 曾从 78KB 涨到 255KB，每条 ITER 追加当次运行的测试计数与提交号。
+// 预算必须是可执行的，否则「压缩一次、再涨回去」会重演。
+test("plan budget rejects an over-sized plan", () => {
+  const bulky = `# 计划\n\n### ITER-001 · 测试\n\n${"测试计数与提交号。".repeat(PLAN_BUDGET.maxSectionBytes / 10)}\n`;
+  const errors = checkPlanBudget(bulky);
+  assert.ok(errors.some((error) => error.includes("超出单条预算")), errors.join("; "));
+});
+
+test("plan budget rejects per-PR subsections", () => {
+  const errors = checkPlanBudget("# 计划\n\n### ITER-001 · x\n\n#### PR #324 · 接续实施\n\n正文\n");
+  assert.ok(errors.some((error) => error.includes("不得用 `####` 按 PR 分节")), errors.join("; "));
+});
+
+test("plan budget accepts a compact plan", () => {
+  const compact = "# 计划\n\n### ITER-001 · 已移交\n\n结论与 [PR #1](https://example.invalid/1)。\n";
+  assert.deepEqual(checkPlanBudget(compact), []);
+});
+
+test("the repository plan stays inside its ratchet", () => {
+  const plan = fs.readFileSync(path.join(scriptsDirectory, "..", "plan.md"), "utf8");
+  assert.ok(Buffer.byteLength(plan) <= PLAN_BUDGET.maxBytes, `plan.md 已回升到 ${Buffer.byteLength(plan)} 字节`);
+  assert.deepEqual(checkPlanBudget(plan), []);
 });

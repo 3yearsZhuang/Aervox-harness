@@ -11,6 +11,28 @@ const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const ROOT_DOCUMENTS = ["README.md", "AGENTS.md", "CONTRIBUTING.md", "CHANGELOG.md", "plan.md"];
 const ADR_STATUSES = new Set(["proposed", "accepted", "rejected", "superseded"]);
 
+/**
+ * plan.md 的体量与结构预算。
+ *
+ * 该文件曾从 78KB 涨到 255KB：每条 ITER 都追加当次运行的测试计数、提交号与
+ * 失败复验过程，导致同一缺口分散在多处、并持续过期。这里用可执行预算阻止回涨，
+ * 规则与 [CONTRIBUTING「当前迭代」](../CONTRIBUTING.md#plan-maintenance) 一致：
+ * 计划只写结论与链接，验证流水留在 PR/CI。
+ */
+export const PLAN_BUDGET = {
+  /**
+   * 整份计划的**棘轮上限**：只允许下降，上升即失败。
+   * 2026-11-26 卫生审计把 255KB 压到 ~150KB（已完成条目塌缩为结论 + PR 链接，
+   * 验证流水移出）。余下体量属于仍在进行的条目，其证据按维护者决定保留；
+   * 本次把上限钉在压缩后的实测值之上，使任何新增都必须先压缩同等体量。
+   */
+  maxBytes: 158 * 1024,
+  /** 单个 `### ITER-` 小节的上限；仍需展开的条目应拆出独立文档并链接。 */
+  maxSectionBytes: 20 * 1024,
+  /** 禁止用 `####` 按 PR 分节——这是流水回写的主要形态。 */
+  forbiddenHeading: /^####\s+(?:PR\s*#|PR\s*\d)/m,
+};
+
 function walk(directory) {
   if (!fs.existsSync(directory)) return [];
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -195,7 +217,43 @@ export function checkDocumentation(root = rootDir) {
     }
     for (const visited of chain) completed.add(visited);
   }
+  const planFile = path.join(root, "plan.md");
+  if (fs.existsSync(planFile)) errors.push(...checkPlanBudget(fs.readFileSync(planFile, "utf8")));
   return { files: files.length, errors };
+}
+
+/**
+ * 校验 plan.md 的体量与结构预算，返回错误说明（空数组表示合规）。
+ *
+ * 导出为独立函数以便测试直接构造超预算文本，而不必改动真实计划文件。
+ */
+export function checkPlanBudget(text) {
+  const errors = [];
+  const bytes = Buffer.byteLength(text, "utf8");
+  if (bytes > PLAN_BUDGET.maxBytes) {
+    errors.push(`plan.md 超出体量预算：${bytes} 字节 > ${PLAN_BUDGET.maxBytes}；已完成条目应塌缩为结论与 PR 链接`);
+  }
+  const lines = text.split("\n");
+  let start = -1;
+  let heading = "";
+  const flush = (end) => {
+    if (start < 0) return;
+    const size = Buffer.byteLength(lines.slice(start, end).join("\n"), "utf8");
+    if (size > PLAN_BUDGET.maxSectionBytes) {
+      errors.push(`plan.md 条目「${heading}」超出单条预算：${size} 字节 > ${PLAN_BUDGET.maxSectionBytes}；验证流水应留在 PR/CI`);
+    }
+  };
+  lines.forEach((line, index) => {
+    if (!/^### /.test(line)) return;
+    flush(index);
+    start = index;
+    heading = line.slice(4).trim();
+  });
+  flush(lines.length);
+  if (PLAN_BUDGET.forbiddenHeading.test(text)) {
+    errors.push("plan.md 不得用 `####` 按 PR 分节；同一变更的记录应合并为一段叙述");
+  }
+  return errors;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

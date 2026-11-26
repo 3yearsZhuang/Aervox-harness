@@ -54,10 +54,14 @@ describe("CAP-033 proactive profile context", () => {
     expect(getEffectiveStatus).not.toHaveBeenCalled();
   });
   it("accepts only literal loopback model endpoints", () => {
+    // ADR-035：本机判定单点于 @aervox/contracts，localhost 属被接受的本地写法，
+    // 非 http(s) 协议一律拒绝。两侧曾各自锁定相反结论，此处断言统一后的契约。
     expect(isLiteralLoopbackUrl("http://127.0.0.1:11434/v1")).toBe(true);
     expect(isLiteralLoopbackUrl("http://[::1]:8000/v1")).toBe(true);
-    expect(isLiteralLoopbackUrl("http://localhost:11434/v1")).toBe(false);
+    expect(isLiteralLoopbackUrl("http://localhost:11434/v1")).toBe(true);
     expect(isLiteralLoopbackUrl("https://api.example.com/v1")).toBe(false);
+    expect(isLiteralLoopbackUrl("file://127.0.0.1/etc/passwd")).toBe(false);
+    expect(isLiteralLoopbackUrl("ftp://localhost/model")).toBe(false);
   });
 
   it("projects only usable claims and labels them as data rather than instructions", () => {
