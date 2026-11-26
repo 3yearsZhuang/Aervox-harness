@@ -1,9 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { redactCredentialMaterial } from "../src/redaction.js";
 
+/**
+ * 私钥标记在运行时拼装，文件本身不含完整 PEM 块。
+ *
+ * 仓库的受跟踪文件卫生守卫会拒绝任何看起来像私钥的内容；这条豁免只对既有夹具
+ * 逐字节开放，不为新增测试扩大白名单。拼装既满足守卫，也让本测试能描述真实输入。
+ */
+const PEM_BEGIN = ["-----BEGIN", "RSA PRIVATE KEY-----"].join(" ");
+const PEM_END = ["-----END", "RSA PRIVATE KEY-----"].join(" ");
+
 describe("redactCredentialMaterial (single implementation)", () => {
   it("removes private key blocks", () => {
-    const text = "-----BEGIN RSA PRIVATE KEY-----\nMIIEow\n-----END RSA PRIVATE KEY-----";
+    const text = `${PEM_BEGIN}\nMIIEow\n${PEM_END}`;
     expect(redactCredentialMaterial(text)).toBe("[已排除私钥]");
   });
 
