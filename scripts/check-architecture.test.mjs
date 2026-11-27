@@ -4,11 +4,10 @@ import { inspectDependency, findCycles, auditArchitecture, inspectLazySchemaImpo
 import { extractImports, resolveRepoRelative } from "./source-imports.mjs";
 
 test("architecture rejects inverted dependencies even when old blacklist permits them", () => {
-  for (const [from,to] of [["core","ui"],["schema","host-runtime"],["sync-runtime","repositories"],["api-client","core"]]) {
+  for (const [from,to] of [["core","ui"],["schema","host-runtime"],["process-coordination","repositories"],["api-client","core"]]) {
     assert.match(inspectDependency(`@aervox/${from}`, `@aervox/${to}`), /not allowed/);
   }
   assert.equal(inspectDependency("@aervox/host-runtime", "@aervox/core"), null);
-  assert.equal(inspectDependency("@aervox/repositories", "@aervox/sync-runtime"), null);
   for (const plugin of ["@aervox/plugin-anki-sync", "@aervox/plugin-diary-distillers"]) {
     assert.equal(inspectDependency("@aervox/host-runtime", plugin), null);
     for (const port of ["@aervox/core", "@aervox/host-plugin-api"]) assert.equal(inspectDependency(plugin, port), null);

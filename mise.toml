@@ -71,7 +71,9 @@ typecheck = "pnpm typecheck"
 # 运行全部测试（受控 2 并发，避免超线程争抢）
 test = "pnpm test"
 
-# 选定包测试：核心逻辑、领域契约、前端组件与插件；范围以 package.json 为准
+# 选定包测试：除 `@aervox/api` 外的全部 workspace（api 的仓储/HTTP 用例需要真实
+# PostgreSQL 夹具，只在 `ci-code` 的隔离实例里跑）。包列表增删以满足此语义为准，
+# 不因「新包忘了加」而静默缩小覆盖——回归见 scripts/check-test-unit-selection.test.mjs。
 test-unit = "pnpm test:unit"
 test-fast = "pnpm test:unit"
 

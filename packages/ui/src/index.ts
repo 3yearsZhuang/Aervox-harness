@@ -1,7 +1,6 @@
 /// <reference path="./env.d.ts" />
 /** Aervox｜思隅 @aervox/ui 入口（源码出口，由消费端 Vite 处理） */
 export { default as CompanionAvatar } from './components/CompanionAvatar.vue';
-export { default as SpritePet } from './components/SpritePet.vue';
 export { getAvailableLive2DModels } from './live2d/available-models';
 export { useCompanionAvatarBinding, type CompanionAvatarBindingState } from './composables/useCompanionAvatarBinding';
 export { default as UserQuestionComposer } from './components/UserQuestionComposer.vue';

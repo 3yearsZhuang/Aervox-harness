@@ -12,10 +12,10 @@ export const ALLOWED_DEPENDENCIES = new Map(Object.entries({
   web: names("api-client contracts ui ui-host live2d public plugin-focus-mode plugin-flowcampus plugin-panels-ui plugin-proactive-ui plugin-workbench-ui"),
   worker: names("config contracts core diary host-agent host-runtime observability process-coordination repositories schema"),
   contracts: [], config: [], core: [], schema: [], "native-runtime": [], observability: [], "practice-review": [],
-  "process-coordination": [], "sync-runtime": [], live2d: [], public: [], "ui-host": [],
+  "process-coordination": [], live2d: [], public: [], "ui-host": [],
   "api-client": names("contracts"), ui: names("contracts api-client"), diary: names("contracts"),
   "host-agent": names("core observability repositories schema"), "host-plugin-api": names("core contracts"),
-  repositories: names("contracts schema native-runtime sync-runtime process-coordination"),
+  repositories: names("contracts schema native-runtime process-coordination"),
   "host-runtime": names("config contracts core diary host-agent host-plugin-api native-runtime observability repositories schema practice-review process-coordination plugin-focus-mode plugin-flowcampus plugin-bot-onebot plugin-bot-weixin plugin-anki-sync plugin-diary-distillers"),
   "plugin-focus-mode": names("api-client contracts core host-plugin-api ui"),
   "plugin-flowcampus": names("api-client contracts core host-plugin-api ui"),
@@ -153,7 +153,6 @@ export function auditArchitecture({ sources = null } = {}) {
         if (error) violations.push(`${file}: ${error}`);
       }
       if (target && fileSet.has(target)) fileEdges.push({ from: file, to: target, kind });
-      if (owner?.name === "@aervox/sync-runtime" && /^(?:@libsql\/|drizzle-orm)/.test(specifier)) violations.push(`${file}: sync transport must consume SyncChangesetPort, not a database client`);
       const fromModule = moduleOwner(file), toModule = moduleOwner(target);
       if (fromModule && toModule && fromModule !== toModule) moduleEdges.push({ from: fromModule, to: toModule, kind });
     }

@@ -615,9 +615,6 @@ importers:
       '@aervox/schema':
         specifier: workspace:*
         version: link:../schema
-      '@aervox/sync-runtime':
-        specifier: workspace:*
-        version: link:../sync-runtime
       '@libsql/client':
         specifier: ^0.14.0
         version: 0.14.0
@@ -644,12 +641,6 @@ importers:
       drizzle-kit:
         specifier: ^0.31.11
         version: 0.31.11
-
-  packages/sync-runtime:
-    devDependencies:
-      '@types/node':
-        specifier: ^22.10.0
-        version: 22.20.1
 
   packages/ui:
     devDependencies:

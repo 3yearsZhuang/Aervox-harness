@@ -40,10 +40,6 @@
     "./persona": {
       "types": "./dist/persona.d.ts",
       "default": "./dist/persona.js"
-    },
-    "./sync": {
-      "types": "./dist/sync/index.d.ts",
-      "default": "./dist/sync/index.js"
     }
   },
   "scripts": {
@@ -58,7 +54,6 @@
     "@aervox/schema": "workspace:*",
     "@libsql/client": "^0.14.0",
     "drizzle-orm": "^0.45.4",
-    "@aervox/sync-runtime": "workspace:*",
     "@aervox/process-coordination": "workspace:*"
   },
   "devDependencies": {

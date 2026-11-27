@@ -107,5 +107,5 @@ it('removes the retired hero and fallback implementation from every shared sourc
   expect(existsSync(path.join(root, 'components/PetHero.vue'))).toBe(false)
   expect(existsSync(path.join(root, 'components/PetWithFallback.vue'))).toBe(false)
   expect(existsSync(path.join(root, 'theme/hero.css'))).toBe(false)
-  expect(existsSync(path.join(root, 'components/SpritePet.vue'))).toBe(true)
+  expect(existsSync(path.join(root, 'components/SpritePet.vue'))).toBe(false)
 })
