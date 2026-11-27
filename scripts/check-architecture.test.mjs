@@ -100,8 +100,8 @@ test("Vue external scripts are runtime edges and malformed script blocks fail cl
   assert.throws(() => extractImports('<script src="&#46;&#46;/hidden.ts"></script>', "x.vue", true), /explicit static path/);
 });
 test("URL query/hash suffixes cannot hide workspace or source dependencies", () => {
-  assert.equal(resolveRepoRelative("packages/core/src/index.ts", "../../ui/src/index.js?raw#view"), "packages/ui/src/index.ts");
-  for (const target of ["../../ui/src/index.js?raw#view", "@aervox/ui?raw#view"]) {
+  assert.equal(resolveRepoRelative("packages/core/src/index.ts", "../../ui/src/workbench.js?raw#view"), "packages/ui/src/workbench.ts");
+  for (const target of ["../../ui/src/workbench.js?raw#view", "@aervox/ui/workbench?raw#view"]) {
     const result = auditArchitecture({ sources: new Map([["packages/core/src/hidden.ts", `import "${target}";`]]) });
     assert.ok(result.violations.some(violation => violation.includes("@aervox/core -> @aervox/ui")));
   }
