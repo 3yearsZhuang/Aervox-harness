@@ -81,7 +81,7 @@ test("插件实现层禁触库、禁反向依赖宿主 Shell", () => {
     assert.deepEqual(v("plugins/plugins/ui/focus-mode/src/server/index.ts", src), ["plugins-domain-no-db-no-host"]);
   }
   // 共享包（宿主扩展 API 与展示基座）仍可依赖：插件必须能拿到 UIRegistry/WorkbenchContext/primitives
-  assert.deepEqual(v("plugins/plugins/ui/focus-mode/src/ui/index.ts", `import { defaultUIRegistry } from "@aervox/ui";`), []);
+  assert.deepEqual(v("plugins/plugins/ui/focus-mode/src/ui/index.ts", `import { AervoxButton } from "@aervox/ui/primitives";`), []);
   assert.deepEqual(v("plugins/plugins/ui/focus-mode/src/server/index.ts", `import { extractTerms } from "@aervox/practice-review";`), []);
   // 插件自有相对导入合法
   assert.deepEqual(v("plugins/plugins/ui/focus-mode/src/ui/index.ts", `import { useFocusModeState } from "./useFocusModeState.js";`), []);

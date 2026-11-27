@@ -6,7 +6,6 @@
   "type": "module",
   "description": "Aervox shared Vue workbench, platform-neutral components, companion visual core and theme tokens.",
   "exports": {
-    ".": "./src/index.ts",
     "./proactive": "./src/proactive/profile-authorization.ts",
     "./live2d/layout": "./src/live2d/layout.ts",
     "./live2d/model": "./src/live2d/model.ts",

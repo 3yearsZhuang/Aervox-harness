@@ -592,25 +592,11 @@ ARC-05/FND-07，依赖 ITER-002 Outbox 归属、ITER-013/017 指标。IPC 唤醒
 
 #### 已有交付与历史证据
 
-逐条测试计数、失败与复验过程由 PR/CI 保存；本节只保留能力结论、未覆盖范围与仍开放门槛。
-
-**平台选择：** 比较九个硬件方向、电脑依赖、目标 OS、真实 Provider、成本与数据边界后，维护者选择手机独立运行、电脑关闭后仍可使用，并确认 Android 先行；iOS 工程尚未创建。本轮实时可见 Android SDK API 36 与 adb。关联 [ITER-016](#iter-016)。
-
-**工程与内核前置（已交付）：** 显式 Web 构建、Android 同步/doctor、只读环境预检与 debug 构建命令（Java 21 固定于 mise，Gradle 分发带校验值；模板源码与许可入库，资源复制、SDK 路径、签名密钥与构建产物不跟踪，自动备份与明文网络默认关闭）。独立端内核入口：`@aervox/core/browser`（整包不含 Node/CLI）、`@aervox/host-agent/browser` 的执行 Store 与仓储 Port、`/database` 注入式装配、`/conversation` 共享 SQL 命令、原生候选值协议、未注册的 `NativeMessageChannel` 与 `/native-sqlite-client`。这些入口不导入 Node、SQLite 驱动或 Vue；**严格上游 Drizzle 声明闭包未通过这一限制如实保留**，`skipLibCheck` 消费者检查不算严格声明通过。
-
-**原生能力（已交付）：** 固定 SQLite 3.54.1 官方制品（HTTPS 恢复按长度/SHA3 验证，缺失或篡改阻断构建）；原生隔离临时库；Keystore AES-GCM 凭据槽（私有 no-backup 密文、AAD 身份/版本、进程与文件锁、原子替换，丢密钥不补建）；Java 专用写者（epoch/事务持有者、有限语句/参数/结果/队列、单次首窗、终态隔离、关闭后确认 drain）；固定资产 WebView Host（首次加载前全新随机 Profile、按 Profile 阻断 Service Worker/网络、导航/重载销毁旧所有者）。未接生产初始化，未授予 JS SQL 权限。
-
-**确定性夹具证据：** Android 17/API 37、arm64、4 KiB 物理设备仪器测试 78/78 通过，原生运行时接线批次 46 项全部通过；同规格 16 KiB 隔离模拟器 76 项通过、无跳过。覆盖 RETURNING、JSON/NUL、FTS5、FK、失败事务回滚与重开、Keystore、严格 JSON/WebMessage、跨源 iframe、零列 DML 取消、事务身份、超窗回滚、队列 drain、默认 Cookie 不被改动。默认入口冷启动显示 Mizuki；缺模型发送明确拒绝并保留草稿；实际 force-stop 后新进程恢复选中会话与完整草稿（含 1799 字符）。**这些不证明** 16 KiB 物理设备、其他 ABI/版本矩阵、后台可持续运行、真实 Provider、执行中终止完整矩阵、工具问答、跨版本覆盖升级或正式签名。
-
-**界面与操作（已交付）：** Material 3 统一（官方 Material Web 控件、品牌生成浅/深色角色、48px 触控、tonal surfaces）；同页会话列表/新建/切换/持久回看、常驻多行输入、按会话草稿、原生 IME→WebView 历史→系统返回的逐层返回；短视口收起角色并解除叠放，常规视口用舞台裁切（舞台 `clamp(280px, 42dvh, 480px)`、角色盒撑到 `clamp(440px, 72dvh, 720px)` 后被下边界裁切）；缺模型反馈移入独立布局行以免被裁切。WebView 不接收模型密钥、任意 URL/header 或 shell。
-
-**预算与生命周期修复（已交付）：** 文本输入 32 KiB UTF-8 / 120 KiB JSON、回复累计 48 KiB，越界保留安全尾段并提交 `Interrupted(model_length)`。首次就绪前的文档退休观察、后台区间跨过的配置查询拒绝未接单发送、已提交接单的迟到回执经共享取消事务收尾。恢复用例证明有效 Running/CancelRequested 租约不抢占、过期后收敛、拒绝旧 fencing、不重跑模型——但这不是 Android 实际杀进程。
-
-**依赖与安全修复（已交付）：** 普通应用 UID 下硬链接归属标记被 SELinux 拒绝，改为独占创建与保守拒绝；同一短同步区完成 actor 创建与绑定；API 24/25 的 root/Shizuku Process 操作改用有界单调时钟等待，API 26+ 保留原生 timed wait 并请求 destroyForcibly。
+平台选择、工程与内核前置、原生能力、确定性夹具、界面与操作、预算与生命周期修复、依赖与安全修复的**逐条结论与未覆盖范围**已移到[移动端交付证据](docs/explanation/mobile-delivery-evidence.md)。那里同时写明每段对应的提交与 PR。
 
 **方向约束：** 可为具体增强功能使用系统授权、Shizuku 或 root，基础 P0 不依赖提权；三者各自标注交付/授权状态，不放假按钮或任意提权执行器，边界见 [ADR-022 能力分级](docs/reference/adr/ADR-022-mobile-runtime-access.md#能力交付与授权分级)。手机不复制活动 SQLite/WAL，不引入多租户业务库。
 
-**相关 PR：** 主仓 [PR #353](https://github.com/3yearsZhuang/Aervox-harness/pull/353)、[PR #356](https://github.com/3yearsZhuang/Aervox-harness/pull/356)、[PR #372](https://github.com/3yearsZhuang/Aervox-harness/pull/372)；集合仓 [PR #7](https://github.com/Aervox-agent/Aervox-plugins/pull/7)、[PR #8](https://github.com/Aervox-agent/Aervox-plugins/pull/8)、[PR #15](https://github.com/Aervox-agent/Aervox-plugins/pull/15)。
+本节只保留仍开放的门槛与方向约束。
 
 <a id="iter-016"></a>
 
@@ -626,13 +612,25 @@ ARC-05/FND-07，依赖 ITER-002 Outbox 归属、ITER-013/017 指标。IPC 唤醒
 
 <a id="iter-028"></a>
 
-### ITER-028 · 待评审：纯本地加密同步探索
+### ITER-028 · 挂起：纯本地加密同步探索（实现已移除）
 
-CAP-018/027，遵守[数据库契约](docs/reference/DATABASE.md)和 ADR-022，不引入中心化多租户库。承诺-揭示配对、Ed25519 设备身份、SAS transcript、分向密钥和 Changeset 原型已有，ITER-071 已隔离 sync-runtime/Changeset Port；真实 mDNS/生产接线/多设备未完成。
+CAP-018/027，遵守[数据库契约](docs/reference/DATABASE.md)和 ADR-022，不引入中心化多租户库。
 
-**当前性质：原型，零生产消费者。** `packages/sync-runtime`（4 988 行）与 `packages/repositories/src/sync/p2p-changeset.ts` 的唯一 import 方是 `packages/repositories/test/` 下的 5 个测试文件；不在 turbo build、CI 或 mise 任务任一处被引用。引用这些文件不等于它们已可用：本条仍未评审通过，接线与否由后续决定。审计基线（2026-11-26）确认该状态自 2026-10-03 审计以来未变。
+**实现已移除（2026-11-27 卫生审计）。** `packages/sync-runtime`（4 988 行）与
+`packages/repositories/src/sync/p2p-changeset.ts`（1 328 行）连同 5 个测试文件已删除。
+删除依据不是"想法不好"，而是**该原型从未可达**：`@aervox/repositories/sync` 与
+`@aervox/sync-runtime/{discovery,transport}` 的生产与测试 importer 数都为 0，
+连测试都不再触达它们，而 turbo 的全 workspace 通配仍在每轮 CI 为它付一次构建。
 
-- **进入条件与验收：** 显式配对、端到端加密、`local_only`/混合来源范围、删除撤权传播先成立；UDP 多播发现+静态对端兜底，验证重放/乱序/篡改拒绝。以行时间水位+显式墓碑代替 Session Extension，接收白名单/漂移隔离/墓碑四向裁决，不复活已删数据；真实 Capacitor/Electron 同网直连学习进度/错题成功，不能据原型宣布多设备可用。
+需要时从 git 历史恢复（删于 `c431e470` 之前，父提交 `fac39e36` 仍含完整实现）。
+`packages/repositories/src/sync/git-snapshot.ts` **未删除**——它是数据库快照搬迁的
+生产实现，与本条无关。
+
+**为什么挂起而不是取消：** 承诺-揭示配对、Ed25519 设备身份、SAS transcript、
+分向密钥这些设计结论仍有参考价值，且 CAP-018/027 的跨端目标没有变化。
+取消会丢掉"我们认真评估过这条路"的记录。
+
+- **进入条件与验收（恢复实现前须重新满足）：** 显式配对、端到端加密、`local_only`/混合来源范围、删除撤权传播先成立；UDP 多播发现+静态对端兜底，验证重放/乱序/篡改拒绝。以行时间水位+显式墓碑代替 Session Extension，接收白名单/漂移隔离/墓碑四向裁决，不复活已删数据；真实 Capacitor/Electron 同网直连学习进度/错题成功，不能据原型宣布多设备可用。
 
 <a id="iter-021"></a>
 

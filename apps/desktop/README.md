@@ -20,5 +20,9 @@ Aervox 桌面客户端，基于 Electron + Vue 3 渲染。支持“桌宠陪伴�
 - `src/renderer/` — 渲染进程外壳：`index.html`、`pet.html` 两个入口与静态目录
 - `src/renderer/src/` — 渲染进程的 Vue 源码（`App.vue`、`main.ts`、`pet-main.ts` 等）
 - `src/renderer/public/` — 静态资源（Live2D 模型等，构建期从 `@aervox/live2d` 拷贝）
+- `build/` — 打包用图标。`icon*.png` 与 `icon.ico` 由 `scripts/generate-icons.mjs`
+  从 [`packages/ui/src/assets/brand/aervox-app-icon.svg`](../../packages/ui/src/assets/brand/aervox-app-icon.svg)
+  生成后**入库**（electron-builder 打包时需要它们在仓库里存在）。改图标要改上面的 SVG
+  并重跑该脚本，不要手改生成物。
 
 共享组件与主题由 `@aervox/ui` 提供，`@aervox/ui-host` 装配 `plugins/surfaces/*` 的根界面，客户端逻辑由 `@aervox/api-client` 提供。Web 与桌面端各自维护平台入口，并复用这些共享包。

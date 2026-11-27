@@ -11,6 +11,7 @@ id: AVX-EXPL-000
 - [一次对话的数据流](data-flow-overview.md) — 从用户输入到模型响应再到持久化的端到端流程
 - [主动智能的四轴状态模型](proactive-intelligence-mode.md) — 工具权限、画像期望状态、设备能力与有效运行状态
 - [跨端工作台与平台壳](../reference/ARCHITECTURE.md#32-跨端工作台与平台壳) — 桌面端、Web 端与移动端的宿主分工
+- [移动端交付证据](mobile-delivery-evidence.md) — ITER-009 的能力结论、未覆盖范围与对应提交（计划正文只留剩余验收）
 
 ## 研究与评估
 

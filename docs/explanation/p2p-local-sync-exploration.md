@@ -4,8 +4,15 @@ id: AVX-EXPL-014
 
 # 纯本地多端点对点加密同步架构探索
 
-> [!NOTE] 调研生命周期状态：首切片完成，待评审 (First Slice Delivered, Pending Review)
-> 密码学原语、Changeset 引擎、UDP 多播发现与环回端到端切片已完成（69 项 P2P 用例通过，见 §3.1）；ITER-028 于 2026-10-02 完成验收重述后保持待评审，真实 mDNS/DNS-SD、生产接线与真实多设备直连待后续推进。
+> [!IMPORTANT] 调研生命周期状态：**实现已移除，条目挂起** (Implementation Removed, Suspended)
+>
+> `@aervox/sync-runtime` 与 `@aervox/repositories/src/sync/p2p-changeset.ts`（合计 6 279 行，
+> 含 5 个 P2P 测试）已在 2026-11-27 卫生审计中**删除**：它们从未被任何生产路径触达，
+> 详见 [plan.md 的 ITER-028](../../plan.md#iter-028)。需要恢复时从 git 历史取
+> （`fac39e36` 及更早的提交仍含完整实现）。
+>
+> 本文保留的是**设计与评估记录**，不描述当前可用的代码。下文所有 `packages/sync-runtime/*`
+> 与 `p2p-changeset.ts` 的路径引用都是指被删除的原型，不再指向仓内文件。
 
 本文档是当前迭代计划 `ITER-028` 的技术架构探索交付件，记录纯本地单用户场景下，桌面端（Electron）与移动端（Capacitor）之间基于局域网发现、零信任配对与 SQLite 增量变更集（Changeset）双向对齐的**设计输入、已实现范围与未实现清单**。
 
