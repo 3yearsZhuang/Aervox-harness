@@ -7,12 +7,16 @@
   "description": "Aervox shared Live2D model assets and consumer-invoked copy operation.",
   "files": [
     "mizuki",
-    "scripts/copy-assets.mjs"
+    "cubism",
+    "scripts/copy-assets.mjs",
+    "scripts/copy-cubism-core.mjs"
   ],
   "scripts": {
-    "build": "node scripts/verify-assets.mjs"
+    "build": "node scripts/verify-assets.mjs",
+    "test": "node --test scripts/*.test.mjs"
   },
   "exports": {
-    "./build-assets": "./scripts/copy-assets.mjs"
+    "./build-assets": "./scripts/copy-assets.mjs",
+    "./build-cubism-core": "./scripts/copy-cubism-core.mjs"
   }
 }

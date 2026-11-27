@@ -1,10 +1,12 @@
 import { manualChunks } from '../../scripts/vendor-chunks'
+import { cspMetaPlugin, LOOPBACK_ORIGINS } from '../../scripts/security-csp'
 import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
-  plugins: [vue()],
+  // 单用户本机实例：渲染层只允许同源与 loopback API（含插件 Page iframe）。
+  plugins: [vue(), cspMetaPlugin({ extraConnect: [...LOOPBACK_ORIGINS] })],
   resolve: {
     alias: { '@': resolve('src') },
   },

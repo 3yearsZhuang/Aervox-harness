@@ -95,6 +95,11 @@ jobs:
           mise exec -- pnpm --filter @aervox/mobile sqlite:restore
           mise exec -- pnpm --filter @aervox/mobile prepare:native:restore
 
+      # The pinned Core is now present, so the asset-pipeline copy assertion runs for
+      # real instead of skipping. `test:unit` never selected this package.
+      - name: Native asset pipeline tests
+        run: mise exec -- pnpm --filter @aervox/mobile test
+
       - name: Preflight (JDK, SDK platform/build-tools, project)
         run: mise exec -- pnpm --filter @aervox/mobile android:check
 
@@ -118,8 +123,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: jvm
     timeout-minutes: 75
-    # 阻塞门禁：该工作流首次运行后已连续通过并实际执行了 79 项用例
-    # （CI run 41843912509 的 `Finished 79 tests on emulator-5554`）。
+    # 阻塞门禁：该工作流首次运行后已连续通过。实际用例数以 CI 日志中的
+    # `Finished N tests on emulator-5554` 为准，不在本注释维护会过期的数字。
     # 仪器测试覆盖 WebView 装配、原生 SQLite 桥与设备动作，失败必须拦 PR。
     steps:
       - name: Checkout

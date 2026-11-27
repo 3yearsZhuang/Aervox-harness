@@ -167,7 +167,6 @@ test(".css 纳入扫描；插件实现目录不在宿主扫描根内", () => {
 
 test("扫描根覆盖宿主包，且不含学习事实真源包", () => {
   assert.ok(HOST_ROOTS.includes("packages/core/src"));
-  assert.ok(HOST_ROOTS.includes("packages/agent-loop/src"));
   assert.ok(HOST_ROOTS.includes("packages/contracts/src"));
   assert.ok(!HOST_ROOTS.includes("packages/schema/src"), "schema 属 CAP-003/004/006 学习事实真源，范围外");
   assert.ok(!HOST_ROOTS.includes("packages/repositories/src"), "repositories 属学习事实真源，范围外");

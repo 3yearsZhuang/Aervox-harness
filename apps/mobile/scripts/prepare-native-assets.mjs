@@ -3,7 +3,7 @@ import { readFile, rename, rm, cp, mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-const coreArtifact = {
+export const coreArtifact = {
   url: 'https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js',
   sha256: '25ae938cb4fe282ce189b357bcc97e603d1e1f7ec78bf04150d401c23cdc792f',
   bytes: 207155,
@@ -21,7 +21,7 @@ function verifyCore(core) {
  * Explicit restoration for cold checkouts (CI and new machines). A present but
  * invalid file is evidence of a bad download and is left untouched.
  */
-async function restoreCoreArtifact(root = fileURLToPath(new URL('../', import.meta.url)), fetcher = fetch) {
+export async function restoreCoreArtifact(root = fileURLToPath(new URL('../', import.meta.url)), fetcher = fetch) {
   const directory = path.join(root, 'android/vendor');
   const file = path.join(directory, 'live2dcubismcore.min.js');
   try { return verifyCore(await readFile(file)); }
@@ -39,15 +39,24 @@ async function restoreCoreArtifact(root = fileURLToPath(new URL('../', import.me
   return core;
 }
 
-async function prepareNativeAssets(root = fileURLToPath(new URL('../', import.meta.url)), {
+export async function prepareNativeAssets(root = fileURLToPath(new URL('../', import.meta.url)), {
   source = path.resolve(root, '../web/dist'), target = path.join(root, 'android/app/src/main/assets/m0'),
 } = {}) {
-  const core = verifyCore(await readFile(path.join(root, 'android/vendor/live2dcubismcore.min.js')));
-  let html = await readFile(path.join(source, 'index.html'), 'utf8');
+  // The page checks run before the pinned artifact is read: a bad build should be
+  // rejected on its own merits, and a cold checkout without the gitignored Core
+  // must not mask the real reason.
+  const html = await readFile(path.join(source, 'index.html'), 'utf8');
   if (!html.includes('/m0/assets/')) throw new Error('Native assets require build:web:native base /m0/.');
-  html = html.replace(/<script src="https:\/\/cubism\.live2d\.com[^\"]+"><\/script>/, '<script src="/m0/vendor/live2dcubismcore.min.js"></script>')
-    .replace(/\s*<script src="https:\/\/cdn\.jsdelivr\.net[^\"]+"><\/script>/, '');
+  // The Web build now ships Cubism Core itself (see apps/web/scripts/prepare-assets.mjs),
+  // so the only rewrite left is proving the result is fully local. Any remote script tag
+  // fails the build rather than being silently rewritten against a host we no longer control.
   if (/<script[^>]+src="https?:/.test(html)) throw new Error('Remote native script rejected.');
+  // Root-relative URLs are accepted by NativeAssetPolicy under /m0/; the shipped page must
+  // reference the packaged Core so an offline cold start never reaches a CDN.
+  if (!/<script[^>]+src="[^"]*vendor\/live2dcubismcore\.min\.js"/.test(html)) {
+    throw new Error('Native assets must reference the packaged Cubism Core, not a remote SDK.');
+  }
+  const core = verifyCore(await readFile(path.join(root, 'android/vendor/live2dcubismcore.min.js')));
   await rm(target, { recursive: true, force: true });
   await cp(source, target, { recursive: true });
   await mkdir(path.join(target, 'vendor'), { recursive: true });

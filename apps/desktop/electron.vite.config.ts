@@ -1,4 +1,5 @@
 import { manualChunks } from '../../scripts/vendor-chunks'
+import { cspMetaPlugin, LOOPBACK_ORIGINS } from '../../scripts/security-csp'
 import { resolve } from 'node:path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import vue from '@vitejs/plugin-vue'
@@ -21,7 +22,9 @@ export default defineConfig({
   },
   renderer: {
     resolve: { alias: { '@': resolve('src/renderer/src') } },
-    plugins: [vue()],
+    // 打包态从 file:// 载入（见 src/main/index.ts 的 rendererEntry），
+    // 因此显式放行 file: 方案；网络侧仍只允许同源与 loopback API。
+    plugins: [vue(), cspMetaPlugin({ allowFileScheme: true, extraConnect: [...LOOPBACK_ORIGINS] })],
     // AERVOX_DESKTOP_PORT：本地端口被系统保留段占用时覆盖；默认 5174（被占用时 vite 自动顺延）
     server: { port: Number(process.env.AERVOX_DESKTOP_PORT) || 5174 },
     build: {

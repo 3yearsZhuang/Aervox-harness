@@ -4,11 +4,10 @@ import { inspectDependency, findCycles, auditArchitecture, inspectLazySchemaImpo
 import { extractImports, resolveRepoRelative } from "./source-imports.mjs";
 
 test("architecture rejects inverted dependencies even when old blacklist permits them", () => {
-  for (const [from,to] of [["core","ui"],["schema","host-runtime"],["sync-runtime","repositories"],["api-client","core"]]) {
+  for (const [from,to] of [["core","ui"],["schema","host-runtime"],["process-coordination","repositories"],["api-client","core"]]) {
     assert.match(inspectDependency(`@aervox/${from}`, `@aervox/${to}`), /not allowed/);
   }
   assert.equal(inspectDependency("@aervox/host-runtime", "@aervox/core"), null);
-  assert.equal(inspectDependency("@aervox/repositories", "@aervox/sync-runtime"), null);
   for (const plugin of ["@aervox/plugin-anki-sync", "@aervox/plugin-diary-distillers"]) {
     assert.equal(inspectDependency("@aervox/host-runtime", plugin), null);
     for (const port of ["@aervox/core", "@aervox/host-plugin-api"]) assert.equal(inspectDependency(plugin, port), null);
@@ -101,8 +100,8 @@ test("Vue external scripts are runtime edges and malformed script blocks fail cl
   assert.throws(() => extractImports('<script src="&#46;&#46;/hidden.ts"></script>', "x.vue", true), /explicit static path/);
 });
 test("URL query/hash suffixes cannot hide workspace or source dependencies", () => {
-  assert.equal(resolveRepoRelative("packages/core/src/index.ts", "../../ui/src/index.js?raw#view"), "packages/ui/src/index.ts");
-  for (const target of ["../../ui/src/index.js?raw#view", "@aervox/ui?raw#view"]) {
+  assert.equal(resolveRepoRelative("packages/core/src/index.ts", "../../ui/src/workbench.js?raw#view"), "packages/ui/src/workbench.ts");
+  for (const target of ["../../ui/src/workbench.js?raw#view", "@aervox/ui/workbench?raw#view"]) {
     const result = auditArchitecture({ sources: new Map([["packages/core/src/hidden.ts", `import "${target}";`]]) });
     assert.ok(result.violations.some(violation => violation.includes("@aervox/core -> @aervox/ui")));
   }

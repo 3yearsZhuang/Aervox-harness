@@ -44,7 +44,11 @@ for (const entry of ['check:guards', 'test:guards']) {
     assert.equal(result.status, 0, result.stderr);
     const recorded = calls();
     assert.deepEqual(recorded[0], { command: 'pnpm', args: ['--filter', '@aervox/contracts', 'build'] });
-    assert.deepEqual(recorded[1], { command: 'node', args: entry === 'check:guards' ? ['--test', testFile] : ['scripts/test-guards.mjs'] });
+    // The fixture only materialises one guard test plus the shared CSP policy test;
+    // the real command passes both to `node --test` in a single invocation.
+    assert.deepEqual(recorded[1], { command: 'node', args: entry === 'check:guards'
+      ? ['--test', testFile, 'scripts/security-csp.test.mjs']
+      : ['scripts/test-guards.mjs'] });
     assert.equal(recorded.filter(call => call.command === 'pnpm').length, 1);
   });
 

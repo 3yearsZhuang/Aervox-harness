@@ -1,3 +1,9 @@
+// Installs Pixi 7's static uniform synchronizer, which replaces the `new Function`
+// compilation Pixi otherwise performs for shader uniforms. Every renderer (Web,
+// Desktop, mobile APK) ships a CSP without 'unsafe-eval', so this import is a
+// functional requirement, not an optimization. It must come before any Application
+// is constructed; the import order here guarantees that.
+import '@pixi/unsafe-eval'
 import { Application, Container } from 'pixi.js'
 import type { Live2DModel as Live2DModelType } from '@sekai-world/pixi-live2d-display-mulmotion/cubism4'
 import { fetchModel3Json, type AervoxLive2DModel, type Live2DPose, type ResolvedCubismAsset } from './model'

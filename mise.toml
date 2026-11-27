@@ -35,10 +35,10 @@ ci-affected = "mise tasks run ci-fast"
 # 依赖审计与 CI 的 dependency-audit job 同源：此前只有远端会跑，本地全量因此
 # 可能在"绿"状态下带着已经失效的豁免（上游收窄公告范围后即如此）。它依赖注册表
 # 网络，故只在全量门禁接入；`ci` 增量快路径保持离线可跑。
-ci-code = "pnpm check:guards && pnpm check:boundary && pnpm check:ci-config && pnpm check:artifacts && pnpm check:dependency-audit && pnpm build && pnpm check:standards && pnpm typecheck && pnpm test && pnpm check:hls && pnpm check:memory-deletion && pnpm check:deletion-fault-testing && pnpm check:deletion-fault-integration && mise tasks run native-search-check && mise tasks run native-runtime-check"
+ci-code = "pnpm check:guards && pnpm test:guards && pnpm check:boundary && pnpm check:ci-config && pnpm check:artifacts && pnpm check:dependency-audit && pnpm build && pnpm check:standards && pnpm typecheck && pnpm test && pnpm check:hls && pnpm check:memory-deletion && pnpm check:deletion-fault-testing && pnpm check:deletion-fault-integration && mise tasks run native-search-check && mise tasks run native-runtime-check"
 
 # 全量冷启动代码门禁（对齐 GitHub Actions CI，含 frozen-lockfile install）
-ci-code-full = "node scripts/core-submodule.mjs --init && pnpm install --frozen-lockfile && pnpm check:guards && pnpm check:boundary && pnpm check:ci-config && pnpm check:artifacts && pnpm check:dependency-audit && pnpm build && pnpm check:standards && pnpm typecheck && pnpm test && pnpm check:hls && pnpm check:memory-deletion && pnpm check:deletion-fault-testing && pnpm check:deletion-fault-integration && mise tasks run native-search-check && mise tasks run native-runtime-check"
+ci-code-full = "node scripts/core-submodule.mjs --init && pnpm install --frozen-lockfile && pnpm check:guards && pnpm test:guards && pnpm check:boundary && pnpm check:ci-config && pnpm check:artifacts && pnpm check:dependency-audit && pnpm build && pnpm check:standards && pnpm typecheck && pnpm test && pnpm check:hls && pnpm check:memory-deletion && pnpm check:deletion-fault-testing && pnpm check:deletion-fault-integration && mise tasks run native-search-check && mise tasks run native-runtime-check"
 
 # 代码守卫（禁用标识符 + 宿主领域纯度 + 类型边界 + 依赖提升 + 可移除实现）
 check-guards = "pnpm check:guards"
@@ -71,7 +71,9 @@ typecheck = "pnpm typecheck"
 # 运行全部测试（受控 2 并发，避免超线程争抢）
 test = "pnpm test"
 
-# 选定包测试：核心逻辑、领域契约、前端组件与插件；范围以 package.json 为准
+# 选定包测试：除 `@aervox/api` 外的全部 workspace（api 的仓储/HTTP 用例需要真实
+# PostgreSQL 夹具，只在 `ci-code` 的隔离实例里跑）。包列表增删以满足此语义为准，
+# 不因「新包忘了加」而静默缩小覆盖——回归见 scripts/check-test-unit-selection.test.mjs。
 test-unit = "pnpm test:unit"
 test-fast = "pnpm test:unit"
 

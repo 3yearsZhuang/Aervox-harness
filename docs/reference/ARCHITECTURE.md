@@ -52,8 +52,8 @@ API 组合根显式装配第一方 Bot 传输贡献，共用会话受理与完�
 |---|---|---|
 | Runtime | Node.js 24 LTS（[mise.toml](../../mise.toml) 固定精确版本） | 日常开发与 CI 一律经 mise 使用该版本；根 `engines` 声明的是可接受下界 `>=22.19`，不是精确版本。参考仓库最低 Node 22.19，适配器独立兼容 |
 | Language/build | TypeScript strict、pnpm、Turborepo | 工具和依赖版本分别取 [mise.toml](../../mise.toml)、[根包清单](../../package.json)与锁文件，不在架构表另行冻结；升级需通过契约/安全测试 |
-| Web | Vue 3、Vite 7、Element Plus（Vue 全栈单栈，见 ADR-015） | Web 复用桌面端 renderer 核心（composables/主题），首发是登录后流式应用；不依赖任何框架私有后端能力 |
-| UI/editor | Element Plus + 定制主题（迁移自 desktop styles）、CodeMirror 6 | 组件共享、键盘可用和 WCAG 2.2 AA |
+| Web | Vue 3、Vite 7、Element Plus 与 Material Web（Vue 全栈单栈，见 ADR-015） | Web 复用桌面端 renderer 核心（composables/主题），首发是本地单用户、loopback 上直接可用的流式应用，无账号体系；不依赖任何框架私有后端能力 |
+| UI/editor | Element Plus + Material Web + 定制主题（迁移自 desktop styles） | 组件共享、键盘可用和 WCAG 2.2 AA；Markdown 渲染用自研管线（`packages/ui/src/utils/markdown.ts`），未引入编辑器框架 |
 | API | Fastify 5、Zod 4、OpenAPI 3.1、POST Turn + GET SSE（Fetch 消费） | 客户端和插件通过契约访问；事件 envelope、重连、取消、幂等和安全持久化遵循[流式协议契约](STREAMING_PROTOCOL.md)；不以 tRPC 锁定消费者 |
 | Database | 默认 SQLite（WAL）；可选 PostgreSQL 16+ UTF8；共享 Drizzle AST、Schema 与 Repository Port | 单用户单主库、原生事务与物理结构验证；首次选用检查声明资格，激活后宿主持有主库，连接/凭据/身份失败拒绝；不回读旧源，禁止跨模块直接写表 |
 | Retrieval | SQLite FTS5 或 PostgreSQL 文本投影 + VectorSearchPort；JSON 向量评分，`sqlite-vec`/原生计算为 SQLite 可替换候选 | 记录模型/维度/版本与来源资格；投影可重建，相关性分数不承诺一致；不引入独立向量库 |
@@ -61,7 +61,7 @@ API 组合根显式装配第一方 Bot 传输贡献，共用会话受理与完�
 | Object | 本地文件系统目录（attachments/exports） | 本地安全存储、上传前后做大小/格式/解压比扫描；删除遵循数据 SLA（CR-030） |
 | AI | 内部 `ProviderPort`：`@aervox/core` 自研 OpenAI 兼容流式 Provider（运行时零外部依赖，ADR-021） | 业务通过内部接口调用模型；本地 llama.cpp 侧车以 OpenAI 兼容端点接入（model-runtime）；模型不能直写业务表 |
 | Desktop/mobile | Electron（P1）、Capacitor（后续，打包 web UI） | `contextIsolation`、关闭 `nodeIntegration`、受限 IPC、签名更新包、逐项设备授权；CAP-033 使用独立签名 Privacy Host/OS Permission Broker 管理后台和设备能力；移动端以 Capacitor 打包 Web UI（WebView 壳 + 受限桥接，不引入 RN，见 ADR-015/022） |
-| Test/observability | Vitest、Playwright、Testing Library、fast-check；运行观测通过 `@aervox/observability` 与受认证 Metrics；OpenTelemetry/Pino/Grafana/Sentry 为目标选型 | 正常 CI 不依赖实时供应商；目标选型不表示全部后端已接入，日志默认不含完整用户内容 |
+| Test/observability | Vitest、`@vue/test-utils`、happy-dom、Playwright；运行观测通过 `@aervox/observability` 与受认证 Metrics；OpenTelemetry/Pino/Grafana/Sentry 为目标选型 | 正常 CI 不依赖实时供应商；目标选型不表示全部后端已接入，日志默认不含完整用户内容 |
 
 ## 3. 仓库与领域边界
 
@@ -104,7 +104,7 @@ native/
 
 连接版终端入口 `apps/cli` 只消费 `@aervox/api-client/transport` 的纯传输构建出口，该子路径不加载 Vue composables；CLI 使用根目录统一管理的 esbuild 生成独立 ESM 制品，业务数据与执行权威仍在已有 API/Worker。配置与请求标识回执是宿主私有文件，CLI 不导入 API 私有模块、不直接访问业务库，也不因此新增服务端路由或授权口径；独立 Core 组合另立条目认领。命令边界、受限本机地址、审批与取消语义及兼容范围见 CR-058（已归档至 Aervox-docs-archive），实施状态与剩余差量见 [§4.2](REQUIREMENTS_TRACEABILITY.md#42-落地实现登记)。
 
-共享行为所有权由 [ADR-030](adr/ADR-030-behavior-ownership.md) 收敛：平台桥复用同一 Turn 客户端，根界面复用无视觉会话控制器；领域命令掌握事务，执行生命周期和工具授权分别具有单一所有者。插件 API 与结果投影属于宿主实例，配置由组合根解析后注入。`@aervox/sync-runtime` 提供显式启用的网络适配，`@aervox/process-coordination` 提供进程 IPC；默认仓储入口只暴露数据能力，同步数据适配通过 `/sync` 子入口消费。
+共享行为所有权由 [ADR-030](adr/ADR-030-behavior-ownership.md) 收敛：平台桥复用同一 Turn 客户端，根界面复用无视觉会话控制器；领域命令掌握事务，执行生命周期和工具授权分别具有单一所有者。插件 API 与结果投影属于宿主实例，配置由组合根解析后注入。`@aervox/process-coordination` 提供进程 IPC；默认仓储入口只暴露数据能力。（`@aervox/sync-runtime` 的同步网络适配已在 2026-11-27 审计中删除——它从未被生产路径触达，见 [ITER-028](../../plan.md#iter-028)。）
 
 ### 3.1 共享产品宿主结构（演进式模块化单体）
 

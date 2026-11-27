@@ -11,6 +11,7 @@ id: AVX-EXPL-000
 - [一次对话的数据流](data-flow-overview.md) — 从用户输入到模型响应再到持久化的端到端流程
 - [主动智能的四轴状态模型](proactive-intelligence-mode.md) — 工具权限、画像期望状态、设备能力与有效运行状态
 - [跨端工作台与平台壳](../reference/ARCHITECTURE.md#32-跨端工作台与平台壳) — 桌面端、Web 端与移动端的宿主分工
+- [移动端交付证据](mobile-delivery-evidence.md) — ITER-009 的能力结论、未覆盖范围与对应提交（计划正文只留剩余验收）
 
 ## 研究与评估
 
@@ -21,6 +22,6 @@ id: AVX-EXPL-000
 - [配套硬件方向](companion-hardware-directions.md) — 9 种硬件形态与技术路线分析
 - [HLS 研究执行指南](../how-to/run-hls-agent.md) — 高层次综合 Agent 运行与评测
 - [点对点加密同步探索](p2p-local-sync-exploration.md) — 本地多端 P2P 同步方案原型
-- [dsh-Go 移植路线验证记录](aervox-go-port/README.md) — 18 份真机证据；结论是「借做法、别搬界面」，`targetSdk 28` 是硬前提
+- [dsh-Go 移植路线验证记录](aervox-go-port/README.md) — 17 份真机批次证据；结论是「借做法、别搬界面」，`targetSdk 28` 是硬前提
 
 研究或原型不能直接作为产品承诺。被替代的历史决定通过 [ADR](../reference/adr/README.md)或[外部归档](https://github.com/3yearsZhuang/Aervox-docs-archive)追溯。

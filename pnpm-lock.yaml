@@ -182,12 +182,16 @@ importers:
       '@aervox/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
-      '@aervox/live2d':
+      '@aervox/contracts':
         specifier: workspace:*
-        version: link:../../packages/live2d
+        version: link:../../packages/contracts
       '@aervox/native-runtime':
         specifier: workspace:*
         version: link:../../packages/native-runtime
+    devDependencies:
+      '@aervox/live2d':
+        specifier: workspace:*
+        version: link:../../packages/live2d
       '@aervox/plugin-companion-ui':
         specifier: workspace:*
         version: link:../../plugins/surfaces/companion-ui
@@ -218,22 +222,6 @@ importers:
       '@sekai-world/pixi-live2d-display-mulmotion':
         specifier: ^0.5.1
         version: 0.5.1(pixi.js@7.4.3)
-      element-plus:
-        specifier: ^2.11.5
-        version: 2.14.5(vue@3.5.43(typescript@5.9.3))
-      lucide-vue-next:
-        specifier: ^0.468.0
-        version: 0.468.0(vue@3.5.43(typescript@5.9.3))
-      pixi.js:
-        specifier: ^7.4.3
-        version: 7.4.3
-      vue:
-        specifier: ^3.5.43
-        version: 3.5.43(typescript@5.9.3)
-    devDependencies:
-      '@aervox/contracts':
-        specifier: workspace:^
-        version: link:../../packages/contracts
       '@types/node':
         specifier: ^22.15.3
         version: 22.20.1
@@ -246,12 +234,24 @@ importers:
       electron-vite:
         specifier: ^3.1.0
         version: 3.1.0(supports-color@7.2.0)(vite@6.4.5(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1))
+      element-plus:
+        specifier: ^2.11.5
+        version: 2.14.5(vue@3.5.43(typescript@5.9.3))
+      lucide-vue-next:
+        specifier: ^0.468.0
+        version: 0.468.0(vue@3.5.43(typescript@5.9.3))
+      pixi.js:
+        specifier: ^7.4.3
+        version: 7.4.3
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
       vite:
         specifier: 6.4.5
         version: 6.4.5(@types/node@22.20.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.1)
+      vue:
+        specifier: ^3.5.43
+        version: 3.5.43(typescript@5.9.3)
       vue-tsc:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.9.3)
@@ -615,9 +615,6 @@ importers:
       '@aervox/schema':
         specifier: workspace:*
         version: link:../schema
-      '@aervox/sync-runtime':
-        specifier: workspace:*
-        version: link:../sync-runtime
       '@libsql/client':
         specifier: ^0.14.0
         version: 0.14.0
@@ -645,12 +642,6 @@ importers:
         specifier: ^0.31.11
         version: 0.31.11
 
-  packages/sync-runtime:
-    devDependencies:
-      '@types/node':
-        specifier: ^22.10.0
-        version: 22.20.1
-
   packages/ui:
     devDependencies:
       '@aervox/api-client':
@@ -665,6 +656,9 @@ importers:
       '@material/web':
         specifier: 2.5.0
         version: 2.5.0
+      '@pixi/unsafe-eval':
+        specifier: 7.4.3
+        version: 7.4.3(@pixi/core@7.4.3)
       '@sekai-world/pixi-live2d-display-mulmotion':
         specifier: ^0.5.1
         version: 0.5.1(pixi.js@7.4.3)

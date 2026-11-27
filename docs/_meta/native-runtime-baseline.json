@@ -8,7 +8,7 @@
     "cpu": "Apple M5"
   },
   "artifact": {
-    "binary": "/Users/3yearszhuang/Documents/Z-Projects/Aervox-harness/packages/native-runtime/dist/bin/darwin-arm64/aervox-native",
+    "binary": "packages/native-runtime/dist/bin/darwin-arm64/aervox-native",
     "sha256": "6af9e753abcf686fc2467e2e010da8b9747f37e5ded6b4bfb66e3e6723a23f1c"
   },
   "fixture": {

@@ -62,6 +62,8 @@ id: AVX-SEC-001
 
 [Markdown 链接](../../packages/ui/src/utils/markdown.ts)对大小写 HTTP(S) 与 `//` 外部地址统一设置新窗口及 `noopener noreferrer`；本地路径、锚点和邮件链接保留各自语义。[桌面主进程](../../apps/desktop/src/main/index.ts)负责限制文档导航、处理外部窗口并逐请求校验 IPC 的受信主 frame 来源，不能仅依赖链接属性或 preload 的类型检查。来源校验通过后仍须执行既有 API、工具和 OS 授权；这些控制不构成操作系统文件或网络沙箱。
 
+Web 与桌面 renderer 的 CSP 由[共享策略](../../scripts/security-csp.ts)在构建期注入，`script-src 'self'` 是完整脚本白名单：Live2D Cubism Core 随包分发（固定字节与 SHA-256，见 [@aervox/live2d](../../packages/live2d/scripts/copy-cubism-core.mjs)），运行期不再从第三方 CDN 拉取。`'wasm-unsafe-eval'` 只用于 Core 实例化 WebAssembly，不授予 `new Function`；Pixi 7 因此必须装载 `@pixi/unsafe-eval` 的静态 uniform 同步器。`connect-src`/`frame-src` 只放行同源与 loopback API（端口通配，主机固定），离机来源继续被拒绝。开发服务器不注入该策略，避免 HMR 依赖被静默破坏；打包态行为以实际渲染验证，不以构建产物存在代替。
+
 ## 5. 发布门禁
 
 安全、供应链、删除恢复与 CAP-033～035 的发布条件集中在[追踪基线](REQUIREMENTS_TRACEABILITY.md#91-专项发布门禁)。本文件维护攻击面、控制和残余威胁；目标部署或供应商改变时重新评估，不能把测试路径当作生产许可。

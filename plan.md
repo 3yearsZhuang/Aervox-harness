@@ -4,7 +4,7 @@
 
 ## 1. 当前判断与执行顺序
 
-**当前基线（唯一真源，随 gitlink 更新）：** 主仓 `aa405504`、Core `78510f51`、插件 `3aafc1ef`。历史段落中出现的某个提交是**当时**的验证对象，不代表当前检出版本；需要历史证据时按其中的 PR 与提交号回查。
+**当前基线（唯一真源＝gitlink 本身）：** 主仓与两个产品子模块的实际检出提交以 `git ls-tree HEAD packages/core plugins` 与 `git submodule status` 为准，本文件不复制 SHA。历史段落中出现的某个提交是**当时**的验证对象，不代表当前检出版本；需要历史证据时按其中的 PR 与提交号回查。
 
 2026-11-07 合入基线：主仓 `4ae535c7`（[PR #362](https://github.com/3yearsZhuang/Aervox-harness/pull/362)）、Core `208d28ce26de4651a258ef208d21479e22ab315f`、插件 `bad07ef7305c85101c936a99737f67e7940d1f7d`（[集合 PR #12](https://github.com/Aervox-agent/Aervox-plugins/pull/12)）。手机前台对话、学习、人格/日记、系统输入与备份导出已有代码和自动化证据；设备失败回执、导出预算、分享会话身份与删除草稿竞态已修。维护者选择下一阶段聚焦**主动个人助手产品与界面整合**：沿 ITER-053/059/061 先把首页、连续对话、真实建议与行动结果串成一个日常闭环，Android 真机/M0 与签名按 ITER-009 并行接续。主线同版恢复存在已确认的删除历史缺口；[PR #359](https://github.com/3yearsZhuang/Aervox-harness/pull/359) 的统一恢复拒绝已由 `c7ccc736` 合入；所有安装在解析与 SQL 前拒绝恢复。该拒绝防线先于真实数据验收与内测；完整删除事实与安全恢复仍未完成。
 
@@ -81,7 +81,7 @@
 - **首个工具切片（2026-11-06，本地实施）：** 两个插件的受信 `/server` 包与 Manifest/SKILL/README 统一为 `1.1.0`，通过可选 catalog 窄口读取真实元数据；宿主出厂发现同步登记 Manifest 工具，按同版 Manifest 与安装 version/checksum 绑定精确 ID，只读 handler 复用 Core HostToolRuntime。直接调用和模型入口共用纯判定与一次组合 SELECT，入场固定生命周期及授权 ID，返回快照按原身份复验；相关有效授权最多 256 行，超预算拒绝，NUL 文本与整数身份精确往返。权限按 SQL 快照读取时点观察，取得快照至调用方收到结果之间仍有并发窗口，不承诺墙钟即时强撤权。缺端口不贡献工具，缺配置仍可读，不创建 Turn、审批、业务事实或外部网络请求。
 - **本地证据：** Node `24.21.0` 子进程下，[直接/模型组合快照回归](packages/host-runtime/test/plugin-runtime-catalogs.test.ts) 33 项及既有绑定/审批合计 84 项通过，两插件 8 项通过；[真实 API 同源调用](apps/api/test/plugin-runtime-catalogs.test.ts) 与相关 API 36 项通过，最终精确调用复验通过。Repositories、Host Plugin API、Host Runtime、API 构建/类型检查、20 项分发/子模块/可移除回归、边界/纯净/工作区覆盖、插件作者可重现打包、文档与 frozen install 均通过。独立源码复审、33 项回归及最后模型快照前改权限的反例单独复验通过。配对 PR、最终 gitlink、远端冷检出和正式发布验收仍待完成，本条未关闭。
 - **联合终审（2026-11-06 至 2026-11-07）：** 最终组合为宿主 `255e671c` 与插件 gitlink `b06e9720`，已合入宿主主线 `7886042f` 和插件主线 `86ea6995`；可选插件合同、资源探针、冷检出守卫与删除账本诊断均进入组合。`./aervox ci all` 全部通过，覆盖 Host Runtime 365、API 1027、Repositories 962、Worker 177 项测试，以及删除故障、Rust 原生和 文档门禁；DSH 真实模型与未构建参考库产物的两个条件分支跳过，不作为本切片验收证据。首次联合门禁在 `07863b0b` 发现新插件缺架构归属、会话总出口形成运行时依赖环，未通过；已有声明准备、scope 与进程修订函数原样抽到共享叶文件，精确登记两插件对 Core/Host Plugin API 的依赖，未增加环豁免或执行器，`0539bdd8` 独立差量复审和此前完整门禁通过。配对 PR、公开宿主 SHA 对应的插件 CI pin 和远端冷检出仍待验证。
-- **首页组合复验（2026-11-07）：** [主仓 PR #362](https://github.com/3yearsZhuang/Aervox-harness/pull/362) 已按精确提交 `85e1d8ae` 的 10 项远端成功检查合入 `4ae535c7`，固定首页集合 `bad07ef7`。只读工具候选吸收这组已审主线，宿主 `585c791b` 与集合 `fcfc4aa4` 的 frozen install、`./aervox ci all`、10 个插件分发包和全部插件预检通过，覆盖 API 1029、Repositories 964、Host Runtime 365、Worker 177 项；手机/Web 两个 Chromium 首页回归通过，DSH 两个既有条件跳过保留。[集合 PR #14](https://github.com/Aervox-agent/Aervox-plugins/pull/14) 与 [主仓 PR #368](https://github.com/3yearsZhuang/Aervox-harness/pull/368) 继续按公开兼容 Host、集合先合入、主仓固定最终 gitlink 的顺序交付；旧候选 `bdce8a8c` 的 10 项远端检查不能替代新组合检查。
+- **首页组合复验（2026-11-07）：** [主仓 PR #362](https://github.com/3yearsZhuang/Aervox-harness/pull/362) 已按精确提交 `85e1d8ae` 的 10 项远端成功检查合入 `4ae535c7`，固定首页集合 `bad07ef7`。只读工具候选吸收这组已审主线，宿主 `585c791b` 与集合 `fcfc4aa4` 的 frozen install、`./aervox ci all`、当时 10 个插件分发包和全部插件预检通过，覆盖 API 1029、Repositories 964、Host Runtime 365、Worker 177 项；手机/Web 两个 Chromium 首页回归通过，DSH 两个既有条件跳过保留。[集合 PR #14](https://github.com/Aervox-agent/Aervox-plugins/pull/14) 与 [主仓 PR #368](https://github.com/3yearsZhuang/Aervox-harness/pull/368) 继续按公开兼容 Host、集合先合入、主仓固定最终 gitlink 的顺序交付；旧候选 `bdce8a8c` 的 10 项远端检查不能替代新组合检查。
 - **最终配对（2026-11-07）：** 集合 PR #14 的精确 head `5e024d89` 在公开兼容 Host `529fac9c` 完成冷检出全量门禁、文档/工作区及依赖审计后合入 `b494c421edb97764e6397fb2d0f6e03a67fcc9b7`，与已审候选文件树相同；主仓 `529fac9c` 的 10 项远端检查通过。主仓固定该实际集合合并 SHA，frozen install、33 项直接/模型消费者与 10 个分发包复验通过；首次并行复验被构建产物重建与未登记最终 gitlink 拒绝，未执行产品测试，登记 gitlink 并串行后通过。最终主仓 head 远端检查继续取证；两个只读工具交付不关闭余下 6 项声明或正式发布。
 - **余下声明：** 本切片后保留 6 个未接线工具；按个人助手场景逐个补写，不关闭整项。插件目前的 desktop/web/cli 声明不等于 mobile 可用，新增 mobile 目标须有实际组合根接线和兼容版本决定。
 - **实施与依赖：** 逐个确定声明到现有领域/受信 handler 的映射，统一 Manifest、SKILL、配置、参数和结果；未接通时显示实际不可用并纠正支持说明。依赖 ITER-071 工具身份与审批代际、ITER-006/013 权限和撤权、ITER-003 数据删除；不靠开放任意第三方代码补齐第一方工具。
@@ -423,6 +423,42 @@ ARC-05/FND-07，依赖 ITER-002 Outbox 归属、ITER-013/017 指标。IPC 唤醒
 
 **剩余边界：** 未做全量测试迁移；`check-dev-launcher` 两项失败归环境，未修改；本修订只覆盖测试执行经济性，不改变任何产品行为或测试判据。
 
+<a id="iter-080"></a>
+
+### ITER-080 · 已实施待评审：桌面壳体积、CSP 与 CAP-018 打包态实测
+
+维护者要求收紧桌面分发面、补齐 asar fuses 与 renderer CSP，并给出 CAP-018 的平台矩阵与资源预算。本批只动打包与安全策略，不改产品行为与业务契约。
+
+| 项 | 改动前 | 改动后 | 依据 |
+|---|---|---|---|
+| `app.asar` | 138 MB | 16 MB | 渲染层依赖已由 Vite 打进 `out/renderer`；运行期只有 main/preload 真正 `require` 三个包。原配置把 element-plus / lucide / pixi / Vue / compiler-sfc / terser / @babel 整份重复装入，并带上 contracts 的 OpenAPI 产物与 native 制品的 asar 副本 |
+| `Aervox.app`（macOS arm64，dir 包） | 424 MB | 298 MB | 其余为 Electron Framework（277 MB）；该项只能靠换壳或裁减版本降低，不属于本批 |
+| Live2D 运行时依赖 | 两个 CDN 脚本（cubism.live2d.com + jsDelivr） | 1 个随包固定制件 | Cubism 2（`live2d.min.js`）在 cubism4 入口下零引用，已移除；Cubism Core 复用手机端同一 207155 字节 / SHA-256 契约 |
+
+**实测资源预算（macOS arm64 开发机，源码 `out/` 直接加载，主窗口 + 桌宠窗口常驻、无 API 连接）：**
+
+| 指标 | 实测 |
+|---|---|
+| 打包体（dir） | 298 MB；`app.asar` 16 MB；Electron Framework 277 MB |
+| 启动进程树 | 8 个进程（2 主进程世代 + 4 Helper + 2 GPU/网络） |
+| 常驻 RSS | 峰值 749 MB（t≈10s），稳态 625–680 MB，采样 50s |
+| 主进程 RSS | ≈90–105 MB |
+| renderer RSS | ≈120 MB |
+| 空闲 CPU | 0.0%（主进程与 Helper），renderer 8.7% 但为采样瞬时值，未做稳态确认 |
+| 渲染 | 打包态 `file://` 下 Live2D 画布 1208×1094 实际出图，Cubism Core 5.1 完成初始化 |
+
+**打包态缺陷（既有，非本批引入）：** 收紧 CSP 后才暴露——渲染层从 `file://` 载入，而模型 URL 以 `/` 开头，`new URL('/live2d/…', 'file:///…')` 解析到**文件系统根**而非 renderer 目录，因此 `assertModelUrl` 的 http(s) 断言直接拒绝，桌宠与陪伴界面在打包态从未成功加载 Live2D。dev 走 `http://localhost` 所以一直未被发现；已安装的 0.2.0 也同样受损。修复为按页面协议区分根绝对引用的基准（`file:` 锚定页面，http(s) 保留源根以维持手机 `/m0` 别名），并加两项回归；实测该回归在修复前语义下失败。
+
+**Fuses：** 关闭 `runAsNode`、`NODE_OPTIONS`、`NODE_EXTRA_CA_CERTS` 与 `--inspect`，开启 Cookie 加密；保留 `grantFileProtocolExtraPrivileges`，因为渲染层仍用 `file://`。翻转 fuses 会使 ad-hoc 签名失效，系统以 `SIGKILL (Code Signature Invalid)` 在 `IsRunAsNodeEnabled` 处杀进程；必须同时开 `resetAdHocDarwinSignature`。`enableEmbeddedAsarIntegrityValidation` 与 `onlyLoadAppFromAsar` 暂不开——它们依赖正式代码签名，接入 Developer ID 与公证后应一并打开。
+
+**验证：** desktop 150 项、web 229 项、ui 320 项、mobile 38 项通过；`check:guards`、`check:boundary`、`check:ci-config` 通过；打包态真实 Electron 用无违规 CSP 渲染完成，fuses 读数逐项核对，`codesign --deep --strict` 通过。
+
+**生产构建 CSP 的浏览器实测（补此前只验过打包 Electron 的缺口）：** 用 Playwright Chromium 加载真实 `vite build` 产物（非 dev server，dev 不注入策略），实测 `new Function` 被 `script-src` 拦截、`wasm-unsafe-eval` 使 WebAssembly 可用、Cubism Core 正常加载、应用挂载，且外部注入的 `https://cubism.live2d.com/...` 脚本被明确拒绝并报出对应 directive。该验证同时在 `file://` 的打包 Electron 侧完成，两端策略一致。
+
+**移动端资产管线：** Web 自带本地 Core 后，`prepare-native-assets` 里两条 CDN 替换正则成为死代码，已改为「拒绝远端脚本 + 要求引用随包 Core」的实际校验，并补 4 项回归（此前该脚本零覆盖），含远端脚本与缺 Core 的负向反例。`/m0/` 基址构建产物的 `./vendor/` 引用可被 `NativeAssetPolicy` 的白名单解析。
+
+**未覆盖：** Linux/Windows 打包与运行、签名与公证、自动更新、真实 API/模型连接下的资源预算、renderer 稳态 CPU、崩溃恢复与后台生命周期仍待各自取证；本条不提高 CAP-018 的发布状态。
+
 ## 6. 条件性扩展与研究
 
 以下保留原提案或条件授权；进入实施前满足各自前置。设备/移动定位可做轻量决策准备，当前不分配硬件开发、第三方平台或 HLS 真实环境工期。
@@ -556,25 +592,11 @@ ARC-05/FND-07，依赖 ITER-002 Outbox 归属、ITER-013/017 指标。IPC 唤醒
 
 #### 已有交付与历史证据
 
-逐条测试计数、失败与复验过程由 PR/CI 保存；本节只保留能力结论、未覆盖范围与仍开放门槛。
-
-**平台选择：** 比较九个硬件方向、电脑依赖、目标 OS、真实 Provider、成本与数据边界后，维护者选择手机独立运行、电脑关闭后仍可使用，并确认 Android 先行；iOS 工程尚未创建。本轮实时可见 Android SDK API 36 与 adb。关联 [ITER-016](#iter-016)。
-
-**工程与内核前置（已交付）：** 显式 Web 构建、Android 同步/doctor、只读环境预检与 debug 构建命令（Java 21 固定于 mise，Gradle 分发带校验值；模板源码与许可入库，资源复制、SDK 路径、签名密钥与构建产物不跟踪，自动备份与明文网络默认关闭）。独立端内核入口：`@aervox/core/browser`（整包不含 Node/CLI）、`@aervox/host-agent/browser` 的执行 Store 与仓储 Port、`/database` 注入式装配、`/conversation` 共享 SQL 命令、原生候选值协议、未注册的 `NativeMessageChannel` 与 `/native-sqlite-client`。这些入口不导入 Node、SQLite 驱动或 Vue；**严格上游 Drizzle 声明闭包未通过这一限制如实保留**，`skipLibCheck` 消费者检查不算严格声明通过。
-
-**原生能力（已交付）：** 固定 SQLite 3.54.1 官方制品（HTTPS 恢复按长度/SHA3 验证，缺失或篡改阻断构建）；原生隔离临时库；Keystore AES-GCM 凭据槽（私有 no-backup 密文、AAD 身份/版本、进程与文件锁、原子替换，丢密钥不补建）；Java 专用写者（epoch/事务持有者、有限语句/参数/结果/队列、单次首窗、终态隔离、关闭后确认 drain）；固定资产 WebView Host（首次加载前全新随机 Profile、按 Profile 阻断 Service Worker/网络、导航/重载销毁旧所有者）。未接生产初始化，未授予 JS SQL 权限。
-
-**确定性夹具证据：** Android 17/API 37、arm64、4 KiB 物理设备仪器测试 78/78 通过，原生运行时接线批次 46 项全部通过；同规格 16 KiB 隔离模拟器 76 项通过、无跳过。覆盖 RETURNING、JSON/NUL、FTS5、FK、失败事务回滚与重开、Keystore、严格 JSON/WebMessage、跨源 iframe、零列 DML 取消、事务身份、超窗回滚、队列 drain、默认 Cookie 不被改动。默认入口冷启动显示 Mizuki；缺模型发送明确拒绝并保留草稿；实际 force-stop 后新进程恢复选中会话与完整草稿（含 1799 字符）。**这些不证明** 16 KiB 物理设备、其他 ABI/版本矩阵、后台可持续运行、真实 Provider、执行中终止完整矩阵、工具问答、跨版本覆盖升级或正式签名。
-
-**界面与操作（已交付）：** Material 3 统一（官方 Material Web 控件、品牌生成浅/深色角色、48px 触控、tonal surfaces）；同页会话列表/新建/切换/持久回看、常驻多行输入、按会话草稿、原生 IME→WebView 历史→系统返回的逐层返回；短视口收起角色并解除叠放，常规视口角色区 64dvh；缺模型反馈移入独立布局行以免被裁切。WebView 不接收模型密钥、任意 URL/header 或 shell。
-
-**预算与生命周期修复（已交付）：** 文本输入 32 KiB UTF-8 / 120 KiB JSON、回复累计 48 KiB，越界保留安全尾段并提交 `Interrupted(model_length)`。首次就绪前的文档退休观察、后台区间跨过的配置查询拒绝未接单发送、已提交接单的迟到回执经共享取消事务收尾。恢复用例证明有效 Running/CancelRequested 租约不抢占、过期后收敛、拒绝旧 fencing、不重跑模型——但这不是 Android 实际杀进程。
-
-**依赖与安全修复（已交付）：** 普通应用 UID 下硬链接归属标记被 SELinux 拒绝，改为独占创建与保守拒绝；同一短同步区完成 actor 创建与绑定；API 24/25 的 root/Shizuku Process 操作改用有界单调时钟等待，API 26+ 保留原生 timed wait 并请求 destroyForcibly。
+平台选择、工程与内核前置、原生能力、确定性夹具、界面与操作、预算与生命周期修复、依赖与安全修复的**逐条结论与未覆盖范围**已移到[移动端交付证据](docs/explanation/mobile-delivery-evidence.md)。那里同时写明每段对应的提交与 PR。
 
 **方向约束：** 可为具体增强功能使用系统授权、Shizuku 或 root，基础 P0 不依赖提权；三者各自标注交付/授权状态，不放假按钮或任意提权执行器，边界见 [ADR-022 能力分级](docs/reference/adr/ADR-022-mobile-runtime-access.md#能力交付与授权分级)。手机不复制活动 SQLite/WAL，不引入多租户业务库。
 
-**相关 PR：** 主仓 [PR #353](https://github.com/3yearsZhuang/Aervox-harness/pull/353)、[PR #356](https://github.com/3yearsZhuang/Aervox-harness/pull/356)、[PR #372](https://github.com/3yearsZhuang/Aervox-harness/pull/372)；集合仓 [PR #7](https://github.com/Aervox-agent/Aervox-plugins/pull/7)、[PR #8](https://github.com/Aervox-agent/Aervox-plugins/pull/8)、[PR #15](https://github.com/Aervox-agent/Aervox-plugins/pull/15)。
+本节只保留仍开放的门槛与方向约束。
 
 <a id="iter-016"></a>
 
@@ -590,13 +612,25 @@ ARC-05/FND-07，依赖 ITER-002 Outbox 归属、ITER-013/017 指标。IPC 唤醒
 
 <a id="iter-028"></a>
 
-### ITER-028 · 待评审：纯本地加密同步探索
+### ITER-028 · 挂起：纯本地加密同步探索（实现已移除）
 
-CAP-018/027，遵守[数据库契约](docs/reference/DATABASE.md)和 ADR-022，不引入中心化多租户库。承诺-揭示配对、Ed25519 设备身份、SAS transcript、分向密钥和 Changeset 原型已有，ITER-071 已隔离 sync-runtime/Changeset Port；真实 mDNS/生产接线/多设备未完成。
+CAP-018/027，遵守[数据库契约](docs/reference/DATABASE.md)和 ADR-022，不引入中心化多租户库。
 
-**当前性质：原型，零生产消费者。** `packages/sync-runtime`（4 988 行）与 `packages/repositories/src/sync/p2p-changeset.ts` 的唯一 import 方是 `packages/repositories/test/` 下的 5 个测试文件；不在 turbo build、CI 或 mise 任务任一处被引用。引用这些文件不等于它们已可用：本条仍未评审通过，接线与否由后续决定。审计基线（2026-11-26）确认该状态自 2026-10-03 审计以来未变。
+**实现已移除（2026-11-27 卫生审计）。** `packages/sync-runtime`（4 988 行）与
+`packages/repositories/src/sync/p2p-changeset.ts`（1 328 行）连同 5 个测试文件已删除。
+删除依据不是"想法不好"，而是**该原型从未可达**：`@aervox/repositories/sync` 与
+`@aervox/sync-runtime/{discovery,transport}` 的生产与测试 importer 数都为 0，
+连测试都不再触达它们，而 turbo 的全 workspace 通配仍在每轮 CI 为它付一次构建。
 
-- **进入条件与验收：** 显式配对、端到端加密、`local_only`/混合来源范围、删除撤权传播先成立；UDP 多播发现+静态对端兜底，验证重放/乱序/篡改拒绝。以行时间水位+显式墓碑代替 Session Extension，接收白名单/漂移隔离/墓碑四向裁决，不复活已删数据；真实 Capacitor/Electron 同网直连学习进度/错题成功，不能据原型宣布多设备可用。
+需要时从 git 历史恢复（删于 `c431e470` 之前，父提交 `fac39e36` 仍含完整实现）。
+`packages/repositories/src/sync/git-snapshot.ts` **未删除**——它是数据库快照搬迁的
+生产实现，与本条无关。
+
+**为什么挂起而不是取消：** 承诺-揭示配对、Ed25519 设备身份、SAS transcript、
+分向密钥这些设计结论仍有参考价值，且 CAP-018/027 的跨端目标没有变化。
+取消会丢掉"我们认真评估过这条路"的记录。
+
+- **进入条件与验收（恢复实现前须重新满足）：** 显式配对、端到端加密、`local_only`/混合来源范围、删除撤权传播先成立；UDP 多播发现+静态对端兜底，验证重放/乱序/篡改拒绝。以行时间水位+显式墓碑代替 Session Extension，接收白名单/漂移隔离/墓碑四向裁决，不复活已删数据；真实 Capacitor/Electron 同网直连学习进度/错题成功，不能据原型宣布多设备可用。
 
 <a id="iter-021"></a>
 
@@ -635,7 +669,7 @@ ITER-009 的移动端交付顺序见[接续计划](#mobile-continuation-plan)。
 | 同网连接与认证 | 明确发现、证书、设备凭据和撤销；不把同一 Wi-Fi 当作授权 | 当前 Token 与隐私契约中身份要求的差量及威胁评审 |
 | 跨设备数据范围 | 普通资料与 local_only/混合来源严格分开 | 导出/同步授权、删除传播、离线期限与来源验证 |
 | 首个日常助手场景 | 维护者已选择主动个人助手产品与界面整合，建议先做“交代一件事→必要澄清→可用产出/下一步→用户确认→重开回看”；学习建议从真实复习/错题进入行动 | 首页来源、会话身份、结果确认和成本可核验；学习域保留作答幂等、来源/删除传播及原实验口径；生活/工作新来源与后台主动执行另据价值决定 |
-| 增强权限与跨平台时机 | 系统 API 按用途授权；root 已作为固定设备动作（点击/滑动/按键/ASCII 输入/启动应用）的执行通道，逐项关闭与前台限制先行；Shizuku 仍为待接入的独立提供者，不共享任意命令。Android 真实闭环与移动 Host 契约稳定后，再规划 iOS 与本机推理 | root 真机动作与授权撤销、服务死亡与降级、模型不支持工具声明时的回退；Shizuku 的实际 UID/授权；iOS 独立存储/密钥/生命周期/签名及本机推理资源/许可 |
+| 增强权限与跨平台时机 | 系统 API 按用途授权；root 与 Shizuku 均为固定设备动作（点击/滑动/按键/ASCII 输入/启动应用）的执行通道，Shizuku 作为 root 之外的并行 transport 已接入且不共享任意命令，逐项关闭与前台限制先行。Android 真实闭环与移动 Host 契约稳定后，再规划 iOS 与本机推理 | root 与 Shizuku 的真机动作、授权撤销、服务死亡与降级；Shizuku 的实际 UID 校验；iOS 独立存储/密钥/生命周期/签名及本机推理资源/许可 |
 
 [ADR-022](docs/reference/adr/ADR-022-mobile-runtime-access.md#cr-055) 已接受独立运行、Android 先行及 M0 隔离原型：固定内置 SQLite、复用现有规则、原生持钥模型桥。候选仅准入隔离测试库，正式平台版本范围和工期未裁定，具体取舍在本节维护。
 
